@@ -78,26 +78,9 @@ fix/SCRUM-152-auth-token-refresh
 
 AI가 Jira 티켓을 가져와 작업할 때도 동일한 순서를 사용한다. Jira 상태 변경, 댓글 작성 또는 티켓 수정은 외부 상태 변경이므로 사용자의 해당 작업 요청 또는 승인을 받은 뒤 수행한다.
 
-## 코드 스타일
+## 범위 밖
 
-모든 지원 파일은 Prettier와 ESLint를 사용한다.
-
-```js
-{
-    semi: true,
-    singleQuote: true,
-    tabWidth: 4,
-    trailingComma: 'all',
-    printWidth: 100,
-}
-```
-
-- 세미콜론을 사용한다.
-- 문자열은 싱글 쿼트를 사용한다.
-- 들여쓰기는 공백 네 칸을 사용한다.
-- Prettier는 포맷의 단일원천이다.
-- ESLint는 코드 품질과 정적 규칙을 검사한다.
-- 기존 코드 전체 포맷은 Claude의 초기 세팅이 끝난 뒤 별도 `style:` 티켓과 커밋으로 수행한다. 팀 규칙 도입 커밋에 기능 변경이나 전체 포맷 변경을 섞지 않는다.
+코드 스타일, Prettier, ESLint와 기존 소스의 포맷 정규화는 이번 Git·GitHub·Jira 운영 체계 설정에서 제외한다. 관련 규칙과 설정은 팀이 별도 작업으로 확정한다.
 
 ## 커밋 규칙
 
@@ -199,15 +182,8 @@ Jira 티켓은 GitHub Issue가 아니므로 `close #번호` 문법을 사용하�
 
 ## 저장소 자동화
 
-### Prettier와 ESLint
-
-- 공유 Prettier 설정을 싱글 쿼트, 세미콜론, 네 칸 들여쓰기로 변경한다.
-- 기존 ESLint 구성을 유지하고 모든 앱과 패키지가 루트 `pnpm lint`에 참여하게 한다.
-- `lint-staged`는 지원 파일을 Prettier로 포맷하고 TypeScript/JavaScript 파일을 ESLint로 검사한다.
-
 ### Git 훅
 
-- `pre-commit`: staged 파일의 Prettier와 ESLint 검사
 - `commit-msg`: 허용 커밋 타입과 메시지 형식 검사
 - `pre-push`: 로컬에서 `main`과 `dev` 직접 push 차단
 
@@ -278,14 +254,13 @@ AI가 완료를 보고할 때는 커밋, 테스트 결과, Pull Request와 Jira 
 ## 도입 순서
 
 1. Git·GitHub·Jira 워크플로 문서와 `AGENTS.md` 참조를 추가한다.
-2. Prettier, lint-staged, commitlint와 Husky 훅을 팀 규칙에 맞춘다.
+2. commitlint와 Husky 훅을 팀 규칙에 맞춘다.
 3. PR 템플릿과 GitHub Actions 정책 검사를 추가한다.
-4. 기존 초기 세팅 완료 후 별도 스타일 티켓으로 전체 포맷을 정규화한다.
-5. GitHub CLI를 인증한다.
-6. 원격 `dev` 브랜치 존재 여부를 확인하고 없으면 `main` 기준으로 생성한다.
-7. `main`과 `dev` Ruleset을 적용하고 활성 규칙을 검증한다.
-8. 테스트용 Jira 티켓 또는 실제 첫 FE 티켓으로 조회→브랜치→PR→리뷰→병합 흐름을 검증한다.
-9. 검증 중 발견한 예외를 문서와 자동 검사에 반영한다.
+4. GitHub CLI를 인증한다.
+5. 원격 `dev` 브랜치 존재 여부를 확인하고 없으면 `main` 기준으로 생성한다.
+6. `main`과 `dev` Ruleset을 적용하고 활성 규칙을 검증한다.
+7. 테스트용 Jira 티켓 또는 실제 첫 FE 티켓으로 조회→브랜치→PR→리뷰→병합 흐름을 검증한다.
+8. 검증 중 발견한 예외를 문서와 자동 검사에 반영한다.
 
 ## 성공 기준
 
@@ -293,6 +268,6 @@ AI가 완료를 보고할 때는 커밋, 테스트 결과, Pull Request와 Jira 
 - 브랜치와 PR 제목만으로 Jira 티켓을 식별할 수 있다.
 - 일반 작업은 `dev`, 배포 준비는 `main`으로만 흐른다.
 - `main`과 `dev` 직접 push가 GitHub Ruleset으로 차단된다.
-- 허용되지 않은 브랜치, PR 제목, 커밋 타입과 코드 스타일이 자동 검사에서 실패한다.
+- 허용되지 않은 브랜치, PR 제목과 커밋 타입이 자동 검사에서 실패한다.
 - 최소 한 명의 리뷰와 모든 필수 상태 검사를 통과하지 않으면 병합할 수 없다.
 - Jira 티켓에 Pull Request와 최종 검증 결과가 연결된다.
