@@ -1,0 +1,22 @@
+{
+  "name": "@focuson/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.js",
+    "./prettier": "./prettier.config.js"
+  },
+  "scripts": {
+    "lint": "echo \"no lint target\" && exit 0",
+    "typecheck": "echo \"no typecheck target\" && exit 0",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "typescript-eslint": "^8.46.4"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.2"
+  }
+}
