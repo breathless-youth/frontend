@@ -7,7 +7,7 @@ FocusOn 모바일 MVP를 특정 LLM, 에이전트, MCP에 종속되지 않는 �
 ## 적용 범위
 
 - 활성 제품 범위는 `apps/mobile`의 앱 셸이다.
-- 스터디룸 내부 구현은 `apps/web`이 소유하며 모바일은 WebView로 로드한다.
+- 스터디룸 UI와 AI Vision 공부 상태 감지의 활성 소스 코드는 `apps/web`이 소유한다. 모바일 앱은 이를 WebView로 로드하며, AI Vision 추론은 모바일 단말의 WebView 런타임 내부에서 수행된다. `apps/mobile`의 네이티브 Vision 구현은 현재 비활성 상태다.
 - 이번 체계는 화면 설계, 디자인 토큰, 모바일 공통 컴포넌트, 화면 조합 및 프레젠테이션 검증을 다룬다.
 - 도메인 계산, Vision, RTC, 카메라 어댑터 및 WebView 연결 계약은 다루지 않는다.
 
