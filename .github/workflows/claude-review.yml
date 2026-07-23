@@ -1,0 +1,57 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  auto-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            이 PR(#${{ github.event.pull_request.number }})의 변경 사항을 리뷰해줘.
+
+            저장소 루트와 각 앱(apps/mobile, apps/web)의 CLAUDE.md에 정의된 컨벤션과
+            아키텍처 경계를 기준으로 확인한다:
+            - TypeScript strict, `any` 금지, 타입 전용 import는 `import type`
+            - 공유 패키지(`packages/study-core` 등)는 React Native/DOM/MediaPipe/LiveKit에 의존하지 않는다
+            - UI 컴포넌트는 카메라/LiveKit SDK를 직접 호출하지 않고 `apps/mobile/platform/*` 어댑터를 통한다
+            - 온디바이스 Vision 원본 프레임·얼굴 데이터는 서버로 전송/저장/로그되지 않는다(싱글룸/멀티룸 안내 문구를 혼용하지 않는다)
+            - `apps/mobile/platform/**`, `apps/mobile/features/study-session/**`, `packages/study-core/**`,
+              `apps/mobile/app/room/[id].tsx`는 보호 파일이므로 수정 시 근거가 명확해야 한다
+            - 커밋 메시지는 Conventional Commits를 따른다
+
+            버그, 타입 안전성, 위 경계 위반, 불필요한 복잡도를 우선순위로 지적하고
+            사소한 스타일 의견은 최소화한다. 발견한 이슈를 PR 리뷰 코멘트로 남겨줘.
+
+  mention-response:
+    if: >
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: "@claude"
