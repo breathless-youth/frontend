@@ -26,6 +26,8 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
             이 PR(#${{ github.event.pull_request.number }})의 변경 사항을 리뷰해줘.
 
@@ -40,7 +42,8 @@ jobs:
             - 커밋 메시지는 Conventional Commits를 따른다
 
             버그, 타입 안전성, 위 경계 위반, 불필요한 복잡도를 우선순위로 지적하고
-            사소한 스타일 의견은 최소화한다. 발견한 이슈를 PR 리뷰 코멘트로 남겨줘.
+            사소한 스타일 의견은 최소화한다. `gh pr comment`로 PR에 전체 리뷰 요약 코멘트를 남기고,
+            특정 라인 문제는 inline comment 도구로 남겨줘.
 
   mention-response:
     if: >
