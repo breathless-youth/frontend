@@ -41,11 +41,13 @@ export async function ensureUserRegistered(): Promise<number | null> {
   try {
     const stored = await SecureStore.getItemAsync(USER_ID_KEY);
     if (stored) {
+      console.log("[user] 저장된 userId 재사용:", stored);
       return Number(stored);
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId } = await registerUser(deviceId);
+    const { userId, isNew } = await registerUser(deviceId);
     await SecureStore.setItemAsync(USER_ID_KEY, String(userId));
+    console.log("[user] 익명 유저 등록 완료 — userId:", userId, "isNew:", isNew);
     return userId;
   } catch (error) {
     console.warn("[user] 익명 유저 등록 실패 — 다음 실행에서 재시도", error);
