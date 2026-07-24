@@ -25,7 +25,8 @@
     },
     "plugins": ["expo-router", "expo-secure-store"],
     "extra": {
-      "webAppUrl": "http://localhost:5173"
+      "webAppUrl": "http://localhost:5173",
+      "apiBaseUrl": "http://52.78.219.53:8080"
     }
   }
 }
