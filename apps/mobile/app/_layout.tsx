@@ -2,9 +2,16 @@ import "../global.css";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ensureUserRegistered } from "../lib/userApi";
+
 export default function RootLayout() {
+  useEffect(() => {
+    void ensureUserRegistered();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
