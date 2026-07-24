@@ -17,7 +17,7 @@ jest.mock("../deviceId", () => ({
 const mockedGet = SecureStore.getItemAsync as jest.Mock;
 const mockedSet = SecureStore.setItemAsync as jest.Mock;
 const mockedFetch = jest.fn();
-(globalThis as any).fetch = mockedFetch;
+globalThis.fetch = mockedFetch as unknown as typeof fetch;
 
 function jsonResponse(status: number, body: unknown) {
   return {
