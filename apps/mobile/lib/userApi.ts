@@ -3,9 +3,14 @@ import * as SecureStore from "expo-secure-store";
 
 import type { UserRegisterResponse } from "@focuson/types";
 
-import { getOrCreateDeviceId } from "./deviceId";
+import { clearDeviceId, getOrCreateDeviceId } from "./deviceId";
 
 const USER_ID_KEY = "focuson.userId";
+
+type EnsureUserRegisteredOptions = {
+  /** 개발 중 매 앱 실행을 신규 익명 사용자로 시작한다. */
+  resetIdentity?: boolean;
+};
 
 function apiBaseUrl(): string {
   const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
@@ -37,8 +42,15 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
  * 아니면 기기 UUID로 등록 후 저장한다. 실패해도 throw 하지 않고 null을
  * 반환한다 — 다음 앱 실행 때 재시도 (등록 API는 멱등이라 안전, 스펙 참고).
  */
-export async function ensureUserRegistered(): Promise<number | null> {
+export async function ensureUserRegistered({
+  resetIdentity = false,
+}: EnsureUserRegisteredOptions = {}): Promise<number | null> {
   try {
+    if (resetIdentity) {
+      await SecureStore.deleteItemAsync(USER_ID_KEY);
+      await clearDeviceId();
+    }
+
     const stored = await SecureStore.getItemAsync(USER_ID_KEY);
     if (stored) {
       console.log("[user] 저장된 userId 재사용:", stored);
