@@ -80,4 +80,42 @@ describe("RoomPage", () => {
     expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
   });
+
+  it("userId가 숫자가 아니면 제출 없이 저장 안 됨 안내를 보여준다", async () => {
+    renderRoom("/room/7?userId=abc");
+
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+  });
+
+  it("재시도해도 최초 종료 시점의 endedAt으로 멱등 제출한다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("일시적 오류"));
+    vi.mocked(submitStudySession).mockResolvedValueOnce([
+      {
+        id: 11,
+        userId: 1,
+        statDate: "2026-07-25",
+        startedAt: "2026-07-25T01:00:00Z",
+        endedAt: "2026-07-25T02:00:00Z",
+        studySec: 3600,
+        focusSec: 3600,
+        focusRate: 100,
+        events: [],
+      },
+    ]);
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
+    expect(await screen.findByText("2026-07-25")).toBeInTheDocument();
+
+    const calls = vi.mocked(submitStudySession).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[1]![0].endedAtMs).toBe(calls[0]![0].endedAtMs);
+    expect(calls[1]![0].studySec).toBe(calls[0]![0].studySec);
+  });
 });
