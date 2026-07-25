@@ -4,7 +4,8 @@ import type {
   StudySessionResponse,
 } from "@focuson/types";
 
-const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://52.78.219.53:8080";
+/** 기본값은 same-origin — dev에서는 vite.config.ts의 /api 프록시가 백엔드로 전달한다(CORS 우회). 배포 시 VITE_API_BASE_URL로 지정. */
+const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /**
  * 세션 제출 입력. 이 모듈은 값을 계산하지 않고 받기만 한다 — 지금은 타이머 룸이
