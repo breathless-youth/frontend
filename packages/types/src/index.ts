@@ -19,3 +19,28 @@ export interface UserRegisterResponse {
   /** 신규 생성이면 true(HTTP 201), 기존 기기 재등록이면 false(HTTP 200) */
   isNew: boolean;
 }
+
+export type StudyStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE";
+export type StudySessionEventCounts = Record<StudyStatus, number>;
+
+export interface StudySessionSummary {
+  id: number;
+  statDate: string;
+  startedAt: string;
+  endedAt: string;
+  studySec: number;
+  focusSec: number;
+  focusRate: number;
+  eventCounts: StudySessionEventCounts;
+}
+
+export interface StudySessionListResponse {
+  sessions: StudySessionSummary[];
+  sessionCount: number;
+  totalStudySec: number;
+  totalFocusSec: number;
+  longestFocusSec: number;
+  focusRate: number;
+  totalEventCounts: StudySessionEventCounts;
+  studiedDatesInMonth: string[];
+}
