@@ -2,9 +2,9 @@
 
 AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 모노레포. AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석해 총 공부시간·순공시간·집중률을 제공하고, 싱글 스터디룸(개인 집중도 측정)과 멀티 종일룸(LiveKit 기반 그룹 화면 공유)을 지원한다. 용어는 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
-## 지금 활성 아키텍처: MVP = WebView, 네이티브 = 로드맵
+## 지금 상태: 기능 구현 리셋 (2026-07-25), 아키텍처 방침은 WebView 유지
 
-**모바일 스터디룸(`apps/mobile/app/room/[id].tsx`)은 지금 `apps/web`을 WebView로 로드한다.** 카메라·온디바이스 Vision·LiveKit RN을 직접 구현하는 네이티브 버전은 한 번 만들었다가 MVP 속도를 위해 되돌렸다 — 코드는 삭제하지 않고 `apps/mobile/platform/*`, `apps/mobile/features/study-session/NativeStudyRoomScreen.tsx`에 **비활성(dormant) 상태로 보존**했다. 자세한 경위는 반드시 이 순서로 읽을 것:
+**초기 명세 기반으로 임시 구현했던 기능 코드(스터디룸 화면, Vision 감지, 공부시간 계산 코어, WebView 룸 라우트, dormant 네이티브 자산)는 2026-07-25에 전부 삭제했다.** 실제 백엔드 Swagger 계약·확정 디자인 기준으로 재구축한다. 지금 남아 있는 것은 앱 셸(홈 탭·라우팅), 익명 기기 유저 등록(SCRUM-259, `apps/mobile/lib/*`), 공유 세팅(config·design-tokens·types)뿐이다. 삭제 코드는 git 히스토리(dev `5e548eb` 시점)에서 복구 가능. "모바일 스터디룸은 `apps/web`을 WebView로 로드한다"는 아키텍처 방침(ADR 0001)은 유지된다 — 재구축 시 이 구조로 만든다. 경위는 이 순서로 읽을 것:
 
 1. [ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md) — 지금 활성 아키텍처(WebView).
 2. [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md) — 왜 네이티브(ADR 0002)에서 다시 WebView로 되돌렸는지, 무엇을 보존했는지, 전환 트리거·체크리스트.
@@ -12,20 +12,19 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 
 ## 모노레포 구조
 
-- `apps/mobile` — Expo RN 앱(`expo-router`). 앱 셸(인증/네비게이션) + 스터디룸은 WebView로 `apps/web`을 로드. 네이티브 스터디룸 자산은 `platform/*`, `features/study-session/*`에 비활성 보존. 자세한 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
-- `apps/web` — Vite + React 웹 앱. 브라우저 MediaPipe + LiveKit Web SDK로 구현된 **스터디룸의 실제 구현체**(모바일이 이걸 WebView로 로드) — 동시에 독립 브라우저 서비스로도 배포 가능. 자세한 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
-- `packages/study-core` — 순수 TS 공유 도메인 코어. `StudyStatus`, `FocusTimelineEvent`, `StudySessionSummary`, 총공부시간·순공시간·집중률 계산, 세션 상태 전환·타임라인 병합. **React Native/DOM/MediaPipe/LiveKit에 의존하지 않는다.** `apps/web`(활성)과 모바일의 dormant 네이티브 화면 양쪽에서 쓰인다.
-- `packages/types` — 서버 전송용/API 계약 도메인 타입. `study-core`의 `StudyStatus`/`StudySessionSummary`를 재노출한다.
+- `apps/mobile` — Expo RN 앱(`expo-router`). 앱 셸(인증/네비게이션) + 스터디룸은 WebView로 `apps/web`을 로드. 자세한 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
+- `apps/web` — Vite + React 웹 앱. 스터디룸의 실제 구현체가 될 자리(모바일이 WebView로 로드) — 동시에 독립 브라우저 서비스로도 배포 가능. 지금은 홈(랜딩)만 있다. 자세한 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
+- `packages/types` — 서버 전송용/API 계약 도메인 타입. **실제 백엔드 Swagger 계약 기준으로만 정의한다**(상상 계약 금지). 지금은 `UserRegisterRequest`/`UserRegisterResponse`만 있다.
 - `packages/design-tokens` — 모바일·웹 공유 의미 기반 디자인 토큰(색상 의미/타이포/간격/모서리/상태색). 컴포넌트 구현체는 공유하지 않는다.
 - `packages/config` — 공유 ESLint/Prettier 설정.
 
-## 아키텍처 경계 (네이티브 전환 시에도 반드시 유지)
+## 아키텍처 경계 (재구축 시에도 반드시 유지)
 
 - **플랫폼 카메라 구현**과 **공부 상태 계산**을 분리한다.
 - **Vision AI 구현**과 **세션 집계 로직**을 분리한다.
 - **WebRTC(LiveKit) 구현**과 **Vision AI 구현**을 분리한다(멀티룸의 영상 송출 경로와 AI 분석 경로는 독립).
-- UI 컴포넌트는 카메라·LiveKit SDK를 직접 호출하지 않는다 — (dormant) `apps/mobile/platform/*` 어댑터를 통한다.
-- 공유 패키지(`study-core`, `types`, `design-tokens`)는 React Native, DOM, MediaPipe, LiveKit에 직접 의존하지 않는다.
+- UI 컴포넌트는 카메라·LiveKit SDK를 직접 호출하지 않는다 — 어댑터 계층을 통한다(과거 `apps/mobile/platform/*` 패턴은 git 히스토리 참고).
+- 공유 패키지(`types`, `design-tokens`)는 React Native, DOM, MediaPipe, LiveKit에 직접 의존하지 않는다. 공부시간 계산 코어를 재구축할 때도 같은 원칙(순수 TS 패키지)을 따른다.
 
 ## 개인정보 원칙 (변경 불가, WebView·네이티브 어느 쪽이든 동일하게 적용)
 
@@ -75,11 +74,11 @@ pnpm --filter web dev      # web만
 
 - [`2026-07-22-git-github-jira-workflow-design.md`](./docs/superpowers/specs/2026-07-22-git-github-jira-workflow-design.md) — Jira 티켓을 작업의 단일원천으로 삼는 Git 브랜치(`main`/`dev`/`feature/{JIRA-KEY}-*`)·커밋 타입(`feat`/`design`/`comment`/`rename`/`remove`/`!HOTFIX` 등 확장 목록)·PR 템플릿·GitHub Ruleset 체계. **아직 미도입**: 이 저장소는 지금 `main` 하나뿐이고 `dev` 브랜치·GitHub CLI 인증·Ruleset이 없다. 커밋 타입도 현재 `commitlint.config.js`는 `@commitlint/config-conventional` 기본값만 강제해서, 이 문서의 확장 타입(`design`/`comment`/`rename`/`remove`/`!HOTFIX`)은 아직 실제로는 통과하지 않을 수 있다 — commitlint 설정을 맞추기 전까지는 기본 Conventional Commits 타입(`feat`/`fix`/`docs`/`style`/`chore`/`refactor`/`test`/`build`)만 안전하다.
 - [`2026-07-22-ai-native-mobile-development-design.md`](./docs/superpowers/specs/2026-07-22-ai-native-mobile-development-design.md) — Figma 화면을 화면 단위로 안전하게 구현하기 위한 문서 구조(`AGENTS.md` 공통 진입점, `docs/ai-development/*`, `docs/screens/SCR-NNN-*.md`), 화면당 프롬프트 계약, 컴포넌트 승격 규칙, 코드 소유권/보호 파일 선언 절차. **아직 미도입**: `AGENTS.md`(공통 진입점), `docs/ai-development/`, `docs/screens/`는 이 저장소에 없다. 이 문서의 "적용 범위"(WebView 활성, 네이티브 dormant)는 이미 우리 ADR 0001/0003과 일치한다 — 이 부분만은 지금도 유효한 사실 서술이다.
-- 이 문서의 **보호 파일(protected) 목록은 지금 바로 유효**하니 따를 것: `apps/mobile/platform/**`, `apps/mobile/features/study-session/**`, `packages/study-core/**`, `apps/mobile/app/room/[id].tsx` — 다른 작업(예: 화면 UI 작업)을 하다가 이 경로를 건드려야 하면 먼저 diff를 확인하고 사용자 승인을 받을 것.
+- 이 문서의 보호 파일(protected) 목록은 **2026-07-25 기능 리셋으로 전부 삭제되어 현재는 비어 있다** — 재구축하면서 보호가 필요한 경로가 생기면 다시 선언한다.
 
 ## 하지 말 것
 
-- `apps/mobile/platform/*`, `packages/study-core` 등 네이티브 전환용 자산을 삭제하지 말 것 — 지금은 비활성이지만 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 따라 보존 중이다.
+- 백엔드 Swagger에 없는 API 계약 타입을 상상으로 만들지 말 것 — 초기에 그렇게 만든 임시 구현 전체를 2026-07-25에 삭제했다([ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md) 갱신 노트).
 - 실기기 기술 스파이크(온디바이스 Vision, LiveKit RN SDK 호환성 검증)가 끝나기 전에 네이티브로 조기 전환하지 말 것 — MVP는 WebView로 간다는 게 현재 결정이다.
 - 검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것 — 인터페이스+mock으로 두고 실제 기기 스파이크로 검증한다.
 - 공유 패키지(`study-core` 등)에 React Native/DOM/MediaPipe/LiveKit 의존성을 추가하지 말 것.

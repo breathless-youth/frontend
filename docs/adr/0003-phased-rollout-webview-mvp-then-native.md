@@ -1,8 +1,19 @@
 # 0003. 단계적 롤아웃: MVP는 WebView, 네이티브는 로드맵
 
-- Status: Accepted
+- Status: Accepted (2026-07-25 일부 갱신 — 아래 갱신 노트 참고)
 - Date: 2026-07-22
 - Relates to: [ADR 0001](./0001-webview-based-study-room-architecture.md)(MVP 활성), [ADR 0002](./0002-native-mobile-study-room-and-independent-web.md)(목표 아키텍처)
+
+> **갱신 노트 (2026-07-25) — 기능 구현 전면 리셋**: 초기 명세(상상 계약) 기반으로 임시 구현했던
+> 기능 코드를 **전부 저장소에서 삭제했다**. 대상: 모바일 dormant 네이티브 자산(`apps/mobile/platform/**`,
+> `apps/mobile/features/study-session/**`, `StudyStatusBadge`, `formatDuration`), 모바일 WebView 룸
+> 라우트(`apps/mobile/app/room/[id].tsx`), 웹 스터디룸·Vision 구현(`apps/web/src/features/**`,
+> `RoomPage.tsx`), 공부시간 계산 코어(`packages/study-core` 전체), 옛 API 계약 타입(`packages/types`의
+> `FocusSession`/`FocusEvent`/`StudyRoom`/`Participant`/`SessionStatus`/`StudyMode`).
+> 실제 백엔드 Swagger 계약이 확정되고 UI 디자인이 준비되는 대로 재구축한다. 남은 것은 앱 셸,
+> 익명 기기 유저 등록(SCRUM-259), 공유 세팅(config·design-tokens·types)이다. 코드는 git 히스토리
+> (dev `5e548eb` 시점)에서 언제든 복구 가능하다. 이 ADR의 아키텍처 방침(MVP=WebView, 네이티브=로드맵)과
+> 아래 전환 트리거의 방향은 그대로 유효하며, 본문이 언급하는 파일 경로들은 삭제 전 기준이다.
 
 ## 배경 (Context)
 

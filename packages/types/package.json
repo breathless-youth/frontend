@@ -10,9 +10,6 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"no tests yet\" && exit 0"
   },
-  "dependencies": {
-    "@focuson/study-core": "workspace:*"
-  },
   "devDependencies": {
     "@focuson/config": "workspace:*",
     "eslint": "^9.39.0",

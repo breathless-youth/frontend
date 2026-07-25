@@ -35,10 +35,9 @@ jobs:
             아키텍처 경계를 기준으로 확인한다:
             - TypeScript strict, `any` 금지, 타입 전용 import는 `import type`
             - 공유 패키지(`packages/study-core` 등)는 React Native/DOM/MediaPipe/LiveKit에 의존하지 않는다
-            - UI 컴포넌트는 카메라/LiveKit SDK를 직접 호출하지 않고 `apps/mobile/platform/*` 어댑터를 통한다
+            - UI 컴포넌트는 카메라/LiveKit SDK를 직접 호출하지 않는다
             - 온디바이스 Vision 원본 프레임·얼굴 데이터는 서버로 전송/저장/로그되지 않는다(싱글룸/멀티룸 안내 문구를 혼용하지 않는다)
-            - `apps/mobile/platform/**`, `apps/mobile/features/study-session/**`, `packages/study-core/**`,
-              `apps/mobile/app/room/[id].tsx`는 보호 파일이므로 수정 시 근거가 명확해야 한다
+            - API 계약 타입은 실제 백엔드 Swagger 기준으로만 정의한다(상상 계약 금지)
             - 커밋 메시지는 Conventional Commits를 따른다
 
             버그, 타입 안전성, 위 경계 위반, 불필요한 복잡도를 우선순위로 지적하고
