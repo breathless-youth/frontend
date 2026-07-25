@@ -22,9 +22,11 @@
 ### Task 1: 세션 제출 API 계약 타입 (`packages/types`)
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts` (파일 끝에 추가)
 
 **Interfaces:**
+
 - Consumes: 없음
 - Produces: `StudyEventStatus`, `StatusEventPayload`, `StudySessionCreateRequest`, `StudySessionResponse` — Task 2·3이 `@focuson/types`에서 import
 
@@ -103,10 +105,12 @@ git commit -m "feat(types): 공부 세션 제출 API 계약 타입 추가 (SCRUM
 ### Task 2: 제출 함수 `submitStudySession` (apps/web)
 
 **Files:**
+
 - Create: `apps/web/src/features/study-session/submitStudySession.ts`
 - Test: `apps/web/src/features/study-session/__tests__/submitStudySession.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1의 `StudySessionCreateRequest`, `StudySessionResponse`, `StatusEventPayload`
 - Produces (Task 3이 사용):
   - `interface SessionInput { userId: number; startedAtMs: number; endedAtMs: number; studySec: number; focusSec: number; events?: StatusEventPayload[] }`
@@ -198,7 +202,11 @@ describe("submitStudySession", () => {
   it("message 없는 실패면 HTTP 상태 코드로 throw한다", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.reject(new Error("no body")) }),
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("no body")),
+      }),
     );
 
     await expect(submitStudySession(BASE_INPUT)).rejects.toThrow("세션 제출 실패 (HTTP 500)");
@@ -287,6 +295,7 @@ git commit -m "feat(web): 공부 세션 제출 함수 추가 (SCRUM-147)"
 ### Task 3: 타이머 룸 화면 `RoomPage` + 라우트 (apps/web)
 
 **Files:**
+
 - Create: `apps/web/src/routes/RoomPage.tsx`
 - Modify: `apps/web/src/App.tsx` (룸 라우트 추가)
 - Modify: `apps/web/src/routes/HomePage.tsx` (룸 진입 링크 복원)
@@ -294,6 +303,7 @@ git commit -m "feat(web): 공부 세션 제출 함수 추가 (SCRUM-147)"
 - Test: `apps/web/src/routes/__tests__/RoomPage.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 2의 `submitStudySession(input: SessionInput): Promise<StudySessionResponse[]>`
 - Produces: `/room/:id?userId=N` 라우트 (외부 소비자 없음 — 수동 검증 대상)
 
@@ -359,7 +369,9 @@ describe("RoomPage", () => {
   });
 
   it("제출 실패 시 메시지와 재시도 버튼을 보여준다", async () => {
-    vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("존재하지 않는 사용자입니다: 999"));
+    vi.mocked(submitStudySession).mockRejectedValueOnce(
+      new Error("존재하지 않는 사용자입니다: 999"),
+    );
     renderRoom("/room/7?userId=999");
 
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
@@ -608,9 +620,11 @@ git commit -m "feat(web): 최소 타이머 룸 화면과 세션 제출 플로우
 ### Task 4: 전체 검증 + 개발 서버 스모크 테스트
 
 **Files:**
+
 - 수정 없음 (검증 전용 — 실패 시 원인 파일 수정 후 fix 커밋)
 
 **Interfaces:**
+
 - Consumes: Task 1~3 전체
 - Produces: 검증 완료된 브랜치
 

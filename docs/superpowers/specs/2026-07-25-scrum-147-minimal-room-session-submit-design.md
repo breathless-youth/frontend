@@ -16,15 +16,15 @@
 `POST /api/study-sessions` — 배치 제출. 서버는 세션을 실시간 추적하지 않고,
 총공부·순공 시간은 앱이 잰 값을 그대로 저장한다(검증·`statDate` 계산·저장만 서버 담당).
 
-| 항목 | 내용 |
-|---|---|
-| 요청 | `{userId, startedAt, endedAt, studySec, focusSec, events[]}` — 전부 필수, 시각은 UTC ISO-8601 |
-| `studySec` | 총 공부 시간(초). 0 ≤ studySec ≤ (endedAt−startedAt)−PAUSE 시간 합 |
-| `focusSec` | 순공 시간(초). 0 ≤ focusSec ≤ studySec |
-| `events[]` | 비공부 상태 이벤트(`PHONE`/`DEVICE`/`AWAY`/`PAUSE`)만 `{status, startedAt, endedAt}`. **이번 티켓에서는 항상 빈 배열 []** (발생 원천 없음) |
-| 201 | `StudySessionResponse[]` — **항상 배열**. KST 자정을 넘으면 날짜별 2개로 분할. `id/userId/statDate/startedAt/endedAt/studySec/focusSec/focusRate/events` |
-| 400 | `{message}` — 시간 규칙 위반(종료<시작, 24h 초과, 미래 시각(5분 허용)), studySec·focusSec 범위 등 |
-| 404 | `{message}` — 미등록 userId (선행: POST /api/users) |
+| 항목       | 내용                                                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 요청       | `{userId, startedAt, endedAt, studySec, focusSec, events[]}` — 전부 필수, 시각은 UTC ISO-8601                                                            |
+| `studySec` | 총 공부 시간(초). 0 ≤ studySec ≤ (endedAt−startedAt)−PAUSE 시간 합                                                                                       |
+| `focusSec` | 순공 시간(초). 0 ≤ focusSec ≤ studySec                                                                                                                   |
+| `events[]` | 비공부 상태 이벤트(`PHONE`/`DEVICE`/`AWAY`/`PAUSE`)만 `{status, startedAt, endedAt}`. **이번 티켓에서는 항상 빈 배열 []** (발생 원천 없음)               |
+| 201        | `StudySessionResponse[]` — **항상 배열**. KST 자정을 넘으면 날짜별 2개로 분할. `id/userId/statDate/startedAt/endedAt/studySec/focusSec/focusRate/events` |
+| 400        | `{message}` — 시간 규칙 위반(종료<시작, 24h 초과, 미래 시각(5분 허용)), studySec·focusSec 범위 등                                                        |
+| 404        | `{message}` — 미등록 userId (선행: POST /api/users)                                                                                                      |
 
 ## 데이터 흐름
 
@@ -48,13 +48,13 @@
 
 ## 변경 파일 (전부 apps/web + packages/types — 모바일 무수정)
 
-| 파일 | 변경 |
-|---|---|
-| `packages/types/src/index.ts` | `StudyEventStatus`, `StatusEventPayload`, `StudySessionCreateRequest`, `StudySessionResponse` 추가 (Swagger 그대로) |
+| 파일                                                               | 변경                                                                                                                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/types/src/index.ts`                                      | `StudyEventStatus`, `StatusEventPayload`, `StudySessionCreateRequest`, `StudySessionResponse` 추가 (Swagger 그대로)                              |
 | `apps/web/src/features/study-session/submitStudySession.ts` (신규) | 요청 값 검증·클램프(`focusSec ≤ studySec ≤ 세션길이`) + fetch POST. API 주소는 `import.meta.env.VITE_API_BASE_URL ?? "http://52.78.219.53:8080"` |
-| `apps/web/src/routes/RoomPage.tsx` (신규) | 타이머 + 종료 버튼 + 결과/에러 패널 (한 파일, 최소 UI) |
-| `apps/web/src/App.tsx` | `/room/:id` 라우트 재추가 |
-| `apps/web/src/routes/HomePage.tsx` | 룸 진입 링크 복원(`/room/demo`) — 검증 편의 |
+| `apps/web/src/routes/RoomPage.tsx` (신규)                          | 타이머 + 종료 버튼 + 결과/에러 패널 (한 파일, 최소 UI)                                                                                           |
+| `apps/web/src/App.tsx`                                             | `/room/:id` 라우트 재추가                                                                                                                        |
+| `apps/web/src/routes/HomePage.tsx`                                 | 룸 진입 링크 복원(`/room/demo`) — 검증 편의                                                                                                      |
 
 ## 에러 처리
 

@@ -78,13 +78,11 @@ describe("submitStudySession", () => {
   it("message 없는 실패면 HTTP 상태 코드로 throw한다", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue({
-          ok: false,
-          status: 500,
-          json: () => Promise.reject(new Error("no body")),
-        }),
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("no body")),
+      }),
     );
 
     await expect(submitStudySession(BASE_INPUT)).rejects.toThrow("세션 제출 실패 (HTTP 500)");
