@@ -17,8 +17,3 @@ export async function getOrCreateDeviceId(): Promise<string> {
   await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
   return deviceId;
 }
-
-/** 개발 환경에서 다음 등록 시 새 기기 식별자를 발급하도록 저장 값을 제거한다. */
-export async function clearDeviceId(): Promise<void> {
-  await SecureStore.deleteItemAsync(DEVICE_ID_KEY);
-}

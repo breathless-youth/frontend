@@ -9,7 +9,7 @@ import { ensureUserRegistered } from "../lib/userApi";
 
 export default function RootLayout() {
   useEffect(() => {
-    void ensureUserRegistered({ resetIdentity: __DEV__ });
+    void ensureUserRegistered();
   }, []);
 
   return (
