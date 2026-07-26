@@ -1,4 +1,4 @@
-import { listStudySessionStats } from "../statsApi";
+import { getStreak, listStudySessionStats } from "../statsApi";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -92,5 +92,44 @@ describe("listStudySessionStats", () => {
     mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
 
     await expect(listStudySessionStats(7, "2026-07-25")).rejects.toThrow("Network request failed");
+  });
+});
+
+describe("getStreak", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("userId로 현재/최장 스트릭을 조회한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 5, maxStreak: 12 }));
+
+    await expect(getStreak(7)).resolves.toEqual({ streak: 5, maxStreak: 12 });
+    expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/stats/streak?userId=7", {
+      method: "GET",
+    });
+  });
+
+  it("기록이 없으면 0/0 응답을 그대로 반환한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 0, maxStreak: 0 }));
+
+    await expect(getStreak(7)).resolves.toEqual({ streak: 0, maxStreak: 0 });
+  });
+
+  it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(400, { message: "userId는 필수입니다" }));
+
+    await expect(getStreak(7)).rejects.toThrow("userId는 필수입니다");
+  });
+
+  it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+
+    await expect(getStreak(7)).rejects.toThrow("스트릭 조회 실패 (HTTP 500)");
   });
 });

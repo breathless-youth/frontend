@@ -95,3 +95,14 @@ export interface StudySessionListResponse {
   totalEventCounts: StudySessionEventCounts;
   studiedDatesInMonth: string[];
 }
+
+/**
+ * 연속 공부일(스트릭) 조회 API 계약 (GET /api/stats/streak) — Swagger 기준.
+ * 서버가 세션 이력에서 매번 계산한다. 기록/유저 없음이면 둘 다 0.
+ */
+export interface StudySessionStreakResponse {
+  /** 현재 연속 공부일 — 오늘 기록이 없어도 어제까지 이어졌으면 유지 중으로 본다 */
+  streak: number;
+  /** 역대 최장 연속 공부일 */
+  maxStreak: number;
+}
