@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { Toast } from "@/components/ui/toast";
+import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { SessionCaption } from "@/features/study-session/components/SessionCaption";
+import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionControlBar } from "@/features/study-session/components/SessionControlBar";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
@@ -11,8 +13,19 @@ import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { createDevMockDetector } from "@/features/study-session/devMockDetector";
 import { formatElapsed } from "@/features/study-session/formatDuration";
-import { CAMERA_TOAST_COPY, captionFor, statusCopyFor } from "@/features/study-session/sessionCopy";
-import type { SessionState } from "@/features/study-session/sessionState";
+import {
+  CAMERA_TOAST_COPY,
+  EXIT_CONFIRM_COPY,
+  captionFor,
+  exitConfirmDescription,
+  statusCopyFor,
+} from "@/features/study-session/sessionCopy";
+import type {
+  PauseTrigger,
+  SessionEndReason,
+  SessionState,
+} from "@/features/study-session/sessionState";
+import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useSessionToast } from "@/features/study-session/useSessionToast";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
@@ -91,6 +104,7 @@ export function RoomPage() {
     studySec,
     sessionState,
     phase,
+    endReason,
     isCameraRunning,
     pause,
     resume,
@@ -100,6 +114,12 @@ export function RoomPage() {
   const { message: toastMessage, showToast } = useSessionToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
+  // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
+  // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
+  // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  // S3-8에서 `결과 보기`를 눌렀는지. TODO(WG5) 참고 — 임시 이동 경로다.
+  const [resultRevealed, setResultRevealed] = useState(false);
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
@@ -118,19 +138,20 @@ export function RoomPage() {
     );
   }
 
+  /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
   function handleRequestExit() {
-    // TODO(WG4): 종료 확인 다이얼로그(S3-7)를 먼저 띄우고, 확인 후에 endAndSubmit을 호출한다.
-    // WG1은 콜백 자리만 만든다 — 지금은 기존 제출 경로를 그대로 잇는다.
-    //
-    // ⚠️ 다이얼로그·자동 종료 안내(S3-8)는 `SESSION_LAYER_LAYOUT` div의 **자식이 아니라 형제**로
-    // 넣고 `pointer-events-auto`를 직접 줘야 한다. 자식으로 넣으면 세 가지가 동시에 깨진다
-    // (qa-WG3가 프로브를 실제로 삽입해 재현 확인):
-    //   (1) 가로에서 그리드 자동 배치로 row1/col1 = 좌상단에 앉는다 — 중앙 모달이 구석에 그려진다
-    //   (2) row1 트랙이 커지면서 1fr인 row2가 줄어 심플 타이머(S3-6) 수직 위치가 밀린다
-    //   (3) 레이어의 `pointer-events-none`을 상속해 확인·취소 버튼이 클릭을 못 받는다
-    // 세로에서도 같은 컨테이너가 flex-col이라 흐름 자식이 되어 컨트롤 바를 밀어낸다 —
-    // 가로 전용 문제가 아니다. 전체화면 오버레이는 `main` 바로 아래 `absolute inset-0`이 맞다.
-    void endAndSubmit();
+    setExitDialogOpen(true);
+  }
+
+  /** `계속하기` — 직전 세션 상태 그대로 복귀한다(집중/비집중/일시정지 어디서 열었든). */
+  function handleCancelExit() {
+    setExitDialogOpen(false);
+  }
+
+  /** `공부 종료` — 여기서만 실제로 종료된다. */
+  function handleConfirmExit() {
+    setExitDialogOpen(false);
+    void endAndSubmit(MANUAL_END_REASON);
   }
 
   return (
@@ -145,16 +166,20 @@ export function RoomPage() {
       {phase.name === "studying" ? (
         <>
           {/* 화면 탭(컨트롤 바 제외) → 심플 모드 전환. 컨트롤 바가 pointer-events-auto로 이 레이어를 가린다.
-              대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다). */}
+              대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다).
+              다이얼로그가 떠 있는 동안은 inert — 딤 뒤를 탭해도 심플 모드가 토글되지 않는다. */}
           <button
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
             onClick={() => setSimpleMode((prev) => !prev)}
+            inert={exitDialogOpen}
             className="absolute inset-0 cursor-default"
           />
 
-          <div className={SESSION_LAYER_LAYOUT}>
+          {/* 다이얼로그가 열리면 배경 세션 화면 전체를 inert로 만든다 — 포커스가 뒤로 새지 않고
+              스크린리더도 다이얼로그만 읽는다(SCR-S3-7·S3-8 Accessibility). */}
+          <div className={SESSION_LAYER_LAYOUT} inert={exitDialogOpen}>
             {/* 가로에서도 상단 중앙 — 서브 문구(비집중·일시정지)는 세로와 같이 필 바로 아래에
                 붙는다. 가로 비집중·일시정지 프레임은 Figma 미설계라(SCR-S3-5·S3-6 Current
                 Limitations 3) 세로와 같은 상대 위치를 유지하는 가장 보수적인 배치를 쓴다. */}
@@ -232,12 +257,59 @@ export function RoomPage() {
               </p>
             )}
           </div>
+
+          {/* ⚠️ **여기가 다이얼로그의 올바른 자리다** — `SESSION_LAYER_LAYOUT` div의 자식이 아니라
+              **형제**이고, `main` 바로 아래 `absolute inset-0`이다. 자식으로 넣으면 세 가지가
+              동시에 깨진다(qa-WG3가 프로브를 실제로 삽입해 재현 확인):
+                (1) 가로에서 그리드 자동 배치로 row1/col1 = 좌상단에 앉는다 — 중앙 모달이 구석에 그려진다
+                (2) row1 트랙이 커지면서 1fr인 row2가 줄어 심플 타이머(S3-6) 수직 위치가 밀린다
+                (3) 레이어의 `pointer-events-none`을 상속해 확인·취소 버튼이 클릭을 못 받는다
+              세로에서도 같은 컨테이너가 flex-col이라 흐름 자식이 되어 컨트롤 바를 밀어낸다 —
+              가로 전용 문제가 아니다. `pointer-events-auto`는 컴포넌트가 직접 갖는다.
+
+              가로(S3-5/S3-6)용 종료 확인 프레임은 Figma에 없다 — 세로와 같은 330w 다이얼로그를
+              가로 캔버스 중앙에 띄운다(임의로 가로 전용 레이아웃을 새로 디자인하지 않는다). */}
+          {exitDialogOpen && (
+            <SessionConfirmDialog
+              title={EXIT_CONFIRM_COPY.title}
+              description={exitConfirmDescription(focusSec)}
+              cancelLabel={EXIT_CONFIRM_COPY.cancel}
+              confirmLabel={EXIT_CONFIRM_COPY.confirm}
+              onCancel={handleCancelExit}
+              onConfirm={handleConfirmExit}
+            />
+          )}
         </>
+      ) : autoEndNoticeVisible(phase, endReason) && !resultRevealed ? (
+        /* S3-8 자동 종료 안내 — 저장이 **끝난 뒤에만** 보여준다(`phase === "done"`).
+           타이틀이 `여기까지 기록을 저장했어요`로 단언하므로 제출 중·실패·미저장(userId 없음)
+           상태에서 이 화면을 띄우면 사실과 달라진다 — 그 경우는 아래 폴백의 재시도 경로로 간다
+           (SCR-S3-7·S3-8 Interaction Contract). */
+        <AutoEndNotice
+          trigger={endReason.trigger}
+          focusSec={focusSec}
+          studySec={studySec}
+          onSeeResult={() => setResultRevealed(true)}
+        />
       ) : (
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />
       )}
     </main>
   );
+}
+
+/**
+ * S3-8을 띄울 조건. 타입 가드로 두는 이유는 `endReason.trigger` 접근이 좁혀진 타입에서만
+ * 안전하기 때문이다.
+ *
+ * `phase === "done"`을 요구하는 것이 핵심이다 — `submitting`(로딩)·`error`(재시도)·
+ * `unsaved`(userId 없음)는 전부 "아직/영영 저장되지 않은" 상태라 S3-8의 타이틀이 거짓이 된다.
+ */
+function autoEndNoticeVisible(
+  phase: StudyRoomPhase,
+  endReason: SessionEndReason | null,
+): endReason is { kind: "AUTO"; trigger: PauseTrigger } {
+  return phase.name === "done" && endReason?.kind === "AUTO";
 }
 
 function toPillState(state: SessionState): SessionStatusPillState {
@@ -253,8 +325,16 @@ function toPillState(state: SessionState): SessionStatusPillState {
 
 /**
  * 종료 이후 상태의 임시 표시.
+ *
  * TODO(WG5): `done`은 공부 결과 화면(S4, `ResultPage`)으로 대체된다. WG1은 제출/재시도 경로가
  * 끊기지 않게만 유지한다 — 이 블록의 시각 디자인은 확정 스펙이 아니다.
+ *
+ * TODO(WG5): S3-7 `공부 종료`와 S3-8 `결과 보기`는 둘 다 **S4로 이동**해야 한다. `/room/:id/result`
+ * 라우트가 아직 없으므로(WG4는 새 라우트를 만들지 않는다) 지금은 이 폴백을 그대로 보여준다 —
+ * WG5가 라우트를 만들면 `navigate("/room/:id/result", { state: phase.sessions })`로 바꾼다.
+ * 이동은 **`phase === "done"`에서만** 일어나야 하고 `submitting`·`error`·`unsaved`는 S3 쪽
+ * 상태다(WG5와 상호 확인한 계약). 아래 재시도 버튼이 그 "S3에서 제공하는 재시도 경로"다 —
+ * S4는 저장 실패 배너를 만들지 않기로 스펙됐으므로 이 경로를 없애면 실패가 조용히 삼켜진다.
  */
 function SessionResultFallback({
   phase,

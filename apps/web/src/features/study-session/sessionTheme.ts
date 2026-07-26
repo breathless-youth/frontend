@@ -69,6 +69,33 @@ const SESSION_SURFACE_VARS = {
   "--session-exit-bg": colors.feedback.error.dark,
   /** 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다. */
   "--session-toast-bg": "rgba(22, 27, 34, 0.92)",
+
+  // ── S3-7 종료 확인 다이얼로그 (항상-다크 오버레이) ───────────────────────────
+  // 이 화면은 카메라 위에 뜨는 오버레이라 **라이트/다크 테마를 따르지 않는다.**
+  // index.css의 시맨틱 변수(--dim, --bg-layer-2 …)를 그대로 쓰면 라이트 모드에서 딤이 40%로
+  // 옅어지고 버튼이 회색 대신 밝은 회색이 된다 — 그래서 여기서 **다크 값으로 고정**한다.
+  /**
+   * 딤 — `colors.bg.dim.dark`(#00000099 = **60%**). Figma `63:467` 실측 `rgba(0,0,0,0.6)`과
+   * 정확히 일치한다. 라이트 값(#00000066 = 40%)이 아니라 다크 값을 쓰는 이유가 위와 같다
+   * (SCR-S3-7·S3-8 Design Tokens Used에 같은 근거가 있다).
+   */
+  "--session-dim": colors.bg.dim.dark,
+  /** 다이얼로그 서피스 — `colors.bg.layer1.dark`(#191F28), Figma `40:104` 실측과 일치. */
+  "--session-dialog-bg": colors.bg.layer1.dark,
+  "--session-dialog-title": colors.text.primary.dark,
+  "--session-dialog-body": colors.text.secondary.dark,
+  /** `계속하기`(비파괴) 버튼 — `colors.bg.layer2.dark`(#333D4B), Figma `40:93` 실측과 일치. */
+  "--session-dialog-cancel-bg": colors.bg.layer2.dark,
+  /**
+   * `공부 종료` 버튼 — Figma가 `state/focus` 변수에 바인딩했고 그 값은 **light 쪽**
+   * `#1B64DA`(blue/500)다. 세션 서브트리는 `--state-focus`를 다크 값(#4593FC)으로 덮어쓰므로
+   * `bg-state-focus`를 쓰면 Figma와 색이 달라진다 — 그래서 별도 변수로 light 값을 명시한다.
+   *
+   * ⚠️ **디자인 확인 대기**: `design.md` 상태 컬러 보조 규칙 ③("상태 컬러는 상태 표시 전용,
+   * 액션은 brand 토큰만")과 형식상 어긋난다. 값은 `colors.brand.primary.light`와 동일해
+   * 시각 결과는 같지만 토큰 의미가 다르다(SCR-S3-7·S3-8 Review Checklist).
+   */
+  "--session-dialog-confirm-bg": colors.state.focus.light,
 } as const;
 
 export const sessionSurfaceStyle = SESSION_SURFACE_VARS as unknown as CSSProperties;

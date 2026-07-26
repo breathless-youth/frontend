@@ -23,3 +23,24 @@ export interface SessionTuningConfig {
 export const DEFAULT_SESSION_TUNING: SessionTuningConfig = {
   autoEndPauseMinutes: null,
 };
+
+/**
+ * 감시 임계값(ms) — `usePauseAutoEnd`가 보는 **유일한** 값. `null`이면 감시하지 않는다.
+ *
+ * SCR-S3-7·S3-8 Interaction Contract가 `autoEndAfterPauseMs`라는 이름으로 요구한 값이다.
+ * 설정 필드는 사람이 읽는 단위(분)로 두고 여기서 한 번만 ms로 환산한다 — 두 단위가 코드
+ * 여기저기에 섞이면 60배 실수가 난다.
+ *
+ * ⚠️ **프로덕션 기본값은 여전히 `null`(감시 비활성)이다.** 임계값 N분의 실제 값이
+ * `mvp-scope.md`·`policies.md`·`design.md` 어디에도 없어(전부 "튜닝 파라미터"로만 표기)
+ * 임의의 숫자를 확정값처럼 넣지 않는다. **값이 정해지면 `DEFAULT_SESSION_TUNING`의
+ * `autoEndPauseMinutes` 한 줄만 채우면 감시와 S3-8이 그대로 켜진다** — 나머지 코드는 준비돼 있다.
+ * 테스트는 짧은 값을 주입해서 동작을 고정한다.
+ */
+export function autoEndAfterPauseMs(config: SessionTuningConfig): number | null {
+  const minutes = config.autoEndPauseMinutes;
+  if (minutes === null || !Number.isFinite(minutes) || minutes <= 0) {
+    return null;
+  }
+  return minutes * 60_000;
+}

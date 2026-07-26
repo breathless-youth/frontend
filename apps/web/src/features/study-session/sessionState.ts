@@ -23,6 +23,26 @@ export type SessionState =
   | { kind: "DISTRACTION"; trigger: DistractionTrigger }
   | { kind: "PAUSE"; trigger: PauseTrigger };
 
+/**
+ * 세션이 **어떻게 끝났는가** — 순수 클라이언트 내부 타입이다.
+ *
+ * ⚠️ **서버 계약이 아니다.** 종료 사유를 받는 필드가 백엔드 Swagger에 없으므로
+ * `packages/types`로 올리지 않고 **제출 페이로드에도 넣지 않는다**(상상 계약 금지,
+ * SCR-S3-7·S3-8 Data Contract). 쓰임은 단 하나 — 종료 후 어떤 화면을 보여줄지,
+ * 자동 종료라면 S3-8 본문 문구를 무엇으로 고를지 결정하는 것뿐이다.
+ *
+ * - `MANUAL`: S3-7 종료 확인 다이얼로그에서 `공부 종료`를 누른 경우.
+ * - `AUTO`: 일시정지가 임계값을 넘겨 자동 종료된 경우(S3-8). `trigger`는 **문구 선택 전용**이며
+ *   임계값 판정에는 쓰지 않는다 — 수동 일시정지와 화면 꺼짐은 같은 규칙·같은 감시자를 쓴다.
+ */
+export type SessionEndReason = { kind: "MANUAL" } | { kind: "AUTO"; trigger: PauseTrigger };
+
+export const MANUAL_END_REASON: SessionEndReason = { kind: "MANUAL" };
+
+export function autoEndReason(trigger: PauseTrigger): SessionEndReason {
+  return { kind: "AUTO", trigger };
+}
+
 /** 세션의 기본 상태. 구간 시작 시각은 `SessionTimeline`이 들고 있어 상태 객체에는 넣지 않는다. */
 export const FOCUS_STATE: SessionState = { kind: "FOCUS" };
 

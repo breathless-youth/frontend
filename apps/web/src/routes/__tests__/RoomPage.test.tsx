@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -25,6 +25,27 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
+}
+
+/**
+ * 컨트롤 바 종료 버튼과 다이얼로그 확정 버튼은 **같은 이름**(`공부 종료`)을 갖는다 —
+ * 실제 브라우저에서는 배경이 `inert`라 접근성 트리에 하나만 남지만 jsdom은 `inert`를
+ * 접근성 계산에 반영하지 않으므로 테스트에서는 다이얼로그 안으로 범위를 좁힌다.
+ */
+function confirmExitButton() {
+  return within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" });
+}
+
+/** S3-7: 종료는 **2단계**다 — 컨트롤 바 → 확인 다이얼로그. */
+async function endSession() {
+  await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+  await userEvent.click(confirmExitButton());
+}
+
+/** 가짜 타이머 구간용 — `userEvent`의 내부 지연 타이머를 피해 `fireEvent`로 직접 누른다. */
+function endSessionSync() {
+  fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+  fireEvent.click(confirmExitButton());
 }
 
 describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
@@ -111,7 +132,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await endSession();
 
     expect(await screen.findByText("2026-07-25")).toBeInTheDocument();
     expect(screen.getByText("100%")).toBeInTheDocument();
@@ -127,7 +148,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     );
     renderRoom("/room/7?userId=999");
 
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await endSession();
 
     expect(await screen.findByText("존재하지 않는 사용자입니다: 999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
@@ -136,7 +157,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("userId가 없으면 제출 없이 저장 안 됨 안내를 보여준다", async () => {
     renderRoom("/room/7");
 
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await endSession();
 
     expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
@@ -145,7 +166,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("userId가 숫자가 아니면 제출 없이 저장 안 됨 안내를 보여준다", async () => {
     renderRoom("/room/7?userId=abc");
 
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await endSession();
 
     expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
@@ -168,7 +189,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await endSession();
     expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
@@ -193,7 +214,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      endSessionSync();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -382,7 +403,7 @@ describe("RoomPage — S3-3 일시정지", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      endSessionSync();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -419,7 +440,7 @@ describe("RoomPage — S3-3 일시정지", () => {
       act(() => {
         setVisibility("visible");
       });
-      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      endSessionSync();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -450,7 +471,7 @@ describe("RoomPage — S3-3 일시정지", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      endSessionSync();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -540,5 +561,151 @@ describe("RoomPage — S3-4 심플 모드", () => {
       "aria-pressed",
       "true",
     );
+  });
+});
+
+describe("RoomPage — S3-7 종료 확인", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function openExitDialog() {
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    return screen.getByRole("alertdialog");
+  }
+
+  it("종료 버튼은 세션을 끝내지 않고 확인 다이얼로그를 띄운다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const dialog = await openExitDialog();
+
+    expect(within(dialog).getByText("공부를 종료할까요?")).toBeInTheDocument();
+    expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+    // 세션 화면은 그대로 살아 있다 — 딤 뒤에서 계속 측정된다.
+    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+  });
+
+  it("본문은 순공시간을 한글 시간 길이 + 자동 조사로 안내한다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const dialog = await openExitDialog();
+
+    // 갓 입장한 세션이라 순공시간은 0초 — 초로 끝나므로 조사는 '는'이다(voice-tone §2).
+    expect(within(dialog).getByText("지금까지 집중한 0초는 저장돼요")).toBeInTheDocument();
+    // 다이얼로그에는 HH:MM:SS를 쓰지 않는다.
+    expect(within(dialog).queryByText(/00:00:00/)).not.toBeInTheDocument();
+  });
+
+  it("확정 문구를 그대로 쓴다 — 버튼은 '계속하기' / '공부 종료'", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const dialog = await openExitDialog();
+
+    expect(within(dialog).getByRole("button", { name: "계속하기" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+  });
+
+  it("'계속하기'는 세션을 유지한 채 다이얼로그만 닫는다", async () => {
+    renderRoom("/room/7?userId=1");
+    const dialog = await openExitDialog();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "계속하기" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+  });
+
+  it("일시정지 중에 열었다 닫으면 일시정지 상태 그대로 복귀한다", async () => {
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+
+    const dialog = await openExitDialog();
+    await userEvent.click(within(dialog).getByRole("button", { name: "계속하기" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+  });
+
+  it("Esc는 비파괴 기본값 — 닫기만 하고 세션을 끝내지 않는다", async () => {
+    // ⚠️ 디자인 미정 항목(SCR-S3-7·S3-8). 종료는 되돌릴 수 없으므로 이 경로로 확정시키지 않는다.
+    renderRoom("/room/7?userId=1");
+    await openExitDialog();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+  });
+
+  it("'공부 종료'에서만 실제로 제출한다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+    const dialog = await openExitDialog();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "공부 종료" }));
+
+    expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
+  });
+
+  it("alertdialog 시맨틱과 타이틀·본문 연결을 갖는다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const dialog = await openExitDialog();
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    const labelledBy = dialog.getAttribute("aria-labelledby");
+    const describedBy = dialog.getAttribute("aria-describedby");
+    expect(document.getElementById(labelledBy!)).toHaveTextContent("공부를 종료할까요?");
+    expect(document.getElementById(describedBy!)).toHaveTextContent("지금까지 집중한");
+  });
+
+  it("초기 포커스는 비파괴 버튼('계속하기')에 놓인다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const dialog = await openExitDialog();
+
+    expect(within(dialog).getByRole("button", { name: "계속하기" })).toHaveFocus();
+  });
+
+  it("닫히면 포커스가 컨트롤 바 종료 버튼으로 돌아온다", async () => {
+    renderRoom("/room/7?userId=1");
+    const exitButton = screen.getByRole("button", { name: "공부 종료" });
+
+    await userEvent.click(exitButton);
+    await userEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "계속하기" }),
+    );
+
+    expect(exitButton).toHaveFocus();
+  });
+
+  it("열려 있는 동안 배경 세션 레이어를 inert로 만든다", async () => {
+    const { container } = renderRoom("/room/7?userId=1");
+    const tapLayer = screen.getByRole("button", { name: "심플 모드 전환" });
+    expect(tapLayer).not.toHaveAttribute("inert");
+
+    await openExitDialog();
+
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute("inert");
+    // 세션 레이아웃 레이어(상태 필·타이머·컨트롤 바를 담은 컨테이너)도 함께 꺼진다.
+    expect(container.querySelectorAll("[inert]")).toHaveLength(2);
+  });
+
+  it("다이얼로그는 세션 레이아웃 레이어의 **형제**다 — 자식이면 가로 그리드가 깨진다", () => {
+    // qa-WG3 실측: `SESSION_LAYER_LAYOUT` div의 자식으로 넣으면 (1) 가로에서 좌상단에 배치되고
+    // (2) 심플 타이머가 밀리고 (3) pointer-events-none을 상속해 버튼이 클릭을 못 받는다.
+    // 구조 자체를 고정해 회귀를 막는다.
+    const { container } = renderRoom("/room/7?userId=1");
+    fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    const dialogOverlay = screen.getByRole("alertdialog").parentElement!;
+    const layoutLayer = container.querySelector(".pointer-events-none")!;
+
+    expect(layoutLayer.contains(dialogOverlay)).toBe(false);
+    expect(dialogOverlay.parentElement).toBe(layoutLayer.parentElement);
+    // 오버레이는 pointer-events를 직접 켠다(레이어의 none을 상속하지 않는다).
+    expect(dialogOverlay.className).toContain("pointer-events-auto");
+    expect(dialogOverlay.className).toContain("absolute inset-0");
   });
 });

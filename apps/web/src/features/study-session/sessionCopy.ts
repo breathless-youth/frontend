@@ -1,4 +1,5 @@
-import type { SessionState } from "./sessionState";
+import { toKoreanDurationLength, topicJosaFor } from "./formatDuration";
+import type { PauseTrigger, SessionState } from "./sessionState";
 
 /**
  * 세션 화면 문구 — 전부 ai-wiki `product/voice-tone.md`에서 **그대로** 가져온다. 의역·재작성 금지.
@@ -63,6 +64,63 @@ export function statusCopyFor(state: SessionState): SessionStatusCopy {
  */
 export function captionFor(state: SessionState): string {
   return state.kind === "PAUSE" ? PAUSE_CAPTION : PRIVACY_CAPTION;
+}
+
+/**
+ * S3-7 종료 확인 다이얼로그 문구(voice-tone.md §4 "종료·자동 종료", Figma `Dialog / Confirm` 40:104).
+ *
+ * `공부 종료`는 파괴적 액션인데 Figma가 파란 primary로 그려서 **색만으로는 파괴성이 구분되지
+ * 않는다** — 구분을 오로지 라벨이 지므로 `종료` 등으로 축약하지 않는다(Accessibility).
+ */
+export const EXIT_CONFIRM_COPY = {
+  title: "공부를 종료할까요?",
+  cancel: "계속하기",
+  confirm: "공부 종료",
+} as const;
+
+/**
+ * `지금까지 집중한 {순공시간}은 저장돼요` — 값은 **한글 시간 길이**이고 조사는 자동 처리한다
+ * (voice-tone.md §2). 종료로 인한 손실 불안을 먼저 없애는 "이득/안심 우선" 구성이다(§1).
+ *
+ * ⚠️ **Figma ↔ ai-wiki 조사 불일치(에스컬레이션 대기).** Figma 노드 `40:98`은 `1시간 24분**이**
+ * 저장돼요`, `voice-tone.md` §2·§4는 `1시간 24분**은** 저장돼요`로 서로 다르다. 조사 규칙이
+ * 명문화된 최신 문서(2026-07-26 6차 인터뷰 재작성)를 따라 **잠정적으로 `은`**을 쓴다 —
+ * SCR-S3-7·S3-8 Review Checklist에 판정 항목으로 올라가 있다.
+ */
+export function exitConfirmDescription(focusSec: number): string {
+  const length = toKoreanDurationLength(focusSec);
+  return `지금까지 집중한 ${length}${topicJosaFor(length)} 저장돼요`;
+}
+
+/**
+ * S3-8 자동 종료 안내 문구(voice-tone.md §4 "자동 종료 안내").
+ *
+ * 본문 2줄 분리는 Figma `63:591` 실측 줄바꿈이다 — 폰트 확대 시에는 자연 줄바꿈에 맡긴다.
+ */
+export const AUTO_END_COPY = {
+  title: "여기까지 기록을 저장했어요",
+  summaryLabels: { focusSec: "순공시간", studySec: "총 공부" },
+  cta: "결과 보기",
+} as const;
+
+/**
+ * 자동 종료 본문 — **트리거는 문구 선택에만 쓴다**(임계값 판정에는 절대 쓰지 않는다,
+ * SCR-S3-7·S3-8 Interaction Contract).
+ *
+ * - `BACKGROUND`(화면 꺼짐·백그라운드): voice-tone.md §4 확정 문구.
+ * - `MANUAL`(수동 일시정지 방치): **`null` — 문구 미정.**
+ *   TODO(voice-tone 미정): 수동 일시정지 방치 자동 종료 본문 문구 확정 필요.
+ *   voice-tone.md §4에 `⚠️ 미정 — 위 문구는 화면 꺼짐 전제`로 명시돼 있다. 화면을 끄지 않은
+ *   사용자에게 "화면이 꺼진 동안"이라고 안내하면 사실과 다르므로 **화면 꺼짐 문구를 재사용하지
+ *   않고** 본문을 비운다(타이틀·요약·CTA만 렌더). 문구가 확정되면 이 표만 채운다.
+ */
+const AUTO_END_BODY: Record<PauseTrigger, readonly string[] | null> = {
+  BACKGROUND: ["화면이 꺼진 동안은 측정이 어려워서", "공부가 자동으로 종료됐어요"],
+  MANUAL: null,
+};
+
+export function autoEndBodyLinesFor(trigger: PauseTrigger): readonly string[] | null {
+  return AUTO_END_BODY[trigger];
 }
 
 /** 카메라 전환 토스트 문구(voice-tone.md §4 토스트). */

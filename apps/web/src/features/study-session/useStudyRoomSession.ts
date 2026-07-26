@@ -15,18 +15,30 @@ import {
   createDetectionState,
   stepDetection,
 } from "./detection";
-import type { PauseTrigger, SessionState } from "./sessionState";
-import { FOCUS_STATE, distractionState, isSameSessionState, pauseState } from "./sessionState";
+import type { PauseTrigger, SessionEndReason, SessionState } from "./sessionState";
+import {
+  FOCUS_STATE,
+  MANUAL_END_REASON,
+  autoEndReason,
+  distractionState,
+  isSameSessionState,
+  pauseState,
+} from "./sessionState";
 import type { SessionTimeline, SessionTotals } from "./sessionTimeline";
 import {
   closeSessionTimeline,
   computeSessionTotals,
   createSessionTimeline,
   currentState,
+  currentStateSinceMs,
   toStatusEvents,
   transition,
 } from "./sessionTimeline";
+import type { SessionTuningConfig } from "./sessionTuning";
+import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
+import type { PausedSnapshot } from "./usePauseAutoEnd";
+import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
 /** URL 쿼리 등 외부 입력에서 온 userId 문자열을 검증한다 — 양의 정수만 유효, 그 외 null. */
 export function parseUserId(raw: string | null): number | null {
@@ -54,6 +66,14 @@ export interface StudyRoomSessionOptions {
   readonly detectionParams?: DetectionParams;
   /** 타이머·감지 판정 주기(ms). 초 표시는 1초마다 바뀌지만 감지 판정은 더 촘촘해야 한다. */
   readonly tickMs?: number;
+  /**
+   * 세션 튜닝 파라미터 — 지금은 일시정지 자동 종료 임계값(S3-8) 하나뿐이다.
+   * 기본값은 `autoEndPauseMinutes: null`(감시 비활성) — 실제 N분이 ai-wiki에서 미정이라
+   * 임의 숫자를 넣지 않는다. 테스트·운영 설정이 짧은 값을 주입해 감시를 켠다.
+   */
+  readonly tuning?: SessionTuningConfig;
+  /** 자동 종료 감시 주기(ms) — 테스트 주입용. */
+  readonly autoEndPollMs?: number;
 }
 
 /**
@@ -73,11 +93,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [systemPause] = useState<SystemPauseSource>(
     () => options.systemPause ?? createSystemPauseSource(),
   );
+  const [tuning] = useState<SessionTuningConfig>(() => options.tuning ?? DEFAULT_SESSION_TUNING);
   const tickMs = options.tickMs ?? 200;
 
   const startedAtMsRef = useRef(Date.now());
   // 최초 종료 클릭 시점에 고정 — 재시도해도 같은 세션으로 멱등 제출되게 한다.
   const endedAtMsRef = useRef<number | null>(null);
+  // 종료 사유도 같은 이유로 최초 1회만 고정한다 — 재시도가 사유를 덮어쓰면 자동 종료로 끝난
+  // 세션이 수동 종료로 둔갑해 S3-8 대신 엉뚱한 화면이 뜬다.
+  const endReasonRef = useRef<SessionEndReason | null>(null);
   const timelineRef = useRef<SessionTimeline>(createSessionTimeline(startedAtMsRef.current));
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
@@ -88,11 +112,29 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [cameraFacing, setCameraFacing] = useState(camera.facing);
   const [isCameraRunning, setIsCameraRunning] = useState(camera.isRunning);
   const [phase, setPhase] = useState<StudyRoomPhase>({ name: "studying" });
+  const [endReason, setEndReason] = useState<SessionEndReason | null>(null);
+  /**
+   * 일시정지 시작 **벽시계** 시각 스냅샷 — 자동 종료 감시자(`usePauseAutoEnd`)의 유일한 입력.
+   * 트리거는 여기 실려 있지만 S3-8 문구 선택용일 뿐 임계값 판정에는 쓰이지 않는다.
+   */
+  const [pausedSnapshot, setPausedSnapshot] = useState<PausedSnapshot | null>(null);
 
   /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
   const applyState = useCallback((next: SessionState, atMs: number = Date.now()) => {
     timelineRef.current = transition(timelineRef.current, next, atMs);
     setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
+    // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
+    // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
+    const applied = currentState(timelineRef.current);
+    setPausedSnapshot((prev) => {
+      if (applied.kind !== "PAUSE") {
+        return prev === null ? prev : null;
+      }
+      const sinceMs = currentStateSinceMs(timelineRef.current);
+      return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
+        ? prev
+        : { sinceMs, trigger: applied.trigger };
+    });
   }, []);
 
   useEffect(() => {
@@ -219,37 +261,80 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     return result;
   }, [camera]);
 
-  const endAndSubmit = useCallback(async () => {
-    endedAtMsRef.current ??= Date.now();
-    const endedAtMs = endedAtMsRef.current;
-    timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
-    const closed = timelineRef.current;
-    const finalTotals = computeSessionTotals(closed, endedAtMs);
-    const events = toStatusEvents(closed, endedAtMs);
-    setTotals(finalTotals);
+  /**
+   * 세션 종료 + 제출. `reason`은 **최초 호출에만** 반영된다(재시도는 사유를 바꾸지 않는다).
+   *
+   * TODO(미정: 자동 종료 `endedAt` 기준 — 리더/BE 협의). 지금은 수동·자동 모두 "종료가
+   * 판정된 시각"으로 고정한다(`Date.now()`). 자동 종료의 경우 (a) 일시정지 시작 시각과
+   * (b) 자동 종료 판정 시각(= 일시정지 시작 + N분) 중 어느 쪽을 보낼지 확정되지 않았다
+   * (SCR-S3-7·S3-8 Current Limitations). 어느 쪽이든 **이 한 줄만** 바꾸면 된다 —
+   * 시각 계산을 다른 곳으로 흩뜨리지 않는다. 서버 검증
+   * (`studySec ≤ (endedAt − startedAt) − PAUSE 합`)과 S4 헤더의 시각 범위가 여기에 달려 있다.
+   */
+  const endAndSubmit = useCallback(
+    async (reason: SessionEndReason = MANUAL_END_REASON) => {
+      endReasonRef.current ??= reason;
+      setEndReason(endReasonRef.current);
+      endedAtMsRef.current ??= Date.now();
+      const endedAtMs = endedAtMsRef.current;
+      timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
+      const closed = timelineRef.current;
+      const finalTotals = computeSessionTotals(closed, endedAtMs);
+      const events = toStatusEvents(closed, endedAtMs);
+      setTotals(finalTotals);
 
-    if (userId === null) {
-      setPhase({ name: "unsaved", studySec: finalTotals.studySec });
-      return;
-    }
-    setPhase({ name: "submitting" });
-    try {
-      const sessions = await submitStudySession({
-        userId,
-        startedAtMs: startedAtMsRef.current,
-        endedAtMs,
-        studySec: finalTotals.studySec,
-        focusSec: finalTotals.focusSec,
-        events,
-      });
-      setPhase({ name: "done", sessions });
-    } catch (error) {
-      setPhase({
-        name: "error",
-        message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
-      });
-    }
-  }, [userId]);
+      if (userId === null) {
+        setPhase({ name: "unsaved", studySec: finalTotals.studySec });
+        return;
+      }
+      setPhase({ name: "submitting" });
+      try {
+        const sessions = await submitStudySession({
+          userId,
+          startedAtMs: startedAtMsRef.current,
+          endedAtMs,
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
+          events,
+        });
+        setPhase({ name: "done", sessions });
+      } catch (error) {
+        setPhase({
+          name: "error",
+          message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
+        });
+      }
+    },
+    [userId],
+  );
+
+  /**
+   * 일시정지 자동 종료 감시 — **감시자는 이것 하나뿐이다**(S3-8).
+   *
+   * 수동 일시정지든 화면 꺼짐·백그라운드든 같은 `pausedSnapshot` 위에서 같은 임계값으로
+   * 판정한다 — 트리거별 타이머를 따로 만들지 않는다(2026-07-26 확정: N값 공용 파라미터).
+   * 세션이 이미 끝났으면(`phase !== "studying"`) 감시하지 않는다.
+   *
+   * ⚠️ 미정(리더 확인): 일시정지 중 종료 확인 다이얼로그(S3-7)를 열어 둔 채 임계값에 도달하면
+   * 지금은 자동 종료가 그대로 발동해 `phase`가 바뀌고 다이얼로그가 사라지며 S3-8로 전환된다
+   * (스펙의 "제안 기본값"과 같은 동작). 확정 사항이 아니므로 다른 동작이 정해지면 여기서 막는다.
+   */
+  const handleAutoEnd = useCallback(
+    (trigger: PauseTrigger) => {
+      void endAndSubmit(autoEndReason(trigger));
+    },
+    [endAndSubmit],
+  );
+
+  usePauseAutoEnd({
+    paused: phase.name === "studying" ? pausedSnapshot : null,
+    config: tuning,
+    onAutoEnd: handleAutoEnd,
+    // 화면 꺼짐 중에는 인터벌이 스로틀될 수 있다 — 복귀 시점에 경과를 다시 계산하려면
+    // 훅과 **같은** 신호원을 봐야 한다(어댑터 인스턴스를 새로 만들지 않는다).
+    systemPause,
+    pollMs: options.autoEndPollMs,
+  });
 
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
@@ -260,6 +345,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     pauseSec: totals.pauseSec,
     sessionState,
     phase,
+    /**
+     * 세션이 어떻게 끝났는가 — 종료 전에는 `null`. 서버로 보내지 않는 **클라이언트 내부 값**이며
+     * 종료 후 어떤 화면(S3-8 vs 일반 결과)을 보여줄지, S3-8 본문을 무엇으로 쓸지에만 쓴다.
+     */
+    endReason,
     cameraFacing,
     isCameraRunning,
     pause,
