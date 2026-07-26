@@ -42,6 +42,7 @@ export interface StudySessionStreakResponse {
 ### `apps/mobile/lib/__tests__/statsApi.test.ts`
 
 기존 테스트 스타일 그대로 3케이스 추가:
+
 1. 성공 — 쿼리스트링·응답 파싱 확인
 2. 에러 응답의 `message`로 throw
 3. 비-JSON 에러 응답이면 HTTP 상태 fallback 메시지로 throw

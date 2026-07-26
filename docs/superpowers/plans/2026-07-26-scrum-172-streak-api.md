@@ -22,11 +22,13 @@
 ### Task 1: 스트릭 계약 타입 + `getStreak` API 함수 (TDD)
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts` (파일 끝에 추가)
 - Modify: `apps/mobile/lib/statsApi.ts` (파일 끝에 추가)
 - Test: `apps/mobile/lib/__tests__/statsApi.test.ts` (기존 describe 아래에 추가)
 
 **Interfaces:**
+
 - Consumes: `apiBaseUrl()` — `statsApi.ts`에 이미 있는 내부 헬퍼 (`http://api.test` 형태 base URL 반환)
 - Produces: `getStreak(userId: number): Promise<StudySessionStreakResponse>` — Task 2가 import해서 사용. `StudySessionStreakResponse { streak: number; maxStreak: number }` — `@focuson/types`에서 export.
 
@@ -147,9 +149,11 @@ git commit -m "feat(mobile): 연속 공부일(스트릭) 조회 API 연동 (SCRU
 ### Task 2: 홈 탭 임시 확인용 UI + Expo Go 검증
 
 **Files:**
+
 - Modify: `apps/mobile/app/(tabs)/index.tsx` (전체 교체 — 아래 코드)
 
 **Interfaces:**
+
 - Consumes: `getStreak(userId)` (Task 1), `ensureUserRegistered(): Promise<number | null>` (`apps/mobile/lib/userApi.ts` — 멱등, 실패 시 null)
 - Produces: 없음 (말단 화면)
 
@@ -209,6 +213,7 @@ Expected: 통과
 
 Run: `pnpm --filter mobile dev` → 실기기 Expo Go로 접속
 Expected:
+
 - 콘솔에 `[streak] 조회 성공: { streak: N, maxStreak: M }` 로그
 - 홈 탭에 "🔥 연속 N일 · 최장 M일" Text 표시 (서버 목데이터 시딩 기준 0 이상 값)
 
