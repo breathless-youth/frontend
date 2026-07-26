@@ -1,10 +1,7 @@
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import iconChevronRight from "../../assets/home/icon-chevron-right.png";
-import iconPlay from "../../assets/home/icon-play.png";
-import illustFlame from "../../assets/home/illust-flame.png";
-import illustStudyDoodle from "../../assets/home/illust-study-doodle.png";
+import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "../../components/icons";
 import {
   formatHoursMinutes,
   formatMinutes,
@@ -102,7 +99,7 @@ function StartCtaCard({ onPress }: { onPress: () => void }) {
         <Text className="text-[12.5px] text-white/80">누르면 바로 측정이 시작돼요</Text>
       </View>
       <View className="size-[50px] items-center justify-center rounded-full bg-white/20">
-        <Image source={iconPlay} className="size-[18px]" resizeMode="contain" />
+        <IconPlay size={18} />
       </View>
     </Pressable>
   );
@@ -122,14 +119,10 @@ function StatCard({ variant, onPress }: { variant: "streak" | "longest"; onPress
         <Text className="text-text-tertiary text-xs font-medium">
           {isStreak ? "연속 공부" : "최장 집중"}
         </Text>
-        {isStreak && (
-          <Image source={iconChevronRight} className="h-3 w-[7px]" resizeMode="contain" />
-        )}
+        {isStreak && <IconChevronRight size={12} />}
       </View>
       <View className="flex-row items-center gap-1.5">
-        {isStreak && (
-          <Image source={illustFlame} className="h-[22px] w-[19px]" resizeMode="contain" />
-        )}
+        {isStreak && <IllustFlame width={19} height={22} />}
         <Text className="text-text-primary dark:text-text-primary-dark text-xl font-bold">
           {isStreak
             ? `${MOCK_SUMMARY.streakDays}일째`
@@ -165,10 +158,11 @@ function GuideCard({ onPress }: { onPress: () => void }) {
           <Text className="text-brand-primary dark:text-brand-primary-dark text-[13px] font-semibold">
             지금 확인해 보세요
           </Text>
-          <Image source={iconChevronRight} className="h-3 w-[7px]" resizeMode="contain" />
+          {/* 가이드 카드 링크의 셰브런은 브랜드 색이다(스탯 카드의 회색 셰브런과 다름 — Figma 확인) */}
+          <IconChevronRight size={12} color="#1B64DA" />
         </View>
       </View>
-      <Image source={illustStudyDoodle} className="h-[75px] w-24" resizeMode="contain" />
+      <IllustStudyDoodle width={96} height={75} />
     </Pressable>
   );
 }

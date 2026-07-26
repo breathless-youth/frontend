@@ -105,8 +105,8 @@ type HomeSummaryDraft = {
 3. `apps/mobile/app/(tabs)/index.tsx`에서만 구현한다.
 4. `apps/web`, 세션 내부 로직, 카메라 코드를 건드리지 않는다.
 5. 랭킹, AI 리포트, 그룹 검색, 로그인 UI 등 V1.0 범위 밖 기능을 추가하지 않는다.
-6. 아이콘/일러스트는 실제 Figma 노출 에셋을 다운로드해 `apps/mobile/assets/home/`에 커밋한 것을 사용한다(직접 그리지 않음): `icon-tab-home-active.png`, `icon-tab-record-inactive.png`, `icon-tab-settings-inactive.png`, `icon-play.png`, `icon-chevron-right.png`, `illust-flame.png`, `illust-study-doodle.png`. **한계**: Figma 스크린샷 도구가 원본 캔버스 크기(24×24 등)로만 내보내 고밀도(@2x/@3x) 화면에서 다소 흐릴 수 있다 — 실기기 확인 시 QA에서 재점검.
-7. 탭 아이콘은 활성/비활성 상태에 따라 다른 색상의 벌도 이미지다(런타임 tint 아님, `react-native-svg` 미설치 상태이므로 벡터 재구성 대신 상태별 플랫 이미지 사용) — 기록/설정 탭이 활성 상태가 될 아이콘(홈이 아닌 화면에서 보일 상태)은 그 화면 구현 시점에 추가로 추출한다.
+6. 아이콘/일러스트는 `apps/mobile/components/icons.tsx`의 SVG 컴포넌트를 쓴다. Figma `download_assets`로 내보낸 SVG의 path 데이터를 그대로 옮긴 것이며 형상을 직접 그리지 않았다. **PNG를 쓰지 말 것** — Figma의 PNG/SVG 익스포트에는 캔버스·섹션 배경 `<rect>`(`#F5F5F5`, `white`)가 함께 포함돼, PNG로 내보내면 그 배경이 합성돼 아이콘이 흰 네모로 보인다(2026-07-26 실제로 발생). SVG에서는 해당 `<rect>`만 제외하면 된다.
+7. 단색 아이콘(`IconTabHome`/`IconTabRecord`/`IconTabSettings`/`IconPlay`/`IconChevronRight`)은 `color` prop으로 런타임 틴팅한다 — 탭 활성/비활성이나 셰브런 색상 차이를 위해 상태별 에셋 파일을 따로 만들지 않는다. 일러스트(`IllustFlame`/`IllustStudyDoodle`)는 다색이라 색이 고정돼 있다.
 
 ## Accessibility Requirements
 
@@ -119,10 +119,10 @@ type HomeSummaryDraft = {
 - 실제 API 연동 없음 — 정적 예시 데이터로 렌더링(Data Contract 참고).
 - `집중 시작`/`연속 공부`/`공부 측정 가이드` 탭의 실제 이동 대상 화면(S3, S5, G1~G5)이 아직 없어 핸들러만 존재하고 동작은 방어적으로 비활성.
 - Figma 실측 타이포(17px, 46px, 21px 등)가 `packages/design-tokens`의 표준 스케일과 정확히 일치하지 않는 값이 있다 — 표준 스케일에 억지로 맞추지 않고 실측값을 그대로 썼다. 추후 디자인 시스템이 이 스케일을 흡수할지는 별도 검토 필요.
-- 아이콘 에셋이 이 화면(S1)에서 필요한 상태(홈 active/기록·설정 inactive)만 있다 — 기록·설정 화면 구현 시 그 화면 관점의 active 아이콘을 추가로 추출해야 완전한 탭바 컴포넌트가 된다.
+- 히어로 카드 게이지의 25/50/75% 눈금 마커는 아직 구현하지 않았다(채움 바만 구현). 이 눈금이 목표 시간 대비 진행률을 뜻하는지 단순 장식인지 확정되지 않아, 의미를 추측해 데이터와 연결하지 않았다.
 
 ## Review Checklist
 
 - [ ] "오늘" 스코프 통계 API(순공/총공부/집중률/최장집중/연속일수)의 실제 Swagger 계약 확인
 - [ ] `집중 시작` 카드의 실제 이동 대상(딥링크/라우트) 확정 — WebView 세션 구현 시점에 연결
-- [ ] 탭 아이콘 고밀도 에셋 재추출 여부(현재 24×24 원본 그대로 사용 중) 실기기에서 육안 확인
+- [ ] 히어로 게이지의 25/50/75% 눈금 마커가 목표 시간 기준인지 확인 (의미 미확정이라 현재 미구현)

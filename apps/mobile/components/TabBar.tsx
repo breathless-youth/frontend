@@ -1,16 +1,17 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import iconHome from "../assets/home/icon-tab-home-active.png";
-import iconRecord from "../assets/home/icon-tab-record-inactive.png";
-import iconSettings from "../assets/home/icon-tab-settings-inactive.png";
+import { IconTabHome, IconTabRecord, IconTabSettings } from "./icons";
 
 type TabId = "home" | "record" | "settings";
 
-const TABS: { id: TabId; label: string; icon: number }[] = [
-  { id: "home", label: "홈", icon: iconHome },
-  { id: "record", label: "기록", icon: iconRecord },
-  { id: "settings", label: "설정", icon: iconSettings },
+const ACTIVE_COLOR = "#1B64DA"; // colors.brand.primary.light
+const INACTIVE_COLOR = "#8B95A1"; // colors.text.tertiary
+
+const TABS: { id: TabId; label: string; Icon: typeof IconTabHome }[] = [
+  { id: "home", label: "홈", Icon: IconTabHome },
+  { id: "record", label: "기록", Icon: IconTabRecord },
+  { id: "settings", label: "설정", Icon: IconTabSettings },
 ];
 
 type TabBarProps = {
@@ -22,6 +23,8 @@ type TabBarProps = {
  * 홈만 실제 라우트다 — 나머지 두 탭은 확정된 3탭 IA를 시각적으로 보여주기 위해 표시만 하고
  * 탭해도 아무 동작을 하지 않는다(존재하지 않는 라우트로 이동 시도 금지, SCR-S1-home.md 참고).
  * S5·S6 구현 시 이 컴포넌트에 실제 네비게이션을 추가한다.
+ *
+ * 아이콘은 SVG라 활성/비활성을 색상 prop으로 처리한다(상태별 이미지 파일 불필요).
  */
 export function TabBar({ active = "home" }: TabBarProps) {
   const insets = useSafeAreaInsets();
@@ -31,18 +34,18 @@ export function TabBar({ active = "home" }: TabBarProps) {
       className="bg-bg-base dark:bg-bg-base-dark border-border-default dark:border-border-default-dark flex-row border-t px-6 pt-[10px]"
       style={{ paddingBottom: Math.max(insets.bottom, 10) }}
     >
-      {TABS.map((tab) => {
-        const isActive = tab.id === active;
+      {TABS.map(({ id, label, Icon }) => {
+        const isActive = id === active;
         return (
           <Pressable
-            key={tab.id}
-            disabled={tab.id !== "home"}
+            key={id}
+            disabled={id !== "home"}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab.label}
+            accessibilityLabel={label}
             className="min-h-11 flex-1 items-center gap-[3px] pt-[2px]"
           >
-            <Image source={tab.icon} className="size-6" resizeMode="contain" />
+            <Icon size={24} color={isActive ? ACTIVE_COLOR : INACTIVE_COLOR} />
             <Text
               className={
                 isActive
@@ -50,7 +53,7 @@ export function TabBar({ active = "home" }: TabBarProps) {
                   : "text-text-tertiary text-[11px] font-medium"
               }
             >
-              {tab.label}
+              {label}
             </Text>
           </Pressable>
         );
