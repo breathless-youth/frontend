@@ -199,6 +199,7 @@ type UpdateNoticeGate = {
 - [ ] 노출 플래그의 최종 이름·주입 경로 확정 (`app.json extra.updateNoticeEnabled` 제안 — 원격 설정으로 갈 계획이 있는지 포함해 확인)
 - [ ] 닫기 경로 확정: 딤 탭 / 아래로 스와이프 / Android 백 버튼을 허용할지 (현재 전부 **미정**, CTA만 연결)
 - [ ] "1회 노출"의 재노출 기준 확정 — 단일 boolean인지, 공지 ID 단위인지 (앱 재설치·플래그 재활성 케이스)
+- [ ] **`seen` 조회 실패 시 노출 방향 확정** — 현재 구현은 fail-closed(비노출, `apps/mobile/lib/updateNotice.ts`의 `shouldShowUpdateNotice` catch)지만 스펙 미규정 상태에서 빌더가 자체 판단한 것이다. Exposure Control의 fail-closed 규정은 **플래그 파싱**에만 적용되고 저장소 조회 실패는 다루지 않았다. 확정되면 그 `catch` 하나만 바꾸면 된다(반대 방향인 `onboardingGuideStore`의 fail-open과 대비 관계).
 - [ ] 노출 타이밍(홈 진입 즉시 vs 지연) 확정
 - [ ] **딤 불투명도 불일치 정리** — Figma 실측·컴포넌트 설명·Spec 페이지는 60%인데 시맨틱 토큰 `bg/dim`의 라이트 값은 40%(#00000066)다. 토큰을 60%로 정정할지, 시트·다이얼로그 전용 딤 토큰을 신설할지 결정 필요(같은 문제가 S3-7 종료 확인 다이얼로그에도 적용된다)
 - [ ] **Figma 시트 본문 텍스트 클립 수정 요청** — `44:92`가 nowrap+clip이라 첫 줄이 잘려 보인다. 구현은 전문을 표시하지만, Figma 원본도 고쳐두지 않으면 다음 리뷰·QA에서 같은 혼동이 반복된다

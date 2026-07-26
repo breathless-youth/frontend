@@ -25,7 +25,8 @@
     },
     "plugins": ["expo-router", "expo-secure-store"],
     "extra": {
-      "apiBaseUrl": "http://52.78.219.53:8080"
+      "apiBaseUrl": "http://52.78.219.53:8080",
+      "updateNoticeEnabled": false
     }
   }
 }

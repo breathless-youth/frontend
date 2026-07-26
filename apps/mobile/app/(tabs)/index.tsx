@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "../../components/icons";
+import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
 import { type FocusStartNavigator, runFocusStartFlow } from "../../lib/focusStartFlow";
 import {
   formatHoursMinutes,
@@ -190,59 +191,68 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView
-      className="bg-bg-base dark:bg-bg-base-dark flex-1"
-      contentContainerStyle={{ paddingTop: insets.top + 15, paddingBottom: 24 }}
-    >
-      <View className="gap-3 px-5">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold">
-            FocusON
-          </Text>
-          <Text className="text-text-tertiary text-[13px] font-medium">{todayLabel()}</Text>
-        </View>
+    <>
+      <ScrollView
+        className="bg-bg-base dark:bg-bg-base-dark flex-1"
+        contentContainerStyle={{ paddingTop: insets.top + 15, paddingBottom: 24 }}
+      >
+        <View className="gap-3 px-5">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold">
+              FocusON
+            </Text>
+            <Text className="text-text-tertiary text-[13px] font-medium">{todayLabel()}</Text>
+          </View>
 
-        <HeroTodayCard summary={MOCK_SUMMARY} />
+          <HeroTodayCard summary={MOCK_SUMMARY} />
 
-        <StartCtaCard
-          onPress={() => {
-            // 최초 '집중 시작' 탭이면 온보딩 가이드(G1~G5)가 먼저 뜨고, 그 종료(완료·건너뛰기
-            // 둘 다) 이후에 카메라 권한 요청으로 이어진다. 이미 본 뒤라면 곧장 권한 게이트다.
-            // 분기 규칙은 `lib/focusStartFlow.ts`가 갖는다 — 이 화면은 목적지만 넘긴다.
-            void runFocusStartFlow(HOME_FOCUS_START_NAVIGATOR)
-              // 게이트·저장소 모두 fail-safe라 reject하지 않는다(각 모듈 주석 참고).
-              // 여기 catch는 화면 전환이 실패했을 때 unhandled rejection을 막는 마지막 방어선이다 —
-              // 어떤 경우에도 세션을 시작하지 않는다.
-              .catch((error: unknown) => {
-                console.warn("[home] 집중 시작 플로우 처리 실패", error);
-              });
-          }}
-        />
-
-        <Text className="text-text-tertiary px-1 text-center text-xs">
-          카메라가 자동으로 측정해요 · 영상은 저장되지 않아요
-        </Text>
-
-        <View className="flex-row gap-3">
-          <StatCard
-            variant="streak"
+          <StartCtaCard
             onPress={() => {
-              // TODO(SCR-S1-home.md): 기록(S5) 탭이 아직 없다 — 구현 시 연결한다.
+              // 최초 '집중 시작' 탭이면 온보딩 가이드(G1~G5)가 먼저 뜨고, 그 종료(완료·건너뛰기
+              // 둘 다) 이후에 카메라 권한 요청으로 이어진다. 이미 본 뒤라면 곧장 권한 게이트다.
+              // 분기 규칙은 `lib/focusStartFlow.ts`가 갖는다 — 이 화면은 목적지만 넘긴다.
+              void runFocusStartFlow(HOME_FOCUS_START_NAVIGATOR)
+                // 게이트·저장소 모두 fail-safe라 reject하지 않는다(각 모듈 주석 참고).
+                // 여기 catch는 화면 전환이 실패했을 때 unhandled rejection을 막는 마지막 방어선이다 —
+                // 어떤 경우에도 세션을 시작하지 않는다.
+                .catch((error: unknown) => {
+                  console.warn("[home] 집중 시작 플로우 처리 실패", error);
+                });
             }}
           />
-          <StatCard variant="longest" />
-        </View>
 
-        {/*
+          <Text className="text-text-tertiary px-1 text-center text-xs">
+            카메라가 자동으로 측정해요 · 영상은 저장되지 않아요
+          </Text>
+
+          <View className="flex-row gap-3">
+            <StatCard
+              variant="streak"
+              onPress={() => {
+                // TODO(SCR-S1-home.md): 기록(S5) 탭이 아직 없다 — 구현 시 연결한다.
+              }}
+            />
+            <StatCard variant="longest" />
+          </View>
+
+          {/*
           진입 경로 B — 홈 가이드 카드에서의 "다시 보기". 최초 1회 판정과 무관하게 항상 열린다
           (`SCR-G1-G5-onboarding-guide.md` Interaction Contract §1).
         */}
-        <GuideCard
-          onPress={() => {
-            router.push({ pathname: "/onboarding-guide", params: { entry: "home-card" } });
-          }}
-        />
-      </View>
-    </ScrollView>
+          <GuideCard
+            onPress={() => {
+              router.push({ pathname: "/onboarding-guide", params: { entry: "home-card" } });
+            }}
+          />
+        </View>
+      </ScrollView>
+
+      {/*
+        U1 업데이트 안내 시트 — 홈 위에 얹히는 오버레이다. **기본은 비노출**이라 평소에는
+        아무것도 렌더하지 않는다(`app.json`의 `extra.updateNoticeEnabled`가 false).
+        노출 판정·닫힘 처리는 전부 `UpdateNoticeSheetHost` 안에 있다 — 홈은 위치만 정한다.
+      */}
+      <UpdateNoticeSheetHost />
+    </>
   );
 }
