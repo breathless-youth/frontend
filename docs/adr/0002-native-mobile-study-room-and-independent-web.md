@@ -10,6 +10,17 @@
 > `apps/mobile/features/study-session/*`는 삭제되지 않고 **비활성(dormant) 상태로 보존**되어 전환
 > 시점에 재사용됩니다. 왜 되돌렸는지와 전환 체크리스트는 [ADR 0003](./0003-phased-rollout-webview-mvp-then-native.md)을 참고하세요.
 
+> **⚠️ 용어·패키지 정정 (2026-07-26):** 아래 본문은 2026-07-22 시점의 기록이라 **이후 무효가 된
+> 이름을 그대로 담고 있습니다**(결정 이력이므로 본문은 고치지 않고 여기에 정정만 남깁니다).
+>
+> - 본문의 상태 이름 `STUDYING`/`AWAY`/`PAUSED`/`CAMERA_OFF`는 폐기됐습니다. 실제 서버 계약은
+>   `StudyEventStatus` = `PHONE`/`DEVICE`/`AWAY`/`PAUSE`이고, 사용자에게 보이는 상태는
+>   집중·비집중·일시정지 3색 체계입니다. `CAMERA_OFF`는 SCRUM-147 시점에 폐기됐고, 화면 꺼짐은
+>   2026-07-26에 일시정지로 통합됐습니다. → [docs/domain-glossary.md](../domain-glossary.md)
+> - 위 "dormant 보존" 서술도 더 이상 사실이 아닙니다 — `packages/study-core`,
+>   `apps/mobile/platform/*`, `apps/mobile/features/study-session/*`는 **2026-07-25 기능 리셋 때
+>   실제로 삭제**됐습니다(git 히스토리에서만 복구 가능). 보존된 것은 `packages/design-tokens`뿐입니다.
+
 ## 배경 (Context)
 
 FocusOn은 AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석하는 캠스터디 서비스다.

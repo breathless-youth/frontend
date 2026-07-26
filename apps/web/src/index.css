@@ -8,29 +8,52 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-bg-layer-2: var(--bg-layer-2);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-state-focus: var(--state-focus);
+  --color-state-distract: var(--state-distract);
+  --color-state-distract-subtle: var(--state-distract-subtle);
+  --color-dim: var(--dim);
   --radius-md: var(--radius);
 }
 
+/* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
+   packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --primary: #111111;
-  --primary-foreground: #ffffff;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --radius: 0.5rem;
+  --background: #ffffff; /* colors.bg.base.light */
+  --foreground: #191f28; /* colors.text.primary.light */
+  --primary: #1b64da; /* colors.brand.primary.light */
+  --primary-foreground: #ffffff; /* colors.text.onBrand.light */
+  --muted: #f9fafb; /* colors.bg.layer1.light */
+  --muted-foreground: #6b7684; /* colors.text.secondary.light */
+  --border: #e5e8eb; /* colors.border.default.light */
+  --bg-layer-2: #f2f4f6; /* colors.bg.layer2.light */
+  --text-tertiary: #8b95a1; /* colors.text.tertiary.light (일시정지 상태색으로도 쓰인다) */
+  --brand-subtle: #e8f3ff; /* colors.brand.subtle.light */
+  --state-focus: #1b64da; /* colors.state.focus.light */
+  --state-distract: #ff8a00; /* colors.state.distract.light */
+  --state-distract-subtle: #fff4e5; /* colors.state.distractSubtle.light */
+  --dim: #00000066; /* colors.bg.dim.light */
+  --radius: 0.75rem; /* colors.radius.md = 12px */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #f4f4f5;
-    --primary: #f4f4f5;
-    --primary-foreground: #111111;
-    --muted: #18181b;
-    --muted-foreground: #a1a1aa;
-    --border: #27272a;
+    --background: #101419; /* colors.bg.base.dark */
+    --foreground: #f9fafb; /* colors.text.primary.dark */
+    --primary: #3182f6; /* colors.brand.primary.dark */
+    --primary-foreground: #ffffff; /* colors.text.onBrand.dark */
+    --muted: #191f28; /* colors.bg.layer1.dark */
+    --muted-foreground: #b0b8c1; /* colors.text.secondary.dark */
+    --border: #333d4b; /* colors.border.default.dark */
+    --bg-layer-2: #333d4b; /* colors.bg.layer2.dark */
+    --text-tertiary: #8b95a1; /* colors.text.tertiary.dark */
+    --brand-subtle: #1b2b4d; /* colors.brand.subtle.dark */
+    --state-focus: #4593fc; /* colors.state.focus.dark */
+    --state-distract: #ff9e1b; /* colors.state.distract.dark */
+    --state-distract-subtle: #3d2e14; /* colors.state.distractSubtle.dark */
+    --dim: #00000099; /* colors.bg.dim.dark */
   }
 }
 

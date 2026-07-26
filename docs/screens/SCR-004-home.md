@@ -1,5 +1,7 @@
 # SCR-004 Home
 
+> ⚠️ **SUPERSEDED by [SCR-S1-home.md](./SCR-S1-home.md)** (2026-07-26) — 이 문서는 다른(당시 비어 있던) Figma 파일(`awZQ0hSGuxwMHkLfZZhsjl`)을 가리키던 낡은 초안이다. 실제 V1.0 확정 디자인 기준 스펙은 `SCR-S1-home.md`를 참고할 것. 이 문서는 감사 추적용으로 삭제하지 않고 보존한다.
+
 ## Purpose
 
 FocusOn 모바일 앱의 로그인 후 홈 화면이다. 사용자가 당일 00:00부터 현재까지의 공부 상태를 빠르게 확인하고, 싱글룸 또는 멀티룸으로 진입하는 역할을 한다.
