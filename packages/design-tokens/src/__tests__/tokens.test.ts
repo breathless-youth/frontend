@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { spacing, statusColors, tokens } from "../index";
+import { colors, radius, spacing, statusColors, tokens } from "../index";
 
 describe("design-tokens", () => {
   it("네 가지 공부 상태 모두에 의미색이 정의되어 있다", () => {
@@ -21,5 +21,24 @@ describe("design-tokens", () => {
     expect(tokens).toHaveProperty("typography");
     expect(tokens).toHaveProperty("radius");
     expect(tokens).toHaveProperty("iconMeanings");
+  });
+
+  it("radius.full은 Figma 확정값 999다(과거 9999 아님)", () => {
+    expect(radius.full).toBe(999);
+  });
+
+  it("일시정지 상태색은 text.tertiary를 재사용하고 Light/Dark가 동일하다(ai-wiki #8B95A1과 일치)", () => {
+    expect(colors.text.tertiary.light).toBe("#8b95a1");
+    expect(colors.text.tertiary.dark).toBe("#8b95a1");
+    expect(statusColors.PAUSED).toEqual(colors.text.tertiary);
+  });
+
+  it("색상 시맨틱 그룹마다 Light/Dark 값을 모두 갖는다", () => {
+    for (const group of Object.values(colors)) {
+      for (const value of Object.values(group)) {
+        expect(value).toHaveProperty("light");
+        expect(value).toHaveProperty("dark");
+      }
+    }
   });
 });
