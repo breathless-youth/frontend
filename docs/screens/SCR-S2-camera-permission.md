@@ -125,12 +125,12 @@ S2-3 · 권한 거부 안내
 - `@focuson/types`(`packages/types/src/index.ts`)에 권한 관련 타입은 없고, **필요하지도 않다** — 새로 만들지 않는다.
 - 권한 상태를 별도로 영속 저장하지 않는다. OS 권한 상태(미결정/허용/거부)가 단일 진실이며, 앱이 `granted` 플래그를 `expo-secure-store`나 AsyncStorage에 복제하면 설정 앱에서 바뀐 값과 어긋난다. **로컬 미러링 금지.**
   - (참고: G1~G5 온보딩의 "최초 1회" 판정용 영속 플래그는 별개 관심사다 — MG5 스펙 소관이며 이 화면에서 만들지 않는다.)
-- 권한 조회/요청을 수행할 **네이티브 모듈이 현재 설치돼 있지 않다**(`apps/mobile/package.json`에 `expo-camera`·`react-native-webview` 없음 — 2026-07-25 기능 리셋으로 제거). 어떤 모듈로 OS 다이얼로그를 띄울지는 **미정 — 리더 확인 필요**(아래 Interaction Contract 참고). 루트 `CLAUDE.md`의 "검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것"이 적용된다.
+- 권한 조회/요청은 **`expo-camera`(`~17.0.10`)의 권한 API로 구현한다** — 2026-07-27 확정([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 카메라 프리뷰(`CameraView`)는 쓰지 않는다: 카메라 스트림은 `apps/web`의 WebView `getUserMedia` 소유다(ADR 0001). `expo-camera`는 Expo Go에 기본 포함이라 Dev Client가 필요 없고, `app.json`은 바뀌지 않는다(config plugin 미추가 — 근거는 ADR 0004).
 
-빌더가 만들 어댑터 인터페이스(패키지가 아니라 `apps/mobile/lib/`에 둔다 — 화면 전용 코드를 공유 패키지로 미리 빼지 않는다):
+어댑터 인터페이스(패키지가 아니라 `apps/mobile/lib/`에 둔다 — 화면 전용 코드를 공유 패키지로 미리 빼지 않는다):
 
 ```ts
-// apps/mobile/lib/cameraPermission.ts — 실제 네이티브 모듈은 아직 미정(TODO)
+// apps/mobile/lib/cameraPermission.ts
 export type CameraPermissionStatus = "undetermined" | "granted" | "denied";
 
 export function getCameraPermissionStatus(): Promise<CameraPermissionStatus>;
@@ -140,7 +140,9 @@ export function requestCameraPermission(): Promise<CameraPermissionStatus>;
 export function openAppSettings(): Promise<void>;
 ```
 
-`openAppSettings`만은 지금 바로 실제 구현이 가능하다 — React Native 코어 `Linking.openSettings()`(RN 0.81) 또는 이미 의존성에 있는 `expo-linking`(`~8.0.12`)의 `openSettings()`를 쓴다. **새 의존성 추가 없이 가능하다.** 나머지 둘은 인터페이스 + mock으로 두고 TODO를 남긴다.
+`expo-camera`의 `PermissionStatus` enum 값이 `"granted"`/`"undetermined"`/`"denied"`로 위 유니온과 그대로 일치해 변환표가 없다. 두 함수는 개별 export가 아니라 집계 객체 `Camera`로만 도달한다(`import { Camera } from "expo-camera"`) — 개별 import는 typecheck에서 실패한다.
+
+`openAppSettings`는 새 의존성 없이 React Native 코어 `Linking.openSettings()`(RN 0.81)로 구현돼 있다.
 
 ## Interaction Contract
 
@@ -173,24 +175,25 @@ export function openAppSettings(): Promise<void>;
 | `설정 열기` 탭                       | `openAppSettings()` — OS 설정 앱의 FocusON 설정 화면으로 이동. iOS/Android 동일 API. 앱 내부 화면 전환 없음(S2-3은 그대로 유지). |
 | `홈으로 돌아가기` 탭                 | S2-3 라우트를 닫고 홈(S1)으로 복귀. 세션은 시작하지 않는다.                                                                      |
 | 하드웨어 백 / 스와이프 백            | `홈으로 돌아가기`와 동일하게 처리(홈 복귀). 이 화면을 백 제스처로 막지 않는다.                                                   |
-| 설정에서 권한을 허용하고 앱으로 복귀 | **미정 — 리더/사용자 확인 필요** (아래 참조)                                                                                     |
+| 설정에서 권한을 허용하고 앱으로 복귀 | **홈으로 복귀만 한다. 세션을 자동 시작하지 않는다** — 확정 (2026-07-27, 아래 참조)                                               |
 
-**미정 — 리더/사용자 확인 필요: 설정에서 허용 후 복귀 시 동작**
+**확정 (2026-07-27): 설정에서 허용 후 복귀 시 동작 = 홈 복귀**
 
-`ai-wiki` 어디에도 확정된 서술이 없다. 선택지는 ① 복귀 즉시 S2-3을 닫고 세션을 자동 시작 ② S2-3을 닫고 홈으로만 복귀(세션은 사용자가 다시 "집중 시작"을 눌러야 시작) ③ S2-3에 머무르며 아무것도 하지 않음. 빌더는 **임의로 확정하지 말고** 다음처럼 처리한다:
+`AppState`가 `active`로 바뀔 때 권한을 재조회하고, `granted`면 S2-3을 닫고 홈으로 복귀한다. **세션은 자동 시작하지 않는다** — 사용자가 명시적으로 "집중 시작"을 누르지 않은 상태에서 카메라를 켜지 않는다. 홈에서 다시 "집중 시작"을 누르면 권한이 이미 허용돼 있으므로 곧바로 세션으로 이어진다.
 
-- `AppState`가 `active`로 바뀔 때 권한 상태를 재조회하는 훅 자리만 만든다.
-- 재조회 결과 `granted`이면 **②(홈으로 복귀, 세션 자동 시작 안 함)**를 잠정 동작으로 둔다 — 사용자 액션 없이 카메라 세션을 시작하지 않는 쪽이 프라이버시상 안전하기 때문이며, **확정된 결정이 아니다.**
-- 해당 분기에 `// TODO(SCR-S2-camera-permission.md): 설정 복귀 후 자동 세션 시작 여부 미확정 — 리더 확인 필요` 주석을 남긴다.
+재조회가 실패하면 이 화면에 그대로 머문다 — 상태를 모르는 채 화면을 옮기지 않는다.
 
-(참고: `design.md` 백로그 6번 "화면 꺼짐·백그라운드 복귀 시 재개 방식(자동 vs 수동)"은 **세션 중** 일시정지 복귀에 관한 별개 미정 항목이다. 이 화면의 미정 항목과 혼동하지 말 것 — 다만 두 항목은 함께 결정되는 편이 일관적이므로 리뷰 시 같이 올린다.)
+(참고: `design.md` 백로그 6번 "화면 꺼짐·백그라운드 복귀 시 재개 방식"은 **세션 중** 일시정지 복귀에 관한 별개 항목이며 2026-07-26에 **수동 재개**로 확정됐다. 두 결정의 방향이 같다 — 사용자 액션 없이 측정을 재개하지 않는다.)
 
-### 카메라 필수 정책이 만드는 경계
+### 권한 거부 시의 경계
 
-`policies.md` §3: "MVP는 카메라 권한 없이 사용 불가. 수동 타이머 모드는 추후 검토". 따라서
+권한이 없어도 홈·기록(S5)·설정(S6) 탭 자체는 계속 사용 가능하다(세션만 막힌다). S2-3은 세션 진입을 막는 게이트일 뿐 앱 전체를 잠그는 화면이 아니다.
 
-- S2-3에는 "카메라 없이 시작하기" 같은 우회 경로를 **만들지 않는다**.
-- 권한이 없어도 홈·기록(S5)·설정(S6) 탭 자체는 계속 사용 가능하다(세션만 막힌다). S2-3은 세션 진입을 막는 게이트일 뿐 앱 전체를 잠그는 화면이 아니다.
+⚠️ **이 화면은 현재 막다른 안내이며, 그것이 확정 정책과 어긋난다.** 이 문서는 원래 `policies.md` §3의 "MVP는 카메라 권한 없이 사용 불가. 수동 타이머 모드는 추후 검토"(2026-07-23)를 근거로 "우회 경로를 만들지 않는다"고 적었으나, **그 결정은 2026-07-26에 대체됐다**:
+
+> 카메라 권한 거부 대응: **수동 타이머 모드 제공** — 카메라 권한을 거부해도 수동 시작/종료 타이머로 순공 시간 측정과 통계·스트릭을 동일하게 이용 가능. 설정 > 측정 방식에서 전환 (2026-07-26 결정, 스토어 심사 Guideline 2.1 대응 목적. 기존 "카메라 필수, 수동 모드 추후 검토" 2026-07-23 결정을 대체) — `ai-wiki/product/policies.md` §3
+
+`user-flow.md`(예외 플로우 · S6 행)와 `app-review-checklist.md` 1-1도 같은 방향이며, 심사 체크리스트는 이 항목을 **"FE 구현은 아직 남음, 심사 제출 전 완료 필수 (가장 중요한 액션 아이템)"**으로 표시한다. S2-3에 수동 모드 진입 경로가, S6에 "측정 방식" 행이 필요하다. **이번 범위 밖이며 별도 스펙·티켓으로 진행한다** — 다만 "우회 경로 금지"를 근거로 이 화면을 그대로 굳히지 말 것.
 
 ## Design Tokens Used
 
@@ -260,8 +263,8 @@ export function openAppSettings(): Promise<void>;
 
 ## Current Limitations
 
-- **권한 조회/요청 네이티브 모듈 미정** — `expo-camera`가 설치돼 있지 않아 실제로 OS 다이얼로그를 띄울 수단이 현재 없다. 어댑터 인터페이스 + mock으로만 구현된다. 이 상태에서는 S2-2 → S2-3 전이를 실기기로 검증할 수 없다.
-- **설정 복귀 후 동작 미정** — 위 Interaction Contract 참고. 잠정 동작으로만 구현.
+- ~~권한 조회/요청 네이티브 모듈 미정~~ → **해소 (2026-07-27)**: `expo-camera ~17.0.10`으로 실제 조회·요청을 구현했다([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). iOS 시뮬레이터에서 조회가 OS 실제 상태를 따라오는 것을 확인했다(`simctl privacy revoke`/`grant`에 S6 토글이 반응). **다만 OS 권한 다이얼로그(S2-2) 자체의 노출은 아직 시각 확인하지 않았다** — 자동화로 탭할 수단이 없어 수동 확인이 남아 있다.
+- ~~설정 복귀 후 동작 미정~~ → **해소 (2026-07-27)**: 홈 복귀로 확정. 위 Interaction Contract 참고.
 - **Figma의 S2-2 배경과 확정 플로우의 괴리** — Figma `52:139`는 다이얼로그를 **S1 홈 위에** 얹어 그렸지만, `mvp-scope.md`·`user-flow.md`의 확정 플로우에서 권한 요청 시점은 **G5(온보딩 마지막) 이후**다. 다이얼로그 뒤 배경은 OS가 통제하지 않는 앱 화면이므로 구현에는 영향이 없으나, **"홈에서 집중 시작을 누르는 즉시 권한을 요청한다"로 오독하면 안 된다.** ai-wiki가 최신(2026-07-26)이므로 플로우는 ai-wiki를 따르고, Figma 시안 갱신은 Review Checklist로 남긴다.
 - **앱 표시명 — `FocusON`으로 확정 및 반영 완료**(2026-07-26 리더 확정). `app.json`의 `expo.name`을 `"FocusON"`으로 변경해 iOS 다이얼로그 제목이 Figma·`glossary.md`와 일치한다. `expo.slug`(EAS 프로젝트 식별자)는 영향 범위가 커서 변경하지 않고 `"mobile"`로 유지했다 — slug 변경이 필요하면 별도 결정.
 - **Android 분기 시안 없음** — Figma `4. Screens — Android` 페이지(`14:5`)는 비어 있다(`design.md` 백로그 7번 ②). Android 3옵션 권한 다이얼로그(앱 사용 중에만/이번만/허용 안 함)의 거부 판정 처리(특히 "이번만 허용" 이후 만료)는 시안·정책이 모두 없다. iOS 기준으로 구현하고 Android 차이는 별도 확인.
@@ -271,8 +274,10 @@ export function openAppSettings(): Promise<void>;
 ## Review Checklist
 
 - [x] `app.json`의 `expo.name`을 `"FocusON"`으로 변경 완료(2026-07-26). `expo.slug`는 EAS 영향으로 `"mobile"` 유지 — 필요 시 별도 결정.
-- [ ] 카메라 권한 조회/요청에 쓸 네이티브 모듈 확정(`expo-camera` 추가 vs WebView 계층 위임) — 새 의존성 추가 승인 필요.
-- [ ] **설정에서 권한 허용 후 앱 복귀 시 동작 확정** — 세션 자동 시작 vs 홈 복귀 vs 유지. (`design.md` 백로그 6번 "화면 꺼짐 복귀 재개 방식"과 함께 결정 권장)
+- [x] 카메라 권한 조회/요청에 쓸 네이티브 모듈 확정 — **`expo-camera ~17.0.10`, 권한 API만** (2026-07-27 리더 승인, [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)).
+- [x] **설정에서 권한 허용 후 앱 복귀 시 동작 확정** — **홈 복귀, 세션 자동 시작 안 함** (2026-07-27).
+- [ ] S2-2 OS 권한 다이얼로그 실제 노출 확인 — 시뮬레이터/실기기에서 "집중 시작" → G5 이후 다이얼로그가 뜨는지 수동 확인 필요(자동화 탭 수단 없음).
+- [ ] **S2-3에 수동 타이머 모드 진입 경로 추가** — `policies.md` §3(2026-07-26)·`app-review-checklist.md` 1-1 확정 정책이며 심사 제출 전 필수. 별도 스펙·티켓.
 - [ ] Figma S2-2(`52:139`)의 배경을 확정 플로우(G5 이후)에 맞춰 갱신할지 — 현재 S1 홈 위에 그려져 있어 요청 시점을 오독할 여지가 있다.
 - [ ] Figma `icon-circle`(`52:330`)의 `#F2F4F6`에 `bg/layer2` 변수 바인딩 추가 — 지금은 하드코딩이라 Figma 자체 다크모드에서 흰 원이 남는다(코드는 토큰으로 바인딩해 선반영).
 - [ ] Android 권한 다이얼로그(3옵션) 시안 및 "이번만 허용" 만료 시 처리 정책 확정 — Figma `14:5` 페이지가 비어 있다.

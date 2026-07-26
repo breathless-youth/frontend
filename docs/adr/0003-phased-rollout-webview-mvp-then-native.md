@@ -60,6 +60,7 @@
 
 1. `apps/mobile/app/room/[id].tsx`를 WebView 버전에서 `features/study-session/NativeStudyRoomScreen.tsx`를 라우트로 감싸는 형태로 교체(또는 그 내용을 `app/room/[id].tsx`로 다시 이동).
 2. `platform/camera`를 mock에서 실제 구현(`expo-camera` 재설치 등)으로 교체.
+   > **참고 (2026-07-27)**: `expo-camera`는 **권한 조회·요청 API만 쓰는 좁은 목적으로 이미 재설치됐다**([ADR 0004](./0004-expo-camera-for-permission-api-only.md)). 그것은 이 체크리스트의 발동이 아니다 — 카메라 스트림·Vision은 여전히 `apps/web`(ADR 0001) 소유이고, `expo-camera`가 Expo Go에 기본 포함이라 아래 3번(Dev Client·EAS)도 필요하지 않았다. 이 항목이 말하는 것은 **`CameraView`로 네이티브 프리뷰를 그리고 온디바이스 Vision을 붙이는 전환**이며, 그때는 아래 트리거 조건 확인이 여전히 선행된다.
 3. `expo-dev-client` 재설치, `eas.json`의 development 프로필로 Dev Build 생성(`eas init` 먼저 필요).
 4. `platform/vision`, `platform/rtc`의 mock을 실제 온디바이스 Vision/LiveKit RN 어댑터로 교체(ADR 0002의 "기술 스파이크 항목" 순서를 따른다).
 5. `apps/mobile/app.json`에 카메라 권한 유지 확인, `expo-camera` config plugin 재추가, `extra.webAppUrl` 제거(더 이상 WebView를 안 쓰면).
