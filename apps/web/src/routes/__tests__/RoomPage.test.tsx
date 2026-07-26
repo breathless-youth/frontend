@@ -405,8 +405,7 @@ describe("RoomPage — S3-3 일시정지", () => {
     expect(screen.queryByText(/화면 꺼짐/)).not.toBeInTheDocument();
   });
 
-  it("복귀해도 일시정지에 머문다 — 재개 방식 미확정이라 onReturnFromBackground가 no-op이다", () => {
-    // ⚠️ 이건 "수동 재개로 확정"이 아니라 **미구현**이다(design.md 백로그 6번, 임의 확정 금지).
+  it("복귀해도 일시정지에 머문다 — 수동 재개 확정(2026-07-26)", () => {
     renderRoom("/room/7?userId=1");
 
     act(() => {

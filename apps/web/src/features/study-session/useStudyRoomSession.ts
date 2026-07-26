@@ -68,8 +68,8 @@ export interface StudyRoomSessionOptions {
   readonly tickMs?: number;
   /**
    * 세션 튜닝 파라미터 — 지금은 일시정지 자동 종료 임계값(S3-8) 하나뿐이다.
-   * 기본값은 `autoEndPauseMinutes: null`(감시 비활성) — 실제 N분이 ai-wiki에서 미정이라
-   * 임의 숫자를 넣지 않는다. 테스트·운영 설정이 짧은 값을 주입해 감시를 켠다.
+   * 기본값은 `autoEndPauseMinutes: 20`(2026-07-26 리더 확정). 테스트는 짧은 값을 주입해
+   * 감시를 빠르게 재현한다.
    */
   readonly tuning?: SessionTuningConfig;
   /** 자동 종료 감시 주기(ms) — 테스트 주입용. */
@@ -225,13 +225,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [applyState]);
 
   /**
-   * TODO(미정: 자동/수동 재개 — 리더 확인). 화면 꺼짐·백그라운드 복귀 시 자동 재개할지
-   * 일시정지 화면에서 수동 재개할지는 `design.md` 백로그 6 / 6차 인터뷰에 "구현 시 결정,
-   * 임의 확정 금지"로 남아 있다. 인터페이스만 두고 동작은 스펙 확정 후 WG2가 채운다.
-   * 현재 상태: **미구현 — 복귀해도 PAUSE 유지(정책 미확정)**.
+   * **확정: 수동 재개**(2026-07-26 리더 확정). 화면 꺼짐·백그라운드에서 돌아와도 세션은
+   * 자동으로 재개되지 않는다 — 사용자가 일시정지 화면의 재개 버튼을 직접 눌러야 한다.
+   * 그래서 복귀 시 상태를 바꾸지 않는다(no-op) — 이건 임시가 아니라 확정된 동작이다.
    */
   const onReturnFromBackground = useCallback(() => {
-    // 의도적 no-op.
+    // 의도적 no-op — 자동 재개하지 않는다(확정 정책).
   }, []);
 
   /**
@@ -239,7 +238,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 트리거만 `"BACKGROUND"`로 다르고 상태·화면·문구·시간 처리·서버 전송은 완전히 동일하다 —
    * 별도 상태나 별도 화면을 만들지 않는다.
    *
-   * 복귀는 위 `onReturnFromBackground`로 넘긴다(현재 no-op — 재개 방식 미확정).
+   * 복귀는 위 `onReturnFromBackground`로 넘긴다(수동 재개 확정 — 자동으로 이어지지 않는다).
    */
   useEffect(() => {
     if (phase.name !== "studying") {
