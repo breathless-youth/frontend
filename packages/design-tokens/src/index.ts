@@ -29,7 +29,7 @@ export const colors = {
     errorSubtle: { light: "#ffebee", dark: "#3d1b1f" },
     success: { light: "#12b76a", dark: "#32d583" },
   },
-  /** 세션 오버레이 상태색(집중/비집중) — 일시정지는 별도 상태색이 없고 text.tertiary를 재사용한다(아래 statusColors 참고). */
+  /** 세션 오버레이 상태색(집중/비집중) — 일시정지는 별도 상태색이 없고 text.tertiary를 재사용한다(아래 sessionStateColors 참고). */
   state: {
     focus: { light: "#1b64da", dark: "#4593fc" },
     focusSubtle: { light: "#e8f3ff", dark: "#1b2b4d" },
@@ -49,18 +49,34 @@ export const colors = {
 } as const;
 
 /**
- * 공부 상태별 의미색. ⚠️ 이 4개 키(STUDYING/AWAY/PAUSED/CAMERA_OFF)는 실제 API 계약
- * `StudyEventStatus`(PHONE/DEVICE/AWAY/PAUSE — packages/types)와 이름이 어긋난다.
- * 이 불일치는 정책 판단이 필요해 의도적으로 그대로 두었다(리네이밍하지 않음) — 자세한 내용은
- * .claude/skills/focuson-screens-orchestrator/_workspace/01_design-tokens-sync-report.md 참고.
- * 색상 값 자체는 Figma 확정 시맨틱 토큰으로 갱신했다: 집중=state.focus, 일시정지=text.tertiary
- * (2026-07-26 정책 — 화면꺼짐·백그라운드도 일시정지에 통합), 나머지 비공부 이벤트는 state.distract로 통일.
+ * 세션 상태 표시색 — 3색 체계. 결과 타임라인 범례와 세션 상태 필에 쓴다.
+ * 근거: ai-wiki `product/mvp-scope.md` 세션 상태 모델 + `product/design.md`(2026-07-26 확정).
+ *
+ * - FOCUS(집중): 순공·총 공부 모두 진행. 기본 상태이므로 서버 이벤트로 기록되지 않는다.
+ * - DISTRACTION(비집중): 감지 3종(자리 이탈·휴대폰 사용·기기 조작). 순공만 정지, 총 공부는 진행.
+ * - PAUSE(일시정지): 수동 일시정지 + 화면 꺼짐·백그라운드(2026-07-26 통합). 순공·총 공부 모두 정지.
  */
-export const statusColors = {
-  STUDYING: colors.state.focus,
-  AWAY: colors.state.distract,
-  PAUSED: colors.text.tertiary,
-  CAMERA_OFF: colors.state.distract,
+export const sessionStateColors = {
+  FOCUS: colors.state.focus,
+  DISTRACTION: colors.state.distract,
+  PAUSE: colors.text.tertiary,
+} as const;
+
+/**
+ * 서버 이벤트 상태별 표시색. 키는 `@focuson/types`의 `StudyEventStatus`
+ * (`"PHONE" | "DEVICE" | "AWAY" | "PAUSE"` — 백엔드 Swagger 계약)와 1:1로 대응한다.
+ *
+ * 이 패키지는 순수 값 패키지라 `@focuson/types`를 import하지 않는다(아키텍처 경계 유지) —
+ * 대신 키 집합이 어긋나지 않도록 테스트로 고정한다. 계약이 바뀌면 이 표와 테스트를 함께 고친다.
+ *
+ * 비집중 3종(PHONE·DEVICE·AWAY)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
+ * (`ai-wiki/product/glossary.md`의 노출 표기 참고).
+ */
+export const eventStatusColors = {
+  PHONE: sessionStateColors.DISTRACTION,
+  DEVICE: sessionStateColors.DISTRACTION,
+  AWAY: sessionStateColors.DISTRACTION,
+  PAUSE: sessionStateColors.PAUSE,
 } as const;
 
 /** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 Pretendard 미설치로 Inter 임시 적용 중(교체하지 않는다). */
@@ -125,7 +141,8 @@ export const iconMeanings = {
 
 export const tokens = {
   colors,
-  statusColors,
+  sessionStateColors,
+  eventStatusColors,
   typography,
   spacing,
   radius,
@@ -133,7 +150,8 @@ export const tokens = {
 } as const;
 
 export type Colors = typeof colors;
-export type StatusColors = typeof statusColors;
+export type SessionStateColors = typeof sessionStateColors;
+export type EventStatusColors = typeof eventStatusColors;
 export type Typography = typeof typography;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;
