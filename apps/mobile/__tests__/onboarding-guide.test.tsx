@@ -1,3 +1,4 @@
+import { colors } from "@focuson/design-tokens";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { router } from "expo-router";
 
@@ -106,6 +107,27 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     expect(screen.getByText("00:00:12", { includeHiddenElements: true })).toBeTruthy();
     expect(screen.getByText("총 00:00:22", { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText("00:00:12")).toBeNull();
+  });
+
+  it("G2 순공 타이머는 정지색으로 렌더된다 — 멈췄다는 걸 즉시 읽히게 하는 신호", () => {
+    render(<OnboardingGuideScreen />);
+    pressNext();
+
+    // Figma `68:982` fill `#8b95a1` = `colors.text.tertiary`(= sessionStateColors.PAUSE).
+    const focusTimer = screen.getByText("00:00:12", { includeHiddenElements: true });
+    expect(focusTimer.props.style).toMatchObject({ color: colors.text.tertiary.dark });
+    // 총 공부 줄은 5스텝 공통 색이라 함께 바뀌지 않는다.
+    expect(
+      screen.getByText("총 00:00:22", { includeHiddenElements: true }).props.style,
+    ).not.toMatchObject({ color: colors.text.tertiary.dark });
+  });
+
+  it("G1 순공 타이머는 진행색(흰색)이다", () => {
+    render(<OnboardingGuideScreen />);
+
+    expect(screen.getByText("00:00:19", { includeHiddenElements: true }).props.style).toMatchObject(
+      { color: "#FFFFFF" },
+    );
   });
 
   it("강조 대상만 스크린 리더에 노출한다 — G1은 타이머", () => {

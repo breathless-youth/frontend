@@ -62,7 +62,7 @@ function StepBody({
       focusSec={focusSec}
       totalSec={totalSec}
       showCaption={step.backdrop.showPrivacyCaption}
-      simple={step.backdrop.base === "simple"}
+      tone={step.backdrop.focusTimerTone}
       emphasized={step.emphasis === "timer"}
     />
   );

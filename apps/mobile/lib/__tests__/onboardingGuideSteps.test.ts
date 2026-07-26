@@ -81,6 +81,26 @@ describe("목업 배경 상태", () => {
     }
   });
 
+  it("순공 타이머 색조가 Figma 텍스트 노드의 fill과 일치한다", () => {
+    // G1 `68:906` #ffffff · G2 `68:982` #8b95a1 · G3 `68:1061` #4593fc ·
+    // G4 `68:1124` #8b95a1 · G5 `68:1291` #ffffff (2026-07-26 get_design_context 실측).
+    // 총 공부 줄은 5스텝 모두 white 42%로 같다 — 순공만 색이 바뀌는 게 Figma의 규칙이다.
+    expect(ONBOARDING_GUIDE_STEPS.map((step) => step.backdrop.focusTimerTone)).toEqual([
+      "active",
+      "stopped",
+      "simple",
+      "stopped",
+      "active",
+    ]);
+  });
+
+  it("정지 색조는 정지한 타이머에만 붙는다 — G2는 값도 색도 멈춤을 가리킨다", () => {
+    const g2 = ONBOARDING_GUIDE_STEPS[1].backdrop;
+
+    expect(g2.freezeFocusTimer).toBe(true);
+    expect(g2.focusTimerTone).toBe("stopped");
+  });
+
   it("G4만 컨트롤 바를 dim 위로 끌어올려 강조한다", () => {
     expect(
       ONBOARDING_GUIDE_STEPS.filter((step) => step.backdrop.controlBar === "raised").map(

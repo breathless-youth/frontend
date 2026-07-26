@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import {
+  type FocusTimerTone,
   formatSessionClock,
   formatTotalStudyClock,
   type MockBackdrop,
@@ -17,7 +18,15 @@ import {
   GUIDE_DISTRACT_BORDER,
   GUIDE_DISTRACT_COLOR,
   GUIDE_FOCUS_COLOR,
+  GUIDE_SIMPLE_TIMER_GLOW,
 } from "./coachOverlayTheme";
+
+/** 순공 타이머 색조 → 실제 색. Figma 텍스트 노드 fill과 1:1 대응한다. */
+const FOCUS_TIMER_COLORS: Record<FocusTimerTone, string> = {
+  active: coachOverlay.mockTimer,
+  stopped: coachTokenColors.mockTimerStopped,
+  simple: coachTokenColors.privacyIllustAccent,
+};
 
 /**
  * 온보딩 가이드 배경의 **세션 화면 목업** — Figma `Session / Camera Preview BG`(58:109),
@@ -249,18 +258,22 @@ export function MockTimerBlock({
   focusSec,
   totalSec,
   showCaption,
-  simple,
+  tone,
   emphasized,
 }: {
   focusSec: number;
   totalSec: number;
   showCaption: boolean;
-  /** 심플 모드(G3) — 타이머가 발광 블루가 된다. */
-  simple: boolean;
+  /**
+   * 순공 타이머 색조. Figma가 텍스트 노드마다 fill을 직접 지정해둔 값이고, 총 공부 줄은
+   * 5스텝 모두 같은 색이다 — 순공만 색이 바뀌는 것이 규칙이다(`FocusTimerTone` 참고).
+   */
+  tone: FocusTimerTone;
   emphasized: boolean;
 }) {
   const clock = formatSessionClock(focusSec);
   const total = formatTotalStudyClock(totalSec);
+  const focusColor = FOCUS_TIMER_COLORS[tone];
 
   return (
     <View
@@ -280,10 +293,11 @@ export function MockTimerBlock({
           letterSpacing: -0.5,
           textAlign: "center",
           fontVariant: ["tabular-nums"],
-          color: simple ? coachTokenColors.privacyIllustAccent : coachOverlay.mockTimer,
-          ...(simple
+          color: focusColor,
+          // 발광은 심플 모드에만 있다 — 글자색과 같은 색에서 파생시켜 둘이 어긋나지 않게 한다.
+          ...(tone === "simple"
             ? {
-                textShadowColor: "rgba(69,147,252,0.55)",
+                textShadowColor: GUIDE_SIMPLE_TIMER_GLOW,
                 textShadowOffset: { width: 0, height: 0 },
                 textShadowRadius: 24,
               }

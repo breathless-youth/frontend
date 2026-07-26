@@ -75,7 +75,7 @@ export const coachOverlay = {
   mockPreviewLabel: "rgba(255,255,255,0.16)",
   /** 목업 배경 — 심플 모드. */
   mockSimpleBg: "#0B0F14",
-  /** 목업 타이머 블록. */
+  /** 목업 타이머 블록 — 진행 중(`active`) 색. 정지·심플 색은 `coachTokenColors` 참고. */
   mockTimer: "#FFFFFF",
   mockTotal: "rgba(255,255,255,0.42)",
   mockCaption: "rgba(255,255,255,0.55)",
@@ -105,7 +105,21 @@ export const coachTokenColors = {
    * 무관하다 — CTA 색이 라이트값으로 확정되더라도 이 값은 그대로다. 그래서 상수를 분리했다.
    */
   privacyIllustAccent: colors.state.focus.dark,
+  /**
+   * 멈춘 순공 타이머(G2·G4) `#8b95a1` = `text/tertiary`.
+   * 이 토큰은 `sessionStateColors.PAUSE`이기도 하다 — "지금 올라가지 않는 시간"이라는
+   * 뜻이 이미 토큰에 붙어 있어서, 값이 같은 게 우연이 아니라 의미가 같은 경우다.
+   * Light/Dark 값이 동일해 다크 오버레이 위에서도 그대로 쓴다.
+   */
+  mockTimerStopped: colors.text.tertiary.dark,
 } as const;
+
+/**
+ * 심플 모드(G3) 타이머의 발광. Figma 실측은 `rgba(69,147,252,0.55)`인데 이는 글자색
+ * `#4593FC`와 같은 색이다 — 10진수로 다시 적으면 토큰이 바뀔 때 글자만 따라가고 글로우가
+ * 어긋나므로 토큰에서 파생시킨다. 8자리 hex의 `8C`(=140/255)가 55% 알파다.
+ */
+export const GUIDE_SIMPLE_TIMER_GLOW = `${colors.state.focus.dark}8C`;
 
 export const coachRadius = {
   /** 툴팁 `16px` = `radius.lg`. */

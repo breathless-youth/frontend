@@ -74,6 +74,30 @@ export type MockStatusPill = {
 };
 
 /**
+ * 순공 타이머의 색조. Figma가 **텍스트 노드마다 fill을 직접 지정**해둔 값이며, 총 공부 줄은
+ * 5스텝 모두 white 42%로 같다 — 즉 순공 타이머의 색만 스텝마다 달라지는 것이 규칙이다.
+ *
+ * | 스텝 | Figma node | fill |
+ * | --- | --- | --- |
+ * | G1 | `68:906`  | `#ffffff` |
+ * | G2 | `68:982`  | `#8b95a1` |
+ * | G3 | `68:1061` | `#4593fc` (발광) |
+ * | G4 | `68:1124` | `#8b95a1` |
+ * | G5 | `68:1291` | `#ffffff` |
+ *
+ * `#8b95a1`은 `colors.text.tertiary`이자 `sessionStateColors.PAUSE`다 — "이 타이머는 지금
+ * 올라가지 않는다"는 뜻이 색으로 붙어 있는 것이고, G2에서는 이 회색이 "순공만 멈췄다"를
+ * 즉시 알려주는 유일한 신호다(숫자가 안 움직이는 것만으로는 1초 이상 응시해야 알아챈다).
+ */
+export type FocusTimerTone =
+  /** 진행 중 — 흰색 (G1·G5) */
+  | "active"
+  /** 정지 — `text/tertiary` = 일시정지 상태색 (G2·G4) */
+  | "stopped"
+  /** 심플 모드 — 발광 블루 (G3) */
+  | "simple";
+
+/**
  * 목업 배경의 스텝별 상태. **표시 전용이다** — 실제 세션 로직·카메라·집계와 무관하고
  * 서버에 아무것도 보내지 않는다(스펙 Ownership Boundary).
  */
@@ -95,6 +119,8 @@ export type MockBackdrop = {
    * 이 인과가 G2의 교육 목적 그 자체다 — 애니메이션을 단순화하더라도 깨지 않는다.
    */
   freezeFocusTimer: boolean;
+  /** 순공 타이머 색조 — Figma 텍스트 노드의 fill 그대로(위 `FocusTimerTone` 표 참고). */
+  focusTimerTone: FocusTimerTone;
 };
 
 /** 툴팁이 무엇 바로 옆에 붙는가 = Figma의 y좌표가 표현하려던 "관계". */
@@ -167,6 +193,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 19,
       seedTotalSec: 22,
       freezeFocusTimer: false,
+      focusTimerTone: "active",
     },
   },
   {
@@ -197,6 +224,9 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 12,
       seedTotalSec: 22,
       freezeFocusTimer: true,
+      // 값이 멈춘 것만으로는 1초 이상 봐야 알아챈다 — Figma는 색까지 정지색으로 바꿔
+      // "순공만 멈췄다"를 즉시 읽히게 했다(`68:982` fill `#8b95a1`).
+      focusTimerTone: "stopped",
     },
   },
   {
@@ -227,6 +257,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 1508,
       seedTotalSec: 1668,
       freezeFocusTimer: false,
+      focusTimerTone: "simple",
     },
   },
   {
@@ -256,6 +287,12 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 20,
       seedTotalSec: 23,
       freezeFocusTimer: false,
+      // ⚠️ Figma는 값은 진행 중(`00:00:20`)으로 두면서 색만 정지색으로 칠했다(`68:1124`
+      // fill `#8b95a1`). 그대로 옮기면 **회색인데 초가 올라가는** 숫자가 된다 — Figma 안에서는
+      // 정지 프레임이라 드러나지 않던 모순이다. 색·값 중 어느 쪽도 임의로 고치지 않고 Figma를
+      // 그대로 따르되, 이 사실이 위 Review Checklist 항목("G4에서 순공·총 모두 정지 시연을
+      // 추가할지")의 판단 근거가 되도록 남긴다.
+      focusTimerTone: "stopped",
     },
   },
   {
@@ -282,6 +319,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 20,
       seedTotalSec: 23,
       freezeFocusTimer: false,
+      focusTimerTone: "active",
     },
   },
 ];
