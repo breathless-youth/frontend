@@ -263,14 +263,14 @@ export function openAppSettings(): Promise<void>;
 - **권한 조회/요청 네이티브 모듈 미정** — `expo-camera`가 설치돼 있지 않아 실제로 OS 다이얼로그를 띄울 수단이 현재 없다. 어댑터 인터페이스 + mock으로만 구현된다. 이 상태에서는 S2-2 → S2-3 전이를 실기기로 검증할 수 없다.
 - **설정 복귀 후 동작 미정** — 위 Interaction Contract 참고. 잠정 동작으로만 구현.
 - **Figma의 S2-2 배경과 확정 플로우의 괴리** — Figma `52:139`는 다이얼로그를 **S1 홈 위에** 얹어 그렸지만, `mvp-scope.md`·`user-flow.md`의 확정 플로우에서 권한 요청 시점은 **G5(온보딩 마지막) 이후**다. 다이얼로그 뒤 배경은 OS가 통제하지 않는 앱 화면이므로 구현에는 영향이 없으나, **"홈에서 집중 시작을 누르는 즉시 권한을 요청한다"로 오독하면 안 된다.** ai-wiki가 최신(2026-07-26)이므로 플로우는 ai-wiki를 따르고, Figma 시안 갱신은 Review Checklist로 남긴다.
-- **앱 표시명이 `mobile`이다** — `app.json`의 `expo.name`이 `"mobile"`이라 실제 iOS 다이얼로그 제목은 `"mobile"이(가) 카메라에 접근하려고 합니다`로 뜬다. Figma는 `"FocusON"`으로 그려져 있고 `glossary.md`의 확정 앱명도 `FocusON`이다. 이번 작업에서는 바꾸지 않는다(에스컬레이션 항목).
+- **앱 표시명 — `FocusON`으로 확정 및 반영 완료**(2026-07-26 리더 확정). `app.json`의 `expo.name`을 `"FocusON"`으로 변경해 iOS 다이얼로그 제목이 Figma·`glossary.md`와 일치한다. `expo.slug`(EAS 프로젝트 식별자)는 영향 범위가 커서 변경하지 않고 `"mobile"`로 유지했다 — slug 변경이 필요하면 별도 결정.
 - **Android 분기 시안 없음** — Figma `4. Screens — Android` 페이지(`14:5`)는 비어 있다(`design.md` 백로그 7번 ②). Android 3옵션 권한 다이얼로그(앱 사용 중에만/이번만/허용 안 함)의 거부 판정 처리(특히 "이번만 허용" 이후 만료)는 시안·정책이 모두 없다. iOS 기준으로 구현하고 Android 차이는 별도 확인.
 - **WebView 이중 권한 프롬프트 리스크(미검증)** — 세션은 `apps/web`을 WebView로 로드하고 그 안에서 `getUserMedia`가 호출된다(ADR 0001). 네이티브 권한과 별개로 WebView 계층의 권한 처리(`react-native-webview`의 미디어 캡처 권한 설정 등)가 필요할 수 있는데, `react-native-webview`가 아직 설치돼 있지 않아 검증되지 않았다. S2-2 다이얼로그가 두 번 뜨거나 순서가 꼬일 가능성이 있다 — 세션 화면(WG 계열) 연동 시점에 실기기로 확인해야 한다.
 - **자동 종료·세션 전이 미연결** — S2-3에서 허용 후 진입할 세션 화면(S3-1)이 아직 없다. 이동 핸들러는 만들되 목적지가 없으면 방어적으로 아무 동작도 하지 않게 둔다(S1의 선례와 동일).
 
 ## Review Checklist
 
-- [ ] `app.json`의 `expo.name`을 `"FocusON"`으로 바꿀지 결정 — 현재 `"mobile"`이라 iOS 권한 다이얼로그 제목이 Figma(`"FocusON"`)·`glossary.md`와 어긋난다. `expo.slug` 변경 여부(EAS 영향)는 별도 판단 필요.
+- [x] `app.json`의 `expo.name`을 `"FocusON"`으로 변경 완료(2026-07-26). `expo.slug`는 EAS 영향으로 `"mobile"` 유지 — 필요 시 별도 결정.
 - [ ] 카메라 권한 조회/요청에 쓸 네이티브 모듈 확정(`expo-camera` 추가 vs WebView 계층 위임) — 새 의존성 추가 승인 필요.
 - [ ] **설정에서 권한 허용 후 앱 복귀 시 동작 확정** — 세션 자동 시작 vs 홈 복귀 vs 유지. (`design.md` 백로그 6번 "화면 꺼짐 복귀 재개 방식"과 함께 결정 권장)
 - [ ] Figma S2-2(`52:139`)의 배경을 확정 플로우(G5 이후)에 맞춰 갱신할지 — 현재 S1 홈 위에 그려져 있어 요청 시점을 오독할 여지가 있다.

@@ -398,7 +398,7 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 - [ ] 카드 내부 구분선 `#eff1f3`를 `border/default`(`#e5e8eb`)로 대체한 것이 허용되는지 확인 (또는 토큰 신설)
 - [x] `apps/web/src/index.css`에 `state/distract` · `text/tertiary` · `bg/layer-2` · `brand/subtle` 변수 추가 — **이미 반영돼 있음**(`design-tokens-sync`가 선행 작업에서 추가, 2026-07-26 WG5가 코드로 직접 확인). 빌드 산출 CSS에서 `bg-state-distract`·`text-text-tertiary`·`bg-bg-layer-2`·`bg-brand-subtle` 유틸이 실제로 생성되는 것까지 확인했다.
 - [x] 상류 이슈 **종결**(2026-07-26): `buildSessionRequest`에 넘어가는 `studySec`은 WG1의 `computeSessionTotals`가 PAUSE를 제외해 계산하고, **클램프 자체도 WG4 하드닝으로 PAUSE 인식 완료**됐다(`submitStudySession.ts:59-65`, qa-WG4 F1 + qa-WG5 F5 재확인). 호출부·방어선 모두 계약 일치 — 활성 이슈 없음.
-- [ ] **[리더 결정 대기]** 1초 미만 일시정지가 `computeSessionTotals`(집계에 포함)와 `toStatusEvents`(`MIN_EVENT_MS` 미만 구간 폐기)의 기준 차이로 **이벤트가 0건 전송**될 수 있다 — 이 경우 S4 일시정지 행(0건이면 미노출)·S5 칩(0이면 미노출)에서 흔적이 완전히 사라지는데 `studySec`은 이미 줄어 있어 "총 공부 &lt; 시각 범위"의 이유가 화면에 없다. 선택지(ⓐ 버림 유지 ⓑ 임계값 1초로 상향 ⓒ 입력단 디바운스)는 정책 판단이라 WG2가 `MIN_EVENT_MS`에 손대지 않고 대기 중이다.
+- [x] **ⓐ(버림 유지)로 확정**(2026-07-26 리더 확정). 1초 미만 일시정지가 `computeSessionTotals`(집계에 포함)와 `toStatusEvents`(`MIN_EVENT_MS` 미만 구간 폐기)의 기준 차이로 이벤트가 0건 전송될 수 있고, 이 경우 S4 일시정지 행·S5 칩에서 흔적이 사라지는데 `studySec`은 이미 줄어 있을 수 있음을 알고 내린 결정이다. S4는 이 값을 그대로 표시하고 보정하지 않는다.
 - [ ] 로딩·에러·0초 세션 상태의 디자인·문구 확정
 
 ## 구현 노트 (2026-07-26, WG5 빌드 완료)
