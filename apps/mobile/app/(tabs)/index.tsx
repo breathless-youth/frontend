@@ -3,13 +3,30 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "../../components/icons";
-import { runCameraPermissionGate } from "../../lib/cameraPermissionGate";
+import { type FocusStartNavigator, runFocusStartFlow } from "../../lib/focusStartFlow";
 import {
   formatHoursMinutes,
   formatMinutes,
   splitHoursMinutes,
   todayLabel,
 } from "../../lib/homeFormat";
+
+/**
+ * "집중 시작" 플로우의 목적지 묶음. 라우터만 알고 분기는 모르는 얇은 어댑터다 —
+ * 분기 규칙(가이드 먼저인가, 권한 게이트로 바로인가)은 `lib/focusStartFlow.ts`에 있다.
+ */
+const HOME_FOCUS_START_NAVIGATOR: FocusStartNavigator = {
+  openOnboardingGuide: (entry) => {
+    router.push({ pathname: "/onboarding-guide", params: { entry } });
+  },
+  showPermissionDeniedGuide: () => {
+    router.push("/permission-denied");
+  },
+  startSession: () => {
+    // TODO(SCR-S1-home.md): 싱글룸 세션 라우트(S3-1)가 아직 없다 — WG 계열 화면 구현 시 연결한다.
+    // 목적지가 없는 동안에는 방어적으로 아무 동작도 하지 않는다.
+  },
+};
 
 /**
  * 백엔드 "오늘" 스코프 통계·연속일수 계약이 아직 확정되지 않았다(SCR-S1-home.md의
@@ -189,22 +206,15 @@ export default function HomeScreen() {
 
         <StartCtaCard
           onPress={() => {
-            // TODO(SCR-G1-G5-onboarding-guide.md): 최초 1회 온보딩 가이드(G1~G5)를 이 앞에 끼운다 —
-            // G5 CTA 또는 건너뛰기 이후에 아래 권한 게이트로 이어진다(MG5 범위).
-            void runCameraPermissionGate()
-              .then((result) => {
-                if (result === "show-denied-guide") {
-                  router.push("/permission-denied");
-                  return;
-                }
-                // TODO(SCR-S1-home.md): 싱글룸 세션 라우트(S3-1)가 아직 없다 — WG 계열 화면 구현 시 연결한다.
-                // 목적지가 없는 동안에는 방어적으로 아무 동작도 하지 않는다.
-              })
-              // 게이트 자체는 fail-closed라 reject하지 않는다(cameraPermissionGate.ts 참고).
+            // 최초 '집중 시작' 탭이면 온보딩 가이드(G1~G5)가 먼저 뜨고, 그 종료(완료·건너뛰기
+            // 둘 다) 이후에 카메라 권한 요청으로 이어진다. 이미 본 뒤라면 곧장 권한 게이트다.
+            // 분기 규칙은 `lib/focusStartFlow.ts`가 갖는다 — 이 화면은 목적지만 넘긴다.
+            void runFocusStartFlow(HOME_FOCUS_START_NAVIGATOR)
+              // 게이트·저장소 모두 fail-safe라 reject하지 않는다(각 모듈 주석 참고).
               // 여기 catch는 화면 전환이 실패했을 때 unhandled rejection을 막는 마지막 방어선이다 —
               // 어떤 경우에도 세션을 시작하지 않는다.
               .catch((error: unknown) => {
-                console.warn("[home] 집중 시작 권한 게이트 처리 실패", error);
+                console.warn("[home] 집중 시작 플로우 처리 실패", error);
               });
           }}
         />
@@ -223,9 +233,13 @@ export default function HomeScreen() {
           <StatCard variant="longest" />
         </View>
 
+        {/*
+          진입 경로 B — 홈 가이드 카드에서의 "다시 보기". 최초 1회 판정과 무관하게 항상 열린다
+          (`SCR-G1-G5-onboarding-guide.md` Interaction Contract §1).
+        */}
         <GuideCard
           onPress={() => {
-            // TODO(SCR-S1-home.md): 온보딩 가이드(G1~G5)가 아직 없다 — 구현 시 연결한다.
+            router.push({ pathname: "/onboarding-guide", params: { entry: "home-card" } });
           }}
         />
       </View>
