@@ -189,10 +189,13 @@ WG4의 세션 화면에는 S3-8 문구 선택을 위한 클라이언트 내부 `
   - 따라서 **"새로고침 방어 UI"를 만들지 않는다** — 존재하지 않는 문제다.
   - 반대로 이 입구는 **우리가 넣지 않은 값이 들어올 수 있는 지점**이기도 하다(히스토리에 남은 옛 state, 조작된 state). `location.state`는 `unknown`으로 받아 **렌더에 실제로 쓰는 필드만 좁게 런타임 검증**하고, `as` 캐스팅으로 통과시키지 않는다. 검증 실패는 "데이터 없음"과 동일하게 처리한다.
 - `studySec`이 일시정지를 제외한 값인지는 **서버 계약상 보장된다**(`StudySessionCreateRequest.studySec` 주석: `0 ≤ studySec ≤ (endedAt−startedAt) − PAUSE 시간 합`).
-  - ⚠️ **스펙 정정(2026-07-26, WG1 빌드 완료 후 재확인)**: 아래 두 항목은 WG1 착수 시점 기준의 서술이었다. WG1이 이미 `computeSessionTotals`(`apps/web/src/features/study-session/sessionTimeline.ts`)에서 PAUSE 구간을 제외한 `studySec`을 계산해 `buildSessionRequest`에 넘기고 있음을 코드로 확인했다 — **현재 호출 경로는 이미 계약을 만족한다.** 다만 `buildSessionRequest`(`submitStudySession.ts:27`)의 클램프 자체는 여전히 `sessionSec`(PAUSE 미차감 벽시계 길이)을 상한으로 쓴다 — 이는 방어적 상한이 느슨한 것일 뿐 현재 입력값을 왜곡하지 않지만, 향후 호출부가 바뀌면 다시 구멍이 될 수 있다. **WG4는 이 클램프를 PAUSE 인식하도록 강화하는 것을 하드닝 항목(활성 버그 아님)으로 처리한다.**
+  - ✅ **제출 경로는 계약과 일치한다 — 활성 이슈 없음** (2026-07-26 확인, qa-WG5 F5로 재정정).
+    - 호출부: WG1의 `computeSessionTotals`(`apps/web/src/features/study-session/sessionTimeline.ts`)가 PAUSE 구간을 제외한 `studySec`을 계산해 넘긴다.
+    - 방어선: `buildSessionRequest`(`submitStudySession.ts:59-65`)의 클램프도 **PAUSE 인식으로 강화 완료**됐다(WG4 하드닝). 상한이 `floor((endedAt − startedAt − PAUSE 합) / 1000)`으로 계약과 동일해졌고, ms 단위에서 빼고 마지막에 한 번만 내림해 **이중 내림으로 1초가 깎이던 문제도 함께 해소**됐다(qa-WG4 F1).
+    - 즉 호출부와 방어선이 모두 계약을 만족한다. **이 문단을 근거로 `submitStudySession.ts`를 다시 "고치지" 말 것.**
   - (아래는 정정 전 기록 — 감사 추적용 보존) ~~다만 현재 `apps/web/src/features/study-session/submitStudySession.ts`의 `buildSessionRequest`는 `studySec`을 벽시계 길이로만 클램프하고 PAUSE를 빼지 않는다. 이 이슈는 WG4가 자기 그룹의 상류 이슈로 인수했다(2026-07-26 상호 확인). 기본안은 호출부에서 `studySec` 계산 시 일시정지 시간을 제외하는 것에 더해 `buildSessionRequest`의 클램프 자체를 PAUSE 인식하도록 고치는 것이다. 같은 파일을 WG1도 만지므로 실제 수정 담당은 착수 전 조율 대상이다.~~
   - **S4는 이 값을 절대 보정하지 않는다.** 그대로 표시한다.
-  - **QA 회부 규칙**: 일시정지가 있었던 세션인데 헤더에서 `총 공부`가 `HH:MM – HH:MM` 범위와 같게 나오면 **S4 버그가 아니라 제출 경로 미수정 신호**다. `figma-qa-verifier`는 이 증상을 S4가 아니라 **WG4/WG1**으로 회부한다. (`SCR-S3-7-S3-8-session-exit.md`에도 동일 신호가 대칭으로 기재돼 있다 — 2026-07-26 WG4와 상호 확인.)
+  - **QA 회부 규칙(회귀 관측 신호)**: 일시정지가 있었던 세션인데 헤더에서 `총 공부`가 `HH:MM – HH:MM` 범위와 같게 나오면 **S4 버그가 아니라 제출 경로가 깨졌다는 신호**다(제출 경로는 위와 같이 이미 계약을 만족하므로, 이 증상은 미수정이 아니라 회귀를 뜻한다 — 같은 문장이 `submitStudySession.ts`의 `buildSessionRequest` 주석에도 있다). `figma-qa-verifier`는 이 증상을 S4가 아니라 **WG4/WG1**으로 회부한다. (`SCR-S3-7-S3-8-session-exit.md`에도 동일 신호가 대칭으로 기재돼 있다 — 2026-07-26 WG4와 상호 확인.)
 
 ### 구현용 예시 데이터 (확정 모델로 재계산한 값)
 
@@ -392,7 +395,7 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 - [ ] 집중률 표시를 `Math.round` 정수로 하는 것이 맞는지 확인 (서버는 소수 1자리)
 - [ ] 카드 내부 구분선 `#eff1f3`를 `border/default`(`#e5e8eb`)로 대체한 것이 허용되는지 확인 (또는 토큰 신설)
 - [x] `apps/web/src/index.css`에 `state/distract` · `text/tertiary` · `bg/layer-2` · `brand/subtle` 변수 추가 — **이미 반영돼 있음**(`design-tokens-sync`가 선행 작업에서 추가, 2026-07-26 WG5가 코드로 직접 확인). 빌드 산출 CSS에서 `bg-state-distract`·`text-text-tertiary`·`bg-bg-layer-2`·`bg-brand-subtle` 유틸이 실제로 생성되는 것까지 확인했다.
-- [x] 상류 이슈 재확인 완료(2026-07-26): `buildSessionRequest`에 넘어가는 `studySec`은 WG1의 `computeSessionTotals`가 이미 PAUSE를 제외해 계산하므로 **현재 활성 버그는 아니다.** 클램프 자체(`sessionSec` 상한)를 PAUSE 인식하도록 강화하는 것은 **WG4 하드닝 항목**으로 남겨둔다.
+- [x] 상류 이슈 **종결**(2026-07-26): `buildSessionRequest`에 넘어가는 `studySec`은 WG1의 `computeSessionTotals`가 PAUSE를 제외해 계산하고, **클램프 자체도 WG4 하드닝으로 PAUSE 인식 완료**됐다(`submitStudySession.ts:59-65`, qa-WG4 F1 + qa-WG5 F5 재확인). 호출부·방어선 모두 계약 일치 — 활성 이슈 없음.
 - [ ] **[리더 결정 대기]** 1초 미만 일시정지가 `computeSessionTotals`(집계에 포함)와 `toStatusEvents`(`MIN_EVENT_MS` 미만 구간 폐기)의 기준 차이로 **이벤트가 0건 전송**될 수 있다 — 이 경우 S4 일시정지 행(0건이면 미노출)·S5 칩(0이면 미노출)에서 흔적이 완전히 사라지는데 `studySec`은 이미 줄어 있어 "총 공부 &lt; 시각 범위"의 이유가 화면에 없다. 선택지(ⓐ 버림 유지 ⓑ 임계값 1초로 상향 ⓒ 입력단 디바운스)는 정책 판단이라 WG2가 `MIN_EVENT_MS`에 손대지 않고 대기 중이다.
 - [ ] 로딩·에러·0초 세션 상태의 디자인·문구 확정
 
