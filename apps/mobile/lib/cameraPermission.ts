@@ -1,3 +1,4 @@
+import { Camera } from "expo-camera";
 import { Linking } from "react-native";
 
 /**
@@ -7,13 +8,8 @@ import { Linking } from "react-native";
  * 권한 상태는 OS가 가진 기기 로컬 상태이며 서버로 보내지 않는다 — `granted` 플래그를
  * SecureStore/AsyncStorage에 미러링하지 않는다(설정 앱에서 바뀐 값과 어긋난다).
  *
- * ⚠️ 조회/요청의 실제 네이티브 구현은 **아직 없다**. `expo-camera` 등 권한 조회 모듈이
- * 2026-07-25 기능 리셋으로 제거됐고, 어떤 모듈을 쓸지는 미확정이다.
- * TODO(SCR-S2-camera-permission.md): 카메라 권한 조회/요청에 쓸 네이티브 모듈 확정 필요
- *   (`expo-camera` 추가 vs WebView 계층 위임) — 새 의존성 추가는 리더 승인 후.
- *   확정되면 `setCameraPermissionAdapter()`로 실제 구현을 주입하고 아래 mock을 제거한다.
- *
- * `openAppSettings()`만은 새 의존성 없이 지금 바로 실제 동작한다(RN 코어 `Linking`).
+ * 조회/요청은 `expo-camera`의 권한 API로 구현한다(ADR 0004). 카메라 프리뷰(`CameraView`)는
+ * 쓰지 않는다 — 카메라 스트림은 `apps/web`의 WebView `getUserMedia` 소유다(ADR 0001).
  */
 
 export type CameraPermissionStatus = "undetermined" | "granted" | "denied";
@@ -29,56 +25,27 @@ export type CameraPermissionAdapter = {
   request(): Promise<CameraPermissionStatus>;
 };
 
-type MockCameraPermissionState = {
-  /** 현재 권한 상태. */
-  status: CameraPermissionStatus;
-  /** `undetermined`에서 `request()`를 부를 때 OS 다이얼로그가 돌려줬다고 가정할 값. */
-  dialogOutcome: "granted" | "denied";
-};
-
-const INITIAL_MOCK_STATE: MockCameraPermissionState = {
-  status: "undetermined",
-  // 실제 OS 다이얼로그를 띄울 수단이 없는 상태에서 "허용됐다"고 꾸며내면 후속 화면이
-  // 존재하지도 않는 세션으로 넘어간다. 기본값을 거부로 두어 S2-3 안내 화면까지의
-  // 경로를 검증 가능하게 한다 — 실제 모듈이 붙으면 이 mock 전체가 사라진다.
-  dialogOutcome: "denied",
-};
-
-const mockState: MockCameraPermissionState = { ...INITIAL_MOCK_STATE };
-
-/** 개발·테스트에서 권한 분기를 재현하기 위한 mock 제어. 실제 모듈 연결 시 함께 제거한다. */
-export function setMockCameraPermissionState(next: Partial<MockCameraPermissionState>): void {
-  if (next.status !== undefined) {
-    mockState.status = next.status;
-  }
-  if (next.dialogOutcome !== undefined) {
-    mockState.dialogOutcome = next.dialogOutcome;
-  }
-}
-
-/** 테스트 격리용 — mock 상태를 초기값으로 되돌린다. */
-export function resetMockCameraPermissionState(): void {
-  setMockCameraPermissionState(INITIAL_MOCK_STATE);
-}
-
-export const mockCameraPermissionAdapter: CameraPermissionAdapter = {
-  getStatus() {
-    return Promise.resolve(mockState.status);
+/**
+ * `expo-camera` 권한 API 어댑터.
+ *
+ * `PermissionStatus` enum의 문자열 값이 `"granted"`/`"undetermined"`/`"denied"`로
+ * `CameraPermissionStatus`와 그대로 일치해서 변환표가 필요 없다.
+ *
+ * 두 함수는 개별 export가 아니라 집계 객체 `Camera`로만 도달할 수 있다(타입 정의상 `@hidden`
+ * 표시이며 deprecated는 아니다). 상위 버전에서 경로가 바뀌면 이 어댑터만 고치면 된다.
+ */
+export const expoCameraPermissionAdapter: CameraPermissionAdapter = {
+  async getStatus() {
+    return (await Camera.getCameraPermissionsAsync()).status;
   },
-  request() {
-    // iOS는 한 번 결정된 뒤에는 시스템 다이얼로그를 다시 띄우지 않는다 —
-    // 실제 모듈도 이 자리에서 현재 상태를 그대로 돌려준다.
-    if (mockState.status !== "undetermined") {
-      return Promise.resolve(mockState.status);
-    }
-    mockState.status = mockState.dialogOutcome;
-    return Promise.resolve(mockState.status);
+  async request() {
+    return (await Camera.requestCameraPermissionsAsync()).status;
   },
 };
 
-let adapter: CameraPermissionAdapter = mockCameraPermissionAdapter;
+let adapter: CameraPermissionAdapter = expoCameraPermissionAdapter;
 
-/** 실제 네이티브 구현이 확정되면 앱 부트스트랩에서 한 번 주입한다. */
+/** 테스트에서 권한 분기를 재현하기 위해 어댑터를 교체한다. */
 export function setCameraPermissionAdapter(next: CameraPermissionAdapter): void {
   adapter = next;
 }

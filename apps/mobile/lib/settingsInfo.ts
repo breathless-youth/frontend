@@ -53,8 +53,14 @@ export function appVersionLabel(): string {
  * 토글의 파란색만으로 허용 여부를 전달하지 않기 위해(`design.md` 색상 단독 전달 금지) 상태를
  * 텍스트로 함께 읽어주고, 이 행이 값을 바꾸는 스위치가 아니라 **시스템 설정으로 나가는 버튼**임을
  * 라벨에서 분명히 한다.
+ *
+ * `granted`가 `null`이면(조회 전·조회 실패) 상태 부분을 아예 빼서 읽는다 — 모르는 값을
+ * "허용 안 됨"으로 단정하면 화면의 토글보다 더 강하게 틀린 정보를 전달한다.
  */
-export function cameraPermissionRowLabel(granted: boolean): string {
+export function cameraPermissionRowLabel(granted: boolean | null): string {
+  if (granted === null) {
+    return "카메라 권한, 시스템 설정 열기";
+  }
   return `카메라 권한, ${granted ? "허용됨" : "허용 안 됨"}, 시스템 설정 열기`;
 }
 

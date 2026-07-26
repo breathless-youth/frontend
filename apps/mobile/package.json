@@ -7,6 +7,7 @@
     "@focuson/design-tokens": "workspace:*",
     "@focuson/types": "workspace:*",
     "expo": "~54.0.36",
+    "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-linking": "~8.0.12",
