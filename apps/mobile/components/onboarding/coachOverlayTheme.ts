@@ -106,10 +106,20 @@ export const coachTokenColors = {
    */
   privacyIllustAccent: colors.state.focus.dark,
   /**
-   * 멈춘 순공 타이머(G2·G4) `#8b95a1` = `text/tertiary`.
-   * 이 토큰은 `sessionStateColors.PAUSE`이기도 하다 — "지금 올라가지 않는 시간"이라는
-   * 뜻이 이미 토큰에 붙어 있어서, 값이 같은 게 우연이 아니라 의미가 같은 경우다.
-   * Light/Dark 값이 동일해 다크 오버레이 위에서도 그대로 쓴다.
+   * G2·G4 순공 타이머의 회색 `#8b95a1` — **Figma 실측값을 옮긴 것이다**(`68:982`·`68:1124`).
+   * 값이 `text/tertiary`(= `sessionStateColors.PAUSE`)와 정확히 같아 하드코딩 대신 토큰에
+   * 바인딩했다. Light/Dark 값이 동일해 다크 오버레이 위에서도 그대로 쓴다.
+   *
+   * ⚠️ **"회색 = 일시정지"라고 일반화하지 말 것.** 두 스텝의 사정이 다르다:
+   *   - G4는 일시정지 스텝이라 `design.md` 6차 "세션 오버레이 색 … 일시정지 #8B95A1"과 일치한다.
+   *   - **G2는 비집중 스텝**인데 같은 행이 _타이머_ 비집중색을 `#FF9E1B`(오렌지)로 규정한다.
+   *     Figma는 오렌지가 아닌 회색을 썼다 — 같은 문서의 자동 비집중 행("오렌지 필 +
+   *     **타이머 흐림 처리**")의 구현일 수도 있어 어느 쪽이 확정인지 **미확인**이다.
+   *     스펙도 이를 확정하지 않고 병기했다(`SCR-G1-G5-onboarding-guide.md:169`).
+   *
+   * 이 상수를 실제 세션 화면(S3-2 비집중, `apps/web`)의 근거로 가져가지 말 것 —
+   * 거기서 비집중 타이머를 회색으로 칠하면 `design.md`를 정면으로 어긴다.
+   * TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): G2 타이머 색 괴리(#FF9E1B vs #8b95a1) 확정 필요
    */
   mockTimerStopped: colors.text.tertiary.dark,
 } as const;

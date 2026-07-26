@@ -85,16 +85,23 @@ export type MockStatusPill = {
  * | G4 | `68:1124` | `#8b95a1` |
  * | G5 | `68:1291` | `#ffffff` |
  *
- * `#8b95a1`은 `colors.text.tertiary`이자 `sessionStateColors.PAUSE`다 — "이 타이머는 지금
- * 올라가지 않는다"는 뜻이 색으로 붙어 있는 것이고, G2에서는 이 회색이 "순공만 멈췄다"를
- * 즉시 알려주는 유일한 신호다(숫자가 안 움직이는 것만으로는 1초 이상 응시해야 알아챈다).
+ * 색조 이름(`active`/`stopped`/`simple`)은 **Figma 실측값을 묶기 위한 라벨**이지 확정된
+ * 의미 규정이 아니다. 특히 `stopped`가 두 스텝에서 같은 이유로 회색인지는 확인되지 않았다:
+ *   - G4(일시정지)는 `design.md` 6차 "세션 오버레이 색 … 일시정지 `#8B95A1`"과 일치한다.
+ *   - **G2(비집중)는 어긋난다.** 같은 행이 _타이머_ 비집중색을 `#FF9E1B`(오렌지)로 규정하는데
+ *     Figma는 회색을 썼다. 같은 문서의 자동 비집중 행("오렌지 필 + **타이머 흐림 처리**")의
+ *     구현일 수도 있다 — 스펙도 확정하지 않고 병기했다(`SCR-G1-G5-onboarding-guide.md:169`).
+ *     상태 필은 G2에서 분명히 오렌지이므로 어긋나는 것은 타이머 색 하나뿐이다.
+ *
+ * 그래서 여기서는 **Figma 실측값을 그대로 옮기기만 한다.** 어느 쪽이 확정인지는 열려 있다.
+ * TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): G2 타이머 색 괴리(#FF9E1B vs #8b95a1) 확정 필요
  */
 export type FocusTimerTone =
-  /** 진행 중 — 흰색 (G1·G5) */
+  /** 흰색 (G1·G5) */
   | "active"
-  /** 정지 — `text/tertiary` = 일시정지 상태색 (G2·G4) */
+  /** 회색 `#8b95a1` (G2·G4) — 위 주석의 미확정 사항 참고 */
   | "stopped"
-  /** 심플 모드 — 발광 블루 (G3) */
+  /** 발광 블루 (G3) */
   | "simple";
 
 /**
@@ -224,8 +231,10 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       seedFocusSec: 12,
       seedTotalSec: 22,
       freezeFocusTimer: true,
-      // 값이 멈춘 것만으로는 1초 이상 봐야 알아챈다 — Figma는 색까지 정지색으로 바꿔
-      // "순공만 멈췄다"를 즉시 읽히게 했다(`68:982` fill `#8b95a1`).
+      // Figma는 순공 타이머 fill을 흰색이 아닌 `#8b95a1`로 지정했다(`68:982`). 값이 멈춘 것만
+      // 으로는 1초 이상 봐야 알아채므로 색 대비가 "순공만 멈췄다"를 즉시 읽히게 해 준다.
+      // ⚠️ 다만 G2는 비집중 스텝이라 `design.md`가 규정한 타이머 비집중색(`#FF9E1B` 오렌지)과
+      // 어긋난다 — Figma 실측을 그대로 따르되 확정 사항이 아니다(`FocusTimerTone` 주석 참고).
       focusTimerTone: "stopped",
     },
   },

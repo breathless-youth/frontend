@@ -94,7 +94,10 @@ describe("목업 배경 상태", () => {
     ]);
   });
 
-  it("정지 색조는 정지한 타이머에만 붙는다 — G2는 값도 색도 멈춤을 가리킨다", () => {
+  it("G2는 값도 색도 Figma 실측을 따른다 (색 의미는 미확정 — 아래 주석)", () => {
+    // 값(순공 정지)은 `design.md` 비집중 정의와 일치하고 확정 사항이다.
+    // 색(`#8b95a1`)은 Figma 실측일 뿐이다 — wiki는 타이머 비집중색을 `#FF9E1B`로 규정해
+    // 어긋난다. 확정되면 이 기대값이 `"distract"` 같은 새 색조로 바뀔 수 있다.
     const g2 = ONBOARDING_GUIDE_STEPS[1].backdrop;
 
     expect(g2.freezeFocusTimer).toBe(true);

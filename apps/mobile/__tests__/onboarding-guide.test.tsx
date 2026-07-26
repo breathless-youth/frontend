@@ -109,11 +109,13 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     expect(screen.queryByText("00:00:12")).toBeNull();
   });
 
-  it("G2 순공 타이머는 정지색으로 렌더된다 — 멈췄다는 걸 즉시 읽히게 하는 신호", () => {
+  it("G2 순공 타이머는 Figma 실측 회색으로 렌더된다", () => {
     render(<OnboardingGuideScreen />);
     pressNext();
 
-    // Figma `68:982` fill `#8b95a1` = `colors.text.tertiary`(= sessionStateColors.PAUSE).
+    // Figma `68:982` fill `#8b95a1`. 값이 `colors.text.tertiary`와 같아 토큰에 바인딩했을 뿐,
+    // "회색 = 일시정지"라는 의미 규정은 아니다 — G2는 비집중 스텝이고 wiki는 오렌지를 규정한다
+    // (`coachOverlayTheme.ts`의 `mockTimerStopped` 주석 참고).
     const focusTimer = screen.getByText("00:00:12", { includeHiddenElements: true });
     expect(focusTimer.props.style).toMatchObject({ color: colors.text.tertiary.dark });
     // 총 공부 줄은 5스텝 공통 색이라 함께 바뀌지 않는다.
