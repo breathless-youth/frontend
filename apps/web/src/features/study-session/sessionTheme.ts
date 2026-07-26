@@ -37,7 +37,14 @@ const SESSION_SURFACE_VARS = {
   // 세션 오버레이 전용 실측값
   /** 카메라 영역 base — 실제 앱에서는 카메라 피드가 들어온다. */
   "--session-camera-base": "#1a2029",
-  /** 심플 모드 배경 — 카메라 프리뷰가 사라진 자리(Figma S3-4 `60:404` 실측 `#0B0F14`). */
+  /**
+   * 심플 모드 배경 — 카메라 프리뷰가 사라진 자리(Figma S3-4 `60:404` 실측 `#0B0F14`).
+   *
+   * ⚠️ **가로 심플(S3-6 `61:525`)은 `#0A0F18`로 값이 다르다**(SCR-S3-5·S3-6 Current Limitations 4).
+   * 둘 다 토큰 미바인딩 하드코딩이고 의도된 차이인지 불명확하다. **세로 값 하나로 통일한다** —
+   * 방향에 따라 배경이 바뀌면 기기를 돌릴 때 화면이 깜빡이는 것처럼 보인다(회전은 레이아웃만
+   * 바뀌어야 한다). 디자이너가 가로 값을 확정하면 이 한 줄만 고친다.
+   */
   "--session-simple-base": "#0b0f14",
   /**
    * 상태 필 배경 = `colors.bg.base.dark`(#101419) + 알파. 알파만 Figma 실측값이다.
@@ -50,6 +57,12 @@ const SESSION_SURFACE_VARS = {
   /** 비집중 상태색 35% — Figma 실측 `rgba(255,158,27,0.35)`와 동일한 값이 토큰에서 계산된다. */
   "--session-pill-border-distract": withAlpha(sessionStateColors.DISTRACTION.dark, 0.35),
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
+  /**
+   * 가로(거치) 축소 컨트롤 바 배경 — Figma S3-5 `61:463` 실측 62%(세로 55%보다 진하다).
+   * 세로/가로 알파 차이는 SCR-S3-5·S3-6 델타 표에 **축소 변형의 일부로 명시**돼 있어
+   * 통일하지 않고 실측을 따른다(전면 배경과 달리 회전 시 눈에 띄는 깜빡임이 아니다).
+   */
+  "--session-bar-bg-compact": "rgba(22, 27, 34, 0.62)",
   /** 재개 버튼 — colors.brand.primary.dark(#3182f6)와 Figma S3-3 실측이 일치한다. */
   "--session-resume-bg": colors.brand.primary.dark,
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
