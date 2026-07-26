@@ -66,3 +66,32 @@ export interface StudySessionResponse {
   focusRate: number;
   events: StatusEventPayload[];
 }
+
+/**
+ * 공부 세션 통계 조회 API 계약 (GET /api/stats) — Swagger 기준.
+ */
+
+/** 상태별 이벤트 발생 건수 — 없는 상태도 0으로 내려온다(키 누락 없음). */
+export type StudySessionEventCounts = Record<StudyEventStatus, number>;
+
+export interface StudySessionSummary {
+  id: number;
+  statDate: string;
+  startedAt: string;
+  endedAt: string;
+  studySec: number;
+  focusSec: number;
+  focusRate: number;
+  eventCounts: StudySessionEventCounts;
+}
+
+export interface StudySessionListResponse {
+  sessions: StudySessionSummary[];
+  sessionCount: number;
+  totalStudySec: number;
+  totalFocusSec: number;
+  longestFocusSec: number;
+  focusRate: number;
+  totalEventCounts: StudySessionEventCounts;
+  studiedDatesInMonth: string[];
+}
