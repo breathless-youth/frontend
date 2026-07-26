@@ -1,7 +1,8 @@
+import type { StudySessionResponse } from "@focuson/types";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { submitStudySession } from "@/features/study-session/submitStudySession";
@@ -17,11 +18,31 @@ function setVisibility(state: DocumentVisibilityState) {
   document.dispatchEvent(new Event("visibilitychange"));
 }
 
+/**
+ * S4(공부 결과) 라우트 자리의 프로브.
+ *
+ * 실제 `ResultPage`를 끌어오지 않는다 — 여기서 검증할 것은 결과 화면의 렌더가 아니라
+ * **RoomPage의 배선**(어느 경로로, 어떤 state를 들고 넘어가는가)이다. 결과 화면 자체는
+ * `ResultPage.test.tsx`가 검증한다.
+ */
+function ResultRouteProbe() {
+  const location = useLocation();
+  const { sessions } = (location.state ?? {}) as { sessions?: StudySessionResponse[] };
+  return (
+    <div>
+      <p>결과 라우트</p>
+      <p>{location.pathname}</p>
+      <p>{`전달된 세션: ${sessions?.map((session) => session.statDate).join(",") ?? "없음"}`}</p>
+    </div>
+  );
+}
+
 function renderRoom(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
+        <Route path="/room/:id/result" element={<ResultRouteProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -116,7 +137,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(await screen.findByText("카메라를 전환했어요")).toBeInTheDocument();
   });
 
-  it("종료 클릭 시 제출하고 서버 결과를 표시한다", async () => {
+  it("종료 클릭 시 제출하고 S4(공부 결과)로 결과를 들고 넘어간다", async () => {
+    // 세션 단건 조회 API가 없으므로 제출 응답을 **라우터 state로 넘기는 것이 유일한 전달 수단**이다.
     vi.mocked(submitStudySession).mockResolvedValue([
       {
         id: 10,
@@ -134,15 +156,18 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText("2026-07-25")).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
+    expect(screen.getByText("/room/7/result")).toBeInTheDocument();
+    expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
       userId: 1,
       events: [],
     });
   });
 
-  it("제출 실패 시 메시지와 재시도 버튼을 보여준다", async () => {
+  it("제출 실패 시 메시지와 재시도 버튼을 보여준다 — S4로 넘기지 않는다", async () => {
+    // S4는 저장 실패 배너를 만들지 않기로 스펙됐다(SCR-S4) — 여기서 넘겨 버리면 실패가
+    // 조용히 삼켜져 사용자에게 아무 안내도 남지 않는다.
     vi.mocked(submitStudySession).mockRejectedValueOnce(
       new Error("존재하지 않는 사용자입니다: 999"),
     );
@@ -152,15 +177,18 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     expect(await screen.findByText("존재하지 않는 사용자입니다: 999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
 
-  it("userId가 없으면 제출 없이 저장 안 됨 안내를 보여준다", async () => {
+  it("userId가 없으면 제출 없이 저장 안 됨 안내를 보여준다 — S4로 넘기지 않는다", async () => {
+    // 저장되지 않은 세션을 "공부 결과"로 보여주면 사실과 다르다(SCR-S4 Interaction Contract).
     renderRoom("/room/7");
 
     await endSession();
 
     expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
 
   it("userId가 숫자가 아니면 제출 없이 저장 안 됨 안내를 보여준다", async () => {
@@ -193,7 +221,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
-    expect(await screen.findByText("2026-07-25")).toBeInTheDocument();
+    expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
 
     const calls = vi.mocked(submitStudySession).mock.calls;
     expect(calls).toHaveLength(2);

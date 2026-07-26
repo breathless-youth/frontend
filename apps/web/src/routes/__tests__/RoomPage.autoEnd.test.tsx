@@ -1,5 +1,6 @@
+import type { StudySessionResponse } from "@focuson/types";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as SessionTuningModule from "@/features/study-session/sessionTuning";
@@ -31,11 +32,25 @@ function setVisibility(state: DocumentVisibilityState) {
   document.dispatchEvent(new Event("visibilitychange"));
 }
 
+/** S4 라우트 자리의 프로브 — 결과 화면이 아니라 **배선**만 관측한다. */
+function ResultRouteProbe() {
+  const location = useLocation();
+  const { sessions } = (location.state ?? {}) as { sessions?: StudySessionResponse[] };
+  return (
+    <div>
+      <p>결과 라우트</p>
+      <p>{location.pathname}</p>
+      <p>{`전달된 세션: ${sessions?.map((session) => session.statDate).join(",") ?? "없음"}`}</p>
+    </div>
+  );
+}
+
 function renderRoom(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
+        <Route path="/room/:id/result" element={<ResultRouteProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -184,7 +199,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     expect(screen.getByRole("heading", { name: "여기까지 기록을 저장했어요" })).toBeInTheDocument();
   });
 
-  it("'결과 보기'는 결과 표시로 넘어간다 — TODO(WG5): S4 라우트로 교체 예정", async () => {
+  it("'결과 보기'는 이미 저장된 결과를 들고 S4로 이동한다 — 여기서 다시 제출하지 않는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([
       {
         id: 10,
@@ -204,7 +219,23 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     await waitPastThreshold();
     fireEvent.click(screen.getByRole("button", { name: "결과 보기" }));
 
-    expect(screen.getByText("2026-07-25")).toBeInTheDocument();
+    expect(screen.getByText("결과 라우트")).toBeInTheDocument();
+    expect(screen.getByText("/room/7/result")).toBeInTheDocument();
+    expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
+    // 이동은 재제출을 유발하지 않는다 — 자동 종료 시점의 1회가 전부다.
+    expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
+  });
+
+  it("자동 종료는 안내 화면을 거친다 — 저장되자마자 S4로 튀지 않는다", async () => {
+    // S3-8은 사용자가 유발하지 않은 종료라 "왜 끝났는지"를 먼저 알린다(user-flow `AE → F`).
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    await waitPastThreshold();
+
+    expect(screen.getByRole("heading", { name: "여기까지 기록을 저장했어요" })).toBeInTheDocument();
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
 });

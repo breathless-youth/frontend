@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+import type { StudySessionResponse } from "@focuson/types";
 
 import { Toast } from "@/components/ui/toast";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
@@ -96,6 +98,7 @@ const SESSION_LAYER_LAYOUT = [
  */
 export function RoomPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const userId = parseUserId(searchParams.get("userId"));
   // 개발 빌드에서만 콘솔로 감지 신호를 밀어넣을 수 있게 한다(프로덕션에서는 undefined → 기본 mock).
   const [devDetector] = useState(createDevMockDetector);
@@ -118,12 +121,43 @@ export function RoomPage() {
   // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // S3-8에서 `결과 보기`를 눌렀는지. TODO(WG5) 참고 — 임시 이동 경로다.
-  const [resultRevealed, setResultRevealed] = useState(false);
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
   const pillState = toPillState(sessionState);
+
+  /**
+   * S4(공부 결과)로 이동 — **세션 결과의 유일한 출구**다.
+   *
+   * 세션 단건 조회 API가 없으므로(`packages/types`에 `GET /api/study-sessions/{id}` 계약 없음)
+   * 제출 응답을 **라우터 state로 넘기는 것이 유일한 전달 수단**이다. S4는 이 state가 없으면
+   * 데이터를 지어내지 않고 홈으로 되돌린다.
+   *
+   * 경로를 `/room/${id}/result`로 조립하지 않고 상대 이동(`"result"`)을 쓴다 — 현재 매치된
+   * 라우트(`/room/:id`) 기준으로 해석되므로 `:id`를 다시 읽어 문자열을 맞출 필요가 없다.
+   *
+   * `replace: true`: 세션은 끝났다. 뒤로 가기로 이미 종료된 룸에 되돌아가면 타이머가 0부터
+   * 다시 도는 새 세션이 시작돼 사용자에게 거짓이 된다 — 히스토리에서 룸을 치운다.
+   */
+  const goToResult = useCallback(
+    (sessions: StudySessionResponse[]) => {
+      navigate("result", { state: { sessions }, replace: true });
+    },
+    [navigate],
+  );
+
+  /**
+   * S3-7 `공부 종료` 경로 — 제출이 **성공했을 때만**(`phase === "done"`) S4로 넘어간다.
+   * `submitting`·`error`·`unsaved`는 S3 쪽 상태라 여기 남는다(WG5와 상호 확인한 계약).
+   *
+   * 자동 종료(S3-8)는 제외한다 — 그쪽은 안내 화면을 먼저 보여주고 사용자가 `결과 보기`를
+   * 눌렀을 때 같은 `goToResult`를 탄다. 즉 두 경로 모두 이 한 함수로 수렴한다.
+   */
+  useEffect(() => {
+    if (phase.name === "done" && endReason?.kind !== "AUTO") {
+      goToResult(phase.sessions);
+    }
+  }, [endReason, goToResult, phase]);
 
   async function handleFlipCamera() {
     const result = await flipCamera();
@@ -280,16 +314,22 @@ export function RoomPage() {
             />
           )}
         </>
-      ) : autoEndNoticeVisible(phase, endReason) && !resultRevealed ? (
+      ) : /* `phase.name === "done"`을 여기서 한 번 더 좁히는 이유: 타입 가드는 `endReason`만
+             좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
+             검사와 동일하다. */
+      phase.name === "done" && autoEndNoticeVisible(phase, endReason) ? (
         /* S3-8 자동 종료 안내 — 저장이 **끝난 뒤에만** 보여준다(`phase === "done"`).
            타이틀이 `여기까지 기록을 저장했어요`로 단언하므로 제출 중·실패·미저장(userId 없음)
            상태에서 이 화면을 띄우면 사실과 달라진다 — 그 경우는 아래 폴백의 재시도 경로로 간다
-           (SCR-S3-7·S3-8 Interaction Contract). */
+           (SCR-S3-7·S3-8 Interaction Contract).
+
+           `결과 보기`는 **이미 저장된 결과를 들고 S4로 이동**한다 — 여기서 다시 제출하지 않는다
+           (SCR-S4 진입 경로 표). */
         <AutoEndNotice
           trigger={endReason.trigger}
           focusSec={focusSec}
           studySec={studySec}
-          onSeeResult={() => setResultRevealed(true)}
+          onSeeResult={() => goToResult(phase.sessions)}
         />
       ) : (
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />
@@ -324,17 +364,17 @@ function toPillState(state: SessionState): SessionStatusPillState {
 }
 
 /**
- * 종료 이후 상태의 임시 표시.
+ * 종료 이후 **S4로 가지 못하는** 상태들의 표시 — 제출 중 · 제출 실패(재시도) · 미저장.
  *
- * TODO(WG5): `done`은 공부 결과 화면(S4, `ResultPage`)으로 대체된다. WG1은 제출/재시도 경로가
- * 끊기지 않게만 유지한다 — 이 블록의 시각 디자인은 확정 스펙이 아니다.
+ * `done`은 여기 없다. 제출이 성공하면 위 `goToResult`가 S4(`ResultPage`)로 넘기므로 이 컴포넌트가
+ * 그릴 결과 화면은 존재하지 않는다(WG5가 라우트를 만들면서 임시 결과 표시를 걷어냈다).
+ * 렌더 직후 한 프레임 동안 `done`으로 여기 머물 수 있어 타입에는 남아 있지만 그리는 것은 없다.
  *
- * TODO(WG5): S3-7 `공부 종료`와 S3-8 `결과 보기`는 둘 다 **S4로 이동**해야 한다. `/room/:id/result`
- * 라우트가 아직 없으므로(WG4는 새 라우트를 만들지 않는다) 지금은 이 폴백을 그대로 보여준다 —
- * WG5가 라우트를 만들면 `navigate("/room/:id/result", { state: phase.sessions })`로 바꾼다.
- * 이동은 **`phase === "done"`에서만** 일어나야 하고 `submitting`·`error`·`unsaved`는 S3 쪽
- * 상태다(WG5와 상호 확인한 계약). 아래 재시도 버튼이 그 "S3에서 제공하는 재시도 경로"다 —
- * S4는 저장 실패 배너를 만들지 않기로 스펙됐으므로 이 경로를 없애면 실패가 조용히 삼켜진다.
+ * ⚠️ **아래 재시도 버튼을 없애지 말 것.** S4는 "저장 실패" 배너·재시도 버튼을 만들지 않기로
+ * 스펙됐다(SCR-S4 Interaction Contract) — 실패의 사용자 대면 처리는 전적으로 S3의 책임이고,
+ * 이 경로가 사라지면 제출 실패가 조용히 삼켜져 사용자에게 아무 안내도 남지 않는다.
+ *
+ * 이 블록의 시각 디자인은 확정 스펙이 아니다(로딩·에러 상태 디자인이 Figma에 없다).
  */
 function SessionResultFallback({
   phase,
@@ -346,23 +386,6 @@ function SessionResultFallback({
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center gap-4 px-6">
       {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
-
-      {phase.name === "done" &&
-        phase.sessions.map((session) => (
-          <div
-            key={session.id}
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-4"
-          >
-            <p className="text-sm text-white/55">귀속 날짜</p>
-            <p className="text-xl font-semibold">{session.statDate}</p>
-            <p className="mt-2 text-sm text-white/55">총 공부 시간</p>
-            <p className="text-xl font-semibold tabular-nums">{formatElapsed(session.studySec)}</p>
-            <p className="mt-2 text-sm text-white/55">순공 시간</p>
-            <p className="text-xl font-semibold tabular-nums">{formatElapsed(session.focusSec)}</p>
-            <p className="mt-2 text-sm text-white/55">집중률</p>
-            <p className="text-xl font-semibold">{session.focusRate}%</p>
-          </div>
-        ))}
 
       {phase.name === "error" && (
         <>
