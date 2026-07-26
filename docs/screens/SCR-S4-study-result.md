@@ -183,8 +183,11 @@ WG4의 세션 화면에는 S3-8 문구 선택을 위한 클라이언트 내부 `
 
 ### 백엔드 계약 미확인 — 상상 계약 금지
 
-- **세션 단건 조회 API가 없다.** `packages/types`에도 `apps/web/src/features/study-session/`에도 `GET /api/study-sessions/{id}` 계약이 존재하지 않는다. 따라서 이 화면은 **세션 제출 응답을 메모리로 전달받아서만** 그릴 수 있고, 새로고침·딥링크 직접 진입 시 데이터를 복원할 수 없다. `GET` 엔드포인트를 상상해서 만들지 말 것.
-- 결과적으로 데이터 전달 방식은 **react-router의 `location.state`**(또는 세션 컨텍스트)로 한다. `state`가 없으면 데이터를 지어내지 말고 홈으로 되돌리거나 안내를 띄운다(아래 Interaction Contract).
+- **세션 단건 조회 API가 없다.** `packages/types`에도 `apps/web/src/features/study-session/`에도 `GET /api/study-sessions/{id}` 계약이 존재하지 않는다. 따라서 이 화면은 **세션 제출 응답을 전달받아서만** 그릴 수 있다. `GET` 엔드포인트를 상상해서 만들지 말 것.
+- 결과적으로 데이터 전달 방식은 **react-router의 `location.state`**(또는 세션 컨텍스트)로 한다. `state`가 없으면 데이터를 지어내지 말고 홈으로 되돌린다(아래 Interaction Contract).
+- **`location.state`는 같은 탭 새로고침에서 살아남는다.** react-router는 state를 `window.history.state.usr`에 실어 두고 브라우저가 이를 보존하므로, **새로고침만으로는 결과가 사라지지 않는다**(2026-07-26 QA 실측: `Page.reload` 후에도 `/room/:id/result`가 그대로 렌더됨). 데이터를 잃는 것은 **콜드 딥링크·새 탭·히스토리 유실** 경우에 한한다.
+  - 따라서 **"새로고침 방어 UI"를 만들지 않는다** — 존재하지 않는 문제다.
+  - 반대로 이 입구는 **우리가 넣지 않은 값이 들어올 수 있는 지점**이기도 하다(히스토리에 남은 옛 state, 조작된 state). `location.state`는 `unknown`으로 받아 **렌더에 실제로 쓰는 필드만 좁게 런타임 검증**하고, `as` 캐스팅으로 통과시키지 않는다. 검증 실패는 "데이터 없음"과 동일하게 처리한다.
 - `studySec`이 일시정지를 제외한 값인지는 **서버 계약상 보장된다**(`StudySessionCreateRequest.studySec` 주석: `0 ≤ studySec ≤ (endedAt−startedAt) − PAUSE 시간 합`).
   - ⚠️ **스펙 정정(2026-07-26, WG1 빌드 완료 후 재확인)**: 아래 두 항목은 WG1 착수 시점 기준의 서술이었다. WG1이 이미 `computeSessionTotals`(`apps/web/src/features/study-session/sessionTimeline.ts`)에서 PAUSE 구간을 제외한 `studySec`을 계산해 `buildSessionRequest`에 넘기고 있음을 코드로 확인했다 — **현재 호출 경로는 이미 계약을 만족한다.** 다만 `buildSessionRequest`(`submitStudySession.ts:27`)의 클램프 자체는 여전히 `sessionSec`(PAUSE 미차감 벽시계 길이)을 상한으로 쓴다 — 이는 방어적 상한이 느슨한 것일 뿐 현재 입력값을 왜곡하지 않지만, 향후 호출부가 바뀌면 다시 구멍이 될 수 있다. **WG4는 이 클램프를 PAUSE 인식하도록 강화하는 것을 하드닝 항목(활성 버그 아님)으로 처리한다.**
   - (아래는 정정 전 기록 — 감사 추적용 보존) ~~다만 현재 `apps/web/src/features/study-session/submitStudySession.ts`의 `buildSessionRequest`는 `studySec`을 벽시계 길이로만 클램프하고 PAUSE를 빼지 않는다. 이 이슈는 WG4가 자기 그룹의 상류 이슈로 인수했다(2026-07-26 상호 확인). 기본안은 호출부에서 `studySec` 계산 시 일시정지 시간을 제외하는 것에 더해 `buildSessionRequest`의 클램프 자체를 PAUSE 인식하도록 고치는 것이다. 같은 파일을 WG1도 만지므로 실제 수정 담당은 착수 전 조율 대상이다.~~
@@ -246,7 +249,7 @@ Figma의 예시값은 **구 모델(화면 꺼짐 = 비집중)** 기준이라 그
 
 - 타임라인 바·범례·통계 행은 **탭 불가**(Figma에 인터랙션·chevron 없음). 상세 드릴다운을 만들지 않는다.
 - **스크롤·CTA 고정**: Figma는 CTA를 `top 774`에 절대 배치했지만, 일시정지 행이 추가되면 통계 카드가 길어진다. 콘텐츠 영역은 스크롤, CTA는 하단 고정(sticky, safe-area 여백 포함)으로 구현한다.
-- `location.state`가 비어 있는 진입(새로고침·직접 URL): 데이터를 지어내지 않는다. 홈(`/`)으로 리다이렉트하는 것을 기본으로 하되, **정확한 처리는 미정 — 리더/사용자 확인 필요**(디자인 없음).
+- `location.state`가 비어 있거나 검증에 실패한 진입(**콜드 딥링크·새 탭·히스토리 유실** — 같은 탭 새로고침은 여기 해당하지 않는다, Data Contract 참고): 데이터를 지어내지 않는다. 홈(`/`)으로 리다이렉트하는 것을 기본으로 하되, **정확한 처리는 미정 — 리더/사용자 확인 필요**(디자인 없음).
 - **다크 모드**: V1.0부터 라이트+다크 모두 지원, 시스템 설정을 따른다(`design.md` 확정 사항). 색은 전부 토큰으로 처리하고 하드코딩된 hex를 남기지 않는다.
 - 세로 전용. S3-5/S3-6의 가로(거치) 모드는 세션 화면만 해당하고 **S4에는 가로 시안이 없다** — 가로 레이아웃을 상상해 만들지 않는다.
 
@@ -356,6 +359,7 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 - **색상 단독 전달 금지**(`design.md` 상태 컬러 보조 규칙 ①: "색상 단독 전달 금지(항상 점+텍스트)"). 타임라인 범례와 통계 행은 도트 + 텍스트 라벨을 항상 병기한다. 일시정지 회색도 예외 없다.
 - **타임라인 바는 순수 시각 요소**다. `role="img"` + `aria-label`로 "집중 1시간 24분, 비집중 18분, 일시정지 3분" 같은 요약을 제공하거나, `aria-hidden`으로 감추고 아래 통계 카드가 정보를 전달하게 한다 — 둘 중 하나는 반드시 한다.
 - **터치 타겟**: CTA `확인`은 56px로 충분하다. **닫기 버튼은 시각 크기 36px로 44px 미만**이므로, 시각 크기는 유지하되 히트 영역을 44×44 이상으로 확장한다(패딩 또는 `::before` 확장).
+- **닫기 버튼의 접근 가능한 이름**: 아이콘만 있고 텍스트가 없으므로(`64:553`/`64:554`) `aria-label` 등으로 이름을 반드시 부여한다(WCAG 4.1.2). 다만 **`voice-tone.md`에 SR 전용 이름 규정이 없다** — 문구를 컴포넌트에 직접 쓰지 말고 문구 상수 모듈에 두고 "임의 적용, 확인 필요"로 표시한다(Review Checklist 항목). 선례: `RoomPage.tsx`의 `aria-label="심플 모드 전환"`.
 - 숫자는 `font-variant-numeric: tabular-nums`로 정렬한다(voice-tone §2 타이머 표기 규칙의 tabular-nums 원칙 연장).
 - **폰트 확대 대응**: 순공 대형 값(33px)과 집중률 필이 Figma에서 같은 줄에 절대 배치돼 있다. 확대 시 겹치지 않도록 flex + `flex-wrap`으로 두고, 필이 아래로 떨어져도 깨지지 않게 한다. 통계 행의 라벨/값도 좌우 양끝 정렬 시 긴 텍스트에서 겹치지 않게 `min-width: 0` + 줄바꿈 허용.
 - 라이트/다크 양쪽에서 대비를 확인한다. 특히 라이트 모드의 소형 오렌지 텍스트는 `design.md` 보조 규칙 ②에 따라 `#B36100`(= `colors.state.distractText`)을 쓴다 — **다만 S4에서 오렌지는 도트에만 쓰이고 텍스트는 `text/primary`이므로 현재 시안에는 해당 사항이 없다.** 구현 중 오렌지 텍스트를 새로 만들면 이 규칙을 적용한다.
@@ -364,7 +368,7 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 ## Current Limitations
 
 - **Figma 원본이 6차 확정을 아직 반영하지 않았다** — 화면 꺼짐 행 잔존, 타임라인 범례 2색, 회색 세그먼트 없음. 이 문서가 우선한다(`design.md` 백로그 7번①, 액션 아이템 "선규 — Figma에 '화면 꺼짐→일시정지 합산' 시안 수정 반영" 미완료).
-- **세션 단건 조회 API가 없다** — 새로고침·딥링크 진입 시 결과를 복원할 수 없다. 라우터 state 의존.
+- **세션 단건 조회 API가 없다** — 라우터 state가 유일한 입력이다. 다만 `location.state`는 `history.state.usr`에 실려 **같은 탭 새로고침에서는 보존되므로 새로고침만으로 결과가 사라지지는 않는다**(2026-07-26 QA 실측). 복원 불가는 **콜드 딥링크·새 탭·히스토리 유실** 시에 한한다.
 - **자정(KST) 분할 케이스가 미설계다.** `submitStudySession`은 `StudySessionResponse[]`(배열)를 반환하고, 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가 무엇을 보여줄지(합산 1화면 / 2개 카드 / 첫 세션만) 어느 문서에도 없다 — **미정 — 리더/사용자 확인 필요**. 우선 배열의 전체를 합산하지 말고, 처리 방식이 정해질 때까지 단일 세션 렌더 + TODO로 둔다.
 - **자동 종료(S3-8) 세션의 `endedAt` 기준이 미정이다.** WG4가 리더/BE에 에스컬레이션한 항목으로, 제출하는 `endedAt`을 **일시정지 시작 시각**으로 볼지 **자동 종료 판정 시각(일시정지 시작 + N분)**으로 볼지 확정되지 않았다. 어느 쪽이냐에 따라 **S4 헤더의 `HH:MM – HH:MM` 종료 시각이 N분만큼 달라지고**, 타임라인 축 길이와 마지막 회색 세그먼트의 표시 여부·길이도 함께 달라진다. **미정 — 리더/사용자 확인 필요.** S4는 받은 `endedAt`을 그대로 축으로 쓰고, 어느 기준인지 추측해 보정하지 않는다.
 - **로딩·에러·빈 결과 상태 디자인이 없다.** 순공 0초/총 공부 0초 세션(즉시 종료)의 표시도 미설계 — `focusRate`가 0 나눗셈이 될 수 있으니 방어 코드는 넣되 문구를 상상하지 않는다.
@@ -382,11 +386,38 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 - [ ] `/room/:id/result` 라우트 경로 확정 — **WG1/리더 결정 대기**(WG4는 새 라우트를 만들지 않아 충돌 없음을 확인)
 - [ ] **자정(KST) 분할 세션**에서 S4가 무엇을 보여줄지 확정 (WG4가 `StudySessionResponse[]` 배열을 그대로 라우터 state로 넘긴다)
 - [ ] **자동 종료(S3-8) 제출의 `endedAt` 기준 확정** — 일시정지 시작 시각 vs 자동 종료 판정 시각. S4 헤더의 종료 시각·타임라인 축이 N분 달라진다 (WG4가 BE 협의로 에스컬레이션함)
-- [ ] `location.state` 없는 진입(새로고침·딥링크)의 처리 확정 — 리다이렉트 / 안내 화면 / 재조회 API 신설
+- [ ] `location.state` 없는 진입(**콜드 딥링크·새 탭·히스토리 유실** — 같은 탭 새로고침은 state가 보존되어 해당 없음)의 처리 확정 — 리다이렉트 / 안내 화면 / 재조회 API 신설
+- [ ] 우상단 닫기 버튼의 **접근성 이름 `닫기`** 확정 — `voice-tone.md`에 SR 전용 이름 규정이 없어 구현이 일반 표기를 임의 적용했다(`apps/web/src/features/study-session/resultCopy.ts`의 `RESULT_COPY.close`). 아이콘 전용 버튼이라 접근 가능한 이름 자체는 WCAG 4.1.2상 필수이므로 구현은 유지하되, 동작이 CTA `확인`과 동일하므로 `확인`·`나가기` 등 다른 이름이 더 맞는지 함께 확인
 - [ ] **비집중 0 + 일시정지 1회 이상** 조합의 통계 카드 레이아웃 확정
 - [ ] 집중률 표시를 `Math.round` 정수로 하는 것이 맞는지 확인 (서버는 소수 1자리)
 - [ ] 카드 내부 구분선 `#eff1f3`를 `border/default`(`#e5e8eb`)로 대체한 것이 허용되는지 확인 (또는 토큰 신설)
-- [ ] `apps/web/src/index.css`에 `state/distract` · `text/tertiary` · `bg/layer-2` · `brand/subtle` 변수 추가 (`design-tokens-sync` 확인)
+- [x] `apps/web/src/index.css`에 `state/distract` · `text/tertiary` · `bg/layer-2` · `brand/subtle` 변수 추가 — **이미 반영돼 있음**(`design-tokens-sync`가 선행 작업에서 추가, 2026-07-26 WG5가 코드로 직접 확인). 빌드 산출 CSS에서 `bg-state-distract`·`text-text-tertiary`·`bg-bg-layer-2`·`bg-brand-subtle` 유틸이 실제로 생성되는 것까지 확인했다.
 - [x] 상류 이슈 재확인 완료(2026-07-26): `buildSessionRequest`에 넘어가는 `studySec`은 WG1의 `computeSessionTotals`가 이미 PAUSE를 제외해 계산하므로 **현재 활성 버그는 아니다.** 클램프 자체(`sessionSec` 상한)를 PAUSE 인식하도록 강화하는 것은 **WG4 하드닝 항목**으로 남겨둔다.
 - [ ] **[리더 결정 대기]** 1초 미만 일시정지가 `computeSessionTotals`(집계에 포함)와 `toStatusEvents`(`MIN_EVENT_MS` 미만 구간 폐기)의 기준 차이로 **이벤트가 0건 전송**될 수 있다 — 이 경우 S4 일시정지 행(0건이면 미노출)·S5 칩(0이면 미노출)에서 흔적이 완전히 사라지는데 `studySec`은 이미 줄어 있어 "총 공부 &lt; 시각 범위"의 이유가 화면에 없다. 선택지(ⓐ 버림 유지 ⓑ 임계값 1초로 상향 ⓒ 입력단 디바운스)는 정책 판단이라 WG2가 `MIN_EVENT_MS`에 손대지 않고 대기 중이다.
 - [ ] 로딩·에러·0초 세션 상태의 디자인·문구 확정
+
+## 구현 노트 (2026-07-26, WG5 빌드 완료)
+
+구현체: `apps/web/src/routes/ResultPage.tsx` + `features/study-session/{sessionResult.ts, resultCopy.ts, components/ResultHeader.tsx, components/StudyTimelineCard.tsx, components/DistractionStatsCard.tsx, components/ResultCardParts.tsx}`. 라우트는 `App.tsx`에 `/room/:id/result`로 등록했다.
+
+미정 항목에 대해 **실제로 코드에 들어간 처리**는 다음과 같다. 전부 되돌리기 쉬운 한 곳에 모아 뒀고 TODO 주석으로 표시했다 — 정책이 확정되면 그 지점만 바꾼다.
+
+| 미정 항목                      | 이번 구현이 택한 처리                                                                                                                                                                                           | 되돌릴 지점                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **자정(KST) 분할 세션**        | **배열의 첫 항목만 렌더**한다. 합산하면 서버가 나눈 귀속 날짜 기준을 화면이 임의로 뭉개고, 2개 카드는 시안 없는 UI를 새로 짓는 일이 되어 둘 다 택하지 않았다.                                                   | `ResultPage.tsx`의 `sessions[0]` 한 줄 |
+| **`location.state` 없는 진입** | 스펙 기본안대로 **홈(`/`)으로 리다이렉트**(`<Navigate to="/" replace />`). 안내 화면을 새로 디자인하지 않았다. 검증은 렌더에 실제로 쓰는 필드만 좁게 확인한다(빈 배열·형태 불일치도 "데이터 없음"과 동일 처리). | `ResultPage.tsx`의 `readSessions` 분기 |
+| **WebView 호스트 복귀 브리지** | CTA `확인`·우상단 `X`가 **같은 콜백 하나**(`handleConfirm`)를 부르고, 그 안에서 브라우저 폴백 `navigate("/", { replace: true })`만 한다. 메시지 포맷을 임의로 만들지 않았다.                                    | `ResultPage.tsx`의 `handleConfirm`     |
+| **비집중 0 + 일시정지 ≥1**     | 확정 문구 `비집중 없이 이어간 공부예요` 아래에 **일시정지 행만** 노출.                                                                                                                                          | `DistractionStatsCard.tsx`             |
+| **자동 종료 `endedAt` 기준**   | 받은 `endedAt`을 **그대로** 타임라인 축·헤더 시각으로 쓴다. 어느 기준인지 추측해 보정하지 않는다.                                                                                                               | (해당 없음 — 보정 코드 자체가 없다)    |
+| **`MIN_EVENT_MS` 하향 편차**   | 서버 값을 그대로 렌더한다. 0건일 때 안내 문구를 덧붙이는 것도 보정으로 보고 **하지 않았다**.                                                                                                                    | (해당 없음)                            |
+
+진입 배선(WG1/WG4 → WG5)은 `RoomPage.tsx`에서 다음과 같이 정리됐다 — 두 경로가 `goToResult` 한 함수로 수렴한다.
+
+- S3-7 `공부 종료` → 제출 성공(`phase === "done"`) **그리고 자동 종료가 아닐 때만** 자동 이동. `submitting`·`error`·`unsaved`는 S3에 남는다(재시도 버튼 유지).
+- S3-8 `결과 보기` → 이미 저장된 `phase.sessions`를 들고 이동(재제출 없음).
+- 이동은 `navigate("result", { state: { sessions }, replace: true })` — 상대 경로라 `:id`를 다시 조립하지 않고, `replace`라 뒤로 가기로 종료된 룸에 되돌아가 새 세션이 시작되지 않는다.
+
+추가로 확인된 사항:
+
+- **`index.html`의 `viewport-fit=cover` — 해결됨.** 이 화면과 S3 세션 화면(WG1~WG4)이 모두 `env(safe-area-inset-*)`로 여백을 잡는데 이 메타가 없으면 iOS에서 인셋이 항상 0이 된다. WG5 착수 시점에는 없어 리더에 회부했고, **리더가 선반영 완료(2026-07-26)** — `apps/web/index.html`에 존재한다. WG5는 이를 전제하지 않았으며, safe-area 인셋이 0인 환경에서도 레이아웃이 깨지지 않음을 QA가 실측 확인했다(카드 상단 y=167, 인셋 59px 적용 시 226 = Figma 실측 일치).
+- 타임라인 세그먼트에 **최소 폭을 주지 않았다.** 아주 짧은 구간은 1px 미만이 되어 보이지 않을 수 있지만, 최소 폭은 비율을 왜곡하는 표시 보정이라 넣지 않았다(정보는 통계 카드가 전달한다).
