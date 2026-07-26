@@ -6,19 +6,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SettingsRow } from "../../components/settings/SettingsRow";
 import { SettingsSection } from "../../components/settings/SettingsSection";
 import { openAppSettings } from "../../lib/cameraPermission";
-import {
-  appVersionLabel,
-  cameraPermissionRowLabel,
-  openExternalUrl,
-  SETTINGS_LINKS,
-} from "../../lib/settingsInfo";
+import { appVersionLabel, cameraPermissionRowLabel } from "../../lib/settingsInfo";
 
 /**
  * S6 · 설정 — Figma node `67:722`, 스펙 `frontend/docs/screens/SCR-S6-settings.md`.
  *
  * **이 화면에서 앱이 직접 바꾸는 상태는 하나도 없다.** 설정은 "기능을 켜고 끄는 곳"이 아니라
- * "측정 방식을 이해하고, 권한을 확인하러 가는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀌고,
- * 측정 기준 설명은 온보딩 가이드(G1~G5)가 소유한다.
+ * "권한을 확인하고, 문서를 찾아보는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀐다.
+ *
+ * **모든 행이 앱 안에 머문다**(BY-257). 문의는 WebView(`/contact`), 약관·방침은 텍스트
+ * 화면(`/terms`·`/privacy`)이다 — 외부 브라우저로 나가는 행이 하나도 없다.
  *
  * V1.0 인벤토리에 없는 항목을 추가하지 않는다: 로그인·계정 삭제(V1.2+, `policies.md` §2),
  * 알림 설정(푸시 알림 정책이 `design.md` 백로그에 미정), 랭킹·프로필.
@@ -38,19 +35,6 @@ import {
  *   **사용자 배포 빌드 전 반드시 해소해야 한다**(실제로 거부한 사용자에게 "허용됨"으로 보인다).
  */
 const FIGMA_EXAMPLE_CAMERA_PERMISSION_GRANTED = true;
-
-/**
- * 목적지가 확정된 링크만 눌리게 만든다. `null`이면 핸들러를 아예 만들지 않아 행이 버튼으로
- * 노출되지 않는다 — placeholder URL을 지어내는 것보다 "아직 못 누른다"가 정직하다.
- */
-function externalLinkHandler(url: string | null): (() => void) | undefined {
-  if (url === null) {
-    return undefined;
-  }
-  return () => {
-    void openExternalUrl(url);
-  };
-}
 
 /**
  * 사용자가 OS 설정에서 권한을 바꾸고 돌아오면 표시가 따라와야 한다 — 그 재조회 지점
@@ -125,47 +109,50 @@ export default function SettingsScreen() {
             }}
           />
           {/*
-            MG5가 만든 온보딩 가이드(G1~G5) 플로우로 **재진입**시키는 링크다. 가이드의 단계·문구·
-            전환은 이 화면이 전혀 알지 못한다 — 설명 문구를 여기 복제하면 두 곳이 갈라진다.
-            `entry: "settings"`는 `lib/onboardingGuideSteps.ts`의 진입 출처 C.
-            재진입 시 G5 CTA가 세션을 시작할지 닫기만 할지는 **미정**이라 여기서 확정하지 않는다 —
-            분기는 `lib/focusStartFlow.ts`가 갖고 있고 현재는 닫기만 한다.
+            "측정 기준 안내" 행은 BY-257에서 제거했다. 온보딩 가이드(G1~G5) 자체는 그대로 살아 있고
+            홈의 가이드 카드로 재진입한다 — 설정에서 가는 길만 없앤 것이다.
+            `lib/onboardingGuideSteps.ts`의 진입 출처 `"settings"`는 MG5 소유라 건드리지 않았다
+            (지금은 참조하는 곳이 없다).
           */}
-          <SettingsRow
-            label="측정 기준 안내"
-            sublabel="자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요"
-            trailing={{ kind: "chevron" }}
-            onPress={() => {
-              router.push({ pathname: "/onboarding-guide", params: { entry: "settings" } });
-            }}
-          />
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="지원">
           {/*
-            여는 방식(외부 브라우저)은 확정이고 목적지만 미정이다 — URL이 `null`인 동안에는
-            핸들러를 만들지 않아 행이 버튼으로 노출되지 않는다(없는 목적지를 있는 척하지 않는다).
-            TODO(SCR-S6-settings.md): 문의 폼 URL 미확정 — 상상 URL을 커밋하지 말 것.
+            문의 폼은 **앱 안에서 WebView로 띄운다**(BY-257) — 외부 브라우저로 나가지 않으므로
+            chevron(앱 내 이동)이고, "외부 브라우저로 열려요" 힌트를 붙이지 않는다.
+            약관·방침과 달리 텍스트로 옮길 수 없다: 응답을 제출해야 하는 인터랙티브 폼이다.
           */}
           <SettingsRow
             label="문의하기"
-            trailing={{ kind: "external" }}
-            accessibilityHint="외부 브라우저로 열려요"
-            onPress={externalLinkHandler(SETTINGS_LINKS.contactFormUrl)}
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              router.push("/contact");
+            }}
           />
         </SettingsSection>
 
         <SettingsSection className="mt-6" label="약관 · 정보">
           {/*
-            chevron 3종은 앱 내 이동을 뜻하지만 **대상 문서도 목적지 화면도 아직 없다**
-            (`design.md` V1.0 화면 인벤토리에 미등재, 개인정보처리방침은 `policies.md`가 작성 TODO).
-            존재하지 않는 라우트로 이동을 시도하지 않는다 — 핸들러 없이 표시만 한다.
-            TODO(SCR-S6-settings.md Review Checklist): 이용약관·개인정보처리방침·오픈소스 라이선스의
-            문서와 목적지(앱 내 WebView vs 외부 링크) 확정 필요.
+            이용약관·개인정보처리방침은 **앱 안에서 직접 보여준다**(BY-257) — 웹에도 같은 문서가
+            있지만 외부 브라우저로 내보내지 않는다. chevron(앱 내 이동)이 그대로 맞는 표기다.
+            본문은 `lib/legalDocuments.ts`가 소유하고 이 화면은 라우트만 안다.
+
+            "오픈소스 라이선스" 행은 BY-257에서 제거했다(목적지도 문서도 없던 행이다).
           */}
-          <SettingsRow label="이용약관" trailing={{ kind: "chevron" }} />
-          <SettingsRow label="개인정보처리방침" trailing={{ kind: "chevron" }} />
-          <SettingsRow label="오픈소스 라이선스" trailing={{ kind: "chevron" }} />
+          <SettingsRow
+            label="이용약관"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              router.push("/terms");
+            }}
+          />
+          <SettingsRow
+            label="개인정보처리방침"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              router.push("/privacy");
+            }}
+          />
           {/* 트레일링이 값 텍스트뿐이라 탭 불가 — chevron이 없다는 것이 그 표시다. */}
           <SettingsRow label="버전 정보" trailing={{ kind: "value", value: appVersionLabel() }} />
         </SettingsSection>

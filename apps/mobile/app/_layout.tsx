@@ -31,6 +31,14 @@ export default function RootLayout() {
           options={{ presentation: "fullScreenModal", animation: "fade" }}
         />
         {/*
+          이용약관·개인정보처리방침 — 설정에서 진입하는 읽기 전용 문서 화면. 탭 바를 덮는 스택
+          라우트라 `(tabs)` 밖에 둔다. 백 제스처를 막지 않는다(화면 안 뒤로가기 버튼과 같은 결과).
+        */}
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="privacy" />
+        {/* 문의하기 — 폼을 WebView로 띄우는 화면. 위 두 화면과 같은 이유로 `(tabs)` 밖에 둔다. */}
+        <Stack.Screen name="contact" />
+        {/*
           구 `room/[id]` 등록은 제거했다 — `app/room/`이 2026-07-25 기능 리셋으로 삭제돼
           런타임에 `No route named "room/[id]" exists in nested children` 경고만 냈다.
           스터디룸은 WG 계열(apps/web) 완료 후 WebView 라우트로 다시 등록한다(ADR 0001).
