@@ -3,7 +3,7 @@ import { useColorScheme } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
 /**
- * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
+ * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내 · S5 기록). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
  * `download_assets`로 내보낸 SVG의 path 데이터를 그대로 옮긴 것이다 — 형상을 직접 그리지 않았다.
  *
  * Figma SVG 익스포트에는 캔버스·섹션 배경 `<rect>`(#F5F5F5, white)가 함께 들어있는데,
@@ -90,6 +90,93 @@ export function IconChevronRight({
         d="M0.928589 0.857147L6.07145 6L0.928589 11.1429"
         stroke={color}
         strokeWidth={1.54286}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * S5 기록의 달력 이전 달 버튼 아이콘(Figma `icon/chevron-left` 32:39 — 프레임 8×13).
+ * 익스포트 원본 stroke는 #191F28 하드코딩이지만 값이 `text/primary` 라이트값과 정확히 일치해
+ * 토큰에 바인딩한다(다크모드 대응). 다음 달 버튼은 이 아이콘을 회전시키지 않고
+ * 같은 세트의 `IconChevronRight`를 쓴다.
+ */
+export function IconChevronLeft({ color, size = 13, ...rest }: IconProps) {
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const stroke = color ?? colors.text.primary[scheme];
+
+  // 익스포트 원본 비율 7.24×12.81 — size는 높이 기준으로 두고 너비를 비율로 맞춘다.
+  return (
+    <Svg
+      width={(size * 7.24286) / 12.8143}
+      height={size}
+      viewBox="0 0 7.24286 12.8143"
+      fill="none"
+      {...rest}
+    >
+      <Path
+        d="M6.40714 0.835714L0.835714 6.40714L6.40714 11.9786"
+        stroke={stroke}
+        strokeWidth={1.67143}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * S5 기록의 정렬 라벨 옆 셰브런(Figma `icon/chevron-down` 32:42 — 프레임 9×6).
+ * V1.0 정렬은 최신순 고정이라 **장식이다** — 누를 수 없는 자리에 놓는다
+ * (`SCR-S5-records.md` Interaction Contract / Current Limitations 참고).
+ */
+export function IconChevronDown({ color, size = 9, ...rest }: IconProps) {
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const stroke = color ?? colors.text.tertiary[scheme];
+
+  // 익스포트 원본 비율 8.23×4.8 — size는 너비 기준.
+  return (
+    <Svg
+      width={size}
+      height={(size * 4.8) / 8.22857}
+      viewBox="0 0 8.22857 4.8"
+      fill="none"
+      {...rest}
+    >
+      <Path
+        d="M0.685714 0.685714L4.11429 4.11429L7.54286 0.685714"
+        stroke={stroke}
+        strokeWidth={1.37143}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * S5 연속 공부 배너의 주간 체크 도트 안 체크 표시(Figma `icon/check-sm` 32:33 — 프레임 13×13).
+ * 브랜드 색 원 위에 얹히는 아이콘이라 색이 `text/onBrand` 고정이다(라이트·다크 동일값이라
+ * 스킴 조회가 필요 없다).
+ */
+export function IconCheckSm({ color, size = 13, ...rest }: IconProps) {
+  const stroke = color ?? colors.text.onBrand.light;
+
+  // 익스포트 원본 10.21×8.36이 13×13 프레임 안에 들어간다 — size는 프레임 기준.
+  return (
+    <Svg
+      width={(size * 10.2143) / 13}
+      height={(size * 8.35716) / 13}
+      viewBox="0 0 10.2143 8.35716"
+      fill="none"
+      {...rest}
+    >
+      <Path
+        d="M0.928571 4.64287L3.71429 7.42859L9.28571 0.928588"
+        stroke={stroke}
+        strokeWidth={1.85714}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
