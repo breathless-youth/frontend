@@ -2,6 +2,8 @@ import Constants from "expo-constants";
 
 import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
 
+import { parseErrorMessage } from "./api";
+
 function apiBaseUrl(): string {
   const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (!url) {
@@ -18,11 +20,7 @@ export async function listStudySessionStats(
     method: "GET",
   });
   if (!res.ok) {
-    const message = await res
-      .json()
-      .then((body: { message?: string }) => body.message)
-      .catch(() => undefined);
-    throw new Error(message ?? `통계 조회 실패 (HTTP ${res.status})`);
+    throw await parseErrorMessage(res, "통계 조회 실패");
   }
   return (await res.json()) as StudySessionListResponse;
 }
@@ -32,11 +30,7 @@ export async function getStreak(userId: number): Promise<StudySessionStreakRespo
     method: "GET",
   });
   if (!res.ok) {
-    const message = await res
-      .json()
-      .then((body: { message?: string }) => body.message)
-      .catch(() => undefined);
-    throw new Error(message ?? `스트릭 조회 실패 (HTTP ${res.status})`);
+    throw await parseErrorMessage(res, "스트릭 조회 실패");
   }
   return (await res.json()) as StudySessionStreakResponse;
 }

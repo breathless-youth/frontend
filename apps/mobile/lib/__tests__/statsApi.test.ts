@@ -132,4 +132,10 @@ describe("getStreak", () => {
 
     await expect(getStreak(7)).rejects.toThrow("스트릭 조회 실패 (HTTP 500)");
   });
+
+  it("네트워크 오류를 호출자에게 전달한다", async () => {
+    mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
+
+    await expect(getStreak(7)).rejects.toThrow("Network request failed");
+  });
 });
