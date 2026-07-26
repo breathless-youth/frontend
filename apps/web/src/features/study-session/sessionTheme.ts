@@ -37,11 +37,21 @@ const SESSION_SURFACE_VARS = {
   // 세션 오버레이 전용 실측값
   /** 카메라 영역 base — 실제 앱에서는 카메라 피드가 들어온다. */
   "--session-camera-base": "#1a2029",
-  "--session-pill-bg": "rgba(16, 20, 25, 0.65)",
-  "--session-pill-bg-distract": "rgba(16, 20, 25, 0.68)",
+  /** 심플 모드 배경 — 카메라 프리뷰가 사라진 자리(Figma S3-4 `60:404` 실측 `#0B0F14`). */
+  "--session-simple-base": "#0b0f14",
+  /**
+   * 상태 필 배경 = `colors.bg.base.dark`(#101419) + 알파. 알파만 Figma 실측값이다.
+   * 세 변수의 값이 지금은 두 종류뿐이지만 **상태별로 갈릴 수 있으므로 변수는 분리 유지한다.**
+   */
+  "--session-pill-bg": withAlpha(colors.bg.base.dark, 0.65),
+  "--session-pill-bg-distract": withAlpha(colors.bg.base.dark, 0.68),
+  /** 일시정지 필 배경 — Figma S3-3 `59:358` 실측 68%(집중 65%와 값이 다르다). */
+  "--session-pill-bg-paused": withAlpha(colors.bg.base.dark, 0.68),
   /** 비집중 상태색 35% — Figma 실측 `rgba(255,158,27,0.35)`와 동일한 값이 토큰에서 계산된다. */
   "--session-pill-border-distract": withAlpha(sessionStateColors.DISTRACTION.dark, 0.35),
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
+  /** 재개 버튼 — colors.brand.primary.dark(#3182f6)와 Figma S3-3 실측이 일치한다. */
+  "--session-resume-bg": colors.brand.primary.dark,
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
   "--session-exit-bg": colors.feedback.error.dark,
   /** 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다. */
@@ -49,3 +59,28 @@ const SESSION_SURFACE_VARS = {
 } as const;
 
 export const sessionSurfaceStyle = SESSION_SURFACE_VARS as unknown as CSSProperties;
+
+/**
+ * 상태별 발광(글로우) 색 — 심플 모드(S3-4)의 타이머 발광과 엣지 글로우가 함께 쓴다.
+ *
+ * Figma는 **집중 상태의 발광만** 정의한다: 근거리 `#4593FC` 55% / 원거리 `#1B64DA` 35%.
+ * 두 값은 각각 `sessionStateColors.FOCUS`의 **dark 값과 light 값**이라 상태색 토큰에서
+ * 그대로 유도된다 — 그래서 이 표는 집중 상태를 Figma 실측과 **정확히 일치**시키면서
+ * 비집중·일시정지로도 색을 새로 지어내지 않고 확장된다(일시정지는 light/dark가 같은 `#8B95A1`).
+ *
+ * ⚠️ **"일시정지 × 심플 모드"는 Figma 미설계다**(SCR-S3-3·S3-4 Current Limitations 1).
+ * 스펙이 지시한 가장 보수적인 잠정안 — **발광은 유지하고 색만 상태 컬러로 바꾼다** — 를 적용했다.
+ * 디자인이 확정되면 이 함수 하나만 고치면 된다.
+ */
+export function sessionGlowStyle(kind: keyof typeof sessionStateColors): CSSProperties {
+  const stateColor = sessionStateColors[kind];
+  return {
+    "--session-state-color": stateColor.dark,
+    // 숫자 발광 — Figma Spec `14:7`: 0 0 24 (dark) 55% + 0 0 60 (light) 35%
+    "--session-glow-near": withAlpha(stateColor.dark, 0.55),
+    "--session-glow-far": withAlpha(stateColor.light, 0.35),
+    // 엣지 글로우 — Figma Spec `14:7`: inner 0 0 110 spread 4 (light) 32% + 0 0 40 (dark) 16%
+    "--session-edge-glow-outer": withAlpha(stateColor.light, 0.32),
+    "--session-edge-glow-inner": withAlpha(stateColor.dark, 0.16),
+  } as unknown as CSSProperties;
+}

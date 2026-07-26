@@ -21,6 +21,7 @@ export function CameraPreviewSurface({ isRunning, className }: CameraPreviewSurf
   return (
     <div
       aria-hidden="true"
+      data-session-surface="camera"
       className={cn("absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]", className)}
     >
       {!isRunning && (

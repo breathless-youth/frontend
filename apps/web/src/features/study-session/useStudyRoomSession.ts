@@ -6,6 +6,8 @@ import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
 import type { FocusDetector } from "./adapters/focusDetector";
 import { createMockFocusDetector } from "./adapters/focusDetector";
+import type { SystemPauseSource } from "./adapters/systemPauseSource";
+import { createSystemPauseSource } from "./adapters/systemPauseSource";
 import type { DetectionParams, DetectionState, TriggerSignals } from "./detection";
 import {
   DEFAULT_DETECTION_PARAMS,
@@ -46,6 +48,8 @@ export interface StudyRoomSessionOptions {
   /** 기본값은 mock. 실제 구현체는 실기기 스파이크 이후 별도 티켓에서 주입한다. */
   readonly camera?: CameraAdapter;
   readonly detector?: FocusDetector;
+  /** 화면 꺼짐·백그라운드 신호원. 기본값은 표준 Page Visibility 기반 구현. */
+  readonly systemPause?: SystemPauseSource;
   /** 감지 유지시간 — 하드코딩하지 않고 주입한다(mvp-scope.md "감지 파라미터", 튜닝 예정). */
   readonly detectionParams?: DetectionParams;
   /** 타이머·감지 판정 주기(ms). 초 표시는 1초마다 바뀌지만 감지 판정은 더 촘촘해야 한다. */
@@ -65,6 +69,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [detector] = useState<FocusDetector>(() => options.detector ?? createMockFocusDetector());
   const [detectionParams] = useState<DetectionParams>(
     () => options.detectionParams ?? DEFAULT_DETECTION_PARAMS,
+  );
+  const [systemPause] = useState<SystemPauseSource>(
+    () => options.systemPause ?? createSystemPauseSource(),
   );
   const tickMs = options.tickMs ?? 200;
 
@@ -150,9 +157,21 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     return () => clearInterval(timer);
   }, [applyState, detectionParams, phase.name, tickMs]);
 
-  /** 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다. */
+  /**
+   * 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다.
+   *
+   * ⚠️ **이미 일시정지면 트리거가 달라도 구간을 다시 끊지 않는다.** `isSameSessionState`는
+   * PAUSE끼리도 `trigger`를 비교하므로, 가드가 없으면 "수동 일시정지 중 화면이 꺼지는" 흔한
+   * 경로에서 `MANUAL` → `BACKGROUND` 전이가 일어나 PAUSE 구간이 **2개로 쪼개진다**.
+   * 그러면 `eventCounts.PAUSE`가 2가 되어 S4·S5에 "일시정지 2회"로 표시된다 —
+   * 사용자는 한 번 눌렀는데. 6차 확정("트리거는 2개, 상태와 이벤트는 1개")의 직접 위반이다.
+   * 트리거는 내부 계측용이므로 **먼저 들어온 트리거를 유지**한다. (qa-WG2 F1 실측 재현)
+   */
   const pause = useCallback(
     (trigger: PauseTrigger = "MANUAL") => {
+      if (currentState(timelineRef.current).kind === "PAUSE") {
+        return;
+      }
       applyState(pauseState(trigger));
     },
     [applyState],
@@ -172,6 +191,25 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const onReturnFromBackground = useCallback(() => {
     // 의도적 no-op.
   }, []);
+
+  /**
+   * 화면 꺼짐·백그라운드 → **수동 일시정지와 같은 `pause()` 통로**로 들어간다(2026-07-26 확정).
+   * 트리거만 `"BACKGROUND"`로 다르고 상태·화면·문구·시간 처리·서버 전송은 완전히 동일하다 —
+   * 별도 상태나 별도 화면을 만들지 않는다.
+   *
+   * 복귀는 위 `onReturnFromBackground`로 넘긴다(현재 no-op — 재개 방식 미확정).
+   */
+  useEffect(() => {
+    if (phase.name !== "studying") {
+      return;
+    }
+    return systemPause.subscribe({
+      onLeave: () => {
+        pause("BACKGROUND");
+      },
+      onReturn: onReturnFromBackground,
+    });
+  }, [onReturnFromBackground, pause, phase.name, systemPause]);
 
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();

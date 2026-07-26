@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PRIVACY_CAPTION, statusCopyFor } from "../sessionCopy";
+import { PAUSE_CAPTION, PRIVACY_CAPTION, captionFor, statusCopyFor } from "../sessionCopy";
 import { FOCUS_STATE, distractionState, pauseState, toEventStatus } from "../sessionState";
 
 describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
@@ -32,6 +32,23 @@ describe("프라이버시 캡션", () => {
   it("싱글룸 문구만 쓴다 — 멀티룸 문구를 끌어오지 않는다", () => {
     expect(PRIVACY_CAPTION).toBe("영상은 기기 안에서만 처리돼요");
     expect(PRIVACY_CAPTION).not.toContain("서버");
+  });
+});
+
+describe("captionFor — 하단 캡션은 한 줄만 (S3-3)", () => {
+  it("일시정지에서는 프라이버시 캡션을 일시정지 캡션으로 교체한다", () => {
+    expect(PAUSE_CAPTION).toBe("일시정지 중에는 시간이 흐르지 않아요");
+    expect(captionFor(pauseState("MANUAL"))).toBe(PAUSE_CAPTION);
+  });
+
+  it("화면 꺼짐 트리거도 같은 캡션을 쓴다 — '화면 꺼짐' 라벨은 UI에 없다", () => {
+    expect(captionFor(pauseState("BACKGROUND"))).toBe(PAUSE_CAPTION);
+    expect(captionFor(pauseState("BACKGROUND"))).not.toContain("화면 꺼짐");
+  });
+
+  it("일시정지가 아니면 프라이버시 캡션이다", () => {
+    expect(captionFor(FOCUS_STATE)).toBe(PRIVACY_CAPTION);
+    expect(captionFor(distractionState("PHONE"))).toBe(PRIVACY_CAPTION);
   });
 });
 

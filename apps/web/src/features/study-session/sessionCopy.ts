@@ -20,6 +20,12 @@ export interface SessionStatusCopy {
  */
 export const PRIVACY_CAPTION = "영상은 기기 안에서만 처리돼요";
 
+/**
+ * 일시정지 하단 캡션(voice-tone.md §4 세션 "일시정지 캡션", Figma S3-3 `59:361` 실측 일치).
+ * 일시정지 중에는 이 문구가 **프라이버시 캡션 자리를 대체**한다 — 두 줄을 동시에 띄우지 않는다.
+ */
+export const PAUSE_CAPTION = "일시정지 중에는 시간이 흐르지 않아요";
+
 const FOCUS_COPY: SessionStatusCopy = { label: "집중 측정 중" };
 
 /** voice-tone.md §3 상태 문구 — Figma에는 '휴대폰 사용' 인스턴스만 그려져 있으나 3종 모두 구현한다. */
@@ -30,9 +36,10 @@ const DISTRACTION_COPY = {
 } as const satisfies Record<string, SessionStatusCopy>;
 
 /**
- * TODO(WG2): 일시정지 프레젠테이션(S3-3)은 WG2 범위다. WG1은 상태 전이를 검증할 수 있을 만큼만
- * 배선해 둔다 — 캡션 교체("일시정지 중에는 시간이 흐르지 않아요")·파란 재개 버튼은 WG2가 채운다.
- * 문구 자체는 voice-tone.md §3에서 그대로 가져온 확정 문구다.
+ * voice-tone.md §3 상태 문구 — Figma S3-3 `59:358`/`59:364` 실측과 일치한다.
+ *
+ * 수동 일시정지와 화면 꺼짐·백그라운드는 **같은 문구**를 쓴다(2026-07-26 6차 확정).
+ * `PauseTrigger`로 문구를 갈라 쓰지 않는다 — '화면 꺼짐' 라벨은 UI에 존재하지 않는다.
  */
 const PAUSE_COPY: SessionStatusCopy = {
   label: "측정을 일시정지했어요",
@@ -48,6 +55,14 @@ export function statusCopyFor(state: SessionState): SessionStatusCopy {
     case "PAUSE":
       return PAUSE_COPY;
   }
+}
+
+/**
+ * 하단 캡션 1줄 — 일시정지에서만 프라이버시 캡션이 일시정지 캡션으로 **교체**된다
+ * (Figma S3-3 실측: 두 문구가 같은 자리 y=726을 쓴다).
+ */
+export function captionFor(state: SessionState): string {
+  return state.kind === "PAUSE" ? PAUSE_CAPTION : PRIVACY_CAPTION;
 }
 
 /** 카메라 전환 토스트 문구(voice-tone.md §4 토스트). */
