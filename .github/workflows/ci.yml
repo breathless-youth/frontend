@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+    # edited: PR 제목 수정 시에도 pr-title 검사를 재실행하기 위함
+    types: [opened, edited, synchronize, reopened]
   push:
     branches: [main]
 
@@ -10,7 +12,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PR 제목 컨벤션: "[타입] SCRUM-N 제목" (티켓 없는 작업은 "[타입] 제목")
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title convention
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # 두 번째 grep: 티켓 자리에 GitHub 이슈번호(#171)를 쓰는 위반 차단 (Jira 키는 SCRUM-N만 허용)
+          # 세 번째 grep: 티켓 번호만 있고 제목 텍스트가 없는 케이스("[feat] SCRUM-147") 차단
+          if echo "$TITLE" | grep -qE '^\[(feat|fix|docs|style|refactor|test|chore|design|comment|rename|remove|!HOTFIX)\] (SCRUM-[0-9]+ )?[^ ]' \
+            && ! echo "$TITLE" | grep -qE '^\[[^]]+\] #[0-9]+' \
+            && ! echo "$TITLE" | grep -qE '^\[[^]]+\] SCRUM-[0-9]+ *$'; then
+            echo "OK: $TITLE"
+          else
+            echo "PR 제목이 컨벤션을 위반합니다: '$TITLE'"
+            echo "형식: [타입] SCRUM-N 제목 (티켓 없는 작업은 [타입] 제목)"
+            echo "타입: feat fix docs style refactor test chore design comment rename remove !HOTFIX"
+            exit 1
+          fi
+
   quality:
+    # edited(제목/본문 수정)는 pr-title만 재검사하면 되므로 무거운 빌드는 건너뛴다 (push 트리거는 보존)
+    if: github.event_name == 'push' || github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

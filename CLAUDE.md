@@ -53,6 +53,7 @@ pnpm --filter web dev      # web만
 - 각 패키지는 `lint`/`typecheck`/`test` 스크립트를 동일한 이름으로 노출한다 — 새 패키지를 추가할 때도 이 3개는 반드시 채운다(내용이 없으면 `echo ... && exit 0`이라도).
 - 공유 로직/타입은 `packages/*`로 올린다. 특정 화면에서만 쓰는 코드를 패키지로 미리 빼지 않는다(과도한 추상화 금지).
 - 커밋 메시지는 Conventional Commits(`feat:`, `fix:`, `chore:`, `docs:` 등). `commitlint`(`@commitlint/config-conventional` 기본값)가 강제한다. [Codex의 Git 워크플로 스펙](./docs/superpowers/specs/2026-07-22-git-github-jira-workflow-design.md)은 더 넓은 타입 목록(`design`/`comment`/`rename`/`remove`/`!HOTFIX` 포함)을 제안하지만 아직 `commitlint.config.js`에 반영되지 않았다.
+- **PR 제목은 `[타입] SCRUM-N 제목` 형식**(예: `[feat] SCRUM-147 공부 세션 제출 API 연동`, 티켓 없는 잡무는 `[chore] 제목`). 커밋 메시지의 Conventional Commits 스타일(`feat(web): ...`)을 PR 제목에 쓰지 말 것. Jira 키 자리에 GitHub 이슈번호(`#171`)를 쓰지 말 것. CI `pr-title` job이 강제한다.
 - PR은 `.github/pull_request_template.md` 체크리스트를 따른다. 구조/아키텍처 변경 시 `docs/adr/`에 ADR을 추가한다.
 - 로그인은 Google/Apple만 지원한다(다른 소셜/이메일 로그인 추가 금지). 실제 로그인 화면은 아직 미구현.
 
@@ -72,8 +73,8 @@ pnpm --filter web dev      # web만
 
 `docs/superpowers/specs/`에 Codex가 작성한 두 설계 문서가 있다. 둘 다 "LLM 중립적으로 작성"이 원칙이라 Claude를 포함한 모든 AI 도구가 그대로 따를 수 있게 쓰여 있다. **다만 두 문서 모두 "설계안(design)"이라 아직 저장소에 전면 도입되지 않았다** — 그 상태를 착각하지 말 것.
 
-- [`2026-07-22-git-github-jira-workflow-design.md`](./docs/superpowers/specs/2026-07-22-git-github-jira-workflow-design.md) — Jira 티켓을 작업의 단일원천으로 삼는 Git 브랜치(`main`/`dev`/`feature/{JIRA-KEY}-*`)·커밋 타입(`feat`/`design`/`comment`/`rename`/`remove`/`!HOTFIX` 등 확장 목록)·PR 템플릿·GitHub Ruleset 체계. **아직 미도입**: 이 저장소는 지금 `main` 하나뿐이고 `dev` 브랜치·GitHub CLI 인증·Ruleset이 없다. 커밋 타입도 현재 `commitlint.config.js`는 `@commitlint/config-conventional` 기본값만 강제해서, 이 문서의 확장 타입(`design`/`comment`/`rename`/`remove`/`!HOTFIX`)은 아직 실제로는 통과하지 않을 수 있다 — commitlint 설정을 맞추기 전까지는 기본 Conventional Commits 타입(`feat`/`fix`/`docs`/`style`/`chore`/`refactor`/`test`/`build`)만 안전하다.
-- [`2026-07-22-ai-native-mobile-development-design.md`](./docs/superpowers/specs/2026-07-22-ai-native-mobile-development-design.md) — Figma 화면을 화면 단위로 안전하게 구현하기 위한 문서 구조(`AGENTS.md` 공통 진입점, `docs/ai-development/*`, `docs/screens/SCR-NNN-*.md`), 화면당 프롬프트 계약, 컴포넌트 승격 규칙, 코드 소유권/보호 파일 선언 절차. **아직 미도입**: `AGENTS.md`(공통 진입점), `docs/ai-development/`, `docs/screens/`는 이 저장소에 없다. 이 문서의 "적용 범위"(WebView 활성, 네이티브 dormant)는 이미 우리 ADR 0001/0003과 일치한다 — 이 부분만은 지금도 유효한 사실 서술이다.
+- [`2026-07-22-git-github-jira-workflow-design.md`](./docs/superpowers/specs/2026-07-22-git-github-jira-workflow-design.md) — Jira 티켓을 작업의 단일원천으로 삼는 Git 브랜치(`main`/`dev`/`feature/{JIRA-KEY}-*`)·커밋 타입(`feat`/`design`/`comment`/`rename`/`remove`/`!HOTFIX` 등 확장 목록)·PR 템플릿·GitHub Ruleset 체계. **예외: 이 문서의 PR 제목 규칙(`[타입] SCRUM-N 제목`)만은 2026-07-26에 도입되어 CI가 강제한다** — 위 코딩 컨벤션 참고. **아직 미도입**: GitHub Ruleset(브랜치 보호)이 없다 — `pr-title` job이 실패해도 머지 자체는 막히지 않는다. `dev` 브랜치와 GitHub CLI 인증은 2026-07-26 기준 존재한다. 커밋 타입도 현재 `commitlint.config.js`는 `@commitlint/config-conventional` 기본값만 강제해서, 이 문서의 확장 타입(`design`/`comment`/`rename`/`remove`/`!HOTFIX`)은 아직 실제로는 통과하지 않을 수 있다 — commitlint 설정을 맞추기 전까지는 기본 Conventional Commits 타입(`feat`/`fix`/`docs`/`style`/`chore`/`refactor`/`test`/`build`)만 안전하다.
+- [`2026-07-22-ai-native-mobile-development-design.md`](./docs/superpowers/specs/2026-07-22-ai-native-mobile-development-design.md) — Figma 화면을 화면 단위로 안전하게 구현하기 위한 문서 구조(`AGENTS.md` 공통 진입점, `docs/ai-development/*`, `docs/screens/SCR-NNN-*.md`), 화면당 프롬프트 계약, 컴포넌트 승격 규칙, 코드 소유권/보호 파일 선언 절차. **아직 미도입**: `docs/ai-development/`, `docs/screens/`는 이 저장소에 없다. 루트 `AGENTS.md`는 2026-07-26에 생겼지만 PR 제목 컨벤션만 담은 부분적 진입점이다 — 이 문서가 설계한 전체 구조가 도입된 게 아니다. 이 문서의 "적용 범위"(WebView 활성, 네이티브 dormant)는 이미 우리 ADR 0001/0003과 일치한다 — 이 부분만은 지금도 유효한 사실 서술이다.
 - 이 문서의 보호 파일(protected) 목록은 **2026-07-25 기능 리셋으로 전부 삭제되어 현재는 비어 있다** — 재구축하면서 보호가 필요한 경로가 생기면 다시 선언한다.
 
 ## 하지 말 것
@@ -84,4 +85,4 @@ pnpm --filter web dev      # web만
 - 공유 패키지(`study-core` 등)에 React Native/DOM/MediaPipe/LiveKit 의존성을 추가하지 말 것.
 - 패키지 매니저를 npm/yarn으로 바꾸지 말 것 (pnpm 고정).
 - `packages/config`의 공유 규칙을 개별 앱에서 무시하려면 반드시 이유를 주석으로 남길 것.
-- 위 Codex 스펙 문서를 "이미 도입된 상태"로 착각해서 없는 `AGENTS.md`/`docs/screens/`/`dev` 브랜치/Ruleset을 있다고 가정하지 말 것 — 실제로 만들거나 사용자에게 도입 여부부터 확인할 것.
+- 위 Codex 스펙 문서를 "이미 도입된 상태"로 착각해서 없는 `docs/ai-development/`/`docs/screens/`/Ruleset을 있다고 가정하지 말 것 — 실제로 만들거나 사용자에게 도입 여부부터 확인할 것.
