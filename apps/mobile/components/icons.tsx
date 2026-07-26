@@ -1,3 +1,5 @@
+import { colors } from "@focuson/design-tokens";
+import { useColorScheme } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
 /**
@@ -9,7 +11,8 @@ import Svg, { Path, type SvgProps } from "react-native-svg";
  * 합성돼 흰 네모로 보인다 — 그래서 PNG가 아니라 SVG를 쓴다.
  *
  * 단색 아이콘은 `color` prop으로 런타임 틴팅한다(탭 활성/비활성을 아이콘 하나로 처리).
- * 일러스트(flame·doodle)는 다색이라 색을 고정한다.
+ * 일러스트는 다색이라 prop으로 받지 않는다 — flame은 색이 고정이고, doodle은 배경 대비가
+ * 필요해 디자인 토큰에서 라이트/다크 값을 직접 고른다(아래 `IllustStudyDoodle` 주석 참고).
  */
 
 type IconProps = SvgProps & {
@@ -110,107 +113,121 @@ export function IllustFlame({ width = 19, height = 22, ...rest }: SvgProps) {
   );
 }
 
-/** 공부 측정 가이드 카드의 잉크 두들 일러스트(다색 고정). 내부 흰색 채움은 배경이 아니라 그림의 일부다. */
+/**
+ * 공부 측정 가이드 카드의 잉크 두들 일러스트.
+ *
+ * ⚠️ Figma 원본은 이 일러스트의 색을 하드코딩해뒀다(노드 32:94에 변수 바인딩이 없음 —
+ * `get_variable_defs`로 확인). 그런데 부모 카드(39:108)의 배경은 `bg/guide` 토큰에 바인딩돼
+ * 있어 다크모드에서 어두워진다. 그 결과 윤곽선(#191F28)이 다크 카드 배경과 거의 같은 색이 돼
+ * 그림이 배경에 묻힌다 — Figma에서도 동일하게 깨지는 상태다.
+ *
+ * 다행히 사용된 색이 전부 기존 시맨틱 토큰의 라이트값과 정확히 일치해서(#191F28=text/primary,
+ * white=bg/base, #F2F4F6=bg/layer-2, #1B64DA=brand/primary, #8B95A1=text/tertiary),
+ * 색을 새로 정하지 않고 원래 의도됐을 토큰 바인딩을 복원했다. 디자이너가 다크 전용 변형을
+ * 따로 제공하면 그것으로 교체한다(SCR-S1-home.md의 Review Checklist 참고).
+ */
 export function IllustStudyDoodle({ width = 96, height = 75, ...rest }: SvgProps) {
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const ink = colors.text.primary[scheme]; // 윤곽선
+  const paper = colors.bg.base[scheme]; // 윤곽선 안쪽 채움
+  const ground = colors.bg.layer2[scheme]; // 바닥 그림자
+  const accent = colors.brand.primary[scheme]; // 시계
+  const hint = colors.text.tertiary[scheme]; // 말풍선 힌트(라이트·다크 동일)
+
   return (
     <Svg width={width} height={height} viewBox="0 0 126 98" fill="none" {...rest}>
       <Path
         d="M61.9348 95.8696C82.5254 95.8696 99.2174 93.9619 99.2174 91.6087C99.2174 89.2555 82.5254 87.3478 61.9348 87.3478C41.3442 87.3478 24.6522 89.2555 24.6522 91.6087C24.6522 93.9619 41.3442 95.8696 61.9348 95.8696Z"
-        fill="#F2F4F6"
+        fill={ground}
       />
-      <Path
-        d="M23.5869 70.3044H104.543"
-        stroke="#191F28"
-        strokeWidth={2.13043}
-        strokeLinecap="round"
-      />
+      <Path d="M23.5869 70.3044H104.543" stroke={ink} strokeWidth={2.13043} strokeLinecap="round" />
       <Path
         d="M32.1087 70.3044V90.5435M96.0217 70.3044V90.5435"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M47.0217 66.0435C52.3478 62.3152 58.7391 62.3152 64.0652 66.0435C69.3913 62.3152 75.7826 62.3152 81.1087 66.0435V70.3043C75.7826 66.5761 69.3913 66.5761 64.0652 70.3043C58.7391 66.5761 52.3478 66.5761 47.0217 70.3043V66.0435Z"
-        fill="white"
-        stroke="#191F28"
+        fill={paper}
+        stroke={ink}
         strokeWidth={1.91739}
         strokeLinejoin="round"
       />
-      <Path d="M64.0652 66.5761V70.3043" stroke="#191F28" strokeWidth={1.70435} />
+      <Path d="M64.0652 66.5761V70.3043" stroke={ink} strokeWidth={1.70435} />
       <Path
         d="M64.0652 43.6739C54.4783 45.2717 49.6848 51.663 48.6196 58.587"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M64.0652 43.6739C73.1196 45.2717 77.3804 49.5326 78.4457 54.3261"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M48.6196 58.5869C47.3413 61.3565 47.1283 63.7 47.7674 66.2565"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M78.4456 54.3261C80.363 57.3087 80.7891 60.7174 79.937 64.5522"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M64.0652 42.6087C71.7132 42.6087 77.9131 36.4088 77.9131 28.7609C77.9131 21.1129 71.7132 14.9131 64.0652 14.9131C56.4173 14.9131 50.2174 21.1129 50.2174 28.7609C50.2174 36.4088 56.4173 42.6087 64.0652 42.6087Z"
-        fill="white"
-        stroke="#191F28"
+        fill={paper}
+        stroke={ink}
         strokeWidth={2.13043}
       />
       <Path
         d="M51.8152 23.9674C55.2239 17.7891 61.8283 15.0196 68.3261 16.937"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={2.13043}
         strokeLinecap="round"
       />
       <Path
         d="M59.2717 30.4652C60.213 30.4652 60.9761 29.7022 60.9761 28.7609C60.9761 27.8196 60.213 27.0565 59.2717 27.0565C58.3304 27.0565 57.5674 27.8196 57.5674 28.7609C57.5674 29.7022 58.3304 30.4652 59.2717 30.4652Z"
-        fill="#191F28"
+        fill={ink}
       />
       <Path
         d="M68.8587 30.4652C69.8 30.4652 70.5631 29.7022 70.5631 28.7609C70.5631 27.8196 69.8 27.0565 68.8587 27.0565C67.9174 27.0565 67.1544 27.8196 67.1544 28.7609C67.1544 29.7022 67.9174 30.4652 68.8587 30.4652Z"
-        fill="#191F28"
+        fill={ink}
       />
       <Path
         d="M60.3369 34.6196C62.6804 36.3239 65.45 36.3239 67.7935 34.6196"
-        stroke="#191F28"
+        stroke={ink}
         strokeWidth={1.81087}
         strokeLinecap="round"
       />
       <Path
         opacity={0.55}
         d="M53.413 16.5109C51.8152 14.3804 51.8152 12.25 53.413 10.1196M58.7391 14.3804C57.4609 12.463 57.4609 10.5457 58.7391 8.62827"
-        stroke="#8B95A1"
+        stroke={hint}
         strokeWidth={1.59783}
         strokeLinecap="round"
       />
       <Path
         d="M103.478 35.1522C108.773 35.1522 113.065 30.86 113.065 25.5652C113.065 20.2705 108.773 15.9783 103.478 15.9783C98.1835 15.9783 93.8913 20.2705 93.8913 25.5652C93.8913 30.86 98.1835 35.1522 103.478 35.1522Z"
-        fill="white"
-        stroke="#1B64DA"
+        fill={paper}
+        stroke={accent}
         strokeWidth={2.13043}
       />
       <Path
         d="M103.478 20.7717V25.8848L107.1 28.0152"
-        stroke="#1B64DA"
+        stroke={accent}
         strokeWidth={1.91739}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M111.467 13.3152L114.663 10.1196M114.663 20.7717H118.924"
-        stroke="#1B64DA"
+        stroke={accent}
         strokeWidth={1.70435}
         strokeLinecap="round"
       />
