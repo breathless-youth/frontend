@@ -139,7 +139,11 @@ export async function shouldShowUpdateNotice(): Promise<boolean> {
  * ⚠️ 재노출 기준은 단일 boolean이다. "플래그를 껐다가 다른 공지로 다시 켰을 때" 같은 케이스는
  * 정의돼 있지 않다(공지 ID 개념이 wiki에 없다).
  * TODO(SCR-U1-update-sheet.md Review Checklist): 공지 ID 단위 재노출이 필요해지면 이 키를
- *   공지 ID로 확장한다.
+ *   공지 ID로 확장한다. **이때 `components/UpdateNoticeSheet.tsx`도 함께 손봐야 한다** —
+ *   열림 애니메이션이 `onLayout` 1회 발화에 의존해서(`opened` ref), 닫힘 모션이 끝나기 전에
+ *   다시 열면 레이아웃이 재발화하지 않아 `runOpen`이 호출되지 않는다. 중단된 닫힘 모션이
+ *   남긴 중간 위치에 시트가 멈춘다. 지금은 `visible`을 true로 되돌리는 경로가 아예 없어
+ *   도달 불가라 방치했다(도달 불가 경로에 검증할 수 없는 코드를 넣지 않는다).
  */
 export async function markUpdateNoticeSeen(): Promise<void> {
   try {

@@ -112,7 +112,17 @@ export function UpdateNoticeSheet({
   const translateY = useRef(new Animated.Value(OFFSCREEN_FALLBACK_Y)).current;
   const dimOpacity = useRef(new Animated.Value(0)).current;
   const sheetHeight = useRef(OFFSCREEN_FALLBACK_Y);
-  /** 열림 애니메이션을 이미 시작했는가(레이아웃이 여러 번 와도 한 번만 시작). */
+  /**
+   * 열림 애니메이션을 이미 시작했는가(레이아웃이 여러 번 와도 한 번만 시작).
+   *
+   * ⚠️ 열림 시작점이 `onLayout`뿐이라 **같은 마운트에서의 재오픈은 지원하지 않는다** —
+   * 닫힘 모션이 끝나기 전에 `visible`이 다시 true가 되면 레이아웃이 재발화하지 않아
+   * `runOpen`이 불리지 않고, 중단된 닫힘 모션이 남긴 중간 위치에 시트가 멈춘다.
+   * 현재 `visible`을 true로 되돌리는 경로가 없어 도달 불가다.
+   * TODO(SCR-U1-update-sheet.md Review Checklist): 공지 ID 단위 재노출이 도입되면
+   *   `lib/updateNotice.ts`의 같은 TODO와 함께 처리한다 — 아래 `useEffect`에서
+   *   `visible && !opened.current && sheetHeight.current > 0`일 때 직접 `runOpen`을 부르면 된다.
+   */
   const opened = useRef(false);
 
   const runOpen = useCallback(
