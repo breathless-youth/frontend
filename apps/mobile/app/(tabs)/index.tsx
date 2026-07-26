@@ -1,7 +1,9 @@
+import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "../../components/icons";
+import { runCameraPermissionGate } from "../../lib/cameraPermissionGate";
 import {
   formatHoursMinutes,
   formatMinutes,
@@ -187,7 +189,23 @@ export default function HomeScreen() {
 
         <StartCtaCard
           onPress={() => {
-            // TODO(SCR-S1-home.md): 싱글룸 세션 라우트가 아직 없다 — WG 계열 화면 구현 시 연결한다.
+            // TODO(SCR-G1-G5-onboarding-guide.md): 최초 1회 온보딩 가이드(G1~G5)를 이 앞에 끼운다 —
+            // G5 CTA 또는 건너뛰기 이후에 아래 권한 게이트로 이어진다(MG5 범위).
+            void runCameraPermissionGate()
+              .then((result) => {
+                if (result === "show-denied-guide") {
+                  router.push("/permission-denied");
+                  return;
+                }
+                // TODO(SCR-S1-home.md): 싱글룸 세션 라우트(S3-1)가 아직 없다 — WG 계열 화면 구현 시 연결한다.
+                // 목적지가 없는 동안에는 방어적으로 아무 동작도 하지 않는다.
+              })
+              // 게이트 자체는 fail-closed라 reject하지 않는다(cameraPermissionGate.ts 참고).
+              // 여기 catch는 화면 전환이 실패했을 때 unhandled rejection을 막는 마지막 방어선이다 —
+              // 어떤 경우에도 세션을 시작하지 않는다.
+              .catch((error: unknown) => {
+                console.warn("[home] 집중 시작 권한 게이트 처리 실패", error);
+              });
           }}
         />
 

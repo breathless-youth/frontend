@@ -3,7 +3,7 @@ import { useColorScheme } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
 /**
- * S1 홈 화면 아이콘·일러스트. Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
+ * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
  * `download_assets`로 내보낸 SVG의 path 데이터를 그대로 옮긴 것이다 — 형상을 직접 그리지 않았다.
  *
  * Figma SVG 익스포트에는 캔버스·섹션 배경 `<rect>`(#F5F5F5, white)가 함께 들어있는데,
@@ -92,6 +92,41 @@ export function IconChevronRight({
         strokeWidth={1.54286}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * S2-3 권한 거부 안내의 카메라 오프 아이콘(Figma `icon/camera-off` 52:331, 28×28).
+ * `download_assets`(svg)로 내보낸 path 데이터를 그대로 옮겼다 — 익스포트에 함께 들어온
+ * 캔버스 배경 `<rect>`(#F5F5F5·white)와 부모 `icon-circle` `<rect>`는 아이콘이 아니라 제외했다.
+ *
+ * Figma 원본 stroke는 #8B95A1 하드코딩이지만 `text/tertiary`의 값과 정확히 일치한다
+ * (라이트·다크 동일값) — 하드코딩 대신 토큰에 바인딩한다.
+ */
+export function IconCameraOff({ color, size = 28, ...rest }: IconProps) {
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const stroke = color ?? colors.text.tertiary[scheme];
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none" {...rest}>
+      <Path
+        d="M15.75 7H6.41663C4.48363 7 2.91663 8.567 2.91663 10.5V17.5C2.91663 19.433 4.48363 21 6.41663 21H15.75C17.683 21 19.25 19.433 19.25 17.5V10.5C19.25 8.567 17.683 7 15.75 7Z"
+        stroke={stroke}
+        strokeWidth={1.98333}
+      />
+      <Path
+        d="M19.25 12.25L25.0833 9.33334V18.6667L19.25 15.75V12.25Z"
+        stroke={stroke}
+        strokeWidth={1.98333}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 23.3333L24.5 4.66666"
+        stroke={stroke}
+        strokeWidth={1.98333}
+        strokeLinecap="round"
       />
     </Svg>
   );

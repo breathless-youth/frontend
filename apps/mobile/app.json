@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "캠스터디 참여 시 집중도 측정을 위해 카메라를 사용합니다."
+        "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요."
       }
     },
     "android": {
