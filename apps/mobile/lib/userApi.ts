@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 import type { UserRegisterResponse } from "@focuson/types";
 
+import { parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
 
 const USER_ID_KEY = "focuson.userId";
@@ -23,11 +24,7 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
     body: JSON.stringify({ deviceId }),
   });
   if (!res.ok) {
-    const message = await res
-      .json()
-      .then((body: { message?: string }) => body.message)
-      .catch(() => undefined);
-    throw new Error(message ?? `유저 등록 실패 (HTTP ${res.status})`);
+    throw await parseErrorMessage(res, "유저 등록 실패");
   }
   return (await res.json()) as UserRegisterResponse;
 }
