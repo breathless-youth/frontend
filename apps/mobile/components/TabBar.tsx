@@ -5,13 +5,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconTabHome, IconTabRecord, IconTabSettings } from "./icons";
 
-type TabId = "home" | "record" | "settings";
+export type TabId = "home" | "record" | "settings";
 
-/** `href`가 `null`인 탭은 아직 라우트가 없다 — 표시만 하고 누를 수 없다. */
-const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string | null }[] = [
+const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
   { id: "home", label: "홈", Icon: IconTabHome, href: "/" },
   { id: "record", label: "기록", Icon: IconTabRecord, href: "/records" },
-  { id: "settings", label: "설정", Icon: IconTabSettings, href: null },
+  { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },
 ];
 
 type TabBarProps = {
@@ -19,10 +18,8 @@ type TabBarProps = {
 };
 
 /**
- * S1 Figma의 Navigation/Tab Bar(node 36:48). 홈과 기록(S5)이 실제 라우트다 —
- * 설정(S6)은 아직 화면이 없어 확정된 3탭 IA를 시각적으로 보여주기 위해 표시만 하고 탭해도 아무
- * 동작을 하지 않는다(존재하지 않는 라우트로 이동 시도 금지, SCR-S1-home.md 참고).
- * S6 구현 시 `TABS`의 `href`만 채우면 된다.
+ * Figma의 Navigation/Tab Bar(S1 `36:48` · S6 `67:792`). 확정 3탭 IA — 홈(S1)·기록(S5)·설정(S6)이
+ * 모두 실제 라우트다. 목적지가 확정되지 않은 탭을 임의로 늘리지 않는다.
  *
  * 아이콘은 SVG라 활성/비활성을 색상 prop으로 처리한다(상태별 이미지 파일 불필요).
  */
@@ -45,11 +42,9 @@ export function TabBar({ active = "home" }: TabBarProps) {
         return (
           <Pressable
             key={id}
-            disabled={href === null || isActive}
+            disabled={isActive}
             onPress={() => {
-              if (href !== null) {
-                router.navigate(href);
-              }
+              router.navigate(href);
             }}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}

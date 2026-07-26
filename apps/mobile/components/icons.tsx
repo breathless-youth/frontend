@@ -3,7 +3,7 @@ import { useColorScheme } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
 /**
- * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내 · S5 기록). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
+ * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내 · S5 기록 · S6 설정). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
  * `download_assets`로 내보낸 SVG의 path 데이터를 그대로 옮긴 것이다 — 형상을 직접 그리지 않았다.
  *
  * Figma SVG 익스포트에는 캔버스·섹션 배경 `<rect>`(#F5F5F5, white)가 함께 들어있는데,
@@ -214,6 +214,37 @@ export function IconCameraOff({ color, size = 28, ...rest }: IconProps) {
         stroke={stroke}
         strokeWidth={1.98333}
         strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * S6 설정의 "문의하기" 행 트레일링 아이콘(Figma `icon/external-link` 32:46, 12×12).
+ * **"앱 밖으로 나감"을 뜻한다** — 앱 내 이동(chevron)과 바꿔 쓰지 않는다.
+ *
+ * `download_assets`(svg) 익스포트에 함께 들어온 캔버스 배경 `<rect>`(#F5F5F5)와
+ * 아이콘 섹션 배경 `<rect>`(white)는 아이콘이 아니라 제외했다.
+ * 원본 stroke #8B95A1은 `text/tertiary` 값과 정확히 일치해 토큰에 바인딩한다.
+ */
+export function IconExternalLink({ color, size = 12, ...rest }: IconProps) {
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const stroke = color ?? colors.text.tertiary[scheme];
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none" {...rest}>
+      <Path
+        d="M4.71428 2.14285H2.14285C1.91552 2.14285 1.6975 2.23316 1.53676 2.3939C1.37601 2.55465 1.28571 2.77267 1.28571 3V9.85714C1.28571 10.0845 1.37601 10.3025 1.53676 10.4632C1.6975 10.624 1.91552 10.7143 2.14285 10.7143H8.99999C9.22732 10.7143 9.44534 10.624 9.60608 10.4632C9.76683 10.3025 9.85713 10.0845 9.85713 9.85714V7.28571"
+        stroke={stroke}
+        strokeWidth={1.28571}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M6.85712 1.28572H10.7143V5.14286M10.4571 1.54286L5.82855 6.17143"
+        stroke={stroke}
+        strokeWidth={1.28571}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );

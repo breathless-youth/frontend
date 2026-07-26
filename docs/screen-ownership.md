@@ -24,7 +24,7 @@
 | S2-2  | 카메라 권한 요청(OS 다이얼로그)     | [x]  | 커스텀 UI 없음 — `app.json`의 권한 문구·트리거 순서만                      |
 | S2-3  | 카메라 권한 거부 안내               | [x]  | `app/permission-denied.tsx` (탭 밖 전체 화면)                              |
 | S5    | 공부 기록(달력·통계·리스트)         | [x]  | `app/(tabs)/records.tsx` (신규 탭 — `app/(tabs)/_layout.tsx`에 등록)       |
-| S6    | 설정                                | [ ]  | 신규 탭                                                                    |
+| S6    | 설정                                | [x]  | `app/(tabs)/settings.tsx` (신규 탭)                                        |
 | G1~G5 | 온보딩 가이드(5단계, 하나의 플로우) | [x]  | `app/onboarding-guide.tsx` (라우트 1개 · 최초 '집중 시작' 탭 시 자동 실행) |
 | U1    | 업데이트 안내 시트                  | [ ]  | 개발은 V1.0에 포함하되 기본 비노출(조건부 활성화)                          |
 
