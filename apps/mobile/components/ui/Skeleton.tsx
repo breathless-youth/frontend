@@ -22,7 +22,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <Animated.View
       accessibilityLabel="불러오는 중"
-      className={`bg-bg-layer2 dark:bg-bg-layer2-dark rounded-lg ${className ?? ""}`}
+      className={`bg-bg-layer2 dark:bg-bg-layer2-dark ${className ?? ""}`}
       style={style}
     />
   );

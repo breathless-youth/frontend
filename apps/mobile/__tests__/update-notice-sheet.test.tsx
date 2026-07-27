@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import appJson from "../app.json";
 import HomeScreen from "../app/(tabs)/index";
 import { UpdateNoticeSheet } from "../components/UpdateNoticeSheet";
+import { useHomeSummary } from "../components/home/useHomeSummary";
 import {
   createMemoryUpdateNoticeStore,
   resetUpdateNoticeStore,
@@ -41,6 +42,11 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
+// 이 파일은 홈 통계 상태를 검증하지 않는다(그건 `home.test.tsx`) — 시트가 홈 위에 얹히는
+// 오버레이라는 것만 확인하므로, 훅을 success 고정값으로 목업해 통계 배선과 분리한다.
+jest.mock("../components/home/useHomeSummary");
+const mockedUseHomeSummary = useHomeSummary as jest.MockedFunction<typeof useHomeSummary>;
+
 const TITLE = "로그인이 곧 추가돼요";
 
 let store: UpdateNoticeStore;
@@ -52,6 +58,16 @@ beforeEach(() => {
   store = createMemoryUpdateNoticeStore(false);
   setUpdateNoticeStore(store);
   jest.clearAllMocks();
+  mockedUseHomeSummary.mockReturnValue({
+    status: "success",
+    summary: {
+      focusSec: 3 * 3600 + 42 * 60,
+      studySec: 5 * 3600 + 12 * 60,
+      focusRate: 71,
+      streakDays: 12,
+      longestFocusSec: 52 * 60,
+    },
+  });
 });
 
 afterEach(() => {

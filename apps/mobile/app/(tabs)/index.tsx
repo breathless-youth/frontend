@@ -3,7 +3,10 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "../../components/icons";
+import { useHomeSummary } from "../../components/home/useHomeSummary";
 import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { type FocusStartNavigator, runFocusStartFlow } from "../../lib/focusStartFlow";
 import {
   formatHoursMinutes,
@@ -11,6 +14,7 @@ import {
   splitHoursMinutes,
   todayLabel,
 } from "../../lib/homeFormat";
+import type { HomeSummary } from "../../lib/homeSummary";
 
 /**
  * "집중 시작" 플로우의 목적지 묶음. 라우터만 알고 분기는 모르는 얇은 어댑터다 —
@@ -29,28 +33,7 @@ const HOME_FOCUS_START_NAVIGATOR: FocusStartNavigator = {
   },
 };
 
-/**
- * 백엔드 "오늘" 스코프 통계·연속일수 계약이 아직 확정되지 않았다(SCR-S1-home.md의
- * Data Contract 참고) — packages/types에 상상 계약을 만들지 않고, 이 화면에만 임시로 둔다.
- * 실제 계약이 정해지면 이 타입과 MOCK_SUMMARY를 실제 데이터 훅으로 교체한다.
- */
-type HomeSummaryDraft = {
-  focusSec: number;
-  studySec: number;
-  focusRate: number;
-  streakDays: number;
-  longestFocusSec: number;
-};
-
-const MOCK_SUMMARY: HomeSummaryDraft = {
-  focusSec: 3 * 3600 + 42 * 60,
-  studySec: 5 * 3600 + 12 * 60,
-  focusRate: 71,
-  streakDays: 12,
-  longestFocusSec: 52 * 60,
-};
-
-function HeroTodayCard({ summary }: { summary: HomeSummaryDraft }) {
+function HeroTodayCard({ summary }: { summary: HomeSummary }) {
   const { hours, minutes } = splitHoursMinutes(summary.focusSec);
   const fillPercent = Math.min(100, Math.max(0, summary.focusRate));
 
@@ -125,7 +108,15 @@ function StartCtaCard({ onPress }: { onPress: () => void }) {
   );
 }
 
-function StatCard({ variant, onPress }: { variant: "streak" | "longest"; onPress?: () => void }) {
+function StatCard({
+  variant,
+  summary,
+  onPress,
+}: {
+  variant: "streak" | "longest";
+  summary: HomeSummary;
+  onPress?: () => void;
+}) {
   const isStreak = variant === "streak";
 
   return (
@@ -144,14 +135,12 @@ function StatCard({ variant, onPress }: { variant: "streak" | "longest"; onPress
       <View className="flex-row items-center gap-1.5">
         {isStreak && <IllustFlame width={19} height={22} />}
         <Text className="text-text-primary dark:text-text-primary-dark text-xl font-bold">
-          {isStreak
-            ? `${MOCK_SUMMARY.streakDays}일째`
-            : formatMinutes(MOCK_SUMMARY.longestFocusSec)}
+          {isStreak ? `${summary.streakDays}일째` : formatMinutes(summary.longestFocusSec)}
         </Text>
       </View>
       <Text className="text-text-tertiary text-[11px]">
         {isStreak
-          ? MOCK_SUMMARY.streakDays > 0
+          ? summary.streakDays > 0
             ? "하루 10분이면 유지돼요"
             : "오늘 10분 집중하면 연속 공부가 시작돼요"
           : "오늘 가장 길게 집중했어요"}
@@ -189,6 +178,7 @@ function GuideCard({ onPress }: { onPress: () => void }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const summaryState = useHomeSummary();
 
   return (
     <>
@@ -204,7 +194,11 @@ export default function HomeScreen() {
             <Text className="text-text-tertiary text-[13px] font-medium">{todayLabel()}</Text>
           </View>
 
-          <HeroTodayCard summary={MOCK_SUMMARY} />
+          {summaryState.status === "pending" && <Skeleton className="h-[180px] rounded-[20px]" />}
+          {summaryState.status === "error" && (
+            <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} />
+          )}
+          {summaryState.status === "success" && <HeroTodayCard summary={summaryState.summary} />}
 
           <StartCtaCard
             onPress={() => {
@@ -225,15 +219,24 @@ export default function HomeScreen() {
             카메라가 자동으로 측정해요 · 영상은 저장되지 않아요
           </Text>
 
-          <View className="flex-row gap-3">
-            <StatCard
-              variant="streak"
-              onPress={() => {
-                // TODO(SCR-S1-home.md): 기록(S5) 탭이 아직 없다 — 구현 시 연결한다.
-              }}
-            />
-            <StatCard variant="longest" />
-          </View>
+          {summaryState.status === "pending" && (
+            <View className="flex-row gap-3">
+              <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+              <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+            </View>
+          )}
+          {summaryState.status === "success" && (
+            <View className="flex-row gap-3">
+              <StatCard
+                variant="streak"
+                summary={summaryState.summary}
+                onPress={() => {
+                  // TODO(SCR-S1-home.md): 기록(S5) 탭이 아직 없다 — 구현 시 연결한다.
+                }}
+              />
+              <StatCard variant="longest" summary={summaryState.summary} />
+            </View>
+          )}
 
           {/*
           진입 경로 B — 홈 가이드 카드에서의 "다시 보기". 최초 1회 판정과 무관하게 항상 열린다
