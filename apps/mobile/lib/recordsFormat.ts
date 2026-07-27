@@ -210,3 +210,16 @@ export function eventChipItems(eventCounts: StudySessionEventCounts): EventChipI
     label: `${EVENT_SHORT_LABELS[status]} ${eventCounts[status]}회`,
   }));
 }
+
+/**
+ * 보이는 달의 통계 조회용 날짜 키 — 선택일이 그 달에 있으면 선택일, 아니면 그 달 1일.
+ * `GET /api/stats`는 일 단위 조회지만 `studiedDatesInMonth`(그 달의 공부일 목록)를 기록 여부와
+ * 무관하게 항상 내려주므로(Swagger 2026-07-28 확인), 다른 달의 도트는 그 달 1일 조회로 얻는다.
+ */
+export function statsQueryDateKey(selectedKey: string, month: CalendarMonth): string {
+  const selected = monthOfDateKey(selectedKey);
+  if (selected.year === month.year && selected.month === month.month) {
+    return selectedKey;
+  }
+  return `${month.year}-${pad2(month.month)}-01`;
+}
