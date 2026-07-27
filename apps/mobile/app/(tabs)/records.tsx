@@ -135,8 +135,8 @@ export default function RecordsScreen() {
               selectedKey={selectedKey}
               studiedDates={studiedDates}
               onSelectDate={setSelectedKey}
-              // TODO(SCR-S5-records.md): 월 이동 시 선택일 처리가 미확정이다(선택 해제 / 그 달 1일 /
-              // 마지막 기록일). 확정 전까지 선택일을 건드리지 않는다 — 달력 표시만 바뀐다.
+              // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
+              // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
               onPrevMonth={() => setMonth((current) => shiftMonth(current, -1))}
               onNextMonth={() => setMonth((current) => shiftMonth(current, 1))}
             />

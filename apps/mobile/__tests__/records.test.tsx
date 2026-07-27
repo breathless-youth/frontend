@@ -114,9 +114,7 @@ function serverStatsResponse(dateKey: string): StudySessionListResponse {
   };
 }
 
-async function renderRecords() {
-  mockedEnsure.mockResolvedValue(7);
-  mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+function renderScreen() {
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -124,10 +122,17 @@ async function renderRecords() {
       <RecordsScreen />
     </QueryClientProvider>,
   );
+}
+
+async function renderRecords() {
+  mockedEnsure.mockResolvedValue(7);
+  mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+  renderScreen();
   await screen.findByText("7월 26일 학습 요약");
 }
 
 beforeEach(() => {
+  jest.clearAllMocks();
   jest.useFakeTimers({
     doNotFake: [
       "cancelAnimationFrame",
@@ -245,7 +250,7 @@ describe("S5 · 기록", () => {
     expect(screen.getByText("7월 26일 학습 요약")).toBeTruthy();
   });
 
-  it("월 이동은 달력만 바꾸고 선택일은 건드리지 않는다(처리 방식 미확정)", async () => {
+  it("월 이동은 달력만 바꾸고 선택일은 건드리지 않는다(2026-07-28 확정 정책)", async () => {
     await renderRecords();
 
     fireEvent.press(screen.getByRole("button", { name: "다음 달" }));
@@ -277,13 +282,7 @@ describe("S5 · 기록", () => {
   it("첫 로딩 동안 스켈레톤을 보여준다", async () => {
     mockedEnsure.mockResolvedValue(7);
     mockedStats.mockImplementation(() => new Promise(() => undefined)); // 영원히 pending
-    render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <RecordsScreen />
-      </QueryClientProvider>,
-    );
+    renderScreen();
 
     expect(await screen.findAllByLabelText("불러오는 중")).not.toHaveLength(0);
     expect(screen.queryByText("7월 26일 학습 요약")).toBeNull();
@@ -292,13 +291,7 @@ describe("S5 · 기록", () => {
   it("조회 실패 시 오류 문구와 다시 시도를 보여준다", async () => {
     mockedEnsure.mockResolvedValue(7);
     mockedStats.mockRejectedValue(new Error("network"));
-    render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <RecordsScreen />
-      </QueryClientProvider>,
-    );
+    renderScreen();
 
     expect(await screen.findByText("기록을 불러오지 못했어요")).toBeTruthy();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();

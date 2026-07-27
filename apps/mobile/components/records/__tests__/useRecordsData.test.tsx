@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react-native";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 
 import { listStudySessionStats } from "../../../lib/statsApi";
+import { statsKeys } from "../../../lib/statsQueries";
 import { ensureUserRegistered } from "../../../lib/userApi";
 import { useRecordsData } from "../useRecordsData";
 
@@ -112,5 +114,53 @@ describe("useRecordsData", () => {
       result.current.day.retry();
     }
     await waitFor(() => expect(result.current.day.status).toBe("success"));
+  });
+
+  it("달 도트 조회가 실패해도 선택일은 success로 유지되고 도트만 빈다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockImplementation(async (_userId, date) => {
+      if (date === "2026-08-01") {
+        throw new Error("network");
+      }
+      return statsResponse(["2026-07-26"]);
+    });
+
+    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 8 }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(7, "2026-08-01"));
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
+    // 도트 실패는 화면을 막지 않는다 — error로 떨어지지 않고 빈 도트로 유지된다.
+    expect(result.current.studiedDates).toEqual([]);
+  });
+
+  it("탭 포커스 콜백은 userId 확보 후에만 stats 쿼리를 invalidate한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    const mockedFocusEffect = useFocusEffect as jest.MockedFunction<typeof useFocusEffect>;
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 7 }), {
+      wrapper,
+    });
+
+    // userId 확보 전의 포커스 콜백은 invalidate하지 않는다.
+    act(() => {
+      mockedFocusEffect.mock.calls.at(-1)?.[0]?.();
+    });
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
+
+    act(() => {
+      mockedFocusEffect.mock.calls.at(-1)?.[0]?.();
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: statsKeys.all });
   });
 });
