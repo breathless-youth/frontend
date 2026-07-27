@@ -7,7 +7,8 @@
  *
  * **실제 구현은 아직 없다.** 서버 라이브러리는 실기기 스파이크(S1)에서 정한다 —
  * `frontend/CLAUDE.md`의 "검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것"에
- * 따라, 그전까지 라우트·테스트는 아래 fake로만 동작한다.
+ * 따라, 그전까지 기본값은 아래 `createUnavailableWebAssetServer`(항상 실패)이고
+ * fake는 **테스트·주입 전용**이다.
  */
 export interface WebAssetServer {
   /** 서버를 띄우고 오리진을 돌려준다. 이미 떠 있으면 같은 값을 그대로 준다. */
@@ -15,6 +16,41 @@ export interface WebAssetServer {
   stop(): Promise<void>;
   /** 살아 있으면 오리진, 아니면 `null`. */
   readonly origin: string | null;
+}
+
+/**
+ * fake의 기본 오리진.
+ *
+ * **Metro(8081)·Vite(5173)와 겹치지 않는 포트여야 한다.** 예전 기본값이 8081이라
+ * `start()`가 성공하고 WebView가 Metro에게 `/room/1`을 물어보는 일이 벌어졌다 —
+ * 기기에서는 연결 거부(백지), 시뮬레이터에서는 Metro의 404 JSON. "그럴듯하게 동작하는"
+ * 실패라 라우트의 정직한 실패 UI가 영영 뜨지 않았다.
+ */
+export const FAKE_WEB_ASSET_SERVER_ORIGIN = "http://localhost:34567";
+
+/** 아직 구현되지 않은 서버가 던지는 **개발자용** 메시지. 사용자 문구가 아니다. */
+export const WEB_ASSET_SERVER_UNAVAILABLE_MESSAGE =
+  "local web asset server not implemented (BY-282 Task 5)";
+
+/**
+ * 실제 구현이 붙기 전까지의 기본 서버 — `start()`가 항상 거부된다.
+ *
+ * fake를 기본값으로 두면 "성공했는데 화면이 백지"가 되어 원인을 짚을 수 없다.
+ * 여기서 확실히 실패시켜야 라우트가 이미 가진 실패 분기(`세션을 시작하지 못했어요`)로
+ * 들어가고, 콘솔에는 어느 작업이 남았는지가 그대로 찍힌다.
+ */
+export function createUnavailableWebAssetServer(): WebAssetServer {
+  return {
+    get origin() {
+      return null;
+    },
+    async start(): Promise<string> {
+      throw new Error(WEB_ASSET_SERVER_UNAVAILABLE_MESSAGE);
+    },
+    async stop() {
+      // 뜬 적이 없으니 내릴 것도 없다.
+    },
+  };
 }
 
 export interface FakeWebAssetServerOptions {
@@ -32,7 +68,7 @@ export interface FakeWebAssetServer extends WebAssetServer {
 export function createFakeWebAssetServer(
   options: FakeWebAssetServerOptions = {},
 ): FakeWebAssetServer {
-  const origin = options.origin ?? "http://localhost:8081";
+  const origin = options.origin ?? FAKE_WEB_ASSET_SERVER_ORIGIN;
   let current: string | null = null;
   let startCount = 0;
 

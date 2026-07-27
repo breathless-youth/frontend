@@ -30,7 +30,12 @@ export default function SessionRoomScreen() {
       try {
         const [origin, userId] = await Promise.all([
           getWebAssetServer().start(),
-          getRegisteredUserId(),
+          // userId를 못 읽어도 세션은 연다 — `buildSessionUrl`은 `null`을 지원하고
+          // `apps/web`은 그 부재를 unsaved 경로로 처리한다. SecureStore 읽기 실패로
+          // 세션 전체를 죽이면 복구 가능한 상황이 막다른 길이 된다.
+          // 이 catch 덕분에 아래 catch에 도달하는 건 **서버 기동 실패뿐**이고,
+          // 그래서 로그 문구도 실제 원인과 일치한다.
+          getRegisteredUserId().catch(() => null),
         ]);
         if (!cancelled) {
           setUri(buildSessionUrl(origin, { roomId: id ?? "1", userId }));
@@ -86,8 +91,15 @@ export default function SessionRoomScreen() {
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
         mediaCapturePermissionGrantType="grant"
-        // 로컬 서버 외의 오리진으로는 나가지 않는다.
-        originWhitelist={["http://localhost:*"]}
+        // **최상위 네비게이션**만 로컬 서버 오리진으로 제한한다 — 여기 없는 오리진으로
+        // 이동하려 하면 WebView가 대신 시스템 브라우저로 넘긴다. 서브리소스(fetch·이미지·
+        // wasm) 로드는 이 prop이 통제하지 않는다.
+        //
+        // 두 호스트 표기를 모두 받는다: 로컬 서버는 `127.0.0.1`에 바인딩할 예정인데(설계 §1)
+        // 라이브러리가 오리진을 어느 쪽 문자열로 보고할지는 스파이크 전까지 알 수 없다.
+        // 한쪽만 적어 두면 `buildSessionUrl`이 만든 URL이 화이트리스트에 걸려 세션이
+        // 시스템 브라우저로 튀어나가는, 원인과 증상이 전혀 안 맞는 버그가 된다.
+        originWhitelist={["http://localhost:*", "http://127.0.0.1:*"]}
       />
     </>
   );
