@@ -335,6 +335,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     pollMs: options.autoEndPollMs,
   });
 
+  // `stream`은 실제 어댑터에만 있다(mock에는 없다) — 없으면 null이고, 그러면
+  // CameraPreviewSurface가 목업 서피스를 그린다.
+  const cameraStream =
+    "stream" in camera ? ((camera as { stream: MediaStream | null }).stream ?? null) : null;
+
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
@@ -351,6 +356,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     endReason,
     cameraFacing,
     isCameraRunning,
+    cameraStream,
     pause,
     resume,
     onReturnFromBackground,
