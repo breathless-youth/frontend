@@ -2,7 +2,7 @@ import { toKoreanDurationLength, topicJosaFor } from "./formatDuration";
 import type { PauseTrigger, SessionState } from "./sessionState";
 
 /**
- * 세션 화면 문구 — 전부 ai-wiki `product/voice-tone.md`에서 **그대로** 가져온다. 의역·재작성 금지.
+ * 세션 화면 문구 — 전부 .ai `product/voice-tone.md`에서 **그대로** 가져온다. 의역·재작성 금지.
  *
  * 추정형 어미("~것 같아요")를 단정형으로 바꾸지 않는다 — 감지 오탐 가능성을 문구가 흡수한다(§1).
  * 비집중 해제 시에는 문구를 띄우지 않고 색만 복귀한다(§3).
@@ -82,7 +82,7 @@ export const EXIT_CONFIRM_COPY = {
  * `지금까지 집중한 {순공시간}은 저장돼요` — 값은 **한글 시간 길이**이고 조사는 자동 처리한다
  * (voice-tone.md §2). 종료로 인한 손실 불안을 먼저 없애는 "이득/안심 우선" 구성이다(§1).
  *
- * ⚠️ **Figma ↔ ai-wiki 조사 불일치(에스컬레이션 대기).** Figma 노드 `40:98`은 `1시간 24분**이**
+ * ⚠️ **Figma ↔ .ai 조사 불일치(에스컬레이션 대기).** Figma 노드 `40:98`은 `1시간 24분**이**
  * 저장돼요`, `voice-tone.md` §2·§4는 `1시간 24분**은** 저장돼요`로 서로 다르다. 조사 규칙이
  * 명문화된 최신 문서(2026-07-26 6차 인터뷰 재작성)를 따라 **잠정적으로 `은`**을 쓴다 —
  * SCR-S3-7·S3-8 Review Checklist에 판정 항목으로 올라가 있다.

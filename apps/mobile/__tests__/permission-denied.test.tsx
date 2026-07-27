@@ -18,7 +18,7 @@ jest.mock("react-native-safe-area-context", () => ({
 
 describe("S2-3 · 권한 거부 안내", () => {
   it("확정 카피를 그대로 노출한다", () => {
-    // 문구는 `ai-wiki/product/voice-tone.md` §4 확정 카피이자 Figma `52:312`와 문자 단위로
+    // 문구는 `.ai/product/voice-tone.md` §4 확정 카피이자 Figma `52:312`와 문자 단위로
     // 일치해야 한다 — 의역·개행·문장부호가 바뀌면 여기서 깨진다.
     render(<PermissionDeniedScreen />);
 

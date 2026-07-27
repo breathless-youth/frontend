@@ -43,9 +43,9 @@ fe 로컬 ADR(`docs/adr/0001~0003`)은 2026-07-27에 삭제하고 이 요약으�
 
 - **경위**: 2026-07-21 WebView 임베드 채택(구 ADR 0001) → 07-22 네이티브 전환(구 ADR 0002) 직후 실기기 검증 리스크·이중 구현 비용 때문에 WebView로 회귀(구 ADR 0003) → 07-25 상상 계약 기반 임시 구현·dormant 네이티브 자산 전부 삭제(dev `5e548eb`에서 복구 가능).
 - **WebView를 유지하는 이유**: 카메라 `getUserMedia`·Vision 추론·세션 화면을 웹 한 코드베이스로 구현해 iOS/Android 이중 구현을 피하고, `apps/web`을 독립 브라우저 서비스로도 배포한다. 온디바이스 Vision 라이브러리의 RN/Expo 호환성이 실기기에서 검증되지 않은 상태로 MVP 일정에 그 리스크를 지지 않는다.
-- **알려진 트레이드오프**: WebView 안 카메라 권한을 OS·WebView 설정 양쪽에서 조율해야 하고(이중 프롬프트 리스크 — SCR-S2 스펙), 저사양 기기의 WebView 추론 성능은 네이티브보다 낮을 수 있다(후속 프로파일링 필요).
+- **알려진 트레이드오프**: WebView 안 카메라 권한을 세 곳에서 조율해야 하고(iOS `Info.plist` · Android Manifest · `react-native-webview`의 `mediaCapturePermissionGrantType`/`allowsInlineMediaPlayback` — 이중 프롬프트 리스크는 SCR-S2 스펙), 저사양 기기의 WebView 추론 성능은 네이티브보다 낮을 수 있다(후속 프로파일링 필요). WebView가 로드할 URL은 `app.json`의 `extra.webAppUrl`로 주입하던 패턴을 따른다(git 히스토리).
+- **전환 시 할 일 요약**: 세션 화면을 네이티브 라우트로 교체, 어댑터 mock(`platform/{camera,vision,rtc}` 패턴)을 실제 구현으로 교체, `expo-camera`/`expo-dev-client` 재설치 후 `eas init` → EAS Dev Build. 과거 참고 구현은 git 히스토리에 있다.
 - **네이티브 전환 트리거(임계값 미확정 — PO 확정 필요)**: WebView 추론 성능·배터리·저사양 이탈률이 목표치를 벗어남이 실측된 경우, 온디바이스 Vision·RTC 스택의 Expo 호환성이 검증된 경우, 사용자 지표가 전환을 정당화하는 경우.
-- **전환 시 할 일 요약**: 세션 화면을 네이티브 라우트로 교체, 어댑터 mock(`platform/{camera,vision,rtc}` 패턴)을 실제 구현으로 교체, `expo-camera`/`expo-dev-client` 재설치 + EAS Dev Build. 과거 참고 구현은 git 히스토리에 있다.
 
 ## 모바일 플랫폼 어댑터 경계
 

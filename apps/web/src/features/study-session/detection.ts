@@ -17,7 +17,7 @@ export interface TriggerHoldParams {
 export type DetectionParams = Record<DistractionTrigger, TriggerHoldParams>;
 
 /**
- * 감지 파라미터 기본값 — `ai-wiki/product/mvp-scope.md` "감지 파라미터"(M1 테스트로 튜닝 예정).
+ * 감지 파라미터 기본값 — `.ai/product/mvp-scope.md` "감지 파라미터"(M1 테스트로 튜닝 예정).
  * 하드코딩하지 말고 이 객체를 주입해 바꾼다.
  */
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {

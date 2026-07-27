@@ -16,7 +16,7 @@ FocusOn 모바일 앱의 홈 탭이다. 오늘의 순공시간·총 공부 시�
 
 Figma가 이 화면의 시각적 SSOT다. 구현 전 반드시 `get_design_context`로 이 프레임을 읽고, 절대 좌표를 그대로 베끼지 않고 모바일 앱 아키텍처(Flexbox 레이아웃)에 맞게 매핑한다.
 
-**⚠️ 낡은 문서 대체**: 과거 `frontend/docs/screens/SCR-004-home.md`는 다른(빈) Figma 파일(`awZQ0hSGuxwMHkLfZZhsjl`)을 가리키던 낡은 예시로, 이 문서로 대체됐다(해당 파일에 SUPERSEDED 배너 추가 완료). 그 문서의 "공부 유지 시간"·`HomeStudySummary` 타입 등은 이 문서의 근거가 아니다.
+**⚠️ 낡은 문서 대체**: 과거 `frontend/docs/screens/SCR-004-home.md`는 다른(빈) Figma 파일(`awZQ0hSGuxwMHkLfZZhsjl`)을 가리키던 낡은 예시로, 이 문서로 대체됐고 2026-07-27에 삭제됐다(원문은 git 히스토리 참고). 그 문서의 "공부 유지 시간"·`HomeStudySummary` 타입 등은 이 문서의 근거가 아니다.
 
 ## Ownership Boundary
 

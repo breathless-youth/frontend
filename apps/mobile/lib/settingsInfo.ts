@@ -12,7 +12,7 @@ import { Linking } from "react-native";
 /**
  * 정적 진입점 4곳의 목적지. **전부 `null`이다 — 값을 지어내지 말 것.**
  *
- * ai-wiki 어디에도 실제 주소가 없고 `policies.md`는 개인정보처리방침을 "출시 전 별도 작성 필요"
+ * .ai 어디에도 실제 주소가 없고 `policies.md`는 개인정보처리방침을 "출시 전 별도 작성 필요"
  * TODO로 두고 있다. `null`인 행은 탭 핸들러 자체를 만들지 않아 버튼으로 노출되지 않는다.
  *
  * TODO(SCR-S6-settings.md Review Checklist): 4개 목적지 확정 필요 —

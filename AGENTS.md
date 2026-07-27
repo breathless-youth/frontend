@@ -18,7 +18,7 @@
 | 커밋·브랜치·PR        | [.ai/conventions/git-workflow.md](./.ai/conventions/git-workflow.md) + 아래 fe 고유 규칙                                                                                               |
 | 우선순위·버전 범위    | [.ai/product/roadmap.md](./.ai/product/roadmap.md)                                                                                                                                     |
 
-위키 필수 규칙 요약(팀 확정): **직접 push/merge 금지**(에이전트는 커밋까지만), **커밋 전 린트·테스트 통과**, **구조 변경(새 의존성·API 스펙·디렉터리 개편)은 사전 협의**, 위키에 "미정"인 값은 임의 확정하지 말고 설정 파라미터로 열어둔다.
+위키 필수 규칙 요약(팀 확정): **직접 push/merge 금지**(에이전트는 커밋까지만), **커밋 전 린트·테스트 통과**, **구조 변경(새 의존성·API 스펙·디렉터리 개편)은 사전 협의**. 권장 규칙(제안 상태): 위키에 "미정"인 값은 임의 확정하지 말고 설정 파라미터로 열어둔다, 위키·코드 불일치 발견 시 위키 수정 제안.
 
 ## 지금 상태 (2026-07-27)
 
@@ -26,7 +26,7 @@
 
 - 구현됨: 앱 셸 화면 S1·S2-2/S2-3·S5·S6·G1–G5·U1(`apps/mobile`), 세션·결과 화면 S3-1–S3-8·S4(`apps/web` — 감지·카메라는 mock, 실모델 미연동), 익명 기기 유저 등록(SCRUM-259). 화면별 상태는 [docs/screen-ownership.md](./docs/screen-ownership.md).
 - 확정됨: 세션 상태 모델·서버 전송 계약 — [docs/superpowers/specs/2026-07-26-session-state-model-and-contract-design.md](./docs/superpowers/specs/2026-07-26-session-state-model-and-contract-design.md). 상태기계는 웹, 저장·전송은 네이티브. 순수 계산 패키지 `@focuson/study-core`는 이 스펙에 따라 **신설 예정**(아직 없음).
-- 미구현: WebView 연동(`react-native-webview` 미설치), EfficientDet-Lite0 실기기 실행 스파이크, 세션 제출·통계 API 연동 일부(SCRUM-147 에픽), 수동 타이머 모드(카메라 권한 거부 대응).
+- 미구현: WebView 연동(`react-native-webview` 미설치), 카메라 권한 실요청(권한 조회/요청 네이티브 모듈 미설치 — `lib/cameraPermission.ts`는 mock 어댑터), EfficientDet-Lite0 실기기 실행 스파이크, 세션 제출·통계 API 연동 일부(SCRUM-147 에픽), 수동 타이머 모드(카메라 권한 거부 대응).
 - **로그인 없음**: V1.0은 익명 기기 계정으로 기록을 귀속한다. Google/Apple 로그인은 V1.2(소셜 1단계)로 연기됨 — [.ai/product/roadmap.md](./.ai/product/roadmap.md). 로그인 화면을 미리 만들지 말 것.
 
 ## 아키텍처: WebView 유지

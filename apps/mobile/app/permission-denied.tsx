@@ -22,7 +22,7 @@ import { getCameraPermissionStatus, openAppSettings } from "../lib/cameraPermiss
  * (`policies.md` §3 카메라 필수 — "카메라 없이 시작하기" 같은 우회 경로를 만들지 않는다).
  * 탭 바가 없는 전체 화면 스택 라우트라 `app/(tabs)/` 밖에 둔다.
  *
- * 문구는 `ai-wiki/product/voice-tone.md` §4에서 그대로 가져온 확정 카피다 — 의역·개행·문장부호 변경 금지.
+ * 문구는 `.ai/product/voice-tone.md` §4에서 그대로 가져온 확정 카피다 — 의역·개행·문장부호 변경 금지.
  * 프라이버시 캡션은 **싱글룸 문구**다(V1.0에 멀티룸 화면이 없다 — 멀티룸 표현을 가져오지 않는다).
  */
 export default function PermissionDeniedScreen() {

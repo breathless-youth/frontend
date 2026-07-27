@@ -9,7 +9,7 @@ import type { StudyEventStatus, StudySessionEventCounts } from "@focuson/types";
  * `lib/homeFormat.ts`와 같은 자리에 둔다. 다른 화면(S1·S4)이 같은 규칙을 쓰게 되면 그때 합친다
  * (지금 미리 공통 모듈로 빼지 않는다 — 과도한 추상화 금지).
  *
- * 표기 규칙 원본은 `ai-wiki/product/voice-tone.md` §2·§4다 — 의역하지 않는다.
+ * 표기 규칙 원본은 `.ai/product/voice-tone.md` §2·§4다 — 의역하지 않는다.
  */
 
 /** KST(UTC+9) 고정 오프셋. 한국은 서머타임이 없어 상수로 충분하다. */

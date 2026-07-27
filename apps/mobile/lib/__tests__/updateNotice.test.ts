@@ -157,7 +157,7 @@ describe("fail-safe", () => {
 describe("범위 경계 — 버전 체크 계약을 만들지 않는다", () => {
   it("게이트가 읽는 외부 설정은 노출 플래그 하나뿐이다", async () => {
     // 앱 버전·최소 요구 버전·강제 업데이트·스토어 URL을 넣어도 판정에 영향이 없다.
-    // (`packages/types`·ai-wiki 어디에도 이런 계약이 없다 — 스펙 Data Contract)
+    // (`packages/types`·.ai 어디에도 이런 계약이 없다 — 스펙 Data Contract)
     mockExtra.currentVersion = "1.0.0";
     mockExtra.minRequiredVersion = "9.9.9";
     mockExtra.forceUpdate = true;

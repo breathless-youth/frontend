@@ -1,7 +1,7 @@
 import type { StudyEventStatus } from "@focuson/types";
 
 /**
- * S4(공부 결과) 확정 문구 — `ai-wiki/product/voice-tone.md`·`project/glossary.md`에서 **그대로**
+ * S4(공부 결과) 확정 문구 — `.ai/product/voice-tone.md`·`project/glossary.md`에서 **그대로**
  * 인용한다(의역 금지). 문구를 컴포넌트에 흩뿌리지 않고 여기 한 곳에 모은다.
  *
  * ## ⚠️ `화면 꺼짐`은 이 파일에 없다 — 없는 게 맞다
