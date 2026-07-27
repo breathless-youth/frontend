@@ -20,14 +20,14 @@
 - 상위 페이지: `📱 3. Screens — iOS (V1.0)` node `14:4` (2026-07-26 `get_metadata`로 전체 프레임 목록 직접 확인 — S3-3/S3-4 각 1개씩만 존재)
 - 참조 컴포넌트: `Session / Status Pill` node `34:14`(Paused 인스턴스 `34:13`) · `Session / Control Bar` node `34:32` · `Session / Camera Preview BG` node `58:109` · `iOS / Status Bar` node `48:131` · `iOS / Home Indicator` node `36:25`
 - 실측 스펙 페이지: `📝 6. Spec — Motion & Handoff` node `14:7` (모션·글래스 실측값 — 아래 값들의 출처)
-- ai-wiki 근거 문서:
-  - `ai-wiki/product/design.md` — "V1.0 최종 확정"(수동 일시정지·심플 모드 행), "인터뷰 6차 확정", "화면 인벤토리 (V1.0 최종)", "백로그 6번"
-  - `ai-wiki/notes/2026-07-26-디자인-반영-인터뷰-6차.md` — **일시정지 통합 정책의 원 출처**
-  - `ai-wiki/product/mvp-scope.md` — 세션 상태 모델, 세션 UX 정책, 미확정 항목
-  - `ai-wiki/product/policies.md` — 측정 대원칙, 일시정지 자동 종료
-  - `ai-wiki/product/voice-tone.md` — 상태 문구·세션 문구(그대로 인용)
-  - `ai-wiki/project/glossary.md` — 일시정지·심플 모드 노출 표기
-  - `ai-wiki/product/user-flow.md` — 핵심 플로우 다이어그램, 예외 플로우
+- .ai 근거 문서:
+  - `.ai/product/design.md` — "V1.0 최종 확정"(수동 일시정지·심플 모드 행), "인터뷰 6차 확정", "화면 인벤토리 (V1.0 최종)", "백로그 6번"
+  - `.ai/notes/2026-07-26-디자인-반영-인터뷰-6차.md` — **일시정지 통합 정책의 원 출처**
+  - `.ai/product/mvp-scope.md` — 세션 상태 모델, 세션 UX 정책, 미확정 항목
+  - `.ai/product/policies.md` — 측정 대원칙, 일시정지 자동 종료
+  - `.ai/product/voice-tone.md` — 상태 문구·세션 문구(그대로 인용)
+  - `.ai/project/glossary.md` — 일시정지·심플 모드 노출 표기
+  - `.ai/product/user-flow.md` — 핵심 플로우 다이어그램, 예외 플로우
 - Ownership: `frontend/docs/screen-ownership.md` — S3-1~S3-8은 `apps/web` 구현체, 모바일은 WebView 로드
 - 담당 앱: **`apps/web`** (`src/routes/RoomPage.tsx` + `src/features/study-session/**`)
 - 데이터 계약: `frontend/packages/types/src/index.ts`
@@ -35,7 +35,7 @@
 
 ## 일시정지 통합 정책 (2026-07-26 확정) — 이 스펙의 핵심
 
-`ai-wiki/notes/2026-07-26-디자인-반영-인터뷰-6차.md` 원문:
+`.ai/notes/2026-07-26-디자인-반영-인터뷰-6차.md` 원문:
 
 > **화면 꺼짐·백그라운드 재분류**: 비집중 유형이 아니라 **일시정지에 합산** — 시간 처리도 일시정지와 동일(순공·총 모두 정지). 결과·기록에서 '화면 꺼짐' 라벨 제거, '일시정지'로 통합 노출
 
@@ -218,8 +218,8 @@ export type SessionState =
 | 재개 버튼 탭(수동 트리거였던 경우)       | 직전 표시 모드로 복귀, 두 타이머 재개, `PAUSE` 이벤트 확정 |
 | **화면 꺼짐·백그라운드에서 복귀했을 때** | **미정 — 리더/사용자 확인 필요**                           |
 
-> `ai-wiki/product/design.md` 백로그 6번: "화면 꺼짐·백그라운드 복귀 시 재개 방식 (자동 vs 수동) — **구현 시 결정**"
-> `ai-wiki/product/mvp-scope.md` 미확정 항목: "**AI 에이전트는 이 값들을 임의로 확정하지 말고**, 구현 시 팀에 확인하거나 설정 가능한 파라미터로 열어둘 것."
+> `.ai/product/design.md` 백로그 6번: "화면 꺼짐·백그라운드 복귀 시 재개 방식 (자동 vs 수동) — **구현 시 결정**"
+> `.ai/product/mvp-scope.md` 미확정 항목: "**AI 에이전트는 이 값들을 임의로 확정하지 말고**, 구현 시 팀에 확인하거나 설정 가능한 파라미터로 열어둘 것."
 > 6차 인터뷰 노트 "보류" 섹션: "복귀 시 재개 방식 — 자동 재개 vs 일시정지 화면에서 수동 재개 (구현 시 결정, **임의 확정 금지**)"
 
 **빌더 지시 (이 항목만은 반드시 그대로 따를 것):**

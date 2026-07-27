@@ -10,7 +10,7 @@ FocusOn 모바일 앱의 홈 탭이다. 오늘의 순공시간·총 공부 시�
 - Figma file URL: https://www.figma.com/design/KmTbXL79g6ximY1RcnBZDz/FocusON-V1.0-Design?node-id=51-3
 - Figma frame: `S1 · 홈`
 - Figma node: `51:3` (Screens — iOS 페이지, node `14:4` 하위)
-- ai-wiki 근거 문서: `product/design.md`("V1.0 최종 확정" S1 행), `product/voice-tone.md`(§2 홈, §S3 인접 참고), `product/roadmap.md`(V1.0 범위 확인)
+- .ai 근거 문서: `product/design.md`("V1.0 최종 확정" S1 행), `product/voice-tone.md`(§2 홈, §S3 인접 참고), `product/roadmap.md`(V1.0 범위 확인)
 - Ownership: `docs/screen-ownership.md` — `apps/mobile` 소유
 - 담당 앱: `apps/mobile`
 
@@ -100,7 +100,7 @@ type HomeSummaryDraft = {
 
 ## Implementation Notes For AI Agents
 
-1. `DESIGN.md`, `docs/screen-ownership.md`, 이 문서를 먼저 읽는다.
+1. `.ai/product/design.md`, `docs/screen-ownership.md`, 이 문서를 먼저 읽는다.
 2. Figma 노드 `51:3`을 `get_design_context`로 재확인한다.
 3. `apps/mobile/app/(tabs)/index.tsx`에서만 구현한다.
 4. `apps/web`, 세션 내부 로직, 카메라 코드를 건드리지 않는다.

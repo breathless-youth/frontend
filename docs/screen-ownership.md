@@ -2,14 +2,14 @@
 
 앱 셸(온보딩/홈/기록/설정 등)은 `apps/mobile`에서 네이티브로 구현한다. **스터디룸 관련
 화면(S3-1~S3-8, S4)은 `apps/web`이 실제 구현체가 되고, 모바일은 WebView로 그 화면을 그대로
-로드한다**(ADR 0001 — 방침). 2026-07-25 기능 리셋으로 기존 임시 구현은 전부 삭제됐다
-(ADR 0003 갱신 노트, git 히스토리에서 복구 가능). 아래 목록은 소유권과 범위를 문서화한 것이다.
+로드한다**([architecture.md](./architecture.md) — 방침). 2026-07-25 기능 리셋으로 기존 임시 구현은 전부 삭제됐다
+(git 히스토리에서 복구 가능). 아래 목록은 소유권과 범위를 문서화한 것이다.
 
 > **2026-07-26 ID 체계 정정**: 이 문서는 과거 임의 순번(`SCR-001~020`)을 썼으나, 실제 화면
-> 인벤토리·확정 사항의 단일원천은 `ai-wiki/product/design.md`이고 그 문서는 Figma 프레임명과
+> 인벤토리·확정 사항의 단일원천은 `.ai/product/design.md`이고 그 문서는 Figma 프레임명과
 > 일치하는 확정 ID(S1·S2-2/S2-3·S3-1~~S3-8·S4·S5·S6·G1~~G5·U1)를 쓴다. 소유권 경계(모바일 vs
 > 웹, ADR 0001 기준) 자체는 정확했으므로 그대로 유지하고, ID 표기만 이 확정 체계로 옮긴다.
-> 과거 `SCR-014`(랭킹)·`SCR-015`(프로필)는 현재 `ai-wiki/product/design.md`의 V1.0 화면
+> 과거 `SCR-014`(랭킹)·`SCR-015`(프로필)는 현재 `.ai/product/design.md`의 V1.0 화면
 > 인벤토리에도, `roadmap.md`의 V1.2~V1.4 계획에도 구체적으로 등재돼 있지 않다 — 랭킹은
 > `roadmap.md`의 장기 백로그("소셜 고도화" 항목)에 "검토" 수준으로만 언급되고, 프로필은 어디에도
 > 없다. 둘 다 이 문서에서 제외한다(부활 시 `design.md`를 먼저 갱신할 것).
@@ -44,10 +44,10 @@
 | S3-8 | 세션 자동 종료 안내                                           | [x]  | 동일 트리, 단일 감시자                                       |
 | S4   | 공부 결과                                                     | [x]  | `src/routes/ResultPage.tsx` (별도 라우트 `/room/:id/result`) |
 
-V1.0에는 멀티룸 화면이 없다 — 소셜/멀티룸(S7~~S11)은 V1.2~~V1.4 범위([ADR 0002](./adr/0002-native-mobile-study-room-and-independent-web.md) 참고). WebView는 위 스터디룸 화면 전체에 쓰일 예정이다 — MVP 동안의 방침이며, [ADR 0003](./adr/0003-phased-rollout-webview-mvp-then-native.md)의 트리거 조건이 충족되면 네이티브로 되돌아간다.
+V1.0에는 멀티룸 화면이 없다 — 소셜(S7~~S11)은 V1.2~~V1.4 범위([.ai/product/roadmap.md](../.ai/product/roadmap.md) 참고). WebView는 위 스터디룸 화면 전체에 쓰일 예정이다 — MVP 동안의 방침이며, [architecture.md](./architecture.md)의 "경위와 전환 조건" 트리거가 충족되면 네이티브로 되돌아간다.
 
 ## `apps/web` 소유 화면
 
 `apps/web`은 현재 `HomePage`(소개)·`RoomPage`(S3-1~S3-8 확정 디자인 적용 — 세로 4종·가로 브레이크포인트·종료 플로우)·`ResultPage`(S4 공부 결과 — 형제 라우트 `/room/:id/result`)를 제공한다. 스터디룸 화면은 위 표 기준으로 이 앱에 구현되어 모바일 WebView가 로드한다. 독립 브라우저 서비스로도 그대로 접근 가능하다.
 
-배경은 [ADR 0001](./adr/0001-webview-based-study-room-architecture.md), [ADR 0003](./adr/0003-phased-rollout-webview-mvp-then-native.md) 참고. 화면별 상세 스펙은 `docs/screens/SCR-{화면 ID}-*.md` 참고(작성되는 대로 이 표의 상태를 갱신할 것).
+배경은 [architecture.md](./architecture.md)의 "경위와 전환 조건" 참고. 화면별 상세 스펙은 `docs/screens/SCR-{화면 ID}-*.md` 참고(작성되는 대로 이 표의 상태를 갱신할 것).
