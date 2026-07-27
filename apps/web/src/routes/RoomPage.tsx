@@ -114,6 +114,7 @@ export function RoomPage() {
     endReason,
     isCameraRunning,
     cameraStream,
+    cameraFacing,
     pause,
     resume,
     flipCamera,
@@ -203,7 +204,11 @@ export function RoomPage() {
       {simpleMode ? (
         <SimpleModeSurface />
       ) : (
-        <CameraPreviewSurface isRunning={isCameraRunning} stream={cameraStream} />
+        <CameraPreviewSurface
+          isRunning={isCameraRunning}
+          stream={cameraStream}
+          facing={cameraFacing}
+        />
       )}
 
       {phase.name === "studying" ? (

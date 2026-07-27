@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
+import type { CameraFacing } from "../adapters/cameraAdapter";
+
 /**
  * 카메라 피드 영역 (Figma `Session / Camera Preview BG` 58:109).
  *
@@ -23,10 +25,17 @@ export interface CameraPreviewSurfaceProps {
   isRunning: boolean;
   /** 어댑터가 연 스트림. `isRunning`이 true여도 렌더 타이밍상 잠깐 null일 수 있다. */
   stream: MediaStream | null;
+  /** 지금 열려 있는 카메라 방향 — 좌우 반전 여부가 여기서 갈린다. */
+  facing: CameraFacing;
   className?: string;
 }
 
-export function CameraPreviewSurface({ isRunning, stream, className }: CameraPreviewSurfaceProps) {
+export function CameraPreviewSurface({
+  isRunning,
+  stream,
+  facing,
+  className,
+}: CameraPreviewSurfaceProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -53,9 +62,10 @@ export function CameraPreviewSurface({ isRunning, stream, className }: CameraPre
           autoPlay
           muted
           playsInline
-          // 전면 카메라는 거울처럼 보여야 자연스럽다. 추론은 원본 프레임을 쓰므로
+          // 전면 카메라는 거울처럼 보여야 자연스럽다 — 반대로 **후면은 반전하면 안 된다**
+          // (사용자가 보고 있는 실제 장면과 좌우가 뒤집힌다). 추론은 원본 프레임을 쓰므로
           // 이 변환은 표시에만 영향을 준다.
-          className="h-full w-full scale-x-[-1] object-cover"
+          className={cn("h-full w-full object-cover", facing === "front" && "scale-x-[-1]")}
         />
       ) : (
         <>
