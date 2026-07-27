@@ -4,7 +4,7 @@
 
 - 프로젝트 지식 SSOT: `.ai/` 서브모듈(프로젝트 위키) — 비어 있으면 `git submodule update --init`
 - 개발/협업 규칙: [AGENTS.md](./AGENTS.md) (`CLAUDE.md`는 이 문서를 임포트)
-- 아키텍처: [docs/architecture.md](./docs/architecture.md) — WebView 방침의 경위·전환 조건 포함(구 fe ADR은 위키 `.ai/decisions/`로 이관 제안 중)
+- 아키텍처: [docs/architecture.md](./docs/architecture.md) — WebView 방침의 경위·전환 조건 포함(구 fe ADR의 기준 기록)
 - 도메인 용어: [.ai/project/glossary.md](./.ai/project/glossary.md)(SSOT) · [docs/domain-glossary.md](./docs/domain-glossary.md)(fe 계약 매핑)
 - 화면 소유권·구현 상태: [docs/screen-ownership.md](./docs/screen-ownership.md)
 - Expo Go 연결 문제: [docs/runbooks/expo-go-connection.md](./docs/runbooks/expo-go-connection.md)

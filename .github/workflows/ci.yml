@@ -12,7 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # PR 제목 컨벤션: "[타입] SCRUM-N 제목" (티켓 없는 작업은 "[타입] 제목")
+  # PR 제목 컨벤션: "[타입] BY-N 제목" (티켓 없는 작업은 "[타입] 제목")
+  # Jira 프로젝트 키가 SCRUM → BY로 변경됨 (2026-07-27, 위키 git-workflow.md). 진행 중이던
+  # 구 SCRUM-N 티켓 브랜치의 PR을 막지 않도록 전환기 동안 SCRUM도 한시 허용한다.
   pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -21,15 +23,15 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # 두 번째 grep: 티켓 자리에 GitHub 이슈번호(#171)를 쓰는 위반 차단 (Jira 키는 SCRUM-N만 허용)
-          # 세 번째 grep: 티켓 번호만 있고 제목 텍스트가 없는 케이스("[feat] SCRUM-147") 차단
-          if echo "$TITLE" | grep -qE '^\[(feat|fix|docs|style|refactor|test|chore|design|comment|rename|remove|!HOTFIX)\] (SCRUM-[0-9]+ )?[^ ]' \
+          # 두 번째 grep: 티켓 자리에 GitHub 이슈번호(#171)를 쓰는 위반 차단 (Jira 키는 BY-N, 구 SCRUM-N 한시 허용)
+          # 세 번째 grep: 티켓 번호만 있고 제목 텍스트가 없는 케이스("[feat] BY-147") 차단
+          if echo "$TITLE" | grep -qE '^\[(feat|fix|docs|style|refactor|test|chore|design|comment|rename|remove|!HOTFIX)\] ((BY|SCRUM)-[0-9]+ )?[^ ]' \
             && ! echo "$TITLE" | grep -qE '^\[[^]]+\] #[0-9]+' \
-            && ! echo "$TITLE" | grep -qE '^\[[^]]+\] SCRUM-[0-9]+ *$'; then
+            && ! echo "$TITLE" | grep -qE '^\[[^]]+\] (BY|SCRUM)-[0-9]+ *$'; then
             echo "OK: $TITLE"
           else
             echo "PR 제목이 컨벤션을 위반합니다: '$TITLE'"
-            echo "형식: [타입] SCRUM-N 제목 (티켓 없는 작업은 [타입] 제목)"
+            echo "형식: [타입] BY-N 제목 (티켓 없는 작업은 [타입] 제목)"
             echo "타입: feat fix docs style refactor test chore design comment rename remove !HOTFIX"
             exit 1
           fi

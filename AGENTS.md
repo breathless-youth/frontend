@@ -12,7 +12,7 @@
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 모든 작업 공통        | [.ai/project/overview.md](./.ai/project/overview.md), [.ai/ai/agent-rules.md](./.ai/ai/agent-rules.md)                                                                                 |
 | 도메인 로직           | [.ai/project/glossary.md](./.ai/project/glossary.md)(용어·노출 표기), [.ai/product/mvp-scope.md](./.ai/product/mvp-scope.md)(세션 상태 모델·감지 로직·서버 계약)                       |
-| 기능 구현(Story 단위) | `.ai/product/specs/SCRUM-NNN-*.md` 있으면 최우선                                                                                                                                       |
+| 기능 구현(Story 단위) | `.ai/product/specs/BY-NNN-*.md` 있으면 최우선                                                                                                                                          |
 | 화면 구현             | [.ai/product/design.md](./.ai/product/design.md)(Figma·화면 인벤토리 SSOT), [.ai/product/voice-tone.md](./.ai/product/voice-tone.md)(노출 문구), `docs/screens/SCR-*.md`(fe 화면 스펙) |
 | 정책·프라이버시 문구  | [.ai/product/policies.md](./.ai/product/policies.md)                                                                                                                                   |
 | 커밋·브랜치·PR        | [.ai/conventions/git-workflow.md](./.ai/conventions/git-workflow.md) + 아래 fe 고유 규칙                                                                                               |
@@ -78,9 +78,10 @@ pnpm --filter web dev      # web만
 - 각 패키지는 `lint`/`typecheck`/`test` 스크립트를 동일한 이름으로 노출한다(새 패키지도 필수).
 - 공유 로직/타입은 `packages/*`로 올리되, 한 화면에서만 쓰는 코드를 미리 패키지로 빼지 않는다.
 - 용어·노출 문구는 [.ai/project/glossary.md](./.ai/project/glossary.md)를 따른다. fe 코드·계약 매핑은 [docs/domain-glossary.md](./docs/domain-glossary.md).
-- **커밋**: Conventional Commits + 제목 끝 Jira 티켓 — `feat(timer): 타이머 자동 일시정지 구현 (SCRUM-42)`. `commitlint`(`@commitlint/config-conventional` 기본값)가 타입을 강제하므로 기본 타입(`feat`/`fix`/`docs`/`style`/`chore`/`refactor`/`test`/`build`/`ci`/`perf`)만 안전하다.
-- **PR 제목은 `[타입] SCRUM-N 제목` 형식**(예: `[feat] SCRUM-147 공부 세션 제출 API 연동`, 티켓 없는 잡무는 `[chore] 제목`). CI `pr-title` job이 강제한다. Conventional Commits 스타일(`feat(web): ...`)이나 GitHub 이슈번호(`#171`)를 PR 제목에 쓰지 말 것. ⚠️ 위키 `git-workflow.md`는 "PR 제목도 커밋 형식"이라고 하지만 이 레포는 2026-07-26 도입된 CI 규칙이 우선이다(위키 갱신 필요).
-- 브랜치: `feature/SCRUM-123-요약` (`dev`에서 분기, `dev`로 PR). GitHub Ruleset(브랜치 보호)은 아직 없다 — CI 실패해도 머지가 막히지는 않으니 스스로 지킬 것.
+- **Jira 프로젝트 키는 `BY`다** (2026-07-27 SCRUM에서 변경 — 위키 `git-workflow.md`). 문서·히스토리의 `SCRUM-N` 표기는 과거 티켓 참조다.
+- **커밋**: Conventional Commits + 제목 끝 Jira 티켓 — `feat(timer): 타이머 자동 일시정지 구현 (BY-42)`. `commitlint`(`@commitlint/config-conventional` 기본값)가 타입을 강제하므로 기본 타입(`feat`/`fix`/`docs`/`style`/`chore`/`refactor`/`test`/`build`/`ci`/`perf`)만 안전하다.
+- **PR 제목은 `[타입] BY-N 제목` 형식**(예: `[feat] BY-147 공부 세션 제출 API 연동`, 티켓 없는 잡무는 `[chore] 제목`). CI `pr-title` job이 강제한다(구 `SCRUM-N`은 전환기 한시 허용). Conventional Commits 스타일(`feat(web): ...`)이나 GitHub 이슈번호(`#171`)를 PR 제목에 쓰지 말 것.
+- 브랜치: `feature/BY-123-요약` (`dev`에서 분기, `dev`로 PR). GitHub Ruleset(브랜치 보호)은 아직 없다 — CI 실패해도 머지가 막히지는 않으니 스스로 지킬 것.
 - PR은 `.github/pull_request_template.md` 체크리스트를 따른다. 구조/아키텍처 변경 시 위키 `.ai/decisions/`에 ADR을 제안하고, fe 국소 사항은 `docs/architecture.md`에 기록한다.
 
 ## AI 에이전트 워크플로우 (이 저장소 관례)
