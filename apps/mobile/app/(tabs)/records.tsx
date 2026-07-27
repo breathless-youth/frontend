@@ -1,8 +1,3 @@
-import type {
-  StudySessionEventCounts,
-  StudySessionListResponse,
-  StudySessionSummary,
-} from "@focuson/types";
 import { Fragment, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +7,9 @@ import { MonthCalendar } from "../../components/records/MonthCalendar";
 import { SessionListItem } from "../../components/records/SessionListItem";
 import { StreakBanner, type StreakWeekDay } from "../../components/records/StreakBanner";
 import { SummaryTiles } from "../../components/records/SummaryTiles";
+import { useRecordsData } from "../../components/records/useRecordsData";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { Skeleton } from "../../components/ui/Skeleton";
 import {
   addDaysToDateKey,
   type CalendarMonth,
@@ -36,77 +34,14 @@ import {
  */
 
 /* -------------------------------------------------------------------------------------------------
- * 목(mock) 데이터 — 실제 API 연동 없음
+ * mock 데이터 안내
  *
- * `GET /api/stats` 응답 타입(`StudySessionListResponse`)은 `packages/types`에 실재하므로 그대로
- * 소비하고 값만 정적 예시로 채운다. 반대로 아래 두 값은 `packages/types`에 대응 필드가 없어
- * 타입을 만들지 않고 이 화면 안에서만 임시로 둔다(S1 홈의 `HomeSummaryDraft`와 같은 방침).
- *
- * TODO(SCR-S5-records.md Data Contract): 백엔드 계약 미확인 4건 —
- *   ① `streakDays`(연속 공부 일수, S1 홈과 공유) ② 주간 체크 도트의 일자별 공부 여부(월 경계 주 포함)
- *   ③ `GET /api/stats`의 요청 파라미터(날짜 스코프 vs 월 스코프) ④ 주간 체크 도트 `Done` 판정 기준
- *     (`studiedDatesInMonth`가 "기록 1건 이상"인지 "순공 10분 이상"인지 — 달력 도트와 같은 기준인지도 미확인).
- * 확정되면 `lib/statsApi.ts`의 `listStudySessionStats`로 이 블록을 통째로 교체한다.
+ * 달력 도트·선택일 요약·리스트는 실서버(`useRecordsData`)로 동작한다. 배너·주간 도트는 아직
+ * BY-315 몫으로 mock을 유지한다(계약 미확인 ①②, 아래 TODO 참고).
  * ------------------------------------------------------------------------------------------------- */
 
 /** TODO(계약 미확인 ①): 연속 공부 일수. */
 const MOCK_STREAK_DAYS = 12;
-
-type MockSessionTemplate = {
-  /** KST 벽시계 `HH:MM` — 실제 계약은 UTC ISO-8601이라 아래에서 변환해 넣는다. */
-  startsAt: string;
-  endsAt: string;
-  studySec: number;
-  focusSec: number;
-  eventCounts: StudySessionEventCounts;
-};
-
-const MOCK_SESSION_TEMPLATES: MockSessionTemplate[] = [
-  {
-    startsAt: "08:55",
-    endsAt: "11:02",
-    studySec: 2 * 3600 + 7 * 60,
-    focusSec: 3600 + 38 * 60,
-    eventCounts: { AWAY: 2, PHONE: 1, DEVICE: 0, PAUSE: 0 },
-  },
-  {
-    startsAt: "13:10",
-    endsAt: "14:40",
-    studySec: 3600 + 30 * 60,
-    focusSec: 3600 + 12 * 60,
-    eventCounts: { AWAY: 1, PHONE: 0, DEVICE: 0, PAUSE: 0 },
-  },
-  {
-    startsAt: "16:20",
-    endsAt: "17:30",
-    studySec: 3600 + 10 * 60,
-    focusSec: 48 * 60,
-    eventCounts: { AWAY: 0, PHONE: 2, DEVICE: 0, PAUSE: 0 },
-  },
-];
-
-/** KST 벽시계(`YYYY-MM-DD` + `HH:MM`)를 계약대로 UTC ISO-8601로 바꾼다. */
-function toUtcIso(dateKey: string, kstClock: string): string {
-  return new Date(`${dateKey}T${kstClock}:00+09:00`).toISOString();
-}
-
-function roundToTenth(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-/**
- * 달력 도트(`studiedDatesInMonth`)의 mock 소스.
- *
- * TODO(계약 미확인 ④): `studiedDatesInMonth`의 정의가 "기록이 1건이라도 있는 날"인지
- * "순공 10분 이상인 날"인지 명시돼 있지 않다.
- */
-const MOCK_CALENDAR_RECORD_DAY_COUNT = 12;
-
-function mockCalendarRecordDateKeys(todayKey: string): string[] {
-  return Array.from({ length: MOCK_CALENDAR_RECORD_DAY_COUNT }, (_, index) =>
-    addDaysToDateKey(todayKey, -index),
-  );
-}
 
 /**
  * 주간 체크 도트 `Done` 판정의 mock 소스.
@@ -118,61 +53,6 @@ function mockCalendarRecordDateKeys(todayKey: string): string[] {
  */
 function mockWeekDoneDateKeys(todayKey: string): string[] {
   return Array.from({ length: MOCK_STREAK_DAYS }, (_, index) => addDaysToDateKey(todayKey, -index));
-}
-
-function emptyEventCounts(): StudySessionEventCounts {
-  return { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 };
-}
-
-/**
- * 선택일 세션 + 그 달의 기록 날짜를 담은 `GET /api/stats` 응답 형태의 예시 값.
- * 집계값은 세션에서 실제로 계산한다 — 화면이 서버 계약대로 동작하는지 그대로 드러나게 하기 위함이다.
- */
-function buildMockStats(
-  selectedKey: string,
-  month: CalendarMonth,
-  calendarRecordDates: readonly string[],
-): StudySessionListResponse {
-  const hasRecord = calendarRecordDates.includes(selectedKey);
-
-  const sessions: StudySessionSummary[] = hasRecord
-    ? MOCK_SESSION_TEMPLATES.map((template, index) => ({
-        id: index + 1,
-        statDate: selectedKey,
-        startedAt: toUtcIso(selectedKey, template.startsAt),
-        endedAt: toUtcIso(selectedKey, template.endsAt),
-        studySec: template.studySec,
-        focusSec: template.focusSec,
-        // 서버는 집중률을 소수 1자리로 내려준다.
-        focusRate: roundToTenth((template.focusSec / template.studySec) * 100),
-        eventCounts: template.eventCounts,
-      }))
-    : [];
-
-  const totalStudySec = sessions.reduce((sum, session) => sum + session.studySec, 0);
-  const totalFocusSec = sessions.reduce((sum, session) => sum + session.focusSec, 0);
-  const totalEventCounts = sessions.reduce<StudySessionEventCounts>((counts, session) => {
-    counts.AWAY += session.eventCounts.AWAY;
-    counts.PHONE += session.eventCounts.PHONE;
-    counts.DEVICE += session.eventCounts.DEVICE;
-    counts.PAUSE += session.eventCounts.PAUSE;
-    return counts;
-  }, emptyEventCounts());
-
-  const monthPrefix = `${month.year}-${month.month < 10 ? `0${month.month}` : month.month}`;
-
-  return {
-    sessions,
-    sessionCount: sessions.length,
-    totalStudySec,
-    totalFocusSec,
-    longestFocusSec: sessions.reduce((max, session) => Math.max(max, session.focusSec), 0),
-    focusRate: totalStudySec === 0 ? 0 : roundToTenth((totalFocusSec / totalStudySec) * 100),
-    totalEventCounts,
-    studiedDatesInMonth: calendarRecordDates
-      .filter((dateKey) => dateKey.startsWith(monthPrefix))
-      .sort(),
-  };
 }
 
 /* ---------------------------------------------- 화면 ---------------------------------------------- */
@@ -203,15 +83,10 @@ export default function RecordsScreen() {
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
 
-  // 달력 도트와 주간 체크 도트는 판정 기준이 다를 수 있어 mock 소스를 따로 둔다(위 TODO 참고).
-  const calendarRecordDates = useMemo(() => mockCalendarRecordDateKeys(todayKey), [todayKey]);
+  const { day, studiedDates } = useRecordsData(selectedKey, month);
+
+  // 주간 체크 도트는 BY-315까지 mock 유지 (계약 미확인 ①② — SCR-S5-records.md).
   const weekDoneDates = useMemo(() => mockWeekDoneDateKeys(todayKey), [todayKey]);
-
-  const stats = useMemo(
-    () => buildMockStats(selectedKey, month, calendarRecordDates),
-    [selectedKey, month, calendarRecordDates],
-  );
-
   const weekDays = useMemo<StreakWeekDay[]>(() => {
     const done = new Set(weekDoneDates);
     return weekDateKeys(todayKey).map((dateKey) => ({
@@ -222,11 +97,13 @@ export default function RecordsScreen() {
     }));
   }, [todayKey, weekDoneDates]);
 
-  // 정렬은 V1.0에서 최신순 고정이다(토글은 M2+). Figma 예시 리스트는 이른 시각부터 그려져 있지만
-  // 라벨("최신순")과 wiki 확정(design.md 6차 · voice-tone §4)이 최신순이므로 그쪽을 따른다.
+  // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   const sessions = useMemo(
-    () => [...stats.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
-    [stats],
+    () =>
+      day.status === "success"
+        ? [...day.stats.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        : [],
+    [day],
   );
 
   return (
@@ -256,7 +133,7 @@ export default function RecordsScreen() {
               month={month}
               todayKey={todayKey}
               selectedKey={selectedKey}
-              studiedDates={stats.studiedDatesInMonth}
+              studiedDates={studiedDates}
               onSelectDate={setSelectedKey}
               // TODO(SCR-S5-records.md): 월 이동 시 선택일 처리가 미확정이다(선택 해제 / 그 달 1일 /
               // 마지막 기록일). 확정 전까지 선택일을 건드리지 않는다 — 달력 표시만 바뀐다.
@@ -265,47 +142,71 @@ export default function RecordsScreen() {
             />
           </View>
 
-          <View className="mt-6 gap-2.5">
-            <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold leading-[21px]">
-              {summaryTitle(selectedKey)}
-            </Text>
-            <SummaryTiles stats={stats} />
-          </View>
-
-          <View className="mt-2">
-            <View className="flex-row items-end justify-between">
-              <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold leading-[21px]">
-                공부 기록
-              </Text>
-              {/*
-                정렬 컨트롤은 표시만 하고 누를 수 없다 — V1.0은 최신순 고정이고 토글은 M2+다.
-                Pressable로 감싸지 않는다(눌리는 것처럼 보이면 안 된다). 셰브런을 남길지 제거할지는
-                디자이너 확인 대상이라 Figma 시각을 그대로 유지한다.
-              */}
-              <View className="flex-row items-center gap-1 pb-[2px]">
-                <Text className="text-text-secondary dark:text-text-secondary-dark text-[13px] leading-4">
-                  최신순
-                </Text>
-                <IconChevronDown size={9} />
+          {day.status === "pending" && (
+            <View className="mt-6 gap-2.5">
+              <Skeleton className="h-[21px] w-40 rounded-md" />
+              <View className="flex-row gap-2.5">
+                <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+                <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+              </View>
+              <View className="flex-row gap-2.5">
+                <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+                <Skeleton className="h-[92px] flex-1 rounded-2xl" />
               </View>
             </View>
+          )}
 
-            {sessions.length === 0 ? (
-              <EmptyDayNotice />
-            ) : (
-              sessions.map((session, index) => (
-                <Fragment key={session.id}>
-                  {/* 아이템 사이 1px 헤어라인. Figma는 #eff1f3 하드코딩(변수 미바인딩)이라
-                      다크모드 대응을 위해 가장 가까운 토큰 `border/default`로 바인딩한다 —
-                      값이 정확히 같지는 않아 Figma 원본 수정은 Review Checklist 항목이다. */}
-                  {index > 0 && (
-                    <View className="bg-border-default dark:bg-border-default-dark h-px" />
-                  )}
-                  <SessionListItem session={session} />
-                </Fragment>
-              ))
-            )}
-          </View>
+          {day.status === "error" && (
+            <View className="mt-6">
+              <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} />
+            </View>
+          )}
+
+          {day.status === "success" && (
+            <>
+              <View className="mt-6 gap-2.5">
+                <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold leading-[21px]">
+                  {summaryTitle(selectedKey)}
+                </Text>
+                <SummaryTiles stats={day.stats} />
+              </View>
+
+              <View className="mt-2">
+                <View className="flex-row items-end justify-between">
+                  <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold leading-[21px]">
+                    공부 기록
+                  </Text>
+                  {/*
+                    정렬 컨트롤은 표시만 하고 누를 수 없다 — V1.0은 최신순 고정이고 토글은 M2+다.
+                    Pressable로 감싸지 않는다(눌리는 것처럼 보이면 안 된다). 셰브런을 남길지 제거할지는
+                    디자이너 확인 대상이라 Figma 시각을 그대로 유지한다.
+                  */}
+                  <View className="flex-row items-center gap-1 pb-[2px]">
+                    <Text className="text-text-secondary dark:text-text-secondary-dark text-[13px] leading-4">
+                      최신순
+                    </Text>
+                    <IconChevronDown size={9} />
+                  </View>
+                </View>
+
+                {sessions.length === 0 ? (
+                  <EmptyDayNotice />
+                ) : (
+                  sessions.map((session, index) => (
+                    <Fragment key={session.id}>
+                      {/* 아이템 사이 1px 헤어라인. Figma는 #eff1f3 하드코딩(변수 미바인딩)이라
+                          다크모드 대응을 위해 가장 가까운 토큰 `border/default`로 바인딩한다 —
+                          값이 정확히 같지는 않아 Figma 원본 수정은 Review Checklist 항목이다. */}
+                      {index > 0 && (
+                        <View className="bg-border-default dark:bg-border-default-dark h-px" />
+                      )}
+                      <SessionListItem session={session} />
+                    </Fragment>
+                  ))
+                )}
+              </View>
+            </>
+          )}
         </View>
       </View>
     </ScrollView>
