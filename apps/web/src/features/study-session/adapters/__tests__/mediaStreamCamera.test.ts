@@ -114,4 +114,82 @@ describe("createMediaStreamCameraAdapter", () => {
 
     await expect(camera.flip()).resolves.toEqual({ ok: false, reason: "camera-off" });
   });
+
+  // 권한 프롬프트가 떠 있는 동안 세션을 떠나는 경로 / StrictMode의 effect 이중 실행 —
+  // 둘 다 "getUserMedia가 해결되기 전"이라 stream이 아직 null이고, 가드가 없으면
+  // 뒤늦게 도착한 트랙을 아무도 멈추지 않는다.
+  describe("진행 중 getUserMedia 보호", () => {
+    it("start 도중 stop이 들어오면 뒤늦게 도착한 스트림을 멈추고 붙잡지 않는다", async () => {
+      const stream = fakeStream();
+      let resolveOpen: (value: MediaStream) => void = () => {};
+      stubMediaDevices(vi.fn(() => new Promise<MediaStream>((resolve) => (resolveOpen = resolve))));
+      const camera = createMediaStreamCameraAdapter();
+
+      const starting = camera.start();
+      camera.stop(); // 아직 stream이 null인 시점 — 예전 구현은 여기서 아무것도 못 멈췄다.
+      resolveOpen(stream);
+      await starting;
+
+      expect(stream.__track.stop).toHaveBeenCalled();
+      expect(camera.stream).toBeNull();
+      expect(camera.isRunning).toBe(false);
+    });
+
+    it("동시 start 두 번이 getUserMedia를 한 번만 부른다", async () => {
+      const stream = fakeStream();
+      const getUserMedia = vi.fn(async () => stream);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+
+      await Promise.all([camera.start(), camera.start()]);
+
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(camera.stream).toBe(stream);
+      expect(stream.__track.stop).not.toHaveBeenCalled();
+    });
+
+    it("동시 flip 두 번이 카메라를 한 번만 더 열고 고아 스트림을 남기지 않는다", async () => {
+      const first = fakeStream();
+      const second = fakeStream();
+      const getUserMedia = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+      stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      const results = await Promise.all([camera.flip(), camera.flip()]);
+
+      expect(getUserMedia).toHaveBeenCalledTimes(2); // start 1 + flip 1
+      expect(results).toContainEqual({ ok: true, facing: "back" });
+      expect(camera.stream).toBe(second);
+      expect(camera.facing).toBe("back");
+      expect(first.__track.stop).toHaveBeenCalled();
+      expect(second.__track.stop).not.toHaveBeenCalled();
+    });
+
+    it("flip 도중 stop이 들어오면 뒤늦게 열린 스트림을 멈추고 붙잡지 않는다", async () => {
+      const first = fakeStream();
+      const second = fakeStream();
+      let resolveFlip: (value: MediaStream) => void = () => {};
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockImplementationOnce(
+          () => new Promise<MediaStream>((resolve) => (resolveFlip = resolve)),
+        );
+      stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      const flipping = camera.flip();
+      await Promise.resolve(); // enumerateDevices 통과까지 진행시킨다
+      await Promise.resolve();
+      camera.stop();
+      resolveFlip(second);
+
+      await expect(flipping).resolves.toEqual({ ok: false, reason: "camera-off" });
+      expect(first.__track.stop).toHaveBeenCalled();
+      expect(second.__track.stop).toHaveBeenCalled();
+      expect(camera.stream).toBeNull();
+    });
+  });
 });

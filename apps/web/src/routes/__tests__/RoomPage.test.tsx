@@ -76,12 +76,21 @@ function endSessionSync() {
  * 하드웨어가 있는 것처럼 `navigator`를 스텁한다 — `mediaStreamCamera.test.ts`와 같은 패턴.
  */
 function stubWorkingCamera(deviceKinds: string[] = ["videoinput", "videoinput"]) {
+  // 트랙을 **실제로 들고 있는** 스트림을 준다 — `getTracks: () => []`로는 "멈추지 않고
+  // 버려진 스트림"(카메라 누수)을 테스트가 감지할 방법이 없다.
+  const opened: { stop: ReturnType<typeof vi.fn> }[] = [];
+  const getUserMedia = vi.fn(async () => {
+    const track = { stop: vi.fn() };
+    opened.push(track);
+    return { getTracks: () => [track] } as unknown as MediaStream;
+  });
   vi.stubGlobal("navigator", {
     mediaDevices: {
-      getUserMedia: vi.fn(async () => ({ getTracks: () => [] }) as unknown as MediaStream),
+      getUserMedia,
       enumerateDevices: vi.fn(async () => deviceKinds.map((kind) => ({ kind }))),
     },
   });
+  return { getUserMedia, opened };
 }
 
 describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
@@ -335,6 +344,43 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("StrictMode 이중 마운트에도 카메라를 한 번만 열고 스트림을 흘리지 않는다", async () => {
+    // effect → cleanup(stop) → effect가 연달아 도는데, 그 사이 getUserMedia는 아직
+    // 해결되지 않았다. 진행 중 가드가 없으면 카메라가 두 번 열리고 한쪽이 고아가 된다.
+    const camera = stubWorkingCamera();
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/room/7?userId=1"]}>
+          <Routes>
+            <Route path="/room/:id" element={<RoomPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    // 목업 라벨이 사라지면 스트림이 붙은 것이다.
+    await waitFor(() => {
+      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+    });
+
+    expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(camera.opened.filter((track) => track.stop.mock.calls.length === 0)).toHaveLength(1);
+  });
+
+  it("언마운트가 카메라 트랙을 실제로 멈춘다", async () => {
+    const camera = stubWorkingCamera();
+    const { unmount } = renderRoom("/room/7?userId=1");
+    await waitFor(() => {
+      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+    });
+
+    unmount();
+
+    expect(camera.opened).toHaveLength(1);
+    expect(camera.opened[0]?.stop).toHaveBeenCalled();
   });
 
   it("비집중은 순공만 멈추고 총 공부는 계속 흐른다", async () => {

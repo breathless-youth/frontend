@@ -32,6 +32,19 @@ function stopStream(stream: MediaStream | null): void {
 export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
   let facing: CameraFacing = "front";
   let stream: MediaStream | null = null;
+  /**
+   * 진행 중인 `getUserMedia` 하나. `stream`은 **해결된 뒤에야** 채워지므로 이것 없이는
+   * 동시 호출이 서로를 보지 못한다 — React 19 StrictMode의 effect 이중 실행에서
+   * `start()`가 두 번 들어오면 카메라가 두 번 열리고 한쪽이 그대로 고아가 된다.
+   */
+  let pending: Promise<MediaStream | null> | null = null;
+  /**
+   * "카메라를 켜 둘 의도가 있는가". `stop()`이 이 값을 내리므로, 권한 프롬프트가 떠 있는
+   * 동안 언마운트돼도 **뒤늦게 도착한 스트림**을 그 자리에서 정리할 수 있다. 이 취소 표시가
+   * 없으면 `stop()`은 아직 `null`인 `stream`을 보고 아무것도 멈추지 않고, 그 뒤 해결된
+   * 트랙은 누구도 잡고 있지 않은 채 살아남는다(카메라 인디케이터 점등·배터리 소모).
+   */
+  let wanted = false;
 
   async function open(next: CameraFacing): Promise<MediaStream | null> {
     try {
@@ -55,12 +68,28 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       return stream;
     },
     async start() {
+      wanted = true;
       if (stream !== null) {
         return;
       }
-      stream = await open(facing);
+      if (pending !== null) {
+        // 이미 여는 중이다 — 두 번째 getUserMedia를 걸지 않고 그 결과를 기다린다.
+        await pending;
+        return;
+      }
+      pending = open(facing);
+      const opened = await pending;
+      pending = null;
+      if (!wanted || opened === null) {
+        // 여는 도중 stop()이 들어왔다(= 세션 이탈). 어댑터를 아무도 들고 있지 않으므로
+        // 여기서 정리하지 않으면 트랙이 영원히 살아 있다.
+        stopStream(opened);
+        return;
+      }
+      stream = opened;
     },
     stop() {
+      wanted = false;
       stopStream(stream);
       stream = null;
     },
@@ -71,13 +100,28 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       if ((await countVideoInputs()) < 2) {
         return { ok: false, reason: "no-alternative" };
       }
+      if (pending !== null) {
+        // 이미 다른 전환이 카메라를 여는 중이다 — 겹쳐서 열면 한쪽 스트림이 고아가 된다.
+        // 진행 중인 전환의 결과를 그대로 따른다.
+        const before = facing;
+        await pending;
+        return facing === before ? { ok: false, reason: "no-alternative" } : { ok: true, facing };
+      }
 
       const next: CameraFacing = facing === "front" ? "back" : "front";
-      const opened = await open(next);
+      pending = open(next);
+      const opened = await pending;
+      pending = null;
       if (opened === null) {
         // 새 카메라를 못 열었으면 기존 스트림을 그대로 둔다 — 전환 실패로 프리뷰가
         // 통째로 꺼지면 세션이 측정 불가 상태가 된다.
         return { ok: false, reason: "no-alternative" };
+      }
+      if (!wanted) {
+        // 전환 도중 stop()이 들어왔다. 기존 스트림은 stop()이 이미 정리했고,
+        // 뒤늦게 열린 이 스트림은 여기서 버린다 — 붙여 두면 그대로 누수다.
+        stopStream(opened);
+        return { ok: false, reason: "camera-off" };
       }
 
       stopStream(stream);
