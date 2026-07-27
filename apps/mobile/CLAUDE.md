@@ -12,7 +12,7 @@ Expo RN 앱(앱 셸). 프로젝트 공통 규칙·SSOT는 루트 [AGENTS.md](../
 - `app/onboarding-guide.tsx` — G1~G5 온보딩 가이드(최초 '집중 시작' 탭 시 자동 실행).
 - `app/permission-denied.tsx` — S2-3 카메라 권한 거부 안내.
 - `components/` — 앱 셸 공용 컴포넌트(예: `UpdateNoticeSheetHost` U1).
-- `lib/` — 순수 유틸·API 연동 함수(테스트 대상). `deviceId.ts`(기기 UUID), `userApi.ts`(익명 유저 등록, SCRUM-259).
+- `lib/` — 순수 유틸·API 연동 함수(테스트 대상, `__tests__/`). 기기 식별(`deviceId.ts`)·익명 유저 등록(`userApi.ts`, SCRUM-259)·통계 API(`statsApi.ts`)·카메라 권한 게이트·온보딩 가이드 스토어·화면별 포맷터 등 — 전체 목록은 디렉터리 참조.
 
 화면별 스펙은 `../../docs/screens/SCR-*.md`, 소유권·구현 상태는 [../../docs/screen-ownership.md](../../docs/screen-ownership.md).
 
