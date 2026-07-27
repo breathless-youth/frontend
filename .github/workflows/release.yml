@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    # 런북(docs/runbooks/release.md)의 semver 태그만 매칭 — v2-experiment 같은 태그로 릴리스가 생기지 않도록
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: write
@@ -11,7 +12,23 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 런북 규칙 강제: main에 없는 커밋으로는 릴리스를 만들지 않는다
+      - name: Verify tag commit is on main
+        run: |
+          git fetch origin main --quiet
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::태그 커밋($GITHUB_SHA)이 main에 없습니다. docs/runbooks/release.md대로 main에서 태그하세요."
+            exit 1
+          fi
+
       - name: Create GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --repo "$GITHUB_REPOSITORY"
+        # 재실행 멱등성: 이미 릴리스가 있으면 성공으로 종료 (워크플로 재시도/중복 이벤트 대비)
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --generate-notes --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
