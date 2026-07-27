@@ -45,7 +45,7 @@ describe("design-tokens", () => {
     expect(radius.full).toBe(999);
   });
 
-  it("일시정지 상태색은 text.tertiary를 재사용하고 Light/Dark가 동일하다(ai-wiki #8B95A1과 일치)", () => {
+  it("일시정지 상태색은 text.tertiary를 재사용하고 Light/Dark가 동일하다(.ai #8B95A1과 일치)", () => {
     expect(colors.text.tertiary.light).toBe("#8b95a1");
     expect(colors.text.tertiary.dark).toBe("#8b95a1");
     expect(sessionStateColors.PAUSE).toEqual(colors.text.tertiary);

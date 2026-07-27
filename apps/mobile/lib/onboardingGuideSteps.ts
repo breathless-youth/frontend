@@ -5,7 +5,7 @@
  * 이 배열도 하나다. 배경·하단 내비게이션·페이저 도트는 공통이고 스텝마다 바뀌는 것은
  * 툴팁 내용·툴팁 위치·강조 대상·목업 배경의 상태뿐이라, 그 차이만 여기 데이터로 적는다.
  *
- * **문구를 화면 코드에 흩뿌리지 않는다.** 아래 문자열은 `ai-wiki/product/voice-tone.md` §4
+ * **문구를 화면 코드에 흩뿌리지 않는다.** 아래 문자열은 `.ai/product/voice-tone.md` §4
  * 표에서 그대로 인용한 확정 카피이며 Figma 텍스트 노드와 글자 단위로 일치한다
  * (2026-07-26 `get_design_context` 대조). 의역·문장부호 변경·임의 줄바꿈 삽입 금지 —
  * 줄바꿈을 넣지 않는 이유는 시스템 폰트 확대 시 어디서 접히는지가 달라져야 하기 때문이다
@@ -257,7 +257,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       base: "simple",
       // G3만 dim이 0.45다(Figma 실측) — 심플 모드 배경 자체가 이미 더 어둡다.
       dimOpacity: 0.45,
-      // ⚠️ Figma G3 프레임(`68:1057`)에는 상태 필 인스턴스가 아예 없다. `ai-wiki/product/design.md`의
+      // ⚠️ Figma G3 프레임(`68:1057`)에는 상태 필 인스턴스가 아예 없다. `.ai/product/design.md`의
       // 심플 모드 정의는 "상태 필·컨트롤 바 유지"라 서로 어긋난다 — 어느 쪽이 확정인지 미확인이라
       // 임의로 고르지 않고 Figma 그대로(없음) 둔다.
       // TODO(SCR-G1-G5-onboarding-guide.md Current Limitations): G3 상태 필 유무 확정 필요.

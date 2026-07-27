@@ -40,7 +40,7 @@ export const colors = {
   text: {
     primary: { light: "#191f28", dark: "#f9fafb" },
     secondary: { light: "#6b7684", dark: "#b0b8c1" },
-    /** 일시정지 상태색으로도 쓰인다 — Light/Dark 값이 동일(ai-wiki 6차 인터뷰 노트의 #8B95A1과 일치 확인). */
+    /** 일시정지 상태색으로도 쓰인다 — Light/Dark 값이 동일(.ai 6차 인터뷰 노트의 #8B95A1과 일치 확인). */
     tertiary: { light: "#8b95a1", dark: "#8b95a1" },
     disabled: { light: "#d1d6db", dark: "#4e5968" },
     inverse: { light: "#ffffff", dark: "#101419" },
@@ -50,7 +50,7 @@ export const colors = {
 
 /**
  * 세션 상태 표시색 — 3색 체계. 결과 타임라인 범례와 세션 상태 필에 쓴다.
- * 근거: ai-wiki `product/mvp-scope.md` 세션 상태 모델 + `product/design.md`(2026-07-26 확정).
+ * 근거: .ai `product/mvp-scope.md` 세션 상태 모델 + `product/design.md`(2026-07-26 확정).
  *
  * - FOCUS(집중): 순공·총 공부 모두 진행. 기본 상태이므로 서버 이벤트로 기록되지 않는다.
  * - DISTRACTION(비집중): 감지 3종(자리 이탈·휴대폰 사용·기기 조작). 순공만 정지, 총 공부는 진행.
@@ -70,7 +70,7 @@ export const sessionStateColors = {
  * 대신 키 집합이 어긋나지 않도록 테스트로 고정한다. 계약이 바뀌면 이 표와 테스트를 함께 고친다.
  *
  * 비집중 3종(PHONE·DEVICE·AWAY)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
- * (`ai-wiki/product/glossary.md`의 노출 표기 참고).
+ * (`.ai/product/glossary.md`의 노출 표기 참고).
  */
 export const eventStatusColors = {
   PHONE: sessionStateColors.DISTRACTION,

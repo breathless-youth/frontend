@@ -2,7 +2,7 @@ import appConfig from "../../app.json";
 
 /**
  * S2-2는 만들 커스텀 UI가 없고 앱이 통제하는 것은 목적 문구뿐이다 — 그래서 이 문자열이
- * 사실상 S2-2 구현물 전체다. `ai-wiki/product/voice-tone.md` §4 · `policies.md` §1 ·
+ * 사실상 S2-2 구현물 전체다. `.ai/product/voice-tone.md` §4 · `policies.md` §1 ·
  * Figma `52:155` 세 곳과 문자 단위로 일치해야 한다(의역·줄임·문장부호 변경 금지).
  */
 const CONFIRMED_CAMERA_USAGE_COPY =

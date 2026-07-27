@@ -6,7 +6,7 @@ import type { StudyEventStatus } from "@focuson/types";
  * 제출 라이프사이클(`StudyRoomPhase`: studying/submitting/done/…)과는 **다른 축**이다.
  * 두 축을 하나로 합치지 않는다(SCR-S3-1·S3-2 "useStudyRoomSession의 실제 갭" 4번).
  *
- * 근거: ai-wiki `product/mvp-scope.md` 세션 상태 모델 / `project/glossary.md`.
+ * 근거: .ai `product/mvp-scope.md` 세션 상태 모델 / `project/glossary.md`.
  */
 
 /** 자동 감지되는 비집중 트리거. `StudyEventStatus`의 부분집합이라 그대로 서버 status로 쓴다. */

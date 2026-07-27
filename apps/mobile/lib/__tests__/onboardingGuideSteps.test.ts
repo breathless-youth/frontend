@@ -9,7 +9,7 @@ import {
 } from "../onboardingGuideSteps";
 
 /**
- * 이 파일은 문구를 "고정"하는 테스트다. 아래 문자열은 `ai-wiki/product/voice-tone.md` §4
+ * 이 파일은 문구를 "고정"하는 테스트다. 아래 문자열은 `.ai/product/voice-tone.md` §4
  * 표에서 그대로 인용한 확정 카피이고 Figma 텍스트 노드와 글자 단위로 일치한다 —
  * 의역·문장부호 변경·개행 삽입이 생기면 여기서 깨진다.
  */

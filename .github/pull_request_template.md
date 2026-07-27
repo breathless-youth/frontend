@@ -1,4 +1,4 @@
-<!-- PR 제목 형식(CI 강제): [타입] SCRUM-N 제목 — 예: [feat] SCRUM-147 공부 세션 제출 API 연동. 티켓 없는 작업은 [타입] 제목 -->
+<!-- PR 제목 형식(CI 강제): [타입] BY-N 제목 — 예: [feat] BY-147 공부 세션 제출 API 연동. 티켓 없는 작업은 [타입] 제목 (구 SCRUM-N 티켓은 전환기 한시 허용) -->
 
 ## 📌 관련 이슈
 
@@ -21,7 +21,7 @@
 - [ ] 커밋 메시지 컨벤션 준수
 - [ ] 로컬 빌드/테스트 성공
 - [ ] `pnpm lint` / `pnpm typecheck` / `pnpm test` 통과
-- [ ] 구조/아키텍처가 바뀌었다면 `docs/adr/`에 ADR 추가
+- [ ] 구조/아키텍처가 바뀌었다면 위키 `.ai/decisions/`에 ADR 제안 + `docs/architecture.md` 갱신
 - [ ] 사용자 동작이 바뀌었다면 관련 문서(`docs/`, 패키지별 `CLAUDE.md`) 갱신
 - [ ] UI 변경 시 실제 기기/브라우저에서 동작 확인
 - [ ] 불필요한 주석, `console.log` 제거

@@ -1,5 +1,5 @@
 /**
- * 시간 표기 — 순수 함수. 표기 규칙의 출처는 ai-wiki `product/voice-tone.md` §2다.
+ * 시간 표기 — 순수 함수. 표기 규칙의 출처는 .ai `product/voice-tone.md` §2다.
  */
 
 /**

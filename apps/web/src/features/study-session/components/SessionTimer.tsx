@@ -29,7 +29,7 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * | 프리뷰  | 52px 중앙 · 총 15px/42%  | **35px 우측 정렬 · 총 13px/40%** |
  * | 심플    | 52px 중앙 발광           | **56px 중앙 발광**               |
  *
- * ⚠️ 가로 심플 **56px**는 `ai-wiki/product/design.md`가 적은 84px과 어긋난다
+ * ⚠️ 가로 심플 **56px**는 `.ai/product/design.md`가 적은 84px과 어긋난다
  * (SCR-S3-5·S3-6 Current Limitations 2). Figma 실측(`61:531`)이 56px이고 이는
  * `typography.display.lg`(56/64/bold)와 정확히 일치하므로 **토큰 체계와 맞는 Figma 값을 따른다.**
  * 디자이너가 84px로 확정하면 이 한 줄만 고친다.

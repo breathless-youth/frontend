@@ -4,7 +4,7 @@
 
 온디바이스 AI가 판정한 공부 상태를 프론트엔드가 **어떻게 정의하고, 서버로 어떻게 전달하고, 서버에서 받은 값을 화면에 어떻게 쓰는지**를 확정한다.
 
-근거는 두 가지뿐이다. 백엔드 Swagger 실계약(`http://52.78.219.53:8080/v3/api-docs`)과 ai-wiki의 확정 결정(`product/mvp-scope.md`, `product/policies.md`, `product/design.md`, `project/glossary.md`)이다. 둘 다에 없는 값은 이 문서에서 상수로 열어두고 "미확정"으로 표시한다.
+근거는 두 가지뿐이다. 백엔드 Swagger 실계약(`http://52.78.219.53:8080/v3/api-docs`)과 .ai의 확정 결정(`product/mvp-scope.md`, `product/policies.md`, `product/design.md`, `project/glossary.md`)이다. 둘 다에 없는 값은 이 문서에서 상수로 열어두고 "미확정"으로 표시한다.
 
 이 문서가 정의하는 것은 상태 모델·판정 규칙·전송 규칙·복구 규칙과 그것을 담을 패키지 경계다. **화면 구현(S1~~S6, G1~~G5), 실제 Vision 모델 로딩·추론, 멀티룸은 범위 밖**이다.
 

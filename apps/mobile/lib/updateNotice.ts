@@ -12,7 +12,7 @@ import * as SecureStore from "expo-secure-store";
  * ## 버전 체크 계약은 없다
  *
  * 이름에 "업데이트"가 들어가지만 **앱 버전 업데이트 시트가 아니다.** V1.2 로그인 도입 예고
- * 안내다. `packages/types`에도 ai-wiki에도 앱 버전·최소 요구 버전·강제 업데이트 여부·스토어
+ * 안내다. `packages/types`에도 .ai에도 앱 버전·최소 요구 버전·강제 업데이트 여부·스토어
  * URL에 해당하는 계약이 **하나도 없다**(스펙 Data Contract에서 전수 확인). 따라서
  * `currentVersion`/`minRequiredVersion`/`forceUpdate`/`storeUrl` 같은 필드를 만들지 않고,
  * 버전 비교 로직도 두지 않는다. 노출 여부는 아래 플래그 하나로만 결정한다.

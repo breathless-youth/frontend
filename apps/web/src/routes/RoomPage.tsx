@@ -87,7 +87,7 @@ const SESSION_LAYER_LAYOUT = [
  *
  * **S3-5(가로 프리뷰)·S3-6(가로 심플)은 세 번째 축이 아니다** — 같은 두 축에 걸리는 순수
  * 레이아웃 변형이다. 방향은 상태로 들고 있지 않고 `@media (orientation: landscape)`가 판정한다
- * (`SESSION_LAYER_LAYOUT` 주석 참고). 명시적 회전 트리거 정책은 `ai-wiki` 어디에도 없다는 것이
+ * (`SESSION_LAYER_LAYOUT` 주석 참고). 명시적 회전 트리거 정책은 `.ai` 어디에도 없다는 것이
  * SCR-S3-5·S3-6에서 확인됐고, 디자인에 방향 잠금·수동 전환 컨트롤도 없다.
  *
  * 라우트는 기존 `/room/:id?userId=N`을 유지하되 **방 번호를 표시하지 않는다** —
@@ -118,7 +118,7 @@ export function RoomPage() {
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
-  // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
+  // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — .ai 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
 

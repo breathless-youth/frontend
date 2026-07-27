@@ -13,8 +13,8 @@
 ## 세션 상태 (3색 체계)
 
 사용자에게 보이는 상태는 3개다. 결과 타임라인 범례·세션 상태 필이 이 3색을 쓴다
-(`@focuson/design-tokens`의 `sessionStateColors`). 근거: `ai-wiki/product/mvp-scope.md`
-세션 상태 모델, `ai-wiki/product/design.md`(2026-07-26 확정).
+(`@focuson/design-tokens`의 `sessionStateColors`). 근거: `.ai/product/mvp-scope.md`
+세션 상태 모델, `.ai/product/design.md`(2026-07-26 확정).
 
 | 상태     | 코드          | 사용자 표기 | 집계 반영                 | 색     |
 | -------- | ------------- | ----------- | ------------------------- | ------ |
