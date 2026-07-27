@@ -21,7 +21,7 @@ describe("HomeScreen 통계 상태", () => {
       summary: {
         focusSec: 3 * 3600 + 42 * 60,
         studySec: 5 * 3600 + 12 * 60,
-        focusRate: 71,
+        focusRate: 71.3,
         streakDays: 12,
         longestFocusSec: 52 * 60,
       },
@@ -40,6 +40,7 @@ describe("HomeScreen 통계 상태", () => {
 
     expect(screen.getAllByLabelText("불러오는 중").length).toBeGreaterThan(0);
     expect(screen.queryByText("% 집중", { exact: false })).toBeNull();
+    expect(screen.getByText("집중 시작")).toBeTruthy();
   });
 
   it("error — 오류 문구와 다시 시도 버튼을 렌더한다", () => {
@@ -49,6 +50,7 @@ describe("HomeScreen 통계 상태", () => {
 
     expect(screen.getByText("기록을 불러오지 못했어요")).toBeTruthy();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
+    expect(screen.getByText("집중 시작")).toBeTruthy();
   });
 
   it("streakDays 0이면 시작 유도 문구를 보여준다", () => {

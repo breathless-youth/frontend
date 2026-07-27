@@ -74,7 +74,7 @@ function HeroTodayCard({ summary }: { summary: HomeSummary }) {
         </Text>
         <View className="bg-brand-subtle dark:bg-brand-subtle-dark rounded-full px-[9px] py-[3px]">
           <Text className="text-brand-primary dark:text-brand-primary-dark text-xs font-semibold">
-            {summary.focusRate}% 집중
+            {Math.round(summary.focusRate)}% 집중
           </Text>
         </View>
       </View>
