@@ -76,26 +76,39 @@ export const SPA_FALLBACK_EXTRA_CONFIG = [
 
 type StaticServerConstructor = new (params: StaticServerParams) => StaticServerInstance;
 
+interface StaticServerModule {
+  readonly default: StaticServerConstructor;
+  /** 상대 `fileDir`를 플랫폼별 번들 경로로 푸는 라이브러리 자신의 규칙. */
+  readonly resolveAssetsPath: (path: string) => string;
+}
+
 /**
  * 네이티브 모듈을 **기동 시점에** 불러온다.
  *
- * 이 라이브러리는 import되는 순간 TurboModule의 `getConstants()`를 호출한다. 최상위
- * import로 두면 네이티브가 없는 환경(Expo Go, Jest)에서 이 모듈을 스치기만 해도 터지고,
- * 레지스트리가 앱 시작 시 기본값을 만들기 때문에 그 폭발이 곧 앱 실행 실패가 된다.
- * 여기서 늦게 부르면 같은 실패가 "집중 시작"을 눌렀을 때의 거부로 바뀌고, 라우트가 이미
- * 가진 실패 분기("세션을 시작하지 못했어요")로 흘러간다.
+ * 이 라이브러리(와 peer인 `@dr.pogodin/react-native-fs`)는 import되는 순간 TurboModule을
+ * 잡는다(`getConstants()` / `getEnforcing()`). 최상위 import로 두면 네이티브가 없는
+ * 환경(Expo Go, Jest)에서 이 모듈을 스치기만 해도 터지고, 레지스트리가 앱 시작 시 기본값을
+ * 만들기 때문에 그 폭발이 곧 앱 실행 실패가 된다. 여기서 늦게 부르면 같은 실패가
+ * "집중 시작"을 눌렀을 때의 거부로 바뀌고, 라우트가 이미 가진 실패 분기
+ * ("세션을 시작하지 못했어요")로 흘러간다.
  *
  * 타입은 위 `import type`으로 그대로 가져오므로, 라이브러리 계약이 바뀌면 여기서 깨진다.
  */
-function loadStaticServer(): StaticServerConstructor {
+function loadStaticServerModule(): StaticServerModule {
   // 공유 규칙(`no-require-imports`)을 여기서만 끄는 이유: 지연 로딩이 목적이다.
   // ESM `import`는 모듈 최상단으로 끌어올려져 이 함수 안에 가둘 수 없고, 동적 `import()`는
   // Jest(babel 변환) 환경에서 실행되지 않는다. Metro/RN에서 지연 로딩을 표현하는 수단은 `require`다.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const loaded = require("@dr.pogodin/react-native-static-server") as {
-    default: StaticServerConstructor;
+  return require("@dr.pogodin/react-native-static-server") as StaticServerModule;
+}
+
+/** 같은 이유로 지연 로딩한다 — 위 `loadStaticServerModule` 주석 참고. */
+function loadExists(): (filepath: string) => Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("@dr.pogodin/react-native-fs") as {
+    exists: (filepath: string) => Promise<boolean>;
   };
-  return loaded.default;
+  return fs.exists;
 }
 
 export interface StaticWebAssetServerOptions {
@@ -115,12 +128,71 @@ function normalizeOrigin(reported: string): string {
   return `http://${LOCAL_SERVER_HOST}:${port}`;
 }
 
+/** 서빙 루트가 없을 때 던지는 **개발자용** 메시지. 사용자 문구가 아니다. */
+export const WEB_ASSET_ROOT_MISSING_MESSAGE = "local web asset server has no document root";
+
 export function createStaticWebAssetServer(
   options: StaticWebAssetServerOptions = {},
 ): WebAssetServer {
   const fileDir = options.fileDir ?? WEB_ASSET_DIR;
   let origin: string | null = null;
   let server: StaticServerInstance | null = null;
+  /**
+   * 진행 중인 기동 하나. `origin`은 **기동이 끝난 뒤에야** 채워지므로 이것 없이는 동시
+   * 호출이 서로를 보지 못한다 — 두 호출이 각자 인스턴스를 만들어 네이티브 싱글턴을 두 번
+   * 기동하고, 한쪽이 포트를 문 채 고아가 된다(`stop()`은 id를 받지 않아 지목해 내릴 수도
+   * 없다). `apps/web`의 `mediaStreamCamera.ts`가 `getUserMedia`에 대해 쓰는 `pending`과
+   * 같은 처리다.
+   */
+  let pending: Promise<string> | null = null;
+
+  async function boot(): Promise<string> {
+    const { default: StaticServer, resolveAssetsPath } = loadStaticServerModule();
+
+    // 서빙 루트가 실제로 있는지 먼저 확인한다. **lighttpd는 document-root가 없어도
+    // 거부하지 않고 그냥 떠서 전부 404를 낸다** — 그러면 `start()`는 성공하고 WebView는
+    // 아무 에러 없이 백지가 된다. 원인을 짚을 수 없는 그 실패를 막으려고, 여기서 확실히
+    // 거부해 라우트의 실패 분기("세션을 시작하지 못했어요")로 보낸다.
+    //
+    // 라이브러리와 **같은 규칙**으로 경로를 푼다(생성자도 `resolveAssetsPath`를 쓴다).
+    // 그래야 여기서 검사한 경로와 lighttpd가 실제로 여는 경로가 어긋나지 않는다.
+    const resolved = resolveAssetsPath(fileDir);
+    if (!(await loadExists()(resolved))) {
+      throw new Error(
+        `${WEB_ASSET_ROOT_MISSING_MESSAGE}: ${resolved}. ` +
+          "apps/web 빌드 산출물을 앱 번들 안 이 경로로 넣는 장치가 아직 없다 — " +
+          "번들링 방식(config plugin 등)이 미정이다. 서버 라이브러리 문제가 아니다.",
+      );
+    }
+
+    // 기동할 때마다 새 인스턴스를 만든다. 라이브러리는 첫 start에서 정해진 포트를
+    // 인스턴스에 눌러 담고 재기동 때 그대로 쓰는데, 그 사이 다른 앱이 그 포트를 잡으면
+    // 고정 포트와 똑같은 충돌이 된다(이슈 #26이 Android 크래시로 짚은 상황).
+    const instance = new StaticServer({
+      fileDir,
+      // `port: 0` = OS가 빈 포트를 고른다.
+      port: 0,
+      // 0.27에서 `nonLocal`은 deprecated다 — 바인딩 주소는 `hostname`이 정한다.
+      hostname: LOCAL_SERVER_HOST,
+      extraConfig: SPA_FALLBACK_EXTRA_CONFIG,
+    });
+
+    // 실패는 그대로 던진다 — 라우트가 catch해서 "세션을 시작하지 못했어요"를 보여준다.
+    // origin을 건드리지 않은 채 던져야 재시도가 가능하다.
+    const reported = await instance.start();
+    server = instance;
+
+    try {
+      origin = normalizeOrigin(reported);
+    } catch (error: unknown) {
+      // 오리진을 읽지 못하면 그 서버는 쓸 수가 없다. 띄워둔 채 던지면 포트를 문 서버가
+      // 남아 다음 시도까지 방해한다 — 내려서 재시도 가능한 상태로 되돌린다.
+      server = null;
+      await instance.stop().catch(() => undefined);
+      throw error;
+    }
+    return origin;
+  }
 
   return {
     get origin() {
@@ -130,43 +202,36 @@ export function createStaticWebAssetServer(
       if (origin !== null) {
         return origin;
       }
-
-      const StaticServer = loadStaticServer();
-
-      // 기동할 때마다 새 인스턴스를 만든다. 라이브러리는 첫 start에서 정해진 포트를
-      // 인스턴스에 눌러 담고 재기동 때 그대로 쓰는데, 그 사이 다른 앱이 그 포트를 잡으면
-      // 고정 포트와 똑같은 충돌이 된다(이슈 #26이 Android 크래시로 짚은 상황).
-      const instance = new StaticServer({
-        fileDir,
-        // `port: 0` = OS가 빈 포트를 고른다.
-        port: 0,
-        // 0.27에서 `nonLocal`은 deprecated다 — 바인딩 주소는 `hostname`이 정한다.
-        hostname: LOCAL_SERVER_HOST,
-        extraConfig: SPA_FALLBACK_EXTRA_CONFIG,
-      });
-
-      // 실패는 그대로 던진다 — 라우트가 catch해서 "세션을 시작하지 못했어요"를 보여준다.
-      // origin을 건드리지 않은 채 던져야 재시도가 가능하다.
-      const reported = await instance.start();
-      server = instance;
-
-      try {
-        origin = normalizeOrigin(reported);
-      } catch (error: unknown) {
-        // 오리진을 읽지 못하면 그 서버는 쓸 수가 없다. 띄워둔 채 던지면 포트를 문 서버가
-        // 남아 다음 시도까지 방해한다 — 내려서 재시도 가능한 상태로 되돌린다.
-        server = null;
-        await instance.stop().catch(() => undefined);
-        throw error;
+      if (pending !== null) {
+        // 이미 기동 중이다 — 두 번째 서버를 띄우지 않고 그 결과를 그대로 받는다.
+        return await pending;
       }
-      return origin;
+
+      const inFlight = boot();
+      pending = inFlight;
+      try {
+        return await inFlight;
+      } finally {
+        // 나중에 시작된 기동의 pending을 지우지 않도록 자기 것인지 확인한다.
+        if (pending === inFlight) {
+          pending = null;
+        }
+      }
     },
     async stop() {
       const running = server;
-      server = null;
-      origin = null;
-      if (running !== null) {
+      if (running === null) {
+        return;
+      }
+      try {
         await running.stop();
+      } finally {
+        // 실패해도 상태는 비운다 — 라이브러리가 이미 CRASHED로 표시한 인스턴스를 붙들고
+        // 있으면 `origin`이 죽은 서버를 가리킨 채 남아 다음 `start()`가 그걸 그대로 돌려준다.
+        // 다만 **내리기를 기다린 뒤에** 비운다. 먼저 비우면 그 사이 들어온 `start()`가
+        // 아직 살아 있는 서버 옆에 두 번째 서버를 띄운다.
+        server = null;
+        origin = null;
       }
     },
   };

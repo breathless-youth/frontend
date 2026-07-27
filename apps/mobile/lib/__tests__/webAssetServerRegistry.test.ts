@@ -13,6 +13,15 @@ const mockStop = jest.fn<Promise<void>, []>();
 jest.mock("@dr.pogodin/react-native-static-server", () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({ start: mockStart, stop: mockStop })),
+  resolveAssetsPath: jest.fn((path: string) =>
+    path.startsWith("/") ? path : `/main-bundle/${path}`,
+  ),
+}));
+
+jest.mock("@dr.pogodin/react-native-fs", () => ({
+  __esModule: true,
+  // 기본값 서빙 루트가 있는 상황 — 여기서 보는 것은 배선이지 루트 존재 여부가 아니다.
+  exists: jest.fn(async () => true),
 }));
 
 describe("webAssetServerRegistry", () => {
