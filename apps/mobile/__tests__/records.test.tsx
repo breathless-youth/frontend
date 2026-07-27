@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useFocusEffect } from "expo-router";
 
 import type { StudySessionListResponse, StudySessionSummary } from "@focuson/types";
 
@@ -31,6 +32,14 @@ jest.mock("../lib/userApi", () => ({
 
 const mockedEnsure = ensureUserRegistered as jest.MockedFunction<typeof ensureUserRegistered>;
 const mockedStats = listStudySessionStats as jest.MockedFunction<typeof listStudySessionStats>;
+const mockedFocusEffect = useFocusEffect as jest.MockedFunction<typeof useFocusEffect>;
+
+/** 탭 재진입을 흉내 낸다 — 등록된 모든 포커스 콜백(화면의 todayKey 갱신 + 훅의 invalidate)을 실행. */
+function fireFocus() {
+  act(() => {
+    mockedFocusEffect.mock.calls.forEach(([callback]) => callback());
+  });
+}
 
 /** 고정 오늘(KST 2026-07-26)부터 12일 연속 기록 — 기존 화면 mock과 동일한 시나리오. */
 const STUDIED_DATES = [
@@ -295,5 +304,27 @@ describe("S5 · 기록", () => {
 
     expect(await screen.findByText("기록을 불러오지 못했어요")).toBeTruthy();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
+  });
+
+  it("자정을 넘긴 뒤 탭에 다시 들어오면 새 오늘이 선택 가능해진다", async () => {
+    await renderRecords();
+
+    // 마운트 시점(KST 7/26)에는 27일이 미래라 비활성이다.
+    expect(
+      screen.getByRole("button", { name: "27일, 기록 없음" }).props.accessibilityState,
+    ).toMatchObject({ disabled: true });
+
+    // KST 자정 넘김: 2026-07-27 00:30 (UTC 07-26 15:30). 탭 화면은 언마운트되지 않으므로
+    // 재진입(포커스)이 todayKey를 갱신하는 유일한 경로다.
+    jest.setSystemTime(new Date("2026-07-26T15:30:00.000Z"));
+    fireFocus();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "27일, 기록 없음" }).props.accessibilityState,
+      ).toMatchObject({ disabled: false }),
+    );
+    // 선택일은 정책대로 유지된다 — 오늘 갱신이 선택을 옮기지 않는다.
+    expect(screen.getByText("7월 26일 학습 요약")).toBeTruthy();
   });
 });

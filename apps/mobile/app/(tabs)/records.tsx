@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -79,7 +80,16 @@ export default function RecordsScreen() {
 
   // TODO(SCR-S5-records.md): 화면 진입 시 기본 선택일 규칙이 미확정이다(Figma 예시는 오늘이 아닌
   // 전날이 선택돼 있다). 확인 전까지 자연스러운 기본값인 "오늘"로 둔다.
-  const todayKey = useMemo(() => kstDateKey(), []);
+  //
+  // "오늘"은 탭 포커스 때마다 재계산한다 — 탭 화면은 자정을 넘겨도 언마운트되지 않으므로 마운트
+  // 시점 값에 고정하면 새 날짜가 미래로 판정되어 선택 불가가 된다(심야 공부 시나리오). 같은 값이면
+  // setState가 bail-out해 추가 렌더는 없다. 선택일은 정책대로 건드리지 않는다(선택 항상 유지).
+  const [todayKey, setTodayKey] = useState(() => kstDateKey());
+  useFocusEffect(
+    useCallback(() => {
+      setTodayKey(kstDateKey());
+    }, []),
+  );
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
 
