@@ -106,3 +106,5 @@ export interface StudySessionStreakResponse {
   /** 역대 최장 연속 공부일 */
   maxStreak: number;
 }
+
+export type { ToNativeMessage, ToWebMessage } from "./bridge";

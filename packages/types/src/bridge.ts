@@ -1,0 +1,19 @@
+/**
+ * WebView ↔ 네이티브 브리지 메시지 계약
+ * (`frontend/docs/superpowers/specs/2026-07-26-session-state-model-and-contract-design.md` §10).
+ *
+ * 매초 갱신되는 타이머와 상태 전환은 **이 통로를 건너지 않는다** — 상태기계와 화면이 같은
+ * 메모리(웹)에 있으므로 직접 읽는다. 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와
+ * 네이티브만 할 수 있는 저장(체크포인트·제출)만 오간다.
+ */
+
+/** 네이티브 → 웹. */
+export type ToWebMessage =
+  /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
+  | { type: "device-handling"; active: boolean; atMs: number }
+  | { type: "app-state"; state: "active" | "background"; atMs: number };
+
+/** 웹 → 네이티브. */
+export type ToNativeMessage =
+  /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
+  { type: "session-ready"; atMs: number };
