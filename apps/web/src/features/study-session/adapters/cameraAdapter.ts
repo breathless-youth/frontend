@@ -16,6 +16,18 @@ export type CameraFlipResult =
 export interface CameraAdapter {
   readonly facing: CameraFacing;
   readonly isRunning: boolean;
+  /**
+   * 프리뷰 `<video>`에 붙일 스트림 — **선택**이다. mock은 실제 피드가 없어 아예 두지 않고,
+   * 그러면 화면이 중립 서피스를 그린다(브라우저 단독 개발·테스트 경로).
+   *
+   * 훅이 어댑터에서 스트림을 꺼낸다는 계약이 여기 있어야 duck typing(`"stream" in camera`)
+   * 없이 타입으로 표현된다. 옵셔널로 두는 이유는 훅의 주입 지점이 이 **기본** 인터페이스로
+   * 남아야 하기 때문이다 — 실제 어댑터 타입으로 좁히면 mock 주입이 전부 깨진다.
+   *
+   * **원본 프레임은 어댑터 밖으로 나가지 않는다.** `srcObject`에 붙이는 용도 외에
+   * 저장·전송·로그 어디에도 쓰지 말 것(`frontend/CLAUDE.md`).
+   */
+  readonly stream?: MediaStream | null;
   start(): Promise<void>;
   stop(): void;
   flip(): Promise<CameraFlipResult>;
