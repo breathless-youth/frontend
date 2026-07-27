@@ -1,4 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
@@ -50,33 +51,44 @@ export default function SessionRoomScreen() {
 
   if (failed) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#0B0F14] px-6">
-        <Text className="text-center text-[15px] leading-[22px] text-white/80">
-          세션을 시작하지 못했어요
-        </Text>
-      </View>
+      <>
+        {/* 세션 화면은 시스템 테마와 무관하게 항상 다크다 — 상태 바 아이콘도 밝게 고정한다
+            (라이트 모드 기기에서 `style="auto"`가 어두운 아이콘을 골라 배경에 묻힌다). */}
+        <StatusBar style="light" />
+        <View className="flex-1 items-center justify-center bg-[#0B0F14] px-6">
+          <Text className="text-center text-[15px] leading-[22px] text-white/80">
+            세션을 시작하지 못했어요
+          </Text>
+        </View>
+      </>
     );
   }
 
   if (uri === null) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#0B0F14]">
-        <ActivityIndicator color="#FFFFFF" />
-      </View>
+      <>
+        <StatusBar style="light" />
+        <View className="flex-1 items-center justify-center bg-[#0B0F14]">
+          <ActivityIndicator color="#FFFFFF" />
+        </View>
+      </>
     );
   }
 
   return (
-    <WebView
-      testID="session-webview"
-      source={{ uri }}
-      // 세션 화면은 항상 다크다 — 로딩 중 흰 배경이 번쩍이지 않게 한다.
-      style={{ flex: 1, backgroundColor: "#0B0F14" }}
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      mediaCapturePermissionGrantType="grant"
-      // 로컬 서버 외의 오리진으로는 나가지 않는다.
-      originWhitelist={["http://localhost:*"]}
-    />
+    <>
+      <StatusBar style="light" />
+      <WebView
+        testID="session-webview"
+        source={{ uri }}
+        // 세션 화면은 항상 다크다 — 로딩 중 흰 배경이 번쩍이지 않게 한다.
+        style={{ flex: 1, backgroundColor: "#0B0F14" }}
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        mediaCapturePermissionGrantType="grant"
+        // 로컬 서버 외의 오리진으로는 나가지 않는다.
+        originWhitelist={["http://localhost:*"]}
+      />
+    </>
   );
 }
