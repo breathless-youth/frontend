@@ -91,6 +91,23 @@ describe("createMediaStreamCameraAdapter", () => {
     expect(stream.__track.stop).not.toHaveBeenCalled();
   });
 
+  it("카메라가 둘이지만 대체 카메라를 열지 못하면 flip이 no-alternative로 실패하고 기존 스트림을 유지한다", async () => {
+    const first = fakeStream();
+    const getUserMedia = vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockRejectedValueOnce(new Error("NotReadableError"));
+    stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+    const camera = createMediaStreamCameraAdapter();
+
+    await camera.start();
+
+    await expect(camera.flip()).resolves.toEqual({ ok: false, reason: "no-alternative" });
+    expect(camera.stream).toBe(first);
+    expect(camera.facing).toBe("front");
+    expect(first.__track.stop).not.toHaveBeenCalled();
+  });
+
   it("카메라가 꺼져 있으면 flip이 camera-off로 실패한다", async () => {
     stubMediaDevices(vi.fn(), ["videoinput", "videoinput"]);
     const camera = createMediaStreamCameraAdapter();
