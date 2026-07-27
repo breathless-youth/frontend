@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요."
+        "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -23,7 +26,18 @@
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA"]
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
     "extra": {
       "apiBaseUrl": "http://52.78.219.53:8080",
       "updateNoticeEnabled": false

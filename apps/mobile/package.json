@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@dr.pogodin/react-native-fs": "^2.39.2",
+    "@dr.pogodin/react-native-static-server": "^0.27.0",
     "@expo/metro-runtime": "~6.1.2",
     "@focuson/design-tokens": "workspace:*",
     "@focuson/types": "workspace:*",
     "expo": "~54.0.36",
+    "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",

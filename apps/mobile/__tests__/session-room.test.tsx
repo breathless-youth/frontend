@@ -3,7 +3,7 @@ import React from "react";
 
 import SessionRoomScreen from "../app/room/[id]";
 import { getRegisteredUserId } from "../lib/userApi";
-import { createFakeWebAssetServer } from "../lib/webAssetServer";
+import { createFakeWebAssetServer, createUnavailableWebAssetServer } from "../lib/webAssetServer";
 import { resetWebAssetServer, setWebAssetServer } from "../lib/webAssetServerRegistry";
 
 jest.mock("expo-router", () => ({
@@ -68,8 +68,12 @@ describe("SessionRoomScreen", () => {
     expect(screen.queryByTestId("session-webview")).toBeNull();
   });
 
-  it("서버를 주입하지 않은 기본 상태(= 실제 구현 없음)에서는 실패 안내로 간다", async () => {
-    // 기본값이 fake였을 때는 start()가 성공해 존재하지 않는 서버를 로드하고 백지가 됐다.
+  it("서버가 사용 불가면 실패 안내로 간다", async () => {
+    // 사용 불가 서버는 start()가 **거부**된다. fake처럼 성공해버리면 라우트가 실패 분기를
+    // 건너뛰고 존재하지 않는 서버를 로드해 백지가 된다 — 원인을 짚을 수 없는 실패다.
+    // 레지스트리 기본값이 실제 구현으로 바뀐 뒤에도 이 분기는 그대로 살아 있어야 한다.
+    setWebAssetServer(createUnavailableWebAssetServer());
+
     render(<SessionRoomScreen />);
 
     await waitFor(() => {
