@@ -4,7 +4,7 @@ import appConfig from "../../app.json";
 import {
   appVersionLabel,
   cameraPermissionRowLabel,
-  SETTINGS_LINKS,
+  CONTACT_FORM_URL,
   UNKNOWN_APP_VERSION_LABEL,
 } from "../settingsInfo";
 
@@ -41,14 +41,13 @@ describe("appVersionLabel", () => {
   });
 });
 
-describe("SETTINGS_LINKS", () => {
-  it("목적지가 확정되지 않은 4개 링크는 전부 null이다 (상상 URL 금지)", () => {
-    expect(SETTINGS_LINKS).toEqual({
-      contactFormUrl: null,
-      termsOfServiceUrl: null,
-      privacyPolicyUrl: null,
-      openSourceLicenseUrl: null,
-    });
+describe("CONTACT_FORM_URL", () => {
+  it("확정된 문의 폼 주소를 갖는다 (BY-257)", () => {
+    expect(CONTACT_FORM_URL).toBe("https://forms.gle/64ZZyLDE3A2F1oAB8");
+  });
+
+  it("WebView가 로드할 수 있는 https 주소다", () => {
+    expect(CONTACT_FORM_URL.startsWith("https://")).toBe(true);
   });
 });
 
