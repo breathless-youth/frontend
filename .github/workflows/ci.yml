@@ -67,5 +67,10 @@ jobs:
       - name: Build web
         run: pnpm --filter web build
 
+      # apps/web을 고치고 assets/web-dist 복사를 빠뜨리면 옛 화면이 담긴 앱이
+      # 에러 없이 빌드된다 — 조용히 틀리므로 CI가 잡는다.
+      - name: Check web-dist sync
+        run: pnpm --filter mobile sync-web && pnpm --filter mobile sync-web:check
+
       - name: Expo export (mobile static analysis build)
         run: pnpm --filter mobile exec expo export --platform android

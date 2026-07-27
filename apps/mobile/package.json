@@ -45,7 +45,9 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "sync-web": "node scripts/syncWebDist.js",
+    "sync-web:check": "node scripts/syncWebDist.js --check"
   },
   "private": true
 }
