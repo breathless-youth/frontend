@@ -195,8 +195,10 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
     await waitFor(async () => {
       await expect(store.hasSeenGuide()).resolves.toBe(true);
     });
-    // 세션 라우트(S3-1)가 아직 없으므로 존재하지 않는 경로로 이동을 시도하지 않는다.
-    expect(router.push).not.toHaveBeenCalled();
+    // 세션 라우트(S3-1)가 Task 4(BY-282)에서 복원됐다 — 완료 시 곧장 세션으로 이어진다.
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith("/room/1");
+    });
   });
 
   it("건너뛰어도 '봤다'로 기록하고 같은 다음 단계로 이어진다", async () => {

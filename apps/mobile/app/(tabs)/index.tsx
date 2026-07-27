@@ -24,8 +24,9 @@ const HOME_FOCUS_START_NAVIGATOR: FocusStartNavigator = {
     router.push("/permission-denied");
   },
   startSession: () => {
-    // TODO(SCR-S1-home.md): 싱글룸 세션 라우트(S3-1)가 아직 없다 — WG 계열 화면 구현 시 연결한다.
-    // 목적지가 없는 동안에는 방어적으로 아무 동작도 하지 않는다.
+    // V1.0 싱글룸에는 사용자에게 보여줄 "방" 개념이 없다 — 경로의 :id는 apps/web의
+    // 기존 라우트 계약을 지키기 위한 고정값이다(SCR-S3-1 Review Checklist의 존치 항목).
+    router.push("/room/1");
   },
 };
 

@@ -49,3 +49,14 @@ export async function ensureUserRegistered(): Promise<number | null> {
     return null;
   }
 }
+
+/**
+ * `ensureUserRegistered`가 이미 저장해 둔 userId를 읽기만 한다 — 새 네트워크 호출을
+ * 만들지 않는다(세션 시작 경로에 API 의존을 추가하지 않는다, 설계 §1). 앱 부팅 시
+ * `RootLayout`이 `ensureUserRegistered()`를 호출해 두므로, 세션 시작 시점에는 이미
+ * 저장돼 있거나(정상 경로) 등록이 실패해 비어 있을 수 있다(그 경우 `null`).
+ */
+export async function getRegisteredUserId(): Promise<number | null> {
+  const stored = await SecureStore.getItemAsync(USER_ID_KEY);
+  return stored ? Number(stored) : null;
+}
