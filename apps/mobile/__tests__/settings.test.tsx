@@ -38,13 +38,14 @@ afterEach(() => {
 });
 
 describe("S6 · 설정", () => {
-  it("3개 그룹 5개 행을 확정 문구 그대로 보여준다", () => {
+  it("3개 그룹 7개 행을 확정 문구 그대로 보여준다", () => {
     render(<SettingsScreen />);
 
     expect(screen.getByText("설정")).toBeTruthy();
 
     expect(screen.getByText("측정")).toBeTruthy();
     expect(screen.getByText("카메라 권한")).toBeTruthy();
+    expect(screen.getByText("측정 기준 안내")).toBeTruthy();
     expect(screen.getByText("권한은 시스템 설정에서 바꿀 수 있어요")).toBeTruthy();
 
     expect(screen.getByText("지원")).toBeTruthy();
@@ -53,15 +54,13 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("약관 · 정보")).toBeTruthy();
     expect(screen.getByText("이용약관")).toBeTruthy();
     expect(screen.getByText("개인정보처리방침")).toBeTruthy();
+    expect(screen.getByText("오픈소스 라이선스")).toBeTruthy();
     expect(screen.getByText("버전 정보")).toBeTruthy();
   });
 
-  it("BY-257에서 제거한 행이 되살아나지 않는다 (측정 기준 안내·오픈소스 라이선스)", () => {
+  it("측정 기준 안내의 감지 3종 서브 문구는 더 이상 노출하지 않는다", () => {
     render(<SettingsScreen />);
 
-    expect(screen.queryByText("측정 기준 안내")).toBeNull();
-    expect(screen.queryByText("오픈소스 라이선스")).toBeNull();
-    // 측정 기준 안내의 서브 문구도 함께 사라져야 한다.
     expect(
       screen.queryByText("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요"),
     ).toBeNull();
@@ -99,16 +98,15 @@ describe("S6 · 설정", () => {
     expect(screen.queryByRole("switch")).toBeNull();
   });
 
-  it("설정에서 온보딩 가이드로 재진입하지 않는다 (측정 기준 안내 제거)", () => {
+  it("측정 기준 안내는 온보딩 가이드로 재진입시킨다", () => {
     render(<SettingsScreen />);
 
-    for (const row of screen.queryAllByRole("button")) {
-      fireEvent.press(row);
-    }
+    fireEvent.press(screen.getByRole("button", { name: "측정 기준 안내" }));
 
-    expect(router.push).not.toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: "/onboarding-guide" }),
-    );
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/onboarding-guide",
+      params: { entry: "settings" },
+    });
   });
 
   it.each([

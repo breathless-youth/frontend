@@ -12,7 +12,7 @@ import { appVersionLabel, cameraPermissionRowLabel } from "../../lib/settingsInf
  * S6 · 설정 — Figma node `67:722`, 스펙 `frontend/docs/screens/SCR-S6-settings.md`.
  *
  * **이 화면에서 앱이 직접 바꾸는 상태는 하나도 없다.** 설정은 "기능을 켜고 끄는 곳"이 아니라
- * "권한을 확인하고, 문서를 찾아보는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀐다.
+ * "측정 방식을 이해하고, 권한을 확인하러 가는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀐다.
  *
  * **모든 행이 앱 안에 머문다**(BY-257). 문의는 WebView(`/contact`), 약관·방침은 텍스트
  * 화면(`/terms`·`/privacy`)이다 — 외부 브라우저로 나가는 행이 하나도 없다.
@@ -109,11 +109,19 @@ export default function SettingsScreen() {
             }}
           />
           {/*
-            "측정 기준 안내" 행은 BY-257에서 제거했다. 온보딩 가이드(G1~G5) 자체는 그대로 살아 있고
-            홈의 가이드 카드로 재진입한다 — 설정에서 가는 길만 없앤 것이다.
-            `lib/onboardingGuideSteps.ts`의 진입 출처 `"settings"`는 MG5 소유라 건드리지 않았다
-            (지금은 참조하는 곳이 없다).
+            MG5가 만든 온보딩 가이드(G1~G5) 플로우로 **재진입**시키는 링크다. 가이드의 단계·전환은
+            이 화면이 전혀 알지 못한다. `entry: "settings"`는 `lib/onboardingGuideSteps.ts`의
+            진입 출처 C.
+            서브 문구("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요")는 의도적으로
+            달지 않는다 — 감지 3종 안내는 가이드 본문이 소유하고, 설정 행은 재진입 링크로만 남는다.
           */}
+          <SettingsRow
+            label="측정 기준 안내"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              router.push({ pathname: "/onboarding-guide", params: { entry: "settings" } });
+            }}
+          />
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="지원">
@@ -136,8 +144,6 @@ export default function SettingsScreen() {
             이용약관·개인정보처리방침은 **앱 안에서 직접 보여준다**(BY-257) — 웹에도 같은 문서가
             있지만 외부 브라우저로 내보내지 않는다. chevron(앱 내 이동)이 그대로 맞는 표기다.
             본문은 `lib/legalDocuments.ts`가 소유하고 이 화면은 라우트만 안다.
-
-            "오픈소스 라이선스" 행은 BY-257에서 제거했다(목적지도 문서도 없던 행이다).
           */}
           <SettingsRow
             label="이용약관"
@@ -153,6 +159,12 @@ export default function SettingsScreen() {
               router.push("/privacy");
             }}
           />
+          {/*
+            "오픈소스 라이선스" 행은 목적지도 문서도 아직 없다 — 임의의 placeholder 목적지를
+            지어내지 않고 `onPress` 없이 표시만 한다(버튼으로 노출되지 않는다).
+            TODO(SCR-S6-settings.md Review Checklist): 목적지 확정 필요.
+          */}
+          <SettingsRow label="오픈소스 라이선스" trailing={{ kind: "chevron" }} />
           {/* 트레일링이 값 텍스트뿐이라 탭 불가 — chevron이 없다는 것이 그 표시다. */}
           <SettingsRow label="버전 정보" trailing={{ kind: "value", value: appVersionLabel() }} />
         </SettingsSection>
