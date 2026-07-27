@@ -50,6 +50,11 @@ export default function RootLayout() {
             name="onboarding-guide"
             options={{ presentation: "fullScreenModal", animation: "fade" }}
           />
+          {/*
+            구 `room/[id]` 등록은 제거했다 — `app/room/`이 2026-07-25 기능 리셋으로 삭제돼
+            런타임에 `No route named "room/[id]" exists in nested children` 경고만 냈다.
+            스터디룸은 WG 계열(apps/web) 완료 후 WebView 라우트로 다시 등록한다(ADR 0001).
+          */}
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>
