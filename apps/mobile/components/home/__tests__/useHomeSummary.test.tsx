@@ -2,6 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import type { ReactNode } from "react";
 
+import { getStreak, listStudySessionStats } from "../../../lib/statsApi";
+import { ensureUserRegistered } from "../../../lib/userApi";
+import { useHomeSummary } from "../useHomeSummary";
+
 jest.mock("expo-router", () => ({
   // 훅 단위 테스트에서는 내비게이션 컨텍스트가 없다 — 포커스 콜백은 no-op 처리.
   useFocusEffect: jest.fn(),
@@ -13,10 +17,6 @@ jest.mock("../../../lib/statsApi", () => ({
 jest.mock("../../../lib/userApi", () => ({
   ensureUserRegistered: jest.fn(),
 }));
-
-import { getStreak, listStudySessionStats } from "../../../lib/statsApi";
-import { ensureUserRegistered } from "../../../lib/userApi";
-import { useHomeSummary } from "../useHomeSummary";
 
 const mockedEnsure = ensureUserRegistered as jest.MockedFunction<typeof ensureUserRegistered>;
 const mockedStats = listStudySessionStats as jest.MockedFunction<typeof listStudySessionStats>;
