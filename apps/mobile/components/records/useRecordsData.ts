@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
@@ -34,7 +34,14 @@ export function useRecordsData(
   const selectedInMonth = isDateKeyInMonth(selectedKey, month);
   const monthDateKey = statsQueryDateKey(selectedKey, month);
 
-  const day = useQuery({ ...dailyStatsQuery(userId ?? 0, selectedKey), enabled: userId != null });
+  const day = useQuery({
+    ...dailyStatsQuery(userId ?? 0, selectedKey),
+    enabled: userId != null,
+    // 날짜를 바꾸는 동안 직전 응답을 placeholder로 유지한다 — 도트(studiedDatesInMonth)가
+    // 새 조회 동안 undefined로 비어 깜빡이는 것을 막는다. 요약·리스트는 아래 분기에서
+    // placeholder를 pending으로 취급해, 새 날짜 제목 아래 이전 날짜 데이터가 보이지 않게 한다.
+    placeholderData: keepPreviousData,
+  });
   const monthStats = useQuery({
     ...dailyStatsQuery(userId ?? 0, monthDateKey),
     enabled: userId != null && !selectedInMonth,
@@ -68,7 +75,7 @@ export function useRecordsData(
   const studiedDates =
     (selectedInMonth ? day.data?.studiedDatesInMonth : monthStats.data?.studiedDatesInMonth) ?? [];
 
-  if (day.data !== undefined) {
+  if (day.data !== undefined && !day.isPlaceholderData) {
     return { day: { status: "success", stats: day.data }, studiedDates };
   }
   if (user.isError || day.isError) {

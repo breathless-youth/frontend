@@ -3,6 +3,8 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 
+import type { StudySessionListResponse } from "@focuson/types";
+
 import { listStudySessionStats } from "../../../lib/statsApi";
 import { statsKeys } from "../../../lib/statsQueries";
 import { ensureUserRegistered } from "../../../lib/userApi";
@@ -133,6 +135,42 @@ describe("useRecordsData", () => {
     await waitFor(() => expect(result.current.day.status).toBe("success"));
     // 도트 실패는 화면을 막지 않는다 — error로 떨어지지 않고 빈 도트로 유지된다.
     expect(result.current.studiedDates).toEqual([]);
+  });
+
+  it("같은 달의 미캐시 날짜를 선택해도 달력 도트가 비지 않는다 — 이전 응답 유지", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    const dots = ["2026-07-24", "2026-07-26"];
+    let resolveSecond: ((value: StudySessionListResponse) => void) | undefined;
+    mockedStats.mockImplementation((_userId, date) => {
+      if (date === "2026-07-26") {
+        return Promise.resolve(statsResponse(dots));
+      }
+      // 미캐시 날짜(7/24)의 응답을 붙잡아 둔다 — 로딩 중 상태를 검사하기 위함.
+      return new Promise<StudySessionListResponse>((resolve) => {
+        resolveSecond = resolve;
+      });
+    });
+
+    const { result, rerender } = renderHook(
+      ({ selectedKey }: { selectedKey: string }) =>
+        useRecordsData(selectedKey, { year: 2026, month: 7 }),
+      { wrapper: createWrapper(), initialProps: { selectedKey: "2026-07-26" } },
+    );
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
+    expect(result.current.studiedDates).toEqual(dots);
+
+    rerender({ selectedKey: "2026-07-24" });
+
+    // 새 날짜 응답이 오기 전에도 도트는 이전 값으로 유지된다 (빈 배열 → 깜빡임 금지).
+    expect(result.current.studiedDates).toEqual(dots);
+    // 반면 요약·리스트는 새 날짜 데이터가 아직 없으므로 스켈레톤(pending)이어야 한다 —
+    // 이전 날짜 데이터가 새 날짜 제목 아래 보이면 안 된다.
+    expect(result.current.day.status).toBe("pending");
+
+    await act(async () => {
+      resolveSecond?.(statsResponse(dots));
+    });
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
   });
 
   it("탭 포커스 콜백은 userId 확보 후에만 stats 쿼리를 invalidate한다", async () => {
