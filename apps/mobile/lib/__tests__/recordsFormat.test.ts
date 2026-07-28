@@ -8,10 +8,12 @@ import {
   formatSessionCount,
   formatSessionMeta,
   isFutureDateKey,
+  isDateKeyInMonth,
   kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
+  statsQueryDateKey,
   summaryTitle,
   weekDateKeys,
 } from "../recordsFormat";
@@ -160,5 +162,25 @@ describe("달력 유틸", () => {
     expect(isFutureDateKey("2026-07-27", "2026-07-26")).toBe(true);
     expect(isFutureDateKey("2026-07-26", "2026-07-26")).toBe(false);
     expect(isFutureDateKey("2026-07-25", "2026-07-26")).toBe(false);
+  });
+});
+
+describe("isDateKeyInMonth", () => {
+  it("연·월이 모두 같을 때만 true다", () => {
+    expect(isDateKeyInMonth("2026-07-26", { year: 2026, month: 7 })).toBe(true);
+    expect(isDateKeyInMonth("2026-07-26", { year: 2026, month: 8 })).toBe(false);
+    // 월이 같아도 연도가 다르면 false — 연도 비교 누락 회귀 방지.
+    expect(isDateKeyInMonth("2025-07-26", { year: 2026, month: 7 })).toBe(false);
+  });
+});
+
+describe("statsQueryDateKey", () => {
+  it("선택일이 보이는 달에 있으면 선택일을 그대로 쓴다", () => {
+    expect(statsQueryDateKey("2026-07-26", { year: 2026, month: 7 })).toBe("2026-07-26");
+  });
+
+  it("다른 달을 보는 중이면 그 달 1일을 쓴다", () => {
+    expect(statsQueryDateKey("2026-07-26", { year: 2026, month: 8 })).toBe("2026-08-01");
+    expect(statsQueryDateKey("2026-07-26", { year: 2025, month: 12 })).toBe("2025-12-01");
   });
 });
