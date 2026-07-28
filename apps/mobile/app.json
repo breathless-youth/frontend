@@ -13,8 +13,10 @@
         "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
-      }
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.breathlessyouth.mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +42,11 @@
     ],
     "extra": {
       "apiBaseUrl": "http://52.78.219.53:8080",
-      "updateNoticeEnabled": false
-    }
+      "updateNoticeEnabled": false,
+      "eas": {
+        "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
+      }
+    },
+    "owner": "breathless-youth"
   }
 }
