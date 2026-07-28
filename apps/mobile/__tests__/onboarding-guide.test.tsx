@@ -239,13 +239,10 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
 });
 
 describe("범위 경계", () => {
-  it("카메라를 켜지 않는다 — 가이드는 권한 요청보다 먼저 실행된다", () => {
+  it("배경은 검정 단색이다 — 카메라 프리뷰 목업 라벨을 그리지 않는다 (BY-151 재정의)", () => {
     render(<OnboardingGuideScreen />);
 
-    // 배경은 카메라 피드가 아니라 목업이라는 것이 화면에도 드러난다(장식이라 a11y에서는 제외).
-    expect(
-      screen.getByText("[ 전 면 카 메 라 프 리 뷰 ]", { includeHiddenElements: true }),
-    ).toBeTruthy();
+    expect(screen.queryByText(/전 면 카 메 라/, { includeHiddenElements: true })).toBeNull();
   });
 
   it("싱글룸 프라이버시 문구만 쓴다", () => {

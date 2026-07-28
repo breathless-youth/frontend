@@ -32,11 +32,13 @@ const FOCUS_TIMER_COLORS: Record<FocusTimerTone, string> = {
  * 온보딩 가이드 배경의 **세션 화면 목업** — Figma `Session / Camera Preview BG`(58:109),
  * `Session / Status Pill`(34:14), `Session / Control Bar`(34:32).
  *
+ * **BY-151 재정의(2026-07-28 팀 확정):** 가이드 배경은 검정 단색이다.
+ * 카메라 흉내 사선 밴드·프리뷰 라벨 장식은 제거됐다.
+ *
  * ## 이것이 하지 않는 것
  *
  * - **카메라를 켜지 않는다.** 가이드는 카메라 권한 요청(S2-2)보다 먼저 실행되므로 배경은
- *   실제 프리뷰일 수 없다. Figma 컴포넌트 설명도 "목업 배경"이라고 명시한다.
- *   이 파일에 카메라·권한·Vision·WebView·LiveKit 코드는 들어가지 않는다.
+ *   실제 프리뷰일 수 없다. 이 파일에 카메라·권한·Vision·WebView·LiveKit 코드는 들어가지 않는다.
  * - **실제 세션 컴포넌트를 재사용하지 않는다.** 진짜 세션 화면(S3-1~S3-8)은 `apps/web`이
  *   구현하며 두 앱은 컴포넌트를 공유하지 않는다(ADR 0001).
  * - **집계하지 않는다.** 타이머는 시연용 로컬 카운터이고 서버에 아무것도 보내지 않는다.
@@ -145,10 +147,8 @@ function RingOutEmphasis({
   );
 }
 
-const STRIPE_COUNT = 12;
-
 /**
- * 목업 배경 판 — 베이스 색 + 사선 라이트 밴드 + 프리뷰 라벨.
+ * 목업 배경 판 — 검정 단색 배경.
  * dim보다 뒤에 깔리는 순수 장식이라 스크린 리더에서 통째로 제외한다.
  */
 export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
@@ -162,44 +162,9 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
         {
           backgroundColor:
             base === "simple" ? coachOverlay.mockSimpleBg : coachOverlay.mockCameraBg,
-          overflow: "hidden",
         },
       ]}
-    >
-      {base === "camera" ? (
-        <>
-          {Array.from({ length: STRIPE_COUNT }, (_, index) => (
-            <View
-              key={index}
-              style={{
-                position: "absolute",
-                top: -300,
-                left: -560 + index * 110,
-                width: 55,
-                height: 1500,
-                backgroundColor: coachOverlay.mockStripe,
-                transform: [{ rotate: "-45deg" }],
-              }}
-            />
-          ))}
-          <Text
-            style={{
-              position: "absolute",
-              top: "55%",
-              width: "100%",
-              textAlign: "center",
-              fontSize: 12,
-              lineHeight: 14,
-              letterSpacing: 2,
-              color: coachOverlay.mockPreviewLabel,
-            }}
-          >
-            [ 전 면 카 메 라 프 리 뷰 ]
-          </Text>
-          {/* 위 라벨은 Figma 목업의 "여기가 카메라 자리"라는 표시다 — 실제 프리뷰가 아니다. */}
-        </>
-      ) : null}
-    </View>
+    />
   );
 }
 
