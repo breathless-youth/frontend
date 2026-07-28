@@ -8,6 +8,7 @@ import {
   formatSessionCount,
   formatSessionMeta,
   isFutureDateKey,
+  isDateKeyInMonth,
   kstDateKey,
   monthLabel,
   monthOfDateKey,
@@ -161,6 +162,15 @@ describe("달력 유틸", () => {
     expect(isFutureDateKey("2026-07-27", "2026-07-26")).toBe(true);
     expect(isFutureDateKey("2026-07-26", "2026-07-26")).toBe(false);
     expect(isFutureDateKey("2026-07-25", "2026-07-26")).toBe(false);
+  });
+});
+
+describe("isDateKeyInMonth", () => {
+  it("연·월이 모두 같을 때만 true다", () => {
+    expect(isDateKeyInMonth("2026-07-26", { year: 2026, month: 7 })).toBe(true);
+    expect(isDateKeyInMonth("2026-07-26", { year: 2026, month: 8 })).toBe(false);
+    // 월이 같아도 연도가 다르면 false — 연도 비교 누락 회귀 방지.
+    expect(isDateKeyInMonth("2025-07-26", { year: 2026, month: 7 })).toBe(false);
   });
 });
 

@@ -4,7 +4,7 @@ import { useCallback } from "react";
 
 import type { StudySessionListResponse } from "@focuson/types";
 
-import { type CalendarMonth, statsQueryDateKey } from "../../lib/recordsFormat";
+import { type CalendarMonth, isDateKeyInMonth, statsQueryDateKey } from "../../lib/recordsFormat";
 import { dailyStatsQuery, registeredUserIdQuery, statsKeys } from "../../lib/statsQueries";
 
 export type RecordsDayState =
@@ -29,8 +29,10 @@ export function useRecordsData(
   const user = useQuery(registeredUserIdQuery());
   const userId = user.data;
 
+  // "선택일이 보이는 달에 속하는가"를 직접 판단한다 (리뷰 반영 — 반환값 문자열 비교로 간접
+  // 추론하지 않는다). monthDateKey는 같은 규칙을 공유하므로 selectedInMonth일 때 selectedKey다.
+  const selectedInMonth = isDateKeyInMonth(selectedKey, month);
   const monthDateKey = statsQueryDateKey(selectedKey, month);
-  const selectedInMonth = monthDateKey === selectedKey;
 
   const day = useQuery({ ...dailyStatsQuery(userId ?? 0, selectedKey), enabled: userId != null });
   const monthStats = useQuery({
