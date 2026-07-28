@@ -8,6 +8,7 @@ import {
   type OnboardingGuideStep,
 } from "../../lib/onboardingGuideSteps";
 import { CoachNavBar } from "./CoachNavBar";
+import { IconClose } from "./coachIcons";
 import { coachMotion, SWIPE_THRESHOLD_PX } from "./coachOverlayTheme";
 import { CoachTooltip } from "./CoachTooltip";
 import { GuidePrivacyCard } from "./GuidePrivacyCard";
@@ -126,9 +127,12 @@ function StepBody({
 
 export function OnboardingGuideFlow({
   onFinish,
+  onExit,
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
+  /** 우상단 X(나가기) — 세션으로 이어지지 않는 별도 종료 경로(2026-07-28 확정, BY-151). */
+  onExit: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const [stepIndex, setStepIndex] = useState(0);
@@ -265,6 +269,25 @@ export function OnboardingGuideFlow({
           onSkip={skip}
         />
       </View>
+
+      {/* 우상단 나가기 — 건너뛰기(생략하고 진행)와 반대 방향의 별도 동작이라 위치도 분리한다. */}
+      <Pressable
+        onPress={onExit}
+        accessibilityRole="button"
+        accessibilityLabel="가이드 닫기"
+        hitSlop={8}
+        style={{
+          position: "absolute",
+          top: insets.top + 13,
+          right: 20,
+          width: 44,
+          height: 44,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <IconClose />
+      </Pressable>
     </View>
   );
 }

@@ -238,6 +238,24 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
   });
 });
 
+describe("우상단 X 나가기(BY-151) — onFinish와 분리된 별도 종료 경로", () => {
+  it("우상단 X로 나가면 봤음만 저장하고 세션·권한 게이트로 이어지지 않는다", async () => {
+    // denied로 세팅해두면, 만약 구현이 실수로 권한 게이트를 태우면 즉시
+    // router.push("/permission-denied")가 호출돼 이 테스트가 실패한다 — "게이트 미호출"을
+    // 간접이 아니라 직접 드러내는 배치다(파일의 기존 "권한 거부" 테스트와 같은 방식).
+    setMockCameraPermissionState({ status: "denied" });
+    render(<OnboardingGuideScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));
+
+    expect(router.back).toHaveBeenCalled();
+    await waitFor(async () => {
+      await expect(store.hasSeenGuide()).resolves.toBe(true);
+    });
+    expect(router.push).not.toHaveBeenCalled();
+  });
+});
+
 describe("범위 경계", () => {
   it("배경은 검정 단색이다 — 카메라 프리뷰 목업 라벨을 그리지 않는다 (BY-151 재정의)", () => {
     render(<OnboardingGuideScreen />);

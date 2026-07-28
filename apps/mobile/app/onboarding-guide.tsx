@@ -3,7 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback } from "react";
 
 import { OnboardingGuideFlow } from "../components/onboarding/OnboardingGuideFlow";
-import { continueAfterOnboardingGuide } from "../lib/focusStartFlow";
+import { continueAfterOnboardingGuide, exitOnboardingGuide } from "../lib/focusStartFlow";
 import { parseOnboardingGuideEntry } from "../lib/onboardingGuideSteps";
 
 /**
@@ -55,6 +55,15 @@ export default function OnboardingGuideScreen() {
     });
   }, [closeGuide, entry]);
 
+  /** X 나가기 — 봤음 저장 후 복귀만. 세션 플로우로 이어지지 않는다(2026-07-28 확정). */
+  const handleExit = useCallback(() => {
+    closeGuide();
+    void exitOnboardingGuide().catch((error: unknown) => {
+      // 저장 실패는 다음 진입 시 가이드가 한 번 더 뜨는 정도라 치명적이지 않다 — 복귀는 이미 끝났다.
+      console.warn("[onboarding-guide] 나가기 처리 실패", error);
+    });
+  }, [closeGuide]);
+
   return (
     <>
       {/*
@@ -68,8 +77,10 @@ export default function OnboardingGuideScreen() {
         지금은 플랫폼 기본 동작(라우트만 닫힘: 플래그도 세우지 않고 권한 요청도 하지 않음)에
         맡긴다. 부수효과가 전혀 없는 쪽이라 나중에 어느 쪽으로 확정되든 되돌리기 쉽다.
         TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): 시스템 뒤로가기 처리 확정 필요.
+        X 나가기(BY-151)가 생겨 하드웨어 백을 X와 동일 처리하는 선택지가 유력해졌으나
+        여전히 미확정이다.
       */}
-      <OnboardingGuideFlow onFinish={handleFinish} />
+      <OnboardingGuideFlow onFinish={handleFinish} onExit={handleExit} />
     </>
   );
 }

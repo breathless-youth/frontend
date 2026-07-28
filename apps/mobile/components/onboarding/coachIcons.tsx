@@ -87,6 +87,26 @@ export function IconExit({ width = 19, height = 19, ...rest }: SvgProps) {
   );
 }
 
+/** 우상단 나가기 X (BY-151). 획 색·두께는 IconExit의 화이트 스트로크 관례를 따른다. */
+export function IconClose({ width = 19, height = 19, ...rest }: SvgProps) {
+  return (
+    <Svg width={width} height={height} viewBox="0 0 19 19" fill="none" {...rest}>
+      <Path
+        d="M4.75 4.75L14.25 14.25"
+        stroke="#FFFFFF"
+        strokeWidth={1.58333}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M14.25 4.75L4.75 14.25"
+        stroke="#FFFFFF"
+        strokeWidth={1.58333}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 /**
  * G5 프라이버시 카드 일러스트(`illust/privacy-camera` 32:74, 156×104).
  *
