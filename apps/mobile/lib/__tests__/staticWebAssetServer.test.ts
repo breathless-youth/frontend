@@ -1,7 +1,16 @@
+import { Platform } from "react-native";
+
 import Server from "@dr.pogodin/react-native-static-server";
-import { exists } from "@dr.pogodin/react-native-fs";
+import {
+  copyFileAssets,
+  exists,
+  readFile,
+  readFileAssets,
+  unlink,
+} from "@dr.pogodin/react-native-fs";
 
 import {
+  BUILD_STAMP_NAME,
   WEB_ASSET_DIR,
   WEB_ASSET_ROOT_MISSING_MESSAGE,
   createStaticWebAssetServer,
@@ -23,14 +32,27 @@ jest.mock("@dr.pogodin/react-native-static-server", () => ({
 jest.mock("@dr.pogodin/react-native-fs", () => ({
   __esModule: true,
   exists: jest.fn(),
+  readFile: jest.fn(),
+  readFileAssets: jest.fn(),
+  copyFileAssets: jest.fn(),
+  unlink: jest.fn(),
 }));
 
 const ServerMock = Server as unknown as jest.Mock;
 const existsMock = exists as jest.MockedFunction<typeof exists>;
+const readFileMock = readFile as jest.MockedFunction<typeof readFile>;
+const readFileAssetsMock = readFileAssets as jest.MockedFunction<typeof readFileAssets>;
+const copyFileAssetsMock = copyFileAssets as jest.MockedFunction<typeof copyFileAssets>;
+const unlinkMock = unlink as jest.MockedFunction<typeof unlink>;
 
 /** 생성자에 실제로 넘어간 옵션. 라이브러리 계약을 테스트가 직접 확인한다. */
 function constructorOptions(): Record<string, unknown> {
   return ServerMock.mock.calls[0][0] as Record<string, unknown>;
+}
+
+/** 테스트 동안만 플랫폼을 바꾼다. `Platform.OS`는 읽기 전용이라 정의를 갈아끼운다. */
+function setPlatform(os: "ios" | "android"): void {
+  Object.defineProperty(Platform, "OS", { value: os, configurable: true });
 }
 
 describe("createStaticWebAssetServer", () => {
@@ -39,6 +61,11 @@ describe("createStaticWebAssetServer", () => {
     mockStart.mockResolvedValue("http://localhost:12345");
     mockStop.mockResolvedValue(undefined);
     existsMock.mockResolvedValue(true);
+    setPlatform("ios");
+  });
+
+  afterEach(() => {
+    setPlatform("ios");
   });
 
   it("start가 라이브러리를 기동하고 오리진을 돌려준다", async () => {
@@ -120,6 +147,76 @@ describe("createStaticWebAssetServer", () => {
     expect(SPA_FALLBACK_EXTRA_CONFIG).toContain("(?!assets/)");
   });
 
+  describe("안드로이드 번들 asset 추출", () => {
+    beforeEach(() => {
+      setPlatform("android");
+      readFileAssetsMock.mockResolvedValue("stamp-v1");
+      readFileMock.mockResolvedValue("stamp-v1");
+      copyFileAssetsMock.mockResolvedValue(undefined);
+      unlinkMock.mockResolvedValue(undefined);
+    });
+
+    it("iOS에서는 추출하지 않는다 — 앱 번들이 곧 파일시스템이다", async () => {
+      setPlatform("ios");
+
+      await createStaticWebAssetServer({ fileDir: "web-dist" }).start();
+
+      expect(copyFileAssetsMock).not.toHaveBeenCalled();
+      expect(readFileAssetsMock).not.toHaveBeenCalled();
+    });
+
+    it("풀어둔 것이 없으면 번들 asset을 문서 디렉터리로 푼다", async () => {
+      existsMock.mockResolvedValueOnce(false).mockResolvedValue(true);
+
+      await createStaticWebAssetServer({ fileDir: "web-dist" }).start();
+
+      expect(copyFileAssetsMock).toHaveBeenCalledWith("web-dist", "/main-bundle/web-dist");
+    });
+
+    it("지문이 같으면 다시 풀지 않는다 — 세션 시작이 즉시여야 한다", async () => {
+      readFileAssetsMock.mockResolvedValue("stamp-v1");
+      readFileMock.mockResolvedValue("stamp-v1");
+
+      await createStaticWebAssetServer({ fileDir: "web-dist" }).start();
+
+      expect(copyFileAssetsMock).not.toHaveBeenCalled();
+      expect(unlinkMock).not.toHaveBeenCalled();
+    });
+
+    it("지문이 다르면 통째로 지우고 다시 푼다 — 앱 업데이트 후 옛 화면 방지", async () => {
+      readFileAssetsMock.mockResolvedValue("stamp-v2");
+      readFileMock.mockResolvedValue("stamp-v1");
+
+      await createStaticWebAssetServer({ fileDir: "web-dist" }).start();
+
+      expect(unlinkMock).toHaveBeenCalledWith("/main-bundle/web-dist");
+      expect(copyFileAssetsMock).toHaveBeenCalledWith("web-dist", "/main-bundle/web-dist");
+    });
+
+    it("풀어둔 지문을 못 읽으면 다시 푼다 — 낡은 것을 서빙하느니 한 번 더 푼다", async () => {
+      readFileMock.mockRejectedValue(new Error("ENOENT"));
+
+      await createStaticWebAssetServer({ fileDir: "web-dist" }).start();
+
+      expect(copyFileAssetsMock).toHaveBeenCalled();
+    });
+
+    it("번들 지문을 못 읽어도 기동을 막지 않는다", async () => {
+      readFileAssetsMock.mockRejectedValue(new Error("no such asset"));
+
+      await expect(createStaticWebAssetServer({ fileDir: "web-dist" }).start()).resolves.toBe(
+        "http://127.0.0.1:12345",
+      );
+      expect(copyFileAssetsMock).toHaveBeenCalled();
+    });
+
+    it("지문 파일 이름이 syncWebDist와 같은 값이다", () => {
+      // 이 이름이 스크립트와 런타임 사이의 유일한 계약이다.
+      expect(BUILD_STAMP_NAME).toBe(".build-stamp");
+      expect(readFileAssetsMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("라이브러리가 어떤 호스트로 보고하든 오리진 호스트를 127.0.0.1로 통일한다", async () => {
     mockStart.mockResolvedValue("http://[::1]:5000/");
     const server = createStaticWebAssetServer({ fileDir: "/data/web-dist" });
@@ -156,14 +253,16 @@ describe("createStaticWebAssetServer", () => {
       expect(server.origin).toBeNull();
     });
 
-    it("거부 메시지가 없는 경로와 번들링 미정을 함께 알린다", async () => {
+    it("거부 메시지가 없는 경로와 다음 조치를 함께 알린다", async () => {
       existsMock.mockResolvedValue(false);
       const server = createStaticWebAssetServer();
 
       // 기본값은 상대 경로다 — 라이브러리와 같은 규칙으로 푼 절대 경로가 메시지에 나와야
       // 기기에서 그 경로를 바로 확인할 수 있다.
       await expect(server.start()).rejects.toThrow(`/main-bundle/${WEB_ASSET_DIR}`);
-      await expect(server.start()).rejects.toThrow("번들링 방식");
+      // 번들링 방식은 2026-07-28에 config plugin으로 확정됐다. 이제 이 실패의 원인은
+      // "방식이 없다"가 아니라 "sync-web 후 재빌드를 안 했다"이므로 그쪽을 가리켜야 한다.
+      await expect(server.start()).rejects.toThrow("sync-web");
     });
 
     it("라이브러리와 같은 규칙으로 푼 경로를 검사한다 — 검사 경로와 서빙 경로가 어긋나면 안 된다", async () => {

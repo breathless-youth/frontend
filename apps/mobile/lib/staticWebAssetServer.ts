@@ -43,6 +43,8 @@
  * 자리표시자이지 지금 동작이 검증된 경로가 아니다.
  */
 
+import { Platform } from "react-native";
+
 import type StaticServerInstance from "@dr.pogodin/react-native-static-server";
 import type { StaticServerParams } from "@dr.pogodin/react-native-static-server";
 
@@ -107,13 +109,60 @@ function loadStaticServerModule(): StaticServerModule {
   return require("@dr.pogodin/react-native-static-server") as StaticServerModule;
 }
 
+interface FsModule {
+  readonly exists: (filepath: string) => Promise<boolean>;
+  readonly readFile: (filepath: string, encoding: string) => Promise<string>;
+  readonly readFileAssets: (filepath: string, encoding: string) => Promise<string>;
+  readonly copyFileAssets: (from: string, into: string) => Promise<void>;
+  readonly unlink: (filepath: string) => Promise<void>;
+}
+
 /** 같은 이유로 지연 로딩한다 — 위 `loadStaticServerModule` 주석 참고. */
-function loadExists(): (filepath: string) => Promise<boolean> {
+function loadFs(): FsModule {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require("@dr.pogodin/react-native-fs") as {
-    exists: (filepath: string) => Promise<boolean>;
-  };
-  return fs.exists;
+  return require("@dr.pogodin/react-native-fs") as FsModule;
+}
+
+/** `scripts/syncWebDist.js`가 찍는 지문 파일. 이름이 둘 사이의 계약이다. */
+export const BUILD_STAMP_NAME = ".build-stamp";
+
+/**
+ * **안드로이드 전용** — 번들 asset을 서버가 열 수 있는 실제 디렉터리로 풀어낸다.
+ *
+ * iOS는 앱 번들이 그대로 파일시스템이라 이 단계가 없다. 안드로이드의 `assets/`는 APK 안에
+ * 압축돼 있어 파일 경로가 없고, lighttpd는 파일 경로로만 서빙하므로 문서 디렉터리로
+ * 복사해야 한다(`resolveAssetsPath`가 안드로이드에서 `DocumentDirectoryPath`를 가리키는 이유).
+ *
+ * **한 번 푼 것을 그냥 두면 앱을 업데이트해도 옛 화면이 계속 나온다.** 풀린 파일은 앱 갱신 시
+ * 지워지지 않기 때문이다. 그래서 번들 쪽 지문과 풀어둔 쪽 지문을 비교해, 다르면 통째로
+ * 지우고 다시 푼다. 지문이 같으면 아무것도 하지 않는다 — 세션 시작은 즉시여야 하고
+ * (mvp-scope "홈에서 바로 시작"), MediaPipe 모델이 들어오면 이 복사가 수 MB가 된다.
+ *
+ * 지문을 못 읽으면 **다시 푸는 쪽으로 기운다.** 낡은 것을 서빙하는 실패는 조용하지만,
+ * 한 번 더 푸는 비용은 눈에 보이는 지연뿐이다.
+ */
+async function ensureAndroidAssetsExtracted(fileDir: string, resolved: string): Promise<void> {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  const fs = loadFs();
+  const bundledStamp = await fs
+    .readFileAssets(`${fileDir}/${BUILD_STAMP_NAME}`, "utf8")
+    .catch(() => null);
+
+  if (await fs.exists(resolved)) {
+    const extractedStamp = await fs
+      .readFile(`${resolved}/${BUILD_STAMP_NAME}`, "utf8")
+      .catch(() => null);
+    if (bundledStamp !== null && extractedStamp === bundledStamp) {
+      return;
+    }
+    // 남은 파일 위에 덮어쓰면 소스에서 사라진 옛 청크가 그대로 살아남는다.
+    await fs.unlink(resolved);
+  }
+
+  await fs.copyFileAssets(fileDir, resolved);
 }
 
 export interface StaticWebAssetServerOptions {
@@ -162,11 +211,16 @@ export function createStaticWebAssetServer(
     // 라이브러리와 **같은 규칙**으로 경로를 푼다(생성자도 `resolveAssetsPath`를 쓴다).
     // 그래야 여기서 검사한 경로와 lighttpd가 실제로 여는 경로가 어긋나지 않는다.
     const resolved = resolveAssetsPath(fileDir);
-    if (!(await loadExists()(resolved))) {
+
+    // 안드로이드는 번들 asset을 파일로 열 수 없어, 검사하기 **전에** 풀어야 한다.
+    // 그러지 않으면 아래 검사가 항상 실패한다 — 자산은 APK 안에 멀쩡히 있는데도.
+    await ensureAndroidAssetsExtracted(fileDir, resolved);
+
+    if (!(await loadFs().exists(resolved))) {
       throw new Error(
         `${WEB_ASSET_ROOT_MISSING_MESSAGE}: ${resolved}. ` +
-          "apps/web 빌드 산출물을 앱 번들 안 이 경로로 넣는 장치가 아직 없다 — " +
-          "번들링 방식(config plugin 등)이 미정이다. 서버 라이브러리 문제가 아니다.",
+          "apps/web 빌드 산출물이 앱 번들 안 이 경로에 없다 — " +
+          "'pnpm --filter mobile sync-web' 후 재빌드했는지 확인할 것.",
       );
     }
 
