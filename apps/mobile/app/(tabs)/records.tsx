@@ -108,12 +108,13 @@ export default function RecordsScreen() {
   }, [todayKey, weekDoneDates]);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
+  // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
+  // (day.stats.sessions)로 건다 — 데이터가 같으면 참조가 유지되어 메모가 실제로 동작한다(리뷰 반영).
+  const daySessions = day.status === "success" ? day.stats.sessions : undefined;
   const sessions = useMemo(
     () =>
-      day.status === "success"
-        ? [...day.stats.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-        : [],
-    [day],
+      daySessions ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : [],
+    [daySessions],
   );
 
   return (

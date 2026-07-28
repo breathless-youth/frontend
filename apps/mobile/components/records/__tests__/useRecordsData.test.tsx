@@ -38,7 +38,7 @@ function statsResponse(studiedDatesInMonth: string[]) {
 
 function createWrapper() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
@@ -140,7 +140,9 @@ describe("useRecordsData", () => {
     mockedStats.mockResolvedValue(statsResponse([]));
     const mockedFocusEffect = useFocusEffect as jest.MockedFunction<typeof useFocusEffect>;
 
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
     const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

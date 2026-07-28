@@ -126,7 +126,7 @@ function serverStatsResponse(dateKey: string): StudySessionListResponse {
 function renderScreen() {
   render(
     <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
     >
       <RecordsScreen />
     </QueryClientProvider>,
