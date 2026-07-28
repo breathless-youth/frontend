@@ -105,4 +105,9 @@ export interface StudySessionStreakResponse {
   streak: number;
   /** 역대 최장 연속 공부일 */
   maxStreak: number;
+  /**
+   * from~to 기간 중 스트릭 인정 기준(세션 하나의 순공시간 10분 이상)을 만족한 날짜 목록
+   * (YYYY-MM-DD). from/to를 생략하면 빈 배열. (Swagger 2026-07-28 추가)
+   */
+  studiedDatesInRange: string[];
 }
