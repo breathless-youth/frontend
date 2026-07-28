@@ -85,10 +85,25 @@ function addWebDistBuildPhase(project) {
   }
 
   // 마지막에 붙는다 — "Copy Bundle Resources"가 끝난 뒤 리소스 루트에 얹어야 한다.
-  project.addBuildPhase([], "PBXShellScriptBuildPhase", IOS_BUILD_PHASE_NAME, null, {
-    shellPath: "/bin/sh",
-    shellScript: buildIosShellScript(),
-  });
+  const { buildPhase } = project.addBuildPhase(
+    [],
+    "PBXShellScriptBuildPhase",
+    IOS_BUILD_PHASE_NAME,
+    null,
+    {
+      shellPath: "/bin/sh",
+      shellScript: buildIosShellScript(),
+    },
+  );
+
+  // Xcode의 "Based on dependency analysis" 체크를 끈다.
+  //
+  // 입력·출력 파일을 선언하지 않은 스크립트 단계라 Xcode가 "의존성이 모호해서 매 빌드
+  // 실행된다"고 경고한다. **매 빌드 실행되는 것이 바로 우리가 원하는 동작이다** —
+  // web-dist는 앱을 다시 빌드할 때마다 최신 산출물이어야 한다. 그래서 출력 파일을
+  // 선언해 경고를 없애는 대신, 의존성 분석을 끄겠다고 명시한다. 그러지 않으면 경고가
+  // 매 빌드 로그에 남아 진짜 경고를 가린다.
+  buildPhase.alwaysOutOfDate = 1;
 
   return project;
 }

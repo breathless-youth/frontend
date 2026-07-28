@@ -33,7 +33,9 @@ function createFakeXcodeProject() {
         shellScript: options.shellScript,
       };
       objects[type][`${uuid}_comment`] = comment;
-      return objects[type][uuid];
+      // 실제 라이브러리의 반환 모양({ uuid, buildPhase })을 그대로 흉내 낸다 —
+      // 호출부가 반환값을 분해해 플래그를 세우므로 모양이 다르면 테스트가 거짓 통과한다.
+      return { uuid, buildPhase: objects[type][uuid] };
     },
   };
 }
@@ -69,6 +71,17 @@ describe("addWebDistBuildPhase", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe(`"${IOS_BUILD_PHASE_NAME}"`);
     expect(entries[0].shellScript).toBe(buildIosShellScript());
+  });
+
+  it("의존성 분석을 끈다 — 매 빌드 돌아야 하고, 경고가 로그를 덮으면 안 된다", () => {
+    const project = createFakeXcodeProject();
+
+    addWebDistBuildPhase(project);
+
+    const [phase] = Object.values(project.hash.project.objects.PBXShellScriptBuildPhase).filter(
+      (value) => typeof value === "object",
+    );
+    expect(phase.alwaysOutOfDate).toBe(1);
   });
 
   it("이미 있으면 다시 등록하지 않는다 — prebuild를 --clean 없이 두 번 돌려도 안전해야 한다", () => {
