@@ -101,18 +101,30 @@ describe("getStreak", () => {
   });
 
   it("userId로 현재/최장 스트릭을 조회한다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 5, maxStreak: 12 }));
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: [] }),
+    );
 
-    await expect(getStreak(7)).resolves.toEqual({ streak: 5, maxStreak: 12 });
+    await expect(getStreak(7)).resolves.toEqual({
+      streak: 5,
+      maxStreak: 12,
+      studiedDatesInRange: [],
+    });
     expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/stats/streak?userId=7", {
       method: "GET",
     });
   });
 
   it("기록이 없으면 0/0 응답을 그대로 반환한다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 0, maxStreak: 0 }));
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
+    );
 
-    await expect(getStreak(7)).resolves.toEqual({ streak: 0, maxStreak: 0 });
+    await expect(getStreak(7)).resolves.toEqual({
+      streak: 0,
+      maxStreak: 0,
+      studiedDatesInRange: [],
+    });
   });
 
   it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {

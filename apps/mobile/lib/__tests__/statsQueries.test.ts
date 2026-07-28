@@ -5,7 +5,7 @@ import { ensureUserRegistered } from "../userApi";
 
 jest.mock("../statsApi", () => ({
   listStudySessionStats: jest.fn().mockResolvedValue({ totalStudySec: 1 }),
-  getStreak: jest.fn().mockResolvedValue({ streak: 2, maxStreak: 3 }),
+  getStreak: jest.fn().mockResolvedValue({ streak: 2, maxStreak: 3, studiedDatesInRange: [] }),
 }));
 jest.mock("../userApi", () => ({
   ensureUserRegistered: jest.fn(),
