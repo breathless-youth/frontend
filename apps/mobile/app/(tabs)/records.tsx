@@ -12,7 +12,6 @@ import { useRecordsData } from "../../components/records/useRecordsData";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import {
-  addDaysToDateKey,
   type CalendarMonth,
   dayOfDateKey,
   kstDateKey,
@@ -33,30 +32,6 @@ import {
  *
  * V1.0 범위 밖(히트맵·주간/월간 추이·정렬 토글·랭킹·소셜)은 만들지 않는다.
  */
-
-/* -------------------------------------------------------------------------------------------------
- * mock 데이터 안내
- *
- * 달력 도트·선택일 요약·리스트는 실서버(`useRecordsData`)로 동작한다. 배너·주간 도트는 아직
- * BY-315 몫으로 mock을 유지한다(계약 미확인 ①②, 아래 TODO 참고).
- * ------------------------------------------------------------------------------------------------- */
-
-/** TODO(계약 미확인 ①): 연속 공부 일수. */
-const MOCK_STREAK_DAYS = 12;
-
-/**
- * 주간 체크 도트 `Done` 판정의 mock 소스.
- *
- * TODO(계약 미확인 ②④): 스트릭 인정 기준(하루 순공 10분 이상)이 달력 도트 기준과 다를 수 있고,
- * 월 경계 주는 한 달치 응답만으로 채울 수도 없다. **지금 값이 달력 도트와 같아 보여도 같은 배열을
- * 공유하지 않는다** — 스펙이 "확인 전까지 같은 배열로 둘 다 채우지 않는다"고 못박은 항목이라
- * 두 기준이 같다는 오독을 만들지 않기 위해 소스를 분리해 둔다(`SCR-S5-records.md` Data Contract).
- */
-function mockWeekDoneDateKeys(todayKey: string): string[] {
-  return Array.from({ length: MOCK_STREAK_DAYS }, (_, index) => addDaysToDateKey(todayKey, -index));
-}
-
-/* ---------------------------------------------- 화면 ---------------------------------------------- */
 
 function EmptyDayNotice() {
   // 선택일 빈 상태의 문구는 voice-tone §4 확정 카피지만 시각 레이아웃(일러스트·여백)은 Figma에
@@ -93,19 +68,20 @@ export default function RecordsScreen() {
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
 
-  const { day, studiedDates } = useRecordsData(selectedKey, month);
+  const { day, studiedDates, streakBanner } = useRecordsData(selectedKey, month, todayKey);
 
-  // 주간 체크 도트는 BY-315까지 mock 유지 (계약 미확인 ①② — SCR-S5-records.md).
-  const weekDoneDates = useMemo(() => mockWeekDoneDateKeys(todayKey), [todayKey]);
   const weekDays = useMemo<StreakWeekDay[]>(() => {
-    const done = new Set(weekDoneDates);
+    if (streakBanner.status !== "success") {
+      return [];
+    }
+    const done = new Set(streakBanner.doneDates);
     return weekDateKeys(todayKey).map((dateKey) => ({
       dateKey,
       weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
       dayOfMonth: dayOfDateKey(dateKey),
       state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
     }));
-  }, [todayKey, weekDoneDates]);
+  }, [streakBanner, todayKey]);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -137,7 +113,11 @@ export default function RecordsScreen() {
           요약 타일→"공부 기록" 8). 균일 `gap`을 쓰면 마지막 구간이 16px 과다해지므로 구간별 마진으로 둔다.
         */}
         <View className="mt-[13px]">
-          <StreakBanner streakDays={MOCK_STREAK_DAYS} days={weekDays} />
+          {streakBanner.status === "pending" && <Skeleton className="h-[92px] rounded-2xl" />}
+          {streakBanner.status === "success" && (
+            <StreakBanner streakDays={streakBanner.streakDays} days={weekDays} />
+          )}
+          {/* hidden이면 아무것도 그리지 않는다 — 오류·재시도는 아래 일별 기록 ErrorState가 대표(2026-07-28 확정) */}
 
           <View className="mt-6">
             <MonthCalendar
