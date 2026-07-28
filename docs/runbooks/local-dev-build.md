@@ -81,20 +81,24 @@ emulator -avd <AVD 이름> -camera-front webcam0
 `apps/mobile/plugins/withWebDistAssets.js`(config plugin)가 처리한다. Expo CNG라 `ios/`·`android/`는 매 prebuild마다 다시 생성되므로, 라이브러리 README의 수동 Xcode·gradle 설정은 쓸 수 없다.
 
 - **iOS** — Xcode에 `Bundle web-dist assets` 셸 스크립트 빌드 단계를 붙여, 매 빌드에 `assets/web-dist`를 앱 번들 리소스 루트로 복사한다. 런타임의 `resolveAssetsPath("web-dist")`가 보는 자리가 정확히 거기다.
-- **Android** — prebuild 때 `android/app/src/main/assets/web-dist`로 복사한다. 안드로이드는 번들 asset을 파일로 열 수 없어 **앱이 문서 디렉터리로 풀어내는 단계가 따로 필요하다**(미구현).
+- **Android** — prebuild 때 `android/app/src/main/assets/web-dist`로 복사한다. 안드로이드는 번들 asset을 파일로 열 수 없어(APK 안에 압축돼 있고 파일 경로가 없다) 앱이 첫 세션에서 `copyFileAssets`로 문서 디렉터리에 풀어낸다 — `lib/staticWebAssetServer.ts`의 `ensureAndroidAssetsExtracted`.
 
-## 경로에 공백이 있어서 필요한 패치 두 개
+  풀린 파일은 **앱을 업데이트해도 지워지지 않으므로**, 그냥 두면 새 앱이 옛 화면을 계속 서빙한다. `scripts/syncWebDist.js`가 남기는 `.build-stamp`(전체 파일의 경로+내용 SHA-256)를 번들 쪽과 비교해, 다르면 통째로 지우고 다시 푼다. 같으면 아무것도 하지 않는다 — 세션 시작은 즉시여야 한다.
 
-저장소 경로에 `01_Breathless Youth`의 공백이 있어, 경로 변수를 인용하지 않는 pod 빌드 스크립트가 그 자리에서 쪼개진다. `patches/`의 두 패치가 이를 덮는다.
+## 경로 공백 패치 두 개 (2026-07-28 이후로는 예방용)
+
+**상위 폴더가 `01_Breathless Youth` → `01_Breathless-Youth`로 바뀌어 공백이 사라졌으므로, 지금은 두 패치 모두 동작에 영향이 없다.** 아래는 왜 생겼는지와, 경로에 공백이 다시 생기면 무엇이 깨지는지의 기록이다.
+
+경로 변수를 인용하지 않는 pod 빌드 스크립트는 공백에서 그대로 쪼개진다. `patches/`의 두 패치가 이를 덮는다.
 
 | 패치                                      | 무엇을 고치나                                              | 안 고치면                                                                     |
 | ----------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `@dr.pogodin__react-native-static-server` | `cmake`·`cmake --build`·`cp`의 경로 인용 (+ Homebrew PATH) | `CMake Error: The source directory "/Users/.../01_Breathless" does not exist` |
 | `expo-constants@18.0.13`                  | `bash -l -c "$PODS_TARGET_SRCROOT/..."`의 재인용           | `No such file or directory: /Users/.../01_Breathless`                         |
 
-생성된 `ios/Pods/Pods.xcodeproj`의 shellScript 항목을 전부 훑어 확인한 결과, 경로 변수를 인용하지 않는 pod은 **이 둘뿐**이다. 나머지(React Native, Hermes, ReactNativeDependencies 등)는 제대로 인용한다. 새 네이티브 라이브러리를 추가했는데 `01_Breathless`에서 잘린 경로가 보이면 같은 패턴을 의심할 것.
+생성된 `ios/Pods/Pods.xcodeproj`의 shellScript 항목을 전부 훑어 확인한 결과, 경로 변수를 인용하지 않는 pod은 **이 둘뿐**이었다. 나머지(React Native, Hermes, ReactNativeDependencies 등)는 제대로 인용한다.
 
-영구적인 해법은 상위 폴더명에서 공백을 빼는 것이다. Expo SDK를 올릴 때 이 패치들이 깨지면 그때 다시 판단한다.
+`@dr.pogodin__react-native-static-server` 패치의 **Homebrew PATH 주입 부분은 공백과 무관하게 계속 필요하다** — Xcode 빌드 스크립트가 `cmake`를 못 찾는 문제를 덮는다. 반면 `expo-constants` 패치는 이제 순수하게 예방용이므로, Expo SDK 업그레이드에서 충돌하면 **그냥 떼도 된다.**
 
 ### ⚠️ 패치를 고친 뒤에는 `pod install`을 손으로 돌린다
 
