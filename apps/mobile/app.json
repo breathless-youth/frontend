@@ -26,7 +26,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["CAMERA"]
+      "permissions": ["CAMERA"],
+      "package": "com.breathlessyouth.mobile"
     },
     "plugins": [
       "expo-router",
