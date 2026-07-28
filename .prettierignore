@@ -6,3 +6,6 @@ build
 .turbo
 coverage
 .superpowers
+
+# apps/web 빌드 산출물의 복사본(scripts/syncWebDist.js가 채운다) — 생성물이라 검사하지 않는다.
+apps/mobile/assets/web-dist
