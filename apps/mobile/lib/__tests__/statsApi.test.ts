@@ -150,4 +150,31 @@ describe("getStreak", () => {
 
     await expect(getStreak(7)).rejects.toThrow("Network request failed");
   });
+
+  it("from/to 범위를 주면 쿼리 파라미터로 함께 보낸다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: ["2026-07-27"] }),
+    );
+
+    await expect(getStreak(7, { from: "2026-07-26", to: "2026-07-28" })).resolves.toEqual({
+      streak: 5,
+      maxStreak: 12,
+      studiedDatesInRange: ["2026-07-27"],
+    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/stats/streak?userId=7&from=2026-07-26&to=2026-07-28",
+      { method: "GET" },
+    );
+  });
+
+  it("range가 없으면 기존과 같은 URL로 조회한다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
+    );
+
+    await getStreak(7);
+    expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/stats/streak?userId=7", {
+      method: "GET",
+    });
+  });
 });

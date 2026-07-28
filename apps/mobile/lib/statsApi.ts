@@ -4,6 +4,9 @@ import type { StudySessionListResponse, StudySessionStreakResponse } from "@focu
 
 import { parseErrorMessage } from "./api";
 
+/** 스트릭 기간 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
+export type StreakRange = { from: string; to: string };
+
 function apiBaseUrl(): string {
   const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (!url) {
@@ -25,8 +28,12 @@ export async function listStudySessionStats(
   return (await res.json()) as StudySessionListResponse;
 }
 
-export async function getStreak(userId: number): Promise<StudySessionStreakResponse> {
-  const res = await fetch(`${apiBaseUrl()}/api/stats/streak?userId=${userId}`, {
+export async function getStreak(
+  userId: number,
+  range?: StreakRange,
+): Promise<StudySessionStreakResponse> {
+  const rangeParams = range ? `&from=${range.from}&to=${range.to}` : "";
+  const res = await fetch(`${apiBaseUrl()}/api/stats/streak?userId=${userId}${rangeParams}`, {
     method: "GET",
   });
   if (!res.ok) {
