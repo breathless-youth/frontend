@@ -41,7 +41,8 @@
       "unrs-resolver"
     ],
     "patchedDependencies": {
-      "@dr.pogodin/react-native-static-server": "patches/@dr.pogodin__react-native-static-server.patch"
+      "@dr.pogodin/react-native-static-server": "patches/@dr.pogodin__react-native-static-server.patch",
+      "expo-constants@18.0.13": "patches/expo-constants@18.0.13.patch"
     }
   }
 }
