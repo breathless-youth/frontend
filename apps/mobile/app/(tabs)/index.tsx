@@ -22,7 +22,9 @@ import type { HomeSummary } from "../../lib/homeSummary";
  */
 const HOME_FOCUS_START_NAVIGATOR: FocusStartNavigator = {
   openOnboardingGuide: (entry) => {
-    router.push({ pathname: "/onboarding-guide", params: { entry } });
+    // push가 아닌 navigate — 빠른 이중 탭 시 가이드가 스택에 두 장 쌓여 X를 눌러도 두 번째
+    // 가이드가 나타나는("X가 안 먹히는" 것처럼 보이는) 문제를 막는다(리뷰 반영, BY-151).
+    router.navigate({ pathname: "/onboarding-guide", params: { entry } });
   },
   showPermissionDeniedGuide: () => {
     router.push("/permission-denied");
@@ -244,7 +246,8 @@ export default function HomeScreen() {
         */}
           <GuideCard
             onPress={() => {
-              router.push({ pathname: "/onboarding-guide", params: { entry: "home-card" } });
+              // navigate: 이중 탭 스택 중복 방지 (위 openOnboardingGuide와 같은 이유).
+              router.navigate({ pathname: "/onboarding-guide", params: { entry: "home-card" } });
             }}
           />
         </View>

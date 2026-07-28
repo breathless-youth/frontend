@@ -254,6 +254,31 @@ describe("우상단 X 나가기(BY-151) — onFinish와 분리된 별도 종료 
     });
     expect(router.push).not.toHaveBeenCalled();
   });
+
+  it("X를 연타해도 닫기는 한 번만 실행된다 — 종료 래치", () => {
+    render(<OnboardingGuideScreen />);
+
+    const closeButton = screen.getByRole("button", { name: "가이드 닫기" });
+    fireEvent.press(closeButton);
+    fireEvent.press(closeButton);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it("X 직후 건너뛰기가 눌려도 권한 흐름이 시작되지 않는다 — 먼저 발화한 종료만 유효", async () => {
+    setMockCameraPermissionState({ status: "denied" });
+    render(<OnboardingGuideScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));
+    fireEvent.press(screen.getByRole("button", { name: "건너뛰기" }));
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    await waitFor(async () => {
+      await expect(store.hasSeenGuide()).resolves.toBe(true);
+    });
+    // 래치가 없으면 건너뛰기 경로가 권한 게이트를 태워 denied → push("/permission-denied")가 찍힌다.
+    expect(router.push).not.toHaveBeenCalled();
+  });
 });
 
 describe("범위 경계", () => {
