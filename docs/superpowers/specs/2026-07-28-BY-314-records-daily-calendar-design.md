@@ -44,11 +44,11 @@
 `GET /api/stats?userId&date`는 날짜 하나를 받아 그 날의 `sessions`와 그 달의
 `studiedDatesInMonth`를 함께 내려준다. 이를 그대로 이용한다 — 월 전용 API를 새로 요청하지 않는다.
 
-- 쿼리 키: `['stats', userId, date]` 하나로 통일한다.
+- 쿼리 키: `['stats', 'daily', userId, date]`(`statsKeys.daily`, BY-313 도입) 하나로 통일한다.
 - **조회용 날짜 계산**: 보이는 달에 `selectedKey`가 속하면 `date = selectedKey`(세션+도트를 한
   번에), 다른 달을 보는 중이면 `date = 그 달 1일`(응답에서 `studiedDatesInMonth`만 사용, `sessions`는
   무시).
-- 하단 요약·리스트는 `['stats', userId, selectedKey]` 쿼리를 바라본다 — 다른 달을 보는 동안에도
+- 하단 요약·리스트는 `['stats', 'daily', userId, selectedKey]` 쿼리를 바라본다 — 다른 달을 보는 동안에도
   react-query 캐시로 이전 데이터가 유지되므로 별도 처리 없이 상세가 지속 표시된다.
 - 달력 도트는 "현재 보이는 달" 쿼리의 `studiedDatesInMonth`를 바라본다.
 - 탭 포커스 재조회·캐시 설정은 BY-313이 만든 QueryClient 기본값을 그대로 따른다.
