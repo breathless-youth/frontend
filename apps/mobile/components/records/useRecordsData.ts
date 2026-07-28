@@ -66,6 +66,8 @@ export function useRecordsData(
   const streak = useQuery({
     ...streakQuery(userId ?? 0, { from: weekStart, to: todayKey }),
     enabled: userId != null,
+    // 자정 넘김으로 주 범위 키가 바뀌는 순간 직전 데이터를 유지해 배너가 스켈레톤으로 깜빡이지 않게 한다.
+    placeholderData: keepPreviousData,
   });
 
   // 탭 재진입 시 통계를 신선하게 유지한다. invalidate는 stale 표시 + 활성 쿼리 재조회.

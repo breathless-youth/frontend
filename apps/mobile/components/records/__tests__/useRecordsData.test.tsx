@@ -303,4 +303,45 @@ describe("useRecordsData", () => {
     expect(mockedStats).toHaveBeenCalledTimes(2);
     expect(mockedStreak).toHaveBeenCalledTimes(2);
   });
+
+  it("자정 넘김으로 todayKey가 바뀌어도 새 조회가 pending 중이면 스트릭 배너는 이전 데이터로 success 유지", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    mockedStreak.mockResolvedValue({
+      streak: 5,
+      maxStreak: 10,
+      studiedDatesInRange: ["2026-07-28"],
+    });
+
+    const { result, rerender } = renderHook(
+      ({ todayKey }: { todayKey: string }) =>
+        useRecordsData("2026-07-26", { year: 2026, month: 7 }, todayKey),
+      { wrapper: createWrapper(), initialProps: { todayKey: TODAY_KEY } },
+    );
+
+    await waitFor(() =>
+      expect(result.current.streakBanner).toEqual({
+        status: "success",
+        streakDays: 5,
+        doneDates: ["2026-07-28"],
+      }),
+    );
+
+    // 자정을 지나 todayKey가 변한다 — 새 조회는 never-resolving으로 pending 상태 유지
+    mockedStreak.mockImplementation(
+      () =>
+        new Promise(() => {
+          // never resolves
+        }),
+    );
+
+    rerender({ todayKey: "2026-07-30" });
+
+    // 새 스트릭 조회가 pending이어도 이전 응답 데이터는 유지되고 배너는 success를 유지한다
+    expect(result.current.streakBanner).toEqual({
+      status: "success",
+      streakDays: 5,
+      doneDates: ["2026-07-28"],
+    });
+  });
 });
