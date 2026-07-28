@@ -49,7 +49,9 @@ export function useRecordsData(
     }, [queryClient, userId]),
   );
 
-  const retry = useCallback(() => {
+  // useCallback으로 감싸지 않는다(리뷰 반영) — retry는 렌더마다 새로 만들어지는 반환 객체(day)에
+  // 실려 나가므로 참조를 안정화해도 소비자 입장에선 이득이 없다. 일반 함수가 의도를 정직하게 드러낸다.
+  const retry = () => {
     if (user.isError) {
       void user.refetch();
       return;
@@ -60,7 +62,7 @@ export function useRecordsData(
     if (monthStats.isError) {
       void monthStats.refetch();
     }
-  }, [user, day, monthStats]);
+  };
 
   // 도트 조회 실패는 화면을 막지 않는다 — 빈 배열로 두면 도트만 안 찍힌다(포커스 재조회로 복구).
   const studiedDates =
