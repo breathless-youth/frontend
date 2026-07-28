@@ -65,9 +65,6 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("측정")).toBeTruthy();
     expect(screen.getByText("카메라 권한")).toBeTruthy();
     expect(screen.getByText("측정 기준 안내")).toBeTruthy();
-    expect(
-      screen.getByText("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요"),
-    ).toBeTruthy();
     expect(screen.getByText("권한은 시스템 설정에서 바꿀 수 있어요")).toBeTruthy();
 
     expect(screen.getByText("지원")).toBeTruthy();
@@ -78,6 +75,14 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("개인정보처리방침")).toBeTruthy();
     expect(screen.getByText("오픈소스 라이선스")).toBeTruthy();
     expect(screen.getByText("버전 정보")).toBeTruthy();
+  });
+
+  it("측정 기준 안내의 감지 3종 서브 문구는 더 이상 노출하지 않는다", async () => {
+    await renderSettings();
+
+    expect(
+      screen.queryByText("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요"),
+    ).toBeNull();
   });
 
   it("V1.0 인벤토리에 없는 항목을 만들지 않는다 (로그인·계정·알림)", async () => {
@@ -139,16 +144,10 @@ describe("S6 · 설정", () => {
     expect(screen.queryByRole("switch")).toBeNull();
   });
 
-  it("측정 기준 안내는 문구를 복제하지 않고 온보딩 가이드로 재진입시킨다", async () => {
+  it("측정 기준 안내는 온보딩 가이드로 재진입시킨다", async () => {
     await renderSettings();
 
-    // 행 전체가 하나의 접근성 요소라 서브 문구(싱글룸 프라이버시 고지)까지 라벨에 담겨야 한다 —
-    // `accessibilityLabel`을 라벨만으로 지정하면 스크린리더에서 서브 문구가 통째로 사라진다.
-    fireEvent.press(
-      screen.getByRole("button", {
-        name: "측정 기준 안내, 자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요",
-      }),
-    );
+    fireEvent.press(screen.getByRole("button", { name: "측정 기준 안내" }));
 
     expect(router.push).toHaveBeenCalledWith({
       pathname: "/onboarding-guide",
@@ -156,14 +155,34 @@ describe("S6 · 설정", () => {
     });
   });
 
-  it("목적지가 미정인 4개 행은 버튼으로 노출되지 않는다 (탭 no-op)", async () => {
+  it.each([
+    ["문의하기", "/contact"],
+    ["이용약관", "/terms"],
+    ["개인정보처리방침", "/privacy"],
+  ])("%s 행은 앱 안의 화면으로 이동한다", async (label, path) => {
     await renderSettings();
 
-    for (const label of ["문의하기", "이용약관", "개인정보처리방침", "오픈소스 라이선스"]) {
-      expect(screen.queryByRole("button", { name: label })).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: label }));
+
+    expect(router.push).toHaveBeenCalledWith(path);
+  });
+
+  it("앱 밖으로 나가는 행이 하나도 없다 (BY-257)", () => {
+    render(<SettingsScreen />);
+
+    for (const row of screen.queryAllByRole("button")) {
+      // 외부로 나간다고 알리는 힌트가 남아 있으면 안 된다 — 실제로는 나가지 않는다.
+      expect(row.props.accessibilityHint).not.toBe("외부 브라우저로 열려요");
+      fireEvent.press(row);
     }
 
     expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it("목적지가 미정인 오픈소스 라이선스는 버튼으로 노출되지 않는다 (탭 no-op)", async () => {
+    await renderSettings();
+
+    expect(screen.queryByRole("button", { name: "오픈소스 라이선스" })).toBeNull();
   });
 
   it("버전은 app 설정에서 읽는다 — 하드코딩하지 않는다", async () => {

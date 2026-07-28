@@ -1,37 +1,20 @@
 import Constants from "expo-constants";
-import { Linking } from "react-native";
 
 /**
  * S6 설정 화면이 표시하는 로컬 값과 문구 헬퍼
  * (`frontend/docs/screens/SCR-S6-settings.md` Data Contract).
  *
  * **이 화면은 백엔드 API를 호출하지 않는다** — `packages/types`에 설정용 서버 계약을 만들지 않는다.
- * 여기 있는 값은 전부 기기 로컬 메타데이터이거나 아직 확정되지 않은 목적지 자리다.
+ * 여기 있는 값은 전부 기기 로컬 메타데이터이거나 화면이 여는 문서의 주소다.
  */
 
 /**
- * 정적 진입점 4곳의 목적지. **전부 `null`이다 — 값을 지어내지 말 것.**
- *
- * ai-wiki 어디에도 실제 주소가 없고 `policies.md`는 개인정보처리방침을 "출시 전 별도 작성 필요"
- * TODO로 두고 있다. `null`인 행은 탭 핸들러 자체를 만들지 않아 버튼으로 노출되지 않는다.
- *
- * TODO(SCR-S6-settings.md Review Checklist): 4개 목적지 확정 필요 —
- *   문의 폼 주소, 그리고 이용약관·개인정보처리방침·오픈소스 라이선스가
- *   앱 내 WebView 화면인지 외부 링크인지(문서 자체도 아직 없음).
+ * 문의 폼(Google Forms) 주소. **앱을 벗어나지 않는다** — `/contact` 라우트의 WebView가 이 주소를
+ * 띄운다(BY-257). 이용약관·개인정보처리방침도 같은 원칙이지만 그쪽은 정적 텍스트라 WebView 없이
+ * `lib/legalDocuments.ts`의 본문을 직접 렌더한다. 문의는 응답을 제출해야 하는 인터랙티브 폼이라
+ * 텍스트로 옮길 수 없어 WebView가 필요하다.
  */
-export type SettingsLinks = {
-  contactFormUrl: string | null;
-  termsOfServiceUrl: string | null;
-  privacyPolicyUrl: string | null;
-  openSourceLicenseUrl: string | null;
-};
-
-export const SETTINGS_LINKS: SettingsLinks = {
-  contactFormUrl: null,
-  termsOfServiceUrl: null,
-  privacyPolicyUrl: null,
-  openSourceLicenseUrl: null,
-};
+export const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 
 /**
  * 앱 버전을 읽지 못했을 때만 보이는 대체 표기.
@@ -62,16 +45,4 @@ export function cameraPermissionRowLabel(granted: boolean | null): string {
     return "카메라 권한, 시스템 설정 열기";
   }
   return `카메라 권한, ${granted ? "허용됨" : "허용 안 됨"}, 시스템 설정 열기`;
-}
-
-/**
- * 외부 브라우저로 연다(`문의하기` 행 — external-link 아이콘이 "앱 밖으로 나감"을 뜻한다).
- * 열지 못해도 설정 화면은 그대로 유지된다 — `openAppSettings()`와 같은 실패 처리다.
- */
-export async function openExternalUrl(url: string): Promise<void> {
-  try {
-    await Linking.openURL(url);
-  } catch (error) {
-    console.warn("[settings] 외부 링크 열기 실패", error);
-  }
 }

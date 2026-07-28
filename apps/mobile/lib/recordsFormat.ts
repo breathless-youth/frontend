@@ -1,4 +1,5 @@
 import type { StudyEventStatus, StudySessionEventCounts } from "@focuson/types";
+import { todayKstDateKey } from "./dateKst";
 
 /**
  * S5 기록 화면 전용 표기·달력 유틸 — 순수 함수라 테스트 대상으로 분리한다.
@@ -6,8 +7,8 @@ import type { StudyEventStatus, StudySessionEventCounts } from "@focuson/types";
  * 스펙(`frontend/docs/screens/SCR-S5-records.md` Implementation Notes 9)은 이 유틸을
  * `records.tsx` 옆에 두라고 하지만, `app/` 아래 파일은 확장자가 `.ts`여도 expo-router가 라우트로
  * 등록한다(`node_modules/expo-router/_ctx.js`의 정규식이 `\.[jt]sx?$`) — 그래서 S1의
- * `lib/homeFormat.ts`와 같은 자리에 둔다. 다른 화면(S1·S4)이 같은 규칙을 쓰게 되면 그때 합친다
- * (지금 미리 공통 모듈로 빼지 않는다 — 과도한 추상화 금지).
+ * `lib/homeFormat.ts`와 같은 자리에 둔다. KST 날짜 키 규칙(todayKstDateKey)은 이제
+ * lib/dateKst.ts에 통합되어 있다 (S1·S4 같은 규칙 적용).
  *
  * 표기 규칙 원본은 `ai-wiki/product/voice-tone.md` §2·§4다 — 의역하지 않는다.
  */
@@ -39,11 +40,8 @@ function toKstWallClock(value: string | Date): Date {
   return new Date(ms + KST_OFFSET_MS);
 }
 
-/** `YYYY-MM-DD`(KST 기준). `now`를 주입 가능하게 해 테스트 가능하게 한다. */
-export function kstDateKey(now: Date = new Date()): string {
-  const kst = toKstWallClock(now);
-  return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
-}
+/** `YYYY-MM-DD`(KST 기준). 규칙은 lib/dateKst.ts의 todayKstDateKey를 참고. */
+export const kstDateKey = todayKstDateKey;
 
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -211,4 +209,22 @@ export function eventChipItems(eventCounts: StudySessionEventCounts): EventChipI
     status,
     label: `${EVENT_SHORT_LABELS[status]} ${eventCounts[status]}회`,
   }));
+}
+
+/** `dateKey`가 이 달력 달(연·월)에 속하는가 — 연·월 비교의 단일 정의처. */
+export function isDateKeyInMonth(dateKey: string, month: CalendarMonth): boolean {
+  const keyMonth = monthOfDateKey(dateKey);
+  return keyMonth.year === month.year && keyMonth.month === month.month;
+}
+
+/**
+ * 보이는 달의 통계 조회용 날짜 키 — 선택일이 그 달에 있으면 선택일, 아니면 그 달 1일.
+ * `GET /api/stats`는 일 단위 조회지만 `studiedDatesInMonth`(그 달의 공부일 목록)를 기록 여부와
+ * 무관하게 항상 내려주므로(Swagger 2026-07-28 확인), 다른 달의 도트는 그 달 1일 조회로 얻는다.
+ */
+export function statsQueryDateKey(selectedKey: string, month: CalendarMonth): string {
+  if (isDateKeyInMonth(selectedKey, month)) {
+    return selectedKey;
+  }
+  return `${month.year}-${pad2(month.month)}-01`;
 }
