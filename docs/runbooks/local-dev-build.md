@@ -1,6 +1,6 @@
 # 로컬 Dev Build 런북 (iOS 시뮬레이터 · Android 에뮬레이터)
 
-`apps/mobile`을 로컬에서 빌드해 시뮬레이터·에뮬레이터에 띄울 때 사용한다. **2026-07-28부터 Expo Go로는 앱이 돌지 않는다** — 로컬 HTTP 서버(`@dr.pogodin/react-native-static-server`)가 Expo Go에 없는 네이티브 모듈이라 Dev Build가 필요하다([설계 문서 §1](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md)).
+`apps/mobile`을 로컬에서 빌드해 시뮬레이터·에뮬레이터에 띄울 때 사용한다. **2026-07-28부터 Expo Go로는 앱이 돌지 않는다** — 로컬 HTTP 서버(`@dr.pogodin/react-native-static-server`)가 Expo Go에 없는 네이티브 모듈이라 Dev Build가 필요하다([ADR 0005](../adr/0005-bundled-web-assets-over-localhost-server.md), [설계 문서 §1](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md)).
 
 EAS 클라우드 빌드는 별개다. **iOS 실기기** 빌드만 Apple Developer 계정이 필요하고, 시뮬레이터 빌드(로컬·EAS 둘 다)와 Android 빌드는 계정 없이 된다.
 
@@ -68,7 +68,17 @@ pnpm --filter web build && pnpm --filter mobile sync-web
 cd apps/mobile && pnpm exec expo run:android
 ```
 
-첫 Android 빌드는 **NDK를 자동으로 내려받는다**(수백 MB). lighttpd를 네이티브로 컴파일하기 때문이며, 한 번만 발생한다.
+첫 Android 빌드는 **NDK를 자동으로 내려받는다**(수백 MB). lighttpd를 네이티브로 컴파일하기 때문이며, 한 번만 발생한다. 라이브러리가 `-PreactNativeArchitectures` 필터를 따르지 않고 **4개 ABI 전부** 컴파일해서 첫 빌드가 약 35분 걸린다.
+
+#### ⚠️ Android prebuild 후에는 `app.json` diff를 확인한다
+
+`expo prebuild --platform android`가 `app.json`을 되쓰면서 **`android.permissions`에 `CAMERA`를 중복으로 넣는다.** ADR 0004의 가드 테스트가 잡아주지만(`pnpm --filter mobile test -- permissionCopy`), 모르고 커밋하면 권한 선언이 오염된 채 남는다.
+
+```bash
+git diff apps/mobile/app.json   # prebuild 직후 항상 확인
+```
+
+`android.package`를 명시해 두면 prebuild가 그 필드를 다시 추가하지는 않는다.
 
 카메라를 확인하려면 호스트 웹캠을 넘겨준다 — 에뮬레이터 기본 전면 카메라는 합성 장면이다.
 

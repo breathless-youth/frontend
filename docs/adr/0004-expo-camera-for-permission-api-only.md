@@ -59,6 +59,12 @@ iOS 권한 요청에 필요한 것은 `NSCameraUsageDescription` 하나뿐이다
 
 ### 남는 위험
 
-- **WebView 이중 권한 프롬프트 미검증** — 세션 화면 연동 시 `react-native-webview`의 `getUserMedia` 권한 처리와 네이티브 권한이 어떻게 맞물리는지 실기기로 확인해야 한다. 다이얼로그가 두 번 뜨거나 순서가 꼬일 수 있다.
+- ~~**WebView 이중 권한 프롬프트 미검증**~~ — **Android는 2026-07-28 해소, iOS는 여전히 미검증.**
+
+  Android 에뮬레이터(Pixel 3 / API 35)에서 확인한 결과 **프롬프트는 한 번만 뜬다.** `expo-camera` 게이트에서 승인하면 그 뒤 WebView 안의 `getUserMedia`는 추가 다이얼로그 없이 카메라를 연다(`CameraService: connect call (… camera ID 1)`) — `react-native-webview`가 앱의 OS 권한을 이어받아 WebView의 요청을 자동 승인하기 때문이다. 실측 근거는 [Vision 파이프라인 설계 §10 "S1·S2 결과 — Android"](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md).
+
+  **iOS는 실기기 확보 후 다시 확인해야 한다.** iOS는 권한 처리 경로가 다르고(라우트가 `mediaCapturePermissionGrantType="grant"`를 명시적으로 준다), 시뮬레이터에는 카메라 하드웨어가 없어 이 검증 자체가 불가능했다. Apple Developer 계정 승인 대기 중이다.
+
+- **카메라 전환이 후면 카메라를 못 볼 수 있다** — Android 에뮬레이터에서 Chromium이 `device 0`(후면)의 특성을 읽지 못한다(`cr_VideoCapture: Unable to retrieve camera characteristics for unknown device 0`). 전면 연결은 정상이므로 프리뷰에는 영향이 없으나, `enumerateDevices`가 후면을 못 보면 전환 버튼이 "전환할 카메라가 없어요"로 떨어진다. AVD 설정 문제일 가능성이 높아 실기기 확인이 필요하다.
 - **Android 권한 다이얼로그 3옵션** — "이번만 허용" 만료 시 처리 정책이 미확정이다(Figma `14:5` 페이지가 비어 있음). `canAskAgain`을 쓰게 될 가능성이 있으나 지금 어댑터는 `status`만 본다.
 - **S2-3이 막다른 안내로 남아 있다** — `ai-wiki/product/policies.md` §3은 2026-07-26에 "권한 거부 시 수동 타이머 모드 제공"으로 바뀌었고(2026-07-23 "카메라 필수" 결정을 대체), `app-review-checklist.md` 1-1이 이를 스토어 심사 최우선 액션 아이템으로 표시한다. 이번 범위 밖이며 별도 티켓으로 진행한다.
