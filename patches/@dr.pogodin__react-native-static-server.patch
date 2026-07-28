@@ -1,0 +1,13 @@
+diff --git a/ReactNativeStaticServer.podspec b/ReactNativeStaticServer.podspec
+index b28627525f0c2b187eaa74bbeb23c7668327b494..2f250830be733359bf0e62ec2909b3d89a6d2870 100644
+--- a/ReactNativeStaticServer.podspec
++++ b/ReactNativeStaticServer.podspec	
+@@ -74,6 +74,8 @@ Pod::Spec.new do |s|
+         EXTRA_CONFIG_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+       fi
+ 
++      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
++
+       cmake ${PODS_TARGET_SRCROOT} -B ${TARGET_TEMP_DIR} \
+         -DBUILD_STATIC=1 -DBUILD_LIBRARY=1 ${EXTRA_CONFIG_ARGS} #{$extraCMakeArgs}
+ 

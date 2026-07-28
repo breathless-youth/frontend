@@ -20,6 +20,7 @@
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@focuson/config": "workspace:*",
+    "eas-cli": "^21.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
     "prettier": "^3.6.2",
@@ -38,6 +39,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "unrs-resolver"
-    ]
+    ],
+    "patchedDependencies": {
+      "@dr.pogodin/react-native-static-server": "patches/@dr.pogodin__react-native-static-server.patch"
+    }
   }
 }
