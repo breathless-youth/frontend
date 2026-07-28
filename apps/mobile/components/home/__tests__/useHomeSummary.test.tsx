@@ -68,7 +68,7 @@ describe("useHomeSummary", () => {
     });
     // userId를 확보한 뒤에만 통계를 조회한다
     expect(mockedStats).toHaveBeenCalledWith(7, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
-    expect(mockedStreak).toHaveBeenCalledWith(7);
+    expect(mockedStreak).toHaveBeenCalledWith(7, undefined);
   });
 
   it("익명 등록 실패 시 error 상태가 된다", async () => {
