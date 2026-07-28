@@ -67,11 +67,16 @@ export const LOCAL_SERVER_HOST = "127.0.0.1";
  * 그대로 `/room/1?userId=7`로 남고(`location.search`도 그대로다), 서버는 정적 파일
  * `index.html`만 고르면 된다.
  *
- * **실기기 미검증** — 규칙이 실제 라우팅과 맞물리는지는 브리프 Step 9에서 확인한다.
+ * **`/assets/`는 리라이트하지 않는다.** 규칙이 모든 경로를 덮으면, 없는 청크를 요청했을 때도
+ * `index.html`이 200으로 돌아간다 — 브라우저는 JS인 줄 알고 HTML을 파싱하다 엉뚱한 곳에서
+ * 터지고, 진짜 원인(자산 누락)은 어디에도 안 보인다. S1 검증에서 실제로 이 동작을 확인해
+ * 범위를 좁혔다. 없는 자산은 404로 두는 편이 원인을 짚을 수 있다.
+ *
+ * S1(2026-07-28, iOS 시뮬레이터)에서 `/room/1`이 200 + `index.html`로 오는 것을 확인했다.
  */
 export const SPA_FALLBACK_EXTRA_CONFIG = [
   'server.modules += ("mod_rewrite")',
-  'url.rewrite-if-not-file = ( "^/(.*)" => "/index.html" )',
+  'url.rewrite-if-not-file = ( "^/(?!assets/).*" => "/index.html" )',
 ].join("\n");
 
 type StaticServerConstructor = new (params: StaticServerParams) => StaticServerInstance;

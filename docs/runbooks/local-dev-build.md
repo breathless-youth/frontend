@@ -59,6 +59,28 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pnpm exec expo run:ios --device "iPhone 15 P
 - **iOS** — Xcode에 `Bundle web-dist assets` 셸 스크립트 빌드 단계를 붙여, 매 빌드에 `assets/web-dist`를 앱 번들 리소스 루트로 복사한다. 런타임의 `resolveAssetsPath("web-dist")`가 보는 자리가 정확히 거기다.
 - **Android** — prebuild 때 `android/app/src/main/assets/web-dist`로 복사한다. 안드로이드는 번들 asset을 파일로 열 수 없어 **앱이 문서 디렉터리로 풀어내는 단계가 따로 필요하다**(미구현).
 
+## 경로에 공백이 있어서 필요한 패치 두 개
+
+저장소 경로에 `01_Breathless Youth`의 공백이 있어, 경로 변수를 인용하지 않는 pod 빌드 스크립트가 그 자리에서 쪼개진다. `patches/`의 두 패치가 이를 덮는다.
+
+| 패치                                      | 무엇을 고치나                                              | 안 고치면                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `@dr.pogodin__react-native-static-server` | `cmake`·`cmake --build`·`cp`의 경로 인용 (+ Homebrew PATH) | `CMake Error: The source directory "/Users/.../01_Breathless" does not exist` |
+| `expo-constants@18.0.13`                  | `bash -l -c "$PODS_TARGET_SRCROOT/..."`의 재인용           | `No such file or directory: /Users/.../01_Breathless`                         |
+
+생성된 `ios/Pods/Pods.xcodeproj`의 shellScript 항목을 전부 훑어 확인한 결과, 경로 변수를 인용하지 않는 pod은 **이 둘뿐**이다. 나머지(React Native, Hermes, ReactNativeDependencies 등)는 제대로 인용한다. 새 네이티브 라이브러리를 추가했는데 `01_Breathless`에서 잘린 경로가 보이면 같은 패턴을 의심할 것.
+
+영구적인 해법은 상위 폴더명에서 공백을 빼는 것이다. Expo SDK를 올릴 때 이 패치들이 깨지면 그때 다시 판단한다.
+
+### ⚠️ 패치를 고친 뒤에는 `pod install`을 손으로 돌린다
+
+`expo run:ios`는 Podfile·`package.json` 해시만 보고 pod 재설치 여부를 정한다. **패치로 podspec 내용이 바뀐 것은 그 검사에 안 잡히므로**, 옛 스크립트가 들어 있는 Xcode 프로젝트로 그대로 빌드해 같은 에러가 반복된다.
+
+```bash
+cd apps/mobile/ios
+LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
+```
+
 ## 자주 겪는 실패
 
 | 증상                                                   | 원인                       | 조치                                                                          |

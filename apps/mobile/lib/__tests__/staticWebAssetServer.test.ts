@@ -110,8 +110,14 @@ describe("createStaticWebAssetServer", () => {
     expect(constructorOptions().extraConfig).toBe(SPA_FALLBACK_EXTRA_CONFIG);
     expect(SPA_FALLBACK_EXTRA_CONFIG).toContain('server.modules += ("mod_rewrite")');
     expect(SPA_FALLBACK_EXTRA_CONFIG).toContain(
-      'url.rewrite-if-not-file = ( "^/(.*)" => "/index.html" )',
+      'url.rewrite-if-not-file = ( "^/(?!assets/).*" => "/index.html" )',
     );
+  });
+
+  it("리라이트가 /assets/ 를 비켜간다 — 없는 청크는 200 HTML이 아니라 404여야 한다", () => {
+    // S1 검증에서 없는 .js도 index.html(200)로 돌아오는 것을 확인해 범위를 좁혔다.
+    // 브라우저가 JS인 줄 알고 HTML을 파싱하다 터지면 원인(자산 누락)이 안 보인다.
+    expect(SPA_FALLBACK_EXTRA_CONFIG).toContain("(?!assets/)");
   });
 
   it("라이브러리가 어떤 호스트로 보고하든 오리진 호스트를 127.0.0.1로 통일한다", async () => {
