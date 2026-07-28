@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
 
 import { weekDateKeys } from "../../../lib/recordsFormat";
 import { getStreak, listStudySessionStats } from "../../../lib/statsApi";
@@ -55,6 +55,28 @@ describe("useRecordsData", () => {
     jest.clearAllMocks();
     // 스트릭을 검증하지 않는 기존 테스트가 깨지지 않도록 기본값을 둔다 — 각 테스트가 필요하면 덮어쓴다.
     mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+  });
+
+  it("서버 응답에 studiedDatesInRange가 빠져도(계약 드리프트) 배너는 빈 도트로 동작한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    // 계약상 필수 필드지만 런타임 검증이 없으므로 누락 응답을 흉내 낸다 — 캐스트는 그 드리프트 재현용.
+    mockedStreak.mockResolvedValue({
+      streak: 3,
+      maxStreak: 9,
+    } as unknown as StudySessionStreakResponse);
+
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.streakBanner.status).toBe("success"));
+    expect(result.current.streakBanner).toEqual({
+      status: "success",
+      streakDays: 3,
+      doneDates: [],
+    });
   });
 
   it("선택일이 보이는 달에 있으면 선택일 조회 하나로 세션·도트를 모두 채운다", async () => {

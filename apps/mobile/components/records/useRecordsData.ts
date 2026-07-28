@@ -108,7 +108,9 @@ export function useRecordsData(
       ? {
           status: "success",
           streakDays: streak.data.streak,
-          doneDates: streak.data.studiedDatesInRange,
+          // 계약상 필수 필드지만 서버 계약 드리프트 시 오류 없이 도트만 전부 비는 무증상
+          // 실패가 되므로 방어한다(2026-07-28 리뷰 반영) — 빈 배열이면 도트만 안 찍힌다.
+          doneDates: streak.data.studiedDatesInRange ?? [],
         }
       : user.isError || streak.isError
         ? { status: "hidden" }
