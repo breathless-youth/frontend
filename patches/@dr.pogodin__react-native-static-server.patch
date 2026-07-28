@@ -1,13 +1,26 @@
 diff --git a/ReactNativeStaticServer.podspec b/ReactNativeStaticServer.podspec
-index b28627525f0c2b187eaa74bbeb23c7668327b494..2f250830be733359bf0e62ec2909b3d89a6d2870 100644
+index b28627525f0c2b187eaa74bbeb23c7668327b494..1a30c461a57c9cd1e117a9927c3bca4cb0cee61d 100644
 --- a/ReactNativeStaticServer.podspec
 +++ b/ReactNativeStaticServer.podspec	
-@@ -74,6 +74,8 @@ Pod::Spec.new do |s|
+@@ -74,14 +74,16 @@ Pod::Spec.new do |s|
          EXTRA_CONFIG_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
        fi
  
+-      cmake ${PODS_TARGET_SRCROOT} -B ${TARGET_TEMP_DIR} \
 +      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 +
-       cmake ${PODS_TARGET_SRCROOT} -B ${TARGET_TEMP_DIR} \
++      cmake "${PODS_TARGET_SRCROOT}" -B "${TARGET_TEMP_DIR}" \
          -DBUILD_STATIC=1 -DBUILD_LIBRARY=1 ${EXTRA_CONFIG_ARGS} #{$extraCMakeArgs}
  
+-      cmake --build ${TARGET_TEMP_DIR} --config ${LIGHTTPD_CONFIG} --target lighttpd
++      cmake --build "${TARGET_TEMP_DIR}" --config ${LIGHTTPD_CONFIG} --target lighttpd
+ 
+-      cp  ${TARGET_TEMP_DIR}/lighttpd1.4/build${BUILD_OUTPUT_FOLDER_LIGHTTPD}/*.a \
+-          ${TARGET_TEMP_DIR}/pcre2${BUILD_OUTPUT_FOLDER_PCRE2}/*.a \
+-          ${BUILT_PRODUCTS_DIR}
++      cp  "${TARGET_TEMP_DIR}/lighttpd1.4/build${BUILD_OUTPUT_FOLDER_LIGHTTPD}"/*.a \
++          "${TARGET_TEMP_DIR}/pcre2${BUILD_OUTPUT_FOLDER_PCRE2}"/*.a \
++          "${BUILT_PRODUCTS_DIR}"
+     CMD
+   }
+   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"

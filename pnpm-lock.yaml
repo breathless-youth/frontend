@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@dr.pogodin/react-native-static-server':
-    hash: 5a923f3c3600cae1d1e4bcb18bba6c5068a2151f93f546ae0ae37e77a9803560
+    hash: d17f8049e6744c2d02a41862d6ac34008f89e0fe12ccac64f1f71d016a0eca04
     path: patches/@dr.pogodin__react-native-static-server.patch
 
 importers:
@@ -48,7 +48,7 @@ importers:
         version: 2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@dr.pogodin/react-native-static-server':
         specifier: ^0.27.0
-        version: 0.27.0(patch_hash=5a923f3c3600cae1d1e4bcb18bba6c5068a2151f93f546ae0ae37e77a9803560)(@dr.pogodin/react-native-fs@2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        version: 0.27.0(patch_hash=d17f8049e6744c2d02a41862d6ac34008f89e0fe12ccac64f1f71d016a0eca04)(@dr.pogodin/react-native-fs@2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@expo/metro-runtime':
         specifier: ~6.1.2
         version: 6.1.2(expo@54.0.36)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -8309,7 +8309,7 @@ snapshots:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0)
 
-  '@dr.pogodin/react-native-static-server@0.27.0(patch_hash=5a923f3c3600cae1d1e4bcb18bba6c5068a2151f93f546ae0ae37e77a9803560)(@dr.pogodin/react-native-fs@2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
+  '@dr.pogodin/react-native-static-server@0.27.0(patch_hash=d17f8049e6744c2d02a41862d6ac34008f89e0fe12ccac64f1f71d016a0eca04)(@dr.pogodin/react-native-fs@2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@dr.pogodin/js-utils': 0.1.8
       '@dr.pogodin/react-native-fs': 2.39.2(react-native@0.81.5(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
