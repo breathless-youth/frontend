@@ -19,7 +19,8 @@ function isPendingSession(value: unknown): value is PendingSession {
     typeof value === "object" &&
     value !== null &&
     typeof (value as { sessionId?: unknown }).sessionId === "string" &&
-    typeof (value as { payload?: unknown }).payload === "object"
+    typeof (value as { payload?: unknown }).payload === "object" &&
+    (value as { payload?: unknown }).payload !== null
   );
 }
 
@@ -34,10 +35,11 @@ export async function enqueuePendingSession(
 export async function listPendingSessions(
   store: SessionFileStore = sessionFileStore,
 ): Promise<PendingSession[]> {
-  const fileNames = await store.list(PENDING_DIR);
+  const fileNames = (await store.list(PENDING_DIR)).filter((name) => name.endsWith(".json"));
   const sessions: PendingSession[] = [];
 
   for (const fileName of fileNames) {
+    // writeAtomic이 남긴 .tmp 고아 파일은 큐 항목이 아니다 — 다음 재시도가 덮어쓴다.
     const path = `${PENDING_DIR}/${fileName}`;
     const contents = await store.read(path);
     if (contents === null) {

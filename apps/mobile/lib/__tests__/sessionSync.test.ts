@@ -104,6 +104,22 @@ describe("flushPendingSessions", () => {
     });
     await expect(listPendingSessions(store)).resolves.toEqual([]);
   });
+
+  it("첫 번째 세션이 4xx 실패, 두 번째가 성공하면 각각 dropped·submitted로 센다", async () => {
+    const store = createFakeStore();
+    await enqueuePendingSession({ sessionId: "session-1", payload: PAYLOAD }, store);
+    await enqueuePendingSession({ sessionId: "session-2", payload: PAYLOAD }, store);
+    mockedSubmitStudySession
+      .mockRejectedValueOnce(new StudySessionSubmitError("잘못된 요청", 400))
+      .mockResolvedValueOnce([]);
+
+    await expect(flushPendingSessions(7, store)).resolves.toEqual({
+      submitted: 1,
+      kept: 0,
+      dropped: 1,
+    });
+    await expect(listPendingSessions(store)).resolves.toEqual([]);
+  });
 });
 
 describe("syncSessionsOnAppActive", () => {

@@ -10,6 +10,9 @@ import type { SessionFileStore } from "./sessionFileStore";
 import { StudySessionSubmitError, submitStudySession } from "./studySessionApi";
 import { ensureUserRegistered } from "./userApi";
 
+// 마운트+AppState active가 연달아 발동해도 동시 sync 1회로 제한한다(중복 POST·경고 로그 방지).
+let syncing = false;
+
 /**
  * 앱 기동 시 미마감 체크포인트를 소급 마감한다(스펙 6절).
  * restore 갈래(일시정지 자동종료 유예 안 지남)는 체크포인트를 그대로 두고 다음 기동에 재판정한다.
@@ -76,6 +79,11 @@ export async function syncSessionsOnAppActive(
   nowMs?: number,
   store?: SessionFileStore,
 ): Promise<void> {
+  if (syncing) {
+    return;
+  }
+
+  syncing = true;
   try {
     const userId = await ensureUserRegistered();
     if (userId === null) {
@@ -89,5 +97,7 @@ export async function syncSessionsOnAppActive(
     }
   } catch (error) {
     console.warn("[session-sync] 세션 동기화 실패", error);
+  } finally {
+    syncing = false;
   }
 }
