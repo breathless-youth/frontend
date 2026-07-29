@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@focuson/design-tokens": "workspace:*",
+    "@focuson/study-core": "workspace:*",
     "@focuson/types": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "expo": "~54.0.36",

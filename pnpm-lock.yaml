@@ -41,6 +41,9 @@ importers:
       '@focuson/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@focuson/study-core':
+        specifier: workspace:*
+        version: link:../../packages/study-core
       '@focuson/types':
         specifier: workspace:*
         version: link:../../packages/types
