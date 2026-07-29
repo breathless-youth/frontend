@@ -58,9 +58,7 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     render(<OnboardingGuideScreen />);
 
     expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeTruthy();
-    expect(
-      screen.getByText("집중하는 동안 타이머가 저절로 올라가요. 눌러야 할 건 없어요."),
-    ).toBeTruthy();
+    expect(screen.getByText("집중하는 동안 타이머가 흘러가요.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "이전" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "다음" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "건너뛰기" })).toBeTruthy();
@@ -72,7 +70,7 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     pressNext();
     expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeTruthy();
     pressNext();
-    expect(screen.getByText("탭 한 번이면, 타이머만 크게")).toBeTruthy();
+    expect(screen.getByText("탭 한 번이면, 타이머만 떠요")).toBeTruthy();
     pressNext();
     expect(screen.getByText("잠깐 쉴 땐 일시정지")).toBeTruthy();
     pressNext();
@@ -221,7 +219,7 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
     });
   });
 
-  it("다시 보기(홈 카드) 진입에서는 권한 요청으로 이어지지 않는다 — 재진입 CTA 동작 미정", async () => {
+  it("다시 보기(홈 카드) 진입에서는 마지막 CTA가 '가이드 종료하기'이고 닫기만 한다", async () => {
     mockEntryParam = "home-card";
     setMockCameraPermissionState({ status: "denied" });
     render(<OnboardingGuideScreen />);
@@ -229,7 +227,9 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
       pressNext();
     }
 
-    fireEvent.press(screen.getByRole("button", { name: "집중 시작하기" }));
+    // 재진입에서는 세션을 시작하지 않으므로 문구도 종료를 말한다(2026-07-29 확정).
+    expect(screen.queryByRole("button", { name: "집중 시작하기" })).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: "가이드 종료하기" }));
 
     await waitFor(() => {
       expect(router.back).toHaveBeenCalled();
@@ -296,7 +296,7 @@ describe("범위 경계", () => {
 
     expect(
       screen.getByText(
-        "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 남는 건 오직 공부 시간 기록뿐이에요.",
+        "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/AI 분석용 원본 프레임/)).toBeNull();

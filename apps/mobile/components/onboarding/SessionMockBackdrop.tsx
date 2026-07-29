@@ -7,7 +7,6 @@ import {
   formatTotalStudyClock,
   type MockBackdrop,
   type MockStatusPill,
-  MOCK_PRIVACY_CAPTION,
 } from "../../lib/onboardingGuideSteps";
 import { IconCameraFlip, IconExit, IconPause } from "./coachIcons";
 import {
@@ -216,19 +215,19 @@ export function MockStatusPillBlock({
 }
 
 /**
- * 순공 타이머 + 총 공부 병기 + 프라이버시 캡션.
+ * 순공 타이머 + 총 공부 병기.
  * 숫자는 `tabular-nums`로 고정폭 — 초가 바뀔 때 좌우로 흔들리지 않게 한다.
+ * 프라이버시 캡션("영상은 기기 안에서만 처리돼요")은 2026-07-29 확정으로 삭제됐다 —
+ * 프라이버시 안내는 G5 카드가 전담한다(BY-151).
  */
 export function MockTimerBlock({
   focusSec,
   totalSec,
-  showCaption,
   tone,
   emphasized,
 }: {
   focusSec: number;
   totalSec: number;
-  showCaption: boolean;
   /**
    * 순공 타이머 색조. Figma가 텍스트 노드마다 fill을 직접 지정해둔 값이고, 총 공부 줄은
    * 5스텝 모두 같은 색이다 — 순공만 색이 바뀌는 것이 규칙이다(`FocusTimerTone` 참고).
@@ -277,19 +276,15 @@ export function MockTimerBlock({
       >
         {total}
       </Text>
-      {showCaption ? (
-        <Text
-          className="mt-2 text-[12px] leading-[14px]"
-          style={{ color: coachOverlay.mockCaption }}
-        >
-          {MOCK_PRIVACY_CAPTION}
-        </Text>
-      ) : null}
     </View>
   );
 }
 
-/** 세션 하단 컨트롤 바 244×80 — 일시정지 · 카메라 전환 · 공부 종료. **표시 전용**(눌리지 않는다). */
+/**
+ * 세션 하단 컨트롤 바 244×80 — 일시정지 · 카메라 전환 · 공부 종료. **표시 전용**(눌리지 않는다).
+ * G4의 파동 강조는 바 전체가 아니라 **일시정지 버튼 주위**에만 붙는다(2026-07-29 확정) —
+ * 툴팁 본문도 일시정지만 설명하므로 강조 대상과 설명이 일치한다.
+ */
 export function MockControlBar({ emphasized }: { emphasized: boolean }) {
   return (
     <View
@@ -298,35 +293,33 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       importantForAccessibility={emphasized ? "yes" : "no-hide-descendants"}
       pointerEvents="none"
     >
-      <RingOutEmphasis
-        active={emphasized}
-        color={GUIDE_FOCUS_COLOR}
-        borderRadius={coachRadius.full}
+      <View
+        className="flex-row items-center justify-center gap-[22px] border px-6 pb-3 pt-4"
+        style={{
+          width: 244,
+          height: 80,
+          backgroundColor: coachOverlay.controlBarBg,
+          borderColor: coachOverlay.controlBarBorder,
+          borderRadius: coachRadius.full,
+        }}
       >
         <View
-          accessible={emphasized}
-          accessibilityLabel={
-            emphasized ? "일시정지, 카메라 전환, 공부 종료 버튼이 모인 하단 바" : undefined
-          }
-          className="flex-row items-center justify-center gap-[22px] overflow-hidden border px-6 pb-3 pt-4"
+          className="absolute left-1/2 top-[5px] -ml-[18px]"
           style={{
-            width: 244,
-            height: 80,
-            backgroundColor: coachOverlay.controlBarBg,
-            borderColor: coachOverlay.controlBarBorder,
+            width: 36,
+            height: 4,
             borderRadius: coachRadius.full,
+            backgroundColor: coachOverlay.controlBarHandle,
           }}
+        />
+        <RingOutEmphasis
+          active={emphasized}
+          color={GUIDE_FOCUS_COLOR}
+          borderRadius={coachRadius.full}
         >
           <View
-            className="absolute left-1/2 top-[5px] -ml-[18px]"
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: coachRadius.full,
-              backgroundColor: coachOverlay.controlBarHandle,
-            }}
-          />
-          <View
+            accessible={emphasized}
+            accessibilityLabel={emphasized ? "일시정지 버튼" : undefined}
             className="size-[50px] items-center justify-center"
             style={{
               borderRadius: coachRadius.full,
@@ -335,26 +328,26 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           >
             <IconPause />
           </View>
-          <View
-            className="size-[50px] items-center justify-center"
-            style={{
-              borderRadius: coachRadius.full,
-              backgroundColor: coachOverlay.controlButtonBg,
-            }}
-          >
-            <IconCameraFlip />
-          </View>
-          <View
-            className="size-[50px] items-center justify-center"
-            style={{
-              borderRadius: coachRadius.full,
-              backgroundColor: coachTokenColors.exitButton,
-            }}
-          >
-            <IconExit />
-          </View>
+        </RingOutEmphasis>
+        <View
+          className="size-[50px] items-center justify-center"
+          style={{
+            borderRadius: coachRadius.full,
+            backgroundColor: coachOverlay.controlButtonBg,
+          }}
+        >
+          <IconCameraFlip />
         </View>
-      </RingOutEmphasis>
+        <View
+          className="size-[50px] items-center justify-center"
+          style={{
+            borderRadius: coachRadius.full,
+            backgroundColor: coachTokenColors.exitButton,
+          }}
+        >
+          <IconExit />
+        </View>
+      </View>
     </View>
   );
 }

@@ -38,6 +38,9 @@ function CoachGhostButton({ onPress, disabled }: { onPress: () => void; disabled
         backgroundColor: coachOverlay.ghostBg,
         borderColor: coachOverlay.ghostBorder,
         borderRadius: coachRadius.button,
+        // G1(첫 스텝)에서는 시각적으로도 비활성이 드러나야 한다(2026-07-29 확정) — 이전에는
+        // accessibilityState로만 표시돼 G2~와 겉모습이 같았다.
+        opacity: disabled ? 0.35 : 1,
       }}
     >
       <Text

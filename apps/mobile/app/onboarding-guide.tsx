@@ -98,7 +98,11 @@ export default function OnboardingGuideScreen() {
         X 나가기(BY-151)가 생겨 하드웨어 백을 X와 동일 처리하는 선택지가 유력해졌으나
         여전히 미확정이다.
       */}
-      <OnboardingGuideFlow onFinish={handleFinish} onExit={handleExit} />
+      <OnboardingGuideFlow
+        onFinish={handleFinish}
+        onExit={handleExit}
+        isReentry={entry !== "focus-start"}
+      />
     </>
   );
 }
