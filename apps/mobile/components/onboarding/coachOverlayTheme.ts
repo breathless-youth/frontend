@@ -69,10 +69,8 @@ export const coachOverlay = {
   pagerInactive: "rgba(255,255,255,0.30)",
   /** 하단 힌트 텍스트. */
   bottomHint: "rgba(255,255,255,0.60)",
-  /** 목업 배경 — 카메라 프리뷰 목업(실제 카메라가 아니다). */
+  /** 목업 배경 — 검정 단색(BY-151 재정의). */
   mockCameraBg: "#1A2029",
-  mockStripe: "rgba(255,255,255,0.03)",
-  mockPreviewLabel: "rgba(255,255,255,0.16)",
   /** 목업 배경 — 심플 모드. */
   mockSimpleBg: "#0B0F14",
   /** 목업 타이머 블록 — 진행 중(`active`) 색. 정지·심플 색은 `coachTokenColors` 참고. */

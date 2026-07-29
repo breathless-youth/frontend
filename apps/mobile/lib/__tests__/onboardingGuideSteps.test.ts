@@ -21,27 +21,28 @@ describe("온보딩 가이드 확정 문구", () => {
   it("툴팁 타이틀·본문이 확정 카피와 일치한다", () => {
     const tooltips = ONBOARDING_GUIDE_STEPS.map((step) => step.tooltip);
 
+    // 2026-07-29 팀 확정 개정 카피 기준 (BY-151) — voice-tone 위키·Figma 동기화는 후속.
     expect(tooltips[0]).toMatchObject({
       title: "순공시간이 여기에 쌓여요",
-      body: "집중하는 동안 타이머가 저절로 올라가요. 눌러야 할 건 없어요.",
+      body: "집중하는 동안 타이머가 흘러가요.",
     });
     expect(tooltips[1]).toMatchObject({
       title: "집중이 아니면, 잠시 멈춰요",
-      body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 이어져요.",
+      body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 흘러가요.",
     });
     expect(tooltips[2]).toMatchObject({
-      title: "탭 한 번이면, 타이머만 크게",
-      body: "공부 중 화면을 탭하면 숫자만 남는 심플 모드가 돼요. 한 번 더 탭하면 원래 화면으로 돌아와요.",
+      title: "탭 한 번이면, 타이머만 떠요",
+      body: "공부 중 화면을 탭하면 타이머만 남는 심플 모드가 돼요. 한 번 더 탭하면 원래 화면으로 돌아와요.",
     });
     expect(tooltips[3]).toMatchObject({
       title: "잠깐 쉴 땐 일시정지",
-      body: "일시정지하면 순공시간과 총 공부 시간이 모두 멈춰요. 카메라 전환과 공부 종료 버튼도 여기에 모여 있어요.",
+      body: "일시정지하면 순공시간과 총 공부 시간이 모두 멈춰요.",
     });
     // G5는 말풍선이 아니라 일러스트 카드다.
     expect(tooltips[4]).toBeNull();
     expect(ONBOARDING_GUIDE_STEPS[4].privacyCard).toEqual({
       title: "영상은 기기 밖으로 나가지 않아요",
-      body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 남는 건 오직 공부 시간 기록뿐이에요.",
+      body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
     });
   });
 

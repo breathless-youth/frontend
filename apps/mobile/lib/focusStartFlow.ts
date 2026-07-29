@@ -62,11 +62,9 @@ export async function runFocusStartFlow(nav: FocusStartNavigator): Promise<void>
  * 완료와 건너뛰기가 여기서 갈라지지 않는 것이 6차 확정 사항의 핵심이다 — 그래서 종료 이유를
  * 인자로 받지 않는다. 갈리는 것은 종료 이유가 아니라 **진입 출처**다.
  *
- * ⚠️ 진입 경로 B·C(홈 가이드 카드 · 설정 › 측정 기준 안내)에서 G5 "집중 시작하기"를 눌렀을 때
- * 세션을 시작하는지, 가이드만 닫고 원래 화면으로 돌아가는지는 **미정이다**. 6차 인터뷰는
- * "홈 가이드 카드·설정 진입점은 유지"라고만 했다. CTA 문구가 "집중 시작하기"라 세션 시작이
- * 자연스러워 보이지만 임의로 확정하지 않는다 — 지금은 가이드만 닫는다(부수효과 없는 쪽).
- * TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): 재진입 CTA 동작 확정 후 이 분기 교체.
+ * 재진입(홈 가이드 카드 · 설정 측정 기준 안내)에서는 CTA를 눌러도 세션을 시작하지 않고
+ * 가이드만 닫는다 — 2026-07-28 확정(BY-151). 세션 시작은 집중 시작 플로우(focus-start)에서만.
+ * 근거: 설정·카드 진입은 "열람" 맥락이라 시작 부수효과가 부적합하다는 팀 판단.
  */
 export async function continueAfterOnboardingGuide(
   nav: Pick<FocusStartNavigator, "showPermissionDeniedGuide" | "startSession">,
@@ -81,4 +79,15 @@ export async function continueAfterOnboardingGuide(
     return;
   }
   await runPermissionStep(nav);
+}
+
+/**
+ * X(나가기)로 가이드를 닫았을 때의 처리 (2026-07-28 확정, BY-151).
+ *
+ * 세션을 시작하지 않는다 — 완료·건너뛰기(`continueAfterOnboardingGuide`)와 분리된 경로다.
+ * 봤음 저장은 단일 규칙("가이드가 어떤 이유로든 닫히면 봤음")을 따른다 — 진입 경로 무관,
+ * 멱등. 다시 보고 싶으면 홈 가이드 카드·설정 재진입 경로가 있다. 화면 복귀는 호출부가 한다.
+ */
+export async function exitOnboardingGuide(): Promise<void> {
+  await markOnboardingGuideSeen();
 }

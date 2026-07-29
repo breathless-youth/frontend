@@ -7,7 +7,6 @@ import {
   formatTotalStudyClock,
   type MockBackdrop,
   type MockStatusPill,
-  MOCK_PRIVACY_CAPTION,
 } from "../../lib/onboardingGuideSteps";
 import { IconCameraFlip, IconExit, IconPause } from "./coachIcons";
 import {
@@ -32,11 +31,13 @@ const FOCUS_TIMER_COLORS: Record<FocusTimerTone, string> = {
  * 온보딩 가이드 배경의 **세션 화면 목업** — Figma `Session / Camera Preview BG`(58:109),
  * `Session / Status Pill`(34:14), `Session / Control Bar`(34:32).
  *
+ * **BY-151 재정의(2026-07-28 팀 확정):** 가이드 배경은 검정 단색이다.
+ * 카메라 흉내 사선 밴드·프리뷰 라벨 장식은 제거됐다.
+ *
  * ## 이것이 하지 않는 것
  *
  * - **카메라를 켜지 않는다.** 가이드는 카메라 권한 요청(S2-2)보다 먼저 실행되므로 배경은
- *   실제 프리뷰일 수 없다. Figma 컴포넌트 설명도 "목업 배경"이라고 명시한다.
- *   이 파일에 카메라·권한·Vision·WebView·LiveKit 코드는 들어가지 않는다.
+ *   실제 프리뷰일 수 없다. 이 파일에 카메라·권한·Vision·WebView·LiveKit 코드는 들어가지 않는다.
  * - **실제 세션 컴포넌트를 재사용하지 않는다.** 진짜 세션 화면(S3-1~S3-8)은 `apps/web`이
  *   구현하며 두 앱은 컴포넌트를 공유하지 않는다(ADR 0001).
  * - **집계하지 않는다.** 타이머는 시연용 로컬 카운터이고 서버에 아무것도 보내지 않는다.
@@ -145,10 +146,8 @@ function RingOutEmphasis({
   );
 }
 
-const STRIPE_COUNT = 12;
-
 /**
- * 목업 배경 판 — 베이스 색 + 사선 라이트 밴드 + 프리뷰 라벨.
+ * 목업 배경 판 — 검정 단색 배경.
  * dim보다 뒤에 깔리는 순수 장식이라 스크린 리더에서 통째로 제외한다.
  */
 export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
@@ -162,44 +161,9 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
         {
           backgroundColor:
             base === "simple" ? coachOverlay.mockSimpleBg : coachOverlay.mockCameraBg,
-          overflow: "hidden",
         },
       ]}
-    >
-      {base === "camera" ? (
-        <>
-          {Array.from({ length: STRIPE_COUNT }, (_, index) => (
-            <View
-              key={index}
-              style={{
-                position: "absolute",
-                top: -300,
-                left: -560 + index * 110,
-                width: 55,
-                height: 1500,
-                backgroundColor: coachOverlay.mockStripe,
-                transform: [{ rotate: "-45deg" }],
-              }}
-            />
-          ))}
-          <Text
-            style={{
-              position: "absolute",
-              top: "55%",
-              width: "100%",
-              textAlign: "center",
-              fontSize: 12,
-              lineHeight: 14,
-              letterSpacing: 2,
-              color: coachOverlay.mockPreviewLabel,
-            }}
-          >
-            [ 전 면 카 메 라 프 리 뷰 ]
-          </Text>
-          {/* 위 라벨은 Figma 목업의 "여기가 카메라 자리"라는 표시다 — 실제 프리뷰가 아니다. */}
-        </>
-      ) : null}
-    </View>
+    />
   );
 }
 
@@ -251,19 +215,19 @@ export function MockStatusPillBlock({
 }
 
 /**
- * 순공 타이머 + 총 공부 병기 + 프라이버시 캡션.
+ * 순공 타이머 + 총 공부 병기.
  * 숫자는 `tabular-nums`로 고정폭 — 초가 바뀔 때 좌우로 흔들리지 않게 한다.
+ * 프라이버시 캡션("영상은 기기 안에서만 처리돼요")은 2026-07-29 확정으로 삭제됐다 —
+ * 프라이버시 안내는 G5 카드가 전담한다(BY-151).
  */
 export function MockTimerBlock({
   focusSec,
   totalSec,
-  showCaption,
   tone,
   emphasized,
 }: {
   focusSec: number;
   totalSec: number;
-  showCaption: boolean;
   /**
    * 순공 타이머 색조. Figma가 텍스트 노드마다 fill을 직접 지정해둔 값이고, 총 공부 줄은
    * 5스텝 모두 같은 색이다 — 순공만 색이 바뀌는 것이 규칙이다(`FocusTimerTone` 참고).
@@ -312,19 +276,15 @@ export function MockTimerBlock({
       >
         {total}
       </Text>
-      {showCaption ? (
-        <Text
-          className="mt-2 text-[12px] leading-[14px]"
-          style={{ color: coachOverlay.mockCaption }}
-        >
-          {MOCK_PRIVACY_CAPTION}
-        </Text>
-      ) : null}
     </View>
   );
 }
 
-/** 세션 하단 컨트롤 바 244×80 — 일시정지 · 카메라 전환 · 공부 종료. **표시 전용**(눌리지 않는다). */
+/**
+ * 세션 하단 컨트롤 바 244×80 — 일시정지 · 카메라 전환 · 공부 종료. **표시 전용**(눌리지 않는다).
+ * G4의 파동 강조는 바 전체가 아니라 **일시정지 버튼 주위**에만 붙는다(2026-07-29 확정) —
+ * 툴팁 본문도 일시정지만 설명하므로 강조 대상과 설명이 일치한다.
+ */
 export function MockControlBar({ emphasized }: { emphasized: boolean }) {
   return (
     <View
@@ -333,27 +293,23 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       importantForAccessibility={emphasized ? "yes" : "no-hide-descendants"}
       pointerEvents="none"
     >
-      <RingOutEmphasis
-        active={emphasized}
-        color={GUIDE_FOCUS_COLOR}
-        borderRadius={coachRadius.full}
+      <View
+        className="flex-row items-center justify-center gap-[22px] border px-6 pb-3 pt-4"
+        style={{
+          width: 244,
+          height: 80,
+          backgroundColor: coachOverlay.controlBarBg,
+          borderColor: coachOverlay.controlBarBorder,
+          borderRadius: coachRadius.full,
+        }}
       >
+        {/* 손잡이 중앙정렬(2026-07-29) — 좌우 풀폭 래퍼의 alignItems로 맞춘다.
+            구 방식(left-1/2 + 음수 마진 임의값 클래스)은 좌측으로 치우쳐 보였다. */}
         <View
-          accessible={emphasized}
-          accessibilityLabel={
-            emphasized ? "일시정지, 카메라 전환, 공부 종료 버튼이 모인 하단 바" : undefined
-          }
-          className="flex-row items-center justify-center gap-[22px] overflow-hidden border px-6 pb-3 pt-4"
-          style={{
-            width: 244,
-            height: 80,
-            backgroundColor: coachOverlay.controlBarBg,
-            borderColor: coachOverlay.controlBarBorder,
-            borderRadius: coachRadius.full,
-          }}
+          pointerEvents="none"
+          style={{ position: "absolute", top: 5, left: 0, right: 0, alignItems: "center" }}
         >
           <View
-            className="absolute left-1/2 top-[5px] -ml-[18px]"
             style={{
               width: 36,
               height: 4,
@@ -361,7 +317,15 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
               backgroundColor: coachOverlay.controlBarHandle,
             }}
           />
+        </View>
+        <RingOutEmphasis
+          active={emphasized}
+          color={GUIDE_FOCUS_COLOR}
+          borderRadius={coachRadius.full}
+        >
           <View
+            accessible={emphasized}
+            accessibilityLabel={emphasized ? "일시정지 버튼" : undefined}
             className="size-[50px] items-center justify-center"
             style={{
               borderRadius: coachRadius.full,
@@ -370,26 +334,26 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           >
             <IconPause />
           </View>
-          <View
-            className="size-[50px] items-center justify-center"
-            style={{
-              borderRadius: coachRadius.full,
-              backgroundColor: coachOverlay.controlButtonBg,
-            }}
-          >
-            <IconCameraFlip />
-          </View>
-          <View
-            className="size-[50px] items-center justify-center"
-            style={{
-              borderRadius: coachRadius.full,
-              backgroundColor: coachTokenColors.exitButton,
-            }}
-          >
-            <IconExit />
-          </View>
+        </RingOutEmphasis>
+        <View
+          className="size-[50px] items-center justify-center"
+          style={{
+            borderRadius: coachRadius.full,
+            backgroundColor: coachOverlay.controlButtonBg,
+          }}
+        >
+          <IconCameraFlip />
         </View>
-      </RingOutEmphasis>
+        <View
+          className="size-[50px] items-center justify-center"
+          style={{
+            borderRadius: coachRadius.full,
+            backgroundColor: coachTokenColors.exitButton,
+          }}
+        >
+          <IconExit />
+        </View>
+      </View>
     </View>
   );
 }

@@ -4,7 +4,11 @@ import {
   setCameraPermissionAdapter,
   setMockCameraPermissionState,
 } from "../cameraPermission";
-import { continueAfterOnboardingGuide, runFocusStartFlow } from "../focusStartFlow";
+import {
+  continueAfterOnboardingGuide,
+  exitOnboardingGuide,
+  runFocusStartFlow,
+} from "../focusStartFlow";
 import {
   createMemoryOnboardingGuideStore,
   resetOnboardingGuideStore,
@@ -96,7 +100,7 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
     expect(nav.startSession).not.toHaveBeenCalled();
   });
 
-  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않는다 — 재진입 CTA 동작은 미정", async () => {
+  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않고 닫기만 한다 — 2026-07-28 확정(BY-151)", async () => {
     setMockCameraPermissionState({ status: "granted" });
 
     for (const entry of ["home-card", "settings"] as const) {
@@ -106,5 +110,24 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
       expect(nav.startSession).not.toHaveBeenCalled();
       expect(nav.showPermissionDeniedGuide).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe("exitOnboardingGuide — 우상단 X 나가기(BY-151)", () => {
+  it("봤음을 저장하고 권한 게이트·세션 시작은 호출하지 않는다", async () => {
+    const store = createMemoryOnboardingGuideStore();
+    setOnboardingGuideStore(store);
+    // 이 파일에는 `runCameraPermissionGate` 자체를 모킹하는 기존 관례가 없다 — 대신 파일이
+    // 이미 쓰는 어댑터 주입 지점(`setCameraPermissionAdapter`)에 스파이를 꽂아 "권한 게이트가
+    // 조회조차 하지 않았다"를 직접 검증한다.
+    const getStatus = jest.fn(mockCameraPermissionAdapter.getStatus);
+    const request = jest.fn(mockCameraPermissionAdapter.request);
+    setCameraPermissionAdapter({ getStatus, request });
+
+    await exitOnboardingGuide();
+
+    await expect(store.hasSeenGuide()).resolves.toBe(true);
+    expect(getStatus).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 });

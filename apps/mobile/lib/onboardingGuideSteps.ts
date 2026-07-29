@@ -5,11 +5,11 @@
  * 이 배열도 하나다. 배경·하단 내비게이션·페이저 도트는 공통이고 스텝마다 바뀌는 것은
  * 툴팁 내용·툴팁 위치·강조 대상·목업 배경의 상태뿐이라, 그 차이만 여기 데이터로 적는다.
  *
- * **문구를 화면 코드에 흩뿌리지 않는다.** 아래 문자열은 `ai-wiki/product/voice-tone.md` §4
- * 표에서 그대로 인용한 확정 카피이며 Figma 텍스트 노드와 글자 단위로 일치한다
- * (2026-07-26 `get_design_context` 대조). 의역·문장부호 변경·임의 줄바꿈 삽입 금지 —
- * 줄바꿈을 넣지 않는 이유는 시스템 폰트 확대 시 어디서 접히는지가 달라져야 하기 때문이다
- * (Figma의 줄바꿈 위치는 기본 폰트 크기에서의 결과일 뿐 계약이 아니다).
+ * **문구를 화면 코드에 흩뿌리지 않는다.** 카피의 원본은 `ai-wiki/product/voice-tone.md` §4였고,
+ * 2026-07-29 팀(리더) 확정으로 아래 항목이 개정됐다 — G1·G2 본문 표현, G3 제목·본문, G4 본문
+ * 축약, G5 본문 축약, 프라이버시 캡션 전 스텝 삭제 (BY-151 코멘트 참고). **voice-tone 위키와
+ * Figma 텍스트 노드는 이 개정을 아직 반영하지 않았다** — 위키·Figma 동기화는 후속 작업이다.
+ * 의역·문장부호 변경·임의 줄바꿈 삽입 금지는 그대로 유지한다.
  */
 
 /** 가이드 진입 출처. 종료 후 동작이 갈릴 수 있어 플로우가 끝까지 들고 다닌다. */
@@ -40,6 +40,8 @@ export type OnboardingGuideExitReason = "completed" | "skipped";
 export const GUIDE_PREV_LABEL = "이전";
 export const GUIDE_NEXT_LABEL = "다음";
 export const GUIDE_START_LABEL = "집중 시작하기";
+/** 재진입(홈 카드·설정) 마지막 CTA — 세션을 시작하지 않으므로 문구도 종료를 말한다(2026-07-29 확정). */
+export const GUIDE_CLOSE_LABEL = "가이드 종료하기";
 export const GUIDE_SKIP_LABEL = "건너뛰기";
 
 /**
@@ -57,7 +59,8 @@ export const GUIDE_FINAL_HINT = "이 안내는 설정 > 측정 기준 안내에�
 export const MOCK_FOCUS_PILL_LABEL = "집중 측정 중";
 export const MOCK_DISTRACT_PILL_LABEL = "자리를 비운 것 같아요";
 export const MOCK_DISTRACT_PILL_SUBLABEL = "돌아오면 자동으로 다시 측정돼요";
-export const MOCK_PRIVACY_CAPTION = "영상은 기기 안에서만 처리돼요";
+// "영상은 기기 안에서만 처리돼요" 타이머 캡션은 2026-07-29 확정으로 전 스텝에서 삭제됐다 —
+// 프라이버시 안내는 G5 카드가 전담한다.
 
 export type CoachTooltipContent = {
   title: string;
@@ -114,7 +117,6 @@ export type MockBackdrop = {
   /** dim 불투명도 — Figma 실측(G3만 0.45, 나머지 0.55). */
   dimOpacity: number;
   statusPill: MockStatusPill | null;
-  showPrivacyCaption: boolean;
   /** 컨트롤 바가 dim 위로 올라와 강조되는가(G4) — Figma는 y756→y409로 끌어올려 표현했다. */
   controlBar: "behind-dim" | "raised";
   /** 순공 타이머 시드(초). Figma 시안값 — 실시간 카운터의 출발점으로만 쓴다. */
@@ -182,7 +184,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     figmaNodeId: "68:902",
     tooltip: {
       title: "순공시간이 여기에 쌓여요",
-      body: "집중하는 동안 타이머가 저절로 올라가요. 눌러야 할 건 없어요.",
+      body: "집중하는 동안 타이머가 흘러가요.",
       tail: "bottom",
     },
     privacyCard: null,
@@ -195,7 +197,6 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       base: "camera",
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
-      showPrivacyCaption: true,
       controlBar: "behind-dim",
       seedFocusSec: 19,
       seedTotalSec: 22,
@@ -208,7 +209,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     figmaNodeId: "68:976",
     tooltip: {
       title: "집중이 아니면, 잠시 멈춰요",
-      body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 이어져요.",
+      body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 흘러가요.",
       tail: "bottom",
     },
     privacyCard: null,
@@ -225,7 +226,6 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
         label: MOCK_DISTRACT_PILL_LABEL,
         subLabel: MOCK_DISTRACT_PILL_SUBLABEL,
       },
-      showPrivacyCaption: true,
       controlBar: "behind-dim",
       // 순공 12 < 총 22 — Figma 시안이 "비집중 = 순공 정지 / 총 진행"을 이 차이로 보여준다.
       seedFocusSec: 12,
@@ -243,8 +243,8 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     id: "G3",
     figmaNodeId: "68:1057",
     tooltip: {
-      title: "탭 한 번이면, 타이머만 크게",
-      body: "공부 중 화면을 탭하면 숫자만 남는 심플 모드가 돼요. 한 번 더 탭하면 원래 화면으로 돌아와요.",
+      title: "탭 한 번이면, 타이머만 떠요",
+      body: "공부 중 화면을 탭하면 타이머만 남는 심플 모드가 돼요. 한 번 더 탭하면 원래 화면으로 돌아와요.",
       tail: "top",
     },
     privacyCard: null,
@@ -262,7 +262,6 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       // 임의로 고르지 않고 Figma 그대로(없음) 둔다.
       // TODO(SCR-G1-G5-onboarding-guide.md Current Limitations): G3 상태 필 유무 확정 필요.
       statusPill: null,
-      showPrivacyCaption: false,
       controlBar: "behind-dim",
       seedFocusSec: 1508,
       seedTotalSec: 1668,
@@ -275,7 +274,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     figmaNodeId: "68:1118",
     tooltip: {
       title: "잠깐 쉴 땐 일시정지",
-      body: "일시정지하면 순공시간과 총 공부 시간이 모두 멈춰요. 카메라 전환과 공부 종료 버튼도 여기에 모여 있어요.",
+      body: "일시정지하면 순공시간과 총 공부 시간이 모두 멈춰요.",
       tail: "bottom",
     },
     privacyCard: null,
@@ -288,9 +287,6 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       base: "camera",
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
-      // Figma에서 이 캡션 노드(`68:1126`)는 hidden=true다 — 의도적 숨김인지 정리 누락인지
-      // 확인되지 않아 Figma 그대로 렌더하지 않는다(Review Checklist 항목).
-      showPrivacyCaption: false,
       controlBar: "raised",
       // G4는 일시정지를 "설명만" 한다 — Figma 타이머도 진행 중 값이다. 임의로 "둘 다 멈춤"
       // 시연을 추가하지 않는다(추가하려면 확인 필요 — Review Checklist).
@@ -313,7 +309,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     tooltip: null,
     privacyCard: {
       title: "영상은 기기 밖으로 나가지 않아요",
-      body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 남는 건 오직 공부 시간 기록뿐이에요.",
+      body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
     },
     anchor: "privacy-card",
     spacing: { topFlex: 42, midFlex: 257, bottomFlex: 0 },
@@ -326,7 +322,6 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       base: "camera",
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
-      showPrivacyCaption: true,
       controlBar: "behind-dim",
       seedFocusSec: 20,
       seedTotalSec: 23,

@@ -3,11 +3,13 @@ import { Animated, PanResponder, Pressable, StyleSheet, View } from "react-nativ
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  GUIDE_CLOSE_LABEL,
   ONBOARDING_GUIDE_STEPS,
   type OnboardingGuideExitReason,
   type OnboardingGuideStep,
 } from "../../lib/onboardingGuideSteps";
 import { CoachNavBar } from "./CoachNavBar";
+import { IconClose } from "./coachIcons";
 import { coachMotion, SWIPE_THRESHOLD_PX } from "./coachOverlayTheme";
 import { CoachTooltip } from "./CoachTooltip";
 import { GuidePrivacyCard } from "./GuidePrivacyCard";
@@ -30,14 +32,15 @@ import {
  *
  * ## 레이어 순서 (뒤 → 앞)
  *
- * 1. 목업 배경판(사선 밴드 + 프리뷰 라벨) — 장식
+ * 1. 검정 단색 배경판 — 장식(BY-151: 사선 밴드·프리뷰 라벨은 제거된 카메라 프리뷰 목업이었다)
  * 2. 컨트롤 바(dim 뒤에 깔리는 스텝일 때) — 장식
  * 3. dim
  * 4. 탭 레이어 — 화면 아무 곳이나 탭하면 다음 스텝
  * 5. 콘텐츠(상태 필 · 툴팁/카드 · 타이머 · G4의 끌어올린 컨트롤 바)
  * 6. 하단 내비게이션(페이저 · 이전 · CTA · 건너뛰기)
+ * 7. 우상단 X(나가기) — 자기 탭만 가져간다(BY-151)
  *
- * 5번의 요소들은 `pointerEvents="none"`이라 탭이 4번으로 흘러가고, 6번의 버튼만 자기 탭을
+ * 5번의 요소들은 `pointerEvents="none"`이라 탭이 4번으로 흘러가고, 6·7번의 버튼만 자기 탭을
  * 가져간다 — Figma 하단 힌트가 약속한 "화면을 탭해도 넘어가요(버튼 영역 제외)"와 같다.
  */
 
@@ -61,7 +64,6 @@ function StepBody({
     <MockTimerBlock
       focusSec={focusSec}
       totalSec={totalSec}
-      showCaption={step.backdrop.showPrivacyCaption}
       tone={step.backdrop.focusTimerTone}
       emphasized={step.emphasis === "timer"}
     />
@@ -97,19 +99,17 @@ function StepBody({
           </View>
         </>
       );
-    // G4 — Figma는 컨트롤 바를 y756→y409로 끌어올려 dim 위에 얹는 방식으로 강조했다.
-    // `design.md`는 같은 스텝을 "바 링 하이라이트 + 위치 힌트 셰브런"으로 서술해 표현이 다르다.
-    // 어느 쪽이 확정인지 미확인이라 Figma 방식(끌어올림)으로 두되, 강조 방식은 `emphasis`
-    // prop으로 분리돼 있어 링/셰브런으로 확정되면 배치만 교체하면 된다.
-    // TODO(SCR-G1-G5-onboarding-guide.md Current Limitations): G4 강조 표현 확정 필요.
+    // G4 — 타이머가 원래 자리(위)에 남고, 오버레이(툴팁 + 끌어올린 컨트롤 바)가 그 아래에
+    // 놓인다(2026-07-29 확정 — 구 Figma 배치는 오버레이가 타이머 위였다). 강조는 바 전체가
+    // 아니라 일시정지 버튼 주위 파동이다(`MockControlBar` 참고).
     case "above-control-bar":
       return (
         <>
-          {coachCard}
-          <MockControlBar emphasized />
+          {timerBlock}
           <View className="mt-6" pointerEvents="none">
-            {timerBlock}
+            {coachCard}
           </View>
+          <MockControlBar emphasized />
         </>
       );
     // G5 — 말풍선 대신 일러스트 카드가 상단에 놓이고 타이머는 원래 자리에 남는다.
@@ -126,9 +126,18 @@ function StepBody({
 
 export function OnboardingGuideFlow({
   onFinish,
+  onExit,
+  isReentry,
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
+  /** 우상단 X(나가기) — 세션으로 이어지지 않는 별도 종료 경로(2026-07-28 확정, BY-151). */
+  onExit: () => void;
+  /**
+   * 재진입(홈 카드·설정) 모드인가. 재진입에서는 마지막 CTA가 세션을 시작하지 않고 닫기만
+   * 하므로 문구도 "가이드 종료하기"로 바꾼다(2026-07-29 확정) — 문구와 동작의 일치.
+   */
+  isReentry: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [stepIndex, setStepIndex] = useState(0);
@@ -257,7 +266,7 @@ export function OnboardingGuideFlow({
 
         <CoachNavBar
           stepIndex={stepIndex}
-          ctaLabel={step.ctaLabel}
+          ctaLabel={isLastStep && isReentry ? GUIDE_CLOSE_LABEL : step.ctaLabel}
           skippable={step.skippable}
           isFirstStep={isFirstStep}
           onPrev={goPrev}
@@ -265,6 +274,25 @@ export function OnboardingGuideFlow({
           onSkip={skip}
         />
       </View>
+
+      {/* 우상단 나가기 — 건너뛰기(생략하고 진행)와 반대 방향의 별도 동작이라 위치도 분리한다. */}
+      <Pressable
+        onPress={onExit}
+        accessibilityRole="button"
+        accessibilityLabel="가이드 닫기"
+        hitSlop={8}
+        style={{
+          position: "absolute",
+          top: insets.top + 13,
+          right: 20,
+          width: 44,
+          height: 44,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <IconClose />
+      </Pressable>
     </View>
   );
 }
