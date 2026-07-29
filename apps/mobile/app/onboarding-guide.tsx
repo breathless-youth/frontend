@@ -74,12 +74,9 @@ export default function OnboardingGuideScreen() {
     }
     hasClosedRef.current = true;
     closeGuide();
-    void exitOnboardingGuide().catch((error: unknown) => {
-      // 저장 실패는 store가 내부에서 삼킨다(onboardingGuideStore — 실패해도 다음 진입 시 가이드가
-      // 한 번 더 뜨는 정도). 따라서 이 catch는 현재 도달하지 않으며, 저장소 구현이 교체될 때
-      // unhandled rejection을 막는 마지막 방어선으로만 둔다.
-      console.warn("[onboarding-guide] 나가기 처리 실패", error);
-    });
+    // catch를 붙이지 않는다 — 저장 실패는 store가 내부에서 삼키므로(onboardingGuideStore) 이
+    // Promise는 reject하지 않는다. 실패해도 다음 진입 시 가이드가 한 번 더 뜨는 정도의 열화다.
+    void exitOnboardingGuide();
   }, [closeGuide]);
 
   return (

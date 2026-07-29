@@ -100,7 +100,7 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
     expect(nav.startSession).not.toHaveBeenCalled();
   });
 
-  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않는다 — 재진입 CTA 동작은 미정", async () => {
+  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않고 닫기만 한다 — 2026-07-28 확정(BY-151)", async () => {
     setMockCameraPermissionState({ status: "granted" });
 
     for (const entry of ["home-card", "settings"] as const) {
