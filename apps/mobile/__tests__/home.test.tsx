@@ -4,7 +4,7 @@ import HomeScreen from "../app/(tabs)/index";
 import { useHomeSummary } from "../components/home/useHomeSummary";
 
 jest.mock("expo-router", () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), navigate: jest.fn() },
   useFocusEffect: jest.fn(),
 }));
 jest.mock("../components/home/useHomeSummary");

@@ -124,7 +124,8 @@ export default function SettingsScreen() {
             label="측정 기준 안내"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              router.push({ pathname: "/onboarding-guide", params: { entry: "settings" } });
+              // navigate: 이중 탭 시 가이드 스택 중복 방지 (홈 진입점과 같은 이유, 리뷰 반영 BY-151).
+              router.navigate({ pathname: "/onboarding-guide", params: { entry: "settings" } });
             }}
           />
         </SettingsSection>

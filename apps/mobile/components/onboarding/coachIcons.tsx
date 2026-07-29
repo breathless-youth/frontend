@@ -1,4 +1,4 @@
-import Svg, { Path, type SvgProps } from "react-native-svg";
+import Svg, { Circle, Ellipse, Path, Rect, type SvgProps } from "react-native-svg";
 
 import { coachOverlay, coachTokenColors } from "./coachOverlayTheme";
 
@@ -87,56 +87,98 @@ export function IconExit({ width = 19, height = 19, ...rest }: SvgProps) {
   );
 }
 
+/** 우상단 나가기 X (BY-151). 획 색·두께는 IconExit의 화이트 스트로크 관례를 따른다. */
+export function IconClose({ width = 19, height = 19, ...rest }: SvgProps) {
+  return (
+    <Svg width={width} height={height} viewBox="0 0 19 19" fill="none" {...rest}>
+      <Path
+        d="M4.75 4.75L14.25 14.25"
+        stroke="#FFFFFF"
+        strokeWidth={1.58333}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M14.25 4.75L4.75 14.25"
+        stroke="#FFFFFF"
+        strokeWidth={1.58333}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 /**
- * G5 프라이버시 카드 일러스트(`illust/privacy-camera` 32:74, 156×104).
+ * G5 프라이버시 카드 일러스트 — `FocusON V1.0 Final (Standalone)_iOS.html`의 G5 카드 SVG를
+ * 그대로 옮긴 것(2026-07-29 확정 교체, 구 `illust/privacy-camera` 32:74 대체). 구성:
+ * 폰 실루엣 + 시계(측정) + 방패 체크(보호) + 사선이 그어진 구름(외부 전송 없음) + 스파클.
  *
- * Figma 원본은 색을 하드코딩했지만 값이 기존 토큰의 **다크값**과 정확히 일치한다
- * (`#4593FC` = `state/focus` 다크, `#FF6B77` = `feedback/error` 다크) — 하드코딩 대신
- * 토큰에 바인딩한다. 이 일러스트가 다크값을 쓰고 있다는 사실 자체가 `coachOverlayTheme.ts`의
- * `GUIDE_FOCUS_COLOR` 판단 근거 중 하나다.
+ * 원본 HTML의 `#4593FC`·`#FF6B77`은 기존 토큰의 다크값과 일치해 토큰에 바인딩한다
+ * (`#4593FC` = `state/focus` 다크, `#FF6B77` = `feedback/error` 다크 — 구 일러스트와 동일 근거).
  */
 export function IllustPrivacyCamera({ width = 156, height = 104, ...rest }: SvgProps) {
   const accent = coachTokenColors.privacyIllustAccent;
   const block = coachTokenColors.exitButton;
 
   return (
-    <Svg width={width} height={height} viewBox="0 0 156 104" fill="none" {...rest}>
+    <Svg width={width} height={height} viewBox="0 0 150 100" fill="none" {...rest}>
+      <Ellipse cx={76} cy={94} rx={46} ry={4} fill="rgba(255,255,255,0.07)" />
+      <Rect
+        x={59}
+        y={8}
+        width={34}
+        height={66}
+        rx={7}
+        stroke="#F9FAFB"
+        strokeWidth={2}
+        fill="rgba(255,255,255,0.03)"
+      />
+      <Path d="M71 13.5h10" stroke="#F9FAFB" strokeWidth={1.6} strokeLinecap="round" />
+      <Circle cx={76} cy={36} r={11} stroke={accent} strokeWidth={2} />
       <Path
-        d="M112.32 18.72H43.68C36.7875 18.72 31.2 24.3075 31.2 31.2V72.8C31.2 79.6925 36.7875 85.28 43.68 85.28H112.32C119.213 85.28 124.8 79.6925 124.8 72.8V31.2C124.8 24.3075 119.213 18.72 112.32 18.72Z"
-        fill="#FFFFFF"
-        fillOpacity={0.03}
+        d="M76 30.5v5.5l3.6 2.2"
         stroke={accent}
-        strokeWidth={2.08}
-      />
-      <Path
-        d="M78 35.36C81.3099 35.36 84.4842 36.6748 86.8247 39.0153C89.1652 41.3557 90.48 44.5301 90.48 47.84C90.48 51.1499 89.1652 54.3242 86.8247 56.6647C84.4842 59.0051 81.3099 60.32 78 60.32C74.6901 60.32 71.5158 59.0051 69.1753 56.6647C66.8349 54.3242 65.52 51.1499 65.52 47.84C65.52 44.5301 66.8349 41.3557 69.1753 39.0153C71.5158 36.6748 74.6901 35.36 78 35.36Z"
-        stroke={accent}
-        strokeWidth={2.08}
-      />
-      <Path
-        d="M78 53.04C80.8719 53.04 83.2 50.7119 83.2 47.84C83.2 44.9681 80.8719 42.64 78 42.64C75.1281 42.64 72.8 44.9681 72.8 47.84C72.8 50.7119 75.1281 53.04 78 53.04Z"
-        fill={accent}
-      />
-      <Path
-        d="M31.2 52H10.4M124.8 52H145.6"
-        stroke="#FFFFFF"
-        strokeOpacity={0.35}
-        strokeWidth={2.08}
-        strokeLinecap="round"
-        strokeDasharray="1.04 6.24"
-      />
-      <Path
-        d="M14.56 45.76L8.32 52L14.56 58.24M141.44 45.76L147.68 52L141.44 58.24"
-        stroke={block}
-        strokeWidth={2.08}
+        strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M62.4 91.52H93.6"
-        stroke="#FFFFFF"
-        strokeOpacity={0.5}
-        strokeWidth={2.08}
+        d="M68 56h16M68 62h11"
+        stroke="rgba(255,255,255,0.4)"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M104 50c7 0 12 2.6 12 2.6v12.8c0 8.4-6.6 13.9-12 15.6-5.4-1.7-12-7.2-12-15.6V52.6S97 50 104 50Z"
+        fill="rgba(49,130,246,0.18)"
+        stroke={accent}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M98.5 64.5l4 4 7-7.5"
+        stroke="#F9FAFB"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M22 30c-3.8 0-6.5-2.4-6.5-5.7 0-3 2.2-5.3 5-5.6.6-3.6 3.7-6.2 7.5-6.2 3.4 0 6.3 2.1 7.3 5.2 3.3.2 5.7 2.6 5.7 5.9 0 3.5-2.8 6.4-6.6 6.4Z"
+        stroke="rgba(255,255,255,0.5)"
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d="M12.5 34.5 42 8.5" stroke={block} strokeWidth={2.2} strokeLinecap="round" />
+      <Path
+        d="M52 28h-6M49.5 22.5l-4 3"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeDasharray="2.5 3.5"
+      />
+      <Path
+        d="M124 18l3.4-3.4M127.5 26h4.8M118 12.5v-4.8"
+        stroke={accent}
+        strokeWidth={1.8}
         strokeLinecap="round"
       />
     </Svg>

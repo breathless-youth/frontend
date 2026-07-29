@@ -59,9 +59,7 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     render(<OnboardingGuideScreen />);
 
     expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeTruthy();
-    expect(
-      screen.getByText("집중하는 동안 타이머가 저절로 올라가요. 눌러야 할 건 없어요."),
-    ).toBeTruthy();
+    expect(screen.getByText("집중하는 동안 타이머가 흘러가요.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "이전" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "다음" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "건너뛰기" })).toBeTruthy();
@@ -73,7 +71,7 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
     pressNext();
     expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeTruthy();
     pressNext();
-    expect(screen.getByText("탭 한 번이면, 타이머만 크게")).toBeTruthy();
+    expect(screen.getByText("탭 한 번이면, 타이머만 떠요")).toBeTruthy();
     pressNext();
     expect(screen.getByText("잠깐 쉴 땐 일시정지")).toBeTruthy();
     pressNext();
@@ -224,7 +222,7 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
     });
   });
 
-  it("다시 보기(홈 카드) 진입에서는 권한 요청으로 이어지지 않는다 — 재진입 CTA 동작 미정", async () => {
+  it("다시 보기(홈 카드) 진입에서는 마지막 CTA가 '가이드 종료하기'이고 닫기만 한다", async () => {
     mockEntryParam = "home-card";
     stubPermission("denied");
     render(<OnboardingGuideScreen />);
@@ -232,7 +230,9 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
       pressNext();
     }
 
-    fireEvent.press(screen.getByRole("button", { name: "집중 시작하기" }));
+    // 재진입에서는 세션을 시작하지 않으므로 문구도 종료를 말한다(2026-07-29 확정).
+    expect(screen.queryByRole("button", { name: "집중 시작하기" })).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: "가이드 종료하기" }));
 
     await waitFor(() => {
       expect(router.back).toHaveBeenCalled();
@@ -241,14 +241,54 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
   });
 });
 
-describe("범위 경계", () => {
-  it("카메라를 켜지 않는다 — 가이드는 권한 요청보다 먼저 실행된다", () => {
+describe("우상단 X 나가기(BY-151) — onFinish와 분리된 별도 종료 경로", () => {
+  it("우상단 X로 나가면 봤음만 저장하고 세션·권한 게이트로 이어지지 않는다", async () => {
+    // denied로 세팅해두면, 만약 구현이 실수로 권한 게이트를 태우면 즉시
+    // router.push("/permission-denied")가 호출돼 이 테스트가 실패한다 — "게이트 미호출"을
+    // 간접이 아니라 직접 드러내는 배치다(파일의 기존 "권한 거부" 테스트와 같은 방식).
+    setMockCameraPermissionState({ status: "denied" });
     render(<OnboardingGuideScreen />);
 
-    // 배경은 카메라 피드가 아니라 목업이라는 것이 화면에도 드러난다(장식이라 a11y에서는 제외).
-    expect(
-      screen.getByText("[ 전 면 카 메 라 프 리 뷰 ]", { includeHiddenElements: true }),
-    ).toBeTruthy();
+    fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));
+
+    expect(router.back).toHaveBeenCalled();
+    await waitFor(async () => {
+      await expect(store.hasSeenGuide()).resolves.toBe(true);
+    });
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("X를 연타해도 닫기는 한 번만 실행된다 — 종료 래치", () => {
+    render(<OnboardingGuideScreen />);
+
+    const closeButton = screen.getByRole("button", { name: "가이드 닫기" });
+    fireEvent.press(closeButton);
+    fireEvent.press(closeButton);
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it("X 직후 건너뛰기가 눌려도 권한 흐름이 시작되지 않는다 — 먼저 발화한 종료만 유효", async () => {
+    setMockCameraPermissionState({ status: "denied" });
+    render(<OnboardingGuideScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));
+    fireEvent.press(screen.getByRole("button", { name: "건너뛰기" }));
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    await waitFor(async () => {
+      await expect(store.hasSeenGuide()).resolves.toBe(true);
+    });
+    // 래치가 없으면 건너뛰기 경로가 권한 게이트를 태워 denied → push("/permission-denied")가 찍힌다.
+    expect(router.push).not.toHaveBeenCalled();
+  });
+});
+
+describe("범위 경계", () => {
+  it("배경은 검정 단색이다 — 카메라 프리뷰 목업 라벨을 그리지 않는다 (BY-151 재정의)", () => {
+    render(<OnboardingGuideScreen />);
+
+    expect(screen.queryByText(/전 면 카 메 라/, { includeHiddenElements: true })).toBeNull();
   });
 
   it("싱글룸 프라이버시 문구만 쓴다", () => {
@@ -259,7 +299,7 @@ describe("범위 경계", () => {
 
     expect(
       screen.getByText(
-        "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 남는 건 오직 공부 시간 기록뿐이에요.",
+        "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/AI 분석용 원본 프레임/)).toBeNull();

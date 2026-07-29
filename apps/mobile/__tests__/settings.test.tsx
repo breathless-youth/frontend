@@ -149,7 +149,7 @@ describe("S6 · 설정", () => {
 
     fireEvent.press(screen.getByRole("button", { name: "측정 기준 안내" }));
 
-    expect(router.push).toHaveBeenCalledWith({
+    expect(router.navigate).toHaveBeenCalledWith({
       pathname: "/onboarding-guide",
       params: { entry: "settings" },
     });
