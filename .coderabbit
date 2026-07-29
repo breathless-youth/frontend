@@ -1,0 +1,152 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "ko-KR"
+early_access: false
+tone_instructions: >-
+  핵심 결함만 지적하세요. 재현 가능한 버그, 보안·개인정보, 성능, 동시성, 자원 정리와 테스트 누락을 우선하고 포맷팅·취향·사소한 리팩터링은 생략하세요. 각 지적에는 영향과 최소 수정안을 포함하세요.
+
+chat:
+  auto_reply: true
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: false
+  review_progress: true
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: true
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 2
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "[skip review]"
+    labels:
+      - "!do-not-review"
+    # develop/release 브랜치로 PR을 보내는 경우에만 추가하세요.
+    # base_branches:
+    #   - "develop"
+    #   - "release/.*"
+
+  path_filters:
+    - "!**/coverage/**"
+    - "!**/build/**"
+    - "!**/.expo/**"
+    - "!**/.gradle/**"
+    - "!**/Pods/**"
+    - "!**/__snapshots__/**"
+    - "!**/*.onnx"
+    - "!**/*.tflite"
+    - "!**/*.weights"
+    - "!**/*.wasm"
+
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,jsx}"
+      instructions: |
+        현재 모바일 카메라 기반 집중 감지 MVP의 정확성, 개인정보 보호, 모바일 성능을 우선한다.
+        - 카메라·추론 루프의 중복 실행, stale closure, race condition, unmount/background 전환 시 정리 누락을 확인한다.
+        - 프레임 단위 hot path에서 불필요한 복사·할당, 동기식 WebView bridge 호출, 무제한 큐 증가를 지적한다.
+        - 입력 크기, tensor shape, 좌표 변환, confidence/NMS, 시간 단위(ms/s)와 경계값 오류를 검증한다.
+        - 카메라 원본 프레임·얼굴 이미지가 명시적 요구 없이 로그, 영구 저장소, 서버로 전송되면 지적한다.
+        - WebView/WebRTC 메시지는 origin, 메시지 타입, payload schema를 검증하고 신뢰되지 않은 입력을 거부해야 한다.
+        - ESLint/formatter가 처리할 스타일 문제는 기능 결함을 숨기는 경우가 아니면 코멘트하지 않는다.
+
+    - path: "**/*.{test,spec}.{ts,tsx,js,jsx}"
+      instructions: |
+        집중 상태 전이 테스트를 결정적으로 검토한다.
+        - 대상이 연속 1,000ms 감지된 뒤에만 FOCUS가 되는지 검증한다.
+        - 처리된 프레임 단 한 번이라도 모든 대상을 놓치면 즉시 AWAY가 되고 1,000ms 자격 시간이 처음부터 재시작되는지 검증한다.
+        - fake timer 또는 명시적 timestamp를 사용하고 sleep 기반 flaky test를 피한다.
+        - 카메라 권한 거부, 앱 background/foreground, 컴포넌트 unmount와 추론 오류 경로를 포함한다.
+
+    - path: "android/**/*.{kt,kts,java}"
+      instructions: |
+        카메라 권한과 Activity/Fragment lifecycle, background 전환 시 카메라 해제, 스레드 안전성,
+        WebView JavascriptInterface 노출 범위와 입력 검증을 중점적으로 확인한다.
+
+    - path: "ios/**/*.{swift,m,mm}"
+      instructions: |
+        AVFoundation 권한과 session lifecycle, background 전환 시 capture 중지, main-thread 규칙,
+        WKScriptMessageHandler 입력 검증과 retain cycle을 중점적으로 확인한다.
+
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "warning"
+      requirements: "Conventional Commit 형식(type: summary)을 사용하고, 변경 목적이 드러나도록 작성한다."
+    description:
+      mode: "warning"
+    issue_assessment:
+      mode: "off"
+    custom_checks:
+      - name: "Focus state invariant"
+        mode: "warning"
+        instructions: |
+          PASS only if changed focus-state logic preserves both invariants:
+          1. FOCUS requires continuous target detection for at least 1,000 ms.
+          2. If every target is missed in any processed frame, state changes to AWAY immediately and the full 1,000 ms qualification restarts.
+          FAIL if a grace frame, accumulated non-contiguous time, or delayed AWAY transition is introduced without an explicit specification change.
+      - name: "On-device camera privacy"
+        mode: "warning"
+        instructions: |
+          PASS only if raw camera frames and identifiable face imagery remain on-device for this MVP.
+          FAIL if changed code uploads, logs, persists, or sends them through analytics, server APIs, or peer channels without an explicit approved requirement and documented consent/retention behavior.
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: true
+    simplify:
+      enabled: false
+    autofix:
+      enabled: true
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+
+  tools:
+    eslint:
+      enabled: true
+    biome:
+      enabled: false
+    github-checks:
+      enabled: true
+      timeout_ms: 180000
+    actionlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+  learnings:
+    scope: "local"
+    approval_delay: 7
