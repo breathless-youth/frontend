@@ -303,15 +303,21 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           borderRadius: coachRadius.full,
         }}
       >
+        {/* 손잡이 중앙정렬(2026-07-29) — 좌우 풀폭 래퍼의 alignItems로 맞춘다.
+            구 방식(left-1/2 + 음수 마진 임의값 클래스)은 좌측으로 치우쳐 보였다. */}
         <View
-          className="absolute left-1/2 top-[5px] -ml-[18px]"
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: coachRadius.full,
-            backgroundColor: coachOverlay.controlBarHandle,
-          }}
-        />
+          pointerEvents="none"
+          style={{ position: "absolute", top: 5, left: 0, right: 0, alignItems: "center" }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: coachRadius.full,
+              backgroundColor: coachOverlay.controlBarHandle,
+            }}
+          />
+        </View>
         <RingOutEmphasis
           active={emphasized}
           color={GUIDE_FOCUS_COLOR}
