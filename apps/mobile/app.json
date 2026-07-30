@@ -4,7 +4,7 @@
     "slug": "mobile",
     "scheme": "focuson",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -12,7 +12,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
         "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
+          "NSAllowsArbitraryLoads": true
         },
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -45,6 +45,7 @@
     "extra": {
       "apiBaseUrl": "http://52.78.219.53:8080",
       "updateNoticeEnabled": false,
+      "webDevUrl": "",
       "eas": {
         "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
       }
