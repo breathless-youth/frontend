@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { StudySessionResponse } from "@focuson/types";
 
 import { Toast } from "@/components/ui/toast";
+import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { SessionCaption } from "@/features/study-session/components/SessionCaption";
@@ -102,6 +103,9 @@ export function RoomPage() {
   const userId = parseUserId(searchParams.get("userId"));
   // 개발 빌드에서만 콘솔로 감지 신호를 밀어넣을 수 있게 한다(프로덕션에서는 undefined → 기본 mock).
   const [devDetector] = useState(createDevMockDetector);
+  // 카메라는 실제 getUserMedia, 감지는 아직 mock이다 — Vision 파이프라인은 후속 계획에서
+  // 같은 `FocusDetector` 인터페이스 뒤에 붙는다(설계 문서 §4).
+  const [camera] = useState(createMediaStreamCameraAdapter);
   const {
     focusSec,
     studySec,
@@ -109,11 +113,13 @@ export function RoomPage() {
     phase,
     endReason,
     isCameraRunning,
+    cameraStream,
+    cameraFacing,
     pause,
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { detector: devDetector });
+  } = useStudyRoomSession(userId, { camera, detector: devDetector });
   const { message: toastMessage, showToast } = useSessionToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
@@ -195,7 +201,15 @@ export function RoomPage() {
       className="relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
     >
       {/* 심플 모드는 프리뷰를 덮는 게 아니라 **걷어낸다** — 둘 중 하나만 렌더한다. */}
-      {simpleMode ? <SimpleModeSurface /> : <CameraPreviewSurface isRunning={isCameraRunning} />}
+      {simpleMode ? (
+        <SimpleModeSurface />
+      ) : (
+        <CameraPreviewSurface
+          isRunning={isCameraRunning}
+          stream={cameraStream}
+          facing={cameraFacing}
+        />
+      )}
 
       {phase.name === "studying" ? (
         <>

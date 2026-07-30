@@ -3,12 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import { router } from "expo-router";
 
 import OnboardingGuideScreen from "../app/onboarding-guide";
-import {
-  mockCameraPermissionAdapter,
-  resetMockCameraPermissionState,
-  setCameraPermissionAdapter,
-  setMockCameraPermissionState,
-} from "../lib/cameraPermission";
+import { type CameraPermissionStatus, setCameraPermissionAdapter } from "../lib/cameraPermission";
 import {
   createMemoryOnboardingGuideStore,
   type OnboardingGuideStore,
@@ -35,12 +30,18 @@ jest.mock("react-native-safe-area-context", () => ({
 
 let store: OnboardingGuideStore;
 
+/** 어댑터를 교체해 권한 분기를 재현한다 — 네이티브 `expo-camera`를 건드리지 않는다. */
+function stubPermission(status: CameraPermissionStatus) {
+  setCameraPermissionAdapter({
+    getStatus: () => Promise.resolve(status),
+    request: () => Promise.resolve(status),
+  });
+}
+
 beforeEach(() => {
   mockEntryParam = "focus-start";
   store = createMemoryOnboardingGuideStore();
   setOnboardingGuideStore(store);
-  setCameraPermissionAdapter(mockCameraPermissionAdapter);
-  resetMockCameraPermissionState();
   jest.clearAllMocks();
 });
 
@@ -180,7 +181,7 @@ describe("G1~G5 온보딩 가이드 — 5스텝 한 플로우", () => {
 
 describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어진다", () => {
   it("G5 CTA로 완료하면 가이드를 닫고 세션 시작 경로로 간다", async () => {
-    setMockCameraPermissionState({ status: "granted" });
+    stubPermission("granted");
     render(<OnboardingGuideScreen />);
     for (let i = 0; i < 4; i += 1) {
       pressNext();
@@ -192,12 +193,14 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
     await waitFor(async () => {
       await expect(store.hasSeenGuide()).resolves.toBe(true);
     });
-    // 세션 라우트(S3-1)가 아직 없으므로 존재하지 않는 경로로 이동을 시도하지 않는다.
-    expect(router.push).not.toHaveBeenCalled();
+    // 세션 라우트(S3-1)가 Task 4(BY-282)에서 복원됐다 — 완료 시 곧장 세션으로 이어진다.
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith("/room/1");
+    });
   });
 
   it("건너뛰어도 '봤다'로 기록하고 같은 다음 단계로 이어진다", async () => {
-    setMockCameraPermissionState({ status: "granted" });
+    stubPermission("granted");
     render(<OnboardingGuideScreen />);
 
     fireEvent.press(screen.getByRole("button", { name: "건너뛰기" }));
@@ -209,7 +212,7 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
   });
 
   it("권한이 거부돼 있으면 세션 대신 S2-3 안내로 보낸다", async () => {
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied");
     render(<OnboardingGuideScreen />);
 
     fireEvent.press(screen.getByRole("button", { name: "건너뛰기" }));
@@ -221,7 +224,7 @@ describe("플로우 종료 — 완료·건너뛰기 둘 다 세션으로 이어�
 
   it("다시 보기(홈 카드) 진입에서는 마지막 CTA가 '가이드 종료하기'이고 닫기만 한다", async () => {
     mockEntryParam = "home-card";
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied");
     render(<OnboardingGuideScreen />);
     for (let i = 0; i < 4; i += 1) {
       pressNext();

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SettingsRow } from "../../components/settings/SettingsRow";
 import { SettingsSection } from "../../components/settings/SettingsSection";
-import { openAppSettings } from "../../lib/cameraPermission";
+import { getCameraPermissionStatus, openAppSettings } from "../../lib/cameraPermission";
 import { appVersionLabel, cameraPermissionRowLabel } from "../../lib/settingsInfo";
 
 /**
@@ -23,52 +23,53 @@ import { appVersionLabel, cameraPermissionRowLabel } from "../../lib/settingsInf
  */
 
 /**
- * 토글에 넣을 카메라 권한 상태.
+ * OS 카메라 권한 상태를 조회해 표시용 값으로 돌려준다
+ * (`SCR-S6-settings.md` Data Contract 2 · Interaction Contract §3).
  *
- * ⚠️ **실제 OS 권한이 아니라 Figma 예시 상태(On)다.** 지금 `apps/mobile`에는 권한 상태를 읽을
- * 수단이 없다 — `expo-camera`가 dependency에 없고(카메라는 `apps/web` WebView 소유),
- * `frontend/CLAUDE.md`가 "검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것"을 못박고 있다.
- * `lib/cameraPermission.ts`의 어댑터도 아직 mock이라(기본 `undetermined`) 실제 값이 아니다.
+ * 마운트 시 1회, 그리고 사용자가 OS 설정에서 권한을 바꾸고 돌아올 때(`AppState` → `active`)
+ * 재조회한다. 앱이 권한을 바꾸지는 않는다 — 읽기만 한다.
  *
- * 값 주입 지점을 이 상수 한 곳으로 모아 뒀다 — 조회 수단이 확정되면 아래 훅과 함께 한 번에 교체된다.
- * TODO(SCR-S6-settings.md Current Limitations): 권한 상태 조회 수단 확정 필요.
- *   **사용자 배포 빌드 전 반드시 해소해야 한다**(실제로 거부한 사용자에게 "허용됨"으로 보인다).
+ * `null`은 "아직 모른다"이며 조회 실패 시에도 그대로 남는다. 모르는 값을 `false`로 접으면
+ * 실제로 허용한 사용자에게 "허용 안 됨"으로 보이고, 그건 낙관적 UI 금지 규칙의 반대편
+ * 오류다 — 어느 쪽으로도 단정하지 않고 토글을 그리지 않는다.
  */
-const FIGMA_EXAMPLE_CAMERA_PERMISSION_GRANTED = true;
-
-/**
- * 사용자가 OS 설정에서 권한을 바꾸고 돌아오면 표시가 따라와야 한다 — 그 재조회 지점
- * (`SCR-S6-settings.md` Interaction Contract §3)을 여기 만들어 둔다.
- *
- * 지금은 조회 함수가 없어 주입값을 그대로 유지한다. 값을 낙관적으로 뒤집지 않는 것이 중요하다 —
- * 실제 권한과 어긋난 화면을 보여주느니 바뀌지 않는 편이 낫다.
- */
-function useCameraPermissionDisplayState(injectedGranted: boolean): boolean {
-  const [granted, setGranted] = useState(injectedGranted);
+function useCameraPermissionGranted(): boolean | null {
+  const [granted, setGranted] = useState<boolean | null>(null);
 
   useEffect(() => {
+    let active = true;
+
+    const sync = () => {
+      getCameraPermissionStatus()
+        .then((status) => {
+          if (active) {
+            setGranted(status === "granted");
+          }
+        })
+        .catch((error: unknown) => {
+          console.warn("[settings] 카메라 권한 조회 실패", error);
+        });
+    };
+
+    sync();
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") {
-        return;
+      if (nextState === "active") {
+        sync();
       }
-      // TODO(SCR-S6-settings.md Data Contract 2): 조회 수단이 확정되면 여기서
-      // `getCameraPermissionStatus()`를 호출해 결과로 setGranted 한다.
-      setGranted(injectedGranted);
     });
 
     return () => {
+      active = false;
       subscription.remove();
     };
-  }, [injectedGranted]);
+  }, []);
 
   return granted;
 }
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const cameraPermissionGranted = useCameraPermissionDisplayState(
-    FIGMA_EXAMPLE_CAMERA_PERMISSION_GRANTED,
-  );
+  const cameraPermissionGranted = useCameraPermissionGranted();
 
   return (
     // 402×874에서는 콘텐츠가 탭 바에 닿지 않지만, 폰트 확대·소형 기기에서는 넘친다 —
@@ -101,7 +102,11 @@ export default function SettingsScreen() {
           */}
           <SettingsRow
             label="카메라 권한"
-            trailing={{ kind: "toggle", granted: cameraPermissionGranted }}
+            trailing={
+              cameraPermissionGranted === null
+                ? undefined
+                : { kind: "toggle", granted: cameraPermissionGranted }
+            }
             accessibilityLabel={cameraPermissionRowLabel(cameraPermissionGranted)}
             onPress={() => {
               // `lib/cameraPermission.ts`의 구현을 그대로 쓴다 — S2-3과 중복 구현하지 않는다.

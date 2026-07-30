@@ -1,14 +1,5 @@
-import {
-  mockCameraPermissionAdapter,
-  resetMockCameraPermissionState,
-  setCameraPermissionAdapter,
-  setMockCameraPermissionState,
-} from "../cameraPermission";
-import {
-  continueAfterOnboardingGuide,
-  exitOnboardingGuide,
-  runFocusStartFlow,
-} from "../focusStartFlow";
+import { type CameraPermissionStatus, setCameraPermissionAdapter } from "../cameraPermission";
+import { continueAfterOnboardingGuide, runFocusStartFlow } from "../focusStartFlow";
 import {
   createMemoryOnboardingGuideStore,
   resetOnboardingGuideStore,
@@ -23,9 +14,15 @@ function makeNavigator() {
   };
 }
 
+/** 어댑터를 교체해 권한 분기를 재현한다 — 네이티브 `expo-camera`를 건드리지 않는다. */
+function stubPermission(status: CameraPermissionStatus, dialogOutcome: CameraPermissionStatus) {
+  const getStatus = jest.fn(() => Promise.resolve(status));
+  const request = jest.fn(() => Promise.resolve(dialogOutcome));
+  setCameraPermissionAdapter({ getStatus, request });
+  return { getStatus, request };
+}
+
 beforeEach(() => {
-  setCameraPermissionAdapter(mockCameraPermissionAdapter);
-  resetMockCameraPermissionState();
   setOnboardingGuideStore(createMemoryOnboardingGuideStore());
 });
 
@@ -35,6 +32,7 @@ afterEach(() => {
 
 describe("runFocusStartFlow — S1 '집중 시작' 탭", () => {
   it("최초 1회는 가이드를 먼저 띄우고 권한을 요청하지 않는다", async () => {
+    const { getStatus, request } = stubPermission("undetermined", "granted");
     const nav = makeNavigator();
 
     await runFocusStartFlow(nav);
@@ -42,11 +40,14 @@ describe("runFocusStartFlow — S1 '집중 시작' 탭", () => {
     expect(nav.openOnboardingGuide).toHaveBeenCalledWith("focus-start");
     expect(nav.startSession).not.toHaveBeenCalled();
     expect(nav.showPermissionDeniedGuide).not.toHaveBeenCalled();
+    // 가이드보다 먼저 권한을 물으면 확정 플로우(G5 이후 요청)가 깨진다.
+    expect(getStatus).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("가이드를 이미 봤으면 가이드를 건너뛰고 곧장 권한 게이트로 간다", async () => {
     setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
-    setMockCameraPermissionState({ status: "granted" });
+    stubPermission("granted", "granted");
     const nav = makeNavigator();
 
     await runFocusStartFlow(nav);
@@ -57,7 +58,7 @@ describe("runFocusStartFlow — S1 '집중 시작' 탭", () => {
 
   it("가이드를 이미 봤고 권한이 거부돼 있으면 S2-3으로 보낸다", async () => {
     setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied", "granted");
     const nav = makeNavigator();
 
     await runFocusStartFlow(nav);
@@ -69,18 +70,19 @@ describe("runFocusStartFlow — S1 '집중 시작' 탭", () => {
 
 describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
   it("'집중 시작' 진입이면 권한 요청으로 이어진다 (2026-07-26 확정 플로우)", async () => {
-    setMockCameraPermissionState({ status: "undetermined", dialogOutcome: "granted" });
+    const { request } = stubPermission("undetermined", "granted");
     const nav = makeNavigator();
 
     await continueAfterOnboardingGuide(nav, "focus-start");
 
+    expect(request).toHaveBeenCalledTimes(1);
     expect(nav.startSession).toHaveBeenCalled();
   });
 
   it("완료든 건너뛰기든 '봤다'로 기록해 다음 '집중 시작'에서 다시 뜨지 않는다", async () => {
     const store = createMemoryOnboardingGuideStore();
     setOnboardingGuideStore(store);
-    setMockCameraPermissionState({ status: "granted" });
+    stubPermission("granted", "granted");
 
     await continueAfterOnboardingGuide(makeNavigator(), "focus-start");
 
@@ -91,7 +93,7 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
   });
 
   it("권한이 거부돼 있어도 세션을 시작하지 않고 S2-3으로 보낸다", async () => {
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied", "granted");
     const nav = makeNavigator();
 
     await continueAfterOnboardingGuide(nav, "focus-start");
@@ -100,8 +102,8 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
     expect(nav.startSession).not.toHaveBeenCalled();
   });
 
-  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않고 닫기만 한다 — 2026-07-28 확정(BY-151)", async () => {
-    setMockCameraPermissionState({ status: "granted" });
+  it("다시 보기(홈 카드·설정) 진입에서는 권한을 요청하지 않는다 — 재진입 CTA 동작은 미정", async () => {
+    stubPermission("granted", "granted");
 
     for (const entry of ["home-card", "settings"] as const) {
       const nav = makeNavigator();

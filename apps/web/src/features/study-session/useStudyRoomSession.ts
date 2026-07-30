@@ -335,6 +335,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     pollMs: options.autoEndPollMs,
   });
 
+  /**
+   * `stream`은 실제 어댑터에만 있다(mock에는 없다) — 없으면 null이고, 그러면
+   * CameraPreviewSurface가 목업 서피스를 그린다.
+   *
+   * ⚠️ **불변식**: 이 값은 state가 아니라 가변 어댑터에서 렌더 중에 읽는다. 그래서
+   * "스트림이 바뀌면 반드시 `isCameraRunning` 또는 `cameraFacing` 전이가 함께 일어난다"는
+   * 조건에 기대고 있다 — 리렌더를 일으키는 것은 그 두 state뿐이다. 스트림만 조용히 바뀌는
+   * 어댑터 동작을 추가하면 프리뷰가 갱신되지 않으므로, 그때는 스트림도 state로 올려야 한다.
+   */
+  const cameraStream = camera.stream ?? null;
+
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
@@ -351,6 +362,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     endReason,
     cameraFacing,
     isCameraRunning,
+    cameraStream,
     pause,
     resume,
     onReturnFromBackground,

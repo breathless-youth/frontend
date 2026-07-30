@@ -30,7 +30,8 @@ type SettingsRowProps = {
   label: string;
   /** 라벨 아래 보조 문구. 폰트 확대 시 두 줄이 될 수 있어 줄바꿈을 막지 않는다. */
   sublabel?: string;
-  trailing: SettingsRowTrailing;
+  /** 생략하면 트레일링 자리를 비운다 — 상태를 아직 모르는 행(카메라 권한 조회 전)이 쓴다. */
+  trailing?: SettingsRowTrailing;
   /**
    * 탭 동작. **넘기지 않으면 행이 버튼으로 노출되지 않는다** — 목적지가 확정되지 않은 행을
    * 버튼처럼 읽어주면 스크린리더 사용자에게 없는 화면을 있다고 말하는 셈이다
@@ -89,7 +90,7 @@ export function SettingsRow({
           <Text className="text-text-tertiary text-xs leading-[15px]">{sublabel}</Text>
         )}
       </View>
-      <RowTrailing trailing={trailing} />
+      {trailing !== undefined && <RowTrailing trailing={trailing} />}
     </>
   );
 

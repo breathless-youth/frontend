@@ -113,7 +113,10 @@ S6 · 설정 (402×874, bg/base)
 화면이 표시하는 값 3종의 출처:
 
 1. **버전(`1.0.0`)** — 로컬 앱 메타데이터. `expo-constants`(이미 설치됨, `~18.0.13`)의 `Constants.expoConfig?.version`을 읽는다. `apps/mobile/app.json`의 `expo.version`이 현재 `"1.0.0"`으로 Figma 예시값과 일치한다. **하드코딩 금지** — 버전 문자열을 상수로 박으면 다음 릴리스에서 즉시 거짓말이 된다.
-2. **카메라 권한 상태(토글 On/Off)** — **백엔드 계약이 아니라 OS 권한 상태**다. 그런데 지금 `apps/mobile`에는 이 상태를 읽을 수단이 없다: `expo-camera`가 dependency에 없고(2026-07-26 `package.json` 직접 확인), 카메라는 `apps/web` WebView 소유다. `frontend/CLAUDE.md`의 "검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것" 규칙에 따라 **이번 구현에서 카메라 패키지를 설치하지 않는다.** 화면 컴포넌트는 아래 형태의 값을 **props로 주입받는 구조**로 만들고, 라우트에서는 Figma 예시 상태(`true`)를 넘기며 TODO 주석을 남긴다.
+2. **카메라 권한 상태(토글 On/Off)** — **백엔드 계약이 아니라 OS 권한 상태**다. `lib/cameraPermission.ts`의 `getCameraPermissionStatus()`로 읽는다(`expo-camera` 권한 API, 2026-07-27 도입 — [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 조회는 **마운트 시 1회 + `AppState`가 `active`로 복귀할 때** 수행한다. 앱이 권한을 바꾸지는 않는다 — 읽기만 한다.
+
+   상태는 `boolean | null` 3값으로 다룬다. `null`은 "아직 모른다"이며 **조회 실패 시에도 그대로 남는다** — 모르는 값을 `false`로 접으면 실제로 허용한 사용자에게 "허용 안 됨"으로 보이고, 그것은 낙관적 UI 금지 규칙의 반대편 오류다. `null`인 동안에는 토글을 렌더하지 않고 접근성 라벨에서도 상태 부분을 뺀다("카메라 권한, 시스템 설정 열기").
+
 3. **정적 진입점 4곳의 목적지** — 2026-07-27(BY-257)에 3곳이 확정됐다. **API 계약이 아니다.**
    - **이용약관 · 개인정보처리방침 — 앱 안에서 직접 표기한다.** 외부 브라우저로 내보내지 않는다. 본문은 `apps/mobile/lib/legalDocuments.ts`가 정적 데이터로 갖고, `/terms`·`/privacy` 라우트가 렌더한다. WebView를 쓰지 않는 이유: `react-native-webview`가 `apps/mobile`에 없고 추측 설치가 금지돼 있으며, 본문이 정적 텍스트뿐이라 RN 텍스트 렌더가 오프라인·폰트 확대·스크린리더에 그대로 대응된다.
      - 웹 원본(본문 출처, 런타임 목적지가 아님): `https://pages-nextjs-liart.vercel.app/terms` · `https://pages-nextjs-liart.vercel.app/privacy`
@@ -125,8 +128,8 @@ S6 · 설정 (402×874, bg/base)
 ```ts
 // 이 화면 전용 로컬 뷰 모델. packages/types에 export하지 않는다(API 계약이 아니다).
 type SettingsViewModel = {
-  /** OS 카메라 권한 허용 여부. 조회 수단 확정 전까지 라우트가 정적으로 주입한다. */
-  cameraPermissionGranted: boolean;
+  /** OS 카메라 권한 허용 여부. `null`은 조회 전·조회 실패(단정하지 않음). */
+  cameraPermissionGranted: boolean | null;
   /** expo-constants에서 읽은 앱 버전. 예: "1.0.0" */
   appVersion: string;
 };
@@ -209,8 +212,8 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 3. 구현 파일은 `apps/mobile/app/(tabs)/settings.tsx`(신규) + `apps/mobile/components/` 하위 신규 컴포넌트 + `apps/mobile/components/icons.tsx`(아이콘 1개 추가)로 한정한다.
 4. **탭 등록 시 MG3(S5 기록)와 파일이 겹친다** — `app/(tabs)/_layout.tsx`와 `components/TabBar.tsx`는 두 작업이 함께 건드리는 파일이다. 자기 탭만 추가하고 **상대 탭의 등록·활성화를 지우거나 되돌리지 말 것.** TabBar는 "존재하는 라우트만 활성화"하는 형태로 두고, 기록 탭이 아직 없으면 그 탭만 비활성으로 남긴다.
 5. **아이콘은 Figma에서 내보낸 SVG의 path 데이터를 옮겨 `icons.tsx`에 추가한다. 형상을 직접 그리지 말고, PNG를 쓰지 말 것** — Figma의 PNG 익스포트에는 캔버스 배경 `<rect>`가 합성돼 아이콘이 흰 네모로 보인다(2026-07-26 S1에서 실제로 발생). SVG에서는 그 `<rect>`만 제외하면 된다. 단색 아이콘은 `color` prop으로 런타임 틴팅한다.
-6. **의존성은 `react-native-webview` 하나만 늘었다**(BY-257, 문의 폼용). Expo Go에 포함된 모듈이라 Dev Client가 필요 없고, `expo install`로 SDK 호환 버전(13.15.0)을 받아 시뮬레이터에서 실제로 확인한 뒤 추가했다 — 추측 설치가 아니다. 나머지는 이미 있는 것으로 해결한다: `expo-constants`(버전), `react-native`의 `Linking`(설정 열기), `react-native-svg`(아이콘). **`expo-camera`를 설치하지 말 것**(Data Contract 2번 사유).
-7. **목적지가 확정되지 않은 행은 링크를 지어내지 말고 no-op으로 두고 TODO 주석을 남긴다.** 임의의 도메인·placeholder URL을 커밋하지 말 것. (BY-257 이후 이 화면에 미확정 행은 없다.)
+6. **의존성은 화면별로 나눠 늘었다.** BY-257이 `react-native-webview`(문의 폼용, 13.15.0)를, 2026-07-27 [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)가 `expo-camera ~17.0.10`(권한 조회 전용)을 추가했다. 나머지는 이미 있는 것으로 해결한다: `expo-constants`(버전), `react-native`의 `Linking`(설정 열기), `react-native-svg`(아이콘). 카메라 SDK는 `lib/cameraPermission.ts` 어댑터를 통해서만 쓰고 **화면에서 직접 import하지 않는다**.
+7. **목적지가 확정되지 않은 행은 링크를 지어내지 말고 no-op으로 두고 TODO 주석을 남긴다.** 임의의 도메인·placeholder URL을 커밋하지 말 것. (BY-257 이후 이 화면에 미확정 행은 오픈소스 라이선스 하나뿐이다.)
 8. **문서 본문(`lib/legalDocuments.ts`)을 의역·요약·재배열하지 않는다.** 웹 원본에서 곡선 따옴표·가운뎃점까지 그대로 옮긴 사본이다. 원본이 바뀌면 `effectiveDate`와 함께 갱신한다.
 9. 라이트/다크 모두 시뮬레이터에서 확인한다(`darkMode: "media"`, `userInterfaceStyle: "automatic"`). 특히 헤어라인·토글 Off 색이 다크에서 어떻게 보이는지 반드시 눈으로 볼 것.
 10. 이 화면에 알림 설정·로그인·계정 삭제·랭킹·프로필 등 **V1.0 인벤토리에 없는 항목을 추가하지 않는다.**
@@ -229,7 +232,7 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 
 ## Current Limitations
 
-- **카메라 권한 실제 상태가 연동되지 않는다.** 조회 수단(`expo-camera` 등)이 앱에 없고 추측 설치가 금지돼 있어, 토글은 Figma 예시 상태(`On`)를 정적으로 렌더한다. 실제 권한이 거부된 사용자에게 "허용됨"으로 보일 수 있다는 뜻이다 — 값 주입 지점을 한 곳(prop)으로 모아 어댑터가 준비되면 한 줄로 교체되게 한다. **사용자 배포 빌드에 넣기 전 반드시 해소해야 하는 항목이다.**
+- ~~카메라 권한 실제 상태가 연동되지 않는다(출시 블로커)~~ → **해소 (2026-07-27)**: `expo-camera` 권한 API로 실제 OS 상태를 읽는다([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). iOS 시뮬레이터에서 `simctl privacy revoke`/`grant`에 토글이 각각 Off/On으로 반응하는 것을 확인했다.
 - **미확정 목적지가 하나 남아 있다** — 오픈소스 라이선스 행은 목적지·문서가 없어 `onPress` 없이 표시만 한다(탭 no-op, Data Contract 3 참조). 문의 폼·이용약관·개인정보처리방침 3곳은 BY-257에서 확정됐다.
 - **`user-flow.md`의 "문의하기 외부 폼" 서술만 현재 구현과 어긋난다.** 문의는 이제 앱 내 WebView(`/contact`)라 "외부 폼"이 아니다. 측정 기준 안내(가이드 재진입)·오픈소스 라이선스 서술은 현재 구현과 일치한다.
 - **문의 폼 실패 문구가 확정 카피가 아니다.** `voice-tone.md`에 해당 문구가 없어 다른 화면의 어조에 맞춰 임시로 썼다(`문의 폼을 불러오지 못했어요` / `네트워크 상태를 확인하고 다시 시도해 주세요.`).
@@ -243,7 +246,7 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 
 ## Review Checklist
 
-- [ ] **카메라 권한 상태 조회 수단 확정** — 모바일 셸이 권한 상태를 읽을 방법(카메라 패키지 도입 vs WebView 측 상태 전달 vs OS 설정 딥링크만 제공). 실기기 스파이크 필요.
+- [x] **카메라 권한 상태 조회 수단 확정** — `expo-camera ~17.0.10`의 권한 API (2026-07-27 리더 승인, [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 시뮬레이터 확인 완료, 실기기 확인은 남음.
 - [x] ~~**문의 폼 URL** 확정~~ — `https://forms.gle/64ZZyLDE3A2F1oAB8` (BY-257)
 - [x] ~~**이용약관 / 개인정보처리방침**의 문서와 목적지 확정~~ — 문서 확보 완료, **앱 내 화면(`/terms`·`/privacy`)으로 직접 표기**한다 (BY-257)
 - [ ] **오픈소스 라이선스** 목적지 확정 — 행은 유지하되 아직 `onPress`가 없다(탭 no-op). 실제 라이선스 목록 화면/문서가 정해지면 연결한다.

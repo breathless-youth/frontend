@@ -51,11 +51,10 @@ export type CameraPermissionGateResult = "start-session" | "show-denied-guide";
 /**
  * 권한 상태를 조회하고 필요하면 OS 다이얼로그까지 띄운 뒤 최종 목적지를 돌려준다.
  *
- * 실제 다이얼로그를 띄우는 네이티브 모듈은 아직 미정이라 현재는 mock 어댑터가 응답한다
- * (`lib/cameraPermission.ts` 참고) — 실기기 검증 불가.
+ * 조회·요청은 `expo-camera` 권한 API로 실제 동작한다(`lib/cameraPermission.ts`, ADR 0004).
  *
- * **실패 시 닫히는(fail-closed) 게이트다.** 어댑터가 throw하면(실제 네이티브 모듈로 교체된 뒤
- * 조회가 실패하는 경우) 상태를 알 수 없으므로 세션을 시작하지 않고 S2-3으로 보낸다 —
+ * **실패 시 닫히는(fail-closed) 게이트다.** 어댑터가 throw하면 상태를 알 수 없으므로
+ * 세션을 시작하지 않고 S2-3으로 보낸다 —
  * "카메라 권한 없이 사용 불가"(`policies.md` §3)에 맞고, 사용자에게 "설정 열기"라는
  * 행동 가능한 경로가 남는다. 버튼이 아무 반응 없는 상태로 두지 않는다.
  * 이 함수는 reject하지 않으므로 호출부는 결과 분기만 하면 된다.

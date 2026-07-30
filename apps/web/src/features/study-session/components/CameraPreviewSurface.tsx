@@ -1,37 +1,73 @@
+import { useEffect, useRef } from "react";
+
 import { cn } from "@/lib/utils";
 
+import type { CameraFacing } from "../adapters/cameraAdapter";
+
 /**
- * 카메라 피드가 들어올 자리 (Figma `Session / Camera Preview BG` 58:109).
+ * 카메라 피드 영역 (Figma `Session / Camera Preview BG` 58:109).
  *
- * 실기기 스파이크 전이라 실제 `getUserMedia` 피드는 없다 — 카메라가 돌지 않는 동안
- * "여기가 카메라 피드 자리"를 나타내는 중립 서피스를 그린다. Figma의 사선 밴드는
- * 12개 레이어로 그려져 있지만 구현은 `repeating-linear-gradient` 하나로 대체한다
- * (55px 밴드 / 110px 주기 / -45° — Figma 실측과 동일).
+ * 카메라가 도는 동안에는 `<video>`가 실제 피드를 그리고, 꺼져 있는 동안에는 Figma 목업과
+ * 같은 중립 서피스(사선 밴드 + 라벨)를 그린다 — 권한 거부·기기 점유로 카메라가 없는 상태에서도
+ * 화면이 검게 비지 않아야 한다.
  *
- * 실제 피드가 붙으면 이 컴포넌트 안에서 `<video>`로 교체하고 목업 텍스처는 사라진다.
- * UI가 카메라 SDK를 직접 호출하지 않는 경계는 유지한다(`frontend/CLAUDE.md`).
+ * **스트림은 이 컴포넌트 밖으로 나가지 않는다.** `srcObject`에 붙이는 것 외의 용도로 쓰지 말 것
+ * (원본 프레임 저장·전송 금지 — `frontend/CLAUDE.md`).
  *
- * **가로(S3-5 `61:439`~`61:455`)에는 방향 델타가 없다** — 대조 결과 밴드 기하(폭 55px · 주기
- * 110px · -45°)와 라벨 타이포(12px · tracking 2px · white 16%)가 세로와 완전히 같고, 프레임에
- * 그려진 stripe 개수만 12 → 16으로 늘어난다(더 넓은 프레임을 덮기 위한 것). 여기서는 밴드를
- * 레이어가 아니라 `repeating-linear-gradient` 하나로 그리므로 어떤 뷰포트에서도 자동으로
- * 채워진다 — 그래서 `landscape:` 변형을 추가하지 않는다. 가로 프레임의 라벨 문구(`· 가 로`)와
- * 위치(y=100)는 목업 고유값이라 재현하지 않는다.
+ * UI가 카메라 SDK를 직접 호출하지 않는 경계는 유지된다 — `getUserMedia`는 어댑터가 부르고
+ * 이 컴포넌트는 결과 스트림만 받는다.
+ *
+ * **가로(S3-5)에는 방향 델타가 없다** — 밴드 기하와 라벨 타이포가 세로와 같고, 여기서는 밴드를
+ * `repeating-linear-gradient` 하나로 그리므로 어떤 뷰포트에서도 자동으로 채워진다.
  */
 export interface CameraPreviewSurfaceProps {
   /** 카메라 어댑터가 실행 중인지 — false면 목업 텍스처를 노출한다. */
   isRunning: boolean;
+  /** 어댑터가 연 스트림. `isRunning`이 true여도 렌더 타이밍상 잠깐 null일 수 있다. */
+  stream: MediaStream | null;
+  /** 지금 열려 있는 카메라 방향 — 좌우 반전 여부가 여기서 갈린다. */
+  facing: CameraFacing;
   className?: string;
 }
 
-export function CameraPreviewSurface({ isRunning, className }: CameraPreviewSurfaceProps) {
+export function CameraPreviewSurface({
+  isRunning,
+  stream,
+  facing,
+  className,
+}: CameraPreviewSurfaceProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) {
+      return;
+    }
+    video.srcObject = stream;
+    return () => {
+      // 언마운트 시 참조를 끊는다 — 트랙 정지는 어댑터의 책임이다.
+      video.srcObject = null;
+    };
+  }, [stream]);
+
   return (
     <div
       aria-hidden="true"
       data-session-surface="camera"
       className={cn("absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]", className)}
     >
-      {!isRunning && (
+      {isRunning ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          // 전면 카메라는 거울처럼 보여야 자연스럽다 — 반대로 **후면은 반전하면 안 된다**
+          // (사용자가 보고 있는 실제 장면과 좌우가 뒤집힌다). 추론은 원본 프레임을 쓰므로
+          // 이 변환은 표시에만 영향을 준다.
+          className={cn("h-full w-full object-cover", facing === "front" && "scale-x-[-1]")}
+        />
+      ) : (
         <>
           <div
             className="absolute inset-0"

@@ -55,9 +55,7 @@ export default function OnboardingGuideScreen() {
       {
         showPermissionDeniedGuide: () => router.push("/permission-denied"),
         startSession: () => {
-          // TODO(SCR-G1-G5-onboarding-guide.md): 싱글룸 세션 라우트(S3-1)가 아직 없다 —
-          // WG 계열(apps/web) 완료 후 WebView 라우트로 연결한다. 존재하지 않는 경로로
-          // 이동을 시도하지 않는다(S1·S2-3과 동일한 방어적 처리).
+          router.push("/room/1");
         },
       },
       entry,

@@ -59,10 +59,10 @@ export default function RootLayout() {
           {/* 문의하기 — 폼을 WebView로 띄우는 화면. 위 두 화면과 같은 이유로 `(tabs)` 밖에 둔다. */}
           <Stack.Screen name="contact" />
           {/*
-            구 `room/[id]` 등록은 제거했다 — `app/room/`이 2026-07-25 기능 리셋으로 삭제돼
-            런타임에 `No route named "room/[id]" exists in nested children` 경고만 냈다.
-            스터디룸은 WG 계열(apps/web) 완료 후 WebView 라우트로 다시 등록한다(ADR 0001).
+            싱글룸 세션(S3) — 화면 구현체는 apps/web이고 WebView로 로드한다(ADR 0001).
+            탭 바를 가리는 전체 화면으로 띄운다: 세션 중에는 탭 이동이 없다.
           */}
+          <Stack.Screen name="room/[id]" options={{ presentation: "fullScreenModal" }} />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>

@@ -1,5 +1,5 @@
 import type { StudySessionResponse } from "@focuson/types";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -69,10 +69,37 @@ function endSessionSync() {
   fireEvent.click(confirmExitButton());
 }
 
+/**
+ * jsdom에는 `navigator.mediaDevices`가 없어 `RoomPage`가 주입하는 실제
+ * `createMediaStreamCameraAdapter`는 항상 카메라 없이 시작한다(getUserMedia가 던지고
+ * 어댑터가 삼킨다). 카메라가 실제로 켜졌을 때의 배선(전환 성공 등)을 검증하려면 이 테스트에서만
+ * 하드웨어가 있는 것처럼 `navigator`를 스텁한다 — `mediaStreamCamera.test.ts`와 같은 패턴.
+ */
+function stubWorkingCamera(deviceKinds: string[] = ["videoinput", "videoinput"]) {
+  // 트랙을 **실제로 들고 있는** 스트림을 준다 — `getTracks: () => []`로는 "멈추지 않고
+  // 버려진 스트림"(카메라 누수)을 테스트가 감지할 방법이 없다.
+  const opened: { stop: ReturnType<typeof vi.fn> }[] = [];
+  const getUserMedia = vi.fn(async () => {
+    const track = { stop: vi.fn() };
+    opened.push(track);
+    return { getTracks: () => [track] } as unknown as MediaStream;
+  });
+  vi.stubGlobal("navigator", {
+    mediaDevices: {
+      getUserMedia,
+      enumerateDevices: vi.fn(async () => deviceKinds.map((kind) => ({ kind }))),
+    },
+  });
+  return { getUserMedia, opened };
+}
+
 describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   // 모듈 스코프 mock이라 clearAllMocks 없이는 호출 기록이 테스트 간 누적된다.
+  // unstubAllGlobals: 카메라 전환 테스트가 stubGlobal("navigator", ...)을 거는데,
+  // 다른 테스트로 새지 않게 매번 원복한다(스텁한 적 없으면 no-op).
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("순공 타이머·총 공부 병기·프라이버시 캡션·컨트롤 바를 렌더링한다", () => {
@@ -130,7 +157,12 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   });
 
   it("카메라 전환 성공 시 확정 토스트 문구를 띄운다", async () => {
+    stubWorkingCamera();
     renderRoom("/room/7?userId=1");
+    // 카메라가 실제로 열릴 때까지 기다린다 — 목업 라벨이 사라지면 스트림이 붙은 것이다.
+    await waitFor(() => {
+      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
 
@@ -312,6 +344,43 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("StrictMode 이중 마운트에도 카메라를 한 번만 열고 스트림을 흘리지 않는다", async () => {
+    // effect → cleanup(stop) → effect가 연달아 도는데, 그 사이 getUserMedia는 아직
+    // 해결되지 않았다. 진행 중 가드가 없으면 카메라가 두 번 열리고 한쪽이 고아가 된다.
+    const camera = stubWorkingCamera();
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/room/7?userId=1"]}>
+          <Routes>
+            <Route path="/room/:id" element={<RoomPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    // 목업 라벨이 사라지면 스트림이 붙은 것이다.
+    await waitFor(() => {
+      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+    });
+
+    expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(camera.opened.filter((track) => track.stop.mock.calls.length === 0)).toHaveLength(1);
+  });
+
+  it("언마운트가 카메라 트랙을 실제로 멈춘다", async () => {
+    const camera = stubWorkingCamera();
+    const { unmount } = renderRoom("/room/7?userId=1");
+    await waitFor(() => {
+      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+    });
+
+    unmount();
+
+    expect(camera.opened).toHaveLength(1);
+    expect(camera.opened[0]?.stop).toHaveBeenCalled();
   });
 
   it("비집중은 순공만 멈추고 총 공부는 계속 흐른다", async () => {

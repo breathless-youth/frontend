@@ -1,0 +1,20 @@
+diff --git a/ios/EXConstants.podspec b/ios/EXConstants.podspec
+index fc4608aec9d7ac1e884cb6c57aaf0886f9ff6bbe..879f10fd5a97d16a5ae253c64763362f19644ec4 100644
+--- a/ios/EXConstants.podspec
++++ b/ios/EXConstants.podspec	
+@@ -34,10 +34,13 @@ Pod::Spec.new do |s|
+     s.source_files = "**/*.{h,m,swift}"
+   end
+ 
+-  env_vars = ENV['PROJECT_ROOT'] ? "PROJECT_ROOT=#{ENV['PROJECT_ROOT']} " : ""
++  # 경로에 공백이 있으면(예: ".../01_Breathless Youth/...") 아래 스크립트가 그 자리에서
++  # 쪼개져 "No such file or directory: /Users/.../01_Breathless"로 죽는다.
++  # `bash -l -c`에 넘기는 문자열 안에서 경로를 다시 인용해 한 단어로 유지한다.
++  env_vars = ENV['PROJECT_ROOT'] ? "PROJECT_ROOT=\\\"#{ENV['PROJECT_ROOT']}\\\" " : ""
+   script_phase = {
+     :name => 'Generate app.config for prebuilt Constants.manifest',
+-    :script => "bash -l -c \"#{env_vars}$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",
++    :script => "bash -l -c \"#{env_vars}\\\"$PODS_TARGET_SRCROOT\\\"/../scripts/get-app-config-ios.sh\"",
+     :execution_position => :before_compile
+   }
+   # :always_out_of_date is only available in CocoaPods 1.13.0 and later
