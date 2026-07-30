@@ -28,19 +28,25 @@
  * 라우트(`app/room/[id].tsx`)의 `originWhitelist`는 `localhost`·`127.0.0.1` 양쪽을 받으므로
  * 이 선택으로 깨지지 않는다.
  *
- * ## 서빙 루트가 기기에서 실제로 어디인가 — 아직 미해결
+ * ## 서빙 루트가 기기에서 실제로 어디인가 — 해결됨
  *
  * `fileDir`에 상대 경로를 주면 라이브러리가 플랫폼별 번들 경로로 풀어준다
  * (iOS: `MainBundlePath/web-dist`, Android: `DocumentDirectoryPath/web-dist`).
- * **그러나 지금 저장소에는 `apps/mobile/assets/web-dist/`를 그 위치로 보내는 장치가 없다.**
- * Expo CNG라 `ios/`·`android/`가 생성물이고(둘 다 gitignore), 라이브러리 README가 요구하는
- * iOS Xcode folder reference 추가와 Android `assets.srcDirs` 설정은 config plugin 없이는
- * 다음 prebuild에서 사라진다. Android는 거기에 더해 번들 asset을 파일로 읽을 수 없어
- * 기동 전 실제 디렉터리로 복사하는 단계가 따로 필요하다.
  *
- * 그래서 `fileDir`을 주입 가능하게 열어 뒀다 — 번들 방식이 정해지면 그 결과 경로를
- * 여기로 넘기면 되고, 이 파일은 다시 손대지 않는다. 기본값은 "정해지면 이 이름이 된다"는
- * 자리표시자이지 지금 동작이 검증된 경로가 아니다.
+ * `apps/mobile/assets/web-dist/`를 그 위치로 보내는 것은 **config plugin
+ * `plugins/withWebDistAssets.js`가 한다** — iOS는 Xcode 빌드 단계를 추가하고, Android는
+ * prebuild 시점에 `android/app/src/main/assets/`로 복사한다. Expo CNG라 `ios/`·`android/`가
+ * 생성물이므로(둘 다 gitignore) 손으로 넣은 설정은 다음 prebuild에서 사라지는데, plugin은
+ * prebuild 흐름의 일부라 매번 다시 적용된다.
+ *
+ * Android는 거기에 더해 번들 asset을 파일로 읽을 수 없어, 기동 전에 실제 디렉터리로 풀어내는
+ * 단계가 따로 있다(`ensureAndroidAssetsExtracted`). 앱을 업데이트해도 풀린 파일이 자동으로
+ * 지워지지 않으므로 `.build-stamp`를 비교해 바뀌었을 때만 다시 푼다.
+ *
+ * 2026-07-30 Android 에뮬레이터에서 prebuild 후 `android/app/src/main/assets/web-dist/`에
+ * 최신 빌드가 들어가는 것을 확인했다.
+ *
+ * `fileDir`은 그대로 주입 가능하게 열어 둔다 — 테스트와 스파이크가 경로를 갈아끼운다.
  */
 
 import { Platform } from "react-native";
@@ -57,6 +63,25 @@ export const WEB_ASSET_DIR = "web-dist";
 export const LOCAL_SERVER_HOST = "127.0.0.1";
 
 /**
+ * SPA 폴백에서 **비켜가야 하는** 최상위 디렉터리들.
+ *
+ * 여기 없는 경로는 파일이 없을 때 `index.html`(200)로 흡수된다. 그 흡수가 유용한 것은
+ * 라우트 경로(`/room/1`)뿐이고, **자산 경로에서는 그냥 해롭다** — 없는 파일이 404 대신
+ * HTML 200으로 돌아오면 요청한 쪽이 그 HTML을 자기 형식으로 파싱하다 엉뚱한 곳에서 터진다.
+ *
+ * - `assets/` — Vite 청크(js·css). S1에서 실제로 이 실패를 확인해 처음 좁혔다.
+ * - `models/` — EfficientDet-Lite0 `.tflite`. 빠지면 MediaPipe가 **HTML을 tflite로 파싱**하다
+ *   "모델 포맷이 잘못됐다"류의 에러를 낸다. 진짜 원인(모델 누락)은 어디에도 안 적힌다.
+ * - `mediapipe/` — wasm 런타임. `WebAssembly.instantiateStreaming`이 HTML을 받아 죽는다.
+ *   `public/mediapipe/`는 `.gitignore` 대상(생성물)이라 **누락이 실제로 일어날 수 있는**
+ *   경로다 — 빌드 스텝을 건너뛴 산출물이 여기까지 흘러올 수 있다.
+ *
+ * 경로는 `apps/web/src/features/study-session/vision/visionConfig.ts`의
+ * `MEDIAPIPE_WASM_PATH`·`MODEL_PATHS`와 짝을 이룬다. 한쪽만 바꾸면 이 보호가 조용히 풀린다.
+ */
+const SPA_FALLBACK_EXCLUDED_DIRS = ["assets", "models", "mediapipe"] as const;
+
+/**
  * SPA 폴백 — 파일로 존재하지 않는 경로를 `index.html`로 내부 리라이트한다.
  *
  * `apps/web`은 `react-router`의 history 라우팅을 쓰므로 `/room/1` 요청이 그대로 오면
@@ -69,16 +94,78 @@ export const LOCAL_SERVER_HOST = "127.0.0.1";
  * 그대로 `/room/1?userId=7`로 남고(`location.search`도 그대로다), 서버는 정적 파일
  * `index.html`만 고르면 된다.
  *
- * **`/assets/`는 리라이트하지 않는다.** 규칙이 모든 경로를 덮으면, 없는 청크를 요청했을 때도
- * `index.html`이 200으로 돌아간다 — 브라우저는 JS인 줄 알고 HTML을 파싱하다 엉뚱한 곳에서
- * 터지고, 진짜 원인(자산 누락)은 어디에도 안 보인다. S1 검증에서 실제로 이 동작을 확인해
- * 범위를 좁혔다. 없는 자산은 404로 두는 편이 원인을 짚을 수 있다.
+ * 제외 목록의 근거는 `SPA_FALLBACK_EXCLUDED_DIRS` 주석 참고.
  *
- * S1(2026-07-28, iOS 시뮬레이터)에서 `/room/1`이 200 + `index.html`로 오는 것을 확인했다.
+ * S1(2026-07-28, iOS 시뮬레이터)에서 `/room/1`이 200 + `index.html`로,
+ * Android S1에서 `/assets/nope.js`가 404로 오는 것을 확인했다.
  */
+export const SPA_FALLBACK_RULE =
+  // 비캡처 그룹으로 묶는다. `(?!assets|models|mediapipe/)`처럼 쓰면 `/`가 마지막 항목에만
+  // 붙어서 `/models`로 시작하는 **모든** 경로가 제외되고(`/modelsomething`까지),
+  // 반대로 `/assets/`는 슬래시 없이 비교돼 의도와 어긋난다.
+  `url.rewrite-if-not-file = ( "^/(?!(?:${SPA_FALLBACK_EXCLUDED_DIRS.join(
+    "|",
+  )})/).*" => "/index.html" )`;
+
+/**
+ * MIME 타입 표 — **전체를 여기서 정한다.** 일부만 얹는 것이 아니다.
+ *
+ * ## 왜 `.wasm` 한 줄로 끝나지 않는가
+ *
+ * `mimetype.assign`에는 lighttpd가 내장한 기본표가 있다(`src/configfile.c`의
+ * `config_mimetypes_default`). 그런데 그 기본표는 **설정에서 `mimetype.assign`을 한 번도
+ * 건드리지 않았을 때만** 채워진다 — `config_insert()`가
+ * `if (p->defaults.mimetypes == &srv->srvconf.mimetypes_default)`로 확인한 뒤에야 기본값을
+ * 넣기 때문이다. 그리고 설정 병합(`config_merge_config_cpv`의 `mimetype.assign` 분기)은
+ * `pconf->mimetypes = cpv->v.a`로 **배열을 통째로 갈아끼운다.** 병합이 아니다.
+ *
+ * 즉 `mimetype.assign += (".wasm" => "application/wasm")` 한 줄만 써도 기본표의
+ * `.html`·`.css`·`.js`가 **전부 사라진다.** 그러면 lighttpd는 뜨고 파일도 200으로 나가는데,
+ * 브라우저가 `index.html`을 문서로 취급하지 않고 `.js`를 스크립트로 실행하지 않아
+ * **앱 전체가 백지가 된다.** wasm 하나 고치려다 전부 부수는, 정확히 조용한 종류의 실패다.
+ * 그래서 우리가 서빙하는 확장자를 여기서 명시적으로 다 적는다.
+ *
+ * (`+=`는 lighttpd 파서에서 "키가 없으면 그냥 대입"으로 동작하므로(`configparser.y`의
+ * `varline ::= key APPEND expression`) `=`와 결과가 같다. 그래도 `+=`를 쓰는 이유는,
+ * 라이브러리가 나중에 자기 `mimetype.assign`을 표준 설정에 넣더라도 그것을 지우지 않기
+ * 위해서다.)
+ *
+ * ## 왜 `.wasm`이 필요한가
+ *
+ * 내장 기본표에 `.wasm`이 없다. 표의 마지막 항목이 `"" => "application/octet-stream"`이라
+ * 미등록 확장자는 `application/octet-stream`으로 나가는데, `WebAssembly.instantiateStreaming`은
+ * `application/wasm`이 아니면 **거부한다**. MediaPipe는 이 API로 런타임을 올린다.
+ *
+ * `.tflite`는 일부러 넣지 않는다 — MediaPipe는 모델을 `fetch().arrayBuffer()`로 읽어
+ * Content-Type을 보지 않는다. 기본 `application/octet-stream`이면 충분하다.
+ */
+export const MIME_TYPE_RULE = [
+  "mimetype.assign += (",
+  '  ".html" => "text/html",',
+  '  ".css" => "text/css;charset=utf-8",',
+  '  ".js" => "text/javascript",',
+  '  ".mjs" => "text/javascript",',
+  '  ".json" => "application/json",',
+  '  ".svg" => "image/svg+xml",',
+  '  ".png" => "image/png",',
+  '  ".jpg" => "image/jpeg",',
+  '  ".webp" => "image/webp",',
+  '  ".ico" => "image/vnd.microsoft.icon",',
+  '  ".woff" => "font/woff",',
+  '  ".woff2" => "font/woff2",',
+  '  ".wasm" => "application/wasm",',
+  // 미등록 확장자의 기본값. 빈 키가 lighttpd의 fallback 규약이다(내장 기본표도 같은 항목으로
+  // 끝난다). 이게 없으면 `.tflite` 응답에 Content-Type이 붙지 않고 ETag·Last-Modified도
+  // 빠진다 — `http_response_send_file()`이 타입을 못 찾은 경우를 캐시 불가로 취급한다.
+  '  "" => "application/octet-stream"',
+  ")",
+].join("\n");
+
+/** 라이브러리 생성자에 넘기는 lighttpd 추가 설정 전체. */
 export const SPA_FALLBACK_EXTRA_CONFIG = [
   'server.modules += ("mod_rewrite")',
-  'url.rewrite-if-not-file = ( "^/(?!assets/).*" => "/index.html" )',
+  SPA_FALLBACK_RULE,
+  MIME_TYPE_RULE,
 ].join("\n");
 
 type StaticServerConstructor = new (params: StaticServerParams) => StaticServerInstance;

@@ -2,7 +2,7 @@ import type { StatusEventPayload, StudyEventStatus, StudySessionResponse } from 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ResultPage } from "../ResultPage";
 
@@ -141,16 +141,76 @@ describe("ResultPage — 타임라인 카드", () => {
 });
 
 describe("ResultPage — 비집중 통계 카드", () => {
-  it("유형별 건수와 시간을 축약 없이 보여준다", () => {
+  /**
+   * 2026-07-27 결정: 접힌 상태에서는 **횟수만** 보인다. 시간은 행을 눌러야 나온다
+   * (`DistractionStatsCard` 주석). 예전에는 `2회 · 9분 40초`로 함께 그렸다.
+   */
+  it("접힌 상태에서는 유형별 횟수만 보여준다 — 시간은 노출하지 않는다", () => {
     renderResult({ sessions: [exampleSession()] });
     const card = statsCard();
 
     expect(within(card).getByText("자리 이탈")).toBeInTheDocument();
-    expect(within(card).getByText("2회 · 9분 40초")).toBeInTheDocument();
     expect(within(card).getByText("휴대폰 사용")).toBeInTheDocument();
-    expect(within(card).getByText("2회 · 6분 12초")).toBeInTheDocument();
     expect(within(card).getByText("기기 조작")).toBeInTheDocument();
-    expect(within(card).getByText("1회 · 2분 8초")).toBeInTheDocument();
+    expect(within(card).getAllByText("2회").length).toBe(2);
+    expect(within(card).getAllByText("1회").length).toBeGreaterThan(0);
+    // 시간은 아직 어디에도 없다.
+    expect(within(card).queryByText("9분")).not.toBeInTheDocument();
+    expect(within(card).queryByText("6분")).not.toBeInTheDocument();
+  });
+
+  it("행을 누르면 그 자리에서 시간이 펼쳐진다", async () => {
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession()] });
+    const card = statsCard();
+
+    const row = within(card).getByRole("button", { name: /자리 이탈/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(row);
+
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(within(card).getByText("9분")).toBeInTheDocument();
+    // 다른 행은 그대로 접혀 있다.
+    expect(within(card).queryByText("6분")).not.toBeInTheDocument();
+  });
+
+  it("다시 누르면 접힌다", async () => {
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession()] });
+    const card = statsCard();
+    const row = within(card).getByRole("button", { name: /자리 이탈/ });
+
+    await user.click(row);
+    await user.click(row);
+
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(within(card).queryByText("9분")).not.toBeInTheDocument();
+  });
+
+  /** 두 유형의 시간을 비교하려는 사용자가 계속 다시 누르지 않도록 단일 선택이 아니다. */
+  it("여러 행을 동시에 펼칠 수 있다", async () => {
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession()] });
+    const card = statsCard();
+
+    await user.click(within(card).getByRole("button", { name: /자리 이탈/ }));
+    await user.click(within(card).getByRole("button", { name: /휴대폰 사용/ }));
+
+    expect(within(card).getByText("9분")).toBeInTheDocument();
+    expect(within(card).getByText("6분")).toBeInTheDocument();
+  });
+
+  /** 1분 미만이어도 초 숫자를 노출하지 않는다(2026-07-27 표기 규칙). */
+  it("1분 미만 구간은 펼쳐도 '1분 미만'으로 보여준다", async () => {
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession({ events: [event("AWAY", 600, 20)] })] });
+    const card = statsCard();
+
+    await user.click(within(card).getByRole("button", { name: /자리 이탈/ }));
+
+    expect(within(card).getByText("1분 미만")).toBeInTheDocument();
+    expect(within(card).queryByText(/\d+초/)).not.toBeInTheDocument();
   });
 
   it("S5 기록용 축약 표기(`휴대폰 N회`)를 쓰지 않는다", () => {
@@ -166,12 +226,14 @@ describe("ResultPage — 비집중 통계 카드", () => {
     expect(screen.queryByText("비집중 21분")).not.toBeInTheDocument();
   });
 
-  it("일시정지 행은 비집중 3종 아래에 붙는다", () => {
+  it("일시정지 행은 비집중 3종 아래에 붙는다", async () => {
+    const user = userEvent.setup();
     renderResult({ sessions: [exampleSession()] });
     const card = statsCard();
 
     expect(within(card).getByText("일시정지")).toBeInTheDocument();
-    expect(within(card).getByText("1회 · 3분")).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: /일시정지/ }));
+    expect(within(card).getByText("3분")).toBeInTheDocument();
   });
 
   it("일시정지가 0건이면 행 자체를 렌더하지 않는다 — 0회로 남기지 않는다", () => {
@@ -206,7 +268,7 @@ describe("ResultPage — 비집중 통계 카드", () => {
 
     expect(screen.getByText("비집중 없이 이어간 공부예요")).toBeInTheDocument();
     expect(screen.getAllByText("일시정지").length).toBeGreaterThan(0);
-    expect(screen.getByText("1회 · 3분")).toBeInTheDocument();
+    expect(within(statsCard()).getByText("1회")).toBeInTheDocument();
   });
 });
 
@@ -227,8 +289,17 @@ describe("ResultPage — 확정 표기 회귀", () => {
   it("V1.0 범위 밖 액션(공유·내보내기)을 만들지 않는다", () => {
     renderResult({ sessions: [exampleSession()] });
 
-    // 버튼은 닫기와 CTA 둘뿐이다.
-    expect(screen.getAllByRole("button")).toHaveLength(2);
+    /**
+     * **액션 버튼**은 닫기와 CTA 둘뿐이다. 통계 카드 안의 버튼은 액션이 아니라 시간을 펼치는
+     * 토글이라(2026-07-27) 세지 않는다 — 전체 버튼 수를 세면 행이 늘 때마다 이 회귀 검사가
+     * 무의미하게 깨진다.
+     */
+    const actions = screen.getAllByRole("button").filter((button) => !statsCard().contains(button));
+
+    // 닫기는 아이콘 버튼이라 텍스트가 없다 — 접근성 이름으로 센다.
+    expect(actions).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "닫기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "확인" })).toBeInTheDocument();
   });
 });
 
@@ -239,6 +310,21 @@ describe("ResultPage — 이탈 경로", () => {
     await userEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.getByText("홈 화면")).toBeInTheDocument();
+  });
+
+  /**
+   * 2026-07-30 실기기 확인: 이 배선이 없으면 웹 라우터 이동만 실행되어 WebView 안에
+   * `apps/web`의 웹 홈이 열리고, 네이티브 탭 홈으로는 돌아가지 않는다.
+   */
+  it("네이티브 브리지가 있으면 홈 복귀 신호도 함께 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
   });
 
   it("우상단 닫기는 CTA와 같은 동작이다", async () => {
