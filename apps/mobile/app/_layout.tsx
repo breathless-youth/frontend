@@ -7,6 +7,8 @@ import { useEffect } from "react";
 import { AppState } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { syncSessionsOnAppActive } from "../lib/sessionSync";
+import { statsKeys } from "../lib/statsQueries";
 import { ensureUserRegistered } from "../lib/userApi";
 
 /**
@@ -23,10 +25,21 @@ export default function RootLayout() {
     void ensureUserRegistered();
   }, []);
 
+  // 앱 기동 시 1회 — 종료된 세션이 있으면 소급 마감·재전송한다(BY-291).
+  useEffect(() => {
+    void syncSessionsOnAppActive(() => queryClient.invalidateQueries({ queryKey: statsKeys.all }));
+  }, []);
+
   // RN에는 window focus가 없다 — 앱 포그라운드 복귀를 react-query의 focus 신호로 잇는다.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       focusManager.setFocused(state === "active");
+      // 포그라운드 복귀 시에도 마감·재전송을 재시도한다(BY-291) — 백그라운드 중 끊긴 세션 복구.
+      if (state === "active") {
+        void syncSessionsOnAppActive(() =>
+          queryClient.invalidateQueries({ queryKey: statsKeys.all }),
+        );
+      }
     });
     return () => sub.remove();
   }, []);
