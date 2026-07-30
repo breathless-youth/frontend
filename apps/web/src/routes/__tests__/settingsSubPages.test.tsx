@@ -69,4 +69,15 @@ describe("설정 하위 라우트", () => {
     fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
+
+  it("딥링크·새로고침으로 /terms에 곧장 진입하면(뒤로 갈 스택이 없으면) 설정으로 보낸다", () => {
+    // 실제 앱은 BrowserRouter라 window.history.state.idx로 스택 깊이를 판단한다.
+    // 새로고침·딥링크 직후에는 idx가 없으므로(진입 엔트리 1개) 그 상태를 그대로 재현한다.
+    expect(window.history.state?.idx).toBeFalsy();
+
+    renderAt("/terms");
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
 });

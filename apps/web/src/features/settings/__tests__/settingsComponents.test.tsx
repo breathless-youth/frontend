@@ -45,6 +45,7 @@ describe("SettingsRow", () => {
     const { container } = render(
       <SettingsRow label="카메라 권한" trailing={{ kind: "toggle", granted: true }} />,
     );
+    expect(container.querySelector("svg")).not.toBeInTheDocument();
     expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 

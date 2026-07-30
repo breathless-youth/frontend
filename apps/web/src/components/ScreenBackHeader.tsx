@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 /**
  * 탭 바 없는 전체 화면 라우트(`/terms`·`/privacy`·`/contact`)의 상단 바.
  *
- * RN 원본(`apps/mobile/components/ScreenBackHeader.tsx`)의 웹 이식. 원본은 `router.canGoBack()`으로
- * 딥링크 직행을 방어하지만 웹은 네이티브 셸이 항상 `/settings`를 거쳐 들어오므로 `navigate(-1)`만 쓴다.
+ * RN 원본(`apps/mobile/components/ScreenBackHeader.tsx`)의 웹 이식. 원본의 `router.canGoBack()`
+ * 폴백을 그대로 옮긴다 — 딥링크·새로고침으로 곧장 열렸을 때의 대비다. 이 경우 `window.history.state.idx`가
+ * 0(또는 없음)이라 `navigate(-1)`이 SPA 밖으로 나가거나 무동작하므로 `/settings`로 보낸다.
  */
 type ScreenBackHeaderProps = {
   /**
@@ -23,7 +24,15 @@ export function ScreenBackHeader({ title }: ScreenBackHeaderProps) {
       {/* 아이콘뿐이라 라벨을 반드시 붙인다 — 아이콘만으로는 스크린리더가 읽지 못한다. */}
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          const historyState = window.history.state as { idx?: number } | null;
+          if (historyState?.idx) {
+            navigate(-1);
+            return;
+          }
+          // 딥링크로 곧장 열렸을 때의 대비 — 스택이 비어 있으면 설정 탭으로 보낸다.
+          navigate("/settings", { replace: true });
+        }}
         aria-label="뒤로 가기"
         className="flex size-11 items-center justify-center"
       >
