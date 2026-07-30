@@ -28,6 +28,9 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   if (record.type === "session-ready" && typeof record.atMs === "number") {
     return { type: "session-ready", atMs: record.atMs };
   }
+  if (record.type === "navigate-home" && typeof record.atMs === "number") {
+    return { type: "navigate-home", atMs: record.atMs };
+  }
   if (
     record.type === "submit-session" &&
     typeof record.atMs === "number" &&

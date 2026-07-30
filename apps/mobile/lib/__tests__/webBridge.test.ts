@@ -8,6 +8,13 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-home 메시지를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

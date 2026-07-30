@@ -45,7 +45,23 @@ export type SubmitResultMessage =
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  { type: "session-ready"; atMs: number } | SubmitSessionMessage;
+  { type: "session-ready"; atMs: number } | SubmitSessionMessage | NavigateHomeMessage;
+
+/**
+ * S4(공부 결과)·미달 종료 안내의 CTA가 보낸다 — **네이티브 홈 탭으로 돌려보내 달라는 요청**이다.
+ *
+ * 웹 라우터의 `navigate("/")`만으로는 WebView 안의 웹 홈이 열릴 뿐 네이티브 홈 탭으로 가지
+ * 않는다(모바일이 `apps/web`을 WebView로 로드하는 구조이기 때문 — ADR 0001). 세션 화면은
+ * 네이티브 쪽에서 `fullScreenModal`로 띄워져 있으므로, 돌아가는 방법(모달 닫기)은 네이티브만
+ * 안다 — 그래서 신호만 보내고 실제 네비게이션은 `apps/mobile/app/room/[id].tsx`가 한다.
+ *
+ * 브리지가 없는 브라우저 단독 모드(ADR 0001)에서는 이 메시지가 조용히 버려지고, 호출부가
+ * 남겨 둔 웹 라우터 폴백(`navigate("/", {replace:true})`)이 그대로 동작한다.
+ */
+export interface NavigateHomeMessage {
+  type: "navigate-home";
+  atMs: number;
+}
 
 /**
  * 세션 제출 요청 — **네이티브에 HTTP 호출만 대행시킨다.**

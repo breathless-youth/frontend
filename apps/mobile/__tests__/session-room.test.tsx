@@ -17,6 +17,8 @@ jest.mock("expo-router", () => ({
     const { useEffect } = jest.requireActual<typeof ReactModule>("react");
     useEffect(callback, [callback]);
   },
+  // `permission-denied.test.tsx`와 같은 패턴 — `navigate-home` 처리가 이 객체를 직접 호출한다.
+  router: { canGoBack: jest.fn(() => true), back: jest.fn(), replace: jest.fn() },
 }));
 
 /**
@@ -272,5 +274,69 @@ describe("SessionRoomScreen — originWhitelist", () => {
     const whitelist = lastWebViewProps.originWhitelist as string[];
 
     expect(opensInsideWebView(whitelist, "https://evil.example.com/room/1")).toBe(false);
+  });
+});
+
+/**
+ * `navigate-home` — S4 `확인`과 미달 종료 안내 `홈으로`가 보내는 홈 복귀 신호
+ * (`packages/types`의 `NavigateHomeMessage`).
+ *
+ * 2026-07-30 실기기에서 확인된 증상: 이 배선이 없으면 웹 라우터의 `navigate("/")`만 실행되어
+ * WebView 안에 `apps/web`의 (거의 비어 있는) 웹 홈이 열린다 — 네이티브 탭 홈으로 돌아가지
+ * 않는다. `room/[id]`는 `fullScreenModal`로 탭 위에 떠 있으므로(`app/_layout.tsx`), 돌아가는
+ * 방법(모달 닫기)은 네이티브만 안다.
+ */
+describe("SessionRoomScreen — navigate-home", () => {
+  const mockRouter = jest.requireMock<{
+    router: { canGoBack: jest.Mock; back: jest.Mock; replace: jest.Mock };
+  }>("expo-router").router;
+
+  beforeEach(() => {
+    mockRouter.canGoBack.mockReset().mockReturnValue(true);
+    mockRouter.back.mockReset();
+    mockRouter.replace.mockReset();
+  });
+
+  /** 실제 WebView가 `onMessage`를 부르는 것처럼 흉내낸다 — 마지막 렌더가 받은 그 콜백이다. */
+  function sendNativeMessage(payload: unknown) {
+    const onMessage = lastWebViewProps.onMessage as (event: {
+      nativeEvent: { data: string };
+    }) => void;
+    onMessage({ nativeEvent: { data: JSON.stringify(payload) } });
+  }
+
+  it("갈 곳이 있으면(canGoBack) 모달을 뒤로 닫는다 — 탭 홈이 그대로 드러난다", async () => {
+    setWebAssetServer(createFakeWebAssetServer({ origin: "http://localhost:9999" }));
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    sendNativeMessage({ type: "navigate-home", atMs: 1 });
+
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  /** 딥링크 등으로 세션에 곧장 들어와 history가 비어 있는 경우의 폴백 — `permission-denied.tsx`와 같은 패턴. */
+  it("갈 곳이 없으면(canGoBack=false) 홈으로 교체 이동한다", async () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    setWebAssetServer(createFakeWebAssetServer({ origin: "http://localhost:9999" }));
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    sendNativeMessage({ type: "navigate-home", atMs: 1 });
+
+    expect(mockRouter.replace).toHaveBeenCalledWith("/");
+    expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  it("다른 메시지(session-ready)에는 반응하지 않는다", async () => {
+    setWebAssetServer(createFakeWebAssetServer({ origin: "http://localhost:9999" }));
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    sendNativeMessage({ type: "session-ready", atMs: 1 });
+
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 });

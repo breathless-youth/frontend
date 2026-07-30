@@ -920,6 +920,26 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
     expect(await screen.findByText("홈 라우트")).toBeInTheDocument();
   });
 
+  /**
+   * 2026-07-30 실기기 확인: 이 배선이 없으면 웹 라우터 이동만 실행되어 WebView 안에
+   * `apps/web`의 웹 홈이 열리고, 네이티브 탭 홈으로는 돌아가지 않는다. `postToNative`가 실제로
+   * 불렸는지까지 확인해야 이 회귀를 잡는다 — 웹 라우터가 정상 이동했다고 해서 네이티브 쪽
+   * 신호가 나갔다는 보장은 없다.
+   */
+  it("네이티브 브리지가 있으면 홈 복귀 신호도 함께 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+    await userEvent.click(screen.getByRole("button", { name: "홈으로" }));
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+
   /** S3-8의 타이틀은 `여기까지 기록을 저장했어요`로 단언하므로 미달 세션에 쓰면 거짓이 된다. */
   it("기록에 남았다고 단언하는 S3-8 문구를 쓰지 않는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);

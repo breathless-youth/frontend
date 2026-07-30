@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Text, View } from "react-native";
@@ -79,19 +79,36 @@ export default function SessionRoomScreen() {
   }, [id, devWebOrigin]);
 
   /**
-   * 웹 → 네이티브 메시지 처리 — **지금은 세션 제출 대행뿐이다**(`lib/sessionSubmitRelay.ts`).
+   * 웹 → 네이티브 메시지 처리 — **세션 제출 대행**과 **홈 복귀**(`packages/types`의
+   * `NavigateHomeMessage`) 두 종류다.
    *
-   * 세션 로직이 여기로 넘어오는 게 아니다. 웹이 완성한 요청 본문을 받아 HTTP만 대신 쳐 주고
-   * 결과를 그대로 돌려준다 — WebView 안에서 직접 `fetch`하면 백엔드가 CORS 헤더를 보내지 않아
-   * 막히기 때문이다(2026-07-30 확인). 그 전까지는 제출이 조용히 실패해서 종료를 눌러도 결과
-   * 화면으로 넘어가지 않았다.
+   * 세션 로직이 여기로 넘어오는 게 아니다. 제출은 웹이 완성한 요청 본문을 받아 HTTP만 대신
+   * 쳐 주고 결과를 그대로 돌려준다 — WebView 안에서 직접 `fetch`하면 백엔드가 CORS 헤더를
+   * 보내지 않아 막히기 때문이다(2026-07-30 확인). 그 전까지는 제출이 조용히 실패해서 종료를
+   * 눌러도 결과 화면으로 넘어가지 않았다.
+   *
+   * 홈 복귀는 S4 CTA(`확인`)와 미달 종료 안내 CTA(`홈으로`)가 보낸다 — 웹 라우터의
+   * `navigate("/")`만으로는 WebView 안의 웹 홈이 열릴 뿐 네이티브 홈 탭으로 가지 않기
+   * 때문이다. 이 화면은 탭 네비게이터 위에 `fullScreenModal`로 띄워져 있으므로(`app/_layout.tsx`),
+   * 모달을 닫으면 그 아래 탭이 그대로 드러난다 — `permission-denied.tsx`와 같은 패턴이다.
    *
    * 모르는 메시지는 `parseToNativeMessage`가 `null`로 흘려보낸다 — 앱과 웹 번들의 버전이
    * 어긋날 수 있고, 모르는 메시지에 죽으면 세션이 멈춘다.
    */
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     const message = parseToNativeMessage(event.nativeEvent.data);
-    if (message === null || message.type !== "submit-session") {
+    if (message === null) {
+      return;
+    }
+    if (message.type === "navigate-home") {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/");
+      }
+      return;
+    }
+    if (message.type !== "submit-session") {
       return;
     }
     // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.

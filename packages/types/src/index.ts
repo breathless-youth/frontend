@@ -108,6 +108,7 @@ export interface StudySessionStreakResponse {
 }
 
 export type {
+  NavigateHomeMessage,
   SubmitResultMessage,
   SubmitSessionMessage,
   ToNativeMessage,

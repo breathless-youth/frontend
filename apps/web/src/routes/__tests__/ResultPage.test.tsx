@@ -2,7 +2,7 @@ import type { StatusEventPayload, StudyEventStatus, StudySessionResponse } from 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ResultPage } from "../ResultPage";
 
@@ -310,6 +310,21 @@ describe("ResultPage — 이탈 경로", () => {
     await userEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.getByText("홈 화면")).toBeInTheDocument();
+  });
+
+  /**
+   * 2026-07-30 실기기 확인: 이 배선이 없으면 웹 라우터 이동만 실행되어 WebView 안에
+   * `apps/web`의 웹 홈이 열리고, 네이티브 탭 홈으로는 돌아가지 않는다.
+   */
+  it("네이티브 브리지가 있으면 홈 복귀 신호도 함께 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
   });
 
   it("우상단 닫기는 CTA와 같은 동작이다", async () => {
