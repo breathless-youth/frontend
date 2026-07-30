@@ -56,29 +56,34 @@ function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySes
   };
 }
 
-describe("formatEventDuration — 통계 행(초까지 노출)", () => {
-  it("1시간 미만은 분+초로 쓴다", () => {
-    expect(formatEventDuration(580)).toBe("9분 40초");
-    expect(formatEventDuration(372)).toBe("6분 12초");
-    expect(formatEventDuration(128)).toBe("2분 8초");
-  });
-
-  it("초가 0이면 초를 생략한다", () => {
+/**
+ * 2026-07-27(8차 인터뷰)로 표기 규칙이 분 단위로 통일되면서 이 함수도 초를 버렸다.
+ * 예전 기대값(`9분 40초`)은 Figma 실측과 일치했지만 그 근거였던 voice-tone의
+ * "상세 맥락은 M분 S초" 조항이 폐기됐다 — **의도적으로 Figma와 달라진 지점이다.**
+ */
+describe("formatEventDuration — 통계 행(분 단위, 초 금지)", () => {
+  it("1시간 미만은 분만 쓴다 — 초를 버린다", () => {
+    expect(formatEventDuration(580)).toBe("9분");
+    expect(formatEventDuration(372)).toBe("6분");
+    expect(formatEventDuration(128)).toBe("2분");
     expect(formatEventDuration(180)).toBe("3분");
   });
 
-  it("1분 미만은 초만 쓴다", () => {
-    expect(formatEventDuration(40)).toBe("40초");
-    expect(formatEventDuration(0)).toBe("0초");
+  it("1분 미만은 '1분 미만'이다", () => {
+    expect(formatEventDuration(40)).toBe("1분 미만");
+    expect(formatEventDuration(0)).toBe("1분 미만");
+    expect(formatEventDuration(-5)).toBe("1분 미만");
   });
 
-  it("1시간 이상은 시간+분으로 끊는다 — 상세 맥락이라도 초까지 늘어놓지 않는다", () => {
+  it("1시간 이상은 시간+분으로 끊는다", () => {
     expect(formatEventDuration(3661)).toBe("1시간 1분");
     expect(formatEventDuration(3600)).toBe("1시간");
   });
 
-  it("음수는 0초로 방어한다", () => {
-    expect(formatEventDuration(-5)).toBe("0초");
+  it("어떤 입력에도 '초'가 들어가지 않는다", () => {
+    for (const seconds of [-5, 0, 1, 59, 60, 128, 580, 3599, 3600, 3661]) {
+      expect(formatEventDuration(seconds)).not.toContain("초");
+    }
   });
 });
 

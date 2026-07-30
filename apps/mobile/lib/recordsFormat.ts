@@ -118,12 +118,25 @@ export function isFutureDateKey(dateKey: string, todayKey: string): boolean {
 }
 
 /**
+ * 1분 미만 값의 표기 — **초 숫자를 노출하지 않는다.**
+ *
+ * 2026-07-27 확정(ai-wiki `product/voice-tone.md` §2, 8차 인터뷰): 모든 시간 텍스트는 분 단위이고
+ * 초는 금지다. 구 "1분 미만은 S초" 조항은 폐기됐다. 웹 쪽 `SUB_MINUTE_LABEL`과 **같은 문자열**
+ * 이어야 한다 — 같은 규칙이 두 앱에 각각 구현돼 있으므로 한쪽만 바꾸면 화면 사이가 어긋난다.
+ *
+ * 저장은 여전히 초 단위다(서버 계약 `studySec`/`focusSec`). 분 단위는 표시 계층에만 적용된다.
+ */
+const SUB_MINUTE_LABEL = "1분 미만";
+
+/**
  * 시간 길이 표기(voice-tone §2, 전 화면 공통): 1시간 이상 → `N시간 M분`(M=0이면 `N시간`) ·
- * 1시간 미만 → `M분` · 1분 미만 → `S초`.
+ * 1시간 미만 → `M분` · 1분 미만 → `1분 미만`(2026-07-27 확정 — 구 `S초` 폐기).
  *
  * 진행 중 타이머의 `HH:MM:SS` 규칙은 이 화면에 적용하지 않는다(기록은 전부 한글 길이 표기).
- * 0초만 예외로 `0분`이다 — 선택일 빈 상태에서 요약 타일이 `0초`로 보이지 않게 하기 위한 것으로,
- * 스펙 빈 상태 절이 예시로 든 표기(`0분`/`0%`/`0회`)를 그대로 따른 것이다.
+ *
+ * **0초는 `1분 미만`이 아니라 `0분`이다.** 선택일에 기록이 아예 없는 빈 상태에서 요약 타일이
+ * `1분 미만`으로 보이면 "짧게라도 공부했다"는 뜻이 되어 사실과 다르다 — 스펙 빈 상태 절이
+ * 예시로 든 표기(`0분`/`0%`/`0회`)를 그대로 따른다.
  */
 export function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
@@ -140,7 +153,7 @@ export function formatDuration(totalSeconds: number): string {
   if (minutes > 0) {
     return `${minutes}분`;
   }
-  return `${seconds}초`;
+  return SUB_MINUTE_LABEL;
 }
 
 /** UTC ISO-8601 → KST `HH:MM`(24시간제). */
