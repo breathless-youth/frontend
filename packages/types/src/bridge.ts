@@ -16,4 +16,9 @@ export type ToWebMessage =
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  { type: "session-ready"; atMs: number };
+  | { type: "session-ready"; atMs: number }
+  /**
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. ADR가 명시한 2종 메시지 중 하나다.
+   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
+   */
+  | { type: "open-settings"; atMs: number };
