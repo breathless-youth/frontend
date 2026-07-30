@@ -21,6 +21,11 @@ dist-ssr
 # 자산은 저장소가 원본이어야 낡지 않는다.
 public/mediapipe/
 
+# mkcert가 만든 dev 서버 HTTPS 인증서 — **개인 키다. 절대 커밋하지 않는다.**
+# iOS 실기기에서 dev 서버로 세션 화면을 띄울 때만 쓴다(`vite.config.ts`의 `devHttps` 주석).
+# 인증서에는 발급 시점의 LAN IP가 박히므로 개발자·네트워크마다 달라 공유할 값도 아니다.
+.certs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

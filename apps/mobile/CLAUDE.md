@@ -41,6 +41,48 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 - **제대로 된 해법은 백엔드에 도메인 + HTTPS를 붙이고 `apiBaseUrl`을 `https://`로 바꾼 뒤 `NSAllowsArbitraryLoads`를 지우는 것이다.** 이 키를 남긴 채 App Store에 제출하면 심사에서 사유 소명을 요구받는다.
 - Android는 별개 경로로 이미 열려 있다(`expo-build-properties`의 `usesCleartextTraffic: true`). 같은 시점에 같이 걷어낼 것.
 
+## 웹 dev 서버로 세션 화면 띄우기 (2026-07-30)
+
+**`apps/web`을 고칠 때마다 네이티브를 재빌드하지 않으려면 이걸 쓴다.** 평소 세션 WebView는 앱에 동봉된 `assets/web-dist`를 보므로, 웹을 한 줄 고쳐도 웹 빌드 → `sync-web` → prebuild → 네이티브 빌드 → 설치가 필요하다(2026-07-30 실측: Android 약 12분, iOS 실기기 약 25분).
+
+`app.json`의 `extra.webDevUrl`에 값을 넣으면 정적 서버를 띄우지 않고 그 주소를 그대로 WebView에 넘긴다 → **HMR로 즉시 반영**. 판정은 [lib/devWebOrigin.ts](./lib/devWebOrigin.ts)에 있다.
+
+⚠️ **값을 커밋하지 말 것.** 커밋된 기본값은 빈 문자열(= 꺼짐)이다. 값이 남은 채 배포되면 릴리스 앱이 존재하지 않는 dev 서버를 본다. `__DEV__`가 아니면 무시하는 방어선이 있지만 그걸 믿고 커밋하지 않는다.
+
+Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다(네이티브 재빌드 불필요).
+
+### Android
+
+`getUserMedia`는 secure context를 요구하고 `http://`는 **`localhost`일 때만** 인정된다. `adb reverse`로 기기의 localhost를 Mac으로 넘긴다.
+
+```bash
+pnpm --filter web dev                     # Vite 5173
+adb reverse tcp:5173 tcp:5173
+# app.json: "webDevUrl": "http://localhost:5173"
+```
+
+### iOS 실기기
+
+`adb reverse`에 해당하는 것이 없다. **LAN IP를 http로 쓰면 secure context가 아니라 카메라가 막힌다** — 그래서 HTTPS가 필수다.
+
+```bash
+brew install mkcert nss
+sudo mkcert -install                       # Mac 키체인에 루트 CA 등록
+cd apps/web && mkdir -p .certs && cd .certs
+mkcert 192.168.0.19 localhost 127.0.0.1 ::1   # 본인 Mac의 LAN IP
+
+VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 참고
+# app.json: "webDevUrl": "https://192.168.0.19:5173"
+```
+
+기기에는 `mkcert -CAROOT`의 `rootCA.pem`을 AirDrop 등으로 옮겨 프로파일을 설치하고, **설정 → 일반 → 정보 → 인증서 신뢰 설정**에서 신뢰시켜야 한다. LAN IP는 네트워크가 바뀌면 달라지므로 그때마다 인증서를 다시 만든다.
+
+⚠️ **HTTPS는 `VITE_DEV_HTTPS=1`일 때만 켜진다. 인증서 존재만으로 켜지지 않는다** — Android는 반대로 http여야 하기 때문이다(위 절 참고). 인증서 파일이 남아 있다는 이유로 프로토콜이 바뀌면 그날따라 Android가 안 되는 원인을 찾기 어렵다. `.certs/`는 개인 키라 `.gitignore` 대상이다.
+
+### 클라이언트 격리 네트워크(AP isolation)에서는 LAN IP가 안 통한다
+
+회사망 등에서 폰·Mac이 같은 Wi-Fi인데도 서로 통신이 안 되면 위 LAN IP 경로는 어떤 설정으로도 뚫리지 않는다(2026-07-30 확인). 이때는 `VITE_DEV_TUNNEL=1`로 `apps/web/vite.config.ts`의 터널 모드를 켜고 `cloudflared`로 Vite·Metro 양쪽을 터널링한다 — 자세한 이유·설정은 `vite.config.ts`의 `tunnelServerOptions` 주석 참고. 공개 URL이라 검증 후 반드시 내린다.
+
 ## 화면 방향 — 세션만 회전 (2026-07-30)
 
 **세션(`room/[id]`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 세션뿐이라서다(S3-5·S3-6).
