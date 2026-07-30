@@ -24,6 +24,29 @@ describe("buildSessionUrl", () => {
       "http://localhost:34567/room/1",
     );
   });
+
+  /**
+   * 동봉되는 web-dist는 **언제나 프로덕션 빌드**라 `import.meta.env.DEV`가 false다.
+   * 이 플래그가 실기기에서 웹 진단을 켤 유일한 수단이다(2026-07-30 확인: 번들에
+   * `camera:stream` 문자열이 0건이었다).
+   */
+  it("diag를 켜면 진단 플래그를 붙인다", () => {
+    expect(buildSessionUrl("http://localhost:34567", { roomId: "1", userId: 7, diag: true })).toBe(
+      "http://localhost:34567/room/1?userId=7&diag=1",
+    );
+  });
+
+  it("userId 없이 diag만 켜도 올바른 쿼리를 만든다", () => {
+    expect(
+      buildSessionUrl("http://localhost:34567", { roomId: "1", userId: null, diag: true }),
+    ).toBe("http://localhost:34567/room/1?diag=1");
+  });
+
+  it("diag를 넘기지 않으면 플래그가 붙지 않는다 — 릴리스 빌드의 기본값이다", () => {
+    expect(buildSessionUrl("http://localhost:34567", { roomId: "1", userId: 7 })).not.toContain(
+      "diag",
+    );
+  });
 });
 
 describe("createUnavailableWebAssetServer", () => {

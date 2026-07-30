@@ -105,8 +105,19 @@ export function createFakeWebAssetServer(
  */
 export function buildSessionUrl(
   origin: string,
-  params: { roomId: string; userId: number | null },
+  params: { roomId: string; userId: number | null; diag?: boolean },
 ): string {
   const base = `${origin.replace(/\/$/, "")}/room/${params.roomId}`;
-  return params.userId === null ? base : `${base}?userId=${params.userId}`;
+  const query = new URLSearchParams();
+  if (params.userId !== null) {
+    query.set("userId", String(params.userId));
+  }
+  if (params.diag === true) {
+    // `apps/web`의 진단 게이트(`vision/diagnostics.ts`)를 켠다. 동봉되는 web-dist는 항상
+    // 프로덕션 빌드라 `import.meta.env.DEV`가 false이고, 이 플래그가 실기기에서 진단을
+    // 볼 **유일한** 수단이다.
+    query.set("diag", "1");
+  }
+  const search = query.toString();
+  return search === "" ? base : `${base}?${search}`;
 }

@@ -28,19 +28,25 @@
  * 라우트(`app/room/[id].tsx`)의 `originWhitelist`는 `localhost`·`127.0.0.1` 양쪽을 받으므로
  * 이 선택으로 깨지지 않는다.
  *
- * ## 서빙 루트가 기기에서 실제로 어디인가 — 아직 미해결
+ * ## 서빙 루트가 기기에서 실제로 어디인가 — 해결됨
  *
  * `fileDir`에 상대 경로를 주면 라이브러리가 플랫폼별 번들 경로로 풀어준다
  * (iOS: `MainBundlePath/web-dist`, Android: `DocumentDirectoryPath/web-dist`).
- * **그러나 지금 저장소에는 `apps/mobile/assets/web-dist/`를 그 위치로 보내는 장치가 없다.**
- * Expo CNG라 `ios/`·`android/`가 생성물이고(둘 다 gitignore), 라이브러리 README가 요구하는
- * iOS Xcode folder reference 추가와 Android `assets.srcDirs` 설정은 config plugin 없이는
- * 다음 prebuild에서 사라진다. Android는 거기에 더해 번들 asset을 파일로 읽을 수 없어
- * 기동 전 실제 디렉터리로 복사하는 단계가 따로 필요하다.
  *
- * 그래서 `fileDir`을 주입 가능하게 열어 뒀다 — 번들 방식이 정해지면 그 결과 경로를
- * 여기로 넘기면 되고, 이 파일은 다시 손대지 않는다. 기본값은 "정해지면 이 이름이 된다"는
- * 자리표시자이지 지금 동작이 검증된 경로가 아니다.
+ * `apps/mobile/assets/web-dist/`를 그 위치로 보내는 것은 **config plugin
+ * `plugins/withWebDistAssets.js`가 한다** — iOS는 Xcode 빌드 단계를 추가하고, Android는
+ * prebuild 시점에 `android/app/src/main/assets/`로 복사한다. Expo CNG라 `ios/`·`android/`가
+ * 생성물이므로(둘 다 gitignore) 손으로 넣은 설정은 다음 prebuild에서 사라지는데, plugin은
+ * prebuild 흐름의 일부라 매번 다시 적용된다.
+ *
+ * Android는 거기에 더해 번들 asset을 파일로 읽을 수 없어, 기동 전에 실제 디렉터리로 풀어내는
+ * 단계가 따로 있다(`ensureAndroidAssetsExtracted`). 앱을 업데이트해도 풀린 파일이 자동으로
+ * 지워지지 않으므로 `.build-stamp`를 비교해 바뀌었을 때만 다시 푼다.
+ *
+ * 2026-07-30 Android 에뮬레이터에서 prebuild 후 `android/app/src/main/assets/web-dist/`에
+ * 최신 빌드가 들어가는 것을 확인했다.
+ *
+ * `fileDir`은 그대로 주입 가능하게 열어 둔다 — 테스트와 스파이크가 경로를 갈아끼운다.
  */
 
 import { Platform } from "react-native";
