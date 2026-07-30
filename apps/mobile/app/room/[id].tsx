@@ -1,7 +1,7 @@
-import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, BackHandler, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 import { resolveDevWebOrigin } from "../../lib/devWebOrigin";
@@ -72,6 +72,40 @@ export default function SessionRoomScreen() {
       cancelled = true;
     };
   }, [id, devWebOrigin]);
+
+  /**
+   * Android 하드웨어 뒤로가기 차단 — **세션 유실 방지**.
+   *
+   * 막지 않으면 뒤로가기가 네이티브 스택에서 이 화면을 팝하고, 그때 WebView가 통째로 파괴된다.
+   * 세션 로직은 전부 웹에 있으므로 `endAndSubmit`이 실행될 기회 자체가 없다 —
+   * 종료 확인 다이얼로그도 뜨지 않고, **공부한 시간이 서버에 하나도 남지 않는다.** 사용자
+   * 입장에서는 뒤로가기를 한 번 누른 것뿐인데 세션이 증발하고 되돌릴 방법이 없다.
+   *
+   * `true`를 돌려주는 것은 "이 이벤트를 소비했으니 기본 동작(화면 닫기)을 하지 말라"는 뜻이다.
+   * iOS에는 하드웨어 뒤로가기가 없어 이 핸들러가 불리지 않는다 — 실질적으로 Android 전용이다.
+   *
+   * **왜 다이얼로그를 띄우지 않고 그냥 막는가.** 종료 확인 다이얼로그(S3-7)는 웹 소유인데
+   * 네이티브→웹 명령을 보낼 브리지가 아직 배선되지 않았다(`lib/webBridge.ts`는 있으나
+   * 어느 화면에도 연결돼 있지 않다). 그리고 SCR-S3-7이 하드웨어 뒤로가기에 대해
+   * **"종료를 이 경로로 확정시키지 말 것"**을 명시했고, 확정되지 않은 닫기 경로는 열지 않고
+   * 막아 두는 것이 이 저장소의 기존 방침이다(U1 `UpdateNoticeSheet`의 dim-press·swipe-down·
+   * hardware-back 처리와 같다). 세션은 화면 안의 종료 버튼으로만 끝난다.
+   *
+   * TODO: 브리지가 배선되면 여기서 막는 대신 웹에 `back-pressed`를 넘겨 S3-7 다이얼로그를
+   * 열도록 바꾼다. 그게 Android 관례에 더 맞는다.
+   *
+   * ⚠️ **세션이 실제로 살아 있을 때만 막는다.** 오류 화면(`failed`)과 로딩 중(`uri === null`)에는
+   * 지킬 세션이 없는데, 거기서까지 막으면 사용자가 그 화면에 갇혀 나갈 방법이 사라진다.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (failed || uri === null) {
+        return;
+      }
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => true);
+      return () => subscription.remove();
+    }, [failed, uri]),
+  );
 
   if (failed) {
     return (
