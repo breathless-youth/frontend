@@ -44,14 +44,27 @@ export function UpdateNoticeSheet({
   // false = 화면 밖(translateY 100%) · true = 제자리. rendered 직후 한 프레임 늦게 켜야 전환이 발화한다.
   const [open, setOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  // 열림 모션을 실제로 시작한 적 있는가(RN 원본 `opened` ref와 동일 — 재오픈 없음 전제).
+  const openedRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setRendered(true);
       // 마운트 프레임에 바로 open이면 transition이 생략된다 — 다음 프레임에 연다.
-      const frame = requestAnimationFrame(() => setOpen(true));
+      const frame = requestAnimationFrame(() => {
+        openedRef.current = true;
+        setOpen(true);
+      });
       return () => cancelAnimationFrame(frame);
     }
+    if (!openedRef.current) {
+      // 한 번도 열린 적 없으면 닫힘 모션도 없다 — 즉시 언마운트한다(RN판 `opened.current` 가드
+      // 그대로). 이 가드가 없으면 transform이 계속 화면 밖 상태라 transitionend가 발화하지 않아
+      // rendered=true로 남고, 투명 딤(`fixed inset-0 z-50`)이 홈 클릭을 계속 삼킨다.
+      setRendered(false);
+      return undefined;
+    }
+    openedRef.current = false;
     setOpen(false);
     return undefined;
   }, [visible]);
@@ -82,6 +95,7 @@ export function UpdateNoticeSheet({
       />
       <div
         ref={sheetRef}
+        data-testid="update-notice-panel"
         onTransitionEnd={(event) => {
           // 닫힘 슬라이드가 끝나면 언마운트한다. 딤 fade의 이벤트는 위 div에서 나므로 안 겹친다.
           if (event.target === sheetRef.current && !open) {
