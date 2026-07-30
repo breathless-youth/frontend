@@ -4,13 +4,28 @@ import { useCallback } from "react";
 
 import type { StudySessionListResponse } from "@focuson/types";
 
-import { type CalendarMonth, isDateKeyInMonth, statsQueryDateKey } from "../../lib/recordsFormat";
-import { dailyStatsQuery, registeredUserIdQuery, statsKeys } from "../../lib/statsQueries";
+import {
+  type CalendarMonth,
+  isDateKeyInMonth,
+  statsQueryDateKey,
+  weekDateKeys,
+} from "../../lib/recordsFormat";
+import {
+  dailyStatsQuery,
+  registeredUserIdQuery,
+  statsKeys,
+  streakQuery,
+} from "../../lib/statsQueries";
 
 export type RecordsDayState =
   | { status: "pending" }
   | { status: "error"; retry: () => void }
   | { status: "success"; stats: StudySessionListResponse };
+
+export type StreakBannerState =
+  | { status: "pending" }
+  | { status: "hidden" }
+  | { status: "success"; streakDays: number; doneDates: readonly string[] };
 
 /**
  * S5 기록 조회 훅 — userId 확보(익명 등록) 후 선택일 통계와 보이는 달의 달력 도트를 조회한다.
@@ -24,7 +39,8 @@ export type RecordsDayState =
 export function useRecordsData(
   selectedKey: string,
   month: CalendarMonth,
-): { day: RecordsDayState; studiedDates: readonly string[] } {
+  todayKey: string,
+): { day: RecordsDayState; studiedDates: readonly string[]; streakBanner: StreakBannerState } {
   const queryClient = useQueryClient();
   const user = useQuery(registeredUserIdQuery());
   const userId = user.data;
@@ -45,6 +61,13 @@ export function useRecordsData(
   const monthStats = useQuery({
     ...dailyStatsQuery(userId ?? 0, monthDateKey),
     enabled: userId != null && !selectedInMonth,
+  });
+  const weekStart = weekDateKeys(todayKey)[0];
+  const streak = useQuery({
+    ...streakQuery(userId ?? 0, { from: weekStart, to: todayKey }),
+    enabled: userId != null,
+    // 자정 넘김으로 주 범위 키가 바뀌는 순간 직전 데이터를 유지해 배너가 스켈레톤으로 깜빡이지 않게 한다.
+    placeholderData: keepPreviousData,
   });
 
   // 탭 재진입 시 통계를 신선하게 유지한다. invalidate는 stale 표시 + 활성 쿼리 재조회.
@@ -69,17 +92,35 @@ export function useRecordsData(
     if (monthStats.isError) {
       void monthStats.refetch();
     }
+    if (streak.isError) {
+      void streak.refetch();
+    }
   };
 
   // 도트 조회 실패는 화면을 막지 않는다 — 빈 배열로 두면 도트만 안 찍힌다(포커스 재조회로 복구).
   const studiedDates =
     (selectedInMonth ? day.data?.studiedDatesInMonth : monthStats.data?.studiedDatesInMonth) ?? [];
 
+  // 배너 상태(2026-07-28 확정): 캐시 있으면 success 유지, 실패(캐시 없음)면 숨김 —
+  // 틀린 "0일째"를 보여주지 않는다. 오류 안내·재시도는 일별 기록 영역 ErrorState가 대표한다.
+  const streakBanner: StreakBannerState =
+    streak.data !== undefined
+      ? {
+          status: "success",
+          streakDays: streak.data.streak,
+          // 계약상 필수 필드지만 서버 계약 드리프트 시 오류 없이 도트만 전부 비는 무증상
+          // 실패가 되므로 방어한다(2026-07-28 리뷰 반영) — 빈 배열이면 도트만 안 찍힌다.
+          doneDates: streak.data.studiedDatesInRange ?? [],
+        }
+      : user.isError || streak.isError
+        ? { status: "hidden" }
+        : { status: "pending" };
+
   if (day.data !== undefined && !day.isPlaceholderData) {
-    return { day: { status: "success", stats: day.data }, studiedDates };
+    return { day: { status: "success", stats: day.data }, studiedDates, streakBanner };
   }
   if (user.isError || day.isError) {
-    return { day: { status: "error", retry }, studiedDates };
+    return { day: { status: "error", retry }, studiedDates, streakBanner };
   }
-  return { day: { status: "pending" }, studiedDates };
+  return { day: { status: "pending" }, studiedDates, streakBanner };
 }

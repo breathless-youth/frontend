@@ -2,10 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 
-import type { StudySessionListResponse, StudySessionSummary } from "@focuson/types";
+import type {
+  StudySessionListResponse,
+  StudySessionStreakResponse,
+  StudySessionSummary,
+} from "@focuson/types";
 
 import RecordsScreen from "../app/(tabs)/records";
-import { listStudySessionStats } from "../lib/statsApi";
+import { getStreak, listStudySessionStats } from "../lib/statsApi";
 import { ensureUserRegistered } from "../lib/userApi";
 
 /**
@@ -32,6 +36,7 @@ jest.mock("../lib/userApi", () => ({
 
 const mockedEnsure = ensureUserRegistered as jest.MockedFunction<typeof ensureUserRegistered>;
 const mockedStats = listStudySessionStats as jest.MockedFunction<typeof listStudySessionStats>;
+const mockedStreak = getStreak as jest.MockedFunction<typeof getStreak>;
 const mockedFocusEffect = useFocusEffect as jest.MockedFunction<typeof useFocusEffect>;
 
 /** 탭 재진입을 흉내 낸다 — 등록된 모든 포커스 콜백(화면의 todayKey 갱신 + 훅의 invalidate)을 실행. */
@@ -80,6 +85,16 @@ const SESSION_TEMPLATES = [
     eventCounts: { AWAY: 0, PHONE: 2, DEVICE: 0, PAUSE: 0 },
   },
 ];
+
+/**
+ * 배너 성공 시나리오의 스트릭 응답 — 고정 오늘(KST 2026-07-26, 일요일)은 이번 주 시작일과 같아
+ * 훅이 요청하는 범위(`weekStart`~`todayKey`)가 오늘 하루뿐이다(`useRecordsData` 참고).
+ */
+const DEFAULT_STREAK_RESPONSE: StudySessionStreakResponse = {
+  streak: 12,
+  maxStreak: 12,
+  studiedDatesInRange: ["2026-07-26"],
+};
 
 function toUtcIso(dateKey: string, kstClock: string): string {
   return new Date(`${dateKey}T${kstClock}:00+09:00`).toISOString();
@@ -136,12 +151,16 @@ function renderScreen() {
 async function renderRecords() {
   mockedEnsure.mockResolvedValue(7);
   mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+  mockedStreak.mockResolvedValue(DEFAULT_STREAK_RESPONSE);
   renderScreen();
   await screen.findByText("7월 26일 학습 요약");
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // 배너를 단언하지 않는 테스트가 undefined 응답으로 깨지지 않도록 안전한 기본값을 둔다 —
+  // 배너를 검증하는 테스트는 각자 필요한 값으로 덮어쓴다.
+  mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
   jest.useFakeTimers({
     doNotFake: [
       "cancelAnimationFrame",
@@ -175,6 +194,49 @@ describe("S5 · 기록", () => {
     expect(screen.getByText("내일도 10분만 하면 이어져요")).toBeTruthy();
     expect(screen.getByText("2026년 7월")).toBeTruthy();
     expect(screen.getByText("7월 26일 학습 요약")).toBeTruthy();
+    expect(screen.getByText("공부 기록")).toBeTruthy();
+  });
+
+  it("스트릭 인정일(오늘 제외) 도트를 '공부함'으로 표시한다", async () => {
+    // 고정 오늘(07-26)은 일요일이라 이번 주 시작일과 같다 — 오늘이 아닌 날의 done 도트를
+    // 보려면 주중으로 이동해야 한다. KST 2026-07-29(수) 10:00로 이동한다.
+    jest.setSystemTime(new Date("2026-07-29T01:00:00.000Z"));
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+    mockedStreak.mockResolvedValue({
+      streak: 3,
+      maxStreak: 5,
+      studiedDatesInRange: ["2026-07-27"], // 월요일 — today(수)와 다른 날
+    });
+    renderScreen();
+
+    expect(await screen.findByText("3일 연속 공부 중")).toBeTruthy();
+    expect(screen.getByLabelText("월요일, 공부함")).toBeTruthy();
+  });
+
+  it("배너가 아직 로딩 중이면 스켈레톤만 보여주고 스트릭 문구는 없다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+    mockedStreak.mockImplementation(() => new Promise(() => undefined)); // 영원히 pending
+    renderScreen();
+
+    // 일별 기록(day)은 정상 성공해, 배너 스켈레톤만 남아 있는 상태를 확인한다.
+    await screen.findByText("7월 26일 학습 요약");
+    expect(screen.getAllByLabelText("불러오는 중")).toHaveLength(1);
+    expect(screen.queryByText(/일 연속 공부 중/)).toBeNull();
+  });
+
+  it("배너 조회가 실패해 캐시가 없으면 배너를 감추고 나머지는 그대로 렌더한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockImplementation(async (_userId, date) => serverStatsResponse(date));
+    mockedStreak.mockRejectedValue(new Error("network"));
+    renderScreen();
+
+    await screen.findByText("7월 26일 학습 요약");
+    expect(screen.queryByText(/일 연속 공부 중/)).toBeNull();
+    expect(screen.queryByLabelText("불러오는 중")).toBeNull();
+    // 달력·요약·리스트 등 나머지 영역은 배너 상태와 무관하게 렌더된다.
+    expect(screen.getByText("2026년 7월")).toBeTruthy();
     expect(screen.getByText("공부 기록")).toBeTruthy();
   });
 

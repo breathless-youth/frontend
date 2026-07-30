@@ -13,7 +13,7 @@ const stats: StudySessionListResponse = {
   studiedDatesInMonth: [],
 };
 
-const streak: StudySessionStreakResponse = { streak: 12, maxStreak: 20 };
+const streak: StudySessionStreakResponse = { streak: 12, maxStreak: 20, studiedDatesInRange: [] };
 
 describe("buildHomeSummary", () => {
   it("서버 응답을 화면 모델로 매핑한다 (집중률은 서버 값 그대로)", () => {
@@ -35,7 +35,7 @@ describe("buildHomeSummary", () => {
       longestFocusSec: 0,
       focusRate: 0,
     };
-    expect(buildHomeSummary(empty, { streak: 0, maxStreak: 0 })).toEqual({
+    expect(buildHomeSummary(empty, { streak: 0, maxStreak: 0, studiedDatesInRange: [] })).toEqual({
       focusSec: 0,
       studySec: 0,
       focusRate: 0,

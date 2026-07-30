@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import type { StreakRange } from "./statsApi";
 import { getStreak, listStudySessionStats } from "./statsApi";
 import { ensureUserRegistered } from "./userApi";
 
@@ -10,7 +11,10 @@ import { ensureUserRegistered } from "./userApi";
 export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
-  streak: (userId: number) => ["stats", "streak", userId] as const,
+  streak: (userId: number, range?: StreakRange) =>
+    range
+      ? (["stats", "streak", userId, range.from, range.to] as const)
+      : (["stats", "streak", userId] as const),
 };
 
 export function dailyStatsQuery(userId: number, date: string) {
@@ -20,10 +24,10 @@ export function dailyStatsQuery(userId: number, date: string) {
   });
 }
 
-export function streakQuery(userId: number) {
+export function streakQuery(userId: number, range?: StreakRange) {
   return queryOptions({
-    queryKey: statsKeys.streak(userId),
-    queryFn: () => getStreak(userId),
+    queryKey: statsKeys.streak(userId, range),
+    queryFn: () => getStreak(userId, range),
   });
 }
 

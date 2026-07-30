@@ -3,9 +3,10 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
 
-import { listStudySessionStats } from "../../../lib/statsApi";
+import { weekDateKeys } from "../../../lib/recordsFormat";
+import { getStreak, listStudySessionStats } from "../../../lib/statsApi";
 import { statsKeys } from "../../../lib/statsQueries";
 import { ensureUserRegistered } from "../../../lib/userApi";
 import { useRecordsData } from "../useRecordsData";
@@ -24,6 +25,8 @@ jest.mock("../../../lib/userApi", () => ({
 
 const mockedEnsure = ensureUserRegistered as jest.MockedFunction<typeof ensureUserRegistered>;
 const mockedStats = listStudySessionStats as jest.MockedFunction<typeof listStudySessionStats>;
+const mockedStreak = getStreak as jest.MockedFunction<typeof getStreak>;
+const TODAY_KEY = "2026-07-29";
 
 function statsResponse(studiedDatesInMonth: string[]) {
   return {
@@ -50,15 +53,42 @@ function createWrapper() {
 describe("useRecordsData", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // 스트릭을 검증하지 않는 기존 테스트가 깨지지 않도록 기본값을 둔다 — 각 테스트가 필요하면 덮어쓴다.
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+  });
+
+  it("서버 응답에 studiedDatesInRange가 빠져도(계약 드리프트) 배너는 빈 도트로 동작한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    // 계약상 필수 필드지만 런타임 검증이 없으므로 누락 응답을 흉내 낸다 — 캐스트는 그 드리프트 재현용.
+    mockedStreak.mockResolvedValue({
+      streak: 3,
+      maxStreak: 9,
+    } as unknown as StudySessionStreakResponse);
+
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.streakBanner.status).toBe("success"));
+    expect(result.current.streakBanner).toEqual({
+      status: "success",
+      streakDays: 3,
+      doneDates: [],
+    });
   });
 
   it("선택일이 보이는 달에 있으면 선택일 조회 하나로 세션·도트를 모두 채운다", async () => {
     mockedEnsure.mockResolvedValue(7);
     mockedStats.mockResolvedValue(statsResponse(["2026-07-24", "2026-07-26"]));
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 7 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     expect(result.current.day.status).toBe("pending");
     await waitFor(() => expect(result.current.day.status).toBe("success"));
@@ -76,9 +106,12 @@ describe("useRecordsData", () => {
         : statsResponse(["2026-07-26"]),
     );
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 8 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 8 }, TODAY_KEY),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.day.status).toBe("success"));
     await waitFor(() => expect(result.current.studiedDates).toEqual(["2026-08-02", "2026-08-03"]));
@@ -93,9 +126,12 @@ describe("useRecordsData", () => {
   it("익명 등록 실패 시 error 상태가 된다", async () => {
     mockedEnsure.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 7 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.day.status).toBe("error"));
     expect(mockedStats).not.toHaveBeenCalled();
@@ -105,9 +141,12 @@ describe("useRecordsData", () => {
     mockedEnsure.mockResolvedValue(7);
     mockedStats.mockRejectedValueOnce(new Error("network"));
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 7 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.day.status).toBe("error"));
 
@@ -127,9 +166,12 @@ describe("useRecordsData", () => {
       return statsResponse(["2026-07-26"]);
     });
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 8 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 8 }, TODAY_KEY),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(7, "2026-08-01"));
     await waitFor(() => expect(result.current.day.status).toBe("success"));
@@ -153,7 +195,7 @@ describe("useRecordsData", () => {
 
     const { result, rerender } = renderHook(
       ({ selectedKey }: { selectedKey: string }) =>
-        useRecordsData(selectedKey, { year: 2026, month: 7 }),
+        useRecordsData(selectedKey, { year: 2026, month: 7 }, TODAY_KEY),
       { wrapper: createWrapper(), initialProps: { selectedKey: "2026-07-26" } },
     );
     await waitFor(() => expect(result.current.day.status).toBe("success"));
@@ -186,9 +228,12 @@ describe("useRecordsData", () => {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 
-    const { result } = renderHook(() => useRecordsData("2026-07-26", { year: 2026, month: 7 }), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      {
+        wrapper,
+      },
+    );
 
     // userId 확보 전의 포커스 콜백은 invalidate하지 않는다.
     act(() => {
@@ -202,5 +247,123 @@ describe("useRecordsData", () => {
       mockedFocusEffect.mock.calls.at(-1)?.[0]?.();
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: statsKeys.all });
+  });
+
+  it("스트릭 조회 성공 시 streakBanner가 success이고 주 일요일~오늘로 조회한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    mockedStreak.mockResolvedValue({
+      streak: 3,
+      maxStreak: 9,
+      studiedDatesInRange: ["2026-07-27"],
+    });
+
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() =>
+      expect(result.current.streakBanner).toEqual({
+        status: "success",
+        streakDays: 3,
+        doneDates: ["2026-07-27"],
+      }),
+    );
+    expect(mockedStreak).toHaveBeenCalledWith(7, {
+      from: weekDateKeys(TODAY_KEY)[0],
+      to: TODAY_KEY,
+    });
+  });
+
+  it("스트릭 조회 실패 시 캐시가 없으면 streakBanner가 hidden이지만 day 영역은 정상이다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse(["2026-07-26"]));
+    mockedStreak.mockRejectedValue(new Error("network"));
+
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
+    await waitFor(() => expect(result.current.streakBanner).toEqual({ status: "hidden" }));
+  });
+
+  it("day·streak 모두 실패 후 retry가 둘 다 재조회한다", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockRejectedValueOnce(new Error("network"));
+    mockedStreak.mockRejectedValueOnce(new Error("network"));
+
+    const { result } = renderHook(
+      () => useRecordsData("2026-07-26", { year: 2026, month: 7 }, TODAY_KEY),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.day.status).toBe("error"));
+    expect(result.current.streakBanner).toEqual({ status: "hidden" });
+
+    mockedStats.mockResolvedValue(statsResponse(["2026-07-26"]));
+    mockedStreak.mockResolvedValue({
+      streak: 1,
+      maxStreak: 1,
+      studiedDatesInRange: ["2026-07-26"],
+    });
+
+    if (result.current.day.status === "error") {
+      result.current.day.retry();
+    }
+
+    await waitFor(() => expect(result.current.day.status).toBe("success"));
+    await waitFor(() =>
+      expect(result.current.streakBanner).toEqual({
+        status: "success",
+        streakDays: 1,
+        doneDates: ["2026-07-26"],
+      }),
+    );
+    expect(mockedStats).toHaveBeenCalledTimes(2);
+    expect(mockedStreak).toHaveBeenCalledTimes(2);
+  });
+
+  it("자정 넘김으로 todayKey가 바뀌어도 새 조회가 pending 중이면 스트릭 배너는 이전 데이터로 success 유지", async () => {
+    mockedEnsure.mockResolvedValue(7);
+    mockedStats.mockResolvedValue(statsResponse([]));
+    mockedStreak.mockResolvedValue({
+      streak: 5,
+      maxStreak: 10,
+      studiedDatesInRange: ["2026-07-28"],
+    });
+
+    const { result, rerender } = renderHook(
+      ({ todayKey }: { todayKey: string }) =>
+        useRecordsData("2026-07-26", { year: 2026, month: 7 }, todayKey),
+      { wrapper: createWrapper(), initialProps: { todayKey: TODAY_KEY } },
+    );
+
+    await waitFor(() =>
+      expect(result.current.streakBanner).toEqual({
+        status: "success",
+        streakDays: 5,
+        doneDates: ["2026-07-28"],
+      }),
+    );
+
+    // 자정을 지나 todayKey가 변한다 — 새 조회는 never-resolving으로 pending 상태 유지
+    mockedStreak.mockImplementation(
+      () =>
+        new Promise(() => {
+          // never resolves
+        }),
+    );
+
+    rerender({ todayKey: "2026-07-30" });
+
+    // 새 스트릭 조회가 pending이어도 이전 응답 데이터는 유지되고 배너는 success를 유지한다
+    expect(result.current.streakBanner).toEqual({
+      status: "success",
+      streakDays: 5,
+      doneDates: ["2026-07-28"],
+    });
   });
 });

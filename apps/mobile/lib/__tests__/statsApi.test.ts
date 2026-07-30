@@ -101,18 +101,30 @@ describe("getStreak", () => {
   });
 
   it("userId로 현재/최장 스트릭을 조회한다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 5, maxStreak: 12 }));
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: [] }),
+    );
 
-    await expect(getStreak(7)).resolves.toEqual({ streak: 5, maxStreak: 12 });
+    await expect(getStreak(7)).resolves.toEqual({
+      streak: 5,
+      maxStreak: 12,
+      studiedDatesInRange: [],
+    });
     expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/stats/streak?userId=7", {
       method: "GET",
     });
   });
 
   it("기록이 없으면 0/0 응답을 그대로 반환한다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(200, { streak: 0, maxStreak: 0 }));
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
+    );
 
-    await expect(getStreak(7)).resolves.toEqual({ streak: 0, maxStreak: 0 });
+    await expect(getStreak(7)).resolves.toEqual({
+      streak: 0,
+      maxStreak: 0,
+      studiedDatesInRange: [],
+    });
   });
 
   it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
@@ -137,5 +149,32 @@ describe("getStreak", () => {
     mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
 
     await expect(getStreak(7)).rejects.toThrow("Network request failed");
+  });
+
+  it("from/to 범위를 주면 쿼리 파라미터로 함께 보낸다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: ["2026-07-27"] }),
+    );
+
+    await expect(getStreak(7, { from: "2026-07-26", to: "2026-07-28" })).resolves.toEqual({
+      streak: 5,
+      maxStreak: 12,
+      studiedDatesInRange: ["2026-07-27"],
+    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/stats/streak?userId=7&from=2026-07-26&to=2026-07-28",
+      { method: "GET" },
+    );
+  });
+
+  it("range가 없으면 기존과 같은 URL로 조회한다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
+    );
+
+    await getStreak(7);
+    expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/stats/streak?userId=7", {
+      method: "GET",
+    });
   });
 });

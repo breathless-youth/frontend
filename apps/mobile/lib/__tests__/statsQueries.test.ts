@@ -5,7 +5,7 @@ import { ensureUserRegistered } from "../userApi";
 
 jest.mock("../statsApi", () => ({
   listStudySessionStats: jest.fn().mockResolvedValue({ totalStudySec: 1 }),
-  getStreak: jest.fn().mockResolvedValue({ streak: 2, maxStreak: 3 }),
+  getStreak: jest.fn().mockResolvedValue({ streak: 2, maxStreak: 3, studiedDatesInRange: [] }),
 }));
 jest.mock("../userApi", () => ({
   ensureUserRegistered: jest.fn(),
@@ -25,6 +25,12 @@ describe("statsKeys", () => {
     );
     expect(streakQuery(7).queryKey).not.toEqual(streakQuery(8).queryKey);
   });
+
+  it("range가 있으면 키가 달라지고 stats 루트는 공유한다", () => {
+    const range = { from: "2026-07-26", to: "2026-07-28" };
+    expect(streakQuery(7, range).queryKey).not.toEqual(streakQuery(7).queryKey);
+    expect(streakQuery(7, range).queryKey[0]).toBe(statsKeys.all[0]);
+  });
 });
 
 describe("queryFn 위임", () => {
@@ -35,7 +41,13 @@ describe("queryFn 위임", () => {
 
   it("streakQuery는 statsApi.getStreak을 호출한다", async () => {
     await streakQuery(7).queryFn!({} as never);
-    expect(getStreak).toHaveBeenCalledWith(7);
+    expect(getStreak).toHaveBeenCalledWith(7, undefined);
+  });
+
+  it("streakQuery는 range를 statsApi.getStreak에 그대로 전달한다", async () => {
+    const range = { from: "2026-07-26", to: "2026-07-28" };
+    await streakQuery(7, range).queryFn!({} as never);
+    expect(getStreak).toHaveBeenCalledWith(7, range);
   });
 });
 
