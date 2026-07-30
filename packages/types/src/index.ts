@@ -107,4 +107,9 @@ export interface StudySessionStreakResponse {
   maxStreak: number;
 }
 
-export type { ToNativeMessage, ToWebMessage } from "./bridge";
+export type {
+  SubmitResultMessage,
+  SubmitSessionMessage,
+  ToNativeMessage,
+  ToWebMessage,
+} from "./bridge";

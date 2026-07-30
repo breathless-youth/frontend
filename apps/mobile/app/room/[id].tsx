@@ -1,13 +1,16 @@
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
+import type { WebViewMessageEvent } from "react-native-webview";
 
 import { resolveDevWebOrigin } from "../../lib/devWebOrigin";
+import { relaySessionSubmit } from "../../lib/sessionSubmitRelay";
 import { buildSessionUrl } from "../../lib/webAssetServer";
 import { getWebAssetServer } from "../../lib/webAssetServerRegistry";
 import { getRegisteredUserId } from "../../lib/userApi";
+import { injectMessageScript, parseToNativeMessage } from "../../lib/webBridge";
 
 /**
  * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 WebView로 로드한다(ADR 0001).
@@ -23,6 +26,8 @@ export default function SessionRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [uri, setUri] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  /** 응답을 되돌려 보낼 통로. `injectJavaScript`가 여기 달려 있다. */
+  const webViewRef = useRef<WebView>(null);
   /**
    * 웹 dev 서버 오리진(`lib/devWebOrigin.ts`). `null`이면 평소대로 동봉 자산을 쓴다.
    * 렌더마다 다시 읽어도 값이 바뀌지 않는다 — `Constants.expoConfig`는 앱 수명 동안 고정이다.
@@ -72,6 +77,29 @@ export default function SessionRoomScreen() {
       cancelled = true;
     };
   }, [id, devWebOrigin]);
+
+  /**
+   * 웹 → 네이티브 메시지 처리 — **지금은 세션 제출 대행뿐이다**(`lib/sessionSubmitRelay.ts`).
+   *
+   * 세션 로직이 여기로 넘어오는 게 아니다. 웹이 완성한 요청 본문을 받아 HTTP만 대신 쳐 주고
+   * 결과를 그대로 돌려준다 — WebView 안에서 직접 `fetch`하면 백엔드가 CORS 헤더를 보내지 않아
+   * 막히기 때문이다(2026-07-30 확인). 그 전까지는 제출이 조용히 실패해서 종료를 눌러도 결과
+   * 화면으로 넘어가지 않았다.
+   *
+   * 모르는 메시지는 `parseToNativeMessage`가 `null`로 흘려보낸다 — 앱과 웹 번들의 버전이
+   * 어긋날 수 있고, 모르는 메시지에 죽으면 세션이 멈춘다.
+   */
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
+    const message = parseToNativeMessage(event.nativeEvent.data);
+    if (message === null || message.type !== "submit-session") {
+      return;
+    }
+    // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
+    // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
+    void relaySessionSubmit(message).then((result) => {
+      webViewRef.current?.injectJavaScript(injectMessageScript(result));
+    });
+  }, []);
 
   /**
    * Android 하드웨어 뒤로가기 차단 — **세션 유실 방지**.
@@ -138,7 +166,9 @@ export default function SessionRoomScreen() {
       <StatusBar style="light" />
       <WebView
         testID="session-webview"
+        ref={webViewRef}
         source={{ uri }}
+        onMessage={handleMessage}
         // 세션 화면은 항상 다크다 — 로딩 중 흰 배경이 번쩍이지 않게 한다.
         style={{ flex: 1, backgroundColor: "#0B0F14" }}
         allowsInlineMediaPlayback
