@@ -41,6 +41,25 @@ describe("설정 하위 라우트", () => {
     expect(screen.queryByText("문의 폼을 불러오는 중")).not.toBeInTheDocument();
   });
 
+  it("/contact 의 iframe에서 error가 발생하면 실패 화면을 보여준다", () => {
+    renderAt("/contact");
+    const iframe = screen.getByTitle("문의하기");
+    fireEvent.error(iframe);
+    expect(screen.getByText("문의 폼을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
+  });
+
+  it("실패 화면에서 다시 시도를 누르면 실패 화면이 사라지고 iframe이 다시 렌더된다", () => {
+    renderAt("/contact");
+    fireEvent.error(screen.getByTitle("문의하기"));
+    expect(screen.getByText("문의 폼을 불러오지 못했어요")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+
+    expect(screen.queryByText("문의 폼을 불러오지 못했어요")).not.toBeInTheDocument();
+    expect(screen.getByTitle("문의하기")).toBeInTheDocument();
+  });
+
   it("뒤로 가기 버튼을 누르면 이전 경로로 돌아간다", () => {
     render(
       <MemoryRouter initialEntries={["/settings", "/terms"]} initialIndex={1}>

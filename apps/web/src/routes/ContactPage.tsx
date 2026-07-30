@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
@@ -34,12 +34,27 @@ export function ContactPage() {
   const [failed, setFailed] = useState(false);
   // iframe을 강제로 다시 마운트해 재로드하기 위한 키 — src를 그대로 두면 브라우저가 재요청하지 않을 수 있다.
   const [reloadKey, setReloadKey] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const retry = useCallback(() => {
     setFailed(false);
     setLoading(true);
     setReloadKey((key) => key + 1);
   }, []);
+
+  // React-DOM은 <iframe>에 "load" 이벤트만 위임 등록하고 "error"는 등록하지 않는다
+  // (react-dom-client.development.js의 `case "iframe": listenToNonDelegatedEvent("load", ...)`).
+  // 즉 <iframe onError={...}>는 실제로 절대 호출되지 않는다 — 네이티브 리스너를 직접 붙여야 한다.
+  useEffect(() => {
+    const el = iframeRef.current;
+    if (!el) return;
+    const handleError = () => {
+      setLoading(false);
+      setFailed(true);
+    };
+    el.addEventListener("error", handleError);
+    return () => el.removeEventListener("error", handleError);
+  }, [reloadKey]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -63,6 +78,7 @@ export function ContactPage() {
         <div className="relative flex-1">
           <iframe
             key={reloadKey}
+            ref={iframeRef}
             title="문의하기"
             src={CONTACT_FORM_URL}
             className="size-full border-0"
@@ -70,10 +86,6 @@ export function ContactPage() {
             sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
             onLoad={() => {
               setLoading(false);
-            }}
-            onError={() => {
-              setLoading(false);
-              setFailed(true);
             }}
           />
           {loading && (
