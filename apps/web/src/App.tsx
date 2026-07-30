@@ -1,8 +1,11 @@
 import { Route, Routes } from "react-router-dom";
 
 import { HomePage } from "@/routes/HomePage";
+import { HomeTabPage } from "@/routes/HomeTabPage";
+import { RecordsPage } from "@/routes/RecordsPage";
 import { ResultPage } from "@/routes/ResultPage";
 import { RoomPage } from "@/routes/RoomPage";
+import { SettingsPage } from "@/routes/SettingsPage";
 
 /**
  * S3-1~S3-8(세션)은 8개의 라우트가 아니라 `/room/:id` **하나**가 갖는 프레젠테이션 상태다
@@ -16,6 +19,9 @@ export function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/room/:id" element={<RoomPage />} />
       <Route path="/room/:id/result" element={<ResultPage />} />
+      <Route path="/home" element={<HomeTabPage />} />
+      <Route path="/records" element={<RecordsPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
     </Routes>
   );
 }
