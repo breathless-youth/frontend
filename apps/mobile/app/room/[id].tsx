@@ -174,6 +174,18 @@ export default function SessionRoomScreen() {
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
         mediaCapturePermissionGrantType="grant"
+        // **페이지 자체(문서 스크롤)를 잠근다** — 카메라 프리뷰를 드래그하면 WKWebView가
+        // 콘텐츠와 무관하게 화면을 살짝 밀어 올리는 러버밴드 바운스를 보인다(2026-07-30
+        // 실기기 확인). 이 화면군(S3 세션·S4 결과)은 전부 루트를 `h-svh`(고정 뷰포트)로 짜서
+        // 페이지 스크롤이 필요 없게 설계돼 있다 — 실제로 스크롤이 필요한 긴 콘텐츠(S4 통계
+        // 카드, 자동/미달 종료 안내)는 각자 안의 `overflow-y-auto` 컨테이너가 맡는다
+        // (`ResultPage.tsx`·`AutoEndNotice.tsx`·`SubMinuteEndNotice.tsx`). 그 컨테이너들은
+        // 별도 컴포지팅 레이어라 아래 두 값과 무관하게 계속 스크롤된다 — 여기서 잠그는 건
+        // 문서 루트 하나뿐이다.
+        scrollEnabled={false}
+        bounces={false}
+        // Android의 동급 효과(가장자리 오버스크롤 글로우)도 같은 이유로 끈다.
+        overScrollMode="never"
         // iOS 16.4+는 `isInspectable`을 켠 WebView만 Safari 웹 인스펙터에 노출한다.
         // 이걸 안 켜면 세션 화면이 백지로 떠도 안을 볼 수단이 없다 — 로컬 서버 404인지,
         // wasm 로드 실패인지, `getUserMedia` 거부인지 구분이 안 된다.
@@ -189,13 +201,20 @@ export default function SessionRoomScreen() {
         // 시스템 브라우저로 튀어나가는, 원인과 증상이 전혀 안 맞는 버그가 된다.
         //
         // 웹 dev 서버를 쓸 때는 그 오리진도 넣는다 — iOS 실기기는 secure context 때문에
-        // `https://192.168.x.x:5173` 형태를 쓰는데, 위 두 항목에 걸리지 않아 세션이
+        // `https://192.168.x.x:5173`이나 터널 주소를 쓰는데, 위 두 항목에 걸리지 않아 세션이
         // Safari로 튀어나간다. `??`가 아니라 스프레드인 이유는 dev 오리진이 없을 때
         // 배열 모양을 그대로 두기 위해서다.
+        //
+        // ⚠️ **dev 오리진에 `/*`를 붙이지 말 것.** 이 prop은 URL 전체가 아니라 **오리진만**
+        // 대조한다 — `react-native-webview`의 `extractOrigin`이 `/^…:(\/\/)?[^/]*/`로 경로를
+        // 잘라내고, 패턴은 `^`만 붙은 정규식이 된다. 그래서 `https://host/*`는
+        // `^https://host/.*`가 되어 오리진 `https://host`(슬래시 없음)와 **절대 일치하지 않고**,
+        // 세션이 통째로 시스템 브라우저로 열린다(2026-07-30 실기기에서 실제로 발생).
+        // 위 두 항목이 멀쩡한 이유는 `*`가 슬래시 뒤가 아니라 포트 자리에 있어서다.
         originWhitelist={[
           "http://localhost:*",
           "http://127.0.0.1:*",
-          ...(devWebOrigin === null ? [] : [`${devWebOrigin}/*`]),
+          ...(devWebOrigin === null ? [] : [devWebOrigin]),
         ]}
       />
     </>
