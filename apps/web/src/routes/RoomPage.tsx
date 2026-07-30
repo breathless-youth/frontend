@@ -301,7 +301,11 @@ export function RoomPage() {
     <main
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
-      className="relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
+      // 컨트롤 바 아이콘(`<img>`)과 캡션·타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
+      // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
+      // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
+      onDragStart={(event) => event.preventDefault()}
+      className="session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
     >
       {/* 심플 모드는 **보이는 프리뷰만** 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
           카메라 서피스(`data-session-surface="camera"`)는 사라지므로 S3-4 화면 스펙은 그대로다.
