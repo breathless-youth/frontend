@@ -22,7 +22,9 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   if (record.type === "session-ready" && typeof record.atMs === "number") {
     return { type: "session-ready", atMs: record.atMs };
   }
-  // TODO(BY-333): open-settings 수신 파싱 추가 — packages/types ToNativeMessage에 2026-07-30 추가됨
+  // TODO(BY-333): open-settings 수신 파싱 추가 — packages/types ToNativeMessage에 2026-07-30 추가됨.
+  // 지금 안 넣는 이유: 파싱해도 처리할 네이티브 수신부(OS 설정 열기)가 아직 없다 — 수신부와 함께
+  // BY-333(셸 전환)에서 한 커밋으로 들어가야 계약과 구현이 어긋난 채 머지되지 않는다.
   return null;
 }
 

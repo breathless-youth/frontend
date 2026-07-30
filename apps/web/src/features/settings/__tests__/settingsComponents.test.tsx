@@ -89,4 +89,17 @@ describe("PermissionToggle", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+
+  it("허용/미허용 상태가 트랙 색과 노브 위치로 구분된다", () => {
+    const { container: on } = render(<PermissionToggle granted={true} />);
+    const { container: off } = render(<PermissionToggle granted={false} />);
+    const onTrack = on.firstElementChild as HTMLElement;
+    const offTrack = off.firstElementChild as HTMLElement;
+    expect(onTrack.style.backgroundColor).not.toBe(offTrack.style.backgroundColor);
+    const onKnob = onTrack.firstElementChild as HTMLElement;
+    const offKnob = offTrack.firstElementChild as HTMLElement;
+    // Off는 노브가 왼쪽(KNOB_INSET=2px), On은 오른쪽 — marginLeft가 달라야 한다.
+    expect(offKnob.style.marginLeft).toBe("2px");
+    expect(onKnob.style.marginLeft).not.toBe(offKnob.style.marginLeft);
+  });
 });

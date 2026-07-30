@@ -12,8 +12,8 @@ import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
  * 세션 전체가 멈춘다.
  *
  * 원래 `features/study-session/bridge/nativeBridge.ts`에 있었지만, 설정(S6) 화면도
- * `postToNative`가 필요해져 탭 공용 위치로 승격했다(`lib/userId.ts`와 같은 패턴). 옛 위치는
- * re-export로 남겨 기존 세션 코드가 깨지지 않게 한다.
+ * `postToNative`가 필요해져 탭 공용 위치로 승격했다(`lib/userId.ts`와 같은 패턴). 옛 파일은
+ * import하는 소스가 없어 삭제했고, 그 테스트는 이 모듈을 가리키도록 옮겼다.
  */
 
 interface ReactNativeWebViewBridge {

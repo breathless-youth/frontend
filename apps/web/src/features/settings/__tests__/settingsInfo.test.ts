@@ -44,4 +44,8 @@ describe("cameraPermissionRowLabel", () => {
   it("값을 바꾸는 스위치가 아니라 시스템 설정으로 나가는 버튼임을 알린다", () => {
     expect(cameraPermissionRowLabel(true)).toContain("시스템 설정 열기");
   });
+
+  it("모르는 상태(null)는 허용 여부를 단정하지 않고 상태 부분을 뺀다 — 웹 설정 행의 기본 경로", () => {
+    expect(cameraPermissionRowLabel(null)).toBe("카메라 권한, 시스템 설정 열기");
+  });
 });
