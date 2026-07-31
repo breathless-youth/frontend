@@ -11,11 +11,27 @@ import {
 
 import {
   BUILD_STAMP_NAME,
+  MIME_TYPE_RULE,
+  SPA_FALLBACK_RULE,
   WEB_ASSET_DIR,
   WEB_ASSET_ROOT_MISSING_MESSAGE,
   createStaticWebAssetServer,
   SPA_FALLBACK_EXTRA_CONFIG,
 } from "../staticWebAssetServer";
+
+/**
+ * `SPA_FALLBACK_RULE`이 들고 있는 정규식을 그대로 꺼내 실제 경로에 돌려본다.
+ *
+ * 문자열에 `models/`가 들어 있는지만 보면, 괄호 위치가 틀려 정규식이 아무것도 제외하지 않는
+ * 경우를 못 잡는다 — 그 실패는 기기에서만 드러난다.
+ */
+function rewritesToIndexHtml(urlPath: string): boolean {
+  const pattern = /url\.rewrite-if-not-file = \( "([^"]+)"/.exec(SPA_FALLBACK_RULE)?.[1];
+  if (pattern === undefined) {
+    throw new Error(`rewrite 규칙에서 정규식을 꺼내지 못했다: ${SPA_FALLBACK_RULE}`);
+  }
+  return new RegExp(pattern).test(urlPath);
+}
 
 const mockStart = jest.fn<Promise<string>, []>();
 const mockStop = jest.fn<Promise<void>, []>();
@@ -136,15 +152,74 @@ describe("createStaticWebAssetServer", () => {
 
     expect(constructorOptions().extraConfig).toBe(SPA_FALLBACK_EXTRA_CONFIG);
     expect(SPA_FALLBACK_EXTRA_CONFIG).toContain('server.modules += ("mod_rewrite")');
-    expect(SPA_FALLBACK_EXTRA_CONFIG).toContain(
-      'url.rewrite-if-not-file = ( "^/(?!assets/).*" => "/index.html" )',
-    );
+    expect(SPA_FALLBACK_EXTRA_CONFIG).toContain(SPA_FALLBACK_RULE);
   });
 
-  it("리라이트가 /assets/ 를 비켜간다 — 없는 청크는 200 HTML이 아니라 404여야 한다", () => {
-    // S1 검증에서 없는 .js도 index.html(200)로 돌아오는 것을 확인해 범위를 좁혔다.
-    // 브라우저가 JS인 줄 알고 HTML을 파싱하다 터지면 원인(자산 누락)이 안 보인다.
-    expect(SPA_FALLBACK_EXTRA_CONFIG).toContain("(?!assets/)");
+  describe("SPA 폴백 제외 범위", () => {
+    it("라우트 경로는 index.html로 흡수한다 — history 라우팅이 성립하려면 필요하다", () => {
+      expect(rewritesToIndexHtml("/room/1")).toBe(true);
+      expect(rewritesToIndexHtml("/room/1?userId=7")).toBe(true);
+      expect(rewritesToIndexHtml("/")).toBe(true);
+    });
+
+    it("리라이트가 /assets/ 를 비켜간다 — 없는 청크는 200 HTML이 아니라 404여야 한다", () => {
+      // S1 검증에서 없는 .js도 index.html(200)로 돌아오는 것을 확인해 범위를 좁혔다.
+      // 브라우저가 JS인 줄 알고 HTML을 파싱하다 터지면 원인(자산 누락)이 안 보인다.
+      expect(rewritesToIndexHtml("/assets/index-abc123.js")).toBe(false);
+    });
+
+    it("리라이트가 /models/ 를 비켜간다 — MediaPipe가 HTML을 tflite로 파싱하면 안 된다", () => {
+      // 경로는 apps/web의 visionConfig.ts MODEL_PATHS와 같은 값이어야 한다.
+      expect(rewritesToIndexHtml("/models/efficientdet_lite0_fp32.tflite")).toBe(false);
+      expect(rewritesToIndexHtml("/models/efficientdet_lite0_int8.tflite")).toBe(false);
+    });
+
+    it("리라이트가 /mediapipe/ 를 비켜간다 — wasm 자리에 HTML이 오면 원인이 안 보인다", () => {
+      // MEDIAPIPE_WASM_PATH = "/mediapipe/wasm". 이 디렉터리는 생성물이라 실제로 빠질 수 있다.
+      expect(rewritesToIndexHtml("/mediapipe/wasm/vision_wasm_internal.wasm")).toBe(false);
+      expect(rewritesToIndexHtml("/mediapipe/wasm/vision_wasm_internal.js")).toBe(false);
+    });
+
+    it("제외는 디렉터리 경계에서만 적용된다 — /modelsomething 은 라우트로 남는다", () => {
+      // `(?!assets|models|mediapipe/)`처럼 그룹을 안 씌우면 여기가 깨진다.
+      expect(rewritesToIndexHtml("/modelsomething")).toBe(true);
+      expect(rewritesToIndexHtml("/assetsold/x.js")).toBe(true);
+    });
+  });
+
+  describe("MIME 타입", () => {
+    it("MIME 규칙을 lighttpd 설정에 넣는다", async () => {
+      await createStaticWebAssetServer({ fileDir: "/data/web-dist" }).start();
+
+      expect(constructorOptions().extraConfig).toContain(MIME_TYPE_RULE);
+    });
+
+    it(".wasm을 application/wasm으로 내보낸다 — instantiateStreaming이 그것만 받는다", () => {
+      // lighttpd 내장 기본표에 .wasm이 없어서 application/octet-stream으로 나가고,
+      // WebAssembly.instantiateStreaming은 그 타입을 거부한다.
+      expect(MIME_TYPE_RULE).toContain('".wasm" => "application/wasm"');
+    });
+
+    it("기본표를 대체하므로 js·css·html을 함께 정의한다 — 빠지면 앱 전체가 백지가 된다", () => {
+      // lighttpd는 mimetype.assign이 설정에 한 번이라도 나오면 내장 기본표를 채우지 않고
+      // (config_insert의 `p->defaults.mimetypes == &srv->srvconf.mimetypes_default` 검사),
+      // 병합도 하지 않는다(config_merge_config_cpv가 배열을 통째로 대입한다).
+      expect(MIME_TYPE_RULE).toContain('".html" => "text/html"');
+      expect(MIME_TYPE_RULE).toContain('".js" => "text/javascript"');
+      expect(MIME_TYPE_RULE).toContain('".css" => "text/css;charset=utf-8"');
+      expect(MIME_TYPE_RULE).toContain('".svg" => "image/svg+xml"');
+    });
+
+    it("미등록 확장자용 기본값을 남긴다 — .tflite가 여기 걸린다", () => {
+      expect(MIME_TYPE_RULE).toContain('"" => "application/octet-stream"');
+    });
+
+    it("괄호가 닫혀 있다 — 설정 문법이 깨지면 lighttpd가 아예 뜨지 않는다", () => {
+      expect(MIME_TYPE_RULE.startsWith("mimetype.assign += (")).toBe(true);
+      expect(MIME_TYPE_RULE.trimEnd().endsWith(")")).toBe(true);
+      // 배열 원소는 쉼표로 구분되고 마지막 원소 뒤에는 쉼표가 없어야 한다.
+      expect(MIME_TYPE_RULE).not.toMatch(/,\s*\)$/);
+    });
   });
 
   describe("안드로이드 번들 asset 추출", () => {

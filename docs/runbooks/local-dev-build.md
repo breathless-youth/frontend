@@ -95,6 +95,28 @@ emulator -avd <AVD 이름> -camera-front webcam0
 
   풀린 파일은 **앱을 업데이트해도 지워지지 않으므로**, 그냥 두면 새 앱이 옛 화면을 계속 서빙한다. `scripts/syncWebDist.js`가 남기는 `.build-stamp`(전체 파일의 경로+내용 SHA-256)를 번들 쪽과 비교해, 다르면 통째로 지우고 다시 푼다. 같으면 아무것도 하지 않는다 — 세션 시작은 즉시여야 한다.
 
+### ⚠️ Android: `sync-web` 다음에 **`expo prebuild`를 반드시 돌린다**
+
+위 복사는 **prebuild 시점**에 일어난다(`withDangerousMod`). 그런데 `android/`가 이미 있으면 **`expo run:android`가 prebuild를 건너뛴다.** 그러면 `assets/web-dist`는 최신인데 `android/app/src/main/assets/web-dist`는 옛날 것이고, **에러 없이** 낡은 웹 자산이 담긴 APK가 나온다.
+
+```bash
+pnpm --filter web build
+pnpm --filter mobile sync-web
+npx expo prebuild -p android --no-install   # ← 이 줄이 없으면 조용히 낡은다
+pnpm --filter mobile android
+```
+
+2026-07-29에 실제로 겪었다. 모델·wasm이 APK에 안 들어가 감지가 통째로 죽었는데, 화면은 정상으로 보이고 서버도 200을 주며 로그에도 아무 에러가 없었다 — 추출된 디렉터리 용량(`run-as … du -sh files/web-dist`)이 40MB가 아니라 388KB인 것으로만 알 수 있었다.
+
+**`sync-web:check`는 이걸 못 잡는다.** 그 검사는 `apps/web/dist → apps/mobile/assets/web-dist` 한 홉만 보고, 그 다음 홉(`→ android/app/src/main/assets`)은 아무도 보지 않는다. `android/`는 생성물이라 gitignore되어 CI에도 안 올라간다.
+
+빌드 후 확인:
+
+```bash
+du -sh apps/mobile/android/app/src/main/assets/web-dist   # apps/mobile/assets/web-dist와 같아야 한다
+adb shell "run-as com.breathlessyouth.mobile du -sh files/web-dist"  # 세션 진입 후
+```
+
 ## 경로 공백 패치 두 개 (2026-07-28 이후로는 예방용)
 
 **상위 폴더가 `01_Breathless Youth` → `01_Breathless-Youth`로 바뀌어 공백이 사라졌으므로, 지금은 두 패치 모두 동작에 영향이 없다.** 아래는 왜 생겼는지와, 경로에 공백이 다시 생기면 무엇이 깨지는지의 기록이다.

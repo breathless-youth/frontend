@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# MediaPipe wasm 런타임 — 생성물이다. `scripts/copyMediapipeWasm.js`가 매 dev/build 앞에서
+# npm 패키지(`@mediapipe/tasks-vision`)로부터 다시 복사한다. 커밋하면 패키지 버전이 올라갈 때
+# wasm만 옛 버전으로 남고, 그 불일치는 런타임에서만 드러난다(스크립트 상단 주석 참고).
+#
+# `public/models/`는 **일부러 여기 넣지 않는다** — 모델 .tflite는 npm에 없고 GCS 배포본을
+# 받아야 해서, 빌드 스텝으로 만들면 빌드가 네트워크에 의존하게 된다. 재생성할 원본이 없는
+# 자산은 저장소가 원본이어야 낡지 않는다.
+public/mediapipe/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

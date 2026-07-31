@@ -7,6 +7,7 @@ import { ResultHeader } from "@/features/study-session/components/ResultHeader";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
+import { postToNative } from "@/lib/bridge";
 
 /**
  * S4 공부 결과 (Figma `64:534`) — 세션 상태 머신(S3-1~S3-8)의 **종착점**.
@@ -43,24 +44,32 @@ export function ResultPage() {
    * Figma에 둘 다 있지만 `design.md` 6차 S4 헤더 행은 CTA만 규정한다: 서로 다른 동작을
    * 상상해 부여하지 않는다.
    *
-   * TODO(미정: WebView 호스트 복귀 브리지 — 리더/사용자 확인). 모바일은 이 화면을 WebView로
-   * 로드하므로 웹 라우터만으로는 모바일 홈 탭에 갈 수 없다. 그런데 `apps/mobile`에
-   * `react-native-webview`도 `postMessage` 규약도 아직 없다(2026-07-26 확인) — 메시지 포맷을
-   * 임의로 확정하면 모바일 수신부와 어긋난다. 그래서 복귀 동작을 이 **한 곳**에만 두고,
-   * 브리지가 정해지면 이 함수 안에서 호스트 신호를 보낸 뒤 아래 폴백을 남긴다.
+   * 앱에서는 세션이 네이티브가 push한 별도 화면이라 웹이 스스로 닫을 수 없다 — `exit-session`으로
+   * 닫아달라고 알린다(2026-07-30 확정 브리지 3종 중 하나). 네이티브 수신 구현은 BY-333이고,
+   * 브라우저 단독 모드에는 브리지가 아예 없으므로 이 호출은 그때 조용히 무시된다.
+   *
+   * 그래서 신호를 보낸 **뒤에** 웹 폴백을 남긴다: 브리지가 없으면(브라우저) 이 이동이 실제 복귀고,
+   * 브리지가 받으면 네이티브가 화면을 걷어내므로 이 이동은 보이지 않는다.
+   *
+   * 목적지는 `/`가 아니라 `/home`이다 — `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다.
+   * 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장(브라우저 단독) 모드로 뜬다.
+   * (셋을 합치기 전에는 `/`가 유일한 홈이라 드러나지 않던 경로다 — BY-327 통합에서 발견.)
    *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   function handleConfirm() {
-    navigate("/", { replace: true });
+    postToNative({ type: "exit-session", atMs: Date.now() });
+    navigate({ pathname: "/home", search: location.search }, { replace: true });
   }
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
        없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
-       그리지 않는다(SCR-S4 Interaction Contract). */
-    return <Navigate to="/" replace />;
+       그리지 않는다(SCR-S4 Interaction Contract).
+       `handleConfirm`과 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
+       고쳐지고 다른 쪽이 남는다. */
+    return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
   }
 
   /**

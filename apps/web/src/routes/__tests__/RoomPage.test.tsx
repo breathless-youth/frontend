@@ -294,7 +294,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("감지 신호가 유지시간을 넘기면 자동으로 S3-2(비집중)로 바뀌고, 해제되면 문구 없이 복귀한다", async () => {
     vi.useFakeTimers();
     try {
-      renderRoom("/room/7?userId=1");
+      // `?detector=mock` — DEV에서만 통하는 override다. 이 쿼리가 없으면 실제 Vision 감지기가
+      // 붙고, jsdom에는 카메라가 없어 어떤 신호도 나오지 않는다(=이 테스트가 검증할 대상이 없다).
+      renderRoom("/room/7?userId=1&detector=mock");
       // 개발 빌드 전용 브리지 — 훅이 실제로 들고 있는 detector와 같은 인스턴스여야 한다.
       const detector = window.__focusonMockDetector;
       expect(detector).toBeDefined();
@@ -327,7 +329,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     try {
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/room/7?userId=1"]}>
+          <MemoryRouter initialEntries={["/room/7?userId=1&detector=mock"]}>
             <Routes>
               <Route path="/room/:id" element={<RoomPage />} />
             </Routes>
@@ -386,7 +388,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("비집중은 순공만 멈추고 총 공부는 계속 흐른다", async () => {
     vi.useFakeTimers();
     try {
-      renderRoom("/room/7?userId=1");
+      renderRoom("/room/7?userId=1&detector=mock");
       const detector = window.__focusonMockDetector;
 
       await act(async () => {
@@ -582,6 +584,9 @@ describe("RoomPage — S3-3 일시정지", () => {
 describe("RoomPage — S3-4 심플 모드", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    // 아래 `<video>` 유지 테스트가 stubGlobal("navigator", ...)을 건다 — 다른 테스트로 새지
+    // 않게 원복한다(스텁한 적 없으면 no-op).
+    vi.unstubAllGlobals();
   });
 
   async function enterSimpleMode() {
@@ -596,6 +601,23 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     expect(container.querySelector('[data-session-surface="camera"]')).toBeNull();
     expect(container.querySelector('[data-session-surface="simple"]')).not.toBeNull();
+  });
+
+  it("보이는 프리뷰만 걷어내고 <video>는 살려둔다 — 심플 모드에서도 감지가 돈다", async () => {
+    // `<video>`는 카메라가 실제로 도는 동안에만 렌더된다 — 스트림을 붙여야 이 경로에 닿는다.
+    stubWorkingCamera();
+    const { container } = renderRoom("/room/7?userId=1");
+    await waitFor(() => {
+      expect(container.querySelector("video")).not.toBeNull();
+    });
+    const before = container.querySelector("video");
+
+    await enterSimpleMode();
+
+    // 언마운트하면 videoRef.current가 null이 되어 추론이 프레임을 못 받고, 신호가 직전 값에
+    // 굳은 채 심플 모드 내내 유지된다 — 들어간 순간의 상태가 세션 끝까지 기록되는 조용한 오류다.
+    // 측정은 화면 표시 방식에 좌우되면 안 된다(2026-07-29 리더 결정).
+    expect(container.querySelector("video")).toBe(before);
   });
 
   it("하단 캡션 행이 사라진다 — S3-4에는 캡션 자리가 없다", async () => {

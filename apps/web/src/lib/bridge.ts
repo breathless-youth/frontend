@@ -10,6 +10,10 @@ import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
  * 알 수 없는 메시지를 `null`로 흘려보내는 것도 같은 이유다. 앱 버전이 웹보다 앞설 수 있고
  * (번들 동봉이라 대체로 같이 가지만 하이브리드 갱신 여지가 있다), 모르는 메시지에 죽으면
  * 세션 전체가 멈춘다.
+ *
+ * 원래 `features/study-session/bridge/nativeBridge.ts`에 있었지만, 설정(S6) 화면도
+ * `postToNative`가 필요해져 탭 공용 위치로 승격했다(`lib/userId.ts`와 같은 패턴). 옛 파일은
+ * import하는 소스가 없어 삭제했고, 그 테스트는 이 모듈을 가리키도록 옮겼다.
  */
 
 interface ReactNativeWebViewBridge {
