@@ -107,8 +107,10 @@ describe("SessionControlBar — 가로 축소 변형 (S3-5 `61:463`)", () => {
     const pauseButton = screen.getByRole("button", { name: "일시정지" });
     expect(pauseButton.className).toContain("size-[50px]");
     expect(pauseButton.className).toContain("landscape:size-[44px]");
-    // 아이콘도 버튼과 같은 비율(44/50)로 줄어든다.
-    expect(pauseButton.querySelector("img")!.className).toContain("landscape:h-[15.8px]");
+    // 아이콘도 버튼과 같은 비율(44/50)로 줄어든다 — play/pause는 Figma 실측(16×18)에서
+    // 1.25배 키운 값이 기준이다(BY-336, `ICON_SIZE` 주석).
+    expect(pauseButton.querySelector("img")!.className).toContain("h-[22.5px]");
+    expect(pauseButton.querySelector("img")!.className).toContain("landscape:h-[19.8px]");
   });
 });
 

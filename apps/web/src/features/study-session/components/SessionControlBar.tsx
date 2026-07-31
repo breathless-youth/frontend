@@ -98,13 +98,23 @@ const controlButtonVariants = cva(
 
 /**
  * 아이콘은 버튼과 같은 비율(44/50 = 0.88)로 줄어든다 — Figma 가로 실측이 정확히 그 비율이다
- * (pause 16×18 → 14×15.8 · camera-flip 20 → 18 · exit 19 → 17).
+ * (camera-flip 20 → 18 · exit 19 → 17).
+ *
+ * ⚠️ **play/pause만 Figma 실측(16×18 → 14×15.8)에서 의도적으로 벗어난다** — 실기기에서
+ * 재생 아이콘이 너무 작다는 확인(BY-336)으로 1.25배(20×22.5 → 17.6×19.8) 키웠다.
+ * 두 아이콘은 같은 프레임을 유지해 토글 시 스왑이 자연스럽게 보이도록 함께 조정한다.
+ *
+ * 재생이 작아 보이는 근본 원인은 프레임이 아니라 **play SVG의 잉크 여백**이다 — 삼각형이
+ * 프레임 폭의 44%만 차지한다(pause 바는 72%). 프레임 스케일은 두 글리프를 같은 배율로
+ * 키우므로 이 불균형 자체는 남는다. 정확한 해결은 play 아이콘을 잉크에 맞게 Figma에서
+ * 재익스포트하는 것(아이콘 자산은 손으로 그리지 않는다 — 위 컴포넌트 주석). 디자이너가
+ * 값을 확정하면 이 세 줄만 고친다(SCR-S3-1·S3-2 Review Checklist).
  */
 const ICON_SIZE = {
   pause: {
-    md: "h-[18px] w-[16px]",
-    sm: "h-[15.8px] w-[14px]",
-    responsive: "h-[18px] w-[16px] landscape:h-[15.8px] landscape:w-[14px]",
+    md: "h-[22.5px] w-[20px]",
+    sm: "h-[19.8px] w-[17.6px]",
+    responsive: "h-[22.5px] w-[20px] landscape:h-[19.8px] landscape:w-[17.6px]",
   },
   cameraFlip: {
     md: "size-[20px]",
