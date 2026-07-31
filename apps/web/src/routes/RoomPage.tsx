@@ -75,15 +75,12 @@ const SESSION_LAYER_LAYOUT = [
 ].join(" ");
 
 /**
- * 회전 마스크의 수명 (BY-336, 2026-08-01).
+ * 회전 구간의 수명 (BY-336, 2026-08-01).
  *
- * - `covering`: 회전이 감지된 순간부터 뷰포트가 확정될 때까지 — 화면을 덮는다.
- * - `revealing`: 덮개를 걷는 중. 페이드가 끝나면 언마운트한다.
- *
- * 언마운트까지 하는 이유는 `backdrop-filter`가 항상 붙어 있으면 합성 레이어가 상주해서다 —
- * 카메라 디코드와 MediaPipe 추론이 같이 도는 화면이라 상시 비용을 지우지 않는다.
+ * - `rotating`: 회전이 감지된 순간부터 뷰포트가 확정될 때까지.
+ * - `settling`: 확정된 뒤 원래대로 되돌아가는 중. 전환이 끝나면 `idle`이다.
  */
-type RotationMaskPhase = "idle" | "covering" | "revealing";
+type RotationPhase = "idle" | "rotating" | "settling";
 
 function currentOrientation(): "portrait" | "landscape" {
   return window.innerWidth <= window.innerHeight ? "portrait" : "landscape";
@@ -91,26 +88,24 @@ function currentOrientation(): "portrait" | "landscape" {
 
 /** 회전 애니메이션이 끝나고 뷰포트가 확정되기를 기다리는 시간(네이티브 회전은 약 300ms). */
 const ROTATION_SETTLE_MS = 450;
-/** 덮개를 걷는 시간. 이 값과 아래 `duration-300`이 어긋나면 덮개가 남거나 툭 끊긴다. */
+/** 원래 배율로 되돌아가는 시간. 아래 `duration-300`과 같아야 한다 — 어긋나면 툭 끊긴다. */
 const ROTATION_REVEAL_MS = 300;
 
 /**
- * 회전 중 화면을 덮을지 — **아티팩트를 가리는 장치**다.
+ * 지금이 회전 구간인가 — **프리뷰의 빈 공간을 막는 데 쓴다**(그 사용처는 `CameraPreviewSurface`).
  *
- * 기기를 돌리면 네이티브 뷰 회전과 WebView 리레이아웃이 한 프레임 어긋나면서 화면 전체가 한 번
- * 크게 축소됐다 복구되고, 카메라 프리뷰는 잘리는 축이 좌우↔상하로 뒤집히며 크게 튄다(BY-336
- * 실기기 관측). 둘 다 WebView·카메라의 회전 처리에서 오는 것이라 레이아웃 쪽에서 고칠 수 없어,
- * **그 구간을 보여주지 않는 쪽**을 택했다.
+ * 기기를 돌리면 네이티브 뷰 회전과 WebView 리레이아웃이 한 프레임 어긋나면서, 카메라 서피스가
+ * 잠깐 뷰포트보다 작게 잡혀 **가장자리에 빈 공간이 생긴다**(BY-336 실기기 관측).
  *
- * ⚠️ 이건 원인 제거가 아니라 은폐다. 회전 자체가 잦은 동작이 아니고 대안(카메라 재오픈)이
- * 화각 손해로 되돌려졌기 때문에 내린 선택이다 — 근본 해결이 필요해지면 이 훅을 지우고
- * 아티팩트를 다시 드러낸 상태에서 시작할 것.
+ * 처음에는 화면 전체를 블러로 덮어 그 구간을 안 보이게 했지만, 덮는 것 자체가 눈에 띈다는
+ * 확인으로 걷어냈다. 지금은 **가리지 않고 메운다** — 회전 구간에만 프리뷰를 살짝 확대해
+ * 빈 자리를 덮고, 뷰포트가 확정되면 원래 배율로 되돌린다. 정지 상태의 화각은 그대로다.
  *
- * `resize`만 보면 키보드·주소창 변화에도 덮개가 뜨므로 **방향이 바뀐 경우**와
+ * `resize`만 보면 키보드·주소창 변화에도 반응하므로 **방향이 바뀐 경우**와
  * `orientationchange` 이벤트만 통과시킨다.
  */
-function useRotationMask(): RotationMaskPhase {
-  const [phase, setPhase] = useState<RotationMaskPhase>("idle");
+function useRotationPhase(): RotationPhase {
+  const [phase, setPhase] = useState<RotationPhase>("idle");
 
   useEffect(() => {
     let settled = currentOrientation();
@@ -134,11 +129,11 @@ function useRotationMask(): RotationMaskPhase {
         return;
       }
       clearTimers();
-      setPhase("covering");
+      setPhase("rotating");
       settleTimer = setTimeout(() => {
         settleTimer = null;
         settled = currentOrientation();
-        setPhase("revealing");
+        setPhase("settling");
         revealTimer = setTimeout(() => {
           revealTimer = null;
           setPhase("idle");
@@ -234,8 +229,7 @@ export function RoomPage() {
    * 판정에 쓸 수 없다(설계 §3 "카메라 전환"). 전환 실패는 기존 `CameraFlipResult` 그대로다.
    */
   const [flippingCamera, setFlippingCamera] = useState(false);
-  /** 회전 구간을 덮는 마스크. 화면 상태가 아니라 **아티팩트 은폐 장치**다(그쪽 훅 주석). */
-  const rotationMask = useRotationMask();
+  const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
@@ -420,12 +414,15 @@ export function RoomPage() {
           조건부 마운트면 전환 순간 배경이 0ms에 스왑되어, 300ms를 끄는 타이머 이동과 시차가
           벌어진다(BY-336). 두 서피스가 각자 300ms 페이드로 교차하면 배경도 같은 박자를 탄다. */}
       <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
+      {/* 회전 오버스캔은 **프리뷰에만** 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
+          메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       <CameraPreviewSurface
         isRunning={isCameraRunning}
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}
         hidden={simpleMode}
+        rotating={!simpleMode && rotationPhase === "rotating"}
       />
 
       {phase.name === "studying" ? (
@@ -592,23 +589,6 @@ export function RoomPage() {
           쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
           치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
       {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
-
-      {/* 회전 마스크 — **모든 것 위에 온다.** 가리려는 것이 카메라만이 아니라 화면 전체가 한 번
-          축소됐다 복구되는 아티팩트라, 세션 레이어·다이얼로그까지 함께 덮어야 한다. DOM 순서로
-          맨 위에 놓아 z-index를 새로 만들지 않는다.
-
-          `pointer-events-none`: 덮여 있는 동안에도 입력은 그대로 통과한다 — 회전 중 무심코 누른
-          종료·일시정지가 삼켜지면 그게 더 나쁜 버그다. 장식이므로 `aria-hidden`이다. */}
-      {rotationMask !== "idle" && (
-        <div
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none absolute inset-0 bg-[var(--session-camera-base)]/45 backdrop-blur-xl",
-            "transition-opacity duration-300 ease-out motion-reduce:transition-none",
-            rotationMask === "covering" ? "opacity-100" : "opacity-0",
-          )}
-        />
-      )}
     </main>
   );
 }

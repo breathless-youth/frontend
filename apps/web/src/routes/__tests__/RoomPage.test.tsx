@@ -731,14 +731,14 @@ describe("RoomPage — S3-4 심플 모드", () => {
   });
 
   /**
-   * 회전 중 아티팩트(화면 전체 축소·복구, 프리뷰 크롭 축 뒤집힘)를 가리는 덮개다(BY-336).
-   * 원인 제거가 아니라 은폐라는 점이 중요해서, "언제 덮고 언제 걷는지"를 테스트로 고정한다.
+   * 회전 중에는 카메라 서피스가 잠깐 뷰포트보다 작게 잡혀 가장자리에 빈 공간이 보인다(BY-336).
+   * 가리지 않고 **메우는** 방식이라 "언제 확대하고 언제 되돌리는지"를 고정한다.
    */
-  it("회전하면 화면을 덮었다가 뷰포트가 확정되면 걷는다", async () => {
+  it("회전 중에는 프리뷰를 살짝 확대해 빈 자리를 메우고, 뷰포트가 확정되면 되돌린다", () => {
     const { container } = renderRoom("/room/7?userId=1");
-    const maskOf = () => container.querySelector(".backdrop-blur-xl");
+    const surfaceOf = () => container.querySelector('[data-session-surface="camera"]');
 
-    expect(maskOf()).toBeNull();
+    expect(surfaceOf()?.className).not.toContain("scale-");
 
     vi.useFakeTimers();
     try {
@@ -754,29 +754,44 @@ describe("RoomPage — S3-4 심플 모드", () => {
         window.dispatchEvent(new Event("resize"));
       });
 
-      // 회전이 감지된 순간부터 덮는다 — 아티팩트가 보이기 전에 올라와야 한다.
-      expect(maskOf()).not.toBeNull();
-      expect(maskOf()?.className).toContain("opacity-100");
-      // 입력은 통과시킨다 — 회전 중 누른 종료·일시정지가 삼켜지면 그게 더 나쁜 버그다.
-      expect(maskOf()?.className).toContain("pointer-events-none");
+      expect(surfaceOf()?.className).toContain("scale-[1.08]");
 
-      // 뷰포트가 확정되면 걷기 시작하고,
       act(() => {
         vi.advanceTimersByTime(450);
       });
-      expect(maskOf()?.className).toContain("opacity-0");
 
-      // 페이드가 끝나면 언마운트한다(backdrop-filter 합성 레이어를 상주시키지 않는다).
-      act(() => {
-        vi.advanceTimersByTime(300);
-      });
-      expect(maskOf()).toBeNull();
+      // 뷰포트가 확정되면 원래 배율로 — 정지 상태의 화각은 그대로여야 한다.
+      expect(surfaceOf()?.className).not.toContain("scale-");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("방향이 그대로인 리사이즈에는 덮개가 뜨지 않는다 — 키보드·주소창 변화까지 가리지 않는다", () => {
+  it("심플 모드에서는 회전 오버스캔을 걸지 않는다 — 메울 빈 자리가 없다", async () => {
+    const { container } = renderRoom("/room/7?userId=1");
+    await enterSimpleMode();
+
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        window.innerWidth = 402;
+        window.innerHeight = 874;
+        window.dispatchEvent(new Event("resize"));
+      });
+      act(() => {
+        window.innerWidth = 874;
+        window.innerHeight = 402;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // 카메라를 걷어낸 화면이라 단색 배경을 확대해 봐야 보이는 변화가 없다.
+      expect(container.innerHTML).not.toContain("scale-[1.08]");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("방향이 그대로인 리사이즈에는 확대하지 않는다 — 키보드·주소창 변화까지 건드리지 않는다", () => {
     const { container } = renderRoom("/room/7?userId=1");
 
     act(() => {
@@ -786,7 +801,9 @@ describe("RoomPage — S3-4 심플 모드", () => {
       window.dispatchEvent(new Event("resize"));
     });
 
-    expect(container.querySelector(".backdrop-blur-xl")).toBeNull();
+    expect(container.querySelector('[data-session-surface="camera"]')?.className).not.toContain(
+      "scale-",
+    );
   });
 
   it("엣지 글로우는 잔향이다 — 페이드아웃 애니메이션 레이어로 그린다", async () => {
