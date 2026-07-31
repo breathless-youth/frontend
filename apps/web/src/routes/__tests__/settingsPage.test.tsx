@@ -73,6 +73,16 @@ describe("S6 · 설정", () => {
     );
   });
 
+  it("측정 기준 안내는 기존 쿼리(userId·appVersion)를 잃지 않고 entry만 얹어 승계한다 (리뷰 반영)", () => {
+    renderSettingsWithGuideStub("/settings?userId=7&appVersion=1.4.2");
+
+    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+
+    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
+      "/onboarding-guide?userId=7&appVersion=1.4.2&entry=settings",
+    );
+  });
+
   it("문의하기 행은 /contact 로 이동한다", () => {
     renderAt("/settings");
 

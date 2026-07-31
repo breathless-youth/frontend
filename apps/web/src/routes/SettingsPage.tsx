@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { postToNative } from "@/lib/bridge";
 import { SettingsRow } from "@/features/settings/SettingsRow";
@@ -32,6 +32,7 @@ import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/s
 export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <main
@@ -73,7 +74,12 @@ export function SettingsPage() {
             label="측정 기준 안내"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              navigate("/onboarding-guide?entry=settings");
+              // 홈과 같은 승계 패턴(리뷰 반영) — entry만 하드코딩해 얹으면 userId·appVersion이
+              // 사라져 가이드에서 새로고침·딥링크 후 폴백 이탈 시 미저장 모드 홈으로 떨어진다
+              // (BY-327과 같은 유형의 쿼리 유실 버그).
+              const params = new URLSearchParams(location.search);
+              params.set("entry", "settings");
+              navigate({ pathname: "/onboarding-guide", search: params.toString() });
             }}
           />
         </SettingsSection>

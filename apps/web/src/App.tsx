@@ -33,10 +33,10 @@ export function App() {
         <Route path="/room/:id" element={<RoomPage />} />
         <Route path="/room/:id/result" element={<ResultPage />} />
         <Route path="/home" element={<HomeTabPage />} />
-        <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {/* BY-331: 설정 하위 화면 — 탭 바 없는 전체 화면 스택 라우트. */}
+        <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
