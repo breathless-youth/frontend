@@ -14,6 +14,15 @@ function videoRef() {
   return createRef<HTMLVideoElement>();
 }
 
+/**
+ * `videoRef`는 이제 **호출부가 소유한다** — 추론(`createVisionFocusDetector`)이 표시와 같은
+ * `<video>`를 봐야 프레임 복사가 한 번 줄기 때문이다(설계 §3). 이 컴포넌트는 참조를 받을 뿐
+ * MediaPipe를 모른다.
+ */
+function videoRef() {
+  return createRef<HTMLVideoElement>();
+}
+
 describe("CameraPreviewSurface", () => {
   it("카메라가 꺼져 있으면 목업 라벨을 보여주고 video를 그리지 않는다", () => {
     const { container } = render(
