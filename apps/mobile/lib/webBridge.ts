@@ -19,15 +19,21 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   }
 
   const record = parsed as Record<string, unknown>;
-  if (record.type === "session-ready" && typeof record.atMs === "number") {
-    return { type: "session-ready", atMs: record.atMs };
+  if (typeof record.atMs !== "number") {
+    return null;
   }
-  // TODO(BY-333): open-settings·exit-session 수신 파싱 추가 — packages/types ToNativeMessage에
-  // 각각 2026-07-30·2026-07-31에 추가됐다(웹 발신부는 이미 있다).
-  // 지금 안 넣는 이유: 파싱해도 처리할 네이티브 수신부(OS 설정 열기 / 세션 화면 pop)가 아직 없다 —
-  // 수신부와 함께 BY-333(셸 전환)에서 한 커밋으로 들어가야 계약과 구현이 어긋난 채 머지되지 않는다.
-  // 남은 하나(start-session)도 BY-333에서 유니온·수신부가 같이 생긴다.
-  return null;
+  switch (record.type) {
+    case "session-ready":
+      return { type: "session-ready", atMs: record.atMs };
+    case "start-session":
+      return { type: "start-session", atMs: record.atMs };
+    case "exit-session":
+      return { type: "exit-session", atMs: record.atMs };
+    case "open-settings":
+      return { type: "open-settings", atMs: record.atMs };
+    default:
+      return null;
+  }
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */
