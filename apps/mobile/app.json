@@ -39,8 +39,7 @@
             "usesCleartextTraffic": true
           }
         }
-      ],
-      "./plugins/withWebDistAssets"
+      ]
     ],
     "extra": {
       "apiBaseUrl": "http://52.78.219.53:8080",
