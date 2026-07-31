@@ -216,6 +216,10 @@ describe("RoomPage — 가로(거치) 배치", () => {
     const timer = container.querySelector('[class*="landscape:col-start-3"]')!;
     expect(timer.className).toContain("landscape:row-start-1");
     expect(timer.className).toContain("landscape:justify-self-end");
+    // 우측 모서리로 끌어당기는 음수 마진(BY-336) — 레이어 패딩(28px)은 공용이라 줄이지 않고
+    // 타이머만 붙인다(결과 여백 8px + safe-area). 상단은 실측(18px) 그대로다.
+    expect(timer.className).toContain("landscape:-mr-5");
+    expect(timer.className).not.toContain("landscape:-mt-");
   });
 
   it("가로 심플 — 타이머가 우상단에서 중앙으로 옮겨간다", async () => {

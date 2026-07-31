@@ -467,7 +467,13 @@ export function RoomPage() {
             <div className="grow landscape:hidden" />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
-                (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
+                (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다.
+
+                프리뷰의 음수 마진은 타이머를 레이어 패딩(우 28px) 안쪽에서 **우측 모서리로
+                끌어당긴다**(BY-336 확인: 상단은 그대로, 우측만 — Figma 실측 우28에서 의도적으로
+                이탈, 결과 여백은 우 8px + safe-area). 패딩 자체를 줄이지 않는 이유는 그 패딩이
+                상태 필·컨트롤 바·캡션까지 함께 밀기 때문이고, 음수 마진은 safe-area 몫을
+                침범하지 않는다 — 노치 쪽 인셋은 그대로 남는다. */}
             <SessionTimer
               focusSec={focusSec}
               studySec={studySec}
@@ -476,7 +482,7 @@ export function RoomPage() {
               className={
                 simpleMode
                   ? "landscape:col-span-full landscape:row-start-2 landscape:justify-self-center landscape:self-center"
-                  : "landscape:col-start-3 landscape:row-start-1 landscape:justify-self-end"
+                  : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
             />
 
