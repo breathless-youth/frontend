@@ -40,6 +40,11 @@ import { ResultCard, ResultCardTitle, ResultStatusDot } from "./ResultCardParts"
  * 시간을 함께 그렸지만, 표기 규칙이 분 단위로 바뀌면서(초 금지) 통계 행에서 초가 사라지자
  * 시간을 상시 노출할 이유가 약해졌다 — 대신 필요할 때 펼쳐 보는 쪽을 택했다.
  *
+ * 펼침 영역은 **합계 + 발생 구간 나열**이다(BY-336, 2026-07-31). 합계만 보여주던 것을 넓혔다 —
+ * `3회 9분`이 5분 한 번 + 2분 두 번인지 3분씩 고르게인지가 합계로는 구분되지 않는데, 사용자가
+ * 알고 싶은 것은 대개 "언제 무너졌나"다. 시각은 세션 벽시계라 위 타임라인 바의 세그먼트 위치와
+ * 그대로 대응된다. Figma 시안은 없다(펼침 자체가 Figma 이후 결정이다).
+ *
  * `<dl>`이 아니라 `<ul>`인 이유: 행이 **누를 수 있는 요소**가 되면서 정의 목록이 아니라
  * 펼침(disclosure) 목록이 됐다. `<dl>`의 직계 자식으로 `<button>`을 둘 수 없어 마크업이
  * 무효해지기도 한다.
@@ -132,12 +137,30 @@ export function DistractionStatsCard({ view }: { view: SessionResultView }) {
                   {/* 접혔을 때 DOM에서 빼는 이유: 남겨 두면 스크린리더가 숨은 시간까지 읽어
                       `aria-expanded="false"`와 어긋난다. */}
                   {isOpen && (
-                    <p
+                    <div
                       id={panelId}
-                      className="pb-3 pl-4 text-[13px] leading-[16px] text-muted-foreground tabular-nums"
+                      className="pb-3 pl-4 text-[13px] leading-[16px] text-muted-foreground"
                     >
-                      {formatEventDuration(tally.durationSec)}
-                    </p>
+                      <p className="tabular-nums">
+                        {`${RESULT_COPY.occurrenceTotalPrefix} ${formatEventDuration(tally.durationSec)}`}
+                      </p>
+                      {/* 발생 구간 나열 — 합계만으로는 "3회 9분"이 한 번 길게인지 고르게인지
+                          알 수 없다(BY-336). 시각은 세션 벽시계 기준이라 위 타임라인 바의
+                          회색·주황 구간과 위치가 그대로 대응된다. */}
+                      <ul className="mt-1 flex flex-col gap-[2px] tabular-nums">
+                        {tally.occurrences.map((occurrence, order) => (
+                          // 표기가 분 단위라 짧은 구간 둘이 같은 `HH:MM – HH:MM`을 가질 수 있다
+                          // — 키는 순서로 잡는다(목록이 정렬·고정이라 안전하다).
+                          <li
+                            key={`${occurrence.clockRange}-${String(order)}`}
+                            className="flex items-baseline justify-between gap-3 text-text-tertiary"
+                          >
+                            <span>{occurrence.clockRange}</span>
+                            <span>{formatEventDuration(occurrence.durationSec)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </li>
               </Fragment>
