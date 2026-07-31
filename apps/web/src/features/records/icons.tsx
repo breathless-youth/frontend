@@ -96,6 +96,37 @@ export function IconCheckSm({
   );
 }
 
+/**
+ * S5 기록의 정렬 라벨 옆 셰브런(Figma `icon/chevron-down` 32:42 — 프레임 9×6).
+ * V1.0 정렬은 최신순 고정이라 **장식이다** — 누를 수 없는 자리에 놓는다
+ * (`SCR-S5-records.md` Interaction Contract / Current Limitations 참고).
+ */
+export function IconChevronDown({
+  color = "var(--color-text-tertiary)",
+  size = 9,
+  ...rest
+}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
+  // 익스포트 원본 비율 8.23×4.8 — size는 너비 기준.
+  return (
+    <svg
+      width={size}
+      height={(size * 4.8) / 8.22857}
+      viewBox="0 0 8.22857 4.8"
+      fill="none"
+      aria-hidden="true"
+      {...rest}
+    >
+      <path
+        d="M0.685714 0.685714L4.11429 4.11429L7.54286 0.685714"
+        stroke={color}
+        strokeWidth={1.37143}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** 연속 공부 스탯 배너의 2톤 불꽃 일러스트(색 고정 — 이모지가 아닌 일러스트, glossary 참고). */
 export function IllustFlame({
   width = 19,
