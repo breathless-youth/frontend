@@ -29,37 +29,20 @@
  *
  * ⚠️ **프레임 비율이 화면 비율과 다르면 어떤 표시 방식으로도 손해가 난다**(자르거나 `cover`,
  * 남기거나 `contain`, 찌그러뜨리거나 `fill`) — 실기기에서 그 차이가 74%였다(자세한 내용과
- * 현재 선택은 `CameraPreviewSurface.tsx` 주석 참고).
- *
- * ## `aspectRatio`로 손해를 원천에서 줄인다 (BY-336, 2026-07-31 — **실기기 검증 중**)
- *
- * 위 실측표의 핵심은 **스트림의 긴 축이 항상 화면의 짧은 축과 만난다**는 것이다(세로에서
- * 1280×720, 가로에서 720×1280). 그래서 `cover`로 채우면 어느 방향에서든 26%만 남고, 회전하면
- * 잘리는 축이 좌우↔상하로 뒤집힌다 — 가로에서 얼굴이 띠처럼 잘린다는 실기기 관측이 이것이다.
- *
- * 예전 주석은 "`aspectRatio` 요청은 실기기 재검증 없이 넣지 않는다"고 미뤄 뒀다. 이번이 그
- * 재검증 경로다 — **화면 비율을 `ideal`로 함께 요청**하고, 실제로 무엇이 오는지는
- * `visionDiagnostics.cameraStream`(`?diag=1`)이 열 때마다 남긴다.
- *
- * ⚠️ 여전히 `ideal`이므로 **기기가 무시할 수 있다.** 이 요청이 통했다고 가정하는 코드를 쓰지
- * 말 것 — 표시 경로(`object-fit`)는 어떤 비율이 와도 깨지지 않아야 한다. 실측으로 효과가
- * 없다고 확인되면 이 함수를 통째로 되돌리고 위 표에 결과를 추가한다.
+ * 현재 선택은 `CameraPreviewSurface.tsx` 주석 참고). `aspectRatio` 제약으로 화면 비율에 맞춰
+ * 요청하면 이 손해를 원천에서 줄일 수 있다는 아이디어가 있었지만, 실기기 재검증 없이 구현만
+ * 남겨 두면 문서와 동작이 어긋나므로 지금은 적용하지 않는다 — 다시 시도하려면 새로 실측한다.
  */
-export function cameraConstraints(
-  facing: "front" | "back",
-  /** 화면 비율(가로/세로). 0 이하·비유한값이면 비율 요청을 생략한다. */
-  viewportAspectRatio: number,
-): MediaStreamConstraints {
-  const usable = Number.isFinite(viewportAspectRatio) && viewportAspectRatio > 0;
-  return {
-    video: {
-      facingMode: facing === "front" ? "user" : "environment",
-      width: { ideal: 1280 },
-      ...(usable ? { aspectRatio: { ideal: viewportAspectRatio } } : {}),
-    },
+export const CAMERA_CONSTRAINTS = {
+  front: {
+    video: { facingMode: "user", width: { ideal: 1280 } },
     audio: false,
-  };
-}
+  },
+  back: {
+    video: { facingMode: "environment", width: { ideal: 1280 } },
+    audio: false,
+  },
+} as const satisfies Record<"front" | "back", MediaStreamConstraints>;
 
 /* ------------------------------------------------------------------ *
  * 모델 · 추론 (설계 문서 §2·§3·§4)

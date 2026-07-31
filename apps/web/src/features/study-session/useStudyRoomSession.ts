@@ -107,15 +107,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [totals, setTotals] = useState<SessionTotals>(ZERO_TOTALS);
   const [cameraFacing, setCameraFacing] = useState(camera.facing);
   const [isCameraRunning, setIsCameraRunning] = useState(camera.isRunning);
-  /**
-   * 프리뷰에 붙일 스트림 — **state로 들고 있어야 한다.**
-   *
-   * 예전에는 렌더 중에 `camera.stream`을 직접 읽고 "스트림이 바뀌면 `isCameraRunning`이나
-   * `cameraFacing` 전이가 반드시 함께 일어난다"는 불변식에 기댔다. 회전 재오픈(`reopenCamera`)이
-   * 그 불변식을 깬다 — 같은 카메라를 같은 방향으로 다시 여는 것이라 두 값이 모두 그대로다.
-   * 그대로 두면 프리뷰가 죽은 트랙을 붙든 채 갱신되지 않는다.
-   */
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(camera.stream ?? null);
   const [phase, setPhase] = useState<StudyRoomPhase>({ name: "studying" });
   const [endReason, setEndReason] = useState<SessionEndReason | null>(null);
   /**
@@ -149,16 +140,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 값이 그대로면 setState 자체를 호출하지 않아 불필요한 리렌더가 생기지 않는다.
     const runningAfterCall = camera.isRunning;
     setIsCameraRunning(runningAfterCall);
-    setCameraStream(camera.stream ?? null);
     void starting.then(() => {
-      if (cancelled) {
-        return;
-      }
-      if (camera.isRunning !== runningAfterCall) {
+      if (!cancelled && camera.isRunning !== runningAfterCall) {
         setIsCameraRunning(camera.isRunning);
       }
-      // 비동기 어댑터는 여기서야 스트림이 채워진다 — 위 동기 반영만으로는 null에 머문다.
-      setCameraStream(camera.stream ?? null);
     });
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
@@ -174,7 +159,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       detector.stop();
       camera.stop();
       setIsCameraRunning(false);
-      setCameraStream(null);
     };
   }, [camera, detectionParams, detector]);
 
@@ -269,25 +253,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     if (result.ok) {
       setCameraFacing(result.facing);
     }
-    // 실패해도 동기화한다 — 어댑터가 기존 스트림을 그대로 뒀는지 확인 없이 가정하지 않는다.
-    setCameraStream(camera.stream ?? null);
     return result;
-  }, [camera]);
-
-  /**
-   * 회전 후 카메라 재오픈 — 지금 화면 비율에 맞는 스트림을 다시 받는다(BY-336).
-   *
-   * 어댑터가 없으면(mock) 아무것도 하지 않는다. **재오픈 동안 프리뷰가 비고 추론이 멈추므로**
-   * 호출부가 그 구간을 추론 정지 구간으로 표시해야 한다(`RoomPage`의 `flippingCamera`).
-   */
-  const reopenCamera = useCallback(async (): Promise<boolean> => {
-    if (camera.reopen === undefined) {
-      return false;
-    }
-    const ok = await camera.reopen();
-    setCameraStream(camera.stream ?? null);
-    setIsCameraRunning(camera.isRunning);
-    return ok;
   }, [camera]);
 
   /**
@@ -365,6 +331,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     pollMs: options.autoEndPollMs,
   });
 
+  /**
+   * `stream`은 실제 어댑터에만 있다(mock에는 없다) — 없으면 null이고, 그러면
+   * CameraPreviewSurface가 목업 서피스를 그린다.
+   *
+   * ⚠️ **불변식**: 이 값은 state가 아니라 가변 어댑터에서 렌더 중에 읽는다. 그래서
+   * "스트림이 바뀌면 반드시 `isCameraRunning` 또는 `cameraFacing` 전이가 함께 일어난다"는
+   * 조건에 기대고 있다 — 리렌더를 일으키는 것은 그 두 state뿐이다. 스트림만 조용히 바뀌는
+   * 어댑터 동작을 추가하면 프리뷰가 갱신되지 않으므로, 그때는 스트림도 state로 올려야 한다.
+   */
+  const cameraStream = camera.stream ?? null;
+
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
@@ -386,7 +363,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     resume,
     onReturnFromBackground,
     flipCamera,
-    reopenCamera,
     endAndSubmit,
   };
 }

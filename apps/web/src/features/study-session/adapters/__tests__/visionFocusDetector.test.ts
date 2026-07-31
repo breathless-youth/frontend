@@ -322,7 +322,6 @@ describe("createVisionFocusDetector", () => {
         frame,
         transition: vi.fn(),
         cameraStream: vi.fn(),
-        viewport: vi.fn(),
       },
     });
 

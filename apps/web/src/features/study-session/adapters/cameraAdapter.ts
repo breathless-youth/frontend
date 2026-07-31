@@ -31,20 +31,6 @@ export interface CameraAdapter {
   start(): Promise<void>;
   stop(): void;
   flip(): Promise<CameraFlipResult>;
-  /**
-   * 같은 카메라를 **지금 화면 비율에 맞춰 다시 연다** — 기기를 회전했을 때 쓴다(BY-336).
-   *
-   * 스트림의 긴 축이 항상 화면의 짧은 축과 만나서, 회전하면 잘리는 축이 좌우↔상하로 뒤집히고
-   * 가로에서 얼굴이 띠처럼 잘린다(`cameraConstraints` 주석의 실측표). 제약은 열 때 확정되므로
-   * 다시 여는 것 말고는 방향을 반영할 방법이 없다.
-   *
-   * **옵셔널이다** — mock에는 다시 열 스트림이 없다. 없으면 호출부는 아무것도 하지 않는다.
-   *
-   * 대가를 알고 쓸 것: 기존 트랙을 먼저 멈추므로 **재오픈 동안 프리뷰가 비고 추론이 멈춘다.**
-   * 호출부가 그 구간을 추론 정지 구간으로 표시해야 한다(`RoomPage`의 `flippingCamera`).
-   * 실패하면 카메라가 꺼진 채로 남지 않도록 `false`를 돌려주고, 호출부는 세션을 계속 진행한다.
-   */
-  reopen?(): Promise<boolean>;
 }
 
 export interface MockCameraOptions {

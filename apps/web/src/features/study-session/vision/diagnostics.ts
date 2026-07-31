@@ -56,40 +56,14 @@ export interface CameraStreamDiagnostics {
   readonly facingMode: string;
 }
 
-/**
- * 회전 순간의 뷰포트 상태 — **BY-336 조사용 임시 진단**이다.
- *
- * 실기기에서 "가로로 돌리면 화면이 한 번 크게 작아졌다 복구된다"는 관측이 있는데, 원인이
- * 카메라인지 WebView의 뷰포트 스케일 아티팩트인지 코드만으로는 가릴 수 없다. 회전 전후로
- * 레이아웃 뷰포트(`innerWidth/Height`)와 시각 뷰포트(`visualViewport`)가 어떻게 어긋나는지
- * 남겨서 Safari 웹 인스펙터로 확인한다(앱은 `isInspectable`이 켜져 있다).
- *
- * ⚠️ **원인이 확정되면 이 이벤트와 호출부를 지운다.** 상시 진단이 아니라 조사 장치다.
- * 화면 치수는 화상이 아니므로 로그 금지 대상(원본 프레임·얼굴 이미지·좌표)에 걸리지 않는다.
- */
-export interface ViewportDiagnostics {
-  /** 레이아웃 뷰포트 — CSS가 보는 크기. */
-  readonly innerWidth: number;
-  readonly innerHeight: number;
-  /** 시각 뷰포트 — 실제로 보이는 영역. 스케일이 끼면 레이아웃 뷰포트와 어긋난다. */
-  readonly visualWidth: number;
-  readonly visualHeight: number;
-  /** 1이 아니면 페이지가 축소·확대돼 그려지고 있다는 뜻이다 — 여기가 핵심 값이다. */
-  readonly visualScale: number;
-  /** 무엇이 이 로그를 유발했는가(`resize` / `orientationchange`). */
-  readonly reason: string;
-}
-
 export interface VisionDiagnostics {
   detectorReady(delegate: Delegate, modelVariant: ModelVariant): void;
   detectorUnavailable(reason: string): void;
   frame(diagnostics: FrameDiagnostics): void;
   /** 상태 전이 시각. 임계를 바꿨을 때 오탐이 얼마나 주는지 계산하는 근거가 된다. */
   transition(from: string, to: string, atMs: number): void;
-  /** 카메라를 열 때마다 한 번. 전환(`flip`)·회전 재오픈(`reopen`)도 각각 남는다. */
+  /** 카메라를 열 때마다 한 번. 전환(`flip`)도 새로 여는 것이므로 각각 남는다. */
   cameraStream(diagnostics: CameraStreamDiagnostics): void;
-  /** 회전·리사이즈 때마다. **BY-336 조사용 임시** — 원인 확정 후 제거한다. */
-  viewport(diagnostics: ViewportDiagnostics): void;
 }
 
 /** 소수점 둘째 자리까지. 로그가 `0.8123000000000001`로 뒤덮이면 읽을 수 없다. */
@@ -132,18 +106,6 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         orientation: diagnostics.width <= diagnostics.height ? "portrait" : "landscape",
       });
     },
-    viewport(diagnostics) {
-      sink.log("viewport:change", {
-        reason: diagnostics.reason,
-        innerWidth: diagnostics.innerWidth,
-        innerHeight: diagnostics.innerHeight,
-        visualWidth: round2(diagnostics.visualWidth),
-        visualHeight: round2(diagnostics.visualHeight),
-        // 1이 아니면 그 순간 페이지가 축소·확대돼 그려지고 있다는 뜻이다.
-        visualScale: round2(diagnostics.visualScale),
-        orientation: diagnostics.innerWidth <= diagnostics.innerHeight ? "portrait" : "landscape",
-      });
-    },
   };
 }
 
@@ -163,7 +125,6 @@ const noopDiagnostics: VisionDiagnostics = {
   frame() {},
   transition() {},
   cameraStream() {},
-  viewport() {},
 };
 
 /** 진단을 켜는 URL 질의 파라미터. `?diag=1`. */

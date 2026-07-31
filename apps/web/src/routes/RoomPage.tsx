@@ -35,7 +35,6 @@ import type {
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useSessionToast } from "@/features/study-session/useSessionToast";
-import { visionDiagnostics } from "@/features/study-session/vision/diagnostics";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { cn } from "@/lib/utils";
@@ -63,10 +62,6 @@ import { cn } from "@/lib/utils";
  * 우상단 타이머가 겹칠 수 있다. 두 요소를 **다른 열**에 두면 트랙이 늘어나며 서로 밀어낼 뿐
  * 겹치지 않는다(SCR-S3-5·S3-6 Accessibility).
  *
- * ⚠️ **레이아웃에 한해서** JS 방향 감지가 없다는 뜻이다. 카메라는 예외다 — `getUserMedia`
- * 제약이 열 때 확정되므로 회전을 알아야 새 비율로 다시 열 수 있다(아래 `useOrientationChange`).
- * 그 감지는 카메라에만 쓰이고 레이아웃은 여전히 CSS만 본다.
- *
  * 여백은 Figma 실측(가로 pt 18 · pb 14 · px 28) + `env(safe-area-inset-*)`다. 가로에서는 좌우
  * 인셋이 커지므로(노치 쪽) `px-6` 대신 좌우를 따로 계산한다.
  */
@@ -78,76 +73,6 @@ const SESSION_LAYER_LAYOUT = [
   "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc(env(safe-area-inset-bottom)+14px)]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
-
-/** 세로 ↔ 가로. 회전 판정의 유일한 기준이다 — 같은 방향 안의 리사이즈는 무시한다. */
-type Orientation = "portrait" | "landscape";
-
-function currentOrientation(): Orientation {
-  return window.innerWidth <= window.innerHeight ? "portrait" : "landscape";
-}
-
-/**
- * 회전 감지 — **방향이 실제로 뒤집혔을 때만** 콜백을 부른다.
- *
- * `resize`는 회전 애니메이션 도중 여러 번 오고 키보드·주소창 변화로도 온다. 그대로 흘리면
- * 카메라를 몇 번씩 다시 열게 되므로, (1) 방향이 바뀐 경우만 통과시키고 (2) 마지막 이벤트
- * 이후 잠잠해질 때까지 기다린다. 대기 시간은 회전 애니메이션이 끝나고 뷰포트가 확정되기를
- * 기다리는 값이다 — 너무 짧으면 회전 중간 크기로 카메라를 열게 된다.
- *
- * 진단 로그는 **모든** 이벤트에 남긴다(디바운스 이전) — 회전 순간의 스케일 아티팩트를 보려면
- * 중간 프레임이 필요하기 때문이다(BY-336 ②, `?diag=1`).
- */
-function useOrientationChange(onChange: () => void): void {
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-
-  useEffect(() => {
-    let previous = currentOrientation();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    function handle(reason: string) {
-      visionDiagnostics.viewport({
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-        visualWidth: window.visualViewport?.width ?? window.innerWidth,
-        visualHeight: window.visualViewport?.height ?? window.innerHeight,
-        visualScale: window.visualViewport?.scale ?? 1,
-        reason,
-      });
-      if (timer !== null) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        timer = null;
-        const next = currentOrientation();
-        if (next === previous) {
-          return;
-        }
-        previous = next;
-        onChangeRef.current();
-      }, ORIENTATION_SETTLE_MS);
-    }
-
-    const onResize = () => {
-      handle("resize");
-    };
-    const onOrientation = () => {
-      handle("orientationchange");
-    };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("orientationchange", onOrientation);
-    return () => {
-      if (timer !== null) {
-        clearTimeout(timer);
-      }
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("orientationchange", onOrientation);
-    };
-  }, []);
-}
-
-/** 회전이 끝나고 뷰포트가 확정되기를 기다리는 시간. 네이티브 회전 애니메이션(약 300ms)보다 넉넉하게. */
-const ORIENTATION_SETTLE_MS = 500;
 
 /**
  * 세션 화면 — S3-1(집중)·S3-2(비집중)·S3-3(일시정지)·S3-4(심플 모드)는 **같은 화면**이다.
@@ -204,7 +129,6 @@ export function RoomPage() {
     pause,
     resume,
     flipCamera,
-    reopenCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, { camera, detector });
   const { message: toastMessage, showToast } = useSessionToast();
@@ -364,29 +288,6 @@ export function RoomPage() {
       setFlippingCamera(false);
     }
   }
-
-  /**
-   * 회전하면 카메라를 새 화면 비율로 다시 연다 (BY-336).
-   *
-   * `getUserMedia` 제약은 **열 때 확정**되므로 회전만으로는 스트림 비율이 따라오지 않는다.
-   * 스트림의 긴 축이 항상 화면의 짧은 축과 만나는 탓에(`cameraConstraints` 실측표) 가로로
-   * 돌리면 세로 26%만 남아 얼굴이 띠처럼 잘렸다 — 다시 여는 것이 그 손해를 원천에서 줄이는
-   * 유일한 방법이다.
-   *
-   * `flippingCamera`를 그대로 재사용한다 — 카메라 전환과 **정확히 같은 성격의 구간**(기존
-   * 트랙이 멈추고 새 스트림이 붙기까지 추론이 무의미한 시간)이라 게이트를 새로 만들지 않는다.
-   * 재오픈이 실패해도 세션은 계속 돈다(감지만 없다) — 회전 때문에 공부가 끊기면 안 된다.
-   */
-  useOrientationChange(() => {
-    void (async () => {
-      setFlippingCamera(true);
-      try {
-        await reopenCamera();
-      } finally {
-        setFlippingCamera(false);
-      }
-    })();
-  });
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
   function handleRequestExit() {
