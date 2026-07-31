@@ -135,6 +135,39 @@ describe("/onboarding-guide — 종료 플로우(완료 플래그 저장 · 쿼�
 
   afterEach(() => {
     resetOnboardingGuideStore();
+    // 아래 "뒤로 갈 히스토리가 있는" 테스트가 real window.history에 남긴 idx 상태를 지운다 —
+    // closeGuide()가 window.history.state를 직접 읽으므로 남아 있으면 다음 테스트가 오염된다.
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[회귀] 뒤로 갈 히스토리가 있어도(navigate(-1) 분기) G5 CTA는 홈이 아니라 세션으로 이동한다 — BY-334", async () => {
+    // closeGuide()는 window.history.state.idx로 "뒤로 갈 스택이 있는지"를 판단한다
+    // (react-router BrowserRouter가 실제로 채우는 값과 같은 모양). MemoryRouter는 이 값을
+    // 안 건드리므로 직접 세팅해 "뒤로가기 분기"를 강제로 태운다.
+    window.history.pushState({ idx: 0 }, "", "/home?userId=42");
+    window.history.pushState({ idx: 1 }, "", "/onboarding-guide?entry=focus-start&userId=42");
+
+    render(
+      <MemoryRouter
+        initialEntries={["/home?userId=42", "/onboarding-guide?entry=focus-start&userId=42"]}
+        initialIndex={1}
+      >
+        <Routes>
+          <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
+          <Route path="/home" element={<LocationProbe testId="home-stub" />} />
+          <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    for (let i = 0; i < 4; i += 1) {
+      fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: GUIDE_START_LABEL }));
+
+    const roomStub = await screen.findByTestId("room-stub");
+    expect(roomStub.textContent).toBe("/room/1?entry=focus-start&userId=42");
+    expect(screen.queryByTestId("home-stub")).not.toBeInTheDocument();
   });
 
   it("G5 CTA(집중 시작하기)로 마지막 단계에서 시작하면 쿼리를 승계해 세션 라우트로 이동한다", async () => {

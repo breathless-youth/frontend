@@ -75,19 +75,31 @@ export function OnboardingGuidePage() {
    * 완료(G5 CTA)와 건너뛰기가 **여기서 갈라지지 않는다** — 2026-07-26 확정
    * "건너뛰어도 세션은 이어서 시작". 그래서 종료 이유를 보지 않는다.
    *
-   * 가이드를 먼저 닫고 다음 단계로 넘긴다. `continueAfterOnboardingGuide()`가 저장소 쓰기를
-   * `await`하며 한 틱 양보하므로, 닫기 전환이 끝난 뒤에 다음 화면 이동이 일어난다.
+   * **종료당 히스토리 조작은 정확히 한 번**이어야 한다(BY-334 회귀 수정). `closeGuide()`의
+   * `navigate(-1)`은 브라우저에서 `history.go(-1)`이 되는데 이건 **비동기**다(popstate가 다음
+   * 태스크에 발화). `continueAfterOnboardingGuide()`의 `await`는 마이크로태스크라 그보다 먼저
+   * 끝나므로, "닫고 나서 push"(RN 원본과 같은 구조)를 그대로 두면 push가 먼저 실행되고 뒤늦은
+   * pop이 그걸 되돌려 사용자가 홈에 남는다(RN의 `router.back()`은 동기라 문제가 없었다 —
+   * 플랫폼 차이를 무시한 이식이 원인).
+   *
+   * 그래서 `entry === "focus-start"`일 때는 가이드를 닫지 않는다 — 세션 라우트로 **대체 이동**
+   * (`replace: true`, `requestSessionStart`의 브라우저 폴백)이 유일한 히스토리 조작이 되게 한다.
+   * 재진입(`home-card`·`settings`)은 세션으로 이어지지 않으므로 지금처럼 `closeGuide()`만 돈다.
    */
   const handleFinish = useCallback(() => {
     if (hasClosedRef.current) {
       return;
     }
     hasClosedRef.current = true;
-    closeGuide();
+    if (entry !== "focus-start") {
+      closeGuide();
+    }
     void continueAfterOnboardingGuide(
       {
         startSession: () =>
-          requestSessionStart(() => navigate({ pathname: "/room/1", search: location.search })),
+          requestSessionStart(() =>
+            navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
+          ),
       },
       entry,
     ).catch((error: unknown) => {
