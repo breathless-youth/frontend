@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { ContactPage } from "@/routes/ContactPage";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 import { PrivacyPage } from "@/routes/PrivacyPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { ResultPage } from "@/routes/ResultPage";
@@ -32,6 +33,7 @@ export function App() {
         <Route path="/room/:id" element={<RoomPage />} />
         <Route path="/room/:id/result" element={<ResultPage />} />
         <Route path="/home" element={<HomeTabPage />} />
+        <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {/* BY-331: 설정 하위 화면 — 탭 바 없는 전체 화면 스택 라우트. */}
