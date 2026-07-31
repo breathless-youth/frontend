@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import type { ToNativeMessage } from "@focuson/types";
 
@@ -18,6 +18,12 @@ import { parseToNativeMessage } from "../lib/webBridge";
  * 베이스 URL이 설정되지 않았거나(`lib/webBaseUrl.ts`가 던짐) 로드가 실패하면 **같은 실패
  * 폴백 화면**으로 떨어진다 — 빈 URL로 웹뷰를 띄워 흰 화면이 뜨는 것보다, 명확한 실패가 낫다.
  */
+
+// `react-native-webview`의 루트 진입점(index.d.ts)은 `ShouldStartLoadRequest`를 재수출하지
+// 않는다(`WebViewMessageEvent`·`WebViewNavigation`만 재수출) — 그래서 라이브러리 내부 경로
+// (`lib/WebViewTypes`)를 직접 import하는 대신, 공개 타입 `WebViewNavigation`에 문서화된
+// `isTopFrame` 필드를 더해 여기서 구성한다.
+type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame: boolean };
 
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
 const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
@@ -43,9 +49,10 @@ export function buildRemoteWebViewUrl(
 }
 
 /**
- * `originWhitelist`에 쓸 스킴+호스트만 떼어낸다(예: `https://web.example.com`).
- * 매치 실패(URL 형태가 아닌 값) 시 원본을 그대로 돌려준다 — 화이트리스트가 비어 최상위
- * 네비게이션이 전부 막히는 것보다, 설정 실수를 그대로 드러내는 편이 디버깅하기 쉽다.
+ * 스킴+호스트만 떼어낸다(예: `https://web.example.com`). 베이스 URL의 오리진 계산과
+ * `onShouldStartLoadWithRequest`의 최상위 프레임 오리진 비교 양쪽에 쓴다.
+ * 매치 실패(URL 형태가 아닌 값) 시 원본을 그대로 돌려준다 — 빈 문자열로 비교가 항상
+ * 실패하는 것보다, 설정 실수를 그대로 드러내는 편이 디버깅하기 쉽다.
  */
 export function originOf(url: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\/[^/]+/i.exec(url)?.[0] ?? url;
@@ -115,7 +122,38 @@ export function RemoteWebViewHost({
     [onBridgeMessage],
   );
 
-  if (target === null || loadFailed) {
+  const targetOrigin = target?.origin;
+  const handleShouldStartLoadWithRequest = useCallback(
+    (request: ShouldStartLoadRequest) => {
+      if (!request.isTopFrame) {
+        // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상
+        // 허용한다. react-native-webview는 iframe 로드도 이 콜백에 태우는데,
+        // `originWhitelist`만으로는 최상위/하위 프레임을 구분하지 못해 화이트리스트에 없는
+        // iframe 오리진(docs.google.com)이 "외부 이동"으로 오판돼 시스템 브라우저로 튕겨나갔다
+        // (2026-07-31 실기기 확인 — 설정→문의하기 진입 시 크롬이 열림).
+        return true;
+      }
+      // 최상위 프레임이 우리 오리진이 아닌 곳으로 이동하려는 경우: 지금은 웹 안에서 외부로
+      // 나가는 최상위 이동이 설계상 없다(2026-07-31 검토) — 그래서 열어주기(Linking.openURL)
+      // 대신 보수적으로 로드를 막는다. 외부로 내보내야 하는 최상위 이동이 생기면 그때
+      // Linking.openURL 분기를 추가한다.
+      return originOf(request.url) === targetOrigin;
+    },
+    [targetOrigin],
+  );
+
+  const showFailureFallback = target === null || loadFailed;
+
+  // 로드 실패(설정 누락 포함)로 폴백 화면을 보여줄 때도 onLoadEnd를 호출한다 — RemoteScreen의
+  // 스플래시는 onLoadEnd가 있어야만 걷히므로, 실패 시에도 알려주지 않으면 스플래시가 실패
+  // 화면(그리고 "다시 시도" 버튼)을 영영 가려 조작 불가 상태가 된다(BY-333 실기기 확인).
+  useEffect(() => {
+    if (showFailureFallback) {
+      onLoadEnd?.();
+    }
+  }, [showFailureFallback, onLoadEnd]);
+
+  if (showFailureFallback) {
     return (
       <View
         testID={testID}
@@ -153,9 +191,17 @@ export function RemoteWebViewHost({
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       mediaCapturePermissionGrantType="grant"
-      // 최상위 네비게이션만 설정된 베이스 URL의 오리진으로 제한한다(로컬 서버 화이트리스트는
-      // 다음 단계에서 로컬 서빙 코드와 함께 사라진다).
-      originWhitelist={[`${target.origin}/*`]}
+      // 오리진 제한은 `originWhitelist`가 아니라 `onShouldStartLoadWithRequest`(위)로 건다.
+      //
+      // `react-native-webview`는 `originWhitelist`를 통과하지 못한 요청을 우리 콜백에 넘기지도
+      // 않고 바로 시스템 브라우저로 열어버린다(내부 `createOnShouldStartLoadWithRequest`가
+      // whitelist 미통과 시 `Linking.openURL`을 먼저 호출). `originWhitelist`를 우리 오리진
+      // 하나로 좁혀 두면 iframe(하위 프레임) 요청도 이 필터를 통과 못 해 우리 로직이 실행되기도
+      // 전에 크롬으로 튕겨나간다 — `/contact`의 구글 폼 iframe이 이렇게 새어 나갔다
+      // (2026-07-31 Expo Go 실기기 확인). 그래서 `originWhitelist`는 라이브러리 기본값
+      // (`http://*`·`https://*` — 즉 스킴만 http(s)로 제한)으로 두고, 실제 "우리 오리진인가"
+      // 판단은 프레임 종류를 구분할 수 있는 `onShouldStartLoadWithRequest` 쪽에 맡긴다.
+      onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
       onMessage={handleMessage}
       onLoadEnd={onLoadEnd}
       onError={() => setLoadFailed(true)}

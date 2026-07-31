@@ -7,7 +7,9 @@ import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWeb
  * 원격 웹뷰 호스트(BY-333) — 세션 화면이 직접 띄우던 WebView를 승격한 공용 컴포넌트.
  *
  * 검증 범위: URL 조립(경로+쿼리), 브리지 메시지 파싱→콜백 전달, 로드 실패·설정 누락이
- * **같은 폴백**으로 떨어지는지, 재시도가 다시 로드를 시도하는지.
+ * **같은 폴백**으로 떨어지는지(그리고 그때도 onLoadEnd가 불리는지), 재시도가 다시 로드를
+ * 시도하는지, `onShouldStartLoadWithRequest`가 하위 프레임(iframe)은 항상 허용하고 최상위
+ * 프레임은 우리 오리진일 때만 허용하는지.
  */
 
 let mockWebBaseUrl: string | undefined = "https://web.test";
@@ -93,10 +95,13 @@ describe("RemoteWebViewHost", () => {
     });
   });
 
-  it("설정된 베이스 URL의 오리진으로 originWhitelist를 제한한다", () => {
+  it("originWhitelist를 우리 오리진으로 좁히지 않는다 — 라이브러리 기본값(모든 http/https)을 그대로 둔다", () => {
+    // originWhitelist를 좁히면 react-native-webview가 우리 콜백을 부르기도 전에 whitelist
+    // 미통과 요청(iframe 포함)을 시스템 브라우저로 열어버린다. 오리진 제한은
+    // onShouldStartLoadWithRequest 쪽에서 건다(아래 describe).
     render(<RemoteWebViewHost path="/home" testID="host" />);
 
-    expect(screen.getByTestId("host").props.originWhitelist).toEqual(["https://web.test/*"]);
+    expect(screen.getByTestId("host").props.originWhitelist).toBeUndefined();
   });
 
   it("세션 카메라에 필요한 미디어 설정을 유지한다", () => {
@@ -179,5 +184,64 @@ describe("RemoteWebViewHost", () => {
     fireWebViewEvent("onError");
 
     expect(screen.queryByText(/webBaseUrl 미설정/)).toBeNull();
+  });
+
+  it.each(["onError", "onHttpError"] as const)(
+    "%s로 실패 폴백이 뜨면 onLoadEnd도 호출한다 — 스플래시가 재시도 버튼을 가리지 않도록",
+    (event) => {
+      const onLoadEnd = jest.fn();
+      render(<RemoteWebViewHost path="/home" testID="host" onLoadEnd={onLoadEnd} />);
+
+      fireWebViewEvent(event);
+
+      expect(onLoadEnd).toHaveBeenCalled();
+    },
+  );
+
+  it("베이스 URL이 설정되지 않았을 때도 onLoadEnd를 호출한다", () => {
+    mockWebBaseUrl = "";
+    const onLoadEnd = jest.fn();
+
+    render(<RemoteWebViewHost path="/home" testID="host" onLoadEnd={onLoadEnd} />);
+
+    expect(onLoadEnd).toHaveBeenCalled();
+  });
+});
+
+describe("onShouldStartLoadWithRequest", () => {
+  /** WebView에 전달된 onShouldStartLoadWithRequest 핸들러를 꺼낸다. */
+  function getShouldStartHandler(): (request: { isTopFrame: boolean; url: string }) => boolean {
+    return screen.getByTestId("host").props.onShouldStartLoadWithRequest as (request: {
+      isTopFrame: boolean;
+      url: string;
+    }) => boolean;
+  }
+
+  it("하위 프레임(iframe)은 외부 오리진이어도 항상 허용한다", () => {
+    render(<RemoteWebViewHost path="/contact" testID="host" />);
+
+    const shouldStart = getShouldStartHandler();
+
+    expect(shouldStart({ isTopFrame: false, url: "https://docs.google.com/forms/d/e/1" })).toBe(
+      true,
+    );
+  });
+
+  it("최상위 프레임이 외부 오리진으로 이동하려 하면 막는다", () => {
+    render(<RemoteWebViewHost path="/contact" testID="host" />);
+
+    const shouldStart = getShouldStartHandler();
+
+    expect(shouldStart({ isTopFrame: true, url: "https://docs.google.com/forms/d/e/1" })).toBe(
+      false,
+    );
+  });
+
+  it("최상위 프레임이 우리 오리진으로 이동하는 것은 허용한다", () => {
+    render(<RemoteWebViewHost path="/contact" testID="host" />);
+
+    const shouldStart = getShouldStartHandler();
+
+    expect(shouldStart({ isTopFrame: true, url: "https://web.test/settings" })).toBe(true);
   });
 });

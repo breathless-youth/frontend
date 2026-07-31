@@ -13,7 +13,7 @@ import { RemoteWebViewHost } from "./RemoteWebViewHost";
  * 2. `handleBridgeMessage`로 브리지 수신(start-session·exit-session·open-settings)을 공용화한다.
  * 3. 파라미터 조립부터 첫 웹뷰 로드가 끝날 때까지 스플래시로 가려 흰 화면을 막는다.
  *
- * `RemoteWebViewHost`(URL 조립·오리진 화이트리스트·실패 폴백)는 그대로 소비만 한다.
+ * `RemoteWebViewHost`(URL 조립·오리진 제한·실패 폴백)는 그대로 소비만 한다.
  */
 export type RemoteScreenProps = {
   /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
@@ -48,6 +48,10 @@ export function RemoteScreen({ path, backgroundColor, testID }: RemoteScreenProp
         <View
           testID={testID ? `${testID}-splash` : "remote-screen-splash"}
           accessibilityLabel="화면을 불러오는 중"
+          // 스플래시는 가리기만 해야 한다 — pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패
+          // 폴백의 재시도 버튼)로 가는 모든 터치를 가로챈다(BY-333 실기기 확인: 탭 전환 중
+          // 뒤로가기조차 눌리지 않았다).
+          pointerEvents="none"
           className="bg-bg-base dark:bg-bg-base-dark absolute inset-0 items-center justify-center"
           style={backgroundColor ? { backgroundColor } : undefined}
         >

@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
+import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
 import { getRegisteredUserId } from "../../lib/userApi";
 
 /**
@@ -48,6 +49,9 @@ const mockedHandleBridgeMessage = handleBridgeMessage as jest.MockedFunction<
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // 파라미터는 모듈 스코프에 캐시된다(BY-333) — 테스트마다 다른 userId를 목킹하므로,
+  // 이전 테스트에서 채워진 캐시가 새 마운트에 그대로 재사용되지 않도록 초기화한다.
+  __resetRemoteQueryParamsCacheForTests();
 });
 
 describe("RemoteScreen", () => {
@@ -58,6 +62,16 @@ describe("RemoteScreen", () => {
 
     expect(screen.queryByTestId("home-webview")).toBeNull();
     expect(screen.getByTestId("home-webview-splash")).toBeTruthy();
+  });
+
+  it('스플래시는 pointerEvents="none"이라 터치를 가로채지 않는다', async () => {
+    // pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패 폴백의 재시도 버튼)로 가는 모든
+    // 터치를 스플래시가 가로챈다(BY-333 실기기 확인).
+    mockedGetRegisteredUserId.mockReturnValue(new Promise(() => undefined));
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+
+    expect(screen.getByTestId("home-webview-splash").props.pointerEvents).toBe("none");
   });
 
   it("조립된 userId·appVersion을 쿼리로 붙여 웹뷰를 띄운다", async () => {
@@ -100,6 +114,20 @@ describe("RemoteScreen", () => {
     const onLoadEnd = screen.getByTestId("home-webview").props.onLoadEnd as () => void;
     act(() => {
       onLoadEnd();
+    });
+
+    expect(screen.queryByTestId("home-webview-splash")).toBeNull();
+  });
+
+  it("웹뷰 로드가 실패해도 스플래시를 걷는다 — 실패 폴백의 재시도 버튼을 가리지 않도록", async () => {
+    mockedGetRegisteredUserId.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+
+    const onError = webview.props.onError as () => void;
+    act(() => {
+      onError();
     });
 
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();

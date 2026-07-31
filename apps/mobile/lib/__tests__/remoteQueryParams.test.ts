@@ -1,14 +1,20 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
 import Constants from "expo-constants";
 
-import { buildRemoteQueryParams, useRemoteQueryParams } from "../remoteQueryParams";
+import {
+  __resetRemoteQueryParamsCacheForTests,
+  buildRemoteQueryParams,
+  useRemoteQueryParams,
+} from "../remoteQueryParams";
 import { getRegisteredUserId } from "../userApi";
 
 /**
  * 원격 웹뷰 쿼리 파라미터 조립(BY-333) — 탭 3개 + 세션이 공유하는 단일 조립처.
  *
  * 검증 범위: userId 있음/없음, appVersion 유무, isNew를 붙이지 않는 것(2026-07-31 검토),
- * 그리고 훅이 조립 완료 전엔 null(로딩)을 돌려주는 것.
+ * 훅이 첫 계산 전엔 null(로딩)을 돌려주는 것, 그리고 **모듈 스코프 캐시**(두 번째 마운트부터는
+ * null 없이 즉시 값을 돌려주고, SecureStore 읽기는 한 번만 일어나는 것 — BY-333 실기기에서
+ * 탭 전환마다 웹뷰가 통째로 재로드되던 결함의 원인).
  */
 
 jest.mock("../userApi", () => ({ getRegisteredUserId: jest.fn() }));
@@ -25,6 +31,7 @@ const mockedConstants = Constants as unknown as { expoConfig: { version?: string
 beforeEach(() => {
   jest.clearAllMocks();
   mockedConstants.expoConfig = { version: "1.4.2" };
+  __resetRemoteQueryParamsCacheForTests();
 });
 
 describe("buildRemoteQueryParams", () => {
@@ -64,5 +71,43 @@ describe("useRemoteQueryParams", () => {
 
     expect(result.current).toBeNull();
     await waitFor(() => expect(result.current).toEqual({ userId: 7, appVersion: "1.4.2" }));
+  });
+
+  it("두 번째 마운트부터는 null 없이 캐시된 값을 즉시 돌려준다", async () => {
+    mockedGetRegisteredUserId.mockResolvedValue(7);
+
+    const first = renderHook(() => useRemoteQueryParams());
+    await waitFor(() => expect(first.result.current).toEqual({ userId: 7, appVersion: "1.4.2" }));
+    first.unmount();
+
+    // 두 번째 마운트: 캐시가 채워져 있으므로 첫 렌더부터 바로 값이 나와야 한다(null 구간 없음).
+    const second = renderHook(() => useRemoteQueryParams());
+
+    expect(second.result.current).toEqual({ userId: 7, appVersion: "1.4.2" });
+  });
+
+  it("캐시가 채워진 뒤에는 SecureStore(getRegisteredUserId) 읽기가 다시 일어나지 않는다", async () => {
+    mockedGetRegisteredUserId.mockResolvedValue(7);
+
+    const first = renderHook(() => useRemoteQueryParams());
+    await waitFor(() => expect(first.result.current).not.toBeNull());
+    first.unmount();
+
+    renderHook(() => useRemoteQueryParams());
+    renderHook(() => useRemoteQueryParams());
+
+    expect(mockedGetRegisteredUserId).toHaveBeenCalledTimes(1);
+  });
+
+  it("동시에 마운트된 여러 훅은 진행 중인 조립 하나를 공유한다(중복 읽기 방지)", async () => {
+    mockedGetRegisteredUserId.mockResolvedValue(7);
+
+    const a = renderHook(() => useRemoteQueryParams());
+    const b = renderHook(() => useRemoteQueryParams());
+
+    await waitFor(() => expect(a.result.current).not.toBeNull());
+    await waitFor(() => expect(b.result.current).not.toBeNull());
+
+    expect(mockedGetRegisteredUserId).toHaveBeenCalledTimes(1);
   });
 });
