@@ -16,4 +16,13 @@ export type ToWebMessage =
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  { type: "session-ready"; atMs: number };
+  | { type: "session-ready"; atMs: number }
+  /**
+   * 웹 홈·온보딩 가이드에서 "집중 시작"이 확정됐다 — 네이티브가 카메라 권한 게이트를 돌리고
+   * 세션 화면을 push한다(ADR-0003 브리지 3종 중 하나, BY-334에서 웹 발신 추가).
+   *
+   * 온보딩이 웹으로 이관돼도 이 메시지는 필요하다: **권한 요청과 화면 스택은 네이티브 소유**라
+   * 웹이 대신할 수 없다. 수신·게이트 실행은 BY-333 범위다 — 그때까지 네이티브는 이 메시지를
+   * 무시하고(모르는 메시지는 흘려보내는 계약), 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   */
+  | { type: "start-session"; atMs: number };
