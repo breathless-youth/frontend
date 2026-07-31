@@ -40,17 +40,6 @@ import { parseUserId, useStudyRoomSession } from "@/features/study-session/useSt
 import { cn } from "@/lib/utils";
 
 /**
- * 표시 모드 전환 모션 — Figma Spec 페이지 `14:7` 실측(300ms ease-out).
- *
- * ⚠️ **위아래 스페이서의 flex-grow 합은 전환 양 끝에서 같아야 한다(현재 8).** 위치 비율은
- * `위 grow ÷ (위+아래 grow)`인데 합이 변하면 이 비율이 t에 대해 비선형이 되어, ease-out을
- * 줬는데도 "확 튀었다 기어가는" 곡선이 된다(BY-336에서 실제로 그렇게 보였다 — 프리뷰가
- * 1:0=합1, 심플이 3:5=합8이었다). 합을 보존하면 300ms ease-out이 그대로 체감된다.
- */
-const SPACER_TRANSITION =
-  "transition-[flex-grow] duration-300 ease-out motion-reduce:transition-none";
-
-/**
  * 세션 레이어의 세로/가로 배치 (S3-1~S3-4 ↔ S3-5·S3-6).
  *
  * **세로는 flex 컬럼, 가로는 3열 그리드**다. 방향은 `@media (orientation: landscape)`만 보고
@@ -374,21 +363,19 @@ export function RoomPage() {
               className="landscape:col-start-2 landscape:row-start-1 landscape:justify-self-center"
             />
 
-            {/* 표시 모드 전환은 타이머의 **위치·크기 연속성**을 지켜야 한다(Figma Spec `14:7`:
-                Smart Animate 300ms ease-out). 그래서 타이머를 언마운트/재마운트하지 않고
-                위아래 스페이서의 flex-grow만 바꾼다 — 프리뷰는 컨트롤 바 바로 위(8:0),
-                심플 모드는 상태 필과 컨트롤 바 사이 여백의 중앙(4:4).
-                Figma S3-4 실측은 207:350(≈3:5)으로 타이머를 중앙보다 위에 두지만, 실기기에서
-                너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다. 값은 SPACER_TRANSITION의
-                합 보존 규칙(합 8) 안에서만 바꾼다.
+            {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
+                늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
+                사이 여백의 중앙에 놓는다. Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
+                실기기에서 너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다.
+
+                ⚠️ **전환 애니메이션을 다시 넣지 말 것.** 예전에는 `transition-[flex-grow]`로
+                300ms ease-out(Figma Spec `14:7`) 슬라이드를 줬는데, 실기기 확인에서 타이머가
+                미끄러지는 것 자체가 거슬린다는 판단으로 걷어냈다(2026-07-31). 지금은 위치만
+                즉시 바뀌고 배경·발광은 그대로 300ms로 페이드한다 — 움직이는 것은 타이머가
+                아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
+                숫자가 끊기거나 리셋되지는 않는다.
                 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div
-              className={cn(
-                SPACER_TRANSITION,
-                simpleMode ? "grow-[4]" : "grow-[8]",
-                "landscape:hidden",
-              )}
-            />
+            <div className="grow landscape:hidden" />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
                 (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
@@ -426,13 +413,7 @@ export function RoomPage() {
               {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
             </div>
 
-            <div
-              className={cn(
-                SPACER_TRANSITION,
-                simpleMode ? "grow-[4]" : "grow-0",
-                "landscape:hidden",
-              )}
-            />
+            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
             {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute. */}
             <div className="relative mt-4 flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
@@ -442,8 +423,11 @@ export function RoomPage() {
                   className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
                 />
               )}
+              {/* 심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
+                  추론만 끊긴다(그쪽 prop 주석). 화면을 한 번 탭해 프리뷰로 돌아오면 풀린다. */}
               <SessionControlBar
                 paused={paused}
+                flipDisabled={simpleMode}
                 onTogglePause={() => (paused ? resume() : pause())}
                 onFlipCamera={() => void handleFlipCamera()}
                 onRequestExit={handleRequestExit}

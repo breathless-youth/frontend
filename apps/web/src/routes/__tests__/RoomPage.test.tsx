@@ -675,6 +675,45 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
+  /**
+   * 프리뷰가 없는 화면에서 전환을 누르면 보이는 변화 없이 추론만 1~2초 끊긴다(BY-336).
+   * 버튼을 **없애지 않고 잠그는** 이유는 세 버튼 배치가 고정이라 하나가 빠지면 심플 모드
+   * 진입 자체가 레이아웃 점프가 되기 때문이다.
+   */
+  it("카메라 전환은 잠긴다 — 프리뷰가 없어 결과를 볼 수 없다", async () => {
+    renderRoom("/room/7?userId=1");
+    const flip = () => screen.getByRole("button", { name: "카메라 전환" });
+
+    expect(flip()).toBeEnabled();
+
+    await enterSimpleMode();
+    expect(flip()).toBeDisabled();
+
+    // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
+    await enterSimpleMode();
+    expect(flip()).toBeEnabled();
+  });
+
+  /**
+   * 상태 필의 서브 문구가 생기고 사라지면 필 블록 높이가 22px 변하는데, 그 델타를 위아래
+   * 스페이서가 나눠 흡수하면서 심플 모드의 큰 타이머가 위아래로 흔들렸다(BY-336 실기기 관측).
+   * 서브 문구 줄을 상주시켜 막는다 — 이 테스트는 그 상주를 고정한다.
+   */
+  it("상태가 바뀌어도 상태 필 블록 높이가 변하지 않는다 — 타이머가 흔들리지 않기 위함", async () => {
+    renderRoom("/room/7?userId=1&detector=mock");
+    const subLabelRow = () => screen.getByRole("status").lastElementChild!;
+
+    // 집중에는 서브 문구가 없지만 줄 자체는 자리를 지킨다.
+    expect(subLabelRow().textContent).toBe("");
+    expect(subLabelRow().className).toContain("h-[14px]");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+
+    // 문구가 채워져도 같은 줄이다 — 새 행이 끼어들지 않는다.
+    expect(subLabelRow().textContent).not.toBe("");
+    expect(subLabelRow().className).toContain("h-[14px]");
+  });
+
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {
     renderRoom("/room/7?userId=1");
     const timerOf = () => screen.getByText("00:00:00").parentElement!;
