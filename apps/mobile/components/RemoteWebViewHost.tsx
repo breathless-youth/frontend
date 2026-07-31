@@ -63,6 +63,11 @@ export type RemoteWebViewHostProps = {
   onBridgeMessage?: (message: ToNativeMessage) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
+  /**
+   * 로드가 끝나면 호출된다(성공·실패 둘 다 — `react-native-webview`의 `onLoadEnd` 그대로).
+   * 초기 로딩을 가리는 스플래시를 언제 걷을지 판단하는 용도(`RemoteScreen` 참고).
+   */
+  onLoadEnd?: () => void;
   testID?: string;
 };
 
@@ -71,6 +76,7 @@ export function RemoteWebViewHost({
   query,
   onBridgeMessage,
   backgroundColor,
+  onLoadEnd,
   testID,
 }: RemoteWebViewHostProps) {
   const webViewRef = useRef<WebView>(null);
@@ -151,6 +157,7 @@ export function RemoteWebViewHost({
       // 다음 단계에서 로컬 서빙 코드와 함께 사라진다).
       originWhitelist={[`${target.origin}/*`]}
       onMessage={handleMessage}
+      onLoadEnd={onLoadEnd}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}
     />

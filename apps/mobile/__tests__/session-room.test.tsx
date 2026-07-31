@@ -1,27 +1,26 @@
-import { act, render, screen } from "@testing-library/react-native";
-import { router } from "expo-router";
+import { render, screen } from "@testing-library/react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
-import { openAppSettings } from "../lib/cameraPermission";
-import { runCameraPermissionGate } from "../lib/cameraPermissionGate";
 
 /**
- * 싱글룸 세션 화면 — `RemoteWebViewHost`(BY-333)의 첫 실사용처.
+ * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
  *
- * 여기서 검증하는 것은 셋이다: (1) 세션 경로로 URL을 조립해 넘기는지, (2) 브리지 메시지
- * 3종(start-session·exit-session·open-settings)을 받았을 때 알맞은 네이티브 동작(권한
- * 게이트·화면 pop·설정 앱 열기)으로 이어지는지, (3) session-ready는 그대로 흘려보내는지.
- * URL 조립·실패 폴백 자체의 세부 분기는 `components/__tests__/RemoteWebViewHost.test.tsx`가 덮는다.
+ * 여기서 검증하는 것은 화면 고유 배선뿐이다: (1) `:id`로 세션 경로를 조립하는지, (2) 탭과
+ * 동일한 쿼리 파라미터(userId·appVersion)가 붙는지, (3) 항상 다크 배경인지. 파라미터
+ * 조립·브리지 공용화·스플래시 자체의 세부 동작은 `lib/__tests__/remoteQueryParams.test.ts`·
+ * `lib/__tests__/nativeBridgeHandler.test.ts`·`components/__tests__/RemoteScreen.test.tsx`가
+ * 덮는다.
  */
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "1" }),
-  router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
+
+jest.mock("../lib/userApi", () => ({ getRegisteredUserId: jest.fn(async () => 7) }));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
-  default: { expoConfig: { extra: { webBaseUrl: "https://web.test" } } },
+  default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
 }));
 
 jest.mock("react-native-webview", () => {
@@ -44,111 +43,23 @@ jest.mock("react-native-webview", () => {
   };
 });
 
-jest.mock("../lib/cameraPermissionGate", () => ({
-  runCameraPermissionGate: jest.fn(),
-}));
-
-jest.mock("../lib/cameraPermission", () => ({
-  openAppSettings: jest.fn(async () => undefined),
-}));
-
-const mockedRouter = router as unknown as {
-  push: jest.Mock;
-  back: jest.Mock;
-  canGoBack: jest.Mock;
-};
-const mockedRunCameraPermissionGate = runCameraPermissionGate as jest.MockedFunction<
-  typeof runCameraPermissionGate
->;
-const mockedOpenAppSettings = openAppSettings as jest.MockedFunction<typeof openAppSettings>;
-
-/** 웹이 보낸 것처럼 브리지 메시지를 흉내 낸다. */
-function sendBridgeMessage(type: string) {
-  const onMessage = screen.getByTestId("session-webview").props.onMessage as (e: unknown) => void;
-  act(() => {
-    onMessage({ nativeEvent: { data: JSON.stringify({ type, atMs: 1 }) } });
-  });
-}
-
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockedRouter.canGoBack.mockReturnValue(true);
-});
-
 describe("SessionRoomScreen", () => {
-  it("세션 경로로 조립한 URL을 WebView에 넘긴다", () => {
+  it("세션 경로 + 탭과 동일한 쿼리(userId·appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 
+    expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1",
+      uri: "https://web.test/room/1?userId=7&appVersion=1.4.2",
     });
   });
 
-  it("세션 화면은 항상 다크 배경이다", () => {
+  it("세션 화면은 항상 다크 배경이다", async () => {
     render(<SessionRoomScreen />);
 
+    expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.style).toEqual({
       flex: 1,
       backgroundColor: "#0B0F14",
     });
-  });
-
-  it("session-ready는 그대로 흘려보낸다 — 네이티브가 추가로 할 일이 없다", () => {
-    render(<SessionRoomScreen />);
-
-    expect(() => sendBridgeMessage("session-ready")).not.toThrow();
-    expect(mockedRouter.push).not.toHaveBeenCalled();
-    expect(mockedRouter.back).not.toHaveBeenCalled();
-    expect(mockedOpenAppSettings).not.toHaveBeenCalled();
-  });
-
-  it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
-    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
-    render(<SessionRoomScreen />);
-
-    sendBridgeMessage("start-session");
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
-    expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
-  });
-
-  it("start-session → 권한이 거부되면 권한 거부 안내로 보낸다", async () => {
-    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
-    render(<SessionRoomScreen />);
-
-    sendBridgeMessage("start-session");
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
-  });
-
-  it("exit-session → 세션 화면을 pop한다", () => {
-    render(<SessionRoomScreen />);
-
-    sendBridgeMessage("exit-session");
-
-    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
-  });
-
-  it("exit-session → 뒤로 갈 곳이 없으면 아무 것도 하지 않는다", () => {
-    mockedRouter.canGoBack.mockReturnValue(false);
-    render(<SessionRoomScreen />);
-
-    sendBridgeMessage("exit-session");
-
-    expect(mockedRouter.back).not.toHaveBeenCalled();
-  });
-
-  it("open-settings → OS 설정 앱을 연다", () => {
-    render(<SessionRoomScreen />);
-
-    sendBridgeMessage("open-settings");
-
-    expect(mockedOpenAppSettings).toHaveBeenCalledTimes(1);
   });
 });
