@@ -147,9 +147,14 @@ export function RoomPage() {
    */
   const goToResult = useCallback(
     (sessions: StudySessionResponse[]) => {
-      navigate("result", { state: { sessions }, replace: true });
+      // 쿼리(`?userId=N`)를 함께 넘긴다 — S4의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
+      // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다(BY-327 통합에서 실증).
+      navigate(
+        { pathname: "result", search: searchParams.toString() },
+        { state: { sessions }, replace: true },
+      );
     },
-    [navigate],
+    [navigate, searchParams],
   );
 
   /**

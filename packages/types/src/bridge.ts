@@ -18,7 +18,15 @@ export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
   | { type: "session-ready"; atMs: number }
   /**
-   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. ADR가 명시한 2종 메시지 중 하나다.
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청.
    * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
    */
-  | { type: "open-settings"; atMs: number };
+  | { type: "open-settings"; atMs: number }
+  /**
+   * S4 결과 화면의 `확인` — 세션 화면을 닫아달라는 요청.
+   *
+   * 세션은 네이티브가 push한 **별도 화면**이라(탭바 없는 풀스크린) 웹이 스스로 닫을 수 없다.
+   * 웹 라우터로 홈에 가면 세션 화면 안에 홈이 그려지는 잘못된 중첩이 된다.
+   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹의 `/home` 폴백 이동이 대신 동작한다.
+   */
+  | { type: "exit-session"; atMs: number };
