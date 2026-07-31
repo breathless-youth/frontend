@@ -11,9 +11,13 @@
   --color-bg-layer-2: var(--bg-layer-2);
   --color-text-tertiary: var(--text-tertiary);
   --color-brand-subtle: var(--brand-subtle);
+  --color-bg-guide: var(--bg-guide);
+  --color-border-strong: var(--border-strong);
   --color-state-focus: var(--state-focus);
   --color-state-distract: var(--state-distract);
   --color-state-distract-subtle: var(--state-distract-subtle);
+  --color-state-distract-text: var(--state-distract-text);
+  --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
   --radius-md: var(--radius);
 }
@@ -31,9 +35,13 @@
   --bg-layer-2: #f2f4f6; /* colors.bg.layer2.light */
   --text-tertiary: #8b95a1; /* colors.text.tertiary.light (일시정지 상태색으로도 쓰인다) */
   --brand-subtle: #e8f3ff; /* colors.brand.subtle.light */
+  --bg-guide: #f3f8fe; /* colors.bg.guide.light */
+  --border-strong: #d1d6db; /* colors.border.strong.light */
   --state-focus: #1b64da; /* colors.state.focus.light */
   --state-distract: #ff8a00; /* colors.state.distract.light */
   --state-distract-subtle: #fff4e5; /* colors.state.distractSubtle.light */
+  --state-distract-text: #b36100; /* colors.state.distractText.light — S5 EventChip 소형 텍스트 전용 */
+  --text-disabled: #d1d6db; /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
   --dim: #00000066; /* colors.bg.dim.light */
   --radius: 0.75rem; /* colors.radius.md = 12px */
 }
@@ -50,9 +58,13 @@
     --bg-layer-2: #333d4b; /* colors.bg.layer2.dark */
     --text-tertiary: #8b95a1; /* colors.text.tertiary.dark */
     --brand-subtle: #1b2b4d; /* colors.brand.subtle.dark */
+    --bg-guide: #152030; /* colors.bg.guide.dark */
+    --border-strong: #4e5968; /* colors.border.strong.dark */
     --state-focus: #4593fc; /* colors.state.focus.dark */
     --state-distract: #ff9e1b; /* colors.state.distract.dark */
     --state-distract-subtle: #3d2e14; /* colors.state.distractSubtle.dark */
+    --state-distract-text: #ff9e1b; /* colors.state.distractText.dark */
+    --text-disabled: #4e5968; /* colors.text.disabled.dark */
     --dim: #00000099; /* colors.bg.dim.dark */
   }
 }
