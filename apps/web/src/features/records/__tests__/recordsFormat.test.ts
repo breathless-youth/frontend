@@ -41,6 +41,10 @@ describe("formatDuration — voice-tone §2 시간 길이 표기", () => {
     expect(formatDuration(0)).toBe("0분");
   });
 
+  it("음수는 0으로 방어해 '0분'을 보여준다(서버 계약 드리프트 방어)", () => {
+    expect(formatDuration(-5)).toBe("0분");
+  });
+
   it("진행 중 타이머의 HH:MM:SS 규칙을 쓰지 않는다", () => {
     expect(formatDuration(3661)).not.toContain(":");
   });

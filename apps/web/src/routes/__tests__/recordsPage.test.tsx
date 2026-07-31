@@ -4,12 +4,17 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type {
+  StudySessionListResponse,
+  StudySessionStreakResponse,
+  StudySessionSummary,
+} from "@focuson/types";
 import {
   kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
+  statsQueryDateKey,
   summaryTitle,
 } from "@/features/records/recordsFormat";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
@@ -153,6 +158,85 @@ describe("RecordsPage", () => {
 
     await screen.findByText(summaryTitle(kstDateKey()));
     await waitFor(() => expect(mockedStats).toHaveBeenCalledTimes(2));
+  });
+
+  it("선택일이 안 보이는 달로 이동하면 그 달 1일 조회(monthStats) 응답으로 도트를 채운다", async () => {
+    const todayKey = kstDateKey();
+    const nextMonth = shiftMonth(monthOfDateKey(todayKey), 1);
+    // statsQueryDateKey는 오늘이 다음 달에 속하지 않으므로 항상 "다음달-01"을 돌려준다.
+    const nextMonthFirstDay = statsQueryDateKey(todayKey, nextMonth);
+    const recordedDateKey = `${nextMonthFirstDay.slice(0, -2)}15`;
+
+    mockedStats.mockImplementation(async (_userId, date) =>
+      date === nextMonthFirstDay
+        ? { ...statsResponse(false), studiedDatesInMonth: [recordedDateKey] }
+        : statsResponse(false),
+    );
+    mockedStreak.mockResolvedValue(streakResponse(0));
+
+    renderRecords();
+    await screen.findByText(summaryTitle(todayKey));
+
+    await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
+    expect(await screen.findByText(monthLabel(nextMonth))).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "15일, 기록 있음" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "10일, 기록 없음" })).toBeInTheDocument();
+  });
+
+  it("스트릭 응답에 studiedDatesInRange가 없어도(계약 드리프트) 배너가 크래시 없이 렌더된다 — 도트는 빈 상태", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    mockedStreak.mockResolvedValue({
+      streak: 4,
+      maxStreak: 9,
+    } as unknown as StudySessionStreakResponse);
+
+    renderRecords();
+
+    expect(await screen.findByText("4일 연속 공부 중")).toBeInTheDocument();
+    // doneDates가 빈 배열로 방어되어 오늘을 제외한 모든 요일 도트가 "기록 없음"이다.
+    expect(screen.queryByRole("img", { name: /공부함/ })).not.toBeInTheDocument();
+  });
+
+  it("세션은 시작 시각 내림차순으로 정렬되고 아이템 사이에 구분선이 렌더된다", async () => {
+    function session(overrides: Partial<StudySessionSummary>): StudySessionSummary {
+      return {
+        id: 1,
+        statDate: "2026-01-01",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        endedAt: "2026-01-01T01:00:00.000Z",
+        studySec: 3600,
+        focusSec: 1800,
+        focusRate: 50,
+        eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+        ...overrides,
+      };
+    }
+    // API 응답 순서를 일부러 비정렬로 둔다(이른 → 늦은 → 중간) — 화면이 재정렬해야 한다.
+    const early = session({ id: 1, startedAt: "2026-01-01T00:00:00.000Z", focusSec: 600 });
+    const late = session({ id: 2, startedAt: "2026-01-01T10:00:00.000Z", focusSec: 1800 });
+    const mid = session({ id: 3, startedAt: "2026-01-01T05:00:00.000Z", focusSec: 1200 });
+
+    mockedStats.mockResolvedValue({
+      ...statsResponse(false),
+      sessions: [early, late, mid],
+      sessionCount: 3,
+      // 요약 타일 값은 세션 개별 표기(10분/20분/30분)와 겹치지 않게 둔다.
+      totalStudySec: 5000,
+      totalFocusSec: 4000,
+    });
+    mockedStreak.mockResolvedValue(streakResponse(0));
+
+    const { container } = renderRecords();
+
+    await screen.findByText(summaryTitle(kstDateKey()));
+    const durations = screen.getAllByText(/^(10분|20분|30분)$/).map((el) => el.textContent);
+    // 내림차순(최신순 고정) — late(30분) → mid(20분) → early(10분).
+    expect(durations).toEqual(["30분", "20분", "10분"]);
+    // 3개 아이템 사이 헤어라인은 2개다.
+    expect(container.querySelectorAll(".h-px.bg-border")).toHaveLength(2);
   });
 
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {

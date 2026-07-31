@@ -184,8 +184,21 @@ const EVENT_SHORT_LABELS: Record<StudyEventStatus, string> = {
   PAUSE: "일시정지",
 };
 
-/** 칩 노출 순서 — Figma 예시(자리 이탈 → 휴대폰)와 스펙 매핑 표 순서를 따른다. */
-const EVENT_CHIP_ORDER: StudyEventStatus[] = ["AWAY", "PHONE", "DEVICE", "PAUSE"];
+/**
+ * 칩 노출 순서 — Figma 예시(자리 이탈 → 휴대폰)와 스펙 매핑 표 순서를 따른다.
+ *
+ * `satisfies Record<StudyEventStatus, number>`가 `StudyEventStatus`의 전 멤버를 키로 요구한다 —
+ * 새 상태가 추가되는데 여기 순서를 안 넣으면 컴파일 에러가 난다(리뷰 반영 — BY-330. RN 원본
+ * `apps/mobile/lib/recordsFormat.ts`에는 이 가드가 없다 — 웹판에서 새로 추가한다).
+ * 값 자체(0,1,2,3)는 안 쓰고 키 삽입 순서만 쓴다(`Object.keys`는 문자열 키 순서를 보존한다).
+ */
+const EVENT_CHIP_ORDER_INDEX = {
+  AWAY: 0,
+  PHONE: 1,
+  DEVICE: 2,
+  PAUSE: 3,
+} as const satisfies Record<StudyEventStatus, number>;
+const EVENT_CHIP_ORDER = Object.keys(EVENT_CHIP_ORDER_INDEX) as StudyEventStatus[];
 
 export type EventChipItem = {
   status: StudyEventStatus;

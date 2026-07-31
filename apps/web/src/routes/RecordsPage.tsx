@@ -54,18 +54,21 @@ function RecordsContent({ userId }: { userId: number }) {
 
   const { day, studiedDates, streakBanner } = useRecordsData(userId, selectedKey, month, todayKey);
 
+  // streakBanner는 훅이 렌더마다 새로 만드는 포장 객체라 통째로 의존하면 메모가 무효화된다 —
+  // 안쪽의 안정된 배열(doneDates)만 꺼내 의존한다(위 sessions 메모와 같은 패턴, 리뷰 반영).
+  const streakDoneDates = streakBanner.status === "success" ? streakBanner.doneDates : undefined;
   const weekDays = useMemo<StreakWeekDay[]>(() => {
-    if (streakBanner.status !== "success") {
+    if (streakDoneDates === undefined) {
       return [];
     }
-    const done = new Set(streakBanner.doneDates);
+    const done = new Set(streakDoneDates);
     return weekDateKeys(todayKey).map((dateKey) => ({
       dateKey,
       weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
       dayOfMonth: dayOfDateKey(dateKey),
       state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
     }));
-  }, [streakBanner, todayKey]);
+  }, [streakDoneDates, todayKey]);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열

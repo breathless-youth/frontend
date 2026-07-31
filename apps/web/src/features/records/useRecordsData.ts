@@ -87,6 +87,8 @@ export function useRecordsData(
 
   // 배너 상태(2026-07-28 확정): 캐시 있으면 success 유지, 실패(캐시 없음)면 숨김 —
   // 틀린 "0일째"를 보여주지 않는다. 오류 안내·재시도는 일별 기록 영역 ErrorState가 대표한다.
+  // 스트릭·달 도트 단독 실패는 재시도 UI 없이 hidden/빈 도트로 남는다(원본 동일) —
+  // refetchOnWindowFocus가 복구 경로다.
   const streakBanner: StreakBannerState =
     streak.data !== undefined
       ? {
