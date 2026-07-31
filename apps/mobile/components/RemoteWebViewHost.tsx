@@ -202,6 +202,21 @@ export function RemoteWebViewHost({
       // (`http://*`·`https://*` — 즉 스킴만 http(s)로 제한)으로 두고, 실제 "우리 오리진인가"
       // 판단은 프레임 종류를 구분할 수 있는 `onShouldStartLoadWithRequest` 쪽에 맡긴다.
       onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+      // 오버스크롤(안드로이드 stretch·iOS bounce) 구간에는 웹 CSS가 닿지 않고 **웹뷰 자체의
+      // 배경**이 드러난다 — 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보였다
+      // (2026-08-01 실기기 확인. 웹 쪽 `html` 배경을 채워도 이 영역은 해결되지 않는다).
+      // 테마를 네이티브가 알 수 없으므로 색을 맞추는 대신 오버스크롤 자체를 없앤다 —
+      // 스크롤 한계는 웹 페이지가 그대로 갖고, 고무줄 효과만 사라진다.
+      overScrollMode="never"
+      bounces={false}
+      // iOS 가장자리 스와이프로 **웹뷰 자체의 히스토리**를 되돌린다(WKWebView
+      // `allowsBackForwardNavigationGestures` — 기본값이 false라 켜주지 않으면 동작하지 않는다).
+      //
+      // 이게 없으면 설정→문의하기처럼 웹 안에서만 일어난 이동을 스와이프로 되돌릴 수 없다.
+      // 네이티브 스택은 탭 루트라 pop할 화면이 없고, 웹 히스토리는 제스처가 꺼져 있어
+      // 양쪽 다 반응하지 않았다(2026-08-01 iPhone 13 mini 확인).
+      // 세션 화면은 웹 히스토리가 비어 있어(새로 로드된 라우트) 이 제스처로 빠져나가지 않는다.
+      allowsBackForwardNavigationGestures
       onMessage={handleMessage}
       onLoadEnd={onLoadEnd}
       onError={() => setLoadFailed(true)}

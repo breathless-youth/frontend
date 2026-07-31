@@ -37,7 +37,10 @@ export function SettingsPage() {
   return (
     <main
       data-testid="settings-page"
-      className="min-h-dvh bg-background pt-[17px] pb-6 text-foreground"
+      // 홈·기록과 같은 규칙으로 상단 안전영역을 더한다 — 이 값이 빠져 있어 웹뷰에서 설정
+      // 제목만 상태 바 쪽으로 올라붙었다(2026-08-01 실기기 확인). RN 원본의
+      // `useSafeAreaInsets().top + 17`에 대응한다.
+      className="min-h-dvh bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>

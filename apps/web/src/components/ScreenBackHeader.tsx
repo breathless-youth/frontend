@@ -20,7 +20,11 @@ export function ScreenBackHeader({ title }: ScreenBackHeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-[52px] items-center px-2">
+    // 상단 안전영역만큼 높이를 늘리고 그만큼 패딩을 준다 — 이게 없으면 웹뷰가 상태 바
+    // 아래까지 그려지는 기기(노치/다이나믹 아일랜드)에서 헤더가 통째로 가려져 **뒤로가기
+    // 버튼을 누를 수 없다**(2026-08-01 iPhone 13 mini 확인). RN 원본은 `SafeAreaView`가
+    // 처리하던 부분이고, 홈·기록·설정 본문도 같은 규칙(`env(safe-area-inset-top)`)을 쓴다.
+    <div className="flex h-[calc(52px+env(safe-area-inset-top))] items-center px-2 pt-[env(safe-area-inset-top)]">
       {/* 아이콘뿐이라 라벨을 반드시 붙인다 — 아이콘만으로는 스크린리더가 읽지 못한다. */}
       <button
         type="button"
