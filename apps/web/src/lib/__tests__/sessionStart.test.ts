@@ -16,9 +16,10 @@ describe("requestSessionStart", () => {
     globalWithBridge.ReactNativeWebView = { postMessage };
     const navigateToSession = vi.fn();
 
-    requestSessionStart(navigateToSession);
+    const route = requestSessionStart(navigateToSession);
 
     expect(navigateToSession).not.toHaveBeenCalled();
+    expect(route).toBe("native");
     expect(postMessage).toHaveBeenCalledTimes(1);
     const sent = JSON.parse(postMessage.mock.calls[0][0] as string) as {
       type: string;
@@ -31,8 +32,9 @@ describe("requestSessionStart", () => {
   it("브라우저 단독 모드에서는 세션 라우트로 직접 이동한다", () => {
     const navigateToSession = vi.fn();
 
-    requestSessionStart(navigateToSession);
+    const route = requestSessionStart(navigateToSession);
 
     expect(navigateToSession).toHaveBeenCalledTimes(1);
+    expect(route).toBe("web");
   });
 });

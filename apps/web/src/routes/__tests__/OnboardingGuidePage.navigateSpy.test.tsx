@@ -115,3 +115,90 @@ describe("/onboarding-guide — navigate() 호출 횟수(BY-334 회귀)", () => 
     );
   });
 });
+
+/**
+ * 네이티브 웹뷰(브리지 있음) 재리뷰 회귀 — `f6e58dc`가 `entry==="focus-start"`일 때
+ * `closeGuide()`를 아예 안 부르게 바꾸면서, 브리지가 있는 환경(`requestSessionStart`가
+ * `navigateToSession` 콜백을 부르지 않는 경로 — BY-333 미구현이라 네이티브 응답도 없음)에서는
+ * 화면이 가이드에 멈추고 `hasClosedRef` 래치 때문에 X도 no-op이 되는 회귀가 생겼다.
+ *
+ * `requestSessionStart`가 이제 `"native" | "web"`을 반환하므로, `"native"`일 때만
+ * `handleFinish`가 `closeGuide()`를 호출한다 — `navigateToSession`이 전혀 불리지 않는 경로라
+ * `closeGuide()`가 여전히 유일한 히스토리 조작이다.
+ */
+describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
+  let store: OnboardingGuideStore;
+  const globalWithBridge = globalThis as {
+    ReactNativeWebView?: { postMessage(m: string): void };
+  };
+
+  beforeEach(() => {
+    store = createMemoryOnboardingGuideStore();
+    setOnboardingGuideStore(store);
+    navigateSpy.mockClear();
+  });
+
+  afterEach(() => {
+    resetOnboardingGuideStore();
+    window.history.replaceState(null, "", "/");
+    delete globalWithBridge.ReactNativeWebView;
+  });
+
+  it("entry=focus-start · G5 완료: start-session을 보내고 가이드가 정확히 한 번 닫힌다(갇히지 않음)", async () => {
+    const postMessage = vi.fn();
+    globalWithBridge.ReactNativeWebView = { postMessage };
+
+    renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
+    clickToLastStep();
+
+    fireEvent.click(screen.getByRole("button", { name: GUIDE_START_LABEL }));
+
+    await vi.waitFor(() => {
+      expect(postMessage).toHaveBeenCalledTimes(1);
+    });
+    const sent = JSON.parse(postMessage.mock.calls[0][0] as string) as { type: string };
+    expect(sent.type).toBe("start-session");
+
+    // 뒤로 갈 히스토리가 없으므로 closeGuide()는 /home으로 replace 이동한다 — 정확히 한 번.
+    await vi.waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(navigateSpy).toHaveBeenCalledWith(
+      { pathname: "/home", search: "?entry=focus-start&userId=42" },
+      { replace: true },
+    );
+  });
+
+  it("entry=focus-start · 뒤로 갈 히스토리 있음: G5 완료가 start-session 발신 + navigate(-1) 한 번으로 닫는다", async () => {
+    const postMessage = vi.fn();
+    globalWithBridge.ReactNativeWebView = { postMessage };
+    window.history.pushState({ idx: 1 }, "", "/onboarding-guide?entry=focus-start&userId=42");
+
+    renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
+    clickToLastStep();
+
+    fireEvent.click(screen.getByRole("button", { name: GUIDE_START_LABEL }));
+
+    await vi.waitFor(() => {
+      expect(postMessage).toHaveBeenCalledTimes(1);
+    });
+    await vi.waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(navigateSpy).toHaveBeenCalledWith(-1);
+  });
+
+  it("브리지가 있어도 X(나가기)는 정상 동작한다 — 래치가 갇힘을 만들지 않는다", () => {
+    globalWithBridge.ReactNativeWebView = { postMessage: vi.fn() };
+
+    renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
+
+    fireEvent.click(screen.getByRole("button", { name: "가이드 닫기" }));
+
+    expect(navigateSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).toHaveBeenCalledWith(
+      { pathname: "/home", search: "?entry=focus-start&userId=42" },
+      { replace: true },
+    );
+  });
+});

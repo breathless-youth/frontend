@@ -82,9 +82,16 @@ export function OnboardingGuidePage() {
    * pop이 그걸 되돌려 사용자가 홈에 남는다(RN의 `router.back()`은 동기라 문제가 없었다 —
    * 플랫폼 차이를 무시한 이식이 원인).
    *
-   * 그래서 `entry === "focus-start"`일 때는 가이드를 닫지 않는다 — 세션 라우트로 **대체 이동**
-   * (`replace: true`, `requestSessionStart`의 브라우저 폴백)이 유일한 히스토리 조작이 되게 한다.
+   * 그래서 `entry === "focus-start"`일 때는 가이드를 미리 닫지 않는다 — `requestSessionStart`가
+   * 브라우저 폴백을 탔으면 `/room/1`로의 **대체 이동**이 유일한 히스토리 조작이 되게 한다.
    * 재진입(`home-card`·`settings`)은 세션으로 이어지지 않으므로 지금처럼 `closeGuide()`만 돈다.
+   *
+   * **웹뷰(브리지 있음) 회귀 수정** — `requestSessionStart`가 네이티브 경로를 타면
+   * `navigateToSession`을 호출하지 않는다(네이티브가 화면 스택을 소유, BY-333 아직 미구현이라
+   * 콜백조차 안 온다). 그 경로에서 `closeGuide()`를 빼먹으면 화면이 가이드에 멈춘 채
+   * `hasClosedRef` 래치 때문에 X(`handleExit`)도 no-op이 되어 사용자가 갇힌다. 그래서 반환값이
+   * `"native"`일 때만 여기서 `closeGuide()`를 호출한다 — 이때는 `navigateToSession`이 전혀
+   * 불리지 않으므로 `closeGuide()`가 여전히 **유일한** 히스토리 조작이다(불변식 유지).
    */
   const handleFinish = useCallback(() => {
     if (hasClosedRef.current) {
@@ -96,10 +103,14 @@ export function OnboardingGuidePage() {
     }
     void continueAfterOnboardingGuide(
       {
-        startSession: () =>
-          requestSessionStart(() =>
+        startSession: () => {
+          const route = requestSessionStart(() =>
             navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
-          ),
+          );
+          if (route === "native") {
+            closeGuide();
+          }
+        },
       },
       entry,
     ).catch((error: unknown) => {
