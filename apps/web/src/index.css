@@ -80,3 +80,31 @@ body {
   -webkit-touch-callout: none;
   user-select: none;
 }
+
+/* 심플 모드(S3-4) 엣지 글로우 **잔향** — 공부 상태 전환 시 잠깐 켜졌다가 은은하게 꺼진다
+   (design.md "전환 시 글로우 1~2초 잔향" 확정, BY-336). 점등(200ms)은 빠르고 소등(1.6초)은
+   느린 비대칭 곡선이다. `forwards`로 끝 상태(꺼짐)에 머문다 — 재생은 SimpleModeSurface가
+   레이어 리마운트(React key)로 트리거한다. */
+@keyframes session-edge-glow-fade {
+  0% {
+    opacity: 0;
+  }
+  11% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.session-edge-glow-fade {
+  animation: session-edge-glow-fade 1.8s ease-out forwards;
+}
+
+/* 모션 축소 환경에서는 잔향 대신 정적 점등(과거 동작)으로 남긴다 — 정보가 아니라 장식이지만,
+   꺼두면 상태 컬러 배경 단서까지 사라져 더 어색하다. */
+@media (prefers-reduced-motion: reduce) {
+  .session-edge-glow-fade {
+    animation: none;
+  }
+}

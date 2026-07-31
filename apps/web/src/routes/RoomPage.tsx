@@ -39,7 +39,14 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { cn } from "@/lib/utils";
 
-/** 표시 모드 전환 모션 — Figma Spec 페이지 `14:7` 실측(300ms ease-out). */
+/**
+ * 표시 모드 전환 모션 — Figma Spec 페이지 `14:7` 실측(300ms ease-out).
+ *
+ * ⚠️ **위아래 스페이서의 flex-grow 합은 전환 양 끝에서 같아야 한다(현재 8).** 위치 비율은
+ * `위 grow ÷ (위+아래 grow)`인데 합이 변하면 이 비율이 t에 대해 비선형이 되어, ease-out을
+ * 줬는데도 "확 튀었다 기어가는" 곡선이 된다(BY-336에서 실제로 그렇게 보였다 — 프리뷰가
+ * 1:0=합1, 심플이 3:5=합8이었다). 합을 보존하면 300ms ease-out이 그대로 체감된다.
+ */
 const SPACER_TRANSITION =
   "transition-[flex-grow] duration-300 ease-out motion-reduce:transition-none";
 
@@ -152,6 +159,18 @@ export function RoomPage() {
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
   const pillState = toPillState(sessionState);
+  /**
+   * 공부 상태의 식별 키 — 심플 모드 엣지 글로우 **잔향**(SimpleModeSurface)이 상태 전환을
+   * 감지하는 값이다. `isSameSessionState`와 같은 기준(kind + trigger)이라 실제 전환에서만
+   * 바뀐다(200ms tick 리렌더로는 안 바뀜 — 훅이 같은 상태면 참조를 유지한다). 심플 모드
+   * 진입도 잔향을 한 번 틀어야 하므로(design.md "전환 시 1~2초 잔향") `simpleMode`를 키에
+   * 포함한다. 프리뷰로 돌아갈 때도 키는 바뀌지만, 서피스가 300ms 페이드아웃 중이라 그대로면
+   * 잔향이 부분 가시 상태에서 재점화된다 — 그래서 SimpleModeSurface가 hidden일 때는
+   * 잔향을 재생하지 않는다(그쪽 주석 참고).
+   */
+  const glowKey = `${simpleMode ? "simple" : "preview"}:${sessionState.kind}${
+    sessionState.kind === "FOCUS" ? "" : `:${sessionState.trigger}`
+  }`;
 
   /**
    * 추론 수명 (설계 §3) — **카메라 스트림과 분리된 축**이다.
@@ -314,8 +333,12 @@ export function RoomPage() {
           신호가 직전 값에 굳은 채 심플 모드 내내 유지된다(계약 2: `detect()`가 `null`이면
           "판정 없음"이지 "사람 없음"이 아니다). 즉 심플 모드로 들어간 순간의 상태가 세션 끝까지
           기록된다 — 조용히 틀린다. 측정은 화면 표시 방식과 무관해야 하므로 숨긴 채 유지한다
-          (2026-07-29 리더 결정). */}
-      {simpleMode && <SimpleModeSurface />}
+          (2026-07-29 리더 결정).
+
+          SimpleModeSurface도 카메라 서피스와 같은 hidden 패턴으로 **상시 마운트**한다 —
+          조건부 마운트면 전환 순간 배경이 0ms에 스왑되어, 300ms를 끄는 타이머 이동과 시차가
+          벌어진다(BY-336). 두 서피스가 각자 300ms 페이드로 교차하면 배경도 같은 박자를 탄다. */}
+      <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
       <CameraPreviewSurface
         isRunning={isCameraRunning}
         stream={cameraStream}
@@ -353,13 +376,16 @@ export function RoomPage() {
 
             {/* 표시 모드 전환은 타이머의 **위치·크기 연속성**을 지켜야 한다(Figma Spec `14:7`:
                 Smart Animate 300ms ease-out). 그래서 타이머를 언마운트/재마운트하지 않고
-                위아래 스페이서의 flex-grow만 바꾼다 — 프리뷰는 컨트롤 바 바로 위(1:0),
-                심플 모드는 화면 중앙부(3:5, Figma 실측 여백 207:350 비율).
+                위아래 스페이서의 flex-grow만 바꾼다 — 프리뷰는 컨트롤 바 바로 위(8:0),
+                심플 모드는 상태 필과 컨트롤 바 사이 여백의 중앙(4:4).
+                Figma S3-4 실측은 207:350(≈3:5)으로 타이머를 중앙보다 위에 두지만, 실기기에서
+                너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다. 값은 SPACER_TRANSITION의
+                합 보존 규칙(합 8) 안에서만 바꾼다.
                 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
             <div
               className={cn(
                 SPACER_TRANSITION,
-                simpleMode ? "grow-[3]" : "grow",
+                simpleMode ? "grow-[4]" : "grow-[8]",
                 "landscape:hidden",
               )}
             />
@@ -380,18 +406,30 @@ export function RoomPage() {
 
             {/* 캡션은 심플 모드에 존재하지 않는 행이다(S3-4·S3-6 프레임 실측 — 프리뷰와 함께
                 사라진다). 프리뷰에서는 일시정지 여부에 따라 프라이버시 캡션 ↔ 일시정지 캡션이
-                교체된다. 가로에서는 컨트롤 바 바로 위 자기 행을 갖는다(간격은 바가 준다). */}
-            {!simpleMode && (
-              <SessionCaption
-                text={captionFor(sessionState)}
-                className="mt-2 landscape:col-span-full landscape:row-start-3 landscape:mt-0 landscape:justify-self-center"
-              />
-            )}
+                교체된다. 가로에서는 컨트롤 바 바로 위 자기 행을 갖는다(간격은 바가 준다).
+
+                래퍼가 세로에서 캡션 높이(14px+mt 8px)를 **상주 예약**한다 — 캡션을 그냥
+                언마운트하면 전환 시작 프레임에 그 높이가 flex 가용 공간으로 즉시 편입/이탈해
+                타이머가 한 프레임에 스텝 점프한 뒤 미끄러지기 시작한다(BY-336).
+                텍스트는 여전히 DOM에서 빠지므로 "심플 모드에 캡션 없음" 스펙은 그대로다 —
+                텍스트 자체가 0ms에 사라지는 것은 알고 남긴 트레이드오프다(페이드를 주려면
+                지연 언마운트가 필요해 DOM 부재 스펙·테스트와 충돌한다).
+                높이 예약은 세로 전용이다: 가로는 스페이서가 없어 이 문제가 없고 캡션이
+                11px/13px로 줄므로 `landscape:h-auto`로 되돌린다. 빈 래퍼가 그리드 행 트랙을
+                차지하지 않도록 심플일 때는 숨긴다. */}
+            <div
+              className={cn(
+                "mt-2 h-[14px] landscape:col-span-full landscape:row-start-3 landscape:mt-0 landscape:h-auto landscape:justify-self-center",
+                simpleMode && "landscape:hidden",
+              )}
+            >
+              {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
+            </div>
 
             <div
               className={cn(
                 SPACER_TRANSITION,
-                simpleMode ? "grow-[5]" : "grow-0",
+                simpleMode ? "grow-[4]" : "grow-0",
                 "landscape:hidden",
               )}
             />

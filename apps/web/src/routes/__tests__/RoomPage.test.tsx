@@ -680,12 +680,25 @@ describe("RoomPage — S3-4 심플 모드", () => {
     const timerOf = () => screen.getByText("00:00:00").parentElement!;
 
     expect(timerOf().className).toContain("text-white");
-    expect(timerOf().style.textShadow).toBe("");
+    // 프리뷰의 발광 꺼짐은 빈 값이 아니라 **같은 구조의 투명 그림자**다 — 목록 길이·단위가
+    // 같아야 브라우저가 보간해서 발광이 300ms로 페이드된다(BY-336, `NO_GLOW_TEXT_SHADOW`).
+    expect(timerOf().style.textShadow).toContain("transparent");
+    expect(timerOf().style.textShadow).not.toContain("var(--session-glow-near)");
 
     await enterSimpleMode();
 
     expect(timerOf().className).toContain("text-[var(--session-state-color)]");
     expect(timerOf().style.textShadow).toContain("var(--session-glow-near)");
+  });
+
+  it("엣지 글로우는 잔향이다 — 페이드아웃 애니메이션 레이어로 그린다", async () => {
+    // design.md "전환 시 글로우 1~2초 잔향" 확정(BY-336) — 정적 점등이 아니라
+    // 상태 전환마다 리마운트되어 점등→페이드아웃하는 레이어다(SimpleModeSurface 주석).
+    const { container } = renderRoom("/room/7?userId=1");
+    await enterSimpleMode();
+
+    const surface = container.querySelector('[data-session-surface="simple"]')!;
+    expect(surface.querySelector(".session-edge-glow-fade")).not.toBeNull();
   });
 
   it("대칭 복귀 — 한 번 더 탭하면 프리뷰로 돌아온다", async () => {
