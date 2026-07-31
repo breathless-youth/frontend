@@ -1,19 +1,40 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
+import { SettingsPage } from "@/routes/SettingsPage";
 
 /**
  * S6 · 설정 화면 웹 이식 테스트 — RN 원본 `apps/mobile/__tests__/settings.test.tsx`를
- * 웹 상황(카메라 권한 상태 조회 없음, 온보딩 가이드 연결 보류, appVersion 쿼리)에 맞게 이식한다.
+ * 웹 상황(카메라 권한 상태 조회 없음, appVersion 쿼리)에 맞게 이식한다.
  */
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <App />
+    </MemoryRouter>,
+  );
+}
+
+/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁(`OnboardingGuidePage.test.tsx`와 같은 패턴). */
+function LocationProbe({ testId }: { testId: string }) {
+  const location = useLocation();
+  return <div data-testid={testId}>{location.pathname + location.search}</div>;
+}
+
+function renderSettingsWithGuideStub(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/onboarding-guide"
+          element={<LocationProbe testId="onboarding-guide-stub" />}
+        />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -42,11 +63,14 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("개인정보처리방침")).toBeInTheDocument();
   });
 
-  it("측정 기준 안내는 표시만 하고 버튼으로 노출되지 않는다 (온보딩 웹 이관 전까지 연결 보류)", () => {
-    renderAt("/settings");
+  it("측정 기준 안내 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
+    renderSettingsWithGuideStub("/settings");
 
-    expect(screen.queryByRole("button", { name: "측정 기준 안내" })).not.toBeInTheDocument();
-    expect(screen.getByText("측정 기준 안내")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+
+    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
+      "/onboarding-guide?entry=settings",
+    );
   });
 
   it("문의하기 행은 /contact 로 이동한다", () => {

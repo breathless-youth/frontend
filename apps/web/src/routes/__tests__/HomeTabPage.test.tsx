@@ -1,8 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  createMemoryOnboardingGuideStore,
+  resetOnboardingGuideStore,
+  setOnboardingGuideStore,
+} from "@/features/onboarding/onboardingGuideStore";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
@@ -31,6 +36,30 @@ function renderHome(path = "/home?userId=7") {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <HomeTabPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁(`OnboardingGuidePage.test.tsx`와 같은 패턴). */
+function LocationProbe({ testId }: { testId: string }) {
+  const location = useLocation();
+  return <div data-testid={testId}>{location.pathname + location.search}</div>;
+}
+
+function renderHomeWithRoutes(path = "/home?userId=7") {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/home" element={<HomeTabPage />} />
+          <Route
+            path="/onboarding-guide"
+            element={<LocationProbe testId="onboarding-guide-stub" />}
+          />
+          <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -91,5 +120,46 @@ describe("HomeTabPage", () => {
 
     expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("집중 시작 CTA — 온보딩 가이드 배선 (BY-334)", () => {
+    beforeEach(() => {
+      setOnboardingGuideStore(createMemoryOnboardingGuideStore());
+    });
+
+    afterEach(() => {
+      resetOnboardingGuideStore();
+    });
+
+    it("가이드 미완료면 쿼리를 승계해 온보딩 가이드로 이동한다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      fireEvent.click(
+        screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" }),
+      );
+
+      const stub = await screen.findByTestId("onboarding-guide-stub");
+      expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=focus-start");
+    });
+
+    it("가이드를 이미 봤으면(완료) 쿼리를 승계해 세션 라우트로 바로 이동한다", async () => {
+      setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      fireEvent.click(
+        screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" }),
+      );
+
+      const stub = await screen.findByTestId("room-stub");
+      expect(stub.textContent).toBe("/room/1?userId=7");
+    });
   });
 });

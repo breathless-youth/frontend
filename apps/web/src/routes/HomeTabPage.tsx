@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -12,6 +12,8 @@ import type { HomeSummary } from "@/features/home/homeSummary";
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "@/features/home/icons";
 import { UpdateNoticeSheetHost } from "@/features/home/UpdateNoticeSheetHost";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
+import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
+import { requestSessionStart } from "@/lib/sessionStart";
 import { parseUserId } from "@/lib/userId";
 
 /**
@@ -21,9 +23,10 @@ import { parseUserId } from "@/lib/userId";
  * RN판과의 동작 차이(의도된 것):
  * - 탭 전환(기록·설정)은 **네이티브 탭바 소유**다 — 웹 안에서 탭 라우트로 이동하지 않는다.
  *   그래서 연속 공부 카드의 기록(S5) 연결은 RN판의 TODO 그대로 미연결로 둔다.
- * - 온보딩 가이드(G1~G5)는 아직 웹 미이관 — 가이드 카드·최초 진입 분기(`focusStartFlow`)는
- *   온보딩 웹 이관 티켓에서 연결한다. 그때까지 "집중 시작"은 세션 라우트로 직행한다
- *   (권한 게이트·가이드 분기의 네이티브 배선은 BY-333 셸 전환에서).
+ * - 온보딩 가이드(G1~G5)가 웹으로 이관됐다(BY-334) — "집중 시작"은 `focusStartFlow`의
+ *   `runFocusStartFlow`를 거쳐 가이드 미완료면 `/onboarding-guide`로, 완료면 세션 시작
+ *   요청(`requestSessionStart`)으로 갈린다. 가이드 카드(다시 보기, entry=home-card)는 이
+ *   배선 범위 밖이라 아직 onClick 없이 표시만 한다(`GuideCard`의 TODO 참고).
  */
 
 function HeroTodayCard({ summary }: { summary: HomeSummary }) {
@@ -131,6 +134,28 @@ function GuideCard() {
 function HomeContent({ userId }: { userId: number }) {
   const summaryState = useHomeSummary(userId);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  /**
+   * "집중 시작" 탭 진입점 (BY-334) — 분기는 `focusStartFlow.runFocusStartFlow`가 소유한다.
+   * 이 화면은 그 계약(`FocusStartNavigator`)의 웹 구현만 제공한다: 가이드로 갈 때는 현재
+   * 쿼리(`?userId=N`)를 잃지 않도록 `entry`만 얹어 승계하고(`OnboardingGuidePage`의
+   * `location.search` 승계 패턴과 동일 — BY-327에서 쿼리 유실이 실제 버그였다), 세션 시작은
+   * `requestSessionStart`(브리지 있으면 발신, 없으면 세션 라우트로 직접 이동)에 그대로 맡긴다.
+   */
+  function startFocusFlow() {
+    void runFocusStartFlow({
+      openOnboardingGuide: (entry) => {
+        const params = new URLSearchParams(location.search);
+        params.set("entry", entry);
+        navigate({ pathname: "/onboarding-guide", search: params.toString() });
+      },
+      startSession: () =>
+        requestSessionStart(() => navigate({ pathname: "/room/1", search: location.search })),
+    }).catch((error: unknown) => {
+      console.warn("[home] 집중 시작 처리 실패", error);
+    });
+  }
 
   return (
     <>
@@ -140,7 +165,7 @@ function HomeContent({ userId }: { userId: number }) {
       )}
       {summaryState.status === "success" && <HeroTodayCard summary={summaryState.summary} />}
 
-      <StartCtaCard onClick={() => navigate(`/room/1?userId=${userId}`)} />
+      <StartCtaCard onClick={startFocusFlow} />
 
       <p className="px-1 text-center text-xs text-text-tertiary">
         카메라가 자동으로 측정해요 · 영상은 저장되지 않아요
