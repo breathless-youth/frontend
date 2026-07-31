@@ -75,6 +75,96 @@ const SESSION_LAYER_LAYOUT = [
 ].join(" ");
 
 /**
+ * 회전 마스크의 수명 (BY-336, 2026-08-01).
+ *
+ * - `covering`: 회전이 감지된 순간부터 뷰포트가 확정될 때까지 — 화면을 덮는다.
+ * - `revealing`: 덮개를 걷는 중. 페이드가 끝나면 언마운트한다.
+ *
+ * 언마운트까지 하는 이유는 `backdrop-filter`가 항상 붙어 있으면 합성 레이어가 상주해서다 —
+ * 카메라 디코드와 MediaPipe 추론이 같이 도는 화면이라 상시 비용을 지우지 않는다.
+ */
+type RotationMaskPhase = "idle" | "covering" | "revealing";
+
+function currentOrientation(): "portrait" | "landscape" {
+  return window.innerWidth <= window.innerHeight ? "portrait" : "landscape";
+}
+
+/** 회전 애니메이션이 끝나고 뷰포트가 확정되기를 기다리는 시간(네이티브 회전은 약 300ms). */
+const ROTATION_SETTLE_MS = 450;
+/** 덮개를 걷는 시간. 이 값과 아래 `duration-300`이 어긋나면 덮개가 남거나 툭 끊긴다. */
+const ROTATION_REVEAL_MS = 300;
+
+/**
+ * 회전 중 화면을 덮을지 — **아티팩트를 가리는 장치**다.
+ *
+ * 기기를 돌리면 네이티브 뷰 회전과 WebView 리레이아웃이 한 프레임 어긋나면서 화면 전체가 한 번
+ * 크게 축소됐다 복구되고, 카메라 프리뷰는 잘리는 축이 좌우↔상하로 뒤집히며 크게 튄다(BY-336
+ * 실기기 관측). 둘 다 WebView·카메라의 회전 처리에서 오는 것이라 레이아웃 쪽에서 고칠 수 없어,
+ * **그 구간을 보여주지 않는 쪽**을 택했다.
+ *
+ * ⚠️ 이건 원인 제거가 아니라 은폐다. 회전 자체가 잦은 동작이 아니고 대안(카메라 재오픈)이
+ * 화각 손해로 되돌려졌기 때문에 내린 선택이다 — 근본 해결이 필요해지면 이 훅을 지우고
+ * 아티팩트를 다시 드러낸 상태에서 시작할 것.
+ *
+ * `resize`만 보면 키보드·주소창 변화에도 덮개가 뜨므로 **방향이 바뀐 경우**와
+ * `orientationchange` 이벤트만 통과시킨다.
+ */
+function useRotationMask(): RotationMaskPhase {
+  const [phase, setPhase] = useState<RotationMaskPhase>("idle");
+
+  useEffect(() => {
+    let settled = currentOrientation();
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearTimers() {
+      if (settleTimer !== null) {
+        clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+      if (revealTimer !== null) {
+        clearTimeout(revealTimer);
+        revealTimer = null;
+      }
+    }
+
+    function handle(fromOrientationEvent: boolean) {
+      // 회전 도중의 중간 resize는 아직 이전 방향을 보고할 수 있어 `orientationchange`도 함께 받는다.
+      if (!fromOrientationEvent && currentOrientation() === settled) {
+        return;
+      }
+      clearTimers();
+      setPhase("covering");
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        settled = currentOrientation();
+        setPhase("revealing");
+        revealTimer = setTimeout(() => {
+          revealTimer = null;
+          setPhase("idle");
+        }, ROTATION_REVEAL_MS);
+      }, ROTATION_SETTLE_MS);
+    }
+
+    const onResize = () => {
+      handle(false);
+    };
+    const onOrientationChange = () => {
+      handle(true);
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onOrientationChange);
+    return () => {
+      clearTimers();
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onOrientationChange);
+    };
+  }, []);
+
+  return phase;
+}
+
+/**
  * 세션 화면 — S3-1(집중)·S3-2(비집중)·S3-3(일시정지)·S3-4(심플 모드)는 **같은 화면**이다.
  * 별도 라우트를 만들지 않고 두 개의 **직교하는 축**으로 프레젠테이션이 갈린다:
  *
@@ -144,6 +234,8 @@ export function RoomPage() {
    * 판정에 쓸 수 없다(설계 §3 "카메라 전환"). 전환 실패는 기존 `CameraFlipResult` 그대로다.
    */
   const [flippingCamera, setFlippingCamera] = useState(false);
+  /** 회전 구간을 덮는 마스크. 화면 상태가 아니라 **아티팩트 은폐 장치**다(그쪽 훅 주석). */
+  const rotationMask = useRotationMask();
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
@@ -500,6 +592,23 @@ export function RoomPage() {
           쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
           치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
       {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
+
+      {/* 회전 마스크 — **모든 것 위에 온다.** 가리려는 것이 카메라만이 아니라 화면 전체가 한 번
+          축소됐다 복구되는 아티팩트라, 세션 레이어·다이얼로그까지 함께 덮어야 한다. DOM 순서로
+          맨 위에 놓아 z-index를 새로 만들지 않는다.
+
+          `pointer-events-none`: 덮여 있는 동안에도 입력은 그대로 통과한다 — 회전 중 무심코 누른
+          종료·일시정지가 삼켜지면 그게 더 나쁜 버그다. 장식이므로 `aria-hidden`이다. */}
+      {rotationMask !== "idle" && (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 bg-[var(--session-camera-base)]/45 backdrop-blur-xl",
+            "transition-opacity duration-300 ease-out motion-reduce:transition-none",
+            rotationMask === "covering" ? "opacity-100" : "opacity-0",
+          )}
+        />
+      )}
     </main>
   );
 }

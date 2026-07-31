@@ -730,6 +730,65 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(timerOf().style.textShadow).toContain("var(--session-glow-near)");
   });
 
+  /**
+   * 회전 중 아티팩트(화면 전체 축소·복구, 프리뷰 크롭 축 뒤집힘)를 가리는 덮개다(BY-336).
+   * 원인 제거가 아니라 은폐라는 점이 중요해서, "언제 덮고 언제 걷는지"를 테스트로 고정한다.
+   */
+  it("회전하면 화면을 덮었다가 뷰포트가 확정되면 걷는다", async () => {
+    const { container } = renderRoom("/room/7?userId=1");
+    const maskOf = () => container.querySelector(".backdrop-blur-xl");
+
+    expect(maskOf()).toBeNull();
+
+    vi.useFakeTimers();
+    try {
+      // 세로 → 가로. jsdom 기본값이 1024×768(가로)이라 세로로 만들어 두고 뒤집는다.
+      act(() => {
+        window.innerWidth = 402;
+        window.innerHeight = 874;
+        window.dispatchEvent(new Event("resize"));
+      });
+      act(() => {
+        window.innerWidth = 874;
+        window.innerHeight = 402;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // 회전이 감지된 순간부터 덮는다 — 아티팩트가 보이기 전에 올라와야 한다.
+      expect(maskOf()).not.toBeNull();
+      expect(maskOf()?.className).toContain("opacity-100");
+      // 입력은 통과시킨다 — 회전 중 누른 종료·일시정지가 삼켜지면 그게 더 나쁜 버그다.
+      expect(maskOf()?.className).toContain("pointer-events-none");
+
+      // 뷰포트가 확정되면 걷기 시작하고,
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+      expect(maskOf()?.className).toContain("opacity-0");
+
+      // 페이드가 끝나면 언마운트한다(backdrop-filter 합성 레이어를 상주시키지 않는다).
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(maskOf()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("방향이 그대로인 리사이즈에는 덮개가 뜨지 않는다 — 키보드·주소창 변화까지 가리지 않는다", () => {
+    const { container } = renderRoom("/room/7?userId=1");
+
+    act(() => {
+      // 가로를 유지한 채 폭만 줄인다(jsdom 기본 1024×768도 가로다).
+      window.innerWidth = 900;
+      window.innerHeight = 768;
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(container.querySelector(".backdrop-blur-xl")).toBeNull();
+  });
+
   it("엣지 글로우는 잔향이다 — 페이드아웃 애니메이션 레이어로 그린다", async () => {
     // design.md "전환 시 글로우 1~2초 잔향" 확정(BY-336) — 정적 점등이 아니라
     // 상태 전환마다 리마운트되어 점등→페이드아웃하는 레이어다(SimpleModeSurface 주석).
