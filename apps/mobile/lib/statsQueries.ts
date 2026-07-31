@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { toDisplayedStats } from "./displayedStats";
 import type { StreakRange } from "./statsApi";
 import { getStreak, listStudySessionStats } from "./statsApi";
 import { ensureUserRegistered } from "./userApi";
@@ -17,10 +18,20 @@ export const statsKeys = {
       : (["stats", "streak", userId] as const),
 };
 
+/**
+ * 하루치 통계 — **순공 1분 미만 세션을 걸러낸 뒤** 캐시에 넣는다(`toDisplayedStats`).
+ *
+ * 필터를 **여기 한 곳에서만** 적용하는 것이 핵심이다. 홈(`useHomeSummary`)과 기록
+ * (`useRecordsData`)이 같은 queryKey를 공유하므로, 이 지점을 지나면 두 화면이 같은 값을 본다 —
+ * 화면마다 따로 걸러내면 한쪽만 빠뜨렸을 때 홈과 기록의 순공시간이 조용히 달라진다.
+ *
+ * 원본 서버 응답이 필요한 소비자가 생기면 `listStudySessionStats`를 직접 쓴다 — 그쪽은
+ * 전송 계층이라 정책을 모른다.
+ */
 export function dailyStatsQuery(userId: number, date: string) {
   return queryOptions({
     queryKey: statsKeys.daily(userId, date),
-    queryFn: () => listStudySessionStats(userId, date),
+    queryFn: async () => toDisplayedStats(await listStudySessionStats(userId, date)),
   });
 }
 

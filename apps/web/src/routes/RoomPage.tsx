@@ -6,6 +6,7 @@ import type { StudySessionResponse } from "@focuson/types";
 import { Toast } from "@/components/ui/toast";
 import { createVisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
+import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
@@ -16,8 +17,9 @@ import { SessionStatusPill } from "@/features/study-session/components/SessionSt
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
+import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import { formatElapsed } from "@/features/study-session/formatDuration";
+import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
 import {
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
@@ -207,17 +209,51 @@ export function RoomPage() {
   );
 
   /**
+   * 홈으로 이탈 — 미달 종료(순공 1분 미만)의 유일한 출구다.
+   *
+   * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
+   * 것이라 `navigate("/")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
+   * `navigate-home`을 먼저 보낸다 — 네이티브가 모달을 닫으면 이 화면 전체가 사라지므로
+   * 아래 웹 라우터 이동은 그 사이 잠깐이라도 화면이 있을 브라우저 단독 모드(ADR 0001)를 위한
+   * 폴백이다. 네이티브가 없으면 `postToNative`가 조용히 아무 일도 하지 않는다.
+   */
+  const goHome = useCallback(() => {
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    // `replace: true`: 세션은 끝났다. 뒤로 가기로 룸에 돌아오면 타이머가 0부터 도는 새 세션이
+    // 시작돼 사용자에게 거짓이 된다(`goToResult`와 같은 이유).
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  /**
+   * 순공 1분 미만으로 끝났는가 — **S4로 보내지 않는 조건**이다(2026-07-27 확정).
+   *
+   * 판정에 서버 응답(`phase.sessions`)이 아니라 클라이언트가 잰 `focusSec`을 쓴다. 자정(KST)을
+   * 넘는 세션은 서버가 날짜별로 **쪼개서** 내려주므로, 응답 한 건씩 보면 둘 다 1분 미만인데
+   * 세션 전체로는 1분을 넘는 경우가 생긴다. 사용자가 한 번 공부한 것을 두 조각으로 판정하면
+   * 안 된다.
+   *
+   * `endAndSubmit`이 제출 전에 최종 집계를 `setTotals`로 반영하므로 이 값은 이미 확정값이다.
+   */
+  const endedBelowMinute = focusSec < SUB_MINUTE_SEC;
+
+  /**
    * S3-7 `공부 종료` 경로 — 제출이 **성공했을 때만**(`phase === "done"`) S4로 넘어간다.
    * `submitting`·`error`·`unsaved`는 S3 쪽 상태라 여기 남는다(WG5와 상호 확인한 계약).
    *
-   * 자동 종료(S3-8)는 제외한다 — 그쪽은 안내 화면을 먼저 보여주고 사용자가 `결과 보기`를
-   * 눌렀을 때 같은 `goToResult`를 탄다. 즉 두 경로 모두 이 한 함수로 수렴한다.
+   * 두 경우를 제외한다.
+   *
+   * - **자동 종료(S3-8)**: 안내 화면을 먼저 보여주고 사용자가 `결과 보기`를 눌렀을 때 같은
+   *   `goToResult`를 탄다.
+   * - **순공 1분 미만**: S4 대신 미달 안내를 보여주고 홈으로 보낸다. 자동 종료와 수동 종료
+   *   **양쪽 모두**에 걸린다 — 30초 공부하고 20분 방치해 자동 종료된 세션도 기록에 남지 않으므로
+   *   S3-8의 `여기까지 기록을 저장했어요`가 거짓이 된다.
    */
   useEffect(() => {
-    if (phase.name === "done" && endReason?.kind !== "AUTO") {
+    if (phase.name === "done" && !endedBelowMinute && endReason?.kind !== "AUTO") {
       goToResult(phase.sessions);
     }
-  }, [endReason, goToResult, phase]);
+  }, [endReason, endedBelowMinute, goToResult, phase]);
 
   /**
    * 전환 중에는 추론을 멈춘다(위 `detectionEnabled`). 전환이 끝나면 — 성공이든 실패든 —
@@ -265,7 +301,11 @@ export function RoomPage() {
     <main
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
-      className="relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
+      // 컨트롤 바 아이콘(`<img>`)과 캡션·타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
+      // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
+      // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
+      onDragStart={(event) => event.preventDefault()}
+      className="session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
     >
       {/* 심플 모드는 **보이는 프리뷰만** 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
           카메라 서피스(`data-session-surface="camera"`)는 사라지므로 S3-4 화면 스펙은 그대로다.
@@ -401,6 +441,15 @@ export function RoomPage() {
             />
           )}
         </>
+      ) : /* 미달 종료 안내 — **S3-8보다 먼저 검사한다.** 순공 1분 미만이면 자동 종료로 끝났든
+             수동으로 끝냈든 기록에 남지 않으므로, S3-8의 `여기까지 기록을 저장했어요`도 S4의
+             결과 표시도 모두 사실과 어긋난다(위 `endedBelowMinute` 주석).
+
+             `phase === "done"`을 요구하는 이유는 S3-8과 같다 — 제출 중·실패·미저장 상태에서는
+             아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
+             걸러내는 것은 표시·합산 단계다(mvp-scope). */
+      phase.name === "done" && endedBelowMinute ? (
+        <SubMinuteEndNotice onGoHome={goHome} />
       ) : /* `phase.name === "done"`을 여기서 한 번 더 좁히는 이유: 타입 가드는 `endReason`만
              좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
              검사와 동일하다. */

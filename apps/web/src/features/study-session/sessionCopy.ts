@@ -1,4 +1,4 @@
-import { toKoreanDurationLength, topicJosaFor } from "./formatDuration";
+import { SUB_MINUTE_SEC, toKoreanDurationLength } from "./formatDuration";
 import type { PauseTrigger, SessionState } from "./sessionState";
 
 /**
@@ -79,8 +79,47 @@ export const EXIT_CONFIRM_COPY = {
 } as const;
 
 /**
- * `지금까지 집중한 {순공시간}은 저장돼요` — 값은 **한글 시간 길이**이고 조사는 자동 처리한다
- * (voice-tone.md §2). 종료로 인한 손실 불안을 먼저 없애는 "이득/안심 우선" 구성이다(§1).
+ * 순공 1분 미만으로 종료할 때의 본문 — **저장을 약속하지 않는다.**
+ *
+ * 2026-07-27 확정으로 순공 1분 미만 세션은 기록 목록·합산에서 제외된다(ai-wiki
+ * `product/mvp-scope.md` "기록 저장·표시 기준"). 그래서 기본 문구(`…저장돼요`)를 그대로 쓰면
+ * **화면이 거짓말을 한다** — 40초 공부한 사용자에게 저장된다고 말하고는 기록 어디에도 안 남는다.
+ *
+ * 문구는 wiki가 미달 상황용으로 확정한 표현을 그대로 쓴다(`voice-tone.md` §4 "미달 종료") —
+ * 여기서 새 카피를 짓지 않는다.
+ *
+ * ⚠️ 서버에는 **여전히 제출한다.** 백엔드는 순공시간과 무관하게 모든 세션을 저장하는 것이
+ * 계약이고(mvp-scope), 걸러내는 것은 표시·합산 단계다. 이 문구를 "저장되지 않는다"로 읽어
+ * 제출을 건너뛰지 말 것.
+ */
+export const SUB_MINUTE_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
+
+/**
+ * 순공 1분 미만 세션의 **종료 안내 화면** 문구(`SubMinuteEndNotice`).
+ *
+ * 본문은 종료 다이얼로그와 같은 확정 문장을 쓴다 — 사용자가 방금 다이얼로그에서 읽은 문장이
+ * 그대로 이어지므로, 같은 상황을 두 가지로 설명하지 않는다.
+ *
+ * 타이틀·CTA는 wiki에 확정 문구가 없다(2026-07-27 결정이 "간단 안내 후 홈"까지만 규정).
+ * voice-tone §1의 "이득/안심 우선, 사용자를 탓하지 않는다"에 맞춰 짧게 두되, 저장·기록을
+ * 약속하는 표현은 쓰지 않는다. ⚠️ 카피 확정 시 여기만 고치면 된다.
+ */
+export const SUB_MINUTE_END_COPY = {
+  title: "공부를 마쳤어요",
+  body: SUB_MINUTE_EXIT_DESCRIPTION,
+  cta: "홈으로",
+} as const;
+
+/**
+ * `지금까지 집중한 {순공시간}은 저장돼요` — 값은 **한글 시간 길이**다(voice-tone.md §2).
+ * 종료로 인한 손실 불안을 먼저 없애는 "이득/안심 우선" 구성이다(§1).
+ *
+ * 순공 1분 미만이면 위 `SUB_MINUTE_EXIT_DESCRIPTION`으로 갈린다 — 그 경우 저장을 약속할 수
+ * 없기 때문이다.
+ *
+ * 조사가 항상 `은`인 것은 우연이 아니다. 표기가 분 단위로 통일되면서(2026-07-27) 시간 길이
+ * 라벨이 `분`·`시간`으로만 끝나게 됐고, 초로 끝날 때 `는`을 붙이던 `topicJosaFor`는 함께
+ * 사라졌다.
  *
  * ⚠️ **Figma ↔ ai-wiki 조사 불일치(에스컬레이션 대기).** Figma 노드 `40:98`은 `1시간 24분**이**
  * 저장돼요`, `voice-tone.md` §2·§4는 `1시간 24분**은** 저장돼요`로 서로 다르다. 조사 규칙이
@@ -88,8 +127,10 @@ export const EXIT_CONFIRM_COPY = {
  * SCR-S3-7·S3-8 Review Checklist에 판정 항목으로 올라가 있다.
  */
 export function exitConfirmDescription(focusSec: number): string {
-  const length = toKoreanDurationLength(focusSec);
-  return `지금까지 집중한 ${length}${topicJosaFor(length)} 저장돼요`;
+  if (focusSec < SUB_MINUTE_SEC) {
+    return SUB_MINUTE_EXIT_DESCRIPTION;
+  }
+  return `지금까지 집중한 ${toKoreanDurationLength(focusSec)}은 저장돼요`;
 }
 
 /**

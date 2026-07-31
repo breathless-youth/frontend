@@ -1,12 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { visionDiagnostics } from "../../vision/diagnostics";
+import type * as DiagnosticsModule from "../../vision/diagnostics";
 import { createMediaStreamCameraAdapter } from "../mediaStreamCamera";
+
+vi.mock("../../vision/diagnostics", async (importOriginal) => {
+  const actual = await importOriginal<typeof DiagnosticsModule>();
+  return {
+    ...actual,
+    visionDiagnostics: { ...actual.visionDiagnostics, cameraStream: vi.fn() },
+  };
+});
 
 function fakeStream() {
   const track = { stop: vi.fn() };
   return { getTracks: () => [track], __track: track } as unknown as MediaStream & {
     __track: { stop: ReturnType<typeof vi.fn> };
   };
+}
+
+/**
+ * `getSettings()`까지 갖춘 스트림. 위 `fakeStream`은 일부러 그대로 둔다 — 진단이 부분 구현
+ * 스트림에서도 카메라를 죽이지 않는다는 것 자체가 계약이고, 기존 테스트가 그 경로를 계속 밟는다.
+ */
+function fakeStreamWithSettings(settings: MediaTrackSettings) {
+  const track = { stop: vi.fn(), getSettings: () => settings };
+  return {
+    getTracks: () => [track],
+    getVideoTracks: () => [track],
+  } as unknown as MediaStream;
 }
 
 function stubMediaDevices(getUserMedia: ReturnType<typeof vi.fn>, deviceKinds: string[] = []) {
@@ -20,6 +42,8 @@ function stubMediaDevices(getUserMedia: ReturnType<typeof vi.fn>, deviceKinds: s
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // 모듈 스코프 mock(`visionDiagnostics.cameraStream`)이라 호출 기록이 테스트 간 누적된다.
+  vi.clearAllMocks();
 });
 
 describe("createMediaStreamCameraAdapter", () => {
@@ -190,6 +214,67 @@ describe("createMediaStreamCameraAdapter", () => {
       expect(first.__track.stop).toHaveBeenCalled();
       expect(second.__track.stop).toHaveBeenCalled();
       expect(camera.stream).toBeNull();
+    });
+  });
+
+  /**
+   * 프리뷰가 `object-contain`이라 **실제로 받은 비율이 그대로 여백 크기**가 된다. 그런데
+   * `CAMERA_CONSTRAINTS`는 `ideal`이라 요청대로 온다는 보장이 없고, 이 값을 읽는 곳이 여태
+   * 없어서 "왜 이렇게 보이는지"를 설명할 근거가 없었다(2026-07-29 크롭 조사).
+   */
+  describe("스트림 해상도 진단", () => {
+    it("실제로 열린 트랙 설정을 남긴다 — 요청값이 아니라 받은 값이다", async () => {
+      // 720×1280(9:16)을 요청하지만 센서 네이티브인 4:3으로 돌아오는, 실제로 흔한 상황.
+      stubMediaDevices(
+        vi.fn(async () => fakeStreamWithSettings({ width: 480, height: 640, facingMode: "user" })),
+      );
+
+      await createMediaStreamCameraAdapter().start();
+
+      expect(visionDiagnostics.cameraStream).toHaveBeenCalledWith({
+        width: 480,
+        height: 640,
+        // 트랙이 aspectRatio를 안 줬으므로 계산해서 채운다.
+        aspectRatio: 0.75,
+        facingMode: "user",
+      });
+    });
+
+    it("카메라 전환도 새로 여는 것이므로 각각 남는다", async () => {
+      stubMediaDevices(
+        vi
+          .fn()
+          .mockResolvedValueOnce(
+            fakeStreamWithSettings({ width: 480, height: 640, facingMode: "user" }),
+          )
+          .mockResolvedValueOnce(
+            fakeStreamWithSettings({ width: 720, height: 1280, facingMode: "environment" }),
+          ),
+        ["videoinput", "videoinput"],
+      );
+      const camera = createMediaStreamCameraAdapter();
+
+      await camera.start();
+      await camera.flip();
+
+      expect(visionDiagnostics.cameraStream).toHaveBeenCalledTimes(2);
+      expect(visionDiagnostics.cameraStream).toHaveBeenLastCalledWith(
+        expect.objectContaining({ width: 720, height: 1280, facingMode: "environment" }),
+      );
+    });
+
+    /**
+     * 진단이 기능을 죽이면 안 된다 — 여기서 던지면 `open()`이 통째로 실패해 **카메라가 아예
+     * 안 켜진다.** 부분 구현 스트림(`fakeStream`)은 `getVideoTracks`가 없다.
+     */
+    it("트랙 설정을 읽을 수 없어도 카메라는 정상적으로 켜진다", async () => {
+      stubMediaDevices(vi.fn(async () => fakeStream()));
+      const camera = createMediaStreamCameraAdapter();
+
+      await camera.start();
+
+      expect(camera.isRunning).toBe(true);
+      expect(visionDiagnostics.cameraStream).not.toHaveBeenCalled();
     });
   });
 });

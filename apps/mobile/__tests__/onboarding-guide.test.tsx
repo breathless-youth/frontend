@@ -246,7 +246,7 @@ describe("우상단 X 나가기(BY-151) — onFinish와 분리된 별도 종료 
     // denied로 세팅해두면, 만약 구현이 실수로 권한 게이트를 태우면 즉시
     // router.push("/permission-denied")가 호출돼 이 테스트가 실패한다 — "게이트 미호출"을
     // 간접이 아니라 직접 드러내는 배치다(파일의 기존 "권한 거부" 테스트와 같은 방식).
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied");
     render(<OnboardingGuideScreen />);
 
     fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));
@@ -269,7 +269,7 @@ describe("우상단 X 나가기(BY-151) — onFinish와 분리된 별도 종료 
   });
 
   it("X 직후 건너뛰기가 눌려도 권한 흐름이 시작되지 않는다 — 먼저 발화한 종료만 유효", async () => {
-    setMockCameraPermissionState({ status: "denied" });
+    stubPermission("denied");
     render(<OnboardingGuideScreen />);
 
     fireEvent.press(screen.getByRole("button", { name: "가이드 닫기" }));

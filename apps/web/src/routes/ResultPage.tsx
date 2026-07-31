@@ -2,6 +2,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focuson/types";
 
+import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { DistractionStatsCard } from "@/features/study-session/components/DistractionStatsCard";
 import { ResultHeader } from "@/features/study-session/components/ResultHeader";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
@@ -43,16 +44,20 @@ export function ResultPage() {
    * Figma에 둘 다 있지만 `design.md` 6차 S4 헤더 행은 CTA만 규정한다: 서로 다른 동작을
    * 상상해 부여하지 않는다.
    *
-   * TODO(미정: WebView 호스트 복귀 브리지 — 리더/사용자 확인). 모바일은 이 화면을 WebView로
-   * 로드하므로 웹 라우터만으로는 모바일 홈 탭에 갈 수 없다. 그런데 `apps/mobile`에
-   * `react-native-webview`도 `postMessage` 규약도 아직 없다(2026-07-26 확인) — 메시지 포맷을
-   * 임의로 확정하면 모바일 수신부와 어긋난다. 그래서 복귀 동작을 이 **한 곳**에만 두고,
-   * 브리지가 정해지면 이 함수 안에서 호스트 신호를 보낸 뒤 아래 폴백을 남긴다.
+   * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
+   * 것이라 `navigate("/")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
+   * `navigate-home`을 먼저 보낸다(`packages/types`의 `NavigateHomeMessage`) — 네이티브가
+   * 모달을 닫으면 이 화면 전체가 사라지므로 아래 웹 라우터 이동은 브라우저 단독 모드
+   * (ADR 0001)를 위한 폴백이다. 네이티브가 없으면 `postToNative`가 조용히 아무 일도 하지
+   * 않는다. (2026-07-26에는 이 브리지가 없어 미정으로 남겨 뒀었다 — 2026-07-30 제출 대행
+   * 브리지가 생기면서 같은 통로로 해결했다.)
    *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   function handleConfirm() {
+    postToNative({ type: "navigate-home", atMs: Date.now() });
     navigate("/", { replace: true });
   }
 
