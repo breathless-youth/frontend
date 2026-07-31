@@ -19,9 +19,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      # `fetch-depth: 0`는 전체 히스토리뿐 아니라 origin의 모든 브랜치를 로컬 ref로 통째로
+      # 끌어온다(`+refs/heads/*:refs/remotes/origin/*`). 이 저장소는 브랜치명에 한글을 쓰는데
+      # (`feature/{JIRA-키}-{kebab}`), claude-code-action이 리뷰용 브랜치 이름을 정하며 로컬에 있는
+      # 브랜치 전부를 훑다가 한글이 섞인 첫 브랜치에서 "Invalid branch name" 에러로 죽는다
+      # (2026-07-29 PR #16 auto-review 실패로 확인). 이 잡은 `gh pr diff`/`gh pr comment`처럼
+      # GitHub API로만 동작해 로컬에 다른 브랜치가 있을 필요가 없으므로 기본 얕은 fetch로 둔다.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -50,9 +54,8 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     steps:
+      # 위 auto-review 잡의 fetch-depth 주석 참고 — 같은 이유로 얕은 fetch로 둔다.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
         with:

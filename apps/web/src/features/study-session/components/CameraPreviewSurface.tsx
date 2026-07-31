@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import type { RefObject } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,8 @@ import type { CameraFacing } from "../adapters/cameraAdapter";
  * (원본 프레임 저장·전송 금지 — `frontend/CLAUDE.md`).
  *
  * UI가 카메라 SDK를 직접 호출하지 않는 경계는 유지된다 — `getUserMedia`는 어댑터가 부르고
- * 이 컴포넌트는 결과 스트림만 받는다.
+ * 이 컴포넌트는 결과 스트림만 받는다. **MediaPipe도 마찬가지다** — `<video>` ref를 호출부에
+ * 넘겨줄 뿐 추론에 대해서는 아무것도 모른다(루트 `CLAUDE.md` 아키텍처 경계).
  *
  * **가로(S3-5)에는 방향 델타가 없다** — 밴드 기하와 라벨 타이포가 세로와 같고, 여기서는 밴드를
  * `repeating-linear-gradient` 하나로 그리므로 어떤 뷰포트에서도 자동으로 채워진다.
@@ -27,6 +29,32 @@ export interface CameraPreviewSurfaceProps {
   stream: MediaStream | null;
   /** 지금 열려 있는 카메라 방향 — 좌우 반전 여부가 여기서 갈린다. */
   facing: CameraFacing;
+  /**
+   * 프리뷰 `<video>` 참조 — **호출부가 소유한다.**
+   *
+   * 여기서 `useRef`로 들고 있으면 추론이 그 엘리먼트에 닿을 방법이 없어, 감지용으로 숨은
+   * `<video>`를 하나 더 만들거나 canvas로 프레임을 복사해야 한다. 둘 다 디코드 경로를 늘린다
+   * (설계 §3: `detectForVideo`가 비디오를 그대로 먹어 프레임 복사가 한 번 준다).
+   *
+   * ⚠️ 이 컴포넌트가 언마운트되면 `ref.current`는 `null`이 된다. 참조를 받는 쪽은 그 구간을
+   * "프레임 없음"으로 다뤄야 한다.
+   */
+  videoRef: RefObject<HTMLVideoElement | null>;
+  /**
+   * 심플 모드(S3-4) — **보이지 않지만 계속 돈다.**
+   *
+   * 언마운트하지 않는 이유는 측정이 표시 방식에 좌우되면 안 되기 때문이다. 언마운트하면
+   * `videoRef.current`가 `null`이 되어 추론이 프레임을 못 받고, 신호가 직전 값에 굳은 채
+   * 심플 모드 내내 유지된다 — 들어간 순간의 상태가 세션 끝까지 기록되는 조용한 오류다.
+   *
+   * 숨김에 `display:none`·`visibility:hidden`을 쓰지 않는다. 둘 다 엔진이 비디오 렌더링을
+   * 멈출 수 있어 `detectForVideo`가 **정지 화면을 계속 읽는** 더 나쁜 상태가 된다.
+   * `opacity: 0`은 합성 단계에서만 지워지므로 디코딩은 그대로 돈다.
+   *
+   * `data-session-surface="camera"`도 함께 뗀다 — S3-4는 카메라 서피스가 **없는** 화면이고,
+   * 화면 스펙과 그 테스트가 이 표식으로 판별한다.
+   */
+  hidden?: boolean;
   className?: string;
 }
 
@@ -34,10 +62,10 @@ export function CameraPreviewSurface({
   isRunning,
   stream,
   facing,
+  videoRef,
+  hidden = false,
   className,
 }: CameraPreviewSurfaceProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {
@@ -48,13 +76,19 @@ export function CameraPreviewSurface({
       // 언마운트 시 참조를 끊는다 — 트랙 정지는 어댑터의 책임이다.
       video.srcObject = null;
     };
-  }, [stream]);
+  }, [stream, videoRef]);
 
   return (
     <div
       aria-hidden="true"
-      data-session-surface="camera"
-      className={cn("absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]", className)}
+      {...(hidden ? {} : { "data-session-surface": "camera" })}
+      className={cn(
+        "absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]",
+        // 심플 모드: 합성에서만 지운다(위 `hidden` 주석). 아래 SimpleModeSurface가 그대로 보이고,
+        // 탭은 이 레이어를 통과해야 심플 모드 토글이 계속 동작한다.
+        hidden && "pointer-events-none opacity-0",
+        className,
+      )}
     >
       {isRunning ? (
         <video

@@ -11,6 +11,9 @@ import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdap
  * 훅이 `camera.isRunning`을 보고 프리뷰 서피스를 결정한다. 권한 거부는 예외가 아니라
  * 정상 시나리오다(권한 거부 시 수동 타이머 모드 — mvp-scope 2026-07-26).
  *
+ * ⚠️ 그 수동 타이머 모드는 **정책만 확정됐고 FE에는 아직 없다**(`app-review-checklist.md` 1-1,
+ * 심사 제출 전 필수 · 별도 티켓). 지금 카메라가 실패하면 세션은 그냥 감지 없이 계속 돈다.
+ *
  * **원본 프레임은 이 객체 밖으로 나가지 않는다.** `stream`은 같은 문서의 `<video>`에
  * 붙이는 용도로만 노출하며, 저장·전송·로그 어디에도 쓰지 않는다(`frontend/CLAUDE.md`).
  */

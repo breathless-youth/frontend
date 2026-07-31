@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focuson/types";
 
 import { Toast } from "@/components/ui/toast";
+import { createVisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
+import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionCaption } from "@/features/study-session/components/SessionCaption";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionControlBar } from "@/features/study-session/components/SessionControlBar";
@@ -14,7 +16,7 @@ import { SessionStatusPill } from "@/features/study-session/components/SessionSt
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
-import { createDevMockDetector } from "@/features/study-session/devMockDetector";
+import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { formatElapsed } from "@/features/study-session/formatDuration";
 import {
   CAMERA_TOAST_COPY,
@@ -101,11 +103,22 @@ export function RoomPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const userId = parseUserId(searchParams.get("userId"));
-  // 개발 빌드에서만 콘솔로 감지 신호를 밀어넣을 수 있게 한다(프로덕션에서는 undefined → 기본 mock).
-  const [devDetector] = useState(createDevMockDetector);
-  // 카메라는 실제 getUserMedia, 감지는 아직 mock이다 — Vision 파이프라인은 후속 계획에서
-  // 같은 `FocusDetector` 인터페이스 뒤에 붙는다(설계 문서 §4).
   const [camera] = useState(createMediaStreamCameraAdapter);
+  /**
+   * 프리뷰 `<video>` — **이 화면이 소유하고 두 곳에 나눠준다.**
+   * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
+   * 감지용 `<video>`를 따로 만들면 디코드 경로가 하나 늘어난다(설계 §3).
+   */
+  const videoRef = useRef<HTMLVideoElement>(null);
+  /**
+   * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
+   * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
+   */
+  const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
+  const [visionDetector] = useState(() =>
+    createVisionFocusDetector({ video: () => videoRef.current }),
+  );
+  const detector = devDetector ?? visionDetector;
   const {
     focusSec,
     studySec,
@@ -119,7 +132,7 @@ export function RoomPage() {
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector: devDetector });
+  } = useStudyRoomSession(userId, { camera, detector });
   const { message: toastMessage, showToast } = useSessionToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
@@ -127,10 +140,51 @@ export function RoomPage() {
   // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  /**
+   * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
+   * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
+   * 판정에 쓸 수 없다(설계 §3 "카메라 전환"). 전환 실패는 기존 `CameraFlipResult` 그대로다.
+   */
+  const [flippingCamera, setFlippingCamera] = useState(false);
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
   const pillState = toPillState(sessionState);
+
+  /**
+   * 추론 수명 (설계 §3) — **카메라 스트림과 분리된 축**이다.
+   *
+   * | 상황             | 카메라 | 추론 |
+   * | ---------------- | ------ | ---- |
+   * | 일시정지         | 유지   | 정지 |
+   * | 카메라 전환 중   | 재연결 | 정지 |
+   * | 세션 종료·제출   | 훅이 정리 | 정지 |
+   *
+   * 일시정지에서 스트림을 끄지 않는 이유는 셋이다 — Figma S3-3이 프리뷰를 그대로 보여주고,
+   * 배터리 주 소모원은 카메라 피드가 아니라 추론이며, 스트림을 끄면 재개 시 `getUserMedia`
+   * 재호출로 1~2초 공백이 생겨 그 구간이 측정되지 않는다.
+   *
+   * `start`/`stop`은 멱등이라 훅이 마운트 시 부르는 `detector.start()`와 겹쳐도 안전하다.
+   */
+  const detectionEnabled = phase.name === "studying" && !paused && !flippingCamera;
+  useEffect(() => {
+    if (detectionEnabled) {
+      detector.start();
+    } else {
+      detector.stop();
+    }
+  }, [detectionEnabled, detector]);
+
+  /**
+   * 세션 이탈 — 모델과 GPU 컨텍스트를 놓는다. `stop()`은 추론만 멈추고 모델을 들고 있으므로
+   * 이게 없으면 wasm 힙과 GPU 컨텍스트가 고아로 남는다(브라우저가 컨텍스트 개수를 제한한다).
+   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 그 자리에서 닫는다(멱등).
+   */
+  useEffect(() => {
+    return () => {
+      visionDetector.close();
+    };
+  }, [visionDetector]);
 
   /**
    * S4(공부 결과)로 이동 — **세션 결과의 유일한 출구**다.
@@ -165,17 +219,30 @@ export function RoomPage() {
     }
   }, [endReason, goToResult, phase]);
 
+  /**
+   * 전환 중에는 추론을 멈춘다(위 `detectionEnabled`). 전환이 끝나면 — 성공이든 실패든 —
+   * 다시 켠다. 실패했을 때 꺼 두면 "전환할 카메라가 없어요" 토스트 한 번에 세션이 통째로
+   * 측정 불가가 되는데, 어댑터는 실패 시 **기존 스트림을 그대로 두므로** 추론은 계속 가능하다.
+   *
+   * 새 스트림이 `<video>`에 붙어 첫 프레임을 그리기까지는 시간이 걸리지만, 그 구간은
+   * 감지기가 `readyState`를 보고 스스로 건너뛴다 — 여기서 기다릴 필요가 없다.
+   */
   async function handleFlipCamera() {
-    const result = await flipCamera();
-    if (result.ok) {
-      showToast(CAMERA_TOAST_COPY.flipped);
-      return;
+    setFlippingCamera(true);
+    try {
+      const result = await flipCamera();
+      if (result.ok) {
+        showToast(CAMERA_TOAST_COPY.flipped);
+        return;
+      }
+      showToast(
+        result.reason === "camera-off"
+          ? CAMERA_TOAST_COPY.cameraOff
+          : CAMERA_TOAST_COPY.noAlternative,
+      );
+    } finally {
+      setFlippingCamera(false);
     }
-    showToast(
-      result.reason === "camera-off"
-        ? CAMERA_TOAST_COPY.cameraOff
-        : CAMERA_TOAST_COPY.noAlternative,
-    );
   }
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
@@ -200,16 +267,22 @@ export function RoomPage() {
       data-simple-mode={simpleMode}
       className="relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
     >
-      {/* 심플 모드는 프리뷰를 덮는 게 아니라 **걷어낸다** — 둘 중 하나만 렌더한다. */}
-      {simpleMode ? (
-        <SimpleModeSurface />
-      ) : (
-        <CameraPreviewSurface
-          isRunning={isCameraRunning}
-          stream={cameraStream}
-          facing={cameraFacing}
-        />
-      )}
+      {/* 심플 모드는 **보이는 프리뷰만** 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
+          카메라 서피스(`data-session-surface="camera"`)는 사라지므로 S3-4 화면 스펙은 그대로다.
+
+          그냥 언마운트하면 `videoRef.current`가 `null`이 되어 **추론이 프레임을 못 받고**,
+          신호가 직전 값에 굳은 채 심플 모드 내내 유지된다(계약 2: `detect()`가 `null`이면
+          "판정 없음"이지 "사람 없음"이 아니다). 즉 심플 모드로 들어간 순간의 상태가 세션 끝까지
+          기록된다 — 조용히 틀린다. 측정은 화면 표시 방식과 무관해야 하므로 숨긴 채 유지한다
+          (2026-07-29 리더 결정). */}
+      {simpleMode && <SimpleModeSurface />}
+      <CameraPreviewSurface
+        isRunning={isCameraRunning}
+        stream={cameraStream}
+        facing={cameraFacing}
+        videoRef={videoRef}
+        hidden={simpleMode}
+      />
 
       {phase.name === "studying" ? (
         <>
@@ -348,6 +421,14 @@ export function RoomPage() {
       ) : (
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />
       )}
+
+      {/* ⚠️ **개발 빌드 전용 — 걷어낼 때 지울 두 지점 중 하나가 이 줄이다**(나머지 하나는
+          `components/DevVisionFailureNotice.tsx` 파일 자체). 모델 로딩이 최종 실패했을 때
+          프로덕션은 에러 화면 없이 감지만 없는 채로 세션을 계속 진행하고(리더 결정 2026-07-29),
+          개발 빌드만 그 사실을 화면에 띄운다 — 조용히 mock처럼 도는 상태를 개발 중에 못 알아채는
+          쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
+          치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
+      {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
     </main>
   );
 }
