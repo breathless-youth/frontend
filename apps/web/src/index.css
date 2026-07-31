@@ -80,3 +80,30 @@ body {
     Roboto,
     sans-serif;
 }
+
+/*
+ * 온보딩 가이드(G1~G5) 전용 키프레임 — `features/onboarding/OnboardingGuideFlow.tsx`·
+ * `SessionMockBackdrop.tsx`의 RN `Animated` 루프를 CSS로 이식한 것(BY-334).
+ * 값 출처는 `features/onboarding/coachOverlayTheme.ts`의 `coachMotion`(확정값 아님, 그 파일 주석
+ * 참고) — CSS는 TS를 import할 수 없어 값을 그대로 옮겨 적는다(위 색 변수와 같은 이유).
+ * 반복·재생 여부는 각 사용처의 `motion-reduce:` 유틸이 담당한다.
+ */
+@keyframes coach-ring-out {
+  from {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes coach-step-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

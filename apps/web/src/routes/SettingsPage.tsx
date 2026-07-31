@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { postToNative } from "@/lib/bridge";
 import { SettingsRow } from "@/features/settings/SettingsRow";
@@ -26,15 +26,13 @@ import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/s
  *    분기와 동일하게 트레일링을 생략한 채 고정 렌더한다. `onPress`는 `Linking.openSettings()`
  *    대신 `postToNative({ type: "open-settings", atMs: Date.now() })`로 네이티브에 요청만
  *    보낸다 — 수신 구현은 BY-333, 브라우저 단독 모드에서는 브리지가 없어 조용히 무동작한다.
- * 2. **측정 기준 안내 행**: 2026-07-30 결정 — 온보딩 가이드가 네이티브에 남아 있는 동안 연결
- *    보류(브리지 2종 제한). 온보딩 웹 이관 티켓에서 웹 내비게이션으로 연결. 그때까지는 표시만
- *    하고 `onPress`를 넘기지 않는다(버튼으로 노출되지 않는다).
- * 3. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
+ * 2. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
  *    얻을 수 없으므로 네이티브 셸(BY-333)이 실어 보내는 쿼리 `appVersion`을 읽는다.
  */
 export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <main
@@ -66,10 +64,24 @@ export function SettingsPage() {
             }}
           />
           {/*
-            2026-07-30 결정 — 온보딩 가이드가 네이티브에 남아 있는 동안 연결 보류(브리지 2종 제한).
-            온보딩 웹 이관 티켓에서 웹 내비게이션으로 연결.
+            온보딩 가이드(G1~G5)로 **재진입**시키는 링크다(BY-334 온보딩 웹 이관에서 연결).
+            가이드의 단계·전환은 이 화면이 전혀 알지 못한다. `entry=settings`는
+            `features/onboarding/onboardingGuideSteps.ts`의 진입 출처 C.
+            서브 문구("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요")는 의도적으로
+            달지 않는다 — 감지 3종 안내는 가이드 본문이 소유하고, 설정 행은 재진입 링크로만 남는다.
           */}
-          <SettingsRow label="측정 기준 안내" trailing={{ kind: "chevron" }} />
+          <SettingsRow
+            label="측정 기준 안내"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              // 홈과 같은 승계 패턴(리뷰 반영) — entry만 하드코딩해 얹으면 userId·appVersion이
+              // 사라져 가이드에서 새로고침·딥링크 후 폴백 이탈 시 미저장 모드 홈으로 떨어진다
+              // (BY-327과 같은 유형의 쿼리 유실 버그).
+              const params = new URLSearchParams(location.search);
+              params.set("entry", "settings");
+              navigate({ pathname: "/onboarding-guide", search: params.toString() });
+            }}
+          />
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="지원">
