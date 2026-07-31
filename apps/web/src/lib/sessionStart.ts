@@ -1,7 +1,4 @@
-import {
-  isNativeBridgeAvailable,
-  postToNative,
-} from "@/features/study-session/bridge/nativeBridge";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 
 /**
  * "세션을 시작한다"를 두 환경에 맞게 갈라 주는 어댑터 (BY-334).
