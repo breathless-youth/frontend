@@ -1,5 +1,5 @@
 import { visionDiagnostics } from "../vision/diagnostics";
-import { CAMERA_CONSTRAINTS } from "../vision/visionConfig";
+import { cameraConstraints } from "../vision/visionConfig";
 import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdapter";
 
 /**
@@ -20,6 +20,8 @@ import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdap
  */
 export interface MediaStreamCameraAdapter extends CameraAdapter {
   readonly stream: MediaStream | null;
+  /** 실제 어댑터는 항상 다시 열 수 있다 — 옵셔널인 것은 mock을 위한 기본 인터페이스 쪽뿐이다. */
+  reopen(): Promise<boolean>;
 }
 
 async function countVideoInputs(): Promise<number> {
@@ -31,6 +33,20 @@ function stopStream(stream: MediaStream | null): void {
   for (const track of stream?.getTracks() ?? []) {
     track.stop();
   }
+}
+
+/**
+ * 지금 화면의 가로/세로 비율. 카메라를 **열 때마다** 읽으므로 회전 후 재오픈에는 새 값이 들어간다.
+ *
+ * `window`가 없는 환경(SSR·일부 테스트 스텁)에서는 0을 돌려주고, 그러면
+ * `cameraConstraints`가 비율 요청 자체를 생략한다 — 여기서 기본값을 지어내지 않는다.
+ */
+function viewportAspectRatio(): number {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+  const { innerWidth, innerHeight } = window;
+  return innerHeight > 0 ? innerWidth / innerHeight : 0;
 }
 
 /**
@@ -79,8 +95,10 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
   async function open(next: CameraFacing): Promise<MediaStream | null> {
     try {
       // 뷰포트 비율은 **열 때마다** 읽는다 — 기기를 돌리면 값이 뒤집히고, 카메라 전환도
-      // 새로 여는 것이라 그때의 화면 모양을 반영해야 한다.
-      const opened = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS[next]);
+      // 새로 여는 것이라 그때의 화면 모양을 반영해야 한다(`cameraConstraints` 주석).
+      const opened = await navigator.mediaDevices.getUserMedia(
+        cameraConstraints(next, viewportAspectRatio()),
+      );
       reportStreamSettings(opened);
       return opened;
     } catch (error: unknown) {
@@ -127,6 +145,40 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       stopStream(stream);
       stream = null;
     },
+    /**
+     * 회전 후 재오픈. `flip`과 달리 **기존 스트림을 먼저 멈춘다** — 같은 카메라를 두 번 여는
+     * 것이라 겹쳐 열면 기기가 거부하거나 한쪽이 죽는다(`flip`은 서로 다른 카메라라 겹칠 수 있다).
+     * 그래서 이 구간에는 프리뷰가 비고, 호출부가 추론을 멈춰 줘야 한다.
+     */
+    async reopen(): Promise<boolean> {
+      if (!wanted || stream === null) {
+        // 카메라를 켜 둘 의도가 없거나 애초에 안 열려 있다 — 회전했다고 새로 켜지 않는다.
+        return false;
+      }
+      if (pending !== null) {
+        // 전환·시작이 이미 진행 중이다. 그쪽이 지금 비율로 열고 있으므로 겹치지 않는다.
+        await pending;
+        return false;
+      }
+      stopStream(stream);
+      stream = null;
+      pending = open(facing);
+      const opened = await pending;
+      pending = null;
+      if (opened === null) {
+        // 다시 열지 못했다. 기존 스트림은 이미 멈춘 뒤라 카메라가 꺼진 상태로 남는다 —
+        // 세션은 계속 돌고(감지만 없다), 화면은 중립 서피스로 떨어진다.
+        return false;
+      }
+      if (!wanted) {
+        // 재오픈 도중 stop()이 들어왔다(= 세션 이탈). 뒤늦게 열린 스트림을 여기서 버린다.
+        stopStream(opened);
+        return false;
+      }
+      stream = opened;
+      return true;
+    },
+
     async flip(): Promise<CameraFlipResult> {
       if (stream === null) {
         return { ok: false, reason: "camera-off" };

@@ -277,4 +277,108 @@ describe("createMediaStreamCameraAdapter", () => {
       expect(visionDiagnostics.cameraStream).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * 회전 재오픈 (BY-336). 스트림의 긴 축이 항상 화면의 짧은 축과 만나서, 가로로 돌리면 세로
+   * 26%만 남아 얼굴이 띠처럼 잘렸다. `getUserMedia` 제약은 **열 때 확정**되므로 다시 여는 것
+   * 말고는 방향을 반영할 방법이 없다.
+   */
+  describe("reopen — 회전 후 화면 비율에 맞춰 다시 열기", () => {
+    function stubViewport(width: number, height: number) {
+      vi.stubGlobal("window", { innerWidth: width, innerHeight: height });
+    }
+
+    it("지금 화면 비율을 aspectRatio로 요청한다", async () => {
+      stubViewport(874, 402); // 가로
+      const getUserMedia = vi.fn(async () => fakeStream());
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+
+      await camera.start();
+
+      expect(getUserMedia).toHaveBeenCalledWith(
+        expect.objectContaining({
+          video: expect.objectContaining({ aspectRatio: { ideal: 874 / 402 } }),
+        }),
+      );
+    });
+
+    it("기존 트랙을 먼저 멈추고 새로 연다 — 같은 카메라를 겹쳐 열지 않는다", async () => {
+      stubViewport(402, 874);
+      const first = fakeStream();
+      const second = fakeStream();
+      const getUserMedia = vi.fn(async () => first).mockImplementationOnce(async () => first);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      getUserMedia.mockImplementation(async () => second);
+
+      stubViewport(874, 402); // 가로로 회전
+      await expect(camera.reopen()).resolves.toBe(true);
+
+      expect(first.__track.stop).toHaveBeenCalled();
+      expect(camera.stream).toBe(second);
+      // 두 번째 요청에는 회전 후 비율이 실린다.
+      expect(getUserMedia).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          video: expect.objectContaining({ aspectRatio: { ideal: 874 / 402 } }),
+        }),
+      );
+    });
+
+    it("카메라가 꺼져 있으면 회전해도 새로 켜지 않는다", async () => {
+      stubViewport(402, 874);
+      const getUserMedia = vi.fn(async () => fakeStream());
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+
+      await expect(camera.reopen()).resolves.toBe(false);
+      expect(getUserMedia).not.toHaveBeenCalled();
+    });
+
+    /**
+     * 다시 열지 못해도 **세션은 계속 돌아야 한다** — 회전 때문에 공부가 끊기면 안 된다.
+     * 기존 트랙은 이미 멈춘 뒤라 카메라가 꺼진 상태로 남고, 화면은 중립 서피스로 떨어진다.
+     */
+    it("재오픈에 실패하면 false를 돌려주고 카메라는 꺼진 채 남는다", async () => {
+      stubViewport(402, 874);
+      const first = fakeStream();
+      const getUserMedia = vi.fn(async () => first);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      getUserMedia.mockRejectedValue(new Error("NotReadableError"));
+
+      await expect(camera.reopen()).resolves.toBe(false);
+
+      expect(first.__track.stop).toHaveBeenCalled();
+      expect(camera.stream).toBeNull();
+      expect(camera.isRunning).toBe(false);
+    });
+
+    it("재오픈 도중 stop이 들어오면 뒤늦게 열린 스트림을 버린다", async () => {
+      stubViewport(402, 874);
+      const first = fakeStream();
+      const late = fakeStream();
+      let resolveOpen: (stream: typeof late) => void = () => {};
+      const getUserMedia = vi.fn(async () => first);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      getUserMedia.mockImplementation(
+        async () =>
+          new Promise<typeof late>((resolve) => {
+            resolveOpen = resolve;
+          }),
+      );
+
+      const reopening = camera.reopen();
+      camera.stop();
+      resolveOpen(late);
+
+      await expect(reopening).resolves.toBe(false);
+      expect(late.__track.stop).toHaveBeenCalled();
+      expect(camera.stream).toBeNull();
+    });
+  });
 });
