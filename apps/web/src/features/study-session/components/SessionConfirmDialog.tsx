@@ -149,7 +149,7 @@ export function SessionConfirmDialog({
         aria-describedby={descriptionId}
         // 폰트 확대에서 본문이 잘리지 않도록 높이를 고정하지 않는다 — 내용 기반으로 늘어난다.
         // 그림자는 Figma 실측값(그림자 토큰이 아직 없다).
-        className="relative flex w-[330px] max-w-full flex-col gap-[18px] rounded-[20px] bg-[var(--session-dialog-bg)] p-6 shadow-[0_20px_50px_0_rgba(0,0,0,0.45)]"
+        className="relative flex w-[330px] max-w-full flex-col gap-[18px] rounded-xl bg-[var(--session-dialog-bg)] p-6 shadow-[0_20px_50px_0_rgba(0,0,0,0.45)]"
       >
         <div className="flex flex-col gap-2">
           <p

@@ -9,7 +9,7 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 **재구축 진행 상황** — 리셋 이후 다음이 다시 올라왔다. 이 절의 "지금 남아 있는 것은 앱 셸뿐"이라는 서술은 그만큼 낡았다.
 
 - 화면 S1–S6 · G1–G5 · U1 (Figma 확정 디자인 기준)
-- BY-282 — WebView 세션 인프라: 번들 동봉 + localhost 정적 서버([ADR 0005](./docs/adr/0005-bundled-web-assets-over-localhost-server.md)), 세션 라우트, `getUserMedia` 카메라 어댑터, 네이티브↔웹 브리지. Expo Go → Dev Client 전환
+- BY-282 — WebView 세션 인프라: 번들 동봉 + localhost 정적 서버([ADR 0005](./docs/adr/0005-bundled-web-assets-over-localhost-server.md), **2026-07-31 BY-333로 Superseded** — 전 화면 원격 URL 웹뷰 전환으로 번들 동봉·로컬 서버 인프라 전부 삭제됨), 세션 라우트, `getUserMedia` 카메라 어댑터, 네이티브↔웹 브리지. Expo Go → Dev Client 전환
 - BY-293 — **온디바이스 Vision 감지**: EfficientDet-Lite0 + MediaPipe Tasks Vision. 자리 이탈(AWAY)·폰 사용(PHONE)이 **mock이 아닌 실신호**로 동작한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) §2~§4·§10(S3)
 - BY-340 — **가속도 센서 DEVICE 신호**(설계 §5): 네이티브가 `expo-sensors`로 300ms 창의 `‖a‖` 표준편차를 재 boolean만 브리지로 올리고(`device-handling`), 웹이 `createDeviceHandlingDetector`로 받아 기존 유지시간 판정에 흘린다. 감지 수명은 웹이 `motion-sensor` 메시지로 켜고 끈다. **임계값(`MOTION_STDDEV_THRESHOLD`)은 실기기 스파이크에서 확정할 잠정값이다.** 이로써 비집중 3종(AWAY·PHONE·DEVICE)이 모두 실신호가 됐다
 

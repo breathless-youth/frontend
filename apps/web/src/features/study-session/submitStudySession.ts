@@ -5,8 +5,8 @@ import type {
 } from "@focusmakers/types";
 
 import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 
-import { isNativeBridgeAvailable } from "./bridge/nativeBridge";
 import { submitViaNative } from "./bridge/submitViaNative";
 
 /**
