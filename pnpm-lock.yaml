@@ -22,6 +22,9 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^19.8.1
         version: 19.8.1
+      '@expo/ngrok':
+        specifier: ^4.1.3
+        version: 4.1.3
       '@focusmakers/config':
         specifier: workspace:*
         version: link:packages/config

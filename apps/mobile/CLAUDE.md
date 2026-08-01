@@ -23,6 +23,26 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 - 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지되어 있다 — WebView 안의 브라우저 `getUserMedia`도 동일한 네이티브 권한이 필요하다. 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음, 방침 변경 없음).
 - **2026-07-28부터 Dev Build로 개발한다.** 로컬 HTTP 서버(설계 문서 §1)가 Expo Go에 없는 네이티브 모듈이라 `expo-dev-client` + EAS Build가 필요해졌다. `react-native-webview`·`expo-sensors`·`expo-file-system`은 Expo Go에도 있지만, 서버 하나 때문에 Expo Go 경로 자체가 닫힌다. 평소 개발은 그대로 `pnpm --filter mobile start`이며, **재빌드는 네이티브 의존성이 바뀔 때만** 필요하다.
 
+### 로컬 iOS 빌드 사전 준비 (2026-08-01)
+
+`npx expo run:ios` / Xcode 빌드를 **처음 도는 맥**에서 필요한 것들. 하나라도 빠지면 원인과 증상이 잘 안 맞는 실패가 난다.
+
+| 필요한 것           | 없으면 나는 증상                                                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CocoaPods**       | `expo prebuild`가 pod 설치 단계에서 멈춘다                                                                                                                                               |
+| **cmake**           | `ReactNativeStaticServer` 타겟에서 `cmake: command not found` → `PhaseScriptExecution failed`. 뒤이어 `ReactNativeFs`의 Libtool 실패가 **연쇄로** 뜨는데 진짜 원인은 cmake다             |
+| **Xcode 활성 경로** | `xcode-select -p`가 `/Library/Developer/CommandLineTools`면 빌드가 "Xcode를 설치하라"며 App Store로 보낸다                                                                               |
+| **서명 팀**         | Xcode에 Apple ID를 넣는 것만으로는 인증서가 생기지 않는다 — 프로젝트에서 **Team을 한 번 골라야** 발급된다(`security find-identity -v -p codesigning`이 `0 valid identities`면 아직인 것) |
+
+```bash
+brew install cocoapods cmake
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+`cmake`는 `package.json`의 `eas-build-pre-install`에도 들어 있지만 그건 **EAS 클라우드 빌드에만** 걸린다 — 로컬은 별도로 깔아야 한다.
+
+⚠️ **시스템 Ruby(2.6)로 CocoaPods를 깔려고 하지 말 것.** `ffi`·`drb`·`i18n`·`zeitwerk`가 전부 Ruby 3.x를 요구해 버전을 낮춰가며 싸우게 되고, `sudo`를 붙여도 Ruby 버전은 그대로다. Homebrew가 자체 Ruby를 쓰므로 위 명령이 정답이다.
+
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
 `expo-camera ~17.0.10`이 **권한 조회·요청 목적으로만** 들어 있다([ADR 0004](../../docs/adr/0004-expo-camera-for-permission-api-only.md)).
@@ -82,6 +102,15 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 ### 클라이언트 격리 네트워크(AP isolation)에서는 LAN IP가 안 통한다
 
 회사망 등에서 폰·Mac이 같은 Wi-Fi인데도 서로 통신이 안 되면 위 LAN IP 경로는 어떤 설정으로도 뚫리지 않는다(2026-07-30 확인). 이때는 `VITE_DEV_TUNNEL=1`로 `apps/web/vite.config.ts`의 터널 모드를 켜고 `cloudflared`로 Vite·Metro 양쪽을 터널링한다 — 자세한 이유·설정은 `vite.config.ts`의 `tunnelServerOptions` 주석 참고. 공개 URL이라 검증 후 반드시 내린다.
+
+**Metro만 터널링하면 되는 경우**(동봉 자산으로 세션을 보는 평소 구성)는 Expo 내장 터널이 더 간단하다. `@expo/ngrok`이 devDependency로 들어 있어 바로 쓸 수 있다.
+
+```bash
+pnpm --filter mobile exec expo start --tunnel
+curl -s http://localhost:4040/api/tunnels   # 비대화형 실행이라 URL이 안 보일 때
+```
+
+Dev Client의 **Enter URL manually**에 `https://<...>.exp.direct`를 입력한다. 역시 공개 URL이므로 검증이 끝나면 Metro를 내린다.
 
 ## 화면 방향 — 세션만 회전 (2026-07-30)
 
