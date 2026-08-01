@@ -4,7 +4,7 @@
  */
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[20px] border border-border bg-muted px-5 py-8">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted px-5 py-8">
       <p className="text-sm text-muted-foreground">{message}</p>
       <button
         type="button"
