@@ -32,6 +32,13 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     return { type: "navigate-home", atMs: record.atMs };
   }
   if (
+    record.type === "motion-sensor" &&
+    typeof record.atMs === "number" &&
+    typeof record.enabled === "boolean"
+  ) {
+    return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+  }
+  if (
     record.type === "submit-session" &&
     typeof record.atMs === "number" &&
     typeof record.requestId === "string" &&

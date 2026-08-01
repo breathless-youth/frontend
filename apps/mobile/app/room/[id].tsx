@@ -5,6 +5,7 @@ import { ActivityIndicator, BackHandler, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import type { WebViewMessageEvent } from "react-native-webview";
 
+import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
 import { resolveDevWebOrigin } from "../../lib/devWebOrigin";
 import { relaySessionSubmit } from "../../lib/sessionSubmitRelay";
 import { buildSessionUrl } from "../../lib/webAssetServer";
@@ -15,9 +16,10 @@ import { injectMessageScript, parseToNativeMessage } from "../../lib/webBridge";
 /**
  * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 WebView로 로드한다(ADR 0001).
  *
- * 이 파일이 하는 일은 셋뿐이다: 로컬 서버를 띄우고, 세션 URL을 조립하고, WebView에 넘긴다.
- * 타이머·상태 판정·이벤트 누적은 전부 웹이 소유한다(설계 문서 §1, 세션 상태 모델 스펙 §1) —
- * **여기에 세션 로직을 넣지 말 것.**
+ * 이 파일이 하는 일은 로컬 서버를 띄우고, 세션 URL을 조립해 WebView에 넘기고, **웹이 스스로
+ * 할 수 없는 것만 대신해 주는 것**이다 — 제출 HTTP 중계(CORS)와 가속도 센서 구독(네이티브
+ * 전용 API) 둘 다 그 범주다. 타이머·상태 판정·이벤트 누적·감지 수명 결정은 전부 웹이
+ * 소유한다(설계 문서 §1, 세션 상태 모델 스펙 §1) — **여기에 세션 로직을 넣지 말 것.**
  *
  * `allowsInlineMediaPlayback`·`mediaCapturePermissionGrantType`은 WebView 안의
  * `getUserMedia`가 카메라를 열기 위해 필요하다(ADR 0001 Consequences).
@@ -33,6 +35,12 @@ export default function SessionRoomScreen() {
    * 렌더마다 다시 읽어도 값이 바뀌지 않는다 — `Constants.expoConfig`는 앱 수명 동안 고정이다.
    */
   const devWebOrigin = resolveDevWebOrigin();
+  /**
+   * 기기 조작(`DEVICE`) 감지용 가속도 센서. **웹이 켜고 끈다**(`motion-sensor` 메시지) —
+   * 감지 수명(일시정지·카메라 전환 중 정지)은 세션 상태를 아는 웹의 판단이고, 센서는
+   * 네이티브에만 있어서 소유가 갈릴 뿐이다. 여기서 세션 상태를 보고 스스로 켜지 말 것.
+   */
+  const [motionSource] = useState(createDeviceMotionSource);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,28 +103,60 @@ export default function SessionRoomScreen() {
    * 모르는 메시지는 `parseToNativeMessage`가 `null`로 흘려보낸다 — 앱과 웹 번들의 버전이
    * 어긋날 수 있고, 모르는 메시지에 죽으면 세션이 멈춘다.
    */
-  const handleMessage = useCallback((event: WebViewMessageEvent) => {
-    const message = parseToNativeMessage(event.nativeEvent.data);
-    if (message === null) {
-      return;
-    }
-    if (message.type === "navigate-home") {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace("/");
+  const handleMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      const message = parseToNativeMessage(event.nativeEvent.data);
+      if (message === null) {
+        return;
       }
-      return;
-    }
-    if (message.type !== "submit-session") {
-      return;
-    }
-    // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
-    // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
-    void relaySessionSubmit(message).then((result) => {
-      webViewRef.current?.injectJavaScript(injectMessageScript(result));
+      if (message.type === "motion-sensor") {
+        if (message.enabled) {
+          motionSource.start();
+        } else {
+          motionSource.stop();
+        }
+        return;
+      }
+      if (message.type === "navigate-home") {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/");
+        }
+        return;
+      }
+      if (message.type !== "submit-session") {
+        return;
+      }
+      // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
+      // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
+      void relaySessionSubmit(message).then((result) => {
+        webViewRef.current?.injectJavaScript(injectMessageScript(result));
+      });
+    },
+    [motionSource],
+  );
+
+  /**
+   * 가속도 원신호를 웹으로 올린다 — **boolean이 바뀔 때만** 간다(`createDeviceMotionSource`가
+   * 변화 감지를 이미 한다). 유지시간 디바운스(0.5초/2초)는 웹의 `stepDetection` 몫이라
+   * 여기서 다시 구현하지 않는다(스펙 §3 "가속도 신호의 경계").
+   *
+   * 세션 화면을 벗어날 때 `stop()`을 부르는 것이 이 effect의 나머지 절반이다. 웹이 보내는
+   * `motion-sensor: false`는 일시정지·카메라 전환에만 오고, WebView가 통째로 사라지는 경로
+   * (뒤로가기·모달 닫기)에서는 오지 않는다 — 그 경우 구독이 남아 센서가 계속 돌게 된다.
+   */
+  useEffect(() => {
+    const unsubscribe = motionSource.subscribe((active) => {
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({ type: "device-handling", active, atMs: Date.now() }),
+      );
     });
-  }, []);
+    return () => {
+      unsubscribe();
+      motionSource.stop();
+    };
+  }, [motionSource]);
 
   /**
    * Android 하드웨어 뒤로가기 차단 — **세션 유실 방지**.

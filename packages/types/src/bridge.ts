@@ -45,7 +45,17 @@ export type SubmitResultMessage =
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  { type: "session-ready"; atMs: number } | SubmitSessionMessage | NavigateHomeMessage;
+  | { type: "session-ready"; atMs: number }
+  /**
+   * 가속도 센서 구독을 켜고 끈다.
+   *
+   * 감지 수명은 웹이 소유한다(일시정지·카메라 전환 중 정지 — 설계 §5 "샘플링과 수명").
+   * 센서는 네이티브에만 있으므로 그 판단을 이 통로로 내려보낸다. 끄면 네이티브가
+   * 구독을 해제하고 열려 있던 조작 구간을 `device-handling: false`로 닫는다.
+   */
+  | { type: "motion-sensor"; enabled: boolean; atMs: number }
+  | SubmitSessionMessage
+  | NavigateHomeMessage;
 
 /**
  * S4(공부 결과)·미달 종료 안내의 CTA가 보낸다 — **네이티브 홈 탭으로 돌려보내 달라는 요청**이다.

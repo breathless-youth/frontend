@@ -4,6 +4,7 @@ import type { DetectionState, TriggerSignals } from "../detection";
 import {
   DEFAULT_DETECTION_PARAMS,
   NO_TRIGGER_SIGNALS,
+  TRIGGER_PRIORITY,
   createDetectionState,
   stepDetection,
 } from "../detection";
@@ -89,6 +90,30 @@ describe("stepDetection — 동시 다중 감지", () => {
     // PHONE 원신호만 해제 → 해제 유지시간(1.5초) 뒤 남아 있는 AWAY가 대표가 된다.
     state = step(state, signals({ AWAY: true }), T0 + 2300);
     state = step(state, signals({ AWAY: true }), T0 + 3900);
+    expect(state.active).toBe("AWAY");
+  });
+});
+
+describe("stepDetection — 트리거 우선순위 (2026-07-26 확정)", () => {
+  it("AWAY > DEVICE > PHONE 순으로 대표를 고른다", () => {
+    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "PHONE"]);
+  });
+
+  /**
+   * 기기가 흔들리는 동안에는 카메라 기반 판정을 신뢰하기 어렵다 — 가속도 신호가 객체 인식보다
+   * 오탐이 적으므로 겹치면 `DEVICE`가 이긴다(세션 상태 모델 스펙 §3).
+   */
+  it("기기 조작과 폰 사용이 같은 시점에 확정되면 DEVICE가 대표가 된다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ DEVICE: true, PHONE: true }), T0);
+    state = step(state, signals({ DEVICE: true, PHONE: true }), T0 + 500);
+    expect(state.active).toBe("DEVICE");
+  });
+
+  it("자리 이탈은 기기 조작보다 앞선다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ AWAY: true, DEVICE: true }), T0);
+    state = step(state, signals({ AWAY: true, DEVICE: true }), T0 + 1500);
     expect(state.active).toBe("AWAY");
   });
 });
