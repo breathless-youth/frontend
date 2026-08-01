@@ -1,4 +1,4 @@
-import type { ToNativeMessage } from "@focuson/types";
+import type { ToNativeMessage } from "@focusmakers/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NATIVE_MESSAGE_ENTRY } from "../../bridge/nativeBridge";
