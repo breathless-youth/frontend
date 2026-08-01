@@ -13,6 +13,18 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
     expect(appConfig.expo.ios.infoPlist.NSCameraUsageDescription).toBe(CONFIRMED_CAMERA_USAGE_COPY);
   });
 
+  /**
+   * `expo-sensors`는 prebuild에서 **영어 기본 문구**를 주입한다
+   * (`"Allow $(PRODUCT_NAME) to access your device motion"`). `app.json`에 우리 문구를
+   * 두면 그걸 덮어쓰므로, 이 단언이 그 오염을 잡는 자리다 — `expo-camera` plugin의
+   * `NSMicrophoneUsageDescription` 주입과 같은 종류의 사고다(`apps/mobile/CLAUDE.md`).
+   */
+  it("모션 권한 문구가 한국어 확정 카피다 (영어 기본값 주입 방지)", () => {
+    expect(appConfig.expo.ios.infoPlist.NSMotionUsageDescription).toBe(
+      "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
+    );
+  });
+
   it("마이크 권한을 요청하지 않는다 (멀티룸 음성 송출 없음)", () => {
     expect(appConfig.expo.ios.infoPlist).not.toHaveProperty("NSMicrophoneUsageDescription");
     expect(appConfig.expo.android.permissions).not.toContain("RECORD_AUDIO");
