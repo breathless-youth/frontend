@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Toast } from "@/components/ui/toast";
 import { createVisionFocusDetector } from "@/features/study-session/adapters/focusDetector";

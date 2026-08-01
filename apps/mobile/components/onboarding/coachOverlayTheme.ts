@@ -1,4 +1,4 @@
-import { colors, radius } from "@focuson/design-tokens";
+import { colors, radius } from "@focusmakers/design-tokens";
 
 /**
  * 온보딩 가이드(G1~G5)가 쓰는 색·치수 한 곳

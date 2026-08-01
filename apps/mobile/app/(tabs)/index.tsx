@@ -192,7 +192,7 @@ export default function HomeScreen() {
         <View className="gap-3 px-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-text-primary dark:text-text-primary-dark text-[17px] font-bold">
-              FocusON
+              FocusMakers
             </Text>
             <Text className="text-text-tertiary text-[13px] font-medium">{todayLabel()}</Text>
           </View>

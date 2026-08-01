@@ -1,4 +1,4 @@
-import { colors } from "@focuson/design-tokens";
+import { colors } from "@focusmakers/design-tokens";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { router } from "expo-router";
 

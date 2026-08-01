@@ -1,4 +1,4 @@
-import type { StudyEventStatus, StudySessionEventCounts } from "@focuson/types";
+import type { StudyEventStatus, StudySessionEventCounts } from "@focusmakers/types";
 import { todayKstDateKey } from "./dateKst";
 
 /**

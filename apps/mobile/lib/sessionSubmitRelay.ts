@@ -4,7 +4,7 @@ import type {
   StudySessionResponse,
   SubmitResultMessage,
   SubmitSessionMessage,
-} from "@focuson/types";
+} from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
 

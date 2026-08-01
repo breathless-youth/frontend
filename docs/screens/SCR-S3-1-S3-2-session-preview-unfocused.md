@@ -265,7 +265,7 @@ export type SessionState =
 - **글래스 블러**: Figma Effect 변수는 `blur/glass-soft` radius **10**(상태 필), `blur/glass-strong` radius **14**(컨트롤 바)다. `get_design_context`가 생성한 CSS는 `backdrop-blur-[5px]` / `[7px]`로 내려온다 — Figma의 background-blur radius를 CSS `backdrop-filter: blur()`로 변환하며 절반이 된 값이다. **CSS 구현에는 5px / 7px을 쓴다**(시각적으로 Figma와 일치). 상충이 아니라 단위 변환이다.
 - 이 실측값들을 `packages/design-tokens`에 새 토큰으로 밀어 넣지 말 것 — 세션 오버레이 전용 값이라 시맨틱 토큰 체계와 층이 다르다. `apps/web` 내부의 세션 스타일 상수로 둔다.
 
-**apps/web 테마 갭**: `apps/web/src/index.css`의 `@theme inline`에는 현재 `background`·`foreground`·`primary`·`muted`·`border`·`radius`만 정의돼 있고 **`state/focus`·`state/distract`·`text/tertiary`가 없다.** 빌더는 세션 상태색을 (a) `@focuson/design-tokens`에서 직접 import 하거나 (b) `index.css`에 세션 전용 CSS 변수를 추가해야 한다 — 어느 쪽이든 값의 출처는 `packages/design-tokens`여야 하고 하드코딩 hex를 흩뿌리지 않는다.
+**apps/web 테마 갭**: `apps/web/src/index.css`의 `@theme inline`에는 현재 `background`·`foreground`·`primary`·`muted`·`border`·`radius`만 정의돼 있고 **`state/focus`·`state/distract`·`text/tertiary`가 없다.** 빌더는 세션 상태색을 (a) `@focusmakers/design-tokens`에서 직접 import 하거나 (b) `index.css`에 세션 전용 CSS 변수를 추가해야 한다 — 어느 쪽이든 값의 출처는 `packages/design-tokens`여야 하고 하드코딩 hex를 흩뿌리지 않는다.
 
 ## Components
 
@@ -325,7 +325,7 @@ export type SessionState =
 8. **싱글룸 문구만 쓴다.** 참가자 그리드·"다른 사람과 함께" 같은 멀티룸 UI를 만들지 않는다.
 9. **라우트**: 기존 `/room/:id?userId=N`(`App.tsx`)을 그대로 유지한다. 단, 새 프레젠테이션에는 **방 번호를 표시하지 않는다**(현재 임시 UI의 `스터디룸 #{id}`는 삭제) — V1.0 싱글룸에는 사용자에게 보여줄 "방" 개념이 없다. `userId` 부재 시 기존 `unsaved` 처리 경로를 유지한다.
 10. **세션 중 서버 호출 없음.** 오프라인에서 세션이 완전히 동작해야 한다(`mvp-scope.md`). 제출은 종료 시 1회.
-11. 공부 상태·집중률 계산 로직을 화면 컴포넌트 안에 직접 쓰지 않는다 — 순수 TS 모듈로 분리한다(`apps/web/CLAUDE.md` 컨벤션, 과거 `@focuson/study-core` 패턴).
+11. 공부 상태·집중률 계산 로직을 화면 컴포넌트 안에 직접 쓰지 않는다 — 순수 TS 모듈로 분리한다(`apps/web/CLAUDE.md` 컨벤션, 과거 `@focusmakers/study-core` 패턴).
 12. **`backdrop-filter`는 비싸다.** 상태 필·컨트롤 바 두 곳에만 쓰고, 미지원 브라우저에서 배경 알파만으로도 텍스트가 읽히는지 확인한다.
 
 ## Accessibility Requirements

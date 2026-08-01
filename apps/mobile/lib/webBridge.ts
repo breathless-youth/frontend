@@ -1,4 +1,4 @@
-import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**

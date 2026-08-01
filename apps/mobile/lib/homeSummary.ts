@@ -1,4 +1,4 @@
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
 
 /** S1 홈 통계 영역의 화면 모델. 집중률·스트릭은 서버 계산 값을 그대로 쓴다(로컬 보정 금지). */
 export interface HomeSummary {

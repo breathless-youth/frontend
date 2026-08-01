@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useFocusEffect } from "expo-router";
 import type { ReactNode } from "react";
 
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
 
 import { weekDateKeys } from "../../../lib/recordsFormat";
 import { getStreak, listStudySessionStats } from "../../../lib/statsApi";

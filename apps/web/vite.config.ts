@@ -21,7 +21,7 @@ import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm
  */
 function requireMediapipeWasm() {
   return {
-    name: "focuson:require-mediapipe-wasm",
+    name: "focusmakers:require-mediapipe-wasm",
     // dev 서버·vitest에는 걸지 않는다. 이 검사가 막으려는 것은 "잘못된 산출물"이다.
     apply: "build",
     buildStart() {

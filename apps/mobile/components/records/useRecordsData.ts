@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse } from "@focusmakers/types";
 
 import {
   type CalendarMonth,

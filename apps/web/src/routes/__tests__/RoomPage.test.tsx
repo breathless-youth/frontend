@@ -1,4 +1,4 @@
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";

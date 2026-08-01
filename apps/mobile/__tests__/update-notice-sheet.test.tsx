@@ -77,7 +77,7 @@ afterEach(() => {
 /** 홈 마운트 직후의 비동기 게이트 판정이 끝날 때까지 기다린다. */
 async function settleGate() {
   await waitFor(() => {
-    expect(screen.getByText("FocusON")).toBeTruthy();
+    expect(screen.getByText("FocusMakers")).toBeTruthy();
   });
 }
 

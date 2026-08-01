@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
-import type { UserRegisterResponse } from "@focuson/types";
+import type { UserRegisterResponse } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";

@@ -1,6 +1,6 @@
 import expoConfig from "eslint-config-expo/flat.js";
 
-import { customRules, sharedIgnores } from "@focuson/config/eslint/base";
+import { customRules, sharedIgnores } from "@focusmakers/config/eslint/base";
 
 export default [
   ...expoConfig,

@@ -1,4 +1,4 @@
-import { colors } from "@focuson/design-tokens";
+import { colors } from "@focusmakers/design-tokens";
 import { useMemo } from "react";
 import { Pressable, Text, useColorScheme, View } from "react-native";
 

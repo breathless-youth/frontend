@@ -245,13 +245,13 @@ export interface ClosedInterval {
 
 ## 9. 패키지 경계
 
-**`@focuson/study-core`를 신설한다.** 순수 TypeScript 패키지로, 카메라·DOM·React Native·MediaPipe 어디에도 의존하지 않는다.
+**`@focusmakers/study-core`를 신설한다.** 순수 TypeScript 패키지로, 카메라·DOM·React Native·MediaPipe 어디에도 의존하지 않는다.
 
 담는 것은 상태 타입(`SessionPhase`, `DetectorKind`), 상태기계와 전이 규칙, 디바운스 판정, 구간 → 서버 이벤트 변환, 타이머 산출, 체크포인트 타입과 소급 마감 계산, 홈·기록 합산 계산이다.
 
 담지 않는 것은 카메라 접근, 모델 로딩·추론, 네트워크 호출, 저장소 접근, React 컴포넌트다.
 
-`packages/types`는 지금처럼 **서버 계약 타입만** 유지한다. 내부 도메인 모델을 넣지 않는다. `study-core`가 `@focuson/types`를 참조해 변환 함수의 출력 타입으로 쓴다.
+`packages/types`는 지금처럼 **서버 계약 타입만** 유지한다. 내부 도메인 모델을 넣지 않는다. `study-core`가 `@focusmakers/types`를 참조해 변환 함수의 출력 타입으로 쓴다.
 
 이 경계는 루트 CLAUDE.md의 아키텍처 원칙("Vision AI 구현과 세션 집계 로직을 분리", "공부시간 계산 코어는 순수 TS 패키지")과 일치한다. 기존 패키지들과 마찬가지로 `lint`/`typecheck`/`test` 스크립트를 모두 노출한다.
 

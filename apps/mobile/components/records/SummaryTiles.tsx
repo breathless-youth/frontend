@@ -1,4 +1,4 @@
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse } from "@focusmakers/types";
 import { Text, View } from "react-native";
 
 import { formatDuration, formatFocusRate, formatSessionCount } from "../../lib/recordsFormat";
