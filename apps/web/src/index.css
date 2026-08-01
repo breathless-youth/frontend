@@ -69,14 +69,50 @@ body {
     sans-serif;
 }
 
-/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그 방지.
+/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그·선택 방지.
    `-webkit-user-drag`는 상속되지 않는 속성이라 자손 선택자로 명시한다 — 컨트롤 바 아이콘이
    전부 `<img>`라 기본값으로는 마우스/터치 드래그에 끌린다(iOS WKWebView·Android WebView 둘
    다 webkit 접두 속성을 인식한다). `-webkit-touch-callout`은 iOS 길게 누르기 시 뜨는
-   복사/이미지 저장 메뉴를 막는다. */
+   복사/이미지 저장 메뉴를 막는다.
+
+   ⚠️ **`-webkit-user-select`를 지우지 말 것.** 표준 `user-select`만으로는 iOS WKWebView에서
+   선택이 그대로 된다 — 실기기에서 타이머·캡션을 길게 누르면 파란 선택 블록이 잡혔다(BY-336).
+   데스크톱 브라우저에서는 표준 속성만으로 막히므로 이 누락이 개발 중에 드러나지 않는다.
+   `-webkit-tap-highlight-color`는 탭할 때 요소 위에 잠깐 덮이는 회색 사각형을 없앤다 —
+   컨트롤 바 버튼이 원형이라 그 사각형이 특히 튄다. */
 .session-no-drag,
 .session-no-drag * {
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 심플 모드(S3-4) 엣지 글로우 **잔향** — 공부 상태 전환 시 잠깐 켜졌다가 은은하게 꺼진다
+   (design.md "전환 시 글로우 1~2초 잔향" 확정, BY-336). 점등(200ms)은 빠르고 소등(1.6초)은
+   느린 비대칭 곡선이다. `forwards`로 끝 상태(꺼짐)에 머문다 — 재생은 SimpleModeSurface가
+   레이어 리마운트(React key)로 트리거한다. */
+@keyframes session-edge-glow-fade {
+  0% {
+    opacity: 0;
+  }
+  11% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.session-edge-glow-fade {
+  animation: session-edge-glow-fade 1.8s ease-out forwards;
+}
+
+/* 모션 축소 환경에서는 잔향 대신 정적 점등(과거 동작)으로 남긴다 — 정보가 아니라 장식이지만,
+   꺼두면 상태 컬러 배경 단서까지 사라져 더 어색하다. */
+@media (prefers-reduced-motion: reduce) {
+  .session-edge-glow-fade {
+    animation: none;
+  }
 }

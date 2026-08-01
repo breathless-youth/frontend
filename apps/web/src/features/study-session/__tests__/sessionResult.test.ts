@@ -109,10 +109,43 @@ describe("aggregateEvents", () => {
   it("유형별 건수와 시간을 합산한다", () => {
     const tallies = aggregateEvents(exampleSession().events);
 
-    expect(tallies.get("AWAY")).toEqual({ status: "AWAY", count: 2, durationSec: 580 });
-    expect(tallies.get("PHONE")).toEqual({ status: "PHONE", count: 2, durationSec: 372 });
-    expect(tallies.get("DEVICE")).toEqual({ status: "DEVICE", count: 1, durationSec: 128 });
-    expect(tallies.get("PAUSE")).toEqual({ status: "PAUSE", count: 1, durationSec: 180 });
+    expect(tallies.get("AWAY")).toMatchObject({ status: "AWAY", count: 2, durationSec: 580 });
+    expect(tallies.get("PHONE")).toMatchObject({ status: "PHONE", count: 2, durationSec: 372 });
+    expect(tallies.get("DEVICE")).toMatchObject({ status: "DEVICE", count: 1, durationSec: 128 });
+    expect(tallies.get("PAUSE")).toMatchObject({ status: "PAUSE", count: 1, durationSec: 180 });
+  });
+
+  /**
+   * 펼침 영역이 "언제 얼마나"를 그리려면 합계만으로는 부족하다(BY-336) —
+   * `2회 · 580초`가 300+280인지 560+20인지 구분되지 않는다.
+   */
+  it("발생 구간을 순서대로 보존한다 — 합계만으로는 분포를 알 수 없다", () => {
+    const away = aggregateEvents(exampleSession().events).get("AWAY");
+
+    expect(away?.occurrences).toEqual([
+      { clockRange: "21:13 – 21:18", durationSec: 300 },
+      { clockRange: "21:53 – 21:57", durationSec: 280 },
+    ]);
+    // 건수와 구간 수는 항상 같다.
+    expect(away?.occurrences).toHaveLength(away!.count);
+  });
+
+  /**
+   * 구간은 자기 길이만 내림하고 합계는 ms 누적에서 한 번만 내림한다 — 그래서 구간 합이 합계보다
+   * 최대 (건수-1)초 작을 수 있다. 표기가 분 단위라 화면에는 드러나지 않지만, 합계 쪽이 정확한
+   * 값이라는 것을 고정해 둔다(반대로 맞추면 `ms 먼저 합산` 규칙이 깨진다).
+   */
+  it("구간 합이 합계보다 작아도 합계를 깎지 않는다", () => {
+    const start = SESSION_START.getTime();
+    const half = (fromMs: number): StatusEventPayload => ({
+      status: "AWAY",
+      startedAt: new Date(start + fromMs).toISOString(),
+      endedAt: new Date(start + fromMs + 1500).toISOString(),
+    });
+    const away = aggregateEvents([half(0), half(10_000)]).get("AWAY");
+
+    expect(away?.durationSec).toBe(3);
+    expect(away?.occurrences.reduce((sum, each) => sum + each.durationSec, 0)).toBe(2);
   });
 
   it("ms를 먼저 다 더하고 마지막에 한 번만 내림한다 — 건당 내림하면 시간이 사라진다", () => {

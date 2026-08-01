@@ -58,6 +58,13 @@ export interface SessionTimerProps {
 const GLOW_TEXT_SHADOW =
   "0 0 0.4615em var(--session-glow-near), 0 0 1.1538em var(--session-glow-far)";
 
+/**
+ * 발광 꺼짐 상태 — `undefined`가 아니라 **같은 구조의 투명 그림자**를 준다.
+ * text-shadow는 목록 길이·단위가 같아야 브라우저가 보간할 수 있다 — 그래야 모드 전환 시
+ * 발광이 0ms에 '팍' 켜지지 않고 타이머 이동(300ms ease-out)과 같은 박자로 페이드된다(BY-336).
+ */
+const NO_GLOW_TEXT_SHADOW = "0 0 0.4615em transparent, 0 0 1.1538em transparent";
+
 export function SessionTimer({
   focusSec,
   studySec,
@@ -74,9 +81,11 @@ export function SessionTimer({
         className,
       )}
     >
+      {/* 색·발광을 타이머 이동(SPACER_TRANSITION)과 같은 300ms ease-out으로 맞춘다 —
+          위치·색·발광의 duration이 제각각이면 전환이 세 박자로 쪼개져 보인다(BY-336). */}
       <p
         className={cn(
-          "text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums transition-colors duration-200 motion-reduce:transition-none",
+          "text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none",
           glow
             ? "text-[var(--session-state-color)] landscape:text-[56px] landscape:leading-[64px]"
             : cn(
@@ -84,7 +93,7 @@ export function SessionTimer({
                 state === "focus" ? "text-white" : "text-text-tertiary",
               ),
         )}
-        style={glow ? { textShadow: GLOW_TEXT_SHADOW } : undefined}
+        style={{ textShadow: glow ? GLOW_TEXT_SHADOW : NO_GLOW_TEXT_SHADOW }}
       >
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
         <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>

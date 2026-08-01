@@ -675,17 +675,145 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
+  /**
+   * 프리뷰가 없는 화면에서 전환을 누르면 보이는 변화 없이 추론만 1~2초 끊긴다(BY-336).
+   * 버튼을 **없애지 않고 잠그는** 이유는 세 버튼 배치가 고정이라 하나가 빠지면 심플 모드
+   * 진입 자체가 레이아웃 점프가 되기 때문이다.
+   */
+  it("카메라 전환은 잠긴다 — 프리뷰가 없어 결과를 볼 수 없다", async () => {
+    renderRoom("/room/7?userId=1");
+    const flip = () => screen.getByRole("button", { name: "카메라 전환" });
+
+    expect(flip()).toBeEnabled();
+
+    await enterSimpleMode();
+    expect(flip()).toBeDisabled();
+
+    // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
+    await enterSimpleMode();
+    expect(flip()).toBeEnabled();
+  });
+
+  /**
+   * 상태 필의 서브 문구가 생기고 사라지면 필 블록 높이가 22px 변하는데, 그 델타를 위아래
+   * 스페이서가 나눠 흡수하면서 심플 모드의 큰 타이머가 위아래로 흔들렸다(BY-336 실기기 관측).
+   * 서브 문구 줄을 상주시켜 막는다 — 이 테스트는 그 상주를 고정한다.
+   */
+  it("상태가 바뀌어도 상태 필 블록 높이가 변하지 않는다 — 타이머가 흔들리지 않기 위함", async () => {
+    renderRoom("/room/7?userId=1&detector=mock");
+    const subLabelRow = () => screen.getByRole("status").lastElementChild!;
+
+    // 집중에는 서브 문구가 없지만 줄 자체는 자리를 지킨다.
+    expect(subLabelRow().textContent).toBe("");
+    expect(subLabelRow().className).toContain("h-[14px]");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+
+    // 문구가 채워져도 같은 줄이다 — 새 행이 끼어들지 않는다.
+    expect(subLabelRow().textContent).not.toBe("");
+    expect(subLabelRow().className).toContain("h-[14px]");
+  });
+
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {
     renderRoom("/room/7?userId=1");
     const timerOf = () => screen.getByText("00:00:00").parentElement!;
 
     expect(timerOf().className).toContain("text-white");
-    expect(timerOf().style.textShadow).toBe("");
+    // 프리뷰의 발광 꺼짐은 빈 값이 아니라 **같은 구조의 투명 그림자**다 — 목록 길이·단위가
+    // 같아야 브라우저가 보간해서 발광이 300ms로 페이드된다(BY-336, `NO_GLOW_TEXT_SHADOW`).
+    expect(timerOf().style.textShadow).toContain("transparent");
+    expect(timerOf().style.textShadow).not.toContain("var(--session-glow-near)");
 
     await enterSimpleMode();
 
     expect(timerOf().className).toContain("text-[var(--session-state-color)]");
     expect(timerOf().style.textShadow).toContain("var(--session-glow-near)");
+  });
+
+  /**
+   * 회전 중에는 카메라 서피스가 잠깐 뷰포트보다 작게 잡혀 가장자리에 빈 공간이 보인다(BY-336).
+   * 가리지 않고 **메우는** 방식이라 "언제 확대하고 언제 되돌리는지"를 고정한다.
+   */
+  it("회전 중에는 프리뷰를 살짝 확대해 빈 자리를 메우고, 뷰포트가 확정되면 되돌린다", () => {
+    const { container } = renderRoom("/room/7?userId=1");
+    const surfaceOf = () => container.querySelector('[data-session-surface="camera"]');
+
+    expect(surfaceOf()?.className).not.toContain("scale-");
+
+    vi.useFakeTimers();
+    try {
+      // 세로 → 가로. jsdom 기본값이 1024×768(가로)이라 세로로 만들어 두고 뒤집는다.
+      act(() => {
+        window.innerWidth = 402;
+        window.innerHeight = 874;
+        window.dispatchEvent(new Event("resize"));
+      });
+      act(() => {
+        window.innerWidth = 874;
+        window.innerHeight = 402;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(surfaceOf()?.className).toContain("scale-[1.08]");
+
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+
+      // 뷰포트가 확정되면 원래 배율로 — 정지 상태의 화각은 그대로여야 한다.
+      expect(surfaceOf()?.className).not.toContain("scale-");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("심플 모드에서는 회전 오버스캔을 걸지 않는다 — 메울 빈 자리가 없다", async () => {
+    const { container } = renderRoom("/room/7?userId=1");
+    await enterSimpleMode();
+
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        window.innerWidth = 402;
+        window.innerHeight = 874;
+        window.dispatchEvent(new Event("resize"));
+      });
+      act(() => {
+        window.innerWidth = 874;
+        window.innerHeight = 402;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // 카메라를 걷어낸 화면이라 단색 배경을 확대해 봐야 보이는 변화가 없다.
+      expect(container.innerHTML).not.toContain("scale-[1.08]");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("방향이 그대로인 리사이즈에는 확대하지 않는다 — 키보드·주소창 변화까지 건드리지 않는다", () => {
+    const { container } = renderRoom("/room/7?userId=1");
+
+    act(() => {
+      // 가로를 유지한 채 폭만 줄인다(jsdom 기본 1024×768도 가로다).
+      window.innerWidth = 900;
+      window.innerHeight = 768;
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(container.querySelector('[data-session-surface="camera"]')?.className).not.toContain(
+      "scale-",
+    );
+  });
+
+  it("엣지 글로우는 잔향이다 — 페이드아웃 애니메이션 레이어로 그린다", async () => {
+    // design.md "전환 시 글로우 1~2초 잔향" 확정(BY-336) — 정적 점등이 아니라
+    // 상태 전환마다 리마운트되어 점등→페이드아웃하는 레이어다(SimpleModeSurface 주석).
+    const { container } = renderRoom("/room/7?userId=1");
+    await enterSimpleMode();
+
+    const surface = container.querySelector('[data-session-surface="simple"]')!;
+    expect(surface.querySelector(".session-edge-glow-fade")).not.toBeNull();
   });
 
   it("대칭 복귀 — 한 번 더 탭하면 프리뷰로 돌아온다", async () => {
@@ -886,13 +1014,17 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
   it("결과 화면 대신 미달 안내를 보여준다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
-    renderRoom("/room/7?userId=1");
+    const { container } = renderRoom("/room/7?userId=1");
 
     // 갓 입장해서 바로 종료 — 순공 0초다.
     await endSession();
 
     expect(await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요")).toBeInTheDocument();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
+    // 체크 서클(2026-08-01 사용자 확인, BY-336) — S3-8과 같은 완료 신호를 공유한다.
+    expect(
+      container.querySelector('[data-session-surface="sub-minute-end"] .bg-brand-subtle'),
+    ).not.toBeNull();
   });
 
   /**

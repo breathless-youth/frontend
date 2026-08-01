@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
  * variant가 아니라 인스턴스 오버라이드(`59:362` 안의 `btn/pause` → `#3182F6` + `icon/play`)라
  * 코드에서도 별도 컴포넌트가 아니라 `paused` prop 하나로 처리한다.
  * 나머지 두 버튼은 일시정지 중에도 Figma상 비활성 처리가 없다 — 시각적으로 활성을 유지한다.
+ * 다만 **심플 모드에서는 카메라 전환만 비활성**이다(`flipDisabled`, BY-336) — 상태(일시정지)가
+ * 아니라 표시 모드에 걸리는 조건이라 두 축이 섞이지 않는다.
  *
  * 이 컴포넌트가 **탭-투-심플 영역에서 제외되는 hit area 경계**를 책임진다 —
  * `pointer-events-auto`로 바 위 클릭이 뒤의 전체화면 탭 레이어에 닿지 않게 한다.
@@ -78,7 +80,7 @@ const handleVariants = cva("absolute left-1/2 -translate-x-1/2 rounded-full bg-w
 });
 
 const controlButtonVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color] duration-200 active:opacity-80 motion-reduce:transition-none",
+  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color] duration-200 motion-reduce:transition-none",
   {
     variants: {
       size: {
@@ -91,20 +93,52 @@ const controlButtonVariants = cva(
         resume: "bg-[var(--session-resume-bg)]",
         exit: "bg-[var(--session-exit-bg)]",
       },
+      /**
+       * 지금 할 수 없는 동작 — 심플 모드의 카메라 전환이 유일한 사례다(BY-336).
+       * 버튼을 **없애지 않고 흐리게 남기는** 이유는 컨트롤 바가 세 버튼의 고정 배치이기 때문이다.
+       * 하나를 빼면 나머지 두 개가 가운데로 밀려 심플 모드 진입 자체가 레이아웃 점프가 된다.
+       */
+      disabled: { true: "opacity-40", false: "active:opacity-80" },
     },
-    defaultVariants: { size: "responsive", variant: "default" },
+    defaultVariants: { size: "responsive", variant: "default", disabled: false },
   },
 );
 
 /**
  * 아이콘은 버튼과 같은 비율(44/50 = 0.88)로 줄어든다 — Figma 가로 실측이 정확히 그 비율이다
- * (pause 16×18 → 14×15.8 · camera-flip 20 → 18 · exit 19 → 17).
+ * (camera-flip 20 → 18 · exit 19 → 17).
+ *
+ * ## play와 pause는 프레임 크기가 다르다 (BY-336, 2026-07-31)
+ *
+ * 둘 다 `16×18` 프레임으로 그려졌지만 **프레임 안에서 잉크가 차지하는 비율이 다르다**:
+ *
+ * | 아이콘 | 잉크 bbox      | 프레임 대비    |
+ * | ------ | -------------- | -------------- |
+ * | pause  | 11.56 × 14.22  | 72% × 79%      |
+ * | play   | 7.00 × 9.75    | **44% × 54%**  |
+ *
+ * 그래서 같은 프레임을 주면 화면에서는 재생이 일시정지보다 한참 작아 보인다 — 실기기에서
+ * "일시정지는 크고 재생은 작다"로 관측된 것이 이 차이다. 프레임을 **각각** 잡아 실제 글리프
+ * 높이를 맞춘다: pause 18 × 0.79 ≈ 14.2 / play 27 × 0.54 ≈ 14.6.
+ *
+ * - `pause`: Figma 실측(16×18) 그대로 — 이탈 없음.
+ * - `play`: **24×27**(1.5배)로 확대. 프레임만 키운 것이라 글리프 비율은 그대로다.
+ *
+ * 토글 시 프레임 폭이 달라지지만 버튼은 고정 크기(50/44)이고 아이콘은 중앙 정렬이라
+ * **레이아웃 폭은 흔들리지 않는다.** 근본 해결은 play를 잉크에 맞게 Figma에서 재익스포트하는
+ * 것이고(자산은 손으로 그리지 않는다 — 위 컴포넌트 주석), 그때 이 표도 함께 걷어낸다
+ * (SCR-S3-1·S3-2 Review Checklist).
  */
 const ICON_SIZE = {
   pause: {
     md: "h-[18px] w-[16px]",
     sm: "h-[15.8px] w-[14px]",
     responsive: "h-[18px] w-[16px] landscape:h-[15.8px] landscape:w-[14px]",
+  },
+  play: {
+    md: "h-[27px] w-[24px]",
+    sm: "h-[23.8px] w-[21.1px]",
+    responsive: "h-[27px] w-[24px] landscape:h-[23.8px] landscape:w-[21.1px]",
   },
   cameraFlip: {
     md: "size-[20px]",
@@ -121,6 +155,14 @@ const ICON_SIZE = {
 export interface SessionControlBarProps {
   /** 일시정지 상태면 첫 버튼이 파란 '다시 시작'으로 바뀐다. */
   paused: boolean;
+  /**
+   * 카메라 전환을 지금 할 수 없는가 — 심플 모드(S3-4/S3-6)에서 켠다.
+   *
+   * 심플 모드는 프리뷰를 걷어낸 화면이라 어느 카메라가 열려 있는지 **볼 수 없다.** 그 상태에서
+   * 전환을 누르면 화면에는 아무 변화가 없는데 추론만 1~2초 끊기고(전환 중 `detect()` 정지)
+   * 토스트만 뜬다 — 사용자에게는 아무 일도 안 일어난 것처럼 보인다.
+   */
+  flipDisabled?: boolean;
   /**
    * 바·버튼·핸들·아이콘 치수. 기본 `responsive`는 세로 치수로 그리고 가로에서만 축소한다.
    * `md`/`sm`으로 고정할 수도 있다(치수를 컴포넌트 안에 가두지 않는다).
@@ -139,6 +181,7 @@ interface ControlButtonProps {
   size: SessionControlBarSize;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
+  disabled?: boolean;
 }
 
 function ControlButton({
@@ -148,13 +191,18 @@ function ControlButton({
   size,
   onClick,
   variant = "default",
+  disabled = false,
 }: ControlButtonProps) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={controlButtonVariants({ size, variant })}
+      // 네이티브 `disabled`를 쓴다(`aria-disabled`가 아니라) — 누를 수 없는 것이 사실이고,
+      // 탭 순서에서도 빠지는 편이 맞다. 심플 모드는 화면 탭 한 번으로 벗어날 수 있어
+      // "왜 못 누르는지 모른 채 갇히는" 상태가 되지 않는다.
+      disabled={disabled}
+      className={controlButtonVariants({ size, variant, disabled })}
     >
       <img src={iconSrc} alt="" aria-hidden="true" className={iconClassName} />
     </button>
@@ -163,6 +211,7 @@ function ControlButton({
 
 export function SessionControlBar({
   paused,
+  flipDisabled = false,
   size = "responsive",
   onTogglePause,
   onFlipCamera,
@@ -181,7 +230,7 @@ export function SessionControlBar({
       <ControlButton
         label={paused ? "다시 시작" : "일시정지"}
         iconSrc={paused ? playIcon : pauseIcon}
-        iconClassName={ICON_SIZE.pause[size]}
+        iconClassName={paused ? ICON_SIZE.play[size] : ICON_SIZE.pause[size]}
         size={size}
         onClick={onTogglePause}
         variant={paused ? "resume" : "default"}
@@ -192,6 +241,7 @@ export function SessionControlBar({
         iconClassName={ICON_SIZE.cameraFlip[size]}
         size={size}
         onClick={onFlipCamera}
+        disabled={flipDisabled}
       />
       <ControlButton
         label="공부 종료"

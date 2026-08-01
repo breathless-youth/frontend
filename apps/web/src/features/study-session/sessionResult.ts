@@ -27,6 +27,20 @@ export const DISTRACTION_STATUSES = ["AWAY", "PHONE", "DEVICE"] as const;
 
 export type DistractionStatus = (typeof DISTRACTION_STATUSES)[number];
 
+/**
+ * 발생 구간 1건 — 펼침 영역이 "언제 얼마나"를 보여주는 데 쓴다(BY-336).
+ *
+ * 합계만으로는 "3회 9분"이 5분 한 번 + 2분 두 번인지, 3분씩 고르게인지 알 수 없다.
+ * 서버가 이벤트를 시작 시각 오름차순으로 내려주므로 여기서 다시 정렬하지 않는다
+ * (SCR-S4 Data Contract — 정렬·병합은 서버 계약이 보장한다).
+ */
+export interface EventOccurrence {
+  /** `HH:MM – HH:MM` (24시간제, 로컬 타임존). */
+  clockRange: string;
+  /** 이 구간의 길이(초). */
+  durationSec: number;
+}
+
 /** 유형별 집계 1건. 서버는 유형별 지속 시간을 내려주지 않아 이벤트 구간에서 만든다. */
 export interface EventTally {
   status: StudyEventStatus;
@@ -34,6 +48,8 @@ export interface EventTally {
   count: number;
   /** 구간 길이 합(초). */
   durationSec: number;
+  /** 발생 순서대로의 개별 구간. `count`와 길이가 같다. */
+  occurrences: readonly EventOccurrence[];
 }
 
 /** 타임라인 바의 한 세그먼트 — 세션 **벽시계** 구간에 대한 비율(0~1). */
@@ -75,15 +91,32 @@ function durationMs(event: StatusEventPayload): number {
 export function aggregateEvents(
   events: readonly StatusEventPayload[],
 ): Map<StudyEventStatus, EventTally> {
-  const byStatus = new Map<StudyEventStatus, { count: number; ms: number }>();
+  const byStatus = new Map<
+    StudyEventStatus,
+    { count: number; ms: number; occurrences: EventOccurrence[] }
+  >();
   for (const event of events) {
-    const prev = byStatus.get(event.status) ?? { count: 0, ms: 0 };
-    byStatus.set(event.status, { count: prev.count + 1, ms: prev.ms + durationMs(event) });
+    const prev = byStatus.get(event.status) ?? { count: 0, ms: 0, occurrences: [] };
+    const eventMs = durationMs(event);
+    byStatus.set(event.status, {
+      count: prev.count + 1,
+      ms: prev.ms + eventMs,
+      // 개별 구간은 **자기 길이만** 내림한다 — 합계(`durationSec`)는 위 ms 누적에서 마지막에
+      // 한 번만 내림하므로, 구간들의 합이 합계보다 최대 (건수-1)초 작을 수 있다. 표기가 분
+      // 단위라 화면에서는 드러나지 않고, 합계 쪽을 정확히 유지하는 편이 맞다.
+      occurrences: [
+        ...prev.occurrences,
+        {
+          clockRange: formatClockRange(event.startedAt, event.endedAt),
+          durationSec: Math.floor(eventMs / 1000),
+        },
+      ],
+    });
   }
   return new Map(
-    [...byStatus].map(([status, { count, ms }]) => [
+    [...byStatus].map(([status, { count, ms, occurrences }]) => [
       status,
-      { status, count, durationSec: Math.floor(ms / 1000) },
+      { status, count, durationSec: Math.floor(ms / 1000), occurrences },
     ]),
   );
 }

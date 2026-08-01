@@ -39,10 +39,6 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { cn } from "@/lib/utils";
 
-/** 표시 모드 전환 모션 — Figma Spec 페이지 `14:7` 실측(300ms ease-out). */
-const SPACER_TRANSITION =
-  "transition-[flex-grow] duration-300 ease-out motion-reduce:transition-none";
-
 /**
  * 세션 레이어의 세로/가로 배치 (S3-1~S3-4 ↔ S3-5·S3-6).
  *
@@ -77,6 +73,91 @@ const SESSION_LAYER_LAYOUT = [
   "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc(env(safe-area-inset-bottom)+14px)]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
+
+/**
+ * 회전 구간의 수명 (BY-336, 2026-08-01).
+ *
+ * - `rotating`: 회전이 감지된 순간부터 뷰포트가 확정될 때까지.
+ * - `settling`: 확정된 뒤 원래대로 되돌아가는 중. 전환이 끝나면 `idle`이다.
+ */
+type RotationPhase = "idle" | "rotating" | "settling";
+
+function currentOrientation(): "portrait" | "landscape" {
+  return window.innerWidth <= window.innerHeight ? "portrait" : "landscape";
+}
+
+/** 회전 애니메이션이 끝나고 뷰포트가 확정되기를 기다리는 시간(네이티브 회전은 약 300ms). */
+const ROTATION_SETTLE_MS = 450;
+/** 원래 배율로 되돌아가는 시간. 아래 `duration-300`과 같아야 한다 — 어긋나면 툭 끊긴다. */
+const ROTATION_REVEAL_MS = 300;
+
+/**
+ * 지금이 회전 구간인가 — **프리뷰의 빈 공간을 막는 데 쓴다**(그 사용처는 `CameraPreviewSurface`).
+ *
+ * 기기를 돌리면 네이티브 뷰 회전과 WebView 리레이아웃이 한 프레임 어긋나면서, 카메라 서피스가
+ * 잠깐 뷰포트보다 작게 잡혀 **가장자리에 빈 공간이 생긴다**(BY-336 실기기 관측).
+ *
+ * 처음에는 화면 전체를 블러로 덮어 그 구간을 안 보이게 했지만, 덮는 것 자체가 눈에 띈다는
+ * 확인으로 걷어냈다. 지금은 **가리지 않고 메운다** — 회전 구간에만 프리뷰를 살짝 확대해
+ * 빈 자리를 덮고, 뷰포트가 확정되면 원래 배율로 되돌린다. 정지 상태의 화각은 그대로다.
+ *
+ * `resize`만 보면 키보드·주소창 변화에도 반응하므로 **방향이 바뀐 경우**와
+ * `orientationchange` 이벤트만 통과시킨다.
+ */
+function useRotationPhase(): RotationPhase {
+  const [phase, setPhase] = useState<RotationPhase>("idle");
+
+  useEffect(() => {
+    let settled = currentOrientation();
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearTimers() {
+      if (settleTimer !== null) {
+        clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+      if (revealTimer !== null) {
+        clearTimeout(revealTimer);
+        revealTimer = null;
+      }
+    }
+
+    function handle(fromOrientationEvent: boolean) {
+      // 회전 도중의 중간 resize는 아직 이전 방향을 보고할 수 있어 `orientationchange`도 함께 받는다.
+      if (!fromOrientationEvent && currentOrientation() === settled) {
+        return;
+      }
+      clearTimers();
+      setPhase("rotating");
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        settled = currentOrientation();
+        setPhase("settling");
+        revealTimer = setTimeout(() => {
+          revealTimer = null;
+          setPhase("idle");
+        }, ROTATION_REVEAL_MS);
+      }, ROTATION_SETTLE_MS);
+    }
+
+    const onResize = () => {
+      handle(false);
+    };
+    const onOrientationChange = () => {
+      handle(true);
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onOrientationChange);
+    return () => {
+      clearTimers();
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onOrientationChange);
+    };
+  }, []);
+
+  return phase;
+}
 
 /**
  * 세션 화면 — S3-1(집중)·S3-2(비집중)·S3-3(일시정지)·S3-4(심플 모드)는 **같은 화면**이다.
@@ -148,10 +229,23 @@ export function RoomPage() {
    * 판정에 쓸 수 없다(설계 §3 "카메라 전환"). 전환 실패는 기존 `CameraFlipResult` 그대로다.
    */
   const [flippingCamera, setFlippingCamera] = useState(false);
+  const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
   const statusCopy = statusCopyFor(sessionState);
   const pillState = toPillState(sessionState);
+  /**
+   * 공부 상태의 식별 키 — 심플 모드 엣지 글로우 **잔향**(SimpleModeSurface)이 상태 전환을
+   * 감지하는 값이다. `isSameSessionState`와 같은 기준(kind + trigger)이라 실제 전환에서만
+   * 바뀐다(200ms tick 리렌더로는 안 바뀜 — 훅이 같은 상태면 참조를 유지한다). 심플 모드
+   * 진입도 잔향을 한 번 틀어야 하므로(design.md "전환 시 1~2초 잔향") `simpleMode`를 키에
+   * 포함한다. 프리뷰로 돌아갈 때도 키는 바뀌지만, 서피스가 300ms 페이드아웃 중이라 그대로면
+   * 잔향이 부분 가시 상태에서 재점화된다 — 그래서 SimpleModeSurface가 hidden일 때는
+   * 잔향을 재생하지 않는다(그쪽 주석 참고).
+   */
+  const glowKey = `${simpleMode ? "simple" : "preview"}:${sessionState.kind}${
+    sessionState.kind === "FOCUS" ? "" : `:${sessionState.trigger}`
+  }`;
 
   /**
    * 추론 수명 (설계 §3) — **카메라 스트림과 분리된 축**이다.
@@ -314,14 +408,21 @@ export function RoomPage() {
           신호가 직전 값에 굳은 채 심플 모드 내내 유지된다(계약 2: `detect()`가 `null`이면
           "판정 없음"이지 "사람 없음"이 아니다). 즉 심플 모드로 들어간 순간의 상태가 세션 끝까지
           기록된다 — 조용히 틀린다. 측정은 화면 표시 방식과 무관해야 하므로 숨긴 채 유지한다
-          (2026-07-29 리더 결정). */}
-      {simpleMode && <SimpleModeSurface />}
+          (2026-07-29 리더 결정).
+
+          SimpleModeSurface도 카메라 서피스와 같은 hidden 패턴으로 **상시 마운트**한다 —
+          조건부 마운트면 전환 순간 배경이 0ms에 스왑되어, 300ms를 끄는 타이머 이동과 시차가
+          벌어진다(BY-336). 두 서피스가 각자 300ms 페이드로 교차하면 배경도 같은 박자를 탄다. */}
+      <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
+      {/* 회전 오버스캔은 **프리뷰에만** 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
+          메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       <CameraPreviewSurface
         isRunning={isCameraRunning}
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}
         hidden={simpleMode}
+        rotating={!simpleMode && rotationPhase === "rotating"}
       />
 
       {phase.name === "studying" ? (
@@ -351,21 +452,28 @@ export function RoomPage() {
               className="landscape:col-start-2 landscape:row-start-1 landscape:justify-self-center"
             />
 
-            {/* 표시 모드 전환은 타이머의 **위치·크기 연속성**을 지켜야 한다(Figma Spec `14:7`:
-                Smart Animate 300ms ease-out). 그래서 타이머를 언마운트/재마운트하지 않고
-                위아래 스페이서의 flex-grow만 바꾼다 — 프리뷰는 컨트롤 바 바로 위(1:0),
-                심플 모드는 화면 중앙부(3:5, Figma 실측 여백 207:350 비율).
+            {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
+                늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
+                사이 여백의 중앙에 놓는다. Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
+                실기기에서 너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다.
+
+                ⚠️ **전환 애니메이션을 다시 넣지 말 것.** 예전에는 `transition-[flex-grow]`로
+                300ms ease-out(Figma Spec `14:7`) 슬라이드를 줬는데, 실기기 확인에서 타이머가
+                미끄러지는 것 자체가 거슬린다는 판단으로 걷어냈다(2026-07-31). 지금은 위치만
+                즉시 바뀌고 배경·발광은 그대로 300ms로 페이드한다 — 움직이는 것은 타이머가
+                아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
+                숫자가 끊기거나 리셋되지는 않는다.
                 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div
-              className={cn(
-                SPACER_TRANSITION,
-                simpleMode ? "grow-[3]" : "grow",
-                "landscape:hidden",
-              )}
-            />
+            <div className="grow landscape:hidden" />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
-                (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
+                (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다.
+
+                프리뷰의 음수 마진은 타이머를 레이어 패딩(우 28px) 안쪽에서 **우측 모서리로
+                끌어당긴다**(BY-336 확인: 상단은 그대로, 우측만 — Figma 실측 우28에서 의도적으로
+                이탈, 결과 여백은 우 8px + safe-area). 패딩 자체를 줄이지 않는 이유는 그 패딩이
+                상태 필·컨트롤 바·캡션까지 함께 밀기 때문이고, 음수 마진은 safe-area 몫을
+                침범하지 않는다 — 노치 쪽 인셋은 그대로 남는다. */}
             <SessionTimer
               focusSec={focusSec}
               studySec={studySec}
@@ -374,27 +482,33 @@ export function RoomPage() {
               className={
                 simpleMode
                   ? "landscape:col-span-full landscape:row-start-2 landscape:justify-self-center landscape:self-center"
-                  : "landscape:col-start-3 landscape:row-start-1 landscape:justify-self-end"
+                  : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
             />
 
             {/* 캡션은 심플 모드에 존재하지 않는 행이다(S3-4·S3-6 프레임 실측 — 프리뷰와 함께
                 사라진다). 프리뷰에서는 일시정지 여부에 따라 프라이버시 캡션 ↔ 일시정지 캡션이
-                교체된다. 가로에서는 컨트롤 바 바로 위 자기 행을 갖는다(간격은 바가 준다). */}
-            {!simpleMode && (
-              <SessionCaption
-                text={captionFor(sessionState)}
-                className="mt-2 landscape:col-span-full landscape:row-start-3 landscape:mt-0 landscape:justify-self-center"
-              />
-            )}
+                교체된다. 가로에서는 컨트롤 바 바로 위 자기 행을 갖는다(간격은 바가 준다).
 
+                래퍼가 세로에서 캡션 높이(14px+mt 8px)를 **상주 예약**한다 — 캡션을 그냥
+                언마운트하면 전환 시작 프레임에 그 높이가 flex 가용 공간으로 즉시 편입/이탈해
+                타이머가 한 프레임에 스텝 점프한 뒤 미끄러지기 시작한다(BY-336).
+                텍스트는 여전히 DOM에서 빠지므로 "심플 모드에 캡션 없음" 스펙은 그대로다 —
+                텍스트 자체가 0ms에 사라지는 것은 알고 남긴 트레이드오프다(페이드를 주려면
+                지연 언마운트가 필요해 DOM 부재 스펙·테스트와 충돌한다).
+                높이 예약은 세로 전용이다: 가로는 스페이서가 없어 이 문제가 없고 캡션이
+                11px/13px로 줄므로 `landscape:h-auto`로 되돌린다. 빈 래퍼가 그리드 행 트랙을
+                차지하지 않도록 심플일 때는 숨긴다. */}
             <div
               className={cn(
-                SPACER_TRANSITION,
-                simpleMode ? "grow-[5]" : "grow-0",
-                "landscape:hidden",
+                "mt-2 h-[14px] landscape:col-span-full landscape:row-start-3 landscape:mt-0 landscape:h-auto landscape:justify-self-center",
+                simpleMode && "landscape:hidden",
               )}
-            />
+            >
+              {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
+            </div>
+
+            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
             {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute. */}
             <div className="relative mt-4 flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
@@ -404,8 +518,11 @@ export function RoomPage() {
                   className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
                 />
               )}
+              {/* 심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
+                  추론만 끊긴다(그쪽 prop 주석). 화면을 한 번 탭해 프리뷰로 돌아오면 풀린다. */}
               <SessionControlBar
                 paused={paused}
+                flipDisabled={simpleMode}
                 onTogglePause={() => (paused ? resume() : pause())}
                 onFlipCamera={() => void handleFlipCamera()}
                 onRequestExit={handleRequestExit}

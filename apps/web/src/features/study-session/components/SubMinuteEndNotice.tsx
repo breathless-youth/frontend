@@ -3,6 +3,7 @@ import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 import { SUB_MINUTE_END_COPY } from "../sessionCopy";
+import { CheckCircle } from "./CheckCircle";
 
 /**
  * 순공 1분 미만으로 끝난 세션의 종료 안내 — **S4(공부 결과) 대신** 이 화면을 보여주고 홈으로 보낸다.
@@ -22,8 +23,13 @@ import { SUB_MINUTE_END_COPY } from "../sessionCopy";
  * ## 디자인 미확정
  *
  * 이 화면의 Figma 시안이 없다(2026-07-27 결정이 UX만 규정하고 시안은 없다). 새 시각 언어를
- * 만들지 않고 S3-8 `AutoEndNotice`의 레이아웃 관계(중앙 정렬 본문 + 하단 CTA)를 그대로 따르되,
- * 요약 카드·아이콘처럼 "기록이 남았다"를 암시하는 요소는 넣지 않는다.
+ * 만들지 않고 S3-8 `AutoEndNotice`의 레이아웃 관계(체크 서클 + 중앙 정렬 본문 + 하단 CTA)를
+ * 그대로 따른다.
+ *
+ * - **체크 서클은 넣는다**(2026-08-01 사용자 확인, BY-336) — "공부가 끝났다"는 완료 신호이지
+ *   저장을 암시하지 않는다(`CheckCircle` 주석). 처음에는 아이콘도 금지 대상으로 뒀었다.
+ * - **요약 카드(순공·총 공부 값)는 여전히 넣지 않는다** — 그건 "기록이 남았다"를 직접
+ *   암시해서 본문(`기록에 표시되지 않아요`)과 모순된다.
  */
 export interface SubMinuteEndNoticeProps {
   /** CTA — 홈으로 보낸다. 이 화면의 이탈 경로는 이것 하나뿐이다. */
@@ -48,9 +54,11 @@ export function SubMinuteEndNotice({ onGoHome, className }: SubMinuteEndNoticePr
       )}
     >
       <div className="flex flex-1 flex-col items-center justify-center py-8">
+        <CheckCircle />
+        {/* 타이틀 간격(mt-6)은 S3-8과 동일 — 두 종료 안내의 리듬을 맞춘다. */}
         <h1
           id={titleId}
-          className="text-center text-[20px] leading-[24px] font-bold text-foreground"
+          className="mt-6 text-center text-[20px] leading-[24px] font-bold text-foreground"
         >
           {SUB_MINUTE_END_COPY.title}
         </h1>
