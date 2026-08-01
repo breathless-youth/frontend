@@ -9,7 +9,7 @@ const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 /**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
  *
- * 웹 쪽(`apps/web/src/features/study-session/bridge/nativeBridge.ts`)과 **대칭**이다 —
+ * 웹 쪽(`apps/web/src/lib/bridge.ts`)과 **대칭**이다 —
  * 한쪽 유니온을 고치면 반드시 다른 쪽도 고친다. 알 수 없는 메시지를 `null`로 흘리는 이유도
  * 같다: 웹 번들이 앱보다 앞설 수 있고, 모르는 메시지에 죽으면 세션이 멈춘다.
  */
@@ -28,6 +28,11 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   if (record.type === "session-ready" && typeof record.atMs === "number") {
     return { type: "session-ready", atMs: record.atMs };
   }
+  // TODO(BY-333): open-settings 수신 파싱 추가 — packages/types ToNativeMessage에 2026-07-30에
+  // 추가됐다(웹 발신부는 이미 있다).
+  // 지금 안 넣는 이유: 파싱해도 처리할 네이티브 수신부(OS 설정 열기)가 아직 없다 —
+  // 수신부와 함께 BY-333(셸 전환)에서 한 커밋으로 들어가야 계약과 구현이 어긋난 채 머지되지 않는다.
+  // 남은 하나(start-session)도 BY-333에서 유니온·수신부가 같이 생긴다.
   if (record.type === "navigate-home" && typeof record.atMs === "number") {
     return { type: "navigate-home", atMs: record.atMs };
   }
@@ -64,8 +69,8 @@ export function serializeToWebMessage(message: ToWebMessage): string {
  * 네이티브 → 웹 메시지를 `injectJavaScript`에 넣을 스크립트로 만든다.
  *
  * 웹이 설치한 전역 함수를 호출한다 — 이름은 양쪽이 공유하는 계약이고 웹 쪽
- * (`apps/web/src/features/study-session/bridge/nativeBridge.ts`)의 `NATIVE_MESSAGE_ENTRY`와
- * 같아야 한다. `window.postMessage`를 쓰지 않는 이유는 그쪽 주석에 있다(플랫폼마다 메시지가
+ * (`apps/web/src/lib/bridge.ts`)의 `NATIVE_MESSAGE_ENTRY`와 같아야 한다.
+ * `window.postMessage`를 쓰지 않는 이유는 그쪽 주석에 있다(플랫폼마다 메시지가
  * `window`/`document`로 갈려 한쪽에서 조용히 도착하지 않는다).
  *
  * 세부 두 가지가 중요하다.

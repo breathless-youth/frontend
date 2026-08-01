@@ -1,8 +1,8 @@
 import type { StatusEventPayload, StudyEventStatus, StudySessionResponse } from "@focuson/types";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ResultPage } from "../ResultPage";
 
@@ -41,16 +41,25 @@ function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySes
   };
 }
 
-/** 홈 리다이렉트를 관측하기 위한 프로브 — 실제 `HomePage`를 끌어오지 않는다. */
+/**
+ * 홈 리다이렉트를 관측하기 위한 프로브 — 실제 `HomeTabPage`를 끌어오지 않는다(쿼리 조회가 딸려온다).
+ * 도착한 쿼리를 그대로 노출해 `?userId=N` 승계까지 검증한다.
+ */
 function HomeProbe() {
-  return <p>홈 화면</p>;
+  const { search } = useLocation();
+  return <p>홈 화면{search}</p>;
 }
 
-function renderResult(state: unknown) {
+/**
+ * `/`가 아니라 `/home`에 프로브를 둔다 — `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다.
+ * 이 테스트가 `/`에 프로브를 세워두는 바람에 "확인이 데모 페이지로 보낸다"는 BY-327 통합 버그를
+ * 412개 테스트가 통째로 놓쳤다. 실제 라우트 계약과 같은 경로로만 관측한다.
+ */
+function renderResult(state: unknown, search = "?userId=7") {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: "/room/7/result", state }]}>
+    <MemoryRouter initialEntries={[{ pathname: "/room/7/result", search, state }]}>
       <Routes>
-        <Route path="/" element={<HomeProbe />} />
+        <Route path="/home" element={<HomeProbe />} />
         <Route path="/room/:id/result" element={<ResultPage />} />
       </Routes>
     </MemoryRouter>,
@@ -324,12 +333,32 @@ describe("ResultPage — 확정 표기 회귀", () => {
 });
 
 describe("ResultPage — 이탈 경로", () => {
-  it("CTA '확인'은 홈으로 돌아간다", async () => {
+  afterEach(() => {
+    delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
+  });
+
+  it("CTA '확인'은 데모 랜딩(/)이 아니라 홈(/home)으로 돌아간다", async () => {
     renderResult({ sessions: [exampleSession()] });
 
     await userEvent.click(screen.getByRole("button", { name: "확인" }));
 
-    expect(screen.getByText("홈 화면")).toBeInTheDocument();
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
+  });
+
+  it("홈으로 돌아갈 때 ?userId를 승계한다 — 잃으면 홈이 미저장 모드로 뜬다", async () => {
+    renderResult({ sessions: [exampleSession()] }, "?userId=7");
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(screen.getByText("홈 화면?userId=7")).toBeInTheDocument();
+  });
+
+  it("브리지가 없는 브라우저에서도 던지지 않는다 — 폴백 이동이 실제 복귀다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
   });
 
   /**
@@ -352,7 +381,7 @@ describe("ResultPage — 이탈 경로", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "닫기" }));
 
-    expect(screen.getByText("홈 화면")).toBeInTheDocument();
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
   });
 });
 
@@ -360,20 +389,26 @@ describe("ResultPage — state 없는 진입", () => {
   it("state가 없으면 데이터를 지어내지 않고 홈으로 되돌린다", () => {
     renderResult(undefined);
 
-    expect(screen.getByText("홈 화면")).toBeInTheDocument();
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
     expect(screen.queryByText("공부 결과")).not.toBeInTheDocument();
+  });
+
+  it("state 없는 되돌림도 ?userId를 승계한다 — CTA 경로와 규칙이 갈리지 않는다", () => {
+    renderResult(undefined, "?userId=7");
+
+    expect(screen.getByText("홈 화면?userId=7")).toBeInTheDocument();
   });
 
   it("빈 배열도 결과가 아니다", () => {
     renderResult({ sessions: [] });
 
-    expect(screen.getByText("홈 화면")).toBeInTheDocument();
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
   });
 
   it("형태가 다른 state는 통과시키지 않는다 — 히스토리에는 남의 값도 들어올 수 있다", () => {
     renderResult({ sessions: [{ id: 1, statDate: "2026-07-25" }] });
 
-    expect(screen.getByText("홈 화면")).toBeInTheDocument();
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
   });
 });
 

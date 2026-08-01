@@ -11,9 +11,13 @@
   --color-bg-layer-2: var(--bg-layer-2);
   --color-text-tertiary: var(--text-tertiary);
   --color-brand-subtle: var(--brand-subtle);
+  --color-bg-guide: var(--bg-guide);
+  --color-border-strong: var(--border-strong);
   --color-state-focus: var(--state-focus);
   --color-state-distract: var(--state-distract);
   --color-state-distract-subtle: var(--state-distract-subtle);
+  --color-state-distract-text: var(--state-distract-text);
+  --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
   --radius-md: var(--radius);
 }
@@ -21,39 +25,84 @@
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
-  --background: #ffffff; /* colors.bg.base.light */
-  --foreground: #191f28; /* colors.text.primary.light */
-  --primary: #1b64da; /* colors.brand.primary.light */
-  --primary-foreground: #ffffff; /* colors.text.onBrand.light */
-  --muted: #f9fafb; /* colors.bg.layer1.light */
-  --muted-foreground: #6b7684; /* colors.text.secondary.light */
-  --border: #e5e8eb; /* colors.border.default.light */
-  --bg-layer-2: #f2f4f6; /* colors.bg.layer2.light */
-  --text-tertiary: #8b95a1; /* colors.text.tertiary.light (일시정지 상태색으로도 쓰인다) */
-  --brand-subtle: #e8f3ff; /* colors.brand.subtle.light */
-  --state-focus: #1b64da; /* colors.state.focus.light */
-  --state-distract: #ff8a00; /* colors.state.distract.light */
-  --state-distract-subtle: #fff4e5; /* colors.state.distractSubtle.light */
-  --dim: #00000066; /* colors.bg.dim.light */
-  --radius: 0.75rem; /* colors.radius.md = 12px */
+  --background: #ffffff;
+  /* colors.bg.base.light */
+  --foreground: #191f28;
+  /* colors.text.primary.light */
+  --primary: #1b64da;
+  /* colors.brand.primary.light */
+  --primary-foreground: #ffffff;
+  /* colors.text.onBrand.light */
+  --muted: #f9fafb;
+  /* colors.bg.layer1.light */
+  --muted-foreground: #6b7684;
+  /* colors.text.secondary.light */
+  --border: #e5e8eb;
+  /* colors.border.default.light */
+  --bg-layer-2: #f2f4f6;
+  /* colors.bg.layer2.light */
+  --text-tertiary: #8b95a1;
+  /* colors.text.tertiary.light (일시정지 상태색으로도 쓰인다) */
+  --brand-subtle: #e8f3ff;
+  /* colors.brand.subtle.light */
+  --bg-guide: #f3f8fe;
+  /* colors.bg.guide.light */
+  --border-strong: #d1d6db;
+  /* colors.border.strong.light */
+  --state-focus: #1b64da;
+  /* colors.state.focus.light */
+  --state-distract: #ff8a00;
+  /* colors.state.distract.light */
+  --state-distract-subtle: #fff4e5;
+  /* colors.state.distractSubtle.light */
+  --state-distract-text: #b36100;
+  /* colors.state.distractText.light — S5 EventChip 소형 텍스트 전용 */
+  --text-disabled: #d1d6db;
+  /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
+  --dim: #00000066;
+  /* colors.bg.dim.light */
+  --radius: 0.75rem;
+  /* colors.radius.md = 12px */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #101419; /* colors.bg.base.dark */
-    --foreground: #f9fafb; /* colors.text.primary.dark */
-    --primary: #3182f6; /* colors.brand.primary.dark */
-    --primary-foreground: #ffffff; /* colors.text.onBrand.dark */
-    --muted: #191f28; /* colors.bg.layer1.dark */
-    --muted-foreground: #b0b8c1; /* colors.text.secondary.dark */
-    --border: #333d4b; /* colors.border.default.dark */
-    --bg-layer-2: #333d4b; /* colors.bg.layer2.dark */
-    --text-tertiary: #8b95a1; /* colors.text.tertiary.dark */
-    --brand-subtle: #1b2b4d; /* colors.brand.subtle.dark */
-    --state-focus: #4593fc; /* colors.state.focus.dark */
-    --state-distract: #ff9e1b; /* colors.state.distract.dark */
-    --state-distract-subtle: #3d2e14; /* colors.state.distractSubtle.dark */
-    --dim: #00000099; /* colors.bg.dim.dark */
+    --background: #101419;
+    /* colors.bg.base.dark */
+    --foreground: #f9fafb;
+    /* colors.text.primary.dark */
+    --primary: #3182f6;
+    /* colors.brand.primary.dark */
+    --primary-foreground: #ffffff;
+    /* colors.text.onBrand.dark */
+    --muted: #191f28;
+    /* colors.bg.layer1.dark */
+    --muted-foreground: #b0b8c1;
+    /* colors.text.secondary.dark */
+    --border: #333d4b;
+    /* colors.border.default.dark */
+    --bg-layer-2: #333d4b;
+    /* colors.bg.layer2.dark */
+    --text-tertiary: #8b95a1;
+    /* colors.text.tertiary.dark */
+    --brand-subtle: #1b2b4d;
+    /* colors.brand.subtle.dark */
+    --bg-guide: #152030;
+    /* colors.bg.guide.dark */
+    --border-strong: #4e5968;
+    /* colors.border.strong.dark */
+    --state-focus: #4593fc;
+    /* colors.state.focus.dark */
+    --state-distract: #ff9e1b;
+    /* colors.state.distract.dark */
+    --state-distract-subtle: #3d2e14;
+    /* colors.state.distractSubtle.dark */
+    --state-distract-text: #ff9e1b;
+    /* colors.state.distractText.dark */
+    --text-disabled: #4e5968;
+    /* colors.text.disabled.dark */
+    --dim: #00000099;
+    /* colors.bg.dim.dark */
   }
 }
 
@@ -69,7 +118,36 @@ body {
     sans-serif;
 }
 
-/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그·선택 방지.
+/*
+ * 온보딩 가이드(G1~G5) 전용 키프레임 — `features/onboarding/OnboardingGuideFlow.tsx`·
+ * `SessionMockBackdrop.tsx`의 RN `Animated` 루프를 CSS로 이식한 것(BY-334).
+ * 값 출처는 `features/onboarding/coachOverlayTheme.ts`의 `coachMotion`(확정값 아님, 그 파일 주석
+ * 참고) — CSS는 TS를 import할 수 없어 값을 그대로 옮겨 적는다(위 색 변수와 같은 이유).
+ * 반복·재생 여부는 각 사용처의 `motion-reduce:` 유틸이 담당한다.
+ */
+@keyframes coach-ring-out {
+  from {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes coach-step-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그 방지.
    `-webkit-user-drag`는 상속되지 않는 속성이라 자손 선택자로 명시한다 — 컨트롤 바 아이콘이
    전부 `<img>`라 기본값으로는 마우스/터치 드래그에 끌린다(iOS WKWebView·Android WebView 둘
    다 webkit 접두 속성을 인식한다). `-webkit-touch-callout`은 iOS 길게 누르기 시 뜨는
@@ -97,9 +175,11 @@ body {
   0% {
     opacity: 0;
   }
+
   11% {
     opacity: 1;
   }
+
   100% {
     opacity: 0;
   }

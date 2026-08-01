@@ -6,7 +6,6 @@ import type { StudySessionResponse } from "@focuson/types";
 import { Toast } from "@/components/ui/toast";
 import { createVisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
-import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
@@ -37,6 +36,7 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useSessionToast } from "@/features/study-session/useSessionToast";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -297,27 +297,35 @@ export function RoomPage() {
    */
   const goToResult = useCallback(
     (sessions: StudySessionResponse[]) => {
-      navigate("result", { state: { sessions }, replace: true });
+      // 쿼리(`?userId=N`)를 함께 넘긴다 — S4의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
+      // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다(BY-327 통합에서 실증).
+      navigate(
+        { pathname: "result", search: searchParams.toString() },
+        { state: { sessions }, replace: true },
+      );
     },
-    [navigate],
+    [navigate, searchParams],
   );
 
   /**
    * 홈으로 이탈 — 미달 종료(순공 1분 미만)의 유일한 출구다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
-   * 것이라 `navigate("/")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
    * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
    * `navigate-home`을 먼저 보낸다 — 네이티브가 모달을 닫으면 이 화면 전체가 사라지므로
    * 아래 웹 라우터 이동은 그 사이 잠깐이라도 화면이 있을 브라우저 단독 모드(ADR 0001)를 위한
    * 폴백이다. 네이티브가 없으면 `postToNative`가 조용히 아무 일도 하지 않는다.
+   *
+   * 목적지는 `/`가 아니라 `/home`이고 쿼리(`?userId=N`)를 승계한다 — `/`는 개발용 데모 랜딩이고
+   * 잃으면 홈이 미저장 모드로 뜬다(`ResultPage.handleConfirm`과 같은 규칙, BY-327 통합에서 발견).
    */
   const goHome = useCallback(() => {
     postToNative({ type: "navigate-home", atMs: Date.now() });
     // `replace: true`: 세션은 끝났다. 뒤로 가기로 룸에 돌아오면 타이머가 0부터 도는 새 세션이
     // 시작돼 사용자에게 거짓이 된다(`goToResult`와 같은 이유).
-    navigate("/", { replace: true });
-  }, [navigate]);
+    navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
+  }, [navigate, searchParams]);
 
   /**
    * 순공 1분 미만으로 끝났는가 — **S4로 보내지 않는 조건**이다(2026-07-27 확정).

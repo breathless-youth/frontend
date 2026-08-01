@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseToWebMessage, postToNative } from "../nativeBridge";
+import { parseToWebMessage, postToNative } from "@/lib/bridge";
 
 describe("parseToWebMessage", () => {
   it("device-handling 메시지를 파싱한다", () => {

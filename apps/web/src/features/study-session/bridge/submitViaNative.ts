@@ -1,6 +1,6 @@
 import type { StudySessionCreateRequest, StudySessionResponse } from "@focuson/types";
 
-import { postToNative, subscribeToNativeMessages } from "./nativeBridge";
+import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
 /**
  * 세션 제출을 **네이티브에 대행시킨다** — WebView 안에서 백엔드로 직접 `fetch`하면 CORS에

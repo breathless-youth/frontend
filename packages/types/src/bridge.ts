@@ -45,7 +45,23 @@ export type SubmitResultMessage =
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  { type: "session-ready"; atMs: number } | SubmitSessionMessage | NavigateHomeMessage;
+  | { type: "session-ready"; atMs: number }
+  /**
+   * 웹 홈·온보딩 가이드에서 "집중 시작"이 확정됐다 — 네이티브가 카메라 권한 게이트를 돌리고
+   * 세션 화면을 push한다(BY-334에서 웹 발신 추가).
+   *
+   * 온보딩이 웹으로 이관돼도 이 메시지는 필요하다: **권한 요청과 화면 스택은 네이티브 소유**라
+   * 웹이 대신할 수 없다. 수신·게이트 실행은 BY-333 범위다 — 그때까지 네이티브는 이 메시지를
+   * 무시하고(모르는 메시지는 흘려보내는 계약), 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   */
+  | { type: "start-session"; atMs: number }
+  /**
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청.
+   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
+   */
+  | { type: "open-settings"; atMs: number }
+  | SubmitSessionMessage
+  | NavigateHomeMessage;
 
 /**
  * S4(공부 결과)·미달 종료 안내의 CTA가 보낸다 — **네이티브 홈 탭으로 돌려보내 달라는 요청**이다.
@@ -56,7 +72,8 @@ export type ToNativeMessage =
  * 안다 — 그래서 신호만 보내고 실제 네비게이션은 `apps/mobile/app/room/[id].tsx`가 한다.
  *
  * 브리지가 없는 브라우저 단독 모드(ADR 0001)에서는 이 메시지가 조용히 버려지고, 호출부가
- * 남겨 둔 웹 라우터 폴백(`navigate("/", {replace:true})`)이 그대로 동작한다.
+ * 남겨 둔 웹 라우터 폴백(`navigate("/home", {replace:true})`, `location.search` 승계)이 그대로
+ * 동작한다.
  */
 export interface NavigateHomeMessage {
   type: "navigate-home";

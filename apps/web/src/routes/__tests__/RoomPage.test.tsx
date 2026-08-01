@@ -38,16 +38,20 @@ function ResultRouteProbe() {
   );
 }
 
-/** 홈 라우트 자리의 프로브 — 미달 종료의 이탈 경로를 관측한다. */
+/**
+ * 홈 라우트(`/home`) 자리의 프로브 — 미달 종료의 이탈 경로를 관측한다.
+ * 도착한 쿼리를 그대로 노출해 `?userId=N` 승계까지 검증한다(`ResultPage.test.tsx`와 같은 패턴).
+ */
 function HomeRouteProbe() {
-  return <p>홈 라우트</p>;
+  const location = useLocation();
+  return <p>{`홈 라우트${location.search}`}</p>;
 }
 
 function renderRoom(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
-        <Route path="/" element={<HomeRouteProbe />} />
+        <Route path="/home" element={<HomeRouteProbe />} />
         <Route path="/room/:id" element={<RoomPage />} />
         <Route path="/room/:id/result" element={<ResultRouteProbe />} />
       </Routes>
@@ -1049,7 +1053,8 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
     await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
     await userEvent.click(screen.getByRole("button", { name: "홈으로" }));
 
-    expect(await screen.findByText("홈 라우트")).toBeInTheDocument();
+    // `?userId=1`을 승계한다 — 잃으면 홈이 미저장 모드로 뜬다(`ResultPage.test.tsx`와 같은 규칙).
+    expect(await screen.findByText("홈 라우트?userId=1")).toBeInTheDocument();
   });
 
   /**

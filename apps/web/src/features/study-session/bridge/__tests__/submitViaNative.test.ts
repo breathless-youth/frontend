@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StudySessionCreateRequest, SubmitResultMessage } from "@focuson/types";
 
-import { NATIVE_MESSAGE_ENTRY } from "../nativeBridge";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { NATIVE_SUBMIT_TIMEOUT_MESSAGE, submitViaNative } from "../submitViaNative";
 
 const REQUEST: StudySessionCreateRequest = {

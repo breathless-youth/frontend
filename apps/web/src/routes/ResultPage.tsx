@@ -2,12 +2,12 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focuson/types";
 
-import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { DistractionStatsCard } from "@/features/study-session/components/DistractionStatsCard";
 import { ResultHeader } from "@/features/study-session/components/ResultHeader";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
+import { postToNative } from "@/lib/bridge";
 
 /**
  * S4 공부 결과 (Figma `64:534`) — 세션 상태 머신(S3-1~S3-8)의 **종착점**.
@@ -45,7 +45,7 @@ export function ResultPage() {
    * 상상해 부여하지 않는다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
-   * 것이라 `navigate("/")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
    * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
    * `navigate-home`을 먼저 보낸다(`packages/types`의 `NavigateHomeMessage`) — 네이티브가
    * 모달을 닫으면 이 화면 전체가 사라지므로 아래 웹 라우터 이동은 브라우저 단독 모드
@@ -53,19 +53,25 @@ export function ResultPage() {
    * 않는다. (2026-07-26에는 이 브리지가 없어 미정으로 남겨 뒀었다 — 2026-07-30 제출 대행
    * 브리지가 생기면서 같은 통로로 해결했다.)
    *
+   * 목적지는 `/`가 아니라 `/home`이다 — `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다.
+   * 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장(브라우저 단독) 모드로 뜬다.
+   * (셋을 합치기 전에는 `/`가 유일한 홈이라 드러나지 않던 경로다 — BY-327 통합에서 발견.)
+   *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   function handleConfirm() {
     postToNative({ type: "navigate-home", atMs: Date.now() });
-    navigate("/", { replace: true });
+    navigate({ pathname: "/home", search: location.search }, { replace: true });
   }
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
        없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
-       그리지 않는다(SCR-S4 Interaction Contract). */
-    return <Navigate to="/" replace />;
+       그리지 않는다(SCR-S4 Interaction Contract).
+       `handleConfirm`과 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
+       고쳐지고 다른 쪽이 남는다. */
+    return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
   }
 
   /**
