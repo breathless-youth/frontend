@@ -5,6 +5,7 @@ import {
   EXIT_CONFIRM_COPY,
   PAUSE_CAPTION,
   PRIVACY_CAPTION,
+  SUB_MINUTE_EXIT_DESCRIPTION,
   autoEndBodyLinesFor,
   captionFor,
   exitConfirmDescription,
@@ -92,18 +93,34 @@ describe("EXIT_CONFIRM_COPY — S3-7 종료 확인 (voice-tone.md §4)", () => {
   });
 });
 
-describe("exitConfirmDescription — 조사 자동 처리 + 한글 시간 길이", () => {
-  it("분·시간 단위 값 뒤에는 '은'이 붙는다", () => {
+describe("exitConfirmDescription — 한글 시간 길이 + 미달 분기", () => {
+  it("1분 이상이면 저장을 약속한다", () => {
     expect(exitConfirmDescription(5048)).toBe("지금까지 집중한 1시간 24분은 저장돼요");
     expect(exitConfirmDescription(3120)).toBe("지금까지 집중한 52분은 저장돼요");
+    expect(exitConfirmDescription(60)).toBe("지금까지 집중한 1분은 저장돼요");
   });
 
-  it("초 단위 값 뒤에는 '는'이 붙는다", () => {
-    expect(exitConfirmDescription(40)).toBe("지금까지 집중한 40초는 저장돼요");
+  /**
+   * 순공 1분 미만 세션은 기록 목록·합산에서 제외된다(2026-07-27 확정). 기본 문구를 그대로
+   * 쓰면 저장된다고 말하고는 기록 어디에도 안 남아 **화면이 거짓말을 한다.**
+   */
+  it("1분 미만이면 저장을 약속하지 않고 미달을 알린다", () => {
+    expect(exitConfirmDescription(59)).toBe(SUB_MINUTE_EXIT_DESCRIPTION);
+    expect(exitConfirmDescription(40)).toBe("1분 미만 공부는 기록에 표시되지 않아요");
+    expect(exitConfirmDescription(0)).toBe(SUB_MINUTE_EXIT_DESCRIPTION);
   });
 
-  it("다이얼로그에는 HH:MM:SS를 쓰지 않는다", () => {
-    expect(exitConfirmDescription(5048)).not.toContain(":");
+  it("미달 문구는 '저장'을 약속하지 않는다", () => {
+    expect(exitConfirmDescription(40)).not.toContain("저장돼요");
+  });
+
+  it("어떤 값에도 초 숫자나 HH:MM:SS를 노출하지 않는다", () => {
+    for (const seconds of [0, 40, 59, 60, 90, 3120, 5048]) {
+      expect(exitConfirmDescription(seconds)).not.toContain(":");
+    }
+    // `1분 미만`의 '만'은 남지만 초 숫자는 어디에도 없다.
+    expect(exitConfirmDescription(40)).not.toMatch(/\d+초/);
+    expect(exitConfirmDescription(5048)).not.toMatch(/\d+초/);
   });
 });
 

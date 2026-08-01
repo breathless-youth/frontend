@@ -35,7 +35,21 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <StatusBar style="auto" />
-        <Stack screenOptions={{ headerShown: false }}>
+        {/*
+          방향은 **화면 단위로** 정한다 — 기본 세로, 세션(`room/[id]`)만 회전 허용.
+
+          `app.json`의 `orientation`은 `"default"`(전 방향)여야 한다. 그건 "앱을 전부 회전
+          가능하게" 만드는 설정이 아니라 **네이티브가 허용하는 방향의 상한**이다(iOS
+          `UISupportedInterfaceOrientations`). 여기서 `"portrait"`로 조이면 상한이 세로로 닫혀
+          아래 화면별 `orientation`이 landscape를 요청해도 회전하지 않는다.
+
+          그래서 실제 정책은 이 두 줄이 만든다: 상한은 전 방향으로 열어 두고, 기본값을 세로로
+          닫은 다음, 세션에서만 다시 연다.
+
+          `react-native-screens`(4.16.0, 이미 직접 의존성)가 처리하므로 `expo-screen-orientation`을
+          추가하지 않는다 — SCR-S3-5-S3-6 P0-3의 "새 네이티브 의존성 승인"이 불필요해진 이유.
+        */}
+        <Stack screenOptions={{ headerShown: false, orientation: "portrait" }}>
           <Stack.Screen name="(tabs)" />
           {/* S2-3 권한 거부 안내 — 탭 위에 올라오는 전체 화면. 백 제스처를 막지 않는다(홈 복귀와 동일 결과). */}
           <Stack.Screen name="permission-denied" />
@@ -47,7 +61,18 @@ export default function RootLayout() {
             싱글룸 세션(S3) — 화면 구현체는 apps/web이고 WebView로 로드한다(ADR 0001).
             탭 바를 가리는 전체 화면으로 띄운다: 세션 중에는 탭 이동이 없다.
           */}
-          <Stack.Screen name="room/[id]" options={{ presentation: "fullScreenModal" }} />
+          {/*
+            방향: 이 화면만 회전을 연다(S3-5·S3-6 가로 거치 모드). `"all"`이 아니라 `"default"`인
+            이유는 iOS에서 `"all"`이 **거꾸로 세로**(portrait_down)까지 포함하기 때문이다 —
+            거치대에 눕히는 용도에 거꾸로는 필요 없고, Android에서는 `"default"`가 시스템 판단에
+            맡겨 사용자의 회전 잠금 설정을 존중한다.
+
+            세로 세션 화면(S3-1~S3-4)도 그대로 살아 있다 — 가로는 강제가 아니라 선택지다.
+          */}
+          <Stack.Screen
+            name="room/[id]"
+            options={{ presentation: "fullScreenModal", orientation: "default" }}
+          />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>

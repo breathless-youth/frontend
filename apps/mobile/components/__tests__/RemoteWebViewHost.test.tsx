@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import type { ToNativeMessage } from "@focuson/types";
+import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
 
 import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWebViewHost";
 
@@ -16,6 +16,9 @@ import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWeb
  */
 
 let mockWebBaseUrl: string | undefined = "https://web.test";
+
+/** 웹으로 되돌려 보내는 통로(`injectJavaScript`)의 관찰점 — reply 배선 검증에 쓴다. */
+const mockInjectJavaScript = jest.fn();
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -41,7 +44,10 @@ jest.mock("react-native-webview", () => {
       props: Record<string, unknown>,
       ref: React.Ref<{ reload: () => void }>,
     ) {
-      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      ReactModule.useImperativeHandle(ref, () => ({
+        reload: jest.fn(),
+        injectJavaScript: mockInjectJavaScript,
+      }));
       return ReactModule.createElement(View, props);
     }),
   };
@@ -122,13 +128,35 @@ describe("RemoteWebViewHost", () => {
 
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
     act(() => {
-      onMessage({ nativeEvent: { data: '{"type":"exit-session","atMs":5}' } });
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
     });
 
-    expect(onBridgeMessage).toHaveBeenCalledWith<[ToNativeMessage]>({
-      type: "exit-session",
-      atMs: 5,
+    expect(onBridgeMessage).toHaveBeenCalledWith<[ToNativeMessage, () => void]>(
+      { type: "navigate-home", atMs: 5 },
+      expect.any(Function),
+    );
+  });
+
+  /**
+   * 응답 통로는 이 컴포넌트만 가질 수 있다(`webViewRef.injectJavaScript`) — 핸들러에 넘기지
+   * 않으면 세션 제출 결과가 웹으로 돌아가지 못하고 웹이 "저장 중..."에 갇힌다.
+   */
+  it("reply로 응답을 웹에 주입한다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/room/1" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
     });
+    const reply = onBridgeMessage.mock.calls[0]![1] as (m: ToWebMessage) => void;
+    act(() => {
+      reply({ type: "app-state", state: "active", atMs: 6 });
+    });
+
+    expect(mockInjectJavaScript).toHaveBeenCalledWith(
+      expect.stringContaining('\\"type\\":\\"app-state\\"'),
+    );
   });
 
   it("알 수 없는 메시지는 콜백을 부르지 않는다", () => {

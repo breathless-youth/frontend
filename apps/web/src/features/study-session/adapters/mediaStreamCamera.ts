@@ -1,3 +1,4 @@
+import { visionDiagnostics } from "../vision/diagnostics";
 import { CAMERA_CONSTRAINTS } from "../vision/visionConfig";
 import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdapter";
 
@@ -32,6 +33,32 @@ function stopStream(stream: MediaStream | null): void {
   }
 }
 
+/**
+ * 실제로 열린 트랙 설정을 진단에 남긴다 — 요청값(`cameraConstraints`)과 다를 수 있고,
+ * 그 차이가 그대로 프리뷰 여백이 된다(`CameraStreamDiagnostics` 참고).
+ *
+ * **어떤 이유로도 던지지 않는다.** 이건 진단일 뿐인데 여기서 예외가 나면 `open()`이 통째로
+ * 실패해 카메라가 안 켜진다 — 진단이 기능을 죽이는 건 어떤 값어치로도 정당화되지 않는다.
+ * 그래서 `getVideoTracks`·`getSettings`의 존재를 확인하고 들어간다(테스트 스텁을 포함해
+ * MediaStream 표면을 부분만 구현한 환경이 실제로 있다).
+ */
+function reportStreamSettings(stream: MediaStream): void {
+  const track = stream.getVideoTracks?.()[0];
+  if (typeof track?.getSettings !== "function") {
+    return;
+  }
+  const settings = track.getSettings();
+  const width = settings.width ?? 0;
+  const height = settings.height ?? 0;
+  visionDiagnostics.cameraStream({
+    width,
+    height,
+    // 트랙이 안 주면 계산한다 — 비율이야말로 이 로그를 남기는 이유다.
+    aspectRatio: settings.aspectRatio ?? (height === 0 ? 0 : width / height),
+    facingMode: settings.facingMode ?? "unknown",
+  });
+}
+
 export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
   let facing: CameraFacing = "front";
   let stream: MediaStream | null = null;
@@ -51,7 +78,11 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
 
   async function open(next: CameraFacing): Promise<MediaStream | null> {
     try {
-      return await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS[next]);
+      // 뷰포트 비율은 **열 때마다** 읽는다 — 기기를 돌리면 값이 뒤집히고, 카메라 전환도
+      // 새로 여는 것이라 그때의 화면 모양을 반영해야 한다.
+      const opened = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS[next]);
+      reportStreamSettings(opened);
+      return opened;
     } catch (error: unknown) {
       // 권한 거부·기기 점유 모두 여기로 온다. 어느 쪽인지 화면에서 구분하지 않으므로
       // (voice-tone에 `카메라가 꺼져 있어요` 하나뿐) 사유를 나누지 않는다.

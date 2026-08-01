@@ -30,6 +30,52 @@ describe("parseToWebMessage", () => {
   it("필드 타입이 어긋나면 null을 돌려준다", () => {
     expect(parseToWebMessage('{"type":"device-handling","active":"yes","atMs":1}')).toBeNull();
   });
+
+  it("성공한 submit-result를 파싱한다", () => {
+    expect(
+      parseToWebMessage(
+        '{"type":"submit-result","requestId":"submit-1","ok":true,"sessions":[{"id":7}],"atMs":3000}',
+      ),
+    ).toEqual({
+      type: "submit-result",
+      requestId: "submit-1",
+      ok: true,
+      sessions: [{ id: 7 }],
+      atMs: 3000,
+    });
+  });
+
+  it("실패한 submit-result를 파싱한다 — 사유가 사용자에게 보여야 한다", () => {
+    expect(
+      parseToWebMessage(
+        '{"type":"submit-result","requestId":"submit-2","ok":false,"message":"저장 실패","atMs":4000}',
+      ),
+    ).toEqual({
+      type: "submit-result",
+      requestId: "submit-2",
+      ok: false,
+      message: "저장 실패",
+      atMs: 4000,
+    });
+  });
+
+  it("ok=true인데 sessions가 없으면 null이다 — 빈 성공으로 오해하면 안 된다", () => {
+    expect(
+      parseToWebMessage('{"type":"submit-result","requestId":"submit-3","ok":true,"atMs":1}'),
+    ).toBeNull();
+  });
+
+  it("ok=false인데 message가 없으면 null이다", () => {
+    expect(
+      parseToWebMessage('{"type":"submit-result","requestId":"submit-4","ok":false,"atMs":1}'),
+    ).toBeNull();
+  });
+
+  it("requestId가 없으면 null이다 — 짝을 맞출 수 없는 응답은 버린다", () => {
+    expect(
+      parseToWebMessage('{"type":"submit-result","ok":true,"sessions":[],"atMs":1}'),
+    ).toBeNull();
+  });
 });
 
 describe("postToNative", () => {

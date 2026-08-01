@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
+import { BackHandler } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
 
@@ -61,5 +62,27 @@ describe("SessionRoomScreen", () => {
       flex: 1,
       backgroundColor: "#0B0F14",
     });
+  });
+
+  /**
+   * 뒤로가기를 막지 않으면 네이티브가 이 화면을 팝하면서 WebView가 파괴되고, 세션 로직이
+   * 전부 그 안에 있으므로 종료·제출이 실행되지 않는다 — **공부한 시간이 통째로 사라진다.**
+   * 화면에 보이는 증상이 없는 유실이라 테스트로 못 박는다. 차단 조건 자체(로딩 중·실패
+   * 화면에서는 막지 않음)는 `components/__tests__/RemoteScreen.test.tsx`가 덮는다.
+   */
+  it("세션 화면만 안드로이드 하드웨어 뒤로가기를 막는다", async () => {
+    const spy = jest.spyOn(BackHandler, "addEventListener");
+    spy.mockImplementation(() => ({ remove: jest.fn() }));
+
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+    // 웹뷰 로드가 끝나야(스플래시가 걷혀야) 지킬 세션이 생긴다.
+    act(() => {
+      (screen.getByTestId("session-webview").props.onLoadEnd as () => void)();
+    });
+
+    // `true` = "이 이벤트를 처리했으니 기본 동작(화면 닫기)을 하지 말라"
+    expect(spy.mock.calls.at(-1)?.[1]()).toBe(true);
+    spy.mockRestore();
   });
 });

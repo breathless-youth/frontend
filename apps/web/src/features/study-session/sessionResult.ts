@@ -140,28 +140,20 @@ export function toSessionResultView(session: StudySessionResponse): SessionResul
 }
 
 /**
- * 통계 행의 시간 표기 — voice-tone.md §2의 시간 길이 규칙 중 **"초가 중요한 상세 맥락"** 변형이다.
+ * 통계 행의 시간 표기.
  *
- * - 1시간 이상 → `N시간 M분` (M=0이면 `N시간`)
- * - 1시간 미만 → `M분 S초` (S=0이면 `M분`)
- * - 1분 미만 → `S초`
+ * **이제 `toKoreanDurationLength`와 같은 규칙이다** — 분 단위로만 쓰고 초를 노출하지 않는다.
  *
- * Figma 실측값(`2회 · 9분 40초` / `1회 · 3분`)이 이 규칙과 정확히 일치한다.
- * 헤더의 순공·총 공부는 초를 노출하지 않으므로 `toKoreanDurationLength`를 쓴다 — 두 함수를
- * 섞지 말 것.
+ * 예전에는 이 함수가 `9분 40초`처럼 초까지 썼고, 그 근거는 voice-tone.md §2의 "초가 중요한
+ * 상세 맥락은 M분 S초" 조항 + Figma 실측값(`2회 · 9분 40초`)이었다. **그 조항이 2026-07-27에
+ * 폐기됐다**(8차 인터뷰: 모든 시간 텍스트 분 단위, 초 금지 — 라이브 타이머만 예외). 그래서
+ * Figma 실측값과 의도적으로 달라진다.
+ *
+ * 별도 함수로 남겨 둔 이유는 호출부(`DistractionStatsCard`)의 의미가 다르기 때문이다 —
+ * 통계 행의 시간은 접힌 상태에서는 아예 그려지지 않고 펼쳤을 때만 나온다.
  */
 export function formatEventDuration(totalSeconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(safeSeconds / 3600);
-  const m = Math.floor((safeSeconds % 3600) / 60);
-  const s = safeSeconds % 60;
-  if (h > 0) {
-    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
-  }
-  if (m > 0) {
-    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
-  }
-  return `${s}초`;
+  return toKoreanDurationLength(totalSeconds);
 }
 
 /**

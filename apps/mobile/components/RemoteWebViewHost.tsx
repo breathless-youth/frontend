@@ -5,8 +5,9 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react
 import type { ToNativeMessage } from "@focuson/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
+import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
-import { parseToNativeMessage } from "../lib/webBridge";
+import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 
 /**
  * 원격 웹(`apps/web`) 화면을 로드하는 공용 WebView 호스트(전 화면 원격 웹뷰 셸, BY-333).
@@ -66,17 +67,22 @@ export type RemoteWebViewHostProps = {
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
-   * 웹이 보낸 브리지 메시지(session-ready·start-session·exit-session·open-settings)를
-   * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다(파싱 단계에서 걸러짐).
+   * 웹이 보낸 브리지 메시지(session-ready·start-session·navigate-home·open-settings·
+   * submit-session)를 `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
+   * (파싱 단계에서 걸러짐).
+   *
+   * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(`submit-session` → `submit-result`).
+   * 통로가 이 컴포넌트 안(`webViewRef.injectJavaScript`)에 있어 핸들러가 직접 가질 수 없다.
    */
-  onBridgeMessage?: (message: ToNativeMessage) => void;
+  onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
   /**
-   * 로드가 끝나면 호출된다(성공·실패 둘 다 — `react-native-webview`의 `onLoadEnd` 그대로).
-   * 초기 로딩을 가리는 스플래시를 언제 걷을지 판단하는 용도(`RemoteScreen` 참고).
+   * 로드가 끝나면 호출된다(성공·실패 둘 다). 스플래시를 언제 걷을지 판단하는 용도이고,
+   * `ok`는 실패 폴백 화면이 떠 있는지를 알려준다 — 세션 화면이 안드로이드 하드웨어
+   * 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
    */
-  onLoadEnd?: () => void;
+  onLoadEnd?: (ok: boolean) => void;
   testID?: string;
 };
 
@@ -118,7 +124,9 @@ export function RemoteWebViewHost({
     (event: WebViewMessageEvent) => {
       const message = parseToNativeMessage(event.nativeEvent.data);
       if (message !== null) {
-        onBridgeMessage?.(message);
+        onBridgeMessage?.(message, (reply) => {
+          webViewRef.current?.injectJavaScript(injectMessageScript(reply));
+        });
       }
     },
     [onBridgeMessage],
@@ -158,7 +166,7 @@ export function RemoteWebViewHost({
   // 화면(그리고 "다시 시도" 버튼)을 영영 가려 조작 불가 상태가 된다(BY-333 실기기 확인).
   useEffect(() => {
     if (showFailureFallback) {
-      onLoadEnd?.();
+      onLoadEnd?.(false);
     }
   }, [showFailureFallback, onLoadEnd]);
 
@@ -227,7 +235,9 @@ export function RemoteWebViewHost({
       // 세션 화면은 웹 히스토리가 비어 있어(새로 로드된 라우트) 이 제스처로 빠져나가지 않는다.
       allowsBackForwardNavigationGestures
       onMessage={handleMessage}
-      onLoadEnd={onLoadEnd}
+      // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
+      // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
+      onLoadEnd={() => onLoadEnd?.(true)}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}
     />

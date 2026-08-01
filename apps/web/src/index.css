@@ -114,3 +114,15 @@ body {
     opacity: 1;
   }
 }
+
+/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그 방지.
+   `-webkit-user-drag`는 상속되지 않는 속성이라 자손 선택자로 명시한다 — 컨트롤 바 아이콘이
+   전부 `<img>`라 기본값으로는 마우스/터치 드래그에 끌린다(iOS WKWebView·Android WebView 둘
+   다 webkit 접두 속성을 인식한다). `-webkit-touch-callout`은 iOS 길게 누르기 시 뜨는
+   복사/이미지 저장 메뉴를 막는다. */
+.session-no-drag,
+.session-no-drag * {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}

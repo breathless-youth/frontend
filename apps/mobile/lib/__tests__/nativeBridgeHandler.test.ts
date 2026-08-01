@@ -1,8 +1,11 @@
 import { router } from "expo-router";
 
+import type { SubmitResultMessage } from "@focuson/types";
+
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { relaySessionSubmit } from "../sessionSubmitRelay";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -11,7 +14,7 @@ import { runCameraPermissionGate } from "../cameraPermissionGate";
  */
 
 jest.mock("expo-router", () => ({
-  router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
 
 jest.mock("../cameraPermissionGate", () => ({
@@ -22,15 +25,26 @@ jest.mock("../cameraPermission", () => ({
   openAppSettings: jest.fn(async () => undefined),
 }));
 
+jest.mock("../sessionSubmitRelay", () => ({
+  relaySessionSubmit: jest.fn(),
+}));
+
+/** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
+const noopReply = jest.fn();
+
 const mockedRouter = router as unknown as {
   push: jest.Mock;
   back: jest.Mock;
+  replace: jest.Mock;
   canGoBack: jest.Mock;
 };
 const mockedRunCameraPermissionGate = runCameraPermissionGate as jest.MockedFunction<
   typeof runCameraPermissionGate
 >;
 const mockedOpenAppSettings = openAppSettings as jest.MockedFunction<typeof openAppSettings>;
+const mockedRelaySessionSubmit = relaySessionSubmit as jest.MockedFunction<
+  typeof relaySessionSubmit
+>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -39,7 +53,7 @@ beforeEach(() => {
 
 describe("handleBridgeMessage", () => {
   it("session-ready는 아무 것도 하지 않는다 — 네이티브가 추가로 할 일이 없다", () => {
-    expect(() => handleBridgeMessage({ type: "session-ready", atMs: 1 })).not.toThrow();
+    expect(() => handleBridgeMessage({ type: "session-ready", atMs: 1 }, noopReply)).not.toThrow();
     expect(mockedRouter.push).not.toHaveBeenCalled();
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedOpenAppSettings).not.toHaveBeenCalled();
@@ -48,7 +62,7 @@ describe("handleBridgeMessage", () => {
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
-    handleBridgeMessage({ type: "start-session", atMs: 1 });
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
     await Promise.resolve();
     await Promise.resolve();
 
@@ -59,30 +73,73 @@ describe("handleBridgeMessage", () => {
   it("start-session → 권한이 거부되면 권한 거부 안내로 보낸다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
 
-    handleBridgeMessage({ type: "start-session", atMs: 1 });
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
     await Promise.resolve();
     await Promise.resolve();
 
     expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
   });
 
-  it("exit-session → 뒤로 갈 곳이 있으면 pop한다", () => {
-    handleBridgeMessage({ type: "exit-session", atMs: 1 });
+  it("navigate-home → 뒤로 갈 곳이 있으면 pop한다", () => {
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
   });
 
-  it("exit-session → 뒤로 갈 곳이 없으면 아무 것도 하지 않는다", () => {
+  /**
+   * 스택이 비어 있을 때 아무 일도 하지 않으면 사용자가 결과 화면에 갇힌다 — 웹 라우터
+   * 폴백은 WebView 안의 웹 홈을 열 뿐 네이티브 탭으로 나오지 못한다.
+   */
+  it("navigate-home → 뒤로 갈 곳이 없으면 탭 루트로 교체한다", () => {
     mockedRouter.canGoBack.mockReturnValue(false);
 
-    handleBridgeMessage({ type: "exit-session", atMs: 1 });
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
+    expect(mockedRouter.replace).toHaveBeenCalledWith("/");
   });
 
   it("open-settings → OS 설정 앱을 연다", () => {
-    handleBridgeMessage({ type: "open-settings", atMs: 1 });
+    handleBridgeMessage({ type: "open-settings", atMs: 1 }, noopReply);
 
     expect(mockedOpenAppSettings).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 응답을 돌려주지 않으면 웹이 타임아웃까지 "저장 중..."에 갇힌다 — 화면에 증상이 없는
+   * 유실이라 못 박는다. `requestId`를 그대로 실어 보내야 재시도와 낡은 응답이 섞이지 않는다.
+   */
+  it("submit-session → 제출을 대행하고 결과를 웹으로 되돌려 보낸다", async () => {
+    const result: SubmitResultMessage = {
+      type: "submit-result",
+      requestId: "req-1",
+      ok: true,
+      sessions: [],
+      atMs: 2,
+    };
+    mockedRelaySessionSubmit.mockResolvedValue(result);
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      {
+        type: "submit-session",
+        requestId: "req-1",
+        request: {
+          userId: 1,
+          startedAt: "",
+          endedAt: "",
+          studySec: 0,
+          focusSec: 0,
+          events: [],
+        },
+        atMs: 1,
+      },
+      reply,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedRelaySessionSubmit).toHaveBeenCalledTimes(1);
+    expect(reply).toHaveBeenCalledWith(result);
   });
 });

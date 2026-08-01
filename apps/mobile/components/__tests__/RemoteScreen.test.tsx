@@ -142,9 +142,9 @@ describe("RemoteScreen", () => {
     ) => void;
 
     act(() => {
-      onMessage({ nativeEvent: { data: '{"type":"exit-session","atMs":5}' } });
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
     });
 
-    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith({ type: "exit-session", atMs: 5 });
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith({ type: "navigate-home", atMs: 5 }, expect.any(Function));
   });
 });

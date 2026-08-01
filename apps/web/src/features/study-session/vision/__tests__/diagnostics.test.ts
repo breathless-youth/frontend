@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { DiagnosticsSink } from "../diagnostics";
-import { createVisionDiagnostics, visionDiagnostics } from "../diagnostics";
+import { createVisionDiagnostics, isDiagnosticsEnabled, visionDiagnostics } from "../diagnostics";
 
 function recordingSink() {
   const events: { event: string; payload: Record<string, string | number | boolean> }[] = [];
@@ -89,6 +89,35 @@ describe("createVisionDiagnostics", () => {
       to: "PHONE",
       atMs: 1_700_000_000_000,
     });
+  });
+});
+
+/**
+ * 앱에 동봉되는 `web-dist`는 **언제나 프로덕션 빌드**라 `import.meta.env.DEV`가 false다.
+ * DEV로만 게이트하면 실기기에서 진단을 볼 방법이 아예 없다 — 2026-07-30에 실제로 그랬고
+ * (번들에 `camera:stream` 0건), 그래서 URL 플래그를 도입했다.
+ */
+describe("isDiagnosticsEnabled", () => {
+  it("DEV에서는 플래그 없이도 켜진다", () => {
+    expect(isDiagnosticsEnabled("", true)).toBe(true);
+  });
+
+  it("프로덕션에서는 기본이 꺼짐이다 — 사용자에게 진단이 보이면 안 된다", () => {
+    expect(isDiagnosticsEnabled("userId=7", false)).toBe(false);
+  });
+
+  it("프로덕션에서도 diag=1이면 켜진다 — 실기기 측정 경로", () => {
+    expect(isDiagnosticsEnabled("userId=7&diag=1", false)).toBe(true);
+  });
+
+  it("diag=1이 아닌 값은 켜지 않는다", () => {
+    expect(isDiagnosticsEnabled("diag=0", false)).toBe(false);
+    expect(isDiagnosticsEnabled("diag=true", false)).toBe(false);
+    expect(isDiagnosticsEnabled("diag", false)).toBe(false);
+  });
+
+  it("앞의 물음표가 있어도 동작한다", () => {
+    expect(isDiagnosticsEnabled("?diag=1", false)).toBe(true);
   });
 });
 

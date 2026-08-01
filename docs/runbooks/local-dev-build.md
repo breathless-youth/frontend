@@ -1,5 +1,12 @@
 # 로컬 Dev Build 런북 (iOS 시뮬레이터 · Android 에뮬레이터)
 
+> ⚠️ **2026-08-01(BY-333) 기준 일부 낡음 — 웹 자산 관련 절은 따르지 말 것.**
+> 모든 화면이 `app.json`의 `extra.webBaseUrl`이 가리키는 원격 주소를 여는 구조로 바뀌면서
+> `sync-web`·`assets/web-dist`·`lib/staticWebAssetServer.ts`·`plugins/withWebDistAssets.js`가
+> 전부 삭제됐다([ADR 0005](../adr/0005-bundled-web-assets-over-localhost-server.md)는 Superseded).
+> 아래에서 **환경 변수·Xcode/Android SDK·빌드 명령 절은 그대로 유효**하고, `sync-web`·web-dist
+> 복사·용량 확인 절은 해당 사항이 없다. 전면 개정은 BY-332 배포 파이프라인 확정 후에 한다.
+
 `apps/mobile`을 로컬에서 빌드해 시뮬레이터·에뮬레이터에 띄울 때 사용한다. **2026-07-28부터 Expo Go로는 앱이 돌지 않는다** — 로컬 HTTP 서버(`@dr.pogodin/react-native-static-server`)가 Expo Go에 없는 네이티브 모듈이라 Dev Build가 필요하다([ADR 0005](../adr/0005-bundled-web-assets-over-localhost-server.md), [설계 문서 §1](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md)).
 
 EAS 클라우드 빌드는 별개다. **iOS 실기기** 빌드만 Apple Developer 계정이 필요하고, 시뮬레이터 빌드(로컬·EAS 둘 다)와 Android 빌드는 계정 없이 된다.
