@@ -37,6 +37,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "navigate-home", atMs: record.atMs };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
+    case "request-camera-permission":
+      return { type: "request-camera-permission", atMs: record.atMs };
     case "submit-session":
       if (
         typeof record.requestId !== "string" ||

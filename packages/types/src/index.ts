@@ -113,6 +113,7 @@ export interface StudySessionStreakResponse {
 }
 
 export type {
+  CameraPermissionMessage,
   NavigateHomeMessage,
   SubmitResultMessage,
   SubmitSessionMessage,

@@ -16,7 +16,29 @@ export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
   | { type: "app-state"; state: "active" | "background"; atMs: number }
+  | CameraPermissionMessage
   | SubmitResultMessage;
+
+/**
+ * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
+ *
+ * 설정(S6)의 카메라 권한 행이 토글로 표시한다. **웹이 스스로 알 수 없어서** 네이티브가
+ * 실어 보낸다: `navigator.permissions.query({name:"camera"})`는 iOS WKWebView가 지원하지
+ * 않아 앱 안에서는 쓸 수 없다(Android WebView만 동작해 플랫폼별로 갈린다).
+ *
+ * 3상태(`undetermined`·`granted`·`denied`)를 그대로 넘기지 않고 boolean으로 좁힌다 —
+ * 화면이 구분하는 것은 "허용됨"과 "그 외"뿐이고, 미결정을 별도로 보여줄 자리가 S6에 없다.
+ *
+ * **"모름"은 이 메시지의 부재로 표현한다.** 조회 실패 시 네이티브는 아무것도 보내지 않고,
+ * 브라우저 단독 모드에서는 애초에 오지 않는다 — 웹은 그 동안 `null`을 유지해 토글 자리를
+ * 비운다(RN 원본의 `granted === null` 분기와 같은 모양). 모르는 값을 `false`로 단정하면
+ * 화면이 "허용 안 됨"이라고 틀린 단언을 하게 된다.
+ */
+export interface CameraPermissionMessage {
+  type: "camera-permission";
+  granted: boolean;
+  atMs: number;
+}
 
 /**
  * 세션 제출 결과 — `submit-session`에 대한 응답.
@@ -60,6 +82,18 @@ export type ToNativeMessage =
    * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
    */
   | { type: "open-settings"; atMs: number }
+  /**
+   * 설정(S6)이 카메라 권한 상태를 물어본다 — 네이티브가 `camera-permission`으로 답한다.
+   *
+   * **폴링이 아니라 웹이 필요한 시점에만 묻는 방식이다.** 권한은 사용자가 OS 설정에 다녀오는
+   * 동안 바뀌므로 한 번 받아 두면 낡는데, 그 복귀 시점을 웹이 `visibilitychange`로 알 수
+   * 있어 네이티브에 앱 생명주기 배선을 새로 넣지 않아도 된다(웹뷰 재노출 시 재조회는
+   * react-query의 `refetchOnWindowFocus`가 이미 쓰고 있는 신호다).
+   *
+   * 브라우저 단독 모드에서는 발신되지 않는다 — 받는 쪽이 없으면 답도 없고, 그 경우 화면은
+   * 토글 없는 상태로 남는다(`CameraPermissionMessage` 주석 참고).
+   */
+  | { type: "request-camera-permission"; atMs: number }
   | SubmitSessionMessage
   | NavigateHomeMessage;
 

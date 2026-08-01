@@ -15,6 +15,13 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("request-camera-permission을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"request-camera-permission","atMs":7}')).toEqual({
+      type: "request-camera-permission",
+      atMs: 7,
+    });
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

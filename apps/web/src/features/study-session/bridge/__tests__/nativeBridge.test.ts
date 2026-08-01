@@ -23,6 +23,18 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"future-message","atMs":1}')).toBeNull();
   });
 
+  it("camera-permission을 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"camera-permission","granted":true,"atMs":3000}')).toEqual({
+      type: "camera-permission",
+      granted: true,
+      atMs: 3000,
+    });
+  });
+
+  it("camera-permission의 granted가 boolean이 아니면 null이다 — 모름을 허용으로 읽으면 안 된다", () => {
+    expect(parseToWebMessage('{"type":"camera-permission","granted":"yes","atMs":1}')).toBeNull();
+  });
+
   it("JSON이 아니면 null을 돌려준다", () => {
     expect(parseToWebMessage("not json")).toBeNull();
   });
