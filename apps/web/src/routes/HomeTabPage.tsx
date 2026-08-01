@@ -31,12 +31,49 @@ import { parseUserId } from "@/lib/userId";
  *   1회 판정과 무관하게 `openOnboardingGuide`로 항상 가이드를 연다(RN판 진입 경로 B와 동일).
  */
 
+/** 게이지 눈금 위치(%) — Figma 실측 80/161/241 ÷ 322 = 25·50·75%. */
+const GAUGE_MARKERS = [25, 50, 75];
+
+/**
+ * 목표 참조용 게이지 (Figma `Card / Hero Today` 39:71 — 트랙 322×12, r999).
+ *
+ * 눈금 3개는 **채움 위에 있는지에 따라 색이 갈린다**: 채워진 구간에서는 흰색 50%(진한 브랜드색
+ * 위에서 읽히는 유일한 색), 빈 구간에서는 `border/strong`(연한 트랙 위라 흰색은 보이지 않는다).
+ * 한 색으로 통일하면 둘 중 한쪽 구간에서 눈금이 사라진다.
+ *
+ * 채움은 단색이 아니라 brand 그라디언트다(왼쪽 50% 투명 → 오른쪽 불투명) — 왼쪽 끝이 트랙에
+ * 자연스럽게 녹아든다.
+ *
+ * 눈금은 **특정 데이터 필드와 연동되지 않는다** — 목표치가 아니라 눈대중용 등분선이다.
+ */
+function FocusGauge({ fillPercent }: { fillPercent: number }) {
+  return (
+    <div className="relative h-3 overflow-hidden rounded-full bg-bg-layer-2">
+      <div
+        className="absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-primary/50 to-primary"
+        style={{ width: `${fillPercent}%` }}
+      />
+      {GAUGE_MARKERS.map((percent) => (
+        <div
+          key={percent}
+          className={
+            fillPercent > percent
+              ? "absolute top-[3px] h-1.5 w-px bg-white/50"
+              : "absolute top-[3px] h-1.5 w-px bg-border-strong"
+          }
+          style={{ left: `${percent}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function HeroTodayCard({ summary }: { summary: HomeSummary }) {
   const { hours, minutes } = splitHoursMinutes(summary.focusSec);
   const fillPercent = Math.min(100, Math.max(0, summary.focusRate));
 
   return (
-    <section className="flex flex-col gap-3 rounded-[20px] border border-border bg-muted px-5 pt-[22px] pb-[18px]">
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted px-5 pt-[22px] pb-[18px]">
       <div className="flex flex-col gap-1.5">
         <p className="text-[13px] font-medium text-muted-foreground">오늘 순공시간</p>
         <p className="flex items-baseline gap-1 text-foreground">
@@ -48,10 +85,7 @@ function HeroTodayCard({ summary }: { summary: HomeSummary }) {
         </p>
       </div>
 
-      {/* 목표 참조용 게이지 — 25/50/75% 눈금은 Figma 디자인 그대로이며 특정 데이터 필드와 연동되지 않는다 */}
-      <div className="h-3 overflow-hidden rounded-full bg-bg-layer-2">
-        <div className="h-3 rounded-full bg-primary" style={{ width: `${fillPercent}%` }} />
-      </div>
+      <FocusGauge fillPercent={fillPercent} />
 
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted-foreground">
@@ -77,8 +111,12 @@ function StartCtaCard({ onClick }: { onClick: () => void }) {
         <span className="text-[21px] font-bold text-white">집중 시작</span>
         <span className="text-[12.5px] text-white/80">누르면 바로 측정이 시작돼요</span>
       </span>
+      {/*
+        아이콘 22px — Figma 실측은 18px이지만 **의도적으로 키웠다**(2026-08-01 사용자 확인).
+        50px 서클 안에서 18px 삼각형은 여백이 과해 비어 보였다. 서클 크기는 Figma 그대로다.
+      */}
       <span className="flex size-[50px] items-center justify-center rounded-full bg-white/20">
-        <IconPlay size={18} />
+        <IconPlay size={22} />
       </span>
     </button>
   );
@@ -102,11 +140,17 @@ function StatCard({ variant, summary }: { variant: "streak" | "longest"; summary
           {isStreak ? `${summary.streakDays}일째` : formatMinutes(summary.longestFocusSec)}
         </p>
       </div>
+      {/*
+        연속 0일 문구는 Figma에 프레임이 없다(있는 건 유지 상태 "하루 10분이면 유지돼요"뿐).
+        유지 문구와 같은 리듬("~이면 ~돼요")으로 맞춘다 — 이전 문구("오늘 10분 집중하면 연속
+        공부가 시작돼요")는 카드 제목 "연속 공부"를 본문에서 반복하고 11px 한 줄 대비 길었다
+        (2026-08-01 사용자 정정 요청).
+      */}
       <p className="text-[11px] text-text-tertiary">
         {isStreak
           ? summary.streakDays > 0
             ? "하루 10분이면 유지돼요"
-            : "오늘 10분 집중하면 연속 공부가 시작돼요"
+            : "오늘 10분이면 시작돼요"
           : "오늘 가장 길게 집중했어요"}
       </p>
     </div>
@@ -118,7 +162,7 @@ function GuideCard({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 items-center justify-between rounded-[20px] bg-bg-guide px-5 pt-5 pb-[18px] text-left"
+      className="flex min-h-11 items-center justify-between rounded-xl bg-bg-guide px-5 pt-5 pb-[18px] text-left"
     >
       <div className="flex shrink flex-col gap-1.5">
         <p className="text-base font-bold text-foreground">공부 측정 가이드</p>
@@ -185,7 +229,7 @@ function HomeContent({ userId }: { userId: number }) {
 
   return (
     <>
-      {summaryState.status === "pending" && <Skeleton className="h-[180px] rounded-[20px]" />}
+      {summaryState.status === "pending" && <Skeleton className="h-[180px] rounded-xl" />}
       {summaryState.status === "error" && (
         <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} />
       )}
