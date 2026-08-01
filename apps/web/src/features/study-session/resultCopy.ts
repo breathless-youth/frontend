@@ -42,9 +42,15 @@ export function focusRateLabel(percent: number): string {
   return `${percent}% 집중`;
 }
 
-/** 통계 행 값 — `{N}회 · {시간 길이}`(design.md 6차 / voice-tone §4). */
-export function eventCountLabel(count: number, durationLabel: string): string {
-  return `${count}회 · ${durationLabel}`;
+/**
+ * 통계 행 값 — **횟수만** 쓴다(`{N}회`).
+ *
+ * 예전에는 `{N}회 · {시간 길이}`로 시간을 함께 붙였다(Figma `2회 · 9분 40초`). 2026-07-27
+ * 결정으로 접힌 상태에서는 횟수만 보이고 **행을 눌렀을 때 시간이 펼쳐진다** —
+ * 시간은 `DistractionStatsCard`의 펼침 영역이 따로 그린다.
+ */
+export function eventCountLabel(count: number): string {
+  return `${count}회`;
 }
 
 /**

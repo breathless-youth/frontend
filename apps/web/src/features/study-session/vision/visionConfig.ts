@@ -11,16 +11,35 @@
  * `getUserMedia` 제약.
  *
  * 모델 입력은 320×320이라 해상도는 **프리뷰 화질용**이다(설계 §3). 낮으면 풀스크린
- * 프리뷰가 뭉개지고, 높으면 배터리·발열이 늘어난다. 720×1280로 시작해 스파이크에서 조정한다.
+ * 프리뷰가 뭉개지고, 높으면 배터리·발열이 늘어난다.
  * `ideal`을 쓰는 이유는 지원하지 않는 기기에서 `getUserMedia`가 실패하지 않게 하기 위해서다.
+ *
+ * ⚠️ **이 값은 요청일 뿐 실제로 받는 값이 아니다 — 2026-07-30 실측으로 확인됐다.**
+ *
+ * | 환경                        | 요청      | 실제 수신           |
+ * | --------------------------- | --------- | ------------------- |
+ * | iPhone 17 Pro (세로)        | 720×1280  | **1280×720**        |
+ * | iPhone 17 Pro (가로)        | 720×1280  | **720×1280**        |
+ * | Android 에뮬레이터 (전면)   | 720×1280  | **1280×720**        |
+ * | Android 에뮬레이터 (후면)   | 720×1280  | **960×720**         |
+ *
+ * `ideal`은 소프트 제약이라 기기가 무시해도 되고, 실제로 무시한다. 9:16은 센서의 네이티브
+ * 비율이 아니라서 더 그렇다. **프레임 비율에 의존하는 코드를 쓰지 말 것** — 실제 값은
+ * `visionDiagnostics.cameraStream`(`?diag=1`)으로 확인한다.
+ *
+ * ⚠️ **프레임 비율이 화면 비율과 다르면 어떤 표시 방식으로도 손해가 난다**(자르거나 `cover`,
+ * 남기거나 `contain`, 찌그러뜨리거나 `fill`) — 실기기에서 그 차이가 74%였다(자세한 내용과
+ * 현재 선택은 `CameraPreviewSurface.tsx` 주석 참고). `aspectRatio` 제약으로 화면 비율에 맞춰
+ * 요청하면 이 손해를 원천에서 줄일 수 있다는 아이디어가 있었지만, 실기기 재검증 없이 구현만
+ * 남겨 두면 문서와 동작이 어긋나므로 지금은 적용하지 않는다 — 다시 시도하려면 새로 실측한다.
  */
 export const CAMERA_CONSTRAINTS = {
   front: {
-    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } },
+    video: { facingMode: "user", width: { ideal: 1280 } },
     audio: false,
   },
   back: {
-    video: { facingMode: "environment", width: { ideal: 720 }, height: { ideal: 1280 } },
+    video: { facingMode: "environment", width: { ideal: 1280 } },
     audio: false,
   },
 } as const satisfies Record<"front" | "back", MediaStreamConstraints>;

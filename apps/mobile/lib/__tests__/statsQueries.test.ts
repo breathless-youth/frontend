@@ -3,8 +3,23 @@ import { dailyStatsQuery, registeredUserIdQuery, statsKeys, streakQuery } from "
 import { getStreak, listStudySessionStats } from "../statsApi";
 import { ensureUserRegistered } from "../userApi";
 
+/**
+ * `listStudySessionStats`의 기본 응답은 **계약 모양을 지켜야 한다** — `dailyStatsQuery`가
+ * 이제 `toDisplayedStats`로 세션을 걸러내므로 `sessions`가 없으면 거기서 터진다.
+ * (일부러 방어 코드를 넣지 않았다: 응답에 `sessions`가 없는 것은 계약 위반이고, 삼키면
+ * 원인을 못 찾는다.)
+ */
 jest.mock("../statsApi", () => ({
-  listStudySessionStats: jest.fn().mockResolvedValue({ totalStudySec: 1 }),
+  listStudySessionStats: jest.fn().mockResolvedValue({
+    sessions: [],
+    sessionCount: 0,
+    totalStudySec: 1,
+    totalFocusSec: 0,
+    longestFocusSec: 0,
+    focusRate: 0,
+    totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+    studiedDatesInMonth: [],
+  }),
   getStreak: jest.fn().mockResolvedValue({ streak: 2, maxStreak: 3, studiedDatesInRange: [] }),
 }));
 jest.mock("../userApi", () => ({
@@ -48,6 +63,48 @@ describe("queryFn 위임", () => {
     const range = { from: "2026-07-26", to: "2026-07-28" };
     await streakQuery(7, range).queryFn!({} as never);
     expect(getStreak).toHaveBeenCalledWith(7, range);
+  });
+});
+
+/**
+ * 필터를 **이 한 곳에서만** 적용하는 것이 계약이다. 홈(`useHomeSummary`)과 기록
+ * (`useRecordsData`)이 같은 queryKey를 공유하므로 여기를 지나면 두 화면이 같은 값을 본다 —
+ * 화면마다 따로 걸러내면 한쪽만 빠뜨렸을 때 순공시간이 조용히 달라진다.
+ */
+describe("dailyStatsQuery — 1분 미만 세션 필터", () => {
+  const mockedList = listStudySessionStats as jest.MockedFunction<typeof listStudySessionStats>;
+
+  function summary(id: number, focusSec: number, studySec: number) {
+    return {
+      id,
+      statDate: "2026-07-28",
+      startedAt: "2026-07-28T01:00:00.000Z",
+      endedAt: "2026-07-28T02:00:00.000Z",
+      studySec,
+      focusSec,
+      focusRate: 0,
+      eventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+    };
+  }
+
+  it("캐시에 들어가기 전에 순공 1분 미만 세션과 그 합산을 걷어낸다", async () => {
+    mockedList.mockResolvedValue({
+      sessions: [summary(1, 3000, 3600), summary(2, 30, 120)],
+      sessionCount: 2,
+      totalStudySec: 3720,
+      totalFocusSec: 3030,
+      longestFocusSec: 3000,
+      focusRate: 81.5,
+      totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+      studiedDatesInMonth: ["2026-07-28"],
+    });
+
+    const stats = await dailyStatsQuery(7, "2026-07-28").queryFn!({} as never);
+
+    expect(stats.sessions.map((each) => each.id)).toEqual([1]);
+    expect(stats.sessionCount).toBe(1);
+    expect(stats.totalFocusSec).toBe(3000);
+    expect(stats.totalStudySec).toBe(3600);
   });
 });
 

@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+import { Fragment, useId, useState } from "react";
+
+import type { StudyEventStatus } from "@focuson/types";
 
 import { toKoreanDurationLength } from "../formatDuration";
 import { EVENT_STATUS_LABEL, RESULT_COPY, eventCountLabel } from "../resultCopy";
@@ -31,6 +33,19 @@ import { ResultCard, ResultCardTitle, ResultStatusDot } from "./ResultCardParts"
  * 1초 미만 구간이 이벤트로 전송되지 않아 건수가 실제보다 적게 보일 수 있다는 이슈
  * (`MIN_EVENT_MS` vs `computeSessionTotals` 기준 차이)는 **정책 결정 대기 중**이다.
  * 그 보정을 이 화면에서 하지 않는다 — 안내 문구를 덧붙이는 것도 보정이다.
+ *
+ * ## 행은 접혀 있고, 누르면 시간이 펼쳐진다 (2026-07-27 결정)
+ *
+ * 접힌 상태에서는 **횟수만** 보이고 시간은 펼쳤을 때만 나온다. Figma는 `2회 · 9분 40초`처럼
+ * 시간을 함께 그렸지만, 표기 규칙이 분 단위로 바뀌면서(초 금지) 통계 행에서 초가 사라지자
+ * 시간을 상시 노출할 이유가 약해졌다 — 대신 필요할 때 펼쳐 보는 쪽을 택했다.
+ *
+ * `<dl>`이 아니라 `<ul>`인 이유: 행이 **누를 수 있는 요소**가 되면서 정의 목록이 아니라
+ * 펼침(disclosure) 목록이 됐다. `<dl>`의 직계 자식으로 `<button>`을 둘 수 없어 마크업이
+ * 무효해지기도 한다.
+ *
+ * 여러 행을 동시에 펼칠 수 있다(단일 선택 아코디언이 아니다). 하나를 열 때 다른 하나가 닫히면
+ * 두 유형의 시간을 비교하려는 사용자가 계속 다시 눌러야 한다.
  */
 export function DistractionStatsCard({ view }: { view: SessionResultView }) {
   const rows: { tally: EventTally; tone: ResultStatusTone }[] = [
@@ -39,6 +54,16 @@ export function DistractionStatsCard({ view }: { view: SessionResultView }) {
     ...(view.pause !== null ? [{ tally: view.pause, tone: "pause" as const }] : []),
   ];
   const hasDistraction = view.distractions.length > 0;
+  // 펼쳐진 행들. 상태를 status로 들고 있어 행 순서가 바뀌어도 펼침이 따라간다.
+  const [expanded, setExpanded] = useState<readonly StudyEventStatus[]>([]);
+  // 패널 id의 접두사 — 같은 페이지에 카드가 둘 이상 와도 id가 겹치지 않게 한다.
+  const idPrefix = useId();
+
+  function toggle(status: StudyEventStatus) {
+    setExpanded((prev) =>
+      prev.includes(status) ? prev.filter((each) => each !== status) : [...prev, status],
+    );
+  }
 
   return (
     /* 아래 여백은 행 유무로 갈린다 — Figma의 pb 6px는 마지막 행의 py 12px와 합쳐지는 값이라
@@ -58,26 +83,67 @@ export function DistractionStatsCard({ view }: { view: SessionResultView }) {
       )}
 
       {rows.length > 0 && (
-        <dl>
-          {rows.map(({ tally, tone }, index) => (
-            <Fragment key={tally.status}>
-              {/* 구분선. Figma는 `#EFF1F3` 하드코딩(`64:629`)이라 다크 대응값이 없다 —
-                  `border/default` 토큰으로 대체한다(라이트 3계조 차이는 QA 확인 항목). */}
-              {index > 0 && <div aria-hidden="true" className="h-px w-full bg-border" />}
-              <div className="flex items-center justify-between gap-3 py-3">
-                <dt className="flex min-w-0 items-center gap-2">
-                  <ResultStatusDot tone={tone} />
-                  <span className="text-[14px] leading-[17px] break-keep text-foreground">
-                    {EVENT_STATUS_LABEL[tally.status]}
-                  </span>
-                </dt>
-                <dd className="shrink-0 text-[13px] leading-[16px] text-muted-foreground tabular-nums">
-                  {eventCountLabel(tally.count, formatEventDuration(tally.durationSec))}
-                </dd>
-              </div>
-            </Fragment>
-          ))}
-        </dl>
+        <ul>
+          {rows.map(({ tally, tone }, index) => {
+            const isOpen = expanded.includes(tally.status);
+            const panelId = `${idPrefix}-${tally.status}`;
+            return (
+              <Fragment key={tally.status}>
+                {/* 구분선. Figma는 `#EFF1F3` 하드코딩(`64:629`)이라 다크 대응값이 없다 —
+                    `border/default` 토큰으로 대체한다(라이트 3계조 차이는 QA 확인 항목). */}
+                {index > 0 && <div aria-hidden="true" className="h-px w-full bg-border" />}
+                <li>
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    onClick={() => toggle(tally.status)}
+                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ResultStatusDot tone={tone} />
+                      <span className="text-[14px] leading-[17px] break-keep text-foreground">
+                        {EVENT_STATUS_LABEL[tally.status]}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-[13px] leading-[16px] text-muted-foreground">
+                      <span className="tabular-nums">{eventCountLabel(tally.count)}</span>
+                      {/* 펼침 여부를 색·굵기가 아니라 **방향**으로 알린다 — 색만으로 상태를
+                          구분하면 저시력 사용자에게 전달되지 않는다. 상태 자체는
+                          `aria-expanded`가 읽어 주므로 이 아이콘은 장식이다. */}
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 12 12"
+                        className={`h-3 w-3 transition-transform duration-150 motion-reduce:transition-none ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      >
+                        <path
+                          d="M2.5 4.5 6 8l3.5-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                  {/* 접혔을 때 DOM에서 빼는 이유: 남겨 두면 스크린리더가 숨은 시간까지 읽어
+                      `aria-expanded="false"`와 어긋난다. */}
+                  {isOpen && (
+                    <p
+                      id={panelId}
+                      className="pb-3 pl-4 text-[13px] leading-[16px] text-muted-foreground tabular-nums"
+                    >
+                      {formatEventDuration(tally.durationSec)}
+                    </p>
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
+        </ul>
       )}
     </ResultCard>
   );

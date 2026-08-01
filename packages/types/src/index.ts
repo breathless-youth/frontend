@@ -112,4 +112,10 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
-export type { ToNativeMessage, ToWebMessage } from "./bridge";
+export type {
+  NavigateHomeMessage,
+  SubmitResultMessage,
+  SubmitSessionMessage,
+  ToNativeMessage,
+  ToWebMessage,
+} from "./bridge";

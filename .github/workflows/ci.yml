@@ -67,10 +67,17 @@ jobs:
       - name: Build web
         run: pnpm --filter web build
 
-      # apps/web을 고치고 assets/web-dist 복사를 빠뜨리면 옛 화면이 담긴 앱이
-      # 에러 없이 빌드된다 — 조용히 틀리므로 CI가 잡는다.
-      - name: Check web-dist sync
-        run: pnpm --filter mobile sync-web:check
+      # `assets/web-dist`는 .gitignore 대상(빌드 산출물)이라 체크아웃 직후에는 **없다.**
+      # 그래서 복사를 빼고 `sync-web:check`만 돌리면 항상 "전부 누락"으로 실패한다 —
+      # 실제로 그렇게 바뀐 뒤 이 job이 어떤 PR에서도 통과하지 못했다.
+      #
+      # 복사가 검증보다 먼저 와야 하는 이유는 두 가지다.
+      #   1. 아래 `expo export`가 web-dist를 실제로 요구한다 — 없으면 prebuild가 멈춘다
+      #      (`plugins/withWebDistAssets.js`의 의도된 동작).
+      #   2. 커밋되지 않는 산출물이라 CI에서 "복사를 깜빡했는지"는 애초에 판별할 수 없다.
+      # 즉 여기서의 `:check`는 로컬 작업자용 가드이고, CI에서는 복사 자체가 목적이다.
+      - name: Sync web-dist
+        run: pnpm --filter mobile sync-web && pnpm --filter mobile sync-web:check
 
       - name: Expo export (mobile static analysis build)
         run: pnpm --filter mobile exec expo export --platform android

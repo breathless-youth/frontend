@@ -31,16 +31,32 @@ describe("formatDuration — voice-tone §2 시간 길이 표기", () => {
     expect(formatDuration(48 * 60)).toBe("48분");
   });
 
-  it("1분 미만이면 'S초'", () => {
-    expect(formatDuration(42)).toBe("42초");
+  /**
+   * 2026-07-27 확정(8차 인터뷰): 모든 시간 텍스트는 분 단위, 초 금지. 구 `S초` 표기 폐기.
+   * 저장은 그대로 초 단위이므로 표시 계층만의 변경이다.
+   */
+  it("1분 미만이면 초 숫자 대신 '1분 미만'", () => {
+    expect(formatDuration(42)).toBe("1분 미만");
+    expect(formatDuration(59)).toBe("1분 미만");
+    expect(formatDuration(1)).toBe("1분 미만");
   });
 
+  /**
+   * 0초는 `1분 미만`이 아니다 — 기록이 아예 없는 빈 상태에서 "짧게라도 공부했다"는 뜻이 되면
+   * 사실과 다르다. 스펙 빈 상태 절의 `0분`/`0%`/`0회` 표기를 그대로 따른다.
+   */
   it("0초는 빈 상태 표기 '0분'으로 보여준다", () => {
     expect(formatDuration(0)).toBe("0분");
   });
 
   it("진행 중 타이머의 HH:MM:SS 규칙을 쓰지 않는다", () => {
     expect(formatDuration(3661)).not.toContain(":");
+  });
+
+  it("어떤 입력에도 초 숫자가 들어가지 않는다", () => {
+    for (const seconds of [0, 1, 42, 59, 60, 90, 2880, 3600, 3661, 7620]) {
+      expect(formatDuration(seconds)).not.toMatch(/\d+초/);
+    }
   });
 });
 

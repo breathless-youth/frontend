@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { RoomPage } from "../RoomPage";
 
@@ -37,10 +38,20 @@ function ResultRouteProbe() {
   );
 }
 
+/**
+ * 홈 라우트(`/home`) 자리의 프로브 — 미달 종료의 이탈 경로를 관측한다.
+ * 도착한 쿼리를 그대로 노출해 `?userId=N` 승계까지 검증한다(`ResultPage.test.tsx`와 같은 패턴).
+ */
+function HomeRouteProbe() {
+  const location = useLocation();
+  return <p>{`홈 라우트${location.search}`}</p>;
+}
+
 function renderRoom(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
+        <Route path="/home" element={<HomeRouteProbe />} />
         <Route path="/room/:id" element={<RoomPage />} />
         <Route path="/room/:id/result" element={<ResultRouteProbe />} />
       </Routes>
@@ -67,6 +78,35 @@ async function endSession() {
 function endSessionSync() {
   fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
   fireEvent.click(confirmExitButton());
+}
+
+/**
+ * 순공 1분을 채운 뒤 종료한다 — **S4로 가려면 필요한 전제**다.
+ *
+ * 2026-07-27 확정으로 순공 1분 미만 세션은 기록에 남지 않으므로, `RoomPage`가 S4 대신 미달
+ * 안내(`SubMinuteEndNotice`)로 갈라 보낸다. 갓 입장해서 바로 끝내면 순공이 0초라 결과 화면에
+ * 도달할 수 없다.
+ *
+ * 시간을 흘리는 데 가짜 타이머를 쓰고 클릭은 `fireEvent`로 한다(`userEvent`는 내부 지연 타이머가
+ * 있어 가짜 타이머와 함께 쓰면 멈춘다). 마운트 시 만들어진 tick 인터벌은 진짜 타이머라 가짜
+ * 시계로는 돌지 않지만 **문제가 되지 않는다** — 최종 집계는 인터벌이 아니라 `endAndSubmit`이
+ * 종료 시각으로 직접 계산하고, 가짜 타이머가 `Date.now()`까지 함께 밀어 주기 때문이다.
+ *
+ * 이후 `findByText`가 폴링해야 하므로 반드시 진짜 타이머로 되돌린다.
+ */
+async function endSessionAfterMinute() {
+  vi.useFakeTimers();
+  try {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    endSessionSync();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 /**
@@ -186,7 +226,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await endSession();
+    await endSessionAfterMinute();
 
     expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
@@ -249,7 +289,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await endSession();
+    await endSessionAfterMinute();
     expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
@@ -703,15 +743,24 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
   });
 
-  it("본문은 순공시간을 한글 시간 길이 + 자동 조사로 안내한다", async () => {
+  /**
+   * 갓 입장한 세션은 순공 0초라 **미달 분기**로 들어간다(2026-07-27 확정: 순공 1분 미만은
+   * 기록에 표시되지 않는다). 예전에는 `지금까지 집중한 0초는 저장돼요`였는데, 그 문구는
+   * 기록에 남지 않는 세션을 두고 저장을 약속하는 거짓이었다.
+   *
+   * 1분 이상일 때의 문구(`지금까지 집중한 N은 저장돼요`)는 `sessionCopy.test.ts`가 값별로
+   * 검증한다 — 여기서 타이머를 1분 넘게 돌리는 것보다 그쪽이 정확하다.
+   */
+  it("순공 1분 미만이면 저장을 약속하지 않고 미달을 알린다", async () => {
     renderRoom("/room/7?userId=1");
 
     const dialog = await openExitDialog();
 
-    // 갓 입장한 세션이라 순공시간은 0초 — 초로 끝나므로 조사는 '는'이다(voice-tone §2).
-    expect(within(dialog).getByText("지금까지 집중한 0초는 저장돼요")).toBeInTheDocument();
-    // 다이얼로그에는 HH:MM:SS를 쓰지 않는다.
+    expect(within(dialog).getByText(SUB_MINUTE_EXIT_DESCRIPTION)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/저장돼요/)).not.toBeInTheDocument();
+    // 다이얼로그에는 HH:MM:SS도, 초 숫자도 쓰지 않는다.
     expect(within(dialog).queryByText(/00:00:00/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/\d+초/)).not.toBeInTheDocument();
   });
 
   it("확정 문구를 그대로 쓴다 — 버튼은 '계속하기' / '공부 종료'", async () => {
@@ -775,7 +824,8 @@ describe("RoomPage — S3-7 종료 확인", () => {
     const labelledBy = dialog.getAttribute("aria-labelledby");
     const describedBy = dialog.getAttribute("aria-describedby");
     expect(document.getElementById(labelledBy!)).toHaveTextContent("공부를 종료할까요?");
-    expect(document.getElementById(describedBy!)).toHaveTextContent("지금까지 집중한");
+    // 갓 입장한 세션이라 본문은 미달 문구다(위 테스트 주석 참고).
+    expect(document.getElementById(describedBy!)).toHaveTextContent(SUB_MINUTE_EXIT_DESCRIPTION);
   });
 
   it("초기 포커스는 비파괴 버튼('계속하기')에 놓인다", async () => {
@@ -825,5 +875,108 @@ describe("RoomPage — S3-7 종료 확인", () => {
     // 오버레이는 pointer-events를 직접 켠다(레이어의 none을 상속하지 않는다).
     expect(dialogOverlay.className).toContain("pointer-events-auto");
     expect(dialogOverlay.className).toContain("absolute inset-0");
+  });
+});
+
+/**
+ * 순공 1분 미만 종료 — **S4로 보내지 않는다**(2026-07-27 확정, ai-wiki `mvp-scope.md`
+ * "기록 저장·표시 기준": "결과 화면(S4) 대신 간단 안내 후 홈으로 이동한다").
+ */
+describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
+  // 모듈 스코프 mock이라 정리하지 않으면 호출 기록이 테스트 간 누적된다(다른 describe와 동일).
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("결과 화면 대신 미달 안내를 보여준다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    // 갓 입장해서 바로 종료 — 순공 0초다.
+    await endSession();
+
+    expect(await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요")).toBeInTheDocument();
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 걸러내는 것은 표시·합산 단계이고 **저장은 정상적으로 한다** — 백엔드는 순공시간과 무관하게
+   * 모든 세션을 저장하는 것이 계약이다(mvp-scope). 이 검증이 깨지면 제출을 건너뛰는 회귀다.
+   */
+  it("그래도 서버에는 제출한다 — 저장을 건너뛰지 않는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+
+    expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
+  });
+
+  it("CTA는 홈으로 보낸다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+    await userEvent.click(screen.getByRole("button", { name: "홈으로" }));
+
+    // `?userId=1`을 승계한다 — 잃으면 홈이 미저장 모드로 뜬다(`ResultPage.test.tsx`와 같은 규칙).
+    expect(await screen.findByText("홈 라우트?userId=1")).toBeInTheDocument();
+  });
+
+  /**
+   * 2026-07-30 실기기 확인: 이 배선이 없으면 웹 라우터 이동만 실행되어 WebView 안에
+   * `apps/web`의 웹 홈이 열리고, 네이티브 탭 홈으로는 돌아가지 않는다. `postToNative`가 실제로
+   * 불렸는지까지 확인해야 이 회귀를 잡는다 — 웹 라우터가 정상 이동했다고 해서 네이티브 쪽
+   * 신호가 나갔다는 보장은 없다.
+   */
+  it("네이티브 브리지가 있으면 홈 복귀 신호도 함께 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+    await userEvent.click(screen.getByRole("button", { name: "홈으로" }));
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+
+  /** S3-8의 타이틀은 `여기까지 기록을 저장했어요`로 단언하므로 미달 세션에 쓰면 거짓이 된다. */
+  it("기록에 남았다고 단언하는 S3-8 문구를 쓰지 않는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+
+    expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 제출이 아직 끝나지 않았거나 실패한 상태에서 이 안내를 띄우면 재시도 경로가 사라진다 —
+   * `phase === "done"`을 요구하는 이유다.
+   */
+  it("제출이 실패하면 미달 안내 대신 재시도 경로로 보낸다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("일시적 오류"));
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+
+    expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
+    expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
+  });
+
+  it("userId가 없어 저장되지 않은 세션도 미달 안내로 가지 않는다", async () => {
+    renderRoom("/room/7");
+
+    await endSession();
+
+    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
 });

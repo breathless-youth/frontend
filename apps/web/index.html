@@ -3,9 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+    `user-scalable=no, maximum-scale=1` — 세션 화면에서 **핀치 줌을 막는다**.
+
+    카메라 프리뷰를 두 손가락으로 벌리면 페이지 전체가 확대돼 타이머·컨트롤 바가 화면 밖으로
+    밀려난다. 세션 중에 컨트롤 바를 잃으면 종료·일시정지 경로가 사라지므로 단순한 미관 문제가
+    아니다. 프리뷰는 어차피 CSS `object-fit`이 배치를 정하므로 핀치 줌으로 얻을 것도 없다.
+
+    ⚠️ 접근성 상충: WCAG 1.4.4는 200% 확대를 요구하고, 이 설정은 그걸 막는다. 세션 화면은
+    본문 텍스트를 읽는 화면이 아니라 카메라 뷰파인더 + 큰 타이머라 확대 필요가 낮다고 보고
+    막았다(2026-07-30). `apps/web`을 일반 브라우저 서비스로 넓힐 때는 재검토할 것 —
+    이 meta는 앱 전용이 아니라 **문서 전체**에 걸린다.
+  -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>FocusOn</title>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

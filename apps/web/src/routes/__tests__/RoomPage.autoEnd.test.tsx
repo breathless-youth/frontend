@@ -63,6 +63,20 @@ async function waitPastThreshold() {
   });
 }
 
+/**
+ * 순공 1분을 채운다 — **S3-8에 도달하기 위한 전제 조건**이다.
+ *
+ * 2026-07-27 확정으로 순공 1분 미만 세션은 기록에 남지 않으므로, 자동 종료로 끝나도 S3-8의
+ * `여기까지 기록을 저장했어요`가 거짓이 된다. 그래서 `RoomPage`가 미달 안내
+ * (`SubMinuteEndNotice`)로 갈라 보낸다. 갓 입장해서 바로 일시정지하면 순공이 0초라 이 파일의
+ * 테스트들이 전부 그쪽으로 가 버리므로, 일시정지 **전에** 1분을 채워 S3-8 경로를 유지한다.
+ */
+async function focusPastMinute() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+}
+
 describe("RoomPage — S3-8 자동 종료 안내", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -77,6 +91,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("일시정지가 임계값을 넘기면 사용자 확인 없이 저장하고 안내 화면으로 넘어간다", async () => {
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -88,6 +103,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("화면 꺼짐으로 종료되면 확정된 사유 문구를 보여준다", async () => {
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     act(() => {
       setVisibility("hidden");
@@ -104,6 +120,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     // voice-tone.md §4의 ⚠️ 미정 항목. 화면을 끄지 않은 사용자에게 "화면이 꺼진 동안"이라고
     // 안내하면 사실과 다르다 — 문구가 확정될 때까지 본문을 비운다.
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -132,6 +149,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("'화면 꺼짐'을 통계 라벨로 노출하지 않는다 — 2026-07-26에 일시정지로 통합됐다", async () => {
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -141,6 +159,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("취소·재개 액션을 두지 않는다 — 이미 끝난 일에 대한 사후 안내다", async () => {
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -152,6 +171,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("자동 종료는 한 번만 제출한다 — 임계값을 계속 넘겨도 재제출하지 않는다", async () => {
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -164,6 +184,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     // 타이틀이 `여기까지 기록을 저장했어요`로 단언하므로 저장 전에는 띄울 수 없다.
     vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("일시적 오류"));
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -175,6 +196,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("userId가 없어 저장되지 않은 세션은 안내 화면으로 가지 않는다", async () => {
     renderRoom("/room/7");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -188,6 +210,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     // ⚠️ 확정 사항이 아니라 스펙이 적어 둔 **제안 기본값**이다(SCR-S3-7·S3-8 Interaction Contract).
     // 동작이 확정되면 이 테스트를 함께 고친다.
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
@@ -214,6 +237,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
       },
     ]);
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();
@@ -231,6 +255,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     // S3-8은 사용자가 유발하지 않은 종료라 "왜 끝났는지"를 먼저 알린다(user-flow `AE → F`).
     vi.mocked(submitStudySession).mockResolvedValue([]);
     renderRoom("/room/7?userId=1");
+    await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
     await waitPastThreshold();

@@ -44,12 +44,14 @@ export function ResultPage() {
    * Figma에 둘 다 있지만 `design.md` 6차 S4 헤더 행은 CTA만 규정한다: 서로 다른 동작을
    * 상상해 부여하지 않는다.
    *
-   * 앱에서는 세션이 네이티브가 push한 별도 화면이라 웹이 스스로 닫을 수 없다 — `exit-session`으로
-   * 닫아달라고 알린다(2026-07-30 확정 브리지 3종 중 하나). 네이티브 수신 구현은 BY-333이고,
-   * 브라우저 단독 모드에는 브리지가 아예 없으므로 이 호출은 그때 조용히 무시된다.
-   *
-   * 그래서 신호를 보낸 **뒤에** 웹 폴백을 남긴다: 브리지가 없으면(브라우저) 이 이동이 실제 복귀고,
-   * 브리지가 받으면 네이티브가 화면을 걷어내므로 이 이동은 보이지 않는다.
+   * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
+   * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
+   * `navigate-home`을 먼저 보낸다(`packages/types`의 `NavigateHomeMessage`) — 네이티브가
+   * 모달을 닫으면 이 화면 전체가 사라지므로 아래 웹 라우터 이동은 브라우저 단독 모드
+   * (ADR 0001)를 위한 폴백이다. 네이티브가 없으면 `postToNative`가 조용히 아무 일도 하지
+   * 않는다. (2026-07-26에는 이 브리지가 없어 미정으로 남겨 뒀었다 — 2026-07-30 제출 대행
+   * 브리지가 생기면서 같은 통로로 해결했다.)
    *
    * 목적지는 `/`가 아니라 `/home`이다 — `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다.
    * 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장(브라우저 단독) 모드로 뜬다.
@@ -59,7 +61,7 @@ export function ResultPage() {
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   function handleConfirm() {
-    postToNative({ type: "exit-session", atMs: Date.now() });
+    postToNative({ type: "navigate-home", atMs: Date.now() });
     navigate({ pathname: "/home", search: location.search }, { replace: true });
   }
 
