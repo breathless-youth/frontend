@@ -57,7 +57,11 @@ export function ContactPage() {
   }, [reloadKey]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    // `min-h-dvh`가 아니라 `h-dvh`여야 한다 — 최소 높이만 주면 컨테이너 높이가 확정되지
+    // 않아 아래 `flex-1`과 iframe의 `height:100%`가 기댈 기준이 없어지고, iframe이 기본
+    // 150px로 쪼그라든다(2026-08-01 웹뷰 실기기에서 화면 1/4만 차지하는 것으로 확인).
+    // RN 원본의 `<View className="flex-1">`이 갖던 확정 높이에 대응한다.
+    <div className="flex h-dvh flex-col bg-background">
       <ScreenBackHeader title="문의하기" />
 
       {failed ? (

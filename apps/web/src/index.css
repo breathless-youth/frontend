@@ -106,6 +106,13 @@
   }
 }
 
+/* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
+   여기가 비어 있으면 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보인다
+   (2026-08-01 웹뷰 실기기 확인). 두 요소에 같은 토큰을 준다. */
+html {
+  background: var(--color-background);
+}
+
 body {
   margin: 0;
   background: var(--color-background);

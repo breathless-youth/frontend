@@ -9,7 +9,7 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 **재구축 진행 상황** — 리셋 이후 다음이 다시 올라왔다. 이 절의 "지금 남아 있는 것은 앱 셸뿐"이라는 서술은 그만큼 낡았다.
 
 - 화면 S1–S6 · G1–G5 · U1 (Figma 확정 디자인 기준)
-- BY-282 — WebView 세션 인프라: 번들 동봉 + localhost 정적 서버([ADR 0005](./docs/adr/0005-bundled-web-assets-over-localhost-server.md)), 세션 라우트, `getUserMedia` 카메라 어댑터, 네이티브↔웹 브리지. Expo Go → Dev Client 전환
+- BY-282 — WebView 세션 인프라: 번들 동봉 + localhost 정적 서버([ADR 0005](./docs/adr/0005-bundled-web-assets-over-localhost-server.md), **2026-07-31 BY-333로 Superseded** — 전 화면 원격 URL 웹뷰 전환으로 번들 동봉·로컬 서버 인프라 전부 삭제됨), 세션 라우트, `getUserMedia` 카메라 어댑터, 네이티브↔웹 브리지. Expo Go → Dev Client 전환
 - BY-293 — **온디바이스 Vision 감지**: EfficientDet-Lite0 + MediaPipe Tasks Vision. 자리 이탈(AWAY)·폰 사용(PHONE)이 **mock이 아닌 실신호**로 동작한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) §2~§4·§10(S3)
 
 아직 없는 것: 가속도 센서 DEVICE 신호(§5), `@focuson/study-core` 분리와 체크포인트·미제출 큐(§6·§7), 수동 타이머 모드(정책은 확정, FE 미구현 — 심사 제출 전 필수). 삭제 코드는 git 히스토리(dev `5e548eb` 시점)에서 복구 가능. "모바일 스터디룸은 `apps/web`을 WebView로 로드한다"는 아키텍처 방침(ADR 0001)은 유지된다 — 재구축 시 이 구조로 만든다. 경위는 이 순서로 읽을 것:

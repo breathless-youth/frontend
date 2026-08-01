@@ -25,39 +25,42 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   }
 
   const record = parsed as Record<string, unknown>;
-  if (record.type === "session-ready" && typeof record.atMs === "number") {
-    return { type: "session-ready", atMs: record.atMs };
+  if (typeof record.atMs !== "number") {
+    return null;
   }
-  // TODO(BY-333): open-settings 수신 파싱 추가 — packages/types ToNativeMessage에 2026-07-30에
-  // 추가됐다(웹 발신부는 이미 있다).
-  // 지금 안 넣는 이유: 파싱해도 처리할 네이티브 수신부(OS 설정 열기)가 아직 없다 —
-  // 수신부와 함께 BY-333(셸 전환)에서 한 커밋으로 들어가야 계약과 구현이 어긋난 채 머지되지 않는다.
-  // 남은 하나(start-session)도 BY-333에서 유니온·수신부가 같이 생긴다.
-  if (record.type === "navigate-home" && typeof record.atMs === "number") {
-    return { type: "navigate-home", atMs: record.atMs };
+  switch (record.type) {
+    case "session-ready":
+      return { type: "session-ready", atMs: record.atMs };
+    case "start-session":
+      return { type: "start-session", atMs: record.atMs };
+    case "navigate-home":
+      return { type: "navigate-home", atMs: record.atMs };
+    case "open-settings":
+      return { type: "open-settings", atMs: record.atMs };
+    case "submit-session":
+      if (
+        typeof record.requestId !== "string" ||
+        typeof record.request !== "object" ||
+        record.request === null
+      ) {
+        return null;
+      }
+      /**
+       * `request`가 객체라는 것만 확인하고 필드는 검증하지 않는다 — **의도된 것이다.**
+       * 이 값은 웹이 `buildSessionRequest`로 완성한 최종 요청 본문이고, 네이티브는 그것을
+       * 고치지 않고 그대로 POST한다(루트 `CLAUDE.md` 아키텍처 경계: 네이티브 셸에 세션 로직을
+       * 두지 않는다). 여기서 필드를 검증하면 계약이 두 곳에 중복되고, 웹이 계약을 넓힐 때마다
+       * 네이티브가 조용히 요청을 떨어뜨리는 원인이 된다. 값의 유효성은 서버가 판정한다.
+       */
+      return {
+        type: "submit-session",
+        requestId: record.requestId,
+        request: record.request as SubmitSessionMessage["request"],
+        atMs: record.atMs,
+      };
+    default:
+      return null;
   }
-  if (
-    record.type === "submit-session" &&
-    typeof record.atMs === "number" &&
-    typeof record.requestId === "string" &&
-    typeof record.request === "object" &&
-    record.request !== null
-  ) {
-    /**
-     * `request`가 객체라는 것만 확인하고 필드는 검증하지 않는다 — **의도된 것이다.**
-     * 이 값은 웹이 `buildSessionRequest`로 완성한 최종 요청 본문이고, 네이티브는 그것을
-     * 고치지 않고 그대로 POST한다(루트 `CLAUDE.md` 아키텍처 경계: 네이티브 셸에 세션 로직을
-     * 두지 않는다). 여기서 필드를 검증하면 계약이 두 곳에 중복되고, 웹이 계약을 넓힐 때마다
-     * 네이티브가 조용히 요청을 떨어뜨리는 원인이 된다. 값의 유효성은 서버가 판정한다.
-     */
-    return {
-      type: "submit-session",
-      requestId: record.requestId,
-      request: record.request as SubmitSessionMessage["request"],
-      atMs: record.atMs,
-    };
-  }
-  return null;
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@dr.pogodin/react-native-fs": "^2.39.2",
-    "@dr.pogodin/react-native-static-server": "^0.27.0",
     "@expo/metro-runtime": "~6.1.2",
     "@focuson/design-tokens": "workspace:*",
     "@focuson/types": "workspace:*",
@@ -55,9 +53,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "sync-web": "node scripts/syncWebDist.js",
-    "sync-web:check": "node scripts/syncWebDist.js --check"
+    "test": "jest"
   },
   "private": true
 }

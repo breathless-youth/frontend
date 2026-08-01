@@ -1,12 +1,12 @@
 import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from "../webBridge";
 
 describe("parseToNativeMessage", () => {
-  it("session-ready 메시지를 파싱한다", () => {
-    expect(parseToNativeMessage('{"type":"session-ready","atMs":5}')).toEqual({
-      type: "session-ready",
-      atMs: 5,
-    });
-  });
+  it.each(["session-ready", "start-session", "navigate-home", "open-settings"] as const)(
+    "%s 메시지를 파싱한다",
+    (type) => {
+      expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
+    },
+  );
 
   it("navigate-home 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"navigate-home","atMs":9}')).toEqual({
@@ -17,6 +17,10 @@ describe("parseToNativeMessage", () => {
 
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
+  });
+
+  it("atMs가 없으면 null을 돌려준다", () => {
+    expect(parseToNativeMessage('{"type":"session-ready"}')).toBeNull();
   });
 
   it("JSON이 아니면 null을 돌려준다", () => {

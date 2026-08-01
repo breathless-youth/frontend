@@ -1,0 +1,58 @@
+import { router } from "expo-router";
+
+import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
+
+import { openAppSettings } from "./cameraPermission";
+import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { relaySessionSubmit } from "./sessionSubmitRelay";
+
+/** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
+export type BridgeReply = (message: ToWebMessage) => void;
+
+/**
+ * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
+ *
+ * `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션, BY-333) 전부가 같은 규칙으로 반응해야
+ * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
+ * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
+ */
+export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply): void {
+  switch (message.type) {
+    case "session-ready":
+      // 기존 동작 유지 — 네이티브가 별도로 할 일은 아직 없다.
+      break;
+    case "start-session":
+      void (async () => {
+        const result = await runCameraPermissionGate();
+        if (result === "show-denied-guide") {
+          router.push("/permission-denied");
+          return;
+        }
+        router.push("/room/1");
+      })().catch((error: unknown) => {
+        console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
+      });
+      break;
+    case "navigate-home":
+      // S4 결과 CTA·미달 종료 안내가 보낸다 — 세션은 탭 위에 `fullScreenModal`로 떠 있으므로
+      // 모달을 닫으면 그 아래 홈 탭이 그대로 드러난다. 스택이 비어 있는 경우(딥링크 진입 등)는
+      // 탭 루트로 교체한다 — 아무 일도 안 일어나면 사용자가 결과 화면에 갇힌다.
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/");
+      }
+      break;
+    case "open-settings":
+      void openAppSettings();
+      break;
+    case "submit-session":
+      // 세션 로직이 네이티브로 넘어오는 게 아니다 — 웹이 완성한 요청 본문을 받아 HTTP만
+      // 대신 쳐 주고 결과를 그대로 돌려준다(WebView 안에서 직접 `fetch`하면 백엔드가 CORS
+      // 헤더를 보내지 않아 막힌다, 2026-07-30 확인).
+      // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
+      // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
+      void relaySessionSubmit(message).then(reply);
+      break;
+  }
+}
