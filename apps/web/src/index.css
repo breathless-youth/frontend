@@ -175,6 +175,24 @@ body {
   }
 }
 
+/* 웹뷰(네이티브 셸) 안에서는 페이지 전체가 드래그·길게 눌러 선택되지 않는다 — 앱 화면이
+   웹 문서처럼 반응하면(글자에 파란 선택 블록이 잡히고 아이콘이 손끝을 따라 끌림) 곧바로
+   "안에 웹이 들어 있다"는 게 드러난다. 클래스는 `lib/nativeShell.ts`가 브리지가 있을 때만
+   붙인다 — 브라우저 단독 배포에서는 선택·복사가 그대로 살아 있어야 한다(약관·방침 열람).
+
+   속성 선택은 아래 `.session-no-drag`와 같은 근거다(그 주석 참고) — 특히
+   `-webkit-user-select`는 iOS WKWebView에서 표준 `user-select`만으로 막히지 않으므로 함께 둔다.
+
+   ⚠️ 스크롤은 막지 않는다. `touch-action`을 건드리면 세로 스크롤까지 죽는다. */
+.native-shell,
+.native-shell * {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그 방지.
    `-webkit-user-drag`는 상속되지 않는 속성이라 자손 선택자로 명시한다 — 컨트롤 바 아이콘이
    전부 `<img>`라 기본값으로는 마우스/터치 드래그에 끌린다(iOS WKWebView·Android WebView 둘
