@@ -16,8 +16,8 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
  *
  * **없으면 UI가 영원히 "저장 중..."에 갇힌다.** 브리지는 한 방향으로 던지는 통로라, 상대가
  * `submit-session`을 모르면 아무 응답도 오지 않고 실패조차 발생하지 않는다. 그런 조합이 실제로
- * 가능하다 — `extra.webDevUrl`로 dev 서버를 붙이면 웹 번들이 설치된 Dev Client보다 앞설 수 있다
- * (`apps/mobile/lib/devWebOrigin.ts`). 직접 `fetch`하는 경로에는 이 위험이 없어서 상한이 없다.
+ * 가능하다 — 웹은 원격 URL에서 오고(`extra.webBaseUrl`) 앱은 스토어 빌드라, 웹 배포가 설치된
+ * 앱보다 앞서는 것이 오히려 기본 상태다. 직접 `fetch`하는 경로에는 이 위험이 없어서 상한이 없다.
  *
  * ⚠️ **넉넉하게 잡은 이유가 있다. 짧게 줄이지 말 것.** 상한을 넘겨도 요청 자체는 이미 서버에
  * 도착했을 수 있는데, 그때 사용자가 재시도 버튼을 누르면 **같은 세션이 두 번 저장된다**
