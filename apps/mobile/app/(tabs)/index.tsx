@@ -1,4 +1,5 @@
 import { RemoteScreen } from "../../components/RemoteScreen";
+import { HomeTabSkeleton } from "../../components/RemoteSplashSkeletons";
 import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
 
 /**
@@ -14,7 +15,7 @@ import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
 export default function HomeScreen() {
   return (
     <>
-      <RemoteScreen testID="home-webview" path="/home" />
+      <RemoteScreen testID="home-webview" path="/home" splash={<HomeTabSkeleton />} />
       <UpdateNoticeSheetHost />
     </>
   );

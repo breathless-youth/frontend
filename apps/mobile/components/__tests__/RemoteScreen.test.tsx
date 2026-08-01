@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react-native";
+import { Text } from "react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
@@ -62,6 +63,23 @@ describe("RemoteScreen", () => {
 
     expect(screen.queryByTestId("home-webview")).toBeNull();
     expect(screen.getByTestId("home-webview-splash")).toBeTruthy();
+  });
+
+  it("splash로 받은 스켈레톤을 스플래시 자리에 그린다 — 기본 인디케이터 대신", async () => {
+    mockedEnsureUserRegistered.mockReturnValue(new Promise(() => undefined));
+
+    render(
+      <RemoteScreen
+        testID="home-webview"
+        path="/home"
+        splash={<Text testID="home-skeleton">skeleton</Text>}
+      />,
+    );
+
+    const splash = screen.getByTestId("home-webview-splash");
+    expect(screen.getByTestId("home-skeleton")).toBeTruthy();
+    // 스켈레톤이 있어도 스플래시 컨테이너의 터치 통과 계약은 유지돼야 한다.
+    expect(splash.props.pointerEvents).toBe("none");
   });
 
   it('스플래시는 pointerEvents="none"이라 터치를 가로채지 않는다', async () => {
@@ -145,6 +163,9 @@ describe("RemoteScreen", () => {
       onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
     });
 
-    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith({ type: "navigate-home", atMs: 5 }, expect.any(Function));
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      { type: "navigate-home", atMs: 5 },
+      expect.any(Function),
+    );
   });
 });

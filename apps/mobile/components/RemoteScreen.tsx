@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import { handleBridgeMessage } from "../lib/nativeBridgeHandler";
@@ -32,6 +32,12 @@ export type RemoteScreenProps = {
    * iOS에는 하드웨어 뒤로가기가 없어 이 핸들러가 불리지 않는다 — 실질적으로 Android 전용이다.
    */
   blockHardwareBack?: boolean;
+  /**
+   * 로드 동안 스플래시 자리에 그릴 페이지별 스켈레톤(`RemoteSplashSkeletons.tsx`).
+   * 생략하면 기존 `ActivityIndicator` 중앙 배치 — 세션 화면(`room/[id]`)처럼 미러링할
+   * 레이아웃이 없는 화면(카메라 전면 뷰)은 스켈레톤을 만들지 않고 이 폴백을 쓴다.
+   */
+  splash?: ReactNode;
   testID?: string;
 };
 
@@ -39,6 +45,7 @@ export function RemoteScreen({
   path,
   backgroundColor,
   blockHardwareBack = false,
+  splash,
   testID,
 }: RemoteScreenProps) {
   const query = useRemoteQueryParams();
@@ -89,10 +96,15 @@ export function RemoteScreen({
           // 폴백의 재시도 버튼)로 가는 모든 터치를 가로챈다(BY-333 실기기 확인: 탭 전환 중
           // 뒤로가기조차 눌리지 않았다).
           pointerEvents="none"
-          className="bg-bg-base dark:bg-bg-base-dark absolute inset-0 items-center justify-center"
+          className="bg-bg-base dark:bg-bg-base-dark absolute inset-0"
           style={backgroundColor ? { backgroundColor } : undefined}
         >
-          <ActivityIndicator />
+          {/* 스켈레톤은 페이지 레이아웃을 그대로 그리므로 중앙 정렬 없이 전면에 편다. */}
+          {splash ?? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator />
+            </View>
+          )}
         </View>
       )}
     </View>
