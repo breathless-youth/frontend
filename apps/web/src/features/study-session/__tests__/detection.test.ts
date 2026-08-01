@@ -39,6 +39,19 @@ describe("stepDetection — 진입 유지시간", () => {
     expect(state.active).toBe("PHONE");
   });
 
+  /** 가속도 2% 초과가 **0.5초 이어져야** 확정된다(스펙 §3) — 스치듯 닿는 접촉은 잡지 않는다. */
+  it("기기 조작은 0.5초 유지되어야 잡힌다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ DEVICE: true }), T0);
+    expect(state.active).toBeNull();
+
+    state = step(state, signals({ DEVICE: true }), T0 + 400);
+    expect(state.active).toBeNull();
+
+    state = step(state, signals({ DEVICE: true }), T0 + 500);
+    expect(state.active).toBe("DEVICE");
+  });
+
   it("유지시간을 채우기 전에 신호가 사라지면 잡히지 않는다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ DEVICE: true }), T0);
