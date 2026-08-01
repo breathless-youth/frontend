@@ -159,6 +159,9 @@ export function RemoteWebViewHost({
     [targetOrigin],
   );
 
+  // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
+  const handleLoadEnd = useCallback(() => onLoadEnd?.(true), [onLoadEnd]);
+
   const showFailureFallback = target === null || loadFailed;
 
   // 로드 실패(설정 누락 포함)로 폴백 화면을 보여줄 때도 onLoadEnd를 호출한다 — RemoteScreen의
@@ -237,7 +240,7 @@ export function RemoteWebViewHost({
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
-      onLoadEnd={() => onLoadEnd?.(true)}
+      onLoadEnd={handleLoadEnd}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}
     />
