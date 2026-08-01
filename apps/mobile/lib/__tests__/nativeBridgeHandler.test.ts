@@ -18,6 +18,7 @@ jest.mock("expo-router", () => ({
     push: jest.fn(),
     back: jest.fn(),
     replace: jest.fn(),
+    navigate: jest.fn(),
     canGoBack: jest.fn(() => true),
   },
 }));
@@ -42,6 +43,7 @@ const mockedRouter = router as unknown as {
   push: jest.Mock;
   back: jest.Mock;
   replace: jest.Mock;
+  navigate: jest.Mock;
   canGoBack: jest.Mock;
 };
 const mockedRunCameraPermissionGate = runCameraPermissionGate as jest.MockedFunction<
@@ -106,6 +108,14 @@ describe("handleBridgeMessage", () => {
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedRouter.replace).toHaveBeenCalledWith("/");
+  });
+
+  it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    // push가 아니라 navigate — 이미 기록 탭이면 화면을 쌓지 않고 재사용한다.
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+    expect(mockedRouter.push).not.toHaveBeenCalled();
   });
 
   it("open-settings → OS 설정 앱을 연다", () => {

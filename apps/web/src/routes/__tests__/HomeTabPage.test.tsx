@@ -83,6 +83,7 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
             element={<LocationProbe testId="onboarding-guide-stub" />}
           />
           <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
+          <Route path="/records" element={<LocationProbe testId="records-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -142,6 +143,54 @@ describe("HomeTabPage", () => {
 
     expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("연속 공부 카드 — 기록 탭 이동 (Figma Card/Stat 38:86)", () => {
+    // 웹뷰 테스트가 심은 브리지 전역이 브라우저 단독 테스트로 새면 폴백 경로가 죽는다.
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("웹뷰에서는 navigate-tab 브리지로 네이티브 탭바를 움직인다 — 웹 라우팅하지 않는다", async () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("3일째")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /연속 공부/ }));
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"navigate-tab"') as unknown as string,
+      );
+      // 웹 라우터로 /records에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바와 어긋난다.
+      expect(screen.queryByTestId("records-stub")).not.toBeInTheDocument();
+    });
+
+    it("브라우저 단독 모드에서는 쿼리를 승계해 웹 /records로 이동한다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("3일째")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /연속 공부/ }));
+
+      const stub = await screen.findByTestId("records-stub");
+      expect(stub.textContent).toBe("/records?userId=7");
+    });
+
+    it("최장 집중 카드는 버튼이 아니다 — 목적지가 없는 카드를 눌리는 것처럼 만들지 않는다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("52분")).toBeInTheDocument());
+      expect(screen.queryByRole("button", { name: /최장 집중/ })).not.toBeInTheDocument();
+    });
   });
 
   describe("집중 시작 CTA — 온보딩 가이드 배선 (BY-334)", () => {

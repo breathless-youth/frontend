@@ -65,6 +65,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
         });
       break;
+    case "navigate-tab":
+      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
+      // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
+      router.navigate("/records");
+      break;
     case "set-tab-bar":
       // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.

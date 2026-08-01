@@ -95,8 +95,30 @@ export type ToNativeMessage =
    */
   | { type: "request-camera-permission"; atMs: number }
   | SetTabBarMessage
+  | NavigateTabMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
+
+/**
+ * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
+ * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
+ *
+ * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 문서만
+ * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
+ * 신호만 보내고 실제 전환은 네이티브가 한다.
+ *
+ * `tab`이 `"records"` 하나뿐인 이유: 목적지가 확정된 탭 간 이동이 이것뿐이다(탭바 IA 원칙
+ * "목적지가 확정되지 않은 탭을 임의로 늘리지 않는다"와 같은 태도). 새 이동이 확정되면
+ * 유니온을 넓힌다 — 호환 변경이다.
+ *
+ * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트 `/records`로 직접 이동한다
+ * (쿼리 승계 포함, 발신부 참고).
+ */
+export interface NavigateTabMessage {
+  type: "navigate-tab";
+  tab: "records";
+  atMs: number;
+}
 
 /**
  * 네이티브 하단 탭 바를 감춘다/보인다 — **웹 라우트가 전체 화면인지 웹만 알기 때문에** 필요하다.

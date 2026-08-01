@@ -15,6 +15,7 @@ import { UpdateNoticeSheetHost } from "@/features/home/UpdateNoticeSheetHost";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { parseUserId } from "@/lib/userId";
 
@@ -24,7 +25,8 @@ import { parseUserId } from "@/lib/userId";
  *
  * RN판과의 동작 차이(의도된 것):
  * - 탭 전환(기록·설정)은 **네이티브 탭바 소유**다 — 웹 안에서 탭 라우트로 이동하지 않는다.
- *   그래서 연속 공부 카드의 기록(S5) 연결은 RN판의 TODO 그대로 미연결로 둔다.
+ *   연속 공부 카드의 기록(S5) 연결도 그래서 `navigate-tab` 브리지로 네이티브에 맡긴다
+ *   (`openRecords` — 브라우저 단독 모드만 웹 라우트로 직접 이동).
  * - 온보딩 가이드(G1~G5)가 웹으로 이관됐다(BY-334) — "집중 시작"은 `focusStartFlow`의
  *   `runFocusStartFlow`를 거쳐 가이드 미완료면 `/onboarding-guide`로, 완료면 세션 시작
  *   요청(`requestSessionStart`)으로 갈린다. 가이드 카드(다시 보기, entry=home-card)는 최초
@@ -122,17 +124,33 @@ function StartCtaCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-function StatCard({ variant, summary }: { variant: "streak" | "longest"; summary: HomeSummary }) {
+const STAT_CARD_CLASS =
+  "flex min-h-11 flex-1 flex-col gap-1 rounded-2xl border border-border bg-muted p-4";
+
+function StatCard({
+  variant,
+  summary,
+  onPress,
+}: {
+  variant: "streak" | "longest";
+  summary: HomeSummary;
+  /**
+   * 연속 공부 카드만 받는다 — 기록 탭 이동(Figma `Card / Stat` 38:86 "Streak=불꽃+셰브런
+   * (기록 탭 이동)", BY-329 이식 때 TODO로 남겼던 연결). 셰브런(이동 어포던스)은 `onPress`가
+   * 있을 때만 그린다 — 기록 탭의 SessionListItem에서 확인했듯 누를 수 없는 곳에 셰브런만
+   * 남기지 않는다. 터치 타겟은 셰브런이 아니라 **카드 전체**다(12px 아이콘은 타겟으로 너무 작다).
+   */
+  onPress?: () => void;
+}) {
   const isStreak = variant === "streak";
 
-  return (
-    // RN판도 기록(S5) 연결이 TODO였고, 웹에서 탭 전환은 네이티브 탭바 소유라 비인터랙티브로 둔다.
-    <div className="flex min-h-11 flex-1 flex-col gap-1 rounded-2xl border border-border bg-muted p-4">
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-text-tertiary">
           {isStreak ? "연속 공부" : "최장 집중"}
         </p>
-        {isStreak && <IconChevronRight size={12} />}
+        {onPress !== undefined && <IconChevronRight size={12} />}
       </div>
       <div className="flex items-center gap-1.5">
         {isStreak && <IllustFlame width={19} height={22} />}
@@ -153,7 +171,16 @@ function StatCard({ variant, summary }: { variant: "streak" | "longest"; summary
             : "오늘 10분이면 시작돼요"
           : "오늘 가장 길게 집중했어요"}
       </p>
-    </div>
+    </>
+  );
+
+  if (onPress === undefined) {
+    return <div className={STAT_CARD_CLASS}>{content}</div>;
+  }
+  return (
+    <button type="button" onClick={onPress} className={`${STAT_CARD_CLASS} text-left`}>
+      {content}
+    </button>
   );
 }
 
@@ -212,6 +239,23 @@ function HomeContent({ userId }: { userId: number }) {
   }
 
   /**
+   * 연속 공부 카드 → 기록 탭 (Figma `Card / Stat` 38:86 "기록 탭 이동" — BY-329 이식 때
+   * TODO로 남겼던 연결).
+   *
+   * 웹뷰에서는 `navigate-tab` 브리지로 **네이티브 탭바**를 움직인다 — 웹 라우터로
+   * `/records`에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바 활성 표시와 어긋난다(기록 탭
+   * 웹뷰는 따로 있다). 브라우저 단독 모드에서는 탭바가 없으므로 웹 라우트로 직접 가되,
+   * 쿼리를 승계한다(`openOnboardingGuide`와 같은 이유 — 잃으면 기록이 미저장 모드로 뜬다).
+   */
+  function openRecords() {
+    if (isNativeBridgeAvailable()) {
+      postToNative({ type: "navigate-tab", tab: "records", atMs: Date.now() });
+      return;
+    }
+    navigate({ pathname: "/records", search: location.search });
+  }
+
+  /**
    * "집중 시작" 탭 진입점 (BY-334) — 분기는 `focusStartFlow.runFocusStartFlow`가 소유한다.
    * 이 화면은 그 계약(`FocusStartNavigator`)의 웹 구현만 제공한다: 가이드로 갈 때는
    * `openOnboardingGuide`에, 세션 시작은 `requestSessionStart`(브리지 있으면 발신, 없으면
@@ -249,7 +293,7 @@ function HomeContent({ userId }: { userId: number }) {
       )}
       {summaryState.status === "success" && (
         <div className="flex gap-3">
-          <StatCard variant="streak" summary={summaryState.summary} />
+          <StatCard variant="streak" summary={summaryState.summary} onPress={openRecords} />
           <StatCard variant="longest" summary={summaryState.summary} />
         </div>
       )}
