@@ -39,6 +39,13 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
       return { type: "request-camera-permission", atMs: record.atMs };
+    case "set-tab-bar":
+      // `visible`이 boolean이 아니면 통째로 버린다 — 기본값(보임)이 유지되는 편이 안전하다.
+      // 여기서 truthy 판정으로 넘기면 오타 하나에 탭 바가 사라져 이동 수단이 없어진다.
+      if (typeof record.visible !== "boolean") {
+        return null;
+      }
+      return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
     case "submit-session":
       if (
         typeof record.requestId !== "string" ||

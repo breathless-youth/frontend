@@ -94,8 +94,29 @@ export type ToNativeMessage =
    * 토글 없는 상태로 남는다(`CameraPermissionMessage` 주석 참고).
    */
   | { type: "request-camera-permission"; atMs: number }
+  | SetTabBarMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
+
+/**
+ * 네이티브 하단 탭 바를 감춘다/보인다 — **웹 라우트가 전체 화면인지 웹만 알기 때문에** 필요하다.
+ *
+ * 온보딩 가이드(G1~G5)·문의하기·약관·개인정보처리방침은 탭 바 없는 전체 화면 라우트인데
+ * (`apps/web/src/App.tsx`), 이 화면들은 탭 웹뷰 **안에서 웹 라우팅으로** 열린다. 네이티브
+ * 스택을 건너지 않으므로 네이티브는 이동을 알 수 없고, 탭 바가 그대로 남아 Figma G1~G5(탭 바
+ * 없음)와 어긋난다.
+ *
+ * **웹이 탭 바를 직접 가릴 수는 없다.** `app/(tabs)/_layout.tsx`에서 탭 바는 웹뷰와 형제로
+ * 렌더되어 웹뷰 바깥에 있다 — 웹이 아무리 전체 화면을 칠해도 그 영역에 닿지 못한다.
+ *
+ * 세션(`/room/:id`)은 이 메시지를 쓰지 않는다 — 네이티브가 `fullScreenModal`로 띄워 탭 바가
+ * 이미 덮이고, 세션 웹뷰는 탭 라우트로 돌아오지 않아 `visible: true`를 되돌려줄 기회가 없다.
+ */
+export interface SetTabBarMessage {
+  type: "set-tab-bar";
+  visible: boolean;
+  atMs: number;
+}
 
 /**
  * S4(공부 결과)·미달 종료 안내의 CTA가 보낸다 — **네이티브 홈 탭으로 돌려보내 달라는 요청**이다.

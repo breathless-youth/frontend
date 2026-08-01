@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
 
+import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { ContactPage } from "@/routes/ContactPage";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
@@ -26,6 +27,10 @@ import { TermsPage } from "@/routes/TermsPage";
 const queryClient = new QueryClient();
 
 export function App() {
+  // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
+  // 알려주지 않으면 탭 바가 그대로 남는다(`lib/nativeTabBar.ts`).
+  useNativeTabBarSync();
+
   return (
     <QueryClientProvider client={queryClient}>
       <Routes>

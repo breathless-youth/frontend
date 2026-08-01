@@ -5,6 +5,7 @@ import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { relaySessionSubmit } from "./sessionSubmitRelay";
+import { setTabBarVisible } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -63,6 +64,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
         .catch((error: unknown) => {
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
         });
+      break;
+    case "set-tab-bar":
+      // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
+      // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
+      setTabBarVisible(message.visible);
       break;
     case "submit-session":
       // 세션 로직이 네이티브로 넘어오는 게 아니다 — 웹이 완성한 요청 본문을 받아 HTTP만
