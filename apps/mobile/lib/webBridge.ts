@@ -1,4 +1,4 @@
-import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -30,6 +30,13 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   }
   if (record.type === "navigate-home" && typeof record.atMs === "number") {
     return { type: "navigate-home", atMs: record.atMs };
+  }
+  if (
+    record.type === "motion-sensor" &&
+    typeof record.atMs === "number" &&
+    typeof record.enabled === "boolean"
+  ) {
+    return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
   }
   if (
     record.type === "submit-session" &&

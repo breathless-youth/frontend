@@ -1,5 +1,5 @@
-import { eventStatusColors } from "@focuson/design-tokens";
-import type { StudyEventStatus } from "@focuson/types";
+import { eventStatusColors } from "@focusmakers/design-tokens";
+import type { StudyEventStatus } from "@focusmakers/types";
 import { Text, useColorScheme, View } from "react-native";
 
 /**

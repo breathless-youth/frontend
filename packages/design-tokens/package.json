@@ -1,5 +1,5 @@
 {
-  "name": "@focuson/design-tokens",
+  "name": "@focusmakers/design-tokens",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@focuson/config": "workspace:*",
+    "@focusmakers/config": "workspace:*",
     "eslint": "^9.39.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

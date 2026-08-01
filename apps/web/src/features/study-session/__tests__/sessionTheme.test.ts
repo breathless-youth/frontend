@@ -1,4 +1,4 @@
-import { colors, sessionStateColors } from "@focuson/design-tokens";
+import { colors, sessionStateColors } from "@focusmakers/design-tokens";
 import { describe, expect, it } from "vitest";
 
 import { sessionGlowStyle, sessionSurfaceStyle } from "../sessionTheme";

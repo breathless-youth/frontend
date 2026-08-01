@@ -1,4 +1,4 @@
-import { colors } from "@focuson/design-tokens";
+import { colors } from "@focusmakers/design-tokens";
 import { router } from "expo-router";
 import { Pressable, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

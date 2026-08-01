@@ -6,7 +6,7 @@ import type {
   StudySessionListResponse,
   StudySessionStreakResponse,
   StudySessionSummary,
-} from "@focuson/types";
+} from "@focusmakers/types";
 
 import RecordsScreen from "../app/(tabs)/records";
 import { getStreak, listStudySessionStats } from "../lib/statsApi";

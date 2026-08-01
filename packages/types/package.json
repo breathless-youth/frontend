@@ -1,5 +1,5 @@
 {
-  "name": "@focuson/types",
+  "name": "@focusmakers/types",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "echo \"no tests yet\" && exit 0"
   },
   "devDependencies": {
-    "@focuson/config": "workspace:*",
+    "@focusmakers/config": "workspace:*",
     "eslint": "^9.39.0",
     "typescript": "^5.9.3"
   }

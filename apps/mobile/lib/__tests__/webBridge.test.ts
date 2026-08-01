@@ -15,6 +15,18 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("motion-sensor 메시지를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"motion-sensor","enabled":true,"atMs":7}')).toEqual({
+      type: "motion-sensor",
+      enabled: true,
+      atMs: 7,
+    });
+  });
+
+  it("motion-sensor의 enabled가 boolean이 아니면 null을 돌려준다", () => {
+    expect(parseToNativeMessage('{"type":"motion-sensor","enabled":"on","atMs":7}')).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

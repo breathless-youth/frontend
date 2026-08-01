@@ -1,4 +1,4 @@
-import type { StatusEventPayload } from "@focuson/types";
+import type { StatusEventPayload } from "@focusmakers/types";
 
 import type { SessionState } from "./sessionState";
 import {

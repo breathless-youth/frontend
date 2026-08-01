@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
 

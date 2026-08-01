@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";

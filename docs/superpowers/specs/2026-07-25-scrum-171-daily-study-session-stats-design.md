@@ -12,7 +12,7 @@
 - 성공: 세션 요약 목록, 일일 합계, 최장 집중 시간, 집중률, 상태별 이벤트 수, 해당 월 공부일을 담은 객체
 - 오류: 비성공 HTTP 응답의 JSON `message`를 우선 사용하고, 없으면 HTTP 상태를 포함한 오류 메시지를 사용한다.
 
-`UserRegisterResponse`와 마찬가지로 서버 전송 계약은 `@focuson/types`에 정의한다. 상태 키는 Swagger enum인 `PHONE`, `DEVICE`, `AWAY`, `PAUSE`로 제한한다.
+`UserRegisterResponse`와 마찬가지로 서버 전송 계약은 `@focusmakers/types`에 정의한다. 상태 키는 Swagger enum인 `PHONE`, `DEVICE`, `AWAY`, `PAUSE`로 제한한다.
 
 ## 구현 경계
 

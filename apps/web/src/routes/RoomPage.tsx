@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Toast } from "@/components/ui/toast";
-import { createVisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
+import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
+import {
+  combineFocusDetectors,
+  createVisionFocusDetector,
+} from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
@@ -201,7 +205,15 @@ export function RoomPage() {
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
   );
-  const detector = devDetector ?? visionDetector;
+  /**
+   * 감지기는 둘이다 — 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`). 담당 트리거가 겹치지
+   * 않으므로 하나로 묶어 훅에 넘긴다. 수명(`start`/`stop`)도 함께 움직이는 것이 맞다 —
+   * 설계 §5가 센서 정지 시점을 "카메라 추론 정지와 동일한 시점"으로 못박았다.
+   */
+  const [sensorDetector] = useState(() =>
+    combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
+  );
+  const detector = devDetector ?? sensorDetector;
   const {
     focusSec,
     studySec,

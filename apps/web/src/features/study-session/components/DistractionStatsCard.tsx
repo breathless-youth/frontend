@@ -1,6 +1,6 @@
 import { Fragment, useId, useState } from "react";
 
-import type { StudyEventStatus } from "@focuson/types";
+import type { StudyEventStatus } from "@focusmakers/types";
 
 import { toKoreanDurationLength } from "../formatDuration";
 import { EVENT_STATUS_LABEL, RESULT_COPY, eventCountLabel } from "../resultCopy";

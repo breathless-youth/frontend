@@ -12,7 +12,7 @@ describe("HomePage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("FocusOn")).toBeInTheDocument();
+    expect(screen.getByText("FocusMakers")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /스터디룸 입장/ })).toBeInTheDocument();
   });
 });

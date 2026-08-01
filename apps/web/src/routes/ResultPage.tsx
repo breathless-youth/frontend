@@ -1,6 +1,6 @@
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import { postToNative } from "@/features/study-session/bridge/nativeBridge";
 import { DistractionStatsCard } from "@/features/study-session/components/DistractionStatsCard";

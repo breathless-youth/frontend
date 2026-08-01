@@ -1,5 +1,5 @@
 {
-  "name": "focuson-fe",
+  "name": "focusmakers-fe",
   "private": true,
   "packageManager": "pnpm@10.28.2",
   "engines": {
@@ -15,11 +15,11 @@
     "format:check": "prettier --check .",
     "prepare": "husky"
   },
-  "prettier": "@focuson/config/prettier",
+  "prettier": "@focusmakers/config/prettier",
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@focuson/config": "workspace:*",
+    "@focusmakers/config": "workspace:*",
     "eas-cli": "^21.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",

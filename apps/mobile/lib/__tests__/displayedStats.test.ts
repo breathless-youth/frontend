@@ -1,4 +1,4 @@
-import type { StudySessionListResponse, StudySessionSummary } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionSummary } from "@focusmakers/types";
 
 import { MIN_DISPLAYED_FOCUS_SEC, isDisplayedSession, toDisplayedStats } from "../displayedStats";
 

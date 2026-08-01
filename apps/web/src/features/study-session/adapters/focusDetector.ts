@@ -32,6 +32,37 @@ export interface FocusDetector {
   subscribe(listener: (signal: DetectorSignal) => void): () => void;
 }
 
+/**
+ * 여러 감지기를 하나로 묶는다 — 훅은 감지기를 **하나만** 받고, 실제로는 Vision(카메라)과
+ * 가속도 센서가 서로 다른 트리거를 담당한다(설계 §4·§5).
+ *
+ * 트리거가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`만, 가속도는 `DEVICE`만
+ * 내보낸다. 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
+ * 대표 트리거 선택은 여기가 아니라 `../detection.ts`의 `TRIGGER_PRIORITY`가 한다.
+ */
+export function combineFocusDetectors(detectors: readonly FocusDetector[]): FocusDetector {
+  return {
+    start(): void {
+      for (const detector of detectors) {
+        detector.start();
+      }
+    },
+    stop(): void {
+      for (const detector of detectors) {
+        detector.stop();
+      }
+    },
+    subscribe(listener) {
+      const unsubscribes = detectors.map((detector) => detector.subscribe(listener));
+      return () => {
+        for (const unsubscribe of unsubscribes) {
+          unsubscribe();
+        }
+      };
+    },
+  };
+}
+
 export interface MockFocusDetector extends FocusDetector {
   /**
    * 원신호를 수동으로 밀어넣는다. **개발/테스트 전용** —
@@ -137,7 +168,7 @@ export interface VisionFocusDetectorOptions {
  *    그대로 둔다. `null`을 `AWAY=true`로 바꾸면 모델 로딩 구간이 통째로 자리 이탈로 기록된다.
  * 3. **`AWAY` 뒤집기는 여기 책임이다.** `evaluateFrame()`은 `personPresent`를 주므로
  *    `AWAY: !personPresent`로 넣는다. `DEVICE`는 가속도 센서 경로라 이 어댑터가 만들지 않는다 —
- *    계속 `false`이고, 신호를 보내지 않으므로 `NO_TRIGGER_SIGNALS`의 기본값이 그대로 남는다.
+ *    그쪽은 `createDeviceHandlingDetector`가 담당하고, 둘은 `combineFocusDetectors`로 묶인다.
  *
  * ⚠️ **알려진 한계.** 감지가 한 번도 돌지 않은 세션(카메라 거부·모델 로딩 실패)은
  * `focusSec == studySec`이 되어 집중률 100%로 기록된다. 이번 범위에서 고치지 않는다 —

@@ -2,7 +2,7 @@ import type {
   StudySessionEventCounts,
   StudySessionListResponse,
   StudySessionSummary,
-} from "@focuson/types";
+} from "@focusmakers/types";
 
 /**
  * 사용자에게 **보여줄** 통계로 좁힌다 — 순공 1분 미만 세션을 제외하고 합산을 다시 계산한다.

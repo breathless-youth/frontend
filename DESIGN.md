@@ -10,7 +10,7 @@ implementation:
   runtime: React Native 0.86
   routing: Expo Router
   styling: NativeWind 4
-  tokens: "@focuson/design-tokens"
+  tokens: "@focusmakers/design-tokens"
 ---
 
 # FocusOn Mobile Design System
@@ -121,7 +121,7 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 > 2026-07-26 갱신 — 아래 표만 Figma 확정 기준으로 정정했다. 이 문서의 나머지 색상 값은 여전히
 > 낡았다(위 배너 참고).
 
-세션 상태는 3색 체계다(`@focuson/design-tokens`의 `sessionStateColors`):
+세션 상태는 3색 체계다(`@focusmakers/design-tokens`의 `sessionStateColors`):
 
 | State         | Token                            | Light     | Dark      | Label    |
 | ------------- | -------------------------------- | --------- | --------- | -------- |
@@ -468,7 +468,7 @@ MCP가 생성한 결과는 참고 입력이며 저장소에 바로 병합할 완
 
 - 모바일 앱 셸만 이 디자인 시스템의 직접 구현 범위다.
 - Expo Router, React Native와 NativeWind를 유지한다.
-- `@focuson/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다.
+- `@focusmakers/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다.
 - 공부 상태는 네 가지 도메인 상태와 1:1로 대응한다.
 - 화면은 Figma에서 하나씩 완성한 뒤 MCP로 구현한다.
 - 공통 컴포넌트는 점진적으로 추출한다.

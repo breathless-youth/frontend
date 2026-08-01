@@ -126,7 +126,7 @@ import type {
   StudySessionSummary, // 세션 1건
   StudySessionListResponse, // GET /api/stats 응답
   StudySessionEventCounts, // Record<"PHONE"|"DEVICE"|"AWAY"|"PAUSE", number>
-} from "@focuson/types";
+} from "@focusmakers/types";
 ```
 
 ### 화면 요소 ↔ 필드 매핑 (확인된 것)
