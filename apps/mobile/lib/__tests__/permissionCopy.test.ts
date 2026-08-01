@@ -15,6 +15,21 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
 
   it("마이크 권한을 요청하지 않는다 (멀티룸 음성 송출 없음)", () => {
     expect(appConfig.expo.ios.infoPlist).not.toHaveProperty("NSMicrophoneUsageDescription");
-    expect(appConfig.expo.android.permissions).toEqual(["CAMERA"]);
+    expect(appConfig.expo.android.permissions).not.toContain("RECORD_AUDIO");
+  });
+
+  /**
+   * 권한을 **열거로** 고정한다. `expo-camera` plugin을 `plugins`에 넣으면 `RECORD_AUDIO`가
+   * 조용히 주입되는데(`apps/mobile/CLAUDE.md`), 위 부정 단언만으로는 그 외의 오염을 못 잡는다.
+   * 권한이 늘어날 때 이 배열을 고치면서 "정말 필요한가"를 한 번 되묻게 하는 것이 목적이다.
+   */
+  it("선언된 Android 권한은 두 개뿐이다", () => {
+    expect(appConfig.expo.android.permissions).toEqual([
+      "CAMERA",
+      // 가속도 20Hz 샘플링(설계 §5). Android 12+는 이게 없으면 센서 주기가 200ms로 묶여
+      // 300ms 창에 표본이 2개만 들어가고 표준편차 판정이 성립하지 않는다.
+      // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
+      "HIGH_SAMPLING_RATE_SENSORS",
+    ]);
   });
 });
