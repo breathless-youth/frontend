@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react-native";
 import { RemoteScreen } from "../RemoteScreen";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
-import { getRegisteredUserId } from "../../lib/userApi";
+import { ensureUserRegistered } from "../../lib/userApi";
 
 /**
  * 탭 3개 + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
@@ -13,7 +13,7 @@ import { getRegisteredUserId } from "../../lib/userApi";
  * 걷히는지, (4) 브리지 메시지가 공용 핸들러(`handleBridgeMessage`)로 연결되는지.
  */
 
-jest.mock("../../lib/userApi", () => ({ getRegisteredUserId: jest.fn() }));
+jest.mock("../../lib/userApi", () => ({ ensureUserRegistered: jest.fn() }));
 jest.mock("../../lib/nativeBridgeHandler", () => ({ handleBridgeMessage: jest.fn() }));
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -40,8 +40,8 @@ jest.mock("react-native-webview", () => {
   };
 });
 
-const mockedGetRegisteredUserId = getRegisteredUserId as jest.MockedFunction<
-  typeof getRegisteredUserId
+const mockedEnsureUserRegistered = ensureUserRegistered as jest.MockedFunction<
+  typeof ensureUserRegistered
 >;
 const mockedHandleBridgeMessage = handleBridgeMessage as jest.MockedFunction<
   typeof handleBridgeMessage
@@ -56,7 +56,7 @@ beforeEach(() => {
 
 describe("RemoteScreen", () => {
   it("파라미터 조립이 끝나기 전엔 웹뷰 없이 스플래시만 보여준다", async () => {
-    mockedGetRegisteredUserId.mockReturnValue(new Promise(() => undefined));
+    mockedEnsureUserRegistered.mockReturnValue(new Promise(() => undefined));
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
@@ -67,7 +67,7 @@ describe("RemoteScreen", () => {
   it('스플래시는 pointerEvents="none"이라 터치를 가로채지 않는다', async () => {
     // pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패 폴백의 재시도 버튼)로 가는 모든
     // 터치를 스플래시가 가로챈다(BY-333 실기기 확인).
-    mockedGetRegisteredUserId.mockReturnValue(new Promise(() => undefined));
+    mockedEnsureUserRegistered.mockReturnValue(new Promise(() => undefined));
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
@@ -75,7 +75,7 @@ describe("RemoteScreen", () => {
   });
 
   it("조립된 userId·appVersion을 쿼리로 붙여 웹뷰를 띄운다", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(7);
+    mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
@@ -86,7 +86,7 @@ describe("RemoteScreen", () => {
   });
 
   it("userId가 미등록이면 쿼리에서 생략한다", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(null);
+    mockedEnsureUserRegistered.mockResolvedValue(null);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
@@ -97,7 +97,7 @@ describe("RemoteScreen", () => {
   });
 
   it("웹뷰 로드가 끝나기 전까지는 스플래시가 남아 있다", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(7);
+    mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
     await screen.findByTestId("home-webview");
@@ -106,7 +106,7 @@ describe("RemoteScreen", () => {
   });
 
   it("웹뷰 로드가 끝나면 스플래시를 걷는다", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(7);
+    mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
     await screen.findByTestId("home-webview");
@@ -120,7 +120,7 @@ describe("RemoteScreen", () => {
   });
 
   it("웹뷰 로드가 실패해도 스플래시를 걷는다 — 실패 폴백의 재시도 버튼을 가리지 않도록", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(7);
+    mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
     const webview = await screen.findByTestId("home-webview");
@@ -134,7 +134,7 @@ describe("RemoteScreen", () => {
   });
 
   it("웹이 보낸 브리지 메시지를 공용 핸들러로 넘긴다", async () => {
-    mockedGetRegisteredUserId.mockResolvedValue(7);
+    mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
     const onMessage = (await screen.findByTestId("home-webview")).props.onMessage as (

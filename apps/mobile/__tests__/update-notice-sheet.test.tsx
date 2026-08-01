@@ -37,7 +37,7 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock("../lib/userApi", () => ({ getRegisteredUserId: jest.fn(async () => null) }));
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => null) }));
 
 jest.mock("expo-router", () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },

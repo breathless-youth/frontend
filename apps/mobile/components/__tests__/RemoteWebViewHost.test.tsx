@@ -9,7 +9,10 @@ import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWeb
  * 검증 범위: URL 조립(경로+쿼리), 브리지 메시지 파싱→콜백 전달, 로드 실패·설정 누락이
  * **같은 폴백**으로 떨어지는지(그리고 그때도 onLoadEnd가 불리는지), 재시도가 다시 로드를
  * 시도하는지, `onShouldStartLoadWithRequest`가 하위 프레임(iframe)은 항상 허용하고 최상위
- * 프레임은 우리 오리진일 때만 허용하는지.
+ * 프레임은 우리 오리진일 때만 허용하는지, 그리고 `isTopFrame` 필드 자체가 없는 요청
+ * (Android — `RNCWebViewClient.java`가 이 필드를 보내지 않는다)도 최상위 프레임으로 취급해
+ * 오리진 검사를 거치는지(BY-333 리뷰 — `!isTopFrame`이면 `undefined`도 참이라 Android에서
+ * 오리진 검사가 통째로 빠지는 Critical 보안 구멍이었다).
  */
 
 let mockWebBaseUrl: string | undefined = "https://web.test";
@@ -210,9 +213,9 @@ describe("RemoteWebViewHost", () => {
 
 describe("onShouldStartLoadWithRequest", () => {
   /** WebView에 전달된 onShouldStartLoadWithRequest 핸들러를 꺼낸다. */
-  function getShouldStartHandler(): (request: { isTopFrame: boolean; url: string }) => boolean {
+  function getShouldStartHandler(): (request: { isTopFrame?: boolean; url: string }) => boolean {
     return screen.getByTestId("host").props.onShouldStartLoadWithRequest as (request: {
-      isTopFrame: boolean;
+      isTopFrame?: boolean;
       url: string;
     }) => boolean;
   }
@@ -243,5 +246,21 @@ describe("onShouldStartLoadWithRequest", () => {
     const shouldStart = getShouldStartHandler();
 
     expect(shouldStart({ isTopFrame: true, url: "https://web.test/settings" })).toBe(true);
+  });
+
+  it("isTopFrame 필드가 없는(Android) 요청은 최상위 프레임으로 취급해 외부 오리진을 막는다", () => {
+    render(<RemoteWebViewHost path="/contact" testID="host" />);
+
+    const shouldStart = getShouldStartHandler();
+
+    expect(shouldStart({ url: "https://docs.google.com/forms/d/e/1" })).toBe(false);
+  });
+
+  it("isTopFrame 필드가 없는(Android) 요청도 우리 오리진이면 허용한다", () => {
+    render(<RemoteWebViewHost path="/contact" testID="host" />);
+
+    const shouldStart = getShouldStartHandler();
+
+    expect(shouldStart({ url: "https://web.test/settings" })).toBe(true);
   });
 });

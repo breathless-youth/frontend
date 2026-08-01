@@ -16,7 +16,7 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "1" }),
 }));
 
-jest.mock("../lib/userApi", () => ({ getRegisteredUserId: jest.fn(async () => 7) }));
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,

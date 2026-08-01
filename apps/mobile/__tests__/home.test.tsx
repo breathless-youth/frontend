@@ -9,7 +9,7 @@ import HomeScreen from "../app/(tabs)/index";
  * 덮는다. U1 업데이트 안내 시트는 `__tests__/update-notice-sheet.test.tsx`가 별도로 덮는다.
  */
 
-jest.mock("../lib/userApi", () => ({ getRegisteredUserId: jest.fn(async () => 7) }));
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,

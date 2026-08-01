@@ -8,7 +8,7 @@ import RecordsScreen from "../app/(tabs)/records";
  * 탭 공용 쿼리가 붙는지만 확인한다.
  */
 
-jest.mock("../lib/userApi", () => ({ getRegisteredUserId: jest.fn(async () => 7) }));
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,

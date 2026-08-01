@@ -22,8 +22,10 @@ import { parseToNativeMessage } from "../lib/webBridge";
 // `react-native-webview`의 루트 진입점(index.d.ts)은 `ShouldStartLoadRequest`를 재수출하지
 // 않는다(`WebViewMessageEvent`·`WebViewNavigation`만 재수출) — 그래서 라이브러리 내부 경로
 // (`lib/WebViewTypes`)를 직접 import하는 대신, 공개 타입 `WebViewNavigation`에 문서화된
-// `isTopFrame` 필드를 더해 여기서 구성한다.
-type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame: boolean };
+// `isTopFrame` 필드를 더해 여기서 구성한다. iOS(WKWebView)만 이 필드를 채운다 — Android
+// (`RNCWebViewClient.java`)는 아예 넣지 않으므로 `undefined`로 들어올 수 있다(옵셔널로
+// 선언하는 이유, 아래 핸들러 참고).
+type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
 const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
@@ -125,7 +127,14 @@ export function RemoteWebViewHost({
   const targetOrigin = target?.origin;
   const handleShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
-      if (!request.isTopFrame) {
+      // `=== false`로 명시 비교한다(`!request.isTopFrame`이 아니다) — `isTopFrame`은
+      // iOS만 채우는 필드라 Android에서는 `undefined`로 들어온다. `!undefined`도 `true`이므로
+      // `!request.isTopFrame`으로 쓰면 Android의 모든 최상위 요청이 하위 프레임으로 오판돼
+      // 오리진 검사를 통째로 건너뛰고 전부 허용된다(BY-333 리뷰 — Critical 보안 구멍,
+      // `mediaCapturePermissionGrantType="grant"`와 겹치면 임의 오리진이 카메라를 자동 승인
+      // 받는다). 필드가 없을 때는 "하위 프레임 아님"으로 안전하게 닫히도록 `=== false`만
+      // 하위 프레임으로 취급한다.
+      if (request.isTopFrame === false) {
         // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상
         // 허용한다. react-native-webview는 iframe 로드도 이 콜백에 태우는데,
         // `originWhitelist`만으로는 최상위/하위 프레임을 구분하지 못해 화이트리스트에 없는
