@@ -27,14 +27,18 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 };
 
 /**
- * 동시 다중 감지 시 대표 트리거 선택 순서.
+ * 동시 다중 감지 시 대표 트리거 선택 순서 — **`AWAY` > `DEVICE` > `PHONE`**(2026-07-26 확정,
+ * 세션 상태 모델 스펙 §3).
  *
- * TODO(리더 확인): 우선순위 규칙이 계약에 없다. `StatusEventPayload`는 status 하나만 갖고
- * 구간이 서로 겹칠 수 없어서, 자리 이탈 중 기기 조작이 겹치면 어느 쪽으로 기록할지 정해야 한다.
- * 지금은 (a) 이미 활성인 트리거를 해제 전까지 유지하고 (b) 새로 고를 때만 이 순서를 쓴다 —
- * 규칙이 확정되면 이 배열만 교체한다(SCR-S3-1·S3-2 Data Contract).
+ * `StatusEventPayload`는 status 하나만 갖고 구간이 서로 겹칠 수 없어서, 자리 이탈 중 기기
+ * 조작이 겹치면 어느 쪽으로 기록할지 정해야 했다. 자리에 없으면 나머지 판정은 관측 자체가
+ * 불확실하므로 `AWAY`가 최상위다. `DEVICE`가 `PHONE`보다 앞서는 것은 가속도 신호가 카메라
+ * 객체 인식보다 오탐이 적고, **기기가 흔들리는 동안에는 카메라 기반 판정을 신뢰하기 어렵기**
+ * 때문이다.
+ *
+ * 적용 방식은 (a) 이미 활성인 트리거를 해제 전까지 유지하고 (b) 새로 고를 때만 이 순서를 쓴다.
  */
-export const TRIGGER_PRIORITY: readonly DistractionTrigger[] = ["AWAY", "PHONE", "DEVICE"];
+export const TRIGGER_PRIORITY: readonly DistractionTrigger[] = ["AWAY", "DEVICE", "PHONE"];
 
 export type TriggerSignals = Record<DistractionTrigger, boolean>;
 
