@@ -39,7 +39,3 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-
-# apps/web 빌드 산출물의 복사본 — 빌드 시 scripts/syncWebDist.js가 채운다.
-# 커밋하면 웹 빌드가 두 곳에서 갈리므로 추적하지 않는다.
-assets/web-dist/

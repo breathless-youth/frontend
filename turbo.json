@@ -19,10 +19,6 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
-    },
-    "sync-web": {
-      "dependsOn": ["web#build"],
-      "cache": false
     }
   }
 }

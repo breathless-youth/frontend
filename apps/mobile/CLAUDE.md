@@ -21,7 +21,8 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 - 스터디룸 재구축 시 `react-native-webview`로 `apps/web`의 `/room/:id`를 로드하는 구조(ADR 0001)를 따른다 — 과거 구현은 git 히스토리의 `app/room/[id].tsx` 참고.
 - 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지되어 있다 — WebView 안의 브라우저 `getUserMedia`도 동일한 네이티브 권한이 필요하다. 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음, 방침 변경 없음).
-- **2026-07-28부터 Dev Build로 개발한다.** 로컬 HTTP 서버(설계 문서 §1)가 Expo Go에 없는 네이티브 모듈이라 `expo-dev-client` + EAS Build가 필요해졌다. `react-native-webview`·`expo-sensors`·`expo-file-system`은 Expo Go에도 있지만, 서버 하나 때문에 Expo Go 경로 자체가 닫힌다. 평소 개발은 그대로 `pnpm --filter mobile start`이며, **재빌드는 네이티브 의존성이 바뀔 때만** 필요하다.
+- **2026-07-31(BY-333)부터 로컬 번들 동봉·서빙 인프라가 없다.** 스터디룸을 포함한 모든 화면이 원격 URL을 여는 `RemoteScreen`/`RemoteWebViewHost`로 바뀌면서, `apps/web` 산출물을 앱 번들에 넣고 `@dr.pogodin/react-native-static-server`로 서빙하던 구조([ADR 0005](../../docs/adr/0005-bundled-web-assets-over-localhost-server.md), Superseded)와 `lib/staticWebAssetServer.ts`·`plugins/withWebDistAssets.js`·`scripts/syncWebDist.js`가 전부 삭제됐다. 그 결정이 Expo Go 경로를 닫은 이유로 꼽았던 "로컬 HTTP 서버가 Expo Go에 없는 네이티브 모듈"이라는 전제는 이제 없다.
+- **다만 Expo Go로 다시 열렸다고 확정해서 쓰지 말 것 — 미확인.** `app.json`의 `plugins`에는 그 로컬 서버와 같은 커밋(BY-282, `f1070f9`)에 Android cleartext 예외용으로 추가된 `expo-build-properties`가 여전히 남아 있다(`android.usesCleartextTraffic`, 외부 API `apiBaseUrl`이 아직 `http://`라 필요할 수 있음 — iOS `NSAppTransportSecurity.NSAllowsLocalNetworking`도 마찬가지로 남아 있다). config plugin은 prebuild/Dev Client 빌드에서만 적용되므로, 이 앱이 실제로 Expo Go에서 뜨는지는 이 문서를 쓴 시점에 실기기·시뮬레이터로 검증하지 않았다. `expo-camera`·`react-native-webview`·`expo-secure-store`·`react-native-svg`·`react-native-reanimated` 등 나머지 네이티브 의존성 자체는 Expo Go SDK 54에 포함된 표준 모듈이지만, 위 config plugin이 걸림돌로 남아 있을 수 있다는 뜻이다. `expo-dev-client` 의존성도 아직 제거되지 않았다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
@@ -41,15 +42,13 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 - **제대로 된 해법은 백엔드에 도메인 + HTTPS를 붙이고 `apiBaseUrl`을 `https://`로 바꾼 뒤 `NSAllowsArbitraryLoads`를 지우는 것이다.** 이 키를 남긴 채 App Store에 제출하면 심사에서 사유 소명을 요구받는다.
 - Android는 별개 경로로 이미 열려 있다(`expo-build-properties`의 `usesCleartextTraffic: true`). 같은 시점에 같이 걷어낼 것.
 
-## 웹 dev 서버로 세션 화면 띄우기 (2026-07-30)
+## 웹 dev 서버로 화면 띄우기 (2026-08-01 갱신 — 키가 `webBaseUrl` 하나로 통합됨)
 
-**`apps/web`을 고칠 때마다 네이티브를 재빌드하지 않으려면 이걸 쓴다.** 평소 세션 WebView는 앱에 동봉된 `assets/web-dist`를 보므로, 웹을 한 줄 고쳐도 웹 빌드 → `sync-web` → prebuild → 네이티브 빌드 → 설치가 필요하다(2026-07-30 실측: Android 약 12분, iOS 실기기 약 25분).
+**모든 화면(탭 3개 + 세션)이 `app.json`의 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 동봉 자산·로컬 정적 서버·`extra.webDevUrl`·`lib/devWebOrigin.ts`는 전부 삭제됐다 — 예전에 "평소엔 번들, dev일 때만 URL"로 나뉘어 있던 두 경로가 하나가 됐다. 개발 중에는 이 값에 Vite dev 서버 주소를 넣으면 **HMR로 즉시 반영**된다(네이티브 재빌드 불필요).
 
-`app.json`의 `extra.webDevUrl`에 값을 넣으면 정적 서버를 띄우지 않고 그 주소를 그대로 WebView에 넘긴다 → **HMR로 즉시 반영**. 판정은 [lib/devWebOrigin.ts](./lib/devWebOrigin.ts)에 있다.
+⚠️ **개발용 값을 커밋하지 말 것.** 커밋된 기본값은 빈 문자열이고, 그 상태에서는 웹뷰 대신 "화면을 불러오지 못했어요" 폴백이 뜬다(`components/RemoteWebViewHost.tsx`). 배포용 값은 BY-332의 배포 파이프라인이 채운다.
 
-⚠️ **값을 커밋하지 말 것.** 커밋된 기본값은 빈 문자열(= 꺼짐)이다. 값이 남은 채 배포되면 릴리스 앱이 존재하지 않는 dev 서버를 본다. `__DEV__`가 아니면 무시하는 방어선이 있지만 그걸 믿고 커밋하지 않는다.
-
-Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다(네이티브 재빌드 불필요).
+Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다.
 
 ### Android
 
@@ -58,7 +57,7 @@ Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재
 ```bash
 pnpm --filter web dev                     # Vite 5173
 adb reverse tcp:5173 tcp:5173
-# app.json: "webDevUrl": "http://localhost:5173"
+# app.json: "webBaseUrl": "http://localhost:5173"
 ```
 
 ### iOS 실기기
@@ -72,7 +71,7 @@ cd apps/web && mkdir -p .certs && cd .certs
 mkcert 192.168.0.19 localhost 127.0.0.1 ::1   # 본인 Mac의 LAN IP
 
 VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 참고
-# app.json: "webDevUrl": "https://192.168.0.19:5173"
+# app.json: "webBaseUrl": "https://192.168.0.19:5173"
 ```
 
 기기에는 `mkcert -CAROOT`의 `rootCA.pem`을 AirDrop 등으로 옮겨 프로파일을 설치하고, **설정 → 일반 → 정보 → 인증서 신뢰 설정**에서 신뢰시켜야 한다. LAN IP는 네트워크가 바뀌면 달라지므로 그때마다 인증서를 다시 만든다.

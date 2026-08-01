@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import appJson from "../app.json";
 import HomeScreen from "../app/(tabs)/index";
 import { UpdateNoticeSheet } from "../components/UpdateNoticeSheet";
-import { useHomeSummary } from "../components/home/useHomeSummary";
 import {
   createMemoryUpdateNoticeStore,
   resetUpdateNoticeStore,
@@ -16,6 +15,10 @@ import {
  *
  * 화면 테스트는 `app/` 밖에 둔다 — `expo-router`의 라우트 컨텍스트 정규식이 테스트 파일을
  * 걸러내지 않아 `app/` 아래에 두면 라우트로 등록된다(기존 테스트들과 같은 이유).
+ *
+ * 홈 내용물이 `RemoteScreen`(BY-333 2단계)으로 이관돼 더 이상 "오늘 순공시간" 같은 네이티브
+ * 텍스트를 렌더하지 않는다 — 이 시트가 홈 위에 얹히는 **오버레이**라는 사실만, 웹뷰가 계속
+ * 마운트돼 있는지로 확인한다.
  */
 
 const mockExtra: Record<string, unknown> = {};
@@ -24,7 +27,7 @@ jest.mock("expo-constants", () => ({
   __esModule: true,
   default: {
     get expoConfig() {
-      return { extra: mockExtra };
+      return { extra: mockExtra, version: "1.0.0" };
     },
   },
 }));
@@ -34,6 +37,8 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => null) }));
+
 jest.mock("expo-router", () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
@@ -42,10 +47,25 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
-// 이 파일은 홈 통계 상태를 검증하지 않는다(그건 `home.test.tsx`) — 시트가 홈 위에 얹히는
-// 오버레이라는 것만 확인하므로, 훅을 success 고정값으로 목업해 통계 배선과 분리한다.
-jest.mock("../components/home/useHomeSummary");
-const mockedUseHomeSummary = useHomeSummary as jest.MockedFunction<typeof useHomeSummary>;
+jest.mock("react-native-webview", () => {
+  /*
+    eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --
+    `jest.mock` 팩토리는 상단 import보다 먼저 호이스팅돼 평가되므로 import 바인딩을 참조할 수 없다.
+  */
+  const ReactModule = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
+
+  return {
+    WebView: ReactModule.forwardRef(function MockWebView(
+      props: Record<string, unknown>,
+      ref: React.Ref<{ reload: () => void }>,
+    ) {
+      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      return ReactModule.createElement(View, props);
+    }),
+  };
+});
 
 const TITLE = "로그인이 곧 추가돼요";
 
@@ -55,19 +75,10 @@ beforeEach(() => {
   for (const key of Object.keys(mockExtra)) {
     delete mockExtra[key];
   }
+  mockExtra.webBaseUrl = "https://web.test";
   store = createMemoryUpdateNoticeStore(false);
   setUpdateNoticeStore(store);
   jest.clearAllMocks();
-  mockedUseHomeSummary.mockReturnValue({
-    status: "success",
-    summary: {
-      focusSec: 3 * 3600 + 42 * 60,
-      studySec: 5 * 3600 + 12 * 60,
-      focusRate: 71,
-      streakDays: 12,
-      longestFocusSec: 52 * 60,
-    },
-  });
 });
 
 afterEach(() => {
@@ -76,9 +87,7 @@ afterEach(() => {
 
 /** 홈 마운트 직후의 비동기 게이트 판정이 끝날 때까지 기다린다. */
 async function settleGate() {
-  await waitFor(() => {
-    expect(screen.getByText("FocusON")).toBeTruthy();
-  });
+  await screen.findByTestId("home-webview");
 }
 
 describe("기본은 비노출 — 이 화면의 성공 기준", () => {
@@ -114,14 +123,11 @@ describe("기본은 비노출 — 이 화면의 성공 기준", () => {
     expect(screen.queryByTestId("update-notice-sheet")).toBeNull();
   });
 
-  it("홈은 그대로 렌더된다 — 시트가 홈 레이아웃을 바꾸지 않는다", async () => {
+  it("홈은 그대로 렌더된다 — 시트가 홈 웹뷰를 가리거나 언마운트하지 않는다", async () => {
     render(<HomeScreen />);
     await settleGate();
 
-    expect(screen.getByText("오늘 순공시간")).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" }),
-    ).toBeTruthy();
+    expect(screen.getByTestId("home-webview")).toBeTruthy();
   });
 });
 
