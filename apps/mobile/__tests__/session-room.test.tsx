@@ -19,6 +19,11 @@ jest.mock("expo-router", () => ({
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
+jest.mock("../lib/orientation", () => ({
+  lockPortrait: jest.fn(),
+  unlockForSession: jest.fn(),
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
@@ -84,5 +89,26 @@ describe("SessionRoomScreen", () => {
     // `true` = "이 이벤트를 처리했으니 기본 동작(화면 닫기)을 하지 말라"
     expect(spy.mock.calls.at(-1)?.[1]()).toBe(true);
     spy.mockRestore();
+  });
+
+  /**
+   * 화면 방향은 rn-screens 옵션이 아니라 expo-screen-orientation이 집행한다(P0-3 정정,
+   * `lib/orientation.ts`) — 세션이 마운트에서 풀고 언마운트에서 되잠그는 배선이 빠지면
+   * iOS에서 세션 가로 거치(S3-5·S3-6)가 통째로 죽거나, 반대로 세션을 나온 뒤에도 앱이
+   * 회전하는 채로 남는다.
+   */
+  it("마운트에서 회전을 열고 언마운트에서 세로로 되잠근다", () => {
+    const { lockPortrait, unlockForSession } =
+      jest.requireMock<typeof import("../lib/orientation")>("../lib/orientation");
+    // 앞선 테스트들의 렌더가 남긴 호출 누적을 걷어낸다 — 이 테스트는 횟수를 단언한다.
+    (lockPortrait as jest.Mock).mockClear();
+    (unlockForSession as jest.Mock).mockClear();
+
+    const { unmount } = render(<SessionRoomScreen />);
+    expect(unlockForSession).toHaveBeenCalledTimes(1);
+    expect(lockPortrait).not.toHaveBeenCalled();
+
+    unmount();
+    expect(lockPortrait).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,9 @@
 import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 
 import { RemoteScreen } from "../../components/RemoteScreen";
+import { lockPortrait, unlockForSession } from "../../lib/orientation";
 
 /**
  * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 `RemoteScreen`으로 원격
@@ -17,6 +19,16 @@ import { RemoteScreen } from "../../components/RemoteScreen";
  */
 export default function SessionRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // 세션만 회전을 연다(S3-5·S3-6 가로 거치) — 화면 방향 정책의 실제 집행은 rn-screens가 아니라
+  // expo-screen-orientation이 한다(`lib/orientation.ts`의 P0-3 정정 참고). 언마운트 시 다시
+  // 세로로 잠근다 — 가로인 채 홈으로 돌아오면 잠금이 즉시 세로로 되돌린다.
+  useEffect(() => {
+    unlockForSession();
+    return () => {
+      lockPortrait();
+    };
+  }, []);
 
   return (
     <>
