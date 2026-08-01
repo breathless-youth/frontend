@@ -1014,13 +1014,17 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
   it("결과 화면 대신 미달 안내를 보여준다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
-    renderRoom("/room/7?userId=1");
+    const { container } = renderRoom("/room/7?userId=1");
 
     // 갓 입장해서 바로 종료 — 순공 0초다.
     await endSession();
 
     expect(await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요")).toBeInTheDocument();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
+    // 체크 서클(2026-08-01 사용자 확인, BY-336) — S3-8과 같은 완료 신호를 공유한다.
+    expect(
+      container.querySelector('[data-session-surface="sub-minute-end"] .bg-brand-subtle'),
+    ).not.toBeNull();
   });
 
   /**
