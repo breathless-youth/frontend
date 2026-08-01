@@ -62,19 +62,20 @@ export interface SessionStatusPillProps {
 
 export function SessionStatusPill({ state, label, subLabel, className }: SessionStatusPillProps) {
   return (
-    <div
-      className={cn("flex flex-col items-center gap-2", className)}
-      role="status"
-      aria-live="polite"
-    >
+    <div className={cn("flex flex-col items-center", className)} role="status" aria-live="polite">
       <div className={sessionStatusPillVariants({ state })}>
         <span className={dotVariants({ state })} aria-hidden="true" />
         {/* 폰트 확대에서 잘리지 않도록 폭을 고정하지 않는다 — Figma의 120/218px은 결과값이다. */}
         <span className="text-[14px] leading-[18px] font-medium text-white">{label}</span>
       </div>
-      {subLabel !== undefined && (
-        <p className="text-center text-[12px] leading-[14px] text-white/60">{subLabel}</p>
-      )}
+      {/* 서브 문구 줄은 **문구가 없어도 자리를 지킨다**(mt-2 8px + 14px = 22px 고정).
+          집중↔비집중처럼 서브 문구가 생기고 사라지는 전환에서 필 블록 높이가 변하면, 그 델타를
+          위아래 스페이서가 나눠 흡수하면서 심플 모드의 큰 타이머가 11px씩 위아래로 흔들린다
+          (BY-336 실기기 관측). 높이를 상주시키면 상태가 바뀌어도 타이머는 제자리다.
+          빈 줄은 화면상 투명하고 텍스트 노드가 없어 `role="status"`가 읽을 것도 없다. */}
+      <p className="mt-2 h-[14px] text-center text-[12px] leading-[14px] text-white/60">
+        {subLabel}
+      </p>
     </div>
   );
 }

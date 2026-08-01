@@ -141,7 +141,7 @@ export function MonthCalendar({
   const studied = useMemo(() => new Set(studiedDates), [studiedDates]);
 
   return (
-    <div className="rounded-[20px] border border-border bg-muted px-[15px] py-[13px]">
+    <div className="rounded-xl border border-border bg-muted px-[15px] py-[13px]">
       <div className="flex items-center justify-between">
         <MonthNavButton direction="prev" onClick={onPrevMonth} />
         <h2 className="text-base leading-[19px] font-bold text-foreground">{monthLabel(month)}</h2>

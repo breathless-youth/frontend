@@ -95,6 +95,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "app-state" && (record.state === "active" || record.state === "background")) {
     return { type: "app-state", state: record.state, atMs: record.atMs };
   }
+  if (record.type === "camera-permission" && typeof record.granted === "boolean") {
+    return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
+  }
   if (record.type === "submit-result" && typeof record.requestId === "string") {
     if (record.ok === true && Array.isArray(record.sessions)) {
       /**

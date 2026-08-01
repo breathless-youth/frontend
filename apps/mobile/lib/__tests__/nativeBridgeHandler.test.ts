@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import type { SubmitResultMessage } from "@focuson/types";
 
 import { handleBridgeMessage } from "../nativeBridgeHandler";
-import { openAppSettings } from "../cameraPermission";
+import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { relaySessionSubmit } from "../sessionSubmitRelay";
 
@@ -14,7 +14,13 @@ import { relaySessionSubmit } from "../sessionSubmitRelay";
  */
 
 jest.mock("expo-router", () => ({
-  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+    navigate: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  },
 }));
 
 jest.mock("../cameraPermissionGate", () => ({
@@ -23,6 +29,7 @@ jest.mock("../cameraPermissionGate", () => ({
 
 jest.mock("../cameraPermission", () => ({
   openAppSettings: jest.fn(async () => undefined),
+  getCameraPermissionStatus: jest.fn(),
 }));
 
 jest.mock("../sessionSubmitRelay", () => ({
@@ -36,12 +43,16 @@ const mockedRouter = router as unknown as {
   push: jest.Mock;
   back: jest.Mock;
   replace: jest.Mock;
+  navigate: jest.Mock;
   canGoBack: jest.Mock;
 };
 const mockedRunCameraPermissionGate = runCameraPermissionGate as jest.MockedFunction<
   typeof runCameraPermissionGate
 >;
 const mockedOpenAppSettings = openAppSettings as jest.MockedFunction<typeof openAppSettings>;
+const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.MockedFunction<
+  typeof getCameraPermissionStatus
+>;
 const mockedRelaySessionSubmit = relaySessionSubmit as jest.MockedFunction<
   typeof relaySessionSubmit
 >;
@@ -99,6 +110,14 @@ describe("handleBridgeMessage", () => {
     expect(mockedRouter.replace).toHaveBeenCalledWith("/");
   });
 
+  it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    // push가 아니라 navigate — 이미 기록 탭이면 화면을 쌓지 않고 재사용한다.
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
   it("open-settings → OS 설정 앱을 연다", () => {
     handleBridgeMessage({ type: "open-settings", atMs: 1 }, noopReply);
 
@@ -141,5 +160,58 @@ describe("handleBridgeMessage", () => {
 
     expect(mockedRelaySessionSubmit).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledWith(result);
+  });
+
+  describe("request-camera-permission", () => {
+    it("granted면 granted: true로 답한다", async () => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("granted");
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "camera-permission", granted: true }),
+      );
+    });
+
+    it("denied·undetermined는 둘 다 granted: false로 접는다 — 화면이 구분하지 않는다", async () => {
+      for (const status of ["denied", "undetermined"] as const) {
+        mockedGetCameraPermissionStatus.mockResolvedValue(status);
+        const reply = jest.fn();
+
+        handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(reply).toHaveBeenCalledWith(
+          expect.objectContaining({ type: "camera-permission", granted: false }),
+        );
+      }
+    });
+
+    it("조회에 실패하면 아무것도 답하지 않는다 — false로 답하면 웹이 '허용 안 됨'을 단언하게 된다", async () => {
+      mockedGetCameraPermissionStatus.mockRejectedValue(new Error("boom"));
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(reply).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("권한을 요청하지 않고 조회만 한다 — 설정 화면 진입만으로 OS 팝업이 뜨면 안 된다", async () => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("granted");
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, jest.fn());
+      await Promise.resolve();
+
+      expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
+      expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
+    });
   });
 });

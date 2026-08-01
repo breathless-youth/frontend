@@ -82,22 +82,22 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 회사망 등에서 폰·Mac이 같은 Wi-Fi인데도 서로 통신이 안 되면 위 LAN IP 경로는 어떤 설정으로도 뚫리지 않는다(2026-07-30 확인). 이때는 `VITE_DEV_TUNNEL=1`로 `apps/web/vite.config.ts`의 터널 모드를 켜고 `cloudflared`로 Vite·Metro 양쪽을 터널링한다 — 자세한 이유·설정은 `vite.config.ts`의 `tunnelServerOptions` 주석 참고. 공개 URL이라 검증 후 반드시 내린다.
 
-## 화면 방향 — 세션만 회전 (2026-07-30)
+## 화면 방향 — 세션만 회전 (2026-07-30, 2026-08-01 집행 주체 정정)
 
 **세션(`room/[id]`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 세션뿐이라서다(S3-5·S3-6).
 
-정책은 **두 곳이 함께** 만든다. 한쪽만 보고 고치면 조용히 깨진다.
+정책은 **세 곳이 함께** 만든다. 한쪽만 보고 고치면 조용히 깨진다.
 
-| 위치                                | 값                        | 역할                                                                        |
-| ----------------------------------- | ------------------------- | --------------------------------------------------------------------------- |
-| `app.json`의 `orientation`          | `"default"`               | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
-| `app/_layout.tsx`의 `screenOptions` | `orientation: "portrait"` | 전 화면 기본값                                                              |
-| `app/_layout.tsx`의 `room/[id]`     | `orientation: "default"`  | 세션만 다시 열기                                                            |
+| 위치                                             | 값                                           | 역할                                                                        |
+| ------------------------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
+| `app.json`의 `orientation`                       | `"default"`                                  | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
+| `lib/orientation.ts` (`expo-screen-orientation`) | 루트 세로 잠금 / 세션 마운트에서 해제        | **실제 집행자(iOS)** — 아래 정정 참고                                       |
+| `app/_layout.tsx`의 `screenOptions`              | `orientation: "portrait"` / 세션 `"default"` | Android 집행(`setRequestedOrientation`) — iOS에서는 무력                    |
 
-- **`app.json`을 `"portrait"`로 되돌리지 말 것.** 그건 앱을 세로로 만드는 설정이 아니라 상한을 세로로 닫는 설정이라, 화면별 `orientation`이 landscape를 요청해도 회전하지 않게 된다. 세로 고정은 `app.json`이 아니라 `screenOptions`가 한다.
-- `react-native-screens`(4.16.0, 이미 직접 의존성)가 처리한다. **`expo-screen-orientation`을 추가하지 말 것** — 필요 없다(SCR-S3-5-S3-6 P0-3).
-- 세션 화면을 `"all"`이 아니라 `"default"`로 둔 이유는 iOS에서 `"all"`이 거꾸로 세로까지 포함하기 때문이다.
-- 네이티브 설정이라 **변경 후 리빌드가 필요하다**(JS 번들이 아니라 Info.plist/AndroidManifest로 들어간다).
+- **`app.json`을 `"portrait"`로 되돌리지 말 것.** 그건 앱을 세로로 만드는 설정이 아니라 상한을 세로로 닫는 설정이라, 세션이 landscape를 요청해도 회전하지 않게 된다.
+- **P0-3("rn-screens가 처리하므로 `expo-screen-orientation` 불필요") 정정 (2026-08-01)** — iOS에서 전제가 틀렸음이 소스 추적으로 확인됐다. iOS는 회전 판단 시 앱 델리게이트에 마스크를 묻는데, Expo의 구현은 **구독자가 없으면 Info.plist(= `"default"` = 전 방향)를 그대로 반환**하고, rn-screens의 `orientation` screenOption은 그 경로에서 아예 조회되지 않는다(연결 함수 `shouldAskScreensForScreenOrientationInViewController`를 부르는 코드가 Expo 앱에 없음). 세션 회전이 "동작"했던 것은 설정 덕이 아니라 `fullScreenModal`(presented VC는 UIKit이 직접 조회)이라서였고, **홈·기록·설정의 세로 잠금은 한 번도 동작한 적이 없다**(2026-08-01 실기기 — 홈이 회전됨). 그래서 `expo-screen-orientation`이 그 구독자 역할로 들어왔다. 근거 전문은 `lib/orientation.ts` 주석.
+- 세션 해제를 `ALL`이 아니라 `DEFAULT`로 둔 이유는 iOS에서 `ALL`이 거꾸로 세로까지 포함하기 때문이다(rn-screens 시절 `"default"`와 같은 이유).
+- `expo-screen-orientation`은 네이티브 모듈이라 **Dev Client 리빌드가 필요하다.** 구형 빌드에서는 잠금 호출이 조용히 실패해 이전 동작(회전 허용)으로 물러난다(`lib/orientation.ts`의 catch).
 
 ⚠️ 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것 — 현황은 [SCR-S3-5-S3-6](../../docs/screens/SCR-S3-5-S3-6-session-landscape.md)의 "화면별 가로 대응 현황" 참고.
 

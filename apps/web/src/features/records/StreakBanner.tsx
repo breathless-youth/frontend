@@ -74,7 +74,7 @@ function WeekDot({ day }: { day: StreakWeekDay }) {
 
 export function StreakBanner({ streakDays, days }: StreakBannerProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-[20px] border border-border bg-muted p-[18px]">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted p-[18px]">
       <div className="flex flex-row items-center gap-3">
         {/* 공유 일러스트를 재사용하고 S5 실측 크기(38×44)만 props로 넘긴다 — 에셋을 새로 만들지 않는다. */}
         <IllustFlame width={38} height={44} />

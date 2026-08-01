@@ -131,7 +131,15 @@ function RecordsContent({ userId }: { userId: number }) {
             <SummaryTiles stats={day.stats} />
           </div>
 
-          <div className="mt-2">
+          {/*
+            학습 요약 → 공부 기록 간격. **Figma 실측은 8px이지만 의도적으로 24px로 벌렸다**
+            (2026-08-01 사용자 확인 — 두 섹션이 붙어 보임).
+
+            같은 화면의 다른 섹션 경계가 전부 24px(스트릭→달력, 달력→학습 요약)인데 여기만
+            8px이라, 두 섹션 제목의 무게가 같은데도 "학습 요약에 딸린 하위 목록"처럼 읽혔다.
+            8px은 섹션 사이가 아니라 섹션 **안**의 간격 크기다.
+          */}
+          <div className="mt-6">
             <div className="flex flex-row items-end justify-between">
               <p className="text-[17px] font-bold leading-[21px] text-foreground">공부 기록</p>
               {/*

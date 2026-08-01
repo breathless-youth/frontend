@@ -16,7 +16,29 @@ export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
   | { type: "app-state"; state: "active" | "background"; atMs: number }
+  | CameraPermissionMessage
   | SubmitResultMessage;
+
+/**
+ * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
+ *
+ * 설정(S6)의 카메라 권한 행이 토글로 표시한다. **웹이 스스로 알 수 없어서** 네이티브가
+ * 실어 보낸다: `navigator.permissions.query({name:"camera"})`는 iOS WKWebView가 지원하지
+ * 않아 앱 안에서는 쓸 수 없다(Android WebView만 동작해 플랫폼별로 갈린다).
+ *
+ * 3상태(`undetermined`·`granted`·`denied`)를 그대로 넘기지 않고 boolean으로 좁힌다 —
+ * 화면이 구분하는 것은 "허용됨"과 "그 외"뿐이고, 미결정을 별도로 보여줄 자리가 S6에 없다.
+ *
+ * **"모름"은 이 메시지의 부재로 표현한다.** 조회 실패 시 네이티브는 아무것도 보내지 않고,
+ * 브라우저 단독 모드에서는 애초에 오지 않는다 — 웹은 그 동안 `null`을 유지해 토글 자리를
+ * 비운다(RN 원본의 `granted === null` 분기와 같은 모양). 모르는 값을 `false`로 단정하면
+ * 화면이 "허용 안 됨"이라고 틀린 단언을 하게 된다.
+ */
+export interface CameraPermissionMessage {
+  type: "camera-permission";
+  granted: boolean;
+  atMs: number;
+}
 
 /**
  * 세션 제출 결과 — `submit-session`에 대한 응답.
@@ -60,8 +82,63 @@ export type ToNativeMessage =
    * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
    */
   | { type: "open-settings"; atMs: number }
+  /**
+   * 설정(S6)이 카메라 권한 상태를 물어본다 — 네이티브가 `camera-permission`으로 답한다.
+   *
+   * **폴링이 아니라 웹이 필요한 시점에만 묻는 방식이다.** 권한은 사용자가 OS 설정에 다녀오는
+   * 동안 바뀌므로 한 번 받아 두면 낡는데, 그 복귀 시점을 웹이 `visibilitychange`로 알 수
+   * 있어 네이티브에 앱 생명주기 배선을 새로 넣지 않아도 된다(웹뷰 재노출 시 재조회는
+   * react-query의 `refetchOnWindowFocus`가 이미 쓰고 있는 신호다).
+   *
+   * 브라우저 단독 모드에서는 발신되지 않는다 — 받는 쪽이 없으면 답도 없고, 그 경우 화면은
+   * 토글 없는 상태로 남는다(`CameraPermissionMessage` 주석 참고).
+   */
+  | { type: "request-camera-permission"; atMs: number }
+  | SetTabBarMessage
+  | NavigateTabMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
+
+/**
+ * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
+ * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
+ *
+ * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 문서만
+ * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
+ * 신호만 보내고 실제 전환은 네이티브가 한다.
+ *
+ * `tab`이 `"records"` 하나뿐인 이유: 목적지가 확정된 탭 간 이동이 이것뿐이다(탭바 IA 원칙
+ * "목적지가 확정되지 않은 탭을 임의로 늘리지 않는다"와 같은 태도). 새 이동이 확정되면
+ * 유니온을 넓힌다 — 호환 변경이다.
+ *
+ * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트 `/records`로 직접 이동한다
+ * (쿼리 승계 포함, 발신부 참고).
+ */
+export interface NavigateTabMessage {
+  type: "navigate-tab";
+  tab: "records";
+  atMs: number;
+}
+
+/**
+ * 네이티브 하단 탭 바를 감춘다/보인다 — **웹 라우트가 전체 화면인지 웹만 알기 때문에** 필요하다.
+ *
+ * 온보딩 가이드(G1~G5)·문의하기·약관·개인정보처리방침은 탭 바 없는 전체 화면 라우트인데
+ * (`apps/web/src/App.tsx`), 이 화면들은 탭 웹뷰 **안에서 웹 라우팅으로** 열린다. 네이티브
+ * 스택을 건너지 않으므로 네이티브는 이동을 알 수 없고, 탭 바가 그대로 남아 Figma G1~G5(탭 바
+ * 없음)와 어긋난다.
+ *
+ * **웹이 탭 바를 직접 가릴 수는 없다.** `app/(tabs)/_layout.tsx`에서 탭 바는 웹뷰와 형제로
+ * 렌더되어 웹뷰 바깥에 있다 — 웹이 아무리 전체 화면을 칠해도 그 영역에 닿지 못한다.
+ *
+ * 세션(`/room/:id`)은 이 메시지를 쓰지 않는다 — 네이티브가 `fullScreenModal`로 띄워 탭 바가
+ * 이미 덮이고, 세션 웹뷰는 탭 라우트로 돌아오지 않아 `visible: true`를 되돌려줄 기회가 없다.
+ */
+export interface SetTabBarMessage {
+  type: "set-tab-bar";
+  visible: boolean;
+  atMs: number;
+}
 
 /**
  * S4(공부 결과)·미달 종료 안내의 CTA가 보낸다 — **네이티브 홈 탭으로 돌려보내 달라는 요청**이다.

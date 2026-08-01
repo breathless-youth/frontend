@@ -1,4 +1,5 @@
 import { RemoteScreen } from "../../components/RemoteScreen";
+import { SettingsTabSkeleton } from "../../components/RemoteSplashSkeletons";
 
 /**
  * S6 · 설정 — 화면 구현체는 `apps/web`이고, 여기서는 `RemoteScreen`(BY-333)으로 `/settings`를
@@ -8,5 +9,7 @@ import { RemoteScreen } from "../../components/RemoteScreen";
  * 공용 핸들러(`lib/nativeBridgeHandler.ts`)로 OS 설정 앱을 연다 — 세션 화면과 동일 규칙.
  */
 export default function SettingsScreen() {
-  return <RemoteScreen testID="settings-webview" path="/settings" />;
+  return (
+    <RemoteScreen testID="settings-webview" path="/settings" splash={<SettingsTabSkeleton />} />
+  );
 }

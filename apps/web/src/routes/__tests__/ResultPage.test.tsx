@@ -179,9 +179,27 @@ describe("ResultPage — 비집중 통계 카드", () => {
     await user.click(row);
 
     expect(row).toHaveAttribute("aria-expanded", "true");
-    expect(within(card).getByText("9분")).toBeInTheDocument();
+    expect(within(card).getByText("총 9분")).toBeInTheDocument();
     // 다른 행은 그대로 접혀 있다.
-    expect(within(card).queryByText("6분")).not.toBeInTheDocument();
+    expect(within(card).queryByText("총 6분")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 합계만으로는 `2회 9분`이 한 번 길게인지 고르게인지 알 수 없다 — 사용자가 알고 싶은 것은
+   * 대개 "언제 무너졌나"다(BY-336). 시각은 세션 벽시계라 위 타임라인 바와 위치가 대응된다.
+   */
+  it("펼치면 합계 아래에 발생 구간이 시각과 함께 나열된다", async () => {
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession()] });
+    const card = statsCard();
+
+    await user.click(within(card).getByRole("button", { name: /자리 이탈/ }));
+
+    expect(within(card).getByText("21:13 – 21:18")).toBeInTheDocument();
+    expect(within(card).getByText("21:53 – 21:57")).toBeInTheDocument();
+    // 구간 길이도 분 단위 표기를 따른다(초 금지).
+    expect(within(card).getByText("5분")).toBeInTheDocument();
+    expect(within(card).queryByText(/\d+초/)).not.toBeInTheDocument();
   });
 
   it("다시 누르면 접힌다", async () => {
@@ -194,7 +212,9 @@ describe("ResultPage — 비집중 통계 카드", () => {
     await user.click(row);
 
     expect(row).toHaveAttribute("aria-expanded", "false");
-    expect(within(card).queryByText("9분")).not.toBeInTheDocument();
+    expect(within(card).queryByText("총 9분")).not.toBeInTheDocument();
+    // 구간 목록도 함께 사라진다 — 접힌 행의 내용이 남으면 aria-expanded와 어긋난다.
+    expect(within(card).queryByText("21:13 – 21:18")).not.toBeInTheDocument();
   });
 
   /** 두 유형의 시간을 비교하려는 사용자가 계속 다시 누르지 않도록 단일 선택이 아니다. */
@@ -206,8 +226,8 @@ describe("ResultPage — 비집중 통계 카드", () => {
     await user.click(within(card).getByRole("button", { name: /자리 이탈/ }));
     await user.click(within(card).getByRole("button", { name: /휴대폰 사용/ }));
 
-    expect(within(card).getByText("9분")).toBeInTheDocument();
-    expect(within(card).getByText("6분")).toBeInTheDocument();
+    expect(within(card).getByText("총 9분")).toBeInTheDocument();
+    expect(within(card).getByText("총 6분")).toBeInTheDocument();
   });
 
   /** 1분 미만이어도 초 숫자를 노출하지 않는다(2026-07-27 표기 규칙). */

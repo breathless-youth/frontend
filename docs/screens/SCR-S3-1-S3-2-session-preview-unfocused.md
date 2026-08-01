@@ -72,7 +72,7 @@ S3-1 · 집중 측정 중  (frame 58:323, 402×874)
   Session / Control Bar         (58:361)  79,756 244×80   ← 컴포넌트 34:32
     bg rgba(22,27,34,0.55) · border 1px rgba(255,255,255,0.1) · r999 · pt16 pb12 px24 · gap22 · backdrop-blur
     handle 36×4 r999 rgba(255,255,255,0.22)  상단 중앙 top 5
-    btn/pause       50×50 원형 bg rgba(255,255,255,0.12) · icon/pause 16×18
+    btn/pause       50×50 원형 bg rgba(255,255,255,0.12) · icon/pause 16×18 (구현 일치)
     btn/camera-flip 50×50 원형 bg rgba(255,255,255,0.12) · icon/camera-flip 20×20
     btn/exit        50×50 원형 bg #FF6B77                 · icon/exit 19×19
   iOS / Home Indicator          (58:377)  0,853 402×21    ← OS 크롬, 앱이 그리지 않음
@@ -363,6 +363,7 @@ export type SessionState =
 - [ ] **총 공부 병기 텍스트 명암비 4.0:1** (white 42%, 15px, 목업 배경 기준) — AA 4.5:1 미달. 알파 상향 또는 실제 카메라 피드 위 스크림 도입 여부를 디자이너가 결정.
 - [ ] **첫 세션 힌트 1회** — `user-flow.md`에는 있고 Figma S3-1에는 없다. 온보딩 G3와 중복인지 확인 후 삭제/추가 결정.
 - [ ] **상태 도트의 Figma 변수 바인딩** — `state/focus`·`state/distract`가 Light 값(`#1b64da`/`#ff8a00`)으로 해석되는 채 항상-다크 오버레이 위에 놓여 있다. 6차 확정 세션 전용 값(`#4593FC`/`#FF9E1B`)이 정답이지만, Figma 원본도 다크 모드 값으로 맞춰두지 않으면 다음 익스포트에서 같은 혼선이 반복된다.
+- [ ] **[디자인 확인] play 아이콘 프레임 1.5배 확대(BY-336, 2026-07-31)** — `play`와 `pause`는 둘 다 `16×18` 프레임이지만 프레임 안에서 잉크가 차지하는 비율이 크게 다르다(pause 72%×79% / **play 44%×54%**). 같은 프레임을 주면 화면에서 재생이 일시정지보다 한참 작아 보여서, 실기기 확인 후 **play만 24×27**(가로 21.1×23.8)로 키워 실제 글리프 높이를 맞췄다(pause 14.2 / play 14.6). **`pause`·flip·exit은 Figma 실측 그대로다.** 근본 해결은 play 아이콘을 잉크에 맞게 Figma에서 재익스포트하는 것 — 그러면 프레임을 16×18로 되돌리고 `SessionControlBar.tsx`의 `ICON_SIZE.play` 항목을 지울 수 있다.
 - [ ] **토스트 컴포넌트 시각 스펙** — 위치·지속시간·모션.
 - [ ] **프리뷰 모드 상태 전환 모션 값** — `6. Spec — Motion & Handoff`(node `14:7`) 확인 필요.
 - [ ] **라우트 `/room/:id`의 `:id` 존치 여부** — V1.0 싱글룸에는 방 개념이 없다. 모바일 WebView 진입 URL 계약과 함께 정리 필요(WG1은 기존 경로 유지).

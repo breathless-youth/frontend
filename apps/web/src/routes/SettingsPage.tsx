@@ -4,6 +4,7 @@ import { postToNative } from "@/lib/bridge";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
+import { useCameraPermission } from "@/features/settings/useCameraPermission";
 
 /**
  * S6 · 설정 — Figma node `67:722`, 스펙 `frontend/docs/screens/SCR-S6-settings.md`.
@@ -21,11 +22,13 @@ import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/s
  *
  * ## 원본과의 의도적 차이 (BY-331 task-4-brief)
  *
- * 1. **카메라 권한 행**: 원본은 `expo-camera`로 OS 권한 상태를 조회해 트레일링 토글에 반영한다.
- *    웹은 그 API가 없으므로 상태 조회를 하지 않는다 — 원본의 `granted === null`(조회 전/실패)
- *    분기와 동일하게 트레일링을 생략한 채 고정 렌더한다. `onPress`는 `Linking.openSettings()`
+ * 1. **카메라 권한 행**: 원본은 `expo-camera`로 OS 권한 상태를 **직접** 조회해 트레일링 토글에
+ *    반영한다. 웹에는 그 API가 없어(Permissions API의 `camera`를 iOS WKWebView가 지원하지 않는다)
+ *    한동안 토글 없이 고정 렌더했지만, 지금은 `useCameraPermission`이 브리지로 네이티브에 물어
+ *    같은 토글을 되살린다. 값을 모르는 동안(브라우저 단독 모드·조회 실패)은 원본의
+ *    `granted === null` 분기 그대로 트레일링을 비운다. `onPress`는 `Linking.openSettings()`
  *    대신 `postToNative({ type: "open-settings", atMs: Date.now() })`로 네이티브에 요청만
- *    보낸다 — 수신 구현은 BY-333, 브라우저 단독 모드에서는 브리지가 없어 조용히 무동작한다.
+ *    보낸다 — 브라우저 단독 모드에서는 브리지가 없어 조용히 무동작한다.
  * 2. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
  *    얻을 수 없으므로 네이티브 셸(BY-333)이 실어 보내는 쿼리 `appVersion`을 읽는다.
  */
@@ -33,6 +36,7 @@ export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const granted = useCameraPermission();
 
   return (
     <main
@@ -61,7 +65,10 @@ export function SettingsPage() {
           */}
           <SettingsRow
             label="카메라 권한"
-            accessibilityLabel={cameraPermissionRowLabel(null)}
+            // 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 트레일링을 비운다 —
+            // `useCameraPermission` 주석 참고. 토글은 표시 전용이고 실제 변경은 OS에서만 된다.
+            trailing={granted === null ? undefined : { kind: "toggle", granted }}
+            accessibilityLabel={cameraPermissionRowLabel(granted)}
             onPress={() => {
               postToNative({ type: "open-settings", atMs: Date.now() });
             }}

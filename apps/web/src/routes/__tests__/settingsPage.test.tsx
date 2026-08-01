@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 
@@ -138,5 +139,86 @@ describe("S6 · 설정", () => {
     expect(() => {
       fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
     }).not.toThrow();
+  });
+
+  describe("카메라 권한 토글", () => {
+    /** 네이티브가 `injectJavaScript`로 호출하는 전역을 테스트에서 대신 부른다. */
+    function pushCameraPermission(granted: boolean) {
+      const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+        NATIVE_MESSAGE_ENTRY
+      ];
+      act(() => {
+        receive(JSON.stringify({ type: "camera-permission", granted, atMs: 1 }));
+      });
+    }
+
+    it("마운트되면 네이티브에 권한 상태를 물어본다", () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+      renderAt("/settings");
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"request-camera-permission"'),
+      );
+    });
+
+    it("답을 받기 전에는 토글을 그리지 않는다 — 모름을 '허용 안 됨'으로 단언하지 않는다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+
+      renderAt("/settings");
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("granted를 받으면 토글과 함께 허용됨으로 읽어준다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      renderAt("/settings");
+
+      pushCameraPermission(true);
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 허용됨, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("허용 안 됨도 같은 자리에 반영된다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      renderAt("/settings");
+
+      pushCameraPermission(false);
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 허용 안 됨, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("OS 설정에 다녀와 웹뷰가 다시 보이면 상태를 다시 묻는다", () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      renderAt("/settings");
+      const beforeReturn = postMessage.mock.calls.length;
+
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      // jsdom의 기본 visibilityState는 "visible"이라 재조회 경로가 그대로 탄다.
+      expect(postMessage.mock.calls.length).toBeGreaterThan(beforeReturn);
+    });
+
+    it("브라우저 단독 모드에서는 묻지도, 토글을 그리지도 않는다", () => {
+      renderAt("/settings");
+
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
   });
 });

@@ -2,9 +2,10 @@ import { router } from "expo-router";
 
 import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
 
-import { openAppSettings } from "./cameraPermission";
+import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { relaySessionSubmit } from "./sessionSubmitRelay";
+import { setTabBarVisible } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -45,6 +46,34 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       break;
     case "open-settings":
       void openAppSettings();
+      break;
+    case "request-camera-permission":
+      // 설정(S6)의 카메라 권한 토글이 물어본다. 웹은 이 값을 스스로 알 수 없다 —
+      // Permissions API의 `camera`를 iOS WKWebView가 지원하지 않아서다(계약 주석 참고).
+      //
+      // ⚠️ **조회에 실패하면 답하지 않는다.** `granted: false`로 답하면 웹이 "허용 안 됨"
+      // 토글을 그려 사용자에게 틀린 단언을 하게 된다 — 무응답이면 웹은 `null`(모름)을
+      // 유지해 토글 자리를 비우고, 다음 포그라운드 복귀에서 다시 묻는다.
+      //
+      // `getCameraPermissionStatus`는 권한을 **요청하지 않고 조회만** 한다(`requestCameraPermission`과
+      // 다른 함수다) — 설정 화면을 열었다는 이유로 OS 권한 팝업이 뜨면 안 된다.
+      void getCameraPermissionStatus()
+        .then((status) => {
+          reply({ type: "camera-permission", granted: status === "granted", atMs: Date.now() });
+        })
+        .catch((error: unknown) => {
+          console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
+        });
+      break;
+    case "navigate-tab":
+      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
+      // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
+      router.navigate("/records");
+      break;
+    case "set-tab-bar":
+      // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
+      // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
+      setTabBarVisible(message.visible);
       break;
     case "submit-session":
       // 세션 로직이 네이티브로 넘어오는 게 아니다 — 웹이 완성한 요청 본문을 받아 HTTP만

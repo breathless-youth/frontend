@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { AppState } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { lockPortrait } from "../lib/orientation";
 import { ensureUserRegistered } from "../lib/userApi";
 
 /**
@@ -21,6 +22,10 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   useEffect(() => {
     void ensureUserRegistered();
+    // 앱 전역 세로 잠금 — 세션(`room/[id]`)이 자기 마운트에서 풀고 언마운트에서 되잠근다.
+    // 아래 rn-screens `orientation` 옵션은 iOS에서 무력해서(P0-3 정정, `lib/orientation.ts`)
+    // 실제 잠금은 이 호출이 담당한다.
+    lockPortrait();
   }, []);
 
   // RN에는 window focus가 없다 — 앱 포그라운드 복귀를 react-query의 focus 신호로 잇는다.
@@ -43,11 +48,14 @@ export default function RootLayout() {
           `UISupportedInterfaceOrientations`). 여기서 `"portrait"`로 조이면 상한이 세로로 닫혀
           아래 화면별 `orientation`이 landscape를 요청해도 회전하지 않는다.
 
-          그래서 실제 정책은 이 두 줄이 만든다: 상한은 전 방향으로 열어 두고, 기본값을 세로로
-          닫은 다음, 세션에서만 다시 연다.
+          그래서 정책은: 상한은 전 방향으로 열어 두고, 기본값을 세로로 닫은 다음, 세션에서만
+          다시 연다.
 
-          `react-native-screens`(4.16.0, 이미 직접 의존성)가 처리하므로 `expo-screen-orientation`을
-          추가하지 않는다 — SCR-S3-5-S3-6 P0-3의 "새 네이티브 의존성 승인"이 불필요해진 이유.
+          ⚠️ **아래 rn-screens `orientation` 옵션은 iOS에서 무력하다** (P0-3 정정, 2026-08-01) —
+          Expo 앱 델리게이트는 rn-screens에 방향을 묻지 않아서, 실제 iOS 잠금은
+          `lib/orientation.ts`(expo-screen-orientation)가 한다: 위 effect의 `lockPortrait()` +
+          세션 화면의 마운트 해제/재잠금. 옵션을 지우지 않는 이유는 Android에서는 이 경로
+          (`setRequestedOrientation`)가 동작하기 때문이다. 근거 전문은 `lib/orientation.ts`.
         */}
         <Stack screenOptions={{ headerShown: false, orientation: "portrait" }}>
           <Stack.Screen name="(tabs)" />

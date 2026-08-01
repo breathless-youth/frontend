@@ -15,6 +15,37 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("request-camera-permission을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"request-camera-permission","atMs":7}')).toEqual({
+      type: "request-camera-permission",
+      atMs: 7,
+    });
+  });
+
+  it("navigate-tab을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-tab","tab":"records","atMs":4}')).toEqual({
+      type: "navigate-tab",
+      tab: "records",
+      atMs: 4,
+    });
+  });
+
+  it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-tab","tab":"profile","atMs":4}')).toBeNull();
+  });
+
+  it("set-tab-bar를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"set-tab-bar","visible":false,"atMs":9}')).toEqual({
+      type: "set-tab-bar",
+      visible: false,
+      atMs: 9,
+    });
+  });
+
+  it("set-tab-bar의 visible이 boolean이 아니면 null이다 — 탭 바가 사라지면 이동 수단이 없어진다", () => {
+    expect(parseToNativeMessage('{"type":"set-tab-bar","visible":"no","atMs":9}')).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

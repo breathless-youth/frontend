@@ -37,6 +37,22 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "navigate-home", atMs: record.atMs };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
+    case "request-camera-permission":
+      return { type: "request-camera-permission", atMs: record.atMs };
+    case "navigate-tab":
+      // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
+      // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.
+      if (record.tab !== "records") {
+        return null;
+      }
+      return { type: "navigate-tab", tab: record.tab, atMs: record.atMs };
+    case "set-tab-bar":
+      // `visible`이 boolean이 아니면 통째로 버린다 — 기본값(보임)이 유지되는 편이 안전하다.
+      // 여기서 truthy 판정으로 넘기면 오타 하나에 탭 바가 사라져 이동 수단이 없어진다.
+      if (typeof record.visible !== "boolean") {
+        return null;
+      }
+      return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
     case "submit-session":
       if (
         typeof record.requestId !== "string" ||

@@ -56,6 +56,17 @@ export interface CameraPreviewSurfaceProps {
    * 화면 스펙과 그 테스트가 이 표식으로 판별한다.
    */
   hidden?: boolean;
+  /**
+   * 지금이 회전 구간인가 — **빈 자리를 메우려고 살짝 확대한다**(BY-336).
+   *
+   * 기기를 돌리면 네이티브 뷰 회전과 WebView 리레이아웃이 한 프레임 어긋나면서 이 서피스가
+   * 잠깐 뷰포트보다 작게 잡히고, 그동안 가장자리에 어두운 빈 공간이 보인다. 오버스캔이 그
+   * 자리를 덮는다 — 회전 구간에만 걸리므로 **정지 상태의 화각은 그대로다.**
+   *
+   * 처음에는 화면 전체를 블러로 덮어 그 구간을 가렸지만, 덮는 것 자체가 눈에 띈다는 확인으로
+   * 걷어냈다(2026-08-01). 가리는 대신 메우는 쪽이 이 화면에서는 덜 튄다.
+   */
+  rotating?: boolean;
   className?: string;
 }
 
@@ -65,6 +76,7 @@ export function CameraPreviewSurface({
   facing,
   videoRef,
   hidden = false,
+  rotating = false,
   className,
 }: CameraPreviewSurfaceProps) {
   useEffect(() => {
@@ -84,10 +96,16 @@ export function CameraPreviewSurface({
       aria-hidden="true"
       {...(hidden ? {} : { "data-session-surface": "camera" })}
       className={cn(
+        // 300ms 페이드는 모드 전환의 타이머 이동과 같은 박자다 — 배경만 0ms에 스왑되면 전환이
+        // 이질적으로 보인다(BY-336). SimpleModeSurface와 쌍.
         "absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]",
+        "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
         // 심플 모드: 합성에서만 지운다(위 `hidden` 주석). 아래 SimpleModeSurface가 그대로 보이고,
         // 탭은 이 레이어를 통과해야 심플 모드 토글이 계속 동작한다.
         hidden && "pointer-events-none opacity-0",
+        // 회전 오버스캔(위 `rotating` 주석). 8%면 회전 중 생기는 빈 자리를 덮으면서도
+        // 되돌아올 때 배율 변화가 눈에 띄지 않는다 — 더 키우면 확대됐다 줄어드는 게 보인다.
+        rotating && "scale-[1.08]",
         className,
       )}
     >

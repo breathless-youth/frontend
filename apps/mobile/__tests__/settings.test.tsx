@@ -15,6 +15,11 @@ jest.mock("expo-constants", () => ({
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
 }));
 
+// 스플래시 스켈레톤(`RemoteSplashSkeletons`)이 상단 안전영역을 읽는다 — home.test와 같은 목.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock("react-native-webview", () => {
   /*
     eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --

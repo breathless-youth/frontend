@@ -29,6 +29,11 @@ export const RESULT_COPY = {
   distractionTitlePrefix: "비집중",
   /** 비집중 3종이 모두 0일 때(voice-tone §4 — 느낌표 없음). */
   noDistraction: "비집중 없이 이어간 공부예요",
+  /**
+   * 통계 행을 펼쳤을 때 합계 줄의 라벨(BY-336). 아래에 발생 구간이 나열되므로 어느 쪽이
+   * 합계인지 구분이 필요하다. wiki 미확정 카피 — 다른 화면의 `총 공부` 접두어와 같은 어법이다.
+   */
+  occurrenceTotalPrefix: "총",
   /** CTA(voice-tone §4). */
   cta: "확인",
 } as const;
