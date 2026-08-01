@@ -11,7 +11,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 `src/` 없이 라우터(`app/`)와 유틸 디렉터리를 루트 바로 아래에 둔다.
 
 - `app/` — `expo-router` 파일 기반 라우팅. `app/(tabs)/`는 탭 네비게이션(현재 홈 탭만).
-- `lib/` — 순수 유틸·API 연동 함수(테스트 대상). `deviceId.ts`(기기 UUID), `userApi.ts`(익명 유저 등록), `cameraPermission.ts`(OS 카메라 권한 어댑터).
+- `lib/` — 순수 유틸·API 연동 함수(테스트 대상). `deviceId.ts`(기기 UUID), `userApi.ts`(익명 유저 등록), `cameraPermission.ts`(OS 카메라 권한 어댑터), `deviceMotion.ts`(기기 조작 판정 — 순수)·`deviceMotionSource.ts`(`expo-sensors` 가속도 구독 어댑터, BY-340).
 
 (구 스터디룸 라우트 `app/room/[id].tsx`, `features/study-session/`, `platform/{camera,vision,rtc}/`, `components/ui/`는 2026-07-25 기능 리셋으로 삭제 — 재구축 시 git 히스토리의 패턴을 참고한다.)
 
