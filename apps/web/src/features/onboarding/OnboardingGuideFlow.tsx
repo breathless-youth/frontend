@@ -174,6 +174,19 @@ export function OnboardingGuideFlow({
 
   const skip = useCallback(() => onFinish("skipped"), [onFinish]);
 
+  /**
+   * 제스처(탭·스와이프) 전용 "다음" — **G5에서는 무동작이다**(BY-343). `goNext`는 마지막
+   * 스텝에서 완료(`onFinish`)로 이어지는데, 종료는 사용자가 문구를 읽고 확정하는 행동이라
+   * CTA("집중 시작하기"/"가이드 종료하기")·건너뛰기·X로만 연다 — 화면을 넘기려던 무심한
+   * 탭 한 번이 세션 시작(권한 요청)까지 끌고 가면 안 된다. G1 왼쪽 탭 무동작과 대칭 계약.
+   */
+  const goNextFromGesture = useCallback(() => {
+    if (isLastStep) {
+      return;
+    }
+    goNext();
+  }, [isLastStep, goNext]);
+
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.
   useEffect(() => {
@@ -210,11 +223,11 @@ export function OnboardingGuideFlow({
           goPrev();
           return;
         }
-        goNext();
+        goNextFromGesture();
         return;
       }
       if (dx <= -SWIPE_THRESHOLD_PX) {
-        goNext();
+        goNextFromGesture();
         return;
       }
       if (dx >= SWIPE_THRESHOLD_PX) {
@@ -222,7 +235,7 @@ export function OnboardingGuideFlow({
       }
       // 12~48px 사이의 가로 드래그는 스와이프 실패로 보고 아무 동작도 하지 않는다(RN PanResponder와 동일).
     },
-    [goNext, goPrev],
+    [goNextFromGesture, goPrev],
   );
 
   const { backdrop } = step;

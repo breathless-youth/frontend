@@ -103,6 +103,31 @@ describe("/onboarding-guide — 단계 전환", () => {
     expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
   });
 
+  it("G5(마지막 스텝)에서 오른쪽 탭·다음 방향 스와이프는 무동작이다 — 종료는 CTA로만 확정한다 (BY-343)", () => {
+    renderAt("/onboarding-guide?entry=focus-start");
+    for (let i = 0; i < 4; i += 1) {
+      fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
+    }
+    expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+    const tapLayer = screen.getByTestId("onboarding-guide-tap-layer");
+
+    // 오른쪽 탭 — 완료(세션 시작)로 이어지면 안 된다.
+    fireEvent.pointerDown(tapLayer, { clientX: 800, clientY: 500 });
+    fireEvent.pointerUp(tapLayer, { clientX: 800, clientY: 500 });
+    expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+
+    // 다음 방향(좌로) 스와이프 — 같은 계약.
+    fireEvent.pointerDown(tapLayer, { clientX: 500, clientY: 500 });
+    fireEvent.pointerUp(tapLayer, { clientX: 500 - 60, clientY: 500 });
+    expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: GUIDE_START_LABEL })).toBeInTheDocument();
+
+    // 왼쪽 탭(이전)은 여전히 동작한다.
+    fireEvent.pointerDown(tapLayer, { clientX: 200, clientY: 500 });
+    fireEvent.pointerUp(tapLayer, { clientX: 200, clientY: 500 });
+    expect(screen.getByText("잠깐 쉴 땐 일시정지")).toBeInTheDocument();
+  });
+
   it("G1(첫 스텝)에서 왼쪽 절반 탭은 무동작이다 — '이전'과 같은 계약", () => {
     renderAt("/onboarding-guide?entry=focus-start");
     const tapLayer = screen.getByTestId("onboarding-guide-tap-layer");
