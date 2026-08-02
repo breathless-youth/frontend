@@ -6,6 +6,7 @@ import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { ContactPage } from "@/routes/ContactPage";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { LicensesPage } from "@/routes/LicensesPage";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 import { PrivacyPage } from "@/routes/PrivacyPage";
 import { RecordsPage } from "@/routes/RecordsPage";
@@ -48,6 +49,7 @@ export function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/licenses" element={<LicensesPage />} />
       </Routes>
     </QueryClientProvider>
   );

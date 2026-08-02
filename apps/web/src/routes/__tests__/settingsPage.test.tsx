@@ -108,6 +108,14 @@ describe("S6 · 설정", () => {
     expect(screen.getByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
   });
 
+  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", () => {
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "오픈소스 라이선스" }));
+
+    expect(screen.getByRole("heading", { name: "오픈소스 라이선스" })).toBeInTheDocument();
+  });
+
   it("appVersion 쿼리를 버전 정보 행에 반영한다", () => {
     renderAt("/settings?appVersion=1.4.2");
 
