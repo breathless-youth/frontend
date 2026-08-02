@@ -129,12 +129,13 @@ export function SettingsPage() {
               navigate("/privacy");
             }}
           />
-          {/*
-            "오픈소스 라이선스" 행은 목적지도 문서도 아직 없다 — 임의의 placeholder 목적지를
-            지어내지 않고 `onPress` 없이 표시만 한다(버튼으로 노출되지 않는다).
-            TODO(SCR-S6-settings.md Review Checklist): 목적지 확정 필요.
-          */}
-          <SettingsRow label="오픈소스 라이선스" trailing={{ kind: "chevron" }} />
+          <SettingsRow
+            label="오픈소스 라이선스"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              navigate("/licenses");
+            }}
+          />
           {/* 트레일링이 값 텍스트뿐이라 탭 불가 — chevron이 없다는 것이 그 표시다. */}
           <SettingsRow
             label="버전 정보"

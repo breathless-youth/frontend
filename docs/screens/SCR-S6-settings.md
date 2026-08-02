@@ -7,7 +7,7 @@ FocusON 모바일 앱의 **설정 탭**이다(V1.0 3탭 — 홈·기록·설정 
 > **BY-257(2026-07-27) 이후 구성이 Figma와 다르다.** 아래 "Current Figma Structure"·"Content"는 **디자인 파일의 기록**이고, 실제 구현은 다음이 다르다:
 >
 > - **`측정 기준 안내` 행의 서브 문구(`자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요`)를 달지 않는다.** 행 자체(라벨 + chevron, 온보딩 가이드 재진입)는 그대로다 — 감지 3종 안내는 온보딩 가이드(G1~G5) 본문이 소유하고, 이 화면에서 문구를 복제하지 않는다.
-> - **`오픈소스 라이선스` 행은 목적지·문서가 아직 없어 `onPress` 없이 표시만 한다**(버튼으로 노출되지 않는다) — 행 자체는 제거하지 않았다.
+> - ~~`오픈소스 라이선스` 행은 목적지·문서가 아직 없어 `onPress` 없이 표시만 한다~~ **2026-08-02(BY-310)에 `/licenses` 라우트로 연결됐다** — EfficientDet-Lite0 모델·MediaPipe Tasks Vision·TFLite 런타임을 Apache License 2.0 전문과 함께 고지한다(`apps/web/src/features/settings/openSourceLicenses.ts`).
 >
 > 그리고 **모든 행이 앱 안에 머문다** — 외부 브라우저로 나가는 행이 하나도 없다. Figma 원본을 이 구성에 맞춰야 다음 익스포트에서 되돌아가지 않는다(Review Checklist 참고).
 
@@ -122,7 +122,7 @@ S6 · 설정 (402×874, bg/base)
      - 웹 원본(본문 출처, 런타임 목적지가 아님): `https://pages-nextjs-liart.vercel.app/terms` · `https://pages-nextjs-liart.vercel.app/privacy`
      - **원본이 바뀌면 사본도 고쳐야 한다.** 동기화 여부는 `effectiveDate`(현재 둘 다 `2026년 7월 26일`)로 판별한다.
    - **문의하기 — 앱 안의 WebView로 띄운다.** `CONTACT_FORM_URL` = `https://forms.gle/64ZZyLDE3A2F1oAB8` (Google Forms)을 `/contact` 라우트의 `react-native-webview`가 로드한다. 약관·방침과 달리 텍스트로 옮길 수 없다 — 응답을 제출해야 하는 인터랙티브 폼이다. **`Linking.openURL`을 쓰지 않는다**(앱을 벗어나지 않는다).
-   - **오픈소스 라이선스 — 목적지·문서가 아직 없다.** 행 자체는 노출하되 `onPress`를 넘기지 않아 버튼으로 노출되지 않는다(탭 no-op) — 없는 목적지를 있는 척하지 않는다.
+   - **오픈소스 라이선스 — 앱 안에서 직접 표기한다(2026-08-02, BY-310).** `/licenses` 라우트가 재배포 대상(EfficientDet-Lite0 모델 파일·MediaPipe Tasks Vision·TFLite 런타임)을 Apache License 2.0 전문과 함께 고지한다. 항목·전문은 `apps/web/src/features/settings/openSourceLicenses.ts`가 소유한다 — 고지 대상 판단 기준(재배포 여부, MIT 의존성 제외)은 그 파일 주석 참고.
    - **측정 기준 안내 — 온보딩 가이드(G1~G5)로 재진입한다.** `router.push({ pathname: "/onboarding-guide", params: { entry: "settings" } })`. 감지 3종 서브 문구는 이 화면에 두지 않는다(가이드 본문이 소유).
 
 ```ts
