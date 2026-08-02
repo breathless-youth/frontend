@@ -28,6 +28,14 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 - **Session Replay를 추가하지 말 것** — 카메라 프리뷰가 뜨는 세션 화면을 녹화 수집하는 것은 위 개인정보 원칙과 충돌한다. 라우팅 트레이스(`reactRouterV7BrowserTracingIntegration`, 표본 0.2)와 에러 수집만 쓴다.
 - React 렌더 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)으로 잡는다 — 별도 ErrorBoundary UI를 두지 않았다.
 
+## 사용 분석 (GA4)
+
+`src/lib/analytics.ts`에서 gtag.js를 초기화한다(`main.tsx`가 렌더 전에 호출).
+
+- **측정 ID는 `VITE_GA4_MEASUREMENT_ID` 환경변수로만 주입한다** — 미설정이면 초기화 자체를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 배포 환경(Vercel) env에 설정한다.
+- SPA라 자동 page_view를 끄고(`send_page_view: false`) `AnalyticsRouteTracker`가 라우트 변경마다 직접 보낸다 — GA4 Enhanced Measurement의 History 감지를 켜도 이 구조와 중복 집계되니 GA4 관리 콘솔에서 "브라우저 기록 이벤트 기반 페이지 조회"를 꺼둘 것.
+- 공부 상태·집중률·카메라 관련 데이터를 GA4 이벤트로 보내지 말 것 — 분석은 화면 사용 흐름까지만. 상세 데이터는 자체 API 집계가 소유한다.
+
 ## 명령
 
 ```bash
