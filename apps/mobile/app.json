@@ -12,9 +12,6 @@
       "infoPlist": {
         "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
         "NSMotionUsageDescription": "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        },
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.breathlessyouth.mobile"
@@ -45,18 +42,10 @@
             "backgroundColor": "#101419"
           }
         }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "usesCleartextTraffic": true
-          }
-        }
       ]
     ],
     "extra": {
-      "apiBaseUrl": "http://52.78.219.53:8080",
+      "apiBaseUrl": "https://api.sunqstudio.kr",
       "webBaseUrl": "https://web.sunqstudio.kr",
       "updateNoticeEnabled": false,
       "eas": {

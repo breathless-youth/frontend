@@ -15,7 +15,10 @@ import appConfig from "../../app.json";
  * 세션도 정상으로 돌아간다. 2026-07-29 iOS 실기기에서 실제로 이 상태였다.
  */
 describe("app.json ATS 설정", () => {
-  const ats = appConfig.expo.ios.infoPlist.NSAppTransportSecurity as Record<string, unknown>;
+  // 백엔드 HTTPS 전환(2026-08-02) 후 ATS 블록 자체를 제거했다 — 키가 없는 상태가 정상이다.
+  // 누군가 평문 HTTP로 되돌리면 아래 두 번째 테스트가 예외 추가를 다시 요구한다.
+  const ats = ((appConfig.expo.ios.infoPlist as Record<string, unknown>).NSAppTransportSecurity ??
+    {}) as Record<string, unknown>;
 
   /**
    * iOS 10부터 아래 세 키 중 **하나라도 있으면 `NSAllowsArbitraryLoads`는 무시된다.**
