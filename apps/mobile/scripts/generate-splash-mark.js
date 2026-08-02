@@ -51,14 +51,6 @@ function encodePNG(rgba, w, h) {
 
 // ---- primitives ----
 const sdCircle = (px, py, cx, cy, r) => Math.hypot(px - cx, py - cy) - r;
-function sdCapsule(px, py, ax, ay, bx, by, t) {
-  const abx = bx - ax,
-    aby = by - ay;
-  const apx = px - ax,
-    apy = py - ay;
-  const h = Math.max(0, Math.min(1, (apx * abx + apy * aby) / (abx * abx + aby * aby || 1)));
-  return Math.hypot(apx - abx * h, apy - aby * h) - t / 2;
-}
 // iq isosceles triangle: apex at origin pointing +y, base at y=qy, half-width qx
 function sdTriIso(px, py, qx, qy) {
   px = Math.abs(px);
