@@ -24,7 +24,7 @@ import { postToNative } from "./bridge";
  * 세션 웹뷰는 탭 라우트로 돌아오지 않아 `visible: true`를 되돌릴 기회가 없다 — 넣으면 세션을
  * 끝내고 홈으로 돌아온 뒤에도 탭 바가 사라진 채로 남는다.
  */
-const FULL_SCREEN_PATHS = ["/onboarding-guide", "/contact", "/terms", "/privacy"];
+const FULL_SCREEN_PATHS = ["/onboarding-guide", "/contact", "/terms", "/privacy", "/licenses"];
 
 export function isFullScreenPath(pathname: string): boolean {
   return FULL_SCREEN_PATHS.includes(pathname);
