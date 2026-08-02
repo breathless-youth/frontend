@@ -37,7 +37,7 @@ const FOCUS_COPY: SessionStatusCopy = { label: "집중 측정 중" };
 const DISTRACTION_COPY = {
   AWAY: { label: "자리를 비운 것 같아요", subLabel: "돌아오면 자동으로 다시 측정돼요" },
   PHONE: { label: "휴대폰을 사용 중인 것 같아요", subLabel: "내려놓으면 자동으로 다시 측정돼요" },
-  DEVICE: { label: "기기를 움직인 것 같아요", subLabel: "제자리에 두면 자동으로 다시 측정돼요" },
+  DEVICE: { label: "기기를 조작 중인 것 같아요", subLabel: "제자리에 두면 자동으로 다시 측정돼요" },
 } as const satisfies Record<string, SessionStatusCopy>;
 
 /**
