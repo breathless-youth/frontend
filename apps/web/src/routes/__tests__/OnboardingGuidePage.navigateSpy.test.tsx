@@ -144,6 +144,11 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
     delete globalWithBridge.ReactNativeWebView;
   });
 
+  /** 발신된 브리지 메시지 type 목록 — 가이드 마운트가 보내는 set-back-gesture(BY-343)와
+   *  세션 시작(start-session)을 구분해 세기 위해 인덱스 대신 type으로 본다. */
+  const sentTypes = (postMessage: ReturnType<typeof vi.fn>) =>
+    postMessage.mock.calls.map(([raw]) => (JSON.parse(raw as string) as { type: string }).type);
+
   it("entry=focus-start · G5 완료: start-session을 보내고 가이드가 정확히 한 번 닫힌다(갇히지 않음)", async () => {
     const postMessage = vi.fn();
     globalWithBridge.ReactNativeWebView = { postMessage };
@@ -154,10 +159,9 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
     fireEvent.click(screen.getByRole("button", { name: GUIDE_START_LABEL }));
 
     await vi.waitFor(() => {
-      expect(postMessage).toHaveBeenCalledTimes(1);
+      expect(sentTypes(postMessage)).toContain("start-session");
     });
-    const sent = JSON.parse(postMessage.mock.calls[0][0] as string) as { type: string };
-    expect(sent.type).toBe("start-session");
+    expect(sentTypes(postMessage).filter((type) => type === "start-session")).toHaveLength(1);
 
     // 뒤로 갈 히스토리가 없으므로 closeGuide()는 /home으로 replace 이동한다 — 정확히 한 번.
     await vi.waitFor(() => {
@@ -180,7 +184,7 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
     fireEvent.click(screen.getByRole("button", { name: GUIDE_START_LABEL }));
 
     await vi.waitFor(() => {
-      expect(postMessage).toHaveBeenCalledTimes(1);
+      expect(sentTypes(postMessage)).toContain("start-session");
     });
     await vi.waitFor(() => {
       expect(navigateSpy).toHaveBeenCalledTimes(1);

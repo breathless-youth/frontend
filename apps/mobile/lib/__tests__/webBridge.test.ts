@@ -58,6 +58,18 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"set-tab-bar","visible":"no","atMs":9}')).toBeNull();
   });
 
+  it("set-back-gesture를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"set-back-gesture","enabled":false,"atMs":9}')).toEqual({
+      type: "set-back-gesture",
+      enabled: false,
+      atMs: 9,
+    });
+  });
+
+  it("set-back-gesture의 enabled가 boolean이 아니면 null이다 — 문의하기 스와이프 복귀가 걸려 있다", () => {
+    expect(parseToNativeMessage('{"type":"set-back-gesture","enabled":"off","atMs":9}')).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

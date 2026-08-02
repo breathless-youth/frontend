@@ -226,8 +226,10 @@ export function IllustPrivacyCamera({
  * 카드 배경과 같은 색이라야 이어져 보이므로 색을 `coachOverlay.cardBg`에 묶는다.
  */
 export function CoachTooltipTail({
-  width = 14,
-  height = 7,
+  // Figma 원본은 14×7 — 말풍선과 강조 대상의 연결이 잘 안 읽힌다는 피드백으로 두 차례
+  // 키웠다(BY-343: 20×10 → 26×13). viewBox는 그대로라 비율(2:1) 유지 확대다.
+  width = 26,
+  height = 13,
   ...rest
 }: SVGProps<SVGSVGElement> & { width?: number; height?: number }) {
   return (

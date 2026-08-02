@@ -175,6 +175,32 @@ body {
   }
 }
 
+/* S5 달력 월 전환 — 이동 방향에서 스르륵 밀려 들어온다(BY-343). 거리(6%)는 "움직였다"가
+   보이는 최소치다 — 셀 하나 폭을 넘게 밀면 날짜를 따라 읽던 시선이 끊긴다. */
+@keyframes month-slide-from-right {
+  from {
+    opacity: 0.4;
+    transform: translateX(6%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes month-slide-from-left {
+  from {
+    opacity: 0.4;
+    transform: translateX(-6%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* 웹뷰(네이티브 셸) 안에서는 페이지 전체가 드래그·길게 눌러 선택되지 않는다 — 앱 화면이
    웹 문서처럼 반응하면(글자에 파란 선택 블록이 잡히고 아이콘이 손끝을 따라 끌림) 곧바로
    "안에 웹이 들어 있다"는 게 드러난다. 클래스는 `lib/nativeShell.ts`가 브리지가 있을 때만

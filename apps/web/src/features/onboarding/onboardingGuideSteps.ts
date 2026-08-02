@@ -147,8 +147,14 @@ export type CoachAnchor =
   | "privacy-card";
 
 /**
- * 세로 배치 비율. Figma 절대 좌표(874 캔버스)에서 뽑은 **여백의 비율**이지 좌표가 아니다 —
- * 화면 높이가 달라도 "강조 대상 바로 위/아래"라는 관계가 유지되도록 flexGrow로 옮긴다.
+ * 세로 배치 비율. 여백의 **비율**이지 좌표가 아니다 — 화면 높이가 달라도 "강조 대상 바로
+ * 위/아래"라는 관계가 유지되도록 flexGrow로 옮긴다.
+ *
+ * ⚠️ 값은 더 이상 Figma 실측 그대로가 아니다(BY-343). 기준은 **목업 타이머가 실제 세션
+ * 화면과 같은 자리에 있는 것**이다 — 카메라 모드(G1·G2·G4·G5)는 하단 컨트롤 바 위(세션
+ * 프리뷰의 `grow` 스페이서와 동일한 1:0), 심플 모드(G3)는 상태 필~하단 사이 균등(1:1,
+ * `RoomPage`의 심플 모드 배분과 동일). 말풍선·카드는 그 타이머에 인접해서만 움직인다 —
+ * 가이드를 넘겨도 타이머가 널뛰지 않고, 가이드가 보여주는 화면이 실제 세션과 같아진다.
  */
 export type CoachSpacing = {
   /** 상단 여백 비중(상태 필 아래 ~ 첫 블록). */
@@ -192,7 +198,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     },
     privacyCard: null,
     anchor: "above-timer",
-    spacing: { topFlex: 417, midFlex: 0, bottomFlex: 0 },
+    spacing: { topFlex: 1, midFlex: 0, bottomFlex: 0 },
     ctaLabel: GUIDE_NEXT_LABEL,
     skippable: true,
     emphasis: "timer",
@@ -217,7 +223,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     },
     privacyCard: null,
     anchor: "above-timer",
-    spacing: { topFlex: 376, midFlex: 0, bottomFlex: 0 },
+    spacing: { topFlex: 1, midFlex: 0, bottomFlex: 0 },
     ctaLabel: GUIDE_NEXT_LABEL,
     skippable: true,
     emphasis: "status-pill",
@@ -252,7 +258,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     },
     privacyCard: null,
     anchor: "below-timer",
-    spacing: { topFlex: 264, midFlex: 0, bottomFlex: 214 },
+    spacing: { topFlex: 1, midFlex: 0, bottomFlex: 1 },
     ctaLabel: GUIDE_NEXT_LABEL,
     skippable: true,
     emphasis: "timer",
@@ -282,7 +288,9 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     },
     privacyCard: null,
     anchor: "above-control-bar",
-    spacing: { topFlex: 197, midFlex: 0, bottomFlex: 142 },
+    // G4만 하단에서 살짝 띄운다(4:1) — 끌어올린 컨트롤 바가 목업의 강조 장치라 세션 실배치
+    // (맨 아래)와 같을 필요가 없고, 하단 내비게이션과 붙어 있으면 답답하다는 피드백(BY-343).
+    spacing: { topFlex: 4, midFlex: 0, bottomFlex: 1 },
     ctaLabel: GUIDE_NEXT_LABEL,
     skippable: true,
     emphasis: "control-bar",
@@ -315,7 +323,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
     },
     anchor: "privacy-card",
-    spacing: { topFlex: 42, midFlex: 257, bottomFlex: 0 },
+    spacing: { topFlex: 1, midFlex: 1, bottomFlex: 0 },
     ctaLabel: GUIDE_START_LABEL,
     // Figma G5 하단 힌트에는 "건너뛰기"가 없다 — CTA가 곧 종료라 별도 탈출구가 필요 없다.
     skippable: false,

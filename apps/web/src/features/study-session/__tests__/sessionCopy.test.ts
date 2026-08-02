@@ -28,7 +28,7 @@ describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
       subLabel: "내려놓으면 자동으로 다시 측정돼요",
     });
     expect(statusCopyFor(distractionState("DEVICE"))).toEqual({
-      label: "기기를 움직인 것 같아요",
+      label: "기기를 조작 중인 것 같아요",
       subLabel: "제자리에 두면 자동으로 다시 측정돼요",
     });
   });

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
 
+import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { ContactPage } from "@/routes/ContactPage";
@@ -34,6 +35,8 @@ export function App() {
   useNativeTabBarSync();
   // 웹뷰 안에서만 페이지 드래그·길게 눌러 선택을 막는다(`lib/nativeShell.ts`).
   useNativeShellClass();
+  // 포워드 스와이프로 닫았던 전체 화면 라우트가 되열리는 것을 막는다(`lib/historyGuard.ts`).
+  useBlockForwardGestureIntoFullScreen();
 
   return (
     <QueryClientProvider client={queryClient}>
