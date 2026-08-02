@@ -44,7 +44,7 @@ ADR 0001은 스터디룸(WebRTC + Vision AI)을 `apps/web`에 한 번만 구현�
 - `apps/web`은 제거하지 않는다. 브라우저용 싱글 세션/멀티 종일룸, 브라우저 MediaPipe,
   LiveKit Web SDK, 서비스 소개 페이지, 독립 배포 역할을 유지한다.
 - 모바일/웹은 **동일한 도메인 규칙·타입을 공유**하되(카메라·Vision AI·WebRTC의 구체 구현체는
-  플랫폼별로 분리), 공유 계산 로직은 순수 TS 패키지 `@focuson/study-core`로 올린다.
+  플랫폼별로 분리), 공유 계산 로직은 순수 TS 패키지 `@focusmakers/study-core`로 올린다.
 - 핵심 스터디룸에는 WebView를 쓰지 않는다. 비핵심 화면(개인정보처리방침/이용약관/외부문의/
   공지사항)에서만 필요 시 WebView를 사용할 수 있다. 현재 그런 사용처가 없어
   `react-native-webview` 의존성과 WebView 전용 설정은 완전히 제거한다.
@@ -102,10 +102,10 @@ Vision AI 추론(얼굴/자세 기반 집중 판정)은 **단말 내부에서만
 
 이 항목은 이후 실제 구현하면서 재검토될 수 있는 **임시 결정**이다.
 
-- `@focuson/study-core`(순수 TS, 외부 런타임 의존성 없음)가 `StudyStatus`, 타임라인 이벤트 타입
+- `@focusmakers/study-core`(순수 TS, 외부 런타임 의존성 없음)가 `StudyStatus`, 타임라인 이벤트 타입
   `FocusTimelineEvent`, `StudySessionSummary`와 모든 계산 함수(총공부시간/순공시간/집중률,
   세션 상태 전환, 타임라인 병합·정규화)를 **소유**한다.
-- `@focuson/types`의 기존 `FocusEvent`(`sessionId`/`type`/`timestamp`/`confidence`)는 "서버로
+- `@focusmakers/types`의 기존 `FocusEvent`(`sessionId`/`type`/`timestamp`/`confidence`)는 "서버로
   전송되는 이벤트 레코드(API 계약)"이고, study-core의 `FocusTimelineEvent`는 "클라이언트 내부에서
   시간 계산에 쓰는 순수 이벤트(상태+시각만)"라서 개념이 다르다. 이름 충돌·의미 혼동을 피하려고
   study-core 쪽을 `FocusTimelineEvent`로 명명하고, 기존 `FocusEvent`는 그대로 두되 용도를 JSDoc으로
@@ -113,8 +113,8 @@ Vision AI 추론(얼굴/자세 기반 집중 판정)은 **단말 내부에서만
 - 기존 `SessionStatus`(`"active"|"paused"|"ended"` — 세션 전체 생명주기)와 새 `StudyStatus`
   (`"STUDYING"|"AWAY"|"PAUSED"|"CAMERA_OFF"` — 순간 비전 상태)는 서로 다른 축이므로 합치지 않고
   각자 유지한다.
-- `@focuson/types`는 `@focuson/study-core`를 workspace 의존성으로 두고 `StudyStatus`/
-  `StudySessionSummary`를 재노출해, 기존처럼 `@focuson/types`에서 한 번에 import할 수 있게 한다
+- `@focusmakers/types`는 `@focusmakers/study-core`를 workspace 의존성으로 두고 `StudyStatus`/
+  `StudySessionSummary`를 재노출해, 기존처럼 `@focusmakers/types`에서 한 번에 import할 수 있게 한다
   (하위 호환).
 
 ## 단점과 비용 (Consequences / Costs)
@@ -124,7 +124,7 @@ Vision AI 추론(얼굴/자세 기반 집중 판정)은 **단말 내부에서만
   검증해야 한다(기술 스파이크 필요, 아래 참고).
 - Development Build가 필요하다 — Expo Go만으로는 네이티브 카메라/RTC 모듈을 실행할 수 없다.
 - 웹/모바일 두 구현체가 병존하므로 도메인 규칙 변경 시 양쪽 UI를 함께 갱신해야 한다(단, 계산
-  로직은 `@focuson/study-core`로 공유되어 중복을 줄인다).
+  로직은 `@focusmakers/study-core`로 공유되어 중복을 줄인다).
 
 ## 기술 스파이크 항목 (실제 기기에서 별도 진행)
 

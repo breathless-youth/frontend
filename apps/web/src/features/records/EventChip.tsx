@@ -1,4 +1,4 @@
-import type { StudyEventStatus } from "@focuson/types";
+import type { StudyEventStatus } from "@focusmakers/types";
 
 /**
  * S5 기록 리스트의 이벤트 칩(Figma `Chip / Event Tag` 46:93).

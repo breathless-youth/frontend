@@ -2,7 +2,7 @@ import type {
   StatusEventPayload,
   StudySessionCreateRequest,
   StudySessionResponse,
-} from "@focuson/types";
+} from "@focusmakers/types";
 
 import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";

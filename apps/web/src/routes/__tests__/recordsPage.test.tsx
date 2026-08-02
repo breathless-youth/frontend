@@ -8,7 +8,7 @@ import type {
   StudySessionListResponse,
   StudySessionStreakResponse,
   StudySessionSummary,
-} from "@focuson/types";
+} from "@focusmakers/types";
 import {
   kstDateKey,
   monthLabel,

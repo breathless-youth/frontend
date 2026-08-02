@@ -2,7 +2,7 @@ import type {
   StudySessionEventCounts,
   StudySessionListResponse,
   StudySessionSummary,
-} from "@focuson/types";
+} from "@focusmakers/types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

@@ -144,7 +144,7 @@ S3-4 · 미니멀 모드 (탭 전환)  [bg #0B0F14 — 프레임 전체가 탭 �
 
 ## Data Contract
 
-### 이미 존재하는 타입 — 그대로 재사용한다 (`@focuson/types`)
+### 이미 존재하는 타입 — 그대로 재사용한다 (`@focusmakers/types`)
 
 ```ts
 // packages/types/src/index.ts — 백엔드 Swagger 기준, 상상 계약 아님

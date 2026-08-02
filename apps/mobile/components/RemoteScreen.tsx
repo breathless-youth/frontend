@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
-import { handleBridgeMessage } from "../lib/nativeBridgeHandler";
+import type { ToNativeMessage } from "@focusmakers/types";
+
+import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { RemoteWebViewHost } from "./RemoteWebViewHost";
 
@@ -38,6 +40,13 @@ export type RemoteScreenProps = {
    * 레이아웃이 없는 화면(카메라 전면 뷰)은 스켈레톤을 만들지 않고 이 폴백을 쓴다.
    */
   splash?: ReactNode;
+  /**
+   * 브리지 수신을 화면이 가로채야 할 때만 넘긴다 — 생략하면 공용 `handleBridgeMessage`다.
+   * 세션 화면이 `motion-sensor`(BY-340)를 자기 수명에 묶기 위해 쓴다(`app/room/[id].tsx`).
+   * 넘기는 쪽이 공용 동작(제출 대행·홈 복귀 등)을 유지하려면 나머지 메시지를 직접
+   * `handleBridgeMessage`로 위임해야 한다.
+   */
+  onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
   testID?: string;
 };
 
@@ -46,6 +55,7 @@ export function RemoteScreen({
   backgroundColor,
   blockHardwareBack = false,
   splash,
+  onBridgeMessage = handleBridgeMessage,
   testID,
 }: RemoteScreenProps) {
   const query = useRemoteQueryParams();
@@ -84,7 +94,7 @@ export function RemoteScreen({
           path={path}
           query={query}
           backgroundColor={backgroundColor}
-          onBridgeMessage={handleBridgeMessage}
+          onBridgeMessage={onBridgeMessage}
           onLoadEnd={onLoadEnd}
         />
       )}

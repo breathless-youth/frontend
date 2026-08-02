@@ -1,6 +1,6 @@
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focuson/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import { DistractionStatsCard } from "@/features/study-session/components/DistractionStatsCard";
 import { ResultHeader } from "@/features/study-session/components/ResultHeader";

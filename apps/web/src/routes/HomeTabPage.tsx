@@ -319,7 +319,7 @@ export function HomeTabPage() {
     >
       <div className="flex flex-col gap-3 px-5">
         <header className="flex items-center justify-between">
-          <h1 className="text-[17px] font-bold text-foreground">FocusON</h1>
+          <h1 className="text-[17px] font-bold text-foreground">FocusMakers</h1>
           <p className="text-[13px] font-medium text-text-tertiary">{todayLabel()}</p>
         </header>
 

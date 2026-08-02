@@ -1,4 +1,8 @@
-import type { StatusEventPayload, StudyEventStatus, StudySessionResponse } from "@focuson/types";
+import type {
+  StatusEventPayload,
+  StudyEventStatus,
+  StudySessionResponse,
+} from "@focusmakers/types";
 import { describe, expect, it } from "vitest";
 
 import {

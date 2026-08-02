@@ -1,4 +1,4 @@
-import type { StudySessionSummary } from "@focuson/types";
+import type { StudySessionSummary } from "@focusmakers/types";
 
 import {
   eventChipItems,

@@ -1,4 +1,4 @@
-import type { SubmitSessionMessage } from "@focuson/types";
+import type { SubmitSessionMessage } from "@focusmakers/types";
 
 import { relaySessionSubmit } from "../sessionSubmitRelay";
 

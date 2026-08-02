@@ -1,4 +1,4 @@
-import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -53,6 +53,13 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
+    case "motion-sensor":
+      // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
+      // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.
+      if (typeof record.enabled !== "boolean") {
+        return null;
+      }
+      return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
     case "submit-session":
       if (
         typeof record.requestId !== "string" ||

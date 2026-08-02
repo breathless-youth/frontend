@@ -1,4 +1,4 @@
-import type { StudyEventStatus } from "@focuson/types";
+import type { StudyEventStatus } from "@focusmakers/types";
 
 /**
  * 세션 내부 상태 모델 — DOM/SDK 의존 없는 순수 TS.

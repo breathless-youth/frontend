@@ -1,4 +1,4 @@
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
 
 import { API_BASE_URL, parseErrorMessage } from "./api";
 

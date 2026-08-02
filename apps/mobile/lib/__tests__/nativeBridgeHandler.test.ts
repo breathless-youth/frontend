@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 
-import type { SubmitResultMessage } from "@focuson/types";
+import type { SubmitResultMessage } from "@focusmakers/types";
 
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";

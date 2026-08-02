@@ -1,7 +1,7 @@
 /**
  * 색상/반경 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의
  * 시맨틱 토큰과 동일 — packages/design-tokens/src/index.ts 참고. tailwind.config.js는
- * 플레인 Node(require)로 로드되고 @focuson/design-tokens는 컴파일된 JS 산출물이 없는
+ * 플레인 Node(require)로 로드되고 @focusmakers/design-tokens는 컴파일된 JS 산출물이 없는
  * TS 소스(main: ./src/index.ts)라 require로 가져올 수 없다 — 값을 그대로 옮겨적는다.
  * `-dark` 접미사 키는 다크 모드 값이다: 예) className="bg-bg-base dark:bg-bg-base-dark".
  */

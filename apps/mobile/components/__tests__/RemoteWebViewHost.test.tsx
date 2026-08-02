@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWebViewHost";
 

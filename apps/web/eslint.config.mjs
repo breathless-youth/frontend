@@ -3,7 +3,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 
-import { baseConfig } from "@focuson/config/eslint/base";
+import { baseConfig } from "@focusmakers/config/eslint/base";
 
 export default [
   {

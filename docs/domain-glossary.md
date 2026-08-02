@@ -2,7 +2,7 @@
 
 ## 시간·지표
 
-코드 표현은 `@focuson/types`의 실제 API 계약 필드명이다.
+코드 표현은 `@focusmakers/types`의 실제 API 계약 필드명이다.
 
 | 용어         | 영문/코드 표현 | 설명                                                                                                 |
 | ------------ | -------------- | ---------------------------------------------------------------------------------------------------- |
@@ -13,7 +13,7 @@
 ## 세션 상태 (3색 체계)
 
 사용자에게 보이는 상태는 3개다. 결과 타임라인 범례·세션 상태 필이 이 3색을 쓴다
-(`@focuson/design-tokens`의 `sessionStateColors`). 근거: `ai-wiki/product/mvp-scope.md`
+(`@focusmakers/design-tokens`의 `sessionStateColors`). 근거: `ai-wiki/product/mvp-scope.md`
 세션 상태 모델, `ai-wiki/product/design.md`(2026-07-26 확정).
 
 | 상태     | 코드          | 사용자 표기 | 집계 반영                 | 색     |
@@ -28,7 +28,7 @@
 
 ## 서버 이벤트 상태 (`StudyEventStatus`)
 
-서버로 전송되는 **비공부 이벤트**의 종류. `@focuson/types`가 소유하며 백엔드 Swagger 계약이
+서버로 전송되는 **비공부 이벤트**의 종류. `@focusmakers/types`가 소유하며 백엔드 Swagger 계약이
 원천이다. 집중(`FOCUS`)은 기본 상태라 이벤트로 기록되지 않는다 — 그래서 위 3색 체계와 달리
 여기엔 집중 항목이 없다.
 
@@ -40,7 +40,7 @@
 | `PAUSE`  | 일시정지    | `PAUSE`       |
 
 비집중 3종은 사용자에게 **같은 오렌지**로 보이고 라벨·뱃지 문구로만 구분된다. 매핑은
-`@focuson/design-tokens`의 `eventStatusColors`에 코드로 고정되어 있고, 계약과의 키 일치는
+`@focusmakers/design-tokens`의 `eventStatusColors`에 코드로 고정되어 있고, 계약과의 키 일치는
 `packages/design-tokens`의 테스트가 지킨다.
 
 > ⚠️ **폐기된 이름**: `STUDYING` / `PAUSED` / `CAMERA_OFF`는 2026-07-25 기능 리셋 이전의
@@ -51,7 +51,7 @@
 
 ## 세션·타임라인
 
-아래는 **현재 `@focuson/types`에 실제로 존재하는** 타입만 담는다(백엔드 Swagger 계약 기준).
+아래는 **현재 `@focusmakers/types`에 실제로 존재하는** 타입만 담는다(백엔드 Swagger 계약 기준).
 
 | 용어        | 영문/코드 표현              | 설명                                                                                       |
 | ----------- | --------------------------- | ------------------------------------------------------------------------------------------ |
@@ -64,11 +64,11 @@
 
 ## 타입 소유권
 
-- 서버 전송용/API 계약 타입 → `@focuson/types`. **백엔드 Swagger에 있는 것만** 정의한다(상상 계약 금지).
-- 색상·타이포·간격 등 의미 기반 토큰 → `@focuson/design-tokens`(순수 값, 컴포넌트 구현체 없음).
+- 서버 전송용/API 계약 타입 → `@focusmakers/types`. **백엔드 Swagger에 있는 것만** 정의한다(상상 계약 금지).
+- 색상·타이포·간격 등 의미 기반 토큰 → `@focusmakers/design-tokens`(순수 값, 컴포넌트 구현체 없음).
 
 > ⚠️ **삭제된 타입**: `StudyStatus`, `FocusTimelineEvent`, `FocusEvent`, `FocusSession`,
-> `StudyRoom`, `Participant`, `StudyMode`, `SessionStatus`와 `@focuson/study-core` 패키지는
+> `StudyRoom`, `Participant`, `StudyMode`, `SessionStatus`와 `@focusmakers/study-core` 패키지는
 > 2026-07-25 기능 리셋 때 전부 삭제됐다(상상 계약 기반이었음). 재구축 시 순수 계산 로직을 다시
 > 분리한다면 같은 원칙(순수 TS, RN/DOM/MediaPipe/LiveKit 의존성 없음)을 따르되, 타입 이름은
 > 그때의 실제 계약에 맞춰 새로 정한다 — 위 이름들을 그대로 되살리지 말 것.

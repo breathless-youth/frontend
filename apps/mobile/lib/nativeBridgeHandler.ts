@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 
-import type { ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";

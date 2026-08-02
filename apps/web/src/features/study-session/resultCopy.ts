@@ -1,4 +1,4 @@
-import type { StudyEventStatus } from "@focuson/types";
+import type { StudyEventStatus } from "@focusmakers/types";
 
 /**
  * S4(공부 결과) 확정 문구 — `ai-wiki/product/voice-tone.md`·`project/glossary.md`에서 **그대로**

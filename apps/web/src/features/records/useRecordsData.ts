@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse } from "@focusmakers/types";
 import { dailyStatsQuery, streakQuery } from "@/lib/statsQueries";
 
 import {

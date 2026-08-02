@@ -122,7 +122,7 @@ S2-3 · 권한 거부 안내
 
 **이 화면 그룹은 서버 API를 호출하지 않는다.** 권한 상태는 OS가 보유한 기기 로컬 상태이고, 서버로 전송할 값이 없다(`policies.md` §1 "서버 전송 데이터: 판단 결과만 전송 — 세션 요약, 감지 이벤트 로그").
 
-- `@focuson/types`(`packages/types/src/index.ts`)에 권한 관련 타입은 없고, **필요하지도 않다** — 새로 만들지 않는다.
+- `@focusmakers/types`(`packages/types/src/index.ts`)에 권한 관련 타입은 없고, **필요하지도 않다** — 새로 만들지 않는다.
 - 권한 상태를 별도로 영속 저장하지 않는다. OS 권한 상태(미결정/허용/거부)가 단일 진실이며, 앱이 `granted` 플래그를 `expo-secure-store`나 AsyncStorage에 복제하면 설정 앱에서 바뀐 값과 어긋난다. **로컬 미러링 금지.**
   - (참고: G1~G5 온보딩의 "최초 1회" 판정용 영속 플래그는 별개 관심사다 — MG5 스펙 소관이며 이 화면에서 만들지 않는다.)
 - 권한 조회/요청은 **`expo-camera`(`~17.0.10`)의 권한 API로 구현한다** — 2026-07-27 확정([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 카메라 프리뷰(`CameraView`)는 쓰지 않는다: 카메라 스트림은 `apps/web`의 WebView `getUserMedia` 소유다(ADR 0001). `expo-camera`는 Expo Go에 기본 포함이라 Dev Client가 필요 없고, `app.json`은 바뀌지 않는다(config plugin 미추가 — 근거는 ADR 0004).

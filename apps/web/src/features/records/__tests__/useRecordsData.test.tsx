@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StudySessionListResponse } from "@focuson/types";
+import type { StudySessionListResponse } from "@focusmakers/types";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 
 import { useRecordsData } from "../useRecordsData";

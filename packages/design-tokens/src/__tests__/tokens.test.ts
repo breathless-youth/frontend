@@ -10,7 +10,7 @@ describe("design-tokens", () => {
   });
 
   /**
-   * design-tokens는 아키텍처 경계상 @focuson/types를 import하지 않으므로 타입으로 강제할 수 없다.
+   * design-tokens는 아키텍처 경계상 @focusmakers/types를 import하지 않으므로 타입으로 강제할 수 없다.
    * 대신 이 테스트가 계약(StudyEventStatus)과의 키 일치를 고정한다 — 백엔드 계약이 바뀌면 여기서 먼저 깨진다.
    */
   it("이벤트 상태색 키가 StudyEventStatus 계약과 1:1로 일치한다", () => {

@@ -1,4 +1,4 @@
-import type { StudySessionResponse, ToNativeMessage, ToWebMessage } from "@focuson/types";
+import type { StudySessionResponse, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 끝(세션 상태 모델 스펙 §10).

@@ -1,4 +1,4 @@
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focuson/types";
+import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
 
 /**
  * S1 홈 통계 영역의 화면 모델 (`apps/mobile/lib/homeSummary.ts`에서 이식 — BY-329).

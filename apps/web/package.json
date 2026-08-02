@@ -13,8 +13,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@focuson/design-tokens": "workspace:*",
-    "@focuson/types": "workspace:*",
+    "@focusmakers/design-tokens": "workspace:*",
+    "@focusmakers/types": "workspace:*",
     "@mediapipe/tasks-vision": "^1.0.0",
     "@tanstack/react-query": "^5.101.4",
     "class-variance-authority": "^0.7.1",
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
-    "@focuson/config": "workspace:*",
+    "@focusmakers/config": "workspace:*",
     "@tailwindcss/vite": "^4.1.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

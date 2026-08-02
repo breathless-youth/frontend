@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StudySessionCreateRequest, SubmitResultMessage } from "@focuson/types";
+import type { StudySessionCreateRequest, SubmitResultMessage } from "@focusmakers/types";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { NATIVE_SUBMIT_TIMEOUT_MESSAGE, submitViaNative } from "../submitViaNative";

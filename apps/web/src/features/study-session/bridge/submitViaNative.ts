@@ -1,4 +1,4 @@
-import type { StudySessionCreateRequest, StudySessionResponse } from "@focuson/types";
+import type { StudySessionCreateRequest, StudySessionResponse } from "@focusmakers/types";
 
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
