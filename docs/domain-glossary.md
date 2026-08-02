@@ -2,42 +2,73 @@
 
 ## 시간·지표
 
-| 용어         | 영문/코드 표현                         | 설명                                                                                                          |
-| ------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 총 공부 시간 | `totalStudyTime` / `totalStudySeconds` | 세션 시작~종료 전체 경과 시간 중 집계에 포함되는 시간(공부 중 + 자리 비움). 일시정지·카메라 꺼짐 구간은 제외. |
-| 순공시간     | `focusStudyTime` / `pureStudySeconds`  | `STUDYING`(공부 중) 판정 구간만 누적한 시간.                                                                  |
-| 집중률       | `focusRate`                            | 순공시간 / 총공부시간. 총공부시간이 0이면 0. 범위 0~1.                                                        |
+코드 표현은 `@focusmakers/types`의 실제 API 계약 필드명이다.
 
-## 공부 상태 (`StudyStatus`)
+| 용어         | 영문/코드 표현 | 설명                                                                                                 |
+| ------------ | -------------- | ---------------------------------------------------------------------------------------------------- |
+| 총 공부 시간 | `studySec`     | 집중 + 비집중 구간의 합(초). **일시정지 구간은 제외**되므로 세션 시작~종료 시각 범위와 다를 수 있다. |
+| 순공시간     | `focusSec`     | 집중(`FOCUS`) 판정 구간만 누적한 시간(초). 비집중·일시정지 구간은 제외. `0 ≤ focusSec ≤ studySec`.   |
+| 집중률       | `focusRate`    | `focusSec ÷ studySec × 100`. **단위는 %(0~100), 소수 1자리** — 0~1 비율이 아니다.                    |
 
-순간적인 Vision AI 판정 상태. `@focuson/study-core`가 소유한다.
+## 세션 상태 (3색 체계)
 
-| 상태        | 코드         | 한글 표기   | 집계 반영                 |
-| ----------- | ------------ | ----------- | ------------------------- |
-| 공부 중     | `STUDYING`   | 공부 중     | 총공부시간 ○ / 순공시간 ○ |
-| 자리 비움   | `AWAY`       | 자리 비움   | 총공부시간 ○ / 순공시간 ✕ |
-| 일시정지    | `PAUSED`     | 일시정지    | 총공부시간 ✕ / 순공시간 ✕ |
-| 카메라 꺼짐 | `CAMERA_OFF` | 카메라 꺼짐 | 총공부시간 ✕ / 순공시간 ✕ |
+사용자에게 보이는 상태는 3개다. 결과 타임라인 범례·세션 상태 필이 이 3색을 쓴다
+(`@focusmakers/design-tokens`의 `sessionStateColors`). 근거: `ai-wiki/product/mvp-scope.md`
+세션 상태 모델, `ai-wiki/product/design.md`(2026-07-26 확정).
+
+| 상태     | 코드          | 사용자 표기 | 집계 반영                 | 색     |
+| -------- | ------------- | ----------- | ------------------------- | ------ |
+| 집중     | `FOCUS`       | (상태 필)   | 총공부시간 ○ / 순공시간 ○ | 블루   |
+| 비집중   | `DISTRACTION` | 비집중      | 총공부시간 ○ / 순공시간 ✕ | 오렌지 |
+| 일시정지 | `PAUSE`       | 일시정지    | 총공부시간 ✕ / 순공시간 ✕ | 회색   |
+
+일시정지에는 **수동 일시정지 버튼**과 **화면 꺼짐·백그라운드 전환**이 모두 합산된다
+(2026-07-26 확정 — 이전에는 화면 꺼짐을 비집중으로 분류했으나 변경됐다). 일시정지 구간은
+벽시계 기준으로 별도 집계해 "일시정지 N회 · 시간"으로 표기한다.
+
+## 서버 이벤트 상태 (`StudyEventStatus`)
+
+서버로 전송되는 **비공부 이벤트**의 종류. `@focusmakers/types`가 소유하며 백엔드 Swagger 계약이
+원천이다. 집중(`FOCUS`)은 기본 상태라 이벤트로 기록되지 않는다 — 그래서 위 3색 체계와 달리
+여기엔 집중 항목이 없다.
+
+| 코드     | 사용자 표기 | 상태 매핑     |
+| -------- | ----------- | ------------- |
+| `AWAY`   | 자리 이탈   | `DISTRACTION` |
+| `PHONE`  | 휴대폰 사용 | `DISTRACTION` |
+| `DEVICE` | 기기 조작   | `DISTRACTION` |
+| `PAUSE`  | 일시정지    | `PAUSE`       |
+
+비집중 3종은 사용자에게 **같은 오렌지**로 보이고 라벨·뱃지 문구로만 구분된다. 매핑은
+`@focusmakers/design-tokens`의 `eventStatusColors`에 코드로 고정되어 있고, 계약과의 키 일치는
+`packages/design-tokens`의 테스트가 지킨다.
+
+> ⚠️ **폐기된 이름**: `STUDYING` / `PAUSED` / `CAMERA_OFF`는 2026-07-25 기능 리셋 이전의
+> 상상 계약에서 온 이름으로 더 이상 쓰지 않는다. `CAMERA_OFF`는 SCRUM-147 시점에 이미
+> 폐기가 결정됐고(`docs/superpowers/plans/2026-07-25-scrum-147-*.md`), 화면 꺼짐은
+> 2026-07-26에 일시정지로 통합됐다. 낡은 4개 키 체계에는 확정 감지 3종 중 `PHONE`·`DEVICE`가
+> 아예 빠져 있었다.
 
 ## 세션·타임라인
 
-| 용어            | 영문/코드 표현        | 설명                                                                                                                 |
-| --------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 스터디 모드     | `StudyMode`           | `"single"`(싱글) / `"multi"`(멀티 종일룸).                                                                           |
-| 세션            | `FocusSession`        | 사용자가 스터디를 시작해서 종료할 때까지의 한 단위(서버 레코드).                                                     |
-| 세션 생명주기   | `SessionStatus`       | 세션 전체 생명주기 상태(`"active"`/`"paused"`/`"ended"`). 순간 `StudyStatus`와 다른 축.                              |
-| 타임라인 이벤트 | `FocusTimelineEvent`  | 클라이언트 내부 시간 계산용 순수 이벤트(상태 + 시각). `study-core` 소유.                                             |
-| 세션 요약       | `StudySessionSummary` | 총공부시간/순공시간/집중률 집계 결과. `study-core` 소유.                                                             |
-| 포커스 이벤트   | `FocusEvent`          | **서버로 전송되는** 이벤트 레코드(API 계약, `sessionId` 포함). 클라이언트 시간 계산에는 `FocusTimelineEvent`를 쓴다. |
-| 스터디룸        | `StudyRoom`           | 멀티 모드에서 여러 참가자가 모이는 공간(LiveKit 방).                                                                 |
-| 참가자          | `Participant`         | 스터디룸에 참여한 사용자.                                                                                            |
-| 캠스터디        | Cam-study             | 카메라를 켠 채로 공부하는 서비스 형태.                                                                               |
+아래는 **현재 `@focusmakers/types`에 실제로 존재하는** 타입만 담는다(백엔드 Swagger 계약 기준).
+
+| 용어        | 영문/코드 표현              | 설명                                                                                       |
+| ----------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| 세션 제출   | `StudySessionCreateRequest` | 세션 종료 시 서버로 보내는 페이로드(`startedAt`/`endedAt`/`studySec`/`focusSec`/`events`). |
+| 세션 레코드 | `StudySessionResponse`      | 저장된 세션 1건. 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다.                |
+| 상태 이벤트 | `StatusEventPayload`        | 비공부 구간 1건(`status`/`startedAt`/`endedAt`). 세션 구간 안, 서로 겹침 불가, 0초 불가.   |
+| 세션 요약   | `StudySessionSummary`       | 통계 조회용 세션 요약(집계값 + `eventCounts`).                                             |
+| 이벤트 집계 | `StudySessionEventCounts`   | 상태별 발생 건수. 발생하지 않은 상태도 0으로 내려온다(키 누락 없음).                       |
+| 캠스터디    | Cam-study                   | 카메라를 켠 채로 공부하는 서비스 형태.                                                     |
 
 ## 타입 소유권
 
-- `StudyStatus`, `FocusTimelineEvent`, `StudySessionSummary`와 모든 계산 함수 → `@focuson/study-core` (순수 TS).
-- `FocusSession`, `FocusEvent`, `StudyRoom`, `Participant`, `StudyMode`, `SessionStatus` → `@focuson/types` (서버 전송용/API 계약).
-- `@focuson/types`는 `StudyStatus`/`StudySessionSummary`를 `@focuson/study-core`에서 재노출한다(한 곳에서 import 가능).
+- 서버 전송용/API 계약 타입 → `@focusmakers/types`. **백엔드 Swagger에 있는 것만** 정의한다(상상 계약 금지).
+- 색상·타이포·간격 등 의미 기반 토큰 → `@focusmakers/design-tokens`(순수 값, 컴포넌트 구현체 없음).
 
-`FocusEvent`(서버 전송용)와 `FocusTimelineEvent`(클라이언트 계산용)는 이름이 비슷하지만 의도가
-다르다. 자세한 경계 결정은 [ADR 0002](./adr/0002-native-mobile-study-room-and-independent-web.md) 참고.
+> ⚠️ **삭제된 타입**: `StudyStatus`, `FocusTimelineEvent`, `FocusEvent`, `FocusSession`,
+> `StudyRoom`, `Participant`, `StudyMode`, `SessionStatus`와 `@focusmakers/study-core` 패키지는
+> 2026-07-25 기능 리셋 때 전부 삭제됐다(상상 계약 기반이었음). 재구축 시 순수 계산 로직을 다시
+> 분리한다면 같은 원칙(순수 TS, RN/DOM/MediaPipe/LiveKit 의존성 없음)을 따르되, 타입 이름은
+> 그때의 실제 계약에 맞춰 새로 정한다 — 위 이름들을 그대로 되살리지 말 것.

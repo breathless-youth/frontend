@@ -10,10 +10,19 @@ implementation:
   runtime: React Native 0.86
   routing: Expo Router
   styling: NativeWind 4
-  tokens: "@focuson/design-tokens"
+  tokens: "@focusmakers/design-tokens"
 ---
 
 # FocusOn Mobile Design System
+
+> ⚠️ **이 문서의 색상 팔레트는 낡았다 (2026-07-26 확인).** 이 문서는 Figma V1.0 최종 시안이
+> 확정되기 전에 작성됐고, 브랜드 색(`#4F46E5` 인디고)·배경(`#F7F6F2` 웜 뉴트럴)을 비롯한 색상
+> 값 대부분이 실제 확정 디자인과 다르다. 확정 값은 Figma "FocusON V1.0 Design"
+> (파일 키 `KmTbXL79g6ximY1RcnBZDz`) Foundations이고, 코드 원천은
+> `packages/design-tokens/src/index.ts`다(예: 브랜드 `#1B64DA`, 배경 `#FFFFFF`).
+> **색상 값은 이 문서 대신 `packages/design-tokens`를 보라.** 아래 "Study Status" 절만
+> 확정 기준으로 정정했다. 레이아웃·컴포넌트 원칙 등 색상 외 서술은 여전히 참고 가치가 있다.
+> 전면 갱신은 별도 작업으로 남아 있다.
 
 ## 1. 목적
 
@@ -109,12 +118,20 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 
 ### Study Status
 
-| Status       | Token              | Value     | Label       |
-| ------------ | ------------------ | --------- | ----------- |
-| `STUDYING`   | `status.studying`  | `#16A34A` | 공부 중     |
-| `AWAY`       | `status.away`      | `#F59E0B` | 자리 비움   |
-| `PAUSED`     | `status.paused`    | `#6B7280` | 일시정지    |
-| `CAMERA_OFF` | `status.cameraOff` | `#DC2626` | 카메라 꺼짐 |
+> 2026-07-26 갱신 — 아래 표만 Figma 확정 기준으로 정정했다. 이 문서의 나머지 색상 값은 여전히
+> 낡았다(위 배너 참고).
+
+세션 상태는 3색 체계다(`@focusmakers/design-tokens`의 `sessionStateColors`):
+
+| State         | Token                            | Light     | Dark      | Label    |
+| ------------- | -------------------------------- | --------- | --------- | -------- |
+| `FOCUS`       | `sessionStateColors.FOCUS`       | `#1B64DA` | `#4593FC` | 집중     |
+| `DISTRACTION` | `sessionStateColors.DISTRACTION` | `#FF8A00` | `#FF9E1B` | 비집중   |
+| `PAUSE`       | `sessionStateColors.PAUSE`       | `#8B95A1` | `#8B95A1` | 일시정지 |
+
+서버 이벤트(`StudyEventStatus`)는 위 상태로 매핑된다 — `AWAY`(자리 이탈)·`PHONE`(휴대폰 사용)·
+`DEVICE`(기기 조작) → `DISTRACTION`, `PAUSE` → `PAUSE`. 집중은 기본 상태라 이벤트가 없다.
+자세한 내용은 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
 ### Feedback
 
@@ -451,7 +468,7 @@ MCP가 생성한 결과는 참고 입력이며 저장소에 바로 병합할 완
 
 - 모바일 앱 셸만 이 디자인 시스템의 직접 구현 범위다.
 - Expo Router, React Native와 NativeWind를 유지한다.
-- `@focuson/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다.
+- `@focusmakers/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다.
 - 공부 상태는 네 가지 도메인 상태와 1:1로 대응한다.
 - 화면은 Figma에서 하나씩 완성한 뒤 MCP로 구현한다.
 - 공통 컴포넌트는 점진적으로 추출한다.

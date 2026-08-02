@@ -1,0 +1,232 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { App } from "@/App";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
+import { SettingsPage } from "@/routes/SettingsPage";
+
+/**
+ * S6 · 설정 화면 웹 이식 테스트 — RN 원본 `apps/mobile/__tests__/settings.test.tsx`를
+ * 웹 상황(카메라 권한 상태 조회 없음, appVersion 쿼리)에 맞게 이식한다.
+ */
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  );
+}
+
+/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁(`OnboardingGuidePage.test.tsx`와 같은 패턴). */
+function LocationProbe({ testId }: { testId: string }) {
+  const location = useLocation();
+  return <div data-testid={testId}>{location.pathname + location.search}</div>;
+}
+
+function renderSettingsWithGuideStub(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/onboarding-guide"
+          element={<LocationProbe testId="onboarding-guide-stub" />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+describe("S6 · 설정", () => {
+  it("2개 그룹 6개 행을 확정 문구 그대로 보여준다", () => {
+    renderAt("/settings");
+
+    expect(screen.getByText("설정")).toBeInTheDocument();
+
+    expect(screen.getByText("측정")).toBeInTheDocument();
+    expect(screen.getByText("카메라 권한")).toBeInTheDocument();
+    expect(screen.getByText("측정 기준 안내")).toBeInTheDocument();
+    expect(screen.getByText("권한은 시스템 설정에서 바꿀 수 있어요")).toBeInTheDocument();
+
+    expect(screen.getByText("지원")).toBeInTheDocument();
+    expect(screen.getByText("문의하기")).toBeInTheDocument();
+
+    expect(screen.getByText("약관 · 정보")).toBeInTheDocument();
+    expect(screen.getByText("이용약관")).toBeInTheDocument();
+    expect(screen.getByText("개인정보처리방침")).toBeInTheDocument();
+  });
+
+  it("측정 기준 안내 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
+    renderSettingsWithGuideStub("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+
+    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
+      "/onboarding-guide?entry=settings",
+    );
+  });
+
+  it("측정 기준 안내는 기존 쿼리(userId·appVersion)를 잃지 않고 entry만 얹어 승계한다 (리뷰 반영)", () => {
+    renderSettingsWithGuideStub("/settings?userId=7&appVersion=1.4.2");
+
+    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+
+    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
+      "/onboarding-guide?userId=7&appVersion=1.4.2&entry=settings",
+    );
+  });
+
+  it("문의하기 행은 /contact 로 이동한다", () => {
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByTitle("문의하기")).toBeInTheDocument();
+  });
+
+  it("이용약관 행은 /terms 로 이동한다", () => {
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "이용약관" }));
+
+    expect(screen.getByRole("heading", { name: TERMS_OF_SERVICE.title })).toBeInTheDocument();
+  });
+
+  it("개인정보처리방침 행은 /privacy 로 이동한다", () => {
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "개인정보처리방침" }));
+
+    expect(screen.getByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
+  });
+
+  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", () => {
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "오픈소스 라이선스" }));
+
+    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
+  });
+
+  it("appVersion 쿼리를 버전 정보 행에 반영한다", () => {
+    renderAt("/settings?appVersion=1.4.2");
+
+    expect(screen.getByText("1.4.2")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "버전 정보" })).not.toBeInTheDocument();
+  });
+
+  it("appVersion 쿼리가 없으면 알 수 없음으로 표시한다", () => {
+    renderAt("/settings");
+
+    expect(screen.getByText("알 수 없음")).toBeInTheDocument();
+  });
+
+  it("카메라 권한 행은 클릭 시 open-settings 메시지를 네이티브로 보낸다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(1000));
+
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
+
+    expect(postMessage).toHaveBeenCalledWith('{"type":"open-settings","atMs":1000}');
+  });
+
+  it("브라우저 단독 모드(브리지 없음)에서 카메라 권한 행을 눌러도 죽지 않는다", () => {
+    renderAt("/settings");
+
+    expect(() => {
+      fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
+    }).not.toThrow();
+  });
+
+  describe("카메라 권한 토글", () => {
+    /** 네이티브가 `injectJavaScript`로 호출하는 전역을 테스트에서 대신 부른다. */
+    function pushCameraPermission(granted: boolean) {
+      const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+        NATIVE_MESSAGE_ENTRY
+      ];
+      act(() => {
+        receive(JSON.stringify({ type: "camera-permission", granted, atMs: 1 }));
+      });
+    }
+
+    it("마운트되면 네이티브에 권한 상태를 물어본다", () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+      renderAt("/settings");
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"request-camera-permission"'),
+      );
+    });
+
+    it("답을 받기 전에는 토글을 그리지 않는다 — 모름을 '허용 안 됨'으로 단언하지 않는다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+
+      renderAt("/settings");
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("granted를 받으면 토글과 함께 허용됨으로 읽어준다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      renderAt("/settings");
+
+      pushCameraPermission(true);
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 허용됨, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("허용 안 됨도 같은 자리에 반영된다", () => {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      renderAt("/settings");
+
+      pushCameraPermission(false);
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 허용 안 됨, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+
+    it("OS 설정에 다녀와 웹뷰가 다시 보이면 상태를 다시 묻는다", () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      renderAt("/settings");
+      const beforeReturn = postMessage.mock.calls.length;
+
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      // jsdom의 기본 visibilityState는 "visible"이라 재조회 경로가 그대로 탄다.
+      expect(postMessage.mock.calls.length).toBeGreaterThan(beforeReturn);
+    });
+
+    it("브라우저 단독 모드에서는 묻지도, 토글을 그리지도 않는다", () => {
+      renderAt("/settings");
+
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      expect(
+        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
+      ).toBeInTheDocument();
+    });
+  });
+});

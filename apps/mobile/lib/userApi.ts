@@ -1,8 +1,9 @@
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
-import type { UserRegisterResponse } from "@focuson/types";
+import type { UserRegisterResponse } from "@focusmakers/types";
 
+import { parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
 
 const USER_ID_KEY = "focuson.userId";
@@ -15,7 +16,16 @@ function apiBaseUrl(): string {
   return url;
 }
 
-/** 등록 API 원본 호출. 응답의 `isNew`가 필요한 소비자(온보딩 분기 등)는 이걸 쓴다. */
+/**
+ * 등록 API 원본 호출.
+ *
+ * 응답의 `isNew`는 **서버 계약이라 타입에 있을 뿐, 분기에 쓰는 소비자가 없다**(2026-07-31 검토).
+ * 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다 — `isNew`로 대체할 수
+ * 없다: ① 최초 등록 때만 true인 일회성 값이라 가이드를 보다 만 사용자가 영영 못 보게 되고,
+ * ② 값이 앱 실행 시점에만 오는데 판단은 "집중 시작" 시점이라 어딘가 저장해야 하는데 그 저장소가
+ * 곧 플래그가 사는 곳이다(순환). 플래그 유실 시 가이드가 한 번 더 뜨는 것은 수용하기로 한 사항이다.
+ * "온보딩 분기에 쓰라"는 이전 주석이 실제로 잘못된 티켓 요구사항을 만들어 지운다(BY-334).
+ */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await fetch(`${apiBaseUrl()}/api/users`, {
     method: "POST",
@@ -23,11 +33,7 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
     body: JSON.stringify({ deviceId }),
   });
   if (!res.ok) {
-    const message = await res
-      .json()
-      .then((body: { message?: string }) => body.message)
-      .catch(() => undefined);
-    throw new Error(message ?? `유저 등록 실패 (HTTP ${res.status})`);
+    throw await parseErrorMessage(res, "유저 등록 실패");
   }
   return (await res.json()) as UserRegisterResponse;
 }
@@ -41,16 +47,25 @@ export async function ensureUserRegistered(): Promise<number | null> {
   try {
     const stored = await SecureStore.getItemAsync(USER_ID_KEY);
     if (stored) {
-      console.log("[user] 저장된 userId 재사용:", stored);
       return Number(stored);
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId, isNew } = await registerUser(deviceId);
+    const { userId } = await registerUser(deviceId);
     await SecureStore.setItemAsync(USER_ID_KEY, String(userId));
-    console.log("[user] 익명 유저 등록 완료 — userId:", userId, "isNew:", isNew);
     return userId;
   } catch (error) {
     console.warn("[user] 익명 유저 등록 실패 — 다음 실행에서 재시도", error);
     return null;
   }
+}
+
+/**
+ * `ensureUserRegistered`가 이미 저장해 둔 userId를 읽기만 한다 — 새 네트워크 호출을
+ * 만들지 않는다(세션 시작 경로에 API 의존을 추가하지 않는다, 설계 §1). 앱 부팅 시
+ * `RootLayout`이 `ensureUserRegistered()`를 호출해 두므로, 세션 시작 시점에는 이미
+ * 저장돼 있거나(정상 경로) 등록이 실패해 비어 있을 수 있다(그 경우 `null`).
+ */
+export async function getRegisteredUserId(): Promise<number | null> {
+  const stored = await SecureStore.getItemAsync(USER_ID_KEY);
+  return stored ? Number(stored) : null;
 }

@@ -1,3 +1,3 @@
-import { baseConfig } from "@focuson/config/eslint/base";
+import { baseConfig } from "@focusmakers/config/eslint/base";
 
 export default [...baseConfig];

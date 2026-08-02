@@ -8,30 +8,130 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-bg-layer-2: var(--bg-layer-2);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-bg-guide: var(--bg-guide);
+  --color-border-strong: var(--border-strong);
+  --color-state-focus: var(--state-focus);
+  --color-state-distract: var(--state-distract);
+  --color-state-distract-subtle: var(--state-distract-subtle);
+  --color-state-distract-text: var(--state-distract-text);
+  --color-text-disabled: var(--text-disabled);
+  --color-dim: var(--dim);
+  /*
+    반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
+
+    ⚠️ **Tailwind 기본 스케일은 이 시스템과 이름-값이 어긋난다.** 기본값은 sm=4·md=6·lg=8·
+    xl=12·2xl=16이라, 시스템 이름을 그대로 클래스로 옮기면 **의도의 절반 크기가 나온다.**
+    실제로 S6 설정의 group-card가 시스템 lg(16px)를 `rounded-lg`로 적어 8px로 렌더됐다
+    (Figma `67:742`는 r16 — `Settings / Row` 컴포넌트 설명도 "그룹 카드(bg/layer-1, r16,
+    pad 0/16)"로 못박고 있다). 이름이 같고 값만 다른 종류의 어긋남이라 코드만 봐서는 드러나지
+    않는다 — 그래서 스텝을 전부 시스템 값으로 덮어 이름과 값을 일치시킨다.
+
+    `--radius-md`만 기존처럼 `--radius` 변수를 경유한다(shadcn 관례를 따르는 다른 값들과
+    같은 자리에 있어야 해서). 나머지는 시스템 값이 곧 리터럴이다.
+
+    남은 예외: `rounded-2xl`(16px, 15곳)과 접두사 없는 `rounded`(4px, 10곳)는 Tailwind
+    기본값 그대로다 — 값은 각각 시스템 lg·xs와 같지만 이름이 시스템에 없다. 옮기면 픽셀은
+    동일하지만 25곳을 건드려야 해서 별도로 다룬다.
+  */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
   --radius-md: var(--radius);
+  --radius-lg: 16px;
+  --radius-xl: 20px;
 }
 
+/* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
+   packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
   --background: #ffffff;
-  --foreground: #0a0a0a;
-  --primary: #111111;
+  /* colors.bg.base.light */
+  --foreground: #191f28;
+  /* colors.text.primary.light */
+  --primary: #1b64da;
+  /* colors.brand.primary.light */
   --primary-foreground: #ffffff;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --radius: 0.5rem;
+  /* colors.text.onBrand.light */
+  --muted: #f9fafb;
+  /* colors.bg.layer1.light */
+  --muted-foreground: #6b7684;
+  /* colors.text.secondary.light */
+  --border: #e5e8eb;
+  /* colors.border.default.light */
+  --bg-layer-2: #f2f4f6;
+  /* colors.bg.layer2.light */
+  --text-tertiary: #8b95a1;
+  /* colors.text.tertiary.light (일시정지 상태색으로도 쓰인다) */
+  --brand-subtle: #e8f3ff;
+  /* colors.brand.subtle.light */
+  --bg-guide: #f3f8fe;
+  /* colors.bg.guide.light */
+  --border-strong: #d1d6db;
+  /* colors.border.strong.light */
+  --state-focus: #1b64da;
+  /* colors.state.focus.light */
+  --state-distract: #ff8a00;
+  /* colors.state.distract.light */
+  --state-distract-subtle: #fff4e5;
+  /* colors.state.distractSubtle.light */
+  --state-distract-text: #b36100;
+  /* colors.state.distractText.light — S5 EventChip 소형 텍스트 전용 */
+  --text-disabled: #d1d6db;
+  /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
+  --dim: #00000066;
+  /* colors.bg.dim.light */
+  --radius: 0.75rem;
+  /* colors.radius.md = 12px */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #f4f4f5;
-    --primary: #f4f4f5;
-    --primary-foreground: #111111;
-    --muted: #18181b;
-    --muted-foreground: #a1a1aa;
-    --border: #27272a;
+    --background: #101419;
+    /* colors.bg.base.dark */
+    --foreground: #f9fafb;
+    /* colors.text.primary.dark */
+    --primary: #3182f6;
+    /* colors.brand.primary.dark */
+    --primary-foreground: #ffffff;
+    /* colors.text.onBrand.dark */
+    --muted: #191f28;
+    /* colors.bg.layer1.dark */
+    --muted-foreground: #b0b8c1;
+    /* colors.text.secondary.dark */
+    --border: #333d4b;
+    /* colors.border.default.dark */
+    --bg-layer-2: #333d4b;
+    /* colors.bg.layer2.dark */
+    --text-tertiary: #8b95a1;
+    /* colors.text.tertiary.dark */
+    --brand-subtle: #1b2b4d;
+    /* colors.brand.subtle.dark */
+    --bg-guide: #152030;
+    /* colors.bg.guide.dark */
+    --border-strong: #4e5968;
+    /* colors.border.strong.dark */
+    --state-focus: #4593fc;
+    /* colors.state.focus.dark */
+    --state-distract: #ff9e1b;
+    /* colors.state.distract.dark */
+    --state-distract-subtle: #3d2e14;
+    /* colors.state.distractSubtle.dark */
+    --state-distract-text: #ff9e1b;
+    /* colors.state.distractText.dark */
+    --text-disabled: #4e5968;
+    /* colors.text.disabled.dark */
+    --dim: #00000099;
+    /* colors.bg.dim.dark */
   }
+}
+
+/* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
+   여기가 비어 있으면 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보인다
+   (2026-08-01 웹뷰 실기기 확인). 두 요소에 같은 토큰을 준다. */
+html {
+  background: var(--color-background);
 }
 
 body {
@@ -44,4 +144,127 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
+}
+
+/*
+ * 온보딩 가이드(G1~G5) 전용 키프레임 — `features/onboarding/OnboardingGuideFlow.tsx`·
+ * `SessionMockBackdrop.tsx`의 RN `Animated` 루프를 CSS로 이식한 것(BY-334).
+ * 값 출처는 `features/onboarding/coachOverlayTheme.ts`의 `coachMotion`(확정값 아님, 그 파일 주석
+ * 참고) — CSS는 TS를 import할 수 없어 값을 그대로 옮겨 적는다(위 색 변수와 같은 이유).
+ * 반복·재생 여부는 각 사용처의 `motion-reduce:` 유틸이 담당한다.
+ */
+@keyframes coach-ring-out {
+  from {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes coach-step-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* S5 달력 월 전환 — 이동 방향에서 스르륵 밀려 들어온다(BY-343). 거리(6%)는 "움직였다"가
+   보이는 최소치다 — 셀 하나 폭을 넘게 밀면 날짜를 따라 읽던 시선이 끊긴다. */
+@keyframes month-slide-from-right {
+  from {
+    opacity: 0.4;
+    transform: translateX(6%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes month-slide-from-left {
+  from {
+    opacity: 0.4;
+    transform: translateX(-6%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 웹뷰(네이티브 셸) 안에서는 페이지 전체가 드래그·길게 눌러 선택되지 않는다 — 앱 화면이
+   웹 문서처럼 반응하면(글자에 파란 선택 블록이 잡히고 아이콘이 손끝을 따라 끌림) 곧바로
+   "안에 웹이 들어 있다"는 게 드러난다. 클래스는 `lib/nativeShell.ts`가 브리지가 있을 때만
+   붙인다 — 브라우저 단독 배포에서는 선택·복사가 그대로 살아 있어야 한다(약관·방침 열람).
+
+   속성 선택은 아래 `.session-no-drag`와 같은 근거다(그 주석 참고) — 특히
+   `-webkit-user-select`는 iOS WKWebView에서 표준 `user-select`만으로 막히지 않으므로 함께 둔다.
+
+   ⚠️ 스크롤은 막지 않는다. `touch-action`을 건드리면 세로 스크롤까지 죽는다. */
+.native-shell,
+.native-shell * {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 세션 화면(카메라 위 오버레이) 전용 — 텍스트·아이콘 드래그 방지.
+   `-webkit-user-drag`는 상속되지 않는 속성이라 자손 선택자로 명시한다 — 컨트롤 바 아이콘이
+   전부 `<img>`라 기본값으로는 마우스/터치 드래그에 끌린다(iOS WKWebView·Android WebView 둘
+   다 webkit 접두 속성을 인식한다). `-webkit-touch-callout`은 iOS 길게 누르기 시 뜨는
+   복사/이미지 저장 메뉴를 막는다.
+
+   ⚠️ **`-webkit-user-select`를 지우지 말 것.** 표준 `user-select`만으로는 iOS WKWebView에서
+   선택이 그대로 된다 — 실기기에서 타이머·캡션을 길게 누르면 파란 선택 블록이 잡혔다(BY-336).
+   데스크톱 브라우저에서는 표준 속성만으로 막히므로 이 누락이 개발 중에 드러나지 않는다.
+   `-webkit-tap-highlight-color`는 탭할 때 요소 위에 잠깐 덮이는 회색 사각형을 없앤다 —
+   컨트롤 바 버튼이 원형이라 그 사각형이 특히 튄다. */
+.session-no-drag,
+.session-no-drag * {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 심플 모드(S3-4) 엣지 글로우 **잔향** — 공부 상태 전환 시 잠깐 켜졌다가 은은하게 꺼진다
+   (design.md "전환 시 글로우 1~2초 잔향" 확정, BY-336). 점등(200ms)은 빠르고 소등(1.6초)은
+   느린 비대칭 곡선이다. `forwards`로 끝 상태(꺼짐)에 머문다 — 재생은 SimpleModeSurface가
+   레이어 리마운트(React key)로 트리거한다. */
+@keyframes session-edge-glow-fade {
+  0% {
+    opacity: 0;
+  }
+
+  11% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.session-edge-glow-fade {
+  animation: session-edge-glow-fade 1.8s ease-out forwards;
+}
+
+/* 모션 축소 환경에서는 잔향 대신 정적 점등(과거 동작)으로 남긴다 — 정보가 아니라 장식이지만,
+   꺼두면 상태 컬러 배경 단서까지 사라져 더 어색하다. */
+@media (prefers-reduced-motion: reduce) {
+  .session-edge-glow-fade {
+    animation: none;
+  }
 }

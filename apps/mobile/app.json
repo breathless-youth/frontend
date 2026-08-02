@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "FocusMakers",
     "slug": "mobile",
     "scheme": "focuson",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "캠스터디 참여 시 집중도 측정을 위해 카메라를 사용합니다."
-      }
+        "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
+        "NSMotionUsageDescription": "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.breathlessyouth.mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,11 +27,42 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["CAMERA"]
+      "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
+      "package": "com.breathlessyouth.mobile"
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#101419"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
     "extra": {
-      "apiBaseUrl": "http://52.78.219.53:8080"
-    }
+      "apiBaseUrl": "http://52.78.219.53:8080",
+      "webBaseUrl": "",
+      "updateNoticeEnabled": false,
+      "eas": {
+        "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
+      }
+    },
+    "owner": "breathless-youth"
   }
 }
