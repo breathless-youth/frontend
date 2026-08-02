@@ -174,6 +174,19 @@ export function OnboardingGuideFlow({
 
   const skip = useCallback(() => onFinish("skipped"), [onFinish]);
 
+  /**
+   * 제스처(탭·스와이프) 전용 "다음" — **G5에서는 무동작이다**(BY-343). `goNext`는 마지막
+   * 스텝에서 완료(`onFinish`)로 이어지는데, 종료는 사용자가 문구를 읽고 확정하는 행동이라
+   * CTA("집중 시작하기"/"가이드 종료하기")·건너뛰기·X로만 연다 — 화면을 넘기려던 무심한
+   * 탭 한 번이 세션 시작(권한 요청)까지 끌고 가면 안 된다. G1 왼쪽 탭 무동작과 대칭 계약.
+   */
+  const goNextFromGesture = useCallback(() => {
+    if (isLastStep) {
+      return;
+    }
+    goNext();
+  }, [isLastStep, goNext]);
+
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.
   useEffect(() => {
@@ -201,12 +214,20 @@ export function OnboardingGuideFlow({
       const dy = event.clientY - start.y;
       const isHorizontalDrag = Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy);
       if (!isHorizontalDrag) {
-        // 탭(또는 세로 위주 드래그) — 화면 어디를 눌러도 다음 스텝으로.
-        goNext();
+        // 탭(또는 세로 위주 드래그) — 좌/우 절반으로 방향을 가른다: 왼쪽 탭은 이전, 오른쪽
+        // 탭은 다음(BY-343, 스토리형 탐색 관례). 기준은 탭 시작점이다 — 손가락이 12px 안에서
+        // 흔들려도 사용자가 누른 자리로 판정한다. 탭 레이어가 `inset-0` 전면이라 화면 폭과
+        // 같으므로 `window.innerWidth`로 충분하다. G1에서 왼쪽 탭은 `goPrev`의 기존 계약대로
+        // 무동작이다(G1 "이전"과 동일).
+        if (start.x < window.innerWidth / 2) {
+          goPrev();
+          return;
+        }
+        goNextFromGesture();
         return;
       }
       if (dx <= -SWIPE_THRESHOLD_PX) {
-        goNext();
+        goNextFromGesture();
         return;
       }
       if (dx >= SWIPE_THRESHOLD_PX) {
@@ -214,7 +235,7 @@ export function OnboardingGuideFlow({
       }
       // 12~48px 사이의 가로 드래그는 스와이프 실패로 보고 아무 동작도 하지 않는다(RN PanResponder와 동일).
     },
-    [goNext, goPrev],
+    [goNextFromGesture, goPrev],
   );
 
   const { backdrop } = step;
@@ -224,8 +245,13 @@ export function OnboardingGuideFlow({
     : backdrop.seedFocusSec + elapsedSec;
   const totalSec = backdrop.seedTotalSec + elapsedSec;
 
+  // `touch-manipulation`(루트 div) — iOS 웹뷰는 `user-scalable=no`여도 더블탭 줌 **인식기**는
+  // 계속 돌려서, 빠른 연속 탭의 두 번째 탭이 더블탭 후보로 잡혀 통째로 삼켜진다(탭이 씹히는
+  // 증상, BY-343). `manipulation`은 그 인식을 끄되 팬·핀치는 그대로 둔다 — `index.css`가
+  // 경고하는 "touch-action을 건드리면 스크롤까지 죽는다"는 `none` 이야기라 해당 없고,
+  // 가이드는 스크롤 없는 전면 오버레이라 영향 범위도 이 화면뿐이다.
   return (
-    <div className="relative h-svh w-full overflow-hidden">
+    <div className="relative h-svh w-full touch-manipulation overflow-hidden">
       <MockBaseLayer base={backdrop.base} />
 
       {backdrop.controlBar === "behind-dim" ? (
@@ -241,9 +267,10 @@ export function OnboardingGuideFlow({
         style={{ backgroundColor: `rgba(0,0,0,${backdrop.dimOpacity})` }}
       />
 
-      {/* 탭 레이어 — 버튼·하단 힌트를 제외한 화면 어디를 탭해도 다음 스텝으로. 버튼이 같은
-          기능을 이미 접근 가능한 형태로 제공하므로 스크린 리더에는 노출하지 않는다(RN
-          `accessible={false}` 그대로 옮긴 것 — 그래서 `<button>`이 아니라 `<div>`다). */}
+      {/* 탭 레이어 — 버튼·하단 힌트를 제외한 영역에서 왼쪽 절반 탭은 이전, 오른쪽 절반 탭은
+          다음 스텝으로(BY-343). 버튼이 같은 기능을 이미 접근 가능한 형태로 제공하므로 스크린
+          리더에는 노출하지 않는다(RN `accessible={false}` 그대로 옮긴 것 — 그래서 `<button>`이
+          아니라 `<div>`다). */}
       <div
         data-testid="onboarding-guide-tap-layer"
         aria-hidden="true"

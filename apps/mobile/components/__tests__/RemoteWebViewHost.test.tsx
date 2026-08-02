@@ -171,6 +171,27 @@ describe("RemoteWebViewHost", () => {
     expect(onBridgeMessage).not.toHaveBeenCalled();
   });
 
+  it("set-back-gesture는 여기서 소비한다 — 제스처 prop을 토글하고 콜백에 넘기지 않는다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/home" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":5}' } });
+    });
+
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":true,"atMs":6}' } });
+    });
+
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
   it.each(["onError", "onHttpError"] as const)(
     "%s가 나면 실패 폴백과 재시도 수단을 보여준다",
     (event) => {

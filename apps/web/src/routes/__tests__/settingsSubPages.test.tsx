@@ -63,12 +63,12 @@ describe("설정 하위 라우트", () => {
 
   it("/licenses 가 고지 항목과 라이선스 전문을 렌더한다 (BY-310)", () => {
     renderAt("/licenses");
-    expect(screen.getByRole("heading", { name: "오픈소스 라이선스" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
+    // 항목은 섹션·카드·강조 없이 한 문단으로 잇는다(2026-08-02 확정) — 이름 존재만 확인한다.
     for (const entry of OPEN_SOURCE_ENTRIES) {
-      expect(screen.getByRole("heading", { name: entry.name })).toBeInTheDocument();
+      expect(document.body.textContent).toContain(entry.name);
     }
     // 전문은 원문 그대로 포함된다 — 원문에만 있는 마지막 줄로 존재를 확인한다(9KB 전체 매칭은 무의미).
-    expect(screen.getByRole("heading", { name: "Apache License 2.0 전문" })).toBeInTheDocument();
     expect(screen.getByText(/END OF TERMS AND CONDITIONS/)).toBeInTheDocument();
   });
 

@@ -10,6 +10,12 @@ import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SessionListItem } from "../SessionListItem";
 import { StreakBanner, type StreakWeekDay } from "../StreakBanner";
+
+// jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는
+// `clientX`/`clientY`가 사라진다(`OnboardingGuidePage.test.tsx`와 같은 이유·같은 최소 폴리필).
+if (typeof window.PointerEvent === "undefined") {
+  window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+}
 import { SummaryTiles } from "../SummaryTiles";
 
 /**
@@ -97,6 +103,59 @@ describe("MonthCalendar", () => {
 
     expect(onPrevMonth).toHaveBeenCalledTimes(1);
     expect(onNextMonth).toHaveBeenCalledTimes(1);
+  });
+
+  it("달력을 좌로 스와이프하면 다음 달, 우로 스와이프하면 이전 달로 이동한다 (BY-343)", () => {
+    const onPrevMonth = vi.fn();
+    const onNextMonth = vi.fn();
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey={todayKey}
+        studiedDates={[]}
+        onSelectDate={vi.fn()}
+        onPrevMonth={onPrevMonth}
+        onNextMonth={onNextMonth}
+      />,
+    );
+    const swipeArea = screen.getByTestId("month-calendar-swipe-area");
+
+    fireEvent.pointerDown(swipeArea, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(swipeArea, { clientX: 300 - 60, clientY: 200 });
+    expect(onNextMonth).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerDown(swipeArea, { clientX: 240, clientY: 200 });
+    fireEvent.pointerUp(swipeArea, { clientX: 240 + 60, clientY: 200 });
+    expect(onPrevMonth).toHaveBeenCalledTimes(1);
+  });
+
+  it("임계 미만·세로 우세 드래그는 월을 바꾸지 않는다 — 날짜 탭·페이지 스크롤 몫이다", () => {
+    const onPrevMonth = vi.fn();
+    const onNextMonth = vi.fn();
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey={todayKey}
+        studiedDates={[]}
+        onSelectDate={vi.fn()}
+        onPrevMonth={onPrevMonth}
+        onNextMonth={onNextMonth}
+      />,
+    );
+    const swipeArea = screen.getByTestId("month-calendar-swipe-area");
+
+    // 임계(48px) 미만의 가로 드래그.
+    fireEvent.pointerDown(swipeArea, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(swipeArea, { clientX: 300 - 30, clientY: 200 });
+
+    // 가로로 임계를 넘었지만 세로 이동이 더 큰 드래그(스크롤).
+    fireEvent.pointerDown(swipeArea, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(swipeArea, { clientX: 300 - 60, clientY: 200 + 120 });
+
+    expect(onNextMonth).not.toHaveBeenCalled();
+    expect(onPrevMonth).not.toHaveBeenCalled();
   });
 
   it("과거 날짜를 클릭하면 onSelectDate가 그 날짜 키로 호출된다", () => {

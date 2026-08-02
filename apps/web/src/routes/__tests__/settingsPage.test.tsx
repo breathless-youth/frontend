@@ -113,7 +113,7 @@ describe("S6 · 설정", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "오픈소스 라이선스" }));
 
-    expect(screen.getByRole("heading", { name: "오픈소스 라이선스" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
   });
 
   it("appVersion 쿼리를 버전 정보 행에 반영한다", () => {

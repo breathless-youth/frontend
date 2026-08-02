@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 
 import {
   buildMonthGrid,
@@ -128,6 +129,14 @@ function CalendarCell({
   );
 }
 
+/**
+ * 스와이프 커밋 임계(px) — 온보딩 가이드의 스텝 스와이프(`coachOverlayTheme.SWIPE_THRESHOLD_PX`)와
+ * 같은 값이다. 앱 안의 가로 스와이프 감각을 하나로 맞춘다 — 공유 상수로 승격하지 않는 이유는
+ * 두 feature가 서로 import하지 않는 경계를 지키기 위해서다(우연히 같은 값일 뿐 한쪽을 조정할
+ * 때 다른 쪽이 따라가야 한다는 계약이 아직 없다).
+ */
+const SWIPE_THRESHOLD_PX = 48;
+
 export function MonthCalendar({
   month,
   todayKey,
@@ -140,46 +149,116 @@ export function MonthCalendar({
   const grid = useMemo(() => buildMonthGrid(month), [month]);
   const studied = useMemo(() => new Set(studiedDates), [studiedDates]);
 
+  /**
+   * 마지막 월 이동 방향 — 그리드가 그 방향에서 밀려 들어오는 애니메이션을 고른다(BY-343).
+   * 버튼·스와이프 어느 쪽으로 이동해도 같은 모션이 나오도록 이동을 이 래퍼로만 태운다.
+   * 첫 마운트(`null`)에는 애니메이션이 없다 — 탭에 들어왔을 뿐인데 달력이 움직이면 이상하다.
+   */
+  const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
+
+  const goPrevMonth = useCallback(() => {
+    setSlideFrom("left");
+    onPrevMonth();
+  }, [onPrevMonth]);
+
+  const goNextMonth = useCallback(() => {
+    setSlideFrom("right");
+    onNextMonth();
+  }, [onNextMonth]);
+
+  // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
+  // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const start = pointerStartRef.current;
+      pointerStartRef.current = null;
+      if (!start) {
+        return;
+      }
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 스와이프로 본다.
+      if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
+        return;
+      }
+      if (dx < 0) {
+        goNextMonth();
+        return;
+      }
+      goPrevMonth();
+    },
+    [goNextMonth, goPrevMonth],
+  );
+
   return (
     <div className="rounded-xl border border-border bg-muted px-[15px] py-[13px]">
       <div className="flex items-center justify-between">
-        <MonthNavButton direction="prev" onClick={onPrevMonth} />
+        <MonthNavButton direction="prev" onClick={goPrevMonth} />
         <h2 className="text-base leading-[19px] font-bold text-foreground">{monthLabel(month)}</h2>
-        <MonthNavButton direction="next" onClick={onNextMonth} />
+        <MonthNavButton direction="next" onClick={goNextMonth} />
       </div>
 
-      <div className="mt-3 flex flex-row">
-        {WEEKDAY_LABELS.map((label) => (
-          <span
-            key={label}
-            className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
-          >
-            {label}
-          </span>
-        ))}
-      </div>
+      {/*
+        스와이프 영역 — 요일 행 + 그리드. `touch-pan-y`: 세로 스크롤은 브라우저에 남기고 가로
+        팬만 우리 포인터 이벤트로 가져온다 — 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어
+        pointercancel을 내서 스와이프가 끝까지 도달하지 못한다.
+      */}
+      <div
+        data-testid="month-calendar-swipe-area"
+        className="touch-pan-y"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+      >
+        <div className="mt-3 flex flex-row">
+          {WEEKDAY_LABELS.map((label) => (
+            <span
+              key={label}
+              className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
 
-      <div className="mt-1">
-        {grid.map((week) => (
-          <div key={week.find((cell) => cell !== null) ?? "empty-week"} className="flex flex-row">
-            {week.map((dateKey, index) =>
-              dateKey === null ? (
-                // 빈칸은 누를 수 없다 — 인접 셀의 터치를 뺏지 않도록 일반 div로 둔다.
-                <div key={`blank-${String(index)}`} className="h-11 flex-1" />
-              ) : (
-                <CalendarCell
-                  key={dateKey}
-                  dateKey={dateKey}
-                  isSelected={dateKey === selectedKey}
-                  isToday={dateKey === todayKey}
-                  isFuture={isFutureDateKey(dateKey, todayKey)}
-                  hasRecord={studied.has(dateKey)}
-                  onSelect={onSelectDate}
-                />
-              ),
-            )}
-          </div>
-        ))}
+        <div
+          // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
+          // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
+          key={`${String(month.year)}-${String(month.month)}`}
+          className={
+            slideFrom === null
+              ? "mt-1"
+              : slideFrom === "right"
+                ? "mt-1 animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none"
+                : "mt-1 animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none"
+          }
+        >
+          {grid.map((week) => (
+            <div key={week.find((cell) => cell !== null) ?? "empty-week"} className="flex flex-row">
+              {week.map((dateKey, index) =>
+                dateKey === null ? (
+                  // 빈칸은 누를 수 없다 — 인접 셀의 터치를 뺏지 않도록 일반 div로 둔다.
+                  <div key={`blank-${String(index)}`} className="h-11 flex-1" />
+                ) : (
+                  <CalendarCell
+                    key={dateKey}
+                    dateKey={dateKey}
+                    isSelected={dateKey === selectedKey}
+                    isToday={dateKey === todayKey}
+                    isFuture={isFutureDateKey(dateKey, todayKey)}
+                    hasRecord={studied.has(dateKey)}
+                    onSelect={onSelectDate}
+                  />
+                ),
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
