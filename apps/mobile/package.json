@@ -8,7 +8,6 @@
     "@focusmakers/types": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "expo": "~54.0.36",
-    "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",

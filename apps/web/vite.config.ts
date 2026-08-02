@@ -161,10 +161,10 @@ export default defineConfig({
     // 기기에서 LAN으로 붙으려면 0.0.0.0에 바인딩돼야 한다. 로컬 개발에는 영향이 없다.
     host: true,
     ...tunnelServerOptions(),
-    // 개발 서버(52.78.219.53)가 CORS 헤더를 안 보내므로 dev에서는 same-origin 프록시로 우회한다.
+    // 백엔드가 CORS 헤더를 안 보내므로 dev에서는 same-origin 프록시로 우회한다.
     proxy: {
       "/api": {
-        target: "http://52.78.219.53:8080",
+        target: "https://api.sunqstudio.kr",
         changeOrigin: true,
       },
     },

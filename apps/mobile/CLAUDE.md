@@ -33,14 +33,13 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 - **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 네이티브 링킹은 autolinking으로 되고, plugin을 넣으면 영어 기본 `NSMicrophoneUsageDescription`과 Android `RECORD_AUDIO`가 주입된다. `lib/__tests__/permissionCopy.test.ts`가 이 오염을 잡는다.
 - 테스트는 `setCameraPermissionAdapter()`로 어댑터를 교체해 권한 분기를 재현한다. `jest.mock("expo-camera")`는 어댑터 단위 테스트에만 쓴다.
 
-## 네트워크 / ATS — **심사 제출 전 반드시 되돌릴 것**
+## 네트워크 / ATS — 2026-08-02 HTTPS 전환으로 정리 완료
 
-`extra.apiBaseUrl`이 `http://52.78.219.53:8080`(평문 HTTP + IP 리터럴)이라 iOS ATS에 막힌다. 실기기·시뮬레이터 모두에서 유저 등록·통계 API가 통째로 실패한다.
+`extra.apiBaseUrl`은 `https://api.sunqstudio.kr`다. 과거(2026-07-29~08-02) 평문 HTTP + IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷어냈다:
 
-- 2026-07-29에 `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true`를 넣어 열었다. **개발용 임시 조치다.**
-- 도메인 한정 예외(`NSExceptionDomains`)로는 못 막는다 — 그 키는 도메인 이름으로 매칭돼서 IP 리터럴에는 적용되지 않는다. 그래서 전면 개방 말고 선택지가 없었다.
-- **제대로 된 해법은 백엔드에 도메인 + HTTPS를 붙이고 `apiBaseUrl`을 `https://`로 바꾼 뒤 `NSAllowsArbitraryLoads`를 지우는 것이다.** 이 키를 남긴 채 App Store에 제출하면 심사에서 사유 소명을 요구받는다.
-- Android는 별개 경로로 이미 열려 있다(`expo-build-properties`의 `usesCleartextTraffic: true`). 같은 시점에 같이 걷어낼 것.
+- iOS `NSAppTransportSecurity.NSAllowsArbitraryLoads` 블록 삭제 — **다시 넣지 말 것.** 남긴 채 제출하면 심사에서 사유 소명을 요구받는다. `lib/__tests__/appTransportSecurity.test.ts`가 "https면 ATS 예외 없음"을 강제한다(평문 http로 되돌리면 반대로 예외 추가를 요구).
+- `expo-build-properties`의 `android.usesCleartextTraffic` 삭제(플러그인 항목째). Android 디버그 빌드는 RN 기본 debug manifest가 localhost 평문을 계속 허용하므로 `adb reverse` + `http://localhost:5173` dev 흐름은 그대로 동작한다.
+- 네이티브 설정이라 반영에는 Dev Client 리빌드가 필요하다.
 
 ## 웹 dev 서버로 화면 띄우기 (2026-08-01 갱신 — 키가 `webBaseUrl` 하나로 통합됨)
 
