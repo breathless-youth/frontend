@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import {
@@ -89,14 +89,28 @@ describe("/onboarding-guide — 단계 전환", () => {
     expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
   });
 
-  it("화면 탭(포인터 다운→업)으로도 다음 스텝으로 넘어간다", () => {
+  it("오른쪽 절반 탭은 다음, 왼쪽 절반 탭은 이전 스텝으로 이동한다 (BY-343)", () => {
+    // jsdom 기본 innerWidth 1024 — 좌/우 판정 기준은 그 절반(512)이다.
     renderAt("/onboarding-guide?entry=focus-start");
-
     const tapLayer = screen.getByTestId("onboarding-guide-tap-layer");
+
+    fireEvent.pointerDown(tapLayer, { clientX: 800, clientY: 500 });
+    fireEvent.pointerUp(tapLayer, { clientX: 800, clientY: 500 });
+    expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeInTheDocument();
+
+    fireEvent.pointerDown(tapLayer, { clientX: 200, clientY: 500 });
+    fireEvent.pointerUp(tapLayer, { clientX: 200, clientY: 500 });
+    expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
+  });
+
+  it("G1(첫 스텝)에서 왼쪽 절반 탭은 무동작이다 — '이전'과 같은 계약", () => {
+    renderAt("/onboarding-guide?entry=focus-start");
+    const tapLayer = screen.getByTestId("onboarding-guide-tap-layer");
+
     fireEvent.pointerDown(tapLayer, { clientX: 200, clientY: 500 });
     fireEvent.pointerUp(tapLayer, { clientX: 200, clientY: 500 });
 
-    expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeInTheDocument();
+    expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
   });
 
   it("좌로 스와이프하면 다음 스텝, 우로 스와이프하면 이전 스텝으로 이동한다", () => {
@@ -225,5 +239,36 @@ describe("/onboarding-guide — 종료 플로우(완료 플래그 저장 · 쿼�
     await waitFor(async () => {
       await expect(store.hasSeenGuide()).resolves.toBe(true);
     });
+  });
+});
+
+describe("/onboarding-guide — 네이티브 백 제스처 잠금 (BY-343)", () => {
+  beforeEach(() => {
+    setOnboardingGuideStore(createMemoryOnboardingGuideStore());
+  });
+
+  afterEach(() => {
+    resetOnboardingGuideStore();
+    vi.unstubAllGlobals();
+  });
+
+  it("마운트에서 제스처를 끄고 언마운트에서 되켠다 — 가장자리 스와이프의 가이드 통째 이탈 방지", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    const { unmount } = renderGuideAt("/onboarding-guide?entry=settings");
+
+    const sent = () =>
+      postMessage.mock.calls
+        .map(([raw]) => JSON.parse(raw as string) as { type: string; enabled?: boolean })
+        .filter((message) => message.type === "set-back-gesture");
+    expect(sent()).toEqual([expect.objectContaining({ enabled: false })]);
+
+    unmount();
+
+    expect(sent()).toEqual([
+      expect.objectContaining({ enabled: false }),
+      expect.objectContaining({ enabled: true }),
+    ]);
   });
 });

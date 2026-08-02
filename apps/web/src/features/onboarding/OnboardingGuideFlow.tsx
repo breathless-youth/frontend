@@ -201,7 +201,15 @@ export function OnboardingGuideFlow({
       const dy = event.clientY - start.y;
       const isHorizontalDrag = Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy);
       if (!isHorizontalDrag) {
-        // 탭(또는 세로 위주 드래그) — 화면 어디를 눌러도 다음 스텝으로.
+        // 탭(또는 세로 위주 드래그) — 좌/우 절반으로 방향을 가른다: 왼쪽 탭은 이전, 오른쪽
+        // 탭은 다음(BY-343, 스토리형 탐색 관례). 기준은 탭 시작점이다 — 손가락이 12px 안에서
+        // 흔들려도 사용자가 누른 자리로 판정한다. 탭 레이어가 `inset-0` 전면이라 화면 폭과
+        // 같으므로 `window.innerWidth`로 충분하다. G1에서 왼쪽 탭은 `goPrev`의 기존 계약대로
+        // 무동작이다(G1 "이전"과 동일).
+        if (start.x < window.innerWidth / 2) {
+          goPrev();
+          return;
+        }
         goNext();
         return;
       }
@@ -224,8 +232,13 @@ export function OnboardingGuideFlow({
     : backdrop.seedFocusSec + elapsedSec;
   const totalSec = backdrop.seedTotalSec + elapsedSec;
 
+  // `touch-manipulation`(루트 div) — iOS 웹뷰는 `user-scalable=no`여도 더블탭 줌 **인식기**는
+  // 계속 돌려서, 빠른 연속 탭의 두 번째 탭이 더블탭 후보로 잡혀 통째로 삼켜진다(탭이 씹히는
+  // 증상, BY-343). `manipulation`은 그 인식을 끄되 팬·핀치는 그대로 둔다 — `index.css`가
+  // 경고하는 "touch-action을 건드리면 스크롤까지 죽는다"는 `none` 이야기라 해당 없고,
+  // 가이드는 스크롤 없는 전면 오버레이라 영향 범위도 이 화면뿐이다.
   return (
-    <div className="relative h-svh w-full overflow-hidden">
+    <div className="relative h-svh w-full touch-manipulation overflow-hidden">
       <MockBaseLayer base={backdrop.base} />
 
       {backdrop.controlBar === "behind-dim" ? (
@@ -241,9 +254,10 @@ export function OnboardingGuideFlow({
         style={{ backgroundColor: `rgba(0,0,0,${backdrop.dimOpacity})` }}
       />
 
-      {/* 탭 레이어 — 버튼·하단 힌트를 제외한 화면 어디를 탭해도 다음 스텝으로. 버튼이 같은
-          기능을 이미 접근 가능한 형태로 제공하므로 스크린 리더에는 노출하지 않는다(RN
-          `accessible={false}` 그대로 옮긴 것 — 그래서 `<button>`이 아니라 `<div>`다). */}
+      {/* 탭 레이어 — 버튼·하단 힌트를 제외한 영역에서 왼쪽 절반 탭은 이전, 오른쪽 절반 탭은
+          다음 스텝으로(BY-343). 버튼이 같은 기능을 이미 접근 가능한 형태로 제공하므로 스크린
+          리더에는 노출하지 않는다(RN `accessible={false}` 그대로 옮긴 것 — 그래서 `<button>`이
+          아니라 `<div>`다). */}
       <div
         data-testid="onboarding-guide-tap-layer"
         aria-hidden="true"
