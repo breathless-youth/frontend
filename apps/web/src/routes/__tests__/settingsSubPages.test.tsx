@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { App } from "@/App";
 import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
+import { OPEN_SOURCE_ENTRIES } from "@/features/settings/openSourceLicenses";
 
 function renderAt(path: string) {
   return render(
@@ -58,6 +59,17 @@ describe("설정 하위 라우트", () => {
 
     expect(screen.queryByText("문의 폼을 불러오지 못했어요")).not.toBeInTheDocument();
     expect(screen.getByTitle("문의하기")).toBeInTheDocument();
+  });
+
+  it("/licenses 가 고지 항목과 라이선스 전문을 렌더한다 (BY-310)", () => {
+    renderAt("/licenses");
+    expect(screen.getByRole("heading", { name: "오픈소스 라이선스" })).toBeInTheDocument();
+    for (const entry of OPEN_SOURCE_ENTRIES) {
+      expect(screen.getByRole("heading", { name: entry.name })).toBeInTheDocument();
+    }
+    // 전문은 원문 그대로 포함된다 — 원문에만 있는 마지막 줄로 존재를 확인한다(9KB 전체 매칭은 무의미).
+    expect(screen.getByRole("heading", { name: "Apache License 2.0 전문" })).toBeInTheDocument();
+    expect(screen.getByText(/END OF TERMS AND CONDITIONS/)).toBeInTheDocument();
   });
 
   it("뒤로 가기 버튼을 누르면 이전 경로로 돌아간다", () => {
