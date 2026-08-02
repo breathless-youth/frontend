@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { initGA4, trackPageView } from "../analytics";
+import { initGA4, sanitizePagePath, trackPageView } from "../analytics";
 
 const gaScript = () =>
   document.head.querySelector('script[src^="https://www.googletagmanager.com/gtag/js"]');
@@ -45,20 +45,41 @@ describe("initGA4", () => {
   });
 });
 
-describe("trackPageView", () => {
-  it("GA4 미초기화 상태에서는 조용히 무시한다", () => {
-    expect(() => trackPageView("/records")).not.toThrow();
+describe("sanitizePagePath", () => {
+  it("userId 등 화이트리스트 밖 쿼리 파라미터를 제거한다", () => {
+    expect(sanitizePagePath("/records", "?userId=42")).toBe("/records");
+    expect(sanitizePagePath("/home", "?userId=42&foo=bar")).toBe("/home");
   });
 
-  it("초기화 후 page_view 이벤트를 경로와 함께 보낸다", () => {
+  it("화이트리스트 파라미터(appVersion·detector)는 유지한다", () => {
+    expect(sanitizePagePath("/home", "?userId=42&appVersion=1.0.0")).toBe("/home?appVersion=1.0.0");
+    expect(sanitizePagePath("/room/7", "?detector=mock&userId=42")).toBe("/room/:id?detector=mock");
+  });
+
+  it("숫자 경로 세그먼트를 :id로 템플릿화한다", () => {
+    expect(sanitizePagePath("/room/12345/result", "")).toBe("/room/:id/result");
+  });
+});
+
+describe("trackPageView", () => {
+  it("GA4 미초기화 상태에서는 조용히 무시한다", () => {
+    expect(() => trackPageView("/records", "")).not.toThrow();
+  });
+
+  it("초기화 후 정제된 경로로 page_view를 보낸다 — userId는 어디에도 남지 않는다", () => {
     vi.stubEnv("VITE_GA4_MEASUREMENT_ID", "G-TEST1234");
     initGA4();
 
-    trackPageView("/records?month=2026-08");
+    trackPageView("/room/42/result", "?userId=7&appVersion=1.0.0");
 
     const last = Array.from(window.dataLayer!.at(-1) as ArrayLike<unknown>);
     expect(last[0]).toBe("event");
     expect(last[1]).toBe("page_view");
-    expect(last[2]).toMatchObject({ page_path: "/records?month=2026-08" });
+    const payload = last[2] as Record<string, string>;
+    expect(payload.page_path).toBe("/room/:id/result?appVersion=1.0.0");
+    expect(payload.page_location).toBe(
+      window.location.origin + "/room/:id/result?appVersion=1.0.0",
+    );
+    expect(JSON.stringify(payload)).not.toContain("userId");
   });
 });

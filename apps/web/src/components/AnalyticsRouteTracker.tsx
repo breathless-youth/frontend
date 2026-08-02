@@ -12,7 +12,7 @@ export function AnalyticsRouteTracker() {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
-    trackPageView(pathname + search);
+    trackPageView(pathname, search);
   }, [pathname, search]);
 
   return null;
