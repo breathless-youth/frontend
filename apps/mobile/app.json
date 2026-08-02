@@ -57,7 +57,7 @@
     ],
     "extra": {
       "apiBaseUrl": "http://52.78.219.53:8080",
-      "webBaseUrl": "",
+      "webBaseUrl": "https://web.sunqstudio.kr",
       "updateNoticeEnabled": false,
       "eas": {
         "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
