@@ -288,7 +288,9 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     },
     privacyCard: null,
     anchor: "above-control-bar",
-    spacing: { topFlex: 1, midFlex: 0, bottomFlex: 0 },
+    // G4만 하단에서 살짝 띄운다(4:1) — 끌어올린 컨트롤 바가 목업의 강조 장치라 세션 실배치
+    // (맨 아래)와 같을 필요가 없고, 하단 내비게이션과 붙어 있으면 답답하다는 피드백(BY-343).
+    spacing: { topFlex: 4, midFlex: 0, bottomFlex: 1 },
     ctaLabel: GUIDE_NEXT_LABEL,
     skippable: true,
     emphasis: "control-bar",
