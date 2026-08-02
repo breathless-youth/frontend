@@ -24,13 +24,6 @@ export function LicensesPage() {
           on your device, and each is distributed under the terms of the Apache License 2.0.
         </p>
 
-        {OPEN_SOURCE_ENTRIES.map((entry) => (
-          <p key={entry.name} className="mt-4">
-            <span className="font-semibold text-foreground">{entry.name}</span>
-            {` — ${entry.role} ${entry.copyright}. ${entry.license}. ${entry.source}`}
-          </p>
-        ))}
-
         {/*
           원문 그대로라 영어다 — 법적 문서는 번역·요약하지 않는다(`openSourceLicenses.ts` 주석).
           `whitespace-pre-wrap`: 원문 줄바꿈은 지키되 긴 문단은 화면 폭에서 접는다 — `pre` 기본값
@@ -39,6 +32,15 @@ export function LicensesPage() {
         <pre className="mt-6 font-sans text-[12px] leading-[18px] whitespace-pre-wrap break-words">
           {APACHE_LICENSE_2_0}
         </pre>
+
+        {/* 항목은 최하단에 강조·개행·구분 기호 없이 한 문단으로 잇는다(2026-08-02 확정 —
+            위 "꾸미지 않는다"의 연장). 이름과 설명도 띄어쓰기로만 구분한다. */}
+        <p className="mt-6">
+          {OPEN_SOURCE_ENTRIES.map(
+            (entry) =>
+              `${entry.name} ${entry.role} ${entry.copyright}. ${entry.license}. ${entry.source}.`,
+          ).join(" ")}
+        </p>
       </div>
     </div>
   );
