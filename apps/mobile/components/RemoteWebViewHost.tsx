@@ -96,6 +96,13 @@ export function RemoteWebViewHost({
 }: RemoteWebViewHostProps) {
   const webViewRef = useRef<WebView>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * iOS 가장자리 스와이프(back-forward) 제스처 허용 여부 — 웹이 `set-back-gesture`로 끄고 켠다
+   * (온보딩 가이드가 우발 이탈을 막으려고 끈다, 계약 주석 참고). 공용 `nativeBridgeHandler`가
+   * 아니라 여기서 소비하는 이유: 제어 대상(`allowsBackForwardNavigationGestures`)이 이 컴포넌트의
+   * WebView prop이라, 핸들러로 보내면 그 상태를 다시 여기로 배선하는 우회로만 생긴다.
+   */
+  const [backGestureEnabled, setBackGestureEnabled] = useState(true);
   // 재시도 시 베이스 URL 설정도 다시 읽는다 — retry 한 번으로 "설정 누락"과 "일시적 로드
   // 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
   const [retryKey, setRetryKey] = useState(0);
@@ -123,11 +130,17 @@ export function RemoteWebViewHost({
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       const message = parseToNativeMessage(event.nativeEvent.data);
-      if (message !== null) {
-        onBridgeMessage?.(message, (reply) => {
-          webViewRef.current?.injectJavaScript(injectMessageScript(reply));
-        });
+      if (message === null) {
+        return;
       }
+      // 위 backGestureEnabled 주석의 이유로 이 메시지만 여기서 소비하고 핸들러로 넘기지 않는다.
+      if (message.type === "set-back-gesture") {
+        setBackGestureEnabled(message.enabled);
+        return;
+      }
+      onBridgeMessage?.(message, (reply) => {
+        webViewRef.current?.injectJavaScript(injectMessageScript(reply));
+      });
     },
     [onBridgeMessage],
   );
@@ -236,7 +249,10 @@ export function RemoteWebViewHost({
       // 네이티브 스택은 탭 루트라 pop할 화면이 없고, 웹 히스토리는 제스처가 꺼져 있어
       // 양쪽 다 반응하지 않았다(2026-08-01 iPhone 13 mini 확인).
       // 세션 화면은 웹 히스토리가 비어 있어(새로 로드된 라우트) 이 제스처로 빠져나가지 않는다.
-      allowsBackForwardNavigationGestures
+      //
+      // 예외: 온보딩 가이드(G1~G5)는 이 제스처가 가이드 통째 이탈이 되어 웹이
+      // `set-back-gesture`로 잠시 끈다(위 backGestureEnabled 주석·계약 주석 참고).
+      allowsBackForwardNavigationGestures={backGestureEnabled}
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).

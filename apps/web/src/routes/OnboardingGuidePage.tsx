@@ -7,6 +7,7 @@ import {
 } from "@/features/onboarding/focusStartFlow";
 import { OnboardingGuideFlow } from "@/features/onboarding/OnboardingGuideFlow";
 import { parseOnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
+import { useNativeBackGestureLock } from "@/lib/nativeBackGesture";
 import { requestSessionStart } from "@/lib/sessionStart";
 
 /**
@@ -44,6 +45,9 @@ import { requestSessionStart } from "@/lib/sessionStart";
  *   `closeGuide`의 "뒤로 갈 스택이 없으면 홈으로" 분기가 그대로 처리한다(별도 리스너 불필요).
  */
 export function OnboardingGuidePage() {
+  // 가이드가 떠 있는 동안 iOS 가장자리 스와이프(웹뷰 히스토리 back)를 끈다 — 스텝 이동은
+  // 히스토리에 쌓이지 않아 이 제스처가 가이드 통째 이탈이 된다(BY-343, 훅 주석 참고).
+  useNativeBackGestureLock();
   const location = useLocation();
   const navigate = useNavigate();
   const entry = parseOnboardingGuideEntry(

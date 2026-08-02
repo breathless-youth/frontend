@@ -53,6 +53,13 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
+    case "set-back-gesture":
+      // `enabled`가 boolean이 아니면 통째로 버린다 — 기본값(켜짐)이 유지되는 편이 안전하다.
+      // 여기서 truthy 판정으로 넘기면 오타 하나에 문의하기 스와이프 복귀가 사라진다.
+      if (typeof record.enabled !== "boolean") {
+        return null;
+      }
+      return { type: "set-back-gesture", enabled: record.enabled, atMs: record.atMs };
     case "motion-sensor":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
       // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.

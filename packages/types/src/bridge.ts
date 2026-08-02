@@ -103,6 +103,7 @@ export type ToNativeMessage =
    */
   | { type: "request-camera-permission"; atMs: number }
   | SetTabBarMessage
+  | SetBackGestureMessage
   | NavigateTabMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
@@ -145,6 +146,26 @@ export interface NavigateTabMessage {
 export interface SetTabBarMessage {
   type: "set-tab-bar";
   visible: boolean;
+  atMs: number;
+}
+
+/**
+ * iOS 웹뷰의 가장자리 스와이프(back-forward) 제스처를 끈다/켠다 — `set-tab-bar`와 같은 이유로
+ * **어느 웹 라우트에 있는지 웹만 알기 때문에** 필요하다.
+ *
+ * 이 제스처는 설정 → 문의하기처럼 웹 안에서만 일어난 이동을 스와이프로 되돌리기 위해 웹뷰
+ * 전체에 켜져 있다(`RemoteWebViewHost`의 `allowsBackForwardNavigationGestures` 주석). 그런데
+ * 온보딩 가이드(G1~G5)에서는 같은 제스처가 **가이드를 통째로 이탈**시킨다 — 스텝 이동은
+ * 가이드 내부 상태라 웹 히스토리에 쌓이지 않으므로, 가장자리 스와이프의 히스토리 back이
+ * 곧장 진입 전 화면(설정·홈)으로 떨어진다. 가이드 종료는 X·완료·건너뛰기로만 확정한다는
+ * 계약(SCR-G1-G5 — X는 세션으로 이어지지 않는다, 종료 래치)과 어긋나는 우발 이탈이다.
+ *
+ * `enabled: true`로 되돌리는 책임은 끈 쪽(가이드 언마운트)에 있다 — 켜진 상태가 기본값이다.
+ * Android에는 대응 제스처가 없어 no-op이고, 브라우저 단독 모드에서는 발신돼도 받는 쪽이 없다.
+ */
+export interface SetBackGestureMessage {
+  type: "set-back-gesture";
+  enabled: boolean;
   atMs: number;
 }
 
