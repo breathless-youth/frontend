@@ -1,65 +1,52 @@
 import { render, screen } from "@testing-library/react-native";
 
 import HomeScreen from "../app/(tabs)/index";
-import { useHomeSummary } from "../components/home/useHomeSummary";
 
-jest.mock("expo-router", () => ({
-  router: { push: jest.fn(), navigate: jest.fn() },
-  useFocusEffect: jest.fn(),
+/**
+ * S1 · 홈 — 내용물이 `RemoteScreen`(BY-333 2단계)으로 이관됐다. 통계 렌더링 등 예전 네이티브
+ * UI 검증은 더 이상 이 화면의 몫이 아니다(웹이 소유). 여기서는 `/home` 경로 + 탭 공용 쿼리가
+ * 붙는지만 확인한다 — 파라미터 조립·스플래시 세부 동작은 `components/__tests__/RemoteScreen.test.tsx`가
+ * 덮는다. U1 업데이트 안내 시트는 `__tests__/update-notice-sheet.test.tsx`가 별도로 덮는다.
+ */
+
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
+
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
 }));
-jest.mock("../components/home/useHomeSummary");
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
-const mockedUseHomeSummary = useHomeSummary as jest.MockedFunction<typeof useHomeSummary>;
+jest.mock("react-native-webview", () => {
+  /*
+    eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --
+    `jest.mock` 팩토리는 상단 import보다 먼저 호이스팅돼 평가되므로 import 바인딩을 참조할 수 없다.
+  */
+  const ReactModule = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
 
-describe("HomeScreen 통계 상태", () => {
-  it("success — 서버 통계를 렌더한다", () => {
-    mockedUseHomeSummary.mockReturnValue({
-      status: "success",
-      summary: {
-        focusSec: 3 * 3600 + 42 * 60,
-        studySec: 5 * 3600 + 12 * 60,
-        focusRate: 71.3,
-        streakDays: 12,
-        longestFocusSec: 52 * 60,
-      },
+  return {
+    WebView: ReactModule.forwardRef(function MockWebView(
+      props: Record<string, unknown>,
+      ref: React.Ref<{ reload: () => void }>,
+    ) {
+      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      return ReactModule.createElement(View, props);
+    }),
+  };
+});
+
+describe("HomeScreen", () => {
+  it("/home 경로 + 탭 공용 쿼리(userId·appVersion)로 조립한 URL을 로드한다", async () => {
+    render(<HomeScreen />);
+
+    expect(await screen.findByTestId("home-webview")).toBeTruthy();
+    expect(screen.getByTestId("home-webview").props.source).toEqual({
+      uri: "https://web.test/home?userId=7&appVersion=1.4.2",
     });
-    render(<HomeScreen />);
-
-    expect(screen.getByText("71% 집중")).toBeTruthy();
-    expect(screen.getByText("총 공부 5시간 12분")).toBeTruthy();
-    expect(screen.getByText("12일째")).toBeTruthy();
-    expect(screen.getByText("52분")).toBeTruthy();
-  });
-
-  it("pending — 스켈레톤을 렌더한다", () => {
-    mockedUseHomeSummary.mockReturnValue({ status: "pending" });
-    render(<HomeScreen />);
-
-    expect(screen.getAllByLabelText("불러오는 중").length).toBeGreaterThan(0);
-    expect(screen.queryByText("% 집중", { exact: false })).toBeNull();
-    expect(screen.getByText("집중 시작")).toBeTruthy();
-  });
-
-  it("error — 오류 문구와 다시 시도 버튼을 렌더한다", () => {
-    const retry = jest.fn();
-    mockedUseHomeSummary.mockReturnValue({ status: "error", retry });
-    render(<HomeScreen />);
-
-    expect(screen.getByText("기록을 불러오지 못했어요")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
-    expect(screen.getByText("집중 시작")).toBeTruthy();
-  });
-
-  it("streakDays 0이면 시작 유도 문구를 보여준다", () => {
-    mockedUseHomeSummary.mockReturnValue({
-      status: "success",
-      summary: { focusSec: 0, studySec: 0, focusRate: 0, streakDays: 0, longestFocusSec: 0 },
-    });
-    render(<HomeScreen />);
-
-    expect(screen.getByText("오늘 10분 집중하면 연속 공부가 시작돼요")).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
 import type { ToNativeMessage } from "@focusmakers/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { NATIVE_MESSAGE_ENTRY } from "../../bridge/nativeBridge";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import type { DetectorSignal } from "../focusDetector";
 import { createDeviceHandlingDetector } from "../deviceHandlingDetector";
 

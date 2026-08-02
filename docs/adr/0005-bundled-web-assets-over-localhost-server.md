@@ -1,6 +1,6 @@
 # 0005. 웹 자산을 앱 번들에 동봉하고 localhost HTTP 서버로 서빙
 
-- Status: Accepted
+- Status: **Superseded** (2026-07-31, BY-333) — 전 화면을 원격 URL 웹뷰로 여는 셸 구조로 전환되면서 이 결정 전체(번들 동봉·`@dr.pogodin/react-native-static-server`·`syncWebDist`/config plugin)가 폐기됐다. `apps/mobile`은 더 이상 `apps/web` 산출물을 번들에 넣거나 로컬 서버로 서빙하지 않는다 — `components/RemoteScreen.tsx`/`RemoteWebViewHost`가 원격 URL을 직접 로드한다. 관련 인프라 코드는 BY-333에서 삭제됐다. 이 문서는 그 시점의 결정 기록으로 남긴다.
 - Date: 2026-07-28
 - Relates to: [ADR 0001](./0001-webview-based-study-room-architecture.md)(활성 아키텍처), [ADR 0003](./0003-phased-rollout-webview-mvp-then-native.md)(단계적 롤아웃), [ADR 0004](./0004-expo-camera-for-permission-api-only.md)(카메라 권한), [Vision 파이프라인 설계 §1](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md)
 

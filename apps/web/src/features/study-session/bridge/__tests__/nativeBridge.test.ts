@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseToWebMessage, postToNative } from "../nativeBridge";
+import { parseToWebMessage, postToNative } from "@/lib/bridge";
 
 describe("parseToWebMessage", () => {
   it("device-handling 메시지를 파싱한다", () => {
@@ -21,6 +21,18 @@ describe("parseToWebMessage", () => {
 
   it("알 수 없는 type은 null을 돌려준다 — 앱 버전이 앞서갈 때 죽지 않아야 한다", () => {
     expect(parseToWebMessage('{"type":"future-message","atMs":1}')).toBeNull();
+  });
+
+  it("camera-permission을 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"camera-permission","granted":true,"atMs":3000}')).toEqual({
+      type: "camera-permission",
+      granted: true,
+      atMs: 3000,
+    });
+  });
+
+  it("camera-permission의 granted가 boolean이 아니면 null이다 — 모름을 허용으로 읽으면 안 된다", () => {
+    expect(parseToWebMessage('{"type":"camera-permission","granted":"yes","atMs":1}')).toBeNull();
   });
 
   it("JSON이 아니면 null을 돌려준다", () => {

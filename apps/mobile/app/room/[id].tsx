@@ -1,114 +1,64 @@
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Text, View } from "react-native";
-import { WebView } from "react-native-webview";
-import type { WebViewMessageEvent } from "react-native-webview";
 
+import type { ToNativeMessage } from "@focusmakers/types";
+
+import { RemoteScreen } from "../../components/RemoteScreen";
 import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
-import { resolveDevWebOrigin } from "../../lib/devWebOrigin";
-import { relaySessionSubmit } from "../../lib/sessionSubmitRelay";
-import { buildSessionUrl } from "../../lib/webAssetServer";
-import { getWebAssetServer } from "../../lib/webAssetServerRegistry";
-import { getRegisteredUserId } from "../../lib/userApi";
-import { injectMessageScript, parseToNativeMessage } from "../../lib/webBridge";
+import { type BridgeReply, handleBridgeMessage } from "../../lib/nativeBridgeHandler";
+import { lockPortrait, unlockForSession } from "../../lib/orientation";
 
 /**
- * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 WebView로 로드한다(ADR 0001).
+ * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 `RemoteScreen`으로 원격
+ * 경로를 로드한다(전 화면 원격 웹뷰 셸, BY-333). 타이머·상태 판정·이벤트 누적은 전부
+ * 웹이 소유한다 — **여기에 세션 로직을 넣지 말 것.**
  *
- * 이 파일이 하는 일은 로컬 서버를 띄우고, 세션 URL을 조립해 WebView에 넘기고, **웹이 스스로
- * 할 수 없는 것만 대신해 주는 것**이다 — 제출 HTTP 중계(CORS)와 가속도 센서 구독(네이티브
- * 전용 API) 둘 다 그 범주다. 타이머·상태 판정·이벤트 누적·감지 수명 결정은 전부 웹이
- * 소유한다(설계 문서 §1, 세션 상태 모델 스펙 §1) — **여기에 세션 로직을 넣지 말 것.**
+ * 파라미터 조립(userId·appVersion)·브리지 수신(start-session·navigate-home·open-settings·
+ * 세션 제출 대행)·초기 로딩 스플래시는 탭 3개와 동일하게 `RemoteScreen`이 공용으로 처리한다
+ * (`lib/remoteQueryParams.ts`·`lib/nativeBridgeHandler.ts`·`lib/sessionSubmitRelay.ts`).
  *
- * `allowsInlineMediaPlayback`·`mediaCapturePermissionGrantType`은 WebView 안의
- * `getUserMedia`가 카메라를 열기 위해 필요하다(ADR 0001 Consequences).
+ * 탭 화면과 다른 점은 둘이다:
+ * 1. `blockHardwareBack` — 세션 중 안드로이드 뒤로가기로 WebView가 파괴되면 측정한 시간이
+ *    통째로 사라진다(사유는 `RemoteScreen`의 prop 주석).
+ * 2. 가속도 센서(BY-340) — 기기 조작(`DEVICE`) 감지는 세션에서만 쓰므로 공용 핸들러가 아니라
+ *    이 화면이 센서 수명을 소유한다(아래 `motionSource` 주석).
  */
 export default function SessionRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [uri, setUri] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  /** 응답을 되돌려 보낼 통로. `injectJavaScript`가 여기 달려 있다. */
-  const webViewRef = useRef<WebView>(null);
-  /**
-   * 웹 dev 서버 오리진(`lib/devWebOrigin.ts`). `null`이면 평소대로 동봉 자산을 쓴다.
-   * 렌더마다 다시 읽어도 값이 바뀌지 않는다 — `Constants.expoConfig`는 앱 수명 동안 고정이다.
-   */
-  const devWebOrigin = resolveDevWebOrigin();
   /**
    * 기기 조작(`DEVICE`) 감지용 가속도 센서. **웹이 켜고 끈다**(`motion-sensor` 메시지) —
    * 감지 수명(일시정지·카메라 전환 중 정지)은 세션 상태를 아는 웹의 판단이고, 센서는
    * 네이티브에만 있어서 소유가 갈릴 뿐이다. 여기서 세션 상태를 보고 스스로 켜지 말 것.
    */
   const [motionSource] = useState(createDeviceMotionSource);
+  /**
+   * `device-handling`을 웹으로 되돌려 보낼 통로. 통로(`injectJavaScript`)는
+   * `RemoteWebViewHost` 안에 있어 메시지가 올 때 받은 `reply`를 잡아 둔다 — 센서 신호는
+   * 웹이 `motion-sensor: true`를 보낸 뒤에만 발생하므로 그 시점엔 항상 채워져 있다.
+   */
+  const replyRef = useRef<BridgeReply | null>(null);
 
+  // 세션만 회전을 연다(S3-5·S3-6 가로 거치) — 화면 방향 정책의 실제 집행은 rn-screens가 아니라
+  // expo-screen-orientation이 한다(`lib/orientation.ts`의 P0-3 정정 참고). 언마운트 시 다시
+  // 세로로 잠근다 — 가로인 채 홈으로 돌아오면 잠금이 즉시 세로로 되돌린다.
   useEffect(() => {
-    let cancelled = false;
-
-    async function boot() {
-      try {
-        /**
-         * 개발용 웹 dev 서버가 지정돼 있으면 **정적 서버를 띄우지 않는다**(`lib/devWebOrigin.ts`).
-         * 띄워봐야 아무도 안 보는 포트를 잡을 뿐이고, 기동 실패가 아래 catch로 들어가
-         * dev 서버는 멀쩡한데 "세션을 시작하지 못했어요"가 뜨는 엉뚱한 실패가 된다.
-         */
-        const [origin, userId] = await Promise.all([
-          devWebOrigin === null ? getWebAssetServer().start() : Promise.resolve(devWebOrigin),
-          // userId를 못 읽어도 세션은 연다 — `buildSessionUrl`은 `null`을 지원하고
-          // `apps/web`은 그 부재를 unsaved 경로로 처리한다. SecureStore 읽기 실패로
-          // 세션 전체를 죽이면 복구 가능한 상황이 막다른 길이 된다.
-          // 이 catch 덕분에 아래 catch에 도달하는 건 **서버 기동 실패뿐**이고,
-          // 그래서 로그 문구도 실제 원인과 일치한다.
-          getRegisteredUserId().catch(() => null),
-        ]);
-        if (!cancelled) {
-          setUri(
-            buildSessionUrl(origin, {
-              roomId: id ?? "1",
-              userId,
-              // Dev Client 빌드에서만 웹 진단(해상도 오버레이·콘솔 로그)을 켠다.
-              // 릴리스 빌드에는 플래그가 붙지 않아 사용자에게 보이지 않는다.
-              diag: __DEV__,
-            }),
-          );
-        }
-      } catch (error: unknown) {
-        console.warn("[room] 로컬 웹 자산 서버 기동 실패", error);
-        if (!cancelled) {
-          setFailed(true);
-        }
-      }
-    }
-
-    void boot();
+    unlockForSession();
     return () => {
-      cancelled = true;
+      lockPortrait();
     };
-  }, [id, devWebOrigin]);
+  }, []);
 
   /**
-   * 웹 → 네이티브 메시지 처리 — **세션 제출 대행**과 **홈 복귀**(`packages/types`의
-   * `NavigateHomeMessage`) 두 종류다.
-   *
-   * 세션 로직이 여기로 넘어오는 게 아니다. 제출은 웹이 완성한 요청 본문을 받아 HTTP만 대신
-   * 쳐 주고 결과를 그대로 돌려준다 — WebView 안에서 직접 `fetch`하면 백엔드가 CORS 헤더를
-   * 보내지 않아 막히기 때문이다(2026-07-30 확인). 그 전까지는 제출이 조용히 실패해서 종료를
-   * 눌러도 결과 화면으로 넘어가지 않았다.
-   *
-   * 홈 복귀는 S4 CTA(`확인`)와 미달 종료 안내 CTA(`홈으로`)가 보낸다 — 웹 라우터의
-   * `navigate("/")`만으로는 WebView 안의 웹 홈이 열릴 뿐 네이티브 홈 탭으로 가지 않기
-   * 때문이다. 이 화면은 탭 네비게이터 위에 `fullScreenModal`로 띄워져 있으므로(`app/_layout.tsx`),
-   * 모달을 닫으면 그 아래 탭이 그대로 드러난다 — `permission-denied.tsx`와 같은 패턴이다.
-   *
-   * 모르는 메시지는 `parseToNativeMessage`가 `null`로 흘려보낸다 — 앱과 웹 번들의 버전이
-   * 어긋날 수 있고, 모르는 메시지에 죽으면 세션이 멈춘다.
+   * 세션 전용 브리지 확장 — `motion-sensor`만 여기서 받고 나머지는 전부 공용
+   * `handleBridgeMessage`에 그대로 넘긴다. 공용 핸들러에 넣지 않는 이유: 센서 구독은
+   * 이 화면의 수명에 묶여야 한다. 웹이 보내는 `motion-sensor: false`는 일시정지·카메라
+   * 전환에만 오고, WebView가 통째로 사라지는 경로(모달 닫기)에서는 오지 않는다 — 그 정리는
+   * 아래 effect의 cleanup이 맡는다.
    */
   const handleMessage = useCallback(
-    (event: WebViewMessageEvent) => {
-      const message = parseToNativeMessage(event.nativeEvent.data);
-      if (message === null) {
-        return;
-      }
+    (message: ToNativeMessage, reply: BridgeReply) => {
+      replyRef.current = reply;
       if (message.type === "motion-sensor") {
         if (message.enabled) {
           motionSource.start();
@@ -117,22 +67,7 @@ export default function SessionRoomScreen() {
         }
         return;
       }
-      if (message.type === "navigate-home") {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace("/");
-        }
-        return;
-      }
-      if (message.type !== "submit-session") {
-        return;
-      }
-      // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
-      // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
-      void relaySessionSubmit(message).then((result) => {
-        webViewRef.current?.injectJavaScript(injectMessageScript(result));
-      });
+      handleBridgeMessage(message, reply);
     },
     [motionSource],
   );
@@ -142,15 +77,12 @@ export default function SessionRoomScreen() {
    * 변화 감지를 이미 한다). 유지시간 디바운스(0.5초/2초)는 웹의 `stepDetection` 몫이라
    * 여기서 다시 구현하지 않는다(스펙 §3 "가속도 신호의 경계").
    *
-   * 세션 화면을 벗어날 때 `stop()`을 부르는 것이 이 effect의 나머지 절반이다. 웹이 보내는
-   * `motion-sensor: false`는 일시정지·카메라 전환에만 오고, WebView가 통째로 사라지는 경로
-   * (뒤로가기·모달 닫기)에서는 오지 않는다 — 그 경우 구독이 남아 센서가 계속 돌게 된다.
+   * 세션 화면을 벗어날 때 `stop()`을 부르는 것이 이 effect의 나머지 절반이다 — 구독이 남으면
+   * 화면이 사라진 뒤에도 센서가 계속 돈다.
    */
   useEffect(() => {
     const unsubscribe = motionSource.subscribe((active) => {
-      webViewRef.current?.injectJavaScript(
-        injectMessageScript({ type: "device-handling", active, atMs: Date.now() }),
-      );
+      replyRef.current?.({ type: "device-handling", active, atMs: Date.now() });
     });
     return () => {
       unsubscribe();
@@ -158,121 +90,17 @@ export default function SessionRoomScreen() {
     };
   }, [motionSource]);
 
-  /**
-   * Android 하드웨어 뒤로가기 차단 — **세션 유실 방지**.
-   *
-   * 막지 않으면 뒤로가기가 네이티브 스택에서 이 화면을 팝하고, 그때 WebView가 통째로 파괴된다.
-   * 세션 로직은 전부 웹에 있으므로 `endAndSubmit`이 실행될 기회 자체가 없다 —
-   * 종료 확인 다이얼로그도 뜨지 않고, **공부한 시간이 서버에 하나도 남지 않는다.** 사용자
-   * 입장에서는 뒤로가기를 한 번 누른 것뿐인데 세션이 증발하고 되돌릴 방법이 없다.
-   *
-   * `true`를 돌려주는 것은 "이 이벤트를 소비했으니 기본 동작(화면 닫기)을 하지 말라"는 뜻이다.
-   * iOS에는 하드웨어 뒤로가기가 없어 이 핸들러가 불리지 않는다 — 실질적으로 Android 전용이다.
-   *
-   * **왜 다이얼로그를 띄우지 않고 그냥 막는가.** 종료 확인 다이얼로그(S3-7)는 웹 소유인데
-   * 네이티브→웹 명령을 보낼 브리지가 아직 배선되지 않았다(`lib/webBridge.ts`는 있으나
-   * 어느 화면에도 연결돼 있지 않다). 그리고 SCR-S3-7이 하드웨어 뒤로가기에 대해
-   * **"종료를 이 경로로 확정시키지 말 것"**을 명시했고, 확정되지 않은 닫기 경로는 열지 않고
-   * 막아 두는 것이 이 저장소의 기존 방침이다(U1 `UpdateNoticeSheet`의 dim-press·swipe-down·
-   * hardware-back 처리와 같다). 세션은 화면 안의 종료 버튼으로만 끝난다.
-   *
-   * TODO: 브리지가 배선되면 여기서 막는 대신 웹에 `back-pressed`를 넘겨 S3-7 다이얼로그를
-   * 열도록 바꾼다. 그게 Android 관례에 더 맞는다.
-   *
-   * ⚠️ **세션이 실제로 살아 있을 때만 막는다.** 오류 화면(`failed`)과 로딩 중(`uri === null`)에는
-   * 지킬 세션이 없는데, 거기서까지 막으면 사용자가 그 화면에 갇혀 나갈 방법이 사라진다.
-   */
-  useFocusEffect(
-    useCallback(() => {
-      if (failed || uri === null) {
-        return;
-      }
-      const subscription = BackHandler.addEventListener("hardwareBackPress", () => true);
-      return () => subscription.remove();
-    }, [failed, uri]),
-  );
-
-  if (failed) {
-    return (
-      <>
-        {/* 세션 화면은 시스템 테마와 무관하게 항상 다크다 — 상태 바 아이콘도 밝게 고정한다
-            (라이트 모드 기기에서 `style="auto"`가 어두운 아이콘을 골라 배경에 묻힌다). */}
-        <StatusBar style="light" />
-        <View className="flex-1 items-center justify-center bg-[#0B0F14] px-6">
-          <Text className="text-center text-[15px] leading-[22px] text-white/80">
-            세션을 시작하지 못했어요
-          </Text>
-        </View>
-      </>
-    );
-  }
-
-  if (uri === null) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <View className="flex-1 items-center justify-center bg-[#0B0F14]">
-          <ActivityIndicator color="#FFFFFF" />
-        </View>
-      </>
-    );
-  }
-
   return (
     <>
+      {/* 세션 화면은 시스템 테마와 무관하게 항상 다크다 — 상태 바 아이콘도 밝게 고정한다
+          (라이트 모드 기기에서 `style="auto"`가 어두운 아이콘을 골라 배경에 묻힌다). */}
       <StatusBar style="light" />
-      <WebView
+      <RemoteScreen
         testID="session-webview"
-        ref={webViewRef}
-        source={{ uri }}
-        onMessage={handleMessage}
-        // 세션 화면은 항상 다크다 — 로딩 중 흰 배경이 번쩍이지 않게 한다.
-        style={{ flex: 1, backgroundColor: "#0B0F14" }}
-        allowsInlineMediaPlayback
-        mediaPlaybackRequiresUserAction={false}
-        mediaCapturePermissionGrantType="grant"
-        // **페이지 자체(문서 스크롤)를 잠근다** — 카메라 프리뷰를 드래그하면 WKWebView가
-        // 콘텐츠와 무관하게 화면을 살짝 밀어 올리는 러버밴드 바운스를 보인다(2026-07-30
-        // 실기기 확인). 이 화면군(S3 세션·S4 결과)은 전부 루트를 `h-svh`(고정 뷰포트)로 짜서
-        // 페이지 스크롤이 필요 없게 설계돼 있다 — 실제로 스크롤이 필요한 긴 콘텐츠(S4 통계
-        // 카드, 자동/미달 종료 안내)는 각자 안의 `overflow-y-auto` 컨테이너가 맡는다
-        // (`ResultPage.tsx`·`AutoEndNotice.tsx`·`SubMinuteEndNotice.tsx`). 그 컨테이너들은
-        // 별도 컴포지팅 레이어라 아래 두 값과 무관하게 계속 스크롤된다 — 여기서 잠그는 건
-        // 문서 루트 하나뿐이다.
-        scrollEnabled={false}
-        bounces={false}
-        // Android의 동급 효과(가장자리 오버스크롤 글로우)도 같은 이유로 끈다.
-        overScrollMode="never"
-        // iOS 16.4+는 `isInspectable`을 켠 WebView만 Safari 웹 인스펙터에 노출한다.
-        // 이걸 안 켜면 세션 화면이 백지로 떠도 안을 볼 수단이 없다 — 로컬 서버 404인지,
-        // wasm 로드 실패인지, `getUserMedia` 거부인지 구분이 안 된다.
-        // `__DEV__` 게이트라 릴리스 빌드에는 들어가지 않는다.
-        webviewDebuggingEnabled={__DEV__}
-        // **최상위 네비게이션**만 로컬 서버 오리진으로 제한한다 — 여기 없는 오리진으로
-        // 이동하려 하면 WebView가 대신 시스템 브라우저로 넘긴다. 서브리소스(fetch·이미지·
-        // wasm) 로드는 이 prop이 통제하지 않는다.
-        //
-        // 두 호스트 표기를 모두 받는다: 로컬 서버는 `127.0.0.1`에 바인딩할 예정인데(설계 §1)
-        // 라이브러리가 오리진을 어느 쪽 문자열로 보고할지는 스파이크 전까지 알 수 없다.
-        // 한쪽만 적어 두면 `buildSessionUrl`이 만든 URL이 화이트리스트에 걸려 세션이
-        // 시스템 브라우저로 튀어나가는, 원인과 증상이 전혀 안 맞는 버그가 된다.
-        //
-        // 웹 dev 서버를 쓸 때는 그 오리진도 넣는다 — iOS 실기기는 secure context 때문에
-        // `https://192.168.x.x:5173`이나 터널 주소를 쓰는데, 위 두 항목에 걸리지 않아 세션이
-        // Safari로 튀어나간다. `??`가 아니라 스프레드인 이유는 dev 오리진이 없을 때
-        // 배열 모양을 그대로 두기 위해서다.
-        //
-        // ⚠️ **dev 오리진에 `/*`를 붙이지 말 것.** 이 prop은 URL 전체가 아니라 **오리진만**
-        // 대조한다 — `react-native-webview`의 `extractOrigin`이 `/^…:(\/\/)?[^/]*/`로 경로를
-        // 잘라내고, 패턴은 `^`만 붙은 정규식이 된다. 그래서 `https://host/*`는
-        // `^https://host/.*`가 되어 오리진 `https://host`(슬래시 없음)와 **절대 일치하지 않고**,
-        // 세션이 통째로 시스템 브라우저로 열린다(2026-07-30 실기기에서 실제로 발생).
-        // 위 두 항목이 멀쩡한 이유는 `*`가 슬래시 뒤가 아니라 포트 자리에 있어서다.
-        originWhitelist={[
-          "http://localhost:*",
-          "http://127.0.0.1:*",
-          ...(devWebOrigin === null ? [] : [devWebOrigin]),
-        ]}
+        path={`/room/${id ?? "1"}`}
+        backgroundColor="#0B0F14"
+        blockHardwareBack
+        onBridgeMessage={handleMessage}
       />
     </>
   );

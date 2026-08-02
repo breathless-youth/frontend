@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@dr.pogodin/react-native-fs": "^2.39.2",
-    "@dr.pogodin/react-native-static-server": "^0.27.0",
     "@expo/metro-runtime": "~6.1.2",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
@@ -17,6 +15,7 @@
     "expo-dev-client": "~6.0.21",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.24",
+    "expo-screen-orientation": "~9.0.9",
     "expo-secure-store": "~15.0.8",
     "expo-sensors": "~15.0.8",
     "expo-status-bar": "~3.0.9",
@@ -56,9 +55,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "sync-web": "node scripts/syncWebDist.js",
-    "sync-web:check": "node scripts/syncWebDist.js --check"
+    "test": "jest"
   },
   "private": true
 }

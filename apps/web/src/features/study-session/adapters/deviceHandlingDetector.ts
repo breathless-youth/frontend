@@ -1,4 +1,4 @@
-import { postToNative, subscribeToNativeMessages } from "../bridge/nativeBridge";
+import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import type { DetectorSignal, FocusDetector } from "./focusDetector";
 
 /**
