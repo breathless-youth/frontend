@@ -15,6 +15,10 @@
  * (`RemoteWebViewHost`의 최상위 프레임 검사)에 막혀 아무 일도 일어나지 않는 죽은 링크가 된다.
  *
  * 라이선스 전문은 표준 Apache License 2.0 원문 그대로다(요약·번역 금지 — 법적 문서다).
+ *
+ * 표시 문구는 **영어로 통일한다**(2026-08-02 확정) — 라이선스 전문·저작권 표기가 어차피
+ * 영어라, 항목 설명만 한국어면 페이지 안에서 언어가 섞인다. 설정 행 라벨("오픈소스
+ * 라이선스")은 Figma 확정 문구라 한국어 그대로다.
  */
 
 export type OpenSourceEntry = {
@@ -33,21 +37,21 @@ export type OpenSourceEntry = {
 export const OPEN_SOURCE_ENTRIES: OpenSourceEntry[] = [
   {
     name: "EfficientDet-Lite0",
-    role: "자리 이탈·휴대폰 사용을 감지하는 온디바이스 객체 감지 모델. 단말 내부에서만 실행되고 영상은 어디에도 전송되지 않아요.",
+    role: "On-device object detection model used to detect away-from-seat and phone usage. Runs entirely on your device — no video ever leaves it.",
     copyright: "Copyright Google LLC",
     license: "Apache License 2.0",
-    source: "MediaPipe Object Detector 레퍼런스 모델 (ai.google.dev/edge/mediapipe)",
+    source: "MediaPipe Object Detector reference model (ai.google.dev/edge/mediapipe)",
   },
   {
     name: "MediaPipe Tasks Vision",
-    role: "위 모델을 브라우저(웹뷰) 안에서 실행하는 온디바이스 추론 프레임워크예요.",
+    role: "On-device inference framework that runs the model above inside the browser (WebView).",
     copyright: "Copyright The MediaPipe Authors",
     license: "Apache License 2.0",
     source: "github.com/google-ai-edge/mediapipe",
   },
   {
     name: "TensorFlow Lite (LiteRT)",
-    role: "MediaPipe에 포함되어 .tflite 모델을 실행하는 추론 런타임이에요.",
+    role: "Inference runtime bundled with MediaPipe that executes .tflite models.",
     copyright: "Copyright The TensorFlow Authors",
     license: "Apache License 2.0",
     source: "github.com/tensorflow/tensorflow",

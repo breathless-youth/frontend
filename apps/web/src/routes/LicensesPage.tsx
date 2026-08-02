@@ -18,10 +18,11 @@ export function LicensesPage() {
       <ScreenBackHeader />
 
       <div className="px-5 pb-10">
-        <h1 className="text-2xl leading-[29px] font-bold text-foreground">오픈소스 라이선스</h1>
+        {/* 페이지 문구는 영어로 통일한다 — 근거는 `openSourceLicenses.ts` 파일 주석. */}
+        <h1 className="text-2xl leading-[29px] font-bold text-foreground">Open Source Licenses</h1>
         <p className="mt-[18px] text-[14px] leading-[22px] text-muted-foreground">
-          FocusMakers는 아래의 오픈소스 소프트웨어와 모델을 사용합니다. 모두 단말 내부에서만
-          실행되며, 각 항목은 Apache License 2.0 조건에 따라 배포됩니다.
+          FocusMakers uses the following open source software and models. All of them run entirely
+          on your device, and each is distributed under the terms of the Apache License 2.0.
         </p>
 
         {OPEN_SOURCE_ENTRIES.map((entry) => (
@@ -42,7 +43,7 @@ export function LicensesPage() {
 
         <section className="mt-[26px]">
           <h2 className="text-[16px] leading-[20px] font-semibold text-foreground">
-            Apache License 2.0 전문
+            Apache License 2.0
           </h2>
           {/*
             원문 그대로라 영어다 — 법적 문서는 번역·요약하지 않는다(`openSourceLicenses.ts` 주석).
