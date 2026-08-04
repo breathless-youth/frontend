@@ -1,5 +1,3 @@
-@AGENTS.md
-
 # apps/mobile
 
 Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코드(WebView 룸 라우트, dormant 네이티브 자산)는 전부 삭제됐다** — 남은 것은 홈 탭 셸과 익명 기기 유저 등록(SCRUM-259, `lib/*`)뿐이다(git 히스토리에서 복구 가능 — ADR 0003 갱신 노트 참고). 스터디룸 재구축 시 "WebView로 `apps/web`을 로드"하는 방침(ADR 0001)을 따른다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md), [ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md), [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md), [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md) 순서로 참고.
@@ -110,6 +108,10 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 ## 네이티브 전환 시 (지금은 해당 없음)
 
 `eas.json`(development/preview/production 프로필)은 전환 대비로 남겨뒀다. 실제로 네이티브로 되돌릴 때 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따른다 — `expo-camera`/`expo-dev-client` 재설치, `platform/*` mock을 실제 구현으로 교체, `eas init`으로 EAS project id 발급 등.
+
+## Expo SDK
+
+**SDK 54 고정이다(의도적).** 최신은 57이지만 올리지 않는다 — 참조할 문서는 https://docs.expo.dev/versions/v54.0.0/ 이다. 버전이 낡아 보인다는 이유로 업그레이드를 제안하거나 실행하지 말 것.
 
 ## 명령
 
