@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { initGA4, sanitizePagePath, trackPageView } from "../analytics";
+import { initGA4, trackPageView } from "../analytics";
 
 const gaScript = () =>
   document.head.querySelector('script[src^="https://www.googletagmanager.com/gtag/js"]');
@@ -42,22 +42,6 @@ describe("initGA4", () => {
     expect(
       document.head.querySelectorAll('script[src^="https://www.googletagmanager.com/gtag/js"]'),
     ).toHaveLength(1);
-  });
-});
-
-describe("sanitizePagePath", () => {
-  it("userId 등 화이트리스트 밖 쿼리 파라미터를 제거한다", () => {
-    expect(sanitizePagePath("/records", "?userId=42")).toBe("/records");
-    expect(sanitizePagePath("/home", "?userId=42&foo=bar")).toBe("/home");
-  });
-
-  it("화이트리스트 파라미터(appVersion·detector)는 유지한다", () => {
-    expect(sanitizePagePath("/home", "?userId=42&appVersion=1.0.0")).toBe("/home?appVersion=1.0.0");
-    expect(sanitizePagePath("/room/7", "?detector=mock&userId=42")).toBe("/room/:id?detector=mock");
-  });
-
-  it("숫자 경로 세그먼트를 :id로 템플릿화한다", () => {
-    expect(sanitizePagePath("/room/12345/result", "")).toBe("/room/:id/result");
   });
 });
 

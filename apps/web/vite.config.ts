@@ -161,10 +161,20 @@ function tunnelServerOptions() {
  *
  * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
  */
-const RELEASE = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
+const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
+
+/**
+ * `vite-env.d.ts`가 `__DEPLOY_ENV__`를 세 값의 union으로 선언하므로 여기서 그 계약을 지킨다.
+ * `process.env.VERCEL_ENV`를 검증 없이 통과시키면 타입 선언과 실제가 어긋난다.
+ */
+const DEPLOY_ENVS = ["production", "preview", "development"];
+const rawDeployEnv = process.env.VERCEL_ENV;
+const DEPLOY_ENV =
+  rawDeployEnv !== undefined && DEPLOY_ENVS.includes(rawDeployEnv) ? rawDeployEnv : "development";
 
 const deployDefines = {
-  __DEPLOY_ENV__: JSON.stringify(process.env.VERCEL_ENV ?? "development"),
+  __DEPLOY_ENV__: JSON.stringify(DEPLOY_ENV),
   __RELEASE__: JSON.stringify(RELEASE),
 };
 
@@ -196,14 +206,24 @@ const deployDefines = {
  */
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_AUTH_TOKEN;
 
+/**
+ * 커밋 SHA가 없으면 업로드하지 않는다. 로컬에서 토큰을 export한 채 빌드하면 release가
+ * `"local"`이 되는데, 그 이름으로 올리면 **다른 사람의 로컬 빌드가 서로 덮어쓴다.**
+ */
+const UPLOAD_SOURCEMAPS = Boolean(SENTRY_AUTH_TOKEN) && COMMIT_SHA !== undefined;
+
 function sentrySourcemaps() {
   return sentryVitePlugin({
-    disable: SENTRY_AUTH_TOKEN === undefined || SENTRY_AUTH_TOKEN === "",
+    disable: !UPLOAD_SOURCEMAPS,
     org: "breathless-youth",
     project: "focusmakers-web",
     authToken: SENTRY_AUTH_TOKEN,
     release: { name: RELEASE },
-    sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.js.map"] },
+    sourcemaps: {
+      // CWD 상대 경로로 두면 빌드를 어디서 부르느냐에 따라 **조용히 안 지워진다.**
+      // 지금은 어느 경로로 불러도 맞지만, 남는 순간 소스맵이 공개 배포되므로 고정한다.
+      filesToDeleteAfterUpload: [path.resolve(__dirname, "dist/**/*.js.map")],
+    },
     telemetry: false,
   });
 }
@@ -212,8 +232,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), requireMediapipeWasm(), sentrySourcemaps()],
   define: deployDefines,
   build: {
-    // 토큰이 없으면 업로드도 없으므로 소스맵을 만들지 않는다(공개 배포 방지).
-    sourcemap: SENTRY_AUTH_TOKEN ? "hidden" : false,
+    // 업로드하지 않을 빌드에서는 소스맵을 아예 만들지 않는다(공개 배포 방지).
+    sourcemap: UPLOAD_SOURCEMAPS ? "hidden" : false,
   },
   resolve: {
     alias: {
