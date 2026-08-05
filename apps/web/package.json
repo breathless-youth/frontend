@@ -29,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@focusmakers/config": "workspace:*",
+    "@sentry/vite-plugin": "^5.4.0",
     "@tailwindcss/vite": "^4.1.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
