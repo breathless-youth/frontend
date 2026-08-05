@@ -148,8 +148,26 @@ function tunnelServerOptions() {
   };
 }
 
+/**
+ * 배포 식별자를 빌드 타임에 박아 넣는다.
+ *
+ * `import.meta.env.MODE`는 `vite build`면 Preview든 Production이든 `"production"`이라
+ * Sentry에서 두 배포가 한 통에 섞인다. Vercel이 자동으로 넣어주는 시스템 변수를 쓰면
+ * **Vercel env를 새로 설정하지 않고도** 구분된다.
+ *
+ * - `VERCEL_ENV` — `production` | `preview` | `development`
+ * - `VERCEL_GIT_COMMIT_SHA` — 배포 커밋
+ *
+ * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
+ */
+const deployDefines = {
+  __DEPLOY_ENV__: JSON.stringify(process.env.VERCEL_ENV ?? "development"),
+  __RELEASE__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local"),
+};
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), requireMediapipeWasm()],
+  define: deployDefines,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
