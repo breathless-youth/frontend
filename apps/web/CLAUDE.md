@@ -27,6 +27,17 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 - **DSN은 `VITE_SENTRY_DSN` 환경변수로만 주입한다** — 미설정이면 초기화 자체를 건너뛰므로 로컬 개발·테스트·CI는 DSN 없이 그대로 돈다. 배포 환경(Vercel)의 env에 설정한다. DSN을 코드에 하드코딩하지 말 것.
 - **Session Replay를 추가하지 말 것** — 카메라 프리뷰가 뜨는 세션 화면을 녹화 수집하는 것은 위 개인정보 원칙과 충돌한다. 라우팅 트레이스(`reactRouterV7BrowserTracingIntegration`, 표본 0.2)와 에러 수집만 쓴다.
 - React 렌더 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)으로 잡는다 — 별도 ErrorBoundary UI를 두지 않았다.
+- **`beforeSend`·`beforeBreadcrumb`의 스크러빙을 제거하지 말 것.** 웹뷰는 모든 탭을 `?userId=N`으로 열기 때문에(네이티브 셸 계약) 기본 설정이면 익명 기기 계정 ID가 Sentry로 나간다. `sendDefaultPii: false`는 쿠키·IP만 막고 쿼리스트링은 건드리지 않는다. GA4와 같은 화이트리스트(`sanitizePagePath`)를 재사용하므로 **분석용 쿼리를 추가할 때 `ALLOWED_SEARCH_PARAMS` 한 곳만 고치면 양쪽에 반영된다.**
+- **`environment`는 `import.meta.env.MODE`를 쓰지 않는다.** `vite build`면 Preview든 Production이든 `"production"`이라 두 배포가 한 통에 섞인다. `vite.config.ts`의 `define`이 Vercel 시스템 변수를 주입한다 — `__DEPLOY_ENV__`(`VERCEL_ENV`) · `__RELEASE__`(커밋 SHA 7자리). Vercel env를 새로 설정할 필요가 없는 값들이다.
+
+### 소스맵 업로드
+
+`vite.config.ts`의 `sentryVitePlugin`이 빌드 때 올린다. **`SENTRY_AUTH_TOKEN`이 있을 때만 켜진다** — 로컬·CI 빌드는 토큰이 없어 통째로 비활성이고 산출물도 같다.
+
+- 토큰은 Sentry **조직** Auth Token(`project:releases` 스코프)이고 Vercel env에 `SENTRY_AUTH_TOKEN`으로 넣는다. **`VITE_` 접두사를 붙이지 말 것** — 붙이면 클라이언트 번들에 문자열로 박혀 토큰이 공개된다.
+- 업로드 쪽 release 이름은 클라이언트의 `__RELEASE__`와 **같은 상수**를 쓴다. 어긋나면 업로드는 성공하는데 스택트레이스는 압축된 채로 남는, 원인을 찾기 어려운 실패가 된다.
+- `sourcemap: "hidden"` + `filesToDeleteAfterUpload`로 `.map`을 배포물에서 지운다. 공개 사이트라 소스맵이 남으면 전체 소스가 노출된다. 토큰이 없을 때는 아예 생성하지 않는다.
+- ⚠️ **토큰이 틀려도 빌드는 실패하지 않는다**(401을 로그로만 남기고 계속 진행). 즉 조용히 소스맵 없는 배포가 나간다. 토큰을 바꾼 뒤에는 Sentry의 **Settings → focusmakers-web → Source Maps**에서 실제로 올라갔는지 확인할 것.
 
 ## 사용 분석 (GA4)
 

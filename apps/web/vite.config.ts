@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
@@ -160,14 +161,60 @@ function tunnelServerOptions() {
  *
  * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
  */
+const RELEASE = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+
 const deployDefines = {
   __DEPLOY_ENV__: JSON.stringify(process.env.VERCEL_ENV ?? "development"),
-  __RELEASE__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local"),
+  __RELEASE__: JSON.stringify(RELEASE),
 };
 
+/**
+ * 소스맵 업로드 — **`SENTRY_AUTH_TOKEN`이 있을 때만 켜진다.**
+ *
+ * ## 왜 필요한가
+ *
+ * 프로덕션 번들은 압축돼 있어 스택트레이스가 `N4`·`sx` 같은 이름만 남는다. 소스맵을
+ * 올려두지 않으면 Sentry에 에러가 쌓여도 **어디서 났는지 읽을 수가 없다.**
+ *
+ * ## 왜 토큰 유무로 껐다 켜는가
+ *
+ * 로컬·CI 빌드에는 토큰이 없다. 그때 플러그인이 살아 있으면 업로드를 시도했다가 실패해
+ * 빌드가 깨진다. `disable`로 통째로 비활성화하면 산출물은 동일하고 업로드만 빠진다.
+ *
+ * ## 소스맵을 공개 배포하지 않는다
+ *
+ * `sourcemap: "hidden"`은 `.map`을 만들되 번들에 `//# sourceMappingURL` 주석을 남기지
+ * 않는다(Sentry는 debug ID로 대조하므로 주석이 필요 없다). 업로드가 끝나면
+ * `filesToDeleteAfterUpload`가 `.map`을 지운다 — 공개 사이트라 **소스맵이 그대로 배포되면
+ * 전체 소스가 노출된다.** 토큰이 없어 업로드를 건너뛸 때는 아예 소스맵을 만들지 않는다.
+ *
+ * ## release 이름은 클라이언트와 반드시 같아야 한다
+ *
+ * 클라이언트는 `__RELEASE__`(커밋 SHA 7자리)로 이벤트를 태깅한다. 업로드 쪽 release 이름이
+ * 다르면 **소스맵이 이벤트에 붙지 않는다** — 업로드는 성공하는데 스택트레이스는 그대로
+ * 압축된 채로 보이는, 원인을 찾기 어려운 실패가 된다. 그래서 같은 `RELEASE` 상수를 쓴다.
+ */
+const SENTRY_AUTH_TOKEN = process.env.SENTRY_AUTH_TOKEN;
+
+function sentrySourcemaps() {
+  return sentryVitePlugin({
+    disable: SENTRY_AUTH_TOKEN === undefined || SENTRY_AUTH_TOKEN === "",
+    org: "breathless-youth",
+    project: "focusmakers-web",
+    authToken: SENTRY_AUTH_TOKEN,
+    release: { name: RELEASE },
+    sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.js.map"] },
+    telemetry: false,
+  });
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), requireMediapipeWasm()],
+  plugins: [react(), tailwindcss(), requireMediapipeWasm(), sentrySourcemaps()],
   define: deployDefines,
+  build: {
+    // 토큰이 없으면 업로드도 없으므로 소스맵을 만들지 않는다(공개 배포 방지).
+    sourcemap: SENTRY_AUTH_TOKEN ? "hidden" : false,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
