@@ -4,8 +4,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { hardNavigate } from "@/lib/hardNavigation";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
+
+// jsdom은 실제 내비게이션을 구현하지 않아 `window.location.assign`을 직접 검증할 수 없다 —
+// 하드 내비게이션은 이 모듈 단위로 모킹한다(`lib/hardNavigation.ts` 주석).
+vi.mock("@/lib/hardNavigation", () => ({
+  hardNavigate: vi.fn(),
+  hardReplace: vi.fn(),
+}));
 
 /**
  * S6 · 설정 화면 웹 이식 테스트 — RN 원본 `apps/mobile/__tests__/settings.test.tsx`를
@@ -43,6 +51,8 @@ function renderSettingsWithGuideStub(path: string) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  // 모듈 모킹된 hardNavigation 호출 기록이 테스트 간 새지 않게 한다.
+  vi.clearAllMocks();
 });
 
 describe("S6 · 설정", () => {
@@ -84,12 +94,20 @@ describe("S6 · 설정", () => {
     );
   });
 
-  it("문의하기 행은 /contact 로 이동한다", () => {
+  it("문의하기 행은 /contact 를 문서 단위(하드) 내비게이션으로 연다 — SPA로 가면 설정 문서의 COEP를 승계해 구글 폼 iframe이 차단된다", () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "문의하기" }));
 
-    expect(screen.getByTitle("문의하기")).toBeInTheDocument();
+    expect(hardNavigate).toHaveBeenCalledWith("/contact");
+  });
+
+  it("문의하기도 기존 쿼리(userId·appVersion)를 잃지 않고 승계한다 — 딥링크 폴백이 쿼리를 되돌려줘야 한다", () => {
+    renderAt("/settings?userId=7&appVersion=1.4.2");
+
+    fireEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(hardNavigate).toHaveBeenCalledWith("/contact?userId=7&appVersion=1.4.2");
   });
 
   it("이용약관 행은 /terms 로 이동한다", () => {
