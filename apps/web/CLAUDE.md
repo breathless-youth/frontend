@@ -45,6 +45,11 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 - ⚠️ **`turbo.json`의 `build.env`에서 `SENTRY_AUTH_TOKEN`을 빼지 말 것.** turbo 2는 strict 모드라 선언하지 않은 환경변수를 태스크에 넘기지 않는다. `VITE_*`(Vite 프레임워크 추론)와 `VERCEL_*`(시스템 허용목록)은 자동 통과하지만 이 토큰은 아니라서, 선언이 없으면 Vercel env에 등록해도 빌드가 못 보고 **소스맵 업로드가 조용히 꺼진다**(2026-08-05에 실제로 겪음 — `release`는 주입되는데 소스맵만 안 올라가 원인을 찾기 어려웠다).
 - ⚠️ **토큰이 틀려도 빌드는 실패하지 않는다**(401을 로그로만 남기고 계속 진행). 즉 조용히 소스맵 없는 배포가 나간다. 토큰을 바꾼 뒤에는 Sentry의 **Settings → focusmakers-web → Source Maps**에서 실제로 올라갔는지 확인할 것.
 
+## 네이티브 브리지 (`lib/bridge.ts`)
+
+- **`postToNative`의 `try/catch`를 제거하지 말 것.** 존재 검사(`typeof postMessage === "function"`)를 통과해도 호출이 던질 수 있다 — iOS의 `ReactNativeWebView.postMessage`는 껍데기고 그 안이 매번 `window.webkit.messageHandlers`를 다시 찾는데, 웹뷰가 파괴되는 중이면 껍데기만 남고 그게 사라진다. 2026-08-05 실기기(iOS 18.7)에서 세션 모달 종료 시와 `set-tab-bar` 전송 시 실제로 발생했다(Sentry `FOCUSMAKERS-WEB-1`·`-2`).
+- 응답이 필요한 `submit-session`은 이 실패를 타임아웃으로 감지한다(`features/study-session/bridge/submitViaNative.ts`) — 삼켜도 조용히 유실되지 않는다.
+
 ## 사용 분석 (GA4)
 
 `src/lib/analytics.ts`에서 gtag.js를 초기화한다(`main.tsx`가 렌더 전에 호출).
