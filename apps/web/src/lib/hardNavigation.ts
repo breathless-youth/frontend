@@ -7,7 +7,7 @@
  * CORP 헤더가 없는 구글 폼(docs.google.com)을 iframe으로 임베드해야 해서 `vercel.json`이
  * COEP(`require-corp`)를 빼고 내려주는데, 설정(`require-corp` 문서)에서 SPA로 들어가면 그
  * 예외가 적용될 기회가 없어 iframe이 네트워크 레벨에서 차단된다 — 앱 웹뷰에서 문의 폼이
- * 로딩 화면에 영영 멈춰 있던 원인(2026-08-07 iOS 시뮬레이터 WebKit 로그
+ * 로딩 화면에 영영 멈춰 있던 원인(2026-08-06 iOS 시뮬레이터 WebKit 로그
  * `NetworkLoadChecker::validateResponse … isAccessControl=1`로 확인. 브라우저로 `/contact`를
  * 직접 열면 문서 요청이라 예외가 걸려 재현되지 않는다).
  *
