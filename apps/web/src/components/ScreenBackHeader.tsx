@@ -14,9 +14,17 @@ type ScreenBackHeaderProps = {
    * 같은 제목이 두 번 읽히면 스크린리더에서 중복된다.
    */
   title?: string;
+  /**
+   * 뒤로 가기 동작 재정의. 기본 동작(`history.state.idx` 검사 + SPA `navigate`)은 SPA로
+   * 진입한 라우트 전제라, **문서 단위 내비게이션으로 진입하는 라우트(`/contact`)는 자기
+   * 규칙을 넘겨야 한다** — 하드 내비게이션 직후에는 BrowserRouter가 새 문서에 `idx: 0`을
+   * 심어 기본 동작이 항상 딥링크로 오판하고, SPA 폴백 이동은 그 문서의 헤더 정책(COEP
+   * 없음)을 다음 라우트까지 승계시킨다(`ContactPage` 주석 참고).
+   */
+  onBack?: () => void;
 };
 
-export function ScreenBackHeader({ title }: ScreenBackHeaderProps) {
+export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -29,6 +37,10 @@ export function ScreenBackHeader({ title }: ScreenBackHeaderProps) {
       <button
         type="button"
         onClick={() => {
+          if (onBack) {
+            onBack();
+            return;
+          }
           const historyState = window.history.state as { idx?: number } | null;
           if (historyState?.idx) {
             navigate(-1);

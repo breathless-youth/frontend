@@ -24,6 +24,10 @@ import { isFullScreenPath } from "@/lib/nativeTabBar";
  *
  * 뒤로 가기(idx 감소)·딥링크/새로고침 직행(첫 렌더)은 건드리지 않는다 —
  * `settingsSubPages.test.tsx`의 딥링크 폴백 시나리오는 그대로 동작한다.
+ *
+ * ※ 문의(`/contact`)는 문서 단위 내비게이션으로 바뀌어(COEP 예외) 이 가드가 잡지 못한다 —
+ * 문서 경계를 넘는 포워드는 same-document POP으로 오지 않는다. 수용한 트레이드오프이며
+ * 근거는 `routes/ContactPage.tsx` 머리 주석 참고.
  */
 
 type NavigationType = "POP" | "PUSH" | "REPLACE";
