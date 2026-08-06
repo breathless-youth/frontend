@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@amplitude/analytics-browser": "^2.45.5",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
     "@mediapipe/tasks-vision": "^1.0.0",
