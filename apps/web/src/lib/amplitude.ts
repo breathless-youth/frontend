@@ -26,6 +26,10 @@ export function initAmplitude() {
   // init보다 먼저 등록해야 세션 시작부터 리플레이가 붙는다.
   add(
     sessionReplayPlugin({
+      // 실제 수집률은 콘솔(Settings → Session Replay)의 sample_rate가 결정한다 — 리플레이
+      // SDK는 아래 analytics의 fetchRemoteConfig: false와 무관하게 자체 원격 설정을 가져와
+      // 이 값을 덮어쓴다. 여기 1은 콘솔에 설정이 없을 때의 폴백일 뿐이다(2026-08-07 진단:
+      // 콘솔 기본 1%가 로컬 100%를 덮어써 수집이 안 됐다).
       sampleRate: 1,
       privacyConfig: { blockSelector: ["video", ".amp-block"] },
     }),
