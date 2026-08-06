@@ -27,11 +27,20 @@ describe("appVersionLabel", () => {
 
 describe("CONTACT_FORM_URL", () => {
   it("확정된 문의 폼 주소를 갖는다 (BY-257)", () => {
-    expect(CONTACT_FORM_URL).toBe("https://forms.gle/8vW5Wwd1dc9DXsdL9");
+    expect(CONTACT_FORM_URL).toBe(
+      "https://docs.google.com/forms/d/e/1FAIpQLSfje2_COocyehdAQSuoVAojQ-SVLXB6yCP4vMxjs3RYCC8C-w/viewform?usp=send_form",
+    );
   });
 
   it("WebView가 로드할 수 있는 https 주소다", () => {
     expect(CONTACT_FORM_URL.startsWith("https://")).toBe(true);
+  });
+
+  // forms.gle 단축 링크는 리다이렉트에 Cross-Origin-Resource-Policy: same-site를 실어
+  // 보내 크로스사이트 iframe 임베드가 네트워크 레벨에서 차단된다(2026-08-06 Android 실기기
+  // net::ERR_BLOCKED_BY_RESPONSE 확인) — 회귀 방지.
+  it("forms.gle 단축 링크를 거치지 않는다 (CORP 차단 회귀 방지)", () => {
+    expect(CONTACT_FORM_URL).not.toContain("forms.gle");
   });
 });
 
