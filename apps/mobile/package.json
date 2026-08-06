@@ -6,6 +6,7 @@
     "@expo/metro-runtime": "~6.1.2",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
+    "@sentry/react-native": "~7.2.0",
     "@tanstack/react-query": "^5.101.4",
     "expo": "~54.0.36",
     "expo-camera": "~17.0.10",
