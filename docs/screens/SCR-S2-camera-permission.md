@@ -239,7 +239,7 @@ export function openAppSettings(): Promise<void>;
 
 ## Implementation Notes For AI Agents
 
-1. 착수 전 이 문서와 `frontend/docs/screen-ownership.md`, `apps/mobile/CLAUDE.md`, `apps/mobile/AGENTS.md`(Expo 버전 문서 확인 지시)를 읽는다.
+1. 착수 전 이 문서와 `frontend/docs/screen-ownership.md`, `apps/mobile/CLAUDE.md`를 읽는다.
 2. Figma 노드 `52:312`를 `get_design_context`로 재확인한다(호출 전 `figma:figma-design-to-code` 스킬 선행 필수). `52:139`는 **읽기만 하고 구현하지 않는다.**
 3. **S2-2 작업 = `apps/mobile/app.json` 한 줄 교체.** `ios.infoPlist.NSCameraUsageDescription`을 위 Content 표의 확정 문자열로 바꾼다. 그 외 `app.json` 키는 건드리지 않는다 — 특히 `expo.name`/`expo.slug`는 **바꾸지 말고** Review Checklist로 올린다(앱 표시명 변경은 이 화면 범위를 넘는 결정이고 `slug` 변경은 EAS 프로젝트에 영향).
 4. **마이크 권한을 추가하지 않는다**(`apps/mobile/CLAUDE.md` — 멀티룸 음성 송출 없음). `android.permissions`도 그대로 둔다.
