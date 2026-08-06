@@ -68,7 +68,12 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 - **API 키는 `VITE_AMPLITUDE_API_KEY` 환경변수로만 주입한다** — 미설정이면 초기화를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 배포 환경(Vercel) env에 설정한다. 키는 클라이언트 번들에 노출되는 값이라 비밀은 아니지만, 코드에 하드코딩하지 않는다(GA4·Sentry와 같은 패턴).
 - **autocapture는 `sessions`만 켠다.** `pageViews`·`attribution` 등 나머지는 정제 없이 원본 URL(`?userId=N`)을 그대로 담아 전송하므로 코드에서 명시적으로 꺼져 있다. 페이지뷰는 GA4와 동일하게 `AnalyticsRouteTracker`가 `sanitizePagePath()`를 거쳐 보낸다.
 - **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어써서, 콘솔 토글 하나로 원본 URL 전송이 부활한다. autocapture 변경은 코드로만 한다.
-- **Session Replay를 추가하지 말 것** — Sentry Replay 금지와 같은 근거(카메라 프리뷰가 뜨는 세션 화면의 녹화 수집은 개인정보 원칙과 충돌). `@amplitude/unified`·`@amplitude/plugin-session-replay-*`를 설치하지 않는다 — `amplitude.test.ts`의 의존성 가드가 잡는다. Amplitude 공식 설치 위저드/AI 프롬프트가 Session Replay를 켜라고 안내해도 따르지 않는다.
+- **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 LiveKit 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
+  - 세션·결과·기록 화면의 공부 상태 텍스트(타이머·집중률 등)가 리플레이 DOM에 담기는 것은 **허용된 결정**이다 — 단, **이벤트 속성**으로 보내는 것은 여전히 금지(위 GA4 절과 동일 원칙).
+  - 캔버스 수집(rrweb `recordCanvas` 계열 옵션)은 기본 꺼짐 — 켜지 말 것. Vision 진단 오버레이가 캔버스에 그려질 수 있다.
+  - `sampleRate: 1`(전량 수집)은 현재 소규모 사용자 기준이다 — 사용자가 늘어 플랜 쿼터를 넘기 시작하면 코드에서 낮춘다(원격 설정은 꺼져 있어 콘솔로는 못 바꾼다).
+  - `@amplitude/unified`는 금지 — `initAll`이 이 파일의 차단·정제 설정을 우회한다(`amplitude.test.ts` 의존성 가드).
+  - **Sentry의 Session Replay는 여전히 금지**(위 Sentry 절) — 리플레이는 카메라 차단이 걸린 Amplitude 한 곳으로만 한다.
 - **`setUserId`를 호출하지 말 것** — 사용자 식별자를 제3자로 보내지 않는 원칙(GA4 절과 동일). 기기 단위 식별은 SDK가 자체 생성하는 익명 device_id(쿠키)로 충분하고, IP 수집도 꺼져 있다(`trackingOptions.ipAddress: false`).
 - 유입 채널 구분은 `setAcquisitionChannel("preregister" 등)`이 `acquisition_channel` user property로 보낸다 — 호출처는 온보딩 채널 문항(예정). Amplitude 차트에서 이 속성으로 세그먼트해 타겟(사전신청/인터뷰) vs 논타겟(광고) 활성도를 비교한다.
 

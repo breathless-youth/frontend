@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.45.5",
+    "@amplitude/plugin-session-replay-browser": "^1.33.7",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
     "@mediapipe/tasks-vision": "^1.0.0",

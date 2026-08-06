@@ -11,14 +11,26 @@ const mocks = vi.hoisted(() => {
       return this;
     }
   }
-  return { init: vi.fn(), track: vi.fn(), identify: vi.fn(), FakeIdentify };
+  return {
+    init: vi.fn(),
+    track: vi.fn(),
+    identify: vi.fn(),
+    add: vi.fn(),
+    sessionReplayPlugin: vi.fn((options: unknown) => ({ name: "session-replay", options })),
+    FakeIdentify,
+  };
 });
 
 vi.mock("@amplitude/analytics-browser", () => ({
   init: mocks.init,
   track: mocks.track,
   identify: mocks.identify,
+  add: mocks.add,
   Identify: mocks.FakeIdentify,
+}));
+
+vi.mock("@amplitude/plugin-session-replay-browser", () => ({
+  sessionReplayPlugin: mocks.sessionReplayPlugin,
 }));
 
 // 모듈이 initialized 플래그를 들고 있어 테스트마다 새로 로드한다.
@@ -37,11 +49,14 @@ afterEach(() => {
 
 describe("initAmplitude", () => {
   it("API 키가 없으면 아무것도 하지 않는다", async () => {
+    // 개발자 로컬 .env.local에 실제 키가 있어도 이 테스트가 흔들리면 안 된다 — 빈 값으로 고정.
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "");
     const { initAmplitude } = await loadModule();
 
     initAmplitude();
 
     expect(mocks.init).not.toHaveBeenCalled();
+    expect(mocks.add).not.toHaveBeenCalled();
   });
 
   it("중복 호출해도 한 번만 초기화한다", async () => {
@@ -72,6 +87,25 @@ describe("initAmplitude", () => {
     });
     expect(options.trackingOptions).toEqual({ ipAddress: false });
     expect(options.remoteConfig).toEqual({ fetchRemoteConfig: false });
+  });
+
+  it("Session Replay를 카메라(video) 차단 설정으로 init 전에 등록한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+
+    // video 차단이 빠지면 세션 화면의 카메라 프리뷰가 리플레이에 실린다(개인정보 원칙).
+    expect(mocks.sessionReplayPlugin).toHaveBeenCalledWith({
+      sampleRate: 1,
+      privacyConfig: { blockSelector: ["video", ".amp-block"] },
+    });
+    const [plugin] = mocks.add.mock.calls[0] as [{ name: string }];
+    expect(plugin.name).toBe("session-replay");
+    // init 이후 등록하면 세션 첫 구간이 리플레이에서 빠진다.
+    expect(mocks.add.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.init.mock.invocationCallOrder[0],
+    );
   });
 });
 
@@ -121,15 +155,15 @@ describe("setAcquisitionChannel", () => {
   });
 });
 
-describe("Session Replay 금지 가드", () => {
-  it("Replay 계열 패키지를 의존성에 두지 않는다 — 카메라 프리뷰 화면 녹화 금지(CLAUDE.md)", () => {
+describe("Amplitude 의존성 가드", () => {
+  it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
     const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
     const banned = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter(
-      (name) => name.includes("session-replay") || name === "@amplitude/unified",
+      (name) => name === "@amplitude/unified",
     );
 
     expect(banned).toEqual([]);

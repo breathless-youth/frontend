@@ -1,4 +1,5 @@
-import { Identify, identify, init, track } from "@amplitude/analytics-browser";
+import { add, Identify, identify, init, track } from "@amplitude/analytics-browser";
+import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
 import { sanitizePagePath } from "./sanitizePath";
 
@@ -12,14 +13,23 @@ let initialized = false;
  * 원본 URL(네이티브 셸 계약 `?userId=N`)을 그대로 담아 전송하므로 전부 명시적으로
  * 끄고, 페이지뷰는 GA4와 동일하게 `AnalyticsRouteTracker`가 정제된 경로로 보낸다.
  *
- * Session Replay는 붙이지 않는다 — 카메라 프리뷰가 뜨는 세션 화면 녹화는 개인정보
- * 원칙과 충돌한다(Sentry Replay 금지와 같은 근거, CLAUDE.md).
+ * Session Replay는 카메라 영상 요소만 차단하고 수집한다(2026-08-07 결정, CLAUDE.md) —
+ * `video` 전체를 blockSelector로 막아 현재 프리뷰뿐 아니라 이후 멀티룸(LiveKit) 참가자
+ * 영상도 자동으로 차단된다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되므로 단말
+ * 밖으로 나가지 않는다.
  */
 export function initAmplitude() {
   const apiKey = import.meta.env.VITE_AMPLITUDE_API_KEY;
   if (!apiKey || initialized) return;
   initialized = true;
 
+  // init보다 먼저 등록해야 세션 시작부터 리플레이가 붙는다.
+  add(
+    sessionReplayPlugin({
+      sampleRate: 1,
+      privacyConfig: { blockSelector: ["video", ".amp-block"] },
+    }),
+  );
   init(apiKey, {
     autocapture: {
       sessions: true,
