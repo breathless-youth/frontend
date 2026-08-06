@@ -38,12 +38,26 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
   return (await res.json()) as UserRegisterResponse;
 }
 
+let ongoingRegistration: Promise<number | null> | null = null;
+
 /**
  * 익명 기기 유저 등록을 보장한다. 이미 등록돼 있으면 저장된 userId를 반환하고,
  * 아니면 기기 UUID로 등록 후 저장한다. 실패해도 throw 하지 않고 null을
  * 반환한다 — 다음 앱 실행 때 재시도 (등록 API는 멱등이라 안전, 스펙 참고).
+ *
+ * 진행 중인 프라미스를 공유한다 — `RootLayout` 부팅 호출과 화면의
+ * `useRemoteQueryParams` 마운트가 겹치는 신규 설치 첫 실행에서, 공유하지 않으면
+ * `getOrCreateDeviceId()`의 SecureStore 읽기가 둘 다 "아직 없음"으로 겹쳐 서로 다른
+ * UUID 두 개가 각각 새 유저로 등록되는 레이스 컨디션이 있었다.
  */
-export async function ensureUserRegistered(): Promise<number | null> {
+export function ensureUserRegistered(): Promise<number | null> {
+  ongoingRegistration ??= registerOnce().finally(() => {
+    ongoingRegistration = null;
+  });
+  return ongoingRegistration;
+}
+
+async function registerOnce(): Promise<number | null> {
   try {
     const stored = await SecureStore.getItemAsync(USER_ID_KEY);
     if (stored) {

@@ -76,4 +76,31 @@ describe("ensureUserRegistered", () => {
 
     await expect(ensureUserRegistered()).resolves.toBeNull();
   });
+
+  it("동시에 여러 번 호출해도 등록 요청은 한 번만 나간다 (레이스 컨디션 방지)", async () => {
+    mockedGet.mockResolvedValue(null);
+    mockedFetch.mockResolvedValue(jsonResponse(201, { userId: 7, isNew: true }));
+
+    const [first, second, third] = await Promise.all([
+      ensureUserRegistered(),
+      ensureUserRegistered(),
+      ensureUserRegistered(),
+    ]);
+
+    expect(first).toBe(7);
+    expect(second).toBe(7);
+    expect(third).toBe(7);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("이전 호출이 끝난 뒤에는 다시 독립적으로 호출한다", async () => {
+    mockedGet.mockResolvedValue(null);
+    mockedFetch.mockResolvedValue(jsonResponse(201, { userId: 7, isNew: true }));
+
+    await ensureUserRegistered();
+    mockedGet.mockResolvedValue("7");
+    await ensureUserRegistered();
+
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
 });
