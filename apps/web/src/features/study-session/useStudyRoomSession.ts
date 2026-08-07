@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
+import * as Sentry from "@sentry/react";
+
 import {
   trackStudySessionEnded,
   trackStudySessionStarted,
   trackStudySessionSubmitted,
 } from "@/lib/amplitude";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reportHandled } from "@/lib/sentry";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
@@ -152,6 +155,21 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   useEffect(() => {
     trackStudySessionStarted();
+  }, []);
+
+  /**
+   * 에러 이벤트에 "세션의 어느 단계였나"를 싣는다(BY-372). setPhase 호출부마다 심지 않고
+   * phase.name 변화를 여기서 한 번에 관측한다 — 전환 지점이 늘어도 이 코드는 안 바뀐다.
+   * DSN 미설정이면 둘 다 no-op. 값은 phase명(enum)뿐 — 개인정보 없음.
+   */
+  useEffect(() => {
+    Sentry.setTag("session_phase", phase.name);
+    Sentry.addBreadcrumb({ category: "session", message: `phase → ${phase.name}`, level: "info" });
+  }, [phase.name]);
+
+  // 웹뷰인지 브라우저 단독인지 — 브리지 관련 에러 분류의 핵심 축. 마운트 1회.
+  useEffect(() => {
+    Sentry.setTag("bridge", isNativeBridgeAvailable() ? "webview" : "browser");
   }, []);
 
   useEffect(() => {
