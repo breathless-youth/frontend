@@ -9,7 +9,8 @@ import { reportHandled } from "@/lib/sentry";
  * 검증하는데, 여기의 `vi.mock`이 파일 단위로 걸리면 그 테스트들이 mock을 보게 된다.
  */
 vi.mock("@sentry/react", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@sentry/react")>()),
+  // `typeof Sentry`는 타입 위치 참조라 컴파일 시 지워진다 — vi.mock 호이스팅 제약과 무관.
+  ...(await importOriginal<typeof Sentry>()),
   captureException: vi.fn(),
 }));
 

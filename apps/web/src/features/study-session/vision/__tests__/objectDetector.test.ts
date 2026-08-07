@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as sentryLib from "@/lib/sentry";
 import { reportHandled } from "@/lib/sentry";
 
 import type {
@@ -18,7 +19,8 @@ import {
 
 // 실패 경로가 Sentry로 가는지(BY-372)를 검증한다 — partial mock이라 다른 export는 실제 그대로.
 vi.mock("@/lib/sentry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/sentry")>()),
+  // 타입 전용 네임스페이스 참조라 컴파일 시 지워진다 — vi.mock 호이스팅 제약과 무관.
+  ...(await importOriginal<typeof sentryLib>()),
   reportHandled: vi.fn(),
 }));
 
