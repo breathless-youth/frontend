@@ -7,6 +7,7 @@ import {
   trackStudySessionStarted,
   trackStudySessionSubmitted,
 } from "@/lib/amplitude";
+import { reportHandled } from "@/lib/sentry";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
@@ -336,6 +337,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         setPhase({ name: "done", sessions });
       } catch (error) {
         trackStudySessionSubmitted(false, attempt);
+        // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
+        reportHandled(error, "session-submit");
         setPhase({
           name: "error",
           message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
