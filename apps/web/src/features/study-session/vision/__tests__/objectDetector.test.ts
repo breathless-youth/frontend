@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { reportHandled } from "@/lib/sentry";
+
 import type {
   DetectorCreateOptions,
   MediapipeDetectorHandle,
@@ -13,6 +15,12 @@ import {
   MEDIAPIPE_WASM_PATH,
   MODEL_PATHS,
 } from "../visionConfig";
+
+// 실패 경로가 Sentry로 가는지(BY-372)를 검증한다 — partial mock이라 다른 export는 실제 그대로.
+vi.mock("@/lib/sentry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/sentry")>()),
+  reportHandled: vi.fn(),
+}));
 
 /**
  * MediaPipe는 이 저장소에서 **`objectDetector.ts` 하나에만** 닿는다(설계 §3 워커 이전 여지).
@@ -107,6 +115,8 @@ describe("createObjectDetector — 로딩", () => {
     expect(createDetector).toHaveBeenCalledTimes(2);
     expect(createDetector.mock.calls[0]?.[0]).toMatchObject({ delegate: "GPU" });
     expect(createDetector.mock.calls[1]?.[0]).toMatchObject({ delegate: "CPU" });
+    // GPU 실패는 delegate 접미사 태그로 Sentry에 남는다(BY-372).
+    expect(reportHandled).toHaveBeenCalledWith(expect.any(Error), "vision-detector-create-gpu");
   });
 
   it("전부 실패해도 던지지 않고 unavailable로 남는다 — 1회 재시도 뒤", async () => {
@@ -133,6 +143,8 @@ describe("createObjectDetector — 로딩", () => {
 
     await expect(detector.load()).resolves.toBe("unavailable");
     expect(loadRuntime).toHaveBeenCalledTimes(2); // 최초 + 재시도 1회
+    // 세션 통째로 감지 없이 가는 실패 — Sentry에 남는다(BY-372).
+    expect(reportHandled).toHaveBeenCalledWith(expect.any(Error), "vision-runtime-load");
   });
 
   it("재시도에서 성공하면 ready가 된다", async () => {
@@ -329,6 +341,11 @@ describe("createObjectDetector — 추론", () => {
 
     expect(detector.state).toBe("unavailable");
     expect(handle.close).toHaveBeenCalled();
+    // 포기 시점에 **1회만** Sentry 전송 — 프레임마다 보내면 한 세션이 수백 건을 만든다(BY-372).
+    const frameLoopReports = vi
+      .mocked(reportHandled)
+      .mock.calls.filter(([, tag]) => tag === "vision-frame-loop");
+    expect(frameLoopReports).toHaveLength(1);
   });
 });
 
