@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   /** GA4 측정 ID(G-XXXXXXXXXX). 미설정 시 GA4는 초기화되지 않는다(로컬 개발·테스트). */
   readonly VITE_GA4_MEASUREMENT_ID?: string;
+  /** Amplitude API 키. 미설정 시 Amplitude는 초기화되지 않는다(로컬 개발·테스트). */
+  readonly VITE_AMPLITUDE_API_KEY?: string;
 }
 
 interface ImportMeta {
