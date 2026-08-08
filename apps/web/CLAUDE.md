@@ -68,10 +68,14 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 **⚠️ 2026-08-08 결정으로 Amplitude만 수집 범위가 넓어졌다** — 서버 DB의 `user_id` 연결, 클릭·폼 autocapture, UTM attribution, IP(지역) 수집, 공부 도메인 지표를 켰다. **GA4·Sentry의 "식별자 금지" 원칙은 그대로다** — 넓힌 것은 Amplitude 한 곳뿐이니 이 절의 규칙을 GA4·Sentry로 옮겨 쓰지 말 것.
 
 - **API 키는 `VITE_AMPLITUDE_API_KEY` 환경변수로만 주입한다** — 미설정이면 초기화를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 배포 환경(Vercel) env에 설정한다. 키는 클라이언트 번들에 노출되는 값이라 비밀은 아니지만, 코드에 하드코딩하지 않는다(GA4·Sentry와 같은 패턴).
-- **autocapture는 `pageViews`만 끈다.** 페이지뷰는 `AnalyticsRouteTracker`가 `sanitizePagePath()`를 거쳐 직접 보내므로, 켜면 **이중 집계**가 된다. 나머지(`sessions`·`attribution`·`elementInteractions`·`formInteractions`·`fileDownloads`)는 켜져 있다.
-- **URL 정제는 `sanitizeUrlPlugin`(enrichment)이 전송 직전에 일괄로 한다** — autocapture와 SDK 기본 플러그인이 담는 URL은 우리 코드를 거치지 않기 때문이다. `add()`로 **`init()`보다 먼저** 등록해야 세션 시작 이벤트부터 걸린다.
-  - ⚠️ **`pageUrlEnrichment`는 `autocapture`에서 명시적으로 `false`로 두지 않는 한 켜져 있다**(기본값 true). 이 플러그인은 속성이 비어 있는 이벤트(`Start Session` 등)에 `location.href`를 **원본 그대로** 채워 넣는다 — 정제 플러그인을 지우면 `?userId=N`이 세션 이벤트에 그대로 실린다. 2026-08-08 이전 코드에 실제로 있던 누락이다.
-  - 정제 대상은 `URL_EVENT_PROPERTIES` **명시 목록**이다. 키 이름 규칙(`~URL`·`~Path`)으로 자동 판별하지 말 것 — autocapture의 `[Amplitude] Element Path`는 URL이 아니라 DOM 경로(`div > button.foo`)라서 정제하면 망가진다. 새 URL 속성이 생기면 목록에 추가한다.
+- **autocapture는 `pageViews`를 끄고, `attribution`은 `userProperty` 모드로, `pageUrlEnrichment`는 `false`로 둔다.** 나머지(`sessions`·`elementInteractions`·`formInteractions`·`fileDownloads`)는 켜져 있다.
+- **URL 정제는 `sanitizeUrlPlugin`(enrichment)이 전송 직전에 일괄로 한다** — autocapture가 담는 URL은 우리 코드를 거치지 않기 때문이다. `add()`로 **`init()`보다 먼저** 등록해야 세션 시작 이벤트부터 걸린다.
+  - ⚠️ **이 플러그인은 enrichment 중 가장 먼저 실행된다. 즉 뒤에 실행되는 플러그인이 덧붙이는 값은 정제하지 못한다.** `init()` 전에 `add()`한 플러그인은 대기열(`q`)이 init 초반에 비워지며 `timeline.plugins` 맨 앞에 들어가고, SDK 내부 플러그인은 그 뒤에 등록되기 때문이다. **"init보다 먼저 등록했으니 다 걸린다"는 직관은 틀렸다** — 2026-08-09 리뷰에서 실제로 이 착각으로 정제가 통째로 우회되고 있었다.
+  - 그래서 **뒤에서 URL을 주입하는 두 경로를 설정으로 막는다. 이 둘과 플러그인은 한 세트이고, 하나만 되돌리면 조용히 누수가 부활한다.**
+    - `pageUrlEnrichment: false` — 생략하면 기본값이 `true`다. 속성이 비어 있는 이벤트(`session_start` 등)에 `location.href`를 **원본 그대로** 채워 넣는다.
+    - `attribution: { trackingMethod: "userProperty" }` — 기본값은 `["userProperty","eventProperty"]`이고, `eventProperty` 모드는 **모든 이벤트에 `referrer`를 덧붙이는 enrichment**다. `userProperty` 모드는 Identify 이벤트를 만들어 보내므로 우리 플러그인이 정제할 수 있다. UTM·referrer는 user property로 남아 유입 분석에는 차이가 없다.
+  - 정제 대상은 `URL_EVENT_PROPERTIES`·`URL_USER_PROPERTIES` **명시 목록**이다. 키 이름 규칙(`~URL`·`~Path`)으로 자동 판별하지 말 것 — autocapture의 `[Amplitude] Element Path`는 URL이 아니라 DOM 경로(`div > button.foo`)라서 정제하면 망가진다. Identify 이벤트는 값이 `$set`/`$setOnce` 아래 한 겹 더 들어간다.
+  - **검증은 `amplitudePipeline.test.ts`가 한다** — SDK를 mock하지 않고 실제로 돌려 **fetch로 나가는 body**를 본다. mock 기반 `amplitude.test.ts`는 "우리가 무엇을 호출했는가"만 보므로 위 실행 순서 문제를 **잡지 못했다**. 수집 설정을 바꾸면 반드시 파이프라인 테스트로 확인할 것.
   - 신원은 `setUserId`라는 제 자리로만 보낸다. URL 문자열에 식별자가 섞이면 **같은 화면이 사용자 수만큼 다른 값으로 쪼개져** 차트에서 묶이지 않는다 — 정제는 개인정보 이유가 사라진 뒤에도 데이터 품질 이유로 유지된다.
 - **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어쓴다. 수집 범위 변경이 코드 리뷰를 우회하게 되므로 계속 막는다. autocapture 변경은 코드로만 한다.
 - **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 LiveKit 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
@@ -83,7 +87,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 - **user_id 연결(2026-08-08 결정)** — `setAmplitudeUserId()`가 서버 `user_id`를 Amplitude `user_id`로 넣는다. 값은 네이티브 셸이 모든 탭에 붙여 주는 `?userId=N`을 `parseUserId()`로 검증한 것이다.
   - ℹ️ **이 값은 계정 식별자가 아니라 익명 기기 식별자의 서버 핸들이다** — 네이티브가 `Crypto.randomUUID()`로 만든 기기 UUID(`apps/mobile/lib/deviceId.ts`)를 등록하면 서버가 1:1로 돌려주는 번호이고, 실명·이메일·전화번호와 연결되지 않는다. 개인정보처리방침 「1. 수집하는 정보」의 **기기 식별자** 항목이 이미 고지하고 있는 값이라 별도 고지 항목을 만들 필요가 없다. Amplitude 자체 device_id 대신 이걸 쓰는 이유는 **백엔드 집계와 같은 키로 묶기 위해서**다.
   - **서버 값 그대로 보낸다 — 해시하거나 접두어를 붙이지 말 것.** 그러면 백엔드 집계와 조인되지 않아 연결하는 의미가 없어진다.
-  - 호출처는 `AnalyticsRouteTracker` **한 곳뿐**이다. 셸이 모든 탭에 쿼리를 붙이므로 라우트 변경이 가장 이른 공통 지점이고, 화면마다 흩어 놓으면 한 화면만 빠뜨렸을 때 그 화면 이벤트가 조용히 익명으로 남는다. **페이지뷰 전송보다 먼저 호출해야 한다** — 순서가 바뀌면 진입 직후 첫 페이지뷰가 익명 device_id로 잡힌다.
+  - 호출처는 **두 곳뿐**이고 역할이 다르다. ① `initAmplitude()` 말미 — 최초 URL에서 읽어 **첫 이벤트 전에** 신원을 붙인다(여기가 없으면 세션 시작 이벤트가 익명으로 나간다). ② `AnalyticsRouteTracker` — 라우트가 바뀔 때마다 갱신하며, **페이지뷰 전송보다 먼저** 호출해야 한다(순서가 바뀌면 진입 직후 첫 페이지뷰가 익명 device_id로 잡힌다). 화면마다 흩어 놓지 말 것 — 한 화면만 빠뜨리면 그 화면 이벤트가 조용히 익명으로 남는다.
   - `userId`가 `null`(브라우저 직접 접근)이면 **이미 붙은 신원을 지우지 않는다**. 같은 기기에서 사용자가 바뀌는 경로가 아직 없어, `setUserId(undefined)`는 정상 사용 중 신원만 끊을 위험이 더 크다. 로그인/계정 전환이 생기면 이 판단을 다시 볼 것.
   - **GA4·Sentry에는 여전히 보내지 않는다** — 식별자 연결은 Amplitude 한 곳으로만 한다.
 - **IP 수집(`trackingOptions.ipAddress: true`, 2026-08-08 결정)** — 지역·국가 지표용. 개인정보처리방침의 위탁·국외이전 항목이 이 설정과 맞아야 한다(아래 문서 동기화 주의).

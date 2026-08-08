@@ -93,14 +93,18 @@ describe("initAmplitude", () => {
 
     const [apiKey, options] = mocks.init.mock.calls[0] as [string, Record<string, unknown>];
     expect(apiKey).toBe("test-key");
-    // pageViews만 false — 켜면 AnalyticsRouteTracker의 정제된 페이지뷰와 이중 집계된다.
+    // pageViews: 켜면 AnalyticsRouteTracker의 정제된 페이지뷰와 이중 집계된다.
+    // attribution의 eventProperty 모드와 pageUrlEnrichment는 우리 정제 플러그인보다 **뒤에**
+    // 실행되면서 원본 URL을 덧붙여 정제를 우회한다 — 실제 payload 검증은
+    // `amplitudePipeline.test.ts`가 한다.
     expect(options.autocapture).toEqual({
       sessions: true,
       pageViews: false,
-      attribution: true,
+      attribution: { trackingMethod: "userProperty", excludeInternalReferrers: true },
       formInteractions: true,
       fileDownloads: true,
       elementInteractions: true,
+      pageUrlEnrichment: false,
     });
     expect(options.trackingOptions).toEqual({ ipAddress: true });
     // 콘솔 토글로 수집 범위가 바뀌면 코드 리뷰를 우회한다 — 계속 막는다.
@@ -171,6 +175,27 @@ describe("URL 정제 플러그인", () => {
       "[Amplitude] Page URL": `${origin}/room/:id`,
       "[Amplitude] Page Path": "/room/:id",
       "[Amplitude] Element Href": `${origin}/records`,
+    });
+  });
+
+  it("attribution이 담는 referrer를 user property 안에서도 정제한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+    initAmplitude();
+
+    const origin = window.location.origin;
+    const event = {
+      user_properties: {
+        $set: { referrer: `${origin}/home?userId=7`, referring_domain: "focusmakers.kr" },
+        $setOnce: { initial_referrer: `${origin}/room/42?userId=7` },
+      },
+    };
+
+    await sanitizePlugin().execute(event);
+
+    expect(event.user_properties).toEqual({
+      $set: { referrer: `${origin}/home`, referring_domain: "focusmakers.kr" },
+      $setOnce: { initial_referrer: `${origin}/room/:id` },
     });
   });
 

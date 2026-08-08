@@ -25,6 +25,8 @@ let currentUserId: string | null = null;
  * - `Page URL` — SDK가 `split("?")[0]`로 쿼리는 이미 뗐지만 `/room/42` 같은 숫자 id가 남는다.
  * - `Page Path` — pathname. 위와 같은 이유로 `:id` 템플릿화가 필요하다.
  * - `Element Href` — 클릭한 앵커의 href.
+ * - `referrer`·`initial_referrer` — attribution이 담는 `document.referrer`. 웹뷰가 우리 페이지
+ *   사이를 전체 네비게이션으로 이동하면 `?userId=N`이 그대로 들어온다.
  */
 const URL_EVENT_PROPERTIES = [
   "[Amplitude] Page Location",
@@ -32,19 +34,37 @@ const URL_EVENT_PROPERTIES = [
   "[Amplitude] Page URL",
   "[Amplitude] Page Path",
   "[Amplitude] Element Href",
+  "referrer",
+  "initial_referrer",
 ];
+
+/** user property로 나가는 URL 값. `$set`/`$setOnce` 안에도 같은 키로 들어온다. */
+const URL_USER_PROPERTIES = ["referrer", "initial_referrer"];
+
+function sanitizeBag(bag: unknown, keys: readonly string[]) {
+  if (typeof bag !== "object" || bag === null) return;
+  const record = bag as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value !== "") {
+      record[key] = sanitizeUrl(value);
+    }
+  }
+}
 
 /**
  * 모든 전송 이벤트의 URL 속성을 `sanitizeUrl`로 정제하는 enrichment 플러그인.
  *
- * **autocapture와 SDK 기본 플러그인이 담는 URL은 우리 코드를 거치지 않는다.** 특히
- * `pageUrlEnrichment`는 `autocapture`에서 명시적으로 끄지 않는 한 켜져 있고(기본값 true),
- * 속성이 비어 있는 이벤트(예: `Start Session`)에 `location.href`를 **원본 그대로** 채워 넣는다.
- * 즉 이 플러그인이 없으면 세션 이벤트에 `?userId=N`이 실린다.
+ * **autocapture가 담는 URL은 우리 코드를 거치지 않는다** — 클릭 이벤트의 `Page URL`·`Element Href`
+ * 등이 그렇다. 이들은 이벤트가 만들어지는 시점에 이미 붙어 있으므로 이 플러그인이 정제할 수 있다.
  *
- * user_id는 이제 `setUserId`라는 **제 자리**로 보내므로(2026-08-08 결정), URL 문자열에까지
- * 식별자가 섞이면 같은 화면이 사용자 수만큼 다른 값으로 쪼개져 차트에서 묶이지 않는다.
- * 정제는 그래서 계속 유지한다 — 개인정보 이유가 아니라 데이터 품질 이유로도 필요하다.
+ * ⚠️ **이 플러그인은 enrichment 중 가장 먼저 실행된다** — `add()`를 `init()`보다 먼저 부르면
+ * 대기열(`q`)이 `init` 초반에 비워지면서 `timeline.plugins`의 맨 앞에 들어가고, SDK 내부
+ * 플러그인은 그 뒤에 등록되기 때문이다. 즉 **우리 뒤에 실행되는 플러그인이 덧붙이는 값은 정제할 수
+ * 없다.** 그래서 뒤에서 URL을 주입하는 두 경로를 `init` 설정에서 아예 꺼 둔다
+ * (`pageUrlEnrichment: false`, attribution의 `eventProperty` 모드 제외 — 아래 `initAmplitude` 참고).
+ * **그 두 설정과 이 플러그인은 한 세트다. 하나만 되돌리지 말 것** —
+ * `amplitudePipeline.test.ts`가 실제 SDK의 전송 payload로 이 조합을 검증한다.
  */
 function sanitizeUrlPlugin(): Types.EnrichmentPlugin {
   return {
@@ -53,16 +73,14 @@ function sanitizeUrlPlugin(): Types.EnrichmentPlugin {
     // 동기 처리지만 플러그인 계약이 Promise 반환을 요구한다.
     execute: async (event) => {
       // SDK 타입은 매출 이벤트까지 포함한 유니온이라 문자열 키로 못 읽는다. 우리가 만지는 것은
-      // 아래 목록의 키뿐이고 값 타입도 확인하므로 레코드로 좁혀서 다룬다.
-      const properties = event.event_properties as Record<string, unknown> | undefined;
-      if (!properties) {
-        return event;
-      }
-      for (const key of URL_EVENT_PROPERTIES) {
-        const value = properties[key];
-        if (typeof value === "string" && value !== "") {
-          properties[key] = sanitizeUrl(value);
-        }
+      // 위 목록의 키뿐이고 값 타입도 확인하므로 레코드로 좁혀서 다룬다.
+      sanitizeBag(event.event_properties, URL_EVENT_PROPERTIES);
+      const user = event.user_properties as Record<string, unknown> | undefined;
+      if (user) {
+        sanitizeBag(user, URL_USER_PROPERTIES);
+        // Identify 이벤트는 값이 연산자 아래에 한 겹 더 들어간다.
+        sanitizeBag(user.$set, URL_USER_PROPERTIES);
+        sanitizeBag(user.$setOnce, URL_USER_PROPERTIES);
       }
       return event;
     },
@@ -104,10 +122,23 @@ export function initAmplitude() {
       sessions: true,
       // 정제된 경로로 AnalyticsRouteTracker가 직접 보낸다 — 켜면 이중 집계.
       pageViews: false,
-      attribution: true,
+      // ⚠️ `true`(기본)로 되돌리지 말 것. 기본 `trackingMethod`는 `["userProperty","eventProperty"]`인데
+      // `eventProperty` 모드는 **모든 이벤트에 `referrer`를 덧붙이는 enrichment**이고, 그 실행이
+      // `sanitizeUrlPlugin`보다 뒤라 정제를 통과한다(웹뷰 전체 네비게이션이면 `?userId=N`이 실린다).
+      // `userProperty` 모드는 Identify 이벤트를 만들어 보내므로 우리 플러그인이 정제할 수 있다.
+      // UTM·referrer는 user property로 그대로 남아 유입 분석에는 차이가 없다.
+      // `excludeInternalReferrers`는 userProperty 모드에만 적용된다 — 같은 도메인 referrer는
+      // 유입 분석에 의미도 없으니 아예 뺀다.
+      attribution: { trackingMethod: "userProperty", excludeInternalReferrers: true },
       formInteractions: true,
       fileDownloads: true,
       elementInteractions: true,
+      // ⚠️ **명시적으로 꺼야 한다** — 생략하면 기본값이 `true`다. 이 플러그인은 속성이 비어 있는
+      // 이벤트(`session_start` 등)에 `location.href`를 **원본 그대로** 채워 넣는데, 실행 순서가
+      // `sanitizeUrlPlugin`보다 뒤라 정제를 통과한다. 끄면 자동 페이지 컨텍스트를 잃지만,
+      // 분석에 쓰는 페이지 정보는 `trackAmplitudePageView`가 정제된 값으로 보내고 클릭 이벤트는
+      // autocapture가 생성 시점에 자체적으로 담는다(그건 정제된다).
+      pageUrlEnrichment: false,
     },
     // 지역·국가 지표를 위해 IP를 수집한다(2026-08-08 결정). IP는 Amplitude가 지역 판별에
     // 쓰고 보관하므로, 개인정보처리방침의 위탁·국외이전 항목이 이 설정과 맞아야 한다.

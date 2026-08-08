@@ -302,14 +302,16 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 제출 성공/실패는 아래 `study_session_submitted`가 시도마다 따로 기록한다.
       if (!endTrackedRef.current) {
         endTrackedRef.current = true;
-        const reason = endReasonRef.current;
+        // 인자 `reason`이 아니라 **최초로 확정된** 사유를 쓴다 — 재시도가 사유를 바꾸지 않듯
+        // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
+        const finalReason = endReasonRef.current;
         trackStudySessionEnded({
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
           pauseSec: finalTotals.pauseSec,
           distractionSec: finalTotals.distractionSec,
-          endReason: reason?.kind ?? "MANUAL",
-          pauseTrigger: reason?.kind === "AUTO" ? reason.trigger : null,
+          endReason: finalReason?.kind ?? "MANUAL",
+          pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
         });
       }
