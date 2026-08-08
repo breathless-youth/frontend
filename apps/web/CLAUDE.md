@@ -63,19 +63,41 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ### Amplitude
 
-`src/lib/amplitude.ts`에서 초기화한다(`main.tsx`가 렌더 전에 호출). 실시간 사용자·리텐션 코호트·유입 채널(타겟/논타겟) 비교 용도로 GA4와 병행한다. 전송 원칙(정제·식별자 금지)은 GA4와 동일하다.
+`src/lib/amplitude.ts`에서 초기화한다(`main.tsx`가 렌더 전에 호출). 실시간 사용자·리텐션 코호트·유입 채널(타겟/논타겟) 비교 용도로 GA4와 병행한다.
+
+**⚠️ 2026-08-08 결정으로 Amplitude만 수집 범위가 넓어졌다** — 서버 DB의 `user_id` 연결, 클릭·폼 autocapture, UTM attribution, IP(지역) 수집, 공부 도메인 지표를 켰다. **GA4·Sentry의 "식별자 금지" 원칙은 그대로다** — 넓힌 것은 Amplitude 한 곳뿐이니 이 절의 규칙을 GA4·Sentry로 옮겨 쓰지 말 것.
 
 - **API 키는 `VITE_AMPLITUDE_API_KEY` 환경변수로만 주입한다** — 미설정이면 초기화를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 배포 환경(Vercel) env에 설정한다. 키는 클라이언트 번들에 노출되는 값이라 비밀은 아니지만, 코드에 하드코딩하지 않는다(GA4·Sentry와 같은 패턴).
-- **autocapture는 `sessions`만 켠다.** `pageViews`·`attribution` 등 나머지는 정제 없이 원본 URL(`?userId=N`)을 그대로 담아 전송하므로 코드에서 명시적으로 꺼져 있다. 페이지뷰는 GA4와 동일하게 `AnalyticsRouteTracker`가 `sanitizePagePath()`를 거쳐 보낸다.
-- **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어써서, 콘솔 토글 하나로 원본 URL 전송이 부활한다. autocapture 변경은 코드로만 한다.
+- **autocapture는 `pageViews`를 끄고, `attribution`은 `userProperty` 모드로, `pageUrlEnrichment`는 `false`로 둔다.** 나머지(`sessions`·`elementInteractions`·`formInteractions`·`fileDownloads`)는 켜져 있다.
+- **URL 정제는 `sanitizeUrlPlugin`(enrichment)이 전송 직전에 일괄로 한다** — autocapture가 담는 URL은 우리 코드를 거치지 않기 때문이다. `add()`로 **`init()`보다 먼저** 등록해야 세션 시작 이벤트부터 걸린다.
+  - ⚠️ **이 플러그인은 enrichment 중 가장 먼저 실행된다. 즉 뒤에 실행되는 플러그인이 덧붙이는 값은 정제하지 못한다.** `init()` 전에 `add()`한 플러그인은 대기열(`q`)이 init 초반에 비워지며 `timeline.plugins` 맨 앞에 들어가고, SDK 내부 플러그인은 그 뒤에 등록되기 때문이다. **"init보다 먼저 등록했으니 다 걸린다"는 직관은 틀렸다** — 2026-08-09 리뷰에서 실제로 이 착각으로 정제가 통째로 우회되고 있었다.
+  - 그래서 **뒤에서 URL을 주입하는 두 경로를 설정으로 막는다. 이 둘과 플러그인은 한 세트이고, 하나만 되돌리면 조용히 누수가 부활한다.**
+    - `pageUrlEnrichment: false` — 생략하면 기본값이 `true`다. 속성이 비어 있는 이벤트(`session_start` 등)에 `location.href`를 **원본 그대로** 채워 넣는다.
+    - `attribution: { trackingMethod: "userProperty" }` — 기본값은 `["userProperty","eventProperty"]`이고, `eventProperty` 모드는 **모든 이벤트에 `referrer`를 덧붙이는 enrichment**다. `userProperty` 모드는 Identify 이벤트를 만들어 보내므로 우리 플러그인이 정제할 수 있다. UTM·referrer는 user property로 남아 유입 분석에는 차이가 없다.
+  - 정제 대상은 `URL_EVENT_PROPERTIES`·`URL_USER_PROPERTIES` **명시 목록**이다. 키 이름 규칙(`~URL`·`~Path`)으로 자동 판별하지 말 것 — autocapture의 `[Amplitude] Element Path`는 URL이 아니라 DOM 경로(`div > button.foo`)라서 정제하면 망가진다. Identify 이벤트는 값이 `$set`/`$setOnce` 아래 한 겹 더 들어간다.
+  - **검증은 `amplitudePipeline.test.ts`가 한다** — SDK를 mock하지 않고 실제로 돌려 **fetch로 나가는 body**를 본다. mock 기반 `amplitude.test.ts`는 "우리가 무엇을 호출했는가"만 보므로 위 실행 순서 문제를 **잡지 못했다**. 수집 설정을 바꾸면 반드시 파이프라인 테스트로 확인할 것.
+  - 신원은 `setUserId`라는 제 자리로만 보낸다. URL 문자열에 식별자가 섞이면 **같은 화면이 사용자 수만큼 다른 값으로 쪼개져** 차트에서 묶이지 않는다 — 정제는 개인정보 이유가 사라진 뒤에도 데이터 품질 이유로 유지된다.
+- **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어쓴다. 수집 범위 변경이 코드 리뷰를 우회하게 되므로 계속 막는다. autocapture 변경은 코드로만 한다.
 - **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 LiveKit 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
-  - 세션·결과·기록 화면의 공부 상태 텍스트(타이머·집중률 등)가 리플레이 DOM에 담기는 것은 **허용된 결정**이다 — 단, **이벤트 속성**으로 보내는 것은 여전히 금지(위 GA4 절과 동일 원칙).
+  - 세션·결과·기록 화면의 공부 상태 텍스트(타이머·집중률 등)가 리플레이 DOM에 담기는 것은 **허용된 결정**이다. 2026-08-08부터는 이벤트 속성으로 보내는 것도 허용된다(아래 "공부 도메인 지표") — **단 Amplitude 한정이고, GA4로 보내는 것은 여전히 금지**다.
   - 캔버스 수집(rrweb `recordCanvas` 계열 옵션)은 기본 꺼짐 — 켜지 말 것. Vision 진단 오버레이가 캔버스에 그려질 수 있다.
   - **리플레이 수집률은 콘솔이 결정한다** — 리플레이 SDK는 analytics의 `fetchRemoteConfig: false`와 **무관하게** 자체 원격 설정(`sr-client-cfg.amplitude.com`)을 가져오고, 콘솔(Settings → Session Replay)의 `sample_rate`가 코드의 `sampleRate: 1`을 덮어쓴다(코드 값은 콘솔 미설정 시 폴백). 2026-08-07 진단: 콘솔 기본값 1%가 로컬 100%를 덮어써 "데이터 미수신"이 났다 — 수집률 조정은 콘솔에서 한다. 원격 설정 fetch가 실패하면(광고 차단기 등) 리플레이는 수집을 멈춘다(fail-closed). 원격 privacy 설정은 로컬 `blockSelector`를 **제거하지 못하고 목록에 추가만 된다**(left-join) — 카메라 차단은 콘솔로 못 푼다.
   - `@amplitude/unified`는 금지 — `initAll`이 이 파일의 차단·정제 설정을 우회한다(`amplitude.test.ts` 의존성 가드).
   - **Sentry의 Session Replay는 여전히 금지**(위 Sentry 절) — 리플레이는 카메라 차단이 걸린 Amplitude 한 곳으로만 한다.
-- **`setUserId`를 호출하지 말 것** — 사용자 식별자를 제3자로 보내지 않는 원칙(GA4 절과 동일). 기기 단위 식별은 SDK가 자체 생성하는 익명 device_id(쿠키)로 충분하고, IP 수집도 꺼져 있다(`trackingOptions.ipAddress: false`).
-- 유입 채널 구분은 `setAcquisitionChannel("preregister" 등)`이 `acquisition_channel` user property로 보낸다 — 호출처는 온보딩 채널 문항(예정). Amplitude 차트에서 이 속성으로 세그먼트해 타겟(사전신청/인터뷰) vs 논타겟(광고) 활성도를 비교한다.
+- **user_id 연결(2026-08-08 결정)** — `setAmplitudeUserId()`가 서버 `user_id`를 Amplitude `user_id`로 넣는다. 값은 네이티브 셸이 모든 탭에 붙여 주는 `?userId=N`을 `parseUserId()`로 검증한 것이다.
+  - ℹ️ **이 값은 계정 식별자가 아니라 익명 기기 식별자의 서버 핸들이다** — 네이티브가 `Crypto.randomUUID()`로 만든 기기 UUID(`apps/mobile/lib/deviceId.ts`)를 등록하면 서버가 1:1로 돌려주는 번호이고, 실명·이메일·전화번호와 연결되지 않는다. 개인정보처리방침 「1. 수집하는 정보」의 **기기 식별자** 항목이 이미 고지하고 있는 값이라 별도 고지 항목을 만들 필요가 없다. Amplitude 자체 device_id 대신 이걸 쓰는 이유는 **백엔드 집계와 같은 키로 묶기 위해서**다.
+  - **서버 값 그대로 보낸다 — 해시하거나 접두어를 붙이지 말 것.** 그러면 백엔드 집계와 조인되지 않아 연결하는 의미가 없어진다.
+  - 호출처는 **두 곳뿐**이고 역할이 다르다. ① `initAmplitude()` 말미 — 최초 URL에서 읽어 **첫 이벤트 전에** 신원을 붙인다(여기가 없으면 세션 시작 이벤트가 익명으로 나간다). ② `AnalyticsRouteTracker` — 라우트가 바뀔 때마다 갱신하며, **페이지뷰 전송보다 먼저** 호출해야 한다(순서가 바뀌면 진입 직후 첫 페이지뷰가 익명 device_id로 잡힌다). 화면마다 흩어 놓지 말 것 — 한 화면만 빠뜨리면 그 화면 이벤트가 조용히 익명으로 남는다.
+  - `userId`가 `null`(브라우저 직접 접근)이면 **이미 붙은 신원을 지우지 않는다**. 같은 기기에서 사용자가 바뀌는 경로가 아직 없어, `setUserId(undefined)`는 정상 사용 중 신원만 끊을 위험이 더 크다. 로그인/계정 전환이 생기면 이 판단을 다시 볼 것.
+  - **GA4·Sentry에는 여전히 보내지 않는다** — 식별자 연결은 Amplitude 한 곳으로만 한다.
+- **IP 수집(`trackingOptions.ipAddress: true`, 2026-08-08 결정)** — 지역·국가 지표용. 개인정보처리방침의 위탁·국외이전 항목이 이 설정과 맞아야 한다(아래 문서 동기화 주의).
+- 유입 채널 구분은 두 경로다. autocapture `attribution`이 UTM·referrer를 자동으로 담고, `setAcquisitionChannel("preregister" 등)`이 `acquisition_channel` user property로 자기 신고 값을 담는다(호출처는 온보딩 채널 문항, 예정). **후자를 지우지 말 것** — 사전신청·인터뷰 참여자는 UTM 없이 들어오는 경우가 많아 자동 attribution만으로는 타겟/논타겟이 갈리지 않는다.
+- **공부 도메인 지표(2026-08-08 결정)** — `useStudyRoomSession`이 세션 라이프사이클 이벤트를 보낸다.
+  - `study_session_started` — 스터디룸 진입(별도 시작 버튼이 없다). 세션 완주율의 분모.
+  - `study_session_ended` — `study_sec`·`focus_sec`·`pause_sec`·`distraction_sec`·`focus_rate_percent`·`end_reason`(MANUAL/AUTO)·`pause_trigger`·`will_submit`. **세션당 정확히 한 번**(`endTrackedRef`) — 제출 재시도로 다시 보내면 완주율이 망가진다.
+  - `study_session_submitted` — `ok`·`attempt`. 이쪽은 **시도마다** 보낸다(재시도 횟수·실패율). 웹뷰 브리지 유실은 실기기에서 실제로 겪은 문제다(`lib/bridge.ts`).
+  - 집계 계산은 `sessionTimeline`이 소유한다. 분석 코드에서 재계산하지 말고 `computeSessionTotals` 결과를 그대로 넘긴다 — 집중률만 `lib/amplitude.ts`에서 `focusSec / studySec`으로 만든다(0초 세션은 0).
+- ⚠️ **개인정보처리방침의 위탁·국외이전 조항이 낡았다** — user_id 때문이 아니라(위 참고) **분석 도구를 쓴다는 사실 자체**가 빠져 있다. `PRIVACY_POLICY`의 「7. 처리 위탁」은 AWS 단독이고 「8. 국외 이전」은 "이전하지 않습니다"인데, Amplitude·GA4·Sentry(전부 미국)로 접속 IP와 이용 기록이 나간다. GA4·Sentry 도입 시점부터 있던 누락이고 이번 IP 수집으로 더 분명해졌다. 이 파일은 웹 원본(`pages-nextjs`)의 **사본**이라 원본 → 사본 순서로 고쳐야 한다. 초안·절차는 [docs/privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
 
 ## 명령
 
