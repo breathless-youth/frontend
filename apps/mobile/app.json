@@ -3,7 +3,7 @@
     "name": "FocusMakers",
     "slug": "mobile",
     "scheme": "focuson",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -14,9 +14,11 @@
         "NSMotionUsageDescription": "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
         "ITSAppUsesNonExemptEncryption": false
       },
+      "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile"
     },
     "android": {
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#fdd9bb",
         "foregroundImage": "./assets/android-icon-foreground.png",
