@@ -165,6 +165,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     Sentry.setTag("session_phase", phase.name);
     Sentry.addBreadcrumb({ category: "session", message: `phase → ${phase.name}`, level: "info" });
+    return () => {
+      // setTag는 전역 스코프에 남는다 — 언마운트 시 지우지 않으면 결과·홈 등 세션 밖
+      // 라우트의 에러에 마지막 phase가 그대로 실려 세션 에러처럼 보인다.
+      Sentry.setTag("session_phase", undefined);
+    };
   }, [phase.name]);
 
   // 웹뷰인지 브라우저 단독인지 — 브리지 관련 에러 분류의 핵심 축. 마운트 1회.
