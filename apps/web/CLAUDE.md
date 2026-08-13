@@ -26,12 +26,15 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 - **DSN은 `VITE_SENTRY_DSN` 환경변수로만 주입한다** — 미설정이면 초기화 자체를 건너뛰므로 로컬 개발·테스트·CI는 DSN 없이 그대로 돈다. 배포 환경(Vercel)의 env에 설정한다. DSN을 코드에 하드코딩하지 말 것.
 - **Session Replay를 추가하지 말 것** — 카메라 프리뷰가 뜨는 세션 화면을 녹화 수집하는 것은 위 개인정보 원칙과 충돌한다. 라우팅 트레이스(`reactRouterV7BrowserTracingIntegration`, 표본 0.2)와 에러 수집만 쓴다.
-- React 렌더 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)으로 잡는다 — 별도 ErrorBoundary UI를 두지 않았다.
+- React 렌더 에러는 두 겹으로 잡는다: 라우트 트리는 `Sentry.ErrorBoundary`(BY-372, 아래 항목)가 받아 폴백 UI를 보여주고, 바운더리 밖 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)이 잡는다.
 - **스크러빙 콜백 네 개를 모두 유지할 것** — `beforeSend`·`beforeSendTransaction`·`beforeSendSpan`·`beforeBreadcrumb`. 웹뷰는 모든 탭을 `?userId=N`으로 열기 때문에(네이티브 셸 계약) 기본 설정이면 익명 기기 계정 ID가 Sentry로 나간다. `sendDefaultPii: false`는 쿠키·IP만 막고 쿼리스트링은 건드리지 않는다.
   - ⚠️ **`beforeSend`는 에러 이벤트에서만 호출된다**(`@sentry/core`의 `client.js`가 `isErrorEvent(...) && beforeSend`로 분기). `tracesSampleRate`가 켜져 있는 한 트랜잭션 이벤트와 스팬으로도 같은 URL이 나가므로, 그 둘은 `beforeSendTransaction`·`beforeSendSpan`으로 따로 막아야 한다. **에러 경로만 막고 계약을 지켰다고 판단하지 말 것.**
   - 가장 직접적인 유출 지점은 fetch 스팬의 `http.query`다 — SDK가 원본 쿼리를 그대로 넣고, `statsApi.ts`가 `/api/stats?userId=N&date=...`으로 호출한다. 스팬 *이름*은 SDK가 정제하지만 *속성*은 안 한다.
   - 규칙은 `lib/sanitizePath.ts` 한 곳에 있고 GA4·Sentry가 함께 쓴다. **분석용 쿼리를 추가할 때 `ALLOWED_SEARCH_PARAMS` 한 곳만 고치면 양쪽에 반영된다.**
   - `sanitizeUrl`은 http(s)가 아닌 스킴(`blob:`·`data:`·`about:`)에서 **스킴만 남기고 버린다** — 그대로 정제하면 `origin`이 `"null"`이라 망가진 문자열이 나오고, `data:` URL은 본문을 통째로 담은 채 정제를 통과해버린다.
+- **처리된 실패는 `reportHandled(error, tag)`로 보낸다**(BY-372) — `console.warn`+`captureException`(warning 레벨, `handled_at` 태그)을 한 번에 한다. 핵심 기능이 죽거나 저하되는 실패(비전 측정 로드·카메라 획득·세션 제출, GPU 실패 후 CPU 폴백 같은 기능 저하 포함)에 쓰고, 다음 실행에서 복구되는 무해한 실패(온보딩 열람 기록·업데이트 공지)에는 쓰지 않는다 — 전부 보내면 잡음이 신호를 덮는다. warning 레벨도 새 이슈면 슬랙 알림이 간다(의도됨 — 시끄러우면 알림 규칙에 level 필터를 추가한다, 코드 아님).
+- 렌더 크래시는 라우트 레벨 `Sentry.ErrorBoundary`(`components/ErrorFallback.tsx`)가 받는다. **`onCaughtError`를 `sentryRootOptions`에 추가하지 말 것** — 바운더리가 이미 전송하므로 이중 전송이 된다(`errorBoundary.test.tsx`가 부재를 고정). `vi.mock("@sentry/react")`로 `captureException` 호출을 세는 테스트는 쓰지 말 것 — 공개 re-export mock은 SDK 내부 호출을 못 가로채 항상 0회로 보이는 가짜 단언이 된다.
+- 세션 에러의 분류 축은 태그 둘 — `session_phase`(phase명), `bridge`(webview/browser). `useStudyRoomSession`의 useEffect 하나가 관리한다. 태그 값은 enum/boolean만 — 자유 문자열·식별자 금지.
 - **`environment`는 `import.meta.env.MODE`를 쓰지 않는다.** `vite build`면 Preview든 Production이든 `"production"`이라 두 배포가 한 통에 섞인다. `vite.config.ts`의 `define`이 Vercel 시스템 변수를 주입한다 — `__DEPLOY_ENV__`(`VERCEL_ENV`) · `__RELEASE__`(커밋 SHA 7자리). Vercel env를 새로 설정할 필요가 없는 값들이다.
 
 ### 소스맵 업로드
