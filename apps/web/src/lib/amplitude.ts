@@ -118,6 +118,11 @@ export function initAmplitude() {
     }),
   );
   init(apiKey, {
+    // ⚠️ 서버 user_id는 1부터 시작하는 DB 순번이라 1~4자리가 대부분인데, Amplitude 인제스트는
+    // 기본적으로 5자 미만 id를 **이벤트에서 제거**하고 device_id로만 저장한다 — 이 옵션 없이는
+    // setUserId를 아무리 불러도 전원이 익명으로 남는다(2026-08-14 진단). 값을 바꾸거나 지우지
+    // 말 것 — 전송 payload의 `options.min_id_length`를 `amplitudePipeline.test.ts`가 검증한다.
+    minIdLength: 1,
     autocapture: {
       sessions: true,
       // 정제된 경로로 AnalyticsRouteTracker가 직접 보낸다 — 켜면 이중 집계.
