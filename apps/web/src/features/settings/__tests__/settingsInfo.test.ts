@@ -28,7 +28,7 @@ describe("appVersionLabel", () => {
 describe("CONTACT_FORM_URL", () => {
   it("확정된 문의 폼 주소를 갖는다 (BY-257)", () => {
     expect(CONTACT_FORM_URL).toBe(
-      "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform?usp=preview",
+      "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform",
     );
   });
 
