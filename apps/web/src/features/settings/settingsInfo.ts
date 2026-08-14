@@ -21,7 +21,7 @@
  * 거치지 않도록 처음부터 전체 주소를 쓴다.
  */
 export const CONTACT_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSfje2_COocyehdAQSuoVAojQ-SVLXB6yCP4vMxjs3RYCC8C-w/viewform?usp=send_form";
+  "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform";
 
 /**
  * 앱 버전을 읽지 못했을 때만 보이는 대체 표기.
