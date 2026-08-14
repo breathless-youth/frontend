@@ -27,7 +27,9 @@ describe("appVersionLabel", () => {
 
 describe("CONTACT_FORM_URL", () => {
   it("확정된 문의 폼 주소를 갖는다 (BY-257)", () => {
-    expect(CONTACT_FORM_URL).toBe("https://forms.gle/8vW5Wwd1dc9DXsdL9");
+    expect(CONTACT_FORM_URL).toBe(
+      "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform",
+    );
   });
 
   it("WebView가 로드할 수 있는 https 주소다", () => {
