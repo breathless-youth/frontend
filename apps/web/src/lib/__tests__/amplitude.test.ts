@@ -109,6 +109,9 @@ describe("initAmplitude", () => {
     expect(options.trackingOptions).toEqual({ ipAddress: true });
     // 콘솔 토글로 수집 범위가 바뀌면 코드 리뷰를 우회한다 — 계속 막는다.
     expect(options.remoteConfig).toEqual({ fetchRemoteConfig: false });
+    // 서버 user_id는 1~4자리 DB 순번 — 기본 최소 길이(5자)면 인제스트가 user_id를 제거해
+    // 전원이 익명으로 남는다. 실제 payload 검증은 `amplitudePipeline.test.ts`가 한다.
+    expect(options.minIdLength).toBe(1);
   });
 
   it("Session Replay를 카메라(video) 차단 설정으로 init 전에 등록한다", async () => {

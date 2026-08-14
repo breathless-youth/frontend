@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * 초기화는 파일당 한 번이고, 단언은 이 테스트 안에서 모두 한다.
  */
 
-const sent: { events: Record<string, unknown>[] }[] = [];
+const sent: { events: Record<string, unknown>[]; options?: { min_id_length?: number } }[] = [];
 
 beforeEach(() => {
   sent.length = 0;
@@ -99,5 +99,10 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
 
     // user_id는 URL이 아니라 제 자리(`user_id` 필드)로 나간다.
     expect(events.every((event) => event.user_id === "7")).toBe(true);
+
+    // "7"은 1자다 — 요청에 `min_id_length`를 싣지 않으면 Amplitude 인제스트가 기본 최소
+    // 길이(5자) 미달로 user_id를 제거해, 위 단언이 통과해도 콘솔에는 전원이 익명으로 남는다.
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((batch) => batch.options?.min_id_length === 1)).toBe(true);
   });
 });
