@@ -11,6 +11,7 @@ import {
 } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "@/features/home/icons";
+import { NoticePopupHost } from "@/features/home/NoticePopupHost";
 import { UpdateNoticeSheetHost } from "@/features/home/UpdateNoticeSheetHost";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
@@ -332,6 +333,8 @@ export function HomeTabPage() {
 
       {/* U1 업데이트 안내 시트 — 기본은 비노출이라 평소에는 아무것도 렌더하지 않는다. */}
       <UpdateNoticeSheetHost />
+      {/* U2 공지 팝업 (BY-377) — U1이 뜨는 방문에는 게이트가 알아서 비켜난다(U1 우선). */}
+      <NoticePopupHost />
     </main>
   );
 }

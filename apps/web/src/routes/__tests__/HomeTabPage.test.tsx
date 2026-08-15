@@ -43,6 +43,21 @@ vi.mock("react-router-dom", async (importOriginal) => {
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStreak = vi.mocked(getStreak);
 
+/**
+ * U2 공지 조회(BY-377)는 statsApi와 달리 모듈 mock 없이 전역 fetch를 탄다.
+ * 기본은 빈 목록 — 공지와 무관한 테스트에서 팝업이 홈 위를 덮지 않게 한다.
+ */
+const mockedFetch = vi.fn();
+globalThis.fetch = mockedFetch as unknown as typeof fetch;
+
+function jsonResponse(status: number, body: unknown) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  };
+}
+
 const statsResponse = {
   sessions: [],
   sessionCount: 1,
@@ -94,6 +109,7 @@ describe("HomeTabPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockedFetch.mockResolvedValue(jsonResponse(200, []));
   });
 
   it("성공 시 순공시간·집중률·스탯 카드를 보여준다", async () => {
@@ -136,6 +152,19 @@ describe("HomeTabPage", () => {
 
     await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
     expect(screen.queryByTestId("update-notice-sheet")).not.toBeInTheDocument();
+  });
+
+  it("활성 공지가 있으면 공지 팝업이 뜬다 — NoticePopupHost 마운트 (BY-377)", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, [{ id: 1, title: "새 기능이 나왔어요", content: "본문", imageUrl: null }]),
+    );
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId("notice-popup")).toBeInTheDocument());
+    expect(screen.getByText("새 기능이 나왔어요")).toBeInTheDocument();
   });
 
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
