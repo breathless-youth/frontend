@@ -1,0 +1,126 @@
+import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
+
+import { shouldShowUpdateNotice } from "./updateNotice";
+
+/**
+ * U2 공지 팝업의 **노출 게이트** (스펙: 2026-08-15-u2-notice-popup-design.md §4.2, BY-377).
+ *
+ * U1 `updateNotice.ts`와 같은 역할 분리 — 화면 컴포넌트(`NoticePopup`)는 순수 프레젠테이션으로
+ * 남기고, "이번 방문에 어떤 공지를 띄울 것인가"의 판정을 전부 여기 모은다.
+ *
+ * 정책(전부 사용자 승인 — 스펙 §2):
+ * - 한 방문에 1개만(최신) 표시. 나머지는 다음 방문에서 (결정 3)
+ * - X·확인은 이번 방문만 닫음 — 저장하지 않는다. "다시 보지 않기"만 영구 dismiss (결정 4)
+ * - dismiss 키는 `focuson.noticeDismissed.{id}` 개별 키 — U1 키 관례 연장 (결정 5)
+ * - 조회·저장 실패는 `console.warn`만, Sentry `reportHandled` 미사용 (결정 6)
+ * - U1이 뜨는 방문에는 U2를 띄우지 않는다 (결정 7)
+ *
+ * 게이트 전체가 fail-closed다: 확신할 수 없으면 띄우지 않는다. 영구 dismiss 여부를 못 읽는데
+ * 띄우면 "다시 보지 않기" 약속을 어기게 된다 — 안 띄우는 쪽의 최악은 다음 방문 재노출이다.
+ */
+
+/**
+ * `GET /api/notices/active` 응답 항목 (스펙 §3.3).
+ *
+ * BY-376 Swagger 확정 후 `@focusmakers/types`의 계약 타입으로 승격한다(레포 규칙: 상상 계약
+ * 금지 — 필드명은 스펙에 확정돼 있지만 패키지 계약은 실제 Swagger 기준으로만 만든다).
+ */
+export interface NoticeResponse {
+  id: number;
+  title: string;
+  content: string;
+  imageUrl: string | null;
+}
+
+/** 활성 공지 목록 조회. 서버가 `starts_at DESC`(최신순)로 정렬해 준다 — 클라이언트는 재정렬하지 않는다. */
+export async function fetchActiveNotices(): Promise<NoticeResponse[]> {
+  const res = await fetch(`${API_BASE_URL}/api/notices/active`, { method: "GET" });
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "공지 조회 실패");
+  }
+  return (await res.json()) as NoticeResponse[];
+}
+
+const dismissKey = (id: number) => `focuson.noticeDismissed.${id}`;
+const DISMISSED_VALUE = "1";
+
+/** "다시 보지 않기"의 영속 저장 — U1 `UpdateNoticeStore`와 같은 주입형 어댑터. */
+export interface NoticeDismissStore {
+  isDismissed(id: number): Promise<boolean>;
+  /** "다시 보지 않기"를 눌렀을 때 호출 — 멱등. */
+  markDismissed(id: number): Promise<void>;
+}
+
+export const localStorageNoticeDismissStore: NoticeDismissStore = {
+  isDismissed(id) {
+    // localStorage 접근은 throw할 수 있다(프라이버시 모드 등) — 게이트의 catch가 fail-closed로 받는다.
+    return Promise.resolve(localStorage.getItem(dismissKey(id)) === DISMISSED_VALUE);
+  },
+  markDismissed(id) {
+    localStorage.setItem(dismissKey(id), DISMISSED_VALUE);
+    return Promise.resolve();
+  },
+};
+
+/** 테스트용 인메모리 구현. 영속되지 않으므로 실제 앱에서는 쓰지 않는다. */
+export function createMemoryNoticeDismissStore(dismissedIds: number[] = []): NoticeDismissStore {
+  const dismissed = new Set(dismissedIds);
+  return {
+    isDismissed: (id) => Promise.resolve(dismissed.has(id)),
+    markDismissed: (id) => {
+      dismissed.add(id);
+      return Promise.resolve();
+    },
+  };
+}
+
+let store: NoticeDismissStore = localStorageNoticeDismissStore;
+
+/** 저장소 구현체를 교체한다(테스트용). */
+export function setNoticeDismissStore(next: NoticeDismissStore): void {
+  store = next;
+}
+
+/** 테스트 격리용 — 기본(localStorage) 구현으로 되돌린다. */
+export function resetNoticeDismissStore(): void {
+  store = localStorageNoticeDismissStore;
+}
+
+/**
+ * 이번 방문에 띄울 공지를 고른다: **활성 공지 중 dismiss 안 된 것 중 최신 1개**, 없으면 null.
+ *
+ * U1 게이트(`shouldShowUpdateNotice`)가 true인 방문에는 무조건 null이다(결정 7) — 모달 두 장이
+ * 겹치지 않는다. 절대 reject하지 않는다: 저장소 조회가 실패하면 fail-closed로 null이다.
+ */
+export async function selectNoticeToShow(
+  notices: NoticeResponse[],
+): Promise<NoticeResponse | null> {
+  if (await shouldShowUpdateNotice()) {
+    return null;
+  }
+  try {
+    for (const candidate of notices) {
+      if (!(await store.isDismissed(candidate.id))) {
+        return candidate;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn("[notice] dismiss 여부 조회 실패 — 노출하지 않는다", error);
+    return null;
+  }
+}
+
+/**
+ * "다시 보지 않기"를 기록한다 — 해당 공지는 이후 방문에서 다시 뜨지 않는다.
+ *
+ * 저장에 실패해도 reject하지 않는다. 팝업은 이미 닫힌 뒤이고, 최악의 경우가 "다음 방문에서
+ * 한 번 더 뜬다"에 그친다 — 홈 화면 동작을 막을 이유가 없다.
+ */
+export async function markNoticeDismissed(id: number): Promise<void> {
+  try {
+    await store.markDismissed(id);
+  } catch (error) {
+    console.warn("[notice] 다시 보지 않기 저장 실패 — 다음 방문에서 다시 뜰 수 있다", error);
+  }
+}
