@@ -1,18 +1,17 @@
 import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
 
 /**
- * U2 공지 팝업의 **노출 게이트** (스펙: 2026-08-15-u2-notice-popup-design.md §4.2, BY-377).
+ * U1 공지 팝업의 **노출 게이트** (스펙: 2026-08-15-u2-notice-popup-design.md §4.2, BY-377.
+ * U 번호 재지정: 공지 팝업이 U1이다 — 과거 U1 업데이트 안내 시트는 2026-08-16 삭제됐다).
  *
- * U1 `updateNotice.ts`와 같은 역할 분리 — 화면 컴포넌트(`NoticePopup`)는 순수 프레젠테이션으로
- * 남기고, "이번 방문에 어떤 공지를 띄울 것인가"의 판정을 전부 여기 모은다.
+ * 화면 컴포넌트(`NoticePopup`)는 순수 프레젠테이션으로 남기고, "이번 방문에 어떤 공지를
+ * 띄울 것인가"의 판정을 전부 여기 모은다.
  *
  * 정책(전부 사용자 승인 — 스펙 §2):
  * - 한 방문에 1개만(최신) 표시. 나머지는 다음 방문에서 (결정 3)
  * - X·확인은 이번 방문만 닫음 — 저장하지 않는다. "다시 보지 않기"만 영구 dismiss (결정 4)
- * - dismiss 키는 `focuson.noticeDismissed.{id}` 개별 키 — U1 키 관례 연장 (결정 5)
+ * - dismiss 키는 `focuson.noticeDismissed.{id}` 개별 키 — `focuson.*` 키 관례 (결정 5)
  * - 조회·저장 실패는 `console.warn`만, Sentry `reportHandled` 미사용 (결정 6)
- * - 노출 순서는 공지(U2) → U1 (결정 7, 2026-08-16 변경). 순서는 이 모듈이 아니라
- *   홈탭(`HomeTabPage`)이 U2 Host의 흐름 종료 통지로 조정한다
  *
  * 게이트 전체가 fail-closed다: 확신할 수 없으면 띄우지 않는다. 영구 dismiss 여부를 못 읽는데
  * 띄우면 "다시 보지 않기" 약속을 어기게 된다 — 안 띄우는 쪽의 최악은 다음 방문 재노출이다.
@@ -43,7 +42,7 @@ export async function fetchActiveNotices(): Promise<NoticeResponse[]> {
 const dismissKey = (id: number) => `focuson.noticeDismissed.${id}`;
 const DISMISSED_VALUE = "1";
 
-/** "다시 보지 않기"의 영속 저장 — U1 `UpdateNoticeStore`와 같은 주입형 어댑터. */
+/** "다시 보지 않기"의 영속 저장 — 온보딩 가이드 스토어와 같은 주입형 어댑터 관례. */
 export interface NoticeDismissStore {
   isDismissed(id: number): Promise<boolean>;
   /** "다시 보지 않기"를 눌렀을 때 호출 — 멱등. */

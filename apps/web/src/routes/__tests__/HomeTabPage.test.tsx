@@ -1,14 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createMemoryUpdateNoticeStore,
-  resetUpdateNoticeStore,
-  setUpdateNoticeStore,
-} from "@/features/home/updateNotice";
 import {
   createMemoryOnboardingGuideStore,
   resetOnboardingGuideStore,
@@ -49,7 +44,7 @@ const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStreak = vi.mocked(getStreak);
 
 /**
- * U2 공지 조회(BY-377)는 statsApi와 달리 모듈 mock 없이 전역 fetch를 탄다.
+ * U1 공지 조회(BY-377)는 statsApi와 달리 모듈 mock 없이 전역 fetch를 탄다.
  * 기본은 빈 목록 — 공지와 무관한 테스트에서 팝업이 홈 위를 덮지 않게 한다.
  */
 const mockedFetch = vi.fn();
@@ -147,59 +142,6 @@ describe("HomeTabPage", () => {
     renderHome();
 
     await waitFor(() => expect(screen.getByText("오늘 10분이면 시작돼요")).toBeInTheDocument());
-  });
-
-  it("업데이트 안내 시트는 기본 상태에서 렌더되지 않는다 (fail-closed 게이트)", async () => {
-    mockedStats.mockResolvedValue(statsResponse);
-    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-    expect(screen.queryByTestId("update-notice-sheet")).not.toBeInTheDocument();
-  });
-
-  describe("노출 순서 — 공지(U2) 먼저, 업데이트 안내(U1)는 그 뒤 (결정 7, 2026-08-16 변경)", () => {
-    beforeEach(() => {
-      vi.stubEnv("VITE_UPDATE_NOTICE_ENABLED", "true");
-      setUpdateNoticeStore(createMemoryUpdateNoticeStore(false));
-    });
-
-    afterEach(() => {
-      vi.unstubAllEnvs();
-      resetUpdateNoticeStore();
-    });
-
-    it("공지가 떠 있는 동안 U1은 뜨지 않고, 공지를 닫으면 U1이 뜬다", async () => {
-      mockedStats.mockResolvedValue(statsResponse);
-      mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
-      mockedFetch.mockResolvedValue(
-        jsonResponse(200, [
-          { id: 1, title: "새 기능이 나왔어요", content: "본문", imageUrl: null },
-        ]),
-      );
-
-      renderHome();
-
-      await waitFor(() => expect(screen.getByTestId("notice-popup")).toBeInTheDocument());
-      expect(screen.queryByTestId("update-notice-sheet")).not.toBeInTheDocument();
-
-      fireEvent.click(
-        within(screen.getByTestId("notice-popup")).getByRole("button", { name: "확인" }),
-      );
-
-      await waitFor(() => expect(screen.getByTestId("update-notice-sheet")).toBeInTheDocument());
-    });
-
-    it("공지가 없으면 U1이 바로 뜬다 — 공지 판정이 U1을 영영 막지 않는다", async () => {
-      mockedStats.mockResolvedValue(statsResponse);
-      mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
-
-      renderHome();
-
-      await waitFor(() => expect(screen.getByTestId("update-notice-sheet")).toBeInTheDocument());
-      expect(screen.queryByTestId("notice-popup")).not.toBeInTheDocument();
-    });
   });
 
   it("활성 공지가 있으면 공지 팝업이 뜬다 — NoticePopupHost 마운트 (BY-377)", async () => {

@@ -11,7 +11,7 @@ import {
 import { NoticePopupHost } from "../NoticePopupHost";
 
 /**
- * U2 공지 팝업의 **트리거 지점** (스펙 §4.3). 조회(react-query)→게이트 판정→닫기 동선 배선을
+ * U1 공지 팝업의 **트리거 지점** (스펙 §4.3). 조회(react-query)→게이트 판정→닫기 동선 배선을
  * 실제 게이트 모듈 그대로 검증한다 — mock은 네트워크(fetch)와 dismiss 저장소뿐이다.
  */
 
@@ -47,56 +47,51 @@ afterEach(() => {
 });
 
 function renderHost() {
-  const onFinished = vi.fn();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
-      <NoticePopupHost onFinished={onFinished} />
+      <NoticePopupHost />
     </QueryClientProvider>,
   );
-  return { onFinished };
 }
 
 describe("NoticePopupHost", () => {
-  it("활성 공지가 있으면 팝업을 띄운다 — 떠 있는 동안 onFinished를 부르지 않는다", async () => {
+  it("활성 공지가 있으면 팝업을 띄운다", async () => {
     mockedFetch.mockResolvedValueOnce(jsonResponse(200, [NOTICE]));
 
-    const { onFinished } = renderHost();
+    renderHost();
 
     expect(await screen.findByText(NOTICE.title)).toBeInTheDocument();
-    expect(onFinished).not.toHaveBeenCalled();
   });
 
-  it("활성 공지가 없으면 아무것도 렌더하지 않고 onFinished를 알린다", async () => {
+  it("활성 공지가 없으면 아무것도 렌더하지 않는다", async () => {
     mockedFetch.mockResolvedValueOnce(jsonResponse(200, []));
 
-    const { onFinished } = renderHost();
+    renderHost();
 
-    await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalled());
     expect(screen.queryByTestId("notice-popup")).not.toBeInTheDocument();
   });
 
-  it("조회가 실패하면 console.warn만 남기고 띄우지 않으며 onFinished를 알린다 — fail-closed (결정 6)", async () => {
+  it("조회가 실패하면 console.warn만 남기고 띄우지 않는다 — fail-closed (결정 6)", async () => {
     mockedFetch.mockResolvedValueOnce(jsonResponse(500, { message: "서버 오류" }));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const { onFinished } = renderHost();
+    renderHost();
 
     await waitFor(() => expect(warn).toHaveBeenCalled());
-    await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
     expect(screen.queryByTestId("notice-popup")).not.toBeInTheDocument();
     warn.mockRestore();
   });
 
-  it("확인은 이번 방문만 닫는다 — dismiss를 저장하지 않고 onFinished를 알린다 (결정 4)", async () => {
+  it("확인은 이번 방문만 닫는다 — dismiss를 저장하지 않는다 (결정 4)", async () => {
     mockedFetch.mockResolvedValueOnce(jsonResponse(200, [NOTICE]));
-    const { onFinished } = renderHost();
+    renderHost();
     await screen.findByText(NOTICE.title);
 
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.queryByTestId("notice-popup")).not.toBeInTheDocument();
-    expect(onFinished).toHaveBeenCalledTimes(1);
     await expect(store.isDismissed(NOTICE.id)).resolves.toBe(false);
   });
 

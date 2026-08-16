@@ -1,8 +1,9 @@
 import type { NoticeResponse } from "./notice";
 
 /**
- * U2 공지 팝업 (스펙: 2026-08-15-u2-notice-popup-design.md §4.3, BY-377.
- * Figma `FocusMakers-V1.4-Design` › `U2 · 공지 팝업 (배너형)` 2160:1375, 카드 2161:1568 실측).
+ * U1 공지 팝업 (스펙: 2026-08-15-u2-notice-popup-design.md §4.3, BY-377.
+ * Figma `FocusMakers-V1.4-Design` › `U1 · 공지 팝업 (배너형)` 2160:1375, 카드 2161:1568 실측.
+ * U 번호 재지정: 과거 U1 업데이트 안내 시트가 2026-08-16 삭제되며 공지 팝업이 U1이 됐다).
  *
  * **순수 프레젠테이션 컴포넌트다** — 어떤 공지를 띄울지(`notice.ts` 게이트)·상태 보유
  * (`NoticePopupHost`)를 모른다. 구성은 딤 + 중앙 카드(330, r20): 배너 이미지(330×186,
@@ -10,9 +11,9 @@ import type { NoticeResponse } from "./notice";
  *
  * 닫기 동선은 정확히 세 개고 의미가 다르다(결정 4) — X·확인은 이번 방문만 닫음(`onClose`/
  * `onConfirm`), "다시 보지 않기"만 영구 dismiss(`onNeverShowAgain`). 콜백을 분리해 Host가
- * 저장 여부를 구분한다. 딤 탭 닫기는 없다(U1과 같은 결정 — 실수 탭으로 공지를 놓치지 않는다).
+ * 저장 여부를 구분한다. 딤 탭 닫기는 없다 — 실수 탭으로 공지를 놓치지 않는다.
  *
- * 딤은 U1(Figma 실측 60% 고정)과 달리 **시맨틱 `--dim` 토큰과 일치하는 40%**라 토큰을 쓴다.
+ * 딤은 Figma 실측 40%로, 시맨틱 `--dim` 토큰과 일치해 토큰(`bg-dim`)을 쓴다.
  */
 
 /**
