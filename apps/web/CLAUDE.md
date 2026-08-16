@@ -102,6 +102,13 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
   - 집계 계산은 `sessionTimeline`이 소유한다. 분석 코드에서 재계산하지 말고 `computeSessionTotals` 결과를 그대로 넘긴다 — 집중률만 `lib/amplitude.ts`에서 `focusSec / studySec`으로 만든다(0초 세션은 0).
 - ⚠️ **개인정보처리방침의 위탁·국외이전 조항이 낡았다** — user_id 때문이 아니라(위 참고) **분석 도구를 쓴다는 사실 자체**가 빠져 있다. `PRIVACY_POLICY`의 「7. 처리 위탁」은 AWS 단독이고 「8. 국외 이전」은 "이전하지 않습니다"인데, Amplitude·GA4·Sentry(전부 미국)로 접속 IP와 이용 기록이 나간다. GA4·Sentry 도입 시점부터 있던 누락이고 이번 IP 수집으로 더 분명해졌다. 이 파일은 웹 원본(`pages-nextjs`)의 **사본**이라 원본 → 사본 순서로 고쳐야 한다. 초안·절차는 [docs/privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
 
+## 배포 (Vercel · `web.sunqstudio.kr`)
+
+- **`.github/workflows/deploy-web.yml`이 배포한다** — main 푸시 → 프로덕션, PR → 프리뷰(URL은 PR 코멘트). Vercel Git 연동은 쓰지 않는다: 팀이 hobby 플랜이고 이 레포가 비공개 조직 레포라 Vercel이 Git 연동 배포를 거부한다(2026-08-13부터, 커밋 상태 링크 `upgradeToPro=github-private-org-to-hobby`). PR #51·#53이 머지되고도 라이브에 안 나갔던 원인. 이유·필요 설정은 워크플로 파일 머리 주석이 SSOT.
+- 빌드는 Vercel 원격 빌더가 한다(소스 업로드 → Root Directory `apps/web`에서 빌드). 그래서 **빌드 env는 계속 Vercel 프로젝트 env에서 관리한다** — 위 Sentry·GA4·Amplitude 절의 "Vercel env에 설정" 지침 그대로이고, GitHub Secrets엔 `VERCEL_TOKEN` 하나만 있다.
+- 머지 후 반영 확인: Actions "Deploy web" 실행이 초록인지, 그리고 `curl -sI https://web.sunqstudio.kr`의 `last-modified`. **Vercel 커밋 상태(빨간 X)는 Git 연동의 것이라 무시한다** — 배포 여부의 근거가 아니다.
+- 로컬 수동 배포가 필요하면 레포 루트에서 `npx vercel deploy --prod --yes --scope breathless-youth`. 루트 `.vercelignore`가 업로드를 git 트리 수준으로 좁힌다(없으면 15,000 파일 상한에 걸린다). `apps/web`에서 실행하지 말 것 — 워크스페이스 의존성이 빠진다.
+
 ## 명령
 
 ```bash

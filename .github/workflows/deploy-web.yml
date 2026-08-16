@@ -1,0 +1,143 @@
+name: Deploy web
+
+# apps/web(web.sunqstudio.kr)을 Vercel에 배포한다 — main 푸시는 프로덕션, PR은 프리뷰.
+#
+# ## 왜 Vercel Git 연동이 아니라 Actions에서 Vercel CLI로 배포하는가
+#
+# Vercel 팀(breathless-youth)은 hobby 플랜이고 이 레포는 **비공개 조직 레포**라, Vercel Git 연동은
+# 배포를 만들지 않고 거부한다(커밋 상태의 링크가 `vercel.com/...?upgradeToPro=github-private-org-to-hobby`).
+# 2026-08-13 18:35Z 이후 main 머지 전부가 이렇게 실패해 PR #51·#53이 머지되고도 라이브에 나가지 않았다.
+# CLI 배포(`vercel deploy`)는 Git 연동 경로가 아니라 이 제약을 받지 않는다 — 이 워크플로는 main 푸시마다
+# 그 CLI를 대신 실행한다. Pro로 올리면 Git 연동을 다시 켜고 이 파일을 지우면 된다(둘 다 켜면 이중 배포).
+#
+# ## 빌드는 Vercel에서 한다 (`vercel build` + `--prebuilt`가 아니다)
+#
+# 소스만 올리고 빌드는 Vercel 원격 빌더가 한다.
+# - VITE_*·SENTRY_AUTH_TOKEN 등 빌드 env가 전부 Vercel 프로젝트 env에 있다. GitHub Secrets에 복제하면
+#   두 곳이 어긋나는 순간 조용히 틀린다(소스맵 업로드가 꺼지는 식 — apps/web/CLAUDE.md 소스맵 절).
+# - Root Directory(apps/web)·프레임워크(vite)·Node 버전 등 프로젝트 설정을 그대로 쓴다. Git 연동 시절과
+#   같은 빌더가 같은 방식으로 빌드하므로 산출물이 달라질 여지가 없다.
+# - `vite.config.ts`가 Sentry release 이름에 쓰는 `VERCEL_GIT_COMMIT_SHA`는 CLI가 체크아웃의 git
+#   메타데이터(커밋 SHA·브랜치·원격 URL)를 함께 올려 Vercel이 채운다. `--prebuilt`면 시스템 env가
+#   빌드 시점에 없다(Vercel 문서 `vercel deploy` › Prebuilt).
+#
+# ## 레포 루트에서 실행해야 한다
+#
+# CLI는 cwd를 통째로 올리고 Vercel이 Root Directory(apps/web)를 적용한다. apps/web에서 실행하면
+# 워크스페이스 의존성(packages/*)이 빠진다. 업로드 대상은 루트 `.vercelignore`가 좁힌다 — CI 체크아웃엔
+# 로컬 산출물이 없어 사실상 git 트리 그대로지만, 로컬 수동 배포와 같은 규칙을 공유한다.
+#
+# ## 필요한 설정
+#
+# - Secret `VERCEL_TOKEN` — Vercel Account Settings › Tokens에서 만든 토큰(팀 breathless-youth 스코프).
+#   만료·폐기되면 이 워크플로가 인증 오류로 실패한다 — 재발급해서 시크릿만 갈아끼우면 된다.
+# - ORG/PROJECT ID는 비밀이 아니고 바뀌지 않으므로 아래 env에 그대로 둔다(`vercel link`가 만드는
+#   .vercel/project.json과 같은 값). 이 두 env가 있으면 CLI는 link 단계 없이 그 프로젝트로 배포한다.
+
+# paths: 웹 빌드에 영향을 주는 경로만. apps/mobile만 바뀐 푸시는 배포하지 않는다 — Vercel CLI 배포는
+# Git 연동의 "Ignored Build Step"을 타지 않으므로 여기서 걸러야 한다. 새 워크스페이스 설정 파일이 웹
+# 빌드에 관여하게 되면 두 목록 모두에 추가할 것(빠지면 배포가 조용히 안 나간다). YAML 앵커로 합치지
+# 않은 이유: GitHub Actions 워크플로 파서의 앵커 지원을 확신할 수 없어 두 번 적는 쪽을 택했다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - ".npmrc"
+      - ".nvmrc"
+      - "patches/**"
+      - ".vercelignore"
+      - ".github/workflows/deploy-web.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - ".npmrc"
+      - ".nvmrc"
+      - "patches/**"
+      - ".vercelignore"
+      - ".github/workflows/deploy-web.yml"
+  # 수동 실행: main에서 실행하면 프로덕션, 다른 브랜치에서 실행하면 프리뷰.
+  workflow_dispatch:
+
+concurrency:
+  # PR은 새 푸시가 오면 이전 프리뷰 배포를 취소한다. main은 취소하지 않는다 — 취소된 배포는 Vercel에
+  # "Canceled"로 남을 뿐 라이브엔 영향이 없지만, 프로덕션은 커밋마다 그대로 나가는 편이 추적하기 쉽다.
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: write # 프리뷰 URL을 PR 코멘트로 남기기 위해
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: team_HzwSfMTI2Jz7K5A8SGIZlfQ5
+      VERCEL_PROJECT_ID: prj_9oNd4t2mKu6J0U1LQCLbGii95AmL
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # main으로의 push·수동 실행만 프로덕션. PR과 다른 브랜치의 수동 실행은 프리뷰.
+      IS_PROD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: Check VERCEL_TOKEN
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN 시크릿이 없습니다. 이 파일 머리 주석의 '필요한 설정'을 참고하세요."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          # PR은 머지 커밋이 아니라 브랜치 HEAD를 배포한다 — Vercel Git 연동과 같은 동작이고, 프리뷰의
+          # 커밋 SHA(Sentry release 이름)가 실제로 존재하는 커밋을 가리키게 된다.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          set -euo pipefail
+          if [ "$IS_PROD" = "true" ]; then
+            target_flag="--prod"; env_name="production"
+          else
+            target_flag=""; env_name="preview"
+          fi
+          # stdout은 배포 URL 하나뿐이고 진행 로그는 stderr로 나간다(Vercel 문서 `vercel deploy`).
+          # --logs: 빌드 로그도 함께 출력해 실패 시 Vercel 대시보드에 안 들어가도 원인을 볼 수 있게 한다.
+          url=$(npx --yes vercel@59 deploy --yes --logs $target_flag --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "env=$env_name" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Vercel $env_name 배포"
+            echo ""
+            echo "- URL: $url"
+            [ "$env_name" = "production" ] && echo "- 라이브: https://web.sunqstudio.kr"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.deploy.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        # 푸시마다 새 코멘트를 쌓지 않고 마지막 코멘트를 갱신한다(--edit-last, 없으면 생성).
+        run: |
+          gh pr comment "$PR_NUMBER" --edit-last --create-if-none --body "$(printf '**Vercel 프리뷰** (\`%s\`)\n\n%s' "${SHA:0:7}" "$URL")"

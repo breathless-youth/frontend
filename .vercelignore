@@ -1,0 +1,55 @@
+# Vercel CLI 배포 시 업로드 제외 목록 — `.github/workflows/deploy-web.yml`(자동배포)과 로컬 수동 배포
+# (`npx vercel deploy --prod`, 레포 루트에서 실행) 양쪽이 같은 규칙을 쓴다.
+#
+# Vercel Git 연동 배포는 git 추적 파일만 clone하지만, CLI 배포는 cwd의 파일을 하나씩 업로드하며
+# .gitignore를 읽지 않는다. 그래서 로컬에서는 apps/mobile/ios(925MB), 루트 ios/, .turbo 같은 산출물까지
+# 잡혀 CLI 업로드 상한 15,000 파일을 넘긴다(2026-08-16 확인, 35,053개 — Vercel 문서 Limits › Files).
+# 여기서 .gitignore와 같은 패턴을 다시 선언해 업로드를 git 트리 수준(약 350개)으로 맞춘다.
+#
+# 워크스페이스 구성원(apps/mobile, packages/*)의 소스·package.json은 남긴다 — pnpm frozen-lockfile
+# 검증이 lockfile의 importer 목록과 디스크를 대조하므로 빠지면 install이 실패한다.
+#
+# 프로덕션 산출물엔 영향이 없다: apps/web 빌드는 apps/web + packages/* 소스만 쓴다. Vercel은 Git 연동
+# 배포에도 이 파일을 적용하지만, 아래 항목은 전부 빌드와 무관한 로컬 산출물이다.
+
+# --- .gitignore 미러 ---
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+build/
+.expo/
+.expo-shared/
+web-build/
+.env
+.env.local
+.env.*.local
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+coverage/
+ios/
+android/
+*.ipa
+*.apk
+*.tsbuildinfo
+docs/superpowers/plans/
+
+# --- 하위 .gitignore 미러(apps/web) ---
+apps/web/public/mediapipe/
+apps/web/.certs/
+*.local
+
+# --- CLI 전용: 로컬 링크·훅 런타임 ---
+.vercel/
+.git/
+.husky/_/
+
+# --- 서명 키·인증서: 어떤 경우에도 업로드 금지 ---
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.pem
