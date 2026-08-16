@@ -1,7 +1,5 @@
 import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
 
-import { shouldShowUpdateNotice } from "./updateNotice";
-
 /**
  * U2 공지 팝업의 **노출 게이트** (스펙: 2026-08-15-u2-notice-popup-design.md §4.2, BY-377).
  *
@@ -13,7 +11,8 @@ import { shouldShowUpdateNotice } from "./updateNotice";
  * - X·확인은 이번 방문만 닫음 — 저장하지 않는다. "다시 보지 않기"만 영구 dismiss (결정 4)
  * - dismiss 키는 `focuson.noticeDismissed.{id}` 개별 키 — U1 키 관례 연장 (결정 5)
  * - 조회·저장 실패는 `console.warn`만, Sentry `reportHandled` 미사용 (결정 6)
- * - U1이 뜨는 방문에는 U2를 띄우지 않는다 (결정 7)
+ * - 노출 순서는 공지(U2) → U1 (결정 7, 2026-08-16 변경). 순서는 이 모듈이 아니라
+ *   홈탭(`HomeTabPage`)이 U2 Host의 흐름 종료 통지로 조정한다
  *
  * 게이트 전체가 fail-closed다: 확신할 수 없으면 띄우지 않는다. 영구 dismiss 여부를 못 읽는데
  * 띄우면 "다시 보지 않기" 약속을 어기게 된다 — 안 띄우는 쪽의 최악은 다음 방문 재노출이다.
@@ -89,15 +88,11 @@ export function resetNoticeDismissStore(): void {
 /**
  * 이번 방문에 띄울 공지를 고른다: **활성 공지 중 dismiss 안 된 것 중 최신 1개**, 없으면 null.
  *
- * U1 게이트(`shouldShowUpdateNotice`)가 true인 방문에는 무조건 null이다(결정 7) — 모달 두 장이
- * 겹치지 않는다. 절대 reject하지 않는다: 저장소 조회가 실패하면 fail-closed로 null이다.
+ * 절대 reject하지 않는다: 저장소 조회가 실패하면 fail-closed로 null이다.
  */
 export async function selectNoticeToShow(
   notices: NoticeResponse[],
 ): Promise<NoticeResponse | null> {
-  if (await shouldShowUpdateNotice()) {
-    return null;
-  }
   try {
     for (const candidate of notices) {
       if (!(await store.isDismissed(candidate.id))) {

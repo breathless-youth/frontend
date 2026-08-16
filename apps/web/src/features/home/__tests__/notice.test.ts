@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  createMemoryUpdateNoticeStore,
-  resetUpdateNoticeStore,
-  setUpdateNoticeStore,
-} from "../updateNotice";
-import {
   createMemoryNoticeDismissStore,
   fetchActiveNotices,
   localStorageNoticeDismissStore,
@@ -40,8 +35,6 @@ function notice(id: number, overrides: Partial<NoticeResponse> = {}): NoticeResp
 }
 
 afterEach(() => {
-  vi.unstubAllEnvs();
-  resetUpdateNoticeStore();
   resetNoticeDismissStore();
   localStorage.clear();
 });
@@ -102,21 +95,6 @@ describe("selectNoticeToShow — 활성 공지 중 dismiss 안 된 최신 1개",
     setNoticeDismissStore(createMemoryNoticeDismissStore([5, 4]));
 
     await expect(selectNoticeToShow([notice(5), notice(4)])).resolves.toBeNull();
-  });
-
-  it("U1 안내가 뜨는 방문에는 공지를 고르지 않는다 — U1 우선 (결정 7)", async () => {
-    vi.stubEnv("VITE_UPDATE_NOTICE_ENABLED", "true");
-    setUpdateNoticeStore(createMemoryUpdateNoticeStore(false));
-
-    await expect(selectNoticeToShow([notice(5)])).resolves.toBeNull();
-  });
-
-  it("U1이 이미 닫힌(seen) 방문에는 공지를 고른다", async () => {
-    vi.stubEnv("VITE_UPDATE_NOTICE_ENABLED", "true");
-    setUpdateNoticeStore(createMemoryUpdateNoticeStore(true));
-    const latest = notice(5);
-
-    await expect(selectNoticeToShow([latest])).resolves.toEqual(latest);
   });
 
   it("dismiss 조회가 실패하면 null — fail-closed (영구 dismiss를 어길 수 있으면 안 띄운다)", async () => {

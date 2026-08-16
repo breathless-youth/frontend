@@ -110,7 +110,7 @@ export function NoticePopup({
           <button
             type="button"
             onClick={onConfirm}
-            className="h-11 shrink-0 rounded-xl bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-opacity duration-200 active:opacity-90 motion-reduce:transition-none"
+            className="h-11 shrink-0 rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-opacity duration-200 active:opacity-90 motion-reduce:transition-none"
           >
             확인
           </button>

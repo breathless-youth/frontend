@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -313,6 +313,13 @@ export function HomeTabPage() {
   const [searchParams] = useSearchParams();
   const userId = parseUserId(searchParams.get("userId"));
 
+  /**
+   * 노출 순서: 공지(U2) → 업데이트 안내(U1) (결정 7, 2026-08-16 변경).
+   * U2 Host가 흐름 종료(비노출 확정 또는 닫힘)를 알린 뒤에야 U1을 마운트한다 — 순서를 여기
+   * 한 곳이 소유해서, 두 안내 레이어가 같은 방문에 겹치거나 타이밍에 따라 순서가 뒤집히지 않는다.
+   */
+  const [noticeFlowFinished, setNoticeFlowFinished] = useState(false);
+
   return (
     <main
       data-testid="home-tab-page"
@@ -331,10 +338,10 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {/* U1 업데이트 안내 시트 — 기본은 비노출이라 평소에는 아무것도 렌더하지 않는다. */}
-      <UpdateNoticeSheetHost />
-      {/* U2 공지 팝업 (BY-377) — U1이 뜨는 방문에는 게이트가 알아서 비켜난다(U1 우선). */}
-      <NoticePopupHost />
+      {/* U2 공지 팝업 (BY-377) — 홈 진입 시 가장 먼저 뜨는 안내 레이어다. */}
+      <NoticePopupHost onFinished={() => setNoticeFlowFinished(true)} />
+      {/* U1 업데이트 안내 시트 — 공지 흐름이 끝난 뒤에만 마운트한다. 기본은 비노출. */}
+      {noticeFlowFinished && <UpdateNoticeSheetHost />}
     </main>
   );
 }

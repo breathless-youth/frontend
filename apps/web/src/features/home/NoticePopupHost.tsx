@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   fetchActiveNotices,
@@ -16,8 +16,13 @@ import { NoticePopup } from "./NoticePopup";
  *
  * 조회는 react-query다(`useHomeSummary` 관례) — 홈 렌더를 막지 않는다: 응답이 오기 전에는
  * 아무것도 렌더하지 않고, 실패해도 fail-closed로 조용히 사라진다(결정 6).
+ *
+ * `onFinished`는 **공지 흐름이 끝났음**을 정확히 한 번 알린다: 띄울 공지가 없다고 확정됐거나
+ * (빈 목록·전부 dismiss·조회 실패), 띄운 공지가 닫혔을 때다. 홈탭은 이 신호를 받은 뒤에야
+ * U1 안내를 마운트한다 — "공지(U2) 먼저, U1은 그 뒤" 순서(결정 7, 2026-08-16 변경)의
+ * 단일 조정 지점이다.
  */
-export function NoticePopupHost() {
+export function NoticePopupHost({ onFinished }: { onFinished: () => void }) {
   const notices = useQuery({
     queryKey: ["notices", "active"],
     queryFn: fetchActiveNotices,
@@ -29,6 +34,15 @@ export function NoticePopupHost() {
   const [visible, setVisible] = useState(false);
   // X·확인은 "이번 방문만 닫음"(결정 4) — 닫힌 뒤 쿼리가 갱신돼도 같은 방문에서 다시 띄우지 않는다.
   const [decided, setDecided] = useState(false);
+
+  // onFinished는 한 번만 — 조회 실패 후 재시도 성공 같은 상태 변화로 두 번 알리지 않는다.
+  const finishedRef = useRef(false);
+  const finish = useCallback(() => {
+    if (!finishedRef.current) {
+      finishedRef.current = true;
+      onFinished();
+    }
+  }, [onFinished]);
 
   useEffect(() => {
     if (notices.data === undefined || decided) {
@@ -45,35 +59,41 @@ export function NoticePopupHost() {
         if (selected !== null) {
           setNotice(selected);
           setVisible(true);
+        } else {
+          finish();
         }
       })
       .catch((error: unknown) => {
         console.warn("[notice] 노출 판정 실패 — 노출하지 않는다", error);
+        finish();
       });
     return () => {
       cancelled = true;
     };
-  }, [notices.data, decided]);
+  }, [notices.data, decided, finish]);
 
   useEffect(() => {
     if (notices.isError) {
       // 조회 실패는 무해 실패다 — console.warn만, Sentry reportHandled 미사용(결정 6).
       console.warn("[notice] 활성 공지 조회 실패 — 노출하지 않는다", notices.error);
+      finish();
     }
-  }, [notices.isError, notices.error]);
+  }, [notices.isError, notices.error, finish]);
 
   /** X·확인 공용 — 이번 방문만 닫는다. 아무것도 저장하지 않는다(다음 방문 재노출, 결정 4). */
   const close = useCallback(() => {
     setVisible(false);
-  }, []);
+    finish();
+  }, [finish]);
 
   /** "다시 보지 않기" — 닫고 이 공지 ID를 영구 dismiss한다. 저장 실패는 게이트가 삼킨다. */
   const neverShowAgain = useCallback(() => {
     setVisible(false);
+    finish();
     if (notice !== null) {
       void markNoticeDismissed(notice.id);
     }
-  }, [notice]);
+  }, [notice, finish]);
 
   if (!visible || notice === null) {
     return null;
