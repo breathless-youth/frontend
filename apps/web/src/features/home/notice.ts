@@ -1,4 +1,8 @@
+import type { NoticeResponse } from "@focusmakers/types";
+
 import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
+
+export type { NoticeResponse };
 
 /**
  * U1 공지 팝업의 **노출 게이트** (스펙: 2026-08-15-u2-notice-popup-design.md §4.2, BY-377.
@@ -16,19 +20,6 @@ import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
  * 게이트 전체가 fail-closed다: 확신할 수 없으면 띄우지 않는다. 영구 dismiss 여부를 못 읽는데
  * 띄우면 "다시 보지 않기" 약속을 어기게 된다 — 안 띄우는 쪽의 최악은 다음 방문 재노출이다.
  */
-
-/**
- * `GET /api/notices/active` 응답 항목 (스펙 §3.3).
- *
- * BY-376 Swagger 확정 후 `@focusmakers/types`의 계약 타입으로 승격한다(레포 규칙: 상상 계약
- * 금지 — 필드명은 스펙에 확정돼 있지만 패키지 계약은 실제 Swagger 기준으로만 만든다).
- */
-export interface NoticeResponse {
-  id: number;
-  title: string;
-  content: string;
-  imageUrl: string | null;
-}
 
 /** 활성 공지 목록 조회. 서버가 `starts_at DESC`(최신순)로 정렬해 준다 — 클라이언트는 재정렬하지 않는다. */
 export async function fetchActiveNotices(): Promise<NoticeResponse[]> {

@@ -112,6 +112,20 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
+/**
+ * 활성 공지 조회 API 계약 (GET /api/notices/active) — BY-376 Swagger 기준.
+ * 노출 기간 안의 공지를 최신순(starts_at 내림차순) 목록으로 반환한다. 노출 기간 등
+ * 운영 필드는 내려보내지 않는다. "한 방문에 하나만 표시"와 "다시 보지 않기"는
+ * 클라이언트 정책이라 서버는 목록을 자르지 않는다. 인증 없이 호출할 수 있다.
+ */
+export interface NoticeResponse {
+  id: number;
+  title: string;
+  content: string;
+  /** 배너 이미지 URL — 없는 공지는 null(배너 영역 생략, 텍스트만 표시) */
+  imageUrl: string | null;
+}
+
 export type {
   CameraPermissionMessage,
   NavigateHomeMessage,
