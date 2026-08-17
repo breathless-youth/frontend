@@ -31,7 +31,7 @@ git push origin v0.1.0
 # 1. Releases 페이지에서 해당 릴리스 삭제
 git push --delete origin v0.1.0   # 2. 원격 태그 삭제
 git tag -d v0.1.0                 # 3. 로컬 태그 삭제
-git tag v0.1.0 && git push origin v0.1.0   # 4. 올바른 커밋에서 다시 태그
+git tag v0.1.0 <올바른-커밋-SHA> && git push origin v0.1.0   # 4. 태그 대상 커밋을 반드시 명시해 다시 태그
 ```
 
 ## 버전 규칙
