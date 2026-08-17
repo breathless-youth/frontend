@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
+import * as Sentry from "@sentry/react";
+
+import {
+  trackStudySessionEnded,
+  trackStudySessionStarted,
+  trackStudySessionSubmitted,
+} from "@/lib/amplitude";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { reportHandled } from "@/lib/sentry";
+
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
 import type { FocusDetector } from "./adapters/focusDetector";
@@ -100,6 +110,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const endReasonRef = useRef<SessionEndReason | null>(null);
   const timelineRef = useRef<SessionTimeline>(createSessionTimeline(startedAtMsRef.current));
 
+  /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
+  const endTrackedRef = useRef(false);
+  const submitAttemptRef = useRef(0);
+
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
 
@@ -131,6 +145,36 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         ? prev
         : { sinceMs, trigger: applied.trigger };
     });
+  }, []);
+
+  /**
+   * 세션 시작 이벤트 — 스터디룸 진입이 곧 세션 시작이다(별도 시작 버튼이 없다).
+   * 세션 완주율(시작 대비 `study_session_ended`)의 분모가 된다.
+   *
+   * 계측만 하고 세션 로직에는 관여하지 않으므로 의존성 없는 마운트 1회 이펙트로 둔다.
+   */
+  useEffect(() => {
+    trackStudySessionStarted();
+  }, []);
+
+  /**
+   * 에러 이벤트에 "세션의 어느 단계였나"를 싣는다(BY-372). setPhase 호출부마다 심지 않고
+   * phase.name 변화를 여기서 한 번에 관측한다 — 전환 지점이 늘어도 이 코드는 안 바뀐다.
+   * DSN 미설정이면 둘 다 no-op. 값은 phase명(enum)뿐 — 개인정보 없음.
+   */
+  useEffect(() => {
+    Sentry.setTag("session_phase", phase.name);
+    Sentry.addBreadcrumb({ category: "session", message: `phase → ${phase.name}`, level: "info" });
+    return () => {
+      // setTag는 전역 스코프에 남는다 — 언마운트 시 지우지 않으면 결과·홈 등 세션 밖
+      // 라우트의 에러에 마지막 phase가 그대로 실려 세션 에러처럼 보인다.
+      Sentry.setTag("session_phase", undefined);
+    };
+  }, [phase.name]);
+
+  // 웹뷰인지 브라우저 단독인지 — 브리지 관련 에러 분류의 핵심 축. 마운트 1회.
+  useEffect(() => {
+    Sentry.setTag("bridge", isNativeBridgeAvailable() ? "webview" : "browser");
   }, []);
 
   useEffect(() => {
@@ -278,11 +322,31 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const events = toStatusEvents(closed, endedAtMs);
       setTotals(finalTotals);
 
+      // 종료 집계는 세션당 한 번만 — 제출 재시도가 세션 수를 부풀리면 완주율이 망가진다.
+      // 제출 성공/실패는 아래 `study_session_submitted`가 시도마다 따로 기록한다.
+      if (!endTrackedRef.current) {
+        endTrackedRef.current = true;
+        // 인자 `reason`이 아니라 **최초로 확정된** 사유를 쓴다 — 재시도가 사유를 바꾸지 않듯
+        // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
+        const finalReason = endReasonRef.current;
+        trackStudySessionEnded({
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
+          pauseSec: finalTotals.pauseSec,
+          distractionSec: finalTotals.distractionSec,
+          endReason: finalReason?.kind ?? "MANUAL",
+          pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
+          willSubmit: userId !== null,
+        });
+      }
+
       if (userId === null) {
         setPhase({ name: "unsaved", studySec: finalTotals.studySec });
         return;
       }
       setPhase({ name: "submitting" });
+      submitAttemptRef.current += 1;
+      const attempt = submitAttemptRef.current;
       try {
         const sessions = await submitStudySession({
           userId,
@@ -292,8 +356,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           focusSec: finalTotals.focusSec,
           events,
         });
+        trackStudySessionSubmitted(true, attempt);
         setPhase({ name: "done", sessions });
       } catch (error) {
+        trackStudySessionSubmitted(false, attempt);
+        // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
+        reportHandled(error, "session-submit");
         setPhase({
           name: "error",
           message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",

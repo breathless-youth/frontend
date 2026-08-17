@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
+import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
 
 /**
  * 문의하기 — 설정(S6) `지원` 섹션에서 진입한다.
@@ -10,6 +12,20 @@ import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
  * RN 원본(`apps/mobile/app/contact.tsx`)의 웹 이식. **앱 밖으로 내보내지 않는다**(BY-257).
  * 이용약관·개인정보처리방침과 달리 본문을 텍스트로 옮길 수 없다 — 응답을 제출해야 하는
  * 인터랙티브 폼이라 iframe으로 띄운다(RN 쪽은 WebView).
+ *
+ * ## 문서 단위 라우트다 (COEP 예외 — 다른 하위 화면과 다른 점)
+ *
+ * 이 라우트는 SPA 라우팅이 아니라 **하드 내비게이션으로만 진입·이탈한다**(설정 행의
+ * `hardNavigate`, 아래 뒤로 가기의 `history.back()`/`hardReplace`). 구글 폼 iframe은 CORP
+ * 헤더가 없어 COEP `require-corp` 문서에서 네트워크 레벨로 차단되는데, COEP는 문서 요청의
+ * 응답에서만 정해지므로 /contact를 제 문서로 열어야 `vercel.json`의 예외(COEP 미적용)가
+ * 실제로 걸린다(`lib/hardNavigation.ts` 주석의 재현 근거 참고). 같은 이유로 이 문서 안에서
+ * SPA `navigate`로 다른 라우트에 가면 "COEP 없음"이 그 라우트까지 승계되므로 금지 —
+ * 세션(SharedArrayBuffer)이 필요로 하는 교차 출처 격리가 조용히 풀린다.
+ *
+ * 알려진 트레이드오프: 포워드 스와이프 되열림 방지(BY-343, `lib/historyGuard.ts`)는
+ * same-document POP 전제라 이 라우트를 더 이상 잡지 못한다 — 닫은 문의 화면이 포워드
+ * 제스처로 다시 열릴 수 있다. 폼이 아예 뜨지 않는 것과 맞바꾼 수용 가능한 퇴행이다.
  *
  * ## iframe의 한계
  *
@@ -35,12 +51,25 @@ export function ContactPage() {
   // iframe을 강제로 다시 마운트해 재로드하기 위한 키 — src를 그대로 두면 브라우저가 재요청하지 않을 수 있다.
   const [reloadKey, setReloadKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const location = useLocation();
 
   const retry = useCallback(() => {
     setFailed(false);
     setLoading(true);
     setReloadKey((key) => key + 1);
   }, []);
+
+  // 문서 단위 라우트의 뒤로 가기(`lib/hardNavigation.ts`의 canExitViaHistoryBack 주석 참고).
+  // 폴백도 SPA가 아니라 하드 내비게이션이어야 한다 — SPA로 /settings에 가면 이 문서의
+  // "COEP 없음"이 설정 이후까지 승계된다. 쿼리(userId·appVersion)는 설정 행이 승계해 준
+  // 것을 그대로 되돌린다.
+  const exitToPreviousDocument = useCallback(() => {
+    if (canExitViaHistoryBack(document.referrer, window.location.origin, window.history.length)) {
+      window.history.back();
+      return;
+    }
+    hardReplace(`/settings${location.search}`);
+  }, [location.search]);
 
   // React-DOM은 <iframe>에 "load" 이벤트만 위임 등록하고 "error"는 등록하지 않는다
   // (react-dom-client.development.js의 `case "iframe": listenToNonDelegatedEvent("load", ...)`).
@@ -62,7 +91,7 @@ export function ContactPage() {
     // 150px로 쪼그라든다(2026-08-01 웹뷰 실기기에서 화면 1/4만 차지하는 것으로 확인).
     // RN 원본의 `<View className="flex-1">`이 갖던 확정 높이에 대응한다.
     <div className="flex h-dvh flex-col bg-background">
-      <ScreenBackHeader title="문의하기" />
+      <ScreenBackHeader title="문의하기" onBack={exitToPreviousDocument} />
 
       {failed ? (
         <div className="flex flex-1 flex-col items-center justify-center px-5 pb-[78px]">

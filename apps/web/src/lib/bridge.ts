@@ -31,7 +31,23 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 export function postToNative(message: ToNativeMessage): void {
-  nativeBridge()?.postMessage(JSON.stringify(message));
+  try {
+    nativeBridge()?.postMessage(JSON.stringify(message));
+  } catch {
+    /**
+     * **존재 검사를 통과해도 호출이 실패할 수 있다.** iOS에서 `ReactNativeWebView.postMessage`는
+     * 껍데기고, 그 안이 매번 `window.webkit.messageHandlers`를 다시 찾는다. 웹뷰가 파괴되는
+     * 중(세션 모달을 네이티브가 닫는 순간, 회전 직후)에는 껍데기만 남고 `window.webkit`이
+     * 사라져 `TypeError`가 난다 — 2026-08-05 실기기 iOS 18.7에서 실측
+     * (Sentry `FOCUSMAKERS-WEB-1`: 언마운트 cleanup, `FOCUSMAKERS-WEB-2`: `set-tab-bar`).
+     *
+     * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다. 이 파일 상단이 선언한
+     * "네이티브가 없으면 조용히 아무것도 안 한다"는 계약대로 삼킨다.
+     *
+     * 유일하게 응답이 필요한 `submit-session`은 이 실패를 타임아웃으로 감지한다
+     * (`features/study-session/bridge/submitViaNative.ts`) — 조용히 유실되지 않는다.
+     */
+  }
 }
 
 /**
