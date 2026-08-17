@@ -20,6 +20,12 @@ let mockWebBaseUrl: string | undefined = "https://web.test";
 /** 웹으로 되돌려 보내는 통로(`injectJavaScript`)의 관찰점 — reply 배선 검증에 쓴다. */
 const mockInjectJavaScript = jest.fn();
 
+/** iOS 프로세스 종료 복구(`reload`)의 관찰점 — BY-374 검증에 쓴다. */
+const mockReload = jest.fn();
+
+/** WebView 마운트 횟수 관찰점 — Android 렌더러 사망 시 재마운트(BY-374) 검증에 쓴다. */
+const mockWebViewMounted = jest.fn();
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: {
@@ -45,9 +51,13 @@ jest.mock("react-native-webview", () => {
       ref: React.Ref<{ reload: () => void }>,
     ) {
       ReactModule.useImperativeHandle(ref, () => ({
-        reload: jest.fn(),
+        reload: mockReload,
         injectJavaScript: mockInjectJavaScript,
       }));
+      // 마운트 1회당 1호출 — `key` 교체로 인스턴스가 새로 만들어졌는지를 세는 관찰점.
+      ReactModule.useEffect(() => {
+        mockWebViewMounted();
+      }, []);
       return ReactModule.createElement(View, props);
     }),
   };
@@ -63,6 +73,8 @@ function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
 
 beforeEach(() => {
   mockWebBaseUrl = "https://web.test";
+  mockReload.mockClear();
+  mockWebViewMounted.mockClear();
 });
 
 describe("buildRemoteWebViewUrl", () => {
@@ -257,6 +269,38 @@ describe("RemoteWebViewHost", () => {
     render(<RemoteWebViewHost path="/home" testID="host" onLoadEnd={onLoadEnd} />);
 
     expect(onLoadEnd).toHaveBeenCalled();
+  });
+});
+
+/**
+ * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374) — 이 핸들러들이
+ * 없으면 웹뷰가 빈 흰 화면으로 영구 방치된다. 이미 로드가 끝난 페이지라 `onError` 폴백도
+ * 스플래시도 불리지 않는 별개 경로다(시뮬레이터 WebContent kill로 재현 확인).
+ */
+describe("프로세스 종료 자동 복구 (BY-374)", () => {
+  it("iOS 콘텐츠 프로세스가 죽으면 reload로 복구한다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(mockReload).toHaveBeenCalled();
+  });
+
+  it("Android 렌더 프로세스가 죽으면 웹뷰를 재마운트한다 — 죽은 인스턴스는 reload로 못 살린다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(1);
+
+    const onGone = screen.getByTestId("host").props.onRenderProcessGone as () => void;
+    act(() => {
+      onGone();
+    });
+
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+    // 재마운트 후에도 같은 URL을 다시 연다.
+    expect(screen.getByTestId("host").props.source).toEqual({ uri: "https://web.test/home" });
   });
 });
 
