@@ -81,12 +81,18 @@ export const MODEL_PATHS = {
 export type ModelVariant = keyof typeof MODEL_PATHS;
 
 /**
- * 기본 변형 — **float32**.
+ * 기본 변형 — **int8** (BY-305 발열 실측으로 fp32에서 전환, 2026-08-14).
  *
- * 저조도에서 `person`을 놓치는 정도가 곧 순공시간 오차이므로, 크기만 보고 int8을 성급히
- * 고르지 않는다(설계 §2). 실측 비교 후 int8이 충분하면 이 값만 바꾼다.
+ * 원래 fp32였다 — 저조도에서 `person`을 놓치는 정도가 곧 순공시간 오차라, 크기만 보고
+ * int8을 성급히 고르지 않는다는 이유였다(설계 §2). BY-305 실기기 QA(iPhone 17 Pro)에서
+ * CPU 추론이 발열 단독 주범으로 확정되어(`FRAME_INTERVAL_MS` 주석의 실측 참고) 프레임당
+ * 비용이 절반인 int8(S3 실측 213~371ms vs fp32 401~594ms)로 내린다 — 주기 확대와 함께
+ * CPU 유휴 시간을 만드는 조합의 절반이다.
+ *
+ * ⚠️ 설계 §2가 요구한 저조도 정확도 비교는 아직 안 됐다 — BY-304에서 검증하고, 순공
+ * 오차가 유의미하면 fp32로 되돌린 뒤 주기 확대만으로 발열을 잡는다(듀티 ~30% → ~50%).
  */
-export const DEFAULT_MODEL_VARIANT: ModelVariant = "fp32";
+export const DEFAULT_MODEL_VARIANT: ModelVariant = "int8";
 
 /** COCO 80클래스 중 우리가 알아야 할 둘. 나머지는 후처리 비용일 뿐이다(설계 §2). */
 export const CATEGORY_ALLOWLIST = ["person", "cell phone"] as const;
@@ -111,12 +117,20 @@ export const SCORE_THRESHOLDS = {
 export const DETECTOR_SCORE_THRESHOLD = Math.min(SCORE_THRESHOLDS.person, SCORE_THRESHOLDS.phone);
 
 /**
- * 프레임 처리 주기 — 기본 200ms(5 FPS).
+ * 프레임 처리 주기 — 1000ms(1 FPS). (BY-305 발열 실측으로 200ms에서 확대, 2026-08-14)
  *
- * 가장 짧은 판정이 0.5초(폰 사용 확정 유지시간)라 그 안에 2~3프레임이 들어간다. 초당 30프레임을
- * 돌려도 판정 정확도는 그대로이고 배터리와 발열만 늘어난다(설계 §3).
+ * 200ms(5 FPS) 시절엔 추론 실측(fp32 401~594ms)이 주기보다 길어서, `frameLoop`의
+ * busy-guard가 프레임을 버려도 **추론 자체는 쉼 없이 백투백으로 돌았다** — CPU 듀티 ~100%.
+ * iPhone 17 Pro 실기기에서 세션 16분 만에 thermal state Nominal→Serious. 일시정지
+ * 10분(카메라·프리뷰 유지, 추론만 정지)에선 오히려 식었으므로(Fair→Nominal) 추론이
+ * 발열의 단독 주범이다. **모델을 빠르게 바꿔도 주기가 추론 시간보다 짧으면 루프는 계속
+ * 포화된다** — 주기를 추론 시간보다 길게 잡아야 유휴가 생긴다(int8 ~300ms 기준 듀티 ~30%).
+ *
+ * 판정 영향: 유지시간 디바운스는 벽시계 기반(`../detection.ts`)이라 주기를 늘려도 로직은
+ * 유효하다. 확정 지연이 최대 +1주기(폰 사용 ~0.7초 → ~1.5초) 늘고, 1초 미만의 짧은
+ * 신호는 샘플 사이에 떨어져 놓칠 수 있다 — 이 트레이드오프의 정확도 검증은 BY-304.
  */
-export const FRAME_INTERVAL_MS = 200;
+export const FRAME_INTERVAL_MS = 1000;
 
 /**
  * delegate 시도 순서 — **CPU 하나뿐이다.**
