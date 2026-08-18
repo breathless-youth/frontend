@@ -100,4 +100,37 @@ describe("useNativeTabBarSync", () => {
   it("브라우저 단독 모드(브리지 없음)에서도 죽지 않는다", () => {
     expect(() => renderAt("/onboarding-guide")).not.toThrow();
   });
+
+  /**
+   * 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외 — `ContactPage` 주석) 뒤로
+   * 스와이프가 이전 문서를 bfcache에서 복원할 수 있다 — 복원은 effect를 다시 돌리지 않으므로
+   * `pageshow(persisted)`가 유일한 복귀 신호다.
+   */
+  it("bfcache 복원(pageshow persisted)이면 가시성을 다시 알린다 — 안 보내면 탭 바가 사라진 채 남는다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/settings");
+    postMessage.mockClear();
+
+    act(() => {
+      const event = new Event("pageshow");
+      Object.defineProperty(event, "persisted", { value: true });
+      window.dispatchEvent(event);
+    });
+
+    expect(sentVisibility(postMessage)).toEqual([true]);
+  });
+
+  it("일반 로드의 pageshow(persisted=false)에는 중복 신호를 보내지 않는다 — 마운트 effect가 이미 보냈다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/settings");
+    postMessage.mockClear();
+
+    act(() => {
+      window.dispatchEvent(new Event("pageshow"));
+    });
+
+    expect(sentVisibility(postMessage)).toEqual([]);
+  });
 });

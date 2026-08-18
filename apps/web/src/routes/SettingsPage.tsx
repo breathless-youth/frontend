@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { postToNative } from "@/lib/bridge";
+import { hardNavigate } from "@/lib/hardNavigation";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
@@ -104,7 +105,12 @@ export function SettingsPage() {
             label="문의하기"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              navigate("/contact");
+              // SPA `navigate()`가 아니라 **문서 단위 내비게이션**이어야 한다
+              // (`lib/hardNavigation.ts`) — /contact만 COEP 없이 내려오는데(vercel.json),
+              // pushState는 문서를 새로 만들지 않아 이 문서(설정)의 `require-corp`를 승계해
+              // 구글 폼 iframe이 차단된다. 쿼리는 통째로 승계한다 — 측정 기준 안내 행과
+              // 같은 이유(딥링크·새로고침 후 쿼리 유실 방지, BY-327 유형).
+              hardNavigate(`/contact${location.search}`);
             }}
           />
         </SettingsSection>

@@ -1,3 +1,5 @@
+import { reportHandled } from "@/lib/sentry";
+
 import { visionDiagnostics } from "../vision/diagnostics";
 import { CAMERA_CONSTRAINTS } from "../vision/visionConfig";
 import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdapter";
@@ -86,7 +88,8 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
     } catch (error: unknown) {
       // 권한 거부·기기 점유 모두 여기로 온다. 어느 쪽인지 화면에서 구분하지 않으므로
       // (voice-tone에 `카메라가 꺼져 있어요` 하나뿐) 사유를 나누지 않는다.
-      console.warn("[camera] getUserMedia 실패", error);
+      // Sentry에는 에러 종류(NotAllowedError 등)가 그대로 실려 사유별 빈도를 볼 수 있다(BY-372).
+      reportHandled(error, "camera-acquire");
       return null;
     }
   }

@@ -8,7 +8,14 @@ import { AppState } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { lockPortrait } from "../lib/orientation";
+import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
+
+/**
+ * **렌더 밖(모듈 스코프)에서 부른다.** effect로 미루면 그 사이에 나는 에러 — 특히 앱 시작
+ * 직후 터지는 것들 — 을 놓친다. 초기화 자체는 DSN 유무만 보므로 부작용이 없다.
+ */
+initSentry();
 
 /**
  * 서버 통계는 홈·기록 탭이 공유한다. staleTime 30초: 탭을 오가는 짧은 간격에는 캐시를
@@ -19,7 +26,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 
-export default function RootLayout() {
+function RootLayout() {
   useEffect(() => {
     void ensureUserRegistered();
     // 앱 전역 세로 잠금 — 세션(`room/[id]`)이 자기 마운트에서 풀고 언마운트에서 되잠근다.
@@ -86,3 +93,6 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+// 렌더 트리에서 난 에러를 잡으려면 루트를 감싸야 한다 — `initSentry()`만으로는 부족하다.
+export default wrapRoot(RootLayout);

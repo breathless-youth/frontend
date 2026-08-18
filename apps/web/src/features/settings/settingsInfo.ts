@@ -11,6 +11,14 @@
  * 띄운다(BY-257). 이용약관·개인정보처리방침도 같은 원칙이지만 그쪽은 정적 텍스트라 WebView 없이
  * `lib/legalDocuments.ts`의 본문을 직접 렌더한다. 문의는 응답을 제출해야 하는 인터랙티브 폼이라
  * 텍스트로 옮길 수 없어 WebView가 필요하다.
+ *
+ * **`forms.gle` 단축 링크가 아니라 `docs.google.com/forms/...` 전체 주소를 써야 한다.**
+ * `forms.gle`는 리다이렉트 응답에 `Cross-Origin-Resource-Policy: same-site`를 실어 보내는데,
+ * 이 앱(`web.sunqstudio.kr`)은 `google.com`과 same-site가 아니라서 크로스사이트 iframe으로
+ * 이 리다이렉트를 태우면 브라우저가 그 응답 자체를 네트워크 레벨에서 차단한다(Android WebView
+ * 실기기에서 `net::ERR_BLOCKED_BY_RESPONSE`로 확인, 2026-08-06). 최종 목적지인
+ * `docs.google.com/forms/...`는 이 헤더를 보내지 않아 정상적으로 임베드된다 — 그래서 리다이렉트를
+ * 거치지 않도록 처음부터 전체 주소를 쓴다.
  */
 export const CONTACT_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform";

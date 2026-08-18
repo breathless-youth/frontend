@@ -104,4 +104,22 @@ describe("postToNative", () => {
   it("브라우저 단독 모드에서는 아무 일도 하지 않는다", () => {
     expect(() => postToNative({ type: "session-ready", atMs: 42 })).not.toThrow();
   });
+
+  /**
+   * 회귀 가드. 존재 검사(`typeof postMessage === "function"`)는 통과하는데 **호출이 던지는**
+   * 조합이 실제로 존재한다 — iOS에서 웹뷰가 파괴되는 중이면 껍데기만 남고 그 안의
+   * `window.webkit.messageHandlers`가 사라진다(2026-08-05 실기기, FOCUSMAKERS-WEB-1·2).
+   */
+  it("postMessage가 던져도 삼킨다 — 웹뷰 파괴 중 호출", () => {
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: () => {
+        throw new TypeError(
+          "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+        );
+      },
+    });
+
+    expect(() => postToNative({ type: "session-ready", atMs: 42 })).not.toThrow();
+    vi.unstubAllGlobals();
+  });
 });

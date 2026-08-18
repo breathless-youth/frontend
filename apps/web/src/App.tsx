@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 
+import { ErrorFallback } from "@/components/ErrorFallback";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -40,20 +42,27 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/room/:id" element={<RoomPage />} />
-        <Route path="/room/:id/result" element={<ResultPage />} />
-        <Route path="/home" element={<HomeTabPage />} />
-        <Route path="/records" element={<RecordsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        {/* BY-331: 설정 하위 화면 — 탭 바 없는 전체 화면 스택 라우트. */}
-        <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/licenses" element={<LicensesPage />} />
-      </Routes>
+      {/*
+        렌더 크래시를 흰 화면 대신 폴백으로 받는다(BY-372). 바운더리가 잡은 에러는
+        `onUncaughtError`(`sentryRootOptions`)를 타지 않고 바운더리 자신이 1회 전송한다 —
+        `onCaughtError`를 추가하면 이중 전송이 된다(`errorBoundary.test.tsx`가 고정).
+      */}
+      <Sentry.ErrorBoundary fallback={<ErrorFallback />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/room/:id" element={<RoomPage />} />
+          <Route path="/room/:id/result" element={<ResultPage />} />
+          <Route path="/home" element={<HomeTabPage />} />
+          <Route path="/records" element={<RecordsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          {/* BY-331: 설정 하위 화면 — 탭 바 없는 전체 화면 스택 라우트. */}
+          <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/licenses" element={<LicensesPage />} />
+        </Routes>
+      </Sentry.ErrorBoundary>
     </QueryClientProvider>
   );
 }

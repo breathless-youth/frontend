@@ -1,3 +1,5 @@
+import { reportHandled } from "@/lib/sentry";
+
 import type { Detection } from "./detectionRules";
 import type { Delegate, ModelVariant } from "./visionConfig";
 import {
@@ -230,7 +232,8 @@ export function createObjectDetector(
     try {
       runtime = await loadRuntime();
     } catch (error: unknown) {
-      console.warn("[vision] MediaPipe 런타임 로드 실패", error);
+      // 이 실패는 그 세션이 통째로 감지 없이 간다는 뜻이다 — Sentry로도 남긴다(BY-372).
+      reportHandled(error, "vision-runtime-load");
       return null;
     }
     if (!wanted) {
@@ -252,7 +255,8 @@ export function createObjectDetector(
         });
         return { handle: opened, delegate: candidate };
       } catch (error: unknown) {
-        console.warn(`[vision] ObjectDetector 생성 실패 (delegate=${candidate})`, error);
+        // delegate를 태그 접미사로 — GPU만 실패하는 기기군을 이슈 목록에서 바로 가른다.
+        reportHandled(error, `vision-detector-create-${candidate.toLowerCase()}`);
       }
     }
     return null;
@@ -336,6 +340,8 @@ export function createObjectDetector(
         consecutiveFailures += 1;
         console.warn(`[vision] detectForVideo 실패 (${consecutiveFailures}회 연속)`, error);
         if (consecutiveFailures >= MAX_CONSECUTIVE_DETECT_FAILURES) {
+          // 포기가 확정되는 이 시점에만 전송한다 — 프레임마다 보내면 한 세션이 수백 건을 만든다.
+          reportHandled(error, "vision-frame-loop");
           releaseHandle();
           state = "unavailable";
         }
