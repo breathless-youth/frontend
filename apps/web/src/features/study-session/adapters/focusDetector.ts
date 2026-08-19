@@ -156,7 +156,8 @@ export interface VisionFocusDetectorOptions {
 /**
  * MediaPipe 추론을 기존 `FocusDetector` 뒤에 배선한다.
  *
- * 흐름은 한 줄이다 — `frameLoop`(고정 200ms) → `objectDetector.detect()` →
+ * 흐름은 한 줄이다 — `frameLoop`(고정 주기, `../vision/visionConfig.ts`의 `FRAME_INTERVAL_MS`)
+ * → `objectDetector.detect()` →
  * `evaluateFrame()` → `{trigger, active}` emit. 이 파일은 그 사이의 **배선과 수명**만 맡고,
  * 판정 규칙은 `../vision/detectionRules.ts`, 유지시간은 `../detection.ts`가 갖는다.
  *
@@ -334,7 +335,7 @@ export function createVisionFocusDetector(
     /**
      * **일시정지·카메라 전환용.** 추론만 멈추고 모델과 카메라 스트림은 그대로 둔다(설계 §3).
      *
-     * `nextFrameIntervalMs`가 `PAUSE`에서도 200ms를 돌려주는 것은 의도된 것이다 — 설계는 추론을
+     * `nextFrameIntervalMs`가 `PAUSE`에서도 같은 주기를 돌려주는 것은 의도된 것이다 — 설계는 추론을
      * "멈추라"고 했지 "느리게 하라"고 하지 않았고, 간격만 늘리면 "멈춘 줄 알았는데 가끔 도는"
      * 상태가 되어 조용히 틀린다. 그래서 정지는 여기서 `loop.stop()`으로 한다.
      */
