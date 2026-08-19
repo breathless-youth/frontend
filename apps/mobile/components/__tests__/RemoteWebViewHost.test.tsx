@@ -240,14 +240,14 @@ describe("RemoteWebViewHost", () => {
 
     render(<RemoteWebViewHost path="/home" testID="host" />);
 
-    expect(screen.getByText(/webBaseUrl 미설정/)).toBeTruthy();
+    expect(screen.getByText(/WEB_BASE_URL 미설정/)).toBeTruthy();
   });
 
   it("로드 실패(설정은 있음)일 때는 개발 사유 문구를 보이지 않는다", () => {
     render(<RemoteWebViewHost path="/home" testID="host" />);
     fireWebViewEvent("onError");
 
-    expect(screen.queryByText(/webBaseUrl 미설정/)).toBeNull();
+    expect(screen.queryByText(/WEB_BASE_URL 미설정/)).toBeNull();
   });
 
   it.each(["onError", "onHttpError"] as const)(
