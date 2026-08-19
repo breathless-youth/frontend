@@ -1,5 +1,3 @@
-import Constants from "expo-constants";
-
 import type {
   StudySessionResponse,
   SubmitResultMessage,
@@ -7,7 +5,7 @@ import type {
 } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
-import { missingConfigError } from "./missingConfigError";
+import { apiBaseUrl } from "./apiBaseUrl";
 
 /**
  * 웹이 부탁한 세션 제출을 **네이티브가 대행한다.**
@@ -25,14 +23,6 @@ import { missingConfigError } from "./missingConfigError";
  * `buildSessionRequest`가 소유하고, 이 함수는 받은 본문을 **고치지 않고** 그대로 POST한다
  * (루트 `CLAUDE.md` 아키텍처 경계). 그래서 인자가 `request` 객체 하나다 — 조립할 것이 없다.
  */
-function apiBaseUrl(): string {
-  const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
-  if (!url) {
-    throw missingConfigError("apiBaseUrl");
-  }
-  return url;
-}
-
 /**
  * 제출을 대행하고 **웹에 돌려줄 메시지를 만든다.**
  *

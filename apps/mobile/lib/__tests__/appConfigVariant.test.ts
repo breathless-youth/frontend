@@ -1,4 +1,4 @@
-import type { ExpoConfig } from "expo/config";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import buildConfig from "../../app.config";
 import appJson from "../../app.json";
@@ -28,7 +28,7 @@ describe("app.config 환경 분기", () => {
         process.env[key] = value;
       }
     }
-    return buildConfig({ config: baseConfig }).extra;
+    return buildConfig({ config: baseConfig } as ConfigContext).extra;
   }
 
   it("APP_VARIANT가 production이면 운영 주소가 들어간다", () => {

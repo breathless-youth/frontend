@@ -1,4 +1,4 @@
-import type { ExpoConfig } from "expo/config";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import buildConfig from "../../app.config";
 import appConfig from "../../app.json";
@@ -54,8 +54,9 @@ describe("app.json ATS 설정", () => {
     // 주소의 원천이 app.config.ts의 production 분기로 옮겨졌다(BY-402). app.json의 값은
     // 개발용 빈 문자열이라, 스토어 빌드가 실제로 쓰는 해석된 주소로 판정해야 가드가 유효하다.
     process.env.APP_VARIANT = "production";
-    const apiBaseUrl = buildConfig({ config: appConfig.expo as unknown as ExpoConfig }).extra
-      ?.apiBaseUrl as string;
+    const apiBaseUrl = buildConfig({
+      config: appConfig.expo as unknown as ExpoConfig,
+    } as ConfigContext).extra?.apiBaseUrl as string;
     delete process.env.APP_VARIANT;
     if (apiBaseUrl.startsWith("https://")) {
       // 백엔드에 도메인 + HTTPS가 붙으면 ATS 예외를 통째로 지워야 한다 —
