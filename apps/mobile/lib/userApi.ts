@@ -5,13 +5,14 @@ import type { UserRegisterResponse } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
+import { missingConfigError } from "./missingConfigError";
 
 const USER_ID_KEY = "focuson.userId";
 
 function apiBaseUrl(): string {
   const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (!url) {
-    throw new Error("app.json extra.apiBaseUrl이 설정되지 않았습니다");
+    throw missingConfigError("apiBaseUrl");
   }
   return url;
 }

@@ -228,7 +228,7 @@ export function RemoteWebViewHost({
         {/* 사유는 개발 빌드에서만 노출한다 — 사용자에게 설정 키 이름 같은 내부 정보를 보이지 않는다. */}
         {__DEV__ && target === null && (
           <Text className="text-text-tertiary mt-[6px] text-center text-[11px]">
-            (dev) app.json extra.webBaseUrl 미설정
+            (dev) WEB_BASE_URL 미설정 — apps/mobile/.env.local 확인
           </Text>
         )}
         <View className="mt-[20px] w-full max-w-[280px]">

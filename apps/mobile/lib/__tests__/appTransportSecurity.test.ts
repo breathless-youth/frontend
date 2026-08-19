@@ -1,3 +1,6 @@
+import type { ExpoConfig } from "expo/config";
+
+import buildConfig from "../../app.config";
 import appConfig from "../../app.json";
 
 /**
@@ -48,7 +51,12 @@ describe("app.json ATS 설정", () => {
    * `NSAllowsArbitraryLoads: true`가 그 위에 상위집합으로 얹힌다 — 따로 열 필요가 없다.
    */
   it("평문 HTTP API를 쓰는 동안에는 ATS 예외가 있어야 한다", () => {
-    const apiBaseUrl = appConfig.expo.extra.apiBaseUrl;
+    // 주소의 원천이 app.config.ts의 production 분기로 옮겨졌다(BY-402). app.json의 값은
+    // 개발용 빈 문자열이라, 스토어 빌드가 실제로 쓰는 해석된 주소로 판정해야 가드가 유효하다.
+    process.env.APP_VARIANT = "production";
+    const apiBaseUrl = buildConfig({ config: appConfig.expo as unknown as ExpoConfig }).extra
+      ?.apiBaseUrl as string;
+    delete process.env.APP_VARIANT;
     if (apiBaseUrl.startsWith("https://")) {
       // 백엔드에 도메인 + HTTPS가 붙으면 ATS 예외를 통째로 지워야 한다 —
       // `NSAllowsArbitraryLoads`를 남긴 채 App Store에 제출하면 심사에서 사유 소명을 요구받는다.

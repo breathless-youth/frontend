@@ -7,6 +7,7 @@ import type {
 } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
+import { missingConfigError } from "./missingConfigError";
 
 /**
  * 웹이 부탁한 세션 제출을 **네이티브가 대행한다.**
@@ -27,7 +28,7 @@ import { parseErrorMessage } from "./api";
 function apiBaseUrl(): string {
   const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (!url) {
-    throw new Error("app.json extra.apiBaseUrl이 설정되지 않았습니다");
+    throw missingConfigError("apiBaseUrl");
   }
   return url;
 }
