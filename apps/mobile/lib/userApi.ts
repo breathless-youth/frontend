@@ -1,20 +1,12 @@
-import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
 import type { UserRegisterResponse } from "@focusmakers/types";
 
 import { parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
+import { apiBaseUrl } from "./apiBaseUrl";
 
 const USER_ID_KEY = "focuson.userId";
-
-function apiBaseUrl(): string {
-  const url = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
-  if (!url) {
-    throw new Error("app.json extra.apiBaseUrl이 설정되지 않았습니다");
-  }
-  return url;
-}
 
 /**
  * 등록 API 원본 호출.

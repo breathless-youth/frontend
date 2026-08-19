@@ -1,5 +1,3 @@
-@AGENTS.md
-
 # apps/mobile
 
 Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코드(WebView 룸 라우트, dormant 네이티브 자산)는 전부 삭제됐다** — 남은 것은 홈 탭 셸과 익명 기기 유저 등록(SCRUM-259, `lib/*`)뿐이다(git 히스토리에서 복구 가능 — ADR 0003 갱신 노트 참고). 스터디룸 재구축 시 "WebView로 `apps/web`을 로드"하는 방침(ADR 0001)을 따른다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md), [ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md), [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md), [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md) 순서로 참고.
@@ -35,7 +33,9 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 ## 네트워크 / ATS — 2026-08-02 HTTPS 전환으로 정리 완료
 
-`extra.apiBaseUrl`은 `https://api.sunqstudio.kr`다. 과거(2026-07-29~08-02) 평문 HTTP + IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷어냈다:
+운영 `extra.apiBaseUrl`은 `https://api.sunqstudio.kr`다(BY-402부터 원천은 `app.config.ts`의
+production 분기 — app.json의 값은 개발용 빈 문자열이다). 과거(2026-07-29~08-02) 평문 HTTP +
+IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷어냈다:
 
 - iOS `NSAppTransportSecurity.NSAllowsArbitraryLoads` 블록 삭제 — **다시 넣지 말 것.** 남긴 채 제출하면 심사에서 사유 소명을 요구받는다. `lib/__tests__/appTransportSecurity.test.ts`가 "https면 ATS 예외 없음"을 강제한다(평문 http로 되돌리면 반대로 예외 추가를 요구).
 - `expo-build-properties`의 `android.usesCleartextTraffic` 삭제(플러그인 항목째). Android 디버그 빌드는 RN 기본 debug manifest가 localhost 평문을 계속 허용하므로 `adb reverse` + `http://localhost:5173` dev 흐름은 그대로 동작한다.
@@ -46,7 +46,8 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 `lib/sentry.ts`가 `@sentry/react-native`(~7.2.0)를 초기화하고 `app/_layout.tsx`가 렌더 전에 부른다.
 
 - **프로젝트는 `focusmakers-app`이다** — 웹(`focusmakers-web`)·백엔드(`focusmakers-api`)와 분리돼 있다. 같은 세션이라도 웹뷰 안 에러는 웹으로, 셸 에러는 이쪽으로 간다. 산출물도 소스맵도 릴리즈도 완전히 달라서 한 통에 섞으면 어느 쪽 스택인지 구분할 수 없다. **웹 DSN을 복사해 오지 말 것** — `lib/__tests__/sentryConfig.test.ts`가 프로젝트 ID를 못 박는다.
-- **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(`webBaseUrl`과 같은 패턴). DSN은 비밀이 아니다 — 이벤트를 보낼 주소일 뿐이고 어떤 빌드에도 그대로 들어간다. 반대로 소스맵 업로드용 **`SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다**(`.env.local`도, 커밋도 금지).
+- **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(환경 무관 고정값이라 `app.config.ts` 분기
+  대상이 아니다 — 전송 여부는 런타임 `enabled: !__DEV__`가 가른다). DSN은 비밀이 아니다 — 이벤트를 보낼 주소일 뿐이고 어떤 빌드에도 그대로 들어간다. 반대로 소스맵 업로드용 **`SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다**(`.env.local`도, 커밋도 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** 세션 화면은 카메라 프리뷰가 떠 있어 화면 녹화 수집은 개인정보 원칙(아래 절)과 정면 충돌한다 — 웹에도 같은 금지가 걸려 있다. `sendDefaultPii`도 `false`로 못 박았다(Sentry 공식 예제는 `true`다 — 따라가지 말 것).
 - 성능 추적(`tracesSampleRate`)은 켜지 않았다. 모든 화면이 웹뷰인 셸이라 네이티브에 잴 구간이 사실상 없고 화면 로딩 성능은 웹 프로젝트가 이미 본다.
 
@@ -66,11 +67,24 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 ⚠️ **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들과 소스맵에 같은 debug ID를 심는다. 되돌려도 빌드는 성공하고 업로드도 성공하는데 **스택트레이스만 압축된 채로 남는다** — 로그에 신호가 없어 원인을 찾기 가장 어려운 실패다(웹에서 2026-08-05에 같은 종류를 겪었다). 확인법: `npx expo export --platform ios` 후 산출된 `.hbc`에서 `sentry-dbid-`가 1개 나오면 정상.
 
-## 웹 dev 서버로 화면 띄우기 (2026-08-01 갱신 — 키가 `webBaseUrl` 하나로 통합됨)
+## 웹 dev 서버로 화면 띄우기 (2026-08-19 갱신 — BY-402 환경 분기 도입)
 
-**모든 화면(탭 3개 + 세션)이 `app.json`의 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 동봉 자산·로컬 정적 서버·`extra.webDevUrl`·`lib/devWebOrigin.ts`는 전부 삭제됐다 — 예전에 "평소엔 번들, dev일 때만 URL"로 나뉘어 있던 두 경로가 하나가 됐다. 개발 중에는 이 값에 Vite dev 서버 주소를 넣으면 **HMR로 즉시 반영**된다(네이티브 재빌드 불필요).
+**모든 화면(탭 3개 + 세션)이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 이 값의
+원천은 이제 `app.config.ts`다 — app.json을 받아 `APP_VARIANT`로 주소만 분기해 덮어쓴다(BY-402).
 
-⚠️ **개발용 값을 커밋하지 말 것.** 커밋된 기본값은 빈 문자열이고, 그 상태에서는 웹뷰 대신 "화면을 불러오지 못했어요" 폴백이 뜬다(`components/RemoteWebViewHost.tsx`). 배포용 값은 BY-332의 배포 파이프라인이 채운다.
+- **EAS production·preview 빌드**: eas.json 프로필이 `APP_VARIANT=production`을 주입 →
+  운영 주소(`app.config.ts`의 상수)가 들어간다. 스토어 빌드에 필요한 값은 전부 커밋돼 있다.
+- **로컬 Metro·개발 빌드**: `APP_VARIANT`가 없어 **기본값이 빈 주소**다 — 웹뷰 대신 "화면을
+  불러오지 못했어요" 폴백이 뜬다(`components/RemoteWebViewHost.tsx`). 개발 빌드가 아무 설정
+  없이 운영 웹을 열어 GA4·Amplitude 운영 지표를 오염시키던 문제를 이 방향 전환으로 막았다.
+- **개발 주소 주입은 `apps/mobile/.env.local`**(gitignore)에 적는다 — Expo CLI가 자동 로드한다.
+  ```bash
+  # apps/mobile/.env.local
+  WEB_BASE_URL=http://localhost:5173
+  API_BASE_URL=http://localhost:8080
+  ```
+  app.json을 직접 고치던 종전 방식은 커밋 사고 위험 때문에 폐기했다. **production에서는 이
+  주입이 무시된다**(`lib/__tests__/appConfigVariant.test.ts`가 분기 계약 전체를 고정한다).
 
 Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다.
 
@@ -81,7 +95,7 @@ Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재
 ```bash
 pnpm --filter web dev                     # Vite 5173
 adb reverse tcp:5173 tcp:5173
-# app.json: "webBaseUrl": "http://localhost:5173"
+# .env.local: WEB_BASE_URL=http://localhost:5173
 ```
 
 ### iOS 실기기
@@ -95,7 +109,7 @@ cd apps/web && mkdir -p .certs && cd .certs
 mkcert 192.168.0.19 localhost 127.0.0.1 ::1   # 본인 Mac의 LAN IP
 
 VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 참고
-# app.json: "webBaseUrl": "https://192.168.0.19:5173"
+# .env.local: WEB_BASE_URL=https://192.168.0.19:5173
 ```
 
 기기에는 `mkcert -CAROOT`의 `rootCA.pem`을 AirDrop 등으로 옮겨 프로파일을 설치하고, **설정 → 일반 → 정보 → 인증서 신뢰 설정**에서 신뢰시켜야 한다. LAN IP는 네트워크가 바뀌면 달라지므로 그때마다 인증서를 다시 만든다.
@@ -134,6 +148,10 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 ## 네이티브 전환 시 (지금은 해당 없음)
 
 `eas.json`(development/preview/production 프로필)은 전환 대비로 남겨뒀다. 실제로 네이티브로 되돌릴 때 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따른다 — `expo-camera`/`expo-dev-client` 재설치, `platform/*` mock을 실제 구현으로 교체, `eas init`으로 EAS project id 발급 등.
+
+## Expo SDK
+
+**SDK 54 고정이다(의도적).** 최신은 57이지만 올리지 않는다 — 참조할 문서는 https://docs.expo.dev/versions/v54.0.0/ 이다. 버전이 낡아 보인다는 이유로 업그레이드를 제안하거나 실행하지 말 것.
 
 ## 명령
 

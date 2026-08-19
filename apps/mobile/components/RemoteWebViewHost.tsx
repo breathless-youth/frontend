@@ -127,6 +127,29 @@ export function RemoteWebViewHost({
     webViewRef.current?.reload();
   }, []);
 
+  /**
+   * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
+   *
+   * 이 통보를 받지 않으면 웹뷰는 **빈 흰 화면**으로 남는다 — 이미 로드가 끝난 페이지라
+   * `onError`(로드 실패 폴백)도, 첫 로드용 스플래시도 불리지 않아 앱 재시작 말고는 복구
+   * 수단이 없다(2026-08-14 시뮬레이터 WebContent kill로 재현: 세 탭 모두 흰 화면 영구 방치).
+   * 세션 화면(`/room/:id`)도 같은 정책으로 재로드한다 — 죽는 순간 측정 상태(웹 JS 메모리)는
+   * 어차피 소실되므로, 남은 결정은 "어디로 보낼 것인가"뿐이고 공부 중이던 사용자를 세션
+   * 화면에 되돌리는 쪽을 택했다(측정 데이터 생존은 BY-291 체크포인트 몫).
+   *
+   * iOS는 `reload()`가 새 콘텐츠 프로세스를 띄우므로 그걸로 충분하다. Android는 렌더러가
+   * 죽은 WebView 인스턴스를 재사용할 수 없어(플랫폼 제약) reload 대신 `key`를 바꿔 웹뷰를
+   * 재마운트한다 — `retryKey`가 이미 그 역할의 신호라 재사용한다.
+   */
+  // ponytail: 반복 크래시 시 재로드 루프 가드 없음 — 페이지 자체가 프로세스를 죽이는 경우가
+  // 생기면(현재 탭 페이지들은 경량이라 관측된 바 없음) 시도 횟수 제한을 추가할 것.
+  const handleContentProcessDidTerminate = useCallback(() => {
+    webViewRef.current?.reload();
+  }, []);
+  const handleRenderProcessGone = useCallback(() => {
+    setRetryKey((key) => key + 1);
+  }, []);
+
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       const message = parseToNativeMessage(event.nativeEvent.data);
@@ -205,7 +228,7 @@ export function RemoteWebViewHost({
         {/* 사유는 개발 빌드에서만 노출한다 — 사용자에게 설정 키 이름 같은 내부 정보를 보이지 않는다. */}
         {__DEV__ && target === null && (
           <Text className="text-text-tertiary mt-[6px] text-center text-[11px]">
-            (dev) app.json extra.webBaseUrl 미설정
+            (dev) WEB_BASE_URL 미설정 — apps/mobile/.env.local 확인
           </Text>
         )}
         <View className="mt-[20px] w-full max-w-[280px]">
@@ -217,6 +240,8 @@ export function RemoteWebViewHost({
 
   return (
     <WebView
+      // 재시도·Android 렌더러 사망 시 웹뷰를 통째로 새로 만든다(위 handleRenderProcessGone 주석).
+      key={retryKey}
       ref={webViewRef}
       testID={testID}
       source={{ uri: target.uri }}
@@ -259,6 +284,8 @@ export function RemoteWebViewHost({
       onLoadEnd={handleLoadEnd}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}
+      onContentProcessDidTerminate={handleContentProcessDidTerminate}
+      onRenderProcessGone={handleRenderProcessGone}
     />
   );
 }
