@@ -208,6 +208,14 @@ const SURVEY_BLOCKED_PATH = /^\/room(\/|$)/;
  *   유보**한다. 즉 disable이 boot보다 먼저 재생되면 설문 평가가 시작조차 안 된다.
  * - 설문 렌더·트리거 평가는 번들 로드 + boot + decide 이후에만 가능하므로 "로드 전 잠깐
  *   노출" 창구는 구조적으로 없다.
+ * - **웜 패스(이미 렌더된 설문 → disable)도 즉시 제거된다**: 브라우저 단독 모드는 홈 →
+ *   `/room/1`이 같은 SPA 안의 client-side 라우팅이라, 콘솔 실수로 홈에 설문이 이미 떠
+ *   있는 채 세션에 진입하는 경로가 있다. 실SDK의 `disable()`은
+ *   `_shutdownWithoutClearingBootOptions()` → nudgesManager에 `SHUTDOWN` 전송이고, 그
+ *   상태머신 전이는 **살아 있는 모든 nudge 머신에 `CLOSE`를 보내고**(사용자가 X를 눌러
+ *   닫을 때와 같은 메시지) 머신을 전부 정지·해체한 뒤 `Disabled` 상태(트리거 큐잉도 안
+ *   함)로 들어간다 — 즉 떠 있는 오버레이가 닫히고 새 노출도 막힌다. `enable()`이 새 boot
+ *   사이클을 시작할 때까지 유지된다.
  *
  * 미초기화(키 없음)면 전역 자체가 없어 no-op이다.
  */
