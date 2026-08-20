@@ -198,9 +198,18 @@ const SURVEY_BLOCKED_PATH = /^\/room(\/|$)/;
  * 부른다. 차단 경로에 들어오면 SDK 전체를 `disable()`로 멈추고 벗어나면 되살린다 —
  * SDK가 경로 단위 차단 API를 제공하지 않아 전역 on/off가 유일한 코드 가드다.
  *
- * `window.engagement`는 로더가 만드는 전역이고 실제 SDK 로드 전에는 호출이 큐에 쌓였다가
- * 로드 후 재생된다 — 즉 SDK보다 먼저 불러도 유실되지 않는다. 미초기화(키 없음)면 전역
- * 자체가 없어 no-op이다.
+ * ## 타이밍 근거 (2026-08-21 로더·원격 번들 소스로 확인)
+ *
+ * - `window.engagement`는 **`engagementPlugin()` 호출 시점에 동기 생성**된다(로더 export가
+ *   `window.engagement ||= N`을 실행) — `initAmplitude`의 얼리콜 시점에 전역이 없을 수 없다.
+ * - 실제 SDK(CDN) 로드 전 호출은 `_q`에 쌓였다가 로드 후 순서대로 재생된다.
+ * - 재생 순서가 `disable → boot`여도 안전하다: 실SDK `_bootImpl`이 disabled 상태면
+ *   "updating boot options but not booting until enable() is called"로 **부팅 자체를
+ *   유보**한다. 즉 disable이 boot보다 먼저 재생되면 설문 평가가 시작조차 안 된다.
+ * - 설문 렌더·트리거 평가는 번들 로드 + boot + decide 이후에만 가능하므로 "로드 전 잠깐
+ *   노출" 창구는 구조적으로 없다.
+ *
+ * 미초기화(키 없음)면 전역 자체가 없어 no-op이다.
  */
 export function updateSurveyGate(pathname: string) {
   // 타입(`EngagementSDK`)은 항상 있다고 선언돼 있지만 전역을 만드는 것은 로더의 모듈 부수효과라
