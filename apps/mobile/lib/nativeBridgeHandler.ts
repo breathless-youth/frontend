@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
@@ -64,6 +65,14 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
         .catch((error: unknown) => {
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
         });
+      break;
+    case "share":
+      // Android 웹뷰에는 `navigator.share`가 없어 웹이 시트를 못 연다 — 여기서 OS 공유
+      // 시트를 대신 연다(계약 주석 참고). 응답은 없다 — 취소(AbortError 상당)도 OS가
+      // 이미 사용자에게 보여준 결과라 웹에 알릴 것이 없다.
+      void Share.share({ message: message.text }).catch((error: unknown) => {
+        console.warn("[bridge] 공유 시트(share) 열기 실패", error);
+      });
       break;
     case "navigate-tab":
       // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브

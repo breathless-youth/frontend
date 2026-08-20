@@ -15,7 +15,8 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "buildNumber": "1",
-      "bundleIdentifier": "com.breathlessyouth.mobile"
+      "bundleIdentifier": "com.breathlessyouth.mobile",
+      "associatedDomains": ["applinks:web.sunqstudio.kr"]
     },
     "android": {
       "versionCode": 3,
@@ -27,7 +28,21 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
-      "package": "com.breathlessyouth.mobile"
+      "package": "com.breathlessyouth.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "web.sunqstudio.kr",
+              "pathPrefix": "/social/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "expo-router",

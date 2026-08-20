@@ -34,6 +34,18 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("share를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"share","text":"초대 텍스트","atMs":9}')).toEqual({
+      type: "share",
+      text: "초대 텍스트",
+      atMs: 9,
+    });
+  });
+
+  it("share의 text가 문자열이 아니면 null이다 — 빈 공유 시트를 열지 않는다", () => {
+    expect(parseToNativeMessage('{"type":"share","text":1,"atMs":9}')).toBeNull();
+  });
+
   it("navigate-tab을 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"navigate-tab","tab":"records","atMs":4}')).toEqual({
       type: "navigate-tab",
