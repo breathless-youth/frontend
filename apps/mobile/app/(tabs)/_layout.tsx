@@ -3,9 +3,10 @@ import { Tabs } from "expo-router";
 import { TabBar, type TabId } from "../../components/TabBar";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
 
-/** expo-router 라우트 이름 → 탭 바 아이템 id. 확정 3탭이 모두 실재하는 라우트다. */
+/** expo-router 라우트 이름 → 탭 바 아이템 id. 확정 4탭(BY-409에서 소셜 추가)이 모두 실재하는 라우트다. */
 const TAB_BY_ROUTE_NAME: Record<string, TabId> = {
   index: "home",
+  social: "social",
   records: "record",
   settings: "settings",
 };
@@ -32,6 +33,7 @@ export default function TabsLayout() {
       }
     >
       <Tabs.Screen name="index" options={{ title: "홈" }} />
+      <Tabs.Screen name="social" options={{ title: "소셜" }} />
       <Tabs.Screen name="records" options={{ title: "기록" }} />
       <Tabs.Screen name="settings" options={{ title: "설정" }} />
     </Tabs>

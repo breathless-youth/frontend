@@ -3,12 +3,14 @@ import { router } from "expo-router";
 import { Pressable, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconTabHome, IconTabRecord, IconTabSettings } from "./icons";
+import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
 
-export type TabId = "home" | "record" | "settings";
+export type TabId = "home" | "social" | "record" | "settings";
 
+// 순서: 홈 · 소셜 · 기록 · 설정.
 const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
   { id: "home", label: "홈", Icon: IconTabHome, href: "/" },
+  { id: "social", label: "소셜", Icon: IconTabSocial, href: "/social" },
   { id: "record", label: "기록", Icon: IconTabRecord, href: "/records" },
   { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },
 ];
@@ -17,12 +19,6 @@ type TabBarProps = {
   active?: TabId;
 };
 
-/**
- * Figma의 Navigation/Tab Bar(S1 `36:48` · S6 `67:792`). 확정 3탭 IA — 홈(S1)·기록(S5)·설정(S6)이
- * 모두 실제 라우트다. 목적지가 확정되지 않은 탭을 임의로 늘리지 않는다.
- *
- * 아이콘은 SVG라 활성/비활성을 색상 prop으로 처리한다(상태별 이미지 파일 불필요).
- */
 export function TabBar({ active = "home" }: TabBarProps) {
   const insets = useSafeAreaInsets();
 
