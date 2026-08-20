@@ -61,6 +61,10 @@ describe("S6 · 설정", () => {
 
     expect(screen.getByText("설정")).toBeInTheDocument();
 
+    // BY-409: 프로필 섹션 — 설정이 프로필 설정(S7-18)의 유일한 진입점이다.
+    expect(screen.getByText("프로필")).toBeInTheDocument();
+    expect(screen.getByText("프로필 설정")).toBeInTheDocument();
+
     expect(screen.getByText("측정")).toBeInTheDocument();
     expect(screen.getByText("카메라 권한")).toBeInTheDocument();
     expect(screen.getByText("측정 기준 안내")).toBeInTheDocument();
@@ -72,6 +76,23 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("약관 · 정보")).toBeInTheDocument();
     expect(screen.getByText("이용약관")).toBeInTheDocument();
     expect(screen.getByText("개인정보처리방침")).toBeInTheDocument();
+  });
+
+  it("프로필 설정 행은 기존 쿼리(userId·appVersion)를 승계해 /profile 로 이동한다 (BY-409)", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<LocationProbe testId="profile-stub" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "프로필 설정" }));
+
+    expect(screen.getByTestId("profile-stub").textContent).toBe(
+      "/profile?userId=7&appVersion=1.4.2",
+    );
   });
 
   it("측정 기준 안내 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {

@@ -8,18 +8,9 @@ import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/s
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
 
 /**
- * S6 · 설정 — Figma node `67:722`, 스펙 `frontend/docs/screens/SCR-S6-settings.md`.
- * RN 원본 `apps/mobile/app/(tabs)/settings.tsx`의 웹 이식.
+ * 설정
  *
- * **이 화면에서 앱이 직접 바꾸는 상태는 하나도 없다.** 설정은 "기능을 켜고 끄는 곳"이 아니라
- * "측정 방식을 이해하고, 권한을 확인하러 가는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀐다.
- *
- * **모든 행이 앱 안에 머문다**(BY-257). 문의는 `/contact`, 약관·방침은 `/terms`·`/privacy` —
- * 외부 브라우저로 나가는 행이 하나도 없다.
- *
- * V1.0 인벤토리에 없는 항목을 추가하지 않는다: 로그인·계정 삭제(V1.2+, `policies.md` §2),
- * 알림 설정(푸시 알림 정책이 `design.md` 백로그에 미정), 랭킹·프로필.
- * 폐기된 정적 안내 화면 S6-1도 만들지 않는다(가이드로 통합됨).
+ * **프로필 설정 행은 ⚠️ 설정 화면의 행 배치 디자인은 미확정이라 섹션 구성은 잠정이다.
  *
  * ## 원본과의 의도적 차이 (BY-331 task-4-brief)
  *
@@ -50,12 +41,18 @@ export function SettingsPage() {
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>
 
-        {/*
-          섹션 간 간격은 Figma 실측이 균일하지 않다(타이틀→측정 23 · 캡션→지원 20 · 지원 카드→약관 24).
-          균일 `gap`으로 뭉개면 캡션이 있는 구간만 어긋나므로 구간별 마진으로 둔다(S5와 같은 처리).
-        */}
+        <SettingsSection className="mt-[23px]" label="프로필">
+          <SettingsRow
+            label="프로필 설정"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              navigate({ pathname: "/profile", search: location.search });
+            }}
+          />
+        </SettingsSection>
+
         <SettingsSection
-          className="mt-[23px]"
+          className="mt-5"
           label="측정"
           caption="권한은 시스템 설정에서 바꿀 수 있어요"
         >

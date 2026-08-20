@@ -12,6 +12,7 @@ import { HomeTabPage } from "@/routes/HomeTabPage";
 import { LicensesPage } from "@/routes/LicensesPage";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 import { PrivacyPage } from "@/routes/PrivacyPage";
+import { ProfilePage } from "@/routes/ProfilePage";
 import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import { RecordsPage } from "@/routes/RecordsPage";
@@ -50,6 +51,7 @@ export function App() {
           <Route path="/social" element={<SocialHomePage />} />
           <Route path="/social/code" element={<InviteCodeSharePage />} />
           <Route path="/social/join" element={<InviteCodeJoinPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/terms" element={<TermsPage />} />
