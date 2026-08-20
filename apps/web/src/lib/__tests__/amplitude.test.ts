@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     setUserId: vi.fn(),
     add: vi.fn(),
     sessionReplayPlugin: vi.fn((options: unknown) => ({ name: "session-replay", options })),
+    engagementPlugin: vi.fn(() => ({ name: "engagement", type: "enrichment" })),
     FakeIdentify,
   };
 });
@@ -33,6 +34,12 @@ vi.mock("@amplitude/analytics-browser", () => ({
 
 vi.mock("@amplitude/plugin-session-replay-browser", () => ({
   sessionReplayPlugin: mocks.sessionReplayPlugin,
+}));
+
+// 실제 모듈은 CDN에서 원격 번들을 로드하는 로더다 — 단위 테스트에서는 등록 여부·순서만 본다
+// (jsdom에서 왜 실물을 못 돌리는지는 `amplitudePipeline.test.ts`의 mock 주석 참고).
+vi.mock("@amplitude/engagement-browser", () => ({
+  plugin: mocks.engagementPlugin,
 }));
 
 // 모듈이 initialized 플래그를 들고 있어 테스트마다 새로 로드한다.
@@ -133,6 +140,83 @@ describe("initAmplitude", () => {
     expect(mocks.add.mock.invocationCallOrder[replayIndex]).toBeLessThan(
       mocks.init.mock.invocationCallOrder[0],
     );
+  });
+
+  it("Guides & Surveys 플러그인을 정제 플러그인 뒤, init 전에 등록한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+
+    // 설문 내용·대상·빈도는 콘솔 소유 — 코드는 렌더러 등록뿐이라 이 등록이 빠지면
+    // 콘솔에서 설문을 아무리 만들어도 앱에는 아무것도 뜨지 않는다.
+    expect(mocks.engagementPlugin).toHaveBeenCalledTimes(1);
+    const plugins = mocks.add.mock.calls.map(([plugin]) => plugin as { name?: string });
+    const engagementIndex = plugins.findIndex((plugin) => plugin.name === "engagement");
+    const sanitizeIndex = plugins.findIndex((plugin) => plugin.name === "focusmakers-sanitize-url");
+    expect(engagementIndex).toBeGreaterThanOrEqual(0);
+    // 설문 노출·응답 이벤트는 이 타임라인으로 포워딩된다 — 정제 플러그인이 앞서야
+    // URL 속성이 정제된 뒤에 전달·전송된다.
+    expect(sanitizeIndex).toBeGreaterThanOrEqual(0);
+    expect(sanitizeIndex).toBeLessThan(engagementIndex);
+    // 플러그인 방식은 init 과정에서 setup이 자체 boot를 수행한다 — init 전에 등록돼 있어야 한다.
+    expect(mocks.add.mock.invocationCallOrder[engagementIndex]).toBeLessThan(
+      mocks.init.mock.invocationCallOrder[0],
+    );
+  });
+});
+
+describe("updateSurveyGate — 세션 화면 설문 차단", () => {
+  /** 로더가 만드는 `window.engagement` 전역을 흉내 낸다. */
+  function stubEngagement() {
+    const engagement = { disable: vi.fn(), enable: vi.fn() };
+    vi.stubGlobal("engagement", engagement);
+    return engagement;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("`/room/*`에서 disable, 그 외 경로에서 enable을 부른다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, updateSurveyGate } = await loadModule();
+    initAmplitude();
+    const engagement = stubEngagement();
+
+    // 카메라 측정 중인 세션 화면(S3) — 코드 가드의 존재 이유다. 콘솔 페이지 타겟팅
+    // 실수(오타·범위 누락)가 프로덕션 세션 화면의 설문 오버레이로 직행하지 않게 한다.
+    updateSurveyGate("/room/42");
+    expect(engagement.disable).toHaveBeenCalledTimes(1);
+    expect(engagement.enable).not.toHaveBeenCalled();
+
+    // 결과 화면(S4)도 보수적으로 함께 막는다 — 설문의 표시 지점은 기록 탭(BY-411).
+    updateSurveyGate("/room/42/result");
+    expect(engagement.disable).toHaveBeenCalledTimes(2);
+
+    // 설문의 실제 표시 지점.
+    updateSurveyGate("/records");
+    expect(engagement.enable).toHaveBeenCalledTimes(1);
+
+    // `/roommate` 같은 접두사 오탐이 없어야 한다.
+    updateSurveyGate("/roommate");
+    expect(engagement.enable).toHaveBeenCalledTimes(2);
+    expect(engagement.disable).toHaveBeenCalledTimes(2);
+  });
+
+  it("미초기화이거나 전역이 없으면 조용히 아무것도 하지 않는다", async () => {
+    // 키 없음 → 미초기화. 전역이 있어도 건드리지 않는다.
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "");
+    const { initAmplitude, updateSurveyGate } = await loadModule();
+    initAmplitude();
+    const engagement = stubEngagement();
+
+    updateSurveyGate("/room/42");
+    expect(engagement.disable).not.toHaveBeenCalled();
+
+    // 전역이 없는 환경(로더 미로드) — 던지면 라우트 이펙트가 통째로 죽는다.
+    vi.unstubAllGlobals();
+    expect(() => updateSurveyGate("/room/42")).not.toThrow();
   });
 });
 
