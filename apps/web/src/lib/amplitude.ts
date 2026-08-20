@@ -1,5 +1,6 @@
 import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
+import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
@@ -117,6 +118,26 @@ export function initAmplitude() {
       privacyConfig: { blockSelector: ["video", ".amp-block"] },
     }),
   );
+  /**
+   * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
+   * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
+   *
+   * - 플러그인 방식이라 `init`/`boot`를 따로 부르지 않는다 — analytics의 API 키와
+   *   user_id(`setAmplitudeUserId`가 붙인 서버 번호)를 그대로 물려받으므로, 콘솔 cohort
+   *   타겟팅이 백엔드 집계와 같은 키로 동작한다.
+   * - npm 패키지는 로더다 — 실제 번들·설문 설정은 `cdn.amplitude.com`/`gs.amplitude.com`에서
+   *   런타임에 가져온다. 광고 차단기 등으로 막히면 설문만 안 뜰 뿐 나머지 수집은 무관하다
+   *   (리플레이의 자체 원격 설정과 같은 성격의 fail-closed).
+   * - 설문 노출·응답 이벤트는 이 analytics 인스턴스로 포워딩되어 `sanitizeUrlPlugin`(타임라인
+   *   맨 앞)을 거친다. ⚠️ 다만 정제는 `URL_EVENT_PROPERTIES` **명시 목록**만 타므로, G&S가
+   *   새 URL 속성 키를 담는지 첫 배포 후 실제 payload로 확인하고 목록에 추가할 것 —
+   *   번들이 원격이라 정적으로는 확인할 수 없다.
+   * - 세션 화면(`/room/*`) 차단은 **코드 가드(`updateSurveyGate`)와 콘솔 페이지 타겟팅의
+   *   이중 방어**다 — Session Replay의 카메라 차단이 전역 `blockSelector`와 요소 단위
+   *   `amp-block` 태깅을 겹쳐 두는 것과 같은 패턴. 콘솔 설정 실수(오타·범위 누락)가
+   *   프로덕션 세션 화면의 설문 오버레이로 직행하지 않게 한다.
+   */
+  add(engagementPlugin());
   init(apiKey, {
     // ⚠️ 서버 user_id는 1부터 시작하는 DB 순번이라 1~4자리가 대부분인데, Amplitude 인제스트는
     // 기본적으로 5자 미만 id를 **이벤트에서 제거**하고 device_id로만 저장한다 — 이 옵션 없이는
@@ -157,6 +178,57 @@ export function initAmplitude() {
   // 첫 라우트 이펙트(`AnalyticsRouteTracker`)까지 기다리면 그 사이에 나가는 이벤트가
   // 익명 device_id로 남는다.
   setAmplitudeUserId(parseUserId(new URLSearchParams(window.location.search).get("userId")));
+  // 세션 웹뷰는 라우터 이펙트 전에 `/room/:id`로 **직접** 열린다 — 첫 라우트 변경까지
+  // 기다리면 그 사이에 설문이 뜰 수 있으므로 최초 URL 기준으로 즉시 게이트를 적용한다.
+  updateSurveyGate(window.location.pathname);
+}
+
+/**
+ * 설문(Guides & Surveys)이 뜨면 안 되는 경로. `/room/*` 전체다 — 카메라 측정 중인 세션
+ * 화면(S3)이 핵심이고, 결과(S4 `/room/:id/result`)까지 보수적으로 함께 막는다. 설문의
+ * 표시 지점은 기록 탭(`/records`)이라는 결정(BY-411)이므로 세션 플로우에서 열어줄 이유가
+ * 없다 — S4에 설문을 띄우는 결정이 생기면 이 패턴만 좁히면 된다.
+ */
+const SURVEY_BLOCKED_PATH = /^\/room(\/|$)/;
+
+/**
+ * 라우트 기반 설문 차단 게이트 — **콘솔 페이지 타겟팅과 이중 방어**다(위 플러그인 주석).
+ *
+ * `AnalyticsRouteTracker`가 라우트 변경마다 부르고, `initAmplitude`가 최초 URL로 한 번
+ * 부른다. 차단 경로에 들어오면 SDK 전체를 `disable()`로 멈추고 벗어나면 되살린다 —
+ * SDK가 경로 단위 차단 API를 제공하지 않아 전역 on/off가 유일한 코드 가드다.
+ *
+ * ## 타이밍 근거 (2026-08-21 로더·원격 번들 소스로 확인)
+ *
+ * - `window.engagement`는 **`engagementPlugin()` 호출 시점에 동기 생성**된다(로더 export가
+ *   `window.engagement ||= N`을 실행) — `initAmplitude`의 얼리콜 시점에 전역이 없을 수 없다.
+ * - 실제 SDK(CDN) 로드 전 호출은 `_q`에 쌓였다가 로드 후 순서대로 재생된다.
+ * - 재생 순서가 `disable → boot`여도 안전하다: 실SDK `_bootImpl`이 disabled 상태면
+ *   "updating boot options but not booting until enable() is called"로 **부팅 자체를
+ *   유보**한다. 즉 disable이 boot보다 먼저 재생되면 설문 평가가 시작조차 안 된다.
+ * - 설문 렌더·트리거 평가는 번들 로드 + boot + decide 이후에만 가능하므로 "로드 전 잠깐
+ *   노출" 창구는 구조적으로 없다.
+ * - **웜 패스(이미 렌더된 설문 → disable)도 즉시 제거된다**: 브라우저 단독 모드는 홈 →
+ *   `/room/1`이 같은 SPA 안의 client-side 라우팅이라, 콘솔 실수로 홈에 설문이 이미 떠
+ *   있는 채 세션에 진입하는 경로가 있다. 실SDK의 `disable()`은
+ *   `_shutdownWithoutClearingBootOptions()` → nudgesManager에 `SHUTDOWN` 전송이고, 그
+ *   상태머신 전이는 **살아 있는 모든 nudge 머신에 `CLOSE`를 보내고**(사용자가 X를 눌러
+ *   닫을 때와 같은 메시지) 머신을 전부 정지·해체한 뒤 `Disabled` 상태(트리거 큐잉도 안
+ *   함)로 들어간다 — 즉 떠 있는 오버레이가 닫히고 새 노출도 막힌다. `enable()`이 새 boot
+ *   사이클을 시작할 때까지 유지된다.
+ *
+ * 미초기화(키 없음)면 전역 자체가 없어 no-op이다.
+ */
+export function updateSurveyGate(pathname: string) {
+  // 타입(`EngagementSDK`)은 항상 있다고 선언돼 있지만 전역을 만드는 것은 로더의 모듈 부수효과라
+  // 번들 구성·테스트 환경에 따라 없을 수 있다 — 런타임 존재 확인을 지우지 말 것.
+  const engagement = window.engagement as typeof window.engagement | undefined;
+  if (!initialized || !engagement) return;
+  if (SURVEY_BLOCKED_PATH.test(pathname)) {
+    engagement.disable();
+  } else {
+    engagement.enable();
+  }
 }
 
 /**
