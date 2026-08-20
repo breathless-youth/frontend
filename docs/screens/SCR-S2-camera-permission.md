@@ -232,7 +232,7 @@ export function openAppSettings(): Promise<void>;
 **이번에 새로 추출**
 
 - `IconCameraOff` — `icons.tsx`에 추가. Figma `icon/camera-off`(`52:331`, 28×28, Vector 3개)를 **SVG로 내보내 path 데이터를 그대로 옮긴다.**
-- `PrimaryCtaButton` (또는 동등물) — Figma 공용 컴포넌트 `Button / CTA`(`40:94`). 컴포넌트 설명상 변형이 3종이다: **XL 362×56(결과 화면) · LG 362×52(시트/이 화면) · Dark SM 136×48(다크 다이얼로그)**. S3-8·S4·U1·G1~G5에서도 재사용되므로 `apps/mobile/components/`로 승격해 만들되, **이번 화면에 필요한 LG 변형만 구현**한다(쓰지 않는 변형을 미리 만들지 않는다).
+- `PrimaryCtaButton` (또는 동등물) — Figma 공용 컴포넌트 `Button / CTA`(`40:94`). 컴포넌트 설명상 변형이 3종이다: **XL 362×56(결과 화면) · LG 362×52(시트/이 화면) · Dark SM 136×48(다크 다이얼로그)**. S3-8·S4·G1~G5에서도 재사용되므로 `apps/mobile/components/`로 승격해 만들되, **이번 화면에 필요한 LG 변형만 구현**한다(쓰지 않는 변형을 미리 만들지 않는다).
 - S2-3 라우트 컴포넌트 — 전체 화면 스택 라우트(예: `apps/mobile/app/permission-denied.tsx`). 정확한 경로·네비게이션 방식은 빌더가 `expo-router` 구조에 맞게 정하되, **탭 네비게이터 안(`app/(tabs)/`)에 두지 않는다.**
 
 **S2-2용 컴포넌트는 없다.** 산출물은 `app.json` 문자열 교체 1건이다.

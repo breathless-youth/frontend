@@ -1,6 +1,5 @@
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { HomeTabSkeleton } from "../../components/RemoteSplashSkeletons";
-import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
 
 /**
  * S1 · 홈 — 화면 구현체는 `apps/web`이고, 여기서는 `RemoteScreen`(BY-333)으로 `/home`을
@@ -10,13 +9,9 @@ import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
  * "집중 시작"은 웹이 보내는 `start-session` 브리지 메시지로 오고, `RemoteScreen`이 공용
  * 핸들러(`lib/nativeBridgeHandler.ts`)로 처리한다 — 세션 화면과 동일 규칙.
  *
- * U1 업데이트 안내 시트는 네이티브 오버레이라 웹 콘텐츠와 무관하게 그대로 홈에 얹는다.
+ * 안내 레이어(U1 공지 팝업 등)도 웹이 소유한다 — 과거 네이티브 U1 업데이트 안내 시트는
+ * 2026-08-16 BY-377에서 삭제됐다(git 히스토리 참고).
  */
 export default function HomeScreen() {
-  return (
-    <>
-      <RemoteScreen testID="home-webview" path="/home" splash={<HomeTabSkeleton />} />
-      <UpdateNoticeSheetHost />
-    </>
-  );
+  return <RemoteScreen testID="home-webview" path="/home" splash={<HomeTabSkeleton />} />;
 }

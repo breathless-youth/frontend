@@ -6,7 +6,7 @@ import HomeScreen from "../app/(tabs)/index";
  * S1 · 홈 — 내용물이 `RemoteScreen`(BY-333 2단계)으로 이관됐다. 통계 렌더링 등 예전 네이티브
  * UI 검증은 더 이상 이 화면의 몫이 아니다(웹이 소유). 여기서는 `/home` 경로 + 탭 공용 쿼리가
  * 붙는지만 확인한다 — 파라미터 조립·스플래시 세부 동작은 `components/__tests__/RemoteScreen.test.tsx`가
- * 덮는다. U1 업데이트 안내 시트는 `__tests__/update-notice-sheet.test.tsx`가 별도로 덮는다.
+ * 덮는다.
  */
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));

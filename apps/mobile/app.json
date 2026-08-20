@@ -59,7 +59,6 @@
       "apiBaseUrl": "",
       "webBaseUrl": "",
       "sentryDsn": "https://bd5fbe3fcc00fd2ca2b605d6095617ea@o4511838823448576.ingest.us.sentry.io/4511861049589760",
-      "updateNoticeEnabled": false,
       "eas": {
         "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
       }
