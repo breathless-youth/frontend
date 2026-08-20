@@ -249,6 +249,9 @@ export function RemoteWebViewHost({
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       mediaCapturePermissionGrantType="grant"
+      // iOS 16.4+는 이 prop 없이는 Safari 웹 인스펙터에 웹뷰가 아예 안 잡힌다. 개발 빌드에서만
+      // 켠다 — 릴리즈에서 켜면 배포 앱의 웹뷰가 아무 Mac에서나 열람 가능해진다.
+      webviewDebuggingEnabled={__DEV__}
       // 오리진 제한은 `originWhitelist`가 아니라 `onShouldStartLoadWithRequest`(위)로 건다.
       //
       // `react-native-webview`는 `originWhitelist`를 통과하지 못한 요청을 우리 콜백에 넘기지도
