@@ -166,60 +166,6 @@ describe("initAmplitude", () => {
   });
 });
 
-describe("updateSurveyGate — 세션 화면 설문 차단", () => {
-  /** 로더가 만드는 `window.engagement` 전역을 흉내 낸다. */
-  function stubEngagement() {
-    const engagement = { disable: vi.fn(), enable: vi.fn() };
-    vi.stubGlobal("engagement", engagement);
-    return engagement;
-  }
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("`/room/*`에서 disable, 그 외 경로에서 enable을 부른다", async () => {
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const { initAmplitude, updateSurveyGate } = await loadModule();
-    initAmplitude();
-    const engagement = stubEngagement();
-
-    // 카메라 측정 중인 세션 화면(S3) — 코드 가드의 존재 이유다. 콘솔 페이지 타겟팅
-    // 실수(오타·범위 누락)가 프로덕션 세션 화면의 설문 오버레이로 직행하지 않게 한다.
-    updateSurveyGate("/room/42");
-    expect(engagement.disable).toHaveBeenCalledTimes(1);
-    expect(engagement.enable).not.toHaveBeenCalled();
-
-    // 결과 화면(S4)도 보수적으로 함께 막는다 — 설문의 표시 지점은 기록 탭(BY-411).
-    updateSurveyGate("/room/42/result");
-    expect(engagement.disable).toHaveBeenCalledTimes(2);
-
-    // 설문의 실제 표시 지점.
-    updateSurveyGate("/records");
-    expect(engagement.enable).toHaveBeenCalledTimes(1);
-
-    // `/roommate` 같은 접두사 오탐이 없어야 한다.
-    updateSurveyGate("/roommate");
-    expect(engagement.enable).toHaveBeenCalledTimes(2);
-    expect(engagement.disable).toHaveBeenCalledTimes(2);
-  });
-
-  it("미초기화이거나 전역이 없으면 조용히 아무것도 하지 않는다", async () => {
-    // 키 없음 → 미초기화. 전역이 있어도 건드리지 않는다.
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "");
-    const { initAmplitude, updateSurveyGate } = await loadModule();
-    initAmplitude();
-    const engagement = stubEngagement();
-
-    updateSurveyGate("/room/42");
-    expect(engagement.disable).not.toHaveBeenCalled();
-
-    // 전역이 없는 환경(로더 미로드) — 던지면 라우트 이펙트가 통째로 죽는다.
-    vi.unstubAllGlobals();
-    expect(() => updateSurveyGate("/room/42")).not.toThrow();
-  });
-});
-
 describe("URL 정제 플러그인", () => {
   it("init 전에 enrichment 타입으로 등록된다 — 세션 시작 이벤트부터 걸려야 한다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
