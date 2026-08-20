@@ -108,6 +108,19 @@ describe("프로필 설정", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
   });
 
+  it("저장이 네트워크 오류로 실패하면 재시도 문구를 보여주고 입력을 유지한다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "숨벅찬청년들" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+    expect(nicknameInput).toHaveValue("숨벅찬청년들");
+  });
+
   it("조회 실패 시 화면을 비우지 않고 재시도 안내를 보여준다", async () => {
     mockedGetProfile.mockRejectedValue(new Error("network"));
     renderAt("/profile?userId=7");

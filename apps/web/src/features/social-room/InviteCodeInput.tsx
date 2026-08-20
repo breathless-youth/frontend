@@ -46,6 +46,7 @@ export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputPro
           onChange(sanitizeInviteCode(event.target.value));
         }}
         aria-label="초대코드 4자리"
+        aria-invalid={errorId !== undefined || undefined}
         aria-describedby={errorId}
         className="absolute inset-0 w-full text-2xl opacity-0"
       />

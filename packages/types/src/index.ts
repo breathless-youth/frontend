@@ -166,16 +166,18 @@ export type RoomJoinErrorCode = "INVALID_CODE_FORMAT" | "INVALID_CODE" | "ROOM_F
 /**
  * 프로필 API 계약
  */
-export type ProfileCategory =
-  "PROFESSIONAL" | "CSAT" | "JOB" | "CERTIFICATE" | "CIVIL_SERVICE" | "LANGUAGE" | "ETC";
 
 export interface ProfileResponse {
   /** 2~12자, 한글·영문·숫자, 전역 유니크 */
   nickname: string;
   /** 한 줄 목표, 공백 포함 최대 20자 — 미설정이면 null */
   goal: string | null;
-  /** 미설정이면 null */
-  category: ProfileCategory | null;
+  /**
+   * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은
+   * string으로 둔다(상상 계약 금지). 잠정 7종 union은 `apps/web`의 categoryChips가 소유하고,
+   * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
+   */
+  category: string | null;
   /** 아바타 표시용 닉네임 첫 글자 — 서버 산출, 닉네임 변경 시 갱신 */
   initial: string;
   /** 아바타 자동 색 인덱스 — 서버 산출, 닉네임이 바뀌어도 고정 */
@@ -185,7 +187,7 @@ export interface ProfileResponse {
 export interface ProfileUpdateRequest {
   nickname?: string;
   goal?: string | null;
-  category?: ProfileCategory | null;
+  category?: string | null;
 }
 
 export type ProfileErrorCode =

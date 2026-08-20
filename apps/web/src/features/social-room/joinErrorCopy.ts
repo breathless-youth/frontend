@@ -1,3 +1,5 @@
+import type { RoomJoinErrorCode } from "@focusmakers/types";
+
 import { ApiError } from "@/lib/api";
 
 /**
@@ -10,10 +12,13 @@ export const JOIN_RETRY_MESSAGE = "잠시 후 다시 시도해 주세요";
 
 export function joinErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.code === "INVALID_CODE" || error.code === "INVALID_CODE_FORMAT") {
+    if (
+      error.code === ("INVALID_CODE" satisfies RoomJoinErrorCode) ||
+      error.code === ("INVALID_CODE_FORMAT" satisfies RoomJoinErrorCode)
+    ) {
       return "코드를 다시 확인해 주세요";
     }
-    if (error.code === "ROOM_FULL") {
+    if (error.code === ("ROOM_FULL" satisfies RoomJoinErrorCode)) {
       return "방이 가득 찼어요";
     }
   }

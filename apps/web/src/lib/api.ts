@@ -1,3 +1,5 @@
+import type { ApiErrorBody } from "@focusmakers/types";
+
 /**
  * 공용 API 베이스. 기본값은 same-origin — dev에서는 vite.config.ts의 /api 프록시가
  * 백엔드로 전달한다(CORS 우회). 배포 시 VITE_API_BASE_URL로 지정.
@@ -45,7 +47,7 @@ export async function parseApiError(
 ): Promise<ApiError> {
   const body = await res
     .json()
-    .then((parsed: { code?: string; message?: string }) => parsed)
+    .then((parsed: ApiErrorBody) => parsed)
     .catch(() => undefined);
   return new ApiError(body?.message ?? `${fallback} (HTTP ${res.status})`, res.status, body?.code);
 }

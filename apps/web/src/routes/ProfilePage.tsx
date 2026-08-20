@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
-import type { ProfileCategory, ProfileUpdateRequest } from "@focusmakers/types";
+import type { ProfileErrorCode, ProfileUpdateRequest } from "@focusmakers/types";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -32,7 +32,7 @@ export function ProfilePage() {
 
   const [nickname, setNickname] = useState("");
   const [goal, setGoal] = useState("");
-  const [category, setCategory] = useState<ProfileCategory | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
 
   // 서버 프로필이 도착하면 폼을 그 값으로 시작한다. 재조회로 참조가 바뀌어도 사용자가 편집 중인
@@ -55,7 +55,10 @@ export function ProfilePage() {
       setErrors({});
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.code === "NICKNAME_TAKEN") {
+      if (
+        error instanceof ApiError &&
+        error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode)
+      ) {
         setErrors({ nickname: "이미 사용 중인 닉네임이에요" });
         return;
       }
@@ -160,6 +163,7 @@ export function ProfilePage() {
               setNickname(event.target.value);
               setErrors((prev) => ({ ...prev, nickname: undefined }));
             }}
+            aria-invalid={errors.nickname !== undefined || undefined}
             aria-describedby={errors.nickname !== undefined ? "profile-nickname-error" : undefined}
             className="h-[52px] rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground"
           />
@@ -187,6 +191,7 @@ export function ProfilePage() {
               setGoal(event.target.value);
               setErrors((prev) => ({ ...prev, goal: undefined }));
             }}
+            aria-invalid={errors.goal !== undefined || undefined}
             aria-describedby={errors.goal !== undefined ? "profile-goal-error" : undefined}
             className="h-[52px] rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground"
           />
@@ -211,13 +216,17 @@ export function ProfilePage() {
                     // 같은 칩을 다시 누르면 해제한다 — 카테고리는 선택 항목(null 허용).
                     setCategory(selected ? null : chip.value);
                   }}
-                  className={
-                    selected
-                      ? "rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground"
-                      : "rounded-full border border-border bg-muted px-3.5 py-2 text-[13px] font-medium text-muted-foreground"
-                  }
+                  className="flex min-h-11 items-center"
                 >
-                  {chip.label}
+                  <span
+                    className={
+                      selected
+                        ? "rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground"
+                        : "rounded-full border border-border bg-muted px-3.5 py-2 text-[13px] font-medium text-muted-foreground"
+                    }
+                  >
+                    {chip.label}
+                  </span>
                 </button>
               );
             })}

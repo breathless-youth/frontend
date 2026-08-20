@@ -13,8 +13,9 @@ import { useToast } from "@/lib/useToast";
  * 초대코드 공유
  *
  * 진입은 `방 만들기` 성공 직후뿐이다. 방 조회 API가 없어 코드가 **router state로만** 온다 —
- * 새로고침·딥링크로 state가 없으면 소셜 홈으로 되돌린다(닫은 뒤 재진입 화면이 없다는 명세 규칙과
- * 일치 — 빈 방 TTL 10분 안에 코드로 입장하면 방은 유지된다).
+ * 딥링크로 state가 없으면 소셜 홈으로 되돌린다(닫은 뒤 재진입 화면이 없다는 명세 규칙과
+ * 일치 — 빈 방 TTL 10분 안에 코드로 입장하면 방은 유지된다). 새로고침은 되돌리지 않는다 —
+ * react-router가 state를 history.state에 보존해 화면이 유지된다(2026-08-21 실기기 확인).
  */
 type ShareState = { roomId: number; inviteCode: string };
 
@@ -61,7 +62,14 @@ export function InviteCodeSharePage() {
           type="button"
           aria-label="닫기"
           onClick={() => {
-            navigate({ pathname: "/social", search: location.search });
+            // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
+            // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
+            const historyState = window.history.state as { idx?: number } | null;
+            if (historyState?.idx) {
+              navigate(-1);
+              return;
+            }
+            navigate({ pathname: "/social", search: location.search }, { replace: true });
           }}
           className="flex size-11 items-center justify-center"
         >
