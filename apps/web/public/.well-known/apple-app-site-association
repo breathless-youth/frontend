@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["APPLE_TEAM_ID.com.breathlessyouth.mobile"],
+        "components": [{ "/": "/social/join*" }]
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
-import { isCompleteInviteCode } from "@/features/social-room/inviteCode";
+import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
 import { joinRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
@@ -18,7 +18,8 @@ export function InviteCodeJoinPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [code, setCode] = useState("");
+  // 초대 링크(`inviteLink`)로 들어오면 `?code`가 붙어 있다 — 코드를 채운 채 시작한다.
+  const [code, setCode] = useState(() => sanitizeInviteCode(searchParams.get("code") ?? ""));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const userId = parseUserId(searchParams.get("userId"));

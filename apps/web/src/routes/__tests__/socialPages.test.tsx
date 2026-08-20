@@ -118,7 +118,7 @@ describe("초대코드 공유", () => {
     expect(await screen.findByText("복사했어요")).toBeInTheDocument();
   });
 
-  it("share 미지원이면 공유하기가 복사로 폴백한다", async () => {
+  it("share 미지원이면 공유하기가 공유 텍스트(링크 포함) 복사로 폴백한다", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -128,7 +128,9 @@ describe("초대코드 공유", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "공유하기" }));
 
-    expect(writeText).toHaveBeenCalledWith("0712");
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("/social/join?code=0712") as unknown as string,
+    );
     expect(await screen.findByText("복사했어요")).toBeInTheDocument();
   });
 
@@ -141,9 +143,30 @@ describe("초대코드 공유", () => {
     expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
   });
 
+  it("입장 실패 시 토스트로 알리고 화면을 유지한다", async () => {
+    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
+    renderAt(withState);
+
+    await userEvent.click(screen.getByRole("button", { name: "입장하기" }));
+
+    expect(await screen.findByText("방이 가득 찼어요")).toBeInTheDocument();
+    expect(screen.getByText("0712")).toBeInTheDocument();
+  });
+
   it("닫기를 누르면 소셜 홈으로 돌아간다", async () => {
     renderAt(withState);
 
+    await userEvent.click(screen.getByRole("button", { name: "닫기" }));
+
+    expect(await screen.findByText("친구와 함께 공부해요")).toBeInTheDocument();
+  });
+
+  it("방 만들기로 진입했다가 닫아도 소셜 홈으로 돌아간다", async () => {
+    mockedCreateRoom.mockResolvedValue({ roomId: 42, inviteCode: "0712", emptyTtlSeconds: 600 });
+    renderAt("/social?userId=7");
+
+    await userEvent.click(screen.getByRole("button", { name: "방 만들기" }));
+    await screen.findByText("방이 만들어졌어요");
     await userEvent.click(screen.getByRole("button", { name: "닫기" }));
 
     expect(await screen.findByText("친구와 함께 공부해요")).toBeInTheDocument();
@@ -154,6 +177,20 @@ describe("초대코드 입력", () => {
   function typeCode(value: string) {
     fireEvent.change(screen.getByLabelText("초대코드 4자리"), { target: { value } });
   }
+
+  it("초대 링크의 ?code로 들어오면 코드가 채워진 채 시작한다", () => {
+    renderAt("/social/join?userId=7&code=0712");
+
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("0712");
+    expect(screen.getByRole("button", { name: "참여하기" })).toBeEnabled();
+  });
+
+  it("?code에 숫자가 아닌 값이 섞이면 걸러서 시작한다", () => {
+    renderAt("/social/join?userId=7&code=07ab");
+
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("07");
+    expect(screen.getByRole("button", { name: "참여하기" })).toBeDisabled();
+  });
 
   it("4자리가 채워져야 참여하기가 활성화된다", () => {
     renderAt("/social/join?userId=7");
@@ -186,6 +223,17 @@ describe("초대코드 입력", () => {
     await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("방이 가득 찼어요");
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("3712");
+  });
+
+  it("네트워크 실패면 재시도 문구를 보여주고 코드를 유지한다", async () => {
+    mockedJoinRoom.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderAt("/social/join?userId=7");
+
+    typeCode("3712");
+    await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
     expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("3712");
   });
 
