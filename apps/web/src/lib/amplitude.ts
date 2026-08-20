@@ -1,5 +1,6 @@
 import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
+import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
@@ -117,6 +118,25 @@ export function initAmplitude() {
       privacyConfig: { blockSelector: ["video", ".amp-block"] },
     }),
   );
+  /**
+   * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
+   * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
+   *
+   * - 플러그인 방식이라 `init`/`boot`를 따로 부르지 않는다 — analytics의 API 키와
+   *   user_id(`setAmplitudeUserId`가 붙인 서버 번호)를 그대로 물려받으므로, 콘솔 cohort
+   *   타겟팅이 백엔드 집계와 같은 키로 동작한다.
+   * - npm 패키지는 로더다 — 실제 번들·설문 설정은 `cdn.amplitude.com`/`gs.amplitude.com`에서
+   *   런타임에 가져온다. 광고 차단기 등으로 막히면 설문만 안 뜰 뿐 나머지 수집은 무관하다
+   *   (리플레이의 자체 원격 설정과 같은 성격의 fail-closed).
+   * - 설문 노출·응답 이벤트는 이 analytics 인스턴스로 포워딩되어 `sanitizeUrlPlugin`(타임라인
+   *   맨 앞)을 거친다. ⚠️ 다만 정제는 `URL_EVENT_PROPERTIES` **명시 목록**만 타므로, G&S가
+   *   새 URL 속성 키를 담는지 첫 배포 후 실제 payload로 확인하고 목록에 추가할 것 —
+   *   번들이 원격이라 정적으로는 확인할 수 없다.
+   * - ⚠️ 콘솔에서 설문을 만들 때 페이지 타겟팅으로 `/room/*`(결과 `/room/:id/result` 제외
+   *   여부는 별도 판단)를 빼야 카메라 측정 중인 세션 화면에 오버레이가 뜨지 않는다 —
+   *   코드에는 이를 막는 장치가 없다.
+   */
+  add(engagementPlugin());
   init(apiKey, {
     // ⚠️ 서버 user_id는 1부터 시작하는 DB 순번이라 1~4자리가 대부분인데, Amplitude 인제스트는
     // 기본적으로 5자 미만 id를 **이벤트에서 제거**하고 device_id로만 저장한다 — 이 옵션 없이는

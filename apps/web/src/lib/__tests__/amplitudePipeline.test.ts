@@ -19,6 +19,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * 초기화는 파일당 한 번이고, 단언은 이 테스트 안에서 모두 한다.
  */
 
+/**
+ * Guides & Surveys SDK만 no-op으로 대체한다 — "실제 SDK" 원칙의 유일한 예외.
+ *
+ * npm 패키지가 로더라서다: `plugin().setup()`이 CDN 번들 로드를 기다리는 `boot`를 await하는데,
+ * jsdom은 외부 `<script>`를 로드하지 않아 SDK 자체 타임아웃(10초)까지 초기화 체인 전체가
+ * 멈춘다 — 이 테스트의 flush 시점에는 한 건도 전송되지 않아 첫 단언에서 깨진다. 설문 렌더러는
+ * 통째로 원격 코드라, 이 테스트가 검증하는 전송 payload에 기여하는 로컬 코드도 없다.
+ */
+vi.mock("@amplitude/engagement-browser", () => ({
+  plugin: () => ({
+    name: "@amplitude/engagement-browser",
+    type: "enrichment",
+    execute: async (event: unknown) => event,
+  }),
+}));
+
 const sent: { events: Record<string, unknown>[]; options?: { min_id_length?: number } }[] = [];
 
 beforeEach(() => {

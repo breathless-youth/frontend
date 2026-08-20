@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     setUserId: vi.fn(),
     add: vi.fn(),
     sessionReplayPlugin: vi.fn((options: unknown) => ({ name: "session-replay", options })),
+    engagementPlugin: vi.fn(() => ({ name: "engagement", type: "enrichment" })),
     FakeIdentify,
   };
 });
@@ -33,6 +34,12 @@ vi.mock("@amplitude/analytics-browser", () => ({
 
 vi.mock("@amplitude/plugin-session-replay-browser", () => ({
   sessionReplayPlugin: mocks.sessionReplayPlugin,
+}));
+
+// 실제 모듈은 CDN에서 원격 번들을 로드하는 로더다 — 단위 테스트에서는 등록 여부·순서만 본다
+// (jsdom에서 왜 실물을 못 돌리는지는 `amplitudePipeline.test.ts`의 mock 주석 참고).
+vi.mock("@amplitude/engagement-browser", () => ({
+  plugin: mocks.engagementPlugin,
 }));
 
 // 모듈이 initialized 플래그를 들고 있어 테스트마다 새로 로드한다.
@@ -131,6 +138,29 @@ describe("initAmplitude", () => {
     expect(replayIndex).toBeGreaterThanOrEqual(0);
     // init 이후 등록하면 세션 첫 구간이 리플레이에서 빠진다.
     expect(mocks.add.mock.invocationCallOrder[replayIndex]).toBeLessThan(
+      mocks.init.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("Guides & Surveys 플러그인을 정제 플러그인 뒤, init 전에 등록한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+
+    // 설문 내용·대상·빈도는 콘솔 소유 — 코드는 렌더러 등록뿐이라 이 등록이 빠지면
+    // 콘솔에서 설문을 아무리 만들어도 앱에는 아무것도 뜨지 않는다.
+    expect(mocks.engagementPlugin).toHaveBeenCalledTimes(1);
+    const plugins = mocks.add.mock.calls.map(([plugin]) => plugin as { name?: string });
+    const engagementIndex = plugins.findIndex((plugin) => plugin.name === "engagement");
+    const sanitizeIndex = plugins.findIndex((plugin) => plugin.name === "focusmakers-sanitize-url");
+    expect(engagementIndex).toBeGreaterThanOrEqual(0);
+    // 설문 노출·응답 이벤트는 이 타임라인으로 포워딩된다 — 정제 플러그인이 앞서야
+    // URL 속성이 정제된 뒤에 전달·전송된다.
+    expect(sanitizeIndex).toBeGreaterThanOrEqual(0);
+    expect(sanitizeIndex).toBeLessThan(engagementIndex);
+    // 플러그인 방식은 init 과정에서 setup이 자체 boot를 수행한다 — init 전에 등록돼 있어야 한다.
+    expect(mocks.add.mock.invocationCallOrder[engagementIndex]).toBeLessThan(
       mocks.init.mock.invocationCallOrder[0],
     );
   });
