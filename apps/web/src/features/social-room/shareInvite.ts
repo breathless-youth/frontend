@@ -50,7 +50,12 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
       return "failed";
     }
   }
-  if (isNativeBridgeAvailable()) {
+  // 브리지 존재만으로는 부족하다 — `share` 수신 코드가 없는 구버전 앱은 메시지를 조용히
+  // 버려 시트도 복사도 일어나지 않는다. 셸이 쿼리로 실어 보내는 지원 표시(`share=1`,
+  // remoteQueryParams.ts)가 있을 때만 브리지를 쓴다.
+  const bridgeShareSupported =
+    isNativeBridgeAvailable() && new URLSearchParams(window.location.search).get("share") === "1";
+  if (bridgeShareSupported) {
     // 시트는 네이티브가 연다. 응답 왕복은 없다 — 노출·취소 피드백은 OS가 준다(계약 주석).
     postToNative({ type: "share", text: inviteShareText(inviteCode), atMs: Date.now() });
     return "shared";
