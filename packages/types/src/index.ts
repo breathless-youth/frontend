@@ -112,6 +112,85 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
+/**
+ * 초대코드 룸 참여 API 계약
+ */
+
+/**
+ * 공통 에러 응답 본문 `{ code, message }` — 화면 문구는 `code`로만 분기한다
+ * (`message` 직출 금지, BY-404 명세 규칙).
+ */
+export interface ApiErrorBody {
+  code?: string;
+  message?: string;
+}
+
+/** 방 생성: 생성만으로는 입장 상태가 아니다 */
+export interface RoomCreateRequest {
+  userId: number;
+}
+
+export interface RoomCreateResponse {
+  roomId: number;
+  inviteCode: string;
+  /** 빈 방 자동 소멸까지 남은 시간(초) */
+  emptyTtlSeconds: number;
+}
+
+/** 초대코드 입장 */
+export interface RoomJoinRequest {
+  userId: number;
+  inviteCode: string;
+}
+
+/** RTCPeerConnection 설정용 ICE 서버 항목 — DOM `RTCIceServer` 미사용 */
+export interface IceServer {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface RoomJoinResponse {
+  roomId: number;
+  /** true면 끊김 30초 유예 내 재입장 — 프리뷰 생략, 이전 카메라 상태 복원 */
+  graceRejoin: boolean;
+  /** graceRejoin=true일 때 이전 카메라 상태, 아니면 null */
+  cameraOn: boolean | null;
+  iceServers: IceServer[];
+  iceTtlSeconds: number;
+}
+
+/** join 실패 코드: 400 형식 위반 / 404 없는·소멸된 코드(구분 없음) / 409 정원 6명 초과 */
+export type RoomJoinErrorCode = "INVALID_CODE_FORMAT" | "INVALID_CODE" | "ROOM_FULL";
+
+/**
+ * 프로필 API 계약
+ */
+export type ProfileCategory =
+  "PROFESSIONAL" | "CSAT" | "JOB" | "CERTIFICATE" | "CIVIL_SERVICE" | "LANGUAGE" | "ETC";
+
+export interface ProfileResponse {
+  /** 2~12자, 한글·영문·숫자, 전역 유니크 */
+  nickname: string;
+  /** 한 줄 목표, 공백 포함 최대 20자 — 미설정이면 null */
+  goal: string | null;
+  /** 미설정이면 null */
+  category: ProfileCategory | null;
+  /** 아바타 표시용 닉네임 첫 글자 — 서버 산출, 닉네임 변경 시 갱신 */
+  initial: string;
+  /** 아바타 자동 색 인덱스 — 서버 산출, 닉네임이 바뀌어도 고정 */
+  colorIndex: number;
+}
+
+export interface ProfileUpdateRequest {
+  nickname?: string;
+  goal?: string | null;
+  category?: ProfileCategory | null;
+}
+
+export type ProfileErrorCode =
+  "INVALID_NICKNAME" | "GOAL_TOO_LONG" | "INVALID_CATEGORY" | "NICKNAME_TAKEN";
+
 export type {
   CameraPermissionMessage,
   NavigateHomeMessage,
