@@ -252,6 +252,13 @@ export default defineConfig({
         target: "https://api.sunqstudio.kr",
         changeOrigin: true,
       },
+      // 룸 STOMP 웹소켓 — /api와 같은 CORS 우회 목적. 배포에서는 프록시 없이
+      // API 베이스에서 ws(s) URL을 파생한다(features/live-room/stompRoomChannel.ts).
+      "/ws": {
+        target: "https://api.sunqstudio.kr",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   test: {
