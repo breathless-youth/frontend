@@ -25,7 +25,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 `src/lib/sentry.ts`에서 `@sentry/react`를 초기화한다(`main.tsx`가 렌더 전에 호출).
 
 - **DSN은 `VITE_SENTRY_DSN` 환경변수로만 주입한다** — 미설정이면 초기화 자체를 건너뛰므로 로컬 개발·테스트·CI는 DSN 없이 그대로 돈다. 배포 환경(Vercel)의 env에 설정한다. DSN을 코드에 하드코딩하지 말 것.
-- **Session Replay를 추가하지 말 것** — 카메라 프리뷰가 뜨는 세션 화면을 녹화 수집하는 것은 위 개인정보 원칙과 충돌한다. 라우팅 트레이스(`reactRouterV7BrowserTracingIntegration`, 표본 0.2)와 에러 수집만 쓴다.
+- **Session Replay는 카메라 차단 조건으로만 켠다(BY-407, 2026-08-20 — 종전 금지를 뒤집은 결정)** — `replayIntegration`의 `blockAllMedia: true`가 모든 `<video>`를 기록 시점에 차단해 카메라 프리뷰가 단말 밖으로 나가지 않는다(Amplitude 리플레이와 같은 원칙, 카메라 요소에는 `sentry-block` 클래스도 이중 태깅). `maskAllText: false`는 Amplitude에서 이미 허용된 범위와 동일하다. 수집률은 일반 세션 0.1, 에러 세션 1.0. **리플레이 이벤트는 아래 스크러빙 4종이 안 불린다** — `replay_event`는 `scrubReplayEvent`(event processor)가, 녹화 페이로드 내부 URL(rrweb Meta `href`·브레드크럼·성능 스팬)은 `scrubRecordingEvent`(`beforeAddRecordingEvent`)가 씻는다. `sentryReplay.test.ts`가 이 계약 전체를 고정한다. 앱(`apps/mobile`)은 여전히 금지다 — 전 화면 WebView 셸이라 리플레이가 통째로 마스킹돼 실익이 없다.
 - React 렌더 에러는 두 겹으로 잡는다: 라우트 트리는 `Sentry.ErrorBoundary`(BY-372, 아래 항목)가 받아 폴백 UI를 보여주고, 바운더리 밖 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)이 잡는다.
 - **스크러빙 콜백 네 개를 모두 유지할 것** — `beforeSend`·`beforeSendTransaction`·`beforeSendSpan`·`beforeBreadcrumb`. 웹뷰는 모든 탭을 `?userId=N`으로 열기 때문에(네이티브 셸 계약) 기본 설정이면 익명 기기 계정 ID가 Sentry로 나간다. `sendDefaultPii: false`는 쿠키·IP만 막고 쿼리스트링은 건드리지 않는다.
   - ⚠️ **`beforeSend`는 에러 이벤트에서만 호출된다**(`@sentry/core`의 `client.js`가 `isErrorEvent(...) && beforeSend`로 분기). `tracesSampleRate`가 켜져 있는 한 트랜잭션 이벤트와 스팬으로도 같은 URL이 나가므로, 그 둘은 `beforeSendTransaction`·`beforeSendSpan`으로 따로 막아야 한다. **에러 경로만 막고 계약을 지켰다고 판단하지 말 것.**
@@ -86,7 +86,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
   - 캔버스 수집(rrweb `recordCanvas` 계열 옵션)은 기본 꺼짐 — 켜지 말 것. Vision 진단 오버레이가 캔버스에 그려질 수 있다.
   - **리플레이 수집률은 콘솔이 결정한다** — 리플레이 SDK는 analytics의 `fetchRemoteConfig: false`와 **무관하게** 자체 원격 설정(`sr-client-cfg.amplitude.com`)을 가져오고, 콘솔(Settings → Session Replay)의 `sample_rate`가 코드의 `sampleRate: 1`을 덮어쓴다(코드 값은 콘솔 미설정 시 폴백). 2026-08-07 진단: 콘솔 기본값 1%가 로컬 100%를 덮어써 "데이터 미수신"이 났다 — 수집률 조정은 콘솔에서 한다. 원격 설정 fetch가 실패하면(광고 차단기 등) 리플레이는 수집을 멈춘다(fail-closed). 원격 privacy 설정은 로컬 `blockSelector`를 **제거하지 못하고 목록에 추가만 된다**(left-join) — 카메라 차단은 콘솔로 못 푼다.
   - `@amplitude/unified`는 금지 — `initAll`이 이 파일의 차단·정제 설정을 우회한다(`amplitude.test.ts` 의존성 가드).
-  - **Sentry의 Session Replay는 여전히 금지**(위 Sentry 절) — 리플레이는 카메라 차단이 걸린 Amplitude 한 곳으로만 한다.
+  - **Sentry의 Session Replay도 2026-08-20(BY-407)부터 같은 카메라 차단 조건으로 켰다**(위 Sentry 절) — "Amplitude 한 곳으로만"이던 2026-08-07 결정을 뒤집었다. 새 카메라/영상 요소에는 `amp-block`과 `sentry-block`을 함께 태깅한다.
 - **user_id 연결(2026-08-08 결정)** — `setAmplitudeUserId()`가 서버 `user_id`를 Amplitude `user_id`로 넣는다. 값은 네이티브 셸이 모든 탭에 붙여 주는 `?userId=N`을 `parseUserId()`로 검증한 것이다.
   - ℹ️ **이 값은 계정 식별자가 아니라 익명 기기 식별자의 서버 핸들이다** — 네이티브가 `Crypto.randomUUID()`로 만든 기기 UUID(`apps/mobile/lib/deviceId.ts`)를 등록하면 서버가 1:1로 돌려주는 번호이고, 실명·이메일·전화번호와 연결되지 않는다. 개인정보처리방침 「1. 수집하는 정보」의 **기기 식별자** 항목이 이미 고지하고 있는 값이라 별도 고지 항목을 만들 필요가 없다. Amplitude 자체 device_id 대신 이걸 쓰는 이유는 **백엔드 집계와 같은 키로 묶기 위해서**다.
   - **서버 값 그대로 보낸다 — 해시하거나 접두어를 붙이지 말 것.** 그러면 백엔드 집계와 조인되지 않아 연결하는 의미가 없어진다.
