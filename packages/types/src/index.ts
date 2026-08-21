@@ -194,6 +194,8 @@ export interface ProfileUpdateRequest {
 export type ProfileErrorCode =
   "INVALID_NICKNAME" | "GOAL_TOO_LONG" | "INVALID_CATEGORY" | "NICKNAME_TAKEN";
 
+export type { RoomFocusState, RoomMember, RoomServerMessage, RoomStatePublish } from "./room";
+
 export type {
   CameraPermissionMessage,
   NavigateHomeMessage,
