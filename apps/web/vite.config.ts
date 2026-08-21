@@ -4,6 +4,8 @@ import path from "node:path";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { loadEnv } from "vite";
+import type { Connect, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
 import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
@@ -228,8 +230,72 @@ function sentrySourcemaps() {
   });
 }
 
+/**
+ * dev 프록시 타깃 — **저장소에 커밋하지 않는다.**
+ *
+ * 원래 개발 백엔드 주소를 하드코딩했는데, cf9a48f(2026-08-02)가 앱 설정을 운영 도메인으로
+ * 바꾸면서 이 타깃까지 일괄 치환해 **브라우저 개발 트래픽이 운영 DB로 흘러가는 사고**가
+ * 있었다(2026-08-21 발견). 게다가 이 저장소는 공개라 개발 서버 주소(평문 IP)를 커밋하면
+ * 그대로 노출된다. 그래서 타깃은 gitignore되는 `.env.local`에서만 읽는다:
+ *
+ *   # apps/web/.env.local  (주소는 팀 내부 공유)
+ *   DEV_API_PROXY_TARGET=http://<개발 백엔드 주소>
+ *
+ * 미설정이면 `/api`·`/ws`가 이유를 담은 503으로 죽는다 — 조용히 엉뚱한 환경으로 가는 것보다
+ * 시끄럽게 실패하는 쪽을 택했다. 그냥 프록시만 빼면 Vite SPA fallback이 `/api`에도
+ * index.html을 200으로 돌려줘서(2026-08-22 실측) "JSON 자리에 HTML"이라는 더 헷갈리는
+ * 실패가 되기 때문에, 아래 serve 전용 플러그인이 명시적으로 막는다.
+ */
+const DEV_PROXY_TARGET = loadEnv("development", __dirname, "").DEV_API_PROXY_TARGET;
+
+function devApiProxy() {
+  if (!DEV_PROXY_TARGET) {
+    return undefined;
+  }
+  return {
+    "/api": { target: DEV_PROXY_TARGET, changeOrigin: true },
+    // 룸 STOMP 웹소켓 — /api와 같은 same-origin 우회 목적. 배포에서는 프록시 없이
+    // API 베이스에서 ws(s) URL을 파생한다(features/live-room/stompRoomChannel.ts).
+    "/ws": { target: DEV_PROXY_TARGET, changeOrigin: true, ws: true },
+  };
+}
+
+/**
+ * 타깃 미설정 처리 — dev 서버에서만(build·vitest 로그에는 소음이라 apply: "serve").
+ * 기동 시 경고를 내고, `/api`·`/ws` 요청을 이유가 담긴 503 JSON으로 막는다.
+ * `configureServer`의 미들웨어는 내부(SPA fallback)보다 앞에 걸려 index.html 200을 선점한다.
+ */
+function warnMissingProxyTarget() {
+  const HINT =
+    "[web] DEV_API_PROXY_TARGET 미설정 — /api·/ws가 백엔드로 프록시되지 않습니다. " +
+    "vite.config.ts의 주석을 보고 apps/web/.env.local에 추가하세요.";
+  return {
+    name: "focusmakers:warn-missing-proxy-target",
+    apply: "serve",
+    configureServer(server: ViteDevServer) {
+      if (DEV_PROXY_TARGET) {
+        return;
+      }
+      console.warn(HINT);
+      const reject: Connect.NextHandleFunction = (_req, res) => {
+        res.statusCode = 503;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ message: HINT }));
+      };
+      server.middlewares.use("/api", reject);
+      server.middlewares.use("/ws", reject);
+    },
+  } as const;
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), requireMediapipeWasm(), sentrySourcemaps()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    requireMediapipeWasm(),
+    sentrySourcemaps(),
+    warnMissingProxyTarget(),
+  ],
   define: deployDefines,
   build: {
     // 업로드하지 않을 빌드에서는 소스맵을 아예 만들지 않는다(공개 배포 방지).
@@ -246,20 +312,8 @@ export default defineConfig({
     // 기기에서 LAN으로 붙으려면 0.0.0.0에 바인딩돼야 한다. 로컬 개발에는 영향이 없다.
     host: true,
     ...tunnelServerOptions(),
-    // 백엔드가 CORS 헤더를 안 보내므로 dev에서는 same-origin 프록시로 우회한다.
-    proxy: {
-      "/api": {
-        target: "https://api.sunqstudio.kr",
-        changeOrigin: true,
-      },
-      // 룸 STOMP 웹소켓 — /api와 같은 CORS 우회 목적. 배포에서는 프록시 없이
-      // API 베이스에서 ws(s) URL을 파생한다(features/live-room/stompRoomChannel.ts).
-      "/ws": {
-        target: "https://api.sunqstudio.kr",
-        changeOrigin: true,
-        ws: true,
-      },
-    },
+    // dev에서는 same-origin `/api`·`/ws`를 개발 백엔드로 프록시한다(위 `DEV_PROXY_TARGET` 주석).
+    proxy: devApiProxy(),
   },
   test: {
     environment: "jsdom",
