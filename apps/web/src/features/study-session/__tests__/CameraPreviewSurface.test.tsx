@@ -33,6 +33,18 @@ describe("CameraPreviewSurface", () => {
     expect(container.querySelector("video")).not.toBeNull();
   });
 
+  it("video에 리플레이 차단 표식이 둘 다 붙는다 — Amplitude(amp-block)·Sentry(sentry-block)", () => {
+    const { container } = render(
+      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+    );
+    const video = container.querySelector("video");
+
+    // 전역 설정(blockSelector·blockAllMedia)이 1차 방어지만, 설정이 바뀌어도 요소 단위
+    // 방어가 남도록 두 도구의 차단 클래스를 함께 태깅한다.
+    expect(video?.classList.contains("amp-block")).toBe(true);
+    expect(video?.classList.contains("sentry-block")).toBe(true);
+  });
+
   it("video는 음소거·인라인 재생이다 — 소리를 내거나 전체화면으로 튀면 안 된다", () => {
     const { container } = render(
       <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
