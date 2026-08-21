@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
@@ -273,7 +273,9 @@ function LiveRoomSession({
     endAndSubmit,
   } = useStudyRoomSession(userId, { camera, detector });
 
-  const channel = useMemo(() => createChannel({ roomId, userId }), [createChannel, roomId, userId]);
+  // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
+  // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
+  const [channel] = useState(() => createChannel({ roomId, userId }));
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   useEffect(() => channel.subscribe(dispatch), [channel]);
 
