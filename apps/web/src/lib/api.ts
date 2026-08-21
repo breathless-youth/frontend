@@ -1,3 +1,5 @@
+import type { ApiErrorBody } from "@focusmakers/types";
+
 /**
  * 공용 API 베이스. 기본값은 same-origin — dev에서는 vite.config.ts의 /api 프록시가
  * 백엔드로 전달한다(CORS 우회). 배포 시 VITE_API_BASE_URL로 지정.
@@ -19,4 +21,33 @@ export async function parseErrorMessage(
     .then((body: { message?: string }) => body.message)
     .catch(() => undefined);
   return new Error(message ?? `${fallback} (HTTP ${res.status})`);
+}
+
+/**
+ * 서버 공통 에러 계약 `{ code, message }`를 실은 에러 (BY-409).
+ * 화면 문구는 `message`가 아니라 **`code`로만 분기**한다(BY-404 명세 규칙) — `message`는
+ * 로그·폴백용이다. `parseErrorMessage`는 code가 필요 없는 기존 호출처(stats·제출)가 그대로 쓴다.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** 실패 응답(`!res.ok`)을 `ApiError`로 파싱한다. 본문이 없거나 JSON이 아니면 fallback 문구. */
+export async function parseApiError(
+  res: Pick<Response, "status" | "json">,
+  fallback: string,
+): Promise<ApiError> {
+  const body = await res
+    .json()
+    .then((parsed: ApiErrorBody) => parsed)
+    .catch(() => undefined);
+  return new ApiError(body?.message ?? `${fallback} (HTTP ${res.status})`, res.status, body?.code);
 }

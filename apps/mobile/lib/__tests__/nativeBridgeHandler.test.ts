@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import type { SubmitResultMessage } from "@focusmakers/types";
 
@@ -116,6 +117,15 @@ describe("handleBridgeMessage", () => {
     // push가 아니라 navigate — 이미 기록 탭이면 화면을 쌓지 않고 재사용한다.
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
     expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("share → OS 공유 시트를 연다 (Android 웹뷰의 navigator.share 부재 대행)", () => {
+    const shareSpy = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+
+    handleBridgeMessage({ type: "share", text: "초대 텍스트", atMs: 1 }, noopReply);
+
+    expect(shareSpy).toHaveBeenCalledWith({ message: "초대 텍스트" });
+    expect(noopReply).not.toHaveBeenCalled();
   });
 
   it("open-settings → OS 설정 앱을 연다", () => {

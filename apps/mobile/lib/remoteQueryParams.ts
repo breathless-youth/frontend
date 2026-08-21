@@ -33,6 +33,11 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   if (appVersion) {
     params.appVersion = appVersion;
   }
+  // `share=1`: 이 바이너리가 `share` 브리지 메시지를 처리할 수 있다는 표시. 웹 shareInvite가
+  // 이 표시로 브리지/클립보드 폴백을 가른다 — 수신 코드가 없는 구버전 앱은 표시가 없어
+  // 자동으로 폴백에 떨어진다(원격 웹은 구버전 앱에도 즉시 배포되므로 브리지 존재만으로는
+  // 판단할 수 없다).
+  params.share = "1";
   return params;
 }
 

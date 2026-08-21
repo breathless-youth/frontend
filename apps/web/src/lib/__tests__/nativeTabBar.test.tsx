@@ -55,8 +55,14 @@ describe("isFullScreenPath", () => {
   });
 
   it("탭 라우트는 가리지 않는다", () => {
-    for (const path of ["/home", "/records", "/settings", "/"]) {
+    for (const path of ["/home", "/records", "/settings", "/social", "/"]) {
       expect(isFullScreenPath(path)).toBe(false);
+    }
+  });
+
+  it("소셜 하위 화면과 프로필은 전체 화면이다 (BY-409)", () => {
+    for (const path of ["/social/code", "/social/join", "/profile"]) {
+      expect(isFullScreenPath(path)).toBe(true);
     }
   });
 

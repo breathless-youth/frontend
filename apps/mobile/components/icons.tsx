@@ -2,19 +2,6 @@ import { colors } from "@focusmakers/design-tokens";
 import { useColorScheme } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
-/**
- * 화면 아이콘·일러스트(S1 홈 · S2-3 권한 거부 안내 · S5 기록 · S6 설정). Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz)에서
- * `download_assets`로 내보낸 SVG의 path 데이터를 그대로 옮긴 것이다 — 형상을 직접 그리지 않았다.
- *
- * Figma SVG 익스포트에는 캔버스·섹션 배경 `<rect>`(#F5F5F5, white)가 함께 들어있는데,
- * 그건 아이콘이 아니라 Figma 페이지 배경이므로 제외했다. PNG로 내보내면 이 배경이 그대로
- * 합성돼 흰 네모로 보인다 — 그래서 PNG가 아니라 SVG를 쓴다.
- *
- * 단색 아이콘은 `color` prop으로 런타임 틴팅한다(탭 활성/비활성을 아이콘 하나로 처리).
- * 일러스트는 다색이라 prop으로 받지 않는다 — flame은 색이 고정이고, doodle은 배경 대비가
- * 필요해 디자인 토큰에서 라이트/다크 값을 직접 고른다(아래 `IllustStudyDoodle` 주석 참고).
- */
-
 type IconProps = SvgProps & {
   /** 단색 아이콘의 채움/선 색. 기본값은 Figma 원본 색. */
   color?: string;
@@ -27,6 +14,42 @@ export function IconTabHome({ color = "#1B64DA", size = 24, ...rest }: IconProps
       <Path
         d="M12 4L4.5 10.3V19C4.5 19.2652 4.60536 19.5196 4.79289 19.7071C4.98043 19.8946 5.23478 20 5.5 20H9.7V15H14.3V20H18.5C18.7652 20 19.0196 19.8946 19.2071 19.7071C19.3946 19.5196 19.5 19.2652 19.5 19V10.3L12 4Z"
         fill={color}
+      />
+    </Svg>
+  );
+}
+
+/** 소셜 탭(사람 두 명) */
+export function IconTabSocial({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
+      <Path
+        d="M9 11.5C10.5464 11.5 11.8 10.2464 11.8 8.7C11.8 7.1536 10.5464 5.9 9 5.9C7.4536 5.9 6.2 7.1536 6.2 8.7C6.2 10.2464 7.4536 11.5 9 11.5Z"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.8 18.6C4.5 15.7 6.5 14.2 9 14.2C11.5 14.2 13.5 15.7 14.2 18.6"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16.8 11.8C18.015 11.8 19 10.815 19 9.6C19 8.38497 18.015 7.4 16.8 7.4C15.585 7.4 14.6 8.38497 14.6 9.6C14.6 10.815 15.585 11.8 16.8 11.8Z"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 14.4C18.3 14.6 19.8 15.9 20.4 18.3"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );

@@ -46,6 +46,17 @@
 
 V1.0에는 멀티룸 화면이 없다 — 소셜/멀티룸(S7~~S11)은 V1.2~~V1.4 범위([ADR 0002](./adr/0002-native-mobile-study-room-and-independent-web.md) 참고). WebView는 위 스터디룸 화면 전체에 쓰일 예정이다 — MVP 동안의 방침이며, [ADR 0003](./adr/0003-phased-rollout-webview-mvp-then-native.md)의 트리거 조건이 충족되면 네이티브로 되돌아간다.
 
+**V1.3 초대코드 룸(BY-409)에서 소셜 화면이 추가됐다** — 스펙은 `.ai` 레포
+`product/specs/BY-404-룸-참여.md`, 디자인은 Figma V1.4 파일의 "🆕 V1.3 · 초대코드 룸" 섹션.
+
+| ID     | 화면                  | 소유       | 구현                                                                 |
+| ------ | --------------------- | ---------- | -------------------------------------------------------------------- |
+| S9-1   | 소셜 홈 (액션 허브)   | `apps/web` | `src/routes/SocialHomePage.tsx` (`/social`, 네이티브 소셜 탭이 로드) |
+| S9-2   | 초대코드 공유         | `apps/web` | `src/routes/InviteCodeSharePage.tsx` (`/social/code`)                |
+| S9-3   | 초대코드 입력         | `apps/web` | `src/routes/InviteCodeJoinPage.tsx` (`/social/join`)                 |
+| S7-18  | 프로필 설정           | `apps/web` | `src/routes/ProfilePage.tsx` (`/profile`, 설정에서만 진입)           |
+| S9-4~7 | 룸 내부 (자동 그리드) | `apps/web` | 미구현 — 후속 티켓(실시간 룸) 범위                                   |
+
 ## `apps/web` 소유 화면
 
 `apps/web`은 현재 `HomePage`(소개)·`RoomPage`(S3-1~S3-8 확정 디자인 적용 — 세로 4종·가로 브레이크포인트·종료 플로우)·`ResultPage`(S4 공부 결과 — 형제 라우트 `/room/:id/result`)를 제공한다. 스터디룸 화면은 위 표 기준으로 이 앱에 구현되어 모바일 WebView가 로드한다. 독립 브라우저 서비스로도 그대로 접근 가능하다.

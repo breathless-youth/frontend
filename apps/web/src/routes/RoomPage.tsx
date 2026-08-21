@@ -37,7 +37,7 @@ import type {
 } from "@/features/study-session/sessionState";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { useSessionToast } from "@/features/study-session/useSessionToast";
+import { useToast } from "@/lib/useToast";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { postToNative } from "@/lib/bridge";
@@ -228,7 +228,7 @@ export function RoomPage() {
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, { camera, detector });
-  const { message: toastMessage, showToast } = useSessionToast();
+  const { message: toastMessage, showToast } = useToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤

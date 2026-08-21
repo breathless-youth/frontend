@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import type { ToNativeMessage } from "@focusmakers/types";
@@ -21,6 +21,12 @@ import { RemoteWebViewHost } from "./RemoteWebViewHost";
 export type RemoteScreenProps = {
   /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
   path: string;
+  /**
+   * 공용 파라미터(userId·appVersion)에 **더해** 붙일 화면별 쿼리. 딥링크 화면
+   * (`app/social/join.tsx`)이 초대코드를 웹으로 넘길 때 쓴다. `path`에 `?`를 직접 붙이면
+   * `buildRemoteWebViewUrl`이 쿼리를 `?`로 한 번 더 이어 URL이 깨지므로 반드시 이걸 쓴다.
+   */
+  extraQuery?: Record<string, string>;
   /** WebView·스플래시에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만). */
   backgroundColor?: string;
   /**
@@ -52,13 +58,24 @@ export type RemoteScreenProps = {
 
 export function RemoteScreen({
   path,
+  extraQuery,
   backgroundColor,
   blockHardwareBack = false,
   splash,
   onBridgeMessage = handleBridgeMessage,
   testID,
 }: RemoteScreenProps) {
-  const query = useRemoteQueryParams();
+  const sharedQuery = useRemoteQueryParams();
+  // extraQuery는 마운트 시점 값으로 고정한다(딥링크 파라미터는 화면 수명 동안 불변) —
+  // 렌더마다 리터럴로 새 객체가 넘어와도 identity가 흔들려 URL 메모가 깨지지 않게.
+  const [frozenExtraQuery] = useState(extraQuery);
+  const query = useMemo(
+    () =>
+      sharedQuery !== null && frozenExtraQuery
+        ? { ...sharedQuery, ...frozenExtraQuery }
+        : sharedQuery,
+    [sharedQuery, frozenExtraQuery],
+  );
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const onLoadEnd = useCallback((ok: boolean) => {

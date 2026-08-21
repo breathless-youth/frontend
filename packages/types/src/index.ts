@@ -112,6 +112,88 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
+/**
+ * 초대코드 룸 참여 API 계약 — 출처는 `.ai` 레포 `product/specs/BY-404-룸-참여.md`
+ * (BE가 같은 명세로 구현 중). ⚠️ Swagger 등재 전이라 등재 후 대조가 필요한 잠정 계약이다.
+ */
+
+/**
+ * 공통 에러 응답 본문 `{ code, message }` — 화면 문구는 `code`로만 분기한다
+ * (`message` 직출 금지, BY-404 명세 규칙).
+ */
+export interface ApiErrorBody {
+  code?: string;
+  message?: string;
+}
+
+/** 방 생성: 생성만으로는 입장 상태가 아니다 */
+export interface RoomCreateRequest {
+  userId: number;
+}
+
+export interface RoomCreateResponse {
+  roomId: number;
+  inviteCode: string;
+  /** 빈 방 자동 소멸까지 남은 시간(초) */
+  emptyTtlSeconds: number;
+}
+
+/** 초대코드 입장 */
+export interface RoomJoinRequest {
+  userId: number;
+  inviteCode: string;
+}
+
+/** RTCPeerConnection 설정용 ICE 서버 항목 — DOM `RTCIceServer` 미사용 */
+export interface IceServer {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface RoomJoinResponse {
+  roomId: number;
+  /** true면 끊김 30초 유예 내 재입장 — 프리뷰 생략, 이전 카메라 상태 복원 */
+  graceRejoin: boolean;
+  /** graceRejoin=true일 때 이전 카메라 상태, 아니면 null */
+  cameraOn: boolean | null;
+  iceServers: IceServer[];
+  iceTtlSeconds: number;
+}
+
+/** join 실패 코드: 400 형식 위반 / 404 없는·소멸된 코드(구분 없음) / 409 정원 6명 초과 */
+export type RoomJoinErrorCode = "INVALID_CODE_FORMAT" | "INVALID_CODE" | "ROOM_FULL";
+
+/**
+ * 프로필 API 계약
+ */
+
+export interface ProfileResponse {
+  /** 2~12자, 한글·영문·숫자, 전역 유니크 */
+  nickname: string;
+  /** 한 줄 목표, 공백 포함 최대 20자 — 미설정이면 null */
+  goal: string | null;
+  /**
+   * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은
+   * string으로 둔다(상상 계약 금지). 잠정 7종 union은 `apps/web`의 categoryChips가 소유하고,
+   * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
+   */
+  category: string | null;
+  /** 아바타 표시용 닉네임 첫 글자 — 서버 산출, 닉네임 변경 시 갱신 */
+  initial: string;
+  /** 아바타 자동 색 인덱스 — 서버 산출, 닉네임이 바뀌어도 고정 */
+  colorIndex: number;
+}
+
+export interface ProfileUpdateRequest {
+  nickname?: string;
+  goal?: string | null;
+  category?: string | null;
+}
+
+export type ProfileErrorCode =
+  "INVALID_NICKNAME" | "GOAL_TOO_LONG" | "INVALID_CATEGORY" | "NICKNAME_TAKEN";
+
 export type {
   CameraPermissionMessage,
   NavigateHomeMessage,

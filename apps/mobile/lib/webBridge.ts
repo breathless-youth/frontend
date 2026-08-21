@@ -39,6 +39,11 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
       return { type: "request-camera-permission", atMs: record.atMs };
+    case "share":
+      if (typeof record.text !== "string") {
+        return null;
+      }
+      return { type: "share", text: record.text, atMs: record.atMs };
     case "navigate-tab":
       // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
       // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.

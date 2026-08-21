@@ -102,6 +102,16 @@ export type ToNativeMessage =
    * 토글 없는 상태로 남는다(`CameraPermissionMessage` 주석 참고).
    */
   | { type: "request-camera-permission"; atMs: number }
+  /**
+   * OS 공유 시트를 열어달라는 요청 — 초대코드 공유(S9-2)가 보낸다.
+   *
+   * **Android 웹뷰에는 `navigator.share`가 없다**(Web Share API는 Chrome 브라우저 전용,
+   * 2026-08-20 에뮬레이터 실측) — iOS WKWebView는 시트가 떠서 웹이 직접 처리하고, Android만
+   * 이 통로로 네이티브 RN `Share.share`에 맡긴다. 응답은 없다 — 시트 노출·취소 피드백은
+   * OS가 이미 주므로 왕복이 필요 없고, 브라우저 단독 모드에서는 발신되지 않는다(웹이
+   * 클립보드 복사로 폴백).
+   */
+  | { type: "share"; text: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | NavigateTabMessage
