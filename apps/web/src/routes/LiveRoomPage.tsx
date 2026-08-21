@@ -376,14 +376,14 @@ function LiveRoomSession({
       {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
       <div className="contents" inert={dialogOpen}>
         {grid.mode === "fullscreen" ? (
-          // 가로에서는 좌우 여백을 둔다 — 초광폭으로 늘리지 않고 기기 비율과 거의 동등하게 유지.
-          <div className="absolute inset-0 bg-[#191f28] landscape:inset-x-4 landscape:overflow-hidden landscape:rounded-3xl">
+          // 가로에서는 좌우 여백을 둔다 — 노치 세이프에어리어를 피하고 기기 비율과 거의 동등하게 유지.
+          <div className="absolute inset-0 bg-[#191f28] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl">
             {cameraOn && myVideo}
           </div>
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 ${
+            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
             } ${
               grid.rowUnit === 2
