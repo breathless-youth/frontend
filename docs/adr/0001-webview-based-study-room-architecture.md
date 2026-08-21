@@ -1,6 +1,7 @@
 # 0001. 스터디룸(WebRTC + Vision AI)을 웹앱으로 구현하고 RN에 WebView로 임베드한다
 
 - Status: **Accepted (MVP 활성 아키텍처)**
+- Note: 멀티룸 실시간 전송 방식(LiveKit 서술)은 [ADR 0006](./0006-p2p-mesh-stomp-over-livekit.md)으로 대체됐다 — WebView 아키텍처 결정 자체는 유효하다.
 - Date: 2026-07-21 (2026-07-22 재채택)
 
 > **이 결정은 현재 MVP의 활성 아키텍처입니다.** 한때 [ADR 0002](./0002-native-mobile-study-room-and-independent-web.md)로 대체(Superseded)됐었지만, MVP 단계에서는 개발 속도와 실기기 검증 리스크를 이유로 다시 이 방식(WebView 임베드)으로 되돌렸습니다.

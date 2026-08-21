@@ -35,3 +35,13 @@ export async function joinRoom(userId: number, inviteCode: string): Promise<Room
   }
   return (await res.json()) as RoomJoinResponse;
 }
+
+/** 명시적 퇴장 — 룸 나가기에서 세션 제출 후 호출한다. */
+export async function leaveRoom(roomId: number, userId: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/rooms/${roomId}/leave?userId=${userId}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw await parseApiError(res, "퇴장 실패");
+  }
+}

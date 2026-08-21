@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
-import { createRoom, joinRoom } from "../roomApi";
+import { createRoom, joinRoom, leaveRoom } from "../roomApi";
 
 const mockedFetch = vi.fn();
 globalThis.fetch = mockedFetch as unknown as typeof fetch;
@@ -80,5 +80,24 @@ describe("joinRoom", () => {
       status: 409,
       code: "ROOM_FULL",
     });
+  });
+});
+
+describe("leaveRoom", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("roomId 경로와 userId 쿼리로 퇴장을 알리고 204를 받는다", async () => {
+    mockedFetch.mockResolvedValue({ ok: true, status: 204, json: async () => undefined });
+
+    await expect(leaveRoom(42, 7)).resolves.toBeUndefined();
+    expect(mockedFetch).toHaveBeenCalledWith("/api/rooms/42/leave?userId=7", { method: "POST" });
+  });
+
+  it("실패 응답이면 ApiError를 던진다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(404, { code: "INVALID_CODE", message: "없는 방" }));
+
+    await expect(leaveRoom(42, 7)).rejects.toBeInstanceOf(ApiError);
   });
 });

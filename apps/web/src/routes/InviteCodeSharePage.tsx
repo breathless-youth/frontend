@@ -12,10 +12,9 @@ import { useToast } from "@/lib/useToast";
 /**
  * 초대코드 공유
  *
- * 진입은 `방 만들기` 성공 직후뿐이다. 방 조회 API가 없어 코드가 **router state로만** 온다 —
+ * 진입은 `방 만들기` 성공 직후뿐이다. 방 조회 API가 없어 코드가 router state로만 온다 —
  * 딥링크로 state가 없으면 소셜 홈으로 되돌린다(닫은 뒤 재진입 화면이 없다는 명세 규칙과
- * 일치 — 빈 방 TTL 10분 안에 코드로 입장하면 방은 유지된다). 새로고침은 되돌리지 않는다 —
- * react-router가 state를 history.state에 보존해 화면이 유지된다(2026-08-21 실기기 확인).
+ * 일치 — 빈 방 TTL 10분 안에 코드로 입장하면 방은 유지된다).
  */
 type ShareState = { roomId: number; inviteCode: string };
 
@@ -39,9 +38,11 @@ export function InviteCodeSharePage() {
 
   const joinMutation = useMutation({
     mutationFn: (inviteCode: string) => joinRoom(userId as number, inviteCode),
-    onSuccess: () => {
-      // TODO(2단계 · 실시간 룸): 카메라 프리뷰(S7-19 고지 포함)로 이동 후 룸 입장.
-      // 자리 예약은 30초 TTL이라 STOMP 확정 없이는 자동 해제된다 — 스텁 상태에서 무해하다.
+    onSuccess: (data, inviteCode) => {
+      navigate(
+        { pathname: `/social/room/${data.roomId}`, search: location.search },
+        { state: { inviteCode, graceRejoin: data.graceRejoin, cameraOn: data.cameraOn } },
+      );
     },
     onError: (error) => {
       showToast(joinErrorMessage(error));

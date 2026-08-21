@@ -197,6 +197,9 @@ importers:
       '@sentry/react':
         specifier: ^10.69.0
         version: 10.69.0(react@19.1.0)
+      '@stomp/stompjs':
+        specifier: ^7.3.0
+        version: 7.3.0
       '@tanstack/react-query':
         specifier: ^5.101.4
         version: 5.101.4(react@19.1.0)
@@ -2542,6 +2545,9 @@ packages:
 
   '@sinonjs/fake-timers@10.3.0':
     resolution: {integrity: sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA==}
+
+  '@stomp/stompjs@7.3.0':
+    resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
 
   '@szmarczak/http-timer@4.0.6':
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
@@ -11001,6 +11007,8 @@ snapshots:
   '@sinonjs/fake-timers@10.3.0':
     dependencies:
       '@sinonjs/commons': 3.0.1
+
+  '@stomp/stompjs@7.3.0': {}
 
   '@szmarczak/http-timer@4.0.6':
     dependencies:
