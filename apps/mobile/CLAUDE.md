@@ -48,7 +48,7 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 - **프로젝트는 `focusmakers-app`이다** — 웹(`focusmakers-web`)·백엔드(`focusmakers-api`)와 분리돼 있다. 같은 세션이라도 웹뷰 안 에러는 웹으로, 셸 에러는 이쪽으로 간다. 산출물도 소스맵도 릴리즈도 완전히 달라서 한 통에 섞으면 어느 쪽 스택인지 구분할 수 없다. **웹 DSN을 복사해 오지 말 것** — `lib/__tests__/sentryConfig.test.ts`가 프로젝트 ID를 못 박는다.
 - **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(환경 무관 고정값이라 `app.config.ts` 분기
   대상이 아니다 — 전송 여부는 런타임 `enabled: !__DEV__`가 가른다). DSN은 비밀이 아니다 — 이벤트를 보낼 주소일 뿐이고 어떤 빌드에도 그대로 들어간다. 반대로 소스맵 업로드용 **`SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다**(`.env.local`도, 커밋도 금지).
-- **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** 앱은 전 화면이 WebView 셸인데 RN 리플레이는 WebView를 통째로 마스킹하는 게 기본이라 켜도 마스킹된 사각형만 남아 실익이 없고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙(아래 절)과 정면 충돌한다. 웹은 2026-08-20(BY-407)부터 카메라 차단 조건으로 켰다(`apps/web/CLAUDE.md`) — 이 금지는 앱에만 남았다. `sendDefaultPii`는 `false`로 못 박았다(Sentry 공식 예제는 `true`다 — 따라가지 말 것).
+- **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** 앱은 전 화면이 WebView 셸인데 RN 리플레이는 WebView를 통째로 마스킹하는 게 기본이라 켜도 마스킹된 사각형만 남아 실익이 없고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 아래 절의 개인정보 원칙과 정면 충돌한다. 웹은 BY-407로 2026-08-20부터 카메라 차단 조건으로 켰고 자세한 내용은 `apps/web/CLAUDE.md`에 있다. 이 금지는 앱에만 남았다. `sendDefaultPii`는 `false`로 못 박았다. Sentry 공식 예제는 `true`지만 따라가지 말 것.
 - 성능 추적(`tracesSampleRate`)은 켜지 않았다. 모든 화면이 웹뷰인 셸이라 네이티브에 잴 구간이 사실상 없고 화면 로딩 성능은 웹 프로젝트가 이미 본다.
 
 ### 웹과 달리 스크러빙 콜백이 없다

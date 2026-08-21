@@ -33,7 +33,7 @@ describe("CameraPreviewSurface", () => {
     expect(container.querySelector("video")).not.toBeNull();
   });
 
-  it("video에 리플레이 차단 표식이 둘 다 붙는다 — Amplitude(amp-block)·Sentry(sentry-block)", () => {
+  it("video에 Amplitude용 amp-block과 Sentry용 sentry-block 차단 표식이 둘 다 붙는다", () => {
     const { container } = render(
       <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
     );
