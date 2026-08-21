@@ -376,16 +376,19 @@ function LiveRoomSession({
       {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
       <div className="contents" inert={dialogOpen}>
         {grid.mode === "fullscreen" ? (
-          <div className="absolute inset-0 bg-[#191f28]">{cameraOn && myVideo}</div>
+          // 가로에서는 좌우 여백을 둔다 — 초광폭으로 늘리지 않고 기기 비율과 거의 동등하게 유지.
+          <div className="absolute inset-0 bg-[#191f28] landscape:inset-x-4 landscape:overflow-hidden landscape:rounded-3xl">
+            {cameraOn && myVideo}
+          </div>
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow content-center gap-3 px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 ${
-              grid.cols === 1 ? "grid-cols-1" : "grid-cols-2"
+            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 ${
+              grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
             } ${
               grid.rowUnit === 2
-                ? "[grid-auto-rows:calc((100%-12px)/2)]"
-                : "[grid-auto-rows:calc((100%-24px)/3)]"
+                ? "[grid-auto-rows:calc((100%-12px)/2)] landscape:[grid-auto-rows:100%]"
+                : "[grid-auto-rows:calc((100%-24px)/3)] landscape:[grid-auto-rows:calc((100%-12px)/2)]"
             }`}
           >
             {allMembers.map((member) => (
