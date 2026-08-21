@@ -41,6 +41,21 @@ function defaultCreateClient(config: StompClientConfig): StompClientLike {
 
 // 외부 입력 경계 — 서버 계약을 신뢰하지 않는다. JSON으로는 유효하지만 계약에 없는
 // 메시지가 리듀서에 undefined를 흘려 렌더를 깨뜨리지 않게 여기서 거른다.
+// 멤버는 원소 단위까지 검사한다 — 빈 객체 하나만 섞여도 타일 렌더가 크래시한다.
+function isRoomMember(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const member = value as Record<string, unknown>;
+  return (
+    typeof member.userId === "number" &&
+    typeof member.nickname === "string" &&
+    typeof member.cameraOn === "boolean" &&
+    typeof member.focusState === "string" &&
+    typeof member.studySeconds === "number"
+  );
+}
+
 function isRoomServerMessage(value: unknown): value is RoomServerMessage {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -48,9 +63,9 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
   const message = value as Record<string, unknown>;
   switch (message.type) {
     case "SNAPSHOT":
-      return Array.isArray(message.members);
+      return Array.isArray(message.members) && message.members.every(isRoomMember);
     case "MEMBER_JOINED":
-      return typeof message.member === "object" && message.member !== null;
+      return isRoomMember(message.member);
     case "MEMBER_LEFT":
       return typeof message.userId === "number";
     case "CAMERA_CHANGED":

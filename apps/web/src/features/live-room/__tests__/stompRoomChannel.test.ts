@@ -105,6 +105,22 @@ describe("createStompRoomChannel", () => {
     expect(received).toEqual([]);
   });
 
+  it("멤버 필드가 계약에 안 맞는 SNAPSHOT·MEMBER_JOINED는 통째로 버린다 — 타일 렌더 크래시 방지", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":[{}]}' });
+    client.subscriptions[0]?.callback({ body: '{"type":"MEMBER_JOINED","member":{}}' });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"nickname":8,"cameraOn":true,"focusState":"FOCUS","studySeconds":0}}',
+    });
+
+    expect(received).toEqual([]);
+  });
+
   it("publishState는 방 상태 목적지로 JSON을 발행한다", () => {
     const { client, channel } = setup();
     channel.connect();
