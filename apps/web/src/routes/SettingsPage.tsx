@@ -10,7 +10,7 @@ import { useCameraPermission } from "@/features/settings/useCameraPermission";
 /**
  * 설정
  *
- * **프로필 설정 행은 ⚠️ 설정 화면의 행 배치 디자인은 미확정이라 섹션 구성은 잠정이다.
+ * **프로필 설정 행은 V1.3(BY-409)에서 추가됐다.** ⚠️ 설정 화면의 행 배치 디자인은 미확정이라 섹션 구성은 잠정이다.
  *
  * ## 원본과의 의도적 차이 (BY-331 task-4-brief)
  *

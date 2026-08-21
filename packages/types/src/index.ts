@@ -113,7 +113,8 @@ export interface StudySessionStreakResponse {
 }
 
 /**
- * 초대코드 룸 참여 API 계약
+ * 초대코드 룸 참여 API 계약 — 출처는 `.ai` 레포 `product/specs/BY-404-룸-참여.md`
+ * (BE가 같은 명세로 구현 중). ⚠️ Swagger 등재 전이라 등재 후 대조가 필요한 잠정 계약이다.
  */
 
 /**
