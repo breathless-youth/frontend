@@ -23,9 +23,8 @@ export type SpanJSON = Parameters<NonNullable<SentryOptions["beforeSendSpan"]>>[
  * 로컬 개발·테스트는 DSN 없이 그대로 돌아간다.
  *
  * Session Replay는 카메라 차단 조건으로만 켠다.
- * 모든 미디어를 차단해 카메라 프리뷰는 단말 밖으로 나가지 않고,
- * 화면 텍스트는 남긴다. 앱(`apps/mobile`)은 여전히 금지다
- * — 전 화면 WebView 셸이라 통째로 마스킹돼 실익이 없다.
+ * 모든 미디어를 차단해 카메라 프리뷰는 단말 밖으로 나가지 않고, 화면 텍스트는 남긴다.
+ * 앱 셸은 여전히 금지다. 전 화면이 WebView라 리플레이가 통째로 마스킹되어 실익이 없다.
  */
 export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
@@ -53,16 +52,23 @@ export function initSentry() {
       /**
        * Session Replay
        *
-       * - `blockAllMedia: true`(기본값이지만 계약이라 명시)
-       * - `maskAllText: false`: 타이머·집중률 등 화면 텍스트를 남긴다 — Amplitude 리플레이에서
-       *   이미 허용된 범위와 동일하다(`apps/web/CLAUDE.md`). 입력 필드 마스킹은 기본값 유지.
+       * - `blockAllMedia: true`는 기본값이지만 계약이라 명시한다.
+       * - `maskAllText: false`는 타이머·집중률 등 화면 텍스트를 남긴다. Amplitude 리플레이에서
+       *   이미 허용된 범위와 동일하다. 입력 필드 마스킹은 기본값을 유지한다.
        */
       Sentry.replayIntegration({
         blockAllMedia: true,
         maskAllText: false,
-        // 녹화 페이로드 내부의 URL(rrweb Meta href·브레드크럼·성능 스팬)도 4종 콜백을
-        // 거치지 않는다 — 이 훅이 그 경로의 스크러버다.
+        // 녹화 안의 브레드크럼·성능 스팬 URL도 4종 콜백을 거치지 않아 이 훅이 씻는다.
+        // 단 SDK가 custom 이벤트에만 불러 주므로 rrweb Meta의 href는 여기서 못 씻고,
+        // 아래 transport의 makeScrubbingTransport가 막는다.
         beforeAddRecordingEvent: scrubRecordingEvent,
+        /**
+         * **`transport`의 정제와 한 세트다. 하나만 되돌리면 유출이 부활하거나 수집이 멈춘다.**
+         * 압축을 켜면 녹화가 바이트로 직렬화돼 전송 계층에서 문자열 정제가 불가능해지고,
+         * 그 경우 transport는 fail-closed로 리플레이를 통째로 버린다.
+         */
+        useCompression: false,
       }),
     ],
     // 성능 트레이스는 표본만 수집한다 — 에러는 샘플링과 무관하게 전부 잡힌다.
@@ -70,6 +76,9 @@ export function initSentry() {
     // 리플레이는 일반 세션 10% 표본, 에러가 난 세션은 전부 수집한다.
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
+    // 리플레이 녹화의 userId를 전송 직전에 지우는 최종 방어선. 위 replayIntegration의
+    // `useCompression: false`와 한 세트다.
+    transport: makeScrubbingTransport,
     sendDefaultPii: false,
     /**
      * **네 개를 모두 걸어야 한다.** `beforeSend`는 SDK 구현상 **에러 이벤트에서만** 호출되고
@@ -84,9 +93,9 @@ export function initSentry() {
   });
 
   /**
-   * 리플레이 이벤트는 위 4종 콜백을 **하나도 거치지 않는다** — SDK가 `replay_event`를
-   * `prepareEvent`(event processor 경로)로만 준비해 보내기 때문이다(`@sentry/replay`의
-   * `prepareReplayEvent`). event processor는 모든 이벤트에 불리므로 replay_event만 골라 씻는다.
+   * 리플레이 이벤트는 위 4종 콜백을 **하나도 거치지 않는다.** SDK의 `prepareReplayEvent`가
+   * `replay_event`를 event processor 경로로만 준비해 보내기 때문이다. event processor는
+   * 모든 이벤트에 불리므로 replay_event만 골라 씻는다.
    */
   Sentry.addEventProcessor(scrubReplayEvent);
 }
@@ -185,56 +194,103 @@ export function reportHandled(error: unknown, tag: string): void {
   Sentry.captureException(error, { level: "warning", tags: { handled_at: tag } });
 }
 
-/** rrweb 이벤트 타입 상수 — `@sentry-internal/rrweb`의 `EventType` 값이다. */
-const RRWEB_META_EVENT = 4;
+/**
+ * 문자열 어디에 있든 `userId` 쿼리 파라미터만 도려낸다.
+ *
+ * 화이트리스트 방식인 `sanitizeUrl`을 쓰지 않는 이유: 이 함수의 입력은 URL 하나가 아니라
+ * **직렬화된 녹화 JSON 전체**라, URL을 찾아내 통째로 재작성하는 방식은 오탐으로 녹화를
+ * 망가뜨릴 수 있다. 여기서는 계약의 대상인 `userId=N`만 정확히 지우는 백스톱 역할이고,
+ * 구조를 아는 브레드크럼·스팬 경로는 `scrubRecordingEvent`가 화이트리스트로 정제한다.
+ */
+export function stripUserIdParam(text: string): string {
+  // "?userId=7&a=1"은 구분자를 남겨 "?a=1"로, "?userId=7"·"&userId=7"은 통째로 지운다.
+  return text.replace(/([?&])userId=\d+&/g, "$1").replace(/[?&]userId=\d+/g, "");
+}
+
+type TransportOptions = Parameters<typeof Sentry.makeFetchTransport>[0];
+type Transport = ReturnType<typeof Sentry.makeFetchTransport>;
+type Envelope = Parameters<Transport["send"]>[0];
+
+/**
+ * 리플레이 녹화(`replay_recording`)의 `userId`를 전송 직전에 지우는 transport.
+ *
+ * rrweb Meta 이벤트는 세그먼트마다 `window.location.href`를 원본 그대로 싣는데, SDK의
+ * `beforeAddRecordingEvent`는 custom 이벤트에만 불려서 훅으로는 못 씻는다. 2026-08-20 codex
+ * 리뷰에서 발견된 갭이다. 녹화가 직렬화된 문자열로 오는 마지막 지점이 여기라 전송 계층에서
+ * 지운다. 압축 바이트처럼 정제할 수 없는 형태면 **리플레이를 보내지 않는다.** 유출보다
+ * 수집 손실이 낫다는 fail-closed 판단이다. 에러·트랜잭션 등 다른 envelope는 손대지 않는다.
+ */
+export function makeScrubbingTransport(options: TransportOptions): Transport {
+  const inner = Sentry.makeFetchTransport(options);
+  return {
+    flush: (timeout) => inner.flush(timeout),
+    send: (envelope: Envelope) => {
+      const items = envelope[1] as [{ type?: string; length?: number }, unknown][];
+      for (const item of items) {
+        if (item[0]?.type !== "replay_recording") continue;
+        const payload = item[1];
+        if (typeof payload !== "string") {
+          return Promise.resolve({});
+        }
+        const scrubbed = stripUserIdParam(payload);
+        item[1] = scrubbed;
+        // envelope 규약: length 헤더는 payload의 UTF-8 바이트 수다. 정제로 짧아진 만큼
+        // 갱신하지 않으면 인제스트가 옛 길이만큼 읽어 뒤 아이템까지 잘못 파싱한다.
+        item[0].length = new TextEncoder().encode(scrubbed).length;
+      }
+      return inner.send(envelope);
+    },
+  };
+}
+
+/** rrweb 이벤트 타입 상수. `@sentry-internal/rrweb`의 `EventType` 값이다. */
 const RRWEB_CUSTOM_EVENT = 5;
 
 /**
- * 리플레이 녹화 페이로드 한 건의 URL을 씻는다(`beforeAddRecordingEvent`).
+ * 리플레이 녹화 페이로드 한 건의 URL을 씻는 `beforeAddRecordingEvent` 훅.
  *
- * DOM 스냅샷 자체에는 URL이 없지만 세 종류의 이벤트가 원본 URL을 담는다.
- * - Meta 이벤트: 세그먼트 시작마다 `window.location.href`를 그대로 싣는다.
- * - 녹화 내 브레드크럼: 네비게이션의 `from`/`to` — 이벤트 쪽 브레드크럼과 별개 사본이라
+ * ⚠️ SDK의 `maybeApplyCallback`이 `isCustomEvent`로 걸러 이 콜백을 **custom 이벤트에만**
+ * 부른다. 그래서 rrweb Meta 이벤트가 세그먼트마다 싣는 `window.location.href` 원본은
+ * 여기서 못 씻고, 전송 계층의 `makeScrubbingTransport`가 막는다.
+ *
+ * custom 이벤트 중 URL을 담는 두 종류를 씻는다.
+ * - 녹화 안 브레드크럼: 네비게이션의 `from`/`to`. 이벤트 쪽 브레드크럼과 별개 사본이라
  *   `beforeBreadcrumb`이 못 미친다.
- * - 성능 스팬: `navigation.*`·`resource.*`의 `description`이 요청 URL이다
- *   (`statsApi.ts`가 `?userId=N`으로 호출). `memory` 등 URL이 아닌 스팬은 건드리지 않는다 —
- *   정제 함수가 `"memory"`를 경로로 오인해 망가뜨린다.
+ * - 성능 스팬: `navigation.*`·`resource.*`의 `description`이 요청 URL이고, `navigation.push`는
+ *   `data.previous`에 이전 URL도 담는다. `statsApi.ts`가 `?userId=N`으로 호출하는 경로다.
+ *   `memory` 등 URL이 아닌 스팬은 건드리지 않는다. 정제 함수가 `"memory"`를 경로로 오인해
+ *   망가뜨리기 때문이다.
  */
 export function scrubRecordingEvent<E extends { type: number; data?: unknown }>(event: E): E {
-  if (event.type === RRWEB_META_EVENT) {
-    const data = event.data as { href?: unknown } | undefined;
-    if (typeof data?.href === "string") {
-      data.href = sanitizeUrl(data.href);
-    }
-    return event;
-  }
   if (event.type !== RRWEB_CUSTOM_EVENT) return event;
 
   const data = event.data as { tag?: unknown; payload?: unknown } | undefined;
   if (data?.tag === "breadcrumb" && typeof data.payload === "object" && data.payload !== null) {
     scrubBreadcrumb(data.payload as Sentry.Breadcrumb);
   } else if (data?.tag === "performanceSpan") {
-    const payload = data.payload as { op?: unknown; description?: unknown } | undefined;
-    if (
-      typeof payload?.op === "string" &&
-      /^(navigation|resource)/.test(payload.op) &&
-      typeof payload.description === "string"
-    ) {
-      payload.description = sanitizeUrl(payload.description);
+    const payload = data.payload as
+      { op?: unknown; description?: unknown; data?: { previous?: unknown } } | undefined;
+    if (typeof payload?.op === "string" && /^(navigation|resource)/.test(payload.op)) {
+      if (typeof payload.description === "string") {
+        payload.description = sanitizeUrl(payload.description);
+      }
+      if (typeof payload.data?.previous === "string") {
+        payload.data.previous = sanitizeUrl(payload.data.previous);
+      }
     }
   }
   return event;
 }
 
 /**
- * 리플레이 이벤트(`replay_event`)의 URL을 씻는다. 방문 URL 목록(`urls`)과 `request.url`에
+ * 리플레이 이벤트 `replay_event`의 URL을 씻는다. 방문 URL 목록 `urls`와 `request.url`에
  * `?userId=N`이 원본 그대로 실리는데, 이 이벤트는 `beforeSend` 계열이 불리지 않는 유일한
- * 전송 경로라 event processor로 막는다(`initSentry`에서 등록).
+ * 전송 경로라 `initSentry`가 event processor로 등록해 막는다.
  */
 export function scrubReplayEvent<E extends Sentry.Event>(event: E): E {
   if (event.type !== "replay_event") return event;
 
-  // `urls`는 ReplayEvent 전용 필드라 공용 `Event` 타입에 없다 — 구조만 보고 씻는다.
+  // `urls`는 ReplayEvent 전용 필드라 공용 `Event` 타입에 없다. 구조만 보고 씻는다.
   const replay = event as E & { urls?: unknown };
   if (Array.isArray(replay.urls)) {
     replay.urls = replay.urls.map((url) => (typeof url === "string" ? sanitizeUrl(url) : url));
