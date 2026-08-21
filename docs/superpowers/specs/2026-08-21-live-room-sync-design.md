@@ -19,7 +19,7 @@
 | 측정             | `useStudyRoomSession` 수정 0줄 재사용. 카메라 토글 = pause/resume(스트림 유지, track disable은 P2P 티켓). "세션 중 API 호출 금지·제출 1회" 계약 유지                                                             |
 | 발행             | `useRoomStatePublisher` — PAUSE 진입/해제 → `CAMERA_CHANGED`, FOCUS/DISTRACTED 전이 → `FOCUS_CHANGED`, 60초 인터벌 → `STUDY_TIME`. 마운트 시 무발행(변화만 중계)                                                 |
 | 그리드           | `roomGridSpec`: 1 풀스크린(크롬 없음) / 2 `1×2` / 3~~6 `2×3` 단위(3~~4명도 타일 높이 1/3, 세로 중앙)                                                                                                             |
-| 타일             | 다크 고정 서피스, 상태는 inset 글로우(집중 `--state-focus` / 비집중 `--state-distract` / 끔 `--text-tertiary`), 순공 `HH:MM`, 목표 null이면 생략                                                                 |
+| 타일             | 다크 고정 서피스, 순공 `HH:MM`, 목표 null이면 생략. 상태 테두리(글로우)는 2026-08-21 사용자 승인으로 전면 삭제 — 카메라 끔은 아바타 전환, 집중상태는 sr-only 텍스트만                                            |
 | 나가기           | 종료 확인(`SessionConfirmDialog` 재사용) → `endAndSubmit` → 성공 시 `leaveRoom` **best-effort**(실패해도 진행 — 서버 30초 유예가 정리) → 소셜 홈 replace. 제출 실패는 룸에 남아 재시도                           |
 
 ## BE 확인 항목 (BY-408 코멘트 게시됨)

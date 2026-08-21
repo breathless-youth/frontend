@@ -17,13 +17,6 @@ type RoomTileProps = {
   className?: string;
 };
 
-function glowColor(member: RoomMember): string {
-  if (!member.cameraOn) {
-    return "var(--text-tertiary)";
-  }
-  return member.focusState === "FOCUS" ? "var(--state-focus)" : "var(--state-distract)";
-}
-
 export function RoomTile({ member, media, className }: RoomTileProps) {
   const showMedia = member.cameraOn && media !== undefined;
   return (
@@ -32,9 +25,6 @@ export function RoomTile({ member, media, className }: RoomTileProps) {
       data-user-id={member.userId}
       data-state={member.cameraOn ? member.focusState : "OFF"}
       className={`relative overflow-hidden rounded-3xl bg-[#191f28] ${className ?? ""}`}
-      style={{
-        boxShadow: `inset 0 0 26px 0 color-mix(in srgb, ${glowColor(member)} 65%, transparent)`,
-      }}
     >
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
@@ -55,7 +45,7 @@ export function RoomTile({ member, media, className }: RoomTileProps) {
       <div className="absolute bottom-3 left-3">
         <p className="text-[15px] font-bold text-white">
           {member.nickname}
-          {/* 상태가 글로우 색으로만 전달되면 스크린리더가 알 수 없다. */}
+          {/* 집중상태는 시각 표시가 없다(명세 2026-08-21 개정) — 보조기술에는 텍스트로 전달한다. */}
           <span className="sr-only">
             {member.cameraOn
               ? member.focusState === "FOCUS"
