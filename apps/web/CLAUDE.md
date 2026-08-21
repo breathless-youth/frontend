@@ -4,7 +4,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ## 역할
 
-- (재구축 예정) 브라우저용 싱글 세션 / 멀티 종일룸(브라우저 `getUserMedia` + MediaPipe + LiveKit **Web** SDK) — 모바일 WebView가 그대로 로드할 화면.
+- (재구축 예정) 브라우저용 싱글 세션 / 멀티룸(브라우저 `getUserMedia` + MediaPipe + 표준 `RTCPeerConnection` P2P — [ADR 0006](../../docs/adr/0006-p2p-mesh-stomp-over-livekit.md)) — 모바일 WebView가 그대로 로드할 화면.
 - 서비스 소개 / 랜딩 페이지 (현재 유일한 화면).
 - 독립 배포 가능한 웹 서비스(모바일과 무관하게 브라우저로 직접 접근 가능).
 
@@ -18,7 +18,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ## 개인정보 원칙 (재구축 시에도 변경 불가)
 
-브라우저 MediaPipe 추론은 클라이언트에서만 수행한다. 원본 프레임·얼굴 데이터를 서버로 보내지 않는다. 멀티룸에서 카메라 영상은 LiveKit으로 전송되지만(녹화·저장 안 함) AI 분석용 원본 데이터는 전송하지 않는다. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것(멀티룸에서 "영상이 서버로 전송되지 않는다"는 오해 소지). 자세한 근거는 [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md).
+브라우저 MediaPipe 추론은 클라이언트에서만 수행한다. 원본 프레임·얼굴 데이터를 서버로 보내지 않는다. 멀티룸에서 카메라 영상은 WebRTC P2P로 상대 참여자에게 전송되지만(서버 미경유, 녹화·저장 안 함) AI 분석용 원본 데이터는 전송하지 않는다. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것(멀티룸에서 "영상이 서버로 전송되지 않는다"는 오해 소지). 자세한 근거는 [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md).
 
 ## 에러 모니터링 (Sentry)
 
@@ -81,7 +81,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
   - **검증은 `amplitudePipeline.test.ts`가 한다** — SDK를 mock하지 않고 실제로 돌려 **fetch로 나가는 body**를 본다. mock 기반 `amplitude.test.ts`는 "우리가 무엇을 호출했는가"만 보므로 위 실행 순서 문제를 **잡지 못했다**. 수집 설정을 바꾸면 반드시 파이프라인 테스트로 확인할 것.
   - 신원은 `setUserId`라는 제 자리로만 보낸다. URL 문자열에 식별자가 섞이면 **같은 화면이 사용자 수만큼 다른 값으로 쪼개져** 차트에서 묶이지 않는다 — 정제는 개인정보 이유가 사라진 뒤에도 데이터 품질 이유로 유지된다.
 - **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어쓴다. 수집 범위 변경이 코드 리뷰를 우회하게 되므로 계속 막는다. autocapture 변경은 코드로만 한다.
-- **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 LiveKit 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
+- **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
   - 세션·결과·기록 화면의 공부 상태 텍스트(타이머·집중률 등)가 리플레이 DOM에 담기는 것은 **허용된 결정**이다. 2026-08-08부터는 이벤트 속성으로 보내는 것도 허용된다(아래 "공부 도메인 지표") — **단 Amplitude 한정이고, GA4로 보내는 것은 여전히 금지**다.
   - 캔버스 수집(rrweb `recordCanvas` 계열 옵션)은 기본 꺼짐 — 켜지 말 것. Vision 진단 오버레이가 캔버스에 그려질 수 있다.
   - **리플레이 수집률은 콘솔이 결정한다** — 리플레이 SDK는 analytics의 `fetchRemoteConfig: false`와 **무관하게** 자체 원격 설정(`sr-client-cfg.amplitude.com`)을 가져오고, 콘솔(Settings → Session Replay)의 `sample_rate`가 코드의 `sampleRate: 1`을 덮어쓴다(코드 값은 콘솔 미설정 시 폴백). 2026-08-07 진단: 콘솔 기본값 1%가 로컬 100%를 덮어써 "데이터 미수신"이 났다 — 수집률 조정은 콘솔에서 한다. 원격 설정 fetch가 실패하면(광고 차단기 등) 리플레이는 수집을 멈춘다(fail-closed). 원격 privacy 설정은 로컬 `blockSelector`를 **제거하지 못하고 목록에 추가만 된다**(left-join) — 카메라 차단은 콘솔로 못 푼다.
@@ -116,5 +116,5 @@ pnpm --filter web build
 
 - 스타일링은 Tailwind v4(`@tailwindcss/vite`, CSS `@theme inline` 토큰) — `tailwind.config.js` 파일 없이 `src/index.css`에서 테마를 정의한다.
 - 새 shadcn 컴포넌트는 `shadcn-ui`/`tailwind-theme-builder` 스킬로 추가하거나 기존 `src/components/ui/button.tsx` 패턴을 따라 수동 작성한다.
-- LiveKit/MediaPipe를 재도입할 때는 방 토큰 발급 API가 준비되어 있는지 먼저 확인할 것. 하드코딩된 공개 키/토큰을 커밋하지 않는다.
+- SFU(LiveKit 등) 미디어 서버를 도입하게 되면 방 토큰 발급 API가 준비되어 있는지 먼저 확인할 것. 하드코딩된 공개 키/토큰을 커밋하지 않는다.
 - 공부 상태·집중률 계산은 화면 컴포넌트에서 직접 구현하지 말고 순수 TS 공유 패키지로 분리한다(과거 `@focusmakers/study-core` 패턴).

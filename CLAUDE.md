@@ -1,6 +1,6 @@
 # FocusOn FE
 
-AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 모노레포. AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석해 총 공부시간·순공시간·집중률을 제공하고, 싱글 스터디룸(개인 집중도 측정)과 멀티 종일룸(LiveKit 기반 그룹 화면 공유)을 지원한다. 용어는 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
+AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 모노레포. AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석해 총 공부시간·순공시간·집중률을 제공하고, 싱글 스터디룸(개인 집중도 측정)과 멀티룸(WebRTC P2P 기반 그룹 화면 공유 — [ADR 0006](./docs/adr/0006-p2p-mesh-stomp-over-livekit.md))을 지원한다. 용어는 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
 ## 지금 상태: 기능 구현 리셋 (2026-07-25), 아키텍처 방침은 WebView 유지
 
@@ -31,15 +31,15 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 
 - **플랫폼 카메라 구현**과 **공부 상태 계산**을 분리한다.
 - **Vision AI 구현**과 **세션 집계 로직**을 분리한다.
-- **WebRTC(LiveKit) 구현**과 **Vision AI 구현**을 분리한다(멀티룸의 영상 송출 경로와 AI 분석 경로는 독립).
-- UI 컴포넌트는 카메라·LiveKit SDK를 직접 호출하지 않는다 — 어댑터 계층을 통한다(과거 `apps/mobile/platform/*` 패턴은 git 히스토리 참고).
-- 공유 패키지(`types`, `design-tokens`)는 React Native, DOM, MediaPipe, LiveKit에 직접 의존하지 않는다. 공부시간 계산 코어를 재구축할 때도 같은 원칙(순수 TS 패키지)을 따른다.
+- **WebRTC 구현**과 **Vision AI 구현**을 분리한다(멀티룸의 영상 송출 경로와 AI 분석 경로는 독립). 전송 방식은 LiveKit이 아니라 P2P 풀메시 + STOMP 제어 채널이다([ADR 0006](./docs/adr/0006-p2p-mesh-stomp-over-livekit.md)).
+- UI 컴포넌트는 카메라·WebRTC API를 직접 호출하지 않는다 — 어댑터 계층을 통한다(과거 `apps/mobile/platform/*` 패턴은 git 히스토리 참고).
+- 공유 패키지(`types`, `design-tokens`)는 React Native, DOM, MediaPipe, 미디어 SDK에 직접 의존하지 않는다. 공부시간 계산 코어를 재구축할 때도 같은 원칙(순수 TS 패키지)을 따른다.
 
 ## 개인정보 원칙 (변경 불가, WebView·네이티브 어느 쪽이든 동일하게 적용)
 
 - **온디바이스 Vision AI**: 카메라 원본 프레임·얼굴 이미지·랜드마크 좌표는 단말(브라우저/WebView) 내부에서만 처리한다. 서버 전송·파일/캐시/DB 저장·로그 기록 금지. 서버에는 공부 상태 이벤트와 세션 집계 결과만 전송한다.
 - **싱글룸**: 영상 자체가 어디에도 전송되지 않는다.
-- **멀티룸**: 카메라 영상은 참여자 화면 공유를 위해 LiveKit으로 전송된다(녹화·영구저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현한다.
+- **멀티룸**: 카메라 영상은 참여자 화면 공유를 위해 WebRTC P2P로 상대 참여자에게 직접 전송된다(서버 미경유, TURN 릴레이는 암호화 페이로드 경유만 — 녹화·영구저장 없음). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현한다.
 - 싱글룸과 멀티룸의 개인정보 안내 문구를 동일하게 쓰지 말 것. 자세한 근거는 [ADR 0002](./docs/adr/0002-native-mobile-study-room-and-independent-web.md).
 
 ## 개발 명령
@@ -89,9 +89,9 @@ pnpm --filter web dev      # web만
 ## 하지 말 것
 
 - 백엔드 Swagger에 없는 API 계약 타입을 상상으로 만들지 말 것 — 초기에 그렇게 만든 임시 구현 전체를 2026-07-25에 삭제했다([ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md) 갱신 노트).
-- 실기기 기술 스파이크(온디바이스 Vision, LiveKit RN SDK 호환성 검증)가 끝나기 전에 네이티브로 조기 전환하지 말 것 — MVP는 WebView로 간다는 게 현재 결정이다.
+- 실기기 기술 스파이크(온디바이스 Vision, WKWebView의 getUserMedia+RTCPeerConnection 공존 검증)가 끝나기 전에 네이티브로 조기 전환하지 말 것 — MVP는 WebView로 간다는 게 현재 결정이다.
 - 검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것 — 인터페이스+mock으로 두고 실제 기기 스파이크로 검증한다.
-- 공유 패키지(`study-core` 등)에 React Native/DOM/MediaPipe/LiveKit 의존성을 추가하지 말 것.
+- 공유 패키지(`study-core` 등)에 React Native/DOM/MediaPipe/미디어 SDK 의존성을 추가하지 말 것.
 - 패키지 매니저를 npm/yarn으로 바꾸지 말 것 (pnpm 고정).
 - `packages/config`의 공유 규칙을 개별 앱에서 무시하려면 반드시 이유를 주석으로 남길 것.
 - 위 Codex 스펙 문서를 "이미 도입된 상태"로 착각해서 없는 `docs/ai-development/`/`docs/screens/`/Ruleset을 있다고 가정하지 말 것 — 실제로 만들거나 사용자에게 도입 여부부터 확인할 것.

@@ -13,7 +13,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 (구 스터디룸 라우트 `app/room/[id].tsx`, `features/study-session/`, `platform/{camera,vision,rtc}/`, `components/ui/`는 2026-07-25 기능 리셋으로 삭제 — 재구축 시 git 히스토리의 패턴을 참고한다.)
 
-**경계 규칙**: UI 컴포넌트는 카메라/LiveKit SDK를 직접 import하지 않는다 — 네이티브 전환 시 플랫폼 어댑터 계층을 통한다. 공부 상태 계산은 `@focusmakers/study-core`(순수 TS)에 있고, 카메라/Vision/RTC 구현과 분리된다.
+**경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않는다 — 네이티브 전환 시 플랫폼 어댑터 계층을 통한다. 공부 상태 계산은 `@focusmakers/study-core`(순수 TS)에 있고, 카메라/Vision/RTC 구현과 분리된다.
 
 ## WebView 스터디룸 (재구축 예정)
 
@@ -143,7 +143,7 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 - 카메라 원본 프레임·얼굴 이미지·랜드마크 좌표는 단말 내부에서만 처리. 서버 전송·저장·로그 금지. 서버에는 비공부 상태 이벤트(`StudyEventStatus`: `PHONE`/`DEVICE`/`AWAY`/`PAUSE`)와 세션 집계만 전송 — 용어는 [docs/domain-glossary.md](../../docs/domain-glossary.md) 참고.
 - 싱글룸: 영상 자체가 어디에도 전송되지 않는다.
-- 멀티룸: 카메라 영상은 LiveKit으로 전송된다(녹화·저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것.
+- 멀티룸: 카메라 영상은 WebRTC P2P로 상대 참여자에게 직접 전송된다(서버 미경유, 녹화·저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것.
 
 ## 네이티브 전환 시 (지금은 해당 없음)
 
