@@ -25,9 +25,20 @@ export function InviteCodeJoinPage() {
   const userId = parseUserId(searchParams.get("userId"));
 
   const joinMutation = useMutation({
-    mutationFn: () => joinRoom(userId as number, code),
-    onSuccess: () => {
-      // TODO(2단계 · 실시간 룸): 카메라 프리뷰(S7-19 고지 포함)로 이동 후 룸 입장.
+    // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와
+    // 실제 참여한 코드가 어긋날 수 있다.
+    mutationFn: (submittedCode: string) => joinRoom(userId as number, submittedCode),
+    onSuccess: (data, submittedCode) => {
+      navigate(
+        { pathname: `/social/room/${data.roomId}`, search: location.search },
+        {
+          state: {
+            inviteCode: submittedCode,
+            graceRejoin: data.graceRejoin,
+            cameraOn: data.cameraOn,
+          },
+        },
+      );
     },
     onError: (error) => {
       setErrorMessage(joinErrorMessage(error));
@@ -80,7 +91,7 @@ export function InviteCodeJoinPage() {
           type="button"
           disabled={userId === null || !isCompleteInviteCode(code) || joinMutation.isPending}
           onClick={() => {
-            joinMutation.mutate();
+            joinMutation.mutate(code);
           }}
           className="flex h-12 w-full items-center justify-center rounded-[14px] bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
         >

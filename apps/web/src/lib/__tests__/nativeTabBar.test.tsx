@@ -66,6 +66,11 @@ describe("isFullScreenPath", () => {
     }
   });
 
+  it("실시간 룸은 동적 세그먼트까지 전체 화면이다 (BY-410)", () => {
+    expect(isFullScreenPath("/social/room/42")).toBe(true);
+    expect(isFullScreenPath("/social/room/0712")).toBe(true);
+  });
+
   it("세션은 전체 화면이지만 목록에 없다 — 네이티브 모달이 이미 탭 바를 덮고, 탭 라우트로 돌아오지 않아 복귀 신호를 보낼 기회가 없다", () => {
     expect(isFullScreenPath("/room/1")).toBe(false);
     expect(isFullScreenPath("/room/1/result")).toBe(false);
