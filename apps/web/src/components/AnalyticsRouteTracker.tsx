@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { trackPageView } from "@/lib/analytics";
-import { setAmplitudeUserId, trackAmplitudePageView, updateSurveyGate } from "@/lib/amplitude";
+import { setAmplitudeUserId, trackAmplitudePageView } from "@/lib/amplitude";
 import { parseUserId } from "@/lib/userId";
 
 /**
@@ -29,9 +29,6 @@ export function AnalyticsRouteTracker() {
     setAmplitudeUserId(parseUserId(new URLSearchParams(search).get("userId")));
     trackPageView(pathname, search);
     trackAmplitudePageView(pathname, search);
-    // 세션 화면(`/room/*`)에서 설문(G&S)을 코드로 차단한다 — 콘솔 페이지 타겟팅과
-    // 이중 방어(`lib/amplitude.ts`의 `updateSurveyGate` 주석 참고).
-    updateSurveyGate(pathname);
   }, [pathname, search]);
 
   return null;
