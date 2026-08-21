@@ -163,9 +163,10 @@ export function CameraPreviewSurface({
           // 비율 계산은 CSS가 컨테이너 기준으로 하므로 세로·가로가 자동으로 함께 처리된다.
           className={cn(
             "h-full w-full",
-            // amp-block·sentry-block: Session Replay 차단 표식(Amplitude·Sentry, BY-407).
-            // 전역 설정(blockSelector("video")·blockAllMedia)이 1차 방어지만, 그 설정이
-            // 바뀌어도 카메라 요소만은 남도록 요소에도 직접 태깅한다(lib/amplitude.ts·lib/sentry.ts).
+            // amp-block은 Amplitude, sentry-block은 Sentry의 Session Replay 차단 표식이다.
+            // 전역 설정인 blockSelector("video")와 blockAllMedia가 1차 방어지만, 그 설정이
+            // 바뀌어도 카메라 요소만은 남도록 요소에도 직접 태깅한다. lib/amplitude.ts와
+            // lib/sentry.ts 참고.
             "amp-block sentry-block",
             PREVIEW_OBJECT_FIT === "contain" ? "object-contain object-top" : "object-cover",
             facing === "front" && "scale-x-[-1]",
