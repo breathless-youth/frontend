@@ -9,10 +9,7 @@ import Constants from "expo-constants";
  * 에러는 이쪽으로 간다 — 스택트레이스도 소스맵도 완전히 다른 산출물이라 한 통에 섞으면
  * 어느 쪽 릴리즈인지 구분이 안 된다.
  *
- * DSN은 `app.json`의 `extra.sentryDsn`에서 읽는다(`webBaseUrl.ts`·`apiBaseUrl()`과 같은 패턴).
- * **DSN은 비밀이 아니다** — 클라이언트가 이벤트를 보낼 주소일 뿐이고 어떤 빌드에도 그대로
- * 들어간다. 반대로 소스맵 업로드용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 둔다
- * (`CLAUDE.md`의 "에러 모니터링" 절).
+ * DSN은 `app.json`의 `extra.sentryDsn`에서 읽는다.
  */
 export function initSentry(): void {
   const dsn = Constants.expoConfig?.extra?.sentryDsn as string | undefined;
@@ -52,9 +49,11 @@ export function initSentry(): void {
     sendDefaultPii: false,
 
     /**
-     * **Session Replay를 추가하지 말 것**(`mobileReplayIntegration`). 세션 화면은 카메라
-     * 프리뷰가 떠 있는 상태라 화면 녹화 수집은 "카메라 영상은 단말을 벗어나지 않는다"는
-     * 개인정보 원칙과 정면으로 충돌한다(루트 `CLAUDE.md`). 웹 쪽에도 같은 금지가 걸려 있다.
+     * **Session Replay를 추가하지 말 것**(`mobileReplayIntegration`). 전 화면이 WebView 셸이라
+     * RN 리플레이의 기본 WebView 마스킹 때문에 켜도 마스킹된 사각형만 남아 실익이 없고,
+     * 마스킹을 풀면 카메라 프리뷰가 녹화돼 "카메라 영상은 단말을 벗어나지 않는다"는
+     * 개인정보 원칙과 정면으로 충돌한다(루트 `CLAUDE.md`). 웹은 2026-08-20(BY-407)부터
+     * 카메라 차단 조건으로 켰다 — 이 금지는 앱에만 남았다.
      *
      * 성능 추적(`tracesSampleRate`)도 켜지 않았다 — 이 앱은 모든 화면이 웹뷰인 셸이라
      * 네이티브 쪽에 잴 구간이 사실상 없고, 화면 로딩 성능은 웹 프로젝트가 이미 본다.
