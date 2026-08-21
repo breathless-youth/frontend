@@ -97,7 +97,16 @@ export function LiveRoomPage({
   const roomId = Number(roomIdParam);
   const state: unknown = location.state;
 
-  if (userId === null || !Number.isInteger(roomId) || !isLiveRoomState(state)) {
+  // DEV의 mockRoom 시연은 join 없이 URL만으로 진입한다 — 실기기 웹뷰에서는 router state를
+  // 주입할 수 없어서, 이 우회가 없으면 mock 데모를 브라우저 콘솔에서만 열 수 있다.
+  const mockDemo = import.meta.env.DEV && Number(searchParams.get("mockRoom")) > 0;
+  const entryState = isLiveRoomState(state)
+    ? state
+    : mockDemo
+      ? { inviteCode: "0000", graceRejoin: true, cameraOn: true }
+      : null;
+
+  if (userId === null || !Number.isInteger(roomId) || entryState === null) {
     return <Navigate to={{ pathname: "/social", search: location.search }} replace />;
   }
 
@@ -105,7 +114,7 @@ export function LiveRoomPage({
     <LiveRoomEntry
       roomId={roomId}
       userId={userId}
-      entryState={state}
+      entryState={entryState}
       createChannel={createChannel ?? resolveChannelFactory(searchParams)}
       createCamera={createCamera}
     />

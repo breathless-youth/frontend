@@ -105,6 +105,32 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
   });
 
+  it("DEV mockRoom 시연은 state 없이 URL만으로 join 없이 진입한다", async () => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter initialEntries={["/social/room/42?userId=7&mockRoom=2"]}>
+          <Routes>
+            <Route
+              path="/social/room/:roomId"
+              element={
+                <LiveRoomPage
+                  createChannel={() => createMockRoomChannel({ snapshot: [] })}
+                  createCamera={() => createMockCameraAdapter()}
+                />
+              }
+            />
+            <Route path="/social" element={<div data-testid="social-home-stub" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole("button", { name: "나가기" })).toBeInTheDocument();
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
+  });
+
   it("진입하면 카메라 켜기 확인 모달이 먼저 뜬다", () => {
     renderRoom();
 
