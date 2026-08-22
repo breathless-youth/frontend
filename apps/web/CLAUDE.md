@@ -113,7 +113,7 @@ pnpm --filter web build
 ```
 
 dev에서 `/api`·`/ws`가 503("DEV_API_PROXY_TARGET 미설정")이면 `apps/web/.env.local`에
-`DEV_API_PROXY_TARGET=<개발 백엔드 주소>`가 없는 것이다 — 주소는 팀 내부 공유 값이고, **저장소가 공개라 커밋 금지**(`vite.config.ts`의
+`DEV_API_PROXY_TARGET=<개발 백엔드 주소>`가 없는 것이다 — `.env.local.example`을 복사해 값을 채운다 — 주소는 팀 내부 공유 값이고, **저장소가 공개라 커밋 금지**(`vite.config.ts`의
 `DEV_PROXY_TARGET` 주석 참고. 과거 타깃이 운영으로 잘못 커밋돼 개발 트래픽이 운영 DB로
 흘러간 사고의 재발 방지책이다).
 
