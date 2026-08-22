@@ -5,7 +5,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { loadEnv } from "vite";
-import type { Connect, ViteDevServer } from "vite";
+import type { Connect, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
 import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
@@ -252,11 +252,22 @@ function devApiProxy() {
   if (!DEV_PROXY_TARGET) {
     return undefined;
   }
+  /**
+   * 프록시로 넘길 때 `Origin` 헤더를 벗긴다 — 브라우저는 same-origin이라도 POST에는
+   * Origin을 붙이는데(GET에는 안 붙임), 터널 검증처럼 origin이 백엔드 CORS 허용 목록에
+   * 없는 주소면 Spring이 403을 돌려준다(2026-08-22 아이폰 실측: GET은 전부 통과,
+   * 세션 제출 POST만 403). 프록시는 애초에 same-origin 우회 수단이므로 Origin을 지워
+   * 서버 간 요청으로 만든다.
+   */
+  const stripOrigin: NonNullable<ProxyOptions["configure"]> = (proxy) => {
+    proxy.on("proxyReq", (proxyReq) => proxyReq.removeHeader("origin"));
+    proxy.on("proxyReqWs", (proxyReq) => proxyReq.removeHeader("origin"));
+  };
   return {
-    "/api": { target: DEV_PROXY_TARGET, changeOrigin: true },
+    "/api": { target: DEV_PROXY_TARGET, changeOrigin: true, configure: stripOrigin },
     // 룸 STOMP 웹소켓 — /api와 같은 same-origin 우회 목적. 배포에서는 프록시 없이
     // API 베이스에서 ws(s) URL을 파생한다(features/live-room/stompRoomChannel.ts).
-    "/ws": { target: DEV_PROXY_TARGET, changeOrigin: true, ws: true },
+    "/ws": { target: DEV_PROXY_TARGET, changeOrigin: true, ws: true, configure: stripOrigin },
   };
 }
 
