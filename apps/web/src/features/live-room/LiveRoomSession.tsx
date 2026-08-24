@@ -26,6 +26,7 @@ import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-sess
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +62,12 @@ export function LiveRoomSession({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // 뒤로가기로 이탈하면 제출 없이 측정이 유실되므로,
+  // 세션 동안 iOS 스와이프와 Android 하드웨어 뒤로가기를 모두 잠근다.
+  // (세션 종료는 나가기 버튼으로만 가능하다)
+  useNativeBackGestureLock();
+  useNativeBackLock();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));

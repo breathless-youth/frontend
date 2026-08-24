@@ -114,6 +114,7 @@ export type ToNativeMessage =
   | { type: "share"; text: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
+  | SetBackLockMessage
   | NavigateTabMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
@@ -176,6 +177,24 @@ export interface SetTabBarMessage {
 export interface SetBackGestureMessage {
   type: "set-back-gesture";
   enabled: boolean;
+  atMs: number;
+}
+
+/**
+ * Android 하드웨어 뒤로가기 잠금 — 소셜룸 세션(`/social/room/:id`)이 보낸다.
+ *
+ * 세션 중 뒤로가기로 방을 이탈하면 제출 없이 측정이 유실된다. 싱글룸은 자기 네이티브
+ * 화면(`app/room/[id].tsx`)의 `blockHardwareBack`으로 항상 막지만, 소셜룸은 탭 웹뷰 안
+ * 웹 라우팅이라 화면 단위 prop을 걸 자리가 없다 — 그래서 룸에 있는 동안만 웹이 이
+ * 신호로 잠근다. 화면 내의 나가기 버튼으로만 세션을 종료할 수 있다(싱글룸과 같은 정책).
+ *
+ * `locked: false`로 되푸는 책임은 잠근 쪽(세션 언마운트)에 있다 — 풀린 상태가 기본값이다.
+ * iOS 가장자리 스와이프는 `set-back-gesture`가 담당하고, 브라우저 단독 모드에서는
+ * 발신돼도 받는 쪽이 없다.
+ */
+export interface SetBackLockMessage {
+  type: "set-back-lock";
+  locked: boolean;
   atMs: number;
 }
 

@@ -641,6 +641,35 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     });
   });
 
+  it("세션 동안 뒤로가기를 잠근다 — iOS 스와이프·Android 하드웨어 모두, 나가면 해제", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const bridgeSent = () =>
+      postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string) as Record<string, unknown>);
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    mockedLeaveRoom.mockResolvedValue(undefined);
+    renderRoom();
+
+    await enterRoom();
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-gesture", enabled: false }),
+    );
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-lock", locked: true }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await screen.findByTestId("social-home-stub");
+
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-gesture", enabled: true }),
+    );
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-lock", locked: false }),
+    );
+  });
+
   it("나가기는 종료 확인 후 제출하고 leave를 부른 뒤 소셜 홈으로 복귀한다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     mockedLeaveRoom.mockResolvedValue(undefined);

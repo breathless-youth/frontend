@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { BackHandler, Text } from "react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
@@ -167,6 +167,116 @@ describe("RemoteScreen", () => {
     expect(mockedHandleBridgeMessage).toHaveBeenCalledTimes(1);
     expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
       { type: "navigate-home", atMs: 6 },
+      expect.any(Function),
+    );
+  });
+
+  it("웹이 set-back-lock을 보내면 하드웨어 뒤로가기를 차단하고, 해제하면 되푼다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const remove = jest.fn();
+    const spy = jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockReturnValue({ remove } as ReturnType<typeof BackHandler.addEventListener>);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(spy).not.toHaveBeenCalled();
+
+    const onMessage = webview.props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-lock","locked":true,"atMs":5}' } });
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const handler = spy.mock.calls[0]?.[1] as () => boolean;
+    expect(handler()).toBe(true);
+    // 셸이 소비하는 메시지라 공용 핸들러로는 넘어가지 않는다
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-back-lock" }),
+      expect.any(Function),
+    );
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-lock","locked":false,"atMs":6}' } });
+    });
+    expect(remove).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("문서가 다시 로드되면 웹 주도 잠금이 기본값(풀림)으로 돌아간다 — 렌더러 재생성 대비", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const remove = jest.fn();
+    const spy = jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockReturnValue({ remove } as ReturnType<typeof BackHandler.addEventListener>);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    const onLoadEnd = webview.props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: '{"type":"set-back-lock","locked":true,"atMs":5}' },
+      });
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // 렌더러 크래시 등으로 새 문서가 로드되면 — 새 문서는 잠근 적이 없다
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(remove).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("비포커스 탭에서는 set-back-lock이 걸려도 하드웨어 뒤로가기를 막지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const spy = jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockReturnValue({ remove: jest.fn() } as ReturnType<typeof BackHandler.addEventListener>);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: '{"type":"set-back-lock","locked":true,"atMs":5}' },
+      });
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("포커스를 되찾으면 마지막 set-tab-bar 상태를 재보고한다 — 탭 전환 뒤 탭 바 유실 방지", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const view = render(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: '{"type":"set-tab-bar","visible":false,"atMs":5}' },
+      });
+    });
+
+    view.rerender(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    mockedHandleBridgeMessage.mockClear();
+    view.rerender(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar", visible: false }),
       expect.any(Function),
     );
   });
