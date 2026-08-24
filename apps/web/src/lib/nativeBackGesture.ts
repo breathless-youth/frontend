@@ -24,3 +24,18 @@ export function useNativeBackGestureLock(): void {
     };
   }, []);
 }
+
+/**
+ * 마운트 동안 Android 하드웨어 뒤로가기를 잠근다 — 언마운트에서 되푼다.
+ *
+ * 소셜룸 세션이 위 제스처 잠금과 함께 쓴다: 세션 종료가 나가기 버튼으로만 확정되게
+ * 두 플랫폼의 뒤로가기 출구를 모두 막는다(`SetBackLockMessage` 주석 참고).
+ */
+export function useNativeBackLock(): void {
+  useEffect(() => {
+    postToNative({ type: "set-back-lock", locked: true, atMs: Date.now() });
+    return () => {
+      postToNative({ type: "set-back-lock", locked: false, atMs: Date.now() });
+    };
+  }, []);
+}

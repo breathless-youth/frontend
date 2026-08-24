@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -50,7 +50,6 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     userId,
     nickname: `멤버${userId}`,
     goal: null,
-    category: null,
     cameraOn: true,
     focusState: "FOCUS",
     studySeconds: 0,
@@ -58,16 +57,65 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
   };
 }
 
+function createFakePc() {
+  const pc = {
+    senders: [] as {
+      track: { enabled: boolean } | null;
+      replaceTrack: () => Promise<void>;
+      setParameters: () => Promise<void>;
+      getParameters: () => { encodings: object[] };
+    }[],
+    closed: false,
+    iceConnectionState: "new",
+    onicecandidate: null as ((e: { candidate: unknown }) => void) | null,
+    ontrack: null as ((e: { streams: unknown[] }) => void) | null,
+    oniceconnectionstatechange: null as (() => void) | null,
+    restartIce: () => undefined,
+    async createOffer() {
+      return { type: "offer", sdp: "offer-sdp" };
+    },
+    async createAnswer() {
+      return { type: "answer", sdp: "answer-sdp" };
+    },
+    async setLocalDescription() {},
+    async setRemoteDescription() {},
+    async addIceCandidate() {},
+    addTrack(track: { enabled: boolean }) {
+      const sender = {
+        track,
+        replaceTrack: async () => undefined,
+        setParameters: async () => undefined,
+        getParameters: () => ({ encodings: [{}] }),
+      };
+      pc.senders.push(sender);
+      return sender;
+    },
+    getSenders() {
+      return pc.senders;
+    },
+    close() {
+      pc.closed = true;
+    },
+  };
+  return pc;
+}
+
+type FakePc = ReturnType<typeof createFakePc>;
+
 function renderRoom({
   state = { inviteCode: "0712" },
   scenario = { snapshot: [] },
   camera = createMockCameraAdapter(),
+  createCamera,
 }: {
   state?: unknown;
   scenario?: MockRoomScenario;
   camera?: CameraAdapter;
+  createCamera?: () => CameraAdapter;
 } = {}) {
   const channel = createMockRoomChannel(scenario);
+  const pcs: FakePc[] = [];
+  const pcConfigs: RTCConfiguration[] = [];
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
@@ -75,14 +123,25 @@ function renderRoom({
         <Routes>
           <Route
             path="/social/room/:roomId"
-            element={<LiveRoomPage createChannel={() => channel} createCamera={() => camera} />}
+            element={
+              <LiveRoomPage
+                createChannel={() => channel}
+                createCamera={createCamera ?? (() => camera)}
+                createPeerConnection={(config) => {
+                  pcConfigs.push(config);
+                  const pc = createFakePc();
+                  pcs.push(pc);
+                  return pc as unknown as RTCPeerConnection;
+                }}
+              />
+            }
           />
           <Route path="/social" element={<div data-testid="social-home-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { channel };
+  return { channel, pcs, pcConfigs };
 }
 
 /** 입장 확인 모달의 [카메라 켜기]를 눌러 룸으로 들어간다. */
@@ -105,32 +164,6 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
   });
 
-  it("DEV mockRoom 시연은 state 없이 URL만으로 join 없이 진입한다", async () => {
-    render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <MemoryRouter initialEntries={["/social/room/42?userId=7&mockRoom=2"]}>
-          <Routes>
-            <Route
-              path="/social/room/:roomId"
-              element={
-                <LiveRoomPage
-                  createChannel={() => createMockRoomChannel({ snapshot: [] })}
-                  createCamera={() => createMockCameraAdapter()}
-                />
-              }
-            />
-            <Route path="/social" element={<div data-testid="social-home-stub" />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-
-    expect(await screen.findByRole("button", { name: "나가기" })).toBeInTheDocument();
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
-  });
-
   it("진입하면 카메라 켜기 확인 모달이 먼저 뜬다", () => {
     renderRoom();
 
@@ -151,10 +184,95 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
+  it("미리보기와 세션이 같은 카메라 어댑터를 재사용한다 — 팩토리 1회, 핸드오프 정지 없음", async () => {
+    let factoryCalls = 0;
+    let stopCalls = 0;
+    const base = createMockCameraAdapter();
+    const camera: CameraAdapter = {
+      get facing() {
+        return base.facing;
+      },
+      get isRunning() {
+        return base.isRunning;
+      },
+      start: () => base.start(),
+      stop: () => {
+        stopCalls += 1;
+        base.stop();
+      },
+      flip: () => base.flip(),
+    };
+    renderRoom({
+      createCamera: () => {
+        factoryCalls += 1;
+        return camera;
+      },
+    });
+    await enterRoom();
+
+    expect(factoryCalls).toBe(1);
+    expect(stopCalls).toBe(0);
+    expect(base.isRunning).toBe(true);
+  });
+
   it("입장 모달에 카메라 미리보기 비디오가 있고 amp-block으로 세션 리플레이에서 가려진다", () => {
     renderRoom();
 
     expect(screen.getByTestId("entry-preview-video")).toHaveClass("amp-block");
+  });
+
+  it("미리보기 카메라 첫 획득이 실패하면 잠시 후 한 번 재시도한다 — 웹뷰의 해제 지연 대응", async () => {
+    let startCalls = 0;
+    let running = false;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? ({} as MediaStream) : null;
+      },
+      async start() {
+        startCalls += 1;
+        running = startCalls >= 2;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        return { ok: false, reason: "no-alternative" };
+      },
+    };
+    renderRoom({ camera });
+
+    await waitFor(() => expect(startCalls).toBe(2), { timeout: 3000 });
+    expect(running).toBe(true);
+  });
+
+  it("재시도까지 실패하면 미리보기 모달에 안내 문구를 보여준다", async () => {
+    const camera: CameraAdapter = {
+      facing: "front",
+      isRunning: false,
+      stream: null,
+      async start() {},
+      stop() {},
+      async flip() {
+        return { ok: false, reason: "no-alternative" };
+      },
+    };
+    renderRoom({ camera });
+
+    expect(
+      await screen.findByText("카메라를 켜지 못했어요. 끄고도 입장은 가능해요.", undefined, {
+        timeout: 3000,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("입장 미리보기는 전면 카메라를 거울로 보여준다", () => {
+    renderRoom();
+
+    expect(screen.getByTestId("entry-preview-video")).toHaveClass("scale-x-[-1]");
   });
 
   it("입장 모달은 Esc로 입장이 확정되지 않는다 — 끄고 입장으로 오인되면 안 된다", async () => {
@@ -195,7 +313,44 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
 
-  it("끄고 입장하면 카메라 끔(측정 일시정지) 상태로 들어가고 CAMERA_CHANGED(false)를 발행한다", async () => {
+  it("켜고 입장했지만 카메라 획득에 실패하면 꺼짐만 발행된다 — 거짓 켜짐 금지", async () => {
+    const { channel } = renderRoom({ camera: createMockCameraAdapter({ failToStart: true }) });
+
+    await enterRoom();
+
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: false });
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
+  });
+
+  it("카메라 획득 실패 상태에서 껐다 켜도 켜짐을 발행하지 않는다", async () => {
+    const { channel } = renderRoom({ camera: createMockCameraAdapter({ failToStart: true }) });
+    await enterRoom();
+    channel.published.length = 0;
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
+  });
+
+  it("켜고 입장하면 카메라 켬만 정확히 1회 발행한다 — 서버 기본값이 꺼짐이라서", async () => {
+    const { channel } = renderRoom();
+
+    await enterRoom();
+
+    await waitFor(() => {
+      expect(channel.published).toEqual([{ cameraOn: true }]);
+    });
+  });
+
+  it("끄고 입장하면 꺼짐만 정확히 1회 발행한다 — 켜짐이 먼저 새 나가면 안 된다", async () => {
     mockedJoinRoom.mockResolvedValue(joinResponse);
     const { channel } = renderRoom();
 
@@ -203,7 +358,7 @@ describe("LiveRoomPage — 입장", () => {
 
     expect(await screen.findByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(channel.published).toContainEqual({ type: "CAMERA_CHANGED", cameraOn: false });
+      expect(channel.published).toEqual([{ cameraOn: false }]);
     });
   });
 });
@@ -216,6 +371,102 @@ describe("LiveRoomPage — 그리드·타일", () => {
 
     expect(screen.queryAllByTestId("room-tile")).toHaveLength(0);
     expect(screen.getByTestId("room-my-video")).toHaveClass("amp-block");
+  });
+
+  it("내 비디오는 전면 카메라일 때 거울로 보인다 — 카메라 전환 시 해제", async () => {
+    let facing: "front" | "back" = "front";
+    const stream = {
+      getVideoTracks: () => [{ enabled: true, getSettings: () => ({ height: 720 }) }],
+    } as unknown as MediaStream;
+    let running = false;
+    const camera: CameraAdapter = {
+      get facing() {
+        return facing;
+      },
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        facing = facing === "front" ? "back" : "front";
+        return { ok: true, facing };
+      },
+    };
+    renderRoom({ camera });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-my-video")).toHaveClass("scale-x-[-1]");
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("room-my-video")).not.toHaveClass("scale-x-[-1]");
+    });
+  });
+
+  it("카메라를 껐다 다시 켤 때 모달 미리보기는 복제 트랙을 켜서 보여준다 — 원본은 꺼진 채 유지", async () => {
+    class FakeMediaStream {
+      tracks: unknown[];
+      constructor(tracks: unknown[]) {
+        this.tracks = tracks;
+      }
+      getVideoTracks() {
+        return this.tracks;
+      }
+    }
+    vi.stubGlobal("MediaStream", FakeMediaStream);
+    const clone = { enabled: false, stop: vi.fn() };
+    const track = {
+      enabled: true,
+      getSettings: () => ({ height: 720 }),
+      clone: () => clone,
+    };
+    const stream = { getVideoTracks: () => [track] } as unknown as MediaStream;
+    let running = false;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        return { ok: false, reason: "no-alternative" };
+      },
+    };
+    renderRoom({ camera });
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    await waitFor(() => expect(track.enabled).toBe(false));
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+    const preview = screen.getByTestId("camera-dialog-preview") as HTMLVideoElement;
+    await waitFor(() => {
+      const src = preview.srcObject as unknown as FakeMediaStream | null;
+      expect(src?.getVideoTracks()[0]).toBe(clone);
+    });
+    expect(clone.enabled).toBe(true);
+    expect(track.enabled).toBe(false);
+
+    await userEvent.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(clone.stop).toHaveBeenCalled();
   });
 
   it("SNAPSHOT 멤버가 타일로 렌더되고 내 타일이 첫 번째다", async () => {
@@ -270,6 +521,108 @@ describe("LiveRoomPage — 그리드·타일", () => {
   });
 });
 
+describe("LiveRoomPage — P2P 연동", () => {
+  it("SNAPSHOT 멤버에게 OFFER 시그널이 발행된다", async () => {
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+
+    await enterRoom();
+
+    await waitFor(() => {
+      expect(channel.publishedSignals.map((s) => s.toUserId)).toEqual([8]);
+    });
+    expect(channel.publishedSignals[0]?.kind).toBe("OFFER");
+  });
+
+  it("수신 스트림이 도착한 상대 타일에 amp-block 비디오가 그려진다", async () => {
+    const { pcs } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    await waitFor(() => expect(pcs).toHaveLength(1));
+
+    const remote = { getVideoTracks: () => [] };
+    act(() => {
+      pcs[0]?.ontrack?.({ streams: [remote] });
+    });
+
+    const video = await screen.findByTestId("remote-video-8");
+    expect(video).toHaveClass("amp-block");
+  });
+
+  it("입장 확정 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
+    const { pcConfigs } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    mockedJoinRoom.mockResolvedValue({
+      ...joinResponse,
+      iceServers: [{ urls: ["stun:from-rejoin"] }],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    await screen.findByRole("button", { name: "나가기" });
+
+    await waitFor(() => expect(pcConfigs).toHaveLength(1));
+    expect(pcConfigs[0]?.iceServers).toEqual([{ urls: ["stun:from-rejoin"] }]);
+  });
+
+  it("유예 재입장은 router state의 iceServers를 그대로 쓴다", async () => {
+    const { pcConfigs } = renderRoom({
+      state: {
+        inviteCode: "0712",
+        graceRejoin: true,
+        cameraOn: true,
+        iceServers: [{ urls: ["stun:from-state"] }],
+      },
+      scenario: { snapshot: [member(8)] },
+    });
+
+    await screen.findByRole("button", { name: "나가기" });
+
+    await waitFor(() => expect(pcConfigs).toHaveLength(1));
+    expect(pcConfigs[0]?.iceServers).toEqual([{ urls: ["stun:from-state"] }]);
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
+  });
+
+  it("수신 스트림이 아직 없는 상대 타일은 아바타로 남는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+
+    await enterRoom();
+
+    expect(screen.queryByTestId("remote-video-8")).not.toBeInTheDocument();
+    expect(screen.getByText("멤")).toBeInTheDocument();
+  });
+
+  it("카메라를 끄면 송신 트랙 enabled만 꺼지고 P2P 연결은 유지된다", async () => {
+    const track = { enabled: true, getSettings: () => ({ height: 720 }) };
+    const stream = { getVideoTracks: () => [track] } as unknown as MediaStream;
+    let running = false;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        return { ok: false, reason: "no-alternative" };
+      },
+    };
+    const { pcs } = renderRoom({ scenario: { snapshot: [member(8)] }, camera });
+    await enterRoom();
+    await waitFor(() => expect(pcs[0]?.senders.length ?? 0).toBeGreaterThan(0));
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
+
+    await waitFor(() => {
+      expect(track.enabled).toBe(false);
+    });
+    expect(pcs[0]?.closed).toBe(false);
+  });
+});
+
 describe("LiveRoomPage — 카메라 토글·나가기", () => {
   it("카메라 끄기는 측정 일시정지가 되고, 다시 켜기는 확인 모달을 거쳐 재개된다", async () => {
     const { channel } = renderRoom();
@@ -277,15 +630,44 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     channel.published.length = 0;
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
-    expect(channel.published).toContainEqual({ type: "CAMERA_CHANGED", cameraOn: false });
+    expect(channel.published).toContainEqual({ cameraOn: false });
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     const dialog = screen.getByRole("alertdialog");
 
     await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
     await waitFor(() => {
-      expect(channel.published).toContainEqual({ type: "CAMERA_CHANGED", cameraOn: true });
+      expect(channel.published).toContainEqual({ cameraOn: true });
     });
+  });
+
+  it("세션 동안 뒤로가기를 잠근다 — iOS 스와이프·Android 하드웨어 모두, 나가면 해제", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const bridgeSent = () =>
+      postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string) as Record<string, unknown>);
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    mockedLeaveRoom.mockResolvedValue(undefined);
+    renderRoom();
+
+    await enterRoom();
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-gesture", enabled: false }),
+    );
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-lock", locked: true }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await screen.findByTestId("social-home-stub");
+
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-gesture", enabled: true }),
+    );
+    expect(bridgeSent()).toContainEqual(
+      expect.objectContaining({ type: "set-back-lock", locked: false }),
+    );
   });
 
   it("나가기는 종료 확인 후 제출하고 leave를 부른 뒤 소셜 홈으로 복귀한다", async () => {

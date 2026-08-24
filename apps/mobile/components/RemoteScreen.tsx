@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import type { ToNativeMessage } from "@focusmakers/types";
@@ -53,6 +53,13 @@ export type RemoteScreenProps = {
    * `handleBridgeMessage`로 위임해야 한다.
    */
   onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
+  /**
+   * 이 웹뷰가 보낸 set-tab-bar를 무시한다 — 비활성 탭 웹뷰가 로드 완료 시점에 자기
+   * 경로 기준(visible: true)을 보고해 활성 탭의 숨김을 덮어쓰는 경쟁을 막는다.
+   * 탭 화면이 포커스 여부를 내려 준다. 라우터 훅을 여기서 직접 쓰지 않는 이유는
+   * 이 컴포넌트를 expo-router 비의존으로 유지하기 위해서다.
+   */
+  suppressTabBarMessages?: boolean;
   testID?: string;
 };
 
@@ -63,6 +70,7 @@ export function RemoteScreen({
   blockHardwareBack = false,
   splash,
   onBridgeMessage = handleBridgeMessage,
+  suppressTabBarMessages = false,
   testID,
 }: RemoteScreenProps) {
   const sharedQuery = useRemoteQueryParams();
@@ -81,7 +89,47 @@ export function RemoteScreen({
   const onLoadEnd = useCallback((ok: boolean) => {
     setLoaded(true);
     setLoadFailed(!ok);
+    // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
+    // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
+    // 뒤로가기가 영영 막힌다.
+    setBackLocked(false);
   }, []);
+
+  // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
+  // 세션은 화면 단위 prop(blockHardwareBack)을 걸 자리가 없어 브리지 신호로 잠근다.
+  const [backLocked, setBackLocked] = useState(false);
+  // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
+  // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
+  const lastTabBarVisibleRef = useRef<boolean | null>(null);
+
+  const filteredBridgeMessage = useCallback(
+    (message: ToNativeMessage, reply: BridgeReply) => {
+      if (message.type === "set-back-lock") {
+        // 셸이 소비한다 — 공용 핸들러가 알 필요 없는 웹뷰 자체 상태다.
+        setBackLocked(message.locked);
+        return;
+      }
+      if (message.type === "set-tab-bar") {
+        lastTabBarVisibleRef.current = message.visible;
+        if (suppressTabBarMessages) {
+          return;
+        }
+      }
+      onBridgeMessage(message, reply);
+    },
+    [suppressTabBarMessages, onBridgeMessage],
+  );
+
+  useEffect(() => {
+    if (suppressTabBarMessages) {
+      return;
+    }
+    const visible = lastTabBarVisibleRef.current;
+    if (visible === null) {
+      return;
+    }
+    onBridgeMessage({ type: "set-tab-bar", visible, atMs: Date.now() }, () => undefined);
+  }, [suppressTabBarMessages, onBridgeMessage]);
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이
   // 붙어 다시 로드되는 깜빡임·이중 로드(그리고 그 첫 로드의 "브라우저 단독 모드")를 막는다.
@@ -94,7 +142,11 @@ export function RemoteScreen({
   // 포커스가 아니라 **마운트** 기준으로 건다(`useFocusEffect`가 아닌 `useEffect`) — 이 화면은
   // 탭 위에 `fullScreenModal`로 뜨고 그 위로 다른 화면을 push하지 않으므로 "마운트된 동안"과
   // "포커스된 동안"이 같다. 훅을 낮추면 `RemoteScreen`이 expo-router에 의존하지 않는다.
-  const shouldBlockBack = blockHardwareBack && !showSplash && !loadFailed;
+  // 웹 주도 잠금(backLocked)은 탭 웹뷰에서 오므로 포커스 조건이 필요하다 —
+  // suppressTabBarMessages(=비포커스)가 그 신호다. 비포커스 탭의 잠금이 전역 뒤로가기를
+  // 삼키면 안 된다.
+  const shouldBlockBack =
+    (blockHardwareBack || (backLocked && !suppressTabBarMessages)) && !showSplash && !loadFailed;
   useEffect(() => {
     if (!shouldBlockBack) {
       return;
@@ -111,7 +163,7 @@ export function RemoteScreen({
           path={path}
           query={query}
           backgroundColor={backgroundColor}
-          onBridgeMessage={onBridgeMessage}
+          onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
         />
       )}

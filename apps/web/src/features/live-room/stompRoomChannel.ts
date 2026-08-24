@@ -1,6 +1,6 @@
 import { Client } from "@stomp/stompjs";
 
-import type { RoomServerMessage, RoomStatePublish } from "@focusmakers/types";
+import type { RoomServerMessage, RoomSignalPublish, RoomStateUpdate } from "@focusmakers/types";
 
 import { API_BASE_URL } from "@/lib/api";
 
@@ -49,11 +49,16 @@ function isRoomMember(value: unknown): boolean {
   const member = value as Record<string, unknown>;
   return (
     typeof member.userId === "number" &&
-    typeof member.nickname === "string" &&
     typeof member.cameraOn === "boolean" &&
-    typeof member.focusState === "string" &&
-    typeof member.studySeconds === "number"
+    isFocusState(member.focusState) &&
+    (member.nickname === undefined || typeof member.nickname === "string") &&
+    (member.goal === undefined || member.goal === null || typeof member.goal === "string") &&
+    (member.studySeconds === undefined || typeof member.studySeconds === "number")
   );
+}
+
+function isFocusState(value: unknown): boolean {
+  return value === "FOCUS" || value === "DISTRACTED";
 }
 
 function isRoomServerMessage(value: unknown): value is RoomServerMessage {
@@ -71,9 +76,15 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
     case "CAMERA_CHANGED":
       return typeof message.userId === "number" && typeof message.cameraOn === "boolean";
     case "FOCUS_CHANGED":
-      return typeof message.userId === "number" && typeof message.focusState === "string";
+      return typeof message.userId === "number" && isFocusState(message.focusState);
     case "STUDY_TIME":
       return typeof message.userId === "number" && typeof message.studySeconds === "number";
+    case "SIGNAL":
+      return (
+        typeof message.fromUserId === "number" &&
+        (message.kind === "OFFER" || message.kind === "ANSWER" || message.kind === "CANDIDATE") &&
+        message.payload !== undefined
+      );
     default:
       return false;
   }
@@ -110,21 +121,32 @@ export function createStompRoomChannel({
   }
 
   // 연결 전 발행 버퍼. stompjs는 미연결 publish에서 예외를 던지므로, 연결이 열릴 때까지
-  // 쌓아뒀다가 순서대로 내보낸다. 끄고 입장의 첫 CAMERA_CHANGED가 유실되지 않는 근거다.
-  const pendingPublishes: RoomStatePublish[] = [];
+  // 쌓아뒀다가 순서대로 내보낸다. 상태·시그널이 프레임 단위로 같은 버퍼를 쓴다.
+  const pendingFrames: { destination: string; body: string }[] = [];
 
-  function publishNow(message: RoomStatePublish) {
-    client.publish({ destination: `/app/room/${roomId}/state`, body: JSON.stringify(message) });
+  function send(frame: { destination: string; body: string }) {
+    if (status !== "open") {
+      pendingFrames.push(frame);
+      return;
+    }
+    try {
+      client.publish(frame);
+    } catch {
+      // 소켓이 끊겼지만 onWebSocketClose를 받기 전인 구간 — 다음 연결에서 flush된다.
+      pendingFrames.push(frame);
+    }
   }
 
   client.onConnect = () => {
     status = "open";
-    client.subscribe(`/topic/room/${roomId}`, handleFrame);
+    // 개인 큐 먼저 구독 — 방 토픽 구독이 입장 확정 트리거라 서버가 SNAPSHOT을
+    // 즉시 개인 큐로 보내는데, 큐 구독이 늦으면 유실된다.
     client.subscribe(`/user/queue/room`, handleFrame);
-    while (pendingPublishes.length > 0) {
-      const message = pendingPublishes.shift();
-      if (message !== undefined) {
-        publishNow(message);
+    client.subscribe(`/topic/room/${roomId}`, handleFrame);
+    while (pendingFrames.length > 0) {
+      const frame = pendingFrames.shift();
+      if (frame !== undefined) {
+        client.publish(frame);
       }
     }
   };
@@ -147,17 +169,11 @@ export function createStompRoomChannel({
         listeners.delete(listener);
       };
     },
-    publishState(message: RoomStatePublish) {
-      if (status !== "open") {
-        pendingPublishes.push(message);
-        return;
-      }
-      try {
-        publishNow(message);
-      } catch {
-        // 소켓이 끊겼지만 onWebSocketClose를 받기 전인 구간 — 다음 연결에서 flush된다.
-        pendingPublishes.push(message);
-      }
+    publishState(message: RoomStateUpdate) {
+      send({ destination: `/app/room/${roomId}/state`, body: JSON.stringify(message) });
+    },
+    publishSignal(message: RoomSignalPublish) {
+      send({ destination: `/app/room/${roomId}/signal`, body: JSON.stringify(message) });
     },
   };
 }

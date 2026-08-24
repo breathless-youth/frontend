@@ -24,8 +24,9 @@ export interface CameraAdapter {
    * 없이 타입으로 표현된다. 옵셔널로 두는 이유는 훅의 주입 지점이 이 **기본** 인터페이스로
    * 남아야 하기 때문이다 — 실제 어댑터 타입으로 좁히면 mock 주입이 전부 깨진다.
    *
-   * **원본 프레임은 어댑터 밖으로 나가지 않는다.** `srcObject`에 붙이는 용도 외에
-   * 저장·전송·로그 어디에도 쓰지 말 것(`frontend/CLAUDE.md`).
+   * **AI 분석용 원본 프레임·얼굴 데이터는 서버로 전송하지 않는다.** 저장·로그도 금지.
+   * 예외는 멀티룸의 화면 공유뿐이다 — 이 스트림의 트랙이 P2P로 참여자에게만 전송된다
+   * (서버 경유·녹화 없음, `frontend/CLAUDE.md` 개인정보 원칙).
    */
   readonly stream?: MediaStream | null;
   start(): Promise<void>;

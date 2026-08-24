@@ -5,10 +5,10 @@ import type { RoomMember } from "@focusmakers/types";
 import { formatStudyHhMm } from "../roomGrid";
 
 /**
+ * UI
  * 룸 멤버 타일
  *
- * 타일 서피스는 라이트 모드에서도 다크 고정(명세 S8-1 방식 — 카메라 피드가 어두워서).
- * 탭 동작 없음(케밥·드로어 제거 확정). P2P 실패 표시는 카메라 끔과 동일(3단계에서 사용).
+ * - 타일 서피스는 라이트 모드에서도 다크 고정
  */
 type RoomTileProps = {
   member: RoomMember;
@@ -24,14 +24,14 @@ export function RoomTile({ member, media, className }: RoomTileProps) {
       data-testid="room-tile"
       data-user-id={member.userId}
       data-state={member.cameraOn ? member.focusState : "OFF"}
-      className={`relative overflow-hidden rounded-3xl bg-[#191f28] ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-3xl bg-[var(--session-dialog-bg)] ${className ?? ""}`}
     >
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex size-14 items-center justify-center rounded-full bg-white/10">
-            <span className="text-xl font-bold text-white">{member.nickname.charAt(0)}</span>
+            <span className="text-xl font-bold text-white">{member.nickname?.charAt(0) ?? ""}</span>
           </div>
         </div>
       )}
@@ -40,7 +40,7 @@ export function RoomTile({ member, media, className }: RoomTileProps) {
           member.cameraOn ? "text-white" : "text-text-tertiary"
         }`}
       >
-        {formatStudyHhMm(member.studySeconds)}
+        {member.studySeconds === undefined ? "--:--" : formatStudyHhMm(member.studySeconds)}
       </p>
       <div className="absolute bottom-3 left-3">
         <p className="text-[15px] font-bold text-white">
@@ -54,7 +54,7 @@ export function RoomTile({ member, media, className }: RoomTileProps) {
               : " 카메라 꺼짐"}
           </span>
         </p>
-        {member.goal !== null && (
+        {member.goal != null && (
           <p className="mt-1 text-xs leading-[15px] text-white/72">{member.goal}</p>
         )}
       </div>

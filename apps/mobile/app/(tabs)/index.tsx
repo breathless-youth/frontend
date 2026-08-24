@@ -1,3 +1,5 @@
+import { useIsFocused } from "@react-navigation/native";
+
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { HomeTabSkeleton } from "../../components/RemoteSplashSkeletons";
 import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
@@ -13,9 +15,15 @@ import { UpdateNoticeSheetHost } from "../../components/UpdateNoticeSheetHost";
  * U1 업데이트 안내 시트는 네이티브 오버레이라 웹 콘텐츠와 무관하게 그대로 홈에 얹는다.
  */
 export default function HomeScreen() {
+  const isFocused = useIsFocused();
   return (
     <>
-      <RemoteScreen testID="home-webview" path="/home" splash={<HomeTabSkeleton />} />
+      <RemoteScreen
+        suppressTabBarMessages={!isFocused}
+        testID="home-webview"
+        path="/home"
+        splash={<HomeTabSkeleton />}
+      />
       <UpdateNoticeSheetHost />
     </>
   );

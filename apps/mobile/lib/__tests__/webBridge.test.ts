@@ -82,6 +82,18 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"set-back-gesture","enabled":"off","atMs":9}')).toBeNull();
   });
 
+  it("set-back-lock을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"set-back-lock","locked":true,"atMs":9}')).toEqual({
+      type: "set-back-lock",
+      locked: true,
+      atMs: 9,
+    });
+  });
+
+  it("set-back-lock의 locked가 boolean이 아니면 null이다 — 뒤로가기가 영영 잠기면 안 된다", () => {
+    expect(parseToNativeMessage('{"type":"set-back-lock","locked":"yes","atMs":9}')).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });

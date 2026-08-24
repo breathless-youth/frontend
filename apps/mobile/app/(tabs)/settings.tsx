@@ -1,3 +1,5 @@
+import { useIsFocused } from "@react-navigation/native";
+
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { SettingsTabSkeleton } from "../../components/RemoteSplashSkeletons";
 
@@ -9,7 +11,13 @@ import { SettingsTabSkeleton } from "../../components/RemoteSplashSkeletons";
  * 공용 핸들러(`lib/nativeBridgeHandler.ts`)로 OS 설정 앱을 연다 — 세션 화면과 동일 규칙.
  */
 export default function SettingsScreen() {
+  const isFocused = useIsFocused();
   return (
-    <RemoteScreen testID="settings-webview" path="/settings" splash={<SettingsTabSkeleton />} />
+    <RemoteScreen
+      suppressTabBarMessages={!isFocused}
+      testID="settings-webview"
+      path="/settings"
+      splash={<SettingsTabSkeleton />}
+    />
   );
 }

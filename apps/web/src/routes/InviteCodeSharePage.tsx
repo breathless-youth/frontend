@@ -41,7 +41,14 @@ export function InviteCodeSharePage() {
     onSuccess: (data, inviteCode) => {
       navigate(
         { pathname: `/social/room/${data.roomId}`, search: location.search },
-        { state: { inviteCode, graceRejoin: data.graceRejoin, cameraOn: data.cameraOn } },
+        {
+          state: {
+            inviteCode,
+            graceRejoin: data.graceRejoin,
+            cameraOn: data.cameraOn,
+            iceServers: data.iceServers,
+          },
+        },
       );
     },
     onError: (error) => {

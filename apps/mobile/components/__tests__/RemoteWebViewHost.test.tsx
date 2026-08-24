@@ -204,6 +204,23 @@ describe("RemoteWebViewHost", () => {
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
   });
 
+  it("문서가 다시 로드되면 꺼 둔 제스처가 기본값(켜짐)으로 돌아간다 — 렌더러 재생성 대비", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":5}' } });
+    });
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+
+    // 렌더러 크래시 등으로 새 문서가 로드되면 — 새 문서는 끈 적이 없다
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
   it.each(["onError", "onHttpError"] as const)(
     "%s가 나면 실패 폴백과 재시도 수단을 보여준다",
     (event) => {

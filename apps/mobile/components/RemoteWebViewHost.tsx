@@ -196,7 +196,12 @@ export function RemoteWebViewHost({
   );
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
-  const handleLoadEnd = useCallback(() => onLoadEnd?.(true), [onLoadEnd]);
+  const handleLoadEnd = useCallback(() => {
+    // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
+    // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
+    setBackGestureEnabled(true);
+    onLoadEnd?.(true);
+  }, [onLoadEnd]);
 
   const showFailureFallback = target === null || loadFailed;
 

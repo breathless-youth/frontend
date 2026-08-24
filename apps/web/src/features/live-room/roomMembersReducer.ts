@@ -3,8 +3,7 @@ import type { RoomMember, RoomServerMessage } from "@focusmakers/types";
 /**
  * 서버 메시지 → 멤버 목록 반영
  *
- * 상태 메시지(CAMERA·FOCUS·STUDY_TIME)에서 모르는 userId는 무시한다 — 브로드캐스트가
- * `MEMBER_JOINED`보다 먼저 도착하는 순서 역전 방어. 이후 SNAPSHOT/JOINED가 최신 값을 싣고 온다.
+ * - 상태 메시지에서 모르는 userId는 무시한다.
  */
 export function roomMembersReducer(
   members: RoomMember[],
@@ -35,6 +34,9 @@ export function roomMembersReducer(
       return members.map((m) =>
         m.userId === message.userId ? { ...m, studySeconds: message.studySeconds } : m,
       );
+    default:
+      // SIGNAL 등 멤버 목록과 무관한 메시지 — peerMesh가 처리한다.
+      return members;
   }
 }
 
