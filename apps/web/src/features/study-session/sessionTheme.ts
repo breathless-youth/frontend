@@ -67,7 +67,10 @@ const SESSION_SURFACE_VARS = {
   "--session-resume-bg": colors.brand.primary.dark,
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
   "--session-exit-bg": colors.feedback.error.dark,
-  /** 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다. */
+  /**
+   * 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다.
+   * 값을 바꾸면 `components/ui/toast.tsx`의 CSS 변수 폴백도 같은 값으로 맞출 것(toast.test.tsx가 고정).
+   */
   "--session-toast-bg": "rgba(22, 27, 34, 0.92)",
 
   // ── S3-7 종료 확인 다이얼로그 (항상-다크 오버레이) ───────────────────────────
