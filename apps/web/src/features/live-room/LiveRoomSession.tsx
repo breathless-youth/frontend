@@ -208,7 +208,10 @@ export function LiveRoomSession({
       autoPlay
       playsInline
       muted
-      className={cn("amp-block size-full object-cover", cameraFacing === "front" && "scale-x-[-1]")}
+      className={cn(
+        "amp-block sentry-block size-full object-cover",
+        cameraFacing === "front" && "scale-x-[-1]",
+      )}
     />
   );
   const dialogOpen = cameraDialogOpen || exitDialogOpen;

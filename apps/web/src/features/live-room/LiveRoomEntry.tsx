@@ -140,7 +140,7 @@ export function LiveRoomEntry({
               playsInline
               muted
               className={cn(
-                "amp-block size-full object-cover",
+                "amp-block sentry-block size-full object-cover",
                 previewCamera.facing === "front" && "scale-x-[-1]",
               )}
             />

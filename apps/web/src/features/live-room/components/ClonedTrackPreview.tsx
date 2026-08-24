@@ -39,7 +39,10 @@ export function ClonedTrackPreview({
       autoPlay
       playsInline
       muted
-      className={cn("amp-block size-full object-cover", facing === "front" && "scale-x-[-1]")}
+      className={cn(
+        "amp-block sentry-block size-full object-cover",
+        facing === "front" && "scale-x-[-1]",
+      )}
     />
   );
 }

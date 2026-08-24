@@ -215,10 +215,10 @@ describe("LiveRoomPage — 입장", () => {
     expect(base.isRunning).toBe(true);
   });
 
-  it("입장 모달에 카메라 미리보기 비디오가 있고 amp-block으로 세션 리플레이에서 가려진다", () => {
+  it("입장 모달에 카메라 미리보기 비디오가 있고 amp-block과 sentry-block으로 세션 리플레이에서 가려진다", () => {
     renderRoom();
 
-    expect(screen.getByTestId("entry-preview-video")).toHaveClass("amp-block");
+    expect(screen.getByTestId("entry-preview-video")).toHaveClass("amp-block", "sentry-block");
   });
 
   it("미리보기 카메라 첫 획득이 실패하면 잠시 후 한 번 재시도한다 — 웹뷰의 해제 지연 대응", async () => {
@@ -364,13 +364,13 @@ describe("LiveRoomPage — 입장", () => {
 });
 
 describe("LiveRoomPage — 그리드·타일", () => {
-  it("혼자면 풀스크린이라 타일 크롬이 없고, 내 비디오는 amp-block으로 가려진다", async () => {
+  it("혼자면 풀스크린이라 타일 크롬이 없고, 내 비디오는 amp-block과 sentry-block으로 가려진다", async () => {
     renderRoom();
 
     await enterRoom();
 
     expect(screen.queryAllByTestId("room-tile")).toHaveLength(0);
-    expect(screen.getByTestId("room-my-video")).toHaveClass("amp-block");
+    expect(screen.getByTestId("room-my-video")).toHaveClass("amp-block", "sentry-block");
   });
 
   it("내 비디오는 전면 카메라일 때 거울로 보인다 — 카메라 전환 시 해제", async () => {
@@ -533,7 +533,7 @@ describe("LiveRoomPage — P2P 연동", () => {
     expect(channel.publishedSignals[0]?.kind).toBe("OFFER");
   });
 
-  it("수신 스트림이 도착한 상대 타일에 amp-block 비디오가 그려진다", async () => {
+  it("수신 스트림이 도착한 상대 타일에 amp-block과 sentry-block 비디오가 그려진다", async () => {
     const { pcs } = renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
     await waitFor(() => expect(pcs).toHaveLength(1));
@@ -544,7 +544,7 @@ describe("LiveRoomPage — P2P 연동", () => {
     });
 
     const video = await screen.findByTestId("remote-video-8");
-    expect(video).toHaveClass("amp-block");
+    expect(video).toHaveClass("amp-block", "sentry-block");
   });
 
   it("입장 확정 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
