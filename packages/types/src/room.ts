@@ -1,10 +1,12 @@
 /**
- * 실시간 룸 STOMP 메시지 계약. 출처는 .ai 레포 product/specs/BY-404-실시간-룸.md이고
- * BE가 같은 명세로 구현 중이다. 백엔드 문서 등재 전이라 등재 후 대조가 필요한 잠정 계약이다.
+ * 실시간 룸 STOMP 메시지 명세
  *
- * 구독은 /topic/room/{roomId} 방 전체 브로드캐스트와 /user/queue/room 본인 대상 SNAPSHOT,
- * 발행은 /app/room/{roomId}/state 카메라·집중상태·순공시간이다. WebRTC 시그널링 메시지는
- * P2P 영상 티켓에서 추가한다.
+ * 구독
+ * - /topic/room/{roomId} 방 전체 브로드캐스트
+ * - /user/queue/room 본인 대상 개별
+ * 발행
+ * - /app/room/{roomId}/state 상태
+ * - /app/room/{roomId}/signal 시그널
  */
 
 /** 일시정지는 별도 값이 없다 — 룸에서 일시정지 = 카메라 끔이라 CAMERA_CHANGED가 담당한다. */
@@ -12,14 +14,14 @@ export type RoomFocusState = "FOCUS" | "DISTRACTED";
 
 export interface RoomMember {
   userId: number;
-  nickname: string;
-  goal: string | null;
-  category: string | null;
   cameraOn: boolean;
   focusState: RoomFocusState;
-  /** 순공시간(초) — 1분 주기 브로드캐스트, 표시는 HH:MM으로 변환 */
-  studySeconds: number;
+  nickname?: string;
+  goal?: string | null;
+  studySeconds?: number;
 }
+
+export type RoomSignalKind = "OFFER" | "ANSWER" | "CANDIDATE";
 
 /** 서버 → 클라이언트 수신 메시지 */
 export type RoomServerMessage =
@@ -28,10 +30,21 @@ export type RoomServerMessage =
   | { type: "MEMBER_LEFT"; userId: number }
   | { type: "CAMERA_CHANGED"; userId: number; cameraOn: boolean }
   | { type: "FOCUS_CHANGED"; userId: number; focusState: RoomFocusState }
-  | { type: "STUDY_TIME"; userId: number; studySeconds: number };
+  | { type: "STUDY_TIME"; userId: number; studySeconds: number }
+  | { type: "SIGNAL"; fromUserId: number; kind: RoomSignalKind; payload: unknown };
 
-/** 클라이언트 → 서버 발행 메시지 */
-export type RoomStatePublish =
-  | { type: "CAMERA_CHANGED"; cameraOn: boolean }
-  | { type: "FOCUS_CHANGED"; focusState: RoomFocusState }
-  | { type: "STUDY_TIME"; studySeconds: number };
+/**
+ * 상태 발행 - 서버는 type 없는 단일 페이로드를 받아 채워진 필드만 변환해 브로드캐스트한다.
+ */
+export interface RoomStateUpdate {
+  cameraOn?: boolean;
+  focusState?: RoomFocusState;
+  studySeconds?: number;
+}
+
+/** 시그널 발행 — 서버가 fromUserId를 붙여 대상의 개인 큐로 그대로 릴레이한다. */
+export interface RoomSignalPublish {
+  toUserId: number;
+  kind: RoomSignalKind;
+  payload: unknown;
+}
