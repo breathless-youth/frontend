@@ -177,6 +177,68 @@ describe("createPeerMesh — 연결 수립", () => {
     expect(pcs).toHaveLength(2);
   });
 
+  it("SNAPSHOT 처리 결과를 디버그로 남긴다 — 수신 여부와 offer 발신 수를 기기에서 확인", async () => {
+    const lines: string[] = [];
+    const { channel } = setup({ onEvent: (line) => lines.push(line) });
+
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8), member(9)] });
+
+    await vi.waitFor(() => {
+      expect(lines).toContain("snap 3명 offer 2발");
+    });
+  });
+
+  it("MEMBER_JOINED 후 3초 내 연결이 없으면 기존 멤버 쪽에서 fallback offer를 보낸다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { channel } = setup();
+
+      channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(8) });
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["OFFER"]);
+      expect(channel.publishedSignals[0]?.toUserId).toBe(8);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("3초 안에 상대의 offer로 연결이 생기면 fallback offer를 보내지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { channel } = setup();
+      channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(8) });
+      channel.emitServerMessage({
+        type: "SIGNAL",
+        fromUserId: 8,
+        kind: "OFFER",
+        payload: { type: "offer", sdp: "from-8" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("close() 후에는 예약된 fallback offer가 발동하지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { channel, mesh } = setup();
+      channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(8) });
+      mesh.close();
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(channel.publishedSignals).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("MEMBER_JOINED에는 offer를 만들지 않는다 — 신규 입장자가 offer를 만든다", async () => {
     const { channel, pcs } = setup();
 

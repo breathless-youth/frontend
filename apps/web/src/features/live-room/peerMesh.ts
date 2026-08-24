@@ -50,6 +50,9 @@ export function createPeerMesh({
   // 상대별 시그널 처리 체인 — SDP 적용이 끝나기 전에 후속 CANDIDATE가 병렬로 들어와
   // 실패·폐기되지 않도록 같은 상대의 시그널은 도착 순서대로 하나씩 처리한다.
   const signalChains = new Map<number, Promise<void>>();
+  // 신규 입장자의 offer가 오지 않을 때의 자기 치유 예약 — 동시 입장 레이스로 상대가
+  // SNAPSHOT을 유실하면(실서버 로그로 확인된 실사례) 기존 멤버 쪽에서 역방향 offer를 낸다.
+  const fallbackOfferTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const listeners = new Set<(userId: number, stream: MediaStream | null) => void>();
   let localStream: MediaStream | null = null;
   let trackEnabled = true;
@@ -273,6 +276,23 @@ export function createPeerMesh({
     });
   }
 
+  // 신규 입장자가 3초 안에 offer를 못 보내면(스냅샷 유실 등) 이쪽에서 대신 제안한다.
+  // 정상 경로에서는 그 전에 상대 offer로 연결이 생겨 발동하지 않는다.
+  const FALLBACK_OFFER_DELAY_MS = 3000;
+  function scheduleFallbackOffer(userId: number) {
+    clearTimeout(fallbackOfferTimers.get(userId));
+    fallbackOfferTimers.set(
+      userId,
+      setTimeout(() => {
+        fallbackOfferTimers.delete(userId);
+        if (!peers.has(userId)) {
+          debug(`fallback-offer→${userId}`);
+          startOffer(userId);
+        }
+      }, FALLBACK_OFFER_DELAY_MS),
+    );
+  }
+
   // 시그널은 다른 기기가 만든 외부 입력이다 — 모양이 계약과 다르면 여기서 버린다.
   function isSdpPayload(payload: unknown): payload is RTCSessionDescriptionInit {
     return (
@@ -354,16 +374,28 @@ export function createPeerMesh({
     offeredByMe.delete(userId);
     lastStreams.delete(userId);
     signalChains.delete(userId);
+    clearTimeout(fallbackOfferTimers.get(userId));
+    fallbackOfferTimers.delete(userId);
     notify(userId, null);
   }
 
   const handleMessage = (message: Parameters<Parameters<RoomChannel["subscribe"]>[0]>[0]) => {
     if (message.type === "SNAPSHOT") {
+      let started = 0;
       for (const m of message.members) {
         if (m.userId === myUserId || peers.has(m.userId)) {
           continue;
         }
         startOffer(m.userId);
+        started += 1;
+      }
+      // 동시 입장 레이스 진단용 — 스냅샷을 받았는지, offer 루프가 돌았는지를 기기에서 본다.
+      debug(`snap ${message.members.length}명 offer ${started}발`);
+      return;
+    }
+    if (message.type === "MEMBER_JOINED") {
+      if (message.member.userId !== myUserId && !peers.has(message.member.userId)) {
+        scheduleFallbackOffer(message.member.userId);
       }
       return;
     }
@@ -435,6 +467,10 @@ export function createPeerMesh({
       offeredByMe.clear();
       lastStreams.clear();
       signalChains.clear();
+      for (const timer of fallbackOfferTimers.values()) {
+        clearTimeout(timer);
+      }
+      fallbackOfferTimers.clear();
     },
   };
 }
