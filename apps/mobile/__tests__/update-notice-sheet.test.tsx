@@ -23,6 +23,11 @@ import {
 
 const mockExtra: Record<string, unknown> = {};
 
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useIsFocused: () => true,
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: {

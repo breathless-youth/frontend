@@ -10,6 +10,11 @@ import RecordsScreen from "../app/(tabs)/records";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useIsFocused: () => true,
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },

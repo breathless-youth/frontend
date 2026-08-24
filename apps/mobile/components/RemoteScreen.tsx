@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import type { ToNativeMessage } from "@focusmakers/types";
@@ -53,6 +53,13 @@ export type RemoteScreenProps = {
    * `handleBridgeMessage`로 위임해야 한다.
    */
   onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
+  /**
+   * 이 웹뷰가 보낸 set-tab-bar를 무시한다 — 비활성 탭 웹뷰가 로드 완료 시점에 자기
+   * 경로 기준(visible: true)을 보고해 활성 탭의 숨김을 덮어쓰는 경쟁을 막는다.
+   * 탭 화면이 포커스 여부를 내려 준다. 라우터 훅을 여기서 직접 쓰지 않는 이유는
+   * 이 컴포넌트를 expo-router 비의존으로 유지하기 위해서다.
+   */
+  suppressTabBarMessages?: boolean;
   testID?: string;
 };
 
@@ -63,6 +70,7 @@ export function RemoteScreen({
   blockHardwareBack = false,
   splash,
   onBridgeMessage = handleBridgeMessage,
+  suppressTabBarMessages = false,
   testID,
 }: RemoteScreenProps) {
   const sharedQuery = useRemoteQueryParams();
@@ -82,6 +90,16 @@ export function RemoteScreen({
     setLoaded(true);
     setLoadFailed(!ok);
   }, []);
+
+  const filteredBridgeMessage = useCallback(
+    (message: ToNativeMessage, reply: BridgeReply) => {
+      if (suppressTabBarMessages && message.type === "set-tab-bar") {
+        return;
+      }
+      onBridgeMessage(message, reply);
+    },
+    [suppressTabBarMessages, onBridgeMessage],
+  );
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이
   // 붙어 다시 로드되는 깜빡임·이중 로드(그리고 그 첫 로드의 "브라우저 단독 모드")를 막는다.
@@ -111,7 +129,7 @@ export function RemoteScreen({
           path={path}
           query={query}
           backgroundColor={backgroundColor}
-          onBridgeMessage={onBridgeMessage}
+          onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
         />
       )}

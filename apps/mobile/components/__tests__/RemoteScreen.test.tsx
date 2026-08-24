@@ -151,6 +151,26 @@ describe("RemoteScreen", () => {
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
   });
 
+  it("suppressTabBarMessages면 set-tab-bar만 걸러지고 다른 메시지는 통과한다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    const onMessage = (await screen.findByTestId("home-webview")).props.onMessage as (
+      e: unknown,
+    ) => void;
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-tab-bar","visible":true,"atMs":5}' } });
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":6}' } });
+    });
+
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledTimes(1);
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      { type: "navigate-home", atMs: 6 },
+      expect.any(Function),
+    );
+  });
+
   it("웹이 보낸 브리지 메시지를 공용 핸들러로 넘긴다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
