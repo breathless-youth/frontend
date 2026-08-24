@@ -173,7 +173,9 @@ export function LiveRoomSession({
   const cameraOn = !paused && isCameraRunning;
 
   // 제출 경로는 보정하지 않는다 — 룸 채널은 표시용이고, 제출은 이번 마운트 측정값만 나간다.
-  const displayFocusSec = (baseStudySeconds ?? 0) + focusSec;
+  // 기준값이 오기 전에는 null — 발행자가 틱을 쉬어, 연결 지연 시 0 기준의 낡은 값이
+  // 채널 버퍼를 타고 서버 보존값을 덮어쓰는 것을 막는다.
+  const displayFocusSec = baseStudySeconds === null ? null : baseStudySeconds + focusSec;
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -191,7 +193,7 @@ export function LiveRoomSession({
     goal: profile?.goal ?? serverMe?.goal ?? null,
     cameraOn,
     focusState: sessionState.kind === "DISTRACTION" ? "DISTRACTED" : "FOCUS",
-    studySeconds: displayFocusSec,
+    studySeconds: displayFocusSec ?? focusSec,
   };
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
