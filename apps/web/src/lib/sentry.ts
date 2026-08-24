@@ -201,6 +201,10 @@ export function reportHandled(error: unknown, tag: string): void {
  * **직렬화된 녹화 JSON 전체**라, URL을 찾아내 통째로 재작성하는 방식은 오탐으로 녹화를
  * 망가뜨릴 수 있다. 여기서는 계약의 대상인 `userId=N`만 정확히 지우는 백스톱 역할이고,
  * 구조를 아는 브레드크럼·스팬 경로는 `scrubRecordingEvent`가 화이트리스트로 정제한다.
+ *
+ * ⚠️ **그래서 이 함수만 화이트리스트가 아니다. 새 식별자 쿼리 파라미터를 도입하면 여기에도
+ * 반드시 추가해야 한다.** 다른 모든 경로는 `sanitizeUrl`의 화이트리스트가 자동으로 막지만,
+ * 이 백스톱은 아는 파라미터만 지우므로 빠뜨리면 rrweb Meta `href` 경로로만 조용히 샌다.
  */
 export function stripUserIdParam(text: string): string {
   // "?userId=7&a=1"은 구분자를 남겨 "?a=1"로, "?userId=7"·"&userId=7"은 통째로 지운다.
