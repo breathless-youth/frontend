@@ -737,6 +737,19 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(onSrc).toContain("white");
   });
 
+  it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
+    renderRoom();
+
+    await enterRoom();
+
+    // 무조건 끄고 입장이므로 초기 상태에서 전환할 카메라가 없다.
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeDisabled();
+
+    await turnCameraOn();
+
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeEnabled();
+  });
+
   it("카메라 켜기 모달의 미리보기 슬롯은 234px 높이다", async () => {
     renderRoom();
     await enterRoom();

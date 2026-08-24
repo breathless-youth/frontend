@@ -54,7 +54,9 @@ export function RoomControlBar({
       <button
         type="button"
         aria-label="카메라 전환"
-        disabled={disabled}
+        // 카메라가 꺼져 있으면 전환할 대상이 없다 — 눌리는 척만 하는 버튼을 남기지 않는다
+        // (2026-08-25 BY-427 실기기 피드백).
+        disabled={disabled || !cameraOn}
         onClick={onFlipCamera}
         className="flex size-[50px] items-center justify-center rounded-full bg-white/12 active:opacity-80 disabled:opacity-40"
       >
