@@ -9,7 +9,6 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     userId,
     nickname: `멤버${userId}`,
     goal: null,
-    category: null,
     cameraOn: true,
     focusState: "FOCUS",
     studySeconds: 0,

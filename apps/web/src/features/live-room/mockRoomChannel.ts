@@ -1,4 +1,9 @@
-import type { RoomMember, RoomServerMessage, RoomStatePublish } from "@focusmakers/types";
+import type {
+  RoomMember,
+  RoomServerMessage,
+  RoomSignalPublish,
+  RoomStateUpdate,
+} from "@focusmakers/types";
 
 import type { RoomChannel, RoomChannelStatus } from "./roomChannel";
 
@@ -19,13 +24,17 @@ export type MockRoomScenario = {
 
 export interface MockRoomChannel extends RoomChannel {
   /** 발행 기록 — 테스트가 페이로드를 검증한다. */
-  readonly published: RoomStatePublish[];
+  readonly published: RoomStateUpdate[];
+  readonly publishedSignals: RoomSignalPublish[];
+  /** 시나리오 밖 서버 메시지를 즉시 주입한다 — 테스트 전용. */
+  emitServerMessage(message: RoomServerMessage): void;
 }
 
 export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChannel {
   let status: RoomChannelStatus = "idle";
   const listeners = new Set<(message: RoomServerMessage) => void>();
-  const published: RoomStatePublish[] = [];
+  const published: RoomStateUpdate[] = [];
+  const publishedSignals: RoomSignalPublish[] = [];
   const timers: ReturnType<typeof setTimeout>[] = [];
 
   function emit(message: RoomServerMessage) {
@@ -39,6 +48,7 @@ export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChann
       return status;
     },
     published,
+    publishedSignals,
     connect() {
       status = "open";
       emit({ type: "SNAPSHOT", members: scenario.snapshot });
@@ -65,6 +75,12 @@ export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChann
     },
     publishState(message) {
       published.push(message);
+    },
+    publishSignal(message) {
+      publishedSignals.push(message);
+    },
+    emitServerMessage(message) {
+      emit(message);
     },
   };
 }

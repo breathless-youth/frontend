@@ -9,7 +9,6 @@ function member(userId: number): RoomMember {
     userId,
     nickname: `멤버${userId}`,
     goal: null,
-    category: null,
     cameraOn: true,
     focusState: "FOCUS",
     studySeconds: 0,
@@ -51,9 +50,9 @@ describe("createMockRoomChannel", () => {
     const channel = createMockRoomChannel({ snapshot: [] });
     channel.connect();
 
-    channel.publishState({ type: "CAMERA_CHANGED", cameraOn: false });
+    channel.publishState({ cameraOn: false });
 
-    expect(channel.published).toEqual([{ type: "CAMERA_CHANGED", cameraOn: false }]);
+    expect(channel.published).toEqual([{ cameraOn: false }]);
   });
 
   it("disconnect 후에는 예약된 시나리오가 발행되지 않는다", () => {
@@ -86,4 +85,25 @@ describe("createMockRoomChannel", () => {
 
     expect(received.map((m) => m.type)).toEqual(["SNAPSHOT"]);
   });
+});
+
+it("publishSignal은 발행 기록 배열에 쌓인다", () => {
+  const channel = createMockRoomChannel({ snapshot: [] });
+  channel.connect();
+
+  channel.publishSignal({ toUserId: 9, kind: "CANDIDATE", payload: { candidate: "c" } });
+
+  expect(channel.publishedSignals).toEqual([
+    { toUserId: 9, kind: "CANDIDATE", payload: { candidate: "c" } },
+  ]);
+});
+
+it("emitServerMessage는 구독자에게 즉시 전달된다", () => {
+  const channel = createMockRoomChannel({ snapshot: [] });
+  const received: RoomServerMessage[] = [];
+  channel.subscribe((m) => received.push(m));
+
+  channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 5 });
+
+  expect(received).toEqual([{ type: "MEMBER_LEFT", userId: 5 }]);
 });

@@ -60,9 +60,11 @@ describe("createStompRoomChannel", () => {
     expect(client.config?.brokerURL).toMatch(/^wss?:/);
 
     client.fireConnect();
+    // 개인 큐를 먼저 구독한다 — 방 토픽 구독이 입장 확정 트리거라 서버가 SNAPSHOT을
+    // 즉시 개인 큐로 보내는데, 큐 구독이 늦으면 유실된다(로컬 BE 통합 검증에서 실측).
     expect(client.subscriptions.map((s) => s.destination)).toEqual([
-      "/topic/room/42",
       "/user/queue/room",
+      "/topic/room/42",
     ]);
     expect(channel.status).toBe("open");
   });
@@ -105,7 +107,7 @@ describe("createStompRoomChannel", () => {
     expect(received).toEqual([]);
   });
 
-  it("멤버 필드가 계약에 안 맞는 SNAPSHOT·MEMBER_JOINED는 통째로 버린다 — 타일 렌더 크래시 방지", () => {
+  it("멤버 필드가 스펙에 안 맞는 SNAPSHOT·MEMBER_JOINED는 통째로 버린다 — 타일 렌더 크래시 방지", () => {
     const { client, channel } = setup();
     const received: RoomServerMessage[] = [];
     channel.subscribe((message) => received.push(message));
@@ -121,15 +123,72 @@ describe("createStompRoomChannel", () => {
     expect(received).toEqual([]);
   });
 
+  it("BE 실 스펙의 3필드 멤버를 통과시킨다 — nickname 등은 없어도 된다", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({
+      body: '{"type":"SNAPSHOT","members":[{"userId":8,"cameraOn":true,"focusState":"FOCUS"}]}',
+    });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":9,"cameraOn":false,"focusState":"FOCUS","nickname":"포메1","goal":null,"studySeconds":30}}',
+    });
+
+    expect(received).toHaveLength(2);
+  });
+
+  it("focusState가 계약 밖 값이면 멤버 메시지와 FOCUS_CHANGED를 버린다", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"cameraOn":true,"focusState":"NAPPING"}}',
+    });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"FOCUS_CHANGED","userId":8,"focusState":"NAPPING"}',
+    });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"cameraOn":true,"focusState":"FOCUS","goal":123}}',
+    });
+
+    expect(received).toEqual([]);
+  });
+
+  it("SIGNAL은 fromUserId·kind·payload가 있어야 통과한다", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({
+      body: '{"type":"SIGNAL","fromUserId":8,"kind":"OFFER","payload":{"type":"offer","sdp":"v=0"}}',
+    });
+    client.subscriptions[0]?.callback({ body: '{"type":"SIGNAL","kind":"OFFER","payload":{}}' });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"SIGNAL","fromUserId":8,"kind":"NOPE","payload":{}}',
+    });
+
+    expect(received).toEqual([
+      { type: "SIGNAL", fromUserId: 8, kind: "OFFER", payload: { type: "offer", sdp: "v=0" } },
+    ]);
+  });
+
   it("publishState는 방 상태 목적지로 JSON을 발행한다", () => {
     const { client, channel } = setup();
     channel.connect();
     client.fireConnect();
 
-    channel.publishState({ type: "STUDY_TIME", studySeconds: 12360 });
+    channel.publishState({ studySeconds: 12360 });
 
     expect(client.publishes).toEqual([
-      { destination: "/app/room/42/state", body: '{"type":"STUDY_TIME","studySeconds":12360}' },
+      { destination: "/app/room/42/state", body: '{"studySeconds":12360}' },
     ]);
   });
 
@@ -137,15 +196,15 @@ describe("createStompRoomChannel", () => {
     const { client, channel } = setup();
     channel.connect();
 
-    channel.publishState({ type: "CAMERA_CHANGED", cameraOn: false });
-    channel.publishState({ type: "STUDY_TIME", studySeconds: 0 });
+    channel.publishState({ cameraOn: false });
+    channel.publishState({ studySeconds: 0 });
     expect(client.publishes).toEqual([]);
 
     client.fireConnect();
 
     expect(client.publishes.map((p) => p.body)).toEqual([
-      '{"type":"CAMERA_CHANGED","cameraOn":false}',
-      '{"type":"STUDY_TIME","studySeconds":0}',
+      '{"cameraOn":false}',
+      '{"studySeconds":0}',
     ]);
   });
 
@@ -155,13 +214,27 @@ describe("createStompRoomChannel", () => {
     client.fireConnect();
 
     client.connected = false; // 소켓이 끊겼지만 채널은 아직 모르는 구간
-    channel.publishState({ type: "STUDY_TIME", studySeconds: 60 });
+    channel.publishState({ studySeconds: 60 });
     expect(client.publishes).toEqual([]);
 
     client.fireConnect();
 
-    expect(client.publishes.map((p) => p.body)).toEqual([
-      '{"type":"STUDY_TIME","studySeconds":60}',
+    expect(client.publishes.map((p) => p.body)).toEqual(['{"studySeconds":60}']);
+  });
+
+  it("publishSignal은 시그널 목적지로 발행하고, 연결 전에는 버퍼에 쌓인다", () => {
+    const { client, channel } = setup();
+    channel.connect();
+    channel.publishSignal({ toUserId: 9, kind: "OFFER", payload: { type: "offer", sdp: "v=0" } });
+    expect(client.publishes).toEqual([]);
+
+    client.fireConnect();
+
+    expect(client.publishes).toEqual([
+      {
+        destination: "/app/room/42/signal",
+        body: '{"toUserId":9,"kind":"OFFER","payload":{"type":"offer","sdp":"v=0"}}',
+      },
     ]);
   });
 
