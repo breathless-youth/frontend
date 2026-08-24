@@ -1,27 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import type { IceServer } from "@focusmakers/types";
 
-import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
-import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { joinRoom } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
-import { cn } from "@/lib/utils";
 
 import { LiveRoomSession } from "./LiveRoomSession";
+import type { CreatePeerConnection } from "./peerMesh";
 import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveRoomEntryState";
 
 /**
- * 입장 확인 단계 — 세션이 아직 시작되지 않은 구간.
+ * 입장 준비 단계 — 세션이 아직 시작되지 않은 구간.
  *
- * 확인 모달에서 머문 시간이 순공시간으로 집계되면 안 되므로, 측정 훅(세션)은 입장이
- * 확정된 뒤에만 마운트된다. 프로필 조회도 같은 이유로 이 단계에서만 한다 — 세션 중
- * API 호출 금지 계약. 확정 시점에 join을 재호출해 자리 예약 30초 TTL을 새로 잡는다 —
- * 모달에서 얼마나 머물러도 TTL이 문제되지 않는다. 유예 재입장은 모달을 건너뛰고 이전
- * 카메라 상태로 들어간다.
+ * 2026-08-24 BY-427: 입장 확인 모달을 제거하고 **무조건 카메라 끔(=측정 일시정지)으로
+ * 즉시 입장**한다 — 카메라는 세션 안의 켜기 확인 모달로만 켠다. 준비 구간이 순공시간으로
+ * 집계되면 안 되므로 측정 훅(세션)은 준비가 끝난 뒤에만 마운트되고, 프로필 조회도 같은
+ * 이유로 이 단계에서만 한다 — 세션 중 API 호출 금지 계약. 마운트 시 join을 재호출해
+ * 자리 예약 30초 TTL을 새로 잡고 iceServers를 갱신한다(모달이 없어져 체류 시간은 짧지만,
+ * S9 응답 이후 흐른 시간과 무관하게 예약을 확실히 잡는 이유는 동일하다). 유예 재입장은
+ * 재호출 없이 서버가 준 이전 카메라 상태로 바로 들어간다.
+ *
+ * 카메라 어댑터는 여기서 만들어 세션에 그대로 넘긴다 — 미리보기가 없어져 start 지점은
+ * 세션(useStudyRoomSession) 하나뿐이다(재오픈이 없으니 iOS 해제 지연 재시도도 불필요).
  */
 export function LiveRoomEntry({
   roomId,
@@ -38,121 +43,86 @@ export function LiveRoomEntry({
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
 }) {
-  const [entry, setEntry] = useState<{ cameraOn: boolean } | null>(
-    entryState.graceRejoin === true ? { cameraOn: entryState.cameraOn !== false } : null,
-  );
-  const [entryError, setEntryError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const graceRejoin = entryState.graceRejoin === true;
+  // 일반 입장은 무조건 끔(일시정지 시작), 유예 재입장만 이전 카메라 상태 복원(기본 켬).
+  const initialCameraOn = graceRejoin ? entryState.cameraOn !== false : false;
+
+  const [entered, setEntered] = useState(graceRejoin);
+  const [joined, setJoined] = useState(graceRejoin);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinAttempt, setJoinAttempt] = useState(0);
   const [iceServers, setIceServers] = useState<IceServer[]>(entryState.iceServers ?? []);
+
+  const [camera] = useState(createCamera);
 
   const profile = useQuery({
     ...profileQuery(userId),
     staleTime: Infinity,
-    enabled: entry === null,
+    enabled: !entered,
   });
 
-  const previewVideoRef = useRef<HTMLVideoElement>(null);
-  // 어댑터 하나를 미리보기와 세션이 이어서 쓴다 — 미리보기를 닫고 세션이 다시 열면
-  // iOS 웹뷰에서 카메라 해제가 늦어 재오픈이 실패한다(실기기 실측). 입장 확정 시
-  // 정지 없이 세션으로 넘긴다.
-  const [previewCamera] = useState(createCamera);
-  const handedOverRef = useRef(false);
-  const [previewFailed, setPreviewFailed] = useState(false);
-  const modalOpen = entry === null;
+  // TTL 재예약 + iceServers 갱신. 실패하면 인라인 오류로 남고 [다시 시도]가 재실행한다.
   useEffect(() => {
-    if (!modalOpen) {
+    if (graceRejoin) {
       return;
     }
     let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    const attach = () => {
-      if (previewVideoRef.current) {
-        previewVideoRef.current.srcObject = previewCamera.stream ?? null;
-      }
-    };
-    void previewCamera.start().then(() => {
-      if (cancelled) {
-        return;
-      }
-      if (previewCamera.isRunning) {
-        attach();
-        return;
-      }
-      // 직전 세션이 방금 끝났으면 웹뷰가 카메라를 아직 안 놓아 첫 획득이 실패한다
-      // (실기기 실측) — 잠깐 뒤 한 번만 다시 연다.
-      retryTimer = setTimeout(() => {
-        void previewCamera.start().then(() => {
-          if (cancelled) {
-            return;
-          }
-          if (previewCamera.isRunning) {
-            attach();
-          } else {
-            setPreviewFailed(true);
-          }
-        });
-      }, 700);
-    });
+    void joinRoom(userId, entryState.inviteCode)
+      .then((response) => {
+        if (!cancelled) {
+          setIceServers(response.iceServers);
+          setJoined(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setJoinError(joinErrorMessage(error));
+        }
+      });
     return () => {
       cancelled = true;
-      if (retryTimer !== null) {
-        clearTimeout(retryTimer);
-      }
-      if (!handedOverRef.current) {
-        previewCamera.stop();
-      }
     };
-  }, [modalOpen, previewCamera]);
+  }, [entryState.inviteCode, graceRejoin, joinAttempt, userId]);
 
-  // 확정 처리 중의 경쟁 상태 방지
-  const [joining, setJoining] = useState(false);
-  async function confirmEntry(cameraOn: boolean) {
-    if (joining) {
-      return;
+  // join과 프로필이 모두 결착되면 입장 — 프로필은 실패해도 폴백(null)으로 진행한다.
+  const profileSettled = profile.isSuccess || profile.isError;
+  useEffect(() => {
+    if (!entered && joined && profileSettled) {
+      setEntered(true);
     }
-    setJoining(true);
-    try {
-      const joined = await joinRoom(userId, entryState.inviteCode);
-      setIceServers(joined.iceServers);
-    } catch (error) {
-      setEntryError(joinErrorMessage(error));
-      setJoining(false);
-      return;
-    }
-    handedOverRef.current = true;
-    setEntry({ cameraOn });
-  }
+  }, [entered, joined, profileSettled]);
 
-  if (entry === null) {
+  if (!entered) {
+    // 정상 경로는 수백 ms 수준이라 다크 배경만 유지한다(스피너 없음).
     return (
       <main
         data-testid="live-room-page"
         className="relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
-        <CameraOnConfirmDialog
-          dismissable={false}
-          busy={joining}
-          preview={
-            <video
-              ref={previewVideoRef}
-              data-testid="entry-preview-video"
-              autoPlay
-              playsInline
-              muted
-              className={cn(
-                "amp-block size-full object-cover",
-                previewCamera.facing === "front" && "scale-x-[-1]",
-              )}
+        {joinError !== null && (
+          <div className="flex grow flex-col items-center justify-center gap-3 px-6">
+            <ErrorState
+              message={joinError}
+              onRetry={() => {
+                setJoinError(null);
+                setJoinAttempt((attempt) => attempt + 1);
+              }}
             />
-          }
-          // TODO: 카메라 실패 문구는 voice-tone 미등재 임시안 — 입장 실패(join) 오류가 우선이다.
-          errorMessage={
-            entryError ?? (previewFailed ? "카메라를 켜지 못했어요. 끄고도 입장은 가능해요." : null)
-          }
-          cancelLabel="끄고 입장"
-          onCancel={() => void confirmEntry(false)}
-          onConfirm={() => void confirmEntry(true)}
-        />
+            <button
+              type="button"
+              onClick={() =>
+                navigate({ pathname: "/social", search: location.search }, { replace: true })
+              }
+              className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
+            >
+              소셜 홈으로
+            </button>
+          </div>
+        )}
       </main>
     );
   }
@@ -162,10 +132,10 @@ export function LiveRoomEntry({
       roomId={roomId}
       userId={userId}
       createChannel={createChannel}
-      camera={previewCamera}
+      camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
-      initialCameraOn={entry.cameraOn}
+      initialCameraOn={initialCameraOn}
       profile={profile.data ?? null}
     />
   );
