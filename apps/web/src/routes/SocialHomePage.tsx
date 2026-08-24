@@ -79,23 +79,6 @@ export function SocialHomePage() {
         </div>
       </div>
 
-      {import.meta.env.DEV && (
-        <div className="flex justify-center pb-2">
-          {/* 실기기 웹뷰는 주소창·인스펙터 없이 룸에 들어갈 방법이 없다 — dev 빌드에서만 렌더된다. */}
-          <button
-            type="button"
-            onClick={() => {
-              const params = new URLSearchParams(location.search);
-              params.set("mockRoom", "4");
-              navigate({ pathname: "/social/room/1", search: `?${params.toString()}` });
-            }}
-            className="text-xs text-muted-foreground underline"
-          >
-            mock 룸 데모 (DEV)
-          </button>
-        </div>
-      )}
-
       {toastMessage !== null && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
           <Toast message={toastMessage} />

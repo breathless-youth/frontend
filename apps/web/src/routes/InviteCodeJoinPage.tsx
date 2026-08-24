@@ -36,6 +36,7 @@ export function InviteCodeJoinPage() {
             inviteCode: submittedCode,
             graceRejoin: data.graceRejoin,
             cameraOn: data.cameraOn,
+            iceServers: data.iceServers,
           },
         },
       );

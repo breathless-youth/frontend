@@ -17,8 +17,9 @@ import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdap
  * ⚠️ 그 수동 타이머 모드는 **정책만 확정됐고 FE에는 아직 없다**(`app-review-checklist.md` 1-1,
  * 심사 제출 전 필수 · 별도 티켓). 지금 카메라가 실패하면 세션은 그냥 감지 없이 계속 돈다.
  *
- * **원본 프레임은 이 객체 밖으로 나가지 않는다.** `stream`은 같은 문서의 `<video>`에
- * 붙이는 용도로만 노출하며, 저장·전송·로그 어디에도 쓰지 않는다(`frontend/CLAUDE.md`).
+ * **AI 분석용 원본 프레임·얼굴 데이터는 서버로 전송하지 않는다.** 저장·로그도 금지.
+ * 예외는 멀티룸의 화면 공유뿐이다 — 이 스트림의 트랙이 P2P로 참여자에게만 전송된다
+ * (서버 경유·녹화 없음, `frontend/CLAUDE.md` 개인정보 원칙).
  */
 export interface MediaStreamCameraAdapter extends CameraAdapter {
   readonly stream: MediaStream | null;
