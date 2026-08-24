@@ -62,6 +62,8 @@ export const GUIDE_FINAL_HINT = "이 안내는 설정 > 측정 기준 안내에�
 export const MOCK_FOCUS_PILL_LABEL = "집중 측정 중";
 export const MOCK_DISTRACT_PILL_LABEL = "자리를 비운 것 같아요";
 export const MOCK_DISTRACT_PILL_SUBLABEL = "돌아오면 자동으로 다시 측정돼요";
+/** G4 일시정지 필 — 실제 세션 일시정지 필(`sessionCopy.ts`)의 확정 문구 재사용(BY-427). */
+export const MOCK_PAUSED_PILL_LABEL = "측정을 일시정지했어요";
 // "영상은 기기 안에서만 처리돼요" 타이머 캡션은 2026-07-29 확정으로 전 스텝에서 삭제됐다 —
 // 프라이버시 안내는 G5 카드가 전담한다.
 
@@ -73,7 +75,7 @@ export type CoachTooltipContent = {
 };
 
 export type MockStatusPill = {
-  state: "focus" | "distract";
+  state: "focus" | "distract" | "paused";
   label: string;
   /** 상태 필 아래 한 줄 보조 문구(G2만 있다). */
   subLabel?: string;
@@ -319,7 +321,9 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     backdrop: {
       base: "camera",
       dimOpacity: 0.55,
-      statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
+      // 일시정지 스텝이므로 필도 일시정지 상태를 보여준다(2026-08-25 BY-427 사용자 피드백 —
+      // "집중 측정 중"이 떠 있으면 카피("모두 멈춰요")·회색 타이머와 어긋난다).
+      statusPill: { state: "paused", label: MOCK_PAUSED_PILL_LABEL },
       controlBar: "raised",
       showTimer: true,
       seedFocusSec: 20,

@@ -15,6 +15,7 @@ import {
   GUIDE_DISTRACT_BORDER,
   GUIDE_DISTRACT_COLOR,
   GUIDE_FOCUS_COLOR,
+  GUIDE_PAUSED_COLOR,
   GUIDE_SIMPLE_TIMER_GLOW,
 } from "./coachOverlayTheme";
 
@@ -106,7 +107,10 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
   );
 }
 
-/** 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더. */
+/**
+ * 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더 /
+ * Paused=회색 도트(2026-08-25 BY-427 — G4가 일시정지 상태를 그대로 보여주도록 추가).
+ */
 export function MockStatusPillBlock({
   pill,
   emphasized,
@@ -115,7 +119,11 @@ export function MockStatusPillBlock({
   emphasized: boolean;
 }) {
   const isDistract = pill.state === "distract";
-  const accent = isDistract ? GUIDE_DISTRACT_COLOR : GUIDE_FOCUS_COLOR;
+  const accent = isDistract
+    ? GUIDE_DISTRACT_COLOR
+    : pill.state === "paused"
+      ? GUIDE_PAUSED_COLOR
+      : GUIDE_FOCUS_COLOR;
 
   return (
     <div
@@ -129,7 +137,11 @@ export function MockStatusPillBlock({
           aria-label={emphasized ? pill.label : undefined}
           className="flex flex-row items-center gap-2 border px-4 py-[9px]"
           style={{
-            backgroundColor: isDistract ? coachOverlay.pillBgDistract : coachOverlay.pillBgFocus,
+            backgroundColor: isDistract
+              ? coachOverlay.pillBgDistract
+              : pill.state === "paused"
+                ? coachOverlay.pillBgPaused
+                : coachOverlay.pillBgFocus,
             borderColor: isDistract ? GUIDE_DISTRACT_BORDER : coachOverlay.pillBorderFocus,
             borderRadius: coachRadius.full,
           }}

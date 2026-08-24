@@ -12,6 +12,7 @@ import {
   GUIDE_SKIP_LABEL,
   guideProgressLabel,
   MOCK_FOCUS_PILL_LABEL,
+  MOCK_PAUSED_PILL_LABEL,
   ONBOARDING_GUIDE_STEP_COUNT,
 } from "../onboardingGuideSteps";
 import { OnboardingGuideFlow } from "../OnboardingGuideFlow";
@@ -205,6 +206,14 @@ describe("OnboardingGuideFlow — 목업 타이머 시연", () => {
     // 카피("순공시간과 총 공부 시간이 모두 멈춰요")대로 값이 그대로다 — 색(회색)↔값 모순 해소.
     expect(screen.getByText("00:00:20")).toBeInTheDocument();
     expect(screen.getByText("총 00:00:23")).toBeInTheDocument();
+  });
+
+  it("G4 상태 필은 일시정지 문구를 보여준다 (2026-08-25 BY-427 피드백)", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+    goToStep(3);
+
+    expect(screen.getByText(MOCK_PAUSED_PILL_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(MOCK_FOCUS_PILL_LABEL)).not.toBeInTheDocument();
   });
 
   it("G5에서는 타이머가 렌더되지 않는다 — 상태 필 등 다른 목업 요소는 유지 (2026-08-25 BY-427 확정)", () => {
