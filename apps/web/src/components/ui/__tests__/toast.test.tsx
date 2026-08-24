@@ -11,7 +11,7 @@ import { Toast, toastVariants } from "../toast";
  * 전 화면 다크 알약 + 흰 글자). Tailwind v4 임의값 클래스라 문자열 그대로 고정한다.
  * 임의값 클래스는 공백을 못 담아 폴백은 공백 없이 쓴다 — sessionTheme 값과 비교할 때도 공백을 지운다.
  */
-const TOAST_BG_FALLBACK_CLASS = "bg-[var(--session-toast-bg,rgba(22,27,34,0.92))]";
+const TOAST_BG_FALLBACK_CLASS = "bg-[var(--session-toast-bg,rgba(78,89,104,0.96))]";
 
 describe("Toast", () => {
   it("세션 밖 화면(변수 미주입)에서도 보이도록 배경 클래스에 CSS 변수 폴백을 포함한다", () => {

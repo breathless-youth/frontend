@@ -153,7 +153,6 @@ describe("CoachNavBar", () => {
 describe("OnboardingGuideFlow — 목업 타이머 시연", () => {
   const flowProps = {
     onFinish: vi.fn(),
-    onExit: vi.fn(),
     isReentry: false,
   };
 

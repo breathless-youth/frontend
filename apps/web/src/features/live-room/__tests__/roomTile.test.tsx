@@ -53,13 +53,22 @@ describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
     },
   );
 
-  it("selfState가 없으면(타 참가자 타일) 뱃지 없이 맨 텍스트 타이머 현행을 유지한다", () => {
+  it("selfState가 없으면(타 참가자 타일) 중립 뱃지 — 카메라 켬은 NEUTRAL(흰색)", () => {
     render(
       <RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", studySeconds: 60 }} />,
     );
 
-    expect(screen.queryByTestId("self-state-badge")).not.toBeInTheDocument();
+    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "NEUTRAL");
     expect(screen.getByText("00:01")).toBeInTheDocument();
+  });
+
+  it("타 참가자 카메라 꺼짐은 OFF(회색) 뱃지 — 상태색은 흰/회색만 쓴다(2026-08-25 BY-427 피드백)", () => {
+    render(
+      <RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS", studySeconds: 125 }} />,
+    );
+
+    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "OFF");
+    expect(screen.getByText("00:02")).toBeInTheDocument();
   });
 });
 

@@ -505,7 +505,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
     });
   });
 
-  it("그리드에서 상태 뱃지는 내 타일에만 붙는다 — 타 참가자 타일은 시각 표시 없음", async () => {
+  it("그리드에서 상태 3색 뱃지는 내 타일에만 — 타 참가자는 중립(흰/회색) 뱃지 (2026-08-25 개정)", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
 
     await enterRoom();
@@ -517,7 +517,8 @@ describe("LiveRoomPage — 그리드·타일", () => {
       throw new Error("내 타일 또는 상대 타일이 없다");
     }
     expect(within(myTile).getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
-    expect(within(otherTile).queryByTestId("self-state-badge")).not.toBeInTheDocument();
+    const otherBadge = within(otherTile).getByTestId("self-state-badge");
+    expect(["NEUTRAL", "OFF"]).toContain(otherBadge.getAttribute("data-state"));
   });
 });
 

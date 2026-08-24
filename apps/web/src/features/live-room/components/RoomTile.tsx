@@ -17,11 +17,19 @@ import { formatStudyHhMm } from "../roomGrid";
 export type SelfBadgeState = "FOCUS" | "DISTRACTED" | "PAUSED";
 
 /**
+ * 뱃지가 그릴 수 있는 전체 상태 — 내 타일 3상태에 더해, 타 참가자 타일용 중립 2상태
+ * (2026-08-25 BY-427 피드백: 타 참가자도 뱃지로 감싸되 색은 흰/회색만).
+ * NEUTRAL = 카메라 켬(흰색) / OFF = 카메라 꺼짐(회색, 시각은 PAUSED와 동일하되
+ * 상태 라벨은 닉네임 옆 sr-only(" 카메라 꺼짐")가 전담하므로 뱃지에는 없다).
+ */
+export type TileBadgeState = SelfBadgeState | "NEUTRAL" | "OFF";
+
+/**
  * 상태별 뱃지 표현 — 2026-08-25 BY-427 시안 A "서브틀 필".
  * 색은 CSS 변수를 읽는다 — LiveRoomSession이 sessionSurfaceStyle로 다크 값을 덮어쓰므로
  * 라이트 모드에서도 다크 값으로 동작한다(세션 화면은 항상 다크).
  */
-const SELF_BADGE_SPEC: Record<SelfBadgeState, { label: string; pill: CSSProperties; ink: string }> =
+const SELF_BADGE_SPEC: Record<TileBadgeState, { label: string; pill: CSSProperties; ink: string }> =
   {
     FOCUS: {
       label: "집중 측정 중",
@@ -47,6 +55,22 @@ const SELF_BADGE_SPEC: Record<SelfBadgeState, { label: string; pill: CSSProperti
       },
       ink: "var(--text-tertiary)",
     },
+    NEUTRAL: {
+      label: "",
+      pill: {
+        backgroundColor: "rgba(22, 27, 34, 0.72)",
+        borderColor: "rgba(255, 255, 255, 0.14)",
+      },
+      ink: "#ffffff",
+    },
+    OFF: {
+      label: "",
+      pill: {
+        backgroundColor: "rgba(22, 27, 34, 0.72)",
+        borderColor: "rgba(255, 255, 255, 0.14)",
+      },
+      ink: "var(--text-tertiary)",
+    },
   };
 
 /**
@@ -58,7 +82,7 @@ export function SelfStateBadge({
   studySeconds,
   className,
 }: {
-  state: SelfBadgeState;
+  state: TileBadgeState;
   studySeconds: number | undefined;
   className?: string;
 }) {
@@ -82,7 +106,7 @@ export function SelfStateBadge({
       <span className="text-[13px] leading-4 font-bold tabular-nums" style={{ color: spec.ink }}>
         {studySeconds === undefined ? "--:--" : formatStudyHhMm(studySeconds)}
       </span>
-      <span className="sr-only">{spec.label}</span>
+      {spec.label !== "" && <span className="sr-only">{spec.label}</span>}
     </div>
   );
 }
@@ -92,8 +116,8 @@ type RoomTileProps = {
   /** 배경 미디어(내 타일의 로컬 카메라). 없거나 카메라 끔이면 아바타를 그린다. */
   media?: ReactNode;
   /**
-   * 내 타일에만 넘긴다(BY-427) — 값이 있으면 좌상단 타이머를 상태 뱃지로 렌더한다.
-   * 타 참가자 타일은 undefined로 두어 맨 텍스트 타이머 현행을 유지한다.
+   * 내 타일에만 넘긴다(BY-427) — 값이 있으면 좌상단 뱃지가 상태 3색을 그린다.
+   * 타 참가자 타일은 undefined로 두면 같은 뱃지 크롬에 흰(켬)/회색(꺼짐)만 쓴다.
    */
   selfState?: SelfBadgeState;
   className?: string;
@@ -125,22 +149,12 @@ export function RoomTile({ member, media, selfState, className }: RoomTileProps)
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]"
         />
       )}
-      {selfState !== undefined ? (
-        <SelfStateBadge
-          state={selfState}
-          studySeconds={member.studySeconds}
-          className="absolute top-3 left-3"
-        />
-      ) : (
-        /* 타 참가자 타이머는 맨 텍스트 현행 유지 — 흰색 ↔ 카메라 꺼짐(=일시정지) 회색. */
-        <p
-          className={`absolute top-3.5 left-4 text-[15px] font-bold ${
-            member.cameraOn ? "text-white" : "text-text-tertiary"
-          }`}
-        >
-          {member.studySeconds === undefined ? "--:--" : formatStudyHhMm(member.studySeconds)}
-        </p>
-      )}
+      {/* 타이머 뱃지 — 내 타일은 3상태 색, 타 참가자는 흰(켬)/회색(꺼짐)만(2026-08-25 BY-427 피드백). */}
+      <SelfStateBadge
+        state={selfState ?? (member.cameraOn ? "NEUTRAL" : "OFF")}
+        studySeconds={member.studySeconds}
+        className="absolute top-3 left-3"
+      />
       <div className="absolute bottom-3 left-3">
         <p className="text-[15px] font-bold text-white">
           {member.nickname}

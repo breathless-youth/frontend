@@ -8,7 +8,6 @@ import {
   type OnboardingGuideStep,
 } from "./onboardingGuideSteps";
 import { CoachNavBar } from "./CoachNavBar";
-import { IconClose } from "./coachIcons";
 import { SWIPE_THRESHOLD_PX } from "./coachOverlayTheme";
 import { CoachTooltip } from "./CoachTooltip";
 import { GuidePrivacyCard } from "./GuidePrivacyCard";
@@ -139,13 +138,10 @@ function StepBody({
 
 export function OnboardingGuideFlow({
   onFinish,
-  onExit,
   isReentry,
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
-  /** 우상단 X(나가기) — 세션으로 이어지지 않는 별도 종료 경로(2026-07-28 확정, BY-151). */
-  onExit: () => void;
   /**
    * 재진입(홈 카드·설정) 모드인가. 재진입에서는 마지막 CTA가 세션을 시작하지 않고 닫기만
    * 하므로 문구도 "가이드 종료하기"로 바꾼다(2026-07-29 확정) — 문구와 동작의 일치.
@@ -318,14 +314,8 @@ export function OnboardingGuideFlow({
       </div>
 
       {/* 우상단 나가기 — 건너뛰기(생략하고 진행)와 반대 방향의 별도 동작이라 위치도 분리한다. */}
-      <button
-        type="button"
-        onClick={onExit}
-        aria-label="가이드 닫기"
-        className="absolute top-[calc(env(safe-area-inset-top)+13px)] right-5 flex size-11 items-center justify-center"
-      >
-        <IconClose />
-      </button>
+      {/* 우상단 X는 2026-08-25 BY-427 피드백으로 제거 — 종료 경로는 건너뛰기(G1~G4)와
+          마지막 CTA(G5)로 충분하다. */}
     </div>
   );
 }

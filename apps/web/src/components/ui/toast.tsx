@@ -20,8 +20,9 @@ export const toastVariants = cva(
         // inline style로 주입한다 — 초대코드 공유·소셜 홈 등 세션 밖 화면에는 변수가 없어
         // 배경이 투명해지고, 라이트 모드에서 흰 배경 + 흰 글자로 완전히 안 보였다.
         // 그래서 CSS 변수 폴백으로 같은 값을 박아 전 화면 다크 알약을 보장한다
-        // (2026-08-24 결정). 폴백 값은 sessionTheme.ts의 `--session-toast-bg`와 동기 유지.
-        session: "bg-[var(--session-toast-bg,rgba(22,27,34,0.92))]",
+        // (2026-08-24 결정 · 2026-08-25 토스풍 회색으로 개정). 폴백 값은 sessionTheme.ts의
+        // `--session-toast-bg`와 동기 유지.
+        session: "bg-[var(--session-toast-bg,rgba(78,89,104,0.96))]",
       },
     },
     defaultVariants: { tone: "session" },

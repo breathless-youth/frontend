@@ -99,7 +99,7 @@ export function CameraOnConfirmDialog({
         </p>
         <div className="mt-3 h-[234px] overflow-hidden rounded-xl bg-[#191f28]">{preview}</div>
         <p className="mt-3 text-xs leading-[15px] text-muted-foreground">
-          영상은 룸에 있는 멤버에게만 전달돼요. 서버에 저장되지 않아요.
+          영상은 서버에 저장되지 않아요.
         </p>
         {errorMessage !== null && (
           <p role="alert" className="mt-2 text-sm text-state-distract-text">

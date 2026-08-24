@@ -192,16 +192,18 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
     expect(navigateSpy).toHaveBeenCalledWith(-1);
   });
 
-  it("브리지가 있어도 X(나가기)는 정상 동작한다 — 래치가 갇힘을 만들지 않는다", () => {
+  it("브리지가 있어도 건너뛰기 종료는 정상 동작한다 — 래치가 갇힘을 만들지 않는다", async () => {
     globalWithBridge.ReactNativeWebView = { postMessage: vi.fn() };
 
-    renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
+    renderGuideAt("/onboarding-guide?entry=home-card&userId=42");
 
-    fireEvent.click(screen.getByRole("button", { name: "가이드 닫기" }));
+    fireEvent.click(screen.getByRole("button", { name: "건너뛰기" }));
 
-    expect(navigateSpy).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
+    });
     expect(navigateSpy).toHaveBeenCalledWith(
-      { pathname: "/home", search: "?entry=focus-start&userId=42" },
+      { pathname: "/home", search: "?entry=home-card&userId=42" },
       { replace: true },
     );
   });
