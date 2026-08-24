@@ -15,7 +15,7 @@ export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaS
       autoPlay
       playsInline
       muted
-      className="amp-block size-full object-cover"
+      className="amp-block sentry-block size-full object-cover"
     />
   );
 }
