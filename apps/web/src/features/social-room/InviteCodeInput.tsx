@@ -1,4 +1,6 @@
-import { sanitizeInviteCode } from "./inviteCode";
+import { useRef } from "react";
+
+import { isCompleteInviteCode, sanitizeInviteCode } from "./inviteCode";
 
 /**
  * 초대코드 4칸 입력
@@ -16,6 +18,8 @@ type InviteCodeInputProps = {
 };
 
 export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="relative">
       <div aria-hidden="true" className="flex gap-2.5">
@@ -36,6 +40,7 @@ export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputPro
         caret·텍스트는 opacity-0으로 숨기고 터치·포커스만 받는다.
       */}
       <input
+        ref={inputRef}
         type="text"
         inputMode="numeric"
         pattern="\d*"
@@ -43,7 +48,14 @@ export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputPro
         maxLength={4}
         value={value}
         onChange={(event) => {
-          onChange(sanitizeInviteCode(event.target.value));
+          const next = sanitizeInviteCode(event.target.value);
+          // 4자리가 완성되면 키보드를 내린다 — 타이핑뿐 아니라 붙여넣기·one-time-code
+          // 자동완성으로 한 번에 4자리가 들어와도 동작한다. 자동 제출은 하지 않는다
+          // (참여는 버튼으로만 확정 — 사용자 결정, BY-427).
+          if (isCompleteInviteCode(next)) {
+            inputRef.current?.blur();
+          }
+          onChange(next);
         }}
         aria-label="초대코드 4자리"
         aria-invalid={errorId !== undefined || undefined}

@@ -92,6 +92,12 @@ export function InviteCodeJoinPage() {
           type="button"
           disabled={userId === null || !isCompleteInviteCode(code) || joinMutation.isPending}
           onClick={() => {
+            // 키보드가 열린 채 제출되면 결과(이동·에러 문구)를 키보드가 가린다 — 활성 입력을
+            // 내린다. 4자리 완성 시 blur(InviteCodeInput)와 별개로, 완성 후 다시 입력칸을
+            // 탭해 키보드를 올린 채 제출하는 경로를 막는 보강이다.
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
             joinMutation.mutate(code);
           }}
           className="flex h-12 w-full items-center justify-center rounded-[14px] bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
