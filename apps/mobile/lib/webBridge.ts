@@ -43,7 +43,15 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (typeof record.text !== "string") {
         return null;
       }
-      return { type: "share", text: record.text, atMs: record.atMs };
+      // url·title은 선택 필드(BY-427, 공유시트 썸네일용) — 문자열이 아니면 그 필드만 버린다.
+      // text만 있어도 시트는 열리므로 메시지 통째로 버리지 않는다(구버전 웹 하위호환).
+      return {
+        type: "share",
+        text: record.text,
+        ...(typeof record.url === "string" ? { url: record.url } : {}),
+        ...(typeof record.title === "string" ? { title: record.title } : {}),
+        atMs: record.atMs,
+      };
     case "navigate-tab":
       // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
       // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.

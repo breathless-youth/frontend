@@ -42,6 +42,28 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("share의 선택 필드 url·title을 함께 파싱한다 — 공유시트 썸네일용(BY-427)", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"share","text":"초대 텍스트","url":"https://example.com/social/join?code=0712","title":"포커스 메이커스 그룹 스터디","atMs":9}',
+      ),
+    ).toEqual({
+      type: "share",
+      text: "초대 텍스트",
+      url: "https://example.com/social/join?code=0712",
+      title: "포커스 메이커스 그룹 스터디",
+      atMs: 9,
+    });
+  });
+
+  it("share의 url·title이 문자열이 아니면 그 필드만 버린다 — text만으로도 시트는 열린다", () => {
+    expect(parseToNativeMessage('{"type":"share","text":"초대 텍스트","url":1,"atMs":9}')).toEqual({
+      type: "share",
+      text: "초대 텍스트",
+      atMs: 9,
+    });
+  });
+
   it("share의 text가 문자열이 아니면 null이다 — 빈 공유 시트를 열지 않는다", () => {
     expect(parseToNativeMessage('{"type":"share","text":1,"atMs":9}')).toBeNull();
   });
