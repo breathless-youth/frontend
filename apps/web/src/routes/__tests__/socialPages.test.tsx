@@ -245,7 +245,7 @@ describe("초대코드 입력", () => {
     await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("코드를 다시 확인해 주세요");
+      expect(screen.getByRole("alert")).toHaveTextContent("초대코드를 다시 확인해 주세요");
     });
   });
 });
