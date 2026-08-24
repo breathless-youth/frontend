@@ -75,6 +75,39 @@ describe("useRoomStatePublisher", () => {
     expect(channel.published).toEqual([{ studySeconds: 59 }, { studySeconds: 119 }]);
   });
 
+  it("focusSec이 null인 동안은 틱이 와도 STUDY_TIME을 발행하지 않는다", () => {
+    const channel = createMockRoomChannel({ snapshot: [] });
+    channel.connect();
+    channel.published.length = 0;
+    const hook = renderHook(
+      ({
+        sessionState,
+        focusSec,
+        cameraOn,
+      }: {
+        sessionState: SessionState;
+        focusSec: number | null;
+        cameraOn: boolean;
+      }) => useRoomStatePublisher(channel, { sessionState, focusSec, cameraOn }),
+      {
+        initialProps: {
+          sessionState: FOCUS_STATE,
+          focusSec: null as number | null,
+          cameraOn: true,
+        },
+      },
+    );
+    channel.published.length = 0;
+
+    vi.advanceTimersByTime(60_000);
+    expect(channel.published).toEqual([]);
+
+    // 값이 생기면 다음 틱부터 발행이 재개된다
+    hook.rerender({ sessionState: FOCUS_STATE, focusSec: 7320, cameraOn: true });
+    vi.advanceTimersByTime(60_000);
+    expect(channel.published).toEqual([{ studySeconds: 7320 }]);
+  });
+
   it("언마운트 후에는 STUDY_TIME이 발행되지 않는다", () => {
     const { channel, hook } = setup(FOCUS_STATE);
     channel.published.length = 0;

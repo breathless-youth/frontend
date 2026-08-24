@@ -98,7 +98,22 @@ export function LiveRoomSession({
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
   const [cameraWanted, setCameraWanted] = useState(initialCameraOn);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
-  useEffect(() => channel.subscribe(dispatch), [channel]);
+  // 유예 재입장이면 서버가 보존한 내 studySeconds가 첫 SNAPSHOT에 실려 온다 — 이 값을
+  // 기준으로 표시·발행을 이어간다. 일반 입장은 0이라 동작이 같다. 첫 값만 쓴다:
+  // 재연결 SNAPSHOT에는 내 발행이 반영돼 있어 다시 읽으면 이중 가산된다.
+  const [baseStudySeconds, setBaseStudySeconds] = useState<number | null>(null);
+  useEffect(
+    () =>
+      channel.subscribe((message) => {
+        if (message.type === "SNAPSHOT") {
+          setBaseStudySeconds(
+            (prev) => prev ?? message.members.find((m) => m.userId === userId)?.studySeconds ?? 0,
+          );
+        }
+        dispatch(message);
+      }),
+    [channel, userId],
+  );
 
   const debugEnabled = import.meta.env.DEV;
   const [debugLines, setDebugLines] = useState<string[]>([]);
@@ -157,11 +172,16 @@ export function LiveRoomSession({
   const paused = sessionState.kind === "PAUSE";
   const cameraOn = !paused && isCameraRunning;
 
+  // 제출 경로는 보정하지 않는다 — 룸 채널은 표시용이고, 제출은 이번 마운트 측정값만 나간다.
+  // 기준값이 오기 전에는 null — 발행자가 틱을 쉬어, 연결 지연 시 0 기준의 낡은 값이
+  // 채널 버퍼를 타고 서버 보존값을 덮어쓰는 것을 막는다.
+  const displayFocusSec = baseStudySeconds === null ? null : baseStudySeconds + focusSec;
+
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
   useRoomStatePublisher(channel, {
     sessionState,
-    focusSec,
+    focusSec: displayFocusSec,
     cameraOn: cameraWanted && cameraOn,
   });
 
@@ -173,7 +193,7 @@ export function LiveRoomSession({
     goal: profile?.goal ?? serverMe?.goal ?? null,
     cameraOn,
     focusState: sessionState.kind === "DISTRACTION" ? "DISTRACTED" : "FOCUS",
-    studySeconds: focusSec,
+    studySeconds: displayFocusSec ?? focusSec,
   };
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
