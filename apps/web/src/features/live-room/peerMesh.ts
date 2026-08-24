@@ -282,11 +282,45 @@ export function createPeerMesh({
     );
   }
 
+  // 폐기 후 재수립용 정리 — MEMBER_LEFT와 달리 화면 통지는 하지 않는다(아직 스트림이
+  // 없거나, 곧 새 연결이 대체한다).
+  function discardPeer(userId: number) {
+    const pc = peers.get(userId);
+    if (!pc) {
+      return;
+    }
+    pc.close();
+    peers.delete(userId);
+    restartAttempted.delete(userId);
+    offeredByMe.delete(userId);
+    lastStreams.delete(userId);
+  }
+
   async function handleSignal(fromUserId: number, kind: RoomSignalKind, payload: unknown) {
     debug(`sig←${fromUserId} ${kind}`);
     if (kind === "OFFER") {
       if (!isSdpPayload(payload)) {
         return;
+      }
+      const existing = peers.get(fromUserId);
+      if (existing) {
+        const ice = existing.iceConnectionState;
+        if (ice === "failed" || ice === "disconnected" || ice === "closed") {
+          // 재입장 상대 — 죽은 연결을 재사용하면 상대→나 방향이 옛 경로에 남는다.
+          // 폐기하고 새 연결로 answer해 양방향 모두 새 주소로 수립한다.
+          debug(`stale-pc←${fromUserId}`);
+          discardPeer(fromUserId);
+        } else if (offeredByMe.has(fromUserId) && existing.remoteDescription === null) {
+          // 동시 입장 글레어 — 서로가 서로의 SNAPSHOT에 신규로 들어가 양쪽 다 offer를
+          // 보냈다. userId 큰 쪽이 offer 역할을 유지하고 작은 쪽이 양보한다: 양쪽이
+          // 같은 규칙을 계산하므로 추가 통신 없이 역할이 갈린다.
+          if (myUserId > fromUserId) {
+            debug(`glare-ignore←${fromUserId}`);
+            return;
+          }
+          debug(`glare-yield←${fromUserId}`);
+          discardPeer(fromUserId);
+        }
       }
       const pc = getOrCreatePeer(fromUserId);
       await pc.setRemoteDescription(payload);

@@ -206,6 +206,71 @@ describe("createPeerMesh — 연결 수립", () => {
     expect(pcs[0]?.pc.localDescription).toEqual({ type: "answer", sdp: "answer-sdp" });
   });
 
+  it("동시 입장 글레어: userId 작은 쪽은 자기 offer를 버리고 상대 offer에 answer한다", async () => {
+    const { channel, pcs } = setup({ myUserId: 7 });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(9)] });
+    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1));
+
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "from-9" },
+    });
+
+    await vi.waitFor(() => {
+      expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["OFFER", "ANSWER"]);
+    });
+    expect(pcs).toHaveLength(2);
+    expect(pcs[0]?.pc.closed).toBe(true);
+    expect(pcs[1]?.pc.remoteDescription).toEqual({ type: "offer", sdp: "from-9" });
+  });
+
+  it("동시 입장 글레어: userId 큰 쪽은 상대 offer를 무시하고 자기 offer를 유지한다", async () => {
+    const { channel, pcs } = setup({ myUserId: 7 });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(5)] });
+    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1));
+
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 5,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "from-5" },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["OFFER"]);
+    expect(pcs).toHaveLength(1);
+    expect(pcs[0]?.pc.closed).toBe(false);
+    expect(pcs[0]?.pc.remoteDescription).toBeNull();
+  });
+
+  it("죽은 연결의 상대에게서 offer가 오면 재사용하지 않고 새 연결로 answer한다 — 재입장 유령 방지", async () => {
+    const { channel, pcs } = setup();
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 8,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "old-session" },
+    });
+    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1));
+    pcs[0]?.pc.fireIceState("failed");
+
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 8,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "new-session" },
+    });
+
+    await vi.waitFor(() => {
+      expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER", "ANSWER"]);
+    });
+    expect(pcs).toHaveLength(2);
+    expect(pcs[0]?.pc.closed).toBe(true);
+    expect(pcs[1]?.pc.remoteDescription).toEqual({ type: "offer", sdp: "new-session" });
+  });
+
   it("SIGNAL ANSWER를 받으면 해당 PC의 remote로 설정한다", async () => {
     const { channel, pcs } = setup();
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
