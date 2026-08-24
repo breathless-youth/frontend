@@ -29,11 +29,11 @@ export function RoomControlBar({
   onExit,
 }: RoomControlBarProps) {
   return (
-    // 폭은 Figma 실측 314px였으나 2026-08-25 BY-427 시안 B로 290px 개정 —
-    // justify-between이라 버튼 간격이 자연 압축된다.
+    // 치수는 싱글룸 SessionControlBar 세로 스펙과 동일(버튼 50 · 간격 22 · 좌우 24 · 높이 80,
+    // 2026-08-25 BY-427 피드백: 두 룸의 바 크기 통일) — 폭은 내용에 맞춰 242px이 된다.
     <div
       data-testid="room-control-bar"
-      className={`flex h-20 w-full max-w-[290px] items-center justify-between rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-opacity duration-300 motion-reduce:transition-none ${
+      className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-opacity duration-300 motion-reduce:transition-none ${
         faded ? "pointer-events-none opacity-[0.22]" : "pointer-events-auto"
       }`}
     >

@@ -248,12 +248,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       >
         {/* 손잡이 중앙정렬(2026-07-29) — 좌우 풀폭 래퍼의 justify-center로 맞춘다.
             구 방식(left-1/2 + 음수 마진 임의값 클래스)은 좌측으로 치우쳐 보였다. */}
-        <div className="pointer-events-none absolute top-[5px] right-0 left-0 flex justify-center">
-          <div
-            className="h-1 w-9 rounded-full"
-            style={{ backgroundColor: coachOverlay.controlBarHandle }}
-          />
-        </div>
+        {/* 드래그 핸들 목업은 실제 바에서 핸들이 제거되며(2026-08-25 BY-427) 함께 삭제했다. */}
         <RingOutEmphasis
           active={emphasized}
           color={GUIDE_FOCUS_COLOR}

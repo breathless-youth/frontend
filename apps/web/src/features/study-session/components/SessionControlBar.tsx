@@ -67,17 +67,8 @@ export type SessionControlBarSize = NonNullable<
   VariantProps<typeof sessionControlBarVariants>["size"]
 >;
 
-/** 바 상단의 드래그 핸들 — 장식이라 `aria-hidden`이다(실제로 드래그되지 않는다). */
-const handleVariants = cva("absolute left-1/2 -translate-x-1/2 rounded-full bg-white/22", {
-  variants: {
-    size: {
-      md: "top-[5px] h-1 w-9",
-      sm: "top-1 h-[3px] w-7",
-      responsive: "top-[5px] h-1 w-9 landscape:top-1 landscape:h-[3px] landscape:w-7",
-    },
-  },
-  defaultVariants: { size: "responsive" },
-});
+// 바 상단 드래그 핸들은 2026-08-25 BY-427 실기기 피드백으로 제거 — 실제로 드래그되지 않는
+// 장식이라 혼란만 줬다. 위 Figma 실측 표의 핸들 행은 역사 기록으로만 남는다.
 
 const controlButtonVariants = cva(
   "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color] duration-200 motion-reduce:transition-none",
@@ -224,7 +215,6 @@ export function SessionControlBar({
       aria-label="세션 컨트롤"
       className={cn(sessionControlBarVariants({ size }), className)}
     >
-      <span aria-hidden="true" className={handleVariants({ size })} />
       {/* 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
           (voice-tone.md §1) — 아이콘 프레임은 play/pause 모두 같은 크기라 폭이 흔들리지 않는다. */}
       <ControlButton
