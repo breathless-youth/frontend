@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -491,6 +491,34 @@ describe("LiveRoomPage — 그리드·타일", () => {
       .find((tile) => tile.getAttribute("data-user-id") === "8");
     expect(offTile).toHaveAttribute("data-state", "OFF");
   });
+
+  it("1인 전체화면에도 내 상태 뱃지가 뜬다 — 꺼짐 입장은 일시정지, 켜면 집중", async () => {
+    renderRoom();
+
+    await enterRoom();
+    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
+
+    await turnCameraOn();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "FOCUS");
+    });
+  });
+
+  it("그리드에서 상태 뱃지는 내 타일에만 붙는다 — 타 참가자 타일은 시각 표시 없음", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+
+    await enterRoom();
+
+    const tiles = screen.getAllByTestId("room-tile");
+    const myTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "7");
+    const otherTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "8");
+    if (myTile === undefined || otherTile === undefined) {
+      throw new Error("내 타일 또는 상대 타일이 없다");
+    }
+    expect(within(myTile).getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
+    expect(within(otherTile).queryByTestId("self-state-badge")).not.toBeInTheDocument();
+  });
 });
 
 describe("LiveRoomPage — P2P 연동", () => {
@@ -683,5 +711,122 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 
     expect(await screen.findByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(mockedLeaveRoom).not.toHaveBeenCalled();
+  });
+});
+
+describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
+  it("카메라 꺼짐 버튼은 흰색 반전 배경 + 어두운 사선 아이콘, 켜짐은 현행 유지", async () => {
+    renderRoom();
+    await enterRoom();
+
+    // 작은 svg는 vite가 data URI로 인라인한다 — 파일명 대신 아이콘 내용으로 구분한다.
+    // off 아이콘만 어두운 사선 스트로크(#191f28)를 가진다.
+    const offButton = screen.getByRole("button", { name: "카메라 켜기" });
+    expect(offButton).toHaveClass("bg-[#f2f4f6]");
+    expect(offButton).toHaveAttribute("aria-pressed", "false");
+    expect(offButton.querySelector("img")?.getAttribute("src")).toContain("191f28");
+
+    await turnCameraOn();
+
+    const onButton = screen.getByRole("button", { name: "카메라 끄기" });
+    expect(onButton).not.toHaveClass("bg-[#f2f4f6]");
+    expect(onButton).toHaveAttribute("aria-pressed", "true");
+    const onSrc = onButton.querySelector("img")?.getAttribute("src") ?? "";
+    expect(onSrc).not.toContain("191f28");
+    expect(onSrc).toContain("white");
+  });
+
+  it("카메라 켜기 모달의 미리보기 슬롯은 234px 높이다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+    const slot = screen.getByTestId("camera-dialog-preview").parentElement;
+    expect(slot).toHaveClass("h-[234px]");
+  });
+});
+
+describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
+  /**
+   * 페이크 타이머는 렌더·입장(findBy/waitFor가 실제 타이머를 쓴다) 뒤에 켠다.
+   * 켠 직후 화면 탭으로 유휴 기준점을 페이크 타이머 위에 다시 만들어 4초 경과를 제어한다.
+   */
+  async function enterWithFakeIdleTimer() {
+    await enterRoom();
+    vi.useFakeTimers();
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+  }
+
+  it("마지막 상호작용 후 4초가 지나면 바만 잔상으로 페이드되고 조작이 막힌다", async () => {
+    renderRoom();
+    await enterWithFakeIdleTimer();
+
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    expect(bar).toHaveClass("opacity-[0.22]");
+    expect(bar).toHaveClass("pointer-events-none");
+    expect(bar).not.toHaveClass("pointer-events-auto");
+  });
+
+  it("잔상 상태에서 화면을 탭하면 즉시 복귀하고 유휴 타이머가 재시작된다", async () => {
+    renderRoom();
+    await enterWithFakeIdleTimer();
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-none");
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass("opacity-[0.22]");
+
+    // 복귀 후에도 유휴 4초가 다시 흐르면 재차 숨는다 — 타이머 재시작 검증.
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(bar).toHaveClass("pointer-events-none");
+  });
+
+  it("다이얼로그가 열려 있는 동안은 4초가 지나도 숨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    vi.useFakeTimers();
+    act(() => {
+      vi.advanceTimersByTime(4001);
+    });
+
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass("opacity-[0.22]");
+  });
+
+  it("제출 중(controlsLocked)에는 숨지 않고 저장 중 문구도 그대로 남는다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await screen.findByText("저장 중...");
+
+    vi.useFakeTimers();
+    act(() => {
+      vi.advanceTimersByTime(4001);
+    });
+
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
+    expect(screen.getByText("저장 중...")).toBeInTheDocument();
   });
 });

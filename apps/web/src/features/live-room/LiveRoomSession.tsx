@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -8,7 +8,8 @@ import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackP
 import { RemoteVideo } from "@/features/live-room/components/RemoteVideo";
 import { RoomControlBar } from "@/features/live-room/components/RoomControlBar";
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
-import { RoomTile } from "@/features/live-room/components/RoomTile";
+import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTile";
+import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { roomGridSpec } from "@/features/live-room/roomGrid";
 import { orderedMembers, roomMembersReducer } from "@/features/live-room/roomMembersReducer";
@@ -31,6 +32,9 @@ import { leaveRoom } from "@/lib/roomApi";
 import { cn } from "@/lib/utils";
 
 import type { CreateChannel } from "./liveRoomEntryState";
+
+/** 컨트롤 바 자동 숨김 유휴 시간(ms) — 2026-08-25 BY-427 시안 B. */
+const CONTROL_BAR_IDLE_MS = 4000;
 
 function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
   const stream = streams.get(userId);
@@ -157,6 +161,14 @@ export function LiveRoomSession({
   const paused = sessionState.kind === "PAUSE";
   const cameraOn = !paused && isCameraRunning;
 
+  // 내 타일 전용 상태 뱃지(BY-427) — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
+  // 카메라 끔 = 측정 일시정지 동치라 paused가 최우선이다.
+  const selfState: SelfBadgeState = paused
+    ? "PAUSED"
+    : sessionState.kind === "DISTRACTION"
+      ? "DISTRACTED"
+      : "FOCUS";
+
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
   useRoomStatePublisher(channel, {
@@ -202,21 +214,64 @@ export function LiveRoomSession({
   }, [location.search, navigate, phase.name, roomId, userId]);
 
   const myVideo = (
+    // 셀프뷰 보정(BY-427 시안 A): brightness/saturate 필터는 이 <video>의 **로컬 렌더링에만**
+    // 적용된다 — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
     <video
       ref={videoRef}
       data-testid="room-my-video"
       autoPlay
       playsInline
       muted
-      className={cn("amp-block size-full object-cover", cameraFacing === "front" && "scale-x-[-1]")}
+      className={cn(
+        "amp-block size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
+        cameraFacing === "front" && "scale-x-[-1]",
+      )}
     />
   );
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
+  // 컨트롤 바 자동 숨김(BY-427 시안 B) — 마지막 상호작용 후 4초가 지나면 바만 잔상(0.22)으로
+  // 페이드하고 조작을 막는다. 잠금(제출 중·에러)·다이얼로그 동안은 숨기지 않는다.
+  const controlsAlwaysVisible = controlsLocked || dialogOpen;
+  const [controlsFaded, setControlsFaded] = useState(false);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearFadeTimer = useCallback(() => {
+    if (fadeTimerRef.current !== null) {
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+  }, []);
+  const restartFadeTimer = useCallback(() => {
+    clearFadeTimer();
+    fadeTimerRef.current = setTimeout(() => {
+      fadeTimerRef.current = null;
+      setControlsFaded(true);
+    }, CONTROL_BAR_IDLE_MS);
+  }, [clearFadeTimer]);
+  useEffect(() => {
+    if (controlsAlwaysVisible) {
+      clearFadeTimer();
+      setControlsFaded(false);
+      return;
+    }
+    restartFadeTimer();
+    return clearFadeTimer;
+  }, [clearFadeTimer, controlsAlwaysVisible, restartFadeTimer]);
+
+  // 화면 아무 곳 탭 = 즉시 복귀 + 유휴 타이머 재시작. 바 조작도 pointerdown 버블로 같이 잡힌다.
+  // 잔상 상태의 바는 pointer-events가 꺼져 있어 그 탭은 복귀 트리거로만 동작한다.
+  const handleSurfacePointerDown = () => {
+    setControlsFaded(false);
+    if (!controlsAlwaysVisible) {
+      restartFadeTimer();
+    }
+  };
+
   return (
     <main
       data-testid="live-room-page"
+      onPointerDown={handleSurfacePointerDown}
       className="relative flex h-dvh flex-col bg-background"
       style={sessionSurfaceStyle}
     >
@@ -236,6 +291,13 @@ export function LiveRoomSession({
         {grid.mode === "fullscreen" ? (
           <div className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl">
             {cameraOn && myVideo}
+            {/* 1인 전체화면은 RoomTile을 쓰지 않지만 내 화면이므로 같은 상태 뱃지를 올린다(BY-427).
+                가로의 좌측 세이프에어리어는 이 컨테이너가 이미 비켜서 있어 top만 고려한다. */}
+            <SelfStateBadge
+              state={selfState}
+              studySeconds={focusSec}
+              className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-3"
+            />
           </div>
         ) : (
           <div
@@ -252,6 +314,7 @@ export function LiveRoomSession({
               <RoomTile
                 key={member.userId}
                 member={member}
+                selfState={member.userId === userId ? selfState : undefined}
                 media={
                   member.userId === userId
                     ? myVideo
@@ -276,9 +339,11 @@ export function LiveRoomSession({
               </button>
             </div>
           )}
+          {/* "저장 중..."·"다시 제출"은 페이드 대상이 아니다 — 바만 잔상으로 페이드한다. */}
           <RoomControlBar
             cameraOn={!paused}
             disabled={controlsLocked}
+            faded={controlsFaded}
             onToggleCamera={() => {
               if (!paused) {
                 setCameraWanted(false);
