@@ -72,14 +72,16 @@ function StepBody({
   focusSec: number;
   totalSec: number;
 }) {
-  const timerBlock = (
+  // G5는 타이머를 렌더하지 않는다(2026-08-25 BY-427) — 어느 anchor 분기든 스텝 데이터
+  // (`showTimer`)가 결정하고, 레이아웃 분기에 하드코딩하지 않는다.
+  const timerBlock = step.backdrop.showTimer ? (
     <MockTimerBlock
       focusSec={focusSec}
       totalSec={totalSec}
       tone={step.backdrop.focusTimerTone}
       emphasized={step.emphasis === "timer"}
     />
-  );
+  ) : null;
 
   const coachCard = (
     // key={step.id} — 스텝이 바뀔 때마다 리마운트시켜 페이드 인 애니메이션을 재생한다.
@@ -122,7 +124,8 @@ function StepBody({
           <MockControlBar emphasized />
         </>
       );
-    // G5 — 말풍선 대신 일러스트 카드가 상단에 놓이고 타이머는 원래 자리에 남는다.
+    // G5 — 말풍선 대신 일러스트 카드가 상단에 놓인다. 타이머는 렌더하지 않는다
+    // (`showTimer: false`, 2026-08-25 BY-427 — 위 timerBlock이 null이 된다).
     case "privacy-card":
       return (
         <>
@@ -240,10 +243,13 @@ export function OnboardingGuideFlow({
 
   const { backdrop } = step;
   const focusSec = backdrop.freezeFocusTimer
-    ? // G2 — 순공만 멈추고 총 공부는 계속 흐른다. 이 인과가 G2의 교육 목적 그 자체다.
+    ? // G2 — 순공은 멈추고 총 공부는 계속 흐른다. 이 인과가 G2의 교육 목적 그 자체다.
+      // G4 — 일시정지라 총 공부까지 함께 멈춘다(아래 freezeTotalTimer, 2026-08-25 BY-427 확정).
       backdrop.seedFocusSec
     : backdrop.seedFocusSec + elapsedSec;
-  const totalSec = backdrop.seedTotalSec + elapsedSec;
+  const totalSec = backdrop.freezeTotalTimer
+    ? backdrop.seedTotalSec
+    : backdrop.seedTotalSec + elapsedSec;
 
   // `touch-manipulation`(루트 div) — iOS 웹뷰는 `user-scalable=no`여도 더블탭 줌 **인식기**는
   // 계속 돌려서, 빠른 연속 탭의 두 번째 탭이 더블탭 후보로 잡혀 통째로 삼켜진다(탭이 씹히는

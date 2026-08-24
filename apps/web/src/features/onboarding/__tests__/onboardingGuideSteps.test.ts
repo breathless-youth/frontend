@@ -70,12 +70,41 @@ describe("온보딩 가이드 확정 문구", () => {
 });
 
 describe("목업 배경 상태", () => {
-  it("G2만 순공 타이머를 멈추고, 순공 < 총 관계를 유지한다", () => {
+  it("G2는 순공만 멈추고 총 공부는 흐르게 두며, 순공 < 총 관계를 유지한다", () => {
     const g2 = ONBOARDING_GUIDE_STEPS[1].backdrop;
 
     expect(g2.freezeFocusTimer).toBe(true);
+    expect(g2.freezeTotalTimer).toBe(false);
     expect(g2.seedFocusSec).toBeLessThan(g2.seedTotalSec);
-    expect(ONBOARDING_GUIDE_STEPS.filter((step) => step.backdrop.freezeFocusTimer)).toHaveLength(1);
+  });
+
+  it("G4는 두 타이머를 모두 멈춘다 — 색↔값 모순 해소됨(2026-08-25 BY-427 확정)", () => {
+    const g4 = ONBOARDING_GUIDE_STEPS[3].backdrop;
+
+    // 카피("순공시간과 총 공부 시간이 모두 멈춰요")와 시연이 일치한다.
+    expect(g4.freezeFocusTimer).toBe(true);
+    expect(g4.freezeTotalTimer).toBe(true);
+    // 순공을 얼리는 스텝은 G2(비집중)·G4(일시정지)뿐이고, 총 공부까지 얼리는 것은 G4뿐이다.
+    expect(
+      ONBOARDING_GUIDE_STEPS.filter((step) => step.backdrop.freezeFocusTimer).map(
+        (step) => step.id,
+      ),
+    ).toEqual(["G2", "G4"]);
+    expect(
+      ONBOARDING_GUIDE_STEPS.filter((step) => step.backdrop.freezeTotalTimer).map(
+        (step) => step.id,
+      ),
+    ).toEqual(["G4"]);
+  });
+
+  it("G5만 목업 타이머를 렌더하지 않는다 (2026-08-25 BY-427 확정)", () => {
+    expect(ONBOARDING_GUIDE_STEPS.map((step) => step.backdrop.showTimer)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+    ]);
   });
 
   it("모든 스텝에서 순공은 총 공부를 넘지 않는다", () => {

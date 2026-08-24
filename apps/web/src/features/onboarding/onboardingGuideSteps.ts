@@ -91,6 +91,9 @@ export type MockStatusPill = {
  * | G4 | `68:1124` | `#8b95a1` |
  * | G5 | `68:1291` | `#ffffff` |
  *
+ * (G5는 2026-08-25 BY-427 확정으로 목업 타이머 자체를 렌더하지 않는다 — 표의 G5 행은
+ * Figma 실측 기록용으로만 남긴다.)
+ *
  * 색조 이름(`active`/`stopped`/`simple`)은 **Figma 실측값을 묶기 위한 라벨**이지 확정된
  * 의미 규정이 아니다. `stopped`를 "일시정지색"으로 읽으면 안 된다 — Figma는 실제 세션
  * 프레임에서도 **비집중과 일시정지의 타이머 색을 구분하지 않는다**(S3-2 비집중 `59:315`,
@@ -122,15 +125,27 @@ export type MockBackdrop = {
   statusPill: MockStatusPill | null;
   /** 컨트롤 바가 dim 위로 올라와 강조되는가(G4) — Figma는 y756→y409로 끌어올려 표현했다. */
   controlBar: "behind-dim" | "raised";
+  /**
+   * 목업 타이머 블록(순공 HH:MM:SS + 총 공부)을 렌더하는가. G5만 끈다(2026-08-25 BY-427
+   * 확정) — 프라이버시 카드가 이 스텝의 유일한 메시지라 시연 타이머를 표시하지 않는다.
+   */
+  showTimer: boolean;
   /** 순공 타이머 시드(초). Figma 시안값 — 실시간 카운터의 출발점으로만 쓴다. */
   seedFocusSec: number;
   /** 총 공부 타이머 시드(초). */
   seedTotalSec: number;
   /**
-   * 순공만 멈추고 총 공부는 계속 흐르는가(G2).
-   * 이 인과가 G2의 교육 목적 그 자체다 — 애니메이션을 단순화하더라도 깨지 않는다.
+   * 순공 타이머를 멈추는가(G2·G4). G2는 이것만 켜서 "순공은 멈추고 총 공부는 계속 흐르는"
+   * 비집중의 인과를 보여준다 — 이 인과가 G2의 교육 목적 그 자체다. 애니메이션을 단순화하더라도
+   * 깨지 않는다.
    */
   freezeFocusTimer: boolean;
+  /**
+   * 총 공부 타이머까지 멈추는가(G4). 일시정지 카피가 "순공시간과 총 공부 시간이 모두 멈춰요"
+   * 이므로 시연도 둘 다 멈춘다(2026-08-25 BY-427 확정). G2(비집중)는 총 공부가 계속 흐르는
+   * 것이 교육 목적이라 이 플래그를 켜지 않는다.
+   */
+  freezeTotalTimer: boolean;
   /** 순공 타이머 색조 — Figma 텍스트 노드의 fill 그대로(위 `FocusTimerTone` 표 참고). */
   focusTimerTone: FocusTimerTone;
 };
@@ -207,9 +222,11 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
       controlBar: "behind-dim",
+      showTimer: true,
       seedFocusSec: 19,
       seedTotalSec: 22,
       freezeFocusTimer: false,
+      freezeTotalTimer: false,
       focusTimerTone: "active",
     },
   },
@@ -236,15 +253,18 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
         subLabel: MOCK_DISTRACT_PILL_SUBLABEL,
       },
       controlBar: "behind-dim",
+      showTimer: true,
       // 순공 12 < 총 22 — Figma 시안이 "비집중 = 순공 정지 / 총 진행"을 이 차이로 보여준다.
       seedFocusSec: 12,
       seedTotalSec: 22,
       freezeFocusTimer: true,
+      freezeTotalTimer: false,
       // Figma는 순공 타이머 fill을 흰색이 아닌 `#8b95a1`로 지정했다(`68:982`). 값이 멈춘 것만
       // 으로는 1초 이상 봐야 알아채므로 색 대비가 "순공만 멈췄다"를 즉시 읽히게 해 준다.
       // ⚠️ 이 회색은 `design.md`의 타이머 비집중색(`#FF9E1B`)과 어긋나지만 실제 세션 프레임
       // (S3-2 `59:315`)도 같은 회색이라 **디자인 시스템 레벨의 미확정 사항**이다 —
-      // G4의 색↔값 모순과는 **별개 사안**이니 함께 묶어 해소하지 말 것(`FocusTimerTone` 주석 참고).
+      // G4의 색↔값 모순(2026-08-25 BY-427로 해소 — 값을 색에 맞춰 멈췄다)과는 **별개 사안**이니
+      // 함께 묶어 해소하지 말 것(`FocusTimerTone` 주석 참고).
       focusTimerTone: "stopped",
     },
   },
@@ -272,9 +292,11 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       // TODO(SCR-G1-G5-onboarding-guide.md Current Limitations): G3 상태 필 유무 확정 필요.
       statusPill: null,
       controlBar: "behind-dim",
+      showTimer: true,
       seedFocusSec: 1508,
       seedTotalSec: 1668,
       freezeFocusTimer: false,
+      freezeTotalTimer: false,
       focusTimerTone: "simple",
     },
   },
@@ -299,18 +321,17 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
       controlBar: "raised",
-      // G4는 일시정지를 "설명만" 한다 — Figma 타이머도 진행 중 값이다. 임의로 "둘 다 멈춤"
-      // 시연을 추가하지 않는다(추가하려면 확인 필요 — Review Checklist).
+      showTimer: true,
       seedFocusSec: 20,
       seedTotalSec: 23,
-      freezeFocusTimer: false,
-      // ⚠️ Figma는 값은 진행 중(`00:00:20`)으로 두면서 색만 회색으로 칠했다(`68:1124`).
-      // 그대로 옮기면 **회색인데 초가 올라가는** 숫자가 된다 — 정적 프레임에서는 드러나지 않던
-      // 모순이라 실제로 움직여 보고서야 나온다. 색·값 중 어느 쪽도 임의로 고치지 않고 Figma를
-      // 그대로 따르되, 사용자에게 실제로 보이는 모순이라 확정 우선순위가 높다.
-      // G4는 일시정지 스텝이라 회색 자체는 `design.md`와 일치한다 — G2의 색 괴리와 달리
-      // **여기서 갈리는 것은 색이 아니라 값**이다. 두 사안을 한 항목으로 묶지 말 것.
-      // TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): (우선순위 높음) G4의 색↔값 모순을 어떻게 해소할지 — 순공 값 / 총 공부 값 / 총 공부 색
+      // 해소됨(2026-08-25 BY-427): G4의 색↔값 모순 — Figma(`68:1124`)는 값을 진행 중
+      // (`00:00:20`)으로 두면서 색만 회색으로 칠해, 그대로 옮기면 **회색인데 초가 올라가는**
+      // 숫자가 됐다. 사용자 확정으로 **값을 색에 맞춰 멈추는 쪽**을 택했다 — 카피("순공시간과
+      // 총 공부 시간이 모두 멈춰요")대로 순공·총 공부 둘 다 얼린다.
+      // G4는 일시정지 스텝이라 회색 자체는 `design.md`와 일치한다 — G2의 색 괴리(디자인 시스템
+      // 레벨 미확정)와는 여전히 **별개 사안**이니 묶지 말 것.
+      freezeFocusTimer: true,
+      freezeTotalTimer: true,
       focusTimerTone: "stopped",
     },
   },
@@ -334,9 +355,15 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       dimOpacity: 0.55,
       statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
       controlBar: "behind-dim",
+      // G5는 목업 타이머를 렌더하지 않는다(2026-08-25 BY-427 확정) — 프라이버시 카드가 이
+      // 스텝의 유일한 메시지다. Figma(`68:1291`)에는 타이머가 있지만 사용자 확정이 우선한다.
+      // 상태 필·컨트롤 바 등 다른 목업 요소는 그대로 둔다. 아래 시드·색조는 타입상 남는 값일
+      // 뿐 표시되지 않는다.
+      showTimer: false,
       seedFocusSec: 20,
       seedTotalSec: 23,
       freezeFocusTimer: false,
+      freezeTotalTimer: false,
       focusTimerTone: "active",
     },
   },
