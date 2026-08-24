@@ -79,6 +79,11 @@ export type MockStatusPill = {
   label: string;
   /** 상태 필 아래 한 줄 보조 문구(G2만 있다). */
   subLabel?: string;
+  /**
+   * 필 주위 링 확산 강조(2026-08-25 BY-427 피드백) — G2는 스텝 강조(`emphasis: "status-pill"`)가
+   * 이미 링을 켜므로 이 플래그는 강조 대상이 아닌 스텝(G1·G4)에서 필만 반짝이게 할 때 쓴다.
+   */
+  ring?: boolean;
 };
 
 /**
@@ -222,7 +227,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     backdrop: {
       base: "camera",
       dimOpacity: 0.55,
-      statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
+      statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL, ring: true },
       controlBar: "behind-dim",
       showTimer: true,
       seedFocusSec: 19,
@@ -323,7 +328,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
       dimOpacity: 0.55,
       // 일시정지 스텝이므로 필도 일시정지 상태를 보여준다(2026-08-25 BY-427 사용자 피드백 —
       // "집중 측정 중"이 떠 있으면 카피("모두 멈춰요")·회색 타이머와 어긋난다).
-      statusPill: { state: "paused", label: MOCK_PAUSED_PILL_LABEL },
+      statusPill: { state: "paused", label: MOCK_PAUSED_PILL_LABEL, ring: true },
       controlBar: "raised",
       showTimer: true,
       seedFocusSec: 20,
@@ -357,11 +362,13 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     backdrop: {
       base: "camera",
       dimOpacity: 0.55,
-      statusPill: { state: "focus", label: MOCK_FOCUS_PILL_LABEL },
+      // G5는 상태 필도 렌더하지 않는다(2026-08-25 BY-427 피드백 — "집중 측정 중"이 프라이버시
+      // 메시지와 무관하게 떠 있어 없앴다).
+      statusPill: null,
       controlBar: "behind-dim",
       // G5는 목업 타이머를 렌더하지 않는다(2026-08-25 BY-427 확정) — 프라이버시 카드가 이
       // 스텝의 유일한 메시지다. Figma(`68:1291`)에는 타이머가 있지만 사용자 확정이 우선한다.
-      // 상태 필·컨트롤 바 등 다른 목업 요소는 그대로 둔다. 아래 시드·색조는 타입상 남는 값일
+      // 컨트롤 바 등 다른 목업 요소는 그대로 둔다. 아래 시드·색조는 타입상 남는 값일
       // 뿐 표시되지 않는다.
       showTimer: false,
       seedFocusSec: 20,

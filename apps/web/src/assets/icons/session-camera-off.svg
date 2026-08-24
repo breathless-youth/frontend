@@ -1,10 +1,13 @@
-<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<!-- session-camera.svg와 같은 도형 + 대각선 사선. 어두운 #191f28은 카메라 꺼짐 버튼의
-     흰색 반전 배경(#f2f4f6) 위 전용이다 — 다크 배경 버튼에 쓰지 말 것(BY-427 시안 B). -->
-<mask id="slash-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="20" height="20">
-<rect width="20" height="20" fill="white"/>
-<line x1="3.5" y1="2.5" x2="17.5" y2="16.5" stroke="black" stroke-width="4" stroke-linecap="round"/>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- session-camera.svg와 같은 도형 + 대각선 사선(BY-427 시안 B). 어두운 #191f28은 카메라 꺼짐
+     버튼의 흰색 반전 배경(#f2f4f6) 위 전용이다 — 다크 배경 버튼에 쓰지 말 것. -->
+<mask id="slash-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+<rect width="24" height="24" fill="white"/>
+<line x1="3" y1="3" x2="21" y2="21" stroke="black" stroke-width="4.6" stroke-linecap="round"/>
 </mask>
-<path d="M0 0H12V10H0V0ZM12 3L18 0V10L12 7V3Z" fill="#191f28" transform="translate(1 5)" mask="url(#slash-gap)"/>
-<line x1="3.5" y1="2.5" x2="17.5" y2="16.5" stroke="#191f28" stroke-width="1.8" stroke-linecap="round"/>
+<g mask="url(#slash-gap)" stroke="#191f28" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<rect x="2.5" y="6" width="13" height="12" rx="3"/>
+<path d="M15.5 10.5l6-3v9l-6-3"/>
+</g>
+<line x1="3" y1="3" x2="21" y2="21" stroke="#191f28" stroke-width="1.8" stroke-linecap="round"/>
 </svg>

@@ -131,7 +131,12 @@ export function MockStatusPillBlock({
       // 강조 대상이 아닐 때는 dim 아래 장식과 같은 취급 — 스크린 리더에서 제외한다.
       aria-hidden={emphasized ? undefined : true}
     >
-      <RingOutEmphasis active={emphasized} color={accent} borderRadius={coachRadius.full}>
+      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4, 2026-08-25 BY-427)로 켠다. */}
+      <RingOutEmphasis
+        active={emphasized || pill.ring === true}
+        color={accent}
+        borderRadius={coachRadius.full}
+      >
         <div
           role={emphasized ? "img" : undefined}
           aria-label={emphasized ? pill.label : undefined}

@@ -216,13 +216,13 @@ describe("OnboardingGuideFlow — 목업 타이머 시연", () => {
     expect(screen.queryByText(MOCK_FOCUS_PILL_LABEL)).not.toBeInTheDocument();
   });
 
-  it("G5에서는 타이머가 렌더되지 않는다 — 상태 필 등 다른 목업 요소는 유지 (2026-08-25 BY-427 확정)", () => {
+  it("G5에서는 타이머와 상태 필이 렌더되지 않는다 (2026-08-25 BY-427 확정·피드백)", () => {
     render(<OnboardingGuideFlow {...flowProps} />);
     goToStep(4);
 
     expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
     expect(screen.queryByText(/^\d{2}:\d{2}:\d{2}$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^총 \d{2}:\d{2}:\d{2}$/)).not.toBeInTheDocument();
-    expect(screen.getByText(MOCK_FOCUS_PILL_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(MOCK_FOCUS_PILL_LABEL)).not.toBeInTheDocument();
   });
 });

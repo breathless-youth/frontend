@@ -107,6 +107,19 @@ describe("목업 배경 상태", () => {
     ]);
   });
 
+  it("상태 필 — G1·G4는 링 강조, G2는 스텝 강조가 링을 켬, G3·G5는 필 없음 (2026-08-25 BY-427 피드백)", () => {
+    expect(ONBOARDING_GUIDE_STEPS.map((step) => step.backdrop.statusPill?.ring ?? null)).toEqual([
+      true, // G1 — 집중 필 링
+      null, // G2 — emphasis: "status-pill"이 링을 켠다(플래그 불필요)
+      null, // G3 — 필 없음
+      true, // G4 — 일시정지 필 링
+      null, // G5 — 필 없음
+    ]);
+    expect(ONBOARDING_GUIDE_STEPS[1].emphasis).toBe("status-pill");
+    expect(ONBOARDING_GUIDE_STEPS[2].backdrop.statusPill).toBeNull();
+    expect(ONBOARDING_GUIDE_STEPS[4].backdrop.statusPill).toBeNull();
+  });
+
   it("모든 스텝에서 순공은 총 공부를 넘지 않는다", () => {
     for (const step of ONBOARDING_GUIDE_STEPS) {
       expect(step.backdrop.seedFocusSec).toBeLessThanOrEqual(step.backdrop.seedTotalSec);
