@@ -272,9 +272,7 @@ export function LiveRoomSession({
     <main
       data-testid="live-room-page"
       onPointerDown={handleSurfacePointerDown}
-      // 화상 그리드 배경은 라이트 모드에서도 항상 다크(#0B0F14) — Zoom·Webex 관례이자
-      // 세션 화면 "항상 다크" 원칙(2026-08-25 BY-427 실기기 피드백: 라이트에서 흰 배경이 쨍함).
-      className="relative flex h-dvh flex-col bg-[var(--session-simple-base)]"
+      className="relative flex h-dvh flex-col bg-background"
       style={sessionSurfaceStyle}
     >
       {debugEnabled && (

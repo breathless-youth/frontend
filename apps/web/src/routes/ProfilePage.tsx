@@ -7,6 +7,7 @@ import type { ProfileErrorCode, ProfileUpdateRequest } from "@focusmakers/types"
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Toast } from "@/components/ui/toast";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { validateGoal, validateNickname } from "@/features/profile/profileValidation";
@@ -14,6 +15,7 @@ import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { parseUserId } from "@/lib/userId";
+import { useToast } from "@/lib/useToast";
 
 /**
  * 프로필 설정
@@ -47,12 +49,16 @@ export function ProfilePage() {
     }
   }, [initialized, query.data]);
 
+  const { message: toastMessage, showToast } = useToast();
+
   const saveMutation = useMutation({
     mutationFn: (patch: ProfileUpdateRequest) => updateProfile(userId as number, patch),
     onSuccess: (data) => {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId as number), data);
       setErrors({});
+      // 저장 성공 피드백(2026-08-25 BY-427 A안) — 화면은 유지하고 토스트로만 알린다.
+      showToast("프로필을 저장했어요");
     },
     onError: (error) => {
       if (
@@ -247,9 +253,15 @@ export function ProfilePage() {
           onClick={handleSave}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >
-          저장하기
+          {saveMutation.isPending ? "저장 중..." : "저장하기"}
         </button>
       </div>
+
+      {toastMessage !== null && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
+          <Toast message={toastMessage} />
+        </div>
+      )}
     </main>
   );
 }

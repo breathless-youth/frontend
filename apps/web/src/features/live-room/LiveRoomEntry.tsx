@@ -100,7 +100,7 @@ export function LiveRoomEntry({
     return (
       <main
         data-testid="live-room-page"
-        className="relative flex h-dvh flex-col bg-[var(--session-simple-base)]"
+        className="relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
         {joinError !== null && (
