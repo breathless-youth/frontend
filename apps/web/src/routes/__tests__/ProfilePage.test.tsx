@@ -34,6 +34,7 @@ function renderAt(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<div data-testid="settings-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -106,6 +107,30 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
+  });
+
+  it("서버가 code 없이 409만 줘도 중복 닉네임 인라인 오류로 안내한다 (BY-404 예외 폴백)", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(new ApiError("Conflict", 409));
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "숨벅찬청년들" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
+  });
+
+  it("저장 성공 시 설정 화면으로 복귀한다 (2026-08-25 BY-427 확정)", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
   });
 
   it("저장이 네트워크 오류로 실패하면 재시도 문구를 보여주고 입력을 유지한다", async () => {
