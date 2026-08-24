@@ -11,6 +11,7 @@ import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 import { LicensesPage } from "@/routes/LicensesPage";
 import { LiveRoomPage } from "@/routes/LiveRoomPage";
+import { WebrtcLoopbackPage } from "@/routes/WebrtcLoopbackPage";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 import { PrivacyPage } from "@/routes/PrivacyPage";
 import { ProfilePage } from "@/routes/ProfilePage";
@@ -50,6 +51,9 @@ export function App() {
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/social" element={<SocialHomePage />} />
+          {import.meta.env.DEV && (
+            <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+          )}
           <Route path="/social/code" element={<InviteCodeSharePage />} />
           <Route path="/social/join" element={<InviteCodeJoinPage />} />
           <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
