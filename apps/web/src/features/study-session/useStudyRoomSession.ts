@@ -44,6 +44,7 @@ import {
   toStatusEvents,
   transition,
 } from "./sessionTimeline";
+import { deleteCheckpoint, saveCheckpoint } from "./sessionCheckpoint";
 import type { SessionTuningConfig } from "./sessionTuning";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
@@ -129,23 +130,57 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const [pausedSnapshot, setPausedSnapshot] = useState<PausedSnapshot | null>(null);
 
-  /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
-  const applyState = useCallback((next: SessionState, atMs: number = Date.now()) => {
-    timelineRef.current = transition(timelineRef.current, next, atMs);
-    setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
-    // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
-    // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
-    const applied = currentState(timelineRef.current);
-    setPausedSnapshot((prev) => {
-      if (applied.kind !== "PAUSE") {
-        return prev === null ? prev : null;
+  const lastCheckpointMsRef = useRef(startedAtMsRef.current);
+
+  /**
+   * 비정상 종료 대비 — 현재 타임라인 기준 스냅샷을 디스크에 남긴다.
+   * userId가 없으면 제출할 수 없는 세션이라 저장도 하지 않는다.
+   */
+  const writeCheckpoint = useCallback(
+    (nowMs: number) => {
+      if (userId === null) {
+        return;
       }
-      const sinceMs = currentStateSinceMs(timelineRef.current);
-      return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
-        ? prev
-        : { sinceMs, trigger: applied.trigger };
-    });
-  }, []);
+      const totals = computeSessionTotals(timelineRef.current, nowMs);
+      lastCheckpointMsRef.current = nowMs;
+      saveCheckpoint({
+        userId,
+        startedAtMs: startedAtMsRef.current,
+        lastSeenMs: nowMs,
+        studySec: totals.studySec,
+        focusSec: totals.focusSec,
+        events: toStatusEvents(timelineRef.current, nowMs),
+      });
+    },
+    [userId],
+  );
+
+  /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
+  const applyState = useCallback(
+    (next: SessionState, atMs: number = Date.now()) => {
+      const before = currentState(timelineRef.current);
+      timelineRef.current = transition(timelineRef.current, next, atMs);
+      setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
+      // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
+      // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
+      const applied = currentState(timelineRef.current);
+      // 실제 전이가 일어난 순간만 저장한다 — 감지 tick이 같은 상태로 매번 부르는 경로에서
+      // 저장이 반복되면 안 된다.
+      if (!isSameSessionState(before, applied)) {
+        writeCheckpoint(atMs);
+      }
+      setPausedSnapshot((prev) => {
+        if (applied.kind !== "PAUSE") {
+          return prev === null ? prev : null;
+        }
+        const sinceMs = currentStateSinceMs(timelineRef.current);
+        return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
+          ? prev
+          : { sinceMs, trigger: applied.trigger };
+      });
+    },
+    [writeCheckpoint],
+  );
 
   /**
    * 세션 시작 이벤트 — 스터디룸 진입이 곧 세션 시작이다(별도 시작 버튼이 없다).
@@ -235,9 +270,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           ? prev
           : next,
       );
+
+      if (nowMs - lastCheckpointMsRef.current >= 10_000) {
+        writeCheckpoint(nowMs);
+      }
     }, tickMs);
     return () => clearInterval(timer);
-  }, [applyState, detectionParams, phase.name, tickMs]);
+  }, [applyState, detectionParams, phase.name, tickMs, writeCheckpoint]);
 
   /**
    * 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다.
@@ -344,6 +383,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         setPhase({ name: "unsaved", studySec: finalTotals.studySec });
         return;
       }
+      // 제출 직전 최종 스냅샷 — 실패한 채 떠나거나 여기서 죽어도 종료 시점 값이 남는다.
+      writeCheckpoint(endedAtMs);
       setPhase({ name: "submitting" });
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
@@ -357,6 +398,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           events,
         });
         trackStudySessionSubmitted(true, attempt);
+        deleteCheckpoint(startedAtMsRef.current);
         setPhase({ name: "done", sessions });
       } catch (error) {
         trackStudySessionSubmitted(false, attempt);
@@ -368,7 +410,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         });
       }
     },
-    [userId],
+    [userId, writeCheckpoint],
   );
 
   /**

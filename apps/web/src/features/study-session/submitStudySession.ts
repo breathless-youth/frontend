@@ -4,7 +4,7 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 
-import { API_BASE_URL, parseErrorMessage } from "@/lib/api";
+import { API_BASE_URL, parseApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 
 import { submitViaNative } from "./bridge/submitViaNative";
@@ -106,7 +106,8 @@ export async function submitStudySession(input: SessionInput): Promise<StudySess
     body: JSON.stringify(request),
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "세션 제출 실패");
+    // 상태코드가 있어야 재제출 러너가 400(영구 거부)과 일시 실패를 가른다.
+    throw await parseApiError(res, "세션 제출 실패");
   }
   return (await res.json()) as StudySessionResponse[];
 }

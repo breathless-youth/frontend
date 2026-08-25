@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { AppState, Platform, Text, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import type { ToNativeMessage } from "@focusmakers/types";
@@ -83,8 +83,45 @@ export type RemoteWebViewHostProps = {
    * 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
    */
   onLoadEnd?: (ok: boolean) => void;
+  /**
+   * 사망 복구(재로드·재마운트)에 들어가면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 —
+   * 렌더러가 죽은 웹뷰는 빈 화면·잔상만 남기므로 복구가 끝날 때(onLoadEnd)까지 가린다(BY-436).
+   *
+   * ⚠️ WebView의 `onLoadStart` 이벤트에 걸지 않는다. Android는
+   * `doUpdateVisitedHistory`(RNCWebViewClient.java)가 SPA `pushState`에도 onLoadStart를
+   * 발화시키는데 짝이 되는 onLoadEnd는 없어서, 탭 안 웹 라우팅 한 번에 스플래시가 영영
+   * 걷히지 않았다(실기기: 소셜 홈 → 초대코드 입력 이동에서 스켈레톤 고착). 복구 진입은
+   * 이 컴포넌트가 정확히 아는 사건이라 `enterRecovery`가 직접 알린다.
+   */
+  onRecoveryStart?: (() => void) | undefined;
   testID?: string;
 };
+
+/**
+ * 생존 확인(ping) 타임아웃과 시도 횟수(BY-436). 포그라운드 복귀 직후 JS 스레드가 잠깐
+ * 바쁠 수 있어 1회 재시도한다 — 오탐(살아 있는 웹뷰 재로드)은 진행 중 측정을 날리므로
+ * 미탐(흰 화면 1~2초 연장)보다 훨씬 비싸다.
+ */
+const PING_TIMEOUT_MS = 700;
+const PING_MAX_ATTEMPTS = 2;
+
+/**
+ * Android 렌더러 사망의 전역 복구 채널(BY-436).
+ *
+ * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 4개)가 공유하고, **죽은
+ * 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다**(플랫폼 계약). 사망을 감지한
+ * 호스트 하나만 재마운트하면 이웃 웹뷰들이 죽은 렌더러를 계속 잡고 있어 새 WebView가 그
+ * 죽은 렌더러에 붙고, 로드가 영영 시작되지 않는다 — 실기기에서 복구 스플래시(소셜
+ * 스켈레톤)가 걷히지 않던 원인. 그래서 사망 판정·통보는 마운트된 모든 호스트의 재마운트로
+ * 넓힌다. iOS는 WKWebView 프로세스가 웹뷰별 독립이라 이 채널을 쓰지 않는다(개별 reload).
+ */
+const recoveryListeners = new Set<() => void>();
+
+export function requestGlobalWebViewRecovery(): void {
+  for (const listener of [...recoveryListeners]) {
+    listener();
+  }
+}
 
 export function RemoteWebViewHost({
   path,
@@ -92,6 +129,7 @@ export function RemoteWebViewHost({
   onBridgeMessage,
   backgroundColor,
   onLoadEnd,
+  onRecoveryStart,
   testID,
 }: RemoteWebViewHostProps) {
   const webViewRef = useRef<WebView>(null);
@@ -107,10 +145,39 @@ export function RemoteWebViewHost({
   // 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
   const [retryKey, setRetryKey] = useState(0);
 
+  /**
+   * 웹이 `report-screen`으로 보고한 마지막 화면(BY-436). 렌더러 사망으로 웹뷰를 다시 띄울 때
+   * 돌아갈 곳이다 — Android 재마운트는 초기 `source`가 탭 루트 경로라, 이 값이 없으면
+   * 사용자가 있던 화면(소셜룸 등)을 잃는다. ref인 이유: 살아 있는 동안 `source`가 바뀌면
+   * 그 자체가 내비게이션이 되므로, 재마운트(retryKey) 시점에만 읽는다.
+   */
+  const restoreRef = useRef<{ path: string; query?: Record<string, string> } | null>(null);
+  /** 생존 확인(ping) 상태 — 대기 중인 id·타이머·시도 횟수. */
+  const pingRef = useRef<{
+    id: number;
+    timer: ReturnType<typeof setTimeout>;
+    attempts: number;
+  } | null>(null);
+  const pingSeqRef = useRef(0);
+  /** 첫 로드 완료 여부 — 그 전에는 웹 브리지가 없어 ping이 항상 타임아웃(오탐)이 된다. */
+  const hasLoadedRef = useRef(false);
+  const loadFailedRef = useRef(false);
+  /** 사망 복구(재마운트·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 재마운트를 반복하지 않는다. */
+  const recoveringRef = useRef(false);
+
   const target = useMemo(() => {
     try {
       const baseUrl = getWebBaseUrl();
-      return { uri: buildRemoteWebViewUrl(baseUrl, path, query), origin: originOf(baseUrl) };
+      // 재마운트·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
+      const restore = restoreRef.current;
+      return {
+        uri: buildRemoteWebViewUrl(
+          baseUrl,
+          restore?.path ?? path,
+          restore?.query ? { ...(query ?? {}), ...restore.query } : query,
+        ),
+        origin: originOf(baseUrl),
+      };
     } catch (error: unknown) {
       if (__DEV__) {
         console.warn("[RemoteWebViewHost] 웹 베이스 URL 설정 안 됨", error);
@@ -123,6 +190,7 @@ export function RemoteWebViewHost({
 
   const retry = useCallback(() => {
     setLoadFailed(false);
+    loadFailedRef.current = false;
     setRetryKey((key) => key + 1);
     webViewRef.current?.reload();
   }, []);
@@ -143,12 +211,112 @@ export function RemoteWebViewHost({
    */
   // ponytail: 반복 크래시 시 재로드 루프 가드 없음 — 페이지 자체가 프로세스를 죽이는 경우가
   // 생기면(현재 탭 페이지들은 경량이라 관측된 바 없음) 시도 횟수 제한을 추가할 것.
+  //
+  // 통보를 받는 즉시 `onLoadStart`로 스플래시부터 되돌린다(BY-436) — 재로드의 자체
+  // onLoadStart를 기다리면 그 사이 죽은 웹뷰의 흰 화면·잔상이 그대로 노출된다(실기기 확인).
+  const clearPing = useCallback(() => {
+    if (pingRef.current !== null) {
+      clearTimeout(pingRef.current.timer);
+      pingRef.current = null;
+    }
+  }, []);
+
+  /**
+   * 사망 복구 진입 공통 처리 — 스플래시를 되돌리고 생존 확인 상태를 초기화한다.
+   * `clearPing`이 없으면 진행 중이던 ping 타이머가 새 문서 로드(700ms 이상 걸린다) 중에
+   * 만료돼 건강한 새 문서를 또 재로드하는 루프가 되고, `hasLoadedRef`를 되돌리지 않으면
+   * 로드 완료 전의 포그라운드 복귀가 브리지 없는 문서에 ping을 쏴 같은 오판을 만든다.
+   */
+  const enterRecovery = useCallback(() => {
+    clearPing();
+    hasLoadedRef.current = false;
+    recoveringRef.current = true;
+    onRecoveryStart?.();
+  }, [clearPing, onRecoveryStart]);
+
   const handleContentProcessDidTerminate = useCallback(() => {
+    enterRecovery();
     webViewRef.current?.reload();
-  }, []);
+  }, [enterRecovery]);
+  // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
   const handleRenderProcessGone = useCallback(() => {
-    setRetryKey((key) => key + 1);
+    requestGlobalWebViewRecovery();
   }, []);
+
+  // 전역 복구 채널 구독 — 어느 호스트가 렌더러 사망을 감지하든 함께 재마운트한다.
+  useEffect(() => {
+    const listener = () => {
+      if (recoveringRef.current) {
+        return;
+      }
+      enterRecovery();
+      setRetryKey((key) => key + 1);
+    };
+    recoveryListeners.add(listener);
+    return () => {
+      recoveryListeners.delete(listener);
+    };
+  }, [enterRecovery]);
+
+  /**
+   * 생존 확인 실패 — 렌더러가 죽었다고 보고 사후 통보와 같은 복구를 앞당겨 실행한다.
+   * iOS는 `reload()`(현재 URL·history state 보존 — 소셜룸이 router state로 재입장한다),
+   * Android는 죽은 렌더러의 WebView를 재사용할 수 없어 재마운트한다(위 BY-374 주석과
+   * 같은 플랫폼 제약 — 복원 경로는 `restoreRef`가 잇는다).
+   */
+  const declareDead = useCallback(() => {
+    if (Platform.OS === "android") {
+      // 자기 재마운트도 전역 채널의 리스너가 수행한다 — 렌더러는 공유라 혼자 살아날 수 없다.
+      requestGlobalWebViewRecovery();
+    } else {
+      enterRecovery();
+      webViewRef.current?.reload();
+    }
+  }, [enterRecovery]);
+
+  const sendPing = useCallback(
+    (attempts: number) => {
+      pingSeqRef.current += 1;
+      const id = pingSeqRef.current;
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({ type: "ping", id, atMs: Date.now() }),
+      );
+      const timer = setTimeout(() => {
+        if (attempts + 1 >= PING_MAX_ATTEMPTS) {
+          declareDead();
+        } else {
+          sendPing(attempts + 1);
+        }
+      }, PING_TIMEOUT_MS);
+      pingRef.current = { id, timer, attempts };
+    },
+    [declareDead],
+  );
+
+  /**
+   * 포그라운드 복귀마다 웹뷰 생존을 확인한다(BY-436). 사후 통보(위 두 핸들러)는 복귀보다
+   * 한참 늦게 오거나(Android) 아예 오지 않을 수 있어(iOS 장기 서스펜드), 그동안 순백
+   * 화면이 노출됐다 — 통보를 기다리지 않고 직접 물어본다. 웹 쪽 응답자는
+   * `apps/web/src/lib/nativeLiveness.ts`.
+   */
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") {
+        // 복귀 전 타임아웃이 사망 오판이 되지 않게 접는다.
+        clearPing();
+        return;
+      }
+      if (!hasLoadedRef.current || loadFailedRef.current) {
+        return;
+      }
+      clearPing();
+      sendPing(0);
+    });
+    return () => {
+      subscription.remove();
+      clearPing();
+    };
+  }, [clearPing, sendPing]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -161,11 +329,25 @@ export function RemoteWebViewHost({
         setBackGestureEnabled(message.enabled);
         return;
       }
+      // 생존 확인 응답 — 대기 중인 ping과 id가 맞으면 산 것이다. 화면에 넘길 내용이 없다.
+      if (message.type === "pong") {
+        if (pingRef.current !== null && pingRef.current.id === message.id) {
+          clearPing();
+        }
+        return;
+      }
+      if (message.type === "report-screen") {
+        restoreRef.current = {
+          path: message.path,
+          ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
+        };
+        // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
+      }
       onBridgeMessage?.(message, (reply) => {
         webViewRef.current?.injectJavaScript(injectMessageScript(reply));
       });
     },
-    [onBridgeMessage],
+    [clearPing, onBridgeMessage],
   );
 
   const targetOrigin = target?.origin;
@@ -200,6 +382,8 @@ export function RemoteWebViewHost({
     // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
     // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
     setBackGestureEnabled(true);
+    hasLoadedRef.current = true;
+    recoveringRef.current = false;
     onLoadEnd?.(true);
   }, [onLoadEnd]);
 
@@ -287,8 +471,14 @@ export function RemoteWebViewHost({
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
       onLoadEnd={handleLoadEnd}
-      onError={() => setLoadFailed(true)}
-      onHttpError={() => setLoadFailed(true)}
+      onError={() => {
+        setLoadFailed(true);
+        loadFailedRef.current = true;
+      }}
+      onHttpError={() => {
+        setLoadFailed(true);
+        loadFailedRef.current = true;
+      }}
       onContentProcessDidTerminate={handleContentProcessDidTerminate}
       onRenderProcessGone={handleRenderProcessGone}
     />

@@ -397,6 +397,19 @@ describe("ResultPage — state 없는 진입", () => {
     expect(screen.queryByText("공부 결과")).not.toBeInTheDocument();
   });
 
+  it("네이티브에서는 state 없는 진입도 홈 복귀 신호를 보낸다 — 웹 이동만으로는 세션 모달에 갇힌다(BY-436)", () => {
+    // 렌더러 사망 복원이 이 화면을 state 없이 다시 열 수 있다. 웹 <Navigate/>는 세션
+    // fullScreenModal 안의 웹 홈을 열 뿐이라, navigate-home이 없으면 뒤로가기까지 잠긴
+    // 모달에서 나갈 방법이 없다.
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResult(undefined);
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+
   it("state 없는 되돌림도 ?userId를 승계한다 — CTA 경로와 규칙이 갈리지 않는다", () => {
     renderResult(undefined, "?userId=7");
 

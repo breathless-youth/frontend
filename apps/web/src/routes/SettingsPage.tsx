@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { Toast } from "@/components/ui/toast";
+import { ToastViewport } from "@/components/ui/toast";
 import { postToNative } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { useToast } from "@/lib/useToast";
@@ -173,17 +173,11 @@ export function SettingsPage() {
         </SettingsSection>
       </div>
 
-      {toastMessage !== null && (
-        // 하단 중앙, 탭 바 바로 위 — 소셜 홈의 96px는 이 화면에서 너무 높이 떠 보여
-        // 72px로 내렸다(2026-08-25 실기기 피드백). 등장은 페이드 업 — 지연 뒤 나타나는
-        // 것이 갑작스럽지 않게 한다.
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+72px)] flex justify-center">
-          <Toast
-            message={toastMessage}
-            className="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"
-          />
-        </div>
-      )}
+      {/* 위치는 앱 전역 표준(ToastViewport) — 등장 페이드 업(BY-435)만 이 화면 개선으로 남긴다. */}
+      <ToastViewport
+        message={toastMessage}
+        toastClassName="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"
+      />
     </main>
   );
 }

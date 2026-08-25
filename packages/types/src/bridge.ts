@@ -16,6 +16,16 @@ export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
   | { type: "app-state"; state: "active" | "background"; atMs: number }
+  /**
+   * 웹뷰 생존 확인(BY-436) — 네이티브가 포그라운드 복귀 시 보낸다. 웹은 `pong`으로 즉답한다.
+   *
+   * OS가 백그라운드에서 웹 렌더러 프로세스를 회수하면 사후 통보(iOS
+   * `onContentProcessDidTerminate`, Android `onRenderProcessGone`)가 **한참 늦게** 오거나
+   * 아예 오지 않아, 그동안 순백 화면(iOS)·죽은 잔상(Android)이 노출된다(실기기 확인).
+   * 그래서 통보를 기다리지 않고 복귀 시점에 직접 물어본다 — 응답이 없으면 죽은 것으로
+   * 보고 스플래시로 덮고 재로드한다. `id`로 요청과 응답의 짝을 맞춘다(낡은 pong 방지).
+   */
+  | { type: "ping"; id: number; atMs: number }
   | CameraPermissionMessage
   | SubmitResultMessage;
 
@@ -61,6 +71,11 @@ export type SubmitResultMessage =
       ok: false;
       /** 사용자에게 보여줄 실패 사유. 웹이 그대로 표시한다. */
       message: string;
+      /**
+       * HTTP 응답 실패일 때만 실리는 상태코드. 네트워크 단절·타임아웃에는 없다.
+       * 웹의 재제출 러너가 400(영구 거부, 보관 삭제)과 일시 실패(보관 유지)를 가르는 근거다.
+       */
+      status?: number;
       atMs: number;
     };
 
@@ -68,6 +83,9 @@ export type SubmitResultMessage =
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
   | { type: "session-ready"; atMs: number }
+  /** `ping`(생존 확인)에 대한 즉답 — `id`는 받은 ping의 것을 그대로 되돌린다. */
+  | { type: "pong"; id: number; atMs: number }
+  | ReportScreenMessage
   /**
    * 가속도 센서 구독을 켜고 끈다.
    *
@@ -122,6 +140,30 @@ export type ToNativeMessage =
   | NavigateTabMessage
   | SubmitSessionMessage
   | NavigateHomeMessage;
+
+/**
+ * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
+ *
+ * 두 가지 복구에 쓰인다. 웹 렌더러 프로세스가 죽으면:
+ * 1. Android는 WebView를 재마운트하는데 초기 `source`가 탭 루트 경로라 사용자가 있던
+ *    화면(소셜룸 등)을 잃는다 — `path`·`restoreQuery`가 돌아갈 곳을 알려준다.
+ *    소셜룸은 router state(초대코드)가 재마운트에서 소실되므로 `restoreQuery.code`로
+ *    실어 보내고, 웹 라우트가 이를 폴백 입장 정보로 받는다.
+ * 2. 복구 동안 덮는 스플래시의 톤 — 어두운 룸·세션 화면에서 죽었는데 라이트 스켈레톤을
+ *    덮으면 흰 번쩍임이 된다. `dark`가 다크 배경 스플래시를 고르게 한다.
+ *
+ * 공용 쿼리(userId·appVersion)는 네이티브가 다시 붙이므로 여기 싣지 않는다.
+ */
+export interface ReportScreenMessage {
+  type: "report-screen";
+  /** 쿼리 없는 pathname (예: `/social/room/42`). */
+  path: string;
+  /** 복원에 필요한 화면별 쿼리 (예: `{ code: "0712" }`). 없으면 생략. */
+  restoreQuery?: Record<string, string>;
+  /** 어두운 전체 화면(룸·세션) 여부. */
+  dark: boolean;
+  atMs: number;
+}
 
 /**
  * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다

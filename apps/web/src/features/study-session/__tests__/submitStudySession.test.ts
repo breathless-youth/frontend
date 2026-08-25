@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
+
 import { buildSessionRequest, submitStudySession } from "../submitStudySession";
 
 const BASE_INPUT = {
@@ -163,6 +165,22 @@ describe("submitStudySession", () => {
     await expect(submitStudySession(BASE_INPUT)).rejects.toThrow(
       "세션은 24시간을 초과할 수 없습니다",
     );
+  });
+
+  it("브라우저 경로 실패는 status를 가진 ApiError로 던져진다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ message: "검증 실패" }),
+      }),
+    );
+
+    const error = await submitStudySession(BASE_INPUT).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
   });
 
   it("message 없는 실패면 HTTP 상태 코드로 throw한다", async () => {

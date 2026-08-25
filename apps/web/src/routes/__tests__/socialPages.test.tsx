@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/App";
 import { ApiError } from "@/lib/api";
 import { createRoom, joinRoom } from "@/lib/roomApi";
+import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 
 vi.mock("@/lib/roomApi", () => ({
   createRoom: vi.fn(),
@@ -81,6 +82,24 @@ describe("소셜 홈", () => {
 
     expect(screen.getByRole("button", { name: "방 만들기" })).toBeDisabled();
   });
+
+  it("룸에서 밀려나며 남긴 안내가 있으면 마운트 시 토스트로 보여주고 한 번만 뜬다", () => {
+    markSocialRoomNotice("방이 만료되었어요");
+    const { unmount } = renderAt("/social?userId=7");
+
+    expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
+
+    // 안내는 1회성이다 — 웹뷰가 또 리로드돼 소셜 홈이 다시 마운트돼도 반복되지 않는다.
+    unmount();
+    renderAt("/social?userId=7");
+    expect(screen.queryByText("방이 만료되었어요")).not.toBeInTheDocument();
+  });
+
+  it("남긴 안내가 없으면 토스트가 뜨지 않는다", () => {
+    renderAt("/social?userId=7");
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });
 
 describe("초대코드 공유", () => {
@@ -144,7 +163,7 @@ describe("초대코드 공유", () => {
   });
 
   it("입장 실패 시 토스트로 알리고 화면을 유지한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
+    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderAt(withState);
 
     await userEvent.click(screen.getByRole("button", { name: "입장하기" }));
@@ -216,7 +235,7 @@ describe("초대코드 입력", () => {
   });
 
   it("정원 초과면 인라인 문구를 보여주고 입력 화면을 유지한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
+    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderAt("/social/join?userId=7");
 
     typeCode("3712");
@@ -238,7 +257,7 @@ describe("초대코드 입력", () => {
   });
 
   it("없는 코드면 코드 재확인 문구를 보여준다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVALID_CODE"));
+    mockedJoinRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
     renderAt("/social/join?userId=7");
 
     typeCode("9999");

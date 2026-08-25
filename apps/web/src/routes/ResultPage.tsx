@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focusmakers/types";
@@ -38,6 +39,19 @@ export function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
+
+  /**
+   * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
+   * 보낸다(BY-436). 아래 `<Navigate/>`는 웹 라우터 이동일 뿐이라 — `handleConfirm` 주석의
+   * 이유 그대로 — 세션 `fullScreenModal` 안에 웹 홈이 열린 채 남고, 세션 화면은 Android
+   * 뒤로가기까지 막고 있어(`blockHardwareBack`) 사용자가 갇힌다. 브라우저 단독 모드에서는
+   * `postToNative`가 무동작이고 웹 폴백이 실제 복귀다.
+   */
+  useEffect(() => {
+    if (sessions === null) {
+      postToNative({ type: "navigate-home", atMs: Date.now() });
+    }
+  }, [sessions]);
 
   /**
    * 이탈 경로는 **하나뿐**이다 — CTA `확인`과 우상단 `X`가 같은 콜백을 부른다.
