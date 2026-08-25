@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { validateGoal, validateNickname } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
@@ -55,6 +56,8 @@ export function ProfilePage() {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId as number), data);
       setErrors({});
+      // 복귀한 설정 화면이 "프로필이 저장됐어요" 토스트를 띄우게 표식을 남긴다(시안 A).
+      markProfileSaved();
       // 저장 성공 시 설정 화면으로 복귀한다(2026-08-25 BY-427 확정 — "저장=완료").
       // ScreenBackHeader와 같은 판단: 스택이 있으면 뒤로, 딥링크 직행이면 설정 탭으로.
       const historyState = window.history.state as { idx?: number } | null;
@@ -200,10 +203,13 @@ export function ProfilePage() {
             id="profile-goal"
             type="text"
             value={goal}
-            maxLength={20}
+            // maxLength를 걸지 않는다 — 20자에서 입력이 조용히 막히면 왜 안 쳐지는지 알 수
+            // 없다(2026-08-25 피드백). 초과 입력을 허용하고 아래에서 바로 안내하며, 저장은
+            // handleSave의 validateGoal이 막는다.
             onChange={(event) => {
-              setGoal(event.target.value);
-              setErrors((prev) => ({ ...prev, goal: undefined }));
+              const value = event.target.value;
+              setGoal(value);
+              setErrors((prev) => ({ ...prev, goal: validateGoal(value) ?? undefined }));
             }}
             aria-invalid={errors.goal !== undefined || undefined}
             aria-describedby={errors.goal !== undefined ? "profile-goal-error" : undefined}

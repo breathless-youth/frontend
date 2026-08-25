@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { getProfile, updateProfile } from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
+import { SettingsPage } from "@/routes/SettingsPage";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),
@@ -43,6 +44,8 @@ function renderAt(path: string) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  // 저장 완료 토스트 1회성 플래그가 테스트 간에 새지 않게 비운다.
+  sessionStorage.clear();
 });
 
 describe("프로필 설정", () => {
@@ -119,6 +122,47 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
+  });
+
+  it("목표 문구가 20자를 넘으면 입력 중에 인라인 안내가 뜨고 저장이 막힌다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    // maxLength로 조용히 막으면 왜 안 쳐지는지 알 수 없다 — 초과 입력을 허용하고 안내한다.
+    expect(goalInput).not.toHaveAttribute("maxlength");
+    fireEvent.change(goalInput, {
+      target: { value: "스물한글자를넘기려고일부러길게쓴목표문구입니다" },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("목표는 20자까지 쓸 수 있어요");
+
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("저장 성공으로 복귀한 설정 화면에 저장 완료 토스트가 뜬다 (2026-08-25 시안 A)", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/profile?userId=7"]}>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByTestId("settings-page")).toBeInTheDocument();
+    // 토스트는 마운트 후 passive effect에서 뜨므로 동기 조회는 시점 경쟁이 된다 — 대기형으로 본다.
+    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
   });
 
   it("저장 성공 시 설정 화면으로 복귀한다 (2026-08-25 BY-427 확정)", async () => {

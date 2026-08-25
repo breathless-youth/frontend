@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 
@@ -267,5 +268,29 @@ describe("S6 · 설정", () => {
         screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
       ).toBeInTheDocument();
     });
+  });
+});
+
+describe("프로필 저장 완료 토스트 (2026-08-25 BY-427 시안 A)", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("저장 플래그가 있으면 마운트 시 토스트를 보여주고 플래그를 소비한다", () => {
+    markProfileSaved();
+    const { unmount } = renderAt("/settings");
+
+    expect(screen.getByText("프로필이 저장됐어요")).toBeInTheDocument();
+
+    // 플래그는 1회성이다 — 다시 마운트하면(다른 경로로 재진입 등) 뜨지 않는다.
+    unmount();
+    renderAt("/settings");
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+  });
+
+  it("플래그가 없으면 토스트가 뜨지 않는다", () => {
+    renderAt("/settings");
+
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
   });
 });
