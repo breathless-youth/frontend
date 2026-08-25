@@ -565,8 +565,10 @@ describe("LiveRoomPage — 그리드·타일", () => {
     });
 
     await enterRoom();
-    expect(screen.getAllByTestId("room-tile")).toHaveLength(2);
 
+    // 입장 직후 2개(나+멤버8)를 중간 단언하지 않는다 — 시나리오의 30ms 타이머가 느린
+    // CI 러너에서는 enterRoom이 끝나기 전에 발화해 이미 3개일 수 있다(CI 간헐 실패).
+    // 검증 의도는 MEMBER_JOINED 수신으로 그리드가 재배치된다는 것 하나다.
     await waitFor(() => {
       expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
     });
