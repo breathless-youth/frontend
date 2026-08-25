@@ -114,10 +114,22 @@ type RoomTileProps = {
   selfState?: SelfBadgeState;
   /** 내 타일에만 넘긴다 — 카메라 켜기 모달이 미리보기 비율을 맞추려고 타일 박스를 잰다. */
   rootRef?: Ref<HTMLDivElement>;
+  /**
+   * 바 숨김(몰입) 상태(BY-435) — 이름·목표(와 그 가독성용 스크림)를 감추고 타이머 뱃지만
+   * 남긴다. 언마운트 대신 opacity로 지워 바 토글과 같은 박자로 페이드된다.
+   */
+  infoHidden?: boolean;
   className?: string;
 };
 
-export function RoomTile({ member, media, selfState, rootRef, className }: RoomTileProps) {
+export function RoomTile({
+  member,
+  media,
+  selfState,
+  rootRef,
+  infoHidden = false,
+  className,
+}: RoomTileProps) {
   const showMedia = member.cameraOn && media !== undefined;
   return (
     <div
@@ -141,7 +153,11 @@ export function RoomTile({ member, media, selfState, rootRef, className }: RoomT
         <div
           aria-hidden="true"
           data-testid="tile-scrim"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]",
+            "transition-opacity duration-300 motion-reduce:transition-none",
+            infoHidden && "opacity-0",
+          )}
         />
       )}
       {/* 타이머 뱃지 — 내 타일은 로컬 3상태, 타 참가자도 서버 발행 집중 상태 색을 쓴다
@@ -154,7 +170,14 @@ export function RoomTile({ member, media, selfState, rootRef, className }: RoomT
         studySeconds={member.studySeconds}
         className="absolute top-3 left-3"
       />
-      <div className="absolute bottom-3 left-3">
+      <div
+        data-testid="tile-info"
+        aria-hidden={infoHidden || undefined}
+        className={cn(
+          "absolute bottom-3 left-3 transition-opacity duration-300 motion-reduce:transition-none",
+          infoHidden && "opacity-0",
+        )}
+      >
         <p className="text-[15px] font-bold text-white">
           {member.nickname}
           {/* 타 참가자의 집중상태는 시각 표시가 없다(명세 2026-08-21 개정 · 2026-08-25 BY-427:

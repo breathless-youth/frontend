@@ -151,9 +151,6 @@ async function enterRoom() {
   // findByRole은 마운트 커밋 직후(패시브 이펙트 전) DOM을 잡을 수 있다 — 채널 연결·
   // 끄고 입장 일시정지·SNAPSHOT 반영까지 흘려보낸 뒤 돌려줘야 단언이 결정적이다.
   await act(async () => {});
-  // 바는 입장 직후 숨김(BY-435 탭 토글)이라 화면을 한 번 탭해 올려 둔다 — 바 버튼을
-  // 조작하는 테스트들의 공통 전제. 입장 직후 숨김 자체는 토글 describe가 따로 본다.
-  fireEvent.pointerDown(screen.getByTestId("live-room-page"));
 }
 
 /** 세션 중 카메라 켜기 — 입장이 항상 꺼짐이라, 켜기는 확인 모달을 거치는 이 경로뿐이다. */
@@ -808,30 +805,29 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(flipIcon.style.transform).toBe("rotate(360deg)");
   });
 
-  it("바가 내려가 있으면 하단 여백은 화면 높이 비례(4dvh), 올라오면 바만큼 벌리고 살짝 줄어든다", async () => {
+  it("바가 올라와 있으면 하단을 바만큼 벌리고 살짝 줄며, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
-    await screen.findByRole("button", { name: "나가기" });
-    await act(async () => {});
+    await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
-
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     const grid = screen.getByTestId("room-grid");
     expect(grid).toHaveClass("scale-[0.96]");
     expect(grid).not.toHaveClass("pb-[4dvh]");
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(grid).toHaveClass("pb-[4dvh]");
+    expect(grid).not.toHaveClass("scale-[0.96]");
   });
 
-  it("2명 타일은 0350/0351 비율 — 1열 정사각, 화면 높이 비례이고 바가 올라오면 함께 준다", async () => {
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 34dvh, 내리면 41dvh로 커진다", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
-    await screen.findByRole("button", { name: "나가기" });
-    await act(async () => {});
+    await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("h-[41dvh]");
+    expect(tile).toHaveClass("h-[34dvh]");
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
-    expect(tile).toHaveClass("h-[34dvh]");
+    expect(tile).toHaveClass("h-[41dvh]");
   });
 
   it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
@@ -841,7 +837,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-[2/3]");
-    expect(tile).toHaveClass("w-[calc(50%-6px)]");
+    expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
   it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {
@@ -918,27 +914,37 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)", () => {
   const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
 
-  /** enterRoom의 자동 탭 없이 입장만 — 입장 직후 숨김 상태를 검증할 때 쓴다. */
-  async function enterWithoutTap() {
-    await screen.findByRole("button", { name: "나가기" });
-    await act(async () => {});
-  }
-
-  it("입장 직후 바는 내려가 있고, 화면 탭이 올리고 다시 탭하면 내린다 — 자동으로 내려가지 않는다", async () => {
+  it("입장 직후 바는 올라와 있고, 탭하면 내려가고 다시 탭하면 올라온다 — 자동으로 내려가지 않는다", async () => {
     renderRoom();
-    await enterWithoutTap();
+    await enterRoom();
 
     const bar = screen.getByTestId("room-control-bar");
-    expect(bar).toHaveClass(SLIDE);
-    expect(bar).toHaveClass("pointer-events-none");
-
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(bar).toHaveClass("pointer-events-auto");
     expect(bar).not.toHaveClass(SLIDE);
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(bar).toHaveClass("pointer-events-none");
     expect(bar).toHaveClass(SLIDE);
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass(SLIDE);
+  });
+
+  it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+
+    const infos = screen.getAllByTestId("tile-info");
+    infos.forEach((info) => expect(info).not.toHaveClass("opacity-0"));
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    screen.getAllByTestId("tile-info").forEach((info) => {
+      expect(info).toHaveClass("opacity-0");
+      expect(info).toHaveAttribute("aria-hidden", "true");
+    });
+    // 시간 뱃지는 남는다.
+    expect(screen.getAllByTestId("self-state-badge").length).toBeGreaterThan(0);
   });
 
   it("바 위 탭(버튼 조작)은 토글로 버블되지 않는다 — 버튼을 누를 때마다 바가 내려가면 안 된다", async () => {

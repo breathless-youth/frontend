@@ -258,7 +258,9 @@ export function LiveRoomSession({
   // 상태로 시작해 타일만 있는 몰입 화면이다. 잠금(제출 중·에러)·다이얼로그 동안은 항상
   // 보인다. 바 자체 조작은 RoomControlBar가 pointerdown 버블을 끊어 토글로 새지 않는다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  const [controlsShown, setControlsShown] = useState(false);
+  // 입장 직후에는 보인다(2026-08-25 피드백 — 조작법을 먼저 보여준다). 탭으로 내리면
+  // 이름·목표도 함께 숨어 시간만 남는 몰입 화면이 된다(RoomTile infoHidden).
+  const [controlsShown, setControlsShown] = useState(true);
   const controlsVisible = controlsAlwaysVisible || controlsShown;
   const handleSurfacePointerDown = () => {
     // 강제 표시 구간의 탭(다이얼로그 배경 등)이 숨김 상태를 뒤집어 두면, 구간이 끝나는
@@ -309,13 +311,13 @@ export function LiveRoomSession({
           <div
             data-testid="room-grid"
             // 타일 배치(BY-435) — 비율·간격은 실기기 스크린샷 0352 기준: 약 2:3 세로형
-            // 라운드 타일(모서리는 기존 radius), 그룹 세로 가운데. 간격은 8px로 좁혀 꽉 채운다
-            // (2026-08-25 피드백 — 종전 20px).
+            // 라운드 타일(모서리는 기존 radius), 그룹 세로 가운데. 간격은 4px까지 좁혀 꽉 채운다
+            // (2026-08-25 피드백 — 20px → 8px → 4px).
             // flex-wrap justify-center가 홀수 인원(3·5명)의 마지막 타일을 자동으로 가운데
             // 놓는다(2+1, 2+2, 2+2+1, 2+2+2). 4명까지는 세로 가운데, 5명+는 짧은 화면에서
             // 가운데 정렬이 스크롤 시작을 잘라먹지 않게 위 정렬. 디스코드 참조는 플로팅 바
             // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.96) 준다.
-            className={`flex grow flex-wrap justify-center gap-2 overflow-y-auto px-2 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               allMembers.length <= 4 ? "content-center" : "content-start"
             } ${
               controlsVisible
@@ -329,6 +331,7 @@ export function LiveRoomSession({
                 member={member}
                 rootRef={member.userId === userId ? selfSurfaceRef : undefined}
                 selfState={member.userId === userId ? selfState : undefined}
+                infoHidden={!controlsVisible}
                 media={
                   member.userId === userId
                     ? myVideo
@@ -343,7 +346,7 @@ export function LiveRoomSession({
                         "aspect-square max-w-full transition-[height] duration-300 motion-reduce:transition-none",
                         controlsVisible ? "h-[34dvh]" : "h-[41dvh]",
                       )
-                    : "aspect-[2/3] w-[calc(50%-6px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-8px)]",
+                    : "aspect-[2/3] w-[calc(50%-2px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-4px)]",
                 )}
               />
             ))}
