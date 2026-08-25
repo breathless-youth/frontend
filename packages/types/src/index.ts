@@ -222,6 +222,7 @@ export type {
 export type {
   CameraPermissionMessage,
   NavigateHomeMessage,
+  ReportScreenMessage,
   NavigateTabMessage,
   SetTabBarMessage,
   SubmitResultMessage,

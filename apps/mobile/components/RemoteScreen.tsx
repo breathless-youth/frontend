@@ -105,6 +105,12 @@ export function RemoteScreen({
   // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
   // 세션은 화면 단위 prop(blockHardwareBack)을 걸 자리가 없어 브리지 신호로 잠근다.
   const [backLocked, setBackLocked] = useState(false);
+  /**
+   * 웹이 마지막으로 보고한 화면이 어두운 전체 화면(룸·세션)인지(BY-436). 렌더러 사망 복구로
+   * 스플래시가 되돌아올 때 이 값이 true면 라이트 스켈레톤 대신 다크 배경을 덮는다 —
+   * 어두운 룸 위에 소셜 홈 모양의 밝은 스켈레톤이 번쩍이면 흰 화면과 다를 게 없다.
+   */
+  const [darkScreen, setDarkScreen] = useState(false);
   // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
   // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
   const lastTabBarVisibleRef = useRef<boolean | null>(null);
@@ -121,6 +127,11 @@ export function RemoteScreen({
         if (suppressTabBarMessages) {
           return;
         }
+      }
+      if (message.type === "report-screen") {
+        // 셸이 소비한다(복구 스플래시 톤) — 복원 경로는 호스트가 이미 저장했다.
+        setDarkScreen(message.dark);
+        return;
       }
       onBridgeMessage(message, reply);
     },
@@ -184,13 +195,27 @@ export function RemoteScreen({
           // 뒤로가기조차 눌리지 않았다).
           pointerEvents="none"
           className="bg-bg-base dark:bg-bg-base-dark absolute inset-0"
-          style={backgroundColor ? { backgroundColor } : undefined}
+          style={
+            darkScreen
+              ? { backgroundColor: "#0B0F14" }
+              : backgroundColor
+                ? { backgroundColor }
+                : undefined
+          }
         >
           {/* 스켈레톤은 페이지 레이아웃을 그대로 그리므로 중앙 정렬 없이 전면에 편다. */}
-          {splash ?? (
+          {darkScreen ? (
+            // 어두운 화면(룸·세션) 복구 중 — 세션 서피스와 같은 배경만 유지한다
+            // (`app/room/[id].tsx`의 backgroundColor와 동일 값).
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator />
+              <ActivityIndicator color="#8B93A1" />
             </View>
+          ) : (
+            (splash ?? (
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator />
+              </View>
+            ))
           )}
         </View>
       )}

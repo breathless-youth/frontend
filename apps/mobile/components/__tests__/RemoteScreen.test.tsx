@@ -170,6 +170,89 @@ describe("RemoteScreen", () => {
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
   });
 
+  it("어두운 화면 보고(report-screen dark) 후의 복구 스플래시는 다크 배경이다 — 흰 번쩍임 방지(BY-436)", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(
+      <RemoteScreen
+        testID="social-webview"
+        path="/social"
+        splash={<Text testID="social-skeleton">skeleton</Text>}
+      />,
+    );
+    const webview = await screen.findByTestId("social-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    // 웹이 소셜룸(다크 화면)에 있다고 보고한 뒤 렌더러가 죽어 리로드가 시작된 상황.
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: "report-screen",
+            path: "/social/room/42",
+            dark: true,
+            atMs: 1,
+          }),
+        },
+      });
+    });
+    act(() => {
+      (webview.props.onLoadStart as () => void)();
+    });
+
+    const splash = screen.getByTestId("social-webview-splash");
+    expect(splash.props.style).toMatchObject({ backgroundColor: "#0B0F14" });
+    // 라이트 스켈레톤(소셜 홈 모양)은 다크 화면 위에 그리지 않는다.
+    expect(screen.queryByTestId("social-skeleton")).toBeNull();
+  });
+
+  it("밝은 화면 보고 후의 복구 스플래시는 기존 스켈레톤 그대로다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(
+      <RemoteScreen
+        testID="social-webview"
+        path="/social"
+        splash={<Text testID="social-skeleton">skeleton</Text>}
+      />,
+    );
+    const webview = await screen.findByTestId("social-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path: "/social", dark: false, atMs: 1 }),
+        },
+      });
+    });
+    act(() => {
+      (webview.props.onLoadStart as () => void)();
+    });
+
+    expect(screen.getByTestId("social-skeleton")).toBeTruthy();
+  });
+
+  it("report-screen은 공용 브리지 핸들러로 넘기지 않는다 — 셸 내부 상태다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="social-webview" path="/social" />);
+    const webview = await screen.findByTestId("social-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path: "/social", dark: false, atMs: 1 }),
+        },
+      });
+    });
+
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalled();
+  });
+
   it("suppressTabBarMessages면 set-tab-bar만 걸러지고 다른 메시지는 통과한다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 

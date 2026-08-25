@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { AppState } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWebViewHost";
@@ -372,5 +373,252 @@ describe("onShouldStartLoadWithRequest", () => {
     const shouldStart = getShouldStartHandler();
 
     expect(shouldStart({ url: "https://web.test/settings" })).toBe(true);
+  });
+});
+
+/**
+ * 웹뷰 생존 확인(BY-436) — 렌더러 프로세스 사망의 사후 통보(iOS terminate/Android
+ * renderProcessGone)는 포그라운드 복귀보다 한참 늦게 오거나 아예 오지 않아, 그동안
+ * 순백 화면(iOS)·죽은 잔상(Android)이 노출됐다(실기기 확인). 복귀 시점에 ping으로 직접
+ * 물어보고 응답이 없으면 죽은 것으로 본다.
+ */
+describe("포그라운드 생존 확인 (BY-436)", () => {
+  function renderLoadedHost(extra: Partial<React.ComponentProps<typeof RemoteWebViewHost>> = {}) {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    const onLoadStart = jest.fn();
+    render(
+      <RemoteWebViewHost
+        path="/social"
+        query={{ userId: 7 }}
+        testID="host"
+        onLoadStart={onLoadStart}
+        {...extra}
+      />,
+    );
+    // 첫 로드 완료 — 생존 확인은 로드가 끝난 웹뷰에만 의미가 있다.
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+    // RN 내부도 "change"를 구독할 수 있어 하나만 고르지 않고 전부 부른다 — 실제 이벤트와 같다.
+    const fire = (state: string) => {
+      for (const [event, handler] of appStateSpy.mock.calls) {
+        if (event === "change") {
+          (handler as (s: string) => void)(state);
+        }
+      }
+    };
+    return { onLoadStart, foreground: () => act(() => fire("active")) };
+  }
+
+  /** 주입된 ping 스크립트에서 id를 꺼낸다 — pong 짝 맞추기용. */
+  function lastPingId(): number {
+    const script = mockInjectJavaScript.mock.calls.at(-1)?.[0] as string;
+    const match = /\\"id\\":(\d+)/.exec(script);
+    if (!match) {
+      throw new Error(`ping 스크립트가 아니다: ${script}`);
+    }
+    return Number(match[1]);
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockInjectJavaScript.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("로드 완료 후 포그라운드 복귀 시 ping을 주입한다", () => {
+    const { foreground } = renderLoadedHost();
+
+    foreground();
+
+    expect(mockInjectJavaScript).toHaveBeenCalledWith(
+      expect.stringContaining('\\"type\\":\\"ping\\"'),
+    );
+  });
+
+  it("첫 로드가 끝나기 전에는 ping하지 않는다 — 브리지가 아직 없어 오탐 재로드가 된다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    act(() => {
+      for (const [event, handler] of appStateSpy.mock.calls) {
+        if (event === "change") {
+          (handler as (s: string) => void)("active");
+        }
+      }
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("pong이 오면 살아 있는 것이다 — 시간이 지나도 재로드하지 않는다", () => {
+    const { onLoadStart, foreground } = renderLoadedHost();
+    foreground();
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: { data: JSON.stringify({ type: "pong", id: lastPingId(), atMs: 1 }) },
+      });
+    });
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockReload).not.toHaveBeenCalled();
+    expect(onLoadStart).not.toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(1);
+  });
+
+  it("pong은 화면 콜백으로 전달되지 않는다 — 호스트가 소비한다", () => {
+    const onBridgeMessage = jest.fn();
+    const { foreground } = renderLoadedHost({ onBridgeMessage });
+    foreground();
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: { data: JSON.stringify({ type: "pong", id: lastPingId(), atMs: 1 }) },
+      });
+    });
+
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+  });
+
+  it("재시도까지 응답이 없으면 스플래시를 되돌리고 재로드한다", () => {
+    const { onLoadStart, foreground } = renderLoadedHost();
+    foreground();
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+
+    // 1차 타임아웃 → 재시도 ping
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(2);
+    expect(mockReload).not.toHaveBeenCalled();
+
+    // 2차 타임아웃 → 사망 선고
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(onLoadStart).toHaveBeenCalled();
+    expect(mockReload).toHaveBeenCalled(); // jest 기본 플랫폼(iOS)은 reload — URL·히스토리 보존
+  });
+
+  it("백그라운드로 가면 진행 중이던 확인을 접는다 — 복귀 전 타임아웃으로 오판하지 않는다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    const onLoadStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+    const fire = (state: string) =>
+      act(() => {
+        for (const [event, handler] of appStateSpy.mock.calls) {
+          if (event === "change") {
+            (handler as (s: string) => void)(state);
+          }
+        }
+      });
+
+    fire("active");
+    fire("background");
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockReload).not.toHaveBeenCalled();
+    expect(onLoadStart).not.toHaveBeenCalled();
+  });
+});
+
+describe("report-screen 복원 (BY-436)", () => {
+  it("report-screen은 화면 콜백으로도 전달된다 — 스플래시 톤은 RemoteScreen 몫이다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path: "/profile", dark: false, atMs: 1 }),
+        },
+      });
+    });
+
+    expect(onBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "report-screen", path: "/profile" }),
+      expect.any(Function),
+    );
+  });
+
+  it("렌더러 사망 재마운트는 보고된 경로·쿼리로 연다 — 소셜룸을 잃지 않는다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: "report-screen",
+            path: "/social/room/42",
+            restoreQuery: { code: "0712" },
+            dark: true,
+            atMs: 1,
+          }),
+        },
+      });
+    });
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social/room/42");
+    expect(uri).toContain("code=0712");
+    expect(uri).toContain("userId=7");
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+  });
+
+  it("보고가 없으면 재마운트는 원래 경로다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social?");
+    expect(uri).not.toContain("code=");
+  });
+});
+
+describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
+  it("iOS 콘텐츠 프로세스 종료 통보가 오면 재로드 전에 스플래시부터 되돌린다", () => {
+    const onLoadStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(onLoadStart).toHaveBeenCalled();
+    expect(mockReload).toHaveBeenCalled();
+  });
+
+  it("Android 렌더러 사망 통보도 스플래시부터 되돌린다", () => {
+    const onLoadStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    expect(onLoadStart).toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
   });
 });

@@ -106,11 +106,13 @@ type FakePc = ReturnType<typeof createFakePc>;
 
 function renderRoom({
   state = { inviteCode: "0712" },
+  search = "?userId=7",
   scenario = { snapshot: [] },
   camera = createMockCameraAdapter(),
   createCamera,
 }: {
   state?: unknown;
+  search?: string;
   scenario?: MockRoomScenario;
   camera?: CameraAdapter;
   createCamera?: () => CameraAdapter;
@@ -121,7 +123,7 @@ function renderRoom({
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[{ pathname: "/social/room/42", search: "?userId=7", state }]}>
+      <MemoryRouter initialEntries={[{ pathname: "/social/room/42", search, state }]}>
         <Routes>
           <Route
             path="/social/room/:roomId"
@@ -298,6 +300,23 @@ describe("LiveRoomPage — 입장", () => {
     await userEvent.click(screen.getByRole("button", { name: "소셜 홈으로" }));
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+  });
+
+  it("state 없이 ?code가 있으면 그 코드로 입장한다 — 렌더러 사망 후 복원된 문서(BY-436)", async () => {
+    mockedJoinRoom.mockResolvedValue(joinResponse);
+    renderRoom({ state: null, search: "?userId=7&code=0712" });
+
+    await enterRoom();
+
+    expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
+    expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
+  });
+
+  it("state도 완전한 ?code도 없으면 소셜 홈으로 돌려보낸다", () => {
+    renderRoom({ state: null, search: "?userId=7&code=07" });
+
+    expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
   it("방이 사라졌으면(ROOM_CLOSED) 화면에 붙잡지 않고 소셜 홈으로 내보낸다", async () => {
