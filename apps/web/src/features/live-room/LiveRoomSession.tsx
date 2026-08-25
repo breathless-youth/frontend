@@ -334,7 +334,7 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-6 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
             } ${
               grid.rowUnit === 2

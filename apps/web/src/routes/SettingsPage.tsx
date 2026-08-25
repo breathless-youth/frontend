@@ -174,9 +174,10 @@ export function SettingsPage() {
       </div>
 
       {toastMessage !== null && (
-        // 소셜 홈과 같은 배치 — 탭 바 위 하단 중앙(96px 오프셋). 등장은 페이드 업 —
-        // 지연 뒤 나타나는 것이 갑작스럽지 않게 한다.
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
+        // 하단 중앙, 탭 바 바로 위 — 소셜 홈의 96px는 이 화면에서 너무 높이 떠 보여
+        // 72px로 내렸다(2026-08-25 실기기 피드백). 등장은 페이드 업 — 지연 뒤 나타나는
+        // 것이 갑작스럽지 않게 한다.
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+72px)] flex justify-center">
           <Toast
             message={toastMessage}
             className="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"

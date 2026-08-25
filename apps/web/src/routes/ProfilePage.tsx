@@ -263,7 +263,9 @@ export function ProfilePage() {
       <div className="mt-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <button
           type="button"
-          disabled={!isDirty || saveMutation.isPending}
+          // 목표 20자 초과는 입력 중 인라인 안내와 함께 저장 버튼도 잠근다(2026-08-25 피드백)
+          // — 눌러도 거부될 버튼을 활성으로 두지 않는다.
+          disabled={!isDirty || saveMutation.isPending || validateGoal(goal) !== null}
           onClick={handleSave}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >

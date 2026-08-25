@@ -136,9 +136,15 @@ describe("프로필 설정", () => {
     });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("목표는 20자까지 쓸 수 있어요");
+    // 초과 상태에서는 저장 버튼 자체가 비활성이다 (2026-08-25 피드백).
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
+
+    // 20자 이내로 줄이면 다시 활성으로 돌아온다.
+    fireEvent.change(goalInput, { target: { value: "스무자이내목표" } });
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
   });
 
   it("저장 성공으로 복귀한 설정 화면에 저장 완료 토스트가 뜬다 (2026-08-25 시안 A)", async () => {
