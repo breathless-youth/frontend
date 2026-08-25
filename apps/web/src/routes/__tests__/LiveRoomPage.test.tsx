@@ -12,6 +12,7 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { ApiError } from "@/lib/api";
+import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { getProfile } from "@/lib/profileApi";
 import { joinRoom, leaveRoom } from "@/lib/roomApi";
 import { LiveRoomPage } from "../LiveRoomPage";
@@ -276,7 +277,7 @@ describe("LiveRoomPage — 입장", () => {
   });
 
   it("재-join이 실패하면 인라인 오류를 보여주고 다시 시도는 join부터 재시작한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
+    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderRoom();
 
     expect(await screen.findByText("방이 가득 찼어요")).toBeInTheDocument();
@@ -290,13 +291,39 @@ describe("LiveRoomPage — 입장", () => {
   });
 
   it("재-join 실패 화면의 [소셜 홈으로]는 소셜 홈으로 돌려보낸다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
+    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderRoom();
     await screen.findByText("방이 가득 찼어요");
 
     await userEvent.click(screen.getByRole("button", { name: "소셜 홈으로" }));
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+  });
+
+  it("방이 사라졌으면(ROOM_CLOSED) 화면에 붙잡지 않고 소셜 홈으로 내보낸다", async () => {
+    // 백그라운드 복귀로 웹뷰가 리로드되며 재-join하는데 그 사이 전원이 나가 방이 소멸한 경우.
+    // 종전에는 코드 재확인 문구와 [다시 시도]만 남아 아무것도 할 수 없었다(BY-436).
+    mockedJoinRoom.mockRejectedValue(new ApiError("소멸된 방", 404, "ROOM_CLOSED"));
+    renderRoom();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe("모두 나가서 방이 사라졌어요");
+  });
+
+  it("소멸 10분이 지나 INVITE_CODE_NOT_FOUND로 바뀌어도 같은 안내로 내보낸다", async () => {
+    mockedJoinRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
+    renderRoom();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe("모두 나가서 방이 사라졌어요");
+  });
+
+  it("5xx는 내보내지 않는다 — 방이 살아 있는데 쫓아내면 측정이 날아간다", async () => {
+    mockedJoinRoom.mockRejectedValue(new ApiError("서버 오류", 500, "INTERNAL_ERROR"));
+    renderRoom();
+
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
   });
 
   it("카메라 획득에 실패해도 꺼짐만 발행된다 — 거짓 켜짐 금지", async () => {

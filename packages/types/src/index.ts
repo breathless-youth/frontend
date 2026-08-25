@@ -161,8 +161,24 @@ export interface RoomJoinResponse {
   iceTtlSeconds: number;
 }
 
-/** join 실패 코드: 400 형식 위반 / 404 없는·소멸된 코드(구분 없음) / 409 정원 6명 초과 */
-export type RoomJoinErrorCode = "INVALID_CODE_FORMAT" | "INVALID_CODE" | "ROOM_FULL";
+/**
+ * join 실패 코드 (2026-08-25 BY-436 백엔드 계약).
+ *
+ * 앞의 셋은 룸 전용 404다 — 종전에는 셋 다 같은 응답이라 화면이 구분할 수 없었다.
+ * `ROOM_CLOSED`는 **방이 소멸한 뒤 10분 동안만** 내려오고, 그 뒤로는 같은 코드가
+ * `INVITE_CODE_NOT_FOUND`로 바뀐다 — 두 코드가 같은 상황(전원 퇴장으로 사라진 방)을
+ * 가리킬 수 있다는 뜻이라, 재입장 화면은 둘을 같은 문구로 다룬다(`joinErrorCopy.ts`).
+ *
+ * 뒤의 넷은 서버 공통 코드다. `CONFLICT`가 정원 초과(6명)를 뜻하는 것은 join에 한한다.
+ */
+export type RoomJoinErrorCode =
+  | "INVITE_CODE_NOT_FOUND"
+  | "ROOM_CLOSED"
+  | "USER_NOT_FOUND"
+  | "BAD_REQUEST"
+  | "VALIDATION_FAILED"
+  | "CONFLICT"
+  | "INTERNAL_ERROR";
 
 /**
  * 프로필 API 계약

@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { IceServer } from "@focusmakers/types";
 
 import { ErrorState } from "@/components/ui/ErrorState";
-import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
+import { rejoinFailure } from "@/features/social-room/joinErrorCopy";
+import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { joinRoom } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
@@ -78,14 +79,23 @@ export function LiveRoomEntry({
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          setJoinError(joinErrorMessage(error));
+        if (cancelled) {
+          return;
         }
+        const failure = rejoinFailure(error);
+        // 이 방으로는 복구할 수 없는 실패(방 소멸 등)는 화면에 붙잡아 두면 사용자가
+        // [다시 시도] 말고 할 수 있는 게 없는 상태에 갇힌다 — 사유만 남기고 내보낸다.
+        if (failure.kind === "leave") {
+          markSocialRoomNotice(failure.message);
+          navigate({ pathname: "/social", search: location.search }, { replace: true });
+          return;
+        }
+        setJoinError(failure.message);
       });
     return () => {
       cancelled = true;
     };
-  }, [entryState.inviteCode, graceRejoin, joinAttempt, userId]);
+  }, [entryState.inviteCode, graceRejoin, joinAttempt, location.search, navigate, userId]);
 
   // join과 프로필이 모두 결착되면 입장 — 프로필은 실패해도 폴백(null)으로 진행한다.
   const profileSettled = profile.isSuccess || profile.isError;

@@ -1,8 +1,10 @@
+import { useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Toast } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
+import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { createRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
@@ -17,6 +19,17 @@ export function SocialHomePage() {
   const { message: toastMessage, showToast } = useToast();
 
   const userId = parseUserId(searchParams.get("userId"));
+
+  // 룸에서 밀려나며 남긴 사유를 여기서 알린다(BY-436). 플래그는 1회성이라 소비 결과를 ref에
+  // 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 null로 굳지 않는다
+  // (`SettingsPage`의 프로필 저장 토스트와 같은 패턴).
+  const noticeRef = useRef<string | null | undefined>(undefined);
+  noticeRef.current ??= consumeSocialRoomNotice();
+  useEffect(() => {
+    if (noticeRef.current !== null && noticeRef.current !== undefined) {
+      showToast(noticeRef.current);
+    }
+  }, [showToast]);
 
   const createMutation = useMutation({
     // 버튼이 userId 없이는 비활성이라 여기 도달하면 null이 아니다.
