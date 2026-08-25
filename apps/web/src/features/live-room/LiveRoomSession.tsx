@@ -229,13 +229,35 @@ export function LiveRoomSession({
   }, []);
   // 모달이 열린 채 회전하면 셀프뷰 서피스 비율이 바뀐다(가로 3:2 등) — 열 때 한 번 잰
   // 값이 낡아 세로 레터박스가 가로에 그대로 남았다(2026-08-25 실기기). 열려 있는 동안
-  // 리사이즈(회전)마다 다시 잰다.
+  // 리사이즈(회전)마다 다시 잰다. iOS 회전은 resize 시점에 레이아웃이 아직 정착 전이라
+  // 즉시 읽으면 중간 치수가 잡힌다 — 다음 프레임에 재고, 정착 지연 대비로 350ms 뒤
+  // 한 번 더 잰다(가로에서 바로 열었을 때와 크기가 달랐던 원인).
   useEffect(() => {
     if (!cameraDialogOpen) {
       return;
     }
-    window.addEventListener("resize", measurePreviewAspect);
-    return () => window.removeEventListener("resize", measurePreviewAspect);
+    let raf = 0;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const remeasure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        measurePreviewAspect();
+        if (settleTimer !== null) {
+          clearTimeout(settleTimer);
+        }
+        settleTimer = setTimeout(measurePreviewAspect, 350);
+      });
+    };
+    window.addEventListener("resize", remeasure);
+    window.addEventListener("orientationchange", remeasure);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (settleTimer !== null) {
+        clearTimeout(settleTimer);
+      }
+      window.removeEventListener("resize", remeasure);
+      window.removeEventListener("orientationchange", remeasure);
+    };
   }, [cameraDialogOpen, measurePreviewAspect]);
   const leavingRef = useRef(false);
 
