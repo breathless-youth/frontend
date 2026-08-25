@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -223,6 +223,20 @@ export function LiveRoomSession({
   // 박스(288×234)와 서피스는 비율이 크게 달라 cover 크롭이 다르게 잘렸다(2026-08-25).
   const selfSurfaceRef = useRef<HTMLDivElement | null>(null);
   const [previewAspect, setPreviewAspect] = useState<number | null>(null);
+  const measurePreviewAspect = useCallback(() => {
+    const rect = selfSurfaceRef.current?.getBoundingClientRect();
+    setPreviewAspect(rect !== undefined && rect.height > 0 ? rect.width / rect.height : null);
+  }, []);
+  // 모달이 열린 채 회전하면 셀프뷰 서피스 비율이 바뀐다(가로 3:2 등) — 열 때 한 번 잰
+  // 값이 낡아 세로 레터박스가 가로에 그대로 남았다(2026-08-25 실기기). 열려 있는 동안
+  // 리사이즈(회전)마다 다시 잰다.
+  useEffect(() => {
+    if (!cameraDialogOpen) {
+      return;
+    }
+    window.addEventListener("resize", measurePreviewAspect);
+    return () => window.removeEventListener("resize", measurePreviewAspect);
+  }, [cameraDialogOpen, measurePreviewAspect]);
   const leavingRef = useRef(false);
 
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다.
@@ -389,10 +403,7 @@ export function LiveRoomSession({
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
-                const rect = selfSurfaceRef.current?.getBoundingClientRect();
-                setPreviewAspect(
-                  rect !== undefined && rect.height > 0 ? rect.width / rect.height : null,
-                );
+                measurePreviewAspect();
                 setCameraDialogOpen(true);
               }
             }}

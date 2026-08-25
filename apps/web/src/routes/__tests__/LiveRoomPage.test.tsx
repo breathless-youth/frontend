@@ -457,6 +457,32 @@ describe("LiveRoomPage — 그리드·타일", () => {
     }
   });
 
+  it("모달이 열린 채 회전하면 미리보기 비율을 다시 잰다 — 세로 비율이 가로에 남지 않는다", async () => {
+    const portrait = { width: 390, height: 844 } as DOMRect;
+    const landscape = { width: 844, height: 390 } as DOMRect;
+    const spy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(portrait);
+    try {
+      renderRoom();
+      await enterRoom();
+      await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+      const frame = screen.getByTestId("camera-dialog-preview-frame");
+      expect(Number.parseFloat(frame.style.aspectRatio)).toBeCloseTo(390 / 844, 5);
+
+      spy.mockReturnValue(landscape);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      await waitFor(() => {
+        expect(
+          Number.parseFloat(screen.getByTestId("camera-dialog-preview-frame").style.aspectRatio),
+        ).toBeCloseTo(844 / 390, 5);
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("서피스를 못 재면(높이 0) 미리보기는 비율 래퍼 없이 박스를 그대로 채운다", async () => {
     // jsdom 기본 rect가 0×0이라 별도 stub 없이 측정 실패 경로가 된다.
     renderRoom();
