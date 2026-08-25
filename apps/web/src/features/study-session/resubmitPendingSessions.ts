@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
 
+import { SUB_MINUTE_SEC } from "./formatDuration";
 import { deleteCheckpoint, listCheckpoints } from "./sessionCheckpoint";
 import { submitStudySession } from "./submitStudySession";
 
@@ -18,8 +19,8 @@ const FRESH_RECORD_MS = 15_000;
 
 /**
  * 비정상 종료 세션의 제출 재시도. 웹뷰가 App을 마운트할 때마다 실행되며(탭·세션 화면은 각각
- * 별도 웹뷰다) 서버가 (userId, startedAt) 멱등이라 반복 실행이 안전하다. 제출에 성공한
- * 건수를 돌려준다.
+ * 별도 웹뷰다) 서버가 (userId, startedAt) 멱등이라 반복 실행이 안전하다. 토스트 근거가 되는
+ * 순공 1분 이상 제출 성공 건수를 돌려준다.
  * 400은 데이터 자체가 거부된 것이라 보관해도 영원히 실패한다 — 지우고 기록만 남긴다.
  * 그 외 실패(네트워크·5xx 등)는 다음 실행에서 다시 시도한다.
  */
@@ -39,7 +40,11 @@ export async function resubmitPendingSessions(): Promise<number> {
         events: record.events,
       });
       deleteCheckpoint(record.startedAtMs);
-      submitted += 1;
+      // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장 토스트의 근거 건수에서
+      // 뺀다. 제출·삭제는 그대로 한다(백엔드는 모든 세션을 저장하는 것이 계약).
+      if (record.focusSec >= SUB_MINUTE_SEC) {
+        submitted += 1;
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         deleteCheckpoint(record.startedAtMs);
