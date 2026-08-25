@@ -841,7 +841,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-[2/3]");
-    expect(tile).toHaveClass("w-[calc(50%-14px)]");
+    expect(tile).toHaveClass("w-[calc(50%-6px)]");
   });
 
   it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {

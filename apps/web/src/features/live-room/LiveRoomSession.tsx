@@ -309,12 +309,13 @@ export function LiveRoomSession({
           <div
             data-testid="room-grid"
             // 타일 배치(BY-435) — 비율·간격은 실기기 스크린샷 0352 기준: 약 2:3 세로형
-            // 라운드 타일(모서리는 기존 radius)에 넉넉한 간격, 그룹 세로 가운데.
+            // 라운드 타일(모서리는 기존 radius), 그룹 세로 가운데. 간격은 8px로 좁혀 꽉 채운다
+            // (2026-08-25 피드백 — 종전 20px).
             // flex-wrap justify-center가 홀수 인원(3·5명)의 마지막 타일을 자동으로 가운데
             // 놓는다(2+1, 2+2, 2+2+1, 2+2+2). 4명까지는 세로 가운데, 5명+는 짧은 화면에서
             // 가운데 정렬이 스크롤 시작을 잘라먹지 않게 위 정렬. 디스코드 참조는 플로팅 바
             // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.96) 준다.
-            className={`flex grow flex-wrap justify-center gap-5 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            className={`flex grow flex-wrap justify-center gap-2 overflow-y-auto px-2 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               allMembers.length <= 4 ? "content-center" : "content-start"
             } ${
               controlsVisible
@@ -342,7 +343,7 @@ export function LiveRoomSession({
                         "aspect-square max-w-full transition-[height] duration-300 motion-reduce:transition-none",
                         controlsVisible ? "h-[34dvh]" : "h-[41dvh]",
                       )
-                    : "aspect-[2/3] w-[calc(50%-14px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-14px)]",
+                    : "aspect-[2/3] w-[calc(50%-6px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-8px)]",
                 )}
               />
             ))}
