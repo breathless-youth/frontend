@@ -332,7 +332,7 @@ describe("LiveRoomPage — 입장", () => {
 });
 
 describe("LiveRoomPage — 그리드·타일", () => {
-  it("혼자면 풀스크린이라 타일 크롬이 없고, 켜면 내 비디오는 amp-block으로 가려진다", async () => {
+  it("혼자면 풀스크린이라 타일 크롬이 없고, 켜면 내 비디오는 amp-block과 sentry-block으로 가려진다", async () => {
     renderRoom();
 
     await enterRoom();
@@ -340,7 +340,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
 
     await turnCameraOn();
 
-    expect(await screen.findByTestId("room-my-video")).toHaveClass("amp-block");
+    expect(await screen.findByTestId("room-my-video")).toHaveClass("amp-block", "sentry-block");
   });
 
   it("내 비디오는 전면 카메라일 때 거울로 보인다 — 카메라 전환 시 해제", async () => {
@@ -561,7 +561,7 @@ describe("LiveRoomPage — P2P 연동", () => {
     expect(channel.publishedSignals[0]?.kind).toBe("OFFER");
   });
 
-  it("수신 스트림이 도착한 상대 타일에 amp-block 비디오가 그려진다", async () => {
+  it("수신 스트림이 도착한 상대 타일에 amp-block과 sentry-block 비디오가 그려진다", async () => {
     const { pcs } = renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
     await waitFor(() => expect(pcs).toHaveLength(1));
@@ -572,7 +572,7 @@ describe("LiveRoomPage — P2P 연동", () => {
     });
 
     const video = await screen.findByTestId("remote-video-8");
-    expect(video).toHaveClass("amp-block");
+    expect(video).toHaveClass("amp-block", "sentry-block");
   });
 
   it("마운트 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
@@ -869,5 +869,127 @@ describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
 
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
     expect(screen.getByText("저장 중...")).toBeInTheDocument();
+  });
+});
+
+describe("LiveRoomPage — 유예 재입장 공부시간", () => {
+  it("첫 SNAPSHOT의 내 studySeconds에서 이어서 발행한다 — 0으로 리셋하지 않는다", async () => {
+    vi.useFakeTimers();
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
+      { studySeconds: 7320 },
+    ]);
+  });
+
+  it("내 타일 공부시간 표시가 SNAPSHOT 기준값에서 이어진다", async () => {
+    renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(7, { studySeconds: 7320 }), member(8)] },
+    });
+
+    const tiles = await screen.findAllByTestId("room-tile");
+    const myTile = tiles.find((tile) => tile.dataset.userId === "7");
+    expect(myTile).toBeDefined();
+    expect(within(myTile as HTMLElement).getByText("02:02")).toBeInTheDocument();
+  });
+
+  it("재연결로 두 번째 SNAPSHOT이 와도 기준값을 다시 읽지 않는다 — 이중 가산 방지", async () => {
+    vi.useFakeTimers();
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+    });
+
+    act(() => {
+      channel.emitServerMessage({
+        type: "SNAPSHOT",
+        members: [member(7, { studySeconds: 99_999 })],
+      });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
+      { studySeconds: 7320 },
+    ]);
+  });
+
+  it("SNAPSHOT에 내가 없으면 기준값 0 — 기존 입장 동작 그대로", async () => {
+    vi.useFakeTimers();
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(8)] },
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
+      { studySeconds: 0 },
+    ]);
+  });
+
+  it("SNAPSHOT의 내 studySeconds가 없으면 기준값 0으로 처리한다", async () => {
+    vi.useFakeTimers();
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(7, { studySeconds: undefined })] },
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
+      { studySeconds: 0 },
+    ]);
+  });
+
+  it("측정이 진행 중이면 로컬 누적분이 기준값에 가산되어 발행된다", async () => {
+    vi.useFakeTimers();
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+    });
+
+    // 두 번에 나눠 진행한다 — act 사이에서 렌더가 반영되어야 발행 시점의
+    // focusSec 참조가 누적값을 본다(단일 act 안에서는 리렌더가 끝까지 미뤄진다).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    const studyTimes = channel.published.filter((p) => p.studySeconds !== undefined);
+    expect(studyTimes).toHaveLength(1);
+    expect(studyTimes[0]?.studySeconds).toBeGreaterThan(7320);
+  });
+
+  it("세션 제출에는 기준값을 가산하지 않는다 — 이번 마운트 측정값만 나간다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => {
+      expect(submitStudySession).toHaveBeenCalledWith(
+        expect.objectContaining({ focusSec: 0, studySec: 0 }),
+      );
+    });
   });
 });

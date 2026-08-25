@@ -21,7 +21,12 @@ const STUDY_TIME_INTERVAL_MS = 60_000;
 
 type PublisherInput = {
   sessionState: SessionState;
-  focusSec: number;
+  /**
+   * 발행할 순공시간. `null`은 "아직 발행할 값을 모른다"는 뜻이다 — 유예 재입장 직후
+   * 첫 SNAPSHOT(기준값)이 오기 전에 발행하면 0 기준의 낡은 값이 나가고, 연결 전이면
+   * 채널 버퍼에 쌓였다가 연결 직후 flush되어 서버 보존값을 덮어쓴다. 그동안은 틱을 쉰다.
+   */
+  focusSec: number | null;
   cameraOn: boolean;
 };
 
@@ -56,7 +61,9 @@ export function useRoomStatePublisher(channel: RoomChannel, input: PublisherInpu
 
   useEffect(() => {
     const timer = setInterval(() => {
-      channel.publishState({ studySeconds: focusSecRef.current });
+      if (focusSecRef.current !== null) {
+        channel.publishState({ studySeconds: focusSecRef.current });
+      }
     }, STUDY_TIME_INTERVAL_MS);
     return () => {
       clearInterval(timer);
