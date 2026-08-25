@@ -45,7 +45,9 @@ export function App() {
 
   const { message: toastMessage, showToast } = useToast();
 
-  // 비정상 종료 세션의 재제출 — 부팅 1회. 성공 건이 있으면 사용자에게 알린다.
+  // 비정상 종료 세션의 재제출. 탭·세션 화면이 각각 별도 웹뷰라 App은 화면마다 새로
+  // 마운트되고 이 effect도 그때마다 돈다 — 서버 멱등이라 반복 실행이 안전하다.
+  // 성공 건이 있으면 사용자에게 알린다.
   useEffect(() => {
     void resubmitPendingSessions().then((submitted) => {
       if (submitted > 0) {

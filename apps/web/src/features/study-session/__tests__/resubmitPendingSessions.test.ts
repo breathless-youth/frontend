@@ -77,6 +77,18 @@ describe("resubmitPendingSessions", () => {
     expect(listCheckpoints()).toHaveLength(1);
   });
 
+  it("마지막 저장이 15초 이내인 레코드는 건너뛴다 — 같은 웹뷰에서 막 시작한 세션일 수 있다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const now = Date.now();
+    saveCheckpoint({ ...record, startedAtMs: now - 5_000, lastSeenMs: now - 3_000 });
+
+    const submitted = await resubmitPendingSessions();
+
+    expect(submitStudySession).not.toHaveBeenCalled();
+    expect(submitted).toBe(0);
+    expect(listCheckpoints()).toHaveLength(1);
+  });
+
   it("여러 건을 각각 처리한다 — 한 건의 실패가 다음 건을 막지 않는다", async () => {
     vi.mocked(submitStudySession)
       .mockRejectedValueOnce(new Error("offline"))
