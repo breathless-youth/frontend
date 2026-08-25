@@ -10,9 +10,9 @@
 export function CameraFlipIcon({ turns, className }: { turns: number; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
-      {/* 혹+몸통을 한 path로 — 별도 rect를 겹치면 만나는 자리에 경계선이 생긴다(2026-08-25 피드백). */}
+      {/* 혹+몸통을 한 path로(겹치면 경계선이 남는다). 혹 옆면은 대각선 사다리꼴 — 2026-08-25 레퍼런스. */}
       <path
-        d="M8.6 7.2l.9-1.7A1.6 1.6 0 0 1 10.9 4.6h2.2a1.6 1.6 0 0 1 1.4.9l.9 1.7H18.2a3 3 0 0 1 3 3v6.6a3 3 0 0 1-3 3H5.8a3 3 0 0 1-3-3v-6.6a3 3 0 0 1 3-3Z"
+        d="M7.8 7.2l2-2.2h4.4l2 2.2H18.2a3 3 0 0 1 3 3v6.6a3 3 0 0 1-3 3H5.8a3 3 0 0 1-3-3v-6.6a3 3 0 0 1 3-3Z"
         stroke="white"
         strokeWidth="1.8"
         strokeLinecap="round"
