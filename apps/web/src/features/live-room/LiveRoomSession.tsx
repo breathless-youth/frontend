@@ -201,6 +201,11 @@ export function LiveRoomSession({
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  // 켜기 모달 미리보기가 실제 셀프뷰와 같은 영역이 잘리도록, 셀프뷰가 놓일 서피스
+  // (1인 풀스크린 컨테이너 또는 내 타일)를 모달 여는 순간 재서 비율을 넘긴다 — 모달
+  // 박스(288×234)와 서피스는 비율이 크게 달라 cover 크롭이 다르게 잘렸다(2026-08-25).
+  const selfSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const [previewAspect, setPreviewAspect] = useState<number | null>(null);
   const leavingRef = useRef(false);
 
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다.
@@ -289,7 +294,10 @@ export function LiveRoomSession({
       {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
       <div className="contents" inert={dialogOpen}>
         {grid.mode === "fullscreen" ? (
-          <div className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl">
+          <div
+            ref={selfSurfaceRef}
+            className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl"
+          >
             {cameraOn && myVideo}
             {/* 1인 전체화면은 RoomTile을 쓰지 않지만 내 화면이므로 같은 상태 뱃지를 올린다(BY-427).
                 가로의 좌측 세이프에어리어는 이 컨테이너가 이미 비켜서 있어 top만 고려한다. */}
@@ -314,6 +322,7 @@ export function LiveRoomSession({
               <RoomTile
                 key={member.userId}
                 member={member}
+                rootRef={member.userId === userId ? selfSurfaceRef : undefined}
                 selfState={member.userId === userId ? selfState : undefined}
                 media={
                   member.userId === userId
@@ -349,6 +358,10 @@ export function LiveRoomSession({
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
+                const rect = selfSurfaceRef.current?.getBoundingClientRect();
+                setPreviewAspect(
+                  rect !== undefined && rect.height > 0 ? rect.width / rect.height : null,
+                );
                 setCameraDialogOpen(true);
               }
             }}
@@ -360,7 +373,13 @@ export function LiveRoomSession({
 
       {cameraDialogOpen && (
         <CameraOnConfirmDialog
-          preview={<ClonedTrackPreview stream={cameraStream} facing={cameraFacing} />}
+          preview={
+            <ClonedTrackPreview
+              stream={cameraStream}
+              facing={cameraFacing}
+              targetAspect={previewAspect ?? undefined}
+            />
+          }
           onCancel={() => setCameraDialogOpen(false)}
           onConfirm={() => {
             setCameraDialogOpen(false);

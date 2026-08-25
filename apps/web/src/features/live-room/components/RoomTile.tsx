@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 import type { RoomMember } from "@focusmakers/types";
 
@@ -120,13 +120,16 @@ type RoomTileProps = {
    * 타 참가자 타일은 undefined로 두면 같은 뱃지 크롬에 흰(켬)/회색(꺼짐)만 쓴다.
    */
   selfState?: SelfBadgeState;
+  /** 내 타일에만 넘긴다 — 카메라 켜기 모달이 미리보기 비율을 맞추려고 타일 박스를 잰다. */
+  rootRef?: Ref<HTMLDivElement>;
   className?: string;
 };
 
-export function RoomTile({ member, media, selfState, className }: RoomTileProps) {
+export function RoomTile({ member, media, selfState, rootRef, className }: RoomTileProps) {
   const showMedia = member.cameraOn && media !== undefined;
   return (
     <div
+      ref={rootRef}
       data-testid="room-tile"
       data-user-id={member.userId}
       data-state={member.cameraOn ? member.focusState : "OFF"}

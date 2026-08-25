@@ -440,6 +440,33 @@ describe("LiveRoomPage — 그리드·타일", () => {
     expect(clone.stop).toHaveBeenCalled();
   });
 
+  it("켜기 모달 미리보기는 확정 후 셀프뷰가 놓일 서피스와 같은 비율로 잘라 보여준다", async () => {
+    // 모달 박스(288×234)와 셀프뷰 서피스(세로 풀스크린·타일)는 비율이 달라, 둘 다 cover면
+    // 잘리는 영역이 달라진다 — 미리보기가 실제보다 좁게 보이던 문제(2026-08-25 실기기).
+    const rect = { width: 390, height: 844 } as DOMRect;
+    const spy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(rect);
+    try {
+      renderRoom();
+      await enterRoom();
+      await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+      const frame = screen.getByTestId("camera-dialog-preview-frame");
+      expect(Number.parseFloat(frame.style.aspectRatio)).toBeCloseTo(390 / 844, 5);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("서피스를 못 재면(높이 0) 미리보기는 비율 래퍼 없이 박스를 그대로 채운다", async () => {
+    // jsdom 기본 rect가 0×0이라 별도 stub 없이 측정 실패 경로가 된다.
+    renderRoom();
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+    expect(screen.getByTestId("camera-dialog-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("camera-dialog-preview-frame")).not.toBeInTheDocument();
+  });
+
   it("SNAPSHOT 멤버가 타일로 렌더되고 내 타일이 첫 번째다", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
 
