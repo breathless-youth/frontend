@@ -28,6 +28,9 @@ import { useCameraPermission } from "@/features/settings/useCameraPermission";
  * 2. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
  *    얻을 수 없으므로 네이티브 셸(BY-333)이 실어 보내는 쿼리 `appVersion`을 읽는다.
  */
+/** 네이티브 탭 바 복귀 애니메이션이 끝나기를 기다리는 지연(ms) — SettingsPage 토스트 주석 참고. */
+const PROFILE_SAVED_TOAST_DELAY_MS = 450;
+
 export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -36,13 +39,21 @@ export function SettingsPage() {
 
   // 프로필 저장 성공 복귀 토스트(2026-08-25 BY-427 시안 A). 플래그는 1회성이라 소비 결과를
   // ref에 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 false로 굳지 않는다.
+  //
+  // 표시는 지연한다: /profile은 탭 바 숨김 라우트라 복귀 순간 네이티브 탭 바가 애니메이션으로
+  // 되돌아오며 웹뷰 높이가 줄어드는데, 그동안 하단 고정 토스트가 리사이즈를 따라 눈에 띄게
+  // 움직였다(2026-08-25 실기기 피드백). 복귀 애니메이션이 끝난 뒤에 등장시킨다.
   const { message: toastMessage, showToast } = useToast();
   const profileSavedRef = useRef<boolean | null>(null);
   profileSavedRef.current ??= consumeProfileSavedNotice();
   useEffect(() => {
-    if (profileSavedRef.current === true) {
-      showToast("프로필이 저장됐어요");
+    if (profileSavedRef.current !== true) {
+      return;
     }
+    const timer = setTimeout(() => {
+      showToast("프로필이 저장됐어요");
+    }, PROFILE_SAVED_TOAST_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [showToast]);
 
   return (
@@ -162,7 +173,11 @@ export function SettingsPage() {
         </SettingsSection>
       </div>
 
-      <ToastViewport message={toastMessage} />
+      {/* 위치는 앱 전역 표준(ToastViewport) — 등장 페이드 업(BY-435)만 이 화면 개선으로 남긴다. */}
+      <ToastViewport
+        message={toastMessage}
+        toastClassName="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"
+      />
     </main>
   );
 }

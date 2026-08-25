@@ -54,7 +54,12 @@ export function Toast({ message, tone, className }: ToastProps) {
 export function ToastViewport({
   message,
   tone,
-}: { message: string | null } & VariantProps<typeof toastVariants>) {
+  toastClassName,
+}: {
+  message: string | null;
+  /** 알약 자체에 얹을 클래스(등장 모션 등) — 위치는 이 컴포넌트가 소유하므로 여기로 옮기지 말 것. */
+  toastClassName?: string;
+} & VariantProps<typeof toastVariants>) {
   if (message === null) {
     return null;
   }
@@ -73,7 +78,7 @@ export function ToastViewport({
           : "bottom-[calc(env(safe-area-inset-bottom)+16px)]",
       )}
     >
-      <Toast message={message} tone={tone} />
+      <Toast message={message} tone={tone} className={toastClassName} />
     </div>
   );
 }

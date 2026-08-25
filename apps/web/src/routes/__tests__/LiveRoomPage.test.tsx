@@ -156,6 +156,13 @@ async function enterRoom() {
   await act(async () => {});
 }
 
+/** 화면 탭 = 바 토글. 드래그(스크롤)와 구분되므로 down+up 쌍으로 보낸다(BY-435). */
+function tapSurface() {
+  const surface = screen.getByTestId("live-room-page");
+  fireEvent.pointerDown(surface, { clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(surface, { clientX: 10, clientY: 10 });
+}
+
 /** 세션 중 카메라 켜기 — 입장이 항상 꺼짐이라, 켜기는 확인 모달을 거치는 이 경로뿐이다. */
 async function turnCameraOn() {
   await userEvent.click(await screen.findByRole("button", { name: "카메라 켜기" }));
@@ -503,6 +510,32 @@ describe("LiveRoomPage — 그리드·타일", () => {
     }
   });
 
+  it("모달이 열린 채 회전하면 미리보기 비율을 다시 잰다 — 세로 비율이 가로에 남지 않는다", async () => {
+    const portrait = { width: 390, height: 844 } as DOMRect;
+    const landscape = { width: 844, height: 390 } as DOMRect;
+    const spy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(portrait);
+    try {
+      renderRoom();
+      await enterRoom();
+      await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+
+      const frame = screen.getByTestId("camera-dialog-preview-frame");
+      expect(Number.parseFloat(frame.style.aspectRatio)).toBeCloseTo(390 / 844, 5);
+
+      spy.mockReturnValue(landscape);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      await waitFor(() => {
+        expect(
+          Number.parseFloat(screen.getByTestId("camera-dialog-preview-frame").style.aspectRatio),
+        ).toBeCloseTo(844 / 390, 5);
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("서피스를 못 재면(높이 0) 미리보기는 비율 래퍼 없이 박스를 그대로 채운다", async () => {
     // jsdom 기본 rect가 0×0이라 별도 stub 없이 측정 실패 경로가 된다.
     renderRoom();
@@ -532,8 +565,10 @@ describe("LiveRoomPage — 그리드·타일", () => {
     });
 
     await enterRoom();
-    expect(screen.getAllByTestId("room-tile")).toHaveLength(2);
 
+    // 입장 직후 2개(나+멤버8)를 중간 단언하지 않는다 — 시나리오의 30ms 타이머가 느린
+    // CI 러너에서는 enterRoom이 끝나기 전에 발화해 이미 3개일 수 있다(CI 간헐 실패).
+    // 검증 의도는 MEMBER_JOINED 수신으로 그리드가 재배치된다는 것 하나다.
     await waitFor(() => {
       expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
     });
@@ -578,20 +613,24 @@ describe("LiveRoomPage — 그리드·타일", () => {
     });
   });
 
-  it("그리드에서 상태 3색 뱃지는 내 타일에만 — 타 참가자는 중립(흰/회색) 뱃지 (2026-08-25 개정)", async () => {
-    renderRoom({ scenario: { snapshot: [member(8)] } });
+  it("그리드 뱃지: 내 타일은 로컬 상태, 타 참가자도 집중 상태 색을 쓴다 (2026-08-25 BY-435 개정)", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9, { focusState: "DISTRACTED" })] },
+    });
 
     await enterRoom();
 
     const tiles = screen.getAllByTestId("room-tile");
-    const myTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "7");
-    const otherTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "8");
-    if (myTile === undefined || otherTile === undefined) {
-      throw new Error("내 타일 또는 상대 타일이 없다");
-    }
-    expect(within(myTile).getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
-    const otherBadge = within(otherTile).getByTestId("self-state-badge");
-    expect(["NEUTRAL", "OFF"]).toContain(otherBadge.getAttribute("data-state"));
+    const badge = (id: string) => {
+      const tile = tiles.find((candidate) => candidate.getAttribute("data-user-id") === id);
+      if (tile === undefined) {
+        throw new Error(`${id} 타일이 없다`);
+      }
+      return within(tile).getByTestId("self-state-badge");
+    };
+    expect(badge("7")).toHaveAttribute("data-state", "PAUSED");
+    expect(badge("8")).toHaveAttribute("data-state", "FOCUS");
+    expect(badge("9")).toHaveAttribute("data-state", "DISTRACTED");
   });
 });
 
@@ -789,25 +828,176 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 });
 
 describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
-  it("카메라 꺼짐 버튼은 흰색 반전 배경 + 어두운 사선 아이콘, 켜짐은 현행 유지", async () => {
+  it("카메라 꺼짐 버튼은 반투명 레드 필 + 레드 사선 아이콘, 켜짐은 현행 유지 (BY-435 시안 A)", async () => {
     renderRoom();
     await enterRoom();
 
     // 작은 svg는 vite가 data URI로 인라인한다 — 파일명 대신 아이콘 내용으로 구분한다.
-    // off 아이콘만 어두운 사선 스트로크(#191f28)를 가진다.
+    // off 아이콘만 레드 사선 스트로크(#ff6b77)를 가진다. 나가기(솔리드 레드)와 구분되는
+    // 반투명 필이고, 켬↔끔 배경은 색 전환 애니메이션을 탄다.
     const offButton = screen.getByRole("button", { name: "카메라 켜기" });
-    expect(offButton).toHaveClass("bg-[#f2f4f6]");
+    expect(offButton).toHaveClass("bg-[#ff6b77]/20");
+    expect(offButton).toHaveClass("transition-[background-color,transform]");
     expect(offButton).toHaveAttribute("aria-pressed", "false");
-    expect(offButton.querySelector("img")?.getAttribute("src")).toContain("191f28");
+    expect(offButton.querySelector("img")?.getAttribute("src")).toContain("ff6b77");
 
     await turnCameraOn();
 
     const onButton = screen.getByRole("button", { name: "카메라 끄기" });
-    expect(onButton).not.toHaveClass("bg-[#f2f4f6]");
+    expect(onButton).not.toHaveClass("bg-[#ff6b77]/20");
     expect(onButton).toHaveAttribute("aria-pressed", "true");
     const onSrc = onButton.querySelector("img")?.getAttribute("src") ?? "";
-    expect(onSrc).not.toContain("191f28");
+    expect(onSrc).not.toContain("ff6b77");
     expect(onSrc).toContain("white");
+  });
+
+  it("켬↔끔 전환 시 아이콘이 팝 애니메이션으로 교체된다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    const offIcon = screen
+      .getByRole("button", { name: "카메라 켜기" })
+      .querySelector("img") as HTMLImageElement;
+    expect(offIcon.className).toContain("control-icon-pop");
+
+    await turnCameraOn();
+
+    const onIcon = screen
+      .getByRole("button", { name: "카메라 끄기" })
+      .querySelector("img") as HTMLImageElement;
+    expect(onIcon.className).toContain("control-icon-pop");
+    // key가 상태별로 달라야 재마운트되어 애니메이션이 다시 돈다.
+    expect(onIcon).not.toBe(offIcon);
+  });
+
+  it("전환 버튼은 몸통은 고정하고 안의 화살표만 반 바퀴씩 돈다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+
+    const flipButton = screen.getByRole("button", { name: "카메라 전환" });
+    const arrows = flipButton.querySelector('[data-testid="camera-flip-arrows"]') as SVGGElement;
+    expect(arrows.style.transform).toBe("rotate(0deg)");
+
+    await userEvent.click(flipButton);
+    expect(arrows.style.transform).toBe("rotate(180deg)");
+
+    await userEvent.click(flipButton);
+    expect(arrows.style.transform).toBe("rotate(360deg)");
+  });
+
+  it("바가 올라와 있으면 하단을 바만큼 벌리고, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
+    // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
+    // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid.className).not.toContain("scale-");
+    expect(grid).not.toHaveClass("pb-[4dvh]");
+
+    tapSurface();
+    expect(grid).toHaveClass("pb-[4dvh]");
+  });
+
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 36dvh, 내리면 41dvh로 커진다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile).toHaveClass("h-[36dvh]");
+
+    tapSurface();
+    expect(tile).toHaveClass("h-[41dvh]");
+  });
+
+  it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("justify-center");
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("w-[calc(50%-2px)]");
+  });
+
+  it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
+    expect(screen.getByTestId("room-debug-log")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
+    expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
+  });
+
+  it("나가기 버튼은 눌림 스케일 효과를 가진다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
+  });
+
+  it("바가 떠 있으면 바 위에 붙고(mt-auto), 내리면 세로 가운데(my-auto) — 안전 정렬", async () => {
+    // content-center/end는 내용이 컨테이너보다 커지면 위 행이 잘리고 스크롤로도 못 닿는다
+    // (2026-08-25 실기기: 작은 화면에서 내 타일·참가자 미표시). auto 마진은 넘치면 접힌다.
+    renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
+    await enterRoom();
+
+    const rows = screen.getByTestId("room-grid-rows");
+    expect(rows).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid").className).not.toContain("content-");
+
+    tapSurface();
+    expect(rows).toHaveClass("my-auto");
+  });
+
+  it("5~6명 타일은 4:5로 눕혀 3행이 화면에 들어간다 — 2:3이면 첫 행(내 타일)이 스크롤로 밀린다", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[4/5]");
+    expect(tile).not.toHaveClass("aspect-[2/3]");
+  });
+
+  it("5~6명은 바가 올라오면 타일 폭을 줄여 3행 전체가 바 위에 수납된다", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("w-[calc(44%-2px)]");
+
+    tapSurface();
+    expect(tile).toHaveClass("w-[calc(50%-2px)]");
+  });
+
+  it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
+    renderRoom({
+      scenario: {
+        snapshot: [
+          member(8),
+          member(9),
+          member(10),
+          member(11),
+          member(12),
+          member(13),
+          member(14),
+        ],
+      },
+    });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid").className).not.toContain("content-");
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
@@ -823,95 +1013,102 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "카메라 전환" })).toBeEnabled();
   });
 
-  it("카메라 켜기 모달의 미리보기 슬롯은 234px 높이다", async () => {
+  it("카메라 켜기 모달 미리보기는 화면 높이 비례(상한 234px) — 가로에서도 잘리지 않는다", async () => {
     renderRoom();
     await enterRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
 
     const slot = screen.getByTestId("camera-dialog-preview").parentElement;
-    expect(slot).toHaveClass("h-[234px]");
+    expect(slot).toHaveClass("h-[min(234px,28dvh)]");
+    // 백스톱: 모달 자체도 뷰포트를 넘으면 내부 스크롤로 잘림을 막는다.
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveClass("max-h-[calc(100dvh-24px)]");
+    expect(dialog).toHaveClass("overflow-y-auto");
   });
 });
 
-describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
-  /**
-   * 페이크 타이머는 렌더·입장(findBy/waitFor가 실제 타이머를 쓴다) 뒤에 켠다.
-   * 켠 직후 화면 탭으로 유휴 기준점을 페이크 타이머 위에 다시 만들어 4초 경과를 제어한다.
-   */
-  async function enterWithFakeIdleTimer() {
+describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)", () => {
+  const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
+
+  it("입장 직후 바는 올라와 있고, 탭하면 내려가고 다시 탭하면 올라온다 — 자동으로 내려가지 않는다", async () => {
+    renderRoom();
     await enterRoom();
-    vi.useFakeTimers();
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
-  }
 
-  it("마지막 상호작용 후 4초가 지나면 바만 잔상으로 페이드되고 조작이 막힌다", async () => {
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass(SLIDE);
+
+    tapSurface();
+    expect(bar).toHaveClass("pointer-events-none");
+    expect(bar).toHaveClass(SLIDE);
+
+    tapSurface();
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass(SLIDE);
+  });
+
+  it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+
+    const infos = screen.getAllByTestId("tile-info");
+    infos.forEach((info) => expect(info).not.toHaveClass("opacity-0"));
+
+    tapSurface();
+    screen.getAllByTestId("tile-info").forEach((info) => {
+      expect(info).toHaveClass("opacity-0");
+      expect(info).toHaveAttribute("aria-hidden", "true");
+    });
+    // 시간 뱃지는 남는다.
+    expect(screen.getAllByTestId("self-state-badge").length).toBeGreaterThan(0);
+  });
+
+  it("드래그(스크롤)는 바를 토글하지 않는다 — 이동 10px 초과면 탭이 아니다", async () => {
     renderRoom();
-    await enterWithFakeIdleTimer();
+    await enterRoom();
+
+    const surface = screen.getByTestId("live-room-page");
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+
+    // jsdom의 PointerEvent 폴백은 좌표를 싣지 않는다 — MouseEvent로 직접 만들어 보낸다.
+    fireEvent(surface, new MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 100 }));
+    fireEvent(surface, new MouseEvent("pointerup", { bubbles: true, clientX: 10, clientY: 180 }));
+    expect(bar).toHaveClass("pointer-events-auto");
+  });
+
+  it("바 위 탭(버튼 조작)은 토글로 버블되지 않는다 — 버튼을 누를 때마다 바가 내려가면 안 된다", async () => {
+    renderRoom();
+    await enterRoom();
 
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
 
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-
-    expect(bar).toHaveClass("opacity-[0.22]");
-    expect(bar).toHaveClass("pointer-events-none");
-    expect(bar).not.toHaveClass("pointer-events-auto");
-  });
-
-  it("잔상 상태에서 화면을 탭하면 즉시 복귀하고 유휴 타이머가 재시작된다", async () => {
-    renderRoom();
-    await enterWithFakeIdleTimer();
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-none");
-
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
-
-    const bar = screen.getByTestId("room-control-bar");
+    fireEvent.pointerDown(bar, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(bar, { clientX: 10, clientY: 10 });
     expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("opacity-[0.22]");
-
-    // 복귀 후에도 유휴 4초가 다시 흐르면 재차 숨는다 — 타이머 재시작 검증.
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-    expect(bar).toHaveClass("pointer-events-none");
   });
 
-  it("다이얼로그가 열려 있는 동안은 4초가 지나도 숨지 않는다", async () => {
+  it("다이얼로그가 열려 있는 동안은 화면을 탭해도 내려가지 않는다", async () => {
     renderRoom();
     await enterRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
-    vi.useFakeTimers();
-    act(() => {
-      vi.advanceTimersByTime(4001);
-    });
-
-    const bar = screen.getByTestId("room-control-bar");
-    expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("opacity-[0.22]");
+    tapSurface();
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
   });
 
-  it("제출 중(controlsLocked)에는 숨지 않고 저장 중 문구도 그대로 남는다", async () => {
+  it("제출 중(controlsLocked)에는 숨겨 뒀어도 바가 올라오고 저장 중 문구가 남는다", async () => {
     vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
     renderRoom();
     await enterRoom();
-
+    // 바를 다시 내려 둔 상태에서 제출이 시작돼도 강제 표시가 이겨야 한다.
     await userEvent.click(screen.getByRole("button", { name: "나가기" }));
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
     await screen.findByText("저장 중...");
-
-    vi.useFakeTimers();
-    act(() => {
-      vi.advanceTimersByTime(4001);
-    });
 
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
     expect(screen.getByText("저장 중...")).toBeInTheDocument();

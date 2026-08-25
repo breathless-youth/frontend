@@ -289,3 +289,32 @@ body {
     animation: none;
   }
 }
+
+/* 컨트롤 바 아이콘 교체 팝(BY-435) — 상태 토글(룸 카메라 켬↔끔, 싱글 일시정지↔재개)로
+   아이콘이 바뀔 때 살짝 작은 상태에서 커지며 나타난다. 재생은 아이콘 리마운트(React key)로
+   트리거하고, 모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes control-icon-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 하단 토스트 등장 페이드 업 — 지연 뒤 나타나는 토스트가 갑작스럽지 않게(BY-435).
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes toast-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

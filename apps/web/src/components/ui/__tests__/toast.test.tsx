@@ -48,6 +48,14 @@ describe("ToastViewport", () => {
     expect(screen.getByRole("status")).toHaveTextContent("저장했어요");
   });
 
+  it("toastClassName은 알약에 전달된다 — 화면별 등장 모션(BY-435 설정 페이드 업)용", () => {
+    render(
+      <ToastViewport message="저장했어요" toastClassName="animate-[toast-rise_240ms_ease-out]" />,
+    );
+
+    expect(screen.getByRole("status").className).toContain("toast-rise");
+  });
+
   it("message가 null이면 아무것도 그리지 않는다", () => {
     const { container } = render(<ToastViewport message={null} />);
 
