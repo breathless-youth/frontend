@@ -1,9 +1,11 @@
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<!-- 카메라 전환 = 비디오카메라(session-camera.svg 축소형) + 상단 회전 화살표.
-     종전 원형 화살표 2개는 새로고침으로 읽혔다(2026-08-25 피드백). 손으로 그린 임시
-     자산이라 Figma 재익스포트 시 교체 대상이다. -->
-<path d="M7 6c1.2-1.8 3.1-3 5.3-3 2 0 3.9 1 5 2.6" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-<path d="M17.6 2.4v3.2h-3.2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-<rect x="2.5" y="10" width="11" height="9.5" rx="2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M13.5 13.8l5.5-2.3v7.5l-5.5-2.3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- 카메라 전환 = 비디오카메라(session-camera.svg와 같은 몸통) 안에 회전 화살표
+     (2026-08-25 피드백 — 통용되는 switch-camera 아이콘 문법). 손으로 그린 임시 자산이라
+     Figma 재익스포트 시 교체 대상이다. -->
+<rect x="2.5" y="6" width="13" height="12" rx="3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M15.5 10.5l6-3v9l-6-3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M6.3 11a3 3 0 0 1 5.2-1.1" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M11.8 8v2.1h-2.1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M11.7 13a3 3 0 0 1-5.2 1.1" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M6.2 16v-2.1h2.1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
