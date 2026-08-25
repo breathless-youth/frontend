@@ -396,7 +396,7 @@ describe("포그라운드 생존 확인 (BY-436)", () => {
         path="/social"
         query={{ userId: 7 }}
         testID="host"
-        onLoadStart={onLoadStart}
+        onRecoveryStart={onLoadStart}
         {...extra}
       />,
     );
@@ -548,7 +548,7 @@ describe("포그라운드 생존 확인 (BY-436)", () => {
   it("백그라운드로 가면 진행 중이던 확인을 접는다 — 복귀 전 타임아웃으로 오판하지 않는다", () => {
     const appStateSpy = jest.spyOn(AppState, "addEventListener");
     const onLoadStart = jest.fn();
-    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onLoadStart} />);
     act(() => {
       (screen.getByTestId("host").props.onLoadEnd as () => void)();
     });
@@ -734,10 +734,21 @@ describe("report-screen 복원 (BY-436)", () => {
   });
 });
 
+describe("SPA 라우팅과 스플래시 (BY-436)", () => {
+  it("WebView에 onLoadStart 이벤트를 배선하지 않는다 — Android는 pushState에도 발화해 스플래시가 영영 안 걷힌다", () => {
+    // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
+    // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
+    // 문서 로드 감지가 아니라 복구 진입(enterRecovery)이 명시적으로 알린다.
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+
+    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
+  });
+});
+
 describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
   it("iOS 콘텐츠 프로세스 종료 통보가 오면 재로드 전에 스플래시부터 되돌린다", () => {
     const onLoadStart = jest.fn();
-    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onLoadStart} />);
 
     act(() => {
       (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
@@ -749,7 +760,7 @@ describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
 
   it("Android 렌더러 사망 통보도 스플래시부터 되돌린다", () => {
     const onLoadStart = jest.fn();
-    render(<RemoteWebViewHost path="/social" testID="host" onLoadStart={onLoadStart} />);
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onLoadStart} />);
 
     act(() => {
       (screen.getByTestId("host").props.onRenderProcessGone as () => void)();

@@ -137,9 +137,10 @@ describe("RemoteScreen", () => {
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
   });
 
-  it("로드가 다시 시작되면 스플래시를 되돌린다 — 리로드 중 흰 화면 방지", async () => {
-    // iOS가 백그라운드에서 콘텐츠 프로세스를 회수하면 복귀 시 웹뷰가 통째로 다시 로드된다.
-    // 스플래시가 한 번 걷힌 채로 굳어 있으면 그동안 빈 화면만 보인다(BY-436).
+  it("사망 복구에 들어가면 스플래시를 되돌린다 — 복구 중 흰 화면 방지", async () => {
+    // OS가 웹 콘텐츠 프로세스를 회수하면 복구(재로드)가 끝날 때까지 빈 화면만 남는다(BY-436).
+    // WebView의 onLoadStart 이벤트가 아니라 호스트의 복구 진입 통지를 쓴다 — Android는
+    // SPA 라우팅에도 onLoadStart가 발화해 스플래시가 영영 걷히지 않았다.
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
@@ -150,7 +151,7 @@ describe("RemoteScreen", () => {
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
 
     act(() => {
-      (webview.props.onLoadStart as () => void)();
+      (webview.props.onContentProcessDidTerminate as () => void)();
     });
 
     expect(screen.getByTestId("home-webview-splash")).toBeTruthy();
@@ -199,7 +200,7 @@ describe("RemoteScreen", () => {
       });
     });
     act(() => {
-      (webview.props.onLoadStart as () => void)();
+      (webview.props.onContentProcessDidTerminate as () => void)();
     });
 
     const splash = screen.getByTestId("social-webview-splash");
@@ -231,7 +232,7 @@ describe("RemoteScreen", () => {
       });
     });
     act(() => {
-      (webview.props.onLoadStart as () => void)();
+      (webview.props.onContentProcessDidTerminate as () => void)();
     });
 
     expect(screen.getByTestId("social-skeleton")).toBeTruthy();

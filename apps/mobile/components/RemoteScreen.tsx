@@ -86,10 +86,11 @@ export function RemoteScreen({
   );
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  // 새 문서 로드가 시작되면 스플래시를 되돌린다 — 리로드(iOS 콘텐츠 프로세스 회수 후 복귀,
-  // Android 렌더러 재생성) 동안 흰 화면이 드러나던 문제(BY-436). `loaded`를 첫 로드에서
-  // true로 굳히면 그 뒤의 모든 재로드가 가려지지 않는다.
-  const onLoadStart = useCallback(() => {
+  // 사망 복구(재로드·재마운트)에 들어가면 스플래시를 되돌린다 — 죽은 웹뷰의 흰 화면·잔상이
+  // 드러나던 문제(BY-436). `loaded`를 첫 로드에서 true로 굳히면 복구가 가려지지 않는다.
+  // WebView의 onLoadStart 이벤트가 아니라 호스트의 복구 진입 통지를 쓴다 — Android는
+  // SPA 라우팅에도 onLoadStart가 발화해 스플래시가 영영 걷히지 않았다(호스트 prop 주석).
+  const onRecoveryStart = useCallback(() => {
     setLoaded(false);
     setLoadFailed(false);
   }, []);
@@ -183,7 +184,7 @@ export function RemoteScreen({
           backgroundColor={backgroundColor}
           onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
-          onLoadStart={onLoadStart}
+          onRecoveryStart={onRecoveryStart}
         />
       )}
       {showSplash && (

@@ -84,14 +84,16 @@ export type RemoteWebViewHostProps = {
    */
   onLoadEnd?: (ok: boolean) => void;
   /**
-   * 새 문서 로드가 시작되면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 — iOS가
-   * 백그라운드에서 콘텐츠 프로세스를 회수하면 복귀 시 웹뷰가 통째로 다시 로드되는데,
-   * 그동안 스플래시가 걷힌 채면 사용자에게는 빈 화면만 보인다(BY-436).
+   * 사망 복구(재로드·재마운트)에 들어가면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 —
+   * 렌더러가 죽은 웹뷰는 빈 화면·잔상만 남기므로 복구가 끝날 때(onLoadEnd)까지 가린다(BY-436).
    *
-   * SPA 내부 라우팅(pushState)은 문서 로드가 아니라 이 콜백이 불리지 않는다 — 탭 안에서
-   * 화면을 옮길 때 스플래시가 깜빡이지 않는 이유다.
+   * ⚠️ WebView의 `onLoadStart` 이벤트에 걸지 않는다. Android는
+   * `doUpdateVisitedHistory`(RNCWebViewClient.java)가 SPA `pushState`에도 onLoadStart를
+   * 발화시키는데 짝이 되는 onLoadEnd는 없어서, 탭 안 웹 라우팅 한 번에 스플래시가 영영
+   * 걷히지 않았다(실기기: 소셜 홈 → 초대코드 입력 이동에서 스켈레톤 고착). 복구 진입은
+   * 이 컴포넌트가 정확히 아는 사건이라 `enterRecovery`가 직접 알린다.
    */
-  onLoadStart?: (() => void) | undefined;
+  onRecoveryStart?: (() => void) | undefined;
   testID?: string;
 };
 
@@ -127,7 +129,7 @@ export function RemoteWebViewHost({
   onBridgeMessage,
   backgroundColor,
   onLoadEnd,
-  onLoadStart,
+  onRecoveryStart,
   testID,
 }: RemoteWebViewHostProps) {
   const webViewRef = useRef<WebView>(null);
@@ -229,8 +231,8 @@ export function RemoteWebViewHost({
     clearPing();
     hasLoadedRef.current = false;
     recoveringRef.current = true;
-    onLoadStart?.();
-  }, [clearPing, onLoadStart]);
+    onRecoveryStart?.();
+  }, [clearPing, onRecoveryStart]);
 
   const handleContentProcessDidTerminate = useCallback(() => {
     enterRecovery();
@@ -469,7 +471,6 @@ export function RemoteWebViewHost({
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
       onLoadEnd={handleLoadEnd}
-      onLoadStart={onLoadStart}
       onError={() => {
         setLoadFailed(true);
         loadFailedRef.current = true;
