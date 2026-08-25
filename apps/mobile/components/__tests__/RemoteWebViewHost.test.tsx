@@ -1,8 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
-import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWebViewHost";
+import {
+  RemoteWebViewHost,
+  buildRemoteWebViewUrl,
+  originOf,
+  requestGlobalWebViewRecovery,
+} from "../RemoteWebViewHost";
 
 /**
  * 원격 웹뷰 호스트(BY-333) — 세션 화면이 직접 띄우던 WebView를 승격한 공용 컴포넌트.
@@ -564,6 +569,107 @@ describe("포그라운드 생존 확인 (BY-436)", () => {
 
     expect(mockReload).not.toHaveBeenCalled();
     expect(onLoadStart).not.toHaveBeenCalled();
+  });
+});
+
+describe("Android 렌더러 사망 전역 복구 (BY-436)", () => {
+  /**
+   * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView가 공유하고, 죽은 렌더러는
+   * 거기 붙어 있던 WebView를 전부 파괴해야 대체된다(플랫폼 계약). ping이 사망을 판정한
+   * 호스트 하나만 재마운트하면 새 WebView가 죽은 렌더러에 붙어 로드가 영영 시작되지 않는다
+   * — 실기기에서 소셜 스켈레톤이 걷히지 않던 원인.
+   */
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockInjectJavaScript.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("한 호스트의 ping 사망 판정이 다른 호스트도 재마운트시킨다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+    // 소셜만 로드 완료 상태 — ping은 소셜에서만 나간다.
+    act(() => {
+      (screen.getByTestId("social-host").props.onLoadEnd as () => void)();
+    });
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      for (const [event, handler] of appStateSpy.mock.calls) {
+        if (event === "change") {
+          (handler as (s: string) => void)("active");
+        }
+      }
+    });
+    act(() => {
+      jest.runOnlyPendingTimers(); // 1차 타임아웃 → 재시도
+    });
+    act(() => {
+      jest.runOnlyPendingTimers(); // 2차 타임아웃 → 사망 판정
+    });
+
+    // 렌더러는 공유라 둘 다 죽었다 — 둘 다 재마운트되어야 새 렌더러가 뜬다.
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(4);
+  });
+
+  it("iOS는 개별 reload로 남는다 — 프로세스가 웹뷰별 독립이라 이웃을 건드리지 않는다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+    act(() => {
+      (screen.getByTestId("social-host").props.onLoadEnd as () => void)();
+    });
+
+    act(() => {
+      for (const [event, handler] of appStateSpy.mock.calls) {
+        if (event === "change") {
+          (handler as (s: string) => void)("active");
+        }
+      }
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(mockReload).toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2); // 재마운트 없음
+  });
+
+  it("전역 복구는 복구 중인 호스트를 건너뛴다 — 로드 중 재마운트 반복 방지", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    // 통보로 이미 복구(재마운트)에 들어간 상태에서 —
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+
+    // 이웃의 전역 복구 요청이 겹쳐 도착해도 또 재마운트하지 않는다.
+    act(() => {
+      requestGlobalWebViewRecovery();
+    });
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
   });
 });
 

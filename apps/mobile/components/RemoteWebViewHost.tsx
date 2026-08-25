@@ -103,6 +103,24 @@ export type RemoteWebViewHostProps = {
 const PING_TIMEOUT_MS = 700;
 const PING_MAX_ATTEMPTS = 2;
 
+/**
+ * Android 렌더러 사망의 전역 복구 채널(BY-436).
+ *
+ * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 4개)가 공유하고, **죽은
+ * 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다**(플랫폼 계약). 사망을 감지한
+ * 호스트 하나만 재마운트하면 이웃 웹뷰들이 죽은 렌더러를 계속 잡고 있어 새 WebView가 그
+ * 죽은 렌더러에 붙고, 로드가 영영 시작되지 않는다 — 실기기에서 복구 스플래시(소셜
+ * 스켈레톤)가 걷히지 않던 원인. 그래서 사망 판정·통보는 마운트된 모든 호스트의 재마운트로
+ * 넓힌다. iOS는 WKWebView 프로세스가 웹뷰별 독립이라 이 채널을 쓰지 않는다(개별 reload).
+ */
+const recoveryListeners = new Set<() => void>();
+
+export function requestGlobalWebViewRecovery(): void {
+  for (const listener of [...recoveryListeners]) {
+    listener();
+  }
+}
+
 export function RemoteWebViewHost({
   path,
   query,
@@ -142,6 +160,8 @@ export function RemoteWebViewHost({
   /** 첫 로드 완료 여부 — 그 전에는 웹 브리지가 없어 ping이 항상 타임아웃(오탐)이 된다. */
   const hasLoadedRef = useRef(false);
   const loadFailedRef = useRef(false);
+  /** 사망 복구(재마운트·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 재마운트를 반복하지 않는다. */
+  const recoveringRef = useRef(false);
 
   const target = useMemo(() => {
     try {
@@ -208,6 +228,7 @@ export function RemoteWebViewHost({
   const enterRecovery = useCallback(() => {
     clearPing();
     hasLoadedRef.current = false;
+    recoveringRef.current = true;
     onLoadStart?.();
   }, [clearPing, onLoadStart]);
 
@@ -215,9 +236,24 @@ export function RemoteWebViewHost({
     enterRecovery();
     webViewRef.current?.reload();
   }, [enterRecovery]);
+  // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
   const handleRenderProcessGone = useCallback(() => {
-    enterRecovery();
-    setRetryKey((key) => key + 1);
+    requestGlobalWebViewRecovery();
+  }, []);
+
+  // 전역 복구 채널 구독 — 어느 호스트가 렌더러 사망을 감지하든 함께 재마운트한다.
+  useEffect(() => {
+    const listener = () => {
+      if (recoveringRef.current) {
+        return;
+      }
+      enterRecovery();
+      setRetryKey((key) => key + 1);
+    };
+    recoveryListeners.add(listener);
+    return () => {
+      recoveryListeners.delete(listener);
+    };
   }, [enterRecovery]);
 
   /**
@@ -227,10 +263,11 @@ export function RemoteWebViewHost({
    * 같은 플랫폼 제약 — 복원 경로는 `restoreRef`가 잇는다).
    */
   const declareDead = useCallback(() => {
-    enterRecovery();
     if (Platform.OS === "android") {
-      setRetryKey((key) => key + 1);
+      // 자기 재마운트도 전역 채널의 리스너가 수행한다 — 렌더러는 공유라 혼자 살아날 수 없다.
+      requestGlobalWebViewRecovery();
     } else {
+      enterRecovery();
       webViewRef.current?.reload();
     }
   }, [enterRecovery]);
@@ -344,6 +381,7 @@ export function RemoteWebViewHost({
     // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
     setBackGestureEnabled(true);
     hasLoadedRef.current = true;
+    recoveringRef.current = false;
     onLoadEnd?.(true);
   }, [onLoadEnd]);
 
