@@ -808,6 +808,19 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
   });
 
+  it("진단 로그는 우상단 토글로 접었다 펼 수 있다 (DEV 전용, BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    expect(screen.getByTestId("room-debug-log")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
+    expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
+    expect(screen.getByTestId("room-debug-log")).toBeInTheDocument();
+  });
+
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
     renderRoom();
 
