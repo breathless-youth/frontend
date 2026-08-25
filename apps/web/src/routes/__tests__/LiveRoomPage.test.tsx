@@ -821,13 +821,17 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).not.toHaveClass("pb-[4dvh]");
   });
 
-  it("타일은 0352 비율(세로 2:3 라운드) — 2명은 1열, 3명 이상은 2열이다 (BY-435)", async () => {
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 화면 높이 비례이고 바가 올라오면 함께 준다", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
-    await enterRoom();
+    await screen.findByRole("button", { name: "나가기" });
+    await act(async () => {});
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[2/3]");
-    expect(tile).toHaveClass("w-[60%]");
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile).toHaveClass("h-[41dvh]");
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(tile).toHaveClass("h-[34dvh]");
   });
 
   it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {

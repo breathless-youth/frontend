@@ -333,12 +333,16 @@ export function LiveRoomSession({
                     ? myVideo
                     : remoteVideoOrUndefined(member.userId, remoteStreams)
                 }
-                // 2명은 1열, 3명 이상은 2열 — 0352 실측 비율(타일 폭 ≈ 화면의 43%,
-                // 세로 2:3). 가로 방향은 비율을 눕혀(3:2) 행 높이를 화면 안에 맞춘다.
+                // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
+                // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
+                // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
                 className={cn(
-                  "aspect-[2/3] landscape:aspect-[3/2]",
-                  grid.cols === 1 ? "w-[60%]" : "w-[calc(50%-14px)]",
-                  "landscape:w-[calc(33.3%-14px)]",
+                  grid.cols === 1
+                    ? cn(
+                        "aspect-square max-w-full transition-[height] duration-300 motion-reduce:transition-none",
+                        controlsVisible ? "h-[34dvh]" : "h-[41dvh]",
+                      )
+                    : "aspect-[2/3] w-[calc(50%-14px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-14px)]",
                 )}
               />
             ))}
