@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
+import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { ContactPage } from "@/routes/ContactPage";
@@ -34,6 +35,9 @@ export function App() {
   useNativeShellClass();
   // 포워드 스와이프로 닫았던 전체 화면 라우트가 되열리는 것을 막는다(`lib/historyGuard.ts`).
   useBlockForwardGestureIntoFullScreen();
+  // Android 시스템 뒤로가기로 탭을 떠날 때 네이티브가 보내는 초기화 신호를 받아 탭 루트로
+  // 되돌린다(`lib/nativeRouteReset.ts`).
+  useNativeRouteReset();
 
   return (
     <QueryClientProvider client={queryClient}>

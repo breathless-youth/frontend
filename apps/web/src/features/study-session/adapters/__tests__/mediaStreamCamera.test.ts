@@ -115,21 +115,91 @@ describe("createMediaStreamCameraAdapter", () => {
     expect(stream.__track.stop).not.toHaveBeenCalled();
   });
 
-  it("카메라가 둘이지만 대체 카메라를 열지 못하면 flip이 no-alternative로 실패하고 기존 스트림을 유지한다", async () => {
+  it("flip은 새 카메라를 열기 전에 기존 스트림을 먼저 정지한다 — Android는 기존 카메라를 놓아야 반대 카메라가 열린다", async () => {
+    const order: string[] = [];
     const first = fakeStream();
+    first.__track.stop.mockImplementation(() => order.push("stop"));
+    const second = fakeStream();
+    const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+      const facingMode = (constraints.video as MediaTrackConstraints).facingMode;
+      order.push(`open-${String(facingMode)}`);
+      return facingMode === "user" ? first : second;
+    });
+    stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+    const camera = createMediaStreamCameraAdapter();
+
+    await camera.start();
+    await camera.flip();
+
+    expect(order).toEqual(["open-user", "stop", "open-environment"]);
+  });
+
+  it("카메라가 둘이지만 대체 카메라를 열지 못하면 이전 카메라를 복원하고 no-alternative로 실패한다", async () => {
+    const first = fakeStream();
+    const restored = fakeStream();
     const getUserMedia = vi
       .fn()
       .mockResolvedValueOnce(first)
-      .mockRejectedValueOnce(new Error("NotReadableError"));
+      .mockRejectedValueOnce(new Error("NotReadableError"))
+      .mockResolvedValueOnce(restored);
     stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
     const camera = createMediaStreamCameraAdapter();
 
     await camera.start();
 
     await expect(camera.flip()).resolves.toEqual({ ok: false, reason: "no-alternative" });
-    expect(camera.stream).toBe(first);
+    expect(first.__track.stop).toHaveBeenCalled();
+    expect(camera.stream).toBe(restored);
     expect(camera.facing).toBe("front");
-    expect(first.__track.stop).not.toHaveBeenCalled();
+    expect(camera.isRunning).toBe(true);
+  });
+
+  it("복원 첫 시도가 실패하면 잠깐 뒤 한 번 더 복원한다 — 방금 정지한 카메라의 해제 지연 대비", async () => {
+    vi.useFakeTimers();
+    try {
+      const first = fakeStream();
+      const restored = fakeStream();
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockRejectedValueOnce(new Error("NotReadableError"))
+        .mockRejectedValueOnce(new Error("NotReadableError"))
+        .mockResolvedValueOnce(restored);
+      stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      const flipping = camera.flip();
+      await vi.advanceTimersByTimeAsync(700);
+
+      await expect(flipping).resolves.toEqual({ ok: false, reason: "no-alternative" });
+      expect(camera.stream).toBe(restored);
+      expect(camera.facing).toBe("front");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("복원까지 모두 실패하면 camera-off로 끝난다", async () => {
+    vi.useFakeTimers();
+    try {
+      const first = fakeStream();
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockRejectedValue(new Error("NotReadableError"));
+      stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      const flipping = camera.flip();
+      await vi.advanceTimersByTimeAsync(700);
+
+      await expect(flipping).resolves.toEqual({ ok: false, reason: "camera-off" });
+      expect(camera.isRunning).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("카메라가 꺼져 있으면 flip이 camera-off로 실패한다", async () => {

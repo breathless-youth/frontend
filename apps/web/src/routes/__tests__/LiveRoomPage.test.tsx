@@ -12,6 +12,7 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { ApiError } from "@/lib/api";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { joinRoom, leaveRoom } from "@/lib/roomApi";
 import { LiveRoomPage } from "../LiveRoomPage";
 
@@ -107,12 +108,19 @@ function renderRoom({
   scenario = { snapshot: [] },
   camera = createMockCameraAdapter(),
   createCamera,
+  presetJoin = true,
 }: {
   state?: unknown;
   scenario?: MockRoomScenario;
   camera?: CameraAdapter;
   createCamera?: () => CameraAdapter;
+  /** false면 joinRoom mock을 건드리지 않는다 — 실패 시나리오가 직접 설정한다. */
+  presetJoin?: boolean;
 } = {}) {
+  // 미리보기 없는 자동 입장이라 join이 마운트 직후 호출된다 — 렌더 전에 응답을 준비한다.
+  if (presetJoin) {
+    mockedJoinRoom.mockResolvedValue(joinResponse);
+  }
   const channel = createMockRoomChannel(scenario);
   const pcs: FakePc[] = [];
   const pcConfigs: RTCConfiguration[] = [];
@@ -144,11 +152,27 @@ function renderRoom({
   return { channel, pcs, pcConfigs };
 }
 
-/** 입장 확인 모달의 [카메라 켜기]를 눌러 룸으로 들어간다. */
+/** 네이티브 게이트 응답(허용)을 흉내 낸다 — 브리지를 stub한 테스트에서 자동 입장을 통과시킨다. */
+function grantCameraGate() {
+  const entry = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  entry?.(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+}
+
+/** 자동 입장(모달 없이 카메라 꺼짐)이 끝나 룸이 뜰 때까지 기다린다. */
 async function enterRoom() {
-  mockedJoinRoom.mockResolvedValue(joinResponse);
-  await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
   await screen.findByRole("button", { name: "나가기" });
+}
+
+/** 룸 안에서 카메라를 켠다 — 컨트롤 바 [카메라 켜기] → 확인 모달 [카메라 켜기]. */
+async function turnCameraOn() {
+  await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+  const dialog = screen.getByRole("alertdialog");
+  await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
+  await waitFor(() => {
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
 }
 
 afterEach(() => {
@@ -164,17 +188,7 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
   });
 
-  it("진입하면 카메라 켜기 확인 모달이 먼저 뜬다", () => {
-    renderRoom();
-
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(screen.getByText("카메라를 켤까요?")).toBeInTheDocument();
-    expect(
-      screen.getByText("영상은 룸에 있는 멤버에게만 전달돼요. 서버에 저장되지 않아요."),
-    ).toBeInTheDocument();
-  });
-
-  it("카메라 켜기 확정 시 join을 재호출하고 채널을 연결해 룸에 들어간다", async () => {
+  it("진입하면 모달 없이 카메라 꺼짐으로 자동 입장한다", async () => {
     const { channel } = renderRoom();
 
     await enterRoom();
@@ -182,9 +196,11 @@ describe("LiveRoomPage — 입장", () => {
     expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
     expect(channel.status).toBe("open");
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    // 카메라 꺼짐 입장이라 컨트롤 바에 [카메라 켜기]가 보인다.
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
 
-  it("미리보기와 세션이 같은 카메라 어댑터를 재사용한다 — 팩토리 1회, 핸드오프 정지 없음", async () => {
+  it("입장 단계는 카메라 어댑터를 시작하지 않는다 — 획득은 세션 몫이고, 팩토리는 1회다", async () => {
     let factoryCalls = 0;
     let stopCalls = 0;
     const base = createMockCameraAdapter();
@@ -215,75 +231,6 @@ describe("LiveRoomPage — 입장", () => {
     expect(base.isRunning).toBe(true);
   });
 
-  it("입장 모달에 카메라 미리보기 비디오가 있고 amp-block으로 세션 리플레이에서 가려진다", () => {
-    renderRoom();
-
-    expect(screen.getByTestId("entry-preview-video")).toHaveClass("amp-block");
-  });
-
-  it("미리보기 카메라 첫 획득이 실패하면 잠시 후 한 번 재시도한다 — 웹뷰의 해제 지연 대응", async () => {
-    let startCalls = 0;
-    let running = false;
-    const camera: CameraAdapter = {
-      facing: "front",
-      get isRunning() {
-        return running;
-      },
-      get stream() {
-        return running ? ({} as MediaStream) : null;
-      },
-      async start() {
-        startCalls += 1;
-        running = startCalls >= 2;
-      },
-      stop() {
-        running = false;
-      },
-      async flip() {
-        return { ok: false, reason: "no-alternative" };
-      },
-    };
-    renderRoom({ camera });
-
-    await waitFor(() => expect(startCalls).toBe(2), { timeout: 3000 });
-    expect(running).toBe(true);
-  });
-
-  it("재시도까지 실패하면 미리보기 모달에 안내 문구를 보여준다", async () => {
-    const camera: CameraAdapter = {
-      facing: "front",
-      isRunning: false,
-      stream: null,
-      async start() {},
-      stop() {},
-      async flip() {
-        return { ok: false, reason: "no-alternative" };
-      },
-    };
-    renderRoom({ camera });
-
-    expect(
-      await screen.findByText("카메라를 켜지 못했어요. 끄고도 입장은 가능해요.", undefined, {
-        timeout: 3000,
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("입장 미리보기는 전면 카메라를 거울로 보여준다", () => {
-    renderRoom();
-
-    expect(screen.getByTestId("entry-preview-video")).toHaveClass("scale-x-[-1]");
-  });
-
-  it("입장 모달은 Esc로 입장이 확정되지 않는다 — 끄고 입장으로 오인되면 안 된다", async () => {
-    renderRoom();
-
-    await userEvent.keyboard("{Escape}");
-
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
-  });
-
   it("유예 재입장이면 모달 없이 이전 카메라 상태(끔)로 바로 들어간다", async () => {
     renderRoom({ state: { inviteCode: "0712", graceRejoin: true, cameraOn: false } });
 
@@ -292,44 +239,36 @@ describe("LiveRoomPage — 입장", () => {
     expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
-  it("join 처리 중에는 모달의 두 버튼이 잠긴다 — 연타로 다른 cameraOn 결정이 겹치지 않게", async () => {
-    mockedJoinRoom.mockReturnValue(new Promise(() => undefined));
-    renderRoom();
-
-    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
-
-    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "끄고 입장" })).toBeDisabled();
-    expect(mockedJoinRoom).toHaveBeenCalledTimes(1);
-  });
-
-  it("재-join이 실패하면 모달을 유지하고 인라인 오류를 보여준다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("가득 참", 409, "ROOM_FULL"));
-    renderRoom();
-
-    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+  it("자동 입장 join이 실패하면 오류 다이얼로그를 보여주고 재시도할 수 있다", async () => {
+    mockedJoinRoom.mockRejectedValueOnce(new ApiError("가득 참", 409, "ROOM_FULL"));
+    renderRoom({ presetJoin: false });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("방이 가득 찼어요");
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    // 재시도 — 이번엔 성공해 룸으로 들어간다.
+    mockedJoinRoom.mockResolvedValue(joinResponse);
+    await userEvent.click(screen.getByRole("button", { name: "끄고 입장" }));
+    await screen.findByRole("button", { name: "나가기" });
   });
 
-  it("켜고 입장했지만 카메라 획득에 실패하면 꺼짐만 발행된다 — 거짓 켜짐 금지", async () => {
-    const { channel } = renderRoom({ camera: createMockCameraAdapter({ failToStart: true }) });
+  it("재시도 처리 중에는 다이얼로그 버튼이 잠긴다 — 연타로 join이 겹치지 않게", async () => {
+    mockedJoinRoom.mockRejectedValueOnce(new ApiError("가득 참", 409, "ROOM_FULL"));
+    renderRoom({ presetJoin: false });
+    await screen.findByRole("alert");
 
-    await enterRoom();
+    mockedJoinRoom.mockReturnValue(new Promise(() => undefined));
+    await userEvent.click(screen.getByRole("button", { name: "끄고 입장" }));
 
-    await waitFor(() => {
-      expect(channel.published).toContainEqual({ cameraOn: false });
-    });
-    expect(channel.published).not.toContainEqual({ cameraOn: true });
+    expect(screen.getByRole("button", { name: "끄고 입장" })).toBeDisabled();
+    expect(mockedJoinRoom).toHaveBeenCalledTimes(2);
   });
 
-  it("카메라 획득 실패 상태에서 껐다 켜도 켜짐을 발행하지 않는다", async () => {
+  it("카메라 획득 실패 상태에서 켜기를 확정해도 켜짐을 발행하지 않는다 — 거짓 켜짐 금지", async () => {
     const { channel } = renderRoom({ camera: createMockCameraAdapter({ failToStart: true }) });
     await enterRoom();
     channel.published.length = 0;
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     const dialog = screen.getByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
@@ -340,25 +279,24 @@ describe("LiveRoomPage — 입장", () => {
     expect(channel.published).not.toContainEqual({ cameraOn: true });
   });
 
-  it("켜고 입장하면 카메라 켬만 정확히 1회 발행한다 — 서버 기본값이 꺼짐이라서", async () => {
+  it("자동 입장은 꺼짐만 정확히 1회 발행한다 — 켜짐이 먼저 새 나가면 안 된다", async () => {
     const { channel } = renderRoom();
 
     await enterRoom();
 
     await waitFor(() => {
-      expect(channel.published).toEqual([{ cameraOn: true }]);
+      expect(channel.published).toEqual([{ cameraOn: false }]);
     });
   });
 
-  it("끄고 입장하면 꺼짐만 정확히 1회 발행한다 — 켜짐이 먼저 새 나가면 안 된다", async () => {
-    mockedJoinRoom.mockResolvedValue(joinResponse);
+  it("룸에서 카메라를 켜면 켜짐이 발행된다", async () => {
     const { channel } = renderRoom();
+    await enterRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "끄고 입장" }));
+    await turnCameraOn();
 
-    expect(await screen.findByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(channel.published).toEqual([{ cameraOn: false }]);
+      expect(channel.published).toContainEqual({ cameraOn: true });
     });
   });
 });
@@ -368,6 +306,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
     renderRoom();
 
     await enterRoom();
+    await turnCameraOn();
 
     expect(screen.queryAllByTestId("room-tile")).toHaveLength(0);
     expect(screen.getByTestId("room-my-video")).toHaveClass("amp-block");
@@ -402,6 +341,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
     };
     renderRoom({ camera });
     await enterRoom();
+    await turnCameraOn();
 
     expect(screen.getByTestId("room-my-video")).toHaveClass("scale-x-[-1]");
 
@@ -452,7 +392,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
     renderRoom({ camera });
     await enterRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    // 자동 입장이 카메라 꺼짐(PAUSE)이라 송신 트랙은 이미 비활성이다.
     await waitFor(() => expect(track.enabled).toBe(false));
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
 
@@ -493,6 +433,52 @@ describe("LiveRoomPage — 그리드·타일", () => {
     await waitFor(() => {
       expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
     });
+  });
+
+  /**
+   * 회귀 가드. 전환은 기존 스트림을 먼저 정지하므로(Android 제약, `mediaStreamCamera.ts`)
+   * 복원까지 실패하면 카메라가 실제로 꺼진다. 훅이 실행 상태를 다시 읽지 않으면 룸은 낡은
+   * "켜짐"으로 남아 상대에게 켜짐을 계속 발행한다(2026-08-25 채점 지적).
+   */
+  it("전환이 복원까지 실패하면 카메라 꺼짐이 반영된다 — 낡은 켜짐을 발행하지 않는다", async () => {
+    let running = false;
+    const stream = {
+      getVideoTracks: () => [{ enabled: true, getSettings: () => ({ height: 720 }) }],
+    } as unknown as MediaStream;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        // 전환도 복원도 실패해 어댑터가 카메라를 놓은 상태.
+        running = false;
+        return { ok: false, reason: "camera-off" };
+      },
+    };
+    const { channel } = renderRoom({ camera });
+    await enterRoom();
+    await turnCameraOn();
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: true });
+    });
+    channel.published.length = 0;
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: false });
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
   });
 
   it("카메라 획득에 실패하면 내 타일은 꺼짐으로 표시된다 — 검은 화면을 켜짐으로 그리지 않는다", async () => {
@@ -547,15 +533,14 @@ describe("LiveRoomPage — P2P 연동", () => {
     expect(video).toHaveClass("amp-block");
   });
 
-  it("입장 확정 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
-    const { pcConfigs } = renderRoom({ scenario: { snapshot: [member(8)] } });
+  it("입장 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
     mockedJoinRoom.mockResolvedValue({
       ...joinResponse,
       iceServers: [{ urls: ["stun:from-rejoin"] }],
     });
+    const { pcConfigs } = renderRoom({ scenario: { snapshot: [member(8)] }, presetJoin: false });
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
-    await screen.findByRole("button", { name: "나가기" });
+    await enterRoom();
 
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
     expect(pcConfigs[0]?.iceServers).toEqual([{ urls: ["stun:from-rejoin"] }]);
@@ -612,7 +597,9 @@ describe("LiveRoomPage — P2P 연동", () => {
     };
     const { pcs } = renderRoom({ scenario: { snapshot: [member(8)] }, camera });
     await enterRoom();
+    await turnCameraOn();
     await waitFor(() => expect(pcs[0]?.senders.length ?? 0).toBeGreaterThan(0));
+    await waitFor(() => expect(track.enabled).toBe(true));
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
 
@@ -627,6 +614,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
   it("카메라 끄기는 측정 일시정지가 되고, 다시 켜기는 확인 모달을 거쳐 재개된다", async () => {
     const { channel } = renderRoom();
     await enterRoom();
+    await turnCameraOn();
     channel.published.length = 0;
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
@@ -650,6 +638,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     mockedLeaveRoom.mockResolvedValue(undefined);
     renderRoom();
 
+    // 브리지가 stub된 상태라 자동 입장의 권한 게이트가 응답을 기다린다 — 허용으로 답해 준다.
+    grantCameraGate();
     await enterRoom();
     expect(bridgeSent()).toContainEqual(
       expect.objectContaining({ type: "set-back-gesture", enabled: false }),
@@ -695,7 +685,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 
     expect(await screen.findByText("저장 중...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "나가기" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "카메라 끄기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeDisabled();
   });
 
   it("제출이 실패하면 룸에 남아 다시 제출을 노출하고 leave를 부르지 않는다", async () => {

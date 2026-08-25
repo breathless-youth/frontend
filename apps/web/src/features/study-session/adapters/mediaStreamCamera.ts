@@ -37,6 +37,16 @@ function stopStream(stream: MediaStream | null): void {
 }
 
 /**
+ * 전환 실패 후 이전 카메라 복원 재시도까지의 대기. 방금 정지한 카메라는 해제가 늦어 즉시
+ * 재열기가 실패할 수 있다 — 입장 미리보기의 재획득 재시도와 같은 실측 기반 값이다.
+ */
+const RESTORE_RETRY_MS = 700;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * 실제로 열린 트랙 설정을 진단에 남긴다 — 요청값(`cameraConstraints`)과 다를 수 있고,
  * 그 차이가 그대로 프리뷰 여백이 된다(`CameraStreamDiagnostics` 참고).
  *
@@ -146,26 +156,47 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
         return facing === before ? { ok: false, reason: "no-alternative" } : { ok: true, facing };
       }
 
+      const previous = facing;
       const next: CameraFacing = facing === "front" ? "back" : "front";
-      pending = open(next);
+      // 새 카메라를 열기 **전에** 기존 스트림을 먼저 정지한다 — Android 카메라 서비스는
+      // 기존 카메라를 놓기 전에는 반대 카메라 열기를 거부해, 열어 두고 전환하면 후면
+      // 전환이 항상 실패했다(2026-08-25 실기기 확인). 실패 대비는 스트림을 남겨 두는
+      // 방식 대신 아래 복원(이전 카메라 재열기)으로 한다.
+      stopStream(stream);
+      stream = null;
+      let openedFacing = previous;
+      pending = (async () => {
+        const openedNext = await open(next);
+        if (openedNext !== null) {
+          openedFacing = next;
+          return openedNext;
+        }
+        // 전환 실패 — 이전 카메라를 복원한다. 전환 실패로 프리뷰가 통째로 꺼지면 세션이
+        // 측정 불가 상태가 되기 때문이다. 방금 정지한 카메라라 해제가 늦을 수 있어
+        // 한 번만 잠깐 뒤 재시도한다.
+        const restored = await open(previous);
+        if (restored !== null) {
+          return restored;
+        }
+        await wait(RESTORE_RETRY_MS);
+        return open(previous);
+      })();
       const opened = await pending;
       pending = null;
-      if (opened === null) {
-        // 새 카메라를 못 열었으면 기존 스트림을 그대로 둔다 — 전환 실패로 프리뷰가
-        // 통째로 꺼지면 세션이 측정 불가 상태가 된다.
-        return { ok: false, reason: "no-alternative" };
-      }
       if (!wanted) {
-        // 전환 도중 stop()이 들어왔다. 기존 스트림은 stop()이 이미 정리했고,
+        // 전환 도중 stop()이 들어왔다. 기존 스트림은 위에서 이미 정지했고,
         // 뒤늦게 열린 이 스트림은 여기서 버린다 — 붙여 두면 그대로 누수다.
         stopStream(opened);
         return { ok: false, reason: "camera-off" };
       }
+      if (opened === null) {
+        // 복원까지 실패했다 — 카메라 없는 상태를 그대로 알린다.
+        return { ok: false, reason: "camera-off" };
+      }
 
-      stopStream(stream);
       stream = opened;
-      facing = next;
-      return { ok: true, facing };
+      facing = openedFacing;
+      return openedFacing === next ? { ok: true, facing } : { ok: false, reason: "no-alternative" };
     },
   };
 }
