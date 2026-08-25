@@ -1,8 +1,16 @@
+import { useEffect } from "react";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { Toast } from "@/components/ui/toast";
+import {
+  RESUBMIT_TOAST_MESSAGE,
+  resubmitPendingSessions,
+} from "@/features/study-session/resubmitPendingSessions";
+import { useToast } from "@/lib/useToast";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -35,6 +43,17 @@ export function App() {
   // 포워드 스와이프로 닫았던 전체 화면 라우트가 되열리는 것을 막는다(`lib/historyGuard.ts`).
   useBlockForwardGestureIntoFullScreen();
 
+  const { message: toastMessage, showToast } = useToast();
+
+  // 비정상 종료 세션의 재제출 — 부팅 1회. 성공 건이 있으면 사용자에게 알린다.
+  useEffect(() => {
+    void resubmitPendingSessions().then((submitted) => {
+      if (submitted > 0) {
+        showToast(RESUBMIT_TOAST_MESSAGE);
+      }
+    });
+  }, [showToast]);
+
   return (
     <QueryClientProvider client={queryClient}>
       {/*
@@ -64,6 +83,11 @@ export function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/licenses" element={<LicensesPage />} />
         </Routes>
+        {toastMessage !== null && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
+            <Toast message={toastMessage} />
+          </div>
+        )}
       </Sentry.ErrorBoundary>
     </QueryClientProvider>
   );
