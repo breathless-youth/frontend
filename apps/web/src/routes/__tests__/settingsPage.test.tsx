@@ -276,15 +276,26 @@ describe("프로필 저장 완료 토스트 (2026-08-25 BY-427 시안 A)", () =>
     sessionStorage.clear();
   });
 
-  it("저장 플래그가 있으면 마운트 시 토스트를 보여주고 플래그를 소비한다", () => {
+  it("저장 플래그가 있으면 탭 바 복귀가 끝난 뒤 토스트를 보여주고 플래그를 소비한다", () => {
+    vi.useFakeTimers();
     markProfileSaved();
     const { unmount } = renderAt("/settings");
 
+    // 마운트 직후에는 아직 뜨지 않는다 — 네이티브 탭 바 복귀 애니메이션이 웹뷰 높이를
+    // 바꾸는 동안 하단 고정 토스트가 따라 움직이는 점프를 피한다(2026-08-25 실기기 피드백).
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     expect(screen.getByText("프로필이 저장됐어요")).toBeInTheDocument();
 
     // 플래그는 1회성이다 — 다시 마운트하면(다른 경로로 재진입 등) 뜨지 않는다.
     unmount();
     renderAt("/settings");
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
   });
 

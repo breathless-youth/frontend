@@ -304,3 +304,17 @@ body {
     opacity: 1;
   }
 }
+
+/* 하단 토스트 등장 페이드 업 — 지연 뒤 나타나는 토스트가 갑작스럽지 않게(BY-435).
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes toast-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
