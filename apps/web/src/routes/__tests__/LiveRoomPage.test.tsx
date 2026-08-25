@@ -896,6 +896,17 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
   });
 
+  it("5~6명 타일은 4:5로 눕혀 3행이 화면에 들어간다 — 2:3이면 첫 행(내 타일)이 스크롤로 밀린다", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[4/5]");
+    expect(tile).not.toHaveClass("aspect-[2/3]");
+  });
+
   it("5명 이상은 위 정렬 스크롤 — 가운데 정렬이면 짧은 화면에서 스크롤 시작이 잘린다", async () => {
     renderRoom({
       scenario: {

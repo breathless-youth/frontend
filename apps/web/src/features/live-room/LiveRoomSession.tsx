@@ -394,7 +394,13 @@ export function LiveRoomSession({
                         "aspect-square max-w-full",
                         controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
                       )
-                    : "aspect-[2/3] w-[calc(50%-2px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-4px)]",
+                    : cn(
+                        // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행(990px)이 세로 화면을
+                        // 넘어 스크롤이 되고, 첫 행(내 타일+첫 참가자)이 밀려 안 보이는 사고가
+                        // 났다(2026-08-25 실기기 roomId=143) — 4:5로 눕혀 3행이 화면에 들어간다.
+                        allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
+                        "w-[calc(50%-2px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-4px)]",
+                      ),
                 )}
               />
             ))}
