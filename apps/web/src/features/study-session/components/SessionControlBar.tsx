@@ -1,8 +1,8 @@
-import { useState, type CSSProperties } from "react";
+import { useState, type ReactNode } from "react";
 import { type VariantProps, cva } from "class-variance-authority";
 
-import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
+import { CameraFlipIcon } from "@/components/CameraFlipIcon";
 import pauseIcon from "@/assets/icons/session-pause.svg";
 import playIcon from "@/assets/icons/session-play.svg";
 import { cn } from "@/lib/utils";
@@ -169,10 +169,10 @@ export interface SessionControlBarProps {
 
 interface ControlButtonProps {
   label: string;
-  iconSrc: string;
-  iconClassName: string;
-  /** 전환 버튼의 회전(BY-435)처럼 아이콘에 인라인 변환이 필요할 때만 넘긴다. */
-  iconStyle?: CSSProperties;
+  iconSrc?: string;
+  iconClassName?: string;
+  /** img 자산 대신 그릴 아이콘 노드 — 내부 일부만 움직이는 아이콘(전환, BY-435)용. */
+  iconNode?: ReactNode;
   size: SessionControlBarSize;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
@@ -183,7 +183,7 @@ function ControlButton({
   label,
   iconSrc,
   iconClassName,
-  iconStyle,
+  iconNode,
   size,
   onClick,
   variant = "default",
@@ -202,17 +202,18 @@ function ControlButton({
     >
       {/* key=src: 아이콘이 바뀌는 토글(일시정지↔재개)만 리마운트되어 팝이 돈다 —
           룸 바의 카메라 켬↔끔과 같은 모션(BY-435). 정적 아이콘은 마운트 때 1회뿐이다. */}
-      <img
-        key={iconSrc}
-        src={iconSrc}
-        alt=""
-        aria-hidden="true"
-        style={iconStyle}
-        className={cn(
-          iconClassName,
-          "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
-        )}
-      />
+      {iconNode ?? (
+        <img
+          key={iconSrc}
+          src={iconSrc}
+          alt=""
+          aria-hidden="true"
+          className={cn(
+            iconClassName,
+            "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
+          )}
+        />
+      )}
     </button>
   );
 }
@@ -247,12 +248,8 @@ export function SessionControlBar({
       />
       <ControlButton
         label="카메라 전환"
-        iconSrc={cameraFlipIcon}
-        iconClassName={cn(
-          ICON_SIZE.cameraFlip[size],
-          "transition-transform duration-300 ease-out motion-reduce:transition-none",
-        )}
-        iconStyle={{ transform: `rotate(${flipTurns * 180}deg)` }}
+        // 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리.
+        iconNode={<CameraFlipIcon turns={flipTurns} className={ICON_SIZE.cameraFlip[size]} />}
         size={size}
         onClick={() => {
           setFlipTurns((turns) => turns + 1);

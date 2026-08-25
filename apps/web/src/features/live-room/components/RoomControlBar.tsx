@@ -1,9 +1,9 @@
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import cameraIcon from "@/assets/icons/session-camera.svg";
-import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
+import { CameraFlipIcon } from "@/components/CameraFlipIcon";
 
 /**
  * 룸 하단 컨트롤 바 3버튼
@@ -103,12 +103,8 @@ export function RoomControlBar({
         }}
         className="flex size-[50px] items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
       >
-        <img
-          src={cameraFlipIcon}
-          alt=""
-          className="size-5 transition-transform duration-300 ease-out motion-reduce:transition-none"
-          style={{ transform: `rotate(${flipTurns * 180}deg)` }}
-        />
+        {/* 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리. */}
+        <CameraFlipIcon turns={flipTurns} className="size-5" />
       </button>
       <button
         type="button"

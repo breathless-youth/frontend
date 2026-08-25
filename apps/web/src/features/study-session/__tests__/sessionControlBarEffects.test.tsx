@@ -16,17 +16,17 @@ describe("SessionControlBar 버튼 효과 (BY-435)", () => {
     );
   }
 
-  it("카메라 전환을 누를 때마다 아이콘이 반 바퀴씩 돌아간다", () => {
+  it("카메라 전환은 몸통은 고정하고 안의 화살표만 반 바퀴씩 돈다", () => {
     renderBar();
     const flip = screen.getByRole("button", { name: "카메라 전환" });
-    const icon = flip.querySelector("img") as HTMLImageElement;
-    expect(icon.style.transform).toBe("rotate(0deg)");
+    const arrows = flip.querySelector('[data-testid="camera-flip-arrows"]') as SVGGElement;
+    expect(arrows.style.transform).toBe("rotate(0deg)");
 
     fireEvent.click(flip);
-    expect(icon.style.transform).toBe("rotate(180deg)");
+    expect(arrows.style.transform).toBe("rotate(180deg)");
 
     fireEvent.click(flip);
-    expect(icon.style.transform).toBe("rotate(360deg)");
+    expect(arrows.style.transform).toBe("rotate(360deg)");
   });
 
   it("일시정지↔재개 아이콘은 팝 애니메이션으로 교체된다", () => {

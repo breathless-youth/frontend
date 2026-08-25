@@ -320,10 +320,17 @@ export function LiveRoomSession({
             // (바-타일 간격은 2026-08-25 피드백으로 축소 — 105px → 100px). 트랜지션은 transform만:
             // padding·height 애니메이션은 영상 리플로우로 랙을 만든다.
             className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] transition-transform duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              allMembers.length <= 4 ? "content-center" : "content-start"
+              // 바가 떠 있으면 타일을 바 바로 위에 붙인다(content-end, 여백 ≈ 11px) —
+              // 가운데 정렬의 잔여 공간이 바-타일 간격으로 보여 크게 느껴졌다(2026-08-25).
+              // 넘치는 인원은 스크롤 시작이 잘리지 않게 위 정렬 유지.
+              allMembers.length > 4
+                ? "content-start"
+                : controlsVisible
+                  ? "content-end"
+                  : "content-center"
             } ${
               controlsVisible
-                ? "scale-[0.98] pb-[calc(env(safe-area-inset-bottom)+100px)]"
+                ? "scale-[0.98] pb-[calc(env(safe-area-inset-bottom)+108px)]"
                 : "pb-[4dvh]"
             }`}
           >

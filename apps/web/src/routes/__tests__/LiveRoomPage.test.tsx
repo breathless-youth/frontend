@@ -789,20 +789,20 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(onIcon).not.toBe(offIcon);
   });
 
-  it("전환 버튼을 누를 때마다 아이콘이 반 바퀴씩 돌아간다 (BY-435)", async () => {
+  it("전환 버튼은 몸통은 고정하고 안의 화살표만 반 바퀴씩 돈다 (BY-435)", async () => {
     renderRoom();
     await enterRoom();
     await turnCameraOn();
 
     const flipButton = screen.getByRole("button", { name: "카메라 전환" });
-    const flipIcon = flipButton.querySelector("img") as HTMLImageElement;
-    expect(flipIcon.style.transform).toBe("rotate(0deg)");
+    const arrows = flipButton.querySelector('[data-testid="camera-flip-arrows"]') as SVGGElement;
+    expect(arrows.style.transform).toBe("rotate(0deg)");
 
     await userEvent.click(flipButton);
-    expect(flipIcon.style.transform).toBe("rotate(180deg)");
+    expect(arrows.style.transform).toBe("rotate(180deg)");
 
     await userEvent.click(flipButton);
-    expect(flipIcon.style.transform).toBe("rotate(360deg)");
+    expect(arrows.style.transform).toBe("rotate(360deg)");
   });
 
   it("바가 올라와 있으면 하단을 바만큼 벌리고 살짝 줄며, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
@@ -860,10 +860,13 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
-  it("4명까지는 타일 그룹을 세로 가운데 정렬한다 (BY-435, 0352 비율)", async () => {
+  it("4명까지는 바가 떠 있으면 바 위에 붙고(content-end), 내리면 세로 가운데다", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
+    expect(screen.getByTestId("room-grid")).toHaveClass("content-end");
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
   });
 
