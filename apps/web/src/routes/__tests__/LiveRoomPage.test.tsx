@@ -752,7 +752,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     // 반투명 필이고, 켬↔끔 배경은 색 전환 애니메이션을 탄다.
     const offButton = screen.getByRole("button", { name: "카메라 켜기" });
     expect(offButton).toHaveClass("bg-[#ff6b77]/20");
-    expect(offButton).toHaveClass("transition-colors");
+    expect(offButton).toHaveClass("transition-[background-color,transform]");
     expect(offButton).toHaveAttribute("aria-pressed", "false");
     expect(offButton.querySelector("img")?.getAttribute("src")).toContain("ff6b77");
 
@@ -773,14 +773,14 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const offIcon = screen
       .getByRole("button", { name: "카메라 켜기" })
       .querySelector("img") as HTMLImageElement;
-    expect(offIcon.className).toContain("camera-icon-pop");
+    expect(offIcon.className).toContain("control-icon-pop");
 
     await turnCameraOn();
 
     const onIcon = screen
       .getByRole("button", { name: "카메라 끄기" })
       .querySelector("img") as HTMLImageElement;
-    expect(onIcon.className).toContain("camera-icon-pop");
+    expect(onIcon.className).toContain("control-icon-pop");
     // key가 상태별로 달라야 재마운트되어 애니메이션이 다시 돈다.
     expect(onIcon).not.toBe(offIcon);
   });
@@ -819,6 +819,13 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
     expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
+  });
+
+  it("나가기 버튼은 눌림 스케일 효과를 가진다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
   it("타일이 화면을 다 채우지 못하면(4명 = 2행) 세로 가운데 정렬한다 (BY-435)", async () => {

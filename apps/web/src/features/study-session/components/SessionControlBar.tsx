@@ -1,3 +1,4 @@
+import { useState, type CSSProperties } from "react";
 import { type VariantProps, cva } from "class-variance-authority";
 
 import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
@@ -71,7 +72,7 @@ export type SessionControlBarSize = NonNullable<
 // 장식이라 혼란만 줬다. 위 Figma 실측 표의 핸들 행은 역사 기록으로만 남는다.
 
 const controlButtonVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color] duration-200 motion-reduce:transition-none",
+  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,transform] duration-200 motion-reduce:transition-none",
   {
     variants: {
       size: {
@@ -89,7 +90,8 @@ const controlButtonVariants = cva(
        * 버튼을 **없애지 않고 흐리게 남기는** 이유는 컨트롤 바가 세 버튼의 고정 배치이기 때문이다.
        * 하나를 빼면 나머지 두 개가 가운데로 밀려 심플 모드 진입 자체가 레이아웃 점프가 된다.
        */
-      disabled: { true: "opacity-40", false: "active:opacity-80" },
+      // 눌림 스케일은 룸 바(RoomControlBar)와 동일한 모션이다(BY-435).
+      disabled: { true: "opacity-40", false: "active:scale-90 active:opacity-80" },
     },
     defaultVariants: { size: "responsive", variant: "default", disabled: false },
   },
@@ -169,6 +171,8 @@ interface ControlButtonProps {
   label: string;
   iconSrc: string;
   iconClassName: string;
+  /** 전환 버튼의 회전(BY-435)처럼 아이콘에 인라인 변환이 필요할 때만 넘긴다. */
+  iconStyle?: CSSProperties;
   size: SessionControlBarSize;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
@@ -179,6 +183,7 @@ function ControlButton({
   label,
   iconSrc,
   iconClassName,
+  iconStyle,
   size,
   onClick,
   variant = "default",
@@ -195,7 +200,19 @@ function ControlButton({
       disabled={disabled}
       className={controlButtonVariants({ size, variant, disabled })}
     >
-      <img src={iconSrc} alt="" aria-hidden="true" className={iconClassName} />
+      {/* key=src: 아이콘이 바뀌는 토글(일시정지↔재개)만 리마운트되어 팝이 돈다 —
+          룸 바의 카메라 켬↔끔과 같은 모션(BY-435). 정적 아이콘은 마운트 때 1회뿐이다. */}
+      <img
+        key={iconSrc}
+        src={iconSrc}
+        alt=""
+        aria-hidden="true"
+        style={iconStyle}
+        className={cn(
+          iconClassName,
+          "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
+        )}
+      />
     </button>
   );
 }
@@ -209,6 +226,9 @@ export function SessionControlBar({
   onRequestExit,
   className,
 }: SessionControlBarProps) {
+  // 전환 버튼 반 바퀴 회전(BY-435) — 룸 바(RoomControlBar)와 동일. 누른 횟수만 세면
+  // CSS 트랜지션이 연속 회전을 만들고, 실제 전환 성공 여부와 무관하게 즉시 반응한다.
+  const [flipTurns, setFlipTurns] = useState(0);
   return (
     <div
       role="group"
@@ -228,9 +248,16 @@ export function SessionControlBar({
       <ControlButton
         label="카메라 전환"
         iconSrc={cameraFlipIcon}
-        iconClassName={ICON_SIZE.cameraFlip[size]}
+        iconClassName={cn(
+          ICON_SIZE.cameraFlip[size],
+          "transition-transform duration-300 ease-out motion-reduce:transition-none",
+        )}
+        iconStyle={{ transform: `rotate(${flipTurns * 180}deg)` }}
         size={size}
-        onClick={onFlipCamera}
+        onClick={() => {
+          setFlipTurns((turns) => turns + 1);
+          onFlipCamera();
+        }}
         disabled={flipDisabled}
       />
       <ControlButton

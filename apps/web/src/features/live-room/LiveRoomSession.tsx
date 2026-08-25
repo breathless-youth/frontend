@@ -340,10 +340,17 @@ export function LiveRoomSession({
             // 잘리지 않게 위 정렬을 유지한다.
             className={`grid grow gap-1 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-[4dvh] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               Math.ceil(allMembers.length / grid.cols) <= grid.rowUnit ? "content-center" : ""
-            } ${grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"} ${
+            } ${
+              // 가로 행 높이는 rowUnit이 아니라 인원(cols)에서 갈린다 — A안으로 3~4명도
+              // rowUnit 2가 되면서, rowUnit 기준이던 종전 매핑은 4명 가로를 1행 100%로
+              // 잘못 키웠다. 2명(1열)만 가로 1행 100%, 3명 이상은 행 높이 1/2 + 스크롤.
+              grid.cols === 1
+                ? "grid-cols-1 landscape:grid-cols-2 landscape:[grid-auto-rows:100%]"
+                : "grid-cols-2 landscape:[grid-auto-rows:calc((100%-4px)/2)]"
+            } ${
               grid.rowUnit === 2
-                ? "[grid-auto-rows:calc((100%-4px)/2)] landscape:[grid-auto-rows:100%]"
-                : "[grid-auto-rows:calc((100%-8px)/3)] landscape:[grid-auto-rows:calc((100%-4px)/2)]"
+                ? "[grid-auto-rows:calc((100%-4px)/2)]"
+                : "[grid-auto-rows:calc((100%-8px)/3)]"
             }`}
           >
             {allMembers.map((member) => (

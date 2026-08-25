@@ -53,7 +53,7 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={`flex size-[50px] items-center justify-center rounded-full transition-colors duration-300 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none ${
+        className={`flex size-[50px] items-center justify-center rounded-full transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none ${
           // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
           // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
           cameraOn ? "bg-white/12" : "bg-[#ff6b77]/20"
@@ -64,7 +64,7 @@ export function RoomControlBar({
           key={cameraOn ? "on" : "off"}
           src={cameraOn ? cameraIcon : cameraOffIcon}
           alt=""
-          className="size-5 animate-[camera-icon-pop_220ms_ease-out] motion-reduce:animate-none"
+          className="size-5 animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none"
         />
       </button>
       <button
@@ -77,7 +77,7 @@ export function RoomControlBar({
           setFlipTurns((turns) => turns + 1);
           onFlipCamera();
         }}
-        className="flex size-[50px] items-center justify-center rounded-full bg-white/12 active:opacity-80 disabled:opacity-40"
+        className="flex size-[50px] items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
       >
         <img
           src={cameraFlipIcon}
@@ -91,7 +91,7 @@ export function RoomControlBar({
         aria-label="나가기"
         disabled={disabled}
         onClick={onExit}
-        className="flex size-[50px] items-center justify-center rounded-full bg-[var(--session-exit-bg)] active:opacity-80 disabled:opacity-40"
+        className="flex size-[50px] items-center justify-center rounded-full bg-[var(--session-exit-bg)] transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
       >
         <img src={exitIcon} alt="" className="size-5" />
       </button>
