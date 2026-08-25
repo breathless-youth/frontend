@@ -831,17 +831,18 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(arrows.style.transform).toBe("rotate(360deg)");
   });
 
-  it("바가 올라와 있으면 하단을 바만큼 벌리고 살짝 줄며, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
+  it("바가 올라와 있으면 하단을 바만큼 벌리고, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
+    // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
+    // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
-    expect(grid).toHaveClass("scale-[0.98]");
+    expect(grid.className).not.toContain("scale-");
     expect(grid).not.toHaveClass("pb-[4dvh]");
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(grid).toHaveClass("pb-[4dvh]");
-    expect(grid).not.toHaveClass("scale-[0.98]");
   });
 
   it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 36dvh, 내리면 41dvh로 커진다", async () => {
