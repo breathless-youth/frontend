@@ -55,8 +55,6 @@ export function LiveRoomEntry({
   const location = useLocation();
 
   const graceRejoin = entryState.graceRejoin === true;
-  // 일반 입장은 무조건 끔(일시정지 시작), 유예 재입장만 이전 카메라 상태 복원(기본 켬).
-  const initialCameraOn = graceRejoin ? entryState.cameraOn !== false : false;
 
   const [entered, setEntered] = useState(false);
   /**
@@ -203,7 +201,6 @@ export function LiveRoomEntry({
       camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
-      initialCameraOn={initialCameraOn}
       profile={profile.data ?? null}
     />
   );

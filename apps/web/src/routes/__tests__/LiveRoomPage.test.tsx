@@ -261,8 +261,8 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
 
-  it("유예 재입장은 join 재호출 없이 이전 카메라 상태(끔)를 복원한다", async () => {
-    renderRoom({ state: { inviteCode: "0712", graceRejoin: true, cameraOn: false } });
+  it("유예 재입장은 join 재호출 없이 입장한다", async () => {
+    renderRoom({ state: { inviteCode: "0712", graceRejoin: true } });
 
     await enterRoom();
 
@@ -270,17 +270,18 @@ describe("LiveRoomPage — 입장", () => {
     expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
-  it("유예 재입장은 이전 카메라 상태(켬)도 복원한다 — 일반 입장의 꺼짐 고정과 다르다", async () => {
+  it("유예 재입장도 카메라 꺼짐(일시정지)으로 시작한다 — 나가기가 곧 일시정지다", async () => {
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      state: { inviteCode: "0712", graceRejoin: true },
     });
 
     await enterRoom();
 
-    expect(screen.getByRole("button", { name: "카메라 끄기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(channel.published).toContainEqual({ cameraOn: true });
+      expect(channel.published).toContainEqual({ cameraOn: false });
     });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
     expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
@@ -1176,7 +1177,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("첫 SNAPSHOT의 내 studySeconds에서 이어서 발행한다 — 0으로 리셋하지 않는다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 
@@ -1191,7 +1192,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
 
   it("내 타일 공부시간 표시가 SNAPSHOT 기준값에서 이어진다", async () => {
     renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 }), member(8)] },
     });
 
@@ -1204,7 +1205,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("재연결로 두 번째 SNAPSHOT이 와도 기준값을 다시 읽지 않는다 — 이중 가산 방지", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 
@@ -1226,7 +1227,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("SNAPSHOT에 내가 없으면 기준값 0 — 기존 입장 동작 그대로", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(8)] },
     });
 
@@ -1242,7 +1243,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("SNAPSHOT의 내 studySeconds가 없으면 기준값 0으로 처리한다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: undefined })] },
     });
 
@@ -1258,9 +1259,18 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("측정이 진행 중이면 로컬 누적분이 기준값에 가산되어 발행된다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
+
+    // 입장은 유예 재입장도 항상 일시정지라, 누적을 보려면 카메라를 켜 재개시킨다.
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    await act(async () => {});
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    );
+    await act(async () => {});
 
     // 두 번에 나눠 진행한다 — act 사이에서 렌더가 반영되어야 발행 시점의
     // focusSec 참조가 누적값을 본다(단일 act 안에서는 리렌더가 끝까지 미뤄진다).
@@ -1279,7 +1289,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("세션 제출에는 기준값을 가산하지 않는다 — 이번 마운트 측정값만 나간다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 
