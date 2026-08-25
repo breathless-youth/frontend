@@ -136,6 +136,7 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
         requestId: record.requestId,
         ok: false,
         message: record.message,
+        ...(Number.isFinite(record.status) ? { status: record.status as number } : {}),
         atMs: record.atMs,
       };
     }

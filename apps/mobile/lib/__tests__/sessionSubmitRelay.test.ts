@@ -72,8 +72,19 @@ describe("relaySessionSubmit", () => {
       requestId: "submit-1",
       ok: false,
       message: "세션 구간이 겹칩니다",
+      status: 400,
       atMs: expect.any(Number),
     });
+  });
+
+  it("네트워크 실패에는 status가 실리지 않는다 — HTTP 응답이 아니라서다", async () => {
+    mockedFetch.mockRejectedValue(new Error("Network request failed"));
+
+    const result = await relaySessionSubmit(MESSAGE);
+    expect(result.ok).toBe(false);
+    if (result.ok === false) {
+      expect(result.status).toBeUndefined();
+    }
   });
 
   it("네트워크가 끊겨도 던지지 않고 ok=false로 돌려준다", async () => {
