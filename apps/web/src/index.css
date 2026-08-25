@@ -289,3 +289,18 @@ body {
     animation: none;
   }
 }
+
+/* 룸 컨트롤 바 카메라 켬↔끔 아이콘 교체 팝(BY-435) — 아이콘이 살짝 작은 상태에서 커지며
+   나타난다. 재생은 RoomControlBar가 아이콘 리마운트(React key)로 트리거하고, 모션 축소는
+   사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes camera-icon-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

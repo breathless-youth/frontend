@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
@@ -11,10 +13,11 @@ type RoomControlBarProps = {
   /** 제출 중처럼 조작이 안전하지 않은 구간의 잠금. 버튼을 없애면 배치가 튀므로 흐리게 남긴다. */
   disabled?: boolean;
   /**
-   * 자동 숨김 잔상(BY-427 시안 B) — 바만 반투명(0.22)으로 남긴다. 잔상 중 바 영역 탭은
-   * 버튼이 아니라 화면 복귀 트리거로만 동작해야 하므로 pointer-events도 함께 끈다.
+   * 자동 숨김(BY-435) — 바를 화면 아래로 슬라이드해 완전히 내보낸다(종전 잔상 페이드 대체).
+   * 숨김 중 바 영역 탭은 버튼이 아니라 화면 복귀 트리거로만 동작해야 하므로
+   * pointer-events도 함께 끈다. 복귀는 같은 트랜지션을 역방향으로 탄다.
    */
-  faded?: boolean;
+  hidden?: boolean;
   onToggleCamera: () => void;
   onFlipCamera: () => void;
   onExit: () => void;
@@ -23,18 +26,25 @@ type RoomControlBarProps = {
 export function RoomControlBar({
   cameraOn,
   disabled = false,
-  faded = false,
+  hidden = false,
   onToggleCamera,
   onFlipCamera,
   onExit,
 }: RoomControlBarProps) {
+  // 전환 버튼 반 바퀴 회전(BY-435) — 누른 횟수만 세면 CSS 트랜지션이 연속 회전을 만든다.
+  // 실제 전환 성공 여부와 무관하게 도는 것은 의도다: 즉각적인 눌림 반응이 목적이다.
+  const [flipTurns, setFlipTurns] = useState(0);
   return (
     // 치수는 싱글룸 SessionControlBar 세로 스펙과 동일(버튼 50 · 간격 22 · 좌우 24 · 높이 80,
     // 2026-08-25 BY-427 피드백: 두 룸의 바 크기 통일) — 폭은 내용에 맞춰 242px이 된다.
     <div
       data-testid="room-control-bar"
-      className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-opacity duration-300 motion-reduce:transition-none ${
-        faded ? "pointer-events-none opacity-[0.22]" : "pointer-events-auto"
+      className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-transform duration-300 ease-out motion-reduce:transition-none ${
+        // 이동량 = 바 높이(100%) + 래퍼의 bottom 오프셋(safe-area+17px) — 화면 밖까지 정확히
+        // 나간다. 부모 main의 overflow-hidden이 내려간 바를 잘라 문서 스크롤을 막는다.
+        hidden
+          ? "pointer-events-none translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]"
+          : "pointer-events-auto translate-y-0"
       }`}
     >
       <button
@@ -43,13 +53,19 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={`flex size-[50px] items-center justify-center rounded-full active:opacity-80 disabled:opacity-40 ${
-          // 꺼짐은 흰색 반전 강조(BY-427 시안 B) — 항상-다크 화면 위 반전이라 테마 토큰이 아닌
-          // bg.layer2 light 값(#f2f4f6) 리터럴을 쓴다. 아이콘도 어두운 사선 버전으로 바꾼다.
-          cameraOn ? "bg-white/12" : "bg-[#f2f4f6]"
+        className={`flex size-[50px] items-center justify-center rounded-full transition-colors duration-300 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none ${
+          // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
+          // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
+          cameraOn ? "bg-white/12" : "bg-[#ff6b77]/20"
         }`}
       >
-        <img src={cameraOn ? cameraIcon : cameraOffIcon} alt="" className="size-5" />
+        {/* key로 상태별 재마운트를 강제해 켬↔끔마다 팝 애니메이션이 다시 돈다. */}
+        <img
+          key={cameraOn ? "on" : "off"}
+          src={cameraOn ? cameraIcon : cameraOffIcon}
+          alt=""
+          className="size-5 animate-[camera-icon-pop_220ms_ease-out] motion-reduce:animate-none"
+        />
       </button>
       <button
         type="button"
@@ -57,10 +73,18 @@ export function RoomControlBar({
         // 카메라가 꺼져 있으면 전환할 대상이 없다 — 눌리는 척만 하는 버튼을 남기지 않는다
         // (2026-08-25 BY-427 실기기 피드백).
         disabled={disabled || !cameraOn}
-        onClick={onFlipCamera}
+        onClick={() => {
+          setFlipTurns((turns) => turns + 1);
+          onFlipCamera();
+        }}
         className="flex size-[50px] items-center justify-center rounded-full bg-white/12 active:opacity-80 disabled:opacity-40"
       >
-        <img src={cameraFlipIcon} alt="" className="size-5" />
+        <img
+          src={cameraFlipIcon}
+          alt=""
+          className="size-5 transition-transform duration-300 ease-out motion-reduce:transition-none"
+          style={{ transform: `rotate(${flipTurns * 180}deg)` }}
+        />
       </button>
       <button
         type="button"

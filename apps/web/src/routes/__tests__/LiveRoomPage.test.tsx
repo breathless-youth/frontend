@@ -743,25 +743,69 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 });
 
 describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
-  it("카메라 꺼짐 버튼은 흰색 반전 배경 + 어두운 사선 아이콘, 켜짐은 현행 유지", async () => {
+  it("카메라 꺼짐 버튼은 반투명 레드 필 + 레드 사선 아이콘, 켜짐은 현행 유지 (BY-435 시안 A)", async () => {
     renderRoom();
     await enterRoom();
 
     // 작은 svg는 vite가 data URI로 인라인한다 — 파일명 대신 아이콘 내용으로 구분한다.
-    // off 아이콘만 어두운 사선 스트로크(#191f28)를 가진다.
+    // off 아이콘만 레드 사선 스트로크(#ff6b77)를 가진다. 나가기(솔리드 레드)와 구분되는
+    // 반투명 필이고, 켬↔끔 배경은 색 전환 애니메이션을 탄다.
     const offButton = screen.getByRole("button", { name: "카메라 켜기" });
-    expect(offButton).toHaveClass("bg-[#f2f4f6]");
+    expect(offButton).toHaveClass("bg-[#ff6b77]/20");
+    expect(offButton).toHaveClass("transition-colors");
     expect(offButton).toHaveAttribute("aria-pressed", "false");
-    expect(offButton.querySelector("img")?.getAttribute("src")).toContain("191f28");
+    expect(offButton.querySelector("img")?.getAttribute("src")).toContain("ff6b77");
 
     await turnCameraOn();
 
     const onButton = screen.getByRole("button", { name: "카메라 끄기" });
-    expect(onButton).not.toHaveClass("bg-[#f2f4f6]");
+    expect(onButton).not.toHaveClass("bg-[#ff6b77]/20");
     expect(onButton).toHaveAttribute("aria-pressed", "true");
     const onSrc = onButton.querySelector("img")?.getAttribute("src") ?? "";
-    expect(onSrc).not.toContain("191f28");
+    expect(onSrc).not.toContain("ff6b77");
     expect(onSrc).toContain("white");
+  });
+
+  it("켬↔끔 전환 시 아이콘이 팝 애니메이션으로 교체된다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+
+    const offIcon = screen
+      .getByRole("button", { name: "카메라 켜기" })
+      .querySelector("img") as HTMLImageElement;
+    expect(offIcon.className).toContain("camera-icon-pop");
+
+    await turnCameraOn();
+
+    const onIcon = screen
+      .getByRole("button", { name: "카메라 끄기" })
+      .querySelector("img") as HTMLImageElement;
+    expect(onIcon.className).toContain("camera-icon-pop");
+    // key가 상태별로 달라야 재마운트되어 애니메이션이 다시 돈다.
+    expect(onIcon).not.toBe(offIcon);
+  });
+
+  it("전환 버튼을 누를 때마다 아이콘이 반 바퀴씩 돌아간다 (BY-435)", async () => {
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+
+    const flipButton = screen.getByRole("button", { name: "카메라 전환" });
+    const flipIcon = flipButton.querySelector("img") as HTMLImageElement;
+    expect(flipIcon.style.transform).toBe("rotate(0deg)");
+
+    await userEvent.click(flipButton);
+    expect(flipIcon.style.transform).toBe("rotate(180deg)");
+
+    await userEvent.click(flipButton);
+    expect(flipIcon.style.transform).toBe("rotate(360deg)");
+  });
+
+  it("2명 이상 그리드는 하단에 여백을 둔다 — 타일이 화면 바닥에 붙지 않는다 (BY-435)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid")).toHaveClass("pb-4");
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
@@ -799,23 +843,24 @@ describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
   }
 
-  it("마지막 상호작용 후 4초가 지나면 바만 잔상으로 페이드되고 조작이 막힌다", async () => {
+  it("마지막 상호작용 후 4초가 지나면 바가 아래로 슬라이드되어 사라지고 조작이 막힌다 (BY-435)", async () => {
     renderRoom();
     await enterWithFakeIdleTimer();
 
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).toHaveClass("transition-transform");
 
     act(() => {
       vi.advanceTimersByTime(4000);
     });
 
-    expect(bar).toHaveClass("opacity-[0.22]");
+    expect(bar).toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
     expect(bar).toHaveClass("pointer-events-none");
     expect(bar).not.toHaveClass("pointer-events-auto");
   });
 
-  it("잔상 상태에서 화면을 탭하면 즉시 복귀하고 유휴 타이머가 재시작된다", async () => {
+  it("숨은 상태에서 화면을 탭하면 슬라이드로 복귀하고 유휴 타이머가 재시작된다", async () => {
     renderRoom();
     await enterWithFakeIdleTimer();
     act(() => {
@@ -827,7 +872,7 @@ describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
 
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("opacity-[0.22]");
+    expect(bar).not.toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
 
     // 복귀 후에도 유휴 4초가 다시 흐르면 재차 숨는다 — 타이머 재시작 검증.
     act(() => {
@@ -850,7 +895,7 @@ describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
 
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("opacity-[0.22]");
+    expect(bar).not.toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
   });
 
   it("제출 중(controlsLocked)에는 숨지 않고 저장 중 문구도 그대로 남는다", async () => {

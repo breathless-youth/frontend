@@ -256,10 +256,11 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
-  // 컨트롤 바 자동 숨김(BY-427 시안 B) — 마지막 상호작용 후 4초가 지나면 바만 잔상(0.22)으로
-  // 페이드하고 조작을 막는다. 잠금(제출 중·에러)·다이얼로그 동안은 숨기지 않는다.
+  // 컨트롤 바 자동 숨김 — 마지막 상호작용 후 4초가 지나면 바를 화면 아래로 슬라이드해
+  // 내보내고 조작을 막는다(BY-435, 종전 BY-427 잔상 페이드 대체). 잠금(제출 중·에러)·
+  // 다이얼로그 동안은 숨기지 않는다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  const [controlsFaded, setControlsFaded] = useState(false);
+  const [controlsHidden, setControlsHidden] = useState(false);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearFadeTimer = useCallback(() => {
     if (fadeTimerRef.current !== null) {
@@ -271,13 +272,13 @@ export function LiveRoomSession({
     clearFadeTimer();
     fadeTimerRef.current = setTimeout(() => {
       fadeTimerRef.current = null;
-      setControlsFaded(true);
+      setControlsHidden(true);
     }, CONTROL_BAR_IDLE_MS);
   }, [clearFadeTimer]);
   useEffect(() => {
     if (controlsAlwaysVisible) {
       clearFadeTimer();
-      setControlsFaded(false);
+      setControlsHidden(false);
       return;
     }
     restartFadeTimer();
@@ -285,9 +286,9 @@ export function LiveRoomSession({
   }, [clearFadeTimer, controlsAlwaysVisible, restartFadeTimer]);
 
   // 화면 아무 곳 탭 = 즉시 복귀 + 유휴 타이머 재시작. 바 조작도 pointerdown 버블로 같이 잡힌다.
-  // 잔상 상태의 바는 pointer-events가 꺼져 있어 그 탭은 복귀 트리거로만 동작한다.
+  // 숨은 바는 pointer-events가 꺼져 있어 그 탭은 복귀 트리거로만 동작한다.
   const handleSurfacePointerDown = () => {
-    setControlsFaded(false);
+    setControlsHidden(false);
     if (!controlsAlwaysVisible) {
       restartFadeTimer();
     }
@@ -297,7 +298,9 @@ export function LiveRoomSession({
     <main
       data-testid="live-room-page"
       onPointerDown={handleSurfacePointerDown}
-      className="relative flex h-dvh flex-col bg-background"
+      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
+      // 문서 스크롤이 생기지 않게 한다.
+      className="relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
       {debugEnabled && (
@@ -331,7 +334,7 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
             } ${
               grid.rowUnit === 2
@@ -369,11 +372,11 @@ export function LiveRoomSession({
               </button>
             </div>
           )}
-          {/* "저장 중..."·"다시 제출"은 페이드 대상이 아니다 — 바만 잔상으로 페이드한다. */}
+          {/* "저장 중..."·"다시 제출"은 숨김 대상이 아니다 — 바만 아래로 내려간다. */}
           <RoomControlBar
             cameraOn={!paused}
             disabled={controlsLocked}
-            faded={controlsFaded}
+            hidden={controlsHidden}
             onToggleCamera={() => {
               if (!paused) {
                 setCameraWanted(false);
