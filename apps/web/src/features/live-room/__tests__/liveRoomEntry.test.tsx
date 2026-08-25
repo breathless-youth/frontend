@@ -163,3 +163,45 @@ it("게이트가 거부면 join 없이 소셜 홈으로 돌아간다 — 권한 
   expect(camera.startCalls).toBe(0);
   expect(screen.queryByTestId("session")).toBeNull();
 });
+
+it("graceRejoin도 권한 게이트를 탄다 — 허용이면 join 없이 이전 카메라 상태로 입장한다", async () => {
+  const postMessage = vi.fn();
+  (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
+
+  renderEntry({ inviteCode: "1234", graceRejoin: true, cameraOn: true, iceServers: [] });
+
+  await waitFor(() => {
+    const types = postMessage.mock.calls.map((call) => JSON.parse(call[0] as string).type);
+    expect(types).toContain("request-camera-gate");
+  });
+
+  const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  entry(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+
+  const session = await screen.findByTestId("session");
+  expect(session.dataset.cameraOn).toBe("true");
+  expect(mockedJoinRoom).not.toHaveBeenCalled();
+});
+
+it("graceRejoin에서 권한이 거부되면 입장하지 않고 소셜 홈으로 돌아간다", async () => {
+  const postMessage = vi.fn();
+  (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
+
+  renderEntry({ inviteCode: "1234", graceRejoin: true, cameraOn: true, iceServers: [] });
+
+  await waitFor(() => {
+    const types = postMessage.mock.calls.map((call) => JSON.parse(call[0] as string).type);
+    expect(types).toContain("request-camera-gate");
+  });
+
+  const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  entry(JSON.stringify({ type: "camera-gate-result", granted: false, atMs: 1 }));
+
+  await screen.findByTestId("social-home-stub");
+  expect(mockedJoinRoom).not.toHaveBeenCalled();
+  expect(screen.queryByTestId("session")).toBeNull();
+});

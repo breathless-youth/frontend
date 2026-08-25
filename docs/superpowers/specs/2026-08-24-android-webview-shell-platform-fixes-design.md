@@ -60,13 +60,13 @@
 
 ## 2. 브리지 메시지 확장 (`packages/types/src/bridge.ts`)
 
-| 방향          | 메시지                                    | 용도                                                                     |
-| ------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
-| 웹 → 네이티브 | `set-orientation { unlocked: boolean }`   | 룸 진입/이탈 시 회전 잠금 제어 요청. `set-back-lock`과 같은 웹 주도 패턴 |
-| 웹 → 네이티브 | `request-camera-gate`                     | 룸 입장을 확정하기 전 권한 게이트 실행 요청                              |
-| 네이티브 → 웹 | `camera-gate-result { granted: boolean }` | `request-camera-gate` 응답                                               |
-| 네이티브 → 웹 | `theme { scheme: "light"                  | "dark" }`                                                                | 앱 실행 중 시스템 테마 변경 통지. Android 전용 발신 |
-| 네이티브 → 웹 | `reset-route { path: string }`            | 탭 웹뷰를 탭 루트 경로로 초기화. Android 전용 발신                       |
+| 방향          | 메시지                                    | 용도                                                                         |
+| ------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| 웹 → 네이티브 | `set-orientation { unlocked: boolean }`   | 룸 진입/이탈 시 회전 잠금 제어 요청. `set-back-lock`과 같은 웹 주도 패턴     |
+| 웹 → 네이티브 | `request-camera-gate`                     | 룸 입장을 확정하기 전 권한 게이트 실행 요청                                  |
+| 네이티브 → 웹 | `camera-gate-result { granted: boolean }` | `request-camera-gate` 응답                                                   |
+| 네이티브 → 웹 | `theme { scheme }`                        | 앱 실행 중 시스템 테마 변경 통지(`"light"` 또는 `"dark"`). Android 전용 발신 |
+| 네이티브 → 웹 | `reset-route { path: string }`            | 탭 웹뷰를 탭 루트 경로로 초기화. Android 전용 발신                           |
 
 파서 갱신: 웹 수신은 `apps/web/src/lib/bridge.ts`의 `parseToWebMessage`, 네이티브 수신은 `apps/mobile/lib/webBridge.ts`의 `parseToNativeMessage`. 모르는 메시지를 흘려보내는 기존 규약 덕에 구형 셸 + 신형 웹, 신형 셸 + 구형 웹 조합 모두 오늘 동작으로 물러난다.
 
@@ -84,7 +84,7 @@
 ### #2 회전 브리지
 
 - 웹: `apps/web/src/lib/nativeBackGesture.ts`의 기존 훅 옆에 마운트 동안 `set-orientation unlocked: true`, 언마운트에서 `unlocked: false`를 보내는 훅을 추가하고, 룸 라우트(`/social/room/:id`) 수명에 건다. 진입 미리보기 단계부터 룸 전체가 회전 대상이다.
-- 네이티브: `lib/nativeBridgeHandler.ts`가 수신해 **Android일 때만** `unlockForSession()` / `lockPortrait()`(`lib/orientation.ts`)를 부른다. iOS는 무시한다 — 완료 조건 "iOS 동작에 변화가 없다"를 지키기 위해서다. 잠금 호출 실패는 기존 `lockSafely`가 삼킨다.
+- 네이티브: `components/RemoteWebViewHost.tsx`가 수신해 **Android일 때만** `unlockForSession()` / `lockPortrait()`(`lib/orientation.ts`)를 부른다. 공용 핸들러가 아니라 호스트에서 소비하는 이유는 `set-back-gesture`와 같다 — 복원 시점이 이 웹뷰의 로드 수명이라 그 상태를 가진 쪽이 처리해야 한다. iOS는 무시한다 — 완료 조건 "iOS 동작에 변화가 없다"를 지키기 위해서다. 잠금 호출 실패는 기존 `lockSafely`가 삼킨다.
 - 문서 세대 주의: 웹뷰 재로드·렌더러 재생성으로 룸 밖 문서가 새로 뜨면 `unlocked: false`를 되돌릴 주체가 없다. `RemoteWebViewHost`가 **새 문서의 로드 시작(`onLoadStart`)**에서 세로 잠금을 복원한다. 로드 종료가 아닌 이유: 웹의 회전 요청은 React effect에서 나가 나머지 리소스 로드보다 먼저 도착할 수 있어, 종료 시점에 복원하면 방금 연 회전을 같은 로드가 되잠근다(2026-08-25 채점 지적).
 - 실기기 확인 항목: Android에서 rn-screens `orientation: "portrait"`(`setRequestedOrientation`)와 `expo-screen-orientation`의 호출 순서 경합. 룸 체류 중 네이티브 화면 전환이 없어 문제없을 것으로 보지만 기기에서 확인한다.
 

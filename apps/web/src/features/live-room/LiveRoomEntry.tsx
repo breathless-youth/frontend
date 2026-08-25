@@ -36,7 +36,9 @@ import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveR
  *
  * 측정 훅(세션)은 입장이 확정된 뒤에만 마운트되고, 프로필 조회도 이 단계에서만 한다 —
  * 세션 중 API 호출 금지 계약. 입장 시 join을 재호출해 자리 예약 30초 TTL을 새로 잡는다.
- * 유예 재입장은 join 없이 이전 카메라 상태로 들어간다.
+ * 유예 재입장은 자리 예약이 아직 살아 있어 join을 부르지 않지만, **권한 게이트는 똑같이
+ * 탄다** — 그 사이 사용자가 설정에서 권한을 껐을 수 있고, 여기만 예외를 두면 "권한 없으면
+ * 룸에 들어가지 않는다"는 정책에 구멍이 생긴다(2026-08-25 봇 리뷰 지적).
  */
 export function LiveRoomEntry({
   roomId,
@@ -56,9 +58,9 @@ export function LiveRoomEntry({
   // 입장부터 세션 종료까지 룸 전체 수명 동안 회전을 연다 — 이 컴포넌트가 세션
   // (`LiveRoomSession`)을 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다.
   useNativeOrientationUnlock();
-  const [entry, setEntry] = useState<{ cameraOn: boolean } | null>(
-    entryState.graceRejoin === true ? { cameraOn: entryState.cameraOn !== false } : null,
-  );
+  const [entry, setEntry] = useState<{ cameraOn: boolean } | null>(null);
+  // 유예 재입장은 자리 예약을 다시 잡지 않는다 — 게이트만 통과하면 join 없이 들어간다.
+  const graceRejoin = entryState.graceRejoin === true;
   const [entryError, setEntryError] = useState<string | null>(null);
   const [iceServers, setIceServers] = useState<IceServer[]>(entryState.iceServers ?? []);
 
@@ -105,6 +107,11 @@ export function LiveRoomEntry({
     void (async () => {
       if (!(await requestCameraGate())) {
         setGateDenied(true);
+        return;
+      }
+      if (graceRejoin) {
+        // 이전 카메라 상태를 그대로 되살린다. join은 부르지 않는다 — 자리 예약이 아직 살아 있다.
+        setEntry({ cameraOn: entryState.cameraOn !== false });
         return;
       }
       await confirmEntry(false);
