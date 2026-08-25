@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Appearance, Platform, Text, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import type { ToNativeMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
+import { lockPortrait, unlockForSession } from "../lib/orientation";
+import { subscribeTabReset } from "../lib/tabReset";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
 import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 
@@ -103,6 +105,15 @@ export function RemoteWebViewHost({
    * WebView prop이라, 핸들러로 보내면 그 상태를 다시 여기로 배선하는 우회로만 생긴다.
    */
   const [backGestureEnabled, setBackGestureEnabled] = useState(true);
+  /**
+   * 웹 주도 회전 해제 여부 — 실시간 룸이 `set-orientation`으로 풀었는지를 기록한다.
+   * 문서 세대가 바뀌면(재로드·렌더러 재생성) 해제를 요청한 문서가 사라져 되잠글 주체가
+   * 없으므로, **새 문서의 로드 시작 시점**에 이 기록을 보고 세로로 복원한다(`handleLoadStart`).
+   * 기록 없이 무조건 복원하면 솔로 세션 화면(`room/[id]`)이 자기 마운트에서 푼 잠금까지
+   * 덮어쓴다. set-back-gesture와 같은 이유로 공용 핸들러가 아니라 여기서 소비한다 — 복원
+   * 시점(이 웹뷰의 로드 수명)이 이 컴포넌트 소유다.
+   */
+  const webOrientationUnlockedRef = useRef(false);
   // 재시도 시 베이스 URL 설정도 다시 읽는다 — retry 한 번으로 "설정 누락"과 "일시적 로드
   // 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
   const [retryKey, setRetryKey] = useState(0);
@@ -161,6 +172,18 @@ export function RemoteWebViewHost({
         setBackGestureEnabled(message.enabled);
         return;
       }
+      if (message.type === "set-orientation") {
+        // iOS는 무시한다 — 룸 회전 개방은 Android 장애 대응 범위이고 iOS 동작은 바꾸지 않는다.
+        if (Platform.OS === "android") {
+          webOrientationUnlockedRef.current = message.unlocked;
+          if (message.unlocked) {
+            unlockForSession();
+          } else {
+            lockPortrait();
+          }
+        }
+        return;
+      }
       onBridgeMessage?.(message, (reply) => {
         webViewRef.current?.injectJavaScript(injectMessageScript(reply));
       });
@@ -195,13 +218,82 @@ export function RemoteWebViewHost({
     [targetOrigin],
   );
 
+  /**
+   * 새 문서가 시작될 때 이전 문서가 열어 둔 회전을 되잠근다.
+   *
+   * **복원 시점이 `onLoadEnd`가 아니라 여기인 이유**: 웹의 회전 요청은 React effect에서
+   * 나가므로 이미지 등 나머지 리소스 로드보다 먼저 도착할 수 있다. 복원을 로드 종료에 걸면
+   * 방금 연 회전을 **같은 로드가** 되잠근다(2026-08-25 채점 지적). 문서 세대가 바뀌는 순간은
+   * 로드 시작이다.
+   */
+  const handleLoadStart = useCallback(() => {
+    if (webOrientationUnlockedRef.current) {
+      webOrientationUnlockedRef.current = false;
+      lockPortrait();
+    }
+  }, []);
+
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
   const handleLoadEnd = useCallback(() => {
     // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
     // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
     setBackGestureEnabled(true);
+    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
+    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
+    // 남는 것을 막는다(2026-08-25 채점 지적).
+    if (Platform.OS === "android") {
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({
+          type: "theme",
+          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+          atMs: Date.now(),
+        }),
+      );
+    }
     onLoadEnd?.(true);
   }, [onLoadEnd]);
+
+  // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
+  // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
+  useEffect(() => {
+    return subscribeTabReset((webPath) => {
+      if (webPath !== path) {
+        return;
+      }
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({ type: "reset-route", path: webPath, atMs: Date.now() }),
+      );
+    });
+  }, [path]);
+
+  // 실행 중 시스템 테마 변경을 웹에 알린다 — 초기값은 URL의 theme 쿼리가 이미 실었다
+  // (`lib/remoteQueryParams.ts`). Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는
+  // 미디어쿼리가 시스템 테마를 스스로 따라간다.
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({
+          type: "theme",
+          scheme: colorScheme === "dark" ? "dark" : "light",
+          atMs: Date.now(),
+        }),
+      );
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // 웹 주도 해제 상태로 언마운트되면(탭 웹뷰가 통째로 사라지는 경우) 되잠글 문서가 없다 —
+  // 여기서 복원한다. 마운트 중 로드 세대 전환은 handleLoadStart가 담당한다.
+  useEffect(() => {
+    return () => {
+      if (webOrientationUnlockedRef.current) {
+        lockPortrait();
+      }
+    };
+  }, []);
 
   const showFailureFallback = target === null || loadFailed;
 
@@ -286,6 +378,7 @@ export function RemoteWebViewHost({
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
+      onLoadStart={handleLoadStart}
       onLoadEnd={handleLoadEnd}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}

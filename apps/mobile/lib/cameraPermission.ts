@@ -36,9 +36,26 @@ export type CameraPermissionAdapter = {
  */
 export const expoCameraPermissionAdapter: CameraPermissionAdapter = {
   async getStatus() {
-    return (await Camera.getCameraPermissionsAsync()).status;
+    const { status, canAskAgain } = await Camera.getCameraPermissionsAsync();
+    /**
+     * **다시 물어볼 수 있는 거부는 `undetermined`로 좁힌다.** 이 타입의 `undetermined`는
+     * "아직 물어본 적 없음"이 아니라 게이트가 쓰는 의미 그대로 "OS 다이얼로그를 띄워야 하는
+     * 상태"다(`cameraPermissionGate.ts`의 분기).
+     *
+     * Android는 사용자가 설정 앱에서 권한을 끄면 `denied` + `canAskAgain: true`가 된다 —
+     * 다이얼로그를 다시 띄울 수 있는데도 `denied`를 그대로 넘기면 게이트가 요청 단계를 건너뛰고
+     * 곧장 안내 화면으로 보낸다(2026-08-25 실기기 확인: 권한 없는 상태로 소셜 룸에 들어가면
+     * 다이얼로그 없이 안내 화면만 떴다).
+     *
+     * iOS는 한 번 거부하면 `canAskAgain: false`라 이 분기를 타지 않는다 — "denied에서 다시
+     * 요청하면 아무 일도 일어나지 않아 버튼이 안 먹는 것처럼 보인다"는 기존 판단이 그대로
+     * 유지된다.
+     */
+    return status === "denied" && canAskAgain ? "undetermined" : status;
   },
   async request() {
+    // 요청 결과는 그대로 돌려준다 — 방금 거부한 응답을 "다시 물어볼 수 있다"는 이유로
+    // 뒤집으면 게이트가 같은 다이얼로그를 반복해 띄우게 된다.
     return (await Camera.requestCameraPermissionsAsync()).status;
   },
 };
