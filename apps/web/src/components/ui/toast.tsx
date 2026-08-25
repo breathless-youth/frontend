@@ -41,3 +41,25 @@ export function Toast({ message, tone, className }: ToastProps) {
     </div>
   );
 }
+
+/**
+ * 토스트를 띄우는 표준 자리 — 하단 안전영역 + 16px, 화면 중앙.
+ *
+ * 이 오프셋이 화면마다 복붙돼 어긋났다: 소셜 홈·설정은 탭 바를 피하려던 옛 +96px에 남아
+ * 있는데 앱 전역 부팅 토스트만 2026-08-25에 +16px로 옮겨졌고, 그 차이가 실기기에서
+ * "토스트가 너무 위에 뜬다"로 드러났다(BY-436). 위치를 여기 한 곳에만 둔다 —
+ * 새 화면에서 `fixed bottom-...`을 직접 쓰지 말고 이 컴포넌트를 쓸 것.
+ */
+export function ToastViewport({
+  message,
+  tone,
+}: { message: string | null } & VariantProps<typeof toastVariants>) {
+  if (message === null) {
+    return null;
+  }
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16px)] flex justify-center">
+      <Toast message={message} tone={tone} />
+    </div>
+  );
+}

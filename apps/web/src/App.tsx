@@ -5,7 +5,7 @@ import { Route, Routes } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { Toast } from "@/components/ui/toast";
+import { ToastViewport } from "@/components/ui/toast";
 import {
   RESUBMIT_TOAST_MESSAGE,
   resubmitPendingSessions,
@@ -85,11 +85,7 @@ export function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/licenses" element={<LicensesPage />} />
         </Routes>
-        {toastMessage !== null && (
-          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16px)] flex justify-center">
-            <Toast message={toastMessage} />
-          </div>
-        )}
+        <ToastViewport message={toastMessage} />
       </Sentry.ErrorBoundary>
     </QueryClientProvider>
   );

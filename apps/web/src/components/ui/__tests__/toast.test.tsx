@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 
-import { Toast, toastVariants } from "../toast";
+import { Toast, ToastViewport, toastVariants } from "../toast";
 
 /**
  * `--session-toast-bg`는 세션/룸 서브트리에만 주입되므로 세션 밖 화면(초대코드 공유·소셜 홈)은
@@ -29,5 +29,28 @@ describe("Toast", () => {
     const sessionValue = vars["--session-toast-bg"].replaceAll(" ", "");
     expect(TOAST_BG_FALLBACK_CLASS).toContain(`var(--session-toast-bg,${sessionValue})`);
     expect(toastVariants({ tone: "session" })).toContain(TOAST_BG_FALLBACK_CLASS);
+  });
+});
+
+/**
+ * 하단 오프셋이 화면마다 복붙돼 어긋났다 — 소셜 홈·설정은 탭 바를 피하려던 옛 +96px에
+ * 남아 있는데 앱 전역 부팅 토스트는 2026-08-25에 +16px 표준으로 옮겨졌다(BY-436에서
+ * 실기기 확인). 표준을 한 곳에 두고 화면들이 그것만 쓰게 한다.
+ */
+describe("ToastViewport", () => {
+  it("앱 전역 표준 위치(하단 안전영역 + 16px)에 토스트를 띄운다", () => {
+    const { container } = render(<ToastViewport message="저장했어요" />);
+
+    const viewport = container.firstElementChild;
+    expect(viewport?.className).toContain("bottom-[calc(env(safe-area-inset-bottom)+16px)]");
+    // 토스트는 화면 조작을 막지 않는다 — 전면 고정 레이어라 없으면 밑의 버튼을 삼킨다.
+    expect(viewport?.className).toContain("pointer-events-none");
+    expect(screen.getByRole("status")).toHaveTextContent("저장했어요");
+  });
+
+  it("message가 null이면 아무것도 그리지 않는다", () => {
+    const { container } = render(<ToastViewport message={null} />);
+
+    expect(container).toBeEmptyDOMElement();
   });
 });
