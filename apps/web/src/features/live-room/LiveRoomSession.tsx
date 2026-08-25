@@ -29,6 +29,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
+import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { cn } from "@/lib/utils";
 
 import type { CreateChannel } from "./liveRoomEntryState";
@@ -216,6 +217,9 @@ export function LiveRoomSession({
     const video = videoRef.current;
     if (video && video.srcObject !== cameraStream) {
       video.srcObject = cameraStream ?? null;
+      if (cameraStream) {
+        startVideoPlayback(video);
+      }
     }
   });
 
@@ -244,11 +248,13 @@ export function LiveRoomSession({
     <video
       ref={videoRef}
       data-testid="room-my-video"
-      autoPlay
       playsInline
       muted
+      {...VIDEO_PLAYBACK_KICK_PROPS}
       className={cn(
-        "amp-block sentry-block size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
+        // pointer-events-none: 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지
+        // 컨트롤을 띄운다 — 탭은 아래 레이어(유휴 복귀)로 통과시킨다.
+        "amp-block sentry-block session-video pointer-events-none size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />

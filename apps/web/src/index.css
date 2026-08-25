@@ -289,3 +289,21 @@ body {
     animation: none;
   }
 }
+
+/* iOS WebKit이 영상 위에 UA 섀도 DOM으로 그리는 재생/일시정지 컨트롤을 숨긴다.
+   세션 영상의 재생 킥(startVideoPlayback)·탭 차단(pointer-events-none)과 한 세트 */
+video::-webkit-media-controls,
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+/* 재생 대기(:paused) 동안 세션 영상을 투명하게 둔다 — 재생이 시작되기 전 프레임이
+   깜빡여 보이는 것을 막는 보조 방어다. 대기 중에는 보여줄 프레임도 없어 화면상 손실이
+   없고, 재생이 시작되면 즉시 다시 보인다. 저전력 모드가 강제로 띄우는 네이티브 재생
+   컨트롤은 이 규칙으로 숨겨지지 않는다(실기기 확인) — 그쪽의 해결은 영상에서 autoplay
+   속성을 빼고 재생을 코드로 거는 것이다(lib/startVideoPlayback.ts). */
+video.session-video:paused {
+  opacity: 0;
+}

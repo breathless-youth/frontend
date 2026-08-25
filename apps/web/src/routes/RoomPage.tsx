@@ -220,7 +220,6 @@ export function RoomPage() {
     sessionState,
     phase,
     endReason,
-    isCameraRunning,
     cameraStream,
     cameraFacing,
     pause,
@@ -437,7 +436,6 @@ export function RoomPage() {
       {/* 회전 오버스캔은 **프리뷰에만** 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       <CameraPreviewSurface
-        isRunning={isCameraRunning}
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}

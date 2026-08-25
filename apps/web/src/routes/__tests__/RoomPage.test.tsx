@@ -199,9 +199,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("카메라 전환 성공 시 확정 토스트 문구를 띄운다", async () => {
     stubWorkingCamera();
     renderRoom("/room/7?userId=1");
-    // 카메라가 실제로 열릴 때까지 기다린다 — 목업 라벨이 사라지면 스트림이 붙은 것이다.
+    // 카메라가 실제로 열릴 때까지 기다린다 — 스트림이 srcObject에 붙으면 열린 것이다.
     await waitFor(() => {
-      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+      expect(document.querySelector("video")?.srcObject).toBeTruthy();
     });
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
@@ -403,9 +403,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       </StrictMode>,
     );
 
-    // 목업 라벨이 사라지면 스트림이 붙은 것이다.
+    // 카메라가 실제로 열릴 때까지 기다린다 — 스트림이 srcObject에 붙으면 열린 것이다.
     await waitFor(() => {
-      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+      expect(document.querySelector("video")?.srcObject).toBeTruthy();
     });
 
     expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
@@ -415,8 +415,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("언마운트가 카메라 트랙을 실제로 멈춘다", async () => {
     const camera = stubWorkingCamera();
     const { unmount } = renderRoom("/room/7?userId=1");
+    // 카메라가 실제로 열릴 때까지 기다린다 — 스트림이 srcObject에 붙으면 열린 것이다.
     await waitFor(() => {
-      expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
+      expect(document.querySelector("video")?.srcObject).toBeTruthy();
     });
 
     unmount();
@@ -644,11 +645,11 @@ describe("RoomPage — S3-4 심플 모드", () => {
   });
 
   it("보이는 프리뷰만 걷어내고 <video>는 살려둔다 — 심플 모드에서도 감지가 돈다", async () => {
-    // `<video>`는 카메라가 실제로 도는 동안에만 렌더된다 — 스트림을 붙여야 이 경로에 닿는다.
+    // `<video>`는 상시 마운트다 — 스트림까지 붙여 실제 재생 경로에서 동일성을 확인한다.
     stubWorkingCamera();
     const { container } = renderRoom("/room/7?userId=1");
     await waitFor(() => {
-      expect(container.querySelector("video")).not.toBeNull();
+      expect(container.querySelector("video")?.srcObject).toBeTruthy();
     });
     const before = container.querySelector("video");
 

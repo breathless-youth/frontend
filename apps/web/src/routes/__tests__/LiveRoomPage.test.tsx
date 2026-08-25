@@ -343,6 +343,62 @@ describe("LiveRoomPage — 그리드·타일", () => {
     expect(await screen.findByTestId("room-my-video")).toHaveClass("amp-block", "sentry-block");
   });
 
+  it("세션 영상은 탭을 받지 않는다 — 탭이 닿으면 iOS가 네이티브 컨트롤을 띄운다", async () => {
+    renderRoom();
+
+    await enterRoom();
+    await turnCameraOn();
+
+    expect(await screen.findByTestId("room-my-video")).toHaveClass(
+      "pointer-events-none",
+      "session-video",
+    );
+  });
+
+  it("셀프뷰 스트림이 붙으면 재생을 직접 건다 — autoplay 속성에만 맡기지 않는다", async () => {
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    // 기본 목 카메라는 stream이 없어 재생 킥 경로를 못 탄다 — 스트림 있는 카메라를 쓴다.
+    const stream = {
+      getVideoTracks: () => [{ enabled: true, getSettings: () => ({ height: 720 }) }],
+    } as unknown as MediaStream;
+    let running = false;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        return { ok: true, facing: "front" };
+      },
+    };
+    renderRoom({ camera });
+
+    await enterRoom();
+    // turnCameraOn 헬퍼 대신 단계를 풀어 쓴다 — 모달 미리보기(ClonedTrackPreview)도
+    // play()를 호출하므로, 확인 직전에 spy를 비워야 셀프뷰의 호출만 단언된다.
+    await userEvent.click(await screen.findByRole("button", { name: "카메라 켜기" }));
+    const dialog = screen.getByRole("alertdialog");
+    playSpy.mockClear();
+    await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    const video = await screen.findByTestId("room-my-video");
+
+    expect((video as HTMLVideoElement).srcObject).toBe(stream);
+    expect(video).not.toHaveAttribute("autoplay");
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("내 비디오는 전면 카메라일 때 거울로 보인다 — 카메라 전환 시 해제", async () => {
     let facing: "front" | "back" = "front";
     const stream = {
