@@ -24,7 +24,7 @@ import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveR
  * 이유로 이 단계에서만 한다 — 세션 중 API 호출 금지 계약. 마운트 시 join을 재호출해
  * 자리 예약 30초 TTL을 새로 잡고 iceServers를 갱신한다(모달이 없어져 체류 시간은 짧지만,
  * S9 응답 이후 흐른 시간과 무관하게 예약을 확실히 잡는 이유는 동일하다). 유예 재입장은
- * 재호출 없이 서버가 준 이전 카메라 상태로 바로 들어간다.
+ * 재호출 없이 바로 들어가되, 카메라는 일반 입장과 같이 끔으로 시작한다.
  *
  * 카메라 어댑터는 여기서 만들어 세션에 그대로 넘긴다 — 미리보기가 없어져 start 지점은
  * 세션(useStudyRoomSession) 하나뿐이다(재오픈이 없으니 iOS 해제 지연 재시도도 불필요).
@@ -48,8 +48,8 @@ export function LiveRoomEntry({
   const location = useLocation();
 
   const graceRejoin = entryState.graceRejoin === true;
-  // 일반 입장은 무조건 끔(일시정지 시작), 유예 재입장만 이전 카메라 상태 복원(기본 켬).
-  const initialCameraOn = graceRejoin ? entryState.cameraOn !== false : false;
+  // 모든 입장은 카메라 끔(일시정지 시작) — 유예 재입장도 처음부터 시작과 동일 취급이라
+  // 이전 카메라 상태를 복원하지 않는다.
 
   const [entered, setEntered] = useState(graceRejoin);
   const [joined, setJoined] = useState(graceRejoin);
@@ -145,7 +145,6 @@ export function LiveRoomEntry({
       camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
-      initialCameraOn={initialCameraOn}
       profile={profile.data ?? null}
     />
   );
