@@ -429,9 +429,11 @@ export function LiveRoomSession({
                           ? "w-[calc(44%-2px)]"
                           : "w-[calc(50%-2px)]",
                       ),
-                  // 가로: 넓은(16:9) 타일이 한 줄에 하나씩 쌓여 위아래 스크롤로 확인한다
-                  // (2026-08-25 피드백 — 폭 50% 초과라 flex-wrap이 자동으로 1열이 된다).
-                  "landscape:aspect-video landscape:h-auto landscape:w-[60%]",
+                  // 가로: 화면을 꽉 채우는 와이드 타일이 한 줄에 하나씩 쌓여 위아래
+                  // 스크롤로 확인한다(2026-08-25 피드백 — 타일당 한 화면 꽉 차게). 가로
+                  // 폭·높이는 landscape 변형이 통째로 덮으므로 바 표시에 따른 세로 모드의
+                  // 축소(5~6명 44%, 2명 36dvh)는 가로에 적용되지 않는다 — 의도.
+                  "landscape:aspect-[2/1] landscape:h-auto landscape:w-full landscape:max-w-none",
                 )}
               />
             ))}
