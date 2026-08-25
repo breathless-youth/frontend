@@ -260,6 +260,32 @@ describe("createMediaStreamCameraAdapter", () => {
       expect(second.__track.stop).not.toHaveBeenCalled();
     });
 
+    it("진행 중인 flip이 복원까지 실패하면 뒤따르는 flip도 camera-off로 받는다", async () => {
+      vi.useFakeTimers();
+      try {
+        const first = fakeStream();
+        const getUserMedia = vi
+          .fn()
+          .mockResolvedValueOnce(first)
+          .mockRejectedValue(new Error("NotReadableError"));
+        stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+        const camera = createMediaStreamCameraAdapter();
+        await camera.start();
+
+        // 뒤따르는 호출은 facing만 보면 "전환할 카메라가 없음"과 구분되지 않는다 —
+        // 카메라가 통째로 꺼진 것이므로 토스트 문구가 갈려야 한다.
+        const both = Promise.all([camera.flip(), camera.flip()]);
+        await vi.advanceTimersByTimeAsync(700);
+
+        await expect(both).resolves.toEqual([
+          { ok: false, reason: "camera-off" },
+          { ok: false, reason: "camera-off" },
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("flip 도중 stop이 들어오면 뒤늦게 열린 스트림을 멈추고 붙잡지 않는다", async () => {
       const first = fakeStream();
       const second = fakeStream();

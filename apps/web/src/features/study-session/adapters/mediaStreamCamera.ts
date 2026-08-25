@@ -150,9 +150,15 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       }
       if (pending !== null) {
         // 이미 다른 전환이 카메라를 여는 중이다 — 겹쳐서 열면 한쪽 스트림이 고아가 된다.
-        // 진행 중인 전환의 결과를 그대로 따른다.
+        // 진행 중인 전환의 결과를 그대로 따른다. 소유자가 await에서 먼저 깨어나
+        // stream·facing을 확정한 뒤 여기가 깨므로 두 값 모두 이미 결착돼 있다.
         const before = facing;
         await pending;
+        if (stream === null) {
+          // 복원까지 실패해 카메라가 통째로 꺼졌다. facing만 보면 "전환할 카메라가 없음"과
+          // 구분되지 않아 토스트 문구가 어긋난다(`RoomPage`가 reason으로 갈린다).
+          return { ok: false, reason: "camera-off" };
+        }
         return facing === before ? { ok: false, reason: "no-alternative" } : { ok: true, facing };
       }
 
