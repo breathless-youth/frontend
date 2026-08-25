@@ -25,20 +25,32 @@ export function useNativeScreenReport(): void {
   const location = useLocation();
 
   useEffect(() => {
-    // 소셜룸 재마운트 복원에 필요한 초대코드. 정상 SPA 흐름은 router state에 있고,
-    // 복원된 문서(state 소실)는 `?code` 쿼리로 입장했으므로 그쪽에서 읽는다 —
-    // 어느 쪽이든 다음 복원을 위해 다시 보고해야 한다.
-    let code: string | null = null;
+    // 복원에 필요한 화면별 쿼리 — 라우트마다 유실되면 동작이 달라지는 값만 명시적으로 싣는다.
+    let restoreQuery: Record<string, string> | undefined;
     if (location.pathname.startsWith("/social/room/")) {
+      // 소셜룸 초대코드. 정상 SPA 흐름은 router state에 있고, 복원된 문서(state 소실)는
+      // `?code` 쿼리로 입장했으므로 그쪽에서 읽는다 — 어느 쪽이든 다음 복원을 위해 다시
+      // 보고해야 한다.
       const state: unknown = location.state;
-      code = isLiveRoomState(state)
+      const code = isLiveRoomState(state)
         ? state.inviteCode
         : new URLSearchParams(location.search).get("code");
+      if (code !== null) {
+        restoreQuery = { code };
+      }
+    } else if (location.pathname === "/onboarding-guide") {
+      // 진입 경로(`?entry=focus-start` 등) — 유실되면 복원된 가이드가 home-card 기본값으로
+      // 떨어져 완료가 세션을 시작하지 않는다. 값 검증은 페이지의 parseOnboardingGuideEntry가
+      // 이미 하므로 여기서는 그대로 나른다.
+      const entry = new URLSearchParams(location.search).get("entry");
+      if (entry !== null) {
+        restoreQuery = { entry };
+      }
     }
     postToNative({
       type: "report-screen",
       path: location.pathname,
-      ...(code !== null ? { restoreQuery: { code } } : {}),
+      ...(restoreQuery !== undefined ? { restoreQuery } : {}),
       dark: isDarkScreenPath(location.pathname),
       atMs: Date.now(),
     });

@@ -509,6 +509,37 @@ describe("포그라운드 생존 확인 (BY-436)", () => {
     expect(mockReload).toHaveBeenCalled(); // jest 기본 플랫폼(iOS)은 reload — URL·히스토리 보존
   });
 
+  it("사망 통보가 오면 진행 중 확인을 접고 새 문서 로드 완료 전에는 다시 ping하지 않는다 — 재로드 루프 방지", () => {
+    const { foreground } = renderLoadedHost();
+    foreground(); // ping 대기 시작
+
+    // ping 대기 중 지연된 iOS 사망 통보 도착 → 재로드 시작.
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+    expect(mockReload).toHaveBeenCalledTimes(1);
+
+    // 남아 있던 ping 타이머가 만료돼도 새 문서를 또 재로드하면 안 된다.
+    act(() => {
+      jest.runAllTimers();
+    });
+    expect(mockReload).toHaveBeenCalledTimes(1);
+
+    // 새 문서 로드가 끝나기 전의 포그라운드 복귀도 ping하지 않는다 — 브리지가 아직 없다.
+    mockInjectJavaScript.mockClear();
+    foreground();
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+
+    // 새 문서 로드 완료 후에는 생존 확인이 되살아난다.
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+    foreground();
+    expect(mockInjectJavaScript).toHaveBeenCalledWith(
+      expect.stringContaining('\\"type\\":\\"ping\\"'),
+    );
+  });
+
   it("백그라운드로 가면 진행 중이던 확인을 접는다 — 복귀 전 타임아웃으로 오판하지 않는다", () => {
     const appStateSpy = jest.spyOn(AppState, "addEventListener");
     const onLoadStart = jest.fn();

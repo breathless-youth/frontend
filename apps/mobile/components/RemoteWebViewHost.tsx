@@ -192,15 +192,6 @@ export function RemoteWebViewHost({
   //
   // 통보를 받는 즉시 `onLoadStart`로 스플래시부터 되돌린다(BY-436) — 재로드의 자체
   // onLoadStart를 기다리면 그 사이 죽은 웹뷰의 흰 화면·잔상이 그대로 노출된다(실기기 확인).
-  const handleContentProcessDidTerminate = useCallback(() => {
-    onLoadStart?.();
-    webViewRef.current?.reload();
-  }, [onLoadStart]);
-  const handleRenderProcessGone = useCallback(() => {
-    onLoadStart?.();
-    setRetryKey((key) => key + 1);
-  }, [onLoadStart]);
-
   const clearPing = useCallback(() => {
     if (pingRef.current !== null) {
       clearTimeout(pingRef.current.timer);
@@ -209,20 +200,40 @@ export function RemoteWebViewHost({
   }, []);
 
   /**
+   * 사망 복구 진입 공통 처리 — 스플래시를 되돌리고 생존 확인 상태를 초기화한다.
+   * `clearPing`이 없으면 진행 중이던 ping 타이머가 새 문서 로드(700ms 이상 걸린다) 중에
+   * 만료돼 건강한 새 문서를 또 재로드하는 루프가 되고, `hasLoadedRef`를 되돌리지 않으면
+   * 로드 완료 전의 포그라운드 복귀가 브리지 없는 문서에 ping을 쏴 같은 오판을 만든다.
+   */
+  const enterRecovery = useCallback(() => {
+    clearPing();
+    hasLoadedRef.current = false;
+    onLoadStart?.();
+  }, [clearPing, onLoadStart]);
+
+  const handleContentProcessDidTerminate = useCallback(() => {
+    enterRecovery();
+    webViewRef.current?.reload();
+  }, [enterRecovery]);
+  const handleRenderProcessGone = useCallback(() => {
+    enterRecovery();
+    setRetryKey((key) => key + 1);
+  }, [enterRecovery]);
+
+  /**
    * 생존 확인 실패 — 렌더러가 죽었다고 보고 사후 통보와 같은 복구를 앞당겨 실행한다.
    * iOS는 `reload()`(현재 URL·history state 보존 — 소셜룸이 router state로 재입장한다),
    * Android는 죽은 렌더러의 WebView를 재사용할 수 없어 재마운트한다(위 BY-374 주석과
    * 같은 플랫폼 제약 — 복원 경로는 `restoreRef`가 잇는다).
    */
   const declareDead = useCallback(() => {
-    clearPing();
-    onLoadStart?.();
+    enterRecovery();
     if (Platform.OS === "android") {
       setRetryKey((key) => key + 1);
     } else {
       webViewRef.current?.reload();
     }
-  }, [clearPing, onLoadStart]);
+  }, [enterRecovery]);
 
   const sendPing = useCallback(
     (attempts: number) => {
