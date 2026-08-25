@@ -147,6 +147,39 @@ describe("프로필 설정", () => {
     expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
   });
 
+  it("닉네임이 12자를 넘으면 입력 중에 인라인 안내가 뜨고 저장이 잠긴다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    // 목표 문구와 같은 규칙 — maxLength로 조용히 막지 않고 초과를 허용한 뒤 안내한다.
+    expect(nicknameInput).not.toHaveAttribute("maxlength");
+    fireEvent.change(nicknameInput, { target: { value: "열두자를넘기려고쓴열세글자" } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("닉네임은 12자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
+
+    // 12자 이내로 줄이면 다시 활성으로 돌아온다.
+    fireEvent.change(nicknameInput, { target: { value: "열두자이내닉네임" } });
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
+  });
+
+  it("닉네임을 바꾸면 아바타 이니셜이 입력 즉시 반영된다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    expect(screen.getByText("포")).toBeInTheDocument();
+
+    fireEvent.change(nicknameInput, { target: { value: "밝은하마" } });
+    expect(screen.getByText("밝")).toBeInTheDocument();
+    expect(screen.queryByText("포")).not.toBeInTheDocument();
+
+    // 다 지우면 서버 이니셜로 폴백한다 — 아바타가 빈 원이 되지 않게.
+    fireEvent.change(nicknameInput, { target: { value: "" } });
+    expect(screen.getByText("포")).toBeInTheDocument();
+  });
+
   it("저장 성공으로 복귀한 설정 화면에 저장 완료 토스트가 뜬다 (2026-08-25 시안 A)", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
