@@ -1,7 +1,11 @@
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { Toast } from "@/components/ui/toast";
 import { postToNative } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { useToast } from "@/lib/useToast";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
@@ -29,6 +33,17 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
+
+  // 프로필 저장 성공 복귀 토스트(2026-08-25 BY-427 시안 A). 플래그는 1회성이라 소비 결과를
+  // ref에 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 false로 굳지 않는다.
+  const { message: toastMessage, showToast } = useToast();
+  const profileSavedRef = useRef<boolean | null>(null);
+  profileSavedRef.current ??= consumeProfileSavedNotice();
+  useEffect(() => {
+    if (profileSavedRef.current === true) {
+      showToast("프로필이 저장됐어요");
+    }
+  }, [showToast]);
 
   return (
     <main
@@ -146,6 +161,13 @@ export function SettingsPage() {
           />
         </SettingsSection>
       </div>
+
+      {toastMessage !== null && (
+        // 소셜 홈과 같은 배치 — 탭 바 위 하단 중앙(96px 오프셋).
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
+          <Toast message={toastMessage} />
+        </div>
+      )}
     </main>
   );
 }
