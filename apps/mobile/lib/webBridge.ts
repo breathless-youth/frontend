@@ -72,6 +72,14 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "set-back-lock", locked: record.locked, atMs: record.atMs };
+    case "set-orientation":
+      // `unlocked`가 boolean이 아니면 통째로 버린다 — 기본값(세로 잠금)이 유지되는 편이 안전하다.
+      if (typeof record.unlocked !== "boolean") {
+        return null;
+      }
+      return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
+    case "request-camera-gate":
+      return { type: "request-camera-gate", atMs: record.atMs };
     case "motion-sensor":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
       // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.
