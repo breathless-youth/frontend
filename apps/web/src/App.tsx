@@ -84,7 +84,7 @@ export function App() {
           <Route path="/licenses" element={<LicensesPage />} />
         </Routes>
         {toastMessage !== null && (
-          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] flex justify-center">
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16px)] flex justify-center">
             <Toast message={toastMessage} />
           </div>
         )}
