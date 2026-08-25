@@ -133,7 +133,7 @@ export function RoomTile({ member, media, selfState, rootRef, className }: RoomT
       data-testid="room-tile"
       data-user-id={member.userId}
       data-state={member.cameraOn ? member.focusState : "OFF"}
-      className={`relative overflow-hidden rounded-3xl bg-[var(--session-dialog-bg)] ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-xl bg-[var(--session-dialog-bg)] ${className ?? ""}`}
     >
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>

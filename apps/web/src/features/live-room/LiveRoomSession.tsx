@@ -334,12 +334,16 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-[4dvh] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
-            } ${
+            // gap은 4px로 아주 좁게(2026-08-25 피드백) — 행 높이 계산의 보정값(gap 합)도
+            // 함께 맞춘다. 행이 화면을 다 채우지 못할 때(3~4명 = 2행)는 위 정렬 대신
+            // content-center로 세로 가운데에 모은다 — 넘칠 때(7명+)는 스크롤 시작점이
+            // 잘리지 않게 위 정렬을 유지한다.
+            className={`grid grow gap-1 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-[4dvh] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+              Math.ceil(allMembers.length / grid.cols) <= grid.rowUnit ? "content-center" : ""
+            } ${grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"} ${
               grid.rowUnit === 2
-                ? "[grid-auto-rows:calc((100%-12px)/2)] landscape:[grid-auto-rows:100%]"
-                : "[grid-auto-rows:calc((100%-24px)/3)] landscape:[grid-auto-rows:calc((100%-12px)/2)]"
+                ? "[grid-auto-rows:calc((100%-4px)/2)] landscape:[grid-auto-rows:100%]"
+                : "[grid-auto-rows:calc((100%-8px)/3)] landscape:[grid-auto-rows:calc((100%-4px)/2)]"
             }`}
           >
             {allMembers.map((member) => (

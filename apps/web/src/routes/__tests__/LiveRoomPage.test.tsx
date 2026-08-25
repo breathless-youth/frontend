@@ -808,17 +808,43 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
   });
 
-  it("진단 로그는 우상단 토글로 접었다 펼 수 있다 (DEV 전용, BY-435)", async () => {
+  it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {
     renderRoom();
     await enterRoom();
 
-    expect(screen.getByTestId("room-debug-log")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
     expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
     expect(screen.getByTestId("room-debug-log")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "진단 로그 토글" }));
+    expect(screen.queryByTestId("room-debug-log")).not.toBeInTheDocument();
+  });
+
+  it("타일이 화면을 다 채우지 못하면(4명 = 2행) 세로 가운데 정렬한다 (BY-435)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
+  });
+
+  it("타일이 화면을 넘치면(8명 = 4행) 위 정렬 스크롤을 유지한다 — 가운데 정렬이면 스크롤 시작이 잘린다", async () => {
+    renderRoom({
+      scenario: {
+        snapshot: [
+          member(8),
+          member(9),
+          member(10),
+          member(11),
+          member(12),
+          member(13),
+          member(14),
+        ],
+      },
+    });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid")).not.toHaveClass("content-center");
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {

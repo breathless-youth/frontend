@@ -28,7 +28,8 @@ export function RoomDebugOverlay({
   peerPaths: ReadonlyMap<number, string>;
   lines: string[];
 }) {
-  const [open, setOpen] = useState(true);
+  // 기본 접힘(2026-08-25 피드백) — 필요할 때만 펼쳐 본다.
+  const [open, setOpen] = useState(false);
   return (
     <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4px)] right-2 z-20 flex flex-col items-end gap-1">
       <button
