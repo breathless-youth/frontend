@@ -382,9 +382,9 @@ describe("createPeerMesh — 트랙과 품질", () => {
       expect.objectContaining({
         encodings: [
           expect.objectContaining({
-            maxBitrate: 200_000,
+            maxBitrate: 350_000,
             maxFramerate: 15,
-            scaleResolutionDownBy: 3,
+            scaleResolutionDownBy: 2,
           }),
         ],
       }),

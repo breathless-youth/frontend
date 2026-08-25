@@ -110,8 +110,12 @@ export type ToNativeMessage =
    * 이 통로로 네이티브 RN `Share.share`에 맡긴다. 응답은 없다 — 시트 노출·취소 피드백은
    * OS가 이미 주므로 왕복이 필요 없고, 브라우저 단독 모드에서는 발신되지 않는다(웹이
    * 클립보드 복사로 폴백).
+   *
+   * `url`·`title`은 선택 필드다(BY-427) — text만 보내면 공유시트 썸네일이 한글 문구의 축소
+   * 렌더로 깨져서, 시트가 URL 미리보기 카드(앱 아이콘)를 그리도록 별도 필드로 싣는다.
+   * 구버전 네이티브는 모르는 필드를 무시하므로 하위호환이다.
    */
-  | { type: "share"; text: string; atMs: number }
+  | { type: "share"; text: string; url?: string; title?: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

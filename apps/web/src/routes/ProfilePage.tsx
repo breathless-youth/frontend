@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { ProfileErrorCode, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -47,17 +47,31 @@ export function ProfilePage() {
     }
   }, [initialized, query.data]);
 
+  const navigate = useNavigate();
+
   const saveMutation = useMutation({
     mutationFn: (patch: ProfileUpdateRequest) => updateProfile(userId as number, patch),
     onSuccess: (data) => {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId as number), data);
       setErrors({});
+      // 저장 성공 시 설정 화면으로 복귀한다(2026-08-25 BY-427 확정 — "저장=완료").
+      // ScreenBackHeader와 같은 판단: 스택이 있으면 뒤로, 딥링크 직행이면 설정 탭으로.
+      const historyState = window.history.state as { idx?: number } | null;
+      if (historyState?.idx) {
+        navigate(-1);
+        return;
+      }
+      // 쿼리(userId 등)를 승계하지 않으면 설정이 미저장 모드로 뜬다(BY-327과 같은 함정).
+      navigate({ pathname: "/settings", search: searchParams.toString() }, { replace: true });
     },
     onError: (error) => {
       if (
         error instanceof ApiError &&
-        error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode)
+        (error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode) ||
+          // 서버가 code를 누락하는 사례 대비(BY-404 규칙의 의도적 예외 — joinErrorCopy.ts와
+          // 같은 판단): 409(Conflict)는 닉네임 중복뿐이라 필드 인라인으로 안내한다.
+          (error.code === undefined && error.status === 409))
       ) {
         setErrors({ nickname: "이미 사용 중인 닉네임이에요" });
         return;
@@ -247,7 +261,7 @@ export function ProfilePage() {
           onClick={handleSave}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >
-          저장하기
+          {saveMutation.isPending ? "저장 중..." : "저장하기"}
         </button>
       </div>
     </main>

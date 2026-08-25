@@ -115,7 +115,7 @@ describe("초대코드 공유", () => {
     await userEvent.click(screen.getByRole("button", { name: "코드 복사" }));
 
     expect(writeText).toHaveBeenCalledWith("0712");
-    expect(await screen.findByText("복사했어요")).toBeInTheDocument();
+    expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
   });
 
   it("share 미지원이면 공유하기가 공유 텍스트(링크 포함) 복사로 폴백한다", async () => {
@@ -131,7 +131,7 @@ describe("초대코드 공유", () => {
     expect(writeText).toHaveBeenCalledWith(
       expect.stringContaining("/social/join?code=0712") as unknown as string,
     );
-    expect(await screen.findByText("복사했어요")).toBeInTheDocument();
+    expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
   });
 
   it("입장하기를 누르면 join API를 호출한다", async () => {
@@ -245,7 +245,7 @@ describe("초대코드 입력", () => {
     await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("코드를 다시 확인해 주세요");
+      expect(screen.getByRole("alert")).toHaveTextContent("초대코드를 다시 확인해 주세요");
     });
   });
 });

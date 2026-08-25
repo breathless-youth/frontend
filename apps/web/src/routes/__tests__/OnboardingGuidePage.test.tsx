@@ -253,17 +253,10 @@ describe("/onboarding-guide — 종료 플로우(완료 플래그 저장 · 쿼�
     });
   });
 
-  it("우상단 X로 나가면 쿼리를 승계해 홈으로 돌아가고 '봤음'만 저장한다", async () => {
+  it("우상단 X는 렌더되지 않는다 (2026-08-25 BY-427 피드백 — 종료는 건너뛰기·마지막 CTA로만)", () => {
     renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
 
-    fireEvent.click(screen.getByRole("button", { name: "가이드 닫기" }));
-
-    const homeStub = await screen.findByTestId("home-stub");
-    expect(homeStub.textContent).toBe("/home?entry=focus-start&userId=42");
-    expect(screen.queryByTestId("room-stub")).not.toBeInTheDocument();
-    await waitFor(async () => {
-      await expect(store.hasSeenGuide()).resolves.toBe(true);
-    });
+    expect(screen.queryByRole("button", { name: "가이드 닫기" })).not.toBeInTheDocument();
   });
 });
 

@@ -122,10 +122,33 @@ describe("handleBridgeMessage", () => {
   it("share → OS 공유 시트를 연다 (Android 웹뷰의 navigator.share 부재 대행)", () => {
     const shareSpy = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
 
+    handleBridgeMessage(
+      {
+        type: "share",
+        text: "초대 텍스트",
+        url: "https://web.sunqstudio.kr/social/join?code=0712",
+        title: "포커스 메이커스 그룹 스터디",
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    // url은 iOS 공유시트의 미리보기 카드용 별도 필드, title은 시트 제목 — 링크는
+    // message 본문에도 이미 들어 있다(핸들러 주석의 플랫폼 차이 참고).
+    expect(shareSpy).toHaveBeenCalledWith({
+      message: "초대 텍스트",
+      url: "https://web.sunqstudio.kr/social/join?code=0712",
+      title: "포커스 메이커스 그룹 스터디",
+    });
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("share에 url·title이 없으면(구버전 웹) message만 전달한다", () => {
+    const shareSpy = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+
     handleBridgeMessage({ type: "share", text: "초대 텍스트", atMs: 1 }, noopReply);
 
     expect(shareSpy).toHaveBeenCalledWith({ message: "초대 텍스트" });
-    expect(noopReply).not.toHaveBeenCalled();
   });
 
   it("open-settings → OS 설정 앱을 연다", () => {
