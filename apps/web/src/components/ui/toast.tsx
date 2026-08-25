@@ -1,5 +1,6 @@
 import { type VariantProps, cva } from "class-variance-authority";
 
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -58,7 +59,20 @@ export function ToastViewport({
     return null;
   }
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16px)] flex justify-center">
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-0 flex justify-center",
+        // Android 웹뷰만 오프셋을 낮춘다(2026-08-25 실기기 비교) — 네이티브 탭 바가
+        // `paddingBottom: insets.bottom`으로 시스템 내비 인셋(3버튼 ~48px)을 먹어 iOS(홈
+        // 인디케이터 34px)보다 높고, 그만큼 토스트가 화면 기준으로 높게 보였다. 웹뷰 기준
+        // 상대 위치는 양 플랫폼이 같았으므로 화면 체감을 근사로만 좁힌다(정밀 보정은
+        // 네이티브 인셋 전달이 필요해 과하다고 판단). 브라우저 단독 모드는 탭 바가 없어
+        // 표준 오프셋을 유지한다.
+        isNativeBridgeAvailable() && /Android/i.test(navigator.userAgent)
+          ? "bottom-[calc(env(safe-area-inset-bottom)+8px)]"
+          : "bottom-[calc(env(safe-area-inset-bottom)+16px)]",
+      )}
+    >
       <Toast message={message} tone={tone} />
     </div>
   );

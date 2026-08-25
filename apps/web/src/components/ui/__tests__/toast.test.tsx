@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 
@@ -52,5 +52,45 @@ describe("ToastViewport", () => {
     const { container } = render(<ToastViewport message={null} />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("ToastViewport — 안드로이드 웹뷰 보정", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("안드로이드 웹뷰에서는 오프셋을 8px로 줄인다 — 탭 바가 시스템 내비 인셋만큼 높아 토스트가 iOS보다 높게 보인다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Linux; Android 15; wv)" });
+
+    const { container } = render(<ToastViewport message="방이 만료되었어요" />);
+
+    expect(container.firstElementChild?.className).toContain(
+      "bottom-[calc(env(safe-area-inset-bottom)+8px)]",
+    );
+  });
+
+  it("안드로이드라도 브리지가 없으면(브라우저 단독) 표준 16px이다 — 네이티브 탭 바가 없다", () => {
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/128" });
+
+    const { container } = render(<ToastViewport message="방이 만료되었어요" />);
+
+    expect(container.firstElementChild?.className).toContain(
+      "bottom-[calc(env(safe-area-inset-bottom)+16px)]",
+    );
+  });
+
+  it("iOS 웹뷰는 표준 16px이다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
+    });
+
+    const { container } = render(<ToastViewport message="방이 만료되었어요" />);
+
+    expect(container.firstElementChild?.className).toContain(
+      "bottom-[calc(env(safe-area-inset-bottom)+16px)]",
+    );
   });
 });
