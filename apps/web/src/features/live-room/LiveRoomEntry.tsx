@@ -9,6 +9,7 @@ import { rejoinFailure } from "@/features/social-room/joinErrorCopy";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
 import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { joinRoom } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
@@ -46,6 +47,10 @@ export function LiveRoomEntry({
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
 }) {
+  // 입장 준비부터 세션 종료까지 룸 전체 수명 동안 회전을 연다 — 이 컴포넌트가 세션을
+  // 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다(BY-412).
+  useNativeOrientationUnlock();
+
   const navigate = useNavigate();
   const location = useLocation();
 

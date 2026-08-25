@@ -205,3 +205,23 @@ it("graceRejoin에서 권한이 거부되면 입장하지 않고 소셜 홈으�
   expect(mockedJoinRoom).not.toHaveBeenCalled();
   expect(screen.queryByTestId("session")).toBeNull();
 });
+
+/**
+ * 회귀 가드. 훅 정의는 남아 있는데 **호출이 사라져도** 다른 테스트는 전부 통과한다 —
+ * 2026-08-26 dev 병합에서 입장 화면을 교체하며 실제로 이 호출을 잃었고, 안드로이드 룸
+ * 회전이 통째로 죽었다. 발신 자체를 여기서 못 박는다.
+ */
+it("룸에 들어가면 회전 잠금 해제를 요청한다", async () => {
+  const postMessage = vi.fn();
+  (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
+  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+
+  renderEntry({ inviteCode: "1234" });
+
+  await waitFor(() => {
+    const sent = postMessage.mock.calls.map((call) => JSON.parse(call[0] as string));
+    expect(sent).toContainEqual(
+      expect.objectContaining({ type: "set-orientation", unlocked: true }),
+    );
+  });
+});
