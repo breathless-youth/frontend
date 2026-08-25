@@ -262,10 +262,10 @@ export function trackStudySessionStarted() {
 export function trackStudySessionEnded(input: StudySessionEndedInput) {
   if (!initialized) return;
   track("study_session_ended", {
-    study_sec: input.studySec,
-    focus_sec: input.focusSec,
-    pause_sec: input.pauseSec,
-    distraction_sec: input.distractionSec,
+    study_sec: Number(input.studySec),
+    focus_sec: Number(input.focusSec),
+    pause_sec: Number(input.pauseSec),
+    distraction_sec: Number(input.distractionSec),
     focus_rate_percent:
       input.studySec > 0 ? Math.round((input.focusSec / input.studySec) * 100) : 0,
     end_reason: input.endReason,
