@@ -903,14 +903,18 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "카메라 전환" })).toBeEnabled();
   });
 
-  it("카메라 켜기 모달의 미리보기 슬롯은 234px 높이다", async () => {
+  it("카메라 켜기 모달 미리보기는 화면 높이 비례(상한 234px) — 가로에서도 잘리지 않는다", async () => {
     renderRoom();
     await enterRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
 
     const slot = screen.getByTestId("camera-dialog-preview").parentElement;
-    expect(slot).toHaveClass("h-[234px]");
+    expect(slot).toHaveClass("h-[min(234px,28dvh)]");
+    // 백스톱: 모달 자체도 뷰포트를 넘으면 내부 스크롤로 잘림을 막는다.
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveClass("max-h-[calc(100dvh-24px)]");
+    expect(dialog).toHaveClass("overflow-y-auto");
   });
 });
 
