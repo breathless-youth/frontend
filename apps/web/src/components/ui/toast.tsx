@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  *
  * ⚠️ 문구는 voice-tone.md에 확정돼 있으나 **위치·지속시간·모션 스펙은 여전히 Figma에 없다.**
  * 색만은 2026-08-24에 확정 — **라이트/다크 모두 "다크 알약 + 흰 글자"**를 쓴다.
- * 하단 중앙·글래스 다크·3초로 두되, 나머지 스펙이 확정되면 이 파일만 교체하면 되게 단일 컴포넌트로 둔다.
+ * 하단 중앙·글래스 다크·5초(useToast 기본값)로 두되, 나머지 스펙이 확정되면 이 파일만 교체하면 되게 단일 컴포넌트로 둔다.
  */
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
