@@ -868,7 +868,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("justify-center");
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-[2/3]");
     expect(tile).toHaveClass("w-[calc(50%-2px)]");
@@ -894,14 +894,18 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
-  it("4명까지는 바가 떠 있으면 바 위에 붙고(content-end), 내리면 세로 가운데다", async () => {
+  it("바가 떠 있으면 바 위에 붙고(mt-auto), 내리면 세로 가운데(my-auto) — 안전 정렬", async () => {
+    // content-center/end는 내용이 컨테이너보다 커지면 위 행이 잘리고 스크롤로도 못 닿는다
+    // (2026-08-25 실기기: 작은 화면에서 내 타일·참가자 미표시). auto 마진은 넘치면 접힌다.
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("content-end");
+    const rows = screen.getByTestId("room-grid-rows");
+    expect(rows).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid").className).not.toContain("content-");
 
     tapSurface();
-    expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
+    expect(rows).toHaveClass("my-auto");
   });
 
   it("5~6명 타일은 4:5로 눕혀 3행이 화면에 들어간다 — 2:3이면 첫 행(내 타일)이 스크롤로 밀린다", async () => {
@@ -928,7 +932,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
-  it("5명 이상은 위 정렬 스크롤 — 가운데 정렬이면 짧은 화면에서 스크롤 시작이 잘린다", async () => {
+  it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
     renderRoom({
       scenario: {
         snapshot: [
@@ -944,8 +948,8 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("content-start");
-    expect(screen.getByTestId("room-grid")).not.toHaveClass("content-center");
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid").className).not.toContain("content-");
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {

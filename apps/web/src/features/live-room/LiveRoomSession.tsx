@@ -371,72 +371,64 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            // 타일 배치(BY-435) — 비율·간격은 실기기 스크린샷 0352 기준: 약 2:3 세로형
-            // 라운드 타일(모서리는 기존 radius), 그룹 세로 가운데. 간격은 4px까지 좁혀 꽉 채운다
-            // (2026-08-25 피드백 — 20px → 8px → 4px).
-            // flex-wrap justify-center가 홀수 인원(3·5명)의 마지막 타일을 자동으로 가운데
-            // 놓는다(2+1, 2+2, 2+2+1, 2+2+2). 4명까지는 세로 가운데, 5명+는 짧은 화면에서
-            // 가운데 정렬이 스크롤 시작을 잘라먹지 않게 위 정렬. 디스코드 참조는 플로팅 바
-            // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.98) 준다
-            // (바-타일 간격은 2026-08-25 피드백으로 축소 — 105px → 100px). 트랜지션은 transform만:
-            // padding·height 애니메이션은 영상 리플로우로 랙을 만든다.
-            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:content-start landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              // 바가 떠 있으면 타일을 바 바로 위에 붙인다(content-end, 여백 ≈ 11px) —
-              // 가운데 정렬의 잔여 공간이 바-타일 간격으로 보여 크게 느껴졌다(2026-08-25).
-              // 넘치는 인원은 스크롤 시작이 잘리지 않게 위 정렬 유지.
-              allMembers.length > 4
-                ? "content-start"
-                : controlsVisible
-                  ? "content-end"
-                  : "content-center"
-            } ${
-              // ⚠️ 이 컨테이너에 transform(scale)을 다시 걸지 말 것 — 스크롤 컨테이너에
-              // transform이 걸리면 WKWebView가 타일 페인트를 누락한다(2026-08-25 실기기:
-              // members:4인데 타일 2개가 안 그려지다가 몇 분 뒤 틱 재렌더에야 표시).
-              // 0350의 "살짝 축소" 효과는 이 버그와 맞바꿔 제거했다.
+            // 스크롤 컨테이너 자신은 정렬하지 않는다 — content-center/end는 내용이 컨테이너보다
+            // 커지는 순간 위로 넘친 행이 잘리고 스크롤로도 닿을 수 없다(flexbox 정렬 data loss,
+            // 2026-08-25 실기기: 작은 화면에서 첫 행(내 타일+참가자)이 사라짐). 정렬은 아래
+            // rows 래퍼의 auto 마진이 담당한다 — 넘치면 마진이 0으로 접혀 위부터 스크롤된다.
+            className={`flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]"
             }`}
           >
-            {allMembers.map((member) => (
-              <RoomTile
-                key={member.userId}
-                member={member}
-                rootRef={member.userId === userId ? selfSurfaceRef : undefined}
-                selfState={member.userId === userId ? selfState : undefined}
-                infoHidden={!controlsVisible}
-                media={
-                  member.userId === userId
-                    ? myVideo
-                    : remoteVideoOrUndefined(member.userId, remoteStreams)
-                }
-                // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
-                // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
-                // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
-                className={cn(
-                  grid.cols === 1
-                    ? cn(
-                        // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
-                        // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25).
-                        "aspect-square max-w-full",
-                        controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
-                      )
-                    : cn(
-                        // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
-                        // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
-                        // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
-                        allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
-                        allMembers.length > 4 && controlsVisible
-                          ? "w-[calc(44%-2px)]"
-                          : "w-[calc(50%-2px)]",
-                      ),
-                  // 가로: 화면을 꽉 채우는 와이드 타일이 한 줄에 하나씩 쌓여 위아래
-                  // 스크롤로 확인한다(2026-08-25 피드백 — 타일당 한 화면 꽉 차게). 가로
-                  // 폭·높이는 landscape 변형이 통째로 덮으므로 바 표시에 따른 세로 모드의
-                  // 축소(5~6명 44%, 2명 36dvh)는 가로에 적용되지 않는다 — 의도.
-                  "landscape:aspect-[2/1] landscape:h-auto landscape:w-full landscape:max-w-none",
-                )}
-              />
-            ))}
+            <div
+              data-testid="room-grid-rows"
+              // 안전 정렬: 바 표시 중엔 mt-auto로 바 바로 위에, 숨김 중엔 my-auto로 세로
+              // 가운데에 — 어느 쪽이든 내용이 넘치면 auto 마진이 접혀 잘리지 않는다.
+              className={cn(
+                "flex w-full flex-wrap justify-center gap-1",
+                controlsVisible ? "mt-auto" : "my-auto",
+              )}
+            >
+              {allMembers.map((member) => (
+                <RoomTile
+                  key={member.userId}
+                  member={member}
+                  rootRef={member.userId === userId ? selfSurfaceRef : undefined}
+                  selfState={member.userId === userId ? selfState : undefined}
+                  infoHidden={!controlsVisible}
+                  media={
+                    member.userId === userId
+                      ? myVideo
+                      : remoteVideoOrUndefined(member.userId, remoteStreams)
+                  }
+                  // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
+                  // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
+                  // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
+                  className={cn(
+                    grid.cols === 1
+                      ? cn(
+                          // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
+                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25).
+                          "aspect-square max-w-full",
+                          controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
+                        )
+                      : cn(
+                          // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
+                          // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
+                          // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
+                          allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
+                          allMembers.length > 4 && controlsVisible
+                            ? "w-[calc(44%-2px)]"
+                            : "w-[calc(50%-2px)]",
+                        ),
+                    // 가로: 화면을 꽉 채우는 와이드 타일이 한 줄에 하나씩 쌓여 위아래
+                    // 스크롤로 확인한다(2026-08-25 피드백 — 타일당 한 화면 꽉 차게). 가로
+                    // 폭·높이는 landscape 변형이 통째로 덮으므로 바 표시에 따른 세로 모드의
+                    // 축소(5~6명 44%, 2명 36dvh)는 가로에 적용되지 않는다 — 의도.
+                    "landscape:aspect-[2/1] landscape:h-auto landscape:w-full landscape:max-w-none",
+                  )}
+                />
+              ))}
+            </div>
           </div>
         )}
 
