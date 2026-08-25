@@ -29,12 +29,12 @@ describe("parseErrorMessage", () => {
 describe("parseApiError", () => {
   it("서버 에러 계약 { code, message }를 ApiError로 읽는다", async () => {
     const err = await parseApiError(
-      fakeRes(409, { code: "ROOM_FULL", message: "방이 가득 참" }),
+      fakeRes(409, { code: "CONFLICT", message: "방이 가득 참" }),
       "참여 실패",
     );
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(409);
-    expect(err.code).toBe("ROOM_FULL");
+    expect(err.code).toBe("CONFLICT");
     expect(err.message).toBe("방이 가득 참");
   });
 

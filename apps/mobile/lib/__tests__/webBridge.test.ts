@@ -194,3 +194,53 @@ describe("serializeToWebMessage", () => {
     );
   });
 });
+
+describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
+  it("pong을 파싱한다", () => {
+    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: 4, atMs: 1000 }))).toEqual({
+      type: "pong",
+      id: 4,
+      atMs: 1000,
+    });
+  });
+
+  it("pong의 id가 number가 아니면 버린다 — 짝을 못 맞추는 응답은 생존 증거가 못 된다", () => {
+    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: "4", atMs: 1000 }))).toBeNull();
+  });
+
+  it("report-screen을 파싱한다 — restoreQuery는 문자열 값만 남긴다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "report-screen",
+          path: "/social/room/42",
+          restoreQuery: { code: "0712", bad: 3 },
+          dark: true,
+          atMs: 1000,
+        }),
+      ),
+    ).toEqual({
+      type: "report-screen",
+      path: "/social/room/42",
+      restoreQuery: { code: "0712" },
+      dark: true,
+      atMs: 1000,
+    });
+  });
+
+  it("report-screen의 path가 절대 경로가 아니면 버린다 — 임의 URL로 재마운트되면 안 된다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "report-screen", path: "https://evil.test", dark: false, atMs: 1 }),
+      ),
+    ).toBeNull();
+  });
+
+  it("report-screen의 dark가 boolean이 아니면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "report-screen", path: "/social", dark: "yes", atMs: 1 }),
+      ),
+    ).toBeNull();
+  });
+});

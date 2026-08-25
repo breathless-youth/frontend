@@ -208,7 +208,9 @@ export function reportHandled(error: unknown, tag: string): void {
  */
 export function stripUserIdParam(text: string): string {
   // "?userId=7&a=1"은 구분자를 남겨 "?a=1"로, "?userId=7"·"&userId=7"은 통째로 지운다.
-  return text.replace(/([?&])userId=\d+&/g, "$1").replace(/[?&]userId=\d+/g, "");
+  // `code`(소셜룸 초대코드)도 같은 규칙으로 지운다 — 렌더러 사망 복원이 룸을 `?code=NNNN`으로
+  // 다시 열어(BY-436) rrweb Meta `href`에 실린다. 유효 기간 중에는 방 접근 코드다.
+  return text.replace(/([?&])(?:userId|code)=\d+&/g, "$1").replace(/[?&](?:userId|code)=\d+/g, "");
 }
 
 type TransportOptions = Parameters<typeof Sentry.makeFetchTransport>[0];

@@ -62,23 +62,21 @@ describe("joinRoom", () => {
     });
   });
 
-  it("404 INVALID_CODE의 code를 보존해 던진다", async () => {
-    mockedFetch.mockResolvedValue(
-      jsonResponse(404, { code: "INVALID_CODE", message: "없는 코드" }),
-    );
+  it("404 ROOM_CLOSED의 code를 보존해 던진다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(404, { code: "ROOM_CLOSED", message: "소멸된 방" }));
 
     await expect(joinRoom(7, "3712")).rejects.toMatchObject({
       status: 404,
-      code: "INVALID_CODE",
+      code: "ROOM_CLOSED",
     });
   });
 
-  it("409 ROOM_FULL의 code를 보존해 던진다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(409, { code: "ROOM_FULL", message: "가득 참" }));
+  it("409 CONFLICT의 code를 보존해 던진다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(409, { code: "CONFLICT", message: "정원 초과" }));
 
     await expect(joinRoom(7, "3712")).rejects.toMatchObject({
       status: 409,
-      code: "ROOM_FULL",
+      code: "CONFLICT",
     });
   });
 });
@@ -96,7 +94,7 @@ describe("leaveRoom", () => {
   });
 
   it("실패 응답이면 ApiError를 던진다", async () => {
-    mockedFetch.mockResolvedValue(jsonResponse(404, { code: "INVALID_CODE", message: "없는 방" }));
+    mockedFetch.mockResolvedValue(jsonResponse(404, { code: "ROOM_CLOSED", message: "없는 방" }));
 
     await expect(leaveRoom(42, 7)).rejects.toBeInstanceOf(ApiError);
   });
