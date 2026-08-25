@@ -151,6 +151,9 @@ async function enterRoom() {
   // findByRole은 마운트 커밋 직후(패시브 이펙트 전) DOM을 잡을 수 있다 — 채널 연결·
   // 끄고 입장 일시정지·SNAPSHOT 반영까지 흘려보낸 뒤 돌려줘야 단언이 결정적이다.
   await act(async () => {});
+  // 바는 입장 직후 숨김(BY-435 탭 토글)이라 화면을 한 번 탭해 올려 둔다 — 바 버튼을
+  // 조작하는 테스트들의 공통 전제. 입장 직후 숨김 자체는 토글 describe가 따로 본다.
+  fireEvent.pointerDown(screen.getByTestId("live-room-page"));
 }
 
 /** 세션 중 카메라 켜기 — 입장이 항상 꺼짐이라, 켜기는 확인 모달을 거치는 이 경로뿐이다. */
@@ -532,20 +535,24 @@ describe("LiveRoomPage — 그리드·타일", () => {
     });
   });
 
-  it("그리드에서 상태 3색 뱃지는 내 타일에만 — 타 참가자는 중립(흰/회색) 뱃지 (2026-08-25 개정)", async () => {
-    renderRoom({ scenario: { snapshot: [member(8)] } });
+  it("그리드 뱃지: 내 타일은 로컬 상태, 타 참가자도 집중 상태 색을 쓴다 (2026-08-25 BY-435 개정)", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9, { focusState: "DISTRACTED" })] },
+    });
 
     await enterRoom();
 
     const tiles = screen.getAllByTestId("room-tile");
-    const myTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "7");
-    const otherTile = tiles.find((tile) => tile.getAttribute("data-user-id") === "8");
-    if (myTile === undefined || otherTile === undefined) {
-      throw new Error("내 타일 또는 상대 타일이 없다");
-    }
-    expect(within(myTile).getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
-    const otherBadge = within(otherTile).getByTestId("self-state-badge");
-    expect(["NEUTRAL", "OFF"]).toContain(otherBadge.getAttribute("data-state"));
+    const badge = (id: string) => {
+      const tile = tiles.find((candidate) => candidate.getAttribute("data-user-id") === id);
+      if (tile === undefined) {
+        throw new Error(`${id} 타일이 없다`);
+      }
+      return within(tile).getByTestId("self-state-badge");
+    };
+    expect(badge("7")).toHaveAttribute("data-state", "PAUSED");
+    expect(badge("8")).toHaveAttribute("data-state", "FOCUS");
+    expect(badge("9")).toHaveAttribute("data-state", "DISTRACTED");
   });
 });
 
@@ -801,11 +808,36 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(flipIcon.style.transform).toBe("rotate(360deg)");
   });
 
-  it("2명 이상 그리드는 하단에 화면 높이 비례 여백을 둔다 — 고정 px는 기기마다 달라 보인다 (BY-435)", async () => {
+  it("바가 내려가 있으면 하단 여백은 화면 높이 비례(4dvh), 올라오면 바만큼 벌리고 살짝 줄어든다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await screen.findByRole("button", { name: "나가기" });
+    await act(async () => {});
+
+    expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("scale-[0.96]");
+    expect(grid).not.toHaveClass("pb-[4dvh]");
+  });
+
+  it("타일은 0352 비율(세로 2:3 라운드) — 2명은 1열, 3명 이상은 2열이다 (BY-435)", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("w-[60%]");
+  });
+
+  it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid")).toHaveClass("justify-center");
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("w-[calc(50%-14px)]");
   });
 
   it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {
@@ -828,14 +860,14 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
-  it("타일이 화면을 다 채우지 못하면(4명 = 2행) 세로 가운데 정렬한다 (BY-435)", async () => {
+  it("4명까지는 타일 그룹을 세로 가운데 정렬한다 (BY-435, 0352 비율)", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
     expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
   });
 
-  it("타일이 화면을 넘치면(8명 = 4행) 위 정렬 스크롤을 유지한다 — 가운데 정렬이면 스크롤 시작이 잘린다", async () => {
+  it("5명 이상은 위 정렬 스크롤 — 가운데 정렬이면 짧은 화면에서 스크롤 시작이 잘린다", async () => {
     renderRoom({
       scenario: {
         snapshot: [
@@ -851,6 +883,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     });
     await enterRoom();
 
+    expect(screen.getByTestId("room-grid")).toHaveClass("content-start");
     expect(screen.getByTestId("room-grid")).not.toHaveClass("content-center");
   });
 
@@ -878,85 +911,62 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
   });
 });
 
-describe("LiveRoomPage — 컨트롤 바 자동 숨김 (BY-427)", () => {
-  /**
-   * 페이크 타이머는 렌더·입장(findBy/waitFor가 실제 타이머를 쓴다) 뒤에 켠다.
-   * 켠 직후 화면 탭으로 유휴 기준점을 페이크 타이머 위에 다시 만들어 4초 경과를 제어한다.
-   */
-  async function enterWithFakeIdleTimer() {
-    await enterRoom();
-    vi.useFakeTimers();
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)", () => {
+  const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
+
+  /** enterRoom의 자동 탭 없이 입장만 — 입장 직후 숨김 상태를 검증할 때 쓴다. */
+  async function enterWithoutTap() {
+    await screen.findByRole("button", { name: "나가기" });
+    await act(async () => {});
   }
 
-  it("마지막 상호작용 후 4초가 지나면 바가 아래로 슬라이드되어 사라지고 조작이 막힌다 (BY-435)", async () => {
+  it("입장 직후 바는 내려가 있고, 화면 탭이 올리고 다시 탭하면 내린다 — 자동으로 내려가지 않는다", async () => {
     renderRoom();
-    await enterWithFakeIdleTimer();
+    await enterWithoutTap();
 
     const bar = screen.getByTestId("room-control-bar");
-    expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).toHaveClass("transition-transform");
-
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-
-    expect(bar).toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
+    expect(bar).toHaveClass(SLIDE);
     expect(bar).toHaveClass("pointer-events-none");
-    expect(bar).not.toHaveClass("pointer-events-auto");
-  });
-
-  it("숨은 상태에서 화면을 탭하면 슬라이드로 복귀하고 유휴 타이머가 재시작된다", async () => {
-    renderRoom();
-    await enterWithFakeIdleTimer();
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-none");
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(bar).toHaveClass("pointer-events-auto");
+    expect(bar).not.toHaveClass(SLIDE);
+
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(bar).toHaveClass("pointer-events-none");
+    expect(bar).toHaveClass(SLIDE);
+  });
+
+  it("바 위 탭(버튼 조작)은 토글로 버블되지 않는다 — 버튼을 누를 때마다 바가 내려가면 안 된다", async () => {
+    renderRoom();
+    await enterRoom();
 
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
 
-    // 복귀 후에도 유휴 4초가 다시 흐르면 재차 숨는다 — 타이머 재시작 검증.
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-    expect(bar).toHaveClass("pointer-events-none");
+    fireEvent.pointerDown(bar);
+    expect(bar).toHaveClass("pointer-events-auto");
   });
 
-  it("다이얼로그가 열려 있는 동안은 4초가 지나도 숨지 않는다", async () => {
+  it("다이얼로그가 열려 있는 동안은 화면을 탭해도 내려가지 않는다", async () => {
     renderRoom();
     await enterRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
-    vi.useFakeTimers();
-    act(() => {
-      vi.advanceTimersByTime(4001);
-    });
-
-    const bar = screen.getByTestId("room-control-bar");
-    expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass("translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]");
+    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
   });
 
-  it("제출 중(controlsLocked)에는 숨지 않고 저장 중 문구도 그대로 남는다", async () => {
+  it("제출 중(controlsLocked)에는 숨겨 뒀어도 바가 올라오고 저장 중 문구가 남는다", async () => {
     vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
     renderRoom();
     await enterRoom();
-
+    // 바를 다시 내려 둔 상태에서 제출이 시작돼도 강제 표시가 이겨야 한다.
     await userEvent.click(screen.getByRole("button", { name: "나가기" }));
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
     await screen.findByText("저장 중...");
-
-    vi.useFakeTimers();
-    act(() => {
-      vi.advanceTimersByTime(4001);
-    });
 
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
     expect(screen.getByText("저장 중...")).toBeInTheDocument();

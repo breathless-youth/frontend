@@ -17,12 +17,12 @@ import { formatStudyHhMm } from "../roomGrid";
 export type SelfBadgeState = "FOCUS" | "DISTRACTED" | "PAUSED";
 
 /**
- * 뱃지가 그릴 수 있는 전체 상태 — 내 타일 3상태에 더해, 타 참가자 타일용 중립 2상태
- * (2026-08-25 BY-427 피드백: 타 참가자도 뱃지로 감싸되 색은 흰/회색만).
- * NEUTRAL = 카메라 켬(흰색) / OFF = 카메라 꺼짐(회색, 시각은 PAUSED와 동일하되
- * 상태 라벨은 닉네임 옆 sr-only(" 카메라 꺼짐")가 전담하므로 뱃지에는 없다).
+ * 뱃지가 그릴 수 있는 전체 상태 — 내 타일 3상태에 더해 타 참가자 카메라 꺼짐용 OFF.
+ * 2026-08-25 개정(BY-435): 타 참가자도 켜져 있으면 집중 상태 색(FOCUS/DISTRACTED)을
+ * 그대로 쓴다 — "타 참가자는 흰/회색만"이던 같은 날의 BY-427 결정을 뒤집었다. OFF는
+ * 회색이고 상태 라벨은 닉네임 옆 sr-only(" 카메라 꺼짐")가 전담하므로 뱃지에는 없다.
  */
-export type TileBadgeState = SelfBadgeState | "NEUTRAL" | "OFF";
+export type TileBadgeState = SelfBadgeState | "OFF";
 
 /**
  * 상태별 뱃지 표현 — 2026-08-25 BY-427 시안 A "서브틀 필".
@@ -54,14 +54,6 @@ const SELF_BADGE_SPEC: Record<TileBadgeState, { label: string; pill: CSSProperti
         borderColor: "rgba(255, 255, 255, 0.14)",
       },
       ink: "var(--text-tertiary)",
-    },
-    NEUTRAL: {
-      label: "",
-      pill: {
-        backgroundColor: "rgba(22, 27, 34, 0.72)",
-        borderColor: "rgba(255, 255, 255, 0.14)",
-      },
-      ink: "#ffffff",
     },
     OFF: {
       label: "",
@@ -152,9 +144,13 @@ export function RoomTile({ member, media, selfState, rootRef, className }: RoomT
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]"
         />
       )}
-      {/* 타이머 뱃지 — 내 타일은 3상태 색, 타 참가자는 흰(켬)/회색(꺼짐)만(2026-08-25 BY-427 피드백). */}
+      {/* 타이머 뱃지 — 내 타일은 로컬 3상태, 타 참가자도 서버 발행 집중 상태 색을 쓴다
+          (2026-08-25 BY-435 개정 — 같은 날의 흰/회색 한정 결정을 뒤집음). */}
       <SelfStateBadge
-        state={selfState ?? (member.cameraOn ? "NEUTRAL" : "OFF")}
+        state={
+          selfState ??
+          (member.cameraOn ? (member.focusState === "DISTRACTED" ? "DISTRACTED" : "FOCUS") : "OFF")
+        }
         studySeconds={member.studySeconds}
         className="absolute top-3 left-3"
       />

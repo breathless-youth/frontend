@@ -13,9 +13,9 @@ type RoomControlBarProps = {
   /** 제출 중처럼 조작이 안전하지 않은 구간의 잠금. 버튼을 없애면 배치가 튀므로 흐리게 남긴다. */
   disabled?: boolean;
   /**
-   * 자동 숨김(BY-435) — 바를 화면 아래로 슬라이드해 완전히 내보낸다(종전 잔상 페이드 대체).
-   * 숨김 중 바 영역 탭은 버튼이 아니라 화면 복귀 트리거로만 동작해야 하므로
-   * pointer-events도 함께 끈다. 복귀는 같은 트랜지션을 역방향으로 탄다.
+   * 숨김(BY-435 디스코드 패턴) — 바를 화면 아래로 슬라이드해 완전히 내보낸다. 화면 탭이
+   * 보임/숨김을 토글하고 자동으로는 내려가지 않는다. 숨김 중 바 영역 탭은 버튼이 아니라
+   * 복귀 트리거로만 동작해야 하므로 pointer-events도 함께 끈다.
    */
   hidden?: boolean;
   onToggleCamera: () => void;
@@ -39,6 +39,9 @@ export function RoomControlBar({
     // 2026-08-25 BY-427 피드백: 두 룸의 바 크기 통일) — 폭은 내용에 맞춰 242px이 된다.
     <div
       data-testid="room-control-bar"
+      // 화면 탭 = 바 토글(디스코드 패턴)이라, 바 자체 조작이 토글로 버블되면 버튼을 누를
+      // 때마다 바가 내려간다 — 여기서 끊는다.
+      onPointerDown={(event) => event.stopPropagation()}
       className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-transform duration-300 ease-out motion-reduce:transition-none ${
         // 이동량 = 바 높이(100%) + 래퍼의 bottom 오프셋(safe-area+17px) — 화면 밖까지 정확히
         // 나간다. 부모 main의 overflow-hidden이 내려간 바를 잘라 문서 스크롤을 막는다.

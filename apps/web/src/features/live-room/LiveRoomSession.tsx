@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -32,9 +32,6 @@ import { leaveRoom } from "@/lib/roomApi";
 import { cn } from "@/lib/utils";
 
 import type { CreateChannel } from "./liveRoomEntryState";
-
-/** 컨트롤 바 자동 숨김 유휴 시간(ms) — 2026-08-25 BY-427 시안 B. */
-const CONTROL_BAR_IDLE_MS = 4000;
 
 function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
   const stream = streams.get(userId);
@@ -256,41 +253,18 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
-  // 컨트롤 바 자동 숨김 — 마지막 상호작용 후 4초가 지나면 바를 화면 아래로 슬라이드해
-  // 내보내고 조작을 막는다(BY-435, 종전 BY-427 잔상 페이드 대체). 잠금(제출 중·에러)·
-  // 다이얼로그 동안은 숨기지 않는다.
+  // 컨트롤 바 탭 토글(BY-435 디스코드 패턴) — 화면 탭이 바를 올리고, 자동으로 내려가지
+  // 않으며, 한 번 더 탭하면 내려간다(종전 4초 유휴 자동 숨김 대체). 입장 직후는 숨김
+  // 상태로 시작해 타일만 있는 몰입 화면이다. 잠금(제출 중·에러)·다이얼로그 동안은 항상
+  // 보인다. 바 자체 조작은 RoomControlBar가 pointerdown 버블을 끊어 토글로 새지 않는다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  const [controlsHidden, setControlsHidden] = useState(false);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearFadeTimer = useCallback(() => {
-    if (fadeTimerRef.current !== null) {
-      clearTimeout(fadeTimerRef.current);
-      fadeTimerRef.current = null;
-    }
-  }, []);
-  const restartFadeTimer = useCallback(() => {
-    clearFadeTimer();
-    fadeTimerRef.current = setTimeout(() => {
-      fadeTimerRef.current = null;
-      setControlsHidden(true);
-    }, CONTROL_BAR_IDLE_MS);
-  }, [clearFadeTimer]);
-  useEffect(() => {
-    if (controlsAlwaysVisible) {
-      clearFadeTimer();
-      setControlsHidden(false);
-      return;
-    }
-    restartFadeTimer();
-    return clearFadeTimer;
-  }, [clearFadeTimer, controlsAlwaysVisible, restartFadeTimer]);
-
-  // 화면 아무 곳 탭 = 즉시 복귀 + 유휴 타이머 재시작. 바 조작도 pointerdown 버블로 같이 잡힌다.
-  // 숨은 바는 pointer-events가 꺼져 있어 그 탭은 복귀 트리거로만 동작한다.
+  const [controlsShown, setControlsShown] = useState(false);
+  const controlsVisible = controlsAlwaysVisible || controlsShown;
   const handleSurfacePointerDown = () => {
-    setControlsHidden(false);
+    // 강제 표시 구간의 탭(다이얼로그 배경 등)이 숨김 상태를 뒤집어 두면, 구간이 끝나는
+    // 순간 바가 예고 없이 내려간다 — 토글은 일반 구간에서만 받는다.
     if (!controlsAlwaysVisible) {
-      restartFadeTimer();
+      setControlsShown((prev) => !prev);
     }
   };
 
@@ -334,23 +308,18 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            // gap은 4px로 아주 좁게(2026-08-25 피드백) — 행 높이 계산의 보정값(gap 합)도
-            // 함께 맞춘다. 행이 화면을 다 채우지 못할 때(3~4명 = 2행)는 위 정렬 대신
-            // content-center로 세로 가운데에 모은다 — 넘칠 때(7명+)는 스크롤 시작점이
-            // 잘리지 않게 위 정렬을 유지한다.
-            className={`grid grow gap-1 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-[4dvh] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              Math.ceil(allMembers.length / grid.cols) <= grid.rowUnit ? "content-center" : ""
+            // 타일 배치(BY-435) — 비율·간격은 실기기 스크린샷 0352 기준: 약 2:3 세로형
+            // 라운드 타일(모서리는 기존 radius)에 넉넉한 간격, 그룹 세로 가운데.
+            // flex-wrap justify-center가 홀수 인원(3·5명)의 마지막 타일을 자동으로 가운데
+            // 놓는다(2+1, 2+2, 2+2+1, 2+2+2). 4명까지는 세로 가운데, 5명+는 짧은 화면에서
+            // 가운데 정렬이 스크롤 시작을 잘라먹지 않게 위 정렬. 디스코드 참조는 플로팅 바
+            // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.96) 준다.
+            className={`flex grow flex-wrap justify-center gap-5 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+              allMembers.length <= 4 ? "content-center" : "content-start"
             } ${
-              // 가로 행 높이는 rowUnit이 아니라 인원(cols)에서 갈린다 — A안으로 3~4명도
-              // rowUnit 2가 되면서, rowUnit 기준이던 종전 매핑은 4명 가로를 1행 100%로
-              // 잘못 키웠다. 2명(1열)만 가로 1행 100%, 3명 이상은 행 높이 1/2 + 스크롤.
-              grid.cols === 1
-                ? "grid-cols-1 landscape:grid-cols-2 landscape:[grid-auto-rows:100%]"
-                : "grid-cols-2 landscape:[grid-auto-rows:calc((100%-4px)/2)]"
-            } ${
-              grid.rowUnit === 2
-                ? "[grid-auto-rows:calc((100%-4px)/2)]"
-                : "[grid-auto-rows:calc((100%-8px)/3)]"
+              controlsVisible
+                ? "scale-[0.96] pb-[calc(env(safe-area-inset-bottom)+114px)]"
+                : "pb-[4dvh]"
             }`}
           >
             {allMembers.map((member) => (
@@ -364,6 +333,13 @@ export function LiveRoomSession({
                     ? myVideo
                     : remoteVideoOrUndefined(member.userId, remoteStreams)
                 }
+                // 2명은 1열, 3명 이상은 2열 — 0352 실측 비율(타일 폭 ≈ 화면의 43%,
+                // 세로 2:3). 가로 방향은 비율을 눕혀(3:2) 행 높이를 화면 안에 맞춘다.
+                className={cn(
+                  "aspect-[2/3] landscape:aspect-[3/2]",
+                  grid.cols === 1 ? "w-[60%]" : "w-[calc(50%-14px)]",
+                  "landscape:w-[calc(33.3%-14px)]",
+                )}
               />
             ))}
           </div>
@@ -387,7 +363,7 @@ export function LiveRoomSession({
           <RoomControlBar
             cameraOn={!paused}
             disabled={controlsLocked}
-            hidden={controlsHidden}
+            hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
                 setCameraWanted(false);
