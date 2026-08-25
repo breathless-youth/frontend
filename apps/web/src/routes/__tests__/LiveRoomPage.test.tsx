@@ -801,11 +801,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(flipIcon.style.transform).toBe("rotate(360deg)");
   });
 
-  it("2명 이상 그리드는 하단에 여백을 둔다 — 타일이 화면 바닥에 붙지 않는다 (BY-435)", async () => {
+  it("2명 이상 그리드는 하단에 화면 높이 비례 여백을 둔다 — 고정 px는 기기마다 달라 보인다 (BY-435)", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass("pb-8");
+    expect(screen.getByTestId("room-grid")).toHaveClass("pb-[4dvh]");
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
