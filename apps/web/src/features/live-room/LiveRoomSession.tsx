@@ -317,12 +317,13 @@ export function LiveRoomSession({
             // 놓는다(2+1, 2+2, 2+2+1, 2+2+2). 4명까지는 세로 가운데, 5명+는 짧은 화면에서
             // 가운데 정렬이 스크롤 시작을 잘라먹지 않게 위 정렬. 디스코드 참조는 플로팅 바
             // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.98) 준다
-            // (바-타일 간격은 2026-08-25 피드백으로 절반 축소).
-            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] transition-[padding,transform] duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            // (바-타일 간격은 2026-08-25 피드백으로 축소 — 105px → 100px). 트랜지션은 transform만:
+            // padding·height 애니메이션은 영상 리플로우로 랙을 만든다.
+            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] transition-transform duration-300 motion-reduce:transition-none landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               allMembers.length <= 4 ? "content-center" : "content-start"
             } ${
               controlsVisible
-                ? "scale-[0.98] pb-[calc(env(safe-area-inset-bottom)+105px)]"
+                ? "scale-[0.98] pb-[calc(env(safe-area-inset-bottom)+100px)]"
                 : "pb-[4dvh]"
             }`}
           >
@@ -344,7 +345,10 @@ export function LiveRoomSession({
                 className={cn(
                   grid.cols === 1
                     ? cn(
-                        "aspect-square max-w-full transition-[height] duration-300 motion-reduce:transition-none",
+                        // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
+                        // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 크기는 즉시
+                        // 바뀌고 부드러움은 그리드 scale 트랜지션이 담당한다.
+                        "aspect-square max-w-full",
                         controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
                       )
                     : "aspect-[2/3] w-[calc(50%-2px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-4px)]",
