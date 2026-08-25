@@ -122,14 +122,17 @@ export function createPeerMesh({
   }
 
   // 송출만 낮춘다 — 카메라 스트림은 추론 파이프라인이 고해상도로 쓰므로 건드리지 않는다.
+  // 2026-08-25 BY-427: 240p/200kbps → 360p/350kbps 소폭 상향(실기기 "타일에서 흐릿" 피드백).
+  // 프레임레이트 15는 유지 — 인코딩 부하·발열의 가장 큰 축이라 올리지 않는다. 최악의 업로드는
+  // 5피어 × 350kbps ≈ 1.75Mbps(종전 1Mbps)로 모바일 핫스팟에서도 감당 가능한 수준.
   function applySendQuality(sender: RTCRtpSender, track: MediaStreamTrack) {
     const height = typeof track.getSettings === "function" ? track.getSettings().height : undefined;
-    const scale = height !== undefined && height > 0 ? Math.max(1, height / 240) : 3;
+    const scale = height !== undefined && height > 0 ? Math.max(1, height / 360) : 2;
     const params = sender.getParameters();
     const encodings = params.encodings.length > 0 ? params.encodings : [{}];
     encodings[0] = {
       ...encodings[0],
-      maxBitrate: 200_000,
+      maxBitrate: 350_000,
       maxFramerate: 15,
       scaleResolutionDownBy: scale,
     };

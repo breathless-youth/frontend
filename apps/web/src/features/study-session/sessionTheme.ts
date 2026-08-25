@@ -67,8 +67,13 @@ const SESSION_SURFACE_VARS = {
   "--session-resume-bg": colors.brand.primary.dark,
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
   "--session-exit-bg": colors.feedback.error.dark,
-  /** 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다. */
-  "--session-toast-bg": "rgba(22, 27, 34, 0.92)",
+  /**
+   * 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다.
+   * 값을 바꾸면 `components/ui/toast.tsx`의 CSS 변수 폴백도 같은 값으로 맞출 것(toast.test.tsx가 고정).
+   */
+  // 2026-08-25 BY-427 실기기 피드백: 검정 알약 → 토스풍 회색 알약(+흰 글자)으로 변경.
+  // #4E5968 = border.strong 다크값과 같은 회색 계열.
+  "--session-toast-bg": "rgba(78, 89, 104, 0.96)",
 
   // ── S3-7 종료 확인 다이얼로그 (항상-다크 오버레이) ───────────────────────────
   // 이 화면은 카메라 위에 뜨는 오버레이라 **라이트/다크 테마를 따르지 않는다.**

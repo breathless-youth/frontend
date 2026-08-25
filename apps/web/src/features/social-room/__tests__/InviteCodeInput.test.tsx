@@ -53,4 +53,26 @@ describe("InviteCodeInput", () => {
     typeCode("0712");
     expect(onChange).toHaveBeenCalledWith("0712");
   });
+
+  it("4자리 입력 완료 시 input이 blur된다 — 키보드를 내린다", () => {
+    render(<InviteCodeInput value="" onChange={vi.fn()} />);
+
+    const input = screen.getByLabelText("초대코드 4자리");
+    input.focus();
+    expect(input).toHaveFocus();
+
+    // 붙여넣기·자동완성으로 한 번에 4자리가 들어오는 경로와 같은 change 이벤트다.
+    fireEvent.change(input, { target: { value: "3712" } });
+    expect(input).not.toHaveFocus();
+  });
+
+  it("3자리까지는 blur되지 않는다", () => {
+    render(<InviteCodeInput value="" onChange={vi.fn()} />);
+
+    const input = screen.getByLabelText("초대코드 4자리");
+    input.focus();
+
+    fireEvent.change(input, { target: { value: "371" } });
+    expect(input).toHaveFocus();
+  });
 });

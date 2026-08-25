@@ -5,6 +5,7 @@ import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "re
  *
  * ⚠️ 피그마 시안이 웹 모달 형태로 확정되기 전이라 스타일은 최소 구성이다 — 시안이 나오면
  * 이 파일의 표현만 교체한다. 구조·카피·접근성 계약은 확정분이다.
+ * 미리보기 높이는 2026-08-25 BY-427 시안 B(234px) 확정.
  */
 export interface CameraOnConfirmDialogProps {
   /** 미리보기 슬롯 — 호출부가 소유한 카메라 `<video>`를 넘긴다(다이얼로그는 표시만). */
@@ -88,7 +89,9 @@ export function CameraOnConfirmDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="w-full max-w-[320px] rounded-2xl bg-background p-4 text-foreground"
+        // max-h+스크롤: 어떤 화면(특히 가로 회전)에서도 모달이 뷰포트를 넘어 잘리지 않는
+        // 백스톱이다 — 내용은 아래 미리보기 높이가 비례로 줄어 대부분 스크롤 없이 들어간다.
+        className="max-h-[calc(100dvh-24px)] w-full max-w-[320px] overflow-y-auto rounded-2xl bg-background p-4 text-foreground"
       >
         <h2 id={titleId} className="text-[17px] leading-[21px] font-semibold">
           카메라를 켤까요?
@@ -96,9 +99,14 @@ export function CameraOnConfirmDialog({
         <p id={descriptionId} className="mt-2 text-sm leading-5 text-muted-foreground">
           카메라를 켜면 순공시간 측정과 영상 공유가 함께 시작돼요.
         </p>
-        <div className="mt-3 h-[124px] overflow-hidden rounded-xl bg-[#191f28]">{preview}</div>
+        {/* 미리보기 높이는 화면 높이 비례(28dvh ≈ 표준 세로에서 234px) + 상한 234px —
+            고정 px는 가로 회전(높이 ~390px)에서 모달을 뷰포트 밖으로 밀어 잘리게 했고,
+            기기별로도 다르게 보였다(2026-08-25 피드백). 시안 B의 234px는 상한으로 유지. */}
+        <div className="mt-3 h-[min(234px,28dvh)] overflow-hidden rounded-xl bg-[#191f28]">
+          {preview}
+        </div>
         <p className="mt-3 text-xs leading-[15px] text-muted-foreground">
-          영상은 룸에 있는 멤버에게만 전달돼요. 서버에 저장되지 않아요.
+          영상은 서버에 저장되지 않아요.
         </p>
         {errorMessage !== null && (
           <p role="alert" className="mt-2 text-sm text-state-distract-text">

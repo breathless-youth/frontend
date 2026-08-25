@@ -11,9 +11,9 @@ describe("roomGridSpec", () => {
     expect(roomGridSpec(2)).toEqual({ mode: "grid", cols: 1, rowUnit: 2 });
   });
 
-  it("3~4명은 2열이고 타일 높이는 5~6명과 같다(1/3) — 그리드는 상단 시작", () => {
-    expect(roomGridSpec(3)).toEqual({ mode: "grid", cols: 2, rowUnit: 3 });
-    expect(roomGridSpec(4)).toEqual({ mode: "grid", cols: 2, rowUnit: 3 });
+  it("3~4명은 2열 2행으로 화면을 채운다 — 2026-08-25 A안(Zoom/Meet 방식)", () => {
+    expect(roomGridSpec(3)).toEqual({ mode: "grid", cols: 2, rowUnit: 2 });
+    expect(roomGridSpec(4)).toEqual({ mode: "grid", cols: 2, rowUnit: 2 });
   });
 
   it("5~6명은 2열 3행이다", () => {

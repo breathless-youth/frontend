@@ -102,7 +102,7 @@ export function InviteCodeSharePage() {
             type="button"
             onClick={() => {
               void copyInviteCode(state.inviteCode).then((copied) => {
-                showToast(copied ? "복사했어요" : "잠시 후 다시 시도해 주세요");
+                showToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
             }}
             className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
@@ -116,7 +116,7 @@ export function InviteCodeSharePage() {
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.
                 if (result === "copied") {
-                  showToast("복사했어요");
+                  showToast("초대코드를 복사했어요");
                 }
               });
             }}

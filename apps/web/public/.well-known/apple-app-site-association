@@ -3,8 +3,15 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["APPLE_TEAM_ID.com.breathlessyouth.mobile"],
-        "components": [{ "/": "/social/join*" }]
+        "appIDs": ["9BCSD3ZRDQ.com.breathlessyouth.mobile"],
+        "appID": "9BCSD3ZRDQ.com.breathlessyouth.mobile",
+        "paths": ["/social/join"],
+        "components": [
+          {
+            "/": "/social/join",
+            "comment": "초대코드 딥링크 — 앱 설치 시 앱으로 열린다 (apps/mobile/app/social/join.tsx)"
+          }
+        ]
       }
     ]
   }

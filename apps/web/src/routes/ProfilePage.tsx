@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { ProfileErrorCode, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -9,7 +9,12 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
-import { validateGoal, validateNickname } from "@/features/profile/profileValidation";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
+import {
+  validateGoal,
+  validateNickname,
+  validateNicknameLength,
+} from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -47,17 +52,33 @@ export function ProfilePage() {
     }
   }, [initialized, query.data]);
 
+  const navigate = useNavigate();
+
   const saveMutation = useMutation({
     mutationFn: (patch: ProfileUpdateRequest) => updateProfile(userId as number, patch),
     onSuccess: (data) => {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId as number), data);
       setErrors({});
+      // 복귀한 설정 화면이 "프로필이 저장됐어요" 토스트를 띄우게 표식을 남긴다(시안 A).
+      markProfileSaved();
+      // 저장 성공 시 설정 화면으로 복귀한다(2026-08-25 BY-427 확정 — "저장=완료").
+      // ScreenBackHeader와 같은 판단: 스택이 있으면 뒤로, 딥링크 직행이면 설정 탭으로.
+      const historyState = window.history.state as { idx?: number } | null;
+      if (historyState?.idx) {
+        navigate(-1);
+        return;
+      }
+      // 쿼리(userId 등)를 승계하지 않으면 설정이 미저장 모드로 뜬다(BY-327과 같은 함정).
+      navigate({ pathname: "/settings", search: searchParams.toString() }, { replace: true });
     },
     onError: (error) => {
       if (
         error instanceof ApiError &&
-        error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode)
+        (error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode) ||
+          // 서버가 code를 누락하는 사례 대비(BY-404 규칙의 의도적 예외 — joinErrorCopy.ts와
+          // 같은 판단): 409(Conflict)는 닉네임 중복뿐이라 필드 인라인으로 안내한다.
+          (error.code === undefined && error.status === 409))
       ) {
         setErrors({ nickname: "이미 사용 중인 닉네임이에요" });
         return;
@@ -144,7 +165,12 @@ export function ProfilePage() {
         <h1 className="text-[22px] leading-[27px] font-bold text-foreground">프로필 설정</h1>
 
         <div className="flex justify-center py-1">
-          <ProfileAvatar initial={profile.initial} colorIndex={profile.colorIndex} />
+          {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
+              바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백. */}
+          <ProfileAvatar
+            initial={nickname.charAt(0) || profile.initial}
+            colorIndex={profile.colorIndex}
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -158,10 +184,15 @@ export function ProfilePage() {
             id="profile-nickname"
             type="text"
             value={nickname}
-            maxLength={12}
+            // 목표 문구와 같은 규칙 — maxLength로 조용히 막지 않고, 12자 초과는 입력 중에
+            // 바로 안내한다. 형식·최소 길이 검증은 저장 시점(validateNickname)에만 한다.
             onChange={(event) => {
-              setNickname(event.target.value);
-              setErrors((prev) => ({ ...prev, nickname: undefined }));
+              const value = event.target.value;
+              setNickname(value);
+              setErrors((prev) => ({
+                ...prev,
+                nickname: validateNicknameLength(value) ?? undefined,
+              }));
             }}
             aria-invalid={errors.nickname !== undefined || undefined}
             aria-describedby={errors.nickname !== undefined ? "profile-nickname-error" : undefined}
@@ -186,10 +217,13 @@ export function ProfilePage() {
             id="profile-goal"
             type="text"
             value={goal}
-            maxLength={20}
+            // maxLength를 걸지 않는다 — 20자에서 입력이 조용히 막히면 왜 안 쳐지는지 알 수
+            // 없다(2026-08-25 피드백). 초과 입력을 허용하고 아래에서 바로 안내하며, 저장은
+            // handleSave의 validateGoal이 막는다.
             onChange={(event) => {
-              setGoal(event.target.value);
-              setErrors((prev) => ({ ...prev, goal: undefined }));
+              const value = event.target.value;
+              setGoal(value);
+              setErrors((prev) => ({ ...prev, goal: validateGoal(value) ?? undefined }));
             }}
             aria-invalid={errors.goal !== undefined || undefined}
             aria-describedby={errors.goal !== undefined ? "profile-goal-error" : undefined}
@@ -243,11 +277,18 @@ export function ProfilePage() {
       <div className="mt-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <button
           type="button"
-          disabled={!isDirty || saveMutation.isPending}
+          // 길이 초과(목표 20자·닉네임 12자)는 입력 중 인라인 안내와 함께 저장 버튼도
+          // 잠근다(2026-08-25 피드백) — 눌러도 거부될 버튼을 활성으로 두지 않는다.
+          disabled={
+            !isDirty ||
+            saveMutation.isPending ||
+            validateGoal(goal) !== null ||
+            validateNicknameLength(nickname) !== null
+          }
           onClick={handleSave}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >
-          저장하기
+          {saveMutation.isPending ? "저장 중..." : "저장하기"}
         </button>
       </div>
     </main>

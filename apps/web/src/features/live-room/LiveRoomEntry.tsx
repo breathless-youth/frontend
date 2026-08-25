@@ -1,44 +1,35 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import type { IceServer } from "@focusmakers/types";
 
-import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
-import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
-import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { rejoinFailure } from "@/features/social-room/joinErrorCopy";
+import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { joinRoom } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
+import type { CreatePeerConnection } from "./peerMesh";
 import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveRoomEntryState";
 
 /**
- * 입장 단계 — 세션이 아직 시작되지 않은 구간.
+ * 입장 준비 단계 — 세션이 아직 시작되지 않은 구간.
  *
- * ## 미리보기 없이 카메라 꺼짐으로 입장한다 (2026-08-25 확정, iOS·Android 공통)
+ * 2026-08-24 BY-427: 입장 확인 모달을 제거하고 **무조건 카메라 끔(=측정 일시정지)으로
+ * 즉시 입장**한다 — 카메라는 세션 안의 켜기 확인 모달로만 켠다. 준비 구간이 순공시간으로
+ * 집계되면 안 되므로 측정 훅(세션)은 준비가 끝난 뒤에만 마운트되고, 프로필 조회도 같은
+ * 이유로 이 단계에서만 한다 — 세션 중 API 호출 금지 계약. 마운트 시 join을 재호출해
+ * 자리 예약 30초 TTL을 새로 잡고 iceServers를 갱신한다(모달이 없어져 체류 시간은 짧지만,
+ * S9 응답 이후 흐른 시간과 무관하게 예약을 확실히 잡는 이유는 동일하다). 유예 재입장은
+ * 재호출 없이 서버가 준 이전 카메라 상태로 바로 들어간다.
  *
- * 예전에는 카메라 미리보기 모달에서 켜고/끄고를 골라 입장했다. 그 미리보기 획득이 권한
- * 흐름과 얽혀 입장 자체가 깨지는 문제가 Android에서 반복됐고, 켜고 입장이 기본이면 룸에
- * 들어가기까지의 단계도 하나 더 는다. 그래서 **모달을 띄우지 않고 카메라 꺼짐으로 바로
- * 입장한다.** 카메라는 룸 안 컨트롤 바 토글로 켠다.
- *
- * 입장 전에 권한 게이트는 그대로 태운다: 세션이 마운트되자마자 카메라를 획득하므로
- * (`useStudyRoomSession`), 그 전에 OS 권한을 확보해야 Android 웹뷰가 묻지 않고 거부하는
- * 경로를 피한다. **게이트가 거부면 입장하지 않고 소셜 홈으로 돌아간다** — 권한 없이는 룸에
- * 들어가지 않는다는 정책이고(BY-412 완료 조건), 네이티브가 띄운 권한 안내 화면을 사용자가
- * 닫았을 때 그 아래에 이미 입장된 룸이 드러나서도 안 된다. 룸은 뒤로가기를 잠그고 있어
- * (`set-back-lock`) 나가기 버튼 말고는 빠져나갈 수단도 없다(2026-08-25 실기기 확인).
- * 게이트가 응답을 못 주는 경우의 판단은 `lib/nativeCameraGate.ts`가 셸 표시로 가른다.
- *
- * 측정 훅(세션)은 입장이 확정된 뒤에만 마운트되고, 프로필 조회도 이 단계에서만 한다 —
- * 세션 중 API 호출 금지 계약. 입장 시 join을 재호출해 자리 예약 30초 TTL을 새로 잡는다.
- * 유예 재입장은 자리 예약이 아직 살아 있어 join을 부르지 않지만, **권한 게이트는 똑같이
- * 탄다** — 그 사이 사용자가 설정에서 권한을 껐을 수 있고, 여기만 예외를 두면 "권한 없으면
- * 룸에 들어가지 않는다"는 정책에 구멍이 생긴다(2026-08-25 봇 리뷰 지적).
+ * 카메라 어댑터는 여기서 만들어 세션에 그대로 넘긴다 — 미리보기가 없어져 start 지점은
+ * 세션(useStudyRoomSession) 하나뿐이다(재오픈이 없으니 iOS 해제 지연 재시도도 불필요).
  */
 export function LiveRoomEntry({
   roomId,
@@ -55,94 +46,145 @@ export function LiveRoomEntry({
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
 }) {
-  // 입장부터 세션 종료까지 룸 전체 수명 동안 회전을 연다 — 이 컴포넌트가 세션
-  // (`LiveRoomSession`)을 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다.
-  useNativeOrientationUnlock();
-  const [entry, setEntry] = useState<{ cameraOn: boolean } | null>(null);
-  // 유예 재입장은 자리 예약을 다시 잡지 않는다 — 게이트만 통과하면 join 없이 들어간다.
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const graceRejoin = entryState.graceRejoin === true;
-  const [entryError, setEntryError] = useState<string | null>(null);
+  // 일반 입장은 무조건 끔(일시정지 시작), 유예 재입장만 이전 카메라 상태 복원(기본 켬).
+  const initialCameraOn = graceRejoin ? entryState.cameraOn !== false : false;
+
+  const [entered, setEntered] = useState(false);
+  /**
+   * 카메라 권한 게이트 결과 — 모든 입장 경로가 이 관문을 지난다(BY-412).
+   *
+   * 세션이 마운트되자마자 카메라를 획득하므로 그 전에 OS 권한을 확보해야 Android 웹뷰가
+   * 묻지 않고 거부하는 경로를 피한다. 거부면 입장하지 않고 소셜 홈으로 돌아간다 — 네이티브가
+   * 띄운 권한 안내 화면을 닫았을 때 그 아래에 이미 입장된 룸이 드러나면 안 되고, 룸은
+   * 뒤로가기를 잠그고 있어 나가기 버튼 말고는 빠져나갈 수단도 없다(실기기 확인).
+   *
+   * 유예 재입장도 예외가 아니다 — 그 사이 사용자가 설정에서 권한을 껐을 수 있어, 여기만
+   * 건너뛰면 "권한 없으면 룸에 들어가지 않는다"는 정책에 구멍이 생긴다.
+   */
+  // 브리지가 없으면(브라우저 단독) 물어볼 네이티브가 없다 — 초기값으로 통과시켜 입장이
+  // 한 틱도 밀리지 않게 한다. 브리지가 있을 때만 응답을 기다린다.
+  const [gatePassed, setGatePassed] = useState(() => !isNativeBridgeAvailable());
+  const [gateDenied, setGateDenied] = useState(false);
+  const [joined, setJoined] = useState(graceRejoin);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinAttempt, setJoinAttempt] = useState(0);
   const [iceServers, setIceServers] = useState<IceServer[]>(entryState.iceServers ?? []);
+
+  const [camera] = useState(createCamera);
 
   const profile = useQuery({
     ...profileQuery(userId),
     staleTime: Infinity,
-    enabled: entry === null,
+    enabled: !entered,
   });
 
-  // 세션에 넘길 카메라 어댑터. 입장 단계에서는 시작하지 않는다(위 주석 참고).
-  const [camera] = useState(createCamera);
-
-  // 확정 처리 중의 경쟁 상태 방지
-  const [joining, setJoining] = useState(false);
-  async function confirmEntry(cameraOn: boolean) {
-    if (joining) {
-      return;
-    }
-    setJoining(true);
-    try {
-      const joined = await joinRoom(userId, entryState.inviteCode);
-      setIceServers(joined.iceServers);
-    } catch (error) {
-      setEntryError(joinErrorMessage(error));
-      setJoining(false);
-      return;
-    }
-    setEntry({ cameraOn });
-  }
-
-  // 권한 게이트가 거부한 상태 — 입장하지 않고 소셜 홈으로 돌아간다(위 주석).
-  const [gateDenied, setGateDenied] = useState(false);
-  const location = useLocation();
-
-  // 마운트 시 자동 입장 — 게이트로 OS 권한을 먼저 확보한 뒤 카메라 꺼짐으로 들어간다.
-  // ref 가드는 StrictMode의 effect 이중 실행에서 join이 두 번 나가는 것을 막는다
-  // (`joining` state는 같은 틱의 두 호출을 거르지 못한다).
-  const autoEntryRef = useRef(false);
+  // TTL 재예약 + iceServers 갱신. 실패하면 인라인 오류로 남고 [다시 시도]가 재실행한다.
   useEffect(() => {
-    if (entry !== null || autoEntryRef.current) {
+    // 게이트를 지나기 전에는 자리를 잡지 않는다 — 권한이 거부되면 입장 자체를 하지 않으므로
+    // 예약만 남기고 빠지는 일이 없어야 한다(BY-412).
+    if (graceRejoin || !gatePassed) {
       return;
     }
-    autoEntryRef.current = true;
-    void (async () => {
-      if (!(await requestCameraGate())) {
+    let cancelled = false;
+    void joinRoom(userId, entryState.inviteCode)
+      .then((response) => {
+        if (!cancelled) {
+          setIceServers(response.iceServers);
+          setJoined(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const failure = rejoinFailure(error);
+        // 이 방으로는 복구할 수 없는 실패(방 소멸 등)는 화면에 붙잡아 두면 사용자가
+        // [다시 시도] 말고 할 수 있는 게 없는 상태에 갇힌다 — 사유만 남기고 내보낸다.
+        if (failure.kind === "leave") {
+          markSocialRoomNotice(failure.message);
+          navigate({ pathname: "/social", search: location.search }, { replace: true });
+          return;
+        }
+        setJoinError(failure.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    entryState.inviteCode,
+    gatePassed,
+    graceRejoin,
+    joinAttempt,
+    location.search,
+    navigate,
+    userId,
+  ]);
+
+  // 마운트 1회 — StrictMode의 effect 이중 실행에서 게이트가 두 번 도는 것을 막는다.
+  const gateRequestedRef = useRef(false);
+  useEffect(() => {
+    if (gateRequestedRef.current) {
+      return;
+    }
+    gateRequestedRef.current = true;
+    if (!isNativeBridgeAvailable()) {
+      return;
+    }
+    void requestCameraGate().then((granted) => {
+      if (granted) {
+        setGatePassed(true);
+      } else {
         setGateDenied(true);
-        return;
       }
-      if (graceRejoin) {
-        // 이전 카메라 상태를 그대로 되살린다. join은 부르지 않는다 — 자리 예약이 아직 살아 있다.
-        setEntry({ cameraOn: entryState.cameraOn !== false });
-        return;
-      }
-      await confirmEntry(false);
-    })();
-    // 마운트 1회만 — confirmEntry는 렌더마다 새 함수라 deps에 넣으면 재실행된다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
   }, []);
 
-  if (gateDenied) {
-    // 쿼리를 승계한다 — 셸 계약 파라미터(userId 등)가 빠지면 소셜 홈이 다시 못 뜬다.
-    return <Navigate to={{ pathname: "/social", search: location.search }} replace />;
-  }
+  useEffect(() => {
+    if (gateDenied) {
+      navigate({ pathname: "/social", search: location.search }, { replace: true });
+    }
+  }, [gateDenied, location.search, navigate]);
 
-  if (entry === null) {
+  // 게이트를 지나고 join·프로필이 결착되면 입장 — 프로필은 실패해도 폴백(null)으로 진행한다.
+  // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
+  const profileSettled = profile.isSuccess || profile.isError;
+  useEffect(() => {
+    if (!entered && gatePassed && (graceRejoin || (joined && profileSettled))) {
+      setEntered(true);
+    }
+  }, [entered, gatePassed, graceRejoin, joined, profileSettled]);
+
+  if (!entered) {
+    // 정상 경로는 수백 ms 수준이라 다크 배경만 유지한다(스피너 없음).
     return (
       <main
         data-testid="live-room-page"
         className="relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
-        {/* 자동 입장 실패(join 오류)일 때만 다이얼로그를 띄운다 — 미리보기는 없다. */}
-        {entryError !== null && (
-          <CameraOnConfirmDialog
-            dismissable={false}
-            busy={joining}
-            preview={null}
-            errorMessage={entryError}
-            cancelLabel="끄고 입장"
-            onCancel={() => void confirmEntry(false)}
-            onConfirm={() => void confirmEntry(true)}
-          />
+        {joinError !== null && (
+          <div className="flex grow flex-col items-center justify-center gap-3 px-6">
+            <ErrorState
+              message={joinError}
+              onRetry={() => {
+                setJoinError(null);
+                setJoinAttempt((attempt) => attempt + 1);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                navigate({ pathname: "/social", search: location.search }, { replace: true })
+              }
+              className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
+            >
+              소셜 홈으로
+            </button>
+          </div>
         )}
       </main>
     );
@@ -156,7 +198,7 @@ export function LiveRoomEntry({
       camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
-      initialCameraOn={entry.cameraOn}
+      initialCameraOn={initialCameraOn}
       profile={profile.data ?? null}
     />
   );

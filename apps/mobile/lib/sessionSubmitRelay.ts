@@ -40,7 +40,15 @@ export async function relaySessionSubmit(
       body: JSON.stringify(message.request),
     });
     if (!res.ok) {
-      throw await parseErrorMessage(res, "세션 제출 실패");
+      const error = await parseErrorMessage(res, "세션 제출 실패");
+      return {
+        type: "submit-result",
+        requestId: message.requestId,
+        ok: false,
+        message: error.message,
+        status: res.status,
+        atMs: Date.now(),
+      };
     }
     const sessions = (await res.json()) as StudySessionResponse[];
     return {

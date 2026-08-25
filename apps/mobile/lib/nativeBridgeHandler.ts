@@ -91,7 +91,16 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // Android 웹뷰에는 `navigator.share`가 없어 웹이 시트를 못 연다 — 여기서 OS 공유
       // 시트를 대신 연다(계약 주석 참고). 응답은 없다 — 취소(AbortError 상당)도 OS가
       // 이미 사용자에게 보여준 결과라 웹에 알릴 것이 없다.
-      void Share.share({ message: message.text }).catch((error: unknown) => {
+      //
+      // RN `Share.share` 계약의 플랫폼 차이(BY-427): iOS는 `url`이 별도 필드라 공유시트가
+      // URL 미리보기 카드(앱 아이콘 썸네일)를 그리고, Android는 `message`만 쓴다 — 링크는
+      // 웹이 만든 `message.text` 본문에 이미 들어 있어 그대로 둔다. `title`은 시트 제목.
+      // url·title이 없는 구버전 웹 메시지는 종전대로 message만 전달한다.
+      void Share.share({
+        message: message.text,
+        ...(message.url !== undefined ? { url: message.url } : {}),
+        ...(message.title !== undefined ? { title: message.title } : {}),
+      }).catch((error: unknown) => {
         console.warn("[bridge] 공유 시트(share) 열기 실패", error);
       });
       break;

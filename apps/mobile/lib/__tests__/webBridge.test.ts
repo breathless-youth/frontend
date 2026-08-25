@@ -42,6 +42,28 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("share의 선택 필드 url·title을 함께 파싱한다 — 공유시트 썸네일용(BY-427)", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"share","text":"초대 텍스트","url":"https://example.com/social/join?code=0712","title":"포커스 메이커스 그룹 스터디","atMs":9}',
+      ),
+    ).toEqual({
+      type: "share",
+      text: "초대 텍스트",
+      url: "https://example.com/social/join?code=0712",
+      title: "포커스 메이커스 그룹 스터디",
+      atMs: 9,
+    });
+  });
+
+  it("share의 url·title이 문자열이 아니면 그 필드만 버린다 — text만으로도 시트는 열린다", () => {
+    expect(parseToNativeMessage('{"type":"share","text":"초대 텍스트","url":1,"atMs":9}')).toEqual({
+      type: "share",
+      text: "초대 텍스트",
+      atMs: 9,
+    });
+  });
+
   it("share의 text가 문자열이 아니면 null이다 — 빈 공유 시트를 열지 않는다", () => {
     expect(parseToNativeMessage('{"type":"share","text":1,"atMs":9}')).toBeNull();
   });
@@ -189,5 +211,55 @@ describe("serializeToWebMessage", () => {
     expect(serializeToWebMessage({ type: "device-handling", active: true, atMs: 9 })).toBe(
       '{"type":"device-handling","active":true,"atMs":9}',
     );
+  });
+});
+
+describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
+  it("pong을 파싱한다", () => {
+    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: 4, atMs: 1000 }))).toEqual({
+      type: "pong",
+      id: 4,
+      atMs: 1000,
+    });
+  });
+
+  it("pong의 id가 number가 아니면 버린다 — 짝을 못 맞추는 응답은 생존 증거가 못 된다", () => {
+    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: "4", atMs: 1000 }))).toBeNull();
+  });
+
+  it("report-screen을 파싱한다 — restoreQuery는 문자열 값만 남긴다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "report-screen",
+          path: "/social/room/42",
+          restoreQuery: { code: "0712", bad: 3 },
+          dark: true,
+          atMs: 1000,
+        }),
+      ),
+    ).toEqual({
+      type: "report-screen",
+      path: "/social/room/42",
+      restoreQuery: { code: "0712" },
+      dark: true,
+      atMs: 1000,
+    });
+  });
+
+  it("report-screen의 path가 절대 경로가 아니면 버린다 — 임의 URL로 재마운트되면 안 된다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "report-screen", path: "https://evil.test", dark: false, atMs: 1 }),
+      ),
+    ).toBeNull();
+  });
+
+  it("report-screen의 dark가 boolean이 아니면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "report-screen", path: "/social", dark: "yes", atMs: 1 }),
+      ),
+    ).toBeNull();
   });
 });

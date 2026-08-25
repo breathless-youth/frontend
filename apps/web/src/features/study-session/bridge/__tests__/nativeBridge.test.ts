@@ -19,6 +19,18 @@ describe("parseToWebMessage", () => {
     });
   });
 
+  it("ping 메시지를 파싱한다 — 생존 확인(BY-436)", () => {
+    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: 3, atMs: 1000 }))).toEqual({
+      type: "ping",
+      id: 3,
+      atMs: 1000,
+    });
+  });
+
+  it("ping의 id가 number가 아니면 null이다 — 짝을 맞출 수 없는 응답이 나간다", () => {
+    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: "3", atMs: 1000 }))).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다 — 앱 버전이 앞서갈 때 죽지 않아야 한다", () => {
     expect(parseToWebMessage('{"type":"future-message","atMs":1}')).toBeNull();
   });
