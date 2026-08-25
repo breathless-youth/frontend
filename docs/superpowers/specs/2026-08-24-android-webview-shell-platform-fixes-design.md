@@ -85,7 +85,9 @@
 
 - 웹: `apps/web/src/lib/nativeBackGesture.ts`의 기존 훅 옆에 마운트 동안 `set-orientation unlocked: true`, 언마운트에서 `unlocked: false`를 보내는 훅을 추가하고, 룸 라우트(`/social/room/:id`) 수명에 건다. 진입 미리보기 단계부터 룸 전체가 회전 대상이다.
 - 네이티브: `components/RemoteWebViewHost.tsx`가 수신해 **Android일 때만** `unlockForSession()` / `lockPortrait()`(`lib/orientation.ts`)를 부른다. 공용 핸들러가 아니라 호스트에서 소비하는 이유는 `set-back-gesture`와 같다 — 복원 시점이 이 웹뷰의 로드 수명이라 그 상태를 가진 쪽이 처리해야 한다. iOS는 무시한다 — 완료 조건 "iOS 동작에 변화가 없다"를 지키기 위해서다. 잠금 호출 실패는 기존 `lockSafely`가 삼킨다.
-- 문서 세대 주의: 웹뷰 재로드·렌더러 재생성으로 룸 밖 문서가 새로 뜨면 `unlocked: false`를 되돌릴 주체가 없다. `RemoteWebViewHost`가 **새 문서의 로드 시작(`onLoadStart`)**에서 세로 잠금을 복원한다. 로드 종료가 아닌 이유: 웹의 회전 요청은 React effect에서 나가 나머지 리소스 로드보다 먼저 도착할 수 있어, 종료 시점에 복원하면 방금 연 회전을 같은 로드가 되잠근다(2026-08-25 채점 지적).
+- 문서 세대 주의: 웹뷰 재로드·렌더러 재생성으로 룸 밖 문서가 새로 뜨면 `unlocked: false`를 되돌릴 주체가 없다. `RemoteWebViewHost`가 **복구 진입(`enterRecovery`)**에서 세로 잠금을 복원한다 — ping 타임아웃·`onError`·`onHttpError`·렌더러 사망이 부르는 그 지점이다.
+  - 로드 종료(`onLoadEnd`)가 아닌 이유: 웹의 회전 요청은 React effect에서 나가 나머지 리소스 로드보다 먼저 도착할 수 있어, 종료 시점에 복원하면 방금 연 회전을 같은 로드가 되잠근다(2026-08-25 채점 지적).
+  - 로드 시작(`onLoadStart`)도 아닌 이유: **Android는 SPA `pushState`에도 그 이벤트를 발화시킨다**(dev의 BY-436 실기기 확인). 그대로 두면 소셜 홈에서 룸으로 이동하는 순간 방금 연 회전이 되잠긴다. 문서 세대가 실제로 바뀌는 사건은 복구 진입뿐이라, 병합(`f5b49f0`)에서 이 지점으로 옮겼다. `WebView`에 `onLoadStart` prop을 연결하지 않는 것 자체를 회귀 테스트가 고정한다.
 - 실기기 확인 항목: Android에서 rn-screens `orientation: "portrait"`(`setRequestedOrientation`)와 `expo-screen-orientation`의 호출 순서 경합. 룸 체류 중 네이티브 화면 전환이 없어 문제없을 것으로 보지만 기기에서 확인한다.
 
 ### #3 테마 전달 (Android 전용)
