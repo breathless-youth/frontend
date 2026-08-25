@@ -326,7 +326,7 @@ describe("LiveRoomPage — 입장", () => {
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe("모두 나가서 방이 사라졌어요");
+    expect(consumeSocialRoomNotice()).toBe("방이 만료되었어요");
   });
 
   it("소멸 10분이 지나 INVITE_CODE_NOT_FOUND로 바뀌어도 같은 안내로 내보낸다", async () => {
@@ -334,7 +334,7 @@ describe("LiveRoomPage — 입장", () => {
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe("모두 나가서 방이 사라졌어요");
+    expect(consumeSocialRoomNotice()).toBe("방이 만료되었어요");
   });
 
   it("5xx는 내보내지 않는다 — 방이 살아 있는데 쫓아내면 측정이 날아간다", async () => {

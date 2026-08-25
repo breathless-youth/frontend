@@ -84,15 +84,15 @@ describe("소셜 홈", () => {
   });
 
   it("룸에서 밀려나며 남긴 안내가 있으면 마운트 시 토스트로 보여주고 한 번만 뜬다", () => {
-    markSocialRoomNotice("모두 나가서 방이 사라졌어요");
+    markSocialRoomNotice("방이 만료되었어요");
     const { unmount } = renderAt("/social?userId=7");
 
-    expect(screen.getByText("모두 나가서 방이 사라졌어요")).toBeInTheDocument();
+    expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
 
     // 안내는 1회성이다 — 웹뷰가 또 리로드돼 소셜 홈이 다시 마운트돼도 반복되지 않는다.
     unmount();
     renderAt("/social?userId=7");
-    expect(screen.queryByText("모두 나가서 방이 사라졌어요")).not.toBeInTheDocument();
+    expect(screen.queryByText("방이 만료되었어요")).not.toBeInTheDocument();
   });
 
   it("남긴 안내가 없으면 토스트가 뜨지 않는다", () => {

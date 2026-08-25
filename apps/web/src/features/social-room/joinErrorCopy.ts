@@ -21,7 +21,7 @@ import { ApiError } from "@/lib/api";
 
 export const JOIN_RETRY_MESSAGE = "잠시 후 다시 시도해 주세요";
 export const CHECK_CODE_MESSAGE = "초대코드를 다시 확인해 주세요";
-export const ROOM_CLOSED_MESSAGE = "모두 나가서 방이 사라졌어요";
+export const ROOM_CLOSED_MESSAGE = "방이 만료되었어요";
 export const USER_NOT_FOUND_MESSAGE = "사용자 정보를 확인할 수 없어요";
 export const ROOM_FULL_MESSAGE = "방이 가득 찼어요";
 
