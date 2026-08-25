@@ -83,6 +83,15 @@ export type RemoteWebViewHostProps = {
    * 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
    */
   onLoadEnd?: (ok: boolean) => void;
+  /**
+   * 새 문서 로드가 시작되면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 — iOS가
+   * 백그라운드에서 콘텐츠 프로세스를 회수하면 복귀 시 웹뷰가 통째로 다시 로드되는데,
+   * 그동안 스플래시가 걷힌 채면 사용자에게는 빈 화면만 보인다(BY-436).
+   *
+   * SPA 내부 라우팅(pushState)은 문서 로드가 아니라 이 콜백이 불리지 않는다 — 탭 안에서
+   * 화면을 옮길 때 스플래시가 깜빡이지 않는 이유다.
+   */
+  onLoadStart?: (() => void) | undefined;
   testID?: string;
 };
 
@@ -92,6 +101,7 @@ export function RemoteWebViewHost({
   onBridgeMessage,
   backgroundColor,
   onLoadEnd,
+  onLoadStart,
   testID,
 }: RemoteWebViewHostProps) {
   const webViewRef = useRef<WebView>(null);
@@ -287,6 +297,7 @@ export function RemoteWebViewHost({
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).
       onLoadEnd={handleLoadEnd}
+      onLoadStart={onLoadStart}
       onError={() => setLoadFailed(true)}
       onHttpError={() => setLoadFailed(true)}
       onContentProcessDidTerminate={handleContentProcessDidTerminate}

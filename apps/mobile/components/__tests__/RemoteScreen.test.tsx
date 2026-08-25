@@ -137,6 +137,25 @@ describe("RemoteScreen", () => {
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
   });
 
+  it("로드가 다시 시작되면 스플래시를 되돌린다 — 리로드 중 흰 화면 방지", async () => {
+    // iOS가 백그라운드에서 콘텐츠 프로세스를 회수하면 복귀 시 웹뷰가 통째로 다시 로드된다.
+    // 스플래시가 한 번 걷힌 채로 굳어 있으면 그동안 빈 화면만 보인다(BY-436).
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.queryByTestId("home-webview-splash")).toBeNull();
+
+    act(() => {
+      (webview.props.onLoadStart as () => void)();
+    });
+
+    expect(screen.getByTestId("home-webview-splash")).toBeTruthy();
+  });
+
   it("웹뷰 로드가 실패해도 스플래시를 걷는다 — 실패 폴백의 재시도 버튼을 가리지 않도록", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 

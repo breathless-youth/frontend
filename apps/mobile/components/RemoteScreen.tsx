@@ -86,6 +86,13 @@ export function RemoteScreen({
   );
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  // 새 문서 로드가 시작되면 스플래시를 되돌린다 — 리로드(iOS 콘텐츠 프로세스 회수 후 복귀,
+  // Android 렌더러 재생성) 동안 흰 화면이 드러나던 문제(BY-436). `loaded`를 첫 로드에서
+  // true로 굳히면 그 뒤의 모든 재로드가 가려지지 않는다.
+  const onLoadStart = useCallback(() => {
+    setLoaded(false);
+    setLoadFailed(false);
+  }, []);
   const onLoadEnd = useCallback((ok: boolean) => {
     setLoaded(true);
     setLoadFailed(!ok);
@@ -165,6 +172,7 @@ export function RemoteScreen({
           backgroundColor={backgroundColor}
           onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
+          onLoadStart={onLoadStart}
         />
       )}
       {showSplash && (
