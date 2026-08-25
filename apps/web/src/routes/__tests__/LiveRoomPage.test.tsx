@@ -810,21 +810,21 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
-    expect(grid).toHaveClass("scale-[0.96]");
+    expect(grid).toHaveClass("scale-[0.98]");
     expect(grid).not.toHaveClass("pb-[4dvh]");
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(grid).toHaveClass("pb-[4dvh]");
-    expect(grid).not.toHaveClass("scale-[0.96]");
+    expect(grid).not.toHaveClass("scale-[0.98]");
   });
 
-  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 34dvh, 내리면 41dvh로 커진다", async () => {
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 36dvh, 내리면 41dvh로 커진다", async () => {
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("h-[34dvh]");
+    expect(tile).toHaveClass("h-[36dvh]");
 
     fireEvent.pointerDown(screen.getByTestId("live-room-page"));
     expect(tile).toHaveClass("h-[41dvh]");

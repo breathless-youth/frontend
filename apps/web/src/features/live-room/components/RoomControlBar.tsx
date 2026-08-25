@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
@@ -8,6 +8,25 @@ import exitIcon from "@/assets/icons/session-exit.svg";
 /**
  * 룸 하단 컨트롤 바 3버튼
  */
+
+/**
+ * 탭마다 확정적으로 눌림 팝을 재생한다(2026-08-25 피드백 — 싱글룸과 같은 눌림 감각).
+ * :active 스케일은 WKWebView의 짧은 탭에서 스치듯 지나가 안 보일 수 있어 JS로 보강한다.
+ */
+function playPressPop(event: ReactPointerEvent<HTMLButtonElement>) {
+  const button = event.currentTarget;
+  if (
+    typeof button.animate !== "function" ||
+    (typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+  ) {
+    return;
+  }
+  button.animate(
+    [{ transform: "scale(1)" }, { transform: "scale(0.88)" }, { transform: "scale(1)" }],
+    { duration: 220, easing: "ease-out" },
+  );
+}
 type RoomControlBarProps = {
   cameraOn: boolean;
   /** 제출 중처럼 조작이 안전하지 않은 구간의 잠금. 버튼을 없애면 배치가 튀므로 흐리게 남긴다. */
@@ -53,6 +72,7 @@ export function RoomControlBar({
       <button
         type="button"
         aria-label={cameraOn ? "카메라 끄기" : "카메라 켜기"}
+        onPointerDown={playPressPop}
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
@@ -73,6 +93,7 @@ export function RoomControlBar({
       <button
         type="button"
         aria-label="카메라 전환"
+        onPointerDown={playPressPop}
         // 카메라가 꺼져 있으면 전환할 대상이 없다 — 눌리는 척만 하는 버튼을 남기지 않는다
         // (2026-08-25 BY-427 실기기 피드백).
         disabled={disabled || !cameraOn}
@@ -92,6 +113,7 @@ export function RoomControlBar({
       <button
         type="button"
         aria-label="나가기"
+        onPointerDown={playPressPop}
         disabled={disabled}
         onClick={onExit}
         className="flex size-[50px] items-center justify-center rounded-full bg-[var(--session-exit-bg)] transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
