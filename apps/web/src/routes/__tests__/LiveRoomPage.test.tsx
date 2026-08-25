@@ -153,6 +153,13 @@ async function enterRoom() {
   await act(async () => {});
 }
 
+/** 화면 탭 = 바 토글. 드래그(스크롤)와 구분되므로 down+up 쌍으로 보낸다(BY-435). */
+function tapSurface() {
+  const surface = screen.getByTestId("live-room-page");
+  fireEvent.pointerDown(surface, { clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(surface, { clientX: 10, clientY: 10 });
+}
+
 /** 세션 중 카메라 켜기 — 입장이 항상 꺼짐이라, 켜기는 확인 모달을 거치는 이 경로뿐이다. */
 async function turnCameraOn() {
   await userEvent.click(await screen.findByRole("button", { name: "카메라 켜기" }));
@@ -841,7 +848,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid.className).not.toContain("scale-");
     expect(grid).not.toHaveClass("pb-[4dvh]");
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(grid).toHaveClass("pb-[4dvh]");
   });
 
@@ -853,7 +860,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("aspect-square");
     expect(tile).toHaveClass("h-[36dvh]");
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(tile).toHaveClass("h-[41dvh]");
   });
 
@@ -893,7 +900,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     expect(screen.getByTestId("room-grid")).toHaveClass("content-end");
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(screen.getByTestId("room-grid")).toHaveClass("content-center");
   });
 
@@ -906,6 +913,19 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-[4/5]");
     expect(tile).not.toHaveClass("aspect-[2/3]");
+  });
+
+  it("5~6명은 바가 올라오면 타일 폭을 줄여 3행 전체가 바 위에 수납된다", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("w-[calc(44%-2px)]");
+
+    tapSurface();
+    expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
   it("5명 이상은 위 정렬 스크롤 — 가운데 정렬이면 짧은 화면에서 스크롤 시작이 잘린다", async () => {
@@ -967,11 +987,11 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     expect(bar).toHaveClass("pointer-events-auto");
     expect(bar).not.toHaveClass(SLIDE);
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(bar).toHaveClass("pointer-events-none");
     expect(bar).toHaveClass(SLIDE);
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(bar).toHaveClass("pointer-events-auto");
     expect(bar).not.toHaveClass(SLIDE);
   });
@@ -983,13 +1003,27 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     const infos = screen.getAllByTestId("tile-info");
     infos.forEach((info) => expect(info).not.toHaveClass("opacity-0"));
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     screen.getAllByTestId("tile-info").forEach((info) => {
       expect(info).toHaveClass("opacity-0");
       expect(info).toHaveAttribute("aria-hidden", "true");
     });
     // 시간 뱃지는 남는다.
     expect(screen.getAllByTestId("self-state-badge").length).toBeGreaterThan(0);
+  });
+
+  it("드래그(스크롤)는 바를 토글하지 않는다 — 이동 10px 초과면 탭이 아니다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    const surface = screen.getByTestId("live-room-page");
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-auto");
+
+    // jsdom의 PointerEvent 폴백은 좌표를 싣지 않는다 — MouseEvent로 직접 만들어 보낸다.
+    fireEvent(surface, new MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 100 }));
+    fireEvent(surface, new MouseEvent("pointerup", { bubbles: true, clientX: 10, clientY: 180 }));
+    expect(bar).toHaveClass("pointer-events-auto");
   });
 
   it("바 위 탭(버튼 조작)은 토글로 버블되지 않는다 — 버튼을 누를 때마다 바가 내려가면 안 된다", async () => {
@@ -999,7 +1033,8 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     const bar = screen.getByTestId("room-control-bar");
     expect(bar).toHaveClass("pointer-events-auto");
 
-    fireEvent.pointerDown(bar);
+    fireEvent.pointerDown(bar, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(bar, { clientX: 10, clientY: 10 });
     expect(bar).toHaveClass("pointer-events-auto");
   });
 
@@ -1010,7 +1045,7 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
-    fireEvent.pointerDown(screen.getByTestId("live-room-page"));
+    tapSurface();
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
   });
 

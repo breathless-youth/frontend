@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -298,7 +305,24 @@ export function LiveRoomSession({
   // 이름·목표도 함께 숨어 시간만 남는 몰입 화면이 된다(RoomTile infoHidden).
   const [controlsShown, setControlsShown] = useState(true);
   const controlsVisible = controlsAlwaysVisible || controlsShown;
-  const handleSurfacePointerDown = () => {
+  // 탭과 스크롤을 구분한다(2026-08-25 피드백) — pointerdown만 보면 스크롤 시작 터치가
+  // 토글로 먹혀 "한 번 더 터치해야 스크롤"이 됐다. 눌린 지점에서 거의 움직이지 않고
+  // 뗀 경우(≤10px)만 탭으로 인정한다. 스크롤이 포인터를 가져가면 pointerup이 아예
+  // 오지 않으므로 자연히 토글되지 않는다.
+  const surfacePointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const handleSurfacePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    surfacePointerStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+  const handleSurfacePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = surfacePointerStartRef.current;
+    surfacePointerStartRef.current = null;
+    if (start === null) {
+      return;
+    }
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 10) {
+      return;
+    }
     // 강제 표시 구간의 탭(다이얼로그 배경 등)이 숨김 상태를 뒤집어 두면, 구간이 끝나는
     // 순간 바가 예고 없이 내려간다 — 토글은 일반 구간에서만 받는다.
     if (!controlsAlwaysVisible) {
@@ -310,6 +334,7 @@ export function LiveRoomSession({
     <main
       data-testid="live-room-page"
       onPointerDown={handleSurfacePointerDown}
+      onPointerUp={handleSurfacePointerUp}
       // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
       // 문서 스크롤이 생기지 않게 한다.
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
@@ -355,7 +380,7 @@ export function LiveRoomSession({
             // 동작(탭 토글·축소)만이다 — 바가 올라오면 하단을 바만큼 벌리고 살짝(0.98) 준다
             // (바-타일 간격은 2026-08-25 피드백으로 축소 — 105px → 100px). 트랜지션은 transform만:
             // padding·height 애니메이션은 영상 리플로우로 랙을 만든다.
-            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+            className={`flex grow flex-wrap justify-center gap-1 overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:flex-nowrap landscape:items-center landscape:justify-start landscape:overflow-x-auto landscape:overflow-y-hidden landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
               // 바가 떠 있으면 타일을 바 바로 위에 붙인다(content-end, 여백 ≈ 11px) —
               // 가운데 정렬의 잔여 공간이 바-타일 간격으로 보여 크게 느껴졌다(2026-08-25).
               // 넘치는 인원은 스크롤 시작이 잘리지 않게 위 정렬 유지.
@@ -391,18 +416,21 @@ export function LiveRoomSession({
                   grid.cols === 1
                     ? cn(
                         // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
-                        // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 크기는 즉시
-                        // 바뀌고 부드러움은 그리드 scale 트랜지션이 담당한다.
+                        // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25).
                         "aspect-square max-w-full",
                         controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
                       )
                     : cn(
-                        // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행(990px)이 세로 화면을
-                        // 넘어 스크롤이 되고, 첫 행(내 타일+첫 참가자)이 밀려 안 보이는 사고가
-                        // 났다(2026-08-25 실기기 roomId=143) — 4:5로 눕혀 3행이 화면에 들어간다.
+                        // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
+                        // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
+                        // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
                         allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
-                        "w-[calc(50%-2px)] landscape:aspect-[3/2] landscape:w-[calc(33.3%-4px)]",
+                        allMembers.length > 4 && controlsVisible
+                          ? "w-[calc(44%-2px)]"
+                          : "w-[calc(50%-2px)]",
                       ),
+                  // 가로: 일자 한 줄 + 가로 스크롤(2026-08-25 피드백) — 높이 기반 3:2 타일.
+                  "landscape:aspect-[3/2] landscape:h-[62dvh] landscape:w-auto landscape:max-w-none landscape:shrink-0",
                 )}
               />
             ))}
