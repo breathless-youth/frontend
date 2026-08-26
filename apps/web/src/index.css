@@ -349,3 +349,12 @@ body {
     opacity: 1;
   }
 }
+
+/* iOS WebKit이 영상 위에 UA 섀도 DOM으로 그리는 재생/일시정지 컨트롤을 숨긴다.
+   세션 영상의 재생 킥(startVideoPlayback)·탭 차단(pointer-events-none)과 한 세트 */
+video::-webkit-media-controls,
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+}

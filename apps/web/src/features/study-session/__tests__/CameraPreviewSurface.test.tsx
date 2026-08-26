@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CameraPreviewSurface } from "../components/CameraPreviewSurface";
 import { PREVIEW_OBJECT_FIT } from "../previewFit";
@@ -15,27 +15,63 @@ function videoRef() {
 }
 
 describe("CameraPreviewSurface", () => {
-  it("카메라가 꺼져 있으면 목업 라벨을 보여주고 video를 그리지 않는다", () => {
+  it("스트림이 없어도 video를 상시 마운트하고 목업 라벨을 그리지 않는다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning={false} stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
 
-    expect(screen.getByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeInTheDocument();
-    expect(container.querySelector("video")).toBeNull();
+    expect(container.querySelector("video")).not.toBeNull();
+    expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
   });
 
-  it("카메라가 켜져 있으면 video를 그리고 목업 라벨을 감춘다", () => {
+  it("스트림을 붙이면 재생을 직접 건다 — autoplay 속성에만 맡기지 않는다", () => {
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const stream = { getTracks: () => [] } as unknown as MediaStream;
+    render(<CameraPreviewSurface stream={stream} facing="front" videoRef={videoRef()} />);
+
+    expect(playSpy).toHaveBeenCalled();
+  });
+
+  it("재생이 멈추는 신호(suspend·pause)가 오면 다시 건다 — 첫 play() 거부에 대비한다", () => {
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const stream = { getTracks: () => [] } as unknown as MediaStream;
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={stream} facing="front" videoRef={videoRef()} />,
+    );
+    const video = container.querySelector("video");
+    playSpy.mockClear();
+
+    fireEvent.loadedMetadata(video as HTMLVideoElement);
+    fireEvent.suspend(video as HTMLVideoElement);
+    fireEvent.pause(video as HTMLVideoElement);
+
+    expect(playSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("스트림이 없으면 멈춤 신호가 와도 재생을 걸지 않는다 — 빈 video에 재시도 루프를 만들지 않는다", () => {
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const { container } = render(
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
+    );
+    const video = container.querySelector("video");
+    playSpy.mockClear();
+
+    fireEvent.suspend(video as HTMLVideoElement);
+
+    expect(playSpy).not.toHaveBeenCalled();
+  });
+
+  it("video는 탭을 받지 않는다 — 탭이 닿으면 iOS가 네이티브 컨트롤을 띄운다", () => {
+    const { container } = render(
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
 
-    expect(screen.queryByText("[ 전 면 카 메 라 프 리 뷰 ]")).toBeNull();
-    expect(container.querySelector("video")).not.toBeNull();
+    expect(container.querySelector("video")?.className).toContain("pointer-events-none");
   });
 
   it("video에 Amplitude용 amp-block과 Sentry용 sentry-block 차단 표식이 둘 다 붙는다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
     const video = container.querySelector("video");
 
@@ -47,7 +83,7 @@ describe("CameraPreviewSurface", () => {
 
   it("video는 음소거·인라인 재생이다 — 소리를 내거나 전체화면으로 튀면 안 된다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
     const video = container.querySelector("video");
 
@@ -55,29 +91,32 @@ describe("CameraPreviewSurface", () => {
     expect(video?.muted).toBe(true);
   });
 
+  it("autoplay 속성을 달지 않는다 — iOS 저전력 모드가 autoplay 영상에 네이티브 컨트롤을 강제한다", () => {
+    const { container } = render(
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
+    );
+
+    // 재생은 startVideoPlayback 킥이 건다. 속성이 있으면 WebKit이 저전력 모드에서
+    // 숨길 수 없는 재생 컨트롤을 영상 위에 띄운다(WebKit 219889, Won't Fix).
+    expect(container.querySelector("video")).not.toHaveAttribute("autoplay");
+  });
+
   it("전달된 스트림을 video의 srcObject에 붙인다", () => {
     const stream = { getTracks: () => [] } as unknown as MediaStream;
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={stream} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={stream} facing="front" videoRef={videoRef()} />,
     );
 
     expect(container.querySelector("video")?.srcObject).toBe(stream);
   });
 
-  it("호출부가 넘긴 videoRef에 실제 엘리먼트를 붙인다 — 추론이 이 참조로 프레임을 읽는다", () => {
+  it("스트림이 없어도 videoRef가 붙는다 — 추론이 이 참조로 프레임을 읽는다", () => {
     const ref = videoRef();
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={ref} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={ref} />,
     );
 
     expect(ref.current).toBe(container.querySelector("video"));
-  });
-
-  it("카메라가 꺼져 있으면 videoRef가 비어 있다 — 그 구간은 프레임 없음으로 다뤄야 한다", () => {
-    const ref = videoRef();
-    render(<CameraPreviewSurface isRunning={false} stream={null} facing="front" videoRef={ref} />);
-
-    expect(ref.current).toBeNull();
   });
 
   /**
@@ -89,7 +128,7 @@ describe("CameraPreviewSurface", () => {
    */
   it("표시 방식이 PREVIEW_OBJECT_FIT을 따른다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
     const className = container.querySelector("video")?.className;
 
@@ -107,7 +146,7 @@ describe("CameraPreviewSurface", () => {
 
   it("전면 카메라는 거울처럼 좌우를 반전한다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="front" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="front" videoRef={videoRef()} />,
     );
 
     expect(container.querySelector("video")?.className).toContain("scale-x-[-1]");
@@ -115,7 +154,7 @@ describe("CameraPreviewSurface", () => {
 
   it("후면 카메라는 반전하지 않는다 — 실제 장면과 좌우가 뒤집히면 안 된다", () => {
     const { container } = render(
-      <CameraPreviewSurface isRunning stream={null} facing="back" videoRef={videoRef()} />,
+      <CameraPreviewSurface stream={null} facing="back" videoRef={videoRef()} />,
     );
 
     expect(container.querySelector("video")?.className).not.toContain("scale-x-[-1]");

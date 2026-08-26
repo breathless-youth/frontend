@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { kickVideoPlayback } from "@/lib/videoPlayback";
 
 /** 정체 점검 주기와, 마지막으로 그려진 프레임 이후 재장착까지의 대기 시간. */
@@ -8,10 +9,12 @@ const STALL_REATTACH_AFTER_MS = 4000;
 
 export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaStream }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     const video = videoRef.current;
     if (video && video.srcObject !== stream) {
       video.srcObject = stream;
+      startVideoPlayback(video);
     }
     // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 —
     // 사유·재시도 규칙은 kickVideoPlayback 주석 참고(2026-08-26 실기기).
@@ -79,10 +82,13 @@ export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaS
     <video
       ref={videoRef}
       data-testid={`remote-video-${userId}`}
-      autoPlay
       playsInline
       muted
-      className="amp-block sentry-block size-full object-cover"
+      {...VIDEO_PLAYBACK_KICK_PROPS}
+      // pointer-events-none:
+      // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다.
+      // 이 영상은 조작 대상이 아니므로 탭을 아래 레이어로 통과시킨다.
+      className="amp-block sentry-block pointer-events-none size-full object-cover"
     />
   );
 }

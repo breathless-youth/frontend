@@ -49,12 +49,19 @@ export function createSystemPauseSource(target: Document = document): SystemPaus
       const handlePageHide = () => {
         onLeave();
       };
+      // pagehide 전용 경로의 복귀 짝 — 이게 없으면 그 경로에서 onReturn이 영영 오지 않아
+      // 복귀 시점 재계산(자동 종료·유예 만료 판정)이 통째로 빠진다. 중복 호출은 안전하다.
+      const handlePageShow = () => {
+        onReturn();
+      };
 
       target.addEventListener("visibilitychange", handleVisibilityChange);
       target.defaultView?.addEventListener("pagehide", handlePageHide);
+      target.defaultView?.addEventListener("pageshow", handlePageShow);
       return () => {
         target.removeEventListener("visibilitychange", handleVisibilityChange);
         target.defaultView?.removeEventListener("pagehide", handlePageHide);
+        target.defaultView?.removeEventListener("pageshow", handlePageShow);
       };
     },
   };

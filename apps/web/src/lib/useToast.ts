@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** 토스트 노출 시간(ms) */
-const DEFAULT_TOAST_DURATION_MS = 3000;
+/** 토스트 노출 시간(ms) — 3초는 읽기 전에 사라진다는 피드백으로 5초로 늘렸다. */
+const DEFAULT_TOAST_DURATION_MS = 5000;
 
 /**
  * 한 번에 하나만 뜨는 토스트. 같은 문구를 다시 띄우면 타이머가 새로 시작된다.
