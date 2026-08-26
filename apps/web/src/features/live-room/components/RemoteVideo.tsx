@@ -1,14 +1,9 @@
 import { useEffect, useRef } from "react";
 
-import { cn } from "@/lib/utils";
 import { kickVideoPlayback } from "@/lib/videoPlayback";
-
-import { useAdaptiveVideoFit } from "../useAdaptiveVideoFit";
 
 export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaStream }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  // 송신자 방향과 내 타일 방향이 어긋나면 레터박스 — 사유는 useAdaptiveVideoFit 주석.
-  const fit = useAdaptiveVideoFit(videoRef);
   useEffect(() => {
     const video = videoRef.current;
     if (video && video.srcObject !== stream) {
@@ -21,16 +16,16 @@ export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaS
     }
   });
   return (
+    // cover 고정(2026-08-26 디스코드 참조 확정): 정사각 타일에서는 가로·세로 송신자 모두
+    // 긴 축이 대칭(~44%)으로 잘려 방향 혼합의 프레이밍 차이가 온건하다 — 방향별 제한
+    // 크롭·레터박스 실험(useAdaptiveVideoFit)은 이 결정으로 걷어냈다.
     <video
       ref={videoRef}
       data-testid={`remote-video-${userId}`}
       autoPlay
       playsInline
       muted
-      className={cn(
-        "amp-block sentry-block size-full",
-        fit === "contain" ? "object-contain" : "object-cover",
-      )}
+      className="amp-block sentry-block size-full object-cover"
     />
   );
 }

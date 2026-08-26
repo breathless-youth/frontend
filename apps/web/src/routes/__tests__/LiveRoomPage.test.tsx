@@ -962,34 +962,6 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     }
   });
 
-  it("스트림과 타일 방향이 어긋나면 셀프뷰가 레터박스(contain)로 바뀐다 — 프레이밍 일치", async () => {
-    // 송출 비율은 송신자 기기 방향을 따라간다(가로=와이드 캡처) — 방향이 어긋난 조합에서
-    // cover는 서로 완전히 다른 크롭을 만들어 "내 화면과 상대가 보는 화면이 다르다"가 됐다
-    // (2026-08-26 실기기, 양방향). 어긋나면 contain으로 전체 프레임을 보여준다
-    // (useAdaptiveVideoFit — RemoteVideo도 같은 훅을 쓴다).
-    renderRoom({ camera: createStreamingMockCamera() });
-    await enterRoom();
-    await turnCameraOn();
-
-    const video = screen.getByTestId("room-my-video") as HTMLVideoElement;
-    expect(video).toHaveClass("object-cover");
-
-    // 와이드 스트림(1280×720)이 세로 타일(200×300)에 들어온 상황.
-    Object.defineProperty(video, "videoWidth", { value: 1280, configurable: true });
-    Object.defineProperty(video, "videoHeight", { value: 720, configurable: true });
-    Object.defineProperty(video, "clientWidth", { value: 200, configurable: true });
-    Object.defineProperty(video, "clientHeight", { value: 300, configurable: true });
-    fireEvent(video, new Event("resize"));
-    expect(video).toHaveClass("object-contain");
-    expect(video).not.toHaveClass("object-cover");
-
-    // 방향이 다시 맞으면(와이드 스트림 × 와이드 타일) cover로 복귀한다.
-    Object.defineProperty(video, "clientWidth", { value: 300, configurable: true });
-    Object.defineProperty(video, "clientHeight", { value: 200, configurable: true });
-    fireEvent(video, new Event("resize"));
-    expect(video).toHaveClass("object-cover");
-  });
-
   it("탭 제스처마다 멈춘 영상에 play()를 다시 건다 — 저전력 모드 방어", async () => {
     // iOS 저전력 모드는 스크립트 단독 play()를 거부하지만 제스처 핸들러 안의 play()는
     // 허용된다 — 화면의 아무 탭이나 복구 트리거가 되는 발신을 못 박는다
@@ -1038,7 +1010,8 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     expect(screen.getByTestId("room-grid-rows")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[2/3]");
+    // 정사각(2026-08-26 디스코드 참조 확정 — 종전 2:3 세로형 대체).
+    expect(tile).toHaveClass("aspect-square");
     expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
@@ -1076,15 +1049,15 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(rows).toHaveClass("my-auto");
   });
 
-  it("5~6명 타일은 4:5로 눕혀 3행이 화면에 들어간다 — 2:3이면 첫 행(내 타일)이 스크롤로 밀린다", async () => {
+  it("5~6명 타일도 정사각 — 2열 3행이 스크롤 없이 화면에 들어간다 (2026-08-26 디스코드 참조)", async () => {
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[4/5]");
-    expect(tile).not.toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile).not.toHaveClass("aspect-[4/5]");
   });
 
   it("5~6명은 바가 올라오면 타일 폭을 줄여 3행 전체가 바 위에 수납된다", async () => {
@@ -1125,7 +1098,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("landscape:w-auto");
   });
 
-  it("가로 3~4명은 2행 2열로 줄바꿈 — 타일은 세로 2:3을 눕힌 3:2, 45dvh (BY-441)", async () => {
+  it("가로 3명은 1행 3열 정사각 — 폭 예산/3이 높이를 정한다 (BY-441)", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
     await enterRoom();
 
@@ -1135,27 +1108,40 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).toHaveClass("landscape:pb-2");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    // 세로 비율을 그대로 세우면 여백이 과했다 — 눕힌 3:2가 화면을 채운다.
-    expect(tile).toHaveClass("landscape:aspect-[3/2]");
-    expect(tile).toHaveClass("landscape:h-[45dvh]");
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile.className).toContain("-40px)/3))]");
   });
 
-  it("가로 5~6명은 2행 3열로 줄바꿈 — 타일은 세로 4:5를 눕힌 5:4, 44dvh (BY-441)", async () => {
+  it("가로 4명은 1행 4열 정사각 — 폭 예산/4이 높이를 정한다 (BY-441)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile.className).toContain("-44px)/4))]");
+  });
+
+  it("가로 5~6명은 2행 3열(3+2/3+3) 정사각 — 3열 강제 폭이 4+1 감김을 막는다 (BY-441)", async () => {
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("landscape:aspect-[5/4]");
+    expect(tile).toHaveClass("aspect-square");
     // 45dvh면 SE에서 3장 폭이 화면을 넘어 2행 3열 줄바꿈이 깨진다 — 44가 상한.
     expect(tile).toHaveClass("landscape:h-[44dvh]");
+    // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기는 것을 3장+간격 폭으로 자른다.
+    const rows = screen.getByTestId("room-grid-rows");
+    expect(rows).toHaveClass("landscape:max-w-[calc(132dvh+8px)]");
+    expect(rows).toHaveClass("landscape:mx-auto");
   });
 
-  it("2명→3명처럼 타일 크기 급이 바뀌면 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {
+  it("타일 크기 급이 바뀌는 인원 경계에서 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {
     // WKWebView는 재생 중 영상 타일이 레이아웃 변경으로 리사이즈되면 레이어를 다시 그리지
     // 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2→3명 전환에서 기존 타일 2개만 안
-    // 보이고 새 타일만 그려짐). 새 DOM은 새 레이어라 강제 재페인트된다. 같은 급(3→4명)은
+    // 보이고 새 타일만 그려짐). 새 DOM은 새 레이어라 강제 재페인트된다. 경계는
+    // 2↔3(duo/tri)·3↔4(tri/quad — 가로 1행 3열→4열)·4↔5(quad/hex)이고, 같은 급(5→6명)은
     // 타일 크기가 안 변해 재마운트하지 않는다.
     const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
@@ -1166,10 +1152,17 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
     expect(document.body.contains(duoTile)).toBe(false);
 
-    const quadTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    const triTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(10) }));
     expect(screen.getAllByTestId("room-tile")).toHaveLength(4);
-    expect(document.body.contains(quadTile)).toBe(true);
+    expect(document.body.contains(triTile)).toBe(false);
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(11) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(5);
+    const hexTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(12) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(6);
+    expect(document.body.contains(hexTile)).toBe(true);
   });
 
   it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {

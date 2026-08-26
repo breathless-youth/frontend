@@ -20,7 +20,6 @@ import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTi
 import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { roomGridSpec } from "@/features/live-room/roomGrid";
-import { useAdaptiveVideoFit } from "@/features/live-room/useAdaptiveVideoFit";
 import { orderedMembers, roomMembersReducer } from "@/features/live-room/roomMembersReducer";
 import { usePeerMesh } from "@/features/live-room/usePeerMesh";
 import { useRoomStatePublisher } from "@/features/live-room/useRoomStatePublisher";
@@ -84,9 +83,6 @@ export function LiveRoomSession({
   useRotationRepaintNudge();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  // 내 셀프뷰도 스트림·타일 방향이 어긋나면 레터박스 — 상대들이 보는 화면과 같은 내용이
-  // 보이게 한다(사유는 useAdaptiveVideoFit 주석).
-  const myVideoFit = useAdaptiveVideoFit(videoRef);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
@@ -301,9 +297,11 @@ export function LiveRoomSession({
       autoPlay
       playsInline
       muted
+      // cover 고정(2026-08-26 디스코드 참조 확정): 정사각 타일에서는 가로·세로 송신자
+      // 모두 긴 축이 대칭(~44%)으로 잘려 방향 혼합의 프레이밍 차이가 온건하다 —
+      // 방향별 제한 크롭·레터박스 실험(useAdaptiveVideoFit)은 이 결정으로 걷어냈다.
       className={cn(
-        "amp-block sentry-block size-full [filter:brightness(1.06)_saturate(1.1)]",
-        myVideoFit === "contain" ? "object-contain" : "object-cover",
+        "amp-block sentry-block size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />
@@ -325,7 +323,13 @@ export function LiveRoomSession({
    * 연결이 끊기고, 실기기에서 토글 리사이즈는 이 증상을 내지 않았다.
    */
   const tileLayoutEpoch =
-    grid.mode === "grid" && grid.cols === 1 ? "duo" : allMembers.length <= 4 ? "quad" : "hex";
+    grid.mode === "grid" && grid.cols === 1
+      ? "duo"
+      : allMembers.length === 3
+        ? "tri" // 가로 3명(1행 3열)과 4명(1행 4열)은 타일 크기가 달라 경계다
+        : allMembers.length <= 4
+          ? "quad"
+          : "hex";
 
   // 컨트롤 바 탭 토글(BY-435 디스코드 패턴) — 화면 탭이 바를 올리고, 자동으로 내려가지
   // 않으며, 한 번 더 탭하면 내려간다(종전 4초 유휴 자동 숨김 대체). 입장 직후는 숨김
@@ -544,6 +548,10 @@ export function LiveRoomSession({
                 // 바 토글이 정렬까지 흔들면 그게 유일한 레이아웃 변화가 된다. 바는
                 // 가로에서 타일 위에 겹친다(컨테이너 landscape:pb-2).
                 "landscape:my-auto",
+                // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은
+                // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기므로, 3장+간격 폭으로 줄을
+                // 자른다. mx-auto가 좁아진 래퍼를 가운데 놓는다.
+                allMembers.length > 4 && "landscape:mx-auto landscape:max-w-[calc(132dvh+8px)]",
               )}
             >
               {allMembers.map((member) => (
@@ -574,34 +582,37 @@ export function LiveRoomSession({
                           controlsVisible ? "h-[37dvh]" : "h-[39dvh]",
                         )
                       : cn(
-                          // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
-                          // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
-                          // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
-                          // 바를 내린 폭도 50%→47%로 좁혀 토글 스냅을 3%p로 줄였다(2026-08-26
-                          // 피드백 — 위 2dvh와 같은 이유). 44%는 3행 수납의 상한이라 그대로다.
-                          allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
+                          // 3명 이상도 전부 정사각(2026-08-26 디스코드 참조 확정 — 종전
+                          // 2:3/4:5 세로형·눕힌형을 대체). 세로 2열에서 정사각은 세로형보다
+                          // 행이 낮아져 5~6명 3행도 스크롤 없이 수납된다. 5~6명의 바 연동
+                          // 폭(44/47%)은 SE 세로 3행 수납 검산이라 유지한다.
+                          "aspect-square",
                           allMembers.length > 4
                             ? controlsVisible
                               ? "w-[calc(44%-2px)]"
                               : "w-[calc(47%-2px)]"
                             : "w-[calc(50%-2px)]",
                         ),
-                    // 가로 크기: 세로 비율을 눕힌 직사각을 dvh 높이로 고정한다(컨테이너
-                    // 주석 참고 — flex-wrap 줄바꿈이 이 폭으로 결정되므로 기기 검산이 계약):
-                    // · 2명(정사각): h=min(88dvh, 폭 예산) — 폭 예산 50dvw−좌우 세이프
-                    //   인셋 절반−패딩·간격 몫(18px). iPhone 13(844×390) min(343,370)=343
-                    //   → 2장 690 ≤ 718 ✓ / SE(667×375) min(330,315)=315 → 634 ≤ 635 ✓.
-                    // · 3~4명(3:2): 45dvh → SE 2장 폭 524 ≤ 635 ✓, 2행 341 ≤ 355 ✓.
-                    // · 5~6명(5:4): 44dvh — 45면 SE에서 3장 폭 641>635로 줄바꿈이 깨진다
-                    //   (2행 3열 계약 위반). 44 → 626 ≤ 635 ✓.
+                    // 가로 크기: 정사각을 dvh/폭 예산 높이로 고정한다(컨테이너 주석 참고 —
+                    // flex-wrap 줄바꿈이 이 폭으로 결정되므로 기기 검산이 계약. 폭 예산 =
+                    // (100dvw − 좌우 세이프 인셋 − 좌우 패딩 32px − 간격) / 열수):
+                    // · 2명(1행 2열): h=min(88dvh, 폭 예산/2 − 18px 몫). iPhone 13(844×390)
+                    //   min(343,370)=343 → 2장 690 ≤ 718 ✓ / SE(667×375) min(330,315)=315 ✓.
+                    // · 3명(1행 3열): min(84dvh, (…−40px)/3) — 13: 245 ✓ / SE: 209 ✓.
+                    // · 4명(1행 4열): min(84dvh, (…−44px)/4) — 13: 183 ✓ / SE: 155 ✓.
+                    // · 5~6명(2행, 3+2/3+3): 44dvh — 2행 92dvh ≤ 세로 예산 ✓, 3장 폭
+                    //   13: 524 ≤ 718 ✓ / SE: 503 ≤ 635 ✓. 3열 강제는 rows 래퍼의
+                    //   landscape:max-w가 담당한다(4+1로 감기는 것 방지).
                     // 바 표시에 따른 세로 모드의 축소(5~6명 44%, 2명 37dvh)는 가로에
                     // 적용되지 않는다 — 가로 크기는 바와 무관해 토글이 레이아웃을 안 바꾼다.
                     "landscape:w-auto landscape:max-w-none",
                     grid.cols === 1
                       ? "landscape:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
-                      : allMembers.length <= 4
-                        ? "landscape:aspect-[3/2] landscape:h-[45dvh]"
-                        : "landscape:aspect-[5/4] landscape:h-[44dvh]",
+                      : allMembers.length === 3
+                        ? "landscape:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3))]"
+                        : allMembers.length === 4
+                          ? "landscape:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4))]"
+                          : "landscape:h-[44dvh]",
                   )}
                 />
               ))}
