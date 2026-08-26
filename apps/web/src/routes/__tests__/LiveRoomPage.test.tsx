@@ -1185,7 +1185,9 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     // 제출 시점에 채널이 이미 끊겨 있어야 한다 — 자동 재연결이 서버 상태를 건드리는 경쟁 차단.
     expect(channelStatusAtSubmit).toBe("closed");
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe("자리를 오래 비워서 여기까지의 공부 기록을 저장했어요");
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
+    );
   });
 
   it("제출이 실패해도 실패 안내를 남기고 소셜 홈으로 이동한다", async () => {
@@ -1197,7 +1199,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 기록은 잠시 후 자동으로 저장돼요",
+      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
     );
   });
 
