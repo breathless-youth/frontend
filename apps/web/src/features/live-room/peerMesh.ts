@@ -444,6 +444,22 @@ export function createPeerMesh({
         } else if (track && localStream) {
           applySendQuality(pc.addTrack(track, localStream), track);
         }
+        // 죽은 연결에 새 트랙을 실었으면 재협상까지 다시 건다 — Android 백그라운드
+        // 복귀 후 카메라 켜기에서, 배경 중 죽은 ICE(1회 복구 시도는 JS 정지 구간에
+        // 이미 소진됐을 수 있다)에 replaceTrack만 하면 내 화면엔 새 트랙이 보여도
+        // 상대에겐 프레임이 영영 흐르지 않는다(2026-08-26 실기기: 수신측 검은 화면).
+        // 새 트랙 실장은 새 복구 기회다 — offer 역할일 때만 낸다(glare 규칙). 상대
+        // 방향의 회복은 상대측 동일 로직·failed 이벤트 경로가 맡는다.
+        if (
+          track !== null &&
+          offeredByMe.has(userId) &&
+          (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected")
+        ) {
+          debug(`track-revive→${userId}`);
+          restartAttempted.delete(userId);
+          pc.restartIce();
+          startOffer(userId);
+        }
       }
     },
     setTrackEnabled(enabled) {

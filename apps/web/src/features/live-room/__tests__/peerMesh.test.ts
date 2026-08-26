@@ -405,6 +405,29 @@ describe("createPeerMesh — 트랙과 품질", () => {
     expect(sender?.replaceTrack).toHaveBeenCalledWith(next);
   });
 
+  it("죽은 연결에 새 트랙을 실으면 ICE 재시작 offer를 다시 보낸다 — 배경 복귀 검은 화면 방지", async () => {
+    // Android 백그라운드 복귀 후 카메라 켜기: 배경 중 죽은 ICE에 replaceTrack만 하면
+    // 내 화면엔 새 트랙이 보여도 상대에겐 프레임이 영영 안 흐른다(2026-08-26 실기기 —
+    // 수신측 검은 화면). 1회 복구 시도가 이미 소진됐어도 새 트랙 실장은 새 복구 기회다.
+    const { channel, mesh, pcs } = setup();
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const pc = pcs[0]?.pc as FakePc;
+    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1)); // 최초 OFFER
+
+    // 배경 구간의 실패로 1회 복구 시도까지 소진된 상태를 재현한다.
+    pc.fireIceState("failed");
+    await vi.waitFor(() => expect(pc.restartIce).toHaveBeenCalledTimes(1));
+
+    mesh.setLocalStream(fakeStream(fakeTrack(720)));
+
+    expect(pc.restartIce).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => {
+      const offers = channel.publishedSignals.filter((s) => s.kind === "OFFER");
+      expect(offers.length).toBeGreaterThanOrEqual(3); // 최초 + 이벤트 복구 + 트랙 실장 복구
+    });
+  });
+
   it("스트림 준비 전에 만든 연결에도 송신 슬롯이 예약되어, 나중 스트림이 replaceTrack으로 붙는다", async () => {
     const { channel, mesh, pcs } = setup();
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
