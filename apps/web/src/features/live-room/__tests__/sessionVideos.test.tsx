@@ -17,7 +17,7 @@ describe("RemoteVideo", () => {
     const { getByTestId } = render(<RemoteVideo userId={9} stream={stream} />);
 
     const video = getByTestId("remote-video-9");
-    expect(video).toHaveClass("pointer-events-none", "session-video");
+    expect(video).toHaveClass("pointer-events-none");
     expect((video as HTMLVideoElement).srcObject).toBe(stream);
     expect(playSpy).toHaveBeenCalledTimes(1);
     // 재생은 킥이 건다 — autoplay 속성은 iOS 저전력 모드에서 숨길 수 없는 네이티브
@@ -63,10 +63,7 @@ describe("ClonedTrackPreview", () => {
 
     const { getByTestId } = render(<ClonedTrackPreview stream={stream} facing="front" />);
 
-    expect(getByTestId("camera-dialog-preview")).toHaveClass(
-      "pointer-events-none",
-      "session-video",
-    );
+    expect(getByTestId("camera-dialog-preview")).toHaveClass("pointer-events-none");
     expect(getByTestId("camera-dialog-preview")).not.toHaveAttribute("autoplay");
     expect(playSpy).toHaveBeenCalledTimes(1);
   });

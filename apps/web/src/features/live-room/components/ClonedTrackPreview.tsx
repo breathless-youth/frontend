@@ -52,7 +52,7 @@ export function ClonedTrackPreview({
         // pointer-events-none:
         // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다.
         // 미리보기는 조작 대상이 아니다.
-        "amp-block sentry-block session-video pointer-events-none size-full object-cover",
+        "amp-block sentry-block pointer-events-none size-full object-cover",
         facing === "front" && "scale-x-[-1]",
       )}
     />
