@@ -120,20 +120,21 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 회사망 등에서 폰·Mac이 같은 Wi-Fi인데도 서로 통신이 안 되면 위 LAN IP 경로는 어떤 설정으로도 뚫리지 않는다(2026-07-30 확인). 이때는 `VITE_DEV_TUNNEL=1`로 `apps/web/vite.config.ts`의 터널 모드를 켜고 `cloudflared`로 Vite·Metro 양쪽을 터널링한다 — 자세한 이유·설정은 `vite.config.ts`의 `tunnelServerOptions` 주석 참고. 공개 URL이라 검증 후 반드시 내린다.
 
-## 화면 방향 — 세션만 회전 (2026-07-30, 2026-08-01 집행 주체 정정)
+## 화면 방향 — 룸만 회전 (2026-07-30, 2026-08-01 집행 주체 정정, 2026-08-26 BY-444 재정정)
 
-**세션(`room/[id]`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 세션뿐이라서다(S3-5·S3-6).
+**싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 룸뿐이라서다(S3-5·S3-6, 소셜룸 가로 그리드).
 
 정책은 **세 곳이 함께** 만든다. 한쪽만 보고 고치면 조용히 깨진다.
 
-| 위치                                             | 값                                           | 역할                                                                        |
-| ------------------------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
-| `app.json`의 `orientation`                       | `"default"`                                  | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
-| `lib/orientation.ts` (`expo-screen-orientation`) | 루트 세로 잠금 / 세션 마운트에서 해제        | **실제 집행자(iOS)** — 아래 정정 참고                                       |
-| `app/_layout.tsx`의 `screenOptions`              | `orientation: "portrait"` / 세션 `"default"` | Android 집행(`setRequestedOrientation`) — iOS에서는 무력                    |
+| 위치                                             | 값                                                             | 역할                                                                        |
+| ------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `app.json`의 `orientation`                       | `"default"`                                                    | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
+| `lib/orientation.ts` (`expo-screen-orientation`) | 루트 세로 잠금 / 룸에서 해제                                   | **iOS의 단일 집행자** — 아래 재정정 참고                                    |
+| `app/_layout.tsx`의 `screenOptions`              | **Android에서만** `orientation: "portrait"` / 세션 `"default"` | Android 집행(`setRequestedOrientation`) — iOS에는 싣지 않는다(아래 재정정)  |
 
 - **`app.json`을 `"portrait"`로 되돌리지 말 것.** 그건 앱을 세로로 만드는 설정이 아니라 상한을 세로로 닫는 설정이라, 세션이 landscape를 요청해도 회전하지 않게 된다.
-- **P0-3("rn-screens가 처리하므로 `expo-screen-orientation` 불필요") 정정 (2026-08-01)** — iOS에서 전제가 틀렸음이 소스 추적으로 확인됐다. iOS는 회전 판단 시 앱 델리게이트에 마스크를 묻는데, Expo의 구현은 **구독자가 없으면 Info.plist(= `"default"` = 전 방향)를 그대로 반환**하고, rn-screens의 `orientation` screenOption은 그 경로에서 아예 조회되지 않는다(연결 함수 `shouldAskScreensForScreenOrientationInViewController`를 부르는 코드가 Expo 앱에 없음). 세션 회전이 "동작"했던 것은 설정 덕이 아니라 `fullScreenModal`(presented VC는 UIKit이 직접 조회)이라서였고, **홈·기록·설정의 세로 잠금은 한 번도 동작한 적이 없다**(2026-08-01 실기기 — 홈이 회전됨). 그래서 `expo-screen-orientation`이 그 구독자 역할로 들어왔다. 근거 전문은 `lib/orientation.ts` 주석.
+- **P0-3("rn-screens가 처리하므로 `expo-screen-orientation` 불필요") 정정 (2026-08-01)** — iOS는 회전 판단 시 앱 델리게이트에 마스크를 묻는데, Expo의 구현은 구독자가 없으면 Info.plist(= `"default"` = 전 방향)를 그대로 반환한다. 세션 회전이 "동작"했던 것은 설정 덕이 아니라 `fullScreenModal`(presented VC는 UIKit이 직접 조회)이라서였고, 홈·기록·설정의 세로 잠금은 동작한 적이 없다(2026-08-01 실기기). 그래서 `expo-screen-orientation`이 들어왔다.
+- **P0-3 정정의 재정정 (BY-444, 2026-08-26)** — 그 뒤로도 iOS TestFlight에서 전 화면이 회전됐다. P0-3 정정이 "iOS에서 무력하지만 무해"라며 남겨 둔 rn-screens `orientation` screenOption이 원인이다: `expo-screen-orientation`의 iOS 집행자(루트 VC `ScreenOrientationViewController`)는 **orientation이 실린 RNSScreen이 하나라도 있으면 JS 잠금(`lockAsync`)을 무시하고 rn-screens에 양보**하는데(`shouldUseRNScreenOrientation()` — "부르는 코드가 없다"던 P0-3의 전제가 틀렸다, 이 패키지 자신이 호출자다), 양보받은 rn-screens의 iOS 마스크 산출은 우리 계층 구조에서 전 방향 허용으로 떨어진다. 그래서 **rn-screens `orientation` 옵션은 Android에서만 싣는다**(`_layout.tsx`의 `Platform.OS` 분기). **iOS에 이 옵션을 되살리면 세로 잠금이 통째로 조용히 죽는다.** 소셜룸의 `set-orientation` 브리지(`RemoteWebViewHost`)도 같은 커밋부터 양 플랫폼 공통이다 — 종전 "iOS 무시"는 잠금이 우회되던 동안에만 성립하던 결정이다. 근거 전문은 `lib/orientation.ts` 주석.
 - 세션 해제를 `ALL`이 아니라 `DEFAULT`로 둔 이유는 iOS에서 `ALL`이 거꾸로 세로까지 포함하기 때문이다(rn-screens 시절 `"default"`와 같은 이유).
 - `expo-screen-orientation`은 네이티브 모듈이라 **Dev Client 리빌드가 필요하다.** 구형 빌드에서는 잠금 호출이 조용히 실패해 이전 동작(회전 허용)으로 물러난다(`lib/orientation.ts`의 catch).
 

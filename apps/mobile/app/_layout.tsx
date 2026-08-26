@@ -4,7 +4,7 @@ import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { lockPortrait } from "../lib/orientation";
@@ -48,23 +48,34 @@ function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="auto" />
         {/*
-          방향은 **화면 단위로** 정한다 — 기본 세로, 세션(`room/[id]`)만 회전 허용.
+          방향은 **화면 단위로** 정한다 — 기본 세로, 세션(`room/[id]`)과 소셜룸(웹 브리지
+          `set-orientation`)만 회전 허용.
 
           `app.json`의 `orientation`은 `"default"`(전 방향)여야 한다. 그건 "앱을 전부 회전
           가능하게" 만드는 설정이 아니라 **네이티브가 허용하는 방향의 상한**이다(iOS
           `UISupportedInterfaceOrientations`). 여기서 `"portrait"`로 조이면 상한이 세로로 닫혀
-          아래 화면별 `orientation`이 landscape를 요청해도 회전하지 않는다.
+          세션이 landscape를 요청해도 회전하지 않는다.
 
-          그래서 정책은: 상한은 전 방향으로 열어 두고, 기본값을 세로로 닫은 다음, 세션에서만
+          그래서 정책은: 상한은 전 방향으로 열어 두고, 기본값을 세로로 닫은 다음, 룸에서만
           다시 연다.
 
-          ⚠️ **아래 rn-screens `orientation` 옵션은 iOS에서 무력하다** (P0-3 정정, 2026-08-01) —
-          Expo 앱 델리게이트는 rn-screens에 방향을 묻지 않아서, 실제 iOS 잠금은
-          `lib/orientation.ts`(expo-screen-orientation)가 한다: 위 effect의 `lockPortrait()` +
-          세션 화면의 마운트 해제/재잠금. 옵션을 지우지 않는 이유는 Android에서는 이 경로
-          (`setRequestedOrientation`)가 동작하기 때문이다. 근거 전문은 `lib/orientation.ts`.
+          ⚠️ **rn-screens `orientation` 옵션은 Android에서만 싣는다** (BY-444, 2026-08-26 —
+          "iOS에서 무력하지만 무해"라던 P0-3 정정(2026-08-01)의 재정정). iOS에서 이 옵션은
+          무해하지 않다: 화면 어딘가에 orientation이 실려 있으면 expo-screen-orientation의
+          루트 VC(`ScreenOrientationViewController`)가 `shouldUseRNScreenOrientation()`으로
+          **JS 잠금(`lockAsync`)을 통째로 무시하고 rn-screens에 양보**하는데, rn-screens의
+          iOS 마스크 산출 경로는 우리 계층 구조에서 전 방향 허용으로 떨어진다. 그래서 8/1에
+          도입한 iOS 세로 잠금이 한 번도 집행되지 못하고 전 화면이 회전됐다. iOS 방향의
+          단일 소유자는 `lib/orientation.ts`(expo-screen-orientation)다: 위 effect의
+          `lockPortrait()` + 룸의 해제/재잠금. Android는 이 옵션(`setRequestedOrientation`)이
+          그대로 동작하므로 유지한다.
         */}
-        <Stack screenOptions={{ headerShown: false, orientation: "portrait" }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            ...(Platform.OS === "android" ? { orientation: "portrait" as const } : null),
+          }}
+        >
           <Stack.Screen name="(tabs)" />
           {/* S2-3 권한 거부 안내 — 탭 위에 올라오는 전체 화면. 백 제스처를 막지 않는다(홈 복귀와 동일 결과). */}
           <Stack.Screen name="permission-denied" />
@@ -77,16 +88,20 @@ function RootLayout() {
             탭 바를 가리는 전체 화면으로 띄운다: 세션 중에는 탭 이동이 없다.
           */}
           {/*
-            방향: 이 화면만 회전을 연다(S3-5·S3-6 가로 거치 모드). `"all"`이 아니라 `"default"`인
-            이유는 iOS에서 `"all"`이 **거꾸로 세로**(portrait_down)까지 포함하기 때문이다 —
-            거치대에 눕히는 용도에 거꾸로는 필요 없고, Android에서는 `"default"`가 시스템 판단에
-            맡겨 사용자의 회전 잠금 설정을 존중한다.
+            방향: 이 화면만 회전을 연다(S3-5·S3-6 가로 거치 모드). Android 전용인 이유는 위
+            Stack 주석과 같다(BY-444) — iOS는 세션 화면의 `unlockForSession()`이 연다.
+            `"all"`이 아니라 `"default"`인 이유는 iOS에서 `"all"`이 **거꾸로 세로**
+            (portrait_down)까지 포함하기 때문이다 — 거치대에 눕히는 용도에 거꾸로는 필요 없고,
+            Android에서는 `"default"`가 시스템 판단에 맡겨 사용자의 회전 잠금 설정을 존중한다.
 
             세로 세션 화면(S3-1~S3-4)도 그대로 살아 있다 — 가로는 강제가 아니라 선택지다.
           */}
           <Stack.Screen
             name="room/[id]"
-            options={{ presentation: "fullScreenModal", orientation: "default" }}
+            options={{
+              presentation: "fullScreenModal",
+              ...(Platform.OS === "android" ? { orientation: "default" as const } : null),
+            }}
           />
         </Stack>
       </SafeAreaProvider>

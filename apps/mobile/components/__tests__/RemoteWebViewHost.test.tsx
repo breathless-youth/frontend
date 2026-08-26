@@ -243,7 +243,7 @@ describe("RemoteWebViewHost", () => {
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
   });
 
-  it("Android에서 set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {
+  it("set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {
     jest.replaceProperty(Platform, "OS", "android");
     const onBridgeMessage = jest.fn();
     render(<RemoteWebViewHost path="/social" testID="host" onBridgeMessage={onBridgeMessage} />);
@@ -261,7 +261,9 @@ describe("RemoteWebViewHost", () => {
     expect(lockPortrait).toHaveBeenCalled();
   });
 
-  it("iOS에서는 set-orientation을 무시한다", () => {
+  // 종전 "iOS 무시" 계약의 반전(BY-444) — iOS 소셜룸 가로는 루트 잠금이 우회되던 버그의
+  // 부수효과였고, 잠금이 실동작하는 지금은 iOS도 이 브리지로 열어야 한다.
+  it("iOS에서도 set-orientation을 소비한다", () => {
     jest.replaceProperty(Platform, "OS", "ios");
     render(<RemoteWebViewHost path="/social" testID="host" />);
 
@@ -269,7 +271,12 @@ describe("RemoteWebViewHost", () => {
     act(() => {
       onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
     });
-    expect(unlockForSession).not.toHaveBeenCalled();
+    expect(unlockForSession).toHaveBeenCalled();
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":false,"atMs":2}' } });
+    });
+    expect(lockPortrait).toHaveBeenCalled();
   });
 
   it("웹 주도 해제 상태에서 복구가 시작되면 세로로 복원한다 — 해제를 요청한 문서가 사라졌다", () => {
