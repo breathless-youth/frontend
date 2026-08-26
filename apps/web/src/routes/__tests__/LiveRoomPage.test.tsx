@@ -1230,6 +1230,12 @@ function returnForeground() {
 }
 
 describe("LiveRoomPage — 유예 만료 복귀", () => {
+  // 헬퍼가 덮어쓴 인스턴스 속성을 지워 prototype 원본을 복원한다 — 단언 실패로 테스트가
+  // returnForeground 전에 중단되면 hidden이 남아 뒤 테스트가 연쇄 실패한다(봇 리뷰 반영).
+  afterEach(() => {
+    Reflect.deleteProperty(document, "visibilityState");
+  });
+
   /** 순공 1분 이상 쌓기 — 카메라 켜기(실타이머)로 측정 진입 후 fake 타이머로 61초 흘린다. */
   async function studyOverOneMinute() {
     await turnCameraOn();
