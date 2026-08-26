@@ -332,7 +332,7 @@ export function LiveRoomSession({
   /**
    * 바 토글의 타일 이동·크기 변화를 FLIP(이전 위치로 transform 역적용 → 원위치)으로
    * 잇는다 — 바 슬라이드·글자 페이드와 **도착 시점을 맞춘다**(2026-08-26 피드백: 셋의
-   * 속도가 어긋나 어색했다). 같은 400ms·iOS 시트 곡선이라 세 동작이 함께 정착한다.
+   * 속도가 어긋나 어색했다). 같은 500ms·iOS 시트 곡선이라 세 동작이 함께 정착한다.
    *
    * 방식이 FLIP인 이유: 높이·패딩 트랜지션은 영상 리플로우로 실기기 랙(6e827c9), 스크롤
    * 컨테이너(`room-grid`) transform은 WKWebView 타일 페인트 누락 사고가 있었다. FLIP은
@@ -401,9 +401,9 @@ export function LiveRoomSession({
           },
           { transformOrigin: "top left", transform: "none" },
         ],
-        // RoomControlBar 슬라이드·RoomTile 글자 페이드와 같은 400ms·시트 곡선 — 이 값이
+        // RoomControlBar 슬라이드·RoomTile 글자 페이드와 같은 500ms·시트 곡선 — 이 값이
         // 어긋나면 "도착 시점이 안 맞는다"는 어색함이 되살아난다. 셋을 함께 바꿀 것.
-        { duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+        { duration: 500, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
       );
     }
     prevTileRectsRef.current = rects;

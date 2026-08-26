@@ -1141,7 +1141,7 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     expect(bar).not.toHaveClass(SLIDE);
   });
 
-  it("바 토글 시 타일 이동을 FLIP transform으로 잇는다 — 바 슬라이드와 같은 400ms·시트 곡선", async () => {
+  it("바 토글 시 타일 이동을 FLIP transform으로 잇는다 — 바 슬라이드와 같은 500ms·시트 곡선", async () => {
     // 도착 시점 동기화(2026-08-26 피드백): 레이아웃은 즉시 확정하고 타일별 transform
     // 애니메이션이 이전 위치에서 새 위치로 잇는다. jsdom에는 WAAPI도 실제 레이아웃도
     // 없어 rect와 animate를 흉내 내 발신만 검증한다.
@@ -1172,7 +1172,7 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     expect(keyframes[0].transform).toContain("translate(0px, -40px)");
     expect(keyframes[1].transform).toBe("none");
     // 바 슬라이드(RoomControlBar)·글자 페이드(RoomTile)와 같은 값 — 어긋나면 도착이 갈라진다.
-    expect(options).toEqual({ duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+    expect(options).toEqual({ duration: 500, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
   });
 
   it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {
