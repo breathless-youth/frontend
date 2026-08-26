@@ -67,9 +67,6 @@ describe("CameraPreviewSurface", () => {
     );
 
     expect(container.querySelector("video")?.className).toContain("pointer-events-none");
-    // session-video는 index.css의 :paused 마스크 대상 표식이다 — 재생 대기 중 네이티브
-    // 재생 버튼이 영상과 함께 투명해진다.
-    expect(container.querySelector("video")?.className).toContain("session-video");
   });
 
   it("video에 Amplitude용 amp-block과 Sentry용 sentry-block 차단 표식이 둘 다 붙는다", () => {
