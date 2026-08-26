@@ -45,3 +45,6 @@ android/
 
 # AI 작업용 계획 문서 — 기록은 커밋 메시지·PR·위키(ai 레포)가 SSOT (2026-07-30)
 docs/superpowers/plans/
+
+# impeccable 훅의 로컬 생성 캐시 — 세션 ID와 절대경로가 담긴다.
+.impeccable/

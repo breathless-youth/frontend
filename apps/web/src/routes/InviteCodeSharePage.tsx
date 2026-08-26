@@ -45,7 +45,6 @@ export function InviteCodeSharePage() {
           state: {
             inviteCode,
             graceRejoin: data.graceRejoin,
-            cameraOn: data.cameraOn,
             iceServers: data.iceServers,
           },
         },

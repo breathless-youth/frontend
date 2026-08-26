@@ -48,7 +48,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1",
+      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
     });
   });
 });

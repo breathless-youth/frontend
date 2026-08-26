@@ -55,6 +55,42 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"device-handling","active":"yes","atMs":1}')).toBeNull();
   });
 
+  it("camera-gate-result를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"camera-gate-result","granted":false,"atMs":1}')).toEqual({
+      type: "camera-gate-result",
+      granted: false,
+      atMs: 1,
+    });
+  });
+
+  it("camera-gate-result의 granted가 boolean이 아니면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"camera-gate-result","granted":"no","atMs":1}')).toBeNull();
+  });
+
+  it("theme을 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"theme","scheme":"dark","atMs":1}')).toEqual({
+      type: "theme",
+      scheme: "dark",
+      atMs: 1,
+    });
+  });
+
+  it("theme의 scheme이 light/dark 밖이면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"theme","scheme":"sepia","atMs":1}')).toBeNull();
+  });
+
+  it("reset-route를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"reset-route","path":"/settings","atMs":1}')).toEqual({
+      type: "reset-route",
+      path: "/settings",
+      atMs: 1,
+    });
+  });
+
+  it("reset-route의 path가 문자열이 아니면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"reset-route","path":1,"atMs":1}')).toBeNull();
+  });
+
   it("성공한 submit-result를 파싱한다", () => {
     expect(
       parseToWebMessage(

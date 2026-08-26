@@ -14,6 +14,7 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { ApiError } from "@/lib/api";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { getProfile } from "@/lib/profileApi";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { joinRoom, leaveRoom } from "@/lib/roomApi";
 import { LiveRoomPage } from "../LiveRoomPage";
 
@@ -149,6 +150,14 @@ function renderRoom({
 }
 
 /** 일반 입장 — 모달 없이 join·프로필 결착을 기다려 꺼짐(일시정지) 상태로 세션에 들어간다. */
+/** 네이티브 게이트 응답(허용)을 흉내 낸다 — 브리지를 stub한 테스트에서 입장을 통과시킨다. */
+function grantCameraGate() {
+  const entry = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  entry?.(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+}
+
 async function enterRoom() {
   await screen.findByRole("button", { name: "나가기" });
   // findByRole은 마운트 커밋 직후(패시브 이펙트 전) DOM을 잡을 수 있다 — 채널 연결·
@@ -252,8 +261,8 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
 
-  it("유예 재입장은 join 재호출 없이 이전 카메라 상태(끔)를 복원한다", async () => {
-    renderRoom({ state: { inviteCode: "0712", graceRejoin: true, cameraOn: false } });
+  it("유예 재입장은 join 재호출 없이 입장한다", async () => {
+    renderRoom({ state: { inviteCode: "0712", graceRejoin: true } });
 
     await enterRoom();
 
@@ -261,17 +270,18 @@ describe("LiveRoomPage — 입장", () => {
     expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
-  it("유예 재입장은 이전 카메라 상태(켬)도 복원한다 — 일반 입장의 꺼짐 고정과 다르다", async () => {
+  it("유예 재입장도 카메라 꺼짐(일시정지)으로 시작한다 — 나가기가 곧 일시정지다", async () => {
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      state: { inviteCode: "0712", graceRejoin: true },
     });
 
     await enterRoom();
 
-    expect(screen.getByRole("button", { name: "카메라 끄기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(channel.published).toContainEqual({ cameraOn: true });
+      expect(channel.published).toContainEqual({ cameraOn: false });
     });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
     expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
@@ -766,6 +776,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     mockedLeaveRoom.mockResolvedValue(undefined);
     renderRoom();
 
+    // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다 — 허용으로 답해 준다.
+    grantCameraGate();
     await enterRoom();
     expect(bridgeSent()).toContainEqual(
       expect.objectContaining({ type: "set-back-gesture", enabled: false }),
@@ -1000,6 +1012,52 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
   });
 
+  /**
+   * 회귀 가드(BY-412). 전환은 기존 스트림을 먼저 정지하므로(Android는 기존 카메라를 놓아야
+   * 반대 카메라가 열린다) 복원까지 실패하면 카메라가 실제로 꺼진다. 훅이 실행 상태를 다시
+   * 읽지 않으면 룸은 낡은 "켜짐"으로 남아 상대에게 켜짐을 계속 발행한다.
+   */
+  it("전환이 복원까지 실패하면 카메라 꺼짐이 반영된다 — 낡은 켜짐을 발행하지 않는다", async () => {
+    let running = false;
+    const stream = {
+      getVideoTracks: () => [{ enabled: true, getSettings: () => ({ height: 720 }) }],
+    } as unknown as MediaStream;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        // 전환도 복원도 실패해 어댑터가 카메라를 놓은 상태.
+        running = false;
+        return { ok: false, reason: "camera-off" };
+      },
+    };
+    const { channel } = renderRoom({ camera });
+    await enterRoom();
+    await turnCameraOn();
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: true });
+    });
+    channel.published.length = 0;
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: false });
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
+  });
+
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
     renderRoom();
 
@@ -1119,7 +1177,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("첫 SNAPSHOT의 내 studySeconds에서 이어서 발행한다 — 0으로 리셋하지 않는다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 
@@ -1134,7 +1192,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
 
   it("내 타일 공부시간 표시가 SNAPSHOT 기준값에서 이어진다", async () => {
     renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 }), member(8)] },
     });
 
@@ -1147,7 +1205,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("재연결로 두 번째 SNAPSHOT이 와도 기준값을 다시 읽지 않는다 — 이중 가산 방지", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 
@@ -1169,7 +1227,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("SNAPSHOT에 내가 없으면 기준값 0 — 기존 입장 동작 그대로", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(8)] },
     });
 
@@ -1185,7 +1243,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("SNAPSHOT의 내 studySeconds가 없으면 기준값 0으로 처리한다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: undefined })] },
     });
 
@@ -1201,9 +1259,18 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("측정이 진행 중이면 로컬 누적분이 기준값에 가산되어 발행된다", async () => {
     vi.useFakeTimers();
     const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
+
+    // 입장은 유예 재입장도 항상 일시정지라, 누적을 보려면 카메라를 켜 재개시킨다.
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    await act(async () => {});
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    );
+    await act(async () => {});
 
     // 두 번에 나눠 진행한다 — act 사이에서 렌더가 반영되어야 발행 시점의
     // focusSec 참조가 누적값을 본다(단일 act 안에서는 리렌더가 끝까지 미뤄진다).
@@ -1222,7 +1289,7 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
   it("세션 제출에는 기준값을 가산하지 않는다 — 이번 마운트 측정값만 나간다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true, cameraOn: false },
+      state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
 

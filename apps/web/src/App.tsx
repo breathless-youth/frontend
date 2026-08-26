@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/lib/useToast";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativePingResponder } from "@/lib/nativeLiveness";
+import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -44,6 +45,9 @@ export function App() {
   useNativeShellClass();
   // 포워드 스와이프로 닫았던 전체 화면 라우트가 되열리는 것을 막는다(`lib/historyGuard.ts`).
   useBlockForwardGestureIntoFullScreen();
+  // Android 시스템 뒤로가기로 탭을 떠날 때 네이티브가 보내는 초기화 신호를 받아 탭 루트로
+  // 되돌린다(`lib/nativeRouteReset.ts`).
+  useNativeRouteReset();
   // 네이티브의 웹뷰 생존 확인(ping)에 즉답한다 — 응답 못 하면 재로드된다(`lib/nativeLiveness.ts`).
   useNativePingResponder();
   // 렌더러 사망 복구용 현재 화면 보고(`lib/nativeScreenReport.ts`).

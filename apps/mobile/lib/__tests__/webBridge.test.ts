@@ -153,6 +153,25 @@ describe("parseToNativeMessage", () => {
       parseToNativeMessage('{"type":"submit-session","requestId":"a","request":"x","atMs":5}'),
     ).toBeNull();
   });
+
+  it("set-orientation을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"set-orientation","unlocked":true,"atMs":1}')).toEqual({
+      type: "set-orientation",
+      unlocked: true,
+      atMs: 1,
+    });
+  });
+
+  it("set-orientation의 unlocked가 boolean이 아니면 null을 돌려준다", () => {
+    expect(parseToNativeMessage('{"type":"set-orientation","unlocked":"yes","atMs":1}')).toBeNull();
+  });
+
+  it("request-camera-gate를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"request-camera-gate","atMs":1}')).toEqual({
+      type: "request-camera-gate",
+      atMs: 1,
+    });
+  });
 });
 
 describe("injectMessageScript", () => {

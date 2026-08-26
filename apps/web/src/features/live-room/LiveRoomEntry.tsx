@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -8,6 +8,9 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { rejoinFailure } from "@/features/social-room/joinErrorCopy";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
+import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { joinRoom } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
 
@@ -44,14 +47,31 @@ export function LiveRoomEntry({
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
 }) {
+  // 입장 준비부터 세션 종료까지 룸 전체 수명 동안 회전을 연다 — 이 컴포넌트가 세션을
+  // 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다(BY-412).
+  useNativeOrientationUnlock();
+
   const navigate = useNavigate();
   const location = useLocation();
 
   const graceRejoin = entryState.graceRejoin === true;
-  // 일반 입장은 무조건 끔(일시정지 시작), 유예 재입장만 이전 카메라 상태 복원(기본 켬).
-  const initialCameraOn = graceRejoin ? entryState.cameraOn !== false : false;
 
-  const [entered, setEntered] = useState(graceRejoin);
+  const [entered, setEntered] = useState(false);
+  /**
+   * 카메라 권한 게이트 결과 — 모든 입장 경로가 이 관문을 지난다(BY-412).
+   *
+   * 세션이 마운트되자마자 카메라를 획득하므로 그 전에 OS 권한을 확보해야 Android 웹뷰가
+   * 묻지 않고 거부하는 경로를 피한다. 거부면 입장하지 않고 소셜 홈으로 돌아간다 — 네이티브가
+   * 띄운 권한 안내 화면을 닫았을 때 그 아래에 이미 입장된 룸이 드러나면 안 되고, 룸은
+   * 뒤로가기를 잠그고 있어 나가기 버튼 말고는 빠져나갈 수단도 없다(실기기 확인).
+   *
+   * 유예 재입장도 예외가 아니다 — 그 사이 사용자가 설정에서 권한을 껐을 수 있어, 여기만
+   * 건너뛰면 "권한 없으면 룸에 들어가지 않는다"는 정책에 구멍이 생긴다.
+   */
+  // 브리지가 없으면(브라우저 단독) 물어볼 네이티브가 없다 — 초기값으로 통과시켜 입장이
+  // 한 틱도 밀리지 않게 한다. 브리지가 있을 때만 응답을 기다린다.
+  const [gatePassed, setGatePassed] = useState(() => !isNativeBridgeAvailable());
+  const [gateDenied, setGateDenied] = useState(false);
   const [joined, setJoined] = useState(graceRejoin);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinAttempt, setJoinAttempt] = useState(0);
@@ -67,7 +87,9 @@ export function LiveRoomEntry({
 
   // TTL 재예약 + iceServers 갱신. 실패하면 인라인 오류로 남고 [다시 시도]가 재실행한다.
   useEffect(() => {
-    if (graceRejoin) {
+    // 게이트를 지나기 전에는 자리를 잡지 않는다 — 권한이 거부되면 입장 자체를 하지 않으므로
+    // 예약만 남기고 빠지는 일이 없어야 한다(BY-412).
+    if (graceRejoin || !gatePassed) {
       return;
     }
     let cancelled = false;
@@ -95,15 +117,49 @@ export function LiveRoomEntry({
     return () => {
       cancelled = true;
     };
-  }, [entryState.inviteCode, graceRejoin, joinAttempt, location.search, navigate, userId]);
+  }, [
+    entryState.inviteCode,
+    gatePassed,
+    graceRejoin,
+    joinAttempt,
+    location.search,
+    navigate,
+    userId,
+  ]);
 
-  // join과 프로필이 모두 결착되면 입장 — 프로필은 실패해도 폴백(null)으로 진행한다.
+  // 마운트 1회 — StrictMode의 effect 이중 실행에서 게이트가 두 번 도는 것을 막는다.
+  const gateRequestedRef = useRef(false);
+  useEffect(() => {
+    if (gateRequestedRef.current) {
+      return;
+    }
+    gateRequestedRef.current = true;
+    if (!isNativeBridgeAvailable()) {
+      return;
+    }
+    void requestCameraGate().then((granted) => {
+      if (granted) {
+        setGatePassed(true);
+      } else {
+        setGateDenied(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (gateDenied) {
+      navigate({ pathname: "/social", search: location.search }, { replace: true });
+    }
+  }, [gateDenied, location.search, navigate]);
+
+  // 게이트를 지나고 join·프로필이 결착되면 입장 — 프로필은 실패해도 폴백(null)으로 진행한다.
+  // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
   useEffect(() => {
-    if (!entered && joined && profileSettled) {
+    if (!entered && gatePassed && (graceRejoin || (joined && profileSettled))) {
       setEntered(true);
     }
-  }, [entered, joined, profileSettled]);
+  }, [entered, gatePassed, graceRejoin, joined, profileSettled]);
 
   if (!entered) {
     // 정상 경로는 수백 ms 수준이라 다크 배경만 유지한다(스피너 없음).
@@ -145,7 +201,6 @@ export function LiveRoomEntry({
       camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
-      initialCameraOn={initialCameraOn}
       profile={profile.data ?? null}
     />
   );

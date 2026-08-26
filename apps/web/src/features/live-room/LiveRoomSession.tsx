@@ -55,7 +55,6 @@ export function LiveRoomSession({
   camera,
   createPeerConnection,
   iceServers,
-  initialCameraOn,
   profile,
 }: {
   roomId: number;
@@ -64,7 +63,6 @@ export function LiveRoomSession({
   camera: CameraAdapter;
   createPeerConnection?: CreatePeerConnection;
   iceServers: IceServer[];
-  initialCameraOn: boolean;
   profile: ProfileResponse | null;
 }) {
   const navigate = useNavigate();
@@ -104,7 +102,9 @@ export function LiveRoomSession({
   const [channel] = useState(() => createChannel({ roomId, userId }));
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
-  const [cameraWanted, setCameraWanted] = useState(initialCameraOn);
+  // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
+  // 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다(BY-412).
+  const [cameraWanted, setCameraWanted] = useState(false);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   // 유예 재입장이면 서버가 보존한 내 studySeconds가 첫 SNAPSHOT에 실려 온다 — 이 값을
   // 기준으로 표시·발행을 이어간다. 일반 입장은 0이라 동작이 같다. 첫 값만 쓴다:
@@ -150,13 +150,11 @@ export function LiveRoomSession({
   // 두 번째 마운트가 정상 연결된다.
   useEffect(() => {
     channel.connect();
-    if (!initialCameraOn) {
-      pause("MANUAL");
-    }
+    pause("MANUAL");
     return () => {
       channel.disconnect();
     };
-  }, [channel, initialCameraOn, pause]);
+  }, [channel, pause]);
 
   // 추론 수명 — 측정 중이고 일시정지가 아닐 때만 감지한다(솔로 세션과 같은 규칙).
   const detectionEnabled = phase.name === "studying" && sessionState.kind !== "PAUSE";

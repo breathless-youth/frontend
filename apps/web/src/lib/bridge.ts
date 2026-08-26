@@ -117,6 +117,15 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "camera-permission" && typeof record.granted === "boolean") {
     return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
   }
+  if (record.type === "camera-gate-result" && typeof record.granted === "boolean") {
+    return { type: "camera-gate-result", granted: record.granted, atMs: record.atMs };
+  }
+  if (record.type === "theme" && (record.scheme === "light" || record.scheme === "dark")) {
+    return { type: "theme", scheme: record.scheme, atMs: record.atMs };
+  }
+  if (record.type === "reset-route" && typeof record.path === "string") {
+    return { type: "reset-route", path: record.path, atMs: record.atMs };
+  }
   if (record.type === "submit-result" && typeof record.requestId === "string") {
     if (record.ok === true && Array.isArray(record.sessions)) {
       /**
