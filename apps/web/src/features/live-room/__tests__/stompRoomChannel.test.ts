@@ -278,9 +278,11 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
     expect(snapshotRequests(client)).toHaveLength(2);
   });
 
-  it("SNAPSHOT 미수신이면 0.5s→1s→2s 스케줄로 재요청하고, 최초 1회+재시도 5회에서 멈춘다", () => {
+  it("빠른 스케줄(0.5s→1s→2s×3) 소진 시 연결을 통째로 갈아 새 큐 등록을 만든다", async () => {
     // 앞쪽을 빠르게 쏘는 이유: 유실 원인인 구독 레이스 창은 ms 단위라 0.5초면 안전하게
-    // 늦고, 균일 2초는 혼자 화면 체감이 길었다(2026-08-26 피드백).
+    // 늦고, 균일 2초는 혼자 화면 체감이 길었다(2026-08-26 피드백). 스케줄 전체가 실패한
+    // 경우는 재요청이 아니라 세션 교체가 필요하다 — 5기기 실측에서 개인 큐 배달이 1분
+    // 넘게 죽은 채 자연 재연결에야 복구됐다(스냅샷·offer 전부 미도달).
     vi.useFakeTimers();
     try {
       const { client, channel } = setup();
@@ -293,10 +295,41 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       vi.advanceTimersByTime(1000);
       expect(snapshotRequests(client)).toHaveLength(3);
 
-      vi.advanceTimersByTime(20_000);
+      // 2초×3 소진 — 6번째 요청이 나간 그 자리에서 재요청 대신 연결 교체가 발동한다.
+      await vi.advanceTimersByTimeAsync(6000);
       expect(snapshotRequests(client)).toHaveLength(6);
-      vi.advanceTimersByTime(20_000);
-      expect(snapshotRequests(client)).toHaveLength(6);
+      expect(client.deactivate).toHaveBeenCalledTimes(1);
+      expect(client.activate).toHaveBeenCalledTimes(2); // connect 1회 + 교체 재기동 1회
+
+      // 교체 후 재연결 — 새 사이클이 처음부터 시작된다.
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(7);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("연결 교체 예산(3회)을 소진하면 10초 간격 재요청으로 물러나되 포기하지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      // 교체 3사이클 — 각 사이클은 빠른 스케줄 7.5초 뒤 deactivate→activate→재연결.
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        expect(client.deactivate).toHaveBeenCalledTimes(cycle);
+        client.fireConnect();
+      }
+
+      // 4번째 소진부터는 교체 없이 10초 슬로우 재요청이 무기한 이어진다.
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(client.deactivate).toHaveBeenCalledTimes(3);
+      const before = snapshotRequests(client).length;
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(snapshotRequests(client)).toHaveLength(before + 2);
+      expect(client.deactivate).toHaveBeenCalledTimes(3);
     } finally {
       vi.useRealTimers();
     }
