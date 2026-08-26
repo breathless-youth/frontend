@@ -529,10 +529,14 @@ export function LiveRoomSession({
               // 금지(visionConfig.ts CAMERA_CONSTRAINTS 주석) — 프레이밍은 표시 단계인
               // 여기서만 만든다. 7명 이상은 3행으로 줄바꿈돼 세로 스크롤.
               "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
-              controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]",
-              // 가로 하단 여백도 당시 값(pb-2) — 행 높이가 컨테이너 높이에서 풀리므로 바
-              // 표시용 108px 예약을 두면 타일이 바 높이만큼 눌린다. 예전처럼 바가 타일 위에
-              // 겹치는 쪽을 택한다(세로의 수납 동작은 그대로).
+              // 바 표시용 하단 예약(108px)은 **세로 2명만** 쓴다(2026-08-26 피드백) —
+              // 3명 이상은 바가 올라와도 타일 배치가 그대로이고 바가 타일 위로 겹친다
+              // (가로의 pb-2와 같은 정책). 2명은 큰 타일이 바에 깊이 가려져 예약을 유지
+              // — 그룹이 줄어든 공간의 가운데로 조금 올라가는 움직임만 남는다(FLIP이 잇는다).
+              grid.cols === 1 && controlsVisible
+                ? "pb-[calc(env(safe-area-inset-bottom)+108px)]"
+                : "pb-[4dvh]",
+              // 가로 하단 여백은 인원 무관 pb-2 — 바는 항상 타일 위에 겹친다.
               "landscape:pb-2",
             )}
           >
@@ -541,9 +545,9 @@ export function LiveRoomSession({
               data-testid="room-grid-rows"
               // 안전 정렬: 항상 세로 가운데(my-auto) — 종전엔 바 표시 중 mt-auto로 바 바로
               // 위에 붙였는데 타일이 바에 달라붙는 게 어색하다는 피드백(2026-08-26)으로 양
-              // 상태 모두 가운데로 통일했다. 바가 올라오면 pb 예약이 줄인 공간의 가운데로
-              // 그룹이 "조금 올라가는" 움직임만 남고 FLIP이 잇는다. 내용이 넘치면 auto
-              // 마진이 접혀 위부터 스크롤되는 성질(data loss 방지)은 그대로다.
+              // 상태 모두 가운데로 통일했다. 바 토글의 배치 변화는 세로 2명뿐이다(컨테이너
+              // pb 주석 — 예약이 줄인 공간의 가운데로 조금 올라가고 FLIP이 잇는다). 내용이
+              // 넘치면 auto 마진이 접혀 위부터 스크롤되는 성질(data loss 방지)은 그대로다.
               className={cn(
                 "my-auto flex w-full flex-wrap justify-center gap-1",
                 // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은

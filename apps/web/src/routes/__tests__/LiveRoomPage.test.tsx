@@ -976,7 +976,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(play).toHaveBeenCalled();
   });
 
-  it("바가 올라와 있으면 하단을 바만큼 벌리고, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
+  it("세로 2명만 바가 올라오면 하단을 바만큼 벌린다 — 내리면 4dvh 여백", async () => {
     // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
     // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
     renderRoom({ scenario: { snapshot: [member(8)] } });
@@ -985,6 +985,19 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const grid = screen.getByTestId("room-grid");
     expect(grid.className).not.toContain("scale-");
     expect(grid).not.toHaveClass("pb-[4dvh]");
+
+    tapSurface();
+    expect(grid).toHaveClass("pb-[4dvh]");
+  });
+
+  it("세로 3명 이상은 바가 올라와도 하단 예약 없이 배치가 그대로다 — 바만 타일 위로 겹친다", async () => {
+    // 2026-08-26 피드백: 바 토글에 타일 그룹이 올라가는 움직임도 3명 이상에선 불필요 —
+    // 가로(pb-2)와 같은 겹침 정책으로 통일하고, 예약은 큰 타일이 깊이 가려지는 2명만 쓴다.
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("pb-[4dvh]");
 
     tapSurface();
     expect(grid).toHaveClass("pb-[4dvh]");
