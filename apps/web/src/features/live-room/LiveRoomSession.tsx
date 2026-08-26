@@ -506,16 +506,22 @@ export function LiveRoomSession({
             // rows 래퍼의 auto 마진이 담당한다 — 넘치면 마진이 0으로 접혀 위부터 스크롤된다.
             className={cn(
               "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
-              // 가로는 BY-435 이전 그리드로 복원(BY-441) — 타일당 한 화면을 채우던 와이드
-              // 타일(2:1)은 카메라가 화면에 꽉 차서 되돌렸다. 복원 원본은 5bf0849(2026-08-21,
-              // BY-427 전후 동일)이고 간격·여백까지 당시 값 그대로다: 2명은 1행 2열로 화면을
-              // 반씩(행 높이 100%), 3명 이상은 2열에 행 높이 절반 + 세로 스크롤, gap-3(12px).
-              // rows 래퍼가 가로에서 landscape:contents로 사라져 타일이 이 컨테이너의 그리드
-              // 아이템이 된다 — % 행 높이는 높이가 정해진(grow) 이 컨테이너에서만 풀린다.
-              "landscape:grid landscape:grid-cols-2 landscape:gap-3",
+              // 가로 그리드(BY-441, 2026-08-26 확정): 2명 1행 2열(행 높이 100%), 3~4명
+              // 2행 2열, 5~6명 2행 3열(행 높이 절반) — 타일은 세로 화면과 **같은 비율**
+              // (2명 정사각·3~4명 2:3·5~6명 4:5)을 셀 높이에 맞춰 세운다(아래 타일 클래스).
+              // 세로(상대) 기기가 보는 크롭과 내 셀프뷰 프레이밍을 맞추기 위해서다 —
+              // 종전 셀 stretch 와이드 타일은 상대가 보는 화면과 잘리는 영역이 전혀 달랐다
+              // (2026-08-26 실기기 피드백). 캡처 비율 제약은 화각만 줄이는 순손해라 금지
+              // (visionConfig.ts CAMERA_CONSTRAINTS 주석) — 프레이밍 일치는 표시 단계인
+              // 여기서만 만든다. rows 래퍼가 가로에서 landscape:contents로 사라져 타일이
+              // 이 컨테이너의 그리드 아이템이 된다 — % 행 높이는 높이가 정해진(grow) 이
+              // 컨테이너에서만 풀린다. 7명 이상은 3행부터 세로 스크롤.
+              "landscape:grid landscape:gap-3 landscape:justify-items-center",
               grid.cols === 1
-                ? "landscape:[grid-auto-rows:100%]"
-                : "landscape:[grid-auto-rows:calc((100%-12px)/2)]",
+                ? "landscape:grid-cols-2 landscape:[grid-auto-rows:100%]"
+                : allMembers.length <= 4
+                  ? "landscape:grid-cols-2 landscape:[grid-auto-rows:calc((100%-12px)/2)]"
+                  : "landscape:grid-cols-3 landscape:[grid-auto-rows:calc((100%-12px)/2)]",
               "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
               controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]",
               // 가로 하단 여백도 당시 값(pb-2) — 행 높이가 컨테이너 높이에서 풀리므로 바
@@ -576,12 +582,12 @@ export function LiveRoomSession({
                               : "w-[calc(47%-2px)]"
                             : "w-[calc(50%-2px)]",
                         ),
-                    // 가로: 컨테이너 그리드의 셀을 stretch로 그대로 채운다(BY-441 —
-                    // BY-435 이전 배치 복원. "타일당 한 화면 꽉 차게"의 2:1 와이드 타일은
-                    // 카메라가 지나치게 커서 되돌렸다). 세로용 비율·크기 지정을 전부 풀어야
-                    // 셀 크기가 타일 크기가 된다 — 바 표시에 따른 세로 모드의 축소(5~6명
-                    // 44%, 2명 37dvh)는 가로에 적용되지 않는다.
-                    "landscape:aspect-auto landscape:h-auto landscape:w-auto landscape:max-w-none",
+                    // 가로: 세로와 같은 비율(위 aspect 클래스가 그대로 적용)을 셀 높이에
+                    // 맞춰 세운다 — h-full이 셀 행 높이를 채우고 폭은 aspect가 정한다
+                    // (2026-08-26 확정, 컨테이너 주석 참고). 세로용 폭·dvh 높이 지정만 풀고,
+                    // 바 표시에 따른 세로 모드의 축소(5~6명 44%, 2명 37dvh)는 가로에 적용되지
+                    // 않는다 — 가로 셀 높이는 바와 무관해 토글이 레이아웃을 안 바꾼다.
+                    "landscape:h-full landscape:w-auto landscape:max-w-none",
                   )}
                 />
               ))}

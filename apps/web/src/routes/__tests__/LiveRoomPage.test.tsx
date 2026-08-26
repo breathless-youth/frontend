@@ -1046,7 +1046,9 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("w-[calc(47%-2px)]");
   });
 
-  it("가로 2명은 1행 2열 그리드 — 화면을 꽉 채우던 와이드 타일(2:1)을 BY-435 이전 배치로 복원 (BY-441)", async () => {
+  it("가로 2명은 1행 2열 — 타일은 세로와 같은 정사각 비율을 셀 높이에 맞춰 세운다 (BY-441)", async () => {
+    // 세로(상대) 기기가 보는 크롭과 내 셀프뷰 프레이밍을 맞춘다(2026-08-26 확정) —
+    // 셀 stretch 와이드 타일은 상대가 보는 화면과 잘리는 영역이 전혀 달랐다.
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
@@ -1054,6 +1056,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).toHaveClass("landscape:grid");
     expect(grid).toHaveClass("landscape:grid-cols-2");
     expect(grid).toHaveClass("landscape:[grid-auto-rows:100%]");
+    expect(grid).toHaveClass("landscape:justify-items-center");
     // 가로에서는 rows 래퍼가 사라져(contents) 타일이 컨테이너의 그리드 아이템이 된다 —
     // % 행 높이는 높이가 정해진(grow) 컨테이너에서만 풀리기 때문이다.
     expect(screen.getByTestId("room-grid-rows")).toHaveClass("landscape:contents");
@@ -1061,20 +1064,43 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).not.toHaveClass("landscape:aspect-[2/1]");
     expect(tile).not.toHaveClass("landscape:w-full");
-    // 세로용 크기 지정을 풀어 그리드 stretch가 셀 크기를 결정한다.
+    // 세로 비율(aspect-square)이 가로에서도 그대로 적용되고, 높이만 셀에 맞춘다.
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile).not.toHaveClass("landscape:aspect-auto");
+    expect(tile).toHaveClass("landscape:h-full");
     expect(tile).toHaveClass("landscape:w-auto");
-    expect(tile).toHaveClass("landscape:aspect-auto");
   });
 
-  it("가로 3명 이상은 2열에 행 높이 절반 — 넘치는 행은 세로 스크롤로 확인한다 (BY-441)", async () => {
+  it("가로 3~4명은 2행 2열, 행 높이 절반 — 타일 비율은 세로와 같은 2:3 (BY-441)", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("landscape:grid-cols-2");
     expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-12px)/2)]");
-    // 간격·하단 여백도 복원 원본(5bf0849) 값 그대로 — 가로에서는 바가 타일 위에 겹친다.
+    // 간격·하단 여백은 5bf0849 값 그대로 — 가로에서는 바가 타일 위에 겹친다.
     expect(grid).toHaveClass("landscape:gap-3");
     expect(grid).toHaveClass("landscape:pb-2");
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("landscape:h-full");
+  });
+
+  it("가로 5~6명은 2행 3열 — 스크롤 없이 수납되고 타일 비율은 세로와 같은 4:5 (BY-441)", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("landscape:grid-cols-3");
+    expect(grid).not.toHaveClass("landscape:grid-cols-2");
+    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-12px)/2)]");
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-[4/5]");
+    expect(tile).toHaveClass("landscape:h-full");
   });
 
   it("2명→3명처럼 타일 크기 급이 바뀌면 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {
