@@ -67,6 +67,10 @@ export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChann
       }
       timers.length = 0;
     },
+    reconnect() {
+      // 실채널의 재연결처럼 서버가 스냅샷을 다시 보내는 동작을 흉내 낸다.
+      emit({ type: "SNAPSHOT", members: scenario.snapshot });
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => {

@@ -17,6 +17,15 @@ export interface PeerMesh {
   start(): void;
   setLocalStream(stream: MediaStream | null): void;
   setTrackEnabled(enabled: boolean): void;
+  /**
+   * 모든 P2P 연결을 폐기한다(구독·로컬 스트림은 유지) — 백그라운드 복귀 재구축용.
+   * 배경에서는 소켓·TURN 임대·인코더가 제각각 죽어 계층별 소생이 조합 폭발이라
+   * 신뢰할 수 없었다(2026-08-26 실기기: ICE 재시작만으로는 prflx 경로·검은 화면
+   * 혼재). 폐기 후 채널 재연결의 새 SNAPSHOT이 전원 재offer를 트리거해 TURN 임대·
+   * 인코더·디코더가 전부 새로 만들어진다. 상대측의 낡은 PC는 DTLS 지문이 다른 offer
+   * 판정(handleSignal의 new-pc 분기)이 폐기시켜 그쪽도 새 연결로 answer한다.
+   */
+  resetConnections(): void;
   subscribeRemoteStreams(
     listener: (userId: number, stream: MediaStream | null) => void,
   ): () => void;
@@ -305,6 +314,11 @@ export function createPeerMesh({
     );
   }
 
+  /** SDP의 DTLS 지문 줄 — 같은 RTCPeerConnection이 만든 SDP끼리는 재협상에도 동일하다. */
+  function sdpFingerprint(sdp: string | undefined): string | null {
+    return /a=fingerprint:[^\r\n]*/i.exec(sdp ?? "")?.[0] ?? null;
+  }
+
   // 폐기 후 재수립용 정리 — MEMBER_LEFT와 달리 화면 통지는 하지 않는다(아직 스트림이
   // 없거나, 곧 새 연결이 대체한다).
   function discardPeer(userId: number) {
@@ -343,6 +357,25 @@ export function createPeerMesh({
           }
           debug(`glare-yield←${fromUserId}`);
           discardPeer(fromUserId);
+        } else {
+          // 상대가 연결을 **새로 만들어** 보낸 offer인지 판별한다 — 배경 복귀 재구축·
+          // 웹뷰 재입장에서 상대는 새 PC로 offer를 보내는데, 내 쪽 낡은 PC의 ICE가
+          // 아직 connected로 남아 있으면 위 stale 분기에 안 걸린다. DTLS 지문이 다른
+          // offer를 기존 연결의 재협상으로 answer하면 핸드셰이크가 다시 성립하지 않아
+          // 검은 화면·prflx 경로로 웨지된다(2026-08-26 5기기+서버 로그 실측: 재입장한
+          // 144의 offer 3발에 전원이 answer했지만 미디어가 서지 않음). 지문이 다르면
+          // 폐기하고 새 연결로 answer한다 — 같은 지문(같은 PC의 ICE 재시작 재협상)은
+          // 기존 연결을 유지한다.
+          const oldFingerprint = sdpFingerprint(existing.remoteDescription?.sdp);
+          const newFingerprint = sdpFingerprint(payload.sdp);
+          if (
+            oldFingerprint !== null &&
+            newFingerprint !== null &&
+            oldFingerprint !== newFingerprint
+          ) {
+            debug(`new-pc←${fromUserId}`);
+            discardPeer(fromUserId);
+          }
         }
       }
       const pc = getOrCreatePeer(fromUserId);
@@ -444,6 +477,22 @@ export function createPeerMesh({
         } else if (track && localStream) {
           applySendQuality(pc.addTrack(track, localStream), track);
         }
+        // 죽은 연결에 새 트랙을 실었으면 재협상까지 다시 건다 — Android 백그라운드
+        // 복귀 후 카메라 켜기에서, 배경 중 죽은 ICE(1회 복구 시도는 JS 정지 구간에
+        // 이미 소진됐을 수 있다)에 replaceTrack만 하면 내 화면엔 새 트랙이 보여도
+        // 상대에겐 프레임이 영영 흐르지 않는다(2026-08-26 실기기: 수신측 검은 화면).
+        // 새 트랙 실장은 새 복구 기회다 — offer 역할일 때만 낸다(glare 규칙). 상대
+        // 방향의 회복은 상대측 동일 로직·failed 이벤트 경로가 맡는다.
+        if (
+          track !== null &&
+          offeredByMe.has(userId) &&
+          (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected")
+        ) {
+          debug(`track-revive→${userId}`);
+          restartAttempted.delete(userId);
+          pc.restartIce();
+          startOffer(userId);
+        }
       }
     },
     setTrackEnabled(enabled) {
@@ -451,6 +500,12 @@ export function createPeerMesh({
       const track = localTrack();
       if (track) {
         track.enabled = enabled;
+      }
+    },
+    resetConnections() {
+      debug(`reset ${peers.size}연결`);
+      for (const userId of [...peers.keys()]) {
+        closePeer(userId);
       }
     },
     subscribeRemoteStreams(listener) {

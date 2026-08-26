@@ -155,7 +155,9 @@ export function RoomTile({
           data-testid="tile-scrim"
           className={cn(
             "pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]",
-            "transition-opacity duration-300 motion-reduce:transition-none",
+            // 500ms·시트 곡선은 바 슬라이드(RoomControlBar)·타일 FLIP(LiveRoomSession)과
+            // 도착 시점을 맞춘 값이다(2026-08-26 피드백) — 셋을 함께 바꿀 것.
+            "transition-opacity duration-[500ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
             infoHidden && "opacity-0",
           )}
         />
@@ -174,7 +176,8 @@ export function RoomTile({
         data-testid="tile-info"
         aria-hidden={infoHidden || undefined}
         className={cn(
-          "absolute bottom-3 left-3 transition-opacity duration-300 motion-reduce:transition-none",
+          // 위 스크림과 같은 500ms·시트 곡선(바·FLIP과 도착 동기화) — 함께 바꿀 것.
+          "absolute bottom-3 left-3 transition-opacity duration-[500ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
           infoHidden && "opacity-0",
         )}
       >

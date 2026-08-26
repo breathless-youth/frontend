@@ -149,6 +149,29 @@ function renderRoom({
   return { channel, pcs, pcConfigs };
 }
 
+/**
+ * 프리뷰 스트림까지 흉내 내는 mock 카메라 — 자동재생 방어(kickVideoPlayback)는 srcObject가
+ * 붙은 video에만 동작하므로, play() 발신을 검증하는 테스트는 이걸 주입한다.
+ */
+function createStreamingMockCamera(): CameraAdapter {
+  const base = createMockCameraAdapter();
+  const fakeStream = { getVideoTracks: () => [] } as unknown as MediaStream;
+  return {
+    get facing() {
+      return base.facing;
+    },
+    get isRunning() {
+      return base.isRunning;
+    },
+    get stream() {
+      return base.isRunning ? fakeStream : null;
+    },
+    start: () => base.start(),
+    stop: () => base.stop(),
+    flip: () => base.flip(),
+  };
+}
+
 /** 일반 입장 — 모달 없이 join·프로필 결착을 기다려 꺼짐(일시정지) 상태로 세션에 들어간다. */
 /** 네이티브 게이트 응답(허용)을 흉내 낸다 — 브리지를 stub한 테스트에서 입장을 통과시킨다. */
 function grantCameraGate() {
@@ -462,7 +485,8 @@ describe("LiveRoomPage — 그리드·타일", () => {
 
     expect((video as HTMLVideoElement).srcObject).toBe(stream);
     expect(video).not.toHaveAttribute("autoplay");
-    expect(playSpy).toHaveBeenCalledTimes(1);
+    // 1회 이상 — 매 렌더 자동재생 방어(kickVideoPlayback)가 더해져 있다.
+    expect(playSpy).toHaveBeenCalled();
   });
 
   it("내 비디오는 전면 카메라일 때 거울로 보인다 — 카메라 전환 시 해제", async () => {
@@ -957,7 +981,62 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(arrows.style.transform).toBe("rotate(360deg)");
   });
 
-  it("바가 올라와 있으면 하단을 바만큼 벌리고, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
+  it("내 영상은 autoplay 속성에만 의존하지 않고 play()를 직접 부른다 — iOS WKWebView 자동재생 방어", async () => {
+    // 동적으로 마운트된 video는 WKWebView가 autoplay를 시작하지 않은 채 둘 수 있다 —
+    // 회전(리레이아웃) 전까지 영상 타일이 빈 채 남는 실기기 증상(2026-08-26, 3기기 동시
+    // 입장). srcObject를 붙인 뒤 명시 play() 발신을 못 박는다(lib/videoPlayback.ts).
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    expect(screen.getByTestId("room-my-video")).toBeInTheDocument();
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("회전이 정착하면 body를 다시 그리고 영상 재생을 되살린다 — iOS 회전 백지 방어", async () => {
+    // iOS WKWebView는 회전 후 새 방향의 페이지를 순백으로 남길 수 있다(세션은 살아
+    // 있고 페인트만 죽음 — 2026-08-26 실기기, 가로→세로 복귀마다 재현). 80ms 선발 +
+    // 350ms 백업의 display 재커밋 + play 킥 발신을 못 박는다(lib/rotationRepaint.ts).
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    play.mockClear();
+    vi.useFakeTimers();
+    try {
+      fireEvent(window, new Event("orientationchange"));
+      expect(play).not.toHaveBeenCalled(); // 정착 전에는 건드리지 않는다
+
+      vi.advanceTimersByTime(80); // 선발 — 백지 체감을 당긴다(2026-08-26 피드백)
+      expect(play).toHaveBeenCalled();
+      expect(document.body.style.display).toBe(""); // 재커밋 후 복원돼 있어야 한다
+
+      play.mockClear();
+      vi.advanceTimersByTime(270); // 350ms 백업 — 80ms가 헛발이었을 때를 잡는다
+      expect(play).toHaveBeenCalled();
+      expect(document.body.style.display).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("탭 제스처마다 멈춘 영상에 play()를 다시 건다 — 저전력 모드 방어", async () => {
+    // iOS 저전력 모드는 스크립트 단독 play()를 거부하지만 제스처 핸들러 안의 play()는
+    // 허용된다 — 화면의 아무 탭이나 복구 트리거가 되는 발신을 못 박는다
+    // (useGestureVideoPlaybackKick, lib/videoPlayback.ts).
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    play.mockClear();
+    fireEvent.click(document.body);
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("세로 2명만 바가 올라오면 하단을 바만큼 벌린다 — 내리면 4dvh 여백", async () => {
     // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
     // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
     renderRoom({ scenario: { snapshot: [member(8)] } });
@@ -971,16 +1050,31 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).toHaveClass("pb-[4dvh]");
   });
 
-  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 36dvh, 내리면 41dvh로 커진다", async () => {
+  it("세로 3명 이상은 바가 올라와도 하단 예약 없이 배치가 그대로다 — 바만 타일 위로 겹친다", async () => {
+    // 2026-08-26 피드백: 바 토글에 타일 그룹이 올라가는 움직임도 3명 이상에선 불필요 —
+    // 가로(pb-2)와 같은 겹침 정책으로 통일하고, 예약은 큰 타일이 깊이 가려지는 2명만 쓴다.
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("pb-[4dvh]");
+
+    tapSurface();
+    expect(grid).toHaveClass("pb-[4dvh]");
+  });
+
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 37dvh, 내리면 39dvh로 커진다", async () => {
+    // 변화 폭 2dvh는 의도된 값이다(2026-08-26 피드백: 41↔36dvh 스냅이 너무 컸다).
+    // 레이아웃 트랜지션은 랙 이력으로 금지라, 부드러움 대신 폭을 좁혀 어색함을 줄인다.
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("h-[36dvh]");
+    expect(tile).toHaveClass("h-[37dvh]");
 
     tapSurface();
-    expect(tile).toHaveClass("h-[41dvh]");
+    expect(tile).toHaveClass("h-[39dvh]");
   });
 
   it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
@@ -989,7 +1083,8 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     expect(screen.getByTestId("room-grid-rows")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[2/3]");
+    // 정사각(2026-08-26 디스코드 참조 확정 — 종전 2:3 세로형 대체).
+    expect(tile).toHaveClass("aspect-square");
     expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
@@ -1013,42 +1108,142 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
-  it("바가 떠 있으면 바 위에 붙고(mt-auto), 내리면 세로 가운데(my-auto) — 안전 정렬", async () => {
-    // content-center/end는 내용이 컨테이너보다 커지면 위 행이 잘리고 스크롤로도 못 닿는다
-    // (2026-08-25 실기기: 작은 화면에서 내 타일·참가자 미표시). auto 마진은 넘치면 접힌다.
+  it("타일 그룹은 바 표시와 무관하게 항상 세로 가운데(my-auto) — 바에 달라붙지 않는다", async () => {
+    // 종전엔 바 표시 중 mt-auto로 바 위에 붙였는데 어색하다는 피드백(2026-08-26)으로
+    // 통일했다 — 바가 올라오면 pb 예약이 줄인 공간의 가운데로 조금 올라갈 뿐이다.
+    // content-center/end는 내용이 넘치면 위 행이 잘려 못 쓴다(2026-08-25 실기기).
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
     const rows = screen.getByTestId("room-grid-rows");
-    expect(rows).toHaveClass("mt-auto");
+    expect(rows).toHaveClass("my-auto");
+    expect(rows).not.toHaveClass("mt-auto");
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
 
     tapSurface();
     expect(rows).toHaveClass("my-auto");
   });
 
-  it("5~6명 타일은 4:5로 눕혀 3행이 화면에 들어간다 — 2:3이면 첫 행(내 타일)이 스크롤로 밀린다", async () => {
+  it("5~6명 타일도 정사각 — 2열 3행이 스크롤 없이 화면에 들어간다 (2026-08-26 디스코드 참조)", async () => {
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[4/5]");
-    expect(tile).not.toHaveClass("aspect-[2/3]");
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile).not.toHaveClass("aspect-[4/5]");
   });
 
-  it("5~6명은 바가 올라오면 타일 폭을 줄여 3행 전체가 바 위에 수납된다", async () => {
+  it("5~6명 타일 폭은 바 표시와 무관하게 47% 고정 — 바 토글로 작아지지 않는다", async () => {
+    // 2026-08-26 피드백: 바가 올라올 때 타일이 줄어드는 게 어색하다 — 47%는 SE에서
+    // 바 표시 중에도 정사각 3행이 수납되는 상한이다(50%면 넘쳐 스크롤).
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("w-[calc(44%-2px)]");
+    expect(tile).toHaveClass("w-[calc(47%-2px)]");
+    expect(tile).not.toHaveClass("w-[calc(44%-2px)]");
 
     tapSurface();
-    expect(tile).toHaveClass("w-[calc(50%-2px)]");
+    expect(tile).toHaveClass("w-[calc(47%-2px)]");
+  });
+
+  it("가로 2명은 세로와 같은 flex 묶음 배치 — 정사각 타일이 gap-1로 붙어 중앙 정렬 (BY-441)", async () => {
+    // 그리드 셀 분배(1fr)는 타일 양옆 셀 잔여 공간이 카메라 사이 시각 여백으로 남았다
+    // (2026-08-26 피드백: "간격을 세로처럼") — 세로와 같은 flex-wrap 묶음으로 바꾼다.
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid.className).not.toContain("landscape:grid");
+    const rows = screen.getByTestId("room-grid-rows");
+    expect(rows).not.toHaveClass("landscape:contents");
+    // 세로·가로 공통으로 항상 세로 가운데(my-auto) — 바 토글이 배치를 흔들지 않는다.
+    expect(rows).toHaveClass("my-auto");
+    expect(rows).toHaveClass("gap-1");
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).not.toHaveClass("landscape:aspect-[2/1]");
+    // 세로 비율(정사각)이 가로에서도 그대로, 높이는 min(88dvh, 폭 예산)으로 고정 —
+    // 2장이 한 행에 줄바꿈 없이 들어가는 폭 상한(기기 검산은 구현 주석).
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile.className).toContain("landscape:h-[min(88dvh,");
+    expect(tile).toHaveClass("landscape:w-auto");
+
+    // 가로는 바를 11px 더 낮게 건다(2026-08-26 피드백) — 래퍼의 landscape 오프셋.
+    expect(screen.getByTestId("room-control-bar").parentElement).toHaveClass(
+      "landscape:bottom-[calc(env(safe-area-inset-bottom)+6px)]",
+    );
+  });
+
+  it("가로 3명은 1행 3열 정사각 — 폭 예산/3이 높이를 정한다 (BY-441)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid.className).not.toContain("landscape:grid");
+    // 가로에서는 바가 타일 위에 겹친다(pb-2) — 타일 크기가 바와 무관해야 토글이 안 흔들린다.
+    expect(grid).toHaveClass("landscape:pb-2");
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile.className).toContain("-40px)/3))]");
+  });
+
+  it("가로 4명은 1행 4열 정사각 — 폭 예산/4이 높이를 정한다 (BY-441)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-square");
+    expect(tile.className).toContain("-44px)/4))]");
+  });
+
+  it("가로 5~6명은 2행 3열(3+2/3+3) 정사각 — 3열 강제 폭이 4+1 감김을 막는다 (BY-441)", async () => {
+    renderRoom({
+      scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
+    });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).toHaveClass("aspect-square");
+    // 45dvh면 SE에서 3장 폭이 화면을 넘어 2행 3열 줄바꿈이 깨진다 — 44가 상한.
+    expect(tile).toHaveClass("landscape:h-[44dvh]");
+    // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기는 것을 3장+간격 폭으로 자른다.
+    const rows = screen.getByTestId("room-grid-rows");
+    expect(rows).toHaveClass("landscape:max-w-[calc(132dvh+8px)]");
+    expect(rows).toHaveClass("landscape:mx-auto");
+  });
+
+  it("타일 크기 급이 바뀌는 인원 경계에서 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {
+    // WKWebView는 재생 중 영상 타일이 레이아웃 변경으로 리사이즈되면 레이어를 다시 그리지
+    // 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2→3명 전환에서 기존 타일 2개만 안
+    // 보이고 새 타일만 그려짐). 새 DOM은 새 레이어라 강제 재페인트된다. 경계는
+    // 2↔3(duo/tri)·3↔4(tri/quad — 가로 1행 3열→4열)·4↔5(quad/hex)이고, 같은 급(5→6명)은
+    // 타일 크기가 안 변해 재마운트하지 않는다.
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const duoTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(9) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
+    expect(document.body.contains(duoTile)).toBe(false);
+
+    const triTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(10) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(4);
+    expect(document.body.contains(triTile)).toBe(false);
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(11) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(5);
+    const hexTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(12) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(6);
+    expect(document.body.contains(hexTile)).toBe(true);
   });
 
   it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
@@ -1067,7 +1262,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid-rows")).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("my-auto");
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
   });
 
@@ -1163,6 +1358,40 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     tapSurface();
     expect(bar).toHaveClass("pointer-events-auto");
     expect(bar).not.toHaveClass(SLIDE);
+  });
+
+  it("바 토글 시 타일 이동을 FLIP transform으로 잇는다 — 바 슬라이드와 같은 500ms·시트 곡선", async () => {
+    // 도착 시점 동기화(2026-08-26 피드백): 레이아웃은 즉시 확정하고 타일별 transform
+    // 애니메이션이 이전 위치에서 새 위치로 잇는다. jsdom에는 WAAPI도 실제 레이아웃도
+    // 없어 rect와 animate를 흉내 내 발신만 검증한다.
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    let top = 300;
+    vi.spyOn(tile, "getBoundingClientRect").mockImplementation(
+      () => ({ top, left: 20, width: 200, height: 200, right: 220, bottom: top + 200 }) as DOMRect,
+    );
+    const animate = vi.fn();
+    (tile as unknown as { animate: typeof animate }).animate = animate;
+
+    // 첫 토글의 기준 rect는 모킹 전(0×0)이라 스킵되고, 모킹된 rect가 기준으로 저장된다.
+    tapSurface();
+    expect(animate).not.toHaveBeenCalled();
+
+    top = 340;
+    tapSurface();
+
+    expect(animate).toHaveBeenCalledTimes(1);
+    const [keyframes, options] = animate.mock.calls[0] as [
+      { transform: string }[],
+      { duration: number; easing: string },
+    ];
+    // 이전 위치(top 300)에서 시작해 원위치(top 340)로 — 역적용 translate가 -40px다.
+    expect(keyframes[0].transform).toContain("translate(0px, -40px)");
+    expect(keyframes[1].transform).toBe("none");
+    // 바 슬라이드(RoomControlBar)·글자 페이드(RoomTile)와 같은 값 — 어긋나면 도착이 갈라진다.
+    expect(options).toEqual({ duration: 500, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
   });
 
   it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {

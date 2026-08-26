@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { cn } from "@/lib/utils";
+import { kickVideoPlayback } from "@/lib/videoPlayback";
 
 import type { CameraFacing } from "../adapters/cameraAdapter";
 import { PREVIEW_OBJECT_FIT } from "../previewFit";
@@ -81,6 +82,15 @@ export function CameraPreviewSurface({
       video.srcObject = null;
     };
   }, [stream, videoRef]);
+
+  // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 — 매 렌더
+  // 재시도한다. 사유·재시도 규칙은 kickVideoPlayback 주석 참고(2026-08-26 소셜룸
+  // 실기기에서 확인된 증상의 예방적 적용 — 같은 웹뷰 셸이라 세션 프리뷰도 동일 위험).
+  useEffect(() => {
+    if (videoRef.current !== null) {
+      kickVideoPlayback(videoRef.current);
+    }
+  });
 
   return (
     <div

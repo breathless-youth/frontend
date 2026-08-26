@@ -61,7 +61,11 @@ export function RoomControlBar({
       // 화면 탭 = 바 토글(디스코드 패턴)이라, 바 자체 조작이 토글로 버블되면 버튼을 누를
       // 때마다 바가 내려간다 — 여기서 끊는다.
       onPointerDown={(event) => event.stopPropagation()}
-      className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-transform duration-300 ease-out motion-reduce:transition-none ${
+      // 슬라이드 곡선은 iOS 시트 계열(초반 빠르고 끝을 길게 눌러 정착) — 기본 ease-out
+      // 300ms는 올라올 때 '확' 나타나는 인상이 있었다(2026-08-26 피드백, 디스코드 참조).
+      // 타일 쪽은 레이아웃 트랜지션 금지(랙·페인트 사고 이력)라 바의 정착감이 토글의
+      // 부드러움을 혼자 담당한다.
+      className={`flex h-20 items-center gap-[22px] rounded-full border border-white/10 bg-[var(--session-bar-bg)] px-6 backdrop-blur-[7px] transition-transform duration-[500ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
         // 이동량 = 바 높이(100%) + 래퍼의 bottom 오프셋(safe-area+17px) — 화면 밖까지 정확히
         // 나간다. 부모 main의 overflow-hidden이 내려간 바를 잘라 문서 스크롤을 막는다.
         hidden

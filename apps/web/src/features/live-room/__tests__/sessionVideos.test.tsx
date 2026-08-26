@@ -19,7 +19,9 @@ describe("RemoteVideo", () => {
     const video = getByTestId("remote-video-9");
     expect(video).toHaveClass("pointer-events-none");
     expect((video as HTMLVideoElement).srcObject).toBe(stream);
-    expect(playSpy).toHaveBeenCalledTimes(1);
+    // 1회 이상: srcObject 부착 시의 startVideoPlayback에 더해, 매 렌더 자동재생 방어
+    // (lib/videoPlayback.ts kickVideoPlayback)도 재생을 다시 건다 — 둘 다 의도된 발신이다.
+    expect(playSpy).toHaveBeenCalled();
     // 재생은 킥이 건다 — autoplay 속성은 iOS 저전력 모드에서 숨길 수 없는 네이티브
     // 컨트롤을 발동시키므로 달지 않는다.
     expect(video).not.toHaveAttribute("autoplay");
@@ -65,6 +67,7 @@ describe("ClonedTrackPreview", () => {
 
     expect(getByTestId("camera-dialog-preview")).toHaveClass("pointer-events-none");
     expect(getByTestId("camera-dialog-preview")).not.toHaveAttribute("autoplay");
-    expect(playSpy).toHaveBeenCalledTimes(1);
+    // 1회 이상 — 매 렌더 자동재생 방어가 더해져 있다(위 RemoteVideo 테스트와 같은 사유).
+    expect(playSpy).toHaveBeenCalled();
   });
 });

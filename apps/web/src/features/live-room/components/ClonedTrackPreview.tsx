@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { cn } from "@/lib/utils";
+import { kickVideoPlayback } from "@/lib/videoPlayback";
 
 /**
  * UI
@@ -41,6 +42,13 @@ export function ClonedTrackPreview({
       clone.stop();
     };
   }, [stream]);
+  // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 — 매 렌더
+  // 재시도한다. 사유·재시도 규칙은 kickVideoPlayback 주석 참고(2026-08-26 실기기).
+  useEffect(() => {
+    if (videoRef.current !== null) {
+      kickVideoPlayback(videoRef.current);
+    }
+  });
   const video = (
     <video
       ref={videoRef}

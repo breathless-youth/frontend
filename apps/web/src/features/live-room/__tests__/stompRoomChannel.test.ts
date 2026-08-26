@@ -50,6 +50,16 @@ function setup() {
   return { client, channel };
 }
 
+/** 연결마다 자동 발신되는 SNAPSHOT 재요청(BY-442)을 걷어낸 발행 목록 — 발행 API 검증용. */
+function appPublishes(client: ReturnType<typeof createFakeClient>) {
+  return client.publishes.filter((p) => !p.destination.endsWith("/snapshot"));
+}
+
+/** SNAPSHOT 재요청 발신만 추린다. */
+function snapshotRequests(client: ReturnType<typeof createFakeClient>) {
+  return client.publishes.filter((p) => p.destination === "/app/room/42/snapshot");
+}
+
 describe("createStompRoomChannel", () => {
   it("연결 URL에 userId를 싣고, 연결되면 방 토픽과 개인 큐 2곳을 구독한다", () => {
     const { client, channel } = setup();
@@ -187,7 +197,7 @@ describe("createStompRoomChannel", () => {
 
     channel.publishState({ studySeconds: 12360 });
 
-    expect(client.publishes).toEqual([
+    expect(appPublishes(client)).toEqual([
       { destination: "/app/room/42/state", body: '{"studySeconds":12360}' },
     ]);
   });
@@ -202,7 +212,7 @@ describe("createStompRoomChannel", () => {
 
     client.fireConnect();
 
-    expect(client.publishes.map((p) => p.body)).toEqual([
+    expect(appPublishes(client).map((p) => p.body)).toEqual([
       '{"cameraOn":false}',
       '{"studySeconds":0}',
     ]);
@@ -215,11 +225,11 @@ describe("createStompRoomChannel", () => {
 
     client.connected = false; // 소켓이 끊겼지만 채널은 아직 모르는 구간
     channel.publishState({ studySeconds: 60 });
-    expect(client.publishes).toEqual([]);
+    expect(appPublishes(client)).toEqual([]);
 
     client.fireConnect();
 
-    expect(client.publishes.map((p) => p.body)).toEqual(['{"studySeconds":60}']);
+    expect(appPublishes(client).map((p) => p.body)).toEqual(['{"studySeconds":60}']);
   });
 
   it("publishSignal은 시그널 목적지로 발행하고, 연결 전에는 버퍼에 쌓인다", () => {
@@ -230,7 +240,7 @@ describe("createStompRoomChannel", () => {
 
     client.fireConnect();
 
-    expect(client.publishes).toEqual([
+    expect(appPublishes(client)).toEqual([
       {
         destination: "/app/room/42/signal",
         body: '{"toUserId":9,"kind":"OFFER","payload":{"type":"offer","sdp":"v=0"}}',
@@ -246,5 +256,180 @@ describe("createStompRoomChannel", () => {
 
     expect(client.deactivate).toHaveBeenCalledTimes(1);
     expect(channel.status).toBe("closed");
+  });
+
+  it("reconnect는 세션을 통째로 갈아 새 연결을 만든다 — 배경 복귀 재구축용", async () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+    expect(client.activate).toHaveBeenCalledTimes(1);
+
+    channel.reconnect();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.deactivate).toHaveBeenCalledTimes(1);
+    expect(client.activate).toHaveBeenCalledTimes(2);
+  });
+
+  it("disconnect 뒤의 reconnect는 되살리지 않는다", async () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+    channel.disconnect();
+
+    channel.reconnect();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.activate).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * SNAPSHOT 재요청 워치독(BY-442) — 서버의 구독 트리거 SNAPSHOT이 인바운드 처리 순서
+ * 레이스로 유실될 수 있어(개인 큐 등록 전 발사), 연결마다 직접 요청하고 못 받으면
+ * 재요청한다. 계약 전문은 BY-442 티켓.
+ */
+describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
+  it("연결되면 구독 직후 빈 본문으로 재요청을 1회 보내고, 재연결에도 다시 보낸다", () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+
+    expect(snapshotRequests(client)).toHaveLength(1);
+    expect(snapshotRequests(client)[0]?.body).toBe("");
+
+    // 재연결 — stompjs는 onConnect를 다시 부른다. 끊긴 사이 멤버 변동 재동기화를 겸한다.
+    client.fireConnect();
+    expect(snapshotRequests(client)).toHaveLength(2);
+  });
+
+  it("빠른 스케줄(0.5s→1s→2s×3) 소진 시 연결을 통째로 갈아 새 큐 등록을 만든다", async () => {
+    // 앞쪽을 빠르게 쏘는 이유: 유실 원인인 구독 레이스 창은 ms 단위라 0.5초면 안전하게
+    // 늦고, 균일 2초는 혼자 화면 체감이 길었다(2026-08-26 피드백). 스케줄 전체가 실패한
+    // 경우는 재요청이 아니라 세션 교체가 필요하다 — 5기기 실측에서 개인 큐 배달이 1분
+    // 넘게 죽은 채 자연 재연결에야 복구됐다(스냅샷·offer 전부 미도달).
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      vi.advanceTimersByTime(500);
+      expect(snapshotRequests(client)).toHaveLength(2);
+      vi.advanceTimersByTime(1000);
+      expect(snapshotRequests(client)).toHaveLength(3);
+
+      // 2초×3 소진 — 6번째 요청이 나간 그 자리에서 재요청 대신 연결 교체가 발동한다.
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(snapshotRequests(client)).toHaveLength(6);
+      expect(client.deactivate).toHaveBeenCalledTimes(1);
+      expect(client.activate).toHaveBeenCalledTimes(2); // connect 1회 + 교체 재기동 1회
+
+      // 교체 후 재연결 — 새 사이클이 처음부터 시작된다.
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(7);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("연결 교체 예산(3회)을 소진하면 10초 간격 재요청으로 물러나되 포기하지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      // 교체 3사이클 — 각 사이클은 빠른 스케줄 7.5초 뒤 deactivate→activate→재연결.
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        expect(client.deactivate).toHaveBeenCalledTimes(cycle);
+        client.fireConnect();
+      }
+
+      // 4번째 소진부터는 교체 없이 10초 슬로우 재요청이 무기한 이어진다.
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(client.deactivate).toHaveBeenCalledTimes(3);
+      const before = snapshotRequests(client).length;
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(snapshotRequests(client)).toHaveLength(before + 2);
+      expect(client.deactivate).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("계약을 통과한 SNAPSHOT을 받으면 재요청을 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":[]}' });
+      vi.advanceTimersByTime(20_000);
+
+      expect(snapshotRequests(client)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("계약에 안 맞는 SNAPSHOT은 도착으로 치지 않는다 — 워치독이 계속 재요청한다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":"oops"}' });
+      vi.advanceTimersByTime(500);
+
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("소켓이 조용히 죽은 구간의 재시도는 버퍼에 남지 않는다 — 재연결 flush에 유령 요청이 없다", () => {
+    // 이 채널은 onWebSocketClose를 받지 않아 소켓이 죽어도 status가 open으로 남는다 —
+    // 그 구간의 재시도가 send() 버퍼로 쌓이면 stompjs 자동 재연결의 flush에서 유령 요청
+    // 최대 5개가 한꺼번에 나간다(크로스리뷰 M2). 재시도 실패는 버퍼링 없이 버려야 한다.
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      client.connected = false; // 소켓만 죽고 채널은 모르는 구간
+      vi.advanceTimersByTime(20_000); // 재시도 5회 전부 publish 실패
+
+      client.fireConnect(); // stompjs 자동 재연결
+      // 새 연결의 정규 요청 1회만 — 실패한 재시도들이 버퍼로 되살아나지 않는다.
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("disconnect는 워치독을 멈춘다 — 다음 연결에서 유령 재요청이 흘러나오지 않는다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      channel.disconnect();
+      vi.advanceTimersByTime(20_000);
+
+      // 재연결하면 새 연결의 1회만 나간다 — 죽은 워치독이 버퍼로 흘려보낸 발행이 없다.
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
