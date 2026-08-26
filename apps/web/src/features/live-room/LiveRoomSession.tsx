@@ -20,6 +20,7 @@ import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTi
 import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { roomGridSpec } from "@/features/live-room/roomGrid";
+import { useAdaptiveVideoFit } from "@/features/live-room/useAdaptiveVideoFit";
 import { orderedMembers, roomMembersReducer } from "@/features/live-room/roomMembersReducer";
 import { usePeerMesh } from "@/features/live-room/usePeerMesh";
 import { useRoomStatePublisher } from "@/features/live-room/useRoomStatePublisher";
@@ -83,6 +84,9 @@ export function LiveRoomSession({
   useRotationRepaintNudge();
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // 내 셀프뷰도 스트림·타일 방향이 어긋나면 레터박스 — 상대들이 보는 화면과 같은 내용이
+  // 보이게 한다(사유는 useAdaptiveVideoFit 주석).
+  const myVideoFit = useAdaptiveVideoFit(videoRef);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
@@ -298,7 +302,8 @@ export function LiveRoomSession({
       playsInline
       muted
       className={cn(
-        "amp-block sentry-block size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
+        "amp-block sentry-block size-full [filter:brightness(1.06)_saturate(1.1)]",
+        myVideoFit === "contain" ? "object-contain" : "object-cover",
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />

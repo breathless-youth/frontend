@@ -962,6 +962,34 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     }
   });
 
+  it("스트림과 타일 방향이 어긋나면 셀프뷰가 레터박스(contain)로 바뀐다 — 프레이밍 일치", async () => {
+    // 송출 비율은 송신자 기기 방향을 따라간다(가로=와이드 캡처) — 방향이 어긋난 조합에서
+    // cover는 서로 완전히 다른 크롭을 만들어 "내 화면과 상대가 보는 화면이 다르다"가 됐다
+    // (2026-08-26 실기기, 양방향). 어긋나면 contain으로 전체 프레임을 보여준다
+    // (useAdaptiveVideoFit — RemoteVideo도 같은 훅을 쓴다).
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    const video = screen.getByTestId("room-my-video") as HTMLVideoElement;
+    expect(video).toHaveClass("object-cover");
+
+    // 와이드 스트림(1280×720)이 세로 타일(200×300)에 들어온 상황.
+    Object.defineProperty(video, "videoWidth", { value: 1280, configurable: true });
+    Object.defineProperty(video, "videoHeight", { value: 720, configurable: true });
+    Object.defineProperty(video, "clientWidth", { value: 200, configurable: true });
+    Object.defineProperty(video, "clientHeight", { value: 300, configurable: true });
+    fireEvent(video, new Event("resize"));
+    expect(video).toHaveClass("object-contain");
+    expect(video).not.toHaveClass("object-cover");
+
+    // 방향이 다시 맞으면(와이드 스트림 × 와이드 타일) cover로 복귀한다.
+    Object.defineProperty(video, "clientWidth", { value: 300, configurable: true });
+    Object.defineProperty(video, "clientHeight", { value: 200, configurable: true });
+    fireEvent(video, new Event("resize"));
+    expect(video).toHaveClass("object-cover");
+  });
+
   it("탭 제스처마다 멈춘 영상에 play()를 다시 건다 — 저전력 모드 방어", async () => {
     // iOS 저전력 모드는 스크립트 단독 play()를 거부하지만 제스처 핸들러 안의 play()는
     // 허용된다 — 화면의 아무 탭이나 복구 트리거가 되는 발신을 못 박는다

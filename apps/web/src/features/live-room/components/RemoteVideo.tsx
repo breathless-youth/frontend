@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 
+import { cn } from "@/lib/utils";
 import { kickVideoPlayback } from "@/lib/videoPlayback";
+
+import { useAdaptiveVideoFit } from "../useAdaptiveVideoFit";
 
 export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaStream }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // 송신자 방향과 내 타일 방향이 어긋나면 레터박스 — 사유는 useAdaptiveVideoFit 주석.
+  const fit = useAdaptiveVideoFit(videoRef);
   useEffect(() => {
     const video = videoRef.current;
     if (video && video.srcObject !== stream) {
@@ -22,7 +27,10 @@ export function RemoteVideo({ userId, stream }: { userId: number; stream: MediaS
       autoPlay
       playsInline
       muted
-      className="amp-block sentry-block size-full object-cover"
+      className={cn(
+        "amp-block sentry-block size-full",
+        fit === "contain" ? "object-contain" : "object-cover",
+      )}
     />
   );
 }
