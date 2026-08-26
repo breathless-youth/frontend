@@ -61,5 +61,17 @@ export function usePeerMesh({
     return () => mesh.close();
   }, [mesh]);
 
+  // 백그라운드 복귀 시 일괄 재협상 — TURN 임대 만료 대응(사유는 PeerMesh.reviveConnections
+  // 주석). mock 채널 기반 테스트에서도 무해하다: offer 역할 상대가 없으면 무동작이다.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        mesh.reviveConnections();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [mesh]);
+
   return remoteStreams;
 }

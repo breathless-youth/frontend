@@ -405,6 +405,42 @@ describe("createPeerMesh — 트랙과 품질", () => {
     expect(sender?.replaceTrack).toHaveBeenCalledWith(next);
   });
 
+  it("reviveConnections는 offer 역할 상대 전원에 ICE 재시작 offer를 낸다 — TURN 임대 만료 대응", async () => {
+    // 백그라운드 동안 relay 할당이 만료돼도 ICE는 낡은 connected로 남아 이벤트 복구가
+    // 안 걸린다(2026-08-26 실기기) — 복귀 시점의 일괄 재협상이 유일한 회복 경로다.
+    const { channel, mesh, pcs } = setup();
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const pc = pcs[0]?.pc as FakePc;
+    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1));
+
+    mesh.reviveConnections();
+
+    expect(pc.restartIce).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(2);
+    });
+  });
+
+  it("reviveConnections는 answer 역할 상대에게는 offer를 내지 않는다 — glare 규칙 유지", async () => {
+    const { channel, mesh, pcs } = setup();
+    // 상대(9)의 offer에 answer한 관계 — 내가 offer 역할이 아니다.
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "v=0" },
+    });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const answers = channel.publishedSignals.filter((s) => s.kind === "ANSWER").length;
+
+    mesh.reviveConnections();
+
+    expect(pcs[0]?.pc.restartIce).not.toHaveBeenCalled();
+    expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(0);
+    expect(channel.publishedSignals.filter((s) => s.kind === "ANSWER")).toHaveLength(answers);
+  });
+
   it("죽은 연결에 새 트랙을 실으면 ICE 재시작 offer를 다시 보낸다 — 배경 복귀 검은 화면 방지", async () => {
     // Android 백그라운드 복귀 후 카메라 켜기: 배경 중 죽은 ICE에 replaceTrack만 하면
     // 내 화면엔 새 트랙이 보여도 상대에겐 프레임이 영영 안 흐른다(2026-08-26 실기기 —

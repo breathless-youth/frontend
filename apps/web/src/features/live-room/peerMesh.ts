@@ -17,6 +17,15 @@ export interface PeerMesh {
   start(): void;
   setLocalStream(stream: MediaStream | null): void;
   setTrackEnabled(enabled: boolean): void;
+  /**
+   * 미디어 경로가 통째로 죽었을 수 있는 시점(백그라운드 복귀)의 일괄 재협상 —
+   * offer 역할 상대 전원에 ICE 재시작 offer를 낸다. TURN 릴레이 할당은 클라이언트가
+   * 주기 갱신해야 하는 임대라 JS가 멈춘 백그라운드 동안 만료되는데, ICE 상태는 낡은
+   * connected로 남아 이벤트 기반 복구가 안 걸린다(2026-08-26 실기기: relay 경로
+   * 송신자가 복귀 후 영상 불통). 건강한 연결의 재시작은 새 후보 선택까지 기존 경로로
+   * 계속 송출되므로 무해하다. answered 상대 방향은 상대측 동일 로직이 맡는다(glare 규칙).
+   */
+  reviveConnections(): void;
   subscribeRemoteStreams(
     listener: (userId: number, stream: MediaStream | null) => void,
   ): () => void;
@@ -467,6 +476,16 @@ export function createPeerMesh({
       const track = localTrack();
       if (track) {
         track.enabled = enabled;
+      }
+    },
+    reviveConnections() {
+      for (const [userId, pc] of peers) {
+        if (offeredByMe.has(userId)) {
+          debug(`revive→${userId}`);
+          restartAttempted.delete(userId);
+          pc.restartIce();
+          startOffer(userId);
+        }
       }
     },
     subscribeRemoteStreams(listener) {
