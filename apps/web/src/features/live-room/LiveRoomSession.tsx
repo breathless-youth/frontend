@@ -47,8 +47,9 @@ import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 export const GRACE_END_SAVED_MESSAGE = "자리를 오래 비워서 여기까지의 공부 기록을 저장했어요";
 export const GRACE_END_PENDING_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요. 기록은 잠시 후 자동으로 저장돼요";
+// 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백) — Toast가 pre-line이다.
 export const GRACE_END_SUB_MINUTE_MESSAGE =
-  "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요";
+  "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요";
 
 function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
   const stream = streams.get(userId);
@@ -304,13 +305,19 @@ export function LiveRoomSession({
         markSocialRoomNotice(graceEndNotice(true));
       }
       void leaveRoom(roomId, userId).catch(() => undefined);
-      navigate({ pathname: "/social", search: location.search }, { replace: true });
+      navigate(
+        { pathname: "/social", search: location.search },
+        { replace: true, state: { noticeHandoff: true } },
+      );
       return;
     }
     if (phase.name === "error" && expired) {
       leavingRef.current = true;
       markSocialRoomNotice(graceEndNotice(false));
-      navigate({ pathname: "/social", search: location.search }, { replace: true });
+      navigate(
+        { pathname: "/social", search: location.search },
+        { replace: true, state: { noticeHandoff: true } },
+      );
     }
   }, [
     graceEndNotice,

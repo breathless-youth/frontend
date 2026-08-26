@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
 export const toastVariants = cva(
-  "rounded-full border border-white/10 px-4 py-2 text-center text-[13px] leading-[20px] text-white shadow-lg backdrop-blur-[7px]",
+  "rounded-3xl border border-white/10 px-4 py-2 text-center text-[13px] leading-[20px] whitespace-pre-line text-white shadow-lg backdrop-blur-[7px]",
   {
     variants: {
       tone: {

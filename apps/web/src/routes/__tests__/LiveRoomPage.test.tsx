@@ -1212,7 +1212,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요",
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     );
   });
 
@@ -1225,7 +1225,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요",
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     );
   });
 
@@ -1249,7 +1249,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요",
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     );
   });
 
@@ -1272,7 +1272,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요",
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     );
   });
 
@@ -1293,7 +1293,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
     expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요. 1분 미만 공부는 기록에 표시되지 않아요",
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     );
   });
 

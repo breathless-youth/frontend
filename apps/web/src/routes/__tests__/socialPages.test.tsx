@@ -35,6 +35,9 @@ function renderAt(path: string | { pathname: string; search: string; state?: unk
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe("소셜 홈", () => {
@@ -93,6 +96,33 @@ describe("소셜 홈", () => {
     unmount();
     renderAt("/social?userId=7");
     expect(screen.queryByText("방이 만료되었어요")).not.toBeInTheDocument();
+  });
+
+  it("안내는 웹뷰(문서)가 달라도 전달된다 — sessionStorage가 아니라 localStorage에 남는다", () => {
+    markSocialRoomNotice("방이 만료되었어요");
+    // 다른 웹뷰는 sessionStorage를 공유하지 않는다 — 지워도 안내가 살아 있어야 한다.
+    sessionStorage.clear();
+    renderAt("/social?userId=7");
+
+    expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
+  });
+
+  it("네이티브 셸에서 noticeHandoff 이동은 안내를 소비하지 않는다 — 도착지 탭 웹뷰가 띄운다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    markSocialRoomNotice("자리를 오래 비워서 여기까지의 공부 기록을 저장했어요");
+    const { unmount } = renderAt({
+      pathname: "/social",
+      search: "?userId=7",
+      state: { noticeHandoff: true },
+    });
+
+    // 세션 웹뷰의 임시 소셜 홈 — 곧 네이티브가 진짜 탭으로 전환하므로 여기서 띄우면 깜빡인다.
+    expect(screen.queryByText(/공부 기록을 저장했어요/)).not.toBeInTheDocument();
+
+    unmount();
+    vi.unstubAllGlobals();
+    renderAt("/social?userId=7");
+    expect(screen.getByText(/공부 기록을 저장했어요/)).toBeInTheDocument();
   });
 
   it("남긴 안내가 없으면 토스트가 뜨지 않는다", () => {

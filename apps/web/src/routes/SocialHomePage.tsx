@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { createRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
@@ -23,8 +24,17 @@ export function SocialHomePage() {
   // 룸에서 밀려나며 남긴 사유를 여기서 알린다(BY-436). 플래그는 1회성이라 소비 결과를 ref에
   // 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 null로 굳지 않는다
   // (`SettingsPage`의 프로필 저장 토스트와 같은 패턴).
+  // 네이티브 셸에서 세션 웹뷰가 내부 이동으로 잠깐 그리는 소셜 홈(noticeHandoff)은 소비하지
+  // 않는다 — 곧 진짜 소셜 탭 웹뷰로 전환되는데 여기서 띄우면 토스트가 전환에 잘려 깜빡인다.
+  // 안내는 localStorage에 남아 도착지 탭이 띄운다. 브라우저 단독 모드는 전환이 없으므로
+  // 여기가 곧 도착지다.
+  const handoff =
+    isNativeBridgeAvailable() &&
+    (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
   const noticeRef = useRef<string | null | undefined>(undefined);
-  noticeRef.current ??= consumeSocialRoomNotice();
+  if (!handoff) {
+    noticeRef.current ??= consumeSocialRoomNotice();
+  }
   useEffect(() => {
     if (noticeRef.current !== null && noticeRef.current !== undefined) {
       showToast(noticeRef.current);

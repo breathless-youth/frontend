@@ -87,7 +87,10 @@ export function LiveRoomEntry({
         // [다시 시도] 말고 할 수 있는 게 없는 상태에 갇힌다 — 사유만 남기고 내보낸다.
         if (failure.kind === "leave") {
           markSocialRoomNotice(failure.message);
-          navigate({ pathname: "/social", search: location.search }, { replace: true });
+          navigate(
+            { pathname: "/social", search: location.search },
+            { replace: true, state: { noticeHandoff: true } },
+          );
           return;
         }
         setJoinError(failure.message);
