@@ -38,6 +38,10 @@ export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputPro
       {/*
         폰트 16px 미만이면 iOS가 포커스 시 화면을 확대한다 — 투명해도 폰트는 크게 둔다.
         caret·텍스트는 opacity-0으로 숨기고 터치·포커스만 받는다.
+
+        caret-transparent가 opacity-0과 별도로 필요한 이유: 안드로이드(Chromium)는 caret을
+        요소 투명도와 무관하게 네이티브 레이어에 그려서, 투명 input의 실제 caret 위치(BY-444 —
+        표시 4칸과 무관한 엉뚱한 곳)에 커서가 노출된다. 입력 위치 표시는 위 링(ring)이 담당한다.
       */}
       <input
         ref={inputRef}
@@ -60,7 +64,7 @@ export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputPro
         aria-label="초대코드 4자리"
         aria-invalid={errorId !== undefined || undefined}
         aria-describedby={errorId}
-        className="absolute inset-0 w-full text-2xl opacity-0"
+        className="absolute inset-0 w-full caret-transparent text-2xl opacity-0"
       />
     </div>
   );
