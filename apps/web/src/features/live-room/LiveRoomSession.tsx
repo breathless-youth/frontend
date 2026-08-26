@@ -292,7 +292,7 @@ export function LiveRoomSession({
       className={cn(
         // pointer-events-none: 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지
         // 컨트롤을 띄운다 — 탭은 아래 레이어(유휴 복귀)로 통과시킨다.
-        "amp-block sentry-block session-video pointer-events-none size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
+        "amp-block sentry-block pointer-events-none size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />

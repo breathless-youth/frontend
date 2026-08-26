@@ -151,7 +151,7 @@ export function CameraPreviewSurface({
         className={cn(
           // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다 —
           // 이 영상은 조작 대상이 아니므로 탭을 아래 레이어로 통과시킨다.
-          "session-video pointer-events-none h-full w-full",
+          "pointer-events-none h-full w-full",
           // amp-block은 Amplitude, sentry-block은 Sentry의 Session Replay 차단 표식이다.
           // 전역 설정인 blockSelector("video")와 blockAllMedia가 1차 방어지만, 그 설정이
           // 바뀌어도 카메라 요소만은 남도록 요소에도 직접 태깅한다. lib/amplitude.ts와

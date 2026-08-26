@@ -412,10 +412,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
     await enterRoom();
     await turnCameraOn();
 
-    expect(await screen.findByTestId("room-my-video")).toHaveClass(
-      "pointer-events-none",
-      "session-video",
-    );
+    expect(await screen.findByTestId("room-my-video")).toHaveClass("pointer-events-none");
   });
 
   it("셀프뷰 스트림이 붙으면 재생을 직접 건다 — autoplay 속성에만 맡기지 않는다", async () => {
