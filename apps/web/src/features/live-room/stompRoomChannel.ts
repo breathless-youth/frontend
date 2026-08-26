@@ -129,16 +129,18 @@ export function createStompRoomChannel({
    * SNAPSHOT 재요청 워치독(BY-442) — 서버는 방 토픽 구독을 입장 확정으로 보고 SNAPSHOT을
    * 개인 큐로 즉시 쏘는데, Spring 인바운드 처리 순서가 보장되지 않아 개인 큐 등록 전에
    * 발사되면 유실된다(실서버 실측 — 유실되면 멤버 목록이 비어 영원히 혼자 화면). 그래서
-   * 연결마다 직접 요청하고, 못 받으면 2초 간격으로 재요청한다: 첫 요청이 같은 레이스에
+   * 연결마다 직접 요청하고, 못 받으면 아래 스케줄로 재요청한다: 첫 요청이 같은 레이스에
    * 져도 재시도 시점엔 구독이 확실히 등록돼 있어 자기 치유가 보장된다. 재연결 요청은
    * 끊긴 사이의 멤버 변동 재동기화를 겸한다(중복 SNAPSHOT은 수신측이 멱등 처리 — 리듀서
    * 목록 교체·유예 기준값 최초 1회 채택). BE가 목적지를 아직 안 열었어도 미매핑 SEND는
    * 버려질 뿐이라 무해하다. 계약 전문은 BY-442.
    */
-  const SNAPSHOT_RETRY_INTERVAL_MS = 2000;
-  const SNAPSHOT_RETRY_MAX = 5;
+  // 재시도 스케줄 — 유실의 원인인 구독 레이스 창은 ms 단위라 0.5초 뒤 재시도는 충분히
+  // 안전하게 늦다. 앞쪽 1~2발을 빠르게 쏴 체감 복구를 당기고(2026-08-26 피드백: 균일
+  // 2초는 혼자 화면이 길게 느껴진다), 그래도 안 오면(서버 지연·미배포) 2초로 물러난다.
+  const SNAPSHOT_RETRY_DELAYS_MS = [500, 1000, 2000, 2000, 2000] as const;
   let snapshotReceived = false;
-  let snapshotRetriesLeft = 0;
+  let snapshotRetryIndex = 0;
   let snapshotRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   function clearSnapshotWatchdog() {
@@ -159,16 +161,17 @@ export function createStompRoomChannel({
     } catch {
       // 죽은 소켓 구간 — 다음 연결의 정규 요청이 대체한다.
     }
-    if (snapshotRetriesLeft <= 0) {
+    const delay = SNAPSHOT_RETRY_DELAYS_MS[snapshotRetryIndex];
+    if (delay === undefined) {
       return;
     }
-    snapshotRetriesLeft -= 1;
+    snapshotRetryIndex += 1;
     snapshotRetryTimer = setTimeout(() => {
       snapshotRetryTimer = null;
       if (!snapshotReceived) {
         requestSnapshot();
       }
-    }, SNAPSHOT_RETRY_INTERVAL_MS);
+    }, delay);
   }
 
   // 연결 전 발행 버퍼. stompjs는 미연결 publish에서 예외를 던지므로, 연결이 열릴 때까지
@@ -203,7 +206,7 @@ export function createStompRoomChannel({
     // 재연결 포함 연결마다 스냅샷을 직접 요청한다 — 위 워치독 주석(BY-442) 참고.
     snapshotReceived = false;
     clearSnapshotWatchdog();
-    snapshotRetriesLeft = SNAPSHOT_RETRY_MAX;
+    snapshotRetryIndex = 0;
     requestSnapshot();
   };
 

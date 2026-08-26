@@ -278,7 +278,9 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
     expect(snapshotRequests(client)).toHaveLength(2);
   });
 
-  it("SNAPSHOT 미수신이면 2초 간격으로 재요청하고, 최초 1회+재시도 5회에서 멈춘다", () => {
+  it("SNAPSHOT 미수신이면 0.5s→1s→2s 스케줄로 재요청하고, 최초 1회+재시도 5회에서 멈춘다", () => {
+    // 앞쪽을 빠르게 쏘는 이유: 유실 원인인 구독 레이스 창은 ms 단위라 0.5초면 안전하게
+    // 늦고, 균일 2초는 혼자 화면 체감이 길었다(2026-08-26 피드백).
     vi.useFakeTimers();
     try {
       const { client, channel } = setup();
@@ -286,8 +288,10 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       client.fireConnect();
       expect(snapshotRequests(client)).toHaveLength(1);
 
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(500);
       expect(snapshotRequests(client)).toHaveLength(2);
+      vi.advanceTimersByTime(1000);
+      expect(snapshotRequests(client)).toHaveLength(3);
 
       vi.advanceTimersByTime(20_000);
       expect(snapshotRequests(client)).toHaveLength(6);
@@ -322,7 +326,7 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       client.fireConnect();
 
       client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":"oops"}' });
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(500);
 
       expect(snapshotRequests(client)).toHaveLength(2);
     } finally {
