@@ -38,7 +38,7 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { cn } from "@/lib/utils";
-import { kickVideoPlayback } from "@/lib/videoPlayback";
+import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 
 import type { CreateChannel } from "./liveRoomEntryState";
 
@@ -76,6 +76,8 @@ export function LiveRoomSession({
   // (세션 종료는 나가기 버튼으로만 가능하다)
   useNativeBackGestureLock();
   useNativeBackLock();
+  // 저전력 모드에서 멈춘 영상을 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
+  useGestureVideoPlaybackKick();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));

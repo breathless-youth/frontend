@@ -149,6 +149,29 @@ function renderRoom({
   return { channel, pcs, pcConfigs };
 }
 
+/**
+ * 프리뷰 스트림까지 흉내 내는 mock 카메라 — 자동재생 방어(kickVideoPlayback)는 srcObject가
+ * 붙은 video에만 동작하므로, play() 발신을 검증하는 테스트는 이걸 주입한다.
+ */
+function createStreamingMockCamera(): CameraAdapter {
+  const base = createMockCameraAdapter();
+  const fakeStream = { getVideoTracks: () => [] } as unknown as MediaStream;
+  return {
+    get facing() {
+      return base.facing;
+    },
+    get isRunning() {
+      return base.isRunning;
+    },
+    get stream() {
+      return base.isRunning ? fakeStream : null;
+    },
+    start: () => base.start(),
+    stop: () => base.stop(),
+    flip: () => base.flip(),
+  };
+}
+
 /** 일반 입장 — 모달 없이 join·프로필 결착을 기다려 꺼짐(일시정지) 상태로 세션에 들어간다. */
 /** 네이티브 게이트 응답(허용)을 흉내 낸다 — 브리지를 stub한 테스트에서 입장을 통과시킨다. */
 function grantCameraGate() {
@@ -903,11 +926,25 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     // 회전(리레이아웃) 전까지 영상 타일이 빈 채 남는 실기기 증상(2026-08-26, 3기기 동시
     // 입장). srcObject를 붙인 뒤 명시 play() 발신을 못 박는다(lib/videoPlayback.ts).
     const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
-    renderRoom();
+    renderRoom({ camera: createStreamingMockCamera() });
     await enterRoom();
     await turnCameraOn();
 
     expect(screen.getByTestId("room-my-video")).toBeInTheDocument();
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("탭 제스처마다 멈춘 영상에 play()를 다시 건다 — 저전력 모드 방어", async () => {
+    // iOS 저전력 모드는 스크립트 단독 play()를 거부하지만 제스처 핸들러 안의 play()는
+    // 허용된다 — 화면의 아무 탭이나 복구 트리거가 되는 발신을 못 박는다
+    // (useGestureVideoPlaybackKick, lib/videoPlayback.ts).
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    play.mockClear();
+    fireEvent.click(document.body);
     expect(play).toHaveBeenCalled();
   });
 

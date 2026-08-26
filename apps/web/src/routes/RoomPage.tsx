@@ -38,6 +38,7 @@ import type {
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useToast } from "@/lib/useToast";
+import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { postToNative } from "@/lib/bridge";
@@ -191,6 +192,8 @@ export function RoomPage() {
   const navigate = useNavigate();
   const userId = parseUserId(searchParams.get("userId"));
   const [camera] = useState(createMediaStreamCameraAdapter);
+  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
+  useGestureVideoPlaybackKick();
   /**
    * 프리뷰 `<video>` — **이 화면이 소유하고 두 곳에 나눠준다.**
    * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
