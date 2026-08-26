@@ -373,16 +373,31 @@ export function LiveRoomSession({
             // 커지는 순간 위로 넘친 행이 잘리고 스크롤로도 닿을 수 없다(flexbox 정렬 data loss,
             // 2026-08-25 실기기: 작은 화면에서 첫 행(내 타일+참가자)이 사라짐). 정렬은 아래
             // rows 래퍼의 auto 마진이 담당한다 — 넘치면 마진이 0으로 접혀 위부터 스크롤된다.
-            className={`flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]"
-            }`}
+            className={cn(
+              "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
+              // 가로는 BY-435 이전 그리드로 복원(BY-441) — 타일당 한 화면을 채우던 와이드
+              // 타일(2:1)은 카메라가 화면에 꽉 차서 되돌렸다. 2명은 1행 2열로 화면을 반씩,
+              // 3명 이상은 2열에 행 높이 절반 + 세로 스크롤. rows 래퍼가 가로에서
+              // landscape:contents로 사라져 타일이 이 컨테이너의 그리드 아이템이 된다 —
+              // % 행 높이는 높이가 정해진(grow) 이 컨테이너에서만 풀리기 때문이다.
+              // 간격은 세로 타일과 같은 gap-1(4px)을 쓴다(종전 gap-3은 BY-435의 세로
+              // 간격 축소와 어긋난다) — 행 높이 계산의 4px가 이 값이다.
+              "landscape:grid landscape:grid-cols-2 landscape:gap-1",
+              grid.cols === 1
+                ? "landscape:[grid-auto-rows:100%]"
+                : "landscape:[grid-auto-rows:calc((100%-4px)/2)]",
+              "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
+              controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]",
+            )}
           >
             <div
               data-testid="room-grid-rows"
               // 안전 정렬: 바 표시 중엔 mt-auto로 바 바로 위에, 숨김 중엔 my-auto로 세로
               // 가운데에 — 어느 쪽이든 내용이 넘치면 auto 마진이 접혀 잘리지 않는다.
               className={cn(
-                "flex w-full flex-wrap justify-center gap-1",
+                // landscape:contents — 가로에서는 이 래퍼를 지워 타일을 컨테이너 그리드에
+                // 직접 붙인다(위 컨테이너 주석, BY-441). auto 마진 정렬은 세로 전용이 된다.
+                "flex w-full flex-wrap justify-center gap-1 landscape:contents",
                 controlsVisible ? "mt-auto" : "my-auto",
               )}
             >
@@ -418,11 +433,12 @@ export function LiveRoomSession({
                             ? "w-[calc(44%-2px)]"
                             : "w-[calc(50%-2px)]",
                         ),
-                    // 가로: 화면을 꽉 채우는 와이드 타일이 한 줄에 하나씩 쌓여 위아래
-                    // 스크롤로 확인한다(2026-08-25 피드백 — 타일당 한 화면 꽉 차게). 가로
-                    // 폭·높이는 landscape 변형이 통째로 덮으므로 바 표시에 따른 세로 모드의
-                    // 축소(5~6명 44%, 2명 36dvh)는 가로에 적용되지 않는다 — 의도.
-                    "landscape:aspect-[2/1] landscape:h-auto landscape:w-full landscape:max-w-none",
+                    // 가로: 컨테이너 그리드의 셀을 stretch로 그대로 채운다(BY-441 —
+                    // BY-435 이전 배치 복원. "타일당 한 화면 꽉 차게"의 2:1 와이드 타일은
+                    // 카메라가 지나치게 커서 되돌렸다). 세로용 비율·크기 지정을 전부 풀어야
+                    // 셀 크기가 타일 크기가 된다 — 바 표시에 따른 세로 모드의 축소(5~6명
+                    // 44%, 2명 36dvh)는 가로에 적용되지 않는다.
+                    "landscape:aspect-auto landscape:h-auto landscape:w-auto landscape:max-w-none",
                   )}
                 />
               ))}

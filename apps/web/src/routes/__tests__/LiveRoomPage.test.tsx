@@ -992,6 +992,35 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("w-[calc(50%-2px)]");
   });
 
+  it("가로 2명은 1행 2열 그리드 — 화면을 꽉 채우던 와이드 타일(2:1)을 BY-435 이전 배치로 복원 (BY-441)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("landscape:grid");
+    expect(grid).toHaveClass("landscape:grid-cols-2");
+    expect(grid).toHaveClass("landscape:[grid-auto-rows:100%]");
+    // 가로에서는 rows 래퍼가 사라져(contents) 타일이 컨테이너의 그리드 아이템이 된다 —
+    // % 행 높이는 높이가 정해진(grow) 컨테이너에서만 풀리기 때문이다.
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("landscape:contents");
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    expect(tile).not.toHaveClass("landscape:aspect-[2/1]");
+    expect(tile).not.toHaveClass("landscape:w-full");
+    // 세로용 크기 지정을 풀어 그리드 stretch가 셀 크기를 결정한다.
+    expect(tile).toHaveClass("landscape:w-auto");
+    expect(tile).toHaveClass("landscape:aspect-auto");
+  });
+
+  it("가로 3명 이상은 2열에 행 높이 절반 — 넘치는 행은 세로 스크롤로 확인한다 (BY-441)", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+    await enterRoom();
+
+    expect(screen.getByTestId("room-grid")).toHaveClass(
+      "landscape:[grid-auto-rows:calc((100%-4px)/2)]",
+    );
+  });
+
   it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
     renderRoom({
       scenario: {
