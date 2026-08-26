@@ -1077,6 +1077,26 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).toHaveClass("landscape:pb-2");
   });
 
+  it("2명→3명처럼 타일 크기 급이 바뀌면 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {
+    // WKWebView는 재생 중 영상 타일이 레이아웃 변경으로 리사이즈되면 레이어를 다시 그리지
+    // 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2→3명 전환에서 기존 타일 2개만 안
+    // 보이고 새 타일만 그려짐). 새 DOM은 새 레이어라 강제 재페인트된다. 같은 급(3→4명)은
+    // 타일 크기가 안 변해 재마운트하지 않는다.
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const duoTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(9) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(3);
+    expect(document.body.contains(duoTile)).toBe(false);
+
+    const quadTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(10) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(4);
+    expect(document.body.contains(quadTile)).toBe(true);
+  });
+
   it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
     renderRoom({
       scenario: {

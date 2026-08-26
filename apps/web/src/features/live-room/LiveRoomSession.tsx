@@ -303,6 +303,19 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
+  /**
+   * 타일 크기 급이 바뀌는 경계(2명↔3명, 4명↔5명)에서 타일 DOM을 통째로 새로 마운트한다
+   * (key 접두) — iOS WKWebView는 재생 중인 영상 타일이 레이아웃 변경으로 리사이즈되면
+   * 컴포지팅 레이어를 다시 그리지 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2명→3명
+   * 전환에서 기존 타일 2개가 안 그려지고 새로 마운트된 타일만 보임 — 회전으로만 복구).
+   * 새 DOM은 새 레이어라 강제 재페인트가 되고, 영상 재생은 kickVideoPlayback 재시도
+   * 루프가 1초 안에 되살린다. 같은 급 안의 인원 변동(3→4명 등)은 타일 크기가 안 변해
+   * 재마운트하지 않고, 바 토글의 소폭 리사이즈도 제외한다 — 거기서 재마운트하면 FLIP
+   * 연결이 끊기고, 실기기에서 토글 리사이즈는 이 증상을 내지 않았다.
+   */
+  const tileLayoutEpoch =
+    grid.mode === "grid" && grid.cols === 1 ? "duo" : allMembers.length <= 4 ? "quad" : "hex";
+
   // 컨트롤 바 탭 토글(BY-435 디스코드 패턴) — 화면 탭이 바를 올리고, 자동으로 내려가지
   // 않으며, 한 번 더 탭하면 내려간다(종전 4초 유휴 자동 숨김 대체). 입장 직후는 숨김
   // 상태로 시작해 타일만 있는 몰입 화면이다. 잠금(제출 중·에러)·다이얼로그 동안은 항상
@@ -496,7 +509,8 @@ export function LiveRoomSession({
             >
               {allMembers.map((member) => (
                 <RoomTile
-                  key={member.userId}
+                  // 크기 급이 바뀌면 재마운트 — 위 tileLayoutEpoch 주석 참고.
+                  key={`${tileLayoutEpoch}-${member.userId}`}
                   member={member}
                   rootRef={member.userId === userId ? selfSurfaceRef : undefined}
                   selfState={member.userId === userId ? selfState : undefined}
