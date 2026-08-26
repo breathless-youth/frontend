@@ -13,31 +13,35 @@ import { kickVideoPlayback } from "./videoPlayback";
  * 이 저장소의 WKWebView 페인트 사고 전력(스크롤 컨테이너 transform → 타일 누락)이
  * 있어 일부러 피했다.
  *
- * 350ms 지연은 iOS가 orientationchange/resize 시점에 레이아웃이 아직 정착 전이라서다
- * (카메라 모달의 회전 재측정과 같은 근거 — LiveRoomSession의 remeasure 주석).
+ * 2연발(80ms·350ms)인 이유: iOS는 orientationchange 시점에 레이아웃이 정착 전이라
+ * 즉시 그리면 헛발이 될 수 있는데, 350ms 단발은 백지가 걷히는 체감이 늦었다
+ * (2026-08-26 피드백). 대부분의 기기에서 회전 전환이 끝나 있는 80ms에 먼저 그리고,
+ * 아직이었을 경우를 350ms 백업이 잡는다 — 재커밋은 멱등이라 두 번 그려도 무해하다.
  */
+const NUDGE_DELAYS_MS = [80, 350] as const;
+
 export function useRotationRepaintNudge(): void {
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    const repaint = () => {
+      const body = document.body;
+      body.style.display = "none";
+      // 강제 리플로우 — none이 실제로 커밋돼야 복원이 "다시 그리기"가 된다.
+      void body.offsetHeight;
+      body.style.display = "";
+      for (const video of document.querySelectorAll("video")) {
+        kickVideoPlayback(video);
+      }
+    };
     const nudge = () => {
-      if (timer !== null) {
+      for (const timer of timers) {
         clearTimeout(timer);
       }
-      timer = setTimeout(() => {
-        timer = null;
-        const body = document.body;
-        body.style.display = "none";
-        // 강제 리플로우 — none이 실제로 커밋돼야 복원이 "다시 그리기"가 된다.
-        void body.offsetHeight;
-        body.style.display = "";
-        for (const video of document.querySelectorAll("video")) {
-          kickVideoPlayback(video);
-        }
-      }, 350);
+      timers = NUDGE_DELAYS_MS.map((delay) => setTimeout(repaint, delay));
     };
     window.addEventListener("orientationchange", nudge);
     return () => {
-      if (timer !== null) {
+      for (const timer of timers) {
         clearTimeout(timer);
       }
       document.body.style.display = "";
