@@ -50,6 +50,16 @@ function setup() {
   return { client, channel };
 }
 
+/** 연결마다 자동 발신되는 SNAPSHOT 재요청(BY-442)을 걷어낸 발행 목록 — 발행 API 검증용. */
+function appPublishes(client: ReturnType<typeof createFakeClient>) {
+  return client.publishes.filter((p) => !p.destination.endsWith("/snapshot"));
+}
+
+/** SNAPSHOT 재요청 발신만 추린다. */
+function snapshotRequests(client: ReturnType<typeof createFakeClient>) {
+  return client.publishes.filter((p) => p.destination === "/app/room/42/snapshot");
+}
+
 describe("createStompRoomChannel", () => {
   it("연결 URL에 userId를 싣고, 연결되면 방 토픽과 개인 큐 2곳을 구독한다", () => {
     const { client, channel } = setup();
@@ -187,7 +197,7 @@ describe("createStompRoomChannel", () => {
 
     channel.publishState({ studySeconds: 12360 });
 
-    expect(client.publishes).toEqual([
+    expect(appPublishes(client)).toEqual([
       { destination: "/app/room/42/state", body: '{"studySeconds":12360}' },
     ]);
   });
@@ -202,7 +212,7 @@ describe("createStompRoomChannel", () => {
 
     client.fireConnect();
 
-    expect(client.publishes.map((p) => p.body)).toEqual([
+    expect(appPublishes(client).map((p) => p.body)).toEqual([
       '{"cameraOn":false}',
       '{"studySeconds":0}',
     ]);
@@ -215,11 +225,11 @@ describe("createStompRoomChannel", () => {
 
     client.connected = false; // 소켓이 끊겼지만 채널은 아직 모르는 구간
     channel.publishState({ studySeconds: 60 });
-    expect(client.publishes).toEqual([]);
+    expect(appPublishes(client)).toEqual([]);
 
     client.fireConnect();
 
-    expect(client.publishes.map((p) => p.body)).toEqual(['{"studySeconds":60}']);
+    expect(appPublishes(client).map((p) => p.body)).toEqual(['{"studySeconds":60}']);
   });
 
   it("publishSignal은 시그널 목적지로 발행하고, 연결 전에는 버퍼에 쌓인다", () => {
@@ -230,7 +240,7 @@ describe("createStompRoomChannel", () => {
 
     client.fireConnect();
 
-    expect(client.publishes).toEqual([
+    expect(appPublishes(client)).toEqual([
       {
         destination: "/app/room/42/signal",
         body: '{"toUserId":9,"kind":"OFFER","payload":{"type":"offer","sdp":"v=0"}}',
@@ -246,5 +256,96 @@ describe("createStompRoomChannel", () => {
 
     expect(client.deactivate).toHaveBeenCalledTimes(1);
     expect(channel.status).toBe("closed");
+  });
+});
+
+/**
+ * SNAPSHOT 재요청 워치독(BY-442) — 서버의 구독 트리거 SNAPSHOT이 인바운드 처리 순서
+ * 레이스로 유실될 수 있어(개인 큐 등록 전 발사), 연결마다 직접 요청하고 못 받으면
+ * 재요청한다. 계약 전문은 BY-442 티켓.
+ */
+describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
+  it("연결되면 구독 직후 빈 본문으로 재요청을 1회 보내고, 재연결에도 다시 보낸다", () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+
+    expect(snapshotRequests(client)).toHaveLength(1);
+    expect(snapshotRequests(client)[0]?.body).toBe("");
+
+    // 재연결 — stompjs는 onConnect를 다시 부른다. 끊긴 사이 멤버 변동 재동기화를 겸한다.
+    client.fireConnect();
+    expect(snapshotRequests(client)).toHaveLength(2);
+  });
+
+  it("SNAPSHOT 미수신이면 2초 간격으로 재요청하고, 최초 1회+재시도 5회에서 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      vi.advanceTimersByTime(2000);
+      expect(snapshotRequests(client)).toHaveLength(2);
+
+      vi.advanceTimersByTime(20_000);
+      expect(snapshotRequests(client)).toHaveLength(6);
+      vi.advanceTimersByTime(20_000);
+      expect(snapshotRequests(client)).toHaveLength(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("계약을 통과한 SNAPSHOT을 받으면 재요청을 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":[]}' });
+      vi.advanceTimersByTime(20_000);
+
+      expect(snapshotRequests(client)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("계약에 안 맞는 SNAPSHOT은 도착으로 치지 않는다 — 워치독이 계속 재요청한다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":"oops"}' });
+      vi.advanceTimersByTime(2000);
+
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("disconnect는 워치독을 멈춘다 — 다음 연결에서 유령 재요청이 흘러나오지 않는다", () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      channel.disconnect();
+      vi.advanceTimersByTime(20_000);
+
+      // 재연결하면 새 연결의 1회만 나간다 — 죽은 워치독이 버퍼로 흘려보낸 발행이 없다.
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

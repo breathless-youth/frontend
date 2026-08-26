@@ -115,9 +115,51 @@ export function createStompRoomChannel({
     if (!isRoomServerMessage(parsed)) {
       return;
     }
+    if (parsed.type === "SNAPSHOT") {
+      // 계약을 통과한 SNAPSHOT만 도착으로 친다 — 깨진 스냅샷이면 워치독이 계속 재요청한다.
+      snapshotReceived = true;
+      clearSnapshotWatchdog();
+    }
     for (const listener of listeners) {
       listener(parsed);
     }
+  }
+
+  /**
+   * SNAPSHOT 재요청 워치독(BY-442) — 서버는 방 토픽 구독을 입장 확정으로 보고 SNAPSHOT을
+   * 개인 큐로 즉시 쏘는데, Spring 인바운드 처리 순서가 보장되지 않아 개인 큐 등록 전에
+   * 발사되면 유실된다(실서버 실측 — 유실되면 멤버 목록이 비어 영원히 혼자 화면). 그래서
+   * 연결마다 직접 요청하고, 못 받으면 2초 간격으로 재요청한다: 첫 요청이 같은 레이스에
+   * 져도 재시도 시점엔 구독이 확실히 등록돼 있어 자기 치유가 보장된다. 재연결 요청은
+   * 끊긴 사이의 멤버 변동 재동기화를 겸한다(중복 SNAPSHOT은 수신측이 멱등 처리 — 리듀서
+   * 목록 교체·유예 기준값 최초 1회 채택). BE가 목적지를 아직 안 열었어도 미매핑 SEND는
+   * 버려질 뿐이라 무해하다. 계약 전문은 BY-442.
+   */
+  const SNAPSHOT_RETRY_INTERVAL_MS = 2000;
+  const SNAPSHOT_RETRY_MAX = 5;
+  let snapshotReceived = false;
+  let snapshotRetriesLeft = 0;
+  let snapshotRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearSnapshotWatchdog() {
+    if (snapshotRetryTimer !== null) {
+      clearTimeout(snapshotRetryTimer);
+      snapshotRetryTimer = null;
+    }
+  }
+
+  function requestSnapshot() {
+    send({ destination: `/app/room/${roomId}/snapshot`, body: "" });
+    if (snapshotRetriesLeft <= 0) {
+      return;
+    }
+    snapshotRetriesLeft -= 1;
+    snapshotRetryTimer = setTimeout(() => {
+      snapshotRetryTimer = null;
+      if (!snapshotReceived) {
+        requestSnapshot();
+      }
+    }, SNAPSHOT_RETRY_INTERVAL_MS);
   }
 
   // 연결 전 발행 버퍼. stompjs는 미연결 publish에서 예외를 던지므로, 연결이 열릴 때까지
@@ -149,6 +191,11 @@ export function createStompRoomChannel({
         client.publish(frame);
       }
     }
+    // 재연결 포함 연결마다 스냅샷을 직접 요청한다 — 위 워치독 주석(BY-442) 참고.
+    snapshotReceived = false;
+    clearSnapshotWatchdog();
+    snapshotRetriesLeft = SNAPSHOT_RETRY_MAX;
+    requestSnapshot();
   };
 
   return {
@@ -161,6 +208,7 @@ export function createStompRoomChannel({
     },
     disconnect() {
       status = "closed";
+      clearSnapshotWatchdog();
       void client.deactivate();
     },
     subscribe(listener) {
