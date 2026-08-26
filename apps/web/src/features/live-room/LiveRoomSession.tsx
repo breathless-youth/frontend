@@ -507,21 +507,23 @@ export function LiveRoomSession({
             className={cn(
               "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
               // 가로 그리드(BY-441, 2026-08-26 확정): 2명 1행 2열(행 높이 100%), 3~4명
-              // 2행 2열, 5~6명 2행 3열(행 높이 절반) — 타일은 세로 화면과 **같은 비율**
-              // (2명 정사각·3~4명 2:3·5~6명 4:5)을 셀 높이에 맞춰 세운다(아래 타일 클래스).
-              // 세로(상대) 기기가 보는 크롭과 내 셀프뷰 프레이밍을 맞추기 위해서다 —
-              // 종전 셀 stretch 와이드 타일은 상대가 보는 화면과 잘리는 영역이 전혀 달랐다
-              // (2026-08-26 실기기 피드백). 캡처 비율 제약은 화각만 줄이는 순손해라 금지
-              // (visionConfig.ts CAMERA_CONSTRAINTS 주석) — 프레이밍 일치는 표시 단계인
-              // 여기서만 만든다. rows 래퍼가 가로에서 landscape:contents로 사라져 타일이
-              // 이 컨테이너의 그리드 아이템이 된다 — % 행 높이는 높이가 정해진(grow) 이
-              // 컨테이너에서만 풀린다. 7명 이상은 3행부터 세로 스크롤.
-              "landscape:grid landscape:gap-3 landscape:justify-items-center",
+              // 2행 2열, 5~6명 2행 3열(행 높이 절반) — 타일은 세로 비율을 가로로 눕힌
+              // 직사각(2명 정사각·3~4명 3:2·5~6명 5:4)을 셀 높이에 맞춰 채운다(아래 타일
+              // 클래스). 처음엔 세로 비율을 그대로 세웠는데(프레이밍 일치) 셀 대비 여백이
+              // 과했다 — 눕힌 비율이면 셀을 채우면서 상대(세로 2:3·4:5) 크롭과도 같은
+              // 계열로 남는다(2026-08-26 피드백). 종전 셀 stretch 와이드 타일(잘리는 영역이
+              // 상대와 전혀 다름)로는 되돌리지 않는다. 캡처 비율 제약은 화각만 줄이는
+              // 순손해라 금지(visionConfig.ts CAMERA_CONSTRAINTS 주석) — 프레이밍은 표시
+              // 단계인 여기서만 만든다. 간격은 세로와 같은 gap-1(4px, 여백 축소 피드백 —
+              // 행 높이 계산의 4px가 이 값). rows 래퍼가 가로에서 landscape:contents로
+              // 사라져 타일이 이 컨테이너의 그리드 아이템이 된다 — % 행 높이는 높이가
+              // 정해진(grow) 이 컨테이너에서만 풀린다. 7명 이상은 3행부터 세로 스크롤.
+              "landscape:grid landscape:gap-1 landscape:justify-items-center",
               grid.cols === 1
                 ? "landscape:grid-cols-2 landscape:[grid-auto-rows:100%]"
                 : allMembers.length <= 4
-                  ? "landscape:grid-cols-2 landscape:[grid-auto-rows:calc((100%-12px)/2)]"
-                  : "landscape:grid-cols-3 landscape:[grid-auto-rows:calc((100%-12px)/2)]",
+                  ? "landscape:grid-cols-2 landscape:[grid-auto-rows:calc((100%-4px)/2)]"
+                  : "landscape:grid-cols-3 landscape:[grid-auto-rows:calc((100%-4px)/2)]",
               "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
               controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]",
               // 가로 하단 여백도 당시 값(pb-2) — 행 높이가 컨테이너 높이에서 풀리므로 바
@@ -582,12 +584,17 @@ export function LiveRoomSession({
                               : "w-[calc(47%-2px)]"
                             : "w-[calc(50%-2px)]",
                         ),
-                    // 가로: 세로와 같은 비율(위 aspect 클래스가 그대로 적용)을 셀 높이에
-                    // 맞춰 세운다 — h-full이 셀 행 높이를 채우고 폭은 aspect가 정한다
-                    // (2026-08-26 확정, 컨테이너 주석 참고). 세로용 폭·dvh 높이 지정만 풀고,
+                    // 가로: 세로 비율을 눕힌 직사각(3~4명 3:2·5~6명 5:4, 2명은 정사각
+                    // 그대로)을 셀 높이에 맞춘다 — h-full이 셀 행 높이를 채우고 폭은
+                    // aspect가 정한다(2026-08-26 확정 — 세로 비율을 그대로 세우면 셀 대비
+                    // 여백이 과했다, 컨테이너 주석 참고). 세로용 폭·dvh 높이 지정만 풀고,
                     // 바 표시에 따른 세로 모드의 축소(5~6명 44%, 2명 37dvh)는 가로에 적용되지
                     // 않는다 — 가로 셀 높이는 바와 무관해 토글이 레이아웃을 안 바꾼다.
                     "landscape:h-full landscape:w-auto landscape:max-w-none",
+                    grid.cols !== 1 &&
+                      (allMembers.length <= 4
+                        ? "landscape:aspect-[3/2]"
+                        : "landscape:aspect-[5/4]"),
                   )}
                 />
               ))}

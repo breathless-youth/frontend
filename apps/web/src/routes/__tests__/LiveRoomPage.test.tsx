@@ -1071,23 +1071,24 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("landscape:w-auto");
   });
 
-  it("가로 3~4명은 2행 2열, 행 높이 절반 — 타일 비율은 세로와 같은 2:3 (BY-441)", async () => {
+  it("가로 3~4명은 2행 2열, 행 높이 절반 — 타일은 세로 2:3을 눕힌 3:2 (BY-441)", async () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
     expect(grid).toHaveClass("landscape:grid-cols-2");
-    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-12px)/2)]");
-    // 간격·하단 여백은 5bf0849 값 그대로 — 가로에서는 바가 타일 위에 겹친다.
-    expect(grid).toHaveClass("landscape:gap-3");
+    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-4px)/2)]");
+    // 간격은 세로와 같은 gap-1(여백 축소 피드백) — 가로에서는 바가 타일 위에 겹친다(pb-2).
+    expect(grid).toHaveClass("landscape:gap-1");
     expect(grid).toHaveClass("landscape:pb-2");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[2/3]");
+    // 세로 비율을 그대로 세우면 셀 대비 여백이 과했다 — 눕힌 3:2가 셀을 채운다.
+    expect(tile).toHaveClass("landscape:aspect-[3/2]");
     expect(tile).toHaveClass("landscape:h-full");
   });
 
-  it("가로 5~6명은 2행 3열 — 스크롤 없이 수납되고 타일 비율은 세로와 같은 4:5 (BY-441)", async () => {
+  it("가로 5~6명은 2행 3열 — 스크롤 없이 수납되고 타일은 세로 4:5를 눕힌 5:4 (BY-441)", async () => {
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
@@ -1096,10 +1097,10 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const grid = screen.getByTestId("room-grid");
     expect(grid).toHaveClass("landscape:grid-cols-3");
     expect(grid).not.toHaveClass("landscape:grid-cols-2");
-    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-12px)/2)]");
+    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-4px)/2)]");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("aspect-[4/5]");
+    expect(tile).toHaveClass("landscape:aspect-[5/4]");
     expect(tile).toHaveClass("landscape:h-full");
   });
 
