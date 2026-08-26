@@ -7,7 +7,6 @@ import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdap
 export type LiveRoomLocationState = {
   inviteCode: string;
   graceRejoin?: boolean;
-  cameraOn?: boolean | null;
   iceServers?: IceServer[];
 };
 

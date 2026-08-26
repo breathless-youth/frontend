@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -34,9 +41,6 @@ import { cn } from "@/lib/utils";
 
 import type { CreateChannel } from "./liveRoomEntryState";
 
-/** 컨트롤 바 자동 숨김 유휴 시간(ms) — 2026-08-25 BY-427 시안 B. */
-const CONTROL_BAR_IDLE_MS = 4000;
-
 function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
   const stream = streams.get(userId);
   if (!stream) {
@@ -52,7 +56,6 @@ export function LiveRoomSession({
   camera,
   createPeerConnection,
   iceServers,
-  initialCameraOn,
   profile,
 }: {
   roomId: number;
@@ -61,7 +64,6 @@ export function LiveRoomSession({
   camera: CameraAdapter;
   createPeerConnection?: CreatePeerConnection;
   iceServers: IceServer[];
-  initialCameraOn: boolean;
   profile: ProfileResponse | null;
 }) {
   const navigate = useNavigate();
@@ -101,7 +103,9 @@ export function LiveRoomSession({
   const [channel] = useState(() => createChannel({ roomId, userId }));
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
-  const [cameraWanted, setCameraWanted] = useState(initialCameraOn);
+  // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
+  // 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다(BY-412).
+  const [cameraWanted, setCameraWanted] = useState(false);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   // 유예 재입장이면 서버가 보존한 내 studySeconds가 첫 SNAPSHOT에 실려 온다 — 이 값을
   // 기준으로 표시·발행을 이어간다. 일반 입장은 0이라 동작이 같다. 첫 값만 쓴다:
@@ -147,13 +151,11 @@ export function LiveRoomSession({
   // 두 번째 마운트가 정상 연결된다.
   useEffect(() => {
     channel.connect();
-    if (!initialCameraOn) {
-      pause("MANUAL");
-    }
+    pause("MANUAL");
     return () => {
       channel.disconnect();
     };
-  }, [channel, initialCameraOn, pause]);
+  }, [channel, pause]);
 
   // 추론 수명 — 측정 중이고 일시정지가 아닐 때만 감지한다(솔로 세션과 같은 규칙).
   const detectionEnabled = phase.name === "studying" && sessionState.kind !== "PAUSE";
@@ -230,6 +232,42 @@ export function LiveRoomSession({
   // 박스(288×234)와 서피스는 비율이 크게 달라 cover 크롭이 다르게 잘렸다(2026-08-25).
   const selfSurfaceRef = useRef<HTMLDivElement | null>(null);
   const [previewAspect, setPreviewAspect] = useState<number | null>(null);
+  const measurePreviewAspect = useCallback(() => {
+    const rect = selfSurfaceRef.current?.getBoundingClientRect();
+    setPreviewAspect(rect !== undefined && rect.height > 0 ? rect.width / rect.height : null);
+  }, []);
+  // 모달이 열린 채 회전하면 셀프뷰 서피스 비율이 바뀐다(가로 3:2 등) — 열 때 한 번 잰
+  // 값이 낡아 세로 레터박스가 가로에 그대로 남았다(2026-08-25 실기기). 열려 있는 동안
+  // 리사이즈(회전)마다 다시 잰다. iOS 회전은 resize 시점에 레이아웃이 아직 정착 전이라
+  // 즉시 읽으면 중간 치수가 잡힌다 — 다음 프레임에 재고, 정착 지연 대비로 350ms 뒤
+  // 한 번 더 잰다(가로에서 바로 열었을 때와 크기가 달랐던 원인).
+  useEffect(() => {
+    if (!cameraDialogOpen) {
+      return;
+    }
+    let raf = 0;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const remeasure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        measurePreviewAspect();
+        if (settleTimer !== null) {
+          clearTimeout(settleTimer);
+        }
+        settleTimer = setTimeout(measurePreviewAspect, 350);
+      });
+    };
+    window.addEventListener("resize", remeasure);
+    window.addEventListener("orientationchange", remeasure);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (settleTimer !== null) {
+        clearTimeout(settleTimer);
+      }
+      window.removeEventListener("resize", remeasure);
+      window.removeEventListener("orientationchange", remeasure);
+    };
+  }, [cameraDialogOpen, measurePreviewAspect]);
   const leavingRef = useRef(false);
 
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다.
@@ -262,40 +300,37 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
-  // 컨트롤 바 자동 숨김(BY-427 시안 B) — 마지막 상호작용 후 4초가 지나면 바만 잔상(0.22)으로
-  // 페이드하고 조작을 막는다. 잠금(제출 중·에러)·다이얼로그 동안은 숨기지 않는다.
+  // 컨트롤 바 탭 토글(BY-435 디스코드 패턴) — 화면 탭이 바를 올리고, 자동으로 내려가지
+  // 않으며, 한 번 더 탭하면 내려간다(종전 4초 유휴 자동 숨김 대체). 입장 직후는 숨김
+  // 상태로 시작해 타일만 있는 몰입 화면이다. 잠금(제출 중·에러)·다이얼로그 동안은 항상
+  // 보인다. 바 자체 조작은 RoomControlBar가 pointerdown 버블을 끊어 토글로 새지 않는다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  const [controlsFaded, setControlsFaded] = useState(false);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearFadeTimer = useCallback(() => {
-    if (fadeTimerRef.current !== null) {
-      clearTimeout(fadeTimerRef.current);
-      fadeTimerRef.current = null;
-    }
-  }, []);
-  const restartFadeTimer = useCallback(() => {
-    clearFadeTimer();
-    fadeTimerRef.current = setTimeout(() => {
-      fadeTimerRef.current = null;
-      setControlsFaded(true);
-    }, CONTROL_BAR_IDLE_MS);
-  }, [clearFadeTimer]);
-  useEffect(() => {
-    if (controlsAlwaysVisible) {
-      clearFadeTimer();
-      setControlsFaded(false);
+  // 입장 직후에는 보인다(2026-08-25 피드백 — 조작법을 먼저 보여준다). 탭으로 내리면
+  // 이름·목표도 함께 숨어 시간만 남는 몰입 화면이 된다(RoomTile infoHidden).
+  const [controlsShown, setControlsShown] = useState(true);
+  const controlsVisible = controlsAlwaysVisible || controlsShown;
+  // 탭과 스크롤을 구분한다(2026-08-25 피드백) — pointerdown만 보면 스크롤 시작 터치가
+  // 토글로 먹혀 "한 번 더 터치해야 스크롤"이 됐다. 눌린 지점에서 거의 움직이지 않고
+  // 뗀 경우(≤10px)만 탭으로 인정한다. 스크롤이 포인터를 가져가면 pointerup이 아예
+  // 오지 않으므로 자연히 토글되지 않는다.
+  const surfacePointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const handleSurfacePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    surfacePointerStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+  const handleSurfacePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = surfacePointerStartRef.current;
+    surfacePointerStartRef.current = null;
+    if (start === null) {
       return;
     }
-    restartFadeTimer();
-    return clearFadeTimer;
-  }, [clearFadeTimer, controlsAlwaysVisible, restartFadeTimer]);
-
-  // 화면 아무 곳 탭 = 즉시 복귀 + 유휴 타이머 재시작. 바 조작도 pointerdown 버블로 같이 잡힌다.
-  // 잔상 상태의 바는 pointer-events가 꺼져 있어 그 탭은 복귀 트리거로만 동작한다.
-  const handleSurfacePointerDown = () => {
-    setControlsFaded(false);
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 10) {
+      return;
+    }
+    // 강제 표시 구간의 탭(다이얼로그 배경 등)이 숨김 상태를 뒤집어 두면, 구간이 끝나는
+    // 순간 바가 예고 없이 내려간다 — 토글은 일반 구간에서만 받는다.
     if (!controlsAlwaysVisible) {
-      restartFadeTimer();
+      setControlsShown((prev) => !prev);
     }
   };
 
@@ -303,7 +338,10 @@ export function LiveRoomSession({
     <main
       data-testid="live-room-page"
       onPointerDown={handleSurfacePointerDown}
-      className="relative flex h-dvh flex-col bg-background"
+      onPointerUp={handleSurfacePointerUp}
+      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
+      // 문서 스크롤이 생기지 않게 한다.
+      className="relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
       {debugEnabled && (
@@ -337,27 +375,64 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
-            className={`grid grow gap-3 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-2 landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
-              grid.cols === 1 ? "grid-cols-1 landscape:grid-cols-2" : "grid-cols-2"
-            } ${
-              grid.rowUnit === 2
-                ? "[grid-auto-rows:calc((100%-12px)/2)] landscape:[grid-auto-rows:100%]"
-                : "[grid-auto-rows:calc((100%-24px)/3)] landscape:[grid-auto-rows:calc((100%-12px)/2)]"
+            // 스크롤 컨테이너 자신은 정렬하지 않는다 — content-center/end는 내용이 컨테이너보다
+            // 커지는 순간 위로 넘친 행이 잘리고 스크롤로도 닿을 수 없다(flexbox 정렬 data loss,
+            // 2026-08-25 실기기: 작은 화면에서 첫 행(내 타일+참가자)이 사라짐). 정렬은 아래
+            // rows 래퍼의 auto 마진이 담당한다 — 넘치면 마진이 0으로 접혀 위부터 스크롤된다.
+            className={`flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)] landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)] ${
+              controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]"
             }`}
           >
-            {allMembers.map((member) => (
-              <RoomTile
-                key={member.userId}
-                member={member}
-                rootRef={member.userId === userId ? selfSurfaceRef : undefined}
-                selfState={member.userId === userId ? selfState : undefined}
-                media={
-                  member.userId === userId
-                    ? myVideo
-                    : remoteVideoOrUndefined(member.userId, remoteStreams)
-                }
-              />
-            ))}
+            <div
+              data-testid="room-grid-rows"
+              // 안전 정렬: 바 표시 중엔 mt-auto로 바 바로 위에, 숨김 중엔 my-auto로 세로
+              // 가운데에 — 어느 쪽이든 내용이 넘치면 auto 마진이 접혀 잘리지 않는다.
+              className={cn(
+                "flex w-full flex-wrap justify-center gap-1",
+                controlsVisible ? "mt-auto" : "my-auto",
+              )}
+            >
+              {allMembers.map((member) => (
+                <RoomTile
+                  key={member.userId}
+                  member={member}
+                  rootRef={member.userId === userId ? selfSurfaceRef : undefined}
+                  selfState={member.userId === userId ? selfState : undefined}
+                  infoHidden={!controlsVisible}
+                  media={
+                    member.userId === userId
+                      ? myVideo
+                      : remoteVideoOrUndefined(member.userId, remoteStreams)
+                  }
+                  // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
+                  // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
+                  // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
+                  className={cn(
+                    grid.cols === 1
+                      ? cn(
+                          // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
+                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25).
+                          "aspect-square max-w-full",
+                          controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
+                        )
+                      : cn(
+                          // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
+                          // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
+                          // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
+                          allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
+                          allMembers.length > 4 && controlsVisible
+                            ? "w-[calc(44%-2px)]"
+                            : "w-[calc(50%-2px)]",
+                        ),
+                    // 가로: 화면을 꽉 채우는 와이드 타일이 한 줄에 하나씩 쌓여 위아래
+                    // 스크롤로 확인한다(2026-08-25 피드백 — 타일당 한 화면 꽉 차게). 가로
+                    // 폭·높이는 landscape 변형이 통째로 덮으므로 바 표시에 따른 세로 모드의
+                    // 축소(5~6명 44%, 2명 36dvh)는 가로에 적용되지 않는다 — 의도.
+                    "landscape:aspect-[2/1] landscape:h-auto landscape:w-full landscape:max-w-none",
+                  )}
+                />
+              ))}
+            </div>
           </div>
         )}
 
@@ -375,20 +450,17 @@ export function LiveRoomSession({
               </button>
             </div>
           )}
-          {/* "저장 중..."·"다시 제출"은 페이드 대상이 아니다 — 바만 잔상으로 페이드한다. */}
+          {/* "저장 중..."·"다시 제출"은 숨김 대상이 아니다 — 바만 아래로 내려간다. */}
           <RoomControlBar
             cameraOn={!paused}
             disabled={controlsLocked}
-            faded={controlsFaded}
+            hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
-                const rect = selfSurfaceRef.current?.getBoundingClientRect();
-                setPreviewAspect(
-                  rect !== undefined && rect.height > 0 ? rect.width / rect.height : null,
-                );
+                measurePreviewAspect();
                 setCameraDialogOpen(true);
               }
             }}

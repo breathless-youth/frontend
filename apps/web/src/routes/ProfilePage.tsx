@@ -10,7 +10,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
-import { validateGoal, validateNickname } from "@/features/profile/profileValidation";
+import {
+  validateGoal,
+  validateNickname,
+  validateNicknameLength,
+} from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -161,7 +165,12 @@ export function ProfilePage() {
         <h1 className="text-[22px] leading-[27px] font-bold text-foreground">프로필 설정</h1>
 
         <div className="flex justify-center py-1">
-          <ProfileAvatar initial={profile.initial} colorIndex={profile.colorIndex} />
+          {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
+              바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백. */}
+          <ProfileAvatar
+            initial={nickname.charAt(0) || profile.initial}
+            colorIndex={profile.colorIndex}
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -175,10 +184,15 @@ export function ProfilePage() {
             id="profile-nickname"
             type="text"
             value={nickname}
-            maxLength={12}
+            // 목표 문구와 같은 규칙 — maxLength로 조용히 막지 않고, 12자 초과는 입력 중에
+            // 바로 안내한다. 형식·최소 길이 검증은 저장 시점(validateNickname)에만 한다.
             onChange={(event) => {
-              setNickname(event.target.value);
-              setErrors((prev) => ({ ...prev, nickname: undefined }));
+              const value = event.target.value;
+              setNickname(value);
+              setErrors((prev) => ({
+                ...prev,
+                nickname: validateNicknameLength(value) ?? undefined,
+              }));
             }}
             aria-invalid={errors.nickname !== undefined || undefined}
             aria-describedby={errors.nickname !== undefined ? "profile-nickname-error" : undefined}
@@ -263,7 +277,14 @@ export function ProfilePage() {
       <div className="mt-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <button
           type="button"
-          disabled={!isDirty || saveMutation.isPending}
+          // 길이 초과(목표 20자·닉네임 12자)는 입력 중 인라인 안내와 함께 저장 버튼도
+          // 잠근다(2026-08-25 피드백) — 눌러도 거부될 버튼을 활성으로 두지 않는다.
+          disabled={
+            !isDirty ||
+            saveMutation.isPending ||
+            validateGoal(goal) !== null ||
+            validateNicknameLength(nickname) !== null
+          }
           onClick={handleSave}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >

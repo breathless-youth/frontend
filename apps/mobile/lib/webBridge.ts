@@ -31,6 +31,40 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   switch (record.type) {
     case "session-ready":
       return { type: "session-ready", atMs: record.atMs };
+    case "pong":
+      // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
+      if (typeof record.id !== "number") {
+        return null;
+      }
+      return { type: "pong", id: record.id, atMs: record.atMs };
+    case "report-screen": {
+      // path는 우리 SPA의 절대 경로만 허용한다 — 임의 문자열이 재마운트 URL에 섞이면
+      // 웹뷰가 외부 주소로 열릴 수 있다. `//host` 꼴(프로토콜 상대 URL)도 막는다.
+      if (
+        typeof record.path !== "string" ||
+        !record.path.startsWith("/") ||
+        record.path.startsWith("//") ||
+        typeof record.dark !== "boolean"
+      ) {
+        return null;
+      }
+      let restoreQuery: Record<string, string> | undefined;
+      if (typeof record.restoreQuery === "object" && record.restoreQuery !== null) {
+        // 문자열 값만 남긴다 — URL 조립(encodeURIComponent)이 감당할 수 있는 형태로 좁힌다.
+        restoreQuery = Object.fromEntries(
+          Object.entries(record.restoreQuery as Record<string, unknown>).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        );
+      }
+      return {
+        type: "report-screen",
+        path: record.path,
+        ...(restoreQuery !== undefined ? { restoreQuery } : {}),
+        dark: record.dark,
+        atMs: record.atMs,
+      };
+    }
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
     case "navigate-home":
@@ -80,6 +114,14 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "set-back-lock", locked: record.locked, atMs: record.atMs };
+    case "set-orientation":
+      // `unlocked`가 boolean이 아니면 통째로 버린다 — 기본값(세로 잠금)이 유지되는 편이 안전하다.
+      if (typeof record.unlocked !== "boolean") {
+        return null;
+      }
+      return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
+    case "request-camera-gate":
+      return { type: "request-camera-gate", atMs: record.atMs };
     case "motion-sensor":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
       // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.

@@ -132,6 +132,22 @@ describe("makeScrubbingTransport: 전송 직전 최종 방어선", () => {
     expect(sentHeader.length).toBe(new TextEncoder().encode(sentRecording).length);
   });
 
+  it("녹화 문자열의 code(초대코드) 파라미터도 지운다 — 렌더러 사망 복원 URL(BY-436)", async () => {
+    // Android 재마운트 복원이 소셜룸을 `?code=0712`로 열어 rrweb Meta href에 초대코드가
+    // 실린다. 화이트리스트 정제(sanitizeUrl)를 안 타는 유일한 경로라 여기서 지워야 한다.
+    const recording =
+      '{"segment_id":0}\n[{"type":4,"data":{"href":"https://web.example.com/social/room/42?userId=7&code=0712&appVersion=1.0.0"}}]';
+    const transport = makeScrubbingTransport({} as never);
+
+    await transport.send(replayEnvelope(recording));
+
+    const sent = (innerSend.mock.calls[0] as unknown[])[0] as [unknown, [unknown, unknown][]];
+    const sentRecording = sent[1][1][1] as string;
+    expect(sentRecording).not.toContain("code=0712");
+    expect(sentRecording).not.toContain("userId");
+    expect(sentRecording).toContain("appVersion=1.0.0");
+  });
+
   it("정제할 수 없는 압축된 녹화면 보내지 않는다. fail-closed 계약이다", async () => {
     const transport = makeScrubbingTransport({} as never);
 

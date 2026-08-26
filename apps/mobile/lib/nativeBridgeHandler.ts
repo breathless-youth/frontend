@@ -35,6 +35,27 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
         console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
       });
       break;
+    case "request-camera-gate":
+      // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면
+      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면
+      // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
+      // 없이 미리보기 실패에 머무는 공백이 같다.
+      void (async () => {
+        const result = await runCameraPermissionGate();
+        if (result === "show-denied-guide") {
+          router.push("/permission-denied");
+          reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
+          return;
+        }
+        reply({ type: "camera-gate-result", granted: true, atMs: Date.now() });
+      })().catch((error: unknown) => {
+        // fail-closed — 권한을 확인하지 못한 채로 룸에 들여보내지 않는다. 게이트 자체가
+        // 실패했다는 것은 권한 상태를 알 수 없다는 뜻이고, 그때 통과시키면 카메라를 켤 수
+        // 없는 상태로 세션이 시작된다. 웹은 이 응답을 받아 입장을 중단한다.
+        console.warn("[bridge] 카메라 게이트(request-camera-gate) 처리 실패", error);
+        reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
+      });
+      break;
     case "navigate-home":
       // S4 결과 CTA·미달 종료 안내가 보낸다 — 세션은 탭 위에 `fullScreenModal`로 떠 있으므로
       // 모달을 닫으면 그 아래 홈 탭이 그대로 드러난다. 스택이 비어 있는 경우(딥링크 진입 등)는

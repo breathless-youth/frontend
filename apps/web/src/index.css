@@ -148,6 +148,37 @@
   }
 }
 
+/* 네이티브 셸 주도 다크 — Android WebView는 시스템 다크를 미디어쿼리에 전달하지 않아
+   셸이 data-theme 속성으로 알려준다(src/lib/nativeTheme.ts). 미디어쿼리와 속성 셀렉터는
+   순수 CSS로 블록을 공유할 수 없어 값이 두 벌이다 — **위 다크 블록과 항상 같아야 한다.
+   다크 토큰을 고칠 때 두 블록을 함께 고칠 것.** iOS·브라우저는 data-theme이 붙지 않아
+   이 블록이 적용될 일이 없고, Android는 미디어쿼리가 항상 light로 평가되어 두 블록이
+   충돌할 조합이 없다. */
+:root[data-theme="dark"] {
+  --background: #101419;
+  --foreground: #f9fafb;
+  --primary: #3182f6;
+  --primary-foreground: #ffffff;
+  --muted: #191f28;
+  --muted-foreground: #b0b8c1;
+  --border: #333d4b;
+  --bg-layer-2: #333d4b;
+  --text-tertiary: #8b95a1;
+  --brand-subtle: #1b2b4d;
+  --bg-guide: #152030;
+  --border-strong: #4e5968;
+  --state-focus: #4593fc;
+  --state-distract: #ff9e1b;
+  --state-distract-subtle: #3d2e14;
+  --state-distract-text: #ff9e1b;
+  --text-disabled: #4e5968;
+  --dim: #00000099;
+  --invite-surface: #1c222c;
+  --invite-surface-text: #f5f7fa;
+  --share-tonal: #1e2f52;
+  --share-tonal-text: #94baff;
+}
+
 /* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
    여기가 비어 있으면 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보인다
    (2026-08-01 웹뷰 실기기 확인). 두 요소에 같은 토큰을 준다. */
@@ -287,6 +318,35 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .session-edge-glow-fade {
     animation: none;
+  }
+}
+
+/* 컨트롤 바 아이콘 교체 팝(BY-435) — 상태 토글(룸 카메라 켬↔끔, 싱글 일시정지↔재개)로
+   아이콘이 바뀔 때 살짝 작은 상태에서 커지며 나타난다. 재생은 아이콘 리마운트(React key)로
+   트리거하고, 모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes control-icon-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 하단 토스트 등장 페이드 업 — 지연 뒤 나타나는 토스트가 갑작스럽지 않게(BY-435).
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes toast-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 

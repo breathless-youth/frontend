@@ -39,3 +39,19 @@ export function useNativeBackLock(): void {
     };
   }, []);
 }
+
+/**
+ * 마운트 동안 화면 회전 잠금 해제를 요청한다 — 언마운트에서 세로 복원을 요청한다.
+ *
+ * 실시간 룸이 쓴다: 룸은 탭 웹뷰 안 웹 라우팅으로 돌아 네이티브 화면 전환이 없고, 솔로
+ * 세션처럼 화면 마운트에서 잠금을 풀 자리가 없다. 네이티브 반응은 Android 전용이다
+ * (`set-orientation` 계약 주석 참고). 브라우저 단독 모드에서는 조용히 무동작이다.
+ */
+export function useNativeOrientationUnlock(): void {
+  useEffect(() => {
+    postToNative({ type: "set-orientation", unlocked: true, atMs: Date.now() });
+    return () => {
+      postToNative({ type: "set-orientation", unlocked: false, atMs: Date.now() });
+    };
+  }, []);
+}
