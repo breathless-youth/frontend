@@ -1141,6 +1141,40 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     expect(bar).not.toHaveClass(SLIDE);
   });
 
+  it("바 토글 시 타일 이동을 FLIP transform으로 잇는다 — 바 슬라이드와 같은 400ms·시트 곡선", async () => {
+    // 도착 시점 동기화(2026-08-26 피드백): 레이아웃은 즉시 확정하고 타일별 transform
+    // 애니메이션이 이전 위치에서 새 위치로 잇는다. jsdom에는 WAAPI도 실제 레이아웃도
+    // 없어 rect와 animate를 흉내 내 발신만 검증한다.
+    renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+
+    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    let top = 300;
+    vi.spyOn(tile, "getBoundingClientRect").mockImplementation(
+      () => ({ top, left: 20, width: 200, height: 200, right: 220, bottom: top + 200 }) as DOMRect,
+    );
+    const animate = vi.fn();
+    (tile as unknown as { animate: typeof animate }).animate = animate;
+
+    // 첫 토글의 기준 rect는 모킹 전(0×0)이라 스킵되고, 모킹된 rect가 기준으로 저장된다.
+    tapSurface();
+    expect(animate).not.toHaveBeenCalled();
+
+    top = 340;
+    tapSurface();
+
+    expect(animate).toHaveBeenCalledTimes(1);
+    const [keyframes, options] = animate.mock.calls[0] as [
+      { transform: string }[],
+      { duration: number; easing: string },
+    ];
+    // 이전 위치(top 300)에서 시작해 원위치(top 340)로 — 역적용 translate가 -40px다.
+    expect(keyframes[0].transform).toContain("translate(0px, -40px)");
+    expect(keyframes[1].transform).toBe("none");
+    // 바 슬라이드(RoomControlBar)·글자 페이드(RoomTile)와 같은 값 — 어긋나면 도착이 갈라진다.
+    expect(options).toEqual({ duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+  });
+
   it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {
     renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
     await enterRoom();

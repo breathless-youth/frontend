@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -328,6 +329,86 @@ export function LiveRoomSession({
     }
   };
 
+  /**
+   * 바 토글의 타일 이동·크기 변화를 FLIP(이전 위치로 transform 역적용 → 원위치)으로
+   * 잇는다 — 바 슬라이드·글자 페이드와 **도착 시점을 맞춘다**(2026-08-26 피드백: 셋의
+   * 속도가 어긋나 어색했다). 같은 400ms·iOS 시트 곡선이라 세 동작이 함께 정착한다.
+   *
+   * 방식이 FLIP인 이유: 높이·패딩 트랜지션은 영상 리플로우로 실기기 랙(6e827c9), 스크롤
+   * 컨테이너(`room-grid`) transform은 WKWebView 타일 페인트 누락 사고가 있었다. FLIP은
+   * 레이아웃을 즉시 확정하고 **타일 각각에만** transform 애니메이션을 걸어 둘 다 피한다.
+   *
+   * rect 저장은 매 커밋(의존성 없음) — 타일 ≤6개 측정이라 싸고, 토글 외의 렌더가 기준
+   * rect를 최신으로 유지한다. 토글이 아닌 레이아웃 변화(입장·퇴장)는 애니메이션하지
+   * 않는다(종전과 같은 즉시 반영). 가로에서는 바 토글이 레이아웃을 바꾸지 않아 자연히
+   * 무동작이다.
+   */
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const prevTileRectsRef = useRef<ReadonlyMap<string, DOMRect>>(new Map());
+  const prevControlsVisibleRef = useRef(controlsVisible);
+  useLayoutEffect(() => {
+    const controlsChanged = prevControlsVisibleRef.current !== controlsVisible;
+    prevControlsVisibleRef.current = controlsVisible;
+    const tiles = Array.from(
+      rowsRef.current?.querySelectorAll<HTMLElement>('[data-testid="room-tile"]') ?? [],
+    );
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rects = new Map<string, DOMRect>();
+    for (const tile of tiles) {
+      // 연타 대비 — 진행 중인 FLIP을 접어야 변환이 섞이지 않은 실제 레이아웃 rect가
+      // 나온다. 직전 저장 rect는 달리던 애니메이션의 시작 부근(≈직전 보이던 위치)이라
+      // 새 FLIP이 그 근처에서 자연스럽게 이어진다.
+      if (controlsChanged && typeof tile.getAnimations === "function") {
+        for (const animation of tile.getAnimations()) {
+          animation.cancel();
+        }
+      }
+      const next = tile.getBoundingClientRect();
+      const key = tile.dataset.userId ?? "";
+      const prev = prevTileRectsRef.current.get(key);
+      rects.set(key, next);
+      if (
+        !controlsChanged ||
+        reduceMotion ||
+        typeof tile.animate !== "function" ||
+        prev === undefined ||
+        prev.width === 0 ||
+        prev.height === 0 ||
+        next.width === 0 ||
+        next.height === 0
+      ) {
+        continue;
+      }
+      const dx = prev.left - next.left;
+      const dy = prev.top - next.top;
+      const sx = prev.width / next.width;
+      const sy = prev.height / next.height;
+      if (
+        Math.abs(dx) < 1 &&
+        Math.abs(dy) < 1 &&
+        Math.abs(sx - 1) < 0.01 &&
+        Math.abs(sy - 1) < 0.01
+      ) {
+        continue;
+      }
+      tile.animate(
+        [
+          {
+            transformOrigin: "top left",
+            transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
+          },
+          { transformOrigin: "top left", transform: "none" },
+        ],
+        // RoomControlBar 슬라이드·RoomTile 글자 페이드와 같은 400ms·시트 곡선 — 이 값이
+        // 어긋나면 "도착 시점이 안 맞는다"는 어색함이 되살아난다. 셋을 함께 바꿀 것.
+        { duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+      );
+    }
+    prevTileRectsRef.current = rects;
+  });
+
   return (
     <main
       data-testid="live-room-page"
@@ -394,6 +475,7 @@ export function LiveRoomSession({
             )}
           >
             <div
+              ref={rowsRef}
               data-testid="room-grid-rows"
               // 안전 정렬: 바 표시 중엔 mt-auto로 바 바로 위에, 숨김 중엔 my-auto로 세로
               // 가운데에 — 어느 쪽이든 내용이 넘치면 auto 마진이 접혀 잘리지 않는다.
@@ -423,9 +505,9 @@ export function LiveRoomSession({
                     grid.cols === 1
                       ? cn(
                           // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
-                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 대신 바
-                          // 토글의 크기 변화 폭 자체를 2dvh로 좁혀 스냅이 티 나지 않게 한다
-                          // (2026-08-26 피드백: 41↔36dvh는 너무 확 줄었다). 37dvh는 바가
+                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 변화 폭을
+                          // 2dvh로 좁히고(2026-08-26 피드백: 41↔36dvh는 너무 확 줄었다) 시각적
+                          // 이동은 FLIP effect(위)가 transform으로 잇는다. 37dvh는 바가
                           // 올라온 상태에서 2행+바가 노치 기기에도 수납되는 상한이다.
                           "aspect-square max-w-full",
                           controlsVisible ? "h-[37dvh]" : "h-[39dvh]",
