@@ -1,13 +1,20 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { AppState, Platform } from "react-native";
+import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { lockPortrait, unlockForSession } from "../../lib/orientation";
+import { emitTabReset } from "../../lib/tabReset";
 import {
   RemoteWebViewHost,
   buildRemoteWebViewUrl,
   originOf,
   requestGlobalWebViewRecovery,
 } from "../RemoteWebViewHost";
+
+jest.mock("../../lib/orientation", () => ({
+  lockPortrait: jest.fn(),
+  unlockForSession: jest.fn(),
+}));
 
 /**
  * 원격 웹뷰 호스트(BY-333) — 세션 화면이 직접 띄우던 WebView를 승격한 공용 컴포넌트.
@@ -81,6 +88,15 @@ beforeEach(() => {
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
   mockWebViewMounted.mockClear();
+  mockInjectJavaScript.mockClear();
+  (lockPortrait as jest.Mock).mockClear();
+  (unlockForSession as jest.Mock).mockClear();
+});
+
+// spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
+// 플랫폼 분기가 이전 테스트의 값에 오염된다.
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe("buildRemoteWebViewUrl", () => {
@@ -225,6 +241,165 @@ describe("RemoteWebViewHost", () => {
     });
 
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
+  it("Android에서 set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).toHaveBeenCalled();
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":false,"atMs":2}' } });
+    });
+    expect(lockPortrait).toHaveBeenCalled();
+  });
+
+  it("iOS에서는 set-orientation을 무시한다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).not.toHaveBeenCalled();
+  });
+
+  it("웹 주도 해제 상태에서 복구가 시작되면 세로로 복원한다 — 해제를 요청한 문서가 사라졌다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(lockPortrait).not.toHaveBeenCalled();
+
+    // iOS 콘텐츠 프로세스 사망 = 복구 진입. 문서가 새로 뜨므로 이전 해제를 되돌려야 한다.
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(lockPortrait).toHaveBeenCalled();
+  });
+
+  /**
+   * 회귀 가드. 복원을 WebView의 로드 이벤트에 걸면 안 된다 — Android는 SPA `pushState`에도
+   * `onLoadStart`를 발화시켜(BY-436 실기기) 소셜 홈에서 룸으로 이동하는 그 순간 방금 연
+   * 회전이 되잠기고, `onLoadEnd`에 걸면 같은 로드가 되잠근다(2026-08-25 채점 지적).
+   * 문서 세대가 실제로 바뀌는 사건은 복구 진입뿐이다.
+   */
+  it("로드 이벤트는 방금 연 회전을 되잠그지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(unlockForSession).toHaveBeenCalled();
+    expect(lockPortrait).not.toHaveBeenCalled();
+    // 로드 시작 이벤트 자체를 구독하지 않는다(Android SPA 이동에 발화하므로).
+    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
+  });
+
+  it("웹 주도 해제 없이 복구가 시작되면 잠금을 건드리지 않는다 — 솔로 세션의 해제를 덮어쓰면 안 된다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(lockPortrait).not.toHaveBeenCalled();
+  });
+
+  it("자기 경로의 탭 초기화 신호를 받으면 reset-route를 주입하고, 다른 경로 신호는 무시한다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+
+    act(() => {
+      emitTabReset("/settings");
+    });
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    const script = mockInjectJavaScript.mock.calls[0][0] as string;
+    expect(script).toContain('\\"reset-route\\"');
+    expect(script).toContain("/settings");
+
+    mockInjectJavaScript.mockClear();
+    act(() => {
+      emitTabReset("/records");
+    });
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("Android에서 시스템 테마가 바뀌면 theme 메시지를 주입한다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    let themeListener:
+      ((preferences: { colorScheme: "light" | "dark" | null | undefined }) => void) | null = null;
+    jest.spyOn(Appearance, "addChangeListener").mockImplementation((next) => {
+      themeListener = next as typeof themeListener;
+      return { remove: jest.fn() };
+    });
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    act(() => {
+      themeListener?.({ colorScheme: "dark" });
+    });
+
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    const script = mockInjectJavaScript.mock.calls[0][0] as string;
+    expect(script).toContain('\\"theme\\"');
+    expect(script).toContain('\\"dark\\"');
+  });
+
+  it("로드가 끝나면 현재 테마를 다시 실어 보낸다 — 캐시된 초기 쿼리가 낡았을 수 있다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(Appearance, "getColorScheme").mockReturnValue("dark");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    const script = mockInjectJavaScript.mock.calls.at(-1)?.[0] as string;
+    expect(script).toContain('\\"theme\\"');
+    expect(script).toContain('\\"dark\\"');
+  });
+
+  it("iOS에서는 로드가 끝나도 테마를 주입하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("iOS에서는 테마 변경을 구독하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    const spy = jest.spyOn(Appearance, "addChangeListener");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it.each(["onError", "onHttpError"] as const)(

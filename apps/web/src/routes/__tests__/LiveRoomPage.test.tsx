@@ -14,6 +14,7 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { ApiError } from "@/lib/api";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { getProfile } from "@/lib/profileApi";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { joinRoom, leaveRoom } from "@/lib/roomApi";
 import { LiveRoomPage } from "../LiveRoomPage";
 
@@ -149,6 +150,14 @@ function renderRoom({
 }
 
 /** 일반 입장 — 모달 없이 join·프로필 결착을 기다려 꺼짐(일시정지) 상태로 세션에 들어간다. */
+/** 네이티브 게이트 응답(허용)을 흉내 낸다 — 브리지를 stub한 테스트에서 입장을 통과시킨다. */
+function grantCameraGate() {
+  const entry = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  entry?.(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+}
+
 async function enterRoom() {
   await screen.findByRole("button", { name: "나가기" });
   // findByRole은 마운트 커밋 직후(패시브 이펙트 전) DOM을 잡을 수 있다 — 채널 연결·
@@ -253,6 +262,30 @@ describe("LiveRoomPage — 입장", () => {
     await enterRoom();
 
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+  });
+
+  it("유예 재입장은 join 재호출 없이 입장한다", async () => {
+    renderRoom({ state: { inviteCode: "0712", graceRejoin: true } });
+
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
+  });
+
+  it("유예 재입장도 카메라 꺼짐(일시정지)으로 시작한다 — 나가기가 곧 일시정지다", async () => {
+    const { channel } = renderRoom({
+      state: { inviteCode: "0712", graceRejoin: true },
+    });
+
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: false });
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
   });
 
   it("join 재호출이 끝나기 전에는 세션(측정)이 마운트되지 않는다", async () => {
@@ -749,6 +782,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     mockedLeaveRoom.mockResolvedValue(undefined);
     renderRoom();
 
+    // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다 — 허용으로 답해 준다.
+    grantCameraGate();
     await enterRoom();
     expect(bridgeSent()).toContainEqual(
       expect.objectContaining({ type: "set-back-gesture", enabled: false }),
@@ -981,6 +1016,52 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     expect(screen.getByTestId("room-grid-rows")).toHaveClass("mt-auto");
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
+  });
+
+  /**
+   * 회귀 가드(BY-412). 전환은 기존 스트림을 먼저 정지하므로(Android는 기존 카메라를 놓아야
+   * 반대 카메라가 열린다) 복원까지 실패하면 카메라가 실제로 꺼진다. 훅이 실행 상태를 다시
+   * 읽지 않으면 룸은 낡은 "켜짐"으로 남아 상대에게 켜짐을 계속 발행한다.
+   */
+  it("전환이 복원까지 실패하면 카메라 꺼짐이 반영된다 — 낡은 켜짐을 발행하지 않는다", async () => {
+    let running = false;
+    const stream = {
+      getVideoTracks: () => [{ enabled: true, getSettings: () => ({ height: 720 }) }],
+    } as unknown as MediaStream;
+    const camera: CameraAdapter = {
+      facing: "front",
+      get isRunning() {
+        return running;
+      },
+      get stream() {
+        return running ? stream : null;
+      },
+      async start() {
+        running = true;
+      },
+      stop() {
+        running = false;
+      },
+      async flip() {
+        // 전환도 복원도 실패해 어댑터가 카메라를 놓은 상태.
+        running = false;
+        return { ok: false, reason: "camera-off" };
+      },
+    };
+    const { channel } = renderRoom({ camera });
+    await enterRoom();
+    await turnCameraOn();
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: true });
+    });
+    channel.published.length = 0;
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    await waitFor(() => {
+      expect(channel.published).toContainEqual({ cameraOn: false });
+    });
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
   });
 
   it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {

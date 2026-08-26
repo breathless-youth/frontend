@@ -340,6 +340,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     if (result.ok) {
       setCameraFacing(result.facing);
     }
+    // 전환은 기존 스트림을 먼저 정지하므로(Android는 기존 카메라를 놓아야 반대 카메라가
+    // 열린다) 복원까지 실패하면 카메라가 실제로 꺼진다. 여기서 실행 상태를 다시 읽지 않으면
+    // 화면과 상대에게 나가는 발행이 낡은 "켜짐"으로 남는다.
+    setIsCameraRunning(camera.isRunning);
     return result;
   }, [camera]);
 

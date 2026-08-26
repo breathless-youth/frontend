@@ -1,6 +1,10 @@
+import { useIsFocused } from "@react-navigation/native";
 import { Tabs } from "expo-router";
+import { useEffect, useRef } from "react";
+import { BackHandler, Platform } from "react-native";
 
 import { TabBar, type TabId } from "../../components/TabBar";
+import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
 
 /** expo-router 라우트 이름 → 탭 바 아이템 id. 확정 4탭(BY-409에서 소셜 추가)이 모두 실재하는 라우트다. */
@@ -21,16 +25,40 @@ export default function TabsLayout() {
    * 차지하지 못한다.
    */
   const tabBarVisible = useTabBarVisible();
+  // tabBar render prop이 내비게이터 상태를 받을 때마다 갱신한다 — BackHandler 콜백이 등록
+  // 시점이 아니라 눌린 시점의 활성 탭을 읽게 하기 위해서다.
+  const activeRouteRef = useRef("index");
+  // 탭 위에 다른 네이티브 화면(권한 안내·솔로 세션)이 떠 있으면 뒤로가기는 그 화면 몫이다 —
+  // 그때 초기화 신호를 보내면 보이지도 않는 탭 웹뷰가 리셋된다.
+  const isFocused = useIsFocused();
+
+  // 시스템 뒤로가기로 탭을 떠날 때 그 탭 웹뷰를 탭 루트로 초기화한다(`lib/tabReset.ts`).
+  // 기본 동작(홈 탭 이동, 홈에서는 앱 종료)은 그대로 둔다 — false 반환. 소셜룸 세션 중에는
+  // RemoteScreen의 잠금 핸들러가 나중에 등록되어 먼저 소비하므로 여기까지 오지 않는다.
+  useEffect(() => {
+    if (Platform.OS !== "android" || !isFocused) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      const target = tabResetTargetForBack(activeRouteRef.current);
+      if (target !== null) {
+        emitTabReset(target);
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [isFocused]);
 
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
       // 활성 탭은 네비게이터 상태에서 읽는다 — 화면마다 하드코딩하지 않는다.
-      tabBar={({ state }) =>
-        tabBarVisible ? (
-          <TabBar active={TAB_BY_ROUTE_NAME[state.routes[state.index]?.name ?? ""] ?? "home"} />
-        ) : null
-      }
+      tabBar={({ state }) => {
+        activeRouteRef.current = state.routes[state.index]?.name ?? "index";
+        return tabBarVisible ? (
+          <TabBar active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"} />
+        ) : null;
+      }}
     >
       <Tabs.Screen name="index" options={{ title: "홈" }} />
       <Tabs.Screen name="social" options={{ title: "소셜" }} />

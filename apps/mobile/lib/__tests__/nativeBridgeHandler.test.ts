@@ -92,6 +92,51 @@ describe("handleBridgeMessage", () => {
     expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
   });
 
+  it("request-camera-gate → 게이트 통과면 granted true로 답하고 화면 전환은 없다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: true }),
+    );
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("request-camera-gate → 거부면 권한 거부 안내를 띄우고 granted false로 답한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: false }),
+    );
+  });
+
+  it("request-camera-gate → 게이트 실행이 실패하면 granted false로 답한다 — 확인 못 한 권한으로 입장시키지 않는다", async () => {
+    mockedRunCameraPermissionGate.mockRejectedValue(new Error("native unavailable"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: false }),
+    );
+    warn.mockRestore();
+  });
+
   it("navigate-home → 뒤로 갈 곳이 있으면 pop한다", () => {
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 

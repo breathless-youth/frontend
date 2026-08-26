@@ -16,6 +16,22 @@ export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
   | { type: "app-state"; state: "active" | "background"; atMs: number }
+  /** `request-camera-gate` 응답. `granted: false`면 네이티브가 권한 안내 화면을 이미 띄운 상태다. */
+  | { type: "camera-gate-result"; granted: boolean; atMs: number }
+  /**
+   * 시스템 테마 변경 통지 — Android 전용 발신. Android WebView는 시스템 다크를
+   * `prefers-color-scheme`에 전달하지 않아 웹이 스스로 알 수 없다. 초기 테마는 웹뷰 URL의
+   * `theme` 쿼리로 오고(첫 페인트 전 반영 — `apps/web/src/lib/nativeTheme.ts`), 앱 실행 중
+   * 변경만 이 메시지로 온다. iOS는 미디어쿼리가 동작하므로 쿼리도 메시지도 보내지 않는다.
+   */
+  | { type: "theme"; scheme: "light" | "dark"; atMs: number }
+  /**
+   * 탭 웹뷰를 탭 루트로 초기화하라는 요청 — Android 전용 발신. 시스템 뒤로가기로 탭을 떠날 때
+   * 웹뷰가 내부 히스토리를 유지한 채 남아, 재진입 시 이전 하위 페이지가 보이는 문제를 막는다.
+   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리(`userId` 등 셸 계약)를 승계해 replace로
+   * 이동한다(`apps/web/src/lib/nativeRouteReset.ts`).
+   */
+  | { type: "reset-route"; path: string; atMs: number }
   /**
    * 웹뷰 생존 확인(BY-436) — 네이티브가 포그라운드 복귀 시 보낸다. 웹은 `pong`으로 즉답한다.
    *
@@ -134,6 +150,31 @@ export type ToNativeMessage =
    * 구버전 네이티브는 모르는 필드를 무시하므로 하위호환이다.
    */
   | { type: "share"; text: string; url?: string; title?: string; atMs: number }
+  /**
+   * 화면 회전 잠금 제어 — 실시간 룸(`/social/room/:id`)이 마운트 동안 `unlocked: true`,
+   * 언마운트에서 `false`를 보낸다. 룸은 탭 웹뷰 안 웹 라우트라 네이티브 화면 전환이 없어
+   * 솔로 세션(`room/[id]`)의 마운트 기반 해제 경로를 탈 수 없다 — `set-back-lock`과 같은
+   * 웹 주도 패턴으로 잠금을 제어한다.
+   *
+   * 네이티브 반응은 Android 전용이다 — iOS는 무시한다. iOS 소셜 룸 회전 개방은 별도 결정이
+   * 필요한 동작 변경이라 이 계약의 범위 밖이다. 되잠그는 책임은 푼 쪽(룸 언마운트)에 있고,
+   * 문서 세대가 바뀌어 그 책임자가 사라지면 네이티브가 새 문서의 로드 시작 시점에 세로로 복원한다
+   * (`RemoteWebViewHost` 참고). 브라우저 단독 모드에서는 발신돼도 받는 쪽이 없다.
+   */
+  | { type: "set-orientation"; unlocked: boolean; atMs: number }
+  /**
+   * 카메라 권한 게이트 실행 요청 — 실시간 룸이 입장을 확정하기 전에 보낸다.
+   *
+   * 솔로 세션은 `start-session` 브리지가 게이트를 돌리지만 소셜 룸은 웹 라우팅이라 그 경로를
+   * 지나지 않는다. Android 웹뷰는 앱에 OS 권한이 없으면 묻지 않고 거부하므로, 웹이 먼저
+   * 게이트를 요청하고 `camera-gate-result` 응답을 기다린다. 거부면 룸에 입장하지 않는다.
+   * 게이트 자체는 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 없이 카메라 획득만 실패하는
+   * 공백이 같다.
+   *
+   * 응답이 오지 않을 때의 판단은 웹이 셸 표시(`cameraGate=1` 쿼리)로 가른다 — 표시가 있으면
+   * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
+   */
+  | { type: "request-camera-gate"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

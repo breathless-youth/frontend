@@ -1,5 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
 import Constants from "expo-constants";
+import { Appearance, Platform } from "react-native";
 
 import {
   __resetRemoteQueryParamsCacheForTests,
@@ -44,20 +45,29 @@ describe("buildRemoteQueryParams", () => {
       userId: 7,
       appVersion: "1.4.2",
       share: "1",
+      cameraGate: "1",
     });
   });
 
   it("등록 실패(ensureUserRegistered가 null)해도 throw하지 않고 파라미터에서 userId만 생략한다 — 화면 자체는 뜬다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(null);
 
-    await expect(buildRemoteQueryParams()).resolves.toEqual({ appVersion: "1.4.2", share: "1" });
+    await expect(buildRemoteQueryParams()).resolves.toEqual({
+      appVersion: "1.4.2",
+      share: "1",
+      cameraGate: "1",
+    });
   });
 
   it("appVersion을 읽지 못하면 그것만 생략한다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
     mockedConstants.expoConfig = null;
 
-    await expect(buildRemoteQueryParams()).resolves.toEqual({ userId: 7, share: "1" });
+    await expect(buildRemoteQueryParams()).resolves.toEqual({
+      userId: 7,
+      share: "1",
+      cameraGate: "1",
+    });
   });
 
   it("isNew는 붙이지 않는다 — 소비하는 화면이 없다(2026-07-31 검토로 범위 밖 확정)", async () => {
@@ -66,6 +76,43 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params).not.toHaveProperty("isNew");
+  });
+
+  it("셸이 카메라 게이트를 처리할 수 있음을 cameraGate로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.cameraGate).toBe("1");
+  });
+
+  it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(Appearance, "getColorScheme").mockReturnValue("dark");
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.theme).toBe("dark");
+  });
+
+  it("Android에서 시스템 테마를 알 수 없으면 light로 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(Appearance, "getColorScheme").mockReturnValue(null);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.theme).toBe("light");
+  });
+
+  it("iOS에서는 theme 파라미터를 붙이지 않는다 — 미디어쿼리가 이미 동작한다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "ios");
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("theme");
   });
 });
 
@@ -77,7 +124,12 @@ describe("useRemoteQueryParams", () => {
 
     expect(result.current).toBeNull();
     await waitFor(() =>
-      expect(result.current).toEqual({ userId: 7, appVersion: "1.4.2", share: "1" }),
+      expect(result.current).toEqual({
+        userId: 7,
+        appVersion: "1.4.2",
+        share: "1",
+        cameraGate: "1",
+      }),
     );
   });
 
@@ -86,14 +138,24 @@ describe("useRemoteQueryParams", () => {
 
     const first = renderHook(() => useRemoteQueryParams());
     await waitFor(() =>
-      expect(first.result.current).toEqual({ userId: 7, appVersion: "1.4.2", share: "1" }),
+      expect(first.result.current).toEqual({
+        userId: 7,
+        appVersion: "1.4.2",
+        share: "1",
+        cameraGate: "1",
+      }),
     );
     first.unmount();
 
     // 두 번째 마운트: 캐시가 채워져 있으므로 첫 렌더부터 바로 값이 나와야 한다(null 구간 없음).
     const second = renderHook(() => useRemoteQueryParams());
 
-    expect(second.result.current).toEqual({ userId: 7, appVersion: "1.4.2", share: "1" });
+    expect(second.result.current).toEqual({
+      userId: 7,
+      appVersion: "1.4.2",
+      share: "1",
+      cameraGate: "1",
+    });
   });
 
   it("캐시가 채워진 뒤에는 등록 확인(ensureUserRegistered) 호출이 다시 일어나지 않는다", async () => {
@@ -127,7 +189,9 @@ describe("useRemoteQueryParams", () => {
     mockedEnsureUserRegistered.mockResolvedValueOnce(null).mockResolvedValueOnce(7);
 
     const first = renderHook(() => useRemoteQueryParams());
-    await waitFor(() => expect(first.result.current).toEqual({ appVersion: "1.4.2", share: "1" }));
+    await waitFor(() =>
+      expect(first.result.current).toEqual({ appVersion: "1.4.2", share: "1", cameraGate: "1" }),
+    );
     first.unmount();
 
     // 캐시되지 않았으므로 두 번째 마운트는 다시 null(로딩)부터 시작한다.
@@ -135,7 +199,12 @@ describe("useRemoteQueryParams", () => {
     expect(second.result.current).toBeNull();
 
     await waitFor(() =>
-      expect(second.result.current).toEqual({ userId: 7, appVersion: "1.4.2", share: "1" }),
+      expect(second.result.current).toEqual({
+        userId: 7,
+        appVersion: "1.4.2",
+        share: "1",
+        cameraGate: "1",
+      }),
     );
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(2);
   });

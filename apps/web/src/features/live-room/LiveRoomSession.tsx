@@ -117,7 +117,8 @@ export function LiveRoomSession({
   const [channel] = useState(() => createChannel({ roomId, userId }));
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
-  // 입장은 항상 끔(일시정지)으로 시작한다 — 유예 재입장도 예외가 아니다.
+  // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
+  // 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다(BY-412).
   const [cameraWanted, setCameraWanted] = useState(false);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   useEffect(() => channel.subscribe(dispatch), [channel]);

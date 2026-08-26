@@ -44,6 +44,28 @@ describe("expo-camera 어댑터", () => {
     },
   );
 
+  it("아직 다시 물어볼 수 있는 거부는 undetermined로 돌려준다 — Android에서 설정으로 권한을 끈 상태", async () => {
+    mockedGetPermissions.mockResolvedValue({
+      status: "denied",
+      granted: false,
+      canAskAgain: true,
+      expires: "never" as const,
+    });
+
+    await expect(getCameraPermissionStatus()).resolves.toBe("undetermined");
+  });
+
+  it("요청 결과는 다시 물어볼 수 있어도 그대로 돌려준다 — 방금 거부한 응답을 뒤집지 않는다", async () => {
+    mockedRequestPermissions.mockResolvedValue({
+      status: "denied",
+      granted: false,
+      canAskAgain: true,
+      expires: "never" as const,
+    });
+
+    await expect(requestCameraPermission()).resolves.toBe("denied");
+  });
+
   it("조회는 요청 API를 부르지 않는다 (다이얼로그를 띄우면 안 된다)", async () => {
     mockedGetPermissions.mockResolvedValue(response("undetermined"));
 
