@@ -15,18 +15,13 @@ import type { RoomChannel } from "./roomChannel";
  *   발행 주체를 이 훅 하나로 고정한다 — 초기 발행·획득 실패 정정이 각자 발행하면
  *   순서 경쟁으로 거짓 켜짐이 새 나간다.
  * - 집중상태: FOCUS·DISTRACTED 전이에서만 발행 (일시정지 중에는 집중상태가 무의미)
- * - 순공시간: 1분 주기 갱신
+ * - 순공시간: 마운트 시 1회 즉시 발행(재입장 시 서버 보존값 잔상 제거) + 1분 주기 갱신
  */
 const STUDY_TIME_INTERVAL_MS = 60_000;
 
 type PublisherInput = {
   sessionState: SessionState;
-  /**
-   * 발행할 순공시간. `null`은 "아직 발행할 값을 모른다"는 뜻이다 — 유예 재입장 직후
-   * 첫 SNAPSHOT(기준값)이 오기 전에 발행하면 0 기준의 낡은 값이 나가고, 연결 전이면
-   * 채널 버퍼에 쌓였다가 연결 직후 flush되어 서버 보존값을 덮어쓴다. 그동안은 틱을 쉰다.
-   */
-  focusSec: number | null;
+  focusSec: number;
   cameraOn: boolean;
 };
 
@@ -60,10 +55,12 @@ export function useRoomStatePublisher(channel: RoomChannel, input: PublisherInpu
   }, [channel, focusState]);
 
   useEffect(() => {
+    // 마운트 1회 즉시 발행 — 카메라 초기 발행과 같은 이유의 짝이다. 재입장이면 서버
+    // 보존값(이전 세션 시간)이 다른 참가자 화면에 남아 있는데, 첫 정기 발행은 60초
+    // 뒤라 그때까지 잔상이 보인다. 연결 전이면 채널 버퍼가 연결 직후 내보낸다.
+    channel.publishState({ studySeconds: focusSecRef.current });
     const timer = setInterval(() => {
-      if (focusSecRef.current !== null) {
-        channel.publishState({ studySeconds: focusSecRef.current });
-      }
+      channel.publishState({ studySeconds: focusSecRef.current });
     }, STUDY_TIME_INTERVAL_MS);
     return () => {
       clearInterval(timer);

@@ -186,6 +186,9 @@ beforeEach(() => {
   // 일반 입장이 마운트 시 join을 재호출하므로 기본 응답을 렌더 전에 깔아 둔다.
   // 실패·지연을 검증하는 테스트는 renderRoom 전에 이 mock을 덮어쓴다.
   mockedJoinRoom.mockResolvedValue(joinResponse);
+  // 종료 이동 경로가 leaveRoom의 Promise를 전제한다 — 파일 전역으로 깔아 테스트가
+  // 실행 순서(다른 테스트의 mockResolvedValue 잔류)에 기대지 않게 한다.
+  mockedLeaveRoom.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -389,7 +392,10 @@ describe("LiveRoomPage — 입장", () => {
     await enterRoom();
 
     await waitFor(() => {
-      expect(channel.published).toEqual([{ cameraOn: false }]);
+      // 마운트 studySeconds 0 발행은 정상이라 카메라 발행만 본다.
+      expect(channel.published.filter((p) => p.cameraOn !== undefined)).toEqual([
+        { cameraOn: false },
+      ]);
     });
   });
 });
@@ -1229,24 +1235,32 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
   });
 });
 
-describe("LiveRoomPage — 유예 재입장 공부시간", () => {
-  it("첫 SNAPSHOT의 내 studySeconds에서 이어서 발행한다 — 0으로 리셋하지 않는다", async () => {
-    vi.useFakeTimers();
+describe("LiveRoomPage — 재입장 초기화 취급", () => {
+  it("SNAPSHOT에 서버 보존값이 있어도 입장 즉시 studySeconds 0을 발행한다", async () => {
     const { channel } = renderRoom({
       state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
     });
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
+    await enterRoom();
 
     expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
-      { studySeconds: 7320 },
+      { studySeconds: 0 },
     ]);
   });
 
-  it("내 타일 공부시간 표시가 SNAPSHOT 기준값에서 이어진다", async () => {
+  it("graceRejoin 재입장도 카메라 끔(일시정지)으로 들어간다 — join 재호출은 없다", async () => {
+    renderRoom({
+      // 서버가 이전 카메라 상태로 켬을 내려줘도 무시한다 — 재입장은 처음부터 취급.
+      state: { inviteCode: "0712", graceRejoin: true, cameraOn: true },
+      scenario: { snapshot: [member(7)] },
+    });
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(mockedJoinRoom).not.toHaveBeenCalled();
+  });
+
+  it("내 타일 공부시간 표시는 로컬 측정값이다 — 서버 보존값을 이어받지 않는다", async () => {
     renderRoom({
       state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { studySeconds: 7320 }), member(8)] },
@@ -1255,107 +1269,192 @@ describe("LiveRoomPage — 유예 재입장 공부시간", () => {
     const tiles = await screen.findAllByTestId("room-tile");
     const myTile = tiles.find((tile) => tile.dataset.userId === "7");
     expect(myTile).toBeDefined();
-    expect(within(myTile as HTMLElement).getByText("02:02")).toBeInTheDocument();
+    expect(within(myTile as HTMLElement).queryByText("02:02")).not.toBeInTheDocument();
+    expect(within(myTile as HTMLElement).getByText("00:00")).toBeInTheDocument();
+  });
+});
+
+/** jsdom에서 백그라운드 전환·복귀를 실제 visibilitychange로 흘린다. */
+function goBackground() {
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+function returnForeground() {
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+describe("LiveRoomPage — 유예 만료 복귀", () => {
+  // 헬퍼가 덮어쓴 인스턴스 속성을 지워 prototype 원본을 복원한다 — 단언 실패로 테스트가
+  // returnForeground 전에 중단되면 hidden이 남아 뒤 테스트가 연쇄 실패한다(봇 리뷰 반영).
+  afterEach(() => {
+    Reflect.deleteProperty(document, "visibilityState");
   });
 
-  it("재연결로 두 번째 SNAPSHOT이 와도 기준값을 다시 읽지 않는다 — 이중 가산 방지", async () => {
+  /** 순공 1분 이상 쌓기 — 카메라 켜기(실타이머)로 측정 진입 후 fake 타이머로 61초 흘린다. */
+  async function studyOverOneMinute() {
+    await turnCameraOn();
     vi.useFakeTimers();
-    const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
-    });
-
-    act(() => {
-      channel.emitServerMessage({
-        type: "SNAPSHOT",
-        members: [member(7, { studySeconds: 99_999 })],
-      });
-    });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(61_000);
     });
+  }
 
-    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
-      { studySeconds: 7320 },
-    ]);
-  });
-
-  it("SNAPSHOT에 내가 없으면 기준값 0 — 기존 입장 동작 그대로", async () => {
-    vi.useFakeTimers();
-    const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(8)] },
-    });
-
+  async function expireGraceAndReturn() {
+    act(goBackground);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(31_000);
     });
-
-    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
-      { studySeconds: 0 },
-    ]);
-  });
-
-  it("SNAPSHOT의 내 studySeconds가 없으면 기준값 0으로 처리한다", async () => {
-    vi.useFakeTimers();
-    const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: undefined })] },
-    });
-
+    act(returnForeground);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.runOnlyPendingTimersAsync();
     });
+    vi.useRealTimers();
+  }
 
-    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
-      { studySeconds: 0 },
-    ]);
-  });
-
-  it("측정이 진행 중이면 로컬 누적분이 기준값에 가산되어 발행된다", async () => {
-    vi.useFakeTimers();
-    const { channel } = renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+  it("유예를 넘겨 복귀하면 채널을 끊고 자동 종료·제출 후 저장 안내를 남기고 소셜 홈으로 이동한다", async () => {
+    let channelStatusAtSubmit: string | null = null;
+    const rendered = renderRoom({ scenario: { snapshot: [member(7)] } });
+    vi.mocked(submitStudySession).mockImplementation(async () => {
+      channelStatusAtSubmit = rendered.channel.status;
+      return [];
     });
+    await enterRoom();
+    await studyOverOneMinute();
+    await expireGraceAndReturn();
 
-    // 입장은 유예 재입장도 항상 일시정지라, 누적을 보려면 카메라를 켜 재개시킨다.
-    await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
-    await act(async () => {});
-    fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
+    // 제출 시점에 채널이 이미 끊겨 있어야 한다 — 자동 재연결이 서버 상태를 건드리는 경쟁 차단.
+    expect(channelStatusAtSubmit).toBe("closed");
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
     );
-    await act(async () => {});
-
-    // 두 번에 나눠 진행한다 — act 사이에서 렌더가 반영되어야 발행 시점의
-    // focusSec 참조가 누적값을 본다(단일 act 안에서는 리렌더가 끝까지 미뤄진다).
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-
-    const studyTimes = channel.published.filter((p) => p.studySeconds !== undefined);
-    expect(studyTimes).toHaveLength(1);
-    expect(studyTimes[0]?.studySeconds).toBeGreaterThan(7320);
   });
 
-  it("세션 제출에는 기준값을 가산하지 않는다 — 이번 마운트 측정값만 나간다", async () => {
+  it("제출이 실패해도 실패 안내를 남기고 소셜 홈으로 이동한다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValue(new Error("네트워크"));
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    await studyOverOneMinute();
+    await expireGraceAndReturn();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
+    );
+  });
+
+  it("순공 1분 미만이면 제출 성패와 무관하게 미달 안내로 갈린다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
-    renderRoom({
-      state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
-    });
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    // 카메라를 켜지 않아 일시정지 그대로 — 순공 0초로 유예를 넘긴다.
+    vi.useFakeTimers();
+    await expireGraceAndReturn();
 
-    await userEvent.click(await screen.findByRole("button", { name: "나가기" }));
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    );
+  });
 
-    await waitFor(() => {
-      expect(submitStudySession).toHaveBeenCalledWith(
-        expect.objectContaining({ focusSec: 0, studySec: 0 }),
-      );
+  it("순공 1분 미만 + 제출 실패도 같은 미달 안내로 소셜 홈에 간다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValue(new Error("네트워크"));
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    vi.useFakeTimers();
+    await expireGraceAndReturn();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    );
+  });
+
+  it("카메라를 끈 채(수동 일시정지) 20분 넘게 숨어도 안내를 남기고 소셜 홈으로 이동한다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    // 실기기 백그라운드에서는 타이머가 멈추고 복귀 때 벽시계로 판정한다 — 타이머를
+    // 돌리지 않고 시계만 건너뛰어 그 상황을 재현한다. 20분 일시정지 감시자가 먼저
+    // 종료시켜도 유예 안내와 이동은 빠지면 안 된다.
+    vi.useFakeTimers();
+    act(goBackground);
+    act(() => {
+      vi.setSystemTime(Date.now() + 21 * 60_000);
     });
+    act(returnForeground);
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    );
+  });
+
+  it("숨어 있는 동안 20분 감시자가 먼저 종료를 끝내도(제출 성공) 안내가 남는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    // 백그라운드에서도 스로틀된 타이머가 도는 기기 재현 — 숨김 중에 21분을 그대로
+    // 돌리면 20분 감시자가 복귀 전에 종료·제출까지 끝낸다.
+    vi.useFakeTimers();
+    act(goBackground);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(21 * 60_000);
+    });
+    act(returnForeground);
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    );
+  });
+
+  it("숨어 있는 동안 20분 감시자의 제출이 실패해도 복귀하면 안내를 남기고 이동한다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValue(new Error("네트워크"));
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    vi.useFakeTimers();
+    act(goBackground);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(21 * 60_000);
+    });
+    act(returnForeground);
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    expect(consumeSocialRoomNotice()).toBe(
+      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    );
+  });
+
+  it("유예 안(30초 미만) 복귀는 종료하지 않는다 — 일시정지 유지", async () => {
+    renderRoom({ scenario: { snapshot: [member(7)] } });
+    await enterRoom();
+    vi.useFakeTimers();
+    act(goBackground);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    act(returnForeground);
+    await act(async () => {});
+    vi.useRealTimers();
+
+    expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "나가기" })).toBeInTheDocument();
   });
 });

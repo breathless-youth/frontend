@@ -114,6 +114,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
   const endTrackedRef = useRef(false);
   const submitAttemptRef = useRef(0);
+  // 제출 in-flight 중 재진입 차단 — 일시정지 감시자와 유예 감시가 같은 복귀 이벤트에서
+  // 동시에 발화할 수 있고, "다시 제출" 연타도 같은 경로다. 서버는 멱등이지만
+  // 시도 계측(attempt)이 부풀고 타임라인 닫기가 중복 실행된다.
+  const submitInFlightRef = useRef(false);
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
@@ -355,6 +359,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const endAndSubmit = useCallback(
     async (reason: SessionEndReason = MANUAL_END_REASON) => {
+      if (submitInFlightRef.current) {
+        return;
+      }
       endReasonRef.current ??= reason;
       setEndReason(endReasonRef.current);
       endedAtMsRef.current ??= Date.now();
@@ -390,6 +397,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 제출 직전 최종 스냅샷 — 실패한 채 떠나거나 여기서 죽어도 종료 시점 값이 남는다.
       writeCheckpoint(endedAtMs);
       setPhase({ name: "submitting" });
+      submitInFlightRef.current = true;
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
       try {
@@ -412,6 +420,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           name: "error",
           message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
         });
+      } finally {
+        submitInFlightRef.current = false;
       }
     },
     [userId, writeCheckpoint],
