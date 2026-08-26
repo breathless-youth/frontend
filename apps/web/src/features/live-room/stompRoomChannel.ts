@@ -149,7 +149,16 @@ export function createStompRoomChannel({
   }
 
   function requestSnapshot() {
-    send({ destination: `/app/room/${roomId}/snapshot`, body: "" });
+    // send()의 버퍼링을 일부러 쓰지 않는다 — 소켓이 조용히 죽어 status가 open으로 남은
+    // 구간(이 채널은 onWebSocketClose를 안 받는다)에 재시도가 pendingFrames로 쌓이면,
+    // stompjs 자동 재연결의 flush에서 유령 요청 최대 5개가 한꺼번에 나간다(크로스리뷰 M2).
+    // 스냅샷 요청은 연결마다 새로 만드는 값이라 실패는 그냥 버린다 — 재연결 onConnect가
+    // 어차피 새 요청을 시작한다.
+    try {
+      client.publish({ destination: `/app/room/${roomId}/snapshot`, body: "" });
+    } catch {
+      // 죽은 소켓 구간 — 다음 연결의 정규 요청이 대체한다.
+    }
     if (snapshotRetriesLeft <= 0) {
       return;
     }

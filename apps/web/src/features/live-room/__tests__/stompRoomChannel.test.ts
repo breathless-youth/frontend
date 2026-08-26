@@ -330,6 +330,28 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
     }
   });
 
+  it("소켓이 조용히 죽은 구간의 재시도는 버퍼에 남지 않는다 — 재연결 flush에 유령 요청이 없다", () => {
+    // 이 채널은 onWebSocketClose를 받지 않아 소켓이 죽어도 status가 open으로 남는다 —
+    // 그 구간의 재시도가 send() 버퍼로 쌓이면 stompjs 자동 재연결의 flush에서 유령 요청
+    // 최대 5개가 한꺼번에 나간다(크로스리뷰 M2). 재시도 실패는 버퍼링 없이 버려야 한다.
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+      expect(snapshotRequests(client)).toHaveLength(1);
+
+      client.connected = false; // 소켓만 죽고 채널은 모르는 구간
+      vi.advanceTimersByTime(20_000); // 재시도 5회 전부 publish 실패
+
+      client.fireConnect(); // stompjs 자동 재연결
+      // 새 연결의 정규 요청 1회만 — 실패한 재시도들이 버퍼로 되살아나지 않는다.
+      expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("disconnect는 워치독을 멈춘다 — 다음 연결에서 유령 재요청이 흘러나오지 않는다", () => {
     vi.useFakeTimers();
     try {

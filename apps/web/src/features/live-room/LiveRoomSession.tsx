@@ -308,8 +308,11 @@ export function LiveRoomSession({
    * (key 접두) — iOS WKWebView는 재생 중인 영상 타일이 레이아웃 변경으로 리사이즈되면
    * 컴포지팅 레이어를 다시 그리지 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2명→3명
    * 전환에서 기존 타일 2개가 안 그려지고 새로 마운트된 타일만 보임 — 회전으로만 복구).
-   * 새 DOM은 새 레이어라 강제 재페인트가 되고, 영상 재생은 kickVideoPlayback 재시도
-   * 루프가 1초 안에 되살린다. 같은 급 안의 인원 변동(3→4명 등)은 타일 크기가 안 변해
+   * 새 DOM은 새 레이어라 강제 재페인트가 되고, 영상 재생은 kickVideoPlayback 재시도가
+   * 보통 1초 안에 되살린다. ⚠️ 예외: iOS 저전력 모드 + 캡처 없음(내 카메라 끔)이면
+   * 재마운트된 상대 영상의 play()가 다음 탭(제스처 킥)까지 계속 거부된다 — 페인트
+   * 누락(전원 공통·항상 재현) 쪽을 고치는 대가로 감수한 좁은 조합이다(크로스리뷰 M1).
+   * 같은 급 안의 인원 변동(3→4명 등)은 타일 크기가 안 변해
    * 재마운트하지 않고, 바 토글의 소폭 리사이즈도 제외한다 — 거기서 재마운트하면 FLIP
    * 연결이 끊기고, 실기기에서 토글 리사이즈는 이 증상을 내지 않았다.
    */
@@ -360,13 +363,31 @@ export function LiveRoomSession({
    * 레이아웃을 즉시 확정하고 **타일 각각에만** transform 애니메이션을 걸어 둘 다 피한다.
    *
    * rect 저장은 매 커밋(의존성 없음) — 타일 ≤6개 측정이라 싸고, 토글 외의 렌더가 기준
-   * rect를 최신으로 유지한다. 토글이 아닌 레이아웃 변화(입장·퇴장)는 애니메이션하지
-   * 않는다(종전과 같은 즉시 반영). 가로에서는 바 토글이 레이아웃을 바꾸지 않아 자연히
-   * 무동작이다.
+   * rect를 최신으로 유지한다. 커밋 없이 rect가 바뀌는 사건(회전·스크롤)은 아래
+   * invalidateFlipRects가 기준을 버려 가짜 비행을 막는다. 토글이 아닌 레이아웃 변화
+   * (입장·퇴장)는 애니메이션하지 않는다(종전과 같은 즉시 반영). 가로에서는 바 토글이
+   * 레이아웃을 바꾸지 않아 자연히 무동작이다.
    */
   const rowsRef = useRef<HTMLDivElement>(null);
   const prevTileRectsRef = useRef<ReadonlyMap<string, DOMRect>>(new Map());
   const prevControlsVisibleRef = useRef(controlsVisible);
+  /**
+   * 기준 rect 무효화 — 회전·스크롤은 React 커밋 없이 타일 위치를 바꾸므로, 그 직후 1초
+   * 안의(다음 틱 렌더 전) 토글은 낡은 기준으로 수백 px 가짜 비행을 만든다(크로스리뷰 M3).
+   * 이런 사건 뒤에는 기준을 버린다 — 그 직후 첫 토글은 prev가 없어 애니메이션 없이
+   * 스냅되지만, 잘못된 비행보다 낫고 다음 커밋이 다시 잰다.
+   */
+  const invalidateFlipRects = useCallback(() => {
+    prevTileRectsRef.current = new Map();
+  }, []);
+  useEffect(() => {
+    window.addEventListener("resize", invalidateFlipRects);
+    window.addEventListener("orientationchange", invalidateFlipRects);
+    return () => {
+      window.removeEventListener("resize", invalidateFlipRects);
+      window.removeEventListener("orientationchange", invalidateFlipRects);
+    };
+  }, [invalidateFlipRects]);
   useLayoutEffect(() => {
     const controlsChanged = prevControlsVisibleRef.current !== controlsVisible;
     prevControlsVisibleRef.current = controlsVisible;
@@ -378,17 +399,23 @@ export function LiveRoomSession({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rects = new Map<string, DOMRect>();
     for (const tile of tiles) {
-      // 연타 대비 — 진행 중인 FLIP을 접어야 변환이 섞이지 않은 실제 레이아웃 rect가
-      // 나온다. 직전 저장 rect는 달리던 애니메이션의 시작 부근(≈직전 보이던 위치)이라
-      // 새 FLIP이 그 근처에서 자연스럽게 이어진다.
+      const key = tile.dataset.userId ?? "";
+      // 연타 대비 — 달리는 FLIP이 있으면 취소 **전에** 변환이 포함된 rect(= 지금 화면에
+      // 보이는 위치)를 재서 새 FLIP의 출발점으로 쓴다. 저장 맵의 rect는 직전 커밋의 도착
+      // 레이아웃이라 그걸 쓰면 타일이 도착점으로 점프했다가 되돌아온다(크로스리뷰 M4 —
+      // 500ms 안의 재토글은 틱 렌더가 끼기 전이라 맵이 mid-flight 위치를 모른다).
+      let prevOverride: DOMRect | null = null;
       if (controlsChanged && typeof tile.getAnimations === "function") {
-        for (const animation of tile.getAnimations()) {
-          animation.cancel();
+        const running = tile.getAnimations();
+        if (running.length > 0) {
+          prevOverride = tile.getBoundingClientRect();
+          for (const animation of running) {
+            animation.cancel();
+          }
         }
       }
       const next = tile.getBoundingClientRect();
-      const key = tile.dataset.userId ?? "";
-      const prev = prevTileRectsRef.current.get(key);
+      const prev = prevOverride ?? prevTileRectsRef.current.get(key);
       rects.set(key, next);
       if (
         !controlsChanged ||
@@ -471,6 +498,8 @@ export function LiveRoomSession({
         ) : (
           <div
             data-testid="room-grid"
+            // 스크롤은 커밋 없이 타일 rect를 바꾼다 — FLIP 기준을 버린다(위 invalidateFlipRects).
+            onScroll={invalidateFlipRects}
             // 스크롤 컨테이너 자신은 정렬하지 않는다 — content-center/end는 내용이 컨테이너보다
             // 커지는 순간 위로 넘친 행이 잘리고 스크롤로도 닿을 수 없다(flexbox 정렬 data loss,
             // 2026-08-25 실기기: 작은 화면에서 첫 행(내 타일+참가자)이 사라짐). 정렬은 아래
