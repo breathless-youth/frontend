@@ -934,6 +934,29 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(play).toHaveBeenCalled();
   });
 
+  it("회전이 정착하면 body를 다시 그리고 영상 재생을 되살린다 — iOS 회전 백지 방어", async () => {
+    // iOS WKWebView는 회전 후 새 방향의 페이지를 순백으로 남길 수 있다(세션은 살아
+    // 있고 페인트만 죽음 — 2026-08-26 실기기, 가로→세로 복귀마다 재현). 350ms 정착 후
+    // display 재커밋 + play 킥 발신을 못 박는다(lib/rotationRepaint.ts).
+    renderRoom({ camera: createStreamingMockCamera() });
+    await enterRoom();
+    await turnCameraOn();
+
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    play.mockClear();
+    vi.useFakeTimers();
+    try {
+      fireEvent(window, new Event("orientationchange"));
+      expect(play).not.toHaveBeenCalled(); // 정착 전에는 건드리지 않는다
+
+      vi.advanceTimersByTime(350);
+      expect(play).toHaveBeenCalled();
+      expect(document.body.style.display).toBe(""); // 재커밋 후 복원돼 있어야 한다
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("탭 제스처마다 멈춘 영상에 play()를 다시 건다 — 저전력 모드 방어", async () => {
     // iOS 저전력 모드는 스크립트 단독 play()를 거부하지만 제스처 핸들러 안의 play()는
     // 허용된다 — 화면의 아무 탭이나 복구 트리거가 되는 발신을 못 박는다

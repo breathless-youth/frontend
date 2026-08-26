@@ -38,6 +38,7 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { cn } from "@/lib/utils";
+import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 
 import type { CreateChannel } from "./liveRoomEntryState";
@@ -78,6 +79,8 @@ export function LiveRoomSession({
   useNativeBackLock();
   // 저전력 모드에서 멈춘 영상을 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
   useGestureVideoPlaybackKick();
+  // iOS 회전 백지(세로 복귀 시 순백 화면) 방어 — lib/rotationRepaint.ts 주석 참고.
+  useRotationRepaintNudge();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
