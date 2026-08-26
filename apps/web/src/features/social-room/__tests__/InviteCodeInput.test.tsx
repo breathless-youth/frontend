@@ -30,6 +30,13 @@ describe("InviteCodeInput", () => {
     expect(input).toHaveAttribute("autocomplete", "one-time-code");
   });
 
+  it("caret을 투명 처리한다 — 안드로이드는 투명 input의 caret을 그대로 그린다 (BY-444)", () => {
+    render(<InviteCodeInput value="" onChange={vi.fn()} />);
+
+    const input = screen.getByLabelText("초대코드 4자리");
+    expect(input).toHaveClass("caret-transparent");
+  });
+
   it("숫자 외 문자는 걸러서 onChange로 알린다", () => {
     const onChange = vi.fn();
     render(<InviteCodeInput value="" onChange={onChange} />);

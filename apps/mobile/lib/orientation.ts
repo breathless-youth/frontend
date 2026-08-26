@@ -12,14 +12,28 @@ import { requireOptionalNativeModule } from "expo-modules-core";
  *   (`ExpoAppDelegateSubscriberManager.application(_:supportedInterfaceOrientationsFor:)`)은
  *   **구독자가 없으면 Info.plist(`app.json`의 `orientation: "default"` = 전 방향)를 그대로
  *   반환한다.** 이 패키지가 바로 그 구독자다 — 없으면 잠금 자체가 존재하지 않는다.
- * - rn-screens의 `orientation` screenOption은 `RNSScreen.supportedInterfaceOrientations`에
- *   있지만 **아무도 묻지 않는다** — 연결 함수(`shouldAskScreensForScreenOrientationInViewController`)를
- *   호출하는 코드가 Expo 앱에는 없다(bare RN에서 AppDelegate에 직접 넣는 코드다).
  * - 세션 회전이 "동작"했던 것은 그 설정 덕이 아니라 `fullScreenModal`이라서다 — presented VC는
  *   UIKit이 직접 마스크를 묻는다. 홈·기록·설정이 회전됐던 이유가 이것이다(2026-08-01 실기기).
  *
- * `_layout.tsx`의 rn-screens `orientation` 옵션은 그대로 둔다 — Android에서는 그 경로
- * (`setRequestedOrientation`)가 동작하고, iOS에서도 해가 없다.
+ * ## ⚠️ P0-3 정정의 재정정 (BY-444, 2026-08-26) — rn-screens 옵션은 iOS에서 "무해"가 아니다
+ *
+ * P0-3 정정은 "rn-screens `orientation` 옵션은 iOS에서 아무도 묻지 않으니 남겨도 해가 없다"고
+ * 봤지만, 그 뒤로도 iOS 실기기(TestFlight)에서 전 화면이 회전됐다. 소스 추적으로 확인한 원인:
+ *
+ * - 이 패키지의 iOS 집행자는 앱 델리게이트 구독자가 아니라 **루트 VC**
+ *   (`ScreenOrientationViewController.supportedInterfaceOrientations`)이고, 그 구현은
+ *   `shouldUseRNScreenOrientation()` — 즉 rn-screens의
+ *   `shouldAskScreensForScreenOrientationInViewController:`("orientation이 실린 RNSScreen이
+ *   하나라도 있는가") — 가 참이면 **JS 잠금(`lockAsync`)을 무시하고 rn-screens에 양보한다.**
+ *   ("호출하는 코드가 Expo 앱에 없다"던 P0-3의 전제가 틀렸다 — 이 패키지 자신이 호출자다.)
+ * - 양보받은 rn-screens의 iOS 마스크 산출(전역 스와즐 `UIViewController+RNScreens.mm`)은 우리
+ *   계층 구조에서 화면의 `screenOrientation`을 찾지 못하고 전 방향 허용으로 떨어진다.
+ * - 그래서 `_layout.tsx`가 전 화면에 orientation 옵션을 싣는 동안, 이 파일의 잠금은 iOS에서
+ *   한 번도 집행되지 못했다.
+ *
+ * 결론: **rn-screens `orientation` 옵션은 Android 전용으로만 싣는다**(`_layout.tsx`의 Platform
+ * 분기). iOS 방향의 단일 소유자는 이 파일이다 — 루트 세로 잠금 + 세션(`room/[id]`) 마운트
+ * 해제/재잠금 + 소셜룸의 `set-orientation` 브리지(`RemoteWebViewHost`, 양 플랫폼 공통).
  *
  * ## ⚠️ 정적 import 금지 + require를 try/catch로 감싸는 것도 부족한 이유
  *

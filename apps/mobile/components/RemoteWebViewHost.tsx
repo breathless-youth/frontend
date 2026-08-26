@@ -256,14 +256,14 @@ export function RemoteWebViewHost({
         return;
       }
       if (message.type === "set-orientation") {
-        // iOS는 무시한다 — 룸 회전 개방은 Android 장애 대응 범위이고 iOS 동작은 바꾸지 않는다.
-        if (Platform.OS === "android") {
-          webOrientationUnlockedRef.current = message.unlocked;
-          if (message.unlocked) {
-            unlockForSession();
-          } else {
-            lockPortrait();
-          }
+        // 양 플랫폼 공통이다(BY-444, 종전 "iOS 무시" 폐기) — iOS에서 소셜룸 가로가 됐던 것은
+        // 루트 세로 잠금이 통째로 우회되던 버그의 부수효과였다(`app/_layout.tsx`의 방향 주석).
+        // 잠금이 실동작하는 지금은 이 개방이 없으면 소셜룸 가로 모드가 iOS에서 죽는다.
+        webOrientationUnlockedRef.current = message.unlocked;
+        if (message.unlocked) {
+          unlockForSession();
+        } else {
+          lockPortrait();
         }
         return;
       }
