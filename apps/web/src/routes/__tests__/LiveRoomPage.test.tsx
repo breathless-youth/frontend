@@ -1035,14 +1035,16 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(screen.getByRole("button", { name: "나가기" })).toHaveClass("active:scale-90");
   });
 
-  it("바가 떠 있으면 바 위에 붙고(mt-auto), 내리면 세로 가운데(my-auto) — 안전 정렬", async () => {
-    // content-center/end는 내용이 컨테이너보다 커지면 위 행이 잘리고 스크롤로도 못 닿는다
-    // (2026-08-25 실기기: 작은 화면에서 내 타일·참가자 미표시). auto 마진은 넘치면 접힌다.
+  it("타일 그룹은 바 표시와 무관하게 항상 세로 가운데(my-auto) — 바에 달라붙지 않는다", async () => {
+    // 종전엔 바 표시 중 mt-auto로 바 위에 붙였는데 어색하다는 피드백(2026-08-26)으로
+    // 통일했다 — 바가 올라오면 pb 예약이 줄인 공간의 가운데로 조금 올라갈 뿐이다.
+    // content-center/end는 내용이 넘치면 위 행이 잘려 못 쓴다(2026-08-25 실기기).
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
     const rows = screen.getByTestId("room-grid-rows");
-    expect(rows).toHaveClass("mt-auto");
+    expect(rows).toHaveClass("my-auto");
+    expect(rows).not.toHaveClass("mt-auto");
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
 
     tapSurface();
@@ -1060,17 +1062,18 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).not.toHaveClass("aspect-[4/5]");
   });
 
-  it("5~6명은 바가 올라오면 타일 폭을 줄여 3행 전체가 바 위에 수납된다", async () => {
+  it("5~6명 타일 폭은 바 표시와 무관하게 47% 고정 — 바 토글로 작아지지 않는다", async () => {
+    // 2026-08-26 피드백: 바가 올라올 때 타일이 줄어드는 게 어색하다 — 47%는 SE에서
+    // 바 표시 중에도 정사각 3행이 수납되는 상한이다(50%면 넘쳐 스크롤).
     renderRoom({
       scenario: { snapshot: [member(8), member(9), member(10), member(11), member(12)] },
     });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("w-[calc(44%-2px)]");
+    expect(tile).toHaveClass("w-[calc(47%-2px)]");
+    expect(tile).not.toHaveClass("w-[calc(44%-2px)]");
 
-    // 바를 내린 폭은 50%가 아니라 47% — 토글 스냅을 3%p로 좁혔다(2026-08-26 피드백,
-    // 2명 타일의 2dvh와 같은 이유). 44%는 3행 수납의 상한이라 그대로다.
     tapSurface();
     expect(tile).toHaveClass("w-[calc(47%-2px)]");
   });
@@ -1085,8 +1088,8 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid.className).not.toContain("landscape:grid");
     const rows = screen.getByTestId("room-grid-rows");
     expect(rows).not.toHaveClass("landscape:contents");
-    // 가로는 항상 세로 가운데 — 바 토글이 가로 레이아웃을 흔들지 않는다.
-    expect(rows).toHaveClass("landscape:my-auto");
+    // 세로·가로 공통으로 항상 세로 가운데(my-auto) — 바 토글이 배치를 흔들지 않는다.
+    expect(rows).toHaveClass("my-auto");
     expect(rows).toHaveClass("gap-1");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
@@ -1096,6 +1099,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(tile).toHaveClass("aspect-square");
     expect(tile.className).toContain("landscape:h-[min(88dvh,");
     expect(tile).toHaveClass("landscape:w-auto");
+
+    // 가로는 바를 11px 더 낮게 건다(2026-08-26 피드백) — 래퍼의 landscape 오프셋.
+    expect(screen.getByTestId("room-control-bar").parentElement).toHaveClass(
+      "landscape:bottom-[calc(env(safe-area-inset-bottom)+6px)]",
+    );
   });
 
   it("가로 3명은 1행 3열 정사각 — 폭 예산/3이 높이를 정한다 (BY-441)", async () => {
@@ -1181,7 +1189,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid-rows")).toHaveClass("mt-auto");
+    expect(screen.getByTestId("room-grid-rows")).toHaveClass("my-auto");
     expect(screen.getByTestId("room-grid").className).not.toContain("content-");
   });
 

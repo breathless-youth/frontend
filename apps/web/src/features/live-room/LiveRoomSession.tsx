@@ -539,15 +539,13 @@ export function LiveRoomSession({
             <div
               ref={rowsRef}
               data-testid="room-grid-rows"
-              // 안전 정렬: 바 표시 중엔 mt-auto로 바 바로 위에, 숨김 중엔 my-auto로 세로
-              // 가운데에 — 어느 쪽이든 내용이 넘치면 auto 마진이 접혀 잘리지 않는다.
+              // 안전 정렬: 항상 세로 가운데(my-auto) — 종전엔 바 표시 중 mt-auto로 바 바로
+              // 위에 붙였는데 타일이 바에 달라붙는 게 어색하다는 피드백(2026-08-26)으로 양
+              // 상태 모두 가운데로 통일했다. 바가 올라오면 pb 예약이 줄인 공간의 가운데로
+              // 그룹이 "조금 올라가는" 움직임만 남고 FLIP이 잇는다. 내용이 넘치면 auto
+              // 마진이 접혀 위부터 스크롤되는 성질(data loss 방지)은 그대로다.
               className={cn(
-                "flex w-full flex-wrap justify-center gap-1",
-                controlsVisible ? "mt-auto" : "my-auto",
-                // 가로는 항상 세로 가운데 — 가로 타일 크기는 바와 무관하게 고정이라(dvh)
-                // 바 토글이 정렬까지 흔들면 그게 유일한 레이아웃 변화가 된다. 바는
-                // 가로에서 타일 위에 겹친다(컨테이너 landscape:pb-2).
-                "landscape:my-auto",
+                "my-auto flex w-full flex-wrap justify-center gap-1",
                 // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은
                 // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기므로, 3장+간격 폭으로 줄을
                 // 자른다. mx-auto가 좁아진 래퍼를 가운데 놓는다.
@@ -584,14 +582,12 @@ export function LiveRoomSession({
                       : cn(
                           // 3명 이상도 전부 정사각(2026-08-26 디스코드 참조 확정 — 종전
                           // 2:3/4:5 세로형·눕힌형을 대체). 세로 2열에서 정사각은 세로형보다
-                          // 행이 낮아져 5~6명 3행도 스크롤 없이 수납된다. 5~6명의 바 연동
-                          // 폭(44/47%)은 SE 세로 3행 수납 검산이라 유지한다.
+                          // 행이 낮아져 5~6명 3행도 스크롤 없이 수납된다.
+                          // 5~6명 폭은 바와 무관하게 47% 고정(2026-08-26 피드백: 바 토글로
+                          // 작아지지 않게) — SE 검산: 바 표시 시 3행 518 ≤ 가용 527 ✓
+                          // (50%면 552로 넘쳐 스크롤이 생긴다 — 47이 상한).
                           "aspect-square",
-                          allMembers.length > 4
-                            ? controlsVisible
-                              ? "w-[calc(44%-2px)]"
-                              : "w-[calc(47%-2px)]"
-                            : "w-[calc(50%-2px)]",
+                          allMembers.length > 4 ? "w-[calc(47%-2px)]" : "w-[calc(50%-2px)]",
                         ),
                     // 가로 크기: 정사각을 dvh/폭 예산 높이로 고정한다(컨테이너 주석 참고 —
                     // flex-wrap 줄바꿈이 이 폭으로 결정되므로 기기 검산이 계약. 폭 예산 =
@@ -603,8 +599,8 @@ export function LiveRoomSession({
                     // · 5~6명(2행, 3+2/3+3): 44dvh — 2행 92dvh ≤ 세로 예산 ✓, 3장 폭
                     //   13: 524 ≤ 718 ✓ / SE: 503 ≤ 635 ✓. 3열 강제는 rows 래퍼의
                     //   landscape:max-w가 담당한다(4+1로 감기는 것 방지).
-                    // 바 표시에 따른 세로 모드의 축소(5~6명 44%, 2명 37dvh)는 가로에
-                    // 적용되지 않는다 — 가로 크기는 바와 무관해 토글이 레이아웃을 안 바꾼다.
+                    // 바 표시에 따른 세로 모드의 축소(2명 37dvh)는 가로에 적용되지
+                    // 않는다 — 가로 크기는 바와 무관해 토글이 레이아웃을 안 바꾼다.
                     "landscape:w-auto landscape:max-w-none",
                     grid.cols === 1
                       ? "landscape:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
@@ -620,7 +616,10 @@ export function LiveRoomSession({
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+17px)] flex flex-col items-center gap-2">
+        {/* 가로는 바를 11px 더 낮게(17→6px) — 세로 기준 오프셋이 가로에선 높아 보인다
+            (2026-08-26 피드백). 숨김 슬라이드 이동량은 +17px 기준이라 가로에서도 화면
+            밖까지 충분히 나간다(RoomControlBar의 translate 주석). */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+17px)] landscape:bottom-[calc(env(safe-area-inset-bottom)+6px)] flex flex-col items-center gap-2">
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
