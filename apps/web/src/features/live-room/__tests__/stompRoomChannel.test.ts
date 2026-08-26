@@ -257,6 +257,31 @@ describe("createStompRoomChannel", () => {
     expect(client.deactivate).toHaveBeenCalledTimes(1);
     expect(channel.status).toBe("closed");
   });
+
+  it("reconnect는 세션을 통째로 갈아 새 연결을 만든다 — 배경 복귀 재구축용", async () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+    expect(client.activate).toHaveBeenCalledTimes(1);
+
+    channel.reconnect();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.deactivate).toHaveBeenCalledTimes(1);
+    expect(client.activate).toHaveBeenCalledTimes(2);
+  });
+
+  it("disconnect 뒤의 reconnect는 되살리지 않는다", async () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+    channel.disconnect();
+
+    channel.reconnect();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.activate).toHaveBeenCalledTimes(1);
+  });
 });
 
 /**

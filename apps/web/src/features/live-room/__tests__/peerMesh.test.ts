@@ -405,40 +405,57 @@ describe("createPeerMesh — 트랙과 품질", () => {
     expect(sender?.replaceTrack).toHaveBeenCalledWith(next);
   });
 
-  it("reviveConnections는 offer 역할 상대 전원에 ICE 재시작 offer를 낸다 — TURN 임대 만료 대응", async () => {
-    // 백그라운드 동안 relay 할당이 만료돼도 ICE는 낡은 connected로 남아 이벤트 복구가
-    // 안 걸린다(2026-08-26 실기기) — 복귀 시점의 일괄 재협상이 유일한 회복 경로다.
+  it("resetConnections는 모든 연결을 폐기하고 아바타로 알린다 — 재구축은 새 SNAPSHOT이 잇는다", async () => {
     const { channel, mesh, pcs } = setup();
+    const notified: [number, MediaStream | null][] = [];
+    mesh.subscribeRemoteStreams((userId, stream) => notified.push([userId, stream]));
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
     await vi.waitFor(() => expect(pcs).toHaveLength(1));
-    const pc = pcs[0]?.pc as FakePc;
-    await vi.waitFor(() => expect(channel.publishedSignals).toHaveLength(1));
 
-    mesh.reviveConnections();
+    mesh.resetConnections();
+    expect(pcs[0]?.pc.closed).toBe(true);
+    expect(notified).toContainEqual([8, null]);
 
-    expect(pc.restartIce).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => {
-      expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(2);
-    });
+    // 재연결의 새 SNAPSHOT이 오면(peers가 비워졌으므로) 새 연결로 다시 offer한다.
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(2));
   });
 
-  it("reviveConnections는 answer 역할 상대에게는 offer를 내지 않는다 — glare 규칙 유지", async () => {
-    const { channel, mesh, pcs } = setup();
-    // 상대(9)의 offer에 answer한 관계 — 내가 offer 역할이 아니다.
+  it("살아 있는 연결이라도 DTLS 지문이 다른 offer면 폐기 후 새 연결로 answer한다 — 재입장 웨지 방지", async () => {
+    // 배경 복귀 재구축·웹뷰 재입장의 offer는 새 PC에서 온다 — 지문이 다른 offer를 기존
+    // 연결의 재협상으로 받으면 핸드셰이크가 다시 성립하지 않아 검은 화면·prflx로
+    // 웨지된다(2026-08-26 5기기+서버 로그 실측: 재입장한 144의 offer에 전원이 answer
+    // 했지만 미디어가 서지 않음).
+    const { channel, pcs } = setup();
     channel.emitServerMessage({
       type: "SIGNAL",
       fromUserId: 9,
       kind: "OFFER",
-      payload: { type: "offer", sdp: "v=0" },
+      payload: { type: "offer", sdp: "v=0\r\na=fingerprint:sha-256 AA\r\n" },
     });
     await vi.waitFor(() => expect(pcs).toHaveLength(1));
-    const answers = channel.publishedSignals.filter((s) => s.kind === "ANSWER").length;
+    pcs[0]?.pc.fireIceState("connected"); // 낡았지만 아직 connected로 보이는 상태
 
-    mesh.reviveConnections();
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "v=0\r\na=fingerprint:sha-256 BB\r\n" },
+    });
+    await vi.waitFor(() => expect(pcs).toHaveLength(2));
+    expect(pcs[0]?.pc.closed).toBe(true);
 
-    expect(pcs[0]?.pc.restartIce).not.toHaveBeenCalled();
-    expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(0);
-    expect(channel.publishedSignals.filter((s) => s.kind === "ANSWER")).toHaveLength(answers);
+    // 같은 지문의 offer(같은 PC의 ICE 재시작 재협상)는 기존 연결을 유지한다.
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "v=0\r\na=fingerprint:sha-256 BB\r\n" },
+    });
+    await vi.waitFor(() => {
+      expect(channel.publishedSignals.filter((s) => s.kind === "ANSWER")).toHaveLength(3);
+    });
+    expect(pcs).toHaveLength(2);
   });
 
   it("죽은 연결에 새 트랙을 실으면 ICE 재시작 offer를 다시 보낸다 — 배경 복귀 검은 화면 방지", async () => {

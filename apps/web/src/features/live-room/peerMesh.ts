@@ -18,14 +18,14 @@ export interface PeerMesh {
   setLocalStream(stream: MediaStream | null): void;
   setTrackEnabled(enabled: boolean): void;
   /**
-   * 미디어 경로가 통째로 죽었을 수 있는 시점(백그라운드 복귀)의 일괄 재협상 —
-   * offer 역할 상대 전원에 ICE 재시작 offer를 낸다. TURN 릴레이 할당은 클라이언트가
-   * 주기 갱신해야 하는 임대라 JS가 멈춘 백그라운드 동안 만료되는데, ICE 상태는 낡은
-   * connected로 남아 이벤트 기반 복구가 안 걸린다(2026-08-26 실기기: relay 경로
-   * 송신자가 복귀 후 영상 불통). 건강한 연결의 재시작은 새 후보 선택까지 기존 경로로
-   * 계속 송출되므로 무해하다. answered 상대 방향은 상대측 동일 로직이 맡는다(glare 규칙).
+   * 모든 P2P 연결을 폐기한다(구독·로컬 스트림은 유지) — 백그라운드 복귀 재구축용.
+   * 배경에서는 소켓·TURN 임대·인코더가 제각각 죽어 계층별 소생이 조합 폭발이라
+   * 신뢰할 수 없었다(2026-08-26 실기기: ICE 재시작만으로는 prflx 경로·검은 화면
+   * 혼재). 폐기 후 채널 재연결의 새 SNAPSHOT이 전원 재offer를 트리거해 TURN 임대·
+   * 인코더·디코더가 전부 새로 만들어진다. 상대측의 낡은 PC는 DTLS 지문이 다른 offer
+   * 판정(handleSignal의 new-pc 분기)이 폐기시켜 그쪽도 새 연결로 answer한다.
    */
-  reviveConnections(): void;
+  resetConnections(): void;
   subscribeRemoteStreams(
     listener: (userId: number, stream: MediaStream | null) => void,
   ): () => void;
@@ -314,6 +314,11 @@ export function createPeerMesh({
     );
   }
 
+  /** SDP의 DTLS 지문 줄 — 같은 RTCPeerConnection이 만든 SDP끼리는 재협상에도 동일하다. */
+  function sdpFingerprint(sdp: string | undefined): string | null {
+    return /a=fingerprint:[^\r\n]*/i.exec(sdp ?? "")?.[0] ?? null;
+  }
+
   // 폐기 후 재수립용 정리 — MEMBER_LEFT와 달리 화면 통지는 하지 않는다(아직 스트림이
   // 없거나, 곧 새 연결이 대체한다).
   function discardPeer(userId: number) {
@@ -352,6 +357,25 @@ export function createPeerMesh({
           }
           debug(`glare-yield←${fromUserId}`);
           discardPeer(fromUserId);
+        } else {
+          // 상대가 연결을 **새로 만들어** 보낸 offer인지 판별한다 — 배경 복귀 재구축·
+          // 웹뷰 재입장에서 상대는 새 PC로 offer를 보내는데, 내 쪽 낡은 PC의 ICE가
+          // 아직 connected로 남아 있으면 위 stale 분기에 안 걸린다. DTLS 지문이 다른
+          // offer를 기존 연결의 재협상으로 answer하면 핸드셰이크가 다시 성립하지 않아
+          // 검은 화면·prflx 경로로 웨지된다(2026-08-26 5기기+서버 로그 실측: 재입장한
+          // 144의 offer 3발에 전원이 answer했지만 미디어가 서지 않음). 지문이 다르면
+          // 폐기하고 새 연결로 answer한다 — 같은 지문(같은 PC의 ICE 재시작 재협상)은
+          // 기존 연결을 유지한다.
+          const oldFingerprint = sdpFingerprint(existing.remoteDescription?.sdp);
+          const newFingerprint = sdpFingerprint(payload.sdp);
+          if (
+            oldFingerprint !== null &&
+            newFingerprint !== null &&
+            oldFingerprint !== newFingerprint
+          ) {
+            debug(`new-pc←${fromUserId}`);
+            discardPeer(fromUserId);
+          }
         }
       }
       const pc = getOrCreatePeer(fromUserId);
@@ -478,14 +502,10 @@ export function createPeerMesh({
         track.enabled = enabled;
       }
     },
-    reviveConnections() {
-      for (const [userId, pc] of peers) {
-        if (offeredByMe.has(userId)) {
-          debug(`revive→${userId}`);
-          restartAttempted.delete(userId);
-          pc.restartIce();
-          startOffer(userId);
-        }
+    resetConnections() {
+      debug(`reset ${peers.size}연결`);
+      for (const userId of [...peers.keys()]) {
+        closePeer(userId);
       }
     },
     subscribeRemoteStreams(listener) {

@@ -15,6 +15,12 @@ export interface RoomChannel {
   readonly status: RoomChannelStatus;
   connect(): void;
   disconnect(): void;
+  /**
+   * 연결을 통째로 갈아 새 세션을 만든다 — 백그라운드 복귀처럼 소켓·구독의 생사가
+   * 불확실한 시점의 재구축용. 재연결되면 서버 스냅샷(구독 트리거·재요청 워치독)이
+   * 방 상태를 처음부터 다시 동기화한다.
+   */
+  reconnect(): void;
   /** 서버 메시지 구독 */
   subscribe(listener: (message: RoomServerMessage) => void): () => void;
   /** 발행 */

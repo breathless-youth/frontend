@@ -246,6 +246,17 @@ export function createStompRoomChannel({
       clearSnapshotWatchdog();
       void client.deactivate();
     },
+    reconnect() {
+      // 워치독의 강제 교체와 같은 패턴 — 소켓이 조용히 죽은 상태(배경 복귀)에서는
+      // stompjs 자동 재연결(끊김 감지 후 5초)을 기다리는 것보다 즉시 가는 편이 빠르고,
+      // 새 세션이 개인 큐 등록·스냅샷 동기화를 처음부터 다시 만든다.
+      clearSnapshotWatchdog();
+      void Promise.resolve(client.deactivate()).then(() => {
+        if (status !== "closed") {
+          client.activate();
+        }
+      });
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => {

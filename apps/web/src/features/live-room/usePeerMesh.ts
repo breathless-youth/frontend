@@ -61,17 +61,29 @@ export function usePeerMesh({
     return () => mesh.close();
   }, [mesh]);
 
-  // 백그라운드 복귀 시 일괄 재협상 — TURN 임대 만료 대응(사유는 PeerMesh.reviveConnections
-  // 주석). mock 채널 기반 테스트에서도 무해하다: offer 역할 상대가 없으면 무동작이다.
+  // 백그라운드 복귀 재구축 — 배경에서는 소켓·TURN 임대·인코더가 제각각 죽는데(2026-08-26
+  // 실기기: 복귀 후 소켓 끊김·prflx 경로·검은 화면 혼재) 계층별 소생은 조합이 많아 신뢰할
+  // 수 없었다. 일정 시간 이상 가려졌다 돌아오면 P2P 전부와 채널 세션을 통째로 갈아 새
+  // 스냅샷 기준으로 전원 재연결한다(사유 상세는 PeerMesh.resetConnections 주석). 짧은
+  // 가림(알림 확인 등)은 연결이 멀쩡히 살아남으므로 재구축하지 않는다.
   useEffect(() => {
+    const REBUILD_AFTER_HIDDEN_MS = 3000;
+    let hiddenAt: number | null = null;
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        mesh.reviveConnections();
+      if (document.visibilityState === "hidden") {
+        hiddenAt = hiddenAt ?? Date.now();
+        return;
+      }
+      const wasHiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+      hiddenAt = null;
+      if (wasHiddenFor >= REBUILD_AFTER_HIDDEN_MS) {
+        mesh.resetConnections();
+        channel.reconnect();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [mesh]);
+  }, [mesh, channel]);
 
   return remoteStreams;
 }
