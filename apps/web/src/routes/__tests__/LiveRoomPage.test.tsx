@@ -898,6 +898,19 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(arrows.style.transform).toBe("rotate(360deg)");
   });
 
+  it("내 영상은 autoplay 속성에만 의존하지 않고 play()를 직접 부른다 — iOS WKWebView 자동재생 방어", async () => {
+    // 동적으로 마운트된 video는 WKWebView가 autoplay를 시작하지 않은 채 둘 수 있다 —
+    // 회전(리레이아웃) 전까지 영상 타일이 빈 채 남는 실기기 증상(2026-08-26, 3기기 동시
+    // 입장). srcObject를 붙인 뒤 명시 play() 발신을 못 박는다(lib/videoPlayback.ts).
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+
+    expect(screen.getByTestId("room-my-video")).toBeInTheDocument();
+    expect(play).toHaveBeenCalled();
+  });
+
   it("바가 올라와 있으면 하단을 바만큼 벌리고, 내리면 화면 높이 비례(4dvh) 여백이 된다", async () => {
     // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
     // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
