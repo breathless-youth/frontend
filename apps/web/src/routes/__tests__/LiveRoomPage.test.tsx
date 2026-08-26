@@ -912,16 +912,18 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(grid).toHaveClass("pb-[4dvh]");
   });
 
-  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 36dvh, 내리면 41dvh로 커진다", async () => {
+  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 37dvh, 내리면 39dvh로 커진다", async () => {
+    // 변화 폭 2dvh는 의도된 값이다(2026-08-26 피드백: 41↔36dvh 스냅이 너무 컸다).
+    // 레이아웃 트랜지션은 랙 이력으로 금지라, 부드러움 대신 폭을 좁혀 어색함을 줄인다.
     renderRoom({ scenario: { snapshot: [member(8)] } });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("h-[36dvh]");
+    expect(tile).toHaveClass("h-[37dvh]");
 
     tapSurface();
-    expect(tile).toHaveClass("h-[41dvh]");
+    expect(tile).toHaveClass("h-[39dvh]");
   });
 
   it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
@@ -988,8 +990,10 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("w-[calc(44%-2px)]");
 
+    // 바를 내린 폭은 50%가 아니라 47% — 토글 스냅을 3%p로 좁혔다(2026-08-26 피드백,
+    // 2명 타일의 2dvh와 같은 이유). 44%는 3행 수납의 상한이라 그대로다.
     tapSurface();
-    expect(tile).toHaveClass("w-[calc(50%-2px)]");
+    expect(tile).toHaveClass("w-[calc(47%-2px)]");
   });
 
   it("가로 2명은 1행 2열 그리드 — 화면을 꽉 채우던 와이드 타일(2:1)을 BY-435 이전 배치로 복원 (BY-441)", async () => {

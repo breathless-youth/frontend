@@ -423,24 +423,31 @@ export function LiveRoomSession({
                     grid.cols === 1
                       ? cn(
                           // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
-                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25).
+                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 대신 바
+                          // 토글의 크기 변화 폭 자체를 2dvh로 좁혀 스냅이 티 나지 않게 한다
+                          // (2026-08-26 피드백: 41↔36dvh는 너무 확 줄었다). 37dvh는 바가
+                          // 올라온 상태에서 2행+바가 노치 기기에도 수납되는 상한이다.
                           "aspect-square max-w-full",
-                          controlsVisible ? "h-[36dvh]" : "h-[41dvh]",
+                          controlsVisible ? "h-[37dvh]" : "h-[39dvh]",
                         )
                       : cn(
                           // 3~4명은 0352 비율(2:3). 5~6명은 2:3이면 3행이 화면을 넘어 첫 행이
                           // 스크롤로 밀리는 사고가 났다 — 4:5로 눕히고, 바가 올라오면 폭을 더
                           // 줄여 3행 전체가 바 위에 수납된다(2026-08-25 피드백: 바가 가림).
+                          // 바를 내린 폭도 50%→47%로 좁혀 토글 스냅을 3%p로 줄였다(2026-08-26
+                          // 피드백 — 위 2dvh와 같은 이유). 44%는 3행 수납의 상한이라 그대로다.
                           allMembers.length <= 4 ? "aspect-[2/3]" : "aspect-[4/5]",
-                          allMembers.length > 4 && controlsVisible
-                            ? "w-[calc(44%-2px)]"
+                          allMembers.length > 4
+                            ? controlsVisible
+                              ? "w-[calc(44%-2px)]"
+                              : "w-[calc(47%-2px)]"
                             : "w-[calc(50%-2px)]",
                         ),
                     // 가로: 컨테이너 그리드의 셀을 stretch로 그대로 채운다(BY-441 —
                     // BY-435 이전 배치 복원. "타일당 한 화면 꽉 차게"의 2:1 와이드 타일은
                     // 카메라가 지나치게 커서 되돌렸다). 세로용 비율·크기 지정을 전부 풀어야
                     // 셀 크기가 타일 크기가 된다 — 바 표시에 따른 세로 모드의 축소(5~6명
-                    // 44%, 2명 36dvh)는 가로에 적용되지 않는다.
+                    // 44%, 2명 37dvh)는 가로에 적용되지 않는다.
                     "landscape:aspect-auto landscape:h-auto landscape:w-auto landscape:max-w-none",
                   )}
                 />
