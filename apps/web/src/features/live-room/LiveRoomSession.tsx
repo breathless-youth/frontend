@@ -376,18 +376,21 @@ export function LiveRoomSession({
             className={cn(
               "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
               // 가로는 BY-435 이전 그리드로 복원(BY-441) — 타일당 한 화면을 채우던 와이드
-              // 타일(2:1)은 카메라가 화면에 꽉 차서 되돌렸다. 2명은 1행 2열로 화면을 반씩,
-              // 3명 이상은 2열에 행 높이 절반 + 세로 스크롤. rows 래퍼가 가로에서
-              // landscape:contents로 사라져 타일이 이 컨테이너의 그리드 아이템이 된다 —
-              // % 행 높이는 높이가 정해진(grow) 이 컨테이너에서만 풀리기 때문이다.
-              // 간격은 세로 타일과 같은 gap-1(4px)을 쓴다(종전 gap-3은 BY-435의 세로
-              // 간격 축소와 어긋난다) — 행 높이 계산의 4px가 이 값이다.
-              "landscape:grid landscape:grid-cols-2 landscape:gap-1",
+              // 타일(2:1)은 카메라가 화면에 꽉 차서 되돌렸다. 복원 원본은 5bf0849(2026-08-21,
+              // BY-427 전후 동일)이고 간격·여백까지 당시 값 그대로다: 2명은 1행 2열로 화면을
+              // 반씩(행 높이 100%), 3명 이상은 2열에 행 높이 절반 + 세로 스크롤, gap-3(12px).
+              // rows 래퍼가 가로에서 landscape:contents로 사라져 타일이 이 컨테이너의 그리드
+              // 아이템이 된다 — % 행 높이는 높이가 정해진(grow) 이 컨테이너에서만 풀린다.
+              "landscape:grid landscape:grid-cols-2 landscape:gap-3",
               grid.cols === 1
                 ? "landscape:[grid-auto-rows:100%]"
-                : "landscape:[grid-auto-rows:calc((100%-4px)/2)]",
+                : "landscape:[grid-auto-rows:calc((100%-12px)/2)]",
               "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
               controlsVisible ? "pb-[calc(env(safe-area-inset-bottom)+108px)]" : "pb-[4dvh]",
+              // 가로 하단 여백도 당시 값(pb-2) — 행 높이가 컨테이너 높이에서 풀리므로 바
+              // 표시용 108px 예약을 두면 타일이 바 높이만큼 눌린다. 예전처럼 바가 타일 위에
+              // 겹치는 쪽을 택한다(세로의 수납 동작은 그대로).
+              "landscape:pb-2",
             )}
           >
             <div

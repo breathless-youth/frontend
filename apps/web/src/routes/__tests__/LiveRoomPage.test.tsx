@@ -1016,9 +1016,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
     await enterRoom();
 
-    expect(screen.getByTestId("room-grid")).toHaveClass(
-      "landscape:[grid-auto-rows:calc((100%-4px)/2)]",
-    );
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).toHaveClass("landscape:[grid-auto-rows:calc((100%-12px)/2)]");
+    // 간격·하단 여백도 복원 원본(5bf0849) 값 그대로 — 가로에서는 바가 타일 위에 겹친다.
+    expect(grid).toHaveClass("landscape:gap-3");
+    expect(grid).toHaveClass("landscape:pb-2");
   });
 
   it("7명 이상도 안전 정렬 — auto 마진이 접혀 위부터 스크롤되고 첫 행이 잘리지 않는다", async () => {
