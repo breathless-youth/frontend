@@ -95,7 +95,7 @@ react-query는 쓰지 않는다.
 
 ## 데이터 흐름
 
-```
+```text
 studying 진입
   → 30초 interval 시작
   → 매 30초: in-flight 아니고 stop 아니면 스냅샷 PUT
