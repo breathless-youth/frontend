@@ -9,6 +9,7 @@ import {
   trackStudySessionStarted,
   trackStudySessionSubmitted,
 } from "@/lib/amplitude";
+import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reportHandled } from "@/lib/sentry";
 
@@ -44,7 +45,7 @@ import {
   toStatusEvents,
   transition,
 } from "./sessionTimeline";
-import { deleteCheckpoint, saveCheckpoint } from "./sessionCheckpoint";
+import { reportActiveSession } from "./reportActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
@@ -88,8 +89,8 @@ export interface StudyRoomSessionOptions {
  * 상태 이벤트(`StatusEventPayload[]`) 누적, 종료 시 세션 제출.
  *
  * 계산은 전부 순수 모듈(`sessionTimeline`·`detection`)에 있고 이 훅은 배선만 한다.
- * 세션 중에는 어떤 API도 호출하지 않는다(오프라인에서 세션이 완전히 동작해야 한다) —
- * 제출은 종료 시 1회, 서버는 앱이 잰 studySec/focusSec을 그대로 저장한다.
+ * 세션 중에는 일정 주기로 진행 스냅샷만 서버에 보고하고(비정상 종료 대비), 최종 제출은 종료 시
+ * 1회 한다. 서버는 앱이 잰 studySec/focusSec을 그대로 저장한다.
  */
 export function useStudyRoomSession(userId: number | null, options: StudyRoomSessionOptions = {}) {
   const [camera] = useState<CameraAdapter>(() => options.camera ?? createMockCameraAdapter());
@@ -118,6 +119,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   // 동시에 발화할 수 있고, "다시 제출" 연타도 같은 경로다. 서버는 멱등이지만
   // 시도 계측(attempt)이 부풀고 타임라인 닫기가 중복 실행된다.
   const submitInFlightRef = useRef(false);
+  // 진행 스냅샷 보고 가드 — 겹침·정지·중복보고를 각각 막는다.
+  const snapshotInFlightRef = useRef(false);
+  const snapshotStoppedRef = useRef(false);
+  const snapshotErrorReportedRef = useRef(false);
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
@@ -134,57 +139,23 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const [pausedSnapshot, setPausedSnapshot] = useState<PausedSnapshot | null>(null);
 
-  const lastCheckpointMsRef = useRef(startedAtMsRef.current);
-
-  /**
-   * 비정상 종료 대비 — 현재 타임라인 기준 스냅샷을 디스크에 남긴다.
-   * userId가 없으면 제출할 수 없는 세션이라 저장도 하지 않는다.
-   */
-  const writeCheckpoint = useCallback(
-    (nowMs: number) => {
-      if (userId === null) {
-        return;
-      }
-      const totals = computeSessionTotals(timelineRef.current, nowMs);
-      lastCheckpointMsRef.current = nowMs;
-      saveCheckpoint({
-        userId,
-        startedAtMs: startedAtMsRef.current,
-        lastSeenMs: nowMs,
-        studySec: totals.studySec,
-        focusSec: totals.focusSec,
-        events: toStatusEvents(timelineRef.current, nowMs),
-      });
-    },
-    [userId],
-  );
-
   /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
-  const applyState = useCallback(
-    (next: SessionState, atMs: number = Date.now()) => {
-      const before = currentState(timelineRef.current);
-      timelineRef.current = transition(timelineRef.current, next, atMs);
-      setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
-      // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
-      // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
-      const applied = currentState(timelineRef.current);
-      // 실제 전이가 일어난 순간만 저장한다 — 감지 tick이 같은 상태로 매번 부르는 경로에서
-      // 저장이 반복되면 안 된다.
-      if (!isSameSessionState(before, applied)) {
-        writeCheckpoint(atMs);
+  const applyState = useCallback((next: SessionState, atMs: number = Date.now()) => {
+    timelineRef.current = transition(timelineRef.current, next, atMs);
+    setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
+    // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
+    // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
+    const applied = currentState(timelineRef.current);
+    setPausedSnapshot((prev) => {
+      if (applied.kind !== "PAUSE") {
+        return prev === null ? prev : null;
       }
-      setPausedSnapshot((prev) => {
-        if (applied.kind !== "PAUSE") {
-          return prev === null ? prev : null;
-        }
-        const sinceMs = currentStateSinceMs(timelineRef.current);
-        return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
-          ? prev
-          : { sinceMs, trigger: applied.trigger };
-      });
-    },
-    [writeCheckpoint],
-  );
+      const sinceMs = currentStateSinceMs(timelineRef.current);
+      return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
+        ? prev
+        : { sinceMs, trigger: applied.trigger };
+    });
+  }, []);
 
   /**
    * 세션 시작 이벤트 — 스터디룸 진입이 곧 세션 시작이다(별도 시작 버튼이 없다).
@@ -274,13 +245,53 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           ? prev
           : next,
       );
-
-      if (nowMs - lastCheckpointMsRef.current >= 10_000) {
-        writeCheckpoint(nowMs);
-      }
     }, tickMs);
     return () => clearInterval(timer);
-  }, [applyState, detectionParams, phase.name, tickMs, writeCheckpoint]);
+  }, [applyState, detectionParams, phase.name, tickMs]);
+
+  // studying 동안만 30초마다 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
+  // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
+  useEffect(() => {
+    if (phase.name !== "studying" || userId === null) {
+      return;
+    }
+    const timer = setInterval(() => {
+      if (snapshotStoppedRef.current || snapshotInFlightRef.current) {
+        return;
+      }
+      const nowMs = Date.now();
+      const totals = computeSessionTotals(timelineRef.current, nowMs);
+      const events = toStatusEvents(timelineRef.current, nowMs);
+      snapshotInFlightRef.current = true;
+      reportActiveSession({
+        userId,
+        startedAtMs: startedAtMsRef.current,
+        reportedAtMs: nowMs,
+        studySec: totals.studySec,
+        focusSec: totals.focusSec,
+        events,
+      })
+        .catch((error: unknown) => {
+          // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
+          if (!(error instanceof ApiError)) {
+            return;
+          }
+          // 400·404·409는 그 세션 보고를 멈춘다. 409는 세션이 이미 확정된 상태라 재시도하지
+          // 않는다. 5xx는 일시 장애로 보고 다음 주기에 다시 보낸다.
+          if (error.status === 400 || error.status === 404 || error.status === 409) {
+            snapshotStoppedRef.current = true;
+          }
+          if (!snapshotErrorReportedRef.current) {
+            snapshotErrorReportedRef.current = true;
+            reportHandled(error, "session-snapshot");
+          }
+        })
+        .finally(() => {
+          snapshotInFlightRef.current = false;
+        });
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [phase.name, userId]);
 
   /**
    * 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다.
@@ -394,8 +405,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         setPhase({ name: "unsaved", studySec: finalTotals.studySec });
         return;
       }
-      // 제출 직전 최종 스냅샷 — 실패한 채 떠나거나 여기서 죽어도 종료 시점 값이 남는다.
-      writeCheckpoint(endedAtMs);
       setPhase({ name: "submitting" });
       submitInFlightRef.current = true;
       submitAttemptRef.current += 1;
@@ -410,7 +419,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           events,
         });
         trackStudySessionSubmitted(true, attempt);
-        deleteCheckpoint(startedAtMsRef.current);
         setPhase({ name: "done", sessions });
       } catch (error) {
         trackStudySessionSubmitted(false, attempt);
@@ -424,7 +432,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         submitInFlightRef.current = false;
       }
     },
-    [userId, writeCheckpoint],
+    [userId],
   );
 
   /**

@@ -77,7 +77,7 @@ export function submitViaNative(
           resolve(message.sessions);
         } else {
           // status가 실려 오면 브라우저 fetch 경로와 같은 ApiError로 복원한다 —
-          // 재제출 러너가 경로와 무관하게 400을 판별할 수 있어야 한다.
+          // 호출부가 경로와 무관하게 400을 판별할 수 있어야 한다.
           reject(
             message.status !== undefined
               ? new ApiError(message.message, message.status)
