@@ -71,23 +71,34 @@ BY-447로 서버가 진행 스냅샷을 받아 세션을 자동 확정하는 경
 ### 세션 훅 연동
 
 `useStudyRoomSession`에 스냅샷 보고를 붙인다.
-`useMutation`으로 `reportActiveSession` 호출을 감싼다.
-`phase.name === "studying"`인 동안만 도는 30초 `setInterval` effect가 매 주기 스냅샷을 만들어 `mutate`를 부른다.
+`phase.name === "studying"`인 동안만 도는 30초 `setInterval` effect가 매 주기 스냅샷을 만들어 `reportActiveSession`을 직접 부른다.
 스냅샷은 현재 `timelineRef.current`에서 `computeSessionTotals`와 `toStatusEvents`로 만든다.
 첫 보고는 t=30부터 나간다.
 
+react-query는 쓰지 않는다.
+`useMutation`은 interval 의존성과 안 맞아 겹침·정지 가드를 결국 ref로 관리해야 하고, 그러면 `QueryClientProvider` 의존성만 남고 이점은 사라진다.
+싱글룸(`RoomPage`)이 아직 react-query를 쓰지 않아 provider를 새로 끌어들이는 비용도 있다.
+
 ### 가드
 
-- 겹침 가드는 `mutation.isPending`으로 한다. 진행 중인 요청이 있으면 이번 주기는 건너뛴다.
-- 정지 가드는 ref 하나로 한다. `400`·`404`를 받으면 그 세션 동안 보고를 멈춘다.
+- 겹침 가드는 in-flight ref로 한다. 요청 시작 전에 세우고 끝나면 내린다.
+- 정지 가드는 stop ref로 한다. `400`·`404`를 받으면 그 세션 동안 보고를 멈춘다.
+- Sentry 중복 방지 가드는 reported ref로 한다. 첫 오류에만 `reportHandled`를 부른다.
 - `userId`가 `null`이면 애초에 보고하지 않는다.
+
+### 오류 분기
+
+- 네트워크 실패는 `ApiError`가 아니다. 조용히 넘기고 다음 주기에 다시 보낸다.
+- `ApiError`의 `400`·`404`는 stop ref를 세워 그 세션 보고를 멈춘다.
+- `ApiError` 전부 첫 1회만 `reportHandled(error, "session-snapshot")`으로 남긴다.
+- `409`를 포함한 나머지 `ApiError`는 stop 없이 다음 주기에 다시 보낸다.
 
 ## 데이터 흐름
 
 ```
 studying 진입
   → 30초 interval 시작
-  → 매 30초: isPending 아니고 stop 아니면 스냅샷 PUT
+  → 매 30초: in-flight 아니고 stop 아니면 스냅샷 PUT
   → 서버가 draft를 덮어쓰거나(204) 역순이면 무시(204)
 종료(정상)
   → interval 정리
@@ -127,9 +138,10 @@ studying 진입
 
 - studying 동안 30초마다 스냅샷이 나가는지 확인한다.
 - 첫 보고가 t=30에 나가는지 확인한다.
-- 진행 중인 요청이 있으면 다음 주기를 건너뛰는지 확인한다.
+- 진행 중인 요청이 안 끝났으면 다음 주기를 건너뛰는지 확인한다.
 - `400`·`404` 이후 그 세션 보고가 멈추는지 확인한다.
 - `409` 이후에도 보고가 계속되는지 확인한다.
+- 네트워크 실패 이후에도 보고가 계속되는지 확인한다.
 - `userId`가 `null`이면 보고하지 않는지 확인한다.
 - studying이 끝나면 interval이 정리되는지 확인한다.
 
