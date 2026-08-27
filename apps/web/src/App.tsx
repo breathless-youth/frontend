@@ -1,16 +1,8 @@
-import { useEffect } from "react";
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { ToastViewport } from "@/components/ui/toast";
-import {
-  RESUBMIT_TOAST_MESSAGE,
-  resubmitPendingSessions,
-} from "@/features/study-session/resubmitPendingSessions";
-import { useToast } from "@/lib/useToast";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativePingResponder } from "@/lib/nativeLiveness";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
@@ -53,19 +45,6 @@ export function App() {
   // 렌더러 사망 복구용 현재 화면 보고(`lib/nativeScreenReport.ts`).
   useNativeScreenReport();
 
-  const { message: toastMessage, showToast } = useToast();
-
-  // 비정상 종료 세션의 재제출. 탭·세션 화면이 각각 별도 웹뷰라 App은 화면마다 새로
-  // 마운트되고 이 effect도 그때마다 돈다 — 서버 멱등이라 반복 실행이 안전하다.
-  // 성공 건이 있으면 사용자에게 알린다.
-  useEffect(() => {
-    void resubmitPendingSessions().then((submitted) => {
-      if (submitted > 0) {
-        showToast(RESUBMIT_TOAST_MESSAGE);
-      }
-    });
-  }, [showToast]);
-
   return (
     <QueryClientProvider client={queryClient}>
       {/*
@@ -95,7 +74,6 @@ export function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/licenses" element={<LicensesPage />} />
         </Routes>
-        <ToastViewport message={toastMessage} />
       </Sentry.ErrorBoundary>
     </QueryClientProvider>
   );

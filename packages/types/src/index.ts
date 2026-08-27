@@ -22,7 +22,8 @@ export interface UserRegisterResponse {
 
 /**
  * 공부 세션 제출 API 계약 (POST /api/study-sessions) — Swagger 기준.
- * 서버는 세션을 실시간 추적하지 않고, 앱이 잰 studySec/focusSec을 그대로 저장한다.
+ * 최종 제출은 앱이 잰 studySec/focusSec을 그대로 저장한다. 진행 중 값은 PUT /active로 따로
+ * 보고하고(ActiveSessionSnapshotRequest), 서버가 마지막 스냅샷으로 자동 확정한다.
  */
 
 /**
@@ -49,6 +50,21 @@ export interface StudySessionCreateRequest {
   /** 순공 시간(초). 0 ≤ focusSec ≤ studySec */
   focusSec: number;
   /** 비공부 상태 이벤트 목록 — 없으면 빈 배열 */
+  events: StatusEventPayload[];
+}
+
+/** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
+export interface ActiveSessionSnapshotRequest {
+  userId: number;
+  /** 세션 시작 시각 (UTC ISO-8601) — 최종 제출 startedAt과 같은 값, userId와 함께 draft 멱등 키 */
+  startedAt: string;
+  /** 이 스냅샷의 기준 시각 (UTC ISO-8601) — 자동 확정 시 endedAt이 된다 */
+  reportedAt: string;
+  /** 지금까지의 누적 총 공부 시간(초) */
+  studySec: number;
+  /** 지금까지의 누적 순공 시간(초). 0 ≤ focusSec ≤ studySec */
+  focusSec: number;
+  /** 지금까지의 비공부 이벤트 전체 — 진행 중인 이벤트는 reportedAt에서 닫아 보낸다 */
   events: StatusEventPayload[];
 }
 

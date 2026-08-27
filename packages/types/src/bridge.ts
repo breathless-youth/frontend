@@ -89,7 +89,7 @@ export type SubmitResultMessage =
       message: string;
       /**
        * HTTP 응답 실패일 때만 실리는 상태코드. 네트워크 단절·타임아웃에는 없다.
-       * 웹의 재제출 러너가 400(영구 거부, 보관 삭제)과 일시 실패(보관 유지)를 가르는 근거다.
+       * 호출부가 400 같은 영구 실패와 일시 실패를 가르는 근거다.
        */
       status?: number;
       atMs: number;

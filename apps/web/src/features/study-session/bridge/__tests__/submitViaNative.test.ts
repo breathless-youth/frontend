@@ -88,7 +88,7 @@ describe("submitViaNative", () => {
     await expect(pending).rejects.toThrow("세션 구간이 겹칩니다");
   });
 
-  it("실패 응답에 status가 실려 있으면 ApiError로 복원한다 — 재제출 러너의 400 판별 근거다", async () => {
+  it("실패 응답에 status가 실려 있으면 ApiError로 복원한다 — 호출부의 400 판별 근거다", async () => {
     const pending = submitViaNative(REQUEST);
     deliver({
       type: "submit-result",
