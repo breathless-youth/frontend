@@ -150,4 +150,28 @@ describe("useActiveSessionRestore", () => {
 
     expect(restoreActiveSession).toHaveBeenCalledTimes(1);
   });
+
+  it("userId가 바뀐 직후 렌더에서는 앞 사용자의 결과를 내주지 않는다", async () => {
+    restoreActiveSession.mockResolvedValue(RESTORED);
+    // effect가 돌기 전 렌더도 봐야 한다. 그 한 번에 새 사용자 화면이 만들어지면서 앞 사용자의
+    // 세션을 이어받는다. rerender는 effect까지 흘려보내므로 렌더별 반환값을 따로 모은다.
+    const seen: { id: number; settled: boolean; restored: unknown }[] = [];
+
+    const { rerender } = renderHook(
+      ({ id }) => {
+        const state = useActiveSessionRestore(id);
+        seen.push({ id, ...state });
+        return state;
+      },
+      { initialProps: { id: 7 } },
+    );
+    await waitFor(() => {
+      expect(seen.some((entry) => entry.settled)).toBe(true);
+    });
+
+    rerender({ id: 9 });
+
+    const leaked = seen.filter((entry) => entry.id === 9 && entry.restored !== null);
+    expect(leaked).toEqual([]);
+  });
 });

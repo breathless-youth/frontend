@@ -20,6 +20,11 @@ export interface ActiveSessionRestoreState {
 const NOT_SETTLED: ActiveSessionRestoreState = { settled: false, restored: null };
 const NOTHING_TO_RESTORE: ActiveSessionRestoreState = { settled: true, restored: null };
 
+/** 어느 사용자를 조회한 결과인지 함께 들고 있어야 렌더 시점에 남의 값을 걸러낼 수 있다. */
+interface OwnedState extends ActiveSessionRestoreState {
+  userId: number | null;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -38,25 +43,26 @@ function delay(ms: number): Promise<void> {
  * 바꾸지 않는 GET이라 개발 환경에서 두 번 나가는 편이 안전하다.
  */
 export function useActiveSessionRestore(userId: number | null): ActiveSessionRestoreState {
-  const [state, setState] = useState<ActiveSessionRestoreState>(() =>
-    userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED,
-  );
+  const [state, setState] = useState<OwnedState>(() => ({
+    userId,
+    ...(userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED),
+  }));
 
   useEffect(() => {
     if (userId === null) {
-      setState(NOTHING_TO_RESTORE);
+      setState({ userId, ...NOTHING_TO_RESTORE });
       return;
     }
     let cancelled = false;
     // 사용자가 바뀌면 이전 사용자의 결과를 들고 있으면 안 되므로 대기 상태로 되돌린다.
-    setState(NOT_SETTLED);
+    setState({ userId, ...NOT_SETTLED });
 
     async function run(id: number) {
       for (let attempt = 0; attempt <= MAX_RETRY; attempt += 1) {
         try {
           const restored = await restoreActiveSession(id);
           if (!cancelled) {
-            setState({ settled: true, restored });
+            setState({ userId: id, settled: true, restored });
           }
           return;
         } catch (error: unknown) {
@@ -80,7 +86,7 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
         }
       }
       if (!cancelled) {
-        setState(NOTHING_TO_RESTORE);
+        setState({ userId: id, ...NOTHING_TO_RESTORE });
       }
     }
 
@@ -90,5 +96,10 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
     };
   }, [userId]);
 
-  return state;
+  // 사용자가 바뀐 직후에는 effect가 아직 돌지 않아 앞 사용자의 결과가 남아 있다. 그대로
+  // 내주면 그 한 번의 렌더에서 새 사용자 화면이 만들어지며 남의 세션을 이어받는다.
+  if (state.userId !== userId) {
+    return userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED;
+  }
+  return { settled: state.settled, restored: state.restored };
 }
