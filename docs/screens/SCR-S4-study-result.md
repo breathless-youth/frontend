@@ -199,9 +199,9 @@ WG4의 세션 화면에는 S3-8 문구 선택을 위한 클라이언트 내부 `
 
 **유형별 지속 시간은 서버가 따로 내려주지 않는다** — `events[].startedAt`/`endedAt` 차이를 클라이언트에서 합산해 만든다. (`StudySessionSummary.eventCounts`는 횟수만 있는 별도 타입이며 통계 조회 API `GET /api/stats`용이라 이 화면 입력이 아니다.) 이 집계는 화면 컴포넌트가 아니라 순수 함수(`apps/web/src/features/study-session/` 아래)로 분리하고 단위 테스트를 붙인다 — `apps/web/CLAUDE.md`의 "집중률 계산은 화면 컴포넌트에서 직접 구현하지 말고 순수 TS로 분리" 규칙.
 
-### 백엔드 계약 미확인 — 상상 계약 금지
+### 세션 단건 조회 API — 있지만 이 화면은 아직 쓰지 않는다
 
-- **세션 단건 조회 API가 없다.** `packages/types`에도 `apps/web/src/features/study-session/`에도 `GET /api/study-sessions/{id}` 계약이 존재하지 않는다. 따라서 이 화면은 **세션 제출 응답을 전달받아서만** 그릴 수 있다. `GET` 엔드포인트를 상상해서 만들지 말 것.
+- **`GET /api/study-sessions/{id}?userId`는 서버에 있다.** 조회 함수도 `apps/web/src/lib/studySessionApi.ts`의 `getStudySessionDetail`로 나와 있다. 다만 **이 화면을 조회 기반으로 바꾸는 것은 결과 화면 시안이 확정되는 후속 티켓의 몫**이고, 지금 이 화면은 여전히 **세션 제출 응답을 전달받아서만** 그린다.
 - 결과적으로 데이터 전달 방식은 **react-router의 `location.state`**(또는 세션 컨텍스트)로 한다. `state`가 없으면 데이터를 지어내지 말고 홈으로 되돌린다(아래 Interaction Contract).
 - **`location.state`는 같은 탭 새로고침에서 살아남는다.** react-router는 state를 `window.history.state.usr`에 실어 두고 브라우저가 이를 보존하므로, **새로고침만으로는 결과가 사라지지 않는다**(2026-07-26 QA 실측: `Page.reload` 후에도 `/room/:id/result`가 그대로 렌더됨). 데이터를 잃는 것은 **콜드 딥링크·새 탭·히스토리 유실** 경우에 한한다.
   - 따라서 **"새로고침 방어 UI"를 만들지 않는다** — 존재하지 않는 문제다.
@@ -389,8 +389,8 @@ CTA는 기존 `src/components/ui/button.tsx` 패턴(`cva` variants, `cn` 헬퍼)
 ## Current Limitations
 
 - **Figma 원본이 6차 확정을 아직 반영하지 않았다** — 화면 꺼짐 행 잔존, 타임라인 범례 2색, 회색 세그먼트 없음. 이 문서가 우선한다(`design.md` 백로그 7번①, 액션 아이템 "선규 — Figma에 '화면 꺼짐→일시정지 합산' 시안 수정 반영" 미완료).
-- **세션 단건 조회 API가 없다** — 라우터 state가 유일한 입력이다. 다만 `location.state`는 `history.state.usr`에 실려 **같은 탭 새로고침에서는 보존되므로 새로고침만으로 결과가 사라지지는 않는다**(2026-07-26 QA 실측). 복원 불가는 **콜드 딥링크·새 탭·히스토리 유실** 시에 한한다.
-  - _검증: 2026-07-26 qa-WG5 재확인 — `packages/types/src/index.ts` export 전수 결과 세션 관련 타입은 `StudySessionCreateRequest`·`StudySessionResponse`·`StudySessionSummary`·`StudySessionListResponse` 4종뿐이고 단건 조회 계약 없음. BE 계약 변경이 들어오면 이 문장을 최우선 재확인 대상으로 삼을 것._
+- **이 화면은 세션 단건 조회를 아직 쓰지 않는다** — 라우터 state가 유일한 입력이다. 다만 `location.state`는 `history.state.usr`에 실려 **같은 탭 새로고침에서는 보존되므로 새로고침만으로 결과가 사라지지는 않는다**(2026-07-26 QA 실측). 복원 불가는 **콜드 딥링크·새 탭·히스토리 유실** 시에 한한다.
+  - _단건 조회 계약은 2026-08-28에 서버에 추가됐고 응답은 기존 `StudySessionResponse`를 그대로 쓴다. 이 화면이 조회로 갈아탈 때 위 문장을 함께 고칠 것._
 - **자정(KST) 분할 케이스가 미설계다.** `submitStudySession`은 `StudySessionResponse[]`(배열)를 반환하고, 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가 무엇을 보여줄지(합산 1화면 / 2개 카드 / 첫 세션만) 어느 문서에도 없다 — **미정 — 리더/사용자 확인 필요**. 우선 배열의 전체를 합산하지 말고, 처리 방식이 정해질 때까지 단일 세션 렌더 + TODO로 둔다.
 - **자동 종료(S3-8) 세션의 `endedAt` 기준이 미정이다.** WG4가 리더/BE에 에스컬레이션한 항목으로, 제출하는 `endedAt`을 **일시정지 시작 시각**으로 볼지 **자동 종료 판정 시각(일시정지 시작 + N분)**으로 볼지 확정되지 않았다. 어느 쪽이냐에 따라 **S4 헤더의 `HH:MM – HH:MM` 종료 시각이 N분만큼 달라지고**, 타임라인 축 길이와 마지막 회색 세그먼트의 표시 여부·길이도 함께 달라진다. **미정 — 리더/사용자 확인 필요.** S4는 받은 `endedAt`을 그대로 축으로 쓰고, 어느 기준인지 추측해 보정하지 않는다.
 - **로딩·에러·빈 결과 상태 디자인이 없다.** 순공 0초/총 공부 0초 세션(즉시 종료)의 표시도 미설계 — `focusRate`가 0 나눗셈이 될 수 있으니 방어 코드는 넣되 문구를 상상하지 않는다.

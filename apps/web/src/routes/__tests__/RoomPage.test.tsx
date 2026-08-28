@@ -210,7 +210,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   });
 
   it("종료 클릭 시 제출하고 S4(공부 결과)로 결과를 들고 넘어간다", async () => {
-    // 세션 단건 조회 API가 없으므로 제출 응답을 **라우터 state로 넘기는 것이 유일한 전달 수단**이다.
+    // S4가 세션 단건 조회 API를 아직 쓰지 않으므로 제출 응답을 라우터 state로 넘긴다.
     vi.mocked(submitStudySession).mockResolvedValue([
       {
         id: 10,
