@@ -2,6 +2,27 @@ import type { ActiveSessionSnapshotResponse, StatusEventPayload } from "@focusma
 
 import { API_BASE_URL, parseApiError } from "@/lib/api";
 
+const EVENT_STATUSES: ReadonlySet<string> = new Set(["PHONE", "DEVICE", "AWAY", "PAUSE"]);
+
+/**
+ * 이벤트 한 건이 쓸 수 있는 값인지 본다.
+ *
+ * 세션 훅이 마지막 일시정지를 공백과 이을 때 `startedAt`을 그대로 파싱하는데, 읽을 수 없으면
+ * 타임라인 전체가 NaN이 되어 타이머와 제출이 조용히 망가진다. 끝나는 시각만 멀쩡해도 병합
+ * 판정은 통과하므로 두 시각을 함께 봐야 한다.
+ */
+function isUsableEvent(event: StatusEventPayload): boolean {
+  if (!EVENT_STATUSES.has(event.status)) {
+    return false;
+  }
+  const startedAtMs = Date.parse(event.startedAt);
+  const endedAtMs = Date.parse(event.endedAt);
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
+    return false;
+  }
+  return endedAtMs >= startedAtMs;
+}
+
 /**
  * 복원할 세션. 시각을 epoch ms로 바꿔 두는 이유는 세션 훅이 전부 ms로 계산하기 때문이다.
  * 서버가 준 누적값에 base라는 이름을 붙여, 지금 타임라인이 재는 값과 섞이지 않게 한다.
@@ -49,6 +70,9 @@ export async function restoreActiveSession(
       return null;
     }
     if (reportedAtMs < startedAtMs) {
+      return null;
+    }
+    if (!Array.isArray(body.events) || !body.events.every(isUsableEvent)) {
       return null;
     }
     return {

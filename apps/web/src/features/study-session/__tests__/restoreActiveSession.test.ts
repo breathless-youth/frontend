@@ -14,6 +14,14 @@ const BODY = {
   ],
 };
 
+/** 200 응답 하나만 돌려주는 fetch 스텁. */
+function stub200(body: unknown): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(body) }),
+  );
+}
+
 describe("restoreActiveSession", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -114,5 +122,43 @@ describe("restoreActiveSession", () => {
 
     expect((error as Error).name).toBe("AbortError");
     vi.useRealTimers();
+  });
+
+  it("이벤트 목록이 배열이 아니면 복원을 포기한다", async () => {
+    stub200({ ...BODY, events: null });
+
+    await expect(restoreActiveSession(7)).resolves.toBeNull();
+  });
+
+  it("시각을 읽을 수 없는 이벤트가 있으면 복원을 포기한다", async () => {
+    // endedAt만 멀쩡하면 병합 판정을 통과하고 startedAt이 NaN으로 흘러 타임라인이 통째로 깨진다.
+    stub200({
+      ...BODY,
+      events: [{ status: "PAUSE", startedAt: "언제였더라", endedAt: BODY.reportedAt }],
+    });
+
+    await expect(restoreActiveSession(7)).resolves.toBeNull();
+  });
+
+  it("끝이 시작보다 빠른 이벤트가 있으면 복원을 포기한다", async () => {
+    stub200({
+      ...BODY,
+      events: [
+        { status: "PAUSE", startedAt: "2026-08-28T01:20:00Z", endedAt: "2026-08-28T01:10:00Z" },
+      ],
+    });
+
+    await expect(restoreActiveSession(7)).resolves.toBeNull();
+  });
+
+  it("모르는 상태값이 있으면 복원을 포기한다", async () => {
+    stub200({
+      ...BODY,
+      events: [
+        { status: "NAPPING", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
+      ],
+    });
+
+    await expect(restoreActiveSession(7)).resolves.toBeNull();
   });
 });
