@@ -94,6 +94,16 @@ describe("listStudySessionStats", () => {
 
     await expect(listStudySessionStats(7, "2026-07-25")).rejects.toThrow("Network request failed");
   });
+
+  it("date에 URL 특수문자가 섞여도 쿼리를 절단하지 않는다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyStatsResponse));
+
+    await listStudySessionStats(7, "2026-07-25&userId=9");
+
+    expect(mockedFetch).toHaveBeenCalledWith("/api/stats?userId=7&date=2026-07-25%26userId%3D9", {
+      method: "GET",
+    });
+  });
 });
 
 describe("getStreak", () => {
@@ -164,6 +174,19 @@ describe("getStreak", () => {
     });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/streak?userId=7&from=2026-07-26&to=2026-07-28",
+      { method: "GET" },
+    );
+  });
+
+  it("from/to에 URL 특수문자가 섞여도 쿼리를 절단하지 않는다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
+    );
+
+    await getStreak(7, { from: "2026-07-26&x=1", to: "2026-07-28" });
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/streak?userId=7&from=2026-07-26%26x%3D1&to=2026-07-28",
       { method: "GET" },
     );
   });
@@ -276,6 +299,24 @@ describe("getPeriodStats", () => {
 
     await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
       "Network request failed",
+    );
+  });
+
+  it("구간 날짜에 URL 특수문자가 섞여도 쿼리를 절단하지 않는다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
+
+    await getPeriodStats(
+      7,
+      { from: "2026-08-24&x=1", to: "2026-08-30" },
+      {
+        from: "2026-08-17#z",
+        to: "2026-08-23",
+      },
+    );
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/period?userId=7&from=2026-08-24%26x%3D1&to=2026-08-30&compareFrom=2026-08-17%23z&compareTo=2026-08-23",
+      { method: "GET" },
     );
   });
 });

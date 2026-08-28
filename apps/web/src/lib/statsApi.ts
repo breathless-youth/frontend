@@ -19,9 +19,12 @@ export async function listStudySessionStats(
   userId: number,
   date: string,
 ): Promise<StudySessionListResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/stats?userId=${userId}&date=${date}`, {
-    method: "GET",
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/api/stats?userId=${userId}&date=${encodeURIComponent(date)}`,
+    {
+      method: "GET",
+    },
+  );
   if (!res.ok) {
     throw await parseErrorMessage(res, "통계 조회 실패");
   }
@@ -32,7 +35,9 @@ export async function getStreak(
   userId: number,
   range?: DateRange,
 ): Promise<StudySessionStreakResponse> {
-  const rangeParams = range ? `&from=${range.from}&to=${range.to}` : "";
+  const rangeParams = range
+    ? `&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+    : "";
   const res = await fetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
     method: "GET",
   });
@@ -48,10 +53,10 @@ export async function getPeriodStats(
   compareRange?: DateRange,
 ): Promise<StudyPeriodStatsResponse> {
   const compareParams = compareRange
-    ? `&compareFrom=${compareRange.from}&compareTo=${compareRange.to}`
+    ? `&compareFrom=${encodeURIComponent(compareRange.from)}&compareTo=${encodeURIComponent(compareRange.to)}`
     : "";
   const res = await fetch(
-    `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${range.from}&to=${range.to}${compareParams}`,
+    `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`,
     { method: "GET" },
   );
   if (!res.ok) {
