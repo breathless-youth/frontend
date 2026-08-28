@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import type { StreakRange } from "./statsApi";
-import { getStreak, listStudySessionStats } from "./statsApi";
+import type { DateRange } from "./statsApi";
+import { getPeriodStats, getStreak, listStudySessionStats } from "./statsApi";
 
 /**
  * 서버 통계 queryOptions 모음 — queryKey·queryFn의 단일 정의처
@@ -22,10 +22,24 @@ import { getStreak, listStudySessionStats } from "./statsApi";
 export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
-  streak: (userId: number, range?: StreakRange) =>
+  streak: (userId: number, range?: DateRange) =>
     range
       ? (["stats", "streak", userId, range.from, range.to] as const)
       : (["stats", "streak", userId] as const),
+  // 비교 구간이 키를 가른다 — 같은 from~to라도 비교를 낀 응답은 compareDailyList가 달라서,
+  // 키를 합치면 비교 없는 화면이 비교 데이터를 물고 온다.
+  period: (userId: number, range: DateRange, compareRange?: DateRange) =>
+    compareRange
+      ? ([
+          "stats",
+          "period",
+          userId,
+          range.from,
+          range.to,
+          compareRange.from,
+          compareRange.to,
+        ] as const)
+      : (["stats", "period", userId, range.from, range.to] as const),
 };
 
 export function dailyStatsQuery(userId: number, date: string) {
@@ -35,9 +49,16 @@ export function dailyStatsQuery(userId: number, date: string) {
   });
 }
 
-export function streakQuery(userId: number, range?: StreakRange) {
+export function streakQuery(userId: number, range?: DateRange) {
   return queryOptions({
     queryKey: statsKeys.streak(userId, range),
     queryFn: () => getStreak(userId, range),
+  });
+}
+
+export function periodStatsQuery(userId: number, range: DateRange, compareRange?: DateRange) {
+  return queryOptions({
+    queryKey: statsKeys.period(userId, range, compareRange),
+    queryFn: () => getPeriodStats(userId, range, compareRange),
   });
 }

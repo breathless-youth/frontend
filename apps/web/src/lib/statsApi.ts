@@ -1,4 +1,8 @@
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
+import type {
+  StudyPeriodStatsResponse,
+  StudySessionListResponse,
+  StudySessionStreakResponse,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, parseErrorMessage } from "./api";
 
@@ -8,16 +12,19 @@ import { API_BASE_URL, parseErrorMessage } from "./api";
  * 베이스 URL·에러 파싱은 BY-328의 공용 `lib/api.ts`를 쓴다.
  */
 
-/** 스트릭 기간 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
-export type StreakRange = { from: string; to: string };
+/** 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
+export type DateRange = { from: string; to: string };
 
 export async function listStudySessionStats(
   userId: number,
   date: string,
 ): Promise<StudySessionListResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/stats?userId=${userId}&date=${date}`, {
-    method: "GET",
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/api/stats?userId=${userId}&date=${encodeURIComponent(date)}`,
+    {
+      method: "GET",
+    },
+  );
   if (!res.ok) {
     throw await parseErrorMessage(res, "통계 조회 실패");
   }
@@ -26,9 +33,11 @@ export async function listStudySessionStats(
 
 export async function getStreak(
   userId: number,
-  range?: StreakRange,
+  range?: DateRange,
 ): Promise<StudySessionStreakResponse> {
-  const rangeParams = range ? `&from=${range.from}&to=${range.to}` : "";
+  const rangeParams = range
+    ? `&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+    : "";
   const res = await fetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
     method: "GET",
   });
@@ -36,4 +45,22 @@ export async function getStreak(
     throw await parseErrorMessage(res, "스트릭 조회 실패");
   }
   return (await res.json()) as StudySessionStreakResponse;
+}
+
+export async function getPeriodStats(
+  userId: number,
+  range: DateRange,
+  compareRange?: DateRange,
+): Promise<StudyPeriodStatsResponse> {
+  const compareParams = compareRange
+    ? `&compareFrom=${encodeURIComponent(compareRange.from)}&compareTo=${encodeURIComponent(compareRange.to)}`
+    : "";
+  const res = await fetch(
+    `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`,
+    { method: "GET" },
+  );
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "기간 집계 조회 실패");
+  }
+  return (await res.json()) as StudyPeriodStatsResponse;
 }
