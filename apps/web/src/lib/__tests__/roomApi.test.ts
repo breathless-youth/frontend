@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
-import { createRoom, joinRoom, leaveRoom } from "../roomApi";
+import { createRoom, renewLiveRoomSeat, leaveRoom } from "../roomApi";
 
 const mockedFetch = vi.fn();
 globalThis.fetch = mockedFetch as unknown as typeof fetch;
@@ -39,7 +39,7 @@ describe("createRoom", () => {
   });
 });
 
-describe("joinRoom", () => {
+describe("renewLiveRoomSeat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -54,7 +54,7 @@ describe("joinRoom", () => {
     };
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
-    await expect(joinRoom(7, "0712")).resolves.toEqual(response);
+    await expect(renewLiveRoomSeat(7, "0712")).resolves.toEqual(response);
     expect(mockedFetch).toHaveBeenCalledWith("/api/rooms/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,7 +65,7 @@ describe("joinRoom", () => {
   it("404 ROOM_CLOSED의 code를 보존해 던진다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(404, { code: "ROOM_CLOSED", message: "소멸된 방" }));
 
-    await expect(joinRoom(7, "3712")).rejects.toMatchObject({
+    await expect(renewLiveRoomSeat(7, "3712")).rejects.toMatchObject({
       status: 404,
       code: "ROOM_CLOSED",
     });
@@ -74,7 +74,7 @@ describe("joinRoom", () => {
   it("409 CONFLICT의 code를 보존해 던진다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(409, { code: "CONFLICT", message: "정원 초과" }));
 
-    await expect(joinRoom(7, "3712")).rejects.toMatchObject({
+    await expect(renewLiveRoomSeat(7, "3712")).rejects.toMatchObject({
       status: 409,
       code: "CONFLICT",
     });

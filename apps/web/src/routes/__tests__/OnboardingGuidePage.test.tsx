@@ -18,6 +18,11 @@ import {
 } from "@/features/onboarding/onboardingGuideSteps";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/closeStaleSession", () => ({
+  closeStaleSession: () => Promise.resolve(),
+}));
+
 // jsdom(26)에는 `PointerEvent` 구현이 없다 — testing-library가 `window.PointerEvent`를 못 찾으면
 // 일반 `Event`로 폴백해 스와이프 판정에 쓰는 `clientX`/`clientY`가 사라진다(jsdom `MouseEvent`는
 // 지원한다). 아래 스와이프 테스트에 좌표가 필요해 이 파일에서만 최소 폴리필을 둔다.

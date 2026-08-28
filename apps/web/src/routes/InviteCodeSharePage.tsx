@@ -5,7 +5,7 @@ import { Navigate, useLocation, useNavigate, useSearchParams } from "react-route
 import { Toast } from "@/components/ui/toast";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
-import { joinRoom } from "@/lib/roomApi";
+import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
 
@@ -37,7 +37,7 @@ export function InviteCodeSharePage() {
   const state: unknown = location.state;
 
   const joinMutation = useMutation({
-    mutationFn: (inviteCode: string) => joinRoom(userId as number, inviteCode),
+    mutationFn: (inviteCode: string) => enterLiveRoom(userId as number, inviteCode),
     onSuccess: (data, inviteCode) => {
       navigate(
         { pathname: `/social/room/${data.roomId}`, search: location.search },

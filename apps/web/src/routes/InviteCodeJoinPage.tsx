@@ -6,7 +6,7 @@ import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
-import { joinRoom } from "@/lib/roomApi";
+import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 
 const ERROR_ID = "invite-code-error";
@@ -27,7 +27,7 @@ export function InviteCodeJoinPage() {
   const joinMutation = useMutation({
     // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와
     // 실제 참여한 코드가 어긋날 수 있다.
-    mutationFn: (submittedCode: string) => joinRoom(userId as number, submittedCode),
+    mutationFn: (submittedCode: string) => enterLiveRoom(userId as number, submittedCode),
     onSuccess: (data, submittedCode) => {
       navigate(
         { pathname: `/social/room/${data.roomId}`, search: location.search },

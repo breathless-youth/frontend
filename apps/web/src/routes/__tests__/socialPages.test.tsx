@@ -6,16 +6,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { ApiError } from "@/lib/api";
-import { createRoom, joinRoom } from "@/lib/roomApi";
+import { createRoom, enterLiveRoom, renewLiveRoomSeat } from "@/lib/roomApi";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 
 vi.mock("@/lib/roomApi", () => ({
   createRoom: vi.fn(),
-  joinRoom: vi.fn(),
+  enterLiveRoom: vi.fn(),
+  renewLiveRoomSeat: vi.fn(),
 }));
 
 const mockedCreateRoom = vi.mocked(createRoom);
-const mockedJoinRoom = vi.mocked(joinRoom);
+const mockedEnterRoom = vi.mocked(enterLiveRoom);
+const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 
 const joinResponse = {
   roomId: 42,
@@ -183,17 +185,20 @@ describe("초대코드 공유", () => {
     expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
   });
 
-  it("입장하기를 누르면 join API를 호출한다", async () => {
-    mockedJoinRoom.mockResolvedValue(joinResponse);
+  it("입장하기를 누르면 join API를 호출하고 룸 화면까지 간다", async () => {
+    mockedEnterRoom.mockResolvedValue(joinResponse);
+    mockedRenewSeat.mockResolvedValue(joinResponse);
     renderAt(withState);
 
     await userEvent.click(screen.getByRole("button", { name: "입장하기" }));
 
-    expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
+    expect(mockedEnterRoom).toHaveBeenCalledWith(7, "0712");
+    // 목적지 렌더까지 봐야 한다 — API 호출만 단언하면 룸 화면이 크래시해도 초록으로 남는다.
+    expect(await screen.findByTestId("live-room-page")).toBeInTheDocument();
   });
 
   it("입장 실패 시 토스트로 알리고 화면을 유지한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
+    mockedEnterRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderAt(withState);
 
     await userEvent.click(screen.getByRole("button", { name: "입장하기" }));
@@ -254,18 +259,20 @@ describe("초대코드 입력", () => {
     expect(button).toBeEnabled();
   });
 
-  it("참여 성공 시 join API를 코드 문자열 그대로 호출한다", async () => {
-    mockedJoinRoom.mockResolvedValue(joinResponse);
+  it("참여 성공 시 join API를 코드 문자열 그대로 호출하고 룸 화면까지 간다", async () => {
+    mockedEnterRoom.mockResolvedValue(joinResponse);
+    mockedRenewSeat.mockResolvedValue(joinResponse);
     renderAt("/social/join?userId=7");
 
     typeCode("0712");
     await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
 
-    expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
+    expect(mockedEnterRoom).toHaveBeenCalledWith(7, "0712");
+    expect(await screen.findByTestId("live-room-page")).toBeInTheDocument();
   });
 
   it("정원 초과면 인라인 문구를 보여주고 입력 화면을 유지한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
+    mockedEnterRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderAt("/social/join?userId=7");
 
     typeCode("3712");
@@ -276,7 +283,7 @@ describe("초대코드 입력", () => {
   });
 
   it("네트워크 실패면 재시도 문구를 보여주고 코드를 유지한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new TypeError("Failed to fetch"));
+    mockedEnterRoom.mockRejectedValue(new TypeError("Failed to fetch"));
     renderAt("/social/join?userId=7");
 
     typeCode("3712");
@@ -287,7 +294,7 @@ describe("초대코드 입력", () => {
   });
 
   it("없는 코드면 코드 재확인 문구를 보여준다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
+    mockedEnterRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
     renderAt("/social/join?userId=7");
 
     typeCode("9999");

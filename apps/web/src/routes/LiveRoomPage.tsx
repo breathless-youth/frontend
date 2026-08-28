@@ -50,6 +50,9 @@ export function LiveRoomPage({
 
   return (
     <LiveRoomEntry
+      // 사용자가 바뀌면 통째로 새로 만든다. 입장 결착과 복원값은 마운트 시점에 한 번만 정해져,
+      // 같은 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
+      key={userId}
       roomId={roomId}
       userId={userId}
       entryState={entryState}

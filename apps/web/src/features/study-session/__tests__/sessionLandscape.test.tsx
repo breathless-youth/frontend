@@ -10,6 +10,11 @@ import { SessionControlBar } from "../components/SessionControlBar";
 import { SessionTimer } from "../components/SessionTimer";
 import { sessionSurfaceStyle } from "../sessionTheme";
 
+/** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));

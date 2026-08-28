@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { joinRoom } from "@/lib/roomApi";
+import { renewLiveRoomSeat } from "@/lib/roomApi";
 
 import { LiveRoomEntry } from "../LiveRoomEntry";
 import type { LiveRoomLocationState } from "../liveRoomEntryState";
@@ -17,7 +17,11 @@ import type { LiveRoomLocationState } from "../liveRoomEntryState";
  * 세션 내부(채널·메시·측정)는 자기 테스트가 따로 있다.
  */
 
-vi.mock("@/lib/roomApi", () => ({ joinRoom: vi.fn() }));
+/** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+vi.mock("@/lib/roomApi", () => ({ renewLiveRoomSeat: vi.fn() }));
 vi.mock("@/lib/profileQueries", () => ({
   profileQuery: (userId: number) => ({
     queryKey: ["profile", userId],
@@ -28,7 +32,7 @@ vi.mock("../LiveRoomSession", () => ({
   LiveRoomSession: () => <div data-testid="session" />,
 }));
 
-const mockedJoinRoom = vi.mocked(joinRoom);
+const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 
 function fakeCamera(): CameraAdapter & { startCalls: number } {
   const adapter = {
@@ -81,7 +85,7 @@ afterEach(() => {
 });
 
 it("입장 단계에서 미리보기 카메라를 시작하지 않는다", async () => {
-  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
 
   const camera = renderEntry({ inviteCode: "1234" });
   await screen.findByTestId("session");
@@ -90,17 +94,17 @@ it("입장 단계에서 미리보기 카메라를 시작하지 않는다", async
 });
 
 it("자동 입장한다 — join을 부르고 세션을 연다", async () => {
-  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
 
   renderEntry({ inviteCode: "1234" });
 
   await screen.findByTestId("session");
-  expect(mockedJoinRoom).toHaveBeenCalledTimes(1);
-  expect(mockedJoinRoom).toHaveBeenCalledWith(7, "1234");
+  expect(mockedRenewSeat).toHaveBeenCalledTimes(1);
+  expect(mockedRenewSeat).toHaveBeenCalledWith(7, "1234");
 });
 
 it("join 실패 시 오류와 재시도 수단을 보여주고 카메라는 시작하지 않는다", async () => {
-  mockedJoinRoom.mockRejectedValue(new Error("network"));
+  mockedRenewSeat.mockRejectedValue(new Error("network"));
 
   const camera = renderEntry({ inviteCode: "1234" });
 
@@ -113,13 +117,13 @@ it("graceRejoin은 join 없이 바로 입장한다", async () => {
   renderEntry({ inviteCode: "1234", graceRejoin: true, iceServers: [] });
 
   await screen.findByTestId("session");
-  expect(mockedJoinRoom).not.toHaveBeenCalled();
+  expect(mockedRenewSeat).not.toHaveBeenCalled();
 });
 
 it("브리지가 있으면 게이트를 발신하고, 허용 응답이면 입장한다", async () => {
   const postMessage = vi.fn();
   (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
-  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
 
   renderEntry({ inviteCode: "1234" });
 
@@ -140,7 +144,7 @@ it("브리지가 있으면 게이트를 발신하고, 허용 응답이면 입장
 it("게이트가 거부면 join 없이 소셜 홈으로 돌아간다 — 권한 안내 화면 뒤에 룸이 남으면 안 된다", async () => {
   const postMessage = vi.fn();
   (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
-  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
 
   const camera = renderEntry({ inviteCode: "1234" });
 
@@ -155,7 +159,7 @@ it("게이트가 거부면 join 없이 소셜 홈으로 돌아간다 — 권한 
   entry(JSON.stringify({ type: "camera-gate-result", granted: false, atMs: 1 }));
 
   await screen.findByTestId("social-home-stub");
-  expect(mockedJoinRoom).not.toHaveBeenCalled();
+  expect(mockedRenewSeat).not.toHaveBeenCalled();
   expect(camera.startCalls).toBe(0);
   expect(screen.queryByTestId("session")).toBeNull();
 });
@@ -177,7 +181,7 @@ it("graceRejoin도 권한 게이트를 탄다 — 허용이면 join 없이 입�
   entry(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
 
   await screen.findByTestId("session");
-  expect(mockedJoinRoom).not.toHaveBeenCalled();
+  expect(mockedRenewSeat).not.toHaveBeenCalled();
 });
 
 it("graceRejoin에서 권한이 거부되면 입장하지 않고 소셜 홈으로 돌아간다", async () => {
@@ -197,7 +201,7 @@ it("graceRejoin에서 권한이 거부되면 입장하지 않고 소셜 홈으�
   entry(JSON.stringify({ type: "camera-gate-result", granted: false, atMs: 1 }));
 
   await screen.findByTestId("social-home-stub");
-  expect(mockedJoinRoom).not.toHaveBeenCalled();
+  expect(mockedRenewSeat).not.toHaveBeenCalled();
   expect(screen.queryByTestId("session")).toBeNull();
 });
 
@@ -209,7 +213,7 @@ it("graceRejoin에서 권한이 거부되면 입장하지 않고 소셜 홈으�
 it("룸에 들어가면 회전 잠금 해제를 요청한다", async () => {
   const postMessage = vi.fn();
   (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage };
-  mockedJoinRoom.mockResolvedValue({ iceServers: [] } as never);
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
 
   renderEntry({ inviteCode: "1234" });
 

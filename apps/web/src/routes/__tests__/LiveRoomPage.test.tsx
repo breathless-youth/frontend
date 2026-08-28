@@ -15,11 +15,16 @@ import { ApiError } from "@/lib/api";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { getProfile } from "@/lib/profileApi";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { joinRoom, leaveRoom } from "@/lib/roomApi";
+import { renewLiveRoomSeat, leaveRoom } from "@/lib/roomApi";
 import { LiveRoomPage } from "../LiveRoomPage";
 
+/** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+
 vi.mock("@/lib/roomApi", () => ({
-  joinRoom: vi.fn(),
+  renewLiveRoomSeat: vi.fn(),
   leaveRoom: vi.fn(),
 }));
 
@@ -37,7 +42,7 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 
-const mockedJoinRoom = vi.mocked(joinRoom);
+const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
 
 const joinResponse = {
@@ -208,7 +213,7 @@ async function turnCameraOn() {
 beforeEach(() => {
   // 일반 입장이 마운트 시 join을 재호출하므로 기본 응답을 렌더 전에 깔아 둔다.
   // 실패·지연을 검증하는 테스트는 renderRoom 전에 이 mock을 덮어쓴다.
-  mockedJoinRoom.mockResolvedValue(joinResponse);
+  mockedRenewSeat.mockResolvedValue(joinResponse);
   // 종료 이동 경로가 leaveRoom의 Promise를 전제한다 — 파일 전역으로 깔아 테스트가
   // 실행 순서(다른 테스트의 mockResolvedValue 잔류)에 기대지 않게 한다.
   mockedLeaveRoom.mockResolvedValue(undefined);
@@ -243,7 +248,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
     expect(channel.status).toBe("open");
   });
 
@@ -293,7 +298,7 @@ describe("LiveRoomPage — 입장", () => {
     await enterRoom();
 
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
   it("유예 재입장도 카메라 꺼짐(일시정지)으로 시작한다 — 나가기가 곧 일시정지다", async () => {
@@ -308,35 +313,35 @@ describe("LiveRoomPage — 입장", () => {
       expect(channel.published).toContainEqual({ cameraOn: false });
     });
     expect(channel.published).not.toContainEqual({ cameraOn: true });
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
   it("join 재호출이 끝나기 전에는 세션(측정)이 마운트되지 않는다", async () => {
-    mockedJoinRoom.mockReturnValue(new Promise(() => undefined));
+    mockedRenewSeat.mockReturnValue(new Promise(() => undefined));
     renderRoom();
 
-    await waitFor(() => expect(mockedJoinRoom).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledTimes(1));
 
     expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "나가기" })).not.toBeInTheDocument();
   });
 
   it("재-join이 실패하면 인라인 오류를 보여주고 다시 시도는 join부터 재시작한다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
+    mockedRenewSeat.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderRoom();
 
     expect(await screen.findByText("방이 가득 찼어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "나가기" })).not.toBeInTheDocument();
 
-    mockedJoinRoom.mockResolvedValue(joinResponse);
+    mockedRenewSeat.mockResolvedValue(joinResponse);
     await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
     await enterRoom();
-    expect(mockedJoinRoom).toHaveBeenCalledTimes(2);
+    expect(mockedRenewSeat).toHaveBeenCalledTimes(2);
   });
 
   it("재-join 실패 화면의 [소셜 홈으로]는 소셜 홈으로 돌려보낸다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
+    mockedRenewSeat.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderRoom();
     await screen.findByText("방이 가득 찼어요");
 
@@ -346,12 +351,12 @@ describe("LiveRoomPage — 입장", () => {
   });
 
   it("state 없이 ?code가 있으면 그 코드로 입장한다 — 렌더러 사망 후 복원된 문서(BY-436)", async () => {
-    mockedJoinRoom.mockResolvedValue(joinResponse);
+    mockedRenewSeat.mockResolvedValue(joinResponse);
     renderRoom({ state: null, search: "?userId=7&code=0712" });
 
     await enterRoom();
 
-    expect(mockedJoinRoom).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
     expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
   });
 
@@ -359,13 +364,13 @@ describe("LiveRoomPage — 입장", () => {
     renderRoom({ state: null, search: "?userId=7&code=07" });
 
     expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
   it("방이 사라졌으면(ROOM_CLOSED) 화면에 붙잡지 않고 소셜 홈으로 내보낸다", async () => {
     // 백그라운드 복귀로 웹뷰가 리로드되며 재-join하는데 그 사이 전원이 나가 방이 소멸한 경우.
     // 종전에는 코드 재확인 문구와 [다시 시도]만 남아 아무것도 할 수 없었다(BY-436).
-    mockedJoinRoom.mockRejectedValue(new ApiError("소멸된 방", 404, "ROOM_CLOSED"));
+    mockedRenewSeat.mockRejectedValue(new ApiError("소멸된 방", 404, "ROOM_CLOSED"));
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -373,7 +378,7 @@ describe("LiveRoomPage — 입장", () => {
   });
 
   it("소멸 10분이 지나 INVITE_CODE_NOT_FOUND로 바뀌어도 같은 안내로 내보낸다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
+    mockedRenewSeat.mockRejectedValue(new ApiError("없는 코드", 404, "INVITE_CODE_NOT_FOUND"));
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -381,7 +386,7 @@ describe("LiveRoomPage — 입장", () => {
   });
 
   it("5xx는 내보내지 않는다 — 방이 살아 있는데 쫓아내면 측정이 날아간다", async () => {
-    mockedJoinRoom.mockRejectedValue(new ApiError("서버 오류", 500, "INTERNAL_ERROR"));
+    mockedRenewSeat.mockRejectedValue(new ApiError("서버 오류", 500, "INTERNAL_ERROR"));
     renderRoom();
 
     expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
@@ -754,7 +759,7 @@ describe("LiveRoomPage — P2P 연동", () => {
   });
 
   it("마운트 재-join 응답의 iceServers가 P2P 설정에 쓰인다", async () => {
-    mockedJoinRoom.mockResolvedValue({
+    mockedRenewSeat.mockResolvedValue({
       ...joinResponse,
       iceServers: [{ urls: ["stun:from-rejoin"] }],
     });
@@ -781,7 +786,7 @@ describe("LiveRoomPage — P2P 연동", () => {
 
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
     expect(pcConfigs[0]?.iceServers).toEqual([{ urls: ["stun:from-state"] }]);
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
   it("수신 스트림이 아직 없는 상대 타일은 아바타로 남는다", async () => {
@@ -1483,7 +1488,7 @@ describe("LiveRoomPage — 재입장 초기화 취급", () => {
     await enterRoom();
 
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
-    expect(mockedJoinRoom).not.toHaveBeenCalled();
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
   it("내 타일 공부시간 표시는 로컬 측정값이다 — 서버 보존값을 이어받지 않는다", async () => {

@@ -42,6 +42,8 @@ import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
@@ -188,10 +190,15 @@ function useRotationPhase(): RotationPhase {
  * 세션 계산(2축 타이머·상태 머신·이벤트 누적)은 전부 `useStudyRoomSession`과 그 아래
  * 순수 모듈에 있다 — 이 파일은 표시와 입력 배선만 한다.
  */
-export function RoomPage() {
+function RoomSessionScreen({
+  userId,
+  restored,
+}: {
+  userId: number | null;
+  restored: RestoredSession | null;
+}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const userId = parseUserId(searchParams.get("userId"));
   const [camera] = useState(createMediaStreamCameraAdapter);
   // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
   useGestureVideoPlaybackKick();
@@ -233,7 +240,7 @@ export function RoomPage() {
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector });
+  } = useStudyRoomSession(userId, { camera, detector, restored });
   const { message: toastMessage, showToast } = useToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
@@ -693,4 +700,30 @@ function SessionResultFallback({
       )}
     </div>
   );
+}
+
+/**
+ * 세션 화면 진입 게이트.
+ *
+ * 서버에 진행중 세션이 있는지 먼저 확인하고 결과가 나온 뒤에 세션을 시작한다. 먼저 시작하면
+ * 사용자가 0분에서 복원값으로 튀는 것을 보고, 그 사이 스냅샷 보고가 낡은 시작 시각으로 나간다.
+ * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
+ */
+export function RoomPage() {
+  const [searchParams] = useSearchParams();
+  const userId = parseUserId(searchParams.get("userId"));
+  const { settled, restored } = useActiveSessionRestore(userId);
+
+  if (!settled) {
+    return (
+      <main
+        data-testid="room-restore-gate"
+        className="relative flex h-dvh flex-col bg-background"
+        style={sessionSurfaceStyle}
+      />
+    );
+  }
+  // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
+  // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
+  return <RoomSessionScreen key={userId} userId={userId} restored={restored} />;
 }
