@@ -1,4 +1,8 @@
-import type { StudySessionListResponse, StudySessionStreakResponse } from "@focusmakers/types";
+import type {
+  StudyPeriodStatsResponse,
+  StudySessionListResponse,
+  StudySessionStreakResponse,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, parseErrorMessage } from "./api";
 
@@ -36,4 +40,22 @@ export async function getStreak(
     throw await parseErrorMessage(res, "스트릭 조회 실패");
   }
   return (await res.json()) as StudySessionStreakResponse;
+}
+
+export async function getPeriodStats(
+  userId: number,
+  range: DateRange,
+  compareRange?: DateRange,
+): Promise<StudyPeriodStatsResponse> {
+  const compareParams = compareRange
+    ? `&compareFrom=${compareRange.from}&compareTo=${compareRange.to}`
+    : "";
+  const res = await fetch(
+    `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${range.from}&to=${range.to}${compareParams}`,
+    { method: "GET" },
+  );
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "기간 집계 조회 실패");
+  }
+  return (await res.json()) as StudyPeriodStatsResponse;
 }

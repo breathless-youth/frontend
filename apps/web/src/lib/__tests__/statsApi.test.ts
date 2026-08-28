@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getStreak, listStudySessionStats } from "../statsApi";
+import { getPeriodStats, getStreak, listStudySessionStats } from "../statsApi";
 
 /**
  * 기본 base URL은 same-origin(빈 문자열) — dev의 vite 프록시 환경과 같다.
@@ -177,5 +177,105 @@ describe("getStreak", () => {
     expect(mockedFetch).toHaveBeenCalledWith("/api/stats/streak?userId=7", {
       method: "GET",
     });
+  });
+});
+
+const emptyPeriodResponse = {
+  from: "2026-08-24",
+  to: "2026-08-30",
+  compareFrom: null,
+  compareTo: null,
+  dailyList: [
+    { date: "2026-08-24", studySec: 0, focusSec: 0 },
+    { date: "2026-08-25", studySec: 3600, focusSec: 3300 },
+  ],
+  compareDailyList: [],
+};
+
+describe("getPeriodStats", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("userId와 from/to로 기간 집계를 조회한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
+
+    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).resolves.toEqual(
+      emptyPeriodResponse,
+    );
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30",
+      { method: "GET" },
+    );
+  });
+
+  it("비교 구간을 주면 compareFrom/compareTo를 함께 보낸다", async () => {
+    const response = {
+      ...emptyPeriodResponse,
+      compareFrom: "2026-08-17",
+      compareTo: "2026-08-23",
+      compareDailyList: [{ date: "2026-08-17", studySec: 1800, focusSec: 1500 }],
+    };
+    mockedFetch.mockResolvedValue(jsonResponse(200, response));
+
+    await expect(
+      getPeriodStats(
+        7,
+        { from: "2026-08-24", to: "2026-08-30" },
+        { from: "2026-08-17", to: "2026-08-23" },
+      ),
+    ).resolves.toEqual(response);
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
+      { method: "GET" },
+    );
+  });
+
+  it("비교 구간을 주지 않으면 compare 파라미터가 URL에 붙지 않는다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
+
+    await getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" });
+
+    const [url] = mockedFetch.mock.calls[0] as [string];
+    expect(url).not.toContain("compareFrom");
+    expect(url).not.toContain("compareTo");
+  });
+
+  it("비교 구간이 빈 배열로 오는 응답을 그대로 반환한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
+
+    await expect(
+      getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" }),
+    ).resolves.toMatchObject({ compareDailyList: [], compareFrom: null, compareTo: null });
+  });
+
+  it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(400, { message: "from은 to보다 앞이어야 합니다" }));
+
+    await expect(getPeriodStats(7, { from: "2026-08-30", to: "2026-08-24" })).rejects.toThrow(
+      "from은 to보다 앞이어야 합니다",
+    );
+  });
+
+  it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+
+    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
+      "기간 집계 조회 실패 (HTTP 500)",
+    );
+  });
+
+  it("네트워크 오류를 호출자에게 전달한다", async () => {
+    mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
+
+    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
+      "Network request failed",
+    );
   });
 });

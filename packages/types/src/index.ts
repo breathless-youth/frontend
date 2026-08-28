@@ -129,6 +129,30 @@ export interface StudySessionStreakResponse {
 }
 
 /**
+ * 기간 집계 조회 API 계약 (GET /api/stats/period) — Swagger 기준.
+ * 총합·증감은 서버가 주지 않는다. 아래 배열을 합산해 계산한다.
+ */
+
+/** 하루치 집계 — 순공 1분 미만 세션은 서버 집계에서 빠진다. */
+export interface DailyStudyStat {
+  date: string;
+  studySec: number;
+  focusSec: number;
+}
+
+export interface StudyPeriodStatsResponse {
+  from: string;
+  to: string;
+  /** compare 미지정 시 키가 빠지는 게 아니라 null이 온다 */
+  compareFrom: string | null;
+  compareTo: string | null;
+  /** from~to 모든 날짜의 일별 집계 — 공부 없는 날도 0으로 채워 오름차순 */
+  dailyList: DailyStudyStat[];
+  /** compare 구간 일별 집계 — compare 미지정 시 빈 배열 */
+  compareDailyList: DailyStudyStat[];
+}
+
+/**
  * 초대코드 룸 참여 API 계약 — 출처는 `.ai` 레포 `product/specs/BY-404-룸-참여.md`
  * (BE가 같은 명세로 구현 중). ⚠️ Swagger 등재 전이라 등재 후 대조가 필요한 잠정 계약이다.
  */
