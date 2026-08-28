@@ -8,8 +8,8 @@ import { API_BASE_URL, parseErrorMessage } from "./api";
  * 베이스 URL·에러 파싱은 BY-328의 공용 `lib/api.ts`를 쓴다.
  */
 
-/** 스트릭 기간 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
-export type StreakRange = { from: string; to: string };
+/** 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
+export type DateRange = { from: string; to: string };
 
 export async function listStudySessionStats(
   userId: number,
@@ -26,7 +26,7 @@ export async function listStudySessionStats(
 
 export async function getStreak(
   userId: number,
-  range?: StreakRange,
+  range?: DateRange,
 ): Promise<StudySessionStreakResponse> {
   const rangeParams = range ? `&from=${range.from}&to=${range.to}` : "";
   const res = await fetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
