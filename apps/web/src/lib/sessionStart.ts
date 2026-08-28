@@ -1,3 +1,4 @@
+import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 
 /** `requestSessionStart`가 실제로 어느 경로를 탔는지 — 호출부가 후속 히스토리 조작을 정하는 데 쓴다. */
@@ -22,7 +23,14 @@ export type SessionStartRoute = "native" | "web";
  * 정확히 한 번으로 유지된다). `isNativeBridgeAvailable()`을 호출부에서 다시 검사하지 말 것 —
  * 판단이 두 곳으로 갈라진다.
  */
-export function requestSessionStart(navigateToSession: () => void): SessionStartRoute {
+export async function requestSessionStart(
+  userId: number | null,
+  navigateToSession: () => void,
+): Promise<SessionStartRoute> {
+  // 서버에 남은 옛 세션을 먼저 치운 뒤에 화면을 넘긴다. 순서가 뒤집히면 세션 화면의 복구
+  // 조회가 옛 세션을 돌려줘, 사용자가 새로 시작하려던 자리에 지난 공부시간이 찍힌다.
+  // 웹뷰에서는 네이티브가 start-session을 받고서야 세션 웹뷰를 만들므로 이 순서가 곧 요청 순서다.
+  await closeStaleSession(userId);
   if (isNativeBridgeAvailable()) {
     postToNative({ type: "start-session", atMs: Date.now() });
     return "native";

@@ -68,6 +68,20 @@ export interface ActiveSessionSnapshotRequest {
   events: StatusEventPayload[];
 }
 
+/** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
+export interface ActiveSessionSnapshotResponse {
+  /** 세션 시작 시각 (UTC ISO-8601) — 이어받을 때 그대로 물려받는다 */
+  startedAt: string;
+  /** 마지막 스냅샷의 기준 시각 (UTC ISO-8601) — 앱이 죽은 시점의 근사값 */
+  reportedAt: string;
+  /** reportedAt까지의 누적 총 공부 시간(초) */
+  studySec: number;
+  /** reportedAt까지의 누적 순공 시간(초) */
+  focusSec: number;
+  /** reportedAt까지의 비공부 이벤트 전체 — 진행 중이던 이벤트는 reportedAt에서 닫혀 있다 */
+  events: StatusEventPayload[];
+}
+
 /** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
 export interface StudySessionResponse {
   id: number;

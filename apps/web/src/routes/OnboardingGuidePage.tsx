@@ -6,6 +6,7 @@ import { OnboardingGuideFlow } from "@/features/onboarding/OnboardingGuideFlow";
 import { parseOnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { useNativeBackGestureLock } from "@/lib/nativeBackGesture";
 import { requestSessionStart } from "@/lib/sessionStart";
+import { parseUserId } from "@/lib/userId";
 
 /**
  * G1~G5 온보딩 가이드 — 스펙 `frontend/docs/screens/SCR-G1-G5-onboarding-guide.md`.
@@ -104,8 +105,9 @@ export function OnboardingGuidePage() {
     }
     void continueAfterOnboardingGuide(
       {
-        startSession: () => {
-          const route = requestSessionStart(() =>
+        startSession: async () => {
+          const userId = parseUserId(new URLSearchParams(location.search).get("userId"));
+          const route = await requestSessionStart(userId, () =>
             navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
           );
           if (route === "native") {

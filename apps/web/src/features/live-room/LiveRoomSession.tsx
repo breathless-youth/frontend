@@ -36,6 +36,7 @@ import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-session/sessionCopy";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
@@ -72,6 +73,7 @@ export function LiveRoomSession({
   createPeerConnection,
   iceServers,
   profile,
+  restored,
 }: {
   roomId: number;
   userId: number;
@@ -80,6 +82,8 @@ export function LiveRoomSession({
   createPeerConnection?: CreatePeerConnection;
   iceServers: IceServer[];
   profile: ProfileResponse | null;
+  /** 서버에서 받아 온 진행중 세션. 있으면 그 값에서 이어서 시작한다. */
+  restored: RestoredSession | null;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -118,7 +122,7 @@ export function LiveRoomSession({
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector, systemPause });
+  } = useStudyRoomSession(userId, { camera, detector, systemPause, restored });
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.

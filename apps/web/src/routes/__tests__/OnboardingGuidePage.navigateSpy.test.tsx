@@ -32,6 +32,11 @@ import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
  */
 const { navigateSpy } = vi.hoisted(() => ({ navigateSpy: vi.fn() }));
 
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/closeStaleSession", () => ({
+  closeStaleSession: () => Promise.resolve(),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof ReactRouterDom>("react-router-dom");
   return { ...actual, useNavigate: () => navigateSpy };

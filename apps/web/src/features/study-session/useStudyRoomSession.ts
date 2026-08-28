@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { StudySessionResponse } from "@focusmakers/types";
+import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
 
 import * as Sentry from "@sentry/react";
 
@@ -46,6 +46,7 @@ import {
   transition,
 } from "./sessionTimeline";
 import { reportActiveSession } from "./reportActiveSession";
+import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
@@ -61,8 +62,6 @@ export type StudyRoomPhase =
   | { name: "done"; sessions: StudySessionResponse[] }
   | { name: "error"; message: string }
   | { name: "unsaved"; studySec: number };
-
-const ZERO_TOTALS: SessionTotals = { studySec: 0, focusSec: 0, pauseSec: 0, distractionSec: 0 };
 
 export interface StudyRoomSessionOptions {
   /** 기본값은 mock. 실제 구현체는 실기기 스파이크 이후 별도 티켓에서 주입한다. */
@@ -82,6 +81,11 @@ export interface StudyRoomSessionOptions {
   readonly tuning?: SessionTuningConfig;
   /** 자동 종료 감시 주기(ms) — 테스트 주입용. */
   readonly autoEndPollMs?: number;
+  /**
+   * 서버에서 받아 온 진행중 세션. 있으면 그 값에서 이어서 시작한다.
+   * 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
+   */
+  readonly restored?: RestoredSession | null;
 }
 
 /**
@@ -104,13 +108,56 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [tuning] = useState<SessionTuningConfig>(() => options.tuning ?? DEFAULT_SESSION_TUNING);
   const tickMs = options.tickMs ?? 200;
 
-  const startedAtMsRef = useRef(Date.now());
+  /**
+   * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
+   *
+   * 앱이 죽어 있던 공백을 일시정지 구간으로 열어 두면, 그 시간이 공부시간에 안 들어가고
+   * 20분 자동 종료 시계도 저절로 그 시점을 가리킨다. 공백을 위한 별도 계산이 필요 없다.
+   *
+   * 크래시 시점에 이미 일시정지 중이었으면 서버가 준 마지막 이벤트가 마지막 보고 시각에서
+   * 끝나는 일시정지다. 그대로 두고 공백을 이어 붙이면 일시정지가 2회로 세져, 사용자가 한 번
+   * 누른 것이 결과 화면에 두 번으로 보인다. 그래서 그 이벤트를 빼고 그 시작 시각부터 연다.
+   */
+  const [initial] = useState(() => {
+    const restored = options.restored ?? null;
+    if (restored === null) {
+      const startedAtMs = Date.now();
+      return {
+        startedAtMs,
+        timeline: createSessionTimeline(startedAtMs),
+        baseStudySec: 0,
+        baseFocusSec: 0,
+        priorEvents: [] as StatusEventPayload[],
+        serverSeenMs: 0,
+      };
+    }
+    const priorEvents = [...restored.events];
+    const last = priorEvents[priorEvents.length - 1];
+    const mergeable =
+      last !== undefined &&
+      last.status === "PAUSE" &&
+      Date.parse(last.endedAt) === restored.reportedAtMs;
+    if (mergeable) {
+      priorEvents.pop();
+    }
+    const gapFromMs = mergeable ? Date.parse(last.startedAt) : restored.reportedAtMs;
+    return {
+      startedAtMs: restored.startedAtMs,
+      timeline: createSessionTimeline(gapFromMs, pauseState("BACKGROUND")),
+      baseStudySec: restored.baseStudySec,
+      baseFocusSec: restored.baseFocusSec,
+      priorEvents,
+      serverSeenMs: restored.reportedAtMs,
+    };
+  });
+
+  const startedAtMsRef = useRef(initial.startedAtMs);
   // 최초 종료 클릭 시점에 고정 — 재시도해도 같은 세션으로 멱등 제출되게 한다.
   const endedAtMsRef = useRef<number | null>(null);
   // 종료 사유도 같은 이유로 최초 1회만 고정한다 — 재시도가 사유를 덮어쓰면 자동 종료로 끝난
   // 세션이 수동 종료로 둔갑해 S3-8 대신 엉뚱한 화면이 뜬다.
   const endReasonRef = useRef<SessionEndReason | null>(null);
-  const timelineRef = useRef<SessionTimeline>(createSessionTimeline(startedAtMsRef.current));
+  const timelineRef = useRef<SessionTimeline>(initial.timeline);
 
   /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
   const endTrackedRef = useRef(false);
@@ -127,8 +174,32 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
 
-  const [sessionState, setSessionState] = useState<SessionState>(FOCUS_STATE);
-  const [totals, setTotals] = useState<SessionTotals>(ZERO_TOTALS);
+  /** 서버에서 받아 온 누적값 위에 지금 타임라인이 잰 값을 얹는다. */
+  const withBase = useCallback(
+    (computed: SessionTotals): SessionTotals => ({
+      studySec: initial.baseStudySec + computed.studySec,
+      focusSec: initial.baseFocusSec + computed.focusSec,
+      pauseSec: computed.pauseSec,
+      distractionSec: computed.distractionSec,
+    }),
+    [initial.baseFocusSec, initial.baseStudySec],
+  );
+
+  /** 서버가 준 이벤트 뒤에 지금 타임라인이 만든 이벤트를 잇는다. */
+  const allEvents = useCallback(
+    (untilMs: number): StatusEventPayload[] => [
+      ...initial.priorEvents,
+      ...toStatusEvents(timelineRef.current, untilMs),
+    ],
+    [initial.priorEvents],
+  );
+
+  const [sessionState, setSessionState] = useState<SessionState>(() =>
+    currentState(initial.timeline),
+  );
+  const [totals, setTotals] = useState<SessionTotals>(() =>
+    withBase(computeSessionTotals(initial.timeline, Date.now())),
+  );
   const [cameraFacing, setCameraFacing] = useState(camera.facing);
   const [isCameraRunning, setIsCameraRunning] = useState(camera.isRunning);
   const [phase, setPhase] = useState<StudyRoomPhase>({ name: "studying" });
@@ -137,7 +208,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 일시정지 시작 **벽시계** 시각 스냅샷 — 자동 종료 감시자(`usePauseAutoEnd`)의 유일한 입력.
    * 트리거는 여기 실려 있지만 S3-8 문구 선택용일 뿐 임계값 판정에는 쓰이지 않는다.
    */
-  const [pausedSnapshot, setPausedSnapshot] = useState<PausedSnapshot | null>(null);
+  const [pausedSnapshot, setPausedSnapshot] = useState<PausedSnapshot | null>(() => {
+    // 복원은 일시정지로 시작하는데 applyState를 거치지 않으므로 여기서 직접 심는다.
+    // 빠뜨리면 자동 종료 감시자가 복원 세션을 아예 안 본다.
+    const state = currentState(initial.timeline);
+    return state.kind === "PAUSE"
+      ? { sinceMs: currentStateSinceMs(initial.timeline), trigger: state.trigger }
+      : null;
+  });
 
   /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
   const applyState = useCallback((next: SessionState, atMs: number = Date.now()) => {
@@ -236,7 +314,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         applyState(active === null ? FOCUS_STATE : distractionState(active), nowMs);
       }
 
-      const next = computeSessionTotals(timelineRef.current, nowMs);
+      const next = withBase(computeSessionTotals(timelineRef.current, nowMs));
       setTotals((prev) =>
         prev.studySec === next.studySec &&
         prev.focusSec === next.focusSec &&
@@ -247,7 +325,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       );
     }, tickMs);
     return () => clearInterval(timer);
-  }, [applyState, detectionParams, phase.name, tickMs]);
+  }, [applyState, detectionParams, phase.name, tickMs, withBase]);
 
   // studying 동안만 30초마다 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
   // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
@@ -260,8 +338,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         return;
       }
       const nowMs = Date.now();
-      const totals = computeSessionTotals(timelineRef.current, nowMs);
-      const events = toStatusEvents(timelineRef.current, nowMs);
+      const totals = withBase(computeSessionTotals(timelineRef.current, nowMs));
+      const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
       reportActiveSession({
         userId,
@@ -291,7 +369,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         });
     }, 30_000);
     return () => clearInterval(timer);
-  }, [phase.name, userId]);
+  }, [allEvents, phase.name, userId, withBase]);
 
   /**
    * 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다.
@@ -375,12 +453,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       }
       endReasonRef.current ??= reason;
       setEndReason(endReasonRef.current);
-      endedAtMsRef.current ??= Date.now();
+      // 서버가 마지막으로 본 시각보다 앞설 수 없다. 세션 도중 단말 시계가 뒤로 조정되면
+      // 종료 시각이 시작 시각에 붙어, 제출 클램프가 이어받은 누적값을 통째로 깎아 낸다.
+      // 서버가 준 이벤트도 세션 구간 밖으로 밀려나 검증에 걸린다.
+      endedAtMsRef.current ??= Math.max(Date.now(), initial.serverSeenMs);
       const endedAtMs = endedAtMsRef.current;
       timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
       const closed = timelineRef.current;
-      const finalTotals = computeSessionTotals(closed, endedAtMs);
-      const events = toStatusEvents(closed, endedAtMs);
+      const finalTotals = withBase(computeSessionTotals(closed, endedAtMs));
+      const events = allEvents(endedAtMs);
       setTotals(finalTotals);
 
       // 종료 집계는 세션당 한 번만 — 제출 재시도가 세션 수를 부풀리면 완주율이 망가진다.
@@ -432,7 +513,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         submitInFlightRef.current = false;
       }
     },
-    [userId],
+    [allEvents, initial.serverSeenMs, userId, withBase],
   );
 
   /**

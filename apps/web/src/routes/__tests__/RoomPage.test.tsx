@@ -9,6 +9,11 @@ import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCop
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { RoomPage } from "../RoomPage";
 
+/** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));

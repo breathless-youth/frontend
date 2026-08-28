@@ -19,6 +19,11 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 
+/** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+
 /** 0.05분 = 3초. 테스트 전용 값이며 확정된 정책 값이 아니다. */
 vi.mock("@/features/study-session/sessionTuning", async (importOriginal) => {
   const actual = await importOriginal<typeof SessionTuningModule>();

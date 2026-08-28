@@ -12,6 +12,11 @@ import {
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/closeStaleSession", () => ({
+  closeStaleSession: () => Promise.resolve(),
+}));
+
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
@@ -231,6 +236,22 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
+    });
+
+    it("가이드를 이미 봤을 때 빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {
+      setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      const cta = screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" });
+      fireEvent.click(cta);
+      fireEvent.click(cta);
+
+      await screen.findByTestId("room-stub");
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
 
     it("빠르게 두 번 누르면 온보딩 가이드로 한 번만 이동한다(중복 진입 방지, 리뷰 반영)", async () => {

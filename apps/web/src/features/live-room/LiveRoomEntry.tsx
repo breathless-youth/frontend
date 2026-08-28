@@ -11,7 +11,8 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
 import { requestCameraGate } from "@/lib/nativeCameraGate";
-import { joinRoom } from "@/lib/roomApi";
+import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { renewLiveRoomSeat } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
@@ -79,6 +80,9 @@ export function LiveRoomEntry({
 
   const [camera] = useState(createCamera);
 
+  // 세션이 마운트되기 전에 진행중 세션을 받아 둔다. 세션이 뜬 뒤에 받으면 타이머가 0에서 튄다.
+  const { settled: restoreSettled, restored } = useActiveSessionRestore(userId);
+
   const profile = useQuery({
     ...profileQuery(userId),
     staleTime: Infinity,
@@ -93,7 +97,7 @@ export function LiveRoomEntry({
       return;
     }
     let cancelled = false;
-    void joinRoom(userId, entryState.inviteCode)
+    void renewLiveRoomSeat(userId, entryState.inviteCode)
       .then((response) => {
         if (!cancelled) {
           setIceServers(response.iceServers);
@@ -159,10 +163,10 @@ export function LiveRoomEntry({
   // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
   useEffect(() => {
-    if (!entered && gatePassed && (graceRejoin || (joined && profileSettled))) {
+    if (!entered && restoreSettled && gatePassed && (graceRejoin || (joined && profileSettled))) {
       setEntered(true);
     }
-  }, [entered, gatePassed, graceRejoin, joined, profileSettled]);
+  }, [entered, gatePassed, graceRejoin, joined, profileSettled, restoreSettled]);
 
   if (!entered) {
     // 정상 경로는 수백 ms 수준이라 다크 배경만 유지한다(스피너 없음).
@@ -205,6 +209,7 @@ export function LiveRoomEntry({
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
       profile={profile.data ?? null}
+      restored={restored}
     />
   );
 }
