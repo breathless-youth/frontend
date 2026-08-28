@@ -2,6 +2,10 @@
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
       "source": "/((?!contact).*)",
       "headers": [
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
