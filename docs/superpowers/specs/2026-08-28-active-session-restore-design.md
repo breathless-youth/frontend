@@ -81,7 +81,7 @@ BY-448이 그 draft를 돌려주는 `GET /api/study-sessions/active`를 열었�
 
 시작 버튼을 누르면 화면으로 넘어가기 전에 옛 세션을 정리한다.
 
-```
+```text
 시작 버튼
   → POST /api/study-sessions/recovery
      404 → 옛 세션 없음, 그대로 진행
@@ -122,6 +122,7 @@ export async function renewLiveRoomSeat(
 호출부는 초대코드 입력 화면과 방 만들기 화면이 `enterLiveRoom`으로, `LiveRoomEntry`가 `renewLiveRoomSeat`으로 바뀐다.
 
 **마감이 실패하면 한 번만 다시 시도하고, 그래도 안 되면 그대로 진행한다.**
+최초 요청과 재시도를 합쳐 한 번의 시작에서 나가는 요청은 최대 두 건이다.
 시작을 막지 않는 이유는 세션이 네트워크와 무관하게 돌아야 하기 때문이다.
 전체에 4초 상한을 두고, 넘기면 요청을 끊고 화면으로 넘어간다.
 마감하지 못한 세션은 5분 뒤 서버가 자동 확정하므로 기록은 사라지지 않는다.
@@ -135,7 +136,7 @@ export async function renewLiveRoomSeat(
 
 룸 화면이 뜨면 조회하고 결과에 따라 갈린다.
 
-```
+```text
 룸 화면 진입
   → GET /api/study-sessions/active
      200 → 이어받기
