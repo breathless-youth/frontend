@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,14 @@ function emit(raw: string): void {
 
 const LAUNCHED = '{"type":"app-launched","atMs":1}';
 
+const RECOVERED = {
+  statDate: "2026-08-27",
+  startedAt: "2026-08-27T12:03:00Z",
+  endedAt: "2026-08-27T13:48:00Z",
+  studySec: 6300,
+  focusSec: 5040,
+};
+
 function renderWithClient(userId: number | null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -36,7 +44,7 @@ describe("useLaunchSessionRecovery", () => {
 
   beforeEach(() => {
     closeStaleSession.mockReset();
-    closeStaleSession.mockResolvedValue(undefined);
+    closeStaleSession.mockResolvedValue(null);
     postMessage.mockReset();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
   });
@@ -121,8 +129,10 @@ describe("useLaunchSessionRecovery", () => {
   it("마감이 끝나기 전에는 통계를 다시 조회하지 않는다", async () => {
     let finish: (() => void) | undefined;
     closeStaleSession.mockReturnValue(
-      new Promise<void>((resolve) => {
-        finish = resolve;
+      new Promise<null>((resolve) => {
+        finish = () => {
+          resolve(null);
+        };
       }),
     );
     const { client } = renderWithClient(7);
@@ -135,6 +145,68 @@ describe("useLaunchSessionRecovery", () => {
 
     expect(invalidate).not.toHaveBeenCalled();
     finish?.();
+  });
+
+  it("마감이 기록을 돌려주면 recovered로 노출한다", async () => {
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.recovered).toEqual(RECOVERED);
+    });
+  });
+
+  it("순공 1분 미만 기록은 노출하지 않는다", async () => {
+    // 기록 화면이 순공 1분 미만을 표시하지 않아, 모달을 띄우면 기록 탭에서 못 찾아 혼란만 준다.
+    closeStaleSession.mockResolvedValue({ ...RECOVERED, focusSec: 59 });
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalled();
+    });
+    expect(result.current.recovered).toBeNull();
+  });
+
+  it("순공 정확히 1분은 노출한다", async () => {
+    closeStaleSession.mockResolvedValue({ ...RECOVERED, focusSec: 60 });
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.recovered).not.toBeNull();
+    });
+  });
+
+  it("마감할 세션이 없으면 노출하지 않는다", async () => {
+    closeStaleSession.mockResolvedValue(null);
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalled();
+    });
+    expect(result.current.recovered).toBeNull();
+  });
+
+  it("dismiss를 부르면 사라진다", async () => {
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    const { result } = renderWithClient(7);
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(result.current.recovered).toEqual(RECOVERED);
+    });
+
+    act(() => {
+      result.current.dismiss();
+    });
+
+    expect(result.current.recovered).toBeNull();
   });
 
   it("언마운트하면 신호를 더 받지 않는다", () => {

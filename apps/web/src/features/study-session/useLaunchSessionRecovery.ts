@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { SessionRecoveryResponse } from "@focusmakers/types";
 
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { statsKeys } from "@/lib/statsQueries";
@@ -17,9 +18,16 @@ import { closeStaleSession } from "./closeStaleSession";
  * 다시 선 것이 같아 보이는데, 후자에서 마감을 걸면 세션 화면이 복원하려던 것을 지워버린다.
  *
  * 마감은 화면을 막지 않는다. 결과를 기다리는 동안에도 홈은 평소대로 뜬다.
+ *
+ * 확정한 기록은 recovered로 내주고 홈이 안내 모달을 채운다. 순공 1분 미만은 기록 화면에
+ * 표시되지 않아, 모달을 띄우면 기록 탭에서 못 찾아 혼란만 주므로 거른다.
  */
-export function useLaunchSessionRecovery(userId: number | null): void {
+export function useLaunchSessionRecovery(userId: number | null): {
+  recovered: SessionRecoveryResponse | null;
+  dismiss: () => void;
+} {
   const queryClient = useQueryClient();
+  const [recovered, setRecovered] = useState<SessionRecoveryResponse | null>(null);
 
   useEffect(() => {
     if (userId === null) {
@@ -29,9 +37,12 @@ export function useLaunchSessionRecovery(userId: number | null): void {
       if (message.type !== "app-launched") {
         return;
       }
-      void closeStaleSession(userId).then(() => {
+      void closeStaleSession(userId).then((result) => {
         // 마감으로 오늘 집계와 연속일이 달라진다. 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
         void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+        if (result !== null && result.focusSec >= 60) {
+          setRecovered(result);
+        }
       });
     });
     // 구독을 건 다음에 보낸다. 네이티브는 이 신호를 받은 순간에만 응답하므로 순서가 바뀌면
@@ -40,4 +51,10 @@ export function useLaunchSessionRecovery(userId: number | null): void {
     postToNative({ type: "home-ready", atMs: Date.now() });
     return unsubscribe;
   }, [queryClient, userId]);
+
+  const dismiss = useCallback(() => {
+    setRecovered(null);
+  }, []);
+
+  return { recovered, dismiss };
 }

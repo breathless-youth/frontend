@@ -16,6 +16,7 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { parseUserId } from "@/lib/userId";
@@ -327,7 +328,7 @@ function HomeContent({ userId }: { userId: number }) {
 export function HomeTabPage() {
   const [searchParams] = useSearchParams();
   const userId = parseUserId(searchParams.get("userId"));
-  useLaunchSessionRecovery(userId);
+  const { recovered, dismiss } = useLaunchSessionRecovery(userId);
 
   return (
     <main
@@ -349,6 +350,7 @@ export function HomeTabPage() {
 
       {/* U1 업데이트 안내 시트 — 기본은 비노출이라 평소에는 아무것도 렌더하지 않는다. */}
       <UpdateNoticeSheetHost />
+      {recovered !== null && <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />}
     </main>
   );
 }

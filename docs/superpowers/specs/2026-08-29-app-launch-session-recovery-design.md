@@ -70,17 +70,22 @@
 
 마감이 끝나면 `statsKeys.all`을 무효화한다. 홈의 오늘 집계와 연속일이 그 키 아래 있어 한 번에 다시 조회된다.
 
-안내 문구는 띄우지 않는다. 정상 실행에서는 마감할 게 없어 404만 오고, 그때 아무 일도 일어나지 않는 편이 조용하다. 마감이 일어난 경우에도 기록 탭에 나타나는 것으로 충분하다.
+마감이 일어나면 확정된 기록 요약으로 복구 안내 모달을 띄운다. Figma 2799:3 그대로 날짜, 시작과 종료 시각, 총 공부시간, 순공시간을 보여주고 확인으로 닫는다.
+
+순공 1분 미만이면 모달을 생략한다. 기록 화면이 1분 미만을 표시하지 않아, 저장해 두었다는 안내를 보고 기록 탭에서 못 찾으면 혼란만 남는다.
+
+응답 본문이 깨져 있으면 모달만 포기하고 조용히 끝낸다. 마감 자체는 이미 성공했으므로 다시 보내거나 실패로 보고하지 않는다. 정상 실행에서는 마감할 게 없어 404만 오고 아무 일도 일어나지 않는다.
 
 ## 변경 대상
 
-| 파일                                                              | 변경                               |
-| ----------------------------------------------------------------- | ---------------------------------- |
-| `packages/types/src/bridge.ts`                                    | `app-launched`·`home-ready` 추가   |
-| `apps/web/src/lib/bridge.ts`                                      | 파서에 `app-launched` 분기 추가    |
-| `apps/mobile/components/RemoteWebViewHost.tsx`                    | `home-ready`에 1회 응답            |
-| `apps/web/src/features/study-session/useLaunchSessionRecovery.ts` | 신호를 받아 마감하고 집계를 무효화 |
-| `apps/web/src/routes/HomeTabPage.tsx`                             | 훅 호출                            |
+| 파일                                                                       | 변경                               |
+| -------------------------------------------------------------------------- | ---------------------------------- |
+| `packages/types/src/bridge.ts`                                             | `app-launched`·`home-ready` 추가   |
+| `apps/web/src/lib/bridge.ts`                                               | 파서에 `app-launched` 분기 추가    |
+| `apps/mobile/components/RemoteWebViewHost.tsx`                             | `home-ready`에 1회 응답            |
+| `apps/web/src/features/study-session/useLaunchSessionRecovery.ts`          | 신호를 받아 마감하고 집계를 무효화 |
+| `apps/web/src/routes/HomeTabPage.tsx`                                      | 훅 호출, 복구 모달 렌더            |
+| `apps/web/src/features/study-session/components/SessionRecoveryDialog.tsx` | 복구 안내 모달                     |
 
 ## 실패 처리
 
@@ -105,7 +110,7 @@
 | 5   | 대상 제한    | 홈 경로 웹뷰만                    |
 | 6   | 마감 구현    | `closeStaleSession` 재사용        |
 | 7   | 마감 후 처리 | `statsKeys.all` 무효화            |
-| 8   | 사용자 안내  | 없음                              |
+| 8   | 사용자 안내  | 복구 모달. 순공 1분 미만은 생략   |
 
 ## 범위 밖
 
