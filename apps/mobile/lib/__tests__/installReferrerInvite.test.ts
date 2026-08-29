@@ -75,4 +75,11 @@ describe("consumePendingInviteRoute", () => {
     await expect(consumePendingInviteRoute()).resolves.toBeNull();
     expect(mockedSet).not.toHaveBeenCalled();
   });
+
+  it("플래그 쓰기가 실패해도 확정된 경로는 돌려준다", async () => {
+    mockedReferrer.mockResolvedValue("code=0412");
+    mockedSet.mockRejectedValue(new Error("keystore not ready"));
+
+    await expect(consumePendingInviteRoute()).resolves.toBe("/social/join?code=0412");
+  });
 });

@@ -12,19 +12,24 @@ const CONSUMED_KEY = "inviteReferrerConsumedV1";
 export function inviteRouteFromInstallReferrer(referrer: string | null | undefined): string | null {
   if (!referrer) return null;
   const code = new URLSearchParams(referrer).get("code");
-  // 숫자 4자리만 통과시키고 문자열을 그대로 보존한다 — number로 바꾸면 앞자리 0이 사라진다.
+  // 숫자 4자리만 통과시키고 문자열을 그대로 보존한다 (number로 바꾸면 앞자리 0이 사라진다).
   if (code === null || !/^\d{4}$/.test(code)) return null;
   return `/social/join?code=${code}`;
 }
 
 export async function consumePendingInviteRoute(): Promise<string | null> {
+  let route: string | null;
   try {
     if ((await SecureStore.getItemAsync(CONSUMED_KEY)) === "1") return null;
-    const referrer = await Application.getInstallReferrerAsync();
-    const route = inviteRouteFromInstallReferrer(referrer);
-    await SecureStore.setItemAsync(CONSUMED_KEY, "1");
-    return route;
+    route = inviteRouteFromInstallReferrer(await Application.getInstallReferrerAsync());
   } catch {
     return null;
   }
+  try {
+    await SecureStore.setItemAsync(CONSUMED_KEY, "1");
+  } catch {
+    // 플래그 쓰기 실패로 확정된 경로까지 버리지 않는다.
+    // 다음 실행에서 같은 경로로 한 번 더 이동할 수 있지만 프리필 화면이라 영향이 없다.
+  }
+  return route;
 }
