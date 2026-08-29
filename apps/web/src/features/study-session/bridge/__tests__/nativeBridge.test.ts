@@ -91,6 +91,17 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"reset-route","path":1,"atMs":1}')).toBeNull();
   });
 
+  it("app-launched를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"app-launched","atMs":1}')).toEqual({
+      type: "app-launched",
+      atMs: 1,
+    });
+  });
+
+  it("app-launched에 atMs가 없으면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"app-launched"}')).toBeNull();
+  });
+
   it("성공한 submit-result를 파싱한다", () => {
     expect(
       parseToWebMessage(
