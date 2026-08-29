@@ -1,12 +1,13 @@
 import "../global.css";
 
 import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
@@ -27,6 +28,8 @@ const queryClient = new QueryClient({
 });
 
 function RootLayout() {
+  const router = useRouter();
+
   useEffect(() => {
     void ensureUserRegistered();
     // 앱 전역 세로 잠금 — 세션(`room/[id]`)이 자기 마운트에서 풀고 언마운트에서 되잠근다.
@@ -34,6 +37,14 @@ function RootLayout() {
     // 실제 잠금은 이 호출이 담당한다.
     lockPortrait();
   }, []);
+
+  useEffect(() => {
+    // Install Referrer는 Android 전용이다 — iOS는 스토어가 값을 앱에 전달할 통로 자체가 없다.
+    if (Platform.OS !== "android") return;
+    void consumePendingInviteRoute().then((route) => {
+      if (route !== null) router.push(route);
+    });
+  }, [router]);
 
   // RN에는 window focus가 없다 — 앱 포그라운드 복귀를 react-query의 focus 신호로 잇는다.
   useEffect(() => {

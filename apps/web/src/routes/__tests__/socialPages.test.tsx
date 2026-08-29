@@ -227,6 +227,51 @@ describe("초대코드 공유", () => {
   });
 });
 
+describe("앱에서 참여하기 유도", () => {
+  const ANDROID_UA = "Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36";
+
+  afterEach(() => {
+    delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
+    vi.restoreAllMocks();
+  });
+
+  it("모바일 브라우저(브리지 없음)에서는 링크가 코드 실린 스토어 주소를 가리킨다", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
+    renderAt("/social/join?userId=7&code=0412");
+
+    expect(screen.getByRole("link", { name: "앱에서 참여하기" })).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile&referrer=code%3D0412",
+    );
+  });
+
+  it("코드가 미완성이면 referrer 없는 스토어 주소를 가리킨다", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
+    renderAt("/social/join?userId=7&code=07");
+
+    expect(screen.getByRole("link", { name: "앱에서 참여하기" })).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
+    );
+  });
+
+  it("웹뷰(브리지 있음)에서는 보여주지 않는다", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
+    (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = {
+      postMessage: vi.fn(),
+    };
+    renderAt("/social/join?userId=7&code=0412");
+
+    expect(screen.queryByRole("link", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+  });
+
+  it("데스크톱 브라우저에서는 보여주지 않는다", () => {
+    renderAt("/social/join?userId=7&code=0412");
+
+    expect(screen.queryByRole("link", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+  });
+});
+
 describe("초대코드 입력", () => {
   function typeCode(value: string) {
     fireEvent.change(screen.getByLabelText("초대코드 4자리"), { target: { value } });
