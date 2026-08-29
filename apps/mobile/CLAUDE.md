@@ -33,7 +33,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 ## 네트워크 / ATS — 2026-08-02 HTTPS 전환으로 정리 완료
 
-운영 `extra.apiBaseUrl`은 `https://api.sunqstudio.kr`다(BY-402부터 원천은 `app.config.ts`의
+운영 `extra.apiBaseUrl`은 `https://api.focusmakers.app`다(BY-402부터 원천은 `app.config.ts`의
 production 분기 — app.json의 값은 개발용 빈 문자열이다). 과거(2026-07-29~08-02) 평문 HTTP +
 IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷어냈다:
 

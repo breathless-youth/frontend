@@ -33,8 +33,8 @@ describe("app.config 환경 분기", () => {
 
   it("APP_VARIANT가 production이면 운영 주소가 들어간다", () => {
     const extra = resolveExtra({ APP_VARIANT: "production" });
-    expect(extra?.apiBaseUrl).toBe("https://api.sunqstudio.kr");
-    expect(extra?.webBaseUrl).toBe("https://web.sunqstudio.kr");
+    expect(extra?.apiBaseUrl).toBe("https://api.focusmakers.app");
+    expect(extra?.webBaseUrl).toBe("https://web.focusmakers.app");
   });
 
   it("APP_VARIANT가 없으면 주소가 빈 문자열이다 — 안전 기본값", () => {
@@ -67,8 +67,25 @@ describe("app.config 환경 분기", () => {
       API_BASE_URL: "http://localhost:8080",
       WEB_BASE_URL: "https://192.168.0.19:5173",
     });
-    expect(extra?.apiBaseUrl).toBe("https://api.sunqstudio.kr");
-    expect(extra?.webBaseUrl).toBe("https://web.sunqstudio.kr");
+    expect(extra?.apiBaseUrl).toBe("https://api.focusmakers.app");
+    expect(extra?.webBaseUrl).toBe("https://web.focusmakers.app");
+  });
+
+  it.each([
+    ["API_BASE_URL", "https://api.sunqstudio.kr"],
+    ["API_BASE_URL", "https://api.focusmakers.app"],
+    ["WEB_BASE_URL", "https://web.sunqstudio.kr"],
+    ["WEB_BASE_URL", "https://web.focusmakers.app"],
+    ["API_BASE_URL", "api.focusmakers.app"],
+  ])("개발에서 %s이 운영 주소(%s)면 설정 평가가 실패한다", (name, url) => {
+    expect(() =>
+      resolveExtra({
+        APP_VARIANT: undefined,
+        API_BASE_URL: undefined,
+        WEB_BASE_URL: undefined,
+        [name]: url,
+      }),
+    ).toThrow(/운영 주소/);
   });
 
   it("eas.json의 production과 preview 프로필이 APP_VARIANT=production을 선언한다", () => {
