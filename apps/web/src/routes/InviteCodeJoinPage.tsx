@@ -6,6 +6,8 @@ import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
+import { detectStorePlatform, storeLink } from "@/features/social-room/storeLink";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 
@@ -23,6 +25,12 @@ export function InviteCodeJoinPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const userId = parseUserId(searchParams.get("userId"));
+
+  // 앱 밖 모바일 브라우저에게만 스토어를 권한다.
+  // 설치 여부는 웹이 알 수 없지만, 설치자는 링크 클릭 시 유니버설 링크·App Links로 앱이 직행하므로 이 화면에 오는 것은 대부분 미설치자다.
+  const storePlatform = isNativeBridgeAvailable()
+    ? null
+    : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
 
   const joinMutation = useMutation({
     // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와
@@ -51,8 +59,9 @@ export function InviteCodeJoinPage() {
       className="flex min-h-dvh flex-col bg-background text-foreground"
     >
       <ScreenBackHeader
-        // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다. 쿼리 승계 규칙은
-        // ScreenBackHeader 기본 동작과 동일 — 스택이 있으면 뒤로, 딥링크면 소셜 홈으로.
+        // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다.
+        // 쿼리 승계 규칙은 ScreenBackHeader 기본 동작과 동일
+        // — 스택이 있으면 뒤로, 딥링크면 소셜 홈으로.
         onBack={() => {
           const historyState = window.history.state as { idx?: number } | null;
           if (historyState?.idx) {
@@ -70,7 +79,7 @@ export function InviteCodeJoinPage() {
           value={code}
           onChange={(next) => {
             setCode(next);
-            // 다시 입력하기 시작하면 이전 시도의 오류는 낡은 정보다.
+            // 다시 입력하기 시작하면 이전 시도의 오류는 오래된 정보다.
             setErrorMessage(null);
           }}
           errorId={errorMessage !== null ? ERROR_ID : undefined}
@@ -91,9 +100,9 @@ export function InviteCodeJoinPage() {
           type="button"
           disabled={userId === null || !isCompleteInviteCode(code) || joinMutation.isPending}
           onClick={() => {
-            // 키보드가 열린 채 제출되면 결과(이동·에러 문구)를 키보드가 가린다 — 활성 입력을
-            // 내린다. 4자리 완성 시 blur(InviteCodeInput)와 별개로, 완성 후 다시 입력칸을
-            // 탭해 키보드를 올린 채 제출하는 경로를 막는 보강이다.
+            // 키보드가 열린 채 제출되면 결과(이동·에러 문구)를 키보드가 가린다
+            // — 활성 입력을 내린다.
+            // 4자리 완성 시 blur(InviteCodeInput)와 별개로, 완성 후 다시 입력칸을 탭해 키보드를 올린 채 제출하는 경로를 막는 보강이다.
             if (document.activeElement instanceof HTMLElement) {
               document.activeElement.blur();
             }
@@ -103,6 +112,14 @@ export function InviteCodeJoinPage() {
         >
           참여하기
         </button>
+        {storePlatform !== null && (
+          <a
+            href={storeLink(storePlatform, code)}
+            className="mt-2 flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-muted-foreground"
+          >
+            앱에서 참여하기
+          </a>
+        )}
       </div>
     </main>
   );
