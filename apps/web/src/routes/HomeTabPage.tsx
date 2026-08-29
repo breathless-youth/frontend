@@ -16,6 +16,7 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { parseUserId } from "@/lib/userId";
 
@@ -326,6 +327,7 @@ function HomeContent({ userId }: { userId: number }) {
 export function HomeTabPage() {
   const [searchParams] = useSearchParams();
   const userId = parseUserId(searchParams.get("userId"));
+  useLaunchSessionRecovery(userId);
 
   return (
     <main
