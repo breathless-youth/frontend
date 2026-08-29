@@ -36,7 +36,7 @@
 ## 변경 2: `vite.config.ts` 연결
 
 - 기존 `DEPLOY_ENV` 계산을 모듈 호출로 대체하고, `deployDefines`에 `__API_BASE__`를 추가한다.
-- `DEV_API_PROXY_TARGET`(BY-452의 fail-loud 프록시 타깃)이 운영 API 호스트를 가리키면 throw — dev 서버 기동이 실패한다. 같은 모듈의 호스트 검사를 재사용한다.
+- `DEV_API_PROXY_TARGET`(BY-452의 fail-loud 프록시 타깃)이 운영 API 호스트를 가리키면 throw한다. 검사가 `vite.config.ts` 최상위에 있어 dev 서버 기동뿐 아니라 이 설정이 로드되는 모든 경로(빌드·vitest)가 함께 막힌다 — 잘못된 값을 어느 경로로도 쓰지 못하게 하는 의도된 범위다. CI·Vercel에는 이 값이 없어(`.env.local` 전용) 영향이 없다. 같은 모듈의 호스트 검사를 재사용한다.
 
 ## 변경 3: `src/lib/api.ts`와 타입 선언
 

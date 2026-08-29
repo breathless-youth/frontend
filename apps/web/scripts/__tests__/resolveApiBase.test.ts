@@ -1,4 +1,6 @@
-import { assertNotProdApiHost, resolveApiBase, resolveDeployEnv } from "../resolveApiBase";
+import { describe, expect, it } from "vitest";
+
+import { assertNotProdApiHost, resolveApiBase, resolveDeployEnv } from "../resolveApiBase.js";
 
 describe("resolveDeployEnv", () => {
   it("VITE_DEPLOY_ENV가 VERCEL_ENV보다 우선한다", () => {
