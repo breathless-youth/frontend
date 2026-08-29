@@ -13,8 +13,8 @@ const PROD_WEB_BASE_URL = "https://web.focusmakers.app";
 const PROD_HOSTS = [
   "api.sunqstudio.kr", // iOS 레거시 빌드가 쓰는 옛 운영 도메인
   "web.sunqstudio.kr",
-  "api.focusmakers.app", // 현재 운영 도메인
-  "web.focusmakers.app",
+  new URL(PROD_API_BASE_URL).hostname, // 현재 운영 도메인 — 상수와 이중 관리 방지
+  new URL(PROD_WEB_BASE_URL).hostname,
 ];
 
 function guardDevBaseUrl(name: string, value: string | undefined): string {
@@ -23,9 +23,14 @@ function guardDevBaseUrl(name: string, value: string | undefined): string {
   try {
     hostname = new URL(url).hostname;
   } catch {
-    // 빈 값·URL이 아닌 값은 가드 대상이 아니다
+    // 스킴을 빠뜨린 흔한 오타(api.focusmakers.app)로 가드가 우회되지 않게 검사용으로만
+    // 재파싱한다. 그래도 파싱되지 않는 값은 가드 대상이 아니다
     // - 형식 검증까지 하면 기존에 동작하던 값을 깨뜨릴 수 있고, 가드의 일은 운영 차단 하나다.
-    return url;
+    try {
+      hostname = new URL(`https://${url}`).hostname;
+    } catch {
+      return url;
+    }
   }
   if (PROD_HOSTS.includes(hostname)) {
     throw new Error(

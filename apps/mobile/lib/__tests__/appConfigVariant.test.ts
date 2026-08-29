@@ -76,6 +76,7 @@ describe("app.config 환경 분기", () => {
     ["API_BASE_URL", "https://api.focusmakers.app"],
     ["WEB_BASE_URL", "https://web.sunqstudio.kr"],
     ["WEB_BASE_URL", "https://web.focusmakers.app"],
+    ["API_BASE_URL", "api.focusmakers.app"],
   ])("개발에서 %s이 운영 주소(%s)면 설정 평가가 실패한다", (name, url) => {
     expect(() =>
       resolveExtra({
