@@ -123,6 +123,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "theme" && (record.scheme === "light" || record.scheme === "dark")) {
     return { type: "theme", scheme: record.scheme, atMs: record.atMs };
   }
+  if (record.type === "app-launched") {
+    return { type: "app-launched", atMs: record.atMs };
+  }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };
   }

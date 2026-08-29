@@ -69,6 +69,20 @@ export interface ActiveSessionSnapshotRequest {
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
+/** 세션 복구 판별·확인 응답 (POST /api/study-sessions/recovery) — 서버가 확정한 기록 요약 */
+export interface SessionRecoveryResponse {
+  /** 통계 귀속 날짜 — 한국 시간 기준 시작 날짜 (yyyy-MM-dd) */
+  statDate: string;
+  /** 세션 시작 시각 (UTC ISO-8601) */
+  startedAt: string;
+  /** 세션 종료 시각 (UTC ISO-8601) */
+  endedAt: string;
+  /** 총 공부 시간(초) */
+  studySec: number;
+  /** 순공 시간(초) */
+  focusSec: number;
+}
+
 export interface ActiveSessionSnapshotResponse {
   /** 세션 시작 시각 (UTC ISO-8601) — 이어받을 때 그대로 물려받는다 */
   startedAt: string;

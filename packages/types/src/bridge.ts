@@ -42,6 +42,14 @@ export type ToWebMessage =
    * 보고 스플래시로 덮고 재로드한다. `id`로 요청과 응답의 짝을 맞춘다(낡은 pong 방지).
    */
   | { type: "ping"; id: number; atMs: number }
+  /**
+   * 앱 프로세스가 방금 시작했다는 알림 — 홈 웹뷰에만, 실행마다 한 번만 온다.
+   *
+   * 웹은 화면만 보고 "앱을 새로 켰다"와 "안드로이드 전역 복구로 웹뷰가 다시 섰다"를 구분할 수
+   * 없다. 그 정보는 네이티브만 갖고 있어서 메시지로 넘긴다. 쿼리로 붙이지 않는 이유는 전역
+   * 복구가 컴포넌트를 다시 만들지 않고 URL만 새로 만들어, 같은 쿼리가 다시 붙기 때문이다.
+   */
+  | { type: "app-launched"; atMs: number }
   | CameraPermissionMessage
   | SubmitResultMessage;
 
@@ -99,6 +107,16 @@ export type SubmitResultMessage =
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
   | { type: "session-ready"; atMs: number }
+  /**
+   * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
+   * `app-launched`로 응답한다.
+   *
+   * 로드 이벤트에 발신을 걸 수 없어서 생긴 handshake다 — Android의 react-native-webview는
+   * 로드가 실패해도 finish 이벤트를 합성해 `onLoad`까지 불러 준다(RNCWebViewClient.java의
+   * emitFinishEvent). 어느 로드 콜백이든 "웹 JS가 실제로 돌았다"를 보장하지 못하므로, 그 보장을
+   * 웹이 스스로 보내는 메시지로 만든다. 실패한 로드에서는 이 메시지 자체가 나가지 않는다.
+   */
+  | { type: "home-ready"; atMs: number }
   /** `ping`(생존 확인)에 대한 즉답 — `id`는 받은 ping의 것을 그대로 되돌린다. */
   | { type: "pong"; id: number; atMs: number }
   | ReportScreenMessage

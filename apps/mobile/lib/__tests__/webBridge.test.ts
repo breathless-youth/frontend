@@ -1,12 +1,15 @@
 import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from "../webBridge";
 
 describe("parseToNativeMessage", () => {
-  it.each(["session-ready", "start-session", "navigate-home", "open-settings"] as const)(
-    "%s 메시지를 파싱한다",
-    (type) => {
-      expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
-    },
-  );
+  it.each([
+    "session-ready",
+    "home-ready",
+    "start-session",
+    "navigate-home",
+    "open-settings",
+  ] as const)("%s 메시지를 파싱한다", (type) => {
+    expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
+  });
 
   it("navigate-home 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"navigate-home","atMs":9}')).toEqual({

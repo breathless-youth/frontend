@@ -6,6 +6,7 @@ import type { ToNativeMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
+import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
 import { subscribeTabReset } from "../lib/tabReset";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
@@ -43,6 +44,9 @@ function buildQueryString(query: Record<string, string | number> | undefined): s
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join("&")}`;
 }
+
+/** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
+const HOME_PATH = "/home";
 
 /** `baseUrl` + `path` + `query` → WebView에 넘길 완성 URL. */
 export function buildRemoteWebViewUrl(
@@ -251,6 +255,19 @@ export function RemoteWebViewHost({
         return;
       }
       // 위 backGestureEnabled 주석의 이유로 이 메시지만 여기서 소비하고 핸들러로 넘기지 않는다.
+      // 앱을 새로 켰다는 사실은 네이티브만 안다. 웹은 전역 복구로 다시 선 웹뷰와 구분할 수
+      // 없어서 홈에만 한 번 알려 준다. 세션 웹뷰가 받으면 복원하려던 세션을 스스로 지운다.
+      // 로드 콜백에 걸지 않는 이유: Android는 로드가 실패해도 finish 이벤트를 합성해 onLoad까지
+      // 불러 줘서, 어느 로드 콜백도 웹 JS가 실제로 돌았음을 보장하지 못한다. 웹이 구독을 걸고
+      // 보내는 이 신호만이 그 보장이고, 실패한 로드에서는 이 신호 자체가 오지 않는다.
+      if (message.type === "home-ready") {
+        if (path === HOME_PATH && consumeAppLaunchSignal()) {
+          webViewRef.current?.injectJavaScript(
+            injectMessageScript({ type: "app-launched", atMs: Date.now() }),
+          );
+        }
+        return;
+      }
       if (message.type === "set-back-gesture") {
         setBackGestureEnabled(message.enabled);
         return;
@@ -278,7 +295,7 @@ export function RemoteWebViewHost({
         webViewRef.current?.injectJavaScript(injectMessageScript(reply));
       });
     },
-    [onBridgeMessage],
+    [onBridgeMessage, path],
   );
 
   const targetOrigin = target?.origin;

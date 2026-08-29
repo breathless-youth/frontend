@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { SessionRecoveryResponse } from "@focusmakers/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -9,13 +10,16 @@ import {
   resetOnboardingGuideStore,
   setOnboardingGuideStore,
 } from "@/features/onboarding/onboardingGuideStore";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
-/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
-vi.mock("@/features/study-session/closeStaleSession", () => ({
-  closeStaleSession: () => Promise.resolve(),
-}));
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
+const closeStaleSession = vi.hoisted(() =>
+  vi.fn<() => Promise<SessionRecoveryResponse | null>>(() => Promise.resolve(null)),
+);
+
+vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
 
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
@@ -98,6 +102,7 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
 describe("HomeTabPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    closeStaleSession.mockResolvedValue(null);
     localStorage.clear();
   });
 
@@ -148,6 +153,55 @@ describe("HomeTabPage", () => {
 
     expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("복구 안내 모달", () => {
+    const RECOVERED = {
+      statDate: "2026-08-27",
+      startedAt: "2026-08-27T12:03:00Z",
+      endedAt: "2026-08-27T13:48:00Z",
+      studySec: 6300,
+      focusSec: 5040,
+    };
+
+    /** 네이티브가 주입하는 것과 같은 경로로 앱 실행 신호를 흘린다. */
+    function emitAppLaunched() {
+      const receiver = (
+        globalThis as unknown as Record<string, ((raw: string) => void) | undefined>
+      )[NATIVE_MESSAGE_ENTRY];
+      receiver?.('{"type":"app-launched","atMs":1}');
+    }
+
+    it("서버가 대신 확정한 기록이 있으면 모달이 뜬다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+      expect(screen.getByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
+      expect(screen.getByText("1시간 24분")).toBeInTheDocument();
+    });
+
+    it("확인을 누르면 닫힌다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 
   describe("연속 공부 카드 — 기록 탭 이동 (Figma Card/Stat 38:86)", () => {
