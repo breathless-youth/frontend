@@ -35,7 +35,10 @@ jest.mock("react-native-webview", () => {
       props: Record<string, unknown>,
       ref: React.Ref<{ reload: () => void }>,
     ) {
-      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      ReactModule.useImperativeHandle(ref, () => ({
+        reload: jest.fn(),
+        injectJavaScript: jest.fn(),
+      }));
       return ReactModule.createElement(View, props);
     }),
   };

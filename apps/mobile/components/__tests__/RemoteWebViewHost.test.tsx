@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { consumeAppLaunchSignal } from "../../lib/appLaunch";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { emitTabReset } from "../../lib/tabReset";
 import {
@@ -14,6 +15,19 @@ import {
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
   unlockForSession: jest.fn(),
+}));
+
+/** 실제와 같은 1회 의미를 갖는 mock. 순수 로직 자체는 lib/__tests__/appLaunch.test.ts가 본다. */
+let mockAppLaunchPending = false;
+
+jest.mock("../../lib/appLaunch", () => ({
+  consumeAppLaunchSignal: jest.fn(() => {
+    if (!mockAppLaunchPending) {
+      return false;
+    }
+    mockAppLaunchPending = false;
+    return true;
+  }),
 }));
 
 /**
@@ -76,6 +90,19 @@ jest.mock("react-native-webview", () => {
   };
 });
 
+/** 웹 홈이 구독을 걸고 보내는 준비 신호를 흉내 낸다. */
+function fireHomeReady() {
+  const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+  act(() => {
+    onMessage({ nativeEvent: { data: '{"type":"home-ready","atMs":1}' } });
+  });
+}
+
+/** 웹으로 실제 나간 앱 실행 알림만 골라 센다. */
+function sentAppLaunched() {
+  return mockInjectJavaScript.mock.calls.filter((call) => String(call[0]).includes("app-launched"));
+}
+
 /** WebView 콜백을 실제 로드 없이 흉내 낸다. */
 function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
   const handler = screen.getByTestId("host").props[name] as (v?: unknown) => void;
@@ -91,6 +118,8 @@ beforeEach(() => {
   mockInjectJavaScript.mockClear();
   (lockPortrait as jest.Mock).mockClear();
   (unlockForSession as jest.Mock).mockClear();
+  (consumeAppLaunchSignal as jest.Mock).mockClear();
+  mockAppLaunchPending = false;
 });
 
 // spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
@@ -241,6 +270,67 @@ describe("RemoteWebViewHost", () => {
     });
 
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
+  it("앱을 새로 켰으면 홈 웹뷰의 준비 신호에 app-launched로 응답한다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("전역 복구로 다시 선 문서가 준비 신호를 또 보내도 두 번 응답하지 않는다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireHomeReady();
+    expect(sentAppLaunched()).toHaveLength(1);
+
+    // 세션 웹뷰의 렌더러가 죽어 마운트된 웹뷰가 통째로 다시 서는 상황이다. 여기서 한 번 더
+    // 응답하면 세션 화면이 복원하려던 기록을 홈이 지운다.
+    act(() => {
+      requestGlobalWebViewRecovery();
+    });
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("로드 이벤트는 신호를 건드리지 않는다 — 실패한 첫 로드 뒤 재시도 성공에서 정확히 한 번 응답한다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    // Android는 로드가 실패해도 finish 이벤트를 합성해 onLoad까지 불러 준다. 그 순서를 그대로
+    // 흉내 낸다: onLoad → onLoadEnd → onError → onLoadEnd. 어디에서도 신호가 타면 안 된다.
+    const props = screen.getByTestId("host").props as {
+      onLoad?: () => void;
+      onLoadEnd: () => void;
+    };
+    act(() => {
+      props.onLoad?.();
+      props.onLoadEnd();
+    });
+    fireWebViewEvent("onError", { nativeEvent: { description: "net::ERR_CONNECTION_REFUSED" } });
+    expect(consumeAppLaunchSignal).not.toHaveBeenCalled();
+    expect(sentAppLaunched()).toHaveLength(0);
+
+    // 실패 화면에서 다시 시도를 누르면 새 웹뷰가 선다. 성공하면 웹 JS가 돌고 그때에야
+    // 준비 신호가 온다.
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("홈이 아닌 웹뷰의 준비 신호는 신호를 쓰지도 응답하지도 않는다 — 세션 화면이 받으면 복원할 세션을 지운다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+
+    fireHomeReady();
+
+    expect(consumeAppLaunchSignal).not.toHaveBeenCalled();
+    expect(sentAppLaunched()).toHaveLength(0);
   });
 
   it("set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {
