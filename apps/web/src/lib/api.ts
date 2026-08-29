@@ -1,11 +1,12 @@
 import type { ApiErrorBody } from "@focusmakers/types";
 
 /**
- * 공용 API 베이스. 기본값은 same-origin — dev에서는 vite.config.ts의 /api 프록시가
- * 백엔드로 전달한다(CORS 우회). 배포 시 VITE_API_BASE_URL로 지정.
+ * 공용 API 베이스. 빌드 컨텍스트가 결정한다(scripts/resolveApiBase.ts — 환경과 주소가
+ * 어긋나면 빌드가 실패한다). 로컬 개발은 빈 값(same-origin)이라 vite.config.ts의
+ * /api 프록시가 백엔드로 전달한다(CORS 우회).
  * (BY-328에서 submitStudySession.ts의 로컬 상수를 승격 — 홈·기록·설정 API도 같은 베이스를 쓴다.)
  */
-export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "";
+export const API_BASE_URL: string = __API_BASE__;
 
 /**
  * 실패 응답(`!res.ok`)에서 서버 에러 계약 `{ message }`를 읽어 Error를 만든다.

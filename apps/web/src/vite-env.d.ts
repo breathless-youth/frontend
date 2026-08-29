@@ -1,8 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** API 서버 origin. 미설정 시 same-origin(개발은 Vite 프록시 경유). */
-  readonly VITE_API_BASE_URL?: string;
   /** Sentry DSN. 미설정 시 Sentry는 초기화되지 않는다(로컬 개발·테스트). */
   readonly VITE_SENTRY_DSN?: string;
   /** GA4 측정 ID(G-XXXXXXXXXX). 미설정 시 GA4는 초기화되지 않는다(로컬 개발·테스트). */
@@ -23,3 +21,9 @@ declare const __DEPLOY_ENV__: "production" | "preview" | "development";
 
 /** 배포 커밋 SHA 7자리. 로컬 빌드는 `"local"`. */
 declare const __RELEASE__: string;
+
+/**
+ * 빌드 타임에 결정된 API 베이스(scripts/resolveApiBase.ts의 define 주입).
+ * 로컬 개발·테스트는 빈 값 — same-origin으로 나가 Vite 프록시가 전달한다.
+ */
+declare const __API_BASE__: string;

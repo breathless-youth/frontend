@@ -9,6 +9,7 @@ import type { Connect, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
 import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
+import { assertNotProdApiHost, resolveApiBase } from "./scripts/resolveApiBase.js";
 
 /**
  * MediaPipe wasm이 `public/`에 실제로 있는지 **빌드 시작 전에** 확인한다.
@@ -167,17 +168,16 @@ const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
 const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
 
 /**
- * `vite-env.d.ts`가 `__DEPLOY_ENV__`를 세 값의 union으로 선언하므로 여기서 그 계약을 지킨다.
- * `process.env.VERCEL_ENV`를 검증 없이 통과시키면 타입 선언과 실제가 어긋난다.
+ * 배포 환경 판별과 API 주소 결정은 scripts/resolveApiBase.ts가 전담한다 —
+ * 환경과 주소가 어긋나면 여기서 던져 빌드가 실패한다(잘못된 주소의 배포 차단).
+ * `vite-env.d.ts`가 `__DEPLOY_ENV__`를 세 값의 union으로 선언하는 계약도 그 모듈이 지킨다.
  */
-const DEPLOY_ENVS = ["production", "preview", "development"];
-const rawDeployEnv = process.env.VERCEL_ENV;
-const DEPLOY_ENV =
-  rawDeployEnv !== undefined && DEPLOY_ENVS.includes(rawDeployEnv) ? rawDeployEnv : "development";
+const { deployEnv: DEPLOY_ENV, apiBase: API_BASE } = resolveApiBase(process.env);
 
 const deployDefines = {
   __DEPLOY_ENV__: JSON.stringify(DEPLOY_ENV),
   __RELEASE__: JSON.stringify(RELEASE),
+  __API_BASE__: JSON.stringify(API_BASE),
 };
 
 /**
@@ -247,6 +247,9 @@ function sentrySourcemaps() {
  * 실패가 되기 때문에, 아래 serve 전용 플러그인이 명시적으로 막는다.
  */
 const DEV_PROXY_TARGET = loadEnv("development", __dirname, "").DEV_API_PROXY_TARGET;
+// 타깃이 운영 API면 기동을 막는다 — 과거 이 값이 운영으로 잘못 설정돼 개발 트래픽이
+// 운영 DB로 흘러간 사고의 재발 방지. 미설정 fail-loud(아래)와는 별개의 방어다.
+assertNotProdApiHost("DEV_API_PROXY_TARGET", DEV_PROXY_TARGET);
 
 function devApiProxy() {
   if (!DEV_PROXY_TARGET) {
