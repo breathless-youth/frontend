@@ -209,6 +209,39 @@ describe("useLaunchSessionRecovery", () => {
     expect(result.current.recovered).toBeNull();
   });
 
+  it("사용자가 바뀌면 이전 사용자의 마감 결과를 버린다", async () => {
+    // 앞 사용자의 마감이 화면 전환보다 늦게 끝나는 상황이다. 그대로 두면 새 사용자 홈에
+    // 남의 공부 기록 모달이 뜬다.
+    let finishFirst: (() => void) | undefined;
+    closeStaleSession.mockReturnValueOnce(
+      new Promise<typeof RECOVERED>((resolve) => {
+        finishFirst = () => {
+          resolve(RECOVERED);
+        };
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(({ id }) => useLaunchSessionRecovery(id), {
+      initialProps: { id: 7 },
+      wrapper,
+    });
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledWith(7);
+    });
+
+    rerender({ id: 8 });
+    finishFirst?.();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.recovered).toBeNull();
+  });
+
   it("언마운트하면 신호를 더 받지 않는다", () => {
     const { unmount } = renderWithClient(7);
 

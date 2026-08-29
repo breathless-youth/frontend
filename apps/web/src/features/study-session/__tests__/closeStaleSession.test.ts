@@ -97,6 +97,21 @@ describe("closeStaleSession", () => {
     await expect(closeStaleSession(7)).resolves.toBeNull();
   });
 
+  it("200인데 본문이 JSON null이면 다시 보내지 않고 기록 없이 끝낸다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, null));
+
+    await expect(closeStaleSession(7)).resolves.toBeNull();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(reportHandled).not.toHaveBeenCalled();
+  });
+
+  it("statDate가 달력에 없는 날짜면 기록 없이 끝낸다", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...RECOVERED, statDate: "2026-02-30" }));
+
+    await expect(closeStaleSession(7)).resolves.toBeNull();
+  });
+
   it("userId가 없으면 요청조차 하지 않는다", async () => {
     await closeStaleSession(null);
 

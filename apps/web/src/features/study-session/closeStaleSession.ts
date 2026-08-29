@@ -41,9 +41,9 @@ async function requestRecovery(
   }
   // 여기부터 마감은 이미 성공한 상태다. 본문이 깨져 화면에 못 보여줄 뿐이면 다시 보내거나
   // 실패로 보고하지 않고 기록 없이 끝낸다 (throw하면 성공한 마감이 한 번 더 나간다).
-  let body: SessionRecoveryResponse;
+  let body: unknown;
   try {
-    body = (await res.json()) as SessionRecoveryResponse;
+    body = await res.json();
   } catch {
     return null;
   }
@@ -51,20 +51,38 @@ async function requestRecovery(
 }
 
 /** 모달이 그대로 그릴 값인지 본다. 통과시키면 날짜 라벨에 NaN이 찍히거나 음수 길이가 보인다. */
-function isUsableRecovery(body: SessionRecoveryResponse): boolean {
-  if (typeof body.statDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.statDate)) {
+function isUsableRecovery(body: unknown): body is SessionRecoveryResponse {
+  if (typeof body !== "object" || body === null) {
     return false;
   }
-  const startedAtMs = typeof body.startedAt === "string" ? Date.parse(body.startedAt) : NaN;
-  const endedAtMs = typeof body.endedAt === "string" ? Date.parse(body.endedAt) : NaN;
+  const record = body as Record<string, unknown>;
+  if (typeof record.statDate !== "string" || !isCalendarDateKey(record.statDate)) {
+    return false;
+  }
+  const startedAtMs = typeof record.startedAt === "string" ? Date.parse(record.startedAt) : NaN;
+  const endedAtMs = typeof record.endedAt === "string" ? Date.parse(record.endedAt) : NaN;
   if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs < startedAtMs) {
     return false;
   }
   return (
-    Number.isFinite(body.studySec) &&
-    Number.isFinite(body.focusSec) &&
-    body.focusSec >= 0 &&
-    body.focusSec <= body.studySec
+    typeof record.studySec === "number" &&
+    typeof record.focusSec === "number" &&
+    Number.isFinite(record.studySec) &&
+    Number.isFinite(record.focusSec) &&
+    record.focusSec >= 0 &&
+    record.focusSec <= record.studySec
+  );
+}
+
+/** yyyy-MM-dd 형식이면서 달력에 실제로 있는 날짜인가. 2월 30일 같은 값은 Date가 3월로 넘겨버린다. */
+function isCalendarDateKey(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   );
 }
 
