@@ -37,4 +37,10 @@ describe("storeLink", () => {
   it("iOS는 App Store 앱 페이지를 가리킨다", () => {
     expect(storeLink("ios", "0412")).toBe("https://apps.apple.com/app/id6797220287");
   });
+
+  it("Android에서 코드가 비어 있으면 referrer 없이 스토어만 가리킨다", () => {
+    expect(storeLink("android", "")).toBe(
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
+    );
+  });
 });

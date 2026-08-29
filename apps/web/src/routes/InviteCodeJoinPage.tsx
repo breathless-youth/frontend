@@ -114,7 +114,7 @@ export function InviteCodeJoinPage() {
         </button>
         {storePlatform !== null && (
           <a
-            href={storeLink(storePlatform, code)}
+            href={storeLink(storePlatform, isCompleteInviteCode(code) ? code : "")}
             className="mt-2 flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-muted-foreground"
           >
             앱에서 참여하기

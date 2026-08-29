@@ -21,8 +21,9 @@ export function detectStorePlatform(
 
 export function storeLink(platform: "android" | "ios", inviteCode: string): string {
   if (platform === "android") {
-    const referrer = encodeURIComponent(`code=${inviteCode}`);
-    return `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}&referrer=${referrer}`;
+    const base = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+    if (inviteCode === "") return base;
+    return `${base}&referrer=${encodeURIComponent(`code=${inviteCode}`)}`;
   }
   return `https://apps.apple.com/app/id${IOS_APP_ID}`;
 }

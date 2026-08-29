@@ -245,6 +245,16 @@ describe("앱에서 참여하기 유도", () => {
     );
   });
 
+  it("코드가 미완성이면 referrer 없는 스토어 주소를 가리킨다", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
+    renderAt("/social/join?userId=7&code=07");
+
+    expect(screen.getByRole("link", { name: "앱에서 참여하기" })).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
+    );
+  });
+
   it("웹뷰(브리지 있음)에서는 보여주지 않는다", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
     (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = {
