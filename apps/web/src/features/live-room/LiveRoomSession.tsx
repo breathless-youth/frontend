@@ -1,22 +1,13 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
 
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
-import { RemoteVideo } from "@/features/live-room/components/RemoteVideo";
 import { RoomControlBar } from "@/features/live-room/components/RoomControlBar";
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
-import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTile";
+import { RoomGrid } from "@/features/live-room/components/RoomGrid";
 import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { roomGridSpec } from "@/features/live-room/roomGrid";
@@ -49,6 +40,8 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 
 import type { CreateChannel } from "./liveRoomEntryState";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
+import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
+import { useTapToggleControls } from "./useTapToggleControls";
 
 export const GRACE_END_SAVED_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.";
@@ -57,14 +50,6 @@ export const GRACE_END_PENDING_MESSAGE =
 // 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백) — Toast가 pre-line이다.
 export const GRACE_END_SUB_MINUTE_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요";
-
-function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
-  const stream = streams.get(userId);
-  if (!stream) {
-    return undefined;
-  }
-  return <RemoteVideo userId={userId} stream={stream} />;
-}
 
 export function LiveRoomSession({
   roomId,
@@ -257,47 +242,8 @@ export function LiveRoomSession({
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
-  // 켜기 모달 미리보기가 실제 셀프뷰와 같은 영역이 잘리도록, 셀프뷰가 놓일 서피스
-  // (1인 풀스크린 컨테이너 또는 내 타일)를 모달 여는 순간 재서 비율을 넘긴다 — 모달
-  // 박스(288×234)와 서피스는 비율이 크게 달라 cover 크롭이 다르게 잘렸다(2026-08-25).
-  const selfSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const [previewAspect, setPreviewAspect] = useState<number | null>(null);
-  const measurePreviewAspect = useCallback(() => {
-    const rect = selfSurfaceRef.current?.getBoundingClientRect();
-    setPreviewAspect(rect !== undefined && rect.height > 0 ? rect.width / rect.height : null);
-  }, []);
-  // 모달이 열린 채 회전하면 셀프뷰 서피스 비율이 바뀐다(가로 3:2 등) — 열 때 한 번 잰
-  // 값이 낡아 세로 레터박스가 가로에 그대로 남았다(2026-08-25 실기기). 열려 있는 동안
-  // 리사이즈(회전)마다 다시 잰다. iOS 회전은 resize 시점에 레이아웃이 아직 정착 전이라
-  // 즉시 읽으면 중간 치수가 잡힌다 — 다음 프레임에 재고, 정착 지연 대비로 350ms 뒤
-  // 한 번 더 잰다(가로에서 바로 열었을 때와 크기가 달랐던 원인).
-  useEffect(() => {
-    if (!cameraDialogOpen) {
-      return;
-    }
-    let raf = 0;
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    const remeasure = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        measurePreviewAspect();
-        if (settleTimer !== null) {
-          clearTimeout(settleTimer);
-        }
-        settleTimer = setTimeout(measurePreviewAspect, 350);
-      });
-    };
-    window.addEventListener("resize", remeasure);
-    window.addEventListener("orientationchange", remeasure);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (settleTimer !== null) {
-        clearTimeout(settleTimer);
-      }
-      window.removeEventListener("resize", remeasure);
-      window.removeEventListener("orientationchange", remeasure);
-    };
-  }, [cameraDialogOpen, measurePreviewAspect]);
+  const { selfSurfaceRef, previewAspect, measurePreviewAspect } =
+    useCameraPreviewAspect(cameraDialogOpen);
   const leavingRef = useRef(false);
 
   // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
@@ -392,171 +338,16 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
 
-  /**
-   * 타일 크기 급이 바뀌는 경계(2명↔3명, 4명↔5명)에서 타일 DOM을 통째로 새로 마운트한다
-   * (key 접두) — iOS WKWebView는 재생 중인 영상 타일이 레이아웃 변경으로 리사이즈되면
-   * 컴포지팅 레이어를 다시 그리지 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2명→3명
-   * 전환에서 기존 타일 2개가 안 그려지고 새로 마운트된 타일만 보임 — 회전으로만 복구).
-   * 새 DOM은 새 레이어라 강제 재페인트가 되고, 영상 재생은 kickVideoPlayback 재시도가
-   * 보통 1초 안에 되살린다. ⚠️ 예외: iOS 저전력 모드 + 캡처 없음(내 카메라 끔)이면
-   * 재마운트된 상대 영상의 play()가 다음 탭(제스처 킥)까지 계속 거부된다 — 페인트
-   * 누락(전원 공통·항상 재현) 쪽을 고치는 대가로 감수한 좁은 조합이다(크로스리뷰 M1).
-   * 같은 급 안의 인원 변동(3→4명 등)은 타일 크기가 안 변해
-   * 재마운트하지 않고, 바 토글의 소폭 리사이즈도 제외한다 — 거기서 재마운트하면 FLIP
-   * 연결이 끊기고, 실기기에서 토글 리사이즈는 이 증상을 내지 않았다.
-   */
-  const tileLayoutEpoch =
-    grid.mode === "grid" && grid.cols === 1
-      ? "duo"
-      : allMembers.length === 3
-        ? "tri" // 가로 3명(1행 3열)과 4명(1행 4열)은 타일 크기가 달라 경계다
-        : allMembers.length <= 4
-          ? "quad"
-          : "hex";
-
-  // 컨트롤 바 탭 토글(BY-435 디스코드 패턴) — 화면 탭이 바를 올리고, 자동으로 내려가지
-  // 않으며, 한 번 더 탭하면 내려간다(종전 4초 유휴 자동 숨김 대체). 입장 직후는 숨김
-  // 상태로 시작해 타일만 있는 몰입 화면이다. 잠금(제출 중·에러)·다이얼로그 동안은 항상
-  // 보인다. 바 자체 조작은 RoomControlBar가 pointerdown 버블을 끊어 토글로 새지 않는다.
+  // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  // 입장 직후에는 보인다(2026-08-25 피드백 — 조작법을 먼저 보여준다). 탭으로 내리면
-  // 이름·목표도 함께 숨어 시간만 남는 몰입 화면이 된다(RoomTile infoHidden).
-  const [controlsShown, setControlsShown] = useState(true);
-  const controlsVisible = controlsAlwaysVisible || controlsShown;
-  // 탭과 스크롤을 구분한다(2026-08-25 피드백) — pointerdown만 보면 스크롤 시작 터치가
-  // 토글로 먹혀 "한 번 더 터치해야 스크롤"이 됐다. 눌린 지점에서 거의 움직이지 않고
-  // 뗀 경우(≤10px)만 탭으로 인정한다. 스크롤이 포인터를 가져가면 pointerup이 아예
-  // 오지 않으므로 자연히 토글되지 않는다.
-  const surfacePointerStartRef = useRef<{ x: number; y: number } | null>(null);
-  const handleSurfacePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    surfacePointerStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-  const handleSurfacePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
-    const start = surfacePointerStartRef.current;
-    surfacePointerStartRef.current = null;
-    if (start === null) {
-      return;
-    }
-    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    if (moved > 10) {
-      return;
-    }
-    // 강제 표시 구간의 탭(다이얼로그 배경 등)이 숨김 상태를 뒤집어 두면, 구간이 끝나는
-    // 순간 바가 예고 없이 내려간다 — 토글은 일반 구간에서만 받는다.
-    if (!controlsAlwaysVisible) {
-      setControlsShown((prev) => !prev);
-    }
-  };
-
-  /**
-   * 바 토글의 타일 이동·크기 변화를 FLIP(이전 위치로 transform 역적용 → 원위치)으로
-   * 잇는다 — 바 슬라이드·글자 페이드와 **도착 시점을 맞춘다**(2026-08-26 피드백: 셋의
-   * 속도가 어긋나 어색했다). 같은 500ms·iOS 시트 곡선이라 세 동작이 함께 정착한다.
-   *
-   * 방식이 FLIP인 이유: 높이·패딩 트랜지션은 영상 리플로우로 실기기 랙(6e827c9), 스크롤
-   * 컨테이너(`room-grid`) transform은 WKWebView 타일 페인트 누락 사고가 있었다. FLIP은
-   * 레이아웃을 즉시 확정하고 **타일 각각에만** transform 애니메이션을 걸어 둘 다 피한다.
-   *
-   * rect 저장은 매 커밋(의존성 없음) — 타일 ≤6개 측정이라 싸고, 토글 외의 렌더가 기준
-   * rect를 최신으로 유지한다. 커밋 없이 rect가 바뀌는 사건(회전·스크롤)은 아래
-   * invalidateFlipRects가 기준을 버려 가짜 비행을 막는다. 토글이 아닌 레이아웃 변화
-   * (입장·퇴장)는 애니메이션하지 않는다(종전과 같은 즉시 반영). 가로에서는 바 토글이
-   * 레이아웃을 바꾸지 않아 자연히 무동작이다.
-   */
-  const rowsRef = useRef<HTMLDivElement>(null);
-  const prevTileRectsRef = useRef<ReadonlyMap<string, DOMRect>>(new Map());
-  const prevControlsVisibleRef = useRef(controlsVisible);
-  /**
-   * 기준 rect 무효화 — 회전·스크롤은 React 커밋 없이 타일 위치를 바꾸므로, 그 직후 1초
-   * 안의(다음 틱 렌더 전) 토글은 낡은 기준으로 수백 px 가짜 비행을 만든다(크로스리뷰 M3).
-   * 이런 사건 뒤에는 기준을 버린다 — 그 직후 첫 토글은 prev가 없어 애니메이션 없이
-   * 스냅되지만, 잘못된 비행보다 낫고 다음 커밋이 다시 잰다.
-   */
-  const invalidateFlipRects = useCallback(() => {
-    prevTileRectsRef.current = new Map();
-  }, []);
-  useEffect(() => {
-    window.addEventListener("resize", invalidateFlipRects);
-    window.addEventListener("orientationchange", invalidateFlipRects);
-    return () => {
-      window.removeEventListener("resize", invalidateFlipRects);
-      window.removeEventListener("orientationchange", invalidateFlipRects);
-    };
-  }, [invalidateFlipRects]);
-  useLayoutEffect(() => {
-    const controlsChanged = prevControlsVisibleRef.current !== controlsVisible;
-    prevControlsVisibleRef.current = controlsVisible;
-    const tiles = Array.from(
-      rowsRef.current?.querySelectorAll<HTMLElement>('[data-testid="room-tile"]') ?? [],
-    );
-    const reduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const rects = new Map<string, DOMRect>();
-    for (const tile of tiles) {
-      const key = tile.dataset.userId ?? "";
-      // 연타 대비 — 달리는 FLIP이 있으면 취소 **전에** 변환이 포함된 rect(= 지금 화면에
-      // 보이는 위치)를 재서 새 FLIP의 출발점으로 쓴다. 저장 맵의 rect는 직전 커밋의 도착
-      // 레이아웃이라 그걸 쓰면 타일이 도착점으로 점프했다가 되돌아온다(크로스리뷰 M4 —
-      // 500ms 안의 재토글은 틱 렌더가 끼기 전이라 맵이 mid-flight 위치를 모른다).
-      let prevOverride: DOMRect | null = null;
-      if (controlsChanged && typeof tile.getAnimations === "function") {
-        const running = tile.getAnimations();
-        if (running.length > 0) {
-          prevOverride = tile.getBoundingClientRect();
-          for (const animation of running) {
-            animation.cancel();
-          }
-        }
-      }
-      const next = tile.getBoundingClientRect();
-      const prev = prevOverride ?? prevTileRectsRef.current.get(key);
-      rects.set(key, next);
-      if (
-        !controlsChanged ||
-        reduceMotion ||
-        typeof tile.animate !== "function" ||
-        prev === undefined ||
-        prev.width === 0 ||
-        prev.height === 0 ||
-        next.width === 0 ||
-        next.height === 0
-      ) {
-        continue;
-      }
-      const dx = prev.left - next.left;
-      const dy = prev.top - next.top;
-      const sx = prev.width / next.width;
-      const sy = prev.height / next.height;
-      if (
-        Math.abs(dx) < 1 &&
-        Math.abs(dy) < 1 &&
-        Math.abs(sx - 1) < 0.01 &&
-        Math.abs(sy - 1) < 0.01
-      ) {
-        continue;
-      }
-      tile.animate(
-        [
-          {
-            transformOrigin: "top left",
-            transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
-          },
-          { transformOrigin: "top left", transform: "none" },
-        ],
-        // RoomControlBar 슬라이드·RoomTile 글자 페이드와 같은 500ms·시트 곡선 — 이 값이
-        // 어긋나면 "도착 시점이 안 맞는다"는 어색함이 되살아난다. 셋을 함께 바꿀 것.
-        { duration: 500, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
-      );
-    }
-    prevTileRectsRef.current = rects;
-  });
+  const { controlsVisible, onPointerDown, onPointerUp } =
+    useTapToggleControls(controlsAlwaysVisible);
 
   return (
     <main
       data-testid="live-room-page"
-      onPointerDown={handleSurfacePointerDown}
-      onPointerUp={handleSurfacePointerUp}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
       // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
       // 문서 스크롤이 생기지 않게 한다.
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
@@ -575,132 +366,18 @@ export function LiveRoomSession({
       )}
       {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
       <div className="contents" inert={dialogOpen}>
-        {grid.mode === "fullscreen" ? (
-          <div
-            ref={selfSurfaceRef}
-            className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl"
-          >
-            {cameraOn && myVideo}
-            {/* 1인 전체화면은 RoomTile을 쓰지 않지만 내 화면이므로 같은 상태 뱃지를 올린다(BY-427).
-                가로의 좌측 세이프에어리어는 이 컨테이너가 이미 비켜서 있어 top만 고려한다. */}
-            <SelfStateBadge
-              state={selfState}
-              studySeconds={focusSec}
-              className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-3"
-            />
-          </div>
-        ) : (
-          <div
-            data-testid="room-grid"
-            // 스크롤은 커밋 없이 타일 rect를 바꾼다 — FLIP 기준을 버린다(위 invalidateFlipRects).
-            onScroll={invalidateFlipRects}
-            // 스크롤 컨테이너 자신은 정렬하지 않는다 — content-center/end는 내용이 컨테이너보다
-            // 커지는 순간 위로 넘친 행이 잘리고 스크롤로도 닿을 수 없다(flexbox 정렬 data loss,
-            // 2026-08-25 실기기: 작은 화면에서 첫 행(내 타일+참가자)이 사라짐). 정렬은 아래
-            // rows 래퍼의 auto 마진이 담당한다 — 넘치면 마진이 0으로 접혀 위부터 스크롤된다.
-            className={cn(
-              "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
-              // 가로 배치(BY-441, 2026-08-26 확정): 세로와 **같은 flex-wrap 묶음 배치**다 —
-              // 타일들이 gap-1(4px)로 붙어 그룹째 중앙 정렬되고, 타일 크기는 세로 비율을
-              // 눕힌 직사각(2명 정사각·3~4명 3:2·5~6명 5:4)을 dvh 높이로 고정해 2명 1행
-              // 2열 / 3~4명 2행 2열 / 5~6명 2행 3열로 자연 줄바꿈된다(아래 타일 클래스의
-              // 폭·기기 검산 참고). 한때 그리드 셀 분배(1fr)를 썼지만 타일 양옆 셀 잔여
-              // 공간이 카메라 사이 시각 여백으로 남아 "간격을 세로처럼"이라는 피드백을
-              // 충족하지 못했다 — 셀 stretch 와이드 타일(상대가 보는 크롭과 전혀 다른
-              // 프레이밍)로도 되돌리지 않는다. 캡처 비율 제약은 화각만 줄이는 순손해라
-              // 금지(visionConfig.ts CAMERA_CONSTRAINTS 주석) — 프레이밍은 표시 단계인
-              // 여기서만 만든다. 7명 이상은 3행으로 줄바꿈돼 세로 스크롤.
-              "landscape:pl-[calc(env(safe-area-inset-left)+16px)] landscape:pr-[calc(env(safe-area-inset-right)+16px)]",
-              // 바 표시용 하단 예약(108px)은 **세로 2명만** 쓴다(2026-08-26 피드백) —
-              // 3명 이상은 바가 올라와도 타일 배치가 그대로이고 바가 타일 위로 겹친다
-              // (가로의 pb-2와 같은 정책). 2명은 큰 타일이 바에 깊이 가려져 예약을 유지
-              // — 그룹이 줄어든 공간의 가운데로 조금 올라가는 움직임만 남는다(FLIP이 잇는다).
-              grid.cols === 1 && controlsVisible
-                ? "pb-[calc(env(safe-area-inset-bottom)+108px)]"
-                : "pb-[4dvh]",
-              // 가로 하단 여백은 인원 무관 pb-2 — 바는 항상 타일 위에 겹친다.
-              "landscape:pb-2",
-            )}
-          >
-            <div
-              ref={rowsRef}
-              data-testid="room-grid-rows"
-              // 안전 정렬: 항상 세로 가운데(my-auto) — 종전엔 바 표시 중 mt-auto로 바 바로
-              // 위에 붙였는데 타일이 바에 달라붙는 게 어색하다는 피드백(2026-08-26)으로 양
-              // 상태 모두 가운데로 통일했다. 바 토글의 배치 변화는 세로 2명뿐이다(컨테이너
-              // pb 주석 — 예약이 줄인 공간의 가운데로 조금 올라가고 FLIP이 잇는다). 내용이
-              // 넘치면 auto 마진이 접혀 위부터 스크롤되는 성질(data loss 방지)은 그대로다.
-              className={cn(
-                "my-auto flex w-full flex-wrap justify-center gap-1",
-                // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은
-                // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기므로, 3장+간격 폭으로 줄을
-                // 자른다. mx-auto가 좁아진 래퍼를 가운데 놓는다.
-                allMembers.length > 4 && "landscape:mx-auto landscape:max-w-[calc(132dvh+8px)]",
-              )}
-            >
-              {allMembers.map((member) => (
-                <RoomTile
-                  // 크기 급이 바뀌면 재마운트 — 위 tileLayoutEpoch 주석 참고.
-                  key={`${tileLayoutEpoch}-${member.userId}`}
-                  member={member}
-                  rootRef={member.userId === userId ? selfSurfaceRef : undefined}
-                  selfState={member.userId === userId ? selfState : undefined}
-                  infoHidden={!controlsVisible}
-                  media={
-                    member.userId === userId
-                      ? myVideo
-                      : remoteVideoOrUndefined(member.userId, remoteStreams)
-                  }
-                  // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
-                  // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
-                  // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
-                  className={cn(
-                    grid.cols === 1
-                      ? cn(
-                          // height는 트랜지션하지 않는다 — 영상 타일의 레이아웃 애니메이션은
-                          // 매 프레임 리플로우라 실기기에서 랙이 났다(2026-08-25). 변화 폭을
-                          // 2dvh로 좁히고(2026-08-26 피드백: 41↔36dvh는 너무 확 줄었다) 시각적
-                          // 이동은 FLIP effect(위)가 transform으로 잇는다. 37dvh는 바가
-                          // 올라온 상태에서 2행+바가 노치 기기에도 수납되는 상한이다.
-                          "aspect-square max-w-full",
-                          controlsVisible ? "h-[37dvh]" : "h-[39dvh]",
-                        )
-                      : cn(
-                          // 3명 이상도 전부 정사각(2026-08-26 디스코드 참조 확정 — 종전
-                          // 2:3/4:5 세로형·눕힌형을 대체). 세로 2열에서 정사각은 세로형보다
-                          // 행이 낮아져 5~6명 3행도 스크롤 없이 수납된다.
-                          // 5~6명 폭은 바와 무관하게 47% 고정(2026-08-26 피드백: 바 토글로
-                          // 작아지지 않게) — SE 검산: 바 표시 시 3행 518 ≤ 가용 527 ✓
-                          // (50%면 552로 넘쳐 스크롤이 생긴다 — 47이 상한).
-                          "aspect-square",
-                          allMembers.length > 4 ? "w-[calc(47%-2px)]" : "w-[calc(50%-2px)]",
-                        ),
-                    // 가로 크기: 정사각을 dvh/폭 예산 높이로 고정한다(컨테이너 주석 참고 —
-                    // flex-wrap 줄바꿈이 이 폭으로 결정되므로 기기 검산이 계약. 폭 예산 =
-                    // (100dvw − 좌우 세이프 인셋 − 좌우 패딩 32px − 간격) / 열수):
-                    // · 2명(1행 2열): h=min(88dvh, 폭 예산/2 − 18px 몫). iPhone 13(844×390)
-                    //   min(343,370)=343 → 2장 690 ≤ 718 ✓ / SE(667×375) min(330,315)=315 ✓.
-                    // · 3명(1행 3열): min(84dvh, (…−40px)/3) — 13: 245 ✓ / SE: 209 ✓.
-                    // · 4명(1행 4열): min(84dvh, (…−44px)/4) — 13: 183 ✓ / SE: 155 ✓.
-                    // · 5~6명(2행, 3+2/3+3): 44dvh — 2행 92dvh ≤ 세로 예산 ✓, 3장 폭
-                    //   13: 524 ≤ 718 ✓ / SE: 503 ≤ 635 ✓. 3열 강제는 rows 래퍼의
-                    //   landscape:max-w가 담당한다(4+1로 감기는 것 방지).
-                    // 바 표시에 따른 세로 모드의 축소(2명 37dvh)는 가로에 적용되지
-                    // 않는다 — 가로 크기는 바와 무관해 토글이 레이아웃을 안 바꾼다.
-                    "landscape:w-auto landscape:max-w-none",
-                    grid.cols === 1
-                      ? "landscape:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
-                      : allMembers.length === 3
-                        ? "landscape:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3))]"
-                        : allMembers.length === 4
-                          ? "landscape:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4))]"
-                          : "landscape:h-[44dvh]",
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        <RoomGrid
+          grid={grid}
+          allMembers={allMembers}
+          userId={userId}
+          controlsVisible={controlsVisible}
+          selfState={selfState}
+          focusSec={focusSec}
+          cameraOn={cameraOn}
+          myVideo={myVideo}
+          remoteStreams={remoteStreams}
+          selfSurfaceRef={selfSurfaceRef}
+        />
 
         {/* 가로는 바를 11px 더 낮게(17→6px) — 세로 기준 오프셋이 가로에선 높아 보인다
             (2026-08-26 피드백). 숨김 슬라이드 이동량은 +17px 기준이라 가로에서도 화면
