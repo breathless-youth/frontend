@@ -13,6 +13,10 @@ import type { BridgeReply } from "./nativeBridgeHandler";
  * 소유하고, 화면 cleanup이 못 잡는 정리는 AppState 가드가 맡는다: 백그라운드 진입 시 끄고,
  * 웹이 켜둔 상태였으면 복귀 시 다시 켠다. 복귀 재시작이 네이티브 몫인 이유는 웹 detector의
  * `start()`가 멱등이라 복귀 시 `motion-sensor: true`를 다시 보내지 않기 때문이다.
+ *
+ * 싱글턴이므로 reply 통로와 켜짐 상태도 하나뿐이다 — "동시에 활성인 룸 세션은 하나"라는
+ * 제품 전제 위에 서 있다(서버가 중복 입장을 CONFLICT로 거절한다). 웹뷰 두 개가 동시에
+ * 서로 다른 룸 세션을 돌리게 되는 날에는 이 모듈을 호스트별 인스턴스로 나눠야 한다.
  */
 
 type MotionSensorMessage = Extract<ToNativeMessage, { type: "motion-sensor" }>;
@@ -23,6 +27,7 @@ export interface MotionSensorRelay {
 
 /** 테스트 주입점. react-native `AppState`가 이 모양을 그대로 만족한다. */
 export interface AppStateAdapter {
+  currentState: string;
   addEventListener(type: "change", listener: (state: string) => void): { remove(): void };
 }
 
@@ -32,7 +37,9 @@ export function createMotionSensorRelay(
 ): MotionSensorRelay {
   let reply: BridgeReply | null = null;
   let enabledByWeb = false;
-  let foreground = true;
+  // 지연 생성이라 addEventListener는 이후의 상태 전이만 잡는다 — 생성 시점 상태를 직접
+  // 읽지 않으면 백그라운드 중에 만들어졌을 때 foreground가 틀린 값으로 시작한다.
+  let foreground = appState.currentState === "active";
 
   source.subscribe((active) => {
     reply?.({ type: "device-handling", active, atMs: Date.now() });

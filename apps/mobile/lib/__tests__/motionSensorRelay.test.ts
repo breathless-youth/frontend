@@ -24,10 +24,11 @@ function createFakeSource() {
   return { source, emit: (active: boolean) => listener?.(active) };
 }
 
-function createFakeAppState() {
+function createFakeAppState(initialState = "active") {
   let listener: AppStateListener | null = null;
   return {
     appState: {
+      currentState: initialState,
       addEventListener: jest.fn((_type: "change", l: AppStateListener) => {
         listener = l;
         return {
@@ -105,6 +106,16 @@ describe("createMotionSensorRelay", () => {
     setState("background");
     setState("active");
     expect(source.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("백그라운드 상태에서 생성되면 enabled: true에도 센서를 켜지 않는다", () => {
+    const { source } = createFakeSource();
+    const { appState, setState } = createFakeAppState("background");
+    const relay = createMotionSensorRelay(source, appState);
+    relay.handle(motionMessage(true), jest.fn());
+    expect(source.start).not.toHaveBeenCalled();
+    setState("active");
+    expect(source.start).toHaveBeenCalledTimes(1);
   });
 
   it("백그라운드 중에 도착한 enabled: true는 센서를 켜지 않고 복귀를 기다린다", () => {
