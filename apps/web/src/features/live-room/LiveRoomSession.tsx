@@ -335,7 +335,7 @@ export function LiveRoomSession({
       if (nav.to === "result") {
         navigate(
           { pathname: `/social/room/${roomId}/result`, search: location.search },
-          { replace: true, state: { sessions: nav.sessions, home: "/social" } },
+          { replace: true, state: { sessions: nav.sessions } },
         );
         return;
       }

@@ -33,7 +33,10 @@ export function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
-  const home = readHome(location.state);
+  // 목적지는 라우터 state가 아니라 현재 경로에서 판단한다. state는 새로고침·딥링크·렌더러
+  // 사망 복원에서 사라질 수 있지만 경로는 남는다 — 소셜 결과 라우트인데 state가 없어 홈 탭으로
+  // 튕기던 문제를 막는다.
+  const home = resolveHome(location.pathname);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -43,10 +46,12 @@ export function ResultPage() {
    * `postToNative`가 무동작이고 웹 폴백이 실제 복귀다.
    */
   useEffect(() => {
-    if (sessions === null) {
+    // navigate-home은 솔로 세션의 fullScreenModal을 닫는 신호다. 소셜 결과는 탭 웹뷰라
+    // 모달이 없어 보내면 홈 탭으로 튕기므로, 앱 홈으로 되돌릴 때만 보낸다.
+    if (sessions === null && home === "/home") {
       postToNative({ type: "navigate-home", atMs: Date.now() });
     }
-  }, [sessions]);
+  }, [sessions, home]);
 
   /**
    * 이탈 경로는 **하나뿐**이다 — CTA `확인`과 우상단 `X`가 같은 콜백을 부른다.
@@ -85,7 +90,7 @@ export function ResultPage() {
        그리지 않는다(SCR-S4 Interaction Contract).
        `handleConfirm`과 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
        고쳐지고 다른 쪽이 남는다. */
-    return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
+    return <Navigate to={{ pathname: home, search: location.search }} replace />;
   }
 
   /**
@@ -157,16 +162,10 @@ function isStudySession(value: unknown): value is StudySessionResponse {
 }
 
 /**
- * 확인·X이 돌아갈 홈을 라우터 state에서 읽는다. 목적지는 솔로의 `/home`과 소셜의 `/social`
- * 둘뿐이다. `location.state`는 우리가 넣지 않은 값이 들어올 수 있는 입구라(`readSessions`와
- * 같은 원칙) 아는 값만 통과시키고 나머지는 `/home`으로 돌려준다.
+ * 확인·X이 돌아갈 홈을 현재 경로에서 정한다. 목적지는 솔로의 `/home`과 소셜의 `/social`
+ * 둘뿐이고, 소셜 결과 라우트(`/social/room/:id/result`)만 `/social`로 보낸다. 경로는 state와
+ * 달리 새로고침·복원에서도 사라지지 않아 단일 원천으로 삼는다.
  */
-function readHome(state: unknown): string {
-  if (typeof state === "object" && state !== null && "home" in state) {
-    const { home } = state as { home: unknown };
-    if (home === "/social") {
-      return "/social";
-    }
-  }
-  return "/home";
+function resolveHome(pathname: string): "/home" | "/social" {
+  return pathname.startsWith("/social/") ? "/social" : "/home";
 }
