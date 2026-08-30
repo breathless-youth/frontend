@@ -13,7 +13,7 @@ import { postToNative } from "@/lib/bridge";
 /**
  * 공부 결과
  *
- * ## 표시 전용 — 여기서 세션을 측정하거나 제출하지 않는다
+ * 표시 전용 — 여기서 세션을 측정하거나 제출하지 않는다
  *
  * 측정·상태 판정·서버 제출은 전부 `useStudyRoomSession`과 그 아래 순수 모듈의 책임이다.
  * 이 라우트는 이미 확정된 `StudySessionResponse`를 받아 그리기만 한다.
@@ -33,6 +33,7 @@ export function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
+  const home = readHome(location.state);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -69,8 +70,13 @@ export function ResultPage() {
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   function handleConfirm() {
-    postToNative({ type: "navigate-home", atMs: Date.now() });
-    navigate({ pathname: "/home", search: location.search }, { replace: true });
+    // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
+    // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
+    // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
+    if (home === "/home") {
+      postToNative({ type: "navigate-home", atMs: Date.now() });
+    }
+    navigate({ pathname: home, search: location.search }, { replace: true });
   }
 
   if (sessions === null) {
@@ -94,15 +100,10 @@ export function ResultPage() {
   const view = toSessionResultView(sessions[0]);
 
   return (
-    // 세로 전용이다 — S3-5/S3-6의 가로(거치) 모드는 세션 화면 얘기고 S4에는 가로 시안이 없다.
-    // 가로 레이아웃을 상상해 만들지 않는다.
     <main className="flex h-svh w-full flex-col bg-background text-foreground">
-      {/* 콘텐츠만 스크롤한다. Figma는 CTA를 top 774에 절대 배치했지만 일시정지 행이 붙으면
-          통계 카드가 길어져 절대 배치가 반드시 깨진다(SCR-S4 Interaction Contract). */}
+      {/* 콘텐츠만 스크롤 */}
       <div className="flex-1 overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+5px)] pb-4">
         <ResultHeader view={view} onClose={handleConfirm} />
-        {/* 간격은 Figma 실측 — 메타 라인 하단(205) → 타임라인 카드 상단(226) = 21px,
-            카드 사이 16px(341 → 357). 절대 좌표 대신 이 관계만 옮긴다. */}
         <div className="mt-[21px] flex flex-col gap-4">
           <StudyTimelineCard view={view} />
           <DistractionStatsCard view={view} />
@@ -124,11 +125,10 @@ export function ResultPage() {
 }
 
 /**
- * 라우터 state 검증.
+ * 라우터 state 검증
  *
- * `location.state`는 `unknown`이고 브라우저 히스토리에 남아 새로고침 후에도 살아 있을 수 있다 —
- * 즉 **우리가 넣지 않은 값이 들어올 수 있는 입구**다. `as` 캐스팅으로 통과시키지 않고 렌더에
- * 실제로 쓰는 필드만 좁게 검증한다. 검증 실패는 "데이터 없음"과 같게 다룬다.
+ * `location.state`는 `unknown`이고 브라우저 히스토리에 남아 새로고침 후에도 살아 있을 수 있다
+ * - 우리가 넣지 않은 값이 들어올 수 있는 구조이다.
  */
 function readSessions(state: unknown): [StudySessionResponse, ...StudySessionResponse[]] | null {
   if (typeof state !== "object" || state === null || !("sessions" in state)) {
@@ -154,4 +154,19 @@ function isStudySession(value: unknown): value is StudySessionResponse {
     typeof session.focusRate === "number" &&
     Array.isArray(session.events)
   );
+}
+
+/**
+ * 확인·X이 돌아갈 홈을 라우터 state에서 읽는다. 목적지는 솔로의 `/home`과 소셜의 `/social`
+ * 둘뿐이다. `location.state`는 우리가 넣지 않은 값이 들어올 수 있는 입구라(`readSessions`와
+ * 같은 원칙) 아는 값만 통과시키고 나머지는 `/home`으로 돌려준다.
+ */
+function readHome(state: unknown): string {
+  if (typeof state === "object" && state !== null && "home" in state) {
+    const { home } = state as { home: unknown };
+    if (home === "/social") {
+      return "/social";
+    }
+  }
+  return "/home";
 }
