@@ -5,6 +5,7 @@ import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { getMotionSensorRelay } from "./motionSensorRelay";
 import { relaySessionSubmit } from "./sessionSubmitRelay";
 import { setTabBarVisible } from "./tabBarVisibility";
 
@@ -121,6 +122,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
       // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
       void relaySessionSubmit(message).then(reply);
+      break;
+    case "motion-sensor":
+      // 소셜룸(소셜 탭·딥링크 join WebView) 경로
+      // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
+      getMotionSensorRelay().handle(message, reply);
       break;
   }
 }

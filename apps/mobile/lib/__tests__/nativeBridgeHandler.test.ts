@@ -6,6 +6,7 @@ import type { SubmitResultMessage } from "@focusmakers/types";
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { getMotionSensorRelay } from "../motionSensorRelay";
 import { relaySessionSubmit } from "../sessionSubmitRelay";
 
 /**
@@ -37,6 +38,10 @@ jest.mock("../sessionSubmitRelay", () => ({
   relaySessionSubmit: jest.fn(),
 }));
 
+jest.mock("../motionSensorRelay", () => ({
+  getMotionSensorRelay: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -56,6 +61,9 @@ const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.Mocked
 >;
 const mockedRelaySessionSubmit = relaySessionSubmit as jest.MockedFunction<
   typeof relaySessionSubmit
+>;
+const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
+  typeof getMotionSensorRelay
 >;
 
 beforeEach(() => {
@@ -291,5 +299,15 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("motion-sensor를 센서 릴레이에 위임한다", () => {
+    const handle = jest.fn();
+    mockedGetMotionSensorRelay.mockReturnValue({ handle });
+
+    const message = { type: "motion-sensor", enabled: true, atMs: 1 } as const;
+    handleBridgeMessage(message, noopReply);
+
+    expect(handle).toHaveBeenCalledWith(message, noopReply);
   });
 });
