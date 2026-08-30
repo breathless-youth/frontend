@@ -28,11 +28,15 @@ describe("딥링크 도메인 등록", () => {
     expect(appJson.expo.ios.associatedDomains).toContain(`applinks:${prodWebHost()}`);
   });
 
-  it("Android intentFilters에 운영 웹 호스트가 등록돼 있다", () => {
-    const hosts = appJson.expo.android.intentFilters.flatMap((filter) =>
-      filter.data.map((entry) => entry.host),
-    );
-    expect(hosts).toContain(prodWebHost());
+  it("Android intentFilters에 운영 웹 호스트가 올바른 필터 속성으로 등록돼 있다", () => {
+    // 호스트 존재만 보면 autoVerify 없는 필터나 다른 경로에 들어가도 통과한다 —
+    // App Links가 실제로 성립하는 조합(https + /social/join + autoVerify)째로 대조한다.
+    const host = prodWebHost();
+    const entry = appJson.expo.android.intentFilters
+      .filter((filter) => filter.autoVerify === true)
+      .flatMap((filter) => filter.data)
+      .find((data) => data.host === host);
+    expect(entry).toEqual({ scheme: "https", host, pathPrefix: "/social/join" });
   });
 
   it("구 도메인은 그대로 남아 있다 — 구 바이너리와 이미 공유된 링크가 계속 살아야 한다", () => {
