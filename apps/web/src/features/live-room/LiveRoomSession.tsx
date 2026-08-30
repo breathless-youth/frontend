@@ -30,6 +30,7 @@ import {
   combineFocusDetectors,
   createVisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
@@ -115,6 +116,7 @@ export function LiveRoomSession({
     focusSec,
     sessionState,
     phase,
+    endReason,
     isCameraRunning,
     cameraStream,
     cameraFacing,
@@ -323,10 +325,23 @@ export function LiveRoomSession({
     const expired = graceExpired || isExpiredNow();
     if (phase.name === "done") {
       leavingRef.current = true;
+      const nav = resolveLiveRoomDoneNavigation({
+        expired,
+        endReason,
+        focusSec,
+        sessions: phase.sessions,
+      });
+      void leaveRoom(roomId, userId).catch(() => undefined);
+      if (nav.to === "result") {
+        navigate(
+          { pathname: `/social/room/${roomId}/result`, search: location.search },
+          { replace: true, state: { sessions: nav.sessions } },
+        );
+        return;
+      }
       if (expired) {
         markSocialRoomNotice(graceEndNotice(true));
       }
-      void leaveRoom(roomId, userId).catch(() => undefined);
       navigate(
         { pathname: "/social", search: location.search },
         { replace: true, state: { noticeHandoff: true } },
@@ -342,12 +357,14 @@ export function LiveRoomSession({
       );
     }
   }, [
+    endReason,
+    focusSec,
     graceEndNotice,
     graceExpired,
     isExpiredNow,
     location.search,
     navigate,
-    phase.name,
+    phase,
     roomId,
     userId,
   ]);

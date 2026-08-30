@@ -67,6 +67,7 @@ export function App() {
           <Route path="/social/code" element={<InviteCodeSharePage />} />
           <Route path="/social/join" element={<InviteCodeJoinPage />} />
           <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
+          <Route path="/social/room/:roomId/result" element={<ResultPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
           <Route path="/contact" element={<ContactPage />} />

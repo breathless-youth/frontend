@@ -448,3 +448,84 @@ describe("ResultPage — 자정(KST) 분할 세션", () => {
     expect(screen.queryByText(/총 공부 2시간/)).not.toBeInTheDocument();
   });
 });
+
+/** 소셜 홈 리다이렉트 관측용 프로브 — 도착 쿼리까지 노출해 `?userId=N` 승계를 검증한다. */
+function SocialProbe() {
+  const { search } = useLocation();
+  return <p>소셜 홈{search}</p>;
+}
+
+/**
+ * 소셜 결과 라우트로 진입한다. 목적지는 state가 아니라 이 경로에서 판단되므로, state를
+ * 비워도(유실) 소셜 홈으로 복귀해야 한다.
+ */
+function renderResultAtSocial(state: unknown, search = "?userId=7") {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: "/social/room/42/result", search, state }]}>
+      <Routes>
+        <Route path="/home" element={<HomeProbe />} />
+        <Route path="/social" element={<SocialProbe />} />
+        <Route path="/social/room/:roomId/result" element={<ResultPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("ResultPage — 확인 목적지", () => {
+  it("소셜 결과 라우트에서 확인은 소셜 홈으로 보낸다", async () => {
+    const user = userEvent.setup();
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    await user.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(screen.getByText("소셜 홈?userId=7")).toBeInTheDocument();
+  });
+
+  it("소셜 결과에서는 홈 복귀 신호를 보내지 않는다 — 소셜룸은 탭 웹뷰라 모달이 없다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const user = userEvent.setup();
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    await user.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    expect(screen.getByText(/^소셜 홈/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("우상단 X도 소셜 홈으로 보낸다", async () => {
+    const user = userEvent.setup();
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    await user.click(screen.getByRole("button", { name: "닫기" }));
+
+    expect(screen.getByText(/^소셜 홈/)).toBeInTheDocument();
+  });
+
+  it("state가 유실돼도 소셜 결과는 소셜 홈으로 복귀하고 홈 복귀 신호를 보내지 않는다", () => {
+    // 렌더러 사망 복원·새로고침으로 state가 사라져도 경로가 소셜 결과이면 소셜 홈으로
+    // 되돌린다. navigate-home은 솔로 모달 탈출용이라 여기서 보내면 홈 탭으로 튕긴다.
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResultAtSocial(undefined);
+
+    expect(screen.getByText(/^소셜 홈/)).toBeInTheDocument();
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+
+  it("솔로 결과 라우트에서 확인은 앱 홈으로 보내고 홈 복귀 신호를 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const user = userEvent.setup();
+    renderResult({ sessions: [exampleSession()] });
+
+    await user.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+});
