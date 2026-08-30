@@ -26,6 +26,13 @@
       "env": {
         "APP_VARIANT": "production"
       }
+    },
+    "qa": {
+      "distribution": "internal",
+      "env": {
+        "API_BASE_URL": "https://api-dev.focusmakers.app",
+        "WEB_BASE_URL": "https://web-dev.focusmakers.app"
+      }
     }
   },
   "submit": {
