@@ -16,7 +16,7 @@
       },
       "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile",
-      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:focusmakers.app"]
+      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:web.focusmakers.app"]
     },
     "android": {
       "versionCode": 3,
@@ -37,6 +37,11 @@
             {
               "scheme": "https",
               "host": "web.sunqstudio.kr",
+              "pathPrefix": "/social/join"
+            },
+            {
+              "scheme": "https",
+              "host": "web.focusmakers.app",
               "pathPrefix": "/social/join"
             }
           ],
