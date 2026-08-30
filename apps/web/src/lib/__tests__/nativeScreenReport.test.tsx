@@ -104,4 +104,13 @@ describe("useNativeScreenReport", () => {
 
     expect(lastReport(postMessage).dark).toBe(false);
   });
+
+  it("소셜룸 결과 화면도 dark:false다 — 룸이 아니라 일반 테마 결과 화면이다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderAt({ pathname: "/social/room/42/result", search: "?userId=7" });
+
+    expect(lastReport(postMessage).dark).toBe(false);
+  });
 });

@@ -11,6 +11,7 @@ import type { MockRoomScenario } from "@/features/live-room/mockRoomChannel";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { getProfile } from "@/lib/profileApi";
@@ -20,7 +21,7 @@ import { LiveRoomPage } from "../LiveRoomPage";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
-  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+  useActiveSessionRestore: vi.fn(() => ({ settled: true, restored: null })),
 }));
 
 vi.mock("@/lib/roomApi", () => ({
@@ -44,6 +45,7 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
+const mockedRestore = vi.mocked(useActiveSessionRestore);
 
 const joinResponse = {
   roomId: 42,
@@ -147,6 +149,10 @@ function renderRoom({
             }
           />
           <Route path="/social" element={<div data-testid="social-home-stub" />} />
+          <Route
+            path="/social/room/:roomId/result"
+            element={<div data-testid="social-result-stub" />}
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -899,6 +905,50 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
     });
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+  });
+
+  it("수동 종료 + 순공 1분 이상이면 결과 화면으로 이동하고 leave를 부른다", async () => {
+    // 순공 1분 이상을 실시간으로 쌓는 대신, 이미 순공이 쌓인 세션을 복원해 들어간다 —
+    // 재입장 직후 바로 나가는 실제 경로이고, 타이머 조작 없이 종료 집계가 1분을 넘는다.
+    mockedRestore.mockReturnValue({
+      settled: true,
+      restored: {
+        startedAtMs: Date.now() - 130_000,
+        reportedAtMs: Date.now(),
+        baseStudySec: 130,
+        baseFocusSec: 120,
+        events: [],
+      },
+    });
+    vi.mocked(submitStudySession).mockResolvedValue([
+      {
+        id: 1,
+        userId: 7,
+        statDate: "2026-08-30",
+        startedAt: "2026-08-30T12:00:00.000Z",
+        endedAt: "2026-08-30T13:00:00.000Z",
+        studySec: 130,
+        focusSec: 120,
+        focusRate: 92.3,
+        events: [],
+      },
+    ]);
+    mockedLeaveRoom.mockResolvedValue(undefined);
+    try {
+      renderRoom();
+      await enterRoom();
+
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+      await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+      await waitFor(() => {
+        expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+      });
+      expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
+    } finally {
+      // clearAllMocks는 호출 기록만 지우고 구현은 남긴다 — 다음 테스트로 새지 않게 되돌린다.
+      mockedRestore.mockReturnValue({ settled: true, restored: null });
+    }
   });
 
   it("제출 중에는 컨트롤이 잠긴다 — 이중 종료·토글을 막는다", async () => {
