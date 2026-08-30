@@ -86,7 +86,7 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     await tick();
 
     trackAmplitudePageView("/room/42", "?userId=7&appVersion=1.0.0");
-    trackStudySessionStarted();
+    trackStudySessionStarted("single");
     await amplitude.flush().promise;
     await tick();
 

@@ -8,6 +8,7 @@ import {
   trackStudySessionEnded,
   trackStudySessionStarted,
   trackStudySessionSubmitted,
+  type StudyRoomType,
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
@@ -86,6 +87,12 @@ export interface StudyRoomSessionOptions {
    * 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
    */
   readonly restored?: RestoredSession | null;
+  /**
+   * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
+   * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
+   * 세션 로직에는 관여하지 않는다.
+   */
+  readonly roomType?: StudyRoomType;
 }
 
 /**
@@ -107,6 +114,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   );
   const [tuning] = useState<SessionTuningConfig>(() => options.tuning ?? DEFAULT_SESSION_TUNING);
   const tickMs = options.tickMs ?? 200;
+  // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
+  const roomType: StudyRoomType = options.roomType ?? "single";
 
   /**
    * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
@@ -242,8 +251,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 계측만 하고 세션 로직에는 관여하지 않으므로 의존성 없는 마운트 1회 이펙트로 둔다.
    */
   useEffect(() => {
-    trackStudySessionStarted();
-  }, []);
+    trackStudySessionStarted(roomType);
+  }, [roomType]);
 
   /**
    * 에러 이벤트에 "세션의 어느 단계였나"를 싣는다(BY-372). setPhase 호출부마다 심지 않고
@@ -472,6 +481,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;
         trackStudySessionEnded({
+          roomType,
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
           pauseSec: finalTotals.pauseSec,
@@ -499,10 +509,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           focusSec: finalTotals.focusSec,
           events,
         });
-        trackStudySessionSubmitted(true, attempt);
+        trackStudySessionSubmitted(true, attempt, roomType);
         setPhase({ name: "done", sessions });
       } catch (error) {
-        trackStudySessionSubmitted(false, attempt);
+        trackStudySessionSubmitted(false, attempt, roomType);
         // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
         reportHandled(error, "session-submit");
         setPhase({
@@ -513,7 +523,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         submitInFlightRef.current = false;
       }
     },
-    [allEvents, initial.serverSeenMs, userId, withBase],
+    [allEvents, initial.serverSeenMs, roomType, userId, withBase],
   );
 
   /**

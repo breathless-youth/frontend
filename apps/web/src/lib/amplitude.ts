@@ -232,8 +232,18 @@ export function setAcquisitionChannel(channel: string) {
   identify(id);
 }
 
+/**
+ * 세션이 열린 룸의 종류 — 개인(single) / 그룹 스터디 소셜룸(social).
+ *
+ * 소셜룸(`LiveRoomSession`)이 개인 세션과 같은 `useStudyRoomSession`을 재사용하므로,
+ * 이 속성 없이는 `study_session_*` 이벤트가 구분 없이 섞여 F1(핵심 활성화 퍼널)이
+ * 오염된다(BY-472). 세션 이벤트 3종 전부에 실린다.
+ */
+export type StudyRoomType = "single" | "social";
+
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
+  readonly roomType: StudyRoomType;
   readonly studySec: number;
   readonly focusSec: number;
   readonly pauseSec: number;
@@ -247,9 +257,9 @@ export interface StudySessionEndedInput {
 }
 
 /** 스터디룸 진입 = 세션 시작. 세션 완주율(시작 대비 종료)의 분모다. */
-export function trackStudySessionStarted() {
+export function trackStudySessionStarted(roomType: StudyRoomType) {
   if (!initialized) return;
-  track("study_session_started");
+  track("study_session_started", { room_type: roomType });
 }
 
 /**
@@ -262,6 +272,7 @@ export function trackStudySessionStarted() {
 export function trackStudySessionEnded(input: StudySessionEndedInput) {
   if (!initialized) return;
   track("study_session_ended", {
+    room_type: input.roomType,
     study_sec: Number(input.studySec),
     focus_sec: Number(input.focusSec),
     pause_sec: Number(input.pauseSec),
@@ -278,7 +289,182 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
  * 세션 제출 결과. 종료 이벤트와 달리 **시도마다** 보낸다 — 재시도 횟수와 실패율이
  * 여기서 나온다(웹뷰 브리지 유실은 실기기에서 실제로 겪은 문제다, `lib/bridge.ts`).
  */
-export function trackStudySessionSubmitted(ok: boolean, attempt: number) {
+export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomType: StudyRoomType) {
   if (!initialized) return;
-  track("study_session_submitted", { ok, attempt });
+  track("study_session_submitted", { ok, attempt, room_type: roomType });
+}
+
+/* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
+ *
+ * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰
+ * 성격이라 분석 도구로 나가면 안 된다(URL 정제가 `?userId`를 지키는 것과 같은 원칙).
+ * 코드 관련 계측은 존재 여부(`has_code`)·결과(`reason`)까지만 싣는다.
+ */
+
+/** 방 생성 성공 — 페이지뷰 근사(`/social/code` 진입)를 명시 이벤트로 대체한다. */
+export function trackSocialRoomCreated() {
+  if (!initialized) return;
+  track("social_room_created");
+}
+
+/**
+ * 초대코드 입장 실패. `reason`은 서버 에러 코드(`RoomJoinErrorCode`) 또는
+ * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinErrorCopy.joinErrorReason`이 만든다.
+ * 실패 사유는 페이지뷰 퍼널로는 절대 보이지 않는, 초대 전환율 개선의 핵심 데이터다.
+ */
+export function trackSocialRoomJoinFailed(reason: string) {
+  if (!initialized) return;
+  track("social_room_join_failed", { reason });
+}
+
+/** 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다. */
+export function trackSocialRoomEntered(graceRejoin: boolean) {
+  if (!initialized) return;
+  track("social_room_entered", { grace_rejoin: graceRejoin });
+}
+
+export interface SocialRoomExitedInput {
+  /** 퇴장 시점의 룸 인원(나 포함). */
+  readonly memberCount: number;
+  /**
+   * `session_end`: 세션 종료 후 퇴장(수동/자동 구분은 `study_session_ended.end_reason`이
+   * 이미 갖는다 — 여기 중복하지 않는다). `grace_expired`: 백그라운드 유예 초과 종료.
+   */
+  readonly exitReason: "session_end" | "grace_expired";
+  /** 입장부터 퇴장까지 체류 시간 — 공부시간(`study_sec`)과 다른 축이다. */
+  readonly durationSec: number;
+}
+
+export function trackSocialRoomExited(input: SocialRoomExitedInput) {
+  if (!initialized) return;
+  track("social_room_exited", {
+    member_count: input.memberCount,
+    exit_reason: input.exitReason,
+    duration_sec: input.durationSec,
+  });
+}
+
+/**
+ * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinErrorCopy.rejoinFailure`의 leave/retry 판정
+ * 그대로다. 재입장 버그 계열(BY-437/443)의 실사용 영향을 여기서 잰다.
+ */
+export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: string) {
+  if (!initialized) return;
+  track("social_room_rejoin_failed", { kind, reason });
+}
+
+/** 백그라운드 유예(30초) 초과로 세션이 자동 종료된 복귀 — BY-467 안내 개선의 분모다. */
+export function trackSocialRoomGraceExceeded() {
+  if (!initialized) return;
+  track("social_room_grace_exceeded");
+}
+
+/* ── 초대 루프 이벤트 (BY-472) ── */
+
+/**
+ * 초대 공유 행동의 결과 — `shared`: OS 공유 시트(웹/브리지), `copied`: 클립보드
+ * (share 미지원 폴백과 코드 복사 버튼 둘 다), `failed`: 둘 다 실패.
+ */
+export function trackInviteShared(method: "shared" | "copied" | "failed") {
+  if (!initialized) return;
+  track("invite_shared", { method });
+}
+
+/** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
+export function trackInviteLinkOpened(hasCode: boolean) {
+  if (!initialized) return;
+  track("invite_link_opened", { has_code: hasCode });
+}
+
+/**
+ * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대발 신규 설치의 근사치다.
+ * ⚠️ 스토어 이동으로 페이지가 내려가면 전송이 유실될 수 있는 베스트 에포트 이벤트다 —
+ * 모바일 브라우저는 스토어가 별도 앱으로 열려 페이지가 살아남는 경우가 대부분이라 감수한다.
+ */
+export function trackStoreLinkRedirected(platform: "android" | "ios") {
+  if (!initialized) return;
+  track("store_link_redirected", { platform });
+}
+
+/* ── WebRTC 연결 품질 (BY-472) ── */
+
+/**
+ * 피어 연결 최초 수립 — 룸 세션당 상대별 1회(재연결은 세지 않는다 — `peerMesh`가 막는다).
+ * `path`는 선택된 ICE 후보 종류(host/srflx/prflx/relay, 통계 미지원이면 unknown) —
+ * `relay`면 TURN 경유다.
+ */
+export function trackPeerConnectionEstablished(input: { peerCount: number; path: string }) {
+  if (!initialized) return;
+  track("peer_connection_established", { peer_count: input.peerCount, path: input.path });
+}
+
+/**
+ * 피어 연결 종국 실패(ICE 재시작 시도까지 소진) — 상대별 1회. 소셜룸의 핵심 가치가
+ * 화면 공유라 이 실패율은 곧 기능 실패율이다.
+ */
+export function trackPeerConnectionFailed(peerCount: number) {
+  if (!initialized) return;
+  track("peer_connection_failed", { peer_count: peerCount });
+}
+
+/* ── 브리지 기반 앱 이벤트 (BY-472) ─────────────────────────────────────────
+ *
+ * 네이티브 Amplitude SDK 없이, 네이티브→웹 브리지(`lib/bridge.ts`) 메시지를 웹 SDK로
+ * 옮겨 담는다. 구독·배선은 `lib/appLifecycleAnalytics.ts` 한 곳이 소유한다.
+ */
+
+/** 네이티브 앱 실행(브리지 `app-launched`) — 페이지뷰보다 정확한 앱 실행 근사. */
+export function trackAppLaunched() {
+  if (!initialized) return;
+  track("app_launched");
+}
+
+/** 앱이 포그라운드로 복귀(브리지 `app-state: active`). */
+export function trackAppForegrounded() {
+  if (!initialized) return;
+  track("app_foregrounded");
+}
+
+/** 앱이 백그라운드로 진입(브리지 `app-state: background`). */
+export function trackAppBackgrounded() {
+  if (!initialized) return;
+  track("app_backgrounded");
+}
+
+/**
+ * 카메라 권한 결과 — `source`는 `session`(세션 진입의 `camera-permission`) /
+ * `gate`(소셜룸 입장 게이트의 `camera-gate-result`). 권한 거부는 온보딩·소셜 입장
+ * 이탈의 1순위 후보인데 지금까지 관측 수단이 없었다.
+ */
+export function trackCameraPermissionResult(granted: boolean, source: "session" | "gate") {
+  if (!initialized) return;
+  track("camera_permission_result", { granted, source });
+}
+
+/**
+ * 앱 환경 user property 일괄 설정 — `is_webview`(브리지 존재), `app_version`(셸이 URL에
+ * 실어 주는 `?appVersion`, `remoteQueryParams.ts` 계약 — 브라우저 단독이면 없어서 생략),
+ * `theme`. 호출처는 `initAppLifecycleAnalytics` 한 곳뿐이다.
+ */
+export function setAppEnvironmentUserProperties(input: {
+  isWebview: boolean;
+  appVersion: string | null;
+  theme: "light" | "dark";
+}) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("is_webview", input.isWebview);
+  if (input.appVersion !== null) {
+    id.set("app_version", input.appVersion);
+  }
+  id.set("theme", input.theme);
+  identify(id);
+}
+
+/** 실행 중 테마 변경(브리지 `theme` 메시지)을 user property에 반영한다. */
+export function setThemeUserProperty(scheme: "light" | "dark") {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("theme", scheme);
+  identify(id);
 }

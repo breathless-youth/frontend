@@ -6,8 +6,13 @@ import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
-import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
+import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
+import {
+  trackInviteLinkOpened,
+  trackSocialRoomJoinFailed,
+  trackStoreLinkRedirected,
+} from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
@@ -24,6 +29,13 @@ export function InviteCodeJoinPage() {
   // 초대 링크(`inviteLink`)로 들어오면 `?code`가 붙어 있다 — 코드를 채운 채 시작한다.
   const [code, setCode] = useState(() => sanitizeInviteCode(searchParams.get("code") ?? ""));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 진입 계측(BY-472) — 공유→입장 전환율의 분모. `has_code`는 **진입 시점** 기준이라
+  // 입력 중 상태가 아니라 마운트 1회 스냅샷으로 굳힌다(초대 링크 경유 여부의 의미).
+  const [initialHasCode] = useState(() => searchParams.get("code") !== null);
+  useEffect(() => {
+    trackInviteLinkOpened(initialHasCode);
+  }, [initialHasCode]);
 
   const userId = parseUserId(searchParams.get("userId"));
 
@@ -63,6 +75,7 @@ export function InviteCodeJoinPage() {
       );
     },
     onError: (error) => {
+      trackSocialRoomJoinFailed(joinErrorReason(error));
       setErrorMessage(joinErrorMessage(error));
     },
   });
@@ -129,7 +142,12 @@ export function InviteCodeJoinPage() {
         {storePlatform !== null && (
           <button
             type="button"
-            onClick={() => openInApp(storePlatform, isCompleteInviteCode(code) ? code : "")}
+            onClick={() => {
+              // 초대발 신규 설치 근사(BY-472) — 이동 전 전송이 베스트 에포트인 사유는
+              // trackStoreLinkRedirected 주석 참고.
+              trackStoreLinkRedirected(storePlatform);
+              openInApp(storePlatform, isCompleteInviteCode(code) ? code : "");
+            }}
             className="mt-2 flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-muted-foreground"
           >
             앱에서 참여하기

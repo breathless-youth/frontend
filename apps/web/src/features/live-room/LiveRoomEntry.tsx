@@ -5,8 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import type { IceServer } from "@focusmakers/types";
 
 import { ErrorState } from "@/components/ui/ErrorState";
-import { rejoinFailure } from "@/features/social-room/joinErrorCopy";
+import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinErrorCopy";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { trackSocialRoomEntered, trackSocialRoomRejoinFailed } from "@/lib/amplitude";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
@@ -109,6 +110,8 @@ export function LiveRoomEntry({
           return;
         }
         const failure = rejoinFailure(error);
+        // 자리 재예약 실패 계측(BY-472) — 재입장 버그 계열(BY-437/443)의 실사용 영향.
+        trackSocialRoomRejoinFailed(failure.kind, joinErrorReason(error));
         // 이 방으로는 복구할 수 없는 실패(방 소멸 등)는 화면에 붙잡아 두면 사용자가
         // [다시 시도] 말고 할 수 있는 게 없는 상태에 갇힌다 — 사유만 남기고 내보낸다.
         if (failure.kind === "leave") {
@@ -165,6 +168,9 @@ export function LiveRoomEntry({
   useEffect(() => {
     if (!entered && restoreSettled && gatePassed && (graceRejoin || (joined && profileSettled))) {
       setEntered(true);
+      // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
+      // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
+      trackSocialRoomEntered(graceRejoin);
     }
   }, [entered, gatePassed, graceRejoin, joined, profileSettled, restoreSettled]);
 

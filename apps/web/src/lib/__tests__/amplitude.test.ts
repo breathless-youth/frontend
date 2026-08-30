@@ -384,9 +384,10 @@ describe("공부 세션 이벤트", () => {
     const { trackStudySessionEnded, trackStudySessionStarted, trackStudySessionSubmitted } =
       await loadModule();
 
-    trackStudySessionStarted();
-    trackStudySessionSubmitted(true, 1);
+    trackStudySessionStarted("single");
+    trackStudySessionSubmitted(true, 1, "single");
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 60,
       focusSec: 30,
       pauseSec: 0,
@@ -399,12 +400,30 @@ describe("공부 세션 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
+  it("세 이벤트 전부에 room_type을 싣는다 — 없으면 소셜 세션이 F1 퍼널에 섞인다(BY-472)", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionStarted, trackStudySessionSubmitted } =
+      await loadModule();
+    initAmplitude();
+
+    trackStudySessionStarted("social");
+    trackStudySessionSubmitted(true, 1, "social");
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_started", { room_type: "social" });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
+      ok: true,
+      attempt: 1,
+      room_type: "social",
+    });
+  });
+
   it("집중률을 studySec 기준 백분율로 계산해 담는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, trackStudySessionEnded } = await loadModule();
     initAmplitude();
 
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 1200,
       focusSec: 900,
       pauseSec: 120,
@@ -415,6 +434,7 @@ describe("공부 세션 이벤트", () => {
     });
 
     expect(mocks.track).toHaveBeenCalledWith("study_session_ended", {
+      room_type: "single",
       study_sec: 1200,
       focus_sec: 900,
       pause_sec: 120,
@@ -432,6 +452,7 @@ describe("공부 세션 이벤트", () => {
     initAmplitude();
 
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 0,
       focusSec: 0,
       pauseSec: 0,
@@ -450,9 +471,163 @@ describe("공부 세션 이벤트", () => {
     const { initAmplitude, trackStudySessionSubmitted } = await loadModule();
     initAmplitude();
 
-    trackStudySessionSubmitted(false, 2);
+    trackStudySessionSubmitted(false, 2, "single");
 
-    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", { ok: false, attempt: 2 });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
+      ok: false,
+      attempt: 2,
+      room_type: "single",
+    });
+  });
+});
+
+describe("소셜룸 이벤트 (BY-472)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const module = await loadModule();
+
+    module.trackSocialRoomCreated();
+    module.trackSocialRoomJoinFailed("ROOM_CLOSED");
+    module.trackSocialRoomEntered(false);
+    module.trackSocialRoomExited({ memberCount: 2, exitReason: "session_end", durationSec: 60 });
+    module.trackSocialRoomRejoinFailed("leave", "ROOM_CLOSED");
+    module.trackSocialRoomGraceExceeded();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("입장 실패는 서버 코드를 reason으로 보존한다 — 문구가 아니라 코드로 집계해야 한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomJoinFailed } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomJoinFailed("INVITE_CODE_NOT_FOUND");
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_join_failed", {
+      reason: "INVITE_CODE_NOT_FOUND",
+    });
+  });
+
+  it("입장·퇴장 이벤트가 유예 재입장·퇴장 사유·인원·체류 시간을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomEntered, trackSocialRoomExited } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomEntered(true);
+    trackSocialRoomExited({ memberCount: 3, exitReason: "grace_expired", durationSec: 125 });
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_entered", { grace_rejoin: true });
+    expect(mocks.track).toHaveBeenCalledWith("social_room_exited", {
+      member_count: 3,
+      exit_reason: "grace_expired",
+      duration_sec: 125,
+    });
+  });
+
+  it("재입장 실패는 leave/retry 판정과 사유를 함께 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomRejoinFailed } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomRejoinFailed("retry", "HTTP_500");
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_rejoin_failed", {
+      kind: "retry",
+      reason: "HTTP_500",
+    });
+  });
+});
+
+describe("초대 루프 이벤트 (BY-472)", () => {
+  it("공유·링크 진입·스토어 이동을 각 속성과 함께 보낸다 — 초대코드 값은 어디에도 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackInviteShared, trackInviteLinkOpened, trackStoreLinkRedirected } =
+      await loadModule();
+    initAmplitude();
+
+    trackInviteShared("shared");
+    trackInviteLinkOpened(true);
+    trackStoreLinkRedirected("android");
+
+    expect(mocks.track).toHaveBeenCalledWith("invite_shared", { method: "shared" });
+    expect(mocks.track).toHaveBeenCalledWith("invite_link_opened", { has_code: true });
+    expect(mocks.track).toHaveBeenCalledWith("store_link_redirected", { platform: "android" });
+  });
+});
+
+describe("WebRTC 연결 이벤트 (BY-472)", () => {
+  it("수립은 경로 종류와 피어 수, 실패는 피어 수를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackPeerConnectionEstablished, trackPeerConnectionFailed } =
+      await loadModule();
+    initAmplitude();
+
+    trackPeerConnectionEstablished({ peerCount: 2, path: "relay" });
+    trackPeerConnectionFailed(3);
+
+    expect(mocks.track).toHaveBeenCalledWith("peer_connection_established", {
+      peer_count: 2,
+      path: "relay",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("peer_connection_failed", { peer_count: 3 });
+  });
+});
+
+describe("브리지 기반 앱 이벤트 (BY-472)", () => {
+  it("실행·포/백그라운드·카메라 권한을 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const {
+      initAmplitude,
+      trackAppLaunched,
+      trackAppForegrounded,
+      trackAppBackgrounded,
+      trackCameraPermissionResult,
+    } = await loadModule();
+    initAmplitude();
+
+    trackAppLaunched();
+    trackAppForegrounded();
+    trackAppBackgrounded();
+    trackCameraPermissionResult(false, "gate");
+
+    expect(mocks.track).toHaveBeenCalledWith("app_launched");
+    expect(mocks.track).toHaveBeenCalledWith("app_foregrounded");
+    expect(mocks.track).toHaveBeenCalledWith("app_backgrounded");
+    expect(mocks.track).toHaveBeenCalledWith("camera_permission_result", {
+      granted: false,
+      source: "gate",
+    });
+  });
+
+  it("앱 환경 user property를 일괄 설정한다 — appVersion이 없으면 생략한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setAppEnvironmentUserProperties } = await loadModule();
+    initAmplitude();
+
+    setAppEnvironmentUserProperties({ isWebview: true, appVersion: "1.0.2", theme: "dark" });
+    setAppEnvironmentUserProperties({ isWebview: false, appVersion: null, theme: "light" });
+
+    const [first] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(first.sets).toEqual([
+      ["is_webview", true],
+      ["app_version", "1.0.2"],
+      ["theme", "dark"],
+    ]);
+    const [second] = mocks.identify.mock.calls[1] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(second.sets).toEqual([
+      ["is_webview", false],
+      ["theme", "light"],
+    ]);
+  });
+
+  it("실행 중 테마 변경을 user property로 반영한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setThemeUserProperty } = await loadModule();
+    initAmplitude();
+
+    setThemeUserProperty("dark");
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["theme", "dark"]]);
   });
 });
 
