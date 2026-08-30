@@ -100,4 +100,27 @@ describe("app.config 환경 분기", () => {
     expect(easJson.build.development.env?.APP_VARIANT).not.toBe("production");
     expect(easJson.build["development-simulator"].env?.APP_VARIANT).not.toBe("production");
   });
+
+  it("eas.json의 qa 프로필은 개발 주소를 쓰고 APP_VARIANT를 선언하지 않는다", () => {
+    // APP_VARIANT가 선언되면 env 주소가 무시되고 운영 주소 빌드가 된다 — QA 트래픽이
+    // 운영 DB로 가는 회귀를 막는 핀.
+    const easJson = require("../../eas.json") as {
+      build: Record<string, { distribution?: string; env?: Record<string, string> }>;
+    };
+    expect(easJson.build.qa.env?.APP_VARIANT).toBeUndefined();
+    expect(easJson.build.qa.distribution).toBe("internal");
+    expect(easJson.build.qa.env?.API_BASE_URL).toBe("https://api-dev.focusmakers.app");
+    expect(easJson.build.qa.env?.WEB_BASE_URL).toBe("https://web-dev.focusmakers.app");
+  });
+
+  it("qa 프로필의 주소는 개발 분기 가드를 통과해 extra에 반영된다", () => {
+    // 가드 목록에 dev 호스트가 잘못 들어가면 QA 빌드가 통째로 막힌다 — 여기서 걸린다.
+    const extra = resolveExtra({
+      APP_VARIANT: undefined,
+      API_BASE_URL: "https://api-dev.focusmakers.app",
+      WEB_BASE_URL: "https://web-dev.focusmakers.app",
+    });
+    expect(extra?.apiBaseUrl).toBe("https://api-dev.focusmakers.app");
+    expect(extra?.webBaseUrl).toBe("https://web-dev.focusmakers.app");
+  });
 });
