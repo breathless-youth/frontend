@@ -11,7 +11,8 @@ WebRTC 연결이 실제로 TURN 릴레이(coturn 경유)를 타는 비율과 그
 - 각 PeerConnection이 고른 candidate pair의 local `candidateType`을 백엔드로 보고한다.
 - `relay` 연결은 `relayProtocol`과 `bytesReceived`·`bytesSent`를 함께 실어 egress를 추정한다.
 - 연결 성립 시 1회, 유지 중 60초 주기, 종료 시 마지막 1회 보고한다.
-- 사용자가 탭이나 앱 화면을 닫아도 마지막 샘플이 유실되지 않는다.
+- 정상 종료(상대 퇴장·통화 종료·연결 재수립)에는 마지막 샘플을 한 번 보고한다.
+- 하드 강제종료 시에는 `isFinal` 마커가 빠질 수 있으나, 누적 바이트는 직전 주기 샘플로 이미 전송돼 egress 집계에는 영향이 없다.
 
 ## 백엔드 명세 (BY-490)
 

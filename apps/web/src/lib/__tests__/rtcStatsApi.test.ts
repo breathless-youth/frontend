@@ -4,6 +4,7 @@ import { reportRtcStats } from "../rtcStatsApi";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("reportRtcStats", () => {
@@ -49,8 +50,8 @@ describe("reportRtcStats", () => {
           isFinal: true,
         }),
       ).not.toThrow();
-      // 거부는 마이크로태스크로 온다 — 한 틱 흘려 미처리 거부가 없음을 확인한다.
-      await Promise.resolve();
+      // 거부 처리는 매크로태스크로 온다 — 한 틱 흘려 미처리 거부가 없음을 확인한다.
+      await new Promise((resolve) => setTimeout(resolve, 0));
       expect(onUnhandled).not.toHaveBeenCalled();
     } finally {
       process.off("unhandledRejection", onUnhandled);
