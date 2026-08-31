@@ -154,6 +154,7 @@ export function LiveRoomSession({
 
   const remoteStreams = usePeerMesh({
     channel,
+    roomId,
     myUserId: userId,
     iceServers,
     cameraStream,
