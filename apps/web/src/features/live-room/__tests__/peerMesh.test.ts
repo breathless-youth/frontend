@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { RoomMember } from "@focusmakers/types";
+import type { RoomMember, RtcStatRequest } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "../mockRoomChannel";
 import { createPeerMesh } from "../peerMesh";
@@ -98,11 +98,19 @@ function fakeStream(track: MediaStreamTrack): MediaStream {
   return { getVideoTracks: () => [track] } as unknown as MediaStream;
 }
 
-function setup(options: { myUserId?: number; onEvent?: (line: string) => void } = {}) {
+function setup(
+  options: {
+    myUserId?: number;
+    roomId?: number;
+    onEvent?: (line: string) => void;
+    reportStats?: (payload: RtcStatRequest) => void;
+  } = {},
+) {
   const channel = createMockRoomChannel({ snapshot: [] });
   const pcs: { config: RTCConfiguration; pc: FakePc }[] = [];
   const mesh = createPeerMesh({
     myUserId: options.myUserId ?? 7,
+    roomId: options.roomId ?? 10,
     channel,
     iceServers: [{ urls: ["stun:turn.example:3478"] }],
     createPeerConnection: (config) => {
@@ -111,6 +119,7 @@ function setup(options: { myUserId?: number; onEvent?: (line: string) => void } 
       return pc as unknown as RTCPeerConnection;
     },
     onEvent: options.onEvent,
+    reportStats: options.reportStats,
   });
   mesh.start();
   return { channel, mesh, pcs };
@@ -122,6 +131,7 @@ describe("createPeerMesh — 수명", () => {
     const pcs: unknown[] = [];
     createPeerMesh({
       myUserId: 7,
+      roomId: 10,
       channel,
       iceServers: [],
       createPeerConnection: () => {
@@ -730,6 +740,305 @@ describe("createPeerMesh — 정리와 실패", () => {
     });
   });
 
+  it("connected 시 선택된 경로를 reportStats로 보고한다 — 연결 단위 id·상대·룸 포함", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({
+      myUserId: 7,
+      roomId: 10,
+      reportStats: (p) => reports.push(p),
+    });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      [
+        "P",
+        {
+          id: "P",
+          type: "candidate-pair",
+          localCandidateId: "L",
+          bytesReceived: 2048,
+          bytesSent: 512,
+          currentRoundTripTime: 0.042,
+        },
+      ],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay", relayProtocol: "udp" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+
+    await vi.waitFor(() => expect(reports).toHaveLength(1));
+    expect(reports[0]).toMatchObject({
+      roomId: 10,
+      userId: 7,
+      peerUserId: 8,
+      candidateType: "relay",
+      relayProtocol: "udp",
+      bytesReceived: 2048,
+      bytesSent: 512,
+      rttMs: 42,
+      isFinal: false,
+    });
+    expect(typeof reports[0]!.connectionId).toBe("string");
+    expect(reports[0]!.connectionId.length).toBeGreaterThan(0);
+  });
+
+  it("getStats가 없으면 reportStats를 부르지 않는다 — 진단 실패는 삼킨다", async () => {
+    const reports: unknown[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    (pcs[0]!.pc as unknown as { getStats?: unknown }).getStats = undefined;
+    pcs[0]?.pc.fireIceState("connected");
+    await Promise.resolve();
+    expect(reports).toHaveLength(0);
+  });
+
+  it("60초마다 다시 보고한다 — 경로 전환 추적", async () => {
+    vi.useFakeTimers();
+    try {
+      const reports: RtcStatRequest[] = [];
+      const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+      await vi.waitFor(() => expect(pcs).toHaveLength(1));
+      const stats = new Map<string, Record<string, unknown>>([
+        ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+        ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+        ["L", { id: "L", type: "local-candidate", candidateType: "host" }],
+      ]);
+      (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+        Promise.resolve(stats);
+      pcs[0]?.pc.fireIceState("connected");
+      await vi.waitFor(() => expect(reports).toHaveLength(1));
+
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(reports.length).toBeGreaterThanOrEqual(2);
+      expect(reports.every((r) => r.isFinal === false)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("상대 퇴장 시 마지막 샘플을 isFinal:true로 한 번 보낸다", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L", bytesReceived: 4096 }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+    await vi.waitFor(() => expect(reports).toHaveLength(1));
+
+    channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 8 });
+
+    const finals = reports.filter((r) => r.isFinal);
+    expect(finals).toHaveLength(1);
+    expect(finals[0]).toMatchObject({
+      peerUserId: 8,
+      candidateType: "relay",
+      bytesReceived: 4096,
+      isFinal: true,
+    });
+  });
+
+  it("close()는 사전 flush 없이도 캐시된 샘플을 isFinal:true로 마감한다", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs, mesh } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "srflx" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+    await vi.waitFor(() => expect(reports).toHaveLength(1));
+
+    mesh.close();
+
+    const finals = reports.filter((r) => r.isFinal);
+    expect(finals).toHaveLength(1);
+    expect(finals[0]).toMatchObject({ peerUserId: 8, candidateType: "srflx", isFinal: true });
+  });
+
+  it("퇴장으로 connectionId가 지워진 뒤 도착한 늦은 getStats 샘플은 보고하지 않는다", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay" }],
+    ]);
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = async () => {
+      await gate;
+      return stats;
+    };
+    pcs[0]?.pc.fireIceState("connected"); // sampleAndReport가 gate에서 대기
+
+    // getStats가 도는 사이 상대가 나가 closePeer→finalizeStats가 connectionId를 지운다.
+    channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 8 });
+    release?.();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(reports.filter((r) => r.isFinal === false)).toHaveLength(0);
+  });
+
+  it("discardPeer 경로(지문 다른 offer)는 연결당 final을 한 번 낸다", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "v=0\r\na=fingerprint:sha-256 AA\r\n" },
+    });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L", bytesReceived: 1024 }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+    await vi.waitFor(() => expect(reports.filter((r) => r.isFinal === false)).toHaveLength(1));
+
+    // 지문이 다른 offer가 오면 기존 PC를 폐기(discardPeer)한다 — 이때 final이 나가야 한다.
+    channel.emitServerMessage({
+      type: "SIGNAL",
+      fromUserId: 9,
+      kind: "OFFER",
+      payload: { type: "offer", sdp: "v=0\r\na=fingerprint:sha-256 BB\r\n" },
+    });
+    await vi.waitFor(() => expect(pcs).toHaveLength(2));
+
+    const finals = reports.filter((r) => r.isFinal);
+    expect(finals).toHaveLength(1);
+    expect(finals[0]).toMatchObject({ peerUserId: 9, candidateType: "relay", bytesReceived: 1024 });
+  });
+
+  it("candidateType이 화이트리스트 밖이면 보고하지 않는다 — 백엔드 400 방지", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "bogus" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(reports).toHaveLength(0);
+  });
+
+  it("음수·비유한 숫자 필드는 버린다 — 백엔드 @PositiveOrZero 400 방지", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      [
+        "P",
+        {
+          id: "P",
+          type: "candidate-pair",
+          localCandidateId: "L",
+          bytesReceived: -5,
+          bytesSent: 512,
+        },
+      ],
+      ["L", { id: "L", type: "local-candidate", candidateType: "host" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+
+    await vi.waitFor(() => expect(reports).toHaveLength(1));
+    expect(reports[0]?.candidateType).toBe("host");
+    expect(reports[0]?.bytesReceived).toBeUndefined();
+    expect(reports[0]?.bytesSent).toBe(512);
+  });
+
+  it("relayProtocol이 화이트리스트 밖이면 버린다 — 백엔드 400 방지", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay", relayProtocol: "quic" }],
+    ]);
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.resolve(stats);
+    pcs[0]?.pc.fireIceState("connected");
+
+    await vi.waitFor(() => expect(reports).toHaveLength(1));
+    expect(reports[0]?.candidateType).toBe("relay");
+    expect(reports[0]?.relayProtocol).toBeUndefined();
+  });
+
+  it("getStats가 거부되면 reportStats를 부르지 않는다 — 진단 실패는 삼킨다", async () => {
+    const reports: unknown[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+      Promise.reject(new Error("x"));
+    pcs[0]?.pc.fireIceState("connected");
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(reports).toHaveLength(0);
+  });
+
+  it("낡은 pc의 늦은 getStats 결과는 보고하지 않는다 — 교체된 연결의 id로 새지 않게", async () => {
+    const reports: RtcStatRequest[] = [];
+    const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    await vi.waitFor(() => expect(pcs).toHaveLength(1));
+    const stats = new Map<string, Record<string, unknown>>([
+      ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+      ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+      ["L", { id: "L", type: "local-candidate", candidateType: "relay" }],
+    ]);
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = async () => {
+      await gate;
+      return stats;
+    };
+    pcs[0]?.pc.fireIceState("connected"); // sampleAndReport가 gate에서 대기
+
+    // getStats가 도는 사이 상대가 나가 pc가 폐기된다(peers.get(8) !== pc).
+    channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 8 });
+    release?.();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(reports.filter((r) => r.isFinal === false)).toHaveLength(0);
+  });
+
   it("iceConnectionState disconnected면 스트림 null을 통지한다 — 끊긴 상대는 아바타", async () => {
     const { channel, pcs, mesh } = setup();
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
@@ -888,6 +1197,7 @@ describe("createPeerMesh — 정리와 실패", () => {
     const received: [number, MediaStream | null][] = [];
     const mesh = createPeerMesh({
       myUserId: 7,
+      roomId: 10,
       channel,
       iceServers: [],
       createPeerConnection: () => {

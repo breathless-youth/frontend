@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { reportRtcStats } from "@/lib/rtcStatsApi";
+
 import type { CreatePeerConnection } from "./peerMesh";
 import { createPeerMesh } from "./peerMesh";
 import type { RoomChannel } from "./roomChannel";
@@ -11,6 +13,7 @@ import type { RoomChannel } from "./roomChannel";
 export function usePeerMesh({
   channel,
   myUserId,
+  roomId,
   iceServers,
   cameraStream,
   trackEnabled,
@@ -19,6 +22,7 @@ export function usePeerMesh({
 }: {
   channel: RoomChannel;
   myUserId: number;
+  roomId: number;
   iceServers: RTCIceServer[];
   cameraStream: MediaStream | null;
   trackEnabled: boolean;
@@ -26,7 +30,15 @@ export function usePeerMesh({
   onEvent?: (line: string) => void;
 }): ReadonlyMap<number, MediaStream> {
   const [mesh] = useState(() =>
-    createPeerMesh({ myUserId, channel, iceServers, createPeerConnection, onEvent }),
+    createPeerMesh({
+      myUserId,
+      roomId,
+      channel,
+      iceServers,
+      createPeerConnection,
+      onEvent,
+      reportStats: reportRtcStats,
+    }),
   );
   const [remoteStreams, setRemoteStreams] = useState<ReadonlyMap<number, MediaStream>>(
     () => new Map(),

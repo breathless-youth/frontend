@@ -1,4 +1,4 @@
-import type { RoomSignalKind } from "@focusmakers/types";
+import type { RoomSignalKind, RtcStatRequest } from "@focusmakers/types";
 
 import type { RoomChannel } from "./roomChannel";
 
@@ -38,16 +38,20 @@ function defaultCreatePeerConnection(config: RTCConfiguration): RTCPeerConnectio
 
 export function createPeerMesh({
   myUserId,
+  roomId,
   channel,
   iceServers,
   createPeerConnection = defaultCreatePeerConnection,
   onEvent,
+  reportStats,
 }: {
   myUserId: number;
+  roomId: number;
   channel: RoomChannel;
   iceServers: RTCIceServer[];
   createPeerConnection?: CreatePeerConnection;
   onEvent?: (line: string) => void;
+  reportStats?: (payload: RtcStatRequest) => void;
 }): PeerMesh {
   const peers = new Map<number, RTCPeerConnection>();
   const restartAttempted = new Set<number>();
@@ -63,6 +67,12 @@ export function createPeerMesh({
   // SNAPSHOT을 유실하면(실서버 로그로 확인된 실사례) 기존 멤버 쪽에서 역방향 offer를 낸다.
   const fallbackOfferTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const listeners = new Set<(userId: number, stream: MediaStream | null) => void>();
+  // PeerConnection당 발급하는 UUID — 보고의 연결 단위 중복 제거 키. 재수립 pc는 새 id를 받는다.
+  const connectionIds = new Map<number, string>();
+  // 직전 주기 샘플 — 종료 시 이 값을 isFinal로 한 번 더 흘려 종료 egress를 멱등하게 잡는다.
+  const lastStatsSample = new Map<number, RtcStatRequest>();
+  const statsTimers = new Map<number, ReturnType<typeof setInterval>>();
+  const STATS_INTERVAL_MS = 60000;
   let localStream: MediaStream | null = null;
   let trackEnabled = true;
   let unsubscribe: (() => void) | null = null;
@@ -78,13 +88,20 @@ export function createPeerMesh({
     }
   }
 
-  /**
-   * 연결이 선택한 후보 쌍의 종류(host·srflx·relay)를 디버그로 알린다 — 다른 망끼리 붙은 게
-   * STUN 직결인지 TURN 경유(relay)인지는 이것으로만 구분된다. 진단용이라 어떤 실패도 삼킨다.
-   */
-  function reportSelectedPath(pc: RTCPeerConnection, userId: number) {
+  type CandidateType = RtcStatRequest["candidateType"];
+  const CANDIDATE_TYPES: readonly CandidateType[] = ["host", "srflx", "prflx", "relay"];
+  type RelayProtocol = NonNullable<RtcStatRequest["relayProtocol"]>;
+  const RELAY_PROTOCOLS: readonly RelayProtocol[] = ["udp", "tcp", "tls"];
+
+  /** 선택된 후보 쌍에서 종류·바이트·RTT를 뽑는다. 진단용이라 어떤 실패도 삼킨다. */
+  async function collectStats(
+    pc: RTCPeerConnection,
+  ): Promise<Omit<
+    RtcStatRequest,
+    "connectionId" | "roomId" | "userId" | "peerUserId" | "isFinal" | "at"
+  > | null> {
     if (typeof pc.getStats !== "function") {
-      return;
+      return null;
     }
     type StatEntry = {
       id: string;
@@ -94,36 +111,112 @@ export function createPeerMesh({
       state?: string;
       localCandidateId?: string;
       candidateType?: string;
+      relayProtocol?: string;
+      bytesReceived?: number;
+      bytesSent?: number;
+      currentRoundTripTime?: number;
     };
-    pc.getStats()
-      .then((report) => {
-        const byId = new Map<string, StatEntry>();
-        report.forEach((entry: StatEntry) => byId.set(entry.id, entry));
-        let pair: StatEntry | undefined;
+    try {
+      const report = await pc.getStats();
+      const byId = new Map<string, StatEntry>();
+      report.forEach((entry: StatEntry) => byId.set(entry.id, entry));
+      let pair: StatEntry | undefined;
+      for (const entry of byId.values()) {
+        if (entry.type === "transport" && entry.selectedCandidatePairId !== undefined) {
+          pair = byId.get(entry.selectedCandidatePairId);
+        }
+      }
+      if (!pair) {
+        // Firefox는 transport 통계가 없어 nominated 성공 쌍으로 대신 찾는다.
         for (const entry of byId.values()) {
-          if (entry.type === "transport" && entry.selectedCandidatePairId !== undefined) {
-            pair = byId.get(entry.selectedCandidatePairId);
+          if (
+            entry.type === "candidate-pair" &&
+            entry.nominated === true &&
+            entry.state === "succeeded"
+          ) {
+            pair = entry;
           }
         }
-        if (!pair) {
-          // Firefox는 transport 통계가 없어 nominated 성공 쌍으로 대신 찾는다.
-          for (const entry of byId.values()) {
-            if (
-              entry.type === "candidate-pair" &&
-              entry.nominated === true &&
-              entry.state === "succeeded"
-            ) {
-              pair = entry;
-            }
-          }
-        }
-        const local =
-          pair?.localCandidateId !== undefined ? byId.get(pair.localCandidateId) : undefined;
-        if (local?.candidateType !== undefined) {
-          debug(`path ${userId}: ${local.candidateType}`);
-        }
-      })
-      .catch(() => undefined);
+      }
+      const local =
+        pair?.localCandidateId !== undefined ? byId.get(pair.localCandidateId) : undefined;
+      const candidateType = local?.candidateType;
+      if (
+        candidateType === undefined ||
+        !CANDIDATE_TYPES.includes(candidateType as CandidateType)
+      ) {
+        return null;
+      }
+      // 잘못된 값(브라우저 편차)은 버린다 — 그대로 실어 보내면 백엔드가 요청 전체를 400 낸다.
+      const relayProtocol =
+        local?.relayProtocol !== undefined &&
+        RELAY_PROTOCOLS.includes(local.relayProtocol as RelayProtocol)
+          ? (local.relayProtocol as RelayProtocol)
+          : undefined;
+      // 음수·비유한 수는 버린다 — 백엔드 @PositiveOrZero가 요청 전체를 400 낸다.
+      const nonNeg = (n: number | undefined): number | undefined =>
+        typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : undefined;
+      const rttMs =
+        pair?.currentRoundTripTime !== undefined
+          ? Math.round(pair.currentRoundTripTime * 1000)
+          : undefined;
+      return {
+        candidateType: candidateType as CandidateType,
+        relayProtocol,
+        bytesReceived: nonNeg(pair?.bytesReceived),
+        bytesSent: nonNeg(pair?.bytesSent),
+        rttMs: nonNeg(rttMs),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 한 연결의 샘플을 뽑아 보고하고 마지막 샘플로 캐시한다(종료 시 isFinal로 흘리기 위해).
+   * 후보 쌍 종류(host·srflx·relay)는 STUN 직결인지 TURN 경유인지의 유일한 판별 신호라 디버그로도 남긴다.
+   */
+  async function sampleAndReport(userId: number, pc: RTCPeerConnection) {
+    const connectionId = connectionIds.get(userId);
+    if (connectionId === undefined) {
+      return;
+    }
+    const sample = await collectStats(pc);
+    if (!sample) {
+      return;
+    }
+    // getStats가 늦게 돌아오는 사이 이 pc가 폐기·교체됐으면 버린다 — 새 pc의
+    // connectionId로 낡은 샘플을 보고하는 것을 막는다.
+    if (peers.get(userId) !== pc || connectionIds.get(userId) !== connectionId) {
+      return;
+    }
+    debug(`path ${userId}: ${sample.candidateType}`);
+    const payload: RtcStatRequest = {
+      connectionId,
+      roomId,
+      userId: myUserId,
+      peerUserId: userId,
+      isFinal: false,
+      at: Date.now(),
+      ...sample,
+    };
+    lastStatsSample.set(userId, payload);
+    reportStats?.(payload);
+  }
+
+  /** 타이머를 멈추고 캐시된 마지막 샘플을 isFinal:true로 한 번 보낸다. 멱등하다. */
+  function finalizeStats(userId: number) {
+    const timer = statsTimers.get(userId);
+    if (timer !== undefined) {
+      clearInterval(timer);
+      statsTimers.delete(userId);
+    }
+    const cached = lastStatsSample.get(userId);
+    if (cached !== undefined) {
+      lastStatsSample.delete(userId);
+      reportStats?.({ ...cached, isFinal: true, at: Date.now() });
+    }
+    connectionIds.delete(userId);
   }
 
   function localTrack(): MediaStreamTrack | null {
@@ -188,6 +281,7 @@ export function createPeerMesh({
     }
     const pc = createPeerConnection({ iceServers });
     peers.set(userId, pc);
+    connectionIds.set(userId, crypto.randomUUID());
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         debug(`cand→${userId} ${/typ (\w+)/.exec(event.candidate.candidate ?? "")?.[1] ?? "?"}`);
@@ -237,7 +331,15 @@ export function createPeerMesh({
       debug(`ice ${userId}: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === "connected") {
         restartAttempted.delete(userId);
-        reportSelectedPath(pc, userId);
+        void sampleAndReport(userId, pc);
+        if (!statsTimers.has(userId)) {
+          statsTimers.set(
+            userId,
+            setInterval(() => {
+              void sampleAndReport(userId, pc);
+            }, STATS_INTERVAL_MS),
+          );
+        }
         // 일시 끊김에서 돌아왔다 — disconnected에서 내렸던 타일을 되살린다. 단 프레임이
         // 실제로 흐를 수 있는 트랙(live·비mute)일 때만이다. muted면 unmute가 복원을 맡는다.
         const last = lastStreams.get(userId);
@@ -326,6 +428,7 @@ export function createPeerMesh({
     if (!pc) {
       return;
     }
+    finalizeStats(userId);
     pc.close();
     peers.delete(userId);
     restartAttempted.delete(userId);
@@ -404,6 +507,7 @@ export function createPeerMesh({
     if (!pc) {
       return;
     }
+    finalizeStats(userId);
     pc.close();
     peers.delete(userId);
     restartAttempted.delete(userId);
@@ -517,6 +621,9 @@ export function createPeerMesh({
     close() {
       unsubscribe?.();
       unsubscribe = null;
+      for (const userId of [...peers.keys()]) {
+        finalizeStats(userId);
+      }
       for (const pc of peers.values()) {
         pc.close();
       }
@@ -529,6 +636,12 @@ export function createPeerMesh({
         clearTimeout(timer);
       }
       fallbackOfferTimers.clear();
+      for (const timer of statsTimers.values()) {
+        clearInterval(timer);
+      }
+      statsTimers.clear();
+      connectionIds.clear();
+      lastStatsSample.clear();
     },
   };
 }

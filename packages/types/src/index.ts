@@ -229,6 +229,22 @@ export interface RoomJoinResponse {
   iceTtlSeconds: number;
 }
 
+/** WebRTC 연결 통계 보고 (BY-490 백엔드 명세). fire-and-forget. */
+export interface RtcStatRequest {
+  /** PeerConnection당 프론트가 발급하는 UUID — 연결 단위 중복 제거 키 */
+  connectionId: string;
+  roomId: number;
+  userId: number;
+  peerUserId?: number;
+  candidateType: "host" | "srflx" | "prflx" | "relay";
+  relayProtocol?: "udp" | "tcp" | "tls";
+  bytesReceived?: number;
+  bytesSent?: number;
+  rttMs?: number;
+  isFinal: boolean;
+  at?: number;
+}
+
 /**
  * join 실패 코드 (2026-08-25 BY-436 백엔드 계약).
  *
