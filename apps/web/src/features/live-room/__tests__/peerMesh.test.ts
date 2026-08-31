@@ -785,6 +785,30 @@ describe("createPeerMesh — 정리와 실패", () => {
     expect(reports[0]!.connectionId.length).toBeGreaterThan(0);
   });
 
+  it("crypto.randomUUID가 없어도 connectionId를 발급해 보고한다 — 비보안 컨텍스트 폴백", async () => {
+    vi.stubGlobal("crypto", { ...globalThis.crypto, randomUUID: undefined });
+    try {
+      const reports: RtcStatRequest[] = [];
+      const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+      await vi.waitFor(() => expect(pcs).toHaveLength(1));
+      const stats = new Map<string, Record<string, unknown>>([
+        ["T", { id: "T", type: "transport", selectedCandidatePairId: "P" }],
+        ["P", { id: "P", type: "candidate-pair", localCandidateId: "L" }],
+        ["L", { id: "L", type: "local-candidate", candidateType: "host" }],
+      ]);
+      (pcs[0]!.pc as unknown as { getStats: () => Promise<unknown> }).getStats = () =>
+        Promise.resolve(stats);
+      pcs[0]?.pc.fireIceState("connected");
+
+      await vi.waitFor(() => expect(reports).toHaveLength(1));
+      expect(typeof reports[0]!.connectionId).toBe("string");
+      expect(reports[0]!.connectionId.length).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("getStats가 없으면 reportStats를 부르지 않는다 — 진단 실패는 삼킨다", async () => {
     const reports: unknown[] = [];
     const { channel, pcs } = setup({ reportStats: (p) => reports.push(p) });

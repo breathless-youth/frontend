@@ -36,6 +36,14 @@ function defaultCreatePeerConnection(config: RTCConfiguration): RTCPeerConnectio
   return new RTCPeerConnection(config);
 }
 
+function newConnectionId(): string {
+  // 비보안 컨텍스트에선 crypto.randomUUID가 없어 던질 수 있다 — 보고가 통화를 깨지 않도록 폴백.
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createPeerMesh({
   myUserId,
   roomId,
@@ -281,7 +289,7 @@ export function createPeerMesh({
     }
     const pc = createPeerConnection({ iceServers });
     peers.set(userId, pc);
-    connectionIds.set(userId, crypto.randomUUID());
+    connectionIds.set(userId, newConnectionId());
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         debug(`cand→${userId} ${/typ (\w+)/.exec(event.candidate.candidate ?? "")?.[1] ?? "?"}`);
