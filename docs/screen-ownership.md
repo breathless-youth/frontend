@@ -26,7 +26,6 @@
 | S5    | 공부 기록(달력·통계·리스트)         | [x]  | `app/(tabs)/records.tsx` (신규 탭 — `app/(tabs)/_layout.tsx`에 등록)       |
 | S6    | 설정                                | [x]  | `app/(tabs)/settings.tsx` (신규 탭)                                        |
 | G1~G5 | 온보딩 가이드(5단계, 하나의 플로우) | [x]  | `app/onboarding-guide.tsx` (라우트 1개 · 최초 '집중 시작' 탭 시 자동 실행) |
-| U1    | 업데이트 안내 시트                  | [x]  | `components/UpdateNoticeSheetHost.tsx` (기본 비노출, 플래그로 제어)        |
 
 비핵심 화면(알림/공지사항, 개인정보처리방침, 이용약관, 외부 문의)은 필요 시 WebView 허용 영역이며 아직 `design.md`의 V1.0 화면 인벤토리에 구체 화면으로 등재되지 않았다 — 실제 착수 시 `design.md`를 먼저 확인한다.
 
