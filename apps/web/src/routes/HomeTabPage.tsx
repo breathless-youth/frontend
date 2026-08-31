@@ -11,7 +11,6 @@ import {
 } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "@/features/home/icons";
-import { UpdateNoticeSheetHost } from "@/features/home/UpdateNoticeSheetHost";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
@@ -348,8 +347,6 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {/* U1 업데이트 안내 시트 — 기본은 비노출이라 평소에는 아무것도 렌더하지 않는다. */}
-      <UpdateNoticeSheetHost />
       {recovered !== null && <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />}
     </main>
   );

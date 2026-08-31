@@ -138,16 +138,6 @@ describe("HomeTabPage", () => {
     await waitFor(() => expect(screen.getByText("오늘 10분이면 시작돼요")).toBeInTheDocument());
   });
 
-  it("업데이트 안내 시트는 기본 상태에서 렌더되지 않는다 (fail-closed 게이트)", async () => {
-    mockedStats.mockResolvedValue(statsResponse);
-    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-    expect(screen.queryByTestId("update-notice-sheet")).not.toBeInTheDocument();
-  });
-
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderHome("/home");
 
