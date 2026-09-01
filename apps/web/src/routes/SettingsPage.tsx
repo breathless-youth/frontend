@@ -1,25 +1,20 @@
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { ToastViewport } from "@/components/ui/toast";
 import { postToNative } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { useToast } from "@/lib/useToast";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
 
 /**
- * S6 · 설정 — Figma node `67:722`, 스펙 `frontend/docs/screens/SCR-S6-settings.md`.
- * RN 원본 `apps/mobile/app/(tabs)/settings.tsx`의 웹 이식.
+ * 설정
  *
- * **이 화면에서 앱이 직접 바꾸는 상태는 하나도 없다.** 설정은 "기능을 켜고 끄는 곳"이 아니라
- * "측정 방식을 이해하고, 권한을 확인하러 가는 곳"이다 — 카메라 권한은 OS 설정 앱에서만 바뀐다.
- *
- * **모든 행이 앱 안에 머문다**(BY-257). 문의는 `/contact`, 약관·방침은 `/terms`·`/privacy` —
- * 외부 브라우저로 나가는 행이 하나도 없다.
- *
- * V1.0 인벤토리에 없는 항목을 추가하지 않는다: 로그인·계정 삭제(V1.2+, `policies.md` §2),
- * 알림 설정(푸시 알림 정책이 `design.md` 백로그에 미정), 랭킹·프로필.
- * 폐기된 정적 안내 화면 S6-1도 만들지 않는다(가이드로 통합됨).
+ * **프로필 설정 행은 V1.3(BY-409)에서 추가됐다.** ⚠️ 설정 화면의 행 배치 디자인은 미확정이라 섹션 구성은 잠정이다.
  *
  * ## 원본과의 의도적 차이 (BY-331 task-4-brief)
  *
@@ -33,11 +28,33 @@ import { useCameraPermission } from "@/features/settings/useCameraPermission";
  * 2. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
  *    얻을 수 없으므로 네이티브 셸(BY-333)이 실어 보내는 쿼리 `appVersion`을 읽는다.
  */
+/** 네이티브 탭 바 복귀 애니메이션이 끝나기를 기다리는 지연(ms) — SettingsPage 토스트 주석 참고. */
+const PROFILE_SAVED_TOAST_DELAY_MS = 450;
+
 export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
+
+  // 프로필 저장 성공 복귀 토스트(2026-08-25 BY-427 시안 A). 플래그는 1회성이라 소비 결과를
+  // ref에 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 false로 굳지 않는다.
+  //
+  // 표시는 지연한다: /profile은 탭 바 숨김 라우트라 복귀 순간 네이티브 탭 바가 애니메이션으로
+  // 되돌아오며 웹뷰 높이가 줄어드는데, 그동안 하단 고정 토스트가 리사이즈를 따라 눈에 띄게
+  // 움직였다(2026-08-25 실기기 피드백). 복귀 애니메이션이 끝난 뒤에 등장시킨다.
+  const { message: toastMessage, showToast } = useToast();
+  const profileSavedRef = useRef<boolean | null>(null);
+  profileSavedRef.current ??= consumeProfileSavedNotice();
+  useEffect(() => {
+    if (profileSavedRef.current !== true) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      showToast("프로필이 저장됐어요");
+    }, PROFILE_SAVED_TOAST_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [showToast]);
 
   return (
     <main
@@ -50,12 +67,18 @@ export function SettingsPage() {
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>
 
-        {/*
-          섹션 간 간격은 Figma 실측이 균일하지 않다(타이틀→측정 23 · 캡션→지원 20 · 지원 카드→약관 24).
-          균일 `gap`으로 뭉개면 캡션이 있는 구간만 어긋나므로 구간별 마진으로 둔다(S5와 같은 처리).
-        */}
+        <SettingsSection className="mt-[23px]" label="프로필">
+          <SettingsRow
+            label="프로필 설정"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              navigate({ pathname: "/profile", search: location.search });
+            }}
+          />
+        </SettingsSection>
+
         <SettingsSection
-          className="mt-[23px]"
+          className="mt-5"
           label="측정"
           caption="권한은 시스템 설정에서 바꿀 수 있어요"
         >
@@ -149,6 +172,12 @@ export function SettingsPage() {
           />
         </SettingsSection>
       </div>
+
+      {/* 위치는 앱 전역 표준(ToastViewport) — 등장 페이드 업(BY-435)만 이 화면 개선으로 남긴다. */}
+      <ToastViewport
+        message={toastMessage}
+        toastClassName="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"
+      />
     </main>
   );
 }

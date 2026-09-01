@@ -18,6 +18,11 @@ import {
 } from "@/features/onboarding/onboardingGuideSteps";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/closeStaleSession", () => ({
+  closeStaleSession: () => Promise.resolve(),
+}));
+
 // jsdom(26)에는 `PointerEvent` 구현이 없다 — testing-library가 `window.PointerEvent`를 못 찾으면
 // 일반 `Event`로 폴백해 스와이프 판정에 쓰는 `clientX`/`clientY`가 사라진다(jsdom `MouseEvent`는
 // 지원한다). 아래 스와이프 테스트에 좌표가 필요해 이 파일에서만 최소 폴리필을 둔다.
@@ -253,17 +258,10 @@ describe("/onboarding-guide — 종료 플로우(완료 플래그 저장 · 쿼�
     });
   });
 
-  it("우상단 X로 나가면 쿼리를 승계해 홈으로 돌아가고 '봤음'만 저장한다", async () => {
+  it("우상단 X는 렌더되지 않는다 (2026-08-25 BY-427 피드백 — 종료는 건너뛰기·마지막 CTA로만)", () => {
     renderGuideAt("/onboarding-guide?entry=focus-start&userId=42");
 
-    fireEvent.click(screen.getByRole("button", { name: "가이드 닫기" }));
-
-    const homeStub = await screen.findByTestId("home-stub");
-    expect(homeStub.textContent).toBe("/home?entry=focus-start&userId=42");
-    expect(screen.queryByTestId("room-stub")).not.toBeInTheDocument();
-    await waitFor(async () => {
-      await expect(store.hasSeenGuide()).resolves.toBe(true);
-    });
+    expect(screen.queryByRole("button", { name: "가이드 닫기" })).not.toBeInTheDocument();
   });
 });
 

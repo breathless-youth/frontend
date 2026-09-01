@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CoachNavBar } from "../CoachNavBar";
 import { CoachPagerDots } from "../CoachPagerDots";
@@ -11,8 +11,11 @@ import {
   GUIDE_PREV_LABEL,
   GUIDE_SKIP_LABEL,
   guideProgressLabel,
+  MOCK_FOCUS_PILL_LABEL,
+  MOCK_PAUSED_PILL_LABEL,
   ONBOARDING_GUIDE_STEP_COUNT,
 } from "../onboardingGuideSteps";
+import { OnboardingGuideFlow } from "../OnboardingGuideFlow";
 
 /**
  * 온보딩 가이드(G1~G5) 프리미티브 웹 이식 테스트 (BY-334).
@@ -138,5 +141,87 @@ describe("CoachNavBar", () => {
 
     expect(screen.queryByRole("button", { name: GUIDE_SKIP_LABEL })).not.toBeInTheDocument();
     expect(screen.getByText(GUIDE_FINAL_HINT)).toBeInTheDocument();
+  });
+});
+
+/**
+ * 시연용 목업 타이머의 스텝별 동작을 플로우 레벨에서 고정한다(BY-427).
+ * `freezeFocusTimer`/`freezeTotalTimer`/`showTimer`는 데이터 플래그라, 실제로 카운터가
+ * 그 플래그대로 멈추고·흐르고·사라지는지는 플로우를 렌더해야만 검증된다.
+ * (`getByText`는 `aria-hidden`과 무관하게 텍스트를 찾는다 — 목업은 장식이라 대부분 hidden이다.)
+ */
+describe("OnboardingGuideFlow — 목업 타이머 시연", () => {
+  const flowProps = {
+    onFinish: vi.fn(),
+    isReentry: false,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** "다음" CTA로 G1에서 `index`번째 스텝까지 이동한다. */
+  function goToStep(index: number) {
+    for (let i = 0; i < index; i += 1) {
+      fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
+    }
+  }
+
+  it("G1에서는 두 타이머가 흐른다 — 시연 카운터 자체가 동작함을 먼저 고정", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+
+    expect(screen.getByText("00:00:19")).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByText("00:00:21")).toBeInTheDocument();
+    expect(screen.getByText("총 00:00:24")).toBeInTheDocument();
+  });
+
+  it("G2에서는 순공만 멈추고 총 공부는 계속 흐른다 (비집중의 인과)", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+    goToStep(1);
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByText("00:00:12")).toBeInTheDocument(); // 순공 — 시드 그대로
+    expect(screen.getByText("총 00:00:25")).toBeInTheDocument(); // 총 공부 — 22 + 3
+  });
+
+  it("G4에서는 두 타이머 값이 모두 증가하지 않는다 (2026-08-25 BY-427 확정)", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+    goToStep(3);
+
+    expect(screen.getByText("00:00:20")).toBeInTheDocument();
+    expect(screen.getByText("총 00:00:23")).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    // 카피("순공시간과 총 공부 시간이 모두 멈춰요")대로 값이 그대로다 — 색(회색)↔값 모순 해소.
+    expect(screen.getByText("00:00:20")).toBeInTheDocument();
+    expect(screen.getByText("총 00:00:23")).toBeInTheDocument();
+  });
+
+  it("G4 상태 필은 일시정지 문구를 보여준다 (2026-08-25 BY-427 피드백)", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+    goToStep(3);
+
+    expect(screen.getByText(MOCK_PAUSED_PILL_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(MOCK_FOCUS_PILL_LABEL)).not.toBeInTheDocument();
+  });
+
+  it("G5에서는 타이머와 상태 필이 렌더되지 않는다 (2026-08-25 BY-427 확정·피드백)", () => {
+    render(<OnboardingGuideFlow {...flowProps} />);
+    goToStep(4);
+
+    expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+    expect(screen.queryByText(/^\d{2}:\d{2}:\d{2}$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^총 \d{2}:\d{2}:\d{2}$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(MOCK_FOCUS_PILL_LABEL)).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,11 @@ import { SessionControlBar } from "../components/SessionControlBar";
 import { SessionTimer } from "../components/SessionTimer";
 import { sessionSurfaceStyle } from "../sessionTheme";
 
+/** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
+vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
+  useActiveSessionRestore: () => ({ settled: true, restored: null }),
+}));
+
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
@@ -62,12 +67,11 @@ describe("SessionControlBar — 가로 축소 변형 (S3-5 `61:463`)", () => {
     expect(bar.className).toContain("pb-[9px]");
   });
 
-  it("size=sm 핸들은 28×3으로 줄어든다", () => {
+  it("드래그 핸들은 렌더되지 않는다 (2026-08-25 BY-427 — 동작 없는 장식 제거)", () => {
     const { container } = renderControlBar("sm");
 
-    const handle = container.querySelector('[aria-hidden="true"][class*="w-7"]');
-    expect(handle).not.toBeNull();
-    expect(handle!.className).toContain("h-[3px]");
+    expect(container.querySelector('[aria-hidden="true"][class*="w-7"]')).toBeNull();
+    expect(container.querySelector('[class*="bg-white/22"]')).toBeNull();
   });
 
   it("가로에서도 버튼 히트 영역이 44px 미만으로 줄지 않는다 (접근성 최소치)", () => {

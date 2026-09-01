@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/app-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/app-icon.png" />
+    <!-- iOS Safari 스마트 앱 배너 — 미설치 사용자를 App Store(포메 id6797220287)로 유도한다.
+         네이티브 웹뷰(WKWebView)에는 표시되지 않으므로 앱 안 화면에는 영향이 없다. -->
+    <meta name="apple-itunes-app" content="app-id=6797220287" />
     <!--
     `user-scalable=no, maximum-scale=1` — 세션 화면에서 **핀치 줌을 막는다**.
 
@@ -20,6 +25,24 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>FocusMakers</title>
+    <!--
+      초대 링크 공유용 OG 태그(카카오톡 등 리치 프리뷰). SPA라 라우트별 분기 없이 사이트
+      공통으로 건다 — 룸별 동적 썸네일이 필요해지면 그때 서버 렌더링/엣지 함수로 옮긴다.
+      og:image는 크롤러가 절대 URL만 읽으므로 배포 도메인으로 고정한다.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://web.sunqstudio.kr/" />
+    <meta property="og:site_name" content="포커스 메이커스" />
+    <meta property="og:title" content="포커스 메이커스" />
+    <meta
+      property="og:description"
+      content="그룹 스터디에 초대받았어요! 초대코드로 참여해 함께 공부해요"
+    />
+    <meta property="og:image" content="https://web.sunqstudio.kr/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="포커스 메이커스 그룹 스터디 초대" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
 
   <body>

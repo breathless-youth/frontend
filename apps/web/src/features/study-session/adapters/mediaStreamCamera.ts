@@ -17,8 +17,9 @@ import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdap
  * ⚠️ 그 수동 타이머 모드는 **정책만 확정됐고 FE에는 아직 없다**(`app-review-checklist.md` 1-1,
  * 심사 제출 전 필수 · 별도 티켓). 지금 카메라가 실패하면 세션은 그냥 감지 없이 계속 돈다.
  *
- * **원본 프레임은 이 객체 밖으로 나가지 않는다.** `stream`은 같은 문서의 `<video>`에
- * 붙이는 용도로만 노출하며, 저장·전송·로그 어디에도 쓰지 않는다(`frontend/CLAUDE.md`).
+ * **AI 분석용 원본 프레임·얼굴 데이터는 서버로 전송하지 않는다.** 저장·로그도 금지.
+ * 예외는 멀티룸의 화면 공유뿐이다 — 이 스트림의 트랙이 P2P로 참여자에게만 전송된다
+ * (서버 경유·녹화 없음, `frontend/CLAUDE.md` 개인정보 원칙).
  */
 export interface MediaStreamCameraAdapter extends CameraAdapter {
   readonly stream: MediaStream | null;
@@ -33,6 +34,16 @@ function stopStream(stream: MediaStream | null): void {
   for (const track of stream?.getTracks() ?? []) {
     track.stop();
   }
+}
+
+/**
+ * 전환 실패 후 이전 카메라 복원 재시도까지의 대기. 방금 정지한 카메라는 해제가 늦어 즉시
+ * 재열기가 실패할 수 있다 — 입장 미리보기의 재획득 재시도와 같은 실측 기반 값이다.
+ */
+const RESTORE_RETRY_MS = 700;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -139,32 +150,59 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       }
       if (pending !== null) {
         // 이미 다른 전환이 카메라를 여는 중이다 — 겹쳐서 열면 한쪽 스트림이 고아가 된다.
-        // 진행 중인 전환의 결과를 그대로 따른다.
+        // 진행 중인 전환의 결과를 그대로 따른다. 소유자가 await에서 먼저 깨어나
+        // stream·facing을 확정한 뒤 여기가 깨므로 두 값 모두 이미 결착돼 있다.
         const before = facing;
         await pending;
+        if (stream === null) {
+          // 복원까지 실패해 카메라가 통째로 꺼졌다. facing만 보면 "전환할 카메라가 없음"과
+          // 구분되지 않아 토스트 문구가 어긋난다(`RoomPage`가 reason으로 갈린다).
+          return { ok: false, reason: "camera-off" };
+        }
         return facing === before ? { ok: false, reason: "no-alternative" } : { ok: true, facing };
       }
 
+      const previous = facing;
       const next: CameraFacing = facing === "front" ? "back" : "front";
-      pending = open(next);
+      // 새 카메라를 열기 **전에** 기존 스트림을 먼저 정지한다 — Android 카메라 서비스는
+      // 기존 카메라를 놓기 전에는 반대 카메라 열기를 거부해, 열어 두고 전환하면 후면
+      // 전환이 항상 실패했다(2026-08-25 실기기 확인). 실패 대비는 스트림을 남겨 두는
+      // 방식 대신 아래 복원(이전 카메라 재열기)으로 한다.
+      stopStream(stream);
+      stream = null;
+      let openedFacing = previous;
+      pending = (async () => {
+        const openedNext = await open(next);
+        if (openedNext !== null) {
+          openedFacing = next;
+          return openedNext;
+        }
+        // 전환 실패 — 이전 카메라를 복원한다. 전환 실패로 프리뷰가 통째로 꺼지면 세션이
+        // 측정 불가 상태가 되기 때문이다. 방금 정지한 카메라라 해제가 늦을 수 있어
+        // 한 번만 잠깐 뒤 재시도한다.
+        const restored = await open(previous);
+        if (restored !== null) {
+          return restored;
+        }
+        await wait(RESTORE_RETRY_MS);
+        return open(previous);
+      })();
       const opened = await pending;
       pending = null;
-      if (opened === null) {
-        // 새 카메라를 못 열었으면 기존 스트림을 그대로 둔다 — 전환 실패로 프리뷰가
-        // 통째로 꺼지면 세션이 측정 불가 상태가 된다.
-        return { ok: false, reason: "no-alternative" };
-      }
       if (!wanted) {
-        // 전환 도중 stop()이 들어왔다. 기존 스트림은 stop()이 이미 정리했고,
+        // 전환 도중 stop()이 들어왔다. 기존 스트림은 위에서 이미 정지했고,
         // 뒤늦게 열린 이 스트림은 여기서 버린다 — 붙여 두면 그대로 누수다.
         stopStream(opened);
         return { ok: false, reason: "camera-off" };
       }
+      if (opened === null) {
+        // 복원까지 실패했다 — 카메라 없는 상태를 그대로 알린다.
+        return { ok: false, reason: "camera-off" };
+      }
 
-      stopStream(stream);
       stream = opened;
-      facing = next;
-      return { ok: true, facing };
+      facing = openedFacing;
+      return openedFacing === next ? { ok: true, facing } : { ok: false, reason: "no-alternative" };
     },
   };
 }

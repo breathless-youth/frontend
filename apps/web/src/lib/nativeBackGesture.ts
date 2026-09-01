@@ -24,3 +24,34 @@ export function useNativeBackGestureLock(): void {
     };
   }, []);
 }
+
+/**
+ * 마운트 동안 Android 하드웨어 뒤로가기를 잠근다 — 언마운트에서 되푼다.
+ *
+ * 소셜룸 세션이 위 제스처 잠금과 함께 쓴다: 세션 종료가 나가기 버튼으로만 확정되게
+ * 두 플랫폼의 뒤로가기 출구를 모두 막는다(`SetBackLockMessage` 주석 참고).
+ */
+export function useNativeBackLock(): void {
+  useEffect(() => {
+    postToNative({ type: "set-back-lock", locked: true, atMs: Date.now() });
+    return () => {
+      postToNative({ type: "set-back-lock", locked: false, atMs: Date.now() });
+    };
+  }, []);
+}
+
+/**
+ * 마운트 동안 화면 회전 잠금 해제를 요청한다 — 언마운트에서 세로 복원을 요청한다.
+ *
+ * 실시간 룸이 쓴다: 룸은 탭 웹뷰 안 웹 라우팅으로 돌아 네이티브 화면 전환이 없고, 솔로
+ * 세션처럼 화면 마운트에서 잠금을 풀 자리가 없다. 네이티브 반응은 양 플랫폼 공통이다
+ * (BY-444, `set-orientation` 계약 주석 참고). 브라우저 단독 모드에서는 조용히 무동작이다.
+ */
+export function useNativeOrientationUnlock(): void {
+  useEffect(() => {
+    postToNative({ type: "set-orientation", unlocked: true, atMs: Date.now() });
+    return () => {
+      postToNative({ type: "set-orientation", unlocked: false, atMs: Date.now() });
+    };
+  }, []);
+}

@@ -51,6 +51,14 @@ export const GUIDE_DISTRACT_COLOR = colors.state.distract.dark;
  */
 export const GUIDE_DISTRACT_BORDER = `${GUIDE_DISTRACT_COLOR}59`;
 
+/**
+ * G4 일시정지 필의 도트 색 — 실제 세션 일시정지 필(S3-3, `SessionStatusPill` paused 변형의
+ * `bg-text-tertiary`)과 같은 `text/tertiary`다(2026-08-25 BY-427: G4 필을 일시정지 상태로 개정).
+ * `coachTokenColors.mockTimerStopped`와 값이 같지만 의미가 다르다 — 그쪽은 "타이머 회색"이라는
+ * Figma 실측 라벨이고, 이쪽은 일시정지 상태 표시다. 섞어 쓰지 않도록 상수를 분리한다.
+ */
+export const GUIDE_PAUSED_COLOR = colors.text.tertiary.dark;
+
 /** 다크 오버레이 전용 값(토큰 아님) — Figma 실측. */
 export const coachOverlay = {
   /** 툴팁·프라이버시 카드 서피스. */
@@ -79,6 +87,8 @@ export const coachOverlay = {
   /** 상태 필(글래스 캡슐). */
   pillBgFocus: "rgba(16,20,25,0.65)",
   pillBgDistract: "rgba(16,20,25,0.68)",
+  /** 일시정지 필 배경 — 세션 S3-3 실측(68%, `sessionTheme.ts`의 `--session-pill-bg-paused`)과 동일. */
+  pillBgPaused: "rgba(16,20,25,0.68)",
   pillBorderFocus: "rgba(255,255,255,0.12)",
   /** 컨트롤 바(글래스 캡슐). */
   controlBarBg: "rgba(22,27,34,0.55)",

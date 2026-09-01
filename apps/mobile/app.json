@@ -15,7 +15,8 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "buildNumber": "1",
-      "bundleIdentifier": "com.breathlessyouth.mobile"
+      "bundleIdentifier": "com.breathlessyouth.mobile",
+      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:web.focusmakers.app"]
     },
     "android": {
       "versionCode": 3,
@@ -27,7 +28,26 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
-      "package": "com.breathlessyouth.mobile"
+      "package": "com.breathlessyouth.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "web.sunqstudio.kr",
+              "pathPrefix": "/social/join"
+            },
+            {
+              "scheme": "https",
+              "host": "web.focusmakers.app",
+              "pathPrefix": "/social/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
@@ -59,7 +79,6 @@
       "apiBaseUrl": "",
       "webBaseUrl": "",
       "sentryDsn": "https://bd5fbe3fcc00fd2ca2b605d6095617ea@o4511838823448576.ingest.us.sentry.io/4511861049589760",
-      "updateNoticeEnabled": false,
       "eas": {
         "projectId": "3fa9e1f9-3eac-440a-b0ad-b61cf8f527d3"
       }

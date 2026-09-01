@@ -1,7 +1,8 @@
+import { useState, type ReactNode } from "react";
 import { type VariantProps, cva } from "class-variance-authority";
 
-import cameraFlipIcon from "@/assets/icons/session-camera-flip.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
+import { CameraFlipIcon } from "@/components/CameraFlipIcon";
 import pauseIcon from "@/assets/icons/session-pause.svg";
 import playIcon from "@/assets/icons/session-play.svg";
 import { cn } from "@/lib/utils";
@@ -67,20 +68,11 @@ export type SessionControlBarSize = NonNullable<
   VariantProps<typeof sessionControlBarVariants>["size"]
 >;
 
-/** 바 상단의 드래그 핸들 — 장식이라 `aria-hidden`이다(실제로 드래그되지 않는다). */
-const handleVariants = cva("absolute left-1/2 -translate-x-1/2 rounded-full bg-white/22", {
-  variants: {
-    size: {
-      md: "top-[5px] h-1 w-9",
-      sm: "top-1 h-[3px] w-7",
-      responsive: "top-[5px] h-1 w-9 landscape:top-1 landscape:h-[3px] landscape:w-7",
-    },
-  },
-  defaultVariants: { size: "responsive" },
-});
+// 바 상단 드래그 핸들은 2026-08-25 BY-427 실기기 피드백으로 제거 — 실제로 드래그되지 않는
+// 장식이라 혼란만 줬다. 위 Figma 실측 표의 핸들 행은 역사 기록으로만 남는다.
 
 const controlButtonVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color] duration-200 motion-reduce:transition-none",
+  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,transform] duration-200 motion-reduce:transition-none",
   {
     variants: {
       size: {
@@ -98,7 +90,8 @@ const controlButtonVariants = cva(
        * 버튼을 **없애지 않고 흐리게 남기는** 이유는 컨트롤 바가 세 버튼의 고정 배치이기 때문이다.
        * 하나를 빼면 나머지 두 개가 가운데로 밀려 심플 모드 진입 자체가 레이아웃 점프가 된다.
        */
-      disabled: { true: "opacity-40", false: "active:opacity-80" },
+      // 눌림 스케일은 룸 바(RoomControlBar)와 동일한 모션이다(BY-435).
+      disabled: { true: "opacity-40", false: "active:scale-90 active:opacity-80" },
     },
     defaultVariants: { size: "responsive", variant: "default", disabled: false },
   },
@@ -176,8 +169,10 @@ export interface SessionControlBarProps {
 
 interface ControlButtonProps {
   label: string;
-  iconSrc: string;
-  iconClassName: string;
+  iconSrc?: string;
+  iconClassName?: string;
+  /** img 자산 대신 그릴 아이콘 노드 — 내부 일부만 움직이는 아이콘(전환, BY-435)용. */
+  iconNode?: ReactNode;
   size: SessionControlBarSize;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
@@ -188,6 +183,7 @@ function ControlButton({
   label,
   iconSrc,
   iconClassName,
+  iconNode,
   size,
   onClick,
   variant = "default",
@@ -204,7 +200,20 @@ function ControlButton({
       disabled={disabled}
       className={controlButtonVariants({ size, variant, disabled })}
     >
-      <img src={iconSrc} alt="" aria-hidden="true" className={iconClassName} />
+      {/* key=src: 아이콘이 바뀌는 토글(일시정지↔재개)만 리마운트되어 팝이 돈다 —
+          룸 바의 카메라 켬↔끔과 같은 모션(BY-435). 정적 아이콘은 마운트 때 1회뿐이다. */}
+      {iconNode ?? (
+        <img
+          key={iconSrc}
+          src={iconSrc}
+          alt=""
+          aria-hidden="true"
+          className={cn(
+            iconClassName,
+            "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
+          )}
+        />
+      )}
     </button>
   );
 }
@@ -218,13 +227,15 @@ export function SessionControlBar({
   onRequestExit,
   className,
 }: SessionControlBarProps) {
+  // 전환 버튼 반 바퀴 회전(BY-435) — 룸 바(RoomControlBar)와 동일. 누른 횟수만 세면
+  // CSS 트랜지션이 연속 회전을 만들고, 실제 전환 성공 여부와 무관하게 즉시 반응한다.
+  const [flipTurns, setFlipTurns] = useState(0);
   return (
     <div
       role="group"
       aria-label="세션 컨트롤"
       className={cn(sessionControlBarVariants({ size }), className)}
     >
-      <span aria-hidden="true" className={handleVariants({ size })} />
       {/* 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
           (voice-tone.md §1) — 아이콘 프레임은 play/pause 모두 같은 크기라 폭이 흔들리지 않는다. */}
       <ControlButton
@@ -237,10 +248,13 @@ export function SessionControlBar({
       />
       <ControlButton
         label="카메라 전환"
-        iconSrc={cameraFlipIcon}
-        iconClassName={ICON_SIZE.cameraFlip[size]}
+        // 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리.
+        iconNode={<CameraFlipIcon turns={flipTurns} className={ICON_SIZE.cameraFlip[size]} />}
         size={size}
-        onClick={onFlipCamera}
+        onClick={() => {
+          setFlipTurns((turns) => turns + 1);
+          onFlipCamera();
+        }}
         disabled={flipDisabled}
       />
       <ControlButton

@@ -1,16 +1,16 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import type { StreakRange } from "./statsApi";
-import { getStreak, listStudySessionStats } from "./statsApi";
+import type { DateRange } from "./statsApi";
+import { getPeriodStats, getStreak, listStudySessionStats } from "./statsApi";
 
 /**
  * 서버 통계 queryOptions 모음 — queryKey·queryFn의 단일 정의처
  * (`apps/mobile/lib/statsQueries.ts`에서 이식 — BY-329).
  *
- * **웹에는 invalidate 호출이 없다**(모바일판 주석의 "제출 후 `statsKeys.all` 일괄 invalidate"를
- * 그대로 옮기지 않는다). 세션 종료는 S4를 거쳐 `/home`으로 **라우트 이동**하므로 탭 화면이 새로
- * 마운트되고, `QueryClient` 기본값(staleTime 0)에서 마운트 시 재조회가 일어난다 —
- * 같은 효과를 이동이 대신 낸다. 화면을 벗어나지 않고 갱신해야 하는 경우가 생기면 그때 넣는다.
+ * 세션 종료는 S4를 거쳐 `/home`으로 라우트 이동하므로 탭 화면이 새로 마운트되고,
+ * `QueryClient` 기본값(staleTime 0)에서 마운트 시 재조회가 일어난다 — 그 경로에는 invalidate가
+ * 필요 없다. 화면을 벗어나지 않고 갱신해야 하는 경우에만 직접 부른다: 앱 실행 직후의 미확정
+ * 세션 마감(`features/study-session/useLaunchSessionRecovery.ts`)이 지금 유일한 호출처다.
  *
  * 모바일판의 `registeredUserIdQuery`(익명 등록)는 이식하지 않는다 — 새 아키텍처에서 유저
  * 등록은 네이티브 셸 소유이고, 웹은 `?userId=N`으로 받는다(`routes/HomeTabPage.tsx` 계약).
@@ -22,10 +22,24 @@ import { getStreak, listStudySessionStats } from "./statsApi";
 export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
-  streak: (userId: number, range?: StreakRange) =>
+  streak: (userId: number, range?: DateRange) =>
     range
       ? (["stats", "streak", userId, range.from, range.to] as const)
       : (["stats", "streak", userId] as const),
+  // 비교 구간이 키를 가른다 — 같은 from~to라도 비교를 낀 응답은 compareDailyList가 달라서,
+  // 키를 합치면 비교 없는 화면이 비교 데이터를 물고 온다.
+  period: (userId: number, range: DateRange, compareRange?: DateRange) =>
+    compareRange
+      ? ([
+          "stats",
+          "period",
+          userId,
+          range.from,
+          range.to,
+          compareRange.from,
+          compareRange.to,
+        ] as const)
+      : (["stats", "period", userId, range.from, range.to] as const),
 };
 
 export function dailyStatsQuery(userId: number, date: string) {
@@ -35,9 +49,16 @@ export function dailyStatsQuery(userId: number, date: string) {
   });
 }
 
-export function streakQuery(userId: number, range?: StreakRange) {
+export function streakQuery(userId: number, range?: DateRange) {
   return queryOptions({
     queryKey: statsKeys.streak(userId, range),
     queryFn: () => getStreak(userId, range),
+  });
+}
+
+export function periodStatsQuery(userId: number, range: DateRange, compareRange?: DateRange) {
+  return queryOptions({
+    queryKey: statsKeys.period(userId, range, compareRange),
+    queryFn: () => getPeriodStats(userId, range, compareRange),
   });
 }

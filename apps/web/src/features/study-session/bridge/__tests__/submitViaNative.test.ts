@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StudySessionCreateRequest, SubmitResultMessage } from "@focusmakers/types";
 
+import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { NATIVE_SUBMIT_TIMEOUT_MESSAGE, submitViaNative } from "../submitViaNative";
 
@@ -85,6 +86,22 @@ describe("submitViaNative", () => {
     });
 
     await expect(pending).rejects.toThrow("세션 구간이 겹칩니다");
+  });
+
+  it("실패 응답에 status가 실려 있으면 ApiError로 복원한다 — 호출부의 400 판별 근거다", async () => {
+    const pending = submitViaNative(REQUEST);
+    deliver({
+      type: "submit-result",
+      requestId: lastRequestId(),
+      ok: false,
+      message: "검증 실패",
+      status: 400,
+      atMs: 1,
+    });
+
+    const error = await pending.catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
   });
 
   /**

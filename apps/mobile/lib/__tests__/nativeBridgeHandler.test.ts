@@ -1,10 +1,12 @@
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import type { SubmitResultMessage } from "@focusmakers/types";
 
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { getMotionSensorRelay } from "../motionSensorRelay";
 import { relaySessionSubmit } from "../sessionSubmitRelay";
 
 /**
@@ -36,6 +38,10 @@ jest.mock("../sessionSubmitRelay", () => ({
   relaySessionSubmit: jest.fn(),
 }));
 
+jest.mock("../motionSensorRelay", () => ({
+  getMotionSensorRelay: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -55,6 +61,9 @@ const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.Mocked
 >;
 const mockedRelaySessionSubmit = relaySessionSubmit as jest.MockedFunction<
   typeof relaySessionSubmit
+>;
+const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
+  typeof getMotionSensorRelay
 >;
 
 beforeEach(() => {
@@ -91,6 +100,51 @@ describe("handleBridgeMessage", () => {
     expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
   });
 
+  it("request-camera-gate → 게이트 통과면 granted true로 답하고 화면 전환은 없다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: true }),
+    );
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("request-camera-gate → 거부면 권한 거부 안내를 띄우고 granted false로 답한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: false }),
+    );
+  });
+
+  it("request-camera-gate → 게이트 실행이 실패하면 granted false로 답한다 — 확인 못 한 권한으로 입장시키지 않는다", async () => {
+    mockedRunCameraPermissionGate.mockRejectedValue(new Error("native unavailable"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1 }, reply);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "camera-gate-result", granted: false }),
+    );
+    warn.mockRestore();
+  });
+
   it("navigate-home → 뒤로 갈 곳이 있으면 pop한다", () => {
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
@@ -116,6 +170,38 @@ describe("handleBridgeMessage", () => {
     // push가 아니라 navigate — 이미 기록 탭이면 화면을 쌓지 않고 재사용한다.
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
     expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("share → OS 공유 시트를 연다 (Android 웹뷰의 navigator.share 부재 대행)", () => {
+    const shareSpy = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+
+    handleBridgeMessage(
+      {
+        type: "share",
+        text: "초대 텍스트",
+        url: "https://web.sunqstudio.kr/social/join?code=0712",
+        title: "포커스 메이커스 그룹 스터디",
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    // url은 iOS 공유시트의 미리보기 카드용 별도 필드, title은 시트 제목 — 링크는
+    // message 본문에도 이미 들어 있다(핸들러 주석의 플랫폼 차이 참고).
+    expect(shareSpy).toHaveBeenCalledWith({
+      message: "초대 텍스트",
+      url: "https://web.sunqstudio.kr/social/join?code=0712",
+      title: "포커스 메이커스 그룹 스터디",
+    });
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("share에 url·title이 없으면(구버전 웹) message만 전달한다", () => {
+    const shareSpy = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+
+    handleBridgeMessage({ type: "share", text: "초대 텍스트", atMs: 1 }, noopReply);
+
+    expect(shareSpy).toHaveBeenCalledWith({ message: "초대 텍스트" });
   });
 
   it("open-settings → OS 설정 앱을 연다", () => {
@@ -213,5 +299,15 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("motion-sensor를 센서 릴레이에 위임한다", () => {
+    const handle = jest.fn();
+    mockedGetMotionSensorRelay.mockReturnValue({ handle });
+
+    const message = { type: "motion-sensor", enabled: true, atMs: 1 } as const;
+    handleBridgeMessage(message, noopReply);
+
+    expect(handle).toHaveBeenCalledWith(message, noopReply);
   });
 });

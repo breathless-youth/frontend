@@ -4,7 +4,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ## 역할
 
-- (재구축 예정) 브라우저용 싱글 세션 / 멀티 종일룸(브라우저 `getUserMedia` + MediaPipe + LiveKit **Web** SDK) — 모바일 WebView가 그대로 로드할 화면.
+- (재구축 예정) 브라우저용 싱글 세션 / 멀티룸(브라우저 `getUserMedia` + MediaPipe + 표준 `RTCPeerConnection` P2P — [ADR 0006](../../docs/adr/0006-p2p-mesh-stomp-over-livekit.md)) — 모바일 WebView가 그대로 로드할 화면.
 - 서비스 소개 / 랜딩 페이지 (현재 유일한 화면).
 - 독립 배포 가능한 웹 서비스(모바일과 무관하게 브라우저로 직접 접근 가능).
 
@@ -18,14 +18,14 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ## 개인정보 원칙 (재구축 시에도 변경 불가)
 
-브라우저 MediaPipe 추론은 클라이언트에서만 수행한다. 원본 프레임·얼굴 데이터를 서버로 보내지 않는다. 멀티룸에서 카메라 영상은 LiveKit으로 전송되지만(녹화·저장 안 함) AI 분석용 원본 데이터는 전송하지 않는다. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것(멀티룸에서 "영상이 서버로 전송되지 않는다"는 오해 소지). 자세한 근거는 [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md).
+브라우저 MediaPipe 추론은 클라이언트에서만 수행한다. 원본 프레임·얼굴 데이터를 서버로 보내지 않는다. 멀티룸에서 카메라 영상은 WebRTC P2P로 상대 참여자에게 전송되지만(서버 미경유, 녹화·저장 안 함) AI 분석용 원본 데이터는 전송하지 않는다. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것(멀티룸에서 "영상이 서버로 전송되지 않는다"는 오해 소지). 자세한 근거는 [ADR 0002](../../docs/adr/0002-native-mobile-study-room-and-independent-web.md).
 
 ## 에러 모니터링 (Sentry)
 
 `src/lib/sentry.ts`에서 `@sentry/react`를 초기화한다(`main.tsx`가 렌더 전에 호출).
 
 - **DSN은 `VITE_SENTRY_DSN` 환경변수로만 주입한다** — 미설정이면 초기화 자체를 건너뛰므로 로컬 개발·테스트·CI는 DSN 없이 그대로 돈다. 배포 환경(Vercel)의 env에 설정한다. DSN을 코드에 하드코딩하지 말 것.
-- **Session Replay를 추가하지 말 것** — 카메라 프리뷰가 뜨는 세션 화면을 녹화 수집하는 것은 위 개인정보 원칙과 충돌한다. 라우팅 트레이스(`reactRouterV7BrowserTracingIntegration`, 표본 0.2)와 에러 수집만 쓴다.
+- **Session Replay는 카메라 차단 조건으로만 켠다. BY-407, 2026-08-20에 종전 금지를 뒤집은 결정이다.** `replayIntegration`의 `blockAllMedia: true`가 모든 `<video>`를 기록 시점에 차단해 카메라 프리뷰가 단말 밖으로 나가지 않는다. Amplitude 리플레이와 같은 원칙이고, 카메라 요소에는 `sentry-block` 클래스도 이중으로 태깅한다. `maskAllText: false`는 Amplitude에서 이미 허용된 범위와 동일하다. 수집률은 일반 세션 0.1, 에러 세션 1.0. **리플레이 이벤트는 아래 스크러빙 4종이 안 불린다.** `replay_event`는 event processor인 `scrubReplayEvent`가, 녹화 내 브레드크럼·성능 스팬은 `beforeAddRecordingEvent` 훅인 `scrubRecordingEvent`가 씻는다. ⚠️ 그 훅은 SDK가 custom 이벤트에만 불러 줘서, rrweb Meta가 세그먼트마다 싣는 원본 `location.href`는 못 씻는다. 그 경로는 `makeScrubbingTransport`가 전송 직전 문자열에서 `userId`를 지우는 것으로 막고, 이를 위해 `useCompression: false`가 필요하다. **transport와 `useCompression: false`는 한 세트다.** 압축을 되켜면 정제 불가 형태가 되어 transport가 리플레이를 통째로 버린다. 유출보다 수집 손실을 택하는 fail-closed다. ⚠️ transport의 `stripUserIdParam`은 이 저장소에서 유일하게 화이트리스트가 아닌 정제기다. 직렬화된 녹화 전체에서 URL을 찾아 재작성하면 오탐 위험이 있어 아는 파라미터만 지우는 방식을 택했고, 그 대가로 **새 식별자 쿼리 파라미터를 도입하면 `ALLOWED_SEARCH_PARAMS` 화이트리스트와 별개로 이 함수에도 반드시 추가해야 한다.** 빠뜨리면 rrweb Meta `href` 경로로만 조용히 샌다. `sentryReplay.test.ts`가 이 계약 전체를 고정한다. 앱은 여전히 금지다. 전 화면이 WebView 셸이라 리플레이가 통째로 마스킹돼 실익이 없다.
 - React 렌더 에러는 두 겹으로 잡는다: 라우트 트리는 `Sentry.ErrorBoundary`(BY-372, 아래 항목)가 받아 폴백 UI를 보여주고, 바운더리 밖 에러는 `createRoot`의 React 19 에러 훅(`sentryRootOptions`)이 잡는다.
 - **스크러빙 콜백 네 개를 모두 유지할 것** — `beforeSend`·`beforeSendTransaction`·`beforeSendSpan`·`beforeBreadcrumb`. 웹뷰는 모든 탭을 `?userId=N`으로 열기 때문에(네이티브 셸 계약) 기본 설정이면 익명 기기 계정 ID가 Sentry로 나간다. `sendDefaultPii: false`는 쿠키·IP만 막고 쿼리스트링은 건드리지 않는다.
   - ⚠️ **`beforeSend`는 에러 이벤트에서만 호출된다**(`@sentry/core`의 `client.js`가 `isErrorEvent(...) && beforeSend`로 분기). `tracesSampleRate`가 켜져 있는 한 트랜잭션 이벤트와 스팬으로도 같은 URL이 나가므로, 그 둘은 `beforeSendTransaction`·`beforeSendSpan`으로 따로 막아야 한다. **에러 경로만 막고 계약을 지켰다고 판단하지 말 것.**
@@ -81,12 +81,12 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
   - **검증은 `amplitudePipeline.test.ts`가 한다** — SDK를 mock하지 않고 실제로 돌려 **fetch로 나가는 body**를 본다. mock 기반 `amplitude.test.ts`는 "우리가 무엇을 호출했는가"만 보므로 위 실행 순서 문제를 **잡지 못했다**. 수집 설정을 바꾸면 반드시 파이프라인 테스트로 확인할 것.
   - 신원은 `setUserId`라는 제 자리로만 보낸다. URL 문자열에 식별자가 섞이면 **같은 화면이 사용자 수만큼 다른 값으로 쪼개져** 차트에서 묶이지 않는다 — 정제는 개인정보 이유가 사라진 뒤에도 데이터 품질 이유로 유지된다.
 - **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것** — 기본값 true면 Amplitude 콘솔의 Autocapture 설정이 로컬 설정을 원격으로 덮어쓴다. 수집 범위 변경이 코드 리뷰를 우회하게 되므로 계속 막는다. autocapture 변경은 코드로만 한다.
-- **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 LiveKit 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
+- **Session Replay는 카메라 차단 조건으로만 켠다(2026-08-07 결정)** — `sessionReplayPlugin`의 `blockSelector: ["video", ".amp-block"]`가 모든 `<video>`(현재 카메라 프리뷰 + 향후 멀티룸 참가자 영상)를 차단한다. 블록된 요소는 기록 시점에 직렬화 자체가 안 되어 단말 밖으로 나가지 않는다. 카메라를 렌더하는 요소에는 `amp-block` 클래스도 함께 태깅한다(`CameraPreviewSurface`의 `<video>`) — 전역 셀렉터 설정이 바뀌어도 요소 단위 방어가 남는다. 새 카메라/영상 요소를 만들면 반드시 같은 태깅을 한다. `amplitude.test.ts`가 이 설정을 고정한다.
   - 세션·결과·기록 화면의 공부 상태 텍스트(타이머·집중률 등)가 리플레이 DOM에 담기는 것은 **허용된 결정**이다. 2026-08-08부터는 이벤트 속성으로 보내는 것도 허용된다(아래 "공부 도메인 지표") — **단 Amplitude 한정이고, GA4로 보내는 것은 여전히 금지**다.
   - 캔버스 수집(rrweb `recordCanvas` 계열 옵션)은 기본 꺼짐 — 켜지 말 것. Vision 진단 오버레이가 캔버스에 그려질 수 있다.
   - **리플레이 수집률은 콘솔이 결정한다** — 리플레이 SDK는 analytics의 `fetchRemoteConfig: false`와 **무관하게** 자체 원격 설정(`sr-client-cfg.amplitude.com`)을 가져오고, 콘솔(Settings → Session Replay)의 `sample_rate`가 코드의 `sampleRate: 1`을 덮어쓴다(코드 값은 콘솔 미설정 시 폴백). 2026-08-07 진단: 콘솔 기본값 1%가 로컬 100%를 덮어써 "데이터 미수신"이 났다 — 수집률 조정은 콘솔에서 한다. 원격 설정 fetch가 실패하면(광고 차단기 등) 리플레이는 수집을 멈춘다(fail-closed). 원격 privacy 설정은 로컬 `blockSelector`를 **제거하지 못하고 목록에 추가만 된다**(left-join) — 카메라 차단은 콘솔로 못 푼다.
   - `@amplitude/unified`는 금지 — `initAll`이 이 파일의 차단·정제 설정을 우회한다(`amplitude.test.ts` 의존성 가드).
-  - **Sentry의 Session Replay는 여전히 금지**(위 Sentry 절) — 리플레이는 카메라 차단이 걸린 Amplitude 한 곳으로만 한다.
+  - **Sentry의 Session Replay도 BY-407로 2026-08-20부터 같은 카메라 차단 조건으로 켰다.** "Amplitude 한 곳으로만"이던 2026-08-07 결정을 뒤집은 것이며 자세한 내용은 위 Sentry 절에 있다. 새 카메라/영상 요소에는 `amp-block`과 `sentry-block`을 함께 태깅한다.
 - **user_id 연결(2026-08-08 결정)** — `setAmplitudeUserId()`가 서버 `user_id`를 Amplitude `user_id`로 넣는다. 값은 네이티브 셸이 모든 탭에 붙여 주는 `?userId=N`을 `parseUserId()`로 검증한 것이다.
   - ℹ️ **이 값은 계정 식별자가 아니라 익명 기기 식별자의 서버 핸들이다** — 네이티브가 `Crypto.randomUUID()`로 만든 기기 UUID(`apps/mobile/lib/deviceId.ts`)를 등록하면 서버가 1:1로 돌려주는 번호이고, 실명·이메일·전화번호와 연결되지 않는다. 개인정보처리방침 「1. 수집하는 정보」의 **기기 식별자** 항목이 이미 고지하고 있는 값이라 별도 고지 항목을 만들 필요가 없다. Amplitude 자체 device_id 대신 이걸 쓰는 이유는 **백엔드 집계와 같은 키로 묶기 위해서**다.
   - **서버 값 그대로 보낸다 — 해시하거나 접두어를 붙이지 말 것.** 그러면 백엔드 집계와 조인되지 않아 연결하는 의미가 없어진다.
@@ -112,9 +112,14 @@ pnpm --filter web test
 pnpm --filter web build
 ```
 
+dev에서 `/api`·`/ws`가 503("DEV_API_PROXY_TARGET 미설정")이면 `apps/web/.env.local`에
+`DEV_API_PROXY_TARGET=<개발 백엔드 주소>`가 없는 것이다 — `.env.local.example`을 복사해 값을 채운다 — 주소는 팀 내부 공유 값이고, **저장소가 공개라 커밋 금지**(`vite.config.ts`의
+`DEV_PROXY_TARGET` 주석 참고. 과거 타깃이 운영으로 잘못 커밋돼 개발 트래픽이 운영 DB로
+흘러간 사고의 재발 방지책이다).
+
 ## 컨벤션
 
 - 스타일링은 Tailwind v4(`@tailwindcss/vite`, CSS `@theme inline` 토큰) — `tailwind.config.js` 파일 없이 `src/index.css`에서 테마를 정의한다.
 - 새 shadcn 컴포넌트는 `shadcn-ui`/`tailwind-theme-builder` 스킬로 추가하거나 기존 `src/components/ui/button.tsx` 패턴을 따라 수동 작성한다.
-- LiveKit/MediaPipe를 재도입할 때는 방 토큰 발급 API가 준비되어 있는지 먼저 확인할 것. 하드코딩된 공개 키/토큰을 커밋하지 않는다.
+- SFU(LiveKit 등) 미디어 서버를 도입하게 되면 방 토큰 발급 API가 준비되어 있는지 먼저 확인할 것. 하드코딩된 공개 키/토큰을 커밋하지 않는다.
 - 공부 상태·집중률 계산은 화면 컴포넌트에서 직접 구현하지 말고 순수 TS 공유 패키지로 분리한다(과거 `@focusmakers/study-core` 패턴).

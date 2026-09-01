@@ -1,3 +1,5 @@
+import { useIsFocused } from "@react-navigation/native";
+
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { RecordsTabSkeleton } from "../../components/RemoteSplashSkeletons";
 
@@ -6,5 +8,13 @@ import { RecordsTabSkeleton } from "../../components/RemoteSplashSkeletons";
  * 로드한다. 달력·통계 조회·리스트 로직은 전부 웹이 소유한다 — 여기에 화면 로직을 넣지 않는다.
  */
 export default function RecordsScreen() {
-  return <RemoteScreen testID="records-webview" path="/records" splash={<RecordsTabSkeleton />} />;
+  const isFocused = useIsFocused();
+  return (
+    <RemoteScreen
+      suppressTabBarMessages={!isFocused}
+      testID="records-webview"
+      path="/records"
+      splash={<RecordsTabSkeleton />}
+    />
+  );
 }

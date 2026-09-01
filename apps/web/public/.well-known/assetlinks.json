@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.breathlessyouth.mobile",
+      "sha256_cert_fingerprints": [
+        "0A:B8:C9:F5:5B:36:65:5A:55:2A:30:8B:F2:3F:DB:8C:56:FE:ED:BA:5C:0F:E5:59:7F:0E:42:84:23:37:59:8F",
+        "31:76:B7:F2:7C:53:97:90:09:79:39:92:B4:3D:DF:1B:89:46:0E:23:7E:8D:8C:6B:09:29:6D:77:38:B0:DB:D6"
+      ]
+    }
+  }
+]

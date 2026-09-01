@@ -1,7 +1,34 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
-import { RemoteWebViewHost, buildRemoteWebViewUrl, originOf } from "../RemoteWebViewHost";
+import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import { lockPortrait, unlockForSession } from "../../lib/orientation";
+import { emitTabReset } from "../../lib/tabReset";
+import {
+  RemoteWebViewHost,
+  buildRemoteWebViewUrl,
+  originOf,
+  requestGlobalWebViewRecovery,
+} from "../RemoteWebViewHost";
+
+jest.mock("../../lib/orientation", () => ({
+  lockPortrait: jest.fn(),
+  unlockForSession: jest.fn(),
+}));
+
+/** 실제와 같은 1회 의미를 갖는 mock. 순수 로직 자체는 lib/__tests__/appLaunch.test.ts가 본다. */
+let mockAppLaunchPending = false;
+
+jest.mock("../../lib/appLaunch", () => ({
+  consumeAppLaunchSignal: jest.fn(() => {
+    if (!mockAppLaunchPending) {
+      return false;
+    }
+    mockAppLaunchPending = false;
+    return true;
+  }),
+}));
 
 /**
  * 원격 웹뷰 호스트(BY-333) — 세션 화면이 직접 띄우던 WebView를 승격한 공용 컴포넌트.
@@ -63,6 +90,19 @@ jest.mock("react-native-webview", () => {
   };
 });
 
+/** 웹 홈이 구독을 걸고 보내는 준비 신호를 흉내 낸다. */
+function fireHomeReady() {
+  const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+  act(() => {
+    onMessage({ nativeEvent: { data: '{"type":"home-ready","atMs":1}' } });
+  });
+}
+
+/** 웹으로 실제 나간 앱 실행 알림만 골라 센다. */
+function sentAppLaunched() {
+  return mockInjectJavaScript.mock.calls.filter((call) => String(call[0]).includes("app-launched"));
+}
+
 /** WebView 콜백을 실제 로드 없이 흉내 낸다. */
 function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
   const handler = screen.getByTestId("host").props[name] as (v?: unknown) => void;
@@ -75,6 +115,17 @@ beforeEach(() => {
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
   mockWebViewMounted.mockClear();
+  mockInjectJavaScript.mockClear();
+  (lockPortrait as jest.Mock).mockClear();
+  (unlockForSession as jest.Mock).mockClear();
+  (consumeAppLaunchSignal as jest.Mock).mockClear();
+  mockAppLaunchPending = false;
+});
+
+// spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
+// 플랫폼 분기가 이전 테스트의 값에 오염된다.
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe("buildRemoteWebViewUrl", () => {
@@ -202,6 +253,250 @@ describe("RemoteWebViewHost", () => {
     });
 
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
+  it("문서가 다시 로드되면 꺼 둔 제스처가 기본값(켜짐)으로 돌아간다 — 렌더러 재생성 대비", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":5}' } });
+    });
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+
+    // 렌더러 크래시 등으로 새 문서가 로드되면 — 새 문서는 끈 적이 없다
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
+  });
+
+  it("앱을 새로 켰으면 홈 웹뷰의 준비 신호에 app-launched로 응답한다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("전역 복구로 다시 선 문서가 준비 신호를 또 보내도 두 번 응답하지 않는다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireHomeReady();
+    expect(sentAppLaunched()).toHaveLength(1);
+
+    // 세션 웹뷰의 렌더러가 죽어 마운트된 웹뷰가 통째로 다시 서는 상황이다. 여기서 한 번 더
+    // 응답하면 세션 화면이 복원하려던 기록을 홈이 지운다.
+    act(() => {
+      requestGlobalWebViewRecovery();
+    });
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("로드 이벤트는 신호를 건드리지 않는다 — 실패한 첫 로드 뒤 재시도 성공에서 정확히 한 번 응답한다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    // Android는 로드가 실패해도 finish 이벤트를 합성해 onLoad까지 불러 준다. 그 순서를 그대로
+    // 흉내 낸다: onLoad → onLoadEnd → onError → onLoadEnd. 어디에서도 신호가 타면 안 된다.
+    const props = screen.getByTestId("host").props as {
+      onLoad?: () => void;
+      onLoadEnd: () => void;
+    };
+    act(() => {
+      props.onLoad?.();
+      props.onLoadEnd();
+    });
+    fireWebViewEvent("onError", { nativeEvent: { description: "net::ERR_CONNECTION_REFUSED" } });
+    expect(consumeAppLaunchSignal).not.toHaveBeenCalled();
+    expect(sentAppLaunched()).toHaveLength(0);
+
+    // 실패 화면에서 다시 시도를 누르면 새 웹뷰가 선다. 성공하면 웹 JS가 돌고 그때에야
+    // 준비 신호가 온다.
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
+  it("홈이 아닌 웹뷰의 준비 신호는 신호를 쓰지도 응답하지도 않는다 — 세션 화면이 받으면 복원할 세션을 지운다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+
+    fireHomeReady();
+
+    expect(consumeAppLaunchSignal).not.toHaveBeenCalled();
+    expect(sentAppLaunched()).toHaveLength(0);
+  });
+
+  it("set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).toHaveBeenCalled();
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":false,"atMs":2}' } });
+    });
+    expect(lockPortrait).toHaveBeenCalled();
+  });
+
+  // 종전 "iOS 무시" 계약의 반전(BY-444) — iOS 소셜룸 가로는 루트 잠금이 우회되던 버그의
+  // 부수효과였고, 잠금이 실동작하는 지금은 iOS도 이 브리지로 열어야 한다.
+  it("iOS에서도 set-orientation을 소비한다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).toHaveBeenCalled();
+
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":false,"atMs":2}' } });
+    });
+    expect(lockPortrait).toHaveBeenCalled();
+  });
+
+  it("웹 주도 해제 상태에서 복구가 시작되면 세로로 복원한다 — 해제를 요청한 문서가 사라졌다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(lockPortrait).not.toHaveBeenCalled();
+
+    // iOS 콘텐츠 프로세스 사망 = 복구 진입. 문서가 새로 뜨므로 이전 해제를 되돌려야 한다.
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(lockPortrait).toHaveBeenCalled();
+  });
+
+  /**
+   * 회귀 가드. 복원을 WebView의 로드 이벤트에 걸면 안 된다 — Android는 SPA `pushState`에도
+   * `onLoadStart`를 발화시켜(BY-436 실기기) 소셜 홈에서 룸으로 이동하는 그 순간 방금 연
+   * 회전이 되잠기고, `onLoadEnd`에 걸면 같은 로드가 되잠근다(2026-08-25 채점 지적).
+   * 문서 세대가 실제로 바뀌는 사건은 복구 진입뿐이다.
+   */
+  it("로드 이벤트는 방금 연 회전을 되잠그지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(unlockForSession).toHaveBeenCalled();
+    expect(lockPortrait).not.toHaveBeenCalled();
+    // 로드 시작 이벤트 자체를 구독하지 않는다(Android SPA 이동에 발화하므로).
+    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
+  });
+
+  it("웹 주도 해제 없이 복구가 시작되면 잠금을 건드리지 않는다 — 솔로 세션의 해제를 덮어쓰면 안 된다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(lockPortrait).not.toHaveBeenCalled();
+  });
+
+  it("자기 경로의 탭 초기화 신호를 받으면 reset-route를 주입하고, 다른 경로 신호는 무시한다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+
+    act(() => {
+      emitTabReset("/settings");
+    });
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    const script = mockInjectJavaScript.mock.calls[0][0] as string;
+    expect(script).toContain('\\"reset-route\\"');
+    expect(script).toContain("/settings");
+
+    mockInjectJavaScript.mockClear();
+    act(() => {
+      emitTabReset("/records");
+    });
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("Android에서 시스템 테마가 바뀌면 theme 메시지를 주입한다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    let themeListener:
+      ((preferences: { colorScheme: "light" | "dark" | null | undefined }) => void) | null = null;
+    jest.spyOn(Appearance, "addChangeListener").mockImplementation((next) => {
+      themeListener = next as typeof themeListener;
+      return { remove: jest.fn() };
+    });
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    act(() => {
+      themeListener?.({ colorScheme: "dark" });
+    });
+
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    const script = mockInjectJavaScript.mock.calls[0][0] as string;
+    expect(script).toContain('\\"theme\\"');
+    expect(script).toContain('\\"dark\\"');
+  });
+
+  it("로드가 끝나면 현재 테마를 다시 실어 보낸다 — 캐시된 초기 쿼리가 낡았을 수 있다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(Appearance, "getColorScheme").mockReturnValue("dark");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    const script = mockInjectJavaScript.mock.calls.at(-1)?.[0] as string;
+    expect(script).toContain('\\"theme\\"');
+    expect(script).toContain('\\"dark\\"');
+  });
+
+  it("iOS에서는 로드가 끝나도 테마를 주입하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as () => void;
+    act(() => {
+      onLoadEnd();
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("iOS에서는 테마 변경을 구독하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    const spy = jest.spyOn(Appearance, "addChangeListener");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it.each(["onError", "onHttpError"] as const)(
@@ -355,5 +650,214 @@ describe("onShouldStartLoadWithRequest", () => {
     const shouldStart = getShouldStartHandler();
 
     expect(shouldStart({ url: "https://web.test/settings" })).toBe(true);
+  });
+});
+
+describe("Android 렌더러 사망 전역 복구 (BY-436)", () => {
+  /**
+   * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView가 공유하고, 죽은 렌더러는
+   * 거기 붙어 있던 WebView를 전부 파괴해야 대체된다(플랫폼 계약). 사망 통보를 받은 호스트
+   * 하나만 재마운트하면 새 WebView가 죽은 렌더러에 붙어 로드가 영영 시작되지 않는다
+   * — 실기기에서 소셜 스켈레톤이 걷히지 않던 원인.
+   */
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("한 호스트의 렌더러 사망 통보가 다른 호스트도 재마운트시킨다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      (screen.getByTestId("social-host").props.onRenderProcessGone as () => void)();
+    });
+
+    // 렌더러는 공유라 둘 다 죽었다 — 둘 다 재마운트되어야 새 렌더러가 뜬다.
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(4);
+  });
+
+  it("iOS는 개별 reload로 남는다 — 프로세스가 웹뷰별 독립이라 이웃을 건드리지 않는다", () => {
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+
+    act(() => {
+      (screen.getByTestId("social-host").props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(mockReload).toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2); // 재마운트 없음
+  });
+
+  it("전역 복구는 복구 중인 호스트를 건너뛴다 — 로드 중 재마운트 반복 방지", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    // 통보로 이미 복구(재마운트)에 들어간 상태에서 —
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+
+    // 이웃의 전역 복구 요청이 겹쳐 도착해도 또 재마운트하지 않는다.
+    act(() => {
+      requestGlobalWebViewRecovery();
+    });
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("report-screen 복원 (BY-436)", () => {
+  it("report-screen은 화면 콜백으로도 전달된다 — 스플래시 톤은 RemoteScreen 몫이다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onBridgeMessage={onBridgeMessage} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path: "/profile", dark: false, atMs: 1 }),
+        },
+      });
+    });
+
+    expect(onBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "report-screen", path: "/profile" }),
+      expect.any(Function),
+    );
+  });
+
+  it("렌더러 사망 재마운트는 보고된 경로·쿼리로 연다 — 소셜룸을 잃지 않는다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: "report-screen",
+            path: "/social/room/42",
+            restoreQuery: { code: "0712" },
+            dark: true,
+            atMs: 1,
+          }),
+        },
+      });
+    });
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social/room/42");
+    expect(uri).toContain("code=0712");
+    expect(uri).toContain("userId=7");
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+  });
+
+  it("보고가 없으면 재마운트는 원래 경로다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social?");
+    expect(uri).not.toContain("code=");
+  });
+});
+
+describe("SPA 라우팅과 스플래시 (BY-436)", () => {
+  it("WebView에 onLoadStart 이벤트를 배선하지 않는다 — Android는 pushState에도 발화해 스플래시가 영영 안 걷힌다", () => {
+    // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
+    // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
+    // 문서 로드 감지가 아니라 복구 진입(enterRecovery)이 명시적으로 알린다.
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+
+    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
+  });
+});
+
+/**
+ * 생존 확인 ping 제거(BY-443) — 복귀 직후 세션 화면은 카메라 재획득·Vision 재기동으로 JS
+ * 스레드가 바빠 pong이 늦고, 그 무응답을 사망으로 판정해 살아 있는 세션을 재마운트하면
+ * 진행 중이던 공부시간이 초기화된다(갤럭시 A10 실기기 확인). 복구는 사후 통보
+ * (onContentProcessDidTerminate/onRenderProcessGone)에만 의존한다.
+ */
+describe("포그라운드 복귀 생존 확인 없음 (BY-443)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockInjectJavaScript.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("로드 완료 후 포그라운드로 복귀해도 ping을 주입하지 않고, 시간이 지나도 재마운트·재로드가 없다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    const onRecoveryStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onRecoveryStart} />);
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    act(() => {
+      for (const [event, handler] of appStateSpy.mock.calls) {
+        if (event === "change") {
+          (handler as (s: string) => void)("active");
+        }
+      }
+    });
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalledWith(
+      expect.stringContaining('\\"type\\":\\"ping\\"'),
+    );
+    expect(mockReload).not.toHaveBeenCalled();
+    expect(onRecoveryStart).not.toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
+  it("iOS 콘텐츠 프로세스 종료 통보가 오면 재로드 전에 스플래시부터 되돌린다", () => {
+    const onLoadStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onLoadStart} />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(onLoadStart).toHaveBeenCalled();
+    expect(mockReload).toHaveBeenCalled();
+  });
+
+  it("Android 렌더러 사망 통보도 스플래시부터 되돌린다", () => {
+    const onLoadStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onLoadStart} />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    expect(onLoadStart).toHaveBeenCalled();
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
   });
 });

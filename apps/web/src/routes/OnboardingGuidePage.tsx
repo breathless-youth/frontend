@@ -1,14 +1,12 @@
 import { useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import {
-  continueAfterOnboardingGuide,
-  exitOnboardingGuide,
-} from "@/features/onboarding/focusStartFlow";
+import { continueAfterOnboardingGuide } from "@/features/onboarding/focusStartFlow";
 import { OnboardingGuideFlow } from "@/features/onboarding/OnboardingGuideFlow";
 import { parseOnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { useNativeBackGestureLock } from "@/lib/nativeBackGesture";
 import { requestSessionStart } from "@/lib/sessionStart";
+import { parseUserId } from "@/lib/userId";
 
 /**
  * G1~G5 온보딩 가이드 — 스펙 `frontend/docs/screens/SCR-G1-G5-onboarding-guide.md`.
@@ -107,8 +105,9 @@ export function OnboardingGuidePage() {
     }
     void continueAfterOnboardingGuide(
       {
-        startSession: () => {
-          const route = requestSessionStart(() =>
+        startSession: async () => {
+          const userId = parseUserId(new URLSearchParams(location.search).get("userId"));
+          const route = await requestSessionStart(userId, () =>
             navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
           );
           if (route === "native") {
@@ -123,23 +122,7 @@ export function OnboardingGuidePage() {
     });
   }, [closeGuide, entry, navigate, location.search]);
 
-  /** X 나가기 — 봤음 저장 후 복귀만. 세션 플로우로 이어지지 않는다(2026-07-28 확정). */
-  const handleExit = useCallback(() => {
-    if (hasClosedRef.current) {
-      return;
-    }
-    hasClosedRef.current = true;
-    closeGuide();
-    // catch를 붙이지 않는다 — 저장 실패는 store가 내부에서 삼키므로(onboardingGuideStore) 이
-    // Promise는 reject하지 않는다. 실패해도 다음 진입 시 가이드가 한 번 더 뜨는 정도의 열화다.
-    void exitOnboardingGuide();
-  }, [closeGuide]);
-
-  return (
-    <OnboardingGuideFlow
-      onFinish={handleFinish}
-      onExit={handleExit}
-      isReentry={entry !== "focus-start"}
-    />
-  );
+  // 우상단 X와 그 전용 경로(handleExit → exitOnboardingGuide)는 2026-08-25 BY-427 피드백으로
+  // 제거했다 — 종료는 건너뛰기(G1~G4)와 마지막 CTA(G5)로만 한다(둘 다 handleFinish 경유).
+  return <OnboardingGuideFlow onFinish={handleFinish} isReentry={entry !== "focus-start"} />;
 }

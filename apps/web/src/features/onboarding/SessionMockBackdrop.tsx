@@ -15,6 +15,7 @@ import {
   GUIDE_DISTRACT_BORDER,
   GUIDE_DISTRACT_COLOR,
   GUIDE_FOCUS_COLOR,
+  GUIDE_PAUSED_COLOR,
   GUIDE_SIMPLE_TIMER_GLOW,
 } from "./coachOverlayTheme";
 
@@ -106,7 +107,10 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
   );
 }
 
-/** 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더. */
+/**
+ * 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더 /
+ * Paused=회색 도트(2026-08-25 BY-427 — G4가 일시정지 상태를 그대로 보여주도록 추가).
+ */
 export function MockStatusPillBlock({
   pill,
   emphasized,
@@ -115,7 +119,11 @@ export function MockStatusPillBlock({
   emphasized: boolean;
 }) {
   const isDistract = pill.state === "distract";
-  const accent = isDistract ? GUIDE_DISTRACT_COLOR : GUIDE_FOCUS_COLOR;
+  const accent = isDistract
+    ? GUIDE_DISTRACT_COLOR
+    : pill.state === "paused"
+      ? GUIDE_PAUSED_COLOR
+      : GUIDE_FOCUS_COLOR;
 
   return (
     <div
@@ -123,13 +131,22 @@ export function MockStatusPillBlock({
       // 강조 대상이 아닐 때는 dim 아래 장식과 같은 취급 — 스크린 리더에서 제외한다.
       aria-hidden={emphasized ? undefined : true}
     >
-      <RingOutEmphasis active={emphasized} color={accent} borderRadius={coachRadius.full}>
+      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4, 2026-08-25 BY-427)로 켠다. */}
+      <RingOutEmphasis
+        active={emphasized || pill.ring === true}
+        color={accent}
+        borderRadius={coachRadius.full}
+      >
         <div
           role={emphasized ? "img" : undefined}
           aria-label={emphasized ? pill.label : undefined}
           className="flex flex-row items-center gap-2 border px-4 py-[9px]"
           style={{
-            backgroundColor: isDistract ? coachOverlay.pillBgDistract : coachOverlay.pillBgFocus,
+            backgroundColor: isDistract
+              ? coachOverlay.pillBgDistract
+              : pill.state === "paused"
+                ? coachOverlay.pillBgPaused
+                : coachOverlay.pillBgFocus,
             borderColor: isDistract ? GUIDE_DISTRACT_BORDER : coachOverlay.pillBorderFocus,
             borderRadius: coachRadius.full,
           }}
@@ -231,12 +248,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       >
         {/* 손잡이 중앙정렬(2026-07-29) — 좌우 풀폭 래퍼의 justify-center로 맞춘다.
             구 방식(left-1/2 + 음수 마진 임의값 클래스)은 좌측으로 치우쳐 보였다. */}
-        <div className="pointer-events-none absolute top-[5px] right-0 left-0 flex justify-center">
-          <div
-            className="h-1 w-9 rounded-full"
-            style={{ backgroundColor: coachOverlay.controlBarHandle }}
-          />
-        </div>
+        {/* 드래그 핸들 목업은 실제 바에서 핸들이 제거되며(2026-08-25 BY-427) 함께 삭제했다. */}
         <RingOutEmphasis
           active={emphasized}
           color={GUIDE_FOCUS_COLOR}

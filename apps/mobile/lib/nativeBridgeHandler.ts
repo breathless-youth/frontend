@@ -1,9 +1,11 @@
 import { router } from "expo-router";
+import { Share } from "react-native";
 
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { getMotionSensorRelay } from "./motionSensorRelay";
 import { relaySessionSubmit } from "./sessionSubmitRelay";
 import { setTabBarVisible } from "./tabBarVisibility";
 
@@ -32,6 +34,27 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
         router.push("/room/1");
       })().catch((error: unknown) => {
         console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
+      });
+      break;
+    case "request-camera-gate":
+      // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면
+      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면
+      // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
+      // 없이 미리보기 실패에 머무는 공백이 같다.
+      void (async () => {
+        const result = await runCameraPermissionGate();
+        if (result === "show-denied-guide") {
+          router.push("/permission-denied");
+          reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
+          return;
+        }
+        reply({ type: "camera-gate-result", granted: true, atMs: Date.now() });
+      })().catch((error: unknown) => {
+        // fail-closed — 권한을 확인하지 못한 채로 룸에 들여보내지 않는다. 게이트 자체가
+        // 실패했다는 것은 권한 상태를 알 수 없다는 뜻이고, 그때 통과시키면 카메라를 켤 수
+        // 없는 상태로 세션이 시작된다. 웹은 이 응답을 받아 입장을 중단한다.
+        console.warn("[bridge] 카메라 게이트(request-camera-gate) 처리 실패", error);
+        reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
       });
       break;
     case "navigate-home":
@@ -65,6 +88,23 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
         });
       break;
+    case "share":
+      // Android 웹뷰에는 `navigator.share`가 없어 웹이 시트를 못 연다 — 여기서 OS 공유
+      // 시트를 대신 연다(계약 주석 참고). 응답은 없다 — 취소(AbortError 상당)도 OS가
+      // 이미 사용자에게 보여준 결과라 웹에 알릴 것이 없다.
+      //
+      // RN `Share.share` 계약의 플랫폼 차이(BY-427): iOS는 `url`이 별도 필드라 공유시트가
+      // URL 미리보기 카드(앱 아이콘 썸네일)를 그리고, Android는 `message`만 쓴다 — 링크는
+      // 웹이 만든 `message.text` 본문에 이미 들어 있어 그대로 둔다. `title`은 시트 제목.
+      // url·title이 없는 구버전 웹 메시지는 종전대로 message만 전달한다.
+      void Share.share({
+        message: message.text,
+        ...(message.url !== undefined ? { url: message.url } : {}),
+        ...(message.title !== undefined ? { title: message.title } : {}),
+      }).catch((error: unknown) => {
+        console.warn("[bridge] 공유 시트(share) 열기 실패", error);
+      });
+      break;
     case "navigate-tab":
       // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
       // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
@@ -82,6 +122,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
       // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
       void relaySessionSubmit(message).then(reply);
+      break;
+    case "motion-sensor":
+      // 소셜룸(소셜 탭·딥링크 join WebView) 경로
+      // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
+      getMotionSensorRelay().handle(message, reply);
       break;
   }
 }

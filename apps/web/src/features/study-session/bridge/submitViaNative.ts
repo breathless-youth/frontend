@@ -1,5 +1,6 @@
 import type { StudySessionCreateRequest, StudySessionResponse } from "@focusmakers/types";
 
+import { ApiError } from "@/lib/api";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
 /**
@@ -20,9 +21,10 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
  * 앱보다 앞서는 것이 오히려 기본 상태다. 직접 `fetch`하는 경로에는 이 위험이 없어서 상한이 없다.
  *
  * ⚠️ **넉넉하게 잡은 이유가 있다. 짧게 줄이지 말 것.** 상한을 넘겨도 요청 자체는 이미 서버에
- * 도착했을 수 있는데, 그때 사용자가 재시도 버튼을 누르면 **같은 세션이 두 번 저장된다**
- * (제출 API에 멱등 키가 없다). 즉 짧은 상한의 대가는 "조금 더 빨리 에러를 본다"가 아니라
- * **중복 데이터**다. 반대로 길게 잡는 대가는 실패 화면이 늦게 뜨는 것뿐이다.
+ * 도착했을 수 있고, 그 상태에서 재시도가 겹치면 응답 경합만 늘어난다. 중복 저장은 서버의
+ * (userId, startedAt) 멱등 처리가 막아 주지만, 짧은 상한의 이득은 "조금 더 빨리 에러를
+ * 본다"뿐이고 대가는 정상 제출을 실패로 오인하는 것이다. 길게 잡는 대가는 실패 화면이
+ * 늦게 뜨는 것뿐이다.
  */
 export const NATIVE_SUBMIT_TIMEOUT_MS = 30_000;
 
@@ -74,7 +76,13 @@ export function submitViaNative(
         if (message.ok) {
           resolve(message.sessions);
         } else {
-          reject(new Error(message.message));
+          // status가 실려 오면 브라우저 fetch 경로와 같은 ApiError로 복원한다 —
+          // 호출부가 경로와 무관하게 400을 판별할 수 있어야 한다.
+          reject(
+            message.status !== undefined
+              ? new ApiError(message.message, message.status)
+              : new Error(message.message),
+          );
         }
       });
     });

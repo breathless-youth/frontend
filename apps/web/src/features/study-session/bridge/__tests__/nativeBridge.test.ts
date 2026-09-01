@@ -19,6 +19,18 @@ describe("parseToWebMessage", () => {
     });
   });
 
+  it("ping 메시지를 파싱한다 — 생존 확인(BY-436)", () => {
+    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: 3, atMs: 1000 }))).toEqual({
+      type: "ping",
+      id: 3,
+      atMs: 1000,
+    });
+  });
+
+  it("ping의 id가 number가 아니면 null이다 — 짝을 맞출 수 없는 응답이 나간다", () => {
+    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: "3", atMs: 1000 }))).toBeNull();
+  });
+
   it("알 수 없는 type은 null을 돌려준다 — 앱 버전이 앞서갈 때 죽지 않아야 한다", () => {
     expect(parseToWebMessage('{"type":"future-message","atMs":1}')).toBeNull();
   });
@@ -41,6 +53,53 @@ describe("parseToWebMessage", () => {
 
   it("필드 타입이 어긋나면 null을 돌려준다", () => {
     expect(parseToWebMessage('{"type":"device-handling","active":"yes","atMs":1}')).toBeNull();
+  });
+
+  it("camera-gate-result를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"camera-gate-result","granted":false,"atMs":1}')).toEqual({
+      type: "camera-gate-result",
+      granted: false,
+      atMs: 1,
+    });
+  });
+
+  it("camera-gate-result의 granted가 boolean이 아니면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"camera-gate-result","granted":"no","atMs":1}')).toBeNull();
+  });
+
+  it("theme을 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"theme","scheme":"dark","atMs":1}')).toEqual({
+      type: "theme",
+      scheme: "dark",
+      atMs: 1,
+    });
+  });
+
+  it("theme의 scheme이 light/dark 밖이면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"theme","scheme":"sepia","atMs":1}')).toBeNull();
+  });
+
+  it("reset-route를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"reset-route","path":"/settings","atMs":1}')).toEqual({
+      type: "reset-route",
+      path: "/settings",
+      atMs: 1,
+    });
+  });
+
+  it("reset-route의 path가 문자열이 아니면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"reset-route","path":1,"atMs":1}')).toBeNull();
+  });
+
+  it("app-launched를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"app-launched","atMs":1}')).toEqual({
+      type: "app-launched",
+      atMs: 1,
+    });
+  });
+
+  it("app-launched에 atMs가 없으면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"app-launched"}')).toBeNull();
   });
 
   it("성공한 submit-result를 파싱한다", () => {

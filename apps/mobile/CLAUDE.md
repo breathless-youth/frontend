@@ -13,7 +13,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 (구 스터디룸 라우트 `app/room/[id].tsx`, `features/study-session/`, `platform/{camera,vision,rtc}/`, `components/ui/`는 2026-07-25 기능 리셋으로 삭제 — 재구축 시 git 히스토리의 패턴을 참고한다.)
 
-**경계 규칙**: UI 컴포넌트는 카메라/LiveKit SDK를 직접 import하지 않는다 — 네이티브 전환 시 플랫폼 어댑터 계층을 통한다. 공부 상태 계산은 `@focusmakers/study-core`(순수 TS)에 있고, 카메라/Vision/RTC 구현과 분리된다.
+**경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않는다 — 네이티브 전환 시 플랫폼 어댑터 계층을 통한다. 공부 상태 계산은 `@focusmakers/study-core`(순수 TS)에 있고, 카메라/Vision/RTC 구현과 분리된다.
 
 ## WebView 스터디룸 (재구축 예정)
 
@@ -33,7 +33,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 
 ## 네트워크 / ATS — 2026-08-02 HTTPS 전환으로 정리 완료
 
-운영 `extra.apiBaseUrl`은 `https://api.sunqstudio.kr`다(BY-402부터 원천은 `app.config.ts`의
+운영 `extra.apiBaseUrl`은 `https://api.focusmakers.app`다(BY-402부터 원천은 `app.config.ts`의
 production 분기 — app.json의 값은 개발용 빈 문자열이다). 과거(2026-07-29~08-02) 평문 HTTP +
 IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷어냈다:
 
@@ -48,7 +48,7 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 - **프로젝트는 `focusmakers-app`이다** — 웹(`focusmakers-web`)·백엔드(`focusmakers-api`)와 분리돼 있다. 같은 세션이라도 웹뷰 안 에러는 웹으로, 셸 에러는 이쪽으로 간다. 산출물도 소스맵도 릴리즈도 완전히 달라서 한 통에 섞으면 어느 쪽 스택인지 구분할 수 없다. **웹 DSN을 복사해 오지 말 것** — `lib/__tests__/sentryConfig.test.ts`가 프로젝트 ID를 못 박는다.
 - **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(환경 무관 고정값이라 `app.config.ts` 분기
   대상이 아니다 — 전송 여부는 런타임 `enabled: !__DEV__`가 가른다). DSN은 비밀이 아니다 — 이벤트를 보낼 주소일 뿐이고 어떤 빌드에도 그대로 들어간다. 반대로 소스맵 업로드용 **`SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다**(`.env.local`도, 커밋도 금지).
-- **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** 세션 화면은 카메라 프리뷰가 떠 있어 화면 녹화 수집은 개인정보 원칙(아래 절)과 정면 충돌한다 — 웹에도 같은 금지가 걸려 있다. `sendDefaultPii`도 `false`로 못 박았다(Sentry 공식 예제는 `true`다 — 따라가지 말 것).
+- **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** 앱은 전 화면이 WebView 셸인데 RN 리플레이는 WebView를 통째로 마스킹하는 게 기본이라 켜도 마스킹된 사각형만 남아 실익이 없고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 아래 절의 개인정보 원칙과 정면 충돌한다. 웹은 BY-407로 2026-08-20부터 카메라 차단 조건으로 켰고 자세한 내용은 `apps/web/CLAUDE.md`에 있다. 이 금지는 앱에만 남았다. `sendDefaultPii`는 `false`로 못 박았다. Sentry 공식 예제는 `true`지만 따라가지 말 것.
 - 성능 추적(`tracesSampleRate`)은 켜지 않았다. 모든 화면이 웹뷰인 셸이라 네이티브에 잴 구간이 사실상 없고 화면 로딩 성능은 웹 프로젝트가 이미 본다.
 
 ### 웹과 달리 스크러빙 콜백이 없다
@@ -120,20 +120,21 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 회사망 등에서 폰·Mac이 같은 Wi-Fi인데도 서로 통신이 안 되면 위 LAN IP 경로는 어떤 설정으로도 뚫리지 않는다(2026-07-30 확인). 이때는 `VITE_DEV_TUNNEL=1`로 `apps/web/vite.config.ts`의 터널 모드를 켜고 `cloudflared`로 Vite·Metro 양쪽을 터널링한다 — 자세한 이유·설정은 `vite.config.ts`의 `tunnelServerOptions` 주석 참고. 공개 URL이라 검증 후 반드시 내린다.
 
-## 화면 방향 — 세션만 회전 (2026-07-30, 2026-08-01 집행 주체 정정)
+## 화면 방향 — 룸만 회전 (2026-07-30, 2026-08-01 집행 주체 정정, 2026-08-26 BY-444 재정정)
 
-**세션(`room/[id]`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 세션뿐이라서다(S3-5·S3-6).
+**싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 전부 세로다.** 가로 레이아웃이 실제로 구현된 화면이 룸뿐이라서다(S3-5·S3-6, 소셜룸 가로 그리드).
 
 정책은 **세 곳이 함께** 만든다. 한쪽만 보고 고치면 조용히 깨진다.
 
-| 위치                                             | 값                                           | 역할                                                                        |
-| ------------------------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
-| `app.json`의 `orientation`                       | `"default"`                                  | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
-| `lib/orientation.ts` (`expo-screen-orientation`) | 루트 세로 잠금 / 세션 마운트에서 해제        | **실제 집행자(iOS)** — 아래 정정 참고                                       |
-| `app/_layout.tsx`의 `screenOptions`              | `orientation: "portrait"` / 세션 `"default"` | Android 집행(`setRequestedOrientation`) — iOS에서는 무력                    |
+| 위치                                             | 값                                                             | 역할                                                                        |
+| ------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `app.json`의 `orientation`                       | `"default"`                                                    | 네이티브가 허용하는 방향의 **상한**(iOS `UISupportedInterfaceOrientations`) |
+| `lib/orientation.ts` (`expo-screen-orientation`) | 루트 세로 잠금 / 룸에서 해제                                   | **iOS의 단일 집행자** — 아래 재정정 참고                                    |
+| `app/_layout.tsx`의 `screenOptions`              | **Android에서만** `orientation: "portrait"` / 세션 `"default"` | Android 집행(`setRequestedOrientation`) — iOS에는 싣지 않는다(아래 재정정)  |
 
 - **`app.json`을 `"portrait"`로 되돌리지 말 것.** 그건 앱을 세로로 만드는 설정이 아니라 상한을 세로로 닫는 설정이라, 세션이 landscape를 요청해도 회전하지 않게 된다.
-- **P0-3("rn-screens가 처리하므로 `expo-screen-orientation` 불필요") 정정 (2026-08-01)** — iOS에서 전제가 틀렸음이 소스 추적으로 확인됐다. iOS는 회전 판단 시 앱 델리게이트에 마스크를 묻는데, Expo의 구현은 **구독자가 없으면 Info.plist(= `"default"` = 전 방향)를 그대로 반환**하고, rn-screens의 `orientation` screenOption은 그 경로에서 아예 조회되지 않는다(연결 함수 `shouldAskScreensForScreenOrientationInViewController`를 부르는 코드가 Expo 앱에 없음). 세션 회전이 "동작"했던 것은 설정 덕이 아니라 `fullScreenModal`(presented VC는 UIKit이 직접 조회)이라서였고, **홈·기록·설정의 세로 잠금은 한 번도 동작한 적이 없다**(2026-08-01 실기기 — 홈이 회전됨). 그래서 `expo-screen-orientation`이 그 구독자 역할로 들어왔다. 근거 전문은 `lib/orientation.ts` 주석.
+- **P0-3("rn-screens가 처리하므로 `expo-screen-orientation` 불필요") 정정 (2026-08-01)** — iOS는 회전 판단 시 앱 델리게이트에 마스크를 묻는데, Expo의 구현은 구독자가 없으면 Info.plist(= `"default"` = 전 방향)를 그대로 반환한다. 세션 회전이 "동작"했던 것은 설정 덕이 아니라 `fullScreenModal`(presented VC는 UIKit이 직접 조회)이라서였고, 홈·기록·설정의 세로 잠금은 동작한 적이 없다(2026-08-01 실기기). 그래서 `expo-screen-orientation`이 들어왔다.
+- **P0-3 정정의 재정정 (BY-444, 2026-08-26)** — 그 뒤로도 iOS TestFlight에서 전 화면이 회전됐다. P0-3 정정이 "iOS에서 무력하지만 무해"라며 남겨 둔 rn-screens `orientation` screenOption이 원인이다: `expo-screen-orientation`의 iOS 집행자(루트 VC `ScreenOrientationViewController`)는 **orientation이 실린 RNSScreen이 하나라도 있으면 JS 잠금(`lockAsync`)을 무시하고 rn-screens에 양보**하는데(`shouldUseRNScreenOrientation()` — "부르는 코드가 없다"던 P0-3의 전제가 틀렸다, 이 패키지 자신이 호출자다), 양보받은 rn-screens의 iOS 마스크 산출은 우리 계층 구조에서 전 방향 허용으로 떨어진다. 그래서 **rn-screens `orientation` 옵션은 Android에서만 싣는다**(`_layout.tsx`의 `Platform.OS` 분기). **iOS에 이 옵션을 되살리면 세로 잠금이 통째로 조용히 죽는다.** 소셜룸의 `set-orientation` 브리지(`RemoteWebViewHost`)도 같은 커밋부터 양 플랫폼 공통이다 — 종전 "iOS 무시"는 잠금이 우회되던 동안에만 성립하던 결정이다. 근거 전문은 `lib/orientation.ts` 주석.
 - 세션 해제를 `ALL`이 아니라 `DEFAULT`로 둔 이유는 iOS에서 `ALL`이 거꾸로 세로까지 포함하기 때문이다(rn-screens 시절 `"default"`와 같은 이유).
 - `expo-screen-orientation`은 네이티브 모듈이라 **Dev Client 리빌드가 필요하다.** 구형 빌드에서는 잠금 호출이 조용히 실패해 이전 동작(회전 허용)으로 물러난다(`lib/orientation.ts`의 catch).
 
@@ -143,7 +144,7 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 - 카메라 원본 프레임·얼굴 이미지·랜드마크 좌표는 단말 내부에서만 처리. 서버 전송·저장·로그 금지. 서버에는 비공부 상태 이벤트(`StudyEventStatus`: `PHONE`/`DEVICE`/`AWAY`/`PAUSE`)와 세션 집계만 전송 — 용어는 [docs/domain-glossary.md](../../docs/domain-glossary.md) 참고.
 - 싱글룸: 영상 자체가 어디에도 전송되지 않는다.
-- 멀티룸: 카메라 영상은 LiveKit으로 전송된다(녹화·저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것.
+- 멀티룸: 카메라 영상은 WebRTC P2P로 상대 참여자에게 직접 전송된다(서버 미경유, 녹화·저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것 — "AI 분석용 원본 프레임·얼굴 데이터가 서버로 전송되지 않는다"로 표현. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것.
 
 ## 네이티브 전환 시 (지금은 해당 없음)
 

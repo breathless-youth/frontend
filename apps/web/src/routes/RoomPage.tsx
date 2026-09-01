@@ -37,9 +37,13 @@ import type {
 } from "@/features/study-session/sessionState";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { useSessionToast } from "@/features/study-session/useSessionToast";
+import { useToast } from "@/lib/useToast";
+import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
+import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
@@ -186,11 +190,21 @@ function useRotationPhase(): RotationPhase {
  * 세션 계산(2축 타이머·상태 머신·이벤트 누적)은 전부 `useStudyRoomSession`과 그 아래
  * 순수 모듈에 있다 — 이 파일은 표시와 입력 배선만 한다.
  */
-export function RoomPage() {
+function RoomSessionScreen({
+  userId,
+  restored,
+}: {
+  userId: number | null;
+  restored: RestoredSession | null;
+}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const userId = parseUserId(searchParams.get("userId"));
   const [camera] = useState(createMediaStreamCameraAdapter);
+  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
+  useGestureVideoPlaybackKick();
+  // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
+  // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
+  useRotationRepaintNudge();
   /**
    * 프리뷰 `<video>` — **이 화면이 소유하고 두 곳에 나눠준다.**
    * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
@@ -220,15 +234,14 @@ export function RoomPage() {
     sessionState,
     phase,
     endReason,
-    isCameraRunning,
     cameraStream,
     cameraFacing,
     pause,
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector });
-  const { message: toastMessage, showToast } = useSessionToast();
+  } = useStudyRoomSession(userId, { camera, detector, restored });
+  const { message: toastMessage, showToast } = useToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
@@ -297,9 +310,8 @@ export function RoomPage() {
   /**
    * S4(공부 결과)로 이동 — **세션 결과의 유일한 출구**다.
    *
-   * 세션 단건 조회 API가 없으므로(`packages/types`에 `GET /api/study-sessions/{id}` 계약 없음)
-   * 제출 응답을 **라우터 state로 넘기는 것이 유일한 전달 수단**이다. S4는 이 state가 없으면
-   * 데이터를 지어내지 않고 홈으로 되돌린다.
+   * S4가 세션 단건 조회 API를 아직 쓰지 않으므로, 제출 응답을 **라우터 state로 넘기는 것이
+   * 지금의 전달 수단**이다. S4는 이 state가 없으면 데이터를 지어내지 않고 홈으로 되돌린다.
    *
    * 경로를 `/room/${id}/result`로 조립하지 않고 상대 이동(`"result"`)을 쓴다 — 현재 매치된
    * 라우트(`/room/:id`) 기준으로 해석되므로 `:id`를 다시 읽어 문자열을 맞출 필요가 없다.
@@ -372,7 +384,8 @@ export function RoomPage() {
   /**
    * 전환 중에는 추론을 멈춘다(위 `detectionEnabled`). 전환이 끝나면 — 성공이든 실패든 —
    * 다시 켠다. 실패했을 때 꺼 두면 "전환할 카메라가 없어요" 토스트 한 번에 세션이 통째로
-   * 측정 불가가 되는데, 어댑터는 실패 시 **기존 스트림을 그대로 두므로** 추론은 계속 가능하다.
+   * 측정 불가가 되는데, 어댑터는 실패 시 **이전 카메라를 복원하므로** 추론은 계속 가능하다.
+   * 복원까지 실패한 경우에만 카메라가 꺼지고, 그때는 훅이 실행 상태를 내려 화면이 따라간다.
    *
    * 새 스트림이 `<video>`에 붙어 첫 프레임을 그리기까지는 시간이 걸리지만, 그 구간은
    * 감지기가 `readyState`를 보고 스스로 건너뛴다 — 여기서 기다릴 필요가 없다.
@@ -437,7 +450,6 @@ export function RoomPage() {
       {/* 회전 오버스캔은 **프리뷰에만** 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       <CameraPreviewSurface
-        isRunning={isCameraRunning}
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}
@@ -688,4 +700,30 @@ function SessionResultFallback({
       )}
     </div>
   );
+}
+
+/**
+ * 세션 화면 진입 게이트.
+ *
+ * 서버에 진행중 세션이 있는지 먼저 확인하고 결과가 나온 뒤에 세션을 시작한다. 먼저 시작하면
+ * 사용자가 0분에서 복원값으로 튀는 것을 보고, 그 사이 스냅샷 보고가 낡은 시작 시각으로 나간다.
+ * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
+ */
+export function RoomPage() {
+  const [searchParams] = useSearchParams();
+  const userId = parseUserId(searchParams.get("userId"));
+  const { settled, restored } = useActiveSessionRestore(userId);
+
+  if (!settled) {
+    return (
+      <main
+        data-testid="room-restore-gate"
+        className="relative flex h-dvh flex-col bg-background"
+        style={sessionSurfaceStyle}
+      />
+    );
+  }
+  // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
+  // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
+  return <RoomSessionScreen key={userId} userId={userId} restored={restored} />;
 }

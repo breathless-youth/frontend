@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { SessionRecoveryResponse } from "@focusmakers/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -9,8 +10,16 @@ import {
   resetOnboardingGuideStore,
   setOnboardingGuideStore,
 } from "@/features/onboarding/onboardingGuideStore";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+
+/** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
+const closeStaleSession = vi.hoisted(() =>
+  vi.fn<() => Promise<SessionRecoveryResponse | null>>(() => Promise.resolve(null)),
+);
+
+vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
 
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
@@ -93,6 +102,7 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
 describe("HomeTabPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    closeStaleSession.mockResolvedValue(null);
     localStorage.clear();
   });
 
@@ -128,21 +138,60 @@ describe("HomeTabPage", () => {
     await waitFor(() => expect(screen.getByText("오늘 10분이면 시작돼요")).toBeInTheDocument());
   });
 
-  it("업데이트 안내 시트는 기본 상태에서 렌더되지 않는다 (fail-closed 게이트)", async () => {
-    mockedStats.mockResolvedValue(statsResponse);
-    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-    expect(screen.queryByTestId("update-notice-sheet")).not.toBeInTheDocument();
-  });
-
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderHome("/home");
 
     expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("복구 안내 모달", () => {
+    const RECOVERED = {
+      statDate: "2026-08-27",
+      startedAt: "2026-08-27T12:03:00Z",
+      endedAt: "2026-08-27T13:48:00Z",
+      studySec: 6300,
+      focusSec: 5040,
+    };
+
+    /** 네이티브가 주입하는 것과 같은 경로로 앱 실행 신호를 흘린다. */
+    function emitAppLaunched() {
+      const receiver = (
+        globalThis as unknown as Record<string, ((raw: string) => void) | undefined>
+      )[NATIVE_MESSAGE_ENTRY];
+      receiver?.('{"type":"app-launched","atMs":1}');
+    }
+
+    it("서버가 대신 확정한 기록이 있으면 모달이 뜬다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+      expect(screen.getByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
+      expect(screen.getByText("1시간 24분")).toBeInTheDocument();
+    });
+
+    it("확인을 누르면 닫힌다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 
   describe("연속 공부 카드 — 기록 탭 이동 (Figma Card/Stat 38:86)", () => {
@@ -231,6 +280,22 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
+    });
+
+    it("가이드를 이미 봤을 때 빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {
+      setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      const cta = screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" });
+      fireEvent.click(cta);
+      fireEvent.click(cta);
+
+      await screen.findByTestId("room-stub");
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
 
     it("빠르게 두 번 누르면 온보딩 가이드로 한 번만 이동한다(중복 진입 방지, 리뷰 반영)", async () => {

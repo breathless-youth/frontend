@@ -31,8 +31,10 @@ export type FocusStartNavigator = {
    * 세션 시작을 요청한다. 웹뷰 안에서는 `start-session` 브리지 발신(네이티브가 권한 게이트 →
    * 세션 push), 브라우저 단독 모드에서는 세션 라우트로 직접 이동한다 —
    * 이 갈림은 호출부(`sessionStart.ts`)가 정하고 이 모듈은 모른다.
+   *
+   * 옛 세션 마감이 끝난 뒤에 화면이 넘어가야 하므로 결과를 기다린다.
    */
-  startSession(): void;
+  startSession(): Promise<void>;
 };
 
 /**
@@ -46,7 +48,7 @@ export async function runFocusStartFlow(nav: FocusStartNavigator): Promise<void>
     nav.openOnboardingGuide("focus-start");
     return;
   }
-  nav.startSession();
+  await nav.startSession();
 }
 
 /**
@@ -70,7 +72,7 @@ export async function continueAfterOnboardingGuide(
   if (entry !== "focus-start") {
     return;
   }
-  nav.startSession();
+  await nav.startSession();
 }
 
 /**

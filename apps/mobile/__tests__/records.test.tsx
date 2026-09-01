@@ -10,6 +10,11 @@ import RecordsScreen from "../app/(tabs)/records";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useIsFocused: () => true,
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
@@ -46,7 +51,7 @@ describe("RecordsScreen", () => {
 
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: "https://web.test/records?userId=7&appVersion=1.4.2",
+      uri: "https://web.test/records?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
     });
   });
 });

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 
@@ -61,6 +62,10 @@ describe("S6 · 설정", () => {
 
     expect(screen.getByText("설정")).toBeInTheDocument();
 
+    // BY-409: 프로필 섹션 — 설정이 프로필 설정(S7-18)의 유일한 진입점이다.
+    expect(screen.getByText("프로필")).toBeInTheDocument();
+    expect(screen.getByText("프로필 설정")).toBeInTheDocument();
+
     expect(screen.getByText("측정")).toBeInTheDocument();
     expect(screen.getByText("카메라 권한")).toBeInTheDocument();
     expect(screen.getByText("측정 기준 안내")).toBeInTheDocument();
@@ -72,6 +77,23 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("약관 · 정보")).toBeInTheDocument();
     expect(screen.getByText("이용약관")).toBeInTheDocument();
     expect(screen.getByText("개인정보처리방침")).toBeInTheDocument();
+  });
+
+  it("프로필 설정 행은 기존 쿼리(userId·appVersion)를 승계해 /profile 로 이동한다 (BY-409)", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<LocationProbe testId="profile-stub" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "프로필 설정" }));
+
+    expect(screen.getByTestId("profile-stub").textContent).toBe(
+      "/profile?userId=7&appVersion=1.4.2",
+    );
   });
 
   it("측정 기준 안내 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
@@ -246,5 +268,40 @@ describe("S6 · 설정", () => {
         screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
       ).toBeInTheDocument();
     });
+  });
+});
+
+describe("프로필 저장 완료 토스트 (2026-08-25 BY-427 시안 A)", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("저장 플래그가 있으면 탭 바 복귀가 끝난 뒤 토스트를 보여주고 플래그를 소비한다", () => {
+    vi.useFakeTimers();
+    markProfileSaved();
+    const { unmount } = renderAt("/settings");
+
+    // 마운트 직후에는 아직 뜨지 않는다 — 네이티브 탭 바 복귀 애니메이션이 웹뷰 높이를
+    // 바꾸는 동안 하단 고정 토스트가 따라 움직이는 점프를 피한다(2026-08-25 실기기 피드백).
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+    expect(screen.getByText("프로필이 저장됐어요")).toBeInTheDocument();
+
+    // 플래그는 1회성이다 — 다시 마운트하면(다른 경로로 재진입 등) 뜨지 않는다.
+    unmount();
+    renderAt("/settings");
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+  });
+
+  it("플래그가 없으면 토스트가 뜨지 않는다", () => {
+    renderAt("/settings");
+
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,11 @@ import SettingsScreen from "../app/(tabs)/settings";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useIsFocused: () => true,
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
@@ -46,7 +51,7 @@ describe("SettingsScreen", () => {
 
     expect(await screen.findByTestId("settings-webview")).toBeTruthy();
     expect(screen.getByTestId("settings-webview").props.source).toEqual({
-      uri: "https://web.test/settings?userId=7&appVersion=1.4.2",
+      uri: "https://web.test/settings?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
     });
   });
 });

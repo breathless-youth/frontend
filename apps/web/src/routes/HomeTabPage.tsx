@@ -11,11 +11,12 @@ import {
 } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "@/features/home/icons";
-import { UpdateNoticeSheetHost } from "@/features/home/UpdateNoticeSheetHost";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
+import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { parseUserId } from "@/lib/userId";
 
@@ -217,10 +218,12 @@ function HomeContent({ userId }: { userId: number }) {
    * 그 화면이면 재사용, push가 아님)와 달리 무조건 push라 빠른 이중 탭에서 가이드가 두 번
    * 열려(스택에 두 장 쌓여) X를 눌러도 그 아래 가이드가 다시 보이는 문제가 그대로 승계된다
    * (`apps/mobile/app/(tabs)/index.tsx:23-28`, BY-151 리뷰 반영 — RN은 라우터가 중복을 막아
-   * 주지만 웹은 그 개념이 없어 첫 탭만 유효하게 래치한다). 세션 시작 경로는 RN 원본도
-   * `router.push`라 이 방어가 없다 — 그대로 둔다.
+   * 주지만 웹은 그 개념이 없어 첫 탭만 유효하게 래치한다). 세션 시작 경로는 아래
+   * `isStartingRef`가 따로 막는다 — 그쪽은 서버 응답을 기다리는 구간이라 이유가 다르다.
    */
   const hasOpenedGuideRef = useRef(false);
+  /** 집중 시작이 서버 응답을 기다리는 동안 다시 눌리는 것을 막는다. */
+  const isStartingRef = useRef(false);
 
   /**
    * 온보딩 가이드로 이동한다 — 현재 쿼리(`?userId=N`)를 잃지 않도록 `entry`만 얹어
@@ -262,13 +265,26 @@ function HomeContent({ userId }: { userId: number }) {
    * 세션 라우트로 직접 이동)에 그대로 맡긴다.
    */
   function startFocusFlow() {
+    // 세션 시작은 서버에 옛 세션 마감을 먼저 보내고 기다린다. 그 사이 한 번 더 누르면 요청과
+    // 화면 전환이 두 벌 나가므로 진행 중에는 막는다. 실패로 끝나면 다시 누를 수 있게 푼다.
+    if (isStartingRef.current) {
+      return;
+    }
+    isStartingRef.current = true;
     void runFocusStartFlow({
       openOnboardingGuide,
-      startSession: () =>
-        requestSessionStart(() => navigate({ pathname: "/room/1", search: location.search })),
-    }).catch((error: unknown) => {
-      console.warn("[home] 집중 시작 처리 실패", error);
-    });
+      startSession: async () => {
+        await requestSessionStart(userId, () =>
+          navigate({ pathname: "/room/1", search: location.search }),
+        );
+      },
+    })
+      .catch((error: unknown) => {
+        console.warn("[home] 집중 시작 처리 실패", error);
+      })
+      .finally(() => {
+        isStartingRef.current = false;
+      });
   }
 
   return (
@@ -311,6 +327,7 @@ function HomeContent({ userId }: { userId: number }) {
 export function HomeTabPage() {
   const [searchParams] = useSearchParams();
   const userId = parseUserId(searchParams.get("userId"));
+  const { recovered, dismiss } = useLaunchSessionRecovery(userId);
 
   return (
     <main
@@ -330,8 +347,7 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {/* U1 업데이트 안내 시트 — 기본은 비노출이라 평소에는 아무것도 렌더하지 않는다. */}
-      <UpdateNoticeSheetHost />
+      {recovered !== null && <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />}
     </main>
   );
 }
