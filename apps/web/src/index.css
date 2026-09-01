@@ -1,6 +1,17 @@
 @import "tailwindcss";
 
+/* Pretendard 자체 호스팅 — 가변 폰트 파일은 apps/web/public/fonts에 있다.
+   font-weight 45~920은 이 가변 폰트가 지원하는 축 범위. */
+@font-face {
+  font-family: "Pretendard";
+  src: url("/fonts/PretendardVariable.woff2") format("woff2");
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
+  --font-sans: "Pretendard", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
@@ -190,12 +201,7 @@ body {
   margin: 0;
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 /*
