@@ -31,7 +31,9 @@ export function PrimaryCtaButton({
       className="bg-brand-primary active:bg-brand-hover dark:bg-brand-primary-dark dark:active:bg-brand-hover-dark h-[52px] w-full items-center justify-center rounded-lg"
     >
       {/* Figma 실측 16px Bold / lh19 — label.lg(16/24 medium)와 weight·행간이 달라 실측값을 쓴다 */}
-      <Text className="text-text-onBrand text-[16px] font-bold leading-[19px]">{label}</Text>
+      <Text className="text-text-onBrand text-[16px] font-bold font-sans leading-[19px]">
+        {label}
+      </Text>
     </Pressable>
   );
 }

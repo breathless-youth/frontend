@@ -408,16 +408,16 @@ export function RemoteWebViewHost({
       >
         <Text
           accessibilityRole="header"
-          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-bold leading-[22px]"
+          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-bold font-sans leading-[22px]"
         >
           {LOAD_FAILURE_TITLE}
         </Text>
-        <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[13px] leading-[19px]">
+        <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[13px] font-sans leading-[19px]">
           {LOAD_FAILURE_BODY}
         </Text>
         {/* 사유는 개발 빌드에서만 노출한다 — 사용자에게 설정 키 이름 같은 내부 정보를 보이지 않는다. */}
         {__DEV__ && target === null && (
-          <Text className="text-text-tertiary mt-[6px] text-center text-[11px]">
+          <Text className="text-text-tertiary mt-[6px] text-center text-[11px] font-sans">
             (dev) WEB_BASE_URL 미설정 — apps/mobile/.env.local 확인
           </Text>
         )}
