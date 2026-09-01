@@ -105,16 +105,16 @@ export default function PermissionDeniedScreen() {
           <Text
             ref={titleRef}
             accessibilityRole="header"
-            className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-bold leading-[24px]"
+            className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-bold font-sans leading-[24px]"
           >
             카메라 권한이 필요해요
           </Text>
 
-          <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[14px] leading-[21px]">
+          <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[14px] font-sans leading-[21px]">
             측정은 카메라로만 할 수 있어요.{"\n"}설정에서 허용하면 바로 시작할 수 있어요.
           </Text>
 
-          <Text className="text-text-tertiary mt-[10px] text-center text-[12px] leading-[14px]">
+          <Text className="text-text-tertiary mt-[10px] text-center text-[12px] font-sans leading-[14px]">
             영상은 기기 안에서만 처리되고 저장되지 않아요
           </Text>
         </View>
@@ -134,7 +134,7 @@ export default function PermissionDeniedScreen() {
           accessibilityRole="button"
           className="mt-[12px] items-center justify-center py-[14px]"
         >
-          <Text className="text-text-secondary dark:text-text-secondary-dark text-center text-[13px] font-medium leading-[16px]">
+          <Text className="text-text-secondary dark:text-text-secondary-dark text-center text-[13px] font-medium font-sans leading-[16px]">
             홈으로 돌아가기
           </Text>
         </Pressable>
