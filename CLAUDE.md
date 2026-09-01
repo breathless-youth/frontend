@@ -62,7 +62,7 @@ pnpm --filter web dev      # web만
 - 각 패키지는 `lint`/`typecheck`/`test` 스크립트를 동일한 이름으로 노출한다 — 새 패키지를 추가할 때도 이 3개는 반드시 채운다(내용이 없으면 `echo ... && exit 0`이라도).
 - 공유 로직/타입은 `packages/*`로 올린다. 특정 화면에서만 쓰는 코드를 패키지로 미리 빼지 않는다(과도한 추상화 금지).
 - 커밋 메시지는 Conventional Commits(`feat:`, `fix:`, `chore:`, `docs:` 등). `commitlint`(`@commitlint/config-conventional` 기본값)가 강제한다. [Codex의 Git 워크플로 스펙](./docs/superpowers/specs/2026-07-22-git-github-jira-workflow-design.md)은 더 넓은 타입 목록(`design`/`comment`/`rename`/`remove`/`!HOTFIX` 포함)을 제안하지만 아직 `commitlint.config.js`에 반영되지 않았다.
-- **PR 제목은 `[타입] SCRUM-N 제목` 형식**(예: `[feat] SCRUM-147 공부 세션 제출 API 연동`, 티켓 없는 잡무는 `[chore] 제목`). 커밋 메시지의 Conventional Commits 스타일(`feat(web): ...`)을 PR 제목에 쓰지 말 것. Jira 키 자리에 GitHub 이슈번호(`#171`)를 쓰지 말 것. CI `pr-title` job이 강제한다.
+- **PR 제목은 `[타입] BY-N 제목` 형식**(예: `[feat] BY-147 공부 세션 제출 API 연동`, 티켓 없는 잡무는 `[chore] 제목`, `dev → main` 릴리즈 PR은 `[release] 제목`). 커밋 메시지의 Conventional Commits 스타일(`feat(web): ...`)을 PR 제목에 쓰지 말 것. Jira 키 자리에 GitHub 이슈번호(`#171`)를 쓰지 말 것. CI `pr-title` job이 강제한다.
 - PR은 `.github/pull_request_template.md` 체크리스트를 따른다. 구조/아키텍처 변경 시 `docs/adr/`에 ADR을 추가한다.
 - 로그인은 Google/Apple만 지원한다(다른 소셜/이메일 로그인 추가 금지). 실제 로그인 화면은 아직 미구현.
 
