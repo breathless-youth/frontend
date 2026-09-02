@@ -27,3 +27,16 @@ export function storeLink(platform: "android" | "ios", inviteCode: string): stri
   }
   return `https://apps.apple.com/app/id${IOS_APP_ID}`;
 }
+
+/**
+ * 앱스킴 스토어 링크 (강제 업데이트용)
+ *
+ * 위 `storeLink`는 https 웹 링크라 구버전 웹뷰의 내장 Linking이 앱 스킴만 가로채는 경우
+ * 새 탭/외부 브라우저로 새는 사례가 있어, 강제 업데이트 확인 버튼은 앱 스킴(`itms-apps://`,
+ * `market://`)으로 직접 스토어 앱을 연다. 초대코드 리퍼러가 필요 없어 별도 함수로 뺐다.
+ * ID 상수는 위 것과 공유해 이중 관리를 피한다.
+ */
+export function storeSchemeUrl(platform: "android" | "ios"): string {
+  if (platform === "android") return `market://details?id=${ANDROID_PACKAGE}`;
+  return `itms-apps://apps.apple.com/app/id${IOS_APP_ID}`;
+}
