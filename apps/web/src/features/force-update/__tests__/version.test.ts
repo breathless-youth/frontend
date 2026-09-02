@@ -43,6 +43,11 @@ describe("shouldForceUpdate", () => {
     expect(shouldForceUpdate("not-a-version")).toBe(false);
   });
 
+  it("세그먼트가 3자리가 아니면 강제하지 않는다(형식 이상 → fail-open)", () => {
+    expect(shouldForceUpdate("0.9")).toBe(false);
+    expect(shouldForceUpdate("1.0.0.0")).toBe(false);
+  });
+
   it("최소 버전 이상이면 강제하지 않는다", () => {
     expect(shouldForceUpdate(minSupportedVersion())).toBe(false);
     expect(shouldForceUpdate("1.0.1")).toBe(false);

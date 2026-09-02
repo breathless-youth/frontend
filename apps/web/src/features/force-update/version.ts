@@ -27,7 +27,8 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 {
   return 0;
 }
 
-const VERSION_PATTERN = /^\d+(\.\d+)*$/;
+// 앱 버전은 항상 x.y.z 3자리다.
+const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
 /**
  * appVersion이 없거나(브라우저 단독 접속) 형식이 이상하면 절대 막지 않는다(fail-open)
