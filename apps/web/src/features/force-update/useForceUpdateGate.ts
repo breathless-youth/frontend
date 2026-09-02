@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { detectStorePlatform } from "@/features/social-room/storeLink";
@@ -14,11 +15,13 @@ import { shouldForceUpdate } from "./version";
  */
 export function useForceUpdateGate(): { forced: boolean; onUpdate: () => void } {
   const [searchParams] = useSearchParams();
+  // appVersion은 첫 렌더링 시의 값으로 고정
+  const appVersion = useRef(searchParams.get("appVersion")).current;
   const platform =
     typeof navigator === "undefined"
       ? null
       : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
-  const forced = platform !== null && shouldForceUpdate(searchParams.get("appVersion"));
+  const forced = platform !== null && shouldForceUpdate(appVersion);
 
   return {
     forced,

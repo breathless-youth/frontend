@@ -1,6 +1,6 @@
-import { renderHook } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useForceUpdateGate } from "../useForceUpdateGate";
@@ -80,5 +80,30 @@ describe("useForceUpdateGate", () => {
     expect(window.location.href).toBe("market://details?id=com.breathlessyouth.mobile");
 
     Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+  });
+
+  it("첫 렌더의 appVersion을 고정한다 — 쿼리를 잃는 이동 뒤에도 forced가 유지된다", () => {
+    stubNavigator(ANDROID_UA, 5);
+    let forced: boolean | undefined;
+    function Probe() {
+      forced = useForceUpdateGate().forced;
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate("/terms")}>
+          go
+        </button>
+      );
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/?appVersion=0.9.0"]}>
+        <Probe />
+      </MemoryRouter>,
+    );
+    expect(forced).toBe(true);
+
+    // /terms에는 appVersion 쿼리가 없다. 매 렌더 URL을 읽었다면 여기서 forced가 false로 풀린다.
+    fireEvent.click(screen.getByText("go"));
+    expect(forced).toBe(true);
   });
 });
