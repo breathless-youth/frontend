@@ -56,7 +56,7 @@ const defaultNavigate: Navigate = (url) => {
 export function openInApp(
   platform: "android" | "ios",
   code: string,
-  deps: { navigate?: Navigate; win?: Window; doc?: Document } = {},
+  deps: { navigate?: Navigate } = {},
 ): void {
   const navigate = deps.navigate ?? defaultNavigate;
   if (platform === "android") {
@@ -64,23 +64,20 @@ export function openInApp(
     return;
   }
 
-  const win = deps.win ?? window;
-  const doc = deps.doc ?? document;
-
   const cleanup = () => {
-    win.clearTimeout(timer);
-    doc.removeEventListener("visibilitychange", onVisibility);
-    win.removeEventListener("pagehide", cleanup);
+    window.clearTimeout(timer);
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("pagehide", cleanup);
   };
   const onVisibility = () => {
-    if (doc.visibilityState === "hidden") cleanup();
+    if (document.visibilityState === "hidden") cleanup();
   };
-  const timer = win.setTimeout(() => {
+  const timer = window.setTimeout(() => {
     cleanup();
     navigate(storeLink("ios", code));
   }, IOS_STORE_FALLBACK_MS);
 
-  doc.addEventListener("visibilitychange", onVisibility);
-  win.addEventListener("pagehide", cleanup);
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", cleanup);
   navigate(appSchemeUrl(code));
 }
