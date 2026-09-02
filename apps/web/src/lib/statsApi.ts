@@ -4,7 +4,7 @@ import type {
   StudySessionStreakResponse,
 } from "@focusmakers/types";
 
-import { API_BASE_URL, parseErrorMessage } from "./api";
+import { API_BASE_URL, apiFetch, parseErrorMessage } from "./api";
 
 /**
  * 일일 통계·스트릭 조회 (`apps/mobile/lib/statsApi.ts`에서 이식 — BY-329).
@@ -19,7 +19,7 @@ export async function listStudySessionStats(
   userId: number,
   date: string,
 ): Promise<StudySessionListResponse> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE_URL}/api/stats?userId=${userId}&date=${encodeURIComponent(date)}`,
     {
       method: "GET",
@@ -38,7 +38,7 @@ export async function getStreak(
   const rangeParams = range
     ? `&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
     : "";
-  const res = await fetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
     method: "GET",
   });
   if (!res.ok) {
@@ -55,7 +55,7 @@ export async function getPeriodStats(
   const compareParams = compareRange
     ? `&compareFrom=${encodeURIComponent(compareRange.from)}&compareTo=${encodeURIComponent(compareRange.to)}`
     : "";
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`,
     { method: "GET" },
   );

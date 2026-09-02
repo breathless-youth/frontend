@@ -4,7 +4,7 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 
-import { API_BASE_URL, parseApiError } from "@/lib/api";
+import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 
 import { submitViaNative } from "./bridge/submitViaNative";
@@ -78,7 +78,7 @@ export async function submitStudySession(input: SessionInput): Promise<StudySess
     return await submitViaNative(request);
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/study-sessions`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),

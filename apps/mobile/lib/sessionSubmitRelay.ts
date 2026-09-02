@@ -4,7 +4,7 @@ import type {
   SubmitSessionMessage,
 } from "@focusmakers/types";
 
-import { parseErrorMessage } from "./api";
+import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 
 /**
@@ -34,7 +34,7 @@ export async function relaySessionSubmit(
   message: SubmitSessionMessage,
 ): Promise<SubmitResultMessage> {
   try {
-    const res = await fetch(`${apiBaseUrl()}/api/study-sessions`, {
+    const res = await apiFetch(`${apiBaseUrl()}/api/study-sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message.request),

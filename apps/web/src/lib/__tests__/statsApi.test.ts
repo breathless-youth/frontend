@@ -58,9 +58,10 @@ describe("listStudySessionStats", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
     await expect(listStudySessionStats(7, "2026-07-25")).resolves.toEqual(response);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/stats?userId=7&date=2026-07-25", {
-      method: "GET",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats?userId=7&date=2026-07-25",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it("세션이 없는 일자의 0값 응답을 그대로 반환한다", async () => {
@@ -100,9 +101,10 @@ describe("listStudySessionStats", () => {
 
     await listStudySessionStats(7, "2026-07-25&userId=9");
 
-    expect(mockedFetch).toHaveBeenCalledWith("/api/stats?userId=7&date=2026-07-25%26userId%3D9", {
-      method: "GET",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats?userId=7&date=2026-07-25%26userId%3D9",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });
 
@@ -121,9 +123,10 @@ describe("getStreak", () => {
       maxStreak: 12,
       studiedDatesInRange: [],
     });
-    expect(mockedFetch).toHaveBeenCalledWith("/api/stats/streak?userId=7", {
-      method: "GET",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/streak?userId=7",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it("기록이 없으면 0/0 응답을 그대로 반환한다", async () => {
@@ -174,7 +177,7 @@ describe("getStreak", () => {
     });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/streak?userId=7&from=2026-07-26&to=2026-07-28",
-      { method: "GET" },
+      expect.objectContaining({ method: "GET" }),
     );
   });
 
@@ -187,7 +190,7 @@ describe("getStreak", () => {
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/streak?userId=7&from=2026-07-26%26x%3D1&to=2026-07-28",
-      { method: "GET" },
+      expect.objectContaining({ method: "GET" }),
     );
   });
 
@@ -197,9 +200,10 @@ describe("getStreak", () => {
     );
 
     await getStreak(7);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/stats/streak?userId=7", {
-      method: "GET",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/streak?userId=7",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });
 
@@ -228,7 +232,7 @@ describe("getPeriodStats", () => {
     );
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30",
-      { method: "GET" },
+      expect.objectContaining({ method: "GET" }),
     );
   });
 
@@ -250,7 +254,7 @@ describe("getPeriodStats", () => {
     ).resolves.toEqual(response);
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
-      { method: "GET" },
+      expect.objectContaining({ method: "GET" }),
     );
   });
 
@@ -316,7 +320,7 @@ describe("getPeriodStats", () => {
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/period?userId=7&from=2026-08-24%26x%3D1&to=2026-08-30&compareFrom=2026-08-17%23z&compareTo=2026-08-23",
-      { method: "GET" },
+      expect.objectContaining({ method: "GET" }),
     );
   });
 });
