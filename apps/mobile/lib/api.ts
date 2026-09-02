@@ -12,3 +12,23 @@ export async function parseErrorMessage(
     .catch(() => undefined);
   return new Error(message ?? `${fallback} (HTTP ${res.status})`);
 }
+
+/**
+ * 모든 REST 호출이 거치는 공통 fetch 래퍼
+ *
+ * — 백엔드 버전닝 기본 헤더를 한 곳에서 관리한다. 호출부가 API-Version을 직접 지정하면 그 값이 우선한다.
+ */
+const DEFAULT_API_VERSION = "1";
+
+export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // fetch와 시그니처를 맞춰 Request 입력도 받는다. init.headers가 없으면 Request가
+  // 실어 온 헤더를 기준으로 삼아야 그 헤더가 유실되지 않는다.
+  const baseHeaders =
+    init?.headers ??
+    (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined);
+  const headers = new Headers(baseHeaders);
+  if (!headers.has("API-Version")) {
+    headers.set("API-Version", DEFAULT_API_VERSION);
+  }
+  return fetch(input, { ...init, headers });
+}
