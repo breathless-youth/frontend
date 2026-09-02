@@ -37,7 +37,10 @@ describe("getStudySessionDetail", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
     await expect(getStudySessionDetail(7, 10)).resolves.toEqual(response);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/study-sessions/10?userId=7", { method: "GET" });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/study-sessions/10?userId=7",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it("404면 서버가 준 code와 message를 보존한 ApiError를 던진다", async () => {

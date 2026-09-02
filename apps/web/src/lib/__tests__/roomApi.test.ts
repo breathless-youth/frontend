@@ -25,11 +25,13 @@ describe("createRoom", () => {
     mockedFetch.mockResolvedValue(jsonResponse(201, response));
 
     await expect(createRoom(7)).resolves.toEqual(response);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/rooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: 7 }),
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/rooms",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ userId: 7 }),
+      }),
+    );
   });
 
   it("실패 응답이면 ApiError를 던진다", async () => {
@@ -55,11 +57,13 @@ describe("renewLiveRoomSeat", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
     await expect(renewLiveRoomSeat(7, "0712")).resolves.toEqual(response);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/rooms/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: 7, inviteCode: "0712" }),
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/rooms/join",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ userId: 7, inviteCode: "0712" }),
+      }),
+    );
   });
 
   it("404 ROOM_CLOSED의 code를 보존해 던진다", async () => {
@@ -90,7 +94,10 @@ describe("leaveRoom", () => {
     mockedFetch.mockResolvedValue({ ok: true, status: 204, json: async () => undefined });
 
     await expect(leaveRoom(42, 7)).resolves.toBeUndefined();
-    expect(mockedFetch).toHaveBeenCalledWith("/api/rooms/42/leave?userId=7", { method: "POST" });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/rooms/42/leave?userId=7",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("실패 응답이면 ApiError를 던진다", async () => {

@@ -30,7 +30,10 @@ describe("getProfile", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, profile));
 
     await expect(getProfile(7)).resolves.toEqual(profile);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/users/7/profile", { method: "GET" });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/users/7/profile",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });
 
@@ -44,11 +47,13 @@ describe("updateProfile", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, updated));
 
     await expect(updateProfile(7, { nickname: "숨벅찬청년들" })).resolves.toEqual(updated);
-    expect(mockedFetch).toHaveBeenCalledWith("/api/users/7/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: "숨벅찬청년들" }),
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/users/7/profile",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ nickname: "숨벅찬청년들" }),
+      }),
+    );
   });
 
   it("409 NICKNAME_TAKEN의 code를 보존해 던진다", async () => {

@@ -7,14 +7,14 @@ import type {
 
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 
-import { API_BASE_URL, parseApiError } from "./api";
+import { API_BASE_URL, apiFetch, parseApiError } from "./api";
 
 /**
  * 초대코드 룸 생성·입장
  */
 
 export async function createRoom(userId: number): Promise<RoomCreateResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/rooms`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId } satisfies RoomCreateRequest),
@@ -26,7 +26,7 @@ export async function createRoom(userId: number): Promise<RoomCreateResponse> {
 }
 
 async function postJoin(userId: number, inviteCode: string): Promise<RoomJoinResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/rooms/join`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/rooms/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // inviteCode는 문자열 그대로 보낸다 — 앞자리 0 보존
@@ -65,7 +65,7 @@ export async function renewLiveRoomSeat(
 
 /** 명시적 퇴장 — 룸 나가기에서 세션 제출 후 호출한다. */
 export async function leaveRoom(roomId: number, userId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/api/rooms/${roomId}/leave?userId=${userId}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave?userId=${userId}`, {
     method: "POST",
   });
   if (!res.ok) {
