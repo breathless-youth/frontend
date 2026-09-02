@@ -19,6 +19,7 @@
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
     "@mediapipe/tasks-vision": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@sentry/react": "^10.69.0",
     "@stomp/stompjs": "^7.3.0",
     "@tanstack/react-query": "^5.101.4",

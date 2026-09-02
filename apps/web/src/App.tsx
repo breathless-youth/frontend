@@ -3,6 +3,13 @@ import { Route, Routes } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { ForceUpdateDialog } from "@/features/force-update/components/ForceUpdateDialog";
+import {
+  FORCE_UPDATE_CONFIRM_LABEL,
+  FORCE_UPDATE_DESCRIPTION,
+  FORCE_UPDATE_TITLE,
+} from "@/features/force-update/copy";
+import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativePingResponder } from "@/lib/nativeLiveness";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
@@ -44,6 +51,8 @@ export function App() {
   useNativePingResponder();
   // 렌더러 사망 복구용 현재 화면 보고(`lib/nativeScreenReport.ts`).
   useNativeScreenReport();
+  // 앱 버전이 최소 버전 미만이면 강제 업데이트 모달을 앱 전역에 띄운다
+  const { forced: forceUpdateRequired, onUpdate: openAppStoreForUpdate } = useForceUpdateGate();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -53,28 +62,40 @@ export function App() {
         `onCaughtError`를 추가하면 이중 전송이 된다(`errorBoundary.test.tsx`가 고정).
       */}
       <Sentry.ErrorBoundary fallback={<ErrorFallback />}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/room/:id" element={<RoomPage />} />
-          <Route path="/room/:id/result" element={<ResultPage />} />
-          <Route path="/home" element={<HomeTabPage />} />
-          <Route path="/records" element={<RecordsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/social" element={<SocialHomePage />} />
-          {import.meta.env.DEV && (
-            <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
-          )}
-          <Route path="/social/code" element={<InviteCodeSharePage />} />
-          <Route path="/social/join" element={<InviteCodeJoinPage />} />
-          <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
-          <Route path="/social/room/:roomId/result" element={<ResultPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/licenses" element={<LicensesPage />} />
-        </Routes>
+        {forceUpdateRequired ? (
+          // 강제 업데이트가 걸리면 라우트 트리 자체를 마운트하지 않는다 — 모달 뒤에서 화면이
+          // 계속 렌더되며 이펙트를 돌리는 것도, 라우트 에러가 같은 바운더리에서 이 모달을
+          // 대체해 버리는 것도 막는다.
+          <ForceUpdateDialog
+            title={FORCE_UPDATE_TITLE}
+            description={FORCE_UPDATE_DESCRIPTION}
+            confirmLabel={FORCE_UPDATE_CONFIRM_LABEL}
+            onConfirm={openAppStoreForUpdate}
+          />
+        ) : (
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/room/:id" element={<RoomPage />} />
+            <Route path="/room/:id/result" element={<ResultPage />} />
+            <Route path="/home" element={<HomeTabPage />} />
+            <Route path="/records" element={<RecordsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/social" element={<SocialHomePage />} />
+            {import.meta.env.DEV && (
+              <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+            )}
+            <Route path="/social/code" element={<InviteCodeSharePage />} />
+            <Route path="/social/join" element={<InviteCodeJoinPage />} />
+            <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
+            <Route path="/social/room/:roomId/result" element={<ResultPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/licenses" element={<LicensesPage />} />
+          </Routes>
+        )}
       </Sentry.ErrorBoundary>
     </QueryClientProvider>
   );
