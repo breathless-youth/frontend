@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
+import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
-import { detectStorePlatform, storeLink } from "@/features/social-room/storeLink";
+import { detectStorePlatform } from "@/features/social-room/storeLink";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
@@ -31,6 +32,19 @@ export function InviteCodeJoinPage() {
   const storePlatform = isNativeBridgeAvailable()
     ? null
     : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
+
+  // 인앱 브라우저는 유니버설 링크가 발동하지 않아 앱으로 못 넘어간다.
+  // 코드가 실린 링크로 들어왔고 앱 밖 모바일이면, 첫 로드에 한 번 스킴으로 앱 열기를 시도한다.
+  const autoOpenTried = useRef(false);
+  useEffect(() => {
+    if (autoOpenTried.current) return;
+    autoOpenTried.current = true;
+    if (storePlatform !== null && shouldAutoOpenInApp(navigator.userAgent, code)) {
+      openInApp(storePlatform, code);
+    }
+    // code·storePlatform은 초깃값으로 고정돼 의존성이 바뀌지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const joinMutation = useMutation({
     // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와
@@ -113,12 +127,13 @@ export function InviteCodeJoinPage() {
           참여하기
         </button>
         {storePlatform !== null && (
-          <a
-            href={storeLink(storePlatform, isCompleteInviteCode(code) ? code : "")}
+          <button
+            type="button"
+            onClick={() => openInApp(storePlatform, isCompleteInviteCode(code) ? code : "")}
             className="mt-2 flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-muted-foreground"
           >
             앱에서 참여하기
-          </a>
+          </button>
         )}
       </div>
     </main>
