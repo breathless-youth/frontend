@@ -8,6 +8,11 @@ import SocialScreen from "../app/(tabs)/social";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
+const mockParams: { code?: string } = {};
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: () => mockParams,
+}));
+
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
   useIsFocused: () => true,
@@ -43,12 +48,43 @@ jest.mock("react-native-webview", () => {
 });
 
 describe("SocialScreen", () => {
+  afterEach(() => {
+    delete mockParams.code;
+  });
+
   it("/social 경로 + 탭 공용 쿼리(userId·appVersion)로 조립한 URL을 로드한다", async () => {
     render(<SocialScreen />);
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
       uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+    });
+  });
+
+  it("code 파라미터가 있으면 /social/join을 코드 프리필로 로드한다", async () => {
+    mockParams.code = "5634";
+    render(<SocialScreen />);
+
+    expect(await screen.findByTestId("social-webview")).toBeTruthy();
+    expect(screen.getByTestId("social-webview").props.source).toEqual({
+      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&code=5634",
+    });
+  });
+
+  it("code 없이 떠 있던 화면에 code가 생기면 key 변화로 재마운트해 join URL을 새로 로드한다", async () => {
+    const { rerender } = render(<SocialScreen />);
+
+    expect(await screen.findByTestId("social-webview")).toBeTruthy();
+    expect(screen.getByTestId("social-webview").props.source).toEqual({
+      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+    });
+
+    mockParams.code = "5634";
+    rerender(<SocialScreen />);
+
+    expect(await screen.findByTestId("social-webview")).toBeTruthy();
+    expect(screen.getByTestId("social-webview").props.source).toEqual({
+      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&code=5634",
     });
   });
 });

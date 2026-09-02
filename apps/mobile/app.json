@@ -2,7 +2,7 @@
   "expo": {
     "name": "FocusMakers",
     "slug": "mobile",
-    "scheme": "focuson",
+    "scheme": ["focusmakers", "focuson"],
     "version": "1.0.2",
     "orientation": "default",
     "icon": "./assets/icon.png",
