@@ -17,7 +17,7 @@ export default function SocialScreen() {
 
   return (
     <RemoteScreen
-      key={inviteCode ?? "social-home"}
+      key={inviteCode !== undefined ? `invite-${inviteCode}` : "social-home"}
       suppressTabBarMessages={!isFocused}
       testID="social-webview"
       path={inviteCode !== undefined ? "/social/join" : "/social"}

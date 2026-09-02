@@ -8,7 +8,6 @@ import SocialScreen from "../app/(tabs)/social";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
-// 파일 상단 목 블록에 추가 — 테스트마다 파라미터를 바꿔 끼운다.
 const mockParams: { code?: string } = {};
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
