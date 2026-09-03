@@ -45,7 +45,7 @@ describe("parseToNativeMessage", () => {
     });
   });
 
-  it("share의 선택 필드 url·title을 함께 파싱한다 — 공유시트 썸네일용(BY-427)", () => {
+  it("share의 선택 필드 url·title을 함께 파싱한다 — url은 레거시 웹 수신 호환용(BY-584)", () => {
     expect(
       parseToNativeMessage(
         '{"type":"share","text":"초대 텍스트","url":"https://example.com/social/join?code=0712","title":"포커스 메이커스 그룹 스터디","atMs":9}',

@@ -186,8 +186,8 @@ describe("handleBridgeMessage", () => {
       noopReply,
     );
 
-    // url은 iOS 공유시트의 미리보기 카드용 별도 필드, title은 시트 제목 — 링크는
-    // message 본문에도 이미 들어 있다(핸들러 주석의 플랫폼 차이 참고).
+    // url은 레거시 웹 메시지가 보낼 때만 수신하는 호환 필드다(현행 웹은 생략, BY-584) —
+    // 받으면 그대로 전달하나 Android는 무시한다. title은 시트 제목, 링크는 message 본문에 있다.
     expect(shareSpy).toHaveBeenCalledWith({
       message: "초대 텍스트",
       url: "https://web.sunqstudio.kr/social/join?code=0712",
