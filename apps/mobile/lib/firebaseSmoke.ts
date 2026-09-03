@@ -1,4 +1,4 @@
-import { getPushToken } from "./pushMessaging";
+import { getApnsToken, getPushToken } from "./pushMessaging";
 import {
   activateRemoteConfig,
   fetchRemoteConfig,
@@ -33,6 +33,9 @@ export async function logFirebaseSmoke(): Promise<void> {
   } catch (error) {
     console.warn("[firebase-smoke] remote config 실패", error);
   }
+  // iOS는 APNs 기기 토큰이 와야 FCM 토큰이 나온다 — 어댑터가 없으면 등록해 기다리므로 여기선 상태만 남긴다.
+  // eslint-disable-next-line no-console -- 개발 전용 배선 확인 로그(의도된 출력)
+  console.log(`[firebase-smoke] apns token ${(await getApnsToken()) ? "있음" : "없음"}`);
   try {
     const token = await getPushToken();
     // eslint-disable-next-line no-console -- 개발 전용 배선 확인 로그(의도된 출력)
