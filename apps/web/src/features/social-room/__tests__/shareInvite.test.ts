@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { INVITE_SHARE_TITLE, inviteLink, inviteShareText, shareInvite } from "../shareInvite";
+import {
+  INVITE_SHARE_TITLE,
+  inviteLink,
+  inviteShareBody,
+  inviteShareText,
+  shareInvite,
+} from "../shareInvite";
 
 afterEach(() => {
   delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
@@ -20,8 +26,18 @@ describe("inviteShareText", () => {
   });
 });
 
+describe("inviteShareBody", () => {
+  it("링크 없이 인사와 초대코드만 담는다", () => {
+    expect(inviteShareBody("0712")).toBe("그룹 스터디에 초대받았어요!\n\n초대코드: 0712");
+  });
+
+  it("본문에 링크가 들어가지 않는다", () => {
+    expect(inviteShareBody("0712")).not.toContain("/social/join");
+  });
+});
+
 describe("shareInvite", () => {
-  it("navigator.share에 title·url을 별도 필드로 싣는다 — text만 보내면 공유시트 썸네일이 깨진다", async () => {
+  it("navigator.share는 text에 링크를 빼고 url 필드로만 링크를 싣는다 — 카톡 프리뷰 중복 방지", async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { value: share, configurable: true });
 
@@ -29,9 +45,12 @@ describe("shareInvite", () => {
 
     expect(share).toHaveBeenCalledWith({
       title: INVITE_SHARE_TITLE,
-      text: inviteShareText("0712"),
+      text: inviteShareBody("0712"),
       url: inviteLink("0712"),
     });
+    // 본문에 링크가 없어야 카톡이 프리뷰를 두 번 만들지 않는다.
+    const arg = share.mock.calls[0]![0] as { text: string };
+    expect(arg.text).not.toContain("/social/join");
   });
 
   it("navigator.share가 없고 브리지 + 지원 표시(?share=1)가 있으면(신규 앱) share 메시지를 보낸다", async () => {

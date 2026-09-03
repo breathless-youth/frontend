@@ -23,10 +23,21 @@ export function inviteShareText(inviteCode: string): string {
 }
 
 /**
+ * 공유 시트에 넘길 본문. 링크는 `navigator.share`의 `url` 필드가 카드로 렌더하므로 본문에는
+ * 넣지 않는다 — 본문에도 링크가 있으면 카톡이 같은 링크로 프리뷰를 한 번 더 만들어 말풍선이
+ * 중복된다. 초대코드는 남겨 링크를 못 여는 경우의 안내로 쓴다.
+ */
+export function inviteShareBody(inviteCode: string): string {
+  return `그룹 스터디에 초대받았어요!\n\n초대코드: ${inviteCode}`;
+}
+
+/**
  * 공유 시트 제목. text만 보내면 OS 공유시트가 한글 문구를 축소 렌더해 썸네일이 깨진
  * 텍스트 프리뷰로 뜬다(2026-08-24 실기기 확인, BY-427) — `title`·`url`을 별도 필드로
- * 실어 시트가 URL 미리보기 카드(앱 아이콘)를 그리게 한다. 링크는 일부 앱이 url만 살리는
- * 경우가 있어 text 본문에도 그대로 유지한다(초대코드 4자리도 마찬가지).
+ * 실어 시트가 URL 미리보기 카드(앱 아이콘)를 그리게 한다. `navigator.share`의 text에는
+ * 링크를 넣지 않는다 — url 필드가 카드를 그리므로 본문에도 링크가 있으면 카톡이 프리뷰를
+ * 두 번 만든다(BY-584, `inviteShareBody`). 링크가 본문에 있어야 하는 브리지(url 무시)·
+ * 클립보드(url 필드 없음) 경로만 `inviteShareText`를 그대로 쓴다.
  */
 export const INVITE_SHARE_TITLE = "포커스 메이커스 그룹 스터디";
 
@@ -52,9 +63,11 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
   if (typeof navigator.share === "function") {
     try {
       // title·url을 별도 필드로 싣는 이유는 `INVITE_SHARE_TITLE` 주석 참고(썸네일 깨짐 방지).
+      // text에는 링크를 넣지 않는다 — url 필드가 카드를 그리므로, 본문에도 링크가 있으면
+      // 카톡이 같은 링크로 프리뷰를 두 번 만들어 말풍선이 중복된다(`inviteShareBody` 주석).
       await navigator.share({
         title: INVITE_SHARE_TITLE,
-        text: inviteShareText(inviteCode),
+        text: inviteShareBody(inviteCode),
         url: inviteLink(inviteCode),
       });
       return "shared";
