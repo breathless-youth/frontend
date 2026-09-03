@@ -89,6 +89,25 @@ describe("소셜 홈", () => {
     expect(await screen.findByText("초대코드를 입력해 주세요")).toBeInTheDocument();
   });
 
+  it("초대코드로 참여로 진입하면 URL에 남은 이전 코드가 프리필되지 않는다 (BY-581)", async () => {
+    renderAt("/social?userId=7&code=0712");
+
+    await userEvent.click(screen.getByRole("button", { name: "초대코드로 참여" }));
+
+    expect(await screen.findByText("초대코드를 입력해 주세요")).toBeInTheDocument();
+    // 이전 코드가 눌어붙지 않아 입력란이 비어 있다.
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("");
+    // userId는 유지된다 — 코드를 채우면 참여 버튼이 활성화된다(userId가 null이면 계속 비활성).
+    await userEvent.type(screen.getByLabelText("초대코드 4자리"), "1234");
+    expect(screen.getByRole("button", { name: "참여하기" })).toBeEnabled();
+  });
+
+  it("외부 초대 링크로 직접 진입하면 코드가 프리필된다 (회귀)", () => {
+    renderAt("/social/join?userId=7&code=0712");
+
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("0712");
+  });
+
   it("userId가 없으면 방 만들기가 비활성화된다", () => {
     renderAt("/social");
 
