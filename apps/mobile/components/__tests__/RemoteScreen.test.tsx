@@ -102,7 +102,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 
@@ -113,7 +113,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 

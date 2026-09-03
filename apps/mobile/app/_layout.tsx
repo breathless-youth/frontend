@@ -5,14 +5,17 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ForceUpdateScreen } from "../components/ForceUpdateScreen";
 import { logFirebaseSmoke } from "../lib/firebaseSmoke";
+import { resolveForceUpdate } from "../lib/forceUpdate";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
 import { initSentry, wrapRoot } from "../lib/sentry";
+import { openAppStore } from "../lib/storeLink";
 import { ensureUserRegistered } from "../lib/userApi";
 
 /**
@@ -41,13 +44,34 @@ function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Pretendard: require("../assets/fonts/PretendardVariable.ttf") as number,
   });
+  // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
+  // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 안내 화면만 그린다.
+  const [updateGate, setUpdateGate] = useState<"pending" | "pass" | "forced">("pending");
+
+  useEffect(() => {
+    let active = true;
+    void resolveForceUpdate()
+      .then((decision) => {
+        if (active) setUpdateGate(decision.forced ? "forced" : "pass");
+      })
+      .catch(() => {
+        if (active) setUpdateGate("pass");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fontsReady = fontsLoaded || fontError;
+  const gateReady = updateGate !== "pending";
 
   useEffect(() => {
     // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
-    if (fontsLoaded || fontError) {
+    // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
+    if (fontsReady && gateReady) {
       void SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsReady, gateReady]);
 
   useEffect(() => {
     void ensureUserRegistered();
@@ -81,8 +105,21 @@ function RootLayout() {
   // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
-  if (!fontsLoaded && !fontError) {
+  if (!fontsReady || !gateReady) {
     return null;
+  }
+
+  if (updateGate === "forced") {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="auto" />
+        <ForceUpdateScreen
+          onUpdate={() => {
+            void openAppStore();
+          }}
+        />
+      </SafeAreaProvider>
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import type * as ReactNative from "react-native";
 
 import RootLayout from "../app/_layout";
 
@@ -13,6 +14,19 @@ import RootLayout from "../app/_layout";
  */
 
 jest.mock("../global.css", () => ({}), { virtual: true });
+
+// 강제 업데이트 화면이 useSafeAreaInsets를 쓴다 — 네이티브 SafeAreaProvider 없이 렌더한다.
+// Provider는 View로 감싼다: 통과 경로에서 Stack·Screen mock이 전부 null을 돌려줘도 "무언가를 그렸다"는
+// 판정(toJSON() !== null)이 유지되게 하기 위해서다.
+jest.mock("react-native-safe-area-context", () => {
+  const { View: MockView } = jest.requireActual<typeof ReactNative>("react-native");
+  return {
+    SafeAreaProvider: ({ children }: { children?: ReactNode }) => (
+      <MockView testID="safe-area-provider">{children}</MockView>
+    ),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
 
 jest.mock("@sentry/react-native", () => ({
   init: jest.fn(),
@@ -53,15 +67,57 @@ jest.mock("../lib/userApi", () => ({
 jest.mock("../lib/firebaseSmoke", () => ({
   logFirebaseSmoke: jest.fn(() => Promise.resolve()),
 }));
+// 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
+const mockResolveForceUpdate = jest.fn();
+jest.mock("../lib/forceUpdate", () => ({
+  resolveForceUpdate: () => mockResolveForceUpdate() as Promise<{ forced: boolean }>,
+}));
+const mockOpenAppStore = jest.fn(() => Promise.resolve());
+jest.mock("../lib/storeLink", () => ({
+  openAppStore: () => mockOpenAppStore(),
+}));
 
 beforeEach(() => {
   mockUseFonts.mockReset();
   mockHideAsync.mockClear();
+  mockResolveForceUpdate.mockReset().mockResolvedValue({ forced: false });
+  mockOpenAppStore.mockClear();
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
-  it("로딩 중([false, undefined])에는 아무것도 그리지 않고 스플래시도 걷지 않는다", () => {
+  it("로딩 중([false, undefined])에는 아무것도 그리지 않고 스플래시도 걷지 않는다", async () => {
     mockUseFonts.mockReturnValue([false, undefined]);
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
+
+    expect(toJSON()).toBeNull();
+    expect(mockHideAsync).not.toHaveBeenCalled();
+  });
+
+  it("성공([true, undefined])하면 앱 콘텐츠를 그리고 스플래시를 걷는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", async () => {
+    mockUseFonts.mockReturnValue([false, new Error("font load failed")]);
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
+  it("판정이 끝나기 전에는 폰트가 준비돼도 그리지 않고 스플래시도 걷지 않는다 — 웹뷰 깜빡임 방지", () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockReturnValue(new Promise(() => {}));
 
     const { toJSON } = render(<RootLayout />);
 
@@ -69,21 +125,26 @@ describe("RootLayout 폰트 로드 게이팅", () => {
     expect(mockHideAsync).not.toHaveBeenCalled();
   });
 
-  it("성공([true, undefined])하면 앱 콘텐츠를 그리고 스플래시를 걷는다", () => {
+  it("forced면 라우터 스택 대신 강제 업데이트 화면만 그리고, 확인 시 스토어를 연다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({ forced: true });
 
-    const { toJSON } = render(<RootLayout />);
+    render(<RootLayout />);
 
-    expect(toJSON()).not.toBeNull();
+    const cta = await screen.findByTestId("force-update-cta");
+    expect(screen.getByTestId("force-update-screen")).toBeTruthy();
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    fireEvent.press(cta);
+    expect(mockOpenAppStore).toHaveBeenCalledTimes(1);
   });
 
-  it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", () => {
-    mockUseFonts.mockReturnValue([false, new Error("font load failed")]);
+  it("판정이 거부(reject)돼도 통과시켜 앱을 그린다 — fail-open", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockRejectedValue(new Error("boom"));
 
     const { toJSON } = render(<RootLayout />);
 
-    expect(toJSON()).not.toBeNull();
-    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(screen.queryByTestId("force-update-screen")).toBeNull();
   });
 });

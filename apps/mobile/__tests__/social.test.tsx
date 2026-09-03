@@ -57,7 +57,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 
@@ -67,7 +67,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&code=5634",
+      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&code=5634",
     });
   });
 
@@ -76,7 +76,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
 
     mockParams.code = "5634";
@@ -84,7 +84,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&code=5634",
+      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&code=5634",
     });
   });
 });

@@ -51,7 +51,7 @@ describe("SettingsScreen", () => {
 
     expect(await screen.findByTestId("settings-webview")).toBeTruthy();
     expect(screen.getByTestId("settings-webview").props.source).toEqual({
-      uri: "https://web.test/settings?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/settings?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 });
