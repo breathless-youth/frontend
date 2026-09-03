@@ -1,0 +1,21 @@
+diff --git a/ios/RNFBMessaging/RNFBMessagingModule.mm b/ios/RNFBMessaging/RNFBMessagingModule.mm
+index 201d660e9c9a5c689f444e8e3e2c3c7354daefd1..05d16eb7520d77ac20480b9e71a9de89827bf697 100644
+--- a/ios/RNFBMessaging/RNFBMessagingModule.mm
++++ b/ios/RNFBMessaging/RNFBMessagingModule.mm
+@@ -44,6 +44,16 @@ @implementation RNFBMessagingModule
+ 
+ RCT_EXPORT_MODULE(NativeRNFBTurboMessaging)
+ 
++// [focusmakers patch] v26의 TurboModule 전환에서 v25까지 있던 main-queue methodQueue가 사라졌다.
++// 그러면 getToken/getAPNSToken/hasPermission의 `[UIApplication sharedApplication]
++// .isRegisteredForRemoteNotifications` 읽기가 백그라운드 스레드에서 실행돼 실기기에서도 NO를 돌려주고
++// `[messaging/unregistered]`로 실패한다(2026-09-03 iPhone 17 Pro, iOS 26.6.1 실측 — APNs 토큰은
++// 이미 있는 상태). RN의 ObjCTurboModule은 methodQueue를 아직 존중하므로 v25와 같이 main으로 되돌린다.
++// 업스트림 수정이 들어오면 이 패치를 제거한다.
++- (dispatch_queue_t)methodQueue {
++  return dispatch_get_main_queue();
++}
++
+ + (BOOL)requiresMainQueueSetup {
+   return NO;
+ }
