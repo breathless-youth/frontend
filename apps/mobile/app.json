@@ -16,7 +16,10 @@
       },
       "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile",
-      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:web.focusmakers.app"]
+      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:web.focusmakers.app"],
+      "entitlements": {
+        "aps-environment": "development"
+      }
     },
     "android": {
       "versionCode": 3,
@@ -72,7 +75,17 @@
           "project": "focusmakers-app"
         }
       ],
-      "./plugins/withAppDisplayName"
+      "./plugins/withAppDisplayName",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "extra": {
       "appDisplayName": "포커스 메이커스",
