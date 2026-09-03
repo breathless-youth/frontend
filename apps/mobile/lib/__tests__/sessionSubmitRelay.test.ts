@@ -40,11 +40,13 @@ describe("relaySessionSubmit", () => {
 
     await relaySessionSubmit(MESSAGE);
 
-    expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/study-sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(REQUEST),
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/study-sessions",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(REQUEST),
+      }),
+    );
   });
 
   it("성공하면 서버 응답을 담아 requestId와 함께 돌려준다", async () => {

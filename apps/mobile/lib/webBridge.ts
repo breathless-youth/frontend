@@ -79,8 +79,9 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (typeof record.text !== "string") {
         return null;
       }
-      // url·title은 선택 필드(BY-427, 공유시트 썸네일용) — 문자열이 아니면 그 필드만 버린다.
-      // text만 있어도 시트는 열리므로 메시지 통째로 버리지 않는다(구버전 웹 하위호환).
+      // url·title은 선택 필드 — 문자열이 아니면 그 필드만 버린다. 현행 웹은 url을 보내지
+      // 않고(BY-584, 카톡 프리뷰 중복 방지) 링크를 text에 둔다. url 수신은 레거시 호환용이다.
+      // text만 있어도 시트는 열리므로 메시지를 통째로 버리지 않는다.
       return {
         type: "share",
         text: record.text,

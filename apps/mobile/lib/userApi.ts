@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 
 import type { UserRegisterResponse } from "@focusmakers/types";
 
-import { parseErrorMessage } from "./api";
+import { apiFetch, parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
 import { apiBaseUrl } from "./apiBaseUrl";
 
@@ -19,7 +19,7 @@ const USER_ID_KEY = "focuson.userId";
  * "온보딩 분기에 쓰라"는 이전 주석이 실제로 잘못된 티켓 요구사항을 만들어 지운다(BY-334).
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
-  const res = await fetch(`${apiBaseUrl()}/api/users`, {
+  const res = await apiFetch(`${apiBaseUrl()}/api/users`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deviceId }),

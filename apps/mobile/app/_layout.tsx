@@ -1,7 +1,9 @@
 import "../global.css";
 
 import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
@@ -18,6 +20,12 @@ import { ensureUserRegistered } from "../lib/userApi";
  */
 initSentry();
 
+// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다 — 안 그러면 시스템 폰트로
+// 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다. 위 initSentry와 같은 이유로
+// 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다. 이미 숨겨진
+// 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+
 /**
  * 서버 통계는 홈·기록 탭이 공유한다. staleTime 30초: 탭을 오가는 짧은 간격에는 캐시를
  * 쓰고, 그보다 오래되면 포커스 시 재조회한다. retry 1: 오류 UI에 재시도 버튼이 있으므로
@@ -29,6 +37,16 @@ const queryClient = new QueryClient({
 
 function RootLayout() {
   const router = useRouter();
+  const [fontsLoaded, fontError] = useFonts({
+    Pretendard: require("../assets/fonts/PretendardVariable.ttf") as number,
+  });
+
+  useEffect(() => {
+    // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
+    if (fontsLoaded || fontError) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
 
   useEffect(() => {
     void ensureUserRegistered();
@@ -53,6 +71,13 @@ function RootLayout() {
     });
     return () => sub.remove();
   }, []);
+
+  // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
+  // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
+  // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

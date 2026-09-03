@@ -27,6 +27,7 @@ describe("reportRtcStats", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/rtc-stats$/);
     expect(init).toMatchObject({ method: "POST", keepalive: true });
+    expect(new Headers(init!.headers).get("API-Version")).toBe("1");
     expect(JSON.parse(init!.body as string)).toMatchObject({
       connectionId: "c1",
       candidateType: "relay",

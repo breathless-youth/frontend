@@ -93,7 +93,11 @@ export function SocialHomePage() {
           <button
             type="button"
             onClick={() => {
-              navigate({ pathname: "/social/join", search: location.search });
+              // 이전 진입에서 URL에 남은 초대코드가 다시 프리필되지 않게 code만 뺀다 —
+              // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
+              const params = new URLSearchParams(location.search);
+              params.delete("code");
+              navigate({ pathname: "/social/join", search: params.toString() });
             }}
             className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
           >

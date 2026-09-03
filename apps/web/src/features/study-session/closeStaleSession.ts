@@ -1,6 +1,6 @@
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
-import { API_BASE_URL, parseApiError } from "@/lib/api";
+import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
 
 /**
@@ -28,7 +28,7 @@ async function requestRecovery(
   userId: number,
   signal: AbortSignal,
 ): Promise<SessionRecoveryResponse | null> {
-  const res = await fetch(`${API_BASE_URL}/api/study-sessions/recovery?userId=${userId}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery?userId=${userId}`, {
     method: "POST",
     signal,
   });

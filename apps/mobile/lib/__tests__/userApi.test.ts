@@ -44,11 +44,13 @@ describe("ensureUserRegistered", () => {
     mockedFetch.mockResolvedValue(jsonResponse(201, { userId: 7, isNew: true }));
 
     await expect(ensureUserRegistered()).resolves.toBe(7);
-    expect(mockedFetch).toHaveBeenCalledWith("http://api.test/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e" }),
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/users",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e" }),
+      }),
+    );
     expect(mockedSet).toHaveBeenCalledWith("focuson.userId", "7");
   });
 

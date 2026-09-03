@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
+import type * as AppHandoffModule from "@/features/social-room/appHandoff";
+import { openInApp } from "@/features/social-room/appHandoff";
 import { ApiError } from "@/lib/api";
 import { createRoom, enterLiveRoom, renewLiveRoomSeat } from "@/lib/roomApi";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
@@ -13,6 +15,11 @@ vi.mock("@/lib/roomApi", () => ({
   createRoom: vi.fn(),
   enterLiveRoom: vi.fn(),
   renewLiveRoomSeat: vi.fn(),
+}));
+
+vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
+  ...(await importOriginal<typeof AppHandoffModule>()),
+  openInApp: vi.fn(),
 }));
 
 const mockedCreateRoom = vi.mocked(createRoom);
@@ -80,6 +87,25 @@ describe("소셜 홈", () => {
     await userEvent.click(screen.getByRole("button", { name: "초대코드로 참여" }));
 
     expect(await screen.findByText("초대코드를 입력해 주세요")).toBeInTheDocument();
+  });
+
+  it("초대코드로 참여로 진입하면 URL에 남은 이전 코드가 프리필되지 않는다 (BY-581)", async () => {
+    renderAt("/social?userId=7&code=0712");
+
+    await userEvent.click(screen.getByRole("button", { name: "초대코드로 참여" }));
+
+    expect(await screen.findByText("초대코드를 입력해 주세요")).toBeInTheDocument();
+    // 이전 코드가 눌어붙지 않아 입력란이 비어 있다.
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("");
+    // userId는 유지된다 — 코드를 채우면 참여 버튼이 활성화된다(userId가 null이면 계속 비활성).
+    await userEvent.type(screen.getByLabelText("초대코드 4자리"), "1234");
+    expect(screen.getByRole("button", { name: "참여하기" })).toBeEnabled();
+  });
+
+  it("외부 초대 링크로 직접 진입하면 코드가 프리필된다 (회귀)", () => {
+    renderAt("/social/join?userId=7&code=0712");
+
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("0712");
   });
 
   it("userId가 없으면 방 만들기가 비활성화된다", () => {
@@ -232,27 +258,24 @@ describe("앱에서 참여하기 유도", () => {
 
   afterEach(() => {
     delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
+    vi.mocked(openInApp).mockClear();
     vi.restoreAllMocks();
   });
 
-  it("모바일 브라우저(브리지 없음)에서는 링크가 코드 실린 스토어 주소를 가리킨다", () => {
+  it("모바일 브라우저(브리지 없음)에서 버튼을 누르면 코드를 실어 앱 열기를 시도한다", async () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
     renderAt("/social/join?userId=7&code=0412");
 
-    expect(screen.getByRole("link", { name: "앱에서 참여하기" })).toHaveAttribute(
-      "href",
-      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile&referrer=code%3D0412",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "앱에서 참여하기" }));
+    expect(openInApp).toHaveBeenCalledWith("android", "0412");
   });
 
-  it("코드가 미완성이면 referrer 없는 스토어 주소를 가리킨다", () => {
+  it("코드가 미완성이면 코드 없이 앱 열기를 시도한다", async () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_UA);
     renderAt("/social/join?userId=7&code=07");
 
-    expect(screen.getByRole("link", { name: "앱에서 참여하기" })).toHaveAttribute(
-      "href",
-      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "앱에서 참여하기" }));
+    expect(openInApp).toHaveBeenCalledWith("android", "");
   });
 
   it("웹뷰(브리지 있음)에서는 보여주지 않는다", () => {
@@ -262,13 +285,13 @@ describe("앱에서 참여하기 유도", () => {
     };
     renderAt("/social/join?userId=7&code=0412");
 
-    expect(screen.queryByRole("link", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
   });
 
   it("데스크톱 브라우저에서는 보여주지 않는다", () => {
     renderAt("/social/join?userId=7&code=0412");
 
-    expect(screen.queryByRole("link", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
   });
 });
 

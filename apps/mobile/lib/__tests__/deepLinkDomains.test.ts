@@ -46,4 +46,8 @@ describe("딥링크 도메인 등록", () => {
     );
     expect(hosts).toContain("web.sunqstudio.kr");
   });
+
+  it("커스텀 스킴은 focusmakers(대표)와 focuson(구빌드 호환)을 함께 등록한다", () => {
+    expect(appJson.expo.scheme).toEqual(["focusmakers", "focuson"]);
+  });
 });
