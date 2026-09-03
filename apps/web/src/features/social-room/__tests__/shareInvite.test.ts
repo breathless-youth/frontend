@@ -21,7 +21,7 @@ describe("inviteShareText", () => {
 });
 
 describe("shareInvite", () => {
-  it("navigator.share에 title·url을 별도 필드로 싣는다 — text만 보내면 공유시트 썸네일이 깨진다", async () => {
+  it("navigator.share는 링크를 text 본문에만 싣고 url 필드는 넘기지 않는다 — 카톡 프리뷰 중복 방지", async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { value: share, configurable: true });
 
@@ -30,8 +30,11 @@ describe("shareInvite", () => {
     expect(share).toHaveBeenCalledWith({
       title: INVITE_SHARE_TITLE,
       text: inviteShareText("0712"),
-      url: inviteLink("0712"),
     });
+    // 링크는 본문에 보이고, url 필드는 없어야(중복 프리뷰 방지) 한다.
+    const arg = share.mock.calls[0]![0] as { text: string; url?: string };
+    expect(arg.text).toContain(inviteLink("0712"));
+    expect(arg.url).toBeUndefined();
   });
 
   it("navigator.share가 없고 브리지 + 지원 표시(?share=1)가 있으면(신규 앱) share 메시지를 보낸다", async () => {
@@ -49,9 +52,10 @@ describe("shareInvite", () => {
       title?: string;
     };
     expect(sent.type).toBe("share");
+    // 링크는 text 본문에 있고, url 필드는 넘기지 않는다(navigator.share와 같은 이유).
     expect(sent.text).toBe(inviteShareText("0712"));
-    // 브리지 경로도 navigator.share와 같은 이유로 url·title을 싣는다(썸네일용).
-    expect(sent.url).toBe(inviteLink("0712"));
+    expect(sent.text).toContain(inviteLink("0712"));
+    expect(sent.url).toBeUndefined();
     expect(sent.title).toBe(INVITE_SHARE_TITLE);
   });
 

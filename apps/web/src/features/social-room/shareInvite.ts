@@ -23,10 +23,11 @@ export function inviteShareText(inviteCode: string): string {
 }
 
 /**
- * 공유 시트 제목. text만 보내면 OS 공유시트가 한글 문구를 축소 렌더해 썸네일이 깨진
- * 텍스트 프리뷰로 뜬다(2026-08-24 실기기 확인, BY-427) — `title`·`url`을 별도 필드로
- * 실어 시트가 URL 미리보기 카드(앱 아이콘)를 그리게 한다. 링크는 일부 앱이 url만 살리는
- * 경우가 있어 text 본문에도 그대로 유지한다(초대코드 4자리도 마찬가지).
+ * 공유 시트 제목. BY-427은 `title`·`url`을 별도 필드로 실어 공유시트가 URL 미리보기
+ * 카드(앱 아이콘)를 그리게 했는데, `url` 필드가 카톡에서는 본문의 링크와 겹쳐 프리뷰를
+ * 두 번 만드는 원인이었다(BY-584). 링크가 본문 텍스트에 보여야 한다는 요구를 우선해 `url`
+ * 필드는 빼고 `title`만 남긴다. 공유시트 자체 썸네일은 텍스트로 축소되지만, 보내진 메시지는
+ * 본문 링크가 그대로 보이고 카톡이 그 링크로 프리뷰 카드도 하나 그린다.
  */
 export const INVITE_SHARE_TITLE = "포커스 메이커스 그룹 스터디";
 
@@ -51,11 +52,11 @@ async function copyText(text: string): Promise<boolean> {
 export async function shareInvite(inviteCode: string): Promise<"shared" | "copied" | "failed"> {
   if (typeof navigator.share === "function") {
     try {
-      // title·url을 별도 필드로 싣는 이유는 `INVITE_SHARE_TITLE` 주석 참고(썸네일 깨짐 방지).
+      // 링크는 text 본문에만 싣고 url 필드는 넘기지 않는다 — url으로도 보내면 카톡이 같은
+      // 링크로 프리뷰를 한 번 더 만들어 말풍선이 중복된다(BY-584, `INVITE_SHARE_TITLE` 주석).
       await navigator.share({
         title: INVITE_SHARE_TITLE,
         text: inviteShareText(inviteCode),
-        url: inviteLink(inviteCode),
       });
       return "shared";
     } catch {
@@ -70,11 +71,11 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
     isNativeBridgeAvailable() && new URLSearchParams(window.location.search).get("share") === "1";
   if (bridgeShareSupported) {
     // 시트는 네이티브가 연다. 응답 왕복은 없다 — 노출·취소 피드백은 OS가 준다(계약 주석).
-    // url·title은 navigator.share와 같은 이유로 함께 싣는다 — 구버전 네이티브는 무시한다.
+    // 링크는 text 본문에 있고(Android는 message만 씀), url 필드는 싣지 않는다 —
+    // navigator.share와 같은 이유로 프리뷰 중복을 막는다. title은 시트 제목으로 쓴다.
     postToNative({
       type: "share",
       text: inviteShareText(inviteCode),
-      url: inviteLink(inviteCode),
       title: INVITE_SHARE_TITLE,
       atMs: Date.now(),
     });
