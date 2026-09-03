@@ -99,7 +99,7 @@ RNFB는 설정 파일로 네이티브에서 자동 초기화되므로 별도 ini
 ## 실기기 검증에서 발견한 것 (2026-09-03)
 
 - Remote Config는 iOS 실기기에서 첫 시도에 동작했다(`smoke_test` 값 수신).
-- FCM 토큰은 `[messaging/unregistered]`로 실패했다. 원인은 RNFB 26.3.3의 iOS 모듈이 TurboModule로 바뀌면서 v25의 main-queue `methodQueue`가 사라진 것 — `getToken`의 UIKit `isRegisteredForRemoteNotifications` 검사가 백그라운드 스레드에서 실행돼 NO를 돌려준다. `patches/@react-native-firebase__messaging@26.3.3.patch`로 `methodQueue`를 main으로 되돌렸다.
+- FCM 토큰은 `[messaging/unregistered]`로 실패했다. APNs 등록은 성공해 FIRMessaging이 APNs 토큰을 들고 있는데(FIRMessaging은 토큰을 저장하지 않으므로 같은 실행에서 등록된 것), UIKit의 `isRegisteredForRemoteNotifications`가 NO를 돌려주고 RNFB `getToken`은 그 플래그만 보고 거부한다. 처음엔 v26 TurboModule 전환으로 빠진 main-queue `methodQueue`(백그라운드 스레드에서 UIKit 읽기)를 의심해 되돌렸지만 실기기에서 해결되지 않았고, `patches/@react-native-firebase__messaging@26.3.3.patch`에서 `getToken`이 APNs 토큰이 있으면 플래그와 무관하게 진행하도록 확장해 해결했다(빌드 b581fd6c, 실기기 토큰 발급 확인). 플래그가 NO인 이유는 미확정 — 업스트림 이슈 제기 대상.
 - 어댑터는 APNs 토큰 유무로 발급 가능 여부를 판단한다. JS `isDeviceRegisteredForRemoteMessages`는 자동 등록을 반영하지 않고, 등록된 상태에서 재등록하면 직후 `getToken`이 실패한다.
 - 첫 EAS iOS 빌드는 ad-hoc 프로파일에 Push·Associated Domains capability가 없어 실패했고(대화형 빌드로 동기화), 이후 기기 미등록으로 설치가 막혔다(`eas device:create` 후 `--refresh-ad-hoc-provisioning-profile`로 재발급). 자세한 절차는 `apps/mobile/CLAUDE.md`와 메모리 참고.
 
