@@ -97,5 +97,12 @@ export async function resolveForceUpdate(
     // 다음 실행에 반영할 값을 받아 둔다. 판정 자체는 이미 끝났으므로 결과를 기다리지 않는다.
     fetchRemoteConfigInBackground();
   }
-  return { forced: shouldForceUpdate(appVersion, minVersion), appVersion, minVersion };
+  const decision = { forced: shouldForceUpdate(appVersion, minVersion), appVersion, minVersion };
+  if (__DEV__) {
+    // eslint-disable-next-line no-console -- 개발 빌드에서 판정 근거를 확인하기 위한 로그
+    console.log(
+      `[force-update] forced=${String(decision.forced)} appVersion=${appVersion ?? "?"} minVersion=${minVersion ?? "(없음)"}`,
+    );
+  }
+  return decision;
 }
