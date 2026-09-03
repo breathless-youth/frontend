@@ -15,16 +15,14 @@ import RootLayout from "../app/_layout";
 
 jest.mock("../global.css", () => ({}), { virtual: true });
 
-// 강제 업데이트 화면이 useSafeAreaInsets를 쓴다 — 네이티브 SafeAreaProvider 없이 렌더한다.
-// Provider는 View로 감싼다: 통과 경로에서 Stack·Screen mock이 전부 null을 돌려줘도 "무언가를 그렸다"는
-// 판정(toJSON() !== null)이 유지되게 하기 위해서다.
+// 네이티브 SafeAreaProvider 없이 렌더한다. Provider는 View로 감싼다: 통과 경로에서 Stack·Screen mock이
+// 전부 null을 돌려줘도 "무언가를 그렸다"는 판정(toJSON() !== null)이 유지되게 하기 위해서다.
 jest.mock("react-native-safe-area-context", () => {
   const { View: MockView } = jest.requireActual<typeof ReactNative>("react-native");
   return {
     SafeAreaProvider: ({ children }: { children?: ReactNode }) => (
       <MockView testID="safe-area-provider">{children}</MockView>
     ),
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   };
 });
 
@@ -72,16 +70,25 @@ const mockResolveForceUpdate = jest.fn();
 jest.mock("../lib/forceUpdate", () => ({
   resolveForceUpdate: () => mockResolveForceUpdate() as Promise<{ forced: boolean }>,
 }));
-const mockOpenAppStore = jest.fn(() => Promise.resolve());
-jest.mock("../lib/storeLink", () => ({
-  openAppStore: () => mockOpenAppStore(),
+// 강제 업데이트 알림창 — 실제 Alert 대신 시작/해제/재표시 호출만 기록한다(동작은 `lib/__tests__/forceUpdateAlert.test.ts`).
+const mockAlertStop = jest.fn();
+const mockAlertStart = jest.fn(() => mockAlertStop);
+const mockAlertReshow = jest.fn();
+jest.mock("../lib/forceUpdateAlert", () => ({
+  FORCE_UPDATE_TITLE: "업데이트가 필요해요",
+  forceUpdateAlert: {
+    start: () => mockAlertStart() as () => void,
+    reshow: () => mockAlertReshow(),
+  },
 }));
 
 beforeEach(() => {
   mockUseFonts.mockReset();
   mockHideAsync.mockClear();
   mockResolveForceUpdate.mockReset().mockResolvedValue({ forced: false });
-  mockOpenAppStore.mockClear();
+  mockAlertStart.mockClear();
+  mockAlertStop.mockClear();
+  mockAlertReshow.mockClear();
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -125,17 +132,31 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
     expect(mockHideAsync).not.toHaveBeenCalled();
   });
 
-  it("forced면 라우터 스택 대신 강제 업데이트 화면만 그리고, 확인 시 스토어를 연다", async () => {
+  it("forced면 라우터 스택 대신 빈 배경만 그리고 알림창을 시작하며, 배경을 탭하면 다시 띄운다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
     mockResolveForceUpdate.mockResolvedValue({ forced: true });
 
-    render(<RootLayout />);
+    const { unmount } = render(<RootLayout />);
 
-    const cta = await screen.findByTestId("force-update-cta");
-    expect(screen.getByTestId("force-update-screen")).toBeTruthy();
+    const backdrop = await screen.findByTestId("force-update-backdrop");
+    expect(screen.queryByTestId("safe-area-provider")).toBeNull();
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
-    fireEvent.press(cta);
-    expect(mockOpenAppStore).toHaveBeenCalledTimes(1);
+    expect(mockAlertStart).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(backdrop);
+    expect(mockAlertReshow).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(mockAlertStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("통과(pass)면 알림창을 시작하지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockAlertStart).not.toHaveBeenCalled();
   });
 
   it("판정이 거부(reject)돼도 통과시켜 앱을 그린다 — fail-open", async () => {
@@ -145,6 +166,7 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
     const { toJSON } = render(<RootLayout />);
 
     await waitFor(() => expect(toJSON()).not.toBeNull());
-    expect(screen.queryByTestId("force-update-screen")).toBeNull();
+    expect(screen.queryByTestId("force-update-backdrop")).toBeNull();
+    expect(mockAlertStart).not.toHaveBeenCalled();
   });
 });
