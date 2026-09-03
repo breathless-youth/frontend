@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  INVITE_SHARE_TITLE,
-  inviteLink,
-  inviteShareBody,
-  inviteShareText,
-  shareInvite,
-} from "../shareInvite";
+import { INVITE_SHARE_TITLE, inviteLink, inviteShareText, shareInvite } from "../shareInvite";
 
 afterEach(() => {
   delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
@@ -26,18 +20,8 @@ describe("inviteShareText", () => {
   });
 });
 
-describe("inviteShareBody", () => {
-  it("링크 없이 인사와 초대코드만 담는다", () => {
-    expect(inviteShareBody("0712")).toBe("그룹 스터디에 초대받았어요!\n\n초대코드: 0712");
-  });
-
-  it("본문에 링크가 들어가지 않는다", () => {
-    expect(inviteShareBody("0712")).not.toContain("/social/join");
-  });
-});
-
 describe("shareInvite", () => {
-  it("navigator.share는 text에 링크를 빼고 url 필드로만 링크를 싣는다 — 카톡 프리뷰 중복 방지", async () => {
+  it("navigator.share는 링크를 text 본문에만 싣고 url 필드는 넘기지 않는다 — 카톡 프리뷰 중복 방지", async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { value: share, configurable: true });
 
@@ -45,12 +29,12 @@ describe("shareInvite", () => {
 
     expect(share).toHaveBeenCalledWith({
       title: INVITE_SHARE_TITLE,
-      text: inviteShareBody("0712"),
-      url: inviteLink("0712"),
+      text: inviteShareText("0712"),
     });
-    // 본문에 링크가 없어야 카톡이 프리뷰를 두 번 만들지 않는다.
-    const arg = share.mock.calls[0]![0] as { text: string };
-    expect(arg.text).not.toContain("/social/join");
+    // 링크는 본문에 보이고, url 필드는 없어야(중복 프리뷰 방지) 한다.
+    const arg = share.mock.calls[0]![0] as { text: string; url?: string };
+    expect(arg.text).toContain(inviteLink("0712"));
+    expect(arg.url).toBeUndefined();
   });
 
   it("navigator.share가 없고 브리지 + 지원 표시(?share=1)가 있으면(신규 앱) share 메시지를 보낸다", async () => {
@@ -68,9 +52,10 @@ describe("shareInvite", () => {
       title?: string;
     };
     expect(sent.type).toBe("share");
+    // 링크는 text 본문에 있고, url 필드는 넘기지 않는다(navigator.share와 같은 이유).
     expect(sent.text).toBe(inviteShareText("0712"));
-    // 브리지 경로도 navigator.share와 같은 이유로 url·title을 싣는다(썸네일용).
-    expect(sent.url).toBe(inviteLink("0712"));
+    expect(sent.text).toContain(inviteLink("0712"));
+    expect(sent.url).toBeUndefined();
     expect(sent.title).toBe(INVITE_SHARE_TITLE);
   });
 

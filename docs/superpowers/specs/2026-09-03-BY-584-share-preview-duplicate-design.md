@@ -12,27 +12,27 @@
 
 ## 해법
 
-iOS 경로에서만 `text`에서 링크를 빼고 `url` 필드가 프리뷰 카드를 담당하게 한다. Android와 클립보드 경로는 그대로 둔다.
+중복의 원인인 `url` 필드를 공유 페이로드에서 빼고, 링크는 `text` 본문에만 둔다. 링크가 본문 텍스트에 보여야 한다는 요구를 우선한 결정이다. 카톡은 본문의 링크를 프리뷰 카드로 자동 렌더하므로, `url` 필드 없이도 수신자는 링크와 카드를 모두 본다.
+
+이 선택의 대가는 BY-427이 `url` 필드로 얻던 공유시트 자체 썸네일이다. 발신자가 공유 버튼을 눌렀을 때 뜨는 iOS 공유시트의 미리보기가 URL 카드에서 축소된 텍스트로 되돌아간다. 보내진 메시지와 수신자 경험에는 영향이 없어 이 대가를 받아들인다.
 
 ### 변경: `apps/web/src/features/social-room/shareInvite.ts`
 
-- 새 헬퍼 `inviteShareBody(code)`를 추가한다. `그룹 스터디에 초대받았어요!\n\n초대코드: NNNN` 형식으로, 링크를 넣지 않는다.
-- `navigator.share` 호출의 `text`를 `inviteShareText`에서 `inviteShareBody`로 바꾼다. `url`은 그대로 `inviteLink`를 싣는다. 링크는 `url` 필드가 카드로 렌더하므로 수신자는 탭할 수 있고, 본문에 링크가 없어 카톡이 프리뷰를 두 번 만들지 않는다. BY-427이 넣은 썸네일 카드는 `url` 필드가 그대로 그린다.
-- 브리지(Android) 경로의 `text`는 `inviteShareText`(링크 포함)를 그대로 유지한다. Android는 `url`을 무시하므로 링크가 본문에 있어야 탭할 수 있고, 이 경로는 이미 중복이 없다.
-- 클립보드 폴백은 `inviteShareText`(링크 포함)를 그대로 유지한다. `url` 필드가 없는 경로라 링크가 본문에 있어야 한다.
+- `navigator.share` 호출에서 `url` 필드를 뺀다. `text`는 `inviteShareText`(링크 포함), `title`은 `INVITE_SHARE_TITLE`을 그대로 싣는다.
+- 브리지(Android) 경로에서도 `url` 필드를 뺀다. Android는 `url`을 무시하고 `message`만 쓰므로 링크는 본문에 이미 있고, 필드를 남길 이유가 없다. `text`(링크 포함)와 `title`은 유지한다.
+- 클립보드 폴백은 `inviteShareText`(링크 포함)를 그대로 복사한다.
+- 링크 없는 본문은 쓰지 않으므로 별도 헬퍼를 두지 않는다.
 
 ## 결과
 
-- iOS 카톡: 프리뷰 카드 하나와 텍스트 하나로 2개. 중복과 지연이 사라진다. 링크는 카드로 탭 가능하다.
-- Android 카톡: 기존과 동일하게 프리뷰 하나와 텍스트. 링크는 본문에서 탭 가능하다.
-- 어느 경로에서도 수신자가 4자리 코드를 직접 입력하지 않는다. 링크가 항상 탭 가능하다.
-- BY-427의 공유시트 썸네일 카드가 유지된다.
+- 카톡: 본문 텍스트에 링크가 보이고, 카톡이 그 링크로 프리뷰 카드를 하나 그려 카드와 텍스트 둘로 정리된다. 중복과 지연이 사라진다.
+- 어느 경로에서도 링크가 본문에 보이고 탭 가능하다.
+- 대가로 iOS 공유시트 자체의 URL 카드 썸네일(BY-427)은 텍스트로 축소된다. 보내진 메시지는 정상이다.
 
 ## 테스트
 
-- `inviteShareBody`가 링크 없이 인사와 초대코드만 담는지.
-- `navigator.share`가 `text`로 `inviteShareBody`, `url`로 `inviteLink`를 싣는지(링크가 본문에 없는지 함께 확인).
-- 브리지 경로가 `text`로 `inviteShareText`(링크 포함), `url`로 `inviteLink`를 그대로 싣는지.
+- `navigator.share`가 `text`로 `inviteShareText`(링크 포함), `title`로 `INVITE_SHARE_TITLE`을 싣고 `url` 필드는 넘기지 않는지.
+- 브리지 경로가 `text`로 `inviteShareText`(링크 포함)를 싣고 `url` 필드는 넘기지 않는지.
 - 클립보드 폴백이 `inviteShareText`(링크 포함)를 복사하는지.
 
 ## 범위 밖
