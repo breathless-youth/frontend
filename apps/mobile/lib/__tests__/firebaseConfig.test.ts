@@ -3,6 +3,7 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 import buildConfig from "../../app.config";
 import appJson from "../../app.json";
 import easJson from "../../eas.json";
+import mobilePackageJson from "../../package.json";
 
 /**
  * BY-585: Firebase SDK 연동 설정 가드.
@@ -175,5 +176,23 @@ describe("Firebase 설정 (BY-585)", () => {
         expect([name, profile.ios?.image]).toEqual([name, "macos-sequoia-15.6-xcode-26.2"]);
       }
     });
+  });
+});
+
+/**
+ * `@react-native-firebase/remote-config`는 `@react-native-firebase/analytics`를 peer로 요구해 pnpm이
+ * 자동 설치한다. 그대로 두면 autolinking이 Firebase Analytics SDK(GoogleAppMeasurement)를 앱에 링크해
+ * 자동 수집이 시작된다 — GA를 붙이지 않기로 한 결정(설계 문서 "확정한 결정")과 스토어 개인정보 라벨에
+ * 어긋난다. 패키지는 남겨 두되 네이티브 링크만 막는다.
+ */
+describe("Firebase Analytics 미링크 (BY-585)", () => {
+  it("package.json의 expo.autolinking.exclude가 analytics를 뺀다", () => {
+    expect(mobilePackageJson.expo.autolinking.exclude).toContain(
+      "@react-native-firebase/analytics",
+    );
+  });
+
+  it("앱 의존성에 analytics를 직접 넣지 않는다 — peer로만 존재한다", () => {
+    expect(mobilePackageJson.dependencies).not.toHaveProperty("@react-native-firebase/analytics");
   });
 });
