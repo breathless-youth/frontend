@@ -3,7 +3,9 @@ import {
   getMessaging,
   getToken,
   hasPermission,
+  isDeviceRegisteredForRemoteMessages,
   onTokenRefresh,
+  registerDeviceForRemoteMessages,
   requestPermission,
 } from "@react-native-firebase/messaging";
 
@@ -15,8 +17,10 @@ import {
  * 서버 토큰 등록은 BY-586에서 이 어댑터에 추가한다.
  *
  * 권한 요청 함수는 어떤 화면에도 연결돼 있지 않다 — 푸시 정책이 미정이다
- * (`docs/screens/SCR-S6-settings.md`). iOS 토큰 발급 자체는 권한 없이도 된다(APNs 등록은
- * RNFB가 자동으로 한다).
+ * (`docs/screens/SCR-S6-settings.md`). iOS 토큰 발급 자체는 권한 없이도 되지만 APNs 원격 메시지
+ * 등록이 선행돼야 한다 — 자동 등록에 기대지 않고 `getToken` 전에 명시적으로 등록한다(2026-09-03
+ * 실기기: 미등록 상태에서 `getToken`이 `[messaging/unregistered]`로 실패했다). 등록은 OS 권한
+ * 다이얼로그를 띄우지 않는다.
  */
 
 export type PushPermissionStatus = "undetermined" | "granted" | "denied";
@@ -57,7 +61,11 @@ export const rnfbPushMessagingAdapter: PushMessagingAdapter = {
     return toPushPermissionStatus(await requestPermission(getMessaging()));
   },
   async getToken() {
-    const token = await getToken(getMessaging());
+    const messaging = getMessaging();
+    if (!isDeviceRegisteredForRemoteMessages(messaging)) {
+      await registerDeviceForRemoteMessages(messaging);
+    }
+    const token = await getToken(messaging);
     return token ? token : null;
   },
   onTokenRefresh(listener) {

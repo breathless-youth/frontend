@@ -6,6 +6,8 @@ const mockHasPermission = jest.fn();
 const mockRequestPermission = jest.fn();
 const mockGetToken = jest.fn();
 const mockOnTokenRefresh = jest.fn();
+const mockIsRegistered = jest.fn();
+const mockRegister = jest.fn();
 
 jest.mock("@react-native-firebase/messaging", () => ({
   AuthorizationStatus: {
@@ -20,6 +22,8 @@ jest.mock("@react-native-firebase/messaging", () => ({
   requestPermission: (...args: unknown[]) => mockRequestPermission(...args) as Promise<number>,
   getToken: (...args: unknown[]) => mockGetToken(...args) as Promise<string>,
   onTokenRefresh: (...args: unknown[]) => mockOnTokenRefresh(...args) as () => void,
+  isDeviceRegisteredForRemoteMessages: (...args: unknown[]) => mockIsRegistered(...args) as boolean,
+  registerDeviceForRemoteMessages: (...args: unknown[]) => mockRegister(...args) as Promise<void>,
 }));
 
 describe("pushMessaging 어댑터 (BY-585)", () => {
@@ -28,6 +32,8 @@ describe("pushMessaging 어댑터 (BY-585)", () => {
     mockRequestPermission.mockReset();
     mockGetToken.mockReset();
     mockOnTokenRefresh.mockReset();
+    mockIsRegistered.mockReset().mockReturnValue(true);
+    mockRegister.mockReset().mockResolvedValue(undefined);
     pushMessaging.setPushMessagingAdapter(pushMessaging.rnfbPushMessagingAdapter);
   });
 
@@ -50,6 +56,27 @@ describe("pushMessaging 어댑터 (BY-585)", () => {
     await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
     expect(mockHasPermission).toHaveBeenCalledWith(mockMessagingInstance);
     expect(mockRequestPermission).toHaveBeenCalledWith(mockMessagingInstance);
+  });
+
+  it("원격 메시지 미등록 상태면 getToken 전에 등록부터 한다 (iOS [messaging/unregistered] 방지)", async () => {
+    mockIsRegistered.mockReturnValue(false);
+    mockGetToken.mockResolvedValue("fcm-token");
+
+    await expect(pushMessaging.getPushToken()).resolves.toBe("fcm-token");
+
+    expect(mockRegister).toHaveBeenCalledWith(mockMessagingInstance);
+    expect(mockRegister.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetToken.mock.invocationCallOrder[0] as number,
+    );
+  });
+
+  it("이미 등록돼 있으면 다시 등록하지 않는다", async () => {
+    mockIsRegistered.mockReturnValue(true);
+    mockGetToken.mockResolvedValue("fcm-token");
+
+    await pushMessaging.getPushToken();
+
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 
   it("토큰이 빈 문자열이면 null로 돌려준다 (시뮬레이터 등 발급 불가)", async () => {
