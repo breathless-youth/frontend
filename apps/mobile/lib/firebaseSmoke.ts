@@ -1,3 +1,5 @@
+import * as Application from "expo-application";
+
 import { getApnsToken, getPushToken } from "./pushMessaging";
 import {
   activateRemoteConfig,
@@ -22,6 +24,12 @@ export async function logFirebaseSmoke(): Promise<void> {
   if (!__DEV__) {
     return;
   }
+  // 어느 바이너리인지 구분하기 위한 설치 시각 — 새 빌드를 설치했는지 Reload만 했는지 로그로 가른다.
+  const installedAt = await Application.getInstallationTimeAsync().catch(() => null);
+  // eslint-disable-next-line no-console -- 개발 전용 배선 확인 로그(의도된 출력)
+  console.log(
+    `[firebase-smoke] binary installed at ${installedAt?.toISOString() ?? "?"} build=${Application.nativeBuildVersion ?? "?"}`,
+  );
   try {
     await setRemoteConfigDefaults({ [SMOKE_KEY]: "(기본값 — 서버 값을 못 받음)" });
     await fetchRemoteConfig();

@@ -1,5 +1,5 @@
 diff --git a/ios/RNFBMessaging/RNFBMessagingModule.mm b/ios/RNFBMessaging/RNFBMessagingModule.mm
-index 201d660e9c9a5c689f444e8e3e2c3c7354daefd1..05d16eb7520d77ac20480b9e71a9de89827bf697 100644
+index 201d660e9c9a5c689f444e8e3e2c3c7354daefd1..57b32f7a4617fcdc2bb118db9b4e40c1f841959f 100644
 --- a/ios/RNFBMessaging/RNFBMessagingModule.mm
 +++ b/ios/RNFBMessaging/RNFBMessagingModule.mm
 @@ -44,6 +44,16 @@ @implementation RNFBMessagingModule
@@ -19,3 +19,16 @@ index 201d660e9c9a5c689f444e8e3e2c3c7354daefd1..05d16eb7520d77ac20480b9e71a9de89
  + (BOOL)requiresMainQueueSetup {
    return NO;
  }
+@@ -135,7 +145,11 @@ - (void)getToken:(NSString *)appName
+         senderId:(NSString *)senderId
+          resolve:(RCTPromiseResolveBlock)resolve
+           reject:(RCTPromiseRejectBlock)reject {
+-  if ([UIApplication sharedApplication].isRegisteredForRemoteNotifications == NO) {
++  // [focusmakers patch] UIKit의 isRegisteredForRemoteNotifications는 실기기(iOS 26.6.1)에서 APNs 토큰을
++  // 이미 받은 뒤에도 NO를 돌려줘 getToken이 항상 unregistered로 실패했다. FCM 토큰 발급에 실제로 필요한 것은
++  // FIRMessaging이 보유한 APNs 토큰이므로, 토큰이 있으면 UIKit 플래그와 무관하게 진행한다.
++  if ([FIRMessaging messaging].APNSToken == nil &&
++      [UIApplication sharedApplication].isRegisteredForRemoteNotifications == NO) {
+     [RNFBSharedUtils
+         rejectPromiseWithUserInfo:reject
+                          userInfo:(NSMutableDictionary *)@{
