@@ -93,10 +93,10 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 시트를 대신 연다(계약 주석 참고). 응답은 없다 — 취소(AbortError 상당)도 OS가
       // 이미 사용자에게 보여준 결과라 웹에 알릴 것이 없다.
       //
-      // RN `Share.share` 계약의 플랫폼 차이(BY-427): iOS는 `url`이 별도 필드라 공유시트가
-      // URL 미리보기 카드(앱 아이콘 썸네일)를 그리고, Android는 `message`만 쓴다 — 링크는
-      // 웹이 만든 `message.text` 본문에 이미 들어 있어 그대로 둔다. `title`은 시트 제목.
-      // url·title이 없는 구버전 웹 메시지는 종전대로 message만 전달한다.
+      // Android의 `Share.share`는 `message`만 쓴다 — 링크는 웹이 만든 `message.text` 본문에
+      // 이미 들어 있다. `title`은 시트 제목. 현행 웹은 `url`을 보내지 않고(BY-584, 카톡 프리뷰
+      // 중복 방지) 링크를 본문에 둔다. `url`은 레거시 웹 메시지가 보낼 때만 실어 주는데,
+      // Android는 어차피 무시하므로 전달해도 무해하다.
       void Share.share({
         message: message.text,
         ...(message.url !== undefined ? { url: message.url } : {}),
