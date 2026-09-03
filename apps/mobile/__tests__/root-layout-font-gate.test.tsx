@@ -49,6 +49,10 @@ jest.mock("../lib/orientation", () => ({
 jest.mock("../lib/userApi", () => ({
   ensureUserRegistered: jest.fn(() => Promise.resolve(null)),
 }));
+// Firebase 스모크(BY-585)는 네이티브 모듈을 끌어오므로 여기서는 no-op으로 둔다.
+jest.mock("../lib/firebaseSmoke", () => ({
+  logFirebaseSmoke: jest.fn(() => Promise.resolve()),
+}));
 
 beforeEach(() => {
   mockUseFonts.mockReset();

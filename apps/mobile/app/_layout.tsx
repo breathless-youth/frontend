@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { logFirebaseSmoke } from "../lib/firebaseSmoke";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
 import { initSentry, wrapRoot } from "../lib/sentry";
@@ -54,6 +55,11 @@ function RootLayout() {
     // 아래 rn-screens `orientation` 옵션은 iOS에서 무력해서(P0-3 정정, `lib/orientation.ts`)
     // 실제 잠금은 이 호출이 담당한다.
     lockPortrait();
+  }, []);
+
+  // Firebase 배선 확인 로그(BY-585) — 개발 빌드에서만 동작하고 BY-586에서 실사용 코드로 대체된다.
+  useEffect(() => {
+    void logFirebaseSmoke();
   }, []);
 
   useEffect(() => {
