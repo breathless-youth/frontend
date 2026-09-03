@@ -44,7 +44,7 @@
 ## 변경 3: 설정 파일 주입 (`app.config.ts`)
 
 - env `GOOGLE_SERVICES_JSON` → `android.googleServicesFile`, `GOOGLE_SERVICES_PLIST` → `ios.googleServicesFile`. env가 없으면 키를 넣지 않는다. prebuild가 필요한 명령에서는 RNFB plugin이 명확한 메시지로 실패하고, Metro만 띄우는 로컬 개발에는 파일이 필요 없다.
-- 가드: 파일에서 프로젝트 ID를 읽어(`project_info.project_id` / `PROJECT_ID`) 빌드 변형과 대조한다. `APP_VARIANT !== "production"`인데 prod ID면 throw, `APP_VARIANT === "production"`인데 prod ID가 아니면 throw. 기존 `guardDevBaseUrl`과 같은 자리·같은 방식이다. prod ID 상수는 콘솔 생성 후 채운다 (공개돼도 무해한 식별자).
+- 가드: 파일에서 프로젝트 ID를 읽어(`project_info.project_id` / `PROJECT_ID`) 빌드 변형과 대조한다. `APP_VARIANT !== "production"`인데 prod ID면 throw, `APP_VARIANT === "production"`인데 prod ID가 아니면 throw. 기존 `guardDevBaseUrl`과 같은 자리·같은 방식이다. prod ID 상수는 `focusmakers-prod`다 (공개돼도 무해한 식별자).
 - 로컬 파일 위치는 `apps/mobile/firebase/dev/`·`apps/mobile/firebase/prod/`이고 `apps/mobile/.gitignore`에 `/firebase/`를 추가한다. `.env.local.example`에 두 env 항목을 추가한다.
 
 ## 변경 4: EAS 환경변수 매핑 (`eas.json`)
@@ -91,7 +91,7 @@ RNFB는 설정 파일로 네이티브에서 자동 초기화되므로 별도 ini
 ## 테스트
 
 - `lib/__tests__/firebaseConfig.test.ts` (신규): plugin 3개와 `useFrameworks: dynamic`·`aps-environment`가 app.json에 있고 `disableSPM`이 없다. env가 있으면 `googleServicesFile`이 반영되고 없으면 키가 없다. 가드 4가지(dev+prod 파일 throw, prod+dev 파일 throw, dev+dev 통과, prod+prod 통과). fixture는 `lib/__tests__/fixtures/firebase/`에 가짜 프로젝트 ID로 둔다.
-- `appConfigVariant.test.ts` 확장: eas.json 프로필별 `environment` 매핑과 `image` 지정을 핀으로 고정한다.
+- eas.json 프로필별 `environment` 매핑과 `image` 지정도 `firebaseConfig.test.ts`에서 핀으로 고정한다.
 - `permissionCopy.test.ts`: 변경 없이 통과해야 한다 (Android 권한 두 개 유지).
 - `remoteConfig.test.ts`·`pushMessaging.test.ts` (신규): `jest.mock`으로 RNFB를 대체해 어댑터 위임, 권한 상태 매핑, 토큰 갱신 구독 해제를 확인한다.
 

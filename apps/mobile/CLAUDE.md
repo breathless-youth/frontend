@@ -20,7 +20,7 @@ Expo RN 앱(앱 셸). **2026-07-25 기능 리셋으로 스터디룸 관련 코�
 - 스터디룸 재구축 시 `react-native-webview`로 `apps/web`의 `/room/:id`를 로드하는 구조(ADR 0001)를 따른다 — 과거 구현은 git 히스토리의 `app/room/[id].tsx` 참고.
 - 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지되어 있다 — WebView 안의 브라우저 `getUserMedia`도 동일한 네이티브 권한이 필요하다. 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음, 방침 변경 없음).
 - **2026-07-31(BY-333)부터 로컬 번들 동봉·서빙 인프라가 없다.** 스터디룸을 포함한 모든 화면이 원격 URL을 여는 `RemoteScreen`/`RemoteWebViewHost`로 바뀌면서, `apps/web` 산출물을 앱 번들에 넣고 `@dr.pogodin/react-native-static-server`로 서빙하던 구조([ADR 0005](../../docs/adr/0005-bundled-web-assets-over-localhost-server.md), Superseded)와 `lib/staticWebAssetServer.ts`·`plugins/withWebDistAssets.js`·`scripts/syncWebDist.js`가 전부 삭제됐다. 그 결정이 Expo Go 경로를 닫은 이유로 꼽았던 "로컬 HTTP 서버가 Expo Go에 없는 네이티브 모듈"이라는 전제는 이제 없다.
-- **다만 Expo Go로 다시 열렸다고 확정해서 쓰지 말 것 — 미확인.** `app.json`의 `plugins`에는 그 로컬 서버와 같은 커밋(BY-282, `f1070f9`)에 Android cleartext 예외용으로 추가된 `expo-build-properties`가 여전히 남아 있다(`android.usesCleartextTraffic`, 외부 API `apiBaseUrl`이 아직 `http://`라 필요할 수 있음 — iOS `NSAppTransportSecurity.NSAllowsLocalNetworking`도 마찬가지로 남아 있다). config plugin은 prebuild/Dev Client 빌드에서만 적용되므로, 이 앱이 실제로 Expo Go에서 뜨는지는 이 문서를 쓴 시점에 실기기·시뮬레이터로 검증하지 않았다. `expo-camera`·`react-native-webview`·`expo-secure-store`·`react-native-svg`·`react-native-reanimated` 등 나머지 네이티브 의존성 자체는 Expo Go SDK 54에 포함된 표준 모듈이지만, 위 config plugin이 걸림돌로 남아 있을 수 있다는 뜻이다. `expo-dev-client` 의존성도 아직 제거되지 않았다.
+- **다만 Expo Go로 다시 열렸다고 확정해서 쓰지 말 것 — 미확인.** `app.json`의 `plugins`에는 BY-585(2026-09-03)부터 `expo-build-properties`(iOS `useFrameworks: "dynamic"`, Firebase SPM 요구사항)와 `@react-native-firebase/app`·`messaging`이 들어 있다(BY-282 때의 cleartext 예외용 설정은 HTTPS 전환으로 이미 제거됐다). config plugin은 prebuild/Dev Client 빌드에서만 적용되므로, 이 앱이 실제로 Expo Go에서 뜨는지는 이 문서를 쓴 시점에 실기기·시뮬레이터로 검증하지 않았다. `expo-camera`·`react-native-webview`·`expo-secure-store`·`react-native-svg`·`react-native-reanimated` 등 나머지 네이티브 의존성 자체는 Expo Go SDK 54에 포함된 표준 모듈이지만, 위 config plugin이 걸림돌로 남아 있을 수 있다는 뜻이다. `expo-dev-client` 의존성도 아직 제거되지 않았다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
@@ -40,6 +40,17 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 - iOS `NSAppTransportSecurity.NSAllowsArbitraryLoads` 블록 삭제 — **다시 넣지 말 것.** 남긴 채 제출하면 심사에서 사유 소명을 요구받는다. `lib/__tests__/appTransportSecurity.test.ts`가 "https면 ATS 예외 없음"을 강제한다(평문 http로 되돌리면 반대로 예외 추가를 요구).
 - `expo-build-properties`의 `android.usesCleartextTraffic` 삭제(플러그인 항목째). Android 디버그 빌드는 RN 기본 debug manifest가 localhost 평문을 계속 허용하므로 `adb reverse` + `http://localhost:5173` dev 흐름은 그대로 동작한다.
 - 네이티브 설정이라 반영에는 Dev Client 리빌드가 필요하다.
+
+## Firebase (Remote Config·FCM) — 2026-09-03 도입 (BY-585)
+
+`@react-native-firebase/app`·`remote-config`·`messaging`(26.x). 설계는 [BY-585 설계 문서](../../docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md), 기능(최소 버전 게이트·알림 핸들러)은 BY-586.
+
+- **설정 파일은 커밋하지 않는다.** `google-services.json`·`GoogleService-Info.plist`는 `apps/mobile/firebase/{dev,prod}/`(gitignore)에 두고 `.env.local`의 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST` 경로로 `app.config.ts`가 `googleServicesFile`에 주입한다. EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다 — `eas.json`의 `environment` 매핑: development·development-simulator·qa → `development`(dev 프로젝트 파일), preview → `preview`, production → `production`(prod 프로젝트 파일). env가 없으면 키를 넣지 않는다: Metro만 띄울 때는 파일이 필요 없고, prebuild가 필요한 명령에서는 RNFB plugin이 명확한 메시지로 실패한다.
+- **Firebase 프로젝트는 dev/prod 둘이다**(`focusmakers-dev`·`focusmakers-prod`). `app.config.ts`가 파일 안의 프로젝트 ID를 읽어 `APP_VARIANT`와 어긋나면 설정 읽기 시점에 throw한다 — `guardDevBaseUrl`과 같은 원칙으로, dev 빌드가 운영 Remote Config·FCM에 붙는 것(최소 버전 테스트가 실사용자를 막는 사고)을 막는다. `lib/__tests__/firebaseConfig.test.ts`가 고정한다.
+- **iOS는 SPM + dynamic frameworks다.** RNFB 26 기본값이고 `expo-build-properties`의 `ios.useFrameworks: "dynamic"`이 그 요구사항이다. **`disableSPM`(CocoaPods 모드)이나 `static`으로 되돌리지 말 것** — SPM 제품은 static 링크에서 중복 심볼로 깨지고, Firebase는 2026-10부터 CocoaPods에 새 버전을 올리지 않는다. Firebase 12.12+가 Xcode 26.2 이상을 요구해 `eas.json` 전 프로필의 `ios.image`가 `macos-sequoia-15.6-xcode-26.2`다(SDK 54 기본 이미지는 26.0). 프레임워크 모드에서 Expo autolinking은 핵심 pod 4개(ExpoModulesCore·Expo·ReactAppDependencyProvider·expo-dev-menu)만 static으로 내리고 사전 컴파일 RN 코어는 유지한다 — 빌드 오류 시 탈출구는 `ios.forceStaticLinking`(pod 단위) → `ios.buildReactNativeFromSource: true` 순.
+- **화면·컴포넌트는 `@react-native-firebase/*`를 직접 import하지 않는다.** `lib/remoteConfig.ts`·`lib/pushMessaging.ts` 어댑터만 거친다(`cameraPermission.ts` 패턴, `set*Adapter()`로 테스트 교체). RNFB는 설정 파일로 네이티브에서 자동 초기화되므로 별도 init 모듈은 없다.
+- `lib/firebaseSmoke.ts`는 `__DEV__` 전용 배선 확인 로그다(dev 프로젝트 Remote Config `smoke_test` 키·FCM 토큰). production 빌드에서는 no-op. BY-586에서 실사용 코드로 대체하며 삭제한다.
+- `aps-environment`는 `development`로 둔다 — 배포 export에서 Xcode가 `production`으로 바꾼다. `UIBackgroundModes: remote-notification`과 Android `POST_NOTIFICATIONS`는 아직 넣지 않았다(BY-586에서 판단). Firebase 콘솔의 GA·Gemini 연동은 dev·prod 모두 끈 상태다(설계 문서 "확정한 결정").
 
 ## 에러 모니터링 (Sentry) — 2026-08-06 도입
 
