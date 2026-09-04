@@ -29,10 +29,14 @@ function collector() {
 it("활성 sink가 있으면 즉시 전달한다 — 속성과 발생 시각을 함께", () => {
   const { received } = collector();
 
-  trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home" });
+  trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
 
   expect(received).toEqual([
-    { name: "tab_pressed", properties: { tab: "social", from_tab: "home" }, atMs: 1_000 },
+    {
+      name: "tab_pressed",
+      properties: { tab: "social", from_tab: "home", via: "tab_bar" },
+      atMs: 1_000,
+    },
   ]);
 });
 

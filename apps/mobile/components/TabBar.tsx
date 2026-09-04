@@ -43,7 +43,7 @@ export function TabBar({ active = "home" }: TabBarProps) {
             disabled={isActive}
             onPress={() => {
               // 탭 전환은 네이티브만 아는 사용자 행동이다 — 웹 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`).
-              trackNativeEvent("tab_pressed", { tab: id, from_tab: active });
+              trackNativeEvent("tab_pressed", { tab: id, from_tab: active, via: "tab_bar" });
               router.navigate(href);
             }}
             accessibilityRole="tab"

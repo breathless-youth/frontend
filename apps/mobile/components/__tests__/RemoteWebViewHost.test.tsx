@@ -917,13 +917,13 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     render(<RemoteWebViewHost path="/home" testID="host" onBridgeMessage={onBridgeMessage} />);
     fireAnalyticsReady();
 
-    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home" });
+    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
 
     expect(injectedTrackEvents()).toEqual([
       expect.objectContaining({
         type: "track-event",
         name: "tab_pressed",
-        properties: { tab: "social", from_tab: "home" },
+        properties: { tab: "social", from_tab: "home", via: "tab_bar" },
       }),
     ]);
     expect(onBridgeMessage).not.toHaveBeenCalled();
@@ -947,7 +947,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     render(<RemoteWebViewHost path="/records" testID="host" focused={false} />);
     fireAnalyticsReady();
 
-    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home" });
+    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
 
     expect(injectedTrackEvents()).toEqual([]);
   });

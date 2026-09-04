@@ -3,6 +3,7 @@ import { BackHandler, Platform } from "react-native";
 
 import TabsLayout from "../app/(tabs)/_layout";
 
+import { __resetActiveTabForTests, getActiveTab } from "../lib/activeTab";
 import { subscribeTabReset } from "../lib/tabReset";
 
 /**
@@ -94,4 +95,15 @@ it("iOS에서는 뒤로가기 핸들러를 등록하지 않는다", () => {
   render(<TabsLayout />);
 
   expect(BackHandler.addEventListener).not.toHaveBeenCalled();
+});
+
+it("내비게이터 상태의 활성 탭을 모듈 스코프에 기록한다 — 브리지 핸들러가 navigate-tab의 출발 탭으로 읽는다", () => {
+  __resetActiveTabForTests();
+  mockTabBarState.routes = [{ name: "index" }, { name: "records" }];
+  mockTabBarState.index = 1;
+
+  render(<TabsLayout />);
+
+  expect(getActiveTab()).toBe("record");
+  __resetActiveTabForTests();
 });

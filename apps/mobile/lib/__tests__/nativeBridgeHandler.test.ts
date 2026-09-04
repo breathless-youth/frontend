@@ -1,6 +1,12 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
+import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
@@ -274,5 +280,32 @@ describe("handleBridgeMessage — 권한 게이트의 room_type", () => {
 
     expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(1, "single");
     expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(2, "social");
+  });
+});
+
+describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+  });
+
+  it("홈 카드가 보낸 navigate-tab을 via=card인 tab_pressed로 남기고 이동한다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
   });
 });

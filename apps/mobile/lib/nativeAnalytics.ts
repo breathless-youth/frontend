@@ -50,8 +50,12 @@ export interface NativeAnalyticsEventMap extends Record<
   app_backgrounded: undefined;
   /** 백그라운드에서 돌아왔다. `background_sec`는 떠나 있던 시간. 앱 시작 직후의 첫 active는 세지 않는다. */
   app_foregrounded: { background_sec: number };
-  /** 하단 탭 터치(`components/TabBar.tsx`). 활성 탭은 비활성화돼 있어 같은 탭 재터치는 찍히지 않는다. */
-  tab_pressed: { tab: NativeTab; from_tab: NativeTab };
+  /**
+   * 탭 이동. `via`는 경로 — `tab_bar`(하단 탭 터치, `components/TabBar.tsx`; 활성 탭은 비활성화돼
+   * 재터치는 없음) / `card`(웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
+   * `lib/nativeBridgeHandler.ts`). 사용자에겐 둘 다 같은 탭 이동이라 한 이벤트로 센다.
+   */
+  tab_pressed: { tab: NativeTab; from_tab: NativeTab; via: "tab_bar" | "card" };
   /**
    * 카메라 권한 게이트의 분기 결과(`lib/cameraPermissionGate.ts`). `already_denied`는 OS 다이얼로그
    * 없이 바로 S2-3으로 간 경우, `error`는 권한 조회·요청 자체가 실패해 fail-closed로 막힌 경우다.

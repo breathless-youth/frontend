@@ -3,17 +3,10 @@ import { Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
 import { BackHandler, Platform } from "react-native";
 
-import { TabBar, type TabId } from "../../components/TabBar";
+import { TabBar } from "../../components/TabBar";
+import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
-
-/** expo-router 라우트 이름 → 탭 바 아이템 id. 확정 4탭(BY-409에서 소셜 추가)이 모두 실재하는 라우트다. */
-const TAB_BY_ROUTE_NAME: Record<string, TabId> = {
-  index: "home",
-  social: "social",
-  records: "record",
-  settings: "settings",
-};
 
 export default function TabsLayout() {
   /**
@@ -55,6 +48,8 @@ export default function TabsLayout() {
       // 활성 탭은 네비게이터 상태에서 읽는다 — 화면마다 하드코딩하지 않는다.
       tabBar={({ state }) => {
         activeRouteRef.current = state.routes[state.index]?.name ?? "index";
+        // 브리지 핸들러가 `navigate-tab`의 출발 탭을 읽을 수 있게 모듈 스코프에도 기록한다(`lib/activeTab.ts`).
+        setActiveTabRoute(activeRouteRef.current);
         return tabBarVisible ? (
           <TabBar active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"} />
         ) : null;

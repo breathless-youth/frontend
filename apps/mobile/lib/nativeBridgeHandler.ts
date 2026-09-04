@@ -3,13 +3,18 @@ import { Share } from "react-native";
 
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { getActiveTab } from "./activeTab";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { getMotionSensorRelay } from "./motionSensorRelay";
+import { trackNativeEvent } from "./nativeAnalytics";
 import { setTabBarVisible } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
+
+/** `navigate-tab`의 목적지 값 → 탭 id. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
+const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
 
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
@@ -107,6 +112,12 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
     case "navigate-tab":
       // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
       // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
+      // 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `card`로 가른다.
+      trackNativeEvent("tab_pressed", {
+        tab: NATIVE_TAB_BY_MESSAGE_TAB[message.tab],
+        from_tab: getActiveTab(),
+        via: "card",
+      });
       router.navigate("/records");
       break;
     case "set-tab-bar":

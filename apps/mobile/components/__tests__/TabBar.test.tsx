@@ -63,7 +63,7 @@ describe("TabBar — tab_pressed 이벤트", () => {
     fireEvent.press(screen.getByRole("tab", { name: "기록" }));
 
     expect(received.map((event) => [event.name, event.properties])).toEqual([
-      ["tab_pressed", { tab: "record", from_tab: "home" }],
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "tab_bar" }],
     ]);
     expect(router.navigate).toHaveBeenCalledWith("/records");
   });
