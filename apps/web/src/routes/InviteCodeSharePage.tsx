@@ -3,8 +3,9 @@ import { X } from "lucide-react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Toast } from "@/components/ui/toast";
-import { joinErrorMessage } from "@/features/social-room/joinErrorCopy";
+import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
+import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
@@ -51,6 +52,8 @@ export function InviteCodeSharePage() {
       );
     },
     onError: (error) => {
+      // 호스트의 자기 방 입장 실패(방 만료 등)도 같은 실패 축이다(BY-472).
+      trackSocialRoomJoinFailed(joinErrorReason(error));
       showToast(joinErrorMessage(error));
     },
   });
@@ -101,6 +104,8 @@ export function InviteCodeSharePage() {
             type="button"
             onClick={() => {
               void copyInviteCode(state.inviteCode).then((copied) => {
+                // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
+                trackInviteShared(copied ? "copied" : "failed");
                 showToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
             }}
@@ -112,6 +117,7 @@ export function InviteCodeSharePage() {
             type="button"
             onClick={() => {
               void shareInvite(state.inviteCode).then((result) => {
+                trackInviteShared(result);
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.
                 if (result === "copied") {

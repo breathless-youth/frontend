@@ -1,5 +1,7 @@
 import type { RoomSignalKind, RtcStatRequest } from "@focusmakers/types";
 
+import { trackPeerConnectionEstablished, trackPeerConnectionFailed } from "@/lib/amplitude";
+
 import type { RoomChannel } from "./roomChannel";
 
 /**
@@ -63,6 +65,10 @@ export function createPeerMesh({
 }): PeerMesh {
   const peers = new Map<number, RTCPeerConnection>();
   const restartAttempted = new Set<number>();
+  // 연결 계측(BY-472)의 상대별 1회 가드 — resetConnections에서도 비우지 않는다.
+  // 백그라운드 복귀 재구축은 같은 상대와의 재수립이라, 다시 세면 수립/실패율이 부풀려진다.
+  const establishTracked = new Set<number>();
+  const failureTracked = new Set<number>();
   // 내가 offer를 만든 상대 — ICE 재시작 offer도 이쪽만 만든다. 양쪽이 동시에 재시작
   // offer를 내면 최초 수립 때 피했던 glare가 재협상에서 되살아난다.
   const offeredByMe = new Set<number>();
@@ -348,6 +354,17 @@ export function createPeerMesh({
             }, STATS_INTERVAL_MS),
           );
         }
+        // 최초 수립만 계측(BY-472) — 일시 끊김 복귀·재구축 재수립은 세지 않는다. 경로 종류는
+        // 통계 보고와 같은 표본(collectStats)에서 읽고, 못 읽으면 "unknown"으로 **반드시 한 번** 남긴다.
+        if (!establishTracked.has(userId)) {
+          establishTracked.add(userId);
+          void collectStats(pc).then((sample) => {
+            trackPeerConnectionEstablished({
+              peerCount: peers.size,
+              path: sample?.candidateType ?? "unknown",
+            });
+          });
+        }
         // 일시 끊김에서 돌아왔다 — disconnected에서 내렸던 타일을 되살린다. 단 프레임이
         // 실제로 흐를 수 있는 트랙(live·비mute)일 때만이다. muted면 unmute가 복원을 맡는다.
         const last = lastStreams.get(userId);
@@ -373,6 +390,11 @@ export function createPeerMesh({
         pc.restartIce();
         startOffer(userId);
         return;
+      }
+      // 종국 실패 계측(BY-472) — 재시작이 소진됐거나 answerer 쪽이라 더 할 게 없는 지점.
+      if (!failureTracked.has(userId)) {
+        failureTracked.add(userId);
+        trackPeerConnectionFailed(peers.size);
       }
       notify(userId, null);
     };

@@ -83,6 +83,19 @@ export function joinErrorMessage(error: unknown): string {
 }
 
 /**
+ * 입장 실패의 **계측용** 사유(BY-472) — 화면 문구와 달리 값을 합치지 않고 서버 코드를
+ * 그대로 보존한다(`social_room_join_failed.reason`). 코드가 누락된 ApiError는
+ * `HTTP_{status}`로, 네트워크 실패 등 그 밖의 에러는 `NETWORK_OR_UNKNOWN`으로 뭉친다 —
+ * 자유 문자열(error.message)을 싣지 않는 것은 Sentry 태그와 같은 원칙(enum만)이다.
+ */
+export function joinErrorReason(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.code ?? `HTTP_${error.status}`;
+  }
+  return "NETWORK_OR_UNKNOWN";
+}
+
+/**
  * 룸 재입장 실패의 처리 방침.
  * - `leave` — 이 방으로는 복구할 수 없다. 문구를 알리고 소셜 홈으로 내보낸다.
  * - `retry` — 다시 시도가 의미 있다(방이 살아 있을 수 있으니 화면에 남긴다).
