@@ -124,5 +124,11 @@ export function OnboardingGuidePage() {
 
   // 우상단 X와 그 전용 경로(handleExit → exitOnboardingGuide)는 2026-08-25 BY-427 피드백으로
   // 제거했다 — 종료는 건너뛰기(G1~G4)와 마지막 CTA(G5)로만 한다(둘 다 handleFinish 경유).
-  return <OnboardingGuideFlow onFinish={handleFinish} isReentry={entry !== "focus-start"} />;
+  return (
+    <OnboardingGuideFlow
+      onFinish={handleFinish}
+      isReentry={entry !== "focus-start"}
+      entry={entry}
+    />
+  );
 }

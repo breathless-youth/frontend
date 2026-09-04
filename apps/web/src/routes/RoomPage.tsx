@@ -44,7 +44,11 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
-import { trackStudySessionExitCancelled, trackStudySessionExitRequested } from "@/lib/amplitude";
+import {
+  trackSessionNoticeConfirmed,
+  trackStudySessionExitCancelled,
+  trackStudySessionExitRequested,
+} from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
@@ -601,7 +605,12 @@ function RoomSessionScreen({
              아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
              걸러내는 것은 표시·합산 단계다(mvp-scope). */
       phase.name === "done" && endedBelowMinute ? (
-        <SubMinuteEndNotice onGoHome={goHome} />
+        <SubMinuteEndNotice
+          onGoHome={() => {
+            trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+            goHome();
+          }}
+        />
       ) : /* `phase.name === "done"`을 여기서 한 번 더 좁히는 이유: 타입 가드는 `endReason`만
              좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
              검사와 동일하다. */
@@ -617,7 +626,10 @@ function RoomSessionScreen({
           trigger={endReason.trigger}
           focusSec={focusSec}
           studySec={studySec}
-          onSeeResult={() => goToResult(phase.sessions)}
+          onSeeResult={() => {
+            trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
+            goToResult(phase.sessions);
+          }}
         />
       ) : (
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />

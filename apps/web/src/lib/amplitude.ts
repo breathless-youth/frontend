@@ -685,3 +685,142 @@ export function trackSessionRecoveryConfirmed() {
   if (!initialized) return;
   track("session_recovery_confirmed");
 }
+
+/* ── 화면별 잔여 상호작용 (BY-616 확장 2차) ──────────────────────────────────
+ *
+ * 실기기 검증 중 "붙일 수 있는 요소는 전부 붙인다"로 범위를 넓혔다(2026-09-05). 운영에서는
+ * autocapture가 모든 클릭을 `[Amplitude] Element Clicked`로 잡지만 어느 버튼인지(요소 텍스트)만
+ * 알고 **의미**(몇 번째 스텝인지, 오늘 날짜인지, 어느 룸 종류인지)는 모른다 — 그 의미를 가진
+ * 컴포넌트에서 명시 이벤트로 남긴다. 속성은 enum·boolean·수만 — 닉네임·목표 문구·초대코드 금지.
+ */
+
+/**
+ * 온보딩 가이드 스텝 노출 — 라우트 하나(`/onboarding-guide`)라 페이지뷰로는 스텝별 이탈이 절대
+ * 안 잡힌다. `method`는 그 스텝에 온 수단: 첫 진입 `initial`, CTA 버튼 `cta`, 탭·스와이프 `gesture`,
+ * 이전 `prev`. 뒤로 갔다 다시 오면 같은 스텝이 다시 찍힌다(중복 제거는 차트에서 "첫 발생" 기준).
+ */
+export function trackGuideStepViewed(input: {
+  readonly step: number;
+  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly method: "initial" | "cta" | "gesture" | "prev";
+}) {
+  if (!initialized) return;
+  track("guide_step_viewed", {
+    step: Number(input.step),
+    entry: input.entry,
+    method: input.method,
+  });
+}
+
+/** 가이드 종료 — 완료(G5 CTA) 또는 건너뛰기. `step`은 그때 보고 있던 스텝(건너뛴 위치). */
+export function trackGuideFinished(input: {
+  readonly reason: "completed" | "skipped";
+  readonly step: number;
+  readonly entry: "focus-start" | "home-card" | "settings";
+}) {
+  if (!initialized) return;
+  track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
+}
+
+/** 기록 달력 날짜 선택. 절대 날짜는 싣지 않고 오늘 여부·기록 유무만 — 과거 탐색 깊이의 근사. */
+export function trackRecordsDateSelected(input: {
+  readonly isToday: boolean;
+  readonly hasRecords: boolean;
+}) {
+  if (!initialized) return;
+  track("records_date_selected", { is_today: input.isToday, has_records: input.hasRecords });
+}
+
+/** 기록 달력 월 이동. `delta`는 -1(이전)/1(다음), `method`는 화살표 버튼/스와이프. */
+export function trackRecordsMonthChanged(input: {
+  readonly delta: -1 | 1;
+  readonly method: "button" | "swipe";
+}) {
+  if (!initialized) return;
+  track("records_month_changed", { delta: input.delta, method: input.method });
+}
+
+/** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
+export function trackSettingsRowPressed(
+  row: "profile" | "guide" | "contact" | "terms" | "privacy" | "licenses",
+) {
+  if (!initialized) return;
+  track("settings_row_pressed", { row });
+}
+
+/** 프로필 저장 제출(검증 통과 후). 어떤 필드를 바꿨는지만 — 값은 싣지 않는다. */
+export function trackProfileSaveSubmitted(input: {
+  readonly nickname: boolean;
+  readonly goal: boolean;
+  readonly category: boolean;
+}) {
+  if (!initialized) return;
+  track("profile_save_submitted", {
+    changed_nickname: input.nickname,
+    changed_goal: input.goal,
+    changed_category: input.category,
+  });
+}
+
+/** 프로필 저장 결과. 실패 `reason`은 서버 코드(`NICKNAME_TAKEN` 등)나 `NETWORK_OR_UNKNOWN`. */
+export function trackProfileSaveResult(result: { ok: true } | { ok: false; reason: string }) {
+  if (!initialized) return;
+  if (result.ok) {
+    track("profile_save_succeeded");
+    return;
+  }
+  track("profile_save_failed", { reason: result.reason });
+}
+
+/** S4 결과 화면을 닫음 — 하단 CTA(`cta`) 또는 우상단 X(`close`). 둘 다 홈(소셜)으로 간다. */
+export function trackStudyResultConfirmed(input: {
+  readonly roomType: StudyRoomType;
+  readonly via: "cta" | "close";
+}) {
+  if (!initialized) return;
+  track("study_result_confirmed", { room_type: input.roomType, via: input.via });
+}
+
+/** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
+export function trackStudyResultDistractionToggled(input: {
+  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
+  readonly expanded: boolean;
+}) {
+  if (!initialized) return;
+  track("study_result_distraction_toggled", { status: input.status, expanded: input.expanded });
+}
+
+/** 세션 종료 안내 확인 — 자동 종료(S3-8) "결과 보기" / 순공 1분 미만 안내 "홈으로". */
+export function trackSessionNoticeConfirmed(input: {
+  readonly notice: "auto_end" | "sub_minute";
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("session_notice_confirmed", { notice: input.notice, room_type: input.roomType });
+}
+
+/** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
+export function trackErrorRetryPressed(
+  screen: "home" | "records" | "profile" | "live_room_entry" | "contact",
+) {
+  if (!initialized) return;
+  track("error_retry_pressed", { screen });
+}
+
+/** 렌더 크래시 폴백의 "새로고침" — 에러 자체는 Sentry가 갖고, 사용자가 복구를 시도한 횟수만 센다. */
+export function trackErrorFallbackReloaded() {
+  if (!initialized) return;
+  track("error_fallback_reloaded");
+}
+
+/** 전체 화면 라우트의 뒤로가기 헤더. `path`는 정제된 현재 경로(`/profile`·`/social/code` 등). */
+export function trackScreenBackPressed(path: string) {
+  if (!initialized) return;
+  track("screen_back_pressed", { path });
+}
+
+/** 웹 강제 업데이트 모달의 스토어 이동 — 네이티브 게이트가 없는 구버전 바이너리 전용 경로. */
+export function trackForceUpdateStoreOpened() {
+  if (!initialized) return;
+  track("force_update_store_opened", { source: "web" });
+}

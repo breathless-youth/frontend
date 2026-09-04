@@ -18,11 +18,15 @@ vi.mock("@/lib/hardNavigation", () => ({
   hardReplace: vi.fn(),
 }));
 
-const analytics = vi.hoisted(() => ({ trackOsSettingsOpened: vi.fn() }));
+const analytics = vi.hoisted(() => ({
+  trackOsSettingsOpened: vi.fn(),
+  trackSettingsRowPressed: vi.fn(),
+}));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackOsSettingsOpened: analytics.trackOsSettingsOpened,
+  trackSettingsRowPressed: analytics.trackSettingsRowPressed,
 }));
 
 /**
@@ -314,5 +318,21 @@ describe("프로필 저장 완료 토스트 (2026-08-25 BY-427 시안 A)", () =>
     renderAt("/settings");
 
     expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+  });
+});
+
+describe("설정 행 계측 (BY-616 확장 2차)", () => {
+  it.each([
+    ["이용약관", "terms"],
+    ["개인정보처리방침", "privacy"],
+    ["오픈소스 라이선스", "licenses"],
+    ["프로필 설정", "profile"],
+  ])("%s 행 터치를 row=%s로 남긴다", (label, row) => {
+    analytics.trackSettingsRowPressed.mockClear();
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
+
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith(row);
   });
 });

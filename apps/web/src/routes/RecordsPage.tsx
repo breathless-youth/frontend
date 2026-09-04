@@ -1,6 +1,8 @@
 import { Fragment, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { trackRecordsDateSelected } from "@/lib/amplitude";
+
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { IconChevronDown } from "@/features/records/icons";
@@ -94,7 +96,14 @@ function RecordsContent({ userId }: { userId: number }) {
           todayKey={todayKey}
           selectedKey={selectedKey}
           studiedDates={studiedDates}
-          onSelectDate={setSelectedKey}
+          onSelectDate={(dateKey) => {
+            // 절대 날짜 대신 오늘 여부·기록 유무만(BY-616 확장) — 과거 탐색 깊이의 근사.
+            trackRecordsDateSelected({
+              isToday: dateKey === todayKey,
+              hasRecords: studiedDates.includes(dateKey),
+            });
+            setSelectedKey(dateKey);
+          }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
           onPrevMonth={() => setMonth((current) => shiftMonth(current, -1))}
@@ -118,7 +127,7 @@ function RecordsContent({ userId }: { userId: number }) {
 
       {day.status === "error" && (
         <div className="mt-6">
-          <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} />
+          <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} screen="records" />
         </div>
       )}
 

@@ -10,6 +10,7 @@ import {
   FORCE_UPDATE_TITLE,
 } from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
+import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { useNativePingResponder } from "@/lib/nativeLiveness";
@@ -73,7 +74,10 @@ export function App() {
             title={FORCE_UPDATE_TITLE}
             description={FORCE_UPDATE_DESCRIPTION}
             confirmLabel={FORCE_UPDATE_CONFIRM_LABEL}
-            onConfirm={openAppStoreForUpdate}
+            onConfirm={() => {
+              trackForceUpdateStoreOpened();
+              openAppStoreForUpdate();
+            }}
           />
         ) : (
           <Routes>

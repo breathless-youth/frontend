@@ -760,6 +760,72 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
   });
 });
 
+describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
+    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "home-card" });
+    m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
+    m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
+    m.trackSettingsRowPressed("terms");
+    m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
+    m.trackProfileSaveResult({ ok: true });
+    m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
+    m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
+    m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
+    m.trackErrorRetryPressed("home");
+    m.trackErrorFallbackReloaded();
+    m.trackScreenBackPressed("/profile");
+    m.trackForceUpdateStoreOpened();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("각 이벤트를 정해진 이름·속성으로 보낸다 — 값(닉네임·날짜·문구)은 어디에도 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackGuideStepViewed({ step: 3, entry: "settings", method: "gesture" });
+    m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
+    m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
+    m.trackRecordsMonthChanged({ delta: 1, method: "button" });
+    m.trackSettingsRowPressed("profile");
+    m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
+    m.trackProfileSaveResult({ ok: false, reason: "NICKNAME_TAKEN" });
+    m.trackProfileSaveResult({ ok: true });
+    m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
+    m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
+    m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+    m.trackErrorRetryPressed("live_room_entry");
+    m.trackErrorFallbackReloaded();
+    m.trackScreenBackPressed("/social/code");
+    m.trackForceUpdateStoreOpened();
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["guide_step_viewed", { step: 3, entry: "settings", method: "gesture" }],
+      ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
+      ["records_date_selected", { is_today: false, has_records: true }],
+      ["records_month_changed", { delta: 1, method: "button" }],
+      ["settings_row_pressed", { row: "profile" }],
+      [
+        "profile_save_submitted",
+        { changed_nickname: true, changed_goal: true, changed_category: false },
+      ],
+      ["profile_save_failed", { reason: "NICKNAME_TAKEN" }],
+      ["profile_save_succeeded"],
+      ["study_result_confirmed", { room_type: "social", via: "close" }],
+      ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
+      ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
+      ["error_retry_pressed", { screen: "live_room_entry" }],
+      ["error_fallback_reloaded"],
+      ["screen_back_pressed", { path: "/social/code" }],
+      ["force_update_store_opened", { source: "web" }],
+    ]);
+  });
+});
+
 describe("개발 추적 모드 (키 없는 로컬 개발)", () => {
   it("MODE=development에서 키가 없으면 SDK 대신 콘솔에 남긴다 — 실기기 Web Inspector 검증용", async () => {
     vi.stubEnv("MODE", "development");
