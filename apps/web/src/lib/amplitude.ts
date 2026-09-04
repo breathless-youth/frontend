@@ -3,6 +3,8 @@ import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
+import type { TrackEventMessage } from "@focusmakers/types";
+
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { parseUserId } from "./userId";
 
@@ -458,4 +460,20 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   const id = new Identify();
   id.set("theme", scheme);
   identify(id);
+}
+
+/**
+ * 네이티브 셸이 브리지 `track-event`로 넘긴 사용자 이벤트(`lib/nativeAnalytics.ts`) — 하단 탭 터치,
+ * 카메라 권한 게이트 결과, 권한 거부 안내(S2-3) 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
+ * **이벤트 카탈로그는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다** — 여기서는 이름을
+ * 해석하지 않는다.
+ *
+ * - `source: "native"`를 붙여 웹 발신 이벤트와 출처를 가른다.
+ * - `time`은 네이티브가 기록한 **발생 시각**이다. 이벤트는 포커스된 웹뷰가 준비될 때까지 네이티브
+ *   큐에 머물다 늦게 도착할 수 있어(권한 거부 화면이 탭을 덮은 동안 등) 전송 시각을 쓰면 타임라인
+ *   순서가 뒤집힌다. 세션 귀속은 SDK가 전송 시각으로 판단하므로 이 값에 영향받지 않는다.
+ */
+export function trackNativeShellEvent(event: TrackEventMessage) {
+  if (!initialized) return;
+  track(event.name, { ...event.properties, source: "native" }, { time: event.atMs });
 }

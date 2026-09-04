@@ -628,6 +628,49 @@ describe("브리지 기반 앱 이벤트 (BY-472)", () => {
   });
 });
 
+describe("네이티브 셸 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const { trackNativeShellEvent } = await loadModule();
+
+    trackNativeShellEvent({ type: "track-event", name: "tab_pressed", atMs: 1 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("source: native와 발생 시각(time)을 붙여 보낸다 — 큐를 거쳐 늦게 와도 타임라인이 맞아야 한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackNativeShellEvent } = await loadModule();
+    initAmplitude();
+
+    trackNativeShellEvent({
+      type: "track-event",
+      name: "tab_pressed",
+      properties: { tab: "social", from_tab: "home" },
+      atMs: 1234,
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "tab_pressed",
+      { tab: "social", from_tab: "home", source: "native" },
+      { time: 1234 },
+    );
+  });
+
+  it("속성이 없는 이벤트도 source만 붙여 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackNativeShellEvent } = await loadModule();
+    initAmplitude();
+
+    trackNativeShellEvent({ type: "track-event", name: "permission_denied_viewed", atMs: 5 });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "permission_denied_viewed",
+      { source: "native" },
+      { time: 5 },
+    );
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.

@@ -1,4 +1,9 @@
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  NativeAnalyticsPropertyValue,
+  ToNativeMessage,
+  ToWebMessage,
+  TrackEventMessage,
+} from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 종단점
@@ -77,6 +82,55 @@ export function subscribeToNativeMessages(handler: (message: ToWebMessage) => vo
   };
 }
 
+/**
+ * 이벤트명·속성 키의 형식 — snake_case 식별자. 네이티브 카탈로그(`apps/mobile/lib/nativeAnalytics.ts`)의
+ * 규칙이고, 여기서는 이름을 해석하지 않고 형식만 지킨다.
+ */
+const ANALYTICS_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+
+function isAnalyticsPropertyValue(value: unknown): value is NativeAnalyticsPropertyValue {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null
+  );
+}
+
+/**
+ * `track-event`(네이티브 사용자 이벤트)를 검증한다 — 이름이 형식에 어긋나면 통째로 버리고,
+ * 속성은 원시값 항목만 남긴다. 객체·배열 값은 카탈로그가 금지하는 모양이라(식별자·자유 문자열
+ * 금지와 같은 취지) 그 항목만 조용히 뺀다. 네이티브가 앞서가며 새 이벤트를 보내도 여기서
+ * 막히지 않는다 — 이름을 화이트리스트하지 않는 이유다.
+ */
+function parseTrackEvent(record: Record<string, unknown>): TrackEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !ANALYTICS_KEY_PATTERN.test(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let properties: Record<string, NativeAnalyticsPropertyValue> | undefined;
+  if (record.properties !== undefined) {
+    if (typeof record.properties !== "object" || record.properties === null) {
+      return null;
+    }
+    properties = {};
+    for (const [key, value] of Object.entries(record.properties)) {
+      if (ANALYTICS_KEY_PATTERN.test(key) && isAnalyticsPropertyValue(value)) {
+        properties[key] = value;
+      }
+    }
+  }
+  return {
+    type: "track-event",
+    name: record.name,
+    ...(properties !== undefined ? { properties } : {}),
+    atMs: record.atMs,
+  };
+}
+
 export function parseToWebMessage(raw: string): ToWebMessage | null {
   let parsed: unknown;
   try {
@@ -116,6 +170,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };
+  }
+  if (record.type === "track-event") {
+    return parseTrackEvent(record);
   }
   return null;
 }
