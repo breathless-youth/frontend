@@ -1,3 +1,8 @@
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
 import { startPushMessaging } from "../pushBootstrap";
 import type { PushMessage } from "../pushMessaging";
 
@@ -150,5 +155,43 @@ describe("startPushMessaging (BY-586)", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("초기 알림"), expect.any(Error));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("권한·토큰"), expect.any(Error));
     warn.mockRestore();
+  });
+});
+
+/** 알림 탭은 네이티브만 아는 진입 경로다 — `push_notification_opened`로 웹 Amplitude에 넘긴다. */
+describe("startPushMessaging — push_notification_opened", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("알림 탭마다 쿼리(초대코드)를 뗀 경로만 싣는다 — 링크가 없으면 홈", () => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.opened?.(message({ link: "focusmakers://social/join?code=1234" }));
+    h.listeners.opened?.(message({}, "m2"));
+
+    expect(received.map((event) => event.properties)).toEqual([
+      { route: "/social/join" },
+      { route: "/" },
+    ]);
+  });
+
+  it("해제 뒤의 알림 탭은 남기지 않는다", () => {
+    const h = createHarness();
+    const stop = startPushMessaging(h.deps);
+    stop();
+
+    h.listeners.opened?.(message({ link: "/social" }));
+
+    expect(received).toHaveLength(0);
   });
 });

@@ -4,6 +4,7 @@ describe("parseToNativeMessage", () => {
   it.each([
     "session-ready",
     "home-ready",
+    "analytics-ready",
     "start-session",
     "navigate-home",
     "open-settings",

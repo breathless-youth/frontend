@@ -29,9 +29,17 @@ import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-sess
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
-import { trackSocialRoomExited, trackSocialRoomGraceExceeded } from "@/lib/amplitude";
+import {
+  trackSocialRoomCameraOnDismissed,
+  trackSocialRoomCameraToggled,
+  trackSocialRoomExited,
+  trackSocialRoomGraceExceeded,
+  trackStudySessionExitCancelled,
+  trackStudySessionExitRequested,
+} from "@/lib/amplitude";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
@@ -85,6 +93,8 @@ export function LiveRoomSession({
   useGestureVideoPlaybackKick();
   // iOS 회전 백지(세로 복귀 시 순백 화면) 방어 — lib/rotationRepaint.ts 주석 참고.
   useRotationRepaintNudge();
+  // 가로 그리드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  useSessionOrientationAnalytics("social");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
@@ -428,6 +438,7 @@ export function LiveRoomSession({
             hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
+                trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
@@ -436,7 +447,10 @@ export function LiveRoomSession({
               }
             }}
             onFlipCamera={() => void flipCamera()}
-            onExit={() => setExitDialogOpen(true)}
+            onExit={() => {
+              trackStudySessionExitRequested("social");
+              setExitDialogOpen(true);
+            }}
           />
         </div>
       </div>
@@ -450,8 +464,12 @@ export function LiveRoomSession({
               targetAspect={previewAspect ?? undefined}
             />
           }
-          onCancel={() => setCameraDialogOpen(false)}
+          onCancel={() => {
+            trackSocialRoomCameraOnDismissed();
+            setCameraDialogOpen(false);
+          }}
           onConfirm={() => {
+            trackSocialRoomCameraToggled(true);
             setCameraDialogOpen(false);
             setCameraWanted(true);
             resume();
@@ -464,7 +482,10 @@ export function LiveRoomSession({
           description={exitConfirmDescription(focusSec)}
           cancelLabel={EXIT_CONFIRM_COPY.cancel}
           confirmLabel={EXIT_CONFIRM_COPY.confirm}
-          onCancel={() => setExitDialogOpen(false)}
+          onCancel={() => {
+            trackStudySessionExitCancelled("social");
+            setExitDialogOpen(false);
+          }}
           onConfirm={() => {
             setExitDialogOpen(false);
             void endAndSubmit(MANUAL_END_REASON);

@@ -3,6 +3,11 @@ import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  trackNativeEvent,
+} from "../../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { emitTabReset } from "../../lib/tabReset";
 import {
@@ -859,5 +864,208 @@ describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
 
     expect(onLoadStart).toHaveBeenCalled();
     expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * 네이티브 사용자 이벤트의 전달 대상(sink) 배선(`lib/nativeAnalytics.ts`). 호스트는 "포커스된
+ * 화면 + 웹이 `analytics-ready`를 보낸 문서"일 때만 붙어야 한다 — 탭 4개 웹뷰가 동시에 살아
+ * 있어 조건이 하나라도 빠지면 한 터치가 N번 찍히거나 구독자 없는 문서에 버려진다.
+ */
+describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
+  /** 웹으로 주입된 track-event 메시지만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
+  function injectedTrackEvents() {
+    return mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("track-event"))
+      .map((script) => {
+        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
+        return JSON.parse(JSON.parse(literal) as string) as {
+          type: string;
+          name: string;
+          properties?: Record<string, unknown>;
+          atMs: number;
+        };
+      });
+  }
+
+  function fireAnalyticsReady() {
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"analytics-ready","atMs":1}' } });
+    });
+  }
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("개발 빌드에서는 웹뷰 인스펙터를 켠다 — iOS 16.4+는 이 플래그 없이는 Safari가 붙지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.webviewDebuggingEnabled).toBe(true);
+  });
+
+  it("포커스된 웹뷰가 준비 신호를 보내면 그 뒤의 이벤트를 track-event로 주입하고 콜백에는 넘기지 않는다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/home" testID="host" onBridgeMessage={onBridgeMessage} />);
+    fireAnalyticsReady();
+
+    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
+
+    expect(injectedTrackEvents()).toEqual([
+      expect.objectContaining({
+        type: "track-event",
+        name: "tab_pressed",
+        properties: { tab: "social", from_tab: "home", via: "tab_bar" },
+      }),
+    ]);
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+  });
+
+  it("준비 신호 전에 기록된 이벤트는 큐에 있다가 신호 뒤에 순서대로 주입된다", () => {
+    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_left", { reason: "back_home" });
+
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    expect(injectedTrackEvents()).toEqual([]);
+
+    fireAnalyticsReady();
+    expect(injectedTrackEvents().map((message) => message.name)).toEqual([
+      "permission_denied_viewed",
+      "permission_denied_left",
+    ]);
+  });
+
+  it("포커스가 아니면 준비 신호가 와도 주입하지 않는다 — 보이지 않는 탭 웹뷰에 찍히면 N번 집계된다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" focused={false} />);
+    fireAnalyticsReady();
+
+    trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
+
+    expect(injectedTrackEvents()).toEqual([]);
+  });
+
+  it("포커스를 잃은 동안 쌓인 이벤트를 되찾을 때 넘겨받는다 — 권한 거부 화면이 홈 탭을 덮었다 걷힌 경우", () => {
+    const view = render(<RemoteWebViewHost path="/home" testID="host" focused />);
+    fireAnalyticsReady();
+
+    view.rerender(<RemoteWebViewHost path="/home" testID="host" focused={false} />);
+    trackNativeEvent("permission_denied_viewed");
+    expect(injectedTrackEvents()).toEqual([]);
+
+    view.rerender(<RemoteWebViewHost path="/home" testID="host" focused />);
+    expect(injectedTrackEvents().map((message) => message.name)).toEqual([
+      "permission_denied_viewed",
+    ]);
+  });
+
+  it("사망 복구에 들어가면 준비 상태를 되돌린다 — 복구된 문서가 다시 신호를 보낼 때까지 큐에 둔다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireAnalyticsReady();
+
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+    mockInjectJavaScript.mockClear();
+    trackNativeEvent("permission_denied_viewed");
+    expect(injectedTrackEvents()).toEqual([]);
+
+    fireAnalyticsReady();
+    expect(injectedTrackEvents().map((message) => message.name)).toEqual([
+      "permission_denied_viewed",
+    ]);
+  });
+
+  it("로드가 끝나도 준비 상태를 되돌리지 않는다 — 새 문서의 신호가 onLoadEnd보다 먼저 올 수 있다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireAnalyticsReady();
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    trackNativeEvent("permission_denied_viewed");
+
+    expect(injectedTrackEvents().map((message) => message.name)).toEqual([
+      "permission_denied_viewed",
+    ]);
+  });
+
+  it("로드 실패와 다시 시도를 이벤트로 남긴다 — 그 웹뷰로는 못 나가므로 큐에 쌓인다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireWebViewEvent("onError");
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+    const received: string[] = [];
+    attachNativeAnalyticsSink((event) => {
+      received.push(`${event.name}:${JSON.stringify(event.properties)}`);
+    });
+
+    expect(received).toEqual([
+      'webview_load_failed:{"path":"/home","reason":"error"}',
+      'webview_retry_pressed:{"path":"/home"}',
+    ]);
+  });
+
+  it("HTTP 오류 응답은 http 사유로 남긴다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    fireWebViewEvent("onHttpError");
+
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.properties));
+
+    expect(received).toEqual([{ path: "/settings", reason: "http" }]);
+  });
+
+  it("베이스 URL 미설정은 config 사유로 마운트당 한 번만 남긴다 — 재시도해도 같은 실패", () => {
+    mockWebBaseUrl = "";
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+    const received: string[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.name));
+
+    expect(received).toEqual(["webview_load_failed", "webview_retry_pressed"]);
+  });
+
+  it("iOS 콘텐츠 프로세스 사망은 복구 진입을 한 건으로 남긴다 — 죽은 웹뷰로는 못 나가 큐를 거친다", () => {
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+    expect(received).toEqual([
+      ["webview_recovery_started", { path: "/social", reason: "process_terminated" }],
+    ]);
+  });
+
+  it("Android 렌더러 사망은 호스트마다 통보가 와도 복구를 시작한 한 번만 남긴다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+
+    act(() => {
+      (screen.getByTestId("social-host").props.onRenderProcessGone as () => void)();
+      // 공유 렌더러라 이웃 호스트에도 같은 통보가 온다 — 이미 전역 복구 중이라 이벤트는 없다.
+      (screen.getByTestId("home-host").props.onRenderProcessGone as () => void)();
+    });
+
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+    expect(received).toEqual([
+      ["webview_recovery_started", { path: "/social", reason: "render_process_gone" }],
+    ]);
   });
 });

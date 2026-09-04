@@ -14,6 +14,7 @@ import { IconChevronRight, IconPlay, IllustFlame, IllustStudyDoodle } from "@/fe
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
+import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
@@ -272,8 +273,13 @@ function HomeContent({ userId }: { userId: number }) {
     }
     isStartingRef.current = true;
     void runFocusStartFlow({
-      openOnboardingGuide,
+      // 분기 결과를 여기서 찍는다(BY-616 확장) — 가이드 미완료면 가이드, 완료면 세션 요청.
+      openOnboardingGuide: (entry) => {
+        trackFocusStartTapped("guide");
+        openOnboardingGuide(entry);
+      },
       startSession: async () => {
+        trackFocusStartTapped("session");
         await requestSessionStart(userId, () =>
           navigate({ pathname: "/room/1", search: location.search }),
         );
@@ -291,7 +297,7 @@ function HomeContent({ userId }: { userId: number }) {
     <>
       {summaryState.status === "pending" && <Skeleton className="h-[180px] rounded-xl" />}
       {summaryState.status === "error" && (
-        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} />
+        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} screen="home" />
       )}
       {summaryState.status === "success" && <HeroTodayCard summary={summaryState.summary} />}
 

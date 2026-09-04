@@ -1,6 +1,12 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
+import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
@@ -261,5 +267,45 @@ describe("handleBridgeMessage", () => {
     handleBridgeMessage(message, noopReply);
 
     expect(handle).toHaveBeenCalledWith(message, noopReply);
+  });
+});
+
+describe("handleBridgeMessage — 권한 게이트의 room_type", () => {
+  it("start-session은 single, request-camera-gate는 social로 게이트를 돌린다 — 이벤트 속성이 갈린다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 2 }, noopReply);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(1, "single");
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(2, "social");
+  });
+});
+
+describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+  });
+
+  it("홈 카드가 보낸 navigate-tab을 via=card인 tab_pressed로 남기고 이동한다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
   });
 });

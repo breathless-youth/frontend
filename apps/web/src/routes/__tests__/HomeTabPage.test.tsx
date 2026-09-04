@@ -5,6 +5,8 @@ import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+
 import {
   createMemoryOnboardingGuideStore,
   resetOnboardingGuideStore,
@@ -20,6 +22,13 @@ const closeStaleSession = vi.hoisted(() =>
 );
 
 vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
+
+const analytics = vi.hoisted(() => ({ trackFocusStartTapped: vi.fn() }));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackFocusStartTapped: analytics.trackFocusStartTapped,
+}));
 
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
@@ -264,6 +273,8 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("onboarding-guide-stub");
       expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=focus-start");
+      // 분기 계측(BY-616 확장) — 가이드로 갔다는 사실은 autocapture 클릭이 모른다.
+      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("guide");
     });
 
     it("가이드를 이미 봤으면(완료) 쿼리를 승계해 세션 라우트로 바로 이동한다", async () => {
@@ -280,6 +291,7 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
+      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("session");
     });
 
     it("가이드를 이미 봤을 때 빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {

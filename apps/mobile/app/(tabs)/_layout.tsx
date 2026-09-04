@@ -3,17 +3,11 @@ import { Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
 import { BackHandler, Platform } from "react-native";
 
-import { TabBar, type TabId } from "../../components/TabBar";
+import { TabBar } from "../../components/TabBar";
+import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
+import { trackNativeEvent } from "../../lib/nativeAnalytics";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
-
-/** expo-router 라우트 이름 → 탭 바 아이템 id. 확정 4탭(BY-409에서 소셜 추가)이 모두 실재하는 라우트다. */
-const TAB_BY_ROUTE_NAME: Record<string, TabId> = {
-  index: "home",
-  social: "social",
-  records: "record",
-  settings: "settings",
-};
 
 export default function TabsLayout() {
   /**
@@ -42,6 +36,13 @@ export default function TabsLayout() {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       const target = tabResetTargetForBack(activeRouteRef.current);
       if (target !== null) {
+        // 홈이 아닌 탭에서의 뒤로가기는 홈 탭 이동이다 — 탭 바 터치와 같은 사건이라 `tab_pressed`로
+        // 세고 경로만 가른다(홈 탭에서는 앱 종료라 탭 이동이 아니고 이벤트도 없다).
+        trackNativeEvent("tab_pressed", {
+          tab: "home",
+          from_tab: TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home",
+          via: "hardware_back",
+        });
         emitTabReset(target);
       }
       return false;
@@ -55,6 +56,8 @@ export default function TabsLayout() {
       // 활성 탭은 네비게이터 상태에서 읽는다 — 화면마다 하드코딩하지 않는다.
       tabBar={({ state }) => {
         activeRouteRef.current = state.routes[state.index]?.name ?? "index";
+        // 브리지 핸들러가 `navigate-tab`의 출발 탭을 읽을 수 있게 모듈 스코프에도 기록한다(`lib/activeTab.ts`).
+        setActiveTabRoute(activeRouteRef.current);
         return tabBarVisible ? (
           <TabBar active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"} />
         ) : null;

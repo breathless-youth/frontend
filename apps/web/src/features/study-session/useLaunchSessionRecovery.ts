@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
+import { trackSessionRecoveryConfirmed, trackSessionRecoveryPrompted } from "@/lib/amplitude";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { statsKeys } from "@/lib/statsQueries";
 
@@ -42,6 +43,7 @@ export function useLaunchSessionRecovery(userId: number | null): {
         // 마감으로 오늘 집계와 연속일이 달라진다. 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
         void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         if (result !== null && result.focusSec >= 60) {
+          trackSessionRecoveryPrompted(result.focusSec);
           setRecovered(result);
         }
       });
@@ -58,6 +60,7 @@ export function useLaunchSessionRecovery(userId: number | null): {
   }, [queryClient, userId]);
 
   const dismiss = useCallback(() => {
+    trackSessionRecoveryConfirmed();
     setRecovered(null);
   }, []);
 

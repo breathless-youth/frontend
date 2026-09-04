@@ -4,7 +4,9 @@ import { Pressable, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
+import { trackNativeEvent } from "../lib/nativeAnalytics";
 
+/** `lib/nativeAnalytics.ts`의 `NativeTab`과 같은 값 집합 — 탭 터치 이벤트가 이 값을 그대로 싣는다. */
 export type TabId = "home" | "social" | "record" | "settings";
 
 // 순서: 홈 · 소셜 · 기록 · 설정.
@@ -40,6 +42,8 @@ export function TabBar({ active = "home" }: TabBarProps) {
             key={id}
             disabled={isActive}
             onPress={() => {
+              // 탭 전환은 네이티브만 아는 사용자 행동이다 — 웹 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`).
+              trackNativeEvent("tab_pressed", { tab: id, from_tab: active, via: "tab_bar" });
               router.navigate(href);
             }}
             accessibilityRole="tab"

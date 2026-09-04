@@ -16,11 +16,20 @@ import {
   GUIDE_SKIP_LABEL,
   GUIDE_START_LABEL,
 } from "@/features/onboarding/onboardingGuideSteps";
+import type * as AmplitudeModule from "@/lib/amplitude";
 import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
 vi.mock("@/features/study-session/closeStaleSession", () => ({
   closeStaleSession: () => Promise.resolve(),
+}));
+
+/** 가이드 진입 계측(BY-616 최종 검토)의 관찰점 — 나머지 amplitude 함수는 원본(미초기화 no-op)이다. */
+const analytics = vi.hoisted(() => ({ trackGuideEntered: vi.fn() }));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof AmplitudeModule>()),
+  trackGuideEntered: analytics.trackGuideEntered,
 }));
 
 // jsdom(26)에는 `PointerEvent` 구현이 없다 — testing-library가 `window.PointerEvent`를 못 찾으면
@@ -293,5 +302,35 @@ describe("/onboarding-guide — 네이티브 백 제스처 잠금 (BY-343)", () 
       expect.objectContaining({ enabled: false }),
       expect.objectContaining({ enabled: true }),
     ]);
+  });
+});
+
+describe("/onboarding-guide — 진입 계측 (BY-616 최종 검토)", () => {
+  beforeEach(() => {
+    setOnboardingGuideStore(createMemoryOnboardingGuideStore());
+    // 위 describe들이 가이드를 여러 번 렌더해 스파이에 호출이 남아 있다 — 이 케이스의 것만 본다.
+    analytics.trackGuideEntered.mockClear();
+  });
+
+  afterEach(() => {
+    resetOnboardingGuideStore();
+    analytics.trackGuideEntered.mockClear();
+  });
+
+  it("진입 경로(entry)를 마운트에 한 번 남기고, 이전으로 G1에 돌아와도 다시 찍지 않는다", () => {
+    renderGuideAt("/onboarding-guide?entry=settings&userId=7");
+
+    expect(analytics.trackGuideEntered.mock.calls).toEqual([["settings"]]);
+
+    fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
+    fireEvent.click(screen.getByRole("button", { name: GUIDE_PREV_LABEL }));
+
+    expect(analytics.trackGuideEntered).toHaveBeenCalledTimes(1);
+  });
+
+  it("entry가 없으면 홈 가이드 카드 진입(home-card)으로 남긴다 — 페이지의 기본값과 같다", () => {
+    renderGuideAt("/onboarding-guide?userId=7");
+
+    expect(analytics.trackGuideEntered.mock.calls).toEqual([["home-card"]]);
   });
 });
