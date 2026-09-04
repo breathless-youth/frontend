@@ -57,8 +57,11 @@ function guardDevBaseUrl(name: string, value: string | undefined): string {
  * 붙으면 최소 지원 버전 테스트가 실사용자를 막고, 테스트 푸시가 실사용자에게 간다.
  */
 const PROD_FIREBASE_PROJECT_ID = "focusmakers-prod";
+const DEV_FIREBASE_PROJECT_ID = "focusmakers-dev";
 
-function readFirebaseProjectId(filePath: string): string | null {
+type FirebaseFileInfo = { projectId: string | null; appIds: string[] };
+
+function readFirebaseFile(filePath: string): FirebaseFileInfo | null {
   let text: string;
   try {
     text = fs.readFileSync(filePath, "utf8");
@@ -67,74 +70,145 @@ function readFirebaseProjectId(filePath: string): string | null {
   }
   if (filePath.endsWith(".json")) {
     try {
-      const parsed = JSON.parse(text) as { project_info?: { project_id?: unknown } };
+      const parsed = JSON.parse(text) as {
+        project_info?: { project_id?: unknown };
+        client?: { client_info?: { android_client_info?: { package_name?: unknown } } }[];
+      };
       const id = parsed.project_info?.project_id;
-      return typeof id === "string" ? id : null;
+      // google-services.json 하나에 프로젝트의 Android 앱이 전부 들어온다. 그중 하나가 맞으면 된다.
+      const appIds = (parsed.client ?? [])
+        .map((c) => c.client_info?.android_client_info?.package_name)
+        .filter((name): name is string => typeof name === "string");
+      return { projectId: typeof id === "string" ? id : null, appIds };
     } catch {
       return null;
     }
   }
-  // GoogleService-Info.plist — 키 하나만 필요해서 plist 파서 없이 정규식으로 읽는다.
-  const match = /<key>PROJECT_ID<\/key>\s*<string>([^<]+)<\/string>/.exec(text);
-  return match?.[1] ?? null;
+  // GoogleService-Info.plist는 키 두 개만 필요해서 plist 파서 없이 정규식으로 읽는다.
+  const project = /<key>PROJECT_ID<\/key>\s*<string>([^<]+)<\/string>/.exec(text);
+  const bundle = /<key>BUNDLE_ID<\/key>\s*<string>([^<]+)<\/string>/.exec(text);
+  return { projectId: project?.[1] ?? null, appIds: bundle?.[1] ? [bundle[1]] : [] };
 }
 
 function guardFirebaseFile(
   name: string,
   value: string | undefined,
   isProduction: boolean,
+  expectedAppId: string,
 ): string | undefined {
   if (!value) {
     return undefined;
   }
-  const projectId = readFirebaseProjectId(path.resolve(__dirname, value));
-  const isProdFile = projectId === PROD_FIREBASE_PROJECT_ID;
-  if (isProduction && !isProdFile) {
+  const expectedProjectId = isProduction ? PROD_FIREBASE_PROJECT_ID : DEV_FIREBASE_PROJECT_ID;
+  const info = readFirebaseFile(path.resolve(__dirname, value));
+  if (info === null) {
+    // `.env.local.example`이 경로를 기본값으로 채워 두는데 Metro만 띄우는 개발자에겐 파일이 없을 수
+    // 있다. 개발 빌드는 그대로 통과시키고, prebuild가 필요한 명령에서는 RNFB plugin이 명확한
+    // 메시지로 실패하게 둔다. 운영 빌드는 파일 없이 나가면 안 되므로 여기서 끊는다.
+    if (!isProduction) {
+      return value;
+    }
     throw new Error(
       `${name}이 운영 Firebase 프로젝트(${PROD_FIREBASE_PROJECT_ID}) 파일이 아닙니다` +
-        `(읽힌 프로젝트: ${projectId ?? "없음"}). production 빌드에는 prod 파일을 주입하세요.`,
+        "(읽힌 프로젝트: 없음). production 빌드에는 prod 파일을 주입하세요.",
     );
   }
-  if (!isProduction && isProdFile) {
+  if (info.projectId !== expectedProjectId) {
     throw new Error(
-      `${name}이 운영 Firebase 프로젝트(${PROD_FIREBASE_PROJECT_ID}) 파일을 가리킵니다 — ` +
-        "개발 빌드는 dev 프로젝트 파일을 써야 합니다. apps/mobile/.env.local의 경로를 확인하세요.",
+      `${name}이 ${expectedProjectId} 프로젝트 파일이 아닙니다` +
+        `(읽힌 프로젝트: ${info.projectId ?? "없음"}). ` +
+        (isProduction
+          ? "production 빌드에는 prod 파일을 주입하세요."
+          : "개발 빌드는 dev 프로젝트 파일을 써야 합니다. apps/mobile/.env.local의 경로를 확인하세요."),
+    );
+  }
+  // 파일이 읽혔는데 이 빌드의 아이덴티티가 없으면 Android는 gradle에서 죽고 iOS는 경고만 남긴 채
+  // 푸시가 오지 않는다. 둘 다 여기서 끊는다.
+  if (!info.appIds.includes(expectedAppId)) {
+    throw new Error(
+      `${name}에 이 빌드의 아이덴티티(${expectedAppId})가 없습니다` +
+        `(파일에 있는 아이덴티티: ${info.appIds.join(", ") || "없음"}). ` +
+        "Firebase 콘솔에서 이 아이덴티티로 등록한 앱의 설정 파일을 쓰세요.",
     );
   }
   return value;
 }
 
+const APP_VARIANTS = ["production", "staging", "development"] as const;
+type AppVariant = (typeof APP_VARIANTS)[number];
+
+// 미설정만 development다. 오타가 development로 떨어지면 빈 주소 빌드가 아무 표시 없이
+// 나가므로, 세 값 밖의 문자열은 여기서 끊는다.
+function resolveAppVariant(raw: string | undefined): AppVariant {
+  if (raw === undefined || raw === "") {
+    return "development";
+  }
+  if ((APP_VARIANTS as readonly string[]).includes(raw)) {
+    return raw as AppVariant;
+  }
+  throw new Error(
+    `APP_VARIANT가 알 수 없는 값(${raw})입니다. production, staging, development 중 하나여야 합니다.`,
+  );
+}
+
+// 접미사는 app.json의 base 값에 붙인다. 값을 여기 다시 적으면 app.json과 이중 관리가 된다.
+const VARIANT_TABLE: Record<
+  AppVariant,
+  { idSuffix: string; nameSuffix: string; apiBaseUrl?: string; webBaseUrl?: string }
+> = {
+  production: {
+    idSuffix: "",
+    nameSuffix: "",
+    apiBaseUrl: PROD_API_BASE_URL,
+    webBaseUrl: PROD_WEB_BASE_URL,
+  },
+  staging: {
+    idSuffix: ".staging",
+    nameSuffix: " STG",
+    apiBaseUrl: "https://api-dev.focusmakers.app",
+    webBaseUrl: "https://web-dev.focusmakers.app",
+  },
+  development: { idSuffix: ".dev", nameSuffix: " DEV" },
+};
+
 export default function buildConfig({ config }: ConfigContext): ExpoConfig {
-  const isProduction = process.env.APP_VARIANT === "production";
+  const variant = resolveAppVariant(process.env.APP_VARIANT);
+  const table = VARIANT_TABLE[variant];
+  const isProduction = variant === "production";
+  const bundleIdentifier = `${config.ios?.bundleIdentifier ?? ""}${table.idSuffix}`;
+  const androidPackage = `${config.android?.package ?? ""}${table.idSuffix}`;
+
   const androidGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_JSON",
     process.env.GOOGLE_SERVICES_JSON,
     isProduction,
+    androidPackage,
   );
   const iosGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_PLIST",
     process.env.GOOGLE_SERVICES_PLIST,
     isProduction,
+    bundleIdentifier,
   );
 
   return {
     ...(config as ExpoConfig),
     ios: {
       ...config.ios,
+      bundleIdentifier,
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : null),
     },
     android: {
       ...config.android,
+      package: androidPackage,
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : null),
     },
     extra: {
       ...config.extra,
-      apiBaseUrl: isProduction
-        ? PROD_API_BASE_URL
-        : guardDevBaseUrl("API_BASE_URL", process.env.API_BASE_URL),
-      webBaseUrl: isProduction
-        ? PROD_WEB_BASE_URL
-        : guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL),
+      appEnv: variant,
+      appDisplayName: `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`,
+      apiBaseUrl: table.apiBaseUrl ?? guardDevBaseUrl("API_BASE_URL", process.env.API_BASE_URL),
+      webBaseUrl: table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL),
     },
   };
 }

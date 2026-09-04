@@ -88,39 +88,96 @@ describe("app.config 환경 분기", () => {
     ).toThrow(/운영 주소/);
   });
 
-  it("eas.json의 production과 preview 프로필이 APP_VARIANT=production을 선언한다", () => {
-    // 이 선언이 빠지면 스토어 빌드가 빈 주소로 나가 웹뷰 폴백만 뜬다 — 조용한 회귀 방지 핀.
-    const easJson = require("../../eas.json") as {
-      build: Record<string, { env?: Record<string, string> }>;
-    };
-    expect(easJson.build.production.env?.APP_VARIANT).toBe("production");
-    expect(easJson.build.preview.env?.APP_VARIANT).toBe("production");
-    // 반대 방향 가드 — 개발 프로필에 production이 들어가면 개발 빌드가 운영을 바라보는
-    // 사고(이 티켓이 막은 것)가 부활한다.
-    expect(easJson.build.development.env?.APP_VARIANT).not.toBe("production");
-    expect(easJson.build["development-simulator"].env?.APP_VARIANT).not.toBe("production");
-  });
-
-  it("eas.json의 qa 프로필은 개발 주소를 쓰고 APP_VARIANT를 선언하지 않는다", () => {
-    // APP_VARIANT가 선언되면 env 주소가 무시되고 운영 주소 빌드가 된다 — QA 트래픽이
-    // 운영 DB로 가는 회귀를 막는 핀.
-    const easJson = require("../../eas.json") as {
-      build: Record<string, { distribution?: string; env?: Record<string, string> }>;
-    };
-    expect(easJson.build.qa.env?.APP_VARIANT).toBeUndefined();
-    expect(easJson.build.qa.distribution).toBe("internal");
-    expect(easJson.build.qa.env?.API_BASE_URL).toBe("https://api-dev.focusmakers.app");
-    expect(easJson.build.qa.env?.WEB_BASE_URL).toBe("https://web-dev.focusmakers.app");
-  });
-
-  it("qa 프로필의 주소는 개발 분기 가드를 통과해 extra에 반영된다", () => {
-    // 가드 목록에 dev 호스트가 잘못 들어가면 QA 빌드가 통째로 막힌다 — 여기서 걸린다.
-    const extra = resolveExtra({
-      APP_VARIANT: undefined,
-      API_BASE_URL: "https://api-dev.focusmakers.app",
-      WEB_BASE_URL: "https://web-dev.focusmakers.app",
+  describe("APP_VARIANT 3단계 파생", () => {
+    it("staging은 dev 주소 상수와 .staging 아이덴티티, STG 표시명을 낸다", () => {
+      process.env.APP_VARIANT = "staging";
+      delete process.env.API_BASE_URL;
+      delete process.env.WEB_BASE_URL;
+      const out = buildConfig({ config: baseConfig } as ConfigContext);
+      expect(out.extra?.apiBaseUrl).toBe("https://api-dev.focusmakers.app");
+      expect(out.extra?.webBaseUrl).toBe("https://web-dev.focusmakers.app");
+      expect(out.ios?.bundleIdentifier).toBe("com.breathlessyouth.mobile.staging");
+      expect(out.android?.package).toBe("com.breathlessyouth.mobile.staging");
+      expect(out.extra?.appDisplayName).toBe("포커스 메이커스 STG");
+      expect(out.extra?.appEnv).toBe("staging");
     });
-    expect(extra?.apiBaseUrl).toBe("https://api-dev.focusmakers.app");
-    expect(extra?.webBaseUrl).toBe("https://web-dev.focusmakers.app");
+
+    it("staging은 env 주소를 무시한다", () => {
+      process.env.APP_VARIANT = "staging";
+      process.env.API_BASE_URL = "http://localhost:8080";
+      process.env.WEB_BASE_URL = "http://localhost:5173";
+      const out = buildConfig({ config: baseConfig } as ConfigContext);
+      expect(out.extra?.apiBaseUrl).toBe("https://api-dev.focusmakers.app");
+      expect(out.extra?.webBaseUrl).toBe("https://web-dev.focusmakers.app");
+    });
+
+    it("미설정은 development로 보고 .dev 아이덴티티와 DEV 표시명을 낸다", () => {
+      delete process.env.APP_VARIANT;
+      delete process.env.API_BASE_URL;
+      delete process.env.WEB_BASE_URL;
+      const out = buildConfig({ config: baseConfig } as ConfigContext);
+      expect(out.ios?.bundleIdentifier).toBe("com.breathlessyouth.mobile.dev");
+      expect(out.android?.package).toBe("com.breathlessyouth.mobile.dev");
+      expect(out.extra?.appDisplayName).toBe("포커스 메이커스 DEV");
+      expect(out.extra?.appEnv).toBe("development");
+    });
+
+    it("production은 app.json의 아이덴티티·표시명을 그대로 낸다", () => {
+      process.env.APP_VARIANT = "production";
+      const out = buildConfig({ config: baseConfig } as ConfigContext);
+      expect(out.ios?.bundleIdentifier).toBe(appJson.expo.ios.bundleIdentifier);
+      expect(out.android?.package).toBe(appJson.expo.android.package);
+      expect(out.extra?.appDisplayName).toBe(appJson.expo.extra.appDisplayName);
+      expect(out.extra?.appEnv).toBe("production");
+    });
+
+    it.each(["stagin", "prod", "qa", "preview"])(
+      "알 수 없는 값(%s)은 설정 평가가 실패한다",
+      (raw) => {
+        process.env.APP_VARIANT = raw;
+        expect(() => buildConfig({ config: baseConfig } as ConfigContext)).toThrow(/APP_VARIANT/);
+      },
+    );
+  });
+
+  describe("eas.json 프로필", () => {
+    const easJson = require("../../eas.json") as {
+      build: Record<
+        string,
+        {
+          distribution?: string;
+          env?: Record<string, string>;
+          environment?: string;
+          autoIncrement?: boolean;
+        }
+      >;
+    };
+
+    it("프로필은 정확히 네 개다", () => {
+      expect(Object.keys(easJson.build).sort()).toEqual([
+        "development",
+        "development-simulator",
+        "production",
+        "staging",
+      ]);
+    });
+
+    it.each([
+      ["development", "development"],
+      ["development-simulator", "development"],
+      ["staging", "staging"],
+      ["production", "production"],
+    ])("%s 프로필은 APP_VARIANT=%s 한 줄만 env로 준다", (profile, variant) => {
+      expect(easJson.build[profile].env).toEqual({ APP_VARIANT: variant });
+    });
+
+    it("distribution과 autoIncrement가 ADR 표와 같다", () => {
+      expect(easJson.build.development.distribution).toBe("internal");
+      expect(easJson.build["development-simulator"].distribution).toBe("internal");
+      expect(easJson.build.staging.distribution).toBe("internal");
+      expect(easJson.build.production.distribution).toBeUndefined();
+      expect(easJson.build.production.autoIncrement).toBe(true);
+      expect(easJson.build.staging.autoIncrement).toBeUndefined();
+    });
   });
 });
