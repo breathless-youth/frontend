@@ -86,7 +86,7 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 - EAS 자격증명을 세 벌 관리한다. Apple App ID와 Android keystore가 아이덴티티마다 한 벌씩 늘어난다. Android keystore는 분실하면 그 패키지로 다시는 업데이트를 낼 수 없으므로, 새 keystore를 만든 뒤 `eas credentials`로 내려받아 팀 보관소에 백업했는지 확인하는 것이 BY-600의 완료 조건에 들어간다.
 - `public/.well-known/apple-app-site-association`에 `9BCSD3ZRDQ.com.breathlessyouth.mobile.staging` appID를 추가하고, `public/.well-known/assetlinks.json`에 staging 패키지 항목을 추가한다. 지문은 EAS가 새 keystore를 만든 뒤 `eas credentials`로 확인해 기입한다. development는 App Link를 선언하지 않으므로 well-known에 넣지 않는다.
 - 정적 파일 하나에 운영과 staging 아이덴티티를 함께 적는다. 어느 호스트를 claim할지는 앱의 선언이 결정하고 well-known은 허가만 하므로, 운영 도메인의 파일에 비운영 항목이 있어도 그 아이덴티티를 설치하지 않은 기기에는 아무 영향이 없다. 환경별로 파일을 나누면 도메인마다 다른 정적 자산을 관리해야 해서 더 비싸다.
-- `app.json`의 정적 `scheme`, `associatedDomains`, `intentFilters` 선언을 제거하고 `app.config.ts`에서 생성한다. `pathPrefix` `/social/join`과 `autoVerify: true`는 유지한다.
+- `app.json`의 정적 `scheme`, `associatedDomains`, `intentFilters` 선언을 제거하고 `app.config.ts`에서 생성한다. `pathPrefix` `/social/join`과 `autoVerify: true`는 유지한다. (2026-09-04 BY-601에서 반영. 푸시 딥링크 허용 목록도 `extra.appSchemes`·`extra.deepLinkHosts`로 같은 값을 읽는다.)
 - 웹 핸드오프의 `appHandoff.ts`와 `storeLink.ts`는 하드코딩된 스킴 `focusmakers`와 패키지 `com.breathlessyouth.mobile`을 `__DEPLOY_ENV__`에서 파생한다. 스토어 폴백 링크는 운영 하나만 유지한다. staging 빌드는 스토어에 없기 때문이다.
 - Amplitude와 GA4는 코드를 바꾸지 않는다. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`와 `VITE_GA4_MEASUREMENT_ID`가 운영 프로젝트 값이 아닌지 확인하는 운영 체크리스트만 남는다. 두 값은 저장소에서 검증할 수 없다.
 - Firebase 설정 파일(BY-585에서 팀원이 도입)은 `package_name`·`BUNDLE_ID`로 앱을 식별하므로 아이덴티티마다 파일이 따로 있어야 한다. EAS environment는 `development`→`.dev` 파일, `preview`→`.staging` 파일, `production`→prod 파일로 배치하고, `app.config.ts`가 파일의 아이덴티티가 빌드와 다르면 `throw`한다. (2026-09-04 BY-600에서 반영)
