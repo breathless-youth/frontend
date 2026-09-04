@@ -1,15 +1,14 @@
+import { APP_IDENTITY } from "./appIdentity";
 import { storeLink } from "./storeLink";
 
-const APP_SCHEME = "focusmakers";
-const ANDROID_PACKAGE = "com.breathlessyouth.mobile";
 const DEEP_LINK_PATH = "social/join";
 const IOS_STORE_FALLBACK_MS = 1500;
 
 /** 초대코드를 실은 앱 딥링크. 코드가 없으면 경로만. */
 export function appSchemeUrl(code: string): string {
   return code === ""
-    ? `${APP_SCHEME}://${DEEP_LINK_PATH}`
-    : `${APP_SCHEME}://${DEEP_LINK_PATH}?code=${encodeURIComponent(code)}`;
+    ? `${APP_IDENTITY.scheme}://${DEEP_LINK_PATH}`
+    : `${APP_IDENTITY.scheme}://${DEEP_LINK_PATH}?code=${encodeURIComponent(code)}`;
 }
 
 /**
@@ -19,7 +18,7 @@ export function appSchemeUrl(code: string): string {
 export function androidIntentUrl(code: string): string {
   const query = code === "" ? "" : `?code=${encodeURIComponent(code)}`;
   const fallback = encodeURIComponent(storeLink("android", code));
-  return `intent://${DEEP_LINK_PATH}${query}#Intent;scheme=${APP_SCHEME};package=${ANDROID_PACKAGE};S.browser_fallback_url=${fallback};end`;
+  return `intent://${DEEP_LINK_PATH}${query}#Intent;scheme=${APP_IDENTITY.scheme};package=${APP_IDENTITY.androidPackage};S.browser_fallback_url=${fallback};end`;
 }
 
 // 카카오톡·인스타그램·네이버·라인·페이스북 인앱 브라우저의 UA 토큰.
