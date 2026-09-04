@@ -69,3 +69,13 @@
 - 브라우저에서 세션을 끝내면 결과 화면까지 정상으로 도달한다.
 - `apps/web`, `apps/mobile`, `packages/types` 어디에도 `submit-session`·`submit-result`·`submitViaNative`·`sessionSubmitRelay` 문자열이 남지 않는다.
 - typecheck, lint, web vitest, mobile jest가 모두 통과한다.
+
+## 검증 기록 (BY-617, 2026-09-05)
+
+PR #127이 미룬 실기기·브라우저 검증을 BY-617에서 진행했다. 대상은 dev에 머지된 #127이 반영된 `web-dev.focusmakers.app`과 `api-dev.focusmakers.app`이다.
+
+- **CORS 사전 점검**: api-dev와 운영 api 모두 web-dev·web 오리진의 `POST /api/study-sessions` 프리플라이트(`content-type`, `api-version` 헤더)에 200과 허용 헤더를 돌려준다. web-dev 배포 번들에 `submit-session`·`submit-result` 문자열은 없다.
+- **iOS 앱**: iPhone 17 Pro(iOS 26.6.1), Dev Client 1.0.2 + Metro 터널로 web-dev를 띄워 세션 종료 → 결과 화면 도달을 확인했다.
+- **브라우저(web-dev)**: Playwright headless Chromium(가짜 카메라)으로 `/room/1?userId=201`에서 세션을 진행하고 `공부 종료`를 눌렀다. `POST /api/study-sessions`가 201로 돌아오고(`access-control-allow-origin: https://web-dev.focusmakers.app`) 서버에 세션이 생성됐다. 순공 75초 세션은 결과 화면(`/room/1/result`)에 도달했고, Vision이 자리 비움으로 판정한 순공 4초 세션은 설계대로 1분 미만 안내로 갔다(제출 자체는 201).
+- **Android 앱**: 미검증. Dev Client로 같은 절차를 밟아 결과를 여기에 추가한다.
+- **개발 환경 메모**: BY-600 이후 트리에서 Metro를 띄우려면 `.env.local`의 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST`가 `.dev` 아이덴티티가 든 파일을 가리켜야 한다. BY-615 전에는 두 줄을 비워야 매니페스트가 뜬다. staging EAS 빌드는 같은 이유로 BY-615 이후에 가능하다.
