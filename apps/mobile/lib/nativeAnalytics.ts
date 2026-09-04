@@ -41,13 +41,22 @@ export type NativeTab = "home" | "social" | "record" | "settings";
 export type NativeAnalyticsProperties = Record<string, NativeAnalyticsPropertyValue>;
 
 /**
- * 네이티브 이벤트 카탈로그 — 키가 이벤트명, 값이 속성 타입(속성이 없으면 `undefined`).
- * `Record` 제약이 모든 속성값을 원시값으로 강제한다.
+ * 카탈로그 모양 제약 — 모든 속성값이 원시값 Record(속성이 없으면 `undefined`)여야 한다.
+ *
+ * ⚠️ `interface … extends Record<string, …>`로 걸면 안 된다(2026-09-05 PR 리뷰). 그러면 문자열 인덱스
+ * 시그니처가 남아 `keyof`가 `string | number`로 무너지고 `NativeAnalyticsEventName`이 그냥 `string`이
+ * 되어, 카탈로그에 없는 이름·속성을 넘겨도 컴파일을 통과한다. 제네릭 제약으로 걸면 리터럴 키가 그대로
+ * 남는다 — 위반하면 아래 `NativeAnalyticsEventMap` 정의 자리에서 컴파일 에러가 난다.
  */
-export interface NativeAnalyticsEventMap extends Record<
-  string,
-  NativeAnalyticsProperties | undefined
-> {
+type AssertNativeAnalyticsCatalog<
+  T extends { [K in keyof T]: NativeAnalyticsProperties | undefined },
+> = T;
+
+/**
+ * 네이티브 이벤트 카탈로그 — 키가 이벤트명, 값이 속성 타입(속성이 없으면 `undefined`).
+ * 키가 리터럴 유니온으로 남아 `trackNativeEvent`가 이름·속성을 둘 다 타입으로 강제한다.
+ */
+export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
   /**
    * 앱이 백그라운드로 갔다(`lib/appStateAnalytics.ts`, `app/_layout.tsx`의 AppState 감시). iOS의
    * `inactive`(제어 센터·전화 수신)는 세지 않는다 — 실제로 떠난 것만 센다.
@@ -107,7 +116,7 @@ export interface NativeAnalyticsEventMap extends Record<
    * `path`는 통보를 받은 웹뷰의 경로. 이 이벤트도 로드 실패처럼 그 웹뷰로는 못 나가 큐를 거친다.
    */
   webview_recovery_started: { path: string; reason: "process_terminated" | "render_process_gone" };
-}
+}>;
 
 export type NativeAnalyticsEventName = keyof NativeAnalyticsEventMap & string;
 
