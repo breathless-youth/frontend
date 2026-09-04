@@ -54,6 +54,16 @@ describe("useForceUpdateGate", () => {
     expect(result.current.forced).toBe(false);
   });
 
+  it("nativeUpdateGate=1이면 버전이 낮아도 forced=false — 새 바이너리는 네이티브가 판정한다(BY-586)", () => {
+    stubNavigator(ANDROID_UA, 5);
+
+    const { result } = renderHook(() => useForceUpdateGate(), {
+      wrapper: wrapper("/?appVersion=0.9.0&nativeUpdateGate=1"),
+    });
+
+    expect(result.current.forced).toBe(false);
+  });
+
   it("appVersion 쿼리가 없으면 forced=false", () => {
     stubNavigator(ANDROID_UA, 5);
 

@@ -1,7 +1,9 @@
 /**
  * 강제 업데이트 버전 판정.
  *
- * TODO: 최소 버전은 지금은 하드코딩 상수지만, BY-536에서 서버 API로 바뀔 예정이라 그 시점에 `minSupportedVersion()` 내부만 고치면 되도록 함수 하나로 감싼다 — 호출부는 이 함수만 본다.
+ * 최소 버전은 하드코딩 상수다. BY-586부터 새 바이너리는 네이티브가 Firebase Remote Config로 판정하고
+ * `nativeUpdateGate=1`을 붙여 이 게이트를 건너뛴다 — 이 상수는 그 표시가 없는 **구버전 바이너리 전용**이며,
+ * 그 바이너리를 막아야 할 때만 올리고 웹을 배포한다(BE API 경로 BY-535·536은 BY-586이 대체했다).
  */
 export const MIN_SUPPORTED_VERSION = "1.0.0";
 

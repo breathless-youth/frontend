@@ -253,3 +253,9 @@ describe("Firebase Analytics 미링크 (BY-585)", () => {
     expect(mobilePackageJson.dependencies).not.toHaveProperty("@react-native-firebase/analytics");
   });
 });
+
+describe("커스텀 엔트리 (BY-586)", () => {
+  it("package.json main은 index.ts다 — FCM 백그라운드 핸들러를 React 트리 밖에서 걸기 위해", () => {
+    expect(mobilePackageJson.main).toBe("index.ts");
+  });
+});
