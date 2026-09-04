@@ -1,4 +1,11 @@
-import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
+import {
+  add,
+  Identify,
+  identify as amplitudeIdentify,
+  init,
+  setUserId as amplitudeSetUserId,
+  track as amplitudeTrack,
+} from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
@@ -9,6 +16,61 @@ import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { parseUserId } from "./userId";
 
 let initialized = false;
+
+/**
+ * **개발 추적 모드** — 키 없는 로컬 개발(`vite dev`, `MODE === "development"`)에서만 켜진다. SDK를
+ * 초기화하는 대신 아래 `track`/`identify`/`setUserId` 래퍼가 콘솔(`[amplitude:dev]`)에 남긴다.
+ *
+ * 왜 필요한가: Amplitude 키는 운영 웹에만 있어 로컬 웹·개발 빌드에서는 어떤 이벤트도 보이지 않는다.
+ * 실기기 개발 빌드 + 로컬 Vite + Safari Web Inspector로 브리지(`track-event`)와 세션 이벤트가
+ * 올바른 순서·속성으로 도착하는지 확인하려면 SDK 없이도 찍히는 출력이 있어야 한다.
+ * 운영 빌드(`MODE === "production"`)와 테스트(`MODE === "test"`)에서는 절대 켜지지 않는다 —
+ * 키 없는 운영·프리뷰 배포는 종전처럼 조용히 아무것도 하지 않는다.
+ */
+let devTrace = false;
+
+function devLog(...args: unknown[]) {
+  // eslint-disable-next-line no-console -- 개발 추적 모드 전용 출력(위 devTrace 주석). 운영·테스트에서는 불리지 않는다.
+  console.debug("[amplitude:dev]", ...args);
+}
+
+/**
+ * SDK `track`의 얇은 래퍼. 인자를 받은 만큼만 넘긴다 — `undefined`를 세 번째 인자로 밀어 넣으면
+ * 호출 기록을 검증하는 테스트(`toHaveBeenCalledWith`)가 인자 개수 차이로 깨진다.
+ */
+function track(
+  eventName: string,
+  eventProperties?: Record<string, unknown>,
+  eventOptions?: Types.EventOptions,
+) {
+  if (devTrace) {
+    devLog("track", eventName, eventProperties ?? {}, eventOptions ?? {});
+    return;
+  }
+  if (eventOptions !== undefined) {
+    amplitudeTrack(eventName, eventProperties, eventOptions);
+  } else if (eventProperties !== undefined) {
+    amplitudeTrack(eventName, eventProperties);
+  } else {
+    amplitudeTrack(eventName);
+  }
+}
+
+function identify(id: Identify) {
+  if (devTrace) {
+    devLog("identify", id.getUserProperties());
+    return;
+  }
+  amplitudeIdentify(id);
+}
+
+function setUserId(userId: string) {
+  if (devTrace) {
+    devLog("setUserId", userId);
+    return;
+  }
+  amplitudeSetUserId(userId);
+}
 
 /**
  * 마지막으로 Amplitude에 보낸 user_id. 라우트가 바뀔 때마다 `setAmplitudeUserId`가 호출되므로
@@ -105,7 +167,16 @@ function sanitizeUrlPlugin(): Types.EnrichmentPlugin {
  */
 export function initAmplitude() {
   const apiKey = import.meta.env.VITE_AMPLITUDE_API_KEY;
-  if (!apiKey || initialized) return;
+  if (initialized) return;
+  if (!apiKey) {
+    // 키 없는 로컬 개발만 콘솔 추적으로 연다(위 devTrace 주석). 그 외는 종전대로 no-op.
+    if (import.meta.env.MODE === "development") {
+      devTrace = true;
+      initialized = true;
+      devLog("VITE_AMPLITUDE_API_KEY 없음 — SDK 대신 콘솔에 남긴다");
+    }
+    return;
+  }
   initialized = true;
 
   // init보다 먼저 등록해야 세션 시작 이벤트부터 정제·리플레이가 붙는다.

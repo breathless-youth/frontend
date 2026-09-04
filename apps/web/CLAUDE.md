@@ -69,7 +69,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 **⚠️ 2026-08-08 결정으로 Amplitude만 수집 범위가 넓어졌다** — 서버 DB의 `user_id` 연결, 클릭·폼 autocapture, UTM attribution, IP(지역) 수집, 공부 도메인 지표를 켰다. **GA4·Sentry의 "식별자 금지" 원칙은 그대로다** — 넓힌 것은 Amplitude 한 곳뿐이니 이 절의 규칙을 GA4·Sentry로 옮겨 쓰지 말 것.
 
-- **API 키는 `VITE_AMPLITUDE_API_KEY` 환경변수로만 주입한다** — 미설정이면 초기화를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 배포 환경(Vercel) env에 설정한다. 키는 클라이언트 번들에 노출되는 값이라 비밀은 아니지만, 코드에 하드코딩하지 않는다(GA4·Sentry와 같은 패턴).
+- **API 키는 `VITE_AMPLITUDE_API_KEY` 환경변수로만 주입한다** — 미설정이면 초기화를 건너뛴다(로컬 개발·테스트·CI 영향 없음). 단 `vite dev`(`MODE === "development"`)에서는 **개발 추적 모드**로 열려 SDK 대신 `[amplitude:dev]` 콘솔 로그를 남긴다(실기기 Web Inspector 검증용, BY-616). 테스트·프리뷰·운영 빌드에서는 켜지지 않는다. 배포 환경(Vercel) env에 설정한다. 키는 클라이언트 번들에 노출되는 값이라 비밀은 아니지만, 코드에 하드코딩하지 않는다(GA4·Sentry와 같은 패턴).
 - **autocapture는 `pageViews`를 끄고, `attribution`은 `userProperty` 모드로, `pageUrlEnrichment`는 `false`로 둔다.** 나머지(`sessions`·`elementInteractions`·`formInteractions`·`fileDownloads`)는 켜져 있다.
 - **URL 정제는 `sanitizeUrlPlugin`(enrichment)이 전송 직전에 일괄로 한다** — autocapture가 담는 URL은 우리 코드를 거치지 않기 때문이다. `add()`로 **`init()`보다 먼저** 등록해야 세션 시작 이벤트부터 걸린다.
   - ⚠️ **이 플러그인은 enrichment 중 가장 먼저 실행된다. 즉 뒤에 실행되는 플러그인이 덧붙이는 값은 정제하지 못한다.** `init()` 전에 `add()`한 플러그인은 대기열(`q`)이 init 초반에 비워지며 `timeline.plugins` 맨 앞에 들어가고, SDK 내부 플러그인은 그 뒤에 등록되기 때문이다. **"init보다 먼저 등록했으니 다 걸린다"는 직관은 틀렸다** — 2026-08-09 리뷰에서 실제로 이 착각으로 정제가 통째로 우회되고 있었다.

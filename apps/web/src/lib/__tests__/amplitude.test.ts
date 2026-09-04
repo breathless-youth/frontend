@@ -760,6 +760,44 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
   });
 });
 
+describe("개발 추적 모드 (키 없는 로컬 개발)", () => {
+  it("MODE=development에서 키가 없으면 SDK 대신 콘솔에 남긴다 — 실기기 Web Inspector 검증용", async () => {
+    vi.stubEnv("MODE", "development");
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const { initAmplitude, setAmplitudeUserId, trackStudySessionStarted } = await loadModule();
+
+    initAmplitude();
+    setAmplitudeUserId(7);
+    trackStudySessionStarted("single");
+
+    expect(mocks.init).not.toHaveBeenCalled();
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.setUserId).not.toHaveBeenCalled();
+    expect(debug).toHaveBeenCalledWith("[amplitude:dev]", "setUserId", "7");
+    expect(debug).toHaveBeenCalledWith(
+      "[amplitude:dev]",
+      "track",
+      "study_session_started",
+      { room_type: "single" },
+      {},
+    );
+    debug.mockRestore();
+  });
+
+  it("MODE=test·production에서는 키가 없으면 종전대로 아무것도 하지 않는다", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const { initAmplitude, trackStudySessionStarted } = await loadModule();
+
+    initAmplitude();
+    trackStudySessionStarted("single");
+
+    expect(mocks.init).not.toHaveBeenCalled();
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(debug).not.toHaveBeenCalled();
+    debug.mockRestore();
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
