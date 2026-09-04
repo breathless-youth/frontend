@@ -44,6 +44,7 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { trackStudySessionExitCancelled, trackStudySessionExitRequested } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
@@ -410,11 +411,13 @@ function RoomSessionScreen({
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
   function handleRequestExit() {
+    trackStudySessionExitRequested("single");
     setExitDialogOpen(true);
   }
 
   /** `계속하기` — 직전 세션 상태 그대로 복귀한다(집중/비집중/일시정지 어디서 열었든). */
   function handleCancelExit() {
+    trackStudySessionExitCancelled("single");
     setExitDialogOpen(false);
   }
 

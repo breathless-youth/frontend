@@ -671,6 +671,95 @@ describe("네이티브 셸 이벤트", () => {
   });
 });
 
+describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackStudySessionPaused("MANUAL", "single");
+    m.trackStudySessionResumed({ pauseSec: 3, trigger: "MANUAL", roomType: "single" });
+    m.trackStudySessionDistracted({ status: "AWAY", durationSec: 4, roomType: "single" });
+    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
+    m.trackStudySessionExitRequested("single");
+    m.trackStudySessionExitCancelled("single");
+    m.trackSocialRoomCameraToggled(true);
+    m.trackSocialRoomCameraOnDismissed();
+    m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
+    m.trackFocusStartTapped("guide");
+    m.trackOsSettingsOpened("settings_tab");
+    m.trackSessionRecoveryPrompted(120);
+    m.trackSessionRecoveryConfirmed();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("일시정지·재개·비집중·카메라 전환은 room_type과 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionPaused("BACKGROUND", "social");
+    m.trackStudySessionResumed({ pauseSec: 42, trigger: "BACKGROUND", roomType: "social" });
+    m.trackStudySessionDistracted({ status: "PHONE", durationSec: 7, roomType: "single" });
+    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
+    m.trackCameraFlipped({ ok: false, reason: "no-alternative" }, "social");
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_paused", {
+      trigger: "BACKGROUND",
+      room_type: "social",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_resumed", {
+      pause_sec: 42,
+      trigger: "BACKGROUND",
+      room_type: "social",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_distracted", {
+      status: "PHONE",
+      duration_sec: 7,
+      room_type: "single",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
+      ok: true,
+      facing: "back",
+      reason: null,
+      room_type: "single",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
+      ok: false,
+      facing: null,
+      reason: "no-alternative",
+      room_type: "social",
+    });
+  });
+
+  it("종료 요청·취소, 소셜룸 카메라·복귀, 홈 CTA·설정·복구 안내를 각 속성과 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionExitRequested("single");
+    m.trackStudySessionExitCancelled("social");
+    m.trackSocialRoomCameraToggled(false);
+    m.trackSocialRoomCameraOnDismissed();
+    m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
+    m.trackFocusStartTapped("session");
+    m.trackOsSettingsOpened("settings_tab");
+    m.trackSessionRecoveryPrompted(5040);
+    m.trackSessionRecoveryConfirmed();
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_session_exit_requested", { room_type: "single" }],
+      ["study_session_exit_cancelled", { room_type: "social" }],
+      ["social_room_camera_toggled", { on: false }],
+      ["social_room_camera_on_dismissed"],
+      ["social_room_background_returned", { hidden_sec: 31, expired: true }],
+      ["focus_start_tapped", { destination: "session" }],
+      ["os_settings_opened", { source: "settings_tab" }],
+      ["session_recovery_prompted", { focus_sec: 5040 }],
+      ["session_recovery_confirmed"],
+    ]);
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.

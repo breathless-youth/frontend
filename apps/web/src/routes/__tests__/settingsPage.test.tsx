@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
@@ -14,6 +16,13 @@ import { SettingsPage } from "@/routes/SettingsPage";
 vi.mock("@/lib/hardNavigation", () => ({
   hardNavigate: vi.fn(),
   hardReplace: vi.fn(),
+}));
+
+const analytics = vi.hoisted(() => ({ trackOsSettingsOpened: vi.fn() }));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackOsSettingsOpened: analytics.trackOsSettingsOpened,
 }));
 
 /**
@@ -179,6 +188,8 @@ describe("S6 · 설정", () => {
     fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
 
     expect(postMessage).toHaveBeenCalledWith('{"type":"open-settings","atMs":1000}');
+    // 설정 탭에서 OS 설정을 연 횟수(BY-616 확장) — 권한 회복 퍼널의 중간 단계.
+    expect(analytics.trackOsSettingsOpened).toHaveBeenCalledWith("settings_tab");
   });
 
   it("브라우저 단독 모드(브리지 없음)에서 카메라 권한 행을 눌러도 죽지 않는다", () => {

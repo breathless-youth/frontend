@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
+import { trackOsSettingsOpened } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { useToast } from "@/lib/useToast";
@@ -94,6 +95,7 @@ export function SettingsPage() {
             trailing={granted === null ? undefined : { kind: "toggle", granted }}
             accessibilityLabel={cameraPermissionRowLabel(granted)}
             onPress={() => {
+              trackOsSettingsOpened("settings_tab");
               postToNative({ type: "open-settings", atMs: Date.now() });
             }}
           />

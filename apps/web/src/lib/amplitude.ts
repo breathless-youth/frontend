@@ -477,3 +477,140 @@ export function trackNativeShellEvent(event: TrackEventMessage) {
   if (!initialized) return;
   track(event.name, { ...event.properties, source: "native" }, { time: event.atMs });
 }
+
+/* ── 세션 내부·홈·설정·복구 이벤트 (BY-616 확장) ───────────────────────────
+ *
+ * 룸 안에서 일어나는 사용자 행동은 전부 웹이 안다 — 여기서 직접 찍는다. `room_type`은 소셜룸이
+ * 같은 훅(`useStudyRoomSession`)을 재사용해 개인/그룹이 섞이는 것을 막는 BY-472의 축과 같은 값.
+ * autocapture의 `[Amplitude] Element Clicked`는 어느 버튼이 눌렸는지만 알고 세션 상태(어느
+ * 일시정지였는지·얼마나 멈췄는지)는 모른다 — 그 상태를 아는 훅에서 명시 이벤트로 남긴다.
+ */
+
+/** 일시정지 시작. `trigger`는 수동(버튼) / 백그라운드(화면 꺼짐·앱 전환). 이미 정지 중이면 찍히지 않는다. */
+export function trackStudySessionPaused(trigger: "MANUAL" | "BACKGROUND", roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_paused", { trigger, room_type: roomType });
+}
+
+/**
+ * 재개 — 항상 사용자의 재개 버튼이다(자동 재개 없음, 2026-07-26 확정). `pause_sec`는 이번 정지가
+ * 이어진 시간, `trigger`는 그 정지를 시작한 쪽. 20분을 넘기면 자동 종료라 재개 이벤트 없이
+ * `study_session_ended {end_reason: AUTO}`로 끝난다.
+ */
+export function trackStudySessionResumed(input: {
+  readonly pauseSec: number;
+  readonly trigger: "MANUAL" | "BACKGROUND";
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_resumed", {
+    pause_sec: Number(input.pauseSec),
+    trigger: input.trigger,
+    room_type: input.roomType,
+  });
+}
+
+/**
+ * 비집중 구간 하나가 **끝났을 때** — 자리 이탈(AWAY)·휴대폰(PHONE)·기기 조작(DEVICE)이 얼마나
+ * 이어졌는지. 세션당 수십 건까지 날 수 있어 시작·끝을 따로 찍지 않고 끝에서 한 건으로 접는다.
+ * 세션 종료로 닫히는 마지막 구간은 찍지 않는다 — 그 몫은 `study_session_ended.distraction_sec`.
+ * 원본 프레임·얼굴 데이터는 없다. 상태 enum과 초 단위 길이뿐이다.
+ */
+export function trackStudySessionDistracted(input: {
+  readonly status: "AWAY" | "PHONE" | "DEVICE";
+  readonly durationSec: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_distracted", {
+    status: input.status,
+    duration_sec: Number(input.durationSec),
+    room_type: input.roomType,
+  });
+}
+
+/** 카메라 전환 결과 — 실패 사유(`camera-off` / `no-alternative`)는 "전환할 카메라가 없어요" 토스트의 분모. */
+export function trackCameraFlipped(
+  result:
+    | { readonly ok: true; readonly facing: string }
+    | { readonly ok: false; readonly reason: string },
+  roomType: StudyRoomType,
+) {
+  if (!initialized) return;
+  track("camera_flipped", {
+    ok: result.ok,
+    facing: result.ok ? result.facing : null,
+    reason: result.ok ? null : result.reason,
+    room_type: roomType,
+  });
+}
+
+/** 컨트롤 바 종료 버튼 → S3-7 확인 다이얼로그 노출. 실제 종료는 `study_session_ended`가 갖는다. */
+export function trackStudySessionExitRequested(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_exit_requested", { room_type: roomType });
+}
+
+/** S3-7에서 "계속하기" — 종료 의사를 접은 횟수. 요청 대비 취소율이 종료 문구·위치의 근거가 된다. */
+export function trackStudySessionExitCancelled(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_exit_cancelled", { room_type: roomType });
+}
+
+/**
+ * 소셜룸 카메라 토글 — 끄기는 즉시(=일시정지), 켜기는 확인 다이얼로그를 거친 뒤에만 찍힌다.
+ * 룸에서 카메라 끔은 측정 일시정지와 동치라 `study_session_paused/resumed`도 같이 난다 — 이쪽은
+ * "카메라"라는 사용자 의도의 축이고, 저쪽은 측정 상태의 축이다.
+ */
+export function trackSocialRoomCameraToggled(on: boolean) {
+  if (!initialized) return;
+  track("social_room_camera_toggled", { on });
+}
+
+/** 소셜룸 카메라 켜기 확인 다이얼로그에서 취소 — 켜기 의사를 접은 횟수. */
+export function trackSocialRoomCameraOnDismissed() {
+  if (!initialized) return;
+  track("social_room_camera_on_dismissed");
+}
+
+/**
+ * 소셜룸에서 백그라운드·화면 꺼짐 뒤 돌아옴. `expired`면 30초 유예를 넘겨 종료 처리된 복귀다
+ * (`social_room_grace_exceeded`와 같은 순간). 유예 이내 복귀의 분포가 유예 값(30초)의 근거가 된다.
+ */
+export function trackSocialRoomBackgroundReturned(input: {
+  readonly hiddenSec: number;
+  readonly expired: boolean;
+}) {
+  if (!initialized) return;
+  track("social_room_background_returned", {
+    hidden_sec: Number(input.hiddenSec),
+    expired: input.expired,
+  });
+}
+
+/**
+ * 홈 "집중 시작" 탭 — 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정한다. autocapture
+ * 클릭은 분기를 모른다. F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모.
+ */
+export function trackFocusStartTapped(destination: "guide" | "session") {
+  if (!initialized) return;
+  track("focus_start_tapped", { destination });
+}
+
+/** 설정 탭 카메라 권한 행 → OS 설정 열기 요청. 권한 거부 안내(S2-3)의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다. */
+export function trackOsSettingsOpened(source: "settings_tab") {
+  if (!initialized) return;
+  track("os_settings_opened", { source });
+}
+
+/** 앱 실행 시 미확정 세션을 기록으로 확정했다는 안내 노출. `focus_sec`는 확정된 순공 시간. */
+export function trackSessionRecoveryPrompted(focusSec: number) {
+  if (!initialized) return;
+  track("session_recovery_prompted", { focus_sec: Number(focusSec) });
+}
+
+/** 위 안내의 확인 버튼. */
+export function trackSessionRecoveryConfirmed() {
+  if (!initialized) return;
+  track("session_recovery_confirmed");
+}
