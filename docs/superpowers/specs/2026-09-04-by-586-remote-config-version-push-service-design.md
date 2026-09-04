@@ -13,6 +13,7 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 ### Remote Config 키
 
 - `min_supported_version` (string, `x.y.z`). dev·prod 프로젝트 모두 클라이언트 템플릿에 만들고 게시한다. 앱 기본값 `"1.0.0"`.
+- `force_update_title` / `force_update_message` / `force_update_button` (string, 선택). 알림창 문구. 키가 없거나 비어 있으면 앱 기본 문구(BY-533 카피). 세 키의 기본값은 `min_supported_version`과 한 번의 `setDefaults`로 함께 등록한다(`UPDATE_CONFIG_DEFAULTS`).
 
 ### `lib/forceUpdate.ts`
 
@@ -25,7 +26,7 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 
 ### `lib/forceUpdateAlert.ts`
 
-- OS 기본 알림창(`Alert.alert`). BY-533 확정 카피(웹 `copy.ts`와 동일: "업데이트가 필요해요" / "원활한 이용을 위해 최신 버전으로 업데이트해 주세요." / "지금 업데이트"), 버튼 하나, `cancelable: false`. 확인 시 `lib/storeLink.ts`의 `openAppStore()`가 `itms-apps://`·`market://` 스킴으로 스토어를 열고 실패 시 https로 폴백한다. ID는 웹 `storeLink.ts`와 같다.
+- OS 기본 알림창(`Alert.alert`). 문구는 띄울 때마다 `lib/forceUpdateCopy.ts`가 Remote Config에서 읽고, 없으면 BY-533 확정 카피(웹 `copy.ts`와 동일: "업데이트가 필요해요" / "원활한 이용을 위해 최신 버전으로 업데이트해 주세요." / "지금 업데이트"). 버튼 하나, `cancelable: false`. 확인 시 `lib/storeLink.ts`의 `openAppStore()`가 `itms-apps://`·`market://` 스킴으로 스토어를 열고 실패 시 https로 폴백한다. ID는 웹 `storeLink.ts`와 같다.
 - 알림창은 버튼을 누르면 닫히므로 재표시가 곧 차단이다: 스토어 복귀(`AppState` active)에서 다시 띄우고, 스토어가 안 열려 앱이 활성이면 0.5초 뒤 다시 띄운다. iOS는 겹쳐 쌓이므로 떠 있다고 아는 동안 건너뛰고, Android는 새 창이 기존 창을 대체하므로 복귀마다 다시 띄운다(액티비티 재생성으로 창만 사라진 경우 복구).
 - 처음엔 전체 화면 컴포넌트(`components/ForceUpdateScreen.tsx`)로 만들어 실기기 검증까지 했으나, 디자인 시안 없이 가기로 해 OS 알림창으로 바꿨다(2026-09-04). 시안이 나오면 배경 `Pressable` 자리에 화면을 넣고 `forceUpdateAlert` 호출을 빼면 된다.
 
@@ -46,14 +47,15 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 
 - 판정 주체는 네이티브. 웹 게이트는 삭제하지 않고 구버전 전용으로 유지한다(스토어에 구버전이 남아 있는 동안).
 - 반영은 "다음 실행". 부팅을 네트워크에 묶지 않는다.
-- 강제 업데이트 문구는 Remote Config로 빼지 않는다(2026-09-03 사용자 결정).
+- 강제 업데이트 문구는 Remote Config 키 세 개로 뺀다(2026-09-04 사용자 결정 — 09-03의 "빼지 않는다"를 뒤집음). 앱 기본 문구는 바이너리에 남아 키가 없어도 동작한다.
 - 안내 UI는 OS 기본 알림창이다(2026-09-04 사용자 결정, 디자인 시안 없이 진행). 레이아웃은 바이너리 고정이고 콘솔은 `min_supported_version` 값만 바꾼다.
 
 ## 테스트
 
 - `lib/__tests__/forceUpdate.test.ts`: 비교 규칙, fail-open 케이스(값 없음·형식 이상·activate 시간 초과·실패), 백그라운드 fetch 호출.
 - `lib/__tests__/storeLink.test.ts`: ID 일치, 스킴 → https 폴백, 실패 시 무throw.
-- `lib/__tests__/forceUpdateAlert.test.ts`: 확정 카피·버튼 하나·cancelable false, 겹침 방지, 스토어 복귀 재표시, 스토어 실패 시 지연 재표시, iOS/Android 복귀 규칙, 배경 탭 재표시, 해제.
+- `lib/__tests__/forceUpdateCopy.test.ts`: 기본 문구·기본값 맵, 콘솔 값 사용, 빈 값·공백·throw 시 항목별 기본 문구.
+- `lib/__tests__/forceUpdateAlert.test.ts`: 기본 문구·버튼 하나·cancelable false, 콘솔 문구 사용·재표시 때 재읽기, 겹침 방지, 스토어 복귀 재표시, 스토어 실패 시 지연 재표시, iOS/Android 복귀 규칙, 배경 탭 재표시, 해제.
 - `__tests__/root-layout-font-gate.test.tsx`: 판정 전 미렌더, forced 시 배경만 렌더·알림창 시작·배경 탭 재표시·언마운트 해제, pass·reject 시 통과.
 - `lib/__tests__/remoteQueryParams.test.ts`: `nativeUpdateGate=1`. 웹 `useForceUpdateGate.test.tsx`: 표시가 있으면 `forced=false`.
 
@@ -62,6 +64,7 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 1. dev 프로젝트 Remote Config에 `min_supported_version` = 설치된 앱 버전(1.0.2)보다 높은 값(예: `9.9.9`)을 넣고 게시한다.
 2. 앱을 완전히 종료했다가 연다(백그라운드 fetch). 다시 종료했다가 열면 강제 업데이트 알림창이 뜬다.
 3. "지금 업데이트"로 스토어 앱이 열리고, 앱으로 돌아오면 알림창이 다시 떠 있는지 확인한다.
+   3-1. 문구: dev에 `force_update_title`을 만들어 아무 값이나 게시하고 두 번 재실행하면 제목이 바뀐다. 값을 비우고 게시하면 기본 문구로 돌아온다.
 4. 값을 `1.0.0`으로 되돌리고 두 번 재실행하면 정상 진입한다.
 
 ## 범위 밖

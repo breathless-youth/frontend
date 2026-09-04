@@ -17,6 +17,10 @@ import {
 jest.mock("../storeLink", () => ({
   openAppStore: jest.fn(() => Promise.resolve()),
 }));
+// 기본 getCopy는 Remote Config를 읽는다 — 값 없음(빈 문자열)으로 두면 기본 문구가 나온다.
+jest.mock("../remoteConfig", () => ({
+  getRemoteConfigString: jest.fn(() => ""),
+}));
 
 type Listener = (state: string) => void;
 
@@ -24,7 +28,13 @@ function createHarness({
   platform = "ios",
   storeOpens = true,
   storeRejects = false,
-}: { platform?: "android" | "ios"; storeOpens?: boolean; storeRejects?: boolean } = {}) {
+  copy,
+}: {
+  platform?: "android" | "ios";
+  storeOpens?: boolean;
+  storeRejects?: boolean;
+  copy?: () => { title: string; message: string; confirmLabel: string };
+} = {}) {
   let listener: Listener | null = null;
   const appState = {
     currentState: "active",
@@ -44,7 +54,13 @@ function createHarness({
     if (storeOpens) appState.currentState = "background";
     return Promise.resolve();
   });
-  const controller = createForceUpdateAlert({ alert, appState, openStore, platform });
+  const controller = createForceUpdateAlert({
+    alert,
+    appState,
+    openStore,
+    platform,
+    ...(copy ? { getCopy: copy } : null),
+  });
   const lastButtons = () => alert.mock.calls.at(-1)?.[2] as ForceUpdateAlertButton[];
 
   return {
@@ -96,6 +112,22 @@ describe("forceUpdateAlert (BY-586)", () => {
     expect(FORCE_UPDATE_TITLE).toBe(title);
     expect(FORCE_UPDATE_DESCRIPTION).toBe(message);
     expect(FORCE_UPDATE_CONFIRM_LABEL).toBe(buttons[0].text);
+  });
+
+  it("콘솔 문구(getCopy)가 있으면 그것으로 띄우고, 재표시 때 다시 읽는다", () => {
+    const copy = jest
+      .fn()
+      .mockReturnValueOnce({ title: "제목1", message: "본문1", confirmLabel: "버튼1" })
+      .mockReturnValueOnce({ title: "제목2", message: "본문2", confirmLabel: "버튼2" });
+    const h = createHarness({ copy });
+
+    h.controller.start();
+    h.controller.reshow();
+
+    expect(h.alert.mock.calls[0].slice(0, 2)).toEqual(["제목1", "본문1"]);
+    expect((h.alert.mock.calls[0][2] as ForceUpdateAlertButton[])[0].text).toBe("버튼1");
+    expect(h.alert.mock.calls[1].slice(0, 2)).toEqual(["제목2", "본문2"]);
+    expect(copy).toHaveBeenCalledTimes(2);
   });
 
   it("떠 있는 동안 show()를 또 불러도 겹쳐 띄우지 않는다", () => {

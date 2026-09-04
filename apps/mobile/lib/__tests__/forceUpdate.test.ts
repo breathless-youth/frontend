@@ -4,6 +4,7 @@ import {
   MIN_SUPPORTED_VERSION_KEY,
   resolveForceUpdate,
   shouldForceUpdate,
+  UPDATE_CONFIG_DEFAULTS,
 } from "../forceUpdate";
 import { setRemoteConfigAdapter } from "../remoteConfig";
 import type { RemoteConfigAdapter } from "../remoteConfig";
@@ -68,8 +69,14 @@ describe("resolveForceUpdate", () => {
 
     const decision = await resolveForceUpdate();
 
-    expect(adapter.setDefaults).toHaveBeenCalledWith({
+    // 기본값은 한 번에 등록한다(RNFB는 맵을 통째로 바꿈) — 최소 버전과 알림창 문구 세 개.
+    expect(adapter.setDefaults).toHaveBeenCalledTimes(1);
+    expect(adapter.setDefaults).toHaveBeenCalledWith(UPDATE_CONFIG_DEFAULTS);
+    expect(UPDATE_CONFIG_DEFAULTS).toEqual({
       [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION,
+      force_update_title: "업데이트가 필요해요",
+      force_update_message: "원활한 이용을 위해 최신 버전으로 업데이트해 주세요.",
+      force_update_button: "지금 업데이트",
     });
     expect(adapter.getString).toHaveBeenCalledWith(MIN_SUPPORTED_VERSION_KEY);
     expect(decision).toEqual({ forced: true, appVersion: "1.0.2", minVersion: "1.0.3" });

@@ -1,12 +1,19 @@
 import { Alert, AppState, Platform } from "react-native";
 
+import { type ForceUpdateCopy, readForceUpdateCopy } from "./forceUpdateCopy";
 import { openAppStore } from "./storeLink";
+
+export {
+  FORCE_UPDATE_CONFIRM_LABEL,
+  FORCE_UPDATE_DESCRIPTION,
+  FORCE_UPDATE_TITLE,
+} from "./forceUpdateCopy";
 
 /**
  * 강제 업데이트 안내 — OS 기본 알림창 (BY-586).
  *
- * 커스텀 화면 대신 `Alert.alert`를 쓴다(2026-09-04 결정: 디자인 시안 없이 진행). 문구는 BY-533 확정
- * 카피로 웹 `features/force-update/copy.ts`와 같다(의역·줄임·문장부호 변경 금지).
+ * 커스텀 화면 대신 `Alert.alert`를 쓴다(2026-09-04 결정: 디자인 시안 없이 진행). 문구는 띄울 때마다
+ * `lib/forceUpdateCopy.ts`에서 읽는다 — 콘솔(Remote Config) 값이 있으면 그것, 없으면 BY-533 확정 카피.
  *
  * OS 알림창은 버튼을 누르면 무조건 닫히므로 "다시 띄우기"가 곧 차단 로직이다:
  * - 확인 → 스토어 열기 → 앱이 백그라운드로 감 → 복귀(`AppState` active)에서 다시 띄운다.
@@ -17,10 +24,6 @@ import { openAppStore } from "./storeLink";
  * 온다). Android는 RN DialogModule이 알림창을 하나만 유지해 새 호출이 기존 것을 대체하므로 복귀 때마다
  * 다시 띄워도 안전하고, 액티비티 재생성으로 창만 사라진 경우까지 함께 복구된다.
  */
-export const FORCE_UPDATE_TITLE = "업데이트가 필요해요";
-export const FORCE_UPDATE_DESCRIPTION = "원활한 이용을 위해 최신 버전으로 업데이트해 주세요.";
-export const FORCE_UPDATE_CONFIRM_LABEL = "지금 업데이트";
-
 /** iOS는 닫힘 애니메이션(약 0.3초) 중에 새 창을 띄우면 표시를 무시하므로 그보다 길게 기다린다. */
 export const RESHOW_DELAY_MS = 500;
 
@@ -45,6 +48,8 @@ export interface ForceUpdateAlertDeps {
   appState: AppStateAdapter;
   openStore(): Promise<void>;
   platform: "android" | "ios";
+  /** 띄울 때마다 읽는다 — 재표시 시점에 콘솔 값이 바뀌어 있으면 그대로 반영된다. */
+  getCopy(): ForceUpdateCopy;
 }
 
 export interface ForceUpdateAlertController {
@@ -64,6 +69,7 @@ export function createForceUpdateAlert(
     appState: AppState,
     openStore: () => openAppStore(),
     platform: Platform.OS === "android" ? "android" : "ios",
+    getCopy: readForceUpdateCopy,
     ...overrides,
   };
   let visible = false;
@@ -71,10 +77,11 @@ export function createForceUpdateAlert(
   function show(): void {
     if (visible) return;
     visible = true;
+    const copy = deps.getCopy();
     deps.alert(
-      FORCE_UPDATE_TITLE,
-      FORCE_UPDATE_DESCRIPTION,
-      [{ text: FORCE_UPDATE_CONFIRM_LABEL, onPress: onConfirm }],
+      copy.title,
+      copy.message,
+      [{ text: copy.confirmLabel, onPress: onConfirm }],
       // Android 뒤로가기·바깥 터치로 닫히지 않게. iOS는 버튼 말고는 닫을 방법이 원래 없다.
       { cancelable: false },
     );

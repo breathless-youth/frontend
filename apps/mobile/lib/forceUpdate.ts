@@ -1,5 +1,6 @@
 import * as Application from "expo-application";
 
+import { FORCE_UPDATE_COPY_DEFAULTS } from "./forceUpdateCopy";
 import {
   activateRemoteConfig,
   fetchRemoteConfigInBackground,
@@ -25,6 +26,11 @@ import {
 export const MIN_SUPPORTED_VERSION_KEY = "min_supported_version";
 /** 서버 값이 없을 때의 기본값 — 어떤 출시 버전도 막지 않는 값이어야 한다. */
 export const DEFAULT_MIN_SUPPORTED_VERSION = "1.0.0";
+/** RNFB `setDefaults`는 기본값 맵을 통째로 바꾸므로 Remote Config 기본값은 전부 여기서 한 번에 등록한다. */
+export const UPDATE_CONFIG_DEFAULTS = {
+  [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION,
+  ...FORCE_UPDATE_COPY_DEFAULTS,
+};
 const ACTIVATE_TIMEOUT_MS = 1_000;
 
 // 앱 버전은 항상 x.y.z 3자리다(`app.json`의 `expo.version`).
@@ -87,7 +93,7 @@ export async function resolveForceUpdate(
   const appVersion = Application.nativeApplicationVersion ?? null;
   let minVersion: string | null = null;
   try {
-    await setRemoteConfigDefaults({ [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION });
+    await setRemoteConfigDefaults(UPDATE_CONFIG_DEFAULTS);
     await withTimeout(activateRemoteConfig(), options.activateTimeoutMs ?? ACTIVATE_TIMEOUT_MS);
     const value = getRemoteConfigString(MIN_SUPPORTED_VERSION_KEY);
     minVersion = value === "" ? null : value;
