@@ -439,11 +439,11 @@ describe("RemoteScreen — 네이티브 사용자 이벤트 sink", () => {
   it("비포커스 탭 웹뷰는 sink로 붙지 않는다 — 이벤트가 큐에 남아 다음 sink로 간다", async () => {
     await readyWebView(false);
 
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
     const received: string[] = [];
     attachNativeAnalyticsSink((event) => received.push(event.name));
 
-    expect(received).toEqual(["permission_denied_viewed"]);
+    expect(received).toEqual(["permission_denied_settings_opened"]);
     // analytics-ready는 셸이 소비한다 — 공용 핸들러로 넘어가지 않는다.
     expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "analytics-ready" }),
@@ -454,7 +454,7 @@ describe("RemoteScreen — 네이티브 사용자 이벤트 sink", () => {
   it("포커스 탭 웹뷰는 준비 신호 뒤 sink로 붙어 이벤트를 가져간다", async () => {
     await readyWebView(true);
 
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
     const received: string[] = [];
     attachNativeAnalyticsSink((event) => received.push(event.name));
 

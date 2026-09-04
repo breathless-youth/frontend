@@ -264,7 +264,7 @@ describe("RootLayout 앱 상태 계측", () => {
       for (const listener of listeners) listener("active");
     });
 
-    expect(received).toEqual(["app_backgrounded", "app_foregrounded"]);
+    expect(received).toEqual(["app_foregrounded"]);
     spy.mockRestore();
     __resetNativeAnalyticsForTests();
   });

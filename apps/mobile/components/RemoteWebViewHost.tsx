@@ -203,13 +203,12 @@ export function RemoteWebViewHost({
   }, [path, query, retryKey]);
 
   const retry = useCallback(() => {
-    trackNativeEvent("webview_retry_pressed", { path });
     setLoadFailed(false);
     // 새 문서가 뜬다 — 이전 문서의 준비 신호는 무효다(위 analyticsReady 주석).
     setAnalyticsReady(false);
     setRetryKey((key) => key + 1);
     webViewRef.current?.reload();
-  }, [path]);
+  }, []);
 
   /**
    * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
@@ -353,6 +352,7 @@ export function RemoteWebViewHost({
   );
 
   // 로드 실패는 이 웹뷰로는 못 나가는 이벤트다 — 큐에 있다가 다른 탭 웹뷰나 재시도 성공 뒤 흘러간다.
+  // 재시도 터치 자체는 이벤트로 두지 않는다(실패 뒤 성공 여부로 충분, 2026-09-05 재검토).
   const handleError = useCallback(() => {
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "error" });

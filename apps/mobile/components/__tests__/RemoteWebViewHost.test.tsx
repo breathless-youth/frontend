@@ -930,7 +930,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
   });
 
   it("준비 신호 전에 기록된 이벤트는 큐에 있다가 신호 뒤에 순서대로 주입된다", () => {
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
     trackNativeEvent("permission_denied_left", { reason: "back_home" });
 
     render(<RemoteWebViewHost path="/home" testID="host" />);
@@ -938,7 +938,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
 
     fireAnalyticsReady();
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_viewed",
+      "permission_denied_settings_opened",
       "permission_denied_left",
     ]);
   });
@@ -957,12 +957,12 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     fireAnalyticsReady();
 
     view.rerender(<RemoteWebViewHost path="/home" testID="host" focused={false} />);
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
     expect(injectedTrackEvents()).toEqual([]);
 
     view.rerender(<RemoteWebViewHost path="/home" testID="host" focused />);
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_viewed",
+      "permission_denied_settings_opened",
     ]);
   });
 
@@ -974,12 +974,12 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
     });
     mockInjectJavaScript.mockClear();
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
     expect(injectedTrackEvents()).toEqual([]);
 
     fireAnalyticsReady();
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_viewed",
+      "permission_denied_settings_opened",
     ]);
   });
 
@@ -990,14 +990,14 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       (screen.getByTestId("host").props.onLoadEnd as () => void)();
     });
 
-    trackNativeEvent("permission_denied_viewed");
+    trackNativeEvent("permission_denied_settings_opened");
 
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_viewed",
+      "permission_denied_settings_opened",
     ]);
   });
 
-  it("로드 실패와 다시 시도를 이벤트로 남긴다 — 그 웹뷰로는 못 나가므로 큐에 쌓인다", () => {
+  it("로드 실패를 이벤트로 남긴다 — 그 웹뷰로는 못 나가므로 큐에 쌓인다", () => {
     render(<RemoteWebViewHost path="/home" testID="host" />);
     fireWebViewEvent("onError");
     fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
@@ -1007,10 +1007,8 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       received.push(`${event.name}:${JSON.stringify(event.properties)}`);
     });
 
-    expect(received).toEqual([
-      'webview_load_failed:{"path":"/home","reason":"error"}',
-      'webview_retry_pressed:{"path":"/home"}',
-    ]);
+    // 재시도 터치는 이벤트가 아니다(2026-09-05 재검토) — 실패만 남고 성공 여부는 다음 로드가 말한다.
+    expect(received).toEqual(['webview_load_failed:{"path":"/home","reason":"error"}']);
   });
 
   it("HTTP 오류 응답은 http 사유로 남긴다", () => {
@@ -1031,6 +1029,6 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     const received: string[] = [];
     attachNativeAnalyticsSink((event) => received.push(event.name));
 
-    expect(received).toEqual(["webview_load_failed", "webview_retry_pressed"]);
+    expect(received).toEqual(["webview_load_failed"]);
   });
 });

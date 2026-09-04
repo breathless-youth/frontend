@@ -82,7 +82,8 @@ export function createRecommendedUpdateAlert(
         console.warn("[recommended-update] 기록 저장 실패 — 다음 실행에 다시 묻는다", error);
       });
     };
-    // 노출·응답을 웹 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`) — OS 알림창이라 웹은 모른다.
+    // 응답을 웹 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`) — OS 알림창이라 웹은 모른다. 어느 경로로
+    // 닫혀도 한 번 나므로 노출 이벤트는 따로 두지 않는다.
     const answered = (action: "update" | "later" | "dismissed") => {
       trackNativeEvent("recommended_update_answered", { action, latest_version: latestVersion });
       remember();
@@ -104,7 +105,6 @@ export function createRecommendedUpdateAlert(
       // Android 뒤로가기·바깥 터치 = "나중에". iOS는 버튼으로만 닫힌다.
       { cancelable: true, onDismiss: () => answered("dismissed") },
     );
-    trackNativeEvent("recommended_update_prompted", { latest_version: latestVersion });
     return true;
   }
 

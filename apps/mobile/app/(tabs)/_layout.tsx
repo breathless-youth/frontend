@@ -5,7 +5,6 @@ import { BackHandler, Platform } from "react-native";
 
 import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
-import { trackNativeEvent } from "../../lib/nativeAnalytics";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
 
@@ -34,9 +33,6 @@ export default function TabsLayout() {
       return;
     }
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      trackNativeEvent("hardware_back_pressed", {
-        tab: TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home",
-      });
       const target = tabResetTargetForBack(activeRouteRef.current);
       if (target !== null) {
         emitTabReset(target);

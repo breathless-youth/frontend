@@ -49,12 +49,6 @@ export default function PermissionDeniedScreen() {
     router.replace("/");
   }, []);
 
-  // S2-3 노출 — 네이티브 화면이라 웹 페이지뷰가 없다. 이 화면이 탭 웹뷰를 덮는 동안의 이벤트는
-  // 큐에 있다가 홈으로 돌아온 뒤 전달된다(`lib/nativeAnalytics.ts`).
-  useEffect(() => {
-    trackNativeEvent("permission_denied_viewed");
-  }, []);
-
   // 이탈은 화면이 스택에서 빠지는 순간 한 번만 남긴다 — 버튼·자동 복귀·하드웨어 백·스와이프 백이
   // 전부 여기를 지나므로 경로마다 찍지 않는다. 사유가 비어 있으면 제스처 이탈이다.
   useEffect(() => {

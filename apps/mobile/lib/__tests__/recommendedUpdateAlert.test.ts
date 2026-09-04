@@ -193,7 +193,7 @@ describe("recommendedUpdateAlert (BY-586)", () => {
   });
 });
 
-/** 노출·응답은 웹 Amplitude로 넘어간다(`recommended_update_*`) — OS 알림창이라 웹은 모른다. */
+/** 응답은 웹 Amplitude로 넘어간다(`recommended_update_answered`) — OS 알림창이라 웹은 모른다. 노출은 응답과 1:1이라 따로 없다. */
 describe("recommendedUpdateAlert — 이벤트", () => {
   let received: NativeAnalyticsEvent[];
 
@@ -207,7 +207,7 @@ describe("recommendedUpdateAlert — 이벤트", () => {
     __resetNativeAnalyticsForTests();
   });
 
-  it("띄우면 prompted를, 버튼·닫기마다 answered를 남긴다", async () => {
+  it("버튼·닫기마다 answered를 남긴다 — 노출 이벤트는 없다", async () => {
     const h = createHarness();
     await h.controller.maybeShow("1.0.3");
 
@@ -217,14 +217,13 @@ describe("recommendedUpdateAlert — 이벤트", () => {
     await flush();
 
     expect(received.map((event) => [event.name, event.properties])).toEqual([
-      ["recommended_update_prompted", { latest_version: "1.0.3" }],
       ["recommended_update_answered", { action: "later", latest_version: "1.0.3" }],
       ["recommended_update_answered", { action: "update", latest_version: "1.0.3" }],
       ["recommended_update_answered", { action: "dismissed", latest_version: "1.0.3" }],
     ]);
   });
 
-  it("이미 답한 버전은 prompted도 남기지 않는다", async () => {
+  it("이미 답한 버전은 알림창이 안 뜨니 아무 이벤트도 없다", async () => {
     const h = createHarness({ stored: "1.0.3" });
 
     await h.controller.maybeShow("1.0.3");
