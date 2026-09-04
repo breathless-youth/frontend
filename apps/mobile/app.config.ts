@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 /**
@@ -41,11 +44,89 @@ function guardDevBaseUrl(name: string, value: string | undefined): string {
   return url;
 }
 
+/**
+ * Firebase 설정 파일 주입 (BY-585).
+ *
+ * `google-services.json`·`GoogleService-Info.plist`는 공개 저장소라 커밋하지 않는다. 경로를 env로
+ * 받아 `googleServicesFile`에 넣고, EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다. env가 없으면
+ * 키를 넣지 않는다 — Metro만 띄우는 로컬 개발엔 파일이 필요 없고, prebuild가 필요한 명령에서는
+ * `@react-native-firebase/app` plugin이 명확한 메시지로 실패한다.
+ *
+ * Firebase 프로젝트는 dev/prod 둘이다. 파일 안의 프로젝트 ID를 읽어 `APP_VARIANT`와 어긋나면
+ * 여기서 끊는다 — 위 `guardDevBaseUrl`과 같은 원칙이다. dev 빌드가 운영 Remote Config·FCM에
+ * 붙으면 최소 지원 버전 테스트가 실사용자를 막고, 테스트 푸시가 실사용자에게 간다.
+ */
+const PROD_FIREBASE_PROJECT_ID = "focusmakers-prod";
+
+function readFirebaseProjectId(filePath: string): string | null {
+  let text: string;
+  try {
+    text = fs.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+  if (filePath.endsWith(".json")) {
+    try {
+      const parsed = JSON.parse(text) as { project_info?: { project_id?: unknown } };
+      const id = parsed.project_info?.project_id;
+      return typeof id === "string" ? id : null;
+    } catch {
+      return null;
+    }
+  }
+  // GoogleService-Info.plist — 키 하나만 필요해서 plist 파서 없이 정규식으로 읽는다.
+  const match = /<key>PROJECT_ID<\/key>\s*<string>([^<]+)<\/string>/.exec(text);
+  return match?.[1] ?? null;
+}
+
+function guardFirebaseFile(
+  name: string,
+  value: string | undefined,
+  isProduction: boolean,
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const projectId = readFirebaseProjectId(path.resolve(__dirname, value));
+  const isProdFile = projectId === PROD_FIREBASE_PROJECT_ID;
+  if (isProduction && !isProdFile) {
+    throw new Error(
+      `${name}이 운영 Firebase 프로젝트(${PROD_FIREBASE_PROJECT_ID}) 파일이 아닙니다` +
+        `(읽힌 프로젝트: ${projectId ?? "없음"}). production 빌드에는 prod 파일을 주입하세요.`,
+    );
+  }
+  if (!isProduction && isProdFile) {
+    throw new Error(
+      `${name}이 운영 Firebase 프로젝트(${PROD_FIREBASE_PROJECT_ID}) 파일을 가리킵니다 — ` +
+        "개발 빌드는 dev 프로젝트 파일을 써야 합니다. apps/mobile/.env.local의 경로를 확인하세요.",
+    );
+  }
+  return value;
+}
+
 export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const isProduction = process.env.APP_VARIANT === "production";
+  const androidGoogleServicesFile = guardFirebaseFile(
+    "GOOGLE_SERVICES_JSON",
+    process.env.GOOGLE_SERVICES_JSON,
+    isProduction,
+  );
+  const iosGoogleServicesFile = guardFirebaseFile(
+    "GOOGLE_SERVICES_PLIST",
+    process.env.GOOGLE_SERVICES_PLIST,
+    isProduction,
+  );
 
   return {
     ...(config as ExpoConfig),
+    ios: {
+      ...config.ios,
+      ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : null),
+    },
+    android: {
+      ...config.android,
+      ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : null),
+    },
     extra: {
       ...config.extra,
       apiBaseUrl: isProduction

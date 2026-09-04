@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase 설정 파일(google-services.json / GoogleService-Info.plist) — 커밋 금지, EAS file env·.env.local로 주입 (BY-585)
+/firebase/

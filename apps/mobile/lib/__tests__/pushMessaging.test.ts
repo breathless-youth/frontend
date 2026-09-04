@@ -1,0 +1,136 @@
+import * as pushMessaging from "../pushMessaging";
+import type { PushMessagingAdapter } from "../pushMessaging";
+
+const mockMessagingInstance = {};
+const mockHasPermission = jest.fn();
+const mockRequestPermission = jest.fn();
+const mockGetToken = jest.fn();
+const mockOnTokenRefresh = jest.fn();
+const mockRegister = jest.fn();
+const mockGetApnsToken = jest.fn();
+
+jest.mock("@react-native-firebase/messaging", () => ({
+  AuthorizationStatus: {
+    NOT_DETERMINED: -1,
+    DENIED: 0,
+    AUTHORIZED: 1,
+    PROVISIONAL: 2,
+    EPHEMERAL: 3,
+  },
+  getMessaging: () => mockMessagingInstance,
+  hasPermission: (...args: unknown[]) => mockHasPermission(...args) as Promise<number>,
+  requestPermission: (...args: unknown[]) => mockRequestPermission(...args) as Promise<number>,
+  getToken: (...args: unknown[]) => mockGetToken(...args) as Promise<string>,
+  onTokenRefresh: (...args: unknown[]) => mockOnTokenRefresh(...args) as () => void,
+  registerDeviceForRemoteMessages: (...args: unknown[]) => mockRegister(...args) as Promise<void>,
+  getAPNSToken: (...args: unknown[]) => mockGetApnsToken(...args) as Promise<string | null>,
+}));
+
+describe("pushMessaging 어댑터 (BY-585)", () => {
+  beforeEach(() => {
+    mockHasPermission.mockReset();
+    mockRequestPermission.mockReset();
+    mockGetToken.mockReset();
+    mockOnTokenRefresh.mockReset();
+    mockRegister.mockReset().mockResolvedValue(undefined);
+    mockGetApnsToken.mockReset().mockResolvedValue(null);
+    pushMessaging.setPushMessagingAdapter(pushMessaging.rnfbPushMessagingAdapter);
+  });
+
+  it.each([
+    [-1, "undetermined"],
+    [0, "denied"],
+    [1, "granted"],
+    [2, "granted"],
+    [3, "granted"],
+    [99, "undetermined"],
+  ])("AuthorizationStatus %i → %s", (status, expected) => {
+    expect(pushMessaging.toPushPermissionStatus(status)).toBe(expected);
+  });
+
+  it("권한 조회·요청은 RNFB 결과를 3단 상태로 좁혀 돌려준다", async () => {
+    mockHasPermission.mockResolvedValue(-1);
+    mockRequestPermission.mockResolvedValue(1);
+
+    await expect(pushMessaging.getPushPermissionStatus()).resolves.toBe("undetermined");
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
+    expect(mockHasPermission).toHaveBeenCalledWith(mockMessagingInstance);
+    expect(mockRequestPermission).toHaveBeenCalledWith(mockMessagingInstance);
+  });
+
+  it("APNs 토큰이 이미 있으면 다시 등록하지 않고 바로 FCM 토큰을 받는다", async () => {
+    mockGetApnsToken.mockResolvedValue("apns-hex");
+    mockGetToken.mockResolvedValue("fcm-token");
+
+    await expect(pushMessaging.getPushToken()).resolves.toBe("fcm-token");
+
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(mockGetToken).toHaveBeenCalledWith(mockMessagingInstance);
+  });
+
+  it("APNs 토큰이 없으면 등록해 도착을 기다린 뒤 FCM 토큰을 받는다", async () => {
+    mockGetApnsToken
+      .mockRejectedValueOnce(new Error("[messaging/unregistered]"))
+      .mockResolvedValueOnce("apns-hex");
+    mockGetToken.mockResolvedValue("fcm-token");
+
+    await expect(pushMessaging.getPushToken()).resolves.toBe("fcm-token");
+
+    expect(mockRegister).toHaveBeenCalledWith(mockMessagingInstance);
+    expect(mockRegister.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetToken.mock.invocationCallOrder[0] as number,
+    );
+  });
+
+  it("등록 후에도 APNs 토큰이 없거나 등록이 실패하면 null을 돌려준다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockGetApnsToken.mockResolvedValue(null);
+    await expect(pushMessaging.getPushToken()).resolves.toBeNull();
+    expect(mockGetToken).not.toHaveBeenCalled();
+
+    mockRegister.mockRejectedValueOnce(new Error("[messaging/registration-timeout]"));
+    await expect(pushMessaging.getPushToken()).resolves.toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("토큰이 빈 문자열이면 null로 돌려준다 (시뮬레이터 등 발급 불가)", async () => {
+    mockGetApnsToken.mockResolvedValue("apns-hex");
+    mockGetToken.mockResolvedValueOnce("fcm-token").mockResolvedValueOnce("");
+
+    await expect(pushMessaging.getPushToken()).resolves.toBe("fcm-token");
+    await expect(pushMessaging.getPushToken()).resolves.toBeNull();
+  });
+
+  it("APNs 토큰은 없으면 null, 있으면 그대로 돌려준다", async () => {
+    mockGetApnsToken.mockResolvedValueOnce(null).mockResolvedValueOnce("apns-hex");
+
+    await expect(pushMessaging.getApnsToken()).resolves.toBeNull();
+    await expect(pushMessaging.getApnsToken()).resolves.toBe("apns-hex");
+  });
+
+  it("토큰 갱신 구독은 리스너를 넘기고 해제 함수를 그대로 돌려준다", () => {
+    const unsubscribe = jest.fn();
+    mockOnTokenRefresh.mockReturnValue(unsubscribe);
+    const listener = jest.fn();
+
+    expect(pushMessaging.onPushTokenRefresh(listener)).toBe(unsubscribe);
+    expect(mockOnTokenRefresh).toHaveBeenCalledWith(mockMessagingInstance, listener);
+  });
+
+  it("setPushMessagingAdapter로 교체한 어댑터가 공개 함수에 그대로 반영된다", async () => {
+    const fake: PushMessagingAdapter = {
+      getPermissionStatus: jest.fn(() => Promise.resolve("denied" as const)),
+      requestPermission: jest.fn(() => Promise.resolve("denied" as const)),
+      getToken: jest.fn(() => Promise.resolve(null)),
+      getApnsToken: jest.fn(() => Promise.resolve(null)),
+      onTokenRefresh: jest.fn(() => () => {}),
+    };
+    pushMessaging.setPushMessagingAdapter(fake);
+
+    await expect(pushMessaging.getPushPermissionStatus()).resolves.toBe("denied");
+    await expect(pushMessaging.getPushToken()).resolves.toBeNull();
+    expect(mockHasPermission).not.toHaveBeenCalled();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+});

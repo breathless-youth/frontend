@@ -1,0 +1,34 @@
+diff --git a/ios/RNFBMessaging/RNFBMessagingModule.mm b/ios/RNFBMessaging/RNFBMessagingModule.mm
+index 201d660e9c9a5c689f444e8e3e2c3c7354daefd1..57b32f7a4617fcdc2bb118db9b4e40c1f841959f 100644
+--- a/ios/RNFBMessaging/RNFBMessagingModule.mm
++++ b/ios/RNFBMessaging/RNFBMessagingModule.mm
+@@ -44,6 +44,16 @@ @implementation RNFBMessagingModule
+ 
+ RCT_EXPORT_MODULE(NativeRNFBTurboMessaging)
+ 
++// [focusmakers patch] v26의 TurboModule 전환에서 v25까지 있던 main-queue methodQueue가 사라졌다.
++// 그러면 getToken/getAPNSToken/hasPermission의 `[UIApplication sharedApplication]
++// .isRegisteredForRemoteNotifications` 읽기가 백그라운드 스레드에서 실행돼 실기기에서도 NO를 돌려주고
++// `[messaging/unregistered]`로 실패한다(2026-09-03 iPhone 17 Pro, iOS 26.6.1 실측 — APNs 토큰은
++// 이미 있는 상태). RN의 ObjCTurboModule은 methodQueue를 아직 존중하므로 v25와 같이 main으로 되돌린다.
++// 업스트림 수정이 들어오면 이 패치를 제거한다.
++- (dispatch_queue_t)methodQueue {
++  return dispatch_get_main_queue();
++}
++
+ + (BOOL)requiresMainQueueSetup {
+   return NO;
+ }
+@@ -135,7 +145,11 @@ - (void)getToken:(NSString *)appName
+         senderId:(NSString *)senderId
+          resolve:(RCTPromiseResolveBlock)resolve
+           reject:(RCTPromiseRejectBlock)reject {
+-  if ([UIApplication sharedApplication].isRegisteredForRemoteNotifications == NO) {
++  // [focusmakers patch] UIKit의 isRegisteredForRemoteNotifications는 실기기(iOS 26.6.1)에서 APNs 토큰을
++  // 이미 받은 뒤에도 NO를 돌려줘 getToken이 항상 unregistered로 실패했다. FCM 토큰 발급에 실제로 필요한 것은
++  // FIRMessaging이 보유한 APNs 토큰이므로, 토큰이 있으면 UIKit 플래그와 무관하게 진행한다.
++  if ([FIRMessaging messaging].APNSToken == nil &&
++      [UIApplication sharedApplication].isRegisteredForRemoteNotifications == NO) {
+     [RNFBSharedUtils
+         rejectPromiseWithUserInfo:reject
+                          userInfo:(NSMutableDictionary *)@{
