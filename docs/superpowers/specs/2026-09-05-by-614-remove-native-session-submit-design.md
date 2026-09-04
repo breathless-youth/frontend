@@ -77,5 +77,5 @@ PR #127이 미룬 실기기·브라우저 검증을 BY-617에서 진행했다. �
 - **CORS 사전 점검**: api-dev와 운영 api 모두 web-dev·web 오리진의 `POST /api/study-sessions` 프리플라이트(`content-type`, `api-version` 헤더)에 200과 허용 헤더를 돌려준다. web-dev 배포 번들에 `submit-session`·`submit-result` 문자열은 없다.
 - **iOS 앱**: iPhone 17 Pro(iOS 26.6.1), Dev Client 1.0.2 + Metro 터널로 web-dev를 띄워 세션 종료 → 결과 화면 도달을 확인했다.
 - **브라우저(web-dev)**: Playwright headless Chromium(가짜 카메라)으로 `/room/1?userId=201`에서 세션을 진행하고 `공부 종료`를 눌렀다. `POST /api/study-sessions`가 201로 돌아오고(`access-control-allow-origin: https://web-dev.focusmakers.app`) 서버에 세션이 생성됐다. 순공 75초 세션은 결과 화면(`/room/1/result`)에 도달했고, Vision이 자리 비움으로 판정한 순공 4초 세션은 설계대로 1분 미만 안내로 갔다(제출 자체는 201).
-- **Android 앱**: 미검증. Dev Client로 같은 절차를 밟아 결과를 여기에 추가한다.
+- **Android 앱**: Android 15 arm64 에뮬레이터(Pixel 7, Google APIs), Dev Client 1.0.2 + Metro 터널로 web-dev를 띄우고 홈 `집중 시작` → 네이티브 카메라 게이트 → 세션 WebView → `공부 종료`를 Chrome DevTools Protocol로 조작했다. 에뮬레이터 카메라(테스트 패턴)로 Vision이 실제로 돌며 자리 비움으로 판정한 세션 세 건은 `POST /api/study-sessions`가 프리플라이트 200 뒤 201로 돌아왔고(1분 미만 안내로 이동), 카메라 스트림이 잡히지 않아 FOCUS가 유지된 순공 85초 세션은 201 뒤 결과 화면(`/room/1/result`)에 도달했다. 에뮬레이터 WebView는 후면 카메라(`camera2 0, facing back`)를 잡는다.
 - **개발 환경 메모**: BY-600 이후 트리에서 Metro를 띄우려면 `.env.local`의 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST`가 `.dev` 아이덴티티가 든 파일을 가리켜야 한다. BY-615 전에는 두 줄을 비워야 매니페스트가 뜬다. staging EAS 빌드는 같은 이유로 BY-615 이후에 가능하다.
