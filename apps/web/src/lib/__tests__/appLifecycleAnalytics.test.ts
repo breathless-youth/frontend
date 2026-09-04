@@ -4,22 +4,18 @@ import type { ToWebMessage } from "@focusmakers/types";
 
 const mocks = vi.hoisted(() => ({
   setAppEnvironmentUserProperties: vi.fn(),
+  setCameraPermissionUserProperty: vi.fn(),
   setThemeUserProperty: vi.fn(),
-  trackAppBackgrounded: vi.fn(),
-  trackAppForegrounded: vi.fn(),
   trackAppLaunched: vi.fn(),
-  trackCameraPermissionResult: vi.fn(),
   isNativeBridgeAvailable: vi.fn(() => false),
   subscribeToNativeMessages: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", () => ({
   setAppEnvironmentUserProperties: mocks.setAppEnvironmentUserProperties,
+  setCameraPermissionUserProperty: mocks.setCameraPermissionUserProperty,
   setThemeUserProperty: mocks.setThemeUserProperty,
-  trackAppBackgrounded: mocks.trackAppBackgrounded,
-  trackAppForegrounded: mocks.trackAppForegrounded,
   trackAppLaunched: mocks.trackAppLaunched,
-  trackCameraPermissionResult: mocks.trackCameraPermissionResult,
 }));
 
 vi.mock("@/lib/bridge", () => ({
@@ -78,18 +74,24 @@ describe("initAppLifecycleAnalytics", () => {
     const handler = await initAndGetHandler();
 
     handler({ type: "app-launched", atMs: 1 });
-    handler({ type: "app-state", state: "active", atMs: 2 });
-    handler({ type: "app-state", state: "background", atMs: 3 });
     handler({ type: "camera-permission", granted: true, atMs: 4 });
-    handler({ type: "camera-gate-result", granted: false, atMs: 5 });
     handler({ type: "theme", scheme: "dark", atMs: 6 });
 
     expect(mocks.trackAppLaunched).toHaveBeenCalledTimes(1);
-    expect(mocks.trackAppForegrounded).toHaveBeenCalledTimes(1);
-    expect(mocks.trackAppBackgrounded).toHaveBeenCalledTimes(1);
-    expect(mocks.trackCameraPermissionResult).toHaveBeenCalledWith(true, "session");
-    expect(mocks.trackCameraPermissionResult).toHaveBeenCalledWith(false, "gate");
+    expect(mocks.setCameraPermissionUserProperty).toHaveBeenCalledWith(true);
     expect(mocks.setThemeUserProperty).toHaveBeenCalledWith("dark");
+  });
+
+  it("포/백그라운드·권한 게이트 결과는 여기서 다루지 않는다 — 네이티브 단일 sink(BY-616)의 몫", async () => {
+    const handler = await initAndGetHandler();
+
+    handler({ type: "app-state", state: "active", atMs: 2 });
+    handler({ type: "app-state", state: "background", atMs: 3 });
+    handler({ type: "camera-gate-result", granted: false, atMs: 5 });
+
+    expect(mocks.trackAppLaunched).not.toHaveBeenCalled();
+    expect(mocks.setCameraPermissionUserProperty).not.toHaveBeenCalled();
+    expect(mocks.setThemeUserProperty).not.toHaveBeenCalled();
   });
 
   it("계측 대상이 아닌 메시지는 조용히 무시한다", async () => {
@@ -99,9 +101,7 @@ describe("initAppLifecycleAnalytics", () => {
     handler({ type: "reset-route", path: "/social", atMs: 8 });
 
     expect(mocks.trackAppLaunched).not.toHaveBeenCalled();
-    expect(mocks.trackAppForegrounded).not.toHaveBeenCalled();
-    expect(mocks.trackAppBackgrounded).not.toHaveBeenCalled();
-    expect(mocks.trackCameraPermissionResult).not.toHaveBeenCalled();
+    expect(mocks.setCameraPermissionUserProperty).not.toHaveBeenCalled();
     expect(mocks.setThemeUserProperty).not.toHaveBeenCalled();
   });
 });

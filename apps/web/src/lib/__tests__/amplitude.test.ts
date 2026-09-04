@@ -573,29 +573,26 @@ describe("WebRTC 연결 이벤트 (BY-472)", () => {
 });
 
 describe("브리지 기반 앱 이벤트 (BY-472)", () => {
-  it("실행·포/백그라운드·카메라 권한을 보낸다", async () => {
+  it("앱 실행을 보낸다 — 홈 웹뷰에만 한 번 오는 app-launched의 짝", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const {
-      initAmplitude,
-      trackAppLaunched,
-      trackAppForegrounded,
-      trackAppBackgrounded,
-      trackCameraPermissionResult,
-    } = await loadModule();
+    const { initAmplitude, trackAppLaunched } = await loadModule();
     initAmplitude();
 
     trackAppLaunched();
-    trackAppForegrounded();
-    trackAppBackgrounded();
-    trackCameraPermissionResult(false, "gate");
 
     expect(mocks.track).toHaveBeenCalledWith("app_launched");
-    expect(mocks.track).toHaveBeenCalledWith("app_foregrounded");
-    expect(mocks.track).toHaveBeenCalledWith("app_backgrounded");
-    expect(mocks.track).toHaveBeenCalledWith("camera_permission_result", {
-      granted: false,
-      source: "gate",
-    });
+  });
+
+  it("카메라 권한 상태는 이벤트가 아니라 user property로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setCameraPermissionUserProperty } = await loadModule();
+    initAmplitude();
+
+    setCameraPermissionUserProperty(false);
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["camera_permission_granted", false]]);
+    expect(mocks.track).not.toHaveBeenCalledWith("camera_permission_result", expect.anything());
   });
 
   it("앱 환경 user property를 일괄 설정한다 — appVersion이 없으면 생략한다", async () => {

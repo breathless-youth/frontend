@@ -1,26 +1,24 @@
 import {
   setAppEnvironmentUserProperties,
+  setCameraPermissionUserProperty,
   setThemeUserProperty,
-  trackAppBackgrounded,
-  trackAppForegrounded,
   trackAppLaunched,
-  trackCameraPermissionResult,
 } from "./amplitude";
 import { isNativeBridgeAvailable, subscribeToNativeMessages } from "./bridge";
 
 /**
- * 네이티브→웹 브리지 메시지를 Amplitude 이벤트로 옮긴다(BY-472) — 네이티브 Amplitude SDK
- * 없이 앱 수명 신호(실행·포/백그라운드·카메라 권한)를 잡는 유일한 경로다.
+ * 네이티브→웹 브리지 메시지를 Amplitude 이벤트·user property로 옮긴다(BY-472) — 앱 실행
+ * 신호와 환경(웹뷰 여부·앱 버전·테마·카메라 권한 상태)을 네이티브 SDK 없이 잡는 경로다.
  *
  * `main.tsx`가 `initNativeTheme()` **뒤에** 부른다 — 초기 테마 user property를
  * `data-theme`(셸 `?theme` 쿼리의 반영 결과)에서 읽기 때문이다. `initAmplitude()`보다도
  * 뒤여야 user property가 no-op으로 새지 않는다.
  *
- * ⚠️ 브리지 메시지는 **이 웹뷰가 마운트되어 구독 중인 동안만** 도달한다. 셸은 탭마다
- * 웹뷰를 따로 띄우므로 브로드캐스트성 메시지(`app-state` 등)는 떠 있는 웹뷰 수만큼
- * 중복 이벤트가 될 수 있다 — 웹 쪽에서는 서로를 몰라 중복 제거가 불가능하니 차트에서
- * 감안하고, 실기기에서 수신 시점·중복 정도를 확인해 필요하면 네이티브가 한 웹뷰에만
- * 보내도록 조정한다(BY-472 구현 시 확인 항목).
+ * 여기서 받는 메시지는 전부 **한 웹뷰에만 오거나 상태를 나타내는 것**이다. `app-launched`는
+ * 셸이 홈 웹뷰에만 한 번 보내고, `camera-permission`·`theme`은 이벤트가 아니라 property로
+ * 남긴다. 포/백그라운드 전환처럼 탭 웹뷰 수만큼 중복될 수 있는 사용자 이벤트는 여기 두지
+ * 않는다 — 네이티브가 단일 sink 큐(`track-event`, BY-616)로 한 번만 넘긴다. 카메라 권한
+ * **게이트의 분기 결과**도 같은 이유로 네이티브 몫이다(`camera_permission_gate_resolved`).
  */
 export function initAppLifecycleAnalytics(): void {
   const datasetTheme = document.documentElement.dataset.theme;
@@ -40,18 +38,9 @@ export function initAppLifecycleAnalytics(): void {
       case "app-launched":
         trackAppLaunched();
         return;
-      case "app-state":
-        if (message.state === "active") {
-          trackAppForegrounded();
-        } else {
-          trackAppBackgrounded();
-        }
-        return;
       case "camera-permission":
-        trackCameraPermissionResult(message.granted, "session");
-        return;
-      case "camera-gate-result":
-        trackCameraPermissionResult(message.granted, "gate");
+        // 설정(S6)이 물어본 현재 권한 상태 — 상태라 이벤트가 아니라 property다.
+        setCameraPermissionUserProperty(message.granted);
         return;
       case "theme":
         setThemeUserProperty(message.scheme);

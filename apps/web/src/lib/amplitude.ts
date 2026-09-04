@@ -419,26 +419,17 @@ export function trackAppLaunched() {
   track("app_launched");
 }
 
-/** 앱이 포그라운드로 복귀(브리지 `app-state: active`). */
-export function trackAppForegrounded() {
-  if (!initialized) return;
-  track("app_foregrounded");
-}
-
-/** 앱이 백그라운드로 진입(브리지 `app-state: background`). */
-export function trackAppBackgrounded() {
-  if (!initialized) return;
-  track("app_backgrounded");
-}
-
 /**
- * 카메라 권한 결과 — `source`는 `session`(세션 진입의 `camera-permission`) /
- * `gate`(소셜룸 입장 게이트의 `camera-gate-result`). 권한 거부는 온보딩·소셜 입장
- * 이탈의 1순위 후보인데 지금까지 관측 수단이 없었다.
+ * OS 카메라 권한 상태 — 설정(S6)이 네이티브에 물어본 `camera-permission` 응답을 user property로
+ * 남긴다. 이벤트가 아니라 **상태**라 property가 맞다: "권한 거부 사용자" 코호트를 바로 만들 수 있고,
+ * 설정 탭을 여는 횟수만큼 이벤트가 찍히는 잡음이 없다. 권한 **게이트의 분기 결과**(허용/거부/
+ * 기거부/조회 실패)는 네이티브가 `camera_permission_gate_resolved`로 따로 보낸다(BY-616).
  */
-export function trackCameraPermissionResult(granted: boolean, source: "session" | "gate") {
+export function setCameraPermissionUserProperty(granted: boolean) {
   if (!initialized) return;
-  track("camera_permission_result", { granted, source });
+  const id = new Identify();
+  id.set("camera_permission_granted", granted);
+  identify(id);
 }
 
 /**
