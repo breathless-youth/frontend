@@ -46,6 +46,7 @@ describe("buildRemoteQueryParams", () => {
       appVersion: "1.4.2",
       share: "1",
       cameraGate: "1",
+      nativeUpdateGate: "1",
     });
   });
 
@@ -56,6 +57,7 @@ describe("buildRemoteQueryParams", () => {
       appVersion: "1.4.2",
       share: "1",
       cameraGate: "1",
+      nativeUpdateGate: "1",
     });
   });
 
@@ -67,6 +69,7 @@ describe("buildRemoteQueryParams", () => {
       userId: 7,
       share: "1",
       cameraGate: "1",
+      nativeUpdateGate: "1",
     });
   });
 
@@ -84,6 +87,12 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.cameraGate).toBe("1");
+  });
+
+  it("셸이 강제 업데이트를 네이티브에서 판정함을 nativeUpdateGate로 알린다 (BY-586)", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const params = await buildRemoteQueryParams();
+    expect(params.nativeUpdateGate).toBe("1");
   });
 
   it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
@@ -129,6 +138,7 @@ describe("useRemoteQueryParams", () => {
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
+        nativeUpdateGate: "1",
       }),
     );
   });
@@ -143,6 +153,7 @@ describe("useRemoteQueryParams", () => {
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
+        nativeUpdateGate: "1",
       }),
     );
     first.unmount();
@@ -155,6 +166,7 @@ describe("useRemoteQueryParams", () => {
       appVersion: "1.4.2",
       share: "1",
       cameraGate: "1",
+      nativeUpdateGate: "1",
     });
   });
 
@@ -190,7 +202,12 @@ describe("useRemoteQueryParams", () => {
 
     const first = renderHook(() => useRemoteQueryParams());
     await waitFor(() =>
-      expect(first.result.current).toEqual({ appVersion: "1.4.2", share: "1", cameraGate: "1" }),
+      expect(first.result.current).toEqual({
+        appVersion: "1.4.2",
+        share: "1",
+        cameraGate: "1",
+        nativeUpdateGate: "1",
+      }),
     );
     first.unmount();
 
@@ -204,6 +221,7 @@ describe("useRemoteQueryParams", () => {
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
+        nativeUpdateGate: "1",
       }),
     );
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(2);

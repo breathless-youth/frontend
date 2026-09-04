@@ -5,13 +5,15 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { logFirebaseSmoke } from "../lib/firebaseSmoke";
+import { resolveForceUpdate } from "../lib/forceUpdate";
+import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
+import { startPushMessaging } from "../lib/pushBootstrap";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
 
@@ -41,13 +43,41 @@ function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Pretendard: require("../assets/fonts/PretendardVariable.ttf") as number,
   });
+  // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
+  // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
+  // 그 위에 OS 알림창(`lib/forceUpdateAlert.ts`)을 띄운다.
+  const [updateGate, setUpdateGate] = useState<"pending" | "pass" | "forced">("pending");
+
+  useEffect(() => {
+    let active = true;
+    void resolveForceUpdate()
+      .then((decision) => {
+        if (active) setUpdateGate(decision.forced ? "forced" : "pass");
+      })
+      .catch(() => {
+        if (active) setUpdateGate("pass");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fontsReady = fontsLoaded || fontError;
+  const gateReady = updateGate !== "pending";
+
+  // forced인 동안 알림창을 띄우고 스토어 복귀 때 다시 띄운다. 게이트가 바뀌거나 언마운트되면 구독을 푼다.
+  useEffect(() => {
+    if (updateGate !== "forced") return;
+    return forceUpdateAlert.start();
+  }, [updateGate]);
 
   useEffect(() => {
     // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
-    if (fontsLoaded || fontError) {
+    // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
+    if (fontsReady && gateReady) {
       void SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsReady, gateReady]);
 
   useEffect(() => {
     void ensureUserRegistered();
@@ -57,10 +87,9 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // Firebase 배선 확인 로그(BY-585) — 개발 빌드에서만 동작하고 BY-586에서 실사용 코드로 대체된다.
-  useEffect(() => {
-    void logFirebaseSmoke();
-  }, []);
+  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 개발
+  // 빌드에서만 한다(`lib/pushBootstrap.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  useEffect(() => startPushMessaging({ navigate: (route) => router.push(route) }), [router]);
 
   useEffect(() => {
     // Install Referrer는 Android 전용이다 — iOS는 스토어가 값을 앱에 전달할 통로 자체가 없다.
@@ -81,8 +110,25 @@ function RootLayout() {
   // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
-  if (!fontsLoaded && !fontError) {
+  if (!fontsReady || !gateReady) {
     return null;
+  }
+
+  if (updateGate === "forced") {
+    // 알림창 뒤에 깔리는 빈 배경. 갈 곳이 없는 하드 블록이고, 알림창이 어떤 이유로든 사라졌을 때 탭하면
+    // 다시 띄운다 — 배경을 탭할 수 있다는 것 자체가 알림창이 없다는 뜻이다.
+    return (
+      <>
+        <StatusBar style="auto" />
+        <Pressable
+          accessibilityLabel={FORCE_UPDATE_TITLE}
+          accessibilityHint="업데이트 안내를 다시 표시합니다"
+          className="bg-bg-base dark:bg-bg-base-dark flex-1"
+          onPress={() => forceUpdateAlert.reshow()}
+          testID="force-update-backdrop"
+        />
+      </>
+    );
   }
 
   return (

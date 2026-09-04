@@ -44,6 +44,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 앱에서 소셜 룸 입장이 통째로 막히는 것을 피하기 위해서다. 원격 웹은 구버전 앱에도 즉시
   // 배포되므로 브리지 존재만으로는 처리 가능 여부를 판단할 수 없다(`share`와 같은 이유).
   params.cameraGate = "1";
+  // `nativeUpdateGate=1`: 이 바이너리가 강제 업데이트를 네이티브에서 판정한다는 표시(BY-586). 웹의
+  // `useForceUpdateGate`는 이 표시가 있으면 판정하지 않는다 — 웹 게이트는 이 표시가 없는 구버전
+  // 바이너리 전용으로 남는다(`share`·`cameraGate`와 같은 capability 표시 방식).
+  params.nativeUpdateGate = "1";
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면
   // 웹뷰가 통째로 재로드되므로, 실행 중 변경은 theme 브리지 메시지가 맡는다 —
