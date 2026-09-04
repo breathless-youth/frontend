@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import { AppState } from "react-native";
 import type * as ReactNative from "react-native";
 
 import RootLayout from "../app/_layout";
+import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 
 /**
  * 라우트 컨텍스트 격리 이유는 `permission-denied.test.tsx` 상단 주석 참고 — `app/` 밖(`__tests__/`)에 둔다.
@@ -236,5 +238,34 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(screen.queryByTestId("force-update-backdrop")).toBeNull();
     expect(mockAlertStart).not.toHaveBeenCalled();
+  });
+});
+
+/** 포/백그라운드 계측 배선 — 판정 로직은 `lib/__tests__/appStateAnalytics.test.ts`가 고정한다. */
+describe("RootLayout 앱 상태 계측", () => {
+  it("AppState 전환을 네이티브 사용자 이벤트로 남긴다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const spy = jest.spyOn(AppState, "addEventListener");
+    // jest-expo의 AppState는 이미 mock이라 spyOn이 앞선 테스트의 호출 기록까지 물려받는다 —
+    // 이 렌더가 등록한 리스너만 고른다(이전 렌더의 리스너는 해제됐어도 기록에 남아 있다).
+    const registeredBefore = spy.mock.calls.length;
+    __resetNativeAnalyticsForTests();
+    const received: string[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.name));
+
+    render(<RootLayout />);
+    await waitFor(() => expect(spy.mock.calls.length).toBeGreaterThan(registeredBefore));
+    const listeners = spy.mock.calls
+      .slice(registeredBefore)
+      .filter(([event]) => event === "change")
+      .map(([, listener]) => listener as (state: string) => void);
+    act(() => {
+      for (const listener of listeners) listener("background");
+      for (const listener of listeners) listener("active");
+    });
+
+    expect(received).toEqual(["app_backgrounded", "app_foregrounded"]);
+    spy.mockRestore();
+    __resetNativeAnalyticsForTests();
   });
 });

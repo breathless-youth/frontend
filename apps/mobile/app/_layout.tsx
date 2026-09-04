@@ -10,6 +10,7 @@ import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { resolveForceUpdate } from "../lib/forceUpdate";
+import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
@@ -118,6 +119,13 @@ function RootLayout() {
     const sub = AppState.addEventListener("change", (state) => {
       focusManager.setFocused(state === "active");
     });
+    return () => sub.remove();
+  }, []);
+
+  // 포/백그라운드 전환을 웹 Amplitude로 넘긴다(`lib/appStateAnalytics.ts`) — 네이티브만 한 번에
+  // 판정할 수 있는 사용자 행동이다. 웹뷰 각각의 visibilitychange로 찍으면 탭 수만큼 중복된다.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", createAppStateTracker());
     return () => sub.remove();
   }, []);
 

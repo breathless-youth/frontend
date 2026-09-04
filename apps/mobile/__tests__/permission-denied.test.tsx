@@ -13,8 +13,21 @@ import {
  * 테스트 파일이 그대로 라우트로 등록된다. 순수 유틸 테스트는 기존대로 `lib/__tests__`에 둔다.
  */
 
+/** 화면이 스택에서 빠질 때 불리는 beforeRemove 리스너 — 이탈 계측이 여기에 걸린다. */
+const mockBeforeRemove: { listener: (() => void) | null } = { listener: null };
+
 jest.mock("expo-router", () => ({
   router: { canGoBack: jest.fn(() => true), back: jest.fn(), replace: jest.fn(), push: jest.fn() },
+  useNavigation: () => ({
+    addListener: (event: string, listener: () => void) => {
+      if (event === "beforeRemove") {
+        mockBeforeRemove.listener = listener;
+      }
+      return () => {
+        mockBeforeRemove.listener = null;
+      };
+    },
+  }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -68,21 +81,38 @@ describe("S2-3 · 이벤트", () => {
     __resetNativeAnalyticsForTests();
     received = [];
     attachNativeAnalyticsSink((event) => received.push(event));
+    mockBeforeRemove.listener = null;
   });
 
   afterEach(() => {
     __resetNativeAnalyticsForTests();
   });
 
-  it("노출 → 설정 열기 → 홈으로 돌아가기 순으로 남긴다", () => {
+  const summary = () => received.map((event) => [event.name, event.properties]);
+
+  it("노출 → 설정 열기를 남기고, 홈으로 돌아가기는 화면이 빠질 때 back_home으로 남긴다", () => {
     render(<PermissionDeniedScreen />);
     fireEvent.press(screen.getByRole("button", { name: "설정 열기" }));
     fireEvent.press(screen.getByRole("button", { name: "홈으로 돌아가기" }));
-
-    expect(received.map((event) => [event.name, event.properties])).toEqual([
+    // 버튼 자체는 이탈을 찍지 않는다 — 스택에서 빠지는 순간 한 번이다.
+    expect(summary()).toEqual([
       ["permission_denied_viewed", undefined],
       ["permission_denied_settings_opened", undefined],
-      ["permission_denied_left", { reason: "back_home" }],
+    ]);
+
+    mockBeforeRemove.listener?.();
+
+    expect(summary().at(-1)).toEqual(["permission_denied_left", { reason: "back_home" }]);
+  });
+
+  it("하드웨어 백·스와이프 백처럼 사유 없이 빠지면 back으로 남긴다", () => {
+    render(<PermissionDeniedScreen />);
+
+    mockBeforeRemove.listener?.();
+
+    expect(summary()).toEqual([
+      ["permission_denied_viewed", undefined],
+      ["permission_denied_left", { reason: "back" }],
     ]);
   });
 });

@@ -43,6 +43,13 @@ export interface NativeAnalyticsEventMap extends Record<
   string,
   NativeAnalyticsProperties | undefined
 > {
+  /**
+   * 앱이 백그라운드로 갔다(`lib/appStateAnalytics.ts`, `app/_layout.tsx`의 AppState 감시). iOS의
+   * `inactive`(제어 센터·전화 수신)는 세지 않는다 — 실제로 떠난 것만 센다.
+   */
+  app_backgrounded: undefined;
+  /** 백그라운드에서 돌아왔다. `background_sec`는 떠나 있던 시간. 앱 시작 직후의 첫 active는 세지 않는다. */
+  app_foregrounded: { background_sec: number };
   /** 하단 탭 터치(`components/TabBar.tsx`). 활성 탭은 비활성화돼 있어 같은 탭 재터치는 찍히지 않는다. */
   tab_pressed: { tab: NativeTab; from_tab: NativeTab };
   /**
@@ -60,8 +67,11 @@ export interface NativeAnalyticsEventMap extends Record<
   permission_denied_viewed: undefined;
   /** S2-3 "설정 열기" 터치. */
   permission_denied_settings_opened: undefined;
-  /** S2-3을 떠남 — "홈으로 돌아가기" 터치, 또는 설정에서 허용하고 돌아와 자동 복귀. */
-  permission_denied_left: { reason: "back_home" | "permission_granted" };
+  /**
+   * S2-3을 떠남 — 화면이 스택에서 빠질 때 한 번(`beforeRemove`). "홈으로 돌아가기" 터치, 설정에서
+   * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`.
+   */
+  permission_denied_left: { reason: "back_home" | "permission_granted" | "back" };
   /** 권장 업데이트 알림창(BY-608, `lib/recommendedUpdateAlert.ts`) 노출. 값은 Remote Config `latest_version`. */
   recommended_update_prompted: { latest_version: string };
   /** 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). */

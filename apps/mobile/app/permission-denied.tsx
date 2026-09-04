@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import {
   AccessibilityInfo,
@@ -35,9 +35,13 @@ export default function PermissionDeniedScreen() {
   const insets = useSafeAreaInsets();
   const titleRef = useRef<Text>(null);
 
+  const navigation = useNavigation();
+  /** 이탈 사유 — 버튼·자동 복귀가 채운다. 비어 있는 채로 빠지면 하드웨어 백·스와이프 백이다. */
+  const leaveReasonRef = useRef<"back_home" | "permission_granted" | null>(null);
+
   const goHome = useCallback((reason: "back_home" | "permission_granted") => {
-    trackNativeEvent("permission_denied_left", { reason });
-    // 하드웨어 백·스와이프 백도 같은 결과(홈 복귀)를 낸다 — 백 제스처를 막지 않는다(그 경로는 이벤트가 없다).
+    leaveReasonRef.current = reason;
+    // 하드웨어 백·스와이프 백도 같은 결과(홈 복귀)를 낸다 — 백 제스처를 막지 않는다.
     if (router.canGoBack()) {
       router.back();
       return;
@@ -50,6 +54,14 @@ export default function PermissionDeniedScreen() {
   useEffect(() => {
     trackNativeEvent("permission_denied_viewed");
   }, []);
+
+  // 이탈은 화면이 스택에서 빠지는 순간 한 번만 남긴다 — 버튼·자동 복귀·하드웨어 백·스와이프 백이
+  // 전부 여기를 지나므로 경로마다 찍지 않는다. 사유가 비어 있으면 제스처 이탈이다.
+  useEffect(() => {
+    return navigation.addListener("beforeRemove", () => {
+      trackNativeEvent("permission_denied_left", { reason: leaveReasonRef.current ?? "back" });
+    });
+  }, [navigation]);
 
   // 화면 진입 시 스크린 리더 포커스를 타이틀로 보낸다.
   useEffect(() => {
