@@ -898,10 +898,18 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
 
   beforeEach(() => {
     __resetNativeAnalyticsForTests();
+    // 주입 시 개발용 Metro 로그(`[analytics] → 웹`)는 테스트 출력만 어지럽힌다.
+    jest.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
     __resetNativeAnalyticsForTests();
+  });
+
+  it("개발 빌드에서는 웹뷰 인스펙터를 켠다 — iOS 16.4+는 이 플래그 없이는 Safari가 붙지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.webviewDebuggingEnabled).toBe(true);
   });
 
   it("포커스된 웹뷰가 준비 신호를 보내면 그 뒤의 이벤트를 track-event로 주입하고 콜백에는 넘기지 않는다", () => {

@@ -407,9 +407,15 @@ export function RemoteWebViewHost({
       return;
     }
     return attachNativeAnalyticsSink((event) => {
+      if (__DEV__) {
+        // 실기기 검증용 — Metro 터미널에서 큐 flush 순서와 속성을 본다. 웹 도착은 Safari Web
+        // Inspector(아래 webviewDebuggingEnabled)의 `[amplitude:dev]` 로그로 확인한다.
+        // eslint-disable-next-line no-console -- 개발 빌드 전용 검증 로그
+        console.log(`[analytics] → 웹 ${path}`, event.name, event.properties ?? "");
+      }
       webViewRef.current?.injectJavaScript(injectMessageScript({ type: "track-event", ...event }));
     });
-  }, [focused, analyticsReady]);
+  }, [focused, analyticsReady, path]);
 
   // 실행 중 시스템 테마 변경을 웹에 알린다 — 초기값은 URL의 theme 쿼리가 이미 실었다
   // (`lib/remoteQueryParams.ts`). Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는
@@ -528,6 +534,10 @@ export function RemoteWebViewHost({
       // 예외: 온보딩 가이드(G1~G5)는 이 제스처가 가이드 통째 이탈이 되어 웹이
       // `set-back-gesture`로 잠시 끈다(위 backGestureEnabled 주석·계약 주석 참고).
       allowsBackForwardNavigationGestures={backGestureEnabled}
+      // 개발 빌드에서만 Safari Web Inspector(iOS)·chrome://inspect(Android)가 이 웹뷰에 붙는다.
+      // iOS 16.4+는 WKWebView `isInspectable`을 켜지 않으면 디버그 빌드여도 인스펙터가 안 붙는다 —
+      // 브리지 메시지·`[amplitude:dev]` 콘솔 로그를 실기기에서 보는 유일한 창이다. 운영은 꺼진다.
+      webviewDebuggingEnabled={__DEV__}
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
       // 불리면 위 effect가 `false`로 정정한다(둘 다 로드 종료 후에 온다).

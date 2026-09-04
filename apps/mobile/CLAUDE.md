@@ -144,6 +144,7 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 - **`analytics-ready`는 `home-ready`와 같은 handshake다.** 어느 로드 콜백도 "웹 JS가 돌았고 구독까지 걸렸다"를 보장하지 못한다(Android는 실패한 로드에도 finish를 합성). 호스트는 재시도·사망 복구 진입에서 준비 상태를 되돌리고, **`onLoadEnd`에서는 되돌리지 않는다** — 새 문서의 신호가 onLoadEnd보다 먼저 올 수 있어 거기서 되돌리면 준비된 문서를 미준비로 덮어쓴다(`RemoteWebViewHost.test.tsx`가 고정).
 - 포/백그라운드 전환은 `lib/appStateAnalytics.ts`가 `app/_layout.tsx`의 AppState 감시에서 판정해 `app_backgrounded`/`app_foregrounded {background_sec}`로 넘긴다 — iOS `inactive`와 앱 시작 직후 첫 active는 세지 않는다. 웹 `app-state` 릴레이(#97)는 발신자가 없었고 웹뷰 수만큼 중복되는 구조라 이쪽으로 옮겼다. S2-3 이탈은 `beforeRemove`에서 한 번만(버튼·자동 복귀·하드웨어 백·스와이프 백 전부, 사유 없으면 `back`).
 - 못 잡는 구간: 강제 업데이트 화면(웹뷰 미마운트), `/contact` 문서 내비게이션 중(구 문서 파괴~새 문서 준비 사이)에 난 이벤트. 이 구간이 실제로 필요해지면 그때 네이티브 SDK를 검토한다(`packages/types/src/bridge.ts`의 `TrackEventMessage` 주석).
+- **실기기 확인은 지금 깔린 개발 빌드로 한다**(JS만 바뀌므로 재빌드 불필요). Metro 터미널의 `[analytics] → 웹` 로그가 큐 flush를, Safari Web Inspector가 웹 도착(`[amplitude:dev]`)을 보여 준다 — `RemoteWebViewHost`의 `webviewDebuggingEnabled={__DEV__}`가 없으면 iOS 16.4+에서 인스펙터가 붙지 않는다. Amplitude 콘솔 확인은 키가 운영 웹에만 있어 머지 후에만 가능하다. 절차는 설계 문서 "실기기 검증 방법".
 - 설계 문서: `docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md`.
 
 ## 화면 방향 — 룸만 회전 (2026-07-30, 2026-08-01 집행 주체 정정, 2026-08-26 BY-444 재정정)

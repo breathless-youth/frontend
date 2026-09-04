@@ -417,6 +417,14 @@ describe("RemoteScreen", () => {
  * 파생된다 — 비포커스 탭 웹뷰가 sink로 붙으면 보이지 않는 화면에 이벤트가 찍혀 N번 집계된다.
  */
 describe("RemoteScreen — 네이티브 사용자 이벤트 sink", () => {
+  beforeEach(() => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   async function readyWebView(focused: boolean) {
     mockedEnsureUserRegistered.mockResolvedValue(7);
     render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={!focused} />);
