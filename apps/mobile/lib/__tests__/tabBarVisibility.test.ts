@@ -26,7 +26,6 @@ jest.mock("../cameraPermission", () => ({
   openAppSettings: jest.fn(),
   getCameraPermissionStatus: jest.fn(),
 }));
-jest.mock("../sessionSubmitRelay", () => ({ relaySessionSubmit: jest.fn() }));
 
 beforeEach(() => {
   __resetTabBarVisibilityForTests();
