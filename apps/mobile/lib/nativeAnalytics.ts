@@ -20,14 +20,19 @@ import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
  * 발신부(탭 바·권한 게이트·알림창 등)가 React 트리 어디에도 속하지 않는 순수 함수라
  * `tabBarVisibility`·`tabReset`처럼 모듈 스코프 통로를 쓴다.
  *
- * ## 카탈로그 규칙
+ * ## 카탈로그 규칙 (2026-09-05 최종 검토)
  *
  * - 이름은 snake_case, 과거형(`_pressed`·`_resolved`·`_opened`). 웹 이벤트(`study_session_*`)와
  *   같은 규칙이다. 웹은 이름을 해석하지 않고 형식만 검증하므로 여기가 유일한 정의처다.
  * - 속성은 원시값(enum·boolean·수)만. 식별자·자유 문자열·초대코드·서버 오류 문구는 싣지 않는다
  *   (`apps/web/CLAUDE.md` 사용 분석 규칙과 동일).
- * - 웹이 스스로 알 수 있는 일(공유 시트 요청, 라우팅, 앱 포그라운드)은 여기에 넣지 않는다 —
- *   웹이 직접 찍는 편이 정확하고, 여기 넣으면 이중 집계가 된다.
+ * - **네이티브에서 일어나는 사용자 사건은 전부 싣는다** — 화면·알림창 노출, 터치, 진입 경로, 로드
+ *   실패·복구. 웹 라우트는 페이지뷰가 있지만 네이티브 화면은 없으므로 노출(`_viewed`·`_prompted`)도
+ *   이벤트다. 같은 순간에 다른 이벤트가 함께 나더라도 **묻는 질문이 다르면** 둘 다 둔다(권한 거부
+ *   안내 노출 ↔ 게이트 결과, 알림창 노출 ↔ 응답). 중복은 **같은 사건을 같은 뜻으로 두 번** 찍는
+ *   것뿐이다 — 그래서 한 사건은 한 발신부에서만 찍는다(탭 이동은 경로가 셋이어도 `tab_pressed` 하나).
+ * - 웹이 스스로 알 수 있는 일(공유 시트 요청, 라우팅, 룸 안의 행동)은 여기에 넣지 않는다 —
+ *   웹이 직접 찍는 편이 정확하고, 여기 넣으면 같은 사건이 두 번 찍힌다.
  */
 
 /** `components/TabBar.tsx`의 `TabId`와 같은 값 집합 — 탭 바가 좁혀서 보낸다. */
@@ -44,18 +49,20 @@ export interface NativeAnalyticsEventMap extends Record<
   NativeAnalyticsProperties | undefined
 > {
   /**
-   * 백그라운드에서 돌아왔다(`lib/appStateAnalytics.ts`). `background_sec`는 떠나 있던 시간. 앱 시작 직후의
-   * 첫 active와 iOS `inactive`(제어 센터·전화 수신)는 세지 않는다. 떠난 시점 자체는 이벤트로 남기지
-   * 않는다 — 돌아오지 않은 이탈은 Amplitude 세션 종료가, 세션 중 이탈은 `study_session_paused
-   * {BACKGROUND}`가 이미 표시한다(2026-09-05 재검토).
+   * 앱이 백그라운드로 갔다(`lib/appStateAnalytics.ts`, `app/_layout.tsx`의 AppState 감시). iOS의
+   * `inactive`(제어 센터·전화 수신)는 세지 않는다 — 실제로 떠난 것만 센다.
    */
+  app_backgrounded: undefined;
+  /** 백그라운드에서 돌아왔다. `background_sec`는 떠나 있던 시간. 앱 시작 직후의 첫 active는 세지 않는다. */
   app_foregrounded: { background_sec: number };
   /**
    * 탭 이동. `via`는 경로 — `tab_bar`(하단 탭 터치, `components/TabBar.tsx`; 활성 탭은 비활성화돼
    * 재터치는 없음) / `card`(웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
-   * `lib/nativeBridgeHandler.ts`). 사용자에겐 둘 다 같은 탭 이동이라 한 이벤트로 센다.
+   * `lib/nativeBridgeHandler.ts`) / `hardware_back`(Android 시스템 뒤로가기로 홈 탭 복귀,
+   * `app/(tabs)/_layout.tsx`; 홈 탭에서의 뒤로가기는 앱 종료라 탭 이동이 아니다). 사용자에겐 전부
+   * 같은 탭 이동이라 한 이벤트로 센다.
    */
-  tab_pressed: { tab: NativeTab; from_tab: NativeTab; via: "tab_bar" | "card" };
+  tab_pressed: { tab: NativeTab; from_tab: NativeTab; via: "tab_bar" | "card" | "hardware_back" };
   /**
    * 카메라 권한 게이트의 분기 결과(`lib/cameraPermissionGate.ts`). `already_denied`는 OS 다이얼로그
    * 없이 바로 S2-3으로 간 경우, `error`는 권한 조회·요청 자체가 실패해 fail-closed로 막힌 경우다.
@@ -67,27 +74,39 @@ export interface NativeAnalyticsEventMap extends Record<
     prompted: boolean;
     room_type: "single" | "social";
   };
+  /** 권한 거부 안내(S2-3, `app/permission-denied.tsx`) 노출. */
+  permission_denied_viewed: undefined;
   /** S2-3 "설정 열기" 터치. */
   permission_denied_settings_opened: undefined;
   /**
    * S2-3을 떠남 — 화면이 스택에서 빠질 때 한 번(`beforeRemove`). "홈으로 돌아가기" 터치, 설정에서
-   * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`. 노출 자체는 이벤트가 아니다 —
-   * `camera_permission_gate_resolved`의 `denied`/`already_denied`와 1:1이라 거기서 센다.
+   * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`.
    */
   permission_denied_left: { reason: "back_home" | "permission_granted" | "back" };
-  /**
-   * 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). 노출은 따로
-   * 세지 않는다 — 어느 경로로 닫혀도 이 이벤트가 나므로 노출과 1:1이다.
-   */
+  /** 권장 업데이트 알림창(BY-608, `lib/recommendedUpdateAlert.ts`) 노출. 값은 Remote Config `latest_version`. */
+  recommended_update_prompted: { latest_version: string };
+  /** 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). */
   recommended_update_answered: { action: "update" | "later" | "dismissed"; latest_version: string };
   /** 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 쿼리를 뗀 앱 경로(초대코드 등 값은 싣지 않는다). */
   push_notification_opened: { route: string };
+  /** 초대 딥링크 라우트(`app/social/join.tsx`) 진입 — 유니버설 링크·App Links·스킴·Install Referrer·알림 전부 여기로 합류한다. */
+  invite_deep_link_opened: { has_code: boolean };
   /**
    * 원격 웹뷰 로드 실패 폴백 노출(`components/RemoteWebViewHost.tsx`). `config`는 베이스 URL 미설정
    * (개발 빌드), `error`는 네트워크·SSL 등 로드 실패, `http`는 최상위 문서의 HTTP 오류 응답.
    * 이 이벤트는 정의상 그 웹뷰로는 못 나간다 — 다른 탭이나 재시도 성공 뒤에 큐에서 흘러간다.
    */
   webview_load_failed: { path: string; reason: "config" | "error" | "http" };
+  /** 실패 폴백의 "다시 시도" 터치. */
+  webview_retry_pressed: { path: string };
+  /**
+   * 웹 렌더러 사망 복구 진입(`components/RemoteWebViewHost.tsx`, BY-374/436) — 사용자에겐 보던
+   * 화면이 스플래시로 덮였다가 다시 뜨는 사건이고, 세션 중이었다면 측정 상태가 소실된 순간이다.
+   * `process_terminated`는 iOS(웹뷰별 개별 reload), `render_process_gone`은 Android(공유 렌더러라
+   * 전 웹뷰 재마운트 — 통보를 받는 호스트마다 찍지 않고 **복구를 실제로 시작한 한 번**만 남긴다).
+   * `path`는 통보를 받은 웹뷰의 경로. 이 이벤트도 로드 실패처럼 그 웹뷰로는 못 나가 큐를 거친다.
+   */
+  webview_recovery_started: { path: string; reason: "process_terminated" | "render_process_gone" };
 }
 
 export type NativeAnalyticsEventName = keyof NativeAnalyticsEventMap & string;

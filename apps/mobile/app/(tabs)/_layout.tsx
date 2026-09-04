@@ -5,6 +5,7 @@ import { BackHandler, Platform } from "react-native";
 
 import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
+import { trackNativeEvent } from "../../lib/nativeAnalytics";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarVisible } from "../../lib/tabBarVisibility";
 
@@ -35,6 +36,13 @@ export default function TabsLayout() {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       const target = tabResetTargetForBack(activeRouteRef.current);
       if (target !== null) {
+        // 홈이 아닌 탭에서의 뒤로가기는 홈 탭 이동이다 — 탭 바 터치와 같은 사건이라 `tab_pressed`로
+        // 세고 경로만 가른다(홈 탭에서는 앱 종료라 탭 이동이 아니고 이벤트도 없다).
+        trackNativeEvent("tab_pressed", {
+          tab: "home",
+          from_tab: TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home",
+          via: "hardware_back",
+        });
         emitTabReset(target);
       }
       return false;

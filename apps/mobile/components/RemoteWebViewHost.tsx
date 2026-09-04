@@ -121,12 +121,17 @@ export type RemoteWebViewHostProps = {
  * 스켈레톤)가 걷히지 않던 원인. 그래서 사망 판정·통보는 마운트된 모든 호스트의 재마운트로
  * 넓힌다. iOS는 WKWebView 프로세스가 웹뷰별 독립이라 이 채널을 쓰지 않는다(개별 reload).
  */
-const recoveryListeners = new Set<() => void>();
+const recoveryListeners = new Set<() => boolean>();
 
-export function requestGlobalWebViewRecovery(): void {
+/** 복구에 실제로 들어간 호스트가 하나라도 있으면 true — 전부 이미 복구 중이었으면 false. */
+export function requestGlobalWebViewRecovery(): boolean {
+  let started = false;
   for (const listener of [...recoveryListeners]) {
-    listener();
+    if (listener()) {
+      started = true;
+    }
   }
+  return started;
 }
 
 export function RemoteWebViewHost({
@@ -203,12 +208,13 @@ export function RemoteWebViewHost({
   }, [path, query, retryKey]);
 
   const retry = useCallback(() => {
+    trackNativeEvent("webview_retry_pressed", { path });
     setLoadFailed(false);
     // 새 문서가 뜬다 — 이전 문서의 준비 신호는 무효다(위 analyticsReady 주석).
     setAnalyticsReady(false);
     setRetryKey((key) => key + 1);
     webViewRef.current?.reload();
-  }, []);
+  }, [path]);
 
   /**
    * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
@@ -246,22 +252,28 @@ export function RemoteWebViewHost({
   }, [onRecoveryStart]);
 
   const handleContentProcessDidTerminate = useCallback(() => {
+    // 사용자에겐 보던 화면이 스플래시로 덮였다 다시 뜨는 사건이다 — 이 웹뷰로는 못 나가고 큐를 거친다.
+    trackNativeEvent("webview_recovery_started", { path, reason: "process_terminated" });
     enterRecovery();
     webViewRef.current?.reload();
-  }, [enterRecovery]);
+  }, [enterRecovery, path]);
   // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
+  // Android는 마운트된 호스트마다 같은 통보가 오므로, 복구를 실제로 시작한 첫 통보만 이벤트로 남긴다.
   const handleRenderProcessGone = useCallback(() => {
-    requestGlobalWebViewRecovery();
-  }, []);
+    if (requestGlobalWebViewRecovery()) {
+      trackNativeEvent("webview_recovery_started", { path, reason: "render_process_gone" });
+    }
+  }, [path]);
 
   // 전역 복구 채널 구독 — 어느 호스트가 렌더러 사망을 감지하든 함께 재마운트한다.
   useEffect(() => {
     const listener = () => {
       if (recoveringRef.current) {
-        return;
+        return false;
       }
       enterRecovery();
       setRetryKey((key) => key + 1);
+      return true;
     };
     recoveryListeners.add(listener);
     return () => {
@@ -352,7 +364,6 @@ export function RemoteWebViewHost({
   );
 
   // 로드 실패는 이 웹뷰로는 못 나가는 이벤트다 — 큐에 있다가 다른 탭 웹뷰나 재시도 성공 뒤 흘러간다.
-  // 재시도 터치 자체는 이벤트로 두지 않는다(실패 뒤 성공 여부로 충분, 2026-09-05 재검토).
   const handleError = useCallback(() => {
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "error" });
@@ -407,15 +418,9 @@ export function RemoteWebViewHost({
       return;
     }
     return attachNativeAnalyticsSink((event) => {
-      if (__DEV__) {
-        // 실기기 검증용 — Metro 터미널에서 큐 flush 순서와 속성을 본다. 웹 도착은 Safari Web
-        // Inspector(아래 webviewDebuggingEnabled)의 `[amplitude:dev]` 로그로 확인한다.
-        // eslint-disable-next-line no-console -- 개발 빌드 전용 검증 로그
-        console.log(`[analytics] → 웹 ${path}`, event.name, event.properties ?? "");
-      }
       webViewRef.current?.injectJavaScript(injectMessageScript({ type: "track-event", ...event }));
     });
-  }, [focused, analyticsReady, path]);
+  }, [focused, analyticsReady]);
 
   // 실행 중 시스템 테마 변경을 웹에 알린다 — 초기값은 URL의 theme 쿼리가 이미 실었다
   // (`lib/remoteQueryParams.ts`). Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는
@@ -536,7 +541,7 @@ export function RemoteWebViewHost({
       allowsBackForwardNavigationGestures={backGestureEnabled}
       // 개발 빌드에서만 Safari Web Inspector(iOS)·chrome://inspect(Android)가 이 웹뷰에 붙는다.
       // iOS 16.4+는 WKWebView `isInspectable`을 켜지 않으면 디버그 빌드여도 인스펙터가 안 붙는다 —
-      // 브리지 메시지·`[amplitude:dev]` 콘솔 로그를 실기기에서 보는 유일한 창이다. 운영은 꺼진다.
+      // 브리지 메시지·웹 콘솔을 실기기에서 보는 유일한 창이다(BY-335 때부터 있던 개발 설정). 운영은 꺼진다.
       webviewDebuggingEnabled={__DEV__}
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어

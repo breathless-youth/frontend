@@ -70,7 +70,7 @@ describe("S2-3 · 권한 거부 안내", () => {
 });
 
 /**
- * S2-3은 네이티브 화면이라 웹 페이지뷰가 없다 — 설정 열기·이탈을 `permission_denied_*`로
+ * S2-3은 네이티브 화면이라 웹 페이지뷰가 없다 — 노출·설정 열기·홈 복귀를 `permission_denied_*`로
  * 웹 Amplitude에 넘긴다. 이 화면이 탭 웹뷰를 덮는 동안은 sink가 없어 큐에 쌓였다가 홈 복귀 뒤 전달된다
  * (`lib/__tests__/nativeAnalytics.test.ts`) — 여기서는 발신 자체만 본다.
  */
@@ -90,13 +90,15 @@ describe("S2-3 · 이벤트", () => {
 
   const summary = () => received.map((event) => [event.name, event.properties]);
 
-  it("설정 열기를 남기고, 홈으로 돌아가기는 화면이 빠질 때 back_home으로 남긴다", () => {
+  it("노출 → 설정 열기를 남기고, 홈으로 돌아가기는 화면이 빠질 때 back_home으로 남긴다", () => {
     render(<PermissionDeniedScreen />);
     fireEvent.press(screen.getByRole("button", { name: "설정 열기" }));
     fireEvent.press(screen.getByRole("button", { name: "홈으로 돌아가기" }));
-    // 버튼 자체는 이탈을 찍지 않는다 — 스택에서 빠지는 순간 한 번이다. 노출 이벤트도 없다
-    // (게이트 결과 denied/already_denied와 1:1).
-    expect(summary()).toEqual([["permission_denied_settings_opened", undefined]]);
+    // 버튼 자체는 이탈을 찍지 않는다 — 스택에서 빠지는 순간 한 번이다.
+    expect(summary()).toEqual([
+      ["permission_denied_viewed", undefined],
+      ["permission_denied_settings_opened", undefined],
+    ]);
 
     mockBeforeRemove.listener?.();
 
@@ -108,6 +110,9 @@ describe("S2-3 · 이벤트", () => {
 
     mockBeforeRemove.listener?.();
 
-    expect(summary()).toEqual([["permission_denied_left", { reason: "back" }]]);
+    expect(summary()).toEqual([
+      ["permission_denied_viewed", undefined],
+      ["permission_denied_left", { reason: "back" }],
+    ]);
   });
 });

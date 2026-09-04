@@ -3,7 +3,7 @@ import type { AppStateStatus } from "react-native";
 import { trackNativeEvent } from "./nativeAnalytics";
 
 /**
- * 백그라운드에서 돌아온 것을 사용자 이벤트로 남긴다(`app_foregrounded {background_sec}`).
+ * 앱 포/백그라운드 전환을 사용자 이벤트로 남긴다(`app_backgrounded` / `app_foregrounded`).
  *
  * 웹이 각자 `visibilitychange`로 찍으면 탭 웹뷰 수만큼 중복되고(#97의 `app-state` 릴레이가 예고한
  * 문제), 네이티브 `app-state` 브리지 메시지는 발신자가 없어 한 번도 나간 적이 없다. 그래서 여기서
@@ -23,8 +23,10 @@ export function createAppStateTracker(
   let backgroundSinceMs: number | null = null;
   return (state) => {
     if (state === "background") {
-      // 떠난 시점은 기록만 하고 이벤트는 내지 않는다(카탈로그 `app_foregrounded` 주석).
-      backgroundSinceMs ??= now();
+      if (backgroundSinceMs === null) {
+        backgroundSinceMs = now();
+        trackNativeEvent("app_backgrounded");
+      }
       return;
     }
     if (state === "active" && backgroundSinceMs !== null) {

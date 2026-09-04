@@ -898,8 +898,6 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
 
   beforeEach(() => {
     __resetNativeAnalyticsForTests();
-    // 주입 시 개발용 Metro 로그(`[analytics] → 웹`)는 테스트 출력만 어지럽힌다.
-    jest.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -930,7 +928,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
   });
 
   it("준비 신호 전에 기록된 이벤트는 큐에 있다가 신호 뒤에 순서대로 주입된다", () => {
-    trackNativeEvent("permission_denied_settings_opened");
+    trackNativeEvent("permission_denied_viewed");
     trackNativeEvent("permission_denied_left", { reason: "back_home" });
 
     render(<RemoteWebViewHost path="/home" testID="host" />);
@@ -938,7 +936,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
 
     fireAnalyticsReady();
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_settings_opened",
+      "permission_denied_viewed",
       "permission_denied_left",
     ]);
   });
@@ -957,12 +955,12 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     fireAnalyticsReady();
 
     view.rerender(<RemoteWebViewHost path="/home" testID="host" focused={false} />);
-    trackNativeEvent("permission_denied_settings_opened");
+    trackNativeEvent("permission_denied_viewed");
     expect(injectedTrackEvents()).toEqual([]);
 
     view.rerender(<RemoteWebViewHost path="/home" testID="host" focused />);
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_settings_opened",
+      "permission_denied_viewed",
     ]);
   });
 
@@ -974,12 +972,12 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
     });
     mockInjectJavaScript.mockClear();
-    trackNativeEvent("permission_denied_settings_opened");
+    trackNativeEvent("permission_denied_viewed");
     expect(injectedTrackEvents()).toEqual([]);
 
     fireAnalyticsReady();
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_settings_opened",
+      "permission_denied_viewed",
     ]);
   });
 
@@ -990,14 +988,14 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       (screen.getByTestId("host").props.onLoadEnd as () => void)();
     });
 
-    trackNativeEvent("permission_denied_settings_opened");
+    trackNativeEvent("permission_denied_viewed");
 
     expect(injectedTrackEvents().map((message) => message.name)).toEqual([
-      "permission_denied_settings_opened",
+      "permission_denied_viewed",
     ]);
   });
 
-  it("로드 실패를 이벤트로 남긴다 — 그 웹뷰로는 못 나가므로 큐에 쌓인다", () => {
+  it("로드 실패와 다시 시도를 이벤트로 남긴다 — 그 웹뷰로는 못 나가므로 큐에 쌓인다", () => {
     render(<RemoteWebViewHost path="/home" testID="host" />);
     fireWebViewEvent("onError");
     fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
@@ -1007,8 +1005,10 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       received.push(`${event.name}:${JSON.stringify(event.properties)}`);
     });
 
-    // 재시도 터치는 이벤트가 아니다(2026-09-05 재검토) — 실패만 남고 성공 여부는 다음 로드가 말한다.
-    expect(received).toEqual(['webview_load_failed:{"path":"/home","reason":"error"}']);
+    expect(received).toEqual([
+      'webview_load_failed:{"path":"/home","reason":"error"}',
+      'webview_retry_pressed:{"path":"/home"}',
+    ]);
   });
 
   it("HTTP 오류 응답은 http 사유로 남긴다", () => {
@@ -1029,6 +1029,43 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     const received: string[] = [];
     attachNativeAnalyticsSink((event) => received.push(event.name));
 
-    expect(received).toEqual(["webview_load_failed"]);
+    expect(received).toEqual(["webview_load_failed", "webview_retry_pressed"]);
+  });
+
+  it("iOS 콘텐츠 프로세스 사망은 복구 진입을 한 건으로 남긴다 — 죽은 웹뷰로는 못 나가 큐를 거친다", () => {
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    act(() => {
+      (screen.getByTestId("host").props.onContentProcessDidTerminate as () => void)();
+    });
+
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+    expect(received).toEqual([
+      ["webview_recovery_started", { path: "/social", reason: "process_terminated" }],
+    ]);
+  });
+
+  it("Android 렌더러 사망은 호스트마다 통보가 와도 복구를 시작한 한 번만 남긴다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(
+      <>
+        <RemoteWebViewHost path="/social" testID="social-host" />
+        <RemoteWebViewHost path="/home" testID="home-host" />
+      </>,
+    );
+
+    act(() => {
+      (screen.getByTestId("social-host").props.onRenderProcessGone as () => void)();
+      // 공유 렌더러라 이웃 호스트에도 같은 통보가 온다 — 이미 전역 복구 중이라 이벤트는 없다.
+      (screen.getByTestId("home-host").props.onRenderProcessGone as () => void)();
+    });
+
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+    expect(received).toEqual([
+      ["webview_recovery_started", { path: "/social", reason: "render_process_gone" }],
+    ]);
   });
 });
