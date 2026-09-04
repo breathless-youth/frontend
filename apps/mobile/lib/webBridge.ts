@@ -33,6 +33,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "session-ready", atMs: record.atMs };
     case "home-ready":
       return { type: "home-ready", atMs: record.atMs };
+    case "analytics-ready":
+      return { type: "analytics-ready", atMs: record.atMs };
     case "pong":
       // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
       if (typeof record.id !== "number") {

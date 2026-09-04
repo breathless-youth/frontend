@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import type * as AppHandoffModule from "@/features/social-room/appHandoff";
+import type * as AmplitudeModule from "@/lib/amplitude";
 import { openInApp } from "@/features/social-room/appHandoff";
 import { ApiError } from "@/lib/api";
 import { createRoom, enterLiveRoom, renewLiveRoomSeat } from "@/lib/roomApi";
@@ -20,6 +21,14 @@ vi.mock("@/lib/roomApi", () => ({
 vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
   ...(await importOriginal<typeof AppHandoffModule>()),
   openInApp: vi.fn(),
+}));
+
+/** 방 생성 실패 계측(BY-616 최종 검토)의 관찰점 — 나머지 amplitude 함수는 원본(미초기화 no-op)이다. */
+const analytics = vi.hoisted(() => ({ trackSocialRoomCreateFailed: vi.fn() }));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof AmplitudeModule>()),
+  trackSocialRoomCreateFailed: analytics.trackSocialRoomCreateFailed,
 }));
 
 const mockedCreateRoom = vi.mocked(createRoom);
@@ -371,5 +380,23 @@ describe("초대코드 입력", () => {
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("초대코드를 다시 확인해 주세요");
     });
+  });
+});
+
+describe("소셜 홈 — 계측 (BY-616 최종 검토)", () => {
+  afterEach(() => {
+    analytics.trackSocialRoomCreateFailed.mockClear();
+  });
+
+  it("방 생성 실패는 입장 실패와 같은 규칙의 reason으로 남긴다 — 토스트 문구가 아니라 코드", async () => {
+    mockedCreateRoom.mockRejectedValue(new ApiError("서버 오류", 500));
+    renderAt("/social?userId=7");
+
+    await userEvent.click(screen.getByRole("button", { name: "방 만들기" }));
+
+    await waitFor(() => {
+      expect(analytics.trackSocialRoomCreateFailed).toHaveBeenCalledWith("HTTP_500");
+    });
+    expect(analytics.trackSocialRoomCreateFailed).toHaveBeenCalledTimes(1);
   });
 });

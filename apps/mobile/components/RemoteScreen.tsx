@@ -185,6 +185,9 @@ export function RemoteScreen({
           onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
           onRecoveryStart={onRecoveryStart}
+          // 탭 포커스 신호(suppressTabBarMessages)를 그대로 쓴다 — 네이티브 사용자 이벤트를 받을
+          // 웹뷰는 지금 보이는 하나여야 한다(`lib/nativeAnalytics.ts`). 세션 화면은 prop을 생략해 항상 활성.
+          focused={!suppressTabBarMessages}
         />
       )}
       {showSplash && (

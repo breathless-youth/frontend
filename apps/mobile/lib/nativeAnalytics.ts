@@ -1,0 +1,201 @@
+import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
+
+/**
+ * 네이티브에서만 관측되는 사용자 이벤트를 웹 Amplitude로 넘기는 통로(브리지 `track-event`).
+ *
+ * 분석 SDK는 웹에만 있다 — 앱은 Firebase Analytics도 링크하지 않고(`CLAUDE.md`), 네이티브
+ * Amplitude SDK를 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해진다. 대신 여기서 이벤트를
+ * 모아 두고, 웹뷰 호스트(`components/RemoteWebViewHost.tsx`)가 `injectJavaScript`로 옮겨 담는다.
+ * 웹은 같은 user_id·세션으로 전송한다(`apps/web/src/lib/amplitude.ts`의 `trackNativeShellEvent`).
+ *
+ * ## 전달 대상은 언제나 하나(sink)다
+ *
+ * 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다. 호스트는
+ * "포커스된 화면의 웹뷰이면서 웹이 `analytics-ready`를 보낸 문서"일 때만 sink로 붙고, 마지막에
+ * 붙은 sink가 활성이다. sink가 하나도 없는 동안(권한 거부 화면이 탭을 덮음·로드 실패·재로드·
+ * 렌더러 복구 중)은 큐에 보관했다가 다음 sink가 붙는 순간 순서대로 흘려보낸다 — 그래서 S2-3
+ * 화면에서 일어난 일도 홈으로 돌아온 뒤 도착한다. 이벤트의 `atMs`는 이때를 위해 발생 시각을
+ * 그대로 갖고 간다.
+ *
+ * 발신부(탭 바·권한 게이트·알림창 등)가 React 트리 어디에도 속하지 않는 순수 함수라
+ * `tabBarVisibility`·`tabReset`처럼 모듈 스코프 통로를 쓴다.
+ *
+ * ## 카탈로그 규칙 (2026-09-05 최종 검토)
+ *
+ * - 이름은 snake_case, 과거형(`_pressed`·`_resolved`·`_opened`). 웹 이벤트(`study_session_*`)와
+ *   같은 규칙이다. 웹은 이름을 해석하지 않고 형식만 검증하므로 여기가 유일한 정의처다.
+ * - 속성은 원시값(enum·boolean·수)만. 식별자·자유 문자열·초대코드·서버 오류 문구는 싣지 않는다
+ *   (`apps/web/CLAUDE.md` 사용 분석 규칙과 동일).
+ * - **네이티브에서 일어나는 사용자 사건은 전부 싣는다** — 화면·알림창 노출, 터치, 진입 경로, 로드
+ *   실패·복구. 웹 라우트는 페이지뷰가 있지만 네이티브 화면은 없으므로 노출(`_viewed`·`_prompted`)도
+ *   이벤트다. 같은 순간에 다른 이벤트가 함께 나더라도 **묻는 질문이 다르면** 둘 다 둔다(권한 거부
+ *   안내 노출 ↔ 게이트 결과, 알림창 노출 ↔ 응답). 중복은 **같은 사건을 같은 뜻으로 두 번** 찍는
+ *   것뿐이다 — 그래서 한 사건은 한 발신부에서만 찍는다(탭 이동은 경로가 셋이어도 `tab_pressed` 하나).
+ * - 웹이 스스로 알 수 있는 일(공유 시트 요청, 라우팅, 룸 안의 행동)은 여기에 넣지 않는다 —
+ *   웹이 직접 찍는 편이 정확하고, 여기 넣으면 같은 사건이 두 번 찍힌다.
+ */
+
+/** `components/TabBar.tsx`의 `TabId`와 같은 값 집합 — 탭 바가 좁혀서 보낸다. */
+export type NativeTab = "home" | "social" | "record" | "settings";
+
+export type NativeAnalyticsProperties = Record<string, NativeAnalyticsPropertyValue>;
+
+/**
+ * 카탈로그 모양 제약 — 모든 속성값이 원시값 Record(속성이 없으면 `undefined`)여야 한다.
+ *
+ * ⚠️ `interface … extends Record<string, …>`로 걸면 안 된다(2026-09-05 PR 리뷰). 그러면 문자열 인덱스
+ * 시그니처가 남아 `keyof`가 `string | number`로 무너지고 `NativeAnalyticsEventName`이 그냥 `string`이
+ * 되어, 카탈로그에 없는 이름·속성을 넘겨도 컴파일을 통과한다. 제네릭 제약으로 걸면 리터럴 키가 그대로
+ * 남는다 — 위반하면 아래 `NativeAnalyticsEventMap` 정의 자리에서 컴파일 에러가 난다.
+ */
+type AssertNativeAnalyticsCatalog<
+  T extends { [K in keyof T]: NativeAnalyticsProperties | undefined },
+> = T;
+
+/**
+ * 네이티브 이벤트 카탈로그 — 키가 이벤트명, 값이 속성 타입(속성이 없으면 `undefined`).
+ * 키가 리터럴 유니온으로 남아 `trackNativeEvent`가 이름·속성을 둘 다 타입으로 강제한다.
+ */
+export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
+  /**
+   * 앱이 백그라운드로 갔다(`lib/appStateAnalytics.ts`, `app/_layout.tsx`의 AppState 감시). iOS의
+   * `inactive`(제어 센터·전화 수신)는 세지 않는다 — 실제로 떠난 것만 센다.
+   */
+  app_backgrounded: undefined;
+  /** 백그라운드에서 돌아왔다. `background_sec`는 떠나 있던 시간. 앱 시작 직후의 첫 active는 세지 않는다. */
+  app_foregrounded: { background_sec: number };
+  /**
+   * 탭 이동. `via`는 경로 — `tab_bar`(하단 탭 터치, `components/TabBar.tsx`; 활성 탭은 비활성화돼
+   * 재터치는 없음) / `card`(웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
+   * `lib/nativeBridgeHandler.ts`) / `hardware_back`(Android 시스템 뒤로가기로 홈 탭 복귀,
+   * `app/(tabs)/_layout.tsx`; 홈 탭에서의 뒤로가기는 앱 종료라 탭 이동이 아니다). 사용자에겐 전부
+   * 같은 탭 이동이라 한 이벤트로 센다.
+   */
+  tab_pressed: { tab: NativeTab; from_tab: NativeTab; via: "tab_bar" | "card" | "hardware_back" };
+  /**
+   * 카메라 권한 게이트의 분기 결과(`lib/cameraPermissionGate.ts`). `already_denied`는 OS 다이얼로그
+   * 없이 바로 S2-3으로 간 경우, `error`는 권한 조회·요청 자체가 실패해 fail-closed로 막힌 경우다.
+   * `prompted`는 이번에 OS 다이얼로그(S2-2)가 실제로 떴는지. `room_type`은 웹 `study_session_*`의
+   * 같은 속성과 값을 맞춘다(single=집중 시작, social=소셜룸 입장 게이트).
+   */
+  camera_permission_gate_resolved: {
+    result: "granted" | "denied" | "already_denied" | "error";
+    prompted: boolean;
+    room_type: "single" | "social";
+  };
+  /** 권한 거부 안내(S2-3, `app/permission-denied.tsx`) 노출. */
+  permission_denied_viewed: undefined;
+  /** S2-3 "설정 열기" 터치. */
+  permission_denied_settings_opened: undefined;
+  /**
+   * S2-3을 떠남 — 화면이 스택에서 빠질 때 한 번(`beforeRemove`). "홈으로 돌아가기" 터치, 설정에서
+   * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`.
+   */
+  permission_denied_left: { reason: "back_home" | "permission_granted" | "back" };
+  /** 권장 업데이트 알림창(BY-608, `lib/recommendedUpdateAlert.ts`) 노출. 값은 Remote Config `latest_version`. */
+  recommended_update_prompted: { latest_version: string };
+  /** 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). */
+  recommended_update_answered: { action: "update" | "later" | "dismissed"; latest_version: string };
+  /** 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 쿼리를 뗀 앱 경로(초대코드 등 값은 싣지 않는다). */
+  push_notification_opened: { route: string };
+  /** 초대 딥링크 라우트(`app/social/join.tsx`) 진입 — 유니버설 링크·App Links·스킴·Install Referrer·알림 전부 여기로 합류한다. */
+  invite_deep_link_opened: { has_code: boolean };
+  /**
+   * 원격 웹뷰 로드 실패 폴백 노출(`components/RemoteWebViewHost.tsx`). `config`는 베이스 URL 미설정
+   * (개발 빌드), `error`는 네트워크·SSL 등 로드 실패, `http`는 최상위 문서의 HTTP 오류 응답.
+   * 이 이벤트는 정의상 그 웹뷰로는 못 나간다 — 다른 탭이나 재시도 성공 뒤에 큐에서 흘러간다.
+   */
+  webview_load_failed: { path: string; reason: "config" | "error" | "http" };
+  /** 실패 폴백의 "다시 시도" 터치. */
+  webview_retry_pressed: { path: string };
+  /**
+   * 웹 렌더러 사망 복구 진입(`components/RemoteWebViewHost.tsx`, BY-374/436) — 사용자에겐 보던
+   * 화면이 스플래시로 덮였다가 다시 뜨는 사건이고, 세션 중이었다면 측정 상태가 소실된 순간이다.
+   * `process_terminated`는 iOS(웹뷰별 개별 reload), `render_process_gone`은 Android(공유 렌더러라
+   * 전 웹뷰 재마운트 — 통보를 받는 호스트마다 찍지 않고 **복구를 실제로 시작한 한 번**만 남긴다).
+   * `path`는 통보를 받은 웹뷰의 경로. 이 이벤트도 로드 실패처럼 그 웹뷰로는 못 나가 큐를 거친다.
+   */
+  webview_recovery_started: { path: string; reason: "process_terminated" | "render_process_gone" };
+}>;
+
+export type NativeAnalyticsEventName = keyof NativeAnalyticsEventMap & string;
+
+/** 큐와 sink를 오가는 이벤트 한 건 — 브리지 `track-event` 메시지에서 `type`만 뺀 모양이다. */
+export interface NativeAnalyticsEvent {
+  name: NativeAnalyticsEventName;
+  properties?: NativeAnalyticsProperties;
+  /** 발생 시각(`Date.now()`). 큐를 거쳐 늦게 전달돼도 웹이 이 값을 Amplitude `time`으로 쓴다. */
+  atMs: number;
+}
+
+export type NativeAnalyticsSink = (event: NativeAnalyticsEvent) => void;
+
+/** 속성이 없는 이벤트는 두 번째 인자를 받지 않는다 — 카탈로그에서 파생한다. */
+type EventArgs<N extends NativeAnalyticsEventName> = NativeAnalyticsEventMap[N] extends undefined
+  ? []
+  : [properties: NativeAnalyticsEventMap[N]];
+
+/**
+ * sink 없이 쌓아 둘 최대 건수. 웹뷰가 오래 안 뜨는 경우(오프라인 로드 실패 반복)의 메모리 상한이다 —
+ * 넘치면 오래된 것부터 버린다. 정상 경로에서는 몇 건을 넘지 않는다.
+ */
+const MAX_PENDING = 100;
+
+const pending: NativeAnalyticsEvent[] = [];
+/** 붙은 순서대로. 마지막이 활성 sink다 — 먼저 붙은 것이 아직 남아 있으면 활성이 빠질 때 그쪽으로 돌아간다. */
+const sinks: NativeAnalyticsSink[] = [];
+
+function activeSink(): NativeAnalyticsSink | null {
+  return sinks[sinks.length - 1] ?? null;
+}
+
+/**
+ * 이벤트를 기록한다. 활성 sink가 있으면 즉시 전달하고, 없으면 큐에 보관한다.
+ *
+ * 호출부는 결과를 기다리거나 실패를 처리할 것이 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
+ */
+export function trackNativeEvent<N extends NativeAnalyticsEventName>(
+  name: N,
+  ...args: EventArgs<N>
+): void {
+  // 조건부 튜플이라 인덱스 타입이 좁혀지지 않는다 — 카탈로그 제약(원시값 Record)이 모양을 이미 보장한다.
+  const properties = (args as unknown as [NativeAnalyticsProperties?])[0];
+  const event: NativeAnalyticsEvent = {
+    name,
+    ...(properties !== undefined ? { properties } : {}),
+    atMs: Date.now(),
+  };
+  const sink = activeSink();
+  if (sink !== null) {
+    sink(event);
+    return;
+  }
+  pending.push(event);
+  if (pending.length > MAX_PENDING) {
+    pending.shift();
+  }
+}
+
+/**
+ * sink를 붙인다 — 붙는 즉시 큐에 쌓인 이벤트를 순서대로 넘겨받고, 이후 이벤트는 바로 받는다.
+ * 반환값을 부르면 떼어진다. 나중에 붙은 sink가 활성이므로, 붙이는 쪽은 "지금 사용자에게 보이는
+ * 준비된 웹뷰"일 때만 붙여야 한다(`RemoteWebViewHost`의 focused·analyticsReady 조건).
+ */
+export function attachNativeAnalyticsSink(sink: NativeAnalyticsSink): () => void {
+  sinks.push(sink);
+  for (const event of pending.splice(0)) {
+    sink(event);
+  }
+  return () => {
+    const index = sinks.lastIndexOf(sink);
+    if (index !== -1) {
+      sinks.splice(index, 1);
+    }
+  };
+}
+
+/** 테스트 전용: 큐와 sink를 비운다. 프로덕션 코드에서는 호출하지 않는다. */
+export function __resetNativeAnalyticsForTests(): void {
+  pending.length = 0;
+  sinks.length = 0;
+}

@@ -103,6 +103,65 @@ describe("parseToWebMessage", () => {
   });
 });
 
+describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
+  it("이름과 원시값 속성을 파싱한다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({
+          type: "track-event",
+          name: "tab_pressed",
+          properties: { tab: "social", from_tab: "home", count: 2, ok: true, none: null },
+          atMs: 1000,
+        }),
+      ),
+    ).toEqual({
+      type: "track-event",
+      name: "tab_pressed",
+      properties: { tab: "social", from_tab: "home", count: 2, ok: true, none: null },
+      atMs: 1000,
+    });
+  });
+
+  it("속성이 없어도 파싱한다 — properties 키를 만들지 않는다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({ type: "track-event", name: "permission_denied_viewed", atMs: 1 }),
+      ),
+    ).toEqual({ type: "track-event", name: "permission_denied_viewed", atMs: 1 });
+  });
+
+  it("이름이 snake_case 형식이 아니면 null이다 — 카탈로그 밖 모양은 받지 않는다", () => {
+    expect(
+      parseToWebMessage(JSON.stringify({ type: "track-event", name: "Tab Pressed", atMs: 1 })),
+    ).toBeNull();
+    expect(
+      parseToWebMessage(JSON.stringify({ type: "track-event", name: "", atMs: 1 })),
+    ).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ type: "track-event", atMs: 1 }))).toBeNull();
+  });
+
+  it("객체·배열 값과 형식 밖 키는 그 항목만 버린다 — 식별자·자유 구조를 싣지 않는다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({
+          type: "track-event",
+          name: "tab_pressed",
+          properties: { tab: "social", nested: { a: 1 }, list: [1], "Bad Key": "x" },
+          atMs: 1,
+        }),
+      ),
+    ).toEqual({ type: "track-event", name: "tab_pressed", properties: { tab: "social" }, atMs: 1 });
+  });
+
+  it("properties가 객체가 아니면 null이다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({ type: "track-event", name: "tab_pressed", properties: "x", atMs: 1 }),
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("postToNative", () => {
   it("ReactNativeWebView가 있으면 직렬화해 보낸다", () => {
     const postMessage = vi.fn();
