@@ -101,6 +101,8 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 
 Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다.
 
+**딥링크 선언의 원천도 같은 변형 표다**(2026-09-04, BY-601). `app.config.ts`가 `schemes`와 App Link 호스트(`webBaseUrl`의 호스트 + `legacyHosts`)에서 `scheme`, `ios.associatedDomains`, `android.intentFilters`를 만들고 **`app.json`에는 이 세 키가 없다**. production은 `focusmakers`·`focuson` 스킴에 `web.focusmakers.app`·`web.sunqstudio.kr`, staging은 `focusmakers-staging`에 `web-dev.focusmakers.app`, **development는 `focusmakers-dev` 스킴만 두고 App Link를 선언하지 않는다**(웹 주소가 로컬이라 걸 호스트가 없고, staging과 같은 호스트를 두 앱이 claim하면 어느 앱이 열릴지 OS가 보장하지 않는다). 푸시 딥링크 허용 목록(`lib/pushNotificationRouting.ts`)도 같은 값을 `extra.appSchemes`·`extra.deepLinkHosts`에서 읽으므로 스킴·호스트를 코드에 다시 적지 않는다. `lib/__tests__/deepLinkDomains.test.ts`가 이 파생을 고정한다.
+
 ### Android
 
 `getUserMedia`는 secure context를 요구하고 `http://`는 **`localhost`일 때만** 인정된다. `adb reverse`로 기기의 localhost를 Mac으로 넘긴다.

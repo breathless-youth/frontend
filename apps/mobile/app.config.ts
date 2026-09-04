@@ -172,23 +172,42 @@ function resolveAppVariant(raw: string | undefined): AppVariant {
 }
 
 // 접미사는 app.json의 base 값에 붙인다. 값을 여기 다시 적으면 app.json과 이중 관리가 된다.
+// 같은 스킴이나 App Link 호스트를 두 아이덴티티가 등록하면 함께 설치된 기기에서 어느 앱이
+// 열릴지 OS가 보장하지 않는다. 그래서 변형마다 스킴을 다르게 둔다.
 const VARIANT_TABLE: Record<
   AppVariant,
-  { idSuffix: string; nameSuffix: string; apiBaseUrl?: string; webBaseUrl?: string }
+  {
+    idSuffix: string;
+    nameSuffix: string;
+    apiBaseUrl?: string;
+    webBaseUrl?: string;
+    schemes: string[];
+    legacyHosts: string[];
+  }
 > = {
   production: {
     idSuffix: "",
     nameSuffix: "",
     apiBaseUrl: PROD_API_BASE_URL,
     webBaseUrl: PROD_WEB_BASE_URL,
+    // focuson과 web.sunqstudio.kr은 이전 빌드와 이미 공유된 링크를 위해 남긴다.
+    schemes: ["focusmakers", "focuson"],
+    legacyHosts: ["web.sunqstudio.kr"],
   },
   staging: {
     idSuffix: ".staging",
     nameSuffix: " STG",
     apiBaseUrl: "https://api-dev.focusmakers.app",
     webBaseUrl: "https://web-dev.focusmakers.app",
+    schemes: ["focusmakers-staging"],
+    legacyHosts: [],
   },
-  development: { idSuffix: ".dev", nameSuffix: " DEV" },
+  development: {
+    idSuffix: ".dev",
+    nameSuffix: " DEV",
+    schemes: ["focusmakers-dev"],
+    legacyHosts: [],
+  },
 };
 
 export default function buildConfig({ config }: ConfigContext): ExpoConfig {
@@ -210,24 +229,53 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
     bundleIdentifier,
   );
 
+  const webBaseUrl = table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL);
+  // development는 웹이 로컬 주소라 App Link를 걸 host가 없고, staging과 같은 host를 두 앱이
+  // claim하면 어느 앱이 열릴지 OS가 보장하지 않는다. 그래서 상수 주소가 있는 변형만 선언한다.
+  const deepLinkHosts = table.webBaseUrl
+    ? [new URL(table.webBaseUrl).hostname, ...table.legacyHosts]
+    : [];
+  const intentFilters =
+    deepLinkHosts.length === 0
+      ? undefined
+      : [
+          {
+            action: "VIEW",
+            autoVerify: true,
+            data: deepLinkHosts.map((host) => ({
+              scheme: "https",
+              host,
+              pathPrefix: "/social/join",
+            })),
+            category: ["BROWSABLE", "DEFAULT"],
+          },
+        ];
+
   return {
     ...(config as ExpoConfig),
+    scheme: table.schemes,
     ios: {
       ...config.ios,
       bundleIdentifier,
+      ...(deepLinkHosts.length > 0
+        ? { associatedDomains: deepLinkHosts.map((host) => `applinks:${host}`) }
+        : null),
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : null),
     },
     android: {
       ...config.android,
       package: androidPackage,
+      ...(intentFilters ? { intentFilters } : null),
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : null),
     },
     extra: {
       ...config.extra,
       appEnv: variant,
+      appSchemes: table.schemes,
+      deepLinkHosts,
       appDisplayName: `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`,
       apiBaseUrl: table.apiBaseUrl ?? guardDevBaseUrl("API_BASE_URL", process.env.API_BASE_URL),
-      webBaseUrl: table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL),
+      webBaseUrl,
     },
   };
 }
