@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 
+import { trackNativeEvent } from "./nativeAnalytics";
 import { readRecommendedUpdateCopy, type RecommendedUpdateCopy } from "./recommendedUpdateCopy";
 import { openAppStore } from "./storeLink";
 
@@ -81,23 +82,29 @@ export function createRecommendedUpdateAlert(
         console.warn("[recommended-update] 기록 저장 실패 — 다음 실행에 다시 묻는다", error);
       });
     };
+    // 노출·응답을 웹 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`) — OS 알림창이라 웹은 모른다.
+    const answered = (action: "update" | "later" | "dismissed") => {
+      trackNativeEvent("recommended_update_answered", { action, latest_version: latestVersion });
+      remember();
+    };
     const copy = deps.getCopy();
     deps.alert(
       copy.title,
       copy.message,
       [
-        { text: copy.laterLabel, style: "cancel", onPress: remember },
+        { text: copy.laterLabel, style: "cancel", onPress: () => answered("later") },
         {
           text: copy.confirmLabel,
           onPress: () => {
-            remember();
+            answered("update");
             void deps.openStore();
           },
         },
       ],
       // Android 뒤로가기·바깥 터치 = "나중에". iOS는 버튼으로만 닫힌다.
-      { cancelable: true, onDismiss: remember },
+      { cancelable: true, onDismiss: () => answered("dismissed") },
     );
+    trackNativeEvent("recommended_update_prompted", { latest_version: latestVersion });
     return true;
   }
 

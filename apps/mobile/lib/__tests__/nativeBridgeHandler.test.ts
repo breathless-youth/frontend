@@ -263,3 +263,16 @@ describe("handleBridgeMessage", () => {
     expect(handle).toHaveBeenCalledWith(message, noopReply);
   });
 });
+
+describe("handleBridgeMessage — 권한 게이트의 room_type", () => {
+  it("start-session은 single, request-camera-gate는 social로 게이트를 돌린다 — 이벤트 속성이 갈린다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 2 }, noopReply);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(1, "single");
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(2, "social");
+  });
+});

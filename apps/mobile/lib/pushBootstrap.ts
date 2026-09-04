@@ -8,6 +8,7 @@ import {
   type PushPermissionStatus,
   requestPushPermission,
 } from "./pushMessaging";
+import { trackNativeEvent } from "./nativeAnalytics";
 import { resolvePushRoute } from "./pushNotificationRouting";
 
 /**
@@ -59,6 +60,8 @@ export function startPushMessaging(overrides: Overrides): () => void {
     if (!active) return;
     const route = resolvePushRoute(message.data);
     devLog(`notification opened id=${message.messageId ?? "?"} → ${route}`);
+    // 알림 탭은 네이티브만 아는 진입 경로다 — 쿼리(초대코드 등)는 떼고 경로만 싣는다.
+    trackNativeEvent("push_notification_opened", { route: route.replace(/[?#].*$/, "") });
     deps.navigate(route);
   };
 

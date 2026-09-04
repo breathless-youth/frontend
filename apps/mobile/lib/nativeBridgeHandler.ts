@@ -25,7 +25,7 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       break;
     case "start-session":
       void (async () => {
-        const result = await runCameraPermissionGate();
+        const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
           return;
@@ -41,7 +41,7 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
-        const result = await runCameraPermissionGate();
+        const result = await runCameraPermissionGate("social");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
           reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });

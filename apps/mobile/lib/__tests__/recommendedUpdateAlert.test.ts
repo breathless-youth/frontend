@@ -1,6 +1,11 @@
 import { Alert } from "react-native";
 
 import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
+import {
   createRecommendedUpdateAlert,
   DISMISSED_VERSION_KEY,
   RECOMMENDED_UPDATE_CONFIRM_LABEL,
@@ -185,5 +190,45 @@ describe("recommendedUpdateAlert (BY-586)", () => {
       expect.objectContaining({ cancelable: true }),
     );
     alertSpy.mockRestore();
+  });
+});
+
+/** 노출·응답은 웹 Amplitude로 넘어간다(`recommended_update_*`) — OS 알림창이라 웹은 모른다. */
+describe("recommendedUpdateAlert — 이벤트", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("띄우면 prompted를, 버튼·닫기마다 answered를 남긴다", async () => {
+    const h = createHarness();
+    await h.controller.maybeShow("1.0.3");
+
+    h.lastCall()[2][0].onPress();
+    h.lastCall()[2][1].onPress();
+    h.lastCall()[3].onDismiss();
+    await flush();
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["recommended_update_prompted", { latest_version: "1.0.3" }],
+      ["recommended_update_answered", { action: "later", latest_version: "1.0.3" }],
+      ["recommended_update_answered", { action: "update", latest_version: "1.0.3" }],
+      ["recommended_update_answered", { action: "dismissed", latest_version: "1.0.3" }],
+    ]);
+  });
+
+  it("이미 답한 버전은 prompted도 남기지 않는다", async () => {
+    const h = createHarness({ stored: "1.0.3" });
+
+    await h.controller.maybeShow("1.0.3");
+
+    expect(received).toHaveLength(0);
   });
 });
