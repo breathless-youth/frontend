@@ -26,7 +26,7 @@
 - **구버전 바이너리(BY-586 이전 빌드, iOS 1.0.1(2)·Android 1.0.2(5) 이하)**는 네이티브 게이트가 없어 웹 `apps/web/src/features/force-update/version.ts`의 상수 `MIN_SUPPORTED_VERSION`으로만 막을 수 있다. 그 바이너리를 막아야 할 때는 상수를 올리고 웹을 배포한다. BY-586 이후 바이너리는 웹뷰 URL에 `nativeUpdateGate=1`을 붙여 웹 게이트를 건너뛴다.
 - **알림창 문구도 콘솔에서 바꿀 수 있다.** 같은 프로젝트의 `force_update_title`·`force_update_message`·`force_update_button`(string). 키가 없거나 비어 있으면 앱에 들어 있는 기본 문구(BY-533 카피)를 쓰므로 만들지 않아도 된다. 플랫폼별 문구는 위와 같은 조건으로 나눈다. 반영은 역시 "다음 실행".
 - BE 최소 버전 API 경로(BY-535·536·579)는 이 정책으로 대체됐다.
-- **권장 업데이트는 같은 프로젝트의 `latest_version`이다.** 앱 버전이 이 값보다 낮으면(막히지는 않을 때) 홈 위에 "나중에"가 있는 알림창을 최신 버전당 한 번 띄운다(`apps/mobile/lib/recommendedUpdateAlert.ts`). 출시 때마다 올리는 값이라 `min_supported_version`과 분리한다: 스토어 심사 통과 후 → `latest_version` = 새 버전 → 게시. iOS 단계적 출시 중이라 스토어에 아직 안 보이는 사용자도 있을 수 있는데 "나중에"가 있으니 무해하다. 기본값 `0.0.0`은 아무에게도 띄우지 않는다. 플랫폼별로 버전이 다르면 콘솔 조건(플랫폼·"앱 버전 <")으로 값을 갈라 준다.
+- **권장 업데이트는 같은 프로젝트의 `latest_version`이다.** 앱 버전이 이 값보다 낮으면(막히지는 않을 때) 홈 위에 "나중에"가 있는 알림창을 최신 버전당 한 번 띄운다(`apps/mobile/lib/recommendedUpdateAlert.ts`). 출시 때마다 올리는 값이라 `min_supported_version`과 분리한다: 스토어 심사 통과 후 → `latest_version` = 새 버전 → 게시. iOS 단계적 출시 중이라 스토어에 아직 안 보이는 사용자도 있을 수 있는데 "나중에"가 있으니 무해하다. 기본값 `0.0.0`은 아무에게도 띄우지 않는다. 플랫폼별로 버전이 다르면 콘솔 조건(플랫폼·"앱 버전 <")으로 값을 갈라 준다. 문구는 `recommended_update_title`·`recommended_update_message`·`recommended_update_later_button`·`recommended_update_confirm_button`(string, 선택)으로 콘솔에서 바꿀 수 있고 없으면 앱 초안 문구다.
 
 ## 기록
 

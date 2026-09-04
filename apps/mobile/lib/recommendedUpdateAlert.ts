@@ -1,7 +1,15 @@
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 
+import { readRecommendedUpdateCopy, type RecommendedUpdateCopy } from "./recommendedUpdateCopy";
 import { openAppStore } from "./storeLink";
+
+export {
+  RECOMMENDED_UPDATE_CONFIRM_LABEL,
+  RECOMMENDED_UPDATE_DESCRIPTION,
+  RECOMMENDED_UPDATE_LATER_LABEL,
+  RECOMMENDED_UPDATE_TITLE,
+} from "./recommendedUpdateCopy";
 
 /**
  * 권장 업데이트 안내 — 닫을 수 있는 OS 알림창 (BY-586).
@@ -13,14 +21,9 @@ import { openAppStore } from "./storeLink";
  * 기록해 두고 같은 값에는 다시 묻지 않는다. 콘솔에서 더 높은 값을 게시하면 다시 한 번 묻는다.
  * 기록 저장소는 앱의 유일한 로컬 저장소인 SecureStore를 그대로 쓴다(`lib/deviceId.ts`와 같은 이유).
  *
- * 문구는 확정 카피가 없어 초안이다 — 카피가 나오면 상수만 바꾼다.
+ * 문구는 띄울 때마다 `lib/recommendedUpdateCopy.ts`에서 읽는다 — 콘솔(Remote Config) 값이 있으면 그것,
+ * 없으면 앱 초안 문구.
  */
-export const RECOMMENDED_UPDATE_TITLE = "새 버전이 나왔어요";
-export const RECOMMENDED_UPDATE_DESCRIPTION =
-  "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요.";
-export const RECOMMENDED_UPDATE_LATER_LABEL = "나중에";
-export const RECOMMENDED_UPDATE_CONFIRM_LABEL = "지금 업데이트";
-
 export const DISMISSED_VERSION_KEY = "focuson.recommendedUpdateDismissedVersion";
 
 export interface RecommendedUpdateAlertButton {
@@ -41,6 +44,8 @@ export interface RecommendedUpdateAlertDeps {
     getItemAsync(key: string): Promise<string | null>;
     setItemAsync(key: string, value: string): Promise<void>;
   };
+  /** 띄울 때마다 읽는다. */
+  getCopy(): RecommendedUpdateCopy;
 }
 
 export interface RecommendedUpdateAlertController {
@@ -58,6 +63,7 @@ export function createRecommendedUpdateAlert(
     alert: (title, message, buttons, options) => Alert.alert(title, message, buttons, options),
     openStore: () => openAppStore(),
     storage: SecureStore,
+    getCopy: readRecommendedUpdateCopy,
     ...overrides,
   };
 
@@ -75,13 +81,14 @@ export function createRecommendedUpdateAlert(
         console.warn("[recommended-update] 기록 저장 실패 — 다음 실행에 다시 묻는다", error);
       });
     };
+    const copy = deps.getCopy();
     deps.alert(
-      RECOMMENDED_UPDATE_TITLE,
-      RECOMMENDED_UPDATE_DESCRIPTION,
+      copy.title,
+      copy.message,
       [
-        { text: RECOMMENDED_UPDATE_LATER_LABEL, style: "cancel", onPress: remember },
+        { text: copy.laterLabel, style: "cancel", onPress: remember },
         {
-          text: RECOMMENDED_UPDATE_CONFIRM_LABEL,
+          text: copy.confirmLabel,
           onPress: () => {
             remember();
             void deps.openStore();

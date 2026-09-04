@@ -1,6 +1,7 @@
 import * as Application from "expo-application";
 
 import { FORCE_UPDATE_COPY_DEFAULTS } from "./forceUpdateCopy";
+import { RECOMMENDED_UPDATE_COPY_DEFAULTS } from "./recommendedUpdateCopy";
 import {
   activateRemoteConfig,
   fetchRemoteConfigInBackground,
@@ -38,6 +39,7 @@ export const UPDATE_CONFIG_DEFAULTS = {
   [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION,
   [LATEST_VERSION_KEY]: DEFAULT_LATEST_VERSION,
   ...FORCE_UPDATE_COPY_DEFAULTS,
+  ...RECOMMENDED_UPDATE_COPY_DEFAULTS,
 };
 const ACTIVATE_TIMEOUT_MS = 1_000;
 

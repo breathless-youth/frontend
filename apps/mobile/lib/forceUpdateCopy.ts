@@ -1,4 +1,4 @@
-import { getRemoteConfigString } from "./remoteConfig";
+import { readCopyOr } from "./remoteConfigCopy";
 
 /**
  * 강제 업데이트 알림창 문구 (BY-586).
@@ -36,17 +36,8 @@ export type ForceUpdateCopy = {
  */
 export function readForceUpdateCopy(): ForceUpdateCopy {
   return {
-    title: readOr(FORCE_UPDATE_TITLE_KEY, FORCE_UPDATE_TITLE),
-    message: readOr(FORCE_UPDATE_MESSAGE_KEY, FORCE_UPDATE_DESCRIPTION),
-    confirmLabel: readOr(FORCE_UPDATE_BUTTON_KEY, FORCE_UPDATE_CONFIRM_LABEL),
+    title: readCopyOr(FORCE_UPDATE_TITLE_KEY, FORCE_UPDATE_TITLE),
+    message: readCopyOr(FORCE_UPDATE_MESSAGE_KEY, FORCE_UPDATE_DESCRIPTION),
+    confirmLabel: readCopyOr(FORCE_UPDATE_BUTTON_KEY, FORCE_UPDATE_CONFIRM_LABEL),
   };
-}
-
-function readOr(key: string, fallback: string): string {
-  try {
-    const value = getRemoteConfigString(key).trim();
-    return value === "" ? fallback : value;
-  } catch {
-    return fallback;
-  }
 }

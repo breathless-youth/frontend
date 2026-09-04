@@ -19,6 +19,10 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
 }));
+// 기본 getCopy는 Remote Config를 읽는다 — 값 없음(빈 문자열)으로 두면 초안 문구가 나온다.
+jest.mock("../remoteConfig", () => ({
+  getRemoteConfigString: jest.fn(() => ""),
+}));
 jest.mock("../storeLink", () => ({
   openAppStore: jest.fn(() => Promise.resolve()),
 }));
@@ -34,6 +38,12 @@ function createHarness({
   stored = null as string | null,
   getFails = false,
   setFails = false,
+  copy,
+}: {
+  stored?: string | null;
+  getFails?: boolean;
+  setFails?: boolean;
+  copy?: () => { title: string; message: string; laterLabel: string; confirmLabel: string };
 } = {}) {
   const store = new Map<string, string>();
   if (stored !== null) store.set(DISMISSED_VERSION_KEY, stored);
@@ -49,7 +59,12 @@ function createHarness({
   };
   const alert = jest.fn();
   const openStore = jest.fn(() => Promise.resolve());
-  const controller = createRecommendedUpdateAlert({ alert, openStore, storage });
+  const controller = createRecommendedUpdateAlert({
+    alert,
+    openStore,
+    storage,
+    ...(copy ? { getCopy: copy } : null),
+  });
   const lastCall = () => alert.mock.calls.at(-1) as AlertCall;
   return { alert, openStore, storage, store, controller, lastCall };
 }
@@ -71,6 +86,23 @@ describe("recommendedUpdateAlert (BY-586)", () => {
     ]);
     expect(buttons[0].style).toBe("cancel");
     expect(options.cancelable).toBe(true);
+  });
+
+  it("콘솔 문구(getCopy)가 있으면 제목·본문·버튼 둘 다 그것으로 띄운다", async () => {
+    const copy = jest.fn(() => ({
+      title: "제목",
+      message: "본문",
+      laterLabel: "다음에",
+      confirmLabel: "받기",
+    }));
+    const h = createHarness({ copy });
+
+    await h.controller.maybeShow("1.0.3");
+
+    const [title, message, buttons] = h.lastCall();
+    expect([title, message]).toEqual(["제목", "본문"]);
+    expect(buttons.map((b) => b.text)).toEqual(["다음에", "받기"]);
+    expect(copy).toHaveBeenCalledTimes(1);
   });
 
   it("같은 최신 버전에 이미 답했으면 다시 묻지 않는다", async () => {

@@ -11,7 +11,8 @@ BY-586이 `min_supported_version`으로 "이 아래는 막는다"를 만들었�
 ## Remote Config 키
 
 - `latest_version` (string, `x.y.z`). 앱 기본값 `"0.0.0"` — 어떤 버전에도 권장을 띄우지 않는 값. 콘솔 조건("앱 버전 < x", 플랫폼)으로 값을 갈라 줄 수 있고 앱 쪽 비교와 겹쳐도 무해하다.
-- 기본값은 `lib/forceUpdate.ts`의 `UPDATE_CONFIG_DEFAULTS`에 `min_supported_version`·문구 키와 **함께 한 번의 `setDefaults`**로 등록한다(RNFB는 맵을 통째로 바꾼다).
+- `recommended_update_title` / `recommended_update_message` / `recommended_update_later_button` / `recommended_update_confirm_button` (string, 선택). 알림창 문구. 키가 없거나 비어 있으면 앱 초안 문구(`lib/recommendedUpdateCopy.ts`). 강제 업데이트 문구 키와 같은 방식이고 읽기 공통은 `lib/remoteConfigCopy.ts`.
+- 모든 기본값은 `lib/forceUpdate.ts`의 `UPDATE_CONFIG_DEFAULTS`에 `min_supported_version`·강제 문구 키와 **함께 한 번의 `setDefaults`**로 등록한다(RNFB는 맵을 통째로 바꾼다).
 
 ## `lib/forceUpdate.ts`
 
@@ -23,7 +24,7 @@ BY-586이 `min_supported_version`으로 "이 아래는 막는다"를 만들었�
 - 통과했고 `recommended`면 홈이 그려진 뒤(폰트·게이트 준비 후) `maybeShow(latestVersion)`. 앱 시작을 막지 않는다.
 - OS 알림창(`Alert.alert`) "나중에"(cancel) / "지금 업데이트"(`openAppStore`). Android `cancelable: true` — 뒤로가기·바깥 터치 = 나중에.
 - 빈도는 **최신 버전당 한 번**: 어느 경로로 닫혀도 그 `latest_version`을 SecureStore(`focuson.recommendedUpdateDismissedVersion`)에 기록하고 같은 값엔 다시 묻지 않는다. 더 높은 값이 게시되면 다시 묻는다. 기록을 못 읽으면 묻는 쪽으로 기운다(권장은 잔소리가 차단보다 낫다).
-- 문구는 확정 카피가 없어 초안("새 버전이 나왔어요" / "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요."). 카피가 나오면 상수만 바꾼다.
+- 문구는 띄울 때마다 `lib/recommendedUpdateCopy.ts`가 Remote Config에서 읽고, 없으면 초안("새 버전이 나왔어요" / "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요." / "나중에" / "지금 업데이트"). 카피가 확정되면 콘솔 키로 바로 바꾸거나 상수를 갱신한다(2026-09-04 사용자 요청으로 콘솔 변경 가능하게 함).
 
 ## 확정한 결정
 
@@ -33,7 +34,8 @@ BY-586이 `min_supported_version`으로 "이 아래는 막는다"를 만들었�
 ## 테스트
 
 - `lib/__tests__/forceUpdate.test.ts`: `shouldRecommendUpdate` 규칙, 두 키 기본값 한 번 등록, `recommended` 판정(막히면 false·기본값 0.0.0이면 false·앱 버전 이하면 false).
-- `lib/__tests__/recommendedUpdateAlert.test.ts`: 두 버튼·cancel 스타일, 같은 버전 재질문 없음, 더 높은 버전 재질문, 나중에/지금 업데이트/onDismiss 기록, 저장소 실패 처리, 기본 의존성 배선.
+- `lib/__tests__/recommendedUpdateCopy.test.ts`: 기본값 맵 네 키, 콘솔 값 사용, 빈 값·공백·throw 시 항목별 기본 문구.
+- `lib/__tests__/recommendedUpdateAlert.test.ts`: 두 버튼·cancel 스타일, 콘솔 문구 사용, 같은 버전 재질문 없음, 더 높은 버전 재질문, 나중에/지금 업데이트/onDismiss 기록, 저장소 실패 처리, 기본 의존성 배선.
 - `__tests__/root-layout-font-gate.test.tsx`: recommended 시 폰트 준비 후 `maybeShow(latestVersion)`, forced·pass·reject 시 미호출.
 
 ## 실기기 검증 절차 (dev 프로젝트)

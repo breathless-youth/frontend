@@ -84,7 +84,7 @@ describe("resolveForceUpdate", () => {
 
     const decision = await resolveForceUpdate();
 
-    // 기본값은 한 번에 등록한다(RNFB는 맵을 통째로 바꿈) — 최소 버전·최신 버전·알림창 문구 세 개.
+    // 기본값은 한 번에 등록한다(RNFB는 맵을 통째로 바꿈) — 최소·최신 버전, 강제 문구 세 개, 권장 문구 네 개.
     expect(adapter.setDefaults).toHaveBeenCalledTimes(1);
     expect(adapter.setDefaults).toHaveBeenCalledWith(UPDATE_CONFIG_DEFAULTS);
     expect(UPDATE_CONFIG_DEFAULTS).toEqual({
@@ -93,6 +93,10 @@ describe("resolveForceUpdate", () => {
       force_update_title: "업데이트가 필요해요",
       force_update_message: "원활한 이용을 위해 최신 버전으로 업데이트 해주세요.",
       force_update_button: "지금 업데이트",
+      recommended_update_title: "새 버전이 나왔어요",
+      recommended_update_message: "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요.",
+      recommended_update_later_button: "나중에",
+      recommended_update_confirm_button: "지금 업데이트",
     });
     expect(adapter.getString).toHaveBeenCalledWith(MIN_SUPPORTED_VERSION_KEY);
     expect(adapter.getString).toHaveBeenCalledWith(LATEST_VERSION_KEY);
