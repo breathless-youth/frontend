@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
+      "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS", "POST_NOTIFICATIONS"],
       "package": "com.breathlessyouth.mobile",
       "intentFilters": [
         {
