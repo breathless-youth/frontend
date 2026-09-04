@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
-import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { useToast } from "@/lib/useToast";
@@ -73,7 +72,6 @@ export function SettingsPage() {
             label="프로필 설정"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              trackSettingsRowPressed("profile");
               navigate({ pathname: "/profile", search: location.search });
             }}
           />
@@ -96,7 +94,6 @@ export function SettingsPage() {
             trailing={granted === null ? undefined : { kind: "toggle", granted }}
             accessibilityLabel={cameraPermissionRowLabel(granted)}
             onPress={() => {
-              trackOsSettingsOpened("settings_tab");
               postToNative({ type: "open-settings", atMs: Date.now() });
             }}
           />
@@ -111,7 +108,6 @@ export function SettingsPage() {
             label="측정 기준 안내"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              trackSettingsRowPressed("guide");
               // 홈과 같은 승계 패턴(리뷰 반영) — entry만 하드코딩해 얹으면 userId·appVersion이
               // 사라져 가이드에서 새로고침·딥링크 후 폴백 이탈 시 미저장 모드 홈으로 떨어진다
               // (BY-327과 같은 유형의 쿼리 유실 버그).
@@ -137,7 +133,6 @@ export function SettingsPage() {
               // pushState는 문서를 새로 만들지 않아 이 문서(설정)의 `require-corp`를 승계해
               // 구글 폼 iframe이 차단된다. 쿼리는 통째로 승계한다 — 측정 기준 안내 행과
               // 같은 이유(딥링크·새로고침 후 쿼리 유실 방지, BY-327 유형).
-              trackSettingsRowPressed("contact");
               hardNavigate(`/contact${location.search}`);
             }}
           />
@@ -153,7 +148,6 @@ export function SettingsPage() {
             label="이용약관"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              trackSettingsRowPressed("terms");
               navigate("/terms");
             }}
           />
@@ -161,7 +155,6 @@ export function SettingsPage() {
             label="개인정보처리방침"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              trackSettingsRowPressed("privacy");
               navigate("/privacy");
             }}
           />
@@ -169,7 +162,6 @@ export function SettingsPage() {
             label="오픈소스 라이선스"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              trackSettingsRowPressed("licenses");
               navigate("/licenses");
             }}
           />

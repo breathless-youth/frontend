@@ -1,8 +1,5 @@
 import { ChevronLeft } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
-
-import { trackScreenBackPressed } from "@/lib/amplitude";
-import { sanitizePagePath } from "@/lib/sanitizePath";
+import { useNavigate } from "react-router-dom";
 
 /**
  * 탭 바 없는 전체 화면 라우트(`/terms`·`/privacy`·`/contact`)의 상단 바.
@@ -29,7 +26,6 @@ type ScreenBackHeaderProps = {
 
 export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
   const navigate = useNavigate();
-  const location = useLocation();
 
   return (
     // 상단 안전영역만큼 높이를 늘리고 그만큼 패딩을 준다 — 이게 없으면 웹뷰가 상태 바
@@ -41,7 +37,6 @@ export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
       <button
         type="button"
         onClick={() => {
-          trackScreenBackPressed(sanitizePagePath(location.pathname, ""));
           if (onBack) {
             onBack();
             return;

@@ -5,8 +5,6 @@ import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/type
 import * as Sentry from "@sentry/react";
 
 import {
-  trackCameraFlipped,
-  trackStudySessionDistracted,
   trackStudySessionEnded,
   trackStudySessionPaused,
   trackStudySessionResumed,
@@ -231,38 +229,22 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   });
 
   /** 타임라인에 구간을 끊고 화면 상태를 맞춘다 — 상태 전이의 단일 통로. */
-  const applyState = useCallback(
-    (next: SessionState, atMs: number = Date.now()) => {
-      const before = timelineRef.current;
-      timelineRef.current = transition(before, next, atMs);
-      // 비집중 구간이 방금 닫혔으면 한 건으로 남긴다(BY-616 확장) — 전이의 단일 통로라 여기가 유일한
-      // 관측점이다. `transition`이 같은 상태를 무시하면 타임라인 참조가 그대로라 아무것도 찍히지 않는다.
-      if (timelineRef.current !== before) {
-        const closed = timelineRef.current.segments[timelineRef.current.segments.length - 2];
-        if (closed?.state.kind === "DISTRACTION" && closed.endedAtMs !== null) {
-          trackStudySessionDistracted({
-            status: closed.state.trigger,
-            durationSec: Math.round((closed.endedAtMs - closed.startedAtMs) / 1000),
-            roomType,
-          });
-        }
+  const applyState = useCallback((next: SessionState, atMs: number = Date.now()) => {
+    timelineRef.current = transition(timelineRef.current, next, atMs);
+    setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
+    // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
+    // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
+    const applied = currentState(timelineRef.current);
+    setPausedSnapshot((prev) => {
+      if (applied.kind !== "PAUSE") {
+        return prev === null ? prev : null;
       }
-      setSessionState((prev) => (isSameSessionState(prev, next) ? prev : next));
-      // 전이 **후의** 타임라인에서 읽는다 — `transition`이 같은 상태를 무시했을 수도 있어
-      // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
-      const applied = currentState(timelineRef.current);
-      setPausedSnapshot((prev) => {
-        if (applied.kind !== "PAUSE") {
-          return prev === null ? prev : null;
-        }
-        const sinceMs = currentStateSinceMs(timelineRef.current);
-        return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
-          ? prev
-          : { sinceMs, trigger: applied.trigger };
-      });
-    },
-    [roomType],
-  );
+      const sinceMs = currentStateSinceMs(timelineRef.current);
+      return prev !== null && prev.sinceMs === sinceMs && prev.trigger === applied.trigger
+        ? prev
+        : { sinceMs, trigger: applied.trigger };
+    });
+  }, []);
 
   /**
    * 세션 시작 이벤트 — 스터디룸 진입이 곧 세션 시작이다(별도 시작 버튼이 없다).
@@ -469,7 +451,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
-    trackCameraFlipped(result, roomType);
     if (result.ok) {
       setCameraFacing(result.facing);
     }
@@ -478,7 +459,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 화면과 상대에게 나가는 발행이 낡은 "켜짐"으로 남는다.
     setIsCameraRunning(camera.isRunning);
     return result;
-  }, [camera, roomType]);
+  }, [camera]);
 
   /**
    * 세션 종료 + 제출. `reason`은 **최초 호출에만** 반영된다(재시도는 사유를 바꾸지 않는다).
@@ -524,6 +505,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           endReason: finalReason?.kind ?? "MANUAL",
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
+          // 서버에 보내는 events와 같은 집계 — 비집중 건별 이벤트 대신 여기서 센다(2026-09-05 재검토).
+          awayCount: events.filter((event) => event.status === "AWAY").length,
+          phoneCount: events.filter((event) => event.status === "PHONE").length,
+          deviceCount: events.filter((event) => event.status === "DEVICE").length,
+          pauseCount: events.filter((event) => event.status === "PAUSE").length,
         });
       }
 

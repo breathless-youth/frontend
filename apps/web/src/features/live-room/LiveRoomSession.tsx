@@ -31,14 +31,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
-import {
-  trackSocialRoomCameraOnDismissed,
-  trackSocialRoomCameraToggled,
-  trackSocialRoomExited,
-  trackSocialRoomGraceExceeded,
-  trackStudySessionExitCancelled,
-  trackStudySessionExitRequested,
-} from "@/lib/amplitude";
+import { trackSocialRoomExited, trackSocialRoomGraceExceeded } from "@/lib/amplitude";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
@@ -435,7 +428,6 @@ export function LiveRoomSession({
             hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
-                trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
@@ -444,10 +436,7 @@ export function LiveRoomSession({
               }
             }}
             onFlipCamera={() => void flipCamera()}
-            onExit={() => {
-              trackStudySessionExitRequested("social");
-              setExitDialogOpen(true);
-            }}
+            onExit={() => setExitDialogOpen(true)}
           />
         </div>
       </div>
@@ -461,12 +450,8 @@ export function LiveRoomSession({
               targetAspect={previewAspect ?? undefined}
             />
           }
-          onCancel={() => {
-            trackSocialRoomCameraOnDismissed();
-            setCameraDialogOpen(false);
-          }}
+          onCancel={() => setCameraDialogOpen(false)}
           onConfirm={() => {
-            trackSocialRoomCameraToggled(true);
             setCameraDialogOpen(false);
             setCameraWanted(true);
             resume();
@@ -479,10 +464,7 @@ export function LiveRoomSession({
           description={exitConfirmDescription(focusSec)}
           cancelLabel={EXIT_CONFIRM_COPY.cancel}
           confirmLabel={EXIT_CONFIRM_COPY.confirm}
-          onCancel={() => {
-            trackStudySessionExitCancelled("social");
-            setExitDialogOpen(false);
-          }}
+          onCancel={() => setExitDialogOpen(false)}
           onConfirm={() => {
             setExitDialogOpen(false);
             void endAndSubmit(MANUAL_END_REASON);

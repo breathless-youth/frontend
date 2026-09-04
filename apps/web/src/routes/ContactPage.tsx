@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
-import { trackErrorRetryPressed } from "@/lib/amplitude";
 import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
 import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
 
@@ -55,7 +54,6 @@ export function ContactPage() {
   const location = useLocation();
 
   const retry = useCallback(() => {
-    trackErrorRetryPressed("contact");
     setFailed(false);
     setLoading(true);
     setReloadKey((key) => key + 1);

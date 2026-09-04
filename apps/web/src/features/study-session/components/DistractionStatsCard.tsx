@@ -2,8 +2,6 @@ import { Fragment, useId, useState } from "react";
 
 import type { StudyEventStatus } from "@focusmakers/types";
 
-import { trackStudyResultDistractionToggled } from "@/lib/amplitude";
-
 import { toKoreanDurationLength } from "../formatDuration";
 import { EVENT_STATUS_LABEL, RESULT_COPY, eventCountLabel } from "../resultCopy";
 import type { EventTally, SessionResultView } from "../sessionResult";
@@ -67,7 +65,6 @@ export function DistractionStatsCard({ view }: { view: SessionResultView }) {
   const idPrefix = useId();
 
   function toggle(status: StudyEventStatus) {
-    trackStudyResultDistractionToggled({ status, expanded: !expanded.includes(status) });
     setExpanded((prev) =>
       prev.includes(status) ? prev.filter((each) => each !== status) : [...prev, status],
     );

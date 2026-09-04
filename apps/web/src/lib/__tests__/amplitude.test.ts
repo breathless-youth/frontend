@@ -394,6 +394,10 @@ describe("공부 세션 이벤트", () => {
       distractionSec: 30,
       endReason: "MANUAL",
       pauseTrigger: null,
+      awayCount: 0,
+      phoneCount: 0,
+      deviceCount: 0,
+      pauseCount: 0,
       willSubmit: true,
     });
 
@@ -430,6 +434,10 @@ describe("공부 세션 이벤트", () => {
       distractionSec: 300,
       endReason: "AUTO",
       pauseTrigger: "BACKGROUND",
+      awayCount: 0,
+      phoneCount: 0,
+      deviceCount: 0,
+      pauseCount: 0,
       willSubmit: true,
     });
 
@@ -443,6 +451,10 @@ describe("공부 세션 이벤트", () => {
       end_reason: "AUTO",
       pause_trigger: "BACKGROUND",
       will_submit: true,
+      away_count: 0,
+      phone_count: 0,
+      device_count: 0,
+      pause_count: 0,
     });
   });
 
@@ -459,6 +471,10 @@ describe("공부 세션 이벤트", () => {
       distractionSec: 0,
       endReason: "MANUAL",
       pauseTrigger: null,
+      awayCount: 0,
+      phoneCount: 0,
+      deviceCount: 0,
+      pauseCount: 0,
       willSubmit: false,
     });
 
@@ -671,37 +687,25 @@ describe("네이티브 셸 이벤트", () => {
   });
 });
 
-describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
+describe("세션 내부·홈·복구 이벤트 (BY-616 확장)", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
 
     m.trackStudySessionPaused("MANUAL", "single");
     m.trackStudySessionResumed({ pauseSec: 3, trigger: "MANUAL", roomType: "single" });
-    m.trackStudySessionDistracted({ status: "AWAY", durationSec: 4, roomType: "single" });
-    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
-    m.trackStudySessionExitRequested("single");
-    m.trackStudySessionExitCancelled("single");
-    m.trackSocialRoomCameraToggled(true);
-    m.trackSocialRoomCameraOnDismissed();
-    m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
     m.trackFocusStartTapped("guide");
-    m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(120);
-    m.trackSessionRecoveryConfirmed();
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("일시정지·재개·비집중·카메라 전환은 room_type과 함께 보낸다", async () => {
+  it("일시정지·재개는 트리거·정지 시간·room_type과 함께 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
     m.trackStudySessionPaused("BACKGROUND", "social");
     m.trackStudySessionResumed({ pauseSec: 42, trigger: "BACKGROUND", roomType: "social" });
-    m.trackStudySessionDistracted({ status: "PHONE", durationSec: 7, roomType: "single" });
-    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
-    m.trackCameraFlipped({ ok: false, reason: "no-alternative" }, "social");
 
     expect(mocks.track).toHaveBeenCalledWith("study_session_paused", {
       trigger: "BACKGROUND",
@@ -712,116 +716,49 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       trigger: "BACKGROUND",
       room_type: "social",
     });
-    expect(mocks.track).toHaveBeenCalledWith("study_session_distracted", {
-      status: "PHONE",
-      duration_sec: 7,
-      room_type: "single",
-    });
-    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
-      ok: true,
-      facing: "back",
-      reason: null,
-      room_type: "single",
-    });
-    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
-      ok: false,
-      facing: null,
-      reason: "no-alternative",
-      room_type: "social",
-    });
   });
 
-  it("종료 요청·취소, 소셜룸 카메라·복귀, 홈 CTA·설정·복구 안내를 각 속성과 보낸다", async () => {
+  it("홈 CTA 분기와 복구 안내 노출을 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackStudySessionExitRequested("single");
-    m.trackStudySessionExitCancelled("social");
-    m.trackSocialRoomCameraToggled(false);
-    m.trackSocialRoomCameraOnDismissed();
-    m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
     m.trackFocusStartTapped("session");
-    m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(5040);
-    m.trackSessionRecoveryConfirmed();
 
     expect(mocks.track.mock.calls).toEqual([
-      ["study_session_exit_requested", { room_type: "single" }],
-      ["study_session_exit_cancelled", { room_type: "social" }],
-      ["social_room_camera_toggled", { on: false }],
-      ["social_room_camera_on_dismissed"],
-      ["social_room_background_returned", { hidden_sec: 31, expired: true }],
       ["focus_start_tapped", { destination: "session" }],
-      ["os_settings_opened", { source: "settings_tab" }],
       ["session_recovery_prompted", { focus_sec: 5040 }],
-      ["session_recovery_confirmed"],
     ]);
   });
 });
 
-describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
+describe("온보딩 가이드·프로필 이벤트 (BY-616 확장 2차)", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
 
     m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
     m.trackGuideFinished({ reason: "skipped", step: 2, entry: "home-card" });
-    m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
-    m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
-    m.trackSettingsRowPressed("terms");
-    m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
-    m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
-    m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
-    m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
-    m.trackErrorRetryPressed("home");
-    m.trackErrorFallbackReloaded();
-    m.trackScreenBackPressed("/profile");
-    m.trackForceUpdateStoreOpened();
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("각 이벤트를 정해진 이름·속성으로 보낸다 — 값(닉네임·날짜·문구)은 어디에도 없다", async () => {
+  it("가이드 스텝·종료와 프로필 저장 결과를 정해진 이름·속성으로 보낸다 — 값(닉네임)은 없다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
     m.trackGuideStepViewed({ step: 3, entry: "settings", method: "gesture" });
     m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
-    m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
-    m.trackRecordsMonthChanged({ delta: 1, method: "button" });
-    m.trackSettingsRowPressed("profile");
-    m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "NICKNAME_TAKEN" });
     m.trackProfileSaveResult({ ok: true });
-    m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
-    m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
-    m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
-    m.trackErrorRetryPressed("live_room_entry");
-    m.trackErrorFallbackReloaded();
-    m.trackScreenBackPressed("/social/code");
-    m.trackForceUpdateStoreOpened();
 
     expect(mocks.track.mock.calls).toEqual([
       ["guide_step_viewed", { step: 3, entry: "settings", method: "gesture" }],
       ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
-      ["records_date_selected", { is_today: false, has_records: true }],
-      ["records_month_changed", { delta: 1, method: "button" }],
-      ["settings_row_pressed", { row: "profile" }],
-      [
-        "profile_save_submitted",
-        { changed_nickname: true, changed_goal: true, changed_category: false },
-      ],
       ["profile_save_failed", { reason: "NICKNAME_TAKEN" }],
       ["profile_save_succeeded"],
-      ["study_result_confirmed", { room_type: "social", via: "close" }],
-      ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
-      ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
-      ["error_retry_pressed", { screen: "live_room_entry" }],
-      ["error_fallback_reloaded"],
-      ["screen_back_pressed", { path: "/social/code" }],
-      ["force_update_store_opened", { source: "web" }],
     ]);
   });
 });

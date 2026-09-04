@@ -1,18 +1,9 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type * as Amplitude from "@/lib/amplitude";
-
 import { createMockSystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
 
 import { useBackgroundGraceWatch } from "../useBackgroundGraceWatch";
-
-const mocks = vi.hoisted(() => ({ returned: vi.fn() }));
-
-vi.mock("@/lib/amplitude", async (importOriginal) => ({
-  ...(await importOriginal<typeof Amplitude>()),
-  trackSocialRoomBackgroundReturned: mocks.returned,
-}));
 
 function setup({ enabled = true, graceMs = 30_000 } = {}) {
   const systemPause = createMockSystemPauseSource();
@@ -87,24 +78,5 @@ describe("useBackgroundGraceWatch", () => {
     t.advance(60_000);
     t.systemPause.return();
     expect(t.onExpire).not.toHaveBeenCalled();
-  });
-});
-
-describe("useBackgroundGraceWatch 계측 (BY-616 확장)", () => {
-  it("복귀마다 숨은 시간과 만료 여부를 한 건으로 남긴다", () => {
-    mocks.returned.mockClear();
-    const t = setup();
-
-    t.systemPause.leave();
-    t.advance(5_000);
-    t.systemPause.return();
-    t.systemPause.leave();
-    t.advance(30_000);
-    t.systemPause.return();
-
-    expect(mocks.returned.mock.calls).toEqual([
-      [{ hiddenSec: 5, expired: false }],
-      [{ hiddenSec: 30, expired: true }],
-    ]);
   });
 });

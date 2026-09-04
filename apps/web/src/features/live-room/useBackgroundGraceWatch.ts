@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import type { SystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
-import { trackSocialRoomBackgroundReturned } from "@/lib/amplitude";
 
 /**
  * 백엔드 룸 유예와 같은 값 — 이보다 오래 숨어 있었으면 서버가 자리를 회수했을 수 있다.
@@ -54,14 +53,7 @@ export function useBackgroundGraceWatch({
       onReturn: () => {
         const hiddenAt = hiddenAtMsRef.current;
         hiddenAtMsRef.current = null;
-        if (hiddenAt === null) {
-          return;
-        }
-        const hiddenMs = nowRef.current() - hiddenAt;
-        const expired = hiddenMs >= graceMs;
-        // 복귀마다 한 건(BY-616 확장) — 유예 이내 복귀 분포가 30초라는 값의 근거가 된다.
-        trackSocialRoomBackgroundReturned({ hiddenSec: Math.round(hiddenMs / 1000), expired });
-        if (expired) {
+        if (hiddenAt !== null && nowRef.current() - hiddenAt >= graceMs) {
           onExpireRef.current();
         }
       },

@@ -185,7 +185,6 @@ export function LiveRoomEntry({
         {joinError !== null && (
           <div className="flex grow flex-col items-center justify-center gap-3 px-6">
             <ErrorState
-              screen="live_room_entry"
               message={joinError}
               onRetry={() => {
                 setJoinError(null);

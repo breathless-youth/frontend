@@ -5,31 +5,33 @@ import type * as Amplitude from "@/lib/amplitude";
 
 import { createMockFocusDetector } from "../adapters/focusDetector";
 import { createMockSystemPauseSource } from "../adapters/systemPauseSource";
+import { submitStudySession } from "../submitStudySession";
 import { useStudyRoomSession } from "../useStudyRoomSession";
 
 /**
- * 세션 내부 계측(BY-616 확장) — 상태 전이의 단일 통로(`applyState`)와 pause/resume/flipCamera에
- * 걸린 이벤트가 **실제로 전이가 일어났을 때만** 한 건씩 나는지 본다. 이벤트 속성 모양은
- * `lib/__tests__/amplitude.test.ts`가 고정하고, 여기서는 호출 시점과 인자만 본다.
+ * 세션 내부 계측(BY-616 확장) — pause/resume에 걸린 이벤트가 **실제로 전이가 일어났을 때만** 한 건씩
+ * 나는지, 종료 이벤트가 상태 이벤트 건수를 싣는지 본다(비집중 건별 이벤트는 2026-09-05 재검토로 뺐다).
+ * 이벤트 속성 모양은 `lib/__tests__/amplitude.test.ts`가 고정하고, 여기서는 호출 시점과 인자만 본다.
  */
 const mocks = vi.hoisted(() => ({
   paused: vi.fn(),
   resumed: vi.fn(),
-  distracted: vi.fn(),
-  flipped: vi.fn(),
+  ended: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackStudySessionPaused: mocks.paused,
   trackStudySessionResumed: mocks.resumed,
-  trackStudySessionDistracted: mocks.distracted,
-  trackCameraFlipped: mocks.flipped,
+  trackStudySessionEnded: mocks.ended,
 }));
+
+vi.mock("../submitStudySession", () => ({ submitStudySession: vi.fn() }));
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  vi.mocked(submitStudySession).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -81,40 +83,39 @@ describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
     expect(mocks.paused).toHaveBeenCalledWith("BACKGROUND", "social");
   });
 
-  it("비집중 구간이 끝나면 상태와 길이를 한 건으로 남긴다 — 시작 시점에는 찍지 않는다", async () => {
+  it("종료 이벤트에 상태 이벤트 건수를 싣는다 — 비집중 한 건 한 건은 이벤트로 보내지 않는다", async () => {
     const detector = createMockFocusDetector();
-    renderHook(() => useStudyRoomSession(7, { detector }));
+    const hook = renderHook(() => useStudyRoomSession(7, { detector }));
 
     act(() => {
       detector.emit({ trigger: "PHONE", active: true });
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_000); // enterMs(500) 경과 → DISTRACTION
+      await vi.advanceTimersByTimeAsync(2_000); // enterMs(500) 경과 → DISTRACTION
     });
-    expect(mocks.distracted).not.toHaveBeenCalled();
-
     act(() => {
       detector.emit({ trigger: "PHONE", active: false });
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_000); // exitMs(1500) 경과 → FOCUS, 구간 닫힘
+      await vi.advanceTimersByTimeAsync(3_000); // exitMs(1500) 경과 → FOCUS
     });
-
-    expect(mocks.distracted).toHaveBeenCalledTimes(1);
-    const [input] = mocks.distracted.mock.calls[0] as [
-      { status: string; durationSec: number; roomType: string },
-    ];
-    expect(input).toMatchObject({ status: "PHONE", roomType: "single" });
-    expect(input.durationSec).toBeGreaterThanOrEqual(1);
-  });
-
-  it("카메라 전환 결과를 남긴다", async () => {
-    const hook = renderHook(() => useStudyRoomSession(7));
-
+    act(() => {
+      hook.result.current.pause("MANUAL");
+    });
     await act(async () => {
-      await hook.result.current.flipCamera();
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
     });
 
-    expect(mocks.flipped).toHaveBeenCalledWith({ ok: true, facing: "back" }, "single");
+    expect(mocks.ended).toHaveBeenCalledTimes(1);
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({
+      roomType: "single",
+      phoneCount: 1,
+      awayCount: 0,
+      deviceCount: 0,
+      pauseCount: 1,
+    });
   });
 });
