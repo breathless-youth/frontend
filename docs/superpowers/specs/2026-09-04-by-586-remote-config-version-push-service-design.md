@@ -26,7 +26,7 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 
 ### `lib/forceUpdateAlert.ts`
 
-- OS 기본 알림창(`Alert.alert`). 문구는 띄울 때마다 `lib/forceUpdateCopy.ts`가 Remote Config에서 읽고, 없으면 BY-533 확정 카피(웹 `copy.ts`와 동일: "업데이트가 필요해요" / "원활한 이용을 위해 최신 버전으로 업데이트해 주세요." / "지금 업데이트"). 버튼 하나, `cancelable: false`. 확인 시 `lib/storeLink.ts`의 `openAppStore()`가 `itms-apps://`·`market://` 스킴으로 스토어를 열고 실패 시 https로 폴백한다. ID는 웹 `storeLink.ts`와 같다.
+- OS 기본 알림창(`Alert.alert`). 문구는 띄울 때마다 `lib/forceUpdateCopy.ts`가 Remote Config에서 읽고, 없으면 BY-533 확정 카피(웹 `copy.ts`와 동일: "업데이트가 필요해요" / "원활한 이용을 위해 최신 버전으로 업데이트 해주세요." / "지금 업데이트"). 버튼 하나, `cancelable: false`. 확인 시 `lib/storeLink.ts`의 `openAppStore()`가 `itms-apps://`·`market://` 스킴으로 스토어를 열고 실패 시 https로 폴백한다. ID는 웹 `storeLink.ts`와 같다.
 - 알림창은 버튼을 누르면 닫히므로 재표시가 곧 차단이다: 스토어 복귀(`AppState` active)에서 다시 띄우고, 스토어가 안 열려 앱이 활성이면 0.5초 뒤 다시 띄운다. iOS는 겹쳐 쌓이므로 떠 있다고 아는 동안 건너뛰고, Android는 새 창이 기존 창을 대체하므로 복귀마다 다시 띄운다(액티비티 재생성으로 창만 사라진 경우 복구).
 - 처음엔 전체 화면 컴포넌트(`components/ForceUpdateScreen.tsx`)로 만들어 실기기 검증까지 했으나, 디자인 시안 없이 가기로 해 OS 알림창으로 바꿨다(2026-09-04). 시안이 나오면 배경 `Pressable` 자리에 화면을 넣고 `forceUpdateAlert` 호출을 빼면 된다.
 

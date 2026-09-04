@@ -91,7 +91,7 @@ describe("resolveForceUpdate", () => {
       [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION,
       [LATEST_VERSION_KEY]: "0.0.0",
       force_update_title: "업데이트가 필요해요",
-      force_update_message: "원활한 이용을 위해 최신 버전으로 업데이트해 주세요.",
+      force_update_message: "원활한 이용을 위해 최신 버전으로 업데이트 해주세요.",
       force_update_button: "지금 업데이트",
     });
     expect(adapter.getString).toHaveBeenCalledWith(MIN_SUPPORTED_VERSION_KEY);
