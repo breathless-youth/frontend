@@ -42,6 +42,7 @@
 | `push_notification_opened`                                                                  | `route` (쿼리 제거 — 초대코드 값 금지)                                                      | `lib/pushBootstrap.ts`                                                                                                                                                              |
 | `invite_deep_link_opened`                                                                   | `has_code`                                                                                  | `app/social/join.tsx` (유니버설 링크·App Links·스킴·Install Referrer·알림 모두 합류)                                                                                                |
 | `webview_load_failed` / `webview_retry_pressed`                                             | `path`, `failed.reason` (`config/error/http`)                                               | `components/RemoteWebViewHost.tsx` — 그 웹뷰로는 못 나가고 큐에서 다른 탭·재시도 성공 뒤 흘러감                                                                                     |
+| `hardware_back_pressed`                                                                     | `tab`                                                                                       | `app/(tabs)/_layout.tsx` BackHandler(Android). 홈이면 앱 종료, 다른 탭이면 홈 이동이 기본 동작                                                                                      |
 
 ## 웹(`apps/web`) — 브리지 수신
 
@@ -66,6 +67,27 @@
 | `os_settings_opened`                                             | `source` (`settings_tab`)                                           | `SettingsPage` 카메라 권한 행                                                                                                         |
 | `session_recovery_prompted` / `session_recovery_confirmed`       | `prompted.focus_sec`                                                | `useLaunchSessionRecovery`                                                                                                            |
 | user property `camera_permission_granted`                        | boolean                                                             | #97 `appLifecycleAnalytics` — 설정 화면의 `camera-permission` 응답(이벤트가 아니라 상태)                                              |
+
+### 2차 확장 — 화면별 잔여 상호작용 (2026-09-05, "붙일 수 있는 요소는 전부")
+
+실기기 검증 중 사용자 요청으로 넓혔다. 운영의 autocapture 클릭은 요소 텍스트만 알고 의미(스텝·오늘 여부·룸 종류)는 모르므로, 의미를 아는 컴포넌트에서 명시 이벤트로 남긴다. 값(닉네임·목표 문구·절대 날짜·초대코드)은 어디에도 싣지 않는다.
+
+| 이벤트                                           | 속성                                                                                            | 발신                                                                                                      |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `guide_step_viewed`                              | `step` (1~5), `entry` (`focus-start/home-card/settings`), `method` (`initial/cta/gesture/prev`) | `OnboardingGuideFlow` — 스텝이 바뀐 뒤 effect에서 한 건. 라우트가 하나라 페이지뷰로는 스텝 이탈이 안 잡힘 |
+| `guide_finished`                                 | `reason` (`completed/skipped`), `step`, `entry`                                                 | `OnboardingGuideFlow` — G5 CTA 완료·건너뛰기                                                              |
+| `records_date_selected`                          | `is_today`, `has_records`                                                                       | `RecordsPage` 달력 날짜 선택                                                                              |
+| `records_month_changed`                          | `delta` (-1/1), `method` (`button/swipe`)                                                       | `MonthCalendar` 화살표·스와이프                                                                           |
+| `settings_row_pressed`                           | `row` (`profile/guide/contact/terms/privacy/licenses`)                                          | `SettingsPage` (카메라 권한 행은 `os_settings_opened`)                                                    |
+| `profile_save_submitted`                         | `changed_nickname`, `changed_goal`, `changed_category`                                          | `ProfilePage` 검증 통과 후                                                                                |
+| `profile_save_succeeded` / `profile_save_failed` | `failed.reason` (서버 코드 / `HTTP_n` / `NETWORK_OR_UNKNOWN`)                                   | `ProfilePage` mutation 결과                                                                               |
+| `study_result_confirmed`                         | `room_type`, `via` (`cta/close`)                                                                | `ResultPage` 하단 CTA·우상단 X                                                                            |
+| `study_result_distraction_toggled`               | `status` (`AWAY/PHONE/DEVICE/PAUSE`), `expanded`                                                | `DistractionStatsCard`                                                                                    |
+| `session_notice_confirmed`                       | `notice` (`auto_end/sub_minute`), `room_type`                                                   | `RoomPage` S3-8 "결과 보기"·1분 미만 안내 "홈으로"                                                        |
+| `error_retry_pressed`                            | `screen` (`home/records/profile/live_room_entry/contact`)                                       | `ErrorState`(필수 prop `screen`)·`ContactPage` 재시도                                                     |
+| `error_fallback_reloaded`                        | —                                                                                               | `ErrorFallback` 새로고침                                                                                  |
+| `screen_back_pressed`                            | `path` (정제된 경로)                                                                            | `ScreenBackHeader`                                                                                        |
+| `force_update_store_opened`                      | `source: web`                                                                                   | `App` 강제 업데이트 모달(네이티브 게이트가 없는 구버전 전용)                                              |
 
 ## 확정한 결정
 
