@@ -4,6 +4,7 @@ import { BackHandler, Platform } from "react-native";
 import TabsLayout from "../app/(tabs)/_layout";
 
 import { __resetActiveTabForTests, getActiveTab } from "../lib/activeTab";
+import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 import { subscribeTabReset } from "../lib/tabReset";
 
 /**
@@ -106,4 +107,19 @@ it("내비게이터 상태의 활성 탭을 모듈 스코프에 기록한다 —
 
   expect(getActiveTab()).toBe("record");
   __resetActiveTabForTests();
+});
+
+it("Android 하드웨어 뒤로가기를 활성 탭과 함께 네이티브 이벤트로 남긴다", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  mockTabBarState.routes = [{ name: "index" }, { name: "social" }];
+  mockTabBarState.index = 1;
+  __resetNativeAnalyticsForTests();
+  const received: unknown[] = [];
+  attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+  render(<TabsLayout />);
+  pressHardwareBack();
+
+  expect(received).toEqual([["hardware_back_pressed", { tab: "social" }]]);
+  __resetNativeAnalyticsForTests();
 });

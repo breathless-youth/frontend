@@ -50,6 +50,8 @@ export interface NativeAnalyticsEventMap extends Record<
   app_backgrounded: undefined;
   /** 백그라운드에서 돌아왔다. `background_sec`는 떠나 있던 시간. 앱 시작 직후의 첫 active는 세지 않는다. */
   app_foregrounded: { background_sec: number };
+  /** Android 하드웨어 뒤로가기(탭 화면에서). 홈이면 앱 종료, 나머지 탭이면 홈 이동이 기본 동작이다. */
+  hardware_back_pressed: { tab: NativeTab };
   /**
    * 탭 이동. `via`는 경로 — `tab_bar`(하단 탭 터치, `components/TabBar.tsx`; 활성 탭은 비활성화돼
    * 재터치는 없음) / `card`(웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
