@@ -84,8 +84,12 @@
 - `apps/web`: `nativeBridge.test.ts`(파싱·검증), `nativeAnalytics.test.tsx`(구독→신호 순서·릴레이), `amplitude.test.ts`(`source`·`time`, 확장 이벤트 전부의 속성 모양).
 - 확장: `apps/mobile/lib/__tests__/appStateAnalytics.test.ts`(background/active 한 쌍·inactive 무시·첫 active 무시·음수 방지), `__tests__/root-layout-font-gate.test.tsx`(AppState 배선), `__tests__/permission-denied.test.tsx`(beforeRemove 이탈 사유); `apps/web`: `useStudyRoomSession.analytics.test.tsx`(정지/재개/비집중/전환), `useBackgroundGraceWatch.test.tsx`, `useLaunchSessionRecovery.test.tsx`, `HomeTabPage.test.tsx`, `settingsPage.test.tsx`.
 
-## 실기기 검증(예정)
+## 실기기 검증 방법 (2026-09-05 정정)
 
-1. 홈 → 소셜 탭 터치: Amplitude 사용자 스트림에 `tab_pressed {tab: social, from_tab: home, source: native}` 1건(2건이면 sink 중복).
-2. 카메라 권한 미결정 기기에서 "집중 시작" → OS 다이얼로그 거부: `camera_permission_gate_resolved {denied, prompted: true, single}` → `permission_denied_viewed` → "홈으로 돌아가기" → `permission_denied_left {back_home}`이 홈 복귀 뒤 순서대로 도착하고 `time`이 실제 순서를 따른다.
-3. 비행기 모드로 탭 로드 실패 → 다시 시도 성공: `webview_load_failed`·`webview_retry_pressed`가 성공 뒤 도착한다.
+"머지 전에 Amplitude에서 확인"은 성립하지 않는다 — 키가 운영 웹에만 있고, 네이티브 이벤트는 새 바이너리가 있어야 운영 Amplitude에 닿는다. 머지 전 확인 대상은 **브리지 타이밍**(`analytics-ready` 순서, 백그라운드 웹뷰 주입, `beforeRemove` 발화)이고, 그건 지금 깔린 개발 빌드로 본다(BY-616은 JS만 바꿔 재빌드가 필요 없다).
+
+- 기기의 개발 빌드(09-04, `aef0d43`)에 Metro로 이 브랜치 번들을 내려준다(번들은 ngrok, 실행은 `devicectl --payload-url`). 웹은 로컬 Vite를 mkcert HTTPS 또는 ngrok으로 열고 `.env.local`의 `WEB_BASE_URL`로 지정한다(`apps/mobile/CLAUDE.md` "웹 dev 서버로 화면 띄우기").
+- 네이티브 쪽은 Metro 터미널의 `[analytics] → 웹 <path> <name> <props>` 로그로 큐 flush 순서를 본다(`RemoteWebViewHost`의 sink, `__DEV__` 전용).
+- 웹 쪽은 Safari Web Inspector(설정 → Safari → 고급 → 웹 속성)로 웹뷰 콘솔을 본다. 개발 빌드에서만 `webviewDebuggingEnabled`가 켜진다(iOS 16.4+ 필수). 키 없는 로컬 웹은 `initAmplitude`가 **개발 추적 모드**로 열려 SDK 대신 `[amplitude:dev] track <name> <props> {time}`을 남긴다(`MODE === "development"` 한정).
+- 확인 시나리오: ① 홈 → 소셜 탭 터치 — `tab_pressed {tab: social, from_tab: home}`가 **한 번** 도착. ② 권한 미결정 기기에서 "집중 시작" → OS 다이얼로그 거부 → S2-3 → 홈으로 돌아가기 — Metro에 `camera_permission_gate_resolved`·`permission_denied_viewed`·`permission_denied_left {back_home}`이 홈 복귀 뒤 순서대로 flush되고 `time`이 실제 순서를 따른다. ③ 앱 백그라운드 → 복귀 — `app_backgrounded`, `app_foregrounded {background_sec}`. ④ 룸에서 일시정지 5초 → 재개 — `[amplitude:dev] study_session_paused/resumed {pause_sec: 5}`. ⑤ 소셜룸 카메라 끄기 → 백그라운드 → 복귀 — `social_room_camera_toggled {on: false}`, `study_session_paused {BACKGROUND}`는 이미 정지라 없음, `social_room_background_returned`.
+- Amplitude 콘솔 확인은 머지 후: 웹 이벤트는 Vercel 배포 직후 현재 앱으로도 바로, 네이티브 이벤트는 다음 TestFlight 빌드부터. 확인 계정은 "제외 대상 노이즈" 코호트에 넣는다.
