@@ -46,7 +46,8 @@ export type ToWebMessage =
    * 복구가 컴포넌트를 다시 만들지 않고 URL만 새로 만들어, 같은 쿼리가 다시 붙기 때문이다.
    */
   | { type: "app-launched"; atMs: number }
-  | CameraPermissionMessage;
+  | CameraPermissionMessage
+  | TrackEventMessage;
 
 /**
  * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
@@ -165,7 +166,8 @@ export type ToNativeMessage =
   | SetBackGestureMessage
   | SetBackLockMessage
   | NavigateTabMessage
-  | NavigateHomeMessage;
+  | NavigateHomeMessage
+  | AnalyticsReadyMessage;
 
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
@@ -284,5 +286,48 @@ export interface SetBackLockMessage {
  */
 export interface NavigateHomeMessage {
   type: "navigate-home";
+  atMs: number;
+}
+
+/** 네이티브 분석 이벤트 속성에 허용하는 값 — 원시값뿐이다. 식별자·자유 문자열은 싣지 않는다. */
+export type NativeAnalyticsPropertyValue = string | number | boolean | null;
+
+/**
+ * 네이티브에서만 일어나는 사용자 이벤트를 웹 Amplitude로 넘긴다 — 하단 탭 터치, 카메라 권한
+ * 게이트 결과, 권한 거부 안내(S2-3) 화면의 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
+ *
+ * 분석 SDK는 웹에만 있다(앱은 Firebase Analytics도 링크하지 않는다 — `apps/mobile/CLAUDE.md`).
+ * 네이티브 SDK를 따로 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해지므로, 대신 이벤트를
+ * 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
+ *
+ * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
+ *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
+ * - **전달 대상은 하나다.** 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한
+ *   터치가 N번 찍힌다. 네이티브는 "포커스된 화면의 웹뷰이면서 `analytics-ready`를 보낸 문서"
+ *   하나에만 보내고, 그런 웹뷰가 없는 동안(권한 거부 화면·로드 실패·재로드 중)은 큐에 보관했다가
+ *   준비되는 순간 순서대로 흘려보낸다.
+ * - `atMs`는 이벤트가 **실제로 일어난** 시각이다. 큐를 거쳐 늦게 도착할 수 있으므로 웹은 전송
+ *   시각 대신 이 값을 Amplitude `time`으로 쓴다(`apps/web/src/lib/amplitude.ts`).
+ * - 강제 업데이트 화면처럼 웹뷰가 아예 마운트되지 않는 구간의 이벤트는 이 통로로 잡을 수 없다.
+ */
+export interface TrackEventMessage {
+  type: "track-event";
+  /** snake_case 이벤트명. 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`. */
+  name: string;
+  /** 이벤트 속성. 생략 가능. */
+  properties?: Record<string, NativeAnalyticsPropertyValue>;
+  atMs: number;
+}
+
+/**
+ * 웹이 `track-event`를 받을 구독을 걸었다는 신호 — 문서가 로드될 때마다 한 번 보낸다
+ * (`apps/web/src/lib/nativeAnalytics.ts`).
+ *
+ * `home-ready`와 같은 이유의 handshake다: 어느 로드 콜백도 "웹 JS가 돌았고 구독까지 걸렸다"를
+ * 보장하지 못한다. 네이티브는 이 신호를 받은 문서에만 이벤트를 주입하고, 재로드·렌더러 복구로
+ * 문서 세대가 바뀌면 다음 신호가 올 때까지 다시 큐에 쌓는다.
+ */
+export interface AnalyticsReadyMessage {
+  type: "analytics-ready";
   atMs: number;
 }

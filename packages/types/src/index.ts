@@ -311,4 +311,7 @@ export type {
   SetTabBarMessage,
   ToNativeMessage,
   ToWebMessage,
+  TrackEventMessage,
+  AnalyticsReadyMessage,
+  NativeAnalyticsPropertyValue,
 } from "./bridge";
