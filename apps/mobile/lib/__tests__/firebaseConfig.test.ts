@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import buildConfig from "../../app.config";
@@ -37,10 +40,21 @@ describe("Firebase 설정 (BY-585)", () => {
     return buildConfig({ config: baseConfig } as ConfigContext);
   }
 
-  const FIXTURE = (variant: "dev" | "prod") => ({
+  const FIXTURE = (variant: "dev" | "staging" | "prod" | "typo") => ({
     json: `./lib/__tests__/fixtures/firebase/${variant}/google-services.json`,
     plist: `./lib/__tests__/fixtures/firebase/${variant}/GoogleService-Info.plist`,
   });
+
+  // 비운영 변형은 읽지 못한 경로도 그대로 반환하므로, 성공 케이스는 fixture가 사라져도 통과한다.
+  // 파일이 실제로 있는지 여기서 못박는다.
+  const expectFixturesExist = (paths: string[]) => {
+    for (const filePath of paths) {
+      expect([filePath, fs.existsSync(path.resolve(__dirname, "../..", filePath))]).toEqual([
+        filePath,
+        true,
+      ]);
+    }
+  };
 
   describe("app.json", () => {
     it("RNFB app·messaging plugin이 있다 (remote-config는 plugin이 없다)", () => {
@@ -89,12 +103,13 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(config.ios).not.toHaveProperty("googleServicesFile");
       expect(config.android).not.toHaveProperty("googleServicesFile");
       // 기존 ios/android 설정은 그대로 보존된다.
-      expect(config.ios?.bundleIdentifier).toBe("com.breathlessyouth.mobile");
-      expect(config.android?.package).toBe("com.breathlessyouth.mobile");
+      expect(config.ios?.bundleIdentifier).toBe("com.breathlessyouth.mobile.dev");
+      expect(config.android?.package).toBe("com.breathlessyouth.mobile.dev");
     });
 
     it("개발 빌드에 dev 파일을 주면 그대로 반영된다", () => {
       const { json, plist } = FIXTURE("dev");
+      expectFixturesExist([json, plist]);
       const config = resolveConfig({
         APP_VARIANT: undefined,
         GOOGLE_SERVICES_JSON: json,
@@ -106,6 +121,7 @@ describe("Firebase 설정 (BY-585)", () => {
 
     it("production 빌드에 prod 파일을 주면 그대로 반영된다", () => {
       const { json, plist } = FIXTURE("prod");
+      expectFixturesExist([json, plist]);
       const config = resolveConfig({
         APP_VARIANT: "production",
         GOOGLE_SERVICES_JSON: json,
@@ -121,16 +137,99 @@ describe("Firebase 설정 (BY-585)", () => {
     ] as const)("개발 빌드가 prod 파일(%s)을 가리키면 설정 평가가 실패한다", (name, kind) => {
       expect(() =>
         resolveConfig({ APP_VARIANT: undefined, [name]: FIXTURE("prod")[kind] }),
-      ).toThrow(/운영 Firebase 프로젝트/);
+      ).toThrow(/프로젝트 파일이 아닙니다/);
     });
+
+    it.each([
+      ["GOOGLE_SERVICES_JSON", "json"],
+      ["GOOGLE_SERVICES_PLIST", "plist"],
+    ] as const)(
+      "개발 빌드가 제3 프로젝트 파일(%s)을 가리키면 설정 평가가 실패한다",
+      (name, kind) => {
+        expect(() =>
+          resolveConfig({ APP_VARIANT: undefined, [name]: FIXTURE("typo")[kind] }),
+        ).toThrow(/프로젝트 파일이 아닙니다/);
+      },
+    );
 
     it.each([
       ["GOOGLE_SERVICES_JSON", "json"],
       ["GOOGLE_SERVICES_PLIST", "plist"],
     ] as const)("production 빌드가 dev 파일(%s)을 가리키면 설정 평가가 실패한다", (name, kind) => {
       expect(() =>
-        resolveConfig({ APP_VARIANT: "production", [name]: FIXTURE("dev")[kind] }),
-      ).toThrow(/운영 Firebase 프로젝트/);
+        resolveConfig({
+          APP_VARIANT: "production",
+          GOOGLE_SERVICES_JSON: FIXTURE("prod").json,
+          GOOGLE_SERVICES_PLIST: FIXTURE("prod").plist,
+          [name]: FIXTURE("dev")[kind],
+        }),
+      ).toThrow(/프로젝트 파일이 아닙니다/);
+    });
+
+    it.each(["GOOGLE_SERVICES_JSON", "GOOGLE_SERVICES_PLIST"] as const)(
+      "production 빌드에 %s가 없으면 설정 평가가 실패한다",
+      (name) => {
+        expect(() =>
+          resolveConfig({
+            APP_VARIANT: "production",
+            GOOGLE_SERVICES_JSON: FIXTURE("prod").json,
+            GOOGLE_SERVICES_PLIST: FIXTURE("prod").plist,
+            [name]: undefined,
+          }),
+        ).toThrow(/비어 있습니다/);
+      },
+    );
+
+    it("staging 빌드는 env가 없으면 googleServicesFile 키를 넣지 않는다", () => {
+      const config = resolveConfig({
+        APP_VARIANT: "staging",
+        GOOGLE_SERVICES_JSON: undefined,
+        GOOGLE_SERVICES_PLIST: undefined,
+      });
+      expect(config.ios).not.toHaveProperty("googleServicesFile");
+      expect(config.android).not.toHaveProperty("googleServicesFile");
+    });
+
+    it("staging 빌드에 staging 아이덴티티의 dev 프로젝트 파일을 주면 반영된다", () => {
+      const { json, plist } = FIXTURE("staging");
+      expectFixturesExist([json, plist]);
+      const config = resolveConfig({
+        APP_VARIANT: "staging",
+        GOOGLE_SERVICES_JSON: json,
+        GOOGLE_SERVICES_PLIST: plist,
+      });
+      expect(config.android?.googleServicesFile).toBe(json);
+      expect(config.ios?.googleServicesFile).toBe(plist);
+    });
+
+    it.each([
+      ["GOOGLE_SERVICES_JSON", "json"],
+      ["GOOGLE_SERVICES_PLIST", "plist"],
+    ] as const)(
+      "staging 빌드가 .dev 아이덴티티 파일(%s)을 가리키면 설정 평가가 실패한다",
+      (name, kind) => {
+        expect(() =>
+          resolveConfig({ APP_VARIANT: "staging", [name]: FIXTURE("dev")[kind] }),
+        ).toThrow(/아이덴티티/);
+      },
+    );
+
+    it.each([
+      ["GOOGLE_SERVICES_JSON", "json"],
+      ["GOOGLE_SERVICES_PLIST", "plist"],
+    ] as const)(
+      "development 빌드가 .staging 아이덴티티 파일(%s)을 가리키면 설정 평가가 실패한다",
+      (name, kind) => {
+        expect(() =>
+          resolveConfig({ APP_VARIANT: undefined, [name]: FIXTURE("staging")[kind] }),
+        ).toThrow(/아이덴티티/);
+      },
+    );
+
+    it("staging 빌드의 실패 메시지는 EAS preview environment를 가리킨다", () => {
+      expect(() =>
+        resolveConfig({ APP_VARIANT: "staging", GOOGLE_SERVICES_JSON: FIXTURE("dev").json }),
+      ).toThrow(/preview environment/);
     });
 
     it("production 빌드에 읽을 수 없는 경로를 주면 실패한다 — 파일 누락은 조용히 넘어가지 않는다", () => {
@@ -141,6 +240,17 @@ describe("Firebase 설정 (BY-585)", () => {
         }),
       ).toThrow(/운영 Firebase 프로젝트/);
     });
+
+    it.each([
+      ["GOOGLE_SERVICES_JSON", "android", "./firebase/does-not-exist/google-services.json"],
+      ["GOOGLE_SERVICES_PLIST", "ios", "./firebase/does-not-exist/GoogleService-Info.plist"],
+    ] as const)(
+      "staging 빌드는 읽을 수 없는 경로(%s)를 그대로 통과시킨다. Metro만 띄우는 개발을 막지 않으려고 파일 누락은 prebuild가 잡게 둔다",
+      (name, platform, filePath) => {
+        const config = resolveConfig({ APP_VARIANT: "staging", [name]: filePath });
+        expect(config[platform]?.googleServicesFile).toBe(filePath);
+      },
+    );
   });
 
   describe("eas.json", () => {
@@ -150,9 +260,9 @@ describe("Firebase 설정 (BY-585)", () => {
     >;
 
     /**
-     * 설정 파일은 EAS file 타입 환경변수로 받는다. dev 프로젝트 파일은 `development` 환경에,
-     * prod 프로젝트 파일은 `preview`·`production` 환경에 올라가 있다 — 매핑이 어긋나면 qa 빌드가
-     * 운영 Remote Config를 읽는다.
+     * 설정 파일은 EAS file 타입 환경변수로 받는다. dev 프로젝트의 `.dev` 파일은 `development` 환경에,
+     * dev 프로젝트의 `.staging` 파일은 `preview` 환경에, prod 프로젝트 파일은 `production` 환경에
+     * 올라가 있다. 매핑이 어긋나면 staging 빌드가 운영 Remote Config를 읽는다.
      */
     it("프로필별 EAS environment 매핑이 고정돼 있다", () => {
       const mapping = Object.fromEntries(
@@ -161,8 +271,7 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(mapping).toEqual({
         development: "development",
         "development-simulator": "development",
-        qa: "development",
-        preview: "preview",
+        staging: "preview",
         production: "production",
       });
     });

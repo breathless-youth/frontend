@@ -10,6 +10,13 @@ import appJson from "../../app.json";
  * `web.focusmakers.app`이어서, 신 도메인 유니버설 링크가 조용히 죽는 어긋남이 실제로
  * 있었다(BY-451에서 발견). 운영 웹 주소가 바뀌면 이 테스트가 등록 누락을 잡는다.
  */
+// production 분기는 이제 Firebase 설정 파일 주입을 요구한다(app.config.ts). 이 파일의 관심사가
+// 아니므로 운영 fixture 경로를 함께 준다.
+const PROD_FIREBASE_ENV = {
+  GOOGLE_SERVICES_JSON: "./lib/__tests__/fixtures/firebase/prod/google-services.json",
+  GOOGLE_SERVICES_PLIST: "./lib/__tests__/fixtures/firebase/prod/GoogleService-Info.plist",
+};
+
 describe("딥링크 도메인 등록", () => {
   const baseConfig = appJson.expo as unknown as ExpoConfig;
 
@@ -20,6 +27,7 @@ describe("딥링크 도메인 등록", () => {
 
   function prodWebHost(): string {
     process.env.APP_VARIANT = "production";
+    Object.assign(process.env, PROD_FIREBASE_ENV);
     const extra = buildConfig({ config: baseConfig } as ConfigContext).extra;
     return new URL(extra?.webBaseUrl as string).hostname;
   }

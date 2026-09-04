@@ -17,6 +17,13 @@ import appConfig from "../../app.json";
  * 붙지 않고 제출이 통째로 빠지는데, **화면에는 아무 에러도 뜨지 않는다.** 앱은 정상으로 보이고
  * 세션도 정상으로 돌아간다. 2026-07-29 iOS 실기기에서 실제로 이 상태였다.
  */
+// production 분기는 이제 Firebase 설정 파일 주입을 요구한다(app.config.ts). 이 파일의 관심사가
+// 아니므로 운영 fixture 경로를 함께 준다.
+const PROD_FIREBASE_ENV = {
+  GOOGLE_SERVICES_JSON: "./lib/__tests__/fixtures/firebase/prod/google-services.json",
+  GOOGLE_SERVICES_PLIST: "./lib/__tests__/fixtures/firebase/prod/GoogleService-Info.plist",
+};
+
 describe("app.json ATS 설정", () => {
   // 백엔드 HTTPS 전환(2026-08-02) 후 ATS 블록 자체를 제거했다 — 키가 없는 상태가 정상이다.
   // 누군가 평문 HTTP로 되돌리면 아래 두 번째 테스트가 예외 추가를 다시 요구한다.
@@ -54,10 +61,13 @@ describe("app.json ATS 설정", () => {
     // 주소의 원천이 app.config.ts의 production 분기로 옮겨졌다(BY-402). app.json의 값은
     // 개발용 빈 문자열이라, 스토어 빌드가 실제로 쓰는 해석된 주소로 판정해야 가드가 유효하다.
     process.env.APP_VARIANT = "production";
+    Object.assign(process.env, PROD_FIREBASE_ENV);
     const apiBaseUrl = buildConfig({
       config: appConfig.expo as unknown as ExpoConfig,
     } as ConfigContext).extra?.apiBaseUrl as string;
     delete process.env.APP_VARIANT;
+    delete process.env.GOOGLE_SERVICES_JSON;
+    delete process.env.GOOGLE_SERVICES_PLIST;
     if (apiBaseUrl.startsWith("https://")) {
       // 백엔드에 도메인 + HTTPS가 붙으면 ATS 예외를 통째로 지워야 한다 —
       // `NSAllowsArbitraryLoads`를 남긴 채 App Store에 제출하면 심사에서 사유 소명을 요구받는다.

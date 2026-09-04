@@ -45,7 +45,7 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 
 `@react-native-firebase/app`·`remote-config`·`messaging`(26.x). 설계는 [BY-585 설계 문서](../../docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md), 기능(최소 버전 게이트·알림 핸들러)은 BY-586.
 
-- **설정 파일은 커밋하지 않는다.** `google-services.json`·`GoogleService-Info.plist`는 `apps/mobile/firebase/{dev,prod}/`(gitignore)에 두고 `.env.local`의 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST` 경로로 `app.config.ts`가 `googleServicesFile`에 주입한다. EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다 — `eas.json`의 `environment` 매핑: development·development-simulator·qa → `development`(dev 프로젝트 파일), preview → `preview`, production → `production`(prod 프로젝트 파일). env가 없으면 키를 넣지 않는다: Metro만 띄울 때는 파일이 필요 없고, prebuild가 필요한 명령에서는 RNFB plugin이 명확한 메시지로 실패한다.
+- **설정 파일은 커밋하지 않는다.** `google-services.json`·`GoogleService-Info.plist`는 `apps/mobile/firebase/{dev,staging,prod}/`(gitignore)에 두고 `.env.local`의 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST` 경로로 `app.config.ts`가 `googleServicesFile`에 주입한다. EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다 — `eas.json`의 `environment` 매핑: development·development-simulator → `development`(dev 프로젝트의 `.dev` 아이덴티티 파일), staging → `preview`(dev 프로젝트의 `.staging` 아이덴티티 파일), production → `production`(prod 프로젝트 파일). 파일의 `package_name`·`BUNDLE_ID`가 빌드 아이덴티티와 다르면 `app.config.ts`가 throw한다. env가 없으면 키를 넣지 않는다: Metro만 띄울 때는 파일이 필요 없고, prebuild가 필요한 명령에서는 RNFB plugin이 명확한 메시지로 실패한다.
 - **Firebase 프로젝트는 dev/prod 둘이다**(`focusmakers-dev`·`focusmakers-prod`). `app.config.ts`가 파일 안의 프로젝트 ID를 읽어 `APP_VARIANT`와 어긋나면 설정 읽기 시점에 throw한다 — `guardDevBaseUrl`과 같은 원칙으로, dev 빌드가 운영 Remote Config·FCM에 붙는 것(최소 버전 테스트가 실사용자를 막는 사고)을 막는다. `lib/__tests__/firebaseConfig.test.ts`가 고정한다.
 - **iOS는 SPM + dynamic frameworks다.** RNFB 26 기본값이고 `expo-build-properties`의 `ios.useFrameworks: "dynamic"`이 그 요구사항이다. **`disableSPM`(CocoaPods 모드)이나 `static`으로 되돌리지 말 것** — SPM 제품은 static 링크에서 중복 심볼로 깨지고, Firebase는 2026-10부터 CocoaPods에 새 버전을 올리지 않는다. Firebase 12.12+가 Xcode 26.2 이상을 요구해 `eas.json` 전 프로필의 `ios.image`가 `macos-sequoia-15.6-xcode-26.2`다(SDK 54 기본 이미지는 26.0). 프레임워크 모드에서 Expo autolinking은 핵심 pod 4개(ExpoModulesCore·Expo·ReactAppDependencyProvider·expo-dev-menu)만 static으로 내리고 사전 컴파일 RN 코어는 유지한다 — 빌드 오류 시 탈출구는 `ios.forceStaticLinking`(pod 단위) → `ios.buildReactNativeFromSource: true` 순.
 - **Firebase Analytics는 링크하지 않는다.** `remote-config`가 `@react-native-firebase/analytics`를 peer로 요구해 pnpm이 자동 설치하지만, `package.json`의 `expo.autolinking.exclude`로 네이티브 링크를 막았다(Analytics SDK가 들어가면 자동 수집이 시작되고 개인정보 라벨 대상이 된다). `firebaseConfig.test.ts`가 고정한다. 나중에 앱 분석이 필요해지면 exclude를 풀고 별도 티켓으로 간다.
@@ -77,28 +77,27 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 
 ### 동작 확인은 릴리즈 빌드로만 된다
 
-`enabled: !__DEV__`라 **개발 빌드·Expo Go에서는 아무것도 전송되지 않는다**(Fast Refresh 중 나는 일시적 에러가 실사용자 에러를 덮는 것을 막기 위해서다). 게다가 `@sentry/react-native`는 네이티브 모듈이고 config plugin은 prebuild에서만 적용되므로 **Expo Go에서는 네이티브 크래시 수집 자체가 없다.** 검증은 EAS `preview`/`production` 빌드(TestFlight)에서 에러를 한 번 내고 Sentry에서 확인하는 방식으로 한다.
+`enabled: !__DEV__`라 **개발 빌드·Expo Go에서는 아무것도 전송되지 않는다**(Fast Refresh 중 나는 일시적 에러가 실사용자 에러를 덮는 것을 막기 위해서다). 게다가 `@sentry/react-native`는 네이티브 모듈이고 config plugin은 prebuild에서만 적용되므로 **Expo Go에서는 네이티브 크래시 수집 자체가 없다.** 검증은 EAS `staging`(내부 배포)/`production`(TestFlight) 빌드에서 에러를 한 번 내고 Sentry에서 확인하는 방식으로 한다.
 
 ⚠️ **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들과 소스맵에 같은 debug ID를 심는다. 되돌려도 빌드는 성공하고 업로드도 성공하는데 **스택트레이스만 압축된 채로 남는다** — 로그에 신호가 없어 원인을 찾기 가장 어려운 실패다(웹에서 2026-08-05에 같은 종류를 겪었다). 확인법: `npx expo export --platform ios` 후 산출된 `.hbc`에서 `sentry-dbid-`가 1개 나오면 정상.
 
-## 웹 dev 서버로 화면 띄우기 (2026-08-19 갱신 — BY-402 환경 분기 도입)
+## 웹 dev 서버로 화면 띄우기 (2026-09-04 갱신, BY-600 3티어)
 
-**모든 화면(탭 3개 + 세션)이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 이 값의
-원천은 이제 `app.config.ts`다 — app.json을 받아 `APP_VARIANT`로 주소만 분기해 덮어쓴다(BY-402).
+**모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 값의 원천은 `app.config.ts`다.
+`APP_VARIANT`는 `production`, `staging`, `development` 세 값이고 미설정은 development다. 세 값 밖의
+문자열은 설정 평가 시점에 throw한다. 이 값 하나에서 주소, bundle id·package 접미사(`.staging`/`.dev`),
+표시명 접미사(` STG`/` DEV`), `extra.appEnv`(Sentry environment)가 파생된다. 근거는
+[ADR 0007](../../docs/adr/0007-three-tier-environment-model-and-eas-profiles.md).
 
-- **EAS production·preview 빌드**: eas.json 프로필이 `APP_VARIANT=production`을 주입 →
-  운영 주소(`app.config.ts`의 상수)가 들어간다. 스토어 빌드에 필요한 값은 전부 커밋돼 있다.
-- **로컬 Metro·개발 빌드**: `APP_VARIANT`가 없어 **기본값이 빈 주소**다 — 웹뷰 대신 "화면을
-  불러오지 못했어요" 폴백이 뜬다(`components/RemoteWebViewHost.tsx`). 개발 빌드가 아무 설정
-  없이 운영 웹을 열어 GA4·Amplitude 운영 지표를 오염시키던 문제를 이 방향 전환으로 막았다.
-- **개발 주소 주입은 `apps/mobile/.env.local`**(gitignore)에 적는다 — Expo CLI가 자동 로드한다.
+- **EAS production 빌드**: `APP_VARIANT=production` → 운영 주소 상수, 아이덴티티 `com.breathlessyouth.mobile`.
+- **EAS staging 빌드**: `APP_VARIANT=staging` → `api-dev`·`web-dev` 상수, 아이덴티티 `com.breathlessyouth.mobile.staging`, 표시명 `포커스 메이커스 STG`. 운영 앱과 한 기기에 나란히 설치된다.
+- **로컬 Metro·개발 빌드**: `APP_VARIANT` 없음 → development. 주소는 `.env.local`의 `WEB_BASE_URL`·`API_BASE_URL`이고 미주입이면 빈 주소라 폴백 화면이 뜬다. 아이덴티티 `com.breathlessyouth.mobile.dev`.
   ```bash
   # apps/mobile/.env.local
   WEB_BASE_URL=http://localhost:5173
   API_BASE_URL=http://localhost:8080
   ```
-  app.json을 직접 고치던 종전 방식은 커밋 사고 위험 때문에 폐기했다. **production에서는 이
-  주입이 무시된다**(`lib/__tests__/appConfigVariant.test.ts`가 분기 계약 전체를 고정한다).
+  production·staging에서는 이 주입이 무시된다(`lib/__tests__/appConfigVariant.test.ts`).
 
 Dev Client에서는 이 값이 Metro 매니페스트로 오므로 **Metro만 재시작하면** 반영된다.
 
@@ -162,7 +161,7 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 ## 네이티브 전환 시 (지금은 해당 없음)
 
-`eas.json`(development/preview/production 프로필)은 전환 대비로 남겨뒀다. 실제로 네이티브로 되돌릴 때 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따른다 — `expo-camera`/`expo-dev-client` 재설치, `platform/*` mock을 실제 구현으로 교체, `eas init`으로 EAS project id 발급 등.
+`eas.json`(development/development-simulator/staging/production 프로필)은 전환 대비로 남겨뒀다. 실제로 네이티브로 되돌릴 때 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따른다 — `expo-camera`/`expo-dev-client` 재설치, `platform/*` mock을 실제 구현으로 교체, `eas init`으로 EAS project id 발급 등.
 
 ## Expo SDK
 

@@ -26,11 +26,11 @@ BY-402와 BY-464가 넣은 `APP_VARIANT` 분기는 사실상 이진이다. `app.
 
 ### 환경 매트릭스
 
-| `APP_VARIANT` | 백엔드 | 웹 | 앱 아이덴티티 | 표시명 | 커스텀 스킴 | App Link 호스트 |
-|---|---|---|---|---|---|---|
-| `production` | `api.focusmakers.app` | `web.focusmakers.app` (main) | `com.breathlessyouth.mobile` | 포커스 메이커스 | `focusmakers`, `focuson` | `web.focusmakers.app`, `web.sunqstudio.kr` |
-| `staging` | `api-dev.focusmakers.app` | `web-dev.focusmakers.app` (dev) | `com.breathlessyouth.mobile.staging` | 포커스 메이커스 STG | `focusmakers-staging` | `web-dev.focusmakers.app` |
-| `development` | `.env.local` | `.env.local` | `com.breathlessyouth.mobile.dev` | 포커스 메이커스 DEV | `focusmakers-dev` | 없음 (스킴만) |
+| `APP_VARIANT` | 백엔드                    | 웹                              | 앱 아이덴티티                        | 표시명              | 커스텀 스킴              | App Link 호스트                            |
+| ------------- | ------------------------- | ------------------------------- | ------------------------------------ | ------------------- | ------------------------ | ------------------------------------------ |
+| `production`  | `api.focusmakers.app`     | `web.focusmakers.app` (main)    | `com.breathlessyouth.mobile`         | 포커스 메이커스     | `focusmakers`, `focuson` | `web.focusmakers.app`, `web.sunqstudio.kr` |
+| `staging`     | `api-dev.focusmakers.app` | `web-dev.focusmakers.app` (dev) | `com.breathlessyouth.mobile.staging` | 포커스 메이커스 STG | `focusmakers-staging`    | `web-dev.focusmakers.app`                  |
+| `development` | `.env.local`              | `.env.local`                    | `com.breathlessyouth.mobile.dev`     | 포커스 메이커스 DEV | `focusmakers-dev`        | 없음 (스킴만)                              |
 
 - production의 `focuson` 스킴과 `web.sunqstudio.kr` 호스트는 이전 빌드와 이미 공유된 링크를 위해 유지한다.
 - development는 App Link를 선언하지 않고 커스텀 스킴만 등록한다. staging과 같은 host와 path를 claim하면 두 앱이 함께 설치된 기기에서 어느 앱이 열릴지 OS가 보장하지 않고, Dev Client는 로컬 웹을 열기 때문에 App Link 검증은 staging의 일이다.
@@ -38,12 +38,12 @@ BY-402와 BY-464가 넣은 `APP_VARIANT` 분기는 사실상 이진이다. `app.
 
 ### EAS 프로필 매핑
 
-| 프로필 | `APP_VARIANT` | distribution | 그 밖의 옵션 | 용도 |
-|---|---|---|---|---|
-| `development` | development | internal | `developmentClient: true` | 로컬 Metro |
-| `development-simulator` | development | internal | `developmentClient: true`, `ios.simulator: true` | 시뮬레이터 |
-| `staging` (기존 `qa` 개명) | staging | internal | 없음 | 일상 QA, 딥링크 실기기 검증 |
-| `production` | production | store | `autoIncrement: true` | 스토어, TestFlight·내부 테스트 트랙 |
+| 프로필                     | `APP_VARIANT` | distribution | 그 밖의 옵션                                     | 용도                                |
+| -------------------------- | ------------- | ------------ | ------------------------------------------------ | ----------------------------------- |
+| `development`              | development   | internal     | `developmentClient: true`                        | 로컬 Metro                          |
+| `development-simulator`    | development   | internal     | `developmentClient: true`, `ios.simulator: true` | 시뮬레이터                          |
+| `staging` (기존 `qa` 개명) | staging       | internal     | 없음                                             | 일상 QA, 딥링크 실기기 검증         |
+| `production`               | production    | store        | `autoIncrement: true`                            | 스토어, TestFlight·내부 테스트 트랙 |
 
 - `preview`는 삭제한다. 내부 배포인데 운영 엔드포인트를 본다는 역할은 TestFlight가 대체하고, 남겨 두면 이름과 동작의 어긋남이 계속 재생산된다.
 - 프로필 env에서 주소를 걷어내고 `APP_VARIANT` 한 줄만 남긴다. 주소의 원천은 `app.config.ts` 하나다.
@@ -60,14 +60,14 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 
 `app.config.ts`의 환경 테이블 하나에서 아래를 전부 파생한다.
 
-| 산출 | production | staging | development |
-|---|---|---|---|
-| `extra.apiBaseUrl` / `webBaseUrl` | 상수 | 상수 | `.env.local` + `guardDevBaseUrl` |
-| `ios.bundleIdentifier` / `android.package` | base | base + `.staging` | base + `.dev` |
-| `extra.appDisplayName` | 이름 | 이름 + 공백 + `STG` | 이름 + 공백 + `DEV` |
-| `scheme` | `focusmakers`, `focuson` | `focusmakers-staging` | `focusmakers-dev` |
-| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트 | 선언하지 않음 |
-| `extra.appEnv` | `production` | `staging` | `development` |
+| 산출                                              | production                   | staging               | development                      |
+| ------------------------------------------------- | ---------------------------- | --------------------- | -------------------------------- |
+| `extra.apiBaseUrl` / `webBaseUrl`                 | 상수                         | 상수                  | `.env.local` + `guardDevBaseUrl` |
+| `ios.bundleIdentifier` / `android.package`        | base                         | base + `.staging`     | base + `.dev`                    |
+| `extra.appDisplayName`                            | 이름                         | 이름 + 공백 + `STG`   | 이름 + 공백 + `DEV`              |
+| `scheme`                                          | `focusmakers`, `focuson`     | `focusmakers-staging` | `focusmakers-dev`                |
+| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트   | 선언하지 않음                    |
+| `extra.appEnv`                                    | `production`                 | `staging`             | `development`                    |
 
 - `withAppDisplayName` 플러그인은 그대로 `extra.appDisplayName`을 읽고 변경하지 않는다.
 - `lib/sentry.ts`의 `environment`는 `extra.appEnv`를 읽는다. Sentry 프로젝트와 DSN은 하나를 유지하고 `enabled: !__DEV__`도 유지한다.
@@ -89,12 +89,13 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 - `app.json`의 정적 `scheme`, `associatedDomains`, `intentFilters` 선언을 제거하고 `app.config.ts`에서 생성한다. `pathPrefix` `/social/join`과 `autoVerify: true`는 유지한다.
 - 웹 핸드오프의 `appHandoff.ts`와 `storeLink.ts`는 하드코딩된 스킴 `focusmakers`와 패키지 `com.breathlessyouth.mobile`을 `__DEPLOY_ENV__`에서 파생한다. 스토어 폴백 링크는 운영 하나만 유지한다. staging 빌드는 스토어에 없기 때문이다.
 - Amplitude와 GA4는 코드를 바꾸지 않는다. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`와 `VITE_GA4_MEASUREMENT_ID`가 운영 프로젝트 값이 아닌지 확인하는 운영 체크리스트만 남는다. 두 값은 저장소에서 검증할 수 없다.
+- Firebase 설정 파일(BY-585에서 팀원이 도입)은 `package_name`·`BUNDLE_ID`로 앱을 식별하므로 아이덴티티마다 파일이 따로 있어야 한다. EAS environment는 `development`→`.dev` 파일, `preview`→`.staging` 파일, `production`→prod 파일로 배치하고, `app.config.ts`가 파일의 아이덴티티가 빌드와 다르면 `throw`한다. (2026-09-04 BY-600에서 반영)
 - 구현은 BY-600과 BY-601로 나눈다. BY-600은 `app.config.ts` 환경 테이블, 아이덴티티와 표시명 접미사, Sentry environment, `eas.json` 정리, 테스트, `apps/mobile/CLAUDE.md`의 프로필 서술 갱신, 첫 staging 빌드로 EAS 자격증명 생성과 백업 확인까지다. 저장소 밖의 `preview`·`qa` 사용처는 EAS 대시보드에서 확인한다.
 - BY-601은 딥링크 선언 파생, well-known 갱신, 웹 핸드오프 환경 파생, 실기기 검증이다. BY-600이 만드는 새 keystore의 지문이 있어야 assetlinks를 채울 수 있어 BY-600이 선행이다.
 
 ### 후속 소비자
 
-- Firebase를 도입하는 BY-585는 `google-services.json`과 `GoogleService-Info.plist`가 패키지명별로 갈리므로 이 스위치의 다음 소비자다.
+- Firebase 설정 파일은 결과 절에 적은 대로 BY-600에서 이 스위치에 붙였다.
 - expo-updates를 도입하면 채널명을 EAS 프로필명과 같게 맞춘다.
 
 ## 대안
