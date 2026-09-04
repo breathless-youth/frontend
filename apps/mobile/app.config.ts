@@ -48,16 +48,31 @@ function guardDevBaseUrl(name: string, value: string | undefined): string {
  * Firebase 설정 파일 주입 (BY-585).
  *
  * `google-services.json`·`GoogleService-Info.plist`는 공개 저장소라 커밋하지 않는다. 경로를 env로
- * 받아 `googleServicesFile`에 넣고, EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다. env가 없으면
- * 키를 넣지 않는다 — Metro만 띄우는 로컬 개발엔 파일이 필요 없고, prebuild가 필요한 명령에서는
- * `@react-native-firebase/app` plugin이 명확한 메시지로 실패한다.
+ * 받아 `googleServicesFile`에 넣고, EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다. production이
+ * 아닌 빌드는 env가 없으면 키를 넣지 않는다. Metro만 띄우는 로컬 개발엔 파일이 필요 없고,
+ * prebuild가 필요한 명령에서는 `@react-native-firebase/app` plugin이 명확한 메시지로 실패한다.
  *
  * Firebase 프로젝트는 dev/prod 둘이다. 파일 안의 프로젝트 ID를 읽어 `APP_VARIANT`와 어긋나면
  * 여기서 끊는다 — 위 `guardDevBaseUrl`과 같은 원칙이다. dev 빌드가 운영 Remote Config·FCM에
  * 붙으면 최소 지원 버전 테스트가 실사용자를 막고, 테스트 푸시가 실사용자에게 간다.
  */
+const APP_VARIANTS = ["production", "staging", "development"] as const;
+type AppVariant = (typeof APP_VARIANTS)[number];
+
 const PROD_FIREBASE_PROJECT_ID = "focusmakers-prod";
 const DEV_FIREBASE_PROJECT_ID = "focusmakers-dev";
+
+// 변형마다 파일을 받는 경로가 다르다. development만 `.env.local`이고 staging·production은 EAS
+// environment의 file 변수다.
+const FIREBASE_FILE_HINT: Record<AppVariant, string> = {
+  production: "production 빌드에는 prod 파일을 주입하세요.",
+  staging:
+    "staging 빌드는 dev 프로젝트의 .staging 아이덴티티 파일을 써야 합니다. " +
+    "EAS preview environment의 GOOGLE_SERVICES_JSON·GOOGLE_SERVICES_PLIST를 확인하세요.",
+  development:
+    "개발 빌드는 dev 프로젝트의 .dev 아이덴티티 파일을 써야 합니다. " +
+    "apps/mobile/.env.local의 경로를 확인하세요.",
+};
 
 type FirebaseFileInfo = { projectId: string | null; appIds: string[] };
 
@@ -93,10 +108,19 @@ function readFirebaseFile(filePath: string): FirebaseFileInfo | null {
 function guardFirebaseFile(
   name: string,
   value: string | undefined,
-  isProduction: boolean,
+  variant: AppVariant,
   expectedAppId: string,
 ): string | undefined {
+  const isProduction = variant === "production";
   if (!value) {
+    // 운영 빌드는 파일 없이 나가면 안 된다. development·staging은 Metro만 띄우는 개발을 막지
+    // 않으려고 키를 넣지 않고 넘어간다.
+    if (isProduction) {
+      throw new Error(
+        `${name}이 비어 있습니다. ` +
+          "production 빌드에는 EAS production environment의 file 변수로 prod Firebase 파일을 주입하세요.",
+      );
+    }
     return undefined;
   }
   const expectedProjectId = isProduction ? PROD_FIREBASE_PROJECT_ID : DEV_FIREBASE_PROJECT_ID;
@@ -110,16 +134,14 @@ function guardFirebaseFile(
     }
     throw new Error(
       `${name}이 운영 Firebase 프로젝트(${PROD_FIREBASE_PROJECT_ID}) 파일이 아닙니다` +
-        "(읽힌 프로젝트: 없음). production 빌드에는 prod 파일을 주입하세요.",
+        `(읽힌 프로젝트: 없음). ${FIREBASE_FILE_HINT[variant]}`,
     );
   }
   if (info.projectId !== expectedProjectId) {
     throw new Error(
       `${name}이 ${expectedProjectId} 프로젝트 파일이 아닙니다` +
         `(읽힌 프로젝트: ${info.projectId ?? "없음"}). ` +
-        (isProduction
-          ? "production 빌드에는 prod 파일을 주입하세요."
-          : "개발 빌드는 dev 프로젝트 파일을 써야 합니다. apps/mobile/.env.local의 경로를 확인하세요."),
+        FIREBASE_FILE_HINT[variant],
     );
   }
   // 파일이 읽혔는데 이 빌드의 아이덴티티가 없으면 Android는 gradle에서 죽고 iOS는 경고만 남긴 채
@@ -128,14 +150,12 @@ function guardFirebaseFile(
     throw new Error(
       `${name}에 이 빌드의 아이덴티티(${expectedAppId})가 없습니다` +
         `(파일에 있는 아이덴티티: ${info.appIds.join(", ") || "없음"}). ` +
+        `${FIREBASE_FILE_HINT[variant]} ` +
         "Firebase 콘솔에서 이 아이덴티티로 등록한 앱의 설정 파일을 쓰세요.",
     );
   }
   return value;
 }
-
-const APP_VARIANTS = ["production", "staging", "development"] as const;
-type AppVariant = (typeof APP_VARIANTS)[number];
 
 // 미설정만 development다. 오타가 development로 떨어지면 빈 주소 빌드가 아무 표시 없이
 // 나가므로, 세 값 밖의 문자열은 여기서 끊는다.
@@ -174,20 +194,19 @@ const VARIANT_TABLE: Record<
 export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const variant = resolveAppVariant(process.env.APP_VARIANT);
   const table = VARIANT_TABLE[variant];
-  const isProduction = variant === "production";
   const bundleIdentifier = `${config.ios?.bundleIdentifier ?? ""}${table.idSuffix}`;
   const androidPackage = `${config.android?.package ?? ""}${table.idSuffix}`;
 
   const androidGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_JSON",
     process.env.GOOGLE_SERVICES_JSON,
-    isProduction,
+    variant,
     androidPackage,
   );
   const iosGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_PLIST",
     process.env.GOOGLE_SERVICES_PLIST,
-    isProduction,
+    variant,
     bundleIdentifier,
   );
 

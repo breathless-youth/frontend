@@ -10,6 +10,13 @@ import appJson from "../../app.json";
  * 여기서는 그 함수를 직접 호출해 분기 계약을 고정한다. `APP_VARIANT`는 EAS 빌드
  * 프로필(eas.json)이 주입하고, 로컬 Metro에서는 없다(= 안전 기본값으로 떨어져야 한다).
  */
+// production 분기는 이제 Firebase 설정 파일 주입을 요구한다(app.config.ts). 이 파일의 관심사가
+// 아니므로 운영 fixture 경로를 함께 준다.
+const PROD_FIREBASE_ENV = {
+  GOOGLE_SERVICES_JSON: "./lib/__tests__/fixtures/firebase/prod/google-services.json",
+  GOOGLE_SERVICES_PLIST: "./lib/__tests__/fixtures/firebase/prod/GoogleService-Info.plist",
+};
+
 describe("app.config 환경 분기", () => {
   // JSON import는 문자열이 전부 string으로 넓혀져 ExpoConfig의 유니언 타입과 안 맞는다 —
   // 실데이터 검증이 목적이므로 캐스트한다.
@@ -32,7 +39,7 @@ describe("app.config 환경 분기", () => {
   }
 
   it("APP_VARIANT가 production이면 운영 주소가 들어간다", () => {
-    const extra = resolveExtra({ APP_VARIANT: "production" });
+    const extra = resolveExtra({ APP_VARIANT: "production", ...PROD_FIREBASE_ENV });
     expect(extra?.apiBaseUrl).toBe("https://api.focusmakers.app");
     expect(extra?.webBaseUrl).toBe("https://web.focusmakers.app");
   });
@@ -64,6 +71,7 @@ describe("app.config 환경 분기", () => {
   it("production에서는 환경변수 주입을 무시한다 — 운영 산출물 오염 방지", () => {
     const extra = resolveExtra({
       APP_VARIANT: "production",
+      ...PROD_FIREBASE_ENV,
       API_BASE_URL: "http://localhost:8080",
       WEB_BASE_URL: "https://192.168.0.19:5173",
     });
@@ -124,6 +132,7 @@ describe("app.config 환경 분기", () => {
 
     it("production은 app.json의 아이덴티티·표시명을 그대로 낸다", () => {
       process.env.APP_VARIANT = "production";
+      Object.assign(process.env, PROD_FIREBASE_ENV);
       const out = buildConfig({ config: baseConfig } as ConfigContext);
       expect(out.ios?.bundleIdentifier).toBe(appJson.expo.ios.bundleIdentifier);
       expect(out.android?.package).toBe(appJson.expo.android.package);
