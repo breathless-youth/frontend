@@ -20,7 +20,9 @@ jest.mock("@sentry/react-native", () => ({
 jest.mock("expo-constants", () => ({
   __esModule: true,
   // 팩토리는 바깥 스코프를 볼 수 없어(jest 제약) 여기서 다시 읽는다.
-  default: { expoConfig: { extra: require("../../app.json").expo.extra } },
+  default: {
+    expoConfig: { extra: { ...require("../../app.json").expo.extra, appEnv: "staging" } },
+  },
 }));
 
 function initOptions(): Record<string, unknown> {
@@ -81,5 +83,9 @@ describe("initSentry 개인정보 계약", () => {
 
   it("DSN을 하드코딩하지 않고 app.json에서 읽는다", () => {
     expect(initOptions().dsn).toBe(appConfig.expo.extra.sentryDsn);
+  });
+
+  it("environment는 app.config.ts가 넣는 extra.appEnv를 그대로 쓴다", () => {
+    expect(initOptions().environment).toBe("staging");
   });
 });

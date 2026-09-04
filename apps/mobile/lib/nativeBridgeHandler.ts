@@ -3,14 +3,18 @@ import { Share } from "react-native";
 
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { getActiveTab } from "./activeTab";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { getMotionSensorRelay } from "./motionSensorRelay";
-import { relaySessionSubmit } from "./sessionSubmitRelay";
+import { trackNativeEvent } from "./nativeAnalytics";
 import { setTabBarVisible } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
+
+/** `navigate-tab`의 목적지 값 → 탭 id. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
+const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
 
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
@@ -26,7 +30,7 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       break;
     case "start-session":
       void (async () => {
-        const result = await runCameraPermissionGate();
+        const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
           return;
@@ -42,7 +46,7 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
-        const result = await runCameraPermissionGate();
+        const result = await runCameraPermissionGate("social");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
           reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
@@ -108,20 +112,18 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
     case "navigate-tab":
       // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
       // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
+      // 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `card`로 가른다.
+      trackNativeEvent("tab_pressed", {
+        tab: NATIVE_TAB_BY_MESSAGE_TAB[message.tab],
+        from_tab: getActiveTab(),
+        via: "card",
+      });
       router.navigate("/records");
       break;
     case "set-tab-bar":
       // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
       setTabBarVisible(message.visible);
-      break;
-    case "submit-session":
-      // 세션 로직이 네이티브로 넘어오는 게 아니다 — 웹이 완성한 요청 본문을 받아 HTTP만
-      // 대신 쳐 주고 결과를 그대로 돌려준다(WebView 안에서 직접 `fetch`하면 백엔드가 CORS
-      // 헤더를 보내지 않아 막힌다, 2026-07-30 확인).
-      // `relaySessionSubmit`은 실패도 `ok: false` 메시지로 돌려주므로 여기서 catch할 것이 없다.
-      // 응답을 못 보내면 웹이 타임아웃까지 "저장 중..."에 갇히므로 그 경로를 만들지 않는다.
-      void relaySessionSubmit(message).then(reply);
       break;
     case "motion-sensor":
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로

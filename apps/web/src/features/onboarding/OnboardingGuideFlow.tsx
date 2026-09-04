@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
+
 import {
   GUIDE_CLOSE_LABEL,
   ONBOARDING_GUIDE_STEPS,
   type OnboardingGuideExitReason,
   type OnboardingGuideStep,
+  type OnboardingGuideEntry,
 } from "./onboardingGuideSteps";
 import { CoachNavBar } from "./CoachNavBar";
 import { SWIPE_THRESHOLD_PX } from "./coachOverlayTheme";
@@ -139,9 +142,12 @@ function StepBody({
 export function OnboardingGuideFlow({
   onFinish,
   isReentry,
+  entry = "home-card",
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
+  /** 계측용 진입 출처(BY-616 확장) — 페이지가 `?entry`에서 읽어 넘긴다. 세션 로직에는 관여하지 않는다. */
+  entry?: OnboardingGuideEntry;
   /**
    * 재진입(홈 카드·설정) 모드인가. 재진입에서는 마지막 CTA가 세션을 시작하지 않고 닫기만
    * 하므로 문구도 "가이드 종료하기"로 바꾼다(2026-07-29 확정) — 문구와 동작의 일치.
@@ -155,23 +161,44 @@ export function OnboardingGuideFlow({
   const isFirstStep = stepIndex === 0;
   const isLastStep = stepIndex === ONBOARDING_GUIDE_STEPS.length - 1;
 
+  // 스텝 노출 계측(BY-616 확장) — 스텝을 바꾼 수단을 ref에 적어 두고, 실제로 바뀐 뒤(effect)에
+  // 한 건 남긴다. 라우트가 하나라 페이지뷰로는 스텝별 이탈이 안 잡힌다.
+  const stepMethodRef = useRef<"initial" | "cta" | "gesture" | "prev">("initial");
+  useEffect(() => {
+    if (stepIndex === 0 && stepMethodRef.current === "initial") {
+      // 첫 스텝의 첫 노출 = 가이드 진입(어느 경로로 들어왔는지). 이전으로 돌아온 스텝 1(`prev`)은 아니다.
+      trackGuideEntered(entry);
+    }
+    trackGuideStepViewed({ step: stepIndex + 1, entry, method: stepMethodRef.current });
+  }, [stepIndex, entry]);
+
+  const finish = useCallback(
+    (reason: OnboardingGuideExitReason) => {
+      trackGuideFinished({ reason, step: stepIndex + 1, entry });
+      onFinish(reason);
+    },
+    [entry, onFinish, stepIndex],
+  );
+
   const goNext = useCallback(() => {
     if (isLastStep) {
-      onFinish("completed");
+      finish("completed");
       return;
     }
+    stepMethodRef.current = "cta";
     setStepIndex((index) => index + 1);
-  }, [isLastStep, onFinish]);
+  }, [finish, isLastStep]);
 
   const goPrev = useCallback(() => {
     // ⚠️ G1(첫 스텝)에서 "이전"이 비활성인지·숨김인지·무동작인지는 미정이다. Figma G1에도
     // 버튼이 그대로 그려져 있고 비활성 표현이 따로 없다 — 임의로 정하지 않고 "보이지만 아무
     // 동작 없음"으로 두되 그 사실이 `disabled`로 드러나게 했다.
     // TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): G1 "이전" 처리 확정 필요.
+    stepMethodRef.current = "prev";
     setStepIndex((index) => Math.max(0, index - 1));
   }, []);
 
-  const skip = useCallback(() => onFinish("skipped"), [onFinish]);
+  const skip = useCallback(() => finish("skipped"), [finish]);
 
   /**
    * 제스처(탭·스와이프) 전용 "다음" — **G5에서는 무동작이다**(BY-343). `goNext`는 마지막
@@ -183,8 +210,9 @@ export function OnboardingGuideFlow({
     if (isLastStep) {
       return;
     }
-    goNext();
-  }, [isLastStep, goNext]);
+    stepMethodRef.current = "gesture";
+    setStepIndex((index) => index + 1);
+  }, [isLastStep]);
 
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.

@@ -2,7 +2,6 @@
   "expo": {
     "name": "FocusMakers",
     "slug": "mobile",
-    "scheme": ["focusmakers", "focuson"],
     "version": "1.0.2",
     "orientation": "default",
     "icon": "./assets/icon.png",
@@ -16,7 +15,9 @@
       },
       "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile",
-      "associatedDomains": ["applinks:web.sunqstudio.kr", "applinks:web.focusmakers.app"]
+      "entitlements": {
+        "aps-environment": "development"
+      }
     },
     "android": {
       "versionCode": 3,
@@ -28,26 +29,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
-      "package": "com.breathlessyouth.mobile",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "web.sunqstudio.kr",
-              "pathPrefix": "/social/join"
-            },
-            {
-              "scheme": "https",
-              "host": "web.focusmakers.app",
-              "pathPrefix": "/social/join"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      "package": "com.breathlessyouth.mobile"
     },
     "plugins": [
       "expo-router",
@@ -72,7 +54,17 @@
           "project": "focusmakers-app"
         }
       ],
-      "./plugins/withAppDisplayName"
+      "./plugins/withAppDisplayName",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "extra": {
       "appDisplayName": "포커스 메이커스",

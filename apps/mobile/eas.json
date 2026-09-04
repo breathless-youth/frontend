@@ -6,32 +6,45 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "environment": "development",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
+      }
     },
     "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "environment": "development",
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     },
-    "preview": {
+    "staging": {
       "distribution": "internal",
       "env": {
-        "APP_VARIANT": "production"
+        "APP_VARIANT": "staging"
+      },
+      "environment": "preview",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production"
-      }
-    },
-    "qa": {
-      "distribution": "internal",
-      "env": {
-        "API_BASE_URL": "https://api-dev.focusmakers.app",
-        "WEB_BASE_URL": "https://web-dev.focusmakers.app"
+      },
+      "environment": "production",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     }
   },

@@ -2,6 +2,11 @@ import { act, render, screen } from "@testing-library/react-native";
 import { BackHandler, Text } from "react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  trackNativeEvent,
+} from "../../lib/nativeAnalytics";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
 import { ensureUserRegistered } from "../../lib/userApi";
@@ -56,6 +61,7 @@ beforeEach(() => {
   // 파라미터는 모듈 스코프에 캐시된다(BY-333) — 테스트마다 다른 userId를 목킹하므로,
   // 이전 테스트에서 채워진 캐시가 새 마운트에 그대로 재사용되지 않도록 초기화한다.
   __resetRemoteQueryParamsCacheForTests();
+  __resetNativeAnalyticsForTests();
 });
 
 describe("RemoteScreen", () => {
@@ -102,7 +108,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 
@@ -113,7 +119,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
     });
   });
 
@@ -403,5 +409,47 @@ describe("RemoteScreen", () => {
       { type: "navigate-home", atMs: 5 },
       expect.any(Function),
     );
+  });
+});
+
+/**
+ * 탭 포커스 → 네이티브 사용자 이벤트 sink 연결. 호스트의 `focused`는 `suppressTabBarMessages`에서
+ * 파생된다 — 비포커스 탭 웹뷰가 sink로 붙으면 보이지 않는 화면에 이벤트가 찍혀 N번 집계된다.
+ */
+describe("RemoteScreen — 네이티브 사용자 이벤트 sink", () => {
+  async function readyWebView(focused: boolean) {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={!focused} />);
+    const onMessage = (await screen.findByTestId("home-webview")).props.onMessage as (
+      e: unknown,
+    ) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"analytics-ready","atMs":1}' } });
+    });
+  }
+
+  it("비포커스 탭 웹뷰는 sink로 붙지 않는다 — 이벤트가 큐에 남아 다음 sink로 간다", async () => {
+    await readyWebView(false);
+
+    trackNativeEvent("permission_denied_viewed");
+    const received: string[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.name));
+
+    expect(received).toEqual(["permission_denied_viewed"]);
+    // analytics-ready는 셸이 소비한다 — 공용 핸들러로 넘어가지 않는다.
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "analytics-ready" }),
+      expect.any(Function),
+    );
+  });
+
+  it("포커스 탭 웹뷰는 준비 신호 뒤 sink로 붙어 이벤트를 가져간다", async () => {
+    await readyWebView(true);
+
+    trackNativeEvent("permission_denied_viewed");
+    const received: string[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.name));
+
+    expect(received).toEqual([]);
   });
 });

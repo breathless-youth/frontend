@@ -1,3 +1,5 @@
+import { trackErrorFallbackReloaded } from "@/lib/amplitude";
+
 /**
  * 라우트 레벨 ErrorBoundary의 폴백(BY-372) — 렌더 크래시 시 흰 화면 대신 뜬다.
  *
@@ -15,7 +17,10 @@ export function ErrorFallback() {
       </p>
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        onClick={() => {
+          trackErrorFallbackReloaded();
+          window.location.reload();
+        }}
         className="mt-3 min-h-11 rounded-full bg-brand-subtle px-6 text-sm font-semibold text-primary"
       >
         새로고침

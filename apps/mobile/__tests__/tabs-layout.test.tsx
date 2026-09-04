@@ -3,6 +3,8 @@ import { BackHandler, Platform } from "react-native";
 
 import TabsLayout from "../app/(tabs)/_layout";
 
+import { __resetActiveTabForTests, getActiveTab } from "../lib/activeTab";
+import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 import { subscribeTabReset } from "../lib/tabReset";
 
 /**
@@ -94,4 +96,45 @@ it("iOS에서는 뒤로가기 핸들러를 등록하지 않는다", () => {
   render(<TabsLayout />);
 
   expect(BackHandler.addEventListener).not.toHaveBeenCalled();
+});
+
+it("내비게이터 상태의 활성 탭을 모듈 스코프에 기록한다 — 브리지 핸들러가 navigate-tab의 출발 탭으로 읽는다", () => {
+  __resetActiveTabForTests();
+  mockTabBarState.routes = [{ name: "index" }, { name: "records" }];
+  mockTabBarState.index = 1;
+
+  render(<TabsLayout />);
+
+  expect(getActiveTab()).toBe("record");
+  __resetActiveTabForTests();
+});
+
+it("Android 하드웨어 뒤로가기로 홈 탭에 돌아가는 것도 tab_pressed로 센다 — 경로만 hardware_back", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  mockTabBarState.routes = [{ name: "index" }, { name: "social" }];
+  mockTabBarState.index = 1;
+  __resetNativeAnalyticsForTests();
+  const received: unknown[] = [];
+  attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+
+  render(<TabsLayout />);
+  pressHardwareBack();
+
+  expect(received).toEqual([
+    ["tab_pressed", { tab: "home", from_tab: "social", via: "hardware_back" }],
+  ]);
+  __resetNativeAnalyticsForTests();
+});
+
+it("홈 탭에서의 뒤로가기는 앱 종료라 탭 이동 이벤트가 없다", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  __resetNativeAnalyticsForTests();
+  const received: unknown[] = [];
+  attachNativeAnalyticsSink((event) => received.push(event.name));
+
+  render(<TabsLayout />);
+  pressHardwareBack();
+
+  expect(received).toEqual([]);
+  __resetNativeAnalyticsForTests();
 });

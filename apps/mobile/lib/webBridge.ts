@@ -1,4 +1,4 @@
-import type { SubmitSessionMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -33,6 +33,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "session-ready", atMs: record.atMs };
     case "home-ready":
       return { type: "home-ready", atMs: record.atMs };
+    case "analytics-ready":
+      return { type: "analytics-ready", atMs: record.atMs };
     case "pong":
       // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
       if (typeof record.id !== "number") {
@@ -132,27 +134,6 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
-    case "submit-session":
-      if (
-        typeof record.requestId !== "string" ||
-        typeof record.request !== "object" ||
-        record.request === null
-      ) {
-        return null;
-      }
-      /**
-       * `request`가 객체라는 것만 확인하고 필드는 검증하지 않는다 — **의도된 것이다.**
-       * 이 값은 웹이 `buildSessionRequest`로 완성한 최종 요청 본문이고, 네이티브는 그것을
-       * 고치지 않고 그대로 POST한다(루트 `CLAUDE.md` 아키텍처 경계: 네이티브 셸에 세션 로직을
-       * 두지 않는다). 여기서 필드를 검증하면 계약이 두 곳에 중복되고, 웹이 계약을 넓힐 때마다
-       * 네이티브가 조용히 요청을 떨어뜨리는 원인이 된다. 값의 유효성은 서버가 판정한다.
-       */
-      return {
-        type: "submit-session",
-        requestId: record.requestId,
-        request: record.request as SubmitSessionMessage["request"],
-        atMs: record.atMs,
-      };
     default:
       return null;
   }

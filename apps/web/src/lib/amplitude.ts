@@ -3,6 +3,8 @@ import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
+import type { TrackEventMessage } from "@focusmakers/types";
+
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { parseUserId } from "./userId";
 
@@ -232,8 +234,18 @@ export function setAcquisitionChannel(channel: string) {
   identify(id);
 }
 
+/**
+ * 세션이 열린 룸의 종류 — 개인(single) / 그룹 스터디 소셜룸(social).
+ *
+ * 소셜룸(`LiveRoomSession`)이 개인 세션과 같은 `useStudyRoomSession`을 재사용하므로,
+ * 이 속성 없이는 `study_session_*` 이벤트가 구분 없이 섞여 F1(핵심 활성화 퍼널)이
+ * 오염된다(BY-472). 세션 이벤트 3종 전부에 실린다.
+ */
+export type StudyRoomType = "single" | "social";
+
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
+  readonly roomType: StudyRoomType;
   readonly studySec: number;
   readonly focusSec: number;
   readonly pauseSec: number;
@@ -246,10 +258,15 @@ export interface StudySessionEndedInput {
   readonly willSubmit: boolean;
 }
 
-/** 스터디룸 진입 = 세션 시작. 세션 완주율(시작 대비 종료)의 분모다. */
-export function trackStudySessionStarted() {
+/**
+ * 스터디룸 진입 = 세션 시작. 세션 완주율(시작 대비 종료)의 분모다.
+ *
+ * `restored`는 서버의 진행중 세션을 이어받은 진입(웹뷰 재로드·앱 재실행 뒤 복원)이다 — 같은 세션이
+ * 두 번 "시작"으로 찍히므로 완주율 분모에서는 `restored = false`만 센다(2026-09-05 최종 검토).
+ */
+export function trackStudySessionStarted(roomType: StudyRoomType, restored = false) {
   if (!initialized) return;
-  track("study_session_started");
+  track("study_session_started", { room_type: roomType, restored });
 }
 
 /**
@@ -262,6 +279,7 @@ export function trackStudySessionStarted() {
 export function trackStudySessionEnded(input: StudySessionEndedInput) {
   if (!initialized) return;
   track("study_session_ended", {
+    room_type: input.roomType,
     study_sec: Number(input.studySec),
     focus_sec: Number(input.focusSec),
     pause_sec: Number(input.pauseSec),
@@ -278,7 +296,529 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
  * 세션 제출 결과. 종료 이벤트와 달리 **시도마다** 보낸다 — 재시도 횟수와 실패율이
  * 여기서 나온다(웹뷰 브리지 유실은 실기기에서 실제로 겪은 문제다, `lib/bridge.ts`).
  */
-export function trackStudySessionSubmitted(ok: boolean, attempt: number) {
+export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomType: StudyRoomType) {
   if (!initialized) return;
-  track("study_session_submitted", { ok, attempt });
+  track("study_session_submitted", { ok, attempt, room_type: roomType });
+}
+
+/* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
+ *
+ * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰
+ * 성격이라 분석 도구로 나가면 안 된다(URL 정제가 `?userId`를 지키는 것과 같은 원칙).
+ * 코드 관련 계측은 존재 여부(`has_code`)·결과(`reason`)까지만 싣는다.
+ */
+
+/** 방 생성 성공 — 페이지뷰 근사(`/social/code` 진입)를 명시 이벤트로 대체한다. */
+export function trackSocialRoomCreated() {
+  if (!initialized) return;
+  track("social_room_created");
+}
+
+/** 방 생성 실패(2026-09-05) — `reason`은 입장 실패와 같은 규칙(서버 코드 / `HTTP_n` / `NETWORK_OR_UNKNOWN`). */
+export function trackSocialRoomCreateFailed(reason: string) {
+  if (!initialized) return;
+  track("social_room_create_failed", { reason });
+}
+
+/**
+ * 초대코드 입장 실패. `reason`은 서버 에러 코드(`RoomJoinErrorCode`) 또는
+ * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinErrorCopy.joinErrorReason`이 만든다.
+ * 실패 사유는 페이지뷰 퍼널로는 절대 보이지 않는, 초대 전환율 개선의 핵심 데이터다.
+ */
+export function trackSocialRoomJoinFailed(reason: string) {
+  if (!initialized) return;
+  track("social_room_join_failed", { reason });
+}
+
+/** 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다. */
+export function trackSocialRoomEntered(graceRejoin: boolean) {
+  if (!initialized) return;
+  track("social_room_entered", { grace_rejoin: graceRejoin });
+}
+
+export interface SocialRoomExitedInput {
+  /** 퇴장 시점의 룸 인원(나 포함). */
+  readonly memberCount: number;
+  /**
+   * `session_end`: 세션 종료 후 퇴장(수동/자동 구분은 `study_session_ended.end_reason`이
+   * 이미 갖는다 — 여기 중복하지 않는다). `grace_expired`: 백그라운드 유예 초과 종료.
+   */
+  readonly exitReason: "session_end" | "grace_expired";
+  /** 입장부터 퇴장까지 체류 시간 — 공부시간(`study_sec`)과 다른 축이다. */
+  readonly durationSec: number;
+}
+
+export function trackSocialRoomExited(input: SocialRoomExitedInput) {
+  if (!initialized) return;
+  track("social_room_exited", {
+    member_count: input.memberCount,
+    exit_reason: input.exitReason,
+    duration_sec: input.durationSec,
+  });
+}
+
+/**
+ * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinErrorCopy.rejoinFailure`의 leave/retry 판정
+ * 그대로다. 재입장 버그 계열(BY-437/443)의 실사용 영향을 여기서 잰다.
+ */
+export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: string) {
+  if (!initialized) return;
+  track("social_room_rejoin_failed", { kind, reason });
+}
+
+/** 백그라운드 유예(30초) 초과로 세션이 자동 종료된 복귀 — BY-467 안내 개선의 분모다. */
+export function trackSocialRoomGraceExceeded() {
+  if (!initialized) return;
+  track("social_room_grace_exceeded");
+}
+
+/* ── 초대 루프 이벤트 (BY-472) ── */
+
+/**
+ * 초대 공유 행동의 결과 — `shared`: OS 공유 시트(웹/브리지), `copied`: 클립보드
+ * (share 미지원 폴백과 코드 복사 버튼 둘 다), `failed`: 둘 다 실패.
+ */
+export function trackInviteShared(method: "shared" | "copied" | "failed") {
+  if (!initialized) return;
+  track("invite_shared", { method });
+}
+
+/** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
+export function trackInviteLinkOpened(hasCode: boolean) {
+  if (!initialized) return;
+  track("invite_link_opened", { has_code: hasCode });
+}
+
+/**
+ * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대발 신규 설치의 근사치다.
+ * ⚠️ 스토어 이동으로 페이지가 내려가면 전송이 유실될 수 있는 베스트 에포트 이벤트다 —
+ * 모바일 브라우저는 스토어가 별도 앱으로 열려 페이지가 살아남는 경우가 대부분이라 감수한다.
+ */
+export function trackStoreLinkRedirected(platform: "android" | "ios") {
+  if (!initialized) return;
+  track("store_link_redirected", { platform });
+}
+
+/* ── WebRTC 연결 품질 (BY-472) ── */
+
+/**
+ * 피어 연결 최초 수립 — 룸 세션당 상대별 1회(재연결은 세지 않는다 — `peerMesh`가 막는다).
+ * `path`는 선택된 ICE 후보 종류(host/srflx/prflx/relay, 통계 미지원이면 unknown) —
+ * `relay`면 TURN 경유다.
+ */
+export function trackPeerConnectionEstablished(input: { peerCount: number; path: string }) {
+  if (!initialized) return;
+  track("peer_connection_established", { peer_count: input.peerCount, path: input.path });
+}
+
+/**
+ * 피어 연결 종국 실패(ICE 재시작 시도까지 소진) — 상대별 1회. 소셜룸의 핵심 가치가
+ * 화면 공유라 이 실패율은 곧 기능 실패율이다.
+ */
+export function trackPeerConnectionFailed(peerCount: number) {
+  if (!initialized) return;
+  track("peer_connection_failed", { peer_count: peerCount });
+}
+
+/* ── 브리지 기반 앱 이벤트 (BY-472) ─────────────────────────────────────────
+ *
+ * 네이티브 Amplitude SDK 없이, 네이티브→웹 브리지(`lib/bridge.ts`) 메시지를 웹 SDK로
+ * 옮겨 담는다. 구독·배선은 `lib/appLifecycleAnalytics.ts` 한 곳이 소유한다.
+ */
+
+/** 네이티브 앱 실행(브리지 `app-launched`) — 페이지뷰보다 정확한 앱 실행 근사. */
+export function trackAppLaunched() {
+  if (!initialized) return;
+  track("app_launched");
+}
+
+/**
+ * OS 카메라 권한 상태 — 설정(S6)이 네이티브에 물어본 `camera-permission` 응답을 user property로
+ * 남긴다. 이벤트가 아니라 **상태**라 property가 맞다: "권한 거부 사용자" 코호트를 바로 만들 수 있고,
+ * 설정 탭을 여는 횟수만큼 이벤트가 찍히는 잡음이 없다. 권한 **게이트의 분기 결과**(허용/거부/
+ * 기거부/조회 실패)는 네이티브가 `camera_permission_gate_resolved`로 따로 보낸다(BY-616).
+ */
+export function setCameraPermissionUserProperty(granted: boolean) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("camera_permission_granted", granted);
+  identify(id);
+}
+
+/**
+ * 앱 환경 user property 일괄 설정 — `is_webview`(브리지 존재), `app_version`(셸이 URL에
+ * 실어 주는 `?appVersion`, `remoteQueryParams.ts` 계약 — 브라우저 단독이면 없어서 생략),
+ * `theme`. 호출처는 `initAppLifecycleAnalytics` 한 곳뿐이다.
+ */
+export function setAppEnvironmentUserProperties(input: {
+  isWebview: boolean;
+  appVersion: string | null;
+  theme: "light" | "dark";
+}) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("is_webview", input.isWebview);
+  if (input.appVersion !== null) {
+    id.set("app_version", input.appVersion);
+  }
+  id.set("theme", input.theme);
+  identify(id);
+}
+
+/** 실행 중 테마 변경(브리지 `theme` 메시지)을 user property에 반영한다. */
+export function setThemeUserProperty(scheme: "light" | "dark") {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("theme", scheme);
+  identify(id);
+}
+
+/**
+ * 네이티브 셸이 브리지 `track-event`로 넘긴 사용자 이벤트(`lib/nativeAnalytics.ts`) — 하단 탭 터치,
+ * 카메라 권한 게이트 결과, 권한 거부 안내(S2-3) 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
+ * **이벤트 카탈로그는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다** — 여기서는 이름을
+ * 해석하지 않는다.
+ *
+ * - `source: "native"`를 붙여 웹 발신 이벤트와 출처를 가른다.
+ * - `time`은 네이티브가 기록한 **발생 시각**이다. 이벤트는 포커스된 웹뷰가 준비될 때까지 네이티브
+ *   큐에 머물다 늦게 도착할 수 있어(권한 거부 화면이 탭을 덮은 동안 등) 전송 시각을 쓰면 타임라인
+ *   순서가 뒤집힌다. 세션 귀속은 SDK가 전송 시각으로 판단하므로 이 값에 영향받지 않는다.
+ */
+export function trackNativeShellEvent(event: TrackEventMessage) {
+  if (!initialized) return;
+  track(event.name, { ...event.properties, source: "native" }, { time: event.atMs });
+}
+
+/* ── 세션 내부·홈·설정·복구 이벤트 (BY-616 확장) ───────────────────────────
+ *
+ * 룸 안에서 일어나는 사용자 행동은 전부 웹이 안다 — 여기서 직접 찍는다. `room_type`은 소셜룸이
+ * 같은 훅(`useStudyRoomSession`)을 재사용해 개인/그룹이 섞이는 것을 막는 BY-472의 축과 같은 값.
+ *
+ * **원칙(2026-09-05 최종 검토): 사용자 사건은 전부 명시 이벤트로 남긴다.** autocapture의
+ * `[Amplitude] Element Clicked`는 SDK 소유의 안전망일 뿐 우리 이벤트가 아니다 — 요소 텍스트만 알고
+ * 의미(어느 룸 종류인지·몇 번째 스텝인지·결과가 어땠는지)는 모르고, 스와이프·회전·서버 응답은 아예
+ * 못 본다. 같은 순간에 다른 질문의 이벤트가 겹치는 것은 중복이 아니다(종료 요청 ↔ 종료 확정, 비집중
+ * 건별 ↔ 종료 집계). 중복은 **같은 사건을 같은 뜻으로 두 번** 찍는 것뿐이라, 한 사건은 한 발신부에서만
+ * 찍는다(상태 전이는 `applyState`·`pause`·`resume`이 실제 전이일 때만).
+ */
+
+/** 일시정지 시작. `trigger`는 수동(버튼) / 백그라운드(화면 꺼짐·앱 전환). 이미 정지 중이면 찍히지 않는다. */
+export function trackStudySessionPaused(trigger: "MANUAL" | "BACKGROUND", roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_paused", { trigger, room_type: roomType });
+}
+
+/**
+ * 재개 — 항상 사용자의 재개 버튼이다(자동 재개 없음, 2026-07-26 확정). `pause_sec`는 이번 정지가
+ * 이어진 시간, `trigger`는 그 정지를 시작한 쪽. 20분을 넘기면 자동 종료라 재개 이벤트 없이
+ * `study_session_ended {end_reason: AUTO}`로 끝난다.
+ */
+export function trackStudySessionResumed(input: {
+  readonly pauseSec: number;
+  readonly trigger: "MANUAL" | "BACKGROUND";
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_resumed", {
+    pause_sec: Number(input.pauseSec),
+    trigger: input.trigger,
+    room_type: input.roomType,
+  });
+}
+
+/**
+ * 비집중 구간 하나가 **끝났을 때** — 자리 이탈(AWAY)·휴대폰(PHONE)·기기 조작(DEVICE)이 얼마나
+ * 이어졌는지. 세션당 수십 건까지 날 수 있어 시작·끝을 따로 찍지 않고 끝에서 한 건으로 접는다.
+ * 세션 종료로 닫히는 마지막 구간은 찍지 않는다 — 그 몫은 `study_session_ended.distraction_sec`.
+ * 종료 이벤트의 `away_count/phone_count/device_count/pause_count`는 같은 집계의 세션 단위 요약이다
+ * (퍼널 필터용) — 건별 길이 분포는 여기서만 나온다.
+ * 원본 프레임·얼굴 데이터는 없다. 상태 enum과 초 단위 길이뿐이다.
+ */
+export function trackStudySessionDistracted(input: {
+  readonly status: "AWAY" | "PHONE" | "DEVICE";
+  readonly durationSec: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_distracted", {
+    status: input.status,
+    duration_sec: Number(input.durationSec),
+    room_type: input.roomType,
+  });
+}
+
+/** 카메라 전환 결과 — 실패 사유(`camera-off` / `no-alternative`)는 "전환할 카메라가 없어요" 토스트의 분모. */
+export function trackCameraFlipped(
+  result:
+    | { readonly ok: true; readonly facing: string }
+    | { readonly ok: false; readonly reason: string },
+  roomType: StudyRoomType,
+) {
+  if (!initialized) return;
+  track("camera_flipped", {
+    ok: result.ok,
+    facing: result.ok ? result.facing : null,
+    reason: result.ok ? null : result.reason,
+    room_type: roomType,
+  });
+}
+
+/** 컨트롤 바 종료 버튼 → S3-7 확인 다이얼로그 노출. 실제 종료는 `study_session_ended`가 갖는다. */
+export function trackStudySessionExitRequested(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_exit_requested", { room_type: roomType });
+}
+
+/** S3-7에서 "계속하기" — 종료 의사를 접은 횟수. 요청 대비 취소율이 종료 문구·위치의 근거가 된다. */
+export function trackStudySessionExitCancelled(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_exit_cancelled", { room_type: roomType });
+}
+
+/**
+ * 소셜룸 카메라 토글 — 끄기는 즉시(=일시정지), 켜기는 확인 다이얼로그를 거친 뒤에만 찍힌다.
+ * 룸에서 카메라 끔은 측정 일시정지와 동치라 `study_session_paused/resumed`도 같이 난다 — 이쪽은
+ * "카메라"라는 사용자 의도의 축이고, 저쪽은 측정 상태의 축이다.
+ */
+export function trackSocialRoomCameraToggled(on: boolean) {
+  if (!initialized) return;
+  track("social_room_camera_toggled", { on });
+}
+
+/** 소셜룸 카메라 켜기 확인 다이얼로그에서 취소 — 켜기 의사를 접은 횟수. */
+export function trackSocialRoomCameraOnDismissed() {
+  if (!initialized) return;
+  track("social_room_camera_on_dismissed");
+}
+
+/**
+ * 소셜룸에서 백그라운드·화면 꺼짐 뒤 돌아옴. `expired`면 30초 유예를 넘겨 종료 처리된 복귀다
+ * (`social_room_grace_exceeded`와 같은 순간). 유예 이내 복귀의 분포가 유예 값(30초)의 근거가 된다.
+ */
+export function trackSocialRoomBackgroundReturned(input: {
+  readonly hiddenSec: number;
+  readonly expired: boolean;
+}) {
+  if (!initialized) return;
+  track("social_room_background_returned", {
+    hidden_sec: Number(input.hiddenSec),
+    expired: input.expired,
+  });
+}
+
+/**
+ * 홈 "집중 시작" 탭 — 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정한다. autocapture
+ * 클릭은 분기를 모른다. F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모.
+ */
+export function trackFocusStartTapped(destination: "guide" | "session") {
+  if (!initialized) return;
+  track("focus_start_tapped", { destination });
+}
+
+/** 설정 탭 카메라 권한 행 → OS 설정 열기 요청. 권한 거부 안내(S2-3)의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다. */
+export function trackOsSettingsOpened(source: "settings_tab") {
+  if (!initialized) return;
+  track("os_settings_opened", { source });
+}
+
+/** 앱 실행 시 미확정 세션을 기록으로 확정했다는 안내 노출. `focus_sec`는 확정된 순공 시간. */
+export function trackSessionRecoveryPrompted(focusSec: number) {
+  if (!initialized) return;
+  track("session_recovery_prompted", { focus_sec: Number(focusSec) });
+}
+
+/** 위 안내의 확인 버튼. */
+export function trackSessionRecoveryConfirmed() {
+  if (!initialized) return;
+  track("session_recovery_confirmed");
+}
+
+/**
+ * 세션 화면의 회전(2026-09-05) — 가로 거치 모드(S3-5·S3-6, 소셜룸 가로 그리드)를 실제로 쓰는지는
+ * 클릭이 아니라 기기 회전이라 autocapture에 전혀 없다. 마운트 시점의 방향은 찍지 않고 **바뀔 때만**
+ * 남긴다(`features/study-session/useSessionOrientationAnalytics.ts`).
+ */
+export function trackSessionOrientationChanged(input: {
+  readonly orientation: "portrait" | "landscape";
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("session_orientation_changed", {
+    orientation: input.orientation,
+    room_type: input.roomType,
+  });
+}
+
+/** 싱글룸 심플 모드(S3-4) 토글(2026-09-05) — 화면 탭 한 번으로 켜고 끈다. `on`은 전환 후 상태. */
+export function trackSessionSimpleModeToggled(on: boolean) {
+  if (!initialized) return;
+  track("session_simple_mode_toggled", { on });
+}
+
+/* ── 화면별 잔여 상호작용 (BY-616 확장 2차) ──────────────────────────────────
+ *
+ * 실기기 검증 중 "붙일 수 있는 요소는 전부 붙인다"로 범위를 넓혔다(2026-09-05). 운영에서는
+ * autocapture가 모든 클릭을 `[Amplitude] Element Clicked`로 잡지만 어느 버튼인지(요소 텍스트)만
+ * 알고 **의미**(몇 번째 스텝인지, 오늘 날짜인지, 어느 룸 종류인지)는 모른다 — 그 의미를 가진
+ * 컴포넌트에서 명시 이벤트로 남긴다. 속성은 enum·boolean·수만 — 닉네임·목표 문구·초대코드 금지.
+ */
+
+/**
+ * 온보딩 가이드 진입(2026-09-05) — 어느 경로로 들어왔는지(`entry`: 홈 "집중 시작" 첫 실행 /
+ * 홈 가이드 카드 / 설정 "측정 기준 안내"). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
+ * 순간이지만 따로 둔다 — 스텝 이벤트는 진행을, 이 이벤트는 유입을 묻는다(같은 `entry`가 가이드
+ * 이벤트 전부에 실려 어느 쪽으로도 세그먼트할 수 있다).
+ */
+export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings") {
+  if (!initialized) return;
+  track("guide_entered", { entry });
+}
+
+/**
+ * 온보딩 가이드 스텝 노출 — 라우트 하나(`/onboarding-guide`)라 페이지뷰로는 스텝별 이탈이 절대
+ * 안 잡힌다. `method`는 그 스텝에 온 수단: 첫 진입 `initial`, CTA 버튼 `cta`, 탭·스와이프 `gesture`,
+ * 이전 `prev`. 뒤로 갔다 다시 오면 같은 스텝이 다시 찍힌다(중복 제거는 차트에서 "첫 발생" 기준).
+ */
+export function trackGuideStepViewed(input: {
+  readonly step: number;
+  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly method: "initial" | "cta" | "gesture" | "prev";
+}) {
+  if (!initialized) return;
+  track("guide_step_viewed", {
+    step: Number(input.step),
+    entry: input.entry,
+    method: input.method,
+  });
+}
+
+/** 가이드 종료 — 완료(G5 CTA) 또는 건너뛰기. `step`은 그때 보고 있던 스텝(건너뛴 위치). */
+export function trackGuideFinished(input: {
+  readonly reason: "completed" | "skipped";
+  readonly step: number;
+  readonly entry: "focus-start" | "home-card" | "settings";
+}) {
+  if (!initialized) return;
+  track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
+}
+
+/** 기록 달력 날짜 선택. 절대 날짜는 싣지 않고 오늘 여부·기록 유무만 — 과거 탐색 깊이의 근사. */
+export function trackRecordsDateSelected(input: {
+  readonly isToday: boolean;
+  readonly hasRecords: boolean;
+}) {
+  if (!initialized) return;
+  track("records_date_selected", { is_today: input.isToday, has_records: input.hasRecords });
+}
+
+/** 기록 달력 월 이동. `delta`는 -1(이전)/1(다음), `method`는 화살표 버튼/스와이프. */
+export function trackRecordsMonthChanged(input: {
+  readonly delta: -1 | 1;
+  readonly method: "button" | "swipe";
+}) {
+  if (!initialized) return;
+  track("records_month_changed", { delta: input.delta, method: input.method });
+}
+
+/** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
+export function trackSettingsRowPressed(
+  row: "profile" | "guide" | "contact" | "terms" | "privacy" | "licenses",
+) {
+  if (!initialized) return;
+  track("settings_row_pressed", { row });
+}
+
+/** 프로필 저장 제출(검증 통과 후). 어떤 필드를 바꿨는지만 — 값은 싣지 않는다. */
+export function trackProfileSaveSubmitted(input: {
+  readonly nickname: boolean;
+  readonly goal: boolean;
+  readonly category: boolean;
+}) {
+  if (!initialized) return;
+  track("profile_save_submitted", {
+    changed_nickname: input.nickname,
+    changed_goal: input.goal,
+    changed_category: input.category,
+  });
+}
+
+/** 프로필 저장 결과. 실패 `reason`은 서버 코드(`NICKNAME_TAKEN` 등)나 `NETWORK_OR_UNKNOWN`. */
+export function trackProfileSaveResult(result: { ok: true } | { ok: false; reason: string }) {
+  if (!initialized) return;
+  if (result.ok) {
+    track("profile_save_succeeded");
+    return;
+  }
+  track("profile_save_failed", { reason: result.reason });
+}
+
+/** S4 결과 화면을 닫음 — 하단 CTA(`cta`) 또는 우상단 X(`close`). 둘 다 홈(소셜)으로 간다. */
+export function trackStudyResultConfirmed(input: {
+  readonly roomType: StudyRoomType;
+  readonly via: "cta" | "close";
+}) {
+  if (!initialized) return;
+  track("study_result_confirmed", { room_type: input.roomType, via: input.via });
+}
+
+/** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
+export function trackStudyResultDistractionToggled(input: {
+  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
+  readonly expanded: boolean;
+}) {
+  if (!initialized) return;
+  track("study_result_distraction_toggled", { status: input.status, expanded: input.expanded });
+}
+
+/** 세션 종료 안내 확인 — 자동 종료(S3-8) "결과 보기" / 순공 1분 미만 안내 "홈으로". */
+export function trackSessionNoticeConfirmed(input: {
+  readonly notice: "auto_end" | "sub_minute";
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("session_notice_confirmed", { notice: input.notice, room_type: input.roomType });
+}
+
+/** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
+export function trackErrorRetryPressed(
+  screen: "home" | "records" | "profile" | "live_room_entry" | "contact",
+) {
+  if (!initialized) return;
+  track("error_retry_pressed", { screen });
+}
+
+/** 렌더 크래시 폴백의 "새로고침" — 에러 자체는 Sentry가 갖고, 사용자가 복구를 시도한 횟수만 센다. */
+export function trackErrorFallbackReloaded() {
+  if (!initialized) return;
+  track("error_fallback_reloaded");
+}
+
+/** 전체 화면 라우트의 뒤로가기 헤더. `path`는 정제된 현재 경로(`/profile`·`/social/code` 등). */
+export function trackScreenBackPressed(path: string) {
+  if (!initialized) return;
+  track("screen_back_pressed", { path });
+}
+
+/** 웹 강제 업데이트 모달의 스토어 이동 — 네이티브 게이트가 없는 구버전 바이너리 전용 경로. */
+export function trackForceUpdateStoreOpened() {
+  if (!initialized) return;
+  track("force_update_store_opened", { source: "web" });
+}
+
+/**
+ * 웹 강제 업데이트 모달 노출(2026-09-05) — 라우트 트리 대신 뜨는 모달이라 페이지뷰가 노출을 대변하지
+ * 못한다(그 순간의 페이지뷰는 모달 뒤의 경로로 찍힌다). 네이티브 `recommended_update_prompted`와 같은
+ * 결의 노출 이벤트다. `app_version`·`min_version`은 버전 문자열이지 식별자가 아니다. BY-586 이후
+ * 바이너리의 **네이티브** 강제 업데이트 알림창은 웹뷰가 없어 어느 통로로도 못 잡는다.
+ */
+export function trackForceUpdatePrompted(input: {
+  readonly appVersion: string;
+  readonly minVersion: string;
+}) {
+  if (!initialized) return;
+  track("force_update_prompted", {
+    source: "web",
+    app_version: input.appVersion,
+    min_version: input.minVersion,
+  });
 }

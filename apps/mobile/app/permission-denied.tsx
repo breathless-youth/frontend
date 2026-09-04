@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import {
   AccessibilityInfo,
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconCameraOff } from "../components/icons";
 import { PrimaryCtaButton } from "../components/PrimaryCtaButton";
 import { getCameraPermissionStatus, openAppSettings } from "../lib/cameraPermission";
+import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 /**
  * S2-3 · 권한 거부 안내 — Figma node `52:312`, 스펙 `frontend/docs/screens/SCR-S2-camera-permission.md`.
@@ -34,7 +35,12 @@ export default function PermissionDeniedScreen() {
   const insets = useSafeAreaInsets();
   const titleRef = useRef<Text>(null);
 
-  const goHome = useCallback(() => {
+  const navigation = useNavigation();
+  /** 이탈 사유 — 버튼·자동 복귀가 채운다. 비어 있는 채로 빠지면 하드웨어 백·스와이프 백이다. */
+  const leaveReasonRef = useRef<"back_home" | "permission_granted" | null>(null);
+
+  const goHome = useCallback((reason: "back_home" | "permission_granted") => {
+    leaveReasonRef.current = reason;
     // 하드웨어 백·스와이프 백도 같은 결과(홈 복귀)를 낸다 — 백 제스처를 막지 않는다.
     if (router.canGoBack()) {
       router.back();
@@ -42,6 +48,20 @@ export default function PermissionDeniedScreen() {
     }
     router.replace("/");
   }, []);
+
+  // S2-3 노출 — 네이티브 화면이라 웹 페이지뷰가 없다. 이 화면이 탭 웹뷰를 덮는 동안의 이벤트는
+  // 큐에 있다가 홈으로 돌아온 뒤 전달된다(`lib/nativeAnalytics.ts`).
+  useEffect(() => {
+    trackNativeEvent("permission_denied_viewed");
+  }, []);
+
+  // 이탈은 화면이 스택에서 빠지는 순간 한 번만 남긴다 — 버튼·자동 복귀·하드웨어 백·스와이프 백이
+  // 전부 여기를 지나므로 경로마다 찍지 않는다. 사유가 비어 있으면 제스처 이탈이다.
+  useEffect(() => {
+    return navigation.addListener("beforeRemove", () => {
+      trackNativeEvent("permission_denied_left", { reason: leaveReasonRef.current ?? "back" });
+    });
+  }, [navigation]);
 
   // 화면 진입 시 스크린 리더 포커스를 타이틀로 보낸다.
   useEffect(() => {
@@ -64,7 +84,7 @@ export default function PermissionDeniedScreen() {
           }
           // 확정(2026-07-27): 홈으로 복귀만 하고 세션은 자동 시작하지 않는다 — 사용자가
           // 명시적으로 "집중 시작"을 누르지 않은 상태에서 카메라를 켜지 않는다.
-          goHome();
+          goHome("permission_granted");
         })
         // 조회에 실패하면 이 화면에 그대로 머문다 — 상태를 모르는 채 화면을 옮기지 않는다.
         .catch((error: unknown) => {
@@ -124,13 +144,14 @@ export default function PermissionDeniedScreen() {
         <PrimaryCtaButton
           label="설정 열기"
           onPress={() => {
+            trackNativeEvent("permission_denied_settings_opened");
             // 설정 앱으로만 이동한다 — 앱 내부 화면 전환은 없다(S2-3 그대로 유지).
             void openAppSettings();
           }}
         />
         {/* 텍스트 높이는 16px뿐이라 상하 패딩 14px로 터치 영역을 44px까지 넓힌다(시각 위치는 Figma 유지) */}
         <Pressable
-          onPress={goHome}
+          onPress={() => goHome("back_home")}
           accessibilityRole="button"
           className="mt-[12px] items-center justify-center py-[14px]"
         >

@@ -4,50 +4,84 @@ import buildConfig from "../../app.config";
 import appJson from "../../app.json";
 
 /**
- * 운영 웹 호스트와 딥링크 등록 도메인이 함께 움직이는지 고정한다.
+ * 스킴과 App Link 선언이 빌드 변형에서 파생되는지 고정한다.
  *
  * BY-450이 apex(`focusmakers.app`)를 선등록했는데 BY-464가 확정한 실제 웹 호스트는
- * `web.focusmakers.app`이어서, 신 도메인 유니버설 링크가 조용히 죽는 어긋남이 실제로
- * 있었다(BY-451에서 발견). 운영 웹 주소가 바뀌면 이 테스트가 등록 누락을 잡는다.
+ * `web.focusmakers.app`이어서, 신 도메인 유니버설 링크가 아무 표시 없이 죽는 어긋남이 실제로
+ * 있었다. 웹 주소에서 호스트를 뽑아 대조하므로 운영 웹 주소가 바뀌면 여기서 잡힌다.
  */
-describe("딥링크 도메인 등록", () => {
-  const baseConfig = appJson.expo as unknown as ExpoConfig;
+// production 분기는 Firebase 설정 파일 주입을 요구한다. 이 파일의 관심사가 아니라 운영 fixture를 준다.
+const PROD_FIREBASE_ENV = {
+  GOOGLE_SERVICES_JSON: "./lib/__tests__/fixtures/firebase/prod/google-services.json",
+  GOOGLE_SERVICES_PLIST: "./lib/__tests__/fixtures/firebase/prod/GoogleService-Info.plist",
+};
 
+describe("딥링크 선언은 APP_VARIANT에서 파생된다", () => {
+  // JSON import는 문자열이 전부 string으로 넓혀져 ExpoConfig의 유니언 타입과 안 맞는다.
+  // 실데이터 검증이 목적이므로 캐스트한다.
+  const baseConfig = appJson.expo as unknown as ExpoConfig;
   const savedEnv = { ...process.env };
   afterEach(() => {
     process.env = { ...savedEnv };
   });
 
-  function prodWebHost(): string {
-    process.env.APP_VARIANT = "production";
-    const extra = buildConfig({ config: baseConfig } as ConfigContext).extra;
-    return new URL(extra?.webBaseUrl as string).hostname;
+  function build(variant: string | undefined, extraEnv: Record<string, string> = {}) {
+    if (variant === undefined) delete process.env.APP_VARIANT;
+    else process.env.APP_VARIANT = variant;
+    delete process.env.API_BASE_URL;
+    delete process.env.WEB_BASE_URL;
+    delete process.env.GOOGLE_SERVICES_JSON;
+    delete process.env.GOOGLE_SERVICES_PLIST;
+    Object.assign(process.env, extraEnv);
+    return buildConfig({ config: baseConfig } as ConfigContext);
   }
 
-  it("iOS associatedDomains에 운영 웹 호스트가 등록돼 있다", () => {
-    expect(appJson.expo.ios.associatedDomains).toContain(`applinks:${prodWebHost()}`);
+  it("app.json에는 정적 딥링크 선언이 없다", () => {
+    expect(appJson.expo).not.toHaveProperty("scheme");
+    expect(appJson.expo.ios).not.toHaveProperty("associatedDomains");
+    expect(appJson.expo.android).not.toHaveProperty("intentFilters");
   });
 
-  it("Android intentFilters에 운영 웹 호스트가 올바른 필터 속성으로 등록돼 있다", () => {
-    // 호스트 존재만 보면 autoVerify 없는 필터나 다른 경로에 들어가도 통과한다 —
-    // App Links가 실제로 성립하는 조합(https + /social/join + autoVerify)째로 대조한다.
-    const host = prodWebHost();
-    const entry = appJson.expo.android.intentFilters
-      .filter((filter) => filter.autoVerify === true)
-      .flatMap((filter) => filter.data)
-      .find((data) => data.host === host);
-    expect(entry).toEqual({ scheme: "https", host, pathPrefix: "/social/join" });
+  it("production은 대표·레거시 스킴과 운영·레거시 호스트를 선언한다", () => {
+    const cfg = build("production", PROD_FIREBASE_ENV);
+    expect(cfg.scheme).toEqual(["focusmakers", "focuson"]);
+    const webHost = new URL(cfg.extra?.webBaseUrl as string).hostname;
+    expect(cfg.ios?.associatedDomains).toEqual([
+      `applinks:${webHost}`,
+      "applinks:web.sunqstudio.kr",
+    ]);
+    expect(cfg.android?.intentFilters).toEqual([
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          { scheme: "https", host: webHost, pathPrefix: "/social/join" },
+          { scheme: "https", host: "web.sunqstudio.kr", pathPrefix: "/social/join" },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ]);
+    expect(cfg.extra?.appSchemes).toEqual(["focusmakers", "focuson"]);
+    expect(cfg.extra?.deepLinkHosts).toEqual([webHost, "web.sunqstudio.kr"]);
   });
 
-  it("구 도메인은 그대로 남아 있다 — 구 바이너리와 이미 공유된 링크가 계속 살아야 한다", () => {
-    expect(appJson.expo.ios.associatedDomains).toContain("applinks:web.sunqstudio.kr");
-    const hosts = appJson.expo.android.intentFilters.flatMap((filter) =>
-      filter.data.map((entry) => entry.host),
-    );
-    expect(hosts).toContain("web.sunqstudio.kr");
+  it("staging은 전용 스킴과 web-dev 호스트만 선언한다", () => {
+    const cfg = build("staging");
+    expect(cfg.scheme).toEqual(["focusmakers-staging"]);
+    const webHost = new URL(cfg.extra?.webBaseUrl as string).hostname;
+    expect(cfg.ios?.associatedDomains).toEqual([`applinks:${webHost}`]);
+    expect(cfg.android?.intentFilters?.[0]?.data).toEqual([
+      { scheme: "https", host: webHost, pathPrefix: "/social/join" },
+    ]);
+    expect(cfg.extra?.deepLinkHosts).toEqual([webHost]);
   });
 
-  it("커스텀 스킴은 focusmakers(대표)와 focuson(구빌드 호환)을 함께 등록한다", () => {
-    expect(appJson.expo.scheme).toEqual(["focusmakers", "focuson"]);
+  it("development는 스킴만 두고 App Link를 선언하지 않는다", () => {
+    const cfg = build(undefined);
+    expect(cfg.scheme).toEqual(["focusmakers-dev"]);
+    expect(cfg.ios).not.toHaveProperty("associatedDomains");
+    expect(cfg.android).not.toHaveProperty("intentFilters");
+    expect(cfg.extra?.appSchemes).toEqual(["focusmakers-dev"]);
+    expect(cfg.extra?.deepLinkHosts).toEqual([]);
   });
 });

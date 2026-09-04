@@ -3,6 +3,7 @@ import {
   requestCameraPermission,
   type CameraPermissionStatus,
 } from "./cameraPermission";
+import { trackNativeEvent } from "./nativeAnalytics";
 
 /**
  * 세션 진입 권한 게이트 (`frontend/docs/screens/SCR-S2-camera-permission.md` Interaction Contract).
@@ -58,18 +59,41 @@ export type CameraPermissionGateResult = "start-session" | "show-denied-guide";
  * "카메라 권한 없이 사용 불가"(`policies.md` §3)에 맞고, 사용자에게 "설정 열기"라는
  * 행동 가능한 경로가 남는다. 버튼이 아무 반응 없는 상태로 두지 않는다.
  * 이 함수는 reject하지 않으므로 호출부는 결과 분기만 하면 된다.
+ *
+ * 분기 결과는 `camera_permission_gate_resolved`로 웹 Amplitude에 넘긴다(`lib/nativeAnalytics.ts`) —
+ * OS 다이얼로그 거부율은 웹이 관측할 수 없는 값이고, 수동 타이머 모드 우선순위의 직접 근거다.
+ * `roomType`은 집중 시작(`single`)과 소셜룸 입장 게이트(`social`)를 가른다.
  */
-export async function runCameraPermissionGate(): Promise<CameraPermissionGateResult> {
+export async function runCameraPermissionGate(
+  roomType: "single" | "social" = "single",
+): Promise<CameraPermissionGateResult> {
+  // 이번 호출에서 OS 다이얼로그(S2-2)를 실제로 띄웠는지 — 실패(catch)도 그 시점에 따라 갈린다.
+  let prompted = false;
   try {
     const decision = decideFromPermissionStatus(await getCameraPermissionStatus());
     if (decision !== "request-permission") {
+      trackNativeEvent("camera_permission_gate_resolved", {
+        result: decision === "start-session" ? "granted" : "already_denied",
+        prompted,
+        room_type: roomType,
+      });
       return decision;
     }
-    return decideFromPermissionStatus(await requestCameraPermission()) === "start-session"
-      ? "start-session"
-      : "show-denied-guide";
+    prompted = true;
+    const granted = decideFromPermissionStatus(await requestCameraPermission()) === "start-session";
+    trackNativeEvent("camera_permission_gate_resolved", {
+      result: granted ? "granted" : "denied",
+      prompted,
+      room_type: roomType,
+    });
+    return granted ? "start-session" : "show-denied-guide";
   } catch (error) {
     console.warn("[camera-permission] 권한 조회 실패 — 세션을 시작하지 않고 안내 화면으로", error);
+    trackNativeEvent("camera_permission_gate_resolved", {
+      result: "error",
+      prompted,
+      room_type: roomType,
+    });
     return "show-denied-guide";
   }
 }

@@ -12,8 +12,8 @@ import { RemoteWebViewHost } from "./RemoteWebViewHost";
  *
  * 세 가지를 한 곳에 모은다 — 화면마다 복붙하지 않기 위해서다:
  * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(userId·appVersion)를 붙인다.
- * 2. `handleBridgeMessage`로 브리지 수신(start-session·navigate-home·open-settings·
- *    submit-session 대행)을 공용화한다.
+ * 2. `handleBridgeMessage`로 브리지 수신(start-session·navigate-home·open-settings 등)을
+ *    공용화한다.
  * 3. 파라미터 조립부터 첫 웹뷰 로드가 끝날 때까지 스플래시로 가려 흰 화면을 막는다.
  *
  * `RemoteWebViewHost`(URL 조립·오리진 제한·실패 폴백)는 그대로 소비만 한다.
@@ -185,6 +185,9 @@ export function RemoteScreen({
           onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}
           onRecoveryStart={onRecoveryStart}
+          // 탭 포커스 신호(suppressTabBarMessages)를 그대로 쓴다 — 네이티브 사용자 이벤트를 받을
+          // 웹뷰는 지금 보이는 하나여야 한다(`lib/nativeAnalytics.ts`). 세션 화면은 prop을 생략해 항상 활성.
+          focused={!suppressTabBarMessages}
         />
       )}
       {showSplash && (

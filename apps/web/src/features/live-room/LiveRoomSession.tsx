@@ -29,8 +29,17 @@ import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-sess
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import {
+  trackSocialRoomCameraOnDismissed,
+  trackSocialRoomCameraToggled,
+  trackSocialRoomExited,
+  trackSocialRoomGraceExceeded,
+  trackStudySessionExitCancelled,
+  trackStudySessionExitRequested,
+} from "@/lib/amplitude";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
@@ -84,6 +93,8 @@ export function LiveRoomSession({
   useGestureVideoPlaybackKick();
   // iOS 회전 백지(세로 복귀 시 순백 화면) 방어 — lib/rotationRepaint.ts 주석 참고.
   useRotationRepaintNudge();
+  // 가로 그리드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  useSessionOrientationAnalytics("social");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
@@ -109,7 +120,14 @@ export function LiveRoomSession({
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector, systemPause, restored });
+  } = useStudyRoomSession(userId, {
+    camera,
+    detector,
+    systemPause,
+    restored,
+    // 계측용(BY-472) — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
+    roomType: "social",
+  });
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
@@ -129,6 +147,9 @@ export function LiveRoomSession({
   // 이동은 유예 만료 취급이어야 한다(같은 복귀 이벤트에서 이 콜백이 이어서 돈다).
   const [graceExpired, setGraceExpired] = useState(false);
   const handleGraceExpire = useCallback(() => {
+    // BY-467 안내 개선의 분모(BY-472). 공용 20분 감시자가 먼저 끝낸 경우(이 콜백 미호출)는
+    // 세지 않는다 — 그 경로도 퇴장 계측(social_room_exited)의 grace_expired가 잡는다.
+    trackSocialRoomGraceExceeded();
     setGraceExpired(true);
     channel.disconnect();
     void endAndSubmit(autoEndReason("BACKGROUND"));
@@ -246,6 +267,8 @@ export function LiveRoomSession({
   const { selfSurfaceRef, previewAspect, measurePreviewAspect } =
     useCameraPreviewAspect(cameraDialogOpen);
   const leavingRef = useRef(false);
+  // 체류 시간(social_room_exited.duration_sec)의 기점 — 이 컴포넌트 마운트가 곧 입장이다.
+  const enteredAtMsRef = useRef(Date.now());
 
   // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
   // 된다(sessionCopy.SUB_MINUTE_EXIT_DESCRIPTION과 같은 원칙). 제출은 그래도 한다.
@@ -270,6 +293,14 @@ export function LiveRoomSession({
     // 숨어 있는 동안 공용 20분 감시자가 먼저 종료를 끝내면 만료 콜백이 오지 않는다 —
     // 이동 시점에 숨김 경과를 다시 물어 그 순서에서도 만료 취급이 빠지지 않게 한다.
     const expired = graceExpired || isExpiredNow();
+    // 퇴장 계측(BY-472) — leavingRef가 세션당 1회를 보장한다. 수동/자동 종료 구분은
+    // study_session_ended.end_reason(room_type=social)이 이미 가지므로 중복하지 않는다.
+    const trackExit = () =>
+      trackSocialRoomExited({
+        memberCount: allMembers.length,
+        exitReason: expired ? "grace_expired" : "session_end",
+        durationSec: Math.round((Date.now() - enteredAtMsRef.current) / 1000),
+      });
     if (phase.name === "done") {
       leavingRef.current = true;
       const nav = resolveLiveRoomDoneNavigation({
@@ -289,6 +320,7 @@ export function LiveRoomSession({
       if (expired) {
         markSocialRoomNotice(graceEndNotice(true));
       }
+      trackExit();
       navigate(
         { pathname: "/social", search: location.search },
         { replace: true, state: { noticeHandoff: true } },
@@ -298,12 +330,14 @@ export function LiveRoomSession({
     if (phase.name === "error" && expired) {
       leavingRef.current = true;
       markSocialRoomNotice(graceEndNotice(false));
+      trackExit();
       navigate(
         { pathname: "/social", search: location.search },
         { replace: true, state: { noticeHandoff: true } },
       );
     }
   }, [
+    allMembers.length,
     endReason,
     focusSec,
     graceEndNotice,
@@ -404,6 +438,7 @@ export function LiveRoomSession({
             hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
+                trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
               } else {
@@ -412,7 +447,10 @@ export function LiveRoomSession({
               }
             }}
             onFlipCamera={() => void flipCamera()}
-            onExit={() => setExitDialogOpen(true)}
+            onExit={() => {
+              trackStudySessionExitRequested("social");
+              setExitDialogOpen(true);
+            }}
           />
         </div>
       </div>
@@ -426,8 +464,12 @@ export function LiveRoomSession({
               targetAspect={previewAspect ?? undefined}
             />
           }
-          onCancel={() => setCameraDialogOpen(false)}
+          onCancel={() => {
+            trackSocialRoomCameraOnDismissed();
+            setCameraDialogOpen(false);
+          }}
           onConfirm={() => {
+            trackSocialRoomCameraToggled(true);
             setCameraDialogOpen(false);
             setCameraWanted(true);
             resume();
@@ -440,7 +482,10 @@ export function LiveRoomSession({
           description={exitConfirmDescription(focusSec)}
           cancelLabel={EXIT_CONFIRM_COPY.cancel}
           confirmLabel={EXIT_CONFIRM_COPY.confirm}
-          onCancel={() => setExitDialogOpen(false)}
+          onCancel={() => {
+            trackStudySessionExitCancelled("social");
+            setExitDialogOpen(false);
+          }}
           onConfirm={() => {
             setExitDialogOpen(false);
             void endAndSubmit(MANUAL_END_REASON);

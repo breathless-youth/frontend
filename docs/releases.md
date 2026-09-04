@@ -16,6 +16,18 @@
   capability 정도면 충분하다.
 - capability는 셸이 웹에 쿼리로 알려주는 지원 표시를 말한다 (예: `share=1`, `cameraGate=1`).
 
+## 최소 지원 버전 정책 (BY-586, 2026-09-04)
+
+- **원천은 prod Firebase 프로젝트(`focusmakers-prod`)의 Remote Config `min_supported_version`이다.** 문자열 `x.y.z`. 앱은 부팅 시 지난 실행에서 받아 둔 값을 활성화해 `expo.version`(네이티브 앱 버전)과 비교하고, 낮으면 웹뷰 대신 OS 알림창으로 막는다(`apps/mobile/lib/forceUpdate.ts`·`forceUpdateAlert.ts`).
+- **반영 시점은 "다음 실행"이다.** 값을 올린 뒤 앱을 한 번 실행하면 백그라운드로 받아 두고, 그다음 실행부터 걸린다. 운영 빌드의 fetch 최소 간격은 1시간이라 최대 1시간 + 재실행 1회가 걸릴 수 있다. 개발 빌드는 간격 0.
+- **값을 못 읽으면 막지 않는다(fail-open).** 형식이 `x.y.z`가 아니거나 비어 있거나 활성화가 1초 안에 끝나지 않으면 통과한다. 그러니 값은 반드시 세 자리 숫자 버전으로 넣고 게시한다.
+- **올리는 절차**: 스토어 심사 통과 후 → Firebase 콘솔 prod → Remote Config → `min_supported_version` 값 변경 → 변경사항 게시. dev 프로젝트에서 같은 값으로 먼저 리허설한다. 절대 현재 스토어 최신 버전보다 높게 넣지 않는다(전원 차단).
+- **플랫폼별로 다르게 줄 때**는 키를 나누지 않고 콘솔 조건을 쓴다: 조건 탭에서 "적용 대상: 앱"으로 `iOS 앱`·`Android 앱` 조건을 만들고, `min_supported_version`에 "새 조건에 대한 값 추가"로 각각 값을 넣는다. 기본값 `1.0.0`은 어느 조건에도 안 걸릴 때의 안전값으로 남긴다. 앱 코드는 같은 키 하나만 읽으므로 변경이 없다.
+- **구버전 바이너리(BY-586 이전 빌드, iOS 1.0.1(2)·Android 1.0.2(5) 이하)**는 네이티브 게이트가 없어 웹 `apps/web/src/features/force-update/version.ts`의 상수 `MIN_SUPPORTED_VERSION`으로만 막을 수 있다. 그 바이너리를 막아야 할 때는 상수를 올리고 웹을 배포한다. BY-586 이후 바이너리는 웹뷰 URL에 `nativeUpdateGate=1`을 붙여 웹 게이트를 건너뛴다.
+- **알림창 문구도 콘솔에서 바꿀 수 있다.** 같은 프로젝트의 `force_update_title`·`force_update_message`·`force_update_button`(string). 키가 없거나 비어 있으면 앱에 들어 있는 기본 문구(BY-533 카피)를 쓰므로 만들지 않아도 된다. 플랫폼별 문구는 위와 같은 조건으로 나눈다. 반영은 역시 "다음 실행".
+- BE 최소 버전 API 경로(BY-535·536·579)는 이 정책으로 대체됐다.
+- **권장 업데이트는 같은 프로젝트의 `latest_version`이다.** 앱 버전이 이 값보다 낮으면(막히지는 않을 때) 홈 위에 "나중에"가 있는 알림창을 최신 버전당 한 번 띄운다(`apps/mobile/lib/recommendedUpdateAlert.ts`). 출시 때마다 올리는 값이라 `min_supported_version`과 분리한다: 스토어 심사 통과 후 → `latest_version` = 새 버전 → 게시. iOS 단계적 출시 중이라 스토어에 아직 안 보이는 사용자도 있을 수 있는데 "나중에"가 있으니 무해하다. 기본값 `0.0.0`은 아무에게도 띄우지 않는다. 플랫폼별로 버전이 다르면 콘솔 조건(플랫폼·"앱 버전 <")으로 값을 갈라 준다. 문구는 `recommended_update_title`·`recommended_update_message`·`recommended_update_later_button`·`recommended_update_confirm_button`(string, 선택)으로 콘솔에서 바꿀 수 있고 없으면 앱 초안 문구다.
+
 ## 기록
 
 | 날짜       | 컴포넌트 | 버전(빌드) | 커밋      | 채널             | 비고                                                        |

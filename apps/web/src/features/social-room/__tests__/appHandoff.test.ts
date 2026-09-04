@@ -7,15 +7,16 @@ import {
   openInApp,
   shouldAutoOpenInApp,
 } from "../appHandoff";
+import { APP_IDENTITY } from "../appIdentity";
 import { storeLink } from "../storeLink";
 
 describe("appSchemeUrl", () => {
-  it("코드가 있으면 focusmakers 스킴 딥링크를 만든다", () => {
-    expect(appSchemeUrl("1234")).toBe("focusmakers://social/join?code=1234");
+  it("코드가 있으면 배포 환경 스킴 딥링크를 만든다", () => {
+    expect(appSchemeUrl("1234")).toBe(`${APP_IDENTITY.scheme}://social/join?code=1234`);
   });
 
   it("코드가 없으면 쿼리 없이 만든다", () => {
-    expect(appSchemeUrl("")).toBe("focusmakers://social/join");
+    expect(appSchemeUrl("")).toBe(`${APP_IDENTITY.scheme}://social/join`);
   });
 });
 
@@ -23,7 +24,7 @@ describe("androidIntentUrl", () => {
   it("intent 문법에 스킴·패키지·스토어 폴백을 싣는다", () => {
     const fallback = encodeURIComponent(storeLink("android", "1234"));
     expect(androidIntentUrl("1234")).toBe(
-      `intent://social/join?code=1234#Intent;scheme=focusmakers;package=com.breathlessyouth.mobile;S.browser_fallback_url=${fallback};end`,
+      `intent://social/join?code=1234#Intent;scheme=${APP_IDENTITY.scheme};package=${APP_IDENTITY.androidPackage};S.browser_fallback_url=${fallback};end`,
     );
   });
 });

@@ -1,13 +1,16 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { SubmitResultMessage } from "@focusmakers/types";
-
+import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { getMotionSensorRelay } from "../motionSensorRelay";
-import { relaySessionSubmit } from "../sessionSubmitRelay";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -34,10 +37,6 @@ jest.mock("../cameraPermission", () => ({
   getCameraPermissionStatus: jest.fn(),
 }));
 
-jest.mock("../sessionSubmitRelay", () => ({
-  relaySessionSubmit: jest.fn(),
-}));
-
 jest.mock("../motionSensorRelay", () => ({
   getMotionSensorRelay: jest.fn(),
 }));
@@ -58,9 +57,6 @@ const mockedRunCameraPermissionGate = runCameraPermissionGate as jest.MockedFunc
 const mockedOpenAppSettings = openAppSettings as jest.MockedFunction<typeof openAppSettings>;
 const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.MockedFunction<
   typeof getCameraPermissionStatus
->;
-const mockedRelaySessionSubmit = relaySessionSubmit as jest.MockedFunction<
-  typeof relaySessionSubmit
 >;
 const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
   typeof getMotionSensorRelay
@@ -210,44 +206,6 @@ describe("handleBridgeMessage", () => {
     expect(mockedOpenAppSettings).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * 응답을 돌려주지 않으면 웹이 타임아웃까지 "저장 중..."에 갇힌다 — 화면에 증상이 없는
-   * 유실이라 못 박는다. `requestId`를 그대로 실어 보내야 재시도와 낡은 응답이 섞이지 않는다.
-   */
-  it("submit-session → 제출을 대행하고 결과를 웹으로 되돌려 보낸다", async () => {
-    const result: SubmitResultMessage = {
-      type: "submit-result",
-      requestId: "req-1",
-      ok: true,
-      sessions: [],
-      atMs: 2,
-    };
-    mockedRelaySessionSubmit.mockResolvedValue(result);
-    const reply = jest.fn();
-
-    handleBridgeMessage(
-      {
-        type: "submit-session",
-        requestId: "req-1",
-        request: {
-          userId: 1,
-          startedAt: "",
-          endedAt: "",
-          studySec: 0,
-          focusSec: 0,
-          events: [],
-        },
-        atMs: 1,
-      },
-      reply,
-    );
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(mockedRelaySessionSubmit).toHaveBeenCalledTimes(1);
-    expect(reply).toHaveBeenCalledWith(result);
-  });
-
   describe("request-camera-permission", () => {
     it("granted면 granted: true로 답한다", async () => {
       mockedGetCameraPermissionStatus.mockResolvedValue("granted");
@@ -309,5 +267,45 @@ describe("handleBridgeMessage", () => {
     handleBridgeMessage(message, noopReply);
 
     expect(handle).toHaveBeenCalledWith(message, noopReply);
+  });
+});
+
+describe("handleBridgeMessage — 권한 게이트의 room_type", () => {
+  it("start-session은 single, request-camera-gate는 social로 게이트를 돌린다 — 이벤트 속성이 갈린다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 2 }, noopReply);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(1, "single");
+    expect(mockedRunCameraPermissionGate).toHaveBeenNthCalledWith(2, "social");
+  });
+});
+
+describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+    __resetActiveTabForTests();
+  });
+
+  it("홈 카드가 보낸 navigate-tab을 via=card인 tab_pressed로 남기고 이동한다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
   });
 });

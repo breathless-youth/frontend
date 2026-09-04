@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { detectStorePlatform } from "@/features/social-room/storeLink";
+import { trackForceUpdatePrompted } from "@/lib/amplitude";
 
 import { openAppStore } from "./store";
-import { shouldForceUpdate } from "./version";
+import { minSupportedVersion, shouldForceUpdate } from "./version";
 
 /**
  * 네이티브 셸이 웹뷰 URL 쿼리 `appVersion`에 실어 보내는 값을 읽어 강제 업데이트
@@ -17,11 +18,22 @@ export function useForceUpdateGate(): { forced: boolean; onUpdate: () => void } 
   const [searchParams] = useSearchParams();
   // appVersion은 첫 렌더링 시의 값으로 고정
   const appVersion = useRef(searchParams.get("appVersion")).current;
+  // `nativeUpdateGate=1`은 BY-586 이후 바이너리가 붙인다 — 그 바이너리는 네이티브가 Remote Config로
+  // 판정·차단하므로 여기서는 손대지 않는다. 이 게이트는 표시가 없는 구버전 바이너리 전용이다.
+  const nativeGate = useRef(searchParams.get("nativeUpdateGate") === "1").current;
   const platform =
     typeof navigator === "undefined"
       ? null
       : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
-  const forced = platform !== null && shouldForceUpdate(appVersion);
+  const forced = !nativeGate && platform !== null && shouldForceUpdate(appVersion);
+
+  // 노출 계측(BY-616) — 판정 입력이 마운트 시점 값으로 고정돼 있어 문서당 한 번이다. 모달이 라우트
+  // 트리를 대체하므로 페이지뷰가 노출을 대변하지 못한다(`lib/amplitude.ts`의 함수 주석).
+  useEffect(() => {
+    if (forced && appVersion !== null) {
+      trackForceUpdatePrompted({ appVersion, minVersion: minSupportedVersion() });
+    }
+  }, [forced, appVersion]);
 
   return {
     forced,

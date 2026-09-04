@@ -24,22 +24,16 @@ export function initSentry(): void {
     /**
      * **개발 빌드에서는 보내지 않는다.** 켜 두면 Fast Refresh 중에 나는 일시적 에러가
      * 그대로 쌓여, 실사용자 에러를 찾을 때 걸러내야 할 잡음이 된다. 릴리즈 빌드
-     * (EAS `preview`/`production` 프로필)에서만 `__DEV__`가 false라 자동으로 켜진다.
+     * (EAS `staging`/`production` 프로필)에서만 `__DEV__`가 false라 자동으로 켜진다.
      *
      * 그래서 **로컬·Expo Go에서는 동작을 확인할 수 없다.** 검증은 릴리즈 빌드로 한다
      * (`CLAUDE.md`의 "동작 확인" 절).
      */
     enabled: !__DEV__,
 
-    /**
-     * 위 `enabled` 때문에 실제로 보고하는 빌드는 릴리즈뿐이라 상수로 둔다.
-     *
-     * ponytail: EAS `preview`와 `production`이 둘 다 여기로 들어온다 — 지금은 배포 경로가
-     * TestFlight 하나뿐이라 구분할 실익이 없다. 별도 preview 채널이 생기면 `app.json`을
-     * `app.config.ts`로 바꾸고 빌드 타임의 `EAS_BUILD_PROFILE`을 주입해 나눈다
-     * (웹이 `VERCEL_ENV`로 하는 것과 같은 방식).
-     */
-    environment: "production",
+    // 어느 티어의 빌드인지는 app.config.ts가 extra.appEnv로 넣는다. staging 빌드가 생기면서
+    // 릴리즈 빌드가 둘 이상이 됐고, 상수로 두면 운영과 QA 이벤트가 한 environment에 섞인다.
+    environment: Constants.expoConfig?.extra?.appEnv as string | undefined,
 
     /**
      * **끄는 것이 기본값과 다르다 — 되돌리지 말 것.** Sentry 공식 예제는

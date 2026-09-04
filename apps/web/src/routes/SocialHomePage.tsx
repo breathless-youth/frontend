@@ -4,7 +4,9 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
+import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { createRoom } from "@/lib/roomApi";
 import { parseUserId } from "@/lib/userId";
@@ -45,6 +47,7 @@ export function SocialHomePage() {
     // 버튼이 userId 없이는 비활성이라 여기 도달하면 null이 아니다.
     mutationFn: () => createRoom(userId as number),
     onSuccess: (data) => {
+      trackSocialRoomCreated();
       // 코드 공유 화면은 조회 API가 없어 router state로 전달한다 — 새로고침·딥링크로 state가
       // 없으면 그 화면이 소셜 홈으로 되돌린다. 쿼리(userId·appVersion)는 통째로 승계한다
       navigate(
@@ -52,7 +55,9 @@ export function SocialHomePage() {
         { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
       );
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      // 실패 사유는 토스트에 없다 — 입장 실패와 같은 규칙(코드/HTTP_n/NETWORK_OR_UNKNOWN)으로 남긴다.
+      trackSocialRoomCreateFailed(joinErrorReason(error));
       showToast("잠시 후 다시 시도해 주세요");
     },
   });

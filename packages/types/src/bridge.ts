@@ -4,12 +4,8 @@
  *
  * 매초 갱신되는 타이머와 상태 전환은 **이 통로를 건너지 않는다** — 상태기계와 화면이 같은
  * 메모리(웹)에 있으므로 직접 읽는다. 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와
- * 네이티브만 할 수 있는 저장(체크포인트·제출)만 오간다.
+ * 네이티브만 할 수 있는 동작(권한·네비게이션 등)만 오간다.
  */
-
-// 타입 전용 import라 컴파일 시 완전히 지워진다 — `index.ts`가 이 파일을 다시 export하지만
-// 런타임 순환은 생기지 않는다(양방향 모두 `export type`/`import type`).
-import type { StudySessionCreateRequest, StudySessionResponse } from "./index";
 
 /** 네이티브 → 웹. */
 export type ToWebMessage =
@@ -51,7 +47,7 @@ export type ToWebMessage =
    */
   | { type: "app-launched"; atMs: number }
   | CameraPermissionMessage
-  | SubmitResultMessage;
+  | TrackEventMessage;
 
 /**
  * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
@@ -73,35 +69,6 @@ export interface CameraPermissionMessage {
   granted: boolean;
   atMs: number;
 }
-
-/**
- * 세션 제출 결과 — `submit-session`에 대한 응답.
- *
- * `requestId`로 요청과 짝을 맞춘다. 제출 실패 후 재시도하면 요청이 두 번 나갈 수 있고,
- * 그때 첫 응답이 늦게 도착하면 **재시도를 낡은 결과로 완료시켜 버린다** — id가 그걸 막는다.
- */
-export type SubmitResultMessage =
-  | {
-      type: "submit-result";
-      requestId: string;
-      ok: true;
-      /** 서버 응답 그대로. 자정(KST)을 넘는 세션은 날짜별로 분할되어 여러 건이 온다. */
-      sessions: StudySessionResponse[];
-      atMs: number;
-    }
-  | {
-      type: "submit-result";
-      requestId: string;
-      ok: false;
-      /** 사용자에게 보여줄 실패 사유. 웹이 그대로 표시한다. */
-      message: string;
-      /**
-       * HTTP 응답 실패일 때만 실리는 상태코드. 네트워크 단절·타임아웃에는 없다.
-       * 호출부가 400 같은 영구 실패와 일시 실패를 가르는 근거다.
-       */
-      status?: number;
-      atMs: number;
-    };
 
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
@@ -199,8 +166,8 @@ export type ToNativeMessage =
   | SetBackGestureMessage
   | SetBackLockMessage
   | NavigateTabMessage
-  | SubmitSessionMessage
-  | NavigateHomeMessage;
+  | NavigateHomeMessage
+  | AnalyticsReadyMessage;
 
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
@@ -322,20 +289,45 @@ export interface NavigateHomeMessage {
   atMs: number;
 }
 
+/** 네이티브 분석 이벤트 속성에 허용하는 값 — 원시값뿐이다. 식별자·자유 문자열은 싣지 않는다. */
+export type NativeAnalyticsPropertyValue = string | number | boolean | null;
+
 /**
- * 세션 제출 요청 — **네이티브에 HTTP 호출만 대행시킨다.**
+ * 네이티브에서만 일어나는 사용자 이벤트를 웹 Amplitude로 넘긴다 — 하단 탭 터치, 카메라 권한
+ * 게이트 결과, 권한 거부 안내(S2-3) 화면의 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
  *
- * WebView 안에서 백엔드로 직접 `fetch`하면 CORS에 막히기 때문이다(백엔드가
- * `Access-Control-Allow-Origin`을 보내지 않는다 — 2026-07-30 확인). 네이티브의 `fetch`는
- * 브라우저 CORS 정책을 타지 않으므로 같은 요청이 그대로 통한다.
+ * 분석 SDK는 웹에만 있다(앱은 Firebase Analytics도 링크하지 않는다 — `apps/mobile/CLAUDE.md`).
+ * 네이티브 SDK를 따로 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해지므로, 대신 이벤트를
+ * 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
  *
- * ⚠️ **`request`는 웹이 완성한 최종 요청 본문이다. 네이티브는 이 값을 고치지 않는다** —
- * 클램프·시각 변환 등 계약 검증은 전부 웹의 `buildSessionRequest`가 소유한다(루트
- * `CLAUDE.md` 아키텍처 경계: 네이티브 셸에 세션 로직을 두지 않는다).
+ * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
+ *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
+ * - **전달 대상은 하나다.** 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한
+ *   터치가 N번 찍힌다. 네이티브는 "포커스된 화면의 웹뷰이면서 `analytics-ready`를 보낸 문서"
+ *   하나에만 보내고, 그런 웹뷰가 없는 동안(권한 거부 화면·로드 실패·재로드 중)은 큐에 보관했다가
+ *   준비되는 순간 순서대로 흘려보낸다.
+ * - `atMs`는 이벤트가 **실제로 일어난** 시각이다. 큐를 거쳐 늦게 도착할 수 있으므로 웹은 전송
+ *   시각 대신 이 값을 Amplitude `time`으로 쓴다(`apps/web/src/lib/amplitude.ts`).
+ * - 강제 업데이트 화면처럼 웹뷰가 아예 마운트되지 않는 구간의 이벤트는 이 통로로 잡을 수 없다.
  */
-export interface SubmitSessionMessage {
-  type: "submit-session";
-  requestId: string;
-  request: StudySessionCreateRequest;
+export interface TrackEventMessage {
+  type: "track-event";
+  /** snake_case 이벤트명. 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`. */
+  name: string;
+  /** 이벤트 속성. 생략 가능. */
+  properties?: Record<string, NativeAnalyticsPropertyValue>;
+  atMs: number;
+}
+
+/**
+ * 웹이 `track-event`를 받을 구독을 걸었다는 신호 — 문서가 로드될 때마다 한 번 보낸다
+ * (`apps/web/src/lib/nativeAnalytics.ts`).
+ *
+ * `home-ready`와 같은 이유의 handshake다: 어느 로드 콜백도 "웹 JS가 돌았고 구독까지 걸렸다"를
+ * 보장하지 못한다. 네이티브는 이 신호를 받은 문서에만 이벤트를 주입하고, 재로드·렌더러 복구로
+ * 문서 세대가 바뀌면 다음 신호가 올 때까지 다시 큐에 쌓는다.
+ */
+export interface AnalyticsReadyMessage {
+  type: "analytics-ready";
   atMs: number;
 }

@@ -384,9 +384,10 @@ describe("공부 세션 이벤트", () => {
     const { trackStudySessionEnded, trackStudySessionStarted, trackStudySessionSubmitted } =
       await loadModule();
 
-    trackStudySessionStarted();
-    trackStudySessionSubmitted(true, 1);
+    trackStudySessionStarted("single");
+    trackStudySessionSubmitted(true, 1, "single");
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 60,
       focusSec: 30,
       pauseSec: 0,
@@ -399,12 +400,39 @@ describe("공부 세션 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
+  it("세 이벤트 전부에 room_type을 싣는다 — 없으면 소셜 세션이 F1 퍼널에 섞인다(BY-472)", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionStarted, trackStudySessionSubmitted } =
+      await loadModule();
+    initAmplitude();
+
+    trackStudySessionStarted("social");
+    trackStudySessionSubmitted(true, 1, "social");
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
+      room_type: "social",
+      restored: false,
+    });
+    // 복원 진입(웹뷰 재로드·앱 재실행 뒤 이어받기)은 같은 세션의 두 번째 시작 — 분모에서 가른다.
+    trackStudySessionStarted("single", true);
+    expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
+      room_type: "single",
+      restored: true,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
+      ok: true,
+      attempt: 1,
+      room_type: "social",
+    });
+  });
+
   it("집중률을 studySec 기준 백분율로 계산해 담는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, trackStudySessionEnded } = await loadModule();
     initAmplitude();
 
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 1200,
       focusSec: 900,
       pauseSec: 120,
@@ -415,6 +443,7 @@ describe("공부 세션 이벤트", () => {
     });
 
     expect(mocks.track).toHaveBeenCalledWith("study_session_ended", {
+      room_type: "single",
       study_sec: 1200,
       focus_sec: 900,
       pause_sec: 120,
@@ -432,6 +461,7 @@ describe("공부 세션 이벤트", () => {
     initAmplitude();
 
     trackStudySessionEnded({
+      roomType: "single",
       studySec: 0,
       focusSec: 0,
       pauseSec: 0,
@@ -450,9 +480,392 @@ describe("공부 세션 이벤트", () => {
     const { initAmplitude, trackStudySessionSubmitted } = await loadModule();
     initAmplitude();
 
-    trackStudySessionSubmitted(false, 2);
+    trackStudySessionSubmitted(false, 2, "single");
 
-    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", { ok: false, attempt: 2 });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
+      ok: false,
+      attempt: 2,
+      room_type: "single",
+    });
+  });
+});
+
+describe("소셜룸 이벤트 (BY-472)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const module = await loadModule();
+
+    module.trackSocialRoomCreated();
+    module.trackSocialRoomJoinFailed("ROOM_CLOSED");
+    module.trackSocialRoomEntered(false);
+    module.trackSocialRoomExited({ memberCount: 2, exitReason: "session_end", durationSec: 60 });
+    module.trackSocialRoomRejoinFailed("leave", "ROOM_CLOSED");
+    module.trackSocialRoomGraceExceeded();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("입장 실패는 서버 코드를 reason으로 보존한다 — 문구가 아니라 코드로 집계해야 한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomJoinFailed } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomJoinFailed("INVITE_CODE_NOT_FOUND");
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_join_failed", {
+      reason: "INVITE_CODE_NOT_FOUND",
+    });
+  });
+
+  it("입장·퇴장 이벤트가 유예 재입장·퇴장 사유·인원·체류 시간을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomEntered, trackSocialRoomExited } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomEntered(true);
+    trackSocialRoomExited({ memberCount: 3, exitReason: "grace_expired", durationSec: 125 });
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_entered", { grace_rejoin: true });
+    expect(mocks.track).toHaveBeenCalledWith("social_room_exited", {
+      member_count: 3,
+      exit_reason: "grace_expired",
+      duration_sec: 125,
+    });
+  });
+
+  it("재입장 실패는 leave/retry 판정과 사유를 함께 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomRejoinFailed } = await loadModule();
+    initAmplitude();
+
+    trackSocialRoomRejoinFailed("retry", "HTTP_500");
+
+    expect(mocks.track).toHaveBeenCalledWith("social_room_rejoin_failed", {
+      kind: "retry",
+      reason: "HTTP_500",
+    });
+  });
+});
+
+describe("초대 루프 이벤트 (BY-472)", () => {
+  it("공유·링크 진입·스토어 이동을 각 속성과 함께 보낸다 — 초대코드 값은 어디에도 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackInviteShared, trackInviteLinkOpened, trackStoreLinkRedirected } =
+      await loadModule();
+    initAmplitude();
+
+    trackInviteShared("shared");
+    trackInviteLinkOpened(true);
+    trackStoreLinkRedirected("android");
+
+    expect(mocks.track).toHaveBeenCalledWith("invite_shared", { method: "shared" });
+    expect(mocks.track).toHaveBeenCalledWith("invite_link_opened", { has_code: true });
+    expect(mocks.track).toHaveBeenCalledWith("store_link_redirected", { platform: "android" });
+  });
+});
+
+describe("WebRTC 연결 이벤트 (BY-472)", () => {
+  it("수립은 경로 종류와 피어 수, 실패는 피어 수를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackPeerConnectionEstablished, trackPeerConnectionFailed } =
+      await loadModule();
+    initAmplitude();
+
+    trackPeerConnectionEstablished({ peerCount: 2, path: "relay" });
+    trackPeerConnectionFailed(3);
+
+    expect(mocks.track).toHaveBeenCalledWith("peer_connection_established", {
+      peer_count: 2,
+      path: "relay",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("peer_connection_failed", { peer_count: 3 });
+  });
+});
+
+describe("브리지 기반 앱 이벤트 (BY-472)", () => {
+  it("앱 실행을 보낸다 — 홈 웹뷰에만 한 번 오는 app-launched의 짝", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackAppLaunched } = await loadModule();
+    initAmplitude();
+
+    trackAppLaunched();
+
+    expect(mocks.track).toHaveBeenCalledWith("app_launched");
+  });
+
+  it("카메라 권한 상태는 이벤트가 아니라 user property로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setCameraPermissionUserProperty } = await loadModule();
+    initAmplitude();
+
+    setCameraPermissionUserProperty(false);
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["camera_permission_granted", false]]);
+    expect(mocks.track).not.toHaveBeenCalledWith("camera_permission_result", expect.anything());
+  });
+
+  it("앱 환경 user property를 일괄 설정한다 — appVersion이 없으면 생략한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setAppEnvironmentUserProperties } = await loadModule();
+    initAmplitude();
+
+    setAppEnvironmentUserProperties({ isWebview: true, appVersion: "1.0.2", theme: "dark" });
+    setAppEnvironmentUserProperties({ isWebview: false, appVersion: null, theme: "light" });
+
+    const [first] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(first.sets).toEqual([
+      ["is_webview", true],
+      ["app_version", "1.0.2"],
+      ["theme", "dark"],
+    ]);
+    const [second] = mocks.identify.mock.calls[1] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(second.sets).toEqual([
+      ["is_webview", false],
+      ["theme", "light"],
+    ]);
+  });
+
+  it("실행 중 테마 변경을 user property로 반영한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setThemeUserProperty } = await loadModule();
+    initAmplitude();
+
+    setThemeUserProperty("dark");
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["theme", "dark"]]);
+  });
+});
+
+describe("네이티브 셸 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const { trackNativeShellEvent } = await loadModule();
+
+    trackNativeShellEvent({ type: "track-event", name: "tab_pressed", atMs: 1 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("source: native와 발생 시각(time)을 붙여 보낸다 — 큐를 거쳐 늦게 와도 타임라인이 맞아야 한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackNativeShellEvent } = await loadModule();
+    initAmplitude();
+
+    trackNativeShellEvent({
+      type: "track-event",
+      name: "tab_pressed",
+      properties: { tab: "social", from_tab: "home" },
+      atMs: 1234,
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "tab_pressed",
+      { tab: "social", from_tab: "home", source: "native" },
+      { time: 1234 },
+    );
+  });
+
+  it("속성이 없는 이벤트도 source만 붙여 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackNativeShellEvent } = await loadModule();
+    initAmplitude();
+
+    trackNativeShellEvent({ type: "track-event", name: "permission_denied_viewed", atMs: 5 });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "permission_denied_viewed",
+      { source: "native" },
+      { time: 5 },
+    );
+  });
+});
+
+describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackStudySessionPaused("MANUAL", "single");
+    m.trackStudySessionResumed({ pauseSec: 3, trigger: "MANUAL", roomType: "single" });
+    m.trackStudySessionDistracted({ status: "AWAY", durationSec: 4, roomType: "single" });
+    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
+    m.trackStudySessionExitRequested("single");
+    m.trackStudySessionExitCancelled("single");
+    m.trackSocialRoomCameraToggled(true);
+    m.trackSocialRoomCameraOnDismissed();
+    m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
+    m.trackFocusStartTapped("guide");
+    m.trackOsSettingsOpened("settings_tab");
+    m.trackSessionRecoveryPrompted(120);
+    m.trackSessionRecoveryConfirmed();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("일시정지·재개·비집중·카메라 전환은 room_type과 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionPaused("BACKGROUND", "social");
+    m.trackStudySessionResumed({ pauseSec: 42, trigger: "BACKGROUND", roomType: "social" });
+    m.trackStudySessionDistracted({ status: "PHONE", durationSec: 7, roomType: "single" });
+    m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
+    m.trackCameraFlipped({ ok: false, reason: "no-alternative" }, "social");
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_paused", {
+      trigger: "BACKGROUND",
+      room_type: "social",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_resumed", {
+      pause_sec: 42,
+      trigger: "BACKGROUND",
+      room_type: "social",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_distracted", {
+      status: "PHONE",
+      duration_sec: 7,
+      room_type: "single",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
+      ok: true,
+      facing: "back",
+      reason: null,
+      room_type: "single",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("camera_flipped", {
+      ok: false,
+      facing: null,
+      reason: "no-alternative",
+      room_type: "social",
+    });
+  });
+
+  it("종료 요청·취소, 소셜룸 카메라·복귀, 홈 CTA·설정·복구 안내를 각 속성과 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionExitRequested("single");
+    m.trackStudySessionExitCancelled("social");
+    m.trackSocialRoomCameraToggled(false);
+    m.trackSocialRoomCameraOnDismissed();
+    m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
+    m.trackFocusStartTapped("session");
+    m.trackOsSettingsOpened("settings_tab");
+    m.trackSessionRecoveryPrompted(5040);
+    m.trackSessionRecoveryConfirmed();
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_session_exit_requested", { room_type: "single" }],
+      ["study_session_exit_cancelled", { room_type: "social" }],
+      ["social_room_camera_toggled", { on: false }],
+      ["social_room_camera_on_dismissed"],
+      ["social_room_background_returned", { hidden_sec: 31, expired: true }],
+      ["focus_start_tapped", { destination: "session" }],
+      ["os_settings_opened", { source: "settings_tab" }],
+      ["session_recovery_prompted", { focus_sec: 5040 }],
+      ["session_recovery_confirmed"],
+    ]);
+  });
+});
+
+describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
+    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "home-card" });
+    m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
+    m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
+    m.trackSettingsRowPressed("terms");
+    m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
+    m.trackProfileSaveResult({ ok: true });
+    m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
+    m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
+    m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
+    m.trackErrorRetryPressed("home");
+    m.trackErrorFallbackReloaded();
+    m.trackScreenBackPressed("/profile");
+    m.trackForceUpdateStoreOpened();
+    m.trackForceUpdatePrompted({ appVersion: "0.9.0", minVersion: "1.0.0" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("각 이벤트를 정해진 이름·속성으로 보낸다 — 값(닉네임·날짜·문구)은 어디에도 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackGuideStepViewed({ step: 3, entry: "settings", method: "gesture" });
+    m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
+    m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
+    m.trackRecordsMonthChanged({ delta: 1, method: "button" });
+    m.trackSettingsRowPressed("profile");
+    m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
+    m.trackProfileSaveResult({ ok: false, reason: "NICKNAME_TAKEN" });
+    m.trackProfileSaveResult({ ok: true });
+    m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
+    m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
+    m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+    m.trackErrorRetryPressed("live_room_entry");
+    m.trackErrorFallbackReloaded();
+    m.trackScreenBackPressed("/social/code");
+    m.trackForceUpdateStoreOpened();
+    m.trackForceUpdatePrompted({ appVersion: "0.9.0", minVersion: "1.0.0" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["guide_step_viewed", { step: 3, entry: "settings", method: "gesture" }],
+      ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
+      ["records_date_selected", { is_today: false, has_records: true }],
+      ["records_month_changed", { delta: 1, method: "button" }],
+      ["settings_row_pressed", { row: "profile" }],
+      [
+        "profile_save_submitted",
+        { changed_nickname: true, changed_goal: true, changed_category: false },
+      ],
+      ["profile_save_failed", { reason: "NICKNAME_TAKEN" }],
+      ["profile_save_succeeded"],
+      ["study_result_confirmed", { room_type: "social", via: "close" }],
+      ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
+      ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
+      ["error_retry_pressed", { screen: "live_room_entry" }],
+      ["error_fallback_reloaded"],
+      ["screen_back_pressed", { path: "/social/code" }],
+      ["force_update_store_opened", { source: "web" }],
+      ["force_update_prompted", { source: "web", app_version: "0.9.0", min_version: "1.0.0" }],
+    ]);
+  });
+});
+
+describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackGuideEntered("settings");
+    m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "single" });
+    m.trackSessionSimpleModeToggled(true);
+    m.trackSocialRoomCreateFailed("HTTP_500");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("가이드 진입·세션 회전·심플 모드·방 생성 실패를 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackGuideEntered("focus-start");
+    m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "social" });
+    m.trackSessionSimpleModeToggled(false);
+    m.trackSocialRoomCreateFailed("NETWORK_OR_UNKNOWN");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["guide_entered", { entry: "focus-start" }],
+      ["session_orientation_changed", { orientation: "landscape", room_type: "social" }],
+      ["session_simple_mode_toggled", { on: false }],
+      ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
+    ]);
   });
 });
 

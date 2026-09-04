@@ -3,7 +3,10 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["9BCSD3ZRDQ.com.breathlessyouth.mobile"],
+        "appIDs": [
+          "9BCSD3ZRDQ.com.breathlessyouth.mobile",
+          "9BCSD3ZRDQ.com.breathlessyouth.mobile.staging"
+        ],
         "appID": "9BCSD3ZRDQ.com.breathlessyouth.mobile",
         "paths": ["/social/join"],
         "components": [
