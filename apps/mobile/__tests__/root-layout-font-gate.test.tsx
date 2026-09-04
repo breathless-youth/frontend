@@ -73,7 +73,17 @@ jest.mock("../lib/pushBootstrap", () => ({
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
 const mockResolveForceUpdate = jest.fn();
 jest.mock("../lib/forceUpdate", () => ({
-  resolveForceUpdate: () => mockResolveForceUpdate() as Promise<{ forced: boolean }>,
+  resolveForceUpdate: () =>
+    mockResolveForceUpdate() as Promise<{
+      forced: boolean;
+      recommended: boolean;
+      latestVersion: string | null;
+    }>,
+}));
+// 권장 알림창 — 호출 여부만 본다(동작은 `lib/__tests__/recommendedUpdateAlert.test.ts`).
+const mockMaybeShow = jest.fn((_version: string) => Promise.resolve(true));
+jest.mock("../lib/recommendedUpdateAlert", () => ({
+  recommendedUpdateAlert: { maybeShow: (v: string) => mockMaybeShow(v) },
 }));
 // 강제 업데이트 알림창 — 실제 Alert 대신 시작/해제/재표시 호출만 기록한다(동작은 `lib/__tests__/forceUpdateAlert.test.ts`).
 const mockAlertStop = jest.fn();
@@ -90,7 +100,10 @@ jest.mock("../lib/forceUpdateAlert", () => ({
 beforeEach(() => {
   mockUseFonts.mockReset();
   mockHideAsync.mockClear();
-  mockResolveForceUpdate.mockReset().mockResolvedValue({ forced: false });
+  mockResolveForceUpdate
+    .mockReset()
+    .mockResolvedValue({ forced: false, recommended: false, latestVersion: null });
+  mockMaybeShow.mockClear();
   mockAlertStart.mockClear();
   mockAlertStop.mockClear();
   mockAlertReshow.mockClear();
@@ -153,7 +166,11 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
 
   it("forced면 라우터 스택 대신 빈 배경만 그리고 알림창을 시작하며, 배경을 탭하면 다시 띄운다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
-    mockResolveForceUpdate.mockResolvedValue({ forced: true });
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: true,
+      recommended: false,
+      latestVersion: "1.0.4",
+    });
 
     const { unmount } = render(<RootLayout />);
 
@@ -167,6 +184,37 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
 
     unmount();
     expect(mockAlertStop).toHaveBeenCalledTimes(1);
+    expect(mockMaybeShow).not.toHaveBeenCalled();
+  });
+
+  it("통과했고 권장 판정이면 홈을 그린 뒤 권장 알림창에 최신 버전을 넘긴다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
+    expect(mockMaybeShow).toHaveBeenCalledTimes(1);
+    expect(mockAlertStart).not.toHaveBeenCalled();
+  });
+
+  it("권장 판정이어도 폰트가 준비되기 전에는 띄우지 않는다 — 스플래시 위에 뜨지 않게", async () => {
+    mockUseFonts.mockReturnValue([false, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+
+    render(<RootLayout />);
+    await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
+
+    expect(mockMaybeShow).not.toHaveBeenCalled();
   });
 
   it("통과(pass)면 알림창을 시작하지 않는다", async () => {
@@ -176,6 +224,7 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
 
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(mockAlertStart).not.toHaveBeenCalled();
+    expect(mockMaybeShow).not.toHaveBeenCalled();
   });
 
   it("판정이 거부(reject)돼도 통과시켜 앱을 그린다 — fail-open", async () => {

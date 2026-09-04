@@ -9,10 +9,14 @@ import {
 } from "./remoteConfig";
 
 /**
- * 네이티브 강제 업데이트 판정 (BY-586).
+ * 네이티브 업데이트 판정 (BY-586) — 강제(min) + 권장(latest).
  *
- * 최소 지원 버전의 원천은 Firebase Remote Config `min_supported_version`(prod 프로젝트)이다. 앱 버전이
- * 그보다 낮으면 `app/_layout.tsx`가 웹뷰 대신 빈 배경을 그리고 OS 알림창(`lib/forceUpdateAlert.ts`)으로 막는다.
+ * 원천은 Firebase Remote Config(prod 프로젝트)의 두 키다. `min_supported_version`보다 앱 버전이 낮으면
+ * `app/_layout.tsx`가 웹뷰 대신 빈 배경을 그리고 OS 알림창(`lib/forceUpdateAlert.ts`)으로 막는다.
+ * 막히지 않았고 `latest_version`보다 낮으면 닫을 수 있는 권장 알림창(`lib/recommendedUpdateAlert.ts`)을
+ * 띄운다. 두 값은 한 번의 activate로 함께 읽는다.
+ *
+ * 콘솔에서 "앱 버전 < x" 같은 조건으로 값을 갈라 줄 수도 있다 — 앱 쪽 비교와 겹쳐도 무해하다.
  *
  * 부팅 전략: 지난 실행에서 fetch해 둔 값을 `activate`로 즉시 적용해 판정하고, `fetch`는 백그라운드로
  * 돌려 **다음 실행**에 반영한다 — 스플래시를 네트워크에 묶지 않는다. `activate`가 제한 시간 안에
@@ -26,9 +30,13 @@ import {
 export const MIN_SUPPORTED_VERSION_KEY = "min_supported_version";
 /** 서버 값이 없을 때의 기본값 — 어떤 출시 버전도 막지 않는 값이어야 한다. */
 export const DEFAULT_MIN_SUPPORTED_VERSION = "1.0.0";
+export const LATEST_VERSION_KEY = "latest_version";
+/** 서버 값이 없을 때의 기본값 — 어떤 버전에도 권장을 띄우지 않는 값이어야 한다. */
+export const DEFAULT_LATEST_VERSION = "0.0.0";
 /** RNFB `setDefaults`는 기본값 맵을 통째로 바꾸므로 Remote Config 기본값은 전부 여기서 한 번에 등록한다. */
 export const UPDATE_CONFIG_DEFAULTS = {
   [MIN_SUPPORTED_VERSION_KEY]: DEFAULT_MIN_SUPPORTED_VERSION,
+  [LATEST_VERSION_KEY]: DEFAULT_LATEST_VERSION,
   ...FORCE_UPDATE_COPY_DEFAULTS,
 };
 const ACTIVATE_TIMEOUT_MS = 1_000;
@@ -61,11 +69,23 @@ export function shouldForceUpdate(
   return compareVersions(appVersion, minVersion) < 0;
 }
 
+/** 권장도 같은 규칙이다: 값이 없거나 형식이 이상하면 띄우지 않는다. */
+export function shouldRecommendUpdate(
+  appVersion: string | null | undefined,
+  latestVersion: string | null | undefined,
+): boolean {
+  return shouldForceUpdate(appVersion, latestVersion);
+}
+
 export type ForceUpdateDecision = {
   forced: boolean;
+  /** 막히지 않았고 최신 버전이 앱 버전보다 높다. forced면 항상 false. */
+  recommended: boolean;
   appVersion: string | null;
   /** 판정에 쓴 최소 버전. 못 읽었으면 null. */
   minVersion: string | null;
+  /** 판정에 쓴 최신 버전. 못 읽었으면 null. */
+  latestVersion: string | null;
 };
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -92,23 +112,36 @@ export async function resolveForceUpdate(
 ): Promise<ForceUpdateDecision> {
   const appVersion = Application.nativeApplicationVersion ?? null;
   let minVersion: string | null = null;
+  let latestVersion: string | null = null;
   try {
     await setRemoteConfigDefaults(UPDATE_CONFIG_DEFAULTS);
     await withTimeout(activateRemoteConfig(), options.activateTimeoutMs ?? ACTIVATE_TIMEOUT_MS);
-    const value = getRemoteConfigString(MIN_SUPPORTED_VERSION_KEY);
-    minVersion = value === "" ? null : value;
+    minVersion = readVersion(MIN_SUPPORTED_VERSION_KEY);
+    latestVersion = readVersion(LATEST_VERSION_KEY);
   } catch (error) {
     console.warn("[force-update] Remote Config 활성화 실패 — 통과시킨다(fail-open)", error);
   } finally {
     // 다음 실행에 반영할 값을 받아 둔다. 판정 자체는 이미 끝났으므로 결과를 기다리지 않는다.
     fetchRemoteConfigInBackground();
   }
-  const decision = { forced: shouldForceUpdate(appVersion, minVersion), appVersion, minVersion };
+  const forced = shouldForceUpdate(appVersion, minVersion);
+  const decision: ForceUpdateDecision = {
+    forced,
+    recommended: !forced && shouldRecommendUpdate(appVersion, latestVersion),
+    appVersion,
+    minVersion,
+    latestVersion,
+  };
   if (__DEV__) {
     // eslint-disable-next-line no-console -- 개발 빌드에서 판정 근거를 확인하기 위한 로그
     console.log(
-      `[force-update] forced=${String(decision.forced)} appVersion=${appVersion ?? "?"} minVersion=${minVersion ?? "(없음)"}`,
+      `[force-update] forced=${String(decision.forced)} recommended=${String(decision.recommended)} appVersion=${appVersion ?? "?"} minVersion=${minVersion ?? "(없음)"} latestVersion=${latestVersion ?? "(없음)"}`,
     );
   }
   return decision;
+}
+
+function readVersion(key: string): string | null {
+  const value = getRemoteConfigString(key);
+  return value === "" ? null : value;
 }
