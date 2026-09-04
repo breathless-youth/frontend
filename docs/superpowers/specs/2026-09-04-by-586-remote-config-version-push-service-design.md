@@ -112,6 +112,14 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 5. 종료 상태: 알림을 누르면 앱이 켜지고 같은 로그. 데이터에 `link=focusmakers://social/join?code=1234`를 넣으면 소셜 탭으로 간다.
 6. Android 13+는 임시 `POST_NOTIFICATIONS` 커밋이 들어간 개발 빌드가 필요하다.
 
+## 알림 실기기 검증 결과 (2026-09-04, dev 프로젝트, 콘솔 테스트 메시지)
+
+- iOS(1.0.2, build 2): 개발 빌드 권한 다이얼로그 → 허용 → 토큰 로그. 포그라운드 수신은 로그만(알림 미표시). 백그라운드에서 OS 알림 표시 → 탭 → `notification opened → /`. 종료 상태에서 탭 → 앱 기동 + 같은 로그.
+- Android(1.0.2, versionCode 7, 임시 `POST_NOTIFICATIONS` 포함 빌드): 권한 허용 → 토큰. 포그라운드 로그만. 백그라운드·종료 상태에서 `index.ts`의 백그라운드 핸들러가 headless로 불리고(`background message` 로그) OS 알림 표시 → 탭 → `notification opened → /`.
+- `data.link` 딥링크 이동은 실기기 검증을 생략했다(2026-09-04 결정 — 당장 쓸 알림이 없음). 변환 규칙은 `pushNotificationRouting.test.ts`가 고정한다.
+- 검증 후 `POST_NOTIFICATIONS` 임시 커밋(dcdc37c)은 revert했다. Android 13+에서 다시 검증하려면 그 revert를 되돌린 개발 빌드가 필요하다.
+- Metro 세션이 끊기면 Dev Client가 "Error loading app"을 띄운다 — 알림 문제가 아니라 번들 서버 문제였다(재시작으로 해결).
+
 ## 범위 밖
 
 - 토큰 서버 등록 API·FE 연동(BE 티켓 생성 후), 운영 빌드 권한 요청 시점·설정 토글·알림 콘텐츠·Android 전용 채널(정책 미정), 웹 강제 업데이트 로직 제거, U2 공지 배너(BY-376·377), 권장 업데이트(별도 티켓, stash), 기능 플래그·실시간 Remote Config(별도 티켓).
