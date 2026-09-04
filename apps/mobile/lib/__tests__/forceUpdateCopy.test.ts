@@ -27,7 +27,7 @@ beforeEach(() => {
 describe("forceUpdateCopy (BY-586)", () => {
   it("기본 문구는 BY-533 확정 카피이고 기본값 맵은 키 세 개를 그대로 담는다", () => {
     expect(FORCE_UPDATE_TITLE).toBe("업데이트가 필요해요");
-    expect(FORCE_UPDATE_DESCRIPTION).toBe("원활한 이용을 위해 최신 버전으로 업데이트해 주세요.");
+    expect(FORCE_UPDATE_DESCRIPTION).toBe("원활한 이용을 위해 최신 버전으로 업데이트 해주세요.");
     expect(FORCE_UPDATE_CONFIRM_LABEL).toBe("지금 업데이트");
     expect(FORCE_UPDATE_COPY_DEFAULTS).toEqual({
       force_update_title: FORCE_UPDATE_TITLE,

@@ -14,6 +14,7 @@ import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
 import { startPushMessaging } from "../lib/pushBootstrap";
+import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
 
@@ -47,12 +48,18 @@ function RootLayout() {
   // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
   // 그 위에 OS 알림창(`lib/forceUpdateAlert.ts`)을 띄운다.
   const [updateGate, setUpdateGate] = useState<"pending" | "pass" | "forced">("pending");
+  // 권장 업데이트(BY-586) — 같은 판정에서 나온 `latest_version`. 막히지 않았을 때만 값이 들어온다.
+  const [recommendedVersion, setRecommendedVersion] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     void resolveForceUpdate()
       .then((decision) => {
-        if (active) setUpdateGate(decision.forced ? "forced" : "pass");
+        if (!active) return;
+        setUpdateGate(decision.forced ? "forced" : "pass");
+        if (decision.recommended && decision.latestVersion !== null) {
+          setRecommendedVersion(decision.latestVersion);
+        }
       })
       .catch(() => {
         if (active) setUpdateGate("pass");
@@ -70,6 +77,13 @@ function RootLayout() {
     if (updateGate !== "forced") return;
     return forceUpdateAlert.start();
   }, [updateGate]);
+
+  // 권장 알림창은 홈이 그려진 뒤(폰트·게이트 준비 후)에 띄운다 — 앱 시작을 막지 않는다. 최신 버전당 한 번만
+  // 묻는 판단은 `recommendedUpdateAlert`가 한다.
+  useEffect(() => {
+    if (updateGate !== "pass" || !fontsReady || recommendedVersion === null) return;
+    void recommendedUpdateAlert.maybeShow(recommendedVersion);
+  }, [updateGate, fontsReady, recommendedVersion]);
 
   useEffect(() => {
     // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.

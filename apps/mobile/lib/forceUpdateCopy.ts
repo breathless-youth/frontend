@@ -1,4 +1,4 @@
-import { getRemoteConfigString } from "./remoteConfig";
+import { readCopyOr } from "./remoteConfigCopy";
 
 /**
  * 강제 업데이트 알림창 문구 (BY-586).
@@ -15,7 +15,7 @@ export const FORCE_UPDATE_MESSAGE_KEY = "force_update_message";
 export const FORCE_UPDATE_BUTTON_KEY = "force_update_button";
 
 export const FORCE_UPDATE_TITLE = "업데이트가 필요해요";
-export const FORCE_UPDATE_DESCRIPTION = "원활한 이용을 위해 최신 버전으로 업데이트해 주세요.";
+export const FORCE_UPDATE_DESCRIPTION = "원활한 이용을 위해 최신 버전으로 업데이트 해주세요.";
 export const FORCE_UPDATE_CONFIRM_LABEL = "지금 업데이트";
 
 export const FORCE_UPDATE_COPY_DEFAULTS = {
@@ -36,17 +36,8 @@ export type ForceUpdateCopy = {
  */
 export function readForceUpdateCopy(): ForceUpdateCopy {
   return {
-    title: readOr(FORCE_UPDATE_TITLE_KEY, FORCE_UPDATE_TITLE),
-    message: readOr(FORCE_UPDATE_MESSAGE_KEY, FORCE_UPDATE_DESCRIPTION),
-    confirmLabel: readOr(FORCE_UPDATE_BUTTON_KEY, FORCE_UPDATE_CONFIRM_LABEL),
+    title: readCopyOr(FORCE_UPDATE_TITLE_KEY, FORCE_UPDATE_TITLE),
+    message: readCopyOr(FORCE_UPDATE_MESSAGE_KEY, FORCE_UPDATE_DESCRIPTION),
+    confirmLabel: readCopyOr(FORCE_UPDATE_BUTTON_KEY, FORCE_UPDATE_CONFIRM_LABEL),
   };
-}
-
-function readOr(key: string, fallback: string): string {
-  try {
-    const value = getRemoteConfigString(key).trim();
-    return value === "" ? fallback : value;
-  } catch {
-    return fallback;
-  }
 }
