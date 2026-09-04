@@ -31,29 +31,29 @@ API·웹 주소는 BY-402, BY-464의 `APP_VARIANT` 분기로 갈라져 있지만
 |---|---|---|---|---|---|---|
 | `production` | `api.focusmakers.app` | `web.focusmakers.app` (main) | `com.breathlessyouth.mobile` | 포커스 메이커스 | `focusmakers`, `focuson` | `web.focusmakers.app`, `web.sunqstudio.kr` |
 | `staging` | `api-dev.focusmakers.app` | `web-dev.focusmakers.app` (dev) | `com.breathlessyouth.mobile.staging` | 포커스 메이커스 STG | `focusmakers-staging` | `web-dev.focusmakers.app` |
-| `development` | `.env.local` | `.env.local` | `com.breathlessyouth.mobile.dev` | 포커스 메이커스 DEV | `focusmakers-dev` | `web-dev.focusmakers.app` |
+| `development` | `.env.local` | `.env.local` | `com.breathlessyouth.mobile.dev` | 포커스 메이커스 DEV | `focusmakers-dev` | 없음 (스킴만) |
 
 - QA는 `staging` 티어다. 백엔드는 dev를 재사용하고 앱 아이덴티티만 분리한다.
 - 운영 후보(prod-parity) 검증은 `production` 프로필 빌드를 TestFlight·Play 내부 테스트 트랙으로 배포하는 것이다. QA 티어가 아니라 production 티어의 배포 경로다.
 - production의 `focuson` 스킴과 `web.sunqstudio.kr` 호스트는 이전 빌드와 이미 공유된 링크를 위해 유지한다.
-- development는 웹이 로컬 주소라 App Link 호스트를 파생할 수 없어 `web-dev.focusmakers.app`으로 고정한다.
-- 웹 정합: 앱 `production` ↔ 웹 `production`, 앱 `staging` ↔ 웹 `preview`(web-dev와 브랜치 프리뷰), 앱 `development` ↔ 웹 `development`(로컬 Vite).
+- development는 App Link를 선언하지 않고 커스텀 스킴만 등록한다. staging과 같은 host와 path를 claim하면 두 앱이 함께 설치된 기기에서 어느 앱이 열릴지 OS가 보장하지 않는다.
+- 웹 정합: 앱 `production` ↔ 웹 `production`, 앱 `staging` ↔ 웹 `preview`(web-dev와 브랜치 프리뷰), 앱 `development` ↔ 웹 `development`(로컬 Vite). 이 대응은 Sentry·지표 귀속과 핸드오프용이고 딥링크 host는 매트릭스가 정한다.
 
 ## EAS 프로필 매핑
 
-| 프로필 | `APP_VARIANT` | distribution | 용도 |
-|---|---|---|---|
-| `development` | development | internal, developmentClient | 로컬 Metro |
-| `development-simulator` | development | internal, developmentClient, simulator | 시뮬레이터 |
-| `staging` (기존 `qa` 개명) | staging | internal | 일상 QA, 딥링크 실기기 검증 |
-| `production` | production | store, autoIncrement | 스토어, TestFlight·내부 테스트 트랙 |
+| 프로필 | `APP_VARIANT` | distribution | 그 밖의 옵션 | 용도 |
+|---|---|---|---|---|
+| `development` | development | internal | `developmentClient: true` | 로컬 Metro |
+| `development-simulator` | development | internal | `developmentClient: true`, `ios.simulator: true` | 시뮬레이터 |
+| `staging` (기존 `qa` 개명) | staging | internal | 없음 | 일상 QA, 딥링크 실기기 검증 |
+| `production` | production | store | `autoIncrement: true` | 스토어, TestFlight·내부 테스트 트랙 |
 
 - `preview`는 삭제한다. "내부 배포인데 운영 엔드포인트"라는 역할은 TestFlight가 대체하고, 남겨 두면 이름과 동작의 어긋남이 계속 재생산된다.
 - 프로필 env에서 주소를 걷어내고 `APP_VARIANT` 한 줄만 남긴다. 주소의 원천은 `app.config.ts` 하나다.
 
 ## 한 스위치로 파생 (`app.config.ts`)
 
-`APP_VARIANT`를 `production | staging | development`로 확장한다. 미설정은 development다. 이름은 유지한다(기존 테스트·eas.json과의 churn 최소화).
+`APP_VARIANT`를 `production | staging | development`로 확장한다. 미설정만 development이고, 그 밖의 값은 설정 평가 시점에 `throw`한다. 이름은 유지한다(기존 테스트·eas.json과의 churn 최소화).
 
 환경 테이블 하나에서 아래를 전부 파생한다.
 
@@ -61,9 +61,9 @@ API·웹 주소는 BY-402, BY-464의 `APP_VARIANT` 분기로 갈라져 있지만
 |---|---|---|---|
 | `extra.apiBaseUrl` / `webBaseUrl` | 상수 | 상수 | `.env.local` + `guardDevBaseUrl` |
 | `ios.bundleIdentifier` / `android.package` | base | base + `.staging` | base + `.dev` |
-| `extra.appDisplayName` | 이름 | 이름 + ` STG` | 이름 + ` DEV` |
+| `extra.appDisplayName` | 이름 | 이름 + 공백 + `STG` | 이름 + 공백 + `DEV` |
 | `scheme` | `focusmakers`, `focuson` | `focusmakers-staging` | `focusmakers-dev` |
-| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트 | `web-dev.focusmakers.app` 고정 |
+| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트 | 선언하지 않음 |
 | `extra.appEnv` | `production` | `staging` | `development` |
 
 - `withAppDisplayName` 플러그인은 그대로 `extra.appDisplayName`을 읽는다. 변경 없음.
@@ -73,11 +73,11 @@ API·웹 주소는 BY-402, BY-464의 `APP_VARIANT` 분기로 갈라져 있지만
 
 ## 웹 변경
 
-- `public/.well-known/apple-app-site-association`에 `9BCSD3ZRDQ.com.breathlessyouth.mobile.staging`, `9BCSD3ZRDQ.com.breathlessyouth.mobile.dev` appID 추가.
-- `public/.well-known/assetlinks.json`에 두 패키지 항목 추가. 지문은 EAS가 새 keystore를 만든 뒤 `eas credentials`로 확인해 기입한다.
-- 정적 파일 하나에 세 아이덴티티를 전부 적는다. 운영 도메인에 비운영 항목이 있어도 무해하다. 어느 호스트를 claim할지는 앱의 선언이 결정하고 well-known은 허가만 한다.
+- `public/.well-known/apple-app-site-association`에 `9BCSD3ZRDQ.com.breathlessyouth.mobile.staging` appID 추가. development는 App Link를 선언하지 않아 넣지 않는다.
+- `public/.well-known/assetlinks.json`에 staging 패키지 항목 추가. 지문은 EAS가 새 keystore를 만든 뒤 `eas credentials`로 확인해 기입한다.
+- 정적 파일 하나에 운영과 staging 아이덴티티를 함께 적는다. 운영 도메인에 비운영 항목이 있어도 무해하다. 어느 호스트를 claim할지는 앱의 선언이 결정하고 well-known은 허가만 한다.
 - `features/social-room/appHandoff.ts`·`storeLink.ts`의 스킴·패키지를 `__DEPLOY_ENV__`에서 파생한다. 스토어 폴백 링크는 운영 하나 유지(staging은 스토어에 없다).
-- Amplitude·GA4는 코드 변경 없음. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`가 운영 프로젝트 키가 아닌지 확인하는 운영 체크리스트만 남긴다. 저장소에서는 검증할 수 없다.
+- Amplitude·GA4는 코드 변경 없음. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`와 `VITE_GA4_MEASUREMENT_ID`가 운영 값이 아닌지 확인하는 운영 체크리스트만 남긴다. 저장소에서는 검증할 수 없다.
 
 ## 완료 기준
 
@@ -90,8 +90,8 @@ API·웹 주소는 BY-402, BY-464의 `APP_VARIANT` 분기로 갈라져 있지만
 | 티켓 | 범위 | 선행 |
 |---|---|---|
 | BY-599 | ADR 0007 (문서만) | 없음 |
-| BY-600 | `app.config.ts` 환경 테이블, 아이덴티티·표시명 접미사, Sentry environment, `eas.json`(`qa`→`staging`, `preview` 삭제), 테스트, 첫 staging 빌드로 EAS 자격증명 생성 | BY-599 |
-| BY-601 | `scheme`·`associatedDomains`·`intentFilters` 파생, well-known에 새 아이덴티티·지문, 웹 핸드오프 환경 파생, 실기기 검증 | BY-600 (keystore 지문) |
+| BY-600 | `app.config.ts` 환경 테이블, 아이덴티티·표시명 접미사, Sentry environment, `eas.json`(`qa`→`staging`, `preview` 삭제), 테스트(오타 값 `throw` 포함), `apps/mobile/CLAUDE.md` 갱신, 첫 staging 빌드로 EAS 자격증명 생성·백업 확인 | BY-599 |
+| BY-601 | `scheme`·`associatedDomains`·`intentFilters` 파생, well-known에 staging 아이덴티티·지문, 웹 핸드오프 환경 파생, 실기기 검증 | BY-600 (keystore 지문) |
 
 analytics·Sentry는 앱 쪽이 한 줄이라 BY-600에 접고, 웹 쪽은 코드가 아니라 Vercel 확인이라 별도 티켓을 두지 않는다.
 

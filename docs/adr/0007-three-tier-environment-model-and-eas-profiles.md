@@ -30,20 +30,20 @@ BY-402와 BY-464가 넣은 `APP_VARIANT` 분기는 사실상 이진이다. `app.
 |---|---|---|---|---|---|---|
 | `production` | `api.focusmakers.app` | `web.focusmakers.app` (main) | `com.breathlessyouth.mobile` | 포커스 메이커스 | `focusmakers`, `focuson` | `web.focusmakers.app`, `web.sunqstudio.kr` |
 | `staging` | `api-dev.focusmakers.app` | `web-dev.focusmakers.app` (dev) | `com.breathlessyouth.mobile.staging` | 포커스 메이커스 STG | `focusmakers-staging` | `web-dev.focusmakers.app` |
-| `development` | `.env.local` | `.env.local` | `com.breathlessyouth.mobile.dev` | 포커스 메이커스 DEV | `focusmakers-dev` | `web-dev.focusmakers.app` |
+| `development` | `.env.local` | `.env.local` | `com.breathlessyouth.mobile.dev` | 포커스 메이커스 DEV | `focusmakers-dev` | 없음 (스킴만) |
 
 - production의 `focuson` 스킴과 `web.sunqstudio.kr` 호스트는 이전 빌드와 이미 공유된 링크를 위해 유지한다.
-- development는 웹이 로컬 주소라 App Link 호스트를 파생할 수 없어 `web-dev.focusmakers.app`으로 고정한다.
+- development는 App Link를 선언하지 않고 커스텀 스킴만 등록한다. staging과 같은 host와 path를 claim하면 두 앱이 함께 설치된 기기에서 어느 앱이 열릴지 OS가 보장하지 않고, Dev Client는 로컬 웹을 열기 때문에 App Link 검증은 staging의 일이다.
 - staging 주소는 상수라 가드 대상이 아니고, `guardDevBaseUrl`은 development에만 적용한다.
 
 ### EAS 프로필 매핑
 
-| 프로필 | `APP_VARIANT` | distribution | 용도 |
-|---|---|---|---|
-| `development` | development | internal, developmentClient | 로컬 Metro |
-| `development-simulator` | development | internal, developmentClient, simulator | 시뮬레이터 |
-| `staging` (기존 `qa` 개명) | staging | internal | 일상 QA, 딥링크 실기기 검증 |
-| `production` | production | store, autoIncrement | 스토어, TestFlight·내부 테스트 트랙 |
+| 프로필 | `APP_VARIANT` | distribution | 그 밖의 옵션 | 용도 |
+|---|---|---|---|---|
+| `development` | development | internal | `developmentClient: true` | 로컬 Metro |
+| `development-simulator` | development | internal | `developmentClient: true`, `ios.simulator: true` | 시뮬레이터 |
+| `staging` (기존 `qa` 개명) | staging | internal | 없음 | 일상 QA, 딥링크 실기기 검증 |
+| `production` | production | store | `autoIncrement: true` | 스토어, TestFlight·내부 테스트 트랙 |
 
 - `preview`는 삭제한다. 내부 배포인데 운영 엔드포인트를 본다는 역할은 TestFlight가 대체하고, 남겨 두면 이름과 동작의 어긋남이 계속 재생산된다.
 - 프로필 env에서 주소를 걷어내고 `APP_VARIANT` 한 줄만 남긴다. 주소의 원천은 `app.config.ts` 하나다.
@@ -56,7 +56,7 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 
 ### 한 스위치 파생
 
-`APP_VARIANT` 미설정은 development로 본다. 이름은 `APP_VARIANT` 그대로 유지한다. `APP_ENV`로 바꾸면 기존 테스트와 `eas.json`, 문서를 전부 손봐야 하는데 얻는 것이 없다.
+`APP_VARIANT` 미설정만 development로 본다. 세 값 밖의 문자열은 설정 평가 시점에 `throw`해서 빌드를 실패시킨다. 오타가 development로 떨어지면 빈 주소 빌드가 아무 표시 없이 나가기 때문이다. 이름은 `APP_VARIANT` 그대로 유지한다. `APP_ENV`로 바꾸면 기존 테스트와 `eas.json`, 문서를 전부 손봐야 하는데 얻는 것이 없다.
 
 `app.config.ts`의 환경 테이블 하나에서 아래를 전부 파생한다.
 
@@ -64,9 +64,9 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 |---|---|---|---|
 | `extra.apiBaseUrl` / `webBaseUrl` | 상수 | 상수 | `.env.local` + `guardDevBaseUrl` |
 | `ios.bundleIdentifier` / `android.package` | base | base + `.staging` | base + `.dev` |
-| `extra.appDisplayName` | 이름 | 이름 + ` STG` | 이름 + ` DEV` |
+| `extra.appDisplayName` | 이름 | 이름 + 공백 + `STG` | 이름 + 공백 + `DEV` |
 | `scheme` | `focusmakers`, `focuson` | `focusmakers-staging` | `focusmakers-dev` |
-| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트 | `web-dev.focusmakers.app` 고정 |
+| `ios.associatedDomains` / `android.intentFilters` | `webBaseUrl` 호스트 + 레거시 | `webBaseUrl` 호스트 | 선언하지 않음 |
 | `extra.appEnv` | `production` | `staging` | `development` |
 
 - `withAppDisplayName` 플러그인은 그대로 `extra.appDisplayName`을 읽고 변경하지 않는다.
@@ -78,17 +78,18 @@ QA는 별도 티어가 아니라 `staging` 티어다. 백엔드는 dev를 재사
 
 - 앱 `production`은 웹 `production`에 대응한다.
 - 앱 `staging`은 웹 `preview`에 대응하고, 여기에는 `web-dev.focusmakers.app`과 브랜치 프리뷰가 들어간다.
+- 이 대응은 Sentry environment와 지표 귀속, 웹 핸드오프의 스킴·패키지 선택에 쓰는 것이고, 딥링크 host는 위 환경 매트릭스가 정한다. 브랜치 프리뷰 주소는 App Link 대상이 아니다.
 - 앱 `development`는 웹 `development`에 대응하고, 로컬 Vite가 그 자리다.
 
 ## 결과
 
-- EAS 자격증명을 세 벌 관리한다. Apple App ID와 Android keystore가 아이덴티티마다 한 벌씩 늘어난다.
-- `public/.well-known/apple-app-site-association`에 `9BCSD3ZRDQ.com.breathlessyouth.mobile.staging`과 `9BCSD3ZRDQ.com.breathlessyouth.mobile.dev` appID를 추가하고, `public/.well-known/assetlinks.json`에 두 패키지 항목을 추가한다. 지문은 EAS가 새 keystore를 만든 뒤 `eas credentials`로 확인해 기입한다.
-- 정적 파일 하나에 세 아이덴티티를 전부 적는다. 어느 호스트를 claim할지는 앱의 선언이 결정하고 well-known은 허가만 하므로, 운영 도메인의 파일에 비운영 항목이 있어도 그 아이덴티티를 설치하지 않은 기기에는 아무 영향이 없다. 환경별로 파일을 나누면 도메인마다 다른 정적 자산을 관리해야 해서 더 비싸다.
+- EAS 자격증명을 세 벌 관리한다. Apple App ID와 Android keystore가 아이덴티티마다 한 벌씩 늘어난다. Android keystore는 분실하면 그 패키지로 다시는 업데이트를 낼 수 없으므로, 새 keystore를 만든 뒤 `eas credentials`로 내려받아 팀 보관소에 백업했는지 확인하는 것이 BY-600의 완료 조건에 들어간다.
+- `public/.well-known/apple-app-site-association`에 `9BCSD3ZRDQ.com.breathlessyouth.mobile.staging` appID를 추가하고, `public/.well-known/assetlinks.json`에 staging 패키지 항목을 추가한다. 지문은 EAS가 새 keystore를 만든 뒤 `eas credentials`로 확인해 기입한다. development는 App Link를 선언하지 않으므로 well-known에 넣지 않는다.
+- 정적 파일 하나에 운영과 staging 아이덴티티를 함께 적는다. 어느 호스트를 claim할지는 앱의 선언이 결정하고 well-known은 허가만 하므로, 운영 도메인의 파일에 비운영 항목이 있어도 그 아이덴티티를 설치하지 않은 기기에는 아무 영향이 없다. 환경별로 파일을 나누면 도메인마다 다른 정적 자산을 관리해야 해서 더 비싸다.
 - `app.json`의 정적 `scheme`, `associatedDomains`, `intentFilters` 선언을 제거하고 `app.config.ts`에서 생성한다. `pathPrefix` `/social/join`과 `autoVerify: true`는 유지한다.
 - 웹 핸드오프의 `appHandoff.ts`와 `storeLink.ts`는 하드코딩된 스킴 `focusmakers`와 패키지 `com.breathlessyouth.mobile`을 `__DEPLOY_ENV__`에서 파생한다. 스토어 폴백 링크는 운영 하나만 유지한다. staging 빌드는 스토어에 없기 때문이다.
-- Amplitude와 GA4는 코드를 바꾸지 않는다. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`가 운영 프로젝트 키가 아닌지 확인하는 운영 체크리스트만 남는다. 이 값은 저장소에서 검증할 수 없다.
-- 구현은 BY-600과 BY-601로 나눈다. BY-600은 `app.config.ts` 환경 테이블, 아이덴티티와 표시명 접미사, Sentry environment, `eas.json` 정리, 테스트, 첫 staging 빌드로 EAS 자격증명 생성까지다.
+- Amplitude와 GA4는 코드를 바꾸지 않는다. Vercel Preview env의 `VITE_AMPLITUDE_API_KEY`와 `VITE_GA4_MEASUREMENT_ID`가 운영 프로젝트 값이 아닌지 확인하는 운영 체크리스트만 남는다. 두 값은 저장소에서 검증할 수 없다.
+- 구현은 BY-600과 BY-601로 나눈다. BY-600은 `app.config.ts` 환경 테이블, 아이덴티티와 표시명 접미사, Sentry environment, `eas.json` 정리, 테스트, `apps/mobile/CLAUDE.md`의 프로필 서술 갱신, 첫 staging 빌드로 EAS 자격증명 생성과 백업 확인까지다. 저장소 밖의 `preview`·`qa` 사용처는 EAS 대시보드에서 확인한다.
 - BY-601은 딥링크 선언 파생, well-known 갱신, 웹 핸드오프 환경 파생, 실기기 검증이다. BY-600이 만드는 새 keystore의 지문이 있어야 assetlinks를 채울 수 있어 BY-600이 선행이다.
 
 ### 후속 소비자
