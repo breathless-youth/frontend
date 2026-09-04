@@ -6,6 +6,16 @@ import type { PushMessage } from "../pushMessaging";
  * 실제 RNFB 어댑터는 `pushMessaging.test.ts` 소관.
  */
 
+// 라우팅 허용 목록은 설정의 extra에서 오고, jest 환경의 expo-constants에는 그 값이 없다.
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: { appSchemes: ["focusmakers", "focuson"], deepLinkHosts: ["web.focusmakers.app"] },
+    },
+  },
+}));
+
 jest.mock("../pushMessaging", () => ({
   requestPushPermission: jest.fn(),
   getPushToken: jest.fn(),
