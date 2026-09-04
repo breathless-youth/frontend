@@ -9,11 +9,11 @@ import { useEffect, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { logFirebaseSmoke } from "../lib/firebaseSmoke";
 import { resolveForceUpdate } from "../lib/forceUpdate";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { lockPortrait } from "../lib/orientation";
+import { startPushMessaging } from "../lib/pushBootstrap";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
 
@@ -87,10 +87,9 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // Firebase 배선 확인 로그(BY-585) — 개발 빌드에서만 동작하고 BY-586에서 실사용 코드로 대체된다.
-  useEffect(() => {
-    void logFirebaseSmoke();
-  }, []);
+  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 개발
+  // 빌드에서만 한다(`lib/pushBootstrap.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  useEffect(() => startPushMessaging({ navigate: (route) => router.push(route) }), [router]);
 
   useEffect(() => {
     // Install Referrer는 Android 전용이다 — iOS는 스토어가 값을 앱에 전달할 통로 자체가 없다.

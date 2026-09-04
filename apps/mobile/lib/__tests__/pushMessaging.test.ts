@@ -8,6 +8,10 @@ const mockGetToken = jest.fn();
 const mockOnTokenRefresh = jest.fn();
 const mockRegister = jest.fn();
 const mockGetApnsToken = jest.fn();
+const mockOnMessage = jest.fn();
+const mockOnNotificationOpenedApp = jest.fn();
+const mockGetInitialNotification = jest.fn();
+const mockSetBackgroundMessageHandler = jest.fn();
 
 jest.mock("@react-native-firebase/messaging", () => ({
   AuthorizationStatus: {
@@ -24,6 +28,12 @@ jest.mock("@react-native-firebase/messaging", () => ({
   onTokenRefresh: (...args: unknown[]) => mockOnTokenRefresh(...args) as () => void,
   registerDeviceForRemoteMessages: (...args: unknown[]) => mockRegister(...args) as Promise<void>,
   getAPNSToken: (...args: unknown[]) => mockGetApnsToken(...args) as Promise<string | null>,
+  onMessage: (...args: unknown[]) => mockOnMessage(...args) as () => void,
+  onNotificationOpenedApp: (...args: unknown[]) =>
+    mockOnNotificationOpenedApp(...args) as () => void,
+  getInitialNotification: (...args: unknown[]) =>
+    mockGetInitialNotification(...args) as Promise<unknown>,
+  setBackgroundMessageHandler: (...args: unknown[]) => mockSetBackgroundMessageHandler(...args),
 }));
 
 describe("pushMessaging 어댑터 (BY-585)", () => {
@@ -34,6 +44,10 @@ describe("pushMessaging 어댑터 (BY-585)", () => {
     mockOnTokenRefresh.mockReset();
     mockRegister.mockReset().mockResolvedValue(undefined);
     mockGetApnsToken.mockReset().mockResolvedValue(null);
+    mockOnMessage.mockReset().mockReturnValue(jest.fn());
+    mockOnNotificationOpenedApp.mockReset().mockReturnValue(jest.fn());
+    mockGetInitialNotification.mockReset().mockResolvedValue(null);
+    mockSetBackgroundMessageHandler.mockReset();
     pushMessaging.setPushMessagingAdapter(pushMessaging.rnfbPushMessagingAdapter);
   });
 
@@ -125,6 +139,10 @@ describe("pushMessaging 어댑터 (BY-585)", () => {
       getToken: jest.fn(() => Promise.resolve(null)),
       getApnsToken: jest.fn(() => Promise.resolve(null)),
       onTokenRefresh: jest.fn(() => () => {}),
+      onMessage: jest.fn(() => () => {}),
+      onNotificationOpened: jest.fn(() => () => {}),
+      getInitialNotification: jest.fn(() => Promise.resolve(null)),
+      setBackgroundHandler: jest.fn(),
     };
     pushMessaging.setPushMessagingAdapter(fake);
 
@@ -132,5 +150,76 @@ describe("pushMessaging 어댑터 (BY-585)", () => {
     await expect(pushMessaging.getPushToken()).resolves.toBeNull();
     expect(mockHasPermission).not.toHaveBeenCalled();
     expect(mockGetToken).not.toHaveBeenCalled();
+  });
+});
+
+describe("pushMessaging 메시지 핸들러 (BY-586)", () => {
+  beforeEach(() => {
+    mockOnMessage.mockReset().mockReturnValue(jest.fn());
+    mockOnNotificationOpenedApp.mockReset().mockReturnValue(jest.fn());
+    mockGetInitialNotification.mockReset().mockResolvedValue(null);
+    mockSetBackgroundMessageHandler.mockReset();
+    // 위 describe의 마지막 테스트가 가짜 어댑터를 꽂아 두므로 RNFB 어댑터로 되돌린다.
+    pushMessaging.setPushMessagingAdapter(pushMessaging.rnfbPushMessagingAdapter);
+  });
+
+  const remote = {
+    messageId: "m1",
+    data: { link: "focusmakers://social", nested: { a: 1 }, count: "3" },
+    notification: { title: "제목", body: "본문", android: { channelId: "x" } },
+  };
+
+  it("toPushMessage는 data의 문자열 값만 남기고 notification을 title/body로 좁힌다", () => {
+    expect(pushMessaging.toPushMessage(remote)).toEqual({
+      messageId: "m1",
+      data: { link: "focusmakers://social", count: "3" },
+      notification: { title: "제목", body: "본문" },
+    });
+    expect(pushMessaging.toPushMessage({})).toEqual({
+      messageId: null,
+      data: {},
+      notification: null,
+    });
+  });
+
+  it("포그라운드·알림 탭 구독은 RNFB 메시지를 PushMessage로 바꿔 넘기고 해제 함수를 돌려준다", () => {
+    const unsubscribe = jest.fn();
+    mockOnMessage.mockReturnValue(unsubscribe);
+    mockOnNotificationOpenedApp.mockReturnValue(unsubscribe);
+    const onMessage = jest.fn();
+    const onOpened = jest.fn();
+
+    expect(pushMessaging.onPushMessage(onMessage)).toBe(unsubscribe);
+    expect(pushMessaging.onPushNotificationOpened(onOpened)).toBe(unsubscribe);
+
+    (mockOnMessage.mock.calls[0][1] as (m: unknown) => void)(remote);
+    (mockOnNotificationOpenedApp.mock.calls[0][1] as (m: unknown) => void)(remote);
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1" }));
+    expect(onOpened).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1" }));
+  });
+
+  it("초기 알림은 있으면 PushMessage, 없으면 null", async () => {
+    mockGetInitialNotification.mockResolvedValue(remote);
+    await expect(pushMessaging.getInitialPushNotification()).resolves.toMatchObject({
+      messageId: "m1",
+    });
+
+    mockGetInitialNotification.mockResolvedValue(null);
+    await expect(pushMessaging.getInitialPushNotification()).resolves.toBeNull();
+  });
+
+  it("백그라운드 핸들러는 RNFB에 등록하고 PushMessage로 바꿔 부른다", async () => {
+    const handler = jest.fn(() => Promise.resolve());
+
+    pushMessaging.setPushBackgroundHandler(handler);
+
+    expect(mockSetBackgroundMessageHandler).toHaveBeenCalledWith(
+      mockMessagingInstance,
+      expect.any(Function),
+    );
+    await (mockSetBackgroundMessageHandler.mock.calls[0][1] as (m: unknown) => Promise<void>)(
+      remote,
+    );
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1" }));
   });
 });

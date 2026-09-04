@@ -1,24 +1,30 @@
 import {
   AuthorizationStatus,
   getAPNSToken,
+  getInitialNotification,
   getMessaging,
   getToken,
   hasPermission,
+  onMessage,
+  onNotificationOpenedApp,
   onTokenRefresh,
   registerDeviceForRemoteMessages,
   requestPermission,
+  setBackgroundMessageHandler,
 } from "@react-native-firebase/messaging";
 import { Platform } from "react-native";
 
 /**
  * FCM(푸시) 어댑터 (BY-585).
  *
- * 화면·컴포넌트가 `@react-native-firebase/messaging`을 직접 import하지 않게 격리한다. 이 티켓에서는
- * 권한 조회·요청과 토큰 발급까지만 감싼다 — 메시지 핸들러(포그라운드·백그라운드·알림 탭)와
- * 서버 토큰 등록은 BY-586에서 이 어댑터에 추가한다.
+ * 화면·컴포넌트가 `@react-native-firebase/messaging`을 직접 import하지 않게 격리한다. 권한 조회·요청,
+ * 토큰 발급·갱신, 메시지 핸들러(포그라운드·알림 탭·초기 알림·백그라운드)를 감싼다(BY-586). RNFB의
+ * `RemoteMessage`는 `PushMessage`로 좁혀 내보내므로 바깥 코드는 RNFB 타입을 모른다. 서버 토큰 등록은
+ * BE API가 생기면 추가한다.
  *
- * 권한 요청 함수는 어떤 화면에도 연결돼 있지 않다 — 푸시 정책이 미정이다
- * (`docs/screens/SCR-S6-settings.md`). iOS 토큰 발급 자체는 권한 없이도 되지만 APNs 기기 토큰이
+ * 권한 요청 함수는 운영 빌드의 어떤 화면에도 연결돼 있지 않다 — 푸시 정책이 미정이다
+ * (`docs/screens/SCR-S6-settings.md`). 개발 빌드만 `lib/pushBootstrap.ts`가 수신 검증용으로 부른다.
+ * iOS 토큰 발급 자체는 권한 없이도 되지만 APNs 기기 토큰이
  * 먼저 있어야 한다. RNFB는 앱 시작 시 자동으로 APNs에 등록하지만(firebase.json 기본값) 토큰은 잠시
  * 뒤에 도착하므로, `getToken`은 APNs 토큰 유무를 먼저 보고 없을 때만 명시 등록으로 도착을 기다린다.
  * 이미 등록된 상태에서 `registerDeviceForRemoteMessages`를 다시 부르면 UIKit의 등록 상태가 잠시
@@ -28,6 +34,34 @@ import { Platform } from "react-native";
  */
 
 export type PushPermissionStatus = "undetermined" | "granted" | "denied";
+
+/** RNFB `RemoteMessage` 중 우리가 쓰는 부분. 구조적 타입이라 RNFB 타입을 밖으로 내보내지 않는다. */
+type RemoteMessageLike = {
+  messageId?: string;
+  data?: { [key: string]: string | object };
+  notification?: { title?: string; body?: string };
+};
+
+/** 앱이 다루는 푸시 메시지. data는 문자열 값만 남긴다(서버 계약도 문자열). */
+export type PushMessage = {
+  messageId: string | null;
+  data: Record<string, string>;
+  notification: { title: string | null; body: string | null } | null;
+};
+
+export function toPushMessage(message: RemoteMessageLike): PushMessage {
+  const data: Record<string, string> = {};
+  for (const [key, value] of Object.entries(message.data ?? {})) {
+    if (typeof value === "string") data[key] = value;
+  }
+  return {
+    messageId: message.messageId ?? null,
+    data,
+    notification: message.notification
+      ? { title: message.notification.title ?? null, body: message.notification.body ?? null }
+      : null,
+  };
+}
 
 export type PushMessagingAdapter = {
   /** OS가 보유한 현재 알림 권한 상태. 다이얼로그를 띄우지 않는다. */
@@ -40,6 +74,14 @@ export type PushMessagingAdapter = {
   getApnsToken(): Promise<string | null>;
   /** 토큰이 갱신될 때 호출된다. 반환값은 구독 해제 함수. */
   onTokenRefresh(listener: (token: string) => void): () => void;
+  /** 앱이 포그라운드일 때 메시지가 오면 호출된다. OS는 이때 알림을 표시하지 않는다. 반환값은 구독 해제 함수. */
+  onMessage(listener: (message: PushMessage) => void): () => void;
+  /** 백그라운드 상태에서 사용자가 알림을 눌러 앱이 앞으로 왔을 때. 반환값은 구독 해제 함수. */
+  onNotificationOpened(listener: (message: PushMessage) => void): () => void;
+  /** 종료 상태에서 알림을 눌러 앱이 켜졌으면 그 메시지, 아니면 null. 한 번만 값이 나온다. */
+  getInitialNotification(): Promise<PushMessage | null>;
+  /** 백그라운드·종료 상태 메시지 핸들러. 컴포넌트 밖(`index.ts`)에서 한 번만 건다. */
+  setBackgroundHandler(handler: (message: PushMessage) => Promise<void>): void;
 };
 
 /**
@@ -101,6 +143,19 @@ export const rnfbPushMessagingAdapter: PushMessagingAdapter = {
   onTokenRefresh(listener) {
     return onTokenRefresh(getMessaging(), listener);
   },
+  onMessage(listener) {
+    return onMessage(getMessaging(), (message) => listener(toPushMessage(message)));
+  },
+  onNotificationOpened(listener) {
+    return onNotificationOpenedApp(getMessaging(), (message) => listener(toPushMessage(message)));
+  },
+  async getInitialNotification() {
+    const message = await getInitialNotification(getMessaging());
+    return message ? toPushMessage(message) : null;
+  },
+  setBackgroundHandler(handler) {
+    setBackgroundMessageHandler(getMessaging(), (message) => handler(toPushMessage(message)));
+  },
 };
 
 let adapter: PushMessagingAdapter = rnfbPushMessagingAdapter;
@@ -128,4 +183,20 @@ export function getApnsToken(): Promise<string | null> {
 
 export function onPushTokenRefresh(listener: (token: string) => void): () => void {
   return adapter.onTokenRefresh(listener);
+}
+
+export function onPushMessage(listener: (message: PushMessage) => void): () => void {
+  return adapter.onMessage(listener);
+}
+
+export function onPushNotificationOpened(listener: (message: PushMessage) => void): () => void {
+  return adapter.onNotificationOpened(listener);
+}
+
+export function getInitialPushNotification(): Promise<PushMessage | null> {
+  return adapter.getInitialNotification();
+}
+
+export function setPushBackgroundHandler(handler: (message: PushMessage) => Promise<void>): void {
+  adapter.setBackgroundHandler(handler);
 }

@@ -42,8 +42,11 @@ jest.mock("expo-splash-screen", () => ({
   hideAsync: () => mockHideAsync(),
 }));
 
+// 실제 expo-router의 useRouter는 안정된 객체를 돌려준다 — 렌더마다 새 객체를 주면 [router] 의존 effect가
+// 매 렌더 재실행돼 시작/해제 횟수 단언이 깨진다.
+const mockRouter = { push: jest.fn() };
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => mockRouter,
   Stack: Object.assign(({ children }: { children?: ReactNode }) => children, {
     Screen: () => null,
   }),
@@ -61,9 +64,11 @@ jest.mock("../lib/orientation", () => ({
 jest.mock("../lib/userApi", () => ({
   ensureUserRegistered: jest.fn(() => Promise.resolve(null)),
 }));
-// Firebase 스모크(BY-585)는 네이티브 모듈을 끌어오므로 여기서는 no-op으로 둔다.
-jest.mock("../lib/firebaseSmoke", () => ({
-  logFirebaseSmoke: jest.fn(() => Promise.resolve()),
+// 푸시 배선(BY-586)은 네이티브 모듈을 끌어오므로 시작/해제 호출만 기록한다(동작은 `lib/__tests__/pushBootstrap.test.ts`).
+const mockStopPush = jest.fn();
+const mockStartPush = jest.fn((_options: { navigate: (route: string) => void }) => mockStopPush);
+jest.mock("../lib/pushBootstrap", () => ({
+  startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
 }));
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
 const mockResolveForceUpdate = jest.fn();
@@ -89,6 +94,8 @@ beforeEach(() => {
   mockAlertStart.mockClear();
   mockAlertStop.mockClear();
   mockAlertReshow.mockClear();
+  mockStartPush.mockClear();
+  mockStopPush.mockClear();
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -109,6 +116,18 @@ describe("RootLayout 폰트 로드 게이팅", () => {
 
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("마운트 때 푸시 배선을 시작하고 언마운트 때 해제한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    const { toJSON, unmount } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+
+    expect(mockStartPush).toHaveBeenCalledTimes(1);
+    expect(mockStartPush).toHaveBeenCalledWith({ navigate: expect.any(Function) });
+    unmount();
+    expect(mockStopPush).toHaveBeenCalledTimes(1);
   });
 
   it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", async () => {

@@ -38,10 +38,33 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 
 - `docs/releases.md`에 최소 지원 버전 정책 문단(원천·반영 시점·fail-open·올리는 절차·구버전 바이너리 처리).
 
-## B. 알림 서비스 — 다음 커밋
+## B. 알림 서비스 — 구현 (2026-09-04)
 
-- `lib/pushMessaging.ts`에 포그라운드 수신·알림 탭(`onNotificationOpenedApp`·`getInitialNotification`) → 딥링크 라우팅, 커스텀 엔트리 `index.ts`의 백그라운드 핸들러, Android 기본 채널. 권한 요청은 화면에 연결하지 않고, 포그라운드 수신은 표시하지 않으며, 토큰은 로그까지만(정책 미정·BE API 없음).
-- `lib/firebaseSmoke.ts` 삭제.
+목표는 "알림에 필요한 코드를 갖춰 두고 필요할 때 쓴다"다. 표시·저장·서버 등록 같은 정책성 동작은 넣지 않았다.
+
+### `lib/pushMessaging.ts` (어댑터 확장)
+
+- `PushMessage`(messageId·data(문자열 값만)·notification(title/body))로 RNFB `RemoteMessage`를 좁혀 내보낸다.
+- `onPushMessage`(포그라운드)·`onPushNotificationOpened`(백그라운드 탭)·`getInitialPushNotification`(종료 상태 탭)·`setPushBackgroundHandler`(백그라운드·종료 수신).
+
+### `lib/pushNotificationRouting.ts`
+
+- data `link` → expo-router 경로. 허용: 앱 스킴(`focusmakers://`, `focuson://`), 딥링크 등록 https 호스트(`web.focusmakers.app`·`web.sunqstudio.kr`), 앱 내 경로(`/...`). 그 외·없음은 홈 `/`. 실제 딥링크와 같은 라우트(`app/social/join.tsx`)로 합류한다. `link` 키 이름은 BE 알림 API 확정 시 맞춘다.
+
+### `lib/pushBootstrap.ts` + `app/_layout.tsx`
+
+- `startPushMessaging({ navigate })`: 포그라운드 수신 로그(표시 안 함), 알림 탭·초기 알림 → `router.push(경로)`, 토큰 갱신 로그. 해제 함수 반환. 어떤 실패도 throw하지 않는다.
+- **권한 요청은 개발 빌드(`__DEV__`)에서만** 부팅 시 한다 — 권한 없이는 iOS가 알림을 앱에 전달하지 않아 검증이 불가능해서다(2026-09-04 결정). 운영 빌드는 어떤 화면에서도 요청하지 않는다.
+- `lib/firebaseSmoke.ts`는 삭제했다. 개발 로그는 `[push] permission=… token=…`로 대체.
+
+### `index.ts` (커스텀 엔트리) + `lib/pushBackground.ts`
+
+- `package.json` `main`을 `index.ts`로 바꾸고 `expo-router/entry` 뒤에 백그라운드 핸들러를 건다. Android는 앱 종료 상태에서 headless로 이 파일만 실행하므로 React 트리 안에서는 절대 불리지 않는다. 핸들러는 로그만.
+- Android 알림 채널은 만들지 않았다. `notification` 페이로드는 FCM SDK가 기본 채널("기타")로 표시하고, 전용 채널은 알림 정책이 정해질 때 `expo-notifications`나 notifee로 추가한다(RNFB messaging만으로는 채널을 만들 수 없다).
+
+### Android `POST_NOTIFICATIONS`
+
+- Android 13+ 검증을 위해 `app.json` `android.permissions`에 임시로 선언했다(별도 커밋). **브랜치를 push하기 전에 그 커밋을 되돌린다**(2026-09-04 결정). 권한 정책이 정해지면 그때 정식으로 넣는다.
 
 ## 확정한 결정
 
@@ -58,6 +81,11 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 - `lib/__tests__/forceUpdateAlert.test.ts`: 기본 문구·버튼 하나·cancelable false, 콘솔 문구 사용·재표시 때 재읽기, 겹침 방지, 스토어 복귀 재표시, 스토어 실패 시 지연 재표시, iOS/Android 복귀 규칙, 배경 탭 재표시, 해제.
 - `__tests__/root-layout-font-gate.test.tsx`: 판정 전 미렌더, forced 시 배경만 렌더·알림창 시작·배경 탭 재표시·언마운트 해제, pass·reject 시 통과.
 - `lib/__tests__/remoteQueryParams.test.ts`: `nativeUpdateGate=1`. 웹 `useForceUpdateGate.test.tsx`: 표시가 있으면 `forced=false`.
+- `lib/__tests__/pushMessaging.test.ts`: `toPushMessage` 정규화, 포그라운드·탭 구독 변환·해제, 초기 알림, 백그라운드 핸들러 등록.
+- `lib/__tests__/pushNotificationRouting.test.ts`: 허용 주소 3종 → 경로, 허용 밖 → null, `resolvePushRoute` 홈 폴백.
+- `lib/__tests__/pushBootstrap.test.ts`: 구독·해제, 탭 라우팅, 포그라운드 미이동, 초기 알림, 해제 후 무시, 개발 빌드 한정 권한 요청, 실패 무throw.
+- `lib/__tests__/pushBackground.test.ts`: 등록·핸들러 정상 종료, 등록 실패 무throw. `firebaseConfig.test.ts`: `main === "index.ts"`.
+- `__tests__/root-layout-font-gate.test.tsx`: 마운트 시 `startPushMessaging`, 언마운트 시 해제.
 
 ## 실기기 검증 절차
 
@@ -75,6 +103,15 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 - 반영은 매번 "다음 실행"이었다(게시 → 실행에서 fetch → 재실행에서 적용). 의도된 동작.
 - 알림창 뒤에서도 스모크(Remote Config·APNs·FCM 토큰)는 정상.
 
+## 알림 실기기 검증 절차
+
+1. 개발 빌드를 열면 권한 다이얼로그가 뜬다(개발 빌드 전용). 허용하면 로그 `[push] permission=granted token=…`.
+2. Firebase 콘솔 → Messaging → 새 캠페인 → "테스트 메시지 전송"에 그 토큰을 넣는다.
+3. 포그라운드: 로그 `[push] foreground message …`만 찍히고 알림은 안 뜬다.
+4. 백그라운드(홈 버튼): OS 알림이 뜬다. 누르면 앱이 앞으로 오고 `[push] notification opened … → /`.
+5. 종료 상태: 알림을 누르면 앱이 켜지고 같은 로그. 데이터에 `link=focusmakers://social/join?code=1234`를 넣으면 소셜 탭으로 간다.
+6. Android 13+는 임시 `POST_NOTIFICATIONS` 커밋이 들어간 개발 빌드가 필요하다.
+
 ## 범위 밖
 
-- 토큰 서버 등록 API·FE 연동(BE 티켓 생성 후), 권한 요청 시점·설정 토글·알림 콘텐츠(정책 미정), 웹 강제 업데이트 로직 제거, U2 공지 배너(BY-376·377).
+- 토큰 서버 등록 API·FE 연동(BE 티켓 생성 후), 운영 빌드 권한 요청 시점·설정 토글·알림 콘텐츠·Android 전용 채널(정책 미정), 웹 강제 업데이트 로직 제거, U2 공지 배너(BY-376·377), 권장 업데이트(별도 티켓, stash), 기능 플래그·실시간 Remote Config(별도 티켓).
