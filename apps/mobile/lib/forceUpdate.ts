@@ -11,7 +11,7 @@ import {
  * 네이티브 강제 업데이트 판정 (BY-586).
  *
  * 최소 지원 버전의 원천은 Firebase Remote Config `min_supported_version`(prod 프로젝트)이다. 앱 버전이
- * 그보다 낮으면 `app/_layout.tsx`가 웹뷰 대신 `ForceUpdateScreen`을 그린다.
+ * 그보다 낮으면 `app/_layout.tsx`가 웹뷰 대신 빈 배경을 그리고 OS 알림창(`lib/forceUpdateAlert.ts`)으로 막는다.
  *
  * 부팅 전략: 지난 실행에서 fetch해 둔 값을 `activate`로 즉시 적용해 판정하고, `fetch`는 백그라운드로
  * 돌려 **다음 실행**에 반영한다 — 스플래시를 네트워크에 묶지 않는다. `activate`가 제한 시간 안에

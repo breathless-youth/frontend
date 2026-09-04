@@ -18,7 +18,7 @@
 
 ## 최소 지원 버전 정책 (BY-586, 2026-09-04)
 
-- **원천은 prod Firebase 프로젝트(`focusmakers-prod`)의 Remote Config `min_supported_version`이다.** 문자열 `x.y.z`. 앱은 부팅 시 지난 실행에서 받아 둔 값을 활성화해 `expo.version`(네이티브 앱 버전)과 비교하고, 낮으면 웹뷰 대신 네이티브 강제 업데이트 화면을 그린다(`apps/mobile/lib/forceUpdate.ts`).
+- **원천은 prod Firebase 프로젝트(`focusmakers-prod`)의 Remote Config `min_supported_version`이다.** 문자열 `x.y.z`. 앱은 부팅 시 지난 실행에서 받아 둔 값을 활성화해 `expo.version`(네이티브 앱 버전)과 비교하고, 낮으면 웹뷰 대신 OS 알림창으로 막는다(`apps/mobile/lib/forceUpdate.ts`·`forceUpdateAlert.ts`).
 - **반영 시점은 "다음 실행"이다.** 값을 올린 뒤 앱을 한 번 실행하면 백그라운드로 받아 두고, 그다음 실행부터 걸린다. 운영 빌드의 fetch 최소 간격은 1시간이라 최대 1시간 + 재실행 1회가 걸릴 수 있다. 개발 빌드는 간격 0.
 - **값을 못 읽으면 막지 않는다(fail-open).** 형식이 `x.y.z`가 아니거나 비어 있거나 활성화가 1초 안에 끝나지 않으면 통과한다. 그러니 값은 반드시 세 자리 숫자 버전으로 넣고 게시한다.
 - **올리는 절차**: 스토어 심사 통과 후 → Firebase 콘솔 prod → Remote Config → `min_supported_version` 값 변경 → 변경사항 게시. dev 프로젝트에서 같은 값으로 먼저 리허설한다. 절대 현재 스토어 최신 버전보다 높게 넣지 않는다(전원 차단).
