@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import { trackRecordsMonthChanged } from "@/lib/amplitude";
+
 import {
   buildMonthGrid,
   type CalendarMonth,
@@ -156,15 +158,23 @@ export function MonthCalendar({
    */
   const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
 
-  const goPrevMonth = useCallback(() => {
-    setSlideFrom("left");
-    onPrevMonth();
-  }, [onPrevMonth]);
+  const goPrevMonth = useCallback(
+    (method: "button" | "swipe") => {
+      trackRecordsMonthChanged({ delta: -1, method });
+      setSlideFrom("left");
+      onPrevMonth();
+    },
+    [onPrevMonth],
+  );
 
-  const goNextMonth = useCallback(() => {
-    setSlideFrom("right");
-    onNextMonth();
-  }, [onNextMonth]);
+  const goNextMonth = useCallback(
+    (method: "button" | "swipe") => {
+      trackRecordsMonthChanged({ delta: 1, method });
+      setSlideFrom("right");
+      onNextMonth();
+    },
+    [onNextMonth],
+  );
 
   // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
   // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
@@ -188,10 +198,10 @@ export function MonthCalendar({
         return;
       }
       if (dx < 0) {
-        goNextMonth();
+        goNextMonth("swipe");
         return;
       }
-      goPrevMonth();
+      goPrevMonth("swipe");
     },
     [goNextMonth, goPrevMonth],
   );
@@ -199,9 +209,9 @@ export function MonthCalendar({
   return (
     <div className="rounded-xl border border-border bg-muted px-[15px] py-[13px]">
       <div className="flex items-center justify-between">
-        <MonthNavButton direction="prev" onClick={goPrevMonth} />
+        <MonthNavButton direction="prev" onClick={() => goPrevMonth("button")} />
         <h2 className="text-base leading-[19px] font-bold text-foreground">{monthLabel(month)}</h2>
-        <MonthNavButton direction="next" onClick={goNextMonth} />
+        <MonthNavButton direction="next" onClick={() => goNextMonth("button")} />
       </div>
 
       {/*

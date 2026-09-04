@@ -297,7 +297,7 @@ function HomeContent({ userId }: { userId: number }) {
     <>
       {summaryState.status === "pending" && <Skeleton className="h-[180px] rounded-xl" />}
       {summaryState.status === "error" && (
-        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} />
+        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} screen="home" />
       )}
       {summaryState.status === "success" && <HeroTodayCard summary={summaryState.summary} />}
 

@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { detectStorePlatform } from "@/features/social-room/storeLink";
+import { trackForceUpdatePrompted } from "@/lib/amplitude";
 
 import { openAppStore } from "./store";
-import { shouldForceUpdate } from "./version";
+import { minSupportedVersion, shouldForceUpdate } from "./version";
 
 /**
  * 네이티브 셸이 웹뷰 URL 쿼리 `appVersion`에 실어 보내는 값을 읽어 강제 업데이트
@@ -25,6 +26,14 @@ export function useForceUpdateGate(): { forced: boolean; onUpdate: () => void } 
       ? null
       : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
   const forced = !nativeGate && platform !== null && shouldForceUpdate(appVersion);
+
+  // 노출 계측(BY-616) — 판정 입력이 마운트 시점 값으로 고정돼 있어 문서당 한 번이다. 모달이 라우트
+  // 트리를 대체하므로 페이지뷰가 노출을 대변하지 못한다(`lib/amplitude.ts`의 함수 주석).
+  useEffect(() => {
+    if (forced && appVersion !== null) {
+      trackForceUpdatePrompted({ appVersion, minVersion: minSupportedVersion() });
+    }
+  }, [forced, appVersion]);
 
   return {
     forced,

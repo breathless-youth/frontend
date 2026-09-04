@@ -14,11 +14,12 @@ const closeStaleSession = vi.hoisted(() => vi.fn());
 
 vi.mock("../closeStaleSession", () => ({ closeStaleSession }));
 
-const analytics = vi.hoisted(() => ({ prompted: vi.fn() }));
+const analytics = vi.hoisted(() => ({ prompted: vi.fn(), confirmed: vi.fn() }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackSessionRecoveryPrompted: analytics.prompted,
+  trackSessionRecoveryConfirmed: analytics.confirmed,
 }));
 
 /** 네이티브가 주입하는 것과 같은 경로로 신호를 흘려보낸다. mock이 아니라 실물 구독을 지난다. */
@@ -265,6 +266,7 @@ describe("useLaunchSessionRecovery 계측 (BY-616 확장)", () => {
   beforeEach(() => {
     closeStaleSession.mockReset();
     analytics.prompted.mockClear();
+    analytics.confirmed.mockClear();
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
   });
 
@@ -272,14 +274,19 @@ describe("useLaunchSessionRecovery 계측 (BY-616 확장)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("확정 안내 노출을 확정된 순공 시간과 함께 남긴다", async () => {
+  it("확정 안내 노출과 확인을 남긴다 — 노출에는 확정된 순공 시간을 싣는다", async () => {
     closeStaleSession.mockResolvedValue(RECOVERED);
     const view = renderWithClient(7);
 
     emit(LAUNCHED);
     await waitFor(() => expect(view.result.current.recovered).not.toBeNull());
-
     expect(analytics.prompted).toHaveBeenCalledWith(5040);
+    expect(analytics.confirmed).not.toHaveBeenCalled();
+
+    act(() => {
+      view.result.current.dismiss();
+    });
+    expect(analytics.confirmed).toHaveBeenCalledTimes(1);
   });
 
   it("순공 1분 미만은 안내가 없으니 계측도 없다", async () => {

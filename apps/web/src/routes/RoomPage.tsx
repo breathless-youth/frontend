@@ -44,6 +44,13 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
+import {
+  trackSessionNoticeConfirmed,
+  trackSessionSimpleModeToggled,
+  trackStudySessionExitCancelled,
+  trackStudySessionExitRequested,
+} from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 
@@ -205,6 +212,8 @@ function RoomSessionScreen({
   // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
   // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
   useRotationRepaintNudge();
+  // 가로 거치 모드(S3-5·S3-6) 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  useSessionOrientationAnalytics("single");
   /**
    * 프리뷰 `<video>` — **이 화면이 소유하고 두 곳에 나눠준다.**
    * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
@@ -410,11 +419,13 @@ function RoomSessionScreen({
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
   function handleRequestExit() {
+    trackStudySessionExitRequested("single");
     setExitDialogOpen(true);
   }
 
   /** `계속하기` — 직전 세션 상태 그대로 복귀한다(집중/비집중/일시정지 어디서 열었든). */
   function handleCancelExit() {
+    trackStudySessionExitCancelled("single");
     setExitDialogOpen(false);
   }
 
@@ -466,7 +477,10 @@ function RoomSessionScreen({
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
-            onClick={() => setSimpleMode((prev) => !prev)}
+            onClick={() => {
+              trackSessionSimpleModeToggled(!simpleMode);
+              setSimpleMode((prev) => !prev);
+            }}
             inert={exitDialogOpen}
             className="absolute inset-0 cursor-default"
           />
@@ -598,7 +612,12 @@ function RoomSessionScreen({
              아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
              걸러내는 것은 표시·합산 단계다(mvp-scope). */
       phase.name === "done" && endedBelowMinute ? (
-        <SubMinuteEndNotice onGoHome={goHome} />
+        <SubMinuteEndNotice
+          onGoHome={() => {
+            trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+            goHome();
+          }}
+        />
       ) : /* `phase.name === "done"`을 여기서 한 번 더 좁히는 이유: 타입 가드는 `endReason`만
              좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
              검사와 동일하다. */
@@ -614,7 +633,10 @@ function RoomSessionScreen({
           trigger={endReason.trigger}
           focusSec={focusSec}
           studySec={studySec}
-          onSeeResult={() => goToResult(phase.sessions)}
+          onSeeResult={() => {
+            trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
+            goToResult(phase.sessions);
+          }}
         />
       ) : (
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />

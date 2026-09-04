@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
-import { trackSessionRecoveryPrompted } from "@/lib/amplitude";
+import { trackSessionRecoveryConfirmed, trackSessionRecoveryPrompted } from "@/lib/amplitude";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { statsKeys } from "@/lib/statsQueries";
 
@@ -60,6 +60,7 @@ export function useLaunchSessionRecovery(userId: number | null): {
   }, [queryClient, userId]);
 
   const dismiss = useCallback(() => {
+    trackSessionRecoveryConfirmed();
     setRecovered(null);
   }, []);
 

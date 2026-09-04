@@ -8,6 +8,7 @@ import { ResultHeader } from "@/features/study-session/components/ResultHeader";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
+import { trackStudyResultConfirmed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 
 /**
@@ -74,7 +75,8 @@ export function ResultPage() {
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
-  function handleConfirm() {
+  function handleConfirm(via: "cta" | "close" = "cta") {
+    trackStudyResultConfirmed({ roomType: home === "/home" ? "single" : "social", via });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
@@ -108,7 +110,7 @@ export function ResultPage() {
     <main className="flex h-svh w-full flex-col bg-background text-foreground">
       {/* 콘텐츠만 스크롤 */}
       <div className="flex-1 overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+5px)] pb-4">
-        <ResultHeader view={view} onClose={handleConfirm} />
+        <ResultHeader view={view} onClose={() => handleConfirm("close")} />
         <div className="mt-[21px] flex flex-col gap-4">
           <StudyTimelineCard view={view} />
           <DistractionStatsCard view={view} />
@@ -119,7 +121,7 @@ export function ResultPage() {
       <div className="shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <button
           type="button"
-          onClick={handleConfirm}
+          onClick={() => handleConfirm("cta")}
           className="h-14 w-full rounded-2xl bg-primary text-[17px] leading-[20px] font-bold text-primary-foreground transition-opacity duration-200 active:opacity-90 motion-reduce:transition-none"
         >
           {RESULT_COPY.cta}

@@ -15,7 +15,7 @@ import {
   validateNickname,
   validateNicknameLength,
 } from "@/features/profile/profileValidation";
-import { trackProfileSaveResult } from "@/lib/amplitude";
+import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -101,6 +101,7 @@ export function ProfilePage() {
         <ScreenBackHeader />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
+            screen="profile"
             message="프로필을 불러오지 못했어요"
             onRetry={() => {
               void query.refetch();
@@ -159,6 +160,11 @@ export function ProfilePage() {
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
+    trackProfileSaveSubmitted({
+      nickname: patch.nickname !== undefined,
+      goal: patch.goal !== undefined,
+      category: patch.category !== undefined,
+    });
     saveMutation.mutate(patch);
   };
 

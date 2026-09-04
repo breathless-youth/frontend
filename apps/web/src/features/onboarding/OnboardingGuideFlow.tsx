@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
-import { trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
+import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
 
 import {
   GUIDE_CLOSE_LABEL,
@@ -165,6 +165,10 @@ export function OnboardingGuideFlow({
   // 한 건 남긴다. 라우트가 하나라 페이지뷰로는 스텝별 이탈이 안 잡힌다.
   const stepMethodRef = useRef<"initial" | "cta" | "gesture" | "prev">("initial");
   useEffect(() => {
+    if (stepIndex === 0 && stepMethodRef.current === "initial") {
+      // 첫 스텝의 첫 노출 = 가이드 진입(어느 경로로 들어왔는지). 이전으로 돌아온 스텝 1(`prev`)은 아니다.
+      trackGuideEntered(entry);
+    }
     trackGuideStepViewed({ step: stepIndex + 1, entry, method: stepMethodRef.current });
   }, [stepIndex, entry]);
 
