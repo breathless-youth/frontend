@@ -167,7 +167,7 @@ describe("submitStudySession", () => {
     );
   });
 
-  it("브라우저 경로 실패는 status를 가진 ApiError로 던져진다", async () => {
+  it("실패는 status를 가진 ApiError로 던져진다", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({

@@ -309,8 +309,6 @@ export type {
   ReportScreenMessage,
   NavigateTabMessage,
   SetTabBarMessage,
-  SubmitResultMessage,
-  SubmitSessionMessage,
   ToNativeMessage,
   ToWebMessage,
 } from "./bridge";

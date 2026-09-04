@@ -69,7 +69,7 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 
 웹은 `?userId=N` 유출 때문에 `beforeSend`·`beforeSendTransaction`·`beforeSendSpan`·`beforeBreadcrumb` 네 개를 붙였다(`apps/web/CLAUDE.md`). **네이티브에는 그 경로가 없어서 붙이지 않았다** — 2026-08-06에 확인한 근거는 이렇다.
 
-- 네이티브 `fetch`는 `lib/userApi.ts`·`lib/sessionSubmitRelay.ts` 두 곳뿐이고 **둘 다 쿼리스트링 없는 POST**다. 웹의 유출 지점이던 fetch 스팬의 `http.query`에 담길 것이 없다.
+- 네이티브 `fetch`는 `lib/userApi.ts` 한 곳뿐이고 **쿼리스트링 없는 POST**다. 웹의 유출 지점이던 fetch 스팬의 `http.query`에 담길 것이 없다.
 - `?userId=N`은 웹뷰 URL에만 있는데, 그 로딩은 네이티브 WKWebView가 하므로 JS `fetch`/`xhr` breadcrumb에 잡히지 않는다. `RemoteWebViewHost`의 `onError`/`onHttpError`도 URL을 로그에 남기지 않는다.
 - `console.*` 호출 14곳 전부 URL을 담지 않는다(breadcrumb으로 새지 않는다).
 
