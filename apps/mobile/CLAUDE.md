@@ -181,6 +181,10 @@ VITE_DEV_HTTPS=1 pnpm --filter web dev     # 옵트인이다 — 아래 주의 �
 
 **SDK 54 고정이다(의도적).** 최신은 57이지만 올리지 않는다 — 참조할 문서는 https://docs.expo.dev/versions/v54.0.0/ 이다. 버전이 낡아 보인다는 이유로 업그레이드를 제안하거나 실행하지 말 것.
 
+## App Store 언어 표시 (2026-09-06, BY-622)
+
+App Store 제품 페이지의 언어(KO/EN)는 App Store Connect 설정이 아니라 **바이너리 Info.plist의 `CFBundleLocalizations`·`CFBundleDevelopmentRegion`**에서 정해진다. Expo 템플릿은 `developmentRegion = en` 하나만 선언해 1.0.1까지 EN으로 떴다. app.json `ios.infoPlist`에 `CFBundleDevelopmentRegion: "ko"`, `CFBundleLocalizations: ["ko"]`, `CFBundleAllowMixedLocalizations: true`를 두어 덮어쓴다(`lib/__tests__/appStoreLocalization.test.ts`가 고정). 영어 문구를 실제로 넣기 전에는 `en`을 추가하지 않는다 — 스토어에 지원 언어로 표시된다. 반영은 새 바이너리부터다. Android는 Play Console 스토어 등록 정보의 언어라 바이너리와 무관하다.
+
 ## 명령
 
 ```bash
