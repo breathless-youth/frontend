@@ -16,7 +16,9 @@ import {
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
+import { statsKeys } from "@/lib/statsQueries";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
@@ -548,6 +550,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           events,
         });
         trackStudySessionSubmitted(true, attempt, roomType);
+        // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
+        // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
+        // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
+        // 홈은 재노출 시 refetchOnWindowFocus로 갱신된다.
+        void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         setPhase({ name: "done", sessions });
       } catch (error) {
         trackStudySessionSubmitted(false, attempt, roomType);
