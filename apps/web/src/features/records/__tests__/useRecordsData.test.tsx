@@ -35,6 +35,9 @@ function statsResponse(studiedDatesInMonth: string[]): StudySessionListResponse 
 }
 
 function createWrapper() {
+  // 이 파일이 쓰는 2026-07 고정 날짜는 dailyStatsQuery가 정착된 날짜로 판정해 쿼리 단위
+  // gcTime 30분을 실으므로, 그 키들에는 아래 gcTime 0이 덮여 이미 받은 날짜를 다시 눌러도
+  // 재조회가 나가지 않는다.
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
