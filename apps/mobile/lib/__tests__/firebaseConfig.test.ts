@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import type { ConfigContext, ExpoConfig } from "expo/config";
@@ -129,6 +130,57 @@ describe("Firebase 설정 (BY-585)", () => {
       });
       expect(config.android?.googleServicesFile).toBe(json);
       expect(config.ios?.googleServicesFile).toBe(plist);
+    });
+
+    /**
+     * BY-620: EAS 빌더는 file 변수를 확장자 없는 경로(`eas-environment-secrets/<해시>`)로 준다.
+     * 형식을 확장자로 가르면 빌더에서 JSON을 plist로 읽어 "읽힌 프로젝트: 없음"으로 production 빌드가
+     * 죽는다(2026-09-05 릴리즈 빌드). 형식은 변수가 정한다.
+     */
+    describe("확장자 없는 경로 (EAS 빌더의 file 변수)", () => {
+      let secretsDir: string;
+      let json: string;
+      let plist: string;
+
+      beforeAll(() => {
+        secretsDir = fs.mkdtempSync(path.join(os.tmpdir(), "eas-environment-secrets-"));
+        json = path.join(
+          secretsDir,
+          "fb112087c464af1aa1bad8bf2f874b8f8839c3a2bd2d47c8500909f7e5160bee",
+        );
+        plist = path.join(
+          secretsDir,
+          "dc2f8256d5665362a01fedc921249bf8851dbac12e53494430889a2a73437fa3",
+        );
+        fs.copyFileSync(path.resolve(__dirname, "../..", FIXTURE("prod").json), json);
+        fs.copyFileSync(path.resolve(__dirname, "../..", FIXTURE("prod").plist), plist);
+      });
+
+      afterAll(() => {
+        fs.rmSync(secretsDir, { recursive: true, force: true });
+      });
+
+      it("EAS 빌더의 production 빌드에 확장자 없는 prod 파일 경로를 주면 그대로 반영된다", () => {
+        const config = resolveConfig({
+          APP_VARIANT: "production",
+          EAS_BUILD: "true",
+          GOOGLE_SERVICES_JSON: json,
+          GOOGLE_SERVICES_PLIST: plist,
+        });
+        expect(config.android?.googleServicesFile).toBe(json);
+        expect(config.ios?.googleServicesFile).toBe(plist);
+      });
+
+      it("두 변수의 파일이 뒤바뀌면 production 빌드가 실패한다 — 형식은 변수가 정한다", () => {
+        expect(() =>
+          resolveConfig({
+            APP_VARIANT: "production",
+            EAS_BUILD: "true",
+            GOOGLE_SERVICES_JSON: plist,
+            GOOGLE_SERVICES_PLIST: json,
+          }),
+        ).toThrow(/읽힌 프로젝트: 없음/);
+      });
     });
 
     it.each([
