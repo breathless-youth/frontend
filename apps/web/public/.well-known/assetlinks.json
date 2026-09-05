@@ -10,5 +10,15 @@
         "31:76:B7:F2:7C:53:97:90:09:79:39:92:B4:3D:DF:1B:89:46:0E:23:7E:8D:8C:6B:09:29:6D:77:38:B0:DB:D6"
       ]
     }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.breathlessyouth.mobile.staging",
+      "sha256_cert_fingerprints": [
+        "5A:51:DD:E2:47:B5:5F:37:40:86:6E:C4:0E:F1:37:25:36:EA:48:B6:EF:3F:F6:A9:ED:29:0C:32:EC:A0:C5:14"
+      ]
+    }
   }
 ]
