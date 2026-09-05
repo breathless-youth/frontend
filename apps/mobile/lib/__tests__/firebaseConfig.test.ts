@@ -167,16 +167,50 @@ describe("Firebase 설정 (BY-585)", () => {
     });
 
     it.each(["GOOGLE_SERVICES_JSON", "GOOGLE_SERVICES_PLIST"] as const)(
-      "production 빌드에 %s가 없으면 설정 평가가 실패한다",
+      "EAS 빌더의 production 빌드에 %s가 없으면 설정 평가가 실패한다",
       (name) => {
         expect(() =>
           resolveConfig({
             APP_VARIANT: "production",
+            EAS_BUILD: "true",
             GOOGLE_SERVICES_JSON: FIXTURE("prod").json,
             GOOGLE_SERVICES_PLIST: FIXTURE("prod").plist,
             [name]: undefined,
           }),
         ).toThrow(/비어 있습니다/);
+      },
+    );
+
+    /**
+     * BY-620: eas-cli는 업로드 전에 로컬에서도 설정을 평가하는데, EAS production 환경의 file 변수는
+     * secret이라 빌더에서만 풀린다. 로컬 평가에서 누락을 막으면 production 빌드를 시작조차 못 한다.
+     */
+    it("EAS 빌더 밖의 production 평가는 파일이 없어도 통과하고 googleServicesFile 키를 넣지 않는다", () => {
+      const config = resolveConfig({
+        APP_VARIANT: "production",
+        EAS_BUILD: undefined,
+        GOOGLE_SERVICES_JSON: undefined,
+        GOOGLE_SERVICES_PLIST: undefined,
+      });
+      expect(config.ios).not.toHaveProperty("googleServicesFile");
+      expect(config.android).not.toHaveProperty("googleServicesFile");
+      expect(config.ios?.bundleIdentifier).toBe("com.breathlessyouth.mobile");
+      expect(config.android?.package).toBe("com.breathlessyouth.mobile");
+    });
+
+    it.each([
+      ["GOOGLE_SERVICES_JSON", "json"],
+      ["GOOGLE_SERVICES_PLIST", "plist"],
+    ] as const)(
+      "EAS 빌더 밖이라도 production에 dev 파일(%s)을 주면 실패한다 — 파일이 있을 때의 검사는 어디서든 한다",
+      (name, kind) => {
+        expect(() =>
+          resolveConfig({
+            APP_VARIANT: "production",
+            EAS_BUILD: undefined,
+            [name]: FIXTURE("dev")[kind],
+          }),
+        ).toThrow(/프로젝트 파일이 아닙니다/);
       },
     );
 
