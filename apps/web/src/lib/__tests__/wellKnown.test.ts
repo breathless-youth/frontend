@@ -35,6 +35,7 @@ describe("well-known 앱 연결 파일", () => {
     }[];
     const names = links.map((l) => l.target.package_name);
     expect(names).toContain("com.breathlessyouth.mobile");
+    expect(names).toContain("com.breathlessyouth.mobile.staging");
     expect(names).not.toContain("com.breathlessyouth.mobile.dev");
     for (const l of links) {
       expect(l.target.sha256_cert_fingerprints.length).toBeGreaterThan(0);
