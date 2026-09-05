@@ -48,9 +48,18 @@ function guardDevBaseUrl(name: string, value: string | undefined): string {
  * Firebase 설정 파일 주입 (BY-585).
  *
  * `google-services.json`·`GoogleService-Info.plist`는 공개 저장소라 커밋하지 않는다. 경로를 env로
- * 받아 `googleServicesFile`에 넣고, EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다. production이
- * 아닌 빌드는 env가 없으면 키를 넣지 않는다. Metro만 띄우는 로컬 개발엔 파일이 필요 없고,
- * prebuild가 필요한 명령에서는 `@react-native-firebase/app` plugin이 명확한 메시지로 실패한다.
+ * 받아 `googleServicesFile`에 넣고, EAS 빌드는 file 타입 환경변수로 같은 이름을 받는다. env가 없으면
+ * 키를 넣지 않는다. Metro만 띄우는 로컬 개발엔 파일이 필요 없고, prebuild가 필요한 명령에서는
+ * `@react-native-firebase/app` plugin이 명확한 메시지로 실패한다.
+ *
+ * production만 예외로 파일 누락을 여기서 끊되, **EAS 빌더(`EAS_BUILD=true`)에서만** 끊는다(BY-620).
+ * eas-cli는 업로드 전에 로컬에서도 이 설정을 평가하는데 EAS의 secret file 변수는 빌더에서만 풀리므로,
+ * 로컬 평가에서 막으면 production 빌드를 시작조차 못 한다. 파일이 주어졌을 때의 프로젝트·아이덴티티
+ * 검사는 어디서든 한다.
+ *
+ * EAS 빌더는 file 변수를 확장자 없는 경로(`eas-environment-secrets/<해시>`)로 준다. 그래서 파일 형식은
+ * 경로가 아니라 변수(`GOOGLE_SERVICES_JSON`=JSON, `GOOGLE_SERVICES_PLIST`=plist)로 정한다 — 확장자로
+ * 가르면 빌더에서 JSON을 plist로 읽어 "읽힌 프로젝트: 없음"으로 죽는다(BY-620, 2026-09-05 릴리즈 빌드).
  *
  * Firebase 프로젝트는 dev/prod 둘이다. 파일 안의 프로젝트 ID를 읽어 `APP_VARIANT`와 어긋나면
  * 여기서 끊는다 — 위 `guardDevBaseUrl`과 같은 원칙이다. dev 빌드가 운영 Remote Config·FCM에
@@ -75,15 +84,23 @@ const FIREBASE_FILE_HINT: Record<AppVariant, string> = {
 };
 
 type FirebaseFileInfo = { projectId: string | null; appIds: string[] };
+// 파일 형식은 받는 변수가 정한다. 경로의 확장자는 EAS 빌더에서 없다.
+type FirebaseFileKind = "json" | "plist";
 
-function readFirebaseFile(filePath: string): FirebaseFileInfo | null {
+// EAS 빌더(원격·`eas build --local`)는 `EAS_BUILD=true`를 준다. eas-cli가 업로드 전에 로컬에서
+// 돌리는 설정 평가에는 없다.
+function isEasBuilder(): boolean {
+  return process.env.EAS_BUILD === "true";
+}
+
+function readFirebaseFile(filePath: string, kind: FirebaseFileKind): FirebaseFileInfo | null {
   let text: string;
   try {
     text = fs.readFileSync(filePath, "utf8");
   } catch {
     return null;
   }
-  if (filePath.endsWith(".json")) {
+  if (kind === "json") {
     try {
       const parsed = JSON.parse(text) as {
         project_info?: { project_id?: unknown };
@@ -107,15 +124,17 @@ function readFirebaseFile(filePath: string): FirebaseFileInfo | null {
 
 function guardFirebaseFile(
   name: string,
+  kind: FirebaseFileKind,
   value: string | undefined,
   variant: AppVariant,
   expectedAppId: string,
 ): string | undefined {
   const isProduction = variant === "production";
   if (!value) {
-    // 운영 빌드는 파일 없이 나가면 안 된다. development·staging은 Metro만 띄우는 개발을 막지
-    // 않으려고 키를 넣지 않고 넘어간다.
-    if (isProduction) {
+    // 운영 바이너리는 파일 없이 나가면 안 된다 — 단, 바이너리를 만드는 EAS 빌더에서만 끊는다.
+    // eas-cli의 로컬 평가에는 secret file 변수가 없어 여기서 막으면 빌드를 시작조차 못 한다(BY-620).
+    // development·staging은 Metro만 띄우는 개발을 막지 않으려고 키를 넣지 않고 넘어간다.
+    if (isProduction && isEasBuilder()) {
       throw new Error(
         `${name}이 비어 있습니다. ` +
           "production 빌드에는 EAS production environment의 file 변수로 prod Firebase 파일을 주입하세요.",
@@ -124,7 +143,7 @@ function guardFirebaseFile(
     return undefined;
   }
   const expectedProjectId = isProduction ? PROD_FIREBASE_PROJECT_ID : DEV_FIREBASE_PROJECT_ID;
-  const info = readFirebaseFile(path.resolve(__dirname, value));
+  const info = readFirebaseFile(path.resolve(__dirname, value), kind);
   if (info === null) {
     // `.env.local.example`이 경로를 기본값으로 채워 두는데 Metro만 띄우는 개발자에겐 파일이 없을 수
     // 있다. 개발 빌드는 그대로 통과시키고, prebuild가 필요한 명령에서는 RNFB plugin이 명확한
@@ -218,12 +237,14 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
 
   const androidGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_JSON",
+    "json",
     process.env.GOOGLE_SERVICES_JSON,
     variant,
     androidPackage,
   );
   const iosGoogleServicesFile = guardFirebaseFile(
     "GOOGLE_SERVICES_PLIST",
+    "plist",
     process.env.GOOGLE_SERVICES_PLIST,
     variant,
     bundleIdentifier,
