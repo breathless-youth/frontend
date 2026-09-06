@@ -86,7 +86,6 @@ export function LiveRoomEntry({
 
   const profile = useQuery({
     ...profileQuery(userId),
-    staleTime: Infinity,
     enabled: !entered,
   });
 
