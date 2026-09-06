@@ -275,6 +275,10 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   return {
     ...(config as ExpoConfig),
     scheme: table.schemes,
+    plugins: [
+      ...(config.plugins ?? []),
+      ["expo-dev-client", { addGeneratedScheme: variant === "development" }],
+    ],
     ios: {
       ...config.ios,
       bundleIdentifier,
