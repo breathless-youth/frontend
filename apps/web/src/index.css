@@ -115,8 +115,10 @@
   /* S9-2 공유하기 버튼 텍스트 */
 }
 
+/* data-theme="light"가 붙어 있으면 시스템이 다크여도 라이트를 유지한다 — 셸이 넘긴 값이
+   미디어쿼리보다 우선해야 두 신호가 어긋나도 화면과 속성이 일치한다. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --background: #101419;
     /* colors.bg.base.dark */
@@ -168,7 +170,8 @@
    순수 CSS로 블록을 공유할 수 없어 값이 두 벌이다 — **위 다크 블록과 항상 같아야 한다.
    다크 토큰을 고칠 때 두 블록을 함께 고칠 것.** iOS·브라우저는 data-theme이 붙지 않아
    이 블록이 적용될 일이 없고, Android는 미디어쿼리가 항상 light로 평가되어 두 블록이
-   충돌할 조합이 없다. */
+   충돌할 조합이 없다. 그래도 어긋나는 날을 대비해 위 미디어쿼리 블록은
+   data-theme="light"를 제외한다. */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --background: #101419;

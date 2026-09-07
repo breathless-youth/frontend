@@ -83,10 +83,20 @@ describe("index.css color-scheme", () => {
     expect(light).toContain("color-scheme: light;");
 
     const media =
-      /@media \(prefers-color-scheme: dark\)\s*{\s*:root\s*{[^}]*}/.exec(css)?.[0] ?? "";
+      /@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)\s*{[^}]*}/.exec(
+        css,
+      )?.[0] ?? "";
     expect(media).toContain("color-scheme: dark;");
 
     const attribute = /:root\[data-theme="dark"\]\s*{[^}]*}/.exec(css)?.[0] ?? "";
     expect(attribute).toContain("color-scheme: dark;");
+  });
+
+  it("시스템이 다크여도 data-theme=light면 미디어쿼리 다크 블록이 적용되지 않는다", () => {
+    const mediaBlock = /@media \(prefers-color-scheme: dark\)\s*{\s*([^{]+){/
+      .exec(css)?.[1]
+      ?.trim();
+
+    expect(mediaBlock).toBe(':root:not([data-theme="light"])');
   });
 });
