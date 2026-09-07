@@ -1,25 +1,24 @@
 /**
  * 빌드 타임 API 주소 결정 — 사람이 입력한 주소를 신뢰하지 않고 빌드 컨텍스트가 정한다.
  *
- * 과거 Vercel 대시보드의 VITE_API_BASE_URL에 운영 주소가 잘못 들어가 개발 트래픽이
- * 운영 DB로 흘러간 사고가 있었다. 대시보드 값은 diff·리뷰·이력이 없어 코드로 막을
- * 수 없으므로, 여기서 환경과 주소를 대조해 어긋나면 빌드 자체를 실패시킨다 —
- * Vercel은 실패한 빌드를 승격하지 않아 실패 모드가 장애가 아니라 배포 거부다.
+ * 대시보드 값은 diff·리뷰·이력이 없어 코드로 막을 수 없으므로,
+ * 여기서 환경과 주소를 대조해 어긋나면 빌드 자체를 실패시킨다
+ * — Vercel은 실패한 빌드를 승인하지 않아 실패 모드가 장애가 아니라 배포 거부다.
  */
 export type DeployEnv = "production" | "preview" | "development";
 
 const PROD_API_HOSTS = ["api.sunqstudio.kr", "api.focusmakers.app"];
 
 const API_BY_ENV: Record<DeployEnv, string> = {
-  production: "https://api.sunqstudio.kr",
+  production: "https://api.focusmakers.app",
   preview: "https://api-dev.focusmakers.app",
   development: "", // 로컬은 same-origin — vite.config.ts의 /api 프록시가 전달한다
 };
 
 /**
- * VITE_DEPLOY_ENV(명시)를 VERCEL_ENV보다 앞에 두는 이유: 운영 웹을 CloudFront로
- * 전환하면 빌드가 GitHub Actions로 넘어가 VERCEL_ENV가 없다. 그때 워크플로가
- * 명시 값을 주입하면 이 코드는 그대로 동작한다.
+ * VITE_DEPLOY_ENV(명시)를 VERCEL_ENV보다 앞에 두는 이유:
+ * 운영 웹을 CloudFront로 전환하면 빌드가 GitHub Actions로 넘어가 VERCEL_ENV가 없다.
+ * 그때 워크플로가 명시 값을 주입하면 이 코드는 그대로 동작한다.
  */
 export function resolveDeployEnv(env: NodeJS.ProcessEnv): DeployEnv {
   const raw = env.VITE_DEPLOY_ENV ?? env.VERCEL_ENV;

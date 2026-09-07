@@ -100,3 +100,16 @@ describe("index.css color-scheme", () => {
     expect(mediaBlock).toBe(':root:not([data-theme="light"])');
   });
 });
+
+describe("index.html OG 도메인", () => {
+  it("구 도메인 sunqstudio 참조가 없다", () => {
+    expect(html).not.toContain("sunqstudio");
+  });
+
+  it("og:url과 og:image가 운영 도메인을 가리킨다", () => {
+    expect(html).toContain('<meta property="og:url" content="https://web.focusmakers.app/" />');
+    expect(html).toContain(
+      '<meta property="og:image" content="https://web.focusmakers.app/og-image.png" />',
+    );
+  });
+});
