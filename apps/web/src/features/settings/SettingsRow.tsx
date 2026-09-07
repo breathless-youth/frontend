@@ -111,8 +111,11 @@ export function SettingsRow({
 }: SettingsRowProps) {
   const content = (
     <>
-      {/* `shrink`가 있어야 라벨이 길어질 때 트레일링을 밀어내지 않고 접힌다. */}
-      <div className="flex shrink flex-col items-start gap-[3px]">
+      {/* `shrink`가 있어야 라벨이 길어질 때 트레일링을 밀어내지 않고 접힌다.
+          flex 자식은 기본 `min-width: auto`라 콘텐츠 너비 밑으로 줄지 않으므로,
+          `min-w-0`이 없으면 `shrink`가 있어도 실제로 압축되지 않아 긴 버전 값
+          (`26.36.3 / 26.37.0`처럼 늘어난 표기)이 큰 시스템 폰트 배율에서 행 밖으로 밀린다. */}
+      <div className="flex min-w-0 shrink flex-col items-start gap-[3px]">
         <span className="text-foreground text-base leading-[19px]">{label}</span>
         {sublabel !== undefined && (
           <span className="text-text-tertiary text-xs leading-[15px]">{sublabel}</span>

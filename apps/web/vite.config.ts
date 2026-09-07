@@ -168,6 +168,16 @@ const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
 const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
 
 /**
+ * 웹 자체 버전
+ * - `npm_package_version`은 `vite build`를 직접 부르면 비어 있어 쓰지 않고 원천 파일을 직접 읽는다.
+ */
+const WEB_VERSION = (
+  JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf8")) as {
+    version: string;
+  }
+).version;
+
+/**
  * 배포 환경 판별과 API 주소 결정은 scripts/resolveApiBase.ts가 전담한다 —
  * 환경과 주소가 어긋나면 여기서 던져 빌드가 실패한다(잘못된 주소의 배포 차단).
  * `vite-env.d.ts`가 `__DEPLOY_ENV__`를 세 값의 union으로 선언하는 계약도 그 모듈이 지킨다.
@@ -178,6 +188,7 @@ const deployDefines = {
   __DEPLOY_ENV__: JSON.stringify(DEPLOY_ENV),
   __RELEASE__: JSON.stringify(RELEASE),
   __API_BASE__: JSON.stringify(API_BASE),
+  __WEB_VERSION__: JSON.stringify(WEB_VERSION),
 };
 
 /**

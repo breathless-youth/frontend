@@ -169,17 +169,18 @@ describe("S6 · 설정", () => {
     expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
   });
 
-  it("appVersion 쿼리를 버전 정보 행에 반영한다", () => {
+  it("appVersion 쿼리와 웹 버전을 함께 버전 정보 행에 반영한다", () => {
     renderAt("/settings?appVersion=1.4.2");
 
-    expect(screen.getByText("1.4.2")).toBeInTheDocument();
+    // jsdom UA는 android도 ios도 아니라 플랫폼이 null이고 앱 버전도 구형식이라 나란히 적힌다.
+    expect(screen.getByText(`1.4.2 / ${__WEB_VERSION__}`)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "버전 정보" })).not.toBeInTheDocument();
   });
 
-  it("appVersion 쿼리가 없으면 알 수 없음으로 표시한다", () => {
+  it("appVersion 쿼리가 없으면 웹 버전만 표시한다", () => {
     renderAt("/settings");
 
-    expect(screen.getByText("알 수 없음")).toBeInTheDocument();
+    expect(screen.getByText(__WEB_VERSION__)).toBeInTheDocument();
   });
 
   it("카메라 권한 행은 클릭 시 open-settings 메시지를 네이티브로 보낸다", () => {

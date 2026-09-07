@@ -11,23 +11,22 @@ import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
+import { detectStorePlatform } from "@/features/social-room/storeLink";
 
 /**
  * 설정
  *
- * **프로필 설정 행은 V1.3(BY-409)에서 추가됐다.** ⚠️ 설정 화면의 행 배치 디자인은 미확정이라 섹션 구성은 잠정이다.
- *
- * ## 원본과의 의도적 차이 (BY-331 task-4-brief)
- *
- * 1. **카메라 권한 행**: 원본은 `expo-camera`로 OS 권한 상태를 **직접** 조회해 트레일링 토글에
- *    반영한다. 웹에는 그 API가 없어(Permissions API의 `camera`를 iOS WKWebView가 지원하지 않는다)
+ * 1. 카메라 권한 행: 원본은 `expo-camera`로 OS 권한 상태를 직접 조회해 트레일링 토글에 반영한다.
+ *    웹에는 그 API가 없어(Permissions API의 `camera`를 iOS WKWebView가 지원하지 않는다)
  *    한동안 토글 없이 고정 렌더했지만, 지금은 `useCameraPermission`이 브리지로 네이티브에 물어
  *    같은 토글을 되살린다. 값을 모르는 동안(브라우저 단독 모드·조회 실패)은 원본의
  *    `granted === null` 분기 그대로 트레일링을 비운다. `onPress`는 `Linking.openSettings()`
  *    대신 `postToNative({ type: "open-settings", atMs: Date.now() })`로 네이티브에 요청만
  *    보낸다 — 브라우저 단독 모드에서는 브리지가 없어 조용히 무동작한다.
- * 2. **버전 정보**: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
- *    얻을 수 없으므로 네이티브 셸(BY-333)이 실어 보내는 쿼리 `appVersion`을 읽는다.
+ * 2. 버전 정보: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
+ *    얻을 수 없으므로 네이티브 셸이 실어 보내는 쿼리 `appVersion`을 읽는다. 여기에 웹
+ *    자체 버전(`__WEB_VERSION__`)을 합쳐 한 줄로 보여준다 - 앱과 웹이 각자 배포되기 때문에
+ *    둘 중 하나만으로는 사용자가 무엇을 쓰고 있는지 알 수 없다.
  */
 /** 네이티브 탭 바 복귀 애니메이션이 끝나기를 기다리는 지연(ms) — SettingsPage 토스트 주석 참고. */
 const PROFILE_SAVED_TOAST_DELAY_MS = 450;
@@ -145,8 +144,7 @@ export function SettingsPage() {
 
         <SettingsSection className="mt-6" label="약관 · 정보">
           {/*
-            이용약관·개인정보처리방침은 **앱 안에서 직접 보여준다**(BY-257) — 웹에도 같은 문서가
-            있지만 외부 브라우저로 내보내지 않는다. chevron(앱 내 이동)이 그대로 맞는 표기다.
+            이용약관·개인정보처리방침은 앱 안에서 직접 보여준다 — 웹에도 같은 문서가 있지만 외부 브라우저로 내보내지 않는다.
             본문은 `features/settings/legalDocuments.ts`가 소유하고 이 화면은 라우트만 안다.
           */}
           <SettingsRow
@@ -173,10 +171,16 @@ export function SettingsPage() {
               navigate("/licenses");
             }}
           />
-          {/* 트레일링이 값 텍스트뿐이라 탭 불가 — chevron이 없다는 것이 그 표시다. */}
           <SettingsRow
             label="버전 정보"
-            trailing={{ kind: "value", value: appVersionLabel(searchParams.get("appVersion")) }}
+            trailing={{
+              kind: "value",
+              value: appVersionLabel(
+                searchParams.get("appVersion"),
+                __WEB_VERSION__,
+                detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints),
+              ),
+            }}
           />
         </SettingsSection>
       </div>
