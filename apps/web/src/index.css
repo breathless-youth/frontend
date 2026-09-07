@@ -61,6 +61,9 @@
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
+  /* UA 기본 캔버스와 폼 컨트롤 색을 테마에 맞춘다. 이 선언이 없으면 셀렉트·스크롤바 같은
+     UA 그리기 요소만 라이트로 남는다. */
+  color-scheme: light;
   --background: #ffffff;
   /* colors.bg.base.light */
   --foreground: #191f28;
@@ -114,6 +117,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --background: #101419;
     /* colors.bg.base.dark */
     --foreground: #f9fafb;
@@ -166,6 +170,7 @@
    이 블록이 적용될 일이 없고, Android는 미디어쿼리가 항상 light로 평가되어 두 블록이
    충돌할 조합이 없다. */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --background: #101419;
   --foreground: #f9fafb;
   --primary: #3182f6;
