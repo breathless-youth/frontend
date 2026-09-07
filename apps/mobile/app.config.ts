@@ -10,9 +10,8 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 const PROD_API_BASE_URL = "https://api.focusmakers.app";
 const PROD_WEB_BASE_URL = "https://web.focusmakers.app";
 
-// 개발 빌드가 운영으로 붙으면 개발 데이터가 운영 DB를 오염시킨다. RN의 fetch는 CORS를
-// 적용하지 않아 서버가 막아줄 수 없으므로, 설정을 읽는 시점에 여기서 끊는다.
 // sunqstudio는 iOS 레거시 빌드가 쓰는 옛 운영 도메인이라 목록에 함께 둔다.
+// 옛 도메인 서버를 닫고 그 주소를 부르는 스토어 빌드가 사라지면 sunqstudio 두 줄을 지운다.
 const PROD_HOSTS = [
   "api.sunqstudio.kr", // iOS 레거시 빌드가 쓰는 옛 운영 도메인
   "web.sunqstudio.kr",
@@ -210,6 +209,7 @@ const VARIANT_TABLE: Record<
     apiBaseUrl: PROD_API_BASE_URL,
     webBaseUrl: PROD_WEB_BASE_URL,
     // focuson과 web.sunqstudio.kr은 이전 빌드와 이미 공유된 링크를 위해 남긴다.
+    // 그 링크를 여는 구 스토어 빌드가 사라지면 focuson과 web.sunqstudio.kr을 지운다.
     schemes: ["focusmakers", "focuson"],
     legacyHosts: ["web.sunqstudio.kr"],
   },
