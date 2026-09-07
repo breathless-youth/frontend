@@ -1,7 +1,7 @@
 {
   "name": "web",
   "private": true,
-  "version": "0.0.0",
+  "version": "26.37.0",
   "type": "module",
   "scripts": {
     "prepare-assets": "node scripts/copyMediapipeWasm.js",
