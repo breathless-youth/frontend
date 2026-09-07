@@ -9,7 +9,8 @@ import { todayKstDateKey } from "./dateKst";
  *
  * 기본 staleTime(30초)과 그 근거는 lib/queryClient.ts에 있다.
  * 세션 종료 후 홈 갱신은 브라우저 단독 모드에서는 useStudyRoomSession의 제출 성공 무효화가,
- * 네이티브 웹뷰에서는 세션이 별도 document라 홈 탭의 refetchOnWindowFocus가 맡는다.
+ * 네이티브 웹뷰에서는 세션이 별도 document라 모달이 닫힐 때 오는 session-closed 신호
+ * (lib/nativeSessionClosed.ts)가 맡는다.
  * 앱 실행 직후의 미확정 세션 마감도 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
  *
  * 홈은 streakQuery(userId), 기록은 streakQuery(userId, range)로 키가 갈린다.

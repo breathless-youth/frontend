@@ -16,6 +16,7 @@ import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { useNativePingResponder } from "@/lib/nativeLiveness";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
+import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { queryClient } from "@/lib/queryClient";
@@ -54,6 +55,8 @@ export function App() {
   useNativeScreenReport();
   // 네이티브가 관측한 사용자 이벤트(탭 터치·권한 게이트 등)를 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`).
   useNativeAnalyticsRelay();
+  // 세션 모달이 닫히면 통계를 다시 받게 표시한다(lib/nativeSessionClosed.ts).
+  useNativeSessionClosed();
   // 앱 버전이 최소 버전 미만이면 강제 업데이트 모달을 앱 전역에 띄운다
   const { forced: forceUpdateRequired, onUpdate: openAppStoreForUpdate } = useForceUpdateGate();
 

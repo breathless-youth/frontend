@@ -9,6 +9,7 @@ import {
   trackNativeEvent,
 } from "../../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
+import { emitSessionClosed } from "../../lib/sessionClosed";
 import { emitTabReset } from "../../lib/tabReset";
 import {
   RemoteWebViewHost,
@@ -447,6 +448,18 @@ describe("RemoteWebViewHost", () => {
       emitTabReset("/records");
     });
     expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("세션 종료 신호는 경로와 무관하게 session-closed를 주입한다 — 모든 탭이 통계를 다시 받아야 한다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+
+    act(() => {
+      emitSessionClosed();
+    });
+
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    const script = mockInjectJavaScript.mock.calls[0][0] as string;
+    expect(script).toContain('\\"session-closed\\"');
   });
 
   it("Android에서 시스템 테마가 바뀌면 theme 메시지를 주입한다", () => {

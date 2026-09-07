@@ -9,6 +9,7 @@ import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
+import { subscribeSessionClosed } from "../lib/sessionClosed";
 import { subscribeTabReset } from "../lib/tabReset";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
 import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
@@ -406,6 +407,16 @@ export function RemoteWebViewHost({
       );
     });
   }, [path]);
+
+  // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
+  // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).
+  useEffect(() => {
+    return subscribeSessionClosed(() => {
+      webViewRef.current?.injectJavaScript(
+        injectMessageScript({ type: "session-closed", atMs: Date.now() }),
+      );
+    });
+  }, []);
 
   /**
    * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다 — **포커스된 화면이면서 웹이 준비 신호를

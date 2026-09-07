@@ -168,6 +168,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "app-launched") {
     return { type: "app-launched", atMs: record.atMs };
   }
+  if (record.type === "session-closed") {
+    return { type: "session-closed", atMs: record.atMs };
+  }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };
   }

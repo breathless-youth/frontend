@@ -101,6 +101,17 @@ describe("parseToWebMessage", () => {
   it("app-launched에 atMs가 없으면 null을 돌려준다", () => {
     expect(parseToWebMessage('{"type":"app-launched"}')).toBeNull();
   });
+
+  it("session-closed를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"session-closed","atMs":1}')).toEqual({
+      type: "session-closed",
+      atMs: 1,
+    });
+  });
+
+  it("session-closed에 atMs가 없으면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
+  });
 });
 
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
