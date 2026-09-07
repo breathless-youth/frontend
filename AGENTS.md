@@ -1,4 +1,4 @@
-# FocusOn FE — AI 에이전트 공통 진입점
+# FocusMakers FE — AI 에이전트 공통 진입점
 
 프로젝트 전반 규칙(구조, 아키텍처 경계, 개인정보 원칙, 코딩 컨벤션)은 [CLAUDE.md](./CLAUDE.md)를 따른다.
 

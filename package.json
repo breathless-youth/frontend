@@ -36,17 +36,5 @@
     "*.{json,md,yml,yaml}": [
       "prettier --write"
     ]
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "esbuild",
-      "unrs-resolver"
-    ],
-    "patchedDependencies": {
-      "expo-constants@18.0.13": "patches/expo-constants@18.0.13.patch",
-      "@react-native-firebase/messaging@26.3.3": "patches/@react-native-firebase__messaging@26.3.3.patch",
-      "react-native-webview@13.15.0": "patches/react-native-webview@13.15.0.patch"
-    }
   }
 }

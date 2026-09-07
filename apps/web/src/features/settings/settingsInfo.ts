@@ -1,5 +1,6 @@
 /**
  * 설정 화면이 표시하는 로컬 값과 문구 헬퍼
+ * (`frontend/docs/screens/SCR-S6-settings.md` Data Contract).
  *
  * 이 화면은 백엔드 API를 호출하지 않는다 — `packages/types`에 설정용 서버 계약을 만들지 않는다.
  * 여기 있는 값은 전부 기기 로컬 메타데이터이거나 화면이 여는 문서의 주소다.
@@ -8,11 +9,11 @@
 /**
  * 문의 폼(Google Forms) 주소
  *
- * - `forms.gle` 단축 링크가 아니라 `docs.google.com/forms/...` 전체 주소를 써야 한다.
+ * `forms.gle` 단축 링크가 아니라 `docs.google.com/forms/...` 전체 주소를 써야 한다.
  * `forms.gle`는 리다이렉트 응답에 `Cross-Origin-Resource-Policy: same-site`를 실어 보내는데,
  * 이 앱은 `google.com`과 same-site가 아니라서 크로스사이트 iframe으로
  * 이 리다이렉트를 태우면 브라우저가 그 응답 자체를 네트워크 레벨에서 차단한다.
- * 전체 주소는 이 헤더를 보내지 않아 정상적으로 임베드된다
+ * 최종 목적지인 `docs.google.com/forms/...`는 이 헤더를 보내지 않아 정상적으로 임베드된다
  */
 export const CONTACT_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfGeMYhOF8afmaPpPs-HnlC4IX8qAZxUWz47DvzdY27XzD5eA/viewform";
