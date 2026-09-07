@@ -47,6 +47,11 @@ describe("nextVersion", () => {
   it("연말 53주 다음은 27.1.0이다", () => {
     assert.equal(nextVersion("26.53.1", new Date(2027, 0, 4)), "27.1.0");
   });
+
+  it("연도 끝 두 자리가 한 자리로 떨어지면 YY를 0으로 채운다", () => {
+    assert.equal(nextVersion("0.0.0", new Date(2100, 8, 7)), "00.36.0");
+    assert.equal(nextVersion("0.0.0", new Date(2005, 8, 7)), "05.36.0");
+  });
 });
 
 describe("compareVersions", () => {

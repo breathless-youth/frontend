@@ -41,7 +41,9 @@ export function nextVersion(current, date) {
   const { yy, ww } = isoWeek(date);
   const cur = parseCalver(current);
   const p = cur && cur.yy === yy && cur.ww === ww ? cur.p + 1 : 0;
-  return `${yy}.${ww}.${p}`;
+  // YY는 형식상 두 자리다. 2100·2005처럼 끝 두 자리가 한 자리로 떨어지는 해에도
+  // 앞자리 0을 채워야 다음 실행에서 비CalVer로 오인되지 않는다.
+  return `${String(yy).padStart(2, "0")}.${ww}.${p}`;
 }
 
 /** 숫자 세그먼트 비교. 모자라는 세그먼트는 0으로 친다. */
