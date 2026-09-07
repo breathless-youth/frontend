@@ -1,5 +1,7 @@
 # Expo Go 연결 문제 런북
 
+> ⚠️ 이 앱은 더 이상 Expo Go로 뜨지 않는다. 커스텀 엔트리가 `@react-native-firebase/*`를 정적 import해 Expo Go에 없는 네이티브 모듈을 요구하기 때문이다. 실기기 검증은 Dev Client로 하고 절차는 [device-web-dev-server 런북](./device-web-dev-server.md)을 본다. 아래 내용은 Expo Go를 쓰던 시절의 기록이다.
+
 Expo Go에서 QR 코드를 읽은 뒤 `Could not connect to the server` 또는 타임아웃이 발생할 때 사용한다.
 
 ## 가장 빠른 복구: 터널 모드
