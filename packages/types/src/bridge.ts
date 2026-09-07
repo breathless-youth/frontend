@@ -1,10 +1,9 @@
 /**
  * WebView ↔ 네이티브 브리지 메시지 계약
- * (`frontend/docs/superpowers/specs/2026-07-26-session-state-model-and-contract-design.md` §10).
  *
- * 매초 갱신되는 타이머와 상태 전환은 **이 통로를 건너지 않는다** — 상태기계와 화면이 같은
- * 메모리(웹)에 있으므로 직접 읽는다. 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와
- * 네이티브만 할 수 있는 동작(권한·네비게이션 등)만 오간다.
+ * 매초 갱신되는 타이머와 상태 전환은 이 통로를 건너지 않는다
+ * — 상태기계와 화면이 같은 메모리(웹)에 있으므로 직접 읽는다.
+ * 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와 네이티브만 할 수 있는 동작(권한·네비게이션 등)만 오간다.
  */
 
 /** 네이티브 → 웹. */
@@ -46,6 +45,13 @@ export type ToWebMessage =
    * 복구가 컴포넌트를 다시 만들지 않고 URL만 새로 만들어, 같은 쿼리가 다시 붙기 때문이다.
    */
   | { type: "app-launched"; atMs: number }
+  /**
+   * 세션 모달이 닫혔다는 알림.
+   * 결과 화면 확인이나 1분 미만 종료로 웹이 `navigate-home`을 보내 모달이 닫힐 때 네이티브가 모든 탭 웹뷰에 보낸다.
+   * 세션은 별도 document라 탭의 통계 캐시를 직접 무효화할 수 없고, 재노출 신호는 제출 직전에도 와서 순서를 믿을 수 없다.
+   * 웹은 통계 쿼리를 무효화해 다음 표시 때 새로 받는다.
+   */
+  | { type: "session-closed"; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage;
 
@@ -145,7 +151,7 @@ export type ToNativeMessage =
    * 네이티브 반응은 양 플랫폼 공통이다(BY-444 — 종전 "iOS 무시"는 iOS 루트 세로 잠금이
    * 통째로 우회되던 버그 동안에만 성립하던 결정이라 폐기했다. 잠금이 실동작하는 지금은 이
    * 개방이 없으면 iOS 소셜 룸 가로 모드가 죽는다). 되잠그는 책임은 푼 쪽(룸 언마운트)에 있고,
-   * 문서 세대가 바뀌어 그 책임자가 사라지면 네이티브가 복구 진입 시점에 세로로 복원한다
+   * document 세대가 바뀌어 그 책임자가 사라지면 네이티브가 복구 진입 시점에 세로로 복원한다
    * (`RemoteWebViewHost` 참고). 브라우저 단독 모드에서는 발신돼도 받는 쪽이 없다.
    */
   | { type: "set-orientation"; unlocked: boolean; atMs: number }
@@ -197,7 +203,7 @@ export interface ReportScreenMessage {
  * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
  * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
  *
- * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 문서만
+ * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 document만
  * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
  * 신호만 보내고 실제 전환은 네이티브가 한다.
  *
@@ -303,7 +309,7 @@ export type NativeAnalyticsPropertyValue = string | number | boolean | null;
  * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
  *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
  * - **전달 대상은 하나다.** 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한
- *   터치가 N번 찍힌다. 네이티브는 "포커스된 화면의 웹뷰이면서 `analytics-ready`를 보낸 문서"
+ *   터치가 N번 찍힌다. 네이티브는 "포커스된 화면의 웹뷰이면서 `analytics-ready`를 보낸 document"
  *   하나에만 보내고, 그런 웹뷰가 없는 동안(권한 거부 화면·로드 실패·재로드 중)은 큐에 보관했다가
  *   준비되는 순간 순서대로 흘려보낸다.
  * - `atMs`는 이벤트가 **실제로 일어난** 시각이다. 큐를 거쳐 늦게 도착할 수 있으므로 웹은 전송
@@ -320,12 +326,12 @@ export interface TrackEventMessage {
 }
 
 /**
- * 웹이 `track-event`를 받을 구독을 걸었다는 신호 — 문서가 로드될 때마다 한 번 보낸다
+ * 웹이 `track-event`를 받을 구독을 걸었다는 신호 — document가 로드될 때마다 한 번 보낸다
  * (`apps/web/src/lib/nativeAnalytics.ts`).
  *
  * `home-ready`와 같은 이유의 handshake다: 어느 로드 콜백도 "웹 JS가 돌았고 구독까지 걸렸다"를
- * 보장하지 못한다. 네이티브는 이 신호를 받은 문서에만 이벤트를 주입하고, 재로드·렌더러 복구로
- * 문서 세대가 바뀌면 다음 신호가 올 때까지 다시 큐에 쌓는다.
+ * 보장하지 못한다. 네이티브는 이 신호를 받은 document에만 이벤트를 주입하고, 재로드·렌더러 복구로
+ * document 세대가 바뀌면 다음 신호가 올 때까지 다시 큐에 쌓는다.
  */
 export interface AnalyticsReadyMessage {
   type: "analytics-ready";

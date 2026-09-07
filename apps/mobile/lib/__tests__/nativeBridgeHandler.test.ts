@@ -11,6 +11,7 @@ import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { getMotionSensorRelay } from "../motionSensorRelay";
+import { emitSessionClosed } from "../sessionClosed";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -41,6 +42,10 @@ jest.mock("../motionSensorRelay", () => ({
   getMotionSensorRelay: jest.fn(),
 }));
 
+jest.mock("../sessionClosed", () => ({
+  emitSessionClosed: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -61,6 +66,7 @@ const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.Mocked
 const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
   typeof getMotionSensorRelay
 >;
+const mockedEmitSessionClosed = emitSessionClosed as jest.MockedFunction<typeof emitSessionClosed>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -145,6 +151,9 @@ describe("handleBridgeMessage", () => {
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없다. 통계 캐시를 새로
+    // 받게 하려면 이 신호가 나가야 한다.
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -158,6 +167,7 @@ describe("handleBridgeMessage", () => {
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedRouter.replace).toHaveBeenCalledWith("/");
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
   it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {

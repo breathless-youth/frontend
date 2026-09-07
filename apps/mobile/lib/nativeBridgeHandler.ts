@@ -8,6 +8,7 @@ import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
+import { emitSessionClosed } from "./sessionClosed";
 import { setTabBarVisible } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
@@ -70,6 +71,8 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       } else {
         router.replace("/");
       }
+      // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없어 여기서 알린다.
+      emitSessionClosed();
       break;
     case "open-settings":
       void openAppSettings();

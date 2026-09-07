@@ -19,7 +19,7 @@
 
 ## 범위
 
-- 대상은 `apps/web`, `apps/mobile/app/_layout.tsx`, `apps/mobile/package.json`이다.
+- 대상은 `apps/web`, `apps/mobile/app/_layout.tsx`, `apps/mobile/package.json`, `packages/types/src/bridge.ts`, `apps/mobile/lib/nativeBridgeHandler.ts`, `apps/mobile/lib/sessionClosed.ts`, `apps/mobile/components/RemoteWebViewHost.tsx`이다.
 - 백엔드 변경은 없다.
 - 화면 UI 변경은 없다.
 - 저장소 스킬 `.claude/skills/tanstack-query-best-practices`의 `cache-stale-time`, `cache-gc-time`, `mut-invalidate-queries` 규칙을 따른다.
@@ -61,6 +61,8 @@ defaultOptions.queries = { staleTime: 30_000, retry: 1 };
 staleTime을 30초로 두는 근거는 이렇다. 오늘 통계가 바뀌는 경로는 세션 종료뿐인데, 세션은 홈 탭과 다른 웹뷰 문서에서 돌아가서 홈 캐시를 직접 무효화할 수 없다. 그래서 홈은 재노출 시 `refetchOnWindowFocus`에만 기댄다. 재노출 재조회는 stale일 때만 나가므로, staleTime은 "세션을 다녀온 뒤 홈이 낡은 값을 보여줄 수 있는 최대 시간"이 된다. 순공 1분 미만 세션은 합산에서 빠지므로(BY-335) 통계를 실제로 바꾸는 세션은 60초 이상 걸린다. 60초 미만이면 돌아온 시점에 반드시 stale이다. 30초는 그 절반의 여유다.
 
 retry를 1로 두는 근거는 오류 UI에 재시도 버튼이 있어서 자동 재시도를 길게 끌 이유가 없다는 점이다. 모바일에서 내린 판단을 그대로 이어받는다.
+
+아래 5절에서 세션 모달 닫힘 신호를 만들면서 30초의 위치가 바뀐다. 원래 30초는 재노출이 유일한 신호라는 전제 위에서 60초 미만으로 역산한 값이다. 세션 종료를 신호로 알게 되면 그 전제가 없어지고, staleTime은 같은 문서 안에서 중복 요청을 막는 창으로 남는다. 값은 30초를 유지하고, 늘릴지는 따로 판단한다.
 
 ### 2. 일별 통계 쿼리의 날짜별 옵션
 
@@ -105,9 +107,35 @@ void queryClient.invalidateQueries({ queryKey: statsKeys.all });
 
 30초 기준에서는 브라우저 단독 모드에서 이 무효화가 없어도 결과가 같다. 60초 이상 세션이면 돌아온 시점에 이미 stale이기 때문이다. 그래도 두는 이유는 나중에 30초를 올리더라도 정확성이 그 상수에 묶이지 않게 하기 위해서다.
 
-네이티브 웹뷰에서는 세션이 별도 문서라 이 무효화가 홈 탭에 닿지 않고, 홈은 `refetchOnWindowFocus`로 갱신된다. 세션 모달이 닫혀 홈 탭 웹뷰가 다시 드러날 때 `visibilitychange`가 실제로 발화하는지 실기기에서 확인한다. 발화하지 않으면 네이티브 신호 연동은 별도 티켓에서 다룬다.
+네이티브 웹뷰에서는 세션이 별도 문서라 이 무효화가 홈 탭에 닿지 않는다. 재노출만으로는 홈이 갱신되지 않는다는 것을 실기기에서 확인했고, 대신 세션 모달이 닫힐 때 네이티브가 보내는 신호를 만든다. 다음 절에서 다룬다.
 
-### 5. 모바일의 사용되지 않는 QueryClient 정리
+### 5. 세션 모달 닫힘 신호
+
+실기기 프록시 로그(2026-09-06)로 확인한 순서는 이렇다.
+
+- 세션이 끝날 때 탭 웹뷰인 홈과 기록이 세션 제출 POST보다 약 1초 먼저 재노출 신호를 받아 통계를 다시 받는데, 이 시점의 서버에는 이번 세션이 아직 없다.
+- 그 뒤 결과 화면 확인으로 모달이 닫히며 오는 재노출은 30초 안이라 재조회가 억제된다.
+- 그래서 홈이 옛 값을 보여 준다.
+- staleTime이 0이던 이전에는 모든 재노출에서 다시 받았기 때문에 드러나지 않던 회귀다.
+- 탭 전환에서도 재노출 신호는 오고, 30초가 지났으면 재조회된다.
+
+신호 설계는 다음과 같다.
+
+- `packages/types/src/bridge.ts`의 `ToWebMessage`에 `{ type: "session-closed"; atMs: number }`를 추가한다.
+- 네이티브 `apps/mobile/lib/nativeBridgeHandler.ts`는 `navigate-home` 처리에서 모달을 닫은 직후 `apps/mobile/lib/sessionClosed.ts`의 `emitSessionClosed()`를 부른다.
+- `navigate-home`은 결과 화면 확인과 1분 미만 종료에서만 오므로 제출이 끝난 뒤다.
+- `apps/mobile/components/RemoteWebViewHost.tsx`가 `subscribeSessionClosed`로 구독해 모든 탭 웹뷰에 `session-closed`를 주입하며 경로 필터는 두지 않는다.
+- 세션 웹뷰에도 함께 들어가지만 닫히는 중이라 영향이 없다.
+- 이미터는 `tabReset`과 같은 모듈 스코프 방식이다.
+- 웹 `apps/web/src/lib/bridge.ts`가 `session-closed`를 파싱하고, 새 훅 `apps/web/src/lib/nativeSessionClosed.ts`의 `useNativeSessionClosed`가 `App.tsx`에서 이를 받아 `queryClient.invalidateQueries({ queryKey: statsKeys.all })`을 부른다.
+- 결과로 탭 전환은 30초 규칙 그대로여서 대부분 요청이 나가지 않고, 세션 종료 뒤에는 반드시 한 번 갱신된다.
+
+검토했다가 버린 대안은 둘이다.
+
+- `refetchOnWindowFocus: "always"`는 탭 전환마다 요청이 나가서 이번 티켓의 목적과 어긋난다.
+- 홈이 `start-session` 뒤 재노출마다 무효화하고 첫 갱신에서 멈추는 방식은 제출 직전에 오는 신호가 그 첫 갱신을 써 버려서 같은 순서에서 다시 실패한다.
+
+### 6. 모바일의 사용되지 않는 QueryClient 정리
 
 - `apps/mobile/app/_layout.tsx`에서 `QueryClient`, `QueryClientProvider`, `focusManager`와 그 `AppState` 연결 effect를 제거한다.
 - `apps/mobile/package.json`에서 `@tanstack/react-query` 의존성을 빼고 `pnpm-lock.yaml`을 갱신한다.
@@ -130,6 +158,11 @@ void queryClient.invalidateQueries({ queryKey: statsKeys.all });
 - `profileQuery`: `staleTime: 5분`을 갖는다.
 - `useStudyRoomSession`: 제출 성공 테스트에 `queryClient.invalidateQueries`가 `statsKeys.all`로 한 번 불리는지 추가한다.
 - `useStudyRoomSession`: 제출 실패 시에는 무효화가 불리지 않는다.
+- 웹 브리지: `session-closed`를 정상 파싱하고, `atMs`가 없는 메시지는 걸러 낸다.
+- `useNativeSessionClosed`: `session-closed`에 무효화가 한 번 불리고 다른 메시지에는 불리지 않는다.
+- 모바일 이미터: 구독과 해제가 동작한다.
+- 브리지 핸들러: `navigate-home`의 두 분기 모두에서 `emitSessionClosed`가 불린다.
+- `RemoteWebViewHost`: 신호를 받으면 탭 웹뷰에 `session-closed`를 주입한다.
 - 모바일의 import 부재는 `pnpm typecheck`가 잡는다.
 
 ## 완료 조건
@@ -140,6 +173,7 @@ void queryClient.invalidateQueries({ queryKey: statsKeys.all });
 - 어제보다 오래됐고 이번 달도 어제의 달도 아닌 날짜의 `dailyStatsQuery`는 `staleTime: Infinity`이고, 그 외 날짜는 기본값이다.
 - `profileQuery`가 `staleTime: 5분`을 갖고 `LiveRoomEntry`에 오버라이드가 없다.
 - 세션 제출이 성공하면 `statsKeys.all`이 무효화된다.
+- 세션 모달이 닫히면 네이티브가 탭 웹뷰에 `session-closed`를 보내고, 웹이 `statsKeys.all`을 무효화한다.
 - 모바일에 `@tanstack/react-query` import가 남지 않는다.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`가 통과한다.
 
@@ -150,3 +184,4 @@ void queryClient.invalidateQueries({ queryKey: statsKeys.all });
 - 기록 탭 웹뷰는 홈 탭의 마감 무효화를 받지 못한다. 위 조합이 그 결과다.
 - 이번 달 날짜를 캐시한 채 자정을 넘겨 달이 바뀌면 그 캐시가 다음 판정부터 영구로 바뀌어, 달 중간에 받은 도트 목록이 gcTime 30분 동안 남을 수 있다. 드물고 30분이면 지워지므로 수용한다.
 - 브라우저 단독 모드에서는 세션 제출 후 `statsKeys.all` 무효화가 정착된 날짜 캐시도 stale로 만들어 다음 조회 때 다시 받는다. 정확성에는 문제가 없고 요청이 조금 늘 뿐이라 수용한다.
+- 신호는 `navigate-home` 경로에서만 나간다. 세션 화면은 하드웨어 뒤로가기를 막고 있고, 강제 종료 뒤에는 앱 실행 마감 무효화가 같은 일을 하므로 빠진 경로는 없다.
