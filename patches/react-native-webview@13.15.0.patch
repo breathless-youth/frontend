@@ -1,0 +1,27 @@
+diff --git a/apple/RNCWebView.mm b/apple/RNCWebView.mm
+index 95c0fcc91be3ce08c6bfab26bf488e49bf573d0f..a83b68ca1e0216c750cddc09f3a2056e6655f2d1 100644
+--- a/apple/RNCWebView.mm
++++ b/apple/RNCWebView.mm
+@@ -9,6 +9,7 @@
+ #import <react/renderer/components/RNCWebViewSpec/RCTComponentViewHelpers.h>
+ 
+ #import <React/RCTFabricComponentsPlugins.h>
++#import <React/RCTConversions.h>
+ 
+ using namespace facebook::react;
+ 
+@@ -494,6 +495,14 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+     }
+     [_view setSource:source];
+ 
++    // Fabric의 RCTViewComponentView는 배경색을 이 래퍼 뷰에만 칠하고 안쪽 RNCWebViewImpl에는
++    // 알리지 않는다. 그러면 WKWebView는 기본 흰 바탕으로 만들어져, 문서가 채우지 못한 여백이
++    // 흰색으로 드러난다. 소수점 프레임 높이의 마지막 픽셀 줄, 오버스크롤 구간, 재부착 직후
++    // 첫 프레임이 그런 자리다. 배경색을 안쪽까지 넘겨 WKWebView와 스크롤뷰가 같은 색을 갖게 한다.
++    if (oldViewProps.backgroundColor != newViewProps.backgroundColor) {
++        [_view setBackgroundColor:RCTUIColorFromSharedColor(newViewProps.backgroundColor)];
++    }
++
+     [super updateProps:props oldProps:oldProps];
+ }
+ 

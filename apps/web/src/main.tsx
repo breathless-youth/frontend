@@ -14,8 +14,9 @@ import "./index.css";
 initSentry();
 initGA4();
 initAmplitude();
+// initAmplitude(user property no-op 방지) 뒤여야 한다. 초기 테마는 index.html 인라인
+// 스크립트가 첫 페인트 전에 data-theme에 이미 반영해 둔다.
 initNativeTheme();
-// initAmplitude(user property no-op 방지)·initNativeTheme(초기 테마 확정) 뒤여야 한다.
 initAppLifecycleAnalytics();
 
 createRoot(document.getElementById("root")!, sentryRootOptions).render(

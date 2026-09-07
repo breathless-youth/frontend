@@ -68,6 +68,19 @@ jest.mock("expo-constants", () => ({
   },
 }));
 
+/**
+ * useColorScheme은 react-native 진입점이 내부 모듈을 다시 내보내는 형태라, 진입점 객체에
+ * spy를 걸면 컴포넌트가 이미 가져간 참조가 바뀌지 않는다. 모듈 자체를 대체한다.
+ */
+jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
+  __esModule: true,
+  default: jest.fn(() => "light"),
+}));
+
+const { default: mockUseColorScheme } = jest.requireMock<{ default: jest.Mock }>(
+  "react-native/Libraries/Utilities/useColorScheme",
+);
+
 jest.mock("react-native-webview", () => {
   /*
     eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --
@@ -126,6 +139,7 @@ beforeEach(() => {
   (unlockForSession as jest.Mock).mockClear();
   (consumeAppLaunchSignal as jest.Mock).mockClear();
   mockAppLaunchPending = false;
+  mockUseColorScheme.mockReturnValue("light");
 });
 
 // spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
@@ -189,6 +203,36 @@ describe("RemoteWebViewHost", () => {
     expect(props.allowsInlineMediaPlayback).toBe(true);
     expect(props.mediaPlaybackRequiresUserAction).toBe(false);
     expect(props.mediaCapturePermissionGrantType).toBe("grant");
+  });
+
+  it("다크 스킴이면 다크 배경 토큰을 웹뷰에 넘긴다", () => {
+    mockUseColorScheme.mockReturnValue("dark");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.style).toEqual({
+      flex: 1,
+      backgroundColor: "#101419",
+    });
+  });
+
+  it("라이트 스킴이면 라이트 배경 토큰을 웹뷰에 넘긴다", () => {
+    mockUseColorScheme.mockReturnValue("light");
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.style).toEqual({
+      flex: 1,
+      backgroundColor: "#ffffff",
+    });
+  });
+
+  it("화면이 넘긴 배경색이 테마 토큰보다 우선한다", () => {
+    mockUseColorScheme.mockReturnValue("light");
+    render(<RemoteWebViewHost path="/room/1" testID="host" backgroundColor="#0B0F14" />);
+
+    expect(screen.getByTestId("host").props.style).toEqual({
+      flex: 1,
+      backgroundColor: "#0B0F14",
+    });
   });
 
   it("웹이 보낸 브리지 메시지를 파싱해 콜백으로 넘긴다", () => {

@@ -16,8 +16,9 @@ export type ToWebMessage =
   /**
    * 시스템 테마 변경 통지 — Android 전용 발신. Android WebView는 시스템 다크를
    * `prefers-color-scheme`에 전달하지 않아 웹이 스스로 알 수 없다. 초기 테마는 웹뷰 URL의
-   * `theme` 쿼리로 오고(첫 페인트 전 반영 — `apps/web/src/lib/nativeTheme.ts`), 앱 실행 중
-   * 변경만 이 메시지로 온다. iOS는 미디어쿼리가 동작하므로 쿼리도 메시지도 보내지 않는다.
+   * `theme` 쿼리로 오고(첫 페인트 전 반영 — `apps/web/index.html`의 인라인 스크립트), 앱 실행 중
+   * 변경만 이 메시지로 온다(`apps/web/src/lib/nativeTheme.ts`가 구독). iOS는 미디어쿼리가
+   * 동작하므로 쿼리도 메시지도 보내지 않는다.
    */
   | { type: "theme"; scheme: "light" | "dark"; atMs: number }
   /**

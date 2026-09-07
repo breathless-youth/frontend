@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Appearance, Platform, Text, View } from "react-native";
+import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
+import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
@@ -145,6 +146,18 @@ export function RemoteWebViewHost({
   focused = true,
   testID,
 }: RemoteWebViewHostProps) {
+  /**
+   * 웹뷰에 넘길 배경색. prop이 없어도 항상 정한다.
+   *
+   * WKWebView는 문서가 채우지 못한 여백을 자기 바탕색으로 칠한다. 뷰포트를 정수로 잡아
+   * 소수점 높이의 마지막 픽셀 줄이 남고, 재부착 직후 첫 프레임에도 그 바탕이 그대로 보인다.
+   * Android는 래퍼 뷰 색이 그대로 비친다. 두 경우 모두 테마 색이어야 흰 줄과 번쩍임이 없다.
+   *
+   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.15.0.patch가
+   * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
+   */
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const webViewBackgroundColor = backgroundColor ?? colors.bg.base[scheme];
   const webViewRef = useRef<WebView>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   /**
@@ -517,7 +530,7 @@ export function RemoteWebViewHost({
       ref={webViewRef}
       testID={testID}
       source={{ uri: target.uri }}
-      style={backgroundColor ? { flex: 1, backgroundColor } : { flex: 1 }}
+      style={{ flex: 1, backgroundColor: webViewBackgroundColor }}
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       mediaCapturePermissionGrantType="grant"
