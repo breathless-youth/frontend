@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Appearance, Platform, Text, View } from "react-native";
+import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
+import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
@@ -14,22 +15,13 @@ import { getWebBaseUrl } from "../lib/webBaseUrl";
 import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 
 /**
- * 원격 웹(`apps/web`) 화면을 로드하는 공용 WebView 호스트(전 화면 원격 웹뷰 셸, BY-333).
+ * 웹(`apps/web`) 화면을 로드하는 공용 WebView 호스트
  *
  * `apps/mobile/app/room/[id].tsx`가 직접 띄우던 WebView를 재사용 가능한 형태로 승격했다 —
  * 세션 카메라에 필요한 `allowsInlineMediaPlayback`·`mediaPlaybackRequiresUserAction={false}`·
  * `mediaCapturePermissionGrantType="grant"`는 그대로 유지한다.
- *
- * 베이스 URL이 설정되지 않았거나(`lib/webBaseUrl.ts`가 던짐) 로드가 실패하면 **같은 실패
- * 폴백 화면**으로 떨어진다 — 빈 URL로 웹뷰를 띄워 흰 화면이 뜨는 것보다, 명확한 실패가 낫다.
  */
 
-// `react-native-webview`의 루트 진입점(index.d.ts)은 `ShouldStartLoadRequest`를 재수출하지
-// 않는다(`WebViewMessageEvent`·`WebViewNavigation`만 재수출) — 그래서 라이브러리 내부 경로
-// (`lib/WebViewTypes`)를 직접 import하는 대신, 공개 타입 `WebViewNavigation`에 문서화된
-// `isTopFrame` 필드를 더해 여기서 구성한다. iOS(WKWebView)만 이 필드를 채운다 — Android
-// (`RNCWebViewClient.java`)는 아예 넣지 않으므로 `undefined`로 들어올 수 있다(옵셔널로
-// 선언하는 이유, 아래 핸들러 참고).
 type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
@@ -46,10 +38,10 @@ function buildQueryString(query: Record<string, string | number> | undefined): s
     .join("&")}`;
 }
 
-/** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
+/** 앱 실행 신호를 받을 유일한 탭 */
 const HOME_PATH = "/home";
 
-/** `baseUrl` + `path` + `query` → WebView에 넘길 완성 URL. */
+/** WebView에 넘길 URL. */
 export function buildRemoteWebViewUrl(
   baseUrl: string,
   path: string,
@@ -59,67 +51,66 @@ export function buildRemoteWebViewUrl(
 }
 
 /**
- * 스킴+호스트만 떼어낸다(예: `https://web.example.com`). 베이스 URL의 오리진 계산과
- * `onShouldStartLoadWithRequest`의 최상위 프레임 오리진 비교 양쪽에 쓴다.
- * 매치 실패(URL 형태가 아닌 값) 시 원본을 그대로 돌려준다 — 빈 문자열로 비교가 항상
- * 실패하는 것보다, 설정 실수를 그대로 드러내는 편이 디버깅하기 쉽다.
+ * 스킴+호스트만 떼어낸다.
+ * 베이스 URL의 오리진 계산과 `onShouldStartLoadWithRequest`의 최상위 프레임 오리진 비교 양쪽에 쓴다.
+ * 매치 실패(URL 형태가 아닌 값) 시 원본을 그대로 돌려준다
+ * — 설정 실수에 대한 디버깅이 쉽다.
  */
 export function originOf(url: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\/[^/]+/i.exec(url)?.[0] ?? url;
 }
 
 export type RemoteWebViewHostProps = {
-  /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
+  /** 웹 라우트 경로 */
   path: string;
-  /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
+  /** 쿼리 파라미터 */
   query?: Record<string, string | number>;
   /**
-   * 웹이 보낸 브리지 메시지(session-ready·start-session·navigate-home·open-settings 등)를
-   * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
-   * (파싱 단계에서 걸러짐).
+   * 웹이 보낸 브리지 메시지를 `lib/webBridge.ts`로 파싱해 넘긴다.
+   * 모르는 메시지는 넘어오지 않는다 (파싱 단계에서 걸러짐).
    *
-   * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(`request-camera-permission` → `camera-permission`).
+   * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(ex. `request-camera-permission` → `camera-permission`).
    * 통로가 이 컴포넌트 안(`webViewRef.injectJavaScript`)에 있어 핸들러가 직접 가질 수 없다.
    */
   onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
   /**
-   * 로드가 끝나면 호출된다(성공·실패 둘 다). 스플래시를 언제 걷을지 판단하는 용도이고,
-   * `ok`는 실패 폴백 화면이 떠 있는지를 알려준다 — 세션 화면이 안드로이드 하드웨어
-   * 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
+   * 로드가 끝나면 호출된다(성공·실패 둘 다).
+   * 스플래시를 언제 걷을지 판단하는 용도이고, `ok`는 실패 폴백 화면이 떠 있는지를 알려준다
+   * — 세션 화면이 안드로이드 하드웨어 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
    */
   onLoadEnd?: (ok: boolean) => void;
   /**
-   * 사망 복구(재로드·재마운트)에 들어가면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 —
-   * 렌더러가 죽은 웹뷰는 빈 화면·잔상만 남기므로 복구가 끝날 때(onLoadEnd)까지 가린다(BY-436).
+   * 렌더러 강제종료 복구(재로드·remount)에 들어가면 호출된다.
+   * 스플래시를 다시 덮기 위한 신호다.
+   * - 렌더러가 종료된 웹뷰는 빈 화면·잔상만 남기므로 복구가 끝날 때(onLoadEnd)까지 가린다.
    *
-   * ⚠️ WebView의 `onLoadStart` 이벤트에 걸지 않는다. Android는
-   * `doUpdateVisitedHistory`(RNCWebViewClient.java)가 SPA `pushState`에도 onLoadStart를
+   * ⚠️ WebView의 `onLoadStart` 이벤트에 걸지 않는다.
+   * Android는 `doUpdateVisitedHistory`(RNCWebViewClient.java)가 SPA `pushState`에도 onLoadStart를
    * 발화시키는데 짝이 되는 onLoadEnd는 없어서, 탭 안 웹 라우팅 한 번에 스플래시가 영영
    * 걷히지 않았다(실기기: 소셜 홈 → 초대코드 입력 이동에서 스켈레톤 고착). 복구 진입은
    * 이 컴포넌트가 정확히 아는 사건이라 `enterRecovery`가 직접 알린다.
    */
   onRecoveryStart?: (() => void) | undefined;
   /**
-   * 이 웹뷰가 지금 사용자에게 보이는 활성 화면인가(기본 true). 네이티브 사용자 이벤트
-   * (`lib/nativeAnalytics.ts`)의 전달 대상을 고르는 기준이다 — 탭 4개의 웹뷰가 동시에 마운트돼
-   * 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다. 탭 화면은 `useIsFocused`를 내려 주고
-   * (`RemoteScreen` 경유), 세션 화면은 탭 위에 전체 화면으로 뜨므로 생략해 항상 활성이다.
+   * 이 웹뷰가 지금 사용자에게 보이는 활성 화면인가(기본 true).
+   * 네이티브 사용자 이벤트(`lib/nativeAnalytics.ts`)의 전달 대상을 고르는 기준이다
+   * — 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다.
+   * 탭 화면은 `useIsFocused`를 내려 주고(`RemoteScreen` 경유), 세션 화면은 탭 위에 전체 화면으로 뜨므로 생략해 항상 활성이다.
    */
   focused?: boolean;
   testID?: string;
 };
 
 /**
- * Android 렌더러 사망의 전역 복구 채널(BY-436).
+ * Android 렌더러 강제종료의 전역 복구 채널
  *
- * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 4개)가 공유하고, **죽은
- * 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다**(플랫폼 계약). 사망을 감지한
- * 호스트 하나만 재마운트하면 이웃 웹뷰들이 죽은 렌더러를 계속 잡고 있어 새 WebView가 그
- * 죽은 렌더러에 붙고, 로드가 영영 시작되지 않는다 — 실기기에서 복구 스플래시(소셜
- * 스켈레톤)가 걷히지 않던 원인. 그래서 사망 판정·통보는 마운트된 모든 호스트의 재마운트로
- * 넓힌다. iOS는 WKWebView 프로세스가 웹뷰별 독립이라 이 채널을 쓰지 않는다(개별 reload).
+ * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 4개)가 공유하고,
+ * 종료된 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다.
+ * 종료를 감지한 호스트 하나만 remount하면 이웃 웹뷰들이 종료된 렌더러를 계속 잡고 있어 새 WebView가
+ * 그 종료된 렌더러에 붙고, 로드가 영영 시작되지 않는다
+ * - 종료 판정·통보는 마운트된 모든 호스트의 remount로 넓힌다.
  */
 const recoveryListeners = new Set<() => boolean>();
 
@@ -144,50 +135,61 @@ export function RemoteWebViewHost({
   focused = true,
   testID,
 }: RemoteWebViewHostProps) {
+  /**
+   * 웹뷰에 넘길 배경색. prop이 없어도 항상 정한다.
+   *
+   * WKWebView는 document가 채우지 못한 여백을 자기 바탕색으로 칠한다.
+   * - iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.15.0.patch가
+   * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
+   */
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  const webViewBackgroundColor = backgroundColor ?? colors.bg.base[scheme];
+
   const webViewRef = useRef<WebView>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   /**
-   * iOS 가장자리 스와이프(back-forward) 제스처 허용 여부 — 웹이 `set-back-gesture`로 끄고 켠다
-   * (온보딩 가이드가 우발 이탈을 막으려고 끈다, 계약 주석 참고). 공용 `nativeBridgeHandler`가
-   * 아니라 여기서 소비하는 이유: 제어 대상(`allowsBackForwardNavigationGestures`)이 이 컴포넌트의
-   * WebView prop이라, 핸들러로 보내면 그 상태를 다시 여기로 배선하는 우회로만 생긴다.
+   * iOS 가장자리 스와이프(back-forward) 제스처 허용 여부
+   * — 웹이 `set-back-gesture`로 끄고 켠다
    */
   const [backGestureEnabled, setBackGestureEnabled] = useState(true);
   /**
-   * 웹 주도 회전 해제 여부 — 실시간 룸이 `set-orientation`으로 풀었는지를 기록한다.
-   * 문서 세대가 바뀌면(재로드·렌더러 재생성) 해제를 요청한 문서가 사라져 되잠글 주체가
-   * 없으므로, **복구 진입 시점**에 이 기록을 보고 세로로 복원한다(`enterRecovery`).
+   * 웹 주도 회전 해제 여부
+   * — 실시간 룸이 `set-orientation`으로 풀었는지를 기록한다.
+   * document 세대가 바뀌면(재로드·렌더러 재생성) 해제를 요청한 document가 사라져 되잠글 주체가
+   * 없으므로, 복구 진입 시점에 이 기록을 보고 세로로 복원한다(`enterRecovery`).
    * 기록 없이 무조건 복원하면 솔로 세션 화면(`room/[id]`)이 자기 마운트에서 푼 잠금까지
-   * 덮어쓴다. set-back-gesture와 같은 이유로 공용 핸들러가 아니라 여기서 소비한다 — 복원
-   * 시점(이 웹뷰의 로드 수명)이 이 컴포넌트 소유다.
+   * 덮어쓴다. set-back-gesture와 같은 이유로 공용 핸들러가 아니라 여기서 소비한다
+   * — 복원 시점(이 웹뷰의 로드 수명)이 이 컴포넌트 소유다.
    */
   const webOrientationUnlockedRef = useRef(false);
-  // 재시도 시 베이스 URL 설정도 다시 읽는다 — retry 한 번으로 "설정 누락"과 "일시적 로드
-  // 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
+  // 재시도 시 베이스 URL 설정도 다시 읽는다
+  // — retry 한 번으로 "설정 누락"과 "일시적 로드 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
   const [retryKey, setRetryKey] = useState(0);
   /**
-   * 현재 문서가 `analytics-ready`를 보냈는가 — 웹이 `track-event` 구독을 걸었다는 뜻이고, 그
-   * 전에 주입하면 전역이 없거나(스크립트가 조용히 건너뜀) 구독자 없이 버려진다. 문서 세대가
-   * 바뀌는 사건(재시도·사망 복구)에서 되돌리고, 새 문서의 신호로 다시 켠다. 로드 콜백에는 걸지
-   * 않는다 — Android는 로드가 실패해도 finish를 합성하고(`home-ready` 주석), 새 문서의 신호가
-   * onLoadEnd보다 먼저 올 수도 있어 거기서 되돌리면 준비된 문서를 미준비로 덮어쓴다.
+   * 현재 document가 `analytics-ready`를 보냈는가
+   * — 웹이 `track-event` 구독을 걸었다는 뜻이고, 그 전에 주입하면 전역이 없거나(스크립트가 조용히 건너뜀) 구독자 없이 버려진다.
+   * document 세대가 바뀌는 사건(재시도·강제종료 복구)에서 되돌리고, 새 document의 신호로 다시 켠다.
+   * 로드 콜백에는 걸지 않는다
+   * — Android는 로드가 실패해도 finish를 합성하고(`home-ready` 주석), 새 document의 신호가
+   * onLoadEnd보다 먼저 올 수도 있어 거기서 되돌리면 준비된 document를 미준비로 덮어쓴다.
    */
   const [analyticsReady, setAnalyticsReady] = useState(false);
 
   /**
-   * 웹이 `report-screen`으로 보고한 마지막 화면(BY-436). 렌더러 사망으로 웹뷰를 다시 띄울 때
-   * 돌아갈 곳이다 — Android 재마운트는 초기 `source`가 탭 루트 경로라, 이 값이 없으면
-   * 사용자가 있던 화면(소셜룸 등)을 잃는다. ref인 이유: 살아 있는 동안 `source`가 바뀌면
-   * 그 자체가 내비게이션이 되므로, 재마운트(retryKey) 시점에만 읽는다.
+   * 웹이 `report-screen`으로 보고한 마지막 화면
+   * 렌더러 강제종료로 웹뷰를 다시 띄울 때
+   * 돌아갈 곳이다 — Android remount는 초기 `source`가 탭 루트 경로라, 이 값이 없으면
+   * 사용자가 있던 화면(소셜룸 등)을 잃는다.
+   * - ref인 이유: 살아 있는 동안 `source`가 바뀌면 그 자체가 내비게이션이 되므로, remount(retryKey) 시점에만 읽는다.
    */
   const restoreRef = useRef<{ path: string; query?: Record<string, string> } | null>(null);
-  /** 사망 복구(재마운트·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 재마운트를 반복하지 않는다. */
+  /** 강제종료 복구(remount·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 remount를 반복하지 않는다. */
   const recoveringRef = useRef(false);
 
   const target = useMemo(() => {
     try {
       const baseUrl = getWebBaseUrl();
-      // 재마운트·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
+      // remount·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
       const restore = restoreRef.current;
       return {
         uri: buildRemoteWebViewUrl(
@@ -210,40 +212,39 @@ export function RemoteWebViewHost({
   const retry = useCallback(() => {
     trackNativeEvent("webview_retry_pressed", { path });
     setLoadFailed(false);
-    // 새 문서가 뜬다 — 이전 문서의 준비 신호는 무효다(위 analyticsReady 주석).
+    // 새 document가 뜬다 — 이전 document의 준비 신호는 무효다(위 analyticsReady 주석).
     setAnalyticsReady(false);
     setRetryKey((key) => key + 1);
     webViewRef.current?.reload();
   }, [path]);
 
   /**
-   * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
+   * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구
    *
-   * 이 통보를 받지 않으면 웹뷰는 **빈 흰 화면**으로 남는다 — 이미 로드가 끝난 페이지라
+   * 이 통보를 받지 않으면 웹뷰는 빈 흰 화면으로 남는다 — 이미 로드가 끝난 페이지라
    * `onError`(로드 실패 폴백)도, 첫 로드용 스플래시도 불리지 않아 앱 재시작 말고는 복구
-   * 수단이 없다(2026-08-14 시뮬레이터 WebContent kill로 재현: 세 탭 모두 흰 화면 영구 방치).
+   * 수단이 없다.
    * 세션 화면(`/room/:id`)도 같은 정책으로 재로드한다 — 죽는 순간 측정 상태(웹 JS 메모리)는
    * 어차피 소실되므로, 남은 결정은 "어디로 보낼 것인가"뿐이고 공부 중이던 사용자를 세션
-   * 화면에 되돌리는 쪽을 택했다(측정 데이터 생존은 BY-291 체크포인트 몫).
+   * 화면에 되돌리는 쪽을 택했다.
    *
-   * iOS는 `reload()`가 새 콘텐츠 프로세스를 띄우므로 그걸로 충분하다. Android는 렌더러가
-   * 죽은 WebView 인스턴스를 재사용할 수 없어(플랫폼 제약) reload 대신 `key`를 바꿔 웹뷰를
-   * 재마운트한다 — `retryKey`가 이미 그 역할의 신호라 재사용한다.
+   * iOS는 `reload()`가 새 콘텐츠 프로세스를 띄우므로 그걸로 충분하다.
+   * Android는 렌더러가 종료된 WebView 인스턴스를 재사용할 수 없어(플랫폼 제약) reload 대신 `key`를 바꿔 웹뷰를 remount한다
+   * — `retryKey`가 이미 그 역할의 신호라 재사용한다.
    */
-  // ponytail: 반복 크래시 시 재로드 루프 가드 없음 — 페이지 자체가 프로세스를 죽이는 경우가
-  // 생기면(현재 탭 페이지들은 경량이라 관측된 바 없음) 시도 횟수 제한을 추가할 것.
+  // TODO: 반복 크래시 시 재로드 루프 가드 없음 — 페이지 자체가 프로세스를 죽이는 경우가 생기면 시도 횟수 제한을 추가할 것.
   //
-  // 통보를 받는 즉시 `onLoadStart`로 스플래시부터 되돌린다(BY-436) — 재로드의 자체
-  // onLoadStart를 기다리면 그 사이 죽은 웹뷰의 흰 화면·잔상이 그대로 노출된다(실기기 확인).
-  /** 사망 복구 진입 공통 처리 — 스플래시를 되돌리고 회전 잠금을 복원한다. */
+  // 통보를 받는 즉시 `onLoadStart`로 스플래시부터 되돌린다
+  // — 재로드의 자체 onLoadStart를 기다리면 그 사이 종료된 웹뷰의 흰 화면·잔상이 그대로 노출된다
+  /** 강제종료 복구 진입 공통 처리 — 스플래시를 되돌리고 회전 잠금을 복원한다. */
   const enterRecovery = useCallback(() => {
     recoveringRef.current = true;
-    // 죽은 문서의 준비 신호는 무효다 — 복구된 문서가 다시 보낼 때까지 이벤트는 큐에 머문다.
+    // 종료된 document의 준비 신호는 무효다 — 복구된 document가 다시 보낼 때까지 이벤트는 큐에 머문다.
     setAnalyticsReady(false);
-    // 열어 둔 회전을 되잠근다 — 복구는 문서를 새로 띄우므로 해제를 요청한 룸 문서가 사라진다.
+    // 열어 둔 회전을 되잠근다 — 복구는 document를 새로 띄우므로 해제를 요청한 룸 document가 사라진다.
     // WebView의 `onLoadStart`에 걸지 않는 이유는 위 `onRecoveryStart` 주석과 같다: Android는
     // SPA `pushState`에도 그 이벤트를 발화시켜, 소셜 홈에서 룸으로 이동하는 그 순간 방금 연
-    // 회전이 되잠긴다. 문서 세대가 실제로 바뀌는 사건은 이 복구 진입뿐이다.
+    // 회전이 되잠긴다. document 세대가 실제로 바뀌는 사건은 이 복구 진입뿐이다.
     if (webOrientationUnlockedRef.current) {
       webOrientationUnlockedRef.current = false;
       lockPortrait();
@@ -257,7 +258,7 @@ export function RemoteWebViewHost({
     enterRecovery();
     webViewRef.current?.reload();
   }, [enterRecovery, path]);
-  // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
+  // 렌더러 강제종료은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
   // Android는 마운트된 호스트마다 같은 통보가 오므로, 복구를 실제로 시작한 첫 통보만 이벤트로 남긴다.
   const handleRenderProcessGone = useCallback(() => {
     if (requestGlobalWebViewRecovery()) {
@@ -265,7 +266,7 @@ export function RemoteWebViewHost({
     }
   }, [path]);
 
-  // 전역 복구 채널 구독 — 어느 호스트가 렌더러 사망을 감지하든 함께 재마운트한다.
+  // 전역 복구 채널 구독 — 어느 호스트가 렌더러 강제종료을 감지하든 함께 remount한다.
   useEffect(() => {
     const listener = () => {
       if (recoveringRef.current) {
@@ -302,7 +303,7 @@ export function RemoteWebViewHost({
         return;
       }
       if (message.type === "analytics-ready") {
-        // 웹이 track-event 구독을 걸었다 — 이 문서에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
+        // 웹이 track-event 구독을 걸었다 — 이 document에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
         setAnalyticsReady(true);
         return;
       }
@@ -311,8 +312,8 @@ export function RemoteWebViewHost({
         return;
       }
       if (message.type === "set-orientation") {
-        // 양 플랫폼 공통이다(BY-444, 종전 "iOS 무시" 폐기) — iOS에서 소셜룸 가로가 됐던 것은
-        // 루트 세로 잠금이 통째로 우회되던 버그의 부수효과였다(`app/_layout.tsx`의 방향 주석).
+        // 양 플랫폼 공통이다
+        // — iOS에서 소셜룸 가로가 됐던 것은 루트 세로 잠금이 통째로 우회되던 버그의 부수효과였다(`app/_layout.tsx`의 방향 주석).
         // 잠금이 실동작하는 지금은 이 개방이 없으면 소셜룸 가로 모드가 iOS에서 죽는다.
         webOrientationUnlockedRef.current = message.unlocked;
         if (message.unlocked) {
@@ -342,22 +343,18 @@ export function RemoteWebViewHost({
       // `=== false`로 명시 비교한다(`!request.isTopFrame`이 아니다) — `isTopFrame`은
       // iOS만 채우는 필드라 Android에서는 `undefined`로 들어온다. `!undefined`도 `true`이므로
       // `!request.isTopFrame`으로 쓰면 Android의 모든 최상위 요청이 하위 프레임으로 오판돼
-      // 오리진 검사를 통째로 건너뛰고 전부 허용된다(BY-333 리뷰 — Critical 보안 구멍,
-      // `mediaCapturePermissionGrantType="grant"`와 겹치면 임의 오리진이 카메라를 자동 승인
-      // 받는다). 필드가 없을 때는 "하위 프레임 아님"으로 안전하게 닫히도록 `=== false`만
-      // 하위 프레임으로 취급한다.
+      // 오리진 검사를 통째로 건너뛰고 전부 허용된다.
       if (request.isTopFrame === false) {
-        // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상
-        // 허용한다. react-native-webview는 iframe 로드도 이 콜백에 태우는데,
+        // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상 허용한다.
+        // react-native-webview는 iframe 로드도 이 콜백에 태우는데,
         // `originWhitelist`만으로는 최상위/하위 프레임을 구분하지 못해 화이트리스트에 없는
-        // iframe 오리진(docs.google.com)이 "외부 이동"으로 오판돼 시스템 브라우저로 튕겨나갔다
-        // (2026-07-31 실기기 확인 — 설정→문의하기 진입 시 크롬이 열림).
+        // iframe 오리진이 "외부 이동"으로 오판돼 시스템 브라우저로 튕겨나간다
         return true;
       }
-      // 최상위 프레임이 우리 오리진이 아닌 곳으로 이동하려는 경우: 지금은 웹 안에서 외부로
-      // 나가는 최상위 이동이 설계상 없다(2026-07-31 검토) — 그래서 열어주기(Linking.openURL)
-      // 대신 보수적으로 로드를 막는다. 외부로 내보내야 하는 최상위 이동이 생기면 그때
-      // Linking.openURL 분기를 추가한다.
+      // 최상위 프레임이 우리 오리진이 아닌 곳으로 이동하려는 경우:
+      // 지금은 웹 안에서 외부로 나가는 최상위 이동이 설계상 없다
+      // 그래서 열어주기(Linking.openURL) 대신 보수적으로 로드를 막는다.
+      // 외부로 내보내야 하는 최상위 이동이 생기면 그때 Linking.openURL 분기를 추가한다.
       return originOf(request.url) === targetOrigin;
     },
     [targetOrigin],
@@ -375,13 +372,12 @@ export function RemoteWebViewHost({
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
   const handleLoadEnd = useCallback(() => {
-    // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
+    // 새 document는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 document의 잠금이
     // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
     setBackGestureEnabled(true);
     recoveringRef.current = false;
-    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
-    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
-    // 남는 것을 막는다(2026-08-25 채점 지적).
+    // 캐시된 초기 테마가 오래되었을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다 현재 값을 실어 정정한다.
+    // 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 document가 이전 테마로 남는 것을 막는다.
     if (Platform.OS === "android") {
       webViewRef.current?.injectJavaScript(
         injectMessageScript({
@@ -394,8 +390,8 @@ export function RemoteWebViewHost({
     onLoadEnd?.(true);
   }, [onLoadEnd]);
 
-  // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
-  // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
+  // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`).
+  // 경로 비교로 자기 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
   useEffect(() => {
     return subscribeTabReset((webPath) => {
       if (webPath !== path) {
@@ -408,9 +404,9 @@ export function RemoteWebViewHost({
   }, [path]);
 
   /**
-   * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다 — **포커스된 화면이면서 웹이 준비 신호를
-   * 보낸 문서**일 때만(`lib/nativeAnalytics.ts`의 단일 sink 규칙). 둘 중 하나라도 빠지면 떼어지고,
-   * 그동안의 이벤트는 큐에 머물다 다음 sink(탭을 되찾은 이 웹뷰, 또는 다른 탭)로 흘러간다.
+   * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다
+   * — 포커스된 화면이면서 웹이 준비 신호를 보낸 document일 때만(`lib/nativeAnalytics.ts`의 단일 sink 규칙).
+   * 둘 중 하나라도 빠지면 떼어지고, 그동안의 이벤트는 큐에 머물다 다음 sink(탭을 되찾은 이 웹뷰, 또는 다른 탭)로 흘러간다.
    * 떼어질 때 큐로 되돌릴 것은 없다 — 이미 넘긴 이벤트는 웹이 가졌다.
    */
   useEffect(() => {
@@ -422,9 +418,9 @@ export function RemoteWebViewHost({
     });
   }, [focused, analyticsReady]);
 
-  // 실행 중 시스템 테마 변경을 웹에 알린다 — 초기값은 URL의 theme 쿼리가 이미 실었다
-  // (`lib/remoteQueryParams.ts`). Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는
-  // 미디어쿼리가 시스템 테마를 스스로 따라간다.
+  // 실행 중 시스템 테마 변경을 웹에 알린다
+  // — 초기값은 URL의 theme 쿼리가 이미 실었다(`lib/remoteQueryParams.ts`).
+  // Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는 미디어쿼리가 시스템 테마를 스스로 따라간다.
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
@@ -441,8 +437,8 @@ export function RemoteWebViewHost({
     return () => subscription.remove();
   }, []);
 
-  // 웹 주도 해제 상태로 언마운트되면(탭 웹뷰가 통째로 사라지는 경우) 되잠글 문서가 없다 —
-  // 여기서 복원한다. 마운트 중 문서 세대 전환은 enterRecovery가 담당한다.
+  // 웹 주도 해제 상태로 언마운트되면(탭 웹뷰가 통째로 사라지는 경우) 되잠글 document가 없다
+  // — 여기서 복원한다. 마운트 중 document 세대 전환은 enterRecovery가 담당한다.
   useEffect(() => {
     return () => {
       if (webOrientationUnlockedRef.current) {
@@ -461,9 +457,9 @@ export function RemoteWebViewHost({
     }
   }, [target, path]);
 
-  // 로드 실패(설정 누락 포함)로 폴백 화면을 보여줄 때도 onLoadEnd를 호출한다 — RemoteScreen의
-  // 스플래시는 onLoadEnd가 있어야만 걷히므로, 실패 시에도 알려주지 않으면 스플래시가 실패
-  // 화면(그리고 "다시 시도" 버튼)을 영영 가려 조작 불가 상태가 된다(BY-333 실기기 확인).
+  // 로드 실패(설정 누락 포함)로 폴백 화면을 보여줄 때도 onLoadEnd를 호출한다
+  // — RemoteScreen의 스플래시는 onLoadEnd가 있어야만 걷히므로, 실패 시에도 알려주지 않으면 스플래시가 실패
+  // 화면(그리고 "다시 시도" 버튼)을 영영 가려 조작 불가 상태가 된다.
   useEffect(() => {
     if (showFailureFallback) {
       onLoadEnd?.(false);
@@ -501,47 +497,42 @@ export function RemoteWebViewHost({
 
   return (
     <WebView
-      // 재시도·Android 렌더러 사망 시 웹뷰를 통째로 새로 만든다(위 handleRenderProcessGone 주석).
+      // 재시도·Android 렌더러 강제종료 시 웹뷰를 통째로 새로 만든다.
       key={retryKey}
       ref={webViewRef}
       testID={testID}
       source={{ uri: target.uri }}
-      style={backgroundColor ? { flex: 1, backgroundColor } : { flex: 1 }}
+      style={{ flex: 1, backgroundColor: webViewBackgroundColor }}
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       mediaCapturePermissionGrantType="grant"
-      // 오리진 제한은 `originWhitelist`가 아니라 `onShouldStartLoadWithRequest`(위)로 건다.
-      //
       // `react-native-webview`는 `originWhitelist`를 통과하지 못한 요청을 우리 콜백에 넘기지도
-      // 않고 바로 시스템 브라우저로 열어버린다(내부 `createOnShouldStartLoadWithRequest`가
-      // whitelist 미통과 시 `Linking.openURL`을 먼저 호출). `originWhitelist`를 우리 오리진
+      // 않고 바로 시스템 브라우저로 열어버린다, `originWhitelist`를 우리 오리진
       // 하나로 좁혀 두면 iframe(하위 프레임) 요청도 이 필터를 통과 못 해 우리 로직이 실행되기도
-      // 전에 크롬으로 튕겨나간다 — `/contact`의 구글 폼 iframe이 이렇게 새어 나갔다
-      // (2026-07-31 Expo Go 실기기 확인). 그래서 `originWhitelist`는 라이브러리 기본값
+      // 전에 크롬으로 튕겨나간다 — `/contact`의 구글 폼 iframe이 이렇게 새어 나갔다.
+      // 그래서 `originWhitelist`는 라이브러리 기본값
       // (`http://*`·`https://*` — 즉 스킴만 http(s)로 제한)으로 두고, 실제 "우리 오리진인가"
       // 판단은 프레임 종류를 구분할 수 있는 `onShouldStartLoadWithRequest` 쪽에 맡긴다.
       onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-      // 오버스크롤(안드로이드 stretch·iOS bounce) 구간에는 웹 CSS가 닿지 않고 **웹뷰 자체의
-      // 배경**이 드러난다 — 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보였다
-      // (2026-08-01 실기기 확인. 웹 쪽 `html` 배경을 채워도 이 영역은 해결되지 않는다).
+      // 오버스크롤(안드로이드 stretch·iOS bounce) 구간에는 웹 CSS가 닿지 않고
+      // 웹뷰 자체의 배경이 드러난다 — 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보였다
       // 테마를 네이티브가 알 수 없으므로 색을 맞추는 대신 오버스크롤 자체를 없앤다 —
       // 스크롤 한계는 웹 페이지가 그대로 갖고, 고무줄 효과만 사라진다.
       overScrollMode="never"
       bounces={false}
-      // iOS 가장자리 스와이프로 **웹뷰 자체의 히스토리**를 되돌린다(WKWebView
+      // iOS 가장자리 스와이프로 웹뷰 자체의 히스토리를 되돌린다(WKWebView
       // `allowsBackForwardNavigationGestures` — 기본값이 false라 켜주지 않으면 동작하지 않는다).
       //
       // 이게 없으면 설정→문의하기처럼 웹 안에서만 일어난 이동을 스와이프로 되돌릴 수 없다.
-      // 네이티브 스택은 탭 루트라 pop할 화면이 없고, 웹 히스토리는 제스처가 꺼져 있어
-      // 양쪽 다 반응하지 않았다(2026-08-01 iPhone 13 mini 확인).
-      // 세션 화면은 웹 히스토리가 비어 있어(새로 로드된 라우트) 이 제스처로 빠져나가지 않는다.
+      // 네이티브 스택은 탭 루트라 pop할 화면이 없고, 웹 히스토리는 제스처가 꺼져 있어 양쪽 다 반응하지 않는다.
+      // 세션 화면은 웹 히스토리가 비어 있어 이 제스처로 빠져나가지 않는다.
       //
-      // 예외: 온보딩 가이드(G1~G5)는 이 제스처가 가이드 통째 이탈이 되어 웹이
+      // 예외: 온보딩 가이드는 이 제스처가 가이드 통째 이탈이 되어 웹이
       // `set-back-gesture`로 잠시 끈다(위 backGestureEnabled 주석·계약 주석 참고).
       allowsBackForwardNavigationGestures={backGestureEnabled}
       // 개발 빌드에서만 Safari Web Inspector(iOS)·chrome://inspect(Android)가 이 웹뷰에 붙는다.
       // iOS 16.4+는 WKWebView `isInspectable`을 켜지 않으면 디버그 빌드여도 인스펙터가 안 붙는다 —
-      // 브리지 메시지·웹 콘솔을 실기기에서 보는 유일한 창이다(BY-335 때부터 있던 개발 설정). 운영은 꺼진다.
+      // 브리지 메시지·웹 콘솔을 실기기에서 보는 유일한 창이다. 운영은 꺼진다.
       webviewDebuggingEnabled={__DEV__}
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
