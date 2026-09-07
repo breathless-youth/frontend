@@ -206,3 +206,4 @@ pnpm --filter mobile test
 - 스타일은 NativeWind(Tailwind 클래스, `className`)를 우선 사용. `StyleSheet.create`는 NativeWind로 표현하기 어려운 경우에만.
 - 새 화면 추가 시 `app/` 디렉터리 구조로 라우팅이 결정되므로, 화면 단위 로직은 해당 라우트 파일 옆에 co-locate 한다. 재사용 로직은 `features/`·`platform/`·`packages/*`로 올린다.
 - `platform/*`의 mock 구현을 실제 라이브러리로 바꾸기 전에 반드시 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md)의 전환 트리거/체크리스트를 확인할 것 — 조기 전환하지 않는다.
+- **앱 버전은 `app.json`의 `expo.version`이고 `YY.WW.P` CalVer다(BY-417).** 릴리즈 PR에서 루트 `pnpm release:bump --app`으로 올린다. 빌드 번호는 EAS 원격 관리(`appVersionSource: remote`)라 `app.json`에 `buildNumber`·`versionCode`를 다시 넣지 말 것. 규칙은 `docs/releases.md` "버전 규칙".
