@@ -2,7 +2,7 @@
   "expo": {
     "name": "FocusMakers",
     "slug": "mobile",
-    "version": "1.0.2",
+    "version": "26.37.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,14 +16,12 @@
         "CFBundleLocalizations": ["ko"],
         "CFBundleAllowMixedLocalizations": true
       },
-      "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile",
       "entitlements": {
         "aps-environment": "development"
       }
     },
     "android": {
-      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#fdd9bb",
         "foregroundImage": "./assets/android-icon-foreground.png",

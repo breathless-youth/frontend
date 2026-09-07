@@ -27,3 +27,6 @@ declare const __RELEASE__: string;
  * 로컬 개발·테스트는 빈 값 — same-origin으로 나가 Vite 프록시가 전달한다.
  */
 declare const __API_BASE__: string;
+
+/** 웹 자체 버전 `YY.WW.P`. `package.json`의 `version`을 빌드 타임에 주입한다. */
+declare const __WEB_VERSION__: string;

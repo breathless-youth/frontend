@@ -61,6 +61,9 @@ jobs:
       - name: Test
         run: pnpm turbo run test
 
+      - name: Test scripts
+        run: pnpm test:scripts
+
       - name: Format check
         run: pnpm format:check
 
@@ -69,3 +72,21 @@ jobs:
 
       - name: Expo export (mobile static analysis build)
         run: pnpm --filter mobile exec expo export --platform android
+
+  # 릴리즈 PR(base main)의 버전 검사: 웹은 올라야 하고 앱은 내려가지만 않으면 된다
+  version-check:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - name: Fetch base
+        run: git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}
+      - name: Check versions
+        run: node scripts/check-version.mjs --base "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}

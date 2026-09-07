@@ -1,27 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  appVersionLabel,
-  cameraPermissionRowLabel,
-  CONTACT_FORM_URL,
-  UNKNOWN_APP_VERSION_LABEL,
-} from "../settingsInfo";
+import { appVersionLabel, cameraPermissionRowLabel, CONTACT_FORM_URL } from "../settingsInfo";
 
 describe("appVersionLabel", () => {
-  it("URL 쿼리로 받은 버전을 그대로 보여준다", () => {
-    expect(appVersionLabel("1.0.0")).toBe("1.0.0");
+  it("같은 주차의 Android는 한 표기로 합친다", () => {
+    expect(appVersionLabel("26.37.2", "26.37.5", "android")).toBe("26.37.A2.5");
   });
 
-  it("버전이 올라가면 화면도 따라간다 (Figma 예시값 하드코딩 금지)", () => {
-    expect(appVersionLabel("1.4.2")).toBe("1.4.2");
+  it("같은 주차의 iOS는 I를 쓴다", () => {
+    expect(appVersionLabel("26.37.2", "26.37.5", "ios")).toBe("26.37.I2.5");
   });
 
-  it("버전을 읽지 못해도 상수를 지어내지 않는다 (null)", () => {
-    expect(appVersionLabel(null)).toBe(UNKNOWN_APP_VERSION_LABEL);
+  it("주차가 다르면 두 값을 나란히 적는다", () => {
+    expect(appVersionLabel("26.36.3", "26.37.0", "android")).toBe("26.36.3 / 26.37.0");
   });
 
-  it("빈 문자열도 알 수 없음으로 처리한다", () => {
-    expect(appVersionLabel("")).toBe(UNKNOWN_APP_VERSION_LABEL);
+  it("앱 버전이 없으면 웹 버전만 보여준다 (브라우저 단독 접속)", () => {
+    expect(appVersionLabel(null, "26.37.0", null)).toBe("26.37.0");
+    expect(appVersionLabel("", "26.37.0", "android")).toBe("26.37.0");
+  });
+
+  it("플랫폼을 판별하지 못하면 합치지 않는다", () => {
+    expect(appVersionLabel("26.37.2", "26.37.5", null)).toBe("26.37.2 / 26.37.5");
+  });
+
+  it("구형식 앱 버전도 나란히 적는다 (전환 전 바이너리)", () => {
+    expect(appVersionLabel("1.0.2", "26.37.0", "ios")).toBe("1.0.2 / 26.37.0");
   });
 });
 
