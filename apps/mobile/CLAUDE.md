@@ -81,6 +81,13 @@ IP(`http://52.78.219.53:8080`) 시절 열어뒀던 임시 개방은 전부 걷�
 
 ⚠️ **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들과 소스맵에 같은 debug ID를 심는다. 되돌려도 빌드는 성공하고 업로드도 성공하는데 **스택트레이스만 압축된 채로 남는다** — 로그에 신호가 없어 원인을 찾기 가장 어려운 실패다(웹에서 2026-08-05에 같은 종류를 겪었다). 확인법: `npx expo export --platform ios` 후 산출된 `.hbc`에서 `sentry-dbid-`가 1개 나오면 정상.
 
+## 웹뷰 배경
+
+- **웹뷰에는 배경색을 항상 넘긴다.** `RemoteWebViewHost`가 `useColorScheme()`으로 스킴을 정규화해 `@focusmakers/design-tokens`의 `colors.bg.base[scheme]`를 WebView `style`에 싣고, 화면이 넘긴 `backgroundColor` prop이 있으면 그 값이 우선한다. WKWebView는 문서가 채우지 못한 여백을 자기 바탕색으로 칠하므로 색을 빼면 다크 모드에서 흰 줄과 탭 전환 번쩍임이 돌아온다.
+- **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** New Architecture 래퍼가 `backgroundColor`를 안쪽에 전달하지 않아서다. 네이티브 변경이라 Dev Client 리빌드가 필요하다.
+- **패치를 지울 조건**: 라이브러리 버전을 올릴 때 업스트림이 `backgroundColor`를 전달하게 됐는지 먼저 확인하고, 그렇게 됐으면 패치와 `lib/__tests__/webviewPatch.test.ts`를 함께 지운다.
+- 원인 실측과 대안 검토는 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md) 참고.
+
 ## 웹 dev 서버로 화면 띄우기 (2026-09-04 갱신, BY-600 3티어)
 
 **모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다**(BY-333). 값의 원천은 `app.config.ts`다.
