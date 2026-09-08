@@ -32,12 +32,20 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 export function postToNative(message: ToNativeMessage): void {
-  if (import.meta.env.DEV) {
-    console.warn("[webview-bridge] 네이티브로 보냄", message);
+  const bridge = nativeBridge();
+  if (bridge === null) {
+    // 브라우저 단독 모드 — 실제로 나가는 것이 없으니 성공 로그를 찍지 않는다.
+    return;
   }
   try {
-    nativeBridge()?.postMessage(JSON.stringify(message));
-  } catch {
+    bridge.postMessage(JSON.stringify(message));
+    if (import.meta.env.DEV) {
+      console.warn("[webview-bridge] 네이티브로 보냄", message);
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn("[webview-bridge] 네이티브 전송 실패", message, error);
+    }
     /**
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
      * "네이티브가 없으면 아무것도 안 한다"는 명세대로 무시한다.

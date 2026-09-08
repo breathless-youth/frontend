@@ -4,7 +4,7 @@
 
 ## 먼저 문제를 웹과 브리지·네이티브로 가른다
 
-웹뷰가 여는 주소를 데스크톱 브라우저에서 그대로 연다. 거기서 재현되면 웹 자체 문제이고, 안 되면 브리지나 네이티브 문제다. 웹 dev 서버를 띄우는 절차는 [device-web-dev-server 런북](./device-web-dev-server.md)에 있다.
+웹뷰가 여는 주소를 데스크톱 브라우저에서 그대로 연다. 거기서 재현되면 웹 자체 문제일 가능성이 높다. 재현되지 않아도 웹 문제가 아니라고 단정하지는 않는다. `getUserMedia`의 secure context, iOS·Android 권한, `mediaCapturePermissionGrantType`·`allowsInlineMediaPlayback` 같은 WebView 설정이 달라 WebView에서만 실패하는 경우가 있다. 브라우저 결과는 1차 신호로 보고, 실제 WebView 인스펙터와 브리지·네이티브 로그를 함께 확인한다. 웹 dev 서버를 띄우는 절차는 [device-web-dev-server 런북](./device-web-dev-server.md)에 있다.
 
 `getUserMedia`는 secure context를 요구한다. iOS 실기기는 https, Android는 localhost일 때만 http가 인정된다. 이 조건이 안 맞으면 카메라가 안 켜진다.
 
@@ -25,8 +25,8 @@
 
 - 네이티브 로그는 Metro 콘솔에서 본다. iOS는 Xcode 콘솔, Android는 `adb logcat`에서도 보인다.
 - 웹 로그는 위 인스펙터의 콘솔에서 본다.
-- 파싱하지 못해 버린 메시지는 `파싱하지 못해 버린 메시지`와 원문이 함께 찍힌다. 웹과 네이티브의 메시지 타입 정의가 어긋났는지 여기서 알 수 있다.
-- 처리 case가 없는 타입은 `처리 case가 없는 type`으로 찍힌다 (파싱은 됐는데 반응 switch에 case가 없을 때다).
+- 버려진 메시지는 원문과 함께 찍힌다. 문구가 네이티브와 웹이 다르니 `[webview-bridge]` 접두사로 찾는다. 네이티브는 `파싱이 불가한 메시지입니다`, 웹은 `파싱하지 못해 버린 메시지`다. 웹과 네이티브의 메시지 타입 정의가 어긋났는지 여기서 알 수 있다.
+- 파싱은 됐는데 반응 switch에 case가 없는 타입은 네이티브에서 `⚠️ case가 없는 타입`으로 찍힌다.
 
 ## 프로덕션 빌드로 재현한다
 

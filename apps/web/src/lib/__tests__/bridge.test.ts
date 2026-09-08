@@ -269,4 +269,30 @@ describe("개발 로그", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("postMessage가 throw하면 개발 빌드에서 성공 로그 대신 전송 실패 로그를 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const thrown = new TypeError(
+      "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+    );
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: () => {
+        throw thrown;
+      },
+    });
+
+    postToNative({ type: "home-ready", atMs: 1 });
+
+    expect(warn).not.toHaveBeenCalledWith(
+      "[webview-bridge] 네이티브로 보냄",
+      expect.objectContaining({ type: "home-ready" }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "home-ready" }),
+      thrown,
+    );
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
 });

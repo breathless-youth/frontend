@@ -303,10 +303,15 @@ export function RemoteWebViewHost({
 
   /** 웹으로 나가는 메시지를 한 곳에 모으는 헬퍼 함수 — 개발 빌드에서 나가는 메시지를 로그로 남긴다. */
   const sendToWeb = useCallback((message: ToWebMessage) => {
+    const webView = webViewRef.current;
+    if (webView === null) {
+      // ref가 없으면(언마운트 후 도착한 stale reply 등) 실제로 나가는 것이 없다 — 로그도 남기지 않는다.
+      return;
+    }
+    webView.injectJavaScript(injectMessageScript(message));
     if (__DEV__) {
       console.warn("[webview-bridge] 💬 앱->웹", message);
     }
-    webViewRef.current?.injectJavaScript(injectMessageScript(message));
   }, []);
 
   const handleMessage = useCallback(
@@ -516,15 +521,19 @@ export function RemoteWebViewHost({
    * 쏘는 문제(위 onRecoveryStart 주석)는 복구·스플래시·회전을 이 콜백에 묶을 때만 생긴다.
    * 관찰만 하는 로그는 그 불변식을 깨지 않는다.
    */
-  const devLoadLog = __DEV__
-    ? {
-        onLoadStart: () => console.warn("[webview-bridge] onLoadStart", path),
-        onLoadProgress: (e: { nativeEvent: { progress: number } }) =>
-          console.warn("[webview-bridge] onLoadProgress", path, e.nativeEvent.progress),
-        onNavigationStateChange: (s: WebViewNavigation) =>
-          console.warn("[webview-bridge] onNavigationStateChange", s.url, s.loading),
-      }
-    : {};
+  const devLoadLog = useMemo(
+    () =>
+      __DEV__
+        ? {
+            onLoadStart: () => console.warn("[webview-bridge] onLoadStart", path),
+            onLoadProgress: (e: { nativeEvent: { progress: number } }) =>
+              console.warn("[webview-bridge] onLoadProgress", path, e.nativeEvent.progress),
+            onNavigationStateChange: (s: WebViewNavigation) =>
+              console.warn("[webview-bridge] onNavigationStateChange", s.url, s.loading),
+          }
+        : {},
+    [path],
+  );
 
   if (showFailureFallback) {
     return (

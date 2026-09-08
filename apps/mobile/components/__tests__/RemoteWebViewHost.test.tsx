@@ -566,6 +566,34 @@ describe("RemoteWebViewHost", () => {
     }
   });
 
+  it("언마운트 후 reply를 호출하면 주입도 로그도 없다 — ref가 없으면 미전송이다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const onBridgeMessage = jest.fn();
+    const view = render(
+      <RemoteWebViewHost path="/room/1" testID="host" onBridgeMessage={onBridgeMessage} />,
+    );
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
+    });
+    const reply = onBridgeMessage.mock.calls[0]![1] as (m: ToWebMessage) => void;
+
+    mockInjectJavaScript.mockClear();
+    view.unmount();
+
+    act(() => {
+      reply({ type: "app-state", state: "active", atMs: 6 });
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "app-state" }),
+    );
+    warn.mockRestore();
+  });
+
   it("Android에서 시스템 테마가 바뀌면 theme 메시지를 주입한다", () => {
     jest.replaceProperty(Platform, "OS", "android");
     let themeListener:
@@ -973,6 +1001,20 @@ describe("SPA 라우팅과 스플래시 (BY-436)", () => {
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
     }
+  });
+
+  it("개발 빌드에서 재렌더돼도 onLoadStart prop 참조가 유지된다", () => {
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    const first = screen.getByTestId("host").props.onLoadStart;
+    expect(first).toBeDefined();
+
+    // set-back-gesture(false)는 backGestureEnabled를 true→false로 실제로 바꿔 재렌더를 유발한다.
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":1}' } });
+    });
+
+    expect(screen.getByTestId("host").props.onLoadStart).toBe(first);
   });
 });
 
