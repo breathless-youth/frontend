@@ -8,7 +8,9 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # edited(제목/본문 편집) 실행은 quality를 스킵하는데, 같은 그룹이면 실행 중인 무거운
+  # 실행을 취소해 quality가 끝나지 못한다. edited만 별도 레인으로 분리해 서로 취소하지 않게 한다.
+  group: ci-${{ github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'build' }}
   cancel-in-progress: true
 
 jobs:
