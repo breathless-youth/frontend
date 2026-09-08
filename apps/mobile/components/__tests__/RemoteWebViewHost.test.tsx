@@ -284,6 +284,37 @@ describe("RemoteWebViewHost", () => {
     expect(onBridgeMessage).not.toHaveBeenCalled();
   });
 
+  it("개발 빌드에서 버려진 메시지의 원문을 로그로 남긴다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"nope","atMs":1}' } });
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      '{"type":"nope","atMs":1}',
+    );
+    warn.mockRestore();
+  });
+
+  it("운영 빌드에서는 버려진 메시지를 로그로 남기지 않는다", () => {
+    const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(<RemoteWebViewHost path="/social" testID="host" />);
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => {
+        onMessage({ nativeEvent: { data: '{"type":"nope","atMs":1}' } });
+      });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
+      warn.mockRestore();
+    }
+  });
+
   it("set-back-gesture는 여기서 소비한다 — 제스처 prop을 토글하고 콜백에 넘기지 않는다", () => {
     const onBridgeMessage = jest.fn();
     render(<RemoteWebViewHost path="/home" testID="host" onBridgeMessage={onBridgeMessage} />);
@@ -460,8 +491,6 @@ describe("RemoteWebViewHost", () => {
 
     expect(unlockForSession).toHaveBeenCalled();
     expect(lockPortrait).not.toHaveBeenCalled();
-    // 로드 시작 이벤트 자체를 구독하지 않는다(Android SPA 이동에 발화하므로).
-    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
   });
 
   it("웹 주도 해제 없이 복구가 시작되면 잠금을 건드리지 않는다 — 솔로 세션의 해제를 덮어쓰면 안 된다", () => {
@@ -504,6 +533,65 @@ describe("RemoteWebViewHost", () => {
     expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
     const script = mockInjectJavaScript.mock.calls[0][0] as string;
     expect(script).toContain('\\"session-closed\\"');
+  });
+
+  it("개발 빌드에서 웹으로 보내는 메시지를 로그로 남긴다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+
+    act(() => {
+      emitSessionClosed();
+    });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "session-closed" }),
+    );
+    warn.mockRestore();
+  });
+
+  it("운영 빌드에서는 웹으로 보내는 메시지를 로그로 남기지 않는다", () => {
+    const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      act(() => {
+        emitSessionClosed();
+      });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
+      warn.mockRestore();
+    }
+  });
+
+  it("언마운트 후 reply를 호출하면 주입도 로그도 없다 — ref가 없으면 미전송이다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const onBridgeMessage = jest.fn();
+    const view = render(
+      <RemoteWebViewHost path="/room/1" testID="host" onBridgeMessage={onBridgeMessage} />,
+    );
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"navigate-home","atMs":5}' } });
+    });
+    const reply = onBridgeMessage.mock.calls[0]![1] as (m: ToWebMessage) => void;
+
+    mockInjectJavaScript.mockClear();
+    view.unmount();
+
+    act(() => {
+      reply({ type: "app-state", state: "active", atMs: 6 });
+    });
+
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "app-state" }),
+    );
+    warn.mockRestore();
   });
 
   it("Android에서 시스템 테마가 바뀌면 theme 메시지를 주입한다", () => {
@@ -843,13 +931,90 @@ describe("report-screen 복원 (BY-436)", () => {
 });
 
 describe("SPA 라우팅과 스플래시 (BY-436)", () => {
-  it("WebView에 onLoadStart 이벤트를 배선하지 않는다 — Android는 pushState에도 발화해 스플래시가 영영 안 걷힌다", () => {
-    // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
-    // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
-    // 문서 로드 감지가 아니라 복구 진입(enterRecovery)이 명시적으로 알린다.
-    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+  // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
+  // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
+  // 문서 로드 감지가 아니라 복구 진입(enterRecovery)이 명시적으로 알린다. 개발 빌드에서
+  // 붙는 onLoadStart는 로그만 남기고 이 불변식을 건드리지 않아야 한다(아래).
 
-    expect(screen.getByTestId("host").props.onLoadStart).toBeUndefined();
+  it("개발 빌드에서 onLoadStart은 로그만 남기고 복구·스플래시·회전을 건드리지 않는다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const onRecoveryStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onRecoveryStart} />);
+
+    // 세션이 회전을 열어 둔 상태를 흉내 낸다 — onLoadStart가 이 상태를 되잠그면 안 된다
+    // (Android가 SPA pushState에도 onLoadStart를 쏘는 문제, 위 describe 주석 참고).
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).toHaveBeenCalled();
+
+    const onLoadStart = screen.getByTestId("host").props.onLoadStart as () => void;
+    expect(onLoadStart).toBeDefined();
+    act(() => {
+      onLoadStart();
+    });
+
+    expect(onRecoveryStart).not.toHaveBeenCalled();
+    expect(mockReload).not.toHaveBeenCalled();
+    expect(lockPortrait).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("개발 빌드에서 onLoadProgress·onNavigationStateChange도 로그만 남기고 복구·회전을 건드리지 않는다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const onRecoveryStart = jest.fn();
+    render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onRecoveryStart} />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-orientation","unlocked":true,"atMs":1}' } });
+    });
+    expect(unlockForSession).toHaveBeenCalled();
+
+    const onLoadProgress = screen.getByTestId("host").props.onLoadProgress as (e: unknown) => void;
+    const onNavigationStateChange = screen.getByTestId("host").props.onNavigationStateChange as (
+      e: unknown,
+    ) => void;
+    expect(onLoadProgress).toBeDefined();
+    expect(onNavigationStateChange).toBeDefined();
+    act(() => {
+      onLoadProgress({ nativeEvent: { progress: 0.5 } });
+      onNavigationStateChange({ url: "https://web.test/social", loading: false });
+    });
+
+    expect(onRecoveryStart).not.toHaveBeenCalled();
+    expect(mockReload).not.toHaveBeenCalled();
+    expect(lockPortrait).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("운영 빌드에서는 onLoadStart·onLoadProgress·onNavigationStateChange 어느 것도 연결하지 않는다", () => {
+    const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    try {
+      render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+      const props = screen.getByTestId("host").props;
+      expect(props.onLoadStart).toBeUndefined();
+      expect(props.onLoadProgress).toBeUndefined();
+      expect(props.onNavigationStateChange).toBeUndefined();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
+    }
+  });
+
+  it("개발 빌드에서 재렌더돼도 onLoadStart prop 참조가 유지된다", () => {
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    const first = screen.getByTestId("host").props.onLoadStart;
+    expect(first).toBeDefined();
+
+    // set-back-gesture(false)는 backGestureEnabled를 true→false로 실제로 바꿔 재렌더를 유발한다.
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":1}' } });
+    });
+
+    expect(screen.getByTestId("host").props.onLoadStart).toBe(first);
   });
 });
 

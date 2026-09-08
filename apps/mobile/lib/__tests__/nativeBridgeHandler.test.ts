@@ -278,6 +278,28 @@ describe("handleBridgeMessage", () => {
 
     expect(handle).toHaveBeenCalledWith(message, noopReply);
   });
+
+  it("개발 빌드에서 처리 case가 없는 type을 로그로 남긴다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "pong");
+    warn.mockRestore();
+  });
+
+  it("운영 빌드에서는 처리 case가 없는 type을 로그로 남기지 않는다", () => {
+    const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
+      warn.mockRestore();
+    }
+  });
 });
 
 describe("handleBridgeMessage — 권한 게이트의 room_type", () => {

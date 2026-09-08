@@ -43,6 +43,7 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 
 - **웹뷰에는 배경색을 항상 넘긴다.** `RemoteWebViewHost`가 스킴별 `colors.bg.base`를 WebView `style`에 싣는다. 색을 빼면 다크 모드에서 흰 줄과 탭 전환 번쩍임이 돌아온다.
 - **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** 라이브러리를 올릴 때 업스트림이 `backgroundColor`를 전달하게 됐으면 패치와 `webviewPatch.test.ts`를 함께 지운다. 원인 실측은 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md).
+- 인스펙터 연결·브리지 개발 로그·색 실험 등 웹뷰 디버깅 절차는 [webview-debugging 런북](../../docs/runbooks/webview-debugging.md). 개발 빌드는 버려진 브리지 메시지와 나가는 메시지를 `[webview-bridge]` 접두사로 찍는다.
 
 ## 환경·주소·딥링크
 
