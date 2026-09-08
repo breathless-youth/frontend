@@ -6,7 +6,7 @@ import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 import type { TrackEventMessage } from "@focusmakers/types";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
-import { parseUserId } from "./userId";
+import { readUserId } from "./userId";
 
 let initialized = false;
 
@@ -182,7 +182,7 @@ export function initAmplitude() {
   // 셸이 **최초 URL부터** `?userId=N`을 붙여 주므로 여기서 이미 신원을 붙일 수 있다.
   // 첫 라우트 이펙트(`AnalyticsRouteTracker`)까지 기다리면 그 사이에 나가는 이벤트가
   // 익명 device_id로 남는다.
-  setAmplitudeUserId(parseUserId(new URLSearchParams(window.location.search).get("userId")));
+  setAmplitudeUserId(readUserId(window.location.search));
 }
 
 /**

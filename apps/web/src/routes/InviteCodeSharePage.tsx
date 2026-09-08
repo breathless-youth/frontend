@@ -1,13 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { Toast } from "@/components/ui/toast";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
 import { enterLiveRoom } from "@/lib/roomApi";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
 
 /**
@@ -29,12 +29,11 @@ function isShareState(state: unknown): state is ShareState {
 }
 
 export function InviteCodeSharePage() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { message: toastMessage, showToast } = useToast();
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
   const state: unknown = location.state;
 
   const joinMutation = useMutation({

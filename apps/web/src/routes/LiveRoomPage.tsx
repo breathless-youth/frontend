@@ -8,7 +8,7 @@ import { isCompleteInviteCode } from "@/features/social-room/inviteCode";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { createStompRoomChannel } from "@/features/live-room/stompRoomChannel";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 실시간 룸 라우트
@@ -31,7 +31,7 @@ export function LiveRoomPage({
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
   const roomId = Number(roomIdParam);
   const state: unknown = location.state;
   const restoreCode = searchParams.get("code");

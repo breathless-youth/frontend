@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -19,7 +19,7 @@ import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { requestSessionStart } from "@/lib/sessionStart";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 홈(S1) — `apps/mobile/app/(tabs)/index.tsx`에서 이식 (BY-329).
@@ -331,8 +331,7 @@ function HomeContent({ userId }: { userId: number }) {
 }
 
 export function HomeTabPage() {
-  const [searchParams] = useSearchParams();
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
   const { recovered, dismiss } = useLaunchSessionRecovery(userId);
 
   return (

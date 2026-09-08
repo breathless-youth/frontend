@@ -1,5 +1,4 @@
 import { Fragment, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import { trackRecordsDateSelected } from "@/lib/amplitude";
 
@@ -22,7 +21,7 @@ import { SessionListItem } from "@/features/records/SessionListItem";
 import { StreakBanner, type StreakWeekDay } from "@/features/records/StreakBanner";
 import { SummaryTiles } from "@/features/records/SummaryTiles";
 import { useRecordsData } from "@/features/records/useRecordsData";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 기록(S5) — `apps/mobile/app/(tabs)/records.tsx`에서 이식 (BY-330).
@@ -181,8 +180,7 @@ function RecordsContent({ userId }: { userId: number }) {
 }
 
 export function RecordsPage() {
-  const [searchParams] = useSearchParams();
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
 
   return (
     <main

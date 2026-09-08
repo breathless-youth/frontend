@@ -19,7 +19,7 @@ import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitu
 import { ApiError } from "@/lib/api";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 프로필 설정
@@ -32,7 +32,7 @@ export function ProfilePage() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
 
   const query = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 

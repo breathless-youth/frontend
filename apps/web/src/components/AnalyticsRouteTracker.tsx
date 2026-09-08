@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { trackPageView } from "@/lib/analytics";
 import { setAmplitudeUserId, trackAmplitudePageView } from "@/lib/amplitude";
-import { parseUserId } from "@/lib/userId";
+import { readUserId } from "@/lib/userId";
 
 /**
  * 라우트가 바뀔 때마다 GA4·Amplitude 페이지뷰를 보내고, Amplitude에는 서버 DB의 user_id도
@@ -26,7 +26,7 @@ export function AnalyticsRouteTracker() {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
-    setAmplitudeUserId(parseUserId(new URLSearchParams(search).get("userId")));
+    setAmplitudeUserId(readUserId(search));
     trackPageView(pathname, search);
     trackAmplitudePageView(pathname, search);
   }, [pathname, search]);
