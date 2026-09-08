@@ -40,8 +40,9 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useToast } from "@/lib/useToast";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
+import { useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
-import { parseUserId, useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
@@ -732,8 +733,7 @@ function SessionResultFallback({
  * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
  */
 export function RoomPage() {
-  const [searchParams] = useSearchParams();
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
   const { settled, restored } = useActiveSessionRestore(userId);
 
   if (!settled) {

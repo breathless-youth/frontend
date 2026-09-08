@@ -60,8 +60,6 @@ import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
-export { parseUserId } from "@/lib/userId";
-
 /** 제출 라이프사이클. 세션 내부 상태(FOCUS/DISTRACTION/PAUSE)와는 **다른 축**이다. */
 export type StudyRoomPhase =
   | { name: "studying" }

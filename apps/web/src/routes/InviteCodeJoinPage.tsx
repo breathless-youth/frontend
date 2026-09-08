@@ -15,7 +15,7 @@ import {
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { enterLiveRoom } from "@/lib/roomApi";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 const ERROR_ID = "invite-code-error";
 
@@ -37,7 +37,7 @@ export function InviteCodeJoinPage() {
     trackInviteLinkOpened(initialHasCode);
   }, [initialHasCode]);
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
 
   // 앱 밖 모바일 브라우저에게만 스토어를 권한다.
   // 설치 여부는 웹이 알 수 없지만, 설치자는 링크 클릭 시 유니버설 링크·App Links로 앱이 직행하므로 이 화면에 오는 것은 대부분 미설치자다.

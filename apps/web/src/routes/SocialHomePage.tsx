@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
@@ -9,19 +9,18 @@ import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { createRoom } from "@/lib/roomApi";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 import { useToast } from "@/lib/useToast";
 
 /**
  * 소셜 홈
  */
 export function SocialHomePage() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { message: toastMessage, showToast } = useToast();
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
 
   // 룸에서 밀려나며 남긴 사유를 여기서 알린다(BY-436). 플래그는 1회성이라 소비 결과를 ref에
   // 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 null로 굳지 않는다
