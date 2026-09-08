@@ -3,7 +3,7 @@ import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import { colors } from "@focusmakers/design-tokens";
-import type { ToNativeMessage } from "@focusmakers/types";
+import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
@@ -266,6 +266,9 @@ export function RemoteWebViewHost({
   }, [onRecoveryStart]);
 
   const handleContentProcessDidTerminate = useCallback(() => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onContentProcessDidTerminate", path);
+    }
     // 사용자에겐 보던 화면이 스플래시로 덮였다 다시 뜨는 사건이다 — 이 웹뷰로는 못 나가고 큐를 거친다.
     trackNativeEvent("webview_recovery_started", { path, reason: "process_terminated" });
     enterRecovery();
@@ -274,6 +277,9 @@ export function RemoteWebViewHost({
   // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
   // Android는 마운트된 호스트마다 같은 통보가 오므로, 복구를 실제로 시작한 첫 통보만 이벤트로 남긴다.
   const handleRenderProcessGone = useCallback(() => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onRenderProcessGone", path);
+    }
     if (requestGlobalWebViewRecovery()) {
       trackNativeEvent("webview_recovery_started", { path, reason: "render_process_gone" });
     }
@@ -295,10 +301,21 @@ export function RemoteWebViewHost({
     };
   }, [enterRecovery]);
 
+  /** 웹으로 나가는 메시지를 한 곳에 모으는 헬퍼 함수 — 개발 빌드에서 나가는 메시지를 로그로 남긴다. */
+  const sendToWeb = useCallback((message: ToWebMessage) => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] 💬 앱->웹", message);
+    }
+    webViewRef.current?.injectJavaScript(injectMessageScript(message));
+  }, []);
+
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       const message = parseToNativeMessage(event.nativeEvent.data);
       if (message === null) {
+        if (__DEV__) {
+          console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", event.nativeEvent.data);
+        }
         return;
       }
       // 위 backGestureEnabled 주석의 이유로 이 메시지만 여기서 소비하고 핸들러로 넘기지 않는다.
@@ -309,9 +326,7 @@ export function RemoteWebViewHost({
       // 보내는 이 신호만이 그 보장이고, 실패한 로드에서는 이 신호 자체가 오지 않는다.
       if (message.type === "home-ready") {
         if (path === HOME_PATH && consumeAppLaunchSignal()) {
-          webViewRef.current?.injectJavaScript(
-            injectMessageScript({ type: "app-launched", atMs: Date.now() }),
-          );
+          sendToWeb({ type: "app-launched", atMs: Date.now() });
         }
         return;
       }
@@ -343,11 +358,9 @@ export function RemoteWebViewHost({
         };
         // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
       }
-      onBridgeMessage?.(message, (reply) => {
-        webViewRef.current?.injectJavaScript(injectMessageScript(reply));
-      });
+      onBridgeMessage?.(message, sendToWeb);
     },
-    [onBridgeMessage, path],
+    [onBridgeMessage, path, sendToWeb],
   );
 
   const targetOrigin = target?.origin;
@@ -379,16 +392,25 @@ export function RemoteWebViewHost({
 
   // 로드 실패는 이 웹뷰로는 못 나가는 이벤트다 — 큐에 있다가 다른 탭 웹뷰나 재시도 성공 뒤 흘러간다.
   const handleError = useCallback(() => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onError", path);
+    }
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "error" });
   }, [path]);
   const handleHttpError = useCallback(() => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onHttpError", path);
+    }
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "http" });
   }, [path]);
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
   const handleLoadEnd = useCallback(() => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onLoadEnd", path);
+    }
     // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
     // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
     setBackGestureEnabled(true);
@@ -397,16 +419,14 @@ export function RemoteWebViewHost({
     // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
     // 남는 것을 막는다(2026-08-25 채점 지적).
     if (Platform.OS === "android") {
-      webViewRef.current?.injectJavaScript(
-        injectMessageScript({
-          type: "theme",
-          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
-          atMs: Date.now(),
-        }),
-      );
+      sendToWeb({
+        type: "theme",
+        scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+        atMs: Date.now(),
+      });
     }
     onLoadEnd?.(true);
-  }, [onLoadEnd]);
+  }, [onLoadEnd, path, sendToWeb]);
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
@@ -415,21 +435,17 @@ export function RemoteWebViewHost({
       if (webPath !== path) {
         return;
       }
-      webViewRef.current?.injectJavaScript(
-        injectMessageScript({ type: "reset-route", path: webPath, atMs: Date.now() }),
-      );
+      sendToWeb({ type: "reset-route", path: webPath, atMs: Date.now() });
     });
-  }, [path]);
+  }, [path, sendToWeb]);
 
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).
   useEffect(() => {
     return subscribeSessionClosed(() => {
-      webViewRef.current?.injectJavaScript(
-        injectMessageScript({ type: "session-closed", atMs: Date.now() }),
-      );
+      sendToWeb({ type: "session-closed", atMs: Date.now() });
     });
-  }, []);
+  }, [sendToWeb]);
 
   /**
    * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다 — **포커스된 화면이면서 웹이 준비 신호를
@@ -442,9 +458,9 @@ export function RemoteWebViewHost({
       return;
     }
     return attachNativeAnalyticsSink((event) => {
-      webViewRef.current?.injectJavaScript(injectMessageScript({ type: "track-event", ...event }));
+      sendToWeb({ type: "track-event", ...event });
     });
-  }, [focused, analyticsReady]);
+  }, [focused, analyticsReady, sendToWeb]);
 
   // 실행 중 시스템 테마 변경을 웹에 알린다 — 초기값은 URL의 theme 쿼리가 이미 실었다
   // (`lib/remoteQueryParams.ts`). Android 전용인 이유도 그쪽 주석과 같다: iOS 웹뷰는
@@ -454,16 +470,14 @@ export function RemoteWebViewHost({
       return;
     }
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      webViewRef.current?.injectJavaScript(
-        injectMessageScript({
-          type: "theme",
-          scheme: colorScheme === "dark" ? "dark" : "light",
-          atMs: Date.now(),
-        }),
-      );
+      sendToWeb({
+        type: "theme",
+        scheme: colorScheme === "dark" ? "dark" : "light",
+        atMs: Date.now(),
+      });
     });
     return () => subscription.remove();
-  }, []);
+  }, [sendToWeb]);
 
   // 웹 주도 해제 상태로 언마운트되면(탭 웹뷰가 통째로 사라지는 경우) 되잠글 문서가 없다 —
   // 여기서 복원한다. 마운트 중 문서 세대 전환은 enterRecovery가 담당한다.
@@ -493,6 +507,24 @@ export function RemoteWebViewHost({
       onLoadEnd?.(false);
     }
   }, [showFailureFallback, onLoadEnd]);
+
+  /**
+   * 개발 빌드에서만 로드 수명 콜백을 로그용으로 연결한다.
+   * 운영 빌드는 `{}`라 prop이 `undefined`로 남고 기존 동작(위 onRecoveryStart 주석의 불변식)과 같다.
+   *
+   * 로그만 남기고 상태를 바꾸지 않는다 — Android가 SPA `pushState`에도 `onLoadStart`를
+   * 쏘는 문제(위 onRecoveryStart 주석)는 복구·스플래시·회전을 이 콜백에 묶을 때만 생긴다.
+   * 관찰만 하는 로그는 그 불변식을 깨지 않는다.
+   */
+  const devLoadLog = __DEV__
+    ? {
+        onLoadStart: () => console.warn("[webview-bridge] onLoadStart", path),
+        onLoadProgress: (e: { nativeEvent: { progress: number } }) =>
+          console.warn("[webview-bridge] onLoadProgress", path, e.nativeEvent.progress),
+        onNavigationStateChange: (s: WebViewNavigation) =>
+          console.warn("[webview-bridge] onNavigationStateChange", s.url, s.loading),
+      }
+    : {};
 
   if (showFailureFallback) {
     return (
@@ -565,7 +597,7 @@ export function RemoteWebViewHost({
       allowsBackForwardNavigationGestures={backGestureEnabled}
       // 개발 빌드에서만 Safari Web Inspector(iOS)·chrome://inspect(Android)가 이 웹뷰에 붙는다.
       // iOS 16.4+는 WKWebView `isInspectable`을 켜지 않으면 디버그 빌드여도 인스펙터가 안 붙는다 —
-      // 브리지 메시지·웹 콘솔을 실기기에서 보는 유일한 창이다(BY-335 때부터 있던 개발 설정). 운영은 꺼진다.
+      // 브리지 메시지·웹 콘솔을 실기기에서 보는 유일한 방법이다.
       webviewDebuggingEnabled={__DEV__}
       onMessage={handleMessage}
       // 여기서의 `true`는 "폴백 화면이 아니다"라는 뜻이다 — `onError`/`onHttpError`가 뒤이어
@@ -575,6 +607,7 @@ export function RemoteWebViewHost({
       onHttpError={handleHttpError}
       onContentProcessDidTerminate={handleContentProcessDidTerminate}
       onRenderProcessGone={handleRenderProcessGone}
+      {...devLoadLog}
     />
   );
 }

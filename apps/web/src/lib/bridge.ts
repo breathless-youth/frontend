@@ -32,6 +32,9 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 export function postToNative(message: ToNativeMessage): void {
+  if (import.meta.env.DEV) {
+    console.warn("[webview-bridge] 네이티브로 보냄", message);
+  }
   try {
     nativeBridge()?.postMessage(JSON.stringify(message));
   } catch {
@@ -70,6 +73,9 @@ export function subscribeToNativeMessages(handler: (message: ToWebMessage) => vo
   target[NATIVE_MESSAGE_ENTRY] ??= (raw: string) => {
     const message = parseToWebMessage(raw);
     if (message === null) {
+      if (import.meta.env.DEV) {
+        console.warn("[webview-bridge] 파싱하지 못해 버린 메시지", raw);
+      }
       return;
     }
     // 복사본을 돌려 순회 중 해제가 일어나도 안전하게 한다.

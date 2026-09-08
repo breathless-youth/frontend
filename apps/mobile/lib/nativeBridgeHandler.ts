@@ -133,5 +133,9 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
       break;
+    default:
+      if (__DEV__) {
+        console.warn("[webview-bridge] ⚠️ case가 없는 타입", message.type);
+      }
   }
 }

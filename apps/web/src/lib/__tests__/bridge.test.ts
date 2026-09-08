@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseToWebMessage, postToNative } from "@/lib/bridge";
+import { parseToWebMessage, postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
 describe("parseToWebMessage", () => {
   it("device-handling 메시지를 파싱한다", () => {
@@ -204,5 +204,69 @@ describe("postToNative", () => {
 
     expect(() => postToNative({ type: "session-ready", atMs: 42 })).not.toThrow();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("개발 로그", () => {
+  it("전역 수신 함수가 버린 원문을 개발 빌드에서 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unsub = subscribeToNativeMessages(() => {});
+
+    (window as unknown as Record<string, (raw: string) => void>).__focusonNativeMessage(
+      '{"type":"nope","atMs":1}',
+    );
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      '{"type":"nope","atMs":1}',
+    );
+    warn.mockRestore();
+    unsub();
+  });
+
+  it("postToNative가 나가는 메시지를 개발 빌드에서 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+
+    postToNative({ type: "home-ready", atMs: 1 });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "home-ready" }),
+    );
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("운영 빌드에서는 전역 수신 함수가 버린 원문을 찍지 않는다", () => {
+    const original = import.meta.env.DEV;
+    (import.meta.env as unknown as { DEV: boolean }).DEV = false;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const unsub = subscribeToNativeMessages(() => {});
+      (window as unknown as Record<string, (raw: string) => void>).__focusonNativeMessage(
+        '{"type":"nope","atMs":1}',
+      );
+      expect(warn).not.toHaveBeenCalled();
+      unsub();
+    } finally {
+      (import.meta.env as unknown as { DEV: boolean }).DEV = original;
+      warn.mockRestore();
+    }
+  });
+
+  it("운영 빌드에서는 postToNative가 나가는 메시지를 찍지 않는다", () => {
+    const original = import.meta.env.DEV;
+    (import.meta.env as unknown as { DEV: boolean }).DEV = false;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    try {
+      postToNative({ type: "home-ready", atMs: 1 });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (import.meta.env as unknown as { DEV: boolean }).DEV = original;
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
