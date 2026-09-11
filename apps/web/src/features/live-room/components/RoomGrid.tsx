@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from "react";
 import type { RoomMember } from "@focusmakers/types";
 
 import { RemoteVideo } from "@/features/live-room/components/RemoteVideo";
+import { RoomAvatarFallback } from "@/features/live-room/components/RoomAvatarFallback";
 import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTile";
 import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
 import type { RoomGridSpec } from "@/features/live-room/roomGrid";
@@ -74,7 +75,11 @@ export function RoomGrid({
       ref={selfSurfaceRef}
       className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape:left-[calc(env(safe-area-inset-left)+16px)] landscape:right-[calc(env(safe-area-inset-right)+16px)] landscape:overflow-hidden landscape:rounded-3xl"
     >
-      {cameraOn && myVideo}
+      {cameraOn ? (
+        myVideo
+      ) : (
+        <RoomAvatarFallback nickname={allMembers.find((m) => m.userId === userId)?.nickname} />
+      )}
       {/* 1인 전체화면은 RoomTile을 쓰지 않지만 내 화면이므로 같은 상태 뱃지를 올린다(BY-427).
           가로의 좌측 세이프에어리어는 이 컨테이너가 이미 비켜서 있어 top만 고려한다. */}
       <SelfStateBadge

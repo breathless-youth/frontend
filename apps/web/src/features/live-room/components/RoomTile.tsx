@@ -5,6 +5,7 @@ import type { RoomMember } from "@focusmakers/types";
 import { cn } from "@/lib/utils";
 
 import { formatStudyHhMm } from "../roomGrid";
+import { RoomAvatarFallback } from "./RoomAvatarFallback";
 
 /**
  * UI
@@ -142,11 +143,7 @@ export function RoomTile({
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-white/10">
-            <span className="text-xl font-bold text-white">{member.nickname?.charAt(0) ?? ""}</span>
-          </div>
-        </div>
+        <RoomAvatarFallback nickname={member.nickname} />
       )}
       {showMedia && (
         /* 영상 위 텍스트 가독성용 하단 스크림(BY-427 시안 A) — 아바타 타일에는 넣지 않는다. */
