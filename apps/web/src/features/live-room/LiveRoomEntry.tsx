@@ -114,7 +114,7 @@ export function LiveRoomEntry({
         // 이 방으로는 복구할 수 없는 실패(방 소멸 등)는 화면에 붙잡아 두면 사용자가
         // [다시 시도] 말고 할 수 있는 게 없는 상태에 갇힌다 — 사유만 남기고 내보낸다.
         if (failure.kind === "leave") {
-          markSocialRoomNotice(failure.message);
+          markSocialRoomNotice({ kind: "failure", message: failure.message });
           navigate(
             { pathname: "/social", search: location.search },
             { replace: true, state: { noticeHandoff: true } },
