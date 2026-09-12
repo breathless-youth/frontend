@@ -10,13 +10,13 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 
 ## WebView 스터디룸
 
-- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음).
+- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음). Android는 `android.blockedPermissions`로 `RECORD_AUDIO`를 명시적으로 차단한다 — `expo-camera`가 plugin 없이도 넣기 때문이며, **이 항목을 지우지 말 것**(ADR 0004 "남는 위험").
 - **Dev Client가 필요하고 Expo Go는 지원하지 않는다.** 커스텀 엔트리(`index.ts`)가 푸시 모듈을, 그 모듈이 `@react-native-firebase/*`를 정적 import하기 때문이다(Expo Go에 없는 네이티브 모듈). `app.json` `plugins`의 `expo-build-properties`·RNFB config plugin도 prebuild/Dev Client 빌드에서만 적용된다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
 - `expo-camera`는 권한 조회·요청 목적으로만 들어 있다([ADR 0004](../../docs/adr/0004-expo-camera-for-permission-api-only.md)). **`CameraView`를 쓰지 말 것** — 카메라 스트림·Vision 추론은 `apps/web`의 WebView `getUserMedia` 소유다. 호출은 `lib/cameraPermission.ts` 어댑터 뒤에만 두고 화면·컴포넌트가 `expo-camera`를 직접 import하지 않는다.
-- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** plugin을 넣으면 영어 기본 `NSMicrophoneUsageDescription`·Android `RECORD_AUDIO`가 주입된다. `permissionCopy.test.ts`가 이 오염을 잡는다.
+- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 단, plugin을 안 넣어도 Expo가 자동 적용해 영어 기본 `NSMicrophoneUsageDescription`(iOS)·`RECORD_AUDIO`(Android)가 들어간다 — Android는 `android.blockedPermissions`가 걷어내고, iOS 문구는 아직 남아 있다(별도 결정). `permissionCopy.test.ts`는 `android.permissions` 열거만 잠그므로 실제 바이너리 권한은 운영 AAB의 merged manifest로 확인한다.
 
 ## 네트워크 / ATS
 
@@ -37,6 +37,7 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** WebView 셸이라 마스킹된 사각형만 남고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙과 충돌한다. `sendDefaultPii`는 `false`로 못 박았다. 성능 추적(`tracesSampleRate`)도 켜지 않는다(웹뷰 셸이라 잴 구간이 없고 화면 로딩은 웹이 본다).
 - **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
+- **Android release는 R8로 난독화된다**(`expo-build-properties`의 `enableMinifyInReleaseBuilds`·`enableShrinkResourcesInReleaseBuilds`, Play 2027-02 최적화 요건). 매핑은 Sentry plugin의 `experimental_android.enableAndroidGradlePlugin`이 올린다 — **둘 중 하나만 끄지 말 것**(끄면 빌드는 성공하고 네이티브 스택만 `a.b.c`로 남는다). 옵션은 `experimental_android` 아래에 두어야 읽힌다. `sentryConfig.test.ts`가 짝을 잠근다.
 - **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들·소스맵에 같은 debug ID를 심는다. 되돌리면 스택트레이스만 압축된 채 남는다. 동작 확인은 EAS staging/production 빌드로만 된다.
 
 ## 웹뷰 배경
