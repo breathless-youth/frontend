@@ -40,10 +40,28 @@ describe("app.json Sentry 설정", () => {
     );
     // 플러그인이 빠지면 빌드는 그대로 성공하고 스택트레이스만 압축된 채로 남는다.
     expect(entry).toBeDefined();
-    expect((entry as [string, Record<string, string>])[1]).toEqual({
+    expect((entry as [string, Record<string, unknown>])[1]).toMatchObject({
       organization: "breathless-youth",
       project: "focusmakers-app",
     });
+  });
+
+  /**
+   * Android는 R8(`expo-build-properties`의 `enableMinifyInReleaseBuilds`)로 네이티브 코드를
+   * 난독화한다. 매핑이 Sentry에 안 올라가면 빌드는 성공하고 네이티브 스택만 `a.b.c` 꼴로 남는다
+   * — 위와 같은 조용한 실패라 여기서 잠근다. 옵션은 `experimental_android` 아래에 중첩해야
+   * 읽힌다(최상위에 두면 경고 없이 무시된다, @sentry/react-native 7.2.0).
+   */
+  it("R8 매핑을 올리려면 Sentry Android Gradle Plugin이 켜져 있어야 한다", () => {
+    const entry = appConfig.expo.plugins.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "@sentry/react-native/expo",
+    ) as [string, { experimental_android?: { enableAndroidGradlePlugin?: boolean } }];
+    expect(entry[1].experimental_android?.enableAndroidGradlePlugin).toBe(true);
+
+    const buildProperties = appConfig.expo.plugins.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-build-properties",
+    ) as [string, { android?: { enableMinifyInReleaseBuilds?: boolean } }];
+    expect(buildProperties[1].android?.enableMinifyInReleaseBuilds).toBe(true);
   });
 
   /**
