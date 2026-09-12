@@ -240,7 +240,7 @@ export function LiveRoomSession({
     goal: profile?.goal ?? serverMe?.goal ?? null,
     cameraOn,
     focusState: sessionState.kind === "DISTRACTION" ? "DISTRACTED" : "FOCUS",
-    studySeconds: focusSec,
+    focusSec,
   };
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
