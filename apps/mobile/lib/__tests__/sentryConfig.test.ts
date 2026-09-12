@@ -25,6 +25,17 @@ jest.mock("expo-constants", () => ({
   },
 }));
 
+/**
+ * `app.json`의 `plugins`에서 `[이름, 옵션]` 항목의 옵션을 찾는다 — 같은 조회가 여러 테스트에
+ * 흩어지지 않게. JSON 추론 타입은 항목마다 다른 유니온이라 `unknown[]`로 넓혀서 찾는다.
+ */
+function pluginOptions(name: string): Record<string, unknown> | undefined {
+  const entry = (appConfig.expo.plugins as unknown[]).find(
+    (plugin) => Array.isArray(plugin) && plugin[0] === name,
+  );
+  return Array.isArray(entry) ? (entry[1] as Record<string, unknown>) : undefined;
+}
+
 function initOptions(): Record<string, unknown> {
   const init = Sentry.init as unknown as jest.Mock;
   init.mockClear();
@@ -35,14 +46,19 @@ function initOptions(): Record<string, unknown> {
 
 describe("app.json Sentry 설정", () => {
   it("네이티브 소스맵을 올리려면 expo config plugin이 있어야 한다", () => {
-    const entry = appConfig.expo.plugins.find(
-      (plugin) => Array.isArray(plugin) && plugin[0] === "@sentry/react-native/expo",
-    );
+    const options = pluginOptions("@sentry/react-native/expo");
     // 플러그인이 빠지면 빌드는 그대로 성공하고 스택트레이스만 압축된 채로 남는다.
-    expect(entry).toBeDefined();
-    expect((entry as [string, Record<string, unknown>])[1]).toMatchObject({
+    expect(options).toBeDefined();
+    // `toEqual`로 모양 전체를 잠근다 — `toMatchObject`면 `authToken` 같은 비밀값이 옵션에
+    // 섞여 커밋돼도 통과한다(토큰은 EAS Secret에만, `CLAUDE.md` "에러 모니터링").
+    expect(options).toEqual({
       organization: "breathless-youth",
       project: "focusmakers-app",
+      experimental_android: {
+        enableAndroidGradlePlugin: true,
+        uploadNativeSymbols: false,
+        includeNativeSources: false,
+      },
     });
   });
 
@@ -53,15 +69,13 @@ describe("app.json Sentry 설정", () => {
    * 읽힌다(최상위에 두면 경고 없이 무시된다, @sentry/react-native 7.2.0).
    */
   it("R8 매핑을 올리려면 Sentry Android Gradle Plugin이 켜져 있어야 한다", () => {
-    const entry = appConfig.expo.plugins.find(
-      (plugin) => Array.isArray(plugin) && plugin[0] === "@sentry/react-native/expo",
-    ) as [string, { experimental_android?: { enableAndroidGradlePlugin?: boolean } }];
-    expect(entry[1].experimental_android?.enableAndroidGradlePlugin).toBe(true);
+    const sentry = pluginOptions("@sentry/react-native/expo") as
+      { experimental_android?: { enableAndroidGradlePlugin?: boolean } } | undefined;
+    expect(sentry?.experimental_android?.enableAndroidGradlePlugin).toBe(true);
 
-    const buildProperties = appConfig.expo.plugins.find(
-      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-build-properties",
-    ) as [string, { android?: { enableMinifyInReleaseBuilds?: boolean } }];
-    expect(buildProperties[1].android?.enableMinifyInReleaseBuilds).toBe(true);
+    const buildProperties = pluginOptions("expo-build-properties") as
+      { android?: { enableMinifyInReleaseBuilds?: boolean } } | undefined;
+    expect(buildProperties?.android?.enableMinifyInReleaseBuilds).toBe(true);
   });
 
   /**
