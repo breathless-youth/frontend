@@ -53,7 +53,7 @@ function isRoomMember(value: unknown): boolean {
     isFocusState(member.focusState) &&
     (member.nickname === undefined || typeof member.nickname === "string") &&
     (member.goal === undefined || member.goal === null || typeof member.goal === "string") &&
-    (member.studySeconds === undefined || typeof member.studySeconds === "number")
+    (member.focusSec === undefined || typeof member.focusSec === "number")
   );
 }
 
@@ -78,7 +78,7 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
     case "FOCUS_CHANGED":
       return typeof message.userId === "number" && isFocusState(message.focusState);
     case "STUDY_TIME":
-      return typeof message.userId === "number" && typeof message.studySeconds === "number";
+      return typeof message.userId === "number" && typeof message.focusSec === "number";
     case "SIGNAL":
       return (
         typeof message.fromUserId === "number" &&
