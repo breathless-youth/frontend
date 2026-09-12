@@ -1,11 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { createRoom } from "@/lib/roomApi";
@@ -32,13 +41,21 @@ export function SocialHomePage() {
   const handoff =
     isNativeBridgeAvailable() &&
     (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
-  const noticeRef = useRef<string | null | undefined>(undefined);
+  const noticeRef = useRef<SocialRoomNotice | null | undefined>(undefined);
   if (!handoff) {
     noticeRef.current ??= consumeSocialRoomNotice();
   }
+  // 자리비움(grace-end)만 모달로 가른다 — 입장/생성 실패(failure)는 기존대로 토스트다.
+  const [graceMessage, setGraceMessage] = useState<string | null>(null);
   useEffect(() => {
-    if (noticeRef.current !== null && noticeRef.current !== undefined) {
-      showToast(noticeRef.current);
+    const notice = noticeRef.current;
+    if (notice == null) {
+      return;
+    }
+    if (notice.kind === "grace-end") {
+      setGraceMessage(notice.message);
+    } else {
+      showToast(notice.message);
     }
   }, [showToast]);
 
@@ -60,6 +77,9 @@ export function SocialHomePage() {
       showToast("잠시 후 다시 시도해 주세요");
     },
   });
+
+  const [graceTitle, ...graceBodyLines] = (graceMessage ?? "").split("\n");
+  const graceBody = graceBodyLines.join("\n");
 
   return (
     <main
@@ -109,6 +129,35 @@ export function SocialHomePage() {
           </button>
         </div>
       </div>
+
+      <Dialog
+        open={graceMessage !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGraceMessage(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
+        >
+          <DialogHeader>
+            <DialogTitle>{graceTitle}</DialogTitle>
+            {graceBody.length > 0 ? (
+              <DialogDescription className="whitespace-pre-line">{graceBody}</DialogDescription>
+            ) : null}
+          </DialogHeader>
+          <Button
+            variant="default"
+            size="lg"
+            className="w-full"
+            onClick={() => setGraceMessage(null)}
+          >
+            확인
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <ToastViewport message={toastMessage} />
     </main>

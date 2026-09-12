@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -124,7 +124,7 @@ describe("소셜 홈", () => {
   });
 
   it("룸에서 밀려나며 남긴 안내가 있으면 마운트 시 토스트로 보여주고 한 번만 뜬다", () => {
-    markSocialRoomNotice("방이 만료되었어요");
+    markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
     const { unmount } = renderAt("/social?userId=7");
 
     expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe("소셜 홈", () => {
   });
 
   it("안내는 웹뷰(문서)가 달라도 전달된다 — sessionStorage가 아니라 localStorage에 남는다", () => {
-    markSocialRoomNotice("방이 만료되었어요");
+    markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
     // 다른 웹뷰는 sessionStorage를 공유하지 않는다 — 지워도 안내가 살아 있어야 한다.
     sessionStorage.clear();
     renderAt("/social?userId=7");
@@ -146,7 +146,10 @@ describe("소셜 홈", () => {
 
   it("네이티브 셸에서 noticeHandoff 이동은 안내를 소비하지 않는다 — 도착지 탭 웹뷰가 띄운다", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
-    markSocialRoomNotice("자리를 오래 비워서 여기까지의 공부 기록을 저장했어요");
+    markSocialRoomNotice({
+      kind: "failure",
+      message: "자리를 오래 비워서 여기까지의 공부 기록을 저장했어요",
+    });
     const { unmount } = renderAt({
       pathname: "/social",
       search: "?userId=7",
@@ -166,6 +169,29 @@ describe("소셜 홈", () => {
     renderAt("/social?userId=7");
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("자리비움(grace-end) 안내는 토스트가 아니라 모달로 뜨고, 확인을 누르면 닫힌다", async () => {
+    markSocialRoomNotice({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
+    });
+    renderAt("/social?userId=7");
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("자리를 오래 비워");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("입장/생성 실패(failure) 안내는 모달이 아니라 기존대로 토스트로 뜬다", () => {
+    markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
+    renderAt("/social?userId=7");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("방이 만료되었어요");
   });
 });
 

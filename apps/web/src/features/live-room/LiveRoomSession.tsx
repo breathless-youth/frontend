@@ -318,7 +318,7 @@ export function LiveRoomSession({
         return;
       }
       if (expired) {
-        markSocialRoomNotice(graceEndNotice(true));
+        markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(true) });
       }
       trackExit();
       navigate(
@@ -329,7 +329,7 @@ export function LiveRoomSession({
     }
     if (phase.name === "error" && expired) {
       leavingRef.current = true;
-      markSocialRoomNotice(graceEndNotice(false));
+      markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(false) });
       trackExit();
       navigate(
         { pathname: "/social", search: location.search },
