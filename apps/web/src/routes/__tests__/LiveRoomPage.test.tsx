@@ -62,7 +62,7 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     goal: null,
     cameraOn: true,
     focusState: "FOCUS",
-    studySeconds: 0,
+    focusSec: 0,
     ...overrides,
   };
 }
@@ -426,7 +426,7 @@ describe("LiveRoomPage — 입장", () => {
     await enterRoom();
 
     await waitFor(() => {
-      // 마운트 studySeconds 0 발행은 정상이라 카메라 발행만 본다.
+      // 마운트 focusSec 0 발행은 정상이라 카메라 발행만 본다.
       expect(channel.published.filter((p) => p.cameraOn !== undefined)).toEqual([
         { cameraOn: false },
       ]);
@@ -1517,16 +1517,14 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
 });
 
 describe("LiveRoomPage — 재입장 초기화 취급", () => {
-  it("SNAPSHOT에 서버 보존값이 있어도 입장 즉시 studySeconds 0을 발행한다", async () => {
+  it("SNAPSHOT에 서버 보존값이 있어도 입장 즉시 focusSec 0을 발행한다", async () => {
     const { channel } = renderRoom({
       state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: 7320 })] },
+      scenario: { snapshot: [member(7, { focusSec: 7320 })] },
     });
     await enterRoom();
 
-    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
-      { studySeconds: 0 },
-    ]);
+    expect(channel.published.filter((p) => p.focusSec !== undefined)).toEqual([{ focusSec: 0 }]);
   });
 
   it("graceRejoin 재입장도 카메라 끔(일시정지)으로 들어간다 — join 재호출은 없다", async () => {
@@ -1544,7 +1542,7 @@ describe("LiveRoomPage — 재입장 초기화 취급", () => {
   it("내 타일 공부시간 표시는 로컬 측정값이다 — 서버 보존값을 이어받지 않는다", async () => {
     renderRoom({
       state: { inviteCode: "0712", graceRejoin: true },
-      scenario: { snapshot: [member(7, { studySeconds: 7320 }), member(8)] },
+      scenario: { snapshot: [member(7, { focusSec: 7320 }), member(8)] },
     });
 
     const tiles = await screen.findAllByTestId("room-tile");
