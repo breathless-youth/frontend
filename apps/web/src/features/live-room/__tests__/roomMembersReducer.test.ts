@@ -11,7 +11,7 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     goal: null,
     cameraOn: true,
     focusState: "FOCUS",
-    focusSec: 0,
+    studySeconds: 0,
     ...overrides,
   };
 }
@@ -69,14 +69,14 @@ describe("roomMembersReducer", () => {
     expect(state[0]?.focusState).toBe("DISTRACTED");
   });
 
-  it("STUDY_TIME은 해당 멤버의 focusSec만 갱신한다", () => {
+  it("STUDY_TIME은 해당 멤버의 studySeconds만 갱신한다", () => {
     const state = roomMembersReducer([member(7)], {
       type: "STUDY_TIME",
       userId: 7,
-      focusSec: 12360,
+      studySeconds: 12360,
     });
 
-    expect(state[0]?.focusSec).toBe(12360);
+    expect(state[0]?.studySeconds).toBe(12360);
   });
 
   it("상태 메시지가 JOINED보다 먼저 와도(레이스) 임시 추가 후 JOINED가 제자리 교체한다 — 중복 없음", () => {
@@ -116,9 +116,9 @@ describe("roomMembersReducer 자가복구 — 모르는 userId 상태 메시지 
   });
 
   it("STUDY_TIME의 모르는 userId는 그 순공시간으로 추가한다", () => {
-    const state = roomMembersReducer([], { type: "STUDY_TIME", userId: 8, focusSec: 120 });
+    const state = roomMembersReducer([], { type: "STUDY_TIME", userId: 8, studySeconds: 120 });
 
-    expect(state[0]).toMatchObject({ userId: 8, focusSec: 120, cameraOn: false });
+    expect(state[0]).toMatchObject({ userId: 8, studySeconds: 120, cameraOn: false });
   });
 
   it("아는 userId의 상태 메시지는 기존처럼 해당 필드만 갱신한다 — 중복 추가 없음", () => {

@@ -18,7 +18,7 @@ export interface RoomMember {
   focusState: RoomFocusState;
   nickname?: string;
   goal?: string | null;
-  focusSec?: number;
+  studySeconds?: number;
 }
 
 export type RoomSignalKind = "OFFER" | "ANSWER" | "CANDIDATE";
@@ -30,7 +30,7 @@ export type RoomServerMessage =
   | { type: "MEMBER_LEFT"; userId: number }
   | { type: "CAMERA_CHANGED"; userId: number; cameraOn: boolean }
   | { type: "FOCUS_CHANGED"; userId: number; focusState: RoomFocusState }
-  | { type: "STUDY_TIME"; userId: number; focusSec: number }
+  | { type: "STUDY_TIME"; userId: number; studySeconds: number }
   | { type: "SIGNAL"; fromUserId: number; kind: RoomSignalKind; payload: unknown };
 
 /**
@@ -39,7 +39,7 @@ export type RoomServerMessage =
 export interface RoomStateUpdate {
   cameraOn?: boolean;
   focusState?: RoomFocusState;
-  focusSec?: number;
+  studySeconds?: number;
 }
 
 /** 시그널 발행 — 서버가 fromUserId를 붙여 대상의 개인 큐로 그대로 릴레이한다. */

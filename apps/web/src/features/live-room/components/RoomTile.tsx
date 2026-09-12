@@ -71,11 +71,11 @@ const SELF_BADGE_SPEC: Record<TileBadgeState, { label: string; pill: CSSProperti
  */
 export function SelfStateBadge({
   state,
-  focusSec,
+  studySeconds,
   className,
 }: {
   state: TileBadgeState;
-  focusSec: number | undefined;
+  studySeconds: number | undefined;
   className?: string;
 }) {
   const spec = SELF_BADGE_SPEC[state];
@@ -96,7 +96,7 @@ export function SelfStateBadge({
         style={{ backgroundColor: spec.ink }}
       />
       <span className="text-[13px] leading-4 font-bold tabular-nums" style={{ color: spec.ink }}>
-        {focusSec === undefined ? "--:--" : formatStudyHhMm(focusSec)}
+        {studySeconds === undefined ? "--:--" : formatStudyHhMm(studySeconds)}
       </span>
       {spec.label !== "" && <span className="sr-only">{spec.label}</span>}
     </div>
@@ -169,7 +169,7 @@ export function RoomTile({
           selfState ??
           (member.cameraOn ? (member.focusState === "DISTRACTED" ? "DISTRACTED" : "FOCUS") : "OFF")
         }
-        focusSec={member.focusSec}
+        studySeconds={member.studySeconds}
         className="absolute top-3 left-3"
       />
       <div

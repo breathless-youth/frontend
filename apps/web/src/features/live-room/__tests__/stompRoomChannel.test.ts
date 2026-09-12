@@ -127,7 +127,7 @@ describe("createStompRoomChannel", () => {
     client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":[{}]}' });
     client.subscriptions[0]?.callback({ body: '{"type":"MEMBER_JOINED","member":{}}' });
     client.subscriptions[0]?.callback({
-      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"nickname":8,"cameraOn":true,"focusState":"FOCUS","focusSec":0}}',
+      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"nickname":8,"cameraOn":true,"focusState":"FOCUS","studySeconds":0}}',
     });
 
     expect(received).toEqual([]);
@@ -144,7 +144,7 @@ describe("createStompRoomChannel", () => {
       body: '{"type":"SNAPSHOT","members":[{"userId":8,"cameraOn":true,"focusState":"FOCUS"}]}',
     });
     client.subscriptions[0]?.callback({
-      body: '{"type":"MEMBER_JOINED","member":{"userId":9,"cameraOn":false,"focusState":"FOCUS","nickname":"포메1","goal":null,"focusSec":30}}',
+      body: '{"type":"MEMBER_JOINED","member":{"userId":9,"cameraOn":false,"focusState":"FOCUS","nickname":"포메1","goal":null,"studySeconds":30}}',
     });
 
     expect(received).toHaveLength(2);
@@ -195,10 +195,10 @@ describe("createStompRoomChannel", () => {
     channel.connect();
     client.fireConnect();
 
-    channel.publishState({ focusSec: 12360 });
+    channel.publishState({ studySeconds: 12360 });
 
     expect(appPublishes(client)).toEqual([
-      { destination: "/app/room/42/state", body: '{"focusSec":12360}' },
+      { destination: "/app/room/42/state", body: '{"studySeconds":12360}' },
     ]);
   });
 
@@ -207,14 +207,14 @@ describe("createStompRoomChannel", () => {
     channel.connect();
 
     channel.publishState({ cameraOn: false });
-    channel.publishState({ focusSec: 0 });
+    channel.publishState({ studySeconds: 0 });
     expect(client.publishes).toEqual([]);
 
     client.fireConnect();
 
     expect(appPublishes(client).map((p) => p.body)).toEqual([
       '{"cameraOn":false}',
-      '{"focusSec":0}',
+      '{"studySeconds":0}',
     ]);
   });
 
@@ -224,12 +224,12 @@ describe("createStompRoomChannel", () => {
     client.fireConnect();
 
     client.connected = false; // 소켓이 끊겼지만 채널은 아직 모르는 구간
-    channel.publishState({ focusSec: 60 });
+    channel.publishState({ studySeconds: 60 });
     expect(appPublishes(client)).toEqual([]);
 
     client.fireConnect();
 
-    expect(appPublishes(client).map((p) => p.body)).toEqual(['{"focusSec":60}']);
+    expect(appPublishes(client).map((p) => p.body)).toEqual(['{"studySeconds":60}']);
   });
 
   it("publishSignal은 시그널 목적지로 발행하고, 연결 전에는 버퍼에 쌓인다", () => {

@@ -47,7 +47,7 @@ export function roomMembersReducer(
     case "FOCUS_CHANGED":
       return upsert(members, message.userId, { focusState: message.focusState });
     case "STUDY_TIME":
-      return upsert(members, message.userId, { focusSec: message.focusSec });
+      return upsert(members, message.userId, { studySeconds: message.studySeconds });
     default:
       // SIGNAL 등 멤버 목록과 무관한 메시지 — peerMesh가 처리한다.
       return members;

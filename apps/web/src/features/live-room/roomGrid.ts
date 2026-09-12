@@ -24,8 +24,8 @@ export function roomGridSpec(count: number): RoomGridSpec {
 }
 
 /** 순공시간 표시 형식 HH:MM, 예: 03:25 */
-export function formatStudyHhMm(focusSec: number): string {
-  const hours = Math.floor(focusSec / 3600);
-  const minutes = Math.floor((focusSec % 3600) / 60);
+export function formatStudyHhMm(studySeconds: number): string {
+  const hours = Math.floor(studySeconds / 3600);
+  const minutes = Math.floor((studySeconds % 3600) / 60);
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }

@@ -58,9 +58,9 @@ export function useRoomStatePublisher(channel: RoomChannel, input: PublisherInpu
     // 마운트 1회 즉시 발행 — 카메라 초기 발행과 같은 이유의 짝이다. 재입장이면 서버
     // 보존값(이전 세션 시간)이 다른 참가자 화면에 남아 있는데, 첫 정기 발행은 60초
     // 뒤라 그때까지 잔상이 보인다. 연결 전이면 채널 버퍼가 연결 직후 내보낸다.
-    channel.publishState({ focusSec: focusSecRef.current });
+    channel.publishState({ studySeconds: focusSecRef.current });
     const timer = setInterval(() => {
-      channel.publishState({ focusSec: focusSecRef.current });
+      channel.publishState({ studySeconds: focusSecRef.current });
     }, STUDY_TIME_INTERVAL_MS);
     return () => {
       clearInterval(timer);

@@ -28,10 +28,10 @@ function setup(initial: SessionState, initialCameraOn = true) {
 }
 
 describe("useRoomStatePublisher", () => {
-  it("마운트에 카메라 상태와 focusSec를 1회씩 즉시 발행한다", () => {
+  it("마운트에 카메라 상태와 studySeconds를 1회씩 즉시 발행한다", () => {
     const { channel } = setup(FOCUS_STATE, true);
 
-    expect(channel.published).toEqual([{ cameraOn: true }, { focusSec: 0 }]);
+    expect(channel.published).toEqual([{ cameraOn: true }, { studySeconds: 0 }]);
   });
 
   it("마운트 즉시 발행은 재렌더에서 반복되지 않는다 — 이후는 60초 주기만 남는다", () => {
@@ -39,7 +39,9 @@ describe("useRoomStatePublisher", () => {
 
     hook.rerender({ sessionState: FOCUS_STATE, focusSec: 5, cameraOn: true });
 
-    expect(channel.published.filter((p) => p.focusSec !== undefined)).toEqual([{ focusSec: 0 }]);
+    expect(channel.published.filter((p) => p.studySeconds !== undefined)).toEqual([
+      { studySeconds: 0 },
+    ]);
   });
 
   it("집중 상태 전이에서 FOCUS_CHANGED를 1회 발행하고, 같은 상태 유지 중엔 발행하지 않는다", () => {
@@ -80,7 +82,7 @@ describe("useRoomStatePublisher", () => {
     hook.rerender({ sessionState: FOCUS_STATE, focusSec: 119, cameraOn: true });
     vi.advanceTimersByTime(60_000);
 
-    expect(channel.published).toEqual([{ focusSec: 59 }, { focusSec: 119 }]);
+    expect(channel.published).toEqual([{ studySeconds: 59 }, { studySeconds: 119 }]);
   });
 
   it("언마운트 후에는 STUDY_TIME이 발행되지 않는다", () => {

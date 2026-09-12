@@ -79,7 +79,7 @@ export function RoomGrid({
           가로의 좌측 세이프에어리어는 이 컨테이너가 이미 비켜서 있어 top만 고려한다. */}
       <SelfStateBadge
         state={selfState}
-        focusSec={focusSec}
+        studySeconds={focusSec}
         className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-3"
       />
     </div>

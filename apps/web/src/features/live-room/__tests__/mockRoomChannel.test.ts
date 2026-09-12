@@ -11,7 +11,7 @@ function member(userId: number): RoomMember {
     goal: null,
     cameraOn: true,
     focusState: "FOCUS",
-    focusSec: 0,
+    studySeconds: 0,
   };
 }
 
