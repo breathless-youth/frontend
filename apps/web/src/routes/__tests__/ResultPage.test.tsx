@@ -182,7 +182,7 @@ describe("ResultPage — 완료 히어로 (BY-560)", () => {
     expect(screen.getByText("1시간 24분")).toBeInTheDocument();
     expect(screen.getByText("82% 집중")).toBeInTheDocument();
     // 접두어와 값은 색이 달라 두 span이다 — 문장은 한 단락으로 읽힌다.
-    expect(screen.getByText("1시간 42분").closest("p")).toHaveTextContent("총 공부 1시간 42분");
+    expect(screen.getByText("1시간 42분").closest("p")).toHaveTextContent("총 공부시간 1시간 42분");
   });
 
   it("예전 헤더(타이틀 '공부 결과'·우상단 닫기)는 시안에서 빠졌다", () => {

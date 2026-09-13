@@ -28,8 +28,11 @@ export const RESULT_COPY = {
    * 붙여 쓴다 — 용어 교체는 BY-574 범위다.
    */
   focusLabel: "순공시간",
-  /** 총 공부 시간 접두어 — S3-8 요약 카드(`AUTO_END_COPY.summaryLabels.studySec`)와 같은 표기다. */
-  totalPrefix: "총 공부",
+  /**
+   * 총 공부 시간 접두어. 2026-09-14 사용자 결정으로 `총 공부` → `총 공부시간`(이 화면 한정 — S3-8 요약
+   * 카드 `AUTO_END_COPY.summaryLabels.studySec`는 아직 `총 공부`).
+   */
+  totalPrefix: "총 공부시간",
   /** 타임라인 카드 타이틀(Figma `64:562` — voice-tone에 별도 규정 없음). */
   timelineTitle: "공부 타임라인",
   /**
