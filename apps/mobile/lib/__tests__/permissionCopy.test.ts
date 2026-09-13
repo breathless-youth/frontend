@@ -25,6 +25,17 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
     );
   });
 
+  /**
+   * ATT(앱 추적 투명성) 문구(BY-644). `expo-tracking-transparency` plugin은 이 키가 없으면 **영어 기본 문구**를
+   * 넣고, `react-native-fbsdk-next` plugin도 `iosUserTrackingPermission` 옵션으로 덮어쓸 수 있다 — 둘 다
+   * `app.config.ts`가 옵션을 주지 않아 여기 값이 그대로 바이너리에 실린다(`metaSdkConfig.test.ts`).
+   */
+  it("추적 권한(ATT) 문구가 한국어 확정 카피다 (영어 기본값 주입 방지)", () => {
+    expect(appConfig.expo.ios.infoPlist.NSUserTrackingUsageDescription).toBe(
+      "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상이나 공부 기록은 광고에 쓰이지 않아요.",
+    );
+  });
+
   it("마이크 권한을 요청하지 않는다 (멀티룸 음성 송출 없음)", () => {
     expect(appConfig.expo.ios.infoPlist).not.toHaveProperty("NSMicrophoneUsageDescription");
     expect(appConfig.expo.android.permissions).not.toContain("RECORD_AUDIO");

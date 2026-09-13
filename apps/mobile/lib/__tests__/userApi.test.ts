@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
+import { logMetaRegistration } from "../metaAds";
 import { ensureUserRegistered } from "../userApi";
 
 jest.mock("expo-secure-store", () => ({
@@ -13,10 +14,17 @@ jest.mock("expo-constants", () => ({
 jest.mock("../deviceId", () => ({
   getOrCreateDeviceId: jest.fn(async () => "0f8fad5b-d9cb-469f-a165-70867728950e"),
 }));
+// Meta 가입 완료 이벤트(BY-644) — 호출 여부만 본다(큐·초기화는 `metaAds.test.ts`).
+jest.mock("../metaAds", () => ({
+  logMetaRegistration: jest.fn(),
+}));
 
 const mockedGet = SecureStore.getItemAsync as jest.Mock;
 const mockedSet = SecureStore.setItemAsync as jest.Mock;
 const mockedFetch = jest.fn();
+const mockedLogMetaRegistration = logMetaRegistration as jest.MockedFunction<
+  typeof logMetaRegistration
+>;
 globalThis.fetch = mockedFetch as unknown as typeof fetch;
 
 function jsonResponse(status: number, body: unknown) {
@@ -52,14 +60,33 @@ describe("ensureUserRegistered", () => {
       }),
     );
     expect(mockedSet).toHaveBeenCalledWith("focuson.userId", "7");
+    // 신규 등록만 Meta 가입 완료(BY-644)로 센다.
+    expect(mockedLogMetaRegistration).toHaveBeenCalledTimes(1);
   });
 
-  it("재등록(200, isNew=false)도 동일하게 userId를 저장한다", async () => {
+  it("재등록(200, isNew=false)도 동일하게 userId를 저장한다 — 가입 완료는 찍지 않는다", async () => {
     mockedGet.mockResolvedValue(null);
     mockedFetch.mockResolvedValue(jsonResponse(200, { userId: 7, isNew: false }));
 
     await expect(ensureUserRegistered()).resolves.toBe(7);
     expect(mockedSet).toHaveBeenCalledWith("focuson.userId", "7");
+    expect(mockedLogMetaRegistration).not.toHaveBeenCalled();
+  });
+
+  it("저장된 userId가 있으면 가입 완료를 찍지 않는다 — 앱 실행마다 나면 안 된다", async () => {
+    mockedGet.mockResolvedValue("42");
+
+    await ensureUserRegistered();
+    expect(mockedLogMetaRegistration).not.toHaveBeenCalled();
+  });
+
+  it("userId 저장에 실패하면 가입 완료를 찍지 않는다 — 다음 실행의 재등록은 isNew=false라 두 번 찍힐 일도 없다", async () => {
+    mockedGet.mockResolvedValue(null);
+    mockedFetch.mockResolvedValue(jsonResponse(201, { userId: 7, isNew: true }));
+    mockedSet.mockRejectedValueOnce(new Error("keychain unavailable"));
+
+    await expect(ensureUserRegistered()).resolves.toBeNull();
+    expect(mockedLogMetaRegistration).not.toHaveBeenCalled();
   });
 
   it("400 응답이면 null을 반환하고 throw 하지 않는다 (fail-soft)", async () => {

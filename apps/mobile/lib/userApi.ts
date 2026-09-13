@@ -5,14 +5,16 @@ import type { UserRegisterResponse } from "@focusmakers/types";
 import { apiFetch, parseErrorMessage } from "./api";
 import { getOrCreateDeviceId } from "./deviceId";
 import { apiBaseUrl } from "./apiBaseUrl";
+import { logMetaRegistration } from "./metaAds";
 
 const USER_ID_KEY = "focuson.userId";
 
 /**
  * 등록 API 원본 호출.
  *
- * 응답의 `isNew`는 **서버 계약이라 타입에 있을 뿐, 분기에 쓰는 소비자가 없다**(2026-07-31 검토).
- * 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다 — `isNew`로 대체할 수
+ * 응답의 `isNew`의 소비자는 Meta 가입 완료 이벤트(`logMetaRegistration`, BY-644) 하나뿐이다 — 광고로
+ * 설치한 사용자가 실제 신규인지 세는 용도라 서버의 신규 판정을 그대로 믿는다(2026-07-31 검토 당시엔 소비자
+ * 없음). 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다 — `isNew`로 대체할 수
  * 없다: ① 최초 등록 때만 true인 일회성 값이라 가이드를 보다 만 사용자가 영영 못 보게 되고,
  * ② 값이 앱 실행 시점에만 오는데 판단은 "집중 시작" 시점이라 어딘가 저장해야 하는데 그 저장소가
  * 곧 플래그가 사는 곳이다(순환). 플래그 유실 시 가이드가 한 번 더 뜨는 것은 수용하기로 한 사항이다.
@@ -56,8 +58,13 @@ async function registerOnce(): Promise<number | null> {
       return Number(stored);
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId } = await registerUser(deviceId);
+    const { userId, isNew } = await registerUser(deviceId);
     await SecureStore.setItemAsync(USER_ID_KEY, String(userId));
+    if (isNew) {
+      // 저장까지 끝난 뒤에 찍는다 — 저장 실패로 다음 실행에서 재등록되면 서버는 isNew=false를 주므로
+      // 여기서 먼저 찍었다면 그 사용자는 가입 완료가 두 번이 아니라 한 번도 안 남을 수 있다.
+      logMetaRegistration();
+    }
     return userId;
   } catch (error) {
     console.warn("[user] 익명 유저 등록 실패 — 다음 실행에서 재시도", error);

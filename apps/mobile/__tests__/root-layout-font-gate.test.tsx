@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import type * as ReactNative from "react-native";
 
 import RootLayout from "../app/_layout";
+import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 
 /**
@@ -72,6 +73,16 @@ const mockStartPush = jest.fn((_options: { navigate: (route: string) => void }) 
 jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
 }));
+// Meta SDK(BY-644) — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
+// SDK 모듈은 네이티브 없이 로드조차 안 되므로 반드시 mock한다. `installMetaAdsSdk`는 `_layout`이 **모듈
+// 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.
+jest.mock("../lib/metaAdsSdk", () => ({
+  installMetaAdsSdk: jest.fn(),
+}));
+const mockInitMetaAds = jest.fn(() => Promise.resolve());
+jest.mock("../lib/metaAds", () => ({
+  initMetaAds: () => mockInitMetaAds() as Promise<void>,
+}));
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
 const mockResolveForceUpdate = jest.fn();
 jest.mock("../lib/forceUpdate", () => ({
@@ -111,6 +122,7 @@ beforeEach(() => {
   mockAlertReshow.mockClear();
   mockStartPush.mockClear();
   mockStopPush.mockClear();
+  mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -238,6 +250,71 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(screen.queryByTestId("force-update-backdrop")).toBeNull();
     expect(mockAlertStart).not.toHaveBeenCalled();
+  });
+});
+
+describe("RootLayout Meta SDK 초기화 (BY-644)", () => {
+  it("모듈 로드 시점에 어댑터를 설치한다 — 첫 실행의 가입 완료보다 먼저 통로가 있어야 한다", () => {
+    expect(installMetaAdsSdk).toHaveBeenCalled();
+  });
+
+  it("통과했고 홈이 그려지면 초기화(ATT 프롬프트)를 부른다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
+  });
+
+  it("폰트가 준비되기 전에는 부르지 않는다 — 스플래시 위에서는 OS가 프롬프트를 띄우지 않는다", async () => {
+    mockUseFonts.mockReturnValue([false, undefined]);
+
+    render(<RootLayout />);
+    await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
+
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+  });
+
+  it("forced면 부르지 않는다 — 막힌 실행에서 추적 동의를 물을 이유가 없다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: true,
+      recommended: false,
+      latestVersion: "1.0.4",
+    });
+
+    render(<RootLayout />);
+    await screen.findByTestId("force-update-backdrop");
+
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+  });
+
+  it("권장 알림창은 초기화(ATT)가 끝난 뒤에 뜬다 — OS 알림창 두 개가 겹치지 않게", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+    let finishInit: () => void = () => {};
+    mockInitMetaAds.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishInit = resolve;
+        }),
+    );
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
+    expect(mockMaybeShow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishInit();
+    });
+
+    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
   });
 });
 

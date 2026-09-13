@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinErrorCopy";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomEntered, trackSocialRoomRejoinFailed } from "@/lib/amplitude";
+import { trackMetaSocialRoomEntered } from "@/lib/metaAppEvents";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
@@ -166,6 +167,8 @@ export function LiveRoomEntry({
       // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
       // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
       trackSocialRoomEntered(graceRejoin);
+      // Meta 광고 전환(BY-644) — 유예 재입장은 새 입장이 아니라 세지 않는다.
+      if (!graceRejoin) trackMetaSocialRoomEntered();
     }
   }, [entered, gatePassed, graceRejoin, joined, profileSettled, restoreSettled]);
 

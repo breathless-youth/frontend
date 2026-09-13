@@ -174,7 +174,8 @@ export type ToNativeMessage =
   | SetBackLockMessage
   | NavigateTabMessage
   | NavigateHomeMessage
-  | AnalyticsReadyMessage;
+  | AnalyticsReadyMessage
+  | MetaAppEventMessage;
 
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
@@ -336,5 +337,31 @@ export interface TrackEventMessage {
  */
 export interface AnalyticsReadyMessage {
   type: "analytics-ready";
+  atMs: number;
+}
+
+/** Meta 앱 이벤트 파라미터 값 — SDK 계약(`Params`)이 문자열·수만 받는다. boolean은 1/0으로 접어 보낸다. */
+export type MetaAppEventParamValue = string | number;
+
+/**
+ * 웹이 아는 광고 전환을 네이티브 Meta SDK로 넘긴다(BY-644) — 첫 공부 세션 시작·종료, 온보딩 완료, 소셜룸 입장.
+ *
+ * 앱 설치 광고의 성과 측정은 네이티브 SDK만 할 수 있다(설치 이벤트·iOS SKAdNetwork). SDK는 앱에 있고 전환은
+ * 대부분 웹 화면에서 일어나므로, `track-event`(네이티브 → 웹 Amplitude)의 역방향으로 웹이 보낸다.
+ *
+ * - **이벤트 정의(이름·파라미터)는 발신자인 `apps/web/src/lib/metaAppEvents.ts`가 소유한다.** 네이티브는
+ *   이름을 화이트리스트하지 않고 형식만 검증해(`apps/mobile/lib/webBridge.ts`) SDK에 그대로 넘긴다 — 전환
+ *   목록이 바뀌어도 앱을 다시 빌드하지 않기 위해서다.
+ * - `name`은 Meta 규칙(영문자로 시작, 영숫자·`_`·`-`·공백, 40자 이내). Meta 표준 이벤트명(`fb_mobile_*`)도
+ *   이 형식이다. `params`는 25개 이내, 값은 문자열·수만. 식별자·초대코드·자유 문자열은 싣지 않는다
+ *   (`track-event`와 같은 원칙).
+ * - `valueToSum`은 Meta가 합산하는 수치(매출 등)다. 지금은 쓰지 않고 계약만 열어 둔다.
+ * - Meta env가 없는 빌드(개발)와 브라우저 단독 모드에서는 아무 일도 일어나지 않는다.
+ */
+export interface MetaAppEventMessage {
+  type: "meta-app-event";
+  name: string;
+  params?: Record<string, MetaAppEventParamValue>;
+  valueToSum?: number;
   atMs: number;
 }

@@ -313,5 +313,7 @@ export type {
   ToWebMessage,
   TrackEventMessage,
   AnalyticsReadyMessage,
+  MetaAppEventMessage,
+  MetaAppEventParamValue,
   NativeAnalyticsPropertyValue,
 } from "./bridge";

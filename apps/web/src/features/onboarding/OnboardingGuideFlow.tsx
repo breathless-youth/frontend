@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
+import { trackMetaTutorialCompleted } from "@/lib/metaAppEvents";
 
 import {
   GUIDE_CLOSE_LABEL,
@@ -175,6 +176,8 @@ export function OnboardingGuideFlow({
   const finish = useCallback(
     (reason: OnboardingGuideExitReason) => {
       trackGuideFinished({ reason, step: stepIndex + 1, entry });
+      // Meta 광고 전환(BY-644) — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
+      if (reason === "completed") trackMetaTutorialCompleted();
       onFinish(reason);
     },
     [entry, onFinish, stepIndex],

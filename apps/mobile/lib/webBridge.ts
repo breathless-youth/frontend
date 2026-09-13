@@ -1,4 +1,6 @@
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { MetaAppEventMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+
+import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -134,9 +136,57 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+    case "meta-app-event":
+      return parseMetaAppEvent(record);
     default:
       return null;
   }
+}
+
+function isMetaParamValue(value: unknown): value is string | number {
+  return typeof value === "string" || (typeof value === "number" && Number.isFinite(value));
+}
+
+/**
+ * `meta-app-event`(웹 → Meta SDK 전환 이벤트, BY-644)를 검증한다 — 이름이 Meta 형식에 어긋나면 통째로
+ * 버리고, 파라미터는 형식에 맞는 키·문자열/유한수 값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
+ * 전환 목록은 웹(`apps/web/src/lib/metaAppEvents.ts`)이 소유하고, 여기서 막으면 웹 배포만으로 전환을
+ * 바꿀 수 없게 된다. 형식 밖 값을 SDK에 그대로 넘기면 네이티브 예외로 이벤트가 통째로 사라진다.
+ */
+function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !META_EVENT_NAME_PATTERN.test(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let params: Record<string, string | number> | undefined;
+  if (record.params !== undefined) {
+    if (typeof record.params !== "object" || record.params === null) {
+      return null;
+    }
+    params = {};
+    for (const [key, value] of Object.entries(record.params)) {
+      if (Object.keys(params).length >= META_EVENT_MAX_PARAMS) {
+        break;
+      }
+      if (META_EVENT_NAME_PATTERN.test(key) && isMetaParamValue(value)) {
+        params[key] = value;
+      }
+    }
+  }
+  const valueToSum =
+    typeof record.valueToSum === "number" && Number.isFinite(record.valueToSum)
+      ? record.valueToSum
+      : undefined;
+  return {
+    type: "meta-app-event",
+    name: record.name,
+    ...(params !== undefined ? { params } : {}),
+    ...(valueToSum !== undefined ? { valueToSum } : {}),
+    atMs: record.atMs,
+  };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

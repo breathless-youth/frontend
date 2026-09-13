@@ -166,6 +166,9 @@ describe("Firebase 설정 (BY-585)", () => {
           EAS_BUILD: "true",
           GOOGLE_SERVICES_JSON: json,
           GOOGLE_SERVICES_PLIST: plist,
+          // EAS 빌더의 production 평가는 Meta env도 요구한다(BY-644) — 이 파일의 관심사가 아니라 채워 준다.
+          META_APP_ID: "1234567890123456",
+          META_CLIENT_TOKEN: "0123456789abcdef0123456789abcdef",
         });
         expect(config.android?.googleServicesFile).toBe(json);
         expect(config.ios?.googleServicesFile).toBe(plist);

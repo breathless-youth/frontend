@@ -12,6 +12,8 @@ import { resolveForceUpdate } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
+import { initMetaAds } from "../lib/metaAds";
+import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
 import { startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
@@ -23,6 +25,11 @@ import { ensureUserRegistered } from "../lib/userApi";
  * 직후 터지는 것들 — 을 놓친다. 초기화 자체는 DSN 유무만 보므로 부작용이 없다.
  */
 initSentry();
+
+// Meta 광고 SDK 어댑터(BY-644) — Meta env가 주입된 빌드에서만 붙는다. 모듈 스코프인 이유는 위와 같다: 첫
+// 실행의 가입 완료 이벤트가 `ensureUserRegistered`(아래 effect)에서 나오는데, 그보다 먼저 통로가 있어야
+// 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
+installMetaAdsSdk();
 
 // Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다 — 안 그러면 시스템 폰트로
 // 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다. 위 initSentry와 같은 이유로
@@ -69,11 +76,26 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
+  // Meta SDK 초기화 + iOS ATT 프롬프트(BY-644) — 홈이 그려진 뒤(폰트·게이트 통과)에 한 번. 스플래시 위에서는
+  // OS가 프롬프트를 띄우지 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 즉시 끝난다.
+  useEffect(() => {
+    if (updateGate !== "pass" || !fontsReady) return;
+    void initMetaAds();
+  }, [updateGate, fontsReady]);
+
   // 권장 알림창은 홈이 그려진 뒤(폰트·게이트 준비 후)에 띄운다 — 앱 시작을 막지 않는다. 최신 버전당 한 번만
-  // 묻는 판단은 `recommendedUpdateAlert`가 한다.
+  // 묻는 판단은 `recommendedUpdateAlert`가 한다. ATT 프롬프트(위 `initMetaAds`)가 끝난 뒤에 띄운다 — 둘 다
+  // OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집힌다. `initMetaAds`는 같은 프라미스를 돌려주므로 두
+  // effect가 각자 불러도 초기화는 한 번이다.
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady || recommendedVersion === null) return;
-    void recommendedUpdateAlert.maybeShow(recommendedVersion);
+    let active = true;
+    void initMetaAds().then(() => {
+      if (active) void recommendedUpdateAlert.maybeShow(recommendedVersion);
+    });
+    return () => {
+      active = false;
+    };
   }, [updateGate, fontsReady, recommendedVersion]);
 
   useEffect(() => {
