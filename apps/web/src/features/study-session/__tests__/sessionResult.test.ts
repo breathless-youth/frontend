@@ -9,7 +9,7 @@ import {
   aggregateEvents,
   formatClockRange,
   formatClockTime,
-  formatEventDuration,
+  longestFocusStretch,
   timelineSegments,
   timelineSummaryLabel,
   toSessionResultView,
@@ -59,37 +59,6 @@ function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySes
     ...overrides,
   };
 }
-
-/**
- * 2026-07-27(8차 인터뷰)로 표기 규칙이 분 단위로 통일되면서 이 함수도 초를 버렸다.
- * 예전 기대값(`9분 40초`)은 Figma 실측과 일치했지만 그 근거였던 voice-tone의
- * "상세 맥락은 M분 S초" 조항이 폐기됐다 — **의도적으로 Figma와 달라진 지점이다.**
- */
-describe("formatEventDuration — 통계 행(분 단위, 초 금지)", () => {
-  it("1시간 미만은 분만 쓴다 — 초를 버린다", () => {
-    expect(formatEventDuration(580)).toBe("9분");
-    expect(formatEventDuration(372)).toBe("6분");
-    expect(formatEventDuration(128)).toBe("2분");
-    expect(formatEventDuration(180)).toBe("3분");
-  });
-
-  it("1분 미만은 '1분 미만'이다", () => {
-    expect(formatEventDuration(40)).toBe("1분 미만");
-    expect(formatEventDuration(0)).toBe("1분 미만");
-    expect(formatEventDuration(-5)).toBe("1분 미만");
-  });
-
-  it("1시간 이상은 시간+분으로 끊는다", () => {
-    expect(formatEventDuration(3661)).toBe("1시간 1분");
-    expect(formatEventDuration(3600)).toBe("1시간");
-  });
-
-  it("어떤 입력에도 '초'가 들어가지 않는다", () => {
-    for (const seconds of [-5, 0, 1, 59, 60, 128, 580, 3599, 3600, 3661]) {
-      expect(formatEventDuration(seconds)).not.toContain("초");
-    }
-  });
-});
 
 describe("formatClockTime / formatClockRange", () => {
   it("24시간제 HH:MM으로 zero-pad 한다", () => {
@@ -247,13 +216,73 @@ describe("toSessionResultView", () => {
 
 describe("timelineSummaryLabel", () => {
   it("바의 시각 정보를 텍스트로 요약한다", () => {
+    // 범례와 같은 문구를 읽는다 — `비집중`은 2026-09-14부터 `자동 멈춤`(BY-560).
     expect(timelineSummaryLabel(toSessionResultView(exampleSession()))).toBe(
-      "집중 1시간 24분, 비집중 18분, 일시정지 3분",
+      "집중 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
     );
   });
 
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
-    expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe("집중 1시간 24분, 비집중 10분");
+    expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe(
+      "집중 1시간 24분, 자동 멈춤 10분, 최고 집중 시간 1시간 34분",
+    );
+  });
+});
+
+/**
+ * 최고 집중 시간(BY-560) — 이벤트로 끊기지 않고 이어진 가장 긴 구간. 예시 세션(105분)에서는
+ * 마지막 PHONE(3600+172=3772초)부터 세션 끝(6300초)까지 2528초 = 42분이 가장 길다.
+ */
+describe("longestFocusStretch", () => {
+  it("이벤트 사이 빈 구간 중 가장 긴 것을 벽시계·비율로 돌려준다", () => {
+    const longest = longestFocusStretch(exampleSession());
+
+    expect(longest).not.toBeNull();
+    expect(longest?.durationSec).toBe(2528);
+    expect(longest?.clockRange).toBe("22:05 – 22:48");
+    expect(longest?.startRatio).toBeCloseTo(3772 / 6300, 6);
+    expect(longest?.widthRatio).toBeCloseTo(2528 / 6300, 6);
+  });
+
+  it("이벤트가 없으면 세션 전체가 최고 집중 구간이다", () => {
+    const longest = longestFocusStretch(exampleSession({ events: [] }));
+
+    expect(longest?.durationSec).toBe(6300);
+    expect(longest?.startRatio).toBe(0);
+    expect(longest?.widthRatio).toBe(1);
+    expect(longest?.clockRange).toBe("21:03 – 22:48");
+  });
+
+  it("이벤트가 세션 전체를 덮으면 null이다 — 없는 구간을 지어내지 않는다", () => {
+    expect(longestFocusStretch(exampleSession({ events: [event("PAUSE", 0, 6300)] }))).toBeNull();
+  });
+
+  it("세션 길이가 0이면 null이다", () => {
+    expect(
+      longestFocusStretch(exampleSession({ endedAt: SESSION_START.toISOString(), events: [] })),
+    ).toBeNull();
+  });
+
+  it("겹친 이벤트가 와도 커서는 뒤로 가지 않는다 — 표시 방어", () => {
+    // AWAY 0~3000 안에 PHONE 600~1200이 겹쳐 있어도 3000 이전에는 빈 구간이 없다.
+    const longest = longestFocusStretch(
+      exampleSession({ events: [event("AWAY", 0, 3000), event("PHONE", 600, 600)] }),
+    );
+
+    expect(longest?.durationSec).toBe(3300);
+    expect(longest?.startRatio).toBeCloseTo(3000 / 6300, 6);
+  });
+
+  it("길이가 같으면 먼저 나온 구간을 택한다", () => {
+    // 3000~3300 이벤트가 세션을 3000초 둘로 나눈다.
+    const longest = longestFocusStretch(exampleSession({ events: [event("PAUSE", 3000, 300)] }));
+
+    expect(longest?.durationSec).toBe(3000);
+    expect(longest?.startRatio).toBe(0);
+  });
+
+  it("toSessionResultView에 실린다", () => {
+    expect(toSessionResultView(exampleSession()).longestFocus?.durationSec).toBe(2528);
   });
 });
