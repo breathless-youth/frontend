@@ -82,6 +82,7 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 | `study_session_started`           | `room_type`                           | `useStudyRoomSession` 마운트 — 복원 진입(`restored`)은 안 보냄 | 커스텀 전환 "첫 공부 시작"(핵심 활성화) |
 | `study_session_ended`             | `room_type`, `study_sec`, `focus_sec` | `useStudyRoomSession` 세션당 한 번 가드 안                     | 커스텀 전환 "공부 완료"(값 필터 가능)   |
 | `social_room_entered`             | —                                     | `LiveRoomEntry` 실제 입장 — 유예 재입장 제외                   | 커스텀 전환 "소셜룸 입장"               |
+| `invite_shared`                   | `method` (`shared`/`copied`)          | `InviteCodeSharePage` 공유 시트·코드 복사 — 실패 제외          | 커스텀 전환 "친구 초대"(추천 확산)      |
 
 `valueToSum`은 계약만 열어 두고 쓰지 않는다. 식별자·초대코드·자유 문자열은 싣지 않는다(`track-event`와 같은 원칙).
 

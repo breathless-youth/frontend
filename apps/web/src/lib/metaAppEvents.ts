@@ -61,3 +61,12 @@ export function trackMetaStudySessionEnded(input: {
 export function trackMetaSocialRoomEntered(): void {
   postMetaAppEvent("social_room_entered");
 }
+
+/**
+ * 초대 공유 — 친구를 데려오는 추천 행동(S9-2). `method`는 OS 공유 시트(`shared`) / 클립보드 복사(`copied`).
+ * 실패는 전환이 아니라 보내지 않는다. 그룹 스터디 확산을 광고 목표로 잡을 때의 전환이다.
+ */
+export function trackMetaInviteShared(method: "shared" | "copied" | "failed"): void {
+  if (method === "failed") return;
+  postMetaAppEvent("invite_shared", { method });
+}

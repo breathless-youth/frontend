@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   META_TUTORIAL_COMPLETION_EVENT,
+  trackMetaInviteShared,
   trackMetaSocialRoomEntered,
   trackMetaStudySessionEnded,
   trackMetaStudySessionStarted,
@@ -83,6 +84,19 @@ describe("metaAppEvents", () => {
     });
   });
 
+  it("초대 공유는 방법을 싣고, 실패는 보내지 않는다 — 실패는 전환이 아니다", () => {
+    const bridge = stubBridge();
+
+    trackMetaInviteShared("shared");
+    trackMetaInviteShared("copied");
+    trackMetaInviteShared("failed");
+
+    expect(bridge.sent().map((m) => m.params)).toEqual([
+      { method: "shared" },
+      { method: "copied" },
+    ]);
+  });
+
   it("모든 이벤트명·파라미터 키가 Meta 형식이다 — 네이티브가 형식 밖 이름은 통째로 버린다", () => {
     const bridge = stubBridge();
 
@@ -90,6 +104,7 @@ describe("metaAppEvents", () => {
     trackMetaStudySessionStarted("single", false);
     trackMetaStudySessionEnded({ roomType: "single", studySec: 1, focusSec: 1 });
     trackMetaSocialRoomEntered();
+    trackMetaInviteShared("shared");
 
     for (const message of bridge.sent()) {
       expect(message.name).toMatch(META_NAME_PATTERN);
