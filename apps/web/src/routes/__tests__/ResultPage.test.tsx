@@ -9,9 +9,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STUDY_DAYS_FROM } from "@/features/study-session/useResultSummary";
 import { todayKstDateKey } from "@/lib/dateKst";
-import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
+import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
 
@@ -21,10 +20,10 @@ import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
  */
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
-  getPeriodStats: vi.fn(),
+  getStudyDays: vi.fn(),
 }));
 const mockedStats = vi.mocked(listStudySessionStats);
-const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedStudyDays = vi.mocked(getStudyDays);
 
 /** 오늘 합계 3시간 36분(12960초) — 시안 스크린샷 값. */
 const statsResponse = {
@@ -38,23 +37,10 @@ const statsResponse = {
   studiedDatesInMonth: [],
 };
 
-/** 누적 공부일 23일 — 시안 스크린샷 값. 기록 있는 날 23개 + 기록 없는 날(0) 7개. */
-const periodResponse = {
-  from: STUDY_DAYS_FROM,
-  to: todayKstDateKey(),
-  compareFrom: null,
-  compareTo: null,
-  dailyList: Array.from({ length: 30 }, (_, i) => ({
-    date: `2026-08-${String(i + 1).padStart(2, "0")}`,
-    studySec: i < 23 ? 600 : 0,
-    focusSec: i < 23 ? 500 : 0,
-  })),
-  compareDailyList: [],
-};
-
 beforeEach(() => {
   mockedStats.mockResolvedValue(statsResponse);
-  mockedPeriod.mockResolvedValue(periodResponse);
+  // 누적 공부일 23일 — 시안 스크린샷 값.
+  mockedStudyDays.mockResolvedValue({ totalDays: 23 });
 });
 
 /** 로컬 시각으로 픽스처를 만들어 CI 타임존과 무관하게 같은 표기를 검증한다. */
@@ -365,20 +351,16 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
     expect(mockedStats).toHaveBeenCalledWith(7, todayKstDateKey());
   });
 
-  /**
-   * 누적 공부 일 수 = 지금까지 기록이 있는 날(KST)의 수(2026-09-14 사용자 확정). 스트릭 기준이
-   * 아니라 기간 집계의 일별 배열에서 센다 — 서비스 시작 전부터 오늘까지 한 번에 묻는다.
-   */
-  it("누적 공부 일 수는 기간 집계에서 기록 있는 날을 센 값이다", async () => {
+  it("누적 공부 일 수는 서버 totalDays 값이다", async () => {
     renderResult({ sessions: [exampleSession()] }, "?userId=7");
 
     expect(screen.getByText("누적 공부 일 수")).toBeInTheDocument();
     expect(await screen.findByText("23일")).toBeInTheDocument();
-    expect(mockedPeriod).toHaveBeenCalledWith(7, { from: STUDY_DAYS_FROM, to: todayKstDateKey() });
+    expect(mockedStudyDays).toHaveBeenCalledWith(7);
   });
 
   it("조회에 실패한 행은 숫자를 지어내지 않고 —로 둔다 — 재시도 버튼도 없다", async () => {
-    mockedPeriod.mockRejectedValue(new Error("네트워크"));
+    mockedStudyDays.mockRejectedValue(new Error("네트워크"));
     renderResult({ sessions: [exampleSession()] }, "?userId=7");
 
     expect(await screen.findByText("3시간 36분")).toBeInTheDocument();
@@ -392,7 +374,7 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
     expect(screen.queryByText("오늘 누적 순공시간")).not.toBeInTheDocument();
     expect(screen.queryByText("누적 공부 일 수")).not.toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
-    expect(mockedPeriod).not.toHaveBeenCalled();
+    expect(mockedStudyDays).not.toHaveBeenCalled();
   });
 });
 
