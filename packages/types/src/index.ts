@@ -269,7 +269,7 @@ export type RoomJoinErrorCode =
  */
 
 export interface ProfileResponse {
-  /** 2~12자, 한글·영문·숫자, 전역 유니크 */
+  /** 한글·영문·숫자·이모지·띄어쓰기, 앞뒤 공백을 제외한 글자 단위 2~12자, 전역 유니크 */
   nickname: string;
   /** 한 줄 목표, 공백 포함 최대 20자 — 미설정이면 null */
   goal: string | null;
@@ -279,7 +279,7 @@ export interface ProfileResponse {
    * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
    */
   category: string | null;
-  /** 아바타 표시용 닉네임 첫 글자 — 서버 산출, 닉네임 변경 시 갱신 */
+  /** 아바타 표시용 닉네임 첫 글자 단위(그래핌) — 서버 산출, 닉네임 변경 시 갱신 */
   initial: string;
   /** 아바타 자동 색 인덱스 — 서버 산출, 닉네임이 바뀌어도 고정 */
   colorIndex: number;
@@ -290,9 +290,6 @@ export interface ProfileUpdateRequest {
   goal?: string | null;
   category?: string | null;
 }
-
-export type ProfileErrorCode =
-  "INVALID_NICKNAME" | "GOAL_TOO_LONG" | "INVALID_CATEGORY" | "NICKNAME_TAKEN";
 
 export type {
   RoomFocusState,
