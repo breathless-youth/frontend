@@ -11,6 +11,21 @@ describe("RoomTile 폴백", () => {
     expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
   });
 
+  it("카메라를 끈 타일에서 이모지 닉네임 이니셜이 깨지지 않는다", () => {
+    render(
+      <RoomTile
+        member={{
+          userId: 8,
+          cameraOn: false,
+          focusState: "FOCUS",
+          nickname: "🧑‍💻코딩",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
+  });
+
   it("필드가 있으면 기존처럼 전부 표시한다", () => {
     render(
       <RoomTile
