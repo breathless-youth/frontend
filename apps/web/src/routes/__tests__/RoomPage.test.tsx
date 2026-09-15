@@ -161,7 +161,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("기본 상태는 집중이며 상태 필을 라이브 리전으로 알린다", () => {
     renderRoom("/room/7?userId=1");
 
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
   });
 
   it("V1.0 싱글룸에는 방 개념이 없어 방 번호를 표시하지 않는다", () => {
@@ -360,7 +360,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       // 해제는 색만 복귀 — 별도 안내 문구를 띄우지 않는다.
-      expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+      expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
       expect(screen.queryByText("내려놓으면 자동으로 다시 측정돼요")).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
@@ -679,7 +679,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     await enterSimpleMode();
 
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
@@ -874,7 +874,7 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(within(dialog).getByText("공부를 종료할까요?")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     // 세션 화면은 그대로 살아 있다 — 딤 뒤에서 계속 측정된다.
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
   });
 
   /**

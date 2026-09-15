@@ -22,7 +22,7 @@ function event(status: StudyEventStatus, fromSec: number, durationSec: number): 
   return { status, startedAt: at(fromSec), endedAt: at(fromSec + durationSec) };
 }
 
-/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 비집중 18분. */
+/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 휴식 18분. */
 function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySessionResponse {
   return {
     id: 10,
@@ -71,7 +71,7 @@ function renderResult(state: unknown, search = "?userId=7") {
 }
 
 function statsCard() {
-  return screen.getByText(/^비집중 /).closest("section")!;
+  return screen.getByText(/^휴식 /).closest("section")!;
 }
 
 describe("ResultPage — S4 헤더", () => {
@@ -115,7 +115,7 @@ describe("ResultPage — 타임라인 카드", () => {
     renderResult({ sessions: [exampleSession()] });
 
     expect(
-      screen.getByRole("img", { name: "집중 1시간 24분, 비집중 18분, 일시정지 3분" }),
+      screen.getByRole("img", { name: "순공 1시간 24분, 휴식 18분, 일시정지 3분" }),
     ).toBeInTheDocument();
   });
 
@@ -131,8 +131,8 @@ describe("ResultPage — 타임라인 카드", () => {
     renderResult({ sessions: [exampleSession()] });
 
     const card = screen.getByText("공부 타임라인").closest("section")!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
-    expect(within(card).getByText("비집중")).toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
+    expect(within(card).getByText("휴식")).toBeInTheDocument();
     expect(within(card).getByText("일시정지")).toBeInTheDocument();
   });
 
@@ -143,12 +143,12 @@ describe("ResultPage — 타임라인 카드", () => {
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });
 
-  it("비집중이 0이면 범례는 '집중'만 남는다", () => {
+  it("휴식이 0이면 범례는 '순공'만 남는다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
     const card = screen.getByText("공부 타임라인").closest("section")!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
-    expect(within(card).queryByText("비집중")).not.toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
+    expect(within(card).queryByText("휴식")).not.toBeInTheDocument();
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });
 });
@@ -252,11 +252,11 @@ describe("ResultPage — 비집중 통계 카드", () => {
     expect(screen.queryByText(/^휴대폰 \d/)).not.toBeInTheDocument();
   });
 
-  it("타이틀 합계에서 일시정지를 제외한다 — 비집중 18분이지 21분이 아니다", () => {
+  it("타이틀 합계에서 일시정지를 제외한다 — 휴식 18분이지 21분이 아니다", () => {
     renderResult({ sessions: [exampleSession()] });
 
-    expect(screen.getByText("비집중 18분")).toBeInTheDocument();
-    expect(screen.queryByText("비집중 21분")).not.toBeInTheDocument();
+    expect(screen.getByText("휴식 18분")).toBeInTheDocument();
+    expect(screen.queryByText("휴식 21분")).not.toBeInTheDocument();
   });
 
   it("일시정지 행은 비집중 3종 아래에 붙는다", async () => {
@@ -291,15 +291,15 @@ describe("ResultPage — 비집중 통계 카드", () => {
   it("비집중 3종이 모두 0이면 확정 문구로 대체한다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
-    expect(screen.getByText("비집중 없이 이어간 공부예요")).toBeInTheDocument();
-    expect(screen.queryByText(/^비집중 \d/)).not.toBeInTheDocument();
+    expect(screen.getByText("휴식 없이 이어간 공부예요")).toBeInTheDocument();
+    expect(screen.queryByText(/^휴식 \d/)).not.toBeInTheDocument();
   });
 
   it("비집중 0 + 일시정지 1회 이상이면 문구 아래에 일시정지 행만 남는다", () => {
     // ⚠️ 정확한 레이아웃은 미정(SCR-S4) — 기본 구현을 고정해 회귀만 막는다.
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 2400, 180)] })] });
 
-    expect(screen.getByText("비집중 없이 이어간 공부예요")).toBeInTheDocument();
+    expect(screen.getByText("휴식 없이 이어간 공부예요")).toBeInTheDocument();
     expect(screen.getAllByText("일시정지").length).toBeGreaterThan(0);
     expect(within(statsCard()).getByText("1회")).toBeInTheDocument();
   });

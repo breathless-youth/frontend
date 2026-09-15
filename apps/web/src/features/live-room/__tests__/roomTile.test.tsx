@@ -32,8 +32,8 @@ describe("RoomTile 폴백", () => {
 
 describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
   it.each([
-    ["FOCUS", "집중 측정 중"],
-    ["DISTRACTED", "비집중"],
+    ["FOCUS", "순공시간 측정 중"],
+    ["DISTRACTED", "휴식"],
     ["PAUSED", "일시정지"],
   ] as const)(
     "selfState=%s면 도트+sr-only 상태 텍스트를 가진 뱃지로 타이머를 그린다",
@@ -66,6 +66,13 @@ describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
     );
 
     expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "DISTRACTED");
+    expect(within(screen.getByTestId("tile-info")).getByText("휴식")).toHaveClass("sr-only");
+  });
+
+  it("타 참가자 집중 중은 스크린리더에 '집중 중'을 그대로 읽는다", () => {
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 60 }} />);
+
+    expect(within(screen.getByTestId("tile-info")).getByText("집중 중")).toHaveClass("sr-only");
   });
 
   it("타 참가자 카메라 꺼짐은 OFF(회색) 뱃지다", () => {

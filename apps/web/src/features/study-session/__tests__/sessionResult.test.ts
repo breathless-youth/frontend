@@ -248,12 +248,12 @@ describe("toSessionResultView", () => {
 describe("timelineSummaryLabel", () => {
   it("바의 시각 정보를 텍스트로 요약한다", () => {
     expect(timelineSummaryLabel(toSessionResultView(exampleSession()))).toBe(
-      "집중 1시간 24분, 비집중 18분, 일시정지 3분",
+      "순공 1시간 24분, 휴식 18분, 일시정지 3분",
     );
   });
 
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
-    expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe("집중 1시간 24분, 비집중 10분");
+    expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe("순공 1시간 24분, 휴식 10분");
   });
 });
