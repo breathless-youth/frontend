@@ -29,7 +29,7 @@ describe("온보딩 가이드 확정 문구", () => {
       body: "집중하는 동안 타이머가 흘러가요.",
     });
     expect(tooltips[1]).toMatchObject({
-      title: "집중이 아니면, 잠시 멈춰요",
+      title: "휴식 중에는 잠시 멈춰요",
       body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 흘러가요.",
     });
     expect(tooltips[2]).toMatchObject({

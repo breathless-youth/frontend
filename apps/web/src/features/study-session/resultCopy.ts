@@ -26,9 +26,9 @@ export const RESULT_COPY = {
   /** 타임라인 카드 타이틀(Figma `64:562` — voice-tone에 별도 규정 없음). */
   timelineTitle: "공부 타임라인",
   /** 통계 카드 타이틀 접두어 — 뒤에 **비집중 3종 합계**만 붙는다(PAUSE 제외). */
-  distractionTitlePrefix: "비집중",
+  distractionTitlePrefix: "휴식",
   /** 비집중 3종이 모두 0일 때(voice-tone §4 — 느낌표 없음). */
-  noDistraction: "비집중 없이 이어간 공부예요",
+  noDistraction: "휴식 없이 이어간 공부예요",
   /**
    * 통계 행을 펼쳤을 때 합계 줄의 라벨(BY-336). 아래에 발생 구간이 나열되므로 어느 쪽이
    * 합계인지 구분이 필요하다. wiki 미확정 카피 — 다른 화면의 `총 공부` 접두어와 같은 어법이다.
@@ -39,12 +39,11 @@ export const RESULT_COPY = {
 } as const;
 
 /**
- * 집중률 필 문구 — **`N% 집중` 형식**이다.
- *
- * voice-tone §2는 지표 라벨(`집중률 N%`)과 필/헤더 표기(`N% 집중`)를 구분한다. 여기는 후자다.
+ * 집중률 필 문구. voice-tone §2가 지표 라벨과 필/헤더 표기를 구분하던 옛 규칙을 버리고
+ * `집중률 N%` 한 형태로 통일했다.
  */
 export function focusRateLabel(percent: number): string {
-  return `${percent}% 집중`;
+  return `집중률 ${percent}%`;
 }
 
 /**
@@ -73,7 +72,7 @@ export const EVENT_STATUS_LABEL: Record<StudyEventStatus, string> = {
 
 /** 타임라인 범례 라벨. 셋 다 도트와 **함께** 쓴다(색 단독 전달 금지). */
 export const LEGEND_COPY = {
-  focus: "집중",
-  distract: "비집중",
+  focus: "순공",
+  distract: "휴식",
   pause: EVENT_STATUS_LABEL.PAUSE,
 } as const;

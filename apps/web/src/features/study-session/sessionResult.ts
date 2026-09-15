@@ -222,8 +222,8 @@ export function formatClockRange(startIso: string, endIso: string): string {
  */
 export function timelineSummaryLabel(view: SessionResultView): string {
   const parts = [
-    `집중 ${toKoreanDurationLength(view.focusSec)}`,
-    `비집중 ${toKoreanDurationLength(view.distractionSec)}`,
+    `순공 ${toKoreanDurationLength(view.focusSec)}`,
+    `휴식 ${toKoreanDurationLength(view.distractionSec)}`,
   ];
   if (view.pause !== null) {
     parts.push(`일시정지 ${toKoreanDurationLength(view.pause.durationSec)}`);

@@ -26,7 +26,7 @@ export type TileBadgeState = SelfBadgeState | "OFF";
 const SELF_BADGE_SPEC: Record<TileBadgeState, { label: string; pill: CSSProperties; ink: string }> =
   {
     FOCUS: {
-      label: "집중 측정 중",
+      label: "순공시간 측정 중",
       pill: {
         backgroundColor: "color-mix(in srgb, var(--state-focus) 20%, transparent)",
         borderColor: "color-mix(in srgb, var(--state-focus) 38%, transparent)",
@@ -34,7 +34,7 @@ const SELF_BADGE_SPEC: Record<TileBadgeState, { label: string; pill: CSSProperti
       ink: "var(--state-focus)",
     },
     DISTRACTED: {
-      label: "비집중",
+      label: "휴식",
       pill: {
         backgroundColor: "color-mix(in srgb, var(--state-distract) 20%, transparent)",
         borderColor: "color-mix(in srgb, var(--state-distract) 38%, transparent)",
@@ -174,7 +174,7 @@ export function RoomTile({
             {member.cameraOn
               ? member.focusState === "FOCUS"
                 ? " 집중 중"
-                : " 비집중"
+                : " 휴식"
               : " 카메라 꺼짐"}
           </span>
         </p>
