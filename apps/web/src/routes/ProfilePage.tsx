@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { ProfileErrorCode, ProfileUpdateRequest } from "@focusmakers/types";
+import type { ProfileUpdateRequest } from "@focusmakers/types";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -11,12 +11,15 @@ import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import {
+  NICKNAME_RULE_MESSAGE,
+  normalizeNickname,
   validateGoal,
   validateNickname,
   validateNicknameLength,
 } from "@/features/profile/profileValidation";
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import { firstGrapheme } from "@/lib/graphemes";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { parseUserId } from "@/lib/userId";
@@ -81,14 +84,15 @@ export function ProfilePage() {
         reason:
           error instanceof ApiError ? (error.code ?? `HTTP_${error.status}`) : "NETWORK_OR_UNKNOWN",
       });
-      if (
-        error instanceof ApiError &&
-        (error.code === ("NICKNAME_TAKEN" satisfies ProfileErrorCode) ||
-          // 서버가 code를 누락하는 사례 대비(BY-404 규칙의 의도적 예외 — joinErrorCopy.ts와
-          // 같은 판단): 409(Conflict)는 닉네임 중복뿐이라 필드 인라인으로 안내한다.
-          (error.code === undefined && error.status === 409))
-      ) {
+      // code가 아니라 HTTP 상태로 가른다 — 서버 공통 코드(CONFLICT·VALIDATION_FAILED)는 어느
+      // 필드가 틀렸는지 알려주지 않는다. 프로필 저장의 400은 목표·카테고리를 저장 전에
+      // 클라이언트가 이미 막으므로(validateGoal 등) 서버까지 도달하는 400은 닉네임뿐이다.
+      if (error instanceof ApiError && error.status === 409) {
         setErrors({ nickname: "이미 사용 중인 닉네임이에요" });
+        return;
+      }
+      if (error instanceof ApiError && error.status === 400) {
+        setErrors({ nickname: NICKNAME_RULE_MESSAGE });
         return;
       }
       setErrors({ general: "잠시 후 다시 시도해 주세요" });
@@ -128,11 +132,13 @@ export function ProfilePage() {
 
   const profile = query.data;
 
-  // 변경된 필드만 담는다 — 목표는 빈 문자열을 null(미설정)로 정규화해 비교한다.
+  // 변경된 필드만 담는다 — 목표는 빈 문자열을 null(미설정)로 정규화해 비교하고, 닉네임은
+  // 서버와 같은 정규화(normalizeNickname)를 거친 값으로 비교·전송한다.
   const normalizedGoal = goal === "" ? null : goal;
+  const normalizedNickname = normalizeNickname(nickname);
   const patch: ProfileUpdateRequest = {};
-  if (nickname !== profile.nickname) {
-    patch.nickname = nickname;
+  if (normalizedNickname !== profile.nickname) {
+    patch.nickname = normalizedNickname;
   }
   if (normalizedGoal !== profile.goal) {
     patch.goal = normalizedGoal;
@@ -180,9 +186,13 @@ export function ProfilePage() {
 
         <div className="flex justify-center py-1">
           {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
-              바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백. */}
+              바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백.
+              firstGrapheme은 정규화 후 남은 문자를 그대로 주므로, NBSP·BOM처럼 서버
+              String.strip()이 지우지 않는 공백류만 입력했을 때는 그 보이지 않는 문자를
+              돌려준다 — trim()을 한 번 더 걸어 그런 공백류뿐이면 서버 이니셜로 폴백시킨다
+              (trim()은 NBSP·BOM도 지우므로 여기서는 안전하다). */}
           <ProfileAvatar
-            initial={nickname.charAt(0) || profile.initial}
+            initial={firstGrapheme(normalizedNickname).trim() || profile.initial}
             colorIndex={profile.colorIndex}
           />
         </div>
