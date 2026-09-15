@@ -81,16 +81,15 @@ describe("ResultPage — S4 헤더", () => {
     expect(screen.getByRole("heading", { level: 1, name: "공부 결과" })).toBeInTheDocument();
     expect(screen.getByText("순공시간")).toBeInTheDocument();
     expect(screen.getByText("1시간 24분")).toBeInTheDocument();
-    expect(screen.getByText("집중률 82%")).toBeInTheDocument();
+    expect(screen.getByText("82% 집중")).toBeInTheDocument();
     expect(screen.getByText("총 공부 1시간 42분 · 21:03 – 22:48")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "확인" })).toBeInTheDocument();
   });
 
-  it("집중률은 'N% 집중'이 아니라 '집중률 N%' 형식이다, 필/헤더 표기 규칙", () => {
+  it("집중률은 '집중률 N%'가 아니라 'N% 집중' 형식이다 — 필/헤더 표기 규칙", () => {
     renderResult({ sessions: [exampleSession()] });
 
-    expect(screen.getByText("집중률 82%")).toBeInTheDocument();
-    expect(screen.queryByText(/^\d+% 집중$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/집중률/)).not.toBeInTheDocument();
   });
 
   it("총 공부 시간과 시각 범위는 다를 수 있다 — 일시정지가 총 공부에서 빠지기 때문", () => {
@@ -107,7 +106,7 @@ describe("ResultPage — S4 헤더", () => {
     });
 
     expect(screen.getByText("1분")).toBeInTheDocument();
-    expect(screen.getByText("집중률 1%")).toBeInTheDocument();
+    expect(screen.getByText("1% 집중")).toBeInTheDocument();
   });
 });
 
@@ -444,7 +443,7 @@ describe("ResultPage — 자정(KST) 분할 세션", () => {
     renderResult({ sessions: [first, second] });
 
     expect(screen.getByText("1시간 24분")).toBeInTheDocument();
-    expect(screen.getByText("집중률 82%")).toBeInTheDocument();
+    expect(screen.getByText("82% 집중")).toBeInTheDocument();
     // 합산했다면 총 공부가 2시간 12분이 된다.
     expect(screen.queryByText(/총 공부 2시간/)).not.toBeInTheDocument();
   });

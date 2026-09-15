@@ -39,11 +39,12 @@ export const RESULT_COPY = {
 } as const;
 
 /**
- * 집중률 필 문구. voice-tone §2가 지표 라벨과 필/헤더 표기를 구분하던 옛 규칙을 버리고
- * `집중률 N%` 한 형태로 통일했다.
+ * 집중률 필 문구 — **`N% 집중` 형식**이다.
+ *
+ * voice-tone §2는 지표 라벨(`집중률 N%`)과 필/헤더 표기(`N% 집중`)를 구분한다. 여기는 후자다.
  */
 export function focusRateLabel(percent: number): string {
-  return `집중률 ${percent}%`;
+  return `${percent}% 집중`;
 }
 
 /**
