@@ -196,6 +196,27 @@ describe("refreshAuth", () => {
     expect(mockedFetch.mock.calls[1]?.[0]).toBe("http://api.test/api/users");
   });
 
+  it("400(VALIDATION_FAILED)이면 저장을 지우고 기기 UUID로 재등록한다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(
+        jsonResponse(400, {
+          code: "VALIDATION_FAILED",
+          message: "refreshToken이 유효하지 않습니다",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { userId: 7, isNew: false, accessToken: "a3", refreshToken: "r3" }),
+      );
+
+    await expect(refreshAuth()).resolves.toEqual({
+      userId: 7,
+      accessToken: "a3",
+      refreshToken: "r3",
+    });
+    expect(mockedDelete).toHaveBeenCalledWith("focuson.auth", { keychainAccessible: 1 });
+    expect(mockedFetch.mock.calls[1]?.[0]).toBe("http://api.test/api/users");
+  });
+
   it("네트워크 오류·5xx면 저장을 유지하고 null을 돌려준다", async () => {
     mockedFetch.mockRejectedValueOnce(new TypeError("Network request failed"));
     await expect(refreshAuth()).resolves.toBeNull();

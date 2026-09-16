@@ -162,8 +162,9 @@ let ongoingRefresh: Promise<AuthState | null> | null = null;
 
 /**
  * `POST /api/auth/refresh`. 앱 전체에서 진행 중인 갱신은 하나뿐이다 — refresh는 1회용 회전이라 둘이
- * 나가면 서버가 재사용으로 보고 전량 폐기한다. 200이면 두 토큰을 교체 저장, 401이면 저장을 지우고
- * 재등록, 네트워크 오류·5xx면 저장을 유지하고 null. refresh 토큰이 없으면 갱신할 것이 없으므로
+ * 나가면 서버가 재사용으로 보고 전량 폐기한다. 200이면 두 토큰을 교체 저장, 401과 400이면 저장을
+ * 지우고 재등록, 네트워크 오류·5xx면 저장을 유지하고 null. 400은 저장된 값이 서버 검증을 통과하지
+ * 못한다는 뜻이라 같은 값으로 다시 보내도 결과가 같다. refresh 토큰이 없으면 갱신할 것이 없으므로
  * 저장을 지우고 재등록한다 — 지연 이관된 설치가 토큰을 얻는 유일한 경로다.
  */
 export function refreshAuth(): Promise<AuthState | null> {
@@ -189,7 +190,7 @@ async function refreshOnce(): Promise<AuthState | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: current.refreshToken }),
     });
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 400) {
       await SecureStore.deleteItemAsync(AUTH_KEY, STORE_OPTIONS);
       return await ensureAuth();
     }
