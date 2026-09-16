@@ -14,7 +14,7 @@ import { lockPortrait, unlockForSession } from "../../lib/orientation";
  * 경로를 로드한다(전 화면 원격 웹뷰 셸, BY-333). 타이머·상태 판정·이벤트 누적은 전부
  * 웹이 소유한다 — **여기에 세션 로직을 넣지 말 것.**
  *
- * 파라미터 조립(userId·appVersion)·브리지 수신(start-session·navigate-home·open-settings)·
+ * 파라미터 조립(appVersion·capability 표시)·브리지 수신(start-session·navigate-home·open-settings)·
  * 초기 로딩 스플래시는 탭 3개와 동일하게 `RemoteScreen`이 공용으로 처리한다
  * (`lib/remoteQueryParams.ts`·`lib/nativeBridgeHandler.ts`).
  *

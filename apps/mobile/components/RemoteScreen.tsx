@@ -11,7 +11,7 @@ import { RemoteWebViewHost } from "./RemoteWebViewHost";
  * 탭 3개(홈·기록·설정) + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
  *
  * 세 가지를 한 곳에 모은다 — 화면마다 복붙하지 않기 위해서다:
- * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(userId·appVersion)를 붙인다.
+ * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(appVersion·capability 표시)를 붙인다.
  * 2. `handleBridgeMessage`로 브리지 수신(start-session·navigate-home·open-settings 등)을
  *    공용화한다.
  * 3. 파라미터 조립부터 첫 웹뷰 로드가 끝날 때까지 스플래시로 가려 흰 화면을 막는다.
@@ -22,7 +22,7 @@ export type RemoteScreenProps = {
   /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
   path: string;
   /**
-   * 공용 파라미터(userId·appVersion)에 **더해** 붙일 화면별 쿼리. 딥링크 화면
+   * 공용 파라미터(appVersion·capability 표시)에 **더해** 붙일 화면별 쿼리. 딥링크 화면
    * (`app/social/join.tsx`)이 초대코드를 웹으로 넘길 때 쓴다. `path`에 `?`를 직접 붙이면
    * `buildRemoteWebViewUrl`이 쿼리를 `?`로 한 번 더 이어 URL이 깨지므로 반드시 이걸 쓴다.
    */

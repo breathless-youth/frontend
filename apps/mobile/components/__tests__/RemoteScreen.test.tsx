@@ -15,7 +15,7 @@ import { ensureUserRegistered } from "../../lib/userApi";
  * 탭 3개 + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
  *
  * 검증 범위: (1) 파라미터 조립이 끝나기 전엔 웹뷰를 띄우지 않고 스플래시만 보여주는지,
- * (2) 조립된 userId·appVersion이 실제로 URL에 붙는지, (3) 첫 로드가 끝나야 스플래시가
+ * (2) 조립된 공용 파라미터가 실제로 URL에 붙는지, (3) 첫 로드가 끝나야 스플래시가
  * 걷히는지, (4) 브리지 메시지가 공용 핸들러(`handleBridgeMessage`)로 연결되는지.
  */
 
@@ -101,14 +101,14 @@ describe("RemoteScreen", () => {
     expect(screen.getByTestId("home-webview-splash").props.pointerEvents).toBe("none");
   });
 
-  it("조립된 userId·appVersion을 쿼리로 붙여 웹뷰를 띄운다", async () => {
+  it("조립된 공용 파라미터를 쿼리로 붙여 웹뷰를 띄운다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
     });
   });
 
