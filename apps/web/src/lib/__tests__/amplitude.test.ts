@@ -927,6 +927,25 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
+  it("형태가 다른 예약은 보내지 않고 버린다 — 빈 객체는 TTL 가드를 우회해 NaN을 보낼 뻔했다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    for (const bad of [
+      "{}",
+      '{"roomType":"solo","focusSec":1200,"ts":1}',
+      '{"roomType":"single","focusSec":"1200","ts":1}',
+    ]) {
+      localStorage.setItem(KEY, bad);
+      m.consumeStudyResultExit("home");
+      expect(localStorage.getItem(KEY)).toBeNull();
+    }
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
   it("미초기화면 예약을 건드리지 않는다 — 깨진 payload도 던지지 않는다", async () => {
     const m = await loadModule();
     localStorage.setItem(KEY, "{not json");

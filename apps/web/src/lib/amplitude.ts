@@ -774,6 +774,25 @@ export function trackStudyResultConfirmed(input: {
 const PENDING_EXIT_KEY = "fm_pending_result_exit";
 const PENDING_EXIT_TTL_MS = 10 * 60_000;
 
+interface PendingResultExit {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+  readonly ts: number;
+}
+
+/** localStorage 값은 외부 입력이다 — 다른 버전이 남긴 스키마·빈 객체를 그대로 보내지 않는다. */
+function isPendingResultExit(value: unknown): value is PendingResultExit {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    (record.roomType === "single" || record.roomType === "social") &&
+    typeof record.focusSec === "number" &&
+    Number.isFinite(record.focusSec) &&
+    typeof record.ts === "number" &&
+    Number.isFinite(record.ts)
+  );
+}
+
 /**
  * S4 결과 화면 진입 시 — 이탈 예약을 남긴다. 실제 track은 도착 화면이 한다.
  * `focusSec`은 `study_session_ended`와 같은 세션 전체 순공시간(초) — 자정 분할 세션은 호출
@@ -791,9 +810,9 @@ export function stageStudyResultExit(input: {
 }
 
 /**
- * 홈·기록 화면에서 — 예약이 있으면 이 웹뷰에서 `study_result_exited`를 보내고 지운다.
- * 중복 방지를 위해 읽자마자 지우고, 오래된 예약(10분 초과)은 버린다. 이벤트명·속성명이 콘솔
- * 트리거와 맞아야 한다.
+ * 홈·소셜·기록 화면에서 — 예약이 있으면 이 웹뷰에서 `study_result_exited`를 보내고 지운다.
+ * 중복 방지를 위해 읽자마자 지우고, 형태가 다르거나 오래된 예약(10분 초과)은 버린다.
+ * 이벤트명·속성명이 콘솔 트리거와 맞아야 한다.
  */
 export function consumeStudyResultExit(destination: "home" | "record") {
   if (!initialized) return;
@@ -801,11 +820,12 @@ export function consumeStudyResultExit(destination: "home" | "record") {
     const raw = localStorage.getItem(PENDING_EXIT_KEY);
     if (!raw) return;
     localStorage.removeItem(PENDING_EXIT_KEY);
-    const pending = JSON.parse(raw) as { roomType: StudyRoomType; focusSec: number; ts: number };
+    const pending: unknown = JSON.parse(raw);
+    if (!isPendingResultExit(pending)) return;
     if (Date.now() - pending.ts > PENDING_EXIT_TTL_MS) return;
     track("study_result_exited", {
       room_type: pending.roomType,
-      focus_sec: Number(pending.focusSec),
+      focus_sec: pending.focusSec,
       destination,
     });
   } catch {

@@ -30,15 +30,21 @@ describe("AnalyticsRouteTracker — 결과 이탈 예약 소비", () => {
     vi.mocked(consumeStudyResultExit).mockClear();
   });
 
-  it("홈 도착은 home, 기록 도착은 record로 소비하고 다른 화면은 건드리지 않는다", () => {
+  it("홈·소셜 도착은 home, 기록 도착은 record로 소비하고 다른 화면은 건드리지 않는다", () => {
     renderAt("/home?userId=7");
     expect(consumeStudyResultExit).toHaveBeenCalledWith("home");
 
     renderAt("/records?userId=7");
     expect(consumeStudyResultExit).toHaveBeenCalledWith("record");
 
+    // 소셜룸 결과는 `/social`로 돌아간다 — 여기서 안 받으면 소셜 세션의 예약이 TTL로 버려진다.
+    vi.mocked(consumeStudyResultExit).mockClear();
+    renderAt("/social?userId=7");
+    expect(consumeStudyResultExit).toHaveBeenCalledWith("home");
+
     vi.mocked(consumeStudyResultExit).mockClear();
     renderAt("/room/7/result");
+    renderAt("/social/room/9/result");
     expect(consumeStudyResultExit).not.toHaveBeenCalled();
   });
 
