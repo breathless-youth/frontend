@@ -19,6 +19,8 @@ export interface RoomMember {
   nickname?: string;
   goal?: string | null;
   focusSec?: number;
+  // 소켓이 끊겨 30초 유예 중인 멤버. 유예가 끝나면 서버가 MEMBER_LEFT로 지운다.
+  disconnected?: boolean;
 }
 
 export type RoomSignalKind = "OFFER" | "ANSWER" | "CANDIDATE";
@@ -31,6 +33,7 @@ export type RoomServerMessage =
   | { type: "CAMERA_CHANGED"; userId: number; cameraOn: boolean }
   | { type: "FOCUS_CHANGED"; userId: number; focusState: RoomFocusState }
   | { type: "STUDY_TIME"; userId: number; focusSec: number }
+  | { type: "ROOM_UNAVAILABLE"; roomId: number }
   | { type: "SIGNAL"; fromUserId: number; kind: RoomSignalKind; payload: unknown };
 
 /**
