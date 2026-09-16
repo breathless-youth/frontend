@@ -1391,4 +1391,16 @@ describe("createPeerMesh — 피어 실패 시 SNAPSHOT 재대조 (BY-668)", () 
       vi.useRealTimers();
     }
   });
+
+  it("SNAPSHOT에서 빠졌어도 degraded가 아닌 피어는 닫지 않는다 — 도착 순서 경쟁 방어", () => {
+    const { channel, pcs } = setup();
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    const pc = pcs[0]?.pc;
+
+    // 피어 8은 ICE가 끊긴 적이 없어 degraded가 아니다. 그 피어보다 먼저 만들어진 옛 SNAPSHOT이
+    // 8을 빠뜨려도 살아 있는 연결을 지우면 안 된다.
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7)] });
+
+    expect(pc?.closed).toBe(false);
+  });
 });

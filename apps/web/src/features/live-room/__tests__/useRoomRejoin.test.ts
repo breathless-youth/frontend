@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -170,5 +171,19 @@ describe("useRoomRejoin", () => {
 
     await vi.waitFor(() => expect(renew).toHaveBeenCalledTimes(2));
     expect(onUnavailable).not.toHaveBeenCalled();
+  });
+
+  it("StrictMode 이중 마운트 뒤에도 재호출이 무력화되지 않는다", async () => {
+    vi.spyOn(roomApi, "renewLiveRoomSeat").mockResolvedValue(joinResponse);
+    const channel = fakeChannel();
+    const onUnavailable = vi.fn();
+    const { result } = renderHook(
+      () => useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      { wrapper: StrictMode },
+    );
+
+    result.current();
+
+    await vi.waitFor(() => expect(channel.reconnect).toHaveBeenCalledTimes(1));
   });
 });

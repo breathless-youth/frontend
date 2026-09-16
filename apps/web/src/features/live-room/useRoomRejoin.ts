@@ -45,6 +45,9 @@ export function useRoomRejoin({
   };
 
   useEffect(() => {
+    // StrictMode의 마운트-해제-재마운트에서 앞 cleanup이 남긴 cancelled를 되돌린다 —
+    // 리셋하지 않으면 재구독 뒤에도 cancelled가 true로 남아 재호출이 통째로 무력화된다.
+    cancelledRef.current = false;
     const unsubscribe = channel.subscribe((message) => {
       if (message.type === "SNAPSHOT" && stateRef.current === "awaiting-recovery") {
         stateRef.current = "idle";

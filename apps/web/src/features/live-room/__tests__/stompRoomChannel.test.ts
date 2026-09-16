@@ -544,4 +544,40 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       vi.useRealTimers();
     }
   });
+
+  it("공개 reconnect()는 워치독을 재무장해 onSnapshotUnrecovered가 다시 불릴 수 있게 한다", async () => {
+    vi.useFakeTimers();
+    const onSnapshotUnrecovered = vi.fn();
+    try {
+      const client = createFakeClient();
+      const channel = createStompRoomChannel({
+        roomId: 42,
+        userId: 7,
+        createClient: () => client,
+        onSnapshotUnrecovered,
+      });
+      channel.connect();
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(1);
+
+      // SNAPSHOT 없이 자리 재호출의 reconnect()만으로 재무장 — 배달이 여전히 깨져 있으면
+      // 새 드라우트가 예산을 다시 소진해 종료 경로가 도달 가능해진다.
+      channel.reconnect();
+      await vi.advanceTimersByTimeAsync(0);
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

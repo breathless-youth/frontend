@@ -270,6 +270,12 @@ export function createStompRoomChannel({
       // 워치독의 강제 교체와 같은 패턴 — 소켓이 조용히 죽은 상태(배경 복귀)에서는
       // stompjs 자동 재연결(끊김 감지 후 5초)을 기다리는 것보다 즉시 가는 편이 빠르고,
       // 새 세션이 개인 큐 등록·스냅샷 동기화를 처음부터 다시 만든다.
+      // 외부 트리거(자리 재호출·배경 복귀)의 재연결은 전체 escalation 사다리를 새로 탄다 —
+      // 재무장하지 않으면, 앞 드라우트에서 예산이 소진되고 알림 가드가 걸린 뒤 SNAPSHOT이
+      // 끝내 안 오면 onSnapshotUnrecovered가 다시 안 불려 종료 경로가 영영 닫힌다. 내부 강제
+      // 재연결은 client.deactivate()를 직접 부르므로 이 초기화를 타지 않아 예산이 정상 소진된다.
+      snapshotForcedReconnectsLeft = SNAPSHOT_FORCED_RECONNECTS;
+      snapshotUnrecoveredNotified = false;
       clearSnapshotWatchdog();
       void Promise.resolve(client.deactivate()).then(() => {
         if (status !== "closed") {

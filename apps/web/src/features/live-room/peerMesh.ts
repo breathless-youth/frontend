@@ -598,10 +598,13 @@ export function createPeerMesh({
         startOffer(m.userId);
         started += 1;
       }
-      // SNAPSHOT은 authoritative 멤버 목록이다 — 목록에 없는 피어는 떠난 것이니 닫는다.
-      // 그러지 않으면 실패한 pc와 degradedPeers 항목이 남아 재대조 타이머가 세션 끝까지 돈다.
+      // SNAPSHOT 명단에서 빠졌고 이미 ICE가 끊긴(degraded) 피어만 닫는다 — 그게 유령이다.
+      // 닫으면 그 피어의 실패한 pc와 degradedPeers 항목이 정리돼 재대조 타이머가 멈춘다.
+      // 명단에 빠졌어도 degraded가 아닌 피어는 건드리지 않는다: SNAPSHOT(개인 큐)과
+      // MEMBER_JOINED(토픽)는 도착 순서가 어긋날 수 있어, 갓 들어온 건강한 피어를 그 피어보다
+      // 먼저 만들어진 옛 SNAPSHOT이 빠뜨릴 수 있다. degraded가 아니면 살아 있는 연결이므로 둔다.
       for (const userId of [...peers.keys()]) {
-        if (!present.has(userId)) {
+        if (!present.has(userId) && degradedPeers.has(userId)) {
           closePeer(userId);
         }
       }
