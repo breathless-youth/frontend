@@ -761,24 +761,56 @@ export function trackStudyResultConfirmed(input: {
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
 }
 
-/**
- * S4 결과 화면 이탈 — `study_result_confirmed`와 같은 순간이지만 순공시간을 싣는다.
- * Amplitude 설문(G&S) 트리거가 `focus_sec ≥ 600` 필터로 쓴다. `focus_sec`은
- * `study_session_ended`와 같은 세션 전체 순공시간(초) — 자정 분할 세션은 호출 측이 합산해서
- * 넘긴다. 이벤트명·속성명이 콘솔 트리거와 맞아야 한다.
+/* ── 결과 화면 이탈 핸드오프 ──────────────────────────────────────────────────
+ *
+ * `study_result_exited`는 Amplitude 설문(G&S) 트리거다(`focus_sec ≥ 600` 필터). 결과 화면에서
+ * 직접 보내면 안 되는 이유: 네이티브 솔로 세션은 별도 웹뷰(fullScreenModal)라 `navigate-home`
+ * 직후 그 웹뷰가 닫히고, 설문은 이벤트를 본 SDK 인스턴스에서만 뜬다 — 항상 살아 있는 홈·기록
+ * 웹뷰는 이벤트를 보지 못한다. 그래서 결과 화면은 localStorage에 **예약**만 남기고, 실제 전송은
+ * 도착 화면(홈·기록)이 한다. 웹뷰끼리 같은 origin의 localStorage를 공유하는 것에 기댄다.
+ * 확인·X·탭바 이탈·앱 재실행 어느 경로로 나가도 예약이 살아남고, 브라우저·소셜 플로우도 같은
+ * 경로를 탄다.
  */
-export function trackStudyResultExited(input: {
+const PENDING_EXIT_KEY = "fm_pending_result_exit";
+const PENDING_EXIT_TTL_MS = 10 * 60_000;
+
+/**
+ * S4 결과 화면 진입 시 — 이탈 예약을 남긴다. 실제 track은 도착 화면이 한다.
+ * `focusSec`은 `study_session_ended`와 같은 세션 전체 순공시간(초) — 자정 분할 세션은 호출
+ * 측이 합산해서 넘긴다. 초기화 여부와 무관하게 저장한다(도착 화면이 판단).
+ */
+export function stageStudyResultExit(input: {
   readonly roomType: StudyRoomType;
   readonly focusSec: number;
-  /** 어디로 나갔는가 — `home`은 홈·소셜 탭 복귀, `record`는 기록 탭(기록 CTA가 생기면). */
-  readonly destination: "home" | "record";
 }) {
+  try {
+    localStorage.setItem(PENDING_EXIT_KEY, JSON.stringify({ ...input, ts: Date.now() }));
+  } catch {
+    // localStorage 불가(프라이빗 모드 등) — 설문 트리거만 잃는다.
+  }
+}
+
+/**
+ * 홈·기록 화면에서 — 예약이 있으면 이 웹뷰에서 `study_result_exited`를 보내고 지운다.
+ * 중복 방지를 위해 읽자마자 지우고, 오래된 예약(10분 초과)은 버린다. 이벤트명·속성명이 콘솔
+ * 트리거와 맞아야 한다.
+ */
+export function consumeStudyResultExit(destination: "home" | "record") {
   if (!initialized) return;
-  track("study_result_exited", {
-    room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
-    destination: input.destination,
-  });
+  try {
+    const raw = localStorage.getItem(PENDING_EXIT_KEY);
+    if (!raw) return;
+    localStorage.removeItem(PENDING_EXIT_KEY);
+    const pending = JSON.parse(raw) as { roomType: StudyRoomType; focusSec: number; ts: number };
+    if (Date.now() - pending.ts > PENDING_EXIT_TTL_MS) return;
+    track("study_result_exited", {
+      room_type: pending.roomType,
+      focus_sec: Number(pending.focusSec),
+      destination,
+    });
+  } catch {
+    // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.
+  }
 }
 
 /** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */

@@ -2,7 +2,11 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { trackPageView } from "@/lib/analytics";
-import { setAmplitudeUserId, trackAmplitudePageView } from "@/lib/amplitude";
+import {
+  consumeStudyResultExit,
+  setAmplitudeUserId,
+  trackAmplitudePageView,
+} from "@/lib/amplitude";
 import { parseUserId } from "@/lib/userId";
 
 /**
@@ -30,6 +34,22 @@ export function AnalyticsRouteTracker() {
     trackPageView(pathname, search);
     trackAmplitudePageView(pathname, search);
   }, [pathname, search]);
+
+  /**
+   * 결과 화면이 남긴 이탈 예약(`stageStudyResultExit`)을 홈·기록 도착 시 소비한다. 도착
+   * 시점뿐 아니라 **다시 보이게 된 순간**에도 확인한다 — 네이티브는 세션 모달이 닫혀도 아래
+   * 홈 웹뷰를 다시 마운트하지 않으므로, 라우트 변경만으로는 모달 닫힘·탭 이탈 경로를 놓친다.
+   */
+  const destination = pathname === "/home" ? "home" : pathname === "/records" ? "record" : null;
+  useEffect(() => {
+    if (destination === null) return;
+    consumeStudyResultExit(destination);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") consumeStudyResultExit(destination);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [destination]);
 
   return null;
 }

@@ -781,7 +781,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
-    m.trackStudyResultExited({ roomType: "single", focusSec: 600, destination: "home" });
     m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
     m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
     m.trackErrorRetryPressed("home");
@@ -807,7 +806,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
-    m.trackStudyResultExited({ roomType: "social", focusSec: 5040, destination: "record" });
     m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
     m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
     m.trackErrorRetryPressed("live_room_entry");
@@ -829,7 +827,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["profile_save_failed", { reason: "CONFLICT" }],
       ["profile_save_succeeded"],
       ["study_result_confirmed", { room_type: "social", via: "close" }],
-      ["study_result_exited", { room_type: "social", focus_sec: 5040, destination: "record" }],
       ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
       ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
       ["error_retry_pressed", { screen: "live_room_entry" }],
@@ -884,5 +881,64 @@ describe("Amplitude 의존성 가드", () => {
     );
 
     expect(banned).toEqual([]);
+  });
+});
+
+describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
+  const KEY = "fm_pending_result_exit";
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("예약은 초기화와 무관하게 저장되고, 도착 화면이 한 번만 보내며 지운다", async () => {
+    const staging = await loadModule();
+    staging.stageStudyResultExit({ roomType: "single", focusSec: 1200 });
+    expect(localStorage.getItem(KEY)).toContain('"focusSec":1200');
+
+    vi.resetModules();
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const arriving = await loadModule();
+    arriving.initAmplitude();
+    mocks.track.mockClear();
+
+    arriving.consumeStudyResultExit("home");
+    arriving.consumeStudyResultExit("record");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "single", focus_sec: 1200, destination: "home" }],
+    ]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("10분 넘은 예약은 보내지 않고 버린다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ roomType: "single", focusSec: 1200, ts: Date.now() - 11 * 60_000 }),
+    );
+
+    m.consumeStudyResultExit("home");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("미초기화면 예약을 건드리지 않는다 — 깨진 payload도 던지지 않는다", async () => {
+    const m = await loadModule();
+    localStorage.setItem(KEY, "{not json");
+
+    m.consumeStudyResultExit("home");
+    expect(localStorage.getItem(KEY)).toBe("{not json");
+
+    vi.resetModules();
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const initialized = await loadModule();
+    initialized.initAmplitude();
+    expect(() => initialized.consumeStudyResultExit("home")).not.toThrow();
+    expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 });
