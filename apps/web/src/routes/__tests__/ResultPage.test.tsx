@@ -8,7 +8,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { trackStudyResultExited } from "@/lib/amplitude";
+
 import { ResultPage } from "../ResultPage";
+
+// 이탈 이벤트의 인자만 관측한다 — 나머지 계측은 미초기화 no-op 그대로 둔다.
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackStudyResultExited: vi.fn(),
+}));
 
 /** 로컬 시각으로 픽스처를 만들어 CI 타임존과 무관하게 같은 표기를 검증한다. */
 const SESSION_START = new Date(2026, 6, 25, 21, 3, 0);
@@ -378,6 +387,22 @@ describe("ResultPage — 이탈 경로", () => {
 
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
     vi.unstubAllGlobals();
+  });
+
+  it("이탈 이벤트의 focus_sec은 자정 분할 세션을 합산한 세션 전체 순공시간이다", async () => {
+    // 서버는 자정(KST)을 넘긴 세션을 날짜별 2건으로 쪼개 돌려준다. 첫 건만 보내면
+    // `study_session_ended`(세션 전체)와 어긋나 설문 트리거(`focus_sec ≥ 600`)를 놓친다.
+    renderResult({
+      sessions: [exampleSession({ focusSec: 300 }), exampleSession({ id: 11, focusSec: 900 })],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(trackStudyResultExited).toHaveBeenCalledWith({
+      roomType: "single",
+      focusSec: 1200,
+      destination: "home",
+    });
   });
 
   it("우상단 닫기는 CTA와 같은 동작이다", async () => {

@@ -781,6 +781,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
+    m.trackStudyResultExited({ roomType: "single", focusSec: 600, destination: "home" });
     m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
     m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
     m.trackErrorRetryPressed("home");
@@ -806,6 +807,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
+    m.trackStudyResultExited({ roomType: "social", focusSec: 5040, destination: "record" });
     m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
     m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
     m.trackErrorRetryPressed("live_room_entry");
@@ -827,6 +829,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["profile_save_failed", { reason: "CONFLICT" }],
       ["profile_save_succeeded"],
       ["study_result_confirmed", { room_type: "social", via: "close" }],
+      ["study_result_exited", { room_type: "social", focus_sec: 5040, destination: "record" }],
       ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
       ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
       ["error_retry_pressed", { screen: "live_room_entry" }],
