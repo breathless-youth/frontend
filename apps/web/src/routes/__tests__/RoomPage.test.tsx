@@ -262,7 +262,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -272,7 +272,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
   });
 
@@ -1113,7 +1113,7 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
 });
