@@ -761,6 +761,25 @@ export function trackStudyResultConfirmed(input: {
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
 }
 
+/**
+ * S4 결과 화면 이탈 — `study_result_confirmed`와 같은 순간이지만 순공시간을 싣는다.
+ * Amplitude 설문(G&S) 트리거가 `focus_sec ≥ 600` 필터로 쓴다. `focus_sec`은
+ * `study_session_ended`와 같은 세션 순공시간(초). 이벤트명·속성명이 콘솔 트리거와 맞아야 한다.
+ */
+export function trackStudyResultExited(input: {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+  /** 어디로 나갔는가 — `home`은 홈·소셜 탭 복귀, `record`는 기록 탭(기록 CTA가 생기면). */
+  readonly destination: "home" | "record";
+}) {
+  if (!initialized) return;
+  track("study_result_exited", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+    destination: input.destination,
+  });
+}
+
 /** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
 export function trackStudyResultDistractionToggled(input: {
   readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
