@@ -88,8 +88,13 @@ export function ResultPage() {
   const handleConfirm = (via: "cta" | "close" = "cta") => {
     const roomType = home === "/home" ? "single" : "social";
     trackStudyResultConfirmed({ roomType, via });
-    // 설문 트리거 — 라우팅·navigate-home보다 먼저 보낸다.
-    trackStudyResultExited({ roomType, focusSec: sessions[0].focusSec, destination: "home" });
+    // 설문 트리거 — 라우팅·navigate-home보다 먼저 보낸다. 자정 분할 세션은 배열로 오므로
+    // 합산해야 `study_session_ended`가 보낸 세션 전체 순공시간과 같아진다.
+    trackStudyResultExited({
+      roomType,
+      focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
+      destination: "home",
+    });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
