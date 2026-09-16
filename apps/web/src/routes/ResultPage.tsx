@@ -54,18 +54,14 @@ export function ResultPage() {
     }
   }, [sessions, home]);
 
-  /**
-   * 이탈 이벤트(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 확인·X·탭바·앱
-   * 재실행 어느 경로로 나가도 도착 화면(홈·기록)이 자기 웹뷰에서 보낸다(`lib/amplitude.ts`
-   * 핸드오프 주석). 자정 분할 세션은 배열로 오므로 합산해야 `study_session_ended`와 같아진다.
-   */
-  useEffect(() => {
-    if (sessions === null) return;
-    stageStudyResultExit({
-      roomType: home === "/home" ? "single" : "social",
-      focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
-    });
-  }, [sessions, home]);
+  if (sessions === null) {
+    /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
+       없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
+       그리지 않는다(SCR-S4 Interaction Contract).
+       `handleConfirm`과 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
+       고쳐지고 다른 쪽이 남는다. */
+    return <Navigate to={{ pathname: home, search: location.search }} replace />;
+  }
 
   /**
    * 이탈 경로는 **하나뿐**이다 — CTA `확인`과 우상단 `X`가 같은 콜백을 부른다.
@@ -88,8 +84,21 @@ export function ResultPage() {
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
-  function handleConfirm(via: "cta" | "close" = "cta") {
-    trackStudyResultConfirmed({ roomType: home === "/home" ? "single" : "social", via });
+  // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
+  const handleConfirm = (via: "cta" | "close" = "cta") => {
+    const roomType = home === "/home" ? "single" : "social";
+    trackStudyResultConfirmed({ roomType, via });
+    /**
+     * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
+     * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
+     * 돌아갈 경로를 함께 못박아 그 탭 웹뷰만 가져가게 한다. 자정 분할 세션은 배열로 오므로
+     * 합산해야 `study_session_ended`가 보낸 값과 같아진다.
+     */
+    stageStudyResultExit({
+      roomType,
+      focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
+      consumeAt: home,
+    });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
@@ -97,16 +106,7 @@ export function ResultPage() {
       postToNative({ type: "navigate-home", atMs: Date.now() });
     }
     navigate({ pathname: home, search: location.search }, { replace: true });
-  }
-
-  if (sessions === null) {
-    /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
-       없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
-       그리지 않는다(SCR-S4 Interaction Contract).
-       `handleConfirm`과 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
-       고쳐지고 다른 쪽이 남는다. */
-    return <Navigate to={{ pathname: home, search: location.search }} replace />;
-  }
+  };
 
   /**
    * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은

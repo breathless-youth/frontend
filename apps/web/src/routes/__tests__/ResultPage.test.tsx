@@ -389,20 +389,25 @@ describe("ResultPage — 이탈 경로", () => {
     vi.unstubAllGlobals();
   });
 
-  it("진입 즉시 이탈 예약을 남긴다 — focus_sec은 자정 분할 세션을 합산한 세션 전체 순공시간", () => {
-    // 확인을 누르기 전에 예약한다 — 탭바 이탈·앱 재실행처럼 버튼을 거치지 않는 경로도 잡는다.
+  it("이탈할 때 돌아갈 경로를 못박아 예약한다 — focus_sec은 자정 분할 세션을 합산한 값", async () => {
     // 서버는 자정(KST)을 넘긴 세션을 날짜별 2건으로 쪼개 돌려준다. 첫 건만 보내면
     // `study_session_ended`(세션 전체)와 어긋나 설문 트리거(`focus_sec ≥ 600`)를 놓친다.
     renderResult({
       sessions: [exampleSession({ focusSec: 300 }), exampleSession({ id: 11, focusSec: 900 })],
     });
 
-    expect(stageStudyResultExit).toHaveBeenCalledWith({ roomType: "single", focusSec: 1200 });
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(stageStudyResultExit).toHaveBeenCalledWith({
+      roomType: "single",
+      focusSec: 1200,
+      consumeAt: "/home",
+    });
   });
 
-  it("state 없는 진입은 예약하지 않는다 — 없는 세션을 지어내지 않는다", () => {
+  it("결과 화면에 머무는 동안에는 예약하지 않는다 — 숨은 탭이 집어가 설문이 조기 발화한다", () => {
     vi.mocked(stageStudyResultExit).mockClear();
-    renderResult(null);
+    renderResult({ sessions: [exampleSession()] });
 
     expect(stageStudyResultExit).not.toHaveBeenCalled();
   });

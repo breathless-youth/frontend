@@ -893,7 +893,7 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
 
   it("예약은 초기화와 무관하게 저장되고, 도착 화면이 한 번만 보내며 지운다", async () => {
     const staging = await loadModule();
-    staging.stageStudyResultExit({ roomType: "single", focusSec: 1200 });
+    staging.stageStudyResultExit({ roomType: "single", focusSec: 1200, consumeAt: "/home" });
     expect(localStorage.getItem(KEY)).toContain('"focusSec":1200');
 
     vi.resetModules();
@@ -902,8 +902,8 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     arriving.initAmplitude();
     mocks.track.mockClear();
 
-    arriving.consumeStudyResultExit("home");
-    arriving.consumeStudyResultExit("record");
+    arriving.consumeStudyResultExit("/home");
+    arriving.consumeStudyResultExit("/home");
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_result_exited", { room_type: "single", focus_sec: 1200, destination: "home" }],
@@ -918,13 +918,63 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     mocks.track.mockClear();
     localStorage.setItem(
       KEY,
-      JSON.stringify({ roomType: "single", focusSec: 1200, ts: Date.now() - 11 * 60_000 }),
+      JSON.stringify({
+        roomType: "single",
+        focusSec: 1200,
+        consumeAt: "/home",
+        ts: Date.now() - 11 * 60_000,
+      }),
     );
 
-    m.consumeStudyResultExit("home");
+    m.consumeStudyResultExit("/home");
 
     expect(mocks.track).not.toHaveBeenCalled();
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  /**
+   * 네이티브는 탭 4개 웹뷰를 동시에 마운트해 두고 `visibilitychange`는 앱 전체 포/백그라운드에만
+   * 반응한다 — 잠금 해제 한 번에 네 웹뷰가 동시에 여기로 들어온다. 못박은 경로가 아니면 손대지
+   * 않아야 정작 도착한 탭이 보낼 몫이 남는다.
+   */
+  it("다른 화면은 남의 예약을 집어가지도 지우지도 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "single", focusSec: 1200, consumeAt: "/home" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/social");
+    m.consumeStudyResultExit("/records");
+    m.consumeStudyResultExit("/settings");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KEY)).toContain('"consumeAt":"/home"');
+
+    m.consumeStudyResultExit("/home");
+    expect(mocks.track).toHaveBeenCalledWith("study_result_exited", {
+      room_type: "single",
+      focus_sec: 1200,
+      destination: "home",
+    });
+  });
+
+  it("기록 화면 몫이면 destination이 record다 — 소셜 탭 복귀는 home으로 센다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.stageStudyResultExit({ roomType: "single", focusSec: 900, consumeAt: "/records" });
+    mocks.track.mockClear();
+    m.consumeStudyResultExit("/records");
+
+    m.stageStudyResultExit({ roomType: "social", focusSec: 800, consumeAt: "/social" });
+    m.consumeStudyResultExit("/social");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "record" }],
+      ["study_result_exited", { room_type: "social", focus_sec: 800, destination: "home" }],
+    ]);
   });
 
   it("형태가 다른 예약은 보내지 않고 버린다 — 빈 객체는 TTL 가드를 우회해 NaN을 보낼 뻔했다", async () => {
@@ -935,11 +985,13 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
 
     for (const bad of [
       "{}",
-      '{"roomType":"solo","focusSec":1200,"ts":1}',
-      '{"roomType":"single","focusSec":"1200","ts":1}',
+      '{"roomType":"solo","focusSec":1200,"consumeAt":"/home","ts":1}',
+      '{"roomType":"single","focusSec":"1200","consumeAt":"/home","ts":1}',
+      // 경로가 없던 옛 버전의 예약 — 어디서 소비할지 모르므로 버린다.
+      '{"roomType":"single","focusSec":1200,"ts":1}',
     ]) {
       localStorage.setItem(KEY, bad);
-      m.consumeStudyResultExit("home");
+      m.consumeStudyResultExit("/home");
       expect(localStorage.getItem(KEY)).toBeNull();
     }
 
@@ -950,14 +1002,14 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     const m = await loadModule();
     localStorage.setItem(KEY, "{not json");
 
-    m.consumeStudyResultExit("home");
+    m.consumeStudyResultExit("/home");
     expect(localStorage.getItem(KEY)).toBe("{not json");
 
     vi.resetModules();
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const initialized = await loadModule();
     initialized.initAmplitude();
-    expect(() => initialized.consumeStudyResultExit("home")).not.toThrow();
+    expect(() => initialized.consumeStudyResultExit("/home")).not.toThrow();
     expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 });
