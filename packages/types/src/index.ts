@@ -18,6 +18,18 @@ export interface UserRegisterResponse {
   userId: number;
   /** 신규 생성이면 true(HTTP 201), 기존 기기 재등록이면 false(HTTP 200) */
   isNew: boolean;
+  /** BY-526부터 내려온다. 그 전 서버 응답에는 없다 — 프론트는 없으면 null로 보관하고 헤더 없이 보낸다. */
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+/**
+ * 토큰 갱신 API 계약 (POST /api/auth/refresh, 본문 `{ refreshToken }`).
+ * refresh는 1회용 회전이라 앱 전체에서 갱신을 하나로 묶어야 한다(`apps/mobile/lib/auth.ts`).
+ */
+export interface AuthRefreshResponse {
+  accessToken: string;
+  refreshToken: string;
 }
 
 /**

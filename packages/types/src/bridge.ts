@@ -53,6 +53,13 @@ export type ToWebMessage =
    * 웹은 통계 쿼리를 무효화해 다음 표시 때 새로 받는다.
    */
   | { type: "session-closed"; atMs: number }
+  /**
+   * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
+   * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
+   * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
+   * 실패이거나 아직 토큰을 주지 않는 서버다 — 웹은 헤더 없이 보낸다.
+   */
+  | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage;
 
@@ -169,6 +176,13 @@ export type ToNativeMessage =
    * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
    */
   | { type: "request-camera-gate"; atMs: number }
+  /** 웹이 `auth-token` 구독을 걸었다 — `analytics-ready`와 같은 handshake. 네이티브는 현재 토큰으로 그 문서에 답한다. */
+  | { type: "auth-ready"; atMs: number }
+  /**
+   * 웹이 401을 받았다. 네이티브가 갱신(앱 전체 single-flight)하고, 결과와 무관하게 이 문서에
+   * `auth-token`으로 답한다 — 갱신이 실패해도 문서의 대기가 풀려야 한다.
+   */
+  | { type: "request-token-refresh"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

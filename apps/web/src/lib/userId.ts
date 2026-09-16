@@ -1,4 +1,7 @@
+import { useSyncExternalStore } from "react";
 import { useSearchParams } from "react-router-dom";
+
+import { getTokenSource } from "@/lib/auth/tokenSource";
 
 /**
  * URL 쿼리 등 외부 입력에서 온 userId 문자열을 검증한다 — 십진 양의 정수만 유효, 그 외 null.
@@ -17,16 +20,33 @@ export function parseUserId(raw: string | null): number | null {
 const USER_ID_PARAM = "userId";
 
 /**
- * React 밖에서 신원을 읽는 유일한 경로. 지금은 셸이 모든 탭에 붙여 주는 `?userId=N`이 출처다.
- * 라우트 안에서는 `useUserId`를 쓴다 — 출처가 토큰으로 바뀔 때 두 함수의 본문만 바뀌고
- * 호출부는 그대로다.
+ * React 밖에서 신원을 읽는 유일한 경로. 토큰 출처(`getTokenSource`)가 있으면 그 userId가
+ * 우선이고, 없거나 null이면 셸이 모든 탭에 붙여 주는 `?userId=N`으로 폴백한다.
+ * URL 폴백은 다음 단계에서 사라진다. 라우트 안에서는 `useUserId`를 쓴다.
  */
 export function readUserId(search: string): number | null {
-  return parseUserId(new URLSearchParams(search).get(USER_ID_PARAM));
+  return (
+    getTokenSource()?.getUserId() ?? parseUserId(new URLSearchParams(search).get(USER_ID_PARAM))
+  );
 }
 
-/** 현재 라우트의 신원. 없으면 null(브라우저 단독 모드 — 세션이 저장되지 않는다). */
+/** 구독 함수가 없는(토큰 출처가 없는) 경우 렌더마다 새 함수를 만들지 않도록 모듈 레벨에 고정한다. */
+const noSubscribe = () => () => {};
+
+const getServerSnapshot = () => null;
+
+/**
+ * 현재 라우트의 신원. 토큰 출처가 있으면 그 userId를 구독해 `auth-token` 도착·갱신 시
+ * 다시 렌더되고, 없거나 null이면 URL 쿼리로 폴백한다(브라우저 단독 모드).
+ * URL 폴백은 다음 단계에서 사라진다.
+ */
 export function useUserId(): number | null {
   const [searchParams] = useSearchParams();
-  return parseUserId(searchParams.get(USER_ID_PARAM));
+  const source = getTokenSource();
+  const sourceUserId = useSyncExternalStore(
+    source?.subscribe ?? noSubscribe,
+    () => source?.getUserId() ?? null,
+    getServerSnapshot,
+  );
+  return sourceUserId ?? parseUserId(searchParams.get(USER_ID_PARAM));
 }
