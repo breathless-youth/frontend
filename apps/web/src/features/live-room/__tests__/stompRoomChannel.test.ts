@@ -513,7 +513,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -544,7 +543,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -578,7 +576,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -621,16 +618,33 @@ describe("CONNECT 토큰 인증", () => {
     expect(client.config?.brokerURL).toMatch(/\/ws$/);
   });
 
-  it("beforeConnect가 access 토큰을 Authorization 헤더로 싣는다", async () => {
+  it("붙기 직전에 갱신한 토큰을 싣는다 — 갖고 있던 토큰이 있어도 갱신본이 이긴다", async () => {
+    const { source, refresh } = fakeTokenSource("old", "fresh");
+    mocks.source = source;
     const { client, channel } = setup();
     channel.connect();
 
     await client.beforeConnect?.();
 
-    expect(client.connectHeaders.Authorization).toBe("Bearer tok");
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBe("Bearer fresh");
+    expect(client.deactivate).not.toHaveBeenCalled();
   });
 
-  it("첫 토큰이 null이면 refresh를 한 번만 부르고 그 토큰으로 붙는다", async () => {
+  it("갱신이 실패하면 갖고 있던 토큰으로 붙는다 — 서버가 흔들렸다고 방을 포기하지 않는다", async () => {
+    const { source, refresh } = fakeTokenSource("tok", null);
+    mocks.source = source;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBe("Bearer tok");
+    expect(client.deactivate).not.toHaveBeenCalled();
+  });
+
+  it("첫 토큰이 null이어도 갱신본으로 붙는다", async () => {
     const { source, refresh } = fakeTokenSource(null, "fresh");
     mocks.source = source;
     const { client, channel } = setup();
@@ -643,7 +657,7 @@ describe("CONNECT 토큰 인증", () => {
     expect(client.deactivate).not.toHaveBeenCalled();
   });
 
-  it("refresh 후에도 null이면 deactivate하고 연결을 진행하지 않는다", async () => {
+  it("갱신도 실패하고 갖고 있던 토큰도 없으면 끊는다", async () => {
     const { source, refresh } = fakeTokenSource(null, null);
     mocks.source = source;
     const { client, channel } = setup();

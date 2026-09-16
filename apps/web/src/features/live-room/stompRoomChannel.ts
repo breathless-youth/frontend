@@ -242,12 +242,17 @@ export function createStompRoomChannel({
    * `Authorization: Bearer <access>` 네이티브 헤더로만 전달되고, 서버는 CONNECT 시점에 한 번만
    * 검증한다(접속 중 만료돼도 그 세션은 유지된다). 헤더가 없거나 무효면 ERROR 프레임 뒤
    * 소켓이 끊긴다. connectHeaders는 정적 객체라 재연결마다 여기서 갈아 끼운다.
+   *
+   * 붙기 직전에 토큰을 새로 받아 쓴다. 웹은 JWT를 열어보지 않아 만료를 알 수 없고, 만료된
+   * 토큰으로 붙으면 서버가 끊은 뒤 reconnectDelay가 5초마다 같은 실패를 반복한다. 갱신이
+   * 실패하면 갖고 있던 토큰으로라도 붙어 본다. 서버가 잠깐 흔들린 것을 인증 실패로 보고
+   * 방 연결을 포기하면 안 된다.
    */
   client.beforeConnect = async () => {
     const source = getTokenSource();
     // 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
     const token =
-      source === null ? null : ((await source.getAccessToken()) ?? (await source.refresh()));
+      source === null ? null : ((await source.refresh()) ?? (await source.getAccessToken()));
     if (token === null) {
       // 토큰 없이 붙어 봐야 서버가 끊고, reconnectDelay가 5초마다 영원히 다시 시도한다.
       // disconnect와 같은 종료 상태로 내려 워치독·재연결의 되살리기 경로를 전부 막는다.

@@ -989,7 +989,7 @@ describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
 
     act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
 
-    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712"));
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 
   it("재-join이 실패하면 공부를 마치고 안내와 함께 소셜 홈으로 보낸다", async () => {
@@ -1024,7 +1024,7 @@ describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
 
     act(() => getOnSnapshotUnrecovered()?.());
 
-    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712"));
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 });
 

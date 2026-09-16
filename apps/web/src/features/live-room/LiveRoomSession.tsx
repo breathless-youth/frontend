@@ -187,7 +187,6 @@ export function LiveRoomSession({
   }, [channel, endAndSubmit]);
   const requestRejoin = useRoomRejoin({
     channel,
-    userId,
     inviteCode,
     onUnavailable: handleRoomUnavailable,
   });
