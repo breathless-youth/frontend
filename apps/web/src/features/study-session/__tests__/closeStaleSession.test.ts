@@ -45,7 +45,7 @@ describe("closeStaleSession", () => {
     expect(recovered).toEqual(RECOVERED);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/study-sessions/recovery?userId=7");
+    expect(url).toBe("/api/study-sessions/recovery");
     expect(init.method).toBe("POST");
     expect(reportHandled).not.toHaveBeenCalled();
   });

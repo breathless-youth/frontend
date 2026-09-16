@@ -62,7 +62,7 @@ describe("periodStatsQuery", () => {
     }
 
     expect(calls[0]).toBe(
-      "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
+      "/api/stats/period?from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
     );
   });
 });

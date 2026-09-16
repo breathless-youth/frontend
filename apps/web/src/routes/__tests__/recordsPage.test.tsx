@@ -167,7 +167,7 @@ describe("RecordsPage", () => {
     const nextMonthFirstDay = statsQueryDateKey(todayKey, nextMonth);
     const recordedDateKey = `${nextMonthFirstDay.slice(0, -2)}15`;
 
-    mockedStats.mockImplementation(async (_userId, date) =>
+    mockedStats.mockImplementation(async (date) =>
       date === nextMonthFirstDay
         ? { ...statsResponse(false), studiedDatesInMonth: [recordedDateKey] }
         : statsResponse(false),

@@ -94,7 +94,7 @@ export function LiveRoomEntry({
       return;
     }
     let cancelled = false;
-    void renewLiveRoomSeat(userId, entryState.inviteCode)
+    void renewLiveRoomSeat(entryState.inviteCode)
       .then((response) => {
         if (!cancelled) {
           setIceServers(response.iceServers);

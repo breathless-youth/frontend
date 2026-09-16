@@ -43,7 +43,6 @@ const RESTORE_TIMEOUT_MS = 5_000;
  * 나머지 실패는 status를 가진 ApiError로 던져 호출부가 400·409와 일시 장애를 가른다.
  */
 export async function restoreActiveSession(
-  userId: number,
   timeoutMs: number = RESTORE_TIMEOUT_MS,
 ): Promise<RestoredSession | null> {
   const controller = new AbortController();
@@ -51,7 +50,7 @@ export async function restoreActiveSession(
     controller.abort();
   }, timeoutMs);
   try {
-    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active?userId=${userId}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active`, {
       method: "GET",
       signal: controller.signal,
     });

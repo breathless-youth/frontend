@@ -9,7 +9,6 @@ import { clampSessionSeconds } from "./sessionRequestClamp";
  * `sessionTimeline.ts`가 세션 상태 머신으로 계산해 넘긴다.
  */
 export interface ActiveSnapshotInput {
-  userId: number;
   startedAtMs: number;
   reportedAtMs: number;
   studySec: number;
@@ -28,7 +27,6 @@ export function buildActiveSnapshotRequest(
     events: input.events,
   });
   return {
-    userId: input.userId,
     startedAt: new Date(input.startedAtMs).toISOString(),
     reportedAt: new Date(input.reportedAtMs).toISOString(),
     studySec,

@@ -16,7 +16,6 @@ describe("buildSessionRequest", () => {
   it("epoch ms를 UTC ISO-8601로 변환하고 events 기본값은 빈 배열이다", () => {
     const req = buildSessionRequest(BASE_INPUT);
     expect(req).toEqual({
-      userId: 1,
       startedAt: "2026-07-25T01:00:00.000Z",
       endedAt: "2026-07-25T02:00:00.000Z",
       studySec: 3600,
@@ -91,7 +90,6 @@ describe("buildSessionRequest", () => {
     // 세션 100,900ms · PAUSE 10,400ms → computeSessionTotals가 내는 값은 floor(90,500/1000)=90.
     const startedAtMs = Date.UTC(2026, 6, 25, 1, 0, 0);
     const req = buildSessionRequest({
-      userId: 1,
       startedAtMs,
       endedAtMs: startedAtMs + 100_900,
       studySec: 90,
@@ -145,11 +143,9 @@ describe("submitStudySession", () => {
     expect(result).toEqual(sessions);
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions$/);
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
-      userId: 1,
-      studySec: 3600,
-      events: [],
-    });
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toMatchObject({ studySec: 3600, events: [] });
+    expect(body).not.toHaveProperty("userId");
   });
 
   it("400이면 서버 message로 throw한다", async () => {

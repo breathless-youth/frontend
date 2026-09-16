@@ -16,7 +16,6 @@ const INPUT = {
 describe("buildActiveSnapshotRequest", () => {
   it("epoch ms를 UTC ISO-8601로 변환하고 reportedAt을 기준으로 담는다", () => {
     expect(buildActiveSnapshotRequest(INPUT)).toEqual({
-      userId: 1,
       startedAt: "2026-07-25T01:00:00.000Z",
       reportedAt: "2026-07-25T01:00:30.000Z",
       studySec: 30,
@@ -45,10 +44,9 @@ describe("reportActiveSession", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit).method).toBe("PUT");
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
-      userId: 1,
-      reportedAt: "2026-07-25T01:00:30.000Z",
-    });
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toMatchObject({ reportedAt: "2026-07-25T01:00:30.000Z" });
+    expect(body).not.toHaveProperty("userId");
   });
 
   it("실패는 status를 가진 ApiError로 던진다", async () => {

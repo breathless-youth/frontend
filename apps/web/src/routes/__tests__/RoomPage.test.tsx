@@ -237,7 +237,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
     expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
-      userId: 1,
       events: [],
     });
   });

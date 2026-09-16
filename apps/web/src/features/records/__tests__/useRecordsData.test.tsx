@@ -58,7 +58,7 @@ describe("useRecordsData — placeholder 가드(useRecordsData.ts의 !day.isPlac
   it("같은 달의 미캐시 날짜를 선택해도 이전 날짜 데이터가 새 날짜 아래 보이지 않는다 — pending 유지", async () => {
     const dots = ["2026-07-24", "2026-07-26"];
     let resolveSecond: ((value: StudySessionListResponse) => void) | undefined;
-    mockedStats.mockImplementation((_userId, date) => {
+    mockedStats.mockImplementation((date) => {
       if (date === "2026-07-26") {
         return Promise.resolve(statsResponse(dots));
       }

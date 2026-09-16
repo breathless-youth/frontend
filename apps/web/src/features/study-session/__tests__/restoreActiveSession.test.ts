@@ -33,7 +33,7 @@ describe("restoreActiveSession", () => {
       vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(BODY) }),
     );
 
-    const restored = await restoreActiveSession(7);
+    const restored = await restoreActiveSession();
 
     expect(restored).toEqual({
       startedAtMs: Date.parse(BODY.startedAt),
@@ -44,7 +44,7 @@ describe("restoreActiveSession", () => {
     });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
-    expect(String(url)).toMatch(/\/api\/study-sessions\/active\?userId=7$/);
+    expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit | undefined)?.method ?? "GET").toBe("GET");
   });
 
@@ -58,7 +58,7 @@ describe("restoreActiveSession", () => {
       }),
     );
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("404가 아닌 실패는 status를 가진 ApiError로 던진다", async () => {
@@ -71,7 +71,7 @@ describe("restoreActiveSession", () => {
       }),
     );
 
-    const error = await restoreActiveSession(7).catch((e: unknown) => e);
+    const error = await restoreActiveSession().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(409);
   });
@@ -86,7 +86,7 @@ describe("restoreActiveSession", () => {
       }),
     );
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("보고 시각이 시작 시각보다 앞선 응답은 복원하지 않는다", async () => {
@@ -99,7 +99,7 @@ describe("restoreActiveSession", () => {
       }),
     );
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("상한을 넘긴 요청은 AbortError로 끊는다", async () => {
@@ -116,7 +116,7 @@ describe("restoreActiveSession", () => {
       ),
     );
 
-    const caught = restoreActiveSession(7, 1_000).catch((e: unknown) => e);
+    const caught = restoreActiveSession(1_000).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(1_000);
     const error = await caught;
 
@@ -127,7 +127,7 @@ describe("restoreActiveSession", () => {
   it("이벤트 목록이 배열이 아니면 복원을 포기한다", async () => {
     stub200({ ...BODY, events: null });
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("시각을 읽을 수 없는 이벤트가 있으면 복원을 포기한다", async () => {
@@ -137,7 +137,7 @@ describe("restoreActiveSession", () => {
       events: [{ status: "PAUSE", startedAt: "언제였더라", endedAt: BODY.reportedAt }],
     });
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("끝이 시작보다 빠른 이벤트가 있으면 복원을 포기한다", async () => {
@@ -148,7 +148,7 @@ describe("restoreActiveSession", () => {
       ],
     });
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
   it("모르는 상태값이 있으면 복원을 포기한다", async () => {
@@ -159,6 +159,6 @@ describe("restoreActiveSession", () => {
       ],
     });
 
-    await expect(restoreActiveSession(7)).resolves.toBeNull();
+    await expect(restoreActiveSession()).resolves.toBeNull();
   });
 });

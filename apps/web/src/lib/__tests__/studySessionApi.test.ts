@@ -20,7 +20,7 @@ describe("getStudySessionDetail", () => {
     vi.clearAllMocks();
   });
 
-  it("세션 id는 경로로, userId는 쿼리로 보내고 200 본문을 반환한다", async () => {
+  it("세션 id는 경로로 보내고 200 본문을 반환한다", async () => {
     const response = {
       id: 10,
       userId: 7,
@@ -36,9 +36,9 @@ describe("getStudySessionDetail", () => {
     };
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
-    await expect(getStudySessionDetail(7, 10)).resolves.toEqual(response);
+    await expect(getStudySessionDetail(10)).resolves.toEqual(response);
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/study-sessions/10?userId=7",
+      "/api/study-sessions/10",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -48,7 +48,7 @@ describe("getStudySessionDetail", () => {
       jsonResponse(404, { code: "NOT_FOUND", message: "세션을 찾을 수 없습니다" }),
     );
 
-    const error = await getStudySessionDetail(7, 10).catch((thrown: unknown) => thrown);
+    const error = await getStudySessionDetail(10).catch((thrown: unknown) => thrown);
 
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
@@ -67,6 +67,6 @@ describe("getStudySessionDetail", () => {
       },
     });
 
-    await expect(getStudySessionDetail(7, 10)).rejects.toThrow("세션 조회 실패 (HTTP 404)");
+    await expect(getStudySessionDetail(10)).rejects.toThrow("세션 조회 실패 (HTTP 404)");
   });
 });

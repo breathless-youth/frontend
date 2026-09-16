@@ -24,11 +24,8 @@ async function retryOnce<T>(signal: AbortSignal, run: () => Promise<T>): Promise
   }
 }
 
-async function requestRecovery(
-  userId: number,
-  signal: AbortSignal,
-): Promise<SessionRecoveryResponse | null> {
-  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery?userId=${userId}`, {
+async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResponse | null> {
+  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery`, {
     method: "POST",
     signal,
   });
@@ -117,7 +114,7 @@ export async function closeStaleSession(
   });
   try {
     return await Promise.race([
-      retryOnce(controller.signal, () => requestRecovery(userId, controller.signal)).catch(
+      retryOnce(controller.signal, () => requestRecovery(controller.signal)).catch(
         (error: unknown): null => {
           if (!controller.signal.aborted) {
             reportHandled(error, "stale-session-close");
