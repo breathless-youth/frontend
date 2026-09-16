@@ -300,6 +300,30 @@ Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
 - 기본 크기는 20, 작은 보조 아이콘은 16, 주요 행동은 24다.
 - 아이콘 단독 버튼은 접근성 이름과 최소 44x44 터치 영역을 제공한다.
 - 상태 아이콘은 텍스트 레이블을 대체하지 않는다.
+- 새 아이콘은 Figma에서 SVG로 내보내고 색은 `currentColor`로 바꿔 부모가 정하게 한다.
+  손으로 그려 근사하지 않는다.
+
+#### 어디에 있나
+
+아이콘 컴포넌트를 모아 둔 공용 폴더는 없다. 화면 단위로 흩어져 있다.
+
+| 위치 | 담긴 것 |
+| --- | --- |
+| `apps/web/src/features/home/icons.tsx` | `IconPlay` `IconChevronRight` `IllustFlame` `IllustStudyDoodle` |
+| `apps/web/src/features/records/icons.tsx` | `IconChevronRight` `IconChevronLeft` `IconCheckSm` `IconChevronDown` `IllustFlame` |
+| `apps/web/src/features/social-room/icons.tsx` | `IconSocialPeople` |
+| `apps/web/src/features/onboarding/coachIcons.tsx` | `IconPause` `IconCameraFlip` `IconExit` `IconClose` `IllustPrivacyCamera` `CoachTooltipTail` |
+| `apps/web/src/components/CameraFlipIcon.tsx` | `CameraFlipIcon` |
+| `apps/mobile/components/icons.tsx` | 탭 아이콘 4종 포함 13개 |
+
+세션 컨트롤 아이콘만 컴포넌트가 아니라 SVG 파일이고 `apps/web/src/assets/icons/`에 있다
+(`session-play` `session-pause` `session-exit` `session-camera` `session-camera-off`).
+`SessionControlBar`가 import해 쓴다.
+
+`IconChevronRight`와 `IllustFlame`은 홈과 기록에 **각각 정의돼 있다.** 같은 아이콘이 웹 안에서
+두 벌인 것이라, 새 화면에서 필요하면 세 번째를 만들지 말고 둘 중 하나를 공용으로 올린다.
+웹과 모바일에 같은 이름이 있는 것은 별개다. DOM `svg`와 React Native `Svg`로 구현이 달라
+합칠 수 없다.
 
 ### 생성 이미지
 
