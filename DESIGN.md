@@ -309,97 +309,67 @@ Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
 - 공부, 성장, 루틴과 편안한 몰입을 표현한다.
 - 워터마크, 로고와 이미지 내부 텍스트를 금지한다.
 
-## 10. 핵심 컴포넌트
+## 10. 컴포넌트
 
-컴포넌트는 실제 Figma 화면에서 필요성이 확인된 순서로 구현한다. 아래 목록은 계약 후보이며 구현 완료 목록이 아니다.
+이 절은 **웹(`apps/web`) 기준**이다. Figma 컴포넌트와 코드 파일의 전체 대응표는
+[`.claude/skills/focusmakers-design/references/components.md`](./.claude/skills/focusmakers-design/references/components.md)에
+있고, 노드 id까지 적혀 있다. 아래는 그중 무엇이 실제로 존재하고 무엇이 아직 없는지만 가른 것이다.
 
-### Layout
+### 지금 있는 것
 
-#### `Screen`
+공용 프리미티브는 `apps/web/src/components/ui/`에 있다.
 
-- Safe Area와 기본 캔버스 배경을 소유한다.
-- 스크롤 여부와 하단 고정 영역을 명시적으로 선택한다.
-- 화면별 비즈니스 로직을 포함하지 않는다.
+| 컴포넌트 | API | 비고 |
+| --- | --- | --- |
+| `Button` | `variant`: `default` `outline` `ghost` / `size`: `default`(h-10) `sm`(h-8) `lg`(h-12) | shadcn 기반. `buttonVariants`도 함께 내보낸다 |
+| `Dialog` | `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogFooter` `DialogTitle` `DialogDescription` `DialogClose` `DialogOverlay` `DialogPortal` | Radix 기반 |
+| `Toast` / `ToastViewport` | `message`, `tone`(`session` 하나) | 다크 알약 고정. 배경은 `--session-toast-bg` |
+| `Skeleton` | `className` | 로딩 자리표시 |
+| `ErrorState` | `message`, `onRetry`, `screen` | 조회 실패 자리표시. `screen`은 계측용 |
 
-#### `Stack` and `Row`
+공용 화면 조각은 `apps/web/src/components/`에 있다.
 
-- 토큰 기반 간격만 허용한다.
-- 임의 margin을 반복하는 대신 형제 요소의 배치를 표현한다.
+| 컴포넌트 | 역할 |
+| --- | --- |
+| `ScreenBackHeader` | 뒤로가기 + 제목 헤더 |
+| `LegalDocumentScreen` | 약관·개인정보 문서 화면 껍데기 |
+| `ErrorFallback` | 라우트 단위 에러 바운더리 |
 
-### Typography
+나머지는 화면 단위로 각 feature 폴더에 있다. 설정은 `SettingsRow` `SettingsSection`
+`PermissionToggle`, 기록은 `SummaryTiles` `SessionListItem` `MonthCalendar` `EventChip`
+`StreakBanner`가 그렇다. 홈은 아직 별도 파일이 없고 `routes/HomeTabPage.tsx` 안에
+`HeroTodayCard` `StartCtaCard` `StatCard` `GuideCard` `FocusGauge`가 직접 정의돼 있다.
 
-#### `AppText`
+### 아직 없는 것
 
-- 타이포그래피 토큰을 variant로 제공한다.
-- 기본 색상은 `text.primary`다.
-- 글자 확대와 줄바꿈을 막지 않는다.
+아래는 **계약 후보이며 구현된 적이 없다.** 시안이 이들을 전제로 그려지면 구현 단계에서
+전부 새로 만들어야 하므로, 쓰려면 먼저 만들 일감으로 잡는다. 만들 때 지킬 성격은 적어 둔다.
 
-### Actions
+| 후보 | 만들 때 지킬 것 |
+| --- | --- |
+| `Screen` | Safe Area와 기본 캔버스 배경을 소유한다. 스크롤 여부와 하단 고정 영역을 명시적으로 고른다 |
+| `Stack`, `Row` | 토큰 기반 간격만 허용한다. 임의 margin 반복을 대체한다 |
+| `AppText` | 타이포 토큰을 variant로 제공한다. 기본 색은 `text.primary`. 글자 확대와 줄바꿈을 막지 않는다 |
+| `IconButton` | 시각 크기와 무관하게 최소 44×44 터치 영역. 접근성 이름은 아이콘 이름이 아니라 사용자 행동 |
+| `TextInput` | default·focused·filled·disabled·error. 레이블·값·도움말·오류를 한 필드 계약으로 묶는다. placeholder로 레이블을 대체하지 않는다 |
+| `Card` | `surface` `outlined` `highlighted`만 우선. 카드 전체가 눌리면 pressed 상태와 접근성 역할을 준다 |
+| `Divider` | 목록과 정보 그룹의 구조 보조용. 장식으로 반복하지 않는다 |
+| `StudyStatusBadge` | 세션 상태와 1:1. 상태색·텍스트 레이블·선택적 아이콘을 함께 쓴다. 지금은 `features/study-session`의 `SessionStatusPill`이 비슷한 일을 한다 |
+| `LoadingState`, `EmptyState` | 문구와 행동을 props로 받는다. 로딩은 레이아웃 이동을 줄이고, 빈 상태는 다음 행동을 제시한다 |
 
-#### `Button`
+승격 판단 기준은 [17. 컴포넌트 승격 규칙](#17-컴포넌트-승격-규칙)을 따른다.
 
-Variants:
+### 알려진 어긋남
 
-- `primary`: 핵심 행동
-- `secondary`: 보조 행동
-- `tertiary`: 낮은 강조 행동
-- `destructive`: 되돌리기 어려운 행동
+고치기 전까지 사실로 알고 있어야 하는 것들이다.
 
-States:
-
-- default
-- pressed
-- focused
-- disabled
-- loading
-
-버튼은 최소 높이 48, 터치 영역 48 이상을 사용한다. 한 화면에서 primary 버튼은 원칙적으로 하나만 둔다.
-
-#### `IconButton`
-
-- 시각 크기와 무관하게 최소 44x44 터치 영역을 제공한다.
-- 아이콘 이름이 아니라 사용자 행동을 접근성 이름으로 제공한다.
-
-### Inputs
-
-#### `TextInput`
-
-States:
-
-- default
-- focused
-- filled
-- disabled
-- error
-
-레이블, 입력값, 도움말과 오류 메시지를 하나의 필드 계약으로 관리한다. placeholder만으로 레이블을 대체하지 않는다.
-
-### Containers
-
-#### `Card`
-
-- `surface`, `outlined`, `highlighted` variant만 우선 제공한다.
-- 카드 전체가 눌리는 경우 pressed 상태와 접근성 역할을 제공한다.
-
-#### `Divider`
-
-- 목록과 정보 그룹의 구조를 보조한다.
-- 장식 목적으로 반복 사용하지 않는다.
-
-### Status and Feedback
-
-#### `StudyStatusBadge`
-
-- 네 가지 `StudyStatus`와 1:1로 대응한다.
-- 상태색, 텍스트 레이블과 선택적 아이콘을 함께 사용한다.
-- 앱 셸에서는 요약 정보에만 사용하고 WebView 내부 상태를 임의로 재구현하지 않는다.
-
-#### `LoadingState`, `EmptyState`, `ErrorState`
-
-- 화면별 문구와 행동을 props로 받는다.
-- 로딩 시 레이아웃 이동을 줄인다.
-- 오류 상태는 문제 설명과 복구 행동을 제공한다.
-- 빈 상태는 사용자가 다음에 할 수 있는 행동을 제시한다.
+- **공용 `Button`이 거의 쓰이지 않는다.** 웹 전체에서 `<Button`을 쓰는 파일이 두 개뿐이고,
+  나머지 화면은 각자 `<button>`에 클래스를 붙인다. 버튼 룩이 화면마다 갈라져 있다.
+- **`Button`의 기본 높이가 40px(`h-10`)다.** [12. 접근성](#12-접근성)의 최소 44×44 규칙에
+  못 미친다. Figma의 `Button / CTA V2`는 56·48·44 계열이라 그쪽과도 어긋난다.
+- **아이콘이 중복 정의돼 있다.** `IconChevronRight`와 `IllustFlame`이 `features/home/icons.tsx`,
+  `features/records/icons.tsx`, `apps/mobile/components/icons.tsx` 세 곳에 각각 있다.
+- **홈 컴포넌트가 라우트 파일 안에 있다.** 다른 화면에서 재사용하려면 먼저 파일로 꺼내야 한다.
 
 ## 11. 내비게이션
 
