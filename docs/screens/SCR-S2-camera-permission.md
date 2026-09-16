@@ -242,7 +242,7 @@ export function openAppSettings(): Promise<void>;
 1. 착수 전 이 문서와 `frontend/docs/screen-ownership.md`, `apps/mobile/CLAUDE.md`를 읽는다.
 2. Figma 노드 `52:312`를 `get_design_context`로 재확인한다(호출 전 `figma:figma-design-to-code` 스킬 선행 필수). `52:139`는 **읽기만 하고 구현하지 않는다.**
 3. **S2-2 작업 = `apps/mobile/app.json` 한 줄 교체.** `ios.infoPlist.NSCameraUsageDescription`을 위 Content 표의 확정 문자열로 바꾼다. 그 외 `app.json` 키는 건드리지 않는다 — 특히 `expo.name`/`expo.slug`는 **바꾸지 말고** Review Checklist로 올린다(앱 표시명 변경은 이 화면 범위를 넘는 결정이고 `slug` 변경은 EAS 프로젝트에 영향).
-4. **마이크 권한을 추가하지 않는다**(`apps/mobile/CLAUDE.md` — 멀티룸 음성 송출 없음). `android.permissions`도 그대로 둔다.
+4. **마이크 권한을 추가하지 않는다**(`apps/mobile/CLAUDE.md` — 멀티룸 음성 송출 없음). `android.permissions`도 그대로 둔다. `android.blockedPermissions`의 `RECORD_AUDIO` 차단은 유지한다(`expo-camera`가 plugin 없이도 넣는 권한을 걷어내는 장치, ADR 0004 "남는 위험").
 5. 아이콘은 **SVG path로 옮긴다. PNG 금지** — Figma의 PNG 익스포트에는 캔버스 배경 `<rect>`가 합성돼 흰 네모로 보인다(2026-07-26 S1에서 실제 발생, `SCR-S1-home.md` 참고). SVG에서는 해당 `<rect>`만 제외한다.
 6. `icon-circle` 배경은 Figma의 하드코딩 `#F2F4F6`을 그대로 쓰지 말고 **`bg/layer2` 토큰에 바인딩**한다(다크모드에서 밝은 회색 원이 튀지 않게).
 7. 권한 조회/요청은 `apps/mobile/lib/cameraPermission.ts` 어댑터 뒤에 격리한다. **새 네이티브 의존성(`expo-camera` 등)을 임의로 설치하지 않는다** — 인터페이스 + mock + TODO로 두고 리더에게 확인한다. `openAppSettings()`만 실제 구현한다(RN 코어 `Linking.openSettings()` 또는 이미 설치된 `expo-linking`).

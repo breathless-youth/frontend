@@ -30,6 +30,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"],
       "package": "com.breathlessyouth.mobile"
     },
     "plugins": [
@@ -52,13 +53,22 @@
         "@sentry/react-native/expo",
         {
           "organization": "breathless-youth",
-          "project": "focusmakers-app"
+          "project": "focusmakers-app",
+          "experimental_android": {
+            "enableAndroidGradlePlugin": true,
+            "uploadNativeSymbols": false,
+            "includeNativeSources": false
+          }
         }
       ],
       "./plugins/withAppDisplayName",
       [
         "expo-build-properties",
         {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          },
           "ios": {
             "useFrameworks": "dynamic"
           }
