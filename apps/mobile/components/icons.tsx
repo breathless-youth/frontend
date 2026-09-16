@@ -300,7 +300,8 @@ export function IllustFlame({ width = 19, height = 22, ...rest }: SvgProps) {
  * 다행히 사용된 색이 전부 기존 시맨틱 토큰의 라이트값과 정확히 일치해서(#191F28=text/primary,
  * white=bg/base, #F2F4F6=bg/layer-2, #1B64DA=brand/primary, #8B95A1=text/tertiary),
  * 색을 새로 정하지 않고 원래 의도됐을 토큰 바인딩을 복원했다. 디자이너가 다크 전용 변형을
- * 따로 제공하면 그것으로 교체한다(SCR-S1-home.md의 Review Checklist 참고).
+ * 따로 제공하면 그것으로 교체한다. Figma 원본은 색이 하드코딩돼 있어 원본에도 변수 바인딩을
+ * 넣어야 다음 익스포트에서 같은 문제가 반복되지 않는다.
  */
 export function IllustStudyDoodle({ width = 96, height = 75, ...rest }: SvgProps) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
