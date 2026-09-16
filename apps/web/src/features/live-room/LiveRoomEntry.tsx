@@ -205,6 +205,7 @@ export function LiveRoomEntry({
     <LiveRoomSession
       roomId={roomId}
       userId={userId}
+      inviteCode={entryState.inviteCode}
       createChannel={createChannel}
       camera={camera}
       createPeerConnection={createPeerConnection}

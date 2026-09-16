@@ -56,10 +56,7 @@ export function LiveRoomPage({
       roomId={roomId}
       userId={userId}
       entryState={entryState}
-      createChannel={
-        createChannel ??
-        (({ roomId: r, userId: u }) => createStompRoomChannel({ roomId: r, userId: u }))
-      }
+      createChannel={createChannel ?? ((options) => createStompRoomChannel(options))}
       createCamera={createCamera}
       createPeerConnection={createPeerConnection}
     />

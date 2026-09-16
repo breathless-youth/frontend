@@ -87,6 +87,13 @@ export function createPeerMesh({
   const lastStatsSample = new Map<number, RtcStatRequest>();
   const statsTimers = new Map<number, ReturnType<typeof setInterval>>();
   const STATS_INTERVAL_MS = 60000;
+  // ICE가 disconnected·failed인 피어. 비지 않은 동안 스냅샷을 10초 주기로 재대조한다 —
+  // 배포 겹침 구간엔 태스크 간 릴레이가 없어 떠난 멤버가 유령으로 남는데, SNAPSHOT은
+  // 목록을 통째로 교체하므로 재대조가 멱등하게 정리한다. ICE 재협상(미디어 경로 복구)과
+  // 관심사는 다르지만 같은 조건에서 켜지므로 ICE 상태를 아는 여기가 맡는다.
+  const degradedPeers = new Set<number>();
+  const SNAPSHOT_RECONCILE_MS = 10_000;
+  let snapshotReconcileTimer: ReturnType<typeof setInterval> | null = null;
   let localStream: MediaStream | null = null;
   let trackEnabled = true;
   let unsubscribe: (() => void) | null = null;
@@ -100,6 +107,26 @@ export function createPeerMesh({
     for (const listener of listeners) {
       listener(userId, stream);
     }
+  }
+
+  function updateSnapshotReconcile() {
+    if (degradedPeers.size > 0 && snapshotReconcileTimer === null) {
+      snapshotReconcileTimer = setInterval(() => {
+        channel.requestSnapshot();
+      }, SNAPSHOT_RECONCILE_MS);
+    } else if (degradedPeers.size === 0 && snapshotReconcileTimer !== null) {
+      clearInterval(snapshotReconcileTimer);
+      snapshotReconcileTimer = null;
+    }
+  }
+
+  function markPeerDegraded(userId: number, degraded: boolean) {
+    if (degraded) {
+      degradedPeers.add(userId);
+    } else {
+      degradedPeers.delete(userId);
+    }
+    updateSnapshotReconcile();
   }
 
   type CandidateType = RtcStatRequest["candidateType"];
@@ -342,7 +369,16 @@ export function createPeerMesh({
       notify(userId, stream);
     };
     pc.oniceconnectionstatechange = () => {
+      // 폐기된 이전 세대 pc의 늦은 이벤트는 무시한다 — 재수립한 새 pc의 degraded 상태를
+      // 이전 pc의 "closed"/"connected"가 잘못 지우지 않게 한다.
+      if (peers.get(userId) !== pc) {
+        return;
+      }
       debug(`ice ${userId}: ${pc.iceConnectionState}`);
+      markPeerDegraded(
+        userId,
+        pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed",
+      );
       if (pc.iceConnectionState === "connected") {
         restartAttempted.delete(userId);
         void sampleAndReport(userId, pc);
@@ -461,6 +497,7 @@ export function createPeerMesh({
     finalizeStats(userId);
     pc.close();
     peers.delete(userId);
+    markPeerDegraded(userId, false);
     restartAttempted.delete(userId);
     offeredByMe.delete(userId);
     lastStreams.delete(userId);
@@ -540,6 +577,7 @@ export function createPeerMesh({
     finalizeStats(userId);
     pc.close();
     peers.delete(userId);
+    markPeerDegraded(userId, false);
     restartAttempted.delete(userId);
     offeredByMe.delete(userId);
     lastStreams.delete(userId);
@@ -551,6 +589,7 @@ export function createPeerMesh({
 
   const handleMessage = (message: Parameters<Parameters<RoomChannel["subscribe"]>[0]>[0]) => {
     if (message.type === "SNAPSHOT") {
+      const present = new Set(message.members.map((m) => m.userId));
       let started = 0;
       for (const m of message.members) {
         if (m.userId === myUserId || peers.has(m.userId)) {
@@ -558,6 +597,16 @@ export function createPeerMesh({
         }
         startOffer(m.userId);
         started += 1;
+      }
+      // SNAPSHOT 명단에서 빠졌고 이미 ICE가 끊긴(degraded) 피어만 닫는다 — 그게 유령이다.
+      // 닫으면 그 피어의 실패한 pc와 degradedPeers 항목이 정리돼 재대조 타이머가 멈춘다.
+      // 명단에 빠졌어도 degraded가 아닌 피어는 건드리지 않는다: SNAPSHOT(개인 큐)과
+      // MEMBER_JOINED(토픽)는 도착 순서가 어긋날 수 있어, 갓 들어온 건강한 피어를 그 피어보다
+      // 먼저 만들어진 옛 SNAPSHOT이 빠뜨릴 수 있다. degraded가 아니면 살아 있는 연결이므로 둔다.
+      for (const userId of [...peers.keys()]) {
+        if (!present.has(userId) && degradedPeers.has(userId)) {
+          closePeer(userId);
+        }
       }
       // 동시 입장 레이스 진단용 — 스냅샷을 받았는지, offer 루프가 돌았는지를 기기에서 본다.
       debug(`snap ${message.members.length}명 offer ${started}발`);
@@ -670,6 +719,11 @@ export function createPeerMesh({
         clearInterval(timer);
       }
       statsTimers.clear();
+      if (snapshotReconcileTimer !== null) {
+        clearInterval(snapshotReconcileTimer);
+        snapshotReconcileTimer = null;
+      }
+      degradedPeers.clear();
       connectionIds.clear();
       lastStatsSample.clear();
     },
