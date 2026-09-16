@@ -8,7 +8,7 @@ import { ResultHeader } from "@/features/study-session/components/ResultHeader";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
-import { trackStudyResultConfirmed, trackStudyResultExited } from "@/lib/amplitude";
+import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 
 /**
@@ -88,12 +88,16 @@ export function ResultPage() {
   const handleConfirm = (via: "cta" | "close" = "cta") => {
     const roomType = home === "/home" ? "single" : "social";
     trackStudyResultConfirmed({ roomType, via });
-    // 설문 트리거 — 라우팅·navigate-home보다 먼저 보낸다. 자정 분할 세션은 배열로 오므로
-    // 합산해야 `study_session_ended`가 보낸 세션 전체 순공시간과 같아진다.
-    trackStudyResultExited({
+    /**
+     * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
+     * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
+     * 돌아갈 경로를 함께 못박아 그 탭 웹뷰만 가져가게 한다. 자정 분할 세션은 배열로 오므로
+     * 합산해야 `study_session_ended`가 보낸 값과 같아진다.
+     */
+    stageStudyResultExit({
       roomType,
       focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
-      destination: "home",
+      consumeAt: home,
     });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
