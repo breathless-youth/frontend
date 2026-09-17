@@ -43,6 +43,10 @@ const DialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 text-foreground shadow-lg sm:rounded-lg",
         className,
       )}
+      // Radix가 이 속성을 만들어주지 않는다 — `nativeModalOverlay.ts`의 네이티브 탭 바
+      // 차단 감지가 `aria-modal="true"`의 존재 여부만 본다. props보다 앞에 둬 호출부가
+      // 필요하면 덮어쓸 수 있게 한다.
+      aria-modal="true"
       {...props}
     >
       {children}
