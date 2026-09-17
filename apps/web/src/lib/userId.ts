@@ -20,9 +20,12 @@ export function parseUserId(raw: string | null): number | null {
 const USER_ID_PARAM = "userId";
 
 /**
- * React 밖에서 신원을 읽는 유일한 경로. 토큰 출처(`getTokenSource`)가 있으면 그 userId가
- * 우선이고, 없거나 null이면 셸이 모든 탭에 붙여 주는 `?userId=N`으로 폴백한다.
- * URL 폴백은 다음 단계에서 사라진다. 라우트 안에서는 `useUserId`를 쓴다.
+ * React 밖에서 신원을 한 번 읽는 경로. 토큰 출처(`getTokenSource`)가 있으면 그 userId가
+ * 우선이고, 없거나 null이면 `?userId=N`으로 폴백한다. 셸은 더 이상 이 값을 붙이지 않으므로
+ * (BY-528) 폴백이 살아 있는 곳은 **브리지 없는 브라우저 단독 모드**뿐이다.
+ *
+ * ⚠️ 구독이 없어 **토큰 도착에 반응하지 않는다.** 웹뷰에서는 브리지 왕복이 끝나기 전에
+ * 부르면 null이 나오고 그대로 굳는다. 값이 늦게 와도 따라가야 하는 곳은 `useUserId`를 쓴다.
  */
 export function readUserId(search: string): number | null {
   return (
@@ -38,7 +41,8 @@ const getServerSnapshot = () => null;
 /**
  * 현재 라우트의 신원. 토큰 출처가 있으면 그 userId를 구독해 `auth-token` 도착·갱신 시
  * 다시 렌더되고, 없거나 null이면 URL 쿼리로 폴백한다(브라우저 단독 모드).
- * URL 폴백은 다음 단계에서 사라진다.
+ *
+ * 신원이 늦게 도착해도 따라가야 하는 곳은 `readUserId`가 아니라 이쪽을 쓴다.
  */
 export function useUserId(): number | null {
   const [searchParams] = useSearchParams();
