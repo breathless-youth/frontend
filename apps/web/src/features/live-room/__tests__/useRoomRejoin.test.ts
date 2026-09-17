@@ -46,13 +46,13 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
     );
 
     result.current();
 
     await vi.waitFor(() => expect(channel.reconnect).toHaveBeenCalledTimes(1));
-    expect(roomApi.renewLiveRoomSeat).toHaveBeenCalledWith(7, "0712");
+    expect(roomApi.renewLiveRoomSeat).toHaveBeenCalledWith("0712");
     expect(onUnavailable).not.toHaveBeenCalled();
   });
 
@@ -61,7 +61,7 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
     );
 
     result.current();
@@ -75,7 +75,7 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
     );
 
     result.current();
@@ -95,7 +95,7 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
     );
 
     result.current();
@@ -114,7 +114,7 @@ describe("useRoomRejoin", () => {
       const channel = fakeChannel();
       const onUnavailable = vi.fn();
       const { result } = renderHook(() =>
-        useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+        useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
       );
 
       result.current();
@@ -138,7 +138,7 @@ describe("useRoomRejoin", () => {
       const channel = fakeChannel();
       const onUnavailable = vi.fn();
       const { result } = renderHook(() =>
-        useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+        useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
       );
 
       result.current();
@@ -160,7 +160,7 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
     );
 
     result.current();
@@ -178,7 +178,7 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(
-      () => useRoomRejoin({ channel, userId: 7, inviteCode: "0712", onUnavailable }),
+      () => useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
       { wrapper: StrictMode },
     );
 

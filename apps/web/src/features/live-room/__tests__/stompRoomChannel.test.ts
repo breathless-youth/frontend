@@ -1,9 +1,36 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomServerMessage } from "@focusmakers/types";
 
+import type * as tokenSourceModule from "@/lib/auth/tokenSource";
+import type { TokenSource } from "@/lib/auth/tokenSource";
+
 import type { StompClientLike, StompClientConfig } from "../stompRoomChannel";
 import { createStompRoomChannel } from "../stompRoomChannel";
+
+// getTokenSource만 바꿔 끼운다 — api.test.ts와 같은 패턴.
+const mocks = vi.hoisted(() => ({ source: null as TokenSource | null }));
+vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
+  ...(await importOriginal<typeof tokenSourceModule>()),
+  getTokenSource: () => mocks.source,
+}));
+
+function fakeTokenSource(first: string | null, refreshed: string | null = null) {
+  const refresh = vi.fn(() => Promise.resolve(refreshed));
+  const source: TokenSource = {
+    getAccessToken: () => Promise.resolve(first),
+    getCurrentToken: () => first,
+    refresh,
+    getUserId: () => 7,
+    hasSettled: () => true,
+    subscribe: () => () => undefined,
+  };
+  return { source, refresh };
+}
+
+beforeEach(() => {
+  mocks.source = fakeTokenSource("tok").source;
+});
 
 function createFakeClient() {
   const client: StompClientLike & {
@@ -14,6 +41,8 @@ function createFakeClient() {
     fireConnect: () => void;
   } = {
     onConnect: undefined,
+    beforeConnect: undefined,
+    connectHeaders: {},
     subscriptions: [],
     publishes: [],
     connected: false,
@@ -41,7 +70,6 @@ function setup() {
   const client = createFakeClient();
   const channel = createStompRoomChannel({
     roomId: 42,
-    userId: 7,
     createClient: (config) => {
       client.config = config;
       return client;
@@ -61,12 +89,11 @@ function snapshotRequests(client: ReturnType<typeof createFakeClient>) {
 }
 
 describe("createStompRoomChannel", () => {
-  it("연결 URL에 userId를 싣고, 연결되면 방 토픽과 개인 큐 2곳을 구독한다", () => {
+  it("연결되면 방 토픽과 개인 큐 2곳을 구독한다", () => {
     const { client, channel } = setup();
 
     channel.connect();
     expect(client.activate).toHaveBeenCalledTimes(1);
-    expect(client.config?.brokerURL).toMatch(/\/ws\?userId=7$/);
     expect(client.config?.brokerURL).toMatch(/^wss?:/);
 
     client.fireConnect();
@@ -487,7 +514,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -518,7 +544,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -552,7 +577,6 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       const client = createFakeClient();
       const channel = createStompRoomChannel({
         roomId: 42,
-        userId: 7,
         createClient: () => client,
         onSnapshotUnrecovered,
       });
@@ -576,6 +600,104 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       }
       await vi.advanceTimersByTimeAsync(7500);
       expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * CONNECT 프레임 토큰 인증 — 핸드셰이크(GET /ws)는 인증 없이 열려 있고 쿼리스트링을
+ * 읽지 않는다. 서버는 CONNECT 프레임의 `Authorization: Bearer <access>` 네이티브
+ * 헤더만 보고, 없거나 무효면 ERROR 프레임 뒤 소켓을 끊는다(close 1002).
+ */
+describe("CONNECT 토큰 인증", () => {
+  it("brokerURL에 쿼리스트링이 없다", () => {
+    const { client, channel } = setup();
+    channel.connect();
+
+    expect(client.config?.brokerURL).toMatch(/\/ws$/);
+  });
+
+  it("붙기 직전에 갱신한 토큰을 싣는다 — 갖고 있던 토큰이 있어도 갱신본이 이긴다", async () => {
+    const { source, refresh } = fakeTokenSource("old", "fresh");
+    mocks.source = source;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBe("Bearer fresh");
+    expect(client.deactivate).not.toHaveBeenCalled();
+  });
+
+  it("갱신이 실패하면 갖고 있던 토큰으로 붙는다 — 서버가 흔들렸다고 방을 포기하지 않는다", async () => {
+    const { source, refresh } = fakeTokenSource("tok", null);
+    mocks.source = source;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBe("Bearer tok");
+    expect(client.deactivate).not.toHaveBeenCalled();
+  });
+
+  it("첫 토큰이 null이어도 갱신본으로 붙는다", async () => {
+    const { source, refresh } = fakeTokenSource(null, "fresh");
+    mocks.source = source;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBe("Bearer fresh");
+    expect(client.deactivate).not.toHaveBeenCalled();
+  });
+
+  it("갱신도 실패하고 갖고 있던 토큰도 없으면 끊는다", async () => {
+    const { source, refresh } = fakeTokenSource(null, null);
+    mocks.source = source;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(client.connectHeaders.Authorization).toBeUndefined();
+    expect(client.deactivate).toHaveBeenCalledTimes(1);
+    expect(channel.status).toBe("closed");
+  });
+
+  it("토큰 출처가 없으면 refresh 없이 곧바로 끊는다", async () => {
+    mocks.source = null;
+    const { client, channel } = setup();
+    channel.connect();
+
+    await client.beforeConnect?.();
+
+    expect(client.connectHeaders.Authorization).toBeUndefined();
+    expect(client.deactivate).toHaveBeenCalledTimes(1);
+    expect(channel.status).toBe("closed");
+  });
+
+  it("토큰이 없어 끊긴 뒤에는 스냅샷 워치독이 되살아나지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, channel } = setup();
+      channel.connect();
+      client.fireConnect();
+
+      mocks.source = null;
+      await client.beforeConnect?.(); // stompjs 자동 재연결의 연결 시도
+      const before = snapshotRequests(client).length;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(snapshotRequests(client)).toHaveLength(before);
+      expect(channel.status).toBe("closed");
     } finally {
       vi.useRealTimers();
     }

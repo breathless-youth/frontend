@@ -59,7 +59,7 @@ export function ProfilePage() {
   const navigate = useNavigate();
 
   const saveMutation = useMutation({
-    mutationFn: (patch: ProfileUpdateRequest) => updateProfile(userId as number, patch),
+    mutationFn: (patch: ProfileUpdateRequest) => updateProfile(patch),
     onSuccess: (data) => {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId as number), data);

@@ -52,7 +52,6 @@ export interface StatusEventPayload {
 }
 
 export interface StudySessionCreateRequest {
-  userId: number;
   /** 방 입장 시각 (UTC ISO-8601) */
   startedAt: string;
   /** 방 퇴장 시각 (UTC ISO-8601) — 시작 이후·24시간 이내·미래 불가(시계 오차 5분 허용) */
@@ -67,8 +66,7 @@ export interface StudySessionCreateRequest {
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
 export interface ActiveSessionSnapshotRequest {
-  userId: number;
-  /** 세션 시작 시각 (UTC ISO-8601) — 최종 제출 startedAt과 같은 값, userId와 함께 draft 멱등 키 */
+  /** 세션 시작 시각 (UTC ISO-8601) — 최종 제출 startedAt과 같은 값, draft 멱등 키 */
   startedAt: string;
   /** 이 스냅샷의 기준 시각 (UTC ISO-8601) — 자동 확정 시 endedAt이 된다 */
   reportedAt: string;
@@ -206,11 +204,6 @@ export interface ApiErrorBody {
   message?: string;
 }
 
-/** 방 생성: 생성만으로는 입장 상태가 아니다 */
-export interface RoomCreateRequest {
-  userId: number;
-}
-
 export interface RoomCreateResponse {
   roomId: number;
   inviteCode: string;
@@ -220,7 +213,6 @@ export interface RoomCreateResponse {
 
 /** 초대코드 입장 */
 export interface RoomJoinRequest {
-  userId: number;
   inviteCode: string;
 }
 
@@ -246,7 +238,6 @@ export interface RtcStatRequest {
   /** PeerConnection당 프론트가 발급하는 UUID — 연결 단위 중복 제거 키 */
   connectionId: string;
   roomId: number;
-  userId: number;
   peerUserId?: number;
   candidateType: "host" | "srflx" | "prflx" | "relay";
   relayProtocol?: "udp" | "tcp" | "tls";

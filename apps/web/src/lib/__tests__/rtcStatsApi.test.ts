@@ -17,7 +17,6 @@ describe("reportRtcStats", () => {
     reportRtcStats({
       connectionId: "c1",
       roomId: 10,
-      userId: 7,
       peerUserId: 8,
       candidateType: "relay",
       isFinal: false,
@@ -46,7 +45,6 @@ describe("reportRtcStats", () => {
         reportRtcStats({
           connectionId: "c",
           roomId: 1,
-          userId: 1,
           candidateType: "host",
           isFinal: true,
         }),

@@ -11,6 +11,12 @@ export interface TokenSource {
   /** 갱신을 요청하고 다음 `auth-token`의 토큰을 돌려준다. 문서 안의 동시 호출은 하나로 묶인다. */
   refresh(): Promise<string | null>;
   getUserId(): number | null;
+  /**
+   * 첫 `auth-token`이 도착했거나 대기 한도가 지났는지. 이게 false인 동안의 `getUserId() === null`은
+   * "신원 없음"이 아니라 "아직 모름"이다 — 둘을 섞으면 브리지 왕복이 끝나기 전에 화면이
+   * 단독 모드로 굳거나 사용자를 쫓아낸다.
+   */
+  hasSettled(): boolean;
   subscribe(listener: (snapshot: AuthSnapshot) => void): () => void;
 }
 
@@ -57,12 +63,27 @@ export function createBridgeTokenSource(): TokenSource {
   const firstToken = nextToken(FIRST_TOKEN_TIMEOUT_MS);
   postToNative({ type: "auth-ready", atMs: Date.now() });
 
+  /**
+   * 한도가 지나도 답이 없으면 빈 스냅샷으로 확정한다. 확정하지 않으면 `hasSettled`가 영영
+   * false로 남아, 신원을 기다리는 화면이 끝나지 않는 로딩에 갇힌다. 구독은 유지되므로 늦게
+   * 온 `auth-token`이 이 값을 덮어쓴다.
+   */
+  setTimeout(() => {
+    if (snapshot === null) {
+      snapshot = { userId: null, accessToken: null };
+      for (const listener of [...listeners]) {
+        listener(snapshot);
+      }
+    }
+  }, FIRST_TOKEN_TIMEOUT_MS);
+
   let pendingRefresh: Promise<string | null> | null = null;
 
   return {
     getAccessToken: () => (snapshot === null ? firstToken : Promise.resolve(snapshot.accessToken)),
     getCurrentToken: () => snapshot?.accessToken ?? null,
     getUserId: () => snapshot?.userId ?? null,
+    hasSettled: () => snapshot !== null,
     refresh() {
       // 문서 안의 동시 401은 요청 하나로 묶는다 — 네이티브도 single-flight지만 메시지를 N번 보낼 이유가 없다.
       if (pendingRefresh === null) {

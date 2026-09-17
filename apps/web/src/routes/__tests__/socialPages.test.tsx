@@ -74,7 +74,7 @@ describe("소셜 홈", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "방 만들기" }));
 
-    expect(mockedCreateRoom).toHaveBeenCalledWith(7);
+    expect(mockedCreateRoom).toHaveBeenCalledWith();
     expect(await screen.findByText("방이 만들어졌어요")).toBeInTheDocument();
     expect(screen.getByText("0712")).toBeInTheDocument();
   });

@@ -133,6 +133,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
       getCurrentToken: () => current,
       refresh: vi.fn().mockResolvedValue(refreshed),
       getUserId: () => 7,
+      hasSettled: () => true,
       subscribe: () => () => {},
     };
   }

@@ -258,7 +258,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(channel.status).toBe("open");
   });
 
@@ -366,7 +366,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
   });
 
@@ -906,7 +906,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
     await waitFor(() => {
-      expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+      expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
     });
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
   });
@@ -946,7 +946,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
       await waitFor(() => {
-        expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+        expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
       });
       expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
     } finally {
@@ -989,7 +989,7 @@ describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
 
     act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
 
-    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712"));
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 
   it("재-join이 실패하면 공부를 마치고 안내와 함께 소셜 홈으로 보낸다", async () => {
@@ -1024,7 +1024,7 @@ describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
 
     act(() => getOnSnapshotUnrecovered()?.());
 
-    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712"));
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 });
 

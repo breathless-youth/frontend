@@ -237,7 +237,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
     expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
-      userId: 1,
       events: [],
     });
   });
@@ -263,7 +262,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -273,7 +272,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
   });
 
@@ -1114,7 +1113,7 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
 });

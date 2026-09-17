@@ -60,8 +60,7 @@ export function SocialHomePage() {
   }, [showToast]);
 
   const createMutation = useMutation({
-    // 버튼이 userId 없이는 비활성이라 여기 도달하면 null이 아니다.
-    mutationFn: () => createRoom(userId as number),
+    mutationFn: () => createRoom(),
     onSuccess: (data) => {
       trackSocialRoomCreated();
       // 코드 공유 화면은 조회 API가 없어 router state로 전달한다 — 새로고침·딥링크로 state가

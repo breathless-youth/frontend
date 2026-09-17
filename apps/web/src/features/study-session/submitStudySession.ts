@@ -14,7 +14,6 @@ import { clampSessionSeconds } from "./sessionRequestClamp";
  * 감지 신호는 아직 mock이라 실측 정확도는 실기기 스파이크 이후에 검증한다.
  */
 export interface SessionInput {
-  userId: number;
   startedAtMs: number;
   endedAtMs: number;
   studySec: number;
@@ -42,7 +41,6 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
     events,
   });
   return {
-    userId: input.userId,
     startedAt: new Date(input.startedAtMs).toISOString(),
     endedAt: new Date(input.endedAtMs).toISOString(),
     studySec,

@@ -374,7 +374,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
       reportActiveSession({
-        userId,
         startedAtMs: startedAtMsRef.current,
         reportedAtMs: nowMs,
         studySec: totals.studySec,
@@ -540,7 +539,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const attempt = submitAttemptRef.current;
       try {
         const sessions = await submitStudySession({
-          userId,
           startedAtMs: startedAtMsRef.current,
           endedAtMs,
           studySec: finalTotals.studySec,

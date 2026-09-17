@@ -187,7 +187,6 @@ export function LiveRoomSession({
   }, [channel, endAndSubmit]);
   const requestRejoin = useRoomRejoin({
     channel,
-    userId,
     inviteCode,
     onUnavailable: handleRoomUnavailable,
   });
@@ -375,7 +374,7 @@ export function LiveRoomSession({
         focusSec,
         sessions: phase.sessions,
       });
-      void leaveRoom(roomId, userId).catch(() => undefined);
+      void leaveRoom(roomId).catch(() => undefined);
       if (nav.to === "result") {
         navigate(
           { pathname: `/social/room/${roomId}/result`, search: location.search },

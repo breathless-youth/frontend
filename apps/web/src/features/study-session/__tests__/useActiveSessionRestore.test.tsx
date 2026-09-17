@@ -129,7 +129,7 @@ describe("useActiveSessionRestore", () => {
     rerender({ id: 9 });
 
     await waitFor(() => {
-      expect(restoreActiveSession).toHaveBeenCalledWith(9);
+      expect(restoreActiveSession).toHaveBeenCalledWith();
     });
   });
 

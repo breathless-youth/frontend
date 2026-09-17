@@ -578,7 +578,7 @@ function RoomSessionScreen({
 
             {userId === null && (
               <p className="mt-3 text-center text-[12px] leading-[16px] text-white/55 landscape:col-span-full landscape:row-start-5 landscape:justify-self-center">
-                userId가 없어 이 세션은 서버에 저장되지 않습니다 (주소에 ?userId=N 필요)
+                이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
               </p>
             )}
           </div>
@@ -718,7 +718,7 @@ function SessionResultFallback({
 
       {phase.name === "unsaved" && (
         <p className="text-center text-sm text-white/80">
-          공부 시간 {formatElapsed(phase.studySec)} — userId가 없어 서버에 저장되지 않았습니다.
+          공부 시간 {formatElapsed(phase.studySec)} — 기기 등록 전이라 저장되지 않았습니다.
         </p>
       )}
     </div>

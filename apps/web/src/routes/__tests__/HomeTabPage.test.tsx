@@ -150,7 +150,7 @@ describe("HomeTabPage", () => {
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderHome("/home");
 
-    expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
+    expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
   });
 

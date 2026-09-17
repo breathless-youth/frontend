@@ -3,6 +3,7 @@ import { Client } from "@stomp/stompjs";
 import type { RoomServerMessage, RoomSignalPublish, RoomStateUpdate } from "@focusmakers/types";
 
 import { API_BASE_URL } from "@/lib/api";
+import { getTokenSource } from "@/lib/auth/tokenSource";
 
 import type { RoomChannel, RoomChannelStatus } from "./roomChannel";
 
@@ -22,6 +23,10 @@ export type StompClientConfig = {
 /** 테스트 주입용 최소 표면 — @stomp/stompjs의 Client가 구조적으로 만족한다. */
 export interface StompClientLike {
   onConnect: (() => void) | undefined;
+  /** 매 연결 시도 직전에 불린다. async를 지원하고, 안에서 deactivate하면 시도가 취소된다. */
+  beforeConnect: (() => void | Promise<void>) | undefined;
+  /** CONNECT 프레임의 네이티브 헤더. 정적 객체라 재연결마다 beforeConnect가 갈아 끼운다. */
+  connectHeaders: Record<string, string>;
   activate(): void;
   deactivate(): Promise<void> | void;
   subscribe(destination: string, callback: (frame: { body: string }) => void): unknown;
@@ -30,7 +35,6 @@ export interface StompClientLike {
 
 type StompRoomChannelOptions = {
   roomId: number;
-  userId: number;
   /** 테스트 전용 주입점 — 프로덕션은 기본값(실제 Client)을 쓴다. */
   createClient?: (config: StompClientConfig) => StompClientLike;
   // 강제 재연결로도 SNAPSHOT을 못 살린 지점 — 드라우트당 1회. 상위가 join을 재호출한다.
@@ -97,7 +101,6 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
 
 export function createStompRoomChannel({
   roomId,
-  userId,
   createClient = defaultCreateClient,
   onSnapshotUnrecovered,
 }: StompRoomChannelOptions): RoomChannel {
@@ -106,7 +109,7 @@ export function createStompRoomChannel({
 
   const wsBase = (API_BASE_URL || window.location.origin).replace(/^http/, "ws");
   const client = createClient({
-    brokerURL: `${wsBase}/ws?userId=${userId}`,
+    brokerURL: `${wsBase}/ws`,
     reconnectDelay: 5000,
   });
 
@@ -233,6 +236,33 @@ export function createStompRoomChannel({
       pendingFrames.push(frame);
     }
   }
+
+  /**
+   * 핸드셰이크(GET /ws)는 인증 없이 열려 있고 쿼리를 읽지 않는다. 신원은 CONNECT 프레임의
+   * `Authorization: Bearer <access>` 네이티브 헤더로만 전달되고, 서버는 CONNECT 시점에 한 번만
+   * 검증한다(접속 중 만료돼도 그 세션은 유지된다). 헤더가 없거나 무효면 ERROR 프레임 뒤
+   * 소켓이 끊긴다. connectHeaders는 정적 객체라 재연결마다 여기서 갈아 끼운다.
+   *
+   * 붙기 직전에 토큰을 새로 받아 쓴다. 웹은 JWT를 열어보지 않아 만료를 알 수 없고, 만료된
+   * 토큰으로 붙으면 서버가 끊은 뒤 reconnectDelay가 5초마다 같은 실패를 반복한다. 갱신이
+   * 실패하면 갖고 있던 토큰으로라도 붙어 본다. 서버가 잠깐 흔들린 것을 인증 실패로 보고
+   * 방 연결을 포기하면 안 된다.
+   */
+  client.beforeConnect = async () => {
+    const source = getTokenSource();
+    // 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
+    const token =
+      source === null ? null : ((await source.refresh()) ?? (await source.getAccessToken()));
+    if (token === null) {
+      // 토큰 없이 붙어 봐야 서버가 끊고, reconnectDelay가 5초마다 영원히 다시 시도한다.
+      // disconnect와 같은 종료 상태로 내려 워치독·재연결의 되살리기 경로를 전부 막는다.
+      status = "closed";
+      clearSnapshotWatchdog();
+      void client.deactivate();
+      return;
+    }
+    client.connectHeaders = { Authorization: `Bearer ${token}` };
+  };
 
   client.onConnect = () => {
     status = "open";

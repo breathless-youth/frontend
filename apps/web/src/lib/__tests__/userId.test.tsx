@@ -19,6 +19,7 @@ function fakeSource(overrides: Partial<TokenSource>): TokenSource {
     getCurrentToken: vi.fn(),
     refresh: vi.fn(),
     getUserId: vi.fn(() => null),
+    hasSettled: () => true,
     subscribe: vi.fn(() => () => {}),
     ...overrides,
   };

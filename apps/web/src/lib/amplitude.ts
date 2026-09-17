@@ -179,16 +179,18 @@ export function initAmplitude() {
     remoteConfig: { fetchRemoteConfig: false },
   });
 
-  // 셸이 **최초 URL부터** `?userId=N`을 붙여 주므로 여기서 이미 신원을 붙일 수 있다.
-  // 첫 라우트 이펙트(`AnalyticsRouteTracker`)까지 기다리면 그 사이에 나가는 이벤트가
-  // 익명 device_id로 남는다.
+  // 브라우저 단독 모드(수동 `?userId=N`)에서만 여기서 값이 잡힌다 — 웹뷰에서는 토큰 출처가
+  // 아직 없고(`initBridgeTokenSource`가 아래 줄에서 생긴다) 셸도 URL에 신원을 싣지 않으므로
+  // null이다. 웹뷰의 신원은 `AnalyticsRouteTracker`가 `useUserId` 구독으로 도착 시 붙인다.
+  // 그래도 이 호출을 남기는 이유는, 브라우저 단독 모드에서 첫 라우트 이펙트까지 기다리면
+  // 그 사이에 나가는 이벤트가 익명 device_id로 남기 때문이다.
   setAmplitudeUserId(readUserId(window.location.search));
 }
 
 /**
- * 서버 user_id를 Amplitude user_id로 연결한다(2026-08-08 결정). 값은 네이티브 셸이
- * 모든 탭에 붙여 주는 `?userId=N`이며, DB 값과 **그대로** 맞춰야 백엔드 집계와 조인된다 —
- * 해시하거나 접두어를 붙이지 말 것.
+ * 서버 user_id를 Amplitude user_id로 연결한다(2026-08-08 결정). 값은 네이티브가 브리지로
+ * 넘겨 주는 `auth-token`의 userId이며(BY-528 이전에는 셸이 붙이던 `?userId=N`), DB 값과
+ * **그대로** 맞춰야 백엔드 집계와 조인된다 — 해시하거나 접두어를 붙이지 말 것.
  *
  * ℹ️ **이 값은 계정 식별자가 아니라 익명 기기 식별자의 서버 핸들이다.** 네이티브가
  * `Crypto.randomUUID()`로 만든 기기 UUID(`apps/mobile/lib/deviceId.ts`)를 등록하면 서버가

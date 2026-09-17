@@ -175,8 +175,8 @@ describe("buildRemoteWebViewUrl", () => {
   });
 
   it("쿼리 파라미터를 인코딩해 붙인다", () => {
-    expect(buildRemoteWebViewUrl("https://web.test", "/room/1", { userId: 7 })).toBe(
-      "https://web.test/room/1?userId=7",
+    expect(buildRemoteWebViewUrl("https://web.test", "/room/1", { appVersion: "1.4.2" })).toBe(
+      "https://web.test/room/1?appVersion=1.4.2",
     );
   });
 
@@ -187,7 +187,7 @@ describe("buildRemoteWebViewUrl", () => {
 
 describe("originOf", () => {
   it("스킴+호스트만 떼어낸다", () => {
-    expect(originOf("https://web.test/room/1?userId=7")).toBe("https://web.test");
+    expect(originOf("https://web.test/room/1?appVersion=1.4.2")).toBe("https://web.test");
   });
 
   it("URL 형태가 아니면 원본을 그대로 돌려준다", () => {
@@ -197,10 +197,10 @@ describe("originOf", () => {
 
 describe("RemoteWebViewHost", () => {
   it("경로와 쿼리로 조립한 URL을 WebView에 넘긴다", () => {
-    render(<RemoteWebViewHost path="/room/1" query={{ userId: 7 }} testID="host" />);
+    render(<RemoteWebViewHost path="/room/1" query={{ appVersion: "1.4.2" }} testID="host" />);
 
     expect(screen.getByTestId("host").props.source).toEqual({
-      uri: "https://web.test/room/1?userId=7",
+      uri: "https://web.test/room/1?appVersion=1.4.2",
     });
   });
 
@@ -954,7 +954,7 @@ describe("report-screen 복원 (BY-436)", () => {
   });
 
   it("렌더러 사망 재마운트는 보고된 경로·쿼리로 연다 — 소셜룸을 잃지 않는다", () => {
-    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+    render(<RemoteWebViewHost path="/social" query={{ appVersion: "1.4.2" }} testID="host" />);
 
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
     act(() => {
@@ -977,12 +977,12 @@ describe("report-screen 복원 (BY-436)", () => {
     const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
     expect(uri).toContain("/social/room/42");
     expect(uri).toContain("code=0712");
-    expect(uri).toContain("userId=7");
+    expect(uri).toContain("appVersion=1.4.2");
     expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
   });
 
   it("보고가 없으면 재마운트는 원래 경로다", () => {
-    render(<RemoteWebViewHost path="/social" query={{ userId: 7 }} testID="host" />);
+    render(<RemoteWebViewHost path="/social" query={{ appVersion: "1.4.2" }} testID="host" />);
 
     act(() => {
       (screen.getByTestId("host").props.onRenderProcessGone as () => void)();

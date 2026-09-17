@@ -772,7 +772,6 @@ describe("createPeerMesh — 정리와 실패", () => {
     await vi.waitFor(() => expect(reports).toHaveLength(1));
     expect(reports[0]).toMatchObject({
       roomId: 10,
-      userId: 7,
       peerUserId: 8,
       candidateType: "relay",
       relayProtocol: "udp",
@@ -783,6 +782,7 @@ describe("createPeerMesh — 정리와 실패", () => {
     });
     expect(typeof reports[0]!.connectionId).toBe("string");
     expect(reports[0]!.connectionId.length).toBeGreaterThan(0);
+    expect(reports[0]).not.toHaveProperty("userId");
   });
 
   it("crypto.randomUUID가 없어도 connectionId를 발급해 보고한다 — 비보안 컨텍스트 폴백", async () => {
