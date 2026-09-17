@@ -22,6 +22,7 @@ function fakeTokenSource(first: string | null, refreshed: string | null = null) 
     getCurrentToken: () => first,
     refresh,
     getUserId: () => 7,
+    hasSettled: () => true,
     subscribe: () => () => undefined,
   };
   return { source, refresh };

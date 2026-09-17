@@ -46,6 +46,28 @@ describe("createBridgeTokenSource", () => {
     await expect(source.getAccessToken()).resolves.toBe("a1");
   });
 
+  it("첫 auth-token 전에는 hasSettled가 false다 — null을 신원 없음으로 단정하면 안 되는 구간", () => {
+    const source = createBridgeTokenSource();
+    expect(source.hasSettled()).toBe(false);
+    expect(source.getUserId()).toBeNull();
+
+    nativeEntry()(authToken("a1"));
+    expect(source.hasSettled()).toBe(true);
+    expect(source.getUserId()).toBe(7);
+  });
+
+  it("3초 안에 답이 없으면 빈 스냅샷으로 확정하고 구독자에게 알린다 — 대기가 영원해지지 않는다", () => {
+    const source = createBridgeTokenSource();
+    const seen: unknown[] = [];
+    source.subscribe((snapshot) => seen.push(snapshot));
+
+    vi.advanceTimersByTime(3000);
+
+    expect(source.hasSettled()).toBe(true);
+    expect(source.getUserId()).toBeNull();
+    expect(seen).toEqual([{ userId: null, accessToken: null }]);
+  });
+
   it("서버가 토큰을 안 주면 accessToken null로 즉시 답한다", async () => {
     const source = createBridgeTokenSource();
     nativeEntry()(authToken(null));

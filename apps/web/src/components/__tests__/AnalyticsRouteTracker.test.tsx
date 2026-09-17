@@ -50,6 +50,7 @@ function lateArrivingSource(): { source: TokenSource; arrive: (userId: number) =
     getCurrentToken: vi.fn(),
     refresh: vi.fn(),
     getUserId: () => userId,
+    hasSettled: () => true,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

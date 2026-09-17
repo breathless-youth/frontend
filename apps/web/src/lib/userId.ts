@@ -33,6 +33,9 @@ export function readUserId(search: string): number | null {
   );
 }
 
+/** 서버 렌더에는 브리지가 없다 — 기다리지 않고 확정으로 본다. */
+const getSettledServerSnapshot = () => true;
+
 /** 구독 함수가 없는(토큰 출처가 없는) 경우 렌더마다 새 함수를 만들지 않도록 모듈 레벨에 고정한다. */
 const noSubscribe = () => () => {};
 
@@ -53,4 +56,24 @@ export function useUserId(): number | null {
     getServerSnapshot,
   );
   return sourceUserId ?? parseUserId(searchParams.get(USER_ID_PARAM));
+}
+
+/**
+ * 신원이 아직 정해지지 않았는지. 토큰 출처가 있는데 첫 `auth-token`이 안 왔으면 true다.
+ *
+ * BY-528이 웹뷰 URL에서 `?userId=N`을 빼면서, 신원은 브리지 왕복 뒤에야 온다. 첫 렌더에서는
+ * 항상 `useUserId() === null`이므로, 그것만 보고 "신원 없음"으로 단정하면 브라우저 단독 모드
+ * 안내를 띄우거나(홈·기록) 사용자를 방에서 쫓아낸다(`LiveRoomPage`). 그 판정은 이 훅이
+ * false를 준 뒤에 한다.
+ *
+ * 브라우저 단독 모드에는 출처가 없어 기다릴 것도 없으므로 언제나 false다.
+ */
+export function useIdentityPending(): boolean {
+  const source = getTokenSource();
+  const settled = useSyncExternalStore(
+    source?.subscribe ?? noSubscribe,
+    () => source?.hasSettled() ?? true,
+    getSettledServerSnapshot,
+  );
+  return !settled;
 }
