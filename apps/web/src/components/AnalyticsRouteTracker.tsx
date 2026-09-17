@@ -2,7 +2,11 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { trackPageView } from "@/lib/analytics";
-import { setAmplitudeUserId, trackAmplitudePageView } from "@/lib/amplitude";
+import {
+  consumeStudyResultExit,
+  setAmplitudeUserId,
+  trackAmplitudePageView,
+} from "@/lib/amplitude";
 import { readUserId } from "@/lib/userId";
 
 /**
@@ -30,6 +34,23 @@ export function AnalyticsRouteTracker() {
     trackPageView(pathname, search);
     trackAmplitudePageView(pathname, search);
   }, [pathname, search]);
+
+  /**
+   * 결과 화면이 남긴 이탈 예약(`stageStudyResultExit`)을 도착 화면이 소비한다. 현재 경로를 그대로
+   * 넘기고, **그 경로 몫으로 예약된 것만** 나간다 — 탭 4개 웹뷰가 동시에 살아 있어 경로로
+   * 거르지 않으면 서로 남의 예약을 집어간다(`lib/amplitude.ts`의 `ResultExitPath` 주석).
+   *
+   * 도착 시점뿐 아니라 **다시 보이게 된 순간**에도 확인한다 — 네이티브는 세션 모달이 닫혀도 아래
+   * 탭 웹뷰를 다시 마운트하지 않으므로, 라우트 변경만으로는 모달 닫힘 경로를 놓친다.
+   */
+  useEffect(() => {
+    consumeStudyResultExit(pathname);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") consumeStudyResultExit(pathname);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [pathname]);
 
   return null;
 }
