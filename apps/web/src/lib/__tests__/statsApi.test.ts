@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getPeriodStats, getStreak, listStudySessionStats } from "../statsApi";
+import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "../statsApi";
 
 /**
  * 기본 base URL은 same-origin(빈 문자열) — dev의 vite 프록시 환경과 같다.
@@ -105,6 +105,34 @@ describe("listStudySessionStats", () => {
       "/api/stats?userId=7&date=2026-07-25%26userId%3D9",
       expect.objectContaining({ method: "GET" }),
     );
+  });
+});
+
+describe("getStudyDays", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("userId로 누적 공부 일 수를 조회한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, { totalDays: 12 }));
+
+    await expect(getStudyDays(7)).resolves.toEqual({ totalDays: 12 });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/study-days?userId=7",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+
+    await expect(getStudyDays(7)).rejects.toThrow("누적 공부 일 수 조회 실패 (HTTP 500)");
   });
 });
 

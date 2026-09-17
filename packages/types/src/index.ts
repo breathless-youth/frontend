@@ -168,6 +168,12 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
+/** 누적 공부 일 수 조회 API 계약 (GET /api/stats/study-days?userId=) — Swagger 기준. */
+export interface StudyDaysResponse {
+  /** 지금까지 공부 기록이 있는 날 수 */
+  totalDays: number;
+}
+
 /**
  * 기간 집계 조회 API 계약 (GET /api/stats/period) — Swagger 기준.
  * 총합·증감은 서버가 주지 않는다. 아래 배열을 합산해 계산한다.

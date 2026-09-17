@@ -1,4 +1,5 @@
 import type {
+  StudyDaysResponse,
   StudyPeriodStatsResponse,
   StudySessionListResponse,
   StudySessionStreakResponse,
@@ -45,6 +46,16 @@ export async function getStreak(
     throw await parseErrorMessage(res, "스트릭 조회 실패");
   }
   return (await res.json()) as StudySessionStreakResponse;
+}
+
+export async function getStudyDays(userId: number): Promise<StudyDaysResponse> {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/study-days?userId=${userId}`, {
+    method: "GET",
+  });
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "누적 공부 일 수 조회 실패");
+  }
+  return (await res.json()) as StudyDaysResponse;
 }
 
 export async function getPeriodStats(

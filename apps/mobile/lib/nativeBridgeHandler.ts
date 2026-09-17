@@ -114,13 +114,17 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       });
       break;
     case "navigate-tab":
-      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
-      // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
-      // 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `card`로 가른다.
+      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"), 또는 S4 결과 화면의
+      // `기록으로 가기`(BY-560). 탭 전환은 네이티브 탭바 소유라 웹이 신호만 보낸다.
+      // `router.navigate`는 이미 활성인 탭이면 no-op이다. 사용자에겐 탭 바 터치와 같은 탭
+      // 이동이라 `tab_pressed`로 세되 경로만 `via`로 가른다 — 발신처를 안 실은 옛 웹은 `card`다.
+      //
+      // 솔로 결과는 세션 `fullScreenModal` 안이라 웹이 `navigate-home`(모달 닫기)을 먼저 보내고
+      // 이 메시지를 보낸다 — 순서대로 처리되므로 모달이 닫힌 뒤 탭이 바뀐다.
       trackNativeEvent("tab_pressed", {
         tab: NATIVE_TAB_BY_MESSAGE_TAB[message.tab],
         from_tab: getActiveTab(),
-        via: "card",
+        via: message.via ?? "card",
       });
       router.navigate("/records");
       break;

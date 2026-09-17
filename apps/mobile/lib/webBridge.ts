@@ -97,7 +97,14 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (record.tab !== "records") {
         return null;
       }
-      return { type: "navigate-tab", tab: record.tab, atMs: record.atMs };
+      // 발신처는 선택 필드 — 계약 밖 값이면 빼고(= `card` 기본) 메시지 자체는 살린다. 이동이
+      // 분석 속성 하나 때문에 막히면 안 된다.
+      return {
+        type: "navigate-tab",
+        tab: record.tab,
+        ...(record.via === "card" || record.via === "study_result" ? { via: record.via } : {}),
+        atMs: record.atMs,
+      };
     case "set-tab-bar":
       // `visible`이 boolean이 아니면 통째로 버린다 — 기본값(보임)이 유지되는 편이 안전하다.
       // 여기서 truthy 판정으로 넘기면 오타 하나에 탭 바가 사라져 이동 수단이 없어진다.

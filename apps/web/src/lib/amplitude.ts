@@ -752,22 +752,16 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
   track("profile_save_failed", { reason: result.reason });
 }
 
-/** S4 결과 화면을 닫음 — 하단 CTA(`cta`) 또는 우상단 X(`close`). 둘 다 홈(소셜)으로 간다. */
+/**
+ * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
+ * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "cta" | "close";
+  readonly via: "home" | "records";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
-}
-
-/** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
-export function trackStudyResultDistractionToggled(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
-  readonly expanded: boolean;
-}) {
-  if (!initialized) return;
-  track("study_result_distraction_toggled", { status: input.status, expanded: input.expanded });
 }
 
 /** 세션 종료 안내 확인 — 자동 종료(S3-8) "결과 보기" / 순공 1분 미만 안내 "홈으로". */

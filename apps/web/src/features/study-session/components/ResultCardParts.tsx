@@ -1,32 +1,11 @@
-import type { ReactNode } from "react";
-
 import { cn } from "@/lib/utils";
 
 /**
- * S4 결과 카드의 공통 조각 — 타임라인 카드(`64:561`)와 통계 카드(`64:622`)가 함께 쓴다.
+ * S4 타임라인 카드의 상태 색 조각 — 범례 도트와 바 세그먼트. 같은 색 매핑을 쓰기 위해 한 파일이다.
  *
- * **범용 컴포넌트로 승격하지 않는다**(루트 CLAUDE.md "과도한 추상화 금지") — 실제 소비자가
- * 이 화면의 두 카드뿐이라 `features/study-session/components/`에 co-locate 한다.
+ * 카드 셸·타이틀은 2026-09-14(BY-560) 사용자 요청으로 `components/ui/card.tsx`(shadcn 스타일)로
+ * 승격됐다. 여기 남은 둘은 이 화면 전용 상태색 조각이라 feature에 co-locate 한다.
  */
-
-/**
- * 카드 셸: `bg/layer-1` + `border/default` + `radius.lg`(16).
- *
- * 세로 패딩은 카드마다 다르다(타임라인 pt16/pb14 · 통계 pt16/pb6) — Figma 실측이 다르므로
- * 하나로 뭉개지 않고 `className`으로 받는다.
- */
-export function ResultCard({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <section className={cn("rounded-2xl border border-border bg-muted px-4", className)}>
-      {children}
-    </section>
-  );
-}
-
-/** 카드 타이틀 14px SemiBold. 화면 타이틀이 `h1`이므로 카드 제목은 `h2`다. */
-export function ResultCardTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-[14px] leading-[17px] font-semibold text-foreground">{children}</h2>;
-}
 
 /**
  * 상태 도트 6px (Figma `64:574`/`64:577`/`64:626` …).

@@ -232,6 +232,12 @@ export interface ReportScreenMessage {
 export interface NavigateTabMessage {
   type: "navigate-tab";
   tab: "records";
+  /**
+   * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
+   * `card`는 홈 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560).
+   * 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
+   */
+  via?: "card" | "study_result";
   atMs: number;
 }
 

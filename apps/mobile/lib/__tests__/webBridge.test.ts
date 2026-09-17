@@ -86,6 +86,15 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-tab의 발신처(via)는 계약 값만 통과시킨다 — 모르는 값은 빼고 이동은 살린다", () => {
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"study_result","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", via: "study_result", atMs: 4 });
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"banner","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", atMs: 4 });
+  });
+
   it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {
     expect(parseToNativeMessage('{"type":"navigate-tab","tab":"profile","atMs":4}')).toBeNull();
   });
