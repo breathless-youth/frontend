@@ -31,7 +31,7 @@ export const PRIVACY_CAPTION = "영상은 기기 안에서만 처리돼요";
  */
 export const PAUSE_CAPTION = "일시정지 중에는 시간이 흐르지 않아요";
 
-const FOCUS_COPY: SessionStatusCopy = { label: "집중 측정 중" };
+const FOCUS_COPY: SessionStatusCopy = { label: "순공시간 측정 중" };
 
 /** voice-tone.md §3 상태 문구 — Figma에는 '휴대폰 사용' 인스턴스만 그려져 있으나 3종 모두 구현한다. */
 const DISTRACTION_COPY = {

@@ -742,7 +742,7 @@ export function trackProfileSaveSubmitted(input: {
   });
 }
 
-/** 프로필 저장 결과. 실패 `reason`은 서버 코드(`NICKNAME_TAKEN` 등)나 `NETWORK_OR_UNKNOWN`. */
+/** 프로필 저장 결과. 실패 `reason`은 서버 코드(`CONFLICT` 등)나 `NETWORK_OR_UNKNOWN`. */
 export function trackProfileSaveResult(result: { ok: true } | { ok: false; reason: string }) {
   if (!initialized) return;
   if (result.ok) {

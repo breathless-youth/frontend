@@ -47,6 +47,7 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -58,6 +59,7 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -70,6 +72,7 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -139,6 +142,7 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
   });
@@ -154,6 +158,7 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     first.unmount();
@@ -167,6 +172,7 @@ describe("useRemoteQueryParams", () => {
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -207,6 +213,7 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     first.unmount();
@@ -222,6 +229,7 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(2);

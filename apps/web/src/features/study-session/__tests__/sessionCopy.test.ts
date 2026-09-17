@@ -15,7 +15,7 @@ import { FOCUS_STATE, distractionState, pauseState, toEventStatus } from "../ses
 
 describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
   it("집중에는 서브 문구가 없다", () => {
-    expect(statusCopyFor(FOCUS_STATE)).toEqual({ label: "집중 측정 중" });
+    expect(statusCopyFor(FOCUS_STATE)).toEqual({ label: "순공시간 측정 중" });
   });
 
   it("비집중 3종 문구를 전부 갖는다 — Figma에 없는 2종도 구현한다", () => {

@@ -6,6 +6,7 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 
 `src/` 없이 라우터(`app/`)와 유틸 디렉터리를 루트 바로 아래에 둔다. `app/(tabs)/`는 탭 네비게이션, `app/room/`·`app/social/`은 세션·소셜룸, `lib/`는 순수 유틸·API 연동 함수(테스트 대상)다.
 
+- `lib/auth.ts`(BY-527)가 access·refresh 토큰의 유일한 소유자다. SecureStore 키 `focuson.auth` 하나에 JSON으로 저장하고 읽기·쓰기·삭제 전부에 `keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`를 넘긴다. 이 옵션을 빼면 iCloud 키체인 동기화로 1회용 refresh 토큰이 다른 기기에 복사되고, 두 기기가 같은 토큰을 써 서버가 탈취로 판정해 전량 폐기한다. 등록(`ensureAuth`)과 갱신(`refreshAuth`)은 앱 전체 single-flight이고, 토큰 변경은 `subscribeAuth`로 마운트된 모든 웹뷰 호스트에 `auth-token`으로 전파된다(분석 이벤트의 단일 sink와 반대). 웹뷰 URL의 `guestAuth=1`은 이 바이너리가 `auth-ready`에 답할 수 있다는 표시다.
 - **경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않고 어댑터 계층을 통한다. 공부 상태 계산은 순수 TS로 두고 카메라/Vision/RTC 구현과 분리한다.
 
 ## WebView 스터디룸
@@ -36,7 +37,7 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** WebView 셸이라 마스킹된 사각형만 남고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙과 충돌한다. `sendDefaultPii`는 `false`로 못 박았다. 성능 추적(`tracesSampleRate`)도 켜지 않는다(웹뷰 셸이라 잴 구간이 없고 화면 로딩은 웹이 본다).
-- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
+- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`) 한 곳뿐이고 둘 다 쿼리스트링 없는 POST이고 토큰은 본문에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
 - **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들·소스맵에 같은 debug ID를 심는다. 되돌리면 스택트레이스만 압축된 채 남는다. 동작 확인은 EAS staging/production 빌드로만 된다.
 
 ## 웹뷰 배경

@@ -7,11 +7,11 @@ import { distractionState } from "../sessionState";
 
 describe("SessionStatusPill", () => {
   it("자동 감지 변화를 알리도록 라이브 리전으로 렌더한다", () => {
-    render(<SessionStatusPill state="focus" label="집중 측정 중" />);
+    render(<SessionStatusPill state="focus" label="순공시간 측정 중" />);
 
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent("집중 측정 중");
+    expect(status).toHaveTextContent("순공시간 측정 중");
   });
 
   it("서브 문구는 필 바깥 아래에 렌더한다", () => {

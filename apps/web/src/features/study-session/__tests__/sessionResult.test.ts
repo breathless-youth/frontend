@@ -216,16 +216,16 @@ describe("toSessionResultView", () => {
 
 describe("timelineSummaryLabel", () => {
   it("바의 시각 정보를 텍스트로 요약한다", () => {
-    // 범례와 같은 문구를 읽는다 — `비집중`은 2026-09-14부터 `자동 멈춤`(BY-560).
+    // 범례와 같은 문구를 읽는다.
     expect(timelineSummaryLabel(toSessionResultView(exampleSession()))).toBe(
-      "집중 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
+      "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
     );
   });
 
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
     expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe(
-      "집중 1시간 24분, 자동 멈춤 10분, 최고 집중 시간 1시간 34분",
+      "순공 1시간 24분, 자동 멈춤 10분, 최고 집중 시간 1시간 34분",
     );
   });
 });

@@ -92,6 +92,31 @@ describe("roomMembersReducer", () => {
     expect(state.filter((m) => m.userId === 99)).toHaveLength(1);
     expect(state.find((m) => m.userId === 99)?.nickname).toBe("멤버99");
   });
+
+  it("SNAPSHOT은 멤버의 disconnected를 보존한다", () => {
+    const state = roomMembersReducer([], {
+      type: "SNAPSHOT",
+      members: [member(8, { disconnected: true })],
+    });
+
+    expect(state[0]?.disconnected).toBe(true);
+  });
+
+  it("MEMBER_JOINED는 멤버의 disconnected를 보존한다", () => {
+    const state = roomMembersReducer([], {
+      type: "MEMBER_JOINED",
+      member: member(8, { disconnected: false }),
+    });
+
+    expect(state[0]?.disconnected).toBe(false);
+  });
+
+  it("ROOM_UNAVAILABLE은 멤버 목록을 바꾸지 않는다 — 멤버 메시지가 아니다", () => {
+    const before = [member(7), member(8)];
+    const state = roomMembersReducer(before, { type: "ROOM_UNAVAILABLE", roomId: 10 });
+
+    expect(state).toBe(before);
+  });
 });
 
 describe("roomMembersReducer 자가복구 — 모르는 userId 상태 메시지 (2026-08-25 BY-435)", () => {

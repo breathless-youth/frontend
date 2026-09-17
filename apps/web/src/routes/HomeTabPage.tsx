@@ -150,7 +150,7 @@ function StatCard({
     <>
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-text-tertiary">
-          {isStreak ? "연속 공부" : "최장 집중"}
+          {isStreak ? "연속 공부" : "최장 순공시간"}
         </p>
         {onPress !== undefined && <IconChevronRight size={12} />}
       </div>

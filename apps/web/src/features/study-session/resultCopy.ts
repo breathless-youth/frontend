@@ -73,12 +73,11 @@ export function studyDaysLabel(days: number): string {
 /**
  * 타임라인 범례 라벨. 셋 다 도트와 **함께** 쓴다(색 단독 전달 금지).
  *
- * `distract`는 2026-09-14 사용자 결정으로 `비집중` → `자동 멈춤`(BY-560 시안 스크린샷). 이 화면
- * 한정 표기이며 다른 화면(S3 상태 필·S5 기록 뱃지)의 `비집중`은 BY-574(용어 전면 교체) 범위다.
- * glossary 갱신도 그쪽에서 한다.
+ * `focus`는 glossary 노출 표기 `순공`을 따른다. `distract`는 glossary의 `휴식` 대신 시안 문구
+ * `자동 멈춤`을 쓰는 이 화면 한정 예외다.
  */
 export const LEGEND_COPY = {
-  focus: "집중",
+  focus: "순공",
   distract: "자동 멈춤",
   pause: "일시정지",
 } as const;

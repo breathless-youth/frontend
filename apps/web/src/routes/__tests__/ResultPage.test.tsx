@@ -55,7 +55,7 @@ function event(status: StudyEventStatus, fromSec: number, durationSec: number): 
   return { status, startedAt: at(fromSec), endedAt: at(fromSec + durationSec) };
 }
 
-/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 비집중 18분. */
+/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 휴식 18분. */
 function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySessionResponse {
   return {
     id: 10,
@@ -277,7 +277,7 @@ describe("ResultPage — 타임라인 카드", () => {
 
     expect(
       screen.getByRole("img", {
-        name: "집중 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
+        name: "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
       }),
     ).toBeInTheDocument();
   });
@@ -314,7 +314,7 @@ describe("ResultPage — 타임라인 카드", () => {
     renderResult({ sessions: [exampleSession()] });
 
     const card = screen.getByText("공부 타임라인").closest<HTMLElement>('[data-slot="card"]')!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
     expect(within(card).getByText("자동 멈춤")).toBeInTheDocument();
     expect(within(card).getByText("일시정지")).toBeInTheDocument();
   });
@@ -332,11 +332,11 @@ describe("ResultPage — 타임라인 카드", () => {
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });
 
-  it("자동 멈춤이 0이면 범례는 '집중'만 남는다", () => {
+  it("자동 멈춤이 0이면 범례는 '순공'만 남는다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
     const card = screen.getByText("공부 타임라인").closest<HTMLElement>('[data-slot="card"]')!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
     expect(within(card).queryByText("자동 멈춤")).not.toBeInTheDocument();
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });

@@ -112,6 +112,31 @@ describe("parseToWebMessage", () => {
   it("session-closed에 atMs가 없으면 null을 돌려준다", () => {
     expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
   });
+
+  it("auth-token을 파싱한다", () => {
+    expect(
+      parseToWebMessage('{"type":"auth-token","userId":7,"accessToken":"a1","atMs":1}'),
+    ).toEqual({
+      type: "auth-token",
+      userId: 7,
+      accessToken: "a1",
+      atMs: 1,
+    });
+  });
+
+  it("auth-token은 userId·accessToken null을 허용한다 — 등록 실패·토큰 없는 서버", () => {
+    expect(
+      parseToWebMessage('{"type":"auth-token","userId":null,"accessToken":null,"atMs":1}'),
+    ).toEqual({ type: "auth-token", userId: null, accessToken: null, atMs: 1 });
+  });
+
+  it.each([
+    '{"type":"auth-token","userId":"7","accessToken":"a1","atMs":1}',
+    '{"type":"auth-token","userId":7,"atMs":1}',
+    '{"type":"auth-token","userId":7,"accessToken":"a1"}',
+  ])("auth-token의 필드가 어긋나면 null이다 — %s", (raw) => {
+    expect(parseToWebMessage(raw)).toBeNull();
+  });
 });
 
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {

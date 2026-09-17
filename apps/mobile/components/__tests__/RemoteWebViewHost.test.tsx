@@ -23,6 +23,22 @@ jest.mock("../../lib/orientation", () => ({
   unlockForSession: jest.fn(),
 }));
 
+type AuthListener = (state: {
+  userId: number;
+  accessToken: string | null;
+  refreshToken: string | null;
+}) => void;
+const mockAuthListeners = new Set<AuthListener>();
+jest.mock("../../lib/auth", () => ({
+  ...jest.requireActual<typeof import("../../lib/auth")>("../../lib/auth"),
+  subscribeAuth: (listener: AuthListener) => {
+    mockAuthListeners.add(listener);
+    return () => {
+      mockAuthListeners.delete(listener);
+    };
+  },
+}));
+
 /** 실제와 같은 1회 의미를 갖는 mock. 순수 로직 자체는 lib/__tests__/appLaunch.test.ts가 본다. */
 let mockAppLaunchPending = false;
 
@@ -140,6 +156,7 @@ beforeEach(() => {
   (consumeAppLaunchSignal as jest.Mock).mockClear();
   mockAppLaunchPending = false;
   mockUseColorScheme.mockReturnValue("light");
+  mockAuthListeners.clear();
 });
 
 // spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
@@ -533,6 +550,53 @@ describe("RemoteWebViewHost", () => {
     expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
     const script = mockInjectJavaScript.mock.calls[0][0] as string;
     expect(script).toContain('\\"session-closed\\"');
+  });
+
+  it("토큰이 바뀌면 경로·포커스와 무관하게 모든 호스트에 auth-token을 주입한다 — refresh 토큰은 싣지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+    render(<RemoteWebViewHost path="/records" testID="records" focused={false} />);
+
+    act(() => {
+      for (const listener of mockAuthListeners) {
+        listener({ userId: 7, accessToken: "a2", refreshToken: "r2" });
+      }
+    });
+
+    const scripts = mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("auth-token"));
+    expect(scripts).toHaveLength(2);
+    expect(scripts[0]).toContain('\\"accessToken\\":\\"a2\\"');
+    expect(scripts[0]).not.toContain("refreshToken");
+  });
+
+  it("개발 빌드 로그에서도 access 토큰은 가린다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+
+    act(() => {
+      for (const listener of mockAuthListeners) {
+        listener({ userId: 7, accessToken: "a2", refreshToken: "r2" });
+      }
+    });
+
+    const logged = warn.mock.calls.some((call) =>
+      call.some((arg) => JSON.stringify(arg).includes("a2")),
+    );
+    expect(logged).toBe(false);
+    expect(
+      warn.mock.calls.some((call) =>
+        call.some((arg) => JSON.stringify(arg).includes("auth-token")),
+      ),
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("언마운트하면 토큰 구독을 해제한다", () => {
+    const view = render(<RemoteWebViewHost path="/home" testID="host" />);
+    expect(mockAuthListeners.size).toBe(1);
+    view.unmount();
+    expect(mockAuthListeners.size).toBe(0);
   });
 
   it("개발 빌드에서 웹으로 보내는 메시지를 로그로 남긴다", () => {

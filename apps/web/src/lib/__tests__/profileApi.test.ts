@@ -56,14 +56,12 @@ describe("updateProfile", () => {
     );
   });
 
-  it("409 NICKNAME_TAKEN의 code를 보존해 던진다", async () => {
-    mockedFetch.mockResolvedValue(
-      jsonResponse(409, { code: "NICKNAME_TAKEN", message: "이미 사용 중" }),
-    );
+  it("409 CONFLICT의 code를 보존해 던진다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(409, { code: "CONFLICT", message: "이미 사용 중" }));
 
     await expect(updateProfile(7, { nickname: "중복닉" })).rejects.toMatchObject({
       status: 409,
-      code: "NICKNAME_TAKEN",
+      code: "CONFLICT",
     });
   });
 });

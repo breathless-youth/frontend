@@ -9,6 +9,11 @@ describe("RoomAvatarFallback", () => {
     expect(screen.getByText("가")).toBeInTheDocument();
   });
 
+  it("이모지로 시작하는 닉네임도 이니셜이 깨지지 않는다", () => {
+    render(<RoomAvatarFallback nickname="🧑‍💻코딩" />);
+    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
+  });
+
   it("닉네임이 없으면 빈 글자여도 깨지지 않는다", () => {
     const { container } = render(<RoomAvatarFallback nickname={undefined} />);
     expect(container.firstChild).not.toBeNull();

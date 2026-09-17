@@ -282,6 +282,53 @@ describe("createStompRoomChannel", () => {
     await Promise.resolve();
     expect(client.activate).toHaveBeenCalledTimes(1);
   });
+
+  it("disconnected가 boolean이면 통과하고, 아니면 멤버 메시지를 버린다", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":8,"cameraOn":true,"focusState":"FOCUS","disconnected":true}}',
+    });
+    client.subscriptions[0]?.callback({
+      body: '{"type":"MEMBER_JOINED","member":{"userId":9,"cameraOn":true,"focusState":"FOCUS","disconnected":"yes"}}',
+    });
+
+    expect(received).toEqual([
+      {
+        type: "MEMBER_JOINED",
+        member: { userId: 8, cameraOn: true, focusState: "FOCUS", disconnected: true },
+      },
+    ]);
+  });
+
+  it("ROOM_UNAVAILABLE은 roomId가 number면 통과하고, 없으면 버린다", () => {
+    const { client, channel } = setup();
+    const received: RoomServerMessage[] = [];
+    channel.subscribe((message) => received.push(message));
+    channel.connect();
+    client.fireConnect();
+
+    client.subscriptions[0]?.callback({ body: '{"type":"ROOM_UNAVAILABLE","roomId":42}' });
+    client.subscriptions[0]?.callback({ body: '{"type":"ROOM_UNAVAILABLE"}' });
+
+    expect(received).toEqual([{ type: "ROOM_UNAVAILABLE", roomId: 42 }]);
+  });
+
+  it("requestSnapshot은 스냅샷 목적지로 빈 본문을 발행한다", () => {
+    const { client, channel } = setup();
+    channel.connect();
+    client.fireConnect();
+    const before = snapshotRequests(client).length;
+
+    channel.requestSnapshot();
+
+    expect(snapshotRequests(client).length).toBe(before + 1);
+    expect(snapshotRequests(client).at(-1)?.body).toBe("");
+  });
 });
 
 /**
@@ -428,6 +475,107 @@ describe("SNAPSHOT 재요청 워치독 (BY-442)", () => {
       // 재연결하면 새 연결의 1회만 나간다 — 죽은 워치독이 버퍼로 흘려보낸 발행이 없다.
       client.fireConnect();
       expect(snapshotRequests(client)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("강제 재연결 예산을 소진하면 onSnapshotUnrecovered를 1회 부른다", async () => {
+    vi.useFakeTimers();
+    const onSnapshotUnrecovered = vi.fn();
+    try {
+      const client = createFakeClient();
+      const channel = createStompRoomChannel({
+        roomId: 42,
+        userId: 7,
+        createClient: () => client,
+        onSnapshotUnrecovered,
+      });
+      channel.connect();
+      client.fireConnect();
+
+      // 교체 3사이클(각 7.5초 뒤 deactivate→activate→재연결) 소진.
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      // 4번째 소진에서 슬로우 재요청으로 물러나며 콜백이 1회 불린다.
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(1);
+
+      // 이어지는 슬로우 재요청에는 다시 부르지 않는다 — 드라우트당 1회.
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("SNAPSHOT을 받은 뒤 새 드라우트에서 onSnapshotUnrecovered를 다시 부를 수 있다", async () => {
+    vi.useFakeTimers();
+    const onSnapshotUnrecovered = vi.fn();
+    try {
+      const client = createFakeClient();
+      const channel = createStompRoomChannel({
+        roomId: 42,
+        userId: 7,
+        createClient: () => client,
+        onSnapshotUnrecovered,
+      });
+      channel.connect();
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(1);
+
+      // 정상 SNAPSHOT 도착 → 예산·드라우트 가드가 리셋된다.
+      client.subscriptions[0]?.callback({ body: '{"type":"SNAPSHOT","members":[]}' });
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("공개 reconnect()는 워치독을 재무장해 onSnapshotUnrecovered가 다시 불릴 수 있게 한다", async () => {
+    vi.useFakeTimers();
+    const onSnapshotUnrecovered = vi.fn();
+    try {
+      const client = createFakeClient();
+      const channel = createStompRoomChannel({
+        roomId: 42,
+        userId: 7,
+        createClient: () => client,
+        onSnapshotUnrecovered,
+      });
+      channel.connect();
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(1);
+
+      // SNAPSHOT 없이 자리 재호출의 reconnect()만으로 재무장 — 배달이 여전히 깨져 있으면
+      // 새 드라우트가 예산을 다시 소진해 종료 경로가 도달 가능해진다.
+      channel.reconnect();
+      await vi.advanceTimersByTimeAsync(0);
+      client.fireConnect();
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        await vi.advanceTimersByTimeAsync(7500);
+        client.fireConnect();
+      }
+      await vi.advanceTimersByTimeAsync(7500);
+      expect(onSnapshotUnrecovered).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }

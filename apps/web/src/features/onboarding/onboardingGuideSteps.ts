@@ -59,7 +59,7 @@ export const GUIDE_BOTTOM_HINT = `${GUIDE_HINT_PREFIX}${GUIDE_SKIP_LABEL}`;
 export const GUIDE_FINAL_HINT = "이 안내는 설정 > 측정 기준 안내에서 언제든 다시 볼 수 있어요";
 
 /** 목업 배경 문구 — 전부 기존 확정 문구 재사용(새로 짓지 않는다). */
-export const MOCK_FOCUS_PILL_LABEL = "집중 측정 중";
+export const MOCK_FOCUS_PILL_LABEL = "순공시간 측정 중";
 export const MOCK_DISTRACT_PILL_LABEL = "자리를 비운 것 같아요";
 export const MOCK_DISTRACT_PILL_SUBLABEL = "돌아오면 자동으로 다시 측정돼요";
 /** G4 일시정지 필 — 실제 세션 일시정지 필(`sessionCopy.ts`)의 확정 문구 재사용(BY-427). */
@@ -241,7 +241,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     id: "G2",
     figmaNodeId: "68:976",
     tooltip: {
-      title: "집중이 아니면, 잠시 멈춰요",
+      title: "휴식 중에는 잠시 멈춰요",
       body: "자리를 비우거나 다른 일을 하면 타이머가 멈추고, 위 상태 표시가 주황으로 바뀌어요. 다시 집중하면 저절로 흘러가요.",
       tail: "bottom",
     },

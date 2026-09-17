@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Share } from "react-native";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
+import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -46,6 +47,13 @@ jest.mock("../sessionClosed", () => ({
   emitSessionClosed: jest.fn(),
 }));
 
+jest.mock("../auth", () => ({
+  ...jest.requireActual<typeof import("../auth")>("../auth"),
+  awaitAuth: jest.fn(),
+  ensureAuth: jest.fn(),
+  refreshAuth: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -67,6 +75,12 @@ const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
   typeof getMotionSensorRelay
 >;
 const mockedEmitSessionClosed = emitSessionClosed as jest.MockedFunction<typeof emitSessionClosed>;
+const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
+const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
+const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
+const flush = async () => {
+  for (let i = 0; i < 4; i += 1) await Promise.resolve();
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -353,5 +367,50 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
       ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
     ]);
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+});
+
+describe("토큰 브리지", () => {
+  it("auth-ready → 현재 토큰으로 auth-token을 답한다. refresh 토큰은 싣지 않는다", async () => {
+    mockedAwaitAuth.mockResolvedValue({ userId: 7, accessToken: "a1", refreshToken: "r1" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "auth-ready", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", userId: 7, accessToken: "a1" }),
+    );
+    expect(reply.mock.calls[0]?.[0]).not.toHaveProperty("refreshToken");
+  });
+
+  it("auth-ready → 등록 실패면 userId·accessToken null로 답한다 — 웹이 영영 기다리지 않는다", async () => {
+    mockedAwaitAuth.mockResolvedValue(null);
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "auth-ready", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", userId: null, accessToken: null }),
+    );
+  });
+
+  it("request-token-refresh → 갱신 결과로 답한다", async () => {
+    mockedRefreshAuth.mockResolvedValue({ userId: 7, accessToken: "a2", refreshToken: "r2" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "request-token-refresh", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", accessToken: "a2" }),
+    );
+    expect(mockedEnsureAuth).not.toHaveBeenCalled();
+  });
+
+  it("request-token-refresh → 갱신이 실패해도 저장된 현재 상태로 답한다 — 요청 문서의 대기를 푼다", async () => {
+    mockedRefreshAuth.mockResolvedValue(null);
+    mockedEnsureAuth.mockResolvedValue({ userId: 7, accessToken: "a1", refreshToken: "r1" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "request-token-refresh", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", accessToken: "a1" }),
+    );
   });
 });
