@@ -761,6 +761,107 @@ export function trackStudyResultConfirmed(input: {
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
 }
 
+/* ── 결과 화면 이탈 핸드오프 ──────────────────────────────────────────────────
+ *
+ * `study_result_exited`는 Amplitude 설문(G&S) 트리거다(`focus_sec ≥ 600` 필터). 결과 화면에서
+ * 직접 보내면 안 되는 이유: 네이티브 솔로 세션은 별도 웹뷰(fullScreenModal)라 `navigate-home`
+ * 직후 그 웹뷰가 닫히고, 설문은 이벤트를 본 SDK 인스턴스에서만 뜬다 — 항상 살아 있는 홈·기록
+ * 웹뷰는 이벤트를 보지 못한다. 그래서 결과 화면은 localStorage에 **예약**만 남기고, 실제 전송은
+ * 도착 화면(홈·기록)이 한다. 웹뷰끼리 같은 origin의 localStorage를 공유하는 것에 기댄다.
+ * 확인·X·탭바 이탈·앱 재실행 어느 경로로 나가도 예약이 살아남고, 브라우저·소셜 플로우도 같은
+ * 경로를 탄다.
+ */
+const PENDING_EXIT_KEY = "fm_pending_result_exit";
+const PENDING_EXIT_TTL_MS = 10 * 60_000;
+
+/**
+ * 예약을 소비할 화면의 경로. **경로로 못박는 것이 이 설계의 핵심 안전장치다** — 네이티브는 탭
+ * 4개 웹뷰를 동시에 마운트해 두고(`apps/mobile/CLAUDE.md`), `document.visibilityState`는 어느
+ * 탭이 보이는지가 아니라 앱 전체의 포/백그라운드에만 반응한다. 못박지 않으면 앱을 잠갔다 푸는
+ * 것만으로 네 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
+ * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
+ */
+export type ResultExitPath = "/home" | "/social" | "/records";
+
+interface PendingResultExit {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+  readonly consumeAt: ResultExitPath;
+  readonly ts: number;
+}
+
+/** localStorage 값은 외부 입력이다 — 다른 버전이 남긴 스키마·빈 객체를 그대로 보내지 않는다. */
+function isPendingResultExit(value: unknown): value is PendingResultExit {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    (record.roomType === "single" || record.roomType === "social") &&
+    typeof record.focusSec === "number" &&
+    Number.isFinite(record.focusSec) &&
+    (record.consumeAt === "/home" ||
+      record.consumeAt === "/social" ||
+      record.consumeAt === "/records") &&
+    typeof record.ts === "number" &&
+    Number.isFinite(record.ts)
+  );
+}
+
+/**
+ * S4 결과 화면을 **떠나는 순간** — 이탈 예약을 남긴다. 실제 track은 도착 화면이 한다.
+ *
+ * ⚠️ **진입 시점이 아니라 이탈 시점에 쓴다.** 결과 화면이 떠 있는 동안 예약이 존재하면, 그 사이
+ * 앱이 백그라운드에 갔다 오는 것만으로 숨어 있는 탭 웹뷰가 예약을 집어가 사용자가 아직 결과
+ * 화면에 있는데 설문이 조기 발화한다(보이지 않는 탭에서 열려 쿨다운만 태운다). 그 대가로 버튼을
+ * 거치지 않는 이탈(앱 강제 종료)은 예약이 남지 않는다 — 설문 기회를 한 번 놓칠 뿐이고, 잘못된
+ * 이벤트를 보내거나 노출 기회를 태우는 것보다 낫다.
+ *
+ * `localStorage.setItem`은 동기라 웹뷰가 곧바로 닫혀도 값은 남는다.
+ * `focusSec`은 `study_session_ended`와 같은 세션 전체 순공시간(초) — 자정 분할 세션은 호출
+ * 측이 합산해서 넘긴다. 초기화 여부와 무관하게 저장한다(도착 화면이 판단).
+ */
+export function stageStudyResultExit(input: {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+  readonly consumeAt: ResultExitPath;
+}) {
+  try {
+    localStorage.setItem(PENDING_EXIT_KEY, JSON.stringify({ ...input, ts: Date.now() }));
+  } catch {
+    // localStorage 불가(프라이빗 모드 등) — 설문 트리거만 잃는다.
+  }
+}
+
+/**
+ * 현재 화면의 경로를 주면 — **그 화면 몫으로 예약된 것이 있을 때만** 이 웹뷰에서
+ * `study_result_exited`를 보내고 지운다. 내 몫이 아니면 손대지 않고 남긴다(다른 탭 웹뷰가
+ * 가져가야 한다). 같은 웹뷰가 두 번 불러도 한 번만 나가도록 보내기 전에 지우고, 형태가 다르거나
+ * 오래된 예약(10분 초과)은 버린다. 이벤트명·속성명이 콘솔 트리거와 맞아야 한다.
+ */
+export function consumeStudyResultExit(pathname: string) {
+  if (!initialized) return;
+  try {
+    const raw = localStorage.getItem(PENDING_EXIT_KEY);
+    if (!raw) return;
+    const pending: unknown = JSON.parse(raw);
+    if (!isPendingResultExit(pending)) {
+      localStorage.removeItem(PENDING_EXIT_KEY);
+      return;
+    }
+    // 내 화면 몫이 아니다 — 지우지 않는다. 지우면 정작 도착한 탭이 보낼 것을 잃는다.
+    if (pending.consumeAt !== pathname) return;
+    localStorage.removeItem(PENDING_EXIT_KEY);
+    if (Date.now() - pending.ts > PENDING_EXIT_TTL_MS) return;
+    track("study_result_exited", {
+      room_type: pending.roomType,
+      focus_sec: pending.focusSec,
+      // 소셜 탭 복귀도 홈 복귀로 센다 — 솔로·소셜 구분은 `room_type`이 갖는다.
+      destination: pending.consumeAt === "/records" ? "record" : "home",
+    });
+  } catch {
+    // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.
+  }
+}
+
 /** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
 export function trackStudyResultDistractionToggled(input: {
   readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
