@@ -8,7 +8,7 @@ import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
-import { setTabBarVisible } from "./tabBarVisibility";
+import { setTabBarState } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -123,7 +123,9 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
     case "set-tab-bar":
       // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
-      setTabBarVisible(message.visible);
+      setTabBarState(
+        message.blockedByModal === true ? "blocked" : message.visible ? "visible" : "hidden",
+      );
       break;
     case "motion-sensor":
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로
