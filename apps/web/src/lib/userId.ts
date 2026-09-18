@@ -48,10 +48,17 @@ export function legacyUserId(): number | null {
   return parseUserId(new URLSearchParams(window.location.search).get(USER_ID_PARAM));
 }
 
-/** 토큰 없는 문서(구 앱)에서만 붙는 쿼리 꼬리. 앞에 다른 쿼리가 있으면 `&`, 없으면 `?`로 시작한다. */
-export function legacyQuery(hasQuery: boolean): string {
+/**
+ * 토큰 없는 문서(구 앱)에서만 쿼리에 userId를 이어 붙인다. `query`는 앞의 `?`까지 포함한 완성된
+ * 쿼리 문자열이거나 빈 문자열이다. 이미 쿼리가 있으면 `&`, 없으면 `?`로 잇는다. legacy가 아니면
+ * 받은 값을 그대로 돌려준다.
+ */
+export function legacyQuery(query: string): string {
   const legacy = legacyUserId();
-  return legacy === null ? "" : `${hasQuery ? "&" : "?"}userId=${legacy}`;
+  if (legacy === null) {
+    return query;
+  }
+  return `${query}${query === "" ? "?" : "&"}userId=${legacy}`;
 }
 
 /** 서버 렌더에는 브리지가 없다 — 기다리지 않고 확정으로 본다. */

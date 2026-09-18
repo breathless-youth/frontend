@@ -73,7 +73,7 @@ export async function renewLiveRoomSeat(inviteCode: string): Promise<RoomJoinRes
 
 /** 명시적 퇴장 — 룸 나가기에서 세션 제출 후 호출한다. */
 export async function leaveRoom(roomId: number): Promise<void> {
-  const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave${legacyQuery(false)}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave${legacyQuery("")}`, {
     method: "POST",
   });
   if (!res.ok) {

@@ -168,14 +168,17 @@ describe("legacyQuery", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("legacy 신원이 있으면 앞 쿼리 유무에 따라 ? 또는 &로 잇는다", () => {
+  it("legacy 신원이 있으면 빈 쿼리엔 ?로, 있는 쿼리엔 &로 잇는다", () => {
     window.history.replaceState(null, "", "/home?userId=7");
-    expect(legacyQuery(false)).toBe("?userId=7");
-    expect(legacyQuery(true)).toBe("&userId=7");
+    expect(legacyQuery("")).toBe("?userId=7");
+    expect(legacyQuery("?from=2026-07-01&to=2026-07-31")).toBe(
+      "?from=2026-07-01&to=2026-07-31&userId=7",
+    );
   });
 
-  it("legacy 신원이 없으면 빈 문자열이다", () => {
+  it("legacy 신원이 없으면 받은 쿼리를 그대로 돌려준다", () => {
     window.history.replaceState(null, "", "/home");
-    expect(legacyQuery(true)).toBe("");
+    expect(legacyQuery("")).toBe("");
+    expect(legacyQuery("?date=2026-07-25")).toBe("?date=2026-07-25");
   });
 });

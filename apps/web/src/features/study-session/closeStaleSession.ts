@@ -26,7 +26,7 @@ async function retryOnce<T>(signal: AbortSignal, run: () => Promise<T>): Promise
 }
 
 async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResponse | null> {
-  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery${legacyQuery(false)}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery${legacyQuery("")}`, {
     method: "POST",
     signal,
   });
