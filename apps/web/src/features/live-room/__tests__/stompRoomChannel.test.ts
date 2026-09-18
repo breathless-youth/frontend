@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomServerMessage } from "@focusmakers/types";
 
@@ -701,5 +701,59 @@ describe("CONNECT 토큰 인증", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    mocks.source = null;
+    window.history.replaceState(null, "", "/social/room/1?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("brokerURL에 ?userId=가 붙고 CONNECT 헤더 없이 연결하며 deactivate하지 않는다", async () => {
+    const client = createFakeClient();
+    client.connectHeaders = { Authorization: "Bearer stale" };
+    createStompRoomChannel({
+      roomId: 1,
+      createClient: (config) => {
+        client.config = config;
+        return client;
+      },
+    });
+
+    expect(client.config?.brokerURL).toMatch(/\/ws\?userId=7$/);
+
+    await client.beforeConnect?.();
+
+    expect(client.connectHeaders).toEqual({});
+    expect(client.deactivate).not.toHaveBeenCalled();
+  });
+});
+
+describe("토큰 출처도 URL userId도 없으면", () => {
+  beforeEach(() => {
+    mocks.source = null;
+    window.history.replaceState(null, "", "/social/room/1");
+  });
+
+  it("지금처럼 연결을 멈춘다", async () => {
+    const client = createFakeClient();
+    createStompRoomChannel({
+      roomId: 1,
+      createClient: (config) => {
+        client.config = config;
+        return client;
+      },
+    });
+
+    expect(client.config?.brokerURL).toMatch(/\/ws$/);
+
+    await client.beforeConnect?.();
+
+    expect(client.deactivate).toHaveBeenCalledTimes(1);
   });
 });

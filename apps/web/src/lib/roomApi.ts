@@ -1,17 +1,32 @@
-import type { RoomCreateResponse, RoomJoinRequest, RoomJoinResponse } from "@focusmakers/types";
+import type {
+  RoomCreateRequest,
+  RoomCreateResponse,
+  RoomJoinRequest,
+  RoomJoinResponse,
+} from "@focusmakers/types";
 
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
+import { legacyQuery, legacyUserId } from "./userId";
 
 /**
  * 초대코드 룸 생성·입장
  */
 
 export async function createRoom(): Promise<RoomCreateResponse> {
-  const res = await apiFetch(`${API_BASE_URL}/api/rooms`, {
-    method: "POST",
-  });
+  const legacy = legacyUserId();
+  // 토큰 없는 문서(구 앱)만 본문에 사용자 번호를 싣는다. 토큰이 있으면 서버가 토큰에서 읽는다.
+  const res = await apiFetch(
+    `${API_BASE_URL}/api/rooms`,
+    legacy === null
+      ? { method: "POST" }
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: legacy } satisfies RoomCreateRequest),
+        },
+  );
   if (!res.ok) {
     throw await parseApiError(res, "방 생성 실패");
   }
@@ -19,11 +34,14 @@ export async function createRoom(): Promise<RoomCreateResponse> {
 }
 
 async function postJoin(inviteCode: string): Promise<RoomJoinResponse> {
+  const legacy = legacyUserId();
+  // inviteCode는 문자열 그대로 보낸다 — 앞자리 0 보존
+  const request: RoomJoinRequest =
+    legacy === null ? { inviteCode } : { userId: legacy, inviteCode };
   const res = await apiFetch(`${API_BASE_URL}/api/rooms/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // inviteCode는 문자열 그대로 보낸다 — 앞자리 0 보존
-    body: JSON.stringify({ inviteCode } satisfies RoomJoinRequest),
+    body: JSON.stringify(request),
   });
   if (!res.ok) {
     throw await parseApiError(res, "참여 실패");
@@ -55,7 +73,7 @@ export async function renewLiveRoomSeat(inviteCode: string): Promise<RoomJoinRes
 
 /** 명시적 퇴장 — 룸 나가기에서 세션 제출 후 호출한다. */
 export async function leaveRoom(roomId: number): Promise<void> {
-  const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave${legacyQuery("")}`, {
     method: "POST",
   });
   if (!res.ok) {

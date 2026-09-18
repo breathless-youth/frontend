@@ -180,4 +180,17 @@ describe("closeStaleSession", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(reportHandled).not.toHaveBeenCalled();
   });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 복구 쿼리에 userId를 붙인다(구 앱)", async () => {
+    window.history.replaceState(null, "", "/social?userId=7");
+    fetchMock.mockResolvedValue(jsonResponse(404, {}));
+    try {
+      await closeStaleSession(7);
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("/api/study-sessions/recovery?userId=7");
+      expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });

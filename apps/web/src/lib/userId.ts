@@ -21,16 +21,44 @@ const USER_ID_PARAM = "userId";
 
 /**
  * React 밖에서 신원을 한 번 읽는 경로. 토큰 출처(`getTokenSource`)가 있으면 그 userId가
- * 우선이고, 없거나 null이면 `?userId=N`으로 폴백한다. 셸은 더 이상 이 값을 붙이지 않으므로
- * (BY-528) 폴백이 살아 있는 곳은 **브리지 없는 브라우저 단독 모드**뿐이다.
+ * 우선이고, 없거나 null이면 `?userId=N`으로 폴백한다. 신 앱 셸은 이 값을 붙이지 않으므로
+ * 폴백을 타는 문서는 구 앱 웹뷰와 브리지 없는 브라우저 단독 모드다. 그 문서들은
+ * `legacyUserId`로 구 방식 요청을 낸다.
  *
- * ⚠️ 구독이 없어 **토큰 도착에 반응하지 않는다.** 웹뷰에서는 브리지 왕복이 끝나기 전에
- * 부르면 null이 나오고 그대로 굳는다. 값이 늦게 와도 따라가야 하는 곳은 `useUserId`를 쓴다.
+ * ⚠️ 구독이 없어 토큰 도착에 반응하지 않는다. 웹뷰에서는 브리지 왕복이 끝나기 전에
+ * 부르면 null이 나오고 그 값이 그대로 남는다. 값이 늦게 와도 따라가야 하는 곳은 `useUserId`를 쓴다.
  */
 export function readUserId(search: string): number | null {
   return (
     getTokenSource()?.getUserId() ?? parseUserId(new URLSearchParams(search).get(USER_ID_PARAM))
   );
+}
+
+/**
+ * 토큰 출처가 없는 문서가 URL로 받은 신원. 값이 있으면 API·소켓이 구 방식(userId 파라미터,
+ * 구 경로, 소켓 쿼리)으로 요청한다. 구 앱은 모든 문서 URL에 `?userId=N`을 붙이므로 이 값은
+ * 셸이 토큰 대신 준 신원이다. 출처가 있으면 항상 null이라 신 앱 경로는 이 함수를 무시한다.
+ *
+ * TODO: 구 앱 퇴출 뒤 이 헬퍼 둘과 `legacyUserId`·`legacyQuery`를 읽는 분기를 전부 지운다. 두 이름을 검색하면 다 잡힌다.
+ */
+export function legacyUserId(): number | null {
+  if (getTokenSource() !== null) {
+    return null;
+  }
+  return parseUserId(new URLSearchParams(window.location.search).get(USER_ID_PARAM));
+}
+
+/**
+ * 토큰 없는 문서(구 앱)에서만 쿼리에 userId를 이어 붙인다. `query`는 앞의 `?`까지 포함한 완성된
+ * 쿼리 문자열이거나 빈 문자열이다. 이미 쿼리가 있으면 `&`, 없으면 `?`로 잇는다. legacy가 아니면
+ * 받은 값을 그대로 돌려준다.
+ */
+export function legacyQuery(query: string): string {
+  const legacy = legacyUserId();
+  if (legacy === null) {
+    return query;
+  }
+  return `${query}${query === "" ? "?" : "&"}userId=${legacy}`;
 }
 
 /** 서버 렌더에는 브리지가 없다 — 기다리지 않고 확정으로 본다. */

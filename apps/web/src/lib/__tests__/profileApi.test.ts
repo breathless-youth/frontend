@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getProfile, updateProfile } from "../profileApi";
 
@@ -63,5 +63,34 @@ describe("updateProfile", () => {
       status: 409,
       code: "CONFLICT",
     });
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState(null, "", "/settings?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("조회가 구 경로 /api/users/7/profile로 나가고 Authorization이 없다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, profile));
+
+    await getProfile();
+
+    const [url, init] = mockedFetch.mock.calls[0]!;
+    expect(url).toBe("/api/users/7/profile");
+    expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
+  });
+
+  it("수정도 구 경로로 나간다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, profile));
+
+    await updateProfile({ nickname: "새이름" });
+
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/users/7/profile");
   });
 });

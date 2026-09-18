@@ -161,4 +161,20 @@ describe("restoreActiveSession", () => {
 
     await expect(restoreActiveSession()).resolves.toBeNull();
   });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 쿼리에 userId를 붙인다(구 앱)", async () => {
+    window.history.replaceState(null, "", "/room/1?userId=7");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await restoreActiveSession();
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("/api/study-sessions/active?userId=7");
+      expect(new Headers((init as RequestInit | undefined)?.headers).has("Authorization")).toBe(
+        false,
+      );
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });

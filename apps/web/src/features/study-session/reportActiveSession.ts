@@ -1,6 +1,7 @@
 import type { ActiveSessionSnapshotRequest, StatusEventPayload } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { legacyUserId } from "@/lib/userId";
 
 import { clampSessionSeconds } from "./sessionRequestClamp";
 
@@ -56,10 +57,12 @@ export async function reportActiveSession(
     controller.abort();
   }, timeoutMs);
   try {
+    const request = buildActiveSnapshotRequest(input);
+    const legacy = legacyUserId();
     const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildActiveSnapshotRequest(input)),
+      body: JSON.stringify(legacy === null ? request : { ...request, userId: legacy }),
       signal: controller.signal,
     });
     if (!res.ok) {

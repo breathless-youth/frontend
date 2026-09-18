@@ -4,6 +4,7 @@ import type { RoomServerMessage, RoomSignalPublish, RoomStateUpdate } from "@foc
 
 import { API_BASE_URL } from "@/lib/api";
 import { getTokenSource } from "@/lib/auth/tokenSource";
+import { legacyUserId } from "@/lib/userId";
 
 import type { RoomChannel, RoomChannelStatus } from "./roomChannel";
 
@@ -108,8 +109,10 @@ export function createStompRoomChannel({
   const listeners = new Set<(message: RoomServerMessage) => void>();
 
   const wsBase = (API_BASE_URL || window.location.origin).replace(/^http/, "ws");
+  // 토큰 없는 문서(구 앱)의 신원은 문서 수명 동안 바뀌지 않으므로 생성 시 한 번만 읽는다.
+  const legacy = legacyUserId();
   const client = createClient({
-    brokerURL: `${wsBase}/ws`,
+    brokerURL: `${wsBase}/ws${legacy === null ? "" : `?userId=${legacy}`}`,
     reconnectDelay: 5000,
   });
 
@@ -238,10 +241,12 @@ export function createStompRoomChannel({
   }
 
   /**
-   * 핸드셰이크(GET /ws)는 인증 없이 열려 있고 쿼리를 읽지 않는다. 신원은 CONNECT 프레임의
-   * `Authorization: Bearer <access>` 네이티브 헤더로만 전달되고, 서버는 CONNECT 시점에 한 번만
+   * 핸드셰이크(GET /ws)는 인증 없이 열려 있다. 토큰 출처가 있는 문서는 신원을 CONNECT 프레임의
+   * `Authorization: Bearer <access>` 네이티브 헤더로 전달하고, 서버는 CONNECT 시점에 한 번만
    * 검증한다(접속 중 만료돼도 그 세션은 유지된다). 헤더가 없거나 무효면 ERROR 프레임 뒤
-   * 소켓이 끊긴다. connectHeaders는 정적 객체라 재연결마다 여기서 갈아 끼운다.
+   * 소켓이 끊긴다. 토큰 출처가 없고 URL에 userId가 있는 문서(구 앱)는 핸드셰이크 쿼리
+   * `/ws?userId=`로 신원을 전하고 헤더 없이 붙는다. connectHeaders는 정적 객체라 재연결마다
+   * 여기서 갈아 끼운다.
    *
    * 붙기 직전에 토큰을 새로 받아 쓴다. 웹은 JWT를 열어보지 않아 만료를 알 수 없고, 만료된
    * 토큰으로 붙으면 서버가 끊은 뒤 reconnectDelay가 5초마다 같은 실패를 반복한다. 갱신이
@@ -250,6 +255,11 @@ export function createStompRoomChannel({
    */
   client.beforeConnect = async () => {
     const source = getTokenSource();
+    // 토큰 없는 문서(구 앱)는 핸드셰이크 쿼리의 userId로 신원을 전한다. 헤더 없이 붙는다.
+    if (source === null && legacy !== null) {
+      client.connectHeaders = {};
+      return;
+    }
     // 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
     const token =
       source === null ? null : ((await source.refresh()) ?? (await source.getAccessToken()));

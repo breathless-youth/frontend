@@ -5,6 +5,7 @@ import type {
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseErrorMessage } from "./api";
+import { legacyQuery } from "./userId";
 
 /**
  * 일일 통계·스트릭 조회 (`apps/mobile/lib/statsApi.ts`에서 이식 — BY-329).
@@ -16,9 +17,8 @@ import { API_BASE_URL, apiFetch, parseErrorMessage } from "./api";
 export type DateRange = { from: string; to: string };
 
 export async function listStudySessionStats(date: string): Promise<StudySessionListResponse> {
-  const res = await apiFetch(`${API_BASE_URL}/api/stats?date=${encodeURIComponent(date)}`, {
-    method: "GET",
-  });
+  const query = `?date=${encodeURIComponent(date)}`;
+  const res = await apiFetch(`${API_BASE_URL}/api/stats${legacyQuery(query)}`, { method: "GET" });
   if (!res.ok) {
     throw await parseErrorMessage(res, "통계 조회 실패");
   }
@@ -29,7 +29,7 @@ export async function getStreak(range?: DateRange): Promise<StudySessionStreakRe
   const rangeParams = range
     ? `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
     : "";
-  const res = await apiFetch(`${API_BASE_URL}/api/stats/streak${rangeParams}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/streak${legacyQuery(rangeParams)}`, {
     method: "GET",
   });
   if (!res.ok) {
@@ -45,10 +45,10 @@ export async function getPeriodStats(
   const compareParams = compareRange
     ? `&compareFrom=${encodeURIComponent(compareRange.from)}&compareTo=${encodeURIComponent(compareRange.to)}`
     : "";
-  const res = await apiFetch(
-    `${API_BASE_URL}/api/stats/period?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`,
-    { method: "GET" },
-  );
+  const query = `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`;
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/period${legacyQuery(query)}`, {
+    method: "GET",
+  });
   if (!res.ok) {
     throw await parseErrorMessage(res, "기간 집계 조회 실패");
   }
