@@ -1,6 +1,7 @@
 import type { ActiveSessionSnapshotResponse, StatusEventPayload } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { legacyQuery } from "@/lib/userId";
 
 const EVENT_STATUSES: ReadonlySet<string> = new Set(["PHONE", "DEVICE", "AWAY", "PAUSE"]);
 
@@ -50,7 +51,7 @@ export async function restoreActiveSession(
     controller.abort();
   }, timeoutMs);
   try {
-    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active${legacyQuery(false)}`, {
       method: "GET",
       signal: controller.signal,
     });

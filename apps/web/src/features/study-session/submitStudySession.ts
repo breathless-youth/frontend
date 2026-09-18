@@ -5,6 +5,7 @@ import type {
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { legacyUserId } from "@/lib/userId";
 
 import { clampSessionSeconds } from "./sessionRequestClamp";
 
@@ -56,10 +57,12 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
  */
 export async function submitStudySession(input: SessionInput): Promise<StudySessionResponse[]> {
   const request = buildSessionRequest(input);
+  const legacy = legacyUserId();
   const res = await apiFetch(`${API_BASE_URL}/api/study-sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    // 토큰 없는 문서(구 앱)만 사용자 번호를 싣는다. 빌더는 순수하게 두고 여기서만 합친다.
+    body: JSON.stringify(legacy === null ? request : { ...request, userId: legacy }),
   });
   if (!res.ok) {
     // 상태코드가 있어야 호출부가 400 같은 영구 실패와 일시 실패를 가른다.

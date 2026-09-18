@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
@@ -68,5 +68,24 @@ describe("getStudySessionDetail", () => {
     });
 
     await expect(getStudySessionDetail(10)).rejects.toThrow("세션 조회 실패 (HTTP 404)");
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState(null, "", "/records?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("세션 상세 쿼리에 userId를 붙인다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, { id: 10 }));
+    await getStudySessionDetail(10);
+    const [url, init] = mockedFetch.mock.calls[0]!;
+    expect(url).toBe("/api/study-sessions/10?userId=7");
+    expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
   });
 });

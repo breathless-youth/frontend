@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
@@ -101,5 +101,50 @@ describe("leaveRoom", () => {
     mockedFetch.mockResolvedValue(jsonResponse(404, { code: "ROOM_CLOSED", message: "없는 방" }));
 
     await expect(leaveRoom(42)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState(null, "", "/social?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("방 생성이 { userId } 본문과 JSON 헤더로 나간다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(201, { roomId: 42, inviteCode: "3712", emptyTtlSeconds: 600 }),
+    );
+
+    await createRoom();
+
+    const [url, init] = mockedFetch.mock.calls[0]!;
+    expect(url).toBe("/api/rooms");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ userId: 7 });
+    expect(new Headers((init as RequestInit).headers).get("Content-Type")).toBe("application/json");
+    expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
+  });
+
+  it("방 참여 본문에 userId가 실린다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(200, { roomId: 42 }));
+
+    await renewLiveRoomSeat("0371");
+
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      userId: 7,
+      inviteCode: "0371",
+    });
+  });
+
+  it("퇴장 쿼리에 userId가 붙는다", async () => {
+    mockedFetch.mockResolvedValue({ ok: true, status: 204 });
+
+    await leaveRoom(42);
+
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/rooms/42/leave?userId=7");
   });
 });

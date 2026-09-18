@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getPeriodStats, getStreak, listStudySessionStats } from "../statsApi";
 
@@ -319,6 +319,42 @@ describe("getPeriodStats", () => {
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/stats/period?from=2026-08-24%26x%3D1&to=2026-08-30&compareFrom=2026-08-17%23z&compareTo=2026-08-23",
       expect.objectContaining({ method: "GET" }),
+    );
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyStatsResponse));
+    window.history.replaceState(null, "", "/home?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("일일 통계 쿼리에 userId를 붙인다", async () => {
+    await listStudySessionStats("2026-07-25");
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/stats?date=2026-07-25&userId=7");
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
+  });
+
+  it("스트릭은 범위가 없으면 ?userId=, 있으면 &userId=로 붙인다", async () => {
+    await getStreak();
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/stats/streak?userId=7");
+
+    await getStreak({ from: "2026-07-01", to: "2026-07-31" });
+    expect(mockedFetch.mock.calls[1]![0]).toBe(
+      "/api/stats/streak?from=2026-07-01&to=2026-07-31&userId=7",
+    );
+  });
+
+  it("기간 집계 쿼리에 userId를 붙인다", async () => {
+    await getPeriodStats({ from: "2026-07-01", to: "2026-07-31" });
+    expect(mockedFetch.mock.calls[0]![0]).toBe(
+      "/api/stats/period?from=2026-07-01&to=2026-07-31&userId=7",
     );
   });
 });

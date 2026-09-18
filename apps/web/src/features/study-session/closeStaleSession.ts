@@ -2,6 +2,7 @@ import type { SessionRecoveryResponse } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
+import { legacyQuery } from "@/lib/userId";
 
 /**
  * 마감에 거는 상한. 이 시간이 지나면 결과를 기다리지 않고 화면을 넘긴다.
@@ -25,7 +26,7 @@ async function retryOnce<T>(signal: AbortSignal, run: () => Promise<T>): Promise
 }
 
 async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResponse | null> {
-  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/recovery${legacyQuery(false)}`, {
     method: "POST",
     signal,
   });

@@ -56,4 +56,20 @@ describe("reportRtcStats", () => {
       process.off("unhandledRejection", onUnhandled);
     }
   });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 본문에 userId를 싣는다(구 앱)", () => {
+    window.history.replaceState(null, "", "/social/room/10?userId=7");
+    const fetchMock = vi.fn((..._args: Parameters<typeof fetch>) =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      reportRtcStats({ connectionId: "c1", roomId: 10, candidateType: "relay", isFinal: false });
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(JSON.parse(init!.body as string)).toMatchObject({ connectionId: "c1", userId: 7 });
+      expect(new Headers(init!.headers).has("Authorization")).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });

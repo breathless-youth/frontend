@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
-import { parseUserId, readUserId, useUserId } from "@/lib/userId";
+import { legacyQuery, legacyUserId, parseUserId, readUserId, useUserId } from "@/lib/userId";
 
 const mocks = vi.hoisted(() => ({ source: null as TokenSource | null }));
 vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
@@ -133,5 +133,49 @@ describe("useUserId", () => {
     mocks.source = fakeSource({ getUserId: () => null });
     const { result } = renderHook(() => useUserId(), { wrapper: wrapperFor("/home") });
     expect(result.current).toBeNull();
+  });
+});
+
+describe("legacyUserId", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("토큰 출처가 있으면 URL에 userId가 있어도 null이다", () => {
+    mocks.source = fakeSource({ getUserId: () => 9 });
+    window.history.replaceState(null, "", "/home?userId=7");
+    expect(legacyUserId()).toBeNull();
+  });
+
+  it("토큰 출처가 없고 URL에 userId가 있으면 그 값이다", () => {
+    window.history.replaceState(null, "", "/home?userId=7&appVersion=1.4.2");
+    expect(legacyUserId()).toBe(7);
+  });
+
+  it("토큰 출처도 URL userId도 없으면 null이다", () => {
+    window.history.replaceState(null, "", "/home");
+    expect(legacyUserId()).toBeNull();
+  });
+
+  it("URL userId가 형식에 어긋나면 null이다", () => {
+    window.history.replaceState(null, "", "/home?userId=abc");
+    expect(legacyUserId()).toBeNull();
+  });
+});
+
+describe("legacyQuery", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("legacy 신원이 있으면 앞 쿼리 유무에 따라 ? 또는 &로 잇는다", () => {
+    window.history.replaceState(null, "", "/home?userId=7");
+    expect(legacyQuery(false)).toBe("?userId=7");
+    expect(legacyQuery(true)).toBe("&userId=7");
+  });
+
+  it("legacy 신원이 없으면 빈 문자열이다", () => {
+    window.history.replaceState(null, "", "/home");
+    expect(legacyQuery(true)).toBe("");
   });
 });

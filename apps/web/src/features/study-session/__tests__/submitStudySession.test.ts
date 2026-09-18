@@ -191,4 +191,27 @@ describe("submitStudySession", () => {
 
     await expect(submitStudySession(BASE_INPUT)).rejects.toThrow("세션 제출 실패 (HTTP 500)");
   });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 본문에 userId를 싣는다(구 앱)", async () => {
+    window.history.replaceState(null, "", "/room/1?userId=7");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await submitStudySession(BASE_INPUT);
+      const [, init] = fetchMock.mock.calls[0]!;
+      const body = JSON.parse(init.body as string) as {
+        userId?: number;
+        startedAt: string;
+      };
+      expect(body.userId).toBe(7);
+      expect(body.startedAt).toBe("2026-07-25T01:00:00.000Z");
+      expect(new Headers(init.headers).has("Authorization")).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });
