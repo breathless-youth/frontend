@@ -18,16 +18,23 @@ import { useSyncExternalStore } from "react";
  *
  * 앱 시작·웹뷰 재로드 직후처럼 아직 아무 메시지도 오지 않은 상태에서 탭 바가 없으면 사용자가
  * 이동 수단을 잃는다. 반대(전체 화면에서 잠깐 탭 바가 보임)는 웹이 마운트되며 곧 정정한다.
+ *
+ * ## 상태가 셋인 이유
+ *
+ * 상태가 셋인 이유는 "탭 바가 없어야 하는 화면"과 "모달이 덮은 동안 잠깐 못 누르는 화면"이
+ * 다른 요구이기 때문이다. 앞은 자리까지 없애야 가이드가 화면 끝까지 차지하고, 뒤는 자리를
+ * 남겨야 웹뷰 높이가 그대로라 모달 카드가 튀지 않는다.
  */
+export type TabBarState = "visible" | "hidden" | "blocked";
 
-let visible = true;
+let state: TabBarState = "visible";
 const listeners = new Set<() => void>();
 
-export function setTabBarVisible(next: boolean): void {
-  if (visible === next) {
+export function setTabBarState(next: TabBarState): void {
+  if (state === next) {
     return;
   }
-  visible = next;
+  state = next;
   // 복사본을 돌려 순회 중 구독 해제가 일어나도 안전하게 한다.
   for (const listener of [...listeners]) {
     listener();
@@ -41,16 +48,16 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function getSnapshot(): boolean {
-  return visible;
+function getSnapshot(): TabBarState {
+  return state;
 }
 
-export function useTabBarVisible(): boolean {
+export function useTabBarState(): TabBarState {
   return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 /** 테스트 전용: 모듈 스코프 상태를 기본값으로 되돌린다. 프로덕션 코드에서는 호출하지 않는다. */
 export function __resetTabBarVisibilityForTests(): void {
-  visible = true;
+  state = "visible";
   listeners.clear();
 }

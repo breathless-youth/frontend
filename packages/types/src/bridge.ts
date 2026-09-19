@@ -252,6 +252,14 @@ export interface NavigateTabMessage {
 export interface SetTabBarMessage {
   type: "set-tab-bar";
   visible: boolean;
+  /**
+   * 웹 모달이 덮고 있는 동안 탭 바를 자리에 둔 채 딤을 씌우고 터치만 막으라는 뜻이다.
+   * `visible: false`와 함께 온다 — 이 필드를 모르는 구버전 앱은 `visible`만 읽고 탭 바를
+   * 통째로 감추므로, 카드가 한 번 튀는 대신 탭이 눌리는 문제는 업데이트 전에도 사라진다.
+   * 전체 화면 라우트라 탭 바가 이미 없을 때는 보내지 않는다 — 딤을 그리려고 탭 바가
+   * 되살아나면 안 된다.
+   */
+  blockedByModal?: boolean;
   atMs: number;
 }
 

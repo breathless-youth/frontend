@@ -102,6 +102,25 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"set-tab-bar","visible":"no","atMs":9}')).toBeNull();
   });
 
+  it("blockedByModal을 파싱한다", () => {
+    expect(
+      parseToNativeMessage('{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":9}'),
+    ).toEqual({
+      type: "set-tab-bar",
+      visible: false,
+      blockedByModal: true,
+      atMs: 9,
+    });
+  });
+
+  it("blockedByModal이 boolean이 아니면 그 필드만 버린다 — 메시지를 통째로 버리면 탭 바 신호가 사라진다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"set-tab-bar","visible":false,"blockedByModal":"yes","atMs":9}',
+      ),
+    ).toEqual({ type: "set-tab-bar", visible: false, atMs: 9 });
+  });
+
   it("set-back-gesture를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"set-back-gesture","enabled":false,"atMs":9}')).toEqual({
       type: "set-back-gesture",
