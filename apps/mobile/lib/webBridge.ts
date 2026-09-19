@@ -129,6 +129,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
     case "request-camera-gate":
       return { type: "request-camera-gate", atMs: record.atMs };
+    case "auth-ready":
+      return { type: "auth-ready", atMs: record.atMs };
+    case "request-token-refresh":
+      return { type: "request-token-refresh", atMs: record.atMs };
     case "motion-sensor":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
       // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.
@@ -148,7 +152,7 @@ function isMetaParamValue(value: unknown): value is string | number {
 }
 
 /**
- * `meta-app-event`(웹 → Meta SDK 전환 이벤트, BY-644)를 검증한다 — 이름이 Meta 형식에 어긋나면 통째로
+ * `meta-app-event`(웹 → Meta SDK 전환 이벤트)를 검증한다 — 이름이 Meta 형식에 어긋나면 통째로
  * 버리고, 파라미터는 형식에 맞는 키·문자열/유한수 값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
  * 전환 목록은 웹(`apps/web/src/lib/metaAppEvents.ts`)이 소유하고, 여기서 막으면 웹 배포만으로 전환을
  * 바꿀 수 없게 된다. 형식 밖 값을 SDK에 그대로 넘기면 네이티브 예외로 이벤트가 통째로 사라진다.

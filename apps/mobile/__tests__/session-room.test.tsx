@@ -7,7 +7,7 @@ import SessionRoomScreen from "../app/room/[id]";
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
  *
  * 여기서 검증하는 것은 화면 고유 배선뿐이다: (1) `:id`로 세션 경로를 조립하는지, (2) 탭과
- * 동일한 쿼리 파라미터(userId·appVersion)가 붙는지, (3) 항상 다크 배경인지. 파라미터
+ * 동일한 쿼리 파라미터(appVersion)가 붙는지, (3) 항상 다크 배경인지. 파라미터
  * 조립·브리지 공용화·스플래시 자체의 세부 동작은 `lib/__tests__/remoteQueryParams.test.ts`·
  * `lib/__tests__/nativeBridgeHandler.test.ts`·`components/__tests__/RemoteScreen.test.tsx`가
  * 덮는다.
@@ -50,12 +50,12 @@ jest.mock("react-native-webview", () => {
 });
 
 describe("SessionRoomScreen", () => {
-  it("세션 경로 + 탭과 동일한 쿼리(userId·appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
+  it("세션 경로 + 탭과 동일한 쿼리(appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
+      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
     });
   });
 

@@ -8,6 +8,7 @@ import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
+import { authTokenMessage, subscribeAuth } from "../lib/auth";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
 import { subscribeSessionClosed } from "../lib/sessionClosed";
@@ -46,6 +47,13 @@ function buildQueryString(query: Record<string, string | number> | undefined): s
   return `?${entries
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join("&")}`;
+}
+
+/** 로그로 남기기 전 access 토큰을 가린다 — Metro 로그에 실제 토큰이 찍히면 안 된다. */
+function forLog(message: ToWebMessage): ToWebMessage {
+  return message.type === "auth-token"
+    ? { ...message, accessToken: message.accessToken === null ? null : "<masked>" }
+    : message;
 }
 
 /** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
@@ -310,7 +318,7 @@ export function RemoteWebViewHost({
     }
     webView.injectJavaScript(injectMessageScript(message));
     if (__DEV__) {
-      console.warn("[webview-bridge] 💬 앱->웹", message);
+      console.warn("[webview-bridge] 💬 앱->웹", forLog(message));
     }
   }, []);
 
@@ -449,6 +457,14 @@ export function RemoteWebViewHost({
   useEffect(() => {
     return subscribeSessionClosed(() => {
       sendToWeb({ type: "session-closed", atMs: Date.now() });
+    });
+  }, [sendToWeb]);
+
+  // 토큰이 바뀌면(갱신·재등록·이관) 마운트된 모든 호스트에 알린다 — 세션 종료 신호와 같은 전원 전파다.
+  // `focused`를 보지 않는다: 안 보이는 탭이 낡은 토큰을 들고 있으면 다음 요청에서 401을 맞는다.
+  useEffect(() => {
+    return subscribeAuth((state) => {
+      sendToWeb(authTokenMessage(state));
     });
   }, [sendToWeb]);
 

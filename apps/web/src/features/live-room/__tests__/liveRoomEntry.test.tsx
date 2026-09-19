@@ -100,7 +100,7 @@ it("자동 입장한다 — join을 부르고 세션을 연다", async () => {
 
   await screen.findByTestId("session");
   expect(mockedRenewSeat).toHaveBeenCalledTimes(1);
-  expect(mockedRenewSeat).toHaveBeenCalledWith(7, "1234");
+  expect(mockedRenewSeat).toHaveBeenCalledWith("1234");
 });
 
 it("join 실패 시 오류와 재시도 수단을 보여주고 카메라는 시작하지 않는다", async () => {

@@ -150,7 +150,7 @@ function StatCard({
     <>
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-text-tertiary">
-          {isStreak ? "연속 공부" : "최장 집중"}
+          {isStreak ? "연속 공부" : "최장 순공시간"}
         </p>
         {onPress !== undefined && <IconChevronRight size={12} />}
       </div>
@@ -346,7 +346,9 @@ export function HomeTabPage() {
         </header>
 
         {userId === null ? (
-          <p className="p-4 text-sm text-muted-foreground">userId 없음 — 브라우저 단독 모드</p>
+          <p className="p-4 text-sm text-muted-foreground">
+            기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
+          </p>
         ) : (
           <HomeContent userId={userId} />
         )}

@@ -8,8 +8,14 @@ describe("parseToNativeMessage", () => {
     "start-session",
     "navigate-home",
     "open-settings",
+    "auth-ready",
+    "request-token-refresh",
   ] as const)("%s 메시지를 파싱한다", (type) => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
+  });
+
+  it("auth-ready에 atMs가 없으면 null이다 — 다른 메시지와 같은 규칙", () => {
+    expect(parseToNativeMessage('{"type":"auth-ready"}')).toBeNull();
   });
 
   it("navigate-home 메시지를 파싱한다", () => {
@@ -240,7 +246,7 @@ describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
   });
 });
 
-describe("parseToNativeMessage — meta-app-event (BY-644)", () => {
+describe("parseToNativeMessage — meta-app-event", () => {
   it("이름·파라미터·valueToSum을 파싱한다", () => {
     expect(
       parseToNativeMessage(

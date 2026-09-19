@@ -150,7 +150,7 @@ describe("HomeTabPage", () => {
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderHome("/home");
 
-    expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
+    expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
   });
 
@@ -240,14 +240,14 @@ describe("HomeTabPage", () => {
       expect(stub.textContent).toBe("/records?userId=7");
     });
 
-    it("최장 집중 카드는 버튼이 아니다 — 목적지가 없는 카드를 눌리는 것처럼 만들지 않는다", async () => {
+    it("최장 순공시간 카드는 버튼이 아니다 — 목적지가 없는 카드를 눌리는 것처럼 만들지 않는다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
 
       renderHome();
 
       await waitFor(() => expect(screen.getByText("52분")).toBeInTheDocument());
-      expect(screen.queryByRole("button", { name: /최장 집중/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /최장 순공시간/ })).not.toBeInTheDocument();
     });
   });
 

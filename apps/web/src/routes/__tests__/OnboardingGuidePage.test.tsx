@@ -82,7 +82,7 @@ describe("/onboarding-guide — 단계 전환", () => {
 
     expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
-    expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeInTheDocument();
+    expect(screen.getByText("휴식 중에는 잠시 멈춰요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
     expect(screen.getByText("탭 한 번이면, 타이머만 떠요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
@@ -110,7 +110,7 @@ describe("/onboarding-guide — 단계 전환", () => {
 
     fireEvent.pointerDown(tapLayer, { clientX: 800, clientY: 500 });
     fireEvent.pointerUp(tapLayer, { clientX: 800, clientY: 500 });
-    expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeInTheDocument();
+    expect(screen.getByText("휴식 중에는 잠시 멈춰요")).toBeInTheDocument();
 
     fireEvent.pointerDown(tapLayer, { clientX: 200, clientY: 500 });
     fireEvent.pointerUp(tapLayer, { clientX: 200, clientY: 500 });
@@ -158,7 +158,7 @@ describe("/onboarding-guide — 단계 전환", () => {
 
     fireEvent.pointerDown(tapLayer, { clientX: 300, clientY: 500 });
     fireEvent.pointerUp(tapLayer, { clientX: 300 - 60, clientY: 500 });
-    expect(screen.getByText("집중이 아니면, 잠시 멈춰요")).toBeInTheDocument();
+    expect(screen.getByText("휴식 중에는 잠시 멈춰요")).toBeInTheDocument();
 
     fireEvent.pointerDown(tapLayer, { clientX: 240, clientY: 500 });
     fireEvent.pointerUp(tapLayer, { clientX: 240 + 60, clientY: 500 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getPeriodStats, getStreak, listStudySessionStats } from "../statsApi";
 
@@ -57,9 +57,9 @@ describe("listStudySessionStats", () => {
     };
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 
-    await expect(listStudySessionStats(7, "2026-07-25")).resolves.toEqual(response);
+    await expect(listStudySessionStats("2026-07-25")).resolves.toEqual(response);
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats?userId=7&date=2026-07-25",
+      "/api/stats?date=2026-07-25",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -67,13 +67,13 @@ describe("listStudySessionStats", () => {
   it("세션이 없는 일자의 0값 응답을 그대로 반환한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyStatsResponse));
 
-    await expect(listStudySessionStats(7, "2026-07-25")).resolves.toEqual(emptyStatsResponse);
+    await expect(listStudySessionStats("2026-07-25")).resolves.toEqual(emptyStatsResponse);
   });
 
   it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(400, { message: "date는 필수입니다" }));
 
-    await expect(listStudySessionStats(7, "")).rejects.toThrow("date는 필수입니다");
+    await expect(listStudySessionStats("")).rejects.toThrow("date는 필수입니다");
   });
 
   it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
@@ -85,24 +85,22 @@ describe("listStudySessionStats", () => {
       },
     });
 
-    await expect(listStudySessionStats(7, "2026-07-25")).rejects.toThrow(
-      "통계 조회 실패 (HTTP 500)",
-    );
+    await expect(listStudySessionStats("2026-07-25")).rejects.toThrow("통계 조회 실패 (HTTP 500)");
   });
 
   it("네트워크 오류를 호출자에게 전달한다", async () => {
     mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
 
-    await expect(listStudySessionStats(7, "2026-07-25")).rejects.toThrow("Network request failed");
+    await expect(listStudySessionStats("2026-07-25")).rejects.toThrow("Network request failed");
   });
 
   it("date에 URL 특수문자가 섞여도 쿼리를 절단하지 않는다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyStatsResponse));
 
-    await listStudySessionStats(7, "2026-07-25&userId=9");
+    await listStudySessionStats("2026-07-25&userId=9");
 
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats?userId=7&date=2026-07-25%26userId%3D9",
+      "/api/stats?date=2026-07-25%26userId%3D9",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -118,13 +116,13 @@ describe("getStreak", () => {
       jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: [] }),
     );
 
-    await expect(getStreak(7)).resolves.toEqual({
+    await expect(getStreak()).resolves.toEqual({
       streak: 5,
       maxStreak: 12,
       studiedDatesInRange: [],
     });
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/streak?userId=7",
+      "/api/stats/streak",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -134,7 +132,7 @@ describe("getStreak", () => {
       jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
     );
 
-    await expect(getStreak(7)).resolves.toEqual({
+    await expect(getStreak()).resolves.toEqual({
       streak: 0,
       maxStreak: 0,
       studiedDatesInRange: [],
@@ -144,7 +142,7 @@ describe("getStreak", () => {
   it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(400, { message: "userId는 필수입니다" }));
 
-    await expect(getStreak(7)).rejects.toThrow("userId는 필수입니다");
+    await expect(getStreak()).rejects.toThrow("userId는 필수입니다");
   });
 
   it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
@@ -156,13 +154,13 @@ describe("getStreak", () => {
       },
     });
 
-    await expect(getStreak(7)).rejects.toThrow("스트릭 조회 실패 (HTTP 500)");
+    await expect(getStreak()).rejects.toThrow("스트릭 조회 실패 (HTTP 500)");
   });
 
   it("네트워크 오류를 호출자에게 전달한다", async () => {
     mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
 
-    await expect(getStreak(7)).rejects.toThrow("Network request failed");
+    await expect(getStreak()).rejects.toThrow("Network request failed");
   });
 
   it("from/to 범위를 주면 쿼리 파라미터로 함께 보낸다", async () => {
@@ -170,13 +168,13 @@ describe("getStreak", () => {
       jsonResponse(200, { streak: 5, maxStreak: 12, studiedDatesInRange: ["2026-07-27"] }),
     );
 
-    await expect(getStreak(7, { from: "2026-07-26", to: "2026-07-28" })).resolves.toEqual({
+    await expect(getStreak({ from: "2026-07-26", to: "2026-07-28" })).resolves.toEqual({
       streak: 5,
       maxStreak: 12,
       studiedDatesInRange: ["2026-07-27"],
     });
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/streak?userId=7&from=2026-07-26&to=2026-07-28",
+      "/api/stats/streak?from=2026-07-26&to=2026-07-28",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -186,10 +184,10 @@ describe("getStreak", () => {
       jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
     );
 
-    await getStreak(7, { from: "2026-07-26&x=1", to: "2026-07-28" });
+    await getStreak({ from: "2026-07-26&x=1", to: "2026-07-28" });
 
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/streak?userId=7&from=2026-07-26%26x%3D1&to=2026-07-28",
+      "/api/stats/streak?from=2026-07-26%26x%3D1&to=2026-07-28",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -199,9 +197,9 @@ describe("getStreak", () => {
       jsonResponse(200, { streak: 0, maxStreak: 0, studiedDatesInRange: [] }),
     );
 
-    await getStreak(7);
+    await getStreak();
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/streak?userId=7",
+      "/api/stats/streak",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -227,11 +225,11 @@ describe("getPeriodStats", () => {
   it("userId와 from/to로 기간 집계를 조회한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
 
-    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).resolves.toEqual(
+    await expect(getPeriodStats({ from: "2026-08-24", to: "2026-08-30" })).resolves.toEqual(
       emptyPeriodResponse,
     );
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30",
+      "/api/stats/period?from=2026-08-24&to=2026-08-30",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -247,13 +245,12 @@ describe("getPeriodStats", () => {
 
     await expect(
       getPeriodStats(
-        7,
         { from: "2026-08-24", to: "2026-08-30" },
         { from: "2026-08-17", to: "2026-08-23" },
       ),
     ).resolves.toEqual(response);
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/period?userId=7&from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
+      "/api/stats/period?from=2026-08-24&to=2026-08-30&compareFrom=2026-08-17&compareTo=2026-08-23",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -261,7 +258,7 @@ describe("getPeriodStats", () => {
   it("비교 구간을 주지 않으면 compare 파라미터가 URL에 붙지 않는다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
 
-    await getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" });
+    await getPeriodStats({ from: "2026-08-24", to: "2026-08-30" });
 
     const [url] = mockedFetch.mock.calls[0] as [string];
     expect(url).not.toContain("compareFrom");
@@ -271,15 +268,17 @@ describe("getPeriodStats", () => {
   it("비교 구간이 빈 배열로 오는 응답을 그대로 반환한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
 
-    await expect(
-      getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" }),
-    ).resolves.toMatchObject({ compareDailyList: [], compareFrom: null, compareTo: null });
+    await expect(getPeriodStats({ from: "2026-08-24", to: "2026-08-30" })).resolves.toMatchObject({
+      compareDailyList: [],
+      compareFrom: null,
+      compareTo: null,
+    });
   });
 
   it("JSON 오류 메시지가 있으면 해당 메시지로 실패한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(400, { message: "from은 to보다 앞이어야 합니다" }));
 
-    await expect(getPeriodStats(7, { from: "2026-08-30", to: "2026-08-24" })).rejects.toThrow(
+    await expect(getPeriodStats({ from: "2026-08-30", to: "2026-08-24" })).rejects.toThrow(
       "from은 to보다 앞이어야 합니다",
     );
   });
@@ -293,7 +292,7 @@ describe("getPeriodStats", () => {
       },
     });
 
-    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
+    await expect(getPeriodStats({ from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
       "기간 집계 조회 실패 (HTTP 500)",
     );
   });
@@ -301,7 +300,7 @@ describe("getPeriodStats", () => {
   it("네트워크 오류를 호출자에게 전달한다", async () => {
     mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
 
-    await expect(getPeriodStats(7, { from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
+    await expect(getPeriodStats({ from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
       "Network request failed",
     );
   });
@@ -310,7 +309,6 @@ describe("getPeriodStats", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, emptyPeriodResponse));
 
     await getPeriodStats(
-      7,
       { from: "2026-08-24&x=1", to: "2026-08-30" },
       {
         from: "2026-08-17#z",
@@ -319,8 +317,44 @@ describe("getPeriodStats", () => {
     );
 
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/period?userId=7&from=2026-08-24%26x%3D1&to=2026-08-30&compareFrom=2026-08-17%23z&compareTo=2026-08-23",
+      "/api/stats/period?from=2026-08-24%26x%3D1&to=2026-08-30&compareFrom=2026-08-17%23z&compareTo=2026-08-23",
       expect.objectContaining({ method: "GET" }),
+    );
+  });
+});
+
+describe("토큰 출처 없이 URL에 userId가 있으면(구 앱)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedFetch.mockResolvedValue(jsonResponse(200, emptyStatsResponse));
+    window.history.replaceState(null, "", "/home?userId=7");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("일일 통계 쿼리에 userId를 붙인다", async () => {
+    await listStudySessionStats("2026-07-25");
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/stats?date=2026-07-25&userId=7");
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(new Headers((init as RequestInit).headers).has("Authorization")).toBe(false);
+  });
+
+  it("스트릭은 범위가 없으면 ?userId=, 있으면 &userId=로 붙인다", async () => {
+    await getStreak();
+    expect(mockedFetch.mock.calls[0]![0]).toBe("/api/stats/streak?userId=7");
+
+    await getStreak({ from: "2026-07-01", to: "2026-07-31" });
+    expect(mockedFetch.mock.calls[1]![0]).toBe(
+      "/api/stats/streak?from=2026-07-01&to=2026-07-31&userId=7",
+    );
+  });
+
+  it("기간 집계 쿼리에 userId를 붙인다", async () => {
+    await getPeriodStats({ from: "2026-07-01", to: "2026-07-31" });
+    expect(mockedFetch.mock.calls[0]![0]).toBe(
+      "/api/stats/period?from=2026-07-01&to=2026-07-31&userId=7",
     );
   });
 });

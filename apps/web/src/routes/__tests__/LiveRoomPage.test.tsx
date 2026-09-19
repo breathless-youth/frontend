@@ -128,6 +128,7 @@ function renderRoom({
   const channel = createMockRoomChannel(scenario);
   const pcs: FakePc[] = [];
   const pcConfigs: RTCConfiguration[] = [];
+  let onSnapshotUnrecovered: (() => void) | undefined;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
@@ -137,7 +138,10 @@ function renderRoom({
             path="/social/room/:roomId"
             element={
               <LiveRoomPage
-                createChannel={() => channel}
+                createChannel={(options) => {
+                  onSnapshotUnrecovered = options.onSnapshotUnrecovered;
+                  return channel;
+                }}
                 createCamera={createCamera ?? (() => camera)}
                 createPeerConnection={(config) => {
                   pcConfigs.push(config);
@@ -157,7 +161,7 @@ function renderRoom({
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { channel, pcs, pcConfigs };
+  return { channel, pcs, pcConfigs, getOnSnapshotUnrecovered: () => onSnapshotUnrecovered };
 }
 
 /**
@@ -254,7 +258,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(channel.status).toBe("open");
   });
 
@@ -362,7 +366,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
   });
 
@@ -902,7 +906,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
     await waitFor(() => {
-      expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+      expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
     });
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
   });
@@ -942,7 +946,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
       await waitFor(() => {
-        expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+        expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
       });
       expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
     } finally {
@@ -974,6 +978,53 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 
     expect(await screen.findByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(mockedLeaveRoom).not.toHaveBeenCalled();
+  });
+});
+
+describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
+  it("ROOM_UNAVAILABLE을 받으면 join을 재호출한다", async () => {
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
+  });
+
+  it("재-join이 실패하면 공부를 마치고 안내와 함께 소셜 홈으로 보낸다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    const notice = consumeSocialRoomNotice();
+    expect(notice?.kind).toBe("grace-end");
+    expect(notice?.message).toContain("방");
+  });
+
+  it("다른 방의 ROOM_UNAVAILABLE은 무시한다", async () => {
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 99 }));
+    await act(async () => {});
+
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
+  });
+
+  it("SNAPSHOT 미도착 escalation(onSnapshotUnrecovered)도 join을 재호출한다", async () => {
+    const { getOnSnapshotUnrecovered } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => getOnSnapshotUnrecovered()?.());
+
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 });
 

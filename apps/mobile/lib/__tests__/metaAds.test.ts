@@ -10,7 +10,7 @@ import {
 } from "../metaAds";
 
 /**
- * Meta SDK 통로(BY-644)의 큐·초기화 계약. SDK 실구현(`lib/metaAdsSdk.ts`)은 여기서 다루지 않는다 —
+ * Meta SDK 통로의 큐·초기화 계약. SDK 실구현(`lib/metaAdsSdk.ts`)은 여기서 다루지 않는다 —
  * 어댑터를 가짜로 꽂아 "언제 무엇을 어떤 순서로 부르는지"만 고정한다.
  */
 

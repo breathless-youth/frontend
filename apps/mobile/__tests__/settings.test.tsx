@@ -46,12 +46,12 @@ jest.mock("react-native-webview", () => {
 });
 
 describe("SettingsScreen", () => {
-  it("/settings 경로 + 탭 공용 쿼리(userId·appVersion)로 조립한 URL을 로드한다", async () => {
+  it("/settings 경로 + 탭 공용 쿼리(appVersion)로 조립한 URL을 로드한다", async () => {
     render(<SettingsScreen />);
 
     expect(await screen.findByTestId("settings-webview")).toBeTruthy();
     expect(screen.getByTestId("settings-webview").props.source).toEqual({
-      uri: "https://web.test/settings?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
+      uri: "https://web.test/settings?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
     });
   });
 });

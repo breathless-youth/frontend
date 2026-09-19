@@ -1,28 +1,42 @@
 ---
-version: alpha
-name: FocusOn Mobile Design System
-description: "FocusOn 모바일 MVP를 위한 차분하고 신뢰감 있는 생산성 디자인 시스템. 집중 상태를 감시가 아닌 자기 이해와 성장의 언어로 표현하며, 따뜻한 중립 배경과 인디고 브랜드 색상, 명확한 상태색, 절제된 카드 계층을 사용한다. Figma가 시각적 원천이고 저장소의 의미 기반 토큰과 공통 컴포넌트가 코드 구현의 원천이다."
+version: v1
+name: FocusMakers Design System
+description: "FocusMakers의 차분하고 신뢰감 있는 생산성 디자인 시스템. 공부 상태를 감시가 아닌 자기 이해와 성장의 언어로 표현하며, 흰 배경과 파란 브랜드 색, 명확한 상태색, 절제된 카드 계층을 사용한다. Figma가 시각적 원천이고 packages/design-tokens가 코드 구현의 원천이다."
 platforms:
+  - web
   - ios
   - android
 implementation:
-  framework: Expo 57
-  runtime: React Native 0.86
-  routing: Expo Router
-  styling: NativeWind 4
   tokens: "@focusmakers/design-tokens"
+  web:
+    framework: "React 19 + Vite"
+    styling: "Tailwind CSS v4 + shadcn/ui"
+    tokens: "apps/web/src/index.css"
+  mobile:
+    framework: "Expo 57"
+    runtime: "React Native 0.86"
+    routing: "Expo Router"
+    styling: "NativeWind 4"
 ---
 
-# FocusOn Mobile Design System
+# FocusMakers Design System
 
-> ⚠️ **이 문서의 색상 팔레트는 낡았다 (2026-07-26 확인).** 이 문서는 Figma V1.0 최종 시안이
-> 확정되기 전에 작성됐고, 브랜드 색(`#4F46E5` 인디고)·배경(`#F7F6F2` 웜 뉴트럴)을 비롯한 색상
-> 값 대부분이 실제 확정 디자인과 다르다. 확정 값은 Figma "FocusON V1.0 Design"
-> (파일 키 `KmTbXL79g6ximY1RcnBZDz`) Foundations이고, 코드 원천은
-> `packages/design-tokens/src/index.ts`다(예: 브랜드 `#1B64DA`, 배경 `#FFFFFF`).
-> **색상 값은 이 문서 대신 `packages/design-tokens`를 보라.** 아래 "Study Status" 절만
-> 확정 기준으로 정정했다. 레이아웃·컴포넌트 원칙 등 색상 외 서술은 여전히 참고 가치가 있다.
-> 전면 갱신은 별도 작업으로 남아 있다.
+> **색상·타이포·간격·반경의 원천은 `packages/design-tokens/src/index.ts`다.** 이 문서의 5~8절은
+> 그 파일에서 옮겨 적은 것이고, 값이 갈리면 코드가 맞다. 웹은 같은 값을
+> `apps/web/src/index.css`에 CSS 변수로 다시 옮겨 두었다. 시각적 원천은 Figma
+> "FocusON V1.0 Design"(파일 키 `KmTbXL79g6ximY1RcnBZDz`) Foundations다.
+
+## 화면은 두 앱에 나뉘어 있다
+
+이 시스템은 웹과 모바일 양쪽에 적용된다. 어느 쪽 화면인지에 따라 구현 위치와 배포 경로가 다르다.
+
+| 화면                                           | 구현          | 배포               |
+| ---------------------------------------------- | ------------- | ------------------ |
+| 홈, 설정, 기록, 소셜, 스터디룸, 결과           | `apps/web`    | 웹 배포, 즉시 반영 |
+| 네비게이션 탭 바, 스플래시, 웹뷰 로드 스켈레톤 | `apps/mobile` | 스토어 빌드        |
+
+토큰은 둘이 공유하지만 **컴포넌트 구현체는 공유하지 않는다.** 웹은 shadcn/ui,
+모바일은 React Native + NativeWind로 각자 만들고 같은 토큰을 참조한다.
 
 ## 1. 목적
 
@@ -81,66 +95,98 @@ Safe Area, 시스템 글자 확대, 키보드, 뒤로가기, 터치 영역과 �
 
 ## 4. 브랜드 방향
 
-FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장이다.
+FocusMakers의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장이다.
 
-- 따뜻한 오프화이트 배경을 기본 캔버스로 사용한다.
-- 흰색 카드는 정보 계층이 필요할 때만 사용한다.
-- 인디고는 주요 행동과 선택 상태에 제한적으로 사용한다.
+- 흰 배경을 기본 캔버스로 사용한다.
+- 한 단계 올라온 회색 면(`bg.layer1`)은 정보 계층이 필요할 때만 사용한다.
+- 브랜드 파랑은 주요 행동과 선택 상태에 제한적으로 사용한다.
 - 상태색은 공부 상태와 피드백 의미에만 사용한다.
 - 장식보다 데이터와 사용자 행동을 중심에 둔다.
 - 과도한 그라데이션, 네온, 유리 효과와 강한 그림자를 사용하지 않는다.
 
 ## 5. 색상
 
-색상 이름은 화면의 외형이 아니라 의미를 나타낸다. 아래 값은 alpha 기준이며 Figma 기준 화면 검증 후 조정할 수 있다.
+색상 이름은 화면의 외형이 아니라 의미를 나타낸다. 아래 값은 `packages/design-tokens/src/index.ts`의
+`colors`에서 그대로 옮긴 것이고, 그 파일이 코드의 원천이다. 웹은 같은 값을
+`apps/web/src/index.css`에 CSS 변수로 옮겨 적어 Tailwind 유틸리티로 쓴다.
+
+**하드코딩한 hex를 쓰지 않는다.** 웹은 아래 표의 Tailwind 클래스를, 모바일은
+`@focusmakers/design-tokens`의 `colors`를 참조한다.
 
 ### Brand
 
-| Token                  | Value     | Use                          |
-| ---------------------- | --------- | ---------------------------- |
-| `brand.primary`        | `#4F46E5` | 주요 CTA, 활성 탭, 핵심 선택 |
-| `brand.primaryPressed` | `#4338CA` | 주요 CTA pressed             |
-| `brand.primarySoft`    | `#EEF2FF` | 선택 배경, 강조 카드         |
-| `brand.onPrimary`      | `#FFFFFF` | 브랜드 배경 위 콘텐츠        |
+| Token                 | Light     | Dark      | 웹 클래스                   | Use                          |
+| --------------------- | --------- | --------- | --------------------------- | ---------------------------- |
+| `brand.primary`       | `#1b64da` | `#3182f6` | `bg-primary` `text-primary` | 주요 CTA, 활성 탭, 핵심 선택 |
+| `brand.hover`         | `#1957c2` | `#4593fc` | —                           | 주요 CTA hover·pressed       |
+| `brand.subtle`        | `#e8f3ff` | `#1b2b4d` | `bg-brand-subtle`           | 선택 배경, 강조 카드         |
+| `brand.subtlePressed` | `#c9e2ff` | `#194aa6` | —                           | subtle 배경의 pressed        |
+| `text.onBrand`        | `#ffffff` | `#ffffff` | `text-primary-foreground`   | 브랜드 배경 위 콘텐츠        |
 
 ### Neutral
 
-| Token                | Value     | Use                    |
-| -------------------- | --------- | ---------------------- |
-| `background.canvas`  | `#F7F6F2` | 앱 기본 배경           |
-| `background.surface` | `#FFFFFF` | 카드, 입력 영역        |
-| `background.subtle`  | `#F1F0EC` | 보조 영역, 비활성 배경 |
-| `text.primary`       | `#111827` | 제목과 본문            |
-| `text.secondary`     | `#6B7280` | 보조 설명              |
-| `text.tertiary`      | `#9CA3AF` | 힌트, 비활성 정보      |
-| `border.default`     | `#E5E7EB` | 카드와 입력 테두리     |
-| `border.strong`      | `#D1D5DB` | 강조된 구분선          |
+| Token            | Light       | Dark        | 웹 클래스               | Use                              |
+| ---------------- | ----------- | ----------- | ----------------------- | -------------------------------- |
+| `bg.base`        | `#ffffff`   | `#101419`   | `bg-background`         | 앱 기본 배경                     |
+| `bg.layer1`      | `#f9fafb`   | `#191f28`   | `bg-muted`              | 카드, 한 단계 올라온 면          |
+| `bg.layer2`      | `#f2f4f6`   | `#333d4b`   | `bg-bg-layer-2`         | 트랙, 비활성 배경                |
+| `bg.guide`       | `#f3f8fe`   | `#152030`   | `bg-bg-guide`           | 가이드·안내 영역                 |
+| `bg.dim`         | `#00000066` | `#00000099` | `bg-dim`                | 모달 뒤 딤                       |
+| `text.primary`   | `#191f28`   | `#f9fafb`   | `text-foreground`       | 제목과 본문                      |
+| `text.secondary` | `#6b7684`   | `#b0b8c1`   | `text-muted-foreground` | 보조 설명                        |
+| `text.tertiary`  | `#8b95a1`   | `#8b95a1`   | `text-text-tertiary`    | 힌트, 비활성 정보, 일시정지 상태 |
+| `text.disabled`  | `#d1d6db`   | `#4e5968`   | `text-text-disabled`    | 비활성 텍스트                    |
+| `text.inverse`   | `#ffffff`   | `#101419`   | —                       | 반전 배경 위 텍스트              |
+| `border.default` | `#e5e8eb`   | `#333d4b`   | `border-border`         | 카드와 입력 테두리               |
+| `border.strong`  | `#d1d6db`   | `#4e5968`   | `border-border-strong`  | 강조된 구분선                    |
 
 ### Study Status
 
-> 2026-07-26 갱신 — 아래 표만 Figma 확정 기준으로 정정했다. 이 문서의 나머지 색상 값은 여전히
-> 낡았다(위 배너 참고).
-
-세션 상태는 3색 체계다(`@focusmakers/design-tokens`의 `sessionStateColors`):
+세션 상태는 3색 체계다(`@focusmakers/design-tokens`의 `sessionStateColors`).
 
 | State         | Token                            | Light     | Dark      | Label    |
 | ------------- | -------------------------------- | --------- | --------- | -------- |
-| `FOCUS`       | `sessionStateColors.FOCUS`       | `#1B64DA` | `#4593FC` | 집중     |
-| `DISTRACTION` | `sessionStateColors.DISTRACTION` | `#FF8A00` | `#FF9E1B` | 비집중   |
-| `PAUSE`       | `sessionStateColors.PAUSE`       | `#8B95A1` | `#8B95A1` | 일시정지 |
+| `FOCUS`       | `sessionStateColors.FOCUS`       | `#1b64da` | `#4593fc` | 순공     |
+| `DISTRACTION` | `sessionStateColors.DISTRACTION` | `#ff8a00` | `#ff9e1b` | 휴식     |
+| `PAUSE`       | `sessionStateColors.PAUSE`       | `#8b95a1` | `#8b95a1` | 일시정지 |
 
-서버 이벤트(`StudyEventStatus`)는 위 상태로 매핑된다 — `AWAY`(자리 이탈)·`PHONE`(휴대폰 사용)·
-`DEVICE`(기기 조작) → `DISTRACTION`, `PAUSE` → `PAUSE`. 집중은 기본 상태라 이벤트가 없다.
+`PAUSE`는 고유 색이 없고 `text.tertiary`를 재사용한다. 화면에 나가는 말은 BY-574에서
+순공·휴식으로 정리했고, 코드 식별자(`FOCUS`·`DISTRACTION`)는 백엔드 계약이라 그대로 둔다.
+
+보조 색도 함께 정의돼 있다.
+
+| Token                  | Light     | Dark      | 웹 클래스                  | Use                   |
+| ---------------------- | --------- | --------- | -------------------------- | --------------------- |
+| `state.focusSubtle`    | `#e8f3ff` | `#1b2b4d` | `bg-brand-subtle`          | 순공 강조 배경        |
+| `state.distractSubtle` | `#fff4e5` | `#3d2e14` | `bg-state-distract-subtle` | 휴식 카드 배경        |
+| `state.distractText`   | `#b36100` | `#ff9e1b` | `text-state-distract-text` | 휴식 소형 텍스트 전용 |
+
+서버 이벤트(`StudyEventStatus`)는 위 상태로 매핑된다. `AWAY`(자리 이탈)·`PHONE`(휴대폰 사용)·
+`DEVICE`(기기 조작)는 `DISTRACTION`으로, `PAUSE`는 `PAUSE`로 간다. 순공은 기본 상태라 이벤트가 없다.
 자세한 내용은 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
 ### Feedback
 
-| Token              | Value     | Use               |
-| ------------------ | --------- | ----------------- |
-| `feedback.success` | `#16A34A` | 완료, 성공        |
-| `feedback.warning` | `#D97706` | 주의, 확인 필요   |
-| `feedback.error`   | `#DC2626` | 오류, 파괴적 행동 |
-| `feedback.info`    | `#2563EB` | 정보 안내         |
+| Token                  | Light     | Dark      | Use               |
+| ---------------------- | --------- | --------- | ----------------- |
+| `feedback.success`     | `#12b76a` | `#32d583` | 완료, 성공        |
+| `feedback.error`       | `#f04452` | `#ff6b77` | 오류, 파괴적 행동 |
+| `feedback.errorSubtle` | `#ffebee` | `#3d1b1f` | 오류 배경         |
+
+경고(warning)와 정보(info) 색은 **아직 정의돼 있지 않다.** 필요해지면 임의로 만들지 말고
+Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
+
+### 아직 토큰이 아닌 색
+
+초대코드 화면(BY-409)에서 쓰는 원오프 색이 `index.css`에만 있다. 시맨틱 토큰 승격은
+디자이너 검수 후로 미뤄 둔 상태이므로, 다른 화면에서 가져다 쓰지 않는다.
+
+| CSS 변수                | Light     | Use                    |
+| ----------------------- | --------- | ---------------------- |
+| `--invite-surface`      | `#f2f5fa` | 코드 카드·코드 셀 배경 |
+| `--invite-surface-text` | `#1b2538` | 코드 숫자 텍스트       |
+| `--share-tonal`         | `#e0ebff` | 공유하기 버튼 배경     |
+| `--share-tonal-text`    | `#1b64da` | 공유하기 버튼 텍스트   |
 
 ### 색상 사용 규칙
 
@@ -149,28 +195,48 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 - 오류가 아닌 일반 취소 행동에 빨간색을 사용하지 않는다.
 - 차트는 상태색과 혼동되지 않는 별도 데이터 시각화 팔레트를 화면 설계 시 정의한다.
 - 색상 대비는 일반 텍스트 4.5:1, 큰 텍스트와 UI 경계 3:1 이상을 목표로 한다.
+- 다크 값을 웹에서 고칠 때는 `index.css`의 `@media (prefers-color-scheme: dark)` 블록과
+  `[data-theme="dark"]` 블록을 **둘 다** 고친다. 한쪽만 고치면 토글과 OS 설정이 어긋난다.
 
 ## 6. 타이포그래피
 
-초기 구현은 플랫폼 시스템 폰트를 사용한다. 한글과 숫자의 가독성을 우선하며 특정 상용 폰트에 의존하지 않는다.
+**폰트는 Pretendard로 고정한다.** 웹은 자체 호스팅해 `--font-sans`로 걸고, 모바일은
+`assets/fonts/PretendardVariable.ttf`를 번들한다. 시스템 폰트 폴백은
+`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` 순이다.
 
-| Token       | Size | Weight | Line Height | Use                |
-| ----------- | ---- | ------ | ----------- | ------------------ |
-| `display`   | 32   | 700    | 40          | 핵심 시간과 결과   |
-| `title1`    | 28   | 700    | 36          | 화면 제목          |
-| `title2`    | 22   | 700    | 30          | 섹션 제목          |
-| `title3`    | 18   | 600    | 26          | 카드 제목          |
-| `bodyLarge` | 17   | 400    | 26          | 주요 설명          |
-| `body`      | 15   | 400    | 23          | 기본 본문          |
-| `bodySmall` | 13   | 400    | 19          | 보조 본문          |
-| `label`     | 14   | 600    | 20          | 버튼과 탭          |
-| `caption`   | 12   | 400    | 17          | 메타 정보와 도움말 |
+스케일은 `packages/design-tokens`의 `typography`가 원천이다.
+
+| Token        | Size | Line Height | Weight  | Use                 |
+| ------------ | ---- | ----------- | ------- | ------------------- |
+| `display.lg` | 56   | 64          | bold    | 세션 타이머 전용    |
+| `display.sm` | 40   | 48          | bold    | 결과 화면 핵심 수치 |
+| `heading.h1` | 28   | 36          | bold    | 화면 제목           |
+| `heading.h2` | 22   | 30          | bold    | 섹션 제목           |
+| `heading.h3` | 18   | 26          | bold    | 카드 제목           |
+| `body.lg`    | 17   | 26          | regular | 주요 설명           |
+| `body.md`    | 15   | 22          | regular | 기본 본문           |
+| `body.sm`    | 13   | 20          | regular | 보조 본문           |
+| `label.lg`   | 16   | 24          | medium  | 큰 버튼             |
+| `label.md`   | 14   | 20          | medium  | 버튼과 탭           |
+| `label.sm`   | 12   | 16          | medium  | 소형 컨트롤         |
+| `caption`    | 12   | 16          | regular | 메타 정보와 도움말  |
+
+### 코드의 실제 상태
+
+웹에는 이 스케일을 감싼 Tailwind 유틸리티가 **없다.** 화면은 `text-[15px]`처럼 임의 값으로
+쓰고 있고, 빈도를 세어 보면 상위 값 대부분이 위 토큰과 일치한다(`13px` 27회, `15px` 25회,
+`14px` 19회, `12px` 12회, `17px` 10회).
+
+다만 토큰에 없는 값도 섞여 있다. `11px`, `18px`, `20px`, `21px`, `35px`, `46px`, `52px`가
+그렇다. 새 화면을 그릴 때는 위 표의 값을 먼저 고르고, 표에 없는 크기가 필요하면 그 이유를
+남기거나 토큰 추가를 제안한다. 눈대중으로 새 크기를 만들지 않는다.
 
 ### 타이포그래피 규칙
 
 - 시간과 비율은 고정폭 숫자를 지원하는 경우 tabular number를 사용한다.
 - 제목은 최대 두 줄을 기본으로 하되 중요한 정보는 말줄임으로 숨기지 않는다.
-- 본문은 시스템 글자 확대 시 레이아웃이 확장되게 한다.
+- 본문은 시스템 글자 확대 시 레이아웃이 확장되게 한다. 높이를 고정하지 말고 패딩과
+  `min-h`로 잡는다.
 - 중요한 상태를 굵기 하나만으로 구분하지 않는다.
 - 영문 대문자만 사용하는 레이블을 만들지 않는다.
 
@@ -178,17 +244,21 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 
 ### Spacing Scale
 
-| Token      | Value |
-| ---------- | ----- |
-| `space.1`  | 4     |
-| `space.2`  | 8     |
-| `space.3`  | 12    |
-| `space.4`  | 16    |
-| `space.5`  | 20    |
-| `space.6`  | 24    |
-| `space.8`  | 32    |
-| `space.10` | 40    |
-| `space.12` | 48    |
+`packages/design-tokens`의 `spacing`이 원천이다. 값은 Tailwind 기본 스케일과 맞아떨어져
+웹에서는 `gap-4`(16px)처럼 기본 유틸리티를 그대로 쓴다.
+
+| Token         | Value | 웹 클래스 |
+| ------------- | ----- | --------- |
+| `spacing.2xs` | 2     | `gap-0.5` |
+| `spacing.xs`  | 4     | `gap-1`   |
+| `spacing.sm`  | 8     | `gap-2`   |
+| `spacing.md`  | 12    | `gap-3`   |
+| `spacing.lg`  | 16    | `gap-4`   |
+| `spacing.xl`  | 20    | `gap-5`   |
+| `spacing.2xl` | 24    | `gap-6`   |
+| `spacing.3xl` | 32    | `gap-8`   |
+| `spacing.4xl` | 40    | `gap-10`  |
+| `spacing.5xl` | 48    | `gap-12`  |
 
 ### 화면 규칙
 
@@ -202,13 +272,21 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 
 ## 8. 모서리, 테두리와 깊이
 
-| Token           | Value | Use                       |
-| --------------- | ----- | ------------------------- |
-| `radius.small`  | 8     | 배지, 작은 컨트롤         |
-| `radius.medium` | 12    | 입력, 일반 버튼           |
-| `radius.large`  | 16    | 카드                      |
-| `radius.xlarge` | 24    | 주요 요약 카드, 시트      |
-| `radius.full`   | 9999  | 원형 아이콘 버튼, 상태 점 |
+`packages/design-tokens`의 `radius`가 원천이다.
+
+| Token         | Value | 웹 클래스      | Use                       |
+| ------------- | ----- | -------------- | ------------------------- |
+| `radius.xs`   | 4     | `rounded-xs`   | 아주 작은 표식            |
+| `radius.sm`   | 8     | `rounded-sm`   | 배지, 작은 컨트롤         |
+| `radius.md`   | 12    | `rounded-md`   | 입력, 일반 버튼           |
+| `radius.lg`   | 16    | `rounded-lg`   | 카드                      |
+| `radius.xl`   | 20    | `rounded-xl`   | 주요 요약 카드, 시트      |
+| `radius.full` | 999   | `rounded-full` | 원형 아이콘 버튼, 상태 점 |
+
+> ⚠️ **`rounded-lg`는 이 저장소에서 16px다.** Tailwind 기본값(8px)과 다르다. 반경 스케일을
+> `index.css`의 `@theme`에서 재정의했기 때문이다. 같은 이유로 재정의하지 않은
+> `rounded-2xl`·`rounded-3xl`·`rounded`는 Tailwind 기본값이 그대로 나오므로 쓰지 않는다.
+> 표에 있는 여섯 개만 쓴다.
 
 - 깊이는 배경색 차이와 1px 테두리로 우선 표현한다.
 - 그림자는 플로팅 CTA, 모달, 바텀시트처럼 실제 중첩 관계가 있을 때만 사용한다.
@@ -222,6 +300,30 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 - 기본 크기는 20, 작은 보조 아이콘은 16, 주요 행동은 24다.
 - 아이콘 단독 버튼은 접근성 이름과 최소 44x44 터치 영역을 제공한다.
 - 상태 아이콘은 텍스트 레이블을 대체하지 않는다.
+- 새 아이콘은 Figma에서 SVG로 내보내고 색은 `currentColor`로 바꿔 부모가 정하게 한다.
+  손으로 그려 근사하지 않는다.
+
+#### 어디에 있나
+
+아이콘 컴포넌트를 모아 둔 공용 폴더는 없다. 화면 단위로 흩어져 있다.
+
+| 위치                                              | 담긴 것                                                                                      |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `apps/web/src/features/home/icons.tsx`            | `IconPlay` `IconChevronRight` `IllustFlame` `IllustStudyDoodle`                              |
+| `apps/web/src/features/records/icons.tsx`         | `IconChevronRight` `IconChevronLeft` `IconCheckSm` `IconChevronDown` `IllustFlame`           |
+| `apps/web/src/features/social-room/icons.tsx`     | `IconSocialPeople`                                                                           |
+| `apps/web/src/features/onboarding/coachIcons.tsx` | `IconPause` `IconCameraFlip` `IconExit` `IconClose` `IllustPrivacyCamera` `CoachTooltipTail` |
+| `apps/web/src/components/CameraFlipIcon.tsx`      | `CameraFlipIcon`                                                                             |
+| `apps/mobile/components/icons.tsx`                | 탭 아이콘 4종 포함 13개                                                                      |
+
+세션 컨트롤 아이콘만 컴포넌트가 아니라 SVG 파일이고 `apps/web/src/assets/icons/`에 있다
+(`session-play` `session-pause` `session-exit` `session-camera` `session-camera-off`).
+`SessionControlBar`가 import해 쓴다.
+
+`IconChevronRight`와 `IllustFlame`은 홈과 기록에 **각각 정의돼 있다.** 같은 아이콘이 웹 안에서
+두 벌인 것이라, 새 화면에서 필요하면 세 번째를 만들지 말고 둘 중 하나를 공용으로 올린다.
+웹과 모바일에 같은 이름이 있는 것은 별개다. DOM `svg`와 React Native `Svg`로 구현이 달라
+합칠 수 없다.
 
 ### 생성 이미지
 
@@ -231,97 +333,67 @@ FocusOn의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 성장
 - 공부, 성장, 루틴과 편안한 몰입을 표현한다.
 - 워터마크, 로고와 이미지 내부 텍스트를 금지한다.
 
-## 10. 핵심 컴포넌트
+## 10. 컴포넌트
 
-컴포넌트는 실제 Figma 화면에서 필요성이 확인된 순서로 구현한다. 아래 목록은 계약 후보이며 구현 완료 목록이 아니다.
+이 절은 **웹(`apps/web`) 기준**이다. Figma 컴포넌트와 코드 파일의 전체 대응표는
+[`.claude/skills/focusmakers-design/references/components.md`](./.claude/skills/focusmakers-design/references/components.md)에
+있고, 노드 id까지 적혀 있다. 아래는 그중 무엇이 실제로 존재하고 무엇이 아직 없는지만 가른 것이다.
 
-### Layout
+### 지금 있는 것
 
-#### `Screen`
+공용 프리미티브는 `apps/web/src/components/ui/`에 있다.
 
-- Safe Area와 기본 캔버스 배경을 소유한다.
-- 스크롤 여부와 하단 고정 영역을 명시적으로 선택한다.
-- 화면별 비즈니스 로직을 포함하지 않는다.
+| 컴포넌트                  | API                                                                                                                                                   | 비고                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `Button`                  | `variant`: `default` `outline` `ghost` / `size`: `default`(h-10) `sm`(h-8) `lg`(h-12)                                                                 | shadcn 기반. `buttonVariants`도 함께 내보낸다 |
+| `Dialog`                  | `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogFooter` `DialogTitle` `DialogDescription` `DialogClose` `DialogOverlay` `DialogPortal` | Radix 기반                                    |
+| `Toast` / `ToastViewport` | `message`, `tone`(`session` 하나)                                                                                                                     | 다크 알약 고정. 배경은 `--session-toast-bg`   |
+| `Skeleton`                | `className`                                                                                                                                           | 로딩 자리표시                                 |
+| `ErrorState`              | `message`, `onRetry`, `screen`                                                                                                                        | 조회 실패 자리표시. `screen`은 계측용         |
 
-#### `Stack` and `Row`
+공용 화면 조각은 `apps/web/src/components/`에 있다.
 
-- 토큰 기반 간격만 허용한다.
-- 임의 margin을 반복하는 대신 형제 요소의 배치를 표현한다.
+| 컴포넌트              | 역할                           |
+| --------------------- | ------------------------------ |
+| `ScreenBackHeader`    | 뒤로가기 + 제목 헤더           |
+| `LegalDocumentScreen` | 약관·개인정보 문서 화면 껍데기 |
+| `ErrorFallback`       | 라우트 단위 에러 바운더리      |
 
-### Typography
+나머지는 화면 단위로 각 feature 폴더에 있다. 설정은 `SettingsRow` `SettingsSection`
+`PermissionToggle`, 기록은 `SummaryTiles` `SessionListItem` `MonthCalendar` `EventChip`
+`StreakBanner`가 그렇다. 홈은 아직 별도 파일이 없고 `routes/HomeTabPage.tsx` 안에
+`HeroTodayCard` `StartCtaCard` `StatCard` `GuideCard` `FocusGauge`가 직접 정의돼 있다.
 
-#### `AppText`
+### 아직 없는 것
 
-- 타이포그래피 토큰을 variant로 제공한다.
-- 기본 색상은 `text.primary`다.
-- 글자 확대와 줄바꿈을 막지 않는다.
+아래는 **계약 후보이며 구현된 적이 없다.** 시안이 이들을 전제로 그려지면 구현 단계에서
+전부 새로 만들어야 하므로, 쓰려면 먼저 만들 일감으로 잡는다. 만들 때 지킬 성격은 적어 둔다.
 
-### Actions
+| 후보                         | 만들 때 지킬 것                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `Screen`                     | Safe Area와 기본 캔버스 배경을 소유한다. 스크롤 여부와 하단 고정 영역을 명시적으로 고른다                                                 |
+| `Stack`, `Row`               | 토큰 기반 간격만 허용한다. 임의 margin 반복을 대체한다                                                                                    |
+| `AppText`                    | 타이포 토큰을 variant로 제공한다. 기본 색은 `text.primary`. 글자 확대와 줄바꿈을 막지 않는다                                              |
+| `IconButton`                 | 시각 크기와 무관하게 최소 44×44 터치 영역. 접근성 이름은 아이콘 이름이 아니라 사용자 행동                                                 |
+| `TextInput`                  | default·focused·filled·disabled·error. 레이블·값·도움말·오류를 한 필드 계약으로 묶는다. placeholder로 레이블을 대체하지 않는다            |
+| `Card`                       | `surface` `outlined` `highlighted`만 우선. 카드 전체가 눌리면 pressed 상태와 접근성 역할을 준다                                           |
+| `Divider`                    | 목록과 정보 그룹의 구조 보조용. 장식으로 반복하지 않는다                                                                                  |
+| `StudyStatusBadge`           | 세션 상태와 1:1. 상태색·텍스트 레이블·선택적 아이콘을 함께 쓴다. 지금은 `features/study-session`의 `SessionStatusPill`이 비슷한 일을 한다 |
+| `LoadingState`, `EmptyState` | 문구와 행동을 props로 받는다. 로딩은 레이아웃 이동을 줄이고, 빈 상태는 다음 행동을 제시한다                                               |
 
-#### `Button`
+승격 판단 기준은 [17. 컴포넌트 승격 규칙](#17-컴포넌트-승격-규칙)을 따른다.
 
-Variants:
+### 알려진 어긋남
 
-- `primary`: 핵심 행동
-- `secondary`: 보조 행동
-- `tertiary`: 낮은 강조 행동
-- `destructive`: 되돌리기 어려운 행동
+고치기 전까지 사실로 알고 있어야 하는 것들이다.
 
-States:
-
-- default
-- pressed
-- focused
-- disabled
-- loading
-
-버튼은 최소 높이 48, 터치 영역 48 이상을 사용한다. 한 화면에서 primary 버튼은 원칙적으로 하나만 둔다.
-
-#### `IconButton`
-
-- 시각 크기와 무관하게 최소 44x44 터치 영역을 제공한다.
-- 아이콘 이름이 아니라 사용자 행동을 접근성 이름으로 제공한다.
-
-### Inputs
-
-#### `TextInput`
-
-States:
-
-- default
-- focused
-- filled
-- disabled
-- error
-
-레이블, 입력값, 도움말과 오류 메시지를 하나의 필드 계약으로 관리한다. placeholder만으로 레이블을 대체하지 않는다.
-
-### Containers
-
-#### `Card`
-
-- `surface`, `outlined`, `highlighted` variant만 우선 제공한다.
-- 카드 전체가 눌리는 경우 pressed 상태와 접근성 역할을 제공한다.
-
-#### `Divider`
-
-- 목록과 정보 그룹의 구조를 보조한다.
-- 장식 목적으로 반복 사용하지 않는다.
-
-### Status and Feedback
-
-#### `StudyStatusBadge`
-
-- 네 가지 `StudyStatus`와 1:1로 대응한다.
-- 상태색, 텍스트 레이블과 선택적 아이콘을 함께 사용한다.
-- 앱 셸에서는 요약 정보에만 사용하고 WebView 내부 상태를 임의로 재구현하지 않는다.
-
-#### `LoadingState`, `EmptyState`, `ErrorState`
-
-- 화면별 문구와 행동을 props로 받는다.
-- 로딩 시 레이아웃 이동을 줄인다.
-- 오류 상태는 문제 설명과 복구 행동을 제공한다.
-- 빈 상태는 사용자가 다음에 할 수 있는 행동을 제시한다.
+- **공용 `Button`이 거의 쓰이지 않는다.** 웹 전체에서 `<Button`을 쓰는 파일이 두 개뿐이고,
+  나머지 화면은 각자 `<button>`에 클래스를 붙인다. 버튼 룩이 화면마다 갈라져 있다.
+- **`Button`의 기본 높이가 40px(`h-10`)다.** [12. 접근성](#12-접근성)의 최소 44×44 규칙에
+  못 미친다. Figma의 `Button / CTA V2`는 56·48·44 계열이라 그쪽과도 어긋난다.
+- **아이콘이 중복 정의돼 있다.** `IconChevronRight`와 `IllustFlame`이 `features/home/icons.tsx`,
+  `features/records/icons.tsx`, `apps/mobile/components/icons.tsx` 세 곳에 각각 있다.
+- **홈 컴포넌트가 라우트 파일 안에 있다.** 다른 화면에서 재사용하려면 먼저 파일로 꺼내야 한다.
 
 ## 11. 내비게이션
 
@@ -466,23 +538,26 @@ MCP가 생성한 결과는 참고 입력이며 저장소에 바로 병합할 완
 
 ### 확정
 
-- 모바일 앱 셸만 이 디자인 시스템의 직접 구현 범위다.
-- Expo Router, React Native와 NativeWind를 유지한다.
-- `@focusmakers/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다.
-- 공부 상태는 네 가지 도메인 상태와 1:1로 대응한다.
-- 화면은 Figma에서 하나씩 완성한 뒤 MCP로 구현한다.
-- 공통 컴포넌트는 점진적으로 추출한다.
+- 웹(`apps/web`)이 화면 대부분의 구현 범위이고, 모바일(`apps/mobile`)은 앱 셸과 탭 바·스플래시를 맡는다.
+- `@focusmakers/design-tokens`를 의미 기반 토큰의 코드 원천으로 사용한다. 웹은 그 값을
+  `apps/web/src/index.css`에 CSS 변수로 옮겨 쓴다.
+- 브랜드 색은 `#1b64da`, 기본 배경은 흰색이다.
+- 폰트는 Pretendard로 고정한다.
+- 탭은 네 개이고 순서는 홈·소셜·기록·설정이다.
+- 공부 상태는 순공·휴식·일시정지 3색 체계이고, 서버 이벤트 네 종이 여기에 매핑된다.
+- 컴포넌트 구현체는 웹·모바일이 공유하지 않는다. 토큰만 공유한다.
+- 화면은 Figma에서 하나씩 완성한 뒤 구현한다. 공통 컴포넌트는 점진적으로 추출한다.
 
-### 첫 기준 화면에서 확정할 항목
+### 아직 정해지지 않은 것
 
-- 브랜드 인디고의 최종 명도와 대비
-- 시스템 폰트 유지 여부 또는 오픈소스 한글 폰트 도입 여부
-- 카드 테두리와 그림자 강도
-- 데이터 시각화 팔레트
-- 탭 내비게이션의 최종 목적지와 레이블
-- 일러스트 스타일과 사용 범위
+- 경고(warning)·정보(info) 피드백 색. 토큰에 없다.
+- 데이터 시각화 팔레트. 상태색과 구분되는 별도 체계가 필요하다.
+- 카드 테두리와 그림자 강도의 기준. 지금은 화면마다 다르다.
+- 일러스트 스타일과 사용 범위.
+- 웹 타이포 스케일을 Tailwind 유틸리티로 감쌀지 여부. 지금은 임의 px 값으로 쓰고 있다.
+- 초대코드 화면의 원오프 색을 시맨틱 토큰으로 승격할지 여부.
 
-이 항목들은 임의로 확정하지 않고 첫 홈 화면 Figma 설계와 실제 기기 검증을 근거로 결정한다.
+이 항목들은 임의로 확정하지 않고 Figma 설계와 실제 기기 검증을 근거로 결정한다.
 
 ## 21. Iteration Guide
 

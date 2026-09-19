@@ -46,12 +46,12 @@ jest.mock("react-native-webview", () => {
 });
 
 describe("RecordsScreen", () => {
-  it("/records 경로 + 탭 공용 쿼리(userId·appVersion)로 조립한 URL을 로드한다", async () => {
+  it("/records 경로 + 탭 공용 쿼리(appVersion)로 조립한 URL을 로드한다", async () => {
     render(<RecordsScreen />);
 
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: "https://web.test/records?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
+      uri: "https://web.test/records?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
     });
   });
 });

@@ -73,7 +73,7 @@ const mockStartPush = jest.fn((_options: { navigate: (route: string) => void }) 
 jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
 }));
-// Meta SDK(BY-644) — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
+// Meta SDK — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
 // SDK 모듈은 네이티브 없이 로드조차 안 되므로 반드시 mock한다. `installMetaAdsSdk`는 `_layout`이 **모듈
 // 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.
 jest.mock("../lib/metaAdsSdk", () => ({
@@ -253,7 +253,7 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
   });
 });
 
-describe("RootLayout Meta SDK 초기화 (BY-644)", () => {
+describe("RootLayout Meta SDK 초기화", () => {
   it("모듈 로드 시점에 어댑터를 설치한다 — 첫 실행의 가입 완료보다 먼저 통로가 있어야 한다", () => {
     expect(installMetaAdsSdk).toHaveBeenCalled();
   });

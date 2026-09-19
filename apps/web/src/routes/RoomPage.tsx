@@ -255,7 +255,7 @@ function RoomSessionScreen({
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
-  // 상태 필이 `집중 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
+  // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   /**
@@ -578,7 +578,7 @@ function RoomSessionScreen({
 
             {userId === null && (
               <p className="mt-3 text-center text-[12px] leading-[16px] text-white/55 landscape:col-span-full landscape:row-start-5 landscape:justify-self-center">
-                userId가 없어 이 세션은 서버에 저장되지 않습니다 (주소에 ?userId=N 필요)
+                이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
               </p>
             )}
           </div>
@@ -718,7 +718,7 @@ function SessionResultFallback({
 
       {phase.name === "unsaved" && (
         <p className="text-center text-sm text-white/80">
-          공부 시간 {formatElapsed(phase.studySec)} — userId가 없어 서버에 저장되지 않았습니다.
+          공부 시간 {formatElapsed(phase.studySec)} — 기기 등록 전이라 저장되지 않았습니다.
         </p>
       )}
     </div>

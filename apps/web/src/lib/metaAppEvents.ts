@@ -4,7 +4,7 @@ import type { StudyRoomType } from "./amplitude";
 import { postToNative } from "./bridge";
 
 /**
- * Meta 광고 전환 이벤트(BY-644) — 브리지 `meta-app-event`로 네이티브 Meta SDK에 넘긴다.
+ * Meta 광고 전환 이벤트 — 브리지 `meta-app-event`로 네이티브 Meta SDK에 넘긴다.
  *
  * 앱 설치 광고의 성과는 설치 그 자체보다 "설치 뒤 실제로 공부했는가"로 판단한다. 그 전환은 전부 웹 화면에서
  * 일어나고 SDK는 앱에 있으므로, 웹이 판정해 네이티브로 보낸다(`track-event`의 역방향). **전환 목록은 이

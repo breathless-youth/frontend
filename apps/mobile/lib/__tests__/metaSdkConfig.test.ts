@@ -5,13 +5,13 @@ import appJson from "../../app.json";
 import mobilePackageJson from "../../package.json";
 
 /**
- * BY-644: Meta SDK 설정 주입 가드.
+ * Meta SDK 설정 주입 가드.
  *
  * 설계: `docs/superpowers/specs/2026-09-13-by-644-meta-sdk-install-attribution-design.md`. 여기서 고정하는 것은
  * (1) app.json에 정적 Meta 설정이 없다는 것(공개 저장소·env 주입 전용), (2) `app.config.ts`의 env → plugin·
  * `extra.metaAppId` 변환과 누락·반쪽 설정 차단, (3) SDK 버전 고정이다.
  */
-describe("Meta SDK 설정 (BY-644)", () => {
+describe("Meta SDK 설정", () => {
   const baseConfig = appJson.expo as unknown as ExpoConfig;
   const pluginName = (entry: unknown) => (Array.isArray(entry) ? (entry[0] as string) : entry);
   const findPlugin = (cfg: ExpoConfig, name: string) =>

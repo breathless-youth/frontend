@@ -772,7 +772,6 @@ describe("createPeerMesh — 정리와 실패", () => {
     await vi.waitFor(() => expect(reports).toHaveLength(1));
     expect(reports[0]).toMatchObject({
       roomId: 10,
-      userId: 7,
       peerUserId: 8,
       candidateType: "relay",
       relayProtocol: "udp",
@@ -783,6 +782,7 @@ describe("createPeerMesh — 정리와 실패", () => {
     });
     expect(typeof reports[0]!.connectionId).toBe("string");
     expect(reports[0]!.connectionId.length).toBeGreaterThan(0);
+    expect(reports[0]).not.toHaveProperty("userId");
   });
 
   it("crypto.randomUUID가 없어도 connectionId를 발급해 보고한다 — 비보안 컨텍스트 폴백", async () => {
@@ -1328,5 +1328,79 @@ describe("createPeerMesh — 정리와 실패", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(pcs).toHaveLength(0);
     expect(channel.publishedSignals).toEqual([]);
+  });
+});
+
+describe("createPeerMesh — 피어 실패 시 SNAPSHOT 재대조 (BY-668)", () => {
+  it("피어가 disconnected/failed면 10초마다 스냅샷 재대조를 요청하고, 복구되면 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { channel, pcs } = setup();
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+      const pc = pcs[0]?.pc;
+      if (pc === undefined) {
+        throw new Error("피어가 생성되지 않았다");
+      }
+
+      pc.fireIceState("disconnected");
+      expect(channel.snapshotRequests).toBe(0);
+      vi.advanceTimersByTime(10_000);
+      expect(channel.snapshotRequests).toBe(1);
+      vi.advanceTimersByTime(10_000);
+      expect(channel.snapshotRequests).toBe(2);
+
+      pc.fireIceState("connected");
+      vi.advanceTimersByTime(30_000);
+      expect(channel.snapshotRequests).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("피어가 방을 떠나면 재대조를 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { channel, pcs } = setup();
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+      pcs[0]?.pc.fireIceState("failed");
+      vi.advanceTimersByTime(10_000);
+      expect(channel.snapshotRequests).toBe(1);
+
+      channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 8 });
+      vi.advanceTimersByTime(30_000);
+      expect(channel.snapshotRequests).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("SNAPSHOT에서 사라진 실패 피어는 정리되어 재대조가 멈춘다", () => {
+    vi.useFakeTimers();
+    try {
+      const { channel, pcs } = setup();
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+      pcs[0]?.pc.fireIceState("failed");
+      vi.advanceTimersByTime(10_000);
+      expect(channel.snapshotRequests).toBe(1);
+
+      // 8이 빠진 authoritative SNAPSHOT — 피어를 닫고 재대조를 멈춘다.
+      channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7)] });
+      vi.advanceTimersByTime(30_000);
+      expect(channel.snapshotRequests).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("SNAPSHOT에서 빠졌어도 degraded가 아닌 피어는 닫지 않는다 — 도착 순서 경쟁 방어", () => {
+    const { channel, pcs } = setup();
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
+    const pc = pcs[0]?.pc;
+
+    // 피어 8은 ICE가 끊긴 적이 없어 degraded가 아니다. 그 피어보다 먼저 만들어진 옛 SNAPSHOT이
+    // 8을 빠뜨려도 살아 있는 연결을 지우면 안 된다.
+    channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7)] });
+
+    expect(pc?.closed).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import { getProfile, updateProfile } from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
@@ -73,10 +74,24 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     await waitFor(() => {
-      expect(mockedUpdateProfile).toHaveBeenCalledWith(7, {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({
         goal: "올해 안에 이직 성공",
         category: "JOB",
       });
+    });
+  });
+
+  it("앞뒤 공백이 있는 닉네임을 저장하면 PATCH 본문에서 공백이 빠진다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "숨벅찬청년들" });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "  숨벅찬청년들  " } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({ nickname: "숨벅찬청년들" });
     });
   });
 
@@ -102,7 +117,7 @@ describe("프로필 설정", () => {
 
   it("중복 닉네임은 서버 응답을 인라인 오류로 보여준다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
-    mockedUpdateProfile.mockRejectedValue(new ApiError("이미 사용 중", 409, "NICKNAME_TAKEN"));
+    mockedUpdateProfile.mockRejectedValue(new ApiError("이미 사용 중", 409, "CONFLICT"));
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
@@ -110,6 +125,20 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
+  });
+
+  it("400 응답은 닉네임 인라인에 형식 규칙 문구를 보여준다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(
+      new ApiError("nickname: invalid", 400, "VALIDATION_FAILED"),
+    );
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "숨벅찬청년들" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_RULE_MESSAGE);
   });
 
   it("서버가 code 없이 409만 줘도 중복 닉네임 인라인 오류로 안내한다 (BY-404 예외 폴백)", async () => {
@@ -180,6 +209,46 @@ describe("프로필 설정", () => {
     expect(screen.getByText("포")).toBeInTheDocument();
   });
 
+  it("보이지 않는 공백류만 입력하면 아바타는 서버 이니셜을 유지한다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    expect(screen.getByText("포")).toBeInTheDocument();
+
+    // NBSP(U+00A0) 하나 — 서버 String.strip()은 지우지 않아 정규화 후에도 남지만
+    // 눈에 보이는 글자가 아니므로, 아바타는 그 보이지 않는 문자 대신 서버 이니셜을 보여줘야 한다.
+    fireEvent.change(nicknameInput, { target: { value: " " } });
+    expect(screen.getByText("포")).toBeInTheDocument();
+  });
+
+  it("이모지 닉네임을 입력하면 아바타 이니셜이 깨지지 않은 온전한 글자로 바뀐다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "🧑‍💻코딩" } });
+
+    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
+    expect(screen.queryByText("포")).not.toBeInTheDocument();
+  });
+
+  it("실시간 안내는 형식·최소 길이를 보지 않는다 — 미완성·1자 입력에는 알림이 뜨지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "ㅍ" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    fireEvent.change(nicknameInput, { target: { value: "포" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    // 저장 버튼을 누르면 그때 형식·최소 길이 안내가 뜬다.
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
   it("저장 성공으로 복귀한 설정 화면에 저장 완료 토스트가 뜬다 (2026-08-25 시안 A)", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
@@ -201,6 +270,29 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByTestId("settings-page")).toBeInTheDocument();
     // 토스트는 마운트 후 passive effect에서 뜨므로 동기 조회는 시점 경쟁이 된다 — 대기형으로 본다.
+    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+  });
+
+  it("이모지 닉네임 저장 성공 시에도 설정 화면으로 복귀하고 저장 완료 토스트가 뜬다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "코딩🧑‍💻" });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/profile?userId=7"]}>
+          <Routes>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "코딩🧑‍💻" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByTestId("settings-page")).toBeInTheDocument();
     expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
   });
 

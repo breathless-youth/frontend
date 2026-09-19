@@ -1,6 +1,7 @@
 import type { ActiveSessionSnapshotRequest, StatusEventPayload } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { legacyUserId } from "@/lib/userId";
 
 import { clampSessionSeconds } from "./sessionRequestClamp";
 
@@ -9,7 +10,6 @@ import { clampSessionSeconds } from "./sessionRequestClamp";
  * `sessionTimeline.ts`가 세션 상태 머신으로 계산해 넘긴다.
  */
 export interface ActiveSnapshotInput {
-  userId: number;
   startedAtMs: number;
   reportedAtMs: number;
   studySec: number;
@@ -28,7 +28,6 @@ export function buildActiveSnapshotRequest(
     events: input.events,
   });
   return {
-    userId: input.userId,
     startedAt: new Date(input.startedAtMs).toISOString(),
     reportedAt: new Date(input.reportedAtMs).toISOString(),
     studySec,
@@ -58,10 +57,12 @@ export async function reportActiveSession(
     controller.abort();
   }, timeoutMs);
   try {
+    const request = buildActiveSnapshotRequest(input);
+    const legacy = legacyUserId();
     const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildActiveSnapshotRequest(input)),
+      body: JSON.stringify(legacy === null ? request : { ...request, userId: legacy }),
       signal: controller.signal,
     });
     if (!res.ok) {

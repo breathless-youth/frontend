@@ -185,6 +185,18 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "session-closed") {
     return { type: "session-closed", atMs: record.atMs };
   }
+  if (
+    record.type === "auth-token" &&
+    (typeof record.userId === "number" || record.userId === null) &&
+    (typeof record.accessToken === "string" || record.accessToken === null)
+  ) {
+    return {
+      type: "auth-token",
+      userId: record.userId,
+      accessToken: record.accessToken,
+      atMs: record.atMs,
+    };
+  }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };
   }

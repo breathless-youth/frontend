@@ -26,7 +26,7 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
   });
 
   /**
-   * ATT(앱 추적 투명성) 문구(BY-644). `expo-tracking-transparency` plugin은 이 키가 없으면 **영어 기본 문구**를
+   * ATT(앱 추적 투명성) 문구. `expo-tracking-transparency` plugin은 이 키가 없으면 **영어 기본 문구**를
    * 넣고, `react-native-fbsdk-next` plugin도 `iosUserTrackingPermission` 옵션으로 덮어쓸 수 있다 — 둘 다
    * `app.config.ts`가 옵션을 주지 않아 여기 값이 그대로 바이너리에 실린다(`metaSdkConfig.test.ts`).
    */

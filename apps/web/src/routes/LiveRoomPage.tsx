@@ -8,7 +8,7 @@ import { isCompleteInviteCode } from "@/features/social-room/inviteCode";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { createStompRoomChannel } from "@/features/live-room/stompRoomChannel";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
-import { useUserId } from "@/lib/userId";
+import { useIdentityPending, useUserId } from "@/lib/userId";
 
 /**
  * 실시간 룸 라우트
@@ -32,6 +32,7 @@ export function LiveRoomPage({
   const location = useLocation();
 
   const userId = useUserId();
+  const identityPending = useIdentityPending();
   const roomId = Number(roomIdParam);
   const state: unknown = location.state;
   const restoreCode = searchParams.get("code");
@@ -42,6 +43,17 @@ export function LiveRoomPage({
   } else if (restoreCode !== null && isCompleteInviteCode(restoreCode)) {
     // 복원 입장은 일반 입장과 같다 — 마운트 join이 새로 자리를 예약하고 iceServers를 받는다.
     entryState = { inviteCode: restoreCode };
+  }
+
+  /**
+   * 신원이 오기 전에는 아무것도 판정하지 않는다. BY-528이 웹뷰 URL에서 `?userId=N`을 빼면서
+   * 신원은 브리지 왕복 뒤에 오는데, 첫 렌더의 `userId === null`을 "못 들어감"으로 읽으면
+   * **문서가 새로 뜨는 입장 경로에서 방을 잃는다.** 특히 렌더러 사망 복구(BY-436)는 `/social`을
+   * 거치지 않고 `/social/room/:id?code=...`를 직접 열기 때문에, 복구하려던 그 방에서 쫓겨난다.
+   * 대기는 `FIRST_TOKEN_TIMEOUT_MS`가 끊어 주므로 여기 머무는 시간은 유한하다.
+   */
+  if (identityPending) {
+    return null;
   }
 
   if (userId === null || !Number.isInteger(roomId) || entryState === null) {
@@ -56,10 +68,7 @@ export function LiveRoomPage({
       roomId={roomId}
       userId={userId}
       entryState={entryState}
-      createChannel={
-        createChannel ??
-        (({ roomId: r, userId: u }) => createStompRoomChannel({ roomId: r, userId: u }))
-      }
+      createChannel={createChannel ?? ((options) => createStompRoomChannel(options))}
       createCamera={createCamera}
       createPeerConnection={createPeerConnection}
     />

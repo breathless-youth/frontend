@@ -7,6 +7,7 @@ import { AnalyticsRouteTracker } from "./components/AnalyticsRouteTracker";
 import { initGA4 } from "./lib/analytics";
 import { initAmplitude } from "./lib/amplitude";
 import { initAppLifecycleAnalytics } from "./lib/appLifecycleAnalytics";
+import { initBridgeTokenSource } from "./lib/auth/tokenSource";
 import { initNativeTheme } from "./lib/nativeTheme";
 import { initSentry, sentryRootOptions } from "./lib/sentry";
 import "./index.css";
@@ -18,6 +19,8 @@ initAmplitude();
 // 스크립트가 첫 페인트 전에 data-theme에 이미 반영해 둔다.
 initNativeTheme();
 initAppLifecycleAnalytics();
+// 라우트의 첫 react-query 요청이 App effect보다 먼저 돌므로 createRoot 전에 구독·auth-ready를 건다.
+initBridgeTokenSource();
 
 createRoot(document.getElementById("root")!, sentryRootOptions).render(
   <StrictMode>

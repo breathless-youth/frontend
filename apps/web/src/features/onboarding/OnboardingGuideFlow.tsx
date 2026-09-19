@@ -176,7 +176,7 @@ export function OnboardingGuideFlow({
   const finish = useCallback(
     (reason: OnboardingGuideExitReason) => {
       trackGuideFinished({ reason, step: stepIndex + 1, entry });
-      // Meta 광고 전환(BY-644) — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
+      // Meta 광고 전환 — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
       if (reason === "completed") trackMetaTutorialCompleted();
       onFinish(reason);
     },

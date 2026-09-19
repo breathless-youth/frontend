@@ -276,7 +276,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
-    // Meta 광고 전환(BY-644) — 복원 진입은 함수 안에서 걸러진다.
+    // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
 
@@ -377,7 +377,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
       reportActiveSession({
-        userId,
         startedAtMs: startedAtMsRef.current,
         reportedAtMs: nowMs,
         studySec: totals.studySec,
@@ -531,7 +530,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
         });
-        // Meta 광고 전환(BY-644) — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
+        // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
         trackMetaStudySessionEnded({
           roomType,
           studySec: finalTotals.studySec,
@@ -549,7 +548,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const attempt = submitAttemptRef.current;
       try {
         const sessions = await submitStudySession({
-          userId,
           startedAtMs: startedAtMsRef.current,
           endedAtMs,
           studySec: finalTotals.studySec,

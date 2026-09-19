@@ -26,7 +26,7 @@ import { ensureUserRegistered } from "../lib/userApi";
  */
 initSentry();
 
-// Meta 광고 SDK 어댑터(BY-644) — Meta env가 주입된 빌드에서만 붙는다. 모듈 스코프인 이유는 위와 같다: 첫
+// Meta 광고 SDK 어댑터 — Meta env가 주입된 빌드에서만 붙는다. 모듈 스코프인 이유는 위와 같다: 첫
 // 실행의 가입 완료 이벤트가 `ensureUserRegistered`(아래 effect)에서 나오는데, 그보다 먼저 통로가 있어야
 // 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
 installMetaAdsSdk();
@@ -76,7 +76,7 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
-  // Meta SDK 초기화 + iOS ATT 프롬프트(BY-644) — 홈이 그려진 뒤(폰트·게이트 통과)에 한 번. 스플래시 위에서는
+  // Meta SDK 초기화 + iOS ATT 프롬프트 — 홈이 그려진 뒤(폰트·게이트 통과)에 한 번. 스플래시 위에서는
   // OS가 프롬프트를 띄우지 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 즉시 끝난다.
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady) return;

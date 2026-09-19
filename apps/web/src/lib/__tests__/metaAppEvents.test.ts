@@ -10,7 +10,7 @@ import {
 } from "@/lib/metaAppEvents";
 
 /**
- * Meta 광고 전환 이벤트(BY-644)의 발신 계약 — 네이티브 `parseToNativeMessage`가 받는 모양
+ * Meta 광고 전환 이벤트의 발신 계약 — 네이티브 `parseToNativeMessage`가 받는 모양
  * (`apps/mobile/lib/webBridge.ts`)과 대칭이다. 이벤트 목록은 이 파일의 발신자가 소유한다.
  */
 

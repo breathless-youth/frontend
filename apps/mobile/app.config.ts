@@ -176,7 +176,7 @@ function guardFirebaseFile(
 }
 
 /**
- * Meta(Facebook) SDK 설정 주입 (BY-644).
+ * Meta(Facebook) SDK 설정 주입.
  *
  * 앱 ID·클라이언트 토큰은 Meta 앱 대시보드 값이다. 둘 다 바이너리(Info.plist·AndroidManifest)에 박히는
  * 공개 성격의 값이지만, 저장소가 public이고 dev/prod Meta 앱이 갈릴 수 있어 Firebase 파일과 같은 방식으로
@@ -202,7 +202,7 @@ function resolveMetaSdk(variant: AppVariant): MetaSdkConfig | null {
       throw new Error(
         "META_APP_ID·META_CLIENT_TOKEN이 비어 있습니다. " +
           "production 빌드에는 EAS production environment에 Meta 앱 설정을 주입하세요 — " +
-          "없으면 설치 어트리뷰션이 빠진 바이너리가 나갑니다(BY-644).",
+          "없으면 설치 어트리뷰션이 빠진 바이너리가 나갑니다.",
       );
     }
     return null;

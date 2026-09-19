@@ -12,12 +12,12 @@ import { ensureUserRegistered } from "../userApi";
 /**
  * 원격 웹뷰 쿼리 파라미터 조립(BY-333) — 탭 3개 + 세션이 공유하는 단일 조립처.
  *
- * 검증 범위: userId 있음/없음, appVersion 유무, isNew를 붙이지 않는 것(2026-07-31 검토),
- * 훅이 첫 계산 전엔 null(로딩)을 돌려주는 것, **모듈 스코프 캐시**(두 번째 마운트부터는
+ * 검증 범위: 신원을 URL에 싣지 않는 것, appVersion 유무, isNew를 붙이지 않는 것(2026-07-31
+ * 검토), 훅이 첫 계산 전엔 null(로딩)을 돌려주는 것, **모듈 스코프 캐시**(두 번째 마운트부터는
  * null 없이 즉시 값을 돌려주고, 읽기는 한 번만 일어나는 것 — BY-333 실기기에서 탭 전환마다
- * 웹뷰가 통째로 재로드되던 결함의 원인), 그리고 **userId 없는 결과는 캐시되지 않고 다음
- * 호출에서 재시도되는 것**(BY-333 리뷰 — 신규 설치 첫 실행에서 등록 네트워크 왕복이
- * `getRegisteredUserId`의 로컬 읽기보다 늦게 끝나 userId가 영영 안 붙던 Critical 결함).
+ * 웹뷰가 통째로 재로드되던 결함의 원인), 그리고 **등록에 실패한 결과는 캐시되지 않고 다음
+ * 호출에서 재시도되는 것**(BY-333 리뷰 Critical — 캐시가 굳으면 앱을 껐다 켜기 전까지 웹뷰가
+ * 토큰 없이 뜬 채로 남는다).
  */
 
 jest.mock("../userApi", () => ({ ensureUserRegistered: jest.fn() }));
@@ -38,19 +38,19 @@ beforeEach(() => {
 });
 
 describe("buildRemoteQueryParams", () => {
-  it("userId가 등록돼 있으면(ensureUserRegistered가 즉시 반환) userId·appVersion을 함께 붙인다", async () => {
+  it("신원은 URL에 싣지 않는다 — 웹은 auth-token으로 받는다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
     await expect(buildRemoteQueryParams()).resolves.toEqual({
-      userId: 7,
       appVersion: "1.4.2",
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
-  it("등록 실패(ensureUserRegistered가 null)해도 throw하지 않고 파라미터에서 userId만 생략한다 — 화면 자체는 뜬다", async () => {
+  it("등록 실패(ensureUserRegistered가 null)여도 같은 파라미터를 돌려준다 — 화면 자체는 뜬다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(null);
 
     await expect(buildRemoteQueryParams()).resolves.toEqual({
@@ -58,6 +58,7 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -66,10 +67,10 @@ describe("buildRemoteQueryParams", () => {
     mockedConstants.expoConfig = null;
 
     await expect(buildRemoteQueryParams()).resolves.toEqual({
-      userId: 7,
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -134,11 +135,11 @@ describe("useRemoteQueryParams", () => {
     expect(result.current).toBeNull();
     await waitFor(() =>
       expect(result.current).toEqual({
-        userId: 7,
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
   });
@@ -149,11 +150,11 @@ describe("useRemoteQueryParams", () => {
     const first = renderHook(() => useRemoteQueryParams());
     await waitFor(() =>
       expect(first.result.current).toEqual({
-        userId: 7,
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     first.unmount();
@@ -162,11 +163,11 @@ describe("useRemoteQueryParams", () => {
     const second = renderHook(() => useRemoteQueryParams());
 
     expect(second.result.current).toEqual({
-      userId: 7,
       appVersion: "1.4.2",
       share: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
+      guestAuth: "1",
     });
   });
 
@@ -195,7 +196,7 @@ describe("useRemoteQueryParams", () => {
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(1);
   });
 
-  it("userId 없이 계산된 결과는 캐시되지 않는다 — 다음 마운트에서 등록을 다시 시도해 userId를 붙인다(BY-333 Critical 회귀 방지)", async () => {
+  it("등록에 실패한 결과는 캐시되지 않는다 — 다음 마운트가 등록을 다시 시도한다(BY-333 Critical 회귀 방지)", async () => {
     // 신규 설치 첫 실행 재현: 첫 마운트 시점엔 아직 등록이 안 끝나 null, 두 번째 마운트
     // 시점엔(예: 탭 재방문) 등록이 끝나 있어 7을 돌려준다.
     mockedEnsureUserRegistered.mockResolvedValueOnce(null).mockResolvedValueOnce(7);
@@ -207,6 +208,7 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     first.unmount();
@@ -217,11 +219,11 @@ describe("useRemoteQueryParams", () => {
 
     await waitFor(() =>
       expect(second.result.current).toEqual({
-        userId: 7,
         appVersion: "1.4.2",
         share: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
+        guestAuth: "1",
       }),
     );
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(2);

@@ -6,7 +6,7 @@ import { AppEventsLogger, Settings } from "react-native-fbsdk-next";
 import { type MetaAdsAdapter, setMetaAdsAdapter } from "./metaAds";
 
 /**
- * `react-native-fbsdk-next`·`expo-tracking-transparency` 실구현 어댑터 (BY-644).
+ * `react-native-fbsdk-next`·`expo-tracking-transparency` 실구현 어댑터.
  *
  * 이 파일만 SDK를 import한다 — 화면·컴포넌트·다른 `lib/` 모듈은 `lib/metaAds.ts`의 공개 함수만 본다
  * (`apps/mobile/CLAUDE.md` 경계 규칙, 그리고 SDK 루트 import가 jest에서 죽는 문제 — `metaAds.ts` 주석).

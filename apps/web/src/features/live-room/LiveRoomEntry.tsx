@@ -95,7 +95,7 @@ export function LiveRoomEntry({
       return;
     }
     let cancelled = false;
-    void renewLiveRoomSeat(userId, entryState.inviteCode)
+    void renewLiveRoomSeat(entryState.inviteCode)
       .then((response) => {
         if (!cancelled) {
           setIceServers(response.iceServers);
@@ -167,7 +167,7 @@ export function LiveRoomEntry({
       // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
       // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
       trackSocialRoomEntered(graceRejoin);
-      // Meta 광고 전환(BY-644) — 유예 재입장은 새 입장이 아니라 세지 않는다.
+      // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
       if (!graceRejoin) trackMetaSocialRoomEntered();
     }
   }, [entered, gatePassed, graceRejoin, joined, profileSettled, restoreSettled]);
@@ -208,6 +208,7 @@ export function LiveRoomEntry({
     <LiveRoomSession
       roomId={roomId}
       userId={userId}
+      inviteCode={entryState.inviteCode}
       createChannel={createChannel}
       camera={camera}
       createPeerConnection={createPeerConnection}

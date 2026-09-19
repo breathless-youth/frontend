@@ -1,5 +1,5 @@
 /**
- * Meta(Facebook) 광고 SDK 통로 — 앱 설치 어트리뷰션과 앱 내 전환 이벤트(BY-644).
+ * Meta(Facebook) 광고 SDK 통로 — 앱 설치 어트리뷰션과 앱 내 전환 이벤트.
  *
  * 앱 설치 광고의 성과는 웹뷰 안 Pixel로는 잴 수 없다 — 설치 이벤트와 iOS SKAdNetwork 전환값은 네이티브
  * SDK만 다룬다. 그래서 SDK는 네이티브에 두고, 설치·앱 실행은 SDK의 자동 로깅(`autoLogAppEventsEnabled`)에

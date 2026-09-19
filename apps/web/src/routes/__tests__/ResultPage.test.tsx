@@ -8,7 +8,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { stageStudyResultExit } from "@/lib/amplitude";
+
 import { ResultPage } from "../ResultPage";
+
+// 이탈 예약의 인자만 관측한다 — 나머지 계측은 미초기화 no-op 그대로 둔다.
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  stageStudyResultExit: vi.fn(),
+}));
 
 /** 로컬 시각으로 픽스처를 만들어 CI 타임존과 무관하게 같은 표기를 검증한다. */
 const SESSION_START = new Date(2026, 6, 25, 21, 3, 0);
@@ -22,7 +31,7 @@ function event(status: StudyEventStatus, fromSec: number, durationSec: number): 
   return { status, startedAt: at(fromSec), endedAt: at(fromSec + durationSec) };
 }
 
-/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 비집중 18분. */
+/** SCR-S4 "구현용 예시 데이터(확정 모델)" — 총 공부 102분 / 벽시계 105분 / 휴식 18분. */
 function exampleSession(overrides: Partial<StudySessionResponse> = {}): StudySessionResponse {
   return {
     id: 10,
@@ -71,7 +80,7 @@ function renderResult(state: unknown, search = "?userId=7") {
 }
 
 function statsCard() {
-  return screen.getByText(/^비집중 /).closest("section")!;
+  return screen.getByText(/^휴식 /).closest("section")!;
 }
 
 describe("ResultPage — S4 헤더", () => {
@@ -115,7 +124,7 @@ describe("ResultPage — 타임라인 카드", () => {
     renderResult({ sessions: [exampleSession()] });
 
     expect(
-      screen.getByRole("img", { name: "집중 1시간 24분, 비집중 18분, 일시정지 3분" }),
+      screen.getByRole("img", { name: "순공 1시간 24분, 휴식 18분, 일시정지 3분" }),
     ).toBeInTheDocument();
   });
 
@@ -131,8 +140,8 @@ describe("ResultPage — 타임라인 카드", () => {
     renderResult({ sessions: [exampleSession()] });
 
     const card = screen.getByText("공부 타임라인").closest("section")!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
-    expect(within(card).getByText("비집중")).toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
+    expect(within(card).getByText("휴식")).toBeInTheDocument();
     expect(within(card).getByText("일시정지")).toBeInTheDocument();
   });
 
@@ -143,12 +152,12 @@ describe("ResultPage — 타임라인 카드", () => {
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });
 
-  it("비집중이 0이면 범례는 '집중'만 남는다", () => {
+  it("휴식이 0이면 범례는 '순공'만 남는다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
     const card = screen.getByText("공부 타임라인").closest("section")!;
-    expect(within(card).getByText("집중")).toBeInTheDocument();
-    expect(within(card).queryByText("비집중")).not.toBeInTheDocument();
+    expect(within(card).getByText("순공")).toBeInTheDocument();
+    expect(within(card).queryByText("휴식")).not.toBeInTheDocument();
     expect(within(card).queryByText("일시정지")).not.toBeInTheDocument();
   });
 });
@@ -252,11 +261,11 @@ describe("ResultPage — 비집중 통계 카드", () => {
     expect(screen.queryByText(/^휴대폰 \d/)).not.toBeInTheDocument();
   });
 
-  it("타이틀 합계에서 일시정지를 제외한다 — 비집중 18분이지 21분이 아니다", () => {
+  it("타이틀 합계에서 일시정지를 제외한다 — 휴식 18분이지 21분이 아니다", () => {
     renderResult({ sessions: [exampleSession()] });
 
-    expect(screen.getByText("비집중 18분")).toBeInTheDocument();
-    expect(screen.queryByText("비집중 21분")).not.toBeInTheDocument();
+    expect(screen.getByText("휴식 18분")).toBeInTheDocument();
+    expect(screen.queryByText("휴식 21분")).not.toBeInTheDocument();
   });
 
   it("일시정지 행은 비집중 3종 아래에 붙는다", async () => {
@@ -291,15 +300,15 @@ describe("ResultPage — 비집중 통계 카드", () => {
   it("비집중 3종이 모두 0이면 확정 문구로 대체한다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
-    expect(screen.getByText("비집중 없이 이어간 공부예요")).toBeInTheDocument();
-    expect(screen.queryByText(/^비집중 \d/)).not.toBeInTheDocument();
+    expect(screen.getByText("휴식 없이 이어간 공부예요")).toBeInTheDocument();
+    expect(screen.queryByText(/^휴식 \d/)).not.toBeInTheDocument();
   });
 
   it("비집중 0 + 일시정지 1회 이상이면 문구 아래에 일시정지 행만 남는다", () => {
     // ⚠️ 정확한 레이아웃은 미정(SCR-S4) — 기본 구현을 고정해 회귀만 막는다.
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 2400, 180)] })] });
 
-    expect(screen.getByText("비집중 없이 이어간 공부예요")).toBeInTheDocument();
+    expect(screen.getByText("휴식 없이 이어간 공부예요")).toBeInTheDocument();
     expect(screen.getAllByText("일시정지").length).toBeGreaterThan(0);
     expect(within(statsCard()).getByText("1회")).toBeInTheDocument();
   });
@@ -378,6 +387,29 @@ describe("ResultPage — 이탈 경로", () => {
 
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
     vi.unstubAllGlobals();
+  });
+
+  it("이탈할 때 돌아갈 경로를 못박아 예약한다 — focus_sec은 자정 분할 세션을 합산한 값", async () => {
+    // 서버는 자정(KST)을 넘긴 세션을 날짜별 2건으로 쪼개 돌려준다. 첫 건만 보내면
+    // `study_session_ended`(세션 전체)와 어긋나 설문 트리거(`focus_sec ≥ 600`)를 놓친다.
+    renderResult({
+      sessions: [exampleSession({ focusSec: 300 }), exampleSession({ id: 11, focusSec: 900 })],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(stageStudyResultExit).toHaveBeenCalledWith({
+      roomType: "single",
+      focusSec: 1200,
+      consumeAt: "/home",
+    });
+  });
+
+  it("결과 화면에 머무는 동안에는 예약하지 않는다 — 숨은 탭이 집어가 설문이 조기 발화한다", () => {
+    vi.mocked(stageStudyResultExit).mockClear();
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(stageStudyResultExit).not.toHaveBeenCalled();
   });
 
   it("우상단 닫기는 CTA와 같은 동작이다", async () => {

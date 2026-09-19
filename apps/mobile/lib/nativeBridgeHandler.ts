@@ -4,6 +4,7 @@ import { Share } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getActiveTab } from "./activeTab";
+import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { logMetaAppEvent } from "./metaAds";
@@ -129,13 +130,26 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
       setTabBarVisible(message.visible);
       break;
+    case "auth-ready":
+      // 웹이 auth-token 구독을 걸었다 — 이 문서에만 현재 토큰으로 답한다(home-ready·analytics-ready와 같은
+      // handshake). 웹뷰는 등록이 끝난 뒤 마운트되므로 보통 저장에서 즉답하고, 갱신 중이면 그 결과를 기다린다.
+      void awaitAuth().then((state) => reply(authTokenMessage(state)));
+      break;
+    case "request-token-refresh":
+      // 갱신은 앱 전체 single-flight다. 성공하면 저장이 바뀌어 모든 호스트에 전파되지만 실패(네트워크 오류)
+      // 에는 전파가 없다 — 요청한 문서의 대기를 풀기 위해 결과와 무관하게 현재 상태로 답한다. 성공 시 같은
+      // 토큰이 두 번 도착하는 것은 무해하다(웹은 덮어쓴다).
+      void refreshAuth()
+        .then((state) => state ?? ensureAuth())
+        .then((state) => reply(authTokenMessage(state)));
+      break;
     case "motion-sensor":
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
       break;
     case "meta-app-event":
-      // 웹이 아는 광고 전환(첫 세션 시작·온보딩 완료 등)을 네이티브 Meta SDK로 넘긴다(BY-644). 이름·파라미터
+      // 웹이 아는 광고 전환(첫 세션 시작·온보딩 완료 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);

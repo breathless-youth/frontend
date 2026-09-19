@@ -23,6 +23,8 @@ export interface RoomChannel {
   reconnect(): void;
   /** 서버 메시지 구독 */
   subscribe(listener: (message: RoomServerMessage) => void): () => void;
+  /** 피어 실패 구간의 유령 멤버 보완용 스냅샷을 다시 대조하는 요청 */
+  requestSnapshot(): void;
   /** 발행 */
   /** 카메라·집중상태·순공시간. */
   publishState(message: RoomStateUpdate): void;

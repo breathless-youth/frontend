@@ -1,5 +1,7 @@
 import type { ApiErrorBody } from "@focusmakers/types";
 
+import { getTokenSource } from "./auth/tokenSource";
+
 /**
  * 공용 API 베이스
  *
@@ -61,16 +63,62 @@ export async function parseApiError(
  * — 백엔드 버전닝 기본 헤더를 한 곳에서 관리한다. 호출부가 API-Version을 직접 지정하면 그 값이 우선한다.
  */
 const DEFAULT_API_VERSION = "1";
+/** 토큰을 붙인 요청은 새 명세 버전으로 보낸다. 서버가 이 값으로 토큰 인증 요청을 가른다. */
+const TOKEN_API_VERSION = "2";
 
-export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // fetch와 시그니처를 맞춰 Request 입력도 받는다. init.headers가 없으면 Request가
   // 실어 온 헤더를 기준으로 삼아야 그 헤더가 유실되지 않는다.
   const baseHeaders =
     init?.headers ??
     (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined);
   const headers = new Headers(baseHeaders);
-  if (!headers.has("API-Version")) {
-    headers.set("API-Version", DEFAULT_API_VERSION);
+  // 헤더 결정을 토큰 부착이 정해진 뒤로 미룬다 — 호출부가 명시한 값은 그대로 둔다.
+  // 호출부 지정 여부는 여기서 한 번만 확정한다 — 이후 우리가 쓴 기본값과 구분해야
+  // 재시도에서 1 → 2로 승격할 때 "이미 값이 있다"는 이유로 막히지 않는다.
+  const callerSetVersion = headers.has("API-Version");
+  const setDefaultVersion = (version: string) => {
+    if (!callerSetVersion) headers.set("API-Version", version);
+  };
+  // init에 signal이 없으면 Request 입력이 실어 온 signal을 대신 본다 — headers와 같은 이유다.
+  const signal =
+    init?.signal ??
+    (typeof Request !== "undefined" && input instanceof Request ? input.signal : undefined);
+  // 재시도는 같은 input·init(본문 문자열·AbortSignal 포함)을 그대로 다시 보낸다 — headers만 갱신된다.
+  // ponytail: 본문 있는 Request 객체 입력은 재시도에서 본문이 이미 소비돼 실패한다. 호출부는 전부 문자열
+  // URL + init이라 clone()을 두지 않았다. Request 입력을 쓰게 되면 그때 더한다.
+  const send = () => fetch(input, { ...init, headers });
+
+  // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 오늘 동작 그대로다.
+  const source = getTokenSource();
+  if (source === null) {
+    setDefaultVersion(DEFAULT_API_VERSION);
+    return send();
   }
-  return fetch(input, { ...init, headers });
+  const sent = await source.getAccessToken();
+  if (sent !== null) {
+    headers.set("Authorization", `Bearer ${sent}`);
+    setDefaultVersion(TOKEN_API_VERSION);
+  } else {
+    setDefaultVersion(DEFAULT_API_VERSION);
+  }
+  const res = await send();
+  // 만료 판단은 서버의 401만 믿는다. 401 경로는 status만 읽는다 — 테스트가 fetch를 얇은 객체로 mock한다.
+  if (res.status !== 401 || signal?.aborted) {
+    return res;
+  }
+  // 다른 문서의 갱신이 이미 토큰을 바꿔 뒀으면 갱신 요청 없이 그 토큰으로 재시도한다. 아니면 갱신을
+  // 요청하고(문서당 하나로 묶임) 1회만 재시도한다. 갱신이 실패했거나 같은 토큰이면 재시도해도 같은
+  // 401이라 보내지 않는다. 재시도의 401은 그대로 돌려준다 — 갱신 루프 없음.
+  const current = source.getCurrentToken();
+  const next = current !== sent ? current : await source.refresh();
+  if (signal?.aborted) {
+    return res;
+  }
+  if (next === null || next === sent) {
+    return res;
+  }
+  headers.set("Authorization", `Bearer ${next}`);
+  setDefaultVersion(TOKEN_API_VERSION);
+  return send();
 }

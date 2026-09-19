@@ -50,6 +50,7 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 import type { CreateChannel } from "./liveRoomEntryState";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
+import { useRoomRejoin } from "./useRoomRejoin";
 import { useTapToggleControls } from "./useTapToggleControls";
 
 export const GRACE_END_SAVED_MESSAGE =
@@ -60,9 +61,19 @@ export const GRACE_END_PENDING_MESSAGE =
 export const GRACE_END_SUB_MINUTE_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요";
 
+// 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
+// GRACE_END와 같은 기준으로 가른다.
+export const ROOM_UNAVAILABLE_SAVED_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.";
+export const ROOM_UNAVAILABLE_PENDING_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.";
+export const ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요";
+
 export function LiveRoomSession({
   roomId,
   userId,
+  inviteCode,
   createChannel,
   camera,
   createPeerConnection,
@@ -72,6 +83,7 @@ export function LiveRoomSession({
 }: {
   roomId: number;
   userId: number;
+  inviteCode: string;
   createChannel: CreateChannel;
   camera: CameraAdapter;
   createPeerConnection?: CreatePeerConnection;
@@ -131,7 +143,12 @@ export function LiveRoomSession({
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
-  const [channel] = useState(() => createChannel({ roomId, userId }));
+  // 채널은 한 번만 생성되므로 나중에 정의되는 requestRejoin을 ref로 가리켜 순환을 끊는다 —
+  // 같은 ref를 ROOM_UNAVAILABLE 구독과 SNAPSHOT 미도착 콜백이 함께 쓴다.
+  const requestRejoinRef = useRef<() => void>(() => undefined);
+  const [channel] = useState(() =>
+    createChannel({ roomId, userId, onSnapshotUnrecovered: () => requestRejoinRef.current() }),
+  );
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
   // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
@@ -159,6 +176,31 @@ export function LiveRoomSession({
     onExpire: handleGraceExpire,
     systemPause,
   });
+
+  // 방에 다시 들어갈 수 없다는 신호(ROOM_UNAVAILABLE·SNAPSHOT 미도착)를 하나의 재호출로 모은다.
+  // 재호출도 실패하면(자리 회수 확정) 유예 만료와 같은 모양으로 측정분을 제출하고 안내한다.
+  const [roomUnavailable, setRoomUnavailable] = useState(false);
+  const handleRoomUnavailable = useCallback(() => {
+    setRoomUnavailable(true);
+    channel.disconnect();
+    void endAndSubmit(autoEndReason("BACKGROUND"));
+  }, [channel, endAndSubmit]);
+  const requestRejoin = useRoomRejoin({
+    channel,
+    inviteCode,
+    onUnavailable: handleRoomUnavailable,
+  });
+  requestRejoinRef.current = requestRejoin;
+  useEffect(
+    () =>
+      channel.subscribe((message) => {
+        // 개인 큐에 다른 방 신호가 섞여도 이 세션의 방일 때만 반응한다.
+        if (message.type === "ROOM_UNAVAILABLE" && message.roomId === roomId) {
+          requestRejoinRef.current();
+        }
+      }),
+    [channel, roomId],
+  );
 
   const debugEnabled = import.meta.env.DEV;
   const [debugLines, setDebugLines] = useState<string[]>([]);
@@ -282,6 +324,16 @@ export function LiveRoomSession({
     [focusSec],
   );
 
+  const roomUnavailableNotice = useCallback(
+    (submitted: boolean) =>
+      focusSec < SUB_MINUTE_SEC
+        ? ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE
+        : submitted
+          ? ROOM_UNAVAILABLE_SAVED_MESSAGE
+          : ROOM_UNAVAILABLE_PENDING_MESSAGE,
+    [focusSec],
+  );
+
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다. 백그라운드 자동 종료(유예 만료)는
   // 제출이 실패해도 내보낸다 — 보관분이 다음 실행에서 재제출된다. 안내는 도착지(소셜
   // 홈)가 띄우므로 sessionStorage 1회성 플래그로 넘긴다. 실패 이탈은 leaveRoom을
@@ -301,6 +353,19 @@ export function LiveRoomSession({
         exitReason: expired ? "grace_expired" : "session_end",
         durationSec: Math.round((Date.now() - enteredAtMsRef.current) / 1000),
       });
+    // 방 자체가 사라진 종료는 focusSec와 무관하게 결과 화면이 아니라 소셜 홈으로 보낸다.
+    // 자리가 이미 회수됐으므로 leaveRoom은 부르지 않는다.
+    if (roomUnavailable && (phase.name === "done" || phase.name === "error")) {
+      leavingRef.current = true;
+      const submitted = phase.name === "done";
+      markSocialRoomNotice({ kind: "grace-end", message: roomUnavailableNotice(submitted) });
+      trackExit();
+      navigate(
+        { pathname: "/social", search: location.search },
+        { replace: true, state: { noticeHandoff: true } },
+      );
+      return;
+    }
     if (phase.name === "done") {
       leavingRef.current = true;
       const nav = resolveLiveRoomDoneNavigation({
@@ -309,7 +374,7 @@ export function LiveRoomSession({
         focusSec,
         sessions: phase.sessions,
       });
-      void leaveRoom(roomId, userId).catch(() => undefined);
+      void leaveRoom(roomId).catch(() => undefined);
       if (nav.to === "result") {
         navigate(
           { pathname: `/social/room/${roomId}/result`, search: location.search },
@@ -347,6 +412,8 @@ export function LiveRoomSession({
     navigate,
     phase,
     roomId,
+    roomUnavailable,
+    roomUnavailableNotice,
     userId,
   ]);
 
