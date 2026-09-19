@@ -11,6 +11,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
 
@@ -47,6 +48,10 @@ jest.mock("../sessionClosed", () => ({
   emitSessionClosed: jest.fn(),
 }));
 
+jest.mock("../metaAds", () => ({
+  logMetaAppEvent: jest.fn(),
+}));
+
 jest.mock("../auth", () => ({
   ...jest.requireActual<typeof import("../auth")>("../auth"),
   awaitAuth: jest.fn(),
@@ -75,6 +80,7 @@ const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
   typeof getMotionSensorRelay
 >;
 const mockedEmitSessionClosed = emitSessionClosed as jest.MockedFunction<typeof emitSessionClosed>;
+const mockedLogMetaAppEvent = logMetaAppEvent as jest.MockedFunction<typeof logMetaAppEvent>;
 const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
 const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
 const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
@@ -281,6 +287,35 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("meta-app-event → Meta SDK 통로에 이름·파라미터·valueToSum을 그대로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "meta-app-event",
+        name: "study_session_ended",
+        params: { room_type: "single", focus_sec: 600 },
+        valueToSum: 600,
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    expect(mockedLogMetaAppEvent).toHaveBeenCalledWith(
+      "study_session_ended",
+      { room_type: "single", focus_sec: 600 },
+      600,
+    );
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("meta-app-event는 파라미터가 없으면 undefined를 넘긴다 — 빈 객체를 만들어 넣지 않는다", () => {
+    handleBridgeMessage(
+      { type: "meta-app-event", name: "social_room_entered", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedLogMetaAppEvent).toHaveBeenCalledWith("social_room_entered", undefined, undefined);
   });
 
   it("motion-sensor를 센서 릴레이에 위임한다", () => {

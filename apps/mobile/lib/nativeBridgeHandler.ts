@@ -7,6 +7,7 @@ import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
@@ -146,6 +147,12 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
+      break;
+    case "meta-app-event":
+      // 웹이 아는 광고 전환(첫 세션 시작·온보딩 완료 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
+      // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
+      // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
+      logMetaAppEvent(message.name, message.params, message.valueToSum);
       break;
     default:
       if (__DEV__) {

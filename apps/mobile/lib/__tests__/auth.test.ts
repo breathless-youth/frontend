@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth, subscribeAuth } from "../auth";
+import { logMetaRegistration } from "../metaAds";
 import { ensureUserRegistered } from "../userApi";
 
 jest.mock("expo-secure-store", () => ({
@@ -15,6 +16,10 @@ jest.mock("expo-constants", () => ({
 }));
 jest.mock("../deviceId", () => ({
   getOrCreateDeviceId: jest.fn(async () => "0f8fad5b-d9cb-469f-a165-70867728950e"),
+}));
+// Meta 가입 완료 — 호출 여부만 본다(큐·초기화는 `metaAds.test.ts`).
+jest.mock("../metaAds", () => ({
+  logMetaRegistration: jest.fn(),
 }));
 
 /** SecureStore를 키별 메모리 맵으로 흉내 낸다 — `focuson.auth`와 옛 `focuson.userId`를 구분해야 한다. */
@@ -79,6 +84,8 @@ describe("ensureAuth", () => {
     });
     expect(saved()).toEqual(STORED);
     expect(listener).toHaveBeenCalledWith(STORED);
+    // 신규 등록만 Meta 가입 완료로 센다 — 저장 뒤에 찍힌다.
+    expect(logMetaRegistration).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
 
@@ -89,6 +96,7 @@ describe("ensureAuth", () => {
       accessToken: null,
       refreshToken: null,
     });
+    expect(logMetaRegistration).not.toHaveBeenCalled();
   });
 
   it("지연 이관: focuson.userId만 있으면 네트워크 없이 그 userId를 토큰 없이 옮기고 옛 키를 지운다", async () => {
