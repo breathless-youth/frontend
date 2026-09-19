@@ -1,8 +1,11 @@
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isFullScreenPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { __resetModalOverlayForTests } from "@/lib/nativeModalOverlay";
+import { isFullScreenPath, isNativeCoveredPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
 
 /**
  * 전체 화면 웹 라우트에서 네이티브 탭 바를 감추는 동기화(`set-tab-bar`).
@@ -43,8 +46,33 @@ function sentVisibility(postMessage: ReturnType<typeof vi.fn>): boolean[] {
     .map((message) => message.visible);
 }
 
+function sentTabBarMessages(
+  postMessage: ReturnType<typeof vi.fn>,
+): { visible: boolean; blockedByModal?: boolean }[] {
+  return postMessage.mock.calls
+    .map(
+      ([raw]) =>
+        JSON.parse(raw as string) as { type: string; visible: boolean; blockedByModal?: boolean },
+    )
+    .filter((message) => message.type === "set-tab-bar")
+    .map(({ visible, blockedByModal }) => ({
+      visible,
+      ...(blockedByModal === undefined ? {} : { blockedByModal }),
+    }));
+}
+
+function openModal(): HTMLElement {
+  const element = document.createElement("div");
+  element.setAttribute("role", "dialog");
+  element.setAttribute("aria-modal", "true");
+  document.body.appendChild(element);
+  return element;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  __resetModalOverlayForTests();
+  document.body.innerHTML = "";
 });
 
 describe("isFullScreenPath", () => {
@@ -74,6 +102,19 @@ describe("isFullScreenPath", () => {
   it("세션은 전체 화면이지만 목록에 없다 — 네이티브 모달이 이미 탭 바를 덮고, 탭 라우트로 돌아오지 않아 복귀 신호를 보낼 기회가 없다", () => {
     expect(isFullScreenPath("/room/1")).toBe(false);
     expect(isFullScreenPath("/room/1/result")).toBe(false);
+  });
+});
+
+describe("isNativeCoveredPath", () => {
+  it("솔로 세션 라우트는 네이티브가 이미 덮는다", () => {
+    expect(isNativeCoveredPath("/room/1")).toBe(true);
+    expect(isNativeCoveredPath("/room/1/result")).toBe(true);
+  });
+
+  it("탭 라우트와 종일룸은 해당하지 않는다", () => {
+    for (const path of ["/home", "/records", "/social/room/1"]) {
+      expect(isNativeCoveredPath(path)).toBe(false);
+    }
   });
 });
 
@@ -143,5 +184,141 @@ describe("useNativeTabBarSync", () => {
     });
 
     expect(sentVisibility(postMessage)).toEqual([]);
+  });
+
+  it("모달이 열리면 차단을 알린다 — 탭 바가 남은 채 터치만 막혀야 한다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+  });
+
+  it("모달이 닫히면 경로 기준으로 돌아온다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    const modal = openModal();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({
+        visible: false,
+        blockedByModal: true,
+      });
+    });
+
+    modal.remove();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("전체 화면 라우트에서는 모달이 열려도 차단을 싣지 않는다 — 사라진 탭 바가 딤 때문에 되살아나면 안 된다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/onboarding-guide");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  /**
+   * 손으로 만든 div가 아니라 실제 `Dialog`(`ForceUpdateDialog`·유예 안내 모달이 쓰는 것과
+   * 같은 컴포넌트)로 검증한다 — Radix가 `aria-modal`을 만들지 않아 감지가 안 됐던 문제는
+   * 합성 div 테스트로는 잡히지 않았다. Portal이 body에 붙으므로 MutationObserver가 잡는다.
+   */
+  it("실제 Dialog 컴포넌트가 열리면 차단을 알린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    function DialogHarness() {
+      const [open, setOpen] = useState(false);
+      useNativeTabBarSync();
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            열기
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogTitle>테스트 모달</DialogTitle>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+
+    const { getByText } = render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes>
+          <Route path="*" element={<DialogHarness />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    postMessage.mockClear();
+
+    act(() => {
+      fireEvent.click(getByText("열기"));
+    });
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
+    });
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("솔로 세션 화면에서는 모달이 열려도 차단을 싣지 않는다 — 네이티브가 이미 fullScreenModal로 탭 바를 덮고 있다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/room/42");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  it("솔로 세션 결과 화면에서도 마찬가지다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/room/42/result");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  it("종일룸(/social/room)에서도 모달이 열려도 차단을 싣지 않는다 — 전체 화면 라우트 처리로 이미 커버된다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/social/room/42");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
   });
 });
