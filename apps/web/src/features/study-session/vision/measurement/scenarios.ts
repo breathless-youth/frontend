@@ -56,54 +56,11 @@ export const MEASUREMENT_SCENARIOS: readonly MeasurementScenario[] = [
   },
   {
     id: "A5",
-    name: "엎드림",
-    instruction: "정면을 보다가 신호가 오면 책상에 엎드리세요",
+    name: "몸만 배치",
+    instruction: "정면을 보다가 신호가 오면 카메라를 내려 몸만 찍히게 하세요",
     expected:
-      "엎드림 판정은 꺼져 있다. 엎드려도 졸음으로 전이하면 안 되고, person·AWAY 신호가 어떻게 움직이는지만 기록한다",
-    prepareSec: 200,
-    observeSec: 240,
-  },
-  {
-    id: "A6",
-    name: "엎드림 조기",
-    instruction: "세션을 새로 시작하고 1분 뒤 엎드리세요",
-    expected:
-      "엎드림 판정은 꺼져 있다. 기준선 여부와 무관하게 졸음으로 전이하면 안 되고, 전이만 기록한다",
-    prepareSec: 60,
-    observeSec: 120,
-  },
-  {
-    id: "A7",
-    name: "몸만 배치 30초 노출",
-    instruction: "몸만 찍히게 두었다가 30초만 얼굴을 보인 뒤 물러나세요",
-    expected: "엎드림 판정은 꺼져 있다. 30초 노출도 졸음으로 전이하면 안 되고, 전이만 기록한다",
+      "엎드림 판정은 꺼져 있다. 몸만 찍혀도 졸음으로 전이하면 안 되고, 얼굴 유무와 person 점수만 기록한다",
     prepareSec: 30,
-    observeSec: 120,
-  },
-  {
-    id: "A8",
-    name: "몸만 배치 2분 노출",
-    instruction: "2분간 얼굴을 보인 뒤 물러나세요",
-    expected: "엎드림 판정은 꺼져 있다. 2분 노출도 졸음으로 전이하면 안 되고, 전이만 기록한다",
-    prepareSec: 120,
-    observeSec: 120,
-  },
-  {
-    id: "A9",
-    name: "몸만 배치 5분 노출",
-    instruction:
-      "5분간 얼굴을 보인 뒤 물러나세요. 엎드림 판정이 꺼져 있어 이 구간에서도 졸음은 나오지 않는다. 다시 켤 때 쓸 근거만 남기는 구간이다",
-    expected:
-      "엎드림 판정은 꺼져 있다. 5분을 넘겨도 졸음으로 전이하면 안 된다. 다시 켤 때 쓸 수 있게 얼굴 유무만 기록해 둔다",
-    prepareSec: 300,
-    observeSec: 120,
-  },
-  {
-    id: "A10",
-    name: "일시정지 후 엎드림",
-    instruction: "3분 주시하고 일시정지했다 재개한 뒤 바로 엎드리세요",
-    expected: "엎드림 판정은 꺼져 있다. 재개 뒤에도 졸음으로 전이하면 안 되고, 전이만 기록한다",
-    prepareSec: 200,
     observeSec: 120,
   },
   {
@@ -123,15 +80,6 @@ export const MEASUREMENT_SCENARIOS: readonly MeasurementScenario[] = [
     expected: "안경을 써도 10초쯤에 졸음으로 전이해야 한다",
     prepareSec: 10,
     observeSec: 30,
-  },
-  {
-    id: "A13",
-    name: "저조도",
-    instruction: "조명을 낮추고 눈을 감고 버티세요",
-    expected:
-      "저조도에서 눈 판정이 사는지 본다. 졸음이 나면 임계가 견딘 것이고, 안 나면 표본이 걸러진 것이다",
-    prepareSec: 10,
-    observeSec: 60,
   },
   {
     id: "A14",

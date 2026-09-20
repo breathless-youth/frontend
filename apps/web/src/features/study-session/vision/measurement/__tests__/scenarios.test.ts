@@ -7,11 +7,20 @@ describe("MEASUREMENT_SCENARIOS", () => {
     expect(MEASUREMENT_SCENARIOS.length).toBeGreaterThan(0);
   });
 
-  it("눈 보정과 꾸벅거림을 재는 시나리오까지 열아홉이다", () => {
-    expect(MEASUREMENT_SCENARIOS).toHaveLength(19);
+  it("눈 시나리오와 몸만 배치 반대 검증까지 열셋이다", () => {
+    expect(MEASUREMENT_SCENARIOS).toHaveLength(13);
     expect(MEASUREMENT_SCENARIOS.map((scenario) => scenario.id)).toEqual(
-      expect.arrayContaining(["A16", "A17", "A18", "A19"]),
+      expect.arrayContaining(["A5", "A14", "A16", "A17", "A18", "A19"]),
     );
+  });
+
+  it("엎드림 대신 몸만 배치를 재고, 노출 길이별 구간과 저조도는 없다", () => {
+    const ids = MEASUREMENT_SCENARIOS.map((scenario) => scenario.id);
+
+    expect(MEASUREMENT_SCENARIOS.find((scenario) => scenario.id === "A5")?.name).toBe("몸만 배치");
+    for (const removed of ["A6", "A7", "A8", "A9", "A10", "A13"]) {
+      expect(ids).not.toContain(removed);
+    }
   });
 
   it("번호가 중복되지 않는다", () => {

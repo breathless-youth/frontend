@@ -488,7 +488,7 @@ describe("구간 기록", () => {
 
     m.transition("FOCUS", "DISTRACTION:SLEEP", 1000);
     m.sessionStarted();
-    m.mark("A6 엎드림 조기");
+    m.mark("A5 몸만 배치");
 
     const dump = JSON.parse(m.dump()) as { segments: { entryLabel: string }[] };
     expect(dump.segments[1]?.entryLabel).toBe("FOCUS");
