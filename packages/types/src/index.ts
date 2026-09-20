@@ -40,10 +40,6 @@ export interface AuthRefreshResponse {
 /**
  * 비공부 상태 이벤트 종류. PHONE=휴대폰 사용, DEVICE=다른 기기, AWAY=자리 비움,
  * SLEEP=졸음, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지 넷은 순공 타이머만 정지).
- *
- * ⚠️ `SLEEP`은 Swagger 등재 전 잠정이다. 값 이름은 백엔드와 합의했고 등재 시점만
- * 미정이라, 화면과 집계를 먼저 만들어 두려고 여기에 넣었다. 등재되면 리터럴을 대조하고 이
- * 표시를 지운다. 같은 성격의 선반영이 아래 `RoomJoin*`에도 있다.
  */
 export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
 
@@ -134,10 +130,6 @@ export interface StudySessionResponse {
 
 /**
  * 상태별 이벤트 발생 건수 — 없는 상태도 0으로 내려온다(키 누락 없음).
- *
- * ⚠️ `SLEEP`은 Swagger 등재 전이라 실제 서버 응답에는 아직 이 키가 없을 수 있다. 소비처는
- * 값을 인덱스로 읽어 비교하므로(`eventCounts[status] > 0`) 키가 없어도 `undefined > 0`이
- * `false`가 되어 런타임은 안전하다.
  */
 export type StudySessionEventCounts = Record<StudyEventStatus, number>;
 
