@@ -21,11 +21,14 @@ import type { SessionStatusPillState } from "@/features/study-session/components
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
+import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { SubjectSheet } from "@/features/study-session/components/SubjectSheet";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
 import {
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
+  SUBJECT_SHEET_COPY,
   captionFor,
   exitConfirmDescription,
   statusCopyFor,
@@ -44,6 +47,9 @@ import { useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import type { SubjectSelection } from "@/features/study-session/subjectTimes";
+import { liveSubjectTime } from "@/features/study-session/subjectTimes";
+import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import {
@@ -51,6 +57,8 @@ import {
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackSubjectItemSelected,
+  trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
@@ -246,12 +254,23 @@ function RoomSessionScreen({
     endReason,
     cameraStream,
     cameraFacing,
+    subjectSelection,
+    subjectTimes,
+    selectSubject,
     pause,
     resume,
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, { camera, detector, restored });
   const { message: toastMessage, showToast } = useToast();
+  // 과목 시트(S3-9) — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // 목록은 시트를 처음 열 때(또는 복원된 선택의 이름을 보여줘야 할 때) 한 번 받는다 —
+  // 시트를 열지 않는 세션은 요청이 0건이다. 기기 미등록이면 저장할 곳이 없어 받지 않는다.
+  const subjects = useSubjects(
+    userId !== null && (sheetOpen || subjectSelection !== null),
+    showToast,
+  );
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
@@ -418,6 +437,33 @@ function RoomSessionScreen({
     }
   }
 
+  function handleSheetOpenChange(open: boolean) {
+    if (open && !sheetOpen) {
+      trackSubjectSheetOpened();
+    }
+    setSheetOpen(open);
+  }
+
+  function handleSelectSubject(next: SubjectSelection | null) {
+    trackSubjectItemSelected(next === null ? "none" : next.taskId === null ? "subject" : "task");
+    selectSubject(next);
+  }
+
+  /** 접힌 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
+  const selectedSubject =
+    subjectSelection === null
+      ? null
+      : (subjects.subjects.find((subject) => subject.id === subjectSelection.subjectId) ?? null);
+  const sheetLabel =
+    subjectSelection === null
+      ? null
+      : {
+          name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          focusSec:
+            (selectedSubject?.focusSec ?? 0) +
+            liveSubjectTime(subjectTimes, subjectSelection.subjectId, null).focusSec,
+        };
+
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
   function handleRequestExit() {
     trackStudySessionExitRequested("single");
@@ -501,7 +547,8 @@ function RoomSessionScreen({
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
                 늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
-                사이 여백의 중앙에 놓는다. Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
+                사이 여백의 중앙에 놓는다. 과목 시트가 열리면(0:1) 타이머가 상태 필 바로 아래로
+                올라가 시트에 가려지지 않는다(Figma S3-9 P3). Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
                 실기기에서 너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다.
 
                 ⚠️ **전환 애니메이션을 다시 넣지 말 것.** 예전에는 `transition-[flex-grow]`로
@@ -511,7 +558,7 @@ function RoomSessionScreen({
                 아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
                 숫자가 끊기거나 리셋되지는 않는다.
                 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div className="grow landscape:hidden" />
+            <div className={cn(sheetOpen ? "grow-0" : "grow", "landscape:hidden")} />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
                 (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다.
@@ -555,7 +602,7 @@ function RoomSessionScreen({
               {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
             </div>
 
-            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
+            <div className={cn(simpleMode || sheetOpen ? "grow" : "grow-0", "landscape:hidden")} />
 
             {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute. */}
             <div className="relative mt-4 flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
@@ -565,15 +612,35 @@ function RoomSessionScreen({
                   className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
                 />
               )}
-              {/* 심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
+              {/* 컨트롤 바는 과목 시트의 손잡이다 — 위로 끌면 시트가 펼쳐지고 바가 함께 올라간다
+                  (S3-9). 바 위 한 줄 라벨이 선택 항목과 순공을 보여주고, 미선택이면 힌트다.
+                  심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
                   추론만 끊긴다(그쪽 prop 주석). 화면을 한 번 탭해 프리뷰로 돌아오면 풀린다. */}
-              <SessionControlBar
-                paused={paused}
-                flipDisabled={simpleMode}
-                onTogglePause={() => (paused ? resume() : pause())}
-                onFlipCamera={() => void handleFlipCamera()}
-                onRequestExit={handleRequestExit}
-              />
+              <SubjectSheet
+                open={sheetOpen}
+                onOpenChange={handleSheetOpenChange}
+                label={sheetLabel}
+                bar={(surface) => (
+                  <SessionControlBar
+                    paused={paused}
+                    surface={surface}
+                    flipDisabled={simpleMode}
+                    onTogglePause={() => (paused ? resume() : pause())}
+                    onFlipCamera={() => void handleFlipCamera()}
+                    onRequestExit={handleRequestExit}
+                  />
+                )}
+              >
+                <SubjectPanel
+                  open={sheetOpen}
+                  store={subjects}
+                  selection={subjectSelection}
+                  onSelect={handleSelectSubject}
+                  onRequestClose={() => handleSheetOpenChange(false)}
+                  onNotice={showToast}
+                  liveTimes={subjectTimes}
+                />
+              </SubjectSheet>
             </div>
 
             {userId === null && (

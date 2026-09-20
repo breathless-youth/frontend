@@ -59,8 +59,17 @@ export const sessionControlBarVariants = cva(
         responsive:
           "h-20 gap-[22px] bg-[var(--session-bar-bg)] px-6 pt-4 pb-3 landscape:h-[68px] landscape:gap-5 landscape:bg-[var(--session-bar-bg-compact)] landscape:px-[22px] landscape:pt-[13px] landscape:pb-[9px]",
       },
+      /**
+       * 과목 시트(S3-9)가 열리면 알약이 시트 상단에 합쳐진다 — 배경·테두리·흐림이 빠지고 버튼만
+       * 남는다(Figma `Session / Control Bar V2` Mode=Open). 치수·간격은 그대로라 버튼이 제자리에서
+       * 모양만 바뀐다.
+       */
+      surface: {
+        pill: "",
+        bare: "border-transparent bg-transparent backdrop-blur-none landscape:bg-transparent",
+      },
     },
-    defaultVariants: { size: "responsive" },
+    defaultVariants: { size: "responsive", surface: "pill" },
   },
 );
 
@@ -161,6 +170,8 @@ export interface SessionControlBarProps {
    * `md`/`sm`으로 고정할 수도 있다(치수를 컴포넌트 안에 가두지 않는다).
    */
   size?: SessionControlBarSize;
+  /** `bare`면 알약 배경 없이 버튼만 그린다 — 과목 시트가 열려 바가 시트 안에 들어간 상태. */
+  surface?: VariantProps<typeof sessionControlBarVariants>["surface"];
   onTogglePause: () => void;
   onFlipCamera: () => void;
   onRequestExit: () => void;
@@ -222,6 +233,7 @@ export function SessionControlBar({
   paused,
   flipDisabled = false,
   size = "responsive",
+  surface = "pill",
   onTogglePause,
   onFlipCamera,
   onRequestExit,
@@ -234,7 +246,7 @@ export function SessionControlBar({
     <div
       role="group"
       aria-label="세션 컨트롤"
-      className={cn(sessionControlBarVariants({ size }), className)}
+      className={cn(sessionControlBarVariants({ size, surface }), className)}
     >
       {/* 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
           (voice-tone.md §1) — 아이콘 프레임은 play/pause 모두 같은 크기라 폭이 흔들리지 않는다. */}
