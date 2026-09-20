@@ -190,3 +190,95 @@ export const DELEGATE_ORDER = ["CPU"] as const;
 
 /** 폴백 로직이 다루는 전체 집합. `DELEGATE_ORDER`가 그중 무엇을 실제로 시도할지 정한다. */
 export type Delegate = "GPU" | "CPU";
+
+/* ------------------------------------------------------------------ *
+ * 졸음 감지 · 얼굴 모델
+ * ------------------------------------------------------------------ */
+
+/**
+ * MediaPipe Face Landmarker 모델.
+ *
+ * 출처 https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+ * sha256 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff, 3,758,596 바이트.
+ * `.tflite`와 같은 이유로 커밋한다 — npm에 없고, 빌드 스텝으로 받으면 빌드가 네트워크에
+ * 의존하며 원격 파일이 바뀌어도 알 수 없다. `scripts/copyMediapipeWasm.js` 주석 참고.
+ */
+export const FACE_MODEL_PATH = "/models/face_landmarker.task";
+
+/**
+ * 얼굴 모델 생성 옵션.
+ *
+ * `numFaces`가 1인 것은 비용 때문이고, 그 대가로 여러 사람이 찍히면 모델이 고른 한 명만 본다
+ * (다중 인물은 `detectionRules.ts`의 자리 이탈 한계와 같은 부류다). 신뢰도 셋은 기본값 0.5보다
+ * 높다 — 깨어 있는 사람을 졸음으로 잡지 않는 쪽을 우선한다.
+ */
+export const FACE_LANDMARKER_OPTIONS = {
+  numFaces: 1,
+  minFaceDetectionConfidence: 0.6,
+  minFacePresenceConfidence: 0.6,
+  minTrackingConfidence: 0.6,
+} as const;
+
+/**
+ * 얼굴 추론을 도는 간격 — 처리된 프레임 4개마다 한 번, 즉 2초.
+ *
+ * 발열 예산의 손잡이다. 추가 CPU 듀티는 얼굴 추론 시간 ÷ (이 값 × `FRAME_INTERVAL_MS`)이고,
+ * iPhone 17 실측 44~54ms에서 4면 +2.5%p다. 유지시간이 10초 이상이라 2초 간격에서도 표본이
+ * 5개 이상 쌓인다. 앱 안 발열 측정에서 모자라면 6, 8로 올린다.
+ */
+export const FACE_FRAME_DIVISOR = 4;
+
+/**
+ * 모델의 blendshape 헤드에서 읽는 이름. 타입 정의에 없고 런타임에 온다.
+ * 2026-09-20 실측에서 52개 중 이 넷이 모두 존재하는 것을 확인했다.
+ */
+export const FACE_BLENDSHAPE_ALLOWLIST = [
+  "eyeBlinkLeft",
+  "eyeBlinkRight",
+  "eyeLookDownLeft",
+  "eyeLookDownRight",
+] as const;
+
+export type EyeBlendshapeName = (typeof FACE_BLENDSHAPE_ALLOWLIST)[number];
+
+/**
+ * 없으면 눈 판정을 포기하는 이름. 판정에 실제로 쓰는 둘뿐이다.
+ *
+ * `eyeLookDown*`은 내려다봄 거부권을 걷어낸 뒤로 판정에 쓰이지 않고 진단에만 실린다. 그것까지
+ * 필수로 걸면 그 이름만 바뀌어도 `eyeBlink*`가 멀쩡한 채 졸음 감지가 세션 내내 침묵한다.
+ */
+export const FACE_BLENDSHAPE_REQUIRED = ["eyeBlinkLeft", "eyeBlinkRight"] as const;
+
+export type RequiredEyeBlendshapeName = (typeof FACE_BLENDSHAPE_REQUIRED)[number];
+
+/** 눈 바깥 꼬리 랜드마크 인덱스(478점 메시 기준). 품질 게이트 계산에만 쓰고 좌표는 나가지 않는다. */
+export const EYE_OUTER_CORNER_LANDMARKS = { left: 33, right: 263 } as const;
+
+/**
+ * 정규화 가로 눈 간격의 최소값. 이보다 작으면 눈 판정을 하지 않는다.
+ *
+ * 실측에서 정상 거리는 0.11~0.17이었고, 약 1m 떨어지면 0.06까지 떨어지면서 얼굴 검출 자체가
+ * 35%로 흔들렸다. 그 구간을 판정에 넣지 않는다.
+ */
+export const MIN_INTER_OCULAR_NORMALIZED = 0.07;
+
+/**
+ * 졸음 판정 임계 — 실기기 재측정 대상이다.
+ *
+ * `eyeClosure` 0.45는 2026-09-20 실측(피험자 1명) 기준이다. 감은 눈은 평균 0.53~0.57, 최대
+ * 0.62~0.68이라 더 높이면 영영 걸리지 않는다. 뜬 눈은 평균 0.18~0.24이고 깜빡이는 순간에만
+ * 0.52~0.57까지 튀는데, 그 한 표본은 중앙값이 거른다. 안경을 쓰고 감았을 때 최소값이 0.42로
+ * 여유가 얇으므로 피험자를 늘려 다시 정한다.
+ *
+ * `faceLostPersonScore`는 사람 점수가 이만큼은 돼야 엎드림으로 본다는 뜻이다. 조명이 꺼지면
+ * 사람 점수도 함께 떨어지므로, 어두워서 얼굴이 안 보이는 것을 엎드림으로 치지 않게 한다.
+ */
+export const SLEEP_THRESHOLDS = { eyeClosure: 0.45, faceLostPersonScore: 0.5 } as const;
+
+/**
+ * 눈 감김 중앙값과 얼굴 유무 다수결을 계산하는 창의 크기.
+ *
+ * 한 표본만 보면 깜빡임이 진입을, 한 번의 오검출이 해제를 만든다. 실측에서 엎드린 채로도
+ * 자세를 잡는 1~2표본 동안 얼굴이 잡혔다.
+ */
+export const FACE_SMOOTHING_SAMPLES = 3;
