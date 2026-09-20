@@ -149,56 +149,46 @@ describe("stepDetection — 졸음", () => {
     expect(state.active).toBe("SLEEP");
   });
 
-  it("엎드림은 25초 유지되어야 잡힌다 — 눈 감김보다 오래 본다", () => {
-    let state = createDetectionState(T0);
-    state = step(state, signals({ SLEEP_FACE: true }), T0);
-    state = step(state, signals({ SLEEP_FACE: true }), T0 + 24_999);
-    expect(state.active).toBeNull();
-
-    state = step(state, signals({ SLEEP_FACE: true }), T0 + 25_000);
-    expect(state.active).toBe("SLEEP");
-  });
-
   it("두 출처가 각각 확정돼도 대표 트리거는 SLEEP 하나다", () => {
     let state = createDetectionState(T0);
-    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    const both = signals({ SLEEP_EYES: true, SLEEP_DROWSY: true });
     state = step(state, both, T0);
-    state = step(state, both, T0 + 25_000);
+    state = step(state, both, T0 + 10_000);
 
     expect(state.active).toBe("SLEEP");
     expect(state.confirmed.SLEEP_EYES).toBe(true);
-    expect(state.confirmed.SLEEP_FACE).toBe(true);
+    expect(state.confirmed.SLEEP_DROWSY).toBe(true);
   });
 
   it("한 출처만 풀려도 나머지가 살아 있으면 졸음을 유지한다", () => {
     let state = createDetectionState(T0);
-    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    const both = signals({ SLEEP_EYES: true, SLEEP_DROWSY: true });
     state = step(state, both, T0);
-    state = step(state, both, T0 + 25_000);
+    state = step(state, both, T0 + 10_000);
 
-    // 눈만 뜨고 엎드린 자세는 그대로다.
-    const faceOnly = signals({ SLEEP_FACE: true });
-    state = step(state, faceOnly, T0 + 25_000);
-    state = step(state, faceOnly, T0 + 30_000);
+    // 연속 감김은 풀렸지만 꾸벅거림 비율은 아직 절반을 넘는다.
+    const drowsyOnly = signals({ SLEEP_DROWSY: true });
+    state = step(state, drowsyOnly, T0 + 10_000);
+    state = step(state, drowsyOnly, T0 + 15_000);
 
     expect(state.active).toBe("SLEEP");
   });
 
   it("두 출처가 모두 풀리면 집중으로 돌아온다", () => {
     let state = createDetectionState(T0);
-    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    const both = signals({ SLEEP_EYES: true, SLEEP_DROWSY: true });
     state = step(state, both, T0);
-    state = step(state, both, T0 + 25_000);
+    state = step(state, both, T0 + 10_000);
     expect(state.active).toBe("SLEEP");
 
     const none = signals({});
-    state = step(state, none, T0 + 25_000);
+    state = step(state, none, T0 + 10_000);
 
-    // 엎드림 해제 3초가 마지막까지 남는다. 눈 감김은 2초에 먼저 풀리지만 트리거는 같다.
-    state = step(state, none, T0 + 27_999);
+    // 두 출처 모두 해제 유지가 2초다. 그 전에는 졸음이 남는다.
+    state = step(state, none, T0 + 11_999);
     expect(state.active).toBe("SLEEP");
 
-    state = step(state, none, T0 + 28_000);
+    state = step(state, none, T0 + 12_000);
     expect(state.active).toBeNull();
   });
 

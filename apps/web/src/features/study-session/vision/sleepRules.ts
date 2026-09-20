@@ -3,7 +3,6 @@ import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_SMOOTHING_SAMPLES,
-  SLEEP_THRESHOLDS,
 } from "./visionConfig";
 
 /**
@@ -31,7 +30,7 @@ export type EyeScores = Readonly<Record<RequiredEyeBlendshapeName, number>> &
  * 남긴다.
  */
 export interface FaceObservation {
-  /** 모델이 얼굴을 찾았는가. 품질과 무관하다 — 엎드림 규칙이 이 값을 본다. */
+  /** 모델이 얼굴을 찾았는가. 품질과 무관하다. 판정에는 안 쓰고 진단과 측정 패널이 본다. */
   readonly facePresent: boolean;
   /** 눈 관련 점수. 품질 게이트를 통과했을 때만 있다. null은 이번 관측에 눈 판정이 없다는 뜻이다. */
   readonly eye: EyeScores | null;
@@ -47,14 +46,14 @@ export interface FaceObservation {
  */
 export interface SleepFrame {
   readonly personPresent: boolean;
-  readonly personScore: number;
   readonly faceSamples: readonly FaceObservation[];
-  /** 얼굴이 최근 충분히 오래 안정적으로 보였는가. 몸만 찍는 배치를 막는 기준선이다. */
-  readonly faceStable: boolean;
-  /** 머리가 화면 안에 있는가. 판별기가 없으면 null이고, null은 막지 않는다는 뜻이다. */
-  readonly headInFrame: boolean | null;
-  /** 이 사람에게 맞춘 눈 감김 임계. 보정 전에는 고정값이 들어온다. */
-  readonly eyeClosureThreshold: number;
+  /**
+   * 이 사람에게 맞춘 눈 감김 임계. 보정이 끝나기 전에는 null이고, null이면 눈 판정을 쉰다.
+   *
+   * 아직 그 사람의 뜬 눈이 몇 점인지 모르는 동안 고정값으로 판정하면, 뜬 눈이 원래 높은 사람이
+   * 세션 시작 10초 만에 졸음으로 찍힌다. 그 30초 안에 잠드는 사람을 놓치는 쪽이 낫다.
+   */
+  readonly eyeClosureThreshold: number | null;
   /** 최근 얼굴 틱의 눈 감김 점수. 오래된 것부터. 비율 판정이 창 크기로 자른다. */
   readonly eyeReadings: readonly number[];
 }
@@ -63,13 +62,11 @@ export interface SleepSignals {
   readonly eyesClosed: boolean;
   /** 최근 1분 중 감겨 있던 비율이 기준을 넘었는가. 연속 감김과 별개의 원신호다. */
   readonly eyesDrowsy: boolean;
-  readonly faceLost: boolean;
 }
 
 export const NO_SLEEP_SIGNALS: SleepSignals = {
   eyesClosed: false,
   eyesDrowsy: false,
-  faceLost: false,
 };
 
 /** 판정 규칙 교체 지점. 임계가 아니라 판정 방식 자체를 바꿀 때 쓴다. */
@@ -79,13 +76,11 @@ export interface SleepRule {
 
 /**
  * 평활에 필요한 최소 관측 수. 하나로 판정하면 깜빡임 한 번이나 오검출 한 번이 그대로 결론이 된다.
- * 두 평활 함수가 같은 값을 쓴다 — 한쪽만 느슨하면 호출부가 둘을 다르게 믿는다.
  */
 const MIN_SMOOTHING_READINGS = 2;
 
 /**
- * 창 크기만큼의 최근 관측. 자르기를 여기서 하므로 호출부가 더 긴 배열을 넘겨도 안전하고,
- * "창은 홀수"라는 전제가 주석이 아니라 코드에 묶인다.
+ * 창 크기만큼의 최근 관측. 자르기를 여기서 하므로 호출부가 더 긴 배열을 넘겨도 안전하다.
  */
 function recentWindow(samples: readonly FaceObservation[]): readonly FaceObservation[] {
   return samples.length <= FACE_SMOOTHING_SAMPLES
@@ -113,21 +108,6 @@ export function smoothedEyeClosure(samples: readonly FaceObservation[]): number 
   }
   readings.sort((a, b) => a - b);
   return readings[Math.floor((readings.length - 1) / 2)] ?? null;
-}
-
-/**
- * 최근 관측의 얼굴 유무 대표값. 표본이 둘 미만이면 `null`이다.
- *
- * 동수면 없다고 본다. 얼굴 소실은 유지시간이 길어서 한 번 잘못 기울어도 곧 뒤집히지만,
- * 있다고 보면 이미 쌓인 엎드림 유지시간이 초기화된다.
- */
-export function smoothedFacePresent(samples: readonly FaceObservation[]): boolean | null {
-  const window = recentWindow(samples);
-  if (window.length < MIN_SMOOTHING_READINGS) {
-    return null;
-  }
-  const present = window.filter((sample) => sample.facePresent).length;
-  return present * 2 > window.length;
 }
 
 /**
@@ -159,20 +139,20 @@ export const defaultSleepRule: SleepRule = {
       // 자리에 사람이 없으면 자리 이탈이 가져간다. 얼굴 신호는 관측 자체가 불확실하다.
       return NO_SLEEP_SIGNALS;
     }
+    const threshold = frame.eyeClosureThreshold;
+    if (threshold === null) {
+      // 보정 전이다. 이 사람의 뜬 눈이 몇 점인지 모르는 채로 판정하면 뜬 눈이 높은 사람이
+      // 세션 시작 직후 졸음으로 찍힌다. 판정을 쉬는 쪽이 오탐 0 원칙과 같은 방향이다.
+      return NO_SLEEP_SIGNALS;
+    }
     const closure = smoothedEyeClosure(frame.faceSamples);
-    const facePresent = smoothedFacePresent(frame.faceSamples);
-    const ratio = eyeClosedRatio(frame.eyeReadings, frame.eyeClosureThreshold);
+    const ratio = eyeClosedRatio(frame.eyeReadings, threshold);
     return {
-      eyesClosed: closure !== null && closure >= frame.eyeClosureThreshold,
+      eyesClosed: closure !== null && closure >= threshold,
       // 꾸벅거리는 사람은 한 번에 몇 초씩만 감아 연속 판정의 유지시간을 영영 못 채운다. 그
       // 사이사이 뜬 눈이 유지시간을 계속 0으로 되돌리기 때문이다. 같은 1분을 합쳐서 보면
       // 절반 넘게 감겨 있으므로, 연속이 아니라 비율로 한 번 더 본다.
       eyesDrowsy: ratio !== null && ratio >= EYE_RATIO_THRESHOLD,
-      faceLost:
-        facePresent === false &&
-        frame.faceStable &&
-        frame.headInFrame !== false &&
-        frame.personScore >= SLEEP_THRESHOLDS.faceLostPersonScore,
     };
   },
 };

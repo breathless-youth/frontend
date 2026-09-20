@@ -21,10 +21,8 @@ const noop: VisionDiagnostics = {
 
 function setup(
   overrides: {
-    rehearsal?: boolean;
     enabled?: boolean;
     copy?: () => Promise<void>;
-    faceLostEnabled?: boolean;
     eyeCalibration?: { windows: number; baseline: number; threshold: number } | null;
   } = {},
 ) {
@@ -44,8 +42,6 @@ function setup(
   const panel = mountMeasurementPanel({
     measurement,
     thermal,
-    rehearsal: overrides.rehearsal ?? false,
-    faceLostEnabled: overrides.faceLostEnabled ?? false,
     enabled: overrides.enabled ?? true,
     copy: overrides.copy ?? (() => Promise.resolve()),
   });
@@ -188,10 +184,10 @@ describe("mountMeasurementPanel", () => {
     expect(panelText()).toContain("상태 DISTRACTION:SLEEP 5초");
   });
 
-  it("보정 전에는 상한을 쓴다고 말한다", () => {
+  it("보정 전에는 판정을 쉰다고 말한다", () => {
     setup();
 
-    expect(panelText()).toContain("보정중 (임계 상한 사용)");
+    expect(panelText()).toContain("보정중 (판정 쉼)");
   });
 
   it("보정되면 기준값·임계·창 수를 보여준다", () => {
@@ -234,24 +230,6 @@ describe("mountMeasurementPanel", () => {
     panel.refresh();
 
     expect(panelText()).toContain("__focusonMeasure.dump()");
-  });
-
-  it("리허설이면 눈에 띄게 표시한다 — 본 측정 수치로 오인되면 안 된다", () => {
-    setup({ rehearsal: true });
-
-    expect(panelText()).toContain("리허설");
-  });
-
-  it("엎드림 감지가 꺼져 있으면 점검 줄에 표시한다", () => {
-    setup({ faceLostEnabled: false });
-
-    expect(panelText()).toContain("엎드림꺼짐");
-  });
-
-  it("엎드림 감지를 켜면 점검 줄에 표시하지 않는다", () => {
-    setup({ faceLostEnabled: true });
-
-    expect(panelText()).not.toContain("엎드림꺼짐");
   });
 
   it("보정 전에는 점검 줄이 보정중이라고 말한다", () => {

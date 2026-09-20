@@ -41,9 +41,8 @@ export interface FrameDiagnostics {
   /** 졸음 원신호(유지시간 디바운스 이전). 얼굴 추론이 도는 프레임에만 의미가 있다. */
   readonly sleepEyesSignal?: boolean;
   readonly sleepDrowsySignal?: boolean;
-  readonly sleepFaceSignal?: boolean;
   /**
-   * 지금 쓰는 눈 감김 임계. 보정 전에는 고정값이다.
+   * 지금 쓰는 눈 감김 임계. 보정 전에는 없다. 그동안은 눈 판정을 쉰다.
    *
    * 점수 분포만으로는 왜 안 잡혔는지 알 수 없다. 같은 0.5가 어떤 사람에게는 감김이고 다른
    * 사람에게는 뜬 눈인데, 그 갈림이 이 값이다.
@@ -51,8 +50,6 @@ export interface FrameDiagnostics {
   readonly eyeThreshold?: number;
   /** 비율 창의 감김 비율. 창이 안 찼으면 null이다. */
   readonly eyeClosedRatio?: number | null;
-  /** 엎드림 기준선을 채웠는가. 몸만 찍는 배치에서 왜 졸음이 안 잡히는지 설명하는 값이다. */
-  readonly faceBaseline?: boolean;
   /** 이번 프레임의 얼굴 추론 결과. 얼굴 추론을 건너뛴 프레임에서는 null이다. */
   readonly face?: FaceFrameDiagnostics | null;
 }
@@ -150,12 +147,6 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
       if (diagnostics.eyeClosedRatio !== undefined && diagnostics.eyeClosedRatio !== null) {
         // 창이 안 찬 프레임에는 키 자체를 만들지 않는다. 0으로 적으면 "감긴 적이 없다"로 읽힌다.
         payload.eyeClosedRatio = round2(diagnostics.eyeClosedRatio);
-      }
-      if (diagnostics.sleepFaceSignal !== undefined) {
-        payload.sleepFace = diagnostics.sleepFaceSignal;
-      }
-      if (diagnostics.faceBaseline !== undefined) {
-        payload.faceBaseline = diagnostics.faceBaseline;
       }
       const face = diagnostics.face;
       if (face !== undefined && face !== null) {

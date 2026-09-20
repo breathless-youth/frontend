@@ -25,9 +25,6 @@ import { clockText, thermalStatusLine } from "./runner";
 export interface MeasurementPanelOptions {
   readonly measurement: Measurement;
   readonly thermal: ThermalTimer;
-  readonly rehearsal: boolean;
-  /** 엎드림 판정이 켜져 있는가. 점검 줄이 꺼져 있을 때만 표시를 더한다. */
-  readonly faceLostEnabled: boolean;
   /** 진단이 꺼져 있으면 아예 붙지 않는다. */
   readonly enabled?: boolean;
   /** 클립보드 접근점. 웹뷰에서 권한이 다를 수 있어 주입으로 열어 둔다. */
@@ -86,7 +83,8 @@ function yesNo(value: boolean | null): string {
  * 눈이 지금 어떻게 읽히는지 세 줄. 값은 전부 판정이 실제로 쓰는 것과 같은 자리의 값이다.
  *
  * 1줄: 상태와 구간. 2줄: 눈 점수가 임계를 넘는지. 3줄: 비율 규칙과 원신호, 얼굴·사람.
- * 4줄: 보정. 세션 시작 30초쯤 `보정중`이 기준값으로 바뀌는 것이 여기서 보인다.
+ * 4줄: 보정. 세션 시작 30초쯤 `보정중`이 기준값으로 바뀌는 것이 여기서 보인다. 그 전에는
+ * 눈 판정을 쉬므로 이 줄이 바뀐 뒤에 첫 감김을 시작해야 한다.
  */
 export function liveLines(live: LiveSnapshot): string {
   const segment =
@@ -98,7 +96,7 @@ export function liveLines(live: LiveSnapshot): string {
   const ratio = live.ratio === null ? "비율 창 안 참" : `비율 ${live.ratio.toFixed(2)}`;
   const calibration =
     live.calibration === null
-      ? "보정중 (임계 상한 사용)"
+      ? "보정중 (판정 쉼)"
       : `보정 기준 ${score(live.calibration.baseline)} → 임계 ${score(live.calibration.threshold)} · 창 ${live.calibration.windows}회`;
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
@@ -109,14 +107,7 @@ export function liveLines(live: LiveSnapshot): string {
 }
 
 export function mountMeasurementPanel(options: MeasurementPanelOptions): MeasurementPanel {
-  const {
-    measurement,
-    thermal,
-    rehearsal,
-    faceLostEnabled,
-    enabled = true,
-    copy = defaultCopy,
-  } = options;
+  const { measurement, thermal, enabled = true, copy = defaultCopy } = options;
 
   const doc = globalThis.document;
   if (!enabled || doc === undefined) {
@@ -180,14 +171,11 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     const preflight = measurement.preflight();
     const mark = (value: string): string => (value === "ready" ? "ok" : `⚠${value}`);
     const camera = preflight.camera ?? "⚠대기";
-    // 엎드림은 기본 꺼짐이다. 한참 돌고 나서야 "왜 SLEEP_FACE가 한 번도 안 잡혔지"로
-    // 헤매지 않도록, 꺼져 있다는 사실을 점검 단계에서부터 보여준다.
-    const faceLost = faceLostEnabled ? "" : " 엎드림꺼짐";
     // 보정 전후로 눈 감김 임계가 달라진다. 같은 자세인데 판정이 바뀐 이유가 여기서 보여야 한다.
     const calibration = preflight.calibrated
       ? ` 보정ok(${preflight.calibrationWindows})`
       : " 보정중";
-    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${calibration}${faceLost}`;
+    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${calibration}`;
   }
 
   /** 판단하지 않는다. 이 구간에서 전이가 몇 번 있었는지만 보여 준다. */
@@ -278,9 +266,6 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
   function render(): void {
     const live = measurement.live();
     body.replaceChildren();
-    if (rehearsal) {
-      appendLine("⚠ 리허설 — 이 수치는 본 측정이 아니다", true);
-    }
     appendLine(preflightLine(), true);
     body.append(doc.createElement("br"));
     for (const line of liveLines(live).split("\n")) {

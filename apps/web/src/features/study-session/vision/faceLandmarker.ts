@@ -173,8 +173,7 @@ export function createFaceLandmarker(
       return FACE_TOO_SMALL;
     }
     // 두 점 사이의 실제 거리를 쓴다. 가로 성분만 쓰면 고개를 기울인 각도의 cos만큼 값이 줄어서,
-    // 하필 졸 때의 자세에서 얼굴이 작아지지도 않았는데 게이트에 걸린다. 그 관측은 얼굴이 있다고
-    // 나오므로 엎드림 규칙도 잡지 못해 어떤 신호도 남지 않는다.
+    // 하필 졸 때의 자세에서 얼굴이 작아지지도 않았는데 게이트에 걸려 눈 판정이 통째로 빠진다.
     // 이 값은 즉시 버린다. 크기는 좌표와 같은 성격이라 반환값에 담지 않는다.
     const interOcular = Math.hypot(left.x - right.x, left.y - right.y);
     if (interOcular < MIN_INTER_OCULAR_NORMALIZED) {

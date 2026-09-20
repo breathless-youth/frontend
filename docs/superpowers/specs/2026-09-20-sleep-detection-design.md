@@ -16,8 +16,7 @@
 | 항목              | 결정                                                                                                                                                                                                                                                                                                                                        |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 세션 영향         | 4번째 비집중 트리거. 확정 시 `DISTRACTION` 전이, 순공 정지·총공부 진행, 서버 status 이벤트로 기록, S4·S5에 표시                                                                                                                                                                                                                             |
-| 졸음 정의         | 두 규칙, 사용자에게는 하나의 "졸음". (a) 눈 감김 지속: 얼굴 검출 + 양쪽 눈 감김 점수 임계 이상 유지. (b) 엎드림(얼굴 소실): `person`은 검출되는데 얼굴이 안 잡히는 상태 유지, 단 얼굴이 최근 3분간 80% 이상 안정적으로 보였을 때만                                                                                                          |
-| 엎드림 2단계      | 1단(V1): 위 기준선. 2단(후속): 자세 모델(PoseLandmarker)로 "머리가 화면 안에 있는가"를 판별하는 아비터를 얼굴이 사라진 구간에서만 돌려 엎드림과 몸만 찍힘을 구분. 실기기 검증 통과 후 `HeadPresenceRule` 주입점에 끼운다                                                                                                                    |
+| 졸음 정의         | 두 규칙, 사용자에게는 하나의 "졸음". (a) 눈 감김 지속: 얼굴 검출 + 양쪽 눈 감김 점수가 그 사람의 임계 이상으로 10초 유지. (b) 꾸벅거림: 최근 44초 중 감긴 표본이 절반 이상. 엎드림(얼굴 소실) 규칙은 2026-09-20에 코드에서 지웠다(아래 "엎드림 규칙을 지운다" 절)                                                                           |
 | 서버 명세         | 백엔드가 `StudyEventStatus`에 `SLEEP` 추가(값 이름 합의 완료, Swagger 반영 시점 미정). FE는 잠정 표시로 먼저 반영하고 등재 후 대조. 임시 매핑 없음. 이 잠정 등재는 CLAUDE.md의 "Swagger 기준으로만 정의" 규칙에 대한 의도된 예외다(전례: `packages/types`의 `RoomJoin*` 잠정 명세). 등재 뒤 리터럴을 대조하고 docblock의 잠정 표시를 지운다 |
 | BE 전 자체 테스트 | 한다. 서버 전송은 BE에 enum 값 수락만 선반영 요청이 1순위, 안 되면 dev 배포 한정 wire 호환(SLEEP→AWAY)이 2순위                                                                                                                                                                                                                              |
 | 디자인            | 기존 3종 패턴 그대로(같은 오렌지, 같은 필·통계 행·칩). 문구만 추가하고 리더 확인 항목으로 표시                                                                                                                                                                                                                                              |
@@ -41,7 +40,7 @@
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `vision/mediapipePort.ts`                                                        | `objectDetector.ts`의 포트 타입을 그대로 옮기고 FaceLandmarker 포트를 추가한다. `MediapipeVisionRuntime`에 `createFaceLandmarker(options)`가 생긴다. `objectDetector.ts`는 re-export로 기존 import를 유지한다(두 래퍼 사이 타입 순환 회피)                                                                   |
 | `vision/faceLandmarker.ts`                                                       | `objectDetector.ts`와 같은 구조의 래퍼. `idle/loading/ready/unavailable`, `load()`는 throw하지 않음, 1회 재시도, 연속 실패 5회, `wanted` 플래그, `loadRuntime`/`delegateOrder` 주입. Sentry 태그 `vision-face-create-{delegate}`, `vision-face-frame-loop`, `vision-face-blendshape-missing`(인스턴스당 1회) |
-| `vision/sleepRules.ts`                                                           | 순수 규칙. `SleepFrame { personPresent, personScore, face: FaceObservation \| null, faceStable, headInFrame }` → `SleepSignals { eyesClosed, faceLost }`. `SleepRule`·`HeadPresenceRule` 인터페이스로 교체 가능                                                                                              |
+| `vision/sleepRules.ts`                                                           | 순수 규칙. `SleepFrame { personPresent, faceSamples, eyeClosureThreshold, eyeReadings }` → `SleepSignals { eyesClosed, eyesDrowsy }`. `SleepRule` 인터페이스로 교체 가능                                                                                                                                     |
 | `vision/__tests__/faceLandmarker.test.ts`, `vision/__tests__/sleepRules.test.ts` | fake 런타임·픽스처만으로 도는 테스트                                                                                                                                                                                                                                                                         |
 | `public/models/face_landmarker.task`                                             | float16 v1 ≈3.7MB, 커밋. 출처 URL·sha256은 `visionConfig.ts`의 `FACE_MODEL_PATH` docblock에 기록                                                                                                                                                                                                             |
 
@@ -49,7 +48,7 @@
 
 ```ts
 export interface FaceObservation {
-  readonly facePresent: boolean; // 품질 무관. 엎드림 규칙이 본다
+  readonly facePresent: boolean; // 품질 무관. 판정에는 안 쓰고 진단·측정 패널이 본다
   readonly eye: Readonly<Record<EyeBlendshapeName, number>> | null; // 품질 게이트 통과 시만. null = 이번 프레임 눈 판정 없음
   readonly eyeSkipReason: "no-face" | "face-too-small" | "blendshapes-missing" | null;
 }
@@ -60,9 +59,7 @@ export interface FaceObservation {
 ### 규칙 `defaultSleepRule`
 
 - `eyesClosed` = person 있음 ∧ `eye !== null` ∧ 최근 2표본이 모두 `min(eyeBlinkLeft, eyeBlinkRight) ≥ 임계`(처음 설계는 3표본 중앙값이었고, 2026-09-20 실측 뒤 둘로 줄였다. 아래 실측 절). 내려다봄 거부권은 두지 않는다. 스파이크에서 눈을 감으면 `eyeLookDown*`가 0.6~~0.8로 오르고 책을 볼 때는 0.07~~0.33이라, 거부권은 진짜 졸음을 막는 쪽으로만 동작했다. 책을 볼 때 감김 점수 최대는 0.36~0.38이라 거부권 없이도 오탐이 없다. 중앙값을 쓰는 이유는 깜빡임 한 표본(최대 0.57)이 10초 유지시간을 초기화하거나 진입시키지 않게 하기 위해서다.
-- `faceLost` = person 있음 ∧ `!facePresent` ∧ `personScore ≥ 0.5` ∧ `faceStable` ∧ `headInFrame !== false`. 사람 점수 조건은 어두워져 person 점수도 떨어지면 엎드림으로 치지 않기 위한 것이다. `facePresent`는 최근 2표본이 모두 보여야 있다고 본다(처음 설계는 3표본 다수결). 엎드림 중 1~2표본 오검출이 25초 유지시간을 초기화하지 않게 하기 위해서다.
-- 기준선 `faceStable`(몸만 찍는 사용자 방어): 어댑터가 얼굴 틱 결과(있음/없음)를 최근 `FACE_BASELINE_WINDOW_MS`(3분, 2초 샘플링 = 90개) 링버퍼에 쌓고, 버퍼가 가득 찼고 얼굴 있음 비율 ≥ `FACE_BASELINE_MIN_RATIO`(0.8)일 때만 참이다. 진입에만 쓰고 래치한다. 한 번 `faceLost`가 켜지면 얼굴이 돌아오거나 person이 사라질 때까지 비율과 무관하게 유지한다(잠든 시간이 길어져 비율이 떨어져도 해제되지 않게). 세션 첫 3분과 `stop()` 직후 3분은 엎드림 판정이 없다. 남는 오탐은 몸만 찍던 사용자가 3분 넘게 얼굴을 보이다 물러나는 경우이고, 이것이 2단 아비터가 맡는 부분이다.
-- 2단 아비터 `HeadPresenceRule`(후속): `sleepRules.ts`에 `headInFrame: boolean | null` 입력과 `HeadPresenceRule { evaluate(frame): boolean | null }` 주입점을 V1부터 둔다. 후속에서 PoseLandmarker(lite) 래퍼를 `faceLandmarker.ts`와 같은 구조로 추가하고, person 있음 ∧ 얼굴 없음 ∧ `faceStable`인 후보 구간에서만 얼굴 틱 주기로 돌려 코·눈·귀 랜드마크가 프레임 안에 있으면 머리 있음(엎드림), 프레임 밖이면 몸만 찍힘(거부)으로 판정한다. 후보 구간에서만 돌므로 발열 영향은 그 구간에 한정된다. 엎드린 자세에서의 정확도는 미검증이다.
+- 얼굴 소실(엎드림) 규칙과 그 기준선·2단 머리 아비터 주입점은 2026-09-20에 지웠다. 근거는 아래 "엎드림 규칙을 지운다" 절.
 - 품질 게이트 실패 = "판정 없음"(직전 원신호 유지)이지 "눈 뜸"이 아니다.
 
 ### `visionConfig.ts` 새 상수(전부 튜닝 대상)
@@ -84,10 +81,8 @@ export const FACE_BLENDSHAPE_ALLOWLIST = [
 ] as const;
 export const EYE_OUTER_CORNER_LANDMARKS = { left: 33, right: 263 } as const;
 export const MIN_INTER_OCULAR_NORMALIZED = 0.07; // 0.06 근처는 얼굴 검출 자체가 35%라 검출기가 먼저 거른다
-export const SLEEP_THRESHOLDS = { eyeClosure: 0.45, faceLostPersonScore: 0.5 } as const;
-export const FACE_SMOOTHING_SAMPLES = 2; // 눈 감김·얼굴 유무를 다듬는 창. 처음 3, 실측 뒤 2
-export const FACE_BASELINE_WINDOW_MS = 180_000; // 엎드림 기준선 창(3분)
-export const FACE_BASELINE_MIN_RATIO = 0.8; // 창 안 얼굴 있음 비율 최소값
+export const SLEEP_THRESHOLDS = { eyeClosure: 0.45 } as const; // 개인별 보정의 하한으로만 쓴다
+export const FACE_SMOOTHING_SAMPLES = 2; // 눈 감김을 다듬는 창. 처음 3, 실측 뒤 2
 ```
 
 `mediapipeModule.ts`의 `createFaceLandmarker`는 `runningMode: "VIDEO"`, `outputFaceBlendshapes: true`, `outputFacialTransformationMatrixes: false` 고정이다(비용이고 자세 행렬은 위치 정보다). delegate는 `DELEGATE_ORDER`(CPU)를 재사용한다.
@@ -101,12 +96,12 @@ export const FACE_BASELINE_MIN_RATIO = 0.8; // 창 안 얼굴 있음 비율 최�
 
 ### `adapters/focusDetector.ts` 연결
 
-- `DetectorSignal`은 `{ source: DetectionSource, active }`로 바뀐다(설계 B). `VISION_SOURCES = ["AWAY","PHONE","SLEEP_EYES","SLEEP_FACE"]`, `emitted: Record<VisionSource, boolean> | null`. 첫 publish는 전부 내보내서(`SLEEP_* = false` 포함) 일시정지 전 훅에 남은 오래된 `true`를 덮는다(`deviceHandlingDetector.ts`가 의존하는 성질).
-- 새 옵션: `faceLandmarker?`(테스트 주입), `sleepRule?`, `headRule?`, `sleepDetection?: boolean`(기본 `true`. DEV 또는 `?diag=1`에서만 `?sleep=0`으로 끈다. 실기기 A/B용이며 `resolveModelVariant` 패턴). 새 공개면: `faceStatus`, `subscribeFaceStatus`. 기존 `status`는 객체 검출기 의미를 유지한다.
-- 상태: `lastFace`(얼굴 틱 사이 유지, `!personPresent`면 null), `faceHistory`(최근 3분 얼굴 유무 링버퍼 → `faceStable`, `stop()`·`close()`에서 비움), `faceLostLatched`(진입 후 래치), `frameIndex`.
+- `DetectorSignal`은 `{ source: DetectionSource, active }`로 바뀐다(설계 B). `VISION_SOURCES = ["AWAY","PHONE","SLEEP_EYES","SLEEP_DROWSY"]`, `emitted: Record<VisionSource, boolean> | null`. 첫 publish는 전부 내보내서(`SLEEP_* = false` 포함) 일시정지 전 훅에 남은 오래된 `true`를 덮는다(`deviceHandlingDetector.ts`가 의존하는 성질).
+- 새 옵션: `faceLandmarker?`(테스트 주입), `sleepRule?`, `sleepDetection?: boolean`(기본 `true`. DEV 또는 `?diag=1`에서만 `?sleep=0`으로 끈다. 실기기 A/B용이며 `resolveModelVariant` 패턴). 새 공개면: `faceStatus`, `subscribeFaceStatus`. 기존 `status`는 객체 검출기 의미를 유지한다.
+- 상태: `faceSamples`(최근 얼굴 관측, `!personPresent`면 비움), `calibrationReadings`·`calibration`(눈 보정), `eyeReadings`(비율 창), `frameIndex`.
 - 얼굴 `unavailable` + 객체 `ready`: SLEEP 출처는 영원히 false, AWAY/PHONE 무영향. 객체 `unavailable`: 루프가 이미 멈춰 얼굴 로드 자체를 걸지 않는다. `close()`는 둘 다 닫는다.
 - `DevVisionFailureNotice.tsx`: 얼굴 실패 줄 추가(`data-dev-notice="face-unavailable"`, `subscribeFaceStatus`). `RoomPage.tsx`·`LiveRoomSession.tsx`는 둘 다 `createVisionFocusDetector({ video })`를 쓰므로 소셜룸도 자동 적용된다.
-- 주석 갱신: `focusDetector.ts`의 "Vision은 AWAY/PHONE만" 서술과 `frameLoop.ts`의 같은 서술을 "Vision은 AWAY/PHONE/SLEEP_EYES/SLEEP_FACE, 가속도는 DEVICE"로 바꾼다.
+- 주석 갱신: `focusDetector.ts`의 "Vision은 AWAY/PHONE만" 서술과 `frameLoop.ts`의 같은 서술을 "Vision은 AWAY/PHONE/SLEEP_EYES/SLEEP_DROWSY, 가속도는 DEVICE"로 바꾼다.
 
 ### 진단(`vision/diagnostics.ts`, 스칼라만)
 
@@ -117,7 +112,7 @@ export const FACE_BASELINE_MIN_RATIO = 0.8; // 창 안 얼굴 있음 비율 최�
 | 얼굴 유무 (boolean)                    | 얼굴 랜드마크 좌표 478점 전부                      |
 | 눈 blendshape 4종 점수(소수 둘째 자리) | 나머지 blendshape 48종(표정 벡터)                  |
 | 눈 판정 생략 사유(문자열 enum)         | 눈 간격 등 크기·거리 스칼라(bbox 크기와 같은 성격) |
-| 졸음 원신호 2종 · 기준선 상태          | 얼굴 변환 행렬(생성 자체를 끈다)                   |
+| 졸음 원신호 2종                        | 얼굴 변환 행렬(생성 자체를 끈다)                   |
 | 얼굴 추론 소요시간 · delegate          |                                                    |
 
 ### 라이선스와 자산
@@ -132,15 +127,15 @@ export const FACE_BASELINE_MIN_RATIO = 0.8; // 창 안 얼굴 있음 비율 최�
 트리거(사용자·서버 단위) 아래에 원신호 출처 계층을 둔다. AWAY·PHONE·DEVICE는 출처가 하나라 이름이 같고 동작이 바이트 단위로 동일하다. SLEEP만 출처가 둘이다.
 
 ```ts
-export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_FACE"] as const;
+export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_DROWSY"] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
-export const SOURCE_TRIGGER = { AWAY: "AWAY", PHONE: "PHONE", DEVICE: "DEVICE", SLEEP_EYES: "SLEEP", SLEEP_FACE: "SLEEP" }
+export const SOURCE_TRIGGER = { AWAY: "AWAY", PHONE: "PHONE", DEVICE: "DEVICE", SLEEP_EYES: "SLEEP", SLEEP_DROWSY: "SLEEP" }
   as const satisfies Record<DetectionSource, DistractionTrigger>;
 export type DetectionParams = Record<DetectionSource, TriggerHoldParams>;
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   AWAY: { enterMs: 1500, exitMs: 2000 }, PHONE: { enterMs: 500, exitMs: 1500 }, DEVICE: { enterMs: 500, exitMs: 2000 },
   SLEEP_EYES: { enterMs: 10_000, exitMs: 2000 },   // 잠정. 해제는 실측 뒤 3000에서 2000으로
-  SLEEP_FACE: { enterMs: 25_000, exitMs: 3000 },   // 잠정. 정밀도가 낮아 더 길게. 결과에 따라 45~60초 또는 비활성
+  SLEEP_DROWSY: { enterMs: 4000, exitMs: 2000 },   // 원신호가 이미 44초 비율로 평활돼 있어 진입이 짧다
 };
 const TRIGGER_PRIORITY_RANK = { AWAY: 0, DEVICE: 1, SLEEP: 2, PHONE: 3 } as const satisfies Record<DistractionTrigger, number>;
 export const TRIGGER_PRIORITY = Object.keys(TRIGGER_PRIORITY_RANK) as readonly DistractionTrigger[];
@@ -167,7 +162,7 @@ export type TriggerSignals = Record<DetectionSource, boolean>;   // 이름 유�
 
 ### 문구(전부 리더 확인 대상. 코드가 참조하는 voice-tone 위키는 존재하지 않는다)
 
-- `sessionCopy.ts`: `SLEEP: { label: "졸고 있는 것 같아요", subLabel: "깨어나면 자동으로 다시 측정돼요" }`. 눈 감김·엎드림을 한 문구로 덮고 추정형 어미를 유지한다. 대안은 subLabel "다시 집중하면 자동으로 다시 측정돼요"다.
+- `sessionCopy.ts`: `SLEEP: { label: "졸고 있는 것 같아요", subLabel: "깨어나면 자동으로 다시 측정돼요" }`. 오래 감김·꾸벅거림을 한 문구로 덮고 추정형 어미를 유지한다. 대안은 subLabel "다시 집중하면 자동으로 다시 측정돼요"다.
 - `resultCopy.ts`: `SLEEP: "졸음"`. `recordsFormat.ts`: `SLEEP: "졸음"`, 순서 `{ AWAY:0, PHONE:1, DEVICE:2, SLEEP:3, PAUSE:4 }`.
 - 표시 계층(`toPillState`, `SessionStatusPill`, `DistractionStatsCard`, `StudyTimelineCard`, `EventChip`, `LiveRoomSession`, 온보딩)은 트리거 무관이라 무변경이다.
 
@@ -193,15 +188,13 @@ export type TriggerSignals = Record<DetectionSource, boolean>;   // 이름 유�
 | BY-700 준비(동작 변화 0) | 이 스펙 커밋 · `detection.ts` 출처 계층(항등 `SOURCE_TRIGGER`, 3 출처) · `DetectorSignal.source` 이름 변경 · 완전성 가드 4곳 · Amplitude 유니언 파생 · `detection.test.ts` 불변식 2개 | 없음                                 |
 | BY-701 Vision 순수 모듈  | `mediapipePort.ts` 추출 · `faceLandmarker.ts` · `sleepRules.ts` · `visionConfig` 상수 · `mediapipeModule.createFaceLandmarker` · `diagnostics` 타입 · 모델 자산 · 라이선스 · 테스트   | 없음(연결 전이라 어디에도 붙지 않음) |
 | BY-702 명세 반영         | `packages/types` `SLEEP`(잠정) · `DistractionTrigger` · `DETECTION_SOURCES`에 `SLEEP_*` + 파라미터 + 우선순위 · 문구 · 토큰 · 복원 가드 · S4 행 · 테스트 · 문서                       | BY-700. BE 등재를 기다리지 않는다    |
-| BY-703 Vision 연결       | `focusDetector.ts`(얼굴 틱·기준선 링버퍼·래치·publish 4출처) · `DevVisionFailureNotice` · `?sleep=0` DEV 오버라이드 · 어댑터 테스트                                                   | BY-700 + BY-701 + BY-702             |
+| BY-703 Vision 연결       | `focusDetector.ts`(얼굴 틱·publish 4출처. 당시의 기준선 링버퍼·래치는 2026-09-20에 지웠다) · `DevVisionFailureNotice` · `?sleep=0` DEV 오버라이드 · 어댑터 테스트                     | BY-700 + BY-701 + BY-702             |
 | BY-704 실기기 검증       | 아래 체크리스트, 결과를 기존 스펙 §10 형식으로 기록, 상수 확정                                                                                                                        | BY-703 dev 배포본 + `?diag=1`        |
 | BY-705 머리 아비터(후속) | PoseLandmarker 래퍼 · `HeadPresenceRule` 구현 · 후보 구간 한정 실행 · 테스트 · 라이선스 항목                                                                                          | BY-704 항목 9~10 통과                |
 
 #### BY-703에서 설계와 다르게 간 것
 
-- 엎드림 기준선 창을 `createVisionFocusDetector`의 `baseline` 옵션으로 열었다. 상수를 그대로 쓰면 테스트가 기준선 3분을 실제로 돌려야 한다. 기본값은 `FACE_BASELINE_SAMPLES`·`FACE_BASELINE_MIN_RATIO`다. 옵션 타입은 공개면이지만 주입만 받고, 감지기가 돌려주는 객체에는 이 값을 싣지 않는다 — 읽는 프로덕션 코드가 없다.
-- 기준선 비율은 이번 틱의 얼굴 관측을 창에 쌓기 **전에** 잰다. 쌓고 재면 얼굴이 사라진 그 관측이 곧바로 비율을 깎아, 엎드림이 확정되기도 전에 기준선이 먼저 무너진다.
-- 얼굴 래퍼가 런타임에 감지 불가로 내려가는 경로를 어댑터가 직접 본다. `load()` 결과만 보면 그 전이를 놓쳐 얼어붙은 관측이 졸음 판정을 세션 끝까지 고정한다. 래치를 다시 거는 것도 새 관측이 있는 틱으로 한정했다.
+- 얼굴 래퍼가 런타임에 감지 불가로 내려가는 경로를 어댑터가 직접 본다. `load()` 결과만 보면 그 전이를 놓쳐 얼어붙은 관측이 졸음 판정을 세션 끝까지 고정한다. 판정에 쓰는 관측은 새 관측이 있는 틱으로 한정했다.
 - `?sleep=0`은 DEV 전용이 아니라 진단(`?diag=1`)이 켜진 프로덕션 번들에서도 듣는다. 앱에 들어가는 웹은 언제나 프로덕션 빌드라, DEV 전용이면 정작 발열 A/B를 재야 할 환경에서 쓸 수 없다.
 
 ### BE 전 자체 테스트
@@ -229,28 +222,25 @@ export type TriggerSignals = Record<DetectionSource, boolean>;   // 이름 유�
 9. 몸만 찍는 배치 재현: 몸만 찍다 얼굴을 30초·2분·5분 노출 후 물러남 → 3분/80% 기준선이 30초·2분은 거르고 5분은 못 거르는지 확인(5분 케이스가 2단 아비터의 존재 이유).
 10. (2단) PoseLandmarker lite를 후보 구간에서만 실행할 때 프레임당 ms, 엎드린 자세·손에 얼굴 기댐·몸만 찍힘 세 상황에서 코·눈·귀 랜드마크의 프레임 내 여부와 presence 분포가 갈리는지. 갈리면 BY-705, 안 갈리면 엎드림은 기준선만으로 가고 한계로 명시한다.
 
-2026-09-20 갱신: 엎드림 판정을 기본으로 끈 뒤(아래 BY-708 절) 측정 시나리오를 정리했다. 5·6·9·10항의 엎드림과 얼굴 노출 길이별 구간, 4항의 저조도는 판정이 꺼진 뒤 얻는 정보가 없어 뺐다. 남긴 반대 검증은 몸만 찍히는 구간 둘(A5·A14)이고, 여기서 졸음이 한 번이라도 나오면 안 된다. 뺀 구간은 엎드림을 다시 켤 때 git 이력에서 되살린다.
+2026-09-20 갱신: 엎드림 규칙을 코드에서 지우면서(아래 "엎드림 규칙을 지운다" 절) 5·6·9·10항은 잴 대상이 없어졌고, 4항의 저조도도 측정에서 뺐다. 남긴 반대 검증은 몸만 찍히는 구간이고, 여기서 졸음이 한 번이라도 나오면 안 된다. 측정은 이제 시간표가 아니라 패널의 행동 버튼으로 구간을 열어 진행한다.
 
 ### 임계값으로 못 푸는 잔여 실패 모드
 
-| 모드                                             | 효과                                        | 처리                                                                        |
-| ------------------------------------------------ | ------------------------------------------- | --------------------------------------------------------------------------- |
-| 선글라스·색안경                                  | 눈 감김 오판 가능                           | 0.65 + 10초로 완화. 알려진 한계, 추정형 문구 유지                           |
-| 앞머리·손으로 눈 가림                            | 같음                                        | 손은 보통 유지시간보다 짧다. 알려진 한계                                    |
-| 세션 중 조명 끔                                  | person 남고 얼굴 소실                       | `faceLostPersonScore ≥ 0.5` + 25초. 그 이상은 한계                          |
-| 몸만 찍던 사용자가 3분 넘게 얼굴을 보이다 물러남 | 25초 뒤 엎드림                              | 1단 기준선으로는 못 거른다. 2단 머리 아비터가 맡는다. 그 전까지 알려진 한계 |
-| 몸만 찍던 사용자가 3분 미만 얼굴 노출 후 물러남  | 없음                                        | 기준선(3분/80%)이 거른다                                                    |
-| 일시정지 없이 카메라를 몸통만 잡게 옮김          | 25초 뒤 엎드림(3분 이상 얼굴을 보였을 때만) | 기준선은 `stop()`마다 비운다. 도중 이동은 2단 아비터 몫                     |
-| 옆 사람 얼굴 선택(`numFaces: 1`)                 | 놓침                                        | 다중 인물 AWAY 한계와 같은 부류                                             |
-| 엎드림 + EfficientDet person 소실                | AWAY로 기록                                 | 검증 항목 6, 타이머는 맞다                                                  |
-| 블렌드셰이프 이름 불일치                         | 눈 규칙이 알림 없이 죽음                    | Sentry 1회 + `face:skip` 진단                                               |
+| 모드                             | 효과                     | 처리                                                       |
+| -------------------------------- | ------------------------ | ---------------------------------------------------------- |
+| 선글라스·색안경                  | 눈 감김 오판 가능        | 개인별 임계 + 10초로 완화. 알려진 한계, 추정형 문구 유지   |
+| 앞머리·손으로 눈 가림            | 같음                     | 손은 보통 유지시간보다 짧다. 알려진 한계                   |
+| 세션 중 조명 끔                  | 얼굴 소실                | 눈 표본이 빠질 뿐 졸음은 서지 않는다. 그동안의 잠은 놓친다 |
+| 책상에 엎드려 잠                 | 얼굴 소실, 졸음 없음     | 2026-09-20에 엎드림 규칙을 지웠다. 알려진 한계             |
+| 옆 사람 얼굴 선택(`numFaces: 1`) | 놓침                     | 다중 인물 AWAY 한계와 같은 부류                            |
+| 블렌드셰이프 이름 불일치         | 눈 규칙이 알림 없이 죽음 | Sentry 1회 + `face:skip` 진단                              |
 
 ## 검증
 
 - BY-700: `detection.test.ts` 기존 케이스 무수정 통과 + `NO_TRIGGER_SIGNALS` 키 = `DETECTION_SOURCES`, `SOURCE_TRIGGER` 값 집합 = `TRIGGER_PRIORITY`. `source` 이름 변경 테스트 편집.
 - BY-701: `faceLandmarker.test.ts`(objectDetector.test 거울: delegate 폴백·재시도·동시 load·로딩 중 close·연속 실패 5회·정규화 4분기·`JSON.stringify(result)`에 `x`/`y`/`landmarks`/`matrix` 없음), `sleepRules.test.ts`(임계 경계·한쪽 눈·3표본 중앙값·`eye:null`·`face:null`·person 없음·`faceStable` 거짓·`headInFrame === false` 거부 각각 부정), `visionConfig` 정합성(`FACE_FRAME_DIVISOR × FRAME_INTERVAL_MS ≤ SLEEP_EYES.enterMs / 4`, `FACE_BASELINE_WINDOW_MS ≥ SLEEP_FACE.enterMs × 4`).
 - BY-702: `detection.test.ts` "출처별 유지시간"(9,999ms 미확정/10,000ms 확정, 25,000ms, 해제 3초, 두 출처 → 단일 SLEEP, 한 출처 해제해도 유지, 동률 SLEEP+PHONE→SLEEP·DEVICE+SLEEP→DEVICE, 규칙 (a) PHONE 유지 후 hand-off → SLEEP), `sessionCopy`·`sessionResult`(SLEEP 행·`distractionSec` 포함·0건 생략)·`restoreActiveSession`("SLEEP 이벤트가 있어도 복원", `"NAPPING"` 거부 유지)·`recordsFormat`(`졸음 2회`, 순서)·`tokens`·`useStudyRoomSession.analytics`(`status: "SLEEP"`)·`RoomPage`(제출 `events[0].status === "SLEEP"`)·5키 `eventCounts` 픽스처 갱신.
-- BY-703: `visionFocusDetector.test.ts`(SLEEP_EYES emit, 4번째 프레임에서만 얼굴 `detect` 호출, person 없으면 미실행, 얼굴 load는 객체 ready 뒤, 얼굴 unavailable이면 SLEEP 없음·AWAY/PHONE 유지, `stop()` 기준선 리셋, `close()` 둘 다 닫음, 진단 payload에 좌표 키 없음, DEVICE 절대 내지 않음 유지) + 기준선 링버퍼(버퍼 미충족 → 거짓 / 90개 중 72개 이상 → 참 / 30초·2분 노출 후 소실 → 엎드림 없음 / 5분 노출 후 소실 → 25초 뒤 엎드림 / 래치 / `stop()` 후 비움). `diagnostics.test.ts` 얼굴 필드 평탄화.
+- BY-703: `visionFocusDetector.test.ts`(SLEEP_EYES emit, 4번째 프레임에서만 얼굴 `detect` 호출, person 없으면 미실행, 얼굴 load는 객체 ready 뒤, 얼굴 unavailable이면 SLEEP 없음·AWAY/PHONE 유지, `stop()` 관측 리셋, `close()` 둘 다 닫음, 진단 payload에 좌표 키 없음, DEVICE 절대 내지 않음 유지) (당시의 기준선 링버퍼 케이스들은 2026-09-20 규칙 삭제와 함께 지웠다). `diagnostics.test.ts` 얼굴 필드 평탄화.
 
 ```bash
 pnpm --filter web typecheck && pnpm --filter web lint
@@ -296,18 +286,18 @@ E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Ver
 
 ## 이 문서가 확정하지 않은 것
 
-| 항목                                                                                         | 처리                                                                             |
-| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `SLEEP_EYES`·`SLEEP_FACE` 유지시간, `eyeClosure`(피험자 1명 기준 0.45), `FACE_FRAME_DIVISOR` | BY-704 앱 안에서 재확정(피험자 추가)                                             |
-| 엎드림 규칙 유지 여부                                                                        | BY-708에서 기본 비활성화로 결정(아래 절). 재도입 조건은 머리 아비터(BY-705) 도입 |
-| 머리 아비터 도입                                                                             | BY-704 항목 10 통과 시 BY-705                                                    |
-| 화면 문구                                                                                    | 리더 확인                                                                        |
-| Swagger의 `SLEEP` 리터럴                                                                     | BY-706 등재 후 grep 대조                                                         |
-| 개인정보처리방침 문구                                                                        | 리더/법무 소유자                                                                 |
+| 항목                                                                                           | 처리                                                                         |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `SLEEP_EYES`·`SLEEP_DROWSY` 유지시간, `eyeClosure`(피험자 1명 기준 0.45), `FACE_FRAME_DIVISOR` | BY-704 앱 안에서 재확정(피험자 추가)                                         |
+| 엎드림 규칙 유지 여부                                                                          | 2026-09-20에 코드에서 지웠다(아래 절). 다시 넣으려면 머리 아비터(BY-705)부터 |
+| 머리 아비터 도입                                                                               | BY-704 항목 10 통과 시 BY-705                                                |
+| 화면 문구                                                                                      | 리더 확인                                                                    |
+| Swagger의 `SLEEP` 리터럴                                                                       | BY-706 등재 후 grep 대조                                                     |
+| 개인정보처리방침 문구                                                                          | 리더/법무 소유자                                                             |
 
-### BY-708: 엎드림 원신호를 기본값에서 끈다
+### 엎드림 규칙을 지운다 (2026-09-20)
 
-리허설에서 카메라를 낮게 두어 몸통만 찍은 세션이 기준선 3분을 채운 뒤 얼굴이 계속 안 보인다는 이유로 세션 끝까지 졸음으로 남았다. 지금 모델은 person 유무와 얼굴 유무만 보므로 책상에 엎드려 자는 사람과 카메라를 내려 몸통만 찍는 사람을 구분하지 못하고, 이 둘을 가르는 것이 원래 2단 머리 아비터(BY-705)의 몫이었다. 깨어 있는데 졸음으로 잡는 경우를 0으로 두려는 정밀도 우선 원칙(최우선 제약 2) 앞에서 이 구분 불가는 그대로 방치할 수 없는 결함이라, 엎드림 원신호(`SLEEP_FACE`)를 `visionConfig.ts`의 `FACE_LOST_ENABLED` 상수로 기본 비활성화했다. 책상에 엎드려 자는 시간을 놓치는 대가는 감수한 것이다. 코드는 지우지 않는다 — 얼굴 추론과 눈 감김 판정(`SLEEP_EYES`)은 그대로 돌고, 래치·기준선 계산은 `focusDetector.ts`의 `faceLostDetection` 옵션으로 다시 켤 수 있으며, 실기기 측정 도구는 꺼진 채로 계속 돌면서 얼굴 유무는 기록만 해 둔다(기준선 계산 자체가 돌지 않으므로 기준선 수치는 남지 않는다). 다시 켤 조건은 머리가 프레임 안에 있는지와 몸통만 찍혔는지를 구분할 수 있는 모델이 들어왔을 때다.
+리허설에서 카메라를 낮게 두어 몸통만 찍은 세션이 기준선 3분을 채운 뒤 얼굴이 계속 안 보인다는 이유로 세션 끝까지 졸음으로 남았다. 지금 모델은 person 유무와 얼굴 유무만 보므로 책상에 엎드려 자는 사람과 카메라를 내려 몸통만 찍는 사람을 구분하지 못했다. 깨어 있는데 졸음으로 잡는 경우를 0으로 두려는 정밀도 우선 원칙(최우선 제약 2) 앞에서 이 구분 불가는 그대로 둘 수 없는 결함이라, 처음에는 `SLEEP_FACE` 원신호를 상수로 껐다가 같은 날 코드에서 통째로 지웠다. 지운 것은 `SLEEP_FACE` 출처와 유지시간, `faceLost` 신호와 기준선(`faceStable`, 3분/80% 링버퍼, 래치), 머리 아비터 주입점(`headInFrame`), 측정 도구의 리허설 표시(`?rehearsal=1`)다. 얼굴 유무(`facePresent`)는 진단과 측정 패널이 보는 값이라 남겼다. 책상에 엎드려 자는 시간을 놓치는 대가는 감수한 것이고, 다시 넣으려면 머리가 프레임 안에 있는지와 몸통만 찍혔는지를 구분하는 모델(BY-705)이 먼저 있어야 한다. 지운 코드는 git 이력에 있다.
 
 ### BY-709: 눈 감김 판정을 강화한다
 
@@ -340,7 +330,7 @@ E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Ver
 | `EYE_CALIBRATION_SAMPLES`    | 15                 | 문헌 참고 + 판단. 문헌은 지시 후 5초, 우리는 지시하지 않으므로 30초                                                                                                 |
 | `EYE_CALIBRATION_PERCENTILE` | 0.4                | 판단. 문헌이 아니라 최솟값 설계와 짝이다. 창 사이 최솟값이 감김 오염을 거르므로 창 안에서까지 낮게 볼 이유가 없고, 낮으면 표본 셋짜리 잡음에 기준이 영구히 무너진다 |
 | `EYE_CALIBRATION_DELTA`      | 0.25               | 스파이크. 문헌의 75% 비율을 블렌드셰이프의 간격으로 옮긴 값. 스파이크 피험자에게 고정 임계 0.45가 그대로 나온다                                                     |
-| `EYE_THRESHOLD_MIN` / `MAX`  | 0.45 / 0.65        | 관례 + 판단. 하한이 고정 임계와 같아 보정은 임계를 올리기만 한다. 상한은 관례적 문턱 0.5 언저리                                                                     |
+| `EYE_THRESHOLD_MIN`          | 0.45               | 관례 + 판단. 하한이 고정 임계와 같아 보정은 임계를 올리기만 한다. 상한은 없다(아래 "상한을 두지 않는다" 절)                                                         |
 | `EYE_RATIO_WINDOW_SAMPLES`   | 22                 | 문헌은 1분. 실측 뒤 44초 = 얼굴 틱 2초 × 22                                                                                                                         |
 | `EYE_RATIO_THRESHOLD`        | 0.5                | 문헌 + 판단. 0.15는 피로이지 잠이 아니다. 0.7이 더 보수적인 대안                                                                                                    |
 | `SLEEP_DROWSY` 유지시간      | 진입 4초, 해제 2초 | 판단. 원신호가 이미 평활돼 있다. 해제는 다른 졸음 출처와 같다                                                                                                       |
@@ -351,17 +341,21 @@ E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Ver
 
 #### 보정은 세션 내내 계속 배운다
 
-보정을 지나가며 재는 방식에는 절벽이 하나 있다. 앉자마자 자는 사람은 첫 30초의 표본이 전부 감김이라, 그 값이 그대로 "이 사람의 뜬 눈" 기준이 된다. 감김 0.6이 기준으로 잡히면 임계가 0.65로 잠기고, **그 뒤로 이 사람의 감김은 세션이 끝날 때까지 한 번도 안 잡힌다.** 엎드림이 꺼진 지금 졸음을 잡는 수단은 눈뿐이므로 이것은 세션 하나를 통째로 잃는 것이고, 낮은 쪽 백분위로도 막히지 않는다 — 표본 전체가 오염됐을 때는 어느 분위수를 골라도 감김이다.
+보정을 지나가며 재는 방식에는 절벽이 하나 있다. 앉자마자 자는 사람은 첫 30초의 표본이 전부 감김이라, 그 값이 그대로 "이 사람의 뜬 눈" 기준이 된다. 감김 0.6이 기준으로 잡히면 임계가 0.85로 잠기고, **그 뒤로 이 사람의 감김은 세션이 끝날 때까지 한 번도 안 잡힌다.** 엎드림 규칙을 지운 지금 졸음을 잡는 수단은 눈뿐이므로 이것은 세션 하나를 통째로 잃는 것이고, 낮은 쪽 백분위로도 막히지 않는다 — 표본 전체가 오염됐을 때는 어느 분위수를 골라도 감김이다.
 
-**한 번 재고 잠그지 않는 것으로 푼다.** 창이 찰 때마다 표본을 비우고 다시 모아 기준값을 재고, 지금까지 본 것 중 가장 낮은 기준값이 살아남는다. 처음부터 자던 사람은 첫 창에서 기준이 높게 잡히지만 깨어난 뒤 다음 창에서 낮은 값이 나와 기준이 스스로 내려온다. 30초 안에 회복되고, 그동안에도 고정 임계로 돌아 판정이 멈추지 않는다.
+**한 번 재고 잠그지 않는 것으로 푼다.** 창이 찰 때마다 표본을 비우고 다시 모아 기준값을 재고, 지금까지 본 것 중 가장 낮은 기준값이 살아남는다. 처음부터 자던 사람은 첫 창에서 기준이 높게 잡히지만 깨어난 뒤 다음 창에서 낮은 값이 나와 기준이 스스로 내려온다. 30초 안에 회복된다.
 
-⚠️ **한때 "기준값이 고정 임계 이상이면 그 보정을 거부한다"로 갔다가 되돌렸다. 다시 시도하지 말 것.** 거부 기준이 고정 임계라는 것이 순환이었다. 눈이 작아 뜬 눈이 원래 0.45 이상인 사람은 보정이 **영영** 거부돼 고정 임계로 돌아가고, 뜨고 있어도 세션 내내 졸음으로 찍힌다. 뜬 눈 0.45·0.50·0.55에서 재현했다. 이 티켓이 고치겠다고 한 바로 그 사람이라, 거부는 절벽 하나를 막고 더 큰 절벽을 만든 셈이었다. 계속 배우는 방식은 그 사람을 거부하지 않고 자기 값으로 보정한다 — 뜬 눈이 0.5면 임계는 상한 0.65에 갇힌다.
+⚠️ **한때 "기준값이 고정 임계 이상이면 그 보정을 거부한다"로 갔다가 되돌렸다. 다시 시도하지 말 것.** 거부 기준이 고정 임계라는 것이 순환이었다. 눈이 작아 뜬 눈이 원래 0.45 이상인 사람은 보정이 **영영** 거부돼 고정 임계로 돌아가고, 뜨고 있어도 세션 내내 졸음으로 찍힌다. 뜬 눈 0.45·0.50·0.55에서 재현했다. 이 티켓이 고치겠다고 한 바로 그 사람이라, 거부는 절벽 하나를 막고 더 큰 절벽을 만든 셈이었다. 계속 배우는 방식은 그 사람을 거부하지 않고 자기 값으로 보정한다 — 뜬 눈이 0.5면 임계는 0.75다.
 
-#### 첫 창이 차기 전에는 상한을 쓴다
+#### 첫 창이 차기 전에는 판정을 쉰다
 
 하한이 고정 임계와 같아진 뒤로 고정 임계 0.45는 이 시스템이 낼 수 있는 **가장 공격적인** 값이다. 보정 전에 그 값을 쓰면 뜬 눈이 0.45~0.55인 사람이 3.5초에 원신호, 13.5초에 졸음 확정, 29.5초에 첫 보정 창이 차면서 해제 — **매 세션 시작 19초가 졸음으로 기록된다.** 아직 이 사람에 대해 아무것도 모르는 구간에서 가장 공격적으로 판정하는 셈이고, 비율 규칙이 "창이 안 차면 판정하지 않는다"를 지키는 것과도 어긋난다.
 
-그래서 첫 창이 차기 전에는 `EYE_THRESHOLD_MAX`를 임계로 쓴다. 완전히 끄는 것보다 낫다 — 0.65를 넘는 아주 분명한 감김은 첫 30초에도 잡히고, 뜬 눈이 0.65 이하인 사람은 오탐이 없다. 대가는 그 30초 동안 0.65 아래의 감김을 놓치는 것인데, 세션이 막 시작된 구간이라 방향이 맞다.
+처음에는 이 구간에 상한 0.65를 임계로 썼다. 그런데 뜬 눈이 0.65를 넘는 사람이 있으면 그 사람은 세션 시작 10초 만에 졸음으로 찍히고, 그런 사람이 없다는 근거는 피험자 둘뿐이었다. 그래서 첫 창이 차기 전에는 임계를 아예 두지 않고(`eyeClosureThreshold: null`) 규칙이 눈 판정을 쉰다. 비율 창도 이 동안은 쌓지 않는다. 대가는 세션 시작 30초 안에 잠드는 사람을 놓치는 것인데, 세션이 막 시작된 구간이라 방향이 맞다.
+
+#### 상한을 두지 않는다
+
+임계는 뜬 눈 기준값 + 0.25이고 하한만 있다. 처음에는 0.65 상한이 있었다. 감은 눈이 누구나 0.5~~0.7에서 멈춘다는 가정 위에서, 뜬 눈이 높은 사람의 감김이 임계 밑에 깔리지 않게 하려던 것이다. 그런데 뜬 눈이 0.5로 읽히는 사람이 감았을 때 0.8~~0.9까지 간다면 상한은 반대로 작용한다. 임계 0.65와 뜬 눈 0.5의 간격이 0.15뿐이라 흔들리는 순간 깨어 있는데 졸음으로 찍힌다. 상한이 없으면 감은 눈이 임계에 못 미치는 사람을 놓칠 수는 있어도 깨어 있는 사람을 졸음으로 잡는 쪽으로는 틀리지 않으므로, 상한을 지웠다. 뜬 눈이 높은 사람의 감은 눈이 실제로 얼마인지는 실기기 데이터로 확인한다.
 
 #### 하한을 고정 임계로 둔다
 
@@ -381,7 +375,7 @@ E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Ver
 
 아이폰 11, Safari, 시나리오 13개를 한 세션으로 돌렸다. 성능은 객체 추론 p95 153ms, 얼굴 추론 p95 24ms로 합이 500ms 기준에 한참 못 미쳤고 버린 틱은 0이었다. 판정에서는 넷이 보였다.
 
-- A1 눈 감김이 안 잡혔다. 준비 10초는 보정 첫 창(30초)이 차기 전이라 임계가 상한 0.65였고, 이 사람의 감은 눈 점수는 중앙값 0.52였다. 두 번째 창부터 임계가 0.45로 내려와 뒤 구간에서는 잡혔다. 측정 절차는 첫 감김 전에 보정이 끝나게 바꿨다.
+- A1 눈 감김이 안 잡혔다. 준비 10초는 보정 첫 창(30초)이 차기 전이라 당시 임계가 상한 0.65였고, 이 사람의 감은 눈 점수는 중앙값 0.52였다. 두 번째 창부터 임계가 0.45로 내려와 뒤 구간에서는 잡혔다. 측정 절차는 첫 감김 전에 보정이 끝나게 바꿨다.
 - 깨어난 뒤 졸음이 25초에서 63초까지 남았다. 연속 규칙은 7초 안에 풀렸지만 비율 창이 감긴 표본을 들고 있어 붙잡았다. 뜬 눈이 3표본(6초) 이어지면 창을 비우는 규칙을 넣었고, 창은 44초로 줄였다.
 - 연속 규칙의 해제도 3표본 중앙값 탓에 5초에서 7초가 걸려 체감이 늦었다. 다듬기 창을 둘로 줄여 뜬 표본 하나에 내려오게 하고, 해제 유지시간을 3초에서 2초로 줄였다. 진입은 감김 둘에 10초 유지라 그대로 보수적이다.
 - 고개를 뒤로 젖히면 얼굴은 64% 잡혔지만 눈 점수가 뜬 눈 수준(중앙값 0.12)이라 졸음이 서지 않았다. 눈 점수만으로는 못 잡는 자세라 기록만 남긴다. 안경 구간은 44초 내내 얼굴이 안 잡혀 각도 문제인지 안경 문제인지 다시 재야 한다.
@@ -390,4 +384,4 @@ E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Ver
 
 보정 표본과 기준값·임계는 일시정지를 넘어 유지되고 `close()`에서만 버린다. 그 사람의 눈이 원래 몇 점인지는 공백과 무관하고, 일시정지마다 다시 보정하면 재개 후 30초 동안 고정 임계로 돌아가 판정이 흔들린다. 비율 창은 반대로 `stop()`에서 비우고, 자리 이탈·얼굴 모델 사망·눈 판정이 평활 창만큼 연속으로 걸러진 경우에도 비운다. 지금 졸고 있는지를 재는 값이라 공백 앞뒤를 이으면 깨어난 사람이 옛 표본만으로 졸음으로 읽힌다.
 
-깨어남 증거 규칙의 부수 효과 하나. 보정 전 임계는 0.65라 그보다 낮은 감김은 뜬 눈으로 읽혀 창을 계속 비우므로, 비율 규칙은 첫 보정 창이 찬 뒤 다시 표본 22개가 쌓여야 설 수 있다. 세션 시작 뒤 약 74초다. 예전에는 첫 보정이 임계를 내리는 순간 옛 표본을 새 임계로 다시 채점했는데, 그쪽이 오탐 방향이라 이 지연을 받아들였다.
+비율 규칙이 처음 설 수 있는 시점. 보정 전에는 판정을 쉬고 비율 창도 쌓지 않으므로, 비율 규칙은 첫 보정 창이 찬 뒤 다시 표본 22개가 쌓여야 설 수 있다. 세션 시작 뒤 약 74초다. 예전에는 첫 보정이 임계를 정하는 순간 옛 표본을 새 임계로 한꺼번에 채점했는데, 그쪽이 오탐 방향이라 이 지연을 받아들였다.

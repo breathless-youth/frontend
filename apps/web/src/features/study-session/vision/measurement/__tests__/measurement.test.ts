@@ -9,10 +9,7 @@ import {
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
-  EYE_THRESHOLD_MAX,
   EYE_THRESHOLD_MIN,
-  FACE_BASELINE_MIN_RATIO,
-  FACE_BASELINE_SAMPLES,
   FACE_FRAME_DIVISOR,
   SLEEP_THRESHOLDS,
 } from "../../visionConfig";
@@ -40,8 +37,6 @@ function frame(overrides: Partial<FrameDiagnostics> = {}): FrameDiagnostics {
     durationMs: 100,
     delegate: "CPU",
     sleepEyesSignal: false,
-    sleepFaceSignal: false,
-    faceBaseline: true,
     face: null,
     ...overrides,
   };
@@ -193,19 +188,13 @@ describe("createMeasurement", () => {
     expect(seg?.face.skipped["no-face"]).toBe(1);
   });
 
-  it("졸음 원신호와 기준선 충족 프레임을 센다", () => {
+  it("졸음 원신호 프레임을 센다", () => {
     const m = createMeasurement(baseSpy());
-    m.frame(frame({ sleepEyesSignal: true, faceBaseline: true }));
-    m.frame(frame({ sleepFaceSignal: true, faceBaseline: false }));
+    m.frame(frame({ sleepEyesSignal: true }));
+    m.frame(frame({ sleepEyesSignal: false }));
 
-    const seg = (
-      JSON.parse(m.dump()) as {
-        segments: { sleepEyes: number; sleepFace: number; baseline: number }[];
-      }
-    ).segments[0];
+    const seg = (JSON.parse(m.dump()) as { segments: { sleepEyes: number }[] }).segments[0];
     expect(seg?.sleepEyes).toBe(1);
-    expect(seg?.sleepFace).toBe(1);
-    expect(seg?.baseline).toBe(1);
   });
 
   it("꾸벅거림 원신호 프레임도 구간에서 센다 — 전이는 트리거만 남겨 출처를 구분하지 못한다", () => {
@@ -219,33 +208,17 @@ describe("createMeasurement", () => {
   });
 
   it("설정 스냅샷을 같이 낸다 — 어느 조건에서 나온 숫자인지 덩어리 안에 있어야 한다", () => {
-    const dump = JSON.parse(createMeasurement(baseSpy(), { faceLostEnabled: true }).dump()) as {
+    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
       config: Record<string, number | boolean | null>;
     };
 
     expect(dump.config).toMatchObject({
       faceFrameDivisor: FACE_FRAME_DIVISOR,
       eyeClosure: SLEEP_THRESHOLDS.eyeClosure,
-      baselineSamples: FACE_BASELINE_SAMPLES,
-      baselineMinRatio: FACE_BASELINE_MIN_RATIO,
     });
     expect(dump.config.sleepEyesEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs);
     expect(dump.config.sleepDrowsyEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs);
     expect(dump.config.sleepDrowsyExitMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.exitMs);
-  });
-
-  it("엎드림 판정이 꺼져 있으면 기본 스냅샷에 표시되고 기준선 값은 의미가 없어 null이다", () => {
-    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
-      config: {
-        faceLostEnabled: boolean;
-        baselineSamples: number | null;
-        baselineMinRatio: number | null;
-      };
-    };
-
-    expect(dump.config.faceLostEnabled).toBe(false);
-    expect(dump.config.baselineSamples).toBeNull();
-    expect(dump.config.baselineMinRatio).toBeNull();
   });
 
   it("눈 보정과 비율 상수가 스냅샷에 실린다 — 임계가 사람마다 달라지므로 값이 덩어리 안에 있어야 한다", () => {
@@ -258,7 +231,6 @@ describe("createMeasurement", () => {
       eyeCalibrationPercentile: EYE_CALIBRATION_PERCENTILE,
       eyeCalibrationDelta: EYE_CALIBRATION_DELTA,
       eyeThresholdMin: EYE_THRESHOLD_MIN,
-      eyeThresholdMax: EYE_THRESHOLD_MAX,
       eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
       eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     });
@@ -518,7 +490,7 @@ describe("실시간 표시", () => {
     expect(m.live().closed).toBeNull();
   });
 
-  it("새 세션이 시작되면 앞 세션의 보정값을 버린다 — 새 감지기는 아직 상한으로 돈다", () => {
+  it("새 세션이 시작되면 앞 세션의 보정값을 버린다 — 새 감지기는 아직 판정을 쉰다", () => {
     let calibration: { windows: number; baseline: number; threshold: number } | null = {
       windows: 1,
       baseline: 0.1,
@@ -628,20 +600,6 @@ describe("구간 기록", () => {
 
     expect(base.transition).toHaveBeenCalledTimes(1);
     expect((JSON.parse(m.dump()) as { segments: unknown[] }).segments).toHaveLength(0);
-  });
-});
-
-describe("리허설 표시", () => {
-  it("리허설이면 덩어리에 플래그가 들어간다 — 본 측정 수치로 오인되면 안 된다", () => {
-    const m = createMeasurement(baseSpy(), { rehearsal: true });
-
-    expect((JSON.parse(m.dump()) as { rehearsal: boolean }).rehearsal).toBe(true);
-  });
-
-  it("기본은 리허설이 아니다", () => {
-    const m = createMeasurement(baseSpy());
-
-    expect((JSON.parse(m.dump()) as { rehearsal: boolean }).rehearsal).toBe(false);
   });
 });
 

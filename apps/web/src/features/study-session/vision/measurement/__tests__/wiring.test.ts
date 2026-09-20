@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { FrameDiagnostics, VisionDiagnostics } from "../../diagnostics";
-import { FACE_BASELINE_SAMPLES } from "../../visionConfig";
-import { rehearsalBaseline } from "../flags";
 import { createMeasurementTools } from "../wiring";
 
 /**
@@ -33,9 +31,7 @@ function frame(): FrameDiagnostics {
   };
 }
 
-function setup(
-  overrides: { panelEnabled?: boolean; enabled?: boolean; faceLostEnabled?: boolean } = {},
-) {
+function setup(overrides: { panelEnabled?: boolean; enabled?: boolean } = {}) {
   let nowMs = 0;
   const lines: string[] = [];
   const tools = createMeasurementTools({
@@ -43,9 +39,7 @@ function setup(
     log: (line) => lines.push(line),
     base,
     enabled: overrides.enabled ?? true,
-    rehearsal: false,
     panelEnabled: overrides.panelEnabled ?? true,
-    faceLostEnabled: overrides.faceLostEnabled ?? false,
   });
   return {
     tools,
@@ -193,28 +187,6 @@ describe("createMeasurementTools", () => {
     expect(dump.thermalRounds[0]?.seriousAtSec).toBe(180);
   });
 
-  it("리허설 덩어리의 기준선 설정이 실제로 적용된 값이다", () => {
-    let nowMs = 0;
-    const tools = createMeasurementTools({
-      now: () => nowMs,
-      log: () => {},
-      base,
-      enabled: true,
-      rehearsal: true,
-      panelEnabled: false,
-      faceLostEnabled: true,
-    });
-    nowMs += 1;
-
-    const dump = JSON.parse(tools.measurement.dump()) as {
-      rehearsal: boolean;
-      config: { baselineSamples: number };
-    };
-    expect(dump.rehearsal).toBe(true);
-    expect(dump.config.baselineSamples).toBe(rehearsalBaseline(true).samples);
-    expect(dump.config.baselineSamples).toBeLessThan(FACE_BASELINE_SAMPLES);
-  });
-
   it("패널이 꺼져 있어도 기록은 돈다", () => {
     const { tools, advance } = setup({ panelEnabled: false });
 
@@ -245,9 +217,7 @@ describe("createMeasurementTools", () => {
       log: () => {},
       base,
       enabled: true,
-      rehearsal: false,
       panelEnabled: false,
-      faceLostEnabled: false,
       eyeCalibration: () => calibration,
     });
 
@@ -260,25 +230,5 @@ describe("createMeasurementTools", () => {
       eyeCalibration: { threshold: number } | null;
     };
     expect(after.eyeCalibration?.threshold).toBe(0.45);
-  });
-
-  describe("엎드림 설정 배선", () => {
-    it("기본은 꺼짐이 설정 스냅샷까지 이어진다", () => {
-      const { tools } = setup();
-      tools.measurement.frame(frame());
-
-      const dump = JSON.parse(tools.measurement.dump()) as {
-        config: { faceLostEnabled: boolean; baselineSamples: number | null };
-      };
-      expect(dump.config.faceLostEnabled).toBe(false);
-      expect(dump.config.baselineSamples).toBeNull();
-    });
-
-    it("꺼짐이 패널의 점검 줄까지 이어진다", () => {
-      const { tools } = setup({ panelEnabled: true });
-      tools.measurement.frame(frame());
-
-      expect(document.querySelector("[data-measure-panel]")?.textContent).toContain("엎드림꺼짐");
-    });
   });
 });

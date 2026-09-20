@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FaceObservation, SleepFrame } from "../sleepRules";
-import { evaluateSleep, smoothedEyeClosure, smoothedFacePresent } from "../sleepRules";
+import { evaluateSleep, smoothedEyeClosure } from "../sleepRules";
 import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
@@ -30,10 +30,7 @@ const absent: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: 
 function frame(overrides: Partial<SleepFrame> = {}): SleepFrame {
   return {
     personPresent: true,
-    personScore: 0.9,
     faceSamples: [],
-    faceStable: true,
-    headInFrame: null,
     eyeClosureThreshold: SLEEP_THRESHOLDS.eyeClosure,
     eyeReadings: [],
     ...overrides,
@@ -72,24 +69,6 @@ describe("smoothedEyeClosure", () => {
       eyeSkipReason: null,
     };
     expect(smoothedEyeClosure([oneEye, oneEye])).toBeCloseTo(0.1);
-  });
-});
-
-describe("smoothedFacePresent", () => {
-  it("표본이 둘 미만이면 판정하지 않는다 — 눈 쪽과 같은 기준이다", () => {
-    expect(smoothedFacePresent([])).toBeNull();
-    expect(smoothedFacePresent([absent])).toBeNull();
-  });
-
-  it("최근 둘이 모두 보여야 있다고 본다", () => {
-    expect(smoothedFacePresent([seen(0.1), seen(0.1)])).toBe(true);
-    expect(smoothedFacePresent([absent, seen(0.1), seen(0.1)])).toBe(true);
-    expect(smoothedFacePresent([absent, seen(0.1), absent])).toBe(false);
-  });
-
-  it("동수면 없다고 본다 — 얼굴 소실은 긴 유지시간이 다시 거른다", () => {
-    expect(smoothedFacePresent([seen(0.1), absent])).toBe(false);
-    expect(smoothedFacePresent([absent, seen(0.1)])).toBe(false);
   });
 });
 
@@ -136,44 +115,14 @@ describe("evaluateSleep — 눈 감김", () => {
   it("눈 판정이 없으면 거짓이다 — 판정 없음이지 눈 뜸이 아니다", () => {
     expect(evaluateSleep(frame({ faceSamples: [gated, gated, gated] })).eyesClosed).toBe(false);
   });
-});
 
-describe("evaluateSleep — 엎드림", () => {
-  const lost = [absent, absent, absent];
-
-  it("사람이 있고 얼굴이 사라졌고 기준선을 채웠으면 참이다", () => {
-    expect(evaluateSleep(frame({ faceSamples: lost })).faceLost).toBe(true);
-  });
-
-  it("기준선을 못 채웠으면 거짓이다 — 몸만 찍는 배치를 막는다", () => {
-    expect(evaluateSleep(frame({ faceSamples: lost, faceStable: false })).faceLost).toBe(false);
-  });
-
-  it("사람 점수가 낮으면 거짓이다 — 어두워서 안 보이는 것과 구분한다", () => {
-    const dim = SLEEP_THRESHOLDS.faceLostPersonScore - 0.01;
-    expect(evaluateSleep(frame({ faceSamples: lost, personScore: dim })).faceLost).toBe(false);
-  });
-
-  it("머리가 화면 밖이라고 판정되면 거짓이다", () => {
-    expect(evaluateSleep(frame({ faceSamples: lost, headInFrame: false })).faceLost).toBe(false);
-  });
-
-  it("머리 판정이 없으면 막지 않는다 — 아비터는 후속이다", () => {
-    expect(evaluateSleep(frame({ faceSamples: lost, headInFrame: null })).faceLost).toBe(true);
-  });
-
-  it("얼굴이 다시 잡히면 거짓이다", () => {
-    expect(evaluateSleep(frame({ faceSamples: [absent, seen(0.2), seen(0.2)] })).faceLost).toBe(
-      false,
+  it("임계가 없으면 아무리 감겨도 거짓이다 — 보정 전에는 판정을 쉰다", () => {
+    const closed = seen(0.95);
+    const signals = evaluateSleep(
+      frame({ eyeClosureThreshold: null, faceSamples: [closed, closed, closed] }),
     );
-  });
-
-  it("사람이 없으면 거짓이다 — 자리 이탈이 가져간다", () => {
-    expect(evaluateSleep(frame({ personPresent: false, faceSamples: lost })).faceLost).toBe(false);
-  });
-
-  it("표본이 없으면 거짓이다 — 얼굴 추론이 아직 안 돌았다", () => {
-    expect(evaluateSleep(frame({ faceSamples: [] })).faceLost).toBe(false);
+    expect(signals.eyesClosed).toBe(false);
+    expect(signals.eyesDrowsy).toBe(false);
   });
 });
 
@@ -241,12 +190,8 @@ describe("evaluateSleep — 비율", () => {
 
 describe("evaluateSleep — 규칙 교체", () => {
   it("규칙을 갈아끼울 수 있다", () => {
-    const always = { evaluate: () => ({ eyesClosed: true, eyesDrowsy: true, faceLost: true }) };
-    expect(evaluateSleep(frame(), always)).toEqual({
-      eyesClosed: true,
-      eyesDrowsy: true,
-      faceLost: true,
-    });
+    const always = { evaluate: () => ({ eyesClosed: true, eyesDrowsy: true }) };
+    expect(evaluateSleep(frame(), always)).toEqual({ eyesClosed: true, eyesDrowsy: true });
   });
 });
 
@@ -262,8 +207,5 @@ describe("평활 창", () => {
     const old = Array.from({ length: 10 }, () => seen(0.95));
     const recent = [seen(0.1), seen(0.1), seen(0.1)];
     expect(smoothedEyeClosure([...old, ...recent])).toBeCloseTo(0.1);
-    expect(smoothedFacePresent([...Array.from({ length: 10 }, () => absent), ...recent])).toBe(
-      true,
-    );
   });
 });

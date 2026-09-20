@@ -3,8 +3,7 @@ import { visionDiagnostics } from "../diagnostics";
 import type { EyeOutline } from "../faceLandmarker";
 import { createEyeOverlay } from "./eyeOverlay";
 import type { EyeCalibration } from "../eyeCalibration";
-import { FACE_LOST_ENABLED } from "../visionConfig";
-import { measurementEnabled, measurementPanelEnabled, measurementRehearsal } from "./flags";
+import { measurementEnabled, measurementPanelEnabled } from "./flags";
 import type { Measurement } from "./measurement";
 import { createMeasurementTools } from "./wiring";
 
@@ -17,7 +16,6 @@ import { createMeasurementTools } from "./wiring";
 
 export { stateLabel } from "./measurement";
 export type { Measurement } from "./measurement";
-export { measurementBaseline } from "./flags";
 
 /**
  * 감지기가 자기 보정 결과를 읽는 길을 건네는 자리.
@@ -58,9 +56,7 @@ const tools = createMeasurementTools({
   },
   base: visionDiagnostics,
   enabled: measurementEnabled,
-  rehearsal: measurementRehearsal,
   panelEnabled: measurementPanelEnabled,
-  faceLostEnabled: FACE_LOST_ENABLED,
   eyeCalibration: () => eyeCalibrationSource?.() ?? null,
 });
 

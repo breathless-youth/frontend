@@ -199,8 +199,6 @@ describe("createVisionDiagnostics — 얼굴", () => {
     createVisionDiagnostics(sink).frame({
       ...BASE_FRAME,
       sleepEyesSignal: true,
-      sleepFaceSignal: false,
-      faceBaseline: true,
       face: {
         present: true,
         eye: { eyeBlinkLeft: 0.512_3, eyeBlinkRight: 0.487 },
@@ -213,8 +211,6 @@ describe("createVisionDiagnostics — 얼굴", () => {
     const payload = events[0]?.payload ?? {};
     expect(payload).toMatchObject({
       sleepEyes: true,
-      sleepFace: false,
-      faceBaseline: true,
       "face:present": true,
       "face:eyeBlinkLeft": 0.51,
       "face:durationMs": 51.23,

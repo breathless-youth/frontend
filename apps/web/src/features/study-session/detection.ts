@@ -22,14 +22,7 @@ export interface TriggerHoldParams {
  * 있어서 판정은 출처 단위로 하고 트리거 단위로 합친다. 유지시간 판정은 이 모듈 한 곳뿐이다.
  * 어댑터가 출처를 미리 합치거나 자체 디바운스를 두지 않는다.
  */
-export const DETECTION_SOURCES = [
-  "AWAY",
-  "PHONE",
-  "DEVICE",
-  "SLEEP_EYES",
-  "SLEEP_DROWSY",
-  "SLEEP_FACE",
-] as const;
+export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_DROWSY"] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
 /**
@@ -42,7 +35,6 @@ export const SOURCE_TRIGGER = {
   DEVICE: "DEVICE",
   SLEEP_EYES: "SLEEP",
   SLEEP_DROWSY: "SLEEP",
-  SLEEP_FACE: "SLEEP",
 } as const satisfies Record<DetectionSource, DistractionTrigger>;
 
 /** 출처별 유지시간. */
@@ -59,8 +51,8 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   /**
    * ⚠️ 잠정값이다. 2026-09-20 스파이크는 피험자가 한 명이라 앱 안 측정에서 다시 정한다.
    *
-   * 눈 감김과 엎드림을 한 유지시간으로 묶을 수 없어서 출처를 둘로 나눴다. 눈 감김은 감은
-   * 눈을 직접 보므로 10초면 되고, 엎드림은 얼굴이 안 보이는 이유가 여럿이라 25초를 본다.
+   * 눈 감김은 감은 눈을 직접 보므로 10초면 충분하다. 마이크로슬립 정의(1~15초)의 위쪽이고,
+   * 정상 깜빡임보다 한참 길다.
    * 해제 2초는 얼굴 틱 한 번 분량이다. 원신호가 이미 뜬 표본 하나로 내려오므로 여기서
    * 더 기다릴 이유가 없고, 2026-09-20 실측에서 3초는 체감으로 늦었다.
    */
@@ -71,7 +63,6 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
    * 두 번이면 새 비율이 반영되므로 4초를 본다. 해제는 다른 졸음 출처와 같다.
    */
   SLEEP_DROWSY: { enterMs: 4000, exitMs: 2000 },
-  SLEEP_FACE: { enterMs: 25_000, exitMs: 3000 },
 };
 
 /**

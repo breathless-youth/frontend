@@ -5,7 +5,6 @@ import { calibrateEye } from "../eyeCalibration";
 import {
   EYE_CALIBRATION_DELTA,
   EYE_CALIBRATION_SAMPLES,
-  EYE_THRESHOLD_MAX,
   EYE_THRESHOLD_MIN,
   SLEEP_THRESHOLDS,
 } from "../visionConfig";
@@ -60,8 +59,11 @@ describe("calibrateEye", () => {
     expect(calibrateEye(noisy, null)?.baseline).toBeCloseTo(0.55, 2);
   });
 
-  it("임계가 상한에 갇힌다", () => {
-    expect(window(null, 0.9)?.threshold).toBe(EYE_THRESHOLD_MAX);
+  it("뜬 눈 기준값이 높으면 임계가 그만큼 올라간다 — 상한이 없다", () => {
+    // 뜬 눈이 0.5인 사람은 감으면 0.8~0.9까지 갈 수 있다. 상한으로 자르면 뜬 눈과 임계의 간격이
+    // 얇아져 깨어 있는데 졸음으로 찍힌다. 높아서 틀리면 놓치는 쪽이라 그쪽을 택한다.
+    expect(window(null, 0.5)?.threshold).toBeCloseTo(0.5 + EYE_CALIBRATION_DELTA, 2);
+    expect(window(null, 0.9)?.threshold).toBeCloseTo(0.9 + EYE_CALIBRATION_DELTA, 2);
   });
 
   it("창마다 다시 재고 더 낮은 기준값이 나오면 내려간다 — 처음부터 자던 사람이 회복된다", () => {

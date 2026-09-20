@@ -11,12 +11,8 @@ import {
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
-  EYE_THRESHOLD_MAX,
   EYE_THRESHOLD_MIN,
-  FACE_BASELINE_MIN_RATIO,
-  FACE_BASELINE_SAMPLES,
   FACE_FRAME_DIVISOR,
-  FACE_LOST_ENABLED,
   FACE_SMOOTHING_SAMPLES,
   FRAME_INTERVAL_MS,
   SCORE_THRESHOLDS,
@@ -32,13 +28,11 @@ import {
  * ## 지울 때 되돌릴 것
  *
  * 1. `vision/measurement/` 폴더를 통째로 지운다. 계측·패널·발열 회차·이음새·플래그·테스트가
- *    전부 이 안에 있다(`?rehearsal=1`도 이 폴더 안에서만 읽는다).
+ *    전부 이 안에 있다.
  * 2. `vision/frameLoop.ts`의 `FrameLoopOptions.onDrop`과 `fire()`의 `onDrop?.()` 호출을 지운다.
  * 3. `vision/diagnostics.ts`의 `VisionDiagnostics.frameDropped`와 두 구현을 지운다.
- * 4. `adapters/focusDetector.ts`에서 이 폴더의 import를 지우고 셋을 되돌린다 — 기본 진단을
- *    `visionDiagnostics`로, `baseline` 기본값을 `{ samples: FACE_BASELINE_SAMPLES, minRatio:
- *    FACE_BASELINE_MIN_RATIO }`로(두 상수의 `../vision/visionConfig` import도 함께 되살린다),
- *    `createFrameLoop`의 `onDrop` 인자 삭제. `reportEyeCalibration` import와 감지기 안의
+ * 4. `adapters/focusDetector.ts`에서 이 폴더의 import를 지우고 둘을 되돌린다 — 기본 진단을
+ *    `visionDiagnostics`로, `createFrameLoop`의 `onDrop` 인자 삭제. `reportEyeCalibration` import와 감지기 안의
  *    호출 한 줄도 함께 지운다. 기본 얼굴 래퍼의 `onEyeOutline: measurementEyeOutline` 인자와
  *    `vision/faceLandmarker.ts`의 `onEyeOutline` 옵션·`EyeOutline`·`emitEyeOutline`,
  *    `visionConfig.ts`의 `EYE_OUTLINE_LANDMARKS`도 지운다.
@@ -56,8 +50,6 @@ import {
  *    "정상 속도면 알리지 않는다", "추론이 떠 있는 채로 stop 후 start해도 버린 틱으로 세지
  *    않는다"와 `vision/__tests__/diagnostics.test.ts`의 "버린 틱을 이벤트로 남긴다"를 지운다.
  * 11. `docs/runbooks/sleep-detection-measurement.md`를 지운다.
- *
- * URL 표시 `?rehearsal=1`은 이 폴더 안에서만 읽으므로 폴더와 함께 사라진다.
  */
 
 /**
@@ -97,8 +89,6 @@ interface Segment {
   skipped: Record<string, number>;
   sleepEyes: number;
   sleepDrowsy: number;
-  sleepFace: number;
-  baseline: number;
 }
 
 /** 사전 점검 한 줄에 들어가는 것. 16분을 잘못된 설정으로 날리지 않게 하는 것이 목적이다. */
@@ -111,8 +101,8 @@ export interface Preflight {
   /**
    * 눈 보정 창이 한 번이라도 찼는가. 다른 항목과 달리 세션이 30초쯤 돈 뒤에 바뀐다.
    *
-   * 점검 줄에 두는 이유는 엎드림 꺼짐과 같다 — 보정 전후로 임계가 달라지는데, 화면에 없으면
-   * 측정하는 사람이 같은 자세에서 판정이 바뀐 이유를 세션이 끝난 뒤에야 알게 된다.
+   * 점검 줄에 두는 이유는 보정 전에는 판정을 쉬기 때문이다. 화면에 없으면 측정하는 사람이
+   * 같은 자세에서 판정이 시작된 시점을 세션이 끝난 뒤에야 알게 된다.
    */
   readonly calibrated: boolean;
   /** 지금까지 찬 보정 창의 수. 보정이 계속 도는 것이라 한 번 켜지고 끝이 아니다. */
@@ -141,12 +131,6 @@ export interface MeasurementOptions {
   readonly now?: () => number;
   /** 분당 요약 한 줄을 받는 곳. 실제 경로는 배선이 콘솔을 주입한다. */
   readonly onLine?: (line: string) => void;
-  /** 리허설로 돈 세션인가. 덩어리를 받은 사람이 본 측정과 구분할 유일한 표시다. */
-  readonly rehearsal?: boolean;
-  /** 감지기에 실제로 들어간 엎드림 기준선. 설정 스냅샷이 이 값을 싣는다. */
-  readonly baseline?: { readonly samples: number; readonly minRatio: number };
-  /** 감지기에 실제로 들어간 엎드림 판정 여부. 기본값은 `visionConfig`의 상수다. */
-  readonly faceLostEnabled?: boolean;
   /**
    * 감지기의 눈 보정 결과를 읽는 길. 덩어리를 낼 때마다 다시 읽는다.
    *
@@ -281,8 +265,6 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     skipped: {},
     sleepEyes: 0,
     sleepDrowsy: 0,
-    sleepFace: 0,
-    baseline: 0,
   };
 }
 
@@ -338,36 +320,20 @@ function eyeClosureOf(diagnostics: FrameDiagnostics): number | null {
   return Math.min(left, right);
 }
 
-/**
- * 어느 조건에서 나온 숫자인지 덩어리 안에 있어야 한다. 밖에서 맞춰 보면 틀린다.
- *
- * 기준선은 상수가 아니라 **실제로 적용된 값**을 싣는다. 리허설은 창을 줄여 돌리므로, 상수를
- * 그대로 실으면 스냅샷이 그 세션에서 일어난 일을 설명하지 못한다.
- *
- * 엎드림 판정이 꺼져 있으면 기준선 창·비율은 어떤 계산에도 쓰이지 않는다. 그 상태로 상수를
- * 그대로 실으면 마치 기준선이 살아 도는 것처럼 읽혀서, `faceLostEnabled`가 false일 때는
- * `baselineSamples`·`baselineMinRatio`를 null로 비운다.
- */
-function configSnapshot(baseline: { samples: number; minRatio: number }, faceLostEnabled: boolean) {
+/** 어느 조건에서 나온 숫자인지 덩어리 안에 있어야 한다. 밖에서 맞춰 보면 틀린다. */
+function configSnapshot() {
   return {
     frameIntervalMs: FRAME_INTERVAL_MS,
     faceFrameDivisor: FACE_FRAME_DIVISOR,
     faceSmoothingSamples: FACE_SMOOTHING_SAMPLES,
     eyeClosure: SLEEP_THRESHOLDS.eyeClosure,
-    faceLostEnabled,
-    faceLostPersonScore: SLEEP_THRESHOLDS.faceLostPersonScore,
     personScore: SCORE_THRESHOLDS.person,
-    baselineSamples: faceLostEnabled ? baseline.samples : null,
-    baselineMinRatio: faceLostEnabled ? baseline.minRatio : null,
     sleepEyesEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs,
     sleepEyesExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.exitMs,
-    sleepFaceEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_FACE.enterMs,
-    sleepFaceExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_FACE.exitMs,
     eyeCalibrationSamples: EYE_CALIBRATION_SAMPLES,
     eyeCalibrationPercentile: EYE_CALIBRATION_PERCENTILE,
     eyeCalibrationDelta: EYE_CALIBRATION_DELTA,
     eyeThresholdMin: EYE_THRESHOLD_MIN,
-    eyeThresholdMax: EYE_THRESHOLD_MAX,
     eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
     eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     eyeAwakeClearSamples: EYE_AWAKE_CLEAR_SAMPLES,
@@ -405,8 +371,6 @@ function summarize(segment: Segment) {
     },
     sleepEyes: segment.sleepEyes,
     sleepDrowsy: segment.sleepDrowsy,
-    sleepFace: segment.sleepFace,
-    baseline: segment.baseline,
   };
 }
 
@@ -424,12 +388,6 @@ function record(segment: Segment, diagnostics: FrameDiagnostics): void {
   // 전이 목록은 트리거(`SLEEP`)만 남기므로 어느 출처가 세웠는지는 여기서만 갈린다.
   if (diagnostics.sleepDrowsySignal === true) {
     segment.sleepDrowsy += 1;
-  }
-  if (diagnostics.sleepFaceSignal === true) {
-    segment.sleepFace += 1;
-  }
-  if (diagnostics.faceBaseline === true) {
-    segment.baseline += 1;
   }
   const face = diagnostics.face;
   if (face === undefined || face === null) {
@@ -474,7 +432,6 @@ function summaryLine(minute: number, segment: Segment): string {
     `person=${numberOrDash(mean(segment.personScore, 3))}`,
     `sleepEyes=${segment.sleepEyes}`,
     `sleepDrowsy=${segment.sleepDrowsy}`,
-    `sleepFace=${segment.sleepFace}`,
   ].join(" ");
 }
 
@@ -490,9 +447,6 @@ export function createMeasurement(
     enabled = true,
     now = () => Date.now(),
     onLine = () => {},
-    rehearsal = false,
-    baseline = { samples: FACE_BASELINE_SAMPLES, minRatio: FACE_BASELINE_MIN_RATIO },
-    faceLostEnabled = FACE_LOST_ENABLED,
     eyeCalibration,
     onSessionSignal,
   } = options;
@@ -790,9 +744,8 @@ export function createMeasurement(
 
     dump() {
       return JSON.stringify({
-        rehearsal,
         preflight: currentPreflight(),
-        config: configSnapshot(baseline, faceLostEnabled),
+        config: configSnapshot(),
         // 눈 점수 분포는 이 사람의 임계와 나란히 놓아야 읽힌다. 같은 0.5가 누구에게는 감김이고
         // 누구에게는 뜬 눈이다. 세션이 닫힌 뒤 복사해도 남게 마지막 값을 쓴다.
         eyeCalibration: currentCalibration(),

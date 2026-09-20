@@ -2,7 +2,6 @@ import {
   EYE_CALIBRATION_DELTA,
   EYE_CALIBRATION_PERCENTILE,
   EYE_CALIBRATION_SAMPLES,
-  EYE_THRESHOLD_MAX,
   EYE_THRESHOLD_MIN,
 } from "./visionConfig";
 
@@ -73,9 +72,8 @@ export function calibrateEye(
   const sorted = [...readings.slice(0, EYE_CALIBRATION_SAMPLES)].sort((a, b) => a - b);
   const measured = baselineOf(sorted);
   const baseline = previous === null ? measured : Math.min(previous.baseline, measured);
-  const threshold = Math.min(
-    EYE_THRESHOLD_MAX,
-    Math.max(EYE_THRESHOLD_MIN, baseline + EYE_CALIBRATION_DELTA),
-  );
+  // 하한만 있고 상한은 없다. 임계가 높아서 틀리면 놓치는 쪽이고, 낮아서 틀리면 깨어 있는 사람을
+  // 졸음으로 잡는 쪽이다. 근거는 `visionConfig.ts`의 `EYE_THRESHOLD_MIN`.
+  const threshold = Math.max(EYE_THRESHOLD_MIN, baseline + EYE_CALIBRATION_DELTA);
   return { windows: (previous?.windows ?? 0) + 1, baseline, threshold };
 }

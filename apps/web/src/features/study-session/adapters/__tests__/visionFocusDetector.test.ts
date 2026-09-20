@@ -116,22 +116,31 @@ function seen(closure: number): FaceObservation {
   };
 }
 
-const absent: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
-
 /**
  * 꾸벅거리는 얼굴 관측 — 감김 셋에 뜸 둘, 즉 60%가 감김이다.
  *
  * 두 창을 동시에 만족해야 한다. 비율 창(임계 0.5)은 넘겨야 하고, 보정 창은 뜬 눈을 기준값으로
  * 골라야 한다. 보정이 15표본 중 여섯째로 낮은 값을 쓰므로 뜸이 40% 이상이어야 기준이 뜬 눈으로
- * 잡힌다. 감김만 내리 먹이면 보정이 그 값을 이 사람의 뜬 눈으로 배워 임계가 상한까지 올라가고,
+ * 잡힌다. 감김만 내리 먹이면 보정이 그 값을 이 사람의 뜬 눈으로 배워 임계가 그 위로 올라가고,
  * 그 뒤로는 같은 0.6이 감김으로 안 세어진다.
  */
 /**
- * 꾸벅거림 픽스처의 길이. 첫 보정 창(15표본)이 차기 전에는 임계가 상한 0.65라 0.6도 뜬 눈으로
- * 읽히고, 뜬 눈이 셋 이어지면 비율 창이 비워진다. 그래서 보정이 끝난 뒤에 비율 창 22개가 새로
- * 차야 판정이 서고, 픽스처는 둘을 더한 것보다 길어야 한다.
+ * 꾸벅거림 픽스처의 길이. 첫 보정 창(15표본)이 차기 전에는 눈 판정을 쉬고 비율 창도 쌓지
+ * 않는다. 그래서 보정이 끝난 뒤에 비율 창 22개가 새로 차야 판정이 서고, 픽스처는 둘을 더한
+ * 것보다 길어야 한다.
  */
 const NODDING_LENGTH = EYE_CALIBRATION_SAMPLES + EYE_RATIO_WINDOW_SAMPLES + 4;
+
+/**
+ * 보정이 끝난 뒤의 관측. 첫 창(15표본)이 차기 전에는 눈 판정을 쉬므로, 눈 감김을 재는 케이스는
+ * 뜬 눈 15표본을 앞에 붙여 임계 0.45를 먼저 만든다.
+ */
+function afterCalibration(faces: readonly (FaceObservation | null)[]): (FaceObservation | null)[] {
+  return [...Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => seen(0.1)), ...faces];
+}
+
+/** 보정 창 하나를 채우는 데 드는 시간. */
+const CALIBRATION_MS = FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * EYE_CALIBRATION_SAMPLES;
 
 function drowsyPattern(length: number): FaceObservation[] {
   const pattern: FaceObservation[] = [];
@@ -218,7 +227,7 @@ describe("createVisionFocusDetector", () => {
     expect(signals.some((signal) => signal.source === "DEVICE")).toBe(false);
     expect(
       signals.every((signal) =>
-        ["AWAY", "PHONE", "SLEEP_EYES", "SLEEP_DROWSY", "SLEEP_FACE"].includes(signal.source),
+        ["AWAY", "PHONE", "SLEEP_EYES", "SLEEP_DROWSY"].includes(signal.source),
       ),
     ).toBe(true);
   });
@@ -625,7 +634,7 @@ describe("얼굴 틱", () => {
 describe("졸음 원신호", () => {
   it("눈을 감으면 SLEEP_EYES를 올린다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.9)] });
+    const { landmarker } = fakeFaceLandmarker({ faces: afterCalibration([seen(0.9)]) });
     const { signals, listener } = collect();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
@@ -636,8 +645,8 @@ describe("졸음 원신호", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    // 평활에 관측 둘이 필요하다 — 얼굴 틱 두 번이 돌 만큼 돌린다.
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 12);
+    // 보정이 끝난 뒤 평활에 관측 둘이 필요하다 — 얼굴 틱 두 번이 돌 만큼 더 돌린다.
+    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * 12);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
@@ -664,7 +673,7 @@ describe("졸음 원신호", () => {
   it("뜬 표본 하나에 SLEEP_EYES가 내려간다 — 해제는 중앙값을 두 번 기다리지 않는다", async () => {
     const closed = Array.from({ length: 8 }, () => seen(0.9));
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [...closed, seen(0.1)] });
+    const { landmarker } = fakeFaceLandmarker({ faces: afterCalibration([...closed, seen(0.1)]) });
     const { signals, listener } = collect();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
@@ -675,7 +684,9 @@ describe("졸음 원신호", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length);
+    await vi.advanceTimersByTimeAsync(
+      CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length,
+    );
     expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
     signals.length = 0;
 
@@ -687,7 +698,7 @@ describe("졸음 원신호", () => {
 
   it("같은 값이면 다시 내보내지 않는다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.9)] });
+    const { landmarker } = fakeFaceLandmarker({ faces: afterCalibration([seen(0.9)]) });
     const { signals, listener } = collect();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
@@ -698,7 +709,7 @@ describe("졸음 원신호", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 20);
+    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * 20);
 
     // 첫 publish의 false 하나와 켜질 때의 true 하나. 매 프레임 재전송하지 않는다.
     expect(signals.filter((s) => s.source === "SLEEP_EYES")).toHaveLength(2);
@@ -712,7 +723,7 @@ describe("졸음 원신호", () => {
       video: () => fakeVideo(),
       detector,
       faceLandmarker: landmarker,
-      sleepRule: { evaluate: () => ({ eyesClosed: true, eyesDrowsy: false, faceLost: false }) },
+      sleepRule: { evaluate: () => ({ eyesClosed: true, eyesDrowsy: false }) },
     });
     vision.subscribe(listener);
 
@@ -749,29 +760,9 @@ describe("졸음 원신호", () => {
 });
 
 describe("눈 보정", () => {
-  it("보정이 끝나기 전에는 상한을 쓴다 — 분명한 감김만 잡고 애매한 것은 넘긴다", async () => {
-    // 보정 표본이 덜 찬 상태에서 0.7이 온다. 상한 0.65를 넘으므로 첫 창 전에도 잡아야 한다.
-    const faces = [...Array.from({ length: 5 }, () => seen(0.2)), seen(0.7), seen(0.7), seen(0.7)];
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * faces.length + FRAME_INTERVAL_MS);
-
-    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
-  });
-
-  it("보정 전에는 상한 아래의 감김을 넘긴다 — 아무것도 모르는 구간에서 공격적으로 판정하지 않는다", async () => {
-    // 뜬 눈이 0.5인 사람이다. 고정 임계 0.45로 보면 세션 시작부터 졸음으로 찍힌다.
-    const faces = Array.from({ length: EYE_CALIBRATION_SAMPLES - 1 }, () => seen(0.5));
+  it("보정 전에는 아무리 감아도 졸음이 없다 — 이 사람의 뜬 눈을 모르는 동안은 판정을 쉰다", async () => {
+    // 첫 창(15표본)이 차기 전에 0.95가 이어진다. 뜬 눈이 원래 높은 사람일 수 있으므로 판정하지 않는다.
+    const faces = Array.from({ length: EYE_CALIBRATION_SAMPLES - 1 }, () => seen(0.95));
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces });
     const { signals, listener } = collect();
@@ -788,6 +779,29 @@ describe("눈 보정", () => {
 
     expect(vision.eyeCalibration).toBeNull();
     expect(signals.filter((s) => s.source === "SLEEP_EYES" && s.active)).toHaveLength(0);
+    expect(signals.filter((s) => s.source === "SLEEP_DROWSY" && s.active)).toHaveLength(0);
+  });
+
+  it("보정이 끝난 다음 틱부터 판정한다 — 뜬 눈을 배운 뒤의 감김은 잡힌다", async () => {
+    const calibrate = Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => seen(0.2));
+    const closed = Array.from({ length: 8 }, () => seen(0.9));
+    const faces = [...calibrate, ...closed];
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    vision.subscribe(listener);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * faces.length);
+
+    expect(vision.eyeCalibration?.threshold).toBeCloseTo(0.45, 2);
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
   });
 
   it("눈이 작은 사람은 보정 뒤 임계가 올라가 뜬 눈이 감김으로 읽히지 않는다", async () => {
@@ -958,7 +972,8 @@ describe("눈 보정", () => {
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * faces.length);
 
-    expect(vision.eyeCalibration?.threshold).toBeCloseTo(0.65, 2);
+    // 뜬 눈 0.5에 간격 0.25다. 상한이 없으므로 그대로 0.75가 임계다.
+    expect(vision.eyeCalibration?.threshold).toBeCloseTo(0.75, 2);
     // 마지막 신호만 보면 보정 전 구간의 오탐이 가려진다. 첫 프레임부터 한 번도 서면 안 된다.
     expect(signals.filter((s) => s.source === "SLEEP_EYES" && s.active)).toHaveLength(0);
     expect(signals.filter((s) => s.source === "SLEEP_DROWSY" && s.active)).toHaveLength(0);
@@ -1201,253 +1216,29 @@ describe("꾸벅거림 출처", () => {
   });
 });
 
-describe("엎드림 기준선", () => {
-  /**
-   * 기준선 표본 수를 줄여 테스트가 3분을 돌지 않게 한다.
-   *
-   * 여유가 0인 값이다 — 얼굴 없음 관측 하나가 들어오면 비율이 곧바로 기준 아래로 떨어진다.
-   * 그래서 이 픽스처는 "기준선을 이번 틱의 관측을 쌓기 전에 잰다"는 순서를 고정한다. 쌓고
-   * 재는 순서로 되돌리면 엎드림이 영영 켜지지 않아 아래 케이스들이 깨진다.
-   *
-   * 이어지는 얼굴 시퀀스도 같은 이유로 길이가 정해져 있다. 앞의 `seen` 넷이 창을 가득 채우고,
-   * 뒤의 `absent`가 평활 창(`FACE_SMOOTHING_SAMPLES`)을 뒤집을 만큼 이어진다. 두 상수 중
-   * 하나라도 건드리면 이 숫자들을 다시 맞춰야 한다.
-   */
-  const SMALL_BASELINE = { samples: 4, minRatio: 0.75 } as const;
-
-  it("기준선을 못 채우면 엎드림을 올리지 않는다 — 몸만 찍는 배치를 막는다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [absent] });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-
-    expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-  });
-
-  it("얼굴이 충분히 보인 뒤 사라지면 엎드림을 올린다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent, absent, absent],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-
-    expect(signals).toContainEqual({ source: "SLEEP_FACE", active: true });
-  });
-
-  it("한 번 켜지면 기준선이 떨어져도 유지한다 — 오래 자면 비율이 저절로 내려간다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    // 창이 전부 "얼굴 없음"으로 채워지고도 남을 만큼 돌린다.
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 80);
-
-    const sleepFace = signals.filter((s) => s.source === "SLEEP_FACE");
-    expect(sleepFace.at(-1)).toEqual({ source: "SLEEP_FACE", active: true });
-  });
-
-  it("얼굴이 돌아오면 내린다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        absent,
-        absent,
-        absent,
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-      ],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 60);
-
-    const sleepFace = signals.filter((s) => s.source === "SLEEP_FACE");
-    expect(sleepFace).toContainEqual({ source: "SLEEP_FACE", active: true });
-    expect(sleepFace.at(-1)).toEqual({ source: "SLEEP_FACE", active: false });
-  });
-
-  it("래치가 걸린 채 일시정지하면 재개할 때 풀린다 — 카메라 앞을 떠난 사이에 깬 것일 수 있다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-    expect(signals).toContainEqual({ source: "SLEEP_FACE", active: true });
-
-    vision.stop();
-    signals.length = 0;
-    vision.start();
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-
-    // 재개 직후 첫 publish가 false여야 한다. 래치가 살아남으면 여기서 true가 그대로 나온다.
-    expect(signals).toContainEqual({ source: "SLEEP_FACE", active: false });
-    expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-  });
-
-  it("일시정지하면 기준선을 비운다 — 카메라를 옮겼을 수 있다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 16);
-    vision.stop();
-    signals.length = 0;
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 16);
-
-    // 재개 후에는 얼굴 없음만 들어오므로 기준선을 다시 채우지 못한다.
-    expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-  });
-
-  describe("기본값(꺼짐)", () => {
-    it("옵션을 안 주면 얼굴이 충분히 보인 뒤 사라져도 엎드림을 올리지 않는다", async () => {
-      const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-      const { landmarker } = fakeFaceLandmarker({
-        faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent, absent, absent],
-      });
-      const { signals, listener } = collect();
-      const vision = createVisionFocusDetector({
-        video: () => fakeVideo(),
-        detector,
-        faceLandmarker: landmarker,
-        baseline: SMALL_BASELINE,
-      });
-      vision.subscribe(listener);
-
-      vision.start();
-      await vi.advanceTimersByTimeAsync(0);
-      await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-
-      expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-    });
-
-    it("faceLostDetection을 false로 명시해도 얼굴이 사라져도 엎드림을 올리지 않는다", async () => {
-      const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-      const { landmarker } = fakeFaceLandmarker({
-        faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent, absent, absent],
-      });
-      const { signals, listener } = collect();
-      const vision = createVisionFocusDetector({
-        video: () => fakeVideo(),
-        detector,
-        faceLandmarker: landmarker,
-        baseline: SMALL_BASELINE,
-        faceLostDetection: false,
-      });
-      vision.subscribe(listener);
-
-      vision.start();
-      await vi.advanceTimersByTimeAsync(0);
-      await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 40);
-
-      expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-    });
-  });
-});
-
 describe("얼굴 모델이 도중에 죽을 때", () => {
-  /** 위 기준선 케이스와 같은 이유로 여유가 0인 값이다. */
-  const SMALL_BASELINE = { samples: 4, minRatio: 0.75 } as const;
-
   it("래퍼가 감지 불가로 내려가면 졸음을 풀고 상태를 내린다 — 얼어붙은 관측이 판정을 고정하지 않는다", async () => {
+    const calibrate = Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => seen(0.1));
+    const closed = Array.from({ length: 6 }, () => seen(0.9));
+    const faces = [...calibrate, ...closed];
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: [seen(0.1), seen(0.1), seen(0.1), seen(0.1), absent, absent],
-      diesAfterDetects: 6,
-    });
+    const { landmarker } = fakeFaceLandmarker({ faces, diesAfterDetects: faces.length });
     const { signals, listener } = collect();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
       detector,
       faceLandmarker: landmarker,
-      baseline: SMALL_BASELINE,
-      faceLostDetection: true,
     });
     vision.subscribe(listener);
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 60);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * (faces.length + 10));
 
-    const sleepFace = signals.filter((s) => s.source === "SLEEP_FACE");
+    const sleepEyes = signals.filter((s) => s.source === "SLEEP_EYES");
     // 죽기 전에 한 번 켜졌고, 죽은 뒤에는 그 값에 고정되지 않고 풀린다.
-    expect(sleepFace).toContainEqual({ source: "SLEEP_FACE", active: true });
-    expect(sleepFace.at(-1)).toEqual({ source: "SLEEP_FACE", active: false });
+    expect(sleepEyes).toContainEqual({ source: "SLEEP_EYES", active: true });
+    expect(sleepEyes.at(-1)).toEqual({ source: "SLEEP_EYES", active: false });
     expect(vision.faceStatus).toBe("unavailable");
   });
 
@@ -1469,91 +1260,5 @@ describe("얼굴 모델이 도중에 죽을 때", () => {
 
     // 산 관측 둘과 감지 불가를 드러낸 호출 하나. 그 뒤로는 게이트가 닫혀 더 부르지 않는다.
     expect(faceDetect).toHaveBeenCalledTimes(3);
-  });
-});
-
-describe("추론이 실패하는 동안", () => {
-  /**
-   * 기준선 창을 평활 창보다 넉넉히 잡는다.
-   *
-   * 최근 관측 셋이 얼굴 없음으로 기울어도 여덟 칸짜리 창은 기준을 유지하므로, 관측이 끊긴
-   * 사이에도 규칙이 엎드림을 참으로 계산하는 상태가 만들어진다. 래치 가드가 없으면 바로 그때
-   * 새 근거 없이 엎드림이 걸린다.
-   */
-  const WIDE_BASELINE = { samples: 8, minRatio: 0.5 } as const;
-
-  it("관측이 끊긴 동안에는 엎드림이 새로 걸리지 않는다 — 실제로 본 것이 없다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      // 마지막 null이 반복되어, 래퍼는 살아 있는데 추론만 계속 실패하는 상태가 이어진다.
-      faces: [
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        seen(0.1),
-        absent,
-        absent,
-        null,
-      ],
-    });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      baseline: WIDE_BASELINE,
-      faceLostDetection: true,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 80);
-
-    expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
-  });
-});
-
-describe("엎드림 판정 끄기", () => {
-  it("얼굴 추론 자체는 꺼지지 않는다 — 눈 감김 판정에 쓴다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.9)] });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      faceLostDetection: false,
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 12);
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
-  });
-
-  it("커스텀 규칙이 엎드림을 참으로 줘도 꺼져 있으면 SLEEP_FACE는 false로 막는다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.1)] });
-    const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      faceLostDetection: false,
-      sleepRule: { evaluate: () => ({ eyesClosed: false, eyesDrowsy: false, faceLost: true }) },
-    });
-    vision.subscribe(listener);
-
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 12);
-
-    expect(signals.filter((s) => s.source === "SLEEP_FACE" && s.active)).toHaveLength(0);
   });
 });
