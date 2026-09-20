@@ -10,7 +10,7 @@ import type { StudyEventStatus } from "@focusmakers/types";
  */
 
 /** 자동 감지되는 비집중 트리거. `StudyEventStatus`의 부분집합이라 그대로 서버 status로 쓴다. */
-export type DistractionTrigger = "AWAY" | "PHONE" | "DEVICE";
+export type DistractionTrigger = "AWAY" | "PHONE" | "DEVICE" | "SLEEP";
 
 /**
  * 일시정지 트리거. 서버에는 둘 다 `PAUSE` 하나로 전송한다 —

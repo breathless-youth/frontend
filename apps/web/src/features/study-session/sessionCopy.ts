@@ -33,11 +33,16 @@ export const PAUSE_CAPTION = "일시정지 중에는 시간이 흐르지 않아�
 
 const FOCUS_COPY: SessionStatusCopy = { label: "순공시간 측정 중" };
 
-/** voice-tone.md §3 상태 문구 — Figma에는 '휴대폰 사용' 인스턴스만 그려져 있으나 3종 모두 구현한다. */
+/** voice-tone.md §3 상태 문구 — Figma에는 '휴대폰 사용' 인스턴스만 그려져 있으나 휴식 4종 모두 구현한다. */
 const DISTRACTION_COPY = {
   AWAY: { label: "자리를 비운 것 같아요", subLabel: "돌아오면 자동으로 다시 측정돼요" },
   PHONE: { label: "휴대폰을 사용 중인 것 같아요", subLabel: "내려놓으면 자동으로 다시 측정돼요" },
   DEVICE: { label: "기기를 조작 중인 것 같아요", subLabel: "제자리에 두면 자동으로 다시 측정돼요" },
+  /**
+   * ⚠️ 리더 확인 대기. voice-tone에 없는 신규 문구다. 눈 감김과 엎드림 두 경우를 한 문구로
+   * 덮는다 — 사용자에게 어느 쪽으로 잡혔는지는 알리지 않는다. 추정형 어미를 유지한다.
+   */
+  SLEEP: { label: "졸고 있는 것 같아요", subLabel: "깨어나면 자동으로 다시 측정돼요" },
 } as const satisfies Record<DistractionTrigger, SessionStatusCopy>;
 
 /**

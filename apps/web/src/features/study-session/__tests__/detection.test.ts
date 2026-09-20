@@ -97,8 +97,8 @@ describe("stepDetection — 동시 다중 감지", () => {
 });
 
 describe("stepDetection — 트리거 우선순위 (2026-07-26 확정)", () => {
-  it("AWAY > DEVICE > PHONE 순으로 대표를 고른다", () => {
-    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "PHONE"]);
+  it("AWAY > DEVICE > SLEEP > PHONE 순으로 대표를 고른다", () => {
+    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE"]);
   });
 
   /**
@@ -135,5 +135,110 @@ describe("출처 계층 불변식", () => {
   it("모든 트리거는 출처를 하나 이상 가진다", () => {
     const triggersWithSource = new Set(Object.values(SOURCE_TRIGGER));
     expect(triggersWithSource).toEqual(new Set(TRIGGER_PRIORITY));
+  });
+});
+
+describe("stepDetection — 졸음", () => {
+  it("눈 감김은 10초 유지되어야 잡힌다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ SLEEP_EYES: true }), T0);
+    state = step(state, signals({ SLEEP_EYES: true }), T0 + 9_999);
+    expect(state.active).toBeNull();
+
+    state = step(state, signals({ SLEEP_EYES: true }), T0 + 10_000);
+    expect(state.active).toBe("SLEEP");
+  });
+
+  it("엎드림은 25초 유지되어야 잡힌다 — 눈 감김보다 오래 본다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ SLEEP_FACE: true }), T0);
+    state = step(state, signals({ SLEEP_FACE: true }), T0 + 24_999);
+    expect(state.active).toBeNull();
+
+    state = step(state, signals({ SLEEP_FACE: true }), T0 + 25_000);
+    expect(state.active).toBe("SLEEP");
+  });
+
+  it("두 출처가 각각 확정돼도 대표 트리거는 SLEEP 하나다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 25_000);
+
+    expect(state.active).toBe("SLEEP");
+    expect(state.confirmed.SLEEP_EYES).toBe(true);
+    expect(state.confirmed.SLEEP_FACE).toBe(true);
+  });
+
+  it("한 출처만 풀려도 나머지가 살아 있으면 졸음을 유지한다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 25_000);
+
+    // 눈만 뜨고 엎드린 자세는 그대로다.
+    const faceOnly = signals({ SLEEP_FACE: true });
+    state = step(state, faceOnly, T0 + 25_000);
+    state = step(state, faceOnly, T0 + 30_000);
+
+    expect(state.active).toBe("SLEEP");
+  });
+
+  it("두 출처가 모두 풀리면 집중으로 돌아온다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ SLEEP_EYES: true, SLEEP_FACE: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 25_000);
+    expect(state.active).toBe("SLEEP");
+
+    const none = signals({});
+    state = step(state, none, T0 + 25_000);
+
+    // 해제 3초 직전에는 아직 졸음이다.
+    state = step(state, none, T0 + 27_999);
+    expect(state.active).toBe("SLEEP");
+
+    state = step(state, none, T0 + 28_000);
+    expect(state.active).toBeNull();
+  });
+});
+
+describe("stepDetection — 졸음과 다른 트리거", () => {
+  it("기기 조작이 졸음보다 앞선다 — 흔들리는 동안은 카메라 판정을 믿기 어렵다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ DEVICE: true, SLEEP_EYES: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 10_000);
+
+    expect(state.active).toBe("DEVICE");
+  });
+
+  it("휴대폰이 먼저 확정되면 졸음이 확정돼도 대표를 유지한다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ PHONE: true, SLEEP_EYES: true });
+    state = step(state, both, T0);
+
+    // 0.5초에 휴대폰이 혼자 확정돼 대표가 된다.
+    state = step(state, both, T0 + 600);
+    expect(state.active).toBe("PHONE");
+
+    // 10초에 졸음이 확정돼도 이미 활성인 트리거를 유지한다.
+    state = step(state, both, T0 + 10_000);
+    expect(state.active).toBe("PHONE");
+
+    // 휴대폰을 치우면 집중이 아니라 졸음으로 넘어간다.
+    const sleepOnly = signals({ SLEEP_EYES: true });
+    state = step(state, sleepOnly, T0 + 10_000);
+    state = step(state, sleepOnly, T0 + 11_500);
+    expect(state.active).toBe("SLEEP");
+  });
+
+  it("같은 틱에 함께 확정되면 졸음이 휴대폰을 이긴다", () => {
+    let state = createDetectionState(T0);
+    const both = signals({ PHONE: true, SLEEP_EYES: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 10_000);
+
+    expect(state.active).toBe("SLEEP");
   });
 });
