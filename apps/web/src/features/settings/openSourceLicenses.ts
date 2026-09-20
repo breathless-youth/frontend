@@ -1,10 +1,10 @@
 /**
  * S6 오픈소스 라이선스 고지 본문 (BY-310).
  *
- * ## 왜 이 세 항목인가
+ * ## 왜 이 네 항목인가
  *
- * 고지 대상은 **재배포하는 것**이다 — 앱이 함께 실어 나르는 모델 파일(`public/models/*.tflite`)과
- * 추론 런타임(wasm)이 그 대상이고, 셋 다 Apache License 2.0이라 §4(a)에 따라 라이선스 사본을
+ * 고지 대상은 **재배포하는 것**이다 — 앱이 함께 실어 나르는 모델 파일(`public/models/`)과
+ * 추론 런타임(wasm)이 그 대상이고, 넷 다 Apache License 2.0이라 §4(a)에 따라 라이선스 사본을
  * 이용자에게 제공해야 한다. npm으로 설치만 하고 번들에 흔적이 남지 않는 개발 도구는 대상이 아니다.
  * React 등 나머지 번들 의존성(MIT)은 별도 법적 고지 의무가 없어 V1.0 범위에서 제외했다 —
  * 목록을 넓히려면 빌드 시 의존성을 긁어 자동 생성하는 방식으로 가야 한다(수동 목록은 반드시 낡는다).
@@ -28,7 +28,7 @@ export type OpenSourceEntry = {
   role: string;
   /** 저작권 표기. */
   copyright: string;
-  /** 라이선스 이름. 전문은 `APACHE_LICENSE_2_0` 하나로 공유한다(세 항목 모두 동일 라이선스). */
+  /** 라이선스 이름. 전문은 `APACHE_LICENSE_2_0` 하나로 공유한다(네 항목 모두 동일 라이선스). */
   license: string;
   /** 출처(텍스트 표기 — 위 주석 참고). */
   source: string;
@@ -37,14 +37,21 @@ export type OpenSourceEntry = {
 export const OPEN_SOURCE_ENTRIES: OpenSourceEntry[] = [
   {
     name: "EfficientDet-Lite0",
-    role: "On-device object detection model used to detect away-from-seat and phone usage. Runs entirely on your device — no video ever leaves it.",
+    role: "On-device object detection model used to detect away-from-seat and phone usage, and to confirm you are still seated for drowsiness detection. Runs entirely on your device — no video ever leaves it.",
     copyright: "Copyright Google LLC",
     license: "Apache License 2.0",
     source: "MediaPipe Object Detector reference model (ai.google.dev/edge/mediapipe)",
   },
   {
+    name: "MediaPipe Face Landmarker",
+    role: "On-device face model used to detect drowsiness — sustained eye closure, or your face disappearing while you stay seated. Runs entirely on your device — no video, face image or landmark ever leaves it.",
+    copyright: "Copyright Google LLC",
+    license: "Apache License 2.0",
+    source: "MediaPipe Face Landmarker reference model (ai.google.dev/edge/mediapipe)",
+  },
+  {
     name: "MediaPipe Tasks Vision",
-    role: "On-device inference framework that runs the model above inside the browser (WebView).",
+    role: "On-device inference framework that runs the models above inside the browser (WebView).",
     copyright: "Copyright The MediaPipe Authors",
     license: "Apache License 2.0",
     source: "github.com/google-ai-edge/mediapipe",
@@ -58,7 +65,7 @@ export const OPEN_SOURCE_ENTRIES: OpenSourceEntry[] = [
   },
 ];
 
-/** Apache License 2.0 원문 — 세 항목이 공유한다. */
+/** Apache License 2.0 원문 — 네 항목이 공유한다. */
 export const APACHE_LICENSE_2_0 = `Apache License
 
 Version 2.0, January 2004

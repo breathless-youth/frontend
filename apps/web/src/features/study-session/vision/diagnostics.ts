@@ -1,4 +1,4 @@
-import type { Delegate, ModelVariant } from "./visionConfig";
+import type { Delegate, EyeBlendshapeName, ModelVariant } from "./visionConfig";
 
 /**
  * Vision 진단 로그 — **개발 빌드 전용**(설계 §8).
@@ -14,6 +14,10 @@ import type { Delegate, ModelVariant } from "./visionConfig";
  * `DiagnosticsSink`의 payload는 **스칼라만** 받는다(중첩 객체가 안 되므로 박스가 딸려 들어갈
  * 경로 자체가 없다). 남기는 것은 설계 §8 표 그대로다 —
  * person 유무 · 라벨별 최고 score · 최종 판정 · 프레임 소요시간 · 선택된 delegate · 상태 전이 시각.
+ *
+ * 얼굴 모델도 같은 기준이다. 얼굴 유무(boolean)와 눈 관련 점수, 눈 판정을 건너뛴 이유까지만
+ * 남기고 랜드마크 478점·나머지 blendshape·눈 간격 같은 크기 값은 남기지 않는다. 크기와 거리는
+ * 좌표와 같은 성격의 위치 정보다.
  */
 
 /** 중첩 객체를 받지 않는다 — 이 제약이 bbox 유출을 구조적으로 막는다. */
@@ -32,6 +36,35 @@ export interface FrameDiagnostics {
   readonly awaySignal: boolean;
   readonly phoneSignal: boolean;
   /** 프레임 처리 소요시간(ms). */
+  readonly durationMs: number;
+  readonly delegate: Delegate | null;
+  /** 졸음 원신호(유지시간 디바운스 이전). 얼굴 추론이 도는 프레임에만 의미가 있다. */
+  readonly sleepEyesSignal?: boolean;
+  readonly sleepFaceSignal?: boolean;
+  /** 엎드림 기준선을 채웠는가. 몸만 찍는 배치에서 왜 졸음이 안 잡히는지 설명하는 값이다. */
+  readonly faceBaseline?: boolean;
+  /** 이번 프레임의 얼굴 추론 결과. 얼굴 추론을 건너뛴 프레임에서는 null이다. */
+  readonly face?: FaceFrameDiagnostics | null;
+}
+
+/**
+ * 얼굴 추론 한 번의 진단.
+ *
+ * 랜드마크 좌표도, 눈 간격 같은 크기 값도 없다. 남기는 것은 얼굴 유무와 눈 점수, 건너뛴 이유,
+ * 소요시간, delegate뿐이다. `DiagnosticsPayload`가 스칼라만 받으므로 이 객체는 `frame()`에서
+ * 평탄한 키로 펼쳐진다.
+ */
+export interface FaceFrameDiagnostics {
+  readonly present: boolean;
+  /**
+   * 눈 관련 점수. 품질 게이트를 통과했을 때만 있다.
+   *
+   * 이름을 allowlist로 좁히는 것이 "스칼라만 받는다"와 같은 급의 구조적 보장이다. `string` 키면
+   * 타입상 blendshape 52개를 전부 흘릴 수 있다.
+   */
+  readonly eye: Readonly<Partial<Record<EyeBlendshapeName, number>>> | null;
+  /** 눈 판정을 건너뛴 이유. 통과했으면 null. */
+  readonly skipReason: string | null;
   readonly durationMs: number;
   readonly delegate: Delegate | null;
 }
@@ -60,6 +93,9 @@ export interface VisionDiagnostics {
   detectorReady(delegate: Delegate, modelVariant: ModelVariant): void;
   detectorUnavailable(reason: string): void;
   frame(diagnostics: FrameDiagnostics): void;
+  /** 얼굴 모델이 준비됐다. 객체 검출기와 따로 남긴다 — 한쪽만 실패할 수 있다. */
+  faceReady(delegate: Delegate): void;
+  faceUnavailable(reason: string): void;
   /** 상태 전이 시각. 임계를 바꿨을 때 오탐이 얼마나 주는지 계산하는 근거가 된다. */
   transition(from: string, to: string, atMs: number): void;
   /** 카메라를 열 때마다 한 번. 전환(`flip`)도 새로 여는 것이므로 각각 남는다. */
@@ -90,7 +126,35 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
       for (const [label, score] of Object.entries(diagnostics.topScores)) {
         payload[`score:${label}`] = round2(score);
       }
+      if (diagnostics.sleepEyesSignal !== undefined) {
+        payload.sleepEyes = diagnostics.sleepEyesSignal;
+      }
+      if (diagnostics.sleepFaceSignal !== undefined) {
+        payload.sleepFace = diagnostics.sleepFaceSignal;
+      }
+      if (diagnostics.faceBaseline !== undefined) {
+        payload.faceBaseline = diagnostics.faceBaseline;
+      }
+      const face = diagnostics.face;
+      if (face !== undefined && face !== null) {
+        // 얼굴 추론이 돈 프레임에만 `face:` 키가 생긴다. 키의 유무가 곧 실행 여부다.
+        payload["face:present"] = face.present;
+        payload["face:durationMs"] = round2(face.durationMs);
+        payload["face:delegate"] = face.delegate ?? "none";
+        if (face.skipReason !== null) {
+          payload["face:skip"] = face.skipReason;
+        }
+        for (const [name, score] of Object.entries(face.eye ?? {})) {
+          payload[`face:${name}`] = round2(score);
+        }
+      }
       sink.log("vision:frame", payload);
+    },
+    faceReady(delegate) {
+      sink.log("face:ready", { delegate });
+    },
+    faceUnavailable(reason) {
+      sink.log("face:unavailable", { reason });
     },
     transition(from, to, atMs) {
       sink.log("vision:transition", { from, to, atMs });
@@ -123,6 +187,8 @@ const noopDiagnostics: VisionDiagnostics = {
   detectorReady() {},
   detectorUnavailable() {},
   frame() {},
+  faceReady() {},
+  faceUnavailable() {},
   transition() {},
   cameraStream() {},
 };

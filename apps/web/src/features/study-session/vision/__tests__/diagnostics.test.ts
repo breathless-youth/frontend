@@ -13,6 +13,16 @@ function recordingSink() {
   return { sink, events };
 }
 
+/** 얼굴 항목이 없는 평범한 프레임. 얼굴 관련 케이스가 이 위에 필드를 얹는다. */
+const BASE_FRAME = {
+  personPresent: true,
+  topScores: { person: 0.9 },
+  awaySignal: false,
+  phoneSignal: false,
+  durationMs: 40,
+  delegate: "CPU",
+} as const;
+
 describe("createVisionDiagnostics", () => {
   it("delegate 선택을 남긴다 (설계 §8)", () => {
     const { sink, events } = recordingSink();
@@ -130,5 +140,78 @@ describe("visionDiagnostics (기본 인스턴스)", () => {
     // vitest는 DEV=true로 돈다. 프로덕션 빌드에서는 이 분기 자체가 사라진다(트리셰이킹).
     expect(debug).toHaveBeenCalledTimes(import.meta.env.DEV ? 1 : 0);
     debug.mockRestore();
+  });
+});
+
+describe("createVisionDiagnostics — 얼굴", () => {
+  it("얼굴이 돌지 않은 프레임에는 face 키가 없다", () => {
+    const { sink, events } = recordingSink();
+    createVisionDiagnostics(sink).frame({ ...BASE_FRAME, face: null });
+
+    const payload = events[0]?.payload ?? {};
+    expect(Object.keys(payload).some((key) => key.startsWith("face:"))).toBe(false);
+  });
+
+  it("얼굴 점수를 평탄한 스칼라로 남긴다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepEyesSignal: true,
+      sleepFaceSignal: false,
+      faceBaseline: true,
+      face: {
+        present: true,
+        eye: { eyeBlinkLeft: 0.512_3, eyeBlinkRight: 0.487 },
+        skipReason: null,
+        durationMs: 51.234,
+        delegate: "CPU",
+      },
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({
+      sleepEyes: true,
+      sleepFace: false,
+      faceBaseline: true,
+      "face:present": true,
+      "face:eyeBlinkLeft": 0.51,
+      "face:durationMs": 51.23,
+      "face:delegate": "CPU",
+    });
+    // 중첩 객체가 들어가면 좌표가 실릴 길이 생긴다.
+    for (const value of Object.values(payload)) {
+      expect(["string", "number", "boolean"]).toContain(typeof value);
+    }
+  });
+
+  it("눈 판정을 건너뛴 이유를 남기고 점수 키는 만들지 않는다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      face: {
+        present: true,
+        eye: null,
+        skipReason: "face-too-small",
+        durationMs: 44,
+        delegate: "CPU",
+      },
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({ "face:present": true, "face:skip": "face-too-small" });
+    expect(payload).not.toHaveProperty("face:eyeBlinkLeft");
+  });
+
+  it("얼굴 모델 상태를 남긴다", () => {
+    const { sink, events } = recordingSink();
+    const diagnostics = createVisionDiagnostics(sink);
+
+    diagnostics.faceReady("CPU");
+    diagnostics.faceUnavailable("unavailable");
+
+    expect(events[0]).toEqual({ event: "face:ready", payload: { delegate: "CPU" } });
+    expect(events[1]).toEqual({ event: "face:unavailable", payload: { reason: "unavailable" } });
   });
 });

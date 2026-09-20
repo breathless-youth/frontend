@@ -321,6 +321,8 @@ describe("createVisionFocusDetector", () => {
         detectorReady: vi.fn(),
         detectorUnavailable: vi.fn(),
         frame,
+        faceReady: vi.fn(),
+        faceUnavailable: vi.fn(),
         transition: vi.fn(),
         cameraStream: vi.fn(),
       },
