@@ -1,9 +1,24 @@
-import type { ActiveSessionSnapshotResponse, StatusEventPayload } from "@focusmakers/types";
+import type {
+  ActiveSessionSnapshotResponse,
+  StatusEventPayload,
+  StudyEventStatus,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyQuery } from "@/lib/userId";
 
-const EVENT_STATUSES: ReadonlySet<string> = new Set(["PHONE", "DEVICE", "AWAY", "PAUSE"]);
+/**
+ * 명세의 전 멤버를 키로 요구한다. 새 status가 생겼는데 여기 없으면 컴파일 에러가 나야 한다.
+ * 그렇지 않으면 `isUsableEvent`가 그 이벤트를 모르는 값으로 보고 세션 복원을 통째로 포기한다.
+ */
+const KNOWN_EVENT_STATUSES = {
+  PHONE: true,
+  DEVICE: true,
+  AWAY: true,
+  PAUSE: true,
+} as const satisfies Record<StudyEventStatus, true>;
+
+const EVENT_STATUSES: ReadonlySet<string> = new Set(Object.keys(KNOWN_EVENT_STATUSES));
 
 /**
  * 이벤트 한 건이 쓸 수 있는 값인지 본다.

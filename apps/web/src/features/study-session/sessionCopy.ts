@@ -1,5 +1,5 @@
 import { SUB_MINUTE_SEC, toKoreanDurationLength } from "./formatDuration";
-import type { PauseTrigger, SessionState } from "./sessionState";
+import type { DistractionTrigger, PauseTrigger, SessionState } from "./sessionState";
 
 /**
  * 세션 화면 문구 — 전부 ai-wiki `product/voice-tone.md`에서 **그대로** 가져온다. 의역·재작성 금지.
@@ -38,7 +38,7 @@ const DISTRACTION_COPY = {
   AWAY: { label: "자리를 비운 것 같아요", subLabel: "돌아오면 자동으로 다시 측정돼요" },
   PHONE: { label: "휴대폰을 사용 중인 것 같아요", subLabel: "내려놓으면 자동으로 다시 측정돼요" },
   DEVICE: { label: "기기를 조작 중인 것 같아요", subLabel: "제자리에 두면 자동으로 다시 측정돼요" },
-} as const satisfies Record<string, SessionStatusCopy>;
+} as const satisfies Record<DistractionTrigger, SessionStatusCopy>;
 
 /**
  * voice-tone.md §3 상태 문구 — Figma S3-3 `59:358`/`59:364` 실측과 일치한다.

@@ -6,6 +6,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+  DISTRACTION_STATUSES,
   aggregateEvents,
   formatClockRange,
   formatClockTime,
@@ -255,5 +256,11 @@ describe("timelineSummaryLabel", () => {
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
     expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe("순공 1시간 24분, 휴식 10분");
+  });
+});
+
+describe("DISTRACTION_STATUSES", () => {
+  it("S4 행 순서는 AWAY, PHONE, DEVICE다", () => {
+    expect([...DISTRACTION_STATUSES]).toEqual(["AWAY", "PHONE", "DEVICE"]);
   });
 });
