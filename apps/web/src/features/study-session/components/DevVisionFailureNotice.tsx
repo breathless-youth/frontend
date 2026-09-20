@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-import type { VisionFocusDetector } from "../adapters/focusDetector";
+import type { VisionDetectorStatus, VisionFocusDetector } from "../adapters/focusDetector";
 
 /**
  * ⚠️ **개발 빌드 전용 — 이 파일이 통째로 걷어낼 지점이다.**
@@ -19,8 +19,51 @@ import type { VisionFocusDetector } from "../adapters/focusDetector";
  * `import.meta.env.DEV`는 Vite가 프로덕션 빌드에서 리터럴 `false`로 치환하므로 호출부의
  * `false && <DevVisionFailureNotice/>`가 통째로 접히고, 이 모듈은 참조가 사라져 번들에서 빠진다.
  */
+/**
+ * 이 컴포넌트가 실제로 읽는 멤버만.
+ *
+ * 감지기 전체를 요구하면 테스트가 쓰지도 않는 멤버를 캐스팅으로 채워야 하고, 그러면 무엇을
+ * 읽는 컴포넌트인지가 타입에서 사라진다.
+ */
+export type VisionFailureSource = Pick<
+  VisionFocusDetector,
+  "status" | "faceStatus" | "subscribeStatus" | "subscribeFaceStatus"
+>;
+
 export interface DevVisionFailureNoticeProps {
-  detector: VisionFocusDetector;
+  detector: VisionFailureSource;
+}
+
+interface DevFailureNotice {
+  readonly notice: string;
+  readonly message: string;
+}
+
+/**
+ * 어느 실패를 알릴지 고른다.
+ *
+ * 객체 검출이 죽으면 얼굴도 무의미하므로 둘 다 실패했을 때는 객체 쪽만 고른다. 두 줄을 겹쳐
+ * 띄우면 먼저 봐야 할 것이 가려진다.
+ */
+function pickFailure(
+  status: VisionDetectorStatus,
+  faceStatus: VisionDetectorStatus,
+): DevFailureNotice | null {
+  if (status === "unavailable") {
+    return {
+      notice: "vision-unavailable",
+      message: "[DEV] 감지 모델을 불러오지 못했습니다 — 이 세션은 감지 없이 시간만 측정합니다",
+    };
+  }
+  if (faceStatus === "unavailable") {
+    // "불러오지 못했다"로 쓰지 않는다. 얼굴 모델은 로딩에 성공한 뒤 추론이 연속으로 실패해도
+    // 감지 불가가 되므로, 원인을 로딩으로 못박으면 추적이 엉뚱한 곳으로 간다.
+    return {
+      notice: "face-unavailable",
+      message: "[DEV] 얼굴 모델을 쓸 수 없습니다 — 이 세션은 졸음을 감지하지 않습니다",
+    };
+  }
+  return null;
 }
 
 export function DevVisionFailureNotice({ detector }: DevVisionFailureNoticeProps) {
@@ -31,8 +74,14 @@ export function DevVisionFailureNotice({ detector }: DevVisionFailureNoticeProps
     () => detector.status,
     () => detector.status,
   );
+  const faceStatus = useSyncExternalStore(
+    detector.subscribeFaceStatus,
+    () => detector.faceStatus,
+    () => detector.faceStatus,
+  );
 
-  if (!import.meta.env.DEV || status !== "unavailable") {
+  const failure = import.meta.env.DEV ? pickFailure(status, faceStatus) : null;
+  if (failure === null) {
     return null;
   }
 
@@ -40,10 +89,10 @@ export function DevVisionFailureNotice({ detector }: DevVisionFailureNoticeProps
     // role을 주지 않는다 — 세션 화면의 `status`/`alertdialog` 접근성 트리에 개발용 배너가
     // 끼어들면 스크린리더 사용자에게 없는 상태를 알리게 되고, 기존 테스트의 역할 질의도 흔들린다.
     <p
-      data-dev-notice="vision-unavailable"
+      data-dev-notice={failure.notice}
       className="pointer-events-none absolute inset-x-0 top-0 z-50 bg-[#B0261A] px-4 py-[calc(env(safe-area-inset-top)+6px)] text-center text-[12px] leading-[16px] text-white"
     >
-      [DEV] 감지 모델을 불러오지 못했습니다 — 이 세션은 감지 없이 시간만 측정합니다
+      {failure.message}
     </p>
   );
 }
