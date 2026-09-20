@@ -57,6 +57,8 @@ import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
+// 실기기 측정용 계측. 측정이 끝나면 이 두 줄과 `applyState`의 호출을 지운다.
+import { measurementDiagnostics, stateLabel } from "./vision/measurement";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
@@ -240,6 +242,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 비집중 구간이 방금 닫혔으면 한 건으로 남긴다(BY-616 확장) — 전이의 단일 통로라 여기가 유일한
       // 관측점이다. `transition`이 같은 상태를 무시하면 타임라인 참조가 그대로라 아무것도 찍히지 않는다.
       if (timelineRef.current !== before) {
+        // 실기기 측정이 유지시간을 확인하려면 전이 시각이 필요한데, 원신호 로그만으로는
+        // 디바운스 이후를 알 수 없다. 측정이 끝나면 지운다 — `vision/measurement/` 참고.
+        measurementDiagnostics.transition(
+          stateLabel(currentState(before)),
+          stateLabel(currentState(timelineRef.current)),
+          atMs,
+        );
         const closed = timelineRef.current.segments[timelineRef.current.segments.length - 2];
         if (closed?.state.kind === "DISTRACTION" && closed.endedAtMs !== null) {
           trackStudySessionDistracted({
@@ -275,6 +284,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
+    // 실기기 측정용 계측. 새 세션은 집중에서 시작하는데 전이가 발생하지 않으므로, 알려 주지
+    // 않으면 앞 세션의 마지막 상태가 다음 구간의 출발점으로 남는다.
+    measurementDiagnostics.sessionStarted();
   }, [roomType, initial.restored]);
 
   /**

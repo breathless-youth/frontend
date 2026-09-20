@@ -46,6 +46,13 @@ export interface FrameLoopOptions {
    * 여기서 던지거나 거부해도 루프는 계속 돈다(한 프레임 실패로 세션 측정을 포기하지 않는다).
    */
   onFrame: () => void | Promise<void>;
+  /**
+   * 앞 프레임이 안 끝나 이번 틱을 버렸다. 실기기 측정이 이 횟수를 합격 기준으로 쓴다.
+   *
+   * 버린 횟수가 0이 아니면 추론이 주기보다 길다는 뜻이고, 그때는 판정에 공백이 생긴다.
+   * 그 상태는 로그의 다른 값만 봐서는 정상과 구분되지 않는다.
+   */
+  onDrop?: () => void;
   /** 현재 세션 phase. 매 프레임 다시 읽으므로 적응형 주기로 바꿀 때 호출부가 안 바뀐다. */
   phase?: () => FramePhase;
 }
@@ -77,7 +84,7 @@ export interface FrameLoopOptions {
  * 누적되지 않게 하기 위해서다.
  */
 export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
-  const { onFrame, phase = () => "FOCUS" as FramePhase } = options;
+  const { onFrame, onDrop, phase = () => "FOCUS" as FramePhase } = options;
 
   let running = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -105,6 +112,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
   function fire(id: number): void {
     if (busy) {
       // 직전 추론이 아직 안 끝났다 — 이번 프레임은 버린다. 밀린 만큼 몰아서 처리하지 않는다.
+      onDrop?.();
       return;
     }
     busy = true;

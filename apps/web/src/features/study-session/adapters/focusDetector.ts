@@ -8,7 +8,9 @@ import type {
 } from "../vision/detectionRules";
 import { evaluateFrame, PERSON_LABEL, topScoresByLabel } from "../vision/detectionRules";
 import type { VisionDiagnostics } from "../vision/diagnostics";
-import { visionDiagnostics } from "../vision/diagnostics";
+// 실기기 측정용 계측. 측정이 끝나면 기본 진단을 `visionDiagnostics`로, 기준선 기본값을
+// `FACE_BASELINE_SAMPLES`·`FACE_BASELINE_MIN_RATIO`로 되돌린다.
+import { measurementBaseline, measurementDiagnostics } from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
@@ -17,12 +19,7 @@ import { createObjectDetector } from "../vision/objectDetector";
 import { isSleepDetectionEnabled } from "../vision/sleepDetectionFlag";
 import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRules";
 import { evaluateSleep, NO_SLEEP_SIGNALS, smoothedFacePresent } from "../vision/sleepRules";
-import {
-  FACE_BASELINE_MIN_RATIO,
-  FACE_BASELINE_SAMPLES,
-  FACE_FRAME_DIVISOR,
-  FACE_SMOOTHING_SAMPLES,
-} from "../vision/visionConfig";
+import { FACE_FRAME_DIVISOR, FACE_SMOOTHING_SAMPLES } from "../vision/visionConfig";
 
 /**
  * 비집중 감지기 어댑터 — 인터페이스 + mock + **MediaPipe Vision 구현**.
@@ -228,12 +225,12 @@ export function createVisionFocusDetector(
     video,
     detector = createObjectDetector(),
     faceLandmarker = createFaceLandmarker(),
-    diagnostics = visionDiagnostics,
+    diagnostics = measurementDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
     presenceRule,
     sleepRule,
-    baseline = { samples: FACE_BASELINE_SAMPLES, minRatio: FACE_BASELINE_MIN_RATIO },
+    baseline = measurementBaseline(),
   } = options;
 
   const sleepEnabled =
@@ -525,7 +522,12 @@ export function createVisionFocusDetector(
     publish(signals, sleep);
   }
 
-  const loop = createFrameLoop({ onFrame: processFrame });
+  const loop = createFrameLoop({
+    onFrame: processFrame,
+    onDrop: () => {
+      diagnostics.frameDropped();
+    },
+  });
 
   return {
     get status() {

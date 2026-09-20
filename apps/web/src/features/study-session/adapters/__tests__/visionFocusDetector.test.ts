@@ -400,6 +400,37 @@ describe("createVisionFocusDetector", () => {
     expect(signals).toEqual([]);
   });
 
+  /**
+   * 실기기 측정용. "버려진 틱 0"이 합격 기준 넷 중 하나인데, 이 배선이 유일한 연결 고리다.
+   * 측정이 끝나면 이 케이스도 함께 지운다.
+   */
+  it("앞 프레임이 안 끝난 채 지나간 틱을 진단에 알린다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame(0.42)] });
+    const frameDropped = vi.fn();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      diagnostics: {
+        detectorReady: vi.fn(),
+        detectorUnavailable: vi.fn(),
+        frame: vi.fn(),
+        frameDropped,
+        faceReady: vi.fn(),
+        faceUnavailable: vi.fn(),
+        transition: vi.fn(),
+        cameraStream: vi.fn(),
+      },
+    });
+
+    vision.start();
+    // 마이크로태스크를 흘리지 않고 타이머만 민다 — 첫 프레임이 안 끝난 채로 다음 두 틱이 온다.
+    vi.advanceTimersByTime(FRAME_INTERVAL_MS * 2);
+
+    expect(frameDropped).toHaveBeenCalledTimes(2);
+    vision.close();
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
   it("진단 로그에 좌표를 넘기지 않는다 — 라벨별 최고 score만 남는다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame(0.42)] });
     const frame = vi.fn();
@@ -410,6 +441,7 @@ describe("createVisionFocusDetector", () => {
         detectorReady: vi.fn(),
         detectorUnavailable: vi.fn(),
         frame,
+        frameDropped: vi.fn(),
         faceReady: vi.fn(),
         faceUnavailable: vi.fn(),
         transition: vi.fn(),
