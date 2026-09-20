@@ -47,9 +47,9 @@
 점검 진단ok 객체ok 얼굴ok 카메라1280x720 보정ok(3)
 
 상태 FOCUS 42초 · 구간 눈 감기 8초
-눈 L0.52 R0.55 → 0.52 · 다듬 0.51 · 임계 0.45 → 감김
+눈 L0.52 R0.55 → 0.52 · 다듬 0.51 · 임계 0.34 → 감김
 비율 창 안 참 · 원신호 눈○ 꾸벅× · 얼굴○ 사람 0.91 · 표본 1초 전
-보정 기준 0.09 → 임계 0.45 · 창 3회
+보정 기준 0.09 → 임계 0.34 · 창 3회
 이 구간 전이 0건
 발열 1회차 12분 · 경과 12:03 · drop=0 · 누적p95~ 360/56ms · fair 4:10   ← 회차가 열렸을 때만
 [눈 감기] [눈 뜨기] [깜빡임] [내려다봄] [꾸벅꾸벅] [몸만 배치] [휴대폰] [안경] [고개 젖힘] [기타]
@@ -172,14 +172,12 @@ copy(window.__focusonMeasure.dump()); // 또는 반환 문자열을 그대로 �
     "frameIntervalMs": 500,
     "faceFrameDivisor": 4,
     "faceSmoothingSamples": 2,
-    "eyeClosure": 0.45,
     "personScore": 0.3,
     "sleepEyesEnterMs": 10000,
     "sleepEyesExitMs": 2000,
     "eyeCalibrationSamples": 15,
     "eyeCalibrationPercentile": 0.4,
     "eyeCalibrationDelta": 0.25,
-    "eyeThresholdMin": 0.45,
     "eyeRatioWindowSamples": 22,
     "eyeRatioThreshold": 0.5,
     "eyeAwakeClearSamples": 3,
@@ -271,9 +269,9 @@ copy(window.__focusonMeasure.dump()); // 또는 반환 문자열을 그대로 �
 | 눈 뜨기 구간의 `entryLabel`이 졸음이 아니다                            | 눈 감기에서 졸음이 안 잡혔다는 뜻이다. 눈 감기부터 다시 본다                                                                                                                                                                                      |
 | 눈 감기에서 진입이 한참 늦다                                           | 얼굴 추론 주기(`FACE_FRAME_DIVISOR`)가 표본을 너무 늦게 채우는지 본다                                                                                                                                                                             |
 | 눈이 작은 사람의 뜬 눈이 졸음으로 잡힌다                               | `eyeCalibration.baseline`(그 사람의 뜬 눈 기준)과 그 구간 `eye.p95`를 비교한다. `EYE_CALIBRATION_DELTA`를 올릴지 본다. 상한은 없으므로 임계가 그 사람의 뜬 눈보다 0.25 위에 있어야 한다. `windows`가 0이면 보정이 아예 안 돈 것이니 그쪽부터 본다 |
-| 눈이 큰 사람이 감았는데 안 잡힌다                                      | 보정은 임계를 올리기만 하고 내리지 못한다(하한 = 고정 임계). 이 사람의 감김 `eye.p50`이 0.45에 못 미치면 `EYE_THRESHOLD_MIN`을 내릴 근거가 되는 데이터다. 그 값을 기록해 두고 상수를 다시 정한다                                                  |
+| 눈이 큰 사람이 감았는데 안 잡힌다                                      | 하한이 없으므로 임계는 그 사람의 뜬 눈 + 0.25다. 감김 `eye.p50`이 그보다 낮으면 `EYE_CALIBRATION_DELTA`를 줄일 근거이고, 그 전에 `eyeCalibration.baseline`이 실제 뜬 눈인지 본다                                                                  |
 | `eyeCalibration`이 null인 채로 세션이 끝났다                           | 보정 표본이 안 찼다. 눈 판정이 걸러진 것이므로 `face.skipped`를 먼저 본다. 게이트가 멀쩡하면 `EYE_CALIBRATION_SAMPLES`를 줄인다                                                                                                                   |
-| `eyeCalibration.threshold`가 **하한**에 딱 붙어 있다                   | 보정이 낮게 튀었을 수 있다. 그 사람의 `eye.p05`와 나란히 놓고 `EYE_CALIBRATION_PERCENTILE`을 올릴지 본다. **상한에 붙는 것은 눈이 작아 뜬 눈 점수가 높은 사람의 정상 결과**라 조치가 아니다                                                       |
+| 내려다봄 구간에서 졸음이 뜬다                                          | 하한을 뺀 대가다. 그 구간 `eye.p95`와 `eyeCalibration.threshold`를 나란히 놓고, 넘으면 `EYE_CALIBRATION_DELTA`를 올리거나 하한을 되살린다                                                                                                         |
 | 꾸벅꾸벅 구간에서 졸음이 안 잡힌다                                     | 구간의 `sleepDrowsy`가 0인지 먼저 본다. 0이면 비율이 문턱에 못 미친 것이므로 진단 줄(`[vision:frame]`)의 `eyeClosedRatio`를 보고 `EYE_RATIO_THRESHOLD`를 0.5에서 내린다. 감김 자체가 안 세어지면 임계 쪽 문제다                                   |
 | `eyeCalibration`이 `null`이고 눈 감기조차 졸음이 없다                  | 보정 창이 한 번도 안 찼다. 구간이 30초보다 짧았는지, 자리 비움이 길었는지, 눈 판정이 걸러졌는지 순으로 본다(`face.skipped`와 거치 거리). 보정 전에는 상한 0.65를 임계로 쓰므로 그보다 약한 감김은 원래 안 잡힌다                                  |
 | `eyeCalibration.baseline`이 감김 수준으로 높다                         | 첫 창을 감은 채로 보낸 것이다. 그대로 두면 다음 창에서 내려간다 — `windows`가 느는데도 안 내려가면 그 사람의 뜬 눈이 원래 그 값인지 본다                                                                                                          |

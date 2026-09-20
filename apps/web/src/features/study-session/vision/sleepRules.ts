@@ -132,7 +132,7 @@ export function eyeClosedRatio(readings: readonly number[], threshold: number): 
   return window.filter((reading) => reading >= threshold).length / window.length;
 }
 
-/** 2026-09-20 실측으로 정한 판정. 임계 근거는 `visionConfig.ts`의 `SLEEP_THRESHOLDS` 주석에 있다. */
+/** 2026-09-20 실측으로 정한 판정. 임계는 사람마다 보정된 값이고 근거는 `visionConfig.ts`에 있다. */
 export const defaultSleepRule: SleepRule = {
   evaluate(frame) {
     if (!frame.personPresent) {

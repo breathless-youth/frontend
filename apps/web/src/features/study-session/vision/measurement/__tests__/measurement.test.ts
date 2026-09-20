@@ -9,9 +9,7 @@ import {
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
-  EYE_THRESHOLD_MIN,
   FACE_FRAME_DIVISOR,
-  SLEEP_THRESHOLDS,
 } from "../../visionConfig";
 
 /** 호출을 세는 기본 진단. 껍데기가 전부 넘기는지 확인한다. */
@@ -214,7 +212,6 @@ describe("createMeasurement", () => {
 
     expect(dump.config).toMatchObject({
       faceFrameDivisor: FACE_FRAME_DIVISOR,
-      eyeClosure: SLEEP_THRESHOLDS.eyeClosure,
     });
     expect(dump.config.sleepEyesEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs);
     expect(dump.config.sleepDrowsyEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs);
@@ -230,7 +227,6 @@ describe("createMeasurement", () => {
       eyeCalibrationSamples: EYE_CALIBRATION_SAMPLES,
       eyeCalibrationPercentile: EYE_CALIBRATION_PERCENTILE,
       eyeCalibrationDelta: EYE_CALIBRATION_DELTA,
-      eyeThresholdMin: EYE_THRESHOLD_MIN,
       eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
       eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     });

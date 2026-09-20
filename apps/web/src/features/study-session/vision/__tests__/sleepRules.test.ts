@@ -6,7 +6,6 @@ import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_SMOOTHING_SAMPLES,
-  SLEEP_THRESHOLDS,
 } from "../visionConfig";
 
 /** 눈이 보이는 관측 하나. 양쪽 눈에 같은 값을 넣는다. */
@@ -27,11 +26,14 @@ function seen(closure: number): FaceObservation {
 const gated: FaceObservation = { facePresent: true, eye: null, eyeSkipReason: "face-too-small" };
 const absent: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
 
+/** 테스트용 임계. 실제 값은 사람마다 보정된다. */
+const THRESHOLD = 0.45;
+
 function frame(overrides: Partial<SleepFrame> = {}): SleepFrame {
   return {
     personPresent: true,
     faceSamples: [],
-    eyeClosureThreshold: SLEEP_THRESHOLDS.eyeClosure,
+    eyeClosureThreshold: THRESHOLD,
     eyeReadings: [],
     ...overrides,
   };
@@ -74,14 +76,14 @@ describe("smoothedEyeClosure", () => {
 
 describe("evaluateSleep — 눈 감김", () => {
   it("최근 두 표본이 모두 임계 이상이면 참이다", () => {
-    const closed = SLEEP_THRESHOLDS.eyeClosure;
+    const closed = THRESHOLD;
     expect(evaluateSleep(frame({ faceSamples: [seen(closed), seen(closed)] })).eyesClosed).toBe(
       true,
     );
   });
 
   it("임계 바로 아래면 거짓이다", () => {
-    const open = SLEEP_THRESHOLDS.eyeClosure - 0.01;
+    const open = THRESHOLD - 0.01;
     expect(evaluateSleep(frame({ faceSamples: [seen(open), seen(open)] })).eyesClosed).toBe(false);
   });
 

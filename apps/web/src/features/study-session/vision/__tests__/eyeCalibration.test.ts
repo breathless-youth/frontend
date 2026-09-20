@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { EyeCalibration } from "../eyeCalibration";
 import { calibrateEye } from "../eyeCalibration";
-import {
-  EYE_CALIBRATION_DELTA,
-  EYE_CALIBRATION_SAMPLES,
-  EYE_THRESHOLD_MIN,
-  SLEEP_THRESHOLDS,
-} from "../visionConfig";
+import { EYE_CALIBRATION_DELTA, EYE_CALIBRATION_SAMPLES } from "../visionConfig";
 
 function readings(value: number, count = EYE_CALIBRATION_SAMPLES): number[] {
   return Array.from({ length: count }, () => value);
@@ -24,17 +19,16 @@ describe("calibrateEye", () => {
     expect(calibrateEye(readings(0.2, EYE_CALIBRATION_SAMPLES - 1), null)).toBeNull();
   });
 
-  it("스파이크 피험자의 뜬 눈이면 고정 임계와 같은 값이 나온다 — 기존 동작을 재현한다", () => {
-    expect(window(null, 0.2)?.threshold).toBeCloseTo(SLEEP_THRESHOLDS.eyeClosure, 2);
+  it("스파이크 피험자의 뜬 눈이면 옛 고정 임계 0.45가 그대로 나온다", () => {
+    expect(window(null, 0.2)?.threshold).toBeCloseTo(0.45, 2);
   });
 
   it("눈이 작아 뜬 눈 점수가 높은 사람은 임계가 올라간다", () => {
     expect(window(null, 0.35)?.threshold).toBeCloseTo(0.35 + EYE_CALIBRATION_DELTA, 2);
   });
 
-  it("눈이 커 뜬 눈 점수가 낮아도 고정 임계 아래로는 내려가지 않는다", () => {
-    // 하한이 고정 임계다. 보정은 임계를 올리기만 한다 — 내리는 쪽은 오탐 방향이다.
-    expect(window(null, 0.05)?.threshold).toBe(EYE_THRESHOLD_MIN);
+  it("눈이 커 뜬 눈 점수가 낮으면 임계도 그만큼 내려간다 — 하한이 없다", () => {
+    expect(window(null, 0.05)?.threshold).toBeCloseTo(0.05 + EYE_CALIBRATION_DELTA, 2);
   });
 
   it("창 횟수와 기준값을 함께 돌려준다 — 덩어리와 패널이 읽는다", () => {
@@ -95,11 +89,5 @@ describe("calibrateEye", () => {
     const early = readings(0.2);
     const late = readings(0.6);
     expect(calibrateEye([...early, ...late], null)?.baseline).toBeCloseTo(0.2, 2);
-  });
-});
-
-describe("눈 보정 상수", () => {
-  it("하한이 고정 임계와 같다 — 보정이 임계를 느슨하게 만들 수 없다", () => {
-    expect(EYE_THRESHOLD_MIN).toBe(SLEEP_THRESHOLDS.eyeClosure);
   });
 });

@@ -12,6 +12,7 @@ import type {
 } from "../../vision/objectDetector";
 import type { FaceObservation } from "../../vision/sleepRules";
 import {
+  EYE_CALIBRATION_DELTA,
   EYE_CALIBRATION_SAMPLES,
   EYE_AWAKE_CLEAR_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
@@ -931,7 +932,7 @@ describe("눈 보정", () => {
   });
 
   it("임계가 내려가면 비율 창을 비운다 — 옛 표본을 새 임계로 소급 재채점하면 안 된다", async () => {
-    // 첫 창은 감김만 보여 임계가 상한으로 잡힌다. 그 뒤 뜬 눈이 들어와 임계가 내려가는데, 그때
+    // 첫 창은 감김만 보여 임계가 0.85로 잡힌다. 그 뒤 뜬 눈이 들어와 임계가 0.35로 내려가는데, 그때
     // 창에 남아 있던 옛 표본이 통째로 감김으로 뒤집히면 새 관측 없이 꾸벅거림이 선다.
     const high = Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => seen(0.6));
     const low = Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => seen(0.1));
@@ -951,7 +952,7 @@ describe("눈 보정", () => {
       FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * (high.length + low.length),
     );
 
-    expect(vision.eyeCalibration?.threshold).toBeCloseTo(0.45, 2);
+    expect(vision.eyeCalibration?.threshold).toBeCloseTo(0.1 + EYE_CALIBRATION_DELTA, 2);
     expect(signals.filter((s) => s.source === "SLEEP_DROWSY" && s.active)).toHaveLength(0);
   });
 

@@ -11,12 +11,10 @@ import {
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
-  EYE_THRESHOLD_MIN,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
   FRAME_INTERVAL_MS,
   SCORE_THRESHOLDS,
-  SLEEP_THRESHOLDS,
 } from "../visionConfig";
 
 /**
@@ -326,14 +324,12 @@ function configSnapshot() {
     frameIntervalMs: FRAME_INTERVAL_MS,
     faceFrameDivisor: FACE_FRAME_DIVISOR,
     faceSmoothingSamples: FACE_SMOOTHING_SAMPLES,
-    eyeClosure: SLEEP_THRESHOLDS.eyeClosure,
     personScore: SCORE_THRESHOLDS.person,
     sleepEyesEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs,
     sleepEyesExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.exitMs,
     eyeCalibrationSamples: EYE_CALIBRATION_SAMPLES,
     eyeCalibrationPercentile: EYE_CALIBRATION_PERCENTILE,
     eyeCalibrationDelta: EYE_CALIBRATION_DELTA,
-    eyeThresholdMin: EYE_THRESHOLD_MIN,
     eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
     eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     eyeAwakeClearSamples: EYE_AWAKE_CLEAR_SAMPLES,
