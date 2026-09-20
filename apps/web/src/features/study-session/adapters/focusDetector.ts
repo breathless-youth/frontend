@@ -1,4 +1,4 @@
-import type { DistractionTrigger } from "../sessionState";
+import type { DetectionSource } from "../detection";
 import type {
   Detection,
   DetectionFrame,
@@ -22,7 +22,8 @@ import { createObjectDetector } from "../vision/objectDetector";
  */
 
 export interface DetectorSignal {
-  readonly trigger: DistractionTrigger;
+  /** 원신호의 출처. 트리거가 아니다. 출처를 트리거로 합치는 것은 `../detection.ts`의 `SOURCE_TRIGGER`다. */
+  readonly source: DetectionSource;
   readonly active: boolean;
 }
 
@@ -36,7 +37,7 @@ export interface FocusDetector {
  * 여러 감지기를 하나로 묶는다 — 훅은 감지기를 **하나만** 받고, 실제로는 Vision(카메라)과
  * 가속도 센서가 서로 다른 트리거를 담당한다(설계 §4·§5).
  *
- * 트리거가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`만, 가속도는 `DEVICE`만
+ * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE` 출처만, 가속도는 `DEVICE` 출처만
  * 내보낸다. 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
  * 대표 트리거 선택은 여기가 아니라 `../detection.ts`의 `TRIGGER_PRIORITY`가 한다.
  */
@@ -209,9 +210,9 @@ export function createVisionFocusDetector(
     }
   }
 
-  function notify(trigger: DistractionTrigger, active: boolean): void {
+  function notify(source: DetectionSource, active: boolean): void {
     for (const listener of [...listeners]) {
-      listener({ trigger, active });
+      listener({ source, active });
     }
   }
 

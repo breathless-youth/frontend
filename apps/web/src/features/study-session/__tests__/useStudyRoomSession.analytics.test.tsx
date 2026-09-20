@@ -108,7 +108,7 @@ describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
     renderHook(() => useStudyRoomSession(7, { detector }));
 
     act(() => {
-      detector.emit({ trigger: "PHONE", active: true });
+      detector.emit({ source: "PHONE", active: true });
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000); // enterMs(500) 경과 → DISTRACTION
@@ -116,7 +116,7 @@ describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
     expect(mocks.distracted).not.toHaveBeenCalled();
 
     act(() => {
-      detector.emit({ trigger: "PHONE", active: false });
+      detector.emit({ source: "PHONE", active: false });
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000); // exitMs(1500) 경과 → FOCUS, 구간 닫힘

@@ -110,10 +110,11 @@ describe("createVisionFocusDetector", () => {
     await vi.advanceTimersByTimeAsync(0); // load() 해결
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
 
-    expect(signals).toContainEqual({ trigger: "AWAY", active: true });
-    expect(signals).toContainEqual({ trigger: "PHONE", active: true });
+    expect(signals).toContainEqual({ source: "AWAY", active: true });
+    expect(signals).toContainEqual({ source: "PHONE", active: true });
     // DEVICE는 가속도 센서 경로다 — 이 어댑터는 만들지 않는다(계속 false).
-    expect(signals.some((signal) => signal.trigger === "DEVICE")).toBe(false);
+    expect(signals.some((signal) => signal.source === "DEVICE")).toBe(false);
+    expect(signals.every((signal) => ["AWAY", "PHONE"].includes(signal.source))).toBe(true);
   });
 
   it("detect()가 null이면 직전 신호를 유지한다 — 판정 없음이지 사람 없음이 아니다", async () => {
@@ -133,7 +134,7 @@ describe("createVisionFocusDetector", () => {
     // null 프레임이 열 번 흘러도 신호는 한 톨도 바뀌지 않는다.
     // 여기서 AWAY=true가 새로 나오면 모델 로딩 구간이 통째로 자리 이탈로 기록된다.
     expect(signals).toEqual(afterFirstJudgement);
-    expect(signals).not.toContainEqual({ trigger: "AWAY", active: true });
+    expect(signals).not.toContainEqual({ source: "AWAY", active: true });
   });
 
   it("모델 로딩이 unavailable이면 던지지 않고, 신호도 내보내지 않는다", async () => {
@@ -190,7 +191,7 @@ describe("createVisionFocusDetector", () => {
     vision.start();
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
 
-    expect(signals).toContainEqual({ trigger: "AWAY", active: true });
+    expect(signals).toContainEqual({ source: "AWAY", active: true });
   });
 
   it("직전 프레임의 검출을 다음 호출의 previous로 넘긴다 (후속 폰 사용 규칙이 이걸로 구현된다)", async () => {

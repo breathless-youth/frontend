@@ -346,7 +346,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(detector).toBeDefined();
 
       await act(async () => {
-        detector!.emit({ trigger: "PHONE", active: true });
+        detector!.emit({ source: "PHONE", active: true });
         await vi.advanceTimersByTimeAsync(700);
       });
 
@@ -354,7 +354,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(screen.getByText("내려놓으면 자동으로 다시 측정돼요")).toBeInTheDocument();
 
       await act(async () => {
-        detector!.emit({ trigger: "PHONE", active: false });
+        detector!.emit({ source: "PHONE", active: false });
         await vi.advanceTimersByTimeAsync(1700);
       });
 
@@ -382,7 +382,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       );
 
       await act(async () => {
-        window.__focusonMockDetector!.emit({ trigger: "AWAY", active: true });
+        window.__focusonMockDetector!.emit({ source: "AWAY", active: true });
         await vi.advanceTimersByTimeAsync(2000);
       });
 
@@ -437,7 +437,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       const detector = window.__focusonMockDetector;
 
       await act(async () => {
-        detector!.emit({ trigger: "AWAY", active: true });
+        detector!.emit({ source: "AWAY", active: true });
         await vi.advanceTimersByTimeAsync(2000);
       });
       expect(screen.getByRole("status")).toHaveTextContent("자리를 비운 것 같아요");

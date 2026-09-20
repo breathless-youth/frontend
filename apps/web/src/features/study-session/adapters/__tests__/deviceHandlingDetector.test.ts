@@ -53,8 +53,8 @@ describe("createDeviceHandlingDetector", () => {
     bridge.fromNative({ type: "device-handling", active: false, atMs: 2000 });
 
     expect(seen).toEqual([
-      { trigger: "DEVICE", active: true },
-      { trigger: "DEVICE", active: false },
+      { source: "DEVICE", active: true },
+      { source: "DEVICE", active: false },
     ]);
   });
 
@@ -98,8 +98,8 @@ describe("createDeviceHandlingDetector", () => {
     detector.stop();
 
     expect(seen).toEqual([
-      { trigger: "DEVICE", active: true },
-      { trigger: "DEVICE", active: false },
+      { source: "DEVICE", active: true },
+      { source: "DEVICE", active: false },
     ]);
     expect(bridge.sent.at(-1)).toMatchObject({ type: "motion-sensor", enabled: false });
   });

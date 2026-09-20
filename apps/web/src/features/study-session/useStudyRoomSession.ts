@@ -311,7 +311,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     });
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
-      const next = { ...signalsRef.current, [signal.trigger]: signal.active };
+      const next = { ...signalsRef.current, [signal.source]: signal.active };
       signalsRef.current = next;
       // 신호가 바뀐 시각을 다음 tick이 아니라 **수신 시각**으로 기록한다.
       // tick에서만 반영하면 유지시간 판정이 최대 tickMs만큼 늦어진다.

@@ -25,7 +25,7 @@ export function createDeviceHandlingDetector(): FocusDetector {
     }
     active = next;
     for (const listener of [...listeners]) {
-      listener({ trigger: "DEVICE", active: next });
+      listener({ source: "DEVICE", active: next });
     }
   }
 
