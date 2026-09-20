@@ -4,6 +4,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Toast } from "@/components/ui/toast";
+import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
+import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
+import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
+import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import {
   combineFocusDetectors,
@@ -176,27 +180,15 @@ function useRotationPhase(): RotationPhase {
 }
 
 /**
- * 세션 화면 — S3-1(집중)·S3-2(비집중)·S3-3(일시정지)·S3-4(심플 모드)는 **같은 화면**이다.
- * 별도 라우트를 만들지 않고 두 개의 **직교하는 축**으로 프레젠테이션이 갈린다:
+ * 세션 화면
  *
- * - **세션 상태**(`sessionState`: FOCUS / DISTRACTION / PAUSE) — "세션이 어떤 상태인가".
+ * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
  *   상태 필·타이머 색·컨트롤 바 첫 버튼·하단 캡션이 여기 반응한다.
- * - **표시 모드**(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
+ * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
  *   카메라 프리뷰·하단 캡션의 유무와 타이머 발광·세로 배치가 여기 반응한다.
  *
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
- *
- * **S3-5(가로 프리뷰)·S3-6(가로 심플)은 세 번째 축이 아니다** — 같은 두 축에 걸리는 순수
- * 레이아웃 변형이다. 방향은 상태로 들고 있지 않고 `@media (orientation: landscape)`가 판정한다
- * (`SESSION_LAYER_LAYOUT` 주석 참고). 명시적 회전 트리거 정책은 `ai-wiki` 어디에도 없다는 것이
- * SCR-S3-5·S3-6에서 확인됐고, 디자인에 방향 잠금·수동 전환 컨트롤도 없다.
- *
- * 라우트는 기존 `/room/:id?userId=N`을 유지하되 **방 번호를 표시하지 않는다** —
- * V1.0 싱글룸에는 사용자에게 보여줄 "방" 개념이 없다(`:id` 존치 여부는 리뷰 항목).
- *
- * 세션 계산(2축 타이머·상태 머신·이벤트 누적)은 전부 `useStudyRoomSession`과 그 아래
- * 순수 모듈에 있다 — 이 파일은 표시와 입력 배선만 한다.
  */
 function RoomSessionScreen({
   userId,
@@ -238,6 +230,11 @@ function RoomSessionScreen({
     combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
   );
   const detector = devDetector ?? sensorDetector;
+  /**
+   * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
+   * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
+   */
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   const {
     focusSec,
     studySec,
@@ -250,7 +247,18 @@ function RoomSessionScreen({
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector, restored });
+  } = useStudyRoomSession(userId, {
+    camera,
+    detector,
+    restored,
+    ambientUsage: ambientUsage.snapshot,
+  });
+  const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
+  const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
+  // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
+  const sessionSurfaceRef = useRef<HTMLElement>(null);
+  // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
+  const ambientButtonRef = useRef<HTMLButtonElement>(null);
   const { message: toastMessage, showToast } = useToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
@@ -258,6 +266,10 @@ function RoomSessionScreen({
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  // 손으로 만든 종료 다이얼로그가 떠 있을 때만 뒤의 세션 화면을 inert 로 만든다.
+  // 배경음 시트는 Radix 라 포커스 트랩·바깥 차단·aria-hidden 을 스스로 하고, 여기에 inert 를
+  // 겹치면 닫힐 때 포커스를 돌려줄 버튼이 이미 inert 라 복귀가 조용히 실패한다.
+  const overlayOpen = exitDialogOpen;
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -438,6 +450,7 @@ function RoomSessionScreen({
 
   return (
     <main
+      ref={sessionSurfaceRef}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 컨트롤 바 아이콘(`<img>`)과 캡션·타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
@@ -482,13 +495,21 @@ function RoomSessionScreen({
               trackSessionSimpleModeToggled(!simpleMode);
               setSimpleMode((prev) => !prev);
             }}
-            inert={exitDialogOpen}
+            inert={overlayOpen}
             className="absolute inset-0 cursor-default"
           />
 
           {/* 다이얼로그가 열리면 배경 세션 화면 전체를 inert로 만든다 — 포커스가 뒤로 새지 않고
-              스크린리더도 다이얼로그만 읽는다(SCR-S3-7·S3-8 Accessibility). */}
-          <div className={SESSION_LAYER_LAYOUT} inert={exitDialogOpen}>
+              스크린리더도 다이얼로그만 읽는다. */}
+          <div className={SESSION_LAYER_LAYOUT} inert={overlayOpen}>
+            {/* 배경음 버튼 */}
+            <AmbientSoundButton
+              ref={ambientButtonRef}
+              on={ambient.isOn}
+              expanded={ambientSheetOpen}
+              onClick={() => setAmbientSheetOpen(true)}
+              className="absolute top-[calc(env(safe-area-inset-top)+13px)] right-[calc(env(safe-area-inset-right)+24px)] landscape:top-[calc(env(safe-area-inset-top)+90px)] landscape:right-[calc(env(safe-area-inset-right)+28px)]"
+            />
             {/* 가로에서도 상단 중앙 — 서브 문구(비집중·일시정지)는 세로와 같이 필 바로 아래에
                 붙는다. 가로 비집중·일시정지 프레임은 Figma 미설계라(SCR-S3-5·S3-6 Current
                 Limitations 3) 세로와 같은 상대 위치를 유지하는 가장 보수적인 배치를 쓴다. */}
@@ -604,6 +625,22 @@ function RoomSessionScreen({
               onConfirm={handleConfirmExit}
             />
           )}
+
+          {/* 배경음 시트는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
+              포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
+          <AmbientSoundSheet
+            open={ambientSheetOpen}
+            container={sessionSurfaceRef.current}
+            triggerRef={ambientButtonRef}
+            catalog={ambient.catalog}
+            mix={ambient.mix}
+            duckEnabled={ambient.duckEnabled}
+            blocked={ambient.blocked}
+            onToggleSound={ambient.toggleSound}
+            onChangeLevel={ambient.changeLevel}
+            onSetDuckEnabled={ambient.setDuckEnabled}
+            onOpenChange={setAmbientSheetOpen}
+          />
         </>
       ) : /* 미달 종료 안내 — **S3-8보다 먼저 검사한다.** 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, S3-8의 `여기까지 기록을 저장했어요`도 S4의
