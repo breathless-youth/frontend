@@ -282,3 +282,19 @@ export const SLEEP_THRESHOLDS = { eyeClosure: 0.45, faceLostPersonScore: 0.5 } a
  * 자세를 잡는 1~2표본 동안 얼굴이 잡혔다.
  */
 export const FACE_SMOOTHING_SAMPLES = 3;
+
+/**
+ * 엎드림 기준선을 재는 창. 이 길이 동안 얼굴이 얼마나 보였는지로 "얼굴이 나오는 배치인가"를 판단한다.
+ *
+ * 캠스터디에는 몸만 찍는 사용자가 흔하다. 그 사람이 잠깐 얼굴을 비췄다 물러나면 얼굴 소실로
+ * 읽히는데, 창을 길게 잡으면 그 짧은 노출이 비율을 채우지 못해 걸러진다. 3분은 잠깐 자리를
+ * 고쳐 앉는 정도는 덮으면서 세션 시작 직후 공백이 견딜 만한 길이다.
+ */
+export const FACE_BASELINE_WINDOW_MS = 180_000;
+
+/** 창 안에서 얼굴이 보여야 하는 최소 비율. */
+export const FACE_BASELINE_MIN_RATIO = 0.8;
+
+/** 창을 얼굴 틱으로 나눈 표본 수. 링버퍼 크기가 창 정의에서 파생되게 둔다. */
+export const FACE_BASELINE_SAMPLES =
+  FACE_BASELINE_WINDOW_MS / (FACE_FRAME_DIVISOR * FRAME_INTERVAL_MS);
