@@ -1,14 +1,8 @@
 import { visionDiagnostics } from "../diagnostics";
 import type { EyeCalibration } from "../eyeCalibration";
 import { FACE_LOST_ENABLED } from "../visionConfig";
-import {
-  measurementEnabled,
-  measurementPanelEnabled,
-  measurementRehearsal,
-  REHEARSAL_DIVISOR,
-} from "./flags";
+import { measurementEnabled, measurementPanelEnabled, measurementRehearsal } from "./flags";
 import type { Measurement } from "./measurement";
-import { MEASUREMENT_SCENARIOS, scaleScenarios } from "./scenarios";
 import { createMeasurementTools } from "./wiring";
 
 /**
@@ -42,9 +36,6 @@ declare global {
 }
 
 const tools = createMeasurementTools({
-  scenarios: measurementRehearsal
-    ? scaleScenarios(MEASUREMENT_SCENARIOS, REHEARSAL_DIVISOR)
-    : MEASUREMENT_SCENARIOS,
   now: () => Date.now(),
   log: (line) => {
     // 측정하는 사람이 이 줄을 보고 그 분의 thermal state와 CPU%를 Instruments에서 적는다.

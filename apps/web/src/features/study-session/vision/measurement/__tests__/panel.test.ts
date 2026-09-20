@@ -4,9 +4,9 @@ import type { Measurement } from "../measurement";
 import { createMeasurement } from "../measurement";
 import type { VisionDiagnostics } from "../../diagnostics";
 import { mountMeasurementPanel } from "../panel";
-import { createReportingThermalTimer, createScenarioRunner } from "../runner";
-import type { MeasurementScenario } from "../scenarios";
-import { totalScenarioSec } from "../scenarios";
+import { createReportingThermalTimer } from "../runner";
+import type { FrameDiagnostics } from "../../diagnostics";
+import { SEGMENT_BUTTONS } from "../panel";
 
 const noop: VisionDiagnostics = {
   detectorReady() {},
@@ -18,25 +18,6 @@ const noop: VisionDiagnostics = {
   transition() {},
   cameraStream() {},
 };
-
-const SCENARIOS: readonly MeasurementScenario[] = [
-  {
-    id: "T1",
-    name: "졸음 진입",
-    instruction: "눈을 감으세요",
-    prepareSec: 10,
-    observeSec: 30,
-    expected: "10초쯤에 졸음으로 전이해야 한다",
-  },
-  {
-    id: "T2",
-    name: "깨어 있기",
-    instruction: "눈을 뜨세요",
-    prepareSec: 0,
-    observeSec: 20,
-    expected: "졸음이 없어야 한다",
-  },
-];
 
 function setup(
   overrides: {
@@ -53,7 +34,6 @@ function setup(
     now,
     eyeCalibration: () => overrides.eyeCalibration ?? null,
   });
-  const runner = createScenarioRunner({ scenarios: SCENARIOS, now });
   // 배선은 프로덕션과 같은 것을 쓴다 — 패널만 따로 엮으면 실제 경로가 테스트를 비껴간다.
   const thermal = createReportingThermalTimer({
     now,
@@ -61,26 +41,55 @@ function setup(
     log: () => {},
     onSummary: (state) => measurement.setThermal(state),
   });
-  runner.start();
   const panel = mountMeasurementPanel({
     measurement,
-    runner,
     thermal,
     rehearsal: overrides.rehearsal ?? false,
     faceLostEnabled: overrides.faceLostEnabled ?? false,
-    oneRoundSec: totalScenarioSec(SCENARIOS),
     enabled: overrides.enabled ?? true,
     copy: overrides.copy ?? (() => Promise.resolve()),
   });
   return {
     measurement,
-    runner,
     thermal,
     panel,
     advance(sec: number) {
       nowMs += sec * 1000;
     },
+    now,
   };
+}
+
+function frame(overrides: Partial<FrameDiagnostics> = {}): FrameDiagnostics {
+  return {
+    personPresent: true,
+    topScores: { person: 0.91 },
+    awaySignal: false,
+    phoneSignal: false,
+    durationMs: 100,
+    delegate: "CPU",
+    face: null,
+    ...overrides,
+  };
+}
+
+/** 눈 표본이 있는 프레임. 값은 판정이 쓰는 두 눈 점수다. */
+function eyeFrame(
+  left: number,
+  right: number,
+  overrides: Partial<FrameDiagnostics> = {},
+): FrameDiagnostics {
+  return frame({
+    eyeThreshold: 0.45,
+    face: {
+      present: true,
+      eye: { eyeBlinkLeft: left, eyeBlinkRight: right },
+      skipReason: null,
+      durationMs: 20,
+      delegate: "CPU",
+    },
+    ...overrides,
+  });
 }
 
 function panelText(): string {
@@ -106,56 +115,90 @@ describe("mountMeasurementPanel", () => {
     expect(document.querySelector("[data-measure-panel]")).toBeNull();
   });
 
-  it("지금 시나리오의 번호·이름·안내와 남은 시간을 띄운다", () => {
-    const { advance, panel } = setup();
-
-    expect(panelText()).toContain("T1");
-    expect(panelText()).toContain("졸음 진입");
-    expect(panelText()).toContain("눈을 감으세요");
-    expect(panelText()).toContain("10");
-
-    advance(4);
-    panel.refresh();
-    expect(panelText()).toContain("6");
-  });
-
-  it("준비와 관찰을 구분해 보여준다", () => {
-    const { advance, panel } = setup();
-
-    expect(panelText()).toContain("준비");
-
-    advance(10);
-    panel.refresh();
-    expect(panelText()).toContain("관찰");
-  });
-
-  it("다음 버튼이 다음 시나리오로 넘긴다", () => {
-    const { panel } = setup();
-
-    button("next")?.click();
-    panel.refresh();
-
-    expect(panelText()).toContain("T2");
-  });
-
-  it("다시 버튼이 같은 시나리오를 처음부터 돌린다", () => {
-    const { advance, panel } = setup();
-
-    advance(5);
-    panel.refresh();
-    button("repeat")?.click();
-    panel.refresh();
-
-    expect(panelText()).toContain("T1");
-    expect(panelText()).toContain("준비 10초");
-  });
-
-  it("기대 문장을 안내 아래에 보여준다 — 판단은 하지 않는다", () => {
+  it("행동 버튼이 정해진 순서로 전부 있다 — 이름이 그대로 구간 이름이다", () => {
     setup();
 
-    expect(panelText()).toContain("기대: 10초쯤에 졸음으로 전이해야 한다");
-    expect(panelText()).not.toContain("통과");
-    expect(panelText()).not.toContain("실패");
+    const labels = Array.from(document.querySelectorAll('[data-measure-action^="segment:"]')).map(
+      (element) => element.textContent,
+    );
+    expect(labels).toEqual([...SEGMENT_BUTTONS]);
+    expect(SEGMENT_BUTTONS).toContain("눈 감기");
+    expect(SEGMENT_BUTTONS).toContain("꾸벅꾸벅");
+  });
+
+  it("버튼을 누르기 전에는 구간이 없다고 안내한다", () => {
+    setup();
+
+    expect(panelText()).toContain("구간 없음");
+  });
+
+  it("행동 버튼을 누르면 그 이름의 구간이 열리고 눌린 버튼만 표시된다", () => {
+    const { measurement, advance, panel } = setup();
+
+    button("segment:눈 감기")?.click();
+    measurement.frame(frame());
+    advance(8);
+    panel.refresh();
+
+    expect(panelText()).toContain("구간 눈 감기 8초");
+    expect(button("segment:눈 감기")?.getAttribute("aria-pressed")).toBe("true");
+    expect(button("segment:눈 뜨기")?.getAttribute("aria-pressed")).toBeNull();
+    const dump = JSON.parse(measurement.dump()) as { segments: { name: string }[] };
+    expect(dump.segments.map((segment) => segment.name)).toEqual(["눈 감기"]);
+  });
+
+  it("눈 점수·다듬은 값·임계와 감김 여부를 보여준다 — 표본 둘이 모두 감겨야 감김이다", () => {
+    const { measurement, panel } = setup();
+
+    measurement.frame(eyeFrame(0.6, 0.7));
+    panel.refresh();
+    expect(panelText()).toContain("눈 L0.60 R0.70 → 0.60");
+    expect(panelText()).toContain("판정 없음");
+
+    measurement.frame(eyeFrame(0.62, 0.7));
+    panel.refresh();
+    expect(panelText()).toContain("다듬 0.60 · 임계 0.45 → 감김");
+
+    measurement.frame(eyeFrame(0.1, 0.2));
+    panel.refresh();
+    expect(panelText()).toContain("→ 뜸");
+  });
+
+  it("비율 창이 차기 전에는 안 찼다고 말하고, 차면 비율과 원신호를 보여준다", () => {
+    const { measurement, panel } = setup();
+
+    measurement.frame(eyeFrame(0.6, 0.6, { eyeClosedRatio: null }));
+    panel.refresh();
+    expect(panelText()).toContain("비율 창 안 참");
+
+    measurement.frame(
+      eyeFrame(0.6, 0.6, { eyeClosedRatio: 0.64, sleepEyesSignal: true, sleepDrowsySignal: true }),
+    );
+    panel.refresh();
+    expect(panelText()).toContain("비율 0.64 · 원신호 눈○ 꾸벅○");
+  });
+
+  it("상태와 그 상태에 머문 초를 보여준다", () => {
+    const { measurement, advance, panel, now } = setup();
+
+    measurement.transition("FOCUS", "DISTRACTION:SLEEP", now());
+    advance(5);
+    panel.refresh();
+
+    expect(panelText()).toContain("상태 DISTRACTION:SLEEP 5초");
+  });
+
+  it("보정 전에는 상한을 쓴다고 말한다", () => {
+    setup();
+
+    expect(panelText()).toContain("보정중 (임계 상한 사용)");
+  });
+
+  it("보정되면 기준값·임계·창 수를 보여준다", () => {
+    const { panel } = setup({ eyeCalibration: { windows: 2, baseline: 0.09, threshold: 0.45 } });
+
+    panel.refresh();
+    expect(panelText()).toContain("보정 기준 0.09 → 임계 0.45 · 창 2회");
   });
 
   it("이 구간의 전이 건수만 보여준다", () => {
@@ -366,7 +409,7 @@ describe("mountMeasurementPanel", () => {
   it("버튼 터치 타깃이 44픽셀 이상이다 — 실기기에서 열다섯 번 넘게 누른다", () => {
     setup();
 
-    for (const action of ["next", "repeat", "copy", "thermal-start", "thermal-serious"]) {
+    for (const action of ["copy", "segment:눈 감기", "thermal-start"]) {
       const element = button(action);
       expect(Number.parseInt(element?.style.minHeight ?? "0", 10)).toBeGreaterThanOrEqual(44);
       expect(Number.parseInt(element?.style.minWidth ?? "0", 10)).toBeGreaterThanOrEqual(44);
@@ -378,7 +421,16 @@ describe("mountMeasurementPanel", () => {
     const root = document.querySelector<HTMLElement>("[data-measure-panel]");
 
     expect(root?.style.pointerEvents).toBe("none");
-    expect(button("next")?.style.pointerEvents).toBe("auto");
+    expect(button("copy")?.style.pointerEvents).toBe("auto");
+    expect(button("segment:눈 감기")?.style.pointerEvents).toBe("auto");
+  });
+
+  it("세션 리플레이가 눈 점수를 녹화하지 못하게 차단 표식을 단다", () => {
+    setup();
+
+    const root = document.querySelector("[data-measure-panel]");
+    expect(root?.classList.contains("amp-block")).toBe(true);
+    expect(root?.classList.contains("sentry-block")).toBe(true);
   });
 
   it("명시 역할을 주지 않는다 — 버튼의 암묵 역할 말고는 접근성 트리에 아무것도 더하지 않는다", () => {

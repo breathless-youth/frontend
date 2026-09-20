@@ -1,5 +1,5 @@
-import type { Measurement } from "./measurement";
-import type { ScenarioRunner, ThermalTimer } from "./runner";
+import type { LiveSnapshot, Measurement } from "./measurement";
+import type { ThermalTimer } from "./runner";
 import { clockText, thermalStatusLine } from "./runner";
 
 /**
@@ -8,11 +8,15 @@ import { clockText, thermalStatusLine } from "./runner";
  * 세션 화면의 컴포넌트 트리에 손을 대지 않으려고 이렇게 만들었다. 트리에 끼워 넣으면 지울 때
  * 화면 코드 여러 곳을 되돌려야 하는데, 이 도구는 측정이 끝나면 통째로 사라진다.
  *
+ * 타이머로 시나리오를 돌리던 방식은 걷어냈다. 측정하는 사람이 **행동 버튼을 누르고 그 행동을
+ * 한다** — 버튼이 구간 이름이 되고, 패널은 그 사이 눈이 어떻게 읽히는지를 매초 보여준다.
+ * 잘 안 되는 것은 사람이 화면을 보고 말로 전한다. 패널은 판단하지 않는다.
+ *
  * 화면에 대해 지키는 것 셋.
  * - 컨테이너는 터치를 통과시키고 **버튼만** 받는다. 프리뷰와 세션 조작을 막지 않는다.
  * - 컨테이너에 **명시 역할(`role`)을 주지 않는다.** 세션 화면의 접근성 트리에 상태 알림이
  *   끼어들면 스크린리더 사용자에게 없는 상태를 알리게 되고, 기존 테스트의 역할 질의도 흔들린다
- *   (`components/DevVisionFailureNotice.tsx`와 같은 판단). 버튼 넷은 조작 대상이라 암묵 역할과
+ *   (`components/DevVisionFailureNotice.tsx`와 같은 판단). 버튼은 조작 대상이라 암묵 역할과
  *   탭 순서를 갖는다 — 눌러야 하는 것이므로 그게 맞다.
  * - 프리뷰 중앙과 하단 조작부를 피해 왼쪽 위에 붙고, 개발용 배너·복구 다이얼로그(`z-50`)보다
  *   **아래에** 쌓인다. 측정 도구가 실패 안내나 복구 선택을 덮으면 안 된다.
@@ -20,20 +24,36 @@ import { clockText, thermalStatusLine } from "./runner";
 
 export interface MeasurementPanelOptions {
   readonly measurement: Measurement;
-  readonly runner: ScenarioRunner;
   readonly thermal: ThermalTimer;
   readonly rehearsal: boolean;
   /** 엎드림 판정이 켜져 있는가. 점검 줄이 꺼져 있을 때만 표시를 더한다. */
   readonly faceLostEnabled: boolean;
-  /** 시나리오 한 바퀴에 걸리는 시간. 문서에 손으로 적지 않고 화면이 말한다. */
-  readonly oneRoundSec?: number;
   /** 진단이 꺼져 있으면 아예 붙지 않는다. */
   readonly enabled?: boolean;
   /** 클립보드 접근점. 웹뷰에서 권한이 다를 수 있어 주입으로 열어 둔다. */
   readonly copy?: (text: string) => Promise<void>;
 }
 
-/** 화면을 다시 그리는 주기. 남은 시간이 1초 단위라 1초면 충분하다. */
+/**
+ * 구간 버튼. 이름이 그대로 덩어리의 구간 이름이 된다.
+ *
+ * 순서는 측정 절차의 순서다 — 눈 감기와 뜨기가 짝이고, 그다음이 오탐 쪽 확인이다. 버튼 이름을
+ * 여기서만 정하므로 런북은 이 목록을 옮겨 적지 않는다.
+ */
+export const SEGMENT_BUTTONS: readonly string[] = [
+  "눈 감기",
+  "눈 뜨기",
+  "깜빡임",
+  "내려다봄",
+  "꾸벅꾸벅",
+  "몸만 배치",
+  "휴대폰",
+  "안경",
+  "고개 젖힘",
+  "기타",
+];
+
+/** 화면을 다시 그리는 주기. 눈 표본이 2초에 하나라 1초면 충분하다. */
 const REPAINT_MS = 1000;
 
 export interface MeasurementPanel {
@@ -54,14 +74,46 @@ function defaultCopy(text: string): Promise<void> {
   return clipboard.writeText(text);
 }
 
+function score(value: number | null): string {
+  return value === null ? "-" : value.toFixed(2);
+}
+
+function yesNo(value: boolean | null): string {
+  return value === null ? "-" : value ? "○" : "×";
+}
+
+/**
+ * 눈이 지금 어떻게 읽히는지 세 줄. 값은 전부 판정이 실제로 쓰는 것과 같은 자리의 값이다.
+ *
+ * 1줄: 상태와 구간. 2줄: 눈 점수가 임계를 넘는지. 3줄: 비율 규칙과 원신호, 얼굴·사람.
+ * 4줄: 보정. 세션 시작 30초쯤 `보정중`이 기준값으로 바뀌는 것이 여기서 보인다.
+ */
+export function liveLines(live: LiveSnapshot): string {
+  const segment =
+    live.segment === null
+      ? "구간 없음 — 버튼을 누르세요"
+      : `구간 ${live.segment} ${live.segmentSec}초`;
+  const closed = live.closed === null ? "판정 없음" : live.closed ? "감김" : "뜸";
+  const age = live.eyeAgeSec === null ? "표본 없음" : `표본 ${live.eyeAgeSec}초 전`;
+  const ratio = live.ratio === null ? "비율 창 안 참" : `비율 ${live.ratio.toFixed(2)}`;
+  const calibration =
+    live.calibration === null
+      ? "보정중 (임계 상한 사용)"
+      : `보정 기준 ${score(live.calibration.baseline)} → 임계 ${score(live.calibration.threshold)} · 창 ${live.calibration.windows}회`;
+  return [
+    `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
+    `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
+    `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)} 사람 ${score(live.person)} · ${age}`,
+    calibration,
+  ].join("\n");
+}
+
 export function mountMeasurementPanel(options: MeasurementPanelOptions): MeasurementPanel {
   const {
     measurement,
-    runner,
     thermal,
     rehearsal,
     faceLostEnabled,
-    oneRoundSec = 0,
     enabled = true,
     copy = defaultCopy,
   } = options;
@@ -75,12 +127,15 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
 
   const root = doc.createElement("div");
   root.setAttribute("data-measure-panel", "");
+  // 눈 점수와 보정값은 얼굴에서 나온 측정치다. 카메라 프리뷰와 같은 표식을 붙여 Sentry·Amplitude
+  // 세션 리플레이가 이 글자를 녹화하지 못하게 한다. 전역 설정은 영상만 막는다.
+  root.className = "amp-block sentry-block";
   root.style.cssText = [
     "position:fixed",
     "left:8px",
     "top:calc(env(safe-area-inset-top) + 8px)",
     "z-index:40",
-    "max-width:250px",
+    "max-width:300px",
     "padding:8px 10px",
     "border-radius:8px",
     "background:rgba(17,17,17,0.82)",
@@ -92,8 +147,13 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
   ].join(";");
 
   const body = doc.createElement("div");
+  const segmentControls = doc.createElement("div");
+  segmentControls.style.cssText = "display:flex;gap:4px;margin-top:6px;flex-wrap:wrap";
   const controls = doc.createElement("div");
-  controls.style.cssText = "display:flex;gap:4px;margin-top:6px;flex-wrap:wrap";
+  controls.style.cssText = "display:flex;gap:4px;margin-top:4px;flex-wrap:wrap";
+
+  const BUTTON_BACKGROUND = "#333";
+  const ACTIVE_BACKGROUND = "#2a6b3f";
 
   function makeButton(action: string, label: string, onClick: () => void): HTMLButtonElement {
     const element = doc.createElement("button");
@@ -108,7 +168,7 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
       "padding:4px 6px",
       "border:0",
       "border-radius:5px",
-      "background:#333",
+      `background:${BUTTON_BACKGROUND}`,
       "color:#fff",
       "font:11px/14px ui-monospace,monospace",
     ].join(";");
@@ -120,36 +180,14 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     const preflight = measurement.preflight();
     const mark = (value: string): string => (value === "ready" ? "ok" : `⚠${value}`);
     const camera = preflight.camera ?? "⚠대기";
-    // 엎드림은 기본 꺼짐이다. 16분을 돌고 나서야 "왜 SLEEP_FACE가 한 번도 안 잡혔지"로
+    // 엎드림은 기본 꺼짐이다. 한참 돌고 나서야 "왜 SLEEP_FACE가 한 번도 안 잡혔지"로
     // 헤매지 않도록, 꺼져 있다는 사실을 점검 단계에서부터 보여준다.
     const faceLost = faceLostEnabled ? "" : " 엎드림꺼짐";
     // 보정 전후로 눈 감김 임계가 달라진다. 같은 자세인데 판정이 바뀐 이유가 여기서 보여야 한다.
-    // 창 횟수를 붙이는 것은 보정이 한 번이 아니라 계속 돌기 때문이다 — 40초 준비 구간에서 실제로
-    // 돌았는지를 측정하는 사람이 바로 본다.
     const calibration = preflight.calibrated
       ? ` 보정ok(${preflight.calibrationWindows})`
       : " 보정중";
     return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${calibration}${faceLost}`;
-  }
-
-  function scenarioLines(): string {
-    const state = runner.state();
-    if (state.finished) {
-      return "시나리오 끝 — 덩어리를 복사하세요";
-    }
-    const phase = state.phase === "prepare" ? "준비" : state.phase === "observe" ? "관찰" : "완료";
-    const remaining =
-      state.phase === "done" ? "다음을 누르세요" : `${phase} ${state.remainingSec}초`;
-    const round = oneRoundSec === 0 ? "" : ` · 한 바퀴 약 ${Math.round(oneRoundSec / 60)}분`;
-    const started = state.idle ? "\n세션이 시작되면 진행이 열립니다" : `\n${remaining}`;
-    return (
-      [
-        `${state.scenario.id} ${state.scenario.name} (${state.index + 1}/${state.total})${round}`,
-        state.scenario.instruction,
-        // 기대는 사람이 읽는 문장이다. 패널은 이것을 보여줄 뿐 맞았는지 판단하지 않는다.
-        `기대: ${state.scenario.expected}`,
-      ].join("\n") + started
-    );
   }
 
   /** 판단하지 않는다. 이 구간에서 전이가 몇 번 있었는지만 보여 준다. */
@@ -171,22 +209,40 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     return `\n${thermalStatusLine(state, measurement.stats())}${serious}`;
   }
 
+  /**
+   * 구간 버튼은 한 번만 만든다. 매초 노드를 갈아 끼우면 누르는 순간 대상이 사라져 클릭이
+   * 삼켜질 수 있다. 지금 열린 구간의 버튼만 색을 바꿔 어느 행동 중인지 보여준다.
+   */
+  const segmentButtons = SEGMENT_BUTTONS.map((label) =>
+    makeButton(`segment:${label}`, label, () => {
+      measurement.mark(label);
+      render();
+    }),
+  );
+  segmentControls.append(...segmentButtons);
+
+  function updateSegmentButtons(current: string | null): void {
+    for (const button of segmentButtons) {
+      const active = current !== null && button.textContent === current;
+      button.style.background = active ? ACTIVE_BACKGROUND : BUTTON_BACKGROUND;
+      if (active) {
+        button.setAttribute("aria-pressed", "true");
+      } else {
+        button.removeAttribute("aria-pressed");
+      }
+    }
+  }
+
   function render(): void {
+    const live = measurement.live();
     const rehearsalLine = rehearsal ? "⚠ 리허설 — 이 수치는 본 측정이 아니다\n" : "";
     const notice = copyNotice === "" ? "" : `\n${copyNotice}`;
-    body.textContent = `${rehearsalLine}${preflightLine()}\n\n${scenarioLines()}${observationLine()}${thermalLines()}${notice}`;
+    body.textContent = `${rehearsalLine}${preflightLine()}\n\n${liveLines(live)}${observationLine()}${thermalLines()}${notice}`;
+    updateSegmentButtons(live.segment);
     updateStageControls();
   }
 
   controls.append(
-    makeButton("next", "다음", () => {
-      runner.next();
-      render();
-    }),
-    makeButton("repeat", "다시", () => {
-      runner.repeat();
-      render();
-    }),
     makeButton("copy", "복사", () => {
       void copy(measurement.dump()).then(
         () => {
@@ -194,7 +250,7 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
           render();
         },
         () => {
-          // 조용히 실패하면 16분을 돌고도 자료가 없다. 웹뷰에서 권한이 다를 수 있어 대안을 띄운다.
+          // 알리지 않고 실패하면 한참 돌고도 자료가 없다. 웹뷰에서 권한이 다를 수 있어 대안을 띄운다.
           copyNotice = "복사 권한이 막혔습니다 — 콘솔에서 window.__focusonMeasure.dump()";
           render();
         },
@@ -257,19 +313,17 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     show(stageButtons.abort, state.running);
   }
 
-  root.append(body, controls, stageControls);
+  root.append(body, segmentControls, controls, stageControls);
   doc.body.append(root);
   render();
 
   const timer = setInterval(() => {
-    runner.tick();
     thermal.tick();
     render();
   }, REPAINT_MS);
 
   return {
     refresh() {
-      runner.tick();
       thermal.tick();
       render();
     },

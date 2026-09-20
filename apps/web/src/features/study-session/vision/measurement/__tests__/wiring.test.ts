@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { FrameDiagnostics, VisionDiagnostics } from "../../diagnostics";
-import type { MeasurementScenario } from "../scenarios";
 import { FACE_BASELINE_SAMPLES } from "../../visionConfig";
 import { rehearsalBaseline } from "../flags";
 import { createMeasurementTools } from "../wiring";
@@ -22,25 +21,6 @@ const base: VisionDiagnostics = {
   cameraStream() {},
 };
 
-const SCENARIOS: readonly MeasurementScenario[] = [
-  {
-    id: "T1",
-    name: "졸음 진입",
-    instruction: "눈을 감으세요",
-    expected: "10초쯤에 졸음으로 전이해야 한다",
-    prepareSec: 10,
-    observeSec: 30,
-  },
-  {
-    id: "T2",
-    name: "깨어 있기",
-    instruction: "눈을 뜨세요",
-    expected: "졸음이 없어야 한다",
-    prepareSec: 0,
-    observeSec: 20,
-  },
-];
-
 function frame(): FrameDiagnostics {
   return {
     personPresent: true,
@@ -59,7 +39,6 @@ function setup(
   let nowMs = 0;
   const lines: string[] = [];
   const tools = createMeasurementTools({
-    scenarios: SCENARIOS,
     now: () => nowMs,
     log: (line) => lines.push(line),
     base,
@@ -86,26 +65,22 @@ afterEach(() => {
 });
 
 describe("createMeasurementTools", () => {
-  it("첫 프레임 전에는 패널도 진행도 열리지 않는다", () => {
+  it("첫 프레임 전에는 패널이 붙지 않는다", () => {
     const { tools, advance } = setup();
 
     advance(600);
 
     expect(tools.panel()).toBeNull();
-    expect(tools.runner.state().idle).toBe(true);
     expect(document.querySelector("[data-measure-panel]")).toBeNull();
   });
 
-  it("첫 프레임이 패널을 붙이고 진행 시계를 연다", () => {
+  it("첫 프레임이 패널을 붙인다", () => {
     const { tools, advance } = setup();
 
     advance(600);
     tools.measurement.frame(frame());
 
     expect(tools.panel()).not.toBeNull();
-    expect(tools.runner.state().idle).toBe(false);
-    // 앱 부팅이 아니라 이 시점부터 첫 시나리오의 준비가 시작된다.
-    expect(tools.runner.state().remainingSec).toBe(10);
     expect(document.querySelector("[data-measure-panel]")).not.toBeNull();
   });
 
@@ -115,7 +90,6 @@ describe("createMeasurementTools", () => {
     tools.measurement.detectorUnavailable("model fetch 404");
 
     expect(tools.panel()).not.toBeNull();
-    expect(tools.runner.state().idle).toBe(false);
     expect(document.querySelector("[data-measure-panel]")?.textContent).toContain("⚠unavailable");
   });
 
@@ -153,22 +127,16 @@ describe("createMeasurementTools", () => {
     expect(lines[0]).toContain("drop=");
   });
 
-  it("진행기가 여는 구간이 시나리오 정보와 함께 덩어리에 남는다", () => {
+  it("패널의 행동 버튼이 여는 구간이 덩어리에 남는다", () => {
     const { tools, advance } = setup();
 
     tools.measurement.frame(frame());
     advance(10);
-    tools.runner.tick();
+    document.querySelector<HTMLButtonElement>('[data-measure-action="segment:눈 감기"]')?.click();
     tools.measurement.frame(frame());
 
-    const dump = JSON.parse(tools.measurement.dump()) as {
-      segments: { name: string; scenario: { id: string; expected: string } | null }[];
-    };
-    expect(dump.segments.map((segment) => segment.name)).toEqual(["T1 준비", "T1 졸음 진입"]);
-    expect(dump.segments[1]?.scenario).toMatchObject({
-      id: "T1",
-      expected: "10초쯤에 졸음으로 전이해야 한다",
-    });
+    const dump = JSON.parse(tools.measurement.dump()) as { segments: { name: string | null }[] };
+    expect(dump.segments.map((segment) => segment.name)).toEqual([null, "눈 감기"]);
   });
 
   it("세션 전이가 지금 구간의 전이 목록으로 들어간다", () => {
@@ -176,7 +144,7 @@ describe("createMeasurementTools", () => {
 
     tools.measurement.frame(frame());
     advance(10);
-    tools.runner.tick();
+    tools.measurement.mark("눈 감기");
     advance(12);
     tools.measurement.transition("FOCUS", "DISTRACTION:SLEEP", 22_000);
 
@@ -196,7 +164,7 @@ describe("createMeasurementTools", () => {
     tools.measurement.transition("FOCUS", "DISTRACTION:SLEEP", 1000);
     tools.measurement.sessionStarted();
     advance(10);
-    tools.runner.tick();
+    tools.measurement.mark("눈 뜨기");
 
     const dump = JSON.parse(tools.measurement.dump()) as { segments: { entryLabel: string }[] };
     expect(dump.segments[1]?.entryLabel).toBe("FOCUS");
@@ -228,7 +196,6 @@ describe("createMeasurementTools", () => {
   it("리허설 덩어리의 기준선 설정이 실제로 적용된 값이다", () => {
     let nowMs = 0;
     const tools = createMeasurementTools({
-      scenarios: SCENARIOS,
       now: () => nowMs,
       log: () => {},
       base,
@@ -248,15 +215,16 @@ describe("createMeasurementTools", () => {
     expect(dump.config.baselineSamples).toBeLessThan(FACE_BASELINE_SAMPLES);
   });
 
-  it("패널이 꺼져 있어도 진행과 기록은 돈다", () => {
+  it("패널이 꺼져 있어도 기록은 돈다", () => {
     const { tools, advance } = setup({ panelEnabled: false });
 
     tools.measurement.frame(frame());
     advance(10);
-    tools.runner.tick();
+    tools.measurement.frame(frame());
 
     expect(document.querySelector("[data-measure-panel]")).toBeNull();
-    expect(tools.runner.state().phase).toBe("observe");
+    const dump = JSON.parse(tools.measurement.dump()) as { segments: { frames: number }[] };
+    expect(dump.segments[0]?.frames).toBe(2);
   });
 
   it("진단이 꺼져 있으면 아무것도 모으지 않는다", () => {
@@ -273,7 +241,6 @@ describe("createMeasurementTools", () => {
   it("감지기의 보정 결과가 덩어리까지 이어진다 — 통로가 끊기면 임계 없이 분포만 남는다", () => {
     let calibration: { windows: number; baseline: number; threshold: number } | null = null;
     const tools = createMeasurementTools({
-      scenarios: SCENARIOS,
       now: () => 0,
       log: () => {},
       base,

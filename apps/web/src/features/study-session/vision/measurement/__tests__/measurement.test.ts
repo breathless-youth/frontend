@@ -413,45 +413,171 @@ describe("콘솔 노출", () => {
   });
 });
 
-describe("구간 기록", () => {
-  it("시나리오 번호·이름·기대 문장이 구간에 붙는다 — 덩어리를 읽는 사람이 이것으로 해석한다", () => {
+describe("실시간 표시", () => {
+  it("마지막 눈 표본과 임계·비율·원신호를 그대로 보여준다", () => {
+    let nowMs = 1000;
+    const m = createMeasurement(baseSpy(), { now: () => nowMs });
+
+    m.frame(
+      frame({
+        eyeThreshold: 0.45,
+        eyeClosedRatio: 0.6,
+        sleepEyesSignal: true,
+        sleepDrowsySignal: false,
+        face: {
+          present: true,
+          eye: { eyeBlinkLeft: 0.7, eyeBlinkRight: 0.5 },
+          skipReason: null,
+          durationMs: 20,
+          delegate: "CPU",
+        },
+      }),
+    );
+    nowMs += 3000;
+
+    const live = m.live();
+    expect(live).toMatchObject({
+      eyeLeft: 0.7,
+      eyeRight: 0.5,
+      eyeMin: 0.5,
+      threshold: 0.45,
+      ratio: 0.6,
+      sleepEyes: true,
+      sleepDrowsy: false,
+      facePresent: true,
+      person: 0.9,
+      eyeAgeSec: 3,
+    });
+  });
+
+  it("다듬은 값은 최근 표본이 모두 감겨야 감김이다 — 판정과 같은 규칙", () => {
+    const m = createMeasurement(baseSpy());
+    const eye = (value: number) =>
+      frame({
+        eyeThreshold: 0.45,
+        face: {
+          present: true,
+          eye: { eyeBlinkLeft: value, eyeBlinkRight: value },
+          skipReason: null,
+          durationMs: 20,
+          delegate: "CPU",
+        },
+      });
+
+    m.frame(eye(0.6));
+    expect(m.live().closed).toBeNull();
+    m.frame(eye(0.62));
+    expect(m.live()).toMatchObject({ eyeSmoothed: 0.6, closed: true });
+    m.frame(eye(0.1));
+    expect(m.live().closed).toBe(false);
+  });
+
+  it("얼굴 추론이 안 돈 프레임은 마지막 눈 점수를 지우지 않는다 — 얼굴은 네 프레임에 한 번 돈다", () => {
     const m = createMeasurement(baseSpy());
 
-    m.mark("A1 눈 감김 진입", {
-      id: "A1",
-      name: "눈 감김 진입",
-      instruction: "눈을 감으세요",
-      expected: "10초쯤에 졸음으로 전이해야 한다",
-      prepareSec: 10,
-      observeSec: 30,
+    m.frame(
+      frame({
+        face: {
+          present: true,
+          eye: { eyeBlinkLeft: 0.7, eyeBlinkRight: 0.5 },
+          skipReason: null,
+          durationMs: 20,
+          delegate: "CPU",
+        },
+      }),
+    );
+    m.frame(frame({ face: null }));
+    m.frame(frame({ face: undefined }));
+
+    expect(m.live()).toMatchObject({ eyeLeft: 0.7, eyeRight: 0.5, eyeMin: 0.5, facePresent: true });
+  });
+
+  it("눈을 못 읽은 얼굴 관측도 다듬기 창의 자리를 차지한다 — 판정기와 같은 창", () => {
+    const m = createMeasurement(baseSpy());
+    const closed = frame({
+      eyeThreshold: 0.45,
+      face: {
+        present: true,
+        eye: { eyeBlinkLeft: 0.6, eyeBlinkRight: 0.6 },
+        skipReason: null,
+        durationMs: 20,
+        delegate: "CPU",
+      },
     });
+
+    m.frame(closed);
+    m.frame(closed);
+    expect(m.live().closed).toBe(true);
+
+    m.frame(
+      frame({
+        eyeThreshold: 0.45,
+        face: { present: false, eye: null, skipReason: "no-face", durationMs: 8, delegate: "CPU" },
+      }),
+    );
+    expect(m.live().closed).toBeNull();
+  });
+
+  it("새 세션이 시작되면 앞 세션의 보정값을 버린다 — 새 감지기는 아직 상한으로 돈다", () => {
+    let calibration: { windows: number; baseline: number; threshold: number } | null = {
+      windows: 1,
+      baseline: 0.1,
+      threshold: 0.45,
+    };
+    const m = createMeasurement(baseSpy(), { eyeCalibration: () => calibration });
+
+    m.frame(frame());
+    calibration = null;
+    m.sessionStarted();
+
+    expect(m.preflight().calibrated).toBe(false);
+    expect(m.live().calibration).toBeNull();
+  });
+
+  it("상태에 머문 초와 구간 경과 초를 센다", () => {
+    let nowMs = 10_000;
+    const m = createMeasurement(baseSpy(), { now: () => nowMs });
+
+    m.mark("눈 감기");
+    m.transition("FOCUS", "DISTRACTION:SLEEP", nowMs);
+    nowMs += 7000;
+
+    expect(m.live()).toMatchObject({
+      state: "DISTRACTION:SLEEP",
+      stateSec: 7,
+      segment: "눈 감기",
+      segmentSec: 7,
+    });
+  });
+
+  it("보정값은 감지기가 버린 뒤에도 마지막 값이 남는다 — 세션이 끝난 뒤 복사해도 기준값이 보여야 한다", () => {
+    let calibration: { windows: number; baseline: number; threshold: number } | null = null;
+    const m = createMeasurement(baseSpy(), { eyeCalibration: () => calibration });
+
+    calibration = { windows: 2, baseline: 0.09, threshold: 0.45 };
+    m.frame(frame());
+    calibration = null;
+
+    expect(m.preflight()).toMatchObject({ calibrated: true, calibrationWindows: 2 });
+    expect(m.live().calibration).toEqual({ windows: 2, baseline: 0.09, threshold: 0.45 });
+    const dump = JSON.parse(m.dump()) as { eyeCalibration: { threshold: number } | null };
+    expect(dump.eyeCalibration?.threshold).toBe(0.45);
+  });
+});
+
+describe("구간 기록", () => {
+  it("버튼이 연 구간은 이름과 수치만 남는다 — 기대 문장 같은 판단 재료는 없다", () => {
+    const m = createMeasurement(baseSpy());
+
+    m.mark("눈 감기");
     m.frame(frame({ durationMs: 123 }));
 
     const dump = JSON.parse(m.dump()) as {
-      segments: {
-        name: string;
-        scenario: { id: string; expected: string } | null;
-        frames: number;
-        object: Record<string, number>;
-      }[];
+      segments: { name: string; frames: number; object: Record<string, number> }[];
     };
-    expect(dump.segments[0]).toMatchObject({ name: "A1 눈 감김 진입", frames: 1 });
-    expect(dump.segments[0]?.scenario).toEqual({
-      id: "A1",
-      name: "눈 감김 진입",
-      expected: "10초쯤에 졸음으로 전이해야 한다",
-    });
-    // 기대 문장이 붙어도 원본 수치는 그대로다.
+    expect(dump.segments[0]).toMatchObject({ name: "눈 감기", frames: 1 });
+    expect(dump.segments[0]).not.toHaveProperty("scenario");
     expect(dump.segments[0]?.object.p50).toBe(123);
-  });
-
-  it("시나리오 없이 연 구간은 기대 문장이 없다", () => {
-    const m = createMeasurement(baseSpy());
-    m.mark("손으로 표시한 구간");
-    m.frame(frame());
-
-    const dump = JSON.parse(m.dump()) as { segments: { scenario: unknown }[] };
-    expect(dump.segments[0]?.scenario).toBeNull();
   });
 
   it("구간에서 일어난 전이를 그대로 싣는다 — 일시정지도 거르지 않는다", () => {

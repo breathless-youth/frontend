@@ -2,10 +2,10 @@ import { DEFAULT_DETECTION_PARAMS } from "../../detection";
 import type { SessionState } from "../../sessionState";
 import type { Delegate } from "../visionConfig";
 import type { EyeCalibration } from "../eyeCalibration";
-import type { FrameDiagnostics, VisionDiagnostics } from "../diagnostics";
+import type { FaceFrameDiagnostics, FrameDiagnostics, VisionDiagnostics } from "../diagnostics";
 import type { ThermalTimerState } from "./runner";
-import type { MeasurementScenario } from "./scenarios";
 import {
+  EYE_AWAKE_CLEAR_SAMPLES,
   EYE_CALIBRATION_DELTA,
   EYE_CALIBRATION_PERCENTILE,
   EYE_CALIBRATION_SAMPLES,
@@ -31,7 +31,7 @@ import {
  *
  * ## 지울 때 되돌릴 것
  *
- * 1. `vision/measurement/` 폴더를 통째로 지운다. 계측·시나리오·진행·패널·배선·플래그·테스트가
+ * 1. `vision/measurement/` 폴더를 통째로 지운다. 계측·패널·발열 회차·이음새·플래그·테스트가
  *    전부 이 안에 있다(`?rehearsal=1`도 이 폴더 안에서만 읽는다).
  * 2. `vision/frameLoop.ts`의 `FrameLoopOptions.onDrop`과 `fire()`의 `onDrop?.()` 호출을 지운다.
  * 3. `vision/diagnostics.ts`의 `VisionDiagnostics.frameDropped`와 두 구현을 지운다.
@@ -75,11 +75,9 @@ export function stateLabel(state: SessionState): string {
   }
 }
 
-/** 한 구간이 모으는 것. 구간은 `mark()`로 갈린다. */
+/** 한 구간이 모으는 것. 구간은 `mark()`로 갈린다 — 측정하는 사람이 패널 버튼으로 연다. */
 interface Segment {
   name: string | null;
-  /** 이 구간이 무엇을 재려던 것인지. 시나리오가 연 구간에만 있다. */
-  scenario: { id: string; name: string; expected: string } | null;
   /** 구간이 열린 벽시계 시각. 전이의 상대 초를 여기서 잰다. */
   openedAtMs: number;
   /** 구간 시작 시점의 세션 상태. 전이 목록을 읽는 출발점이다. */
@@ -164,16 +162,52 @@ export interface MeasurementOptions {
   readonly onSessionSignal?: () => void;
 }
 
+/**
+ * 패널이 매초 보여주는 "지금 눈이 어떻게 읽히고 있는가".
+ *
+ * 판정기 안의 값을 그대로 꺼내는 것이 아니라 진단으로 지나간 마지막 프레임에서 다시 만든다.
+ * 그래서 다듬은 값은 판정기와 같은 규칙(최근 표본의 아래쪽 중앙값)으로 여기서 한 번 더
+ * 계산한다 — 규칙이 갈리면 화면이 판정과 다른 말을 하므로 창 크기는 같은 상수를 쓴다.
+ * 좌표는 없다. 전부 스칼라다.
+ */
+export interface LiveSnapshot {
+  /** 세션 상태 라벨과 그 상태에 머문 초. */
+  readonly state: string;
+  readonly stateSec: number;
+  /** 지금 열린 구간 이름과 경과 초. 버튼을 안 눌렀으면 null. */
+  readonly segment: string | null;
+  readonly segmentSec: number;
+  /** 마지막 눈 표본. 판정은 두 눈 중 덜 감긴 쪽(`eyeMin`)을 쓴다. */
+  readonly eyeLeft: number | null;
+  readonly eyeRight: number | null;
+  readonly eyeMin: number | null;
+  /** 최근 표본을 다듬은 값. 연속 규칙은 이것을 임계와 비교한다. */
+  readonly eyeSmoothed: number | null;
+  readonly threshold: number | null;
+  /** 다듬은 값이 임계 이상인가. 표본이 모자라면 null. */
+  readonly closed: boolean | null;
+  /** 마지막 눈 표본이 몇 초 전인가. 얼굴을 놓치면 이 값이 자란다. */
+  readonly eyeAgeSec: number | null;
+  /** 비율 창의 감김 비율. 창이 차기 전에는 null. */
+  readonly ratio: number | null;
+  readonly sleepEyes: boolean;
+  readonly sleepDrowsy: boolean;
+  readonly facePresent: boolean | null;
+  readonly person: number | null;
+  readonly calibration: EyeCalibration | null;
+}
+
 export interface Measurement extends VisionDiagnostics {
   /**
-   * 지금까지의 구간을 닫고 새 구간을 연다.
-   *
-   * 시나리오를 함께 넘기면 번호·이름·기대 문장이 그 구간에 붙는다. 기대 문장은 **사람이 읽는
-   * 것이고 계산에 쓰지 않는다** — 덩어리를 받는 사람이 그 구간의 의도를 알게 하는 표시다.
+   * 지금까지의 구간을 닫고 새 구간을 연다. 측정하는 사람이 패널 버튼을 눌러 "지금부터 눈을
+   * 감는다"처럼 행동을 표시한다. 도구는 이름을 붙일 뿐 그 구간에서 무엇이 나와야 하는지 판단하지
+   * 않는다.
    */
-  mark(name: string, scenario?: MeasurementScenario): void;
+  mark(name: string): void;
   /** 세션 전체 요약. 콘솔에서 복사할 수 있게 **문자열**로 돌려준다. */
   dump(): string;
+  /** 패널이 매초 읽는 실시간 값. */
+  live(): LiveSnapshot;
   /** 새 세션이 시작됐다. 구간 시작 상태를 집중으로 되돌린다. */
   sessionStarted(): void;
   /** 발열 회차의 현재 요약으로 갈아 끼운다. 되돌리기가 있으므로 누적이 아니라 대체다. */
@@ -231,7 +265,6 @@ function createHistogram() {
 function createSegment(name: string | null, openedAtMs: number, entryLabel: string): Segment {
   return {
     name,
-    scenario: null,
     openedAtMs,
     entryLabel,
     transitions: [],
@@ -335,6 +368,7 @@ function configSnapshot(baseline: { samples: number; minRatio: number }, faceLos
     eyeThresholdMax: EYE_THRESHOLD_MAX,
     eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
     eyeRatioThreshold: EYE_RATIO_THRESHOLD,
+    eyeAwakeClearSamples: EYE_AWAKE_CLEAR_SAMPLES,
     sleepDrowsyEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs,
     sleepDrowsyExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.exitMs,
   };
@@ -345,7 +379,6 @@ function summarize(segment: Segment) {
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
-    scenario: segment.scenario,
     entryLabel: segment.entryLabel,
     transitions: segment.transitions,
     frames: segment.frames,
@@ -475,6 +508,27 @@ export function createMeasurement(
   };
   let firstFrameSeen = false;
   let signalled = false;
+  /**
+   * 마지막으로 본 보정값. 감지기는 세션을 닫을 때 보정을 버리므로, 세션이 끝난 뒤 복사한
+   * 덩어리는 살아 있는 getter만 읽으면 언제나 null이다 — 실측에서 실제로 그렇게 나와 그 사람의
+   * 기준값을 알 수 없었다.
+   */
+  let lastCalibration: EyeCalibration | null = null;
+  /** 지금 상태가 시작된 시각. 패널이 "이 상태에 몇 초째"를 띄운다. */
+  let labelSinceMs: number | null = null;
+  /** 실시간 표시용 마지막 프레임 값. 덩어리와 달리 누적하지 않는다. */
+  let lastFrame: FrameDiagnostics | null = null;
+  /**
+   * 얼굴 추론이 실제로 돈 마지막 결과. 얼굴은 네 프레임에 한 번 도므로 프레임 값만 보면 셋 중
+   * 셋은 얼굴이 없다고 읽혀 화면의 눈 점수가 깜빡인다.
+   */
+  let lastFace: FaceFrameDiagnostics | null = null;
+  let lastEyeAtMs: number | null = null;
+  /**
+   * 판정기와 같은 창으로 다듬을 최근 얼굴 관측. 눈 점수를 못 뽑은 관측도 `null`로 자리를
+   * 차지한다 — 판정기의 창이 그렇게 움직이므로, 빼면 화면이 판정보다 오래 감김을 붙든다.
+   */
+  let recentEyes: (number | null)[] = [];
   /** 진행 통계 전용 누적. 구간을 가로질러 합산할 때 전체를 다시 훑지 않게 한다. */
   let droppedTotal = 0;
   const objectHistogram = createHistogram();
@@ -500,8 +554,16 @@ export function createMeasurement(
    * 정한다. 덩어리도 이 함수를 지나야 한다 — 저장된 값을 그대로 실으면 화면과 덩어리가 서로
    * 다른 말을 한다.
    */
+  function currentCalibration(): EyeCalibration | null {
+    const live = eyeCalibration?.() ?? null;
+    if (live !== null) {
+      lastCalibration = live;
+    }
+    return lastCalibration;
+  }
+
   function currentPreflight(): Preflight {
-    const calibration = eyeCalibration?.() ?? null;
+    const calibration = currentCalibration();
     return {
       ...preflight,
       calibrated: calibration !== null,
@@ -572,6 +634,16 @@ export function createMeasurement(
         lineAtMs = now();
       }
       signalSession();
+      lastFrame = diagnostics;
+      if (diagnostics.face !== undefined && diagnostics.face !== null) {
+        lastFace = diagnostics.face;
+        const closure = eyeClosureOf(diagnostics);
+        if (closure !== null) {
+          lastEyeAtMs = now();
+        }
+        recentEyes = [...recentEyes, closure].slice(-FACE_SMOOTHING_SAMPLES);
+      }
+      currentCalibration();
       record(current(), diagnostics);
       record(minuteWindow, diagnostics);
       objectHistogram.add(diagnostics.durationMs);
@@ -606,6 +678,7 @@ export function createMeasurement(
         return;
       }
       currentLabel = to;
+      labelSinceMs = atMs;
       // 거르지 않는다. 일시정지도 그대로 남아야 덩어리를 읽는 사람이 구간을 오해하지 않는다.
       const segment = current();
       segment.transitions.push({
@@ -615,14 +688,10 @@ export function createMeasurement(
       });
     },
 
-    mark(name, scenario) {
+    mark(name) {
       if (!enabled) {
         return;
       }
-      const meta =
-        scenario === undefined
-          ? null
-          : { id: scenario.id, name: scenario.name, expected: scenario.expected };
       const last = segments[segments.length - 1];
       if (
         last !== undefined &&
@@ -630,17 +699,14 @@ export function createMeasurement(
         last.dropped === 0 &&
         last.transitions.length === 0
       ) {
-        // 아직 아무것도 안 모은 구간이면 이름만 갈아 끼운다. 빈 구간이 덩어리에 남으면
-        // 시나리오 수와 구간 수가 어긋나 읽는 사람이 센다.
+        // 아직 아무것도 안 모은 구간이면 이름만 갈아 끼운다. 버튼을 연달아 누르면 빈 구간이
+        // 덩어리에 남아 읽는 사람이 센다.
         last.name = name;
-        last.scenario = meta;
         last.openedAtMs = now();
         last.entryLabel = currentLabel;
         return;
       }
-      const created = createSegment(name, now(), currentLabel);
-      created.scenario = meta;
-      segments.push(created);
+      segments.push(createSegment(name, now(), currentLabel));
     },
 
     sessionStarted() {
@@ -650,6 +716,52 @@ export function createMeasurement(
       // 세션이 새로 열리면 타임라인은 집중으로 돌아가는데 전이는 발생하지 않는다. 여기서
       // 되돌리지 않으면 앞 세션의 마지막 상태가 다음 구간의 출발점으로 남는다.
       currentLabel = "FOCUS";
+      labelSinceMs = now();
+      // 새 세션은 새 감지기다. 앞 세션의 보정값을 들고 있으면 아직 상한으로 도는 감지기를 보정
+      // 끝난 것처럼 보여 준다 — 측정하는 사람이 기다리지 않고 첫 감김을 버린다.
+      lastCalibration = null;
+    },
+
+    live() {
+      const atMs = now();
+      const eye = lastFace?.eye ?? null;
+      const eyeLeft = eye?.eyeBlinkLeft ?? null;
+      const eyeRight = eye?.eyeBlinkRight ?? null;
+      const eyeMin =
+        eyeLeft === undefined || eyeRight === undefined || eyeLeft === null || eyeRight === null
+          ? null
+          : Math.min(eyeLeft, eyeRight);
+      // 판정과 같은 규칙이다. 짝수 창이면 아래쪽 중앙값이라 최근 표본이 모두 감겨야 감김이고,
+      // 창 안에 눈을 못 읽은 관측이 있으면 판정이 없다.
+      const sorted = recentEyes
+        .filter((value): value is number => value !== null)
+        .sort((a, b) => a - b);
+      const eyeSmoothed =
+        sorted.length < 2 ? null : (sorted[Math.floor((sorted.length - 1) / 2)] ?? null);
+      const threshold = lastFrame?.eyeThreshold ?? null;
+      const segment = segments[segments.length - 1] ?? null;
+      const face = lastFace;
+      return {
+        state: currentLabel,
+        stateSec: labelSinceMs === null ? 0 : Math.max(0, Math.floor((atMs - labelSinceMs) / 1000)),
+        segment: segment?.name ?? null,
+        segmentSec:
+          segment === null ? 0 : Math.max(0, Math.floor((atMs - segment.openedAtMs) / 1000)),
+        eyeLeft,
+        eyeRight,
+        eyeMin,
+        eyeSmoothed,
+        threshold,
+        closed: eyeSmoothed === null || threshold === null ? null : eyeSmoothed >= threshold,
+        eyeAgeSec:
+          lastEyeAtMs === null ? null : Math.max(0, Math.floor((atMs - lastEyeAtMs) / 1000)),
+        ratio: lastFrame?.eyeClosedRatio ?? null,
+        sleepEyes: lastFrame?.sleepEyesSignal === true,
+        sleepDrowsy: lastFrame?.sleepDrowsySignal === true,
+        facePresent: face === null ? null : face.present,
+        person: lastFrame?.topScores.person ?? null,
+        calibration: currentCalibration(),
+      };
     },
 
     preflight() {
@@ -680,8 +792,8 @@ export function createMeasurement(
         preflight: currentPreflight(),
         config: configSnapshot(baseline, faceLostEnabled),
         // 눈 점수 분포는 이 사람의 임계와 나란히 놓아야 읽힌다. 같은 0.5가 누구에게는 감김이고
-        // 누구에게는 뜬 눈이다.
-        eyeCalibration: eyeCalibration?.() ?? null,
+        // 누구에게는 뜬 눈이다. 세션이 닫힌 뒤 복사해도 남게 마지막 값을 쓴다.
+        eyeCalibration: currentCalibration(),
         segments: segments.map(summarize),
         thermalRounds,
       });
