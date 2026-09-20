@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_DETECTION_PARAMS } from "../../detection";
 import {
+  EYE_AWAKE_CLEAR_SAMPLES,
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
   EYE_THRESHOLD_MAX,
@@ -48,5 +49,15 @@ describe("눈 보정과 비율", () => {
     expect(EYE_RATIO_WINDOW_SAMPLES * FACE_FRAME_DIVISOR * FRAME_INTERVAL_MS).toBeGreaterThan(
       DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs,
     );
+  });
+
+  it("비율 창은 44초다 — 1분에서 줄여 꾸벅거림 진입을 앞당긴다", () => {
+    expect(EYE_RATIO_WINDOW_SAMPLES * FACE_FRAME_DIVISOR * FRAME_INTERVAL_MS).toBe(44_000);
+  });
+
+  it("깨어남 표본 수는 평활 창보다 크고 비율 창보다 작다", () => {
+    expect(EYE_AWAKE_CLEAR_SAMPLES).toBeGreaterThanOrEqual(2);
+    expect(EYE_AWAKE_CLEAR_SAMPLES).toBeGreaterThan(FACE_SMOOTHING_SAMPLES);
+    expect(EYE_AWAKE_CLEAR_SAMPLES).toBeLessThan(EYE_RATIO_WINDOW_SAMPLES);
   });
 });

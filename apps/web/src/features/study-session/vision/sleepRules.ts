@@ -97,7 +97,9 @@ function recentWindow(samples: readonly FaceObservation[]): readonly FaceObserva
  * 최근 관측의 눈 감김 대표값. 눈 판정이 있는 관측이 둘 미만이면 `null`이다.
  *
  * 관측마다 **양쪽 눈 중 작은 쪽**을 읽는다. 한쪽만 감은 것은 감은 것이 아니기 때문이다.
- * 짝수 개일 때 아래쪽 중앙값을 쓰는 것은 진입을 어렵게 하는 방향이다.
+ * 짝수 개일 때 아래쪽 중앙값을 쓰므로 창이 둘인 지금은 둘 중 작은 값이다. 최근 두 표본이
+ * 모두 감겨야 감김이고, 뜬 표본 하나가 들어오면 바로 뜬 것으로 읽힌다. 진입을 어렵게 하고
+ * 해제를 빠르게 하는 방향이다.
  */
 export function smoothedEyeClosure(samples: readonly FaceObservation[]): number | null {
   const readings: number[] = [];
@@ -135,11 +137,12 @@ export function smoothedFacePresent(samples: readonly FaceObservation[]): boolea
  * 되어, 깜빡임 두 번으로 졸음이 선다. 깨어 있는데 졸음으로 잡는 쪽을 막으려면 창이 찰 때까지
  * 기다리는 편이 낫다.
  *
- * ⚠️ 연속 규칙과 달리 **원표본을 그대로 센다.** 3표본 중앙값을 먼저 씌우지 않는다는 뜻이고,
+ * ⚠️ 연속 규칙과 달리 **원표본을 그대로 센다.** 다듬기를 먼저 씌우지 않는다는 뜻이고,
  * 이것은 PERCLOS가 "눈이 감겨 있던 시간의 비율"로 정의되기 때문이다 — 평활을 먼저 씌우면 재려던
  * 시간 자체가 뭉개진다. 대가는 방향이 나쁜 쪽이다. 깜빡임 한 표본도 감김으로 세어지므로 비율이
- * 조금씩 부풀고, 1분에 30번 넘게 깜빡이면 그것만으로도 비율이 오른다. 그 부풀음을 감당하는 것은
- * 창 길이(1분)와 문턱(0.5)이다. 실기기에서 깨어 있는 구간의 비율이 문턱에 붙으면 문턱을 올린다.
+ * 조금씩 부풀고, 44초에 22번 넘게 깜빡이면 그것만으로도 비율이 오른다. 그 부풀음을 감당하는 것은
+ * 창 길이(44초)와 문턱(0.5), 그리고 어댑터가 뜬 눈이 이어지면 창을 비우는 규칙이다. 실기기에서
+ * 깨어 있는 구간의 비율이 문턱에 붙으면 문턱을 올린다.
  */
 export function eyeClosedRatio(readings: readonly number[], threshold: number): number | null {
   if (readings.length < EYE_RATIO_WINDOW_SAMPLES) {

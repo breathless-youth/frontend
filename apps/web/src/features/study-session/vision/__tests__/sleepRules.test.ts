@@ -50,12 +50,13 @@ describe("smoothedEyeClosure", () => {
     expect(smoothedEyeClosure([seen(0.9), seen(0.2)])).toBeCloseTo(0.2);
   });
 
-  it("셋이면 가운데 값을 쓴다 — 한 표본이 튀어도 이기지 못한다", () => {
+  it("셋을 넘기면 최근 둘만 본다 — 창이 둘이라 오래된 표본은 잊는다", () => {
     expect(smoothedEyeClosure([seen(0.1), seen(0.9), seen(0.2)])).toBeCloseTo(0.2);
   });
 
-  it("눈 판정이 없는 관측은 세지 않는다", () => {
-    expect(smoothedEyeClosure([seen(0.8), gated, seen(0.7)])).toBeCloseTo(0.7);
+  it("눈 판정이 없는 관측은 세지 않는다 — 창 안에 눈 판정이 둘 미만이면 판정도 없다", () => {
+    expect(smoothedEyeClosure([gated, seen(0.8), seen(0.7)])).toBeCloseTo(0.7);
+    expect(smoothedEyeClosure([seen(0.8), gated])).toBeNull();
     expect(smoothedEyeClosure([seen(0.8), gated, absent])).toBeNull();
   });
 
@@ -80,18 +81,20 @@ describe("smoothedFacePresent", () => {
     expect(smoothedFacePresent([absent])).toBeNull();
   });
 
-  it("다수결로 정한다", () => {
-    expect(smoothedFacePresent([seen(0.1), absent, seen(0.1)])).toBe(true);
+  it("최근 둘이 모두 보여야 있다고 본다", () => {
+    expect(smoothedFacePresent([seen(0.1), seen(0.1)])).toBe(true);
+    expect(smoothedFacePresent([absent, seen(0.1), seen(0.1)])).toBe(true);
     expect(smoothedFacePresent([absent, seen(0.1), absent])).toBe(false);
   });
 
   it("동수면 없다고 본다 — 얼굴 소실은 긴 유지시간이 다시 거른다", () => {
     expect(smoothedFacePresent([seen(0.1), absent])).toBe(false);
+    expect(smoothedFacePresent([absent, seen(0.1)])).toBe(false);
   });
 });
 
 describe("evaluateSleep — 눈 감김", () => {
-  it("중앙값이 임계 이상이면 참이다", () => {
+  it("최근 두 표본이 모두 임계 이상이면 참이다", () => {
     const closed = SLEEP_THRESHOLDS.eyeClosure;
     expect(evaluateSleep(frame({ faceSamples: [seen(closed), seen(closed)] })).eyesClosed).toBe(
       true,
@@ -103,10 +106,23 @@ describe("evaluateSleep — 눈 감김", () => {
     expect(evaluateSleep(frame({ faceSamples: [seen(open), seen(open)] })).eyesClosed).toBe(false);
   });
 
-  it("깜빡임 한 표본은 셋 중에서 이기지 못한다", () => {
+  it("깜빡임 한 표본으로는 진입하지 않는다 — 감김 둘이 이어져야 한다", () => {
     const blink = seen(0.9);
     const open = seen(0.2);
+    expect(evaluateSleep(frame({ faceSamples: [open, blink] })).eyesClosed).toBe(false);
     expect(evaluateSleep(frame({ faceSamples: [open, blink, open] })).eyesClosed).toBe(false);
+  });
+
+  it("뜬 표본 하나면 어느 순서든 뜬 것이다 — 해제가 중앙값을 기다리지 않는다", () => {
+    const closed = seen(0.9);
+    const open = seen(0.2);
+    expect(evaluateSleep(frame({ faceSamples: [closed, closed, open] })).eyesClosed).toBe(false);
+    expect(evaluateSleep(frame({ faceSamples: [closed, open, closed] })).eyesClosed).toBe(false);
+  });
+
+  it("표본이 하나뿐이면 판정하지 않는다", () => {
+    expect(evaluateSleep(frame({ faceSamples: [seen(0.9)] })).eyesClosed).toBe(false);
+    expect(smoothedEyeClosure([seen(0.9)])).toBeNull();
   });
 
   it("사람이 없으면 눈이 감겨 있어도 거짓이다 — 자리 이탈이 먼저다", () => {
@@ -183,6 +199,10 @@ describe("evaluateSleep — 비율", () => {
     ];
   }
 
+  it("창은 표본 22개, 얼굴 틱 2초로 44초다", () => {
+    expect(EYE_RATIO_WINDOW_SAMPLES).toBe(22);
+  });
+
   it("창이 다 차기 전에는 판정하지 않는다", () => {
     const partial = Array.from({ length: EYE_RATIO_WINDOW_SAMPLES - 1 }, () => closed);
     expect(evaluateSleep(frame({ eyeReadings: partial })).eyesDrowsy).toBe(false);
@@ -231,8 +251,11 @@ describe("evaluateSleep — 규칙 교체", () => {
 });
 
 describe("평활 창", () => {
-  it("창 크기는 홀수여야 다수결과 중앙값이 동수로 갈리지 않는다", () => {
-    expect(FACE_SMOOTHING_SAMPLES % 2).toBe(1);
+  it("창은 둘이고 짝수 창은 아래쪽 중앙값이라 둘 다 감겨야 감김이다", () => {
+    expect(FACE_SMOOTHING_SAMPLES).toBe(2);
+    expect(smoothedEyeClosure([seen(0.9), seen(0.1)])).toBeCloseTo(0.1);
+    expect(smoothedEyeClosure([seen(0.1), seen(0.9)])).toBeCloseTo(0.1);
+    expect(smoothedEyeClosure([seen(0.9), seen(0.9)])).toBeCloseTo(0.9);
   });
 
   it("창보다 긴 배열을 넘기면 최근 것만 본다 — 자르기는 규칙이 한다", () => {

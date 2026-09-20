@@ -194,11 +194,27 @@ describe("stepDetection — 졸음", () => {
     const none = signals({});
     state = step(state, none, T0 + 25_000);
 
-    // 해제 3초 직전에는 아직 졸음이다.
+    // 엎드림 해제 3초가 마지막까지 남는다. 눈 감김은 2초에 먼저 풀리지만 트리거는 같다.
     state = step(state, none, T0 + 27_999);
     expect(state.active).toBe("SLEEP");
 
     state = step(state, none, T0 + 28_000);
+    expect(state.active).toBeNull();
+  });
+
+  it("눈 감김은 뜬 뒤 2초에 풀린다 — 실측에서 3초는 체감이 늦었다", () => {
+    let state = createDetectionState(T0);
+    const eyes = signals({ SLEEP_EYES: true });
+    state = step(state, eyes, T0);
+    state = step(state, eyes, T0 + 10_000);
+    expect(state.active).toBe("SLEEP");
+
+    const none = signals({});
+    state = step(state, none, T0 + 10_000);
+    state = step(state, none, T0 + 11_999);
+    expect(state.active).toBe("SLEEP");
+
+    state = step(state, none, T0 + 12_000);
     expect(state.active).toBeNull();
   });
 });
@@ -212,6 +228,20 @@ describe("stepDetection — 꾸벅거림 출처", () => {
 
     state = step(state, signals({ SLEEP_DROWSY: true }), T0 + 4_000);
     expect(state.active).toBe("SLEEP");
+  });
+
+  it("꾸벅거림도 뜬 뒤 2초에 풀린다 — 눈 감김 출처와 같은 해제다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ SLEEP_DROWSY: true }), T0);
+    state = step(state, signals({ SLEEP_DROWSY: true }), T0 + 4_000);
+    expect(state.active).toBe("SLEEP");
+
+    state = step(state, signals({}), T0 + 4_000);
+    state = step(state, signals({}), T0 + 5_999);
+    expect(state.active).toBe("SLEEP");
+
+    state = step(state, signals({}), T0 + 6_000);
+    expect(state.active).toBeNull();
   });
 
   it("눈 감김 출처와 같은 트리거로 합쳐진다", () => {

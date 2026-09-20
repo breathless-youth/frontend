@@ -31,6 +31,7 @@ import {
 import type { EyeCalibration } from "../vision/eyeCalibration";
 import { calibrateEye } from "../vision/eyeCalibration";
 import {
+  EYE_AWAKE_CLEAR_SAMPLES,
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
   EYE_THRESHOLD_MAX,
@@ -456,6 +457,14 @@ export function createVisionFocusDetector(
     });
   }
 
+  /** 최근 표본이 깨어남 표본 수만큼 전부 임계 아래인가. 창이 그보다 짧으면 아니다. */
+  function recentlyAwake(readings: readonly number[], threshold: number): boolean {
+    if (readings.length < EYE_AWAKE_CLEAR_SAMPLES) {
+      return false;
+    }
+    return readings.slice(-EYE_AWAKE_CLEAR_SAMPLES).every((reading) => reading < threshold);
+  }
+
   /**
    * 이번 관측의 눈 감김 점수를 두 창에 쌓는다. 판정과 같은 값을 쓰도록 양쪽 눈 중 작은 쪽을
    * 읽는다 — 한쪽만 감은 것은 감은 것이 아니다.
@@ -466,9 +475,8 @@ export function createVisionFocusDetector(
     const eye = face.eye;
     if (eye === null) {
       eyeGateMisses += 1;
-      if (eyeGateMisses >= FACE_SMOOTHING_SAMPLES) {
-        // 연속 규칙이 3표본 중앙값으로 한 표본을 거르는 것과 같은 크기다. 그만큼 연속으로 눈을
-        // 못 봤으면 창에 남은 것은 지금을 설명하지 못하는 과거다.
+      if (eyeGateMisses >= EYE_AWAKE_CLEAR_SAMPLES) {
+        // 그만큼 연속으로 눈을 못 봤으면 창에 남은 것은 지금을 설명하지 못하는 과거다.
         eyeReadings = [];
       }
       return;
@@ -476,6 +484,13 @@ export function createVisionFocusDetector(
     eyeGateMisses = 0;
     const closure = Math.min(eye.eyeBlinkLeft, eye.eyeBlinkRight);
     eyeReadings = [...eyeReadings, closure].slice(-EYE_RATIO_WINDOW_SAMPLES);
+    if (recentlyAwake(eyeReadings, calibration?.threshold ?? EYE_THRESHOLD_MAX)) {
+      // 깨어 있다는 증거가 과거를 이긴다. 비율 창은 감긴 표본이 밀려 나갈 때까지 졸음을 붙잡아,
+      // 오래 감았다 뜨면 뜬 뒤에도 수십 초를 더 졸음으로 남겼다. 뜬 눈이 이만큼 이어지면 창에
+      // 무엇이 있든 비운다. 3초 감고 1초 뜨는 꾸벅거림은 2초 표본에서 뜬 눈이 세 번 이어질 수
+      // 없어 그대로 잡힌다. 보정 창은 뜬 눈을 배우는 자리라 여기서 건드리지 않는다.
+      eyeReadings = [];
+    }
     calibrationReadings = [...calibrationReadings, closure];
     if (calibrationReadings.length < EYE_CALIBRATION_SAMPLES) {
       return;

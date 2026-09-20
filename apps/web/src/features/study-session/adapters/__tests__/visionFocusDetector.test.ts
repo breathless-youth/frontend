@@ -13,9 +13,9 @@ import type {
 import type { FaceObservation } from "../../vision/sleepRules";
 import {
   EYE_CALIBRATION_SAMPLES,
+  EYE_AWAKE_CLEAR_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
-  FACE_SMOOTHING_SAMPLES,
   FRAME_INTERVAL_MS,
 } from "../../vision/visionConfig";
 
@@ -126,6 +126,13 @@ const absent: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: 
  * 잡힌다. 감김만 내리 먹이면 보정이 그 값을 이 사람의 뜬 눈으로 배워 임계가 상한까지 올라가고,
  * 그 뒤로는 같은 0.6이 감김으로 안 세어진다.
  */
+/**
+ * 꾸벅거림 픽스처의 길이. 첫 보정 창(15표본)이 차기 전에는 임계가 상한 0.65라 0.6도 뜬 눈으로
+ * 읽히고, 뜬 눈이 셋 이어지면 비율 창이 비워진다. 그래서 보정이 끝난 뒤에 비율 창 22개가 새로
+ * 차야 판정이 서고, 픽스처는 둘을 더한 것보다 길어야 한다.
+ */
+const NODDING_LENGTH = EYE_CALIBRATION_SAMPLES + EYE_RATIO_WINDOW_SAMPLES + 4;
+
 function drowsyPattern(length: number): FaceObservation[] {
   const pattern: FaceObservation[] = [];
   while (pattern.length < length) {
@@ -654,6 +661,30 @@ describe("졸음 원신호", () => {
     expect(signals.filter((s) => s.source === "SLEEP_EYES" && s.active)).toHaveLength(0);
   });
 
+  it("뜬 표본 하나에 SLEEP_EYES가 내려간다 — 해제는 중앙값을 두 번 기다리지 않는다", async () => {
+    const closed = Array.from({ length: 8 }, () => seen(0.9));
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces: [...closed, seen(0.1)] });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    vision.subscribe(listener);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length);
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
+    signals.length = 0;
+
+    // 얼굴 틱 하나만 더 돈다. 뜬 표본이 하나 들어오면 그 틱에 내려가야 한다.
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR);
+
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: false });
+  });
+
   it("같은 값이면 다시 내보내지 않는다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.9)] });
@@ -937,7 +968,7 @@ describe("눈 보정", () => {
 describe("꾸벅거림 출처", () => {
   it("3초 감고 1초 뜨는 패턴에서 SLEEP_DROWSY가 올라간다", async () => {
     // 얼굴 틱 하나가 2초다. 감김 셋에 뜸 하나면 75%라 50%를 넘는다. 창이 1분이라 표본 30개가 찬 뒤에야 판정한다.
-    const pattern = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
+    const pattern = drowsyPattern(NODDING_LENGTH);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: pattern });
     const { signals, listener } = collect();
@@ -956,7 +987,7 @@ describe("꾸벅거림 출처", () => {
   });
 
   it("일시정지하면 비율 창을 비운다 — 재개 뒤 다시 모아야 판정한다", async () => {
-    const closed = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
+    const closed = drowsyPattern(NODDING_LENGTH);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: closed });
     const { signals, listener } = collect();
@@ -983,7 +1014,7 @@ describe("꾸벅거림 출처", () => {
     // 위 케이스는 재개 첫 publish가 false라는 것만 본다. 창을 비우지 않아도 그 publish는 나가므로
     // 이 케이스가 따로 있어야 비우기가 실제로 걸린다. 보정은 일시정지를 넘어 살아 임계가 0.45로
     // 고정되므로, 재개 뒤 판정을 가르는 것은 창뿐이다.
-    const pattern = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
+    const pattern = drowsyPattern(NODDING_LENGTH);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: pattern });
     const { signals, listener } = collect();
@@ -1012,7 +1043,7 @@ describe("꾸벅거림 출처", () => {
   it("자리를 비웠다 돌아오면 옛 창만으로 서지 않는다 — 새 관측 없이 판정이 부활하면 안 된다", async () => {
     // 복귀 직후에는 새 얼굴 틱이 거의 없다. 그때 옛 창이 살아 있으면 앉은 지 몇 초 만에 졸음으로
     // 기록된다. 자리 비움은 `faceSamples`를 버리는데 비율 창만 남으면 그 구멍으로 샌다.
-    const pattern = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
+    const pattern = drowsyPattern(NODDING_LENGTH);
     const present = Array.from({ length: FACE_FRAME_DIVISOR * pattern.length }, () =>
       personFrame(),
     );
@@ -1048,8 +1079,8 @@ describe("꾸벅거림 출처", () => {
   it("눈 판정이 평활 창만큼 연속으로 걸러지면 풀린다 — 얼굴은 살아 있는데 창만 얼면 안 된다", async () => {
     // 사람도 있고 얼굴 모델도 살아 있는데 눈만 걸러지는 상태다. 연속 규칙은 최근 3표본만 봐서
     // 스스로 풀리는데, 비율 창은 나이 제한이 없어 그대로 얼어붙는다.
-    const closed = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
-    const blind = Array.from({ length: FACE_SMOOTHING_SAMPLES }, () => gated);
+    const closed = drowsyPattern(NODDING_LENGTH);
+    const blind = Array.from({ length: EYE_AWAKE_CLEAR_SAMPLES }, () => gated);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: [...closed, ...blind] });
     const { signals, listener } = collect();
@@ -1071,9 +1102,9 @@ describe("꾸벅거림 출처", () => {
     expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: false });
   });
 
-  it("한두 번 걸러지는 것으로는 풀리지 않는다 — 연속 규칙이 한 표본을 거르는 것과 같은 크기다", async () => {
-    const closed = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
-    const blind = Array.from({ length: FACE_SMOOTHING_SAMPLES - 1 }, () => gated);
+  it("한두 번 걸러지는 것으로는 풀리지 않는다 — 깨어남 표본 수 직전까지는 창을 지킨다", async () => {
+    const closed = drowsyPattern(NODDING_LENGTH);
+    const blind = Array.from({ length: EYE_AWAKE_CLEAR_SAMPLES - 1 }, () => gated);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: [...closed, ...blind, seen(0.6)] });
     const { signals, listener } = collect();
@@ -1094,10 +1125,60 @@ describe("꾸벅거림 출처", () => {
     expect(signals).not.toContainEqual({ source: "SLEEP_DROWSY", active: false });
   });
 
+  it("뜬 눈이 깨어남 표본 수만큼 이어지면 창을 비운다 — 깨어 있다는 증거가 과거를 이긴다", async () => {
+    // 감김으로 끝나는 창을 만든 뒤 뜬 표본만 이어 준다. 창이 22개라 옛 방식이면 절반 아래로
+    // 내려오기까지 열 표본 넘게 걸리지만, 세 표본이면 비워야 한다.
+    const closed = [...drowsyPattern(NODDING_LENGTH), seen(0.6), seen(0.6)];
+    const awake = Array.from({ length: EYE_AWAKE_CLEAR_SAMPLES }, () => seen(0.2));
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces: [...closed, ...awake] });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    vision.subscribe(listener);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length);
+    expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: true });
+    signals.length = 0;
+
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * awake.length);
+
+    expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: false });
+  });
+
+  it("뜬 눈이 깨어남 표본 수에 못 미치면 창을 지킨다 — 깜빡임 두 번으로 창을 잃지 않는다", async () => {
+    const closed = [...drowsyPattern(NODDING_LENGTH), seen(0.6), seen(0.6)];
+    const awake = Array.from({ length: EYE_AWAKE_CLEAR_SAMPLES - 1 }, () => seen(0.2));
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces: [...closed, ...awake, seen(0.6)] });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    vision.subscribe(listener);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length);
+    expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: true });
+    signals.length = 0;
+
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * awake.length);
+
+    expect(signals).not.toContainEqual({ source: "SLEEP_DROWSY", active: false });
+  });
+
   it("얼굴 모델이 죽으면 풀린다 — 얼어붙은 창이 판정을 세션 끝까지 고정하지 않는다", async () => {
     // 래퍼가 감지 불가로 내려가면 얼굴 틱이 영영 안 돈다. 창을 놔두면 마지막 1분이 그대로 얼어
     // 참을 계속 내보낸다. 기존 `SLEEP_EYES` 보호와 같은 자리에서 같이 풀려야 한다.
-    const closed = drowsyPattern(EYE_RATIO_WINDOW_SAMPLES + 4);
+    const closed = drowsyPattern(NODDING_LENGTH);
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces: closed, diesAfterDetects: closed.length });
     const { signals, listener } = collect();
