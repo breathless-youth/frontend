@@ -25,9 +25,9 @@ export const RESULT_COPY = {
   totalPrefix: "총 공부",
   /** 타임라인 카드 타이틀(Figma `64:562` — voice-tone에 별도 규정 없음). */
   timelineTitle: "공부 타임라인",
-  /** 통계 카드 타이틀 접두어 — 뒤에 **비집중 3종 합계**만 붙는다(PAUSE 제외). */
+  /** 통계 카드 타이틀 접두어 — 뒤에 **휴식 4종 합계**만 붙는다(PAUSE 제외). */
   distractionTitlePrefix: "휴식",
-  /** 비집중 3종이 모두 0일 때(voice-tone §4 — 느낌표 없음). */
+  /** 휴식 4종이 모두 0일 때(voice-tone §4 — 느낌표 없음). */
   noDistraction: "휴식 없이 이어간 공부예요",
   /**
    * 통계 행을 펼쳤을 때 합계 줄의 라벨(BY-336). 아래에 발생 구간이 나열되므로 어느 쪽이
@@ -68,6 +68,7 @@ export const EVENT_STATUS_LABEL: Record<StudyEventStatus, string> = {
   AWAY: "자리 이탈",
   PHONE: "휴대폰 사용",
   DEVICE: "기기 조작",
+  SLEEP: "졸음",
   PAUSE: "일시정지",
 };
 
