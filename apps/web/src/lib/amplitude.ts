@@ -258,6 +258,12 @@ export interface StudySessionEndedInput {
   readonly pauseTrigger: "MANUAL" | "BACKGROUND" | null;
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
+  /**
+   * 배경음을 한 번이라도 켰는가와 누적 재생 초. 싱글룸만 채운다 — 소셜룸(`LiveRoomSession`)도
+   * 같은 훅을 쓰지만 배경음이 없어 생략하고, 생략은 false/0 으로 나간다.
+   */
+  readonly ambientSoundUsed?: boolean;
+  readonly ambientSoundSec?: number;
 }
 
 /**
@@ -291,6 +297,8 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
     end_reason: input.endReason,
     pause_trigger: input.pauseTrigger,
     will_submit: input.willSubmit,
+    ambient_sound_used: input.ambientSoundUsed ?? false,
+    ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
   });
 }
 
@@ -924,4 +932,32 @@ export function trackForceUpdatePrompted(input: {
     app_version: input.appVersion,
     min_version: input.minVersion,
   });
+}
+
+/* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
+ *
+ * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
+ * `trackStudySessionEnded`가 싣는다.
+ */
+
+/**
+ * 켜진 소리 조합이 바뀔 때마다 — 레벨만 바뀌면 보내지 않는다. `source`는 시트에서 사용자가 직접
+ * 조절한 것인지 세션 시작 자동 재생인지. `sounds`는 카탈로그 순서의 id 를 쉼표로 잇는다.
+ */
+export function trackAmbientSoundChanged(input: {
+  readonly sounds: readonly string[];
+  readonly source: "dialog" | "auto_start";
+}) {
+  if (!initialized) return;
+  track("ambient_sound_changed", {
+    sounds: input.sounds.join(","),
+    sound_count: input.sounds.length,
+    source: input.source,
+  });
+}
+
+/** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
+export function trackAmbientSoundDuckToggled(enabled: boolean) {
+  if (!initialized) return;
+  track("ambient_sound_duck_toggled", { enabled });
 }

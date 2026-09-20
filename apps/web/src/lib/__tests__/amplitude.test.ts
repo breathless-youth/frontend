@@ -452,6 +452,8 @@ describe("공부 세션 이벤트", () => {
       end_reason: "AUTO",
       pause_trigger: "BACKGROUND",
       will_submit: true,
+      ambient_sound_used: false,
+      ambient_sound_sec: 0,
     });
   });
 
@@ -866,6 +868,58 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
       ["session_simple_mode_toggled", { on: false }],
       ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
     ]);
+  });
+});
+
+describe("배경음 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(false);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("조합 변경·연동 토글을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "auto_start" });
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(true);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["ambient_sound_changed", { sounds: "white,rain", sound_count: 2, source: "auto_start" }],
+      ["ambient_sound_changed", { sounds: "", sound_count: 0, source: "dialog" }],
+      ["ambient_sound_duck_toggled", { enabled: true }],
+    ]);
+  });
+
+  it("세션 종료 이벤트에 배경음 사용 여부·시간을 싣고, 없으면 false/0 이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+    const base = {
+      roomType: "single" as const,
+      studySec: 100,
+      focusSec: 50,
+      pauseSec: 0,
+      distractionSec: 50,
+      endReason: "MANUAL" as const,
+      pauseTrigger: null,
+      willSubmit: true,
+    };
+
+    trackStudySessionEnded({ ...base, ambientSoundUsed: true, ambientSoundSec: 42 });
+    trackStudySessionEnded(base);
+
+    const payloads = mocks.track.mock.calls.map(
+      ([, payload]) => payload as Record<string, unknown>,
+    );
+    expect(payloads[0]).toMatchObject({ ambient_sound_used: true, ambient_sound_sec: 42 });
+    expect(payloads[1]).toMatchObject({ ambient_sound_used: false, ambient_sound_sec: 0 });
   });
 });
 
