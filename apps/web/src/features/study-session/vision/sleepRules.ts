@@ -1,5 +1,10 @@
 import type { EyeBlendshapeName, RequiredEyeBlendshapeName } from "./visionConfig";
-import { FACE_SMOOTHING_SAMPLES, SLEEP_THRESHOLDS } from "./visionConfig";
+import {
+  EYE_RATIO_THRESHOLD,
+  EYE_RATIO_WINDOW_SAMPLES,
+  FACE_SMOOTHING_SAMPLES,
+  SLEEP_THRESHOLDS,
+} from "./visionConfig";
 
 /**
  * 졸음 판정 — 순수 함수만 있다.
@@ -48,14 +53,24 @@ export interface SleepFrame {
   readonly faceStable: boolean;
   /** 머리가 화면 안에 있는가. 판별기가 없으면 null이고, null은 막지 않는다는 뜻이다. */
   readonly headInFrame: boolean | null;
+  /** 이 사람에게 맞춘 눈 감김 임계. 보정 전에는 고정값이 들어온다. */
+  readonly eyeClosureThreshold: number;
+  /** 최근 얼굴 틱의 눈 감김 점수. 오래된 것부터. 비율 판정이 창 크기로 자른다. */
+  readonly eyeReadings: readonly number[];
 }
 
 export interface SleepSignals {
   readonly eyesClosed: boolean;
+  /** 최근 1분 중 감겨 있던 비율이 기준을 넘었는가. 연속 감김과 별개의 원신호다. */
+  readonly eyesDrowsy: boolean;
   readonly faceLost: boolean;
 }
 
-export const NO_SLEEP_SIGNALS: SleepSignals = { eyesClosed: false, faceLost: false };
+export const NO_SLEEP_SIGNALS: SleepSignals = {
+  eyesClosed: false,
+  eyesDrowsy: false,
+  faceLost: false,
+};
 
 /** 판정 규칙 교체 지점. 임계가 아니라 판정 방식 자체를 바꿀 때 쓴다. */
 export interface SleepRule {
@@ -113,6 +128,27 @@ export function smoothedFacePresent(samples: readonly FaceObservation[]): boolea
   return present * 2 > window.length;
 }
 
+/**
+ * 창 안에서 눈이 감겨 있던 비율. 창이 아직 다 안 찼으면 `null`이다.
+ *
+ * 다 차기 전에 재지 않는 이유는 방향 때문이다. 표본이 셋뿐일 때 둘이 감겨 있으면 비율이 0.67이
+ * 되어, 깜빡임 두 번으로 졸음이 선다. 깨어 있는데 졸음으로 잡는 쪽을 막으려면 창이 찰 때까지
+ * 기다리는 편이 낫다.
+ *
+ * ⚠️ 연속 규칙과 달리 **원표본을 그대로 센다.** 3표본 중앙값을 먼저 씌우지 않는다는 뜻이고,
+ * 이것은 PERCLOS가 "눈이 감겨 있던 시간의 비율"로 정의되기 때문이다 — 평활을 먼저 씌우면 재려던
+ * 시간 자체가 뭉개진다. 대가는 방향이 나쁜 쪽이다. 깜빡임 한 표본도 감김으로 세어지므로 비율이
+ * 조금씩 부풀고, 1분에 30번 넘게 깜빡이면 그것만으로도 비율이 오른다. 그 부풀음을 감당하는 것은
+ * 창 길이(1분)와 문턱(0.5)이다. 실기기에서 깨어 있는 구간의 비율이 문턱에 붙으면 문턱을 올린다.
+ */
+export function eyeClosedRatio(readings: readonly number[], threshold: number): number | null {
+  if (readings.length < EYE_RATIO_WINDOW_SAMPLES) {
+    return null;
+  }
+  const window = readings.slice(readings.length - EYE_RATIO_WINDOW_SAMPLES);
+  return window.filter((reading) => reading >= threshold).length / window.length;
+}
+
 /** 2026-09-20 실측으로 정한 판정. 임계 근거는 `visionConfig.ts`의 `SLEEP_THRESHOLDS` 주석에 있다. */
 export const defaultSleepRule: SleepRule = {
   evaluate(frame) {
@@ -122,8 +158,13 @@ export const defaultSleepRule: SleepRule = {
     }
     const closure = smoothedEyeClosure(frame.faceSamples);
     const facePresent = smoothedFacePresent(frame.faceSamples);
+    const ratio = eyeClosedRatio(frame.eyeReadings, frame.eyeClosureThreshold);
     return {
-      eyesClosed: closure !== null && closure >= SLEEP_THRESHOLDS.eyeClosure,
+      eyesClosed: closure !== null && closure >= frame.eyeClosureThreshold,
+      // 꾸벅거리는 사람은 한 번에 몇 초씩만 감아 연속 판정의 유지시간을 영영 못 채운다. 그
+      // 사이사이 뜬 눈이 유지시간을 계속 0으로 되돌리기 때문이다. 같은 1분을 합쳐서 보면
+      // 절반 넘게 감겨 있으므로, 연속이 아니라 비율로 한 번 더 본다.
+      eyesDrowsy: ratio !== null && ratio >= EYE_RATIO_THRESHOLD,
       faceLost:
         facePresent === false &&
         frame.faceStable &&

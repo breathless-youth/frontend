@@ -77,8 +77,8 @@ export interface FrameLoopOptions {
  * 다만 **버려진 구간은 지연이 아니라 관측 공백이다.** 유지시간 디바운스가 벽시계
  * 기반(`../detection.ts`)이라 이미 관측된 신호의 판정이 뒤집히지는 않지만, 공백 안에서
  * 시작해 공백 안에서 끝난 신호는 어느 프레임에도 걸리지 않아 없었던 일이 된다. 이 루프가
- * 만드는 신호는 AWAY·PHONE·SLEEP_EYES·SLEEP_FACE뿐이다(`DEVICE`는 가속도 센서 경로라 무관 —
- * `../adapters/deviceHandlingDetector.ts`).
+ * 만드는 신호는 AWAY·PHONE·SLEEP_EYES·SLEEP_DROWSY·SLEEP_FACE뿐이다(`DEVICE`는 가속도 센서
+ * 경로라 무관 — `../adapters/deviceHandlingDetector.ts`).
  *
  * 타이머는 매 tick에서 **먼저 다음 주기를 예약한 뒤** 프레임을 처리한다. 추론 시간이 주기에
  * 누적되지 않게 하기 위해서다.

@@ -123,7 +123,13 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     // 엎드림은 기본 꺼짐이다. 16분을 돌고 나서야 "왜 SLEEP_FACE가 한 번도 안 잡혔지"로
     // 헤매지 않도록, 꺼져 있다는 사실을 점검 단계에서부터 보여준다.
     const faceLost = faceLostEnabled ? "" : " 엎드림꺼짐";
-    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${faceLost}`;
+    // 보정 전후로 눈 감김 임계가 달라진다. 같은 자세인데 판정이 바뀐 이유가 여기서 보여야 한다.
+    // 창 횟수를 붙이는 것은 보정이 한 번이 아니라 계속 돌기 때문이다 — 40초 준비 구간에서 실제로
+    // 돌았는지를 측정하는 사람이 바로 본다.
+    const calibration = preflight.calibrated
+      ? ` 보정ok(${preflight.calibrationWindows})`
+      : " 보정중";
+    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${calibration}${faceLost}`;
   }
 
   function scenarioLines(): string {

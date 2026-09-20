@@ -150,6 +150,44 @@ export const MEASUREMENT_SCENARIOS: readonly MeasurementScenario[] = [
     prepareSec: 10,
     observeSec: 30,
   },
+  {
+    id: "A16",
+    name: "눈 작은 사람",
+    instruction: "다른 피험자가 A1을 반복합니다. 눈이 작은 분으로 부탁하세요",
+    expected:
+      "보정이 끝난 뒤 뜬 눈이 감김으로 읽히지 않고, 감으면 10초쯤에 졸음이어야 한다. 덩어리의 eyeCalibration에서 이 사람의 기준값과 임계를 함께 기록한다",
+    // 준비가 긴 것은 자세를 잡기 위해서가 아니라 보정 30초를 채우기 위해서다. 보정 전에는
+    // 고정 임계로 도므로 그 구간의 기록은 이 시나리오가 재려던 것이 아니다.
+    prepareSec: 40,
+    observeSec: 40,
+  },
+  {
+    id: "A17",
+    name: "눈 큰 사람",
+    instruction: "다른 피험자가 A1을 반복합니다. 눈이 큰 분으로 부탁하세요",
+    expected:
+      "감았을 때 놓치지 않고 10초쯤에 졸음이어야 한다. 덩어리의 eyeCalibration에서 이 사람의 기준값과 임계를 함께 기록한다",
+    // A16과 같은 이유로 준비가 길다.
+    prepareSec: 40,
+    observeSec: 40,
+  },
+  {
+    id: "A18",
+    name: "꾸벅꾸벅",
+    instruction: "3초 감고 1초 뜨기를 1분간 반복하세요. 고개도 같이 떨어뜨리세요",
+    expected:
+      "연속 10초는 못 채우지만 비율 판정으로 1분 창이 찬 뒤 졸음이어야 한다. 멈춘 뒤 30초쯤에 풀리는 꼬리도 기록한다",
+    prepareSec: 40,
+    observeSec: 130,
+  },
+  {
+    id: "A19",
+    name: "고개 뒤로 젖힘",
+    instruction: "고개를 뒤로 젖혀 천장을 보며 눈을 감으세요",
+    expected: "그 각도에서 얼굴이 잡히면 10초쯤에 졸음이다. 얼굴을 놓치면 그 사실을 기록한다",
+    prepareSec: 10,
+    observeSec: 40,
+  },
 ];
 
 function shrink(seconds: number, divisor: number): number {

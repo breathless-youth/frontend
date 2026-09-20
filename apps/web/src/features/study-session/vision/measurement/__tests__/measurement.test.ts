@@ -4,6 +4,13 @@ import { DEFAULT_DETECTION_PARAMS } from "../../../detection";
 import type { FrameDiagnostics, VisionDiagnostics } from "../../diagnostics";
 import { createMeasurement, stateLabel } from "../measurement";
 import {
+  EYE_CALIBRATION_DELTA,
+  EYE_CALIBRATION_PERCENTILE,
+  EYE_CALIBRATION_SAMPLES,
+  EYE_RATIO_THRESHOLD,
+  EYE_RATIO_WINDOW_SAMPLES,
+  EYE_THRESHOLD_MAX,
+  EYE_THRESHOLD_MIN,
   FACE_BASELINE_MIN_RATIO,
   FACE_BASELINE_SAMPLES,
   FACE_FRAME_DIVISOR,
@@ -201,6 +208,16 @@ describe("createMeasurement", () => {
     expect(seg?.baseline).toBe(1);
   });
 
+  it("꾸벅거림 원신호 프레임도 구간에서 센다 — 전이는 트리거만 남겨 출처를 구분하지 못한다", () => {
+    const m = createMeasurement(baseSpy());
+    m.frame(frame({ sleepDrowsySignal: true }));
+    m.frame(frame({ sleepDrowsySignal: true }));
+    m.frame(frame({ sleepDrowsySignal: false }));
+
+    const seg = (JSON.parse(m.dump()) as { segments: { sleepDrowsy: number }[] }).segments[0];
+    expect(seg?.sleepDrowsy).toBe(2);
+  });
+
   it("설정 스냅샷을 같이 낸다 — 어느 조건에서 나온 숫자인지 덩어리 안에 있어야 한다", () => {
     const dump = JSON.parse(createMeasurement(baseSpy(), { faceLostEnabled: true }).dump()) as {
       config: Record<string, number | boolean | null>;
@@ -213,6 +230,8 @@ describe("createMeasurement", () => {
       baselineMinRatio: FACE_BASELINE_MIN_RATIO,
     });
     expect(dump.config.sleepEyesEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs);
+    expect(dump.config.sleepDrowsyEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs);
+    expect(dump.config.sleepDrowsyExitMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.exitMs);
   });
 
   it("엎드림 판정이 꺼져 있으면 기본 스냅샷에 표시되고 기준선 값은 의미가 없어 null이다", () => {
@@ -227,6 +246,40 @@ describe("createMeasurement", () => {
     expect(dump.config.faceLostEnabled).toBe(false);
     expect(dump.config.baselineSamples).toBeNull();
     expect(dump.config.baselineMinRatio).toBeNull();
+  });
+
+  it("눈 보정과 비율 상수가 스냅샷에 실린다 — 임계가 사람마다 달라지므로 값이 덩어리 안에 있어야 한다", () => {
+    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
+      config: Record<string, number | boolean | null>;
+    };
+
+    expect(dump.config).toMatchObject({
+      eyeCalibrationSamples: EYE_CALIBRATION_SAMPLES,
+      eyeCalibrationPercentile: EYE_CALIBRATION_PERCENTILE,
+      eyeCalibrationDelta: EYE_CALIBRATION_DELTA,
+      eyeThresholdMin: EYE_THRESHOLD_MIN,
+      eyeThresholdMax: EYE_THRESHOLD_MAX,
+      eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
+      eyeRatioThreshold: EYE_RATIO_THRESHOLD,
+    });
+  });
+
+  it("보정 결과를 덩어리에 싣는다 — 그 사람의 임계가 무엇이었는지가 분포 해석의 전제다", () => {
+    const dump = JSON.parse(
+      createMeasurement(baseSpy(), {
+        eyeCalibration: () => ({ windows: 2, baseline: 0.2, threshold: 0.45 }),
+      }).dump(),
+    ) as { eyeCalibration: { windows: number; baseline: number; threshold: number } | null };
+
+    expect(dump.eyeCalibration).toEqual({ windows: 2, baseline: 0.2, threshold: 0.45 });
+  });
+
+  it("보정이 아직이면 null로 남는다 — 보정 전 구간을 보정된 것으로 읽으면 안 된다", () => {
+    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
+      eyeCalibration: unknown;
+    };
+
+    expect(dump.eyeCalibration).toBeNull();
   });
 
   it("좌표로 읽힐 키가 덩어리에 없다", () => {
@@ -633,6 +686,34 @@ describe("사전 점검", () => {
     m.faceUnavailable("timeout");
 
     expect(m.preflight()).toMatchObject({ detector: "unavailable", face: "unavailable" });
+  });
+
+  it("보정 여부가 사전 점검에 실린다 — 패널이 이것으로 보정 상태를 띄운다", () => {
+    let calibration: { windows: number; baseline: number; threshold: number } | null = null;
+    const m = createMeasurement(baseSpy(), { eyeCalibration: () => calibration });
+
+    expect(m.preflight().calibrated).toBe(false);
+    expect(m.preflight().calibrationWindows).toBe(0);
+
+    calibration = { windows: 3, baseline: 0.2, threshold: 0.45 };
+    expect(m.preflight().calibrated).toBe(true);
+    expect(m.preflight().calibrationWindows).toBe(3);
+  });
+
+  it("덩어리의 보정 표시가 살아 있는 값과 같다 — 둘이 서로를 반박하면 안 된다", () => {
+    let calibration: { windows: number; baseline: number; threshold: number } | null = null;
+    const m = createMeasurement(baseSpy(), { eyeCalibration: () => calibration });
+    calibration = { windows: 2, baseline: 0.2, threshold: 0.45 };
+
+    const dump = JSON.parse(m.dump()) as {
+      preflight: { calibrated: boolean; calibrationWindows: number };
+      eyeCalibration: { windows: number } | null;
+    };
+
+    expect(dump.preflight.calibrated).toBe(m.preflight().calibrated);
+    expect(dump.preflight.calibrated).toBe(true);
+    expect(dump.preflight.calibrationWindows).toBe(2);
+    expect(dump.eyeCalibration?.windows).toBe(2);
   });
 
   it("사전 점검도 덩어리에 들어간다", () => {

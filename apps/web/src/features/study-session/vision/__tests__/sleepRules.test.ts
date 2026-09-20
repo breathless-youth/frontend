@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { FaceObservation, SleepFrame } from "../sleepRules";
 import { evaluateSleep, smoothedEyeClosure, smoothedFacePresent } from "../sleepRules";
-import { FACE_SMOOTHING_SAMPLES, SLEEP_THRESHOLDS } from "../visionConfig";
+import {
+  EYE_RATIO_THRESHOLD,
+  EYE_RATIO_WINDOW_SAMPLES,
+  FACE_SMOOTHING_SAMPLES,
+  SLEEP_THRESHOLDS,
+} from "../visionConfig";
 
 /** 눈이 보이는 관측 하나. 양쪽 눈에 같은 값을 넣는다. */
 function seen(closure: number): FaceObservation {
@@ -29,6 +34,8 @@ function frame(overrides: Partial<SleepFrame> = {}): SleepFrame {
     faceSamples: [],
     faceStable: true,
     headInFrame: null,
+    eyeClosureThreshold: SLEEP_THRESHOLDS.eyeClosure,
+    eyeReadings: [],
     ...overrides,
   };
 }
@@ -154,10 +161,72 @@ describe("evaluateSleep — 엎드림", () => {
   });
 });
 
+describe("evaluateSleep — 보정된 임계", () => {
+  it("임계를 받아 쓴다 — 고정값이 아니다", () => {
+    const samples = [seen(0.5), seen(0.5)];
+    expect(
+      evaluateSleep(frame({ faceSamples: samples, eyeClosureThreshold: 0.6 })).eyesClosed,
+    ).toBe(false);
+    expect(
+      evaluateSleep(frame({ faceSamples: samples, eyeClosureThreshold: 0.4 })).eyesClosed,
+    ).toBe(true);
+  });
+});
+
+describe("evaluateSleep — 비율", () => {
+  const closed = 0.6;
+  const open = 0.2;
+  function window(closedCount: number): number[] {
+    return [
+      ...Array.from({ length: closedCount }, () => closed),
+      ...Array.from({ length: EYE_RATIO_WINDOW_SAMPLES - closedCount }, () => open),
+    ];
+  }
+
+  it("창이 다 차기 전에는 판정하지 않는다", () => {
+    const partial = Array.from({ length: EYE_RATIO_WINDOW_SAMPLES - 1 }, () => closed);
+    expect(evaluateSleep(frame({ eyeReadings: partial })).eyesDrowsy).toBe(false);
+  });
+
+  it("비율이 임계 이상이면 참이다 — 꾸벅거림은 이걸로만 잡힌다", () => {
+    const needed = Math.ceil(EYE_RATIO_WINDOW_SAMPLES * EYE_RATIO_THRESHOLD);
+    expect(evaluateSleep(frame({ eyeReadings: window(needed) })).eyesDrowsy).toBe(true);
+  });
+
+  it("비율이 임계 바로 아래면 거짓이다", () => {
+    const needed = Math.ceil(EYE_RATIO_WINDOW_SAMPLES * EYE_RATIO_THRESHOLD);
+    expect(evaluateSleep(frame({ eyeReadings: window(needed - 1) })).eyesDrowsy).toBe(false);
+  });
+
+  it("3초 감고 1초 뜨는 패턴을 잡는다 — 연속 규칙은 못 잡는다", () => {
+    const pattern: number[] = [];
+    while (pattern.length < EYE_RATIO_WINDOW_SAMPLES) {
+      pattern.push(closed, closed, closed, open);
+    }
+    const readings = pattern.slice(0, EYE_RATIO_WINDOW_SAMPLES);
+    expect(evaluateSleep(frame({ eyeReadings: readings })).eyesDrowsy).toBe(true);
+  });
+
+  it("사람이 없으면 거짓이다", () => {
+    const all = window(EYE_RATIO_WINDOW_SAMPLES);
+    expect(evaluateSleep(frame({ personPresent: false, eyeReadings: all })).eyesDrowsy).toBe(false);
+  });
+
+  it("창보다 긴 배열은 최근 것만 본다", () => {
+    const old = Array.from({ length: 30 }, () => closed);
+    const recent = window(0);
+    expect(evaluateSleep(frame({ eyeReadings: [...old, ...recent] })).eyesDrowsy).toBe(false);
+  });
+});
+
 describe("evaluateSleep — 규칙 교체", () => {
   it("규칙을 갈아끼울 수 있다", () => {
-    const always = { evaluate: () => ({ eyesClosed: true, faceLost: true }) };
-    expect(evaluateSleep(frame(), always)).toEqual({ eyesClosed: true, faceLost: true });
+    const always = { evaluate: () => ({ eyesClosed: true, eyesDrowsy: true, faceLost: true }) };
+    expect(evaluateSleep(frame(), always)).toEqual({
+      eyesClosed: true,
+      eyesDrowsy: true,
+      faceLost: true,
+    });
   });
 });
 

@@ -7,6 +7,13 @@ describe("MEASUREMENT_SCENARIOS", () => {
     expect(MEASUREMENT_SCENARIOS.length).toBeGreaterThan(0);
   });
 
+  it("눈 보정과 꾸벅거림을 재는 시나리오까지 열아홉이다", () => {
+    expect(MEASUREMENT_SCENARIOS).toHaveLength(19);
+    expect(MEASUREMENT_SCENARIOS.map((scenario) => scenario.id)).toEqual(
+      expect.arrayContaining(["A16", "A17", "A18", "A19"]),
+    );
+  });
+
   it("번호가 중복되지 않는다", () => {
     const ids = MEASUREMENT_SCENARIOS.map((scenario) => scenario.id);
 
