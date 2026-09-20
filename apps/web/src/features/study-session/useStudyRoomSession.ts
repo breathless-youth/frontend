@@ -55,6 +55,12 @@ import {
 import { reportActiveSession } from "./reportActiveSession";
 import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
+import type { SubjectSelection, SubjectTimeTracker } from "./subjectTimes";
+import {
+  createSubjectTimeTracker,
+  materializeSubjectTimes,
+  selectSubjectTime,
+} from "./subjectTimes";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
@@ -143,6 +149,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         priorEvents: [] as StatusEventPayload[],
         serverSeenMs: 0,
         restored: false,
+        subjectTracker: createSubjectTimeTracker(),
       };
     }
     const priorEvents = [...restored.events];
@@ -163,6 +170,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       priorEvents,
       serverSeenMs: restored.reportedAtMs,
       restored: true,
+      // 마지막 항목이 지금 선택으로 되살아나고, 복원 시점 누적값부터의 차이만 그 항목에 얹힌다.
+      subjectTracker: createSubjectTimeTracker(restored.subjectTimes ?? [], {
+        studySec: restored.baseStudySec,
+        focusSec: restored.baseFocusSec,
+      }),
     };
   });
 
@@ -185,6 +197,16 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const snapshotInFlightRef = useRef(false);
   const snapshotStoppedRef = useRef(false);
   const snapshotErrorReportedRef = useRef(false);
+
+  /**
+   * 과목·할 일별 시간 — 계산은 `subjectTimes.ts`, 여기는 세션 타이머 값을 넘겨주는 배선만.
+   * ref인 이유는 스냅샷·제출이 렌더와 무관한 시점(인터벌·종료)에 최신 값을 읽기 때문이고,
+   * 화면이 볼 선택은 아래 state로 따로 든다.
+   */
+  const subjectTrackerRef = useRef<SubjectTimeTracker>(initial.subjectTracker);
+  const [subjectSelection, setSubjectSelection] = useState<SubjectSelection | null>(
+    () => initial.subjectTracker.current?.selection ?? null,
+  );
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
@@ -379,6 +401,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         studySec: totals.studySec,
         focusSec: totals.focusSec,
         events,
+        subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, totals),
       })
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
@@ -469,6 +492,19 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     });
   }, [onReturnFromBackground, pause, phase.name, systemPause]);
 
+  /**
+   * 과목·할 일 선택 전환 — 지금 타이머 값으로 이전 선택 구간을 닫고 새 구간을 연다.
+   * 종료 뒤(`phase !== "studying"`)에는 타임라인이 닫혀 있어 값이 더 흐르지 않으므로 막지 않는다.
+   */
+  const selectSubject = useCallback(
+    (next: SubjectSelection | null) => {
+      const totals = withBase(computeSessionTotals(timelineRef.current, Date.now()));
+      subjectTrackerRef.current = selectSubjectTime(subjectTrackerRef.current, next, totals);
+      setSubjectSelection(subjectTrackerRef.current.current?.selection ?? null);
+    },
+    [withBase],
+  );
+
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
     trackCameraFlipped(result, roomType);
@@ -544,6 +580,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
           events,
+          subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, finalTotals),
         });
         trackStudySessionSubmitted(true, attempt, roomType);
         // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
@@ -623,6 +660,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     cameraFacing,
     isCameraRunning,
     cameraStream,
+    /** 지금 고른 과목·할 일 — 없으면 null(과목 없는 시간). */
+    subjectSelection,
+    /** 이 세션에서 항목별로 쌓인 시간 — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서 다시 읽는다. */
+    subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, totals),
+    selectSubject,
     pause,
     resume,
     onReturnFromBackground,

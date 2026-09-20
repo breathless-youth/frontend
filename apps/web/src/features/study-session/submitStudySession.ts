@@ -2,12 +2,13 @@ import type {
   StatusEventPayload,
   StudySessionCreateRequest,
   StudySessionResponse,
+  SubjectTimePayload,
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyUserId } from "@/lib/userId";
 
-import { clampSessionSeconds } from "./sessionRequestClamp";
+import { clampSessionSeconds, clampSubjectTimes } from "./sessionRequestClamp";
 
 /**
  * 세션 제출 입력. 이 모듈은 값을 계산하지 않고 받기만 한다 —
@@ -20,6 +21,8 @@ export interface SessionInput {
   studySec: number;
   focusSec: number;
   events?: StatusEventPayload[];
+  /** 과목·할 일별 시간 — `subjectTimes.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
+  subjectTimes?: SubjectTimePayload[];
 }
 
 /**
@@ -41,13 +44,18 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
     focusSec: input.focusSec,
     events,
   });
-  return {
+  const request: StudySessionCreateRequest = {
     startedAt: new Date(input.startedAtMs).toISOString(),
     endedAt: new Date(input.endedAtMs).toISOString(),
     studySec,
     focusSec,
     events,
   };
+  // 선택 필드 — 없으면 구 계약과 바이트 단위로 같은 요청이다(기존 테스트가 정확히 그 모양을 본다).
+  if (input.subjectTimes !== undefined && input.subjectTimes.length > 0) {
+    request.subjectTimes = clampSubjectTimes(input.subjectTimes, studySec);
+  }
+  return request;
 }
 
 /**

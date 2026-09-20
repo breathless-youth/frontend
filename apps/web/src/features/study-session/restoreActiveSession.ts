@@ -1,4 +1,8 @@
-import type { ActiveSessionSnapshotResponse, StatusEventPayload } from "@focusmakers/types";
+import type {
+  ActiveSessionSnapshotResponse,
+  StatusEventPayload,
+  SubjectTimePayload,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyQuery } from "@/lib/userId";
@@ -34,6 +38,41 @@ export interface RestoredSession {
   baseStudySec: number;
   baseFocusSec: number;
   events: StatusEventPayload[];
+  /** 마지막 스냅샷의 항목별 시간 — 마지막 항목이 지금 선택이다(`subjectTimes.ts`). 없으면 빈 배열. */
+  subjectTimes?: SubjectTimePayload[];
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * 항목 시간은 이벤트와 달리 하나가 이상해도 세션 전체를 버리지 않는다 — 과목 없는 시간으로
+ * 계속 재는 편이 처음부터 다시 시작하는 것보다 낫다. 읽을 수 있는 항목만 남긴다.
+ */
+function usableSubjectTimes(raw: unknown): SubjectTimePayload[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.flatMap((item: Partial<SubjectTimePayload> | null) => {
+    if (
+      item === null ||
+      !isNonNegativeInt(item.subjectId) ||
+      !isNonNegativeInt(item.studySec) ||
+      !isNonNegativeInt(item.focusSec) ||
+      !(item.taskId === null || item.taskId === undefined || isNonNegativeInt(item.taskId))
+    ) {
+      return [];
+    }
+    return [
+      {
+        subjectId: item.subjectId,
+        taskId: item.taskId ?? null,
+        studySec: item.studySec,
+        focusSec: Math.min(item.focusSec, item.studySec),
+      },
+    ];
+  });
 }
 
 /** 조회가 응답 없이 매달릴 때의 상한. 룸 진입을 막고 있으므로 보고 상한보다 짧게 잡는다. */
@@ -81,6 +120,7 @@ export async function restoreActiveSession(
       baseStudySec: body.studySec,
       baseFocusSec: body.focusSec,
       events: body.events,
+      subjectTimes: usableSubjectTimes(body.subjectTimes),
     };
   } finally {
     clearTimeout(timer);

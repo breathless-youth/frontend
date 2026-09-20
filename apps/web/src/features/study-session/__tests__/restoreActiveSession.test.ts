@@ -41,6 +41,7 @@ describe("restoreActiveSession", () => {
       baseStudySec: 1850,
       baseFocusSec: 1620,
       events: BODY.events,
+      subjectTimes: [],
     });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
