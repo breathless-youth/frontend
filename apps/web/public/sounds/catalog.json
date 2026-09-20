@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "sounds": [
+    { "id": "white", "kind": "synth", "label": "백색소음" },
+    { "id": "pink", "kind": "synth", "label": "핑크노이즈" },
+    { "id": "brown", "kind": "synth", "label": "브라운노이즈" },
+    { "id": "rain-trp", "kind": "file", "label": "빗소리 (실외)", "file": "rain-trp.mp3" },
+    { "id": "rain-mm", "kind": "file", "label": "빗소리 (실내)", "file": "rain-mm.mp3" },
+    { "id": "cafe-vec", "kind": "file", "label": "카페", "file": "cafe-vec.mp3" }
+  ]
+}
