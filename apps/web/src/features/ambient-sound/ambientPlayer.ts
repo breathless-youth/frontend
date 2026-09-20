@@ -2,6 +2,7 @@ import type { AmbientSound, SoundId } from "./catalog";
 import type { Mix } from "./mix";
 import { createNoiseSamples } from "./noiseSynth";
 import type { NoiseKind } from "./noiseSynth";
+import { createSilentKeepAlive } from "./silentKeepAlive";
 
 export type AmbientPlayerState = "idle" | "playing" | "suspended" | "blocked";
 
@@ -108,6 +109,11 @@ export type WebAudioPlayerOptions = {
    * 통째로 재생 시간에 더해진다.
    */
   onPlaybackChanged?: () => void;
+  /**
+   * iOS 웹뷰의 무음 스위치용 keep-alive 요소. null 이면 만들지 않는다. 기본은 Apple WebKit
+   * 에서만 만드는 `createSilentKeepAlive` 이고, 이유는 `silentKeepAlive.ts` 상단에 있다.
+   */
+  keepAliveFactory?: () => HTMLAudioElement | null;
 };
 
 export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPlayer {
@@ -116,6 +122,7 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
     audioContextFactory = defaultAudioContextFactory,
     fetchImpl = fetch,
     onPlaybackChanged,
+    keepAliveFactory = createSilentKeepAlive,
   } = options;
   const sounds = new Map(catalog.map((sound) => [sound.id, sound]));
 
@@ -133,6 +140,31 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
   let desired: Mix = {};
   let ducked = false;
   let suspendRequested = false;
+  // undefined 는 아직 안 만든 것, null 은 이 엔진에서는 안 만든다는 뜻이다. 켜져 있는지는 따로
+  // 들고 있지 않고 요소의 paused 를 본다. 시스템이 요소를 멈춘 경우(재개되지 않는 인터럽션,
+  // 잠금화면의 정지)를 우리 플래그로는 알 수 없어서다.
+  let keepAlive: HTMLAudioElement | null | undefined;
+  const keepAlivePlay = (): void => {
+    if (keepAlive === undefined) {
+      try {
+        keepAlive = keepAliveFactory();
+      } catch {
+        keepAlive = null;
+      }
+    }
+    if (!keepAlive || !keepAlive.paused) return;
+    // 자동재생 거부는 삼킨다. 요소가 못 돌면 무음 스위치를 못 넘길 뿐 소리 재생은 그대로다.
+    // 거부되면 paused 가 그대로 남아 다음 조작에서 자연히 다시 걸린다.
+    try {
+      const played: unknown = keepAlive.play();
+      if (played instanceof Promise) played.catch(() => undefined);
+    } catch {
+      // play 미구현 환경이나 동기 예외. 위와 같은 이유로 무시한다.
+    }
+  };
+  const keepAlivePause = (): void => {
+    if (keepAlive && !keepAlive.paused) keepAlive.pause();
+  };
   let blocked = false;
   let disposed = false;
 
@@ -160,6 +192,11 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
     const next = getState();
     if (next === lastNotified) return;
     lastNotified = next;
+    // 들리는 동안만 keep-alive 를 돌린다. 인터럽션에서 돌아온 경우도 여기서 다시 건다.
+    // suspended·blocked 에서는 건드리지 않는다. 깨우는 도중의 잠깐을 멈춤으로 오해해 껐다 켜면
+    // 두 번째 play 가 제스처 밖이라 거부될 수 있다.
+    if (next === "playing") keepAlivePlay();
+    else if (next === "idle") keepAlivePause();
     onPlaybackChanged?.();
   };
 
@@ -317,6 +354,8 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
        */
       const needsWake = ids.length > 0 && !suspendRequested && context.state !== "running";
       const waking = needsWake ? tryResume() : Promise.resolve();
+      // 같은 이유로 keep-alive 도 버퍼를 기다리기 전에 건다. play 도 제스처 스택 안이어야 한다.
+      if (ids.length > 0 && !suspendRequested) keepAlivePlay();
 
       for (const [id, voice] of voices) {
         if (!(id in mix)) stopVoice(context, id, voice);
@@ -355,6 +394,10 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
       if (!needsWake && !disposed && !suspendRequested && context.state !== "running") {
         await tryResume();
       }
+      // 켜려던 소리가 하나도 시작되지 못하면 상태 알림이 오지 않는다. 그때 요소만 계속 돌면
+      // 소리 없이 미디어 세션만 쥐고 있는 꼴이라 여기서 거둔다. 그 사이 새 믹스가 들어왔으면
+      // 그쪽 호출이 판단할 몫이라 건드리지 않는다.
+      if (!disposed && desired === mix && runningState() === "idle") keepAlivePause();
       return { failed };
     },
 
@@ -368,18 +411,23 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
     async suspend() {
       if (disposed) return;
       suspendRequested = true;
+      keepAlivePause();
       await ctx?.suspend().catch(() => {});
     },
 
     async resume() {
       if (disposed) return;
       suspendRequested = false;
+      // 재개는 상태 알림이 중복으로 걸러질 수 있어 여기서 직접 건다.
+      if (runningState() === "playing") keepAlivePlay();
       await tryResume();
     },
 
     dispose() {
       if (disposed) return;
       disposed = true;
+      keepAlivePause();
+      keepAlive = null;
       if (ctx) {
         // 페이드 중인 소스는 voices 에 없다. 핸들러를 먼저 끊어야 늦게 오는 onended 가
         // 폐기된 뒤에 호출부를 건드리지 않는다.
