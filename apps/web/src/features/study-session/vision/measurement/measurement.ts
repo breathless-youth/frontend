@@ -39,7 +39,9 @@ import {
  *    `visionDiagnostics`로, `baseline` 기본값을 `{ samples: FACE_BASELINE_SAMPLES, minRatio:
  *    FACE_BASELINE_MIN_RATIO }`로(두 상수의 `../vision/visionConfig` import도 함께 되살린다),
  *    `createFrameLoop`의 `onDrop` 인자 삭제. `reportEyeCalibration` import와 감지기 안의
- *    호출 한 줄도 함께 지운다.
+ *    호출 한 줄도 함께 지운다. 기본 얼굴 래퍼의 `onEyeOutline: measurementEyeOutline` 인자와
+ *    `vision/faceLandmarker.ts`의 `onEyeOutline` 옵션·`EyeOutline`·`emitEyeOutline`,
+ *    `visionConfig.ts`의 `EYE_OUTLINE_LANDMARKS`도 지운다.
  * 5. `adapters/mediaStreamCamera.ts`의 `measurementDiagnostics.cameraStream`을
  *    `visionDiagnostics`로 되돌리고 import도 바꾼다.
  * 6. `useStudyRoomSession.ts`에서 셋을 지운다 — `./vision/measurement` import,

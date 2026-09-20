@@ -1,4 +1,7 @@
+import { PREVIEW_OBJECT_FIT } from "../../previewFit";
 import { visionDiagnostics } from "../diagnostics";
+import type { EyeOutline } from "../faceLandmarker";
+import { createEyeOverlay } from "./eyeOverlay";
 import type { EyeCalibration } from "../eyeCalibration";
 import { FACE_LOST_ENABLED } from "../visionConfig";
 import { measurementEnabled, measurementPanelEnabled, measurementRehearsal } from "./flags";
@@ -26,6 +29,16 @@ let eyeCalibrationSource: (() => EyeCalibration | null) | null = null;
 
 export function reportEyeCalibration(read: () => EyeCalibration | null): void {
   eyeCalibrationSource = read;
+}
+
+/**
+ * 눈 자리 오버레이. 패널과 같은 조건(`?diag=1`)에서만 그린다. 기본 얼굴 래퍼가 이 함수를
+ * `onEyeOutline`으로 받는다. 좌표는 캔버스에 그려지고 끝난다.
+ */
+const eyeOverlay = createEyeOverlay({ enabled: measurementPanelEnabled, fit: PREVIEW_OBJECT_FIT });
+
+export function measurementEyeOutline(outline: EyeOutline | null): void {
+  eyeOverlay.draw(outline);
 }
 
 declare global {

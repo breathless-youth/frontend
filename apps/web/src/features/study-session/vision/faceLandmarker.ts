@@ -11,6 +11,7 @@ import type { Delegate, EyeBlendshapeName } from "./visionConfig";
 import {
   DELEGATE_ORDER,
   EYE_OUTER_CORNER_LANDMARKS,
+  EYE_OUTLINE_LANDMARKS,
   FACE_BLENDSHAPE_ALLOWLIST,
   FACE_BLENDSHAPE_REQUIRED,
   FACE_LANDMARKER_OPTIONS,
@@ -48,11 +49,27 @@ export interface VisionFaceLandmarker {
   close(): void;
 }
 
+/** 화면에 그리기 위한 눈 윤곽. 정규화 좌표(0~1)이고 반환값이 아니라 콜백으로만 나간다. */
+export interface EyeOutline {
+  readonly left: readonly { readonly x: number; readonly y: number }[];
+  readonly right: readonly { readonly x: number; readonly y: number }[];
+  /** 이 관측의 눈 점수를 판정이 받아들였는가. 얼굴은 찾았는데 게이트에서 걸렸으면 false다. */
+  readonly accepted: boolean;
+}
+
 export interface CreateFaceLandmarkerOptions {
   /** 테스트·워커 이전용 주입점. 기본값은 `./mediapipeModule.ts`를 동적으로 로드한다. */
   readonly loadRuntime?: () => Promise<MediapipeFaceRuntime>;
   /** 시도할 delegate 순서. 기본값은 `DELEGATE_ORDER`. 주입점을 여는 이유는 객체 래퍼와 같다. */
   readonly delegateOrder?: readonly Delegate[];
+  /**
+   * 실기기 측정 도구가 눈 자리를 프리뷰 위에 그리기 위한 통로. 측정이 끝나면 지운다.
+   *
+   * 좌표가 래퍼 밖으로 나가는 유일한 길이고, 받는 쪽은 단말 화면의 캔버스에 그리고 버린다.
+   * 진단·덩어리·로그로는 절대 가지 않는다 — 그쪽은 타입이 스칼라만 받는다. 얼굴이 없으면
+   * null을 넘겨 그림을 지우게 한다.
+   */
+  readonly onEyeOutline?: (outline: EyeOutline | null) => void;
 }
 
 /**
@@ -90,6 +107,7 @@ export function createFaceLandmarker(
 ): VisionFaceLandmarker {
   const loadRuntime = options.loadRuntime ?? defaultLoadRuntime;
   const delegateOrder = options.delegateOrder ?? DELEGATE_ORDER;
+  const onEyeOutline = options.onEyeOutline;
 
   let state: DetectorState = "idle";
   let handle: MediapipeFaceLandmarkerHandle | null = null;
@@ -115,6 +133,35 @@ export function createFaceLandmarker(
    * "이번 관측에 눈 판정 없음"이고, "눈을 떴다"가 아니다.
    */
   function normalize(raw: MediapipeFaceResult): FaceObservation {
+    const observation = normalizeObservation(raw);
+    if (onEyeOutline !== undefined) {
+      emitEyeOutline(raw, observation);
+    }
+    return observation;
+  }
+
+  /** 그리기용 윤곽만 뽑아 넘긴다. 점이 모자라면 얼굴 없음과 같이 지운다. */
+  function emitEyeOutline(raw: MediapipeFaceResult, observation: FaceObservation): void {
+    const landmarks = raw.faceLandmarks[0];
+    if (landmarks === undefined || landmarks.length === 0 || onEyeOutline === undefined) {
+      onEyeOutline?.(null);
+      return;
+    }
+    const pick = (indexes: readonly number[]) =>
+      indexes.flatMap((index) => {
+        const point = landmarks[index];
+        return point === undefined ? [] : [{ x: point.x, y: point.y }];
+      });
+    const left = pick(EYE_OUTLINE_LANDMARKS.left);
+    const right = pick(EYE_OUTLINE_LANDMARKS.right);
+    if (left.length === 0 || right.length === 0) {
+      onEyeOutline(null);
+      return;
+    }
+    onEyeOutline({ left, right, accepted: observation.eye !== null });
+  }
+
+  function normalizeObservation(raw: MediapipeFaceResult): FaceObservation {
     const landmarks = raw.faceLandmarks[0];
     if (landmarks === undefined || landmarks.length === 0) {
       return NO_FACE;

@@ -135,12 +135,12 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     "left:8px",
     "top:calc(env(safe-area-inset-top) + 8px)",
     "z-index:40",
-    "max-width:300px",
+    "max-width:320px",
     "padding:8px 10px",
     "border-radius:8px",
-    "background:rgba(17,17,17,0.82)",
+    "background:rgba(17,17,17,0.86)",
     "color:#fff",
-    "font:11px/15px ui-monospace,monospace",
+    "font:12px/17px ui-monospace,monospace",
     // 자기 버튼 밖의 터치는 그대로 통과시킨다. 프리뷰와 세션 조작을 가리지 않는다.
     "pointer-events:none",
     "white-space:pre-wrap",
@@ -233,11 +233,67 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     }
   }
 
+  /**
+   * 조각의 뜻에 따라 색을 고른다. 감김·졸음은 빨강, 뜸·집중은 초록, 켜진 원신호는 주황,
+   * 보정 전은 노랑. 글자는 그대로 두고 색만 입히므로 텍스트로 읽는 테스트와 사람이 같은 것을 본다.
+   */
+  function chipColor(text: string): string | null {
+    if (/감김|SLEEP/.test(text)) {
+      return "#ff6b6b";
+    }
+    if (/→ 뜸|FOCUS/.test(text)) {
+      return "#3ddc84";
+    }
+    if (/○/.test(text)) {
+      return "#ffb020";
+    }
+    if (/보정중/.test(text)) {
+      return "#ffd866";
+    }
+    return null;
+  }
+
+  function appendLine(text: string, dim: boolean): void {
+    const line = doc.createElement("div");
+    const chips = text.split(" · ");
+    chips.forEach((chip, index) => {
+      if (index > 0) {
+        line.append(" · ");
+      }
+      const span = doc.createElement("span");
+      span.textContent = chip;
+      const color = dim ? null : chipColor(chip);
+      if (color !== null) {
+        span.style.color = color;
+        span.style.fontWeight = "700";
+      }
+      line.append(span);
+    });
+    if (dim) {
+      line.style.opacity = "0.75";
+    }
+    body.append(line);
+  }
+
   function render(): void {
     const live = measurement.live();
-    const rehearsalLine = rehearsal ? "⚠ 리허설 — 이 수치는 본 측정이 아니다\n" : "";
-    const notice = copyNotice === "" ? "" : `\n${copyNotice}`;
-    body.textContent = `${rehearsalLine}${preflightLine()}\n\n${liveLines(live)}${observationLine()}${thermalLines()}${notice}`;
+    body.replaceChildren();
+    if (rehearsal) {
+      appendLine("⚠ 리허설 — 이 수치는 본 측정이 아니다", true);
+    }
+    appendLine(preflightLine(), true);
+    body.append(doc.createElement("br"));
+    for (const line of liveLines(live).split("\n")) {
+      appendLine(line, false);
+    }
+    appendLine(observationLine().trim(), true);
+    const thermal = thermalLines().trim();
+    if (thermal !== "") {
+      appendLine(thermal, false);
+    }
+    if (copyNotice !== "") {
+      appendLine(copyNotice, false);
+    }
     updateSegmentButtons(live.segment);
     updateStageControls();
   }

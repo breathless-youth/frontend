@@ -255,6 +255,15 @@ export type RequiredEyeBlendshapeName = (typeof FACE_BLENDSHAPE_REQUIRED)[number
 export const EYE_OUTER_CORNER_LANDMARKS = { left: 33, right: 263 } as const;
 
 /**
+ * 눈 윤곽 16점씩. MediaPipe Face Mesh의 눈 테두리 번호이고 판정에는 쓰지 않는다.
+ * 실기기 측정 도구가 화면 위에 눈 자리를 그릴 때만 읽는다. 좌표는 그 캔버스에서 끝난다.
+ */
+export const EYE_OUTLINE_LANDMARKS = {
+  left: [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246],
+  right: [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398],
+} as const;
+
+/**
  * 정규화 가로 눈 간격의 최소값. 이보다 작으면 눈 판정을 하지 않는다.
  *
  * 실측에서 정상 거리는 0.11~0.17이었고, 약 1m 떨어지면 0.06까지 떨어지면서 얼굴 검출 자체가

@@ -13,6 +13,7 @@ import type { VisionDiagnostics } from "../vision/diagnostics";
 import {
   measurementBaseline,
   measurementDiagnostics,
+  measurementEyeOutline,
   reportEyeCalibration,
 } from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
@@ -252,7 +253,7 @@ export function createVisionFocusDetector(
   const {
     video,
     detector = createObjectDetector(),
-    faceLandmarker = createFaceLandmarker(),
+    faceLandmarker = createFaceLandmarker({ onEyeOutline: measurementEyeOutline }),
     diagnostics = measurementDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
