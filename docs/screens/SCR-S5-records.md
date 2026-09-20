@@ -97,21 +97,21 @@ Figma 예시 데이터(그대로 쓰지 말 것 — 실데이터로 대체): 연
 
 **모두 `ai-wiki/product/voice-tone.md`에서 그대로 인용했다 — 의역 금지.**
 
-| 위치                         | 문구                                                                      | 근거                                                        |
-| ---------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| 화면 타이틀                  | `기록`                                                                    | Figma / 탭 라벨과 동일                                      |
-| 연속 공부 배너 타이틀        | `{N}일 연속 공부 중`                                                      | voice-tone §2 "연속 공부" · §4 기록                         |
-| 연속 공부 배너 서브          | `내일도 10분만 하면 이어져요`                                             | voice-tone §4 기록                                          |
-| 요일 라벨                    | `일 월 화 수 목 금 토`                                                    | Figma                                                       |
-| 달력 헤더                    | `{YYYY}년 {M}월`                                                          | Figma                                                       |
-| 요약 타이틀                  | `{N}월 {N}일 학습 요약`                                                   | voice-tone §2 날짜 표기                                     |
-| 요약 타일 라벨               | `순공시간` / `총 공부 시간` / `집중률` / `공부 횟수`                      | glossary 노출 표기                                          |
-| 리스트 섹션 타이틀           | `공부 기록`                                                               | Figma                                                       |
-| 정렬 라벨                    | `최신순` (V1.0 고정)                                                      | voice-tone §4 기록 · design.md 6차 확정                     |
-| 세션 메타                    | `HH:MM – HH:MM · 총 {시간 길이}`                                          | voice-tone §2 세션 시각 범위(24시간제, 엔대시 `–`)          |
-| 세션 우측 지표               | `집중률` + `{N}%`                                                         | glossary "집중률 노출 2형식" — 지표 라벨 형식은 `집중률 N%` |
-| 이벤트 칩(축약형)            | `자리 이탈 {N}회` · `휴대폰 {N}회` · `기기 조작 {N}회` · `일시정지 {N}회` | voice-tone §4 기록 "기록 뱃지" · glossary 축약 규칙         |
-| 선택한 날짜에 기록이 없을 때 | `이날은 기록이 없어요` + `기록이 있는 날에는 점이 표시돼요`               | voice-tone §4 기록 "빈 날"                                  |
+| 위치                         | 문구                                                                                     | 근거                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 화면 타이틀                  | `기록`                                                                                   | Figma / 탭 라벨과 동일                                      |
+| 연속 공부 배너 타이틀        | `{N}일 연속 공부 중`                                                                     | voice-tone §2 "연속 공부" · §4 기록                         |
+| 연속 공부 배너 서브          | `내일도 10분만 하면 이어져요`                                                            | voice-tone §4 기록                                          |
+| 요일 라벨                    | `일 월 화 수 목 금 토`                                                                   | Figma                                                       |
+| 달력 헤더                    | `{YYYY}년 {M}월`                                                                         | Figma                                                       |
+| 요약 타이틀                  | `{N}월 {N}일 학습 요약`                                                                  | voice-tone §2 날짜 표기                                     |
+| 요약 타일 라벨               | `순공시간` / `총 공부 시간` / `집중률` / `공부 횟수`                                     | glossary 노출 표기                                          |
+| 리스트 섹션 타이틀           | `공부 기록`                                                                              | Figma                                                       |
+| 정렬 라벨                    | `최신순` (V1.0 고정)                                                                     | voice-tone §4 기록 · design.md 6차 확정                     |
+| 세션 메타                    | `HH:MM – HH:MM · 총 {시간 길이}`                                                         | voice-tone §2 세션 시각 범위(24시간제, 엔대시 `–`)          |
+| 세션 우측 지표               | `집중률` + `{N}%`                                                                        | glossary "집중률 노출 2형식" — 지표 라벨 형식은 `집중률 N%` |
+| 이벤트 칩(축약형)            | `자리 이탈 {N}회` · `휴대폰 {N}회` · `기기 조작 {N}회` · `졸음 {N}회` · `일시정지 {N}회` | voice-tone §4 기록 "기록 뱃지" · glossary 축약 규칙         |
+| 선택한 날짜에 기록이 없을 때 | `이날은 기록이 없어요` + `기록이 있는 날에는 점이 표시돼요`                              | voice-tone §4 기록 "빈 날"                                  |
 
 **시간 길이 표기 규칙**(voice-tone §2, 전 화면 공통): 1시간 이상 → `N시간 M분`(M=0이면 `N시간`) · 1시간 미만 → `M분` · 1분 미만 → `S초`. 진행 중 타이머의 `HH:MM:SS` 규칙은 **이 화면에 적용하지 않는다**(기록은 전부 한글 길이 표기다 — Figma도 동일).
 
@@ -125,25 +125,25 @@ Figma 예시 데이터(그대로 쓰지 말 것 — 실데이터로 대체): 연
 import type {
   StudySessionSummary, // 세션 1건
   StudySessionListResponse, // GET /api/stats 응답
-  StudySessionEventCounts, // Record<"PHONE"|"DEVICE"|"AWAY"|"PAUSE", number>
+  StudySessionEventCounts, // Record<"PHONE"|"DEVICE"|"AWAY"|"SLEEP"|"PAUSE", number>
 } from "@focusmakers/types";
 ```
 
 ### 화면 요소 ↔ 필드 매핑 (확인된 것)
 
-| 화면 요소                  | 필드                                                     | 비고                                                                                                                                                                                                                                            |
-| -------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 달력 기록 도트(Dotted 셀)  | `StudySessionListResponse.studiedDatesInMonth: string[]` | `YYYY-MM-DD` 배열. 이 배열에 있는 날 = Dotted                                                                                                                                                                                                   |
-| 요약 타일 `순공시간`       | `StudySessionListResponse.totalFocusSec`                 | 초 → 한글 길이 표기                                                                                                                                                                                                                             |
-| 요약 타일 `총 공부 시간`   | `StudySessionListResponse.totalStudySec`                 |                                                                                                                                                                                                                                                 |
-| 요약 타일 `집중률`         | `StudySessionListResponse.focusRate`                     | 소수 1자리로 내려온다(`StudySessionResponse.focusRate` 주석)                                                                                                                                                                                    |
-| 요약 타일 `공부 횟수`      | `StudySessionListResponse.sessionCount`                  | 값 표기 `N회`                                                                                                                                                                                                                                   |
-| 리스트 아이템 순공 값      | `StudySessionSummary.focusSec`                           |                                                                                                                                                                                                                                                 |
-| 리스트 아이템 시각 범위    | `StudySessionSummary.startedAt` / `endedAt`              | **UTC ISO-8601** → KST 변환 후 `HH:MM`                                                                                                                                                                                                          |
-| 리스트 아이템 `총`         | `StudySessionSummary.studySec`                           |                                                                                                                                                                                                                                                 |
-| 리스트 아이템 집중률       | `StudySessionSummary.focusRate`                          |                                                                                                                                                                                                                                                 |
-| 이벤트 칩                  | `StudySessionSummary.eventCounts`                        | `AWAY`→`자리 이탈`, `PHONE`→`휴대폰`, `DEVICE`→`기기 조작`, `PAUSE`→`일시정지`. **0인 상태는 칩을 그리지 않는다**(키는 항상 내려온다 — 값 0으로). ⚠️ 이 값의 신뢰도에 상류 이슈가 있다 — 아래 "이벤트 카운트가 실제 횟수보다 작을 수 있다" 참조 |
-| 리스트 정렬/그룹 기준 날짜 | `StudySessionSummary.statDate`                           | KST 기준 `YYYY-MM-DD`                                                                                                                                                                                                                           |
+| 화면 요소                  | 필드                                                     | 비고                                                                                                                                                                                                                                                            |
+| -------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 달력 기록 도트(Dotted 셀)  | `StudySessionListResponse.studiedDatesInMonth: string[]` | `YYYY-MM-DD` 배열. 이 배열에 있는 날 = Dotted                                                                                                                                                                                                                   |
+| 요약 타일 `순공시간`       | `StudySessionListResponse.totalFocusSec`                 | 초 → 한글 길이 표기                                                                                                                                                                                                                                             |
+| 요약 타일 `총 공부 시간`   | `StudySessionListResponse.totalStudySec`                 |                                                                                                                                                                                                                                                                 |
+| 요약 타일 `집중률`         | `StudySessionListResponse.focusRate`                     | 소수 1자리로 내려온다(`StudySessionResponse.focusRate` 주석)                                                                                                                                                                                                    |
+| 요약 타일 `공부 횟수`      | `StudySessionListResponse.sessionCount`                  | 값 표기 `N회`                                                                                                                                                                                                                                                   |
+| 리스트 아이템 순공 값      | `StudySessionSummary.focusSec`                           |                                                                                                                                                                                                                                                                 |
+| 리스트 아이템 시각 범위    | `StudySessionSummary.startedAt` / `endedAt`              | **UTC ISO-8601** → KST 변환 후 `HH:MM`                                                                                                                                                                                                                          |
+| 리스트 아이템 `총`         | `StudySessionSummary.studySec`                           |                                                                                                                                                                                                                                                                 |
+| 리스트 아이템 집중률       | `StudySessionSummary.focusRate`                          |                                                                                                                                                                                                                                                                 |
+| 이벤트 칩                  | `StudySessionSummary.eventCounts`                        | `AWAY`→`자리 이탈`, `PHONE`→`휴대폰`, `DEVICE`→`기기 조작`, `SLEEP`→`졸음`, `PAUSE`→`일시정지`. **0인 상태는 칩을 그리지 않는다**(키는 항상 내려온다 — 값 0으로). ⚠️ 이 값의 신뢰도에 상류 이슈가 있다 — 아래 "이벤트 카운트가 실제 횟수보다 작을 수 있다" 참조 |
+| 리스트 정렬/그룹 기준 날짜 | `StudySessionSummary.statDate`                           | KST 기준 `YYYY-MM-DD`                                                                                                                                                                                                                                           |
 
 `longestFocusSec`도 응답에 있으나 **S5 화면에는 노출 요소가 없다**(홈 S1의 "최장 집중"용). 이 화면에서 쓰지 않는다.
 
