@@ -1,4 +1,5 @@
 import type { VisionDiagnostics } from "../diagnostics";
+import type { EyeCalibration } from "../eyeCalibration";
 import { rehearsalBaseline } from "./flags";
 import type { Measurement } from "./measurement";
 import { createMeasurement } from "./measurement";
@@ -26,6 +27,8 @@ export interface MeasurementToolsOptions {
   readonly rehearsal: boolean;
   readonly panelEnabled: boolean;
   readonly faceLostEnabled: boolean;
+  /** 감지기의 눈 보정 결과를 읽는 길. 감지기는 측정 도구보다 늦게 생기므로 함수로 받는다. */
+  readonly eyeCalibration?: () => EyeCalibration | null;
 }
 
 export interface MeasurementTools {
@@ -37,7 +40,17 @@ export interface MeasurementTools {
 }
 
 export function createMeasurementTools(options: MeasurementToolsOptions): MeasurementTools {
-  const { scenarios, now, log, base, enabled, rehearsal, panelEnabled, faceLostEnabled } = options;
+  const {
+    scenarios,
+    now,
+    log,
+    base,
+    enabled,
+    rehearsal,
+    panelEnabled,
+    faceLostEnabled,
+    eyeCalibration,
+  } = options;
 
   let panel: MeasurementPanel | null = null;
 
@@ -47,6 +60,7 @@ export function createMeasurementTools(options: MeasurementToolsOptions): Measur
     // 어댑터가 받는 것과 같은 값을 싣는다. 스냅샷과 실제가 어긋나면 스냅샷이 쓸모없다.
     baseline: rehearsalBaseline(rehearsal),
     faceLostEnabled,
+    eyeCalibration,
     now,
     onLine: log,
     onSessionSignal: () => {

@@ -22,7 +22,14 @@ export interface TriggerHoldParams {
  * 있어서 판정은 출처 단위로 하고 트리거 단위로 합친다. 유지시간 판정은 이 모듈 한 곳뿐이다.
  * 어댑터가 출처를 미리 합치거나 자체 디바운스를 두지 않는다.
  */
-export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_FACE"] as const;
+export const DETECTION_SOURCES = [
+  "AWAY",
+  "PHONE",
+  "DEVICE",
+  "SLEEP_EYES",
+  "SLEEP_DROWSY",
+  "SLEEP_FACE",
+] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
 /**
@@ -34,6 +41,7 @@ export const SOURCE_TRIGGER = {
   PHONE: "PHONE",
   DEVICE: "DEVICE",
   SLEEP_EYES: "SLEEP",
+  SLEEP_DROWSY: "SLEEP",
   SLEEP_FACE: "SLEEP",
 } as const satisfies Record<DetectionSource, DistractionTrigger>;
 
@@ -56,6 +64,12 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
    * 해제가 3초인 것은 깨어난 뒤 얼굴 판정이 두 번은 돌아야 하기 때문이다.
    */
   SLEEP_EYES: { enterMs: 10_000, exitMs: 3000 },
+  /**
+   * ⚠️ 잠정값이다. 진입이 유독 짧은 것은 원신호가 이미 1분 창의 비율로 평활돼 있기 때문이다.
+   * 여기서 다시 오래 기다리면 1분을 재고 또 기다리는 셈이 되어 판정이 그만큼 늦는다. 얼굴 틱
+   * 두 번이면 새 비율이 반영되므로 4초를 본다. 해제는 다른 졸음 출처와 같다.
+   */
+  SLEEP_DROWSY: { enterMs: 4000, exitMs: 3000 },
   SLEEP_FACE: { enterMs: 25_000, exitMs: 3000 },
 };
 

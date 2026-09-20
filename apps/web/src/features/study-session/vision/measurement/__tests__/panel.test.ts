@@ -44,11 +44,15 @@ function setup(
     enabled?: boolean;
     copy?: () => Promise<void>;
     faceLostEnabled?: boolean;
+    eyeCalibration?: { windows: number; baseline: number; threshold: number } | null;
   } = {},
 ) {
   let nowMs = 0;
   const now = () => nowMs;
-  const measurement: Measurement = createMeasurement(noop, { now });
+  const measurement: Measurement = createMeasurement(noop, {
+    now,
+    eyeCalibration: () => overrides.eyeCalibration ?? null,
+  });
   const runner = createScenarioRunner({ scenarios: SCENARIOS, now });
   // 배선은 프로덕션과 같은 것을 쓴다 — 패널만 따로 엮으면 실제 경로가 테스트를 비껴간다.
   const thermal = createReportingThermalTimer({
@@ -205,6 +209,18 @@ describe("mountMeasurementPanel", () => {
     setup({ faceLostEnabled: true });
 
     expect(panelText()).not.toContain("엎드림꺼짐");
+  });
+
+  it("보정 전에는 점검 줄이 보정중이라고 말한다", () => {
+    setup();
+
+    expect(panelText()).toContain("보정중");
+  });
+
+  it("보정이 끝나면 점검 줄이 보정ok로 바뀐다 — 임계가 언제 바뀌었는지 화면에서 보여야 한다", () => {
+    setup({ eyeCalibration: { windows: 2, baseline: 0.2, threshold: 0.45 } });
+
+    expect(panelText()).toContain("보정ok(2)");
   });
 
   it("사전 점검에서 준비 안 된 항목을 표시한다", () => {

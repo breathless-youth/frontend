@@ -1,4 +1,5 @@
 import { visionDiagnostics } from "../diagnostics";
+import type { EyeCalibration } from "../eyeCalibration";
 import { FACE_LOST_ENABLED } from "../visionConfig";
 import {
   measurementEnabled,
@@ -20,6 +21,18 @@ import { createMeasurementTools } from "./wiring";
 export { stateLabel } from "./measurement";
 export type { Measurement } from "./measurement";
 export { measurementBaseline } from "./flags";
+
+/**
+ * 감지기가 자기 보정 결과를 읽는 길을 건네는 자리.
+ *
+ * 측정 도구는 이 모듈이 평가될 때 한 벌 만들어지고 감지기는 세션이 열릴 때 생긴다. 그래서
+ * 감지기를 인자로 받을 수 없고, 나중에 도착하는 길을 여기 담아 둔다.
+ */
+let eyeCalibrationSource: (() => EyeCalibration | null) | null = null;
+
+export function reportEyeCalibration(read: () => EyeCalibration | null): void {
+  eyeCalibrationSource = read;
+}
 
 declare global {
   interface Window {
@@ -44,6 +57,7 @@ const tools = createMeasurementTools({
   rehearsal: measurementRehearsal,
   panelEnabled: measurementPanelEnabled,
   faceLostEnabled: FACE_LOST_ENABLED,
+  eyeCalibration: () => eyeCalibrationSource?.() ?? null,
 });
 
 /**

@@ -161,6 +161,38 @@ describe("createVisionDiagnostics — 얼굴", () => {
     expect(Object.keys(payload).some((key) => key.startsWith("face:"))).toBe(false);
   });
 
+  it("꾸벅거림 원신호와 지금 쓰는 임계를 남긴다 — 왜 안 잡혔는지는 임계 없이 설명되지 않는다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepDrowsySignal: true,
+      eyeThreshold: 0.654_3,
+      eyeClosedRatio: 0.733_3,
+    });
+
+    expect(events[0]?.payload).toMatchObject({
+      sleepDrowsy: true,
+      eyeThreshold: 0.65,
+      eyeClosedRatio: 0.73,
+    });
+  });
+
+  it("창이 안 찼으면 비율 키를 아예 만들지 않는다 — 0으로 적으면 감긴 적이 없다로 읽힌다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepDrowsySignal: false,
+      eyeThreshold: 0.45,
+      eyeClosedRatio: null,
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({ sleepDrowsy: false, eyeThreshold: 0.45 });
+    expect(Object.keys(payload)).not.toContain("eyeClosedRatio");
+  });
+
   it("얼굴 점수를 평탄한 스칼라로 남긴다", () => {
     const { sink, events } = recordingSink();
 

@@ -203,6 +203,27 @@ describe("stepDetection — 졸음", () => {
   });
 });
 
+describe("stepDetection — 꾸벅거림 출처", () => {
+  it("4초 유지되어야 잡힌다 — 원신호가 이미 30초 창으로 평활돼 있다", () => {
+    let state = createDetectionState(T0);
+    state = step(state, signals({ SLEEP_DROWSY: true }), T0);
+    state = step(state, signals({ SLEEP_DROWSY: true }), T0 + 3_999);
+    expect(state.active).toBeNull();
+
+    state = step(state, signals({ SLEEP_DROWSY: true }), T0 + 4_000);
+    expect(state.active).toBe("SLEEP");
+  });
+
+  it("눈 감김 출처와 같은 트리거로 합쳐진다", () => {
+    expect(SOURCE_TRIGGER.SLEEP_DROWSY).toBe("SLEEP");
+    let state = createDetectionState(T0);
+    const both = signals({ SLEEP_EYES: true, SLEEP_DROWSY: true });
+    state = step(state, both, T0);
+    state = step(state, both, T0 + 10_000);
+    expect(state.active).toBe("SLEEP");
+  });
+});
+
 describe("stepDetection — 졸음과 다른 트리거", () => {
   it("기기 조작이 졸음보다 앞선다 — 흔들리는 동안은 카메라 판정을 믿기 어렵다", () => {
     let state = createDetectionState(T0);

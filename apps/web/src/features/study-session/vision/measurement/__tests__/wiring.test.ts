@@ -270,6 +270,31 @@ describe("createMeasurementTools", () => {
     expect(dump.segments).toHaveLength(0);
   });
 
+  it("감지기의 보정 결과가 덩어리까지 이어진다 — 통로가 끊기면 임계 없이 분포만 남는다", () => {
+    let calibration: { windows: number; baseline: number; threshold: number } | null = null;
+    const tools = createMeasurementTools({
+      scenarios: SCENARIOS,
+      now: () => 0,
+      log: () => {},
+      base,
+      enabled: true,
+      rehearsal: false,
+      panelEnabled: false,
+      faceLostEnabled: false,
+      eyeCalibration: () => calibration,
+    });
+
+    const before = JSON.parse(tools.measurement.dump()) as { eyeCalibration: unknown };
+    expect(before.eyeCalibration).toBeNull();
+
+    // 보정은 세션이 한참 돈 뒤에 끝난다. 그때의 값이 덩어리에 실려야 한다.
+    calibration = { windows: 1, baseline: 0.2, threshold: 0.45 };
+    const after = JSON.parse(tools.measurement.dump()) as {
+      eyeCalibration: { threshold: number } | null;
+    };
+    expect(after.eyeCalibration?.threshold).toBe(0.45);
+  });
+
   describe("엎드림 설정 배선", () => {
     it("기본은 꺼짐이 설정 스냅샷까지 이어진다", () => {
       const { tools } = setup();

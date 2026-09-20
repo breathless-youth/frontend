@@ -10,7 +10,11 @@ import { evaluateFrame, PERSON_LABEL, topScoresByLabel } from "../vision/detecti
 import type { VisionDiagnostics } from "../vision/diagnostics";
 // 실기기 측정용 계측. 측정이 끝나면 기본 진단을 `visionDiagnostics`로, 기준선 기본값을
 // `FACE_BASELINE_SAMPLES`·`FACE_BASELINE_MIN_RATIO`로 되돌린다.
-import { measurementBaseline, measurementDiagnostics } from "../vision/measurement";
+import {
+  measurementBaseline,
+  measurementDiagnostics,
+  reportEyeCalibration,
+} from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
@@ -18,8 +22,18 @@ import type { VisionObjectDetector } from "../vision/objectDetector";
 import { createObjectDetector } from "../vision/objectDetector";
 import { isSleepDetectionEnabled } from "../vision/sleepDetectionFlag";
 import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRules";
-import { evaluateSleep, NO_SLEEP_SIGNALS, smoothedFacePresent } from "../vision/sleepRules";
 import {
+  evaluateSleep,
+  eyeClosedRatio,
+  NO_SLEEP_SIGNALS,
+  smoothedFacePresent,
+} from "../vision/sleepRules";
+import type { EyeCalibration } from "../vision/eyeCalibration";
+import { calibrateEye } from "../vision/eyeCalibration";
+import {
+  EYE_CALIBRATION_SAMPLES,
+  EYE_RATIO_WINDOW_SAMPLES,
+  EYE_THRESHOLD_MAX,
   FACE_FRAME_DIVISOR,
   FACE_LOST_ENABLED,
   FACE_SMOOTHING_SAMPLES,
@@ -49,8 +63,8 @@ export interface FocusDetector {
  * 여러 감지기를 하나로 묶는다 — 훅은 감지기를 **하나만** 받고, 실제로는 Vision(카메라)과
  * 가속도 센서가 서로 다른 트리거를 담당한다(설계 §4·§5).
  *
- * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`/`SLEEP_EYES`/`SLEEP_FACE`
- * 출처만, 가속도는 `DEVICE` 출처만 내보낸다.
+ * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`/`SLEEP_EYES`/`SLEEP_DROWSY`/
+ * `SLEEP_FACE` 출처만, 가속도는 `DEVICE` 출처만 내보낸다.
  * 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
  * 대표 트리거 선택은 여기가 아니라 `../detection.ts`의 `TRIGGER_PRIORITY`가 한다.
  */
@@ -146,6 +160,7 @@ const VISION_SOURCES = [
   "AWAY",
   "PHONE",
   "SLEEP_EYES",
+  "SLEEP_DROWSY",
   "SLEEP_FACE",
 ] as const satisfies readonly VisionSource[];
 
@@ -160,6 +175,8 @@ export interface VisionFocusDetector extends FocusDetector {
   /** 얼굴 모델의 상태. 객체 검출기의 `status`와 별개다 — 한쪽이 실패해도 다른 쪽은 돈다. */
   readonly faceStatus: VisionDetectorStatus;
   subscribeFaceStatus(listener: (status: VisionDetectorStatus) => void): () => void;
+  /** 보정 결과. 아직이면 null. 측정 도구가 덩어리에 싣는다. */
+  readonly eyeCalibration: EyeCalibration | null;
   /**
    * 모델·GPU 컨텍스트를 놓는다. **effect cleanup에서 반드시 부른다** —
    * `stop()`은 추론만 멈추고(일시정지) 모델을 들고 있으므로, 세션 이탈에는 이쪽이 필요하다.
@@ -269,6 +286,26 @@ export function createVisionFocusDetector(
   /** 얼굴 틱마다의 얼굴 유무. 기준선을 재는 창이고 `stop()`이 비운다. */
   let faceHistory: boolean[] = [];
   /**
+   * 지금 모으는 보정 창. 창이 찰 때마다 비우고 다시 모은다 — 보정은 세션 내내 계속 돈다.
+   *
+   * 비율 창과 수명이 다르다. 비율 창은 지금 졸고 있는지를 재므로 공백 앞뒤를 이으면 안 되지만,
+   * 이쪽은 그 사람의 눈이 원래 몇 점인지를 재는 것이라 공백과 무관하다. 일시정지마다 다시
+   * 보정하면 재개 후 30초 동안 고정 임계로 돌아가 판정이 사람마다 흔들린다.
+   */
+  let calibrationReadings: number[] = [];
+  /** 창이 찰 때만 갱신한다. 매 프레임 다시 내면 같은 표본으로 같은 답을 또 구하는 것이다. */
+  let calibration: EyeCalibration | null = null;
+  /**
+   * 얼굴 틱은 돌았는데 눈 판정이 걸러진 횟수. 눈 점수가 오면 0으로 돌아간다.
+   *
+   * 사람도 있고 얼굴 모델도 살아 있는데 눈만 걸러지는 상태가 있다 — 거리가 멀거나 점수 이름이
+   * 빠졌을 때다. 그동안 비율 창은 새 표본을 못 받고 마지막 1분이 그대로 얼어붙는다. 연속 규칙은
+   * 최근 3표본만 보므로 저절로 풀리지만 비율 창은 나이 제한이 없어 혼자 참으로 남는다.
+   */
+  let eyeGateMisses = 0;
+  /** 비율 판정용 최근 눈 점수. 창 크기만 든다. 일시정지에서 비운다. */
+  let eyeReadings: number[] = [];
+  /**
    * 엎드림이 한 번 켜졌는가.
    *
    * 래치가 없으면 잠든 시간이 길어질수록 창이 "얼굴 없음"으로 채워져 비율이 기준 아래로
@@ -289,13 +326,18 @@ export function createVisionFocusDetector(
   /**
    * 얼굴 관측과 거기서 파생된 상태를 버린다.
    *
-   * 새 관측이 끊기면 이 셋이 얼어붙어 판정을 고정한다 — 마지막 관측이 "얼굴 없음"이었다면
+   * 새 관측이 끊기면 이것들이 얼어붙어 판정을 고정한다 — 마지막 관측이 "얼굴 없음"이었다면
    * 평활도 기준선도 영영 그 값이라, 래치가 풀릴 조건이 다시는 오지 않는다.
+   *
+   * 비율 창도 같이 버린다. 얼굴 모델이 죽으면 틱이 영영 안 도니 마지막 1분이 그대로 얼어, 창이
+   * 감김으로 차 있었다면 깨어난 뒤에도 꾸벅거림 신호가 세션 끝까지 참으로 남는다.
    */
   function dropFaceObservations(): void {
     faceSamples = [];
     faceHistory = [];
     faceLostLatched = false;
+    eyeReadings = [];
+    eyeGateMisses = 0;
   }
 
   /**
@@ -313,6 +355,8 @@ export function createVisionFocusDetector(
     previousDetections = null;
     emitted = null;
     frameIndex = 0;
+    // 비율 창은 `dropFaceObservations`가 함께 버린다. 공백 앞의 감김은 지금 졸고 있는지를
+    // 말해주지 않으므로, 창을 이어 붙이면 재개 직후에 옛 표본만으로 비율이 채워진다.
     dropFaceObservations();
   }
 
@@ -342,6 +386,7 @@ export function createVisionFocusDetector(
       AWAY: !signals.personPresent,
       PHONE: signals.phoneInUse,
       SLEEP_EYES: sleep.eyesClosed,
+      SLEEP_DROWSY: sleep.eyesDrowsy,
       SLEEP_FACE: sleep.faceLost,
     };
     const before = emitted;
@@ -411,6 +456,43 @@ export function createVisionFocusDetector(
     });
   }
 
+  /**
+   * 이번 관측의 눈 감김 점수를 두 창에 쌓는다. 판정과 같은 값을 쓰도록 양쪽 눈 중 작은 쪽을
+   * 읽는다 — 한쪽만 감은 것은 감은 것이 아니다.
+   *
+   * 좌표는 건드리지 않는다. 여기서 나가는 것은 이미 진단이 남기는 스칼라 하나뿐이다.
+   */
+  function recordEyeReading(face: FaceObservation): void {
+    const eye = face.eye;
+    if (eye === null) {
+      eyeGateMisses += 1;
+      if (eyeGateMisses >= FACE_SMOOTHING_SAMPLES) {
+        // 연속 규칙이 3표본 중앙값으로 한 표본을 거르는 것과 같은 크기다. 그만큼 연속으로 눈을
+        // 못 봤으면 창에 남은 것은 지금을 설명하지 못하는 과거다.
+        eyeReadings = [];
+      }
+      return;
+    }
+    eyeGateMisses = 0;
+    const closure = Math.min(eye.eyeBlinkLeft, eye.eyeBlinkRight);
+    eyeReadings = [...eyeReadings, closure].slice(-EYE_RATIO_WINDOW_SAMPLES);
+    calibrationReadings = [...calibrationReadings, closure];
+    if (calibrationReadings.length < EYE_CALIBRATION_SAMPLES) {
+      return;
+    }
+    // 창이 찰 때마다 다시 재고, 지금까지 본 기준값 중 가장 낮은 것이 살아남는다. 창은 비우고
+    // 다음 30초를 새로 모은다 — 한 번 재고 잠그면 첫 30초가 세션 전체를 정한다.
+    const previous = calibration;
+    calibration = calibrateEye(calibrationReadings, calibration);
+    calibrationReadings = [];
+    if (previous !== null && calibration !== null && calibration.threshold < previous.threshold) {
+      // 비율 창은 원표본을 들고 있고 감김 여부는 읽을 때 정해진다. 임계가 내려가면 저장된 옛
+      // 표본이 통째로 감김으로 다시 채점되어, 새 관측 하나 없이 1분 창이 뒤집힌다. 올라갈 때는
+      // 재채점이 더 너그러워지는 방향이라 비울 이유가 없다.
+      eyeReadings = [];
+    }
+  }
+
   function processFrame(): void {
     if (!running) {
       return;
@@ -449,8 +531,10 @@ export function createVisionFocusDetector(
     const topScores = topScoresByLabel(result.detections);
 
     if (!signals.personPresent) {
-      // 사람이 사라지면 관측을 버린다. 자리를 비운 사이의 얼굴 판정은 의미가 없고, 돌아왔을 때
-      // 옛 관측이 섞이면 평활이 과거를 가리킨다.
+      // 사람이 사라지면 얼굴 관측과 비율 창을 함께 버린다. 자리를 비운 사이의 얼굴 판정은 의미가
+      // 없고, 돌아왔을 때 옛 관측이 섞이면 평활이 과거를 가리킨다. 비율 창도 같은 이유로 버린다 —
+      // 남겨 두면 복귀 첫 프레임에 새 얼굴 틱이 하나도 없는 채로 옛 1분이 그대로 꾸벅거림 판정을
+      // 세우고, 깬 사람이 앉자마자 졸음으로 기록된다.
       //
       // 기준선 창(`faceHistory`)은 일부러 그대로 둔다. 짧은 자리 비움마다 창을 버리면 돌아온 뒤
       // 3분 동안 엎드림 판정이 죽고, 그 사이에 잠들면 아무것도 잡지 못한다.
@@ -458,6 +542,8 @@ export function createVisionFocusDetector(
       // ⚠️ 대가가 있다. 자리를 비운 사이 카메라를 옮기면 옛 배치의 기준선이 살아남아, 얼굴이
       // 안 나오는 새 배치를 엎드림으로 읽을 수 있다. 어느 쪽 오차가 큰지는 실기기에서 잰다.
       faceSamples = [];
+      eyeReadings = [];
+      eyeGateMisses = 0;
     }
 
     // 창이 다 차기 전에는 판단하지 않는다. 표본이 적으면 비율이 쉽게 흔들린다.
@@ -482,6 +568,7 @@ export function createVisionFocusDetector(
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
           faceSamples = [...faceSamples, faceRan.face].slice(-FACE_SMOOTHING_SAMPLES);
+          recordEyeReading(faceRan.face);
           if (faceLostEnabled) {
             faceHistory = [...faceHistory, faceRan.face.facePresent].slice(-baseline.samples);
           }
@@ -489,6 +576,16 @@ export function createVisionFocusDetector(
       }
     }
 
+    // 첫 창이 차기 전에는 상한을 쓴다.
+    //
+    // 하한이 고정 임계와 같아진 뒤로 고정 임계는 이 시스템이 낼 수 있는 가장 공격적인 값이 됐다.
+    // 그것을 보정 전에 쓰면 뜬 눈이 0.45~0.55인 사람이 세션 시작 19초를 통째로 졸음으로 기록한다 —
+    // 아직 아무것도 모르는 구간에서 가장 공격적으로 판정하는 셈이다. 비율 규칙이 "창이 안 차면
+    // 판정하지 않는다"를 지키는 것과도 어긋난다.
+    //
+    // 완전히 끄지 않는 것은 0.65를 넘는 아주 분명한 감김은 첫 30초에도 잡아야 하기 때문이다.
+    // 대가는 그 사이 0.65 아래의 감김을 놓치는 것인데, 세션이 막 시작된 구간이라 방향이 맞다.
+    const eyeThreshold = calibration?.threshold ?? EYE_THRESHOLD_MAX;
     const rawSleep = sleepEnabled
       ? evaluateSleep(
           {
@@ -497,6 +594,8 @@ export function createVisionFocusDetector(
             faceSamples,
             faceStable,
             headInFrame: null,
+            eyeClosureThreshold: eyeThreshold,
+            eyeReadings,
           },
           sleepRule,
         )
@@ -513,6 +612,7 @@ export function createVisionFocusDetector(
     // 꺼져 있으면 래치 상태와 무관하게 항상 false로 내보낸다 — 규칙을 교체해도 새어 나가지 않는다.
     const sleep: SleepSignals = {
       eyesClosed: rawSleep.eyesClosed,
+      eyesDrowsy: rawSleep.eyesDrowsy,
       faceLost: faceLostEnabled ? faceLostLatched : false,
     };
 
@@ -526,7 +626,10 @@ export function createVisionFocusDetector(
       durationMs: result.durationMs,
       delegate: detector.delegate,
       sleepEyesSignal: sleep.eyesClosed,
+      sleepDrowsySignal: sleep.eyesDrowsy,
       sleepFaceSignal: sleep.faceLost,
+      eyeThreshold,
+      eyeClosedRatio: eyeClosedRatio(eyeReadings, eyeThreshold),
       faceBaseline: faceStable,
       face:
         faceRan === null
@@ -542,6 +645,9 @@ export function createVisionFocusDetector(
     publish(signals, sleep);
   }
 
+  // 측정용 계측. 껍데기가 덩어리를 낼 때 이 길로 보정 결과를 읽어 간다.
+  reportEyeCalibration(() => calibration);
+
   const loop = createFrameLoop({
     onFrame: processFrame,
     onDrop: () => {
@@ -556,6 +662,10 @@ export function createVisionFocusDetector(
 
     get faceStatus() {
       return faceStatus;
+    },
+
+    get eyeCalibration() {
+      return calibration;
     },
 
     /** 멱등. 일시정지에서 돌아올 때도 이 함수 하나로 재개한다(모델은 이미 떠 있다). */
@@ -615,6 +725,9 @@ export function createVisionFocusDetector(
       faceLoadRequested = false;
       faceLandmarker.close();
       setFaceStatus("idle");
+      // 세션을 나가면 다음 사람이 쓸 수 있다. 보정은 사람에 매인 값이라 여기서만 버린다.
+      calibrationReadings = [];
+      calibration = null;
       resetFrameState();
     },
   };
