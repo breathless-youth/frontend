@@ -298,3 +298,17 @@ export const FACE_BASELINE_MIN_RATIO = 0.8;
 /** 창을 얼굴 틱으로 나눈 표본 수. 링버퍼 크기가 창 정의에서 파생되게 둔다. */
 export const FACE_BASELINE_SAMPLES =
   FACE_BASELINE_WINDOW_MS / (FACE_FRAME_DIVISOR * FRAME_INTERVAL_MS);
+
+/**
+ * 엎드림 판정을 낼지. 꺼지면 SLEEP_FACE 원신호는 항상 false로 나간다.
+ *
+ * 지금 모델은 책상에 엎드려 자는 사람과 카메라를 낮게 두어 몸통만 찍는 사람을 구분하지 못한다.
+ * 리허설에서 카메라를 낮추자 세션 끝까지 졸음으로 남았다. 깨어 있는데 졸음으로 잡는 경우를 0으로
+ * 두려는 원칙을 지키려면 이 신호를 꺼야 한다. 책상에 엎드려 자는 시간을 놓치는 대가는 그렇게
+ * 감수하기로 했다.
+ *
+ * 코드는 지우지 않는다. 얼굴 추론은 눈 감김 판정을 위해 계속 돌고, 이 값을 되돌리면 래치·
+ * 기준선 계산도 그대로 다시 켜진다. 다시 켤 조건은 머리가 프레임 안에 있는지와 몸통만
+ * 찍혔는지를 구분할 수 있는 모델이 들어왔을 때다.
+ */
+export const FACE_LOST_ENABLED = false;

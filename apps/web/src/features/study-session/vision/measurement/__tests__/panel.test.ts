@@ -39,7 +39,12 @@ const SCENARIOS: readonly MeasurementScenario[] = [
 ];
 
 function setup(
-  overrides: { rehearsal?: boolean; enabled?: boolean; copy?: () => Promise<void> } = {},
+  overrides: {
+    rehearsal?: boolean;
+    enabled?: boolean;
+    copy?: () => Promise<void>;
+    faceLostEnabled?: boolean;
+  } = {},
 ) {
   let nowMs = 0;
   const now = () => nowMs;
@@ -58,6 +63,7 @@ function setup(
     runner,
     thermal,
     rehearsal: overrides.rehearsal ?? false,
+    faceLostEnabled: overrides.faceLostEnabled ?? false,
     oneRoundSec: totalScenarioSec(SCENARIOS),
     enabled: overrides.enabled ?? true,
     copy: overrides.copy ?? (() => Promise.resolve()),
@@ -187,6 +193,18 @@ describe("mountMeasurementPanel", () => {
     setup({ rehearsal: true });
 
     expect(panelText()).toContain("리허설");
+  });
+
+  it("엎드림 감지가 꺼져 있으면 점검 줄에 표시한다", () => {
+    setup({ faceLostEnabled: false });
+
+    expect(panelText()).toContain("엎드림꺼짐");
+  });
+
+  it("엎드림 감지를 켜면 점검 줄에 표시하지 않는다", () => {
+    setup({ faceLostEnabled: true });
+
+    expect(panelText()).not.toContain("엎드림꺼짐");
   });
 
   it("사전 점검에서 준비 안 된 항목을 표시한다", () => {

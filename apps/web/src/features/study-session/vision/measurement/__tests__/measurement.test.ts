@@ -202,8 +202,8 @@ describe("createMeasurement", () => {
   });
 
   it("설정 스냅샷을 같이 낸다 — 어느 조건에서 나온 숫자인지 덩어리 안에 있어야 한다", () => {
-    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
-      config: Record<string, number>;
+    const dump = JSON.parse(createMeasurement(baseSpy(), { faceLostEnabled: true }).dump()) as {
+      config: Record<string, number | boolean | null>;
     };
 
     expect(dump.config).toMatchObject({
@@ -213,6 +213,20 @@ describe("createMeasurement", () => {
       baselineMinRatio: FACE_BASELINE_MIN_RATIO,
     });
     expect(dump.config.sleepEyesEnterMs).toBe(DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs);
+  });
+
+  it("엎드림 판정이 꺼져 있으면 기본 스냅샷에 표시되고 기준선 값은 의미가 없어 null이다", () => {
+    const dump = JSON.parse(createMeasurement(baseSpy()).dump()) as {
+      config: {
+        faceLostEnabled: boolean;
+        baselineSamples: number | null;
+        baselineMinRatio: number | null;
+      };
+    };
+
+    expect(dump.config.faceLostEnabled).toBe(false);
+    expect(dump.config.baselineSamples).toBeNull();
+    expect(dump.config.baselineMinRatio).toBeNull();
   });
 
   it("좌표로 읽힐 키가 덩어리에 없다", () => {

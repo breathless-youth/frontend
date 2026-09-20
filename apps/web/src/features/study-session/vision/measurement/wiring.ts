@@ -25,6 +25,7 @@ export interface MeasurementToolsOptions {
   readonly enabled: boolean;
   readonly rehearsal: boolean;
   readonly panelEnabled: boolean;
+  readonly faceLostEnabled: boolean;
 }
 
 export interface MeasurementTools {
@@ -36,7 +37,7 @@ export interface MeasurementTools {
 }
 
 export function createMeasurementTools(options: MeasurementToolsOptions): MeasurementTools {
-  const { scenarios, now, log, base, enabled, rehearsal, panelEnabled } = options;
+  const { scenarios, now, log, base, enabled, rehearsal, panelEnabled, faceLostEnabled } = options;
 
   let panel: MeasurementPanel | null = null;
 
@@ -45,6 +46,7 @@ export function createMeasurementTools(options: MeasurementToolsOptions): Measur
     rehearsal,
     // 어댑터가 받는 것과 같은 값을 싣는다. 스냅샷과 실제가 어긋나면 스냅샷이 쓸모없다.
     baseline: rehearsalBaseline(rehearsal),
+    faceLostEnabled,
     now,
     onLine: log,
     onSessionSignal: () => {
@@ -83,6 +85,7 @@ export function createMeasurementTools(options: MeasurementToolsOptions): Measur
       rehearsal,
       oneRoundSec: totalScenarioSec(scenarios),
       enabled: panelEnabled,
+      faceLostEnabled,
     });
   }
 

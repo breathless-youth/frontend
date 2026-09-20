@@ -23,6 +23,8 @@ export interface MeasurementPanelOptions {
   readonly runner: ScenarioRunner;
   readonly thermal: ThermalTimer;
   readonly rehearsal: boolean;
+  /** 엎드림 판정이 켜져 있는가. 점검 줄이 꺼져 있을 때만 표시를 더한다. */
+  readonly faceLostEnabled: boolean;
   /** 시나리오 한 바퀴에 걸리는 시간. 문서에 손으로 적지 않고 화면이 말한다. */
   readonly oneRoundSec?: number;
   /** 진단이 꺼져 있으면 아예 붙지 않는다. */
@@ -58,6 +60,7 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     runner,
     thermal,
     rehearsal,
+    faceLostEnabled,
     oneRoundSec = 0,
     enabled = true,
     copy = defaultCopy,
@@ -117,7 +120,10 @@ export function mountMeasurementPanel(options: MeasurementPanelOptions): Measure
     const preflight = measurement.preflight();
     const mark = (value: string): string => (value === "ready" ? "ok" : `⚠${value}`);
     const camera = preflight.camera ?? "⚠대기";
-    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}`;
+    // 엎드림은 기본 꺼짐이다. 16분을 돌고 나서야 "왜 SLEEP_FACE가 한 번도 안 잡혔지"로
+    // 헤매지 않도록, 꺼져 있다는 사실을 점검 단계에서부터 보여준다.
+    const faceLost = faceLostEnabled ? "" : " 엎드림꺼짐";
+    return `점검 진단ok 객체${mark(preflight.detector)} 얼굴${mark(preflight.face)} 카메라${camera}${faceLost}`;
   }
 
   function scenarioLines(): string {

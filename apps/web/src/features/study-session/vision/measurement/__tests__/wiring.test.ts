@@ -53,7 +53,9 @@ function frame(): FrameDiagnostics {
   };
 }
 
-function setup(overrides: { panelEnabled?: boolean; enabled?: boolean } = {}) {
+function setup(
+  overrides: { panelEnabled?: boolean; enabled?: boolean; faceLostEnabled?: boolean } = {},
+) {
   let nowMs = 0;
   const lines: string[] = [];
   const tools = createMeasurementTools({
@@ -64,6 +66,7 @@ function setup(overrides: { panelEnabled?: boolean; enabled?: boolean } = {}) {
     enabled: overrides.enabled ?? true,
     rehearsal: false,
     panelEnabled: overrides.panelEnabled ?? true,
+    faceLostEnabled: overrides.faceLostEnabled ?? false,
   });
   return {
     tools,
@@ -232,6 +235,7 @@ describe("createMeasurementTools", () => {
       enabled: true,
       rehearsal: true,
       panelEnabled: false,
+      faceLostEnabled: true,
     });
     nowMs += 1;
 
@@ -264,5 +268,25 @@ describe("createMeasurementTools", () => {
 
     const dump = JSON.parse(tools.measurement.dump()) as { segments: unknown[] };
     expect(dump.segments).toHaveLength(0);
+  });
+
+  describe("엎드림 설정 배선", () => {
+    it("기본은 꺼짐이 설정 스냅샷까지 이어진다", () => {
+      const { tools } = setup();
+      tools.measurement.frame(frame());
+
+      const dump = JSON.parse(tools.measurement.dump()) as {
+        config: { faceLostEnabled: boolean; baselineSamples: number | null };
+      };
+      expect(dump.config.faceLostEnabled).toBe(false);
+      expect(dump.config.baselineSamples).toBeNull();
+    });
+
+    it("꺼짐이 패널의 점검 줄까지 이어진다", () => {
+      const { tools } = setup({ panelEnabled: true });
+      tools.measurement.frame(frame());
+
+      expect(document.querySelector("[data-measure-panel]")?.textContent).toContain("엎드림꺼짐");
+    });
   });
 });

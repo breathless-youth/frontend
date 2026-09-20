@@ -8,6 +8,7 @@ import {
   FACE_BASELINE_MIN_RATIO,
   FACE_BASELINE_SAMPLES,
   FACE_FRAME_DIVISOR,
+  FACE_LOST_ENABLED,
   FACE_SMOOTHING_SAMPLES,
   FRAME_INTERVAL_MS,
   SCORE_THRESHOLDS,
@@ -125,6 +126,8 @@ export interface MeasurementOptions {
   readonly rehearsal?: boolean;
   /** 감지기에 실제로 들어간 엎드림 기준선. 설정 스냅샷이 이 값을 싣는다. */
   readonly baseline?: { readonly samples: number; readonly minRatio: number };
+  /** 감지기에 실제로 들어간 엎드림 판정 여부. 기본값은 `visionConfig`의 상수다. */
+  readonly faceLostEnabled?: boolean;
   /**
    * 세션이 실제로 시작됐다는 신호. 패널은 이때 붙는다.
    *
@@ -278,17 +281,22 @@ function eyeClosureOf(diagnostics: FrameDiagnostics): number | null {
  *
  * 기준선은 상수가 아니라 **실제로 적용된 값**을 싣는다. 리허설은 창을 줄여 돌리므로, 상수를
  * 그대로 실으면 스냅샷이 그 세션에서 일어난 일을 설명하지 못한다.
+ *
+ * 엎드림 판정이 꺼져 있으면 기준선 창·비율은 어떤 계산에도 쓰이지 않는다. 그 상태로 상수를
+ * 그대로 실으면 마치 기준선이 살아 도는 것처럼 읽혀서, `faceLostEnabled`가 false일 때는
+ * `baselineSamples`·`baselineMinRatio`를 null로 비운다.
  */
-function configSnapshot(baseline: { samples: number; minRatio: number }) {
+function configSnapshot(baseline: { samples: number; minRatio: number }, faceLostEnabled: boolean) {
   return {
     frameIntervalMs: FRAME_INTERVAL_MS,
     faceFrameDivisor: FACE_FRAME_DIVISOR,
     faceSmoothingSamples: FACE_SMOOTHING_SAMPLES,
     eyeClosure: SLEEP_THRESHOLDS.eyeClosure,
+    faceLostEnabled,
     faceLostPersonScore: SLEEP_THRESHOLDS.faceLostPersonScore,
     personScore: SCORE_THRESHOLDS.person,
-    baselineSamples: baseline.samples,
-    baselineMinRatio: baseline.minRatio,
+    baselineSamples: faceLostEnabled ? baseline.samples : null,
+    baselineMinRatio: faceLostEnabled ? baseline.minRatio : null,
     sleepEyesEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs,
     sleepEyesExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_EYES.exitMs,
     sleepFaceEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_FACE.enterMs,
@@ -407,6 +415,7 @@ export function createMeasurement(
     onLine = () => {},
     rehearsal = false,
     baseline = { samples: FACE_BASELINE_SAMPLES, minRatio: FACE_BASELINE_MIN_RATIO },
+    faceLostEnabled = FACE_LOST_ENABLED,
     onSessionSignal,
   } = options;
   const segments: Segment[] = [];
@@ -605,7 +614,7 @@ export function createMeasurement(
       return JSON.stringify({
         rehearsal,
         preflight,
-        config: configSnapshot(baseline),
+        config: configSnapshot(baseline, faceLostEnabled),
         segments: segments.map(summarize),
         thermalRounds,
       });
