@@ -63,6 +63,8 @@ export interface StudySessionCreateRequest {
   focusSec: number;
   /** 비공부 상태 이벤트 목록 — 없으면 빈 배열 */
   events: StatusEventPayload[];
+  /** 과목(·할 일)을 선택한 채 잰 항목별 시간 — 선택 필드. 없으면 기존과 동일하게 저장된다. */
+  subjectTimes?: SubjectTimePayload[];
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -79,6 +81,8 @@ export interface ActiveSessionSnapshotRequest {
   focusSec: number;
   /** 지금까지의 비공부 이벤트 전체 — 진행 중인 이벤트는 reportedAt에서 닫아 보낸다 */
   events: StatusEventPayload[];
+  /** 지금까지의 항목별 시간 — 선택 필드. 서버는 통째로 덮어쓴다. */
+  subjectTimes?: SubjectTimePayload[];
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
@@ -107,6 +111,8 @@ export interface ActiveSessionSnapshotResponse {
   focusSec: number;
   /** reportedAt까지의 비공부 이벤트 전체 — 진행 중이던 이벤트는 reportedAt에서 닫혀 있다 */
   events: StatusEventPayload[];
+  /** 마지막 스냅샷의 항목별 시간 — 새 필드 이전 스냅샷은 null·누락일 수 있다 */
+  subjectTimes?: SubjectTimePayload[] | null;
 }
 
 /** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
@@ -122,6 +128,8 @@ export interface StudySessionResponse {
   /** 집중률(%) = focusSec ÷ studySec × 100, 소수 1자리 */
   focusRate: number;
   events: StatusEventPayload[];
+  /** 항목별 시간 — 자정 분할 조각에는 그 조각 몫만 담긴다 */
+  subjectTimes?: SubjectTimePayload[];
 }
 
 /**
@@ -278,6 +286,64 @@ export type RoomJoinErrorCode =
   | "VALIDATION_FAILED"
   | "CONFLICT"
   | "INTERNAL_ERROR";
+
+/**
+ * 과목 > 할 일 API 계약 (`/api/subjects`) — 토큰 계약(API-Version 2) 전용.
+ * 항목별 시간은 세션 제출·스냅샷의 `subjectTimes`로 들어가고, 여기서는 누적 합계만 내려온다.
+ */
+
+/** 세션 제출·스냅샷·복구에 공통으로 실리는 항목별 시간 1건 */
+export interface SubjectTimePayload {
+  subjectId: number;
+  /** 과목만 선택해 잰 시간이면 null */
+  taskId: number | null;
+  /** 이 항목에서 잰 총 공부 시간(초). 항목들의 합 ≤ 세션 studySec */
+  studySec: number;
+  /** 이 항목에서 잰 순공 시간(초). 0 ≤ focusSec ≤ 이 항목의 studySec */
+  focusSec: number;
+}
+
+export interface TaskResponse {
+  id: number;
+  name: string;
+  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(KST)이 지나면 목록에서 빠진다 */
+  doneAt: string | null;
+  /** 저장된 모든 세션에서 이 할 일로 잰 누적 총 공부 시간(초) */
+  studySec: number;
+  /** 누적 순공 시간(초) */
+  focusSec: number;
+}
+
+export interface SubjectResponse {
+  id: number;
+  name: string;
+  /** 이 과목에서 잰 누적 총 공부 시간(초) — 할 일을 골랐든 과목만 골랐든 전부의 합 */
+  studySec: number;
+  focusSec: number;
+  /** 보이는 할 일 — 미완료 전부 + 오늘(KST) 완료한 것, id 오름차순 */
+  tasks: TaskResponse[];
+}
+
+/** 과목 이름 — 공백 불가, 최대 50자. 살아있는 과목이 20개면 400 */
+export interface SubjectCreateRequest {
+  name: string;
+}
+
+export interface SubjectUpdateRequest {
+  name: string;
+}
+
+/** 할 일 이름 — 공백 불가, 최대 100자. 그 과목의 살아있는 할 일이 30개면 400 */
+export interface TaskCreateRequest {
+  name: string;
+}
+
+/** 둘 중 보낸 것만 바뀐다. 둘 다 없으면 400 */
+export interface TaskUpdateRequest {
+  name?: string;
+  /** true면 지금 완료 처리, false면 완료 해제 */
+  done?: boolean;
+}
 
 /**
  * 프로필 API 계약
