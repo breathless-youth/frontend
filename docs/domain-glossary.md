@@ -37,9 +37,10 @@
 | `AWAY`   | 자리 이탈   | `DISTRACTION` |
 | `PHONE`  | 휴대폰 사용 | `DISTRACTION` |
 | `DEVICE` | 기기 조작   | `DISTRACTION` |
+| `SLEEP`  | 졸음        | `DISTRACTION` |
 | `PAUSE`  | 일시정지    | `PAUSE`       |
 
-비집중 3종은 사용자에게 **같은 오렌지**로 보이고 라벨·뱃지 문구로만 구분된다. 매핑은
+휴식 4종은 사용자에게 **같은 오렌지**로 보이고 라벨·뱃지 문구로만 구분된다. 매핑은
 `@focusmakers/design-tokens`의 `eventStatusColors`에 코드로 고정되어 있고, 계약과의 키 일치는
 `packages/design-tokens`의 테스트가 지킨다.
 

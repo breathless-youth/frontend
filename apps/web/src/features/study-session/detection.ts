@@ -22,7 +22,7 @@ export interface TriggerHoldParams {
  * 있어서 판정은 출처 단위로 하고 트리거 단위로 합친다. 유지시간 판정은 이 모듈 한 곳뿐이다.
  * 어댑터가 출처를 미리 합치거나 자체 디바운스를 두지 않는다.
  */
-export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE"] as const;
+export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_FACE"] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
 /**
@@ -33,6 +33,8 @@ export const SOURCE_TRIGGER = {
   AWAY: "AWAY",
   PHONE: "PHONE",
   DEVICE: "DEVICE",
+  SLEEP_EYES: "SLEEP",
+  SLEEP_FACE: "SLEEP",
 } as const satisfies Record<DetectionSource, DistractionTrigger>;
 
 /** 출처별 유지시간. */
@@ -46,6 +48,15 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   AWAY: { enterMs: 1500, exitMs: 2000 },
   PHONE: { enterMs: 500, exitMs: 1500 },
   DEVICE: { enterMs: 500, exitMs: 2000 },
+  /**
+   * ⚠️ 잠정값이다. 2026-09-20 스파이크는 피험자가 한 명이라 앱 안 측정에서 다시 정한다.
+   *
+   * 눈 감김과 엎드림을 한 유지시간으로 묶을 수 없어서 출처를 둘로 나눴다. 눈 감김은 감은
+   * 눈을 직접 보므로 10초면 되고, 엎드림은 얼굴이 안 보이는 이유가 여럿이라 25초를 본다.
+   * 해제가 3초인 것은 깨어난 뒤 얼굴 판정이 두 번은 돌아야 하기 때문이다.
+   */
+  SLEEP_EYES: { enterMs: 10_000, exitMs: 3000 },
+  SLEEP_FACE: { enterMs: 25_000, exitMs: 3000 },
 };
 
 /**
@@ -60,6 +71,10 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
  *
  * 적용 방식은 (a) 이미 활성인 트리거를 해제 전까지 유지하고 (b) 새로 고를 때만 이 순서를 쓴다.
  *
+ * `SLEEP`이 `DEVICE`보다 뒤인 것은 졸음 판정이 둘 다 카메라에서 나오기 때문이다. `PHONE`보다
+ * 앞인 것은 책상에 올려둔 휴대폰이 계속 검출되는 알려진 오탐이 있는데, 10초 이상 유지된
+ * 졸음이 그보다 구체적인 판정이기 때문이다.
+ *
  * 값은 쓰지 않고 키 삽입 순서만 쓴다. `satisfies Record<DistractionTrigger, number>`가 새
  * 트리거의 누락을 컴파일 에러로 만든다. 여기서 빠진 트리거는 영원히 활성화되지 않은 채
  * 알림 없이 실패하기 때문이다.
@@ -67,7 +82,8 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 const TRIGGER_PRIORITY_RANK = {
   AWAY: 0,
   DEVICE: 1,
-  PHONE: 2,
+  SLEEP: 2,
+  PHONE: 3,
 } as const satisfies Record<DistractionTrigger, number>;
 
 export const TRIGGER_PRIORITY = Object.keys(TRIGGER_PRIORITY_RANK) as readonly DistractionTrigger[];

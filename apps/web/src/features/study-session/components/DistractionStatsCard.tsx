@@ -20,15 +20,15 @@ import { ResultCard, ResultCardTitle, ResultStatusDot } from "./ResultCardParts"
  * 6차 확정의 **미반영**이다(`design.md` 백로그 7번①). 확정 모델에서 화면 꺼짐·백그라운드는
  * 별도 비집중 유형이 아니라 **일시정지에 합산**되고, 표기도 `일시정지`로 통합됐다. 그래서:
  *
- * - 라벨은 `일시정지`, 도트는 **회색**(`text/tertiary`) — 비집중 3종과 시각적으로 구분된다
+ * - 라벨은 `일시정지`, 도트는 **회색**(`text/tertiary`) — 휴식 4종과 시각적으로 구분된다
  * - 카드 타이틀의 합계에서 **일시정지를 뺀다**(Figma의 `비집중 21분`은 화면 꺼짐 3분을 포함한
  *   구 모델 값이다 → 확정 모델에서는 `비집중 18분`)
  * - 일시정지가 **0건이면 행 자체를 렌더하지 않는다**(`user-flow.md` S4 행: "일시정지 행(있을 때만)")
  *
  * ## 0건 행을 남기지 않는다
  *
- * 비집중 3종도 마찬가지로 0회 행을 `0회`로 남기지 않는다 — Figma에 0회 행 시안이 없다.
- * 세 유형이 모두 0이면 타이틀·행 대신 확정 문구 하나만 보여준다(voice-tone §4).
+ * 휴식 4종도 마찬가지로 0회 행을 `0회`로 남기지 않는다 — Figma에 0회 행 시안이 없다.
+ * 네 유형이 모두 0이면 타이틀·행 대신 확정 문구 하나만 보여준다(voice-tone §4).
  *
  * ## 서버 값을 화면에서 보정하지 않는다
  *
@@ -57,7 +57,7 @@ import { ResultCard, ResultCardTitle, ResultStatusDot } from "./ResultCardParts"
 export function DistractionStatsCard({ view }: { view: SessionResultView }) {
   const rows: { tally: EventTally; tone: ResultStatusTone }[] = [
     ...view.distractions.map((tally) => ({ tally, tone: "distract" as const })),
-    // 일시정지는 비집중 3종 **아래**에 놓인다(Figma 행 순서 유지). 없으면 아예 빠진다.
+    // 일시정지는 휴식 4종 **아래**에 놓인다(Figma 행 순서 유지). 없으면 아예 빠진다.
     ...(view.pause !== null ? [{ tally: view.pause, tone: "pause" as const }] : []),
   ];
   const hasDistraction = view.distractions.length > 0;

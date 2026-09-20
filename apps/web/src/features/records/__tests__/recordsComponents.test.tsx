@@ -26,7 +26,13 @@ import { SummaryTiles } from "../SummaryTiles";
  * 그래서 각 컴포넌트가 지닌 표기·접근성·인터랙션 규칙(주석에 적힌 것들)을 새로 커버한다.
  */
 
-const EMPTY_EVENT_COUNTS: StudySessionEventCounts = { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 };
+const EMPTY_EVENT_COUNTS: StudySessionEventCounts = {
+  PHONE: 0,
+  DEVICE: 0,
+  AWAY: 0,
+  SLEEP: 0,
+  PAUSE: 0,
+};
 
 function session(overrides: Partial<StudySessionSummary> = {}): StudySessionSummary {
   return {
@@ -251,7 +257,7 @@ describe("SessionListItem", () => {
   it("이벤트 카운트가 0인 상태는 칩을 그리지 않고, 0보다 큰 상태만 칩으로 렌더한다", () => {
     render(
       <SessionListItem
-        session={session({ eventCounts: { PHONE: 2, DEVICE: 0, AWAY: 1, PAUSE: 0 } })}
+        session={session({ eventCounts: { PHONE: 2, DEVICE: 0, AWAY: 1, SLEEP: 0, PAUSE: 0 } })}
       />,
     );
 

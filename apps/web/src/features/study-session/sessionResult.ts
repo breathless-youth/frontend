@@ -36,6 +36,7 @@ const DISTRACTION_ROW_ORDER = {
   AWAY: 0,
   PHONE: 1,
   DEVICE: 2,
+  SLEEP: 3,
 } as const satisfies Record<Exclude<StudyEventStatus, "PAUSE">, number>;
 
 export type DistractionStatus = keyof typeof DISTRACTION_ROW_ORDER;

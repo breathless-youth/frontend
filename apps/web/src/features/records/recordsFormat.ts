@@ -181,6 +181,7 @@ const EVENT_SHORT_LABELS: Record<StudyEventStatus, string> = {
   AWAY: "자리 이탈",
   PHONE: "휴대폰",
   DEVICE: "기기 조작",
+  SLEEP: "졸음",
   PAUSE: "일시정지",
 };
 
@@ -196,7 +197,8 @@ const EVENT_CHIP_ORDER_INDEX = {
   AWAY: 0,
   PHONE: 1,
   DEVICE: 2,
-  PAUSE: 3,
+  SLEEP: 3,
+  PAUSE: 4,
 } as const satisfies Record<StudyEventStatus, number>;
 const EVENT_CHIP_ORDER = Object.keys(EVENT_CHIP_ORDER_INDEX) as StudyEventStatus[];
 

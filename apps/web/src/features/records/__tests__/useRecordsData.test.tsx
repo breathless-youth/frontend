@@ -29,7 +29,7 @@ function statsResponse(studiedDatesInMonth: string[]): StudySessionListResponse 
     totalFocusSec: 0,
     longestFocusSec: 0,
     focusRate: 0,
-    totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+    totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
     studiedDatesInMonth,
   };
 }

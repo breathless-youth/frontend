@@ -18,7 +18,7 @@ describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
     expect(statusCopyFor(FOCUS_STATE)).toEqual({ label: "순공시간 측정 중" });
   });
 
-  it("비집중 3종 문구를 전부 갖는다 — Figma에 없는 2종도 구현한다", () => {
+  it("휴식 4종 문구를 전부 갖는다 — Figma에 없는 2종도 구현한다", () => {
     expect(statusCopyFor(distractionState("AWAY"))).toEqual({
       label: "자리를 비운 것 같아요",
       subLabel: "돌아오면 자동으로 다시 측정돼요",
@@ -35,6 +35,13 @@ describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
 
   it("수동 일시정지와 화면 꺼짐은 같은 문구를 쓴다 — '화면 꺼짐'은 별도 유형이 아니다", () => {
     expect(statusCopyFor(pauseState("BACKGROUND"))).toEqual(statusCopyFor(pauseState("MANUAL")));
+  });
+
+  it("졸음 문구를 돌려준다", () => {
+    expect(statusCopyFor(distractionState("SLEEP"))).toEqual({
+      label: "졸고 있는 것 같아요",
+      subLabel: "깨어나면 자동으로 다시 측정돼요",
+    });
   });
 });
 
@@ -76,6 +83,10 @@ describe("toEventStatus — 화면 상태 ↔ StudyEventStatus 매핑", () => {
   it("일시정지는 트리거와 무관하게 PAUSE 하나다", () => {
     expect(toEventStatus(pauseState("MANUAL"))).toBe("PAUSE");
     expect(toEventStatus(pauseState("BACKGROUND"))).toBe("PAUSE");
+  });
+
+  it("졸음은 서버에 SLEEP으로 나간다", () => {
+    expect(toEventStatus(distractionState("SLEEP"))).toBe("SLEEP");
   });
 });
 
