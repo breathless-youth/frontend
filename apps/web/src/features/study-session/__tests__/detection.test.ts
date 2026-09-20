@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { DetectionState, TriggerSignals } from "../detection";
 import {
   DEFAULT_DETECTION_PARAMS,
+  DETECTION_SOURCES,
   NO_TRIGGER_SIGNALS,
+  SOURCE_TRIGGER,
   TRIGGER_PRIORITY,
   createDetectionState,
   stepDetection,
@@ -122,5 +124,16 @@ describe("stepDetection — 참조 안정성", () => {
   it("변화가 없으면 같은 객체를 돌려준다(불필요한 리렌더 방지)", () => {
     const state = createDetectionState(T0);
     expect(step(state, signals({}), T0 + 5000)).toBe(state);
+  });
+});
+
+describe("출처 계층 불변식", () => {
+  it("원신호 키 집합은 DETECTION_SOURCES와 같다", () => {
+    expect(Object.keys(NO_TRIGGER_SIGNALS).sort()).toEqual([...DETECTION_SOURCES].sort());
+  });
+
+  it("모든 트리거는 출처를 하나 이상 가진다", () => {
+    const triggersWithSource = new Set(Object.values(SOURCE_TRIGGER));
+    expect(triggersWithSource).toEqual(new Set(TRIGGER_PRIORITY));
   });
 });
