@@ -1,4 +1,5 @@
 import { visionDiagnostics } from "../diagnostics";
+import { FACE_LOST_ENABLED } from "../visionConfig";
 import {
   measurementEnabled,
   measurementPanelEnabled,
@@ -42,6 +43,7 @@ const tools = createMeasurementTools({
   enabled: measurementEnabled,
   rehearsal: measurementRehearsal,
   panelEnabled: measurementPanelEnabled,
+  faceLostEnabled: FACE_LOST_ENABLED,
 });
 
 /**

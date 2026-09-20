@@ -19,7 +19,11 @@ import { createObjectDetector } from "../vision/objectDetector";
 import { isSleepDetectionEnabled } from "../vision/sleepDetectionFlag";
 import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRules";
 import { evaluateSleep, NO_SLEEP_SIGNALS, smoothedFacePresent } from "../vision/sleepRules";
-import { FACE_FRAME_DIVISOR, FACE_SMOOTHING_SAMPLES } from "../vision/visionConfig";
+import {
+  FACE_FRAME_DIVISOR,
+  FACE_LOST_ENABLED,
+  FACE_SMOOTHING_SAMPLES,
+} from "../vision/visionConfig";
 
 /**
  * 비집중 감지기 어댑터 — 인터페이스 + mock + **MediaPipe Vision 구현**.
@@ -183,6 +187,12 @@ export interface VisionFocusDetectorOptions {
    */
   readonly sleepDetection?: boolean;
   /**
+   * 엎드림 판정을 돌릴지. 기본값은 `visionConfig.ts`의 상수고, 테스트는 이 옵션으로 켜고 끈다.
+   * 꺼져 있으면 얼굴 추론은 눈 감김 판정을 위해 그대로 돌되, 엎드림 원신호와 그 아래 래치·
+   * 기준선 계산은 돌지 않는다 — `SLEEP_FACE`는 항상 false로 나간다.
+   */
+  readonly faceLostDetection?: boolean;
+  /**
    * 엎드림 기준선. 기본값은 `visionConfig.ts`의 상수다. 테스트가 3분을 기다리지 않게 열어 둔다.
    */
   readonly baseline?: { readonly samples: number; readonly minRatio: number };
@@ -236,6 +246,7 @@ export function createVisionFocusDetector(
   const sleepEnabled =
     options.sleepDetection ??
     isSleepDetectionEnabled(globalThis.location?.search ?? "", import.meta.env.DEV);
+  const faceLostEnabled = options.faceLostDetection ?? FACE_LOST_ENABLED;
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
@@ -452,7 +463,9 @@ export function createVisionFocusDetector(
     // 창이 다 차기 전에는 판단하지 않는다. 표본이 적으면 비율이 쉽게 흔들린다.
     // 이번 틱의 관측을 쌓기 전에 잰다. 쌓고 재면 얼굴이 사라진 그 관측이 곧바로 비율을 깎아,
     // 엎드림이 확정되기도 전에 기준선이 먼저 무너진다.
+    // 엎드림 판정이 꺼져 있으면 이 계산 자체가 돌지 않는다 — `faceLostEnabled`가 앞에서 막는다.
     const faceStable =
+      faceLostEnabled &&
       faceHistory.length === baseline.samples &&
       faceHistory.filter(Boolean).length >= baseline.samples * baseline.minRatio;
 
@@ -465,10 +478,13 @@ export function createVisionFocusDetector(
         setFaceStatus("unavailable");
         dropFaceObservations();
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
+        // 얼굴 추론 자체는 엎드림 판정과 무관하게 돈다 — 눈 감김이 이 결과를 쓴다.
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
           faceSamples = [...faceSamples, faceRan.face].slice(-FACE_SMOOTHING_SAMPLES);
-          faceHistory = [...faceHistory, faceRan.face.facePresent].slice(-baseline.samples);
+          if (faceLostEnabled) {
+            faceHistory = [...faceHistory, faceRan.face.facePresent].slice(-baseline.samples);
+          }
         }
       }
     }
@@ -488,13 +504,17 @@ export function createVisionFocusDetector(
 
     if (!signals.personPresent || smoothedFacePresent(faceSamples) === true) {
       faceLostLatched = false;
-    } else if (faceRan !== null && rawSleep.faceLost) {
+    } else if (faceLostEnabled && faceRan !== null && rawSleep.faceLost) {
       // 이번 틱에 새 관측이 있을 때만 건다. 추론이 실패하는 동안에도 걸면 얼어붙은 옛 관측이
       // 엎드림을 처음 세우는 근거가 된다 — 실제로 본 것이 없는데 판정이 시작된다.
       // 이미 켜진 래치를 유지하는 것은 위 해제 조건이 맡는다.
       faceLostLatched = true;
     }
-    const sleep: SleepSignals = { eyesClosed: rawSleep.eyesClosed, faceLost: faceLostLatched };
+    // 꺼져 있으면 래치 상태와 무관하게 항상 false로 내보낸다 — 규칙을 교체해도 새어 나가지 않는다.
+    const sleep: SleepSignals = {
+      eyesClosed: rawSleep.eyesClosed,
+      faceLost: faceLostEnabled ? faceLostLatched : false,
+    };
 
     // ⚠️ bbox는 넘기지 않는다 — `DiagnosticsPayload`가 스칼라만 받도록 타입으로 막혀 있고,
     // 좌표 기록은 개인정보 원칙 위반이다(`frontend/CLAUDE.md`, 설계 §8).
