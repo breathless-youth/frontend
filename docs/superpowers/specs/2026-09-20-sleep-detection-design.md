@@ -59,8 +59,8 @@ export interface FaceObservation {
 
 ### 규칙 `defaultSleepRule`
 
-- `eyesClosed` = person 있음 ∧ `eye !== null` ∧ `min(eyeBlinkLeft, eyeBlinkRight) ≥ 0.65` ∧ `max(eyeLookDownLeft, eyeLookDownRight) < 0.5`. 마지막 항은 내려다봄 거부권이다. 책을 볼 때 눈 감김 점수가 오르는 것을 막는다. 필요 여부는 실기기에서 확인하고, 끄려면 `gazeDownVeto: 1`로 둔다.
-- `faceLost` = person 있음 ∧ `!facePresent` ∧ `personScore ≥ 0.5` ∧ `faceStable` ∧ `headInFrame !== false`. 사람 점수 조건은 어두워져 person 점수도 떨어지면 엎드림으로 치지 않기 위한 것이다.
+- `eyesClosed` = person 있음 ∧ `eye !== null` ∧ 최근 3표본 중앙값 기준 `min(eyeBlinkLeft, eyeBlinkRight) ≥ 0.45`. 내려다봄 거부권은 두지 않는다. 스파이크에서 눈을 감으면 `eyeLookDown*`가 0.6~~0.8로 오르고 책을 볼 때는 0.07~~0.33이라, 거부권은 진짜 졸음을 막는 쪽으로만 동작했다. 책을 볼 때 감김 점수 최대는 0.36~0.38이라 거부권 없이도 오탐이 없다. 중앙값을 쓰는 이유는 깜빡임 한 표본(최대 0.57)이 10초 유지시간을 초기화하거나 진입시키지 않게 하기 위해서다.
+- `faceLost` = person 있음 ∧ `!facePresent` ∧ `personScore ≥ 0.5` ∧ `faceStable` ∧ `headInFrame !== false`. 사람 점수 조건은 어두워져 person 점수도 떨어지면 엎드림으로 치지 않기 위한 것이다. `facePresent`는 최근 3표본 다수결로 부드럽게 한다. 엎드림 중 1~2표본 오검출이 25초 유지시간을 초기화하지 않게 하기 위해서다.
 - 기준선 `faceStable`(몸만 찍는 사용자 방어): 어댑터가 얼굴 틱 결과(있음/없음)를 최근 `FACE_BASELINE_WINDOW_MS`(3분, 2초 샘플링 = 90개) 링버퍼에 쌓고, 버퍼가 가득 찼고 얼굴 있음 비율 ≥ `FACE_BASELINE_MIN_RATIO`(0.8)일 때만 참이다. 진입에만 쓰고 래치한다. 한 번 `faceLost`가 켜지면 얼굴이 돌아오거나 person이 사라질 때까지 비율과 무관하게 유지한다(잠든 시간이 길어져 비율이 떨어져도 해제되지 않게). 세션 첫 3분과 `stop()` 직후 3분은 엎드림 판정이 없다. 남는 오탐은 몸만 찍던 사용자가 3분 넘게 얼굴을 보이다 물러나는 경우이고, 이것이 2단 아비터가 맡는 부분이다.
 - 2단 아비터 `HeadPresenceRule`(후속): `sleepRules.ts`에 `headInFrame: boolean | null` 입력과 `HeadPresenceRule { evaluate(frame): boolean | null }` 주입점을 V1부터 둔다. 후속에서 PoseLandmarker(lite) 래퍼를 `faceLandmarker.ts`와 같은 구조로 추가하고, person 있음 ∧ 얼굴 없음 ∧ `faceStable`인 후보 구간에서만 얼굴 틱 주기로 돌려 코·눈·귀 랜드마크가 프레임 안에 있으면 머리 있음(엎드림), 프레임 밖이면 몸만 찍힘(거부)으로 판정한다. 후보 구간에서만 돌므로 발열 영향은 그 구간에 한정된다. 엎드린 자세에서의 정확도는 미검증이다.
 - 품질 게이트 실패 = "판정 없음"(직전 원신호 유지)이지 "눈 뜸"이 아니다.
@@ -83,12 +83,9 @@ export const FACE_BLENDSHAPE_ALLOWLIST = [
   "eyeLookDownRight",
 ] as const;
 export const EYE_OUTER_CORNER_LANDMARKS = { left: 33, right: 263 } as const;
-export const MIN_INTER_OCULAR_NORMALIZED = 0.06;
-export const SLEEP_THRESHOLDS = {
-  eyeClosure: 0.65,
-  gazeDownVeto: 0.5,
-  faceLostPersonScore: 0.5,
-} as const;
+export const MIN_INTER_OCULAR_NORMALIZED = 0.07; // 0.06 근처는 얼굴 검출 자체가 35%라 검출기가 먼저 거른다
+export const SLEEP_THRESHOLDS = { eyeClosure: 0.45, faceLostPersonScore: 0.5 } as const;
+export const FACE_SMOOTHING_SAMPLES = 3; // 눈 감김 중앙값·얼굴 유무 다수결 창
 export const FACE_BASELINE_WINDOW_MS = 180_000; // 엎드림 기준선 창(3분)
 export const FACE_BASELINE_MIN_RATIO = 0.8; // 창 안 얼굴 있음 비율 최소값
 ```
@@ -217,7 +214,7 @@ export type TriggerSignals = Record<DetectionSource, boolean>;   // 이름 유�
 1. 블렌드셰이프 이름이 런타임에 실제로 오는가(`face:skip`이 `blendshapes-missing`이 아님), 랜드마크 33/263이 `FACE_LANDMARKS_LEFT_EYE/RIGHT_EYE`와 맞는가.
 2. `face:durationMs` 분포(추적 정상 vs 추적 실패 직후), p95(`durationMs + face:durationMs`) vs 500ms, 버려진 틱 수(선택: `frameLoop`에 `onDrop` 훅 + `vision:frame-dropped`).
 3. 발열 합격 기준: BY-305 프로토콜(16분 세션) 재현, 기준(`sleep=0`) vs 적용(`sleep=1`). 통과 = 어느 분에도 thermal state가 기준보다 나쁘지 않음 ∧ `WebKit.WebContent` CPU%(2~16분 평균) +5%p 이내 ∧ p95(E+F) ≤ 500ms ∧ 버림 0. 실패 → N 4→6→8. N=8에서도 실패하면 출시를 보류하고 워커 이전 티켓이 선행 조건이 된다.
-4. `eyeBlink*` 분포: 눈 뜸 / 감음 / 책 내려다봄 / 안경 / 저조도 → `eyeClosure`, `gazeDownVeto` 필요 여부, 신뢰도 0.6이 독서 각도에서 얼굴을 놓치는지.
+4. `eyeBlink*` 분포: 눈 뜸 / 감음 / 책 내려다봄 / 안경 / 저조도 → `eyeClosure` 재확정(피험자 3명 이상), 신뢰도 0.6이 독서 각도에서 얼굴을 놓치는지. 2026-09-20 스파이크(피험자 1명) 결과는 아래 절.
 5. 독서 각도·프로필 뷰에서 얼굴 검출 생존 → `SLEEP_FACE.enterMs`(25초 vs 45~60초) 또는 엎드림 규칙 비활성 결정.
 6. 엎드렸을 때 EfficientDet이 `person ≥ 0.5`를 유지하는가. 아니면 AWAY가 먼저 잡혀 자리 이탈로 기록된다(타이머는 맞고 라벨만 다르다). 그 경우 엎드림 규칙은 "손에 얼굴 기댐·얼굴 가림"만 담당한다.
 7. 얼굴 모델 첫 호출 프리즈(순차 로딩으로 객체 검출기 프리즈와 겹치지 않는지).
@@ -242,7 +239,7 @@ export type TriggerSignals = Record<DetectionSource, boolean>;   // 이름 유�
 ## 검증
 
 - BY-700: `detection.test.ts` 기존 케이스 무수정 통과 + `NO_TRIGGER_SIGNALS` 키 = `DETECTION_SOURCES`, `SOURCE_TRIGGER` 값 집합 = `TRIGGER_PRIORITY`. `source` 이름 변경 테스트 편집.
-- BY-701: `faceLandmarker.test.ts`(objectDetector.test 거울: delegate 폴백·재시도·동시 load·로딩 중 close·연속 실패 5회·정규화 4분기·`JSON.stringify(result)`에 `x`/`y`/`landmarks`/`matrix` 없음), `sleepRules.test.ts`(임계 경계·한쪽 눈·거부권·`eye:null`·`face:null`·person 없음·`faceStable` 거짓·`headInFrame === false` 거부 각각 부정), `visionConfig` 정합성(`FACE_FRAME_DIVISOR × FRAME_INTERVAL_MS ≤ SLEEP_EYES.enterMs / 4`, `FACE_BASELINE_WINDOW_MS ≥ SLEEP_FACE.enterMs × 4`).
+- BY-701: `faceLandmarker.test.ts`(objectDetector.test 거울: delegate 폴백·재시도·동시 load·로딩 중 close·연속 실패 5회·정규화 4분기·`JSON.stringify(result)`에 `x`/`y`/`landmarks`/`matrix` 없음), `sleepRules.test.ts`(임계 경계·한쪽 눈·3표본 중앙값·`eye:null`·`face:null`·person 없음·`faceStable` 거짓·`headInFrame === false` 거부 각각 부정), `visionConfig` 정합성(`FACE_FRAME_DIVISOR × FRAME_INTERVAL_MS ≤ SLEEP_EYES.enterMs / 4`, `FACE_BASELINE_WINDOW_MS ≥ SLEEP_FACE.enterMs × 4`).
 - BY-702: `detection.test.ts` "출처별 유지시간"(9,999ms 미확정/10,000ms 확정, 25,000ms, 해제 3초, 두 출처 → 단일 SLEEP, 한 출처 해제해도 유지, 동률 SLEEP+PHONE→SLEEP·DEVICE+SLEEP→DEVICE, 규칙 (a) PHONE 유지 후 hand-off → SLEEP), `sessionCopy`·`sessionResult`(SLEEP 행·`distractionSec` 포함·0건 생략)·`restoreActiveSession`("SLEEP 이벤트가 있어도 복원", `"NAPPING"` 거부 유지)·`recordsFormat`(`졸음 2회`, 순서)·`tokens`·`useStudyRoomSession.analytics`(`status: "SLEEP"`)·`RoomPage`(제출 `events[0].status === "SLEEP"`)·5키 `eventCounts` 픽스처 갱신.
 - BY-703: `visionFocusDetector.test.ts`(SLEEP_EYES emit, 4번째 프레임에서만 얼굴 `detect` 호출, person 없으면 미실행, 얼굴 load는 객체 ready 뒤, 얼굴 unavailable이면 SLEEP 없음·AWAY/PHONE 유지, `stop()` 기준선 리셋, `close()` 둘 다 닫음, 진단 payload에 좌표 키 없음, DEVICE 절대 내지 않음 유지) + 기준선 링버퍼(버퍼 미충족 → 거짓 / 90개 중 72개 이상 → 참 / 30초·2분 노출 후 소실 → 엎드림 없음 / 5분 노출 후 소실 → 25초 뒤 엎드림 / 래치 / `stop()` 후 비움). `diagnostics.test.ts` 얼굴 필드 평탄화.
 
@@ -257,13 +254,44 @@ BY-702에서 가드가 작동한다는 증거는 수정 전 `tsc` 실패 지점�
 
 E2E(BY-703 후): `pnpm --filter web dev` → `/room/...?diag=1`에서 콘솔 Verbose로 `face:ready` → 눈 감기 10초 → `vision:transition` FOCUS→DISTRACTION:SLEEP, 필 문구 "졸고 있는 것 같아요" → 눈 뜸 → 3초 내 복귀. `?detector=mock`으로 `emit({ source: "SLEEP_FACE", active: true })` 25초 후 전이. 결과 화면 S4에 "졸음 1회" 행.
 
+## 스파이크 결과 (2026-09-20, 얼굴 모델)
+
+독립 HTML 페이지(사람·휴대폰 int8 0.5초 + 얼굴 N=4, CPU, tasks-vision 1.0.0, face_landmarker float16 v1 sha256 `64184e22…9ff`)로 Mac Chrome과 iPhone 17(iOS 18.7 Safari, 전면 720×1280)에서 측정. 피험자 1명.
+
+| 상황                   | 기기     | 얼굴 %    | 감김 min/mean/max               | 내려다봄 mean/max     | 눈 간격     | 사람                    |
+| ---------------------- | -------- | --------- | ------------------------------- | --------------------- | ----------- | ----------------------- |
+| 눈 뜸                  | Mac / 폰 | 100 / 100 | 0.14/0.22/0.52 · 0.13/0.18/0.22 | 0.34/0.57 · 0.37/0.46 | 0.13 / 0.16 | 0.97 / 0.83             |
+| 눈 감음                | Mac / 폰 | 100 / 100 | 0.28/0.57/0.62 · 0.25/0.57/0.64 | 0.61/0.67 · 0.72/0.79 | 0.13 / 0.15 | 0.96 / 0.85             |
+| 내려다봄(책)           | Mac / 폰 | 95 / 100  | 0.04/0.20/0.38 · 0.09/0.27/0.36 | 0.07/0.14 · 0.19/0.33 | 0.16 / 0.17 | 0.96 / 0.82             |
+| 안경 감음              | Mac / 폰 | 100 / 100 | 0.60/0.63/0.65 · 0.42/0.53/0.68 | 0.70/0.74 · 0.70/0.72 | 0.12 / 0.15 | 0.90 / 0.83             |
+| 엎드림                 | Mac / 폰 | 0 / 10    | 없음                            | 없음                  | 없음        | 0.52~~0.96 / 0.66~~0.77 |
+| 몸통만(머리 프레임 밖) | Mac      | 0         | 없음                            | 없음                  | 없음        | 0.98                    |
+| 약 1m 거리             | Mac      | 35        | 0.17                            | 0.22                  | 0.06        | 0.80                    |
+
+| 기기             | 사람·휴대폰 ms avg/p95 | 얼굴 ms avg/p95 | 버려진 틱 | 시간 |
+| ---------------- | ---------------------- | --------------- | --------- | ---- |
+| Mac Chrome       | 125 / 126              | 52 / 55         | 0         | 20분 |
+| iPhone 17 Safari | 148 / 151              | 44~54 / 55      | 0         | 10분 |
+
+결론과 반영:
+
+- 블렌드셰이프 52개, 랜드마크 478점, 눈 이름 4개 존재. 이름 목록 그대로.
+- 감김 임계 0.65 → 0.45(3표본 중앙값). 감은 눈이 0.53~~0.57 평균, 최대 0.62~~0.68이라 0.65는 걸리지 않는다. 뜬 눈 평균 0.18~~0.24, 깜빡임 순간 최대 0.52~~0.57은 한 표본이라 중앙값이 거른다. 안경 감음 최소 0.42가 있어 여유가 얇으므로 BY-704에서 피험자를 늘려 재확정한다.
+- 내려다봄 거부권 삭제. 눈을 감으면 `eyeLookDown*`가 오르고 책을 볼 때는 낮다.
+- 눈 간격 최소 0.06 → 0.07. 0.06 근처는 얼굴 검출 자체가 흔들린다.
+- 사람 게이트 0.5 유지. 폰 엎드림 0.66~0.77. Mac은 0.52까지 떨어져 앱 안에서 재확인.
+- 얼굴 유무도 3표본 다수결. 엎드림 중 1~2표본 오검출이 있었다.
+- 얼굴 추론 44~54ms. N=4에서 CPU +2.5%p, N=2여도 +5%p. E+F ≈ 200ms로 틱 안에 여유.
+- 폰 사람·휴대폰 148ms는 BY-305의 앱 안 측정(213~371ms)보다 낮다. Safari와 앱 WebView의 부하 차이로 보이며 앱 안(BY-704)에서 다시 잰다. 얼굴 모델이 더하는 몫(F)은 그대로 쓴다.
+- 프리뷰보다 모델이 넓게 본다. 폰에서 사용자가 "목만 보인다"고 판단한 배치에서 모델은 얼굴을 100% 잡았고 두 눈이 프레임 안에 있었다(얼굴 폭이 프레임의 30~35%). 페이지 미리보기가 세로 프레임을 잘라 보여준 탓이고, 앱 프리뷰도 `object-fit: cover`로 원본을 잘라내므로 같은 일이 생긴다. 몸만 찍는다고 생각하는 사용자 일부는 실제로는 얼굴이 잡혀 눈 감김 규칙이 동작한다. 진짜 머리가 프레임 밖인 배치(Mac 측정)에서는 얼굴 0%이고 몸통을 얼굴로 착각하지 않는다.
+
 ## 이 문서가 확정하지 않은 것
 
-| 항목                                                                                                                  | 처리                          |
-| --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| `SLEEP_EYES`·`SLEEP_FACE` 유지시간, `eyeClosure`, `gazeDownVeto`, `MIN_INTER_OCULAR_NORMALIZED`, `FACE_FRAME_DIVISOR` | BY-704 실기기에서 확정        |
-| 엎드림 규칙 유지 여부                                                                                                 | BY-704 항목 5·6·9 결과로 결정 |
-| 머리 아비터 도입                                                                                                      | BY-704 항목 10 통과 시 BY-705 |
-| 화면 문구                                                                                                             | 리더 확인                     |
-| Swagger의 `SLEEP` 리터럴                                                                                              | BY-706 등재 후 grep 대조      |
-| 개인정보처리방침 문구                                                                                                 | 리더/법무 소유자              |
+| 항목                                                                                         | 처리                                 |
+| -------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `SLEEP_EYES`·`SLEEP_FACE` 유지시간, `eyeClosure`(피험자 1명 기준 0.45), `FACE_FRAME_DIVISOR` | BY-704 앱 안에서 재확정(피험자 추가) |
+| 엎드림 규칙 유지 여부                                                                        | BY-704 항목 5·6·9 결과로 결정        |
+| 머리 아비터 도입                                                                             | BY-704 항목 10 통과 시 BY-705        |
+| 화면 문구                                                                                    | 리더 확인                            |
+| Swagger의 `SLEEP` 리터럴                                                                     | BY-706 등재 후 grep 대조             |
+| 개인정보처리방침 문구                                                                        | 리더/법무 소유자                     |
