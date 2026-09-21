@@ -1,6 +1,7 @@
-import { type ReactNode, useRef } from "react";
+import { type ReactNode } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 
 /**
  * 카메라 켜기 확인 모달
@@ -41,7 +42,7 @@ export function CameraOnConfirmDialog({
   onCancel,
   onConfirm,
 }: CameraOnConfirmDialogProps) {
-  const restore = useRef<HTMLElement | null>(null);
+  const focusRestore = useDialogFocusRestore();
   // 취소가 곧 하나의 선택(끄고 입장)인 자리다. 확정 중이거나 닫기를 막아 둔 동안에는
   // Escape 로 그 선택이 확정되지 않게 한다.
   const escapeAllowed = dismissable && !busy;
@@ -62,14 +63,8 @@ export function CameraOnConfirmDialog({
         // 딤 탭으로는 닫지 않는다. 버튼으로만 결정하게 한다.
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
-        onOpenAutoFocus={() => {
-          const active = document.activeElement;
-          restore.current = active instanceof HTMLElement ? active : null;
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          if (restore.current?.isConnected) restore.current.focus();
-        }}
+        onOpenAutoFocus={focusRestore.onOpenAutoFocus}
+        onCloseAutoFocus={focusRestore.onCloseAutoFocus}
         // max-h+스크롤: 어떤 화면(특히 가로 회전)에서도 모달이 뷰포트를 넘어 잘리지 않는
         // 백스톱이다 — 내용은 아래 미리보기 높이가 비례로 줄어 대부분 스크롤 없이 들어간다.
         // gap-0 으로 DialogContent 기본 grid gap 을 눌러 아래 mt-* 간격을 그대로 쓴다.

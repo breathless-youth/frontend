@@ -1,7 +1,7 @@
 import { type VariantProps, cva } from "class-variance-authority";
-import { useRef } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,7 +73,7 @@ export function SessionConfirmDialog({
   onConfirm,
   className,
 }: SessionConfirmDialogProps) {
-  const restore = useRef<HTMLElement | null>(null);
+  const focusRestore = useDialogFocusRestore();
 
   return (
     <Dialog
@@ -88,15 +88,8 @@ export function SessionConfirmDialog({
         container={container}
         overlayClassName="bg-[var(--session-dim)]"
         showCloseButton={false}
-        onOpenAutoFocus={() => {
-          const active = document.activeElement;
-          restore.current = active instanceof HTMLElement ? active : null;
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          // 세션이 그사이 끝나 버튼이 사라졌을 수 있다 — 살아 있는 요소에만 되돌린다.
-          if (restore.current?.isConnected) restore.current.focus();
-        }}
+        onOpenAutoFocus={focusRestore.onOpenAutoFocus}
+        onCloseAutoFocus={focusRestore.onCloseAutoFocus}
         // 폰트 확대에서 본문이 잘리지 않도록 높이를 고정하지 않는다. 그림자는 Figma 실측값.
         className={cn(
           // sm:rounded-xl 로 공용 클래스의 sm:rounded-lg 를 덮는다. 안 그러면 640px 이상에서
