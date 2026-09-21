@@ -24,16 +24,17 @@ import { ensureUserRegistered } from "../lib/userApi";
  */
 initSentry();
 
-// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다 — 안 그러면 시스템 폰트로
-// 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다. 위 initSentry와 같은 이유로
-// 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다. 이미 숨겨진
-// 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
+// NanumSquareRound 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
+// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 NanumSquareRound로 바뀌는 깜빡임(FOUT)이 보인다.
+// 위 initSentry와 같은 이유로 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다.
+// 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
-    Pretendard: require("../assets/fonts/PretendardVariable.ttf") as number,
+    NanumSquareRound: require("../assets/fonts/NanumSquareRound-Regular.ttf") as number,
+    NanumSquareRoundBold: require("../assets/fonts/NanumSquareRound-Bold.ttf") as number,
   });
   // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
   // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
@@ -111,7 +112,7 @@ function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
+  // NanumSquareRound 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
   if (!fontsReady || !gateReady) {
