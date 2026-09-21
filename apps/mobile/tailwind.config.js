@@ -76,11 +76,11 @@ module.exports = {
   theme: {
     extend: {
       colors,
-      // 셀프 호스팅 가변 폰트 — `assets/fonts/PretendardVariable.ttf`를
-      // `app/_layout.tsx`가 "Pretendard" 이름으로 로드한다. 굵기별 정적 파일은 두지 않는다:
-      // 가변 폰트가 font-bold/font-medium 등 NativeWind 굵기 클래스의 fontWeight를 그대로 따른다.
+      // 셀프 호스팅 정적 폰트 — Regular·Bold를 `app/_layout.tsx`의 useFonts가 굵기별 키로 로드한다.
+      // 정적 폰트라 fontWeight로는 굵기가 안 잡혀, 굵기별로 다른 패밀리 이름을 쓴다.
       fontFamily: {
-        sans: ["Pretendard"],
+        sans: ["NanumSquareRound"],
+        "sans-bold": ["NanumSquareRoundBold"],
       },
       borderRadius: {
         xs: "4px",

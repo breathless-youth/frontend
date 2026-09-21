@@ -560,7 +560,7 @@ export function RemoteWebViewHost({
       >
         <Text
           accessibilityRole="header"
-          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-bold font-sans leading-[22px]"
+          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-sans-bold leading-[22px]"
         >
           {LOAD_FAILURE_TITLE}
         </Text>
