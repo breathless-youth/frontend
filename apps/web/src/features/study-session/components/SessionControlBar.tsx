@@ -50,24 +50,39 @@ import { cn } from "@/lib/utils";
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
 export const sessionControlBarVariants = cva(
-  "pointer-events-auto relative flex items-center justify-center rounded-full border border-white/10 backdrop-blur-[7px]",
+  "pointer-events-auto relative flex items-center justify-center rounded-full",
   {
     variants: {
       size: {
-        md: "h-20 gap-[22px] bg-[var(--session-bar-bg)] px-6 pt-4 pb-3",
-        sm: "h-[68px] gap-5 bg-[var(--session-bar-bg-compact)] px-[22px] pt-[13px] pb-[9px]",
+        md: "h-20 gap-[22px] px-6 pt-4 pb-3",
+        sm: "h-[68px] gap-5 px-[22px] pt-[13px] pb-[9px]",
         responsive:
-          "h-20 gap-[22px] bg-[var(--session-bar-bg)] px-6 pt-4 pb-3 landscape:h-[68px] landscape:gap-5 landscape:bg-[var(--session-bar-bg-compact)] landscape:px-[22px] landscape:pt-[13px] landscape:pb-[9px]",
+          "h-20 gap-[22px] px-6 pt-4 pb-3 landscape:h-[68px] landscape:gap-5 landscape:px-[22px] landscape:pt-[13px] landscape:pb-[9px]",
       },
-      /**
-       * 과목 시트(S3-9)가 열리면 알약이 시트 상단에 합쳐진다 — 배경·테두리·흐림이 빠지고 버튼만
-       * 남는다(Figma `Session / Control Bar V2` Mode=Open). 치수·간격은 그대로라 버튼이 제자리에서
-       * 모양만 바뀐다.
-       */
-      surface: {
-        pill: "",
-        bare: "border-transparent bg-transparent backdrop-blur-none landscape:bg-transparent",
+    },
+    defaultVariants: { size: "responsive" },
+  },
+);
+
+/** 알약이 시트로 변형되는 동안 배경만 남기고 사라진다 — `bare`. */
+export type SessionControlBarSurface = "pill" | "bare";
+
+/**
+ * 알약 배경·테두리·흐림은 **버튼 뒤의 별도 레이어**다. 클래스를 갈아끼워 없애면 배경이 한 프레임에
+ * 툭 사라지고 `backdrop-filter`는 애초에 전환되지 않는다 — 레이어 하나를 통째로 페이드시키면
+ * 흐림까지 같은 박자로 걷힌다(시안 프로토타입도 같은 구조다. 거기 값은 opacity 0.16s ease-out).
+ * 버튼이 이 레이어 위에 오도록 `controlButtonVariants`가 `relative`를 갖는다.
+ */
+const barSurfaceVariants = cva(
+  "pointer-events-none absolute inset-0 rounded-full border border-white/10 backdrop-blur-[7px] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+  {
+    variants: {
+      size: {
+        md: "bg-[var(--session-bar-bg)]",
+        sm: "bg-[var(--session-bar-bg-compact)]",
+        responsive: "bg-[var(--session-bar-bg)] landscape:bg-[var(--session-bar-bg-compact)]",
       },
+      surface: { pill: "opacity-100", bare: "opacity-0" },
     },
     defaultVariants: { size: "responsive", surface: "pill" },
   },
@@ -79,9 +94,12 @@ export type SessionControlBarSize = NonNullable<
 
 // 바 상단 드래그 핸들은 2026-08-25 BY-427 실기기 피드백으로 제거 — 실제로 드래그되지 않는
 // 장식이라 혼란만 줬다. 위 Figma 실측 표의 핸들 행은 역사 기록으로만 남는다.
+// 과목 시트가 붙으면서 바가 실제로 끌리게 됐고, 핸들은 `SubjectSheet`가 바 위에 다시 그린다 —
+// 이 컴포넌트는 여전히 핸들을 그리지 않는다(시트 밖에서 바만 쓰는 화면에 장식이 다시 생기지 않게).
 
 const controlButtonVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,transform] duration-200 motion-reduce:transition-none",
+  // `relative`: 알약 배경 레이어(absolute)보다 뒤에 그려지지 않게 한다.
+  "relative flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,transform] duration-200 motion-reduce:transition-none",
   {
     variants: {
       size: {
@@ -171,7 +189,7 @@ export interface SessionControlBarProps {
    */
   size?: SessionControlBarSize;
   /** `bare`면 알약 배경 없이 버튼만 그린다 — 과목 시트가 열려 바가 시트 안에 들어간 상태. */
-  surface?: VariantProps<typeof sessionControlBarVariants>["surface"];
+  surface?: SessionControlBarSurface;
   onTogglePause: () => void;
   onFlipCamera: () => void;
   onRequestExit: () => void;
@@ -246,8 +264,9 @@ export function SessionControlBar({
     <div
       role="group"
       aria-label="세션 컨트롤"
-      className={cn(sessionControlBarVariants({ size, surface }), className)}
+      className={cn(sessionControlBarVariants({ size }), className)}
     >
+      <span aria-hidden="true" className={barSurfaceVariants({ size, surface })} />
       {/* 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
           (voice-tone.md §1) — 아이콘 프레임은 play/pause 모두 같은 크기라 폭이 흔들리지 않는다. */}
       <ControlButton

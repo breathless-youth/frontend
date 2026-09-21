@@ -11,7 +11,7 @@ import {
 import dotIcon from "@/assets/icons/sheet-dot.svg";
 import { ChevronUp } from "lucide-react";
 
-import { vibrate } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
@@ -32,12 +32,16 @@ import { SUBJECT_SHEET_COPY } from "../sessionCopy";
  *
  * ## 제스처(원본 `barMove`)
  *
- * - 바 위 포인터 이동 10px 미만은 탭 — 일시정지·전환·종료 버튼이 그대로 동작한다.
- *   `setPointerCapture`를 쓰지 않는다(캡처하면 `click`이 버튼 대신 래퍼로 간다).
+ * - **드래그를 받는 곳**: ① 핸들 줄 — 접혔을 때는 44×28 박스, **열렸을 때는 시트 전폭 띠**
+ *   (열린 시트의 핸들 줄은 좌우 여백까지 잡힌다) ② 컨트롤 바 면(버튼 제외). 버튼은 탭 전용이라
+ *   드래그가 끼어들지 않는다. 포인터 이동 10px 미만은 무시한다.
+ *   접혔을 때 전폭으로 넓히지 않는 이유는 그 자리에 라벨 버튼이 있어 탭을 가로채기 때문이다.
  * - **올릴 때**: 임계(26%) 전에는 손가락보다 덜 따라오며 버틴다(0.06배). 임계를 넘는 순간
- *   햅틱과 함께 스프링으로 손가락 위치까지 올라오며 알약이 시트로 변한다(`merged`). 그 뒤로는
- *   1:1로 따라가고, 14% 아래로 내려오면 다시 알약으로 돌아간다(히스테리시스).
+ *   햅틱과 함께 손가락 위치까지 올라오며 알약이 시트로 변한다(`merged`). 그 뒤로는 1:1로
+ *   따라가고, 14% 아래로 내려오면 다시 알약으로 돌아간다(히스테리시스).
  * - **내릴 때**: 26%까지 내려오면 햅틱과 함께 한 번에 접힌다 — 드래그는 거기서 끝난다.
+ * - 전환은 전부 같은 이징·길이다(260ms) — 되튀는 스프링은 실기기 확인으로 걷어냈다. 드래그 중에는
+ *   전환을 끄되 변형 순간만 예외다(아래 `snapping`).
  * - 놓으면 `merged` 여부가 곧 열림 여부다.
  * - 바깥 탭은 시트만 접는다 — 전면 `fixed` 캐처가 심플 모드 토글 위를 덮는다. 시트는 비모달이라
  *   세션·감지는 계속 흐르고 배경을 `inert`로 만들지 않는다.
@@ -53,8 +57,8 @@ const UNMERGE_RATIO = 0.14;
 const RESIST = 0.06;
 /** 그룹 상단에서 바 상단까지(원본 Open 모드 위 여백 18). */
 const BAR_TOP_PX = 18;
-/** 스프링(catch-up) 트랜지션이 도는 시간 — 원본 360ms. */
-const CATCH_UP_MS = 360;
+/** 시트↔알약 변형 순간, 손가락 위치까지 따라잡는 전환 길이. 아래 타이머 이동과 같아야 한다. */
+const SNAP_MS = 260;
 
 export type SubjectSheetBarSurface = "pill" | "bare";
 
@@ -97,35 +101,41 @@ export function SubjectSheet({
   /** 알약이 시트로 변형된 상태 — 놓았을 때의 열림 여부이자 배경·핸들·내용의 표시 조건. */
   const [merged, setMerged] = useState(open);
   const mergedRef = useRef(open);
-  /** 변형 직후 스프링으로 손가락을 따라잡는 구간. */
-  const [catchUp, setCatchUp] = useState(false);
-  const catchUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * 변형 순간에만 켜지는 전환 구간.
+   *
+   * 드래그 중에는 손가락을 1:1로 따라가야 해서 전환을 끄지만, **임계를 넘어 알약이 시트로 바뀌는
+   * 순간만은 예외**다. 그 순간 시트는 저항 위치에서 손가락 위치로 한 번에 건너뛰는데, 전환이 없으면
+   * 한 프레임에 튀어 올라 타이머를 덮어버리고 타이머만 뒤늦게 기어 나온다. 여기서 같은 길이·이징을
+   * 켜 두면 시트와 타이머가 나란히 올라온다.
+   */
+  const [snapping, setSnapping] = useState(false);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ startY: number; startOpen: boolean; moved: boolean } | null>(null);
-  const suppressClickRef = useRef(false);
+
+  function snap() {
+    if (snapTimerRef.current !== null) {
+      clearTimeout(snapTimerRef.current);
+    }
+    setSnapping(true);
+    snapTimerRef.current = setTimeout(() => {
+      snapTimerRef.current = null;
+      setSnapping(false);
+    }, SNAP_MS);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (snapTimerRef.current !== null) {
+        clearTimeout(snapTimerRef.current);
+      }
+    };
+  }, []);
 
   function setMergedNow(next: boolean) {
     mergedRef.current = next;
     setMerged(next);
   }
-
-  function spring() {
-    if (catchUpTimerRef.current !== null) {
-      clearTimeout(catchUpTimerRef.current);
-    }
-    setCatchUp(true);
-    catchUpTimerRef.current = setTimeout(() => {
-      catchUpTimerRef.current = null;
-      setCatchUp(false);
-    }, CATCH_UP_MS);
-  }
-
-  useEffect(() => {
-    return () => {
-      if (catchUpTimerRef.current !== null) {
-        clearTimeout(catchUpTimerRef.current);
-      }
-    };
-  }, []);
 
   // 밖에서 열고 닫으면(라벨 탭·바깥 탭·재생 버튼) 변형 상태도 따라간다.
   useEffect(() => {
@@ -153,6 +163,47 @@ export function SubjectSheet({
     };
   }, []);
 
+  const restY = open ? 0 : closedY;
+  const y = dragY ?? restY;
+  const dragging = dragY !== null;
+  /** 0=접힘 · 1=펼침. 드래그 중에는 손가락을 따라 연속으로 움직인다. */
+  const progress = closedY > 0 ? clamp01(1 - y / closedY) : merged ? 1 : 0;
+  /** 라벨은 시트가 올라오는 동안 **같이** 옅어진다 — merged에서 툭 꺼지면 계단처럼 보인다. */
+  const labelOpacity = clamp01(1 - progress * 1.8);
+
+  /**
+   * 진행률과 전환 길이를 문서 루트의 CSS 변수로 내보낸다 — 세션 화면의 타이머가 이 값으로 시트와
+   * **같은 비율만큼** 따라 올라온다(시안은 타이머를 시트와 한 덩어리로 끌어올린다).
+   *
+   * prop으로 넘기지 않는 이유: 드래그 중에는 포인터가 움직일 때마다 값이 바뀌는데, 그 값을 세션
+   * 화면 상태로 올리면 카메라 프리뷰까지 매 프레임 다시 그린다. CSS 변수는 리렌더 없이 흐른다.
+   */
+  const publishedRef = useRef({ progress: "", transition: "" });
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const nextProgress = progress.toFixed(4);
+    const nextTransition = dragging && !snapping ? "0s" : `${SNAP_MS}ms`;
+    // ⚠️ 값이 같으면 쓰지 않는다. `:root`의 커스텀 속성을 건드리면 **문서 전체** 스타일이
+    // 무효화되는데, 이 컴포넌트는 라벨의 시간이 흘러 1초마다 다시 그려진다. 그대로 두면
+    // 애니메이션 도중에 전체 재계산이 끼어들어 프레임을 떨군다.
+    if (publishedRef.current.progress !== nextProgress) {
+      publishedRef.current.progress = nextProgress;
+      root.style.setProperty("--session-sheet-progress", nextProgress);
+    }
+    if (publishedRef.current.transition !== nextTransition) {
+      publishedRef.current.transition = nextTransition;
+      root.style.setProperty("--session-sheet-transition", nextTransition);
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      // 세션을 떠나면 값이 남아 다른 화면의 계산에 섞이지 않게 되돌린다.
+      document.documentElement.style.removeProperty("--session-sheet-progress");
+      document.documentElement.style.removeProperty("--session-sheet-transition");
+    };
+  }, []);
+
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
       return;
@@ -161,7 +212,6 @@ export function SubjectSheet({
       return;
     }
     dragRef.current = { startY: event.clientY, startOpen: openRef.current, moved: false };
-    suppressClickRef.current = false;
 
     const detach = () => {
       window.removeEventListener("pointermove", onMove);
@@ -180,7 +230,6 @@ export function SubjectSheet({
           return;
         }
         drag.moved = true;
-        suppressClickRef.current = true;
       }
       // 진행률 0=접힘 · 1=펼침.
       const raw = clamp01((drag.startOpen ? 1 : 0) - dy / closedY);
@@ -189,8 +238,7 @@ export function SubjectSheet({
       if (drag.startOpen && raw <= MERGE_RATIO) {
         detach();
         dragRef.current = null;
-        vibrate(8);
-        spring();
+        haptic("medium");
         setMergedNow(false);
         setDragY(null);
         onOpenChange(false);
@@ -203,9 +251,12 @@ export function SubjectSheet({
           ? raw > UNMERGE_RATIO
           : raw >= MERGE_RATIO;
       if (nextMerged !== mergedRef.current) {
-        vibrate(nextMerged ? 12 : 8);
-        spring();
+        haptic(nextMerged ? "heavy" : "medium");
+        snap();
         setMergedNow(nextMerged);
+        // 손을 떼기 전에 알린다 — 세션 화면의 타이머가 시트와 **같은 박자로** 자리를 옮긴다.
+        // release에서 알리면 시트가 올라오는 내내 타이머가 가려져 있다가 뒤늦게 튄다.
+        onOpenChange(nextMerged);
       }
       // 올릴 때 임계 전에는 버틴다.
       const offset = !nextMerged && !drag.startOpen ? raw * RESIST : raw;
@@ -234,15 +285,10 @@ export function SubjectSheet({
 
   function handleLabelClick() {
     if (!open) {
-      vibrate(12);
-      spring();
+      haptic("heavy");
     }
     onOpenChange(!open);
   }
-
-  const restY = open ? 0 : closedY;
-  const y = dragY ?? restY;
-  const dragging = dragY !== null;
 
   return (
     <div className={cn("relative flex flex-col items-center", className)}>
@@ -253,9 +299,10 @@ export function SubjectSheet({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={handleLabelClick}
+        style={{ opacity: labelOpacity }}
         className={cn(
-          "pointer-events-auto mb-[10px] flex h-5 max-w-[min(100vw-48px,320px)] items-center gap-2 text-[13px] leading-4 font-semibold transition-opacity duration-200 motion-reduce:transition-none",
-          merged && "pointer-events-none opacity-0",
+          "mb-[10px] flex h-5 max-w-[min(100vw-48px,320px)] items-center gap-2 text-[13px] leading-4 font-semibold transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+          merged ? "pointer-events-none" : "pointer-events-auto",
         )}
       >
         {label === null ? (
@@ -302,39 +349,63 @@ export function SubjectSheet({
         data-merged={merged}
         style={{ transform: `translateY(${y}px)` }}
         className={cn(
-          "pointer-events-auto fixed inset-x-0 top-[var(--sheet-top)] flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] [--sheet-top:27svh] landscape:[--sheet-top:23svh]",
-          "transition-[transform,background-color,box-shadow] motion-reduce:transition-none",
-          // 원본: 드래그 중 none · 변형 직후 스프링(340ms, overshoot) · 그 외 260ms.
-          dragging && !catchUp
+          "pointer-events-auto fixed inset-x-0 top-[var(--sheet-top)] flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape:[--sheet-top:23svh]",
+          "transition-transform motion-reduce:transition-none",
+          // 드래그 중에는 손가락을 그대로 따라가고, 변형 순간과 놓았을 때만 전환을 태운다.
+          dragging && !snapping
             ? "transition-none"
-            : catchUp
-              ? "duration-[340ms] ease-[cubic-bezier(0.22,1.35,0.36,1)]"
-              : "duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
-          merged &&
-            "bg-[var(--session-sheet-bg)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] backdrop-blur-[14px]",
+            : "duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
         )}
       >
-        {/* 드래그 핸들 + 컨트롤 바. 세로 팬을 브라우저 스크롤로 넘기지 않는다. 핸들은 시트로
-            변형됐을 때만 보인다(알약 상태의 핸들은 실기기 피드백으로 제거된 장식이다). */}
+        {/* 배경과 상단 하이라이트는 별도 레이어다 — 클래스로 껐다 켜면 한 프레임에 튄다.
+            ⚠️ **여기에 `backdrop-blur`를 넣지 말 것.** 화면을 가득 채운 흐림 레이어가 움직이면서
+            동시에 투명도까지 바뀌면 iOS 웹뷰가 매 프레임 배경을 다시 샘플링하느라 프레임을 떨군다
+            (실기기에서 "닫을 때 덜덜 떨린다"로 관측). 배경이 이미 90% 불투명이라 흐림이 보태는
+            것도 거의 없다. */}
         <div
-          className="flex touch-none flex-col items-center"
-          onPointerDown={handlePointerDown}
-          onClickCapture={(event) => {
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              event.stopPropagation();
-              event.preventDefault();
-            }
-          }}
-        >
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-t-[28px] bg-[var(--session-sheet-bg)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+            merged ? "opacity-100" : "opacity-0",
+          )}
+        />
+
+        {/* 컨트롤 바 + 드래그 핸들. 바는 그룹 상단에서 18px 아래에 있고(원본 Open 모드 위 여백),
+            핸들 36×4는 **접힌 알약 안에도 보인다** — 알약일 때는 알약 위 6px, 시트로 변형되면
+            그룹 상단 6px로 올라간다. 히트 영역은 열림 여부로 갈린다(위 제스처 주석). */}
+        <div className="relative flex w-full flex-col items-center pt-[18px]">
+          <div
+            className="touch-none"
+            onPointerDown={(event) => {
+              if ((event.target as Element).closest("button") !== null) {
+                return;
+              }
+              handlePointerDown(event);
+            }}
+          >
+            {bar(merged ? "bare" : "pill")}
+          </div>
+
+          {/* 핸들 그림 — 히트 영역과 분리해 위치만 움직인다.
+              ⚠️ `top`을 전환하지 말 것. 레이아웃 속성이라 260ms 내내 매 프레임 재배치가 돌고,
+              그 재배치가 시트 안의 과목 목록까지 훑어 본체·타이머가 함께 떨린다(실기기 관측).
+              같은 이동을 `transform`으로 하면 합성 단계에서 끝난다. */}
           <div
             aria-hidden="true"
             className={cn(
-              "mt-[6px] mb-2 h-1 w-9 rounded-full bg-white/22 transition-opacity duration-200 motion-reduce:transition-none",
-              !merged && "opacity-0",
+              "pointer-events-none absolute top-0 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-white/22 transition-transform duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+              merged ? "translate-y-[6px]" : "translate-y-[24px]",
             )}
           />
-          {bar(merged ? "bare" : "pill")}
+
+          <div
+            aria-label="과목 시트 끌기"
+            className={cn(
+              "absolute h-7 touch-none cursor-grab active:cursor-grabbing",
+              merged ? "inset-x-0 top-0" : "left-1/2 top-[18px] w-11 -translate-x-1/2",
+            )}
+            onPointerDown={handlePointerDown}
+          />
         </div>
 
         {/* 시트 내용 — 변형되며 아래(72px)에서 스프링으로 올라오고, 접히면 빠르게 사라진다. */}
@@ -344,10 +415,11 @@ export function SubjectSheet({
           aria-label={SUBJECT_SHEET_COPY.title}
           aria-hidden={!open}
           className={cn(
-            "flex min-h-0 w-full flex-1 flex-col text-white transition-[transform,opacity] motion-reduce:transition-none",
+            "flex min-h-0 w-full flex-1 flex-col text-white",
+            // 등장만 올라오고(키프레임) 퇴장은 투명도만 줄인다 — 이유는 `index.css`의 키프레임 주석.
             merged
-              ? "translate-y-0 opacity-100 duration-[360ms] ease-[cubic-bezier(0.22,1.2,0.36,1)]"
-              : "translate-y-[72px] opacity-0 duration-200 ease-in",
+              ? "animate-[sheet-content-rise_260ms_cubic-bezier(0.2,0.8,0.2,1)] opacity-100 motion-reduce:animate-none"
+              : "opacity-0 transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
           )}
         >
           {children}

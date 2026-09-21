@@ -15,7 +15,7 @@ import gripRowIcon from "@/assets/icons/sheet-grip-row.svg";
 import pauseIcon from "@/assets/icons/sheet-pause.svg";
 import playIcon from "@/assets/icons/sheet-play.svg";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { vibrate } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
@@ -38,9 +38,9 @@ import type { SubjectsStore } from "../useSubjects";
  * - 상한(과목 20·할 일 30)에 닿으면 버튼은 그대로 두고 토스트로 알린다(원본 동작).
  * - 시간 = 서버 누적(저장된 세션) + 이 세션 몫. 저장되면 서버 값이 흡수해 다음 세션에서 이어진다.
  *
- * 순서 핸들(원본 `gripDown`)은 **장식만** 그린다 — 서버 계약에 순서 필드가 없어 끌어서 바꿔도
- * 저장할 곳이 없다(원본 github.md도 "정렬용 sortOrder 필요"로 남겨 뒀다). 계약이 생기면 `Grip`에
- * 드래그를 붙인다.
+ * 순서 핸들(원본 `gripDown`): 꾹 눌러 끌면 다른 카드 위를 지날 때마다 자리를 바꾼다. 서버 계약에
+ * 순서 필드가 없어 순서는 이 기기에만 남는다(`useSubjects`의 localStorage). 백엔드 sortOrder가
+ * 생기면 저장 경로만 바꾼다.
  */
 
 const MAX_SUBJECTS = 20;
@@ -141,7 +141,7 @@ function usePressGestures(handlers: {
     stateRef.current = null;
     if (state?.swiping === true) {
       if (swipeX <= -SWIPE_REMOVE_PX) {
-        vibrate(8);
+        haptic("light");
         handlers.onSwipeLeft?.();
       }
       setSwipeX(0);
@@ -249,12 +249,55 @@ function InlineNameEditor({
   );
 }
 
-/** 순서 이동 핸들(장식) — 11×4 점 두 개짜리 자산을 세 줄 쌓는다. */
-function Grip() {
+/**
+ * 순서 이동 핸들 — 누르는 즉시 잡히고(포인터 캡처), 끌면서 지나는 카드의 자리로 옮긴다.
+ * 행의 탭·길게 누르기와 겹치지 않게 포인터 이벤트를 행으로 올리지 않는다. 캡처 중에도
+ * `elementFromPoint`는 손가락 아래 요소를 돌려주므로 그걸로 어느 카드 위인지 안다.
+ */
+function Grip({
+  subjectId,
+  label,
+  onStart,
+  onOver,
+  onEnd,
+}: {
+  subjectId: number;
+  label: string;
+  onStart: () => void;
+  onOver: (overId: number | null) => void;
+  onEnd: () => void;
+}) {
   return (
     <div
-      aria-hidden="true"
-      className="flex h-11 w-7 shrink-0 flex-col items-center justify-center gap-[3px]"
+      role="button"
+      tabIndex={-1}
+      aria-label={label}
+      onPointerDown={(event) => {
+        if (!event.isPrimary) return;
+        event.stopPropagation();
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // 캡처를 못 잡아도 같은 카드 안에서는 이동이 된다.
+        }
+        onStart();
+      }}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        const under = document.elementFromPoint(event.clientX, event.clientY);
+        const card = under?.closest<HTMLElement>("[data-subject-id]") ?? null;
+        const overId = card === null ? Number.NaN : Number(card.dataset.subjectId);
+        // 자기 카드 위이거나 카드 밖이면 null — 호출부가 "같은 카드 반복" 가드를 푼다.
+        onOver(Number.isFinite(overId) && overId !== subjectId ? overId : null);
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation();
+        onEnd();
+      }}
+      onPointerCancel={onEnd}
+      onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
+      className="flex h-11 w-7 shrink-0 cursor-grab touch-none flex-col items-center justify-center gap-[3px] active:cursor-grabbing"
     >
       {[0, 1, 2].map((row) => (
         <img key={row} src={gripRowIcon} alt="" className="h-1 w-[11px]" />
@@ -413,6 +456,10 @@ function SubjectCard({
   onCloseMenu,
   onEditing,
   onNotice,
+  reordering,
+  onReorderStart,
+  onReorderOver,
+  onReorderEnd,
   store,
 }: {
   subject: SubjectResponse;
@@ -427,6 +474,11 @@ function SubjectCard({
   onCloseMenu: () => void;
   onEditing: (next: Editing | null) => void;
   onNotice: (message: string) => void;
+  /** 핸들로 끌리는 중인가 — 카드를 밝게 띄운다. */
+  reordering: boolean;
+  onReorderStart: () => void;
+  onReorderOver: (overId: number | null) => void;
+  onReorderEnd: () => void;
   store: SubjectsStore;
 }) {
   const cardRef = useRef<HTMLLIElement>(null);
@@ -463,8 +515,10 @@ function SubjectCard({
   return (
     <li
       ref={cardRef}
+      data-subject-id={subject.id}
       className={cn(
-        "relative flex flex-col gap-0.5 rounded-[18px] bg-[var(--session-sheet-surface)] p-1.5 transition-shadow duration-150 motion-reduce:transition-none",
+        "relative flex flex-col gap-0.5 rounded-[18px] p-1.5 transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none",
+        reordering ? "bg-white/10" : "bg-[var(--session-sheet-surface)]",
         selected
           ? "shadow-[inset_0_0_0_1px_var(--session-sheet-selected-card-ring)]"
           : "shadow-[inset_0_0_0_1px_var(--session-sheet-line)]",
@@ -506,7 +560,13 @@ function SubjectCard({
               : "text-white",
           )}
         >
-          <Grip />
+          <Grip
+            subjectId={subject.id}
+            label={`${subject.name} 순서 이동`}
+            onStart={onReorderStart}
+            onOver={onReorderOver}
+            onEnd={onReorderEnd}
+          />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate text-[17px] leading-[22px] font-semibold">
               {subject.name}
@@ -697,6 +757,12 @@ export function SubjectPanel({
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [reorderingId, setReorderingId] = useState<number | null>(null);
+  /**
+   * 마지막으로 자리를 바꾼 상대 카드. 리렌더 전에 같은 카드 위에서 pointermove가 연달아 오면
+   * 순서가 왔다 갔다 하므로 한 번만 바꾸고, 손가락이 자기 카드로 돌아오면(null) 다시 연다.
+   */
+  const lastOverRef = useRef<number | null>(null);
   const { subjects, status } = store;
   const empty = status === "ready" && subjects.length === 0;
 
@@ -786,7 +852,7 @@ export function SubjectPanel({
               onSelect={() => onSelect({ subjectId: subject.id, taskId: null })}
               onDeselect={() => onSelect(null)}
               onPlay={() => {
-                vibrate(12);
+                haptic("medium");
                 onSelect({ subjectId: subject.id, taskId: null });
                 onRequestClose();
               }}
@@ -794,6 +860,27 @@ export function SubjectPanel({
               onCloseMenu={() => setMenu(null)}
               onEditing={setEditing}
               onNotice={onNotice}
+              reordering={reorderingId === subject.id}
+              onReorderStart={() => {
+                setMenu(null);
+                lastOverRef.current = null;
+                setReorderingId(subject.id);
+              }}
+              onReorderOver={(overId) => {
+                if (overId === null) {
+                  lastOverRef.current = null;
+                  return;
+                }
+                if (lastOverRef.current === overId) return;
+                lastOverRef.current = overId;
+                store.reorderSubject(subject.id, overId);
+                // 햅틱은 누를 때가 아니라 다른 과목과 자리가 바뀌는 순간에(실기기 피드백).
+                haptic("light");
+              }}
+              onReorderEnd={() => {
+                lastOverRef.current = null;
+                setReorderingId(null);
+              }}
               store={store}
             />
           ))}

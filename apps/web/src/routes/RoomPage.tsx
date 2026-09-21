@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focusmakers/types";
@@ -97,6 +97,67 @@ const SESSION_LAYER_LAYOUT = [
   "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc(env(safe-area-inset-bottom)+14px)]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
+
+/** 시트가 다 열렸을 때 순공 타이머가 앉는 높이(뷰포트 비율) — 상태 필 바로 아래(시안 122/874). */
+const SHEET_OPEN_TIMER_TOP = 0.14;
+
+/**
+ * 과목 시트를 끌어 올리는 만큼 **같은 비율로 따라 올라오는 칸** — 순공 타이머가 유일한 사용처다.
+ *
+ * 시안 프로토타입은 타이머·라벨·바·시트를 한 덩어리로 끌어올린다. 이 화면은 그 구조를 쓸 수 없어
+ * (세로는 스페이서 비율, 가로는 그리드가 배치를 정한다) 레이아웃은 접힌 자리에 그대로 두고
+ * **변환만** 진행률에 묶는다. 진행률은 `SubjectSheet`가 문서 루트에 쓰는 CSS 변수로 흘러오므로
+ * 드래그 중에도 이 화면은 다시 그려지지 않는다.
+ *
+ * 이동 거리는 "지금 내 위치 − 목표 높이"라서 프리뷰(아래쪽)와 심플 모드(가운데)가 알아서 다른
+ * 거리를 갖는다. 가로에서는 타이머가 이미 위쪽에 있고 시안도 움직이지 않으므로 0으로 둔다.
+ */
+function SheetFollowingSlot({ className, children }: { className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  /**
+   * 거리는 **레이아웃 기준**으로만 잰다.
+   *
+   * ⚠️ `getBoundingClientRect()`를 쓰지 말 것. 그 값에는 지금 걸려 있는 변환이 섞여 있어서, 시트가
+   * 닫히며 타이머가 되돌아오는 동안 다시 재면 거리가 매 렌더 조금씩 줄어든다. 목적지가 계속 바뀌니
+   * 화면에서는 타이머가 덜덜 떨리는 것으로 보인다. `offsetTop`은 변환을 무시한 레이아웃 위치이고,
+   * 기준이 되는 세션 레이어가 화면 맨 위에서 시작하므로 그대로 화면 y로 쓸 수 있다.
+   */
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) {
+      return;
+    }
+    // `matchMedia`를 쓰지 않는다 — jsdom에 없어 테스트가 통째로 죽는다. 판정 기준은 이 파일의
+    // 회전 감지와 같은 `currentOrientation`이다.
+    const travel =
+      currentOrientation() === "landscape"
+        ? 0
+        : Math.max(0, element.offsetTop - window.innerHeight * SHEET_OPEN_TIMER_TOP);
+    const next = `${Math.round(travel)}px`;
+    if (element.style.getPropertyValue("--session-sheet-timer-travel") !== next) {
+      element.style.setProperty("--session-sheet-timer-travel", next);
+    }
+  });
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        transform:
+          "translateY(calc(var(--session-sheet-progress, 0) * var(--session-sheet-timer-travel, 0px) * -1))",
+        transitionProperty: "transform",
+        transitionTimingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        // 드래그 중에는 0s로 흘러와 손가락을 그대로 따라간다(시트와 같은 규칙).
+        transitionDuration: "var(--session-sheet-transition, 0s)",
+        willChange: "transform",
+      }}
+      className={cn("motion-reduce:transition-none", className)}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * 회전 구간의 수명 (BY-336, 2026-08-01).
@@ -270,6 +331,7 @@ function RoomSessionScreen({
   const subjects = useSubjects(
     userId !== null && (sheetOpen || subjectSelection !== null),
     showToast,
+    userId === null ? null : `focusmakers:subjectOrder:${userId}`,
   );
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
@@ -547,8 +609,8 @@ function RoomSessionScreen({
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
                 늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
-                사이 여백의 중앙에 놓는다. 과목 시트가 열리면(0:1) 타이머가 상태 필 바로 아래로
-                올라가 시트에 가려지지 않는다(Figma S3-9 P3). Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
+                사이 여백의 중앙에 놓는다. 과목 시트는 이 비율을 건드리지 않는다 — 타이머는
+                레이아웃이 아니라 변환으로 따라 올라간다(`SheetFollowingSlot`). Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
                 실기기에서 너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다.
 
                 ⚠️ **전환 애니메이션을 다시 넣지 말 것.** 예전에는 `transition-[flex-grow]`로
@@ -558,7 +620,7 @@ function RoomSessionScreen({
                 아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
                 숫자가 끊기거나 리셋되지는 않는다.
                 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div className={cn(sheetOpen ? "grow-0" : "grow", "landscape:hidden")} />
+            <div className="grow landscape:hidden" />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
                 (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다.
@@ -568,17 +630,20 @@ function RoomSessionScreen({
                 이탈, 결과 여백은 우 8px + safe-area). 패딩 자체를 줄이지 않는 이유는 그 패딩이
                 상태 필·컨트롤 바·캡션까지 함께 밀기 때문이고, 음수 마진은 safe-area 몫을
                 침범하지 않는다 — 노치 쪽 인셋은 그대로 남는다. */}
-            <SessionTimer
-              focusSec={focusSec}
-              studySec={studySec}
-              state={pillState}
-              glow={simpleMode}
+            <SheetFollowingSlot
               className={
                 simpleMode
                   ? "landscape:col-span-full landscape:row-start-2 landscape:justify-self-center landscape:self-center"
                   : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
-            />
+            >
+              <SessionTimer
+                focusSec={focusSec}
+                studySec={studySec}
+                state={pillState}
+                glow={simpleMode}
+              />
+            </SheetFollowingSlot>
 
             {/* 캡션은 심플 모드에 존재하지 않는 행이다(S3-4·S3-6 프레임 실측 — 프리뷰와 함께
                 사라진다). 프리뷰에서는 일시정지 여부에 따라 프라이버시 캡션 ↔ 일시정지 캡션이
@@ -602,7 +667,7 @@ function RoomSessionScreen({
               {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
             </div>
 
-            <div className={cn(simpleMode || sheetOpen ? "grow" : "grow-0", "landscape:hidden")} />
+            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
             {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute. */}
             <div className="relative mt-4 flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
