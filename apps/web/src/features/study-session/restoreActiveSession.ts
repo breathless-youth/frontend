@@ -47,7 +47,7 @@ function isNonNegativeInt(value: unknown): value is number {
 }
 
 /**
- * 항목 시간은 이벤트와 달리 하나가 이상해도 세션 전체를 버리지 않는다 — 과목 없는 시간으로
+ * 과목 시간은 이벤트와 달리 하나가 이상해도 세션 전체를 버리지 않는다 — 과목 없는 시간으로
  * 계속 재는 편이 처음부터 다시 시작하는 것보다 낫다. 읽을 수 있는 항목만 남긴다.
  */
 function usableSubjectTimes(raw: unknown): SubjectTimePayload[] {
@@ -59,15 +59,13 @@ function usableSubjectTimes(raw: unknown): SubjectTimePayload[] {
       item === null ||
       !isNonNegativeInt(item.subjectId) ||
       !isNonNegativeInt(item.studySec) ||
-      !isNonNegativeInt(item.focusSec) ||
-      !(item.taskId === null || item.taskId === undefined || isNonNegativeInt(item.taskId))
+      !isNonNegativeInt(item.focusSec)
     ) {
       return [];
     }
     return [
       {
         subjectId: item.subjectId,
-        taskId: item.taskId ?? null,
         studySec: item.studySec,
         focusSec: Math.min(item.focusSec, item.studySec),
       },

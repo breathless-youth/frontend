@@ -205,7 +205,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const subjectTrackerRef = useRef<SubjectTimeTracker>(initial.subjectTracker);
   const [subjectSelection, setSubjectSelection] = useState<SubjectSelection | null>(
-    () => initial.subjectTracker.current?.selection ?? null,
+    () => initial.subjectTracker.current?.subjectId ?? null,
   );
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
@@ -493,14 +493,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [onReturnFromBackground, pause, phase.name, systemPause]);
 
   /**
-   * 과목·할 일 선택 전환 — 지금 타이머 값으로 이전 선택 구간을 닫고 새 구간을 연다.
+   * 과목 선택 전환 — 지금 타이머 값으로 이전 선택 구간을 닫고 새 구간을 연다.
    * 종료 뒤(`phase !== "studying"`)에는 타임라인이 닫혀 있어 값이 더 흐르지 않으므로 막지 않는다.
    */
   const selectSubject = useCallback(
     (next: SubjectSelection | null) => {
       const totals = withBase(computeSessionTotals(timelineRef.current, Date.now()));
       subjectTrackerRef.current = selectSubjectTime(subjectTrackerRef.current, next, totals);
-      setSubjectSelection(subjectTrackerRef.current.current?.selection ?? null);
+      setSubjectSelection(subjectTrackerRef.current.current?.subjectId ?? null);
     },
     [withBase],
   );
@@ -660,9 +660,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     cameraFacing,
     isCameraRunning,
     cameraStream,
-    /** 지금 고른 과목·할 일 — 없으면 null(과목 없는 시간). */
+    /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */
     subjectSelection,
-    /** 이 세션에서 항목별로 쌓인 시간 — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서 다시 읽는다. */
+    /** 이 세션에서 과목별로 쌓인 시간 — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서 다시 읽는다. */
     subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, totals),
     selectSubject,
     pause,

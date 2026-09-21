@@ -292,14 +292,15 @@ export type RoomJoinErrorCode =
  * 항목별 시간은 세션 제출·스냅샷의 `subjectTimes`로 들어가고, 여기서는 누적 합계만 내려온다.
  */
 
-/** 세션 제출·스냅샷·복구에 공통으로 실리는 항목별 시간 1건 */
+/**
+ * 세션 제출·스냅샷·복구에 공통으로 실리는 과목별 시간 1건.
+ * 측정 단위는 **과목**이다 — 할 일은 체크리스트일 뿐 시간이 붙지 않는다.
+ */
 export interface SubjectTimePayload {
   subjectId: number;
-  /** 과목만 선택해 잰 시간이면 null */
-  taskId: number | null;
-  /** 이 항목에서 잰 총 공부 시간(초). 항목들의 합 ≤ 세션 studySec */
+  /** 이 과목에서 잰 총 공부 시간(초). 과목들의 합 ≤ 세션 studySec */
   studySec: number;
-  /** 이 항목에서 잰 순공 시간(초). 0 ≤ focusSec ≤ 이 항목의 studySec */
+  /** 이 과목에서 잰 순공 시간(초). 0 ≤ focusSec ≤ 이 과목의 studySec */
   focusSec: number;
 }
 
@@ -308,16 +309,12 @@ export interface TaskResponse {
   name: string;
   /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(KST)이 지나면 목록에서 빠진다 */
   doneAt: string | null;
-  /** 저장된 모든 세션에서 이 할 일로 잰 누적 총 공부 시간(초) */
-  studySec: number;
-  /** 누적 순공 시간(초) */
-  focusSec: number;
 }
 
 export interface SubjectResponse {
   id: number;
   name: string;
-  /** 이 과목에서 잰 누적 총 공부 시간(초) — 할 일을 골랐든 과목만 골랐든 전부의 합 */
+  /** 이 과목에서 잰 누적 총 공부 시간(초) */
   studySec: number;
   focusSec: number;
   /** 보이는 할 일 — 미완료 전부 + 오늘(KST) 완료한 것, id 오름차순 */

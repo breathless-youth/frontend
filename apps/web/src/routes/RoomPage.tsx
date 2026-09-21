@@ -507,7 +507,7 @@ function RoomSessionScreen({
   }
 
   function handleSelectSubject(next: SubjectSelection | null) {
-    trackSubjectItemSelected(next === null ? "none" : next.taskId === null ? "subject" : "task");
+    trackSubjectItemSelected(next === null ? "none" : "subject");
     selectSubject(next);
   }
 
@@ -515,7 +515,7 @@ function RoomSessionScreen({
   const selectedSubject =
     subjectSelection === null
       ? null
-      : (subjects.subjects.find((subject) => subject.id === subjectSelection.subjectId) ?? null);
+      : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
   const sheetLabel =
     subjectSelection === null
       ? null
@@ -523,7 +523,7 @@ function RoomSessionScreen({
           name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
-            liveSubjectTime(subjectTimes, subjectSelection.subjectId, null).focusSec,
+            liveSubjectTime(subjectTimes, subjectSelection).focusSec,
         };
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */

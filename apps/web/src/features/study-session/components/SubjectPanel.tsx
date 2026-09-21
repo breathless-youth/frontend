@@ -68,6 +68,7 @@ export interface SubjectPanelProps {
   /** 시트가 열려 있는가 — 접히면 편집·메뉴를 닫는다(원본 `closeSheet`). */
   open: boolean;
   store: SubjectsStore;
+  /** 지금 시간이 쌓이는 과목 id. 없으면 null. */
   selection: SubjectSelection | null;
   onSelect: (next: SubjectSelection | null) => void;
   /** 재생 버튼으로 골랐을 때 시트를 내린다. */
@@ -829,7 +830,7 @@ export function SubjectPanel({
           onPick={(name) => {
             void store.addSubject(name, true).then((created) => {
               if (created !== null) {
-                onSelect({ subjectId: created.id, taskId: null });
+                onSelect(created.id);
               }
             });
           }}
@@ -845,15 +846,15 @@ export function SubjectPanel({
             <SubjectCard
               key={subject.id}
               subject={subject}
-              selected={selection?.subjectId === subject.id}
-              liveFocusSec={liveSubjectTime(liveTimes, subject.id, null).focusSec}
+              selected={selection === subject.id}
+              liveFocusSec={liveSubjectTime(liveTimes, subject.id).focusSec}
               editing={editing}
               menu={menu}
-              onSelect={() => onSelect({ subjectId: subject.id, taskId: null })}
+              onSelect={() => onSelect(subject.id)}
               onDeselect={() => onSelect(null)}
               onPlay={() => {
                 haptic("medium");
-                onSelect({ subjectId: subject.id, taskId: null });
+                onSelect(subject.id);
                 onRequestClose();
               }}
               onOpenMenu={setMenu}

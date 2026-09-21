@@ -942,8 +942,8 @@ export function trackSubjectItemAdded(kind: "subject" | "task", viaSuggestion = 
   track("subject_item_added", { kind, via_suggestion: viaSuggestion });
 }
 
-/** 항목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
-export function trackSubjectItemSelected(kind: "subject" | "task" | "none") {
+/** 과목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
+export function trackSubjectItemSelected(kind: "subject" | "none") {
   if (!initialized) return;
   track("subject_item_selected", { kind });
 }
