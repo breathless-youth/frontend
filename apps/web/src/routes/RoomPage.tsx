@@ -266,10 +266,6 @@ function RoomSessionScreen({
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
   // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 손으로 만든 종료 다이얼로그가 떠 있을 때만 뒤의 세션 화면을 inert 로 만든다.
-  // 배경음 시트는 Radix 라 포커스 트랩·바깥 차단·aria-hidden 을 스스로 하고, 여기에 inert 를
-  // 겹치면 닫힐 때 포커스를 돌려줄 버튼이 이미 inert 라 복귀가 조용히 실패한다.
-  const overlayOpen = exitDialogOpen;
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -486,7 +482,7 @@ function RoomSessionScreen({
         <>
           {/* 화면 탭(컨트롤 바 제외) → 심플 모드 전환. 컨트롤 바가 pointer-events-auto로 이 레이어를 가린다.
               대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다).
-              다이얼로그가 떠 있는 동안은 inert — 딤 뒤를 탭해도 심플 모드가 토글되지 않는다. */}
+              다이얼로그가 떠 있는 동안 딤 뒤 탭은 Radix 가 바깥 포인터를 막아 토글되지 않는다. */}
           <button
             type="button"
             aria-label="심플 모드 전환"
@@ -495,13 +491,12 @@ function RoomSessionScreen({
               trackSessionSimpleModeToggled(!simpleMode);
               setSimpleMode((prev) => !prev);
             }}
-            inert={overlayOpen}
             className="absolute inset-0 cursor-default"
           />
 
-          {/* 다이얼로그가 열리면 배경 세션 화면 전체를 inert로 만든다 — 포커스가 뒤로 새지 않고
-              스크린리더도 다이얼로그만 읽는다. */}
-          <div className={SESSION_LAYER_LAYOUT} inert={overlayOpen}>
+          {/* 다이얼로그의 포커스 트랩·바깥 차단·배경 aria-hidden 은 Radix 가 스스로 한다. 여기에
+              inert 를 겹치면 닫힐 때 포커스를 돌려줄 버튼이 이미 inert 라 복귀가 조용히 실패한다. */}
+          <div className={SESSION_LAYER_LAYOUT}>
             {/* 배경음 버튼 */}
             <AmbientSoundButton
               ref={ambientButtonRef}
@@ -604,27 +599,19 @@ function RoomSessionScreen({
             )}
           </div>
 
-          {/* ⚠️ **여기가 다이얼로그의 올바른 자리다** — `SESSION_LAYER_LAYOUT` div의 자식이 아니라
-              **형제**이고, `main` 바로 아래 `absolute inset-0`이다. 자식으로 넣으면 세 가지가
-              동시에 깨진다(qa-WG3가 프로브를 실제로 삽입해 재현 확인):
-                (1) 가로에서 그리드 자동 배치로 row1/col1 = 좌상단에 앉는다 — 중앙 모달이 구석에 그려진다
-                (2) row1 트랙이 커지면서 1fr인 row2가 줄어 심플 타이머(S3-6) 수직 위치가 밀린다
-                (3) 레이어의 `pointer-events-none`을 상속해 확인·취소 버튼이 클릭을 못 받는다
-              세로에서도 같은 컨테이너가 flex-col이라 흐름 자식이 되어 컨트롤 바를 밀어낸다 —
-              가로 전용 문제가 아니다. `pointer-events-auto`는 컴포넌트가 직접 갖는다.
-
-              가로(S3-5/S3-6)용 종료 확인 프레임은 Figma에 없다 — 세로와 같은 330w 다이얼로그를
-              가로 캔버스 중앙에 띄운다(임의로 가로 전용 레이아웃을 새로 디자인하지 않는다). */}
-          {exitDialogOpen && (
-            <SessionConfirmDialog
-              title={EXIT_CONFIRM_COPY.title}
-              description={exitConfirmDescription(focusSec)}
-              cancelLabel={EXIT_CONFIRM_COPY.cancel}
-              confirmLabel={EXIT_CONFIRM_COPY.confirm}
-              onCancel={handleCancelExit}
-              onConfirm={handleConfirmExit}
-            />
-          )}
+          {/* Radix 포털을 타므로 여기 위치가 화면 배치를 정하지 않는다. 포털 자리를 `main`
+              으로 잡아야 `--session-dialog-*` 변수가 풀린다. 가로 전용 종료 확인 프레임은
+              Figma에 없어 세로와 같은 330w 다이얼로그를 화면 중앙에 띄운다. */}
+          <SessionConfirmDialog
+            open={exitDialogOpen}
+            container={sessionSurfaceRef.current}
+            title={EXIT_CONFIRM_COPY.title}
+            description={exitConfirmDescription(focusSec)}
+            cancelLabel={EXIT_CONFIRM_COPY.cancel}
+            confirmLabel={EXIT_CONFIRM_COPY.confirm}
+            onCancel={handleCancelExit}
+            onConfirm={handleConfirmExit}
+          />
 
           {/* 배경음 시트는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
