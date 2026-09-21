@@ -141,7 +141,7 @@ export function SocialHomePage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
+          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg bg-muted"
         >
           <DialogHeader>
             <DialogTitle>{graceTitle}</DialogTitle>

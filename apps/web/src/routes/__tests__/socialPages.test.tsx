@@ -51,11 +51,13 @@ function renderAt(path: string | { pathname: string; search: string; state?: unk
   );
 }
 
-/** 코드가 네 칸(숫자 칸)으로 나눠 표시된다 — 한 덩어리 텍스트가 아니다(BY-716). */
+/**
+ * 코드가 네 칸(숫자 칸)으로 나눠 표시된다 — 한 덩어리 텍스트가 아니다(BY-716).
+ * 숫자별 getByText는 반복 숫자 코드(예: "1122")에서 다중 매치로 깨지므로, 칸 그룹의
+ * aria-label(`초대코드 {code}`)로 전체 코드를 한 번에 확인한다.
+ */
 function expectInviteCodeShown(code: string) {
-  for (const digit of code) {
-    expect(screen.getByText(digit)).toBeInTheDocument();
-  }
+  expect(screen.getByRole("group", { name: `초대코드 ${code}` })).toBeInTheDocument();
 }
 
 afterEach(() => {
@@ -221,6 +223,16 @@ describe("초대코드 공유", () => {
     expect(screen.getByText("방이 만들어졌어요")).toBeInTheDocument();
     expectInviteCodeShown("0712");
     expect(screen.getByText("모두가 나가면 방과 코드가 사라져요")).toBeInTheDocument();
+  });
+
+  it("숫자가 겹치는 코드도 그대로 보여준다", () => {
+    renderAt({
+      pathname: "/social/code",
+      search: "?userId=7",
+      state: { roomId: 42, inviteCode: "1122" },
+    });
+
+    expectInviteCodeShown("1122");
   });
 
   it("코드 복사를 누르면 클립보드에 쓰고 토스트를 띄운다", async () => {
