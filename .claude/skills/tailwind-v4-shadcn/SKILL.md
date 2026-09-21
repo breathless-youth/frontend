@@ -449,17 +449,35 @@ For detailed patterns and component composition examples, load `references/advan
 }
 ```
 
-### ❌ NEVER Install These (Deprecated in v4)
+### ❌ Do NOT Install (Deprecated in v4)
 
 ```bash
-# These packages will cause build errors:
+# v3 JS plugin, no release since 2023 — will not work with CSS-first v4:
 bun add tailwindcss-animate  # ❌ Deprecated
 # or: npm install tailwindcss-animate  # ❌ Deprecated
-
-bun add tw-animate-css      # ❌ Doesn't exist
 ```
 
-**If you see import errors for these packages**, remove them and use native CSS animations or `@tailwindcss/motion` instead.
+### ✅ Use `tw-animate-css` instead
+
+It is on npm (`1.4.0` as of 2026-09) and is the replacement shadcn/ui adopted for v4
+in March 2025. Import it in CSS — it is not a `@plugin`:
+
+```css
+@import "tailwindcss";
+@import "tw-animate-css";
+```
+
+Utility names are unchanged from `tailwindcss-animate` (`animate-in`, `animate-out`,
+`fade-in-0`, `zoom-in-95`, `slide-in-from-*`), and `duration-*` / `ease-*` reach it
+through `--tw-duration` / `--tw-ease`.
+
+Two gotchas verified in this repo:
+
+- The package ships **no `prefers-reduced-motion` handling**. Write it yourself. Prefer
+  neutralising `--tw-enter-translate-*` / `--tw-*-scale` over `animation: none`, so
+  Radix still receives the `animationend` it waits for before unmounting.
+- Bare `zoom-in` / `zoom-out` set scale **0**, which looks like the element came from
+  nowhere. Always pass a value: `zoom-in-95`.
 
 ---
 
