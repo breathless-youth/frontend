@@ -599,20 +599,6 @@ function RoomSessionScreen({
             )}
           </div>
 
-          {/* Radix 포털을 타므로 여기 위치가 화면 배치를 정하지 않는다. 포털 자리를 `main`
-              으로 잡아야 `--session-dialog-*` 변수가 풀린다. 가로 전용 종료 확인 프레임은
-              Figma에 없어 세로와 같은 330w 다이얼로그를 화면 중앙에 띄운다. */}
-          <SessionConfirmDialog
-            open={exitDialogOpen}
-            container={sessionSurfaceRef.current}
-            title={EXIT_CONFIRM_COPY.title}
-            description={exitConfirmDescription(focusSec)}
-            cancelLabel={EXIT_CONFIRM_COPY.cancel}
-            confirmLabel={EXIT_CONFIRM_COPY.confirm}
-            onCancel={handleCancelExit}
-            onConfirm={handleConfirmExit}
-          />
-
           {/* 배경음 시트는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
           <AmbientSoundSheet
@@ -674,6 +660,25 @@ function RoomSessionScreen({
           쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
           치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
       {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
+
+      {/* 종료 확인 다이얼로그는 `phase` 삼항 **밖**에 둔다. `공부 종료`를 누르면 같은 렌더에서
+          `exitDialogOpen`이 false 가 되면서 `phase`도 `submitting`으로 바뀌는데, 삼항 안에
+          두면 그 프래그먼트가 통째로 언마운트돼 닫힘 모션이 한 프레임도 안 보인다. 밖에 두면
+          다이얼로그가 남아 Radix 가 퇴장 모션을 끝까지 재생한다. Radix 포털을 타므로 위치가
+          화면 배치를 정하지 않고, 포털 자리를 `main`으로 잡아야 `--session-dialog-*`가 풀린다. */}
+      <SessionConfirmDialog
+        // 삼항 밖이라 마운트는 유지되므로, 여는 조건에 phase 를 직접 건다. 자동 종료로
+        // phase 가 studying 을 벗어나면 열려 있던 다이얼로그도 open=false 가 되어 닫힘 모션을
+        // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false 로 가며 같은 경로를 탄다.
+        open={exitDialogOpen && phase.name === "studying"}
+        container={sessionSurfaceRef.current}
+        title={EXIT_CONFIRM_COPY.title}
+        description={exitConfirmDescription(focusSec)}
+        cancelLabel={EXIT_CONFIRM_COPY.cancel}
+        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        onCancel={handleCancelExit}
+        onConfirm={handleConfirmExit}
+      />
     </main>
   );
 }
