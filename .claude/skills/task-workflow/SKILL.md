@@ -224,6 +224,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
 - 팀의 PR 작성 컨벤션 및 템플릿(`.github/pull_request_template.md`)에 따라 Draft PR(초안)을 작성한다.
   - PR 제목은 `[타입] BY-N 제목` 형식 (CI `pr-title` job이 강제). 관련 이슈에는 GitHub 이슈번호가 아니라 **Jira 키**를 쓴다.
   - PR 본문도 티켓과 마찬가지로 **전문을 응답에 펼쳐 보여주고** 승인받는다.
+  - 본문 구조는 `doc-writing` 스킬의 PR 본문 절을 따른다. 초안은 AI가 써도 본문의 책임은 사람에게 있으므로 올린 뒤 직접 읽고 고친다.
 
 ### 8. PR 제출 및 봇 리뷰 대응
 
