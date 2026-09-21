@@ -170,6 +170,16 @@ export interface StudySessionStreakResponse {
 }
 
 /**
+ * 누적 공부 일 수 조회(`GET /api/stats/study-days`) 응답. 신원은 토큰으로만 받고, 구 앱 대응이 없는
+ * 새 경로라 API-Version은 기본값 1 하나다(백엔드 ADR-0015·0020) — 구 앱의 `?userId` 계약에는 이
+ * 경로가 없다. 기록이 없으면 0이다.
+ */
+export interface StudyDaysResponse {
+  /** 지금까지 공부 기록이 있는 날 수 */
+  totalDays: number;
+}
+
+/**
  * 기간 집계 조회 API 계약 (GET /api/stats/period) — Swagger 기준.
  * 총합·증감은 서버가 주지 않는다. 아래 배열을 합산해 계산한다.
  */

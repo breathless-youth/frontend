@@ -13,12 +13,15 @@ export const buttonVariants = cva(
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
         subtle: "bg-brand-subtle text-primary hover:opacity-90",
+        /** 보조 CTA(결과 화면 `홈으로`) — `bg/layer-2` 위 기본 글자색. */
+        secondary: "bg-bg-layer-2 text-foreground hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
-        xl: "h-14 rounded-xl px-5",
+        /** 화면 하단 고정 CTA(Figma `Button / CTA` XL 56px, r16). 폭은 호출부의 flex가 정하므로 패딩 없음. */
+        xl: "h-14 rounded-2xl text-[16px] leading-[19px] font-semibold",
       },
     },
     defaultVariants: {

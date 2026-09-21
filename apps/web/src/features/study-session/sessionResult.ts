@@ -5,6 +5,7 @@ import type {
 } from "@focusmakers/types";
 
 import { toKoreanDurationLength } from "./formatDuration";
+import { LEGEND_COPY, RESULT_COPY } from "./resultCopy";
 
 /**
  * S4(공부 결과) **표시용 파생값** — 순수 함수만 둔다.
@@ -63,6 +64,22 @@ export interface TimelineSegment {
   widthRatio: number;
 }
 
+/**
+ * 최고 집중 시간 — 세션 안에서 이벤트(AWAY/PHONE/DEVICE/PAUSE)로 끊기지 않고 이어진 **가장 긴
+ * 구간**(BY-560 시안 "최고 집중 시간 37분"). 서버가 하루 단위로 주는 `longestFocusSec`과 같은
+ * 정의를 세션 1건에 적용한 값이다 — 서버는 세션별 값을 내려주지 않아 이벤트에서 만든다.
+ */
+export interface LongestFocus {
+  startedAt: string;
+  endedAt: string;
+  durationSec: number;
+  /** `HH:MM – HH:MM` (24시간제, 로컬 타임존). */
+  clockRange: string;
+  /** 타임라인 바 위 하이라이트 위치 — 세션 벽시계 구간에 대한 비율(0~1). */
+  startRatio: number;
+  widthRatio: number;
+}
+
 export interface SessionResultView {
   focusSec: number;
   studySec: number;
@@ -79,6 +96,8 @@ export interface SessionResultView {
   /** 일시정지 집계. **0건이면 `null`** — 행·범례·세그먼트를 전부 숨긴다. */
   pause: EventTally | null;
   segments: TimelineSegment[];
+  /** 이어진 집중 구간이 하나도 없으면(세션 길이 0 등) `null` — 배지·행·하이라이트를 모두 숨긴다. */
+  longestFocus: LongestFocus | null;
 }
 
 function durationMs(event: StatusEventPayload): number {
@@ -149,6 +168,53 @@ export function timelineSegments(session: StudySessionResponse): TimelineSegment
   });
 }
 
+/**
+ * 최고 집중 구간 — 이벤트 사이의 빈 구간 중 가장 긴 것.
+ *
+ * 커서를 세션 시작에 두고 이벤트를 순서대로 지나며 "커서 → 이벤트 시작"의 빈 구간 길이를 재고,
+ * 마지막 이벤트 뒤 "커서 → 세션 끝"까지 본다. 정렬·병합은 서버 계약이 보장하므로 여기서 다시
+ * 하지 않는다(`timelineSegments`와 같은 태도) — 다만 겹친 이벤트가 와도 커서가 뒤로 가지 않게
+ * `max`로만 전진시킨다(표시 방어). 같은 길이면 먼저 나온 구간을 택한다.
+ */
+export function longestFocusStretch(session: StudySessionResponse): LongestFocus | null {
+  const startMs = Date.parse(session.startedAt);
+  const endMs = Date.parse(session.endedAt);
+  const spanMs = endMs - startMs;
+  if (!Number.isFinite(spanMs) || spanMs <= 0) {
+    return null;
+  }
+  let cursor = startMs;
+  let best = { start: startMs, end: startMs };
+  for (const event of session.events) {
+    const eventStart = Math.min(endMs, Math.max(startMs, Date.parse(event.startedAt)));
+    const eventEnd = Math.min(endMs, Math.max(startMs, Date.parse(event.endedAt)));
+    if (Number.isNaN(eventStart) || Number.isNaN(eventEnd)) {
+      continue;
+    }
+    if (eventStart - cursor > best.end - best.start) {
+      best = { start: cursor, end: eventStart };
+    }
+    cursor = Math.max(cursor, eventEnd);
+  }
+  if (endMs - cursor > best.end - best.start) {
+    best = { start: cursor, end: endMs };
+  }
+  const ms = best.end - best.start;
+  if (ms <= 0) {
+    return null;
+  }
+  const startedAt = new Date(best.start).toISOString();
+  const endedAt = new Date(best.end).toISOString();
+  return {
+    startedAt,
+    endedAt,
+    durationSec: Math.floor(ms / 1000),
+    clockRange: formatClockRange(startedAt, endedAt),
+    startRatio: (best.start - startMs) / spanMs,
+    widthRatio: ms / spanMs,
+  };
+}
+
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -173,24 +239,8 @@ export function toSessionResultView(session: StudySessionResponse): SessionResul
     distractionSec: distractions.reduce((sum, tally) => sum + tally.durationSec, 0),
     pause: tallies.get("PAUSE") ?? null,
     segments: timelineSegments(session),
+    longestFocus: longestFocusStretch(session),
   };
-}
-
-/**
- * 통계 행의 시간 표기.
- *
- * **이제 `toKoreanDurationLength`와 같은 규칙이다** — 분 단위로만 쓰고 초를 노출하지 않는다.
- *
- * 예전에는 이 함수가 `9분 40초`처럼 초까지 썼고, 그 근거는 voice-tone.md §2의 "초가 중요한
- * 상세 맥락은 M분 S초" 조항 + Figma 실측값(`2회 · 9분 40초`)이었다. **그 조항이 2026-07-27에
- * 폐기됐다**(8차 인터뷰: 모든 시간 텍스트 분 단위, 초 금지 — 라이브 타이머만 예외). 그래서
- * Figma 실측값과 의도적으로 달라진다.
- *
- * 별도 함수로 남겨 둔 이유는 호출부(`DistractionStatsCard`)의 의미가 다르기 때문이다 —
- * 통계 행의 시간은 접힌 상태에서는 아예 그려지지 않고 펼쳤을 때만 나온다.
- */
-export function formatEventDuration(totalSeconds: number): string {
-  return toKoreanDurationLength(totalSeconds);
 }
 
 /**
@@ -218,15 +268,21 @@ export function formatClockRange(startIso: string, endIso: string): string {
  * 타임라인 바의 스크린리더 요약.
  *
  * 바는 순수 시각 요소라 그대로 두면 정보가 사라진다 — `role="img"` + 이 라벨로 요약을 준다
- * (SCR-S4 Accessibility Requirements). 일시정지는 **있을 때만** 읽는다.
+ * (SCR-S4 Accessibility Requirements). 일시정지·최고 집중은 **있을 때만** 읽는다. 라벨은 범례와
+ * 같은 문구(`LEGEND_COPY`)를 쓴다 — 눈으로 보는 범례와 귀로 듣는 요약이 다른 말을 하면 안 된다.
  */
 export function timelineSummaryLabel(view: SessionResultView): string {
   const parts = [
-    `순공 ${toKoreanDurationLength(view.focusSec)}`,
-    `휴식 ${toKoreanDurationLength(view.distractionSec)}`,
+    `${LEGEND_COPY.focus} ${toKoreanDurationLength(view.focusSec)}`,
+    `${LEGEND_COPY.distract} ${toKoreanDurationLength(view.distractionSec)}`,
   ];
   if (view.pause !== null) {
-    parts.push(`일시정지 ${toKoreanDurationLength(view.pause.durationSec)}`);
+    parts.push(`${LEGEND_COPY.pause} ${toKoreanDurationLength(view.pause.durationSec)}`);
+  }
+  if (view.longestFocus !== null) {
+    parts.push(
+      `${RESULT_COPY.longestFocusLabel} ${toKoreanDurationLength(view.longestFocus.durationSec)}`,
+    );
   }
   return parts.join(", ");
 }

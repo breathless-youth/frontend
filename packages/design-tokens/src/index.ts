@@ -79,7 +79,7 @@ export const eventStatusColors = {
   PAUSE: sessionStateColors.PAUSE,
 } as const;
 
-/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 Pretendard를 자체 호스팅해 적용한다. */
+/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 NanumSquareRound를 자체 호스팅해 적용한다. */
 export const typography = {
   display: {
     /** 타이머 전용 */
@@ -90,6 +90,8 @@ export const typography = {
     h1: { size: 28, lineHeight: 36, weight: "bold" },
     h2: { size: 22, lineHeight: 30, weight: "bold" },
     h3: { size: 18, lineHeight: 26, weight: "bold" },
+    /** 복구 모달 등 강조 제목 전용, Figma 텍스트 스타일 heading/emphasis와 일치 */
+    emphasis: { size: 19, lineHeight: 23, weight: "extrabold" },
   },
   body: {
     lg: { size: 17, lineHeight: 26, weight: "regular" },
