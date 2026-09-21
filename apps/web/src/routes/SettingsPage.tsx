@@ -1,12 +1,16 @@
+import { Info } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { copyText } from "@/lib/clipboard";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { useToast } from "@/lib/useToast";
 import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
+import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
@@ -56,20 +60,34 @@ export function SettingsPage() {
     return () => clearTimeout(timer);
   }, [showToast]);
 
+  const versionLabel = appVersionLabel(
+    searchParams.get("appVersion"),
+    __WEB_VERSION__,
+    detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints),
+  );
+
+  const handleCopyVersion = async () => {
+    // clipboard 는 비보안 컨텍스트·구형 웹뷰에서 없거나 거부될 수 있다. copyText 가 그 경우
+    // false 를 주므로 성공·실패를 갈라 안내한다.
+    const copied = await copyText(versionLabel);
+    showToast(copied ? "버전을 복사했어요" : "복사하지 못했어요");
+  };
+
   return (
     <main
       data-testid="settings-page"
       // 홈·기록과 같은 규칙으로 상단 안전영역을 더한다 — 이 값이 빠져 있어 웹뷰에서 설정
       // 제목만 상태 바 쪽으로 올라붙었다(2026-08-01 실기기 확인). RN 원본의
       // `useSafeAreaInsets().top + 17`에 대응한다.
-      className="min-h-dvh bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      // theme-soft-blue: 이 화면 서브트리에서만 V2 팔레트를 켠다. bg-softblue-grad 가 배경 그라디언트.
+      className="theme-soft-blue bg-softblue-grad min-h-dvh pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>
 
         <SettingsSection className="mt-[23px]" label="프로필">
           <SettingsRow
-            label="프로필 설정"
+            label="프로필 수정"
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("profile");
@@ -78,36 +96,58 @@ export function SettingsPage() {
           />
         </SettingsSection>
 
-        <SettingsSection
-          className="mt-5"
-          label="측정"
-          caption="권한은 시스템 설정에서 바꿀 수 있어요"
-        >
+        <SettingsSection className="mt-5" label="서비스">
           {/*
-            토글이 아니라 **행 전체**가 시스템 설정을 여는 버튼이다(`user-flow.md` S6).
-            권한이 꺼져 있어도 S2-3(권한 거부 안내)으로 보내지 않는다 — S2-3은 최초 세션 시작
-            플로우의 화면이고, 설정 탭에서는 곧장 OS 설정으로 간다.
+            카메라 권한 행만 SettingsRow 를 쓰지 않고 직접 조립한다 — 행을 여는 버튼과 안내 ⓘ
+            툴팁 버튼 두 인터랙티브가 한 행에 있어, 행 전체를 <button> 으로 감싸면 버튼이 중첩된다.
+            라벨만 시스템 설정을 여는 버튼이고, ⓘ 는 그 옆의 별도 버튼, 토글은 표시 전용이다.
+            권한이 꺼져 있어도 S2-3(권한 거부 안내)으로 보내지 않는다 — 설정 탭에서는 곧장 OS 설정으로 간다.
           */}
-          <SettingsRow
-            label="카메라 권한"
-            // 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 트레일링을 비운다 —
-            // `useCameraPermission` 주석 참고. 토글은 표시 전용이고 실제 변경은 OS에서만 된다.
-            trailing={granted === null ? undefined : { kind: "toggle", granted }}
-            accessibilityLabel={cameraPermissionRowLabel(granted)}
-            onPress={() => {
-              trackOsSettingsOpened("settings_tab");
-              postToNative({ type: "open-settings", atMs: Date.now() });
-            }}
-          />
+          <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-[14px]">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <button
+                type="button"
+                aria-label={cameraPermissionRowLabel(granted)}
+                onClick={() => {
+                  trackOsSettingsOpened("settings_tab");
+                  postToNative({ type: "open-settings", atMs: Date.now() });
+                }}
+                // 텍스트만으로는 높이가 19라 44 터치 기준에 못 미친다 — 세로 음수 마진으로
+                // 행 높이는 키우지 않으면서 버튼 자체를 44 로 만든다.
+                className="text-foreground -my-3 flex min-h-11 items-center text-base leading-[19px]"
+              >
+                카메라 권한
+              </button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    aria-label="카메라 권한 안내"
+                    className="text-text-tertiary -my-3 flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+                  >
+                    <Info size={16} aria-hidden="true" />
+                  </TooltipTrigger>
+                  {/* 배경음 시트 툴팁은 세션 서브트리 변수를 쓰는데 이 화면엔 없어, 배경·글자를
+                      전역 토큰으로 덮는다. */}
+                  <TooltipContent
+                    side="bottom"
+                    align="start"
+                    className="bg-foreground text-background"
+                  >
+                    권한은 시스템 설정에서 바꿀 수 있어요
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
+            {granted !== null && <PermissionToggle granted={granted} />}
+          </div>
           {/*
             온보딩 가이드(G1~G5)로 **재진입**시키는 링크다(BY-334 온보딩 웹 이관에서 연결).
             가이드의 단계·전환은 이 화면이 전혀 알지 못한다. `entry=settings`는
             `features/onboarding/onboardingGuideSteps.ts`의 진입 출처 C.
-            서브 문구("자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요")는 의도적으로
-            달지 않는다 — 감지 3종 안내는 가이드 본문이 소유하고, 설정 행은 재진입 링크로만 남는다.
           */}
           <SettingsRow
-            label="측정 기준 안내"
+            label="서비스 이용 가이드"
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("guide");
@@ -173,14 +213,7 @@ export function SettingsPage() {
           />
           <SettingsRow
             label="버전 정보"
-            trailing={{
-              kind: "value",
-              value: appVersionLabel(
-                searchParams.get("appVersion"),
-                __WEB_VERSION__,
-                detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints),
-              ),
-            }}
+            trailing={{ kind: "copy", value: versionLabel, onCopy: handleCopyVersion }}
           />
         </SettingsSection>
       </div>
