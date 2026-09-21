@@ -548,7 +548,10 @@ export function LiveRoomSession({
         }}
       />
       <SessionConfirmDialog
-        open={exitDialogOpen}
+        // 자동 종료 경로가 여럿이다(usePauseAutoEnd·유예 만료·ROOM_UNAVAILABLE). 그중 하나가
+        // exitDialogOpen 이 true 인 채 phase 를 studying 밖으로 옮기면, 여는 조건에 phase 를
+        // 걸지 않는 한 이미 끝난 세션 위에 종료 확인 다이얼로그가 남는다.
+        open={exitDialogOpen && phase.name === "studying"}
         container={sessionSurfaceRef.current}
         title={EXIT_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
