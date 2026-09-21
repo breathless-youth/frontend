@@ -167,7 +167,7 @@ describe("RecordsPage", () => {
     const nextMonthFirstDay = statsQueryDateKey(todayKey, nextMonth);
     const recordedDateKey = `${nextMonthFirstDay.slice(0, -2)}15`;
 
-    mockedStats.mockImplementation(async (_userId, date) =>
+    mockedStats.mockImplementation(async (date) =>
       date === nextMonthFirstDay
         ? { ...statsResponse(false), studiedDatesInMonth: [recordedDateKey] }
         : statsResponse(false),
@@ -242,7 +242,7 @@ describe("RecordsPage", () => {
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderRecords("/records");
 
-    expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
+    expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
     expect(mockedStreak).not.toHaveBeenCalled();
   });

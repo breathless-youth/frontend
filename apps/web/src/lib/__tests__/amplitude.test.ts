@@ -452,6 +452,8 @@ describe("공부 세션 이벤트", () => {
       end_reason: "AUTO",
       pause_trigger: "BACKGROUND",
       will_submit: true,
+      ambient_sound_used: false,
+      ambient_sound_sec: 0,
     });
   });
 
@@ -866,6 +868,58 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
   });
 });
 
+describe("배경음 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(false);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("조합 변경·연동 토글을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "auto_start" });
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(true);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["ambient_sound_changed", { sounds: "white,rain", sound_count: 2, source: "auto_start" }],
+      ["ambient_sound_changed", { sounds: "", sound_count: 0, source: "dialog" }],
+      ["ambient_sound_duck_toggled", { enabled: true }],
+    ]);
+  });
+
+  it("세션 종료 이벤트에 배경음 사용 여부·시간을 싣고, 없으면 false/0 이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+    const base = {
+      roomType: "single" as const,
+      studySec: 100,
+      focusSec: 50,
+      pauseSec: 0,
+      distractionSec: 50,
+      endReason: "MANUAL" as const,
+      pauseTrigger: null,
+      willSubmit: true,
+    };
+
+    trackStudySessionEnded({ ...base, ambientSoundUsed: true, ambientSoundSec: 42 });
+    trackStudySessionEnded(base);
+
+    const payloads = mocks.track.mock.calls.map(
+      ([, payload]) => payload as Record<string, unknown>,
+    );
+    expect(payloads[0]).toMatchObject({ ambient_sound_used: true, ambient_sound_sec: 42 });
+    expect(payloads[1]).toMatchObject({ ambient_sound_used: false, ambient_sound_sec: 0 });
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
@@ -878,5 +932,135 @@ describe("Amplitude 의존성 가드", () => {
     );
 
     expect(banned).toEqual([]);
+  });
+});
+
+describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
+  const KEY = "fm_pending_result_exit";
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("예약은 초기화와 무관하게 저장되고, 도착 화면이 한 번만 보내며 지운다", async () => {
+    const staging = await loadModule();
+    staging.stageStudyResultExit({ roomType: "single", focusSec: 1200, consumeAt: "/home" });
+    expect(localStorage.getItem(KEY)).toContain('"focusSec":1200');
+
+    vi.resetModules();
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const arriving = await loadModule();
+    arriving.initAmplitude();
+    mocks.track.mockClear();
+
+    arriving.consumeStudyResultExit("/home");
+    arriving.consumeStudyResultExit("/home");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "single", focus_sec: 1200, destination: "home" }],
+    ]);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("10분 넘은 예약은 보내지 않고 버린다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        roomType: "single",
+        focusSec: 1200,
+        consumeAt: "/home",
+        ts: Date.now() - 11 * 60_000,
+      }),
+    );
+
+    m.consumeStudyResultExit("/home");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  /**
+   * 네이티브는 탭 4개 웹뷰를 동시에 마운트해 두고 `visibilitychange`는 앱 전체 포/백그라운드에만
+   * 반응한다 — 잠금 해제 한 번에 네 웹뷰가 동시에 여기로 들어온다. 못박은 경로가 아니면 손대지
+   * 않아야 정작 도착한 탭이 보낼 몫이 남는다.
+   */
+  it("다른 화면은 남의 예약을 집어가지도 지우지도 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "single", focusSec: 1200, consumeAt: "/home" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/social");
+    m.consumeStudyResultExit("/records");
+    m.consumeStudyResultExit("/settings");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KEY)).toContain('"consumeAt":"/home"');
+
+    m.consumeStudyResultExit("/home");
+    expect(mocks.track).toHaveBeenCalledWith("study_result_exited", {
+      room_type: "single",
+      focus_sec: 1200,
+      destination: "home",
+    });
+  });
+
+  it("기록 화면 몫이면 destination이 record다 — 소셜 탭 복귀는 home으로 센다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.stageStudyResultExit({ roomType: "single", focusSec: 900, consumeAt: "/records" });
+    mocks.track.mockClear();
+    m.consumeStudyResultExit("/records");
+
+    m.stageStudyResultExit({ roomType: "social", focusSec: 800, consumeAt: "/social" });
+    m.consumeStudyResultExit("/social");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "record" }],
+      ["study_result_exited", { room_type: "social", focus_sec: 800, destination: "home" }],
+    ]);
+  });
+
+  it("형태가 다른 예약은 보내지 않고 버린다 — 빈 객체는 TTL 가드를 우회해 NaN을 보낼 뻔했다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    for (const bad of [
+      "{}",
+      '{"roomType":"solo","focusSec":1200,"consumeAt":"/home","ts":1}',
+      '{"roomType":"single","focusSec":"1200","consumeAt":"/home","ts":1}',
+      // 경로가 없던 옛 버전의 예약 — 어디서 소비할지 모르므로 버린다.
+      '{"roomType":"single","focusSec":1200,"ts":1}',
+    ]) {
+      localStorage.setItem(KEY, bad);
+      m.consumeStudyResultExit("/home");
+      expect(localStorage.getItem(KEY)).toBeNull();
+    }
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("미초기화면 예약을 건드리지 않는다 — 깨진 payload도 던지지 않는다", async () => {
+    const m = await loadModule();
+    localStorage.setItem(KEY, "{not json");
+
+    m.consumeStudyResultExit("/home");
+    expect(localStorage.getItem(KEY)).toBe("{not json");
+
+    vi.resetModules();
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const initialized = await loadModule();
+    initialized.initAmplitude();
+    expect(() => initialized.consumeStudyResultExit("/home")).not.toThrow();
+    expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 });

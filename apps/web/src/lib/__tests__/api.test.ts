@@ -120,6 +120,99 @@ describe("apiFetch", () => {
   });
 });
 
+describe("API-Version과 토큰", () => {
+  const originalFetch = globalThis.fetch;
+
+  function mockFetch() {
+    const mocked = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    globalThis.fetch = mocked as unknown as typeof fetch;
+    return mocked;
+  }
+
+  function fakeSource(
+    token: string | null,
+    refreshed: string | null = "a2",
+    current = token,
+  ): TokenSource {
+    return {
+      getAccessToken: vi.fn().mockResolvedValue(token),
+      getCurrentToken: () => current,
+      refresh: vi.fn().mockResolvedValue(refreshed),
+      getUserId: () => 7,
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    };
+  }
+
+  // 재시도 경로는 같은 Headers 인스턴스를 그대로 재사용해 두 번째 fetch에서 첫 번째 호출의
+  // init.headers도 함께 바뀐다. mock.calls를 사후에 읽으면 두 호출 모두 "최종" 상태만 보이므로,
+  // 호출 시점에 new Headers(init.headers)로 스냅샷을 떠 순서대로 기록한다.
+  function mockFetchCapturingEachCall(statuses: number[]) {
+    const seen: { version: string | null; auth: string | null }[] = [];
+    const mocked = vi.fn().mockImplementation(async (_input: unknown, init: RequestInit) => {
+      const headers = new Headers(init.headers);
+      seen.push({ version: headers.get("API-Version"), auth: headers.get("Authorization") });
+      const status = statuses[seen.length - 1] ?? statuses[statuses.length - 1];
+      return { status, json: async () => ({}) };
+    });
+    globalThis.fetch = mocked as unknown as typeof fetch;
+    return { mocked, seen };
+  }
+
+  afterEach(() => {
+    mocks.source = null;
+    globalThis.fetch = originalFetch;
+  });
+
+  it("처음엔 토큰이 없다가 401 뒤 갱신으로 토큰이 생기면 재시도는 API-Version: 2를 보낸다", async () => {
+    mocks.source = fakeSource(null, "a2");
+    const { mocked, seen } = mockFetchCapturingEachCall([401, 200]);
+    await apiFetch("/api/rooms");
+    expect(mocked).toHaveBeenCalledTimes(2);
+    expect(seen[0]).toEqual({ version: "1", auth: null });
+    expect(seen[1]).toEqual({ version: "2", auth: "Bearer a2" });
+  });
+
+  it("토큰을 붙여도 재시도에서 승격되는 API-Version 위에서 호출부가 명시한 값이 우선한다", async () => {
+    mocks.source = fakeSource(null, "a2");
+    const { mocked, seen } = mockFetchCapturingEachCall([401, 200]);
+    await apiFetch("/api/rooms", { headers: { "API-Version": "1" } });
+    expect(mocked).toHaveBeenCalledTimes(2);
+    expect(seen[0]).toEqual({ version: "1", auth: null });
+    expect(seen[1]).toEqual({ version: "1", auth: "Bearer a2" });
+  });
+
+  it("토큰을 붙이면 API-Version: 2를 보낸다", async () => {
+    mocks.source = fakeSource("a1");
+    const mocked = mockFetch();
+    await apiFetch("/api/rooms");
+    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("Authorization")).toBe("Bearer a1");
+    expect(headers.get("API-Version")).toBe("2");
+  });
+
+  it("출처가 있어도 토큰이 없으면 API-Version: 1이다", async () => {
+    mocks.source = fakeSource(null);
+    const mocked = mockFetch();
+    await apiFetch("/api/rooms");
+    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("Authorization")).toBeNull();
+    expect(headers.get("API-Version")).toBe("1");
+  });
+
+  it("토큰을 붙여도 호출부가 명시한 API-Version이 우선한다", async () => {
+    mocks.source = fakeSource("a1");
+    const mocked = mockFetch();
+    await apiFetch("/api/rooms", { headers: { "API-Version": "1" } });
+    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("API-Version")).toBe("1");
+    expect(headers.get("Authorization")).toBe("Bearer a1");
+  });
+});
+
 describe("apiFetch — Bearer 부착과 401 재시도", () => {
   const originalFetch = globalThis.fetch;
   const status = (code: number) => ({ ok: code < 300, status: code, json: async () => ({}) });
@@ -133,6 +226,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
       getCurrentToken: () => current,
       refresh: vi.fn().mockResolvedValue(refreshed),
       getUserId: () => 7,
+      hasSettled: () => true,
       subscribe: () => () => {},
     };
   }

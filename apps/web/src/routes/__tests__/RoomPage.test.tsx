@@ -66,8 +66,8 @@ function renderRoom(url: string) {
 
 /**
  * 컨트롤 바 종료 버튼과 다이얼로그 확정 버튼은 **같은 이름**(`공부 종료`)을 갖는다 —
- * 실제 브라우저에서는 배경이 `inert`라 접근성 트리에 하나만 남지만 jsdom은 `inert`를
- * 접근성 계산에 반영하지 않으므로 테스트에서는 다이얼로그 안으로 범위를 좁힌다.
+ * Radix modal 이 배경을 `aria-hidden` 처리하면 접근성 트리에 다이얼로그 것만 남지만,
+ * 안전하게 다이얼로그 안으로 범위를 좁혀 확정 버튼을 집는다.
  */
 function confirmExitButton() {
   return within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" });
@@ -237,7 +237,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
     expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
-      userId: 1,
       events: [],
     });
   });
@@ -263,7 +262,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -273,7 +272,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
   });
 
@@ -982,33 +981,30 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(exitButton).toHaveFocus();
   });
 
-  it("열려 있는 동안 배경 세션 레이어를 inert로 만든다", async () => {
-    const { container } = renderRoom("/room/7?userId=1");
-    const tapLayer = screen.getByRole("button", { name: "심플 모드 전환" });
-    expect(tapLayer).not.toHaveAttribute("inert");
+  it("열려 있는 동안 배경 세션 레이어가 접근성 트리에서 가려진다", async () => {
+    renderRoom("/room/7?userId=1");
+    // 열기 전에는 심플 모드 전환 버튼과 종료 버튼이 접근성 트리에 있다.
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toBeInTheDocument();
 
     await openExitDialog();
 
-    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute("inert");
-    // 세션 레이아웃 레이어(상태 필·타이머·컨트롤 바를 담은 컨테이너)도 함께 꺼진다.
-    expect(container.querySelectorAll("[inert]")).toHaveLength(2);
+    // Radix 가 배경을 aria-hidden 처리하고 바깥 포인터를 막는다. 예전에는 inert 로 했고
+    // 그러면 닫힐 때 포커스를 돌려줄 버튼도 inert 라 복귀가 조용히 실패했다. 딤 뒤 탭이
+    // 심플 모드를 토글하지 못하는 것도 같은 차단에서 나온다.
+    expect(screen.queryByRole("button", { name: "심플 모드 전환" })).not.toBeInTheDocument();
   });
 
-  it("다이얼로그는 세션 레이아웃 레이어의 **형제**다 — 자식이면 가로 그리드가 깨진다", () => {
+  it("다이얼로그가 세션 레이아웃 레이어 밖(포털)에 그려진다 — 레이어 안이면 그리드가 밀린다", () => {
     // qa-WG3 실측: `SESSION_LAYER_LAYOUT` div의 자식으로 넣으면 (1) 가로에서 좌상단에 배치되고
     // (2) 심플 타이머가 밀리고 (3) pointer-events-none을 상속해 버튼이 클릭을 못 받는다.
-    // 구조 자체를 고정해 회귀를 막는다.
+    // Radix 포털이 레이어 밖으로 빼내므로 구조 자체로 회귀를 막는다.
     const { container } = renderRoom("/room/7?userId=1");
     fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
-    const dialogOverlay = screen.getByRole("alertdialog").parentElement!;
+    const dialog = screen.getByRole("alertdialog");
     const layoutLayer = container.querySelector(".pointer-events-none")!;
 
-    expect(layoutLayer.contains(dialogOverlay)).toBe(false);
-    expect(dialogOverlay.parentElement).toBe(layoutLayer.parentElement);
-    // 오버레이는 pointer-events를 직접 켠다(레이어의 none을 상속하지 않는다).
-    expect(dialogOverlay.className).toContain("pointer-events-auto");
-    expect(dialogOverlay.className).toContain("absolute inset-0");
+    expect(layoutLayer.contains(dialog)).toBe(false);
   });
 });
 
@@ -1114,7 +1110,7 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
 });

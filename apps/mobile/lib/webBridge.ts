@@ -111,7 +111,14 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (typeof record.visible !== "boolean") {
         return null;
       }
-      return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
+      return {
+        type: "set-tab-bar",
+        visible: record.visible,
+        // 값이 이상해도 메시지를 통째로 버리지 않는다. 버리면 탭 바 신호 자체가 사라져
+        // 지금보다 나빠진다(`share`의 url과 같은 처리).
+        ...(record.blockedByModal === true ? { blockedByModal: true } : {}),
+        atMs: record.atMs,
+      };
     case "set-back-gesture":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 기본값(켜짐)이 유지되는 편이 안전하다.
       // 여기서 truthy 판정으로 넘기면 오타 하나에 문의하기 스와이프 복귀가 사라진다.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
-import type { ToNativeMessage } from "@focusmakers/types";
+import type { SetTabBarMessage, ToNativeMessage } from "@focusmakers/types";
 
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
@@ -11,7 +11,7 @@ import { RemoteWebViewHost } from "./RemoteWebViewHost";
  * 탭 3개(홈·기록·설정) + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
  *
  * 세 가지를 한 곳에 모은다 — 화면마다 복붙하지 않기 위해서다:
- * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(userId·appVersion)를 붙인다.
+ * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(appVersion·capability 표시)를 붙인다.
  * 2. `handleBridgeMessage`로 브리지 수신(start-session·navigate-home·open-settings 등)을
  *    공용화한다.
  * 3. 파라미터 조립부터 첫 웹뷰 로드가 끝날 때까지 스플래시로 가려 흰 화면을 막는다.
@@ -22,7 +22,7 @@ export type RemoteScreenProps = {
   /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
   path: string;
   /**
-   * 공용 파라미터(userId·appVersion)에 **더해** 붙일 화면별 쿼리. 딥링크 화면
+   * 공용 파라미터(appVersion·capability 표시)에 **더해** 붙일 화면별 쿼리. 딥링크 화면
    * (`app/social/join.tsx`)이 초대코드를 웹으로 넘길 때 쓴다. `path`에 `?`를 직접 붙이면
    * `buildRemoteWebViewUrl`이 쿼리를 `?`로 한 번 더 이어 URL이 깨지므로 반드시 이걸 쓴다.
    */
@@ -93,15 +93,36 @@ export function RemoteScreen({
   const onRecoveryStart = useCallback(() => {
     setLoaded(false);
     setLoadFailed(false);
-  }, []);
-  const onLoadEnd = useCallback((ok: boolean) => {
-    setLoaded(true);
-    setLoadFailed(!ok);
-    // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
-    // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
-    // 뒤로가기가 영영 막힌다.
-    setBackLocked(false);
-  }, []);
+    // 문서 교체가 확정되는 시점이다 — 새 문서는 아직 아무 것도 보고하지 않았으니 여기서
+    // 되돌려도 방금 보고된 상태를 덮지 않는다. onLoadEnd(성공)에는 이 되돌리기를 두지 않는다
+    // — 새 문서의 set-tab-bar 신호가 onLoadEnd보다 먼저 도착할 수 있어, 거기서 되돌리면
+    // 새 문서가 이미 보고한 차단·숨김 상태를 visible:true로 덮어쓴다.
+    lastTabBarMessageRef.current = null;
+    if (!suppressTabBarMessages) {
+      onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
+    }
+  }, [suppressTabBarMessages, onBridgeMessage]);
+  const onLoadEnd = useCallback(
+    (ok: boolean) => {
+      setLoaded(true);
+      setLoadFailed(!ok);
+      // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
+      // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
+      // 뒤로가기가 영영 막힌다.
+      setBackLocked(false);
+      if (ok) {
+        // 로드 성공에는 탭 바 상태를 건드리지 않는다 — 새 문서가 이미 자기 상태를
+        // 보고했을 수 있다(위 onRecoveryStart 주석). 되돌리는 시점은 문서 교체가 확정되는
+        // 복구 진입과, 살아 있는 문서가 없는 아래 실패 경로뿐이다.
+        return;
+      }
+      lastTabBarMessageRef.current = null;
+      if (!suppressTabBarMessages) {
+        onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
+      }
+    },
+    [suppressTabBarMessages, onBridgeMessage],
+  );
 
   // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
   // 세션은 화면 단위 prop(blockHardwareBack)을 걸 자리가 없어 브리지 신호로 잠근다.
@@ -114,7 +135,8 @@ export function RemoteScreen({
   const [darkScreen, setDarkScreen] = useState(false);
   // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
   // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
-  const lastTabBarVisibleRef = useRef<boolean | null>(null);
+  // boolean이 아니라 메시지를 통째로 드는 이유는 차단 여부까지 같이 되돌려야 하기 때문이다.
+  const lastTabBarMessageRef = useRef<SetTabBarMessage | null>(null);
 
   const filteredBridgeMessage = useCallback(
     (message: ToNativeMessage, reply: BridgeReply) => {
@@ -124,7 +146,7 @@ export function RemoteScreen({
         return;
       }
       if (message.type === "set-tab-bar") {
-        lastTabBarVisibleRef.current = message.visible;
+        lastTabBarMessageRef.current = message;
         if (suppressTabBarMessages) {
           return;
         }
@@ -143,11 +165,11 @@ export function RemoteScreen({
     if (suppressTabBarMessages) {
       return;
     }
-    const visible = lastTabBarVisibleRef.current;
-    if (visible === null) {
+    const last = lastTabBarMessageRef.current;
+    if (last === null) {
       return;
     }
-    onBridgeMessage({ type: "set-tab-bar", visible, atMs: Date.now() }, () => undefined);
+    onBridgeMessage({ ...last, atMs: Date.now() }, () => undefined);
   }, [suppressTabBarMessages, onBridgeMessage]);
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이

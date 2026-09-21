@@ -74,7 +74,7 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     await waitFor(() => {
-      expect(mockedUpdateProfile).toHaveBeenCalledWith(7, {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({
         goal: "올해 안에 이직 성공",
         category: "JOB",
       });
@@ -91,7 +91,7 @@ describe("프로필 설정", () => {
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     await waitFor(() => {
-      expect(mockedUpdateProfile).toHaveBeenCalledWith(7, { nickname: "숨벅찬청년들" });
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({ nickname: "숨벅찬청년들" });
     });
   });
 

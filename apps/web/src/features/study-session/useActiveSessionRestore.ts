@@ -60,7 +60,7 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
     async function run(id: number) {
       for (let attempt = 0; attempt <= MAX_RETRY; attempt += 1) {
         try {
-          const restored = await restoreActiveSession(id);
+          const restored = await restoreActiveSession();
           if (!cancelled) {
             setState({ userId: id, settled: true, restored });
           }

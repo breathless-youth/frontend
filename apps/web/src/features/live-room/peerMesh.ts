@@ -139,7 +139,7 @@ export function createPeerMesh({
     pc: RTCPeerConnection,
   ): Promise<Omit<
     RtcStatRequest,
-    "connectionId" | "roomId" | "userId" | "peerUserId" | "isFinal" | "at"
+    "connectionId" | "roomId" | "peerUserId" | "isFinal" | "at"
   > | null> {
     if (typeof pc.getStats !== "function") {
       return null;
@@ -235,7 +235,6 @@ export function createPeerMesh({
     const payload: RtcStatRequest = {
       connectionId,
       roomId,
-      userId: myUserId,
       peerUserId: userId,
       isFinal: false,
       at: Date.now(),

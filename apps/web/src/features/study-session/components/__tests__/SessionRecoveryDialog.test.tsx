@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SessionRecoveryDialog } from "../SessionRecoveryDialog";
@@ -52,5 +53,28 @@ describe("SessionRecoveryDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SessionRecoveryDialog — 닫기 차단", () => {
+  it("Escape 를 눌러도 닫히지 않는다", async () => {
+    const user = userEvent.setup();
+    render(<SessionRecoveryDialog recovered={RECOVERED} onConfirm={vi.fn()} />);
+
+    await user.keyboard("{Escape}");
+
+    // 확인 버튼으로만 닫는 강제 안내 모달이라 Escape 로는 사라지지 않는다.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("딤(바깥)을 눌러도 닫히지 않는다", async () => {
+    const user = userEvent.setup();
+    render(<SessionRecoveryDialog recovered={RECOVERED} onConfirm={vi.fn()} />);
+
+    const dim = document.querySelector<HTMLElement>('[data-state="open"]:not([role="dialog"])');
+    if (dim === null) throw new Error("딤을 찾지 못했다");
+    await user.click(dim);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

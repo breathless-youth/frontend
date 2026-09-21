@@ -15,7 +15,7 @@ import { ensureUserRegistered } from "../../lib/userApi";
  * 탭 3개 + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
  *
  * 검증 범위: (1) 파라미터 조립이 끝나기 전엔 웹뷰를 띄우지 않고 스플래시만 보여주는지,
- * (2) 조립된 userId·appVersion이 실제로 URL에 붙는지, (3) 첫 로드가 끝나야 스플래시가
+ * (2) 조립된 공용 파라미터가 실제로 URL에 붙는지, (3) 첫 로드가 끝나야 스플래시가
  * 걷히는지, (4) 브리지 메시지가 공용 핸들러(`handleBridgeMessage`)로 연결되는지.
  */
 
@@ -101,14 +101,14 @@ describe("RemoteScreen", () => {
     expect(screen.getByTestId("home-webview-splash").props.pointerEvents).toBe("none");
   });
 
-  it("조립된 userId·appVersion을 쿼리로 붙여 웹뷰를 띄운다", async () => {
+  it("조립된 공용 파라미터를 쿼리로 붙여 웹뷰를 띄운다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
     render(<RemoteScreen testID="home-webview" path="/home" />);
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
     });
   });
 
@@ -389,6 +389,181 @@ describe("RemoteScreen", () => {
 
     expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "set-tab-bar", visible: false }),
+      expect.any(Function),
+    );
+  });
+
+  it("재보고에 blockedByModal이 함께 실린다 — 빠지면 탭 전환 뒤 모달 위에서 탭이 눌린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const view = render(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: '{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":5}',
+        },
+      });
+    });
+
+    view.rerender(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    mockedHandleBridgeMessage.mockClear();
+    view.rerender(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar", visible: false, blockedByModal: true }),
+      expect.any(Function),
+    );
+  });
+
+  it("차단 상태를 받은 뒤 성공적으로 재로드돼도 탭 바 차단을 그대로 둔다 — 새 문서가 이미 보고했을 수 있다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: '{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":5}',
+        },
+      });
+    });
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar" }),
+      expect.any(Function),
+    );
+  });
+
+  it("비포커스 탭의 성공적인 재로드도 탭 바를 건드리지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    const webview = await screen.findByTestId("home-webview");
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar" }),
+      expect.any(Function),
+    );
+  });
+
+  it("사망 복구가 시작되면 탭 바를 visible:true로 되돌리고 저장된 메시지를 지운다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const view = render(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: '{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":5}',
+        },
+      });
+    });
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar", visible: true }),
+      expect.any(Function),
+    );
+
+    // 저장된 메시지가 지워졌다면, 이후 포커스를 잃었다 되찾아도 지운 blockedByModal이
+    // 재보고되지 않는다.
+    mockedHandleBridgeMessage.mockClear();
+    view.rerender(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    view.rerender(
+      <RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />,
+    );
+
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ blockedByModal: true }),
+      expect.any(Function),
+    );
+  });
+
+  it("suppressTabBarMessages면 복구 시작에서 발신하지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    const webview = await screen.findByTestId("home-webview");
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar" }),
+      expect.any(Function),
+    );
+  });
+
+  it("복구 시작 → 새 문서의 set-tab-bar → onLoadEnd 순서에서는 새 문서가 보고한 차단 상태가 남는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages={false} />);
+    const webview = await screen.findByTestId("home-webview");
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onContentProcessDidTerminate as () => void)();
+    });
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: '{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":9}',
+        },
+      });
+    });
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    const calls = mockedHandleBridgeMessage.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall?.[0]).toEqual(
+      expect.objectContaining({ type: "set-tab-bar", visible: false, blockedByModal: true }),
+    );
+  });
+
+  it("로드 실패면 탭 바를 visible:true로 되돌린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: {
+          data: '{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":5}',
+        },
+      });
+    });
+    mockedHandleBridgeMessage.mockClear();
+
+    act(() => {
+      (webview.props.onError as () => void)();
+    });
+
+    expect(mockedHandleBridgeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set-tab-bar", visible: true }),
       expect.any(Function),
     );
   });

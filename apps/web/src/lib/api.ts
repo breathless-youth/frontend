@@ -63,6 +63,8 @@ export async function parseApiError(
  * — 백엔드 버전닝 기본 헤더를 한 곳에서 관리한다. 호출부가 API-Version을 직접 지정하면 그 값이 우선한다.
  */
 const DEFAULT_API_VERSION = "1";
+/** 토큰을 붙인 요청은 새 명세 버전으로 보낸다. 서버가 이 값으로 토큰 인증 요청을 가른다. */
+const TOKEN_API_VERSION = "2";
 
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // fetch와 시그니처를 맞춰 Request 입력도 받는다. init.headers가 없으면 Request가
@@ -71,9 +73,13 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     init?.headers ??
     (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined);
   const headers = new Headers(baseHeaders);
-  if (!headers.has("API-Version")) {
-    headers.set("API-Version", DEFAULT_API_VERSION);
-  }
+  // 헤더 결정을 토큰 부착이 정해진 뒤로 미룬다 — 호출부가 명시한 값은 그대로 둔다.
+  // 호출부 지정 여부는 여기서 한 번만 확정한다 — 이후 우리가 쓴 기본값과 구분해야
+  // 재시도에서 1 → 2로 승격할 때 "이미 값이 있다"는 이유로 막히지 않는다.
+  const callerSetVersion = headers.has("API-Version");
+  const setDefaultVersion = (version: string) => {
+    if (!callerSetVersion) headers.set("API-Version", version);
+  };
   // init에 signal이 없으면 Request 입력이 실어 온 signal을 대신 본다 — headers와 같은 이유다.
   const signal =
     init?.signal ??
@@ -86,11 +92,15 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
   // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 오늘 동작 그대로다.
   const source = getTokenSource();
   if (source === null) {
+    setDefaultVersion(DEFAULT_API_VERSION);
     return send();
   }
   const sent = await source.getAccessToken();
   if (sent !== null) {
     headers.set("Authorization", `Bearer ${sent}`);
+    setDefaultVersion(TOKEN_API_VERSION);
+  } else {
+    setDefaultVersion(DEFAULT_API_VERSION);
   }
   const res = await send();
   // 만료 판단은 서버의 401만 믿는다. 401 경로는 status만 읽는다 — 테스트가 fetch를 얇은 객체로 mock한다.
@@ -109,5 +119,6 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     return res;
   }
   headers.set("Authorization", `Bearer ${next}`);
+  setDefaultVersion(TOKEN_API_VERSION);
   return send();
 }

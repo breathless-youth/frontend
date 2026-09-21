@@ -67,7 +67,7 @@ export function isSettledStatsDate(date: string, now: Date = new Date()): boolea
 export function dailyStatsQuery(userId: number, date: string) {
   return queryOptions({
     queryKey: statsKeys.daily(userId, date),
-    queryFn: () => listStudySessionStats(userId, date),
+    queryFn: () => listStudySessionStats(date),
     ...(isSettledStatsDate(date) ? { staleTime: Infinity, gcTime: SETTLED_GC_TIME_MS } : {}),
   });
 }
@@ -75,7 +75,7 @@ export function dailyStatsQuery(userId: number, date: string) {
 export function streakQuery(userId: number, range?: DateRange) {
   return queryOptions({
     queryKey: statsKeys.streak(userId, range),
-    queryFn: () => getStreak(userId, range),
+    queryFn: () => getStreak(range),
   });
 }
 
@@ -89,6 +89,6 @@ export function studyDaysQuery(userId: number) {
 export function periodStatsQuery(userId: number, range: DateRange, compareRange?: DateRange) {
   return queryOptions({
     queryKey: statsKeys.period(userId, range, compareRange),
-    queryFn: () => getPeriodStats(userId, range, compareRange),
+    queryFn: () => getPeriodStats(range, compareRange),
   });
 }

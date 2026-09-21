@@ -109,6 +109,9 @@ export function LiveRoomSession({
   useSessionOrientationAnalytics("social");
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // 종료 다이얼로그의 포털 자리. `--session-dialog-*` 변수가 여기 주입돼 있어 body 로 나가면
+  // 색이 빠진다.
+  const sessionSurfaceRef = useRef<HTMLElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
@@ -187,7 +190,6 @@ export function LiveRoomSession({
   }, [channel, endAndSubmit]);
   const requestRejoin = useRoomRejoin({
     channel,
-    userId,
     inviteCode,
     onUnavailable: handleRoomUnavailable,
   });
@@ -375,7 +377,7 @@ export function LiveRoomSession({
         focusSec,
         sessions: phase.sessions,
       });
-      void leaveRoom(roomId, userId).catch(() => undefined);
+      void leaveRoom(roomId).catch(() => undefined);
       if (nav.to === "result") {
         navigate(
           { pathname: `/social/room/${roomId}/result`, search: location.search },
@@ -448,6 +450,7 @@ export function LiveRoomSession({
 
   return (
     <main
+      ref={sessionSurfaceRef}
       data-testid="live-room-page"
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
@@ -467,8 +470,9 @@ export function LiveRoomSession({
           lines={debugLines}
         />
       )}
-      {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
-      <div className="contents" inert={dialogOpen}>
+      {/* 다이얼로그의 포커스 트랩·바깥 차단은 Radix 가 스스로 한다. inert 를 겹치면 닫힐 때
+          포커스를 돌려줄 요소가 이미 inert 라 복귀가 조용히 실패한다. */}
+      <div className="contents">
         <RoomGrid
           grid={grid}
           allMembers={allMembers}
@@ -523,43 +527,45 @@ export function LiveRoomSession({
         </div>
       </div>
 
-      {cameraDialogOpen && (
-        <CameraOnConfirmDialog
-          preview={
-            <ClonedTrackPreview
-              stream={cameraStream}
-              facing={cameraFacing}
-              targetAspect={previewAspect ?? undefined}
-            />
-          }
-          onCancel={() => {
-            trackSocialRoomCameraOnDismissed();
-            setCameraDialogOpen(false);
-          }}
-          onConfirm={() => {
-            trackSocialRoomCameraToggled(true);
-            setCameraDialogOpen(false);
-            setCameraWanted(true);
-            resume();
-          }}
-        />
-      )}
-      {exitDialogOpen && (
-        <SessionConfirmDialog
-          title={EXIT_CONFIRM_COPY.title}
-          description={exitConfirmDescription(focusSec)}
-          cancelLabel={EXIT_CONFIRM_COPY.cancel}
-          confirmLabel={EXIT_CONFIRM_COPY.confirm}
-          onCancel={() => {
-            trackStudySessionExitCancelled("social");
-            setExitDialogOpen(false);
-          }}
-          onConfirm={() => {
-            setExitDialogOpen(false);
-            void endAndSubmit(MANUAL_END_REASON);
-          }}
-        />
-      )}
+      <CameraOnConfirmDialog
+        open={cameraDialogOpen}
+        preview={
+          <ClonedTrackPreview
+            stream={cameraStream}
+            facing={cameraFacing}
+            targetAspect={previewAspect ?? undefined}
+          />
+        }
+        onCancel={() => {
+          trackSocialRoomCameraOnDismissed();
+          setCameraDialogOpen(false);
+        }}
+        onConfirm={() => {
+          trackSocialRoomCameraToggled(true);
+          setCameraDialogOpen(false);
+          setCameraWanted(true);
+          resume();
+        }}
+      />
+      <SessionConfirmDialog
+        // 자동 종료 경로가 여럿이다(usePauseAutoEnd·유예 만료·ROOM_UNAVAILABLE). 그중 하나가
+        // exitDialogOpen 이 true 인 채 phase 를 studying 밖으로 옮기면, 여는 조건에 phase 를
+        // 걸지 않는 한 이미 끝난 세션 위에 종료 확인 다이얼로그가 남는다.
+        open={exitDialogOpen && phase.name === "studying"}
+        container={sessionSurfaceRef.current}
+        title={EXIT_CONFIRM_COPY.title}
+        description={exitConfirmDescription(focusSec)}
+        cancelLabel={EXIT_CONFIRM_COPY.cancel}
+        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        onCancel={() => {
+          trackStudySessionExitCancelled("social");
+          setExitDialogOpen(false);
+        }}
+        onConfirm={() => {
+          setExitDialogOpen(false);
+          void endAndSubmit(MANUAL_END_REASON);
+        }}
+      />
     </main>
   );
 }

@@ -13,7 +13,7 @@ import {
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
-import { trackStudyResultConfirmed } from "@/lib/amplitude";
+import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { useUserId } from "@/lib/userId";
 
@@ -97,8 +97,17 @@ export function ResultPage() {
     return () => window.clearTimeout(timer);
   }, [reducedMotion, sessions]);
 
+  if (sessions === null) {
+    /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
+       없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
+       그리지 않는다(SCR-S4 Interaction Contract).
+       `leave`와 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
+       고쳐지고 다른 쪽이 남는다. */
+    return <Navigate to={{ pathname: home, search: location.search }} replace />;
+  }
+
   /**
-   * 이탈 경로는 하단 CTA **둘**뿐이다 — `홈으로`와 `기록으로 가기`(BY-560). 시안에서 우상단 X가
+   * 이탈 경로는 하단 CTA **둘**뿐이다 — `홈으로`와 `기록으로 가기`. 시안에서 우상단 X가
    * 빠졌고, 둘 다 공개(`revealed`) 뒤에만 있다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
@@ -122,8 +131,21 @@ export function ResultPage() {
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
-  function leave(via: "home" | "records") {
-    trackStudyResultConfirmed({ roomType: home === "/home" ? "single" : "social", via });
+  // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
+  const leave = (via: "home" | "records") => {
+    const roomType = home === "/home" ? "single" : "social";
+    trackStudyResultConfirmed({ roomType, via });
+    /**
+     * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
+     * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
+     * 돌아갈 경로를 함께 못박아 그 탭 웹뷰만 가져가게 한다. 자정 분할 세션은 배열로 오므로
+     * 합산해야 `study_session_ended`가 보낸 값과 같아진다.
+     */
+    stageStudyResultExit({
+      roomType,
+      focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
+      consumeAt: via === "records" ? "/records" : home,
+    });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
@@ -138,16 +160,7 @@ export function ResultPage() {
       postToNative({ type: "navigate-tab", tab: "records", via: "study_result", atMs: Date.now() });
     }
     navigate({ pathname: home, search: location.search }, { replace: true });
-  }
-
-  if (sessions === null) {
-    /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
-       없다. 스펙의 기본안대로 홈으로 리다이렉트한다 — 없는 세션을 지어내거나 빈 결과 화면을
-       그리지 않는다(SCR-S4 Interaction Contract).
-       `leave`와 같은 목적지·같은 쿼리 보존 규칙을 쓴다 — 두 경로가 갈리면 한쪽만
-       고쳐지고 다른 쪽이 남는다. */
-    return <Navigate to={{ pathname: home, search: location.search }} replace />;
-  }
+  };
 
   /**
    * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은

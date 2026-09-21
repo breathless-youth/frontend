@@ -1,12 +1,11 @@
 /**
- * 서버 전송용/API 계약 도메인 타입. 실제 백엔드 Swagger 계약을 기준으로만 정의한다
- * (초기 명세 기반 임시 타입은 2026-07-25 삭제 — git 히스토리 참고).
+ * 서버 전송용/API 도메인 타입.
+ * 실제 백엔드 Swagger 계약을 기준으로만 정의한다
  */
 
 /**
- * 익명 기기 유저 등록 API 계약 (POST /api/users).
- * 로그인 없는 V1.0에서 기기 UUID로 사용자를 식별한다 — 근거:
- * .ai/notes/2026-07-23-로그인-도입-시점-변경.md
+ * 익명 기기 유저 등록 API
+ * 로그인 없는 V1.0에서 기기 UUID로 사용자를 식별한다
  */
 export interface UserRegisterRequest {
   /** 앱이 첫 실행 때 생성해 기기 보안 저장소에 보관하는 UUID. 서버가 소문자로 정규화한다. */
@@ -52,7 +51,8 @@ export interface StatusEventPayload {
 }
 
 export interface StudySessionCreateRequest {
-  userId: number;
+  /** 토큰 없는 요청(구 앱)에서만 싣는다. 토큰이 있으면 서버가 토큰에서 읽는다. */
+  userId?: number;
   /** 방 입장 시각 (UTC ISO-8601) */
   startedAt: string;
   /** 방 퇴장 시각 (UTC ISO-8601) — 시작 이후·24시간 이내·미래 불가(시계 오차 5분 허용) */
@@ -67,8 +67,9 @@ export interface StudySessionCreateRequest {
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
 export interface ActiveSessionSnapshotRequest {
-  userId: number;
-  /** 세션 시작 시각 (UTC ISO-8601) — 최종 제출 startedAt과 같은 값, userId와 함께 draft 멱등 키 */
+  /** 토큰 없는 요청(구 앱)에서만 싣는다. 토큰이 있으면 서버가 토큰에서 읽는다. */
+  userId?: number;
+  /** 세션 시작 시각 (UTC ISO-8601) — 최종 제출 startedAt과 같은 값, draft 멱등 키 */
   startedAt: string;
   /** 이 스냅샷의 기준 시각 (UTC ISO-8601) — 자동 확정 시 endedAt이 된다 */
   reportedAt: string;
@@ -212,7 +213,7 @@ export interface ApiErrorBody {
   message?: string;
 }
 
-/** 방 생성: 생성만으로는 입장 상태가 아니다 */
+/** 방 생성 본문. 토큰 없는 요청(구 앱)에서만 보낸다. 토큰이 있으면 본문 없이 보낸다. */
 export interface RoomCreateRequest {
   userId: number;
 }
@@ -226,7 +227,8 @@ export interface RoomCreateResponse {
 
 /** 초대코드 입장 */
 export interface RoomJoinRequest {
-  userId: number;
+  /** 토큰 없는 요청(구 앱)에서만 싣는다. 토큰이 있으면 서버가 토큰에서 읽는다. */
+  userId?: number;
   inviteCode: string;
 }
 
@@ -252,7 +254,8 @@ export interface RtcStatRequest {
   /** PeerConnection당 프론트가 발급하는 UUID — 연결 단위 중복 제거 키 */
   connectionId: string;
   roomId: number;
-  userId: number;
+  /** 토큰 없는 요청(구 앱)에서만 싣는다. 토큰이 있으면 서버가 토큰에서 읽는다. */
+  userId?: number;
   peerUserId?: number;
   candidateType: "host" | "srflx" | "prflx" | "relay";
   relayProtocol?: "udp" | "tcp" | "tls";

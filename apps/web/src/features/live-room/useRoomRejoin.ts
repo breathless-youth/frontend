@@ -24,12 +24,10 @@ const REJOIN_TIMEOUT_MS = 8000;
  */
 export function useRoomRejoin({
   channel,
-  userId,
   inviteCode,
   onUnavailable,
 }: {
   channel: RoomChannel;
-  userId: number;
   inviteCode: string;
   onUnavailable: () => void;
 }): () => void {
@@ -78,7 +76,7 @@ export function useRoomRejoin({
       stateRef.current = "idle";
       onUnavailable();
     }, REJOIN_TIMEOUT_MS);
-    void renewLiveRoomSeat(userId, inviteCode)
+    void renewLiveRoomSeat(inviteCode)
       .then(() => {
         if (cancelledRef.current || stateRef.current !== "rejoining") {
           return;
@@ -95,5 +93,5 @@ export function useRoomRejoin({
         stateRef.current = "idle";
         onUnavailable();
       });
-  }, [channel, userId, inviteCode, onUnavailable]);
+  }, [channel, inviteCode, onUnavailable]);
 }

@@ -62,8 +62,8 @@ describe("useHomeSummary", () => {
         longestFocusSec: 1800,
       },
     });
-    expect(mockedStats).toHaveBeenCalledWith(7, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
-    expect(mockedStreak).toHaveBeenCalledWith(7, undefined);
+    expect(mockedStats).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+    expect(mockedStreak).toHaveBeenCalledWith(undefined);
   });
 
   it("통계 조회 실패 시 error 상태가 되고 retry로 재시도한다", async () => {

@@ -18,7 +18,10 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn("fixed inset-0 z-50 bg-[var(--dim)]", className)}
+    className={cn(
+      "fixed inset-0 z-50 bg-[var(--dim)] duration-200 ease-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+      className,
+    )}
     {...props}
   />
 ));
@@ -29,20 +32,37 @@ export interface DialogContentProps extends React.ComponentPropsWithoutRef<
 > {
   /** X 닫기 버튼 표시 여부. 강제 업데이트처럼 닫을 수 없는 다이얼로그는 false로 끈다. */
   showCloseButton?: boolean;
+  /**
+   * 포털이 그려질 자리. 기본은 `document.body` 다.
+   *
+   * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳에서는 반드시 그 서브트리의 요소를
+   * 넘겨야 한다. body 로 나가면 변수가 풀리지 않아 색이 통째로 빠진다
+   * (같은 문제를 `ui/sheet.tsx` 가 같은 prop 으로 푼다).
+   */
+  container?: HTMLElement | null;
+  /** 딤에 얹을 클래스. 세션처럼 전역 `--dim` 과 다른 딤을 쓰는 곳이 덮어쓴다. */
+  overlayClassName?: string;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, showCloseButton = true, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
+>(({ className, children, showCloseButton = true, container, overlayClassName, ...props }, ref) => (
+  <DialogPortal container={container ?? undefined}>
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 text-foreground shadow-lg sm:rounded-lg",
+        // zoom-in-95 는 배율 0.95 에서 시작한다는 뜻이다. 값을 빼고 zoom-in 으로 쓰면 배율 0,
+        // 곧 아무것도 없던 자리에서 튀어나온 것처럼 보인다. 모달은 트리거에 매달린 팝오버가
+        // 아니므로 transform-origin 은 중앙 그대로 둔다.
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 text-foreground shadow-lg duration-200 ease-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 sm:rounded-lg",
         className,
       )}
+      // Radix가 이 속성을 만들어주지 않는다 — `nativeModalOverlay.ts`의 네이티브 탭 바
+      // 차단 감지가 `aria-modal="true"`의 존재 여부만 본다. props보다 앞에 둬 호출부가
+      // 필요하면 덮어쓸 수 있게 한다.
+      aria-modal="true"
       {...props}
     >
       {children}
