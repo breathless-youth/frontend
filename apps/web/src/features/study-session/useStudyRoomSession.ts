@@ -14,6 +14,7 @@ import {
   trackStudySessionSubmitted,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { queryClient } from "@/lib/queryClient";
@@ -283,6 +284,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
+    // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
+    trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
 
   /**
@@ -536,6 +539,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
+        });
+        // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
+        trackMetaStudySessionEnded({
+          roomType,
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
         });
       }
 

@@ -11,6 +11,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
         "NSMotionUsageDescription": "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
+        "NSUserTrackingUsageDescription": "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상이나 공부 기록은 광고에 쓰이지 않아요.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": ["ko"],

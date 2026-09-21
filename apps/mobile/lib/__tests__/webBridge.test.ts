@@ -285,3 +285,98 @@ describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
     ).toBeNull();
   });
 });
+
+describe("parseToNativeMessage — meta-app-event", () => {
+  it("이름·파라미터·valueToSum을 파싱한다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "meta-app-event",
+          name: "study_session_ended",
+          params: { room_type: "single", focus_sec: 600 },
+          valueToSum: 600,
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "meta-app-event",
+      name: "study_session_ended",
+      params: { room_type: "single", focus_sec: 600 },
+      valueToSum: 600,
+      atMs: 5,
+    });
+  });
+
+  it("파라미터·valueToSum 없이도 파싱한다 — 필드를 만들어 넣지 않는다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "meta-app-event", name: "social_room_entered", atMs: 5 }),
+      ),
+    ).toEqual({ type: "meta-app-event", name: "social_room_entered", atMs: 5 });
+  });
+
+  it.each(["1starts_with_digit", "한글이름", "a".repeat(41), "has.dot", ""])(
+    "이름이 Meta 형식에 어긋나면(%s) 통째로 버린다 — SDK에 넘기면 네이티브 예외",
+    (name) => {
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "meta-app-event", name, atMs: 5 })),
+      ).toBeNull();
+    },
+  );
+
+  it("이름이 문자열이 아니면 버린다", () => {
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "meta-app-event", name: 7, atMs: 5 })),
+    ).toBeNull();
+  });
+
+  it("형식 밖 파라미터 항목만 뺀다 — 객체·boolean·NaN 값, 형식 밖 키", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "meta-app-event",
+          name: "study_session_started",
+          params: {
+            room_type: "single",
+            nested: { a: 1 },
+            flag: true,
+            한글키: 1,
+            list: [1],
+            ok_number: 3,
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "meta-app-event",
+      name: "study_session_started",
+      params: { room_type: "single", ok_number: 3 },
+      atMs: 5,
+    });
+  });
+
+  it("params가 객체가 아니면 통째로 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "meta-app-event", name: "x", params: "room_type=single", atMs: 5 }),
+      ),
+    ).toBeNull();
+  });
+
+  it("파라미터는 25개까지만 남긴다 (Meta 규칙)", () => {
+    const params = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`p_${i}`, i]));
+    const parsed = parseToNativeMessage(
+      JSON.stringify({ type: "meta-app-event", name: "x", params, atMs: 5 }),
+    );
+    expect(parsed?.type).toBe("meta-app-event");
+    expect(Object.keys((parsed as { params: Record<string, unknown> }).params)).toHaveLength(25);
+  });
+
+  it("valueToSum이 유한한 수가 아니면 그 필드만 뺀다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "meta-app-event", name: "x", valueToSum: "600", atMs: 5 }),
+      ),
+    ).toEqual({ type: "meta-app-event", name: "x", atMs: 5 });
+  });
+});

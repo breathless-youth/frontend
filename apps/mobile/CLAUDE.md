@@ -33,6 +33,17 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 - **강제 업데이트는 네이티브가 판정한다.** `lib/forceUpdate.ts`가 Remote Config `min_supported_version`을 앱 버전과 비교한다. 기본값은 `UPDATE_CONFIG_DEFAULTS` 한 곳에서 한 번의 `setDefaults`로 등록한다(다른 곳에서 또 부르면 서로 지운다). 권장 업데이트는 `recommendedUpdateAlert.ts`가 최신 버전당 한 번 띄운다.
 - **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한 요청은 `__DEV__`에서만 한다. `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다.
 
+## Meta 광고 SDK (`lib/metaAds.ts` · `lib/metaAdsSdk.ts`)
+
+`react-native-fbsdk-next`·`expo-tracking-transparency`. 앱 설치 어트리뷰션과 앱 내 전환 이벤트(BY-644). 설계는 [BY-644](../../docs/superpowers/specs/2026-09-13-by-644-meta-sdk-install-attribution-design.md).
+
+- **SDK는 `lib/metaAdsSdk.ts`만 import한다.** 루트 import가 네이티브 없이(jest) 로드 시점에 죽고, 이 통로는 `userApi`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나간다. 다른 코드는 `lib/metaAds.ts`의 공개 함수만 본다. `_layout` 테스트처럼 `app/_layout.tsx`를 렌더하는 테스트는 `lib/metaAdsSdk`를 mock한다(모듈 스코프 호출이라 factory 안에서 `jest.fn`을 만든다).
+- **설정은 env 주입이다.** `META_APP_ID`·`META_CLIENT_TOKEN`이 둘 다 있을 때만 `app.config.ts`가 두 plugin과 `extra.metaAppId`를 넣는다. 둘 다 없으면 plugin도 런타임 동작(ATT 프롬프트·이벤트)도 없다. 하나만 있으면 throw, production은 EAS 빌더에서 누락도 throw — **다음 production 빌드 전에 EAS production environment에 두 값을 등록해야 한다.** `metaSdkConfig.test.ts`가 고정한다. `app.json`에 앱 ID를 직접 적지 말 것(공개 저장소).
+- **ATT 문구는 `app.json`의 `ios.infoPlist.NSUserTrackingUsageDescription`이다.** 두 plugin 모두 옵션(`iosUserTrackingPermission`·`userTrackingPermission`)을 주지 말 것 — 영어 기본값이나 다른 문구로 덮인다. `permissionCopy.test.ts`가 고정한다. Android `AD_ID` 권한은 tracking-transparency plugin이 매니페스트에 넣는다 — `app.json` 권한 열거에는 없지만 산출물에는 있다(권한 드리프트 점검 시 참고).
+- **초기화 순서**: 모듈 스코프 `installMetaAdsSdk()` → 홈이 그려진 뒤 `initMetaAds()`(ATT 프롬프트) → 그 뒤 권장 업데이트 알림창. 초기화 전 이벤트(첫 실행의 가입 완료)는 큐에 두었다가 ATT 응답을 SDK에 알린 뒤 흘린다. 이 순서를 바꾸면 iOS 광고 식별자 매칭이 빠지거나 OS 알림창이 겹친다.
+- **전환 이벤트 정의는 웹이 소유한다**(`apps/web/src/lib/metaAppEvents.ts`). 네이티브는 브리지 `meta-app-event`의 이름·파라미터 **형식만** 검증해(`webBridge.ts`) SDK에 넘긴다 — 이름을 화이트리스트하지 말 것(전환 목록 변경에 앱 빌드가 필요해진다). 네이티브가 직접 찍는 것은 가입 완료(`userApi.ts`의 서버 `isNew`) 하나다.
+- `autoLogAppEventsEnabled`·`isAutoInitEnabled`를 끄지 말 것(설치 어트리뷰션의 근거 이벤트가 사라진다). 로그인·공유 기능은 쓰지 않는다 — plugin의 `scheme`·`displayName`은 필수값일 뿐이다.
+
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).

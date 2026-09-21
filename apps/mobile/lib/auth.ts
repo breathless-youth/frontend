@@ -5,6 +5,7 @@ import type { AuthRefreshResponse, ToWebMessage, UserRegisterResponse } from "@f
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
+import { logMetaRegistration } from "./metaAds";
 
 /**
  * 토큰의 유일한 소유자. SecureStore 키 하나에 JSON으로 묶어 저장한다 — 회전 도중 앱이 죽어도
@@ -97,8 +98,8 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
 /**
  * 등록 API 원본 호출. `Authorization`을 붙이지 않는다.
  *
- * 응답의 `isNew`는 서버 계약이라 타입에 있을 뿐, 분기에 쓰는 소비자가 없다(2026-07-31 검토).
- * 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다.
+ * 응답의 `isNew`는 Meta 가입 완료 이벤트(`logMetaRegistration`)만 소비한다 — 광고로 설치한 사용자가 실제
+ * 신규인지 세는 용도다. 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다.
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await apiFetch(`${apiBaseUrl()}/api/users`, {
@@ -146,12 +147,18 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return state;
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId, accessToken, refreshToken } = await registerUser(deviceId);
-    return await writeAuth({
+    const { userId, isNew, accessToken, refreshToken } = await registerUser(deviceId);
+    const state = await writeAuth({
       userId,
       accessToken: accessToken ?? null,
       refreshToken: refreshToken ?? null,
     });
+    if (isNew) {
+      // 저장이 끝난 뒤에 찍는다 — 저장 실패로 다음 실행에서 재등록되면 서버는 isNew=false를 주므로,
+      // 먼저 찍었다면 그 사용자의 가입 완료가 한 번도 안 남을 수 있다.
+      logMetaRegistration();
+    }
+    return state;
   } catch (error) {
     console.warn("[auth] 토큰 발급 실패 — 다음 실행에서 재시도", error);
     return null;
