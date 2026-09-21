@@ -15,6 +15,7 @@ import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
 import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -214,17 +215,6 @@ export function ResultPage() {
         </div>
       )}
     </main>
-  );
-}
-
-/**
- * 모션 축소 설정 — 같은 판정을 `RoomControlBar`·`useTileFlipAnimation`도 인라인으로 쓴다.
- * `matchMedia`가 없는 환경(테스트)은 축소 아님으로 본다.
- */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
 
