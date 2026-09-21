@@ -9,7 +9,7 @@ import type {
   DetectorState,
   VisionObjectDetector,
 } from "../../vision/objectDetector";
-import { FRAME_INTERVAL_MS } from "../../vision/visionConfig";
+import { FRAME_INTERVAL_MS, SCORE_THRESHOLDS } from "../../vision/visionConfig";
 
 /**
  * 추론 코어(`vision/*`)는 자기 테스트를 갖고 있다. 여기서 검증하는 것은 **배선**이다 —
@@ -311,7 +311,9 @@ describe("createVisionFocusDetector", () => {
   });
 
   it("진단 로그에 좌표를 넘기지 않는다 — 라벨별 최고 score만 남는다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame(0.42)] });
+    // person 임계는 튜닝 대상이라 literal 대신 임계 기준으로 잡는다.
+    const personScore = SCORE_THRESHOLDS.person + 0.12;
+    const { detector } = fakeObjectDetector({ frames: [personFrame(personScore)] });
     const frame = vi.fn();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
@@ -333,7 +335,7 @@ describe("createVisionFocusDetector", () => {
         personPresent: true,
         awaySignal: false,
         phoneSignal: false,
-        topScores: { [PERSON_LABEL]: 0.42 },
+        topScores: { [PERSON_LABEL]: personScore },
         delegate: "GPU",
       }),
     );

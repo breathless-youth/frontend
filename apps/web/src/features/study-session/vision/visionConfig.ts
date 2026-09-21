@@ -112,9 +112,18 @@ export const CATEGORY_ALLOWLIST = ["person", "cell phone"] as const;
  * ⚠️ MediaPipe `ObjectDetector`는 **임계를 하나만** 받는다. 그래서 검출기에는 둘 중 낮은
  * 값을 주고(`DETECTOR_SCORE_THRESHOLD`), 라벨별 구분은 `detectionRules`가 한 번 더 거른다.
  * 검출기 임계를 높게 주면 그 아래 검출은 애초에 배열에 오지 않아 규칙이 손댈 수 없다.
+ *
+ * ## person 0.4 (2026-09-21, 실기기 튜닝)
+ *
+ * 원래 0.3이었다. 1 fps 전환(`FRAME_INTERVAL_MS`)과 함께 실기기에서 0.4·0.5를 비교해 0.4로
+ * 정했다. 0.5는 공부 자세에서 이탈 오탐이 늘어 되돌렸다.
+ * ⚠️ 오차 방향은 위 원칙과 반대다 — 임계가 오르면 고개 숙임·거치 각도에서 person을 놓치는
+ * 프레임이 늘고, 1 fps에서는 프레임 하나의 미검출이 1000ms 동안 유지되므로 `AWAY.enterMs`
+ * 2000ms 안에 두 번만 놓쳐도 이탈로 확정된다. 실기기에서 공부 중 이탈 오탐이 눈에 띄면
+ * 0.3으로 되돌린다. 발열·배터리와는 무관한 값이다(후처리 임계).
  */
 export const SCORE_THRESHOLDS = {
-  person: 0.3,
+  person: 0.4,
   phone: 0.4,
 } as const;
 
