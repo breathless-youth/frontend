@@ -10,6 +10,7 @@ import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
+  HEAD_PITCH_DOWN_DEG,
 } from "../../visionConfig";
 
 /** 호출을 세는 기본 진단. 껍데기가 전부 넘기는지 확인한다. */
@@ -844,5 +845,83 @@ describe("진행 중 통계", () => {
     m.frame(frame());
 
     expect(m.stats()).toMatchObject({ dropped: 0, objectP95: null });
+  });
+});
+
+describe("고개 각도와 EAR", () => {
+  function faceWith(
+    headPitchDeg: number | null,
+    ear: number | null,
+    skipReason: string | null = null,
+  ) {
+    return frame({
+      face: {
+        present: true,
+        eye: skipReason === null ? { eyeBlinkLeft: 0.2, eyeBlinkRight: 0.2 } : null,
+        skipReason,
+        durationMs: 50,
+        delegate: "CPU",
+        headPitchDeg,
+        ear,
+      },
+    });
+  }
+
+  it("구간별 고개 각도와 EAR 분포를 낸다 — 내려다봄 게이트 값을 정할 근거다", () => {
+    const m = createMeasurement(baseSpy());
+    m.mark("내려다봄");
+    for (const [pitch, ear] of [
+      [30, 0.2],
+      [35, 0.18],
+      [40, 0.15],
+    ] as const) {
+      m.frame(faceWith(pitch, ear, "looking-down"));
+    }
+
+    const seg = (
+      JSON.parse(m.dump()) as {
+        segments: {
+          headPitch: Record<string, number>;
+          ear: Record<string, number>;
+          face: { skipped: Record<string, number> };
+        }[];
+      }
+    ).segments[0];
+    expect(seg?.headPitch.samples).toBe(3);
+    expect(seg?.headPitch.p50).toBeCloseTo(35, 1);
+    expect(seg?.ear.samples).toBe(3);
+    expect(seg?.ear.p50).toBeCloseTo(0.18, 3);
+    // 게이트에 걸린 관측은 눈 점수가 없어도 각도는 남는다 — 그래야 게이트를 튜닝한다.
+    expect(seg?.face.skipped["looking-down"]).toBe(3);
+  });
+
+  it("각도나 EAR이 없는 관측은 분포에서 뺀다", () => {
+    const m = createMeasurement(baseSpy());
+    m.frame(faceWith(null, null));
+    m.frame(faceWith(12, 0.3));
+
+    const seg = (
+      JSON.parse(m.dump()) as {
+        segments: { headPitch: { samples: number }; ear: { samples: number } }[];
+      }
+    ).segments[0];
+    expect(seg?.headPitch.samples).toBe(1);
+    expect(seg?.ear.samples).toBe(1);
+  });
+
+  it("실시간 값에 마지막 관측의 각도·EAR·건너뛴 이유가 실린다", () => {
+    const m = createMeasurement(baseSpy());
+    m.frame(faceWith(31, 0.19, "looking-down"));
+
+    const live = m.live();
+    expect(live.headPitchDeg).toBe(31);
+    expect(live.ear).toBe(0.19);
+    expect(live.faceSkip).toBe("looking-down");
+  });
+
+  it("게이트 값이 설정 스냅샷에 실린다", () => {
+    const m = createMeasurement(baseSpy());
+    const config = (JSON.parse(m.dump()) as { config: Record<string, number> }).config;
+    expect(config.headPitchDownDeg).toBe(HEAD_PITCH_DOWN_DEG);
   });
 });

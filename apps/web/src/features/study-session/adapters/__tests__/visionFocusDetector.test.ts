@@ -11,6 +11,7 @@ import type {
   VisionObjectDetector,
 } from "../../vision/objectDetector";
 import type { FaceObservation } from "../../vision/sleepRules";
+import { measurementDiagnostics } from "../../vision/measurement";
 import {
   EYE_CALIBRATION_DELTA,
   EYE_CALIBRATION_SAMPLES,
@@ -175,7 +176,9 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
     }
     const next = faces[Math.min(index, faces.length - 1)] ?? null;
     index += 1;
-    return next === null ? null : { face: next, durationMs: 1 };
+    return next === null
+      ? null
+      : { face: next, durationMs: 1, metrics: { headPitchDeg: null, ear: null } };
   });
   const close = vi.fn(() => {
     state = "idle";
@@ -1276,5 +1279,32 @@ describe("얼굴 모델이 도중에 죽을 때", () => {
 
     // 산 관측 둘과 감지 불가를 드러낸 호출 하나. 그 뒤로는 게이트가 닫혀 더 부르지 않는다.
     expect(faceDetect).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("측정 도구가 읽는 보정", () => {
+  it("시작한 감지기의 것이다 — 나중에 만들어졌지만 시작하지 않은 감지기가 덮어쓰지 않는다", async () => {
+    const faces = Array.from({ length: EYE_CALIBRATION_SAMPLES + 2 }, () => seen(0.2));
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces });
+    const running = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    // React StrictMode가 개발 빌드에서 만들고 버리는 두 번째 인스턴스. 시작하지 않는다.
+    createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector: fakeObjectDetector({ frames: [personFrame()] }).detector,
+      faceLandmarker: fakeFaceLandmarker({ faces: [seen(0.2)] }).landmarker,
+    });
+
+    running.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 2);
+
+    expect(running.eyeCalibration).not.toBeNull();
+    expect(measurementDiagnostics.live().calibration).toEqual(running.eyeCalibration);
+    running.close();
   });
 });

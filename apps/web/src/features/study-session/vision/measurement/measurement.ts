@@ -13,6 +13,7 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
+  HEAD_PITCH_DOWN_DEG,
   FRAME_INTERVAL_MS,
   SCORE_THRESHOLDS,
 } from "../visionConfig";
@@ -81,6 +82,10 @@ interface Segment {
   objectMs: number[];
   faceMs: number[];
   eyeClosure: number[];
+  /** 고개 숙임 각도(도). 내려다봄 게이트를 튜닝할 근거다. */
+  headPitchDeg: number[];
+  /** 두 눈 EAR 중 큰 쪽. blendshape 눈 점수와 나란히 놓고 어느 쪽이 내려다봄을 가르는지 본다. */
+  ear: number[];
   personScore: number[];
   faceRan: number;
   facePresent: number;
@@ -177,6 +182,11 @@ export interface LiveSnapshot {
   readonly sleepEyes: boolean;
   readonly sleepDrowsy: boolean;
   readonly facePresent: boolean | null;
+  /** 마지막 얼굴 관측이 눈 판정을 건너뛴 이유. 내려다봄 게이트에 걸렸는지가 여기서 보인다. */
+  readonly faceSkip: string | null;
+  /** 마지막 얼굴 관측의 고개 숙임 각도(도)와 EAR. */
+  readonly headPitchDeg: number | null;
+  readonly ear: number | null;
   readonly person: number | null;
   readonly calibration: EyeCalibration | null;
 }
@@ -257,6 +267,8 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     objectMs: [],
     faceMs: [],
     eyeClosure: [],
+    headPitchDeg: [],
+    ear: [],
     personScore: [],
     faceRan: 0,
     facePresent: 0,
@@ -333,6 +345,7 @@ function configSnapshot() {
     eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
     eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     eyeAwakeClearSamples: EYE_AWAKE_CLEAR_SAMPLES,
+    headPitchDownDeg: HEAD_PITCH_DOWN_DEG,
     sleepDrowsyEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs,
     sleepDrowsyExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.exitMs,
   };
@@ -340,6 +353,8 @@ function configSnapshot() {
 
 function summarize(segment: Segment) {
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
+  const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
+  const earSorted = [...segment.ear].sort((a, b) => a - b);
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
@@ -359,6 +374,20 @@ function summarize(segment: Segment) {
       p05: percentile(eyeSorted, 0.05, 3),
       p50: percentile(eyeSorted, 0.5, 3),
       p95: percentile(eyeSorted, 0.95, 3),
+    },
+    // 게이트에 걸린 관측의 각도도 들어 있다(눈 점수와 달리 게이트 앞에서 뽑는다). 그래야 내려다봄
+    // 구간의 각도 분포가 보이고, 그것이 게이트 값을 정하는 근거다.
+    headPitch: {
+      samples: pitchSorted.length,
+      p05: percentile(pitchSorted, 0.05, 1),
+      p50: percentile(pitchSorted, 0.5, 1),
+      p95: percentile(pitchSorted, 0.95, 1),
+    },
+    ear: {
+      samples: earSorted.length,
+      p05: percentile(earSorted, 0.05, 3),
+      p50: percentile(earSorted, 0.5, 3),
+      p95: percentile(earSorted, 0.95, 3),
     },
     person: {
       mean: mean(personSorted, 3),
@@ -401,6 +430,12 @@ function record(segment: Segment, diagnostics: FrameDiagnostics): void {
   if (closure !== null) {
     segment.eyeClosure.push(closure);
   }
+  if (face.headPitchDeg !== undefined && face.headPitchDeg !== null) {
+    segment.headPitchDeg.push(face.headPitchDeg);
+  }
+  if (face.ear !== undefined && face.ear !== null) {
+    segment.ear.push(face.ear);
+  }
 }
 
 /** 분당 요약 주기. 16분 세션이 수천 줄이 되면 읽을 수 없다. */
@@ -417,6 +452,8 @@ function summaryLine(minute: number, segment: Segment): string {
   const object = msStats(segment.objectMs);
   const face = msStats(segment.faceMs);
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
+  const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
+  const earSorted = [...segment.ear].sort((a, b) => a - b);
   return [
     `min=${minute}`,
     `frames=${segment.frames}`,
@@ -424,6 +461,8 @@ function summaryLine(minute: number, segment: Segment): string {
     `obj=${numberOrDash(object.mean)}/${numberOrDash(object.p95)}ms`,
     `face=${numberOrDash(face.mean)}/${numberOrDash(face.p95)}ms`,
     `eye=${numberOrDash(percentile(eyeSorted, 0.5, 3))}/${numberOrDash(percentile(eyeSorted, 0.95, 3))}`,
+    `pitch=${numberOrDash(percentile(pitchSorted, 0.5, 1))}/${numberOrDash(percentile(pitchSorted, 0.95, 1))}`,
+    `ear=${numberOrDash(percentile(earSorted, 0.5, 3))}/${numberOrDash(percentile(earSorted, 0.05, 3))}`,
     `facePresent=${segment.faceRan === 0 ? "-" : round(segment.facePresent / segment.faceRan, 2)}`,
     `person=${numberOrDash(mean(segment.personScore, 3))}`,
     `sleepEyes=${segment.sleepEyes}`,
@@ -711,6 +750,9 @@ export function createMeasurement(
         sleepEyes: lastFrame?.sleepEyesSignal === true,
         sleepDrowsy: lastFrame?.sleepDrowsySignal === true,
         facePresent: face === null ? null : face.present,
+        faceSkip: face === null ? null : face.skipReason,
+        headPitchDeg: face?.headPitchDeg ?? null,
+        ear: face?.ear ?? null,
         person: lastFrame?.topScores.person ?? null,
         calibration: currentCalibration(),
       };

@@ -9,7 +9,13 @@ import type {
   MediapipeFaceLandmarkerHandle,
   MediapipeFaceRuntime,
 } from "../mediapipePort";
-import { FACE_MODEL_PATH, MEDIAPIPE_WASM_PATH, MIN_INTER_OCULAR_NORMALIZED } from "../visionConfig";
+import {
+  EAR_LANDMARKS,
+  FACE_MODEL_PATH,
+  HEAD_PITCH_DOWN_DEG,
+  MEDIAPIPE_WASM_PATH,
+  MIN_INTER_OCULAR_NORMALIZED,
+} from "../visionConfig";
 
 // 실패 경로가 Sentry로 가는지 검증한다 — partial mock이라 다른 export는 실제 그대로.
 vi.mock("@/lib/sentry", async (importOriginal) => ({
@@ -44,6 +50,35 @@ function faceResult(interOcular = 0.13, closure = 0.2) {
 }
 
 const NO_FACE = { faceLandmarks: [], faceBlendshapes: [] };
+
+/**
+ * 순수 pitch 회전의 자세 행렬(열 우선 가정). 아래를 볼 때 `data[9]`가 −sin(각도)가 되도록 만든다 —
+ * `headPitchDegOf`의 가정과 같은 배치라, 이 테스트는 "그 가정 아래에서 각도가 되살아난다"를 본다.
+ */
+function pitchMatrix(pitchDeg: number) {
+  const radians = (pitchDeg * Math.PI) / 180;
+  const c = Math.cos(radians);
+  const s = Math.sin(radians);
+  // 열 우선: 열0=(1,0,0,0) 열1=(0,c,s,0) 열2=(0,-s,c,0) 열3=(0,0,0,1)
+  return { rows: 4, columns: 4, data: [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1] };
+}
+
+/** 눈 6점씩을 EAR이 정확히 `ear`가 되도록 놓는다. 가로 0.06, 세로 짝 두 개가 같은 길이다. */
+function withEyes(points: { x: number; y: number }[], ear: number, right = ear) {
+  const place = (indexes: readonly number[], x0: number, value: number) => {
+    const half = (value * 0.12) / 4;
+    const [p1, p2, p3, p4, p5, p6] = indexes;
+    points[p1!] = { x: x0, y: 0.4 };
+    points[p4!] = { x: x0 + 0.06, y: 0.4 };
+    points[p2!] = { x: x0 + 0.02, y: 0.4 - half };
+    points[p6!] = { x: x0 + 0.02, y: 0.4 + half };
+    points[p3!] = { x: x0 + 0.04, y: 0.4 - half };
+    points[p5!] = { x: x0 + 0.04, y: 0.4 + half };
+  };
+  place(EAR_LANDMARKS.left, 0.38, ear);
+  place(EAR_LANDMARKS.right, 0.56, right);
+  return points;
+}
 
 function fakeHandle(result: unknown = faceResult()) {
   return {
@@ -392,5 +427,102 @@ describe("createFaceLandmarker — 추론 실패", () => {
       .mocked(reportHandled)
       .mock.calls.filter(([, tag]) => tag === "vision-face-frame-loop");
     expect(reports).toHaveLength(1);
+  });
+});
+
+describe("내려다봄 게이트와 얼굴 지표", () => {
+  async function ready(result: unknown) {
+    const handle = fakeHandle(result);
+    const { loadRuntime } = fakeRuntime(async () => handle);
+    const landmarker = createFaceLandmarker({ loadRuntime });
+    await landmarker.load();
+    return { landmarker, handle };
+  }
+
+  it("고개를 게이트 이상 숙이면 눈 판정을 하지 않고 looking-down으로 남긴다 — 얼굴은 있다", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(0.13, 0.9),
+      facialTransformationMatrixes: [pitchMatrix(HEAD_PITCH_DOWN_DEG + 15)],
+    });
+
+    const result = landmarker.detect(video, 0);
+    expect(result?.face).toEqual({ facePresent: true, eye: null, eyeSkipReason: "looking-down" });
+    // 게이트에 걸린 관측에서도 각도는 넘긴다 — 그게 게이트 값을 정하는 자료다.
+    expect(result?.metrics.headPitchDeg).toBeCloseTo(HEAD_PITCH_DOWN_DEG + 15, 0);
+  });
+
+  it("고개가 서 있으면 게이트에 걸리지 않고 각도만 넘긴다", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(0.13, 0.9),
+      facialTransformationMatrixes: [pitchMatrix(10)],
+    });
+
+    const result = landmarker.detect(video, 0);
+    expect(result?.face.eye).toEqual({
+      eyeBlinkLeft: 0.9,
+      eyeBlinkRight: 0.9,
+      eyeLookDownLeft: 0.1,
+      eyeLookDownRight: 0.1,
+    });
+    expect(result?.metrics.headPitchDeg).toBeCloseTo(10, 0);
+  });
+
+  it("자세 행렬이 없으면 게이트 없이 예전처럼 판정한다", async () => {
+    const { landmarker } = await ready(faceResult(0.13, 0.9));
+
+    const result = landmarker.detect(video, 0);
+    expect(result?.face.eyeSkipReason).toBeNull();
+    expect(result?.metrics.headPitchDeg).toBeNull();
+  });
+
+  it("얼굴 크기 게이트가 내려다봄 게이트보다 먼저다 — 멀면 각도와 무관하게 face-too-small", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(MIN_INTER_OCULAR_NORMALIZED - 0.01, 0.9),
+      facialTransformationMatrixes: [pitchMatrix(HEAD_PITCH_DOWN_DEG + 15)],
+    });
+
+    expect(landmarker.detect(video, 0)?.face.eyeSkipReason).toBe("face-too-small");
+  });
+
+  it("EAR은 두 눈 중 큰 쪽(덜 감긴 쪽)이다 — 판정이 두 눈 중 덜 감긴 쪽을 보는 것과 같은 방향", async () => {
+    const points = withEyes(landmarks(0.13), 0.3, 0.1);
+    const { landmarker } = await ready({
+      faceLandmarks: [points],
+      faceBlendshapes: blendshapes(0.2),
+    });
+
+    expect(landmarker.detect(video, 0)?.metrics.ear).toBeCloseTo(0.3, 2);
+  });
+
+  it("눈 점이 겹쳐 가로 길이가 0이면 EAR을 내지 않는다", async () => {
+    const { landmarker } = await ready(faceResult(0.13, 0.2));
+    // 기본 픽스처는 33·263 말고는 전부 (0.5, 0.5)라 세로 짝은 0이고 가로는 0이 아니다 → EAR 0.
+    expect(landmarker.detect(video, 0)?.metrics.ear).toBe(0);
+
+    const collapsed = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }));
+    collapsed[33] = { x: 0.435, y: 0.4 };
+    collapsed[263] = { x: 0.565, y: 0.4 };
+    collapsed[133] = { x: 0.435, y: 0.4 }; // 왼눈 p4를 p1과 겹친다
+    const { landmarker: other } = await ready({
+      faceLandmarks: [collapsed],
+      faceBlendshapes: blendshapes(0.2),
+    });
+    expect(other.detect(video, 0)?.metrics.ear).toBeNull();
+  });
+
+  it("얼굴이 없으면 지표도 없다", async () => {
+    const { landmarker } = await ready(NO_FACE);
+    expect(landmarker.detect(video, 0)?.metrics).toEqual({ headPitchDeg: null, ear: null });
+  });
+
+  it("행렬·각도·EAR 어느 것도 좌표를 반환값에 싣지 않는다", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(0.13, 0.9),
+      facialTransformationMatrixes: [pitchMatrix(10)],
+    });
+    const text = JSON.stringify(landmarker.detect(video, 0));
+    for (const key of ["data", "rows", "columns", 'x"', 'y"', "landmark"]) {
+      expect(text).not.toContain(key);
+    }
   });
 });

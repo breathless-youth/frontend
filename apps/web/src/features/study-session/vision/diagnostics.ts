@@ -74,6 +74,10 @@ export interface FaceFrameDiagnostics {
   readonly skipReason: string | null;
   readonly durationMs: number;
   readonly delegate: Delegate | null;
+  /** 고개 숙임 각도(도). 자세 행렬이 없으면 null. 좌표가 아니라 각도 하나다. */
+  readonly headPitchDeg?: number | null;
+  /** 두 눈 EAR 중 큰 쪽. 측정 도구가 blendshape와 비교한다. */
+  readonly ear?: number | null;
 }
 
 /**
@@ -159,6 +163,12 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         }
         for (const [name, score] of Object.entries(face.eye ?? {})) {
           payload[`face:${name}`] = round2(score);
+        }
+        if (face.headPitchDeg !== undefined && face.headPitchDeg !== null) {
+          payload["face:headPitchDeg"] = round2(face.headPitchDeg);
+        }
+        if (face.ear !== undefined && face.ear !== null) {
+          payload["face:ear"] = round2(face.ear);
         }
       }
       sink.log("vision:frame", payload);

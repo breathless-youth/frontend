@@ -580,13 +580,12 @@ export function createVisionFocusDetector(
               skipReason: faceRan.face.eyeSkipReason,
               durationMs: faceRan.durationMs,
               delegate: faceLandmarker.delegate,
+              headPitchDeg: faceRan.metrics.headPitchDeg,
+              ear: faceRan.metrics.ear,
             },
     });
     publish(signals, sleep);
   }
-
-  // 측정용 계측. 껍데기가 덩어리를 낼 때 이 길로 보정 결과를 읽어 간다.
-  reportEyeCalibration(() => calibration);
 
   const loop = createFrameLoop({
     onFrame: processFrame,
@@ -610,6 +609,13 @@ export function createVisionFocusDetector(
 
     /** 멱등. 일시정지에서 돌아올 때도 이 함수 하나로 재개한다(모델은 이미 떠 있다). */
     start(): void {
+      // 측정용 계측. 껍데기가 덩어리를 낼 때 이 길로 보정 결과를 읽어 간다.
+      //
+      // 생성 시점이 아니라 **시작 시점**에 등록한다. React StrictMode의 개발 빌드는 `useState`
+      // 초기화를 두 번 불러 감지기를 둘 만들고 하나만 쓴다. 생성 시점에 등록하면 안 쓰는 쪽이
+      // 나중에 등록돼 패널이 세션 내내 `보정중`을 띄우고 덩어리의 `eyeCalibration`이 null로
+      // 남았다(2026-09-22 실측). 실제로 도는 감지기만 `start()`를 받는다.
+      reportEyeCalibration(() => calibration);
       if (running) {
         return;
       }

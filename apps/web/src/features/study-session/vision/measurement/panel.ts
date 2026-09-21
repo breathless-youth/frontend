@@ -86,6 +86,24 @@ function yesNo(value: boolean | null): string {
  * 4줄: 보정. 세션 시작 30초쯤 `보정중`이 기준값으로 바뀌는 것이 여기서 보인다. 그 전에는
  * 눈 판정을 쉬므로 이 줄이 바뀐 뒤에 첫 감김을 시작해야 한다.
  */
+function deg(value: number | null): string {
+  return value === null ? "-" : `${Math.round(value)}°`;
+}
+
+/** 건너뛴 이유를 사람이 읽는 말로. 게이트 이름은 코드가 유일한 출처다(`sleepRules.ts`). */
+function skipLabel(reason: string | null): string {
+  switch (reason) {
+    case "looking-down":
+      return "(내려다봄)";
+    case "face-too-small":
+      return "(멀다)";
+    case "blendshapes-missing":
+      return "(점수없음)";
+    default:
+      return "";
+  }
+}
+
 export function liveLines(live: LiveSnapshot): string {
   const segment =
     live.segment === null
@@ -101,7 +119,8 @@ export function liveLines(live: LiveSnapshot): string {
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
     `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
-    `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)} 사람 ${score(live.person)} · ${age}`,
+    `고개 ${deg(live.headPitchDeg)} · EAR ${score(live.ear)}`,
+    `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)}${skipLabel(live.faceSkip)} 사람 ${score(live.person)} · ${age}`,
     calibration,
   ].join("\n");
 }

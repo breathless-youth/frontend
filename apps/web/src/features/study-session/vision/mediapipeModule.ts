@@ -75,9 +75,11 @@ export function createMediapipeRuntime(): MediapipeVisionRuntime {
         minFacePresenceConfidence: options.minFacePresenceConfidence,
         minTrackingConfidence: options.minTrackingConfidence,
         outputFaceBlendshapes: true,
-        // 4x4 자세 행렬은 랜드마크와 같은 성격의 위치 정보이고 우리는 쓰지 않는다.
-        // 만들지 않는 것이 프레임당 비용도 줄인다.
-        outputFacialTransformationMatrixes: false,
+        // 4x4 자세 행렬에서 고개 숙임 각도 하나만 뽑아 쓴다(`faceLandmarker.ts`의 내려다봄
+        // 게이트). 행렬 자체는 래퍼 안에서 각도 스칼라로 줄어들고 밖으로 나가지 않는다.
+        // 2026-09-22 실측에서 폰을 내려다보는 자세가 눈 감김 점수 0.55~0.68로 읽혀 졸음 오탐이
+        // 났고, 눈 점수만으로는 감김과 내려다봄이 갈리지 않아 자세를 더했다.
+        outputFacialTransformationMatrixes: true,
       });
     },
   };

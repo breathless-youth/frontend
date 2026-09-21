@@ -10,12 +10,14 @@ import type { EyeScores, FaceObservation } from "./sleepRules";
 import type { Delegate, EyeBlendshapeName } from "./visionConfig";
 import {
   DELEGATE_ORDER,
+  EAR_LANDMARKS,
   EYE_OUTER_CORNER_LANDMARKS,
   EYE_OUTLINE_LANDMARKS,
   FACE_BLENDSHAPE_ALLOWLIST,
   FACE_BLENDSHAPE_REQUIRED,
   FACE_LANDMARKER_OPTIONS,
   FACE_MODEL_PATH,
+  HEAD_PITCH_DOWN_DEG,
   MEDIAPIPE_WASM_PATH,
   MIN_INTER_OCULAR_NORMALIZED,
 } from "./visionConfig";
@@ -31,10 +33,24 @@ import {
  * 눈 간격은 품질 게이트를 계산하고 즉시 버린다 — 크기와 거리는 좌표와 같은 성격의 위치 정보다.
  */
 
+/**
+ * 얼굴에서 뽑은 스칼라 지표. 진단·측정 도구가 쓰고 판정은 `face`만 본다.
+ *
+ * 둘 다 좌표에서 계산되지만 좌표가 아니다 — 각도 하나와 비율 하나다. 눈 점수와 같은 급으로
+ * 다룬다(`frontend/CLAUDE.md`가 금지하는 것은 원본 프레임·얼굴 이미지·랜드마크 좌표다).
+ */
+export interface FaceMetrics {
+  /** 고개 숙임 각도(도). 아래를 볼 때 양수가 되도록 계산한다. 자세 행렬이 없으면 null. */
+  readonly headPitchDeg: number | null;
+  /** 두 눈 EAR 중 큰 쪽(덜 감긴 쪽). 뜬 눈 0.25~0.35, 감은 눈 0.15 미만이 문헌값. 점이 없으면 null. */
+  readonly ear: number | null;
+}
+
 export interface FaceDetectionResult {
   readonly face: FaceObservation;
   /** 이 프레임의 추론 소요시간(ms). 진단 로그가 쓴다. */
   readonly durationMs: number;
+  readonly metrics: FaceMetrics;
 }
 
 export interface VisionFaceLandmarker {
@@ -90,6 +106,68 @@ const BLENDSHAPES_MISSING: FaceObservation = {
   eye: null,
   eyeSkipReason: "blendshapes-missing",
 };
+const LOOKING_DOWN: FaceObservation = {
+  facePresent: true,
+  eye: null,
+  eyeSkipReason: "looking-down",
+};
+const NO_METRICS: FaceMetrics = { headPitchDeg: null, ear: null };
+
+type Point = MediapipeFaceResult["faceLandmarks"][number][number];
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function round(value: number, digits: number): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+/**
+ * 자세 행렬 → 고개 숙임 각도(도). 행렬은 여기서 각도 하나로 줄어들고 밖으로 나가지 않는다.
+ *
+ * 순수 pitch 회전 Rx(φ)에서 얼굴 정면 벡터의 y성분은 −sin φ이고, 그 값은 열 우선 배치면
+ * `data[9]`, 행 우선이면 `data[6]`(부호 반대)에 있다. MediaPipe JS의 `Matrix.data` 배치가
+ * 문서화돼 있지 않아 **열 우선(C++ Eigen 기본)으로 가정**했다. 틀렸으면 아래를 볼 때 음수가
+ * 나오고, 그때는 이 함수의 부호만 뒤집는다(`HEAD_PITCH_DOWN_DEG` 주석).
+ */
+export function headPitchDegOf(raw: MediapipeFaceResult): number | null {
+  const matrix = raw.facialTransformationMatrixes?.[0];
+  if (matrix === undefined || matrix.rows !== 4 || matrix.columns !== 4) {
+    return null;
+  }
+  const forwardY = matrix.data[9];
+  if (forwardY === undefined || !Number.isFinite(forwardY)) {
+    return null;
+  }
+  const clamped = Math.max(-1, Math.min(1, forwardY));
+  return round((-Math.asin(clamped) * 180) / Math.PI, 1);
+}
+
+/** 한쪽 눈의 EAR. 가로 길이가 0이면(점이 겹치면) 계산하지 않는다. */
+function earOfEye(landmarks: readonly Point[], indexes: readonly number[]): number | null {
+  const points = indexes.map((index) => landmarks[index]);
+  if (points.some((point) => point === undefined)) {
+    return null;
+  }
+  const [p1, p2, p3, p4, p5, p6] = points as Point[];
+  const horizontal = distance(p1, p4);
+  if (horizontal < 1e-6) {
+    return null;
+  }
+  return (distance(p2, p6) + distance(p3, p5)) / (2 * horizontal);
+}
+
+/** 두 눈 EAR 중 큰 쪽. 판정이 두 눈 중 덜 감긴 쪽을 보는 것과 같은 방향이다. */
+export function earOf(landmarks: readonly Point[]): number | null {
+  const left = earOfEye(landmarks, EAR_LANDMARKS.left);
+  const right = earOfEye(landmarks, EAR_LANDMARKS.right);
+  if (left === null || right === null) {
+    return null;
+  }
+  return round(Math.max(left, right), 3);
+}
 
 async function defaultLoadRuntime(): Promise<MediapipeFaceRuntime> {
   // 정적 import가 아니라 동적 import인 것이 핵심이다 — 세션에 들어갈 때까지 wasm을 받지 않는다.
@@ -132,12 +210,24 @@ export function createFaceLandmarker(
    * 눈 판정을 건너뛰는 세 가지 이유를 구분해 남기는 것은 진단용이다. 셋 다 판정 결과는 같다 —
    * "이번 관측에 눈 판정 없음"이고, "눈을 떴다"가 아니다.
    */
-  function normalize(raw: MediapipeFaceResult): FaceObservation {
+  function normalize(raw: MediapipeFaceResult): {
+    face: FaceObservation;
+    metrics: FaceMetrics;
+  } {
     const observation = normalizeObservation(raw);
     if (onEyeOutline !== undefined) {
       emitEyeOutline(raw, observation);
     }
-    return observation;
+    return { face: observation, metrics: metricsOf(raw) };
+  }
+
+  /** 얼굴이 있으면 각도와 EAR을 뽑는다. 게이트에 걸린 관측에서도 뽑는다 — 그게 게이트를 튜닝할 자료다. */
+  function metricsOf(raw: MediapipeFaceResult): FaceMetrics {
+    const landmarks = raw.faceLandmarks[0];
+    if (landmarks === undefined || landmarks.length === 0) {
+      return NO_METRICS;
+    }
+    return { headPitchDeg: headPitchDegOf(raw), ear: earOf(landmarks) };
   }
 
   /** 그리기용 윤곽만 뽑아 넘긴다. 점이 모자라면 얼굴 없음과 같이 지운다. */
@@ -178,6 +268,13 @@ export function createFaceLandmarker(
     const interOcular = Math.hypot(left.x - right.x, left.y - right.y);
     if (interOcular < MIN_INTER_OCULAR_NORMALIZED) {
       return FACE_TOO_SMALL;
+    }
+
+    // 내려다봄 게이트. 고개가 숙여진 동안의 눈 점수는 감김과 갈리지 않으므로 판정에서 뺀다.
+    // 자세 행렬이 없으면(옛 런타임·픽스처) 게이트 없이 예전처럼 간다.
+    const headPitchDeg = headPitchDegOf(raw);
+    if (headPitchDeg !== null && headPitchDeg >= HEAD_PITCH_DOWN_DEG) {
+      return LOOKING_DOWN;
     }
 
     const categories = raw.faceBlendshapes[0]?.categories ?? [];
@@ -318,7 +415,8 @@ export function createFaceLandmarker(
         return null;
       }
       consecutiveFailures = 0;
-      return { face: normalize(raw), durationMs: performance.now() - startedAt };
+      const { face, metrics } = normalize(raw);
+      return { face, metrics, durationMs: performance.now() - startedAt };
     },
 
     close(): void {

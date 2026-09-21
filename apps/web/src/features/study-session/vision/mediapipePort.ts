@@ -57,9 +57,18 @@ export interface MediapipeNormalizedLandmark {
   readonly y: number;
 }
 
+/** 4×4 자세 행렬. `data`는 16개 평탄 배열이고 배치(행/열 우선)는 문서화돼 있지 않다 — `faceLandmarker.ts` 참고. */
+export interface MediapipeMatrix {
+  readonly rows: number;
+  readonly columns: number;
+  readonly data: readonly number[];
+}
+
 export interface MediapipeFaceResult {
   readonly faceLandmarks: readonly (readonly MediapipeNormalizedLandmark[])[];
   readonly faceBlendshapes: readonly { readonly categories: readonly MediapipeCategory[] }[];
+  /** `outputFacialTransformationMatrixes`를 켰을 때만 온다. 옛 결과 픽스처와의 호환을 위해 선택이다. */
+  readonly facialTransformationMatrixes?: readonly MediapipeMatrix[];
 }
 
 export interface MediapipeFaceLandmarkerHandle {
