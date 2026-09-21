@@ -1,5 +1,6 @@
 import type {
   SubjectCreateRequest,
+  SubjectOrderRequest,
   SubjectResponse,
   SubjectUpdateRequest,
   TaskCreateRequest,
@@ -44,6 +45,11 @@ export function renameSubject(id: number, body: SubjectUpdateRequest): Promise<S
 
 export function deleteSubject(id: number): Promise<void> {
   return send(`/${id}`, { method: "DELETE" }, "과목 삭제 실패");
+}
+
+/** 순서 전체를 한 번에 저장한다(드래그가 끝날 때 1회). 응답 목록은 호출부가 쓰지 않는다 — 204여도 안전. */
+export function reorderSubjects(body: SubjectOrderRequest): Promise<SubjectResponse[]> {
+  return send("/order", { method: "PUT", body: JSON.stringify(body) }, "과목 순서 저장 실패");
 }
 
 export function createTask(subjectId: number, body: TaskCreateRequest): Promise<TaskResponse> {

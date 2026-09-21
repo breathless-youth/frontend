@@ -331,7 +331,6 @@ function RoomSessionScreen({
   const subjects = useSubjects(
     userId !== null && (sheetOpen || subjectSelection !== null),
     showToast,
-    userId === null ? null : `focusmakers:subjectOrder:${userId}`,
   );
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);

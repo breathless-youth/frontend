@@ -38,9 +38,9 @@ import type { SubjectsStore } from "../useSubjects";
  * - 상한(과목 20·할 일 30)에 닿으면 버튼은 그대로 두고 토스트로 알린다(원본 동작).
  * - 시간 = 서버 누적(저장된 세션) + 이 세션 몫. 저장되면 서버 값이 흡수해 다음 세션에서 이어진다.
  *
- * 순서 핸들(원본 `gripDown`): 꾹 눌러 끌면 다른 카드 위를 지날 때마다 자리를 바꾼다. 서버 계약에
- * 순서 필드가 없어 순서는 이 기기에만 남는다(`useSubjects`의 localStorage). 백엔드 sortOrder가
- * 생기면 저장 경로만 바꾼다.
+ * 순서 핸들(원본 `gripDown`): 꾹 눌러 끌면 다른 카드 위를 지날 때마다 자리를 바꾼다. 드래그 중 자리 바꿈은
+ * 화면에만 반영되고, 놓을 때 순서가 바뀌었으면 전체 순서를 서버에 한 번 저장한다(`useSubjects.commitReorder`,
+ * `PUT /api/subjects/order`). 실패하면 토스트 뒤 서버 순서로 되돌린다.
  */
 
 const MAX_SUBJECTS = 20;
@@ -866,6 +866,7 @@ export function SubjectPanel({
                 setMenu(null);
                 lastOverRef.current = null;
                 setReorderingId(subject.id);
+                store.startReorder();
               }}
               onReorderOver={(overId) => {
                 if (overId === null) {
@@ -881,6 +882,8 @@ export function SubjectPanel({
               onReorderEnd={() => {
                 lastOverRef.current = null;
                 setReorderingId(null);
+                // pointercancel도 여기로 온다 — 화면에 보이는 순서가 곧 저장되는 순서다.
+                void store.commitReorder();
               }}
               store={store}
             />
