@@ -4,6 +4,7 @@ import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
 import { CameraFlipIcon } from "@/components/CameraFlipIcon";
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 
 /**
  * 룸 하단 컨트롤 바 3버튼
@@ -15,11 +16,7 @@ import { CameraFlipIcon } from "@/components/CameraFlipIcon";
  */
 function playPressPop(event: ReactPointerEvent<HTMLButtonElement>) {
   const button = event.currentTarget;
-  if (
-    typeof button.animate !== "function" ||
-    (typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-  ) {
+  if (typeof button.animate !== "function" || prefersReducedMotion()) {
     return;
   }
   button.animate(
