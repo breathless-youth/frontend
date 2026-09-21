@@ -23,6 +23,8 @@ export interface SessionInput {
   events?: StatusEventPayload[];
   /** 과목·할 일별 시간 — `subjectTimes.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
   subjectTimes?: SubjectTimePayload[];
+  /** 이 세션에서 완료한 할 일 id — `completedTasks.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
+  completedTaskIds?: number[];
 }
 
 /**
@@ -54,6 +56,9 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
   // 선택 필드 — 없으면 구 계약과 바이트 단위로 같은 요청이다(기존 테스트가 정확히 그 모양을 본다).
   if (input.subjectTimes !== undefined && input.subjectTimes.length > 0) {
     request.subjectTimes = clampSubjectTimes(input.subjectTimes, studySec);
+  }
+  if (input.completedTaskIds !== undefined && input.completedTaskIds.length > 0) {
+    request.completedTaskIds = input.completedTaskIds;
   }
   return request;
 }

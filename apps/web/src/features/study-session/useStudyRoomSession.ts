@@ -103,6 +103,12 @@ export interface StudyRoomSessionOptions {
    * 세션 로직에는 관여하지 않는다.
    */
   readonly roomType?: StudyRoomType;
+  /**
+   * 제출 직전에 "이 세션에서 완료한 할 일 id"를 돌려준다. 과목 목록은 화면(`useSubjects`)이 들고 있어
+   * 훅이 모른다. 다른 옵션과 달리 매 렌더 ref로 갱신해 제출 시점의 최신 함수를 부른다. 세션 시작 시각은
+   * 훅 안에만 있어 인자로 넘긴다. 없으면 필드를 싣지 않는다(소셜룸 등).
+   */
+  readonly getCompletedTaskIds?: (startedAtMs: number) => number[];
 }
 
 /**
@@ -207,6 +213,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [subjectSelection, setSubjectSelection] = useState<SubjectSelection | null>(
     () => initial.subjectTracker.current?.subjectId ?? null,
   );
+  // 완료 할 일은 제출 때만 읽는다 — 옵션 객체가 매 렌더 새로 만들어져도 stale closure가 없게 ref로 든다.
+  const getCompletedTaskIdsRef = useRef(options.getCompletedTaskIds);
+  getCompletedTaskIdsRef.current = options.getCompletedTaskIds;
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
@@ -581,6 +590,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           focusSec: finalTotals.focusSec,
           events,
           subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, finalTotals),
+          // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
+          completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
         });
         trackStudySessionSubmitted(true, attempt, roomType);
         // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로

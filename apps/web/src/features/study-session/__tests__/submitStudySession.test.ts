@@ -24,6 +24,16 @@ describe("buildSessionRequest", () => {
     });
   });
 
+  it("완료 할 일이 비어 있으면 필드를 싣지 않는다 — 구 계약과 바이트 단위로 같은 요청", () => {
+    const req = buildSessionRequest({ ...BASE_INPUT, completedTaskIds: [] });
+    expect(req).not.toHaveProperty("completedTaskIds");
+  });
+
+  it("완료 할 일이 있으면 그대로 싣는다", () => {
+    const req = buildSessionRequest({ ...BASE_INPUT, completedTaskIds: [5, 9] });
+    expect(req.completedTaskIds).toEqual([5, 9]);
+  });
+
   it("studySec은 세션 길이로, focusSec은 studySec으로 클램프한다", () => {
     const req = buildSessionRequest({ ...BASE_INPUT, studySec: 99999, focusSec: 99999 });
     expect(req.studySec).toBe(3600);

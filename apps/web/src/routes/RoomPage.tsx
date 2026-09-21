@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focusmakers/types";
+import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
 import { Toast } from "@/components/ui/toast";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
@@ -49,6 +49,7 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectTimes";
 import { liveSubjectTime } from "@/features/study-session/subjectTimes";
+import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
@@ -307,6 +308,8 @@ function RoomSessionScreen({
     combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
   );
   const detector = devDetector ?? sensorDetector;
+  // 제출 시점에 읽을 과목 목록 — 렌더마다 최신 값으로 덮는다(아래 useSubjects 뒤).
+  const subjectsListRef = useRef<SubjectResponse[]>([]);
   const {
     focusSec,
     studySec,
@@ -322,16 +325,25 @@ function RoomSessionScreen({
     resume,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, { camera, detector, restored });
+  } = useStudyRoomSession(userId, {
+    camera,
+    detector,
+    restored,
+    // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
+    getCompletedTaskIds: (startedAtMs) =>
+      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+  });
   const { message: toastMessage, showToast } = useToast();
   // 과목 시트(S3-9) — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
   const [sheetOpen, setSheetOpen] = useState(false);
-  // 목록은 시트를 처음 열 때(또는 복원된 선택의 이름을 보여줘야 할 때) 한 번 받는다 —
-  // 시트를 열지 않는 세션은 요청이 0건이다. 기기 미등록이면 저장할 곳이 없어 받지 않는다.
+  // 목록은 시트를 처음 열 때(또는 복원된 선택의 이름을 보여줘야 할 때, 또는 복원 세션이면) 한 번 받는다 —
+  // 시트를 열지 않는 새 세션은 요청이 0건이다. 복원 세션은 앱이 죽기 전에 완료한 할 일을 제출에 실어야 해서
+  // 시트를 안 열어도 받는다. 기기 미등록이면 저장할 곳이 없어 받지 않는다.
   const subjects = useSubjects(
-    userId !== null && (sheetOpen || subjectSelection !== null),
+    userId !== null && (sheetOpen || subjectSelection !== null || restored !== null),
     showToast,
   );
+  subjectsListRef.current = subjects.subjects;
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
