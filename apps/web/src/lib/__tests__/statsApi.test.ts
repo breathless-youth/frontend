@@ -111,7 +111,8 @@ describe("getStudyDays", () => {
     vi.clearAllMocks();
   });
 
-  it("토큰 신원으로 누적 공부 일 수를 조회한다 — 쿼리에 userId를 싣지 않는다", async () => {
+  it("토큰 신원으로 누적 공부 일 수를 조회한다 — 쿼리에 userId를 싣지 않고 API-Version은 1을 명시한다", async () => {
+    // 구 앱 대응이 없는 새 경로라 서버 버전이 1 하나뿐이다. 토큰 요청의 기본 헤더(2)로 보내면 400이다.
     mockedFetch.mockResolvedValue(jsonResponse(200, { totalDays: 12 }));
 
     await expect(getStudyDays()).resolves.toEqual({ totalDays: 12 });
@@ -119,6 +120,8 @@ describe("getStudyDays", () => {
       "/api/stats/study-days",
       expect.objectContaining({ method: "GET" }),
     );
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(new Headers((init as RequestInit).headers).get("API-Version")).toBe("1");
   });
 
   it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
