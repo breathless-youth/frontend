@@ -1,6 +1,6 @@
-import type { AmbientSound } from "../catalog";
+import type { AmbientSound, SoundGroupId } from "../catalog";
 
-export type SoundGroupId = "noise" | "ambience";
+export type { SoundGroupId };
 
 export type SoundGroup = {
   readonly id: SoundGroupId;
@@ -11,19 +11,25 @@ export type SoundGroup = {
 const LABELS: Record<SoundGroupId, string> = {
   noise: "노이즈",
   ambience: "주변 소리",
+  music: "음악",
 };
 
+const ORDER: readonly SoundGroupId[] = ["noise", "ambience", "music"];
+
 /**
- * 시트의 탭을 나눈다.
+ * 분류를 카탈로그가 들고 있지 않을 때의 대체 경로.
  *
- * 지금은 합성 여부(`kind`)가 그대로 갈림길이다. 코드가 만드는 노이즈 셋과 녹음된 장면 소리
- * 셋이 정확히 나뉘기 때문이다. lofi 음악이 들어오면 그것도 `kind: "file"` 이라 이 기준이 깨진다.
+ * 배포 순서가 어긋나 예전 카탈로그가 잡히면 모든 항목의 group 이 비는데, 그때 항목을
+ * 버리면 화면에 소리가 하나도 안 남는다. 예전 기준인 합성 여부로 떨어뜨린다.
  */
+function groupOf(sound: AmbientSound): SoundGroupId {
+  return sound.group ?? (sound.kind === "synth" ? "noise" : "ambience");
+}
+
 export function soundGroups(catalog: readonly AmbientSound[]): SoundGroup[] {
-  const noise = catalog.filter((sound) => sound.kind === "synth");
-  const ambience = catalog.filter((sound) => sound.kind === "file");
-  return [
-    { id: "noise" as const, label: LABELS.noise, sounds: noise },
-    { id: "ambience" as const, label: LABELS.ambience, sounds: ambience },
-  ].filter((group) => group.sounds.length > 0);
+  return ORDER.map((id) => ({
+    id,
+    label: LABELS[id],
+    sounds: catalog.filter((sound) => groupOf(sound) === id),
+  })).filter((group) => group.sounds.length > 0);
 }

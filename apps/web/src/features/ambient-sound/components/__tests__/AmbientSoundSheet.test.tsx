@@ -208,6 +208,23 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /저장/ })).not.toBeInTheDocument();
   });
+
+  it("바이노럴 행에만 안내 버튼이 있고 눌러야 문구가 뜬다", async () => {
+    renderSheet({
+      catalog: [
+        { id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" },
+        { id: "white", kind: "synth", group: "noise", label: "백색소음" },
+      ],
+    });
+
+    // 다른 소리에는 안내 버튼이 없다.
+    expect(screen.queryByRole("button", { name: "백색소음 안내" })).not.toBeInTheDocument();
+    // 열기 전에는 문구가 화면에 없다.
+    expect(screen.queryByText("이어폰을 껴야 제대로 들려요")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
+    expect(await screen.findByText("이어폰을 껴야 제대로 들려요")).toBeInTheDocument();
+  });
 });
 
 describe("AmbientSoundSheet — 연동 토글·닫기", () => {
