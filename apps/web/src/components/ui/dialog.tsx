@@ -32,14 +32,24 @@ export interface DialogContentProps extends React.ComponentPropsWithoutRef<
 > {
   /** X 닫기 버튼 표시 여부. 강제 업데이트처럼 닫을 수 없는 다이얼로그는 false로 끈다. */
   showCloseButton?: boolean;
+  /**
+   * 포털이 그려질 자리. 기본은 `document.body` 다.
+   *
+   * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳에서는 반드시 그 서브트리의 요소를
+   * 넘겨야 한다. body 로 나가면 변수가 풀리지 않아 색이 통째로 빠진다
+   * (같은 문제를 `ui/sheet.tsx` 가 같은 prop 으로 푼다).
+   */
+  container?: HTMLElement | null;
+  /** 딤에 얹을 클래스. 세션처럼 전역 `--dim` 과 다른 딤을 쓰는 곳이 덮어쓴다. */
+  overlayClassName?: string;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, showCloseButton = true, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
+>(({ className, children, showCloseButton = true, container, overlayClassName, ...props }, ref) => (
+  <DialogPortal container={container ?? undefined}>
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

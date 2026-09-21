@@ -1,6 +1,6 @@
 import type { SessionRecoveryResponse } from "@focusmakers/types";
-import { useId } from "react";
 
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   WEEKDAY_LABELS,
   dayOfDateKey,
@@ -62,8 +62,7 @@ function InfoRow({ label, value, accent }: { label: string; value: string; accen
 }
 
 /**
- * 앱을 새로 켰을 때
- * 저장되지 않은 직전 공부 세션을 알려주는 모달
+ * 앱을 새로 켰을 때 저장되지 않은 직전 공부 세션을 알려주는 모달
  */
 export function SessionRecoveryDialog({
   recovered,
@@ -72,35 +71,28 @@ export function SessionRecoveryDialog({
   recovered: SessionRecoveryResponse;
   onConfirm: () => void;
 }) {
-  const titleId = useId();
-  const descriptionId = useId();
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      // 웹뷰가 노치 영역까지 깔려 있어 뷰포트 중앙이 눈에 보이는 영역보다 위다. safe-area를
-      // 패딩으로 빼서 카드가 실제 보이는 화면의 정중앙에 오게 한다.
-      className="fixed inset-0 z-50 flex items-center justify-center px-5 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-    >
-      <div aria-hidden="true" className="absolute inset-0 bg-dim" />
-      <div className="relative flex w-full max-w-[320px] flex-col items-center gap-4 rounded-3xl bg-background px-[22px] pt-7 pb-[22px]">
+    <Dialog open>
+      <DialogContent
+        role="dialog"
+        showCloseButton={false}
+        // 확인 버튼으로만 닫는 강제 안내 모달이라 Escape·딤 탭·바깥 상호작용을 모두 막는다.
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+        className="flex w-[calc(100%-2.5rem)] max-w-[320px] flex-col items-center gap-4 rounded-3xl border-0 bg-background px-[22px] pt-7 pb-[22px]"
+      >
         <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
           <IconRecovery />
         </div>
-        <h2 id={titleId} className="text-center text-[19px] font-extrabold text-foreground">
+        <DialogTitle className="text-center text-[19px] font-extrabold text-foreground">
           저장되지 않은 기록을 복구했어요
-        </h2>
-        <p
-          id={descriptionId}
-          className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground"
-        >
+        </DialogTitle>
+        <DialogDescription className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground">
           앱이 예기치 않게 종료되었어요.
           <br />
           공부 기록은 저장해 두었어요.
-        </p>
+        </DialogDescription>
         <div className="w-full rounded-2xl bg-muted px-4 py-0.5">
           <InfoRow label="날짜" value={recoveryDateLabel(recovered.statDate)} />
           <InfoRow
@@ -118,7 +110,7 @@ export function SessionRecoveryDialog({
         >
           확인
         </button>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
