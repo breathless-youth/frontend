@@ -12,11 +12,13 @@ export const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:opacity-90",
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
+        subtle: "bg-brand-subtle text-primary hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
+        xl: "h-14 rounded-xl px-5",
       },
     },
     defaultVariants: {
