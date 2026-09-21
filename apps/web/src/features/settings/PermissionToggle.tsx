@@ -14,15 +14,6 @@ const TRACK_WIDTH = 51;
 const KNOB_SIZE = 27;
 const KNOB_INSET = 2;
 
-/**
- * ⚠️ Off 트랙 색만 토큰이 아니다. Figma 원본(`Control / Toggle` 43:89)이 이 값을 변수에
- * 바인딩하지 않았고 대응하는 시맨틱 토큰도, 다크 모드 값도 없다.
- * 근사 토큰으로 대체하면 iOS 표준 토글과 다른 색이 되므로 실측값을 그대로 둔다 — 헤어라인처럼
- * `border/default`로 갈음할 수 있는 경우와 다르다.
- * TODO(SCR-S6-settings.md Review Checklist): 토글 Off 트랙의 다크 모드 값 확정 필요.
- */
-const OFF_TRACK_COLOR = "#e9e9ea";
-
 type PermissionToggleProps = {
   /** OS 권한 허용 여부. 이 컴포넌트는 값을 바꾸지 않는다. */
   granted: boolean;
@@ -35,8 +26,11 @@ export function PermissionToggle({ granted }: PermissionToggleProps) {
       // 그래픽까지 접근성 트리에 남으면 같은 정보가 두 번 읽힌다.
       aria-hidden="true"
       className="h-[31px] w-[51px] shrink-0 rounded-full"
+      // Off 트랙 색은 Figma 원본이 변수에 바인딩하지 않아 실측 #e9e9ea 였는데, 다크 모드 값이
+      // 없어 웹뷰 다크에서 밝은 회색 그대로 남았다. 가장 가까운 시맨틱 토큰 bg-layer-2 로 갈음해
+      // 라이트·다크를 모두 따르게 한다.
       style={{
-        backgroundColor: granted ? "var(--color-primary)" : OFF_TRACK_COLOR,
+        backgroundColor: granted ? "var(--color-primary)" : "var(--color-bg-layer-2)",
         display: "flex",
         alignItems: "center",
       }}

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { PermissionToggle } from "../PermissionToggle";
 import { SettingsRow } from "../SettingsRow";
@@ -64,6 +64,14 @@ describe("SettingsRow", () => {
   it("trailing: value를 렌더한다", () => {
     render(<SettingsRow label="앱 버전" trailing={{ kind: "value", value: "1.0.0" }} />);
     expect(screen.getByText("1.0.0")).toBeInTheDocument();
+  });
+
+  it("trailing: copy는 값과 복사 버튼을 렌더하고 클릭 시 onCopy를 부른다", () => {
+    const onCopy = vi.fn();
+    render(<SettingsRow label="버전 정보" trailing={{ kind: "copy", value: "1.0.0", onCopy }} />);
+    expect(screen.getByText("1.0.0")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "1.0.0 복사" }));
+    expect(onCopy).toHaveBeenCalledTimes(1);
   });
 });
 
