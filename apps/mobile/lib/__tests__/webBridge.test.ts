@@ -25,6 +25,18 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-home의 이어서 열 탭(tab)은 계약 값만 통과시킨다 — 모르는 값은 빼고 모달 닫기는 살린다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"records","atMs":9}')).toEqual({
+      type: "navigate-home",
+      tab: "records",
+      atMs: 9,
+    });
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"profile","atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+  });
+
   it("motion-sensor 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"motion-sensor","enabled":true,"atMs":7}')).toEqual({
       type: "motion-sensor",
@@ -93,6 +105,15 @@ describe("parseToNativeMessage", () => {
       tab: "records",
       atMs: 4,
     });
+  });
+
+  it("navigate-tab의 발신처(via)는 계약 값만 통과시킨다 — 모르는 값은 빼고 이동은 살린다", () => {
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"study_result","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", via: "study_result", atMs: 4 });
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"banner","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", atMs: 4 });
   });
 
   it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {

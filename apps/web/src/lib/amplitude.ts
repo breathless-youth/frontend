@@ -258,6 +258,12 @@ export interface StudySessionEndedInput {
   readonly pauseTrigger: "MANUAL" | "BACKGROUND" | null;
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
+  /**
+   * 배경음을 한 번이라도 켰는가와 누적 재생 초. 싱글룸만 채운다 — 소셜룸(`LiveRoomSession`)도
+   * 같은 훅을 쓰지만 배경음이 없어 생략하고, 생략은 false/0 으로 나간다.
+   */
+  readonly ambientSoundUsed?: boolean;
+  readonly ambientSoundSec?: number;
 }
 
 /**
@@ -291,6 +297,8 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
     end_reason: input.endReason,
     pause_trigger: input.pauseTrigger,
     will_submit: input.willSubmit,
+    ambient_sound_used: input.ambientSoundUsed ?? false,
+    ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
   });
 }
 
@@ -754,10 +762,13 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
   track("profile_save_failed", { reason: result.reason });
 }
 
-/** S4 결과 화면을 닫음 — 하단 CTA(`cta`) 또는 우상단 X(`close`). 둘 다 홈(소셜)으로 간다. */
+/**
+ * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
+ * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "cta" | "close";
+  readonly via: "home" | "records";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -864,15 +875,6 @@ export function consumeStudyResultExit(pathname: string) {
   }
 }
 
-/** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
-export function trackStudyResultDistractionToggled(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
-  readonly expanded: boolean;
-}) {
-  if (!initialized) return;
-  track("study_result_distraction_toggled", { status: input.status, expanded: input.expanded });
-}
-
 /** 세션 종료 안내 확인 — 자동 종료(S3-8) "결과 보기" / 순공 1분 미만 안내 "홈으로". */
 export function trackSessionNoticeConfirmed(input: {
   readonly notice: "auto_end" | "sub_minute";
@@ -946,4 +948,32 @@ export function trackSubjectItemAdded(kind: "subject" | "task", viaSuggestion = 
 export function trackSubjectItemSelected(kind: "subject" | "none") {
   if (!initialized) return;
   track("subject_item_selected", { kind });
+}
+
+/* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
+ *
+ * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
+ * `trackStudySessionEnded`가 싣는다.
+ */
+
+/**
+ * 켜진 소리 조합이 바뀔 때마다 — 레벨만 바뀌면 보내지 않는다. `source`는 시트에서 사용자가 직접
+ * 조절한 것인지 세션 시작 자동 재생인지. `sounds`는 카탈로그 순서의 id 를 쉼표로 잇는다.
+ */
+export function trackAmbientSoundChanged(input: {
+  readonly sounds: readonly string[];
+  readonly source: "dialog" | "auto_start";
+}) {
+  if (!initialized) return;
+  track("ambient_sound_changed", {
+    sounds: input.sounds.join(","),
+    sound_count: input.sounds.length,
+    source: input.source,
+  });
+}
+
+/** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
+export function trackAmbientSoundDuckToggled(enabled: boolean) {
+  if (!initialized) return;
+  track("ambient_sound_duck_toggled", { enabled });
 }

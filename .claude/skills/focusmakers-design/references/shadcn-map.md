@@ -8,7 +8,7 @@
 
 | Figma 컴포넌트 | shadcn | 저장소 파일 | 커스텀 포인트 |
 |---|---|---|---|
-| Button / CTA V2 (Kind=Primary·Neutral·Destructive·Subtle, Size=56·48·44·38·36·32) | Button | `components/ui/button.tsx` (있음) | `cva`에 Kind → `variant`, Size → `size`를 1:1로 추가. 높이는 `h-14`·`h-12`·`h-11` 등 시스템 값, 반경 `rounded-lg`, 비활성 `text-text-disabled` |
+| Button / CTA V2 (Kind=Primary·Neutral·Destructive·Subtle, Size=56·48·44·38·36·32) | Button | `components/ui/button.tsx` (있음, `size="xl"`·`variant="subtle"` 추가됨 — BY-716) | `cva`에 Kind → `variant`, Size → `size`를 1:1로 추가. 높이는 `h-14`(xl)·`h-12`·`h-11` 등 시스템 값, 반경 `rounded-lg`/`rounded-xl`(xl), 비활성 `text-text-disabled` |
 | Dialog / Confirm V2 (Buttons=One·Two·Two Destructive) | Dialog | `components/ui/dialog.tsx` (있음) | 버튼 배치만 조합, 새 variant 만들지 않음 |
 | Sheet / Bottom, 세션 상세 시트 | Drawer (vaul) | `components/ui/drawer.tsx` (추가 예정, BY-568) | 상단 반경 `rounded-t-xl`(20), 핸들 `aria-hidden`, `pb-[env(safe-area-inset-bottom)]`, 배경 `bg-background`, 그림자는 `shadow/sheet-up` 값 |
 | Control / Segmented (주간/월간) | Tabs | `components/ui/tabs.tsx` (추가 예정, BY-566) | `TabsList`를 `rounded-full bg-bg-layer-2 p-[3px]`, `TabsTrigger`를 `h-11 rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground text-text-tertiary`로. `TabsContent`는 쓰지 않고 상태만 쓴다 |
@@ -21,6 +21,7 @@
 | Record / Calendar Cell V2, 월간 달력 | 직접 | `features/records/MonthCalendar.tsx` | `react-day-picker`는 보류. 농도 3단계와 월 이동 스와이프가 전부 커스텀이라 기존 달력을 고친다 |
 | 주간 막대 | 직접(div) | `features/records/WeeklyBarChart.tsx` | `recharts` 보류. 막대는 `<button>` h-11 이상, `aria-pressed` |
 | Input / Text, Search / Field | Input | `components/ui/input.tsx` (추가 예정, 필요 시) | 높이 52, `rounded-md`, 포커스 링 `ring-primary` |
+| Invite Code / OTP | input-otp | `components/ui/input-otp.tsx` (있음, BY-716) | `InputOTP`·`InputOTPSlot`. 셀 룩은 `features/social-room/codeCell.ts`의 `CODE_CELL_CLASS`(방 생성 완료 화면과 공유), 활성 칸은 `border-2 border-primary` + `animate-caret-blink` |
 | Settings / Row Type=Toggle, Control / Toggle | Switch | `components/ui/switch.tsx` (추가 예정, 필요 시) | 트랙 `data-[state=checked]:bg-primary` |
 | Avatar | Avatar | `components/ui/avatar.tsx` (추가 예정, 필요 시) | 크기 34·40·48·72 |
 | 토스트 | 기존 `components/ui/toast.tsx` 유지 | | `sonner` 보류. `ToastViewport`가 하단 위치를 소유한다 |

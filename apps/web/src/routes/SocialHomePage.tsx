@@ -84,14 +84,14 @@ export function SocialHomePage() {
     <main
       data-testid="social-home-page"
       // 상단 안전영역 규칙은 홈·기록·설정과 동일 (SettingsPage 주석 참고).
-      className="flex min-h-dvh flex-col bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-[28px] leading-[34px] font-bold text-foreground">소셜</h1>
+        <h1 className="text-[24px] leading-[30px] font-bold text-foreground">소셜</h1>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <div className="flex size-[88px] items-center justify-center rounded-full bg-brand-subtle text-primary">
+        <div className="flex size-24 items-center justify-center rounded-full bg-brand-subtle text-primary">
           <IconSocialPeople size={40} />
         </div>
         <div className="size-2" aria-hidden="true" />
@@ -102,19 +102,22 @@ export function SocialHomePage() {
           받은 코드로 참여하세요
         </p>
         <div className="size-4" aria-hidden="true" />
-        <div className="flex gap-2.5">
-          <button
-            type="button"
+        <div className="flex w-full gap-2.5">
+          <Button
+            variant="default"
+            size="xl"
+            className="shadow-sb-cta flex-1"
             disabled={userId === null || createMutation.isPending}
             onClick={() => {
               createMutation.mutate();
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-primary px-5 text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
           >
             방 만들기
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="subtle"
+            size="xl"
+            className="w-[176px]"
             onClick={() => {
               // 이전 진입에서 URL에 남은 초대코드가 다시 프리필되지 않게 code만 뺀다 —
               // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
@@ -122,10 +125,9 @@ export function SocialHomePage() {
               params.delete("code");
               navigate({ pathname: "/social/join", search: params.toString() });
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
           >
             초대코드로 참여
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -139,7 +141,7 @@ export function SocialHomePage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
+          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
         >
           <DialogHeader>
             <DialogTitle>{graceTitle}</DialogTitle>

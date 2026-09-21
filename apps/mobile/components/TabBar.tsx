@@ -55,7 +55,7 @@ export function TabBar({ active = "home" }: TabBarProps) {
             <Text
               className={
                 isActive
-                  ? "text-brand-primary dark:text-brand-primary-dark text-[11px] font-semibold font-sans"
+                  ? "text-brand-primary dark:text-brand-primary-dark text-[11px] font-sans-bold"
                   : "text-text-tertiary text-[11px] font-medium font-sans"
               }
             >

@@ -4,6 +4,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
 import { Toast } from "@/components/ui/toast";
+import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
+import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
+import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
+import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import {
   combineFocusDetectors,
@@ -246,27 +250,15 @@ function useRotationPhase(): RotationPhase {
 }
 
 /**
- * 세션 화면 — S3-1(집중)·S3-2(비집중)·S3-3(일시정지)·S3-4(심플 모드)는 **같은 화면**이다.
- * 별도 라우트를 만들지 않고 두 개의 **직교하는 축**으로 프레젠테이션이 갈린다:
+ * 세션 화면
  *
- * - **세션 상태**(`sessionState`: FOCUS / DISTRACTION / PAUSE) — "세션이 어떤 상태인가".
+ * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
  *   상태 필·타이머 색·컨트롤 바 첫 버튼·하단 캡션이 여기 반응한다.
- * - **표시 모드**(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
+ * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
  *   카메라 프리뷰·하단 캡션의 유무와 타이머 발광·세로 배치가 여기 반응한다.
  *
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
- *
- * **S3-5(가로 프리뷰)·S3-6(가로 심플)은 세 번째 축이 아니다** — 같은 두 축에 걸리는 순수
- * 레이아웃 변형이다. 방향은 상태로 들고 있지 않고 `@media (orientation: landscape)`가 판정한다
- * (`SESSION_LAYER_LAYOUT` 주석 참고). 명시적 회전 트리거 정책은 `ai-wiki` 어디에도 없다는 것이
- * SCR-S3-5·S3-6에서 확인됐고, 디자인에 방향 잠금·수동 전환 컨트롤도 없다.
- *
- * 라우트는 기존 `/room/:id?userId=N`을 유지하되 **방 번호를 표시하지 않는다** —
- * V1.0 싱글룸에는 사용자에게 보여줄 "방" 개념이 없다(`:id` 존치 여부는 리뷰 항목).
- *
- * 세션 계산(2축 타이머·상태 머신·이벤트 누적)은 전부 `useStudyRoomSession`과 그 아래
- * 순수 모듈에 있다 — 이 파일은 표시와 입력 배선만 한다.
  */
 function RoomSessionScreen({
   userId,
@@ -310,6 +302,11 @@ function RoomSessionScreen({
   const detector = devDetector ?? sensorDetector;
   // 제출 시점에 읽을 과목 목록 — 렌더마다 최신 값으로 덮는다(아래 useSubjects 뒤).
   const subjectsListRef = useRef<SubjectResponse[]>([]);
+  /**
+   * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
+   * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
+   */
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   const {
     focusSec,
     studySec,
@@ -332,7 +329,14 @@ function RoomSessionScreen({
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+    ambientUsage: ambientUsage.snapshot,
   });
+  const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
+  const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
+  // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
+  const sessionSurfaceRef = useRef<HTMLElement>(null);
+  // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
+  const ambientButtonRef = useRef<HTMLButtonElement>(null);
   const { message: toastMessage, showToast } = useToast();
   // 과목 시트(S3-9) — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -557,6 +561,7 @@ function RoomSessionScreen({
 
   return (
     <main
+      ref={sessionSurfaceRef}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 컨트롤 바 아이콘(`<img>`)과 캡션·타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
@@ -592,7 +597,7 @@ function RoomSessionScreen({
         <>
           {/* 화면 탭(컨트롤 바 제외) → 심플 모드 전환. 컨트롤 바가 pointer-events-auto로 이 레이어를 가린다.
               대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다).
-              다이얼로그가 떠 있는 동안은 inert — 딤 뒤를 탭해도 심플 모드가 토글되지 않는다. */}
+              다이얼로그가 떠 있는 동안 딤 뒤 탭은 Radix 가 바깥 포인터를 막아 토글되지 않는다. */}
           <button
             type="button"
             aria-label="심플 모드 전환"
@@ -601,13 +606,20 @@ function RoomSessionScreen({
               trackSessionSimpleModeToggled(!simpleMode);
               setSimpleMode((prev) => !prev);
             }}
-            inert={exitDialogOpen}
             className="absolute inset-0 cursor-default"
           />
 
-          {/* 다이얼로그가 열리면 배경 세션 화면 전체를 inert로 만든다 — 포커스가 뒤로 새지 않고
-              스크린리더도 다이얼로그만 읽는다(SCR-S3-7·S3-8 Accessibility). */}
-          <div className={SESSION_LAYER_LAYOUT} inert={exitDialogOpen}>
+          {/* 다이얼로그의 포커스 트랩·바깥 차단·배경 aria-hidden 은 Radix 가 스스로 한다. 여기에
+              inert 를 겹치면 닫힐 때 포커스를 돌려줄 버튼이 이미 inert 라 복귀가 조용히 실패한다. */}
+          <div className={SESSION_LAYER_LAYOUT}>
+            {/* 배경음 버튼 */}
+            <AmbientSoundButton
+              ref={ambientButtonRef}
+              on={ambient.isOn}
+              expanded={ambientSheetOpen}
+              onClick={() => setAmbientSheetOpen(true)}
+              className="absolute top-[calc(env(safe-area-inset-top)+13px)] right-[calc(env(safe-area-inset-right)+24px)] landscape:top-[calc(env(safe-area-inset-top)+90px)] landscape:right-[calc(env(safe-area-inset-right)+28px)]"
+            />
             {/* 가로에서도 상단 중앙 — 서브 문구(비집중·일시정지)는 세로와 같이 필 바로 아래에
                 붙는다. 가로 비집중·일시정지 프레임은 Figma 미설계라(SCR-S3-5·S3-6 Current
                 Limitations 3) 세로와 같은 상대 위치를 유지하는 가장 보수적인 배치를 쓴다. */}
@@ -726,27 +738,21 @@ function RoomSessionScreen({
             )}
           </div>
 
-          {/* ⚠️ **여기가 다이얼로그의 올바른 자리다** — `SESSION_LAYER_LAYOUT` div의 자식이 아니라
-              **형제**이고, `main` 바로 아래 `absolute inset-0`이다. 자식으로 넣으면 세 가지가
-              동시에 깨진다(qa-WG3가 프로브를 실제로 삽입해 재현 확인):
-                (1) 가로에서 그리드 자동 배치로 row1/col1 = 좌상단에 앉는다 — 중앙 모달이 구석에 그려진다
-                (2) row1 트랙이 커지면서 1fr인 row2가 줄어 심플 타이머(S3-6) 수직 위치가 밀린다
-                (3) 레이어의 `pointer-events-none`을 상속해 확인·취소 버튼이 클릭을 못 받는다
-              세로에서도 같은 컨테이너가 flex-col이라 흐름 자식이 되어 컨트롤 바를 밀어낸다 —
-              가로 전용 문제가 아니다. `pointer-events-auto`는 컴포넌트가 직접 갖는다.
-
-              가로(S3-5/S3-6)용 종료 확인 프레임은 Figma에 없다 — 세로와 같은 330w 다이얼로그를
-              가로 캔버스 중앙에 띄운다(임의로 가로 전용 레이아웃을 새로 디자인하지 않는다). */}
-          {exitDialogOpen && (
-            <SessionConfirmDialog
-              title={EXIT_CONFIRM_COPY.title}
-              description={exitConfirmDescription(focusSec)}
-              cancelLabel={EXIT_CONFIRM_COPY.cancel}
-              confirmLabel={EXIT_CONFIRM_COPY.confirm}
-              onCancel={handleCancelExit}
-              onConfirm={handleConfirmExit}
-            />
-          )}
+          {/* 배경음 시트는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
+              포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
+          <AmbientSoundSheet
+            open={ambientSheetOpen}
+            container={sessionSurfaceRef.current}
+            triggerRef={ambientButtonRef}
+            catalog={ambient.catalog}
+            mix={ambient.mix}
+            duckEnabled={ambient.duckEnabled}
+            blocked={ambient.blocked}
+            onToggleSound={ambient.toggleSound}
+            onChangeLevel={ambient.changeLevel}
+            onSetDuckEnabled={ambient.setDuckEnabled}
+            onOpenChange={setAmbientSheetOpen}
+          />
         </>
       ) : /* 미달 종료 안내 — **S3-8보다 먼저 검사한다.** 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, S3-8의 `여기까지 기록을 저장했어요`도 S4의
@@ -793,6 +799,25 @@ function RoomSessionScreen({
           쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
           치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
       {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
+
+      {/* 종료 확인 다이얼로그는 `phase` 삼항 **밖**에 둔다. `공부 종료`를 누르면 같은 렌더에서
+          `exitDialogOpen`이 false 가 되면서 `phase`도 `submitting`으로 바뀌는데, 삼항 안에
+          두면 그 프래그먼트가 통째로 언마운트돼 닫힘 모션이 한 프레임도 안 보인다. 밖에 두면
+          다이얼로그가 남아 Radix 가 퇴장 모션을 끝까지 재생한다. Radix 포털을 타므로 위치가
+          화면 배치를 정하지 않고, 포털 자리를 `main`으로 잡아야 `--session-dialog-*`가 풀린다. */}
+      <SessionConfirmDialog
+        // 삼항 밖이라 마운트는 유지되므로, 여는 조건에 phase 를 직접 건다. 자동 종료로
+        // phase 가 studying 을 벗어나면 열려 있던 다이얼로그도 open=false 가 되어 닫힘 모션을
+        // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false 로 가며 같은 경로를 탄다.
+        open={exitDialogOpen && phase.name === "studying"}
+        container={sessionSurfaceRef.current}
+        title={EXIT_CONFIRM_COPY.title}
+        description={exitConfirmDescription(focusSec)}
+        cancelLabel={EXIT_CONFIRM_COPY.cancel}
+        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        onCancel={handleCancelExit}
+        onConfirm={handleConfirmExit}
+      />
     </main>
   );
 }

@@ -125,7 +125,7 @@ export default function PermissionDeniedScreen() {
           <Text
             ref={titleRef}
             accessibilityRole="header"
-            className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-bold font-sans leading-[24px]"
+            className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-sans-bold leading-[24px]"
           >
             카메라 권한이 필요해요
           </Text>
