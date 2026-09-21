@@ -46,6 +46,25 @@ describe("parseCatalog", () => {
     expect(parseCatalog({ version: 1 })).toEqual([]);
     expect(parseCatalog({ sounds: "nope" })).toEqual([]);
   });
+
+  it("group 을 읽어 그대로 담는다", () => {
+    const raw = [
+      { id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" },
+      { id: "lofi-1", kind: "file", group: "music", label: "lofi", file: "lofi-1.mp3" },
+    ];
+    expect(parseCatalog(raw).map((s) => s.group)).toEqual(["noise", "music"]);
+  });
+
+  it("모르는 group 이나 group 없음은 항목을 버리지 않고 group 만 비운다", () => {
+    const raw = [
+      { id: "white", kind: "synth", group: "beat", label: "백색소음" },
+      { id: "pink", kind: "synth", label: "핑크노이즈" },
+      { id: "rain", kind: "file", group: 7, label: "빗소리", file: "rain.mp3" },
+    ];
+    const parsed = parseCatalog(raw);
+    expect(parsed.map((s) => s.id)).toEqual(["white", "pink", "rain"]);
+    expect(parsed.map((s) => s.group)).toEqual([undefined, undefined, undefined]);
+  });
 });
 
 describe("loadCatalog", () => {
@@ -83,16 +102,22 @@ describe("public/sounds/catalog.json", () => {
    * 실리기로 한 목록 전체를 잠근다. 파일이 존재하는지만 보면 항목이 사라지거나 id 가 바뀐
    * 것을 못 잡고, `soundIcons.ts` 의 아이콘 표와도 어긋난다.
    */
-  it("합성 3종과 파일 3종을 정해진 id 와 순서로 담고 있다", () => {
+  it("합성 5종과 파일 3종을 정해진 id 와 순서로 담고 있다", () => {
     expect(catalog.map((s) => s.id)).toEqual([
       "white",
       "pink",
       "brown",
+      "binaural",
+      "monaural",
       "rain-trp",
       "rain-mm",
       "cafe-vec",
     ]);
     expect(catalog.filter((s) => s.kind === "file")).toHaveLength(3);
+  });
+
+  it("모든 항목이 group 을 갖는다", () => {
+    expect(catalog.every((s) => s.group !== undefined)).toBe(true);
   });
 
   it("파일 항목은 같은 폴더에 실제 파일이 있다", () => {
@@ -103,14 +128,19 @@ describe("public/sounds/catalog.json", () => {
   });
 
   /**
-   * 정적 자산은 Vercel 원본에서 바로 나가고 CDN 이 없어 첫 로드 비용이 그대로 사용자에게
-   * 간다. 설계의 상한은 6MB 다. 소리를 더할 때 여기서 먼저 걸린다.
+   * 정적 자산은 Vercel 원본에서 바로 나가고 CDN 이 없다. 다만 소리 파일은 사용자가 그
+   * 소리를 켤 때 받으므로 한 사람이 무는 비용은 파일 하나 크기다. 총량은 배포 크기
+   * 문제라 BY-683 에서 12MB 로 올렸다. 파일 하나의 상한은 1.2MB 그대로다.
    */
-  it("소리 파일 전체 용량이 6MB 를 넘지 않는다", () => {
-    const total = catalog
-      .filter((s) => s.kind === "file")
-      .reduce((sum, s) => sum + statSync(join(dir, s.file as string)).size, 0);
+  it("파일마다 1.2MB, 전체 12MB 를 넘지 않는다", () => {
+    const files = catalog.filter((s) => s.kind === "file");
+    let total = 0;
+    for (const sound of files) {
+      const size = statSync(join(dir, sound.file as string)).size;
+      expect(size, sound.file).toBeLessThanOrEqual(1.2 * 1024 * 1024);
+      total += size;
+    }
 
-    expect(total).toBeLessThanOrEqual(6 * 1024 * 1024);
+    expect(total).toBeLessThanOrEqual(12 * 1024 * 1024);
   });
 });

@@ -1,5 +1,6 @@
 import type { AmbientSound, SoundId } from "./catalog";
 import type { Mix } from "./mix";
+import { createBeatSamples, isBeatKind } from "./beatSynth";
 import { createNoiseSamples } from "./noiseSynth";
 import type { NoiseKind } from "./noiseSynth";
 import { createSilentKeepAlive } from "./silentKeepAlive";
@@ -20,7 +21,7 @@ export interface AmbientPlayer {
 const FADE_SEC = 0.15;
 const DUCK_SEC = 1;
 const DUCK_GAIN = 0.4;
-const NOISE_BUFFER_SEC = 4;
+const SYNTH_BUFFER_SEC = 4;
 /**
  * 마스터 게인의 상한. 소리 버퍼는 저마다 피크 1 이라 여러 개를 최대 레벨로 겹치면 합이 1 을
  * 넘어 출력단에서 하드 클리핑한다. 1/N 로 나누면 절대 안 넘지만 소리 하나만 켰을 때 너무
@@ -264,8 +265,16 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
 
   const loadBuffer = (context: AudioContext, sound: AmbientSound): Promise<AudioBuffer> => {
     if (sound.kind === "synth") {
+      const length = context.sampleRate * SYNTH_BUFFER_SEC;
+      if (isBeatKind(sound.id)) {
+        // 좌우에 다른 주파수를 넣는 것이 비트의 원리라 한 채널로는 만들 수 없다.
+        const { left, right } = createBeatSamples(sound.id, length, context.sampleRate);
+        const buffer = context.createBuffer(2, length, context.sampleRate);
+        buffer.getChannelData(0).set(left);
+        buffer.getChannelData(1).set(right);
+        return Promise.resolve(buffer);
+      }
       if (!isNoiseKind(sound.id)) return Promise.reject(new Error(`unknown synth: ${sound.id}`));
-      const length = context.sampleRate * NOISE_BUFFER_SEC;
       const buffer = context.createBuffer(1, length, context.sampleRate);
       // 시드를 종류마다 다르게 준다. 같은 시드면 핑크·브라운이 화이트와 같은 난수열을 거른
       // 것이라 서로 상관을 갖고, 겹쳐 켰을 때 피크가 같은 자리에서 몰린다.

@@ -33,3 +33,21 @@ Freesound의 원본 다운로드는 로그인을 요구한다. 위 셋은 **원�
 ## 이음매 확인
 
 세 파일 모두 자기 자신과 이어 붙여 최대 표본 변화량을 재 보았고, 한 번 재생할 때와 값이 같았다. 루프가 도는 지점에 새로운 불연속이 생기지 않는다는 뜻이다. 크로스페이드가 제 역할을 했다.
+
+## 소리를 더하는 방법
+
+BY-683에서 탭을 노이즈·주변 소리·음악 셋으로 늘렸다. 비트 두 종은 코드가 만들고, 장면 소리와 lofi 는 파일이라 여기에 넣는다. 채우려던 소리는 모닥불·기내·도서관·파도·시골 저녁과 lofi 두 트랙이다. 음원은 취향을 타서 각자 고른 파일로 넣는다.
+
+파일 하나를 더하는 순서다.
+
+1. 허용 라이선스(CC0 우선) 원본을 받는다. 판별 기준은 `.claude/skills/sound-asset-pipeline` 에 있다.
+2. 루프로 만든다. `bash .claude/skills/sound-asset-pipeline/scripts/encode-loop.sh raw/입력.wav apps/web/public/sounds/이름.mp3 90 3`. 장면 소리는 mono 96kbps, 음악은 stereo 128kbps 로 두고 `-18 LUFS` 로 맞춘다.
+3. `catalog.json` 에 한 줄을 더한다. `group` 은 `noise`·`ambience`·`music` 중 하나다.
+   ```json
+   { "id": "bonfire", "kind": "file", "group": "ambience", "label": "모닥불", "file": "bonfire.mp3" }
+   { "id": "lofi-1", "kind": "file", "group": "music", "label": "lofi", "file": "lofi-1.mp3" }
+   ```
+   음악 탭은 지금 비어 있어 화면에 안 뜬다. `group: "music"` 항목을 처음 넣는 순간 탭이 생긴다.
+4. 이 표에 출처 한 행을 더한다. 파일과 표 행은 1:1 이어야 하고 테스트가 대조한다.
+5. 아이콘을 고른다. `src/features/ambient-sound/components/soundIcons.ts` 에 `id` 를 키로 lucide 아이콘 한 줄을 더한다. 안 더해도 음표로 떨어져 화면은 깨지지 않는다.
+6. 파일당 1.2MB, `public/sounds/` 전체 12MB 를 넘기지 않는다. 넘으면 항목을 빼지 말고 길이나 비트레이트를 줄인다. 상한은 `catalog.test.ts` 가 지킨다.

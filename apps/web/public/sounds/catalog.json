@@ -1,11 +1,31 @@
 {
   "version": 1,
   "sounds": [
-    { "id": "white", "kind": "synth", "label": "백색소음" },
-    { "id": "pink", "kind": "synth", "label": "핑크노이즈" },
-    { "id": "brown", "kind": "synth", "label": "브라운노이즈" },
-    { "id": "rain-trp", "kind": "file", "label": "빗소리 (실외)", "file": "rain-trp.mp3" },
-    { "id": "rain-mm", "kind": "file", "label": "빗소리 (실내)", "file": "rain-mm.mp3" },
-    { "id": "cafe-vec", "kind": "file", "label": "카페", "file": "cafe-vec.mp3" }
+    { "id": "white", "kind": "synth", "group": "noise", "label": "백색소음" },
+    { "id": "pink", "kind": "synth", "group": "noise", "label": "핑크노이즈" },
+    { "id": "brown", "kind": "synth", "group": "noise", "label": "브라운노이즈" },
+    { "id": "binaural", "kind": "synth", "group": "noise", "label": "바이노럴 비트" },
+    { "id": "monaural", "kind": "synth", "group": "noise", "label": "모노럴 비트" },
+    {
+      "id": "rain-trp",
+      "kind": "file",
+      "group": "ambience",
+      "label": "빗소리 (실외)",
+      "file": "rain-trp.mp3"
+    },
+    {
+      "id": "rain-mm",
+      "kind": "file",
+      "group": "ambience",
+      "label": "빗소리 (실내)",
+      "file": "rain-mm.mp3"
+    },
+    {
+      "id": "cafe-vec",
+      "kind": "file",
+      "group": "ambience",
+      "label": "카페",
+      "file": "cafe-vec.mp3"
+    }
   ]
 }

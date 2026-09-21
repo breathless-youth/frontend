@@ -1,5 +1,5 @@
 import { Info, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -12,6 +12,7 @@ import type { AmbientSound, SoundId } from "../catalog";
 import type { Mix } from "../mix";
 import { soundGroups } from "./soundGroups";
 import { soundIcon } from "./soundIcons";
+import { soundNote } from "./soundNotes";
 
 export interface AmbientSoundSheetProps {
   open: boolean;
@@ -65,6 +66,12 @@ export function AmbientSoundSheet({
 }: AmbientSoundSheetProps) {
   // 툴팁을 직접 제어한다. Radix 기본은 hover·focus 라 터치 기기에서는 열리지 않는다.
   const [tipOpen, setTipOpen] = useState(false);
+  // 소리별 안내 툴팁. 한 번에 하나만 연다.
+  const [openNote, setOpenNote] = useState<SoundId | null>(null);
+  // 시트가 닫히면 열려 있던 안내 툴팁을 닫는다. 안 그러면 다시 열 때 남아 있던 툴팁이 뜬다.
+  useEffect(() => {
+    if (!open) setOpenNote(null);
+  }, [open]);
   const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
@@ -164,22 +171,49 @@ export function AmbientSoundSheet({
                   const level = mix[sound.id] ?? 0;
                   const on = sound.id in mix;
                   const Icon = soundIcon(sound.id);
+                  const note = soundNote(sound.id);
                   return (
                     <li key={sound.id} className="flex flex-col">
-                      <button
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => onToggleSound(sound.id)}
-                        className={cn(
-                          "flex min-h-11 items-center gap-2.5 text-left text-[15px] leading-[22px]",
-                          "transition-colors duration-200 active:opacity-80 motion-reduce:transition-none",
-                          "focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none",
-                          on ? "text-[var(--state-focus)]" : "text-[var(--session-dialog-title)]",
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => onToggleSound(sound.id)}
+                          className={cn(
+                            "flex min-h-11 flex-1 items-center gap-2.5 text-left text-[15px] leading-[22px]",
+                            "transition-colors duration-200 active:opacity-80 motion-reduce:transition-none",
+                            "focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none",
+                            on ? "text-[var(--state-focus)]" : "text-[var(--session-dialog-title)]",
+                          )}
+                        >
+                          <Icon size={20} aria-hidden="true" className="shrink-0" />
+                          {sound.label}
+                        </button>
+                        {note && (
+                          <TooltipProvider>
+                            <Tooltip
+                              open={openNote === sound.id}
+                              // 여는 요청(hover·focus)은 무시하고 닫는 요청만 받는다. 안 그러면
+                              // 마우스가 얹힐 때 열렸다가 곧바로 온 클릭이 토글로 닫아 깜빡인다.
+                              // 여는 것은 아래 onClick 이 맡아 터치·마우스가 같게 동작한다.
+                              onOpenChange={(next) => {
+                                if (!next) setOpenNote(null);
+                              }}
+                            >
+                              <TooltipTrigger
+                                aria-label={`${sound.label} 안내`}
+                                onClick={() =>
+                                  setOpenNote((prev) => (prev === sound.id ? null : sound.id))
+                                }
+                                className="relative flex size-11 shrink-0 items-center justify-center text-[var(--session-dialog-body)] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+                              >
+                                <Info size={16} aria-hidden="true" />
+                              </TooltipTrigger>
+                              <TooltipContent side="left">{note}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
-                      >
-                        <Icon size={20} aria-hidden="true" className="shrink-0" />
-                        {sound.label}
-                      </button>
+                      </div>
                       <input
                         type="range"
                         min={0}

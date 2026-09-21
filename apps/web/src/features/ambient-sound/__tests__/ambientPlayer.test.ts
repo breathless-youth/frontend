@@ -7,6 +7,7 @@ const catalog: AmbientSound[] = [
   { id: "white", kind: "synth", label: "백색소음" },
   { id: "pink", kind: "synth", label: "핑크노이즈" },
   { id: "brown", kind: "synth", label: "브라운노이즈" },
+  { id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" },
   { id: "rain", kind: "file", label: "빗소리", file: "rain.mp3" },
   { id: "cafe", kind: "file", label: "카페", file: "cafe.mp3" },
 ];
@@ -327,6 +328,14 @@ describe("createWebAudioPlayer", () => {
     await player.applyMix({ white: 100, pink: 10 });
     expect(ctx.log).toContain("gain4.ramp(1,0.15)");
     expect(ctx.log).toContain("gain6.ramp(0.010000000000000002,0.15)");
+  });
+
+  it("비트는 두 채널 버퍼로, 노이즈는 한 채널 버퍼로 만든다", async () => {
+    const { ctx, player } = setup();
+    await player.applyMix({ binaural: 60, white: 60 });
+    expect(ctx.log).toContain("createBuffer(2,4000,1000)");
+    expect(ctx.log).toContain("createBuffer(1,4000,1000)");
+    expect(ctx.log).toContain("getChannelData(1)");
   });
 
   /**
