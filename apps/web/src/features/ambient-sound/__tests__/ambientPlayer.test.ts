@@ -187,7 +187,13 @@ function setup(initialState: AudioContextState = "running", hold = true) {
   const fetchImpl = vi.fn((input: string | URL | Request) =>
     Promise.resolve(String(input).endsWith("cafe.mp3") ? okResponse(8) : okResponse(4)),
   ) as unknown as typeof fetch;
-  const player = createWebAudioPlayer({ catalog, audioContextFactory: factory, fetchImpl });
+  const player = createWebAudioPlayer({
+    catalog,
+    audioContextFactory: factory,
+    fetchImpl,
+    // keep-alive 는 전용 describe 에서만 본다. jsdom 의 vendor 가 Apple 이라 기본 팩토리가 실제 Audio 를 만든다.
+    keepAliveFactory: () => null,
+  });
   return { ctx, factory, fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>, player };
 }
 
@@ -197,7 +203,11 @@ afterEach(() => {
 
 describe("createWebAudioPlayer", () => {
   it("AudioContext 가 없으면 조용히 no-op 이고 idle 이다", async () => {
-    const player = createWebAudioPlayer({ catalog, audioContextFactory: () => null });
+    const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
+      catalog,
+      audioContextFactory: () => null,
+    });
     await expect(player.applyMix({ white: 50 })).resolves.toEqual({ failed: [] });
     player.setDucked(true);
     player.suspend();
@@ -208,6 +218,7 @@ describe("createWebAudioPlayer", () => {
 
   it("컨텍스트 생성이 throw 해도 예외를 내지 않는다", async () => {
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => {
         throw new Error("no audio");
@@ -225,7 +236,10 @@ describe("createWebAudioPlayer", () => {
         return ctx;
       }),
     );
-    const player = createWebAudioPlayer({ catalog });
+    const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
+      catalog,
+    });
     await player.applyMix({ white: 50 });
     expect(player.getState()).toBe("playing");
   });
@@ -254,6 +268,7 @@ describe("createWebAudioPlayer", () => {
       releaseSlow = resolve;
     });
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       fetchImpl: vi.fn(() => slow.then(() => okResponse(4))) as unknown as typeof fetch,
@@ -351,6 +366,7 @@ describe("createWebAudioPlayer", () => {
   it("불러오지 못한 소리는 헤드룸을 낮추지 않는다", async () => {
     const ctx = createFakeContext("running", true);
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       fetchImpl: vi.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch,
@@ -416,6 +432,7 @@ describe("createWebAudioPlayer", () => {
       releaseSlow = resolve;
     });
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       fetchImpl: vi.fn((input: string | URL | Request) =>
@@ -453,6 +470,7 @@ describe("createWebAudioPlayer", () => {
     });
     const onPlaybackChanged = vi.fn();
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       fetchImpl: vi.fn((input: string | URL | Request) =>
@@ -537,6 +555,7 @@ describe("createWebAudioPlayer", () => {
     const ctx = createFakeContext("running", true);
     const onPlaybackChanged = vi.fn();
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       onPlaybackChanged,
@@ -559,6 +578,7 @@ describe("createWebAudioPlayer", () => {
     const ctx = createFakeContext("running", true);
     const onPlaybackChanged = vi.fn();
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       onPlaybackChanged,
@@ -587,6 +607,7 @@ describe("createWebAudioPlayer", () => {
     const ctx = createFakeContext("running", true);
     const onPlaybackChanged = vi.fn();
     const player = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       onPlaybackChanged,
@@ -658,6 +679,7 @@ describe("createWebAudioPlayer", () => {
       () => new Promise<Response>((resolve) => (resolveFetch = resolve)),
     ) as unknown as typeof fetch;
     const p = createWebAudioPlayer({
+      keepAliveFactory: () => null,
       catalog,
       audioContextFactory: () => ctx as unknown as AudioContext,
       fetchImpl,
@@ -873,5 +895,186 @@ describe("createMemoryPlayer", () => {
     await player.suspend();
     await player.resume();
     expect(player.getState()).toBe("idle");
+  });
+});
+
+/**
+ * iOS 웹뷰의 무음 스위치용 keep-alive. WebKit 은 Web Audio 만 쓰는 페이지를 주변음으로 분류해
+ * 무음 스위치를 따르고, 미디어 요소가 재생 중이면 미디어 재생으로 바꿔 스위치를 무시한다.
+ * 앱이 잡은 오디오 세션 카테고리는 여기 관여하지 않는다(2026-09-20 실기기 bisect).
+ */
+describe("무음 스위치용 keep-alive", () => {
+  /** paused 를 실제 요소처럼 흉내 낸다. play 가 거부되면 paused 는 true 로 남는다. */
+  function createFakeKeepAlive(play: () => Promise<void> = () => Promise.resolve()) {
+    const el = {
+      paused: true,
+      play: vi.fn(() => {
+        const result = play();
+        // 명세대로 거부는 paused 를 건드리지 않고, 성공했을 때만 내린다.
+        result.then(
+          () => {
+            el.paused = false;
+          },
+          () => undefined,
+        );
+        return result;
+      }),
+      pause: vi.fn(() => {
+        el.paused = true;
+      }),
+    };
+    return el as unknown as HTMLAudioElement & typeof el;
+  }
+
+  function setupWithKeepAlive(
+    element: HTMLAudioElement | null,
+    initialState: AudioContextState = "running",
+  ) {
+    const ctx = createFakeContext(initialState, true);
+    const keepAliveFactory = vi.fn(() => element);
+    const player = createWebAudioPlayer({
+      catalog,
+      audioContextFactory: () => ctx as unknown as AudioContext,
+      keepAliveFactory,
+    });
+    return { ctx, player, keepAliveFactory };
+  }
+
+  it("첫 소리를 켜는 순간, 버퍼를 기다리기 전에 재생을 건다", async () => {
+    const el = createFakeKeepAlive();
+    const { player } = setupWithKeepAlive(el);
+
+    const pending = player.applyMix({ white: 50 });
+    // 제스처 스택 안이어야 하므로 await 전에 이미 불려 있어야 한다.
+    expect(el.play).toHaveBeenCalledTimes(1);
+    await pending;
+    // 보이스가 시작되며 상태가 playing 으로 바뀌어도 이미 켜진 요소를 또 켜지 않는다.
+    expect(el.play).toHaveBeenCalledTimes(1);
+    expect(el.pause).not.toHaveBeenCalled();
+  });
+
+  it("모든 소리가 꺼지고 페이드가 끝나야 멈춘다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el);
+    await player.applyMix({ white: 50 });
+    await player.applyMix({});
+
+    // 페이드아웃 중에는 아직 소리가 나고 있다.
+    expect(el.pause).not.toHaveBeenCalled();
+    ctx.endSource("src3");
+    expect(el.pause).toHaveBeenCalledTimes(1);
+
+    // 다시 켜면 다시 건다.
+    void player.applyMix({ white: 50 });
+    expect(el.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("세션이 멈추면 같이 멈추고, 재개하면 다시 건다", async () => {
+    const el = createFakeKeepAlive();
+    const { player } = setupWithKeepAlive(el);
+    await player.applyMix({ white: 50 });
+
+    await player.suspend();
+    expect(el.pause).toHaveBeenCalledTimes(1);
+
+    await player.resume();
+    expect(el.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("재생이 거부되거나 던져도 소리 재생은 계속된다", async () => {
+    const rejected = createFakeKeepAlive(() => Promise.reject(new Error("NotAllowedError")));
+    const { ctx, player } = setupWithKeepAlive(rejected);
+    await expect(player.applyMix({ white: 50 })).resolves.toEqual({ failed: [] });
+    // 거부된 뒤 상태가 playing 으로 바뀌며 한 번 더 시도한다. 횟수가 아니라 시도 여부만 본다.
+    expect(rejected.play).toHaveBeenCalled();
+    expect(ctx.sources).toHaveLength(1);
+
+    const throwing = createFakeKeepAlive(() => {
+      throw new Error("half-loaded");
+    });
+    const second = setupWithKeepAlive(throwing);
+    await expect(second.player.applyMix({ white: 50 })).resolves.toEqual({ failed: [] });
+    expect(second.ctx.sources).toHaveLength(1);
+  });
+
+  it("팩토리가 null 을 주면(Apple WebKit 아님) 다시 묻지 않고 아무것도 하지 않는다", async () => {
+    const { player, keepAliveFactory, ctx } = setupWithKeepAlive(null);
+    await player.applyMix({ white: 50 });
+    await player.applyMix({ white: 50, pink: 20 });
+    expect(keepAliveFactory).toHaveBeenCalledTimes(1);
+    expect(ctx.sources.length).toBeGreaterThan(0);
+  });
+
+  it("소리를 하나도 못 불러오면 keep-alive 도 같이 멈춘다", async () => {
+    const el = createFakeKeepAlive();
+    const { player } = setupWithKeepAlive(el);
+    // 카탈로그에 없는 id 만 켜면 보이스가 끝내 생기지 않는다. 이때 요소만 영영 돌면 안 된다.
+    await expect(player.applyMix({ nope: 50 })).resolves.toEqual({ failed: ["nope"] });
+    expect(el.play).toHaveBeenCalledTimes(1);
+    expect(el.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("시스템이 요소를 멈춘 뒤 인터럽션에서 돌아오면 다시 건다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el);
+    await player.applyMix({ white: 50 });
+
+    ctx.state = "interrupted" as AudioContextState;
+    ctx.emit();
+    // 우리가 부르지 않은 멈춤에서는 요소를 끄지 않는다. 깨우는 도중의 잠깐을 멈춤으로 오해해
+    // 껐다 켜면 두 번째 play 가 제스처 밖이라 거부될 수 있다.
+    expect(el.pause).not.toHaveBeenCalled();
+
+    // 재개되지 않는 인터럽션이나 잠금화면 정지처럼, 우리가 부르지 않았는데 요소가 멈춘 상황.
+    el.paused = true;
+    ctx.state = "running";
+    ctx.emit();
+
+    expect(el.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("세션이 멈춘 동안 들어온 applyMix 는 걸지 않는다", async () => {
+    const el = createFakeKeepAlive();
+    const { player } = setupWithKeepAlive(el);
+    await player.suspend();
+    await player.applyMix({ white: 50 });
+    expect(el.play).not.toHaveBeenCalled();
+  });
+
+  it("dispose 하면 멈춘다", async () => {
+    const el = createFakeKeepAlive();
+    const { player } = setupWithKeepAlive(el);
+    await player.applyMix({ white: 50 });
+    player.dispose();
+    expect(el.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("소리가 차단되면 keep-alive 도 멈춘다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el, "suspended");
+    // 깨우기가 끝내 먹지 않는 상황. 자동재생 차단이 이렇다.
+    ctx.resume.mockImplementation(() => Promise.resolve());
+
+    await player.applyMix({ white: 50 });
+
+    expect(player.getState()).toBe("blocked");
+    // 제스처 스택 안에서 건 것 자체는 맞다. 다만 소리가 나지 않는 채로 남으면
+    // 미디어 세션만 쥐고 있는 꼴이 된다.
+    expect(el.play).toHaveBeenCalledTimes(1);
+    expect(el.paused).toBe(true);
+  });
+
+  it("차단이 이어져도 멈춘 채로 남는다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el, "suspended");
+    ctx.resume.mockImplementation(() => Promise.resolve());
+    await player.applyMix({ white: 50 });
+
+    // 사용자가 한 번 더 누르는 경우. 상태가 blocked 에서 blocked 로 가 알림이 걸러지는데
+    // 그 지점에서 빠져나가면 요소가 다시 돌기 시작한 채로 남는다.
+    await player.applyMix({ white: 50, pink: 30 });
+
+    expect(player.getState()).toBe("blocked");
+    expect(el.paused).toBe(true);
   });
 });
