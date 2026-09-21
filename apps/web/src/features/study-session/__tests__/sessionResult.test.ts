@@ -6,6 +6,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+  DISTRACTION_STATUSES,
   aggregateEvents,
   formatClockRange,
   formatClockTime,
@@ -255,5 +256,26 @@ describe("timelineSummaryLabel", () => {
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
     expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe("순공 1시간 24분, 휴식 10분");
+  });
+});
+
+describe("DISTRACTION_STATUSES", () => {
+  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP이다", () => {
+    expect([...DISTRACTION_STATUSES]).toEqual(["AWAY", "PHONE", "DEVICE", "SLEEP"]);
+  });
+
+  it("졸음 행이 보이고 휴식 합계에 들어간다", () => {
+    const withSleep = exampleSession({
+      events: [event("AWAY", 600, 300), event("SLEEP", 1200, 240), event("PAUSE", 2400, 180)],
+    });
+    const view = toSessionResultView(withSleep);
+
+    expect(view.distractions.map((t) => t.status)).toEqual(["AWAY", "SLEEP"]);
+    expect(view.distractions.find((t) => t.status === "SLEEP")).toMatchObject({
+      count: 1,
+      durationSec: 240,
+    });
+    // 일시정지는 휴식 합계에서 계속 빠진다.
+    expect(view.distractionSec).toBe(540);
   });
 });

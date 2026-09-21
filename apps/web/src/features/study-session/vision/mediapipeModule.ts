@@ -1,10 +1,12 @@
-import { FilesetResolver, ObjectDetector } from "@mediapipe/tasks-vision";
+import { FaceLandmarker, FilesetResolver, ObjectDetector } from "@mediapipe/tasks-vision";
 
 import type {
   DetectorCreateOptions,
+  FaceLandmarkerCreateOptions,
   MediapipeDetectorHandle,
+  MediapipeFaceLandmarkerHandle,
   MediapipeVisionRuntime,
-} from "./objectDetector";
+} from "./mediapipePort";
 
 /**
  * `@mediapipe/tasks-vision`을 **실제로 import하는 유일한 파일**.
@@ -54,6 +56,28 @@ export function createMediapipeRuntime(): MediapipeVisionRuntime {
         // COCO 80클래스 중 필요한 둘만 남긴다. 나머지는 후처리 비용일 뿐이다(설계 §2).
         categoryAllowlist: [...options.categoryAllowlist],
         scoreThreshold: options.scoreThreshold,
+      });
+    },
+
+    async createFaceLandmarker(
+      options: FaceLandmarkerCreateOptions,
+    ): Promise<MediapipeFaceLandmarkerHandle> {
+      // 같은 fileset을 재사용한다. 얼굴 모델은 객체 검출기가 준비된 뒤에 뜨므로 이미 받아져 있다.
+      const fileset = await resolveFileset(options.wasmPath);
+      return await FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: {
+          modelAssetPath: options.modelAssetPath,
+          delegate: options.delegate,
+        },
+        runningMode: "VIDEO",
+        numFaces: options.numFaces,
+        minFaceDetectionConfidence: options.minFaceDetectionConfidence,
+        minFacePresenceConfidence: options.minFacePresenceConfidence,
+        minTrackingConfidence: options.minTrackingConfidence,
+        outputFaceBlendshapes: true,
+        // 4x4 자세 행렬은 랜드마크와 같은 성격의 위치 정보이고 우리는 쓰지 않는다.
+        // 만들지 않는 것이 프레임당 비용도 줄인다.
+        outputFacialTransformationMatrixes: false,
       });
     },
   };

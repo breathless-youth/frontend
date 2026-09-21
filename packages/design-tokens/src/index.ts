@@ -53,7 +53,7 @@ export const colors = {
  * 근거: ai-wiki `product/mvp-scope.md` 세션 상태 모델 + `product/design.md`(2026-07-26 확정).
  *
  * - FOCUS(집중): 순공·총 공부 모두 진행. 기본 상태이므로 서버 이벤트로 기록되지 않는다.
- * - DISTRACTION(비집중): 감지 3종(자리 이탈·휴대폰 사용·기기 조작). 순공만 정지, 총 공부는 진행.
+ * - DISTRACTION(비집중): 휴식 4종(자리 이탈·휴대폰 사용·기기 조작·졸음). 순공만 정지, 총 공부는 진행.
  * - PAUSE(일시정지): 수동 일시정지 + 화면 꺼짐·백그라운드(2026-07-26 통합). 순공·총 공부 모두 정지.
  */
 export const sessionStateColors = {
@@ -64,18 +64,19 @@ export const sessionStateColors = {
 
 /**
  * 서버 이벤트 상태별 표시색. 키는 `@focusmakers/types`의 `StudyEventStatus`
- * (`"PHONE" | "DEVICE" | "AWAY" | "PAUSE"` — 백엔드 Swagger 계약)와 1:1로 대응한다.
+ * (`"PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE"` — 백엔드 Swagger 계약)와 1:1로 대응한다.
  *
  * 이 패키지는 순수 값 패키지라 `@focusmakers/types`를 import하지 않는다(아키텍처 경계 유지) —
  * 대신 키 집합이 어긋나지 않도록 테스트로 고정한다. 계약이 바뀌면 이 표와 테스트를 함께 고친다.
  *
- * 비집중 3종(PHONE·DEVICE·AWAY)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
+ * 휴식 4종(PHONE·DEVICE·AWAY·SLEEP)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
  * (`ai-wiki/product/glossary.md`의 노출 표기 참고).
  */
 export const eventStatusColors = {
   PHONE: sessionStateColors.DISTRACTION,
   DEVICE: sessionStateColors.DISTRACTION,
   AWAY: sessionStateColors.DISTRACTION,
+  SLEEP: sessionStateColors.DISTRACTION,
   PAUSE: sessionStateColors.PAUSE,
 } as const;
 

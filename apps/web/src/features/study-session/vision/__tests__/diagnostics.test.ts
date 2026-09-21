@@ -13,6 +13,16 @@ function recordingSink() {
   return { sink, events };
 }
 
+/** 얼굴 항목이 없는 평범한 프레임. 얼굴 관련 케이스가 이 위에 필드를 얹는다. */
+const BASE_FRAME = {
+  personPresent: true,
+  topScores: { person: 0.9 },
+  awaySignal: false,
+  phoneSignal: false,
+  durationMs: 40,
+  delegate: "CPU",
+} as const;
+
 describe("createVisionDiagnostics", () => {
   it("delegate 선택을 남긴다 (설계 §8)", () => {
     const { sink, events } = recordingSink();
@@ -80,6 +90,15 @@ describe("createVisionDiagnostics", () => {
     }
   });
 
+  it("버린 틱을 이벤트로 남긴다", () => {
+    const { sink, events } = recordingSink();
+    createVisionDiagnostics(sink).frameDropped();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event).toBe("vision:frame-dropped");
+    expect(events[0]?.payload).toEqual({});
+  });
+
   it("상태 전이는 이전/다음 상태와 시각을 남긴다", () => {
     const { sink, events } = recordingSink();
     createVisionDiagnostics(sink).transition("FOCUS", "PHONE", 1_700_000_000_000);
@@ -130,5 +149,106 @@ describe("visionDiagnostics (기본 인스턴스)", () => {
     // vitest는 DEV=true로 돈다. 프로덕션 빌드에서는 이 분기 자체가 사라진다(트리셰이킹).
     expect(debug).toHaveBeenCalledTimes(import.meta.env.DEV ? 1 : 0);
     debug.mockRestore();
+  });
+});
+
+describe("createVisionDiagnostics — 얼굴", () => {
+  it("얼굴이 돌지 않은 프레임에는 face 키가 없다", () => {
+    const { sink, events } = recordingSink();
+    createVisionDiagnostics(sink).frame({ ...BASE_FRAME, face: null });
+
+    const payload = events[0]?.payload ?? {};
+    expect(Object.keys(payload).some((key) => key.startsWith("face:"))).toBe(false);
+  });
+
+  it("꾸벅거림 원신호와 지금 쓰는 임계를 남긴다 — 왜 안 잡혔는지는 임계 없이 설명되지 않는다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepDrowsySignal: true,
+      eyeThreshold: 0.654_3,
+      eyeClosedRatio: 0.733_3,
+    });
+
+    expect(events[0]?.payload).toMatchObject({
+      sleepDrowsy: true,
+      eyeThreshold: 0.65,
+      eyeClosedRatio: 0.73,
+    });
+  });
+
+  it("창이 안 찼으면 비율 키를 아예 만들지 않는다 — 0으로 적으면 감긴 적이 없다로 읽힌다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepDrowsySignal: false,
+      eyeThreshold: 0.45,
+      eyeClosedRatio: null,
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({ sleepDrowsy: false, eyeThreshold: 0.45 });
+    expect(Object.keys(payload)).not.toContain("eyeClosedRatio");
+  });
+
+  it("얼굴 점수를 평탄한 스칼라로 남긴다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      sleepEyesSignal: true,
+      face: {
+        present: true,
+        eye: { eyeBlinkLeft: 0.512_3, eyeBlinkRight: 0.487 },
+        skipReason: null,
+        durationMs: 51.234,
+        delegate: "CPU",
+      },
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({
+      sleepEyes: true,
+      "face:present": true,
+      "face:eyeBlinkLeft": 0.51,
+      "face:durationMs": 51.23,
+      "face:delegate": "CPU",
+    });
+    // 중첩 객체가 들어가면 좌표가 실릴 길이 생긴다.
+    for (const value of Object.values(payload)) {
+      expect(["string", "number", "boolean"]).toContain(typeof value);
+    }
+  });
+
+  it("눈 판정을 건너뛴 이유를 남기고 점수 키는 만들지 않는다", () => {
+    const { sink, events } = recordingSink();
+
+    createVisionDiagnostics(sink).frame({
+      ...BASE_FRAME,
+      face: {
+        present: true,
+        eye: null,
+        skipReason: "face-too-small",
+        durationMs: 44,
+        delegate: "CPU",
+      },
+    });
+
+    const payload = events[0]?.payload ?? {};
+    expect(payload).toMatchObject({ "face:present": true, "face:skip": "face-too-small" });
+    expect(payload).not.toHaveProperty("face:eyeBlinkLeft");
+  });
+
+  it("얼굴 모델 상태를 남긴다", () => {
+    const { sink, events } = recordingSink();
+    const diagnostics = createVisionDiagnostics(sink);
+
+    diagnostics.faceReady("CPU");
+    diagnostics.faceUnavailable("unavailable");
+
+    expect(events[0]).toEqual({ event: "face:ready", payload: { delegate: "CPU" } });
+    expect(events[1]).toEqual({ event: "face:unavailable", payload: { reason: "unavailable" } });
   });
 });

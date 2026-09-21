@@ -107,7 +107,11 @@ S3-2 · 비집중 감지 (자동)  (frame 59:311, 402×874)
 | 비집중 — 자리 이탈   | `자리를 비운 것 같아요`        | `돌아오면 자동으로 다시 측정돼요`      |
 | 비집중 — 휴대폰 사용 | `휴대폰을 사용 중인 것 같아요` | `내려놓으면 자동으로 다시 측정돼요`    |
 | 비집중 — 기기 조작   | `기기를 조작 중인 것 같아요`   | `제자리에 두면 자동으로 다시 측정돼요` |
+| 비집중 — 졸음 ⚠️     | `졸고 있는 것 같아요`          | `깨어나면 자동으로 다시 측정돼요`      |
 
+- **⚠️ `졸음` 문구는 리더 확인 대기다.** voice-tone.md에 없는 신규 문구라 BY-702 구현 시 잠정으로
+  넣었다. 오래 감김·꾸벅거림 두 감지 경우를 한 문구로 덮고 사용자에게 어느 쪽으로 잡혔는지는
+  알리지 않는다.
 - **Figma에는 비집중 3종 중 "휴대폰 사용" 인스턴스 하나만 그려져 있다.** 나머지 두 문구는 위 표(voice-tone.md §3)대로 구현한다 — Figma에 없다고 빠뜨리지 않는다.
 - **비집중 해제 시 문구를 띄우지 않는다.** 색만 복귀한다("재개를 굳이 알리지 않는다 — 공부 방해 최소화", voice-tone.md §3).
 - 추정형 어미(`~것 같아요`)를 단정형으로 바꾸지 않는다. 감지 오탐 가능성을 문구가 흡수하는 구조다(voice-tone.md §1).
@@ -139,7 +143,7 @@ S3-2 · 비집중 감지 (자동)  (frame 59:311, 402×874)
 ### 이미 존재하는 타입 — `frontend/packages/types/src/index.ts` (백엔드 Swagger 기준, 그대로 재사용)
 
 ```ts
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE";
+export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
 
 export interface StatusEventPayload {
   status: StudyEventStatus;
@@ -167,10 +171,12 @@ export interface StudySessionCreateRequest {
 | 자리 이탈 (Absence)                  | 전면 카메라 — 사람(person) 미검출      | `자리를 비운 것 같아요`        | **정지** | 진행     | `AWAY`                     |
 | 휴대폰 사용 (Phone Usage)            | 전면 카메라 — 촬영 기기 외 휴대폰 검출 | `휴대폰을 사용 중인 것 같아요` | **정지** | 진행     | `PHONE`                    |
 | 기기 조작 (Device Handling)          | 가속도 센서 — 촬영 중인 기기 조작      | `기기를 조작 중인 것 같아요`   | **정지** | 진행     | `DEVICE`                   |
+| 졸음 (Drowsiness) ⚠️                 | 전면 카메라 — 눈 감김                  | `졸고 있는 것 같아요`          | **정지** | 진행     | `SLEEP`                    |
 | 수동 일시정지 / 화면 꺼짐·백그라운드 | 사용자 입력 / 앱 라이프사이클          | (WG2)                          | **정지** | **정지** | `PAUSE`                    |
 | 집중 (기본 상태)                     | —                                      | `집중 측정 중`                 | 진행     | 진행     | **이벤트로 기록하지 않음** |
 
 - `PAUSE`는 수동/화면꺼짐 **구분 없이 하나**로 보낸다. 2026-07-26 6차 확정으로 '화면 꺼짐' 라벨은 삭제되고 일시정지에 합산된다 — 별도 status 코드를 만들지 않는다.
+- **⚠️ `SLEEP`은 Swagger 등재 전 잠정이다(BY-702).** 값 이름은 백엔드와 합의했고(BY-706) 등재 시점만 미정이다. 이 PR은 감지를 연결하지 않는다 — `SLEEP` 이벤트를 만드는 코드가 아직 없다(BY-703이 연결한다).
 - **⚠️ `DEVICE` 정의 상충 — 확인 필요.** `packages/types`의 주석은 `DEVICE=다른 기기`라고 쓰여 있는데, `ai-wiki/project/glossary.md`는 `디바이스 조작(Device Handling) = 가속도 센서로 **촬영 중인 기기**가 조작되고 있다고 감지한 상태`로 정의한다. "다른 기기"는 `PHONE`("촬영 기기 외의 휴대폰")과 의미가 겹친다. **ai-wiki 정의를 기준으로 구현하되**(2026-07-26 기준으로 더 최신), 백엔드 담당자에게 주석 정정을 확인한다. 임의로 타입 주석을 고치지 말 것.
 - **⚠️ 저조도 등 감지 신뢰도 저하 — 전용 코드·문구 없음.** `mvp-scope.md`는 "카메라는 켜져 있으나 모델이 사람을 잡을 수 없는 상태 = 비집중과 동일 처리"라고 정한다. 이 조건은 자리 이탈(Absence) 감지기가 발화하는 조건과 같으므로 자연히 `AWAY` + `자리를 비운 것 같아요`로 흡수된다. **별도 status 코드나 별도 문구를 만들지 않는다**(voice-tone에 해당 문구가 없다 — 새로 지어내지 말 것).
 - **⚠️ 동시 다중 감지 시 이벤트 type 선택 규칙 — 미정, 리더/사용자 확인 필요.** `mvp-scope.md`는 "하나라도 비집중을 감지하면 순공 타이머를 정지"라고만 정해 화면 표시(비집중 상태)는 문제없지만, 서버 이벤트는 `status` 하나만 갖고 **구간이 서로 겹칠 수 없다**. 예: 자리 이탈 중에 기기 조작이 겹치면 이벤트를 어떻게 쪼갤지가 계약에 없다. 구현은 (a) 상태 머신이 "현재 대표 트리거" 하나만 유지하고 (b) 대표 트리거가 바뀌면 이벤트를 끊고 새로 시작하는 구조로 **인터페이스만** 만들고, 우선순위 규칙은 `TODO(리더 확인)`로 남긴다. 상상으로 우선순위를 확정하지 말 것.
@@ -185,7 +191,7 @@ export interface StudySessionCreateRequest {
 
 ```ts
 // apps/web/src/features/study-session/ — 순수 로직, DOM/SDK 의존 금지
-export type DistractionTrigger = "AWAY" | "PHONE" | "DEVICE"; // StudyEventStatus의 부분집합
+export type DistractionTrigger = "AWAY" | "PHONE" | "DEVICE" | "SLEEP"; // StudyEventStatus의 부분집합
 export type PauseTrigger = "MANUAL" | "BACKGROUND"; // 서버에는 둘 다 "PAUSE"로 전송
 
 export type SessionState =
@@ -197,11 +203,15 @@ export type SessionState =
 - 심플 모드(S3-4)는 **상태가 아니라 프레젠테이션 토글**이다 — `SessionState`에 넣지 말고 별도 boolean으로 둔다(WG2가 뷰를 채운다).
 - 감지 파라미터는 **하드코딩 금지**, 설정 객체로 주입한다(`mvp-scope.md` "감지 파라미터" — M1 테스트로 튜닝 예정):
 
-  | 감지기      | 비집중 진입(유지) | 자동 재개(유지) |
-  | ----------- | ----------------- | --------------- |
-  | 자리 이탈   | 1.5초             | 2초             |
-  | 휴대폰 사용 | 0.5초             | 1.5초           |
-  | 기기 조작   | 0.5초             | 2초             |
+  | 감지기             | 비집중 진입(유지) | 자동 재개(유지) |
+  | ------------------ | ----------------- | --------------- |
+  | 자리 이탈          | 2초               | 2초             |
+  | 휴대폰 사용        | 1초               | 1.5초           |
+  | 기기 조작          | 0.5초             | 2초             |
+  | 졸음 — 눈 감김 ⚠️  | 10초(잠정)        | 2초             |
+  | 졸음 — 꾸벅꾸벅 ⚠️ | 4초(44초 비율 창) | 2초             |
+
+  (2026-09-21 갱신 — 발열·배터리 조정으로 프레임 주기를 1 fps로 늘리면서 자리 이탈 1.5초→2초, 휴대폰 0.5초→1초. 근거는 `apps/web/src/features/study-session/vision/visionConfig.ts`의 `FRAME_INTERVAL_MS` 주석.)
 
 ## Interaction Contract
 
@@ -238,7 +248,7 @@ export type SessionState =
 | 비집중 타이머 색      | `colors.text.tertiary` (`#8B95A1`, light/dark 동일)                                             | `#8B95A1` — Figma 실측과 일치             |
 | 종료 버튼             | `colors.feedback.error`                                                                         | dark 값 `#FF6B77` — Figma 실측과 일치     |
 | 상태 3색 참조         | `sessionStateColors.FOCUS / DISTRACTION / PAUSE`                                                | 상태 필·타이머 색 매핑                    |
-| 이벤트 색 매핑        | `eventStatusColors` (`PHONE`/`DEVICE`/`AWAY`/`PAUSE`)                                           | 비집중 3종은 전부 같은 오렌지             |
+| 이벤트 색 매핑        | `eventStatusColors` (`PHONE`/`DEVICE`/`AWAY`/`SLEEP`/`PAUSE`)                                   | 휴식 4종은 전부 같은 오렌지               |
 | 반경                  | `radius.full` (999)                                                                             | 상태 필·컨트롤 바·원형 버튼               |
 | 캡션 타이포           | `typography.caption` (12/16 Regular)                                                            | 프라이버시 캡션·비집중 서브 문구          |
 | 상태 필 텍스트        | `typography.label.md` (14/20 Medium)                                                            | Figma 실측 line-height는 18 — 18로 맞춘다 |

@@ -46,6 +46,13 @@ export interface FrameLoopOptions {
    * 여기서 던지거나 거부해도 루프는 계속 돈다(한 프레임 실패로 세션 측정을 포기하지 않는다).
    */
   onFrame: () => void | Promise<void>;
+  /**
+   * 앞 프레임이 안 끝나 이번 틱을 버렸다. 실기기 측정이 이 횟수를 합격 기준으로 쓴다.
+   *
+   * 버린 횟수가 0이 아니면 추론이 주기보다 길다는 뜻이고, 그때는 판정에 공백이 생긴다.
+   * 그 상태는 로그의 다른 값만 봐서는 정상과 구분되지 않는다.
+   */
+  onDrop?: () => void;
   /** 현재 세션 phase. 매 프레임 다시 읽으므로 적응형 주기로 바꿀 때 호출부가 안 바뀐다. */
   phase?: () => FramePhase;
 }
@@ -63,21 +70,21 @@ export interface FrameLoopOptions {
  *
  * ⚠️ **버림이 잦아지면 주기가 무의미해진다.** 추론이 주기보다 길면 실효 샘플 간격을 정하는
  * 건 `FRAME_INTERVAL_MS`가 아니라 추론 시간이 되고, CPU는 쉬지 않는다 — 200ms 시절이 정확히
- * 그 상태였고 그게 발열의 원인이었다(BY-305 실측, `visionConfig.ts` 주석). 500ms는 실측
- * 추론(int8 213~371ms)보다 길어 평소엔 버릴 일이 없지만, **저사양 기기에서 추론이 500ms를
- * 넘으면 같은 포화가 재현된다.**
+ * 그 상태였고 그게 발열의 원인이었다(BY-305 실측, `visionConfig.ts` 주석). 1000ms는 실측
+ * 추론(int8 213~371ms)보다 훨씬 길어 평소엔 버릴 일이 없지만, **저사양 기기에서 추론이
+ * 1000ms를 넘으면 같은 포화가 재현된다.**
  *
  * 다만 **버려진 구간은 지연이 아니라 관측 공백이다.** 유지시간 디바운스가 벽시계
  * 기반(`../detection.ts`)이라 이미 관측된 신호의 판정이 뒤집히지는 않지만, 공백 안에서
  * 시작해 공백 안에서 끝난 신호는 어느 프레임에도 걸리지 않아 없었던 일이 된다. 이 루프가
- * 만드는 신호는 AWAY·PHONE뿐이다(`DEVICE`는 가속도 센서 경로라 무관 —
- * `../adapters/deviceHandlingDetector.ts`).
+ * 만드는 신호는 AWAY·PHONE·SLEEP_EYES·SLEEP_DROWSY뿐이다(`DEVICE`는 가속도 센서 경로라
+ * 무관 — `../adapters/deviceHandlingDetector.ts`).
  *
  * 타이머는 매 tick에서 **먼저 다음 주기를 예약한 뒤** 프레임을 처리한다. 추론 시간이 주기에
  * 누적되지 않게 하기 위해서다.
  */
 export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
-  const { onFrame, phase = () => "FOCUS" as FramePhase } = options;
+  const { onFrame, onDrop, phase = () => "FOCUS" as FramePhase } = options;
 
   let running = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -105,6 +112,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
   function fire(id: number): void {
     if (busy) {
       // 직전 추론이 아직 안 끝났다 — 이번 프레임은 버린다. 밀린 만큼 몰아서 처리하지 않는다.
+      onDrop?.();
       return;
     }
     busy = true;

@@ -68,7 +68,7 @@ const statsResponse = {
   totalFocusSec: 5520, // 1시간 32분
   longestFocusSec: 3120, // 52분
   focusRate: 76.7,
-  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
   studiedDatesInMonth: [],
 };
 

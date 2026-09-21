@@ -26,10 +26,24 @@ import { toKoreanDurationLength } from "./formatDuration";
  * 비집중 합계(`distractionSec`)에서 PAUSE를 빼는 것이 이 모듈의 핵심 규칙이다.
  */
 
-/** 비집중 3종. **PAUSE는 의도적으로 빠져 있다** — 합계·타이틀에서 제외된다. */
-export const DISTRACTION_STATUSES = ["AWAY", "PHONE", "DEVICE"] as const;
+/**
+ * 휴식 유형과 S4 행 순서. PAUSE는 의도적으로 빠져 있다. 합계·타이틀에서 제외된다.
+ *
+ * 값은 쓰지 않고 키 삽입 순서만 쓴다. `satisfies Record<Exclude<StudyEventStatus, "PAUSE">, number>`가
+ * 명세의 새 상태를 여기서 잡는다. 빠뜨리면 그 상태는 S4 행과 `distractionSec`에서 알림 없이 사라진다.
+ */
+const DISTRACTION_ROW_ORDER = {
+  AWAY: 0,
+  PHONE: 1,
+  DEVICE: 2,
+  SLEEP: 3,
+} as const satisfies Record<Exclude<StudyEventStatus, "PAUSE">, number>;
 
-export type DistractionStatus = (typeof DISTRACTION_STATUSES)[number];
+export type DistractionStatus = keyof typeof DISTRACTION_ROW_ORDER;
+
+export const DISTRACTION_STATUSES = Object.keys(
+  DISTRACTION_ROW_ORDER,
+) as readonly DistractionStatus[];
 
 /**
  * 발생 구간 1건 — 펼침 영역이 "언제 얼마나"를 보여주는 데 쓴다(BY-336).
@@ -74,7 +88,7 @@ export interface SessionResultView {
   clockRange: string;
   /** 건수 0인 유형은 빠진다 — 0회 행 시안이 Figma에 없다. 순서는 `DISTRACTION_STATUSES` 고정. */
   distractions: EventTally[];
-  /** 비집중 3종 시간 합(초) — **PAUSE 제외**. */
+  /** 휴식 유형 시간 합(초) — **PAUSE 제외**. */
   distractionSec: number;
   /** 일시정지 집계. **0건이면 `null`** — 행·범례·세그먼트를 전부 숨긴다. */
   pause: EventTally | null;

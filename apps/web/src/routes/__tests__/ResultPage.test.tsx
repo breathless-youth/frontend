@@ -268,7 +268,7 @@ describe("ResultPage — 비집중 통계 카드", () => {
     expect(screen.queryByText("휴식 21분")).not.toBeInTheDocument();
   });
 
-  it("일시정지 행은 비집중 3종 아래에 붙는다", async () => {
+  it("일시정지 행은 휴식 4종 아래에 붙는다", async () => {
     const user = userEvent.setup();
     renderResult({ sessions: [exampleSession()] });
     const card = statsCard();
@@ -297,7 +297,7 @@ describe("ResultPage — 비집중 통계 카드", () => {
     expect(within(card).getByText("일시정지")).toBeInTheDocument();
   });
 
-  it("비집중 3종이 모두 0이면 확정 문구로 대체한다", () => {
+  it("휴식 4종이 모두 0이면 확정 문구로 대체한다", () => {
     renderResult({ sessions: [exampleSession({ events: [] })] });
 
     expect(screen.getByText("휴식 없이 이어간 공부예요")).toBeInTheDocument();

@@ -3,7 +3,7 @@ import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
-import type { TrackEventMessage } from "@focusmakers/types";
+import type { StudyEventStatus, TrackEventMessage } from "@focusmakers/types";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
@@ -537,7 +537,7 @@ export function trackStudySessionResumed(input: {
 }
 
 /**
- * 비집중 구간 하나가 **끝났을 때** — 자리 이탈(AWAY)·휴대폰(PHONE)·기기 조작(DEVICE)이 얼마나
+ * 비집중 구간 하나가 **끝났을 때** — 휴식 유형(`StudyEventStatus`에서 PAUSE를 뺀 것)이 얼마나
  * 이어졌는지. 세션당 수십 건까지 날 수 있어 시작·끝을 따로 찍지 않고 끝에서 한 건으로 접는다.
  * 세션 종료로 닫히는 마지막 구간은 찍지 않는다 — 그 몫은 `study_session_ended.distraction_sec`.
  * 종료 이벤트의 `away_count/phone_count/device_count/pause_count`는 같은 집계의 세션 단위 요약이다
@@ -545,7 +545,7 @@ export function trackStudySessionResumed(input: {
  * 원본 프레임·얼굴 데이터는 없다. 상태 enum과 초 단위 길이뿐이다.
  */
 export function trackStudySessionDistracted(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE";
+  readonly status: Exclude<StudyEventStatus, "PAUSE">;
   readonly durationSec: number;
   readonly roomType: StudyRoomType;
 }) {
@@ -874,7 +874,7 @@ export function consumeStudyResultExit(pathname: string) {
 
 /** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
 export function trackStudyResultDistractionToggled(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
+  readonly status: StudyEventStatus;
   readonly expanded: boolean;
 }) {
   if (!initialized) return;

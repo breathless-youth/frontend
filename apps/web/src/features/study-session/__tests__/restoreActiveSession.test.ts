@@ -151,6 +151,22 @@ describe("restoreActiveSession", () => {
     await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
+  it("SLEEP 이벤트가 있어도 복원한다", async () => {
+    // 이 목록에서 SLEEP이 빠지면 이벤트 하나가 사라지는 것이 아니라 복원 자체를 포기한다.
+    stub200({
+      ...BODY,
+      events: [
+        { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
+      ],
+    });
+
+    const restored = await restoreActiveSession();
+
+    expect(restored?.events).toEqual([
+      { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
+    ]);
+  });
+
   it("모르는 상태값이 있으면 복원을 포기한다", async () => {
     stub200({
       ...BODY,

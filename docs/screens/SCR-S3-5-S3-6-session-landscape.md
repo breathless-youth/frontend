@@ -121,7 +121,7 @@ S3-6 · 미니멀 — 가로 (거치)  [배경 #0A0F18]
 세션 제출 계약은 세로와 동일하게 `packages/types`의 기존 타입을 그대로 쓴다(상상 계약 금지):
 
 - `StudySessionCreateRequest` — `userId` / `startedAt` / `endedAt` / `studySec` / `focusSec` / `events`
-- `StatusEventPayload` · `StudyEventStatus` = `"PHONE" | "DEVICE" | "AWAY" | "PAUSE"`
+- `StatusEventPayload` · `StudyEventStatus` = `"PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE"`
 - `StudySessionResponse` — 제출 응답(자정 KST 분할 시 배열)
 
 가로 레이아웃이 참조하는 뷰 모델은 WG1/WG2가 정의하는 세션 프레젠테이션 상태를 **그대로 재사용**한다. 가로용 별도 상태 타입을 새로 만들지 않는다. 이 화면이 추가로 갖는 뷰 상태는 다음 하나뿐이다.

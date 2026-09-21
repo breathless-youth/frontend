@@ -1,4 +1,4 @@
-import type { DistractionTrigger } from "../sessionState";
+import type { DetectionSource } from "../detection";
 import type {
   Detection,
   DetectionFrame,
@@ -8,21 +8,41 @@ import type {
 } from "../vision/detectionRules";
 import { evaluateFrame, topScoresByLabel } from "../vision/detectionRules";
 import type { VisionDiagnostics } from "../vision/diagnostics";
-import { visionDiagnostics } from "../vision/diagnostics";
+// 실기기 측정용 계측. 측정이 끝나면 기본 진단을 `visionDiagnostics`로 되돌린다.
+import {
+  measurementDiagnostics,
+  measurementEyeOutline,
+  reportEyeCalibration,
+} from "../vision/measurement";
+import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
+import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
 import { createObjectDetector } from "../vision/objectDetector";
+import { isSleepDetectionEnabled } from "../vision/sleepDetectionFlag";
+import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRules";
+import { evaluateSleep, eyeClosedRatio, NO_SLEEP_SIGNALS } from "../vision/sleepRules";
+import type { EyeCalibration } from "../vision/eyeCalibration";
+import { calibrateEye } from "../vision/eyeCalibration";
+import {
+  EYE_AWAKE_CLEAR_SAMPLES,
+  EYE_CALIBRATION_SAMPLES,
+  EYE_RATIO_WINDOW_SAMPLES,
+  FACE_FRAME_DIVISOR,
+  FACE_SMOOTHING_SAMPLES,
+} from "../vision/visionConfig";
 
 /**
  * 비집중 감지기 어댑터 — 인터페이스 + mock + **MediaPipe Vision 구현**.
  *
- * 여기서 내보내는 건 **원신호**뿐이고, 유지시간 판정(1.5초/0.5초 등)과 대표 트리거 선택은
+ * 여기서 내보내는 건 **원신호**뿐이고, 유지시간 판정(2초/1초 등)과 대표 트리거 선택은
  * `../detection.ts`(순수 TS)가 한다. 이 파일에서 디바운스를 다시 구현하지 말 것 — 두 벌이 되면
  * 어느 쪽이 판정했는지 알 수 없어지고, 튜닝 대상(`DEFAULT_DETECTION_PARAMS`)이 무력해진다.
  */
 
 export interface DetectorSignal {
-  readonly trigger: DistractionTrigger;
+  /** 원신호의 출처. 트리거가 아니다. 출처를 트리거로 합치는 것은 `../detection.ts`의 `SOURCE_TRIGGER`다. */
+  readonly source: DetectionSource;
   readonly active: boolean;
 }
 
@@ -36,8 +56,9 @@ export interface FocusDetector {
  * 여러 감지기를 하나로 묶는다 — 훅은 감지기를 **하나만** 받고, 실제로는 Vision(카메라)과
  * 가속도 센서가 서로 다른 트리거를 담당한다(설계 §4·§5).
  *
- * 트리거가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`만, 가속도는 `DEVICE`만
- * 내보낸다. 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
+ * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`/`SLEEP_EYES`/`SLEEP_DROWSY`
+ * 출처만, 가속도는 `DEVICE` 출처만 내보낸다.
+ * 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
  * 대표 트리거 선택은 여기가 아니라 `../detection.ts`의 `TRIGGER_PRIORITY`가 한다.
  */
 export function combineFocusDetectors(detectors: readonly FocusDetector[]): FocusDetector {
@@ -121,6 +142,21 @@ const MIN_VIDEO_READY_STATE = 2;
 export type VisionDetectorStatus = "idle" | "loading" | "ready" | "unavailable";
 
 /**
+ * 카메라 경로가 맡는 출처 전부. `DEVICE`만 가속도 센서 몫이라 빠진다.
+ *
+ * 배열이 아니라 `DetectionSource`에서 빼서 정의한다. 새 카메라 출처가 늘면 `publish`의
+ * 객체 리터럴에 키가 모자라 컴파일이 멈춘다 — 런타임에 조용히 빠지지 않는다.
+ */
+type VisionSource = Exclude<DetectionSource, "DEVICE">;
+
+const VISION_SOURCES = [
+  "AWAY",
+  "PHONE",
+  "SLEEP_EYES",
+  "SLEEP_DROWSY",
+] as const satisfies readonly VisionSource[];
+
+/**
  * 기존 `FocusDetector`를 **그대로** 구현한다 — 그래서 훅·상태기계·화면이 한 줄도 바뀌지 않는다.
  * 추가된 것은 두 가지뿐이고 둘 다 세션 로직이 아니라 **수명·진단**에 속한다.
  */
@@ -128,6 +164,11 @@ export interface VisionFocusDetector extends FocusDetector {
   /** 지금 상태. 개발 빌드의 실패 표시(`components/DevVisionFailureNotice.tsx`)가 읽는다. */
   readonly status: VisionDetectorStatus;
   subscribeStatus(listener: (status: VisionDetectorStatus) => void): () => void;
+  /** 얼굴 모델의 상태. 객체 검출기의 `status`와 별개다 — 한쪽이 실패해도 다른 쪽은 돈다. */
+  readonly faceStatus: VisionDetectorStatus;
+  subscribeFaceStatus(listener: (status: VisionDetectorStatus) => void): () => void;
+  /** 보정 결과. 아직이면 null. 측정 도구가 덩어리에 싣는다. */
+  readonly eyeCalibration: EyeCalibration | null;
   /**
    * 모델·GPU 컨텍스트를 놓는다. **effect cleanup에서 반드시 부른다** —
    * `stop()`은 추론만 멈추고(일시정지) 모델을 들고 있으므로, 세션 이탈에는 이쪽이 필요하다.
@@ -145,6 +186,15 @@ export interface VisionFocusDetectorOptions {
   readonly video: () => HTMLVideoElement | null;
   /** 테스트·워커 이전용 주입점. 기본값은 MediaPipe `ObjectDetector` 래퍼. */
   readonly detector?: VisionObjectDetector;
+  /** 테스트·워커 이전용 주입점. 기본값은 MediaPipe `FaceLandmarker` 래퍼. */
+  readonly faceLandmarker?: VisionFaceLandmarker;
+  /** 졸음 판정 규칙 교체 지점. */
+  readonly sleepRule?: SleepRule;
+  /**
+   * 졸음 감지를 돌릴지. 기본값은 URL 스위치로 정하고, 테스트는 이 옵션으로 직접 넣는다.
+   * 끄면 얼굴 모델을 받지 않으므로 발열 비교의 기준선이 된다.
+   */
+  readonly sleepDetection?: boolean;
   readonly diagnostics?: VisionDiagnostics;
   /** `detectForVideo`에 넘길 타임스탬프. VIDEO 모드는 **단조 증가**를 요구한다. */
   readonly nowMs?: () => number;
@@ -158,8 +208,10 @@ export interface VisionFocusDetectorOptions {
  *
  * 흐름은 한 줄이다 — `frameLoop`(고정 주기, `../vision/visionConfig.ts`의 `FRAME_INTERVAL_MS`)
  * → `objectDetector.detect()` →
- * `evaluateFrame()` → `{trigger, active}` emit. 이 파일은 그 사이의 **배선과 수명**만 맡고,
- * 판정 규칙은 `../vision/detectionRules.ts`, 유지시간은 `../detection.ts`가 갖는다.
+ * `evaluateFrame()` → 얼굴 틱마다 `faceLandmarker.detect()` → `evaluateSleep()` →
+ * `{trigger, active}` emit. 이 파일은 그 사이의 **배선과 수명**만 맡고,
+ * 판정 규칙은 `../vision/detectionRules.ts`와 `../vision/sleepRules.ts`,
+ * 유지시간은 `../detection.ts`가 갖는다.
  *
  * 지켜야 하는 계약이 셋 있고, 어기면 **조용히 틀린 순공시간**이 나온다.
  *
@@ -181,23 +233,56 @@ export function createVisionFocusDetector(
   const {
     video,
     detector = createObjectDetector(),
-    diagnostics = visionDiagnostics,
+    faceLandmarker = createFaceLandmarker({ onEyeOutline: measurementEyeOutline }),
+    diagnostics = measurementDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
     presenceRule,
+    sleepRule,
   } = options;
+
+  const sleepEnabled =
+    options.sleepDetection ??
+    isSleepDetectionEnabled(globalThis.location?.search ?? "", import.meta.env.DEV);
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
 
   let status: VisionDetectorStatus = "idle";
+  let faceStatus: VisionDetectorStatus = "idle";
+  let faceLoadRequested = false;
+  const faceStatusListeners = new Set<(status: VisionDetectorStatus) => void>();
   let running = false;
   /** 모델 로딩을 걸었는가. `close()`만 내린다 — `stop()`(일시정지)은 모델을 들고 있는다. */
   let loadRequested = false;
   /** 직전 프레임의 검출. `DetectionFrame.previous`를 채우는 것이 이 어댑터의 책임이다. */
   let previousDetections: readonly Detection[] | null = null;
   /** 마지막으로 내보낸 원신호. 값이 바뀔 때만 emit해 같은 신호로 훅을 두드리지 않는다. */
-  let emitted: { AWAY: boolean; PHONE: boolean } | null = null;
+  let emitted: Record<VisionSource, boolean> | null = null;
+  /** 얼굴 틱을 세는 프레임 번호. `stop()`이 0으로 되돌린다. */
+  let frameIndex = 0;
+  /** 최근 얼굴 관측. 평활 창 크기만 들고 있는다 — 규칙이 자르지만 여기서도 자라지 않게 막는다. */
+  let faceSamples: FaceObservation[] = [];
+  /**
+   * 지금 모으는 보정 창. 창이 찰 때마다 비우고 다시 모은다 — 보정은 세션 내내 계속 돈다.
+   *
+   * 비율 창과 수명이 다르다. 비율 창은 지금 졸고 있는지를 재므로 공백 앞뒤를 이으면 안 되지만,
+   * 이쪽은 그 사람의 눈이 원래 몇 점인지를 재는 것이라 공백과 무관하다. 일시정지마다 다시
+   * 보정하면 재개 후 30초 동안 고정 임계로 돌아가 판정이 사람마다 흔들린다.
+   */
+  let calibrationReadings: number[] = [];
+  /** 창이 찰 때만 갱신한다. 매 프레임 다시 내면 같은 표본으로 같은 답을 또 구하는 것이다. */
+  let calibration: EyeCalibration | null = null;
+  /**
+   * 얼굴 틱은 돌았는데 눈 판정이 걸러진 횟수. 눈 점수가 오면 0으로 돌아간다.
+   *
+   * 사람도 있고 얼굴 모델도 살아 있는데 눈만 걸러지는 상태가 있다 — 거리가 멀거나 점수 이름이
+   * 빠졌을 때다. 그동안 비율 창은 새 표본을 못 받고 마지막 1분이 그대로 얼어붙는다. 연속 규칙은
+   * 최근 3표본만 보므로 저절로 풀리지만 비율 창은 나이 제한이 없어 혼자 참으로 남는다.
+   */
+  let eyeGateMisses = 0;
+  /** 비율 판정용 최근 눈 점수. 창 크기만 든다. 일시정지에서 비운다. */
+  let eyeReadings: number[] = [];
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -209,9 +294,50 @@ export function createVisionFocusDetector(
     }
   }
 
-  function notify(trigger: DistractionTrigger, active: boolean): void {
+  /**
+   * 얼굴 관측과 거기서 파생된 상태를 버린다.
+   *
+   * 새 관측이 끊기면 이것들이 얼어붙어 판정을 고정한다 — 마지막 관측이 감김이었다면 평활도
+   * 영영 그 값이라, 풀릴 조건이 다시는 오지 않는다.
+   *
+   * 비율 창도 같이 버린다. 얼굴 모델이 죽으면 틱이 영영 안 도니 마지막 창이 그대로 얼어, 창이
+   * 감김으로 차 있었다면 깨어난 뒤에도 꾸벅거림 신호가 세션 끝까지 참으로 남는다.
+   */
+  function dropFaceObservations(): void {
+    faceSamples = [];
+    eyeReadings = [];
+    eyeGateMisses = 0;
+  }
+
+  /**
+   * 프레임 사이에 들고 있던 상태를 전부 되돌린다.
+   *
+   * `stop()`과 `close()`가 같은 것을 부른다. 한쪽에만 적으면 상태가 늘 때마다 더 강한 정리인
+   * `close()`가 오히려 덜 정리하는 비대칭이 생긴다.
+   */
+  function resetFrameState(): void {
+    // 재개 시점의 첫 프레임은 공백 이후의 프레임이다 — 그 앞 프레임과의 이동량은 의미가 없다.
+    previousDetections = null;
+    emitted = null;
+    frameIndex = 0;
+    // 비율 창은 `dropFaceObservations`가 함께 버린다. 공백 앞의 감김은 지금 졸고 있는지를
+    // 말해주지 않으므로, 창을 이어 붙이면 재개 직후에 옛 표본만으로 비율이 채워진다.
+    dropFaceObservations();
+  }
+
+  function setFaceStatus(next: VisionDetectorStatus): void {
+    if (next === faceStatus) {
+      return;
+    }
+    faceStatus = next;
+    for (const listener of [...faceStatusListeners]) {
+      listener(next);
+    }
+  }
+
+  function notify(source: DetectionSource, active: boolean): void {
     for (const listener of [...listeners]) {
-      listener({ trigger, active });
+      listener({ source, active });
     }
   }
 
@@ -220,15 +346,19 @@ export function createVisionFocusDetector(
    * 같은 값이면 내보내지 않는 것은 최적화가 아니라 계약 유지다: 재전송해도 `stepDetection`이
    * 시각을 갱신하지 않으므로 판정은 같지만, 굳이 매 프레임 훅을 깨울 이유가 없다.
    */
-  function publish(signals: FrameSignals): void {
-    const next = { AWAY: !signals.personPresent, PHONE: signals.phoneInUse };
+  function publish(signals: FrameSignals, sleep: SleepSignals): void {
+    const next: Record<VisionSource, boolean> = {
+      AWAY: !signals.personPresent,
+      PHONE: signals.phoneInUse,
+      SLEEP_EYES: sleep.eyesClosed,
+      SLEEP_DROWSY: sleep.eyesDrowsy,
+    };
     const before = emitted;
     emitted = next;
-    if (before === null || before.AWAY !== next.AWAY) {
-      notify("AWAY", next.AWAY);
-    }
-    if (before === null || before.PHONE !== next.PHONE) {
-      notify("PHONE", next.PHONE);
+    for (const source of VISION_SOURCES) {
+      if (before === null || before[source] !== next[source]) {
+        notify(source, next[source]);
+      }
     }
   }
 
@@ -255,6 +385,7 @@ export function createVisionFocusDetector(
       if (state === "ready" && detector.delegate !== null) {
         setStatus("ready");
         diagnostics.detectorReady(detector.delegate, detector.modelVariant);
+        ensureFaceLoaded();
         return;
       }
       setStatus("unavailable");
@@ -263,6 +394,85 @@ export function createVisionFocusDetector(
       // 배터리만 태운다. 세션은 그대로 진행된다 — 에러 화면을 띄우지 않는다(리더 결정 2026-07-29).
       loop.stop();
     });
+  }
+
+  /**
+   * 객체 검출기가 준비된 뒤에만 부른다. 두 모델의 첫 호출 프리즈가 겹치면 자리 이탈과 휴대폰의
+   * 첫 판정 시각이 그만큼 밀린다. 얼굴 쪽 실패는 루프를 세우지 않는다 — 나머지 판정은 살아 있다.
+   */
+  function ensureFaceLoaded(): void {
+    if (!sleepEnabled || faceLoadRequested) {
+      return;
+    }
+    faceLoadRequested = true;
+    setFaceStatus("loading");
+    void faceLandmarker.load().then((state) => {
+      if (!faceLoadRequested) {
+        return;
+      }
+      if (state === "ready" && faceLandmarker.delegate !== null) {
+        setFaceStatus("ready");
+        diagnostics.faceReady(faceLandmarker.delegate);
+        return;
+      }
+      setFaceStatus("unavailable");
+      diagnostics.faceUnavailable(state);
+    });
+  }
+
+  /** 최근 표본이 깨어남 표본 수만큼 전부 임계 아래인가. 창이 그보다 짧으면 아니다. */
+  function recentlyAwake(readings: readonly number[], threshold: number): boolean {
+    if (readings.length < EYE_AWAKE_CLEAR_SAMPLES) {
+      return false;
+    }
+    return readings.slice(-EYE_AWAKE_CLEAR_SAMPLES).every((reading) => reading < threshold);
+  }
+
+  /**
+   * 이번 관측의 눈 감김 점수를 두 창에 쌓는다. 판정과 같은 값을 쓰도록 양쪽 눈 중 작은 쪽을
+   * 읽는다 — 한쪽만 감은 것은 감은 것이 아니다.
+   *
+   * 좌표는 건드리지 않는다. 여기서 나가는 것은 이미 진단이 남기는 스칼라 하나뿐이다.
+   */
+  function recordEyeReading(face: FaceObservation): void {
+    const eye = face.eye;
+    if (eye === null) {
+      eyeGateMisses += 1;
+      if (eyeGateMisses >= EYE_AWAKE_CLEAR_SAMPLES) {
+        // 그만큼 연속으로 눈을 못 봤으면 창에 남은 것은 지금을 설명하지 못하는 과거다.
+        eyeReadings = [];
+      }
+      return;
+    }
+    eyeGateMisses = 0;
+    const closure = Math.min(eye.eyeBlinkLeft, eye.eyeBlinkRight);
+    if (calibration !== null) {
+      // 보정 전에는 비율 창을 쌓지 않는다. 임계 없이 쌓아 두면 첫 보정이 끝나는 순간 옛 표본이
+      // 새 임계로 한꺼번에 채점되어, 새 관측 하나 없이 꾸벅거림 판정이 선다.
+      eyeReadings = [...eyeReadings, closure].slice(-EYE_RATIO_WINDOW_SAMPLES);
+      if (recentlyAwake(eyeReadings, calibration.threshold)) {
+        // 깨어 있다는 증거가 과거를 이긴다. 비율 창은 감긴 표본이 밀려 나갈 때까지 졸음을 붙잡아,
+        // 오래 감았다 뜨면 뜬 뒤에도 수십 초를 더 졸음으로 남겼다. 뜬 눈이 이만큼 이어지면 창에
+        // 무엇이 있든 비운다. 3초 감고 1초 뜨는 꾸벅거림은 2초 표본에서 뜬 눈이 세 번 이어질 수
+        // 없어 그대로 잡힌다. 보정 창은 뜬 눈을 배우는 자리라 여기서 건드리지 않는다.
+        eyeReadings = [];
+      }
+    }
+    calibrationReadings = [...calibrationReadings, closure];
+    if (calibrationReadings.length < EYE_CALIBRATION_SAMPLES) {
+      return;
+    }
+    // 창이 찰 때마다 다시 재고, 지금까지 본 기준값 중 가장 낮은 것이 살아남는다. 창은 비우고
+    // 다음 30초를 새로 모은다 — 한 번 재고 잠그면 첫 30초가 세션 전체를 정한다.
+    const previous = calibration;
+    calibration = calibrateEye(calibrationReadings, calibration);
+    calibrationReadings = [];
+    if (previous !== null && calibration !== null && calibration.threshold < previous.threshold) {
+      // 비율 창은 원표본을 들고 있고 감김 여부는 읽을 때 정해진다. 임계가 내려가면 저장된 옛
+      // 표본이 통째로 감김으로 다시 채점되어, 새 관측 하나 없이 1분 창이 뒤집힌다. 올라갈 때는
+      // 재채점이 더 너그러워지는 방향이라 비울 이유가 없다.
+      eyeReadings = [];
+    }
   }
 
   function processFrame(): void {
@@ -298,24 +508,104 @@ export function createVisionFocusDetector(
     previousDetections = result.detections;
 
     const signals = evaluateFrame(frame, phoneRule, presenceRule);
+
+    frameIndex += 1;
+    const topScores = topScoresByLabel(result.detections);
+
+    if (!signals.personPresent) {
+      // 사람이 사라지면 얼굴 관측과 비율 창을 함께 버린다. 자리를 비운 사이의 얼굴 판정은 의미가
+      // 없고, 돌아왔을 때 옛 관측이 섞이면 평활이 과거를 가리킨다. 비율 창도 같은 이유로 버린다 —
+      // 남겨 두면 복귀 첫 프레임에 새 얼굴 틱이 하나도 없는 채로 옛 창이 그대로 꾸벅거림 판정을
+      // 세우고, 깬 사람이 앉자마자 졸음으로 기록된다. 보정 창은 사람에 매인 값이라 그대로 둔다.
+      faceSamples = [];
+      eyeReadings = [];
+      eyeGateMisses = 0;
+    }
+
+    let faceRan: FaceDetectionResult | null = null;
+    if (sleepEnabled && signals.personPresent && faceStatus === "ready") {
+      if (faceLandmarker.state === "unavailable") {
+        // 래퍼는 추론이 연속으로 던지면 스스로 감지 불가로 내려간다. `load()` 결과만 보면 그
+        // 전이를 놓쳐 게이트가 열린 채 남고, `detect()`는 null만 돌려준다. 그러면 마지막 관측이
+        // 얼어붙어 졸음 판정이 세션 끝까지 그 값에 고정된다 — 일어나 앉아도 졸음으로 기록된다.
+        setFaceStatus("unavailable");
+        dropFaceObservations();
+      } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
+        faceRan = faceLandmarker.detect(element, atMs);
+        if (faceRan !== null) {
+          faceSamples = [...faceSamples, faceRan.face].slice(-FACE_SMOOTHING_SAMPLES);
+          recordEyeReading(faceRan.face);
+        }
+      }
+    }
+
+    // 첫 창이 차기 전에는 임계가 없고, 임계가 없으면 규칙이 눈 판정을 쉰다.
+    //
+    // 이 사람의 뜬 눈이 몇 점인지 모르는 동안 고정값으로 판정하면 뜬 눈이 원래 높은 사람이 세션
+    // 시작 10초 만에 졸음으로 찍힌다. 아직 아무것도 모르는 구간에서 가장 공격적으로 판정하는
+    // 셈이다. 그 30초 안에 잠드는 사람을 놓치는 쪽이 낫다.
+    const eyeThreshold = calibration?.threshold ?? null;
+    const sleep: SleepSignals = sleepEnabled
+      ? evaluateSleep(
+          {
+            personPresent: signals.personPresent,
+            faceSamples,
+            eyeClosureThreshold: eyeThreshold,
+            eyeReadings,
+          },
+          sleepRule,
+        )
+      : NO_SLEEP_SIGNALS;
+
     // ⚠️ bbox는 넘기지 않는다 — `DiagnosticsPayload`가 스칼라만 받도록 타입으로 막혀 있고,
     // 좌표 기록은 개인정보 원칙 위반이다(`frontend/CLAUDE.md`, 설계 §8).
     diagnostics.frame({
       personPresent: signals.personPresent,
-      topScores: topScoresByLabel(result.detections),
+      topScores,
       awaySignal: !signals.personPresent,
       phoneSignal: signals.phoneInUse,
       durationMs: result.durationMs,
       delegate: detector.delegate,
+      sleepEyesSignal: sleep.eyesClosed,
+      sleepDrowsySignal: sleep.eyesDrowsy,
+      // 보정 전에는 임계 키 자체를 만들지 않는다. 0으로 적으면 "임계가 0"으로 읽힌다.
+      ...(eyeThreshold === null ? {} : { eyeThreshold }),
+      eyeClosedRatio: eyeThreshold === null ? null : eyeClosedRatio(eyeReadings, eyeThreshold),
+      face:
+        faceRan === null
+          ? null
+          : {
+              present: faceRan.face.facePresent,
+              eye: faceRan.face.eye,
+              skipReason: faceRan.face.eyeSkipReason,
+              durationMs: faceRan.durationMs,
+              delegate: faceLandmarker.delegate,
+            },
     });
-    publish(signals);
+    publish(signals, sleep);
   }
 
-  const loop = createFrameLoop({ onFrame: processFrame });
+  // 측정용 계측. 껍데기가 덩어리를 낼 때 이 길로 보정 결과를 읽어 간다.
+  reportEyeCalibration(() => calibration);
+
+  const loop = createFrameLoop({
+    onFrame: processFrame,
+    onDrop: () => {
+      diagnostics.frameDropped();
+    },
+  });
 
   return {
     get status() {
       return status;
+    },
+
+    get faceStatus() {
+      return faceStatus;
+    },
+
+    get eyeCalibration() {
+      return calibration;
     },
 
     /** 멱등. 일시정지에서 돌아올 때도 이 함수 하나로 재개한다(모델은 이미 떠 있다). */
@@ -342,9 +632,7 @@ export function createVisionFocusDetector(
     stop(): void {
       running = false;
       loop.stop();
-      // 재개 시점의 첫 프레임은 공백 이후의 프레임이다 — 그 앞 프레임과의 이동량은 의미가 없다.
-      previousDetections = null;
-      emitted = null;
+      resetFrameState();
     },
 
     subscribe(listener) {
@@ -361,14 +649,26 @@ export function createVisionFocusDetector(
       };
     },
 
+    subscribeFaceStatus(listener) {
+      faceStatusListeners.add(listener);
+      return () => {
+        faceStatusListeners.delete(listener);
+      };
+    },
+
     close(): void {
       running = false;
       loadRequested = false;
       loop.stop();
       detector.close();
-      previousDetections = null;
-      emitted = null;
       setStatus("idle");
+      faceLoadRequested = false;
+      faceLandmarker.close();
+      setFaceStatus("idle");
+      // 세션을 나가면 다음 사람이 쓸 수 있다. 보정은 사람에 매인 값이라 여기서만 버린다.
+      calibrationReadings = [];
+      calibration = null;
+      resetFrameState();
     },
   };
 }

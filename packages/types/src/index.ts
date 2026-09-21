@@ -39,9 +39,9 @@ export interface AuthRefreshResponse {
 
 /**
  * 비공부 상태 이벤트 종류. PHONE=휴대폰 사용, DEVICE=다른 기기, AWAY=자리 비움,
- * PAUSE=일시정지(총공부 타이머까지 정지 — 나머지 셋은 순공 타이머만 정지).
+ * SLEEP=졸음, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지 넷은 순공 타이머만 정지).
  */
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE";
+export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
 
 /** 비공부 상태 이벤트 1건. 시각은 UTC ISO-8601, 세션 구간 안·서로 겹침 불가·0초 불가. */
 export interface StatusEventPayload {
@@ -128,7 +128,9 @@ export interface StudySessionResponse {
  * 공부 세션 통계 조회 API 계약 (GET /api/stats) — Swagger 기준.
  */
 
-/** 상태별 이벤트 발생 건수 — 없는 상태도 0으로 내려온다(키 누락 없음). */
+/**
+ * 상태별 이벤트 발생 건수 — 없는 상태도 0으로 내려온다(키 누락 없음).
+ */
 export type StudySessionEventCounts = Record<StudyEventStatus, number>;
 
 export interface StudySessionSummary {
