@@ -383,6 +383,7 @@ export type {
 
 export type {
   CameraPermissionMessage,
+  HapticStyle,
   NavigateHomeMessage,
   ReportScreenMessage,
   NavigateTabMessage,

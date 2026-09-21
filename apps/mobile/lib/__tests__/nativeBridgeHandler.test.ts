@@ -11,6 +11,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { triggerHaptic } from "../haptics";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
 
@@ -29,6 +30,8 @@ jest.mock("expo-router", () => ({
     canGoBack: jest.fn(() => true),
   },
 }));
+
+jest.mock("../haptics", () => ({ triggerHaptic: jest.fn() }));
 
 jest.mock("../cameraPermissionGate", () => ({
   runCameraPermissionGate: jest.fn(),
@@ -281,6 +284,11 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("haptic → 네이티브 햅틱을 낸다", () => {
+    handleBridgeMessage({ type: "haptic", style: "light", atMs: 1 }, noopReply);
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
   });
 
   it("motion-sensor를 센서 릴레이에 위임한다", () => {
