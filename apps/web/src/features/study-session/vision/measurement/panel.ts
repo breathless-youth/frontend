@@ -42,6 +42,7 @@ export const SEGMENT_BUTTONS: readonly string[] = [
   "눈 뜨기",
   "깜빡임",
   "내려다봄",
+  "숙이고 감기",
   "꾸벅꾸벅",
   "몸만 배치",
   "휴대폰",
@@ -119,7 +120,7 @@ export function liveLines(live: LiveSnapshot): string {
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
     `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
-    `고개 ${deg(live.headPitchDeg)} · EAR ${score(live.ear)}`,
+    `고개 ${deg(live.headPitchDeg)} · EAR ${score(live.ear)} · 내려다봄 점수 ${score(live.lookDown)}`,
     `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)}${skipLabel(live.faceSkip)} 사람 ${score(live.person)} · ${age}`,
     calibration,
   ].join("\n");

@@ -178,7 +178,11 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
     index += 1;
     return next === null
       ? null
-      : { face: next, durationMs: 1, metrics: { headPitchDeg: null, ear: null } };
+      : {
+          face: next,
+          durationMs: 1,
+          metrics: { headPitchDeg: null, ear: null, lookDown: null },
+        };
   });
   const close = vi.fn(() => {
     state = "idle";

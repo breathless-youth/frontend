@@ -44,6 +44,11 @@ export interface FaceMetrics {
   readonly headPitchDeg: number | null;
   /** 두 눈 EAR 중 큰 쪽(덜 감긴 쪽). 뜬 눈 0.25~0.35, 감은 눈 0.15 미만이 문헌값. 점이 없으면 null. */
   readonly ear: number | null;
+  /**
+   * 두 눈 `eyeLookDown` 중 작은 쪽. 게이트에 걸린 관측에서도 넘긴다 — 고개 숙임 안에서 감김과
+   * 책 읽기를 가를 후보라, 바로 그 구간의 분포가 필요하다. 이름은 없으면 null.
+   */
+  readonly lookDown: number | null;
 }
 
 export interface FaceDetectionResult {
@@ -111,7 +116,22 @@ const LOOKING_DOWN: FaceObservation = {
   eye: null,
   eyeSkipReason: "looking-down",
 };
-const NO_METRICS: FaceMetrics = { headPitchDeg: null, ear: null };
+const NO_METRICS: FaceMetrics = { headPitchDeg: null, ear: null, lookDown: null };
+
+/** allowlist 밖 이름은 보지 않는다. 판정 점수와 같은 통로라 좌표는 여기 없다. */
+function lookDownOf(raw: MediapipeFaceResult): number | null {
+  const categories = raw.faceBlendshapes[0]?.categories ?? [];
+  let left: number | undefined;
+  let right: number | undefined;
+  for (const category of categories) {
+    if (category.categoryName === "eyeLookDownLeft") {
+      left = category.score;
+    } else if (category.categoryName === "eyeLookDownRight") {
+      right = category.score;
+    }
+  }
+  return left === undefined || right === undefined ? null : round(Math.min(left, right), 3);
+}
 
 type Point = MediapipeFaceResult["faceLandmarks"][number][number];
 
@@ -227,7 +247,7 @@ export function createFaceLandmarker(
     if (landmarks === undefined || landmarks.length === 0) {
       return NO_METRICS;
     }
-    return { headPitchDeg: headPitchDegOf(raw), ear: earOf(landmarks) };
+    return { headPitchDeg: headPitchDegOf(raw), ear: earOf(landmarks), lookDown: lookDownOf(raw) };
   }
 
   /** 그리기용 윤곽만 뽑아 넘긴다. 점이 모자라면 얼굴 없음과 같이 지운다. */

@@ -925,3 +925,32 @@ describe("고개 각도와 EAR", () => {
     expect(config.headPitchDownDeg).toBe(HEAD_PITCH_DOWN_DEG);
   });
 });
+
+describe("내려다봄 점수", () => {
+  it("게이트에 걸려 눈 점수가 없는 관측의 내려다봄 점수도 분포에 넣는다 — 그 구간이 바로 비교 대상이다", () => {
+    const m = createMeasurement(baseSpy());
+    m.mark("숙이고 감기");
+    for (const lookDown of [0.7, 0.75, 0.8]) {
+      m.frame(
+        frame({
+          face: {
+            present: true,
+            eye: null,
+            skipReason: "looking-down",
+            durationMs: 50,
+            delegate: "CPU",
+            headPitchDeg: 20,
+            ear: 0.07,
+            lookDown,
+          },
+        }),
+      );
+    }
+
+    const seg = (JSON.parse(m.dump()) as { segments: { lookDown: Record<string, number> }[] })
+      .segments[0];
+    expect(seg?.lookDown.samples).toBe(3);
+    expect(seg?.lookDown.p50).toBeCloseTo(0.75, 3);
+    expect(m.live().lookDown).toBe(0.8);
+  });
+});

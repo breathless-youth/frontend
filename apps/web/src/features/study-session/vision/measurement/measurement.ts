@@ -86,6 +86,11 @@ interface Segment {
   headPitchDeg: number[];
   /** 두 눈 EAR 중 큰 쪽. blendshape 눈 점수와 나란히 놓고 어느 쪽이 내려다봄을 가르는지 본다. */
   ear: number[];
+  /**
+   * 두 눈 `eyeLookDown` 중 작은 쪽. 고개 숙임 게이트 안에서 "감김"과 "책 읽기"를 가를 후보다 —
+   * 9/20 스파이크에서 감은 눈은 0.6~0.8, 책을 볼 때는 0.07~0.33이었다. 게이트에 걸린 관측도 모은다.
+   */
+  lookDown: number[];
   personScore: number[];
   faceRan: number;
   facePresent: number;
@@ -184,9 +189,10 @@ export interface LiveSnapshot {
   readonly facePresent: boolean | null;
   /** 마지막 얼굴 관측이 눈 판정을 건너뛴 이유. 내려다봄 게이트에 걸렸는지가 여기서 보인다. */
   readonly faceSkip: string | null;
-  /** 마지막 얼굴 관측의 고개 숙임 각도(도)와 EAR. */
+  /** 마지막 얼굴 관측의 고개 숙임 각도(도)와 EAR, 내려다봄 점수. */
   readonly headPitchDeg: number | null;
   readonly ear: number | null;
+  readonly lookDown: number | null;
   readonly person: number | null;
   readonly calibration: EyeCalibration | null;
 }
@@ -269,6 +275,7 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     eyeClosure: [],
     headPitchDeg: [],
     ear: [],
+    lookDown: [],
     personScore: [],
     faceRan: 0,
     facePresent: 0,
@@ -355,6 +362,7 @@ function summarize(segment: Segment) {
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
   const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
   const earSorted = [...segment.ear].sort((a, b) => a - b);
+  const lookDownSorted = [...segment.lookDown].sort((a, b) => a - b);
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
@@ -388,6 +396,12 @@ function summarize(segment: Segment) {
       p05: percentile(earSorted, 0.05, 3),
       p50: percentile(earSorted, 0.5, 3),
       p95: percentile(earSorted, 0.95, 3),
+    },
+    lookDown: {
+      samples: lookDownSorted.length,
+      p05: percentile(lookDownSorted, 0.05, 3),
+      p50: percentile(lookDownSorted, 0.5, 3),
+      p95: percentile(lookDownSorted, 0.95, 3),
     },
     person: {
       mean: mean(personSorted, 3),
@@ -436,6 +450,16 @@ function record(segment: Segment, diagnostics: FrameDiagnostics): void {
   if (face.ear !== undefined && face.ear !== null) {
     segment.ear.push(face.ear);
   }
+  const lookDown = lookDownOf(diagnostics);
+  if (lookDown !== null) {
+    segment.lookDown.push(lookDown);
+  }
+}
+
+/** 래퍼가 게이트 앞에서 뽑은 값. `eye`는 게이트에 걸리면 null이라 그쪽으로는 이 구간을 못 본다. */
+function lookDownOf(diagnostics: FrameDiagnostics): number | null {
+  const value = diagnostics.face?.lookDown;
+  return value === undefined ? null : value;
 }
 
 /** 분당 요약 주기. 16분 세션이 수천 줄이 되면 읽을 수 없다. */
@@ -753,6 +777,7 @@ export function createMeasurement(
         faceSkip: face === null ? null : face.skipReason,
         headPitchDeg: face?.headPitchDeg ?? null,
         ear: face?.ear ?? null,
+        lookDown: face?.lookDown ?? null,
         person: lastFrame?.topScores.person ?? null,
         calibration: currentCalibration(),
       };

@@ -447,8 +447,9 @@ describe("내려다봄 게이트와 얼굴 지표", () => {
 
     const result = landmarker.detect(video, 0);
     expect(result?.face).toEqual({ facePresent: true, eye: null, eyeSkipReason: "looking-down" });
-    // 게이트에 걸린 관측에서도 각도는 넘긴다 — 그게 게이트 값을 정하는 자료다.
+    // 게이트에 걸린 관측에서도 각도와 내려다봄 점수는 넘긴다 — 그게 게이트를 다듬을 자료다.
     expect(result?.metrics.headPitchDeg).toBeCloseTo(HEAD_PITCH_DOWN_DEG + 15, 0);
+    expect(result?.metrics.lookDown).toBeCloseTo(0.1, 3);
   });
 
   it("고개가 서 있으면 게이트에 걸리지 않고 각도만 넘긴다", async () => {
@@ -512,7 +513,11 @@ describe("내려다봄 게이트와 얼굴 지표", () => {
 
   it("얼굴이 없으면 지표도 없다", async () => {
     const { landmarker } = await ready(NO_FACE);
-    expect(landmarker.detect(video, 0)?.metrics).toEqual({ headPitchDeg: null, ear: null });
+    expect(landmarker.detect(video, 0)?.metrics).toEqual({
+      headPitchDeg: null,
+      ear: null,
+      lookDown: null,
+    });
   });
 
   it("행렬·각도·EAR 어느 것도 좌표를 반환값에 싣지 않는다", async () => {

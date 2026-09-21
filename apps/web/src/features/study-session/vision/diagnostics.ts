@@ -78,6 +78,8 @@ export interface FaceFrameDiagnostics {
   readonly headPitchDeg?: number | null;
   /** 두 눈 EAR 중 큰 쪽. 측정 도구가 blendshape와 비교한다. */
   readonly ear?: number | null;
+  /** 두 눈 `eyeLookDown` 중 작은 쪽. 게이트에 걸려 `eye`가 null이어도 온다. */
+  readonly lookDown?: number | null;
 }
 
 /**
@@ -169,6 +171,9 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         }
         if (face.ear !== undefined && face.ear !== null) {
           payload["face:ear"] = round2(face.ear);
+        }
+        if (face.lookDown !== undefined && face.lookDown !== null) {
+          payload["face:lookDown"] = round2(face.lookDown);
         }
       }
       sink.log("vision:frame", payload);
