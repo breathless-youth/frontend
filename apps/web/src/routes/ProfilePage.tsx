@@ -104,7 +104,7 @@ export function ProfilePage() {
 
   if (userId === null || query.isError) {
     return (
-      <main className="theme-soft-blue bg-softblue-grad min-h-dvh text-foreground">
+      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
         <ScreenBackHeader title="프로필 수정" />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
@@ -121,7 +121,7 @@ export function ProfilePage() {
 
   if (!query.data) {
     return (
-      <main className="theme-soft-blue bg-softblue-grad min-h-dvh text-foreground">
+      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
         <ScreenBackHeader title="프로필 수정" />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
@@ -180,7 +180,7 @@ export function ProfilePage() {
   return (
     <main
       data-testid="profile-page"
-      className="theme-soft-blue bg-softblue-grad flex min-h-dvh flex-col text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col text-foreground"
     >
       <ScreenBackHeader title="프로필 수정" />
 
@@ -288,7 +288,7 @@ export function ProfilePage() {
         <Button
           type="button"
           size="xl"
-          className="font-semibold"
+          className="w-full"
           // 길이 초과(목표 20자·닉네임 12자)는 입력 중 인라인 안내와 함께 저장 버튼도
           // 잠근다(2026-08-25 피드백) — 눌러도 거부될 버튼을 활성으로 두지 않는다.
           disabled={

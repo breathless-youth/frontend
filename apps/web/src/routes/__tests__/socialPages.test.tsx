@@ -51,6 +51,13 @@ function renderAt(path: string | { pathname: string; search: string; state?: unk
   );
 }
 
+/** 코드가 네 칸(숫자 칸)으로 나눠 표시된다 — 한 덩어리 텍스트가 아니다(BY-716). */
+function expectInviteCodeShown(code: string) {
+  for (const digit of code) {
+    expect(screen.getByText(digit)).toBeInTheDocument();
+  }
+}
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
@@ -76,7 +83,7 @@ describe("소셜 홈", () => {
 
     expect(mockedCreateRoom).toHaveBeenCalledWith();
     expect(await screen.findByText("방이 만들어졌어요")).toBeInTheDocument();
-    expect(screen.getByText("0712")).toBeInTheDocument();
+    expectInviteCodeShown("0712");
   });
 
   it("방 만들기 실패 시 토스트를 띄우고 버튼이 다시 활성화된다", async () => {
@@ -212,7 +219,7 @@ describe("초대코드 공유", () => {
     renderAt(withState);
 
     expect(screen.getByText("방이 만들어졌어요")).toBeInTheDocument();
-    expect(screen.getByText("0712")).toBeInTheDocument();
+    expectInviteCodeShown("0712");
     expect(screen.getByText("모두가 나가면 방과 코드가 사라져요")).toBeInTheDocument();
   });
 
@@ -265,7 +272,7 @@ describe("초대코드 공유", () => {
     await userEvent.click(screen.getByRole("button", { name: "입장하기" }));
 
     expect(await screen.findByText("방이 가득 찼어요")).toBeInTheDocument();
-    expect(screen.getByText("0712")).toBeInTheDocument();
+    expectInviteCodeShown("0712");
   });
 
   it("닫기를 누르면 소셜 홈으로 돌아간다", async () => {

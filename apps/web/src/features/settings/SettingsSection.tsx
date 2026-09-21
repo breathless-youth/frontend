@@ -32,8 +32,8 @@ export function SettingsSection({ label, caption, className, children }: Setting
     <div className={className}>
       <p className="text-text-tertiary px-1 text-[13px] leading-[15px] font-medium">{label}</p>
 
-      {/* 그림자는 var(--shadow-card-soft-blue) — theme-soft-blue 밖에서는 변수가 없어 그림자도 없다. */}
-      <div className="bg-muted border-border mt-1.5 rounded-xl border px-4 shadow-[var(--shadow-card-soft-blue)]">
+      {/* 카드 그림자는 소셜과 공유하는 shadow-sb-card 유틸(Figma shadow/card-soft-blue). */}
+      <div className="bg-muted border-border mt-1.5 rounded-xl border px-4 shadow-sb-card">
         {rows.map((row, index) => (
           // 행 목록은 JSX에 정적으로 적힌 고정 배열이라(추가·삭제·재정렬 없음) 인덱스가 안정적인 키다.
           <Fragment key={index}>

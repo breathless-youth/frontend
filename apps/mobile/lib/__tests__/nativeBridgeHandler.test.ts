@@ -354,6 +354,52 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
     ]);
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
   });
+
+  it("소셜 결과 화면이 보낸 navigate-tab은 via=study_result로 남긴다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "records", via: "study_result", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("이미 기록 탭이면 이동은 no-op이라 tab_pressed를 남기지 않는다", () => {
+    setActiveTabRoute("records");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received).toEqual([]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  /**
+   * 솔로 결과의 `기록으로 가기`는 모달 닫기와 탭 전환을 한 메시지로 보낸다 — 둘로 나누면
+   * 첫 메시지가 세션 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다.
+   */
+  it("navigate-home에 tab이 실려 오면 모달을 닫고 이어서 그 탭으로 간다 — via=study_result", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-home", tab: "records", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+  });
+
+  it("tab 없는 navigate-home은 탭을 옮기지 않는다", () => {
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.navigate).not.toHaveBeenCalled();
+    expect(received).toEqual([]);
+  });
 });
 
 describe("토큰 브리지", () => {

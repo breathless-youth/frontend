@@ -12,13 +12,16 @@ export const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:opacity-90",
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
+        subtle: "bg-brand-subtle text-primary hover:opacity-90",
+        /** 보조 CTA(결과 화면 `홈으로`) — `bg/layer-2` 위 기본 글자색. */
+        secondary: "bg-bg-layer-2 text-foreground hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
-        // 시안 CTA(56px). radius 18은 토큰이 없어 저장 버튼 기존 관례인 rounded-2xl(16)을 따른다.
-        xl: "h-14 w-full rounded-2xl px-6 text-base",
+        /** 화면 하단 고정 CTA(Figma `Button / CTA` XL 56px, r16). 폭은 호출부의 flex가 정하므로 패딩 없음. */
+        xl: "h-14 rounded-2xl text-[16px] leading-[19px] font-semibold",
       },
     },
     defaultVariants: {

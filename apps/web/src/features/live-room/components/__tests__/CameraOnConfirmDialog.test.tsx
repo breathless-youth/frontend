@@ -133,12 +133,12 @@ describe("CameraOnConfirmDialog", () => {
   });
 
   it("두 반경 클래스가 sm 이상에서도 유지된다", () => {
-    // 공용 dialog 의 sm:rounded-lg 가 base rounded-2xl 과 다른 modifier 라 640px 이상에서
-    // 반경을 덮는다. sm:rounded-2xl 로 같은 modifier 를 맞춰 막는다.
+    // 공용 dialog 의 sm:rounded-lg 가 base rounded-3xl 과 다른 modifier 라 640px 이상에서
+    // 반경을 덮는다. sm:rounded-3xl 로 같은 modifier 를 맞춰 막는다.
     setup();
 
     const content = screen.getByRole("alertdialog");
-    expect(content.className).toContain("sm:rounded-2xl");
+    expect(content.className).toContain("sm:rounded-3xl");
     expect(content.className).not.toContain("sm:rounded-lg");
   });
 });

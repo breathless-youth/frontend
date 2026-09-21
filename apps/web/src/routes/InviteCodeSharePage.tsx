@@ -1,8 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Copy, Share, X } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
 import { Toast } from "@/components/ui/toast";
+import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
@@ -64,11 +66,11 @@ export function InviteCodeSharePage() {
   return (
     <main
       data-testid="invite-code-share-page"
-      className="flex min-h-dvh flex-col bg-background pt-[env(safe-area-inset-top)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
     >
       <div className="flex h-[52px] items-center px-2">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           aria-label="닫기"
           onClick={() => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
@@ -80,27 +82,34 @@ export function InviteCodeSharePage() {
             }
             navigate({ pathname: "/social", search: location.search }, { replace: true });
           }}
-          className="flex size-11 items-center justify-center"
+          className="size-11 p-0"
         >
           <X size={22} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <p className="text-lg font-bold text-foreground">방이 만들어졌어요</p>
+        <h1 className="text-lg font-bold text-foreground">방이 만들어졌어요</h1>
         <div className="size-2" aria-hidden="true" />
-        <div className="flex h-24 w-full items-center justify-center rounded-[20px] bg-invite-surface">
-          <p className="text-[40px] font-bold tracking-[8px] text-invite-surface-text">
-            {state.inviteCode}
-          </p>
+        <div
+          role="group"
+          aria-label={`초대코드 ${state.inviteCode}`}
+          className="flex justify-center gap-2.5"
+        >
+          {state.inviteCode.split("").map((digit, index) => (
+            <div key={index} aria-hidden="true" className={CODE_CELL_CLASS}>
+              {digit}
+            </div>
+          ))}
         </div>
         <p className="text-sm leading-5 text-muted-foreground">
           모두가 나가면 방과 코드가 사라져요
         </p>
         <div className="size-4" aria-hidden="true" />
         <div className="flex gap-2.5">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            className="shadow-sb-card h-11 gap-1.5 rounded-full bg-muted px-5 text-foreground"
             onClick={() => {
               void copyInviteCode(state.inviteCode).then((copied) => {
                 // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
@@ -108,12 +117,13 @@ export function InviteCodeSharePage() {
                 showToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
           >
+            <Copy size={18} aria-hidden="true" />
             코드 복사
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="subtle"
+            className="h-11 gap-1.5 rounded-full px-5"
             onClick={() => {
               void shareInvite(state.inviteCode).then((result) => {
                 trackInviteShared(result);
@@ -124,10 +134,10 @@ export function InviteCodeSharePage() {
                 }
               });
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-share-tonal px-5 text-[15px] font-semibold text-share-tonal-text"
           >
+            <Share size={18} aria-hidden="true" />
             공유하기
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -140,16 +150,17 @@ export function InviteCodeSharePage() {
             />
           )}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="default"
+          size="xl"
+          className="shadow-sb-cta w-full"
           disabled={userId === null || joinMutation.isPending}
           onClick={() => {
             joinMutation.mutate(state.inviteCode);
           }}
-          className="flex h-12 w-full items-center justify-center rounded-[14px] bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
         >
           입장하기
-        </button>
+        </Button>
       </div>
     </main>
   );

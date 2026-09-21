@@ -13,7 +13,8 @@
 | Sheet / Menu Item | `2405:138` | 없음 |
 | Control / Toggle | `43:89` | 설정 화면 로컬 |
 | Settings / Row (5종) | `43:117` | `features/settings` |
-| Input / Text, Input / PIN Box, Search / Field | `2403:118` `2403:123` `2403:136` | `features/social-room` 로컬 |
+| Input / Text, Search / Field | `2403:118` `2403:136` | `features/social-room` 로컬 |
+| Input / PIN Box | `2403:123` | `components/ui/input-otp.tsx`(input-otp) + `features/social-room/InviteCodeInput.tsx` (BY-716) |
 | Chip / Filter | `2402:114` | `features/social-room` |
 | Avatar | `2402:109` | `features/social-room` |
 | Navigation / Tab Bar (Active=Home·Social·Record·Settings) | `36:101` | 네이티브 셸이 그린다(`apps/mobile`). 웹에는 없다 |
