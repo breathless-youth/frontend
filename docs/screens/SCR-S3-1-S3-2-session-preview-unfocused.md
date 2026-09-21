@@ -199,9 +199,11 @@ export type SessionState =
 
   | 감지기      | 비집중 진입(유지) | 자동 재개(유지) |
   | ----------- | ----------------- | --------------- |
-  | 자리 이탈   | 1.5초             | 2초             |
-  | 휴대폰 사용 | 0.5초             | 1.5초           |
+  | 자리 이탈   | 2초               | 2초             |
+  | 휴대폰 사용 | 1초               | 1.5초           |
   | 기기 조작   | 0.5초             | 2초             |
+
+  (2026-09-21 갱신 — 발열·배터리 조정으로 프레임 주기를 1 fps로 늘리면서 자리 이탈 1.5초→2초, 휴대폰 0.5초→1초. 근거는 `apps/web/src/features/study-session/vision/visionConfig.ts`의 `FRAME_INTERVAL_MS` 주석.)
 
 ## Interaction Contract
 
