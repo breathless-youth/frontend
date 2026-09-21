@@ -65,6 +65,11 @@ export interface StudySessionCreateRequest {
   events: StatusEventPayload[];
   /** 과목(·할 일)을 선택한 채 잰 항목별 시간 — 선택 필드. 없으면 기존과 동일하게 저장된다. */
   subjectTimes?: SubjectTimePayload[];
+  /**
+   * 이 세션 중 완료한 할 일 id — 선택 필드. 없으면 기존과 동일하게 저장된다. 토큰 유저의 할 일이 아니면 400,
+   * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
+   */
+  completedTaskIds?: number[];
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -130,6 +135,8 @@ export interface StudySessionResponse {
   events: StatusEventPayload[];
   /** 항목별 시간 — 자정 분할 조각에는 그 조각 몫만 담긴다 */
   subjectTimes?: SubjectTimePayload[];
+  /** 이 조각에서 완료한 할 일 id(오름차순) — 자정 분할이면 완료 시각이 속한 조각에만 실린다. 없으면 [] */
+  completedTaskIds?: number[];
 }
 
 /**
@@ -311,9 +318,15 @@ export interface TaskResponse {
   doneAt: string | null;
 }
 
+/**
+ * 과목 1건. 목록(`GET /api/subjects`)은 저장된 순서(`PUT /api/subjects/order`)로 내려오고 새 과목은 맨 뒤다 —
+ * 배열 순서가 곧 순서이며 정렬 필드는 따로 없다.
+ */
 export interface SubjectResponse {
   id: number;
   name: string;
+  /** 색 팔레트 인덱스 0..19 — 만들 때 서버가 덜 쓴 색을 배정하고 이후 바뀌지 않는다. 화면은 팔레트에 매핑만 한다 */
+  colorIndex: number;
   /** 이 과목에서 잰 누적 총 공부 시간(초) */
   studySec: number;
   focusSec: number;
@@ -328,6 +341,15 @@ export interface SubjectCreateRequest {
 
 export interface SubjectUpdateRequest {
   name: string;
+}
+
+/**
+ * 과목 순서 저장 (PUT /api/subjects/order) — 드래그가 끝날 때 살아있는 과목 id 전부를 원하는 순서로 보낸다.
+ * 남의·지운·없는 id나 중복이면 400이고 아무것도 안 바뀐다. 빠뜨린 과목은 기존 순서대로 뒤에 붙는다.
+ * 응답은 정렬된 `SubjectResponse[]`(GET과 같은 모양).
+ */
+export interface SubjectOrderRequest {
+  subjectIds: number[];
 }
 
 /** 할 일 이름 — 공백 불가, 최대 100자. 그 과목의 살아있는 할 일이 30개면 400 */
