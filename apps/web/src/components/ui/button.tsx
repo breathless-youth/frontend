@@ -12,6 +12,7 @@ export const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:opacity-90",
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
+        subtle: "bg-brand-subtle text-primary hover:opacity-90",
         /** 보조 CTA(결과 화면 `홈으로`) — `bg/layer-2` 위 기본 글자색. */
         secondary: "bg-bg-layer-2 text-foreground hover:opacity-90",
       },
