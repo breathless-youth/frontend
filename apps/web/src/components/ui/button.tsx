@@ -17,6 +17,8 @@ export const buttonVariants = cva(
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
+        // 시안 CTA(56px). radius 18은 토큰이 없어 저장 버튼 기존 관례인 rounded-2xl(16)을 따른다.
+        xl: "h-14 w-full rounded-2xl px-6 text-base",
       },
     },
     defaultVariants: {

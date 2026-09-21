@@ -202,6 +202,66 @@
   --share-tonal-text: #94baff;
 }
 
+/* Soft Blue V2 팔레트 — 설정·프로필 수정 화면 스코프.
+   전역 `:root`를 바꾸면 시안 대조·회귀 검증을 하지 않은 다른 화면까지 색이 바뀌므로,
+   이 클래스를 붙인 서브트리에서만 기존 시맨틱 변수를 재정의한다. 화면 전체가 V2로 넘어가면
+   이 블록을 `:root`로 올려 한 번에 컷오버한다. 소셜(BY-716)도 같은 클래스를 같은 값으로 쓴다 —
+   컷오버는 별도 티켓에서 세 스코프를 합친다.
+   값 출처: Figma "1. Semantic Colors" Soft Blue(5258:0)·Soft Blue Dark(5283:0) 모드. */
+.theme-soft-blue {
+  --primary: #3671cf;
+  --primary-foreground: #ffffff;
+  --foreground: #1f2a3d;
+  --muted-foreground: #556173;
+  --text-tertiary: #b3bccb;
+  --border: #e8eef8;
+  --muted: #ffffff;
+  /* 배경 3단 그라디언트 스톱 — 단색 변수로 안 담겨 `bg-softblue-grad` 유틸이 조합한다. */
+  --sb-grad-top: #eef3fb;
+  --sb-grad-mid: #f8fafd;
+  --sb-grad-bottom: #ffffff;
+  /* Figma shadow/card-soft-blue: color #3F78DA14, offset 0/6, blur 22. */
+  --shadow-card-soft-blue: 0 6px 22px 0 #3f78da14;
+}
+
+/* 다크 두 벌 — iOS·브라우저는 미디어쿼리(단, data-theme="light" 제외), Android 웹뷰는
+   셸이 붙이는 data-theme 속성. 위 라이트 블록과 스톱·색을 항상 같이 고친다. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-soft-blue {
+    --primary: #5a90ea;
+    --foreground: #eaf0f9;
+    --muted-foreground: #9fabc0;
+    --text-tertiary: #6b7789;
+    --border: #2a3752;
+    --muted: #1b2333;
+    --sb-grad-top: #172032;
+    --sb-grad-mid: #10151f;
+    --sb-grad-bottom: #0d1118;
+  }
+}
+
+:root[data-theme="dark"] .theme-soft-blue {
+  --primary: #5a90ea;
+  --foreground: #eaf0f9;
+  --muted-foreground: #9fabc0;
+  --text-tertiary: #6b7789;
+  --border: #2a3752;
+  --muted: #1b2333;
+  --sb-grad-top: #172032;
+  --sb-grad-mid: #10151f;
+  --sb-grad-bottom: #0d1118;
+}
+
+/* Soft Blue 화면 배경. `bg-background`(단색) 대신 이 유틸을 화면 루트에 붙인다. */
+@utility bg-softblue-grad {
+  background: linear-gradient(
+    180deg,
+    var(--sb-grad-top) 0%,
+    var(--sb-grad-mid) 45%,
+    var(--sb-grad-bottom) 100%
+  );
+}
+
 /* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
    여기가 비어 있으면 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보인다
    (2026-08-01 웹뷰 실기기 확인). 두 요소에 같은 토큰을 준다. */
