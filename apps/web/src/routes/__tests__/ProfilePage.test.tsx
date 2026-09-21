@@ -59,6 +59,25 @@ describe("프로필 설정", () => {
     expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 7종 렌더 확인 대표
   });
 
+  it("제목 프로필 수정은 상단 헤더에만 있고 본문에 중복되지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    expect(screen.getAllByRole("heading", { name: "프로필 수정" })).toHaveLength(1);
+  });
+
+  it("카테고리 칩은 단일 선택이고 같은 칩을 다시 누르면 해제된다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, category: null });
+    renderAt("/profile?userId=7");
+
+    const chip = await screen.findByRole("radio", { name: "수능" });
+    await userEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-checked", "false");
+  });
+
   it("저장 시 변경된 필드만 PATCH로 보낸다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({
@@ -70,7 +89,7 @@ describe("프로필 설정", () => {
 
     const goalInput = await screen.findByLabelText("목표 문구");
     fireEvent.change(goalInput, { target: { value: "올해 안에 이직 성공" } });
-    await userEvent.click(screen.getByRole("button", { name: "취업" }));
+    await userEvent.click(screen.getByRole("radio", { name: "취업" }));
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     await waitFor(() => {
