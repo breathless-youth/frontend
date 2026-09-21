@@ -79,7 +79,7 @@ export const eventStatusColors = {
   PAUSE: sessionStateColors.PAUSE,
 } as const;
 
-/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 Pretendard를 자체 호스팅해 적용한다. */
+/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 NanumSquareRound를 자체 호스팅해 적용한다. */
 export const typography = {
   display: {
     /** 타이머 전용 */

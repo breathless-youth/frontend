@@ -1,18 +1,25 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Pretendard 자체 호스팅 — 가변 폰트 파일은 apps/web/public/fonts에 있다.
-   font-weight 45~920은 이 가변 폰트가 지원하는 축 범위. */
+/* NanumSquareRound 자체 호스팅 — 정적 폰트라 Regular·Bold 두 파일을 굵기별로 선언한다.
+   가변 폰트가 아니므로 font-weight는 각 파일의 실제 굵기로 고정한다. */
 @font-face {
-  font-family: "Pretendard";
-  src: url("/fonts/PretendardVariable.woff2") format("woff2");
-  font-weight: 45 920;
+  font-family: "NanumSquareRound";
+  src: url("/fonts/NanumSquareRound-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "NanumSquareRound";
+  src: url("/fonts/NanumSquareRound-Bold.woff2") format("woff2");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @theme inline {
-  --font-sans: "Pretendard", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "NanumSquareRound", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* 오버레이 등·퇴장용 강한 ease-out. 브라우저 기본 ease-out은 가속이 약해 같은 시간을
      줘도 굼떠 보인다. */
   --ease-overlay: cubic-bezier(0.23, 1, 0.32, 1);
