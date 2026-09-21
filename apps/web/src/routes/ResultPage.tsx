@@ -114,17 +114,19 @@ export function ResultPage() {
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
    * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
    * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다(ADR 0001). 그래서 네이티브에
-   * `navigate-home`을 먼저 보낸다(`packages/types`의 `NavigateHomeMessage`) — 네이티브가
+   * `navigate-home`을 보낸다(`packages/types`의 `NavigateHomeMessage`) — 네이티브가
    * 모달을 닫으면 이 화면 전체가 사라지므로 아래 웹 라우터 이동은 브라우저 단독 모드
    * (ADR 0001)를 위한 폴백이다. 네이티브가 없으면 `postToNative`가 조용히 아무 일도 하지
    * 않는다.
    *
-   * **기록으로 가기**는 탭 전환이라 네이티브 탭바 소유다 — 홈 연속 공부 카드와 같은
-   * `navigate-tab` 브리지로 넘기고(`HomeTabPage.openRecords`), 발신처는 `study_result`로 실어
-   * 네이티브 `tab_pressed.via`가 카드 터치와 섞이지 않게 한다. 솔로는 모달을 먼저 닫아야
-   * 탭이 드러나므로 `navigate-home` 뒤에 보낸다. 웹뷰 안 문서는 홈으로 되돌려 둔다 — 소셜은
-   * 탭 웹뷰라 결과 화면에 머문 채 남으면 다음에 소셜 탭을 열 때 끝난 결과가 다시 보인다.
-   * 브라우저 단독 모드에서는 탭바가 없으니 웹 라우트 `/records`로 직접 간다.
+   * **기록으로 가기**는 탭 전환이라 네이티브 탭바 소유다. 솔로는 모달을 닫는 `navigate-home`에
+   * `tab: "records"`를 실어 **한 메시지**로 보낸다 — 모달을 닫는 메시지 뒤에 두 번째 메시지를
+   * 보내면, 네이티브가 첫 메시지로 이 WebView를 언마운트하는 사이 둘째가 유실될 수 있다.
+   * 소셜은 모달이 없는 탭 웹뷰라 홈 연속 공부 카드와 같은 `navigate-tab`을 쓰고
+   * (`HomeTabPage.openRecords`), 발신처는 `study_result`로 실어 네이티브 `tab_pressed.via`가
+   * 카드 터치와 섞이지 않게 한다. 웹뷰 안 문서는 홈으로 되돌려 둔다 — 소셜은 결과 화면에
+   * 머문 채 남으면 다음에 소셜 탭을 열 때 끝난 결과가 다시 보인다. 브라우저 단독 모드에서는
+   * 탭바가 없으니 웹 라우트 `/records`로 직접 간다.
    *
    * 홈 목적지는 `/`가 아니라 `/home`이다 — `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다.
    * 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈·기록이 미저장(브라우저 단독) 모드로 뜬다.
@@ -151,16 +153,16 @@ export function ResultPage() {
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
     if (home === "/home") {
-      postToNative({ type: "navigate-home", atMs: Date.now() });
-    }
-    if (via === "records") {
-      if (!isNativeBridgeAvailable()) {
-        navigate({ pathname: "/records", search: location.search }, { replace: true });
-        return;
-      }
+      postToNative({
+        type: "navigate-home",
+        ...(via === "records" ? { tab: "records" } : {}),
+        atMs: Date.now(),
+      });
+    } else if (via === "records") {
       postToNative({ type: "navigate-tab", tab: "records", via: "study_result", atMs: Date.now() });
     }
-    navigate({ pathname: home, search: location.search }, { replace: true });
+    const webTarget = via === "records" && !isNativeBridgeAvailable() ? "/records" : home;
+    navigate({ pathname: webTarget, search: location.search }, { replace: true });
   };
 
   /**

@@ -321,6 +321,13 @@ export interface SetBackLockMessage {
  */
 export interface NavigateHomeMessage {
   type: "navigate-home";
+  /**
+   * 모달을 닫은 뒤 이어서 열 탭. S4의 `기록으로 가기`가 솔로 결과에서 싣는다 — 모달 닫기와 탭
+   * 전환을 **한 메시지**로 보내야 한다. 둘로 나누면 첫 메시지가 이 WebView를 언마운트하는
+   * 사이 둘째(`navigate-tab`)가 유실될 수 있다. 네이티브는 `tab_pressed {via: study_result}`로
+   * 센다. 없으면 홈 탭에 머문다.
+   */
+  tab?: NavigateTabMessage["tab"];
   atMs: number;
 }
 

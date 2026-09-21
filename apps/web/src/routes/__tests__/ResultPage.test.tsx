@@ -472,20 +472,19 @@ describe("ResultPage — 이탈 경로: 기록으로 가기 (BY-560)", () => {
   });
 
   /**
-   * 솔로 결과는 세션 `fullScreenModal` 안이다. 탭 전환(`navigate-tab`)만 보내면 모달이 그대로
-   * 남으므로 모달을 닫는 `navigate-home`을 **먼저** 보내고, 발신처는 `study_result`로 실어
-   * 네이티브 `tab_pressed.via`가 홈 카드 터치와 섞이지 않게 한다.
+   * 솔로 결과는 세션 `fullScreenModal` 안이다. 모달 닫기(`navigate-home`)와 탭 전환을 **한
+   * 메시지**로 보낸다 — 모달을 닫는 메시지 뒤에 `navigate-tab`을 따로 보내면 네이티브가 첫
+   * 메시지로 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다.
    */
-  it("네이티브 솔로 결과에서는 모달 닫기 신호 뒤에 기록 탭 전환 신호를 보낸다", async () => {
+  it("네이티브 솔로 결과에서는 모달 닫기 신호 하나에 기록 탭을 실어 보낸다", async () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     renderResult({ sessions: [exampleSession()] });
 
     await userEvent.click(screen.getByRole("button", { name: "기록으로 가기" }));
 
-    expect(sentTypes(postMessage)).toEqual(["navigate-home", "navigate-tab"]);
+    expect(sentTypes(postMessage)).toEqual(["navigate-home"]);
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"tab":"records"'));
-    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"via":"study_result"'));
     // 웹뷰 안 문서는 홈으로 되돌려 둔다 — 모달이 닫혀 사라지므로 브라우저 폴백과 같은 경로다.
     expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
   });

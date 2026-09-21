@@ -25,6 +25,18 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-home의 이어서 열 탭(tab)은 계약 값만 통과시킨다 — 모르는 값은 빼고 모달 닫기는 살린다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"records","atMs":9}')).toEqual({
+      type: "navigate-home",
+      tab: "records",
+      atMs: 9,
+    });
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"profile","atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+  });
+
   it("motion-sensor 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"motion-sensor","enabled":true,"atMs":7}')).toEqual({
       type: "motion-sensor",

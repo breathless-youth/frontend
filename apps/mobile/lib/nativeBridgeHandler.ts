@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { NavigateTabMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
@@ -17,6 +17,20 @@ export type BridgeReply = (message: ToWebMessage) => void;
 
 /** `navigate-tab`의 목적지 값 → 탭 id. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
 const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
+
+/**
+ * 웹이 요청한 탭 전환. 탭 전환은 네이티브 탭바 소유라 웹은 신호만 보낸다. `router.navigate`는
+ * 이미 활성인 탭이면 no-op이고, 그때는 탭 이동이 아니므로 `tab_pressed`도 남기지 않는다.
+ * 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `via`로 가른다.
+ */
+function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMessage["via"]>) {
+  const target = NATIVE_TAB_BY_MESSAGE_TAB[tab];
+  const from = getActiveTab();
+  if (from !== target) {
+    trackNativeEvent("tab_pressed", { tab: target, from_tab: from, via });
+  }
+  router.navigate("/records");
+}
 
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
@@ -74,6 +88,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       }
       // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없어 여기서 알린다.
       emitSessionClosed();
+      // S4 `기록으로 가기`(솔로): 모달 닫기와 탭 전환이 한 메시지로 온다 — 둘로 나누면 첫
+      // 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(계약 주석 참고).
+      if (message.tab !== undefined) {
+        openTab(message.tab, "study_result");
+      }
       break;
     case "open-settings":
       void openAppSettings();
@@ -114,19 +133,10 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       });
       break;
     case "navigate-tab":
-      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"), 또는 S4 결과 화면의
-      // `기록으로 가기`(BY-560). 탭 전환은 네이티브 탭바 소유라 웹이 신호만 보낸다.
-      // `router.navigate`는 이미 활성인 탭이면 no-op이다. 사용자에겐 탭 바 터치와 같은 탭
-      // 이동이라 `tab_pressed`로 세되 경로만 `via`로 가른다 — 발신처를 안 실은 옛 웹은 `card`다.
-      //
-      // 솔로 결과는 세션 `fullScreenModal` 안이라 웹이 `navigate-home`(모달 닫기)을 먼저 보내고
-      // 이 메시지를 보낸다 — 순서대로 처리되므로 모달이 닫힌 뒤 탭이 바뀐다.
-      trackNativeEvent("tab_pressed", {
-        tab: NATIVE_TAB_BY_MESSAGE_TAB[message.tab],
-        from_tab: getActiveTab(),
-        via: message.via ?? "card",
-      });
-      router.navigate("/records");
+      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"), 또는 소셜 결과 화면의
+      // `기록으로 가기`(탭 웹뷰라 모달이 없다). 발신처를 안 실은 옛 웹은 `card`다.
+      // 솔로 결과는 모달을 닫아야 하므로 `navigate-home {tab}`으로 온다.
+      openTab(message.tab, message.via ?? "card");
       break;
     case "set-tab-bar":
       // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려

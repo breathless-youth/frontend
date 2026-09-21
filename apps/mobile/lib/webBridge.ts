@@ -72,7 +72,12 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
     case "navigate-home":
-      return { type: "navigate-home", atMs: record.atMs };
+      // 이어서 열 탭은 선택 필드 — 계약 밖 값이면 빼고(= 홈 탭) 모달 닫기는 살린다.
+      return {
+        type: "navigate-home",
+        ...(record.tab === "records" ? { tab: record.tab } : {}),
+        atMs: record.atMs,
+      };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
