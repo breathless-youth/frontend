@@ -63,10 +63,11 @@ describe("parseApiError", () => {
   });
 });
 
-describe("apiFetch", () => {
+describe("apiFetch — 엔드포인트가 버전을 정한다", () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
+    mocks.source = null;
     globalThis.fetch = originalFetch;
   });
 
@@ -76,16 +77,19 @@ describe("apiFetch", () => {
     return mocked;
   }
 
-  it("기본 헤더 API-Version: 1을 넣는다", async () => {
+  const sentHeaders = (mocked: ReturnType<typeof vi.fn>) =>
+    new Headers((mocked.mock.calls[0] as [unknown, RequestInit])[1].headers);
+
+  it("토큰 출처가 없으면 그 엔드포인트의 구 계약 버전을 보낸다", async () => {
     const mocked = mockFetch();
-    await apiFetch("/api/rooms");
-    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
-    expect(new Headers(init.headers).get("API-Version")).toBe("1");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(sentHeaders(mocked).get("API-Version")).toBe("1");
   });
 
-  it("호출부가 넘긴 다른 헤더를 보존한다", async () => {
+  it("호출부가 넘긴 다른 헤더와 method를 보존한다", async () => {
     const mocked = mockFetch();
     await apiFetch("/api/rooms", {
+      endpoint: "roomCreate",
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -96,27 +100,28 @@ describe("apiFetch", () => {
     expect(init.method).toBe("POST");
   });
 
-  it("호출부가 API-Version을 명시하면 그 값이 나간다", async () => {
+  it("endpoint는 fetch로 넘어가지 않는다", async () => {
     const mocked = mockFetch();
-    await apiFetch("/api/rooms", { headers: { "API-Version": "2" } });
-    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
-    expect(new Headers(init.headers).get("API-Version")).toBe("2");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    const [, init] = mocked.mock.calls[0] as [string, RequestInit & { endpoint?: unknown }];
+    expect(init.endpoint).toBeUndefined();
   });
 
-  it("Request 입력의 헤더를 보존하고 API-Version을 더한다", async () => {
+  it("호출부가 API-Version을 직접 넣어도 엔드포인트 값이 이긴다", async () => {
+    // 버전의 원천은 레지스트리 하나다. 호출부가 고를 수 있게 두면 원천이 둘이 된다.
     const mocked = mockFetch();
-    await apiFetch(new Request("https://api.test/api/rooms", { headers: { "X-Trace": "abc" } }));
-    const [, init] = mocked.mock.calls[0] as [Request, RequestInit];
-    const headers = new Headers(init.headers);
+    await apiFetch("/api/rooms", { endpoint: "roomCreate", headers: { "API-Version": "2" } });
+    expect(sentHeaders(mocked).get("API-Version")).toBe("1");
+  });
+
+  it("Request 입력의 헤더를 보존하고 엔드포인트 버전을 더한다", async () => {
+    const mocked = mockFetch();
+    await apiFetch(new Request("https://api.test/api/rooms", { headers: { "X-Trace": "abc" } }), {
+      endpoint: "roomCreate",
+    });
+    const headers = sentHeaders(mocked);
     expect(headers.get("X-Trace")).toBe("abc");
     expect(headers.get("API-Version")).toBe("1");
-  });
-
-  it("Request가 API-Version을 지정하면 그 값이 우선한다", async () => {
-    const mocked = mockFetch();
-    await apiFetch(new Request("https://api.test/api/rooms", { headers: { "API-Version": "2" } }));
-    const [, init] = mocked.mock.calls[0] as [Request, RequestInit];
-    expect(new Headers(init.headers).get("API-Version")).toBe("2");
   });
 });
 
@@ -159,57 +164,55 @@ describe("API-Version과 토큰", () => {
     return { mocked, seen };
   }
 
+  const sentHeaders = (mocked: ReturnType<typeof vi.fn>) =>
+    new Headers((mocked.mock.calls[0] as [unknown, RequestInit])[1].headers);
+
   afterEach(() => {
     mocks.source = null;
     globalThis.fetch = originalFetch;
   });
 
-  it("처음엔 토큰이 없다가 401 뒤 갱신으로 토큰이 생기면 재시도는 API-Version: 2를 보낸다", async () => {
-    mocks.source = fakeSource(null, "a2");
-    const { mocked, seen } = mockFetchCapturingEachCall([401, 200]);
-    await apiFetch("/api/rooms");
-    expect(mocked).toHaveBeenCalledTimes(2);
-    expect(seen[0]).toEqual({ version: "1", auth: null });
-    expect(seen[1]).toEqual({ version: "2", auth: "Bearer a2" });
-  });
-
-  it("토큰을 붙여도 재시도에서 승격되는 API-Version 위에서 호출부가 명시한 값이 우선한다", async () => {
-    mocks.source = fakeSource(null, "a2");
-    const { mocked, seen } = mockFetchCapturingEachCall([401, 200]);
-    await apiFetch("/api/rooms", { headers: { "API-Version": "1" } });
-    expect(mocked).toHaveBeenCalledTimes(2);
-    expect(seen[0]).toEqual({ version: "1", auth: null });
-    expect(seen[1]).toEqual({ version: "1", auth: "Bearer a2" });
-  });
-
-  it("토큰을 붙이면 API-Version: 2를 보낸다", async () => {
+  it("토큰 출처가 있으면 현재 계약 버전을 보낸다", async () => {
     mocks.source = fakeSource("a1");
     const mocked = mockFetch();
-    await apiFetch("/api/rooms");
-    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
-    const headers = new Headers(init.headers);
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    const headers = sentHeaders(mocked);
     expect(headers.get("Authorization")).toBe("Bearer a1");
     expect(headers.get("API-Version")).toBe("2");
   });
 
-  it("출처가 있어도 토큰이 없으면 API-Version: 1이다", async () => {
+  it("출처가 있으면 토큰이 아직 없어도 현재 계약이다 — 버전은 문서의 계약이지 자격증명 유무가 아니다", async () => {
     mocks.source = fakeSource(null);
     const mocked = mockFetch();
-    await apiFetch("/api/rooms");
-    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
-    const headers = new Headers(init.headers);
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    const headers = sentHeaders(mocked);
     expect(headers.get("Authorization")).toBeNull();
+    expect(headers.get("API-Version")).toBe("2");
+  });
+
+  it("401 뒤 갱신해 재시도해도 버전은 그대로다 — 같은 엔드포인트라 같은 계약이다", async () => {
+    mocks.source = fakeSource(null, "a2");
+    const { mocked, seen } = mockFetchCapturingEachCall([401, 200]);
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(mocked).toHaveBeenCalledTimes(2);
+    expect(seen[0]).toEqual({ version: "2", auth: null });
+    expect(seen[1]).toEqual({ version: "2", auth: "Bearer a2" });
+  });
+
+  it("구 계약이 없는 새 경로는 토큰이 있어도 1이다 — 2를 보내면 서버가 400을 준다", async () => {
+    // BY-560이 실제로 밟은 회귀다. 전역 기본값이 토큰 유무로 갈리던 때 study-days가 400을 받았다.
+    mocks.source = fakeSource("a1");
+    const mocked = mockFetch();
+    await apiFetch("/api/stats/study-days", { endpoint: "studyDays" });
+    const headers = sentHeaders(mocked);
+    expect(headers.get("Authorization")).toBe("Bearer a1");
     expect(headers.get("API-Version")).toBe("1");
   });
 
-  it("토큰을 붙여도 호출부가 명시한 API-Version이 우선한다", async () => {
-    mocks.source = fakeSource("a1");
+  it("구 계약이 없는 새 경로는 출처가 없어도 같은 값을 보낸다", async () => {
     const mocked = mockFetch();
-    await apiFetch("/api/rooms", { headers: { "API-Version": "1" } });
-    const [, init] = mocked.mock.calls[0] as [string, RequestInit];
-    const headers = new Headers(init.headers);
-    expect(headers.get("API-Version")).toBe("1");
-    expect(headers.get("Authorization")).toBe("Bearer a1");
+    await apiFetch("/api/stats/study-days", { endpoint: "studyDays" });
+    expect(sentHeaders(mocked).get("API-Version")).toBe("1");
   });
 });
 
@@ -249,7 +252,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
 
   it("출처가 없으면 헤더 없이 한 번 보낸다 — 브라우저 단독·구버전 셸의 오늘 동작", async () => {
     mockedFetch.mockResolvedValue(status(200));
-    await apiFetch("/api/rooms");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(mockedFetch).toHaveBeenCalledTimes(1);
     expect(authOf(0)).toBeNull();
   });
@@ -257,14 +260,14 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
   it("첫 토큰을 기다렸다가 Authorization: Bearer를 붙인다", async () => {
     mocks.source = fakeSource("a1");
     mockedFetch.mockResolvedValue(status(200));
-    await apiFetch("/api/rooms");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(authOf(0)).toBe("Bearer a1");
   });
 
   it("토큰이 null이면 헤더 없이 보낸다", async () => {
     mocks.source = fakeSource(null);
     mockedFetch.mockResolvedValue(status(200));
-    await apiFetch("/api/rooms");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(authOf(0)).toBeNull();
   });
 
@@ -273,6 +276,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     mockedFetch.mockResolvedValueOnce(status(401)).mockResolvedValueOnce(status(200));
     const controller = new AbortController();
     const res = await apiFetch("/api/rooms", {
+      endpoint: "roomCreate",
       method: "POST",
       body: '{"x":1}',
       signal: controller.signal,
@@ -289,7 +293,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     const source = fakeSource("a1", "a2");
     mocks.source = source;
     mockedFetch.mockResolvedValue(status(401));
-    const res = await apiFetch("/api/rooms");
+    const res = await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(res.status).toBe(401);
     expect(mockedFetch).toHaveBeenCalledTimes(2);
     expect(source.refresh).toHaveBeenCalledTimes(1);
@@ -298,9 +302,13 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
   it("갱신이 실패(null)하거나 같은 토큰이면 재시도 없이 401을 돌려준다", async () => {
     mocks.source = fakeSource("a1", null);
     mockedFetch.mockResolvedValue(status(401));
-    await expect(apiFetch("/api/rooms")).resolves.toMatchObject({ status: 401 });
+    await expect(apiFetch("/api/rooms", { endpoint: "roomCreate" })).resolves.toMatchObject({
+      status: 401,
+    });
     mocks.source = fakeSource("a1", "a1");
-    await expect(apiFetch("/api/rooms")).resolves.toMatchObject({ status: 401 });
+    await expect(apiFetch("/api/rooms", { endpoint: "roomCreate" })).resolves.toMatchObject({
+      status: 401,
+    });
     expect(mockedFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -308,7 +316,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     const source = fakeSource("a1", "a3", "a2");
     mocks.source = source;
     mockedFetch.mockResolvedValueOnce(status(401)).mockResolvedValueOnce(status(200));
-    await apiFetch("/api/rooms");
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(source.refresh).not.toHaveBeenCalled();
     expect(authOf(1)).toBe("Bearer a2");
   });
@@ -319,7 +327,9 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     mockedFetch.mockResolvedValue(status(401));
     const controller = new AbortController();
     controller.abort();
-    await expect(apiFetch("/api/rooms", { signal: controller.signal })).resolves.toMatchObject({
+    await expect(
+      apiFetch("/api/rooms", { endpoint: "roomCreate", signal: controller.signal }),
+    ).resolves.toMatchObject({
       status: 401,
     });
     expect(source.refresh).not.toHaveBeenCalled();
@@ -335,7 +345,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     });
     mocks.source = source;
     mockedFetch.mockResolvedValue(status(401));
-    const res = await apiFetch("/api/rooms", { signal: controller.signal });
+    const res = await apiFetch("/api/rooms", { endpoint: "roomCreate", signal: controller.signal });
     expect(res.status).toBe(401);
     expect(mockedFetch).toHaveBeenCalledTimes(1);
     expect(source.refresh).toHaveBeenCalledTimes(1);
@@ -355,7 +365,7 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     });
     mocks.source = source;
     mockedFetch.mockResolvedValue(status(401));
-    const res = await apiFetch(req);
+    const res = await apiFetch(req, { endpoint: "roomCreate" });
     expect(res.status).toBe(401);
     expect(mockedFetch).toHaveBeenCalledTimes(1);
     expect(source.refresh).toHaveBeenCalledTimes(1);
@@ -373,7 +383,11 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
       new Headers(init.headers).get("Authorization") === "Bearer a2" ? status(200) : status(401),
     );
 
-    const pending = Promise.all([apiFetch("/api/a"), apiFetch("/api/b"), apiFetch("/api/c")]);
+    const pending = Promise.all([
+      apiFetch("/api/a", { endpoint: "roomCreate" }),
+      apiFetch("/api/b", { endpoint: "roomJoin" }),
+      apiFetch("/api/c", { endpoint: "profile" }),
+    ]);
     await vi.waitFor(() =>
       expect(
         postMessage.mock.calls.filter((call) => String(call[0]).includes("request-token-refresh")),

@@ -1,4 +1,10 @@
-import type { ApiErrorBody } from "@focusmakers/types";
+import { apiVersionFor } from "@focusmakers/types";
+import type { ApiEndpoint, ApiErrorBody } from "@focusmakers/types";
+
+/** `apiFetch`가 받는 init — 엔드포인트 키가 필수다. 빠뜨리면 컴파일에서 걸린다. */
+export interface ApiFetchInit extends RequestInit {
+  readonly endpoint: ApiEndpoint;
+}
 
 import { getTokenSource } from "./auth/tokenSource";
 
@@ -60,47 +66,39 @@ export async function parseApiError(
 /**
  * 모든 호출이 거치는 공통 fetch 래퍼
  *
- * — 백엔드 버전닝 기본 헤더를 한 곳에서 관리한다. 호출부가 API-Version을 직접 지정하면 그 값이 우선한다.
+ * `API-Version`은 **엔드포인트마다 다르다**(`API_ENDPOINTS`). 전역 기본값을 두면 어떤 요청에는 반드시
+ * 틀린 값이 나가고 서버가 400을 준다 — 그래서 호출부가 자기 엔드포인트 키를 반드시 넘긴다.
+ *
+ * 값을 고르는 기준은 **이 문서가 어느 계약을 말하느냐**다. 토큰 출처가 없으면(구 앱 웹뷰·브라우저 단독)
+ * 구 계약을, 있으면 현재 계약을 쓴다. "지금 토큰을 들고 있느냐"가 아니다 — 부팅 직후나 갱신 중에는
+ * 토큰이 잠깐 없지만 그 문서는 여전히 현재 계약을 말한다.
  */
-const DEFAULT_API_VERSION = "1";
-/** 토큰을 붙인 요청은 새 명세 버전으로 보낸다. 서버가 이 값으로 토큰 인증 요청을 가른다. */
-const TOKEN_API_VERSION = "2";
-
-export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function apiFetch(input: RequestInfo | URL, init: ApiFetchInit): Promise<Response> {
+  const { endpoint, ...requestInit } = init;
   // fetch와 시그니처를 맞춰 Request 입력도 받는다. init.headers가 없으면 Request가
   // 실어 온 헤더를 기준으로 삼아야 그 헤더가 유실되지 않는다.
   const baseHeaders =
-    init?.headers ??
+    requestInit.headers ??
     (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined);
   const headers = new Headers(baseHeaders);
-  // 헤더 결정을 토큰 부착이 정해진 뒤로 미룬다 — 호출부가 명시한 값은 그대로 둔다.
-  // 호출부 지정 여부는 여기서 한 번만 확정한다 — 이후 우리가 쓴 기본값과 구분해야
-  // 재시도에서 1 → 2로 승격할 때 "이미 값이 있다"는 이유로 막히지 않는다.
-  const callerSetVersion = headers.has("API-Version");
-  const setDefaultVersion = (version: string) => {
-    if (!callerSetVersion) headers.set("API-Version", version);
-  };
   // init에 signal이 없으면 Request 입력이 실어 온 signal을 대신 본다 — headers와 같은 이유다.
   const signal =
-    init?.signal ??
+    requestInit.signal ??
     (typeof Request !== "undefined" && input instanceof Request ? input.signal : undefined);
   // 재시도는 같은 input·init(본문 문자열·AbortSignal 포함)을 그대로 다시 보낸다 — headers만 갱신된다.
   // ponytail: 본문 있는 Request 객체 입력은 재시도에서 본문이 이미 소비돼 실패한다. 호출부는 전부 문자열
   // URL + init이라 clone()을 두지 않았다. Request 입력을 쓰게 되면 그때 더한다.
-  const send = () => fetch(input, { ...init, headers });
+  const send = () => fetch(input, { ...requestInit, headers });
 
-  // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 오늘 동작 그대로다.
+  // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 구 계약으로 말한다.
   const source = getTokenSource();
+  headers.set("API-Version", apiVersionFor(endpoint, source === null));
   if (source === null) {
-    setDefaultVersion(DEFAULT_API_VERSION);
     return send();
   }
   const sent = await source.getAccessToken();
   if (sent !== null) {
     headers.set("Authorization", `Bearer ${sent}`);
-    setDefaultVersion(TOKEN_API_VERSION);
-  } else {
-    setDefaultVersion(DEFAULT_API_VERSION);
   }
   const res = await send();
   // 만료 판단은 서버의 401만 믿는다. 401 경로는 status만 읽는다 — 테스트가 fetch를 얇은 객체로 mock한다.
@@ -110,6 +108,7 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
   // 다른 문서의 갱신이 이미 토큰을 바꿔 뒀으면 갱신 요청 없이 그 토큰으로 재시도한다. 아니면 갱신을
   // 요청하고(문서당 하나로 묶임) 1회만 재시도한다. 갱신이 실패했거나 같은 토큰이면 재시도해도 같은
   // 401이라 보내지 않는다. 재시도의 401은 그대로 돌려준다 — 갱신 루프 없음.
+  // 버전은 다시 만지지 않는다. 같은 엔드포인트라 같은 값이다.
   const current = source.getCurrentToken();
   const next = current !== sent ? current : await source.refresh();
   if (signal?.aborted) {
@@ -119,6 +118,5 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     return res;
   }
   headers.set("Authorization", `Bearer ${next}`);
-  setDefaultVersion(TOKEN_API_VERSION);
   return send();
 }
