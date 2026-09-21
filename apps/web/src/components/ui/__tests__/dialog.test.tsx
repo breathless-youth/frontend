@@ -47,3 +47,34 @@ describe("Dialog 모션", () => {
     expect(content.className).not.toContain("zoom-out-0");
   });
 });
+
+describe("Dialog 포털 자리와 딤", () => {
+  it("container 를 주면 그 안에 그려진다", () => {
+    const host = document.createElement("div");
+    host.id = "session-surface";
+    document.body.appendChild(host);
+
+    render(
+      <Dialog open>
+        <DialogContent container={host}>
+          <DialogTitle>공부를 마칠까요</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    expect(host.contains(screen.getByRole("dialog"))).toBe(true);
+  });
+
+  it("overlayClassName 이 딤에 얹힌다", () => {
+    render(
+      <Dialog open>
+        <DialogContent overlayClassName="bg-[var(--session-dim)]">
+          <DialogTitle>공부를 마칠까요</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    const dim = document.querySelector<HTMLElement>('[data-state="open"]:not([role="dialog"])');
+    expect(dim?.className).toContain("bg-[var(--session-dim)]");
+  });
+});
