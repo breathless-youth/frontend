@@ -190,13 +190,17 @@ export function createWebAudioPlayer(options: WebAudioPlayerOptions): AmbientPla
   let lastNotified: AmbientPlayerState | null = null;
   const notify = (): void => {
     const next = getState();
+    // keep-alive 는 중복 알림 검사보다 먼저 다룬다. 차단이 이어지는 동안 같은 상태가
+    // 거듭 오는데 거기서 빠져나가면, 켜려고 미리 걸어 둔 요소가 소리 없이 남는다.
+    //
+    // 들리는 동안만 돌리고 차단된 동안에는 거둔다. 차단은 사용자 조작 없이 풀리지 않고,
+    // 회복 경로인 applyMix 와 resume 이 제스처 스택 안에서 다시 걸어 주기 때문에 여기서
+    // 멈춰도 두 번째 play 가 거부될 일이 없다. suspended 만 건드리지 않는다. 깨우는 도중의
+    // 잠깐을 멈춤으로 오해해 껐다 켜면 그 play 는 제스처 밖이다.
+    if (next === "playing") keepAlivePlay();
+    else if (next === "idle" || next === "blocked") keepAlivePause();
     if (next === lastNotified) return;
     lastNotified = next;
-    // 들리는 동안만 keep-alive 를 돌린다. 인터럽션에서 돌아온 경우도 여기서 다시 건다.
-    // suspended·blocked 에서는 건드리지 않는다. 깨우는 도중의 잠깐을 멈춤으로 오해해 껐다 켜면
-    // 두 번째 play 가 제스처 밖이라 거부될 수 있다.
-    if (next === "playing") keepAlivePlay();
-    else if (next === "idle") keepAlivePause();
     onPlaybackChanged?.();
   };
 

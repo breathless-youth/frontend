@@ -926,8 +926,11 @@ describe("무음 스위치용 keep-alive", () => {
     return el as unknown as HTMLAudioElement & typeof el;
   }
 
-  function setupWithKeepAlive(element: HTMLAudioElement | null) {
-    const ctx = createFakeContext("running", true);
+  function setupWithKeepAlive(
+    element: HTMLAudioElement | null,
+    initialState: AudioContextState = "running",
+  ) {
+    const ctx = createFakeContext(initialState, true);
     const keepAliveFactory = vi.fn(() => element);
     const player = createWebAudioPlayer({
       catalog,
@@ -1044,5 +1047,34 @@ describe("무음 스위치용 keep-alive", () => {
     await player.applyMix({ white: 50 });
     player.dispose();
     expect(el.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("소리가 차단되면 keep-alive 도 멈춘다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el, "suspended");
+    // 깨우기가 끝내 먹지 않는 상황. 자동재생 차단이 이렇다.
+    ctx.resume.mockImplementation(() => Promise.resolve());
+
+    await player.applyMix({ white: 50 });
+
+    expect(player.getState()).toBe("blocked");
+    // 제스처 스택 안에서 건 것 자체는 맞다. 다만 소리가 나지 않는 채로 남으면
+    // 미디어 세션만 쥐고 있는 꼴이 된다.
+    expect(el.play).toHaveBeenCalledTimes(1);
+    expect(el.paused).toBe(true);
+  });
+
+  it("차단이 이어져도 멈춘 채로 남는다", async () => {
+    const el = createFakeKeepAlive();
+    const { ctx, player } = setupWithKeepAlive(el, "suspended");
+    ctx.resume.mockImplementation(() => Promise.resolve());
+    await player.applyMix({ white: 50 });
+
+    // 사용자가 한 번 더 누르는 경우. 상태가 blocked 에서 blocked 로 가 알림이 걸러지는데
+    // 그 지점에서 빠져나가면 요소가 다시 돌기 시작한 채로 남는다.
+    await player.applyMix({ white: 50, pink: 30 });
+
+    expect(player.getState()).toBe("blocked");
+    expect(el.paused).toBe(true);
   });
 });
