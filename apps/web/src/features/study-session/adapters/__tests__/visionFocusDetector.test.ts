@@ -18,6 +18,7 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FRAME_INTERVAL_MS,
+  SCORE_THRESHOLDS,
 } from "../../vision/visionConfig";
 
 /**
@@ -478,7 +479,9 @@ describe("createVisionFocusDetector", () => {
   });
 
   it("진단 로그에 좌표를 넘기지 않는다 — 라벨별 최고 score만 남는다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame(0.42)] });
+    // person 임계는 튜닝 대상이라 literal 대신 임계 기준으로 잡는다.
+    const personScore = SCORE_THRESHOLDS.person + 0.12;
+    const { detector } = fakeObjectDetector({ frames: [personFrame(personScore)] });
     const frame = vi.fn();
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
@@ -503,7 +506,7 @@ describe("createVisionFocusDetector", () => {
         personPresent: true,
         awaySignal: false,
         phoneSignal: false,
-        topScores: { [PERSON_LABEL]: 0.42 },
+        topScores: { [PERSON_LABEL]: personScore },
         delegate: "GPU",
       }),
     );
@@ -596,7 +599,7 @@ describe("얼굴 모델 수명", () => {
 });
 
 describe("얼굴 틱", () => {
-  it("네 프레임에 한 번만 얼굴을 본다 — 발열 예산의 손잡이다", async () => {
+  it("두 프레임에 한 번만 얼굴을 본다 — 발열 예산의 손잡이다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
     const vision = createVisionFocusDetector({
@@ -610,9 +613,9 @@ describe("얼굴 틱", () => {
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 8);
     await vi.advanceTimersByTimeAsync(0);
 
-    // 판정이 도는 프레임 여덟에 얼굴 틱은 둘이다. 범위로 두면 주기가 8로 늘어나도 통과해
-    // 회귀를 놓치므로, `FACE_FRAME_DIVISOR`가 4라는 사실을 값으로 못박는다.
-    expect(faceDetect).toHaveBeenCalledTimes(2);
+    // 판정이 도는 프레임 여덟에 얼굴 틱은 넷이다(1 fps × 2 = 얼굴 틱 2초). 범위로 두면 주기가
+    // 늘어나도 통과해 회귀를 놓치므로, `FACE_FRAME_DIVISOR`가 2라는 사실을 값으로 못박는다.
+    expect(faceDetect).toHaveBeenCalledTimes(4);
   });
 
   it("사람이 없으면 얼굴을 보지 않는다 — 자리 이탈이 먼저다", async () => {
@@ -822,7 +825,9 @@ describe("눈 보정", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * faces.length + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * faces.length + FRAME_INTERVAL_MS,
+    );
 
     expect(signals.filter((s) => s.source === "SLEEP_EYES" && s.active)).toHaveLength(0);
     expect(vision.eyeCalibration).toMatchObject({ windows: 1 });
@@ -841,7 +846,9 @@ describe("눈 보정", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * faces.length + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * faces.length + FRAME_INTERVAL_MS,
+    );
     expect(vision.eyeCalibration).not.toBeNull();
 
     vision.stop();
@@ -997,7 +1004,9 @@ describe("꾸벅거림 출처", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * pattern.length + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * pattern.length + FRAME_INTERVAL_MS,
+    );
 
     expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: true });
   });
@@ -1016,7 +1025,9 @@ describe("꾸벅거림 출처", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * closed.length + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * closed.length + FRAME_INTERVAL_MS,
+    );
     vision.stop();
     signals.length = 0;
 
@@ -1043,7 +1054,9 @@ describe("꾸벅거림 출처", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * pattern.length + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * pattern.length + FRAME_INTERVAL_MS,
+    );
     expect(signals).toContainEqual({ source: "SLEEP_DROWSY", active: true });
 
     vision.stop();
@@ -1051,7 +1064,9 @@ describe("꾸벅거림 출처", () => {
 
     // 재개 후 얼굴 틱 넷. 창 크기에 한참 못 미치므로 비율 판정이 설 수 없다.
     vision.start();
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4 * 4 + FRAME_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(
+      FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 4 + FRAME_INTERVAL_MS,
+    );
 
     expect(signals).not.toContainEqual({ source: "SLEEP_DROWSY", active: true });
   });

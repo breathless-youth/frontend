@@ -347,7 +347,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       await act(async () => {
         detector!.emit({ source: "PHONE", active: true });
-        await vi.advanceTimersByTimeAsync(700);
+        await vi.advanceTimersByTimeAsync(1200); // PHONE enterMs(1000) 경과
       });
 
       expect(screen.getByRole("status")).toHaveTextContent("휴대폰을 사용 중인 것 같아요");

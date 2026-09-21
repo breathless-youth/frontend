@@ -66,10 +66,12 @@ describe("personPresenceRule", () => {
     expect(personPresenceRule(frame(detections))).toBe(false);
   });
 
-  it("person 임계와 phone 임계를 혼동하지 않는다", () => {
-    // person 임계(0.3)와 phone 임계(0.4) 사이 값. person 규칙에서는 통과해야 한다.
-    const between = (SCORE_THRESHOLDS.person + SCORE_THRESHOLDS.phone) / 2;
-    expect(personPresenceRule(frame([detection(PERSON_LABEL, between)]))).toBe(true);
+  it("person 임계 경계값은 포함한다 (>= 임계)", () => {
+    expect(personPresenceRule(frame([detection(PERSON_LABEL, SCORE_THRESHOLDS.person)]))).toBe(
+      true,
+    );
+    const justBelow = SCORE_THRESHOLDS.person - 0.0001;
+    expect(personPresenceRule(frame([detection(PERSON_LABEL, justBelow)]))).toBe(false);
   });
 });
 
@@ -93,9 +95,15 @@ describe("detectedAsUsedRule", () => {
     expect(detectedAsUsedRule.evaluate(frame([detection(PHONE_LABEL, justBelow)]))).toBe(false);
   });
 
-  it("person 임계(0.3)로는 phone이 통과하지 않는다", () => {
-    const between = (SCORE_THRESHOLDS.person + SCORE_THRESHOLDS.phone) / 2;
-    expect(detectedAsUsedRule.evaluate(frame([detection(PHONE_LABEL, between)]))).toBe(false);
+  it("phone 규칙은 phone 임계만 본다 — person 임계를 넘어도 phone 임계 미만이면 사용 중 아님", () => {
+    // person·phone 임계가 같아도 성립하도록 phone 임계 바로 아래 값을 쓴다.
+    const justBelowPhone = SCORE_THRESHOLDS.phone - 0.0001;
+    expect(detectedAsUsedRule.evaluate(frame([detection(PHONE_LABEL, justBelowPhone)]))).toBe(
+      false,
+    );
+    expect(personPresenceRule(frame([detection(PERSON_LABEL, justBelowPhone)]))).toBe(
+      justBelowPhone >= SCORE_THRESHOLDS.person,
+    );
   });
 
   it("폰이 여러 개면 그중 하나만 임계를 넘어도 사용 중", () => {
