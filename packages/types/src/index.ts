@@ -288,7 +288,7 @@ export type RoomJoinErrorCode =
   | "INTERNAL_ERROR";
 
 /**
- * 과목 > 할 일 API 계약 (`/api/subjects`) — 토큰 계약(API-Version 2) 전용.
+ * 과목 > 할 일 API 계약 (`/api/subjects`) — 토큰이 필요하지만 버전은 기본버전(`API-Version: 1`)이다.
  * 항목별 시간은 세션 제출·스냅샷의 `subjectTimes`로 들어가고, 여기서는 누적 합계만 내려온다.
  */
 
