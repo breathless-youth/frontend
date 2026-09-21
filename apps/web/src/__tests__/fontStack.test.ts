@@ -19,15 +19,20 @@ const cssPath = path.resolve(currentDir, "../index.css");
 const css = readFileSync(cssPath, "utf-8");
 
 describe("index.css font stack", () => {
-  it("declares @font-face for NanumSquareRound Regular and Bold woff2", () => {
+  it("declares @font-face for NanumSquareRound Regular, Bold and ExtraBold woff2", () => {
     const blocks = css.match(/@font-face\s*{[^}]*}/g) ?? [];
     const nanum = blocks.filter((b) => /font-family:\s*["']NanumSquareRound["']/.test(b));
-    expect(nanum.length).toBe(2);
+    expect(nanum.length).toBe(3);
     expect(
       nanum.some((b) => /NanumSquareRound-Regular\.woff2/.test(b) && /font-weight:\s*400/.test(b)),
     ).toBe(true);
     expect(
       nanum.some((b) => /NanumSquareRound-Bold\.woff2/.test(b) && /font-weight:\s*700/.test(b)),
+    ).toBe(true);
+    expect(
+      nanum.some(
+        (b) => /NanumSquareRound-ExtraBold\.woff2/.test(b) && /font-weight:\s*800/.test(b),
+      ),
     ).toBe(true);
   });
 

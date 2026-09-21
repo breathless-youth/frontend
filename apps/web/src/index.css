@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* NanumSquareRound 자체 호스팅 — 정적 폰트라 Regular·Bold 두 파일을 굵기별로 선언한다.
-   가변 폰트가 아니므로 font-weight는 각 파일의 실제 굵기로 고정한다. */
+/* NanumSquareRound 자체 호스팅
+— 정적 폰트라 Regular·Bold·ExtraBold 세 파일을 굵기별로 선언한다.
+- 가변 폰트가 아니므로 font-weight는 각 파일의 실제 굵기로 고정한다. */
 @font-face {
   font-family: "NanumSquareRound";
   src: url("/fonts/NanumSquareRound-Regular.woff2") format("woff2");
@@ -14,6 +15,13 @@
   font-family: "NanumSquareRound";
   src: url("/fonts/NanumSquareRound-Bold.woff2") format("woff2");
   font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "NanumSquareRound";
+  src: url("/fonts/NanumSquareRound-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }

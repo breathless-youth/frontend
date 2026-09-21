@@ -85,7 +85,7 @@ export function SessionRecoveryDialog({
         <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
           <IconRecovery />
         </div>
-        <DialogTitle className="text-center text-[19px] font-extrabold text-foreground">
+        <DialogTitle className="text-center text-[19px] leading-[23px] font-extrabold text-foreground">
           저장되지 않은 기록을 복구했어요
         </DialogTitle>
         <DialogDescription className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground">

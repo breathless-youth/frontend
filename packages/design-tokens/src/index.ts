@@ -90,6 +90,8 @@ export const typography = {
     h1: { size: 28, lineHeight: 36, weight: "bold" },
     h2: { size: 22, lineHeight: 30, weight: "bold" },
     h3: { size: 18, lineHeight: 26, weight: "bold" },
+    /** 복구 모달 등 강조 제목 전용, Figma 텍스트 스타일 heading/emphasis와 일치 */
+    emphasis: { size: 19, lineHeight: 23, weight: "extrabold" },
   },
   body: {
     lg: { size: 17, lineHeight: 26, weight: "regular" },

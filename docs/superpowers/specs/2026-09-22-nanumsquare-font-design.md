@@ -12,14 +12,14 @@
 
 - Pretendard는 굵기 축이 연속인 가변 폰트라 `font-medium`(500)·`font-semibold`(600)가 그대로 렌더됐다.
 - NanumSquareRound는 Light(300)·Regular(400)·Bold(700)·ExtraBold(800) 네 단계짜리 정적 폰트다. 500·600에 해당하는 파일이 없다.
-- 서비스가 실제로 쓰는 굵기는 Regular와 Bold 두 종이라 이 둘만 싣는다.
+- 서비스가 실제로 쓰는 굵기는 Regular·Bold 두 종(웹·모바일 공통)과, 웹의 복구 모달 제목 1곳에 쓰는 ExtraBold다. Light는 쓰는 곳이 없어 싣지 않는다.
 
 굵기 매핑은 웹·모바일 공통이다.
 
 - `font-medium`(500) → Regular(400)
 - `font-semibold`(600) → Bold(700)
 - `font-bold`(700) → Bold(700)
-- 웹에만 있는 `font-extrabold`(800) 1곳은 별도 파일 없이 Bold로 폴백한다.
+- 웹에만 있는 `font-extrabold`(800) 1곳(복구 모달 제목)은 ExtraBold(800) 전용 파일을 싣는다.
 
 ## 웹 (BY-719)
 
@@ -27,10 +27,10 @@
 
 ### 변경
 
-- `apps/web/public/fonts/`: `PretendardVariable.woff2` 제거, `NanumSquareRound-Regular.woff2`·`NanumSquareRound-Bold.woff2` 추가.
-- `apps/web/src/index.css`: `@font-face` 하나(가변)를 Regular(400)·Bold(700) 두 개로 교체. `--font-sans` 첫 항목을 `"NanumSquareRound"`로 바꾸고 시스템 폴백 체인은 유지.
-- `apps/web/src/__tests__/fontStack.test.ts`: 단언을 NanumSquareRound와 두 woff2 파일 기준으로 갱신.
-- `packages/design-tokens/src/index.ts`: 타이포 주석의 "Pretendard" 표현을 "NanumSquareRound"로 갱신.
+- `apps/web/public/fonts/`: `PretendardVariable.woff2` 제거, `NanumSquareRound-Regular.woff2`·`NanumSquareRound-Bold.woff2`·`NanumSquareRound-ExtraBold.woff2` R·B·EB 세 파일(EB는 복구 모달 제목 강조용, heading.emphasis 토큰) 추가.
+- `apps/web/src/index.css`: `@font-face` 하나(가변)를 Regular(400)·Bold(700)·ExtraBold(800) 세 개로 교체. `--font-sans` 첫 항목을 `"NanumSquareRound"`로 바꾸고 시스템 폴백 체인은 유지.
+- `apps/web/src/__tests__/fontStack.test.ts`: 단언을 NanumSquareRound와 세 woff2 파일 기준으로 갱신.
+- `packages/design-tokens/src/index.ts`: 타이포 주석의 "Pretendard" 표현을 "NanumSquareRound"로 갱신. `typography.heading`에 `emphasis`(19/23/extrabold) 토큰 추가.
 
 ### 폰트 포맷
 
@@ -73,6 +73,6 @@ React Native는 한 패밀리에 `fontWeight`만 바꿔서는 정적 폰트의 �
 
 ## 하지 않는 것
 
-- Light(300)·ExtraBold(800) 파일은 싣지 않는다. 현재 코드에 쓰는 곳이 없다.
+- Light(300) 파일은 싣지 않는다. 현재 코드에 쓰는 곳이 없다. ExtraBold(800)는 웹의 복구 모달 제목 전용으로 싣는다(모바일은 사용처가 없어 제외).
 - 굵기 클래스를 실제 굵기로 일괄 치환하는 코드 변경은 하지 않는다. 웹은 브라우저 매칭에 맡기고, 모바일만 패밀리 클래스를 바꾼다.
 - 타이포 스케일(크기·행간) 변경은 범위 밖이다.
