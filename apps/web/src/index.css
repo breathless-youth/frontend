@@ -34,10 +34,6 @@
   --color-state-distract-text: var(--state-distract-text);
   --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
-  --color-invite-surface: var(--invite-surface);
-  --color-invite-surface-text: var(--invite-surface-text);
-  --color-share-tonal: var(--share-tonal);
-  --color-share-tonal-text: var(--share-tonal-text);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -106,17 +102,6 @@
   /* colors.bg.dim.light */
   --radius: 0.75rem;
   /* colors.radius.md = 12px */
-
-  /* BY-409 초대코드 화면 전용 — Figma V1.3 섹션(S9-2 2478:5376 · S9-3 2478:5442)의 원오프 색.
-     design-tokens에 아직 없는 값이라 시맨틱 토큰 승격은 디자이너 검수 후. */
-  --invite-surface: #f2f5fa;
-  /* S9-2 코드 카드 · S9-3 코드 셀 배경 */
-  --invite-surface-text: #1b2538;
-  /* 코드 숫자 텍스트 */
-  --share-tonal: #e0ebff;
-  /* S9-2 공유하기 버튼 배경 (연한 파랑 — 회색·프라이머리와 모두 구분, 명세 확정) */
-  --share-tonal-text: #1b64da;
-  /* S9-2 공유하기 버튼 텍스트 */
 }
 
 /* data-theme="light"가 붙어 있으면 시스템이 다크여도 라이트를 유지한다 — 셸이 넘긴 값이
@@ -160,12 +145,6 @@
     /* colors.text.disabled.dark */
     --dim: #00000099;
     /* colors.bg.dim.dark */
-    --invite-surface: #1c222c;
-    /* S9-2 다크 코드 카드 (Figma 2491:6155) */
-    --invite-surface-text: #f5f7fa;
-    --share-tonal: #1e2f52;
-    /* S9-2 다크 공유하기 버튼 (Figma 2491:6107) */
-    --share-tonal-text: #94baff;
   }
 }
 
@@ -196,10 +175,92 @@
   --state-distract-text: #ff9e1b;
   --text-disabled: #4e5968;
   --dim: #00000099;
-  --invite-surface: #1c222c;
-  --invite-surface-text: #f5f7fa;
-  --share-tonal: #1e2f52;
-  --share-tonal-text: #94baff;
+}
+
+/* Soft Blue 팔레트 — V2 스코프 리스킨. 소셜 세 화면 루트에 이 클래스를 붙여
+   기존 시맨틱 변수만 그 서브트리에서 재정의한다. 전역 :root는 건드리지 않는다.
+   BY-717(설정·프로필)이 같은 클래스·값을 쓴다. --state-distract 계열은 Figma
+   Soft Blue 라이트 값이 어두워 여기 넣지 않고 :root V1 값을 상속한다. */
+.theme-soft-blue {
+  --primary: #3671cf;
+  --primary-foreground: #ffffff;
+  --foreground: #1f2a3d;
+  --muted-foreground: #556173;
+  --text-tertiary: #b3bccb;
+  --border: #e8eef8;
+  --muted: #ffffff;
+  --brand-subtle: #e6eefb;
+  --bg-layer-2: #f1f5fc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-soft-blue {
+    --primary: #5a90ea;
+    --primary-foreground: #ffffff;
+    --foreground: #eaf0f9;
+    --muted-foreground: #9fabc0;
+    --text-tertiary: #6b7789;
+    --border: #2a3752;
+    --muted: #1b2333;
+    --brand-subtle: #1e2a44;
+    --bg-layer-2: #232d40;
+  }
+}
+
+:root[data-theme="dark"] .theme-soft-blue {
+  --primary: #5a90ea;
+  --primary-foreground: #ffffff;
+  --foreground: #eaf0f9;
+  --muted-foreground: #9fabc0;
+  --text-tertiary: #6b7789;
+  --border: #2a3752;
+  --muted: #1b2333;
+  --brand-subtle: #1e2a44;
+  --bg-layer-2: #232d40;
+}
+
+/* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에
+   안 담긴다). 다크는 같은 클래스에 모드별로 재정의. */
+.bg-soft-blue {
+  background: linear-gradient(180deg, #eef3fb 0%, #f8fafd 45%, #ffffff 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .bg-soft-blue {
+    background: linear-gradient(180deg, #172032 0%, #10151f 45%, #0d1118 100%);
+  }
+}
+
+:root[data-theme="dark"] .bg-soft-blue {
+  background: linear-gradient(180deg, #172032 0%, #10151f 45%, #0d1118 100%);
+}
+
+/* Soft Blue 카드·CTA 그림자 — Figma shadow/card-soft-blue, shadow/brand-cta */
+.shadow-sb-card {
+  box-shadow: 0 6px 22px 0 rgba(63, 120, 218, 0.08);
+}
+
+.shadow-sb-cta {
+  box-shadow: 0 6px 18px 0 rgba(27, 100, 218, 0.28);
+}
+
+/* 초대코드 input-otp 활성 칸 캐럿 깜빡임. 모션 축소는 사용처의
+   motion-reduce:animate-none이 막는다. */
+@keyframes caret-blink {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+
+  20%,
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-caret-blink {
+  animation: caret-blink 1.2s ease-out infinite;
 }
 
 /* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
