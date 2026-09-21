@@ -29,7 +29,7 @@ Figma 이름은 V1.4 Foundations "1. Semantic Colors"와 design-tokens의 키가
 - `feedback/error`(#f04452 / #ff6b77), `feedback/error-subtle`, `feedback/success`(#12b76a / #32d583)는
   design-tokens에만 있고 CSS 토큰이 없다. 쓰려면 네 곳에 같이 추가한다.
 - `--invite-surface`, `--share-tonal` 계열은 초대코드 화면 전용 원오프다. 다른 화면에 쓰지 않는다.
-- 도장 빨강 `#E5342A`(V1.4 S10 시안)는 아직 토큰이 아니다. 승격 전에는 디자인 의견으로 다룬다.
+- 도장 빨강 `#E5342A`(V1.4 S10 시안)는 아직 토큰이 아니다. 정식 채택 전에는 디자인 의견으로 다룬다.
 
 ## 반경
 
