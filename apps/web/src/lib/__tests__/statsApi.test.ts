@@ -111,12 +111,12 @@ describe("getStudyDays", () => {
     vi.clearAllMocks();
   });
 
-  it("userId로 누적 공부 일 수를 조회한다", async () => {
+  it("토큰 신원으로 누적 공부 일 수를 조회한다 — 쿼리에 userId를 싣지 않는다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, { totalDays: 12 }));
 
-    await expect(getStudyDays(7)).resolves.toEqual({ totalDays: 12 });
+    await expect(getStudyDays()).resolves.toEqual({ totalDays: 12 });
     expect(mockedFetch).toHaveBeenCalledWith(
-      "/api/stats/study-days?userId=7",
+      "/api/stats/study-days",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -130,7 +130,7 @@ describe("getStudyDays", () => {
       },
     });
 
-    await expect(getStudyDays(7)).rejects.toThrow("누적 공부 일 수 조회 실패 (HTTP 500)");
+    await expect(getStudyDays()).rejects.toThrow("누적 공부 일 수 조회 실패 (HTTP 500)");
   });
 });
 

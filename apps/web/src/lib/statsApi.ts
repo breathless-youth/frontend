@@ -39,10 +39,9 @@ export async function getStreak(range?: DateRange): Promise<StudySessionStreakRe
   return (await res.json()) as StudySessionStreakResponse;
 }
 
-export async function getStudyDays(userId: number): Promise<StudyDaysResponse> {
-  const res = await apiFetch(`${API_BASE_URL}/api/stats/study-days?userId=${userId}`, {
-    method: "GET",
-  });
+/** 토큰 계약 전용 — 구 앱 userId 계약에는 이 경로가 없어 `legacyQuery`를 붙이지 않는다(그 문서는 실패해 `—`로 남는다). */
+export async function getStudyDays(): Promise<StudyDaysResponse> {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/study-days`, { method: "GET" });
   if (!res.ok) {
     throw await parseErrorMessage(res, "누적 공부 일 수 조회 실패");
   }

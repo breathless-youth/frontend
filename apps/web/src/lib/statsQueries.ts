@@ -82,7 +82,7 @@ export function streakQuery(userId: number, range?: DateRange) {
 export function studyDaysQuery(userId: number) {
   return queryOptions({
     queryKey: statsKeys.studyDays(userId),
-    queryFn: () => getStudyDays(userId),
+    queryFn: () => getStudyDays(),
   });
 }
 

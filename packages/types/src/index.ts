@@ -169,7 +169,10 @@ export interface StudySessionStreakResponse {
   studiedDatesInRange: string[];
 }
 
-/** 누적 공부 일 수 조회 API 계약 (GET /api/stats/study-days?userId=) — Swagger 기준. */
+/**
+ * 누적 공부 일 수 조회(`GET /api/stats/study-days`) 응답. 신원은 토큰(API-Version 2)으로만 받는다 —
+ * 구 앱의 `?userId` 계약에는 이 경로가 없다(백엔드 ADR-0020). 기록이 없으면 0이다.
+ */
 export interface StudyDaysResponse {
   /** 지금까지 공부 기록이 있는 날 수 */
   totalDays: number;

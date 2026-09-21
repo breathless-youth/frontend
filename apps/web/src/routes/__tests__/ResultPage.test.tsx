@@ -364,7 +364,7 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
 
     expect(screen.getByText("누적 공부 일 수")).toBeInTheDocument();
     expect(await screen.findByText("23일")).toBeInTheDocument();
-    expect(mockedStudyDays).toHaveBeenCalledWith(7);
+    expect(mockedStudyDays).toHaveBeenCalledTimes(1);
   });
 
   it("조회에 실패한 행은 숫자를 지어내지 않고 —로 둔다 — 재시도 버튼도 없다", async () => {
