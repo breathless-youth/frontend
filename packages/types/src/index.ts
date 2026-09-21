@@ -13,8 +13,11 @@ export interface UserRegisterRequest {
 }
 
 export interface UserRegisterResponse {
-  /** 발급된 유저 ID — 이후 모든 API 호출에 사용 */
-  userId: number;
+  /**
+   * 발급된 유저 ID — 구 계약(API-Version 1) 응답에만 있다. 토큰 계약(2)은 싣지 않고
+   * `accessToken`(JWT)의 `sub` 클레임이 같은 값이다(ADR-0020).
+   */
+  userId?: number;
   /** 신규 생성이면 true(HTTP 201), 기존 기기 재등록이면 false(HTTP 200) */
   isNew: boolean;
   /** BY-526부터 내려온다. 그 전 서버 응답에는 없다 — 프론트는 없으면 null로 보관하고 헤더 없이 보낸다. */

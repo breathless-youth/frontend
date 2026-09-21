@@ -82,6 +82,27 @@ describe("ensureAuth", () => {
     unsubscribe();
   });
 
+  it("토큰 계약 응답에 userId가 없으면 access 토큰의 sub 클레임에서 읽는다", async () => {
+    // 토큰 계약(API-Version 2)의 등록 응답은 `{isNew, accessToken, refreshToken}`뿐이다.
+    const accessToken = `h.${Buffer.from('{"sub":"208","exp":1}').toString("base64url")}.s`;
+    mockedFetch.mockResolvedValue(
+      jsonResponse(201, { isNew: true, accessToken, refreshToken: "r1" }),
+    );
+
+    await expect(ensureAuth()).resolves.toEqual({ userId: 208, accessToken, refreshToken: "r1" });
+    expect(saved()).toEqual({ userId: 208, accessToken, refreshToken: "r1" });
+  });
+
+  it("userId도 sub도 없으면 저장하지 않고 null이다 — userId 없는 상태가 굳으면 웹에 auth-token null만 반복된다", async () => {
+    const accessToken = `h.${Buffer.from('{"exp":1}').toString("base64url")}.s`;
+    mockedFetch.mockResolvedValue(
+      jsonResponse(201, { isNew: true, accessToken, refreshToken: "r1" }),
+    );
+
+    await expect(ensureAuth()).resolves.toBeNull();
+    expect(mockedSet).not.toHaveBeenCalled();
+  });
+
   it("서버가 토큰을 주지 않으면 accessToken·refreshToken을 null로 저장한다 — 웹이 영영 기다리지 않게", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, { userId: 7, isNew: false }));
     await expect(ensureAuth()).resolves.toEqual({

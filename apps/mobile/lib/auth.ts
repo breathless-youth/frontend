@@ -112,6 +112,32 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
   return (await res.json()) as UserRegisterResponse;
 }
 
+/**
+ * access 토큰(JWT)의 `sub` 클레임이 userId다. 토큰 계약(API-Version 2)의 등록 응답은 userId를 싣지
+ * 않는다(ADR-0020 표 0행) — 구 계약(1) 응답만 `userId`를 준다. 서명은 검증하지 않는다: 이 값은
+ * 서버가 준 토큰을 그대로 되돌려 보내는 용도라 위조해도 얻는 것이 없다.
+ */
+function userIdFromToken(token: string | undefined): number | null {
+  const payload = token?.split(".")[1];
+  if (payload === undefined) {
+    return null;
+  }
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(
+      atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")),
+    ) as {
+      sub?: unknown;
+    };
+    const userId = Number(claims.sub);
+    return typeof claims.sub === "string" && Number.isSafeInteger(userId) && userId > 0
+      ? userId
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 let ongoingAuth: Promise<AuthState | null> | null = null;
 
 /**
@@ -146,7 +172,12 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return state;
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId, accessToken, refreshToken } = await registerUser(deviceId);
+    const { userId: bodyUserId, accessToken, refreshToken } = await registerUser(deviceId);
+    const userId = bodyUserId ?? userIdFromToken(accessToken);
+    if (userId === null) {
+      // 저장하면 userId 없는 상태가 굳어 웹에 `auth-token null`만 반복해 내려간다.
+      throw new Error("등록 응답에 userId도 access 토큰 sub도 없다");
+    }
     return await writeAuth({
       userId,
       accessToken: accessToken ?? null,
