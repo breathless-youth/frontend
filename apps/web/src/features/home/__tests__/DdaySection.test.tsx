@@ -56,11 +56,13 @@ beforeEach(() => {
 });
 
 describe("DdaySection — 좌상단 블록", () => {
-  it("설정한 D-Day가 없으면 'D-Day 설정' 버튼이 온다", async () => {
+  it("설정한 D-Day가 없어도 같은 두 줄이다 — 위 'D-Day', 아래 '날짜를 설정하세요'", async () => {
     mockedGet.mockResolvedValue(null);
     renderSection();
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
+    expect(screen.getByTestId("dday-label")).toHaveTextContent("D-Day");
+    expect(screen.getByTestId("dday-caption")).toHaveTextContent("날짜를 설정하세요");
     expect(analytics.setDdayUserProperties).toHaveBeenCalledWith(null);
   });
 
@@ -141,6 +143,7 @@ describe("DdaySection — 시트", () => {
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
+    expect(screen.getByTestId("dday-caption")).toHaveTextContent("날짜를 설정하세요");
     expect(mockedDelete).toHaveBeenCalledTimes(1);
     expect(analytics.trackDdayDeleted).toHaveBeenCalledWith(SET_DAYS_LEFT);
     expect(analytics.setDdayUserProperties).toHaveBeenLastCalledWith(null);

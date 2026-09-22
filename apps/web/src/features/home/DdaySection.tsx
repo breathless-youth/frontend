@@ -28,7 +28,8 @@ export const DDAY_TITLE_MAX_LENGTH = 10;
  * 홈 좌상단 D-Day 블록과 설정 시트.
  *
  * 블록 자체가 시트의 트리거다. 설정된 D-Day가 있으면 `D-N` 큰 숫자 위에 제목이 작게 붙고, 없으면
- * 같은 자리에 `D-Day 설정` 버튼이 온다. 어느 쪽이든 탭하면 시트 하나가 열린다(신규·편집 공용).
+ * 같은 두 줄 모양으로 위에 `D-Day`, 제목 자리에 `날짜를 설정하세요`가 온다. 어느 쪽이든 탭하면
+ * 시트 하나가 열린다(신규·편집 공용).
  * 지난 D-Day는 지우지 않고 `D+N`을 다른 색으로 보여 준다.
  *
  * 조회 실패는 미설정처럼 그린다. 저장은 upsert라 그 상태에서 저장해도 서버 값이 덮이고, 응답으로
@@ -85,26 +86,18 @@ export function DdaySection({ userId }: { userId: number }) {
   );
 }
 
-/** 좌상단 블록. `SheetTrigger asChild`가 버튼에 열기 핸들러와 aria를 붙인다. */
+/**
+ * 좌상단 블록. `SheetTrigger asChild`가 버튼에 열기 핸들러와 aria를 붙인다.
+ * 미설정도 같은 두 줄이라 설정 전후로 헤더 높이가 흔들리지 않는다.
+ */
 function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
-  if (dday === null) {
-    return (
-      <button
-        type="button"
-        className="flex min-h-11 items-center text-[17px] leading-[21px] font-bold text-primary"
-        {...triggerProps}
-      >
-        D-Day 설정
-      </button>
-    );
-  }
-
-  const daysLeft = daysUntil(dday.targetDate);
-  const label = formatDday(daysLeft);
+  const daysLeft = dday === null ? null : daysUntil(dday.targetDate);
+  const label = daysLeft === null ? "D-Day" : formatDday(daysLeft);
+  const caption = dday === null ? "날짜를 설정하세요" : dday.title;
   return (
     <button
       type="button"
-      aria-label={`${label} ${dday.title}, D-Day 수정`}
+      aria-label={dday === null ? "D-Day 설정" : `${label} ${dday.title}, D-Day 수정`}
       className="flex flex-col items-start text-left"
       {...triggerProps}
     >
@@ -113,12 +106,14 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
         className={cn(
           "text-[32px] leading-[38px] font-extrabold tracking-[-0.8px] tabular-nums",
           // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
-          daysLeft < 0 ? "text-muted-foreground" : "text-primary",
+          daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
         )}
       >
         {label}
       </span>
-      <span className="text-[13px] leading-4 text-muted-foreground">{dday.title}</span>
+      <span data-testid="dday-caption" className="text-[13px] leading-4 text-muted-foreground">
+        {caption}
+      </span>
     </button>
   );
 }
