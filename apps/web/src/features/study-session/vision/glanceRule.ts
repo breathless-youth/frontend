@@ -1,7 +1,9 @@
 import {
+  GLANCE_DIVE_DEG,
   GLANCE_HEAD_MOVE_DEG,
   GLANCE_REST_MAX_BLINKS,
   GLANCE_REST_OPEN_TICKS,
+  GLANCE_RESUME_TICKS,
 } from "./visionConfig";
 
 /**
@@ -71,6 +73,12 @@ export interface GlanceState {
   /** 지금 감김 구간의 분류. `pending`은 시작 틱에서 움직임이 없었고 다음 틱 확인을 기다리는 상태. */
   readonly run: GlanceRun;
   readonly onsetPitch: number | null;
+  /**
+   * 마지막으로 받아들인 감김의 각도와 그 뒤 지난 틱 수. 감김이 튄 표본 하나로 끊겼다가 곧 돌아오면
+   * 쉬는 자세가 아니라 이 각도와 비교한다 — 감은 채 떨어진 고개는 시선 이동이 아니다.
+   */
+  readonly lastClosurePitch: number | null;
+  readonly sinceClosure: number;
 }
 
 export const INITIAL_GLANCE_STATE: GlanceState = {
@@ -79,6 +87,8 @@ export const INITIAL_GLANCE_STATE: GlanceState = {
   glanced: false,
   run: "none",
   onsetPitch: null,
+  lastClosurePitch: null,
+  sinceClosure: 0,
 };
 
 export interface GlanceStep {
@@ -144,7 +154,19 @@ export function stepGlance(
   threshold: number | null,
 ): GlanceStep {
   const history = [...state.history, sample].slice(-HISTORY_LENGTH);
-  const base: GlanceState = { ...state, history };
+  const base: GlanceState = { ...state, history, sinceClosure: state.sinceClosure + 1 };
+  /** 이 틱의 감김을 받아들일 때의 상태. */
+  const accepted = (extra: Partial<GlanceState>): GlanceState => ({
+    ...base,
+    ...extra,
+    lastClosurePitch: sample.pitch ?? state.lastClosurePitch,
+    sinceClosure: 0,
+  });
+  const rejected = (extra: Partial<GlanceState>, reject: GlanceReject): GlanceStep => ({
+    state: { ...base, ...extra },
+    accept: false,
+    reject,
+  });
 
   if (threshold === null || sample.closure === null) {
     // 판정 없는 틱(보정 전·얼굴 없음·게이트). 기록만 남긴다. 감김 구간은 닫는다 — 공백 뒤의 감김은
@@ -155,15 +177,13 @@ export function stepGlance(
   const closed = sample.closure >= threshold;
   const { pitch } = sample;
 
-  if (state.run === "candidate") {
-    // 시작 틱이 아래였다. 눈 상태와 무관하게 고개가 아직 아래면 잠그고, 아니면 한 틱 튐이었다.
-    if (downFrom(state.rest, pitch) === true) {
-      return {
-        state: { ...base, glanced: true, run: "none", onsetPitch: null },
-        accept: !closed,
-        reject: closed ? "glance" : null,
-      };
-    }
+  if (state.run === "candidate" && downFrom(state.rest, pitch) === true) {
+    // 시작 틱이 아래였고 지금도 아래다 — 잠근다. 눈 상태와 무관하다.
+    return {
+      state: { ...base, glanced: true, run: "none", onsetPitch: null },
+      accept: !closed,
+      reject: closed ? "glance" : null,
+    };
   }
 
   if (!closed) {
@@ -187,37 +207,37 @@ export function stepGlance(
   // 감김.
   if (pitch === null) {
     // 각도를 모르면 감김으로 둔다 — 규칙이 없던 때의 동작이고, 행렬은 프로덕션에서 켜져 있다.
-    return { state: { ...base, run: "closure", onsetPitch: null }, accept: true, reject: null };
+    return { state: accepted({ run: "closure", onsetPitch: null }), accept: true, reject: null };
   }
   if (state.glanced) {
-    return { state: { ...base, run: "none", onsetPitch: null }, accept: false, reject: "glance" };
+    return rejected({ run: "none", onsetPitch: null }, "glance");
   }
 
   const previous = state.history[state.history.length - 1];
   const previousClosed = previous === undefined ? null : isClosed(previous, threshold);
 
   if (previousClosed !== true || state.run === "candidate") {
-    // 감김 시작(튐으로 끝난 candidate 다음 틱도 새 시작이다). 쉬는 자세는 저장된 것보다 방금
-    // 관측에서 잡힌 것이 새롭다.
+    // 감김 시작(튐으로 끝난 candidate 다음 틱도 새 시작이다).
+    if (
+      state.lastClosurePitch !== null &&
+      state.sinceClosure <= GLANCE_RESUME_TICKS &&
+      downFrom(state.lastClosurePitch, pitch) !== true
+    ) {
+      // 받아들인 감김이 방금 끊겼고 고개는 그 자리다 — 튄 표본으로 끊긴 같은 감김의 계속이다.
+      return { state: accepted({ run: "closure", onsetPitch: null }), accept: true, reject: null };
+    }
+    // 쉬는 자세는 저장된 것보다 방금 관측에서 잡힌 것이 새롭다.
     const rest = restFromHistory(state.history, threshold) ?? state.rest;
     if (rest === null) {
       // 쉬는 자세를 모른다 — 세션 시작부터 감김이거나, 뜬 눈이 30초 이어진 적이 없다.
-      return {
-        state: { ...base, run: "none", onsetPitch: null },
-        accept: false,
-        reject: "no-rest",
-      };
+      return rejected({ run: "none", onsetPitch: null }, "no-rest");
     }
     if (downFrom(rest, pitch) === true) {
       // 아래에서 시작했다. 다음 틱에도 아래면 잠근다. 이 틱은 판정 없음.
-      return {
-        state: { ...base, rest, run: "candidate", onsetPitch: pitch },
-        accept: false,
-        reject: "glance",
-      };
+      return rejected({ rest, run: "candidate", onsetPitch: pitch }, "glance");
     }
     return {
-      state: { ...base, rest, run: "pending", onsetPitch: pitch },
+      state: accepted({ rest, run: "pending", onsetPitch: pitch }),
       accept: true,
       reject: null,
     };
@@ -226,15 +246,20 @@ export function stepGlance(
   if (state.run === "pending") {
     // 시작 다음 틱. 시작 뒤에 고개가 내려간 것도 시선 이동이다(특허의 "전후 2초" 창).
     if (downFrom(state.onsetPitch, pitch) === true) {
-      return {
-        state: { ...base, glanced: true, run: "none", onsetPitch: null },
-        accept: false,
-        reject: "glance",
-      };
+      return rejected({ glanced: true, run: "none", onsetPitch: null }, "glance");
     }
-    return { state: { ...base, run: "closure" }, accept: true, reject: null };
+    return { state: accepted({ run: "closure" }), accept: true, reject: null };
   }
 
-  const accept = state.run === "closure";
-  return { state: base, accept, reject: accept ? null : "glance" };
+  if (state.run === "closure") {
+    // 감김이 이어지는 중. 고개가 천천히 떨어지는 건 조는 것이고, 한 틱에 급히 떨어지는 건 뜬 순간이
+    // 표본 사이에 빠진 시선 이동이다.
+    const previousPitch = previous?.pitch ?? null;
+    if (previousPitch !== null && pitch - previousPitch >= GLANCE_DIVE_DEG) {
+      return rejected({ glanced: true, run: "none", onsetPitch: null }, "glance");
+    }
+    return { state: accepted({}), accept: true, reject: null };
+  }
+
+  return rejected({}, "glance");
 }

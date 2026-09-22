@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { GlanceSample, GlanceState } from "../glanceRule";
 import { INITIAL_GLANCE_STATE, stepGlance } from "../glanceRule";
 import {
+  GLANCE_DIVE_DEG,
   GLANCE_HEAD_MOVE_DEG,
   GLANCE_REST_MAX_BLINKS,
   GLANCE_REST_OPEN_TICKS,
+  GLANCE_RESUME_TICKS,
 } from "../visionConfig";
 
 const THRESHOLD = 0.45;
@@ -181,5 +183,32 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
     }
     expect(stepGlance(state, closed(DOWN), THRESHOLD).reject).toBe("glance");
     expect(stepGlance(state, closed(1), THRESHOLD).reject).toBeNull();
+  });
+
+  it("감은 채 고개가 천천히 떨어져도 감김이다 — 졸면 고개가 앞으로 떨어진다", () => {
+    expect(after(resting(), [closed(1), closed(4), closed(8), closed(12), closed(15)])).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it("감김이 튄 표본으로 끊겨도 고개가 그 자리면 같은 감김의 계속이다 — 여덟째 회차", () => {
+    // 쉬는 자세에서 감기 시작 → 고개 12°까지 떨어짐 → 튄 뜸 하나 → 같은 자리에서 감김.
+    const tail = [closed(1), closed(4), closed(9), closed(12), open(12), closed(13), closed(12)];
+    expect(after(resting(), tail)).toEqual([true, true, true, true, true, true, true]);
+  });
+
+  it("끊긴 지 오래됐으면 계속이 아니라 새 시작이다 — 쉬는 자세와 비교한다", () => {
+    const gap = Array.from({ length: GLANCE_RESUME_TICKS + 1 }, () => open(12));
+    const tail = [closed(1), closed(12), ...gap, closed(12)];
+    expect(after(resting(), tail).at(-1)).toBe(false);
+  });
+
+  it("감김 중에 고개가 한 틱에 급히 떨어지면 시선 이동이다 — 뜬 순간이 표본 사이에 빠진 경우", () => {
+    const tail = [closed(1), closed(2), closed(2 + GLANCE_DIVE_DEG), closed(2 + GLANCE_DIVE_DEG)];
+    expect(after(resting(), tail)).toEqual([true, true, false, false]);
   });
 });
