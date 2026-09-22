@@ -45,6 +45,18 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
     expect(after(resting(), [closed(1), closed(2), closed(1)])).toEqual([true, true, true]);
   });
 
+  it("감으면서 고개가 뒤로 젖혀져도(음수) 감김이다 — 오탐을 내는 건 아래를 보는 것뿐", () => {
+    expect(after(resting(), [closed(-10), closed(-8), closed(-11)])).toEqual([true, true, true]);
+  });
+
+  it("쉬는 자세는 30초 뜬 눈의 중앙값이다 — 정면을 봐도 각도는 ±7° 흔들린다", () => {
+    const wobbly = [open(-7), open(2), open(0), open(-5), open(1), open(3), open(-2), open(0)];
+    const rest = [...wobbly, ...resting(0)].slice(-GLANCE_REST_OPEN_TICKS);
+    // 흔들린 자세에서 잡힌 쉬는 자세(중앙값 0 근처) 기준으로, 아래 15°는 시선 이동이고 1°는 감김이다.
+    expect(after(rest, [closed(DOWN)])).toEqual([false]);
+    expect(after(rest, [closed(1)])).toEqual([true]);
+  });
+
   it("쉬는 자세에서 고개를 내리며 감기면 시선 이동이다", () => {
     expect(after(resting(), [closed(DOWN), closed(DOWN), closed(DOWN + 1)])).toEqual([
       false,

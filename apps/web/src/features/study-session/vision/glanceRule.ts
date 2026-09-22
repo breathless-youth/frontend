@@ -11,17 +11,23 @@ import { GLANCE_HEAD_MOVE_DEG, GLANCE_REST_OPEN_TICKS } from "./visionConfig";
  *
  * ## 쉬는 자세(`rest`)
  *
- * "눈을 뜬 채 고개가 멈춰 있던 각도"다. 최근 `GLANCE_REST_OPEN_TICKS`개(30초)의 관측이 전부 뜸이고
- * 각도가 `GLANCE_HEAD_MOVE_DEG` 안에서 흔들렸을 때만 그 각도를 쉬는 자세로 잡는다. 앉아서 눈을 뜨고
- * 있는 사람은 이 조건이 바로 성립하고, 책을 읽는 사람은 눈 점수가 임계 근처에서 흔들려 뜸이 30초
- * 연속되지 않으므로 읽는 자세가 쉬는 자세로 잡히지 않는다.
+ * "눈을 뜬 채 있던 각도"다. 최근 `GLANCE_REST_OPEN_TICKS`개(30초)의 관측이 전부 뜸일 때 그 각도의
+ * **중앙값**을 쉬는 자세로 잡는다. 앉아서 눈을 뜨고 있는 사람은 이 조건이 바로 성립하고, 책을 읽는
+ * 사람은 눈 점수가 임계 근처에서 흔들려 뜸이 30초 연속되지 않으므로 읽는 자세가 쉬는 자세로 잡히지
+ * 않는다. 흔들림 조건은 두지 않는다 — 정면을 보고 가만히 있어도 각도 추정은 ±7° 흔들려(여섯째 회차
+ * `눈 뜨기` -7.5~2°) 그 조건으로는 쉬는 자세가 서지 않았다. 중앙값이면 그 흔들림을 흡수한다.
  *
- * ## 잠금
+ * ## 잠금 — **아래 방향만**
  *
- * 감김이 쉬는 자세에서 `GLANCE_HEAD_MOVE_DEG` 이상 떨어진 곳에서 시작되면 **시선 이동**이고, 그 뒤로는
- * 눈이 잠깐 뜸으로 읽혀도 풀리지 않는다 — 고개가 쉬는 자세 근처로 돌아온 채 눈을 뜨거나, 그 자리에서
- * 뜬 눈이 30초 이어져 새 쉬는 자세가 잡힐 때만 풀린다. 첫 구현(2026-09-22)은 뜸 하나로 풀었고, 읽는
- * 동안 흔들리는 점수의 뜸 하나가 들어오자 다음 감김이 "고개 정지 · 새 시작"으로 통과해 졸음이 섰다.
+ * 감김이 쉬는 자세보다 `GLANCE_HEAD_MOVE_DEG` 이상 **아래**(양수 쪽)에서 시작되면 **시선 이동**이고,
+ * 그 뒤로는 눈이 잠깐 뜸으로 읽혀도 풀리지 않는다 — 고개가 쉬는 자세 근처로 돌아온 채 눈을 뜨거나,
+ * 그 자리에서 뜬 눈이 30초 이어져 새 쉬는 자세가 잡힐 때만 풀린다. 위·뒤로 젖히는 움직임은 시선
+ * 이동이 아니다. 오탐을 내는 건 아래를 보는 것뿐이고, 눈을 감으면 고개가 살짝 젖혀지거나 각도 추정이
+ * 튀어 -8~-11°까지 내려가는 틱이 있어(2·5·6회차 `눈 감기` 하위 5%) 방향을 안 보면 진짜 감김이
+ * 시선 이동으로 잠긴다(여섯째 회차: 감김 33개 중 26개가 glance).
+ *
+ * 첫 구현(2026-09-22)은 뜸 하나로 잠금을 풀었고, 읽는 동안 흔들리는 점수의 뜸 하나가 들어오자 다음
+ * 감김이 "고개 정지 · 새 시작"으로 통과해 졸음이 섰다.
  *
  * 시선 이동으로 분류된 관측은 "판정 없음"이지 "눈 뜸"이 아니다 — 졸음을 세우지도 풀지도 않는다.
  *
@@ -69,17 +75,15 @@ function isClosed(sample: GlanceSample, threshold: number): boolean | null {
   return sample.closure === null ? null : sample.closure >= threshold;
 }
 
-function apart(a: number | null, b: number | null): boolean | null {
-  if (a === null || b === null) {
+/** `pitch`가 `from`보다 시선 이동으로 볼 만큼 **아래**인가. 한쪽이라도 모르면 null — 모르는 것을 움직임으로 치지 않는다. */
+function downFrom(from: number | null, pitch: number | null): boolean | null {
+  if (from === null || pitch === null) {
     return null;
   }
-  return Math.abs(a - b) >= GLANCE_HEAD_MOVE_DEG;
+  return pitch - from >= GLANCE_HEAD_MOVE_DEG;
 }
 
-/**
- * 최근 `GLANCE_REST_OPEN_TICKS`개가 전부 뜸이고 각도가 한 덩어리면 그 각도. 각도를 모르는 관측은
- * 흔들림 계산에서 뺀다 — 모르는 것을 움직임으로 치지 않는다.
- */
+/** 최근 `GLANCE_REST_OPEN_TICKS`개가 전부 뜸이면 그 각도의 중앙값. 각도를 모르는 관측은 뺀다. */
 function restFromHistory(history: readonly GlanceSample[], threshold: number): number | null {
   if (history.length < GLANCE_REST_OPEN_TICKS) {
     return null;
@@ -88,12 +92,13 @@ function restFromHistory(history: readonly GlanceSample[], threshold: number): n
   if (recent.some((sample) => isClosed(sample, threshold) !== false)) {
     return null;
   }
-  const pitches = recent.flatMap((sample) => (sample.pitch === null ? [] : [sample.pitch]));
+  const pitches = recent
+    .flatMap((sample) => (sample.pitch === null ? [] : [sample.pitch]))
+    .sort((a, b) => a - b);
   if (pitches.length === 0) {
     return null;
   }
-  const spread = Math.max(...pitches) - Math.min(...pitches);
-  return spread < GLANCE_HEAD_MOVE_DEG ? (pitches[pitches.length - 1] ?? null) : null;
+  return pitches[Math.floor((pitches.length - 1) / 2)] ?? null;
 }
 
 export function stepGlance(
@@ -122,7 +127,7 @@ export function stepGlance(
         accept: true,
       };
     }
-    const back = state.glanced && apart(state.rest, pitch) === false;
+    const back = state.glanced && downFrom(state.rest, pitch) === false;
     return {
       state: { ...base, glanced: back ? false : state.glanced, run: "none", onsetPitch: null },
       accept: true,
@@ -148,7 +153,7 @@ export function stepGlance(
       // 쉬는 자세를 모른다 — 세션 시작부터 감김이거나, 뜬 눈이 30초 이어진 적이 없다.
       return { state: { ...base, run: "none", onsetPitch: null }, accept: false };
     }
-    if (apart(rest, pitch) === true) {
+    if (downFrom(rest, pitch) === true) {
       return {
         state: { ...base, rest, glanced: true, run: "none", onsetPitch: null },
         accept: false,
@@ -159,7 +164,7 @@ export function stepGlance(
 
   if (state.run === "pending") {
     // 시작 다음 틱. 시작 뒤에 고개가 내려간 것도 시선 이동이다(특허의 "전후 2초" 창).
-    if (apart(state.onsetPitch, pitch) === true) {
+    if (downFrom(state.onsetPitch, pitch) === true) {
       return { state: { ...base, glanced: true, run: "none", onsetPitch: null }, accept: false };
     }
     return { state: { ...base, run: "closure" }, accept: true };
