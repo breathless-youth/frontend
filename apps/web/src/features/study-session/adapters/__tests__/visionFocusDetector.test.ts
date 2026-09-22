@@ -13,10 +13,8 @@ import type {
 import type { FaceObservation } from "../../vision/sleepRules";
 import { measurementDiagnostics } from "../../vision/measurement";
 import {
-  BLINK_QUIET_MS,
   EYE_CALIBRATION_DELTA,
   HEAD_PITCH_DOWN_DEG,
-  HEAD_PITCH_QUIET_DEG,
   EYE_CALIBRATION_SAMPLES,
   EYE_AWAKE_CLEAR_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
@@ -1437,69 +1435,5 @@ describe("깜빡임 계측 배선", () => {
     expect(update.mock.calls.every((call) => call[0] === null)).toBe(true);
     vision.close();
     expect(stop).toHaveBeenCalled();
-  });
-
-  async function runBand(quiet: number | null) {
-    const tail = Array.from({ length: 8 }, () => ({
-      face: seen(0.9),
-      pitch: HEAD_PITCH_QUIET_DEG + 2,
-    }));
-    const faces = afterCalibration(tail.map((entry) => entry.face)) as FaceObservation[];
-    const pitches = [
-      ...Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => 0),
-      ...tail.map((entry) => entry.pitch),
-    ];
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces, pitches });
-    const { signals, listener } = collect();
-    const frame = vi.fn();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      blinkWatcher: {
-        active: quiet !== null,
-        update: vi.fn(),
-        stop: vi.fn(),
-        quietMs: () => quiet,
-      },
-      diagnostics: {
-        detectorReady: vi.fn(),
-        detectorUnavailable: vi.fn(),
-        frame,
-        frameDropped: vi.fn(),
-        faceReady: vi.fn(),
-        faceUnavailable: vi.fn(),
-        transition: vi.fn(),
-        cameraStream: vi.fn(),
-      },
-    });
-    vision.subscribe(listener);
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 10);
-    await vi.advanceTimersByTimeAsync(0);
-    vision.close();
-    const reasons = frame.mock.calls
-      .map((call) => (call[0] as { face: { skipReason: string | null } | null }).face?.skipReason)
-      .filter((reason): reason is string => typeof reason === "string");
-    return { signals, reasons };
-  }
-
-  it("10~15° 구간 — 눈 움직임이 한동안 없었으면 감김을 센다", async () => {
-    const { signals } = await runBand(BLINK_QUIET_MS + 1000);
-    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
-  });
-
-  it("10~15° 구간 — 눈 움직임이 최근에 있었으면 세지 않는다(읽는 중)", async () => {
-    const { signals, reasons } = await runBand(5_000);
-    expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
-    expect(reasons).toContain("eyes-active");
-  });
-
-  it("10~15° 구간 — 계측이 안 돌면 세지 않는다(모르는 쪽은 안 세는 방향)", async () => {
-    const { signals, reasons } = await runBand(null);
-    expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
-    expect(reasons).toContain("eyes-active");
   });
 });

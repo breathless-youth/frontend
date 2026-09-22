@@ -1,8 +1,4 @@
-import {
-  HEAD_PITCH_DOWN_DEG,
-  HEAD_PITCH_MEDIAN_SAMPLES,
-  HEAD_PITCH_QUIET_DEG,
-} from "./visionConfig";
+import { HEAD_PITCH_DOWN_DEG, HEAD_PITCH_MEDIAN_SAMPLES } from "./visionConfig";
 
 /**
  * 내려다봄 게이트 — **순수 함수**다. 상태는 호출부가 든 최근 각도 배열뿐이다.
@@ -31,18 +27,12 @@ export function headPitchMedian(recent: readonly number[]): number | null {
   return sorted[Math.floor((sorted.length - 1) / 2)] ?? null;
 }
 
-/**
- * 고개 구간. `clear`는 지금처럼 감김을 세고, `quiet`(`HEAD_PITCH_QUIET_DEG` 이상)는 눈 움직임이 없을
- * 때만 세고, `down`(`HEAD_PITCH_DOWN_DEG` 이상)은 세지 않는다. 각도를 모르면 `clear`.
- */
-export type HeadPitchZone = "clear" | "quiet" | "down";
+/** 고개 구간. `clear`는 감김을 세고, `down`(`HEAD_PITCH_DOWN_DEG` 이상)은 세지 않는다. 각도를 모르면 `clear`. */
+export type HeadPitchZone = "clear" | "down";
 
 export function headPitchZone(recent: readonly number[]): HeadPitchZone {
   const median = headPitchMedian(recent);
-  if (median === null || median < HEAD_PITCH_QUIET_DEG) {
-    return "clear";
-  }
-  return median >= HEAD_PITCH_DOWN_DEG ? "down" : "quiet";
+  return median !== null && median >= HEAD_PITCH_DOWN_DEG ? "down" : "clear";
 }
 
 /** 지금 내려다보고 있는가(`down` 구간). */

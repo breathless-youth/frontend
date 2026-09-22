@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { headPitchMedian, headPitchZone, isLookingDown, pushHeadPitch } from "../headPitchGate";
-import {
-  HEAD_PITCH_DOWN_DEG,
-  HEAD_PITCH_MEDIAN_SAMPLES,
-  HEAD_PITCH_QUIET_DEG,
-} from "../visionConfig";
+import { HEAD_PITCH_DOWN_DEG, HEAD_PITCH_MEDIAN_SAMPLES } from "../visionConfig";
 
 const DOWN = HEAD_PITCH_DOWN_DEG + 5;
 
@@ -52,11 +48,10 @@ describe("내려다봄 게이트", () => {
     ).toBe(true);
   });
 
-  it("구간 — 10° 아래는 clear, 10~15°는 quiet, 15° 이상은 down", () => {
+  it("구간 — 10° 아래는 clear, 10° 이상은 down", () => {
     expect(headPitchZone(feed([0, 2, 1]))).toBe("clear");
-    expect(headPitchZone(feed([HEAD_PITCH_QUIET_DEG, 12, 11]))).toBe("quiet");
-    expect(headPitchZone(feed([HEAD_PITCH_DOWN_DEG - 1, 14, 13]))).toBe("quiet");
-    expect(headPitchZone(feed([HEAD_PITCH_DOWN_DEG, 16, 15]))).toBe("down");
+    expect(headPitchZone(feed([HEAD_PITCH_DOWN_DEG - 1, 8, 7]))).toBe("clear");
+    expect(headPitchZone(feed([HEAD_PITCH_DOWN_DEG, 12, 11]))).toBe("down");
     expect(headPitchZone([])).toBe("clear");
   });
 });

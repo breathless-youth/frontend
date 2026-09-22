@@ -37,7 +37,6 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
-  BLINK_QUIET_MS,
 } from "../vision/visionConfig";
 
 /**
@@ -344,20 +343,19 @@ export function createVisionFocusDetector(
   }
 
   /**
-   * 얼굴 관측을 내려다봄 게이트에 통과시킨다. 고개가 내려가 있으면 관측의 눈을 지워 "판정 없음"으로
-   * 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 표본이 들어가지 않는다. 판정 없음은 원신호를 내리므로
-   * 서 있던 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라 허용된 방향이다. 근거는 `visionConfig.ts`의
-   * `HEAD_PITCH_DOWN_DEG` 주석.
+   * 얼굴 관측을 내려다봄 게이트에 통과시킨다. 고개가 10° 이상 내려가 있으면 관측의 눈을 지워 "판정
+   * 없음"으로 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 표본이 들어가지 않는다. 판정 없음은 원신호를
+   * 내리므로 서 있던 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라 허용된 방향이다. 근거는
+   * `visionConfig.ts`의 `HEAD_PITCH_DOWN_DEG` 주석. 눈 움직임 계측은 판정에 쓰지 않는다(2026-09-22 밤 확정).
    */
   function gateHeadPitch(
     result: FaceDetectionResult,
     frameWidth: number,
     frameHeight: number,
-    atMs: number,
   ): FaceObservation {
     recentHeadPitch = pushHeadPitch(recentHeadPitch, result.metrics.headPitchDeg);
     const zone = headPitchZone(recentHeadPitch);
-    // 눈 움직임 계측은 `quiet`·`down` 구간에서 돈다. 눈 자리는 이번 틱의 윤곽으로 갱신한다.
+    // 눈 움직임 계측(기록용)은 `down` 구간에서 돈다. 눈 자리는 이번 틱의 윤곽으로 갱신한다.
     blinkWatcher.update(
       zone !== "clear" && latestOutline !== null
         ? boxesFromOutline(latestOutline, frameWidth, frameHeight)
@@ -367,15 +365,7 @@ export function createVisionFocusDetector(
     if (face.eye === null || zone === "clear") {
       return face;
     }
-    if (zone === "down") {
-      return { facePresent: true, eye: null, eyeSkipReason: "looking-down" };
-    }
-    // `quiet` 구간 — 눈 움직임이 `BLINK_QUIET_MS` 동안 없어야 감김이다. 계측이 안 돌면 판정 없음.
-    const quiet = blinkWatcher.quietMs(atMs);
-    if (quiet === null || quiet < BLINK_QUIET_MS) {
-      return { facePresent: true, eye: null, eyeSkipReason: "eyes-active" };
-    }
-    return face;
+    return { facePresent: true, eye: null, eyeSkipReason: "looking-down" };
   }
 
   /**
@@ -604,7 +594,7 @@ export function createVisionFocusDetector(
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
-          faceObserved = gateHeadPitch(faceRan, element.videoWidth, element.videoHeight, atMs);
+          faceObserved = gateHeadPitch(faceRan, element.videoWidth, element.videoHeight);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
         }

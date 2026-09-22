@@ -96,8 +96,6 @@ function skipLabel(reason: string | null): string {
   switch (reason) {
     case "looking-down":
       return "(내려다봄)";
-    case "eyes-active":
-      return "(눈 움직임)";
     case "face-too-small":
       return "(멀다)";
     case "blendshapes-missing":
@@ -122,7 +120,7 @@ export function liveLines(live: LiveSnapshot): string {
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
     `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
-    `고개 ${deg(live.headPitchDeg)} · 깜빡임 ${live.blinkActive ? `${live.blinkEvents30s}회/30초` : "계측 안 함"}`,
+    `고개 ${deg(live.headPitchDeg)} · 눈 움직임(기록용) ${live.blinkActive ? `${live.blinkEvents30s}회/30초` : "-"}`,
     `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)}${skipLabel(live.faceSkip)} 사람 ${score(live.person)} · ${age}`,
     calibration,
   ].join("\n");
