@@ -10,6 +10,7 @@ import { legacyUserId } from "./userId";
 export function reportRtcStats(stat: RtcStatRequest): void {
   const legacy = legacyUserId();
   void apiFetch(`${API_BASE_URL}/api/rtc-stats`, {
+    endpoint: "rtcStats",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(legacy === null ? stat : { ...stat, userId: legacy }),

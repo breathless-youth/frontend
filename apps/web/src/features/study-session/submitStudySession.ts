@@ -59,6 +59,7 @@ export async function submitStudySession(input: SessionInput): Promise<StudySess
   const request = buildSessionRequest(input);
   const legacy = legacyUserId();
   const res = await apiFetch(`${API_BASE_URL}/api/study-sessions`, {
+    endpoint: "studySessionSubmit",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // 토큰 없는 문서(구 앱)만 사용자 번호를 싣는다. 빌더는 순수하게 두고 여기서만 합친다.

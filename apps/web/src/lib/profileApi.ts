@@ -14,7 +14,7 @@ function profilePath(): string {
 }
 
 export async function getProfile(): Promise<ProfileResponse> {
-  const res = await apiFetch(profilePath(), { method: "GET" });
+  const res = await apiFetch(profilePath(), { endpoint: "profile", method: "GET" });
   if (!res.ok) {
     throw await parseApiError(res, "프로필 조회 실패");
   }
@@ -23,6 +23,7 @@ export async function getProfile(): Promise<ProfileResponse> {
 
 export async function updateProfile(patch: ProfileUpdateRequest): Promise<ProfileResponse> {
   const res = await apiFetch(profilePath(), {
+    endpoint: "profile",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),

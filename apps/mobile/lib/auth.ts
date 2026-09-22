@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import type { AuthRefreshResponse, ToWebMessage, UserRegisterResponse } from "@focusmakers/types";
+import { readUserIdFromAccessToken } from "./jwt";
 
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
@@ -102,6 +103,7 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await apiFetch(`${apiBaseUrl()}/api/users`, {
+    endpoint: "register",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deviceId }),
@@ -146,12 +148,14 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return state;
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId, accessToken, refreshToken } = await registerUser(deviceId);
-    return await writeAuth({
-      userId,
-      accessToken: accessToken ?? null,
-      refreshToken: refreshToken ?? null,
-    });
+    const { accessToken, refreshToken } = await registerUser(deviceId);
+    // 등록 응답에 userId가 없다 — 신원은 access 토큰의 `sub`뿐이다(BY-723).
+    // 못 읽으면 저장을 만들지 않는다. 신원 없는 저장은 웹을 조용히 브라우저 단독 모드로 떨어뜨린다.
+    const userId = readUserIdFromAccessToken(accessToken);
+    if (userId === null) {
+      throw new Error("등록 응답의 access 토큰에서 신원(sub)을 읽지 못했다");
+    }
+    return await writeAuth({ userId, accessToken, refreshToken });
   } catch (error) {
     console.warn("[auth] 토큰 발급 실패 — 다음 실행에서 재시도", error);
     return null;
@@ -186,6 +190,7 @@ async function refreshOnce(): Promise<AuthState | null> {
       return await ensureAuth();
     }
     const res = await apiFetch(`${apiBaseUrl()}/api/auth/refresh`, {
+      endpoint: "refresh",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: current.refreshToken }),
