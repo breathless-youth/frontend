@@ -91,7 +91,7 @@ describe("continueAfterOnboardingGuide — 가이드 종료 후", () => {
   });
 
   it("다시 보기(홈 카드·설정) 진입에서는 세션을 시작하지 않는다 — 2026-07-28 확정(BY-151)", async () => {
-    for (const entry of ["home-card", "settings"] as const) {
+    for (const entry of ["settings"] as const) {
       const nav = makeNavigator();
       await continueAfterOnboardingGuide(nav, entry);
 

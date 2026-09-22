@@ -142,7 +142,7 @@ function StepBody({
 export function OnboardingGuideFlow({
   onFinish,
   isReentry,
-  entry = "home-card",
+  entry = "unknown",
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;

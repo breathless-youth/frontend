@@ -776,7 +776,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     const m = await loadModule();
 
     m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
-    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "home-card" });
+    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "settings" });
     m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
     m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
     m.trackSettingsRowPressed("terms");

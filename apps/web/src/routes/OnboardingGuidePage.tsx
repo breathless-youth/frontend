@@ -15,7 +15,6 @@ import { readUserId } from "@/lib/userId";
  * **라우트는 하나다.** 5개 스텝은 `OnboardingGuideFlow`의 상태이지 별도 화면이 아니다.
  * 진입 경로는 `?entry=` 쿼리로 구분한다:
  *   - `focus-start` — S1 홈 "집중 시작" 최초 탭(종료 후 세션 시작으로 이어짐)
- *   - `home-card` — S1 홈 "공부 측정 가이드" 카드(다시 보기)
  *   - `settings` — S6 설정 "측정 기준 안내"(다시 보기)
  *
  * `userId` 등 나머지 쿼리는 이 화면이 만들지 않은 값이라도 이탈할 때 그대로 승계한다 —
@@ -86,7 +85,7 @@ export function OnboardingGuidePage() {
    *
    * 그래서 `entry === "focus-start"`일 때는 가이드를 미리 닫지 않는다 — `requestSessionStart`가
    * 브라우저 폴백을 탔으면 `/room/1`로의 **대체 이동**이 유일한 히스토리 조작이 되게 한다.
-   * 재진입(`home-card`·`settings`)은 세션으로 이어지지 않으므로 지금처럼 `closeGuide()`만 돈다.
+   * 재진입(`settings`)은 세션으로 이어지지 않으므로 지금처럼 `closeGuide()`만 돈다.
    *
    * **웹뷰(브리지 있음) 회귀 수정** — `requestSessionStart`가 네이티브 경로를 타면
    * `navigateToSession`을 호출하지 않는다(네이티브가 화면 스택을 소유, BY-333 아직 미구현이라

@@ -25,10 +25,11 @@
 
 | Figma | 노드 | 코드 |
 |---|---|---|
-| Card / Hero Today | `39:80` | `routes/HomeTabPage.tsx` `HeroTodayCard` |
-| Card / Start CTA | `38:66` | `StartCtaCard` |
-| Card / Stat (Type=Streak·Longest) | `38:86` | `StatCard` |
-| Card / Guide | `39:108` | `GuideCard` |
+| V2 `streak-card` (S1 홈 Soft Blue `5381:3773`) | `5381:3773` | `routes/HomeTabPage.tsx` `StreakCard` = `Card` + `features/records/StreakBanner` `WeekDot` + `Tooltip` |
+| V2 `stats-card` (`5381:3812`, 순공·집중률 게이지·총 공부·최대 집중) | `5381:3812` | `StatsCard` = `Card` + `components/ui/progress.tsx` |
+| V2 `cta · 집중 시작` (`5381:3834`) | `5381:3834` | `components/ui/button.tsx` `size=xl` |
+| V2 `invite-card` (`5381:3836`, 친구 초대 → 소셜 탭) | `5381:3836` | `InviteCard`(`<button>`) + `assets/home-invite-friends.png` |
+| Card / Hero Today · Start CTA · Stat · Guide (V1.4 `39:80` `38:66` `38:86` `39:108`) | | V2 홈으로 대체됨. 코드 없음 |
 
 ## 기록
 

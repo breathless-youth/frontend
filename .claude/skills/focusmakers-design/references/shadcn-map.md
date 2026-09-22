@@ -13,7 +13,7 @@
 | Sheet / Bottom, 세션 상세 시트 | Drawer (vaul) | `components/ui/drawer.tsx` (추가 예정, BY-568) | 상단 반경 `rounded-t-xl`(20), 핸들 `aria-hidden`, `pb-[env(safe-area-inset-bottom)]`, 배경 `bg-background`, 그림자는 `shadow/sheet-up` 값 |
 | Control / Segmented (주간/월간) | Tabs | `components/ui/tabs.tsx` (추가 예정, BY-566) | `TabsList`를 `rounded-full bg-bg-layer-2 p-[3px]`, `TabsTrigger`를 `h-11 rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground text-text-tertiary`로. `TabsContent`는 쓰지 않고 상태만 쓴다 |
 | 휴식 카드 "자세히" 펼침 | Collapsible | `components/ui/collapsible.tsx` (추가 예정, BY-560) | 트리거는 `<button>` h-11 이상, 셰브런 `data-[state=open]:rotate-180 motion-reduce:transition-none` |
-| 홈 순공 게이지 | Progress | `components/ui/progress.tsx` (홈 개선안에 게이지가 남을 때만) | 트랙 `bg-bg-layer-2`, 인디케이터 `bg-primary`, `aria-valuetext`에 "오늘 순공 3시간 42분" |
+| 홈 집중률 게이지 | Progress | `components/ui/progress.tsx` (있음) | 높이 10, 트랙 `bg-bg-layer-2`, 인디케이터 `from-primary/50 to-primary` 그라디언트, `motion-reduce:transition-none`, 호출부가 `aria-label` |
 | Card / Hero Today·Stat·Guide, Result 카드, 기록 카드 | Card | `components/ui/card.tsx` (추가 예정) | `rounded-lg border border-border bg-muted`. 기존 `ResultCard`(study-session)와 `STAT_CARD_CLASS`(홈)를 이걸로 흡수 |
 | Chip / Event Tag, 집중률 필 | Badge | `components/ui/badge.tsx` (추가 예정) | variant `brand`(`bg-brand-subtle text-primary`), `distract`(`bg-state-distract-subtle text-state-distract-text`), `pause`(`bg-bg-layer-2 text-text-tertiary`) |
 | Record / Summary Tile | Card + 텍스트 | 위 Card 재사용 | Accent 변형은 값 색만 `text-primary` |

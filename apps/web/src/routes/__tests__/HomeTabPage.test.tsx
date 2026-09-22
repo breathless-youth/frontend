@@ -101,7 +101,7 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
             element={<LocationProbe testId="onboarding-guide-stub" />}
           />
           <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
-          <Route path="/records" element={<LocationProbe testId="records-stub" />} />
+          <Route path="/social" element={<LocationProbe testId="social-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -121,11 +121,14 @@ describe("HomeTabPage", () => {
 
     renderHome();
 
-    await waitFor(() => expect(screen.getByText("77% 집중")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
     expect(screen.getByText("오늘 순공시간")).toBeInTheDocument();
-    expect(screen.getByText("총 공부 2시간 0분")).toBeInTheDocument();
-    expect(screen.getByText("3일째")).toBeInTheDocument();
+    expect(screen.getByText("집중률")).toBeInTheDocument();
+    expect(screen.getByText("총 공부시간")).toBeInTheDocument();
+    expect(screen.getByText("2시간")).toBeInTheDocument();
+    expect(screen.getByText("최대 집중시간")).toBeInTheDocument();
     expect(screen.getByText("52분")).toBeInTheDocument();
+    expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument();
   });
 
   it("조회 실패 시 오류 상태와 다시 시도를 보여준다", async () => {
@@ -138,13 +141,13 @@ describe("HomeTabPage", () => {
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
 
-  it("스트릭 0일이면 시작 유도 문구를 보여준다", async () => {
+  it("스트릭 0일이면 0일 연속 공부 중으로 보여준다 — 기록 탭 배너와 같은 템플릿", async () => {
     mockedStats.mockResolvedValue(statsResponse);
     mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
 
     renderHome();
 
-    await waitFor(() => expect(screen.getByText("오늘 10분이면 시작돼요")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("0일 연속 공부 중")).toBeInTheDocument());
   });
 
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
@@ -203,13 +206,54 @@ describe("HomeTabPage", () => {
     });
   });
 
-  describe("연속 공부 카드 — 기록 탭 이동 (Figma Card/Stat 38:86)", () => {
+  it("ⓘ를 누르면 연속 공부 기준 안내가 열린다 — 터치에서도 탭 한 번으로", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "연속 공부 기준 안내" }));
+    expect(
+      await screen.findByText("하루 10분 이상 공부하면 연속 공부가 이어져요", {
+        selector: "[data-state]",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  describe("주간 도트 — 이번 주 공부한 날", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("오늘은 오늘, 공부한 날은 공부함, 나머지는 기록 없음으로 읽힌다", async () => {
+      // 2026-07-28 KST 정오(화요일). Date만 가짜로 두어 react-query 타이머는 그대로 돈다.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-07-28T03:00:00Z"));
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({
+        streak: 3,
+        maxStreak: 9,
+        studiedDatesInRange: ["2026-07-26", "2026-07-27"],
+      });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument());
+      expect(screen.getByRole("img", { name: "일요일, 공부함" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "월요일, 공부함" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "화요일, 오늘" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "수요일, 기록 없음" })).toBeInTheDocument();
+    });
+  });
+
+  describe("친구 초대 카드 — 소셜 탭 이동", () => {
     // 웹뷰 테스트가 심은 브리지 전역이 브라우저 단독 테스트로 새면 폴백 경로가 죽는다.
     afterEach(() => {
       vi.unstubAllGlobals();
     });
 
-    it("웹뷰에서는 navigate-tab 브리지로 네이티브 탭바를 움직인다 — 웹 라우팅하지 않는다", async () => {
+    it("웹뷰에서는 navigate-tab 브리지로 네이티브 소셜 탭을 연다 — 웹 라우팅하지 않는다", async () => {
       const postMessage = vi.fn();
       vi.stubGlobal("ReactNativeWebView", { postMessage });
       mockedStats.mockResolvedValue(statsResponse);
@@ -217,37 +261,50 @@ describe("HomeTabPage", () => {
 
       renderHomeWithRoutes();
 
-      await waitFor(() => expect(screen.getByText("3일째")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: /연속 공부/ }));
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /친구 초대하여 공부하기/ }));
 
       expect(postMessage).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"navigate-tab"') as unknown as string,
+        expect.stringContaining('"type":"navigate-tab","tab":"social"') as unknown as string,
       );
-      // 웹 라우터로 /records에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바와 어긋난다.
-      expect(screen.queryByTestId("records-stub")).not.toBeInTheDocument();
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"via":"invite_card"') as unknown as string,
+      );
+      // 웹 라우터로 /social에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바와 어긋난다.
+      expect(screen.queryByTestId("social-stub")).not.toBeInTheDocument();
     });
 
-    it("브라우저 단독 모드에서는 쿼리를 승계해 웹 /records로 이동한다", async () => {
+    it("빠르게 두 번 누르면 navigate-tab을 한 번만 보낸다", async () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
 
       renderHomeWithRoutes();
 
-      await waitFor(() => expect(screen.getByText("3일째")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: /연속 공부/ }));
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      const card = screen.getByRole("button", { name: /친구 초대하여 공부하기/ });
+      fireEvent.click(card);
+      fireEvent.click(card);
 
-      const stub = await screen.findByTestId("records-stub");
-      expect(stub.textContent).toBe("/records?userId=7");
+      // 마운트 시 나가는 handshake 메시지는 세지 않는다.
+      const navigateCalls = postMessage.mock.calls.filter(([raw]) =>
+        String(raw).includes('"type":"navigate-tab"'),
+      );
+      expect(navigateCalls).toHaveLength(1);
     });
 
-    it("최장 순공시간 카드는 버튼이 아니다 — 목적지가 없는 카드를 눌리는 것처럼 만들지 않는다", async () => {
+    it("브라우저 단독 모드에서는 쿼리를 승계해 웹 /social로 이동한다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
 
-      renderHome();
+      renderHomeWithRoutes();
 
-      await waitFor(() => expect(screen.getByText("52분")).toBeInTheDocument());
-      expect(screen.queryByRole("button", { name: /최장 순공시간/ })).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /친구 초대하여 공부하기/ }));
+
+      const stub = await screen.findByTestId("social-stub");
+      expect(stub.textContent).toBe("/social?userId=7");
     });
   });
 
@@ -267,9 +324,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(
-        screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
 
       const stub = await screen.findByTestId("onboarding-guide-stub");
       expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=focus-start");
@@ -285,9 +340,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(
-        screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
@@ -302,7 +355,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const cta = screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" });
+      const cta = screen.getByRole("button", { name: "집중 시작" });
       fireEvent.click(cta);
       fireEvent.click(cta);
 
@@ -317,27 +370,12 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const cta = screen.getByRole("button", { name: "집중 시작. 누르면 바로 측정이 시작돼요" });
+      const cta = screen.getByRole("button", { name: "집중 시작" });
       fireEvent.click(cta);
       fireEvent.click(cta);
 
       await screen.findByTestId("onboarding-guide-stub");
       expect(navigateSpy).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("가이드 카드 — 다시 보기 (BY-334)", () => {
-    it("최초 1회 판정과 무관하게 클릭 시 쿼리를 승계해 온보딩 가이드로 이동한다(entry=home-card)", async () => {
-      mockedStats.mockResolvedValue(statsResponse);
-      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
-
-      renderHomeWithRoutes();
-
-      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: /공부 측정 가이드/ }));
-
-      const stub = await screen.findByTestId("onboarding-guide-stub");
-      expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=home-card");
     });
   });
 });
