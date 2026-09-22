@@ -332,8 +332,11 @@ export interface NavigateHomeMessage {
    * 전환을 **한 메시지**로 보내야 한다. 둘로 나누면 첫 메시지가 이 WebView를 언마운트하는
    * 사이 둘째(`navigate-tab`)가 유실될 수 있다. 네이티브는 `tab_pressed {via: study_result}`로
    * 센다. 없으면 홈 탭에 머문다.
+   *
+   * 값은 `records`뿐이다. `navigate-tab`의 목적지 목록을 그대로 참조하면 셸 파서·핸들러가 모르는
+   * 값이 타입만 통과해 조용히 홈에 머문다. 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
    */
-  tab?: NavigateTabMessage["tab"];
+  tab?: "records";
   atMs: number;
 }
 
