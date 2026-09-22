@@ -266,7 +266,7 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue min-h-dvh pb-8 pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
         {/* 좌상단은 시안의 D-Day 자리다. D-Day 기능이 들어오기 전까지 로고와 날짜를 둔다. */}
