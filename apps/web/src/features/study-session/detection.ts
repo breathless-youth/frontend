@@ -44,24 +44,17 @@ export type DetectionParams = Record<DetectionSource, TriggerHoldParams>;
  * 감지 파라미터 기본값 — `ai-wiki/product/mvp-scope.md` "감지 파라미터"(M1 테스트로 튜닝 예정).
  * 하드코딩하지 말고 이 객체를 주입해 바꾼다.
  *
- * ## AWAY 2000 · PHONE 1000 (2026-09-21, 발열·배터리 조정)
+ * ## AWAY 1500 · PHONE 500 (2026-09-22, 주기 500ms 복귀)
  *
- * 원래 AWAY 1500 / PHONE 500이었다. 프레임 주기를 500ms에서 1000ms로 늘리면서
- * (`vision/visionConfig.ts`의 `FRAME_INTERVAL_MS`) 함께 올렸다 — **주기와 짝인 값이라 따로
- * 바꾸면 안 된다.**
- *
- * - `PHONE.enterMs`는 **샘플 간격보다 짧으면 안 된다.** 짧으면 두 샘플 사이에 통째로 들어간 폰
- *   사용이 어느 프레임에도 걸리지 않아 지연이 아니라 누락이 된다. 1000ms는 주기와 같은 경계값이다.
- * - `AWAY.enterMs`는 한 프레임만 person을 놓쳐도(1000ms 유지) 확정되지 않도록 주기의 2배로 둔다.
- *   1 fps에서는 샘플 하나의 무게가 500ms 시절의 두 배라, 순간 미검출을 거르는 여유가 필요하다.
- *
- * 실제 확정까지 걸리는 시간은 관측 지연(0~1주기)이 더해진다 — 같은 파일 주석 참고.
- * 한 프레임에서 시작해 한 프레임에서 끝나는 폰 사용(≈1초 미만)은 잡지 않는다는 뜻이고,
- * 이건 발열을 잡기 위해 감지 반응성을 내준 제품 결정이다.
+ * 2026-09-21에 프레임 주기를 1000ms로 늘리면서 AWAY 2000 · PHONE 1000으로 올렸다가, 2026-09-22 저녁
+ * 주기가 500ms로 돌아오면서 원래 값으로 되돌렸다. **주기와 짝인 값이라 따로 바꾸면 안 된다** —
+ * `PHONE.enterMs`는 샘플 간격보다 짧으면 안 되고(짧으면 두 샘플 사이의 폰 사용이 누락된다), 500ms는
+ * 주기와 같은 경계값이다. 실제 확정까지는 관측 지연(0~1주기)이 더해진다(`vision/visionConfig.ts`의
+ * `FRAME_INTERVAL_MS` 주석).
  */
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
-  AWAY: { enterMs: 2000, exitMs: 2000 },
-  PHONE: { enterMs: 1000, exitMs: 1500 },
+  AWAY: { enterMs: 1500, exitMs: 2000 },
+  PHONE: { enterMs: 500, exitMs: 1500 },
   DEVICE: { enterMs: 500, exitMs: 2000 },
   /**
    * ⚠️ 잠정값이다. 2026-09-20 스파이크는 피험자가 한 명이라 앱 안 측정에서 다시 정한다.

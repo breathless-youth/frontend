@@ -1,28 +1,37 @@
 import type { EyeOutline } from "./faceLandmarker";
 import {
   BLINK_DIFF_MIN,
-  BLINK_DIFF_RATIO,
   BLINK_REFRACTORY_MS,
   BLINK_SAMPLE_INTERVAL_MS,
+  EYE_MOTION_LEVEL,
+  EYE_MOTION_WINDOW_MS,
   EYE_REGION_SAMPLE,
   EYE_REGION_SCALE,
 } from "./visionConfig";
 
 /**
- * 깜빡임 감시 — **BY-704 측정용 계측이다. 판정에는 쓰지 않는다.**
+ * 눈 움직임 감시 — 고개 10~15° 구간(`headPitchGate.ts`의 `quiet`)에서 감김을 셀지 정하는 근거다.
  *
- * 내려다봄 게이트에 걸린 동안(카메라 기준 고개 15° 이상) 눈이 감김으로 읽히는 것이 실제 감김인지
- * 내려다본 뜬 눈인지를 눈 점수로는 가를 수 없다(스펙 "확정: 절대 각도 게이트"). 리더 제안: 그 구간에서
- * **깜빡임이 이어지면 깨어 있는 것이고, 같은 각도에서 깜빡임이 끊기면 잠**이다. 이 모듈은 그 신호가
- * 실제로 잡히는지를 재기 위해, 게이트에 걸린 동안만 눈 자리 화소를 초당 10번 비교해 순간 변화를 남긴다.
+ * 카메라가 눈을 위에서 보는 자세에서는 뜬 눈이 감김으로 읽히고, 눈 점수로는 감김과 내려다봄을 가를 수
+ * 없다(스펙 "확정: 절대 각도 게이트"). 리더 결정: 그 구간에서는 **눈이 움직이면 깨어 있는 것이고, 눈이
+ * 정지해 있을 때만 감김을 센다.** 깨어 있는 눈은 읽든 보든 시선이 옮겨 다니고 깜빡이며, 자는 눈은
+ * 움직이지 않는다.
  *
  * 얼굴 모델을 초당 10번 돌리면 CPU 듀티가 54%p 늘어 발열을 잡던 방향과 반대라, 모델 없이 **랜드마크가
  * 잡아 둔 눈 자리(2초에 한 번 갱신)의 화소만 비교**한다. 48×24 화소 두 조각의 뺄셈이라 비용은 사실상
  * 없다. 화소는 그 자리에서 숫자 하나(평균 절대 변화)로 줄고 버려진다 — `frontend/CLAUDE.md`의 원본
  * 프레임·얼굴 이미지 저장·전송 금지에 걸리지 않는다.
  *
- * 앞서 눈 영역의 **정적** 대비·어둠 비율은 뜬 눈과 감은 눈을 가르지 못해 뺐다(넷째 회차). 이번 것은
- * 눈꺼풀이 움직이는 **순간 변화**라 다른 신호이고, 검증은 이 계측이 한다.
+ * ## 정지는 "수준"으로 잰다, 튐이 아니라
+ *
+ * 처음엔 튀는 표본(깜빡임)을 이벤트로 세고 "60초 무이벤트"를 정지로 봤다. 열둘째 회차에서 그것이 두 방향
+ * 모두 틀렸다 — 읽는 동안은 눈이 **계속** 움직여 배경 변화가 올라가고, 배경 대비로 문턱을 잡던 규칙이
+ * 문턱을 상위 5% 위로 밀어 이벤트가 0이 됐다(깨어 있다는 증거가 증거를 지웠다). 감은 눈은 배경이 5분의
+ * 1인데 머리 흔들림 한두 번이 이벤트로 잡혀 정지가 성립하지 않았다.
+ *
+ * 두 회차 다 변화량의 **중앙값**은 읽을 때 0.013~0.022, 감았을 때 0.004~0.005로 3~5배 갈렸고 튐에
+ * 흔들리지 않는다. 그래서 최근 `EYE_MOTION_WINDOW_MS`(10초)의 중앙값이 `EYE_MOTION_LEVEL` 이상이면
+ * "움직임"으로 보고 정지 시계를 되돌린다. 이벤트 카운트는 참고용으로만 남긴다.
  */
 
 export interface EyeRegionBox {
@@ -150,46 +159,23 @@ export function meanAbsDiff(a: Float32Array, b: Float32Array): number {
   return sum / length;
 }
 
+/** 최근 창의 중앙값. 비어 있으면 null. */
+export function motionLevel(diffs: readonly number[]): number | null {
+  if (diffs.length === 0) {
+    return null;
+  }
+  const sorted = [...diffs].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) / 2)] ?? null;
+}
+
 export interface BlinkSample {
-  /** 두 눈 중 큰 쪽의 평균 절대 변화(0~1). 깜빡임이면 튄다. */
+  /** 두 눈 중 큰 쪽의 평균 절대 변화(0~1). */
   readonly diff: number;
-  /** 이 표본을 깜빡임 이벤트로 셌는가(잠정 규칙). */
+  /** 최근 `EYE_MOTION_WINDOW_MS` 변화량의 중앙값. 정지 판정은 이 값으로 한다. */
+  readonly level: number;
+  /** 튀는 표본(`BLINK_DIFF_MIN` 이상, 불응기 밖). 참고용이다 — 정지 판정에 쓰지 않는다. */
   readonly event: boolean;
   readonly atMs: number;
-}
-
-export interface BlinkDetector {
-  /** 변화량 하나를 넣고 이벤트인지 돌려준다. */
-  push(diff: number, atMs: number): boolean;
-  reset(): void;
-}
-
-/**
- * 잠정 이벤트 규칙 — 배경 변화의 지수이동평균보다 `BLINK_DIFF_RATIO`배 크고 `BLINK_DIFF_MIN` 이상이면
- * 이벤트, 그 뒤 `BLINK_REFRACTORY_MS` 동안은 다시 세지 않는다(감았다 뜨는 두 번의 튐을 하나로).
- * 튜닝은 덩어리의 `blink.diff` 분포로 한다 — 그래서 이벤트 여부와 별개로 변화량을 전부 남긴다.
- */
-export function createBlinkDetector(): BlinkDetector {
-  let baseline: number | null = null;
-  let lastEventAtMs: number | null = null;
-  return {
-    push(diff, atMs) {
-      const floor = Math.max(BLINK_DIFF_MIN, (baseline ?? 0) * BLINK_DIFF_RATIO);
-      const refractory = lastEventAtMs !== null && atMs - lastEventAtMs < BLINK_REFRACTORY_MS;
-      const event = !refractory && baseline !== null && diff >= floor;
-      if (event) {
-        lastEventAtMs = atMs;
-      } else {
-        // 이벤트가 아닌 표본만 배경에 섞는다. 이벤트를 섞으면 배경이 올라가 다음 깜빡임을 놓친다.
-        baseline = baseline === null ? diff : baseline * 0.9 + diff * 0.1;
-      }
-      return event;
-    },
-    reset() {
-      baseline = null;
-      lastEventAtMs = null;
-    },
-  };
 }
 
 export interface BlinkWatcherOptions {
@@ -206,8 +192,8 @@ export interface BlinkWatcher {
   /** 눈 상자를 준다. null이면 멈춘다. 상자가 있으면 초당 10번 비교를 이어 간다. */
   update(boxes: EyeBoxes | null): void;
   /**
-   * 마지막 눈 움직임 이벤트(없으면 계측 시작) 이후 지난 시간(ms). 계측이 돌고 있지 않거나 아직 표본이
-   * 없으면 null — 모르는 것을 "조용함"으로 치지 않는다.
+   * 마지막 움직임(최근 창 중앙값이 `EYE_MOTION_LEVEL` 이상이었던 때, 없으면 계측 시작) 이후 지난
+   * 시간(ms). 계측이 돌고 있지 않거나 아직 표본이 없으면 null — 모르는 것을 "정지"로 치지 않는다.
    */
   quietMs(atMs: number): number | null;
   stop(): void;
@@ -230,12 +216,13 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
     setTimer = (callback, ms) => setInterval(callback, ms),
     clearTimer = (handle) => clearInterval(handle as ReturnType<typeof setInterval>),
   } = options;
-  const detector = createBlinkDetector();
   let boxes: EyeBoxes | null = null;
   let timer: unknown = null;
   let previous: { left: Float32Array; right: Float32Array } | null = null;
-  /** 첫 비교 표본의 시각과 마지막 이벤트 시각. `quietMs`의 기준이다. */
+  /** 최근 창의 변화량. 창 길이만큼만 든다. */
+  let recent: { diff: number; atMs: number }[] = [];
   let firstSampleAtMs: number | null = null;
+  let lastMotionAtMs: number | null = null;
   let lastEventAtMs: number | null = null;
 
   function tick(): void {
@@ -255,14 +242,23 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
         meanAbsDiff(previous.right, current.right),
       );
       const atMs = now();
-      const event = detector.push(diff, atMs);
+      recent = [
+        ...recent.filter((entry) => atMs - entry.atMs < EYE_MOTION_WINDOW_MS),
+        { diff, atMs },
+      ];
+      const level = motionLevel(recent.map((entry) => entry.diff)) ?? diff;
       if (firstSampleAtMs === null) {
         firstSampleAtMs = atMs;
       }
+      if (level >= EYE_MOTION_LEVEL) {
+        lastMotionAtMs = atMs;
+      }
+      const refractory = lastEventAtMs !== null && atMs - lastEventAtMs < BLINK_REFRACTORY_MS;
+      const event = !refractory && diff >= BLINK_DIFF_MIN;
       if (event) {
         lastEventAtMs = atMs;
       }
-      onSample({ diff, event, atMs });
+      onSample({ diff, level, event, atMs });
     }
     previous = current;
   }
@@ -274,9 +270,10 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
     }
     boxes = null;
     previous = null;
+    recent = [];
     firstSampleAtMs = null;
+    lastMotionAtMs = null;
     lastEventAtMs = null;
-    detector.reset();
   }
 
   return {
@@ -303,7 +300,7 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
       if (timer === null || firstSampleAtMs === null) {
         return null;
       }
-      return atMs - (lastEventAtMs ?? firstSampleAtMs);
+      return atMs - (lastMotionAtMs ?? firstSampleAtMs);
     },
     stop,
   };

@@ -111,7 +111,7 @@ describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
       detector.emit({ source: "PHONE", active: true });
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_500); // enterMs(1000) 경과 → DISTRACTION
+      await vi.advanceTimersByTimeAsync(1_000); // enterMs(500) 경과 → DISTRACTION
     });
     expect(mocks.distracted).not.toHaveBeenCalled();
 

@@ -892,7 +892,7 @@ describe("깜빡임 계측", () => {
       [0.08, true],
       [0.004, false],
     ] as const) {
-      m.blink({ diff, event, atMs: 1_000 });
+      m.blink({ diff, level: diff, event, atMs: 1_000 });
     }
 
     const seg = (JSON.parse(m.dump()) as { segments: { blink: Record<string, number | null> }[] })
@@ -900,12 +900,13 @@ describe("깜빡임 계측", () => {
     expect(seg?.blink.samples).toBe(4);
     expect(seg?.blink.events).toBe(1);
     expect(seg?.blink.diffMax).toBeCloseTo(0.08, 4);
+    expect(seg?.blink.levelP50).toBeCloseTo(0.005, 4);
   });
 
   it("실시간 값에 계측 여부와 최근 30초 이벤트 수가 실린다", () => {
     let t = 0;
     const m = createMeasurement(baseSpy(), { now: () => t });
-    m.blink({ diff: 0.05, event: true, atMs: 0 });
+    m.blink({ diff: 0.05, level: 0.02, event: true, atMs: 0 });
     t = 500;
     expect(m.live().blinkActive).toBe(true);
     expect(m.live().blinkEvents30s).toBe(1);
@@ -917,7 +918,7 @@ describe("깜빡임 계측", () => {
   it("기본 진단으로도 넘긴다 — 껍데기는 옆에서 듣는다", () => {
     const base = { ...baseSpy(), blink: vi.fn() };
     const m = createMeasurement(base);
-    m.blink({ diff: 0.01, event: false, atMs: 0 });
+    m.blink({ diff: 0.01, level: 0.005, event: false, atMs: 0 });
     expect(base.blink).toHaveBeenCalledTimes(1);
   });
 });

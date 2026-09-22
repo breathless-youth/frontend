@@ -85,6 +85,7 @@ interface Segment {
   headPitchDeg: number[];
   /** 깜빡임 계측 — 게이트에 걸린 동안 초당 10개 들어오는 눈 자리 변화량과 이벤트 수. */
   blinkDiff: number[];
+  blinkLevel: number[];
   blinkEvents: number;
   personScore: number[];
   faceRan: number;
@@ -271,6 +272,7 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     eyeClosure: [],
     headPitchDeg: [],
     blinkDiff: [],
+    blinkLevel: [],
     blinkEvents: 0,
     personScore: [],
     faceRan: 0,
@@ -357,6 +359,7 @@ function summarize(segment: Segment) {
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
   const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
   const blinkSorted = [...segment.blinkDiff].sort((a, b) => a - b);
+  const levelSorted = [...segment.blinkLevel].sort((a, b) => a - b);
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
@@ -392,6 +395,10 @@ function summarize(segment: Segment) {
       diffP50: percentile(blinkSorted, 0.5, 4),
       diffP95: percentile(blinkSorted, 0.95, 4),
       diffMax: blinkSorted.length === 0 ? null : round(blinkSorted[blinkSorted.length - 1] ?? 0, 4),
+      // 정지 판정이 보는 값. 읽을 때와 감았을 때의 `levelP50`이 `EYE_MOTION_LEVEL` 양쪽에 있어야 한다.
+      levelP05: percentile(levelSorted, 0.05, 4),
+      levelP50: percentile(levelSorted, 0.5, 4),
+      levelP95: percentile(levelSorted, 0.95, 4),
     },
     person: {
       mean: mean(personSorted, 3),
@@ -616,6 +623,7 @@ export function createMeasurement(
       }
       for (const target of [current(), minuteWindow]) {
         target.blinkDiff.push(sample.diff);
+        target.blinkLevel.push(sample.level);
         if (sample.event) {
           target.blinkEvents += 1;
         }

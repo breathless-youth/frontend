@@ -121,6 +121,8 @@ export interface VisionDiagnostics {
 export interface BlinkDiagnostics {
   /** 두 눈 중 큰 쪽의 평균 절대 변화(0~1). */
   readonly diff: number;
+  /** 최근 창 변화량의 중앙값 — 정지 판정이 보는 값. */
+  readonly level: number;
   readonly event: boolean;
   readonly atMs: number;
 }

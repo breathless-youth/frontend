@@ -607,7 +607,7 @@ describe("얼굴 모델 수명", () => {
 });
 
 describe("얼굴 틱", () => {
-  it("두 프레임에 한 번만 얼굴을 본다 — 발열 예산의 손잡이다", async () => {
+  it("네 프레임에 한 번만 얼굴을 본다 — 발열 예산의 손잡이다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
     const vision = createVisionFocusDetector({
@@ -621,9 +621,9 @@ describe("얼굴 틱", () => {
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 8);
     await vi.advanceTimersByTimeAsync(0);
 
-    // 판정이 도는 프레임 여덟에 얼굴 틱은 넷이다(1 fps × 2 = 얼굴 틱 2초). 범위로 두면 주기가
-    // 늘어나도 통과해 회귀를 놓치므로, `FACE_FRAME_DIVISOR`가 2라는 사실을 값으로 못박는다.
-    expect(faceDetect).toHaveBeenCalledTimes(4);
+    // 판정이 도는 프레임 여덟에 얼굴 틱은 둘이다(2 fps × 4 = 얼굴 틱 2초). 범위로 두면 주기가
+    // 늘어나도 통과해 회귀를 놓치므로, `FACE_FRAME_DIVISOR`가 4라는 사실을 값으로 못박는다.
+    expect(faceDetect).toHaveBeenCalledTimes(2);
   });
 
   it("사람이 없으면 얼굴을 보지 않는다 — 자리 이탈이 먼저다", async () => {

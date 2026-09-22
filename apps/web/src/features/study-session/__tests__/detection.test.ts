@@ -22,25 +22,25 @@ function step(state: DetectionState, raw: TriggerSignals, atMs: number): Detecti
 }
 
 describe("stepDetection — 진입 유지시간", () => {
-  it("자리 이탈은 2초 유지되어야 비집중으로 잡힌다", () => {
+  it("자리 이탈은 1.5초 유지되어야 비집중으로 잡힌다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ AWAY: true }), T0);
     expect(state.active).toBeNull();
 
-    state = step(state, signals({ AWAY: true }), T0 + 1900);
+    state = step(state, signals({ AWAY: true }), T0 + 1400);
     expect(state.active).toBeNull();
 
-    state = step(state, signals({ AWAY: true }), T0 + 2000);
+    state = step(state, signals({ AWAY: true }), T0 + 1500);
     expect(state.active).toBe("AWAY");
   });
 
-  it("휴대폰 사용은 1초면 잡힌다", () => {
+  it("휴대폰 사용은 0.5초면 잡힌다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ PHONE: true }), T0);
-    state = step(state, signals({ PHONE: true }), T0 + 900);
+    state = step(state, signals({ PHONE: true }), T0 + 400);
     expect(state.active).toBeNull();
 
-    state = step(state, signals({ PHONE: true }), T0 + 1000);
+    state = step(state, signals({ PHONE: true }), T0 + 500);
     expect(state.active).toBe("PHONE");
   });
 
@@ -57,13 +57,13 @@ describe("stepDetection — 자동 재개", () => {
   it("신호 해제가 유지시간을 넘기면 사용자 확인 없이 집중으로 돌아온다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ PHONE: true }), T0);
-    state = step(state, signals({ PHONE: true }), T0 + 1000);
+    state = step(state, signals({ PHONE: true }), T0 + 500);
     expect(state.active).toBe("PHONE");
 
-    state = step(state, signals({}), T0 + 1100);
+    state = step(state, signals({}), T0 + 600);
     expect(state.active).toBe("PHONE"); // 해제 유지시간(1.5초) 전에는 유지
 
-    state = step(state, signals({}), T0 + 2600);
+    state = step(state, signals({}), T0 + 2100);
     expect(state.active).toBeNull();
   });
 });
@@ -72,29 +72,29 @@ describe("stepDetection — 동시 다중 감지", () => {
   it("이미 활성인 대표 트리거를 해제 전까지 유지한다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ PHONE: true }), T0);
-    state = step(state, signals({ PHONE: true }), T0 + 1000);
+    state = step(state, signals({ PHONE: true }), T0 + 500);
     expect(state.active).toBe("PHONE");
 
-    // 자리 이탈이 뒤늦게 겹쳐 확정(2초)되어도 대표 트리거는 바뀌지 않는다.
-    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 1100);
-    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 3200);
+    // 자리 이탈이 뒤늦게 겹쳐 확정(1.5초)되어도 대표 트리거는 바뀌지 않는다.
+    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 600);
+    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 2200);
     expect(state.active).toBe("PHONE");
   });
 
   it("대표 트리거가 풀리면 남아 있는 확정 트리거로 넘어간다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ PHONE: true }), T0);
-    state = step(state, signals({ PHONE: true }), T0 + 1000);
+    state = step(state, signals({ PHONE: true }), T0 + 600);
     expect(state.active).toBe("PHONE");
 
-    // 자리 이탈이 겹쳐 확정(2초)되어도 대표는 PHONE 유지.
-    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 1000);
-    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 3100);
+    // 자리 이탈이 겹쳐 확정(1.5초)되어도 대표는 PHONE 유지.
+    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 600);
+    state = step(state, signals({ PHONE: true, AWAY: true }), T0 + 2200);
     expect(state.active).toBe("PHONE");
 
     // PHONE 원신호만 해제 → 해제 유지시간(1.5초) 뒤 남아 있는 AWAY가 대표가 된다.
-    state = step(state, signals({ AWAY: true }), T0 + 3200);
-    state = step(state, signals({ AWAY: true }), T0 + 4800);
+    state = step(state, signals({ AWAY: true }), T0 + 2300);
+    state = step(state, signals({ AWAY: true }), T0 + 3900);
     expect(state.active).toBe("AWAY");
   });
 });
@@ -111,16 +111,14 @@ describe("stepDetection — 트리거 우선순위 (2026-07-26 확정)", () => {
   it("기기 조작과 폰 사용이 같은 시점에 확정되면 DEVICE가 대표가 된다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ DEVICE: true, PHONE: true }), T0);
-    // DEVICE(0.5초)·PHONE(1초) 둘 다 이 한 스텝에서 확정된다.
-    state = step(state, signals({ DEVICE: true, PHONE: true }), T0 + 1000);
+    state = step(state, signals({ DEVICE: true, PHONE: true }), T0 + 500);
     expect(state.active).toBe("DEVICE");
   });
 
   it("자리 이탈은 기기 조작보다 앞선다", () => {
     let state = createDetectionState(T0);
     state = step(state, signals({ AWAY: true, DEVICE: true }), T0);
-    // AWAY(2초)·DEVICE(0.5초) 둘 다 이 한 스텝에서 확정된다.
-    state = step(state, signals({ AWAY: true, DEVICE: true }), T0 + 2000);
+    state = step(state, signals({ AWAY: true, DEVICE: true }), T0 + 1500);
     expect(state.active).toBe("AWAY");
   });
 });
@@ -264,8 +262,8 @@ describe("stepDetection — 졸음과 다른 트리거", () => {
     const both = signals({ PHONE: true, SLEEP_EYES: true });
     state = step(state, both, T0);
 
-    // 1초에 휴대폰이 혼자 확정돼 대표가 된다.
-    state = step(state, both, T0 + 1000);
+    // 0.5초에 휴대폰이 혼자 확정돼 대표가 된다.
+    state = step(state, both, T0 + 600);
     expect(state.active).toBe("PHONE");
 
     // 10초에 졸음이 확정돼도 이미 활성인 트리거를 유지한다.
