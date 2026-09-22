@@ -343,8 +343,14 @@ export const EYE_REGION_SCALE = { width: 1.4, height: 0.7 } as const;
 /** 눈 자리 화소 비교 주기(ms). 깜빡임이 100~400ms라 100ms면 한 깜빡임에 표본이 1~4개 걸린다. */
 export const BLINK_SAMPLE_INTERVAL_MS = 100;
 
-/** 깜빡임 이벤트의 변화량 하한(0~1). 잠정값 — 덩어리의 `blink.diff` 분포로 정한다. */
-export const BLINK_DIFF_MIN = 0.03;
+/**
+ * 눈 움직임 이벤트의 변화량 하한(0~1). **잠정값이다.**
+ *
+ * 열한째 회차(고개 10~13°): 책을 읽을 때 변화량 p50 0.0133 · p95 0.0725, 눈을 감았을 때 p50 0.0037 ·
+ * p95 0.018. 처음 값 0.03은 감은 눈 분포에 너무 붙어 있어 72초 동안 이벤트 7회가 잡혔고(졸음이 서지
+ * 않았다), 0.05면 감은 눈의 상위 5%보다 세 배 위이면서 읽을 때는 상위 5% 표본이 그대로 넘는다.
+ */
+export const BLINK_DIFF_MIN = 0.05;
 
 /** 배경 변화(지수이동평균)의 몇 배를 넘어야 이벤트인가. 잠정값. */
 export const BLINK_DIFF_RATIO = 4;

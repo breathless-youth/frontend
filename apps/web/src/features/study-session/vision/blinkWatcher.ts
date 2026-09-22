@@ -213,6 +213,14 @@ export interface BlinkWatcher {
   stop(): void;
 }
 
+function sameBox(a: EyeRegionBox, b: EyeRegionBox): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
+function sameBoxes(a: EyeBoxes, b: EyeBoxes): boolean {
+  return sameBox(a.left, b.left) && sameBox(a.right, b.right);
+}
+
 export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
   const {
     video,
@@ -279,6 +287,12 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
       if (next === null) {
         stop();
         return;
+      }
+      if (boxes === null || !sameBoxes(boxes, next)) {
+        // 상자가 옮겨졌다(2초마다 새 랜드마크). 옛 상자의 화소와 새 상자의 화소를 비교하면 상자가
+        // 몇 픽셀만 움직여도 크게 튄다 — 열한째 회차에서 감은 눈의 최대 변화량 0.236이 그것이다.
+        // 다음 비교는 새 상자의 두 표본으로 한다.
+        previous = null;
       }
       boxes = next;
       if (timer === null) {

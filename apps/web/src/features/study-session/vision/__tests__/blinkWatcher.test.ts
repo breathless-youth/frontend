@@ -157,4 +157,22 @@ describe("감시기", () => {
     created.update(null);
     expect(created.quietMs(Date.now())).toBeNull();
   });
+
+  it("상자가 옮겨지면 그 직후 비교는 건너뛴다 — 옛 상자와 새 상자의 화소 차는 움직임이 아니다", () => {
+    // 화소는 내내 같다. 상자만 바뀐다.
+    const { created, samples } = watcher([100, 100, 100, 100, 100, 100]);
+    created.update(boxesFromOutline(outline, 1000, 1000));
+    vi.advanceTimersByTime(BLINK_SAMPLE_INTERVAL_MS * 2);
+    const before = samples.length;
+    const shifted = {
+      ...outline,
+      left: outline.left.map((p) => ({ x: p.x + 0.01, y: p.y })),
+    };
+    created.update(boxesFromOutline(shifted, 1000, 1000));
+    vi.advanceTimersByTime(BLINK_SAMPLE_INTERVAL_MS);
+    // 옮긴 뒤 첫 틱은 비교 대상이 없어 표본을 내지 않는다.
+    expect(samples.length).toBe(before);
+    vi.advanceTimersByTime(BLINK_SAMPLE_INTERVAL_MS);
+    expect(samples.length).toBe(before + 1);
+  });
 });
