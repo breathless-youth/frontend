@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
@@ -20,6 +21,7 @@ import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { trackFocusStartTapped } from "@/lib/amplitude";
+import { getTokenSource } from "@/lib/auth/tokenSource";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { useUserId } from "@/lib/userId";
@@ -269,10 +271,19 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        {/* 좌상단은 시안의 D-Day 자리다. D-Day 기능이 들어오기 전까지 로고와 날짜를 둔다. */}
+        {/*
+          좌상단은 D-Day 블록이다. D-Day API는 토큰 계약뿐이라 토큰 출처가 없는 문서(구 앱 웹뷰·
+          브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다.
+        */}
         <header className="flex items-end justify-between pb-2">
-          <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
-          <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+          {getTokenSource() !== null && userId !== null ? (
+            <DdaySection userId={userId} />
+          ) : (
+            <>
+              <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
+              <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+            </>
+          )}
         </header>
 
         {userId === null ? (

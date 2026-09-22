@@ -955,3 +955,45 @@ export function trackAmbientSoundDuckToggled(enabled: boolean) {
   if (!initialized) return;
   track("ambient_sound_duck_toggled", { enabled });
 }
+
+/** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */
+export function trackDdaySheetOpened(hasDday: boolean) {
+  if (!initialized) return;
+  track("dday_sheet_opened", { has_dday: hasDday });
+}
+
+/** D-Day 저장 성공. 제목·날짜 값은 싣지 않고 길이와 남은 일수만 남긴다. */
+export function trackDdaySaved(input: {
+  readonly isNew: boolean;
+  readonly daysLeft: number;
+  readonly titleLength: number;
+}) {
+  if (!initialized) return;
+  track("dday_saved", {
+    is_new: input.isNew,
+    days_left: input.daysLeft,
+    title_length: input.titleLength,
+  });
+}
+
+/** D-Day 삭제 성공 — 지운 시점의 남은 일수(지난 뒤면 음수). */
+export function trackDdayDeleted(daysLeft: number) {
+  if (!initialized) return;
+  track("dday_deleted", { days_left: daysLeft });
+}
+
+/**
+ * D-Day 유무·남은 일수 user property. 홈이 값을 알게 될 때와 저장·삭제 뒤에 맞춘다.
+ * 별도 홈 노출 이벤트 없이 이 속성으로 D-Day 유무별 세그먼트를 가른다.
+ */
+export function setDdayUserProperties(dday: { readonly daysLeft: number } | null) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("has_dday", dday !== null);
+  if (dday === null) {
+    id.unset("dday_days_left");
+  } else {
+    id.set("dday_days_left", dday.daysLeft);
+  }
+  identify(id);
+}

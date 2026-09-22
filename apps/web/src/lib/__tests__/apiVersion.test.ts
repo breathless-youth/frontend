@@ -18,6 +18,7 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   statsStreak: { current: "2", legacy: "1" },
   statsPeriod: { current: "2", legacy: "1" },
   studyDays: { current: "1", legacy: "1" },
+  dday: { current: "1", legacy: "1" },
   studySessionSubmit: { current: "2", legacy: "1" },
   studySessionDetail: { current: "2", legacy: "1" },
   activeSessionReport: { current: "2", legacy: "1" },
