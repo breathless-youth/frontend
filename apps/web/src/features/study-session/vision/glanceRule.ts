@@ -11,16 +11,16 @@ import { GLANCE_HEAD_MOVE_DEG, GLANCE_REST_OPEN_TICKS } from "./visionConfig";
  *
  * ## 쉬는 자세(`rest`)
  *
- * "눈을 뜬 채 고개가 멈춰 있던 각도"다. 최근 `GLANCE_REST_OPEN_TICKS`개(10초)의 관측이 전부 뜸이고
+ * "눈을 뜬 채 고개가 멈춰 있던 각도"다. 최근 `GLANCE_REST_OPEN_TICKS`개(30초)의 관측이 전부 뜸이고
  * 각도가 `GLANCE_HEAD_MOVE_DEG` 안에서 흔들렸을 때만 그 각도를 쉬는 자세로 잡는다. 앉아서 눈을 뜨고
- * 있는 사람은 이 조건이 바로 성립하고, 책을 읽는 사람은 눈 점수가 임계 근처에서 흔들려 뜸이 10초
+ * 있는 사람은 이 조건이 바로 성립하고, 책을 읽는 사람은 눈 점수가 임계 근처에서 흔들려 뜸이 30초
  * 연속되지 않으므로 읽는 자세가 쉬는 자세로 잡히지 않는다.
  *
  * ## 잠금
  *
  * 감김이 쉬는 자세에서 `GLANCE_HEAD_MOVE_DEG` 이상 떨어진 곳에서 시작되면 **시선 이동**이고, 그 뒤로는
  * 눈이 잠깐 뜸으로 읽혀도 풀리지 않는다 — 고개가 쉬는 자세 근처로 돌아온 채 눈을 뜨거나, 그 자리에서
- * 뜬 눈이 10초 이어져 새 쉬는 자세가 잡힐 때만 풀린다. 첫 구현(2026-09-22)은 뜸 하나로 풀었고, 읽는
+ * 뜬 눈이 30초 이어져 새 쉬는 자세가 잡힐 때만 풀린다. 첫 구현(2026-09-22)은 뜸 하나로 풀었고, 읽는
  * 동안 흔들리는 점수의 뜸 하나가 들어오자 다음 감김이 "고개 정지 · 새 시작"으로 통과해 졸음이 섰다.
  *
  * 시선 이동으로 분류된 관측은 "판정 없음"이지 "눈 뜸"이 아니다 — 졸음을 세우지도 풀지도 않는다.
@@ -116,7 +116,7 @@ export function stepGlance(
   if (!closed) {
     const fresh = restFromHistory(history, threshold);
     if (fresh !== null) {
-      // 뜬 눈으로 10초 멈춰 있었다. 여기가 쉬는 자세이고, 잠금이 있었다면 여기서 푼다.
+      // 뜬 눈으로 30초 멈춰 있었다. 여기가 쉬는 자세이고, 잠금이 있었다면 여기서 푼다.
       return {
         state: { ...base, rest: fresh, glanced: false, run: "none", onsetPitch: null },
         accept: true,
@@ -145,7 +145,7 @@ export function stepGlance(
     // 감김 시작. 쉬는 자세는 저장된 것보다 방금 관측에서 잡힌 것이 새롭다.
     const rest = restFromHistory(state.history, threshold) ?? state.rest;
     if (rest === null) {
-      // 쉬는 자세를 모른다 — 세션 시작부터 감김이거나, 뜬 눈이 10초 이어진 적이 없다.
+      // 쉬는 자세를 모른다 — 세션 시작부터 감김이거나, 뜬 눈이 30초 이어진 적이 없다.
       return { state: { ...base, run: "none", onsetPitch: null }, accept: false };
     }
     if (apart(rest, pitch) === true) {

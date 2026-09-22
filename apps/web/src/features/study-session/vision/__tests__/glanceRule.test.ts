@@ -16,7 +16,7 @@ function open(pitch: number | null = 0): GlanceSample {
 function closed(pitch: number | null = 0): GlanceSample {
   return { closure: CLOSED, pitch };
 }
-/** 뜬 눈으로 10초 멈춰 있던 쉬는 자세. */
+/** 뜬 눈으로 30초 멈춰 있던 쉬는 자세. */
 function resting(pitch = 0): GlanceSample[] {
   return Array.from({ length: GLANCE_REST_OPEN_TICKS }, () => open(pitch));
 }
@@ -84,7 +84,7 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
     ]);
   });
 
-  it("내린 자리에서 뜬 눈이 10초 이어지면 거기가 새 쉬는 자세다 — 그 뒤 정지 감김은 받아들인다", () => {
+  it("내린 자리에서 뜬 눈이 30초 이어지면 거기가 새 쉬는 자세다 — 그 뒤 정지 감김은 받아들인다", () => {
     const tail = [closed(DOWN), ...resting(DOWN), closed(DOWN), closed(DOWN)];
     const accepts = after(resting(), tail);
     expect(accepts.slice(-2)).toEqual([true, true]);
@@ -94,7 +94,7 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
     expect(run([closed(), closed()]).accepts).toEqual([false, false]);
   });
 
-  it("뜬 눈이 10초 연속되지 않으면 쉬는 자세가 안 잡힌다 — 읽는 자세는 쉬는 자세가 아니다", () => {
+  it("뜬 눈이 30초 연속되지 않으면 쉬는 자세가 안 잡힌다 — 읽는 자세는 쉬는 자세가 아니다", () => {
     const flicker = [open(DOWN), closed(DOWN), open(DOWN), closed(DOWN), open(DOWN), open(DOWN)];
     expect(run([...flicker, closed(DOWN)]).accepts.at(-1)).toBe(false);
   });
@@ -111,7 +111,7 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
   });
 
   it("보정 전 관측도 기록해서, 임계가 생기자마자 쉬는 자세가 선다", () => {
-    // 보정 중(임계 null)의 뜬 눈 10초 → 임계가 생긴 첫 틱에 정지 감김.
+    // 보정 중(임계 null)의 뜬 눈 30초 → 임계가 생긴 첫 틱에 정지 감김.
     let state = INITIAL_GLANCE_STATE;
     for (const sample of resting()) {
       state = stepGlance(state, sample, null).state;
