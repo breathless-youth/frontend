@@ -130,6 +130,33 @@ export const radius = {
   full: 999,
 } as const;
 
+/**
+ * V2 Soft Blue 스코프 — 스플래시·하단 탭 바 전용. 기존 `colors`(V1)와 분리해 둔다.
+ * 아직 V1인 모바일 화면이 따라 바뀌면 안 되므로 별도 스코프로만 참조한다.
+ * 값 출처: Figma "Nav / Glass Tab Bar"(5325:3730)·"E1 · 스플래시"(5322:3661),
+ * 웹 `apps/web/src/index.css`의 `.theme-soft-blue`와 교차 확인.
+ */
+export const softBlue = {
+  /** 유리 표면·테두리·하이라이트·활성 알약·그림자 — RN 인라인 style 값(className 불가). */
+  glass: {
+    surface: { light: "rgba(255,255,255,0.55)", dark: "rgba(30,34,44,0.55)" },
+    border: { light: "rgba(255,255,255,0.75)", dark: "rgba(255,255,255,0.18)" },
+    innerHighlight: { light: "rgba(255,255,255,0.9)", dark: "rgba(255,255,255,0.25)" },
+    activePill: { light: "rgba(255,255,255,0.85)", dark: "rgba(255,255,255,0.14)" },
+    shadow: { light: "rgba(31,42,61,0.14)", dark: "rgba(0,0,0,0.35)" },
+  },
+  /** 탭 라벨 — 활성은 text/primary, 비활성은 text/secondary(색이 아니라 알약으로 구분). */
+  tab: {
+    labelActive: { light: "#1f2a3d", dark: "#eaf0f9" },
+    labelInactive: { light: "#556173", dark: "#9fabc0" },
+  },
+  /** 스플래시 배경·워드마크 — swift 스크립트·app.json과 같은 값. */
+  splash: {
+    bg: { light: "#f8fafd", dark: "#0d1118" },
+    wordmark: { light: "#3671cf", dark: "#5a90ea" },
+  },
+} as const;
+
 /** 아이콘 의미 키(플랫폼별 아이콘 세트 매핑용) — Figma Components 페이지 조사는 실제로 아이콘이 필요한 화면 구현 시점에 진행한다. */
 export const iconMeanings = {
   study: "study",
@@ -149,6 +176,7 @@ export const tokens = {
   spacing,
   radius,
   iconMeanings,
+  softBlue,
 } as const;
 
 export type Colors = typeof colors;
@@ -158,4 +186,5 @@ export type Typography = typeof typography;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;
 export type IconMeaning = (typeof iconMeanings)[keyof typeof iconMeanings];
+export type SoftBlue = typeof softBlue;
 export type DesignTokens = typeof tokens;
