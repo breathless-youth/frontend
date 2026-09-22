@@ -214,7 +214,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const snapshotErrorReportedRef = useRef(false);
 
   /**
-   * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 배선만.
+   * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
    * ref인 이유는 스냅샷·제출이 렌더와 무관한 시점(인터벌·종료)에 최신 값을 읽기 때문이고,
    * 화면이 볼 선택은 아래 state로 따로 든다.
    */

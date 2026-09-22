@@ -65,7 +65,7 @@ export interface StudySessionCreateRequest {
   events: StatusEventPayload[];
   /**
    * 과목 구간 — 과목을 선택한 채 공부한 [startedAt, endedAt) 목록. 선택 필드. 세션 안·서로 겹침 불가·0초 불가,
-   * 순서 무관. 과목별 총공부·순공은 서버가 이벤트와 겹쳐 계산한다(백엔드 ADR-0023).
+   * 순서 무관. 과목별 총공부·순공은 서버가 이벤트와 겹쳐 계산한다.
    */
   subjectSegments?: SubjectSegmentPayload[];
   /**
@@ -160,11 +160,11 @@ export interface StudySessionSummary {
   focusSec: number;
   focusRate: number;
   eventCounts: StudySessionEventCounts;
-  /** 비공부 이벤트 원본(시각) — 타임테이블의 휴식 칸 (BY-734) */
+  /** 비공부 이벤트 원본(시각) — 타임테이블의 휴식 칸 */
   events?: StatusEventPayload[];
-  /** 과목 구간 — 시작 오름차순, 서버 계산 studySec·focusSec 포함 (BY-734) */
+  /** 과목 구간 — 시작 오름차순, 서버 계산 studySec·focusSec 포함 */
   subjectSegments?: SubjectSegmentResponse[];
-  /** 이 세션에서 완료한 할 일 — 이름 포함, 지운 할 일도 남는다 (BY-734) */
+  /** 이 세션에서 완료한 할 일 — 이름 포함, 지운 할 일도 남는다 */
   completedTasks?: CompletedTaskResponse[];
 }
 
@@ -179,7 +179,7 @@ export interface StudySessionListResponse {
   studiedDatesInMonth: string[];
   /**
    * 그날 세션이 참조한 과목의 이름·색 — id 오름차순, 지운 과목 포함(`deleted`). `sessions[].subjectSegments[].subjectId`·
-   * `completedTasks[].subjectId`를 여기서 찾는다. 과목 목록 API는 살아있는 과목만 주므로 이 배열이 이름의 출처다 (BY-734)
+   * `completedTasks[].subjectId`를 여기서 찾는다. 과목 목록 API는 살아있는 과목만 주므로 이 배열이 이름의 출처다
    */
   subjects?: SubjectRef[];
 }
@@ -326,8 +326,8 @@ export type RoomJoinErrorCode =
  */
 
 /**
- * 세션 제출·스냅샷·복구에 공통으로 실리는 과목 구간 1건 — 과목을 선택한 채 공부한 [startedAt, endedAt) (백엔드 ADR-0023).
- * 길이·순공은 서버가 비공부 이벤트와 겹쳐 계산하므로 보내지 않는다. 측정 단위는 **과목**이다 — 할 일은 체크리스트다.
+ * 세션 제출·스냅샷·복구에 공통으로 실리는 과목 구간 1건 — 과목을 선택한 채 공부한 [startedAt, endedAt).
+ * 길이·순공은 서버가 비공부 이벤트와 겹쳐 계산하므로 보내지 않는다. 측정 단위는 과목이다 — 할 일은 체크리스트다.
  */
 export interface SubjectSegmentPayload {
   subjectId: number;
@@ -345,7 +345,7 @@ export interface SubjectSegmentResponse extends SubjectSegmentPayload {
   focusSec: number;
 }
 
-/** 세션 응답이 참조한 과목의 이름·색 (BY-734). 지운 과목도 실린다 — 과목 목록 API에는 안 나오지만 기록엔 남는다. */
+/** 세션 응답이 참조한 과목의 이름·색. 지운 과목도 실린다 — 과목 목록 API에는 안 나오지만 기록엔 남는다. */
 export interface SubjectRef {
   id: number;
   name: string;
@@ -354,7 +354,7 @@ export interface SubjectRef {
   deleted: boolean;
 }
 
-/** 세션에서 완료한 할 일 1건 — 이름 포함 (BY-734). 어제 완료한 할 일은 할 일 목록 API에 없으므로 여기가 이름의 출처다. */
+/** 세션에서 완료한 할 일 1건 — 이름 포함. 어제 완료한 할 일은 할 일 목록 API에 없으므로 여기가 이름의 출처다. */
 export interface CompletedTaskResponse {
   id: number;
   name: string;

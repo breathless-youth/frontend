@@ -7,10 +7,10 @@ import type {
 } from "@focusmakers/types";
 
 /**
- * 기록 탭 v2의 24시간 타임테이블·과목별 합계·완료 할 일 — 순수 함수 (BY-735).
+ * 기록 탭 v2의 24시간 타임테이블·과목별 합계·완료 할 일 — 순수 함수.
  *
  * 일간 조회(`GET /api/stats?date=`) 한 번에 실려 오는 세션별 `events`·`subjectSegments`·`completedTasks`와
- * 응답 최상위 `subjects`를 화면이 바로 그릴 모양으로 바꾼다. 화면 컴포넌트는 BY-565~568이 만든다.
+ * 응답 최상위 `subjects`를 화면이 바로 그릴 모양으로 바꾼다. 화면 컴포넌트는 후속 작업이 만든다.
  */
 
 /** 타임테이블 한 칸의 길이(분) — 프로토타입의 2분 720칸. */
@@ -66,7 +66,7 @@ function slotAt(sessions: readonly TimetableSession[], ms: number): TimetableSlo
 }
 
 /**
- * 하루 720칸. 각 칸은 그 칸의 **가운데 시각**을 덮는 세션·이벤트·구간으로 종류를 정한다 — 2분보다 짧은
+ * 하루 720칸. 각 칸은 그 칸의 가운데 시각을 덮는 세션·이벤트·구간으로 종류를 정한다 — 2분보다 짧은
  * 구간은 칸 하나에 못 미쳐 사라질 수 있는데, 화면 해상도가 2분이라 그게 맞다.
  */
 export function dayTimetable(

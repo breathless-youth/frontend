@@ -1,9 +1,9 @@
 import type { StatusEventPayload, SubjectSegmentPayload } from "@focusmakers/types";
 
 /**
- * 과목 구간 파생 — 순수 함수 (백엔드 ADR-0023, BY-735).
+ * 과목 구간 파생 — 순수 함수.
  *
- * **시간을 재지 않는다.** 과목을 고른 시각과 바꾼 시각만 기록해 `[startedAt, endedAt)` 구간으로 보내고,
+ * 시간을 재지 않는다. 과목을 고른 시각과 바꾼 시각만 기록해 `[startedAt, endedAt)` 구간으로 보내고,
  * 과목별 총공부·순공은 서버가 비공부 이벤트와 겹쳐 계산한다 — 이벤트가 시각만 보내고 길이는 서버가
  * 계산하는 것과 같은 원칙이다. 화면이 지금 보여줄 값은 `deriveSubjectTotals`가 같은 규칙을 로컬
  * 이벤트로 흉내 낸다.
@@ -29,8 +29,8 @@ function byStart(a: SubjectSegmentPayload, b: SubjectSegmentPayload): number {
 }
 
 /**
- * 시작 상태. 복원이면 서버가 준 구간을 시작 순으로 물려받고 **마지막 구간의 과목을 `resumeAtMs`부터
- * 다시 연다** — 복구 응답이 시작 오름차순이라 마지막 원소가 앱이 죽기 직전의 선택이다(ADR-0023 §7).
+ * 시작 상태. 복원이면 서버가 준 구간을 시작 순으로 물려받고 마지막 구간의 과목을 `resumeAtMs`부터
+ * 다시 연다 — 복구 응답이 시작 오름차순이라 마지막 원소가 앱이 죽기 직전의 선택이다.
  * 죽어 있던 동안은 타임라인이 일시정지(BACKGROUND)로 기록하므로 서버 계산에서 그 몫은 0이 된다.
  * `resumeAtMs`가 없으면 선택 없이 시작한다.
  */

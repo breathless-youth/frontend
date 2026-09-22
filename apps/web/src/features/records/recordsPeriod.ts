@@ -5,10 +5,10 @@ import type { DateRange } from "@/lib/statsApi";
 import { type CalendarMonth, addDaysToDateKey, weekdayIndexOfDateKey } from "./recordsFormat";
 
 /**
- * 기록 탭 v2의 주간·월간 조회 범위와 헤더 숫자 — 순수 함수 (BY-735).
+ * 기록 탭 v2의 주간·월간 조회 범위와 헤더 숫자 — 순수 함수.
  *
- * `GET /api/stats/period`는 일별 배열만 주고 합계·증감은 앱이 계산한다(BY-454 설계 원칙). 주간 뷰는
- * **월요일 시작**이다(BY-564 시안 확정) — `recordsFormat.weekDateKeys`(일요일 시작, v1 스트릭 배너용)와 다르다.
+ * `GET /api/stats/period`는 일별 배열만 주고 합계·증감은 앱이 계산한다. 시안이 주 시작을 월요일로 정해서
+ * 주간 뷰는 월요일에 시작한다. `recordsFormat.weekDateKeys`는 일요일에 시작하는 v1 스트릭 배너용이라 다르다.
  */
 
 function pad2(value: number): string {

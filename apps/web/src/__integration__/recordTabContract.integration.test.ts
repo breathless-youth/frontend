@@ -26,7 +26,7 @@ import {
 } from "@/features/records/recordsTimetable";
 
 /**
- * FE ↔ BE 계약 통합 테스트(BY-735, 임시) — 로컬 백엔드(BY-734 브랜치)에 프론트의 실제 요청 빌더·구간 트래커로
+ * 프론트와 백엔드를 실제로 왕복하는 통합 테스트 — 로컬 백엔드에 프론트의 실제 요청 빌더·구간 트래커로
  * 회원 등록 → 과목·할 일 → 스냅샷 → 복구 → 제출 → 일간 조회를 왕복시키고, 응답을 기록 탭 헬퍼에 그대로 넣는다.
  * 실행: BE_BASE_URL=http://localhost:8080 pnpm --filter web exec vitest run src/__integration__
  */
@@ -54,7 +54,7 @@ async function call<T>(
 const kstDateKey = (ms: number) => new Date(ms + 9 * 3600_000).toISOString().slice(0, 10);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe.skipIf(!BASE)("기록 탭 v2 계약 — 프론트 빌더로 실제 백엔드를 왕복한다", () => {
+describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백엔드를 왕복한다", () => {
   it("스냅샷 → 복구 → 제출 → 일간 조회가 과목 구간·이름·색·완료 할 일을 그대로 싣는다", async () => {
     // 1) 익명 기기 등록 → 토큰
     const registered = await call<{ accessToken: string }>(null, "2", "POST", "/api/users", {
