@@ -214,30 +214,36 @@ export interface ReportScreenMessage {
   atMs: number;
 }
 
+/** `navigate-tab`이 갈 수 있는 탭. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const NAVIGATE_TAB_TARGETS = ["records", "social"] as const;
+/** `navigate-tab` 발신처. 위와 같은 이유로 목록이 원천이다. */
+export const NAVIGATE_TAB_SOURCES = ["card", "study_result", "invite_card"] as const;
+
 /**
- * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
- * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
+ * 네이티브 하단 탭을 전환해 달라는 요청 — S4 결과 화면의 `기록으로 가기`와 홈 친구 초대 카드가
+ * 보낸다(옛 홈의 연속 공부 카드도 보냈다).
  *
  * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 document만
  * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
  * 신호만 보내고 실제 전환은 네이티브가 한다.
  *
- * `tab`이 `"records"` 하나뿐인 이유: 목적지가 확정된 탭 간 이동이 이것뿐이다(탭바 IA 원칙
- * "목적지가 확정되지 않은 탭을 임의로 늘리지 않는다"와 같은 태도). 새 이동이 확정되면
- * 유니온을 넓힌다 — 호환 변경이다.
+ * `tab`은 목적지가 확정된 탭 간 이동만 담는다(탭바 IA 원칙 "목적지가 확정되지 않은 탭을
+ * 임의로 늘리지 않는다"와 같은 태도). `records`는 결과 화면의 `기록으로 가기`, `social`은 홈
+ * 친구 초대 카드다. 새 이동이 확정되면 유니온을 넓힌다 — 호환 변경이다. 다만 배포된 셸은
+ * 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
  *
- * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트 `/records`로 직접 이동한다
- * (쿼리 승계 포함, 발신부 참고).
+ * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트(`/records`·`/social`)로 직접
+ * 이동한다(쿼리 승계 포함, 발신부 참고).
  */
 export interface NavigateTabMessage {
   type: "navigate-tab";
-  tab: "records";
+  tab: (typeof NAVIGATE_TAB_TARGETS)[number];
   /**
    * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
-   * `card`는 홈 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560).
-   * 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
+   * `card`는 옛 홈의 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560),
+   * `invite_card`는 홈 친구 초대 카드다. 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
    */
-  via?: "card" | "study_result";
+  via?: (typeof NAVIGATE_TAB_SOURCES)[number];
   atMs: number;
 }
 

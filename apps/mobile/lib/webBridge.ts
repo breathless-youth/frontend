@@ -1,10 +1,16 @@
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
  * 한쪽만 바꾸면 메시지가 조용히 사라진다(예외도 나지 않는다).
  */
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
+
+/** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
+function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
+  return typeof value === "string" && (list as readonly string[]).includes(value);
+}
 
 /**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
@@ -99,7 +105,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "navigate-tab":
       // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
       // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.
-      if (record.tab !== "records") {
+      if (!isOneOf(NAVIGATE_TAB_TARGETS, record.tab)) {
         return null;
       }
       // 발신처는 선택 필드 — 계약 밖 값이면 빼고(= `card` 기본) 메시지 자체는 살린다. 이동이
@@ -107,7 +113,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return {
         type: "navigate-tab",
         tab: record.tab,
-        ...(record.via === "card" || record.via === "study_result" ? { via: record.via } : {}),
+        ...(isOneOf(NAVIGATE_TAB_SOURCES, record.via) ? { via: record.via } : {}),
         atMs: record.atMs,
       };
     case "set-tab-bar":

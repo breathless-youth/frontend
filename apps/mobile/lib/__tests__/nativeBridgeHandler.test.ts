@@ -355,6 +355,20 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
   });
 
+  it("홈 친구 초대 카드가 보낸 navigate-tab social은 via=invite_card로 남기고 소셜 탭으로 간다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "social", via: "invite_card", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "social", from_tab: "home", via: "invite_card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/social");
+  });
+
   it("소셜 결과 화면이 보낸 navigate-tab은 via=study_result로 남긴다", () => {
     setActiveTabRoute("index");
 
