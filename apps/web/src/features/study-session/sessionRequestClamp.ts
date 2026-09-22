@@ -1,4 +1,4 @@
-import type { StatusEventPayload } from "@focusmakers/types";
+import type { StatusEventPayload, SubjectTimePayload } from "@focusmakers/types";
 
 /**
  * 이벤트에 실린 PAUSE 구간의 합을 ms 그대로 돌려준다.
@@ -33,4 +33,25 @@ export function clampSessionSeconds(params: {
   const studySec = Math.min(Math.max(0, params.studySec), studyCapSec);
   const focusSec = Math.min(Math.max(0, params.focusSec), studySec);
   return { studySec, focusSec };
+}
+
+/**
+ * 항목별 시간의 서버 규칙을 미리 적용한다 — `항목 studySec 합 ≤ 세션 studySec`,
+ * `항목 focusSec ≤ 항목 studySec`. 세션 studySec이 위 클램프로 깎였을 때 항목 합이 그보다
+ * 커지는 경우를 막는다. 앞 항목부터 채우고 넘치는 몫은 뒤 항목에서 잘라낸다.
+ */
+export function clampSubjectTimes(
+  items: readonly SubjectTimePayload[],
+  studySec: number,
+): SubjectTimePayload[] {
+  let remaining = Math.max(0, studySec);
+  return items.map((item) => {
+    const itemStudy = Math.min(Math.max(0, item.studySec), remaining);
+    remaining -= itemStudy;
+    return {
+      ...item,
+      studySec: itemStudy,
+      focusSec: Math.min(Math.max(0, item.focusSec), itemStudy),
+    };
+  });
 }

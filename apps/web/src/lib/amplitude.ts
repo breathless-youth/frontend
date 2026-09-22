@@ -928,6 +928,28 @@ export function trackForceUpdatePrompted(input: {
   });
 }
 
+/* ── 과목 시트(S3-9) ────────────────────────────────────────────────
+ * 스펙이 정한 3종만 찍는다 — 시트 열림 · 과목/할 일 추가 · 항목 선택. 이름·문구는 보내지 않는다.
+ */
+
+/** 컨트롤 바를 끌어 올려(또는 라벨을 눌러) 시트가 펼쳐진 순간. 닫힘은 찍지 않는다. */
+export function trackSubjectSheetOpened() {
+  if (!initialized) return;
+  track("subject_sheet_opened");
+}
+
+/** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지. */
+export function trackSubjectItemAdded(kind: "subject" | "task", viaSuggestion = false) {
+  if (!initialized) return;
+  track("subject_item_added", { kind, via_suggestion: viaSuggestion });
+}
+
+/** 과목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
+export function trackSubjectItemSelected(kind: "subject" | "none") {
+  if (!initialized) return;
+  track("subject_item_selected", { kind });
+}
+
 /* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
  *
  * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는

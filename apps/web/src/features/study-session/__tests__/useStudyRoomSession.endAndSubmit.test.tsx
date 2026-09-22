@@ -50,6 +50,46 @@ describe("endAndSubmit 중복 호출", () => {
   });
 });
 
+describe("완료 할 일 전달 (BY-725)", () => {
+  it("제출 직전에 훅의 세션 시작 시각으로 콜백을 부르고 결과를 completedTaskIds로 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const getCompletedTaskIds = vi.fn(() => [5, 9]);
+    const hook = renderHook(() => useStudyRoomSession(7, { getCompletedTaskIds }));
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    const input = vi.mocked(submitStudySession).mock.calls[0]![0];
+    expect(getCompletedTaskIds).toHaveBeenCalledWith(input.startedAtMs);
+    expect(input.completedTaskIds).toEqual([5, 9]);
+  });
+
+  it("렌더마다 바뀐 콜백을 제출 시점에 쓴다 — stale closure가 없다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const first = vi.fn(() => [1]);
+    const second = vi.fn(() => [2]);
+    const hook = renderHook(
+      ({ cb }: { cb: (startedAtMs: number) => number[] }) =>
+        useStudyRoomSession(7, { getCompletedTaskIds: cb }),
+      { initialProps: { cb: first } },
+    );
+    hook.rerender({ cb: second });
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(first).not.toHaveBeenCalled();
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].completedTaskIds).toEqual([2]);
+  });
+
+  it("옵션이 없으면 completedTaskIds를 넘기지 않는다(소셜룸 등)", async () => {
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const hook = renderHook(() => useStudyRoomSession(7));
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].completedTaskIds).toBeUndefined();
+  });
+});
+
 describe("제출 성공 후 통계 무효화", () => {
   it("성공하면 statsKeys.all을 한 번 무효화한다", async () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue(undefined);

@@ -179,3 +179,30 @@ export const CAMERA_TOAST_COPY = {
   noAlternative: "전환할 카메라가 없어요",
   cameraOff: "카메라가 꺼져 있어요",
 } as const;
+
+/**
+ * 과목 시트(S3-9) 문구 — Figma "S3-9 · 세션 과목 시트 (최종안)" 실측. `title`·`empty`는
+ * 인터뷰 13차 확정, 나머지는 시안 문구를 그대로 옮긴 것이다(voice-tone 등재 전).
+ */
+export const SUBJECT_SHEET_COPY = {
+  title: "과목",
+  /** 접힌 라벨 — 미선택(Figma `Sheet / Subject Label` None). */
+  hint: "과목을 선택할 수 있어요",
+  empty: "공부할 과목을 추가해보세요",
+  emptySub: "탭 한 번으로 과목이 생겨요. 나중에 시트에서 바꿀 수 있어요",
+  addSubject: "과목 추가",
+  addTask: "할 일 추가",
+  /** 길게 누르기 메뉴(Figma `Sheet / Context Menu`). */
+  edit: "수정",
+  remove: "제거",
+  done: "완료",
+  subjectLimit: "과목은 최대 20개까지 만들 수 있어요",
+  taskLimit: "할 일은 과목마다 최대 30개까지 만들 수 있어요",
+  loadFailed: "과목을 불러오지 못했어요",
+  saveFailed: "저장하지 못했어요. 다시 시도해주세요",
+  retry: "다시 시도",
+  loading: "불러오는 중",
+} as const;
+
+/** 빈 상태 추천 과목 — 프론트 상수. 서버에는 사용자가 고른 것만 생긴다(스펙 §3). */
+export const SUBJECT_SUGGESTIONS = ["국어", "수학", "영어", "탐구"] as const;

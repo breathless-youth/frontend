@@ -1,9 +1,13 @@
-import type { ActiveSessionSnapshotRequest, StatusEventPayload } from "@focusmakers/types";
+import type {
+  ActiveSessionSnapshotRequest,
+  StatusEventPayload,
+  SubjectTimePayload,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyUserId } from "@/lib/userId";
 
-import { clampSessionSeconds } from "./sessionRequestClamp";
+import { clampSessionSeconds, clampSubjectTimes } from "./sessionRequestClamp";
 
 /**
  * 진행 스냅샷 입력. 계약 값은 계산하지 않고 받기만 한다 — studySec/focusSec/events는
@@ -15,6 +19,8 @@ export interface ActiveSnapshotInput {
   studySec: number;
   focusSec: number;
   events: StatusEventPayload[];
+  /** 과목·할 일별 시간 — 비어 있으면 필드를 싣지 않는다(제출과 같은 규칙). */
+  subjectTimes?: SubjectTimePayload[];
 }
 
 export function buildActiveSnapshotRequest(
@@ -27,13 +33,17 @@ export function buildActiveSnapshotRequest(
     focusSec: input.focusSec,
     events: input.events,
   });
-  return {
+  const request: ActiveSessionSnapshotRequest = {
     startedAt: new Date(input.startedAtMs).toISOString(),
     reportedAt: new Date(input.reportedAtMs).toISOString(),
     studySec,
     focusSec,
     events: input.events,
   };
+  if (input.subjectTimes !== undefined && input.subjectTimes.length > 0) {
+    request.subjectTimes = clampSubjectTimes(input.subjectTimes, studySec);
+  }
+  return request;
 }
 
 /**

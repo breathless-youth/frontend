@@ -85,6 +85,9 @@ export interface CameraPermissionMessage {
 }
 
 /** 웹 → 네이티브. */
+/** 햅틱 세기 — expo-haptics `ImpactFeedbackStyle`과 같은 세 단계. */
+export type HapticStyle = "light" | "medium" | "heavy";
+
 export type ToNativeMessage =
   /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
   | { type: "session-ready"; atMs: number }
@@ -183,6 +186,12 @@ export type ToNativeMessage =
    * `auth-token`으로 답한다 — 갱신이 실패해도 문서의 대기가 풀려야 한다.
    */
   | { type: "request-token-refresh"; atMs: number }
+  /**
+   * 짧은 햅틱 — 과목 시트의 임계 스냅·측정 선택처럼 손끝 피드백이 필요한 순간에 웹이 보낸다.
+   * 웹뷰에는 `navigator.vibrate`가 없거나(iOS) 강한 진동뿐이라(Android) 네이티브가 대신 낸다.
+   * 응답은 없다. 브라우저 단독 모드에서는 발신되지 않는다(웹이 `navigator.vibrate`로 폴백).
+   */
+  | { type: "haptic"; style: HapticStyle; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
