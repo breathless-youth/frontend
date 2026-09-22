@@ -219,7 +219,7 @@ function DdayForm({
       </label>
 
       {error !== null && (
-        <p role="alert" className="text-sm leading-[17px] text-state-distract">
+        <p role="alert" className="text-sm leading-[17px] text-state-distract-text">
           {error}
         </p>
       )}

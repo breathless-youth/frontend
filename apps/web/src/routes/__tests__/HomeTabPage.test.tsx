@@ -412,6 +412,22 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
   });
 
+  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더 대신 스켈레톤이다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => null,
+      getAccessToken: () => null,
+      hasSettled: () => false,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+    renderHome("/home");
+
+    expect(await screen.findByTestId("home-header-pending")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
+  });
+
   it("토큰 문서면 좌상단이 D-Day 블록이 된다", async () => {
     tokenSourceMock.source = {
       getUserId: () => 7,

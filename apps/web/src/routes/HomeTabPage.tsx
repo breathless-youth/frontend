@@ -24,7 +24,7 @@ import { trackFocusStartTapped } from "@/lib/amplitude";
 import { getTokenSource } from "@/lib/auth/tokenSource";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
-import { useUserId } from "@/lib/userId";
+import { useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 
 /**
@@ -261,8 +261,37 @@ function HomeContent({ userId }: { userId: number }) {
   );
 }
 
+/**
+ * 헤더 왼쪽. D-Day API는 토큰 계약뿐이라 토큰 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전
+ * 로고와 날짜를 그대로 둔다. 출처가 있는데 첫 `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저
+ * 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
+ */
+function HomeHeaderLead({
+  userId,
+  identityPending,
+}: {
+  userId: number | null;
+  identityPending: boolean;
+}) {
+  if (getTokenSource() !== null) {
+    if (identityPending) {
+      return <Skeleton data-testid="home-header-pending" className="h-[54px] w-32 rounded-lg" />;
+    }
+    if (userId !== null) {
+      return <DdaySection userId={userId} />;
+    }
+  }
+  return (
+    <>
+      <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
+      <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+    </>
+  );
+}
+
 export function HomeTabPage() {
   const userId = useUserId();
+  const identityPending = useIdentityPending();
   const { recovered, dismiss } = useLaunchSessionRecovery(userId);
 
   return (
@@ -271,19 +300,8 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        {/*
-          좌상단은 D-Day 블록이다. D-Day API는 토큰 계약뿐이라 토큰 출처가 없는 문서(구 앱 웹뷰·
-          브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다.
-        */}
         <header className="flex items-end justify-between pb-2">
-          {getTokenSource() !== null && userId !== null ? (
-            <DdaySection userId={userId} />
-          ) : (
-            <>
-              <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
-              <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
-            </>
-          )}
+          <HomeHeaderLead userId={userId} identityPending={identityPending} />
         </header>
 
         {userId === null ? (
