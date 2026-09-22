@@ -316,6 +316,28 @@ export const HEAD_PITCH_DOWN_DEG = 15;
 /** 게이트가 보는 최근 각도 표본 수. 홀수여야 중앙값이 실제 관측값이다. 한 틱 튐(7회차 18.9°)을 거른다. */
 export const HEAD_PITCH_MEDIAN_SAMPLES = 3;
 
+/* ------------------------------------------------------------------ *
+ * 깜빡임 계측 (BY-704 측정용, 판정에 쓰지 않음) — `blinkWatcher.ts`
+ * ------------------------------------------------------------------ */
+
+/** 눈 영역 화소 표본의 크기(px). 눈 하나를 담기에 충분하고, 그 이상은 같은 정보를 더 셀 뿐이다. */
+export const EYE_REGION_SAMPLE = { width: 48, height: 24 } as const;
+
+/** 눈 상자를 랜드마크 폭의 몇 배로 잡는가. 위에서 본 뜬 눈은 윤곽이 선으로 찌그러져 높이를 폭에서 잡는다. */
+export const EYE_REGION_SCALE = { width: 1.4, height: 0.7 } as const;
+
+/** 눈 자리 화소 비교 주기(ms). 깜빡임이 100~400ms라 100ms면 한 깜빡임에 표본이 1~4개 걸린다. */
+export const BLINK_SAMPLE_INTERVAL_MS = 100;
+
+/** 깜빡임 이벤트의 변화량 하한(0~1). 잠정값 — 덩어리의 `blink.diff` 분포로 정한다. */
+export const BLINK_DIFF_MIN = 0.03;
+
+/** 배경 변화(지수이동평균)의 몇 배를 넘어야 이벤트인가. 잠정값. */
+export const BLINK_DIFF_RATIO = 4;
+
+/** 이벤트 뒤 다시 세지 않는 시간(ms). 감았다 뜨는 두 번의 튐을 하나로 센다. */
+export const BLINK_REFRACTORY_MS = 400;
+
 /**
  * 눈 윤곽 16점씩. MediaPipe Face Mesh의 눈 테두리 번호이고 판정에는 쓰지 않는다.
  * 실기기 측정 도구가 화면 위에 눈 자리를 그릴 때만 읽는다. 좌표는 그 캔버스에서 끝난다.

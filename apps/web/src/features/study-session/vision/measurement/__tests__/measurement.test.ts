@@ -881,3 +881,43 @@ describe("고개 각도", () => {
     expect(m.live().headPitchDeg).toBe(31);
   });
 });
+
+describe("깜빡임 계측", () => {
+  it("구간별 변화량 분포와 이벤트 수를 낸다 — 게이트 구간에서 깜빡임이 잡히는지 볼 근거다", () => {
+    const m = createMeasurement(baseSpy());
+    m.mark("내려다봄");
+    for (const [diff, event] of [
+      [0.005, false],
+      [0.006, false],
+      [0.08, true],
+      [0.004, false],
+    ] as const) {
+      m.blink({ diff, event, atMs: 1_000 });
+    }
+
+    const seg = (JSON.parse(m.dump()) as { segments: { blink: Record<string, number | null> }[] })
+      .segments[0];
+    expect(seg?.blink.samples).toBe(4);
+    expect(seg?.blink.events).toBe(1);
+    expect(seg?.blink.diffMax).toBeCloseTo(0.08, 4);
+  });
+
+  it("실시간 값에 계측 여부와 최근 30초 이벤트 수가 실린다", () => {
+    let t = 0;
+    const m = createMeasurement(baseSpy(), { now: () => t });
+    m.blink({ diff: 0.05, event: true, atMs: 0 });
+    t = 500;
+    expect(m.live().blinkActive).toBe(true);
+    expect(m.live().blinkEvents30s).toBe(1);
+    t = 40_000;
+    expect(m.live().blinkActive).toBe(false);
+    expect(m.live().blinkEvents30s).toBe(0);
+  });
+
+  it("기본 진단으로도 넘긴다 — 껍데기는 옆에서 듣는다", () => {
+    const base = { ...baseSpy(), blink: vi.fn() };
+    const m = createMeasurement(base);
+    m.blink({ diff: 0.01, event: false, atMs: 0 });
+    expect(base.blink).toHaveBeenCalledTimes(1);
+  });
+});
