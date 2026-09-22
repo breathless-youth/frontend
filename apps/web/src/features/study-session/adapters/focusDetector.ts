@@ -21,7 +21,7 @@ import type {
   FaceDetectionResult,
   VisionFaceLandmarker,
 } from "../vision/faceLandmarker";
-import { isLookingDown, pushHeadPitch } from "../vision/headPitchGate";
+import { headPitchZone, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
@@ -37,6 +37,7 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
+  BLINK_QUIET_MS,
 } from "../vision/visionConfig";
 
 /**
@@ -348,13 +349,33 @@ export function createVisionFocusDetector(
    * 서 있던 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라 허용된 방향이다. 근거는 `visionConfig.ts`의
    * `HEAD_PITCH_DOWN_DEG` 주석.
    */
-  function gateHeadPitch(result: FaceDetectionResult): FaceObservation {
+  function gateHeadPitch(
+    result: FaceDetectionResult,
+    frameWidth: number,
+    frameHeight: number,
+    atMs: number,
+  ): FaceObservation {
     recentHeadPitch = pushHeadPitch(recentHeadPitch, result.metrics.headPitchDeg);
+    const zone = headPitchZone(recentHeadPitch);
+    // 눈 움직임 계측은 `quiet`·`down` 구간에서 돈다. 눈 자리는 이번 틱의 윤곽으로 갱신한다.
+    blinkWatcher.update(
+      zone !== "clear" && latestOutline !== null
+        ? boxesFromOutline(latestOutline, frameWidth, frameHeight)
+        : null,
+    );
     const face = result.face;
-    if (face.eye === null || !isLookingDown(recentHeadPitch)) {
+    if (face.eye === null || zone === "clear") {
       return face;
     }
-    return { facePresent: true, eye: null, eyeSkipReason: "looking-down" };
+    if (zone === "down") {
+      return { facePresent: true, eye: null, eyeSkipReason: "looking-down" };
+    }
+    // `quiet` 구간 — 눈 움직임이 `BLINK_QUIET_MS` 동안 없어야 감김이다. 계측이 안 돌면 판정 없음.
+    const quiet = blinkWatcher.quietMs(atMs);
+    if (quiet === null || quiet < BLINK_QUIET_MS) {
+      return { facePresent: true, eye: null, eyeSkipReason: "eyes-active" };
+    }
+    return face;
   }
 
   /**
@@ -583,15 +604,9 @@ export function createVisionFocusDetector(
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
-          faceObserved = gateHeadPitch(faceRan);
+          faceObserved = gateHeadPitch(faceRan, element.videoWidth, element.videoHeight, atMs);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
-          // 깜빡임 계측은 게이트에 걸린 동안만. 눈 자리는 이번 틱의 윤곽으로 갱신한다.
-          blinkWatcher.update(
-            faceObserved.eyeSkipReason === "looking-down" && latestOutline !== null
-              ? boxesFromOutline(latestOutline, element.videoWidth, element.videoHeight)
-              : null,
-          );
         }
       }
     } else {

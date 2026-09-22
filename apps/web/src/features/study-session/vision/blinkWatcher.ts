@@ -205,6 +205,11 @@ export interface BlinkWatcher {
   readonly active: boolean;
   /** 눈 상자를 준다. null이면 멈춘다. 상자가 있으면 초당 10번 비교를 이어 간다. */
   update(boxes: EyeBoxes | null): void;
+  /**
+   * 마지막 눈 움직임 이벤트(없으면 계측 시작) 이후 지난 시간(ms). 계측이 돌고 있지 않거나 아직 표본이
+   * 없으면 null — 모르는 것을 "조용함"으로 치지 않는다.
+   */
+  quietMs(atMs: number): number | null;
   stop(): void;
 }
 
@@ -221,6 +226,9 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
   let boxes: EyeBoxes | null = null;
   let timer: unknown = null;
   let previous: { left: Float32Array; right: Float32Array } | null = null;
+  /** 첫 비교 표본의 시각과 마지막 이벤트 시각. `quietMs`의 기준이다. */
+  let firstSampleAtMs: number | null = null;
+  let lastEventAtMs: number | null = null;
 
   function tick(): void {
     const element = video();
@@ -239,7 +247,14 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
         meanAbsDiff(previous.right, current.right),
       );
       const atMs = now();
-      onSample({ diff, event: detector.push(diff, atMs), atMs });
+      const event = detector.push(diff, atMs);
+      if (firstSampleAtMs === null) {
+        firstSampleAtMs = atMs;
+      }
+      if (event) {
+        lastEventAtMs = atMs;
+      }
+      onSample({ diff, event, atMs });
     }
     previous = current;
   }
@@ -251,6 +266,8 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
     }
     boxes = null;
     previous = null;
+    firstSampleAtMs = null;
+    lastEventAtMs = null;
     detector.reset();
   }
 
@@ -267,6 +284,12 @@ export function createBlinkWatcher(options: BlinkWatcherOptions): BlinkWatcher {
       if (timer === null) {
         timer = setTimer(tick, BLINK_SAMPLE_INTERVAL_MS);
       }
+    },
+    quietMs(atMs) {
+      if (timer === null || firstSampleAtMs === null) {
+        return null;
+      }
+      return atMs - (lastEventAtMs ?? firstSampleAtMs);
     },
     stop,
   };

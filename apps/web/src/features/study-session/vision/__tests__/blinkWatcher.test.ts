@@ -140,4 +140,21 @@ describe("감시기", () => {
       expect(text).not.toContain(key);
     }
   });
+
+  it("조용한 시간 — 이벤트가 없으면 첫 표본부터, 있으면 마지막 이벤트부터 잰다. 안 돌면 null", () => {
+    const frames = [100, 100, 100, 100, 100, 100, 200, 100, 100, 100, 100];
+    const { created } = watcher(frames);
+    expect(created.quietMs(Date.now())).toBeNull();
+    created.update(boxesFromOutline(outline, 1000, 1000));
+    vi.advanceTimersByTime(BLINK_SAMPLE_INTERVAL_MS * 4);
+    const beforeEvent = created.quietMs(Date.now());
+    expect(beforeEvent).not.toBeNull();
+    expect(beforeEvent).toBeGreaterThan(0);
+    vi.advanceTimersByTime(BLINK_SAMPLE_INTERVAL_MS * 4);
+    const afterEvent = created.quietMs(Date.now());
+    expect(afterEvent).not.toBeNull();
+    expect(afterEvent as number).toBeLessThan(beforeEvent as number);
+    created.update(null);
+    expect(created.quietMs(Date.now())).toBeNull();
+  });
 });

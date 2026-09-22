@@ -36,7 +36,7 @@ export interface FaceObservation {
   readonly eye: EyeScores | null;
   /** `eye`가 null인 이유. 진단 로그용이고 판정에는 쓰지 않는다. */
   readonly eyeSkipReason:
-    "no-face" | "face-too-small" | "blendshapes-missing" | "looking-down" | null;
+    "no-face" | "face-too-small" | "blendshapes-missing" | "looking-down" | "eyes-active" | null;
 }
 
 /**
