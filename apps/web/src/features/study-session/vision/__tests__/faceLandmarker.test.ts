@@ -9,10 +9,11 @@ import type {
   MediapipeFaceLandmarkerHandle,
   MediapipeFaceRuntime,
 } from "../mediapipePort";
+import type { EyeRegionSampler } from "../faceLandmarker";
 import {
   EAR_LANDMARKS,
+  EYE_REGION_SAMPLE,
   FACE_MODEL_PATH,
-  HEAD_PITCH_DOWN_DEG,
   MEDIAPIPE_WASM_PATH,
   MIN_INTER_OCULAR_NORMALIZED,
 } from "../visionConfig";
@@ -430,59 +431,57 @@ describe("createFaceLandmarker — 추론 실패", () => {
   });
 });
 
-describe("내려다봄 게이트와 얼굴 지표", () => {
-  async function ready(result: unknown) {
+describe("얼굴 지표 — 판정은 쓰지 않고 측정 도구가 기록한다", () => {
+  async function ready(result: unknown, sampleEyeRegion?: EyeRegionSampler) {
     const handle = fakeHandle(result);
     const { loadRuntime } = fakeRuntime(async () => handle);
-    const landmarker = createFaceLandmarker({ loadRuntime });
+    const landmarker = createFaceLandmarker({ loadRuntime, sampleEyeRegion });
     await landmarker.load();
     return { landmarker, handle };
   }
 
-  it("고개를 게이트 이상 숙이면 눈 판정을 하지 않고 looking-down으로 남긴다 — 얼굴은 있다", async () => {
+  /** 표본 크기의 RGBA. `darkRatio`만큼의 화소를 어둡게 칠한다. */
+  function pixels(darkRatio: number, bright = 200, dark = 20): Uint8ClampedArray {
+    const count = EYE_REGION_SAMPLE.width * EYE_REGION_SAMPLE.height;
+    const data = new Uint8ClampedArray(count * 4);
+    const darkCount = Math.round(count * darkRatio);
+    for (let i = 0; i < count; i += 1) {
+      const value = i < darkCount ? dark : bright;
+      data[i * 4] = value;
+      data[i * 4 + 1] = value;
+      data[i * 4 + 2] = value;
+      data[i * 4 + 3] = 255;
+    }
+    return data;
+  }
+
+  const sized = { videoWidth: 640, videoHeight: 480 } as HTMLVideoElement;
+  /** 눈 윤곽이 서는 랜드마크. 화소 상자를 잡으려면 윤곽 폭이 0이 아니어야 한다. */
+  function eyedFace(closure = 0.2) {
+    return {
+      faceLandmarks: [withEyes(landmarks(0.13), 0.3)],
+      faceBlendshapes: blendshapes(closure),
+    };
+  }
+
+  it("자세 행렬에서 고개 각도를 뽑는다 — 판정에는 쓰지 않는다(2026-09-22 게이트를 뺐다)", async () => {
     const { landmarker } = await ready({
       ...faceResult(0.13, 0.9),
-      facialTransformationMatrixes: [pitchMatrix(HEAD_PITCH_DOWN_DEG + 15)],
+      facialTransformationMatrixes: [pitchMatrix(40)],
     });
 
     const result = landmarker.detect(video, 0);
-    expect(result?.face).toEqual({ facePresent: true, eye: null, eyeSkipReason: "looking-down" });
-    // 게이트에 걸린 관측에서도 각도와 내려다봄 점수는 넘긴다 — 그게 게이트를 다듬을 자료다.
-    expect(result?.metrics.headPitchDeg).toBeCloseTo(HEAD_PITCH_DOWN_DEG + 15, 0);
-    expect(result?.metrics.lookDown).toBeCloseTo(0.1, 3);
+    expect(result?.face.eyeSkipReason).toBeNull();
+    expect(result?.face.eye?.eyeBlinkLeft).toBe(0.9);
+    expect(result?.metrics.headPitchDeg).toBeCloseTo(40, 0);
   });
 
-  it("고개가 서 있으면 게이트에 걸리지 않고 각도만 넘긴다", async () => {
-    const { landmarker } = await ready({
-      ...faceResult(0.13, 0.9),
-      facialTransformationMatrixes: [pitchMatrix(10)],
-    });
-
-    const result = landmarker.detect(video, 0);
-    expect(result?.face.eye).toEqual({
-      eyeBlinkLeft: 0.9,
-      eyeBlinkRight: 0.9,
-      eyeLookDownLeft: 0.1,
-      eyeLookDownRight: 0.1,
-    });
-    expect(result?.metrics.headPitchDeg).toBeCloseTo(10, 0);
-  });
-
-  it("자세 행렬이 없으면 게이트 없이 예전처럼 판정한다", async () => {
+  it("자세 행렬이 없으면 각도는 null이고 판정은 그대로다", async () => {
     const { landmarker } = await ready(faceResult(0.13, 0.9));
 
     const result = landmarker.detect(video, 0);
     expect(result?.face.eyeSkipReason).toBeNull();
     expect(result?.metrics.headPitchDeg).toBeNull();
-  });
-
-  it("얼굴 크기 게이트가 내려다봄 게이트보다 먼저다 — 멀면 각도와 무관하게 face-too-small", async () => {
-    const { landmarker } = await ready({
-      ...faceResult(MIN_INTER_OCULAR_NORMALIZED - 0.01, 0.9),
-      facialTransformationMatrixes: [pitchMatrix(HEAD_PITCH_DOWN_DEG + 15)],
-    });
-
-    expect(landmarker.detect(video, 0)?.face.eyeSkipReason).toBe("face-too-small");
   });
 
   it("EAR은 두 눈 중 큰 쪽(덜 감긴 쪽)이다 — 판정이 두 눈 중 덜 감긴 쪽을 보는 것과 같은 방향", async () => {
@@ -517,16 +516,81 @@ describe("내려다봄 게이트와 얼굴 지표", () => {
       headPitchDeg: null,
       ear: null,
       lookDown: null,
+      eyeContrast: null,
+      eyeDark: null,
     });
   });
 
-  it("행렬·각도·EAR 어느 것도 좌표를 반환값에 싣지 않는다", async () => {
-    const { landmarker } = await ready({
-      ...faceResult(0.13, 0.9),
-      facialTransformationMatrixes: [pitchMatrix(10)],
-    });
-    const text = JSON.stringify(landmarker.detect(video, 0));
-    for (const key of ["data", "rows", "columns", 'x"', 'y"', "landmark"]) {
+  it("눈 영역 화소 — 동공이 있는 뜬 눈은 대비와 어둠 비율이 있고, 균일한 감은 눈은 둘 다 0이다", async () => {
+    const open = await ready(eyedFace(), () => pixels(0.25));
+    const openMetrics = open.landmarker.detect(sized, 0)?.metrics;
+    expect(openMetrics?.eyeDark).toBeCloseTo(0.25, 2);
+    expect(openMetrics?.eyeContrast).toBeGreaterThan(0.2);
+
+    const closed = await ready(eyedFace(0.7), () => pixels(0));
+    const closedMetrics = closed.landmarker.detect(sized, 0)?.metrics;
+    expect(closedMetrics?.eyeDark).toBe(0);
+    expect(closedMetrics?.eyeContrast).toBe(0);
+  });
+
+  it("두 눈 중 큰 쪽을 쓴다 — 한쪽만 뜬 것은 뜬 것이다(판정의 min(eyeBlink)과 같은 방향)", async () => {
+    let call = 0;
+    const sampler: EyeRegionSampler = () => {
+      call += 1;
+      return call === 1 ? pixels(0) : pixels(0.3);
+    };
+    const { landmarker } = await ready(eyedFace(), sampler);
+
+    const metrics = landmarker.detect(sized, 0)?.metrics;
+    expect(metrics?.eyeDark).toBeCloseTo(0.3, 2);
+    expect(call).toBe(2);
+  });
+
+  it("화소를 못 뜨면 null이고 판정은 그대로다 — 캔버스가 없는 환경에서 감지가 죽으면 안 된다", async () => {
+    const { landmarker } = await ready(eyedFace(), () => null);
+
+    const result = landmarker.detect(sized, 0);
+    expect(result?.metrics.eyeContrast).toBeNull();
+    expect(result?.metrics.eyeDark).toBeNull();
+    expect(result?.face.eye).not.toBeNull();
+  });
+
+  it("비디오 크기를 모르면 표본을 뜨지 않는다", async () => {
+    const sampler = vi.fn(() => pixels(0.25));
+    const { landmarker } = await ready(eyedFace(), sampler);
+
+    expect(landmarker.detect(video, 0)?.metrics.eyeContrast).toBeNull();
+    expect(sampler).not.toHaveBeenCalled();
+  });
+
+  it("화소 상자는 윤곽 폭 기준이라 윤곽이 선으로 찌그러져도 높이가 있다", async () => {
+    const boxes: { width: number; height: number }[] = [];
+    const sampler: EyeRegionSampler = (_video, box) => {
+      boxes.push({ width: box.width, height: box.height });
+      return pixels(0.1);
+    };
+    // 세로 짝이 전부 같은 y(EAR 0)인 윤곽 — 위에서 본 뜬 눈이 이렇게 찍힌다.
+    const flat = withEyes(landmarks(0.13), 0);
+    const { landmarker } = await ready(
+      { faceLandmarks: [flat], faceBlendshapes: blendshapes(0.6) },
+      sampler,
+    );
+
+    landmarker.detect(sized, 0);
+    expect(boxes).toHaveLength(2);
+    for (const box of boxes) {
+      expect(box.height).toBeGreaterThan(2);
+      expect(box.height).toBeCloseTo(box.width * 0.5, 0);
+    }
+  });
+
+  it("행렬·각도·화소 어느 것도 좌표나 화소 배열을 반환값에 싣지 않는다", async () => {
+    const { landmarker } = await ready(
+      { ...eyedFace(), facialTransformationMatrixes: [pitchMatrix(10)] },
+      () => pixels(0.2),
+    );
+    const text = JSON.stringify(landmarker.detect(sized, 0));
+    for (const key of ["data", "rows", "columns", 'x"', 'y"', "landmark", "box"]) {
       expect(text).not.toContain(key);
     }
   });

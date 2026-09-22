@@ -10,7 +10,6 @@ import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
-  HEAD_PITCH_DOWN_DEG,
 } from "../../visionConfig";
 
 /** 호출을 세는 기본 진단. 껍데기가 전부 넘기는지 확인한다. */
@@ -875,7 +874,7 @@ describe("고개 각도와 EAR", () => {
       [35, 0.18],
       [40, 0.15],
     ] as const) {
-      m.frame(faceWith(pitch, ear, "looking-down"));
+      m.frame(faceWith(pitch, ear, "face-too-small"));
     }
 
     const seg = (
@@ -892,7 +891,7 @@ describe("고개 각도와 EAR", () => {
     expect(seg?.ear.samples).toBe(3);
     expect(seg?.ear.p50).toBeCloseTo(0.18, 3);
     // 게이트에 걸린 관측은 눈 점수가 없어도 각도는 남는다 — 그래야 게이트를 튜닝한다.
-    expect(seg?.face.skipped["looking-down"]).toBe(3);
+    expect(seg?.face.skipped["face-too-small"]).toBe(3);
   });
 
   it("각도나 EAR이 없는 관측은 분포에서 뺀다", () => {
@@ -911,18 +910,18 @@ describe("고개 각도와 EAR", () => {
 
   it("실시간 값에 마지막 관측의 각도·EAR·건너뛴 이유가 실린다", () => {
     const m = createMeasurement(baseSpy());
-    m.frame(faceWith(31, 0.19, "looking-down"));
+    m.frame(faceWith(31, 0.19, "face-too-small"));
 
     const live = m.live();
     expect(live.headPitchDeg).toBe(31);
     expect(live.ear).toBe(0.19);
-    expect(live.faceSkip).toBe("looking-down");
+    expect(live.faceSkip).toBe("face-too-small");
   });
 
-  it("게이트 값이 설정 스냅샷에 실린다", () => {
+  it("눈 영역 표본 크기가 설정 스냅샷에 실린다", () => {
     const m = createMeasurement(baseSpy());
-    const config = (JSON.parse(m.dump()) as { config: Record<string, number> }).config;
-    expect(config.headPitchDownDeg).toBe(HEAD_PITCH_DOWN_DEG);
+    const config = (JSON.parse(m.dump()) as { config: Record<string, number | string> }).config;
+    expect(config.eyeRegionSample).toBe("48x24");
   });
 });
 
@@ -936,7 +935,7 @@ describe("내려다봄 점수", () => {
           face: {
             present: true,
             eye: null,
-            skipReason: "looking-down",
+            skipReason: "face-too-small",
             durationMs: 50,
             delegate: "CPU",
             headPitchDeg: 20,
@@ -952,5 +951,52 @@ describe("내려다봄 점수", () => {
     expect(seg?.lookDown.samples).toBe(3);
     expect(seg?.lookDown.p50).toBeCloseTo(0.75, 3);
     expect(m.live().lookDown).toBe(0.8);
+  });
+});
+
+describe("눈 영역 화소", () => {
+  function faceWith(eyeContrast: number | null, eyeDark: number | null) {
+    return frame({
+      face: {
+        present: true,
+        eye: { eyeBlinkLeft: 0.6, eyeBlinkRight: 0.6 },
+        skipReason: null,
+        durationMs: 50,
+        delegate: "CPU",
+        eyeContrast,
+        eyeDark,
+      },
+    });
+  }
+
+  it("구간별 대비와 어둠 비율 분포를 낸다 — 랜드마크가 못 가르는 내려다봄과 감김을 가를 후보다", () => {
+    const m = createMeasurement(baseSpy());
+    m.mark("내려다봄");
+    for (const [contrast, dark] of [
+      [0.2, 0.1],
+      [0.25, 0.15],
+      [0.3, 0.2],
+    ] as const) {
+      m.frame(faceWith(contrast, dark));
+    }
+    m.frame(faceWith(null, null));
+
+    const seg = (
+      JSON.parse(m.dump()) as {
+        segments: { eyeContrast: Record<string, number>; eyeDark: Record<string, number> }[];
+      }
+    ).segments[0];
+    expect(seg?.eyeContrast.samples).toBe(3);
+    expect(seg?.eyeContrast.p50).toBeCloseTo(0.25, 3);
+    expect(seg?.eyeDark.samples).toBe(3);
+    expect(seg?.eyeDark.p50).toBeCloseTo(0.15, 3);
+    expect(m.live().eyeContrast).toBeNull();
+  });
+
+  it("실시간 값에 마지막 관측의 대비·어둠 비율이 실린다", () => {
+    const m = createMeasurement(baseSpy());
+    m.frame(faceWith(0.31, 0.22));
+    expect(m.live().eyeContrast).toBe(0.31);
+    expect(m.live().eyeDark).toBe(0.22);
   });
 });

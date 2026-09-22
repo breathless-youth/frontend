@@ -94,8 +94,6 @@ function deg(value: number | null): string {
 /** 건너뛴 이유를 사람이 읽는 말로. 게이트 이름은 코드가 유일한 출처다(`sleepRules.ts`). */
 function skipLabel(reason: string | null): string {
   switch (reason) {
-    case "looking-down":
-      return "(내려다봄)";
     case "face-too-small":
       return "(멀다)";
     case "blendshapes-missing":
@@ -120,7 +118,7 @@ export function liveLines(live: LiveSnapshot): string {
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
     `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
-    `고개 ${deg(live.headPitchDeg)} · EAR ${score(live.ear)} · 내려다봄 점수 ${score(live.lookDown)}`,
+    `고개 ${deg(live.headPitchDeg)} · EAR ${score(live.ear)} · 내려다봄 ${score(live.lookDown)} · 대비 ${score(live.eyeContrast)} 어둠 ${score(live.eyeDark)}`,
     `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)}${skipLabel(live.faceSkip)} 사람 ${score(live.person)} · ${age}`,
     calibration,
   ].join("\n");

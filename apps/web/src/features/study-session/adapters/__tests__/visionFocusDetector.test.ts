@@ -181,7 +181,13 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
       : {
           face: next,
           durationMs: 1,
-          metrics: { headPitchDeg: null, ear: null, lookDown: null },
+          metrics: {
+            headPitchDeg: null,
+            ear: null,
+            lookDown: null,
+            eyeContrast: null,
+            eyeDark: null,
+          },
         };
   });
   const close = vi.fn(() => {

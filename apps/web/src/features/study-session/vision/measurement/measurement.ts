@@ -12,8 +12,9 @@ import {
   EYE_RATIO_THRESHOLD,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
+  EYE_DARK_RATIO_OF_MEAN,
+  EYE_REGION_SAMPLE,
   FACE_SMOOTHING_SAMPLES,
-  HEAD_PITCH_DOWN_DEG,
   FRAME_INTERVAL_MS,
   SCORE_THRESHOLDS,
 } from "../visionConfig";
@@ -86,11 +87,11 @@ interface Segment {
   headPitchDeg: number[];
   /** 두 눈 EAR 중 큰 쪽. blendshape 눈 점수와 나란히 놓고 어느 쪽이 내려다봄을 가르는지 본다. */
   ear: number[];
-  /**
-   * 두 눈 `eyeLookDown` 중 작은 쪽. 고개 숙임 게이트 안에서 "감김"과 "책 읽기"를 가를 후보다 —
-   * 9/20 스파이크에서 감은 눈은 0.6~0.8, 책을 볼 때는 0.07~0.33이었다. 게이트에 걸린 관측도 모은다.
-   */
+  /** 두 눈 `eyeLookDown` 중 작은 쪽. 2026-09-22 실측에서 내려다봄과 감김을 가르지 못했다(기록만). */
   lookDown: number[];
+  /** 눈 영역 밝기 표준편차와 어두운 화소 비율. 내려다봄과 감김을 가를 후보(`EYE_REGION_SAMPLE`). */
+  eyeContrast: number[];
+  eyeDark: number[];
   personScore: number[];
   faceRan: number;
   facePresent: number;
@@ -189,10 +190,12 @@ export interface LiveSnapshot {
   readonly facePresent: boolean | null;
   /** 마지막 얼굴 관측이 눈 판정을 건너뛴 이유. 내려다봄 게이트에 걸렸는지가 여기서 보인다. */
   readonly faceSkip: string | null;
-  /** 마지막 얼굴 관측의 고개 숙임 각도(도)와 EAR, 내려다봄 점수. */
+  /** 마지막 얼굴 관측의 고개 숙임 각도(도)와 EAR, 내려다봄 점수, 눈 영역 화소 대비·어둠 비율. */
   readonly headPitchDeg: number | null;
   readonly ear: number | null;
   readonly lookDown: number | null;
+  readonly eyeContrast: number | null;
+  readonly eyeDark: number | null;
   readonly person: number | null;
   readonly calibration: EyeCalibration | null;
 }
@@ -276,6 +279,8 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     headPitchDeg: [],
     ear: [],
     lookDown: [],
+    eyeContrast: [],
+    eyeDark: [],
     personScore: [],
     faceRan: 0,
     facePresent: 0,
@@ -352,7 +357,8 @@ function configSnapshot() {
     eyeRatioWindowSamples: EYE_RATIO_WINDOW_SAMPLES,
     eyeRatioThreshold: EYE_RATIO_THRESHOLD,
     eyeAwakeClearSamples: EYE_AWAKE_CLEAR_SAMPLES,
-    headPitchDownDeg: HEAD_PITCH_DOWN_DEG,
+    eyeRegionSample: `${EYE_REGION_SAMPLE.width}x${EYE_REGION_SAMPLE.height}`,
+    eyeDarkRatioOfMean: EYE_DARK_RATIO_OF_MEAN,
     sleepDrowsyEnterMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.enterMs,
     sleepDrowsyExitMs: DEFAULT_DETECTION_PARAMS.SLEEP_DROWSY.exitMs,
   };
@@ -363,6 +369,8 @@ function summarize(segment: Segment) {
   const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
   const earSorted = [...segment.ear].sort((a, b) => a - b);
   const lookDownSorted = [...segment.lookDown].sort((a, b) => a - b);
+  const contrastSorted = [...segment.eyeContrast].sort((a, b) => a - b);
+  const darkSorted = [...segment.eyeDark].sort((a, b) => a - b);
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
@@ -402,6 +410,19 @@ function summarize(segment: Segment) {
       p05: percentile(lookDownSorted, 0.05, 3),
       p50: percentile(lookDownSorted, 0.5, 3),
       p95: percentile(lookDownSorted, 0.95, 3),
+    },
+    // 화소 지표. 감기 구간에서 낮고 내려다봄 구간에서 높으면 랜드마크가 못 가르는 것을 가르는 것이다.
+    eyeContrast: {
+      samples: contrastSorted.length,
+      p05: percentile(contrastSorted, 0.05, 3),
+      p50: percentile(contrastSorted, 0.5, 3),
+      p95: percentile(contrastSorted, 0.95, 3),
+    },
+    eyeDark: {
+      samples: darkSorted.length,
+      p05: percentile(darkSorted, 0.05, 3),
+      p50: percentile(darkSorted, 0.5, 3),
+      p95: percentile(darkSorted, 0.95, 3),
     },
     person: {
       mean: mean(personSorted, 3),
@@ -454,9 +475,15 @@ function record(segment: Segment, diagnostics: FrameDiagnostics): void {
   if (lookDown !== null) {
     segment.lookDown.push(lookDown);
   }
+  if (face.eyeContrast !== undefined && face.eyeContrast !== null) {
+    segment.eyeContrast.push(face.eyeContrast);
+  }
+  if (face.eyeDark !== undefined && face.eyeDark !== null) {
+    segment.eyeDark.push(face.eyeDark);
+  }
 }
 
-/** 래퍼가 게이트 앞에서 뽑은 값. `eye`는 게이트에 걸리면 null이라 그쪽으로는 이 구간을 못 본다. */
+/** 래퍼가 뽑은 값. `eye`가 걸러진 관측에서도 온다. */
 function lookDownOf(diagnostics: FrameDiagnostics): number | null {
   const value = diagnostics.face?.lookDown;
   return value === undefined ? null : value;
@@ -478,6 +505,8 @@ function summaryLine(minute: number, segment: Segment): string {
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
   const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
   const earSorted = [...segment.ear].sort((a, b) => a - b);
+  const contrastSorted = [...segment.eyeContrast].sort((a, b) => a - b);
+  const darkSorted = [...segment.eyeDark].sort((a, b) => a - b);
   return [
     `min=${minute}`,
     `frames=${segment.frames}`,
@@ -487,6 +516,7 @@ function summaryLine(minute: number, segment: Segment): string {
     `eye=${numberOrDash(percentile(eyeSorted, 0.5, 3))}/${numberOrDash(percentile(eyeSorted, 0.95, 3))}`,
     `pitch=${numberOrDash(percentile(pitchSorted, 0.5, 1))}/${numberOrDash(percentile(pitchSorted, 0.95, 1))}`,
     `ear=${numberOrDash(percentile(earSorted, 0.5, 3))}/${numberOrDash(percentile(earSorted, 0.05, 3))}`,
+    `contrast=${numberOrDash(percentile(contrastSorted, 0.5, 3))} dark=${numberOrDash(percentile(darkSorted, 0.5, 3))}`,
     `facePresent=${segment.faceRan === 0 ? "-" : round(segment.facePresent / segment.faceRan, 2)}`,
     `person=${numberOrDash(mean(segment.personScore, 3))}`,
     `sleepEyes=${segment.sleepEyes}`,
@@ -778,6 +808,8 @@ export function createMeasurement(
         headPitchDeg: face?.headPitchDeg ?? null,
         ear: face?.ear ?? null,
         lookDown: face?.lookDown ?? null,
+        eyeContrast: face?.eyeContrast ?? null,
+        eyeDark: face?.eyeDark ?? null,
         person: lastFrame?.topScores.person ?? null,
         calibration: currentCalibration(),
       };

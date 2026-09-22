@@ -583,6 +583,8 @@ export function createVisionFocusDetector(
               headPitchDeg: faceRan.metrics.headPitchDeg,
               ear: faceRan.metrics.ear,
               lookDown: faceRan.metrics.lookDown,
+              eyeContrast: faceRan.metrics.eyeContrast,
+              eyeDark: faceRan.metrics.eyeDark,
             },
     });
     publish(signals, sleep);
