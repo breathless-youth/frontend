@@ -230,13 +230,17 @@ export const FACE_MODEL_PATH = "/models/face_landmarker.task";
  * 얼굴 모델 생성 옵션.
  *
  * `numFaces`가 1인 것은 비용 때문이고, 그 대가로 여러 사람이 찍히면 모델이 고른 한 명만 본다
- * (다중 인물은 `detectionRules.ts`의 자리 이탈 한계와 같은 부류다). 신뢰도 셋은 기본값 0.5보다
- * 높다 — 깨어 있는 사람을 졸음으로 잡지 않는 쪽을 우선한다.
+ * (다중 인물은 `detectionRules.ts`의 자리 이탈 한계와 같은 부류다).
+ *
+ * 검출·존재 신뢰도는 0.6에서 0.5(기본값)로 내렸다(2026-09-22 실측). 고개를 17° 숙이고 눈을 감은
+ * 구간에서 얼굴이 30번 중 10번 빠져, 눈 점수는 감김으로 읽히는데 10초 유지가 끊겨 졸음이 서지
+ * 않았다. 얼굴이 빠지면 "판정 없음"이라 오탐 방향이 아니고, 신뢰도를 내려 얼굴을 더 자주 잡는 것은
+ * 놓치는 쪽만 줄인다. 추적 신뢰도는 그대로 0.6이다 — 프레임 사이 추적은 끊겨도 다음 검출이 받는다.
  */
 export const FACE_LANDMARKER_OPTIONS = {
   numFaces: 1,
-  minFaceDetectionConfidence: 0.6,
-  minFacePresenceConfidence: 0.6,
+  minFaceDetectionConfidence: 0.5,
+  minFacePresenceConfidence: 0.5,
   minTrackingConfidence: 0.6,
 } as const;
 

@@ -126,8 +126,8 @@ describe("createFaceLandmarker — 로딩", () => {
       modelAssetPath: FACE_MODEL_PATH,
       delegate: "CPU",
       numFaces: 1,
-      minFaceDetectionConfidence: 0.6,
-      minFacePresenceConfidence: 0.6,
+      minFaceDetectionConfidence: 0.5,
+      minFacePresenceConfidence: 0.5,
       minTrackingConfidence: 0.6,
     });
   });
