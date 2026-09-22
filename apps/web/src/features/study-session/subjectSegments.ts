@@ -29,10 +29,13 @@ function byStart(a: SubjectSegmentPayload, b: SubjectSegmentPayload): number {
 }
 
 /**
- * 시작 상태. 복원이면 서버가 준 구간을 시작 순으로 물려받고 마지막 구간의 과목을 `resumeAtMs`부터
- * 다시 연다 — 복구 응답이 시작 오름차순이라 마지막 원소가 앱이 죽기 직전의 선택이다.
- * 죽어 있던 동안은 타임라인이 일시정지(BACKGROUND)로 기록하므로 서버 계산에서 그 몫은 0이 된다.
- * `resumeAtMs`가 없으면 선택 없이 시작한다.
+ * 시작 상태. 복원이면 서버가 준 구간을 시작 순으로 물려받는다.
+ *
+ * 마지막 구간을 다시 여는 것은 그 구간의 끝이 정확히 `resumeAtMs`(마지막 보고 시각)와 같을 때뿐이다
+ * — 보고 시각과 같다는 것은 그 구간이 열린 채로 스냅샷이 찍혔다는 뜻이고(`materializeSubjectSegments`가
+ * 그 순간에 `current`를 닫아 보낸다), 둘 사이에 틈이 있다는 것은 죽기 전에 이미 과목을 선택 해제했다는
+ * 뜻이라 다시 열면 안 된다. 죽어 있던 동안은 타임라인이 일시정지(BACKGROUND)로 기록하므로 다시 여는
+ * 경우도 서버 계산에서 그 몫은 0이 된다. `resumeAtMs`가 없으면 선택 없이 시작한다.
  */
 export function createSubjectSegmentTracker(
   restored: readonly SubjectSegmentPayload[] = [],
@@ -40,12 +43,11 @@ export function createSubjectSegmentTracker(
 ): SubjectSegmentTracker {
   const closed = [...restored].sort(byStart);
   const last = closed[closed.length - 1];
+  const reopens =
+    last !== undefined && resumeAtMs !== undefined && Date.parse(last.endedAt) === resumeAtMs;
   return {
     closed,
-    current:
-      last === undefined || resumeAtMs === undefined
-        ? null
-        : { subjectId: last.subjectId, startedAtMs: resumeAtMs },
+    current: reopens ? { subjectId: last!.subjectId, startedAtMs: resumeAtMs! } : null,
   };
 }
 

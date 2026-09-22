@@ -67,15 +67,37 @@ describe("subjectSegments — 과목 전환 시각을 구간으로 남긴다", (
     expect(materializeSubjectSegments(tracker, at(901))).toEqual([seg(3, 900, 901)]);
   });
 
-  it("복원: 서버 구간을 시작 순으로 물려받고 마지막 과목이 resumeAt부터 다시 열린다", () => {
-    const tracker = createSubjectSegmentTracker([seg(2, 300, 500), seg(1, 0, 300)], at(560));
+  it("복원: 마지막 구간의 끝이 resumeAt과 같으면 그 과목이 resumeAt부터 다시 열린다", () => {
+    const tracker = createSubjectSegmentTracker([seg(2, 300, 500), seg(1, 0, 300)], at(500));
 
-    expect(tracker.current).toEqual({ subjectId: 2, startedAtMs: at(560) });
+    expect(tracker.current).toEqual({ subjectId: 2, startedAtMs: at(500) });
     expect(materializeSubjectSegments(tracker, at(600))).toEqual([
       seg(1, 0, 300),
       seg(2, 300, 500),
-      seg(2, 560, 600),
+      seg(2, 500, 600),
     ]);
+  });
+
+  it("복원: 마지막 구간의 끝과 resumeAt 사이에 틈이 있으면 죽기 전에 이미 선택 해제한 것이라 다시 열지 않는다", () => {
+    // 과목 2를 500에 스스로 선택 해제하고 선택 없이 공부하다 죽었고, 마지막 보고 시각은 560이다.
+    const tracker = createSubjectSegmentTracker([seg(2, 300, 500), seg(1, 0, 300)], at(560));
+
+    expect(tracker.current).toBeNull();
+    expect(materializeSubjectSegments(tracker, at(600))).toEqual([
+      seg(1, 0, 300),
+      seg(2, 300, 500),
+    ]);
+  });
+
+  it("복원: 선택 해제 뒤 죽은 시나리오를 선택 흐름 그대로 재생해도 다시 열리지 않는다", () => {
+    let tracker = createSubjectSegmentTracker();
+    tracker = selectSubjectSegment(tracker, 1, at(0));
+    tracker = selectSubjectSegment(tracker, null, at(500)); // 죽기 전에 스스로 해제
+    const reportedAt = at(560); // 선택 없이 공부하다 죽은 뒤의 마지막 보고 시각
+    const sent = materializeSubjectSegments(tracker, reportedAt);
+
+    const revived = createSubjectSegmentTracker(sent, reportedAt);
+    expect(revived.current).toBeNull();
   });
 
   it("복원 시각이 없으면 선택 없이 시작한다", () => {
