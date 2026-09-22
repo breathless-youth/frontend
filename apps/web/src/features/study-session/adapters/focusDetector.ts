@@ -15,6 +15,12 @@ import {
   reportEyeCalibration,
 } from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
+import type { GlanceState } from "../vision/glanceRule";
+import {
+  INITIAL_GLANCE_STATE,
+  reclassifyGlanceForThreshold,
+  stepGlance,
+} from "../vision/glanceRule";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
@@ -283,6 +289,11 @@ export function createVisionFocusDetector(
   let eyeGateMisses = 0;
   /** 비율 판정용 최근 눈 점수. 창 크기만 든다. 일시정지에서 비운다. */
   let eyeReadings: number[] = [];
+  /**
+   * 시선 이동 vs 감김 상태(`../vision/glanceRule.ts`). 얼굴 관측과 수명이 같다 — 관측을 버리는
+   * 곳에서 같이 버린다. 남겨 두면 공백 앞의 "감김 시작"이 공백 뒤의 감김을 설명하게 된다.
+   */
+  let glance: GlanceState = INITIAL_GLANCE_STATE;
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -307,6 +318,29 @@ export function createVisionFocusDetector(
     faceSamples = [];
     eyeReadings = [];
     eyeGateMisses = 0;
+    glance = INITIAL_GLANCE_STATE;
+  }
+
+  /**
+   * 얼굴 관측을 시선 이동 규칙에 통과시킨다. 감김이 시선 이동으로 분류되면 관측의 눈을 지워
+   * "판정 없음"으로 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 감김이 들어가지 않는다.
+   *
+   * 보정 전(임계 없음)에는 손대지 않는다. 그때는 감김 판정 자체가 없고, 관측을 지우면 보정 창이
+   * 영영 차지 않는다.
+   */
+  function classifyGlance(result: FaceDetectionResult): FaceObservation {
+    const face = result.face;
+    const threshold = calibration?.threshold ?? null;
+    const closed =
+      face.eye === null || threshold === null
+        ? null
+        : Math.min(face.eye.eyeBlinkLeft, face.eye.eyeBlinkRight) >= threshold;
+    const step = stepGlance(glance, { closed, pitch: result.metrics.headPitchDeg });
+    glance = step.state;
+    if (closed === null || step.accept) {
+      return face;
+    }
+    return { facePresent: true, eye: null, eyeSkipReason: "glance" };
   }
 
   /**
@@ -434,7 +468,7 @@ export function createVisionFocusDetector(
    *
    * 좌표는 건드리지 않는다. 여기서 나가는 것은 이미 진단이 남기는 스칼라 하나뿐이다.
    */
-  function recordEyeReading(face: FaceObservation): void {
+  function recordEyeReading(face: FaceObservation, pitch: number | null): void {
     const eye = face.eye;
     if (eye === null) {
       eyeGateMisses += 1;
@@ -467,6 +501,11 @@ export function createVisionFocusDetector(
     const previous = calibration;
     calibration = calibrateEye(calibrationReadings, calibration);
     calibrationReadings = [];
+    if (calibration !== null && previous?.threshold !== calibration.threshold) {
+      // 임계가 생기거나 바뀌었다. 창을 채운 이 표본을 새 임계로 다시 채점해 시선 이동 상태를
+      // 세운다 — 보정 동안은 임계가 없어 뜬 눈을 본 기록이 없기 때문이다(`glanceRule.ts`).
+      glance = reclassifyGlanceForThreshold(glance, closure >= calibration.threshold, pitch);
+    }
     if (previous !== null && calibration !== null && calibration.threshold < previous.threshold) {
       // 비율 창은 원표본을 들고 있고 감김 여부는 읽을 때 정해진다. 임계가 내려가면 저장된 옛
       // 표본이 통째로 감김으로 다시 채점되어, 새 관측 하나 없이 1분 창이 뒤집힌다. 올라갈 때는
@@ -523,6 +562,8 @@ export function createVisionFocusDetector(
     }
 
     let faceRan: FaceDetectionResult | null = null;
+    /** 시선 이동 규칙을 지난 관측. 규칙이 지운 눈은 진단에도 지워진 채로 나간다. */
+    let faceObserved: FaceObservation | null = null;
     if (sleepEnabled && signals.personPresent && faceStatus === "ready") {
       if (faceLandmarker.state === "unavailable") {
         // 래퍼는 추론이 연속으로 던지면 스스로 감지 불가로 내려간다. `load()` 결과만 보면 그
@@ -533,8 +574,9 @@ export function createVisionFocusDetector(
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
-          faceSamples = [...faceSamples, faceRan.face].slice(-FACE_SMOOTHING_SAMPLES);
-          recordEyeReading(faceRan.face);
+          faceObserved = classifyGlance(faceRan);
+          faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
+          recordEyeReading(faceObserved, faceRan.metrics.headPitchDeg);
         }
       }
     }
@@ -572,12 +614,12 @@ export function createVisionFocusDetector(
       ...(eyeThreshold === null ? {} : { eyeThreshold }),
       eyeClosedRatio: eyeThreshold === null ? null : eyeClosedRatio(eyeReadings, eyeThreshold),
       face:
-        faceRan === null
+        faceRan === null || faceObserved === null
           ? null
           : {
-              present: faceRan.face.facePresent,
-              eye: faceRan.face.eye,
-              skipReason: faceRan.face.eyeSkipReason,
+              present: faceObserved.facePresent,
+              eye: faceObserved.eye,
+              skipReason: faceObserved.eyeSkipReason,
               durationMs: faceRan.durationMs,
               delegate: faceLandmarker.delegate,
               headPitchDeg: faceRan.metrics.headPitchDeg,

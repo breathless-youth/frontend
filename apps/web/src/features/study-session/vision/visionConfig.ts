@@ -285,6 +285,17 @@ export type RequiredEyeBlendshapeName = (typeof FACE_BLENDSHAPE_REQUIRED)[number
 export const EYE_OUTER_CORNER_LANDMARKS = { left: 33, right: 263 } as const;
 
 /**
+ * 감김이 시작되는 틱 앞뒤로 고개가 이만큼(도) 이상 움직였으면 그 감김은 시선 이동이다 —
+ * `glanceRule.ts`. **잠정값이다.**
+ *
+ * 미국 특허 11144756(시선 이동과 눈 감김의 구분)이 같은 용도로 ±5°를 쓴다. 우리 실측에서 앉아서
+ * 눈을 감는 동안 고개는 상위 5%가 2.2°·1.3° 안에서 흔들렸고, 책이나 폰을 보려고 내릴 때는 한 틱(2초)
+ * 사이에 15~20° 움직였다. 5°는 그 둘 사이에서 흔들림 쪽에 가깝게 잡은 값이다 — 오탐 0이 우선이라
+ * 애매하면 시선 이동으로 본다. 절대 각도는 보지 않으므로 카메라 위치와 무관하다.
+ */
+export const GLANCE_HEAD_MOVE_DEG = 5;
+
+/**
  * 눈 윤곽 16점씩. MediaPipe Face Mesh의 눈 테두리 번호이고 판정에는 쓰지 않는다.
  * 실기기 측정 도구가 화면 위에 눈 자리를 그릴 때만 읽는다. 좌표는 그 캔버스에서 끝난다.
  */

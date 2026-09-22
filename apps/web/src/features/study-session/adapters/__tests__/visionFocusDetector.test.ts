@@ -108,6 +108,8 @@ interface FakeFaceOptions {
    * 뒤라, 어댑터가 `state`를 다시 보지 않으면 이 전이를 영영 모른다.
    */
   readonly diesAfterDetects?: number;
+  /** 얼굴 틱마다 넘길 고개 각도. 없으면 null(자세 행렬 없음). 배열을 다 쓰면 마지막 값을 반복한다. */
+  readonly pitches?: readonly (number | null)[];
 }
 
 /** 얼굴이 보이는 관측 하나. 양쪽 눈에 같은 값을 넣는다. */
@@ -163,6 +165,7 @@ const gated: FaceObservation = {
 function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
   const loadsTo = options.loadsTo ?? "ready";
   const faces = options.faces ?? [];
+  const pitches = options.pitches ?? [];
   const diesAfterDetects = options.diesAfterDetects ?? null;
   let state: DetectorState = "idle";
   let index = 0;
@@ -175,8 +178,9 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
       return null;
     }
     const next = faces[Math.min(index, faces.length - 1)] ?? null;
+    const pitch = pitches[Math.min(index, pitches.length - 1)] ?? null;
     index += 1;
-    return next === null ? null : { face: next, durationMs: 1, metrics: { headPitchDeg: null } };
+    return next === null ? null : { face: next, durationMs: 1, metrics: { headPitchDeg: pitch } };
   });
   const close = vi.fn(() => {
     state = "idle";
@@ -1304,5 +1308,100 @@ describe("측정 도구가 읽는 보정", () => {
     expect(running.eyeCalibration).not.toBeNull();
     expect(measurementDiagnostics.live().calibration).toEqual(running.eyeCalibration);
     running.close();
+  });
+});
+
+describe("시선 이동 vs 감김 — 감김이 시작될 때 고개가 움직였는가", () => {
+  /** 보정 창(뜬 눈 15표본, 고개 0°) 뒤에 이어질 관측과 각도. */
+  function scenario(tail: readonly { face: FaceObservation; pitch: number }[]): {
+    faces: FaceObservation[];
+    pitches: number[];
+  } {
+    const faces = afterCalibration(tail.map((entry) => entry.face)) as FaceObservation[];
+    const pitches = [
+      ...Array.from({ length: EYE_CALIBRATION_SAMPLES }, () => 0),
+      ...tail.map((entry) => entry.pitch),
+    ];
+    return { faces, pitches };
+  }
+
+  async function runScenario(tail: readonly { face: FaceObservation; pitch: number }[]) {
+    const { faces, pitches } = scenario(tail);
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces, pitches });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+    });
+    vision.subscribe(listener);
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(
+      CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * (tail.length + 2),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    vision.close();
+    return signals;
+  }
+
+  const closedFor = (count: number, pitch: number) =>
+    Array.from({ length: count }, () => ({ face: seen(0.9), pitch }));
+
+  it("고개를 멈춘 채 눈을 감으면 졸음 원신호가 선다 — 앉아서 조는 사람", async () => {
+    const signals = await runScenario(closedFor(8, 1));
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
+  });
+
+  it("고개를 내리면서 감김으로 읽히면 세우지 않는다 — 책·폰을 보려고 내린 것이다", async () => {
+    const signals = await runScenario(closedFor(8, 20));
+    expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
+  });
+
+  it("감김 시작 다음 틱에 고개가 내려가도 세우지 않는다", async () => {
+    const signals = await runScenario([{ face: seen(0.9), pitch: 1 }, ...closedFor(8, 20)]);
+    expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
+  });
+
+  it("고개를 들어 뜬 눈을 보인 뒤 멈춘 채 감으면 다시 센다", async () => {
+    const signals = await runScenario([
+      ...closedFor(3, 20), // 내려다봄 — 시선 이동
+      { face: seen(0.1), pitch: 0 }, // 고개 들고 뜸
+      { face: seen(0.1), pitch: 0 },
+      ...closedFor(8, 0), // 정지 감김
+    ]);
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
+  });
+
+  it("시선 이동으로 지운 관측은 진단에 glance로 남는다 — 덩어리가 그 이유를 센다", async () => {
+    const { faces, pitches } = scenario(closedFor(4, 20));
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ faces, pitches });
+    const frame = vi.fn();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      diagnostics: {
+        detectorReady: vi.fn(),
+        detectorUnavailable: vi.fn(),
+        frame,
+        frameDropped: vi.fn(),
+        faceReady: vi.fn(),
+        faceUnavailable: vi.fn(),
+        transition: vi.fn(),
+        cameraStream: vi.fn(),
+      },
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 6);
+    vision.close();
+
+    const reasons = frame.mock.calls
+      .map((call) => (call[0] as { face: { skipReason: string | null } | null }).face?.skipReason)
+      .filter((reason) => reason === "glance");
+    expect(reasons.length).toBeGreaterThan(0);
   });
 });
