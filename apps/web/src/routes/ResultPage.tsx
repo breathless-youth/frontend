@@ -19,12 +19,11 @@ import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
 
 /**
- * 도장 연출이 끝나고 타임라인·통계 카드와 CTA를 드러내기까지의 시간(ms) — BY-557 시안
- * 프로토타입의 3500ms 그대로. 그 전에는 이탈 수단이 없다(프로토타입도 같다).
+ * 도장 연출이 끝나고 타임라인·통계 카드와 CTA를 드러내기까지의 시간
  */
 export const RESULT_REVEAL_DELAY_MS = 3500;
 
-/** 색종이가 터지는 시점(ms) — 도장이 종이에 닿는 순간(도장 모션 46% ≈ 0.92s)에 맞춘 프로토타입 값. */
+/** 색종이가 터지는 시점 — 도장이 종이에 닿는 순간(도장 모션 46% ≈ 0.92s)에 맞춘 프로토타입 값. */
 const CONFETTI_AT_MS = 900;
 
 /**
@@ -35,9 +34,9 @@ const CONFETTI_AT_MS = 900;
  * 측정·상태 판정·서버 제출은 전부 `useStudyRoomSession`과 그 아래 순수 모듈의 책임이다.
  * 이 라우트는 이미 확정된 `StudySessionResponse`를 받아 그리기만 한다.
  *
- * ## 연출 순서 (BY-560, BY-557 시안 프로토타입 "1 · 완료")
+ * ## 연출 순서
  *
- * 1. `intro`: 도장이 찍히고 `오늘 공부 완료!`·순공시간·집중률 배지가 차례로 떠오른다. 카드와
+ * 1. `intro`: 도장이 찍히고 `오늘 공부 완료`·순공시간·집중률 배지가 차례로 떠오른다. 카드와
  *    CTA는 없다.
  * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 인주·타이틀이 접혀 올라가고 순공시간 아래로
  *    타임라인(최고 집중 시간 포함)·누적 요약 카드가, 하단에 CTA 둘(`홈으로`·`기록으로 가기`)이
@@ -46,20 +45,18 @@ const CONFETTI_AT_MS = 900;
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 시안의 명언 인트로와 연속 공부(스트릭) 화면은 이 티켓 범위 밖이라 없다.
  *
- * ## S4가 **절대** 받지 않는 상태 — 방어 UI를 만들지 않는다
- *
  * `submitting`(제출 중) · `error`(제출 실패) · `unsaved`(userId 없어 미저장) · "저장 실패"는
- * 전부 S3 쪽 상태다. `RoomPage`는 **`phase === "done"`에서만** 여기로 보낸다(WG4와 상호 확인한
- * 계약). 그래서 이 화면에는 "저장 실패" 배너도 재시도 버튼도 없다 — 실패의 사용자 대면 처리는
- * 전적으로 S3의 책임이고, S3에 재시도 경로가 실제로 있다(`RoomPage`의 `다시 제출`).
+ * 전부 S3 쪽 상태다. `RoomPage`는 `phase === "done"`에서만 여기로 보낸다.
+ * 그래서 이 화면에는 "저장 실패" 배너도 재시도 버튼도 없다.
+ * — 실패의 사용자 대면 처리는 전적으로 S3의 책임이고, S3에 재시도 경로가 실제로 있다(`RoomPage`의 `다시 제출`).
  *
  * 세션 단건 조회 API(`GET /api/study-sessions/{id}`)는 서버에 있고 조회 함수도
- * `lib/studySessionApi.ts`에 있지만, 이 화면은 아직 쓰지 않는다. 세션은 라우터 state가 유일한
- * 입력이고, state가 없거나 형태가 다르면 **데이터를 지어내지 않고** 홈으로 되돌린다.
+ * `lib/studySessionApi.ts`에 있지만, 이 화면은 아직 쓰지 않는다.
+ * 세션은 라우터 state가 유일한 입력이고, state가 없거나 형태가 다르면 홈으로 되돌린다.
  *
- * 예외적으로 **누적 요약 카드**(`SessionSummaryCard`, BY-560)만 저장된 통계를 서버에서 읽는다 —
- * 세션이 아니라 오늘 합계·학습 일 수라 라우터 state에 실을 수 없는 값이다. `?userId`가 없는
- * 미저장 모드에서는 카드를 그리지 않는다.
+ * 예외적으로 누적 요약 카드(`SessionSummaryCard`)만 저장된 통계를 서버에서 읽는다
+ * — 세션이 아니라 오늘 합계·학습 일 수라 라우터 state에 실을 수 없는 값이다.
+ * `?userId`가 없는 미저장 모드에서는 카드를 그리지 않는다.
  */
 export function ResultPage() {
   const location = useLocation();
@@ -178,7 +175,7 @@ export function ResultPage() {
   const phase: CompleteHeroPhase = reducedMotion ? "static" : revealed ? "revealed" : "intro";
 
   return (
-    <main className="relative flex h-svh w-full flex-col bg-background text-foreground">
+    <main className="theme-soft-blue bg-soft-blue relative flex h-svh w-full flex-col text-foreground">
       {/* 색종이는 화면 전체를 덮는 장식 캔버스 — 터치를 막지 않는다. */}
       <ConfettiBurst enabled={!reducedMotion} fireAfterMs={CONFETTI_AT_MS} />
 
@@ -210,7 +207,7 @@ export function ResultPage() {
             type="button"
             size="xl"
             onClick={() => leave("records")}
-            className="flex-[1.5] shadow-[0_6px_16px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] transition-transform duration-150 active:scale-[0.97] motion-reduce:transition-none"
+            className="shadow-sb-cta flex-[1.5] transition-transform duration-150 active:scale-[0.97] motion-reduce:transition-none"
           >
             {RESULT_COPY.ctaRecords}
           </Button>

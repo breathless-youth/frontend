@@ -23,7 +23,7 @@ export function SessionSummaryCard({ userId }: { userId: number }) {
   const summary = useResultSummary(userId);
 
   return (
-    <Card>
+    <Card className="shadow-sb-card">
       <CardContent>
         <SummaryRow
           label={RESULT_COPY.todayFocusLabel}

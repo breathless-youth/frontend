@@ -57,7 +57,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
       : Math.min(85, Math.max(15, (longest.startRatio + longest.widthRatio / 2) * 100));
 
   return (
-    <Card className="pt-4 pb-[14px]">
+    <Card className="shadow-sb-card pt-4 pb-[14px]">
       <CardHeader className="flex-wrap gap-y-1">
         <CardTitle>{RESULT_COPY.timelineTitle}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -82,10 +82,10 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
                 {`${RESULT_COPY.longestFocusLabel} ${toKoreanDurationLength(longest.durationSec)}`}
               </Badge>
               {/* 말꼬리 — 45° 돌린 정사각형의 오른쪽·아래 테두리가 V자를 만든다. 배지보다 위에(z) 그려
-                배경색 채움이 그 밑의 배지 아래 테두리를 가린다. */}
+                카드색 채움이 그 밑의 배지 아래 테두리를 가린다. */}
               <span
                 aria-hidden="true"
-                className="absolute -top-[20px] z-10 size-2 -translate-x-1/2 rotate-45 border-r-[1.5px] border-b-[1.5px] border-primary bg-background"
+                className="absolute -top-[20px] z-10 size-2 -translate-x-1/2 rotate-45 border-r-[1.5px] border-b-[1.5px] border-primary bg-muted"
                 style={{ left: `${(longest.startRatio + longest.widthRatio / 2) * 100}%` }}
               />
             </>
@@ -103,13 +103,13 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
                 widthRatio={segment.widthRatio}
               />
             ))}
-            {/* 최고 집중 조각(2026-09-14 3차 시안 이미지) — 구간 좌우에 배경색 간격을 두고 조각은 바와
-              같은 높이로, 모서리는 살짝만 둥글게. 배경색 바탕(간격 포함 폭)을 먼저 깔고 그 위에
-              조각을 칠해야 둥근 모서리 바깥이 바탕색(집중 블루)이 아니라 배경색으로 보인다. */}
+            {/* 최고 집중 조각(2026-09-14 3차 시안 이미지) — 구간 좌우에 카드색 간격을 두고 조각은 바와
+              같은 높이로, 모서리는 살짝만 둥글게. 카드색 바탕(간격 포함 폭)을 먼저 깔고 그 위에
+              조각을 칠해야 둥근 모서리 바깥이 바탕색(집중 블루)이 아니라 카드색으로 보인다. */}
             {longest !== null && (
               <span
                 aria-hidden="true"
-                className="absolute inset-y-0 bg-background"
+                className="absolute inset-y-0 bg-muted"
                 style={{
                   left: `calc(${longest.startRatio * 100}% - ${LONGEST_GAP_PX}px)`,
                   width: `calc(${longest.widthRatio * 100}% + ${LONGEST_GAP_PX * 2}px)`,
