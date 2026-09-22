@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from "vitest";
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SessionListItem } from "../SessionListItem";
-import { StreakBanner, type StreakWeekDay } from "../StreakBanner";
+import type { StreakWeekDay } from "../recordsFormat";
+import { StreakBanner } from "../StreakBanner";
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는
 // `clientX`/`clientY`가 사라진다(`OnboardingGuidePage.test.tsx`와 같은 이유·같은 최소 폴리필).

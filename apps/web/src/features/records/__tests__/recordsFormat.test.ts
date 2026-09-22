@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDaysToDateKey,
   buildMonthGrid,
+  buildStreakWeek,
   eventChipItems,
   formatDuration,
   formatFocusRate,
@@ -188,5 +189,28 @@ describe("statsQueryDateKey", () => {
   it("다른 달을 보는 중이면 그 달 1일을 쓴다", () => {
     expect(statsQueryDateKey("2026-07-26", { year: 2026, month: 8 })).toBe("2026-08-01");
     expect(statsQueryDateKey("2026-07-26", { year: 2025, month: 12 })).toBe("2025-12-01");
+  });
+});
+
+describe("buildStreakWeek — 홈·기록 공용 주간 도트", () => {
+  it("오늘은 today, 공부한 날은 done, 나머지는 none으로 일~토 7개를 준다", () => {
+    const days = buildStreakWeek("2026-07-28", ["2026-07-26", "2026-07-27", "2026-07-19"]);
+
+    expect(days.map((day) => day.state)).toEqual([
+      "done",
+      "done",
+      "today",
+      "none",
+      "none",
+      "none",
+      "none",
+    ]);
+    expect(days[0]).toEqual({
+      dateKey: "2026-07-26",
+      weekdayLabel: "일",
+      dayOfMonth: 26,
+      state: "done",
+    });
+    expect(days[2]).toMatchObject({ dateKey: "2026-07-28", weekdayLabel: "화", dayOfMonth: 28 });
   });
 });

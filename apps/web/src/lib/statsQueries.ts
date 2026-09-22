@@ -13,9 +13,8 @@ import { todayKstDateKey } from "./dateKst";
  * (lib/nativeSessionClosed.ts)가 맡는다.
  * 앱 실행 직후의 미확정 세션 마감도 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
  *
- * 홈은 streakQuery(userId), 기록은 streakQuery(userId, range)로 키가 갈린다.
- * streak와 maxStreak는 범위와 무관해 값이 어긋나지는 않고,
- * 브라우저 단독 모드에서 탭을 오갈 때 조회가 한 번 더 나가는 비용만 있어 합치지 않는다.
+ * 홈과 기록 모두 streakQuery(userId, 이번 주 범위)로 조회한다. 홈도 주간 도트를 그리면서
+ * 키가 같아졌고, 브라우저 단독 모드에서 탭을 오갈 때 조회가 한 번 줄었다.
  */
 export const statsKeys = {
   all: ["stats"] as const,

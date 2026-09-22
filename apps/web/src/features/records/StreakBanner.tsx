@@ -1,4 +1,7 @@
-import { IconCheckSm, IllustFlame } from "./icons";
+import { Check } from "lucide-react";
+
+import { IllustFlame } from "./icons";
+import type { StreakWeekDay } from "./recordsFormat";
 
 /**
  * S5 연속 공부 배너(Figma `streak-banner` 65:555 + `Record / Week Dot` 46:101).
@@ -10,16 +13,6 @@ import { IconCheckSm, IllustFlame } from "./icons";
  *
  * 배너 자체는 비인터랙티브다(Figma에 셰브런·핫스팟이 없다 — `SCR-S5-records.md` Interaction Contract).
  */
-export type WeekDotState = "done" | "today" | "none";
-
-export type StreakWeekDay = {
-  dateKey: string;
-  /** 일~토 */
-  weekdayLabel: string;
-  dayOfMonth: number;
-  state: WeekDotState;
-};
-
 type StreakBannerProps = {
   /**
    * TODO(SCR-S5-records.md): 백엔드 계약 미확인 — `streakDays` 필드가 `packages/types`에 없다
@@ -34,7 +27,7 @@ type StreakBannerProps = {
   days: StreakWeekDay[];
 };
 
-function WeekDot({ day }: { day: StreakWeekDay }) {
+export function WeekDot({ day }: { day: StreakWeekDay }) {
   const isToday = day.state === "today";
 
   return (
@@ -54,7 +47,12 @@ function WeekDot({ day }: { day: StreakWeekDay }) {
       ) : day.state === "done" ? (
         <div className="flex size-7 items-center justify-center rounded-full bg-primary">
           {/* 체크는 장식이 아니라 정보다 — 위 aria-label이 요일과 묶어 전달한다. */}
-          <IconCheckSm size={13} />
+          <Check
+            size={13}
+            strokeWidth={2.4}
+            className="text-primary-foreground"
+            aria-hidden="true"
+          />
         </div>
       ) : (
         <div className="size-7 rounded-full bg-bg-layer-2" />
