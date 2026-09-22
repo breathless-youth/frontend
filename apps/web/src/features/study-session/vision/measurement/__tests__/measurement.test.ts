@@ -847,156 +847,37 @@ describe("진행 중 통계", () => {
   });
 });
 
-describe("고개 각도와 EAR", () => {
-  function faceWith(
-    headPitchDeg: number | null,
-    ear: number | null,
-    skipReason: string | null = null,
-  ) {
+describe("고개 각도", () => {
+  function faceWith(headPitchDeg: number | null) {
     return frame({
       face: {
         present: true,
-        eye: skipReason === null ? { eyeBlinkLeft: 0.2, eyeBlinkRight: 0.2 } : null,
-        skipReason,
-        durationMs: 50,
-        delegate: "CPU",
-        headPitchDeg,
-        ear,
-      },
-    });
-  }
-
-  it("구간별 고개 각도와 EAR 분포를 낸다 — 내려다봄 게이트 값을 정할 근거다", () => {
-    const m = createMeasurement(baseSpy());
-    m.mark("내려다봄");
-    for (const [pitch, ear] of [
-      [30, 0.2],
-      [35, 0.18],
-      [40, 0.15],
-    ] as const) {
-      m.frame(faceWith(pitch, ear, "face-too-small"));
-    }
-
-    const seg = (
-      JSON.parse(m.dump()) as {
-        segments: {
-          headPitch: Record<string, number>;
-          ear: Record<string, number>;
-          face: { skipped: Record<string, number> };
-        }[];
-      }
-    ).segments[0];
-    expect(seg?.headPitch.samples).toBe(3);
-    expect(seg?.headPitch.p50).toBeCloseTo(35, 1);
-    expect(seg?.ear.samples).toBe(3);
-    expect(seg?.ear.p50).toBeCloseTo(0.18, 3);
-    // 게이트에 걸린 관측은 눈 점수가 없어도 각도는 남는다 — 그래야 게이트를 튜닝한다.
-    expect(seg?.face.skipped["face-too-small"]).toBe(3);
-  });
-
-  it("각도나 EAR이 없는 관측은 분포에서 뺀다", () => {
-    const m = createMeasurement(baseSpy());
-    m.frame(faceWith(null, null));
-    m.frame(faceWith(12, 0.3));
-
-    const seg = (
-      JSON.parse(m.dump()) as {
-        segments: { headPitch: { samples: number }; ear: { samples: number } }[];
-      }
-    ).segments[0];
-    expect(seg?.headPitch.samples).toBe(1);
-    expect(seg?.ear.samples).toBe(1);
-  });
-
-  it("실시간 값에 마지막 관측의 각도·EAR·건너뛴 이유가 실린다", () => {
-    const m = createMeasurement(baseSpy());
-    m.frame(faceWith(31, 0.19, "face-too-small"));
-
-    const live = m.live();
-    expect(live.headPitchDeg).toBe(31);
-    expect(live.ear).toBe(0.19);
-    expect(live.faceSkip).toBe("face-too-small");
-  });
-
-  it("눈 영역 표본 크기가 설정 스냅샷에 실린다", () => {
-    const m = createMeasurement(baseSpy());
-    const config = (JSON.parse(m.dump()) as { config: Record<string, number | string> }).config;
-    expect(config.eyeRegionSample).toBe("48x24");
-  });
-});
-
-describe("내려다봄 점수", () => {
-  it("게이트에 걸려 눈 점수가 없는 관측의 내려다봄 점수도 분포에 넣는다 — 그 구간이 바로 비교 대상이다", () => {
-    const m = createMeasurement(baseSpy());
-    m.mark("숙이고 감기");
-    for (const lookDown of [0.7, 0.75, 0.8]) {
-      m.frame(
-        frame({
-          face: {
-            present: true,
-            eye: null,
-            skipReason: "face-too-small",
-            durationMs: 50,
-            delegate: "CPU",
-            headPitchDeg: 20,
-            ear: 0.07,
-            lookDown,
-          },
-        }),
-      );
-    }
-
-    const seg = (JSON.parse(m.dump()) as { segments: { lookDown: Record<string, number> }[] })
-      .segments[0];
-    expect(seg?.lookDown.samples).toBe(3);
-    expect(seg?.lookDown.p50).toBeCloseTo(0.75, 3);
-    expect(m.live().lookDown).toBe(0.8);
-  });
-});
-
-describe("눈 영역 화소", () => {
-  function faceWith(eyeContrast: number | null, eyeDark: number | null) {
-    return frame({
-      face: {
-        present: true,
-        eye: { eyeBlinkLeft: 0.6, eyeBlinkRight: 0.6 },
+        eye: { eyeBlinkLeft: 0.2, eyeBlinkRight: 0.2 },
         skipReason: null,
         durationMs: 50,
         delegate: "CPU",
-        eyeContrast,
-        eyeDark,
+        headPitchDeg,
       },
     });
   }
 
-  it("구간별 대비와 어둠 비율 분포를 낸다 — 랜드마크가 못 가르는 내려다봄과 감김을 가를 후보다", () => {
+  it("구간별 고개 각도 분포를 낸다 — 다른 수치를 어느 자세에서 봤는지 해석할 근거다", () => {
     const m = createMeasurement(baseSpy());
     m.mark("내려다봄");
-    for (const [contrast, dark] of [
-      [0.2, 0.1],
-      [0.25, 0.15],
-      [0.3, 0.2],
-    ] as const) {
-      m.frame(faceWith(contrast, dark));
+    for (const pitch of [30, 35, 40]) {
+      m.frame(faceWith(pitch));
     }
-    m.frame(faceWith(null, null));
+    m.frame(faceWith(null));
 
-    const seg = (
-      JSON.parse(m.dump()) as {
-        segments: { eyeContrast: Record<string, number>; eyeDark: Record<string, number> }[];
-      }
-    ).segments[0];
-    expect(seg?.eyeContrast.samples).toBe(3);
-    expect(seg?.eyeContrast.p50).toBeCloseTo(0.25, 3);
-    expect(seg?.eyeDark.samples).toBe(3);
-    expect(seg?.eyeDark.p50).toBeCloseTo(0.15, 3);
-    expect(m.live().eyeContrast).toBeNull();
+    const seg = (JSON.parse(m.dump()) as { segments: { headPitch: Record<string, number> }[] })
+      .segments[0];
+    expect(seg?.headPitch.samples).toBe(3);
+    expect(seg?.headPitch.p50).toBeCloseTo(35, 1);
   });
 
-  it("실시간 값에 마지막 관측의 대비·어둠 비율이 실린다", () => {
+  it("실시간 값에 마지막 관측의 각도가 실린다", () => {
     const m = createMeasurement(baseSpy());
-    m.frame(faceWith(0.31, 0.22));
-    expect(m.live().eyeContrast).toBe(0.31);
-    expect(m.live().eyeDark).toBe(0.22);
+    m.frame(faceWith(31));
+    expect(m.live().headPitchDeg).toBe(31);
   });
 });

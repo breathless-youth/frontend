@@ -10,12 +10,8 @@ import type { EyeScores, FaceObservation } from "./sleepRules";
 import type { Delegate, EyeBlendshapeName } from "./visionConfig";
 import {
   DELEGATE_ORDER,
-  EAR_LANDMARKS,
-  EYE_DARK_RATIO_OF_MEAN,
   EYE_OUTER_CORNER_LANDMARKS,
   EYE_OUTLINE_LANDMARKS,
-  EYE_REGION_SAMPLE,
-  EYE_REGION_SCALE,
   FACE_BLENDSHAPE_ALLOWLIST,
   FACE_BLENDSHAPE_REQUIRED,
   FACE_LANDMARKER_OPTIONS,
@@ -38,43 +34,14 @@ import {
 /**
  * 얼굴에서 뽑은 스칼라 지표. 진단·측정 도구가 쓰고 판정은 `face`만 본다.
  *
- * 둘 다 좌표에서 계산되지만 좌표가 아니다 — 각도 하나와 비율 하나다. 눈 점수와 같은 급으로
- * 다룬다(`frontend/CLAUDE.md`가 금지하는 것은 원본 프레임·얼굴 이미지·랜드마크 좌표다).
+ * 2026-09-22 BY-704 측정에서 EAR·내려다봄 점수·눈 영역 화소 대비도 여기 있었다가 전부 뺐다 —
+ * 카메라가 눈을 위에서 보는 자세에서는 어느 것도 뜬 눈과 감은 눈을 가르지 못했다(스펙 기록).
+ * 고개 각도만 남긴다. 좌표에서 계산되지만 좌표가 아니라 각도 하나다.
  */
 export interface FaceMetrics {
-  /** 고개 숙임 각도(도). 아래를 볼 때 양수. 판정에 쓰지 않고 자세를 해석하는 참고값이다. 행렬이 없으면 null. */
+  /** 고개 숙임 각도(도). 아래를 볼 때 양수, 카메라 기준 상대각. 자세 행렬이 없으면 null. */
   readonly headPitchDeg: number | null;
-  /** 두 눈 EAR 중 큰 쪽(덜 감긴 쪽). 뜬 눈 0.25~0.35, 감은 눈 0.15 미만이 문헌값. 점이 없으면 null. */
-  readonly ear: number | null;
-  /** 두 눈 `eyeLookDown` 중 작은 쪽. 이름이 없으면 null. */
-  readonly lookDown: number | null;
-  /**
-   * 눈 영역 밝기의 표준편차(0~1), 두 눈 중 큰 쪽. 뜬 눈은 동공·홍채·흰자가 섞여 크고 감은 눈은
-   * 눈꺼풀 피부라 작다 — 랜드마크가 아니라 화소에서 나오는 유일한 값이다(`EYE_REGION_SAMPLE` 주석).
-   * 캔버스를 못 쓰면 null.
-   */
-  readonly eyeContrast: number | null;
-  /** 눈 영역에서 평균 밝기의 절반보다 어두운 화소 비율(0~1), 두 눈 중 큰 쪽. 동공·홍채 몫이다. */
-  readonly eyeDark: number | null;
 }
-
-/** 눈 상자(프레임 픽셀 좌표). 래퍼 안에서만 돌고 캔버스에 그려진 뒤 버려진다. */
-export interface EyeRegionBox {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-/**
- * 프레임의 눈 상자를 표본 크기로 떠서 RGBA 화소를 돌려준다. 못 뜨면 null.
- *
- * 주입점인 이유는 테스트다(jsdom에는 캔버스가 없다). 기본 구현은 `createCanvasEyeSampler`.
- */
-export type EyeRegionSampler = (
-  video: HTMLVideoElement,
-  box: EyeRegionBox,
-) => Uint8ClampedArray | null;
 
 export interface FaceDetectionResult {
   readonly face: FaceObservation;
@@ -116,8 +83,6 @@ export interface CreateFaceLandmarkerOptions {
    * null을 넘겨 그림을 지우게 한다.
    */
   readonly onEyeOutline?: (outline: EyeOutline | null) => void;
-  /** 눈 영역 화소를 뜨는 길. 기본은 캔버스. 테스트가 합성 화소를 넣는다. */
-  readonly sampleEyeRegion?: EyeRegionSampler;
 }
 
 /**
@@ -138,146 +103,7 @@ const BLENDSHAPES_MISSING: FaceObservation = {
   eye: null,
   eyeSkipReason: "blendshapes-missing",
 };
-const NO_METRICS: FaceMetrics = {
-  headPitchDeg: null,
-  ear: null,
-  lookDown: null,
-  eyeContrast: null,
-  eyeDark: null,
-};
-
-/**
- * 기본 화소 표본기 — 작은 캔버스 하나를 재사용한다.
- *
- * 화소는 `getImageData`로 읽는 순간까지만 존재하고, 호출부가 숫자 둘로 줄인 뒤 배열은 버려진다.
- * 캔버스가 없거나(SSR·jsdom) 비디오가 보안 오염(cross-origin)이면 null — 그 프레임은 이 지표가
- * 없을 뿐 판정은 그대로다.
- */
-export function createCanvasEyeSampler(): EyeRegionSampler {
-  const { width, height } = EYE_REGION_SAMPLE;
-  let context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
-  function ensureContext() {
-    if (context !== null) {
-      return context;
-    }
-    if (typeof OffscreenCanvas !== "undefined") {
-      context = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
-    } else if (typeof document !== "undefined") {
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      context = canvas.getContext("2d", { willReadFrequently: true });
-    }
-    return context;
-  }
-  return (video, box) => {
-    try {
-      const target = ensureContext();
-      if (target === null) {
-        return null;
-      }
-      target.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, width, height);
-      return target.getImageData(0, 0, width, height).data;
-    } catch {
-      return null;
-    }
-  };
-}
-
-/**
- * 눈 윤곽 → 프레임 픽셀 상자. **높이는 윤곽 폭 기준이다** — 위에서 본 뜬 눈은 윤곽이 선으로
- * 찌그러져 높이가 0에 가깝고, 그 높이로 상자를 잡으면 정작 홍채가 밖에 남는다.
- */
-export function eyeRegionOf(
-  landmarks: readonly Point[],
-  indexes: readonly number[],
-  frameWidth: number,
-  frameHeight: number,
-): EyeRegionBox | null {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let sumX = 0;
-  let sumY = 0;
-  let count = 0;
-  for (const index of indexes) {
-    const point = landmarks[index];
-    if (point === undefined) {
-      return null;
-    }
-    minX = Math.min(minX, point.x);
-    maxX = Math.max(maxX, point.x);
-    sumX += point.x;
-    sumY += point.y;
-    count += 1;
-  }
-  if (count === 0 || maxX - minX <= 0) {
-    return null;
-  }
-  const eyeWidth = (maxX - minX) * frameWidth;
-  const boxWidth = eyeWidth * EYE_REGION_SCALE.width;
-  const boxHeight = eyeWidth * EYE_REGION_SCALE.height;
-  const centerX = (sumX / count) * frameWidth;
-  const centerY = (sumY / count) * frameHeight;
-  const x = Math.max(0, centerX - boxWidth / 2);
-  const y = Math.max(0, centerY - boxHeight / 2);
-  const width = Math.min(frameWidth - x, boxWidth);
-  const height = Math.min(frameHeight - y, boxHeight);
-  if (width < 2 || height < 2) {
-    return null;
-  }
-  return { x, y, width, height };
-}
-
-/** RGBA 화소 → 밝기 표준편차(0~1)와 어두운 화소 비율. 배열은 여기서 끝난다. */
-export function eyePixelStats(data: Uint8ClampedArray): { contrast: number; dark: number } | null {
-  const pixels = Math.floor(data.length / 4);
-  if (pixels === 0) {
-    return null;
-  }
-  let sum = 0;
-  const luminance = new Float32Array(pixels);
-  for (let i = 0; i < pixels; i += 1) {
-    const r = data[i * 4] ?? 0;
-    const g = data[i * 4 + 1] ?? 0;
-    const b = data[i * 4 + 2] ?? 0;
-    const value = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    luminance[i] = value;
-    sum += value;
-  }
-  const mean = sum / pixels;
-  let variance = 0;
-  let dark = 0;
-  const darkBelow = mean * EYE_DARK_RATIO_OF_MEAN;
-  for (let i = 0; i < pixels; i += 1) {
-    const value = luminance[i] ?? 0;
-    variance += (value - mean) ** 2;
-    if (value < darkBelow) {
-      dark += 1;
-    }
-  }
-  return { contrast: round(Math.sqrt(variance / pixels), 3), dark: round(dark / pixels, 3) };
-}
-
-/** allowlist 밖 이름은 보지 않는다. 판정 점수와 같은 통로라 좌표는 여기 없다. */
-function lookDownOf(raw: MediapipeFaceResult): number | null {
-  const categories = raw.faceBlendshapes[0]?.categories ?? [];
-  let left: number | undefined;
-  let right: number | undefined;
-  for (const category of categories) {
-    if (category.categoryName === "eyeLookDownLeft") {
-      left = category.score;
-    } else if (category.categoryName === "eyeLookDownRight") {
-      right = category.score;
-    }
-  }
-  return left === undefined || right === undefined ? null : round(Math.min(left, right), 3);
-}
-
-type Point = MediapipeFaceResult["faceLandmarks"][number][number];
-
-function distance(a: Point, b: Point): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
+const NO_METRICS: FaceMetrics = { headPitchDeg: null };
 
 function round(value: number, digits: number): number {
   const factor = 10 ** digits;
@@ -305,30 +131,6 @@ export function headPitchDegOf(raw: MediapipeFaceResult): number | null {
   return round((-Math.asin(clamped) * 180) / Math.PI, 1);
 }
 
-/** 한쪽 눈의 EAR. 가로 길이가 0이면(점이 겹치면) 계산하지 않는다. */
-function earOfEye(landmarks: readonly Point[], indexes: readonly number[]): number | null {
-  const points = indexes.map((index) => landmarks[index]);
-  if (points.some((point) => point === undefined)) {
-    return null;
-  }
-  const [p1, p2, p3, p4, p5, p6] = points as Point[];
-  const horizontal = distance(p1, p4);
-  if (horizontal < 1e-6) {
-    return null;
-  }
-  return (distance(p2, p6) + distance(p3, p5)) / (2 * horizontal);
-}
-
-/** 두 눈 EAR 중 큰 쪽. 판정이 두 눈 중 덜 감긴 쪽을 보는 것과 같은 방향이다. */
-export function earOf(landmarks: readonly Point[]): number | null {
-  const left = earOfEye(landmarks, EAR_LANDMARKS.left);
-  const right = earOfEye(landmarks, EAR_LANDMARKS.right);
-  if (left === null || right === null) {
-    return null;
-  }
-  return round(Math.max(left, right), 3);
-}
-
 async function defaultLoadRuntime(): Promise<MediapipeFaceRuntime> {
   // 정적 import가 아니라 동적 import인 것이 핵심이다 — 세션에 들어갈 때까지 wasm을 받지 않는다.
   const module = await import("./mediapipeModule");
@@ -346,7 +148,6 @@ export function createFaceLandmarker(
   const loadRuntime = options.loadRuntime ?? defaultLoadRuntime;
   const delegateOrder = options.delegateOrder ?? DELEGATE_ORDER;
   const onEyeOutline = options.onEyeOutline;
-  const sampleEyeRegion = options.sampleEyeRegion ?? createCanvasEyeSampler();
 
   let state: DetectorState = "idle";
   let handle: MediapipeFaceLandmarkerHandle | null = null;
@@ -371,10 +172,7 @@ export function createFaceLandmarker(
    * 눈 판정을 건너뛰는 세 가지 이유를 구분해 남기는 것은 진단용이다. 셋 다 판정 결과는 같다 —
    * "이번 관측에 눈 판정 없음"이고, "눈을 떴다"가 아니다.
    */
-  function normalize(
-    raw: MediapipeFaceResult,
-    video: HTMLVideoElement,
-  ): {
+  function normalize(raw: MediapipeFaceResult): {
     face: FaceObservation;
     metrics: FaceMetrics;
   } {
@@ -382,58 +180,16 @@ export function createFaceLandmarker(
     if (onEyeOutline !== undefined) {
       emitEyeOutline(raw, observation);
     }
-    return { face: observation, metrics: metricsOf(raw, video) };
+    return { face: observation, metrics: metricsOf(raw) };
   }
 
-  /** 얼굴이 있으면 각도·EAR·내려다봄 점수·화소 대비를 뽑는다. 판정은 이 중 아무것도 쓰지 않는다. */
-  function metricsOf(raw: MediapipeFaceResult, video: HTMLVideoElement): FaceMetrics {
+  /** 얼굴이 있으면 고개 각도를 뽑는다. 판정은 쓰지 않는다. */
+  function metricsOf(raw: MediapipeFaceResult): FaceMetrics {
     const landmarks = raw.faceLandmarks[0];
     if (landmarks === undefined || landmarks.length === 0) {
       return NO_METRICS;
     }
-    const pixels = eyePixelMetrics(landmarks, video);
-    return {
-      headPitchDeg: headPitchDegOf(raw),
-      ear: earOf(landmarks),
-      lookDown: lookDownOf(raw),
-      eyeContrast: pixels?.contrast ?? null,
-      eyeDark: pixels?.dark ?? null,
-    };
-  }
-
-  /** 두 눈 각각 떠서 큰 쪽. 한쪽이라도 못 뜨면 null — 반쪽 값을 "덜 뜬 눈"으로 읽으면 안 된다. */
-  function eyePixelMetrics(
-    landmarks: readonly Point[],
-    video: HTMLVideoElement,
-  ): { contrast: number; dark: number } | null {
-    const frameWidth = video.videoWidth;
-    const frameHeight = video.videoHeight;
-    if (!frameWidth || !frameHeight) {
-      return null;
-    }
-    let best: { contrast: number; dark: number } | null = null;
-    for (const indexes of [EYE_OUTLINE_LANDMARKS.left, EYE_OUTLINE_LANDMARKS.right]) {
-      const box = eyeRegionOf(landmarks, indexes, frameWidth, frameHeight);
-      if (box === null) {
-        return null;
-      }
-      const data = sampleEyeRegion(video, box);
-      if (data === null) {
-        return null;
-      }
-      const stats = eyePixelStats(data);
-      if (stats === null) {
-        return null;
-      }
-      best =
-        best === null
-          ? stats
-          : {
-              contrast: Math.max(best.contrast, stats.contrast),
-              dark: Math.max(best.dark, stats.dark),
-            };
-    }
-    return best;
+    return { headPitchDeg: headPitchDegOf(raw) };
   }
 
   /** 그리기용 윤곽만 뽑아 넘긴다. 점이 모자라면 얼굴 없음과 같이 지운다. */
@@ -614,7 +370,7 @@ export function createFaceLandmarker(
         return null;
       }
       consecutiveFailures = 0;
-      const { face, metrics } = normalize(raw, video);
+      const { face, metrics } = normalize(raw);
       return { face, metrics, durationMs: performance.now() - startedAt };
     },
 

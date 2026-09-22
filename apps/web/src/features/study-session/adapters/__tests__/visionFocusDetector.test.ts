@@ -176,19 +176,7 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
     }
     const next = faces[Math.min(index, faces.length - 1)] ?? null;
     index += 1;
-    return next === null
-      ? null
-      : {
-          face: next,
-          durationMs: 1,
-          metrics: {
-            headPitchDeg: null,
-            ear: null,
-            lookDown: null,
-            eyeContrast: null,
-            eyeDark: null,
-          },
-        };
+    return next === null ? null : { face: next, durationMs: 1, metrics: { headPitchDeg: null } };
   });
   const close = vi.fn(() => {
     state = "idle";
