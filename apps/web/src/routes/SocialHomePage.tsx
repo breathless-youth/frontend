@@ -84,7 +84,7 @@ export function SocialHomePage() {
     <main
       data-testid="social-home-page"
       // 상단 안전영역 규칙은 홈·기록·설정과 동일 (SettingsPage 주석 참고).
-      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-[24px] leading-[30px] font-bold text-foreground">소셜</h1>
