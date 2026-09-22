@@ -35,8 +35,9 @@ function isKeyboardFocus(element: HTMLElement): boolean {
  * 열린 상태에서 아이콘을 다시 탭하면 닫혀야 한다. Radix는 pointerdown 시점에 두 경로로 먼저
  * 닫는다. 트리거 자체의 pointerdown 처리와, 콘텐츠 바깥 pointerdown 감지(트리거도 바깥이다)다.
  * 둘 다 막지 않으면 뒤따르는 click 토글이 다시 열어 아이콘 탭으로는 영영 못 닫는다. 앞은
- * 트리거 이벤트의 기본 동작을 막아 건너뛰게 하고, 뒤는 바깥 pointerdown의 대상이 트리거면
- * 무시하게 한다.
+ * 트리거 pointerdown 직후에 오는 닫기 요청만 무시하고, 뒤는 바깥 pointerdown의 대상이
+ * 트리거면 무시하게 한다. pointerdown의 기본 동작은 막지 않는다. 터치에서는 그것이 뒤따르는
+ * click까지 삼킬 수 있어 탭이 통째로 죽는다.
  *
  * 색은 전역 토큰으로 덮는다. `TooltipContent` 기본색은 세션 서브트리 변수라 홈·설정에는 없다.
  */
@@ -49,24 +50,33 @@ export function InfoTooltip({
 }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // 트리거 pointerdown이 진행 중인 동안만 true. Radix의 pointerdown 닫기는 같은 이벤트 안에서
+  // 동기로 오므로 마이크로태스크 하나면 창이 충분하다.
+  const ignoreCloseRef = useRef(false);
 
   return (
     <TooltipProvider>
       <Tooltip
         open={open}
         onOpenChange={(next) => {
-          if (!next) setOpen(false);
+          if (!next && !ignoreCloseRef.current) setOpen(false);
         }}
       >
         <TooltipTrigger
           ref={triggerRef}
           aria-label={label}
-          onPointerDown={(event) => event.preventDefault()}
+          onPointerDown={() => {
+            ignoreCloseRef.current = true;
+            queueMicrotask(() => {
+              ignoreCloseRef.current = false;
+            });
+          }}
           onFocus={(event) => {
             if (isKeyboardFocus(event.currentTarget)) setOpen(true);
           }}
           onClick={() => setOpen((prev) => !prev)}
-          className="-my-3 flex size-11 items-center justify-center rounded-full text-text-tertiary focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+          // touch-manipulation: 웹뷰의 더블탭 줌 인식기가 빠른 두 번째 탭을 삼키지 않게 한다.
+          className="-my-3 flex size-11 touch-manipulation items-center justify-center rounded-full text-text-tertiary focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
         >
           <Info size={iconSize} aria-hidden="true" />
         </TooltipTrigger>

@@ -19,6 +19,16 @@ describe("InfoTooltip", () => {
     expect(screen.queryByText("본문", CONTENT_QUERY)).not.toBeInTheDocument();
   });
 
+  it("pointerdown의 기본 동작을 막지 않는다 — 터치에서 뒤따르는 click이 살아 있어야 한다", () => {
+    render(<InfoTooltip label="안내">본문</InfoTooltip>);
+    const trigger = screen.getByRole("button", { name: "안내" });
+
+    // jsdom에는 PointerEvent가 없다. React는 이벤트 타입 이름으로 핸들러를 고르므로 Event면 된다.
+    const event = new Event("pointerdown", { bubbles: true, cancelable: true });
+    trigger.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("hover로 열리지 않는다 — 마우스 위에서 클릭이 토글로 닫아 깜빡이는 것을 막는다", () => {
     render(<InfoTooltip label="안내">본문</InfoTooltip>);
     const trigger = screen.getByRole("button", { name: "안내" });
