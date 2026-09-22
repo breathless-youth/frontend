@@ -1,8 +1,7 @@
 import { useIsFocused } from "@react-navigation/native";
-import { colors } from "@focusmakers/design-tokens";
 import { Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
-import { BackHandler, Platform, StyleSheet, useColorScheme, View } from "react-native";
+import { BackHandler, Platform, View } from "react-native";
 
 import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
@@ -22,9 +21,6 @@ export default function TabsLayout() {
    * 막는다. 자리까지 없애면 웹뷰 높이가 그만큼 커져 화면 중앙의 모달 카드가 튄다.
    */
   const tabBarState = useTabBarState();
-  const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  // 탭 바 안쪽 색과 같은 스킴을 따라야 한다 — 라이트 딤을 하드코딩하면 다크에서 탭 바만 밝게 뜬다.
-  const dimColor = colors.bg.dim[scheme];
   // tabBar render prop이 내비게이터 상태를 받을 때마다 갱신한다 — BackHandler 콜백이 등록
   // 시점이 아니라 눌린 시점의 활성 탭을 읽게 하기 위해서다.
   const activeRouteRef = useRef("index");
@@ -67,21 +63,20 @@ export default function TabsLayout() {
         if (tabBarState === "hidden") {
           return null;
         }
-        const bar = <TabBar active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"} />;
+        const bar = (
+          <TabBar
+            active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"}
+            dimmed={tabBarState === "blocked"}
+          />
+        );
         if (tabBarState !== "blocked") {
           return bar;
         }
-        // 딤 View가 터치를 받아 삼킨다 — 탭 바를 없애지 않는 이유는 자리가 사라지면 웹뷰가
-        // 그만큼 커져 화면 중앙의 모달 카드가 한 번 튀기 때문이다.
-        // 딤은 손가락만 막는다 — 스크린리더는 겹쳐 그린 View를 건너뛰고 그 밑 탭 버튼에
-        // 그대로 닿으므로, 래퍼를 접근성 트리에서도 함께 빼야 한다.
+        // 딤은 TabBar 안에서 탭 바를 덮는다(자리를 남겨 웹뷰 높이를 유지). 래퍼는 접근성 트리에서
+        // 함께 빼 스크린리더가 밑 탭 버튼에 닿지 않게 한다.
         return (
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {bar}
-            <View
-              testID="tab-bar-dim"
-              style={[StyleSheet.absoluteFillObject, { backgroundColor: dimColor }]}
-            />
           </View>
         );
       }}

@@ -44,8 +44,12 @@ jest.mock("../components/TabBar", () => {
   /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
 
   return {
-    TabBar: function MockTabBar() {
-      return ReactModule.createElement(View, { testID: "tab-bar" });
+    TabBar: function MockTabBar({ dimmed }: { dimmed?: boolean }) {
+      return ReactModule.createElement(
+        View,
+        { testID: "tab-bar" },
+        dimmed ? ReactModule.createElement(View, { testID: "tab-bar-dim" }) : null,
+      );
     },
   };
 });
