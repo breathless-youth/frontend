@@ -337,7 +337,7 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="min-h-dvh bg-background pb-6 pt-[calc(env(safe-area-inset-top)+15px)] text-foreground"
+      className="min-h-dvh bg-background pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+15px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
         <header className="flex items-center justify-between">
