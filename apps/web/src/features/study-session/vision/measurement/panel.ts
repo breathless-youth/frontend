@@ -96,6 +96,8 @@ function skipLabel(reason: string | null): string {
   switch (reason) {
     case "glance":
       return "(시선 이동)";
+    case "no-rest":
+      return "(쉬는 자세 없음)";
     case "face-too-small":
       return "(멀다)";
     case "blendshapes-missing":

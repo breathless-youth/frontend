@@ -35,7 +35,8 @@ export interface FaceObservation {
   /** 눈 관련 점수. 품질 게이트를 통과했을 때만 있다. null은 이번 관측에 눈 판정이 없다는 뜻이다. */
   readonly eye: EyeScores | null;
   /** `eye`가 null인 이유. 진단 로그용이고 판정에는 쓰지 않는다. */
-  readonly eyeSkipReason: "no-face" | "face-too-small" | "blendshapes-missing" | "glance" | null;
+  readonly eyeSkipReason:
+    "no-face" | "face-too-small" | "blendshapes-missing" | "glance" | "no-rest" | null;
 }
 
 /**

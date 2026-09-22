@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { GlanceSample, GlanceState } from "../glanceRule";
 import { INITIAL_GLANCE_STATE, stepGlance } from "../glanceRule";
-import { GLANCE_HEAD_MOVE_DEG, GLANCE_REST_OPEN_TICKS } from "../visionConfig";
+import {
+  GLANCE_HEAD_MOVE_DEG,
+  GLANCE_REST_MAX_BLINKS,
+  GLANCE_REST_OPEN_TICKS,
+} from "../visionConfig";
 
 const THRESHOLD = 0.45;
 const OPEN = 0.2;
@@ -141,5 +145,41 @@ describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감�
     state = stepGlance(state, { closure: 0.4, pitch: DOWN }, THRESHOLD).state;
     // 임계가 0.35로 내려가 같은 점수가 감김이 된다. 쉬는 자세(0°)에서 떨어진 자리라 시선 이동이다.
     expect(stepGlance(state, { closure: 0.4, pitch: DOWN }, 0.35).accept).toBe(false);
+  });
+
+  it("깜빡임이 몇 번 걸려도 쉬는 자세는 선다 — 2초 표본에 깜빡임은 30초에 한두 번 걸린다", () => {
+    const withBlinks = resting();
+    withBlinks[3] = closed(0);
+    withBlinks[9] = closed(0);
+    expect(after(withBlinks, [closed(1), closed(1)])).toEqual([true, true]);
+  });
+
+  it("감김이 연속되거나 허용 개수를 넘으면 쉬는 자세가 아니다 — 읽는 동안의 흔들림", () => {
+    const consecutive = resting();
+    consecutive[5] = closed(0);
+    consecutive[6] = closed(0);
+    expect(after(consecutive, [closed(1)])).toEqual([false]);
+
+    const tooMany = resting();
+    for (let i = 0; i <= GLANCE_REST_MAX_BLINKS; i += 1) {
+      tooMany[2 + i * 3] = closed(0);
+    }
+    expect(after(tooMany, [closed(1)])).toEqual([false]);
+  });
+
+  it("한 틱 튐은 잠그지 않는다 — 시작 틱만 판정 없음이고 다음 틱이 제자리면 감김이다", () => {
+    expect(after(resting(), [closed(DOWN), closed(1), closed(1)])).toEqual([false, true, true]);
+  });
+
+  it("거부 이유를 가른다 — 쉬는 자세가 없으면 no-rest, 아래에서 시작하면 glance", () => {
+    let state = INITIAL_GLANCE_STATE;
+    const noRest = stepGlance(state, closed(0), THRESHOLD);
+    expect(noRest.reject).toBe("no-rest");
+
+    for (const sample of resting()) {
+      state = stepGlance(state, sample, THRESHOLD).state;
+    }
+    expect(stepGlance(state, closed(DOWN), THRESHOLD).reject).toBe("glance");
+    expect(stepGlance(state, closed(1), THRESHOLD).reject).toBeNull();
   });
 });

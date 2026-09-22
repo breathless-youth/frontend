@@ -331,10 +331,10 @@ export function createVisionFocusDetector(
       face.eye === null ? null : Math.min(face.eye.eyeBlinkLeft, face.eye.eyeBlinkRight);
     const step = stepGlance(glance, { closure, pitch: result.metrics.headPitchDeg }, threshold);
     glance = step.state;
-    if (closure === null || threshold === null || step.accept) {
+    if (closure === null || threshold === null || step.accept || step.reject === null) {
       return face;
     }
-    return { facePresent: true, eye: null, eyeSkipReason: "glance" };
+    return { facePresent: true, eye: null, eyeSkipReason: step.reject };
   }
 
   /**
