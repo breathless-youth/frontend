@@ -15,8 +15,7 @@ import {
   reportEyeCalibration,
 } from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
-import type { GlanceState } from "../vision/glanceRule";
-import { INITIAL_GLANCE_STATE, stepGlance } from "../vision/glanceRule";
+import { isLookingDown, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
@@ -286,10 +285,10 @@ export function createVisionFocusDetector(
   /** 비율 판정용 최근 눈 점수. 창 크기만 든다. 일시정지에서 비운다. */
   let eyeReadings: number[] = [];
   /**
-   * 시선 이동 vs 감김 상태(`../vision/glanceRule.ts`). 얼굴 관측과 수명이 같다 — 관측을 버리는
-   * 곳에서 같이 버린다. 남겨 두면 공백 앞의 "감김 시작"이 공백 뒤의 감김을 설명하게 된다.
+   * 내려다봄 게이트가 보는 최근 고개 각도(`../vision/headPitchGate.ts`). 얼굴 관측과 수명이 같다 —
+   * 관측을 버리는 곳에서 같이 버린다.
    */
-  let glance: GlanceState = INITIAL_GLANCE_STATE;
+  let recentHeadPitch: number[] = [];
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -314,27 +313,22 @@ export function createVisionFocusDetector(
     faceSamples = [];
     eyeReadings = [];
     eyeGateMisses = 0;
-    glance = INITIAL_GLANCE_STATE;
+    recentHeadPitch = [];
   }
 
   /**
-   * 얼굴 관측을 시선 이동 규칙에 통과시킨다. 감김이 시선 이동으로 분류되면 관측의 눈을 지워
-   * "판정 없음"으로 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 감김이 들어가지 않는다.
-   *
-   * 보정 전(임계 없음)에는 손대지 않는다. 그때는 감김 판정 자체가 없고, 관측을 지우면 보정 창이
-   * 영영 차지 않는다.
+   * 얼굴 관측을 내려다봄 게이트에 통과시킨다. 고개가 내려가 있으면 관측의 눈을 지워 "판정 없음"으로
+   * 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 표본이 들어가지 않는다. 판정 없음은 원신호를 내리므로
+   * 서 있던 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라 허용된 방향이다. 근거는 `visionConfig.ts`의
+   * `HEAD_PITCH_DOWN_DEG` 주석.
    */
-  function classifyGlance(result: FaceDetectionResult): FaceObservation {
+  function gateHeadPitch(result: FaceDetectionResult): FaceObservation {
+    recentHeadPitch = pushHeadPitch(recentHeadPitch, result.metrics.headPitchDeg);
     const face = result.face;
-    const threshold = calibration?.threshold ?? null;
-    const closure =
-      face.eye === null ? null : Math.min(face.eye.eyeBlinkLeft, face.eye.eyeBlinkRight);
-    const step = stepGlance(glance, { closure, pitch: result.metrics.headPitchDeg }, threshold);
-    glance = step.state;
-    if (closure === null || threshold === null || step.accept || step.reject === null) {
+    if (face.eye === null || !isLookingDown(recentHeadPitch)) {
       return face;
     }
-    return { facePresent: true, eye: null, eyeSkipReason: step.reject };
+    return { facePresent: true, eye: null, eyeSkipReason: "looking-down" };
   }
 
   /**
@@ -551,7 +545,7 @@ export function createVisionFocusDetector(
     }
 
     let faceRan: FaceDetectionResult | null = null;
-    /** 시선 이동 규칙을 지난 관측. 규칙이 지운 눈은 진단에도 지워진 채로 나간다. */
+    /** 내려다봄 게이트를 지난 관측. 게이트가 지운 눈은 진단에도 지워진 채로 나간다. */
     let faceObserved: FaceObservation | null = null;
     if (sleepEnabled && signals.personPresent && faceStatus === "ready") {
       if (faceLandmarker.state === "unavailable") {
@@ -563,7 +557,7 @@ export function createVisionFocusDetector(
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
-          faceObserved = classifyGlance(faceRan);
+          faceObserved = gateHeadPitch(faceRan);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
         }

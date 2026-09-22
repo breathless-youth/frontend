@@ -14,6 +14,7 @@ import type { FaceObservation } from "../../vision/sleepRules";
 import { measurementDiagnostics } from "../../vision/measurement";
 import {
   EYE_CALIBRATION_DELTA,
+  HEAD_PITCH_DOWN_DEG,
   EYE_CALIBRATION_SAMPLES,
   EYE_AWAKE_CLEAR_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
@@ -1311,7 +1312,7 @@ describe("측정 도구가 읽는 보정", () => {
   });
 });
 
-describe("시선 이동 vs 감김 — 감김이 시작될 때 고개가 움직였는가", () => {
+describe("내려다봄 게이트 — 고개가 내려가 있으면 눈 판정을 하지 않는다", () => {
   /** 보정 창(뜬 눈 15표본, 고개 0°) 뒤에 이어질 관측과 각도. */
   function scenario(tail: readonly { face: FaceObservation; pitch: number }[]): {
     faces: FaceObservation[];
@@ -1348,34 +1349,39 @@ describe("시선 이동 vs 감김 — 감김이 시작될 때 고개가 움직�
 
   const closedFor = (count: number, pitch: number) =>
     Array.from({ length: count }, () => ({ face: seen(0.9), pitch }));
+  const DOWN = HEAD_PITCH_DOWN_DEG + 5;
 
-  it("고개를 멈춘 채 눈을 감으면 졸음 원신호가 선다 — 앉아서 조는 사람", async () => {
+  it("고개를 든 채 눈을 감으면 졸음 원신호가 선다", async () => {
     const signals = await runScenario(closedFor(8, 1));
     expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
   });
 
-  it("고개를 내리면서 감김으로 읽히면 세우지 않는다 — 책·폰을 보려고 내린 것이다", async () => {
-    const signals = await runScenario(closedFor(8, 20));
+  it("고개가 내려가 있으면 감김으로 읽혀도 세우지 않는다 — 책·폰을 보는 자세", async () => {
+    const signals = await runScenario(closedFor(8, DOWN));
     expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
   });
 
-  it("감김 시작 다음 틱에 고개가 내려가도 세우지 않는다", async () => {
-    const signals = await runScenario([{ face: seen(0.9), pitch: 1 }, ...closedFor(8, 20)]);
-    expect(signals).not.toContainEqual({ source: "SLEEP_EYES", active: true });
-  });
-
-  it("고개를 들어 뜬 눈을 보인 뒤 멈춘 채 감으면 다시 센다", async () => {
+  it("한 틱 튐은 중앙값이 거른다 — 감김이 끊기지 않는다", async () => {
     const signals = await runScenario([
-      ...closedFor(3, 20), // 내려다봄 — 시선 이동
-      { face: seen(0.1), pitch: 0 }, // 고개 들고 뜸
-      { face: seen(0.1), pitch: 0 },
-      ...closedFor(8, 0), // 정지 감김
+      ...closedFor(3, 1),
+      { face: seen(0.9), pitch: DOWN },
+      ...closedFor(5, 1),
     ]);
     expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
   });
 
-  it("시선 이동으로 지운 관측은 진단에 glance로 남는다 — 덩어리가 그 이유를 센다", async () => {
-    const { faces, pitches } = scenario(closedFor(4, 20));
+  it("감은 채 고개가 떨어지면 그때부터 세지 않는다 — 허용된 놓침", async () => {
+    const signals = await runScenario([...closedFor(8, 1), ...closedFor(6, DOWN)]);
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: true });
+    // 게이트에 걸린 관측은 판정 없음이고, 판정 없음은 원신호를 내린다(`sleepRules.ts`의
+    // `eyesClosed`는 관측이 없으면 false). 그래서 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라
+    // 허용된 방향이다. 다시 서지는 않는다.
+    expect(signals).toContainEqual({ source: "SLEEP_EYES", active: false });
+    expect(signals.filter((s) => s.source === "SLEEP_EYES" && s.active)).toHaveLength(1);
+  });
+
+  it("게이트에 걸린 관측은 진단에 looking-down으로 남는다 — 덩어리가 그 이유를 센다", async () => {
+    const { faces, pitches } = scenario(closedFor(4, DOWN));
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker } = fakeFaceLandmarker({ faces, pitches });
     const frame = vi.fn();
@@ -1401,7 +1407,7 @@ describe("시선 이동 vs 감김 — 감김이 시작될 때 고개가 움직�
 
     const reasons = frame.mock.calls
       .map((call) => (call[0] as { face: { skipReason: string | null } | null }).face?.skipReason)
-      .filter((reason) => reason === "glance");
+      .filter((reason) => reason === "looking-down");
     expect(reasons.length).toBeGreaterThan(0);
   });
 });

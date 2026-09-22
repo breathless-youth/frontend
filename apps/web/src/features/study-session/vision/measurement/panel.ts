@@ -94,10 +94,8 @@ function deg(value: number | null): string {
 /** 건너뛴 이유를 사람이 읽는 말로. 게이트 이름은 코드가 유일한 출처다(`sleepRules.ts`). */
 function skipLabel(reason: string | null): string {
   switch (reason) {
-    case "glance":
-      return "(시선 이동)";
-    case "no-rest":
-      return "(쉬는 자세 없음)";
+    case "looking-down":
+      return "(내려다봄)";
     case "face-too-small":
       return "(멀다)";
     case "blendshapes-missing":
