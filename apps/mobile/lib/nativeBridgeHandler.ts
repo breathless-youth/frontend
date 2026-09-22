@@ -15,8 +15,11 @@ import { setTabBarState } from "./tabBarVisibility";
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
 
-/** `navigate-tab`의 목적지 값 → 탭 id. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
-const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
+/** `navigate-tab`의 목적지 값 → 탭 id와 라우트. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
+const TAB_TARGET_BY_MESSAGE_TAB = {
+  records: { id: "record", href: "/records" },
+  social: { id: "social", href: "/social" },
+} as const;
 
 /**
  * 웹이 요청한 탭 전환. 탭 전환은 네이티브 탭바 소유라 웹은 신호만 보낸다. `router.navigate`는
@@ -24,12 +27,12 @@ const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
  * 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `via`로 가른다.
  */
 function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMessage["via"]>) {
-  const target = NATIVE_TAB_BY_MESSAGE_TAB[tab];
+  const target = TAB_TARGET_BY_MESSAGE_TAB[tab];
   const from = getActiveTab();
-  if (from !== target) {
-    trackNativeEvent("tab_pressed", { tab: target, from_tab: from, via });
+  if (from !== target.id) {
+    trackNativeEvent("tab_pressed", { tab: target.id, from_tab: from, via });
   }
-  router.navigate("/records");
+  router.navigate(target.href);
 }
 
 /**
@@ -133,8 +136,8 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       });
       break;
     case "navigate-tab":
-      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"), 또는 소셜 결과 화면의
-      // `기록으로 가기`(탭 웹뷰라 모달이 없다). 발신처를 안 실은 옛 웹은 `card`다.
+      // 소셜 결과 화면의 `기록으로 가기`(탭 웹뷰라 모달이 없다)와 홈 친구 초대 카드 → 소셜 탭.
+      // 발신처를 안 실은 옛 웹(연속 공부 카드 → 기록)은 `card`다.
       // 솔로 결과는 모달을 닫아야 하므로 `navigate-home {tab}`으로 온다.
       openTab(message.tab, message.via ?? "card");
       break;

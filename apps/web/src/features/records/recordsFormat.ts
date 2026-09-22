@@ -113,6 +113,30 @@ export function isFutureDateKey(dateKey: string, todayKey: string): boolean {
   return dateKey > todayKey;
 }
 
+export type WeekDotState = "done" | "today" | "none";
+
+export type StreakWeekDay = {
+  dateKey: string;
+  /** 일~토 */
+  weekdayLabel: string;
+  dayOfMonth: number;
+  state: WeekDotState;
+};
+
+/**
+ * 이번 주(일~토) 도트 7개. 오늘은 공부 여부와 무관하게 `today`, 공부한 날은 `done`, 나머지는
+ * `none`이다. 홈 연속 공부 카드와 기록 탭 배너가 같은 배열을 그린다.
+ */
+export function buildStreakWeek(todayKey: string, doneDates: readonly string[]): StreakWeekDay[] {
+  const done = new Set(doneDates);
+  return weekDateKeys(todayKey).map((dateKey) => ({
+    dateKey,
+    weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
+    dayOfMonth: dayOfDateKey(dateKey),
+    state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
+  }));
+}
+
 /**
  * 시간 길이 표기(voice-tone §2, 전 화면 공통): 1시간 이상 → `N시간 M분`(M=0이면 `N시간`) ·
  * 1시간 미만 → `M분` · 1분 미만 → `S초`.

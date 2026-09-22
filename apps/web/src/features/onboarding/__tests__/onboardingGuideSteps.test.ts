@@ -171,13 +171,12 @@ describe("목업 배경 상태", () => {
 describe("parseOnboardingGuideEntry", () => {
   it("알려진 진입 출처를 그대로 통과시킨다", () => {
     expect(parseOnboardingGuideEntry("focus-start")).toBe("focus-start");
-    expect(parseOnboardingGuideEntry("home-card")).toBe("home-card");
     expect(parseOnboardingGuideEntry("settings")).toBe("settings");
   });
 
   it("모르는 값·누락은 '다시 보기'로 떨어뜨린다 (요청하지 않은 권한 요청을 띄우지 않는다)", () => {
-    expect(parseOnboardingGuideEntry(undefined)).toBe("home-card");
-    expect(parseOnboardingGuideEntry("이상한값")).toBe("home-card");
+    expect(parseOnboardingGuideEntry(undefined)).toBe("unknown");
+    expect(parseOnboardingGuideEntry("이상한값")).toBe("unknown");
   });
 });
 

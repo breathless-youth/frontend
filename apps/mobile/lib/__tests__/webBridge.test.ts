@@ -107,6 +107,12 @@ describe("parseToNativeMessage", () => {
     ).toEqual({ type: "navigate-tab", tab: "records", atMs: 4 });
   });
 
+  it("navigate-tab은 소셜 탭도 받는다 — 홈 친구 초대 카드의 via=invite_card", () => {
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"social","via":"invite_card","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "social", via: "invite_card", atMs: 4 });
+  });
+
   it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {
     expect(parseToNativeMessage('{"type":"navigate-tab","tab":"profile","atMs":4}')).toBeNull();
   });

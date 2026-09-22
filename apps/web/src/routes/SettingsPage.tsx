@@ -1,9 +1,8 @@
-import { Info } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ToastViewport } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
@@ -118,25 +117,9 @@ export function SettingsPage() {
               >
                 카메라 권한
               </button>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    aria-label="카메라 권한 안내"
-                    className="text-text-tertiary -my-3 flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
-                  >
-                    <Info size={16} aria-hidden="true" />
-                  </TooltipTrigger>
-                  {/* 배경음 시트 툴팁은 세션 서브트리 변수를 쓰는데 이 화면엔 없어, 배경·글자를
-                      전역 토큰으로 덮는다. */}
-                  <TooltipContent
-                    side="bottom"
-                    align="start"
-                    className="bg-foreground text-background"
-                  >
-                    권한은 시스템 설정에서 바꿀 수 있어요
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <InfoTooltip label="카메라 권한 안내">
+                권한은 시스템 설정에서 바꿀 수 있어요
+              </InfoTooltip>
             </div>
             {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
             {granted !== null && <PermissionToggle granted={granted} />}

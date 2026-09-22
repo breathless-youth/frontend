@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import { weekDateKeys } from "@/features/records/recordsFormat";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { dailyStatsQuery, streakQuery } from "@/lib/statsQueries";
 
@@ -24,8 +25,15 @@ export type HomeSummaryState =
 export function useHomeSummary(userId: number): HomeSummaryState {
   const dateKey = todayKstDateKey();
 
+  // 자정을 넘기면 날짜 키가 바뀐다. 오늘 통계에는 직전 응답을 placeholder로 두지 않는다. 어제
+  // 합계가 새 날짜 아래 "오늘 순공시간"으로 보이면 안 되므로 새 응답까지 스켈레톤이 맞다.
   const stats = useQuery(dailyStatsQuery(userId, dateKey));
-  const streak = useQuery(streakQuery(userId));
+  // 주간 도트 때문에 이번 주 범위로 조회한다. 기록 탭 배너와 같은 키라 캐시를 나눠 쓰고, 주 범위가
+  // 바뀌는 순간에는 직전 도트를 유지한다(기록 탭과 같은 처리).
+  const streak = useQuery({
+    ...streakQuery(userId, { from: weekDateKeys(dateKey)[0], to: dateKey }),
+    placeholderData: keepPreviousData,
+  });
 
   const retry = useCallback(() => {
     if (stats.isError) {
@@ -37,7 +45,7 @@ export function useHomeSummary(userId: number): HomeSummaryState {
   }, [stats, streak]);
 
   if (stats.data !== undefined && streak.data !== undefined) {
-    return { status: "success", summary: buildHomeSummary(stats.data, streak.data) };
+    return { status: "success", summary: buildHomeSummary(stats.data, streak.data, dateKey) };
   }
   if (stats.isError || streak.isError) {
     return { status: "error", retry };

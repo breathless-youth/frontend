@@ -106,8 +106,8 @@ describe("/onboarding-guide — navigate() 호출 횟수(BY-334 회귀)", () => 
     );
   });
 
-  it("entry=home-card(재진입) · 건너뛰기: closeGuide() 한 번만 호출되고 세션 이동은 없다", async () => {
-    renderGuideAt("/onboarding-guide?entry=home-card&userId=42");
+  it("entry=settings(재진입) · 건너뛰기: closeGuide() 한 번만 호출되고 세션 이동은 없다", async () => {
+    renderGuideAt("/onboarding-guide?entry=settings&userId=42");
 
     fireEvent.click(screen.getByRole("button", { name: GUIDE_SKIP_LABEL }));
 
@@ -115,7 +115,7 @@ describe("/onboarding-guide — navigate() 호출 횟수(BY-334 회귀)", () => 
       expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
     expect(navigateSpy).toHaveBeenCalledWith(
-      { pathname: "/home", search: "?entry=home-card&userId=42" },
+      { pathname: "/home", search: "?entry=settings&userId=42" },
       { replace: true },
     );
   });
@@ -200,7 +200,7 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
   it("브리지가 있어도 건너뛰기 종료는 정상 동작한다 — 래치가 갇힘을 만들지 않는다", async () => {
     globalWithBridge.ReactNativeWebView = { postMessage: vi.fn() };
 
-    renderGuideAt("/onboarding-guide?entry=home-card&userId=42");
+    renderGuideAt("/onboarding-guide?entry=settings&userId=42");
 
     fireEvent.click(screen.getByRole("button", { name: "건너뛰기" }));
 
@@ -208,7 +208,7 @@ describe("/onboarding-guide — 네이티브 웹뷰(브리지 있음)", () => {
       expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
     expect(navigateSpy).toHaveBeenCalledWith(
-      { pathname: "/home", search: "?entry=home-card&userId=42" },
+      { pathname: "/home", search: "?entry=settings&userId=42" },
       { replace: true },
     );
   });

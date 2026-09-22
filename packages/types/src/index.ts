@@ -341,3 +341,4 @@ export type {
   AnalyticsReadyMessage,
   NativeAnalyticsPropertyValue,
 } from "./bridge";
+export { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "./bridge";

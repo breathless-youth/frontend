@@ -675,11 +675,11 @@ export function trackSessionSimpleModeToggled(on: boolean) {
 
 /**
  * 온보딩 가이드 진입(2026-09-05) — 어느 경로로 들어왔는지(`entry`: 홈 "집중 시작" 첫 실행 /
- * 홈 가이드 카드 / 설정 "측정 기준 안내"). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
+ * 설정 "서비스 이용 가이드" / 출처 없음 `unknown`. 홈 가이드 카드는 V2 홈에서 빠졌다). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
  * 순간이지만 따로 둔다 — 스텝 이벤트는 진행을, 이 이벤트는 유입을 묻는다(같은 `entry`가 가이드
  * 이벤트 전부에 실려 어느 쪽으로도 세그먼트할 수 있다).
  */
-export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings") {
+export function trackGuideEntered(entry: "focus-start" | "settings" | "unknown") {
   if (!initialized) return;
   track("guide_entered", { entry });
 }
@@ -691,7 +691,7 @@ export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings
  */
 export function trackGuideStepViewed(input: {
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
   readonly method: "initial" | "cta" | "gesture" | "prev";
 }) {
   if (!initialized) return;
@@ -706,7 +706,7 @@ export function trackGuideStepViewed(input: {
 export function trackGuideFinished(input: {
   readonly reason: "completed" | "skipped";
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
 }) {
   if (!initialized) return;
   track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
