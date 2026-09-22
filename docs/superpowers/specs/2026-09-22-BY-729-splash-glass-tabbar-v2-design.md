@@ -53,18 +53,12 @@ Liquid Glass로 자동 렌더한다(문서 명시).
 - 유지: V2 아웃라인 아이콘, 플로팅·radius 999·그림자, 토큰, 딤(모달) 처리, `tab_pressed`·
   `set-tab-bar` 동작, 스플래시, 웹 하단 여백.
 
-### 유리는 iOS 26 네이티브, 그 밖은 블러 폴백
+### 프로스티드 바는 BlurView로만 (최종 구현)
 
-`expo-glass-effect`(SDK 54 번들 `~0.1.10`)의 `GlassView`가 iOS 26 이상에서 시스템 Liquid
-Glass를 그린다. EAS iOS 빌드 이미지가 `macos-sequoia-15.6-xcode-26.2`라 컴파일 조건도 이미
-충족한다. 그 아래 iOS와 Android에서는 `GlassView`가 조용히 평범한 `View`로 떨어지므로
-`expo-blur`(SDK 54 번들 `~15.0.8`)의 `BlurView`로 시안의 blur 값을 낸다.
-
-분기는 `isLiquidGlassAvailable()` 한 번으로 끝낸다. 모듈 로드 시점에 정해지는 상수라 렌더마다
-다시 묻지 않는다.
-
-버린 안: `expo-blur` 하나로 전 플랫폼 통일. 코드는 더 짧지만 iOS 26이 가진 굴절·반사를 버린다.
-버린 안: `GlassView` 하나만. iOS 26 미만과 Android 전체가 불투명 판으로 떨어져 시안과 멀어진다.
+배경은 `expo-blur`의 `BlurView` 하나로만 낸다(iOS·Android 공통, Android는
+`experimentalBlurMethod="dimezisBlurView"`로 실제 블러). iOS 26 네이티브 Liquid Glass는
+위 "탭 바는 정적 Figma 디자인, Liquid Glass는 별도 티켓"대로 BY-736(NativeTabs)으로 뺐으므로,
+이 티켓의 코드에는 `GlassView`·`isLiquidGlassAvailable()` 분기가 없다.
 
 ### Soft Blue 값은 토큰 패키지에 별도 스코프로 넣는다
 
@@ -104,8 +98,7 @@ Glass를 그린다. EAS iOS 빌드 이미지가 `macos-sequoia-15.6-xcode-26.2`�
 
 TabBar
  └ Surface (radius 999, border 1, shadow 0/10/15)
-    ├ iOS 26+ : <GlassView glassEffectStyle="regular">
-    └ 그 외    : <BlurView intensity={22} tint={scheme}>
+    └ <BlurView intensity={22} tint={scheme}>   (전 플랫폼 공통, Android는 dimezisBlurView)
        └ padding 6, flex-row
           └ 탭 4개 (높이 56, min-h-11, gap 3)
              └ 활성일 때만 알약 View 1장
@@ -153,14 +146,15 @@ NanumSquareRound ExtraBold, 색을 위 토큰 값으로 고쳐 `assets/splash-ic
 이 제품은 웹뷰가 본 무대고 브라우저에서는 빈 여백이 보이는 것뿐이라 조건 분기를 넣을
 값어치가 없다고 판단했다.
 
-## 검증 못 한 가정
+## 레이아웃 검증
 
 React Navigation의 `BottomTabView`가 커스텀 `tabBar`의 높이만큼 화면에 하단 패딩을 주는데,
-반환 엘리먼트를 `position:absolute`로 두면 흐름에서 빠져 0으로 잡힐 것으로 본다. 표준
-패턴이지만 이 버전에서 실제로 그런지는 코드를 올려 봐야 안다.
+반환 엘리먼트를 `position:absolute`로 두면 흐름에서 빠져 0으로 잡힌다. iOS 26.5 시뮬레이터
+빌드로 확인했다 — 웹뷰 콘텐츠가 바 뒤로 흐르고, 네이티브가 예약한 여백과 웹 `--tab-bar-reserve`가
+겹쳐 큰 빈칸이 생기지 않는다.
 
-아니라면 `_layout.tsx`에서 `<Tabs>` 바깥의 형제 오버레이로 옮긴다. 그 경우 `useTabBarState()`
-구독 위치만 한 칸 올라가고 나머지는 그대로다.
+만약 이 동작이 깨지면(네이티브가 슬롯을 예약하면) `_layout.tsx`에서 `<Tabs>` 바깥의 형제
+오버레이로 옮긴다. 그 경우 `useTabBarState()` 구독 위치만 한 칸 올라가고 나머지는 그대로다.
 
 ## 완료 조건
 

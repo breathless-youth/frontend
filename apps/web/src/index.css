@@ -125,6 +125,7 @@
   --stamp-seal: #e5342a;
 
   /* 하단 탭 바가 웹뷰 위로 떠서 콘텐츠 끝을 가린다 — 탭 바(70) + 바닥 여백(24/safe area) + 숨(8). */
+  /* 바 높이 = TabBar.tsx의 tab height 56 + surface padding 6*2 = 68, 여유 2 포함 70. */
   --tab-bar-reserve: calc(70px + max(env(safe-area-inset-bottom), 24px) + 8px);
 }
 
