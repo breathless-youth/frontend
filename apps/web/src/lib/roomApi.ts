@@ -20,8 +20,9 @@ export async function createRoom(): Promise<RoomCreateResponse> {
   const res = await apiFetch(
     `${API_BASE_URL}/api/rooms`,
     legacy === null
-      ? { method: "POST" }
+      ? { endpoint: "roomCreate", method: "POST" }
       : {
+          endpoint: "roomCreate",
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: legacy } satisfies RoomCreateRequest),
@@ -39,6 +40,7 @@ async function postJoin(inviteCode: string): Promise<RoomJoinResponse> {
   const request: RoomJoinRequest =
     legacy === null ? { inviteCode } : { userId: legacy, inviteCode };
   const res = await apiFetch(`${API_BASE_URL}/api/rooms/join`, {
+    endpoint: "roomJoin",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -74,6 +76,7 @@ export async function renewLiveRoomSeat(inviteCode: string): Promise<RoomJoinRes
 /** 명시적 퇴장 — 룸 나가기에서 세션 제출 후 호출한다. */
 export async function leaveRoom(roomId: number): Promise<void> {
   const res = await apiFetch(`${API_BASE_URL}/api/rooms/${roomId}/leave${legacyQuery("")}`, {
+    endpoint: "roomLeave",
     method: "POST",
   });
   if (!res.ok) {

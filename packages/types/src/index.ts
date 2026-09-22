@@ -13,13 +13,14 @@ export interface UserRegisterRequest {
 }
 
 export interface UserRegisterResponse {
-  /** 발급된 유저 ID — 이후 모든 API 호출에 사용 */
-  userId: number;
   /** 신규 생성이면 true(HTTP 201), 기존 기기 재등록이면 false(HTTP 200) */
   isNew: boolean;
-  /** BY-526부터 내려온다. 그 전 서버 응답에는 없다 — 프론트는 없으면 null로 보관하고 헤더 없이 보낸다. */
-  accessToken?: string;
-  refreshToken?: string;
+  /**
+   * 신원은 이 토큰의 `sub` 클레임에 문자열로 들어 있다 — 응답 본문에 `userId`는 없다(BY-723 실측).
+   * 예전 계약에는 `userId` 필드가 있었으므로 옛 기록을 읽을 때 혼동하지 말 것.
+   */
+  accessToken: string;
+  refreshToken: string;
 }
 
 /**
@@ -324,6 +325,9 @@ export type {
   RoomSignalPublish,
   RoomStateUpdate,
 } from "./room";
+
+export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
+export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export type {
   CameraPermissionMessage,
