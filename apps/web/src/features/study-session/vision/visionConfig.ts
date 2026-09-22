@@ -180,13 +180,12 @@ export const DETECTOR_SCORE_THRESHOLD = Math.min(SCORE_THRESHOLDS.person, SCORE_
  * (A13급에서 실측 필요 — `WebKit.WebContent` 프로세스 CPU%로 확인한다). 500ms 시절보다 여유는
  * 두 배다.
  */
-export const FRAME_INTERVAL_MS = 500;
+export const FRAME_INTERVAL_MS = 1000;
 
 /*
- * 2026-09-22 저녁, 리더 결정으로 1000ms에서 500ms로 되돌렸다. 졸음 측정 회차에서 객체 추론이 124ms라
- * 500ms 주기에서도 듀티 25%로 여유가 있고, 이탈·휴대폰의 반응성(관측 지연 0~500ms)을 되찾는 쪽을 골랐다.
- * 얼굴 틱은 2초 그대로다 — `FACE_FRAME_DIVISOR`를 2에서 4로 같이 올렸다. 유지시간도 500ms 시절
- * 값(AWAY 1500 · PHONE 500)으로 되돌렸다(`../detection.ts`). 발열은 `?sleep=0` A/B로 다시 잰다.
+ * 2026-09-22 저녁 한 회차만 500ms(2 fps)로 돌려 봤다가 1000ms로 되돌렸다(리더). 졸음 측정용 임시
+ * 변경이었고, 발열 예산은 1 fps 기준이다. 얼굴 틱 2초(`FACE_FRAME_DIVISOR` 2)와 유지시간(AWAY 2000 ·
+ * PHONE 1000, `../detection.ts`)도 1 fps 짝으로 함께 되돌렸다.
  */
 
 /**
@@ -252,19 +251,18 @@ export const FACE_LANDMARKER_OPTIONS = {
 } as const;
 
 /**
- * 얼굴 추론을 도는 간격 — 처리된 프레임 4개마다 한 번, 즉 2초(500ms × 4).
+ * 얼굴 추론을 도는 간격 — 처리된 프레임 2개마다 한 번, 즉 2초(1000ms × 2).
  *
  * **이 값은 `FRAME_INTERVAL_MS`와 짝이다.** 아래 `*_SAMPLES` 상수들이 전부 "얼굴 틱 2초"를
  * 전제로 잡혀 있어서(보정 30초·비율 창 44초·깨어남 6초), 얼굴 틱이 바뀌면 그 시간이 전부
  * 같이 늘어난다. 2026-09-21에 프레임 주기가 500ms→1000ms로 늘면서 4→2로 내려 얼굴 틱 2초를
- * 유지했고, 2026-09-22 저녁 주기가 500ms로 돌아오면서 다시 4로 올렸다. `__tests__/visionConfig.test.ts`가
- * 비율 창 44초를 고정해 이 짝이 깨지면 잡는다.
+ * 유지했다. `__tests__/visionConfig.test.ts`가 비율 창 44초를 고정해 이 짝이 깨지면 잡는다.
  *
  * 발열 예산의 손잡이다. 추가 CPU 듀티는 얼굴 추론 시간 ÷ (이 값 × `FRAME_INTERVAL_MS`)이고,
  * iPhone 17 실측 44~54ms에서 얼굴 틱 2초면 +2.5%p다. 유지시간이 10초 이상이라 2초 간격에서도
- * 표본이 5개 이상 쌓인다. 앱 안 발열 측정에서 모자라면 6, 8로 올린다(얼굴 틱 3초·4초).
+ * 표본이 5개 이상 쌓인다. 앱 안 발열 측정에서 모자라면 3, 4로 올린다(얼굴 틱 3초·4초).
  */
-export const FACE_FRAME_DIVISOR = 4;
+export const FACE_FRAME_DIVISOR = 2;
 
 /**
  * 모델의 blendshape 헤드에서 읽는 이름. 타입 정의에 없고 런타임에 온다.
