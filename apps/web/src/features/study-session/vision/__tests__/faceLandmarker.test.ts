@@ -288,58 +288,6 @@ describe("createFaceLandmarker — 정규화", () => {
   });
 });
 
-describe("createFaceLandmarker — 눈 윤곽 그리기 통로", () => {
-  it("얼굴이 있으면 눈 윤곽 16점씩을 콜백으로만 넘기고 반환값에는 남기지 않는다", async () => {
-    const outlines: unknown[] = [];
-    const { loadRuntime } = fakeRuntime(async () => fakeHandle(faceResult(0.13, 0.55)));
-    const landmarker = createFaceLandmarker({
-      loadRuntime,
-      onEyeOutline: (outline) => outlines.push(outline),
-    });
-    await landmarker.load();
-
-    const result = landmarker.detect(video, 0);
-
-    expect(outlines).toHaveLength(1);
-    expect(outlines[0]).toMatchObject({ accepted: true });
-    expect((outlines[0] as { left: unknown[] }).left).toHaveLength(16);
-    expect((outlines[0] as { right: unknown[] }).right).toHaveLength(16);
-    expect(JSON.stringify(result)).not.toContain('"x"');
-  });
-
-  it("얼굴은 있는데 게이트에 걸리면 받아들이지 않았다고 표시한다", async () => {
-    const outlines: { accepted: boolean }[] = [];
-    const { loadRuntime } = fakeRuntime(async () => fakeHandle(faceResult(0.02, 0.55)));
-    const landmarker = createFaceLandmarker({
-      loadRuntime,
-      onEyeOutline: (outline) => {
-        if (outline !== null) {
-          outlines.push(outline);
-        }
-      },
-    });
-    await landmarker.load();
-
-    landmarker.detect(video, 0);
-
-    expect(outlines[0]?.accepted).toBe(false);
-  });
-
-  it("얼굴이 없으면 null을 넘겨 그림을 지우게 한다", async () => {
-    const outlines: unknown[] = [];
-    const { loadRuntime } = fakeRuntime(async () => fakeHandle(NO_FACE));
-    const landmarker = createFaceLandmarker({
-      loadRuntime,
-      onEyeOutline: (outline) => outlines.push(outline),
-    });
-    await landmarker.load();
-
-    landmarker.detect(video, 0);
-
-    expect(outlines).toEqual([null]);
-  });
-});
-
 describe("createFaceLandmarker — 추론 실패", () => {
   it("ready 이전에는 null이다", () => {
     const { loadRuntime } = fakeRuntime(async () => fakeHandle());
@@ -407,7 +355,7 @@ describe("createFaceLandmarker — 추론 실패", () => {
   });
 });
 
-describe("얼굴 지표 — 고개 각도. 판정은 쓰지 않고 측정 도구가 기록한다", () => {
+describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다", () => {
   async function ready(result: unknown) {
     const handle = fakeHandle(result);
     const { loadRuntime } = fakeRuntime(async () => handle);

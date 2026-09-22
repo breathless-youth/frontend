@@ -154,50 +154,6 @@ describe("createFrameLoop", () => {
     warn.mockRestore();
   });
 
-  it("앞 프레임이 안 끝나 건너뛴 틱을 알린다", async () => {
-    const onDrop = vi.fn();
-    const pending = deferred();
-    const loop = createFrameLoop({ onFrame: () => pending.promise, onDrop });
-
-    loop.start();
-    // 첫 프레임이 아직 안 끝난 채로 다음 두 틱이 지나간다.
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
-
-    expect(onDrop).toHaveBeenCalledTimes(2);
-    pending.resolve();
-    loop.stop();
-  });
-
-  /**
-   * `stop()`이 `busy`를 내리고 세대를 올리므로, 뒤늦게 끝난 옛 추론은 새 세대의 상태를 건드리지
-   * 못한다. 재개 직후의 첫 틱은 버림이 아니다 — 버린 틱이 합격 기준이라 이 성질을 고정한다.
-   */
-  it("추론이 떠 있는 채로 stop 후 start해도 버린 틱으로 세지 않는다", async () => {
-    const onDrop = vi.fn();
-    const pending = deferred();
-    const loop = createFrameLoop({ onFrame: () => pending.promise, onDrop });
-
-    loop.start();
-    loop.stop();
-    loop.start();
-    pending.resolve();
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(onDrop).not.toHaveBeenCalled();
-    loop.stop();
-  });
-
-  it("정상 속도면 알리지 않는다", async () => {
-    const onDrop = vi.fn();
-    const loop = createFrameLoop({ onFrame: () => {}, onDrop });
-
-    loop.start();
-    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4);
-
-    expect(onDrop).not.toHaveBeenCalled();
-    loop.stop();
-  });
-
   it("phase를 매 프레임 다시 읽는다 — 적응형 주기로 바꿀 자리", async () => {
     const phase = vi.fn(() => "FOCUS" as const);
     const loop = createFrameLoop({ onFrame: () => {}, phase });

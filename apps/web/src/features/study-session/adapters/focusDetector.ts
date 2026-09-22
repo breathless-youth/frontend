@@ -8,19 +8,13 @@ import type {
 } from "../vision/detectionRules";
 import { evaluateFrame, topScoresByLabel } from "../vision/detectionRules";
 import type { VisionDiagnostics } from "../vision/diagnostics";
-// 실기기 측정용 계측. 측정이 끝나면 기본 진단을 `visionDiagnostics`로 되돌린다.
-import {
-  measurementDiagnostics,
-  measurementEyeOutline,
-  reportEyeCalibration,
-} from "../vision/measurement";
+import { visionDiagnostics } from "../vision/diagnostics";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import { headPitchZone, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
 import { createObjectDetector } from "../vision/objectDetector";
-import { isSleepDetectionEnabled } from "../vision/sleepDetectionFlag";
 import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRules";
 import { evaluateSleep, eyeClosedRatio, NO_SLEEP_SIGNALS } from "../vision/sleepRules";
 import type { EyeCalibration } from "../vision/eyeCalibration";
@@ -192,8 +186,8 @@ export interface VisionFocusDetectorOptions {
   /** 졸음 판정 규칙 교체 지점. */
   readonly sleepRule?: SleepRule;
   /**
-   * 졸음 감지를 돌릴지. 기본값은 URL 스위치로 정하고, 테스트는 이 옵션으로 직접 넣는다.
-   * 끄면 얼굴 모델을 받지 않으므로 발열 비교의 기준선이 된다.
+   * 졸음 감지를 돌릴지. 기본은 켜짐이고, 테스트가 끌 때 이 옵션으로 넣는다.
+   * 끄면 얼굴 모델을 받지 않는다.
    */
   readonly sleepDetection?: boolean;
   readonly diagnostics?: VisionDiagnostics;
@@ -234,17 +228,15 @@ export function createVisionFocusDetector(
   const {
     video,
     detector = createObjectDetector(),
-    faceLandmarker = createFaceLandmarker({ onEyeOutline: measurementEyeOutline }),
-    diagnostics = measurementDiagnostics,
+    faceLandmarker = createFaceLandmarker(),
+    diagnostics = visionDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
     presenceRule,
     sleepRule,
   } = options;
 
-  const sleepEnabled =
-    options.sleepDetection ??
-    isSleepDetectionEnabled(globalThis.location?.search ?? "", import.meta.env.DEV);
+  const sleepEnabled = options.sleepDetection ?? true;
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
@@ -612,12 +604,7 @@ export function createVisionFocusDetector(
     publish(signals, sleep);
   }
 
-  const loop = createFrameLoop({
-    onFrame: processFrame,
-    onDrop: () => {
-      diagnostics.frameDropped();
-    },
-  });
+  const loop = createFrameLoop({ onFrame: processFrame });
 
   return {
     get status() {
@@ -634,13 +621,6 @@ export function createVisionFocusDetector(
 
     /** 멱등. 일시정지에서 돌아올 때도 이 함수 하나로 재개한다(모델은 이미 떠 있다). */
     start(): void {
-      // 측정용 계측. 껍데기가 덩어리를 낼 때 이 길로 보정 결과를 읽어 간다.
-      //
-      // 생성 시점이 아니라 **시작 시점**에 등록한다. React StrictMode의 개발 빌드는 `useState`
-      // 초기화를 두 번 불러 감지기를 둘 만들고 하나만 쓴다. 생성 시점에 등록하면 안 쓰는 쪽이
-      // 나중에 등록돼 패널이 세션 내내 `보정중`을 띄우고 덩어리의 `eyeCalibration`이 null로
-      // 남았다(2026-09-22 실측). 실제로 도는 감지기만 `start()`를 받는다.
-      reportEyeCalibration(() => calibration);
       if (running) {
         return;
       }

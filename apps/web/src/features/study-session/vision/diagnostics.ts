@@ -102,8 +102,6 @@ export interface VisionDiagnostics {
   detectorReady(delegate: Delegate, modelVariant: ModelVariant): void;
   detectorUnavailable(reason: string): void;
   frame(diagnostics: FrameDiagnostics): void;
-  /** 앞 프레임이 안 끝나 틱을 버렸다. */
-  frameDropped(): void;
   /** 얼굴 모델이 준비됐다. 객체 검출기와 따로 남긴다 — 한쪽만 실패할 수 있다. */
   faceReady(delegate: Delegate): void;
   faceUnavailable(reason: string): void;
@@ -168,9 +166,6 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
       }
       sink.log("vision:frame", payload);
     },
-    frameDropped() {
-      sink.log("vision:frame-dropped", {});
-    },
     faceReady(delegate) {
       sink.log("face:ready", { delegate });
     },
@@ -208,7 +203,6 @@ const noopDiagnostics: VisionDiagnostics = {
   detectorReady() {},
   detectorUnavailable() {},
   frame() {},
-  frameDropped() {},
   faceReady() {},
   faceUnavailable() {},
   transition() {},

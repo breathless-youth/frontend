@@ -90,15 +90,6 @@ describe("createVisionDiagnostics", () => {
     }
   });
 
-  it("버린 틱을 이벤트로 남긴다", () => {
-    const { sink, events } = recordingSink();
-    createVisionDiagnostics(sink).frameDropped();
-
-    expect(events).toHaveLength(1);
-    expect(events[0]?.event).toBe("vision:frame-dropped");
-    expect(events[0]?.payload).toEqual({});
-  });
-
   it("상태 전이는 이전/다음 상태와 시각을 남긴다", () => {
     const { sink, events } = recordingSink();
     createVisionDiagnostics(sink).transition("FOCUS", "PHONE", 1_700_000_000_000);

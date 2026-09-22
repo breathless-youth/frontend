@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { visionDiagnostics } from "../../vision/diagnostics";
-import { measurementDiagnostics } from "../../vision/measurement";
 import type * as DiagnosticsModule from "../../vision/diagnostics";
 import { createMediaStreamCameraAdapter } from "../mediaStreamCamera";
 
@@ -335,17 +334,6 @@ describe("createMediaStreamCameraAdapter", () => {
         aspectRatio: 0.75,
         facingMode: "user",
       });
-    });
-
-    // 실기기 측정용. 측정이 끝나면 이 케이스와 위 import를 함께 지운다.
-    it("사전 점검이 읽을 수 있게 계측 인스턴스에도 실린다", async () => {
-      stubMediaDevices(
-        vi.fn(async () => fakeStreamWithSettings({ width: 1280, height: 720, facingMode: "user" })),
-      );
-
-      await createMediaStreamCameraAdapter().start();
-
-      expect(measurementDiagnostics.preflight().camera).toBe("1280x720");
     });
 
     it("카메라 전환도 새로 여는 것이므로 각각 남는다", async () => {

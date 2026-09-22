@@ -1,7 +1,6 @@
 import { reportHandled } from "@/lib/sentry";
 
-// 실기기 측정용 계측. 측정이 끝나면 `visionDiagnostics`로 되돌린다.
-import { measurementDiagnostics } from "../vision/measurement";
+import { visionDiagnostics } from "../vision/diagnostics";
 import { CAMERA_CONSTRAINTS } from "../vision/visionConfig";
 import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdapter";
 
@@ -64,7 +63,7 @@ function reportStreamSettings(stream: MediaStream): void {
   const settings = track.getSettings();
   const width = settings.width ?? 0;
   const height = settings.height ?? 0;
-  measurementDiagnostics.cameraStream({
+  visionDiagnostics.cameraStream({
     width,
     height,
     // 트랙이 안 주면 계산한다 — 비율이야말로 이 로그를 남기는 이유다.

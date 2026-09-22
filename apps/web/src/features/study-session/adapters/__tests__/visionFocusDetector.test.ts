@@ -11,7 +11,6 @@ import type {
   VisionObjectDetector,
 } from "../../vision/objectDetector";
 import type { FaceObservation } from "../../vision/sleepRules";
-import { measurementDiagnostics } from "../../vision/measurement";
 import {
   EYE_CALIBRATION_DELTA,
   HEAD_PITCH_DOWN_DEG,
@@ -453,37 +452,6 @@ describe("createVisionFocusDetector", () => {
     expect(signals).toEqual([]);
   });
 
-  /**
-   * 실기기 측정용. "버려진 틱 0"이 합격 기준 넷 중 하나인데, 이 배선이 유일한 연결 고리다.
-   * 측정이 끝나면 이 케이스도 함께 지운다.
-   */
-  it("앞 프레임이 안 끝난 채 지나간 틱을 진단에 알린다", async () => {
-    const { detector } = fakeObjectDetector({ frames: [personFrame(0.42)] });
-    const frameDropped = vi.fn();
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      diagnostics: {
-        detectorReady: vi.fn(),
-        detectorUnavailable: vi.fn(),
-        frame: vi.fn(),
-        frameDropped,
-        faceReady: vi.fn(),
-        faceUnavailable: vi.fn(),
-        transition: vi.fn(),
-        cameraStream: vi.fn(),
-      },
-    });
-
-    vision.start();
-    // 마이크로태스크를 흘리지 않고 타이머만 민다 — 첫 프레임이 안 끝난 채로 다음 두 틱이 온다.
-    vi.advanceTimersByTime(FRAME_INTERVAL_MS * 2);
-
-    expect(frameDropped).toHaveBeenCalledTimes(2);
-    vision.close();
-    await vi.advanceTimersByTimeAsync(0);
-  });
-
   it("진단 로그에 좌표를 넘기지 않는다 — 라벨별 최고 score만 남는다", async () => {
     // person 임계는 튜닝 대상이라 literal 대신 임계 기준으로 잡는다.
     const personScore = SCORE_THRESHOLDS.person + 0.12;
@@ -496,7 +464,6 @@ describe("createVisionFocusDetector", () => {
         detectorReady: vi.fn(),
         detectorUnavailable: vi.fn(),
         frame,
-        frameDropped: vi.fn(),
         faceReady: vi.fn(),
         faceUnavailable: vi.fn(),
         transition: vi.fn(),
@@ -1285,33 +1252,6 @@ describe("얼굴 모델이 도중에 죽을 때", () => {
   });
 });
 
-describe("측정 도구가 읽는 보정", () => {
-  it("시작한 감지기의 것이다 — 나중에 만들어졌지만 시작하지 않은 감지기가 덮어쓰지 않는다", async () => {
-    const faces = Array.from({ length: EYE_CALIBRATION_SAMPLES + 2 }, () => seen(0.2));
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({ faces });
-    const running = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-    });
-    // React StrictMode가 개발 빌드에서 만들고 버리는 두 번째 인스턴스. 시작하지 않는다.
-    createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector: fakeObjectDetector({ frames: [personFrame()] }).detector,
-      faceLandmarker: fakeFaceLandmarker({ faces: [seen(0.2)] }).landmarker,
-    });
-
-    running.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 2);
-
-    expect(running.eyeCalibration).not.toBeNull();
-    expect(measurementDiagnostics.live().calibration).toEqual(running.eyeCalibration);
-    running.close();
-  });
-});
-
 describe("내려다봄 게이트 — 고개가 내려가 있으면 눈 판정을 하지 않는다", () => {
   /** 보정 창(뜬 눈 15표본, 고개 0°) 뒤에 이어질 관측과 각도. */
   function scenario(tail: readonly { face: FaceObservation; pitch: number }[]): {
@@ -1393,7 +1333,6 @@ describe("내려다봄 게이트 — 고개가 내려가 있으면 눈 판정을
         detectorReady: vi.fn(),
         detectorUnavailable: vi.fn(),
         frame,
-        frameDropped: vi.fn(),
         faceReady: vi.fn(),
         faceUnavailable: vi.fn(),
         transition: vi.fn(),
