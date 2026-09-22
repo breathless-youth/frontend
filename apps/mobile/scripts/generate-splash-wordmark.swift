@@ -22,8 +22,9 @@ func brandColor(_ hex: String) -> NSColor {
 // 폴백해 빌드가 멈추지 않게 한다(폴백 시 로그로 알린다).
 let fontPath = "assets/fonts/NanumSquareRound-ExtraBold.ttf"
 var registeredFontName: String? = nil
-if let url = URL(string: "file://" + FileManager.default.currentDirectoryPath + "/" + fontPath),
-   let data = NSData(contentsOf: url),
+// cwd에 #·%·공백 등 URL 예약 문자가 있어도 안전하게 — URL(string:)이 아니라 파일 경로 API를 쓴다.
+let fontURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(fontPath)
+if let data = NSData(contentsOf: fontURL),
    let provider = CGDataProvider(data: data),
    let cgFont = CGFont(provider) {
     CTFontManagerRegisterGraphicsFont(cgFont, nil)
