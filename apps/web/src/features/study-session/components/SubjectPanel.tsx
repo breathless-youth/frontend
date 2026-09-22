@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { SubjectResponse, SubjectTimePayload, TaskResponse } from "@focusmakers/types";
+import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
 import checkIcon from "@/assets/icons/sheet-check.svg";
 import gripRowIcon from "@/assets/icons/sheet-grip-row.svg";
@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
 import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "../sessionCopy";
-import type { SubjectSelection } from "../subjectTimes";
-import { liveSubjectTime } from "../subjectTimes";
+import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
+import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
 
 /**
@@ -75,8 +75,8 @@ export interface SubjectPanelProps {
   onRequestClose: () => void;
   /** 상한 안내 등 짧은 알림 — 호출부의 토스트. */
   onNotice: (message: string) => void;
-  /** 이 세션에서 항목별로 쌓인 시간(`useStudyRoomSession().subjectTimes`). */
-  liveTimes: readonly SubjectTimePayload[];
+  /** 이 세션에서 과목별로 쌓인 시간(`deriveSubjectTotals`의 결과). */
+  liveTotals: ReadonlyMap<number, SubjectTotals>;
 }
 
 /**
@@ -754,7 +754,7 @@ export function SubjectPanel({
   onSelect,
   onRequestClose,
   onNotice,
-  liveTimes,
+  liveTotals,
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -847,7 +847,7 @@ export function SubjectPanel({
               key={subject.id}
               subject={subject}
               selected={selection === subject.id}
-              liveFocusSec={liveSubjectTime(liveTimes, subject.id).focusSec}
+              liveFocusSec={liveSubjectTime(liveTotals, subject.id).focusSec}
               editing={editing}
               menu={menu}
               onSelect={() => onSelect(subject.id)}
