@@ -1,118 +1,133 @@
 import { describe, expect, it } from "vitest";
 
-import type { GlanceState } from "../glanceRule";
-import { INITIAL_GLANCE_STATE, reclassifyGlanceForThreshold, stepGlance } from "../glanceRule";
-import { GLANCE_HEAD_MOVE_DEG } from "../visionConfig";
+import type { GlanceSample, GlanceState } from "../glanceRule";
+import { INITIAL_GLANCE_STATE, stepGlance } from "../glanceRule";
+import { GLANCE_HEAD_MOVE_DEG, GLANCE_REST_OPEN_TICKS } from "../visionConfig";
 
-const BIG = GLANCE_HEAD_MOVE_DEG + 10;
-const SMALL = GLANCE_HEAD_MOVE_DEG / 2;
+const THRESHOLD = 0.45;
+const OPEN = 0.2;
+const CLOSED = 0.7;
+const DOWN = GLANCE_HEAD_MOVE_DEG + 15;
+const WOBBLE = GLANCE_HEAD_MOVE_DEG / 2;
 
-function run(ticks: readonly { closed: boolean | null; pitch: number | null }[]): {
-  accepts: boolean[];
-  state: GlanceState;
-} {
+function open(pitch: number | null = 0): GlanceSample {
+  return { closure: OPEN, pitch };
+}
+function closed(pitch: number | null = 0): GlanceSample {
+  return { closure: CLOSED, pitch };
+}
+/** 뜬 눈으로 10초 멈춰 있던 쉬는 자세. */
+function resting(pitch = 0): GlanceSample[] {
+  return Array.from({ length: GLANCE_REST_OPEN_TICKS }, () => open(pitch));
+}
+
+function run(
+  samples: readonly GlanceSample[],
+  threshold: number | null = THRESHOLD,
+): { accepts: boolean[]; state: GlanceState } {
   let state = INITIAL_GLANCE_STATE;
   const accepts: boolean[] = [];
-  for (const tick of ticks) {
-    const step = stepGlance(state, tick);
+  for (const sample of samples) {
+    const step = stepGlance(state, sample, threshold);
     state = step.state;
     accepts.push(step.accept);
   }
   return { accepts, state };
 }
 
-describe("stepGlance — 감김의 시작 순간으로 가른다", () => {
-  it("고개가 멈춘 채 시작된 감김은 받아들인다 — 앉아서 조는 사람", () => {
-    const { accepts, state } = run([
-      { closed: false, pitch: 0 },
-      { closed: true, pitch: 1 },
-      { closed: true, pitch: 2 },
-      { closed: true, pitch: 1 },
-    ]);
-    expect(accepts).toEqual([true, true, true, true]);
-    expect(state.run).toBe("closure");
+/** 쉬는 자세 뒤에 이어진 관측의 accept만 돌려준다. */
+function after(rest: GlanceSample[], tail: GlanceSample[]): boolean[] {
+  return run([...rest, ...tail]).accepts.slice(rest.length);
+}
+
+describe("stepGlance — 쉬는 자세에서 고개를 멈춘 채 시작된 감김만 감김이다", () => {
+  it("앉아서 눈을 뜨고 있다가 그대로 감으면 받아들인다", () => {
+    expect(after(resting(), [closed(1), closed(2), closed(1)])).toEqual([true, true, true]);
   });
 
-  it("고개를 내리면서 시작된 감김은 시선 이동이다 — 눈이 다시 뜰 때까지 판정 없음", () => {
-    const { accepts, state } = run([
-      { closed: false, pitch: 0 },
-      { closed: true, pitch: BIG },
-      { closed: true, pitch: BIG },
-      { closed: true, pitch: BIG + 1 },
+  it("쉬는 자세에서 고개를 내리며 감기면 시선 이동이다", () => {
+    expect(after(resting(), [closed(DOWN), closed(DOWN), closed(DOWN + 1)])).toEqual([
+      false,
+      false,
+      false,
     ]);
-    expect(accepts).toEqual([true, false, false, false]);
-    expect(state.run).toBe("glance");
   });
 
   it("시작 다음 틱에 고개가 내려가도 시선 이동이다 — 앞뒤 한 틱 창", () => {
-    const { accepts } = run([
-      { closed: false, pitch: 0 },
-      { closed: true, pitch: SMALL },
-      { closed: true, pitch: BIG },
-      { closed: true, pitch: BIG },
+    expect(after(resting(), [closed(WOBBLE), closed(DOWN), closed(DOWN)])).toEqual([
+      true,
+      false,
+      false,
     ]);
-    expect(accepts).toEqual([true, true, false, false]);
   });
 
-  it("눈이 다시 뜨면 구간이 닫히고, 그 뒤 고개를 멈춘 채 감으면 다시 받아들인다", () => {
-    const { accepts } = run([
-      { closed: false, pitch: 0 },
-      { closed: true, pitch: BIG }, // 시선 이동
-      { closed: false, pitch: 0 }, // 고개 들고 뜸
-      { closed: true, pitch: 0 }, // 정지 감김
-      { closed: true, pitch: 0 },
-    ]);
-    expect(accepts).toEqual([true, false, true, true, true]);
+  it("읽는 동안 눈이 잠깐 뜸으로 읽혀도 잠금은 안 풀린다 — 흔들리는 점수의 뜸 하나로 풀면 다음 감김이 통과한다", () => {
+    expect(
+      after(resting(), [
+        closed(DOWN),
+        open(DOWN),
+        closed(DOWN),
+        open(DOWN),
+        closed(DOWN),
+        closed(DOWN),
+      ]),
+    ).toEqual([false, true, false, true, false, false]);
   });
 
-  it("뜬 눈을 본 적 없는 감김은 받아들이지 않는다 — 세션 시작부터 감김", () => {
-    const { accepts } = run([
-      { closed: true, pitch: 0 },
-      { closed: true, pitch: 0 },
+  it("고개가 쉬는 자세로 돌아온 채 뜨면 풀리고, 그 뒤 정지 감김은 받아들인다", () => {
+    expect(after(resting(), [closed(DOWN), closed(DOWN), open(1), closed(1), closed(0)])).toEqual([
+      false,
+      false,
+      true,
+      true,
+      true,
     ]);
-    expect(accepts).toEqual([false, false]);
   });
 
-  it("판정 없는 틱을 사이에 두고 감김이 오면 새 시작으로 보고, 그 사이 움직임을 마지막 각도와 잰다", () => {
-    // 뜸(0°) → 얼굴 없음 → 감김(20°): 얼굴이 없던 사이 고개가 내려간 것이다.
-    const { accepts } = run([
-      { closed: false, pitch: 0 },
-      { closed: null, pitch: null },
-      { closed: true, pitch: BIG },
-    ]);
-    expect(accepts).toEqual([true, false, false]);
+  it("내린 자리에서 뜬 눈이 10초 이어지면 거기가 새 쉬는 자세다 — 그 뒤 정지 감김은 받아들인다", () => {
+    const tail = [closed(DOWN), ...resting(DOWN), closed(DOWN), closed(DOWN)];
+    const accepts = after(resting(), tail);
+    expect(accepts.slice(-2)).toEqual([true, true]);
+  });
+
+  it("쉬는 자세를 모르면 감김을 받아들이지 않는다 — 세션 시작부터 감김", () => {
+    expect(run([closed(), closed()]).accepts).toEqual([false, false]);
+  });
+
+  it("뜬 눈이 10초 연속되지 않으면 쉬는 자세가 안 잡힌다 — 읽는 자세는 쉬는 자세가 아니다", () => {
+    const flicker = [open(DOWN), closed(DOWN), open(DOWN), closed(DOWN), open(DOWN), open(DOWN)];
+    expect(run([...flicker, closed(DOWN)]).accepts.at(-1)).toBe(false);
+  });
+
+  it("판정 없는 틱(얼굴 없음) 뒤의 감김은 새 시작이고 쉬는 자세와 비교한다", () => {
+    const tail: GlanceSample[] = [{ closure: null, pitch: null }, closed(DOWN)];
+    expect(after(resting(), tail)).toEqual([false, false]);
+    const tailBack: GlanceSample[] = [{ closure: null, pitch: null }, closed(1)];
+    expect(after(resting(), tailBack)).toEqual([false, true]);
   });
 
   it("각도를 모르면 감김으로 둔다 — 규칙이 없던 때의 동작", () => {
-    const { accepts } = run([
-      { closed: false, pitch: null },
-      { closed: true, pitch: null },
-      { closed: true, pitch: null },
-    ]);
-    expect(accepts).toEqual([true, true, true]);
+    expect(after(resting(null), [closed(null), closed(null)])).toEqual([true, true]);
   });
 
-  it("임계가 생길 때 마지막 표본이 뜸이었으면 다음 감김은 정상 시작이다 — 보정 직후의 감김", () => {
-    // 보정 창 동안은 임계가 없어 판정 없음(closed null)만 지나간다.
-    const during = run([
-      { closed: null, pitch: 0 },
-      { closed: null, pitch: 0 },
-    ]);
-    const calibrated = reclassifyGlanceForThreshold(during.state, false, 0);
-    expect(stepGlance(calibrated, { closed: true, pitch: 1 }).accept).toBe(true);
-    // 같은 자리에서 고개를 내리며 감기면 시선 이동이다.
-    expect(stepGlance(calibrated, { closed: true, pitch: BIG }).accept).toBe(false);
+  it("보정 전 관측도 기록해서, 임계가 생기자마자 쉬는 자세가 선다", () => {
+    // 보정 중(임계 null)의 뜬 눈 10초 → 임계가 생긴 첫 틱에 정지 감김.
+    let state = INITIAL_GLANCE_STATE;
+    for (const sample of resting()) {
+      state = stepGlance(state, sample, null).state;
+    }
+    expect(stepGlance(state, closed(1), THRESHOLD).accept).toBe(true);
+    expect(stepGlance(state, closed(DOWN), THRESHOLD).accept).toBe(false);
   });
 
-  it("임계가 바뀔 때 마지막 표본이 감김이면 뜸을 볼 때까지 거부한다 — 임계가 내려가며 읽던 눈이 감김이 된 경우", () => {
-    const first = run([
-      { closed: false, pitch: 0 },
-      { closed: false, pitch: 0 },
-    ]);
-    const lowered = reclassifyGlanceForThreshold(first.state, true, 20);
-    const step = stepGlance(lowered, { closed: true, pitch: 20 });
-    expect(step.accept).toBe(false);
-    const reopened = stepGlance(step.state, { closed: false, pitch: 0 });
-    expect(stepGlance(reopened.state, { closed: true, pitch: 0 }).accept).toBe(true);
+  it("임계가 내려가며 읽던 눈이 감김이 되면 쉬는 자세와 비교한다 — 내린 자리면 시선 이동", () => {
+    // 임계 0.45로 쉬는 자세(0°). 그 뒤 고개를 내려 0.4로 읽히는 동안은 뜸이라 잠금이 없다.
+    let state = INITIAL_GLANCE_STATE;
+    for (const sample of resting()) {
+      state = stepGlance(state, sample, THRESHOLD).state;
+    }
+    state = stepGlance(state, { closure: 0.4, pitch: DOWN }, THRESHOLD).state;
+    // 임계가 0.35로 내려가 같은 점수가 감김이 된다. 쉬는 자세(0°)에서 떨어진 자리라 시선 이동이다.
+    expect(stepGlance(state, { closure: 0.4, pitch: DOWN }, 0.35).accept).toBe(false);
   });
 });

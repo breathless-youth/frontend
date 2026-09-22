@@ -16,11 +16,7 @@ import {
 } from "../vision/measurement";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import type { GlanceState } from "../vision/glanceRule";
-import {
-  INITIAL_GLANCE_STATE,
-  reclassifyGlanceForThreshold,
-  stepGlance,
-} from "../vision/glanceRule";
+import { INITIAL_GLANCE_STATE, stepGlance } from "../vision/glanceRule";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { VisionObjectDetector } from "../vision/objectDetector";
@@ -331,13 +327,11 @@ export function createVisionFocusDetector(
   function classifyGlance(result: FaceDetectionResult): FaceObservation {
     const face = result.face;
     const threshold = calibration?.threshold ?? null;
-    const closed =
-      face.eye === null || threshold === null
-        ? null
-        : Math.min(face.eye.eyeBlinkLeft, face.eye.eyeBlinkRight) >= threshold;
-    const step = stepGlance(glance, { closed, pitch: result.metrics.headPitchDeg });
+    const closure =
+      face.eye === null ? null : Math.min(face.eye.eyeBlinkLeft, face.eye.eyeBlinkRight);
+    const step = stepGlance(glance, { closure, pitch: result.metrics.headPitchDeg }, threshold);
     glance = step.state;
-    if (closed === null || step.accept) {
+    if (closure === null || threshold === null || step.accept) {
       return face;
     }
     return { facePresent: true, eye: null, eyeSkipReason: "glance" };
@@ -468,7 +462,7 @@ export function createVisionFocusDetector(
    *
    * 좌표는 건드리지 않는다. 여기서 나가는 것은 이미 진단이 남기는 스칼라 하나뿐이다.
    */
-  function recordEyeReading(face: FaceObservation, pitch: number | null): void {
+  function recordEyeReading(face: FaceObservation): void {
     const eye = face.eye;
     if (eye === null) {
       eyeGateMisses += 1;
@@ -501,11 +495,6 @@ export function createVisionFocusDetector(
     const previous = calibration;
     calibration = calibrateEye(calibrationReadings, calibration);
     calibrationReadings = [];
-    if (calibration !== null && previous?.threshold !== calibration.threshold) {
-      // 임계가 생기거나 바뀌었다. 창을 채운 이 표본을 새 임계로 다시 채점해 시선 이동 상태를
-      // 세운다 — 보정 동안은 임계가 없어 뜬 눈을 본 기록이 없기 때문이다(`glanceRule.ts`).
-      glance = reclassifyGlanceForThreshold(glance, closure >= calibration.threshold, pitch);
-    }
     if (previous !== null && calibration !== null && calibration.threshold < previous.threshold) {
       // 비율 창은 원표본을 들고 있고 감김 여부는 읽을 때 정해진다. 임계가 내려가면 저장된 옛
       // 표본이 통째로 감김으로 다시 채점되어, 새 관측 하나 없이 1분 창이 뒤집힌다. 올라갈 때는
@@ -576,7 +565,7 @@ export function createVisionFocusDetector(
         if (faceRan !== null) {
           faceObserved = classifyGlance(faceRan);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
-          recordEyeReading(faceObserved, faceRan.metrics.headPitchDeg);
+          recordEyeReading(faceObserved);
         }
       }
     }
