@@ -84,9 +84,6 @@ interface Segment {
   /** 고개 숙임 각도(도). 판정에 쓰지 않는 참고값이다. */
   headPitchDeg: number[];
   /** 깜빡임 계측 — 게이트에 걸린 동안 초당 10개 들어오는 눈 자리 변화량과 이벤트 수. */
-  blinkDiff: number[];
-  blinkLevel: number[];
-  blinkEvents: number;
   personScore: number[];
   faceRan: number;
   facePresent: number;
@@ -187,9 +184,6 @@ export interface LiveSnapshot {
   readonly faceSkip: string | null;
   /** 마지막 얼굴 관측의 고개 숙임 각도(도). */
   readonly headPitchDeg: number | null;
-  /** 깜빡임 계측이 돌고 있는가(마지막 표본이 1초 안)와 최근 30초의 이벤트 수. */
-  readonly blinkActive: boolean;
-  readonly blinkEvents30s: number;
   readonly person: number | null;
   readonly calibration: EyeCalibration | null;
 }
@@ -271,9 +265,6 @@ function createSegment(name: string | null, openedAtMs: number, entryLabel: stri
     faceMs: [],
     eyeClosure: [],
     headPitchDeg: [],
-    blinkDiff: [],
-    blinkLevel: [],
-    blinkEvents: 0,
     personScore: [],
     faceRan: 0,
     facePresent: 0,
@@ -358,8 +349,6 @@ function configSnapshot() {
 function summarize(segment: Segment) {
   const eyeSorted = [...segment.eyeClosure].sort((a, b) => a - b);
   const pitchSorted = [...segment.headPitchDeg].sort((a, b) => a - b);
-  const blinkSorted = [...segment.blinkDiff].sort((a, b) => a - b);
-  const levelSorted = [...segment.blinkLevel].sort((a, b) => a - b);
   const personSorted = [...segment.personScore].sort((a, b) => a - b);
   return {
     name: segment.name,
@@ -386,19 +375,6 @@ function summarize(segment: Segment) {
       p05: percentile(pitchSorted, 0.05, 1),
       p50: percentile(pitchSorted, 0.5, 1),
       p95: percentile(pitchSorted, 0.95, 1),
-    },
-    // 깜빡임 계측. 게이트에 걸린 동안만 표본이 있다. 읽을 때 이벤트가 1~2분마다 최소 1회 있고 감았을 때
-    // 0이면 신호가 성립한다. `diff` 분포는 이벤트 규칙(`BLINK_DIFF_MIN`·`BLINK_DIFF_RATIO`)을 정하는 근거다.
-    blink: {
-      samples: blinkSorted.length,
-      events: segment.blinkEvents,
-      diffP50: percentile(blinkSorted, 0.5, 4),
-      diffP95: percentile(blinkSorted, 0.95, 4),
-      diffMax: blinkSorted.length === 0 ? null : round(blinkSorted[blinkSorted.length - 1] ?? 0, 4),
-      // 정지 판정이 보는 값. 읽을 때와 감았을 때의 `levelP50`이 `EYE_MOTION_LEVEL` 양쪽에 있어야 한다.
-      levelP05: percentile(levelSorted, 0.05, 4),
-      levelP50: percentile(levelSorted, 0.5, 4),
-      levelP95: percentile(levelSorted, 0.95, 4),
     },
     person: {
       mean: mean(personSorted, 3),
@@ -521,9 +497,6 @@ export function createMeasurement(
    */
   let lastFace: FaceFrameDiagnostics | null = null;
   let lastEyeAtMs: number | null = null;
-  /** 깜빡임 계측의 마지막 표본 시각과 최근 이벤트 시각. 패널 표시용. */
-  let lastBlinkAtMs: number | null = null;
-  let blinkEventTimes: number[] = [];
   /**
    * 판정기와 같은 창으로 다듬을 최근 얼굴 관측. 눈 점수를 못 뽑은 관측도 `null`로 자리를
    * 차지한다 — 판정기의 창이 그렇게 움직이므로, 빼면 화면이 판정보다 오래 감김을 붙든다.
@@ -611,23 +584,6 @@ export function createMeasurement(
       }
       preflight = { ...preflight, face: "unavailable" };
       signalSession();
-    },
-    blink(sample) {
-      base.blink?.(sample);
-      if (!enabled) {
-        return;
-      }
-      lastBlinkAtMs = sample.atMs;
-      if (sample.event) {
-        blinkEventTimes = [...blinkEventTimes, sample.atMs].slice(-60);
-      }
-      for (const target of [current(), minuteWindow]) {
-        target.blinkDiff.push(sample.diff);
-        target.blinkLevel.push(sample.level);
-        if (sample.event) {
-          target.blinkEvents += 1;
-        }
-      }
     },
     cameraStream(diagnostics) {
       base.cameraStream(diagnostics);
@@ -778,8 +734,6 @@ export function createMeasurement(
         facePresent: face === null ? null : face.present,
         faceSkip: face === null ? null : face.skipReason,
         headPitchDeg: face?.headPitchDeg ?? null,
-        blinkActive: lastBlinkAtMs !== null && atMs - lastBlinkAtMs < 1000,
-        blinkEvents30s: blinkEventTimes.filter((t) => atMs - t <= 30_000).length,
         person: lastFrame?.topScores.person ?? null,
         calibration: currentCalibration(),
       };

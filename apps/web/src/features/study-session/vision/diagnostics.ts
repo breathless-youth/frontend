@@ -111,20 +111,6 @@ export interface VisionDiagnostics {
   transition(from: string, to: string, atMs: number): void;
   /** 카메라를 열 때마다 한 번. 전환(`flip`)도 새로 여는 것이므로 각각 남는다. */
   cameraStream(diagnostics: CameraStreamDiagnostics): void;
-  /**
-   * 깜빡임 계측 표본(초당 10개). 측정 도구만 받는다 — 기본 진단은 이벤트만 한 줄 남긴다.
-   * 선택인 이유는 이 계측이 BY-704 뒤에 지워지기 때문이다.
-   */
-  blink?(sample: BlinkDiagnostics): void;
-}
-
-export interface BlinkDiagnostics {
-  /** 두 눈 중 큰 쪽의 평균 절대 변화(0~1). */
-  readonly diff: number;
-  /** 최근 창 변화량의 중앙값 — 정지 판정이 보는 값. */
-  readonly level: number;
-  readonly event: boolean;
-  readonly atMs: number;
 }
 
 /** 소수점 둘째 자리까지. 로그가 `0.8123000000000001`로 뒤덮이면 읽을 수 없다. */
@@ -193,11 +179,6 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
     },
     transition(from, to, atMs) {
       sink.log("vision:transition", { from, to, atMs });
-    },
-    blink(sample) {
-      if (sample.event) {
-        sink.log("vision:blink", { diff: round2(sample.diff) });
-      }
     },
     cameraStream(diagnostics) {
       sink.log("camera:stream", {

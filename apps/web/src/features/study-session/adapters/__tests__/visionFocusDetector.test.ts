@@ -1411,29 +1411,3 @@ describe("내려다봄 게이트 — 고개가 내려가 있으면 눈 판정을
     expect(reasons.length).toBeGreaterThan(0);
   });
 });
-
-describe("깜빡임 계측 배선", () => {
-  it("주입된 래퍼는 눈 윤곽을 안 넘기므로 계측이 돌지 않는다 — 판정과 무관함을 배선이 보장한다", async () => {
-    const update = vi.fn();
-    const stop = vi.fn();
-    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const { landmarker } = fakeFaceLandmarker({
-      faces: afterCalibration([seen(0.9)]),
-      pitches: [HEAD_PITCH_DOWN_DEG + 5],
-    });
-    const vision = createVisionFocusDetector({
-      video: () => fakeVideo(),
-      detector,
-      faceLandmarker: landmarker,
-      blinkWatcher: { active: false, update, stop, quietMs: () => null },
-    });
-    vision.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(CALIBRATION_MS + FRAME_INTERVAL_MS * 6);
-    // 윤곽이 없으니 상자도 없다 — update는 늘 null로 불린다.
-    expect(update).toHaveBeenCalled();
-    expect(update.mock.calls.every((call) => call[0] === null)).toBe(true);
-    vision.close();
-    expect(stop).toHaveBeenCalled();
-  });
-});

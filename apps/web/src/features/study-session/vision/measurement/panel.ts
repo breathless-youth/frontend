@@ -120,7 +120,7 @@ export function liveLines(live: LiveSnapshot): string {
   return [
     `상태 ${live.state} ${live.stateSec}초 · ${segment}`,
     `눈 L${score(live.eyeLeft)} R${score(live.eyeRight)} → ${score(live.eyeMin)} · 다듬 ${score(live.eyeSmoothed)} · 임계 ${score(live.threshold)} → ${closed}`,
-    `고개 ${deg(live.headPitchDeg)} · 눈 움직임(기록용) ${live.blinkActive ? `${live.blinkEvents30s}회/30초` : "-"}`,
+    `고개 ${deg(live.headPitchDeg)}`,
     `${ratio} · 원신호 눈${yesNo(live.sleepEyes)} 꾸벅${yesNo(live.sleepDrowsy)} · 얼굴${yesNo(live.facePresent)}${skipLabel(live.faceSkip)} 사람 ${score(live.person)} · ${age}`,
     calibration,
   ].join("\n");

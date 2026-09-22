@@ -14,13 +14,7 @@ import {
   measurementEyeOutline,
   reportEyeCalibration,
 } from "../vision/measurement";
-import type { BlinkWatcher } from "../vision/blinkWatcher";
-import { boxesFromOutline, createBlinkWatcher } from "../vision/blinkWatcher";
-import type {
-  EyeOutline,
-  FaceDetectionResult,
-  VisionFaceLandmarker,
-} from "../vision/faceLandmarker";
+import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import { headPitchZone, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import { createFrameLoop } from "../vision/frameLoop";
@@ -205,8 +199,6 @@ export interface VisionFocusDetectorOptions {
   readonly diagnostics?: VisionDiagnostics;
   /** `detectForVideo`에 넘길 타임스탬프. VIDEO 모드는 **단조 증가**를 요구한다. */
   readonly nowMs?: () => number;
-  /** 깜빡임 계측 주입점(테스트). 기본은 캔버스 표본기로 만든다. */
-  readonly blinkWatcher?: BlinkWatcher;
   /** 판정 규칙 교체 지점(설계 §4). 후속 폰 사용 규칙이 여기로 들어온다. */
   readonly phoneRule?: PhoneUsageRule;
   readonly presenceRule?: PersonPresenceRule;
@@ -239,34 +231,16 @@ export interface VisionFocusDetectorOptions {
 export function createVisionFocusDetector(
   options: VisionFocusDetectorOptions,
 ): VisionFocusDetector {
-  /**
-   * 마지막 눈 윤곽. 깜빡임 계측이 눈 자리 상자를 잡는 데 쓴다. 기본 얼굴 래퍼가 그리기 통로로 넘기는
-   * 값을 여기서 한 번 더 받는다 — 주입된 래퍼(테스트)는 넘기지 않으므로 계측이 돌지 않는다.
-   */
-  let latestOutline: EyeOutline | null = null;
   const {
     video,
     detector = createObjectDetector(),
-    faceLandmarker = createFaceLandmarker({
-      onEyeOutline: (outline) => {
-        latestOutline = outline;
-        measurementEyeOutline(outline);
-      },
-    }),
+    faceLandmarker = createFaceLandmarker({ onEyeOutline: measurementEyeOutline }),
     diagnostics = measurementDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
     presenceRule,
     sleepRule,
   } = options;
-
-  /** 깜빡임 계측(BY-704). 게이트에 걸린 동안만 돈다. 판정에는 쓰지 않는다. */
-  const blinkWatcher: BlinkWatcher =
-    options.blinkWatcher ??
-    createBlinkWatcher({
-      video,
-      onSample: (sample) => diagnostics.blink?.(sample),
-    });
 
   const sleepEnabled =
     options.sleepDetection ??
@@ -346,21 +320,11 @@ export function createVisionFocusDetector(
    * 얼굴 관측을 내려다봄 게이트에 통과시킨다. 고개가 10° 이상 내려가 있으면 관측의 눈을 지워 "판정
    * 없음"으로 바꾼다 — 평활 창·비율 창·보정 창 어디에도 그 표본이 들어가지 않는다. 판정 없음은 원신호를
    * 내리므로 서 있던 졸음은 2초 뒤 풀린다 — 순공으로 세는 쪽이라 허용된 방향이다. 근거는
-   * `visionConfig.ts`의 `HEAD_PITCH_DOWN_DEG` 주석. 눈 움직임 계측은 판정에 쓰지 않는다(2026-09-22 밤 확정).
+   * `visionConfig.ts`의 `HEAD_PITCH_DOWN_DEG` 주석.
    */
-  function gateHeadPitch(
-    result: FaceDetectionResult,
-    frameWidth: number,
-    frameHeight: number,
-  ): FaceObservation {
+  function gateHeadPitch(result: FaceDetectionResult): FaceObservation {
     recentHeadPitch = pushHeadPitch(recentHeadPitch, result.metrics.headPitchDeg);
     const zone = headPitchZone(recentHeadPitch);
-    // 눈 움직임 계측(기록용)은 `down` 구간에서 돈다. 눈 자리는 이번 틱의 윤곽으로 갱신한다.
-    blinkWatcher.update(
-      zone !== "clear" && latestOutline !== null
-        ? boxesFromOutline(latestOutline, frameWidth, frameHeight)
-        : null,
-    );
     const face = result.face;
     if (face.eye === null || zone === "clear") {
       return face;
@@ -594,13 +558,11 @@ export function createVisionFocusDetector(
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
         faceRan = faceLandmarker.detect(element, atMs);
         if (faceRan !== null) {
-          faceObserved = gateHeadPitch(faceRan, element.videoWidth, element.videoHeight);
+          faceObserved = gateHeadPitch(faceRan);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
         }
       }
-    } else {
-      blinkWatcher.update(null);
     }
 
     // 첫 창이 차기 전에는 임계가 없고, 임계가 없으면 규칙이 눈 판정을 쉰다.
@@ -701,7 +663,6 @@ export function createVisionFocusDetector(
     stop(): void {
       running = false;
       loop.stop();
-      blinkWatcher.stop();
       resetFrameState();
     },
 
@@ -730,7 +691,6 @@ export function createVisionFocusDetector(
       running = false;
       loadRequested = false;
       loop.stop();
-      blinkWatcher.stop();
       detector.close();
       setStatus("idle");
       faceLoadRequested = false;
