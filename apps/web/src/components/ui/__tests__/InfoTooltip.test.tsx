@@ -37,6 +37,23 @@ describe("InfoTooltip", () => {
     expect(screen.queryByText("본문", CONTENT_QUERY)).not.toBeInTheDocument();
   });
 
+  it(":focus-visible을 모르는 환경에서는 포커스로 열지 않는다 — 터치 탭이 깜빡이지 않게", () => {
+    const matches = Element.prototype.matches;
+    const patched = function patched(this: Element, selector: string) {
+      if (selector === ":focus-visible") throw new SyntaxError("unsupported");
+      return matches.call(this, selector);
+    };
+    Element.prototype.matches = patched as Element["matches"];
+    try {
+      render(<InfoTooltip label="안내">본문</InfoTooltip>);
+      const trigger = screen.getByRole("button", { name: "안내" });
+      act(() => trigger.focus());
+      expect(screen.queryByText("본문", CONTENT_QUERY)).not.toBeInTheDocument();
+    } finally {
+      Element.prototype.matches = matches;
+    }
+  });
+
   it("키보드 포커스로 열리고 blur로 닫힌다", async () => {
     render(<InfoTooltip label="안내">본문</InfoTooltip>);
     const trigger = screen.getByRole("button", { name: "안내" });

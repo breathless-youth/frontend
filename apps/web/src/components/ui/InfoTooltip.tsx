@@ -13,12 +13,16 @@ type InfoTooltipProps = {
   align?: ComponentProps<typeof TooltipContent>["align"];
 };
 
-/** 키보드로 온 포커스만 툴팁을 연다. 지원하지 않는 환경(jsdom)은 포커스를 전부 키보드로 본다. */
+/**
+ * 키보드로 온 포커스만 툴팁을 연다. `:focus-visible`을 모르는 옛 웹뷰에서는 포커스로 열지
+ * 않는다. 거기서 전부 키보드로 보면 터치 탭의 포커스가 먼저 열고 뒤따르는 click 토글이 바로
+ * 닫아 툴팁이 깜빡이고 만다. 키보드 사용자는 Enter로 여전히 열 수 있다.
+ */
 function isKeyboardFocus(element: HTMLElement): boolean {
   try {
     return element.matches(":focus-visible");
   } catch {
-    return true;
+    return false;
   }
 }
 
