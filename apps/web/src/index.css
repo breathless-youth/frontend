@@ -56,6 +56,7 @@
   --color-chart-empty: var(--chart-empty);
   --color-bg-control-track: var(--bg-control-track);
   --color-feedback-success: var(--feedback-success);
+  --color-feedback-danger: var(--feedback-danger);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -228,6 +229,7 @@
   --chart-empty: #eef1f6;
   --bg-control-track: #eef1f6;
   --feedback-success: #0e9f5d;
+  --feedback-danger: #f04452;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -247,6 +249,7 @@
     --chart-empty: #1e2636;
     --bg-control-track: #1e2636;
     --feedback-success: #32d583;
+    --feedback-danger: #ff6b7a;
   }
 }
 
@@ -266,6 +269,7 @@
   --chart-empty: #1e2636;
   --bg-control-track: #1e2636;
   --feedback-success: #32d583;
+  --feedback-danger: #ff6b7a;
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에

@@ -1,5 +1,6 @@
 import type { DailyStudyStat } from "@focusmakers/types";
 
+import { FocusDeltaLabel } from "./FocusDeltaLabel";
 import { type CalendarMonth, formatDuration } from "./recordsFormat";
 import { focusDeltaSec, sumFocusSec } from "./recordsPeriod";
 
@@ -25,19 +26,7 @@ export function MonthSummary({
       <p className="text-[30px] leading-9 font-extrabold tracking-[-0.9px] text-foreground tabular-nums">
         {formatDuration(total)}
       </p>
-      {delta !== 0 && (
-        <p
-          className={
-            delta > 0
-              ? "text-[13px] leading-4 font-bold text-feedback-success"
-              : "text-[13px] leading-4 font-bold text-muted-foreground"
-          }
-        >
-          {delta > 0
-            ? `▲ 지난달보다 ${formatDuration(delta)} 늘었어요`
-            : `▼ 지난달보다 ${formatDuration(-delta)} 줄었어요`}
-        </p>
-      )}
+      <FocusDeltaLabel delta={delta} unit="달" />
     </div>
   );
 }

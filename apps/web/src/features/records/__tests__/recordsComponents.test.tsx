@@ -287,7 +287,7 @@ describe("MonthSummary", () => {
     expect(screen.getByText(/지난달보다 6시간 늘었어요/)).toBeInTheDocument();
   });
 
-  it("증감이 0이면 증감 줄을 그리지 않는다", () => {
+  it("증감이 0이면 같아요 문구를 보여준다", () => {
     render(
       <MonthSummary
         month={month}
@@ -296,6 +296,7 @@ describe("MonthSummary", () => {
       />,
     );
     expect(screen.queryByText(/지난달보다/)).not.toBeInTheDocument();
+    expect(screen.getByText("지난달과 같아요")).toBeInTheDocument();
   });
 
   it("줄었으면 줄어든 문구를 보여준다", () => {
