@@ -28,7 +28,7 @@ export const DDAY_TITLE_MAX_LENGTH = 10;
  * 홈 좌상단 D-Day 블록과 설정 시트.
  *
  * 블록 자체가 시트의 트리거다. 설정된 D-Day가 있으면 `D-N` 큰 숫자 위에 제목이 작게 붙고, 없으면
- * 같은 두 줄 모양으로 위에 `D-Day`, 제목 자리에 `날짜를 설정하세요`가 온다. 어느 쪽이든 탭하면
+ * 같은 두 줄 모양으로 위에 `D-Day`, 제목 자리에 `목표 날짜를 설정하세요`가 온다. 어느 쪽이든 탭하면
  * 시트 하나가 열린다(신규·편집 공용).
  * 지난 D-Day는 지우지 않고 `D+N`을 다른 색으로 보여 준다.
  *
@@ -93,7 +93,7 @@ export function DdaySection({ userId }: { userId: number }) {
 function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
   const daysLeft = dday === null ? null : daysUntil(dday.targetDate);
   const label = daysLeft === null ? "D-Day" : formatDday(daysLeft);
-  const caption = dday === null ? "날짜를 설정하세요" : dday.title;
+  const caption = dday === null ? "목표 날짜를 설정하세요" : dday.title;
   return (
     <button
       type="button"
