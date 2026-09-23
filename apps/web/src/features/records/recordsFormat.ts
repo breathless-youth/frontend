@@ -259,9 +259,8 @@ export function formatHeatClock(focusSec: number): string {
 
 /** 선택일 제목 `M월 D일 요일`. */
 export function dayTitleWithWeekday(dateKey: string): string {
-  const parts = dateKey.split("-").map(Number);
-  const month = parts[1];
-  const day = parts[2];
+  const month = monthOfDateKey(dateKey).month;
+  const day = dayOfDateKey(dateKey);
   const weekday = WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)];
   return `${month}월 ${day}일 ${weekday}요일`;
 }

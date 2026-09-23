@@ -1,10 +1,14 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import type { DailyStudyStat, StudySessionListResponse } from "@focusmakers/types";
 import { dailyStatsQuery, periodStatsQuery } from "@/lib/statsQueries";
 
 import type { CalendarMonth } from "./recordsFormat";
 import { buildDayFocusMap, monthRanges } from "./recordsPeriod";
+
+/** `period.data`가 없을 때 쓰는 안정된 빈 맵 — 매 렌더마다 새 참조를 만들지 않는다. */
+const EMPTY_DAY_FOCUS: ReadonlyMap<string, number> = new Map();
 
 export type RecordsDayState =
   | { status: "pending" }
@@ -66,9 +70,10 @@ export function useRecordsData(
   // period는 placeholderData를 쓰지 않는다 — 달을 넘기면 새 쿼리가 끝날 때까지 data가 undefined라
   // pending으로 자연히 떨어지고, 이전 달 합계·농도가 새 달 제목 아래 남아있지 않는다.
   const periodReady = period.data !== undefined;
-  const dayFocusSec = periodReady
-    ? buildDayFocusMap(period.data.dailyList)
-    : new Map<string, number>();
+  const dayFocusSec = useMemo(
+    () => (period.data !== undefined ? buildDayFocusMap(period.data.dailyList) : EMPTY_DAY_FOCUS),
+    [period.data],
+  );
   const periodState: RecordsPeriodState = periodReady
     ? {
         status: "success",
