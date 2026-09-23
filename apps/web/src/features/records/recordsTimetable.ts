@@ -134,3 +134,53 @@ export function completedTasksOf(
   }
   return tasks;
 }
+
+/**
+ * 과목 색 토큰 참조. colorIndex 0~19를 20색 팔레트에 순환 인덱싱한다(음수·초과 방어).
+ * `.theme-soft-blue` 스코프의 원천 변수(`--subject-N`)를 직접 참조한다 — `@theme inline`은
+ * 값을 유틸리티에 인라인만 하고 `--color-subject-N`을 CSS 변수로 방출하지 않아, 인라인
+ * style에서 `var(--color-subject-N)`을 쓰면 미정의로 비어 버린다.
+ */
+export function subjectColorVar(colorIndex: number): string {
+  const i = ((Math.trunc(colorIndex) % 20) + 20) % 20;
+  return `var(--subject-${i})`;
+}
+
+/** 10분 묶음 우선순위 — 한 칸이 여러 종류를 걸치면 눈에 띄어야 할 것을 남긴다. */
+function slotRank(slot: TimetableSlot): number {
+  switch (slot.kind) {
+    case "rest":
+      return 3;
+    case "subject":
+      return 2;
+    case "focus":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * 720칸(2분)을 시안의 10분 칸으로 묶는다. 한 묶음(기본 5칸)에서 우선순위가 가장 높은
+ * 종류를 대표로 남긴다(휴식 > 과목 > 집중 > 빈). 과목이 대표면 그 묶음에서 가장 먼저 나온
+ * 과목 id를 쓴다 — 한 칸 안 과목 전환은 10분 해상도에서 하나로 보인다.
+ */
+export function condenseTimetable(slots: readonly TimetableSlot[]): TimetableSlot[] {
+  const perCell = 5; // 10분(2분 5칸) — 시안 해상도. 고정이라 0 이하 진입로가 없다.
+  const out: TimetableSlot[] = [];
+  for (let start = 0; start < slots.length; start += perCell) {
+    let best = slots[start];
+    for (let j = start + 1; j < start + perCell && j < slots.length; j += 1) {
+      if (slotRank(slots[j]) > slotRank(best)) {
+        best = slots[j];
+      }
+    }
+    out.push(best);
+  }
+  return out;
+}
+
+/** 세션 휴식 시간(초) = 총 공부 − 순공. 비집중 시간이다. 음수는 0으로 막는다. */
+export function sessionRestSec(session: { studySec: number; focusSec: number }): number {
+  return Math.max(0, session.studySec - session.focusSec);
+}

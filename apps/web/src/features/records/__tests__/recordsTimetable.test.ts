@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   SLOTS_PER_DAY,
+  condenseTimetable,
+  sessionRestSec,
+  subjectColorVar,
   completedTasksOf,
   dayTimetable,
   kstDayStartMs,
@@ -88,5 +91,60 @@ describe("recordsTimetable — 일간 응답을 2분 칸으로 바꾼다", () =>
     ]);
     expect(map.get(5)?.deleted).toBe(true);
     expect(subjectRefMap(undefined).size).toBe(0);
+  });
+});
+
+describe("subjectColorVar", () => {
+  it("colorIndex를 20색 팔레트 변수로 순환 매핑한다", () => {
+    expect(subjectColorVar(0)).toBe("var(--subject-0)");
+    expect(subjectColorVar(19)).toBe("var(--subject-19)");
+    expect(subjectColorVar(20)).toBe("var(--subject-0)");
+    expect(subjectColorVar(-1)).toBe("var(--subject-19)");
+  });
+});
+
+describe("condenseTimetable", () => {
+  it("10분 묶음에서 휴식 > 과목 > 집중 > 빈 순으로 대표를 남긴다", () => {
+    const empty = { kind: "empty" } as const;
+    const focus = { kind: "focus" } as const;
+    const subj = { kind: "subject", subjectId: 7 } as const;
+    const rest = { kind: "rest", status: "PAUSE" } as const;
+    // 한 묶음(5칸): 빈,집중,과목,빈,집중 → 과목이 대표
+    const g1 = condenseTimetable([empty, focus, subj, empty, focus]);
+    expect(g1).toHaveLength(1);
+    expect(g1[0]).toEqual(subj);
+    // 휴식이 있으면 휴식이 이긴다
+    const g2 = condenseTimetable([subj, rest, focus, empty, empty]);
+    expect(g2[0]).toEqual(rest);
+    // 720칸 → 144칸
+    const full = Array.from({ length: 720 }, () => empty);
+    expect(condenseTimetable(full)).toHaveLength(144);
+  });
+});
+
+describe("sessionRestSec", () => {
+  it("총 공부에서 순공을 빼고 음수는 0으로 막는다", () => {
+    expect(sessionRestSec({ studySec: 46 * 60, focusSec: 44 * 60 })).toBe(2 * 60);
+    expect(sessionRestSec({ studySec: 10, focusSec: 30 })).toBe(0);
+  });
+});
+
+describe("kstDayStartMs — KST 자정 경계", () => {
+  it("KST 날짜의 자정을 절대 UTC 시각으로 잡는다", () => {
+    // KST는 UTC+9라 2026-09-21 00:00(KST) = 2026-09-20T15:00:00Z. 절대 시각으로 못 박아
+    // kstDayStartMs를 그 자신으로 되짚는 순환 검증을 피한다.
+    expect(kstDayStartMs("2026-09-21")).toBe(Date.parse("2026-09-20T15:00:00Z"));
+  });
+
+  it("자정을 건너뛰는 세션은 당일 첫 칸에만 들어가고 전날에는 잘린다", () => {
+    // KST 2026-09-21 00:00~00:04 = UTC 2026-09-20T15:00~15:04.
+    const crossMidnight = {
+      startedAt: "2026-09-20T15:00:00Z",
+      endedAt: "2026-09-20T15:04:00Z",
+    };
+    const today = dayTimetable([crossMidnight], "2026-09-21");
+    expect(today[0]).toEqual({ kind: "focus" }); // 첫 칸(00:00~00:02)이 세션 안
+    const yesterday = dayTimetable([crossMidnight], "2026-09-20");
+    expect(yesterday[SLOTS_PER_DAY - 1]).toEqual({ kind: "empty" }); // 전날 마지막 칸에서 잘린다
   });
 });
