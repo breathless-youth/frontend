@@ -170,8 +170,8 @@ describe("ResultPage — 완료 히어로 (BY-560)", () => {
   it("완료 타이틀·설명·순공시간 대형값·집중률 배지·총 공부를 시안 형식으로 그린다", () => {
     renderResult({ sessions: [exampleSession()] });
 
-    expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료!" })).toBeInTheDocument();
-    expect(screen.getByText("끝까지 해낸 시간이 그대로 기록됐어요")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료" })).toBeInTheDocument();
+    expect(screen.getByText("끝까지 해내셨네요!")).toBeInTheDocument();
     expect(screen.getByText("순공시간")).toBeInTheDocument();
     expect(screen.getByText("1시간 24분")).toBeInTheDocument();
     expect(screen.getByText("82% 집중")).toBeInTheDocument();
@@ -233,12 +233,20 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
   it("공개 전에는 도장·히어로만 있고 카드와 CTA는 없다", () => {
     const { container } = renderAnimated();
 
-    expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료!" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료" })).toBeInTheDocument();
     expect(container.querySelector("img")).not.toBeNull();
     expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
     expect(screen.queryByText("오늘 누적 순공시간")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "홈으로" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "기록으로 가기" })).not.toBeInTheDocument();
+  });
+
+  it("카운트업은 0이 아니라 1분부터 올라 시작 프레임에 '1분 미만'이 뜨지 않는다", () => {
+    // rAF가 무동작이라 카운트업은 시작값에 머문다 — 시작값이 0이면 `1분 미만`이 뜬다.
+    renderAnimated();
+
+    expect(screen.getByText("1분")).toBeInTheDocument();
+    expect(screen.queryByText("1분 미만")).not.toBeInTheDocument();
   });
 
   it("공개 시점이 되면 카드와 CTA 둘이 드러나고 인트로 블록은 접혀 접근성 트리에서 빠진다", () => {
@@ -261,7 +269,7 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
     expect(container.querySelector("img")).toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, hidden: true })).toHaveTextContent(
-      "오늘 공부 완료!",
+      "오늘 공부 완료",
     );
     // 순공시간은 접히지 않고 남는다.
     expect(screen.getByText("순공시간")).toBeInTheDocument();
@@ -528,7 +536,7 @@ describe("ResultPage — state 없는 진입", () => {
     renderResult(undefined);
 
     expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
-    expect(screen.queryByText("오늘 공부 완료!")).not.toBeInTheDocument();
+    expect(screen.queryByText("오늘 공부 완료")).not.toBeInTheDocument();
   });
 
   it("네이티브에서는 state 없는 진입도 홈 복귀 신호를 보낸다 — 웹 이동만으로는 세션 모달에 갇힌다(BY-436)", () => {

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import stampImage from "@/assets/study-complete-stamp.png";
 import { Badge } from "@/components/ui/badge";
 
-import { toKoreanDurationLength } from "../formatDuration";
+import { SUB_MINUTE_SEC, toKoreanDurationLength } from "../formatDuration";
 import { RESULT_COPY, focusRateLabel } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 
@@ -14,7 +14,7 @@ import type { SessionResultView } from "../sessionResult";
  * - `revealed`: 인주·타이틀 블록이 접혀 올라가고 순공시간이 위로 붙는다 — 그 아래로 타임라인·
  *   통계 카드가 드러난다(프로토타입 `reveal()`).
  * - `static`: 모션 축소(`prefers-reduced-motion`) — 연출도 접힘도 없이 처음부터 전부 보여준다.
- *   접힘까지 따라가면 모션 축소 사용자는 `오늘 공부 완료!`를 한 번도 보지 못한다.
+ *   접힘까지 따라가면 모션 축소 사용자는 `오늘 공부 완료`를 한 번도 보지 못한다.
  */
 export type CompleteHeroPhase = "intro" | "revealed" | "static";
 
@@ -23,21 +23,15 @@ const COUNT_UP_DURATION_MS = 1300;
 const COUNT_UP_DELAY_MS = 950;
 
 /**
- * S4 공부 완료 히어로(BY-560) — BY-557 시안 프로토타입의 "1 · 완료" 화면을 옮긴 것.
+ * 공부 완료 히어로
  *
  * 도장(PNG)이 위에서 내려와 찍히고(`result-stamp-press` 2s), 닿는 순간(0.82s) 인주가 튀어나오며
  * 충격 링이 퍼진다. 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
- * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다. 지연값은 프로토타입 실측이라 서로 맞물려 있다 —
- * 하나만 바꾸면 순서가 어긋난다.
+ * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
  *
  * 예전 `ResultHeader`(타이틀 `공부 결과` · 우상단 닫기 · 순공시간 · 집중률 필 · `총 공부 N ·
  * HH:MM–HH:MM`)를 대체한다. 시각 범위는 히어로에서 빠졌다 — 타임라인 카드 축 라벨이 같은 값을
  * 이미 보여준다.
- *
- * ## 이 컴포넌트가 하지 않는 것
- *
- * 단계 전환(언제 `revealed`로 갈지)은 `ResultPage`가 타이머로 정한다. 여기는 받은 단계를 그리고
- * 전환(`transition`)만 맡는다. 값 계산도 없다 — `SessionResultView`를 그대로 그린다.
  *
  * ## 절대 좌표를 베끼지 않는다
  *
@@ -99,49 +93,46 @@ export function StudyCompleteHero({
                 : undefined
           }
         >
-          <div className="relative mb-[30px] size-[118px]">
+          <div className="relative mb-[18px] size-[72px]">
             {/* 충격 링 — `forwards`다. 프로토타입의 `both`는 지연 동안 0% 프레임(반투명 링)이
                 미리 보이는 부작용이 있어 여기서는 닿기 전까지 숨긴다. */}
             <div
               aria-hidden="true"
-              className="absolute inset-0 rounded-full border-[2.5px] border-stamp-seal/30 opacity-0 animate-[result-stamp-impact_0.7s_ease-out_0.82s_forwards] motion-reduce:hidden"
+              className="absolute inset-0 rounded-full border-[2.5px] border-primary/30 opacity-0 animate-[result-stamp-impact_0.7s_ease-out_0.82s_forwards] motion-reduce:hidden"
             />
             <div className="absolute inset-0 flex items-center justify-center animate-[result-seal-pop_0.55s_cubic-bezier(0.34,1.56,0.64,1)_0.82s_both] motion-reduce:animate-none">
               <SealIcon />
             </div>
           </div>
 
-          <h1 className="text-[24px] leading-[29px] font-extrabold tracking-[-0.3px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
+          <h1 className="text-[20px] leading-[24px] font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeTitle}
           </h1>
-          <p className="mt-2 text-[14px] leading-[17px] text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
+          <p className="mt-1 text-[13px] leading-[16px] text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeDescription}
           </p>
         </div>
 
         <div
-          className="flex flex-col items-center gap-[6px] transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
-          style={{ marginTop: collapsed ? 4 : animated ? 34 : 24 }}
+          className="flex flex-col items-center gap-[2px] transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
+          style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
-          <p className="text-[13px] leading-[15px] font-medium text-muted-foreground">
+          <p className="text-[12px] leading-[15px] font-bold text-muted-foreground">
             {RESULT_COPY.focusLabel}
           </p>
-          <p className="text-[44px] leading-[52px] font-extrabold tracking-[-1px] text-foreground tabular-nums">
+          <p className="text-[40px] leading-[46px] font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
             {toKoreanDurationLength(focusSec)}
           </p>
         </div>
 
         {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다 — 맞추려
             들지 않는다(SCR-S4 QA 회부 규칙). */}
-        <p className="mt-[6px] text-[13px] leading-[16px] tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
+        <p className="mt-2 text-[14px] leading-[17px] tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
           <span className="text-muted-foreground">{`${RESULT_COPY.totalPrefix} `}</span>
-          <span className="font-semibold text-foreground">
-            {toKoreanDurationLength(view.studySec)}
-          </span>
+          <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
         </p>
 
-        <Badge className="mt-[10px] pl-[9px] animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
-          <FocusCheck />
+        <Badge className="mt-[10px] animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
           {focusRateLabel(view.focusRatePercent)}
         </Badge>
       </div>
@@ -150,14 +141,15 @@ export function StudyCompleteHero({
 }
 
 /**
- * 순공시간 카운트업 — 0에서 목표값까지 ease-out(cubic)으로 오른다.
+ * 순공시간 카운트업 — 1분에서 목표값까지 ease-out(cubic)으로 오른다.
  *
- * 표시는 분 단위(`toKoreanDurationLength`)라 첫 프레임 잠깐 `1분 미만`이 보였다가 분이 올라간다.
- * 서버 값을 바꾸는 게 아니라 **표시가 목표값에 도달하는 연출**이다 — 끝값은 항상 `target`이다.
- * `enabled`가 아니면(모션 축소) 처음부터 목표값이다. rAF가 없는 환경(테스트)도 같다.
+ * 0에서 올리면 첫 프레임과 시작 지연(950ms) 동안 값이 0이라 `1분 미만`(toKoreanDurationLength)이
+ * 잠깐 떠, 오르기 전에 "공부를 1분도 못 했다"처럼 읽힌다. 순공이 1분 이상인 세션만 이 화면에
+ * 오므로 1분부터 올려 그 오해를 없앤다. 1분 미만인 예외 세션은 목표값을 그대로 보여준다.
  */
 function useCountUp(target: number, enabled: boolean): number {
-  const [value, setValue] = useState(enabled ? 0 : target);
+  const from = Math.min(SUB_MINUTE_SEC, target);
+  const [value, setValue] = useState(enabled ? from : target);
 
   useEffect(() => {
     if (!enabled || typeof requestAnimationFrame !== "function") {
@@ -169,29 +161,28 @@ function useCountUp(target: number, enabled: boolean): number {
     const step = (now: number) => {
       const progress = Math.min(Math.max((now - startAt) / COUNT_UP_DURATION_MS, 0), 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(target * eased);
+      setValue(from + (target - from) * eased);
       if (progress < 1) {
         frame = requestAnimationFrame(step);
       }
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [target, enabled]);
+  }, [target, enabled, from]);
 
   return value;
 }
 
 /**
- * 인주(도장 자국) — 프로토타입 SVG 그대로(이중 원 + 발자국). 색은 `stamp-seal` 토큰 하나를
- * `currentColor`로 받는다.
+ * 인주(도장 자국)
  */
 function SealIcon() {
   return (
     <svg
-      width="100"
-      height="100"
+      width="72"
+      height="72"
       viewBox="0 0 100 100"
-      className="rotate-[-6deg] text-stamp-seal"
+      className="rotate-[-6deg] text-primary"
       aria-hidden="true"
       focusable="false"
     >
@@ -205,36 +196,5 @@ function SealIcon() {
         <path d="M50 34 C64 34 77 43 77 59 C77 70 70 79 61 79 C56.5 79 53 76 50 76 C47 76 43.5 79 39 79 C30 79 23 70 23 59 C23 43 36 34 50 34 Z" />
       </g>
     </svg>
-  );
-}
-
-/**
- * 집중률 배지의 체크 아이콘(BY-560 2차 시안 스크린샷, 2026-09-14) — 프라이머리 원 안에 흰 체크.
- * 체크 path는 `CheckCircle`(Figma `icon/check` 63:588)과 같은 값이다 — 손으로 그리지 않는다.
- * 정보는 옆 텍스트(`N% 집중`)가 전달하므로 아이콘은 장식이다.
- */
-function FocusCheck() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-    >
-      <svg
-        width="9"
-        height="7"
-        viewBox="0 0 19.1333 14.4667"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        focusable="false"
-      >
-        <path
-          d="M1.4 7.23335L7.23333 13.0667L17.7333 1.40001"
-          stroke="currentColor"
-          strokeWidth="3.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
   );
 }
