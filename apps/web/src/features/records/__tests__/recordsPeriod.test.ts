@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bestDay,
+  buildDayFocusMap,
   focusDeltaSec,
   mondayWeekDateKeys,
   monthRanges,
@@ -54,5 +55,17 @@ describe("recordsPeriod — 주간·월간 범위와 헤더 숫자", () => {
     expect(bestDay(daily)).toEqual(day("2026-09-23", 7200));
     expect(bestDay([day("2026-09-22", 0)])).toBeNull();
     expect(studiedDayCount(daily)).toBe(2);
+  });
+});
+
+describe("buildDayFocusMap", () => {
+  it("날짜별 순공시간을 맵으로 만든다", () => {
+    const map = buildDayFocusMap([
+      { date: "2026-09-01", studySec: 100, focusSec: 90 },
+      { date: "2026-09-02", studySec: 0, focusSec: 0 },
+    ]);
+    expect(map.get("2026-09-01")).toBe(90);
+    expect(map.get("2026-09-02")).toBe(0);
+    expect(map.has("2026-09-03")).toBe(false);
   });
 });

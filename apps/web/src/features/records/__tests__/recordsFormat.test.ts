@@ -3,12 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   addDaysToDateKey,
   buildMonthGrid,
+  dayTitleWithWeekday,
   eventChipItems,
   formatDuration,
   formatFocusRate,
+  formatHeatClock,
   formatKstClock,
   formatSessionCount,
   formatSessionMeta,
+  formatSessionSubline,
+  formatSessionTimeRange,
+  heatLevel,
   isFutureDateKey,
   isDateKeyInMonth,
   kstDateKey,
@@ -188,5 +193,43 @@ describe("statsQueryDateKey", () => {
   it("다른 달을 보는 중이면 그 달 1일을 쓴다", () => {
     expect(statsQueryDateKey("2026-07-26", { year: 2026, month: 8 })).toBe("2026-08-01");
     expect(statsQueryDateKey("2026-07-26", { year: 2025, month: 12 })).toBe("2025-12-01");
+  });
+});
+
+describe("heatLevel", () => {
+  it("0초는 none, 1시간 미만은 low, 1~3시간은 mid, 3시간 이상은 high", () => {
+    expect(heatLevel(0)).toBe("none");
+    expect(heatLevel(59 * 60)).toBe("low");
+    expect(heatLevel(3600)).toBe("mid");
+    expect(heatLevel(3 * 3600 - 1)).toBe("mid");
+    expect(heatLevel(3 * 3600)).toBe("high");
+  });
+});
+
+describe("formatHeatClock", () => {
+  it("시:분, 분은 두 자리, 시는 앞자리 0을 빼고 1시간 미만도 0시로 적는다", () => {
+    expect(formatHeatClock(150 * 60)).toBe("2:30");
+    expect(formatHeatClock(42 * 60)).toBe("0:42");
+    expect(formatHeatClock(0)).toBe("0:00");
+  });
+});
+
+describe("dayTitleWithWeekday", () => {
+  it("월 일 요일을 한글로 적는다", () => {
+    expect(dayTitleWithWeekday("2026-09-18")).toBe("9월 18일 금요일");
+  });
+});
+
+describe("formatSessionTimeRange", () => {
+  it("KST 시각 범위를 물결로 잇는다", () => {
+    expect(formatSessionTimeRange("2026-09-18T22:30:00Z", "2026-09-18T23:16:00Z")).toBe(
+      "07:30 ~ 08:16",
+    );
+  });
+});
+
+describe("formatSessionSubline", () => {
+  it("순공 길이와 집중률을 가운뎃점으로 잇는다", () => {
+    expect(formatSessionSubline(44 * 60, 96)).toBe("순공 44분 · 집중 96%");
   });
 });

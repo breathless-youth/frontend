@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  StudyPeriodStatsResponse,
   StudySessionListResponse,
-  StudySessionStreakResponse,
   StudySessionSummary,
 } from "@focusmakers/types";
 import {
@@ -14,25 +14,34 @@ import {
   monthLabel,
   monthOfDateKey,
   shiftMonth,
-  statsQueryDateKey,
-  summaryTitle,
 } from "@/features/records/recordsFormat";
-import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
+import { trackRecordsMonthChanged } from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
 
 /**
- * (모바일판 `__tests__/records.test.tsx`에서 케이스 이식 — BY-330.
+ * (모바일판 `__tests__/records.test.tsx`에서 케이스 이식 — BY-330, v2 조립으로 갱신 — BY-567 Task 8.
  * RN판은 fake timers로 "오늘"을 고정하지만, 웹판은 오늘을 매 렌더 계산으로 바꿨다
  * (`RecordsPage`의 RN판 차이 주석 참고) — 시계를 고정하는 대신 테스트가 `recordsFormat`의
- * 같은 순수 함수로 기대값을 계산한다. 실행 날짜와 무관하게 항상 맞는다.)
+ * 같은 순수 함수로 기대값을 계산한다. 실행 날짜와 무관하게 항상 맞는다.
+ *
+ * 스트릭 배너·요약 타일·`studiedDatesInMonth`/streak 도트 관련 테스트는 v2에서 걷어낸
+ * 기능이라 지웠다 — 대신 세그먼트·선택일 제목·월 요약을 확인한다. `getPeriodStats` 목을
+ * 셋업에 더했다(달력 농도·월 요약이 이제 이 조회 하나로 채워진다).
  */
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
-  getStreak: vi.fn(),
+  getPeriodStats: vi.fn(),
+}));
+vi.mock("@/lib/amplitude", () => ({
+  trackRecordsDateSelected: vi.fn(),
+  trackRecordsMonthChanged: vi.fn(),
+  trackErrorRetryPressed: vi.fn(),
 }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
-const mockedStreak = vi.mocked(getStreak);
+const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
 
 function statsResponse(hasSession: boolean): StudySessionListResponse {
   return {
@@ -60,11 +69,19 @@ function statsResponse(hasSession: boolean): StudySessionListResponse {
   };
 }
 
-const streakResponse = (streak: number): StudySessionStreakResponse => ({
-  streak,
-  maxStreak: streak,
-  studiedDatesInRange: [],
-});
+function periodResponse(
+  dailyList: StudyPeriodStatsResponse["dailyList"] = [],
+  compareDailyList: StudyPeriodStatsResponse["compareDailyList"] = [],
+): StudyPeriodStatsResponse {
+  return {
+    from: "2026-01-01",
+    to: "2026-01-31",
+    compareFrom: null,
+    compareTo: null,
+    dailyList,
+    compareDailyList,
+  };
+}
 
 function renderRecords(path = "/records?userId=7") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -80,74 +97,80 @@ function renderRecords(path = "/records?userId=7") {
 describe("RecordsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedPeriod.mockResolvedValue(periodResponse());
   });
 
-  it("선택일(기본값 오늘) 요약과 그 날의 공부 기록 리스트를 보여준다", async () => {
+  it("선택일(기본값 오늘)의 세션 목록을 v2 행(시각 범위·순공·집중률)으로 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
-    mockedStreak.mockResolvedValue(streakResponse(5));
 
     renderRecords();
 
-    await screen.findByText(summaryTitle(kstDateKey()));
-    expect(screen.getByText("순공시간")).toBeInTheDocument();
-    expect(screen.getByText("공부 기록")).toBeInTheDocument();
-    expect(screen.getByText("1회")).toBeInTheDocument();
-    expect(screen.queryByText("이날은 기록이 없어요")).not.toBeInTheDocument();
+    // startedAt 2026-01-01T00:00Z / endedAt 2026-01-01T01:00Z → KST 09:00 ~ 10:00.
+    expect(await screen.findByText("09:00 ~ 10:00")).toBeInTheDocument();
+    expect(screen.getByText("순공 30분 · 집중 50%")).toBeInTheDocument();
+    expect(screen.queryByText("이 날은 기록이 없어요")).not.toBeInTheDocument();
   });
 
-  it("달 이동은 달력만 바꾸고 선택일 요약은 그대로 유지한다(2026-07-28 확정 정책)", async () => {
+  it("선택일에 기록이 없으면 빈 상태 문구를 카드 안에 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
-    mockedStreak.mockResolvedValue(streakResponse(0));
+
+    renderRecords();
+
+    expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
+  });
+
+  it("일간 세그먼트가 눌린 상태이고 주간은 비활성이다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    const daily = await screen.findByRole("tab", { name: "일간" });
+    expect(daily).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
+  });
+
+  it("선택일 제목을 요일과 함께 보여준다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    expect(await screen.findByText(/요일$/)).toBeInTheDocument();
+  });
+
+  it("월 순공 합계를 월 요약에 보여준다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    const month = monthOfDateKey(kstDateKey());
+    mockedPeriod.mockResolvedValue(
+      periodResponse([{ date: "2026-01-01", studySec: 3600, focusSec: 3600 }]),
+    );
+
+    renderRecords();
+
+    expect(await screen.findByText(`${month.month}월 순공시간`)).toBeInTheDocument();
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+  });
+
+  it('헤더 이전/다음 달 버튼을 누르면 달이 바뀌고 계측이 { delta, method: "button" }로 나가지만, 선택일은 그대로 유지한다(2026-07-28 확정 정책 + 코덱스 리뷰 반영)', async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
 
     renderRecords();
 
     const todayKey = kstDateKey();
     const currentMonth = monthOfDateKey(todayKey);
-    await screen.findByText(summaryTitle(todayKey));
+    await screen.findByText(/요일$/);
 
     await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
-
     expect(screen.getByText(monthLabel(shiftMonth(currentMonth, 1)))).toBeInTheDocument();
-    expect(screen.getByText(summaryTitle(todayKey))).toBeInTheDocument();
+    expect(screen.getByText(/요일$/)).toBeInTheDocument();
+    expect(mockedTrackMonthChanged).toHaveBeenNthCalledWith(1, { delta: 1, method: "button" });
 
     await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
     expect(screen.getByText(monthLabel(currentMonth))).toBeInTheDocument();
-  });
-
-  it("스트릭 배너 — 로딩 중에는 스켈레톤만 보여준다", async () => {
-    mockedStats.mockResolvedValue(statsResponse(false));
-    mockedStreak.mockImplementation(() => new Promise(() => undefined)); // 영원히 pending
-
-    renderRecords();
-
-    await screen.findByText(summaryTitle(kstDateKey()));
-    expect(screen.getByLabelText("불러오는 중")).toBeInTheDocument();
-    expect(screen.queryByText(/일 연속 공부 중/)).not.toBeInTheDocument();
-  });
-
-  it("스트릭 배너 — 조회 실패(캐시 없음)면 감춘다", async () => {
-    mockedStats.mockResolvedValue(statsResponse(false));
-    mockedStreak.mockRejectedValue(new Error("network"));
-
-    renderRecords();
-
-    await screen.findByText(summaryTitle(kstDateKey()));
-    expect(screen.queryByText(/일 연속 공부 중/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("불러오는 중")).not.toBeInTheDocument();
-  });
-
-  it("스트릭 배너 — 성공하면 연속 일수 문구를 보여준다", async () => {
-    mockedStats.mockResolvedValue(statsResponse(false));
-    mockedStreak.mockResolvedValue(streakResponse(12));
-
-    renderRecords();
-
-    expect(await screen.findByText("12일 연속 공부 중")).toBeInTheDocument();
+    expect(mockedTrackMonthChanged).toHaveBeenNthCalledWith(2, { delta: -1, method: "button" });
   });
 
   it("일별 기록 조회 실패 시 오류 문구와 다시 시도를 보여주고, 재시도로 복구한다", async () => {
     mockedStats.mockRejectedValueOnce(new Error("network"));
-    mockedStreak.mockResolvedValue(streakResponse(0));
 
     renderRecords();
 
@@ -156,48 +179,8 @@ describe("RecordsPage", () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
-    await screen.findByText(summaryTitle(kstDateKey()));
     await waitFor(() => expect(mockedStats).toHaveBeenCalledTimes(2));
-  });
-
-  it("선택일이 안 보이는 달로 이동하면 그 달 1일 조회(monthStats) 응답으로 도트를 채운다", async () => {
-    const todayKey = kstDateKey();
-    const nextMonth = shiftMonth(monthOfDateKey(todayKey), 1);
-    // statsQueryDateKey는 오늘이 다음 달에 속하지 않으므로 항상 "다음달-01"을 돌려준다.
-    const nextMonthFirstDay = statsQueryDateKey(todayKey, nextMonth);
-    const recordedDateKey = `${nextMonthFirstDay.slice(0, -2)}15`;
-
-    mockedStats.mockImplementation(async (date) =>
-      date === nextMonthFirstDay
-        ? { ...statsResponse(false), studiedDatesInMonth: [recordedDateKey] }
-        : statsResponse(false),
-    );
-    mockedStreak.mockResolvedValue(streakResponse(0));
-
-    renderRecords();
-    await screen.findByText(summaryTitle(todayKey));
-
-    await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
-    expect(await screen.findByText(monthLabel(nextMonth))).toBeInTheDocument();
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "15일, 기록 있음" })).toBeInTheDocument(),
-    );
-    expect(screen.getByRole("button", { name: "10일, 기록 없음" })).toBeInTheDocument();
-  });
-
-  it("스트릭 응답에 studiedDatesInRange가 없어도(계약 드리프트) 배너가 크래시 없이 렌더된다 — 도트는 빈 상태", async () => {
-    mockedStats.mockResolvedValue(statsResponse(false));
-    mockedStreak.mockResolvedValue({
-      streak: 4,
-      maxStreak: 9,
-    } as unknown as StudySessionStreakResponse);
-
-    renderRecords();
-
-    expect(await screen.findByText("4일 연속 공부 중")).toBeInTheDocument();
-    // doneDates가 빈 배열로 방어되어 오늘을 제외한 모든 요일 도트가 "기록 없음"이다.
-    expect(screen.queryByRole("img", { name: /공부함/ })).not.toBeInTheDocument();
+    expect(await screen.findByText(/요일$/)).toBeInTheDocument();
   });
 
   it("세션은 시작 시각 내림차순으로 정렬되고 아이템 사이에 구분선이 렌더된다", async () => {
@@ -223,20 +206,20 @@ describe("RecordsPage", () => {
       ...statsResponse(false),
       sessions: [early, late, mid],
       sessionCount: 3,
-      // 요약 타일 값은 세션 개별 표기(10분/20분/30분)와 겹치지 않게 둔다.
-      totalStudySec: 5000,
-      totalFocusSec: 4000,
     });
-    mockedStreak.mockResolvedValue(streakResponse(0));
 
-    const { container } = renderRecords();
+    renderRecords();
 
-    await screen.findByText(summaryTitle(kstDateKey()));
-    const durations = screen.getAllByText(/^(10분|20분|30분)$/).map((el) => el.textContent);
+    await screen.findByText(/요일$/);
     // 내림차순(최신순 고정) — late(30분) → mid(20분) → early(10분).
-    expect(durations).toEqual(["30분", "20분", "10분"]);
-    // 3개 아이템 사이 헤어라인은 2개다.
-    expect(container.querySelectorAll(".h-px.bg-border")).toHaveLength(2);
+    const sublines = screen
+      .getAllByText(/^순공 (10|20|30)분 · 집중 50%$/)
+      .map((el) => el.textContent);
+    expect(sublines).toEqual([
+      "순공 30분 · 집중 50%",
+      "순공 20분 · 집중 50%",
+      "순공 10분 · 집중 50%",
+    ]);
   });
 
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
@@ -244,6 +227,46 @@ describe("RecordsPage", () => {
 
     expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
-    expect(mockedStreak).not.toHaveBeenCalled();
+    expect(mockedPeriod).not.toHaveBeenCalled();
+  });
+
+  it("월을 옮기는 동안 이전 달 월 순공 합계가 새 달 제목 아래 보이지 않는다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    mockedPeriod.mockResolvedValueOnce(
+      periodResponse([{ date: "2026-01-01", studySec: 3600, focusSec: 3600 }]),
+    );
+
+    renderRecords();
+
+    expect(await screen.findByText("1시간")).toBeInTheDocument();
+
+    // 다음 달 조회를 붙잡아 둔다 — period는 placeholderData를 쓰지 않으므로 새 조회가 끝날
+    // 때까지 pending이고, 화면은 1월 합계를 새 달의 성공으로 보여주지 않는다.
+    let resolveNext: ((value: StudyPeriodStatsResponse) => void) | undefined;
+    mockedPeriod.mockImplementation(
+      () =>
+        new Promise<StudyPeriodStatsResponse>((resolve) => {
+          resolveNext = resolve;
+        }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
+
+    expect(screen.queryByText("1시간")).not.toBeInTheDocument();
+
+    await resolveNext?.(periodResponse([{ date: "2026-02-01", studySec: 1800, focusSec: 1800 }]));
+    expect(await screen.findByText("30분")).toBeInTheDocument();
+  });
+
+  it("period 조회가 실패해도 일별 세션 목록·선택일 제목은 그대로 보인다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+    mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));
+
+    renderRecords();
+
+    expect(await screen.findByText("09:00 ~ 10:00")).toBeInTheDocument();
+    expect(screen.getByText(/요일$/)).toBeInTheDocument();
+    // 월 요약 카드는 period가 success일 때만 그린다 — 실패 시 렌더하지 않는다(합계를 비운다).
+    expect(screen.queryByText(/순공시간$/)).not.toBeInTheDocument();
   });
 });
