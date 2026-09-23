@@ -1,8 +1,25 @@
+import type { ReactElement } from "react";
+import { cloneElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import type * as Recharts from "recharts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// 주간 뷰의 추이 차트가 렌더된다 — recharts ResponsiveContainer는 jsdom에서 ResizeObserver를
+// 요구하므로(WeekTrendChart.test.tsx와 같은 이유·같은 mock) 자식에 고정 크기를 준다.
+vi.mock("recharts", async (importOriginal) => {
+  const actual = await importOriginal<typeof Recharts>();
+  return {
+    ...actual,
+    ResponsiveContainer: ({
+      children,
+    }: {
+      children: ReactElement<{ width?: number; height?: number }>;
+    }) => cloneElement(children, { width: 800, height: 400 }),
+  };
+});
 
 import type {
   StudyPeriodStatsResponse,
@@ -119,14 +136,35 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
   });
 
-  it("일간 세그먼트가 눌린 상태이고 주간은 비활성이다", async () => {
+  it("일간 세그먼트가 기본으로 눌린 상태이고 주간은 활성이다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
 
     renderRecords();
 
     const daily = await screen.findByRole("tab", { name: "일간" });
     expect(daily).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "주간" })).not.toBeDisabled();
+  });
+
+  it("주간 토글을 누르면 주간 뷰가 나오고, 일간으로 돌아오면 일간 뷰가 보인다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    // 처음엔 일간 뷰(선택일 제목)가 보인다.
+    expect(await screen.findByText(/요일$/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "주간" }));
+
+    // 주간 뷰 — 리듬 카드는 데이터와 무관하게 항상 보이고, 일간 제목은 사라진다.
+    expect(await screen.findByText("나의 공부 리듬")).toBeInTheDocument();
+    expect(screen.queryByText(/요일$/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+
+    // 일간으로 복귀 — 선택일 제목이 돌아오고 리듬 카드는 사라진다.
+    expect(await screen.findByText(/요일$/)).toBeInTheDocument();
+    expect(screen.queryByText("나의 공부 리듬")).not.toBeInTheDocument();
   });
 
   it("선택일 제목을 요일과 함께 보여준다", async () => {
