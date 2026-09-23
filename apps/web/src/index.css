@@ -228,6 +228,26 @@
   --chart-empty: #eef1f6;
   --bg-control-track: #eef1f6;
   --feedback-success: #0e9f5d;
+  --subject-0: #e5484d;
+  --subject-1: #ef6c33;
+  --subject-2: #f5a623;
+  --subject-3: #e8c500;
+  --subject-4: #9bbb2e;
+  --subject-5: #46a758;
+  --subject-6: #21a97a;
+  --subject-7: #12a594;
+  --subject-8: #d6409f;
+  --subject-9: #e93d82;
+  --subject-10: #ab4aba;
+  --subject-11: #8e4ec6;
+  --subject-12: #ad7f58;
+  --subject-13: #a18072;
+  --subject-14: #6b7280;
+  --subject-15: #d24b6e;
+  --subject-16: #7a9a3b;
+  --subject-17: #b8873a;
+  --subject-18: #4f9d8f;
+  --subject-19: #b0555f;
 }
 
 @media (prefers-color-scheme: dark) {
