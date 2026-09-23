@@ -100,6 +100,21 @@ describe("RecordsPage", () => {
     mockedPeriod.mockResolvedValue(periodResponse());
   });
 
+  it("세션 행을 누르면 상세 바텀시트가 열리고 닫기로 닫힌다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+
+    renderRecords();
+
+    const row = await screen.findByRole("button", { name: /09:00 ~ 10:00/ });
+    await userEvent.click(row);
+    const close = await screen.findByRole("button", { name: "닫기" });
+    expect(close).toBeInTheDocument();
+    await userEvent.click(close);
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+    });
+  });
+
   it("선택일(기본값 오늘)의 세션 목록을 v2 행(시각 범위·순공·집중률)으로 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
 

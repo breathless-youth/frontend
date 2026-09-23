@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
+import type { StudySessionSummary } from "@focusmakers/types";
+
 import { trackRecordsDateSelected, trackRecordsMonthChanged } from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -16,6 +18,8 @@ import {
 } from "@/features/records/recordsFormat";
 import { SegmentedControl } from "@/features/records/SegmentedControl";
 import { SessionListItem } from "@/features/records/SessionListItem";
+import { DayDetailCard } from "@/features/records/DayDetailCard";
+import { SessionDetailSheet } from "@/features/records/SessionDetailSheet";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
@@ -32,8 +36,8 @@ import { useUserId } from "@/lib/userId";
  *   (`useRecordsData` 참고, `useFocusEffect` invalidate를 이식하지 않는다).
  *
  * v1 → v2(BY-567) 변경: 스트릭 배너·요약 타일 2×2·최신순 정렬 표시를 걷어내고 월 순공 요약
- * (`MonthSummary`)·농도 달력·세션 목록으로 바꾼다. 세션 행 상세 열기(`onSelect`)는 이 티켓에서
- * 연결하지 않는다 — 바로 다음 티켓 BY-568이 잇는다.
+ * (`MonthSummary`)·농도 달력·세션 목록으로 바꾼다. 날짜 상세 카드와 세션 행 상세 열기(`onSelect`)는
+ * BY-568이 이었다.
  */
 
 function RecordsContent({ userId }: { userId: number }) {
@@ -50,6 +54,7 @@ function RecordsContent({ userId }: { userId: number }) {
   }, []);
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
+  const [sheetSession, setSheetSession] = useState<StudySessionSummary | null>(null);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -131,6 +136,10 @@ function RecordsContent({ userId }: { userId: number }) {
           </p>
 
           <div className="mt-3">
+            <DayDetailCard stats={day.stats} dateKey={selectedKey} />
+          </div>
+
+          <div className="mt-3">
             {sessions.length === 0 ? (
               <div className="flex items-center justify-center rounded-[20px] bg-muted shadow-sb-card py-8">
                 <p className="text-[15px] leading-[22px] text-muted-foreground">
@@ -140,12 +149,18 @@ function RecordsContent({ userId }: { userId: number }) {
             ) : (
               <div className="rounded-[20px] bg-muted shadow-sb-card px-[18px] py-1">
                 {sessions.map((session) => (
-                  // onSelect는 이 티켓에서 넘기지 않는다 — BY-568이 상세 열기를 연결한다.
-                  <SessionListItem key={session.id} session={session} />
+                  <SessionListItem key={session.id} session={session} onSelect={setSheetSession} />
                 ))}
               </div>
             )}
           </div>
+
+          <SessionDetailSheet
+            session={sheetSession}
+            subjects={day.stats.subjects}
+            dateKey={selectedKey}
+            onClose={() => setSheetSession(null)}
+          />
         </div>
       )}
     </div>
