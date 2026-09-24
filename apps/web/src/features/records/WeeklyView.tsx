@@ -9,6 +9,7 @@ import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
 import { WeekTrendChart } from "./WeekTrendChart";
 import { addDaysToDateKey, kstDateKey, monthOfDateKey } from "./recordsFormat";
+import { mondayWeekDateKeys } from "./recordsPeriod";
 import { useWeeklyData } from "./useWeeklyData";
 
 /**
@@ -32,6 +33,10 @@ export function WeeklyView({ userId }: { userId: number }) {
 
   const { week, month: monthState } = useWeeklyData(userId, weekAnchorKey, month);
 
+  // 오늘이 보고 있는 주(월~일)에 있으면 그 요일 인덱스, 아니면 null(과거·미래 주는 끝점 도트 없음).
+  const todayIndexInWeek = mondayWeekDateKeys(weekAnchorKey).indexOf(todayKey);
+  const todayIndex = todayIndexInWeek >= 0 ? todayIndexInWeek : null;
+
   const retryPeriod = () => {
     void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
   };
@@ -40,6 +45,7 @@ export function WeeklyView({ userId }: { userId: number }) {
     <div>
       <WeekHeader
         weekAnchorKey={weekAnchorKey}
+        todayKey={todayKey}
         metricsStatus={week.status}
         daily={week.status === "success" ? week.daily : undefined}
         compareDaily={week.status === "success" ? week.compareDaily : undefined}
@@ -57,7 +63,14 @@ export function WeeklyView({ userId }: { userId: number }) {
           />
         )}
         {week.status === "success" && (
-          <WeekTrendChart daily={week.daily} compareDaily={week.compareDaily} todayKey={todayKey} />
+          <div className="rounded-[20px] bg-muted shadow-sb-card p-[18px]">
+            <WeekTrendChart
+              daily={week.daily}
+              compareDaily={week.compareDaily}
+              todayKey={todayKey}
+              todayIndex={todayIndex}
+            />
+          </div>
         )}
       </div>
 

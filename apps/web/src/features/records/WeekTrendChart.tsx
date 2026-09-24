@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import type { DailyStudyStat } from "@focusmakers/types";
-import { CartesianGrid, Line, type LineProps, LineChart, XAxis, YAxis } from "recharts";
+import { Area, type AreaProps, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import {
   ChartContainer,
@@ -13,7 +13,7 @@ import { formatDuration } from "./recordsFormat";
 import { MAX_CHART_HOURS, buildWeekTrendRows, weekTrendPoints } from "./recordsPeriod";
 
 /**
- * 주간 추이 라인차트
+ * 주간 추이 영역차트 (선 + 선 아래 그라데이션 채움)
  *
  * 이번 주·지난주의 하루치 순공시간을 시간 단위로 겹쳐 그린다. 값 계산(요일별 정렬·clamp·미래
  * 날짜 제외)은 `recordsPeriod`의 순수 함수가 하고 여기서는 그리기만 한다.
@@ -24,7 +24,8 @@ import { MAX_CHART_HOURS, buildWeekTrendRows, weekTrendPoints } from "./recordsP
 
 const chartConfig = {
   thisWeek: { label: "이번 주", color: "var(--primary)" },
-  lastWeek: { label: "지난주", color: "var(--muted-foreground)" },
+  // 지난주는 더 연한 tertiary — 선·하단 그라데이션·범례 점이 모두 이 색(--color-lastWeek)을 따른다.
+  lastWeek: { label: "지난주", color: "var(--text-tertiary)" },
 } satisfies ChartConfig;
 
 interface DotProps {
@@ -37,21 +38,26 @@ export function WeekTrendChart({
   daily,
   compareDaily,
   todayKey,
+  todayIndex,
 }: {
   daily: readonly DailyStudyStat[];
   compareDaily: readonly DailyStudyStat[];
   /** 오늘(KST 날짜 키). 이번 주에서 이후 요일 값을 선/끝점에서 뺀다. */
   todayKey: string;
+  /**
+   * 오늘이 보고 있는 주(월=0…일=6)의 몇 번째 요일인지. 오늘이 이 주에 없으면(과거·미래 주) `null`.
+   * 이 값이 있을 때만, 오늘 요일 위치에만 끝점 도트를 찍는다.
+   */
+  todayIndex: number | null;
 }) {
   const rows = buildWeekTrendRows(daily, compareDaily, todayKey);
-  // 이번 주 선의 끝점(값이 있는 마지막 날 = 오늘 또는 마지막 실제 관측일)만 dot으로 강조한다.
-  const lastPointIndex = rows.reduce((acc, row, i) => (row.thisWeek != null ? i : acc), -1);
 
   // 색상만으로 두 선을 가르지 않도록 스크린리더용 요일별 값 요약을 함께 낸다(초 단위 원본).
   const points = weekTrendPoints(daily, compareDaily, todayKey);
 
   const renderEndpointDot = ({ cx, cy, index }: DotProps): ReactElement => {
-    if (index !== lastPointIndex || cx == null || cy == null) {
+    // 오늘이 이 주에 있을 때만, 오늘 요일 위치에만 도트를 찍는다(과거·미래 주는 도트 없음).
+    if (todayIndex === null || index !== todayIndex || cx == null || cy == null) {
       return <g key={`dot-${index}`} />;
     }
     return (
@@ -61,7 +67,7 @@ export function WeekTrendChart({
         cy={cy}
         r={4}
         fill="var(--color-thisWeek)"
-        stroke="var(--background)"
+        stroke="var(--color-thisWeek)"
         strokeWidth={2}
       />
     );
@@ -75,8 +81,24 @@ export function WeekTrendChart({
         role="img"
         aria-label="이번 주와 지난주 요일별 순공시간 추이"
       >
-        <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
-          <ChartLegend verticalAlign="top" content={<ChartLegendContent />} />
+        <AreaChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
+          <defs>
+            {/* 선 아래 그라데이션 — 위(선 색 opacity 0.25)에서 아래(투명)로. 시안 image 3. */}
+            <linearGradient id="weekTrendThisWeekFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-thisWeek)" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="var(--color-thisWeek)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="weekTrendLastWeekFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-lastWeek)" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="var(--color-lastWeek)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {/* 범례 좌측 정렬 + 왼쪽 여백(YAxis width 28 + margin left 4 = 그리는 영역 왼쪽). 시안 image 2. */}
+          <ChartLegend
+            verticalAlign="top"
+            align="left"
+            content={<ChartLegendContent className="justify-start pl-8" />}
+          />
           <CartesianGrid vertical={false} />
           <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
           <YAxis
@@ -87,27 +109,29 @@ export function WeekTrendChart({
             width={28}
             tickFormatter={(value: number) => (value >= MAX_CHART_HOURS ? "12+" : String(value))}
           />
-          <Line
+          {/* 지난주를 먼저 그려 이번 주 선·채움이 위에 오게 한다. */}
+          <Area
             dataKey="lastWeek"
-            type="monotone"
+            type="linear"
             stroke="var(--color-lastWeek)"
             strokeWidth={2}
-            strokeDasharray="4 4"
+            fill="url(#weekTrendLastWeekFill)"
             dot={false}
             connectNulls
             isAnimationActive={false}
           />
-          <Line
+          <Area
             dataKey="thisWeek"
-            type="monotone"
+            type="linear"
             stroke="var(--color-thisWeek)"
             strokeWidth={3}
-            dot={renderEndpointDot as LineProps["dot"]}
+            fill="url(#weekTrendThisWeekFill)"
+            dot={renderEndpointDot as AreaProps["dot"]}
             activeDot={{ r: 4 }}
             connectNulls
             isAnimationActive={false}
           />
-        </LineChart>
+        </AreaChart>
       </ChartContainer>
 
       <table className="sr-only">

@@ -296,6 +296,31 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("30분")).toBeInTheDocument();
   });
 
+  it("미래 달로 이동하면 순공 합계는 보이되 증감 문구는 감춘다(미래는 과거와 비교하지 않는다)", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    // 어느 달을 봐도 delta가 +1시간이 되도록 둔다 — 미래 달에서 감춰지는지 본다.
+    mockedPeriod.mockResolvedValue(
+      periodResponse(
+        [{ date: "2026-01-01", studySec: 3600, focusSec: 3600 }],
+        [{ date: "2025-12-01", studySec: 0, focusSec: 0 }],
+      ),
+    );
+
+    renderRecords();
+
+    const currentMonth = monthOfDateKey(kstDateKey());
+    // 현재 달에선 증감 문구가 보인다.
+    expect(await screen.findByText(/지난달보다 1시간 늘었어요/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
+
+    // 미래 달 — 합계(1시간)는 남고 증감 문구는 사라진다.
+    const nextMonth = shiftMonth(currentMonth, 1);
+    expect(await screen.findByText(`${nextMonth.month}월 순공시간`)).toBeInTheDocument();
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+    expect(screen.queryByText(/늘었어요|줄었어요|같아요/)).not.toBeInTheDocument();
+  });
+
   it("주간 뷰에서 주 조회가 실패하면 순공·증감 숫자는 감추고 주 범위·네비는 남는다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));

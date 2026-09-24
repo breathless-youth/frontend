@@ -7,6 +7,7 @@ import {
   addDaysToDateKey,
   dayOfDateKey,
   isDateKeyInMonth,
+  monthOfDateKey,
   weekdayIndexOfDateKey,
 } from "./recordsFormat";
 
@@ -54,6 +55,23 @@ export function monthRanges(month: CalendarMonth): { range: DateRange; compareRa
       ? { year: month.year - 1, month: 12 }
       : { year: month.year, month: month.month - 1 };
   return { range: monthRange(month), compareRange: monthRange(previous) };
+}
+
+/**
+ * 미래 달인가 — 그 달 1일이 오늘이 속한 달보다 미래. 오늘이 속한 현재 달은 미래가 아니다.
+ * 미래 기간은 서버가 0으로 채운 데이터와 과거 비교값을 견줘 "줄었어요"가 뜨는 버그를 막는다.
+ */
+export function isFutureMonth(month: CalendarMonth, todayKey: string): boolean {
+  const today = monthOfDateKey(todayKey);
+  return month.year > today.year || (month.year === today.year && month.month > today.month);
+}
+
+/**
+ * 미래 주인가 — 그 주 월요일이 오늘보다 미래. 오늘을 포함하는 현재 주는 미래가 아니다
+ * (오늘이 월요일이면 월요일 === 오늘이라 미래가 아니다).
+ */
+export function isFutureWeek(weekAnchorKey: string, todayKey: string): boolean {
+  return mondayWeekDateKeys(weekAnchorKey)[0]! > todayKey;
 }
 
 export function sumFocusSec(daily: readonly DailyStudyStat[]): number {

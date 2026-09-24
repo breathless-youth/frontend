@@ -7,6 +7,8 @@ import {
   buildWeekTrendRows,
   elapsedDaysInMonth,
   focusDeltaSec,
+  isFutureMonth,
+  isFutureWeek,
   mondayWeekDateKeys,
   monthRanges,
   studiedDayCount,
@@ -146,6 +148,36 @@ describe("elapsedDaysInMonth / studiedRatioPercent", () => {
     expect(studiedRatioPercent(15, 30)).toBe(50);
     expect(studiedRatioPercent(0, 0)).toBe(0);
     expect(studiedRatioPercent(5, 0)).toBe(0);
+  });
+});
+
+describe("isFutureMonth — 그 달 1일이 오늘 달보다 미래", () => {
+  it("현재 달(오늘 포함)과 과거 달은 미래가 아니다", () => {
+    expect(isFutureMonth({ year: 2026, month: 9 }, "2026-09-20")).toBe(false); // 현재 달
+    expect(isFutureMonth({ year: 2026, month: 9 }, "2026-09-01")).toBe(false); // 현재 달 1일
+    expect(isFutureMonth({ year: 2026, month: 8 }, "2026-09-20")).toBe(false); // 과거 달
+    expect(isFutureMonth({ year: 2025, month: 12 }, "2026-09-20")).toBe(false); // 과거 연도
+  });
+
+  it("다음 달·다음 연도는 미래다", () => {
+    expect(isFutureMonth({ year: 2026, month: 10 }, "2026-09-20")).toBe(true);
+    expect(isFutureMonth({ year: 2027, month: 1 }, "2026-12-31")).toBe(true);
+  });
+});
+
+describe("isFutureWeek — 그 주 월요일이 오늘보다 미래", () => {
+  it("현재 주(오늘 포함)와 지난 주는 미래가 아니다", () => {
+    // 2026-09-16(수)이 오늘. 이번 주 월요일은 09-14 ≤ 오늘.
+    expect(isFutureWeek("2026-09-16", "2026-09-16")).toBe(false); // 이번 주(anchor=오늘)
+    expect(isFutureWeek("2026-09-20", "2026-09-16")).toBe(false); // 같은 주 일요일 앵커
+    expect(isFutureWeek("2026-09-14", "2026-09-14")).toBe(false); // 오늘이 월요일
+    expect(isFutureWeek("2026-09-09", "2026-09-16")).toBe(false); // 지난 주
+  });
+
+  it("다음 주(월요일이 오늘 이후)는 미래다", () => {
+    // 09-23(수) 앵커의 주 월요일은 09-21 > 오늘 09-16.
+    expect(isFutureWeek("2026-09-23", "2026-09-16")).toBe(true);
+    expect(isFutureWeek("2026-09-21", "2026-09-16")).toBe(true); // 다음 주 월요일 앵커
   });
 });
 

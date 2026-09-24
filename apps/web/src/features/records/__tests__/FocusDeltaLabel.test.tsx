@@ -16,9 +16,9 @@ describe("FocusDeltaLabel", () => {
     expect(line).toHaveClass("text-feedback-danger");
   });
 
-  it("동일: 회색 토큰·같아요", () => {
-    render(<FocusDeltaLabel delta={0} unit="주" />);
-    const line = screen.getByText("지난주와 같아요");
-    expect(line).toHaveClass("text-muted-foreground");
+  it("증감이 0이면 문구를 아예 그리지 않는다(null 반환 — 빈 공간이 안 생긴다)", () => {
+    const { container } = render(<FocusDeltaLabel delta={0} unit="주" />);
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
   });
 });

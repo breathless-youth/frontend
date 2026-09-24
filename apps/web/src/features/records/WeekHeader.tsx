@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { FocusDeltaLabel } from "./FocusDeltaLabel";
 import { IconChevronLeft, IconChevronRight } from "./icons";
 import { dayOfDateKey, formatDuration, monthOfDateKey } from "./recordsFormat";
-import { focusDeltaSec, mondayWeekDateKeys, sumFocusSec } from "./recordsPeriod";
+import { focusDeltaSec, isFutureWeek, mondayWeekDateKeys, sumFocusSec } from "./recordsPeriod";
 
 /**
  * 주간 헤더 — 주 범위 네비 + 이번 주 순공 + 지난주 대비 증감.
@@ -32,6 +32,7 @@ function weekRangeLabel(weekAnchorKey: string): string {
 
 export function WeekHeader({
   weekAnchorKey,
+  todayKey,
   metricsStatus,
   daily,
   compareDaily,
@@ -39,6 +40,8 @@ export function WeekHeader({
   onNextWeek,
 }: {
   weekAnchorKey: string;
+  /** 오늘(KST 날짜 키). 보고 있는 주가 미래면 증감을 감추는 판정에 쓴다. */
+  todayKey: string;
   /** 순공·증감 숫자 영역의 상태. success일 때만 daily/compareDaily로 숫자를 그린다. */
   metricsStatus: "pending" | "error" | "success";
   daily?: readonly DailyStudyStat[];
@@ -70,7 +73,12 @@ export function WeekHeader({
         </button>
       </div>
 
-      <WeekMetrics metricsStatus={metricsStatus} daily={daily} compareDaily={compareDaily} />
+      <WeekMetrics
+        metricsStatus={metricsStatus}
+        daily={daily}
+        compareDaily={compareDaily}
+        hideDelta={isFutureWeek(weekAnchorKey, todayKey)}
+      />
     </div>
   );
 }
@@ -79,10 +87,13 @@ function WeekMetrics({
   metricsStatus,
   daily,
   compareDaily,
+  hideDelta,
 }: {
   metricsStatus: "pending" | "error" | "success";
   daily?: readonly DailyStudyStat[];
   compareDaily?: readonly DailyStudyStat[];
+  /** 미래 주면 순공 합계는 두되 증감(FocusDeltaLabel)은 그리지 않는다. */
+  hideDelta: boolean;
 }) {
   if (metricsStatus === "error") {
     return null; // 오류 시 확정값처럼 보일 숫자를 아예 안 그린다(범위·네비만 남는다).
@@ -106,7 +117,7 @@ function WeekMetrics({
       <p className="text-[30px] leading-9 font-extrabold tracking-[-0.9px] text-foreground tabular-nums">
         {formatDuration(total)}
       </p>
-      <FocusDeltaLabel delta={delta} unit="주" />
+      {!hideDelta && <FocusDeltaLabel delta={delta} unit="주" />}
     </div>
   );
 }

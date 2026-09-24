@@ -274,10 +274,12 @@ describe("StreakBanner", () => {
 
 describe("MonthSummary", () => {
   const month = { year: 2026, month: 9 };
+  const todayKey = "2026-09-20"; // 9월(현재 달) — 미래가 아니라 증감이 그려진다.
   it("월 순공 합계와 증가 문구를 보여준다", () => {
     render(
       <MonthSummary
         month={month}
+        todayKey={todayKey}
         daily={[{ date: "2026-09-01", studySec: 0, focusSec: 6 * 3600 }]}
         compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 0 }]}
       />,
@@ -287,27 +289,44 @@ describe("MonthSummary", () => {
     expect(screen.getByText(/지난달보다 6시간 늘었어요/)).toBeInTheDocument();
   });
 
-  it("증감이 0이면 같아요 문구를 보여준다", () => {
+  it("증감이 0이면 증감 문구를 아예 그리지 않는다(합계는 유지)", () => {
     render(
       <MonthSummary
         month={month}
+        todayKey={todayKey}
         daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
         compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 3600 }]}
       />,
     );
-    expect(screen.queryByText(/지난달보다/)).not.toBeInTheDocument();
-    expect(screen.getByText("지난달과 같아요")).toBeInTheDocument();
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+    expect(screen.queryByText(/지난달/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
   });
 
   it("줄었으면 줄어든 문구를 보여준다", () => {
     render(
       <MonthSummary
         month={month}
+        todayKey={todayKey}
         daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
         compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 2 * 3600 }]}
       />,
     );
     expect(screen.getByText(/지난달보다 1시간 줄었어요/)).toBeInTheDocument();
+  });
+
+  it("미래 달은 순공 합계는 두되 증감을 감춘다", () => {
+    // 오늘은 8월인데 보고 있는 달은 9월 — 미래다. 그냥 두면 "늘었어요"가 떠야 하지만 감춘다.
+    render(
+      <MonthSummary
+        month={month}
+        todayKey="2026-08-20"
+        daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
+        compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 0 }]}
+      />,
+    );
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+    expect(screen.queryByText(/늘었어요|줄었어요|같아요/)).not.toBeInTheDocument();
   });
 });
 

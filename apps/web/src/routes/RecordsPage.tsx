@@ -78,7 +78,12 @@ function RecordsContent({ userId }: { userId: number }) {
       </div>
 
       {period.status === "success" && (
-        <MonthSummary month={month} daily={period.daily} compareDaily={period.compareDaily} />
+        <MonthSummary
+          month={month}
+          todayKey={todayKey}
+          daily={period.daily}
+          compareDaily={period.compareDaily}
+        />
       )}
 
       <div className="mt-[18px]">

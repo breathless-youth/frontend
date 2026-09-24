@@ -38,17 +38,30 @@ const SUNDAY = "2026-09-20";
 describe("WeekTrendChart", () => {
   it("이번 주·지난주 두 선을 그린다", () => {
     const { container } = render(
-      <WeekTrendChart daily={thisWeek} compareDaily={lastWeek} todayKey={SUNDAY} />,
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
     );
 
-    expect(container.querySelectorAll(".recharts-line-curve")).toHaveLength(2);
+    // 두 Area의 선(stroke) path 두 개.
+    expect(container.querySelectorAll(".recharts-area-curve")).toHaveLength(2);
     // 범례 라벨 두 개.
     expect(screen.getByText("이번 주")).toBeInTheDocument();
     expect(screen.getByText("지난주")).toBeInTheDocument();
   });
 
   it("x축에 월~일 요일 라벨 7개를 그린다", () => {
-    render(<WeekTrendChart daily={thisWeek} compareDaily={lastWeek} todayKey={SUNDAY} />);
+    render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
 
     for (const label of ["월", "화", "수", "목", "금", "토", "일"]) {
       // XAxis 눈금과 sr-only 표 양쪽에 요일이 있으므로 getAllByText로 존재만 확인한다.
@@ -62,6 +75,7 @@ describe("WeekTrendChart", () => {
         daily={[{ date: "2026-09-14", studySec: 0, focusSec: 20 * 3600 }]}
         compareDaily={[]}
         todayKey={SUNDAY}
+        todayIndex={null}
       />,
     );
 
@@ -69,7 +83,7 @@ describe("WeekTrendChart", () => {
   });
 
   it("빈 배열이어도 축을 그리고 크래시하지 않는다", () => {
-    render(<WeekTrendChart daily={[]} compareDaily={[]} todayKey={SUNDAY} />);
+    render(<WeekTrendChart daily={[]} compareDaily={[]} todayKey={SUNDAY} todayIndex={null} />);
 
     for (const label of ["월", "화", "수", "목", "금", "토", "일"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
@@ -87,7 +101,14 @@ describe("WeekTrendChart", () => {
       { date: "2026-09-19", studySec: 0, focusSec: 0 },
       { date: "2026-09-20", studySec: 0, focusSec: 0 },
     ];
-    render(<WeekTrendChart daily={fullWeekZeroFilled} compareDaily={[]} todayKey="2026-09-16" />);
+    render(
+      <WeekTrendChart
+        daily={fullWeekZeroFilled}
+        compareDaily={[]}
+        todayKey="2026-09-16"
+        todayIndex={2}
+      />,
+    );
 
     // sr-only 표에서 목~일은 "기록 없음"이고 월~수만 값이 있다.
     expect(screen.getAllByText("기록 없음").length).toBe(4 + 7); // 이번주 목~일 4 + 지난주 7일 전부
@@ -96,17 +117,78 @@ describe("WeekTrendChart", () => {
   });
 
   it("라인차트 접근성 — role=img·aria-label과 요일별 sr-only 요약을 제공한다", () => {
-    const { container } = render(
-      <WeekTrendChart daily={thisWeek} compareDaily={lastWeek} todayKey={SUNDAY} />,
+    render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
     );
 
     expect(
       screen.getByRole("img", { name: "이번 주와 지난주 요일별 순공시간 추이" }),
     ).toBeInTheDocument();
+    // 두 선 모두 실선이라(시안), 색상 외 단서는 요일별 sr-only 표가 제공한다.
     expect(screen.getByText("요일별 순공시간 (이번 주 · 지난주)")).toBeInTheDocument();
+  });
 
-    // 지난주 선은 색상 외 단서로 점선(strokeDasharray)을 갖는다.
-    const dashed = container.querySelector('.recharts-line-curve[stroke-dasharray="4 4"]');
-    expect(dashed).not.toBeNull();
+  it("지난주 선은 점선이 아니라 실선이다(시안 반영)", () => {
+    const { container } = render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
+
+    // 두 Area의 선이 모두 그려지되 어느 선에도 점선(strokeDasharray="4 4")이 남아 있지 않다.
+    expect(container.querySelectorAll(".recharts-area-curve")).toHaveLength(2);
+    expect(container.querySelector('.recharts-area-curve[stroke-dasharray="4 4"]')).toBeNull();
+  });
+
+  it("선 아래에 그라데이션 채움(Area)을 그린다 — 두 선 각각의 fill 영역", () => {
+    const { container } = render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
+
+    // 각 Area의 채움 path(.recharts-area-area) 두 개와 그라데이션 defs가 있다.
+    expect(container.querySelectorAll(".recharts-area-area")).toHaveLength(2);
+    expect(container.querySelector("#weekTrendThisWeekFill")).not.toBeNull();
+    expect(container.querySelector("#weekTrendLastWeekFill")).not.toBeNull();
+  });
+
+  it("오늘이 이 주에 있으면 오늘 요일에만 끝점 도트(파랑 테두리)를 하나 찍는다", () => {
+    // 2026-09-14~20 주, 오늘은 수(09-16, 월=0 기준 index 2). 값이 있는 오늘에 도트가 찍힌다.
+    const currentWeek: DailyStudyStat[] = [
+      { date: "2026-09-14", studySec: 0, focusSec: 2 * 3600 },
+      { date: "2026-09-15", studySec: 0, focusSec: 3600 },
+      { date: "2026-09-16", studySec: 0, focusSec: 3 * 3600 },
+    ];
+    const { container } = render(
+      <WeekTrendChart daily={currentWeek} compareDaily={[]} todayKey="2026-09-16" todayIndex={2} />,
+    );
+
+    expect(container.querySelectorAll('circle[stroke="var(--color-thisWeek)"]')).toHaveLength(1);
+  });
+
+  it("과거 주(오늘이 이 주에 없음, todayIndex=null)면 끝점 도트를 찍지 않는다", () => {
+    // 값이 있는 마지막 지점(금요일)이 있어도 오늘이 이 주에 없으면 도트가 없다.
+    const { container } = render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
+
+    expect(container.querySelectorAll('circle[stroke="var(--color-thisWeek)"]')).toHaveLength(0);
   });
 });

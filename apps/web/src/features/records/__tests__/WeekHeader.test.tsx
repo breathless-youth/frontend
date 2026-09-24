@@ -13,6 +13,7 @@ function renderHeader(props: Partial<Parameters<typeof WeekHeader>[0]> = {}) {
   return render(
     <WeekHeader
       weekAnchorKey="2026-09-16"
+      todayKey="2026-09-16"
       metricsStatus="success"
       daily={[]}
       compareDaily={[]}
@@ -59,12 +60,26 @@ describe("WeekHeader", () => {
     expect(screen.getByText(/지난주보다 1시간 줄었어요/)).toHaveClass("text-feedback-danger");
   });
 
-  it("증감이 0이면 같아요 문구를 보여준다", () => {
+  it("증감이 0이면 증감 문구를 아예 그리지 않는다(합계는 유지)", () => {
     renderHeader({
       daily: [day("2026-09-14", 3600)],
       compareDaily: [day("2026-09-07", 3600)],
     });
-    expect(screen.getByText("지난주와 같아요")).toBeInTheDocument();
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/늘었어요|줄었어요/)).not.toBeInTheDocument();
+  });
+
+  it("미래 주(주 월요일이 오늘보다 뒤)는 순공 합계는 두되 증감을 감춘다", () => {
+    // 오늘은 2026-09-16(수). 보고 있는 주는 다음 주(월요일 2026-09-21) — 미래다.
+    renderHeader({
+      weekAnchorKey: "2026-09-23",
+      todayKey: "2026-09-16",
+      daily: [day("2026-09-21", 3600)],
+      compareDaily: [day("2026-09-14", 2 * 3600)], // 그냥 두면 "줄었어요"가 떠야 하지만 미래라 감춘다
+    });
+    expect(screen.getByText("1시간")).toBeInTheDocument();
+    expect(screen.queryByText(/줄었어요|늘었어요|같아요/)).not.toBeInTheDocument();
   });
 
   it("pending이면 범위·네비는 두고 순공·증감 자리엔 Skeleton을 그린다(확정 숫자 미표시)", () => {
