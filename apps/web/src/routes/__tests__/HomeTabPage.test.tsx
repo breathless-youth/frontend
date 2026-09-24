@@ -6,6 +6,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import type * as TokenSourceModule from "@/lib/auth/tokenSource";
+import type { TokenSource } from "@/lib/auth/tokenSource";
 
 import {
   createMemoryOnboardingGuideStore,
@@ -14,6 +16,7 @@ import {
 } from "@/features/onboarding/onboardingGuideStore";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import { todayLabel } from "@/features/home/homeFormat";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
@@ -33,6 +36,20 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
+}));
+
+vi.mock("@/lib/ddayApi", () => ({
+  getDday: vi.fn(() => Promise.resolve(null)),
+  putDday: vi.fn(),
+  deleteDday: vi.fn(),
+}));
+
+/** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
+const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
+
+vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
+  ...(await importOriginal<typeof TokenSourceModule>()),
+  getTokenSource: () => tokenSourceMock.source,
 }));
 
 /**
@@ -377,5 +394,61 @@ describe("HomeTabPage", () => {
       await screen.findByTestId("onboarding-guide-stub");
       expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("HomeTabPage — 좌상단 D-Day", () => {
+  afterEach(() => {
+    tokenSourceMock.source = null;
+  });
+
+  it("토큰 출처가 없는 문서에는 로고와 날짜가 남는다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "FocusMakers" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
+  });
+
+  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더 대신 스켈레톤이다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => null,
+      getAccessToken: () => null,
+      hasSettled: () => false,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+    renderHome("/home");
+
+    expect(await screen.findByTestId("home-header-pending")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
+    // 본문도 같은 로딩이다 — "등록 전"이라고 단정하지 않는다
+    expect(screen.queryByText(/기기 등록 전이에요/)).not.toBeInTheDocument();
+  });
+
+  it("토큰 문서면 좌상단이 D-Day 블록이 된다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome("/home");
+
+    expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
+    ).not.toBeInTheDocument();
+    // 시안대로 헤더는 D-Day 블록 하나다 — 오른쪽 날짜는 구 문서에만 있다
+    expect(screen.queryByText(todayLabel())).not.toBeInTheDocument();
+    // 블록은 버튼이라 스크린리더용 h1을 따로 둔다
+    expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
   });
 });

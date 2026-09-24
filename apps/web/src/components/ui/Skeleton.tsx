@@ -1,3 +1,5 @@
+import type { ComponentPropsWithoutRef } from "react";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -5,9 +7,11 @@ import { cn } from "@/lib/utils";
  * RN판의 reanimated 투명도 펄스 대신 Tailwind 내장 `animate-pulse`를 쓴다 — 같은 시각 효과를
  * 추가 코드 없이 얻는다. 크기·모서리는 호출부가 className으로 정한다.
  */
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({ className, ...props }: ComponentPropsWithoutRef<"div">) {
   return (
+    // 호출부 속성(testid 등)을 먼저 펼치고 로딩 접근성 계약은 뒤에 둬 덮어쓰이지 않게 한다.
     <div
+      {...props}
       role="status"
       aria-label="불러오는 중"
       className={cn("animate-pulse bg-bg-layer-2", className)}

@@ -317,6 +317,21 @@ export interface ProfileUpdateRequest {
   category?: string | null;
 }
 
+/**
+ * 홈 D-Day — 유저당 1개. 백엔드 Swagger `Dday` 태그(`GET`·`PUT`·`DELETE /api/dday`, API-Version 1) 기준으로,
+ * 2026-09-24 api-dev `/v3/api-docs`와 대조했다(backend `project.study.dday.dto.DdayRequest/DdayResponse`).
+ * `GET`은 미설정이면 204(본문 없음)라 클라이언트가 null로 읽는다. 남은 일수(D-N)는 서버가 주지 않고 기기 날짜로 센다.
+ */
+export interface DdayResponse {
+  /** 제목, 앞뒤 공백 제외 1~10자 */
+  title: string;
+  /** 목표 날짜 `YYYY-MM-DD` */
+  targetDate: string;
+}
+
+/** `PUT /api/dday` 본문 — 응답과 같은 모양. 목표 날짜는 서버 기준 오늘(Asia/Seoul) **포함** 그 이후만 받고, 지난 날은 400. */
+export type DdayRequest = DdayResponse;
+
 export type {
   RoomFocusState,
   RoomMember,

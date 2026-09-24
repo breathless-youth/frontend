@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
@@ -22,7 +23,7 @@ import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSess
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
-import { useUserId } from "@/lib/userId";
+import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 
 /**
@@ -259,8 +260,50 @@ function HomeContent({ userId }: { userId: number }) {
   );
 }
 
+/**
+ * 헤더. 시안대로 좌상단 D-Day 블록 하나다(오른쪽 날짜 없음). D-Day API는 토큰 계약뿐이라 토큰
+ * 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다. 출처가 있는데 첫
+ * `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
+ * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
+ */
+function HomeHeaderLead({
+  userId,
+  identityPending,
+}: {
+  userId: number | null;
+  identityPending: boolean;
+}) {
+  if (hasTokenSource()) {
+    // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
+    const hiddenTitle = <h1 className="sr-only">홈</h1>;
+    if (identityPending) {
+      return (
+        <>
+          {hiddenTitle}
+          <Skeleton data-testid="home-header-pending" className="h-[54px] w-32 rounded-lg" />
+        </>
+      );
+    }
+    if (userId !== null) {
+      return (
+        <>
+          {hiddenTitle}
+          <DdaySection userId={userId} />
+        </>
+      );
+    }
+  }
+  return (
+    <>
+      <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
+      <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+    </>
+  );
+}
+
 export function HomeTabPage() {
   const userId = useUserId();
+  const identityPending = useIdentityPending();
   const { recovered, dismiss } = useLaunchSessionRecovery(userId);
 
   return (
@@ -269,13 +312,17 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        {/* 좌상단은 시안의 D-Day 자리다. D-Day 기능이 들어오기 전까지 로고와 날짜를 둔다. */}
         <header className="flex items-end justify-between pb-2">
-          <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
-          <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+          <HomeHeaderLead userId={userId} identityPending={identityPending} />
         </header>
 
-        {userId === null ? (
+        {identityPending ? (
+          // 첫 토큰을 기다리는 동안은 헤더와 같이 로딩이다 — "등록 전"이라고 단정하지 않는다.
+          <>
+            <Skeleton className="h-[101px] rounded-xl" />
+            <Skeleton className="h-[252px] rounded-xl" />
+          </>
+        ) : userId === null ? (
           <p className="p-4 text-sm text-muted-foreground">
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
