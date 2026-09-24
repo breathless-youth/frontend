@@ -444,7 +444,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(
       screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
     ).not.toBeInTheDocument();
-    // 오른쪽 오늘 날짜는 D-Day 블록이 와도 남는다
-    expect(screen.getByText(todayLabel())).toBeInTheDocument();
+    // 시안대로 헤더는 D-Day 블록 하나다 — 오른쪽 날짜는 구 문서에만 있다
+    expect(screen.queryByText(todayLabel())).not.toBeInTheDocument();
   });
 });
