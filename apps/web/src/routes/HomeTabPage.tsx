@@ -21,10 +21,9 @@ import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { trackFocusStartTapped } from "@/lib/amplitude";
-import { getTokenSource } from "@/lib/auth/tokenSource";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
-import { useIdentityPending, useUserId } from "@/lib/userId";
+import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 
 /**
@@ -274,7 +273,7 @@ function HomeHeaderLead({
   userId: number | null;
   identityPending: boolean;
 }) {
-  if (getTokenSource() !== null) {
+  if (hasTokenSource()) {
     // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
     const hiddenTitle = <h1 className="sr-only">홈</h1>;
     if (identityPending) {

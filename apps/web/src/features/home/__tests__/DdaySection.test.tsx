@@ -170,6 +170,21 @@ describe("DdaySection — 시트", () => {
     expect(analytics.setDdayUserProperties).toHaveBeenLastCalledWith(null);
   });
 
+  it("지난 D-Day를 열면 날짜가 비어 새로 골라야 저장이 켜진다", async () => {
+    mockedGet.mockResolvedValue({ title: "모의고사", targetDate: PAST });
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
+    await screen.findByRole("dialog", { name: "D-Day" });
+
+    expect(screen.getByLabelText("제목")).toHaveValue("모의고사");
+    expect(screen.getByTestId("dday-sheet-days")).toHaveTextContent("");
+    expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+
+    pickNextMonth15();
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
+  });
+
   it("서버가 날짜를 거절(400)하면 안내 문구를 보여 주고 시트는 열려 있다", async () => {
     mockedGet.mockResolvedValue(null);
     mockedPut.mockRejectedValue(new ApiError("목표 날짜는 오늘 이후여야 합니다", 400));

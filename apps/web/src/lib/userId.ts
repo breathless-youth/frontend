@@ -61,6 +61,15 @@ export function legacyQuery(query: string): string {
   return `${query}${query === "" ? "?" : "&"}userId=${legacy}`;
 }
 
+/**
+ * 이 문서가 토큰 계약(신 앱)인지. 출처는 `createRoot` 전에 한 번 정해지고 바뀌지 않으므로 훅이 아니어도
+ * 된다 — 렌더 중에 읽어도 값이 흔들리지 않는다. "출처는 있는데 첫 토큰이 아직"은 `useIdentityPending`이,
+ * 신원 값은 `useUserId`가 맡고, 이 함수는 구 문서(`?userId=`)와 신 문서를 가르는 데만 쓴다.
+ */
+export function hasTokenSource(): boolean {
+  return getTokenSource() !== null;
+}
+
 /** 서버 렌더에는 브리지가 없다 — 기다리지 않고 확정으로 본다. */
 const getSettledServerSnapshot = () => true;
 

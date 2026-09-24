@@ -48,7 +48,8 @@ export function DdaySection({ userId }: { userId: number }) {
   const loaded = query.data !== undefined || query.isError;
   const targetDate = dday?.targetDate ?? null;
 
-  // D-Day 유무별 세그먼트용 user property. 값이 바뀔 때만 보낸다 — 재조회로 객체만 새로 와도 안 보낸다.
+  // D-Day 유무별 세그먼트용 user property. 이 effect 한 곳에서만 보낸다 — 저장·삭제도 캐시가 바뀌면
+  // 여기로 흘러오므로 뮤테이션 콜백에서 따로 부르면 identify가 두 번 나간다.
   useEffect(() => {
     if (!loaded) {
       return;
@@ -147,21 +148,26 @@ function DdayForm({
   const queryClient = useQueryClient();
   const titleId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState(dday?.title ?? "");
-  const [targetDate, setTargetDate] = useState<string | null>(dday?.targetDate ?? null);
-  const [titleFocused, setTitleFocused] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // 달력의 하한은 서버 판정과 같은 KST 오늘이다(오늘 포함). 남은 일수 표시만 기기 날짜를 쓴다.
   const todayKey = todayKstDateKey();
+  const [title, setTitle] = useState(dday?.title ?? "");
+  // 지난 D-Day를 열면 날짜를 비운다 — 서버가 지난 날을 받지 않으니 새 목표일부터 고르게 한다.
+  const [targetDate, setTargetDate] = useState<string | null>(
+    dday !== null && dday.targetDate >= todayKey ? dday.targetDate : null,
+  );
+  const [titleFocused, setTitleFocused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const saveMutation = useMutation({
     // react-query가 두 번째 인자로 컨텍스트를 넘기므로 API 함수에 그대로 물리지 않는다
     mutationFn: (body: DdayRequest) => putDday(body),
     onSuccess: (saved) => {
       queryClient.setQueryData(ddayKeys.detail(userId), saved);
-      const daysLeft = daysUntil(saved.targetDate);
-      trackDdaySaved({ isNew: dday === null, daysLeft, titleLength: saved.title.length });
-      setDdayUserProperties({ daysLeft });
+      trackDdaySaved({
+        isNew: dday === null,
+        daysLeft: daysUntil(saved.targetDate),
+        titleLength: saved.title.length,
+      });
       onDone();
     },
     onError: (cause) => {
@@ -181,7 +187,6 @@ function DdayForm({
       if (dday !== null) {
         trackDdayDeleted(daysUntil(dday.targetDate));
       }
-      setDdayUserProperties(null);
       onDone();
     },
     onError: () => {
