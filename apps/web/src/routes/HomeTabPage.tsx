@@ -296,7 +296,8 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        <header className="flex items-end justify-between pb-2">
+        {/* 날짜는 왼쪽 첫 줄(D-N 큰 숫자·로고)과 같은 베이스라인에 놓는다 — 제목 줄이 아니라 숫자 옆이다. */}
+        <header className="flex items-baseline justify-between pb-2">
           <HomeHeaderLead userId={userId} identityPending={identityPending} />
           <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
         </header>
