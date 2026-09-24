@@ -16,11 +16,12 @@ import {
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { deleteDday, putDday } from "@/lib/ddayApi";
+import { todayKstDateKey } from "@/lib/dateKst";
 import { ddayKeys, ddayQuery } from "@/lib/ddayQueries";
 import { cn } from "@/lib/utils";
 
 import { DdayCalendar } from "./DdayCalendar";
-import { daysUntil, formatDday, formatKoreanDate, todayLocalDateKey } from "./ddayFormat";
+import { daysUntil, formatDday, formatKoreanDate } from "./ddayFormat";
 
 /** 서버와 같은 상한. 입력은 여기서 막고 서버는 최종 판정만 한다. */
 export const DDAY_TITLE_MAX_LENGTH = 10;
@@ -39,21 +40,26 @@ export const DDAY_TITLE_MAX_LENGTH = 10;
 export function DdaySection({ userId }: { userId: number }) {
   const query = useQuery(ddayQuery(userId));
   const [open, setOpen] = useState(false);
+  // 열 때마다 1씩 올라 폼을 새로 만든다. `open`을 key로 쓰면 닫히는 순간 폼이 리셋돼 300ms 닫힘
+  // 애니메이션 동안 방금 저장한 내용이 빈 폼으로 바뀌는 게 보인다.
+  const [openCount, setOpenCount] = useState(0);
 
   const dday = query.data ?? null;
   const loaded = query.data !== undefined || query.isError;
+  const targetDate = dday?.targetDate ?? null;
 
-  // D-Day 유무별 세그먼트용 user property. 홈이 열려 값을 알게 될 때마다 맞춘다.
+  // D-Day 유무별 세그먼트용 user property. 값이 바뀔 때만 보낸다 — 재조회로 객체만 새로 와도 안 보낸다.
   useEffect(() => {
     if (!loaded) {
       return;
     }
-    setDdayUserProperties(dday === null ? null : { daysLeft: daysUntil(dday.targetDate) });
-  }, [loaded, dday]);
+    setDdayUserProperties(targetDate === null ? null : { daysLeft: daysUntil(targetDate) });
+  }, [loaded, targetDate]);
 
   function handleOpenChange(next: boolean) {
     if (next) {
       trackDdaySheetOpened(dday !== null);
+      setOpenCount((count) => count + 1);
     }
     setOpen(next);
   }
@@ -75,7 +81,7 @@ export function DdaySection({ userId }: { userId: number }) {
         aria-describedby={undefined}
       >
         <DdayForm
-          key={String(open)}
+          key={openCount}
           userId={userId}
           dday={dday}
           onDone={() => {
@@ -145,7 +151,8 @@ function DdayForm({
   const [targetDate, setTargetDate] = useState<string | null>(dday?.targetDate ?? null);
   const [titleFocused, setTitleFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const todayKey = todayLocalDateKey();
+  // 달력의 하한은 서버 판정과 같은 KST 오늘이다(오늘 포함). 남은 일수 표시만 기기 날짜를 쓴다.
+  const todayKey = todayKstDateKey();
 
   const saveMutation = useMutation({
     // react-query가 두 번째 인자로 컨텍스트를 넘기므로 API 함수에 그대로 물리지 않는다
@@ -191,10 +198,7 @@ function DdayForm({
     if (!canSave || busy || targetDate === null) {
       return;
     }
-    if (targetDate < todayKey) {
-      setError("오늘 이후 날짜를 골라 주세요");
-      return;
-    }
+    // 날짜 판정은 서버가 한다 — 달력이 지난 날을 막고, 그래도 어긋나면 400 문구를 보여 준다.
     setError(null);
     saveMutation.mutate({ title: trimmedTitle, targetDate });
   }

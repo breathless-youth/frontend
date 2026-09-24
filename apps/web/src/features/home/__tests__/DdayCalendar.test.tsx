@@ -34,6 +34,13 @@ describe("DdayCalendar — 날짜 고르기", () => {
     );
   });
 
+  it("지난 D-Day를 편집할 땐 그 달이 아니라 이번 달부터 연다", () => {
+    renderCalendar("2020-09-20");
+
+    expect(screen.getByText("2026년 9월")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "9월 23일" })).toBeEnabled();
+  });
+
   it("화살표로 달을 넘긴다", () => {
     renderCalendar();
 

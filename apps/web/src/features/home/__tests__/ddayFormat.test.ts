@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysUntil, formatDday, formatKoreanDate, todayLocalDateKey } from "../ddayFormat";
+import { daysUntil, formatDday, formatKoreanDate } from "../ddayFormat";
 
 // 기기 로컬 2026-09-23 정오
 const NOW = new Date(2026, 8, 23, 12, 0, 0);
@@ -24,13 +24,6 @@ describe("formatDday", () => {
     expect(formatDday(52)).toBe("D-52");
     expect(formatDday(0)).toBe("D-Day");
     expect(formatDday(-3)).toBe("D+3");
-  });
-});
-
-describe("todayLocalDateKey", () => {
-  it("날짜 입력의 min에 넣을 YYYY-MM-DD를 만든다", () => {
-    expect(todayLocalDateKey(NOW)).toBe("2026-09-23");
-    expect(todayLocalDateKey(new Date(2026, 0, 5))).toBe("2026-01-05");
   });
 });
 

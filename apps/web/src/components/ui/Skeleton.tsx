@@ -9,11 +9,12 @@ import { cn } from "@/lib/utils";
  */
 export function Skeleton({ className, ...props }: ComponentPropsWithoutRef<"div">) {
   return (
+    // 호출부 속성(testid 등)을 먼저 펼치고 로딩 접근성 계약은 뒤에 둬 덮어쓰이지 않게 한다.
     <div
+      {...props}
       role="status"
       aria-label="불러오는 중"
       className={cn("animate-pulse bg-bg-layer-2", className)}
-      {...props}
     />
   );
 }

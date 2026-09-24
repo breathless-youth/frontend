@@ -1,3 +1,5 @@
+import { WEEKDAY_LABELS } from "@/features/records/recordsFormat";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function localMidnight(year: number, monthIndex: number, day: number): Date {
@@ -24,18 +26,9 @@ export function formatDday(daysLeft: number): string {
   return daysLeft > 0 ? `D-${daysLeft}` : `D+${-daysLeft}`;
 }
 
-/** 날짜 입력의 `min` — 기기 로컬 오늘을 `YYYY-MM-DD`로. */
-export function todayLocalDateKey(now: Date = new Date()): string {
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
-const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
 /** 시트가 접혔을 때 칩에 보이는 날짜 — `11월 18일 (목)`. */
 export function formatKoreanDate(dateKey: string): string {
   const [year, month, day] = dateKey.split("-").map(Number);
   const date = localMidnight(year, month - 1, day);
-  return `${month}월 ${day}일 (${WEEKDAY_KO[date.getDay()]})`;
+  return `${month}월 ${day}일 (${WEEKDAY_LABELS[date.getDay()]})`;
 }

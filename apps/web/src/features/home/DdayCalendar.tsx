@@ -39,7 +39,10 @@ export function DdayCalendar({
   todayKey: string;
   onChange: (dateKey: string) => void;
 }) {
-  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(value ?? todayKey));
+  // 지난 D-Day를 편집할 땐 그 달이 아니라 이번 달부터 연다 — 지난 달은 전부 비활성이라 고를 게 없다.
+  const [month, setMonth] = useState<CalendarMonth>(() =>
+    monthOfDateKey(value !== null && value >= todayKey ? value : todayKey),
+  );
   const [picker, setPicker] = useState(false);
   const [pickYear, setPickYear] = useState(month.year);
   const thisMonth = monthOfDateKey(todayKey);

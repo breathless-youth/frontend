@@ -11,7 +11,9 @@ import { deleteDday, getDday, putDday } from "@/lib/ddayApi";
 import { monthOfDateKey, shiftMonth } from "@/features/records/recordsFormat";
 
 import { DdaySection } from "../DdaySection";
-import { daysUntil, formatDday, todayLocalDateKey } from "../ddayFormat";
+import { todayKstDateKey } from "@/lib/dateKst";
+
+import { daysUntil, formatDday } from "../ddayFormat";
 
 vi.mock("@/lib/ddayApi", () => ({
   getDday: vi.fn(),
@@ -45,7 +47,7 @@ const SET = { title: "2027 수능", targetDate: FUTURE };
 const SET_DAYS_LEFT = daysUntil(FUTURE);
 
 /** 달력에서 고를 날 — 다음 달 15일. 오늘 달 안에서 고르면 월말엔 지난 날이 될 수 있다. */
-const NEXT_MONTH = shiftMonth(monthOfDateKey(todayLocalDateKey()), 1);
+const NEXT_MONTH = shiftMonth(monthOfDateKey(todayKstDateKey()), 1);
 const PICK_KEY = `${NEXT_MONTH.year}-${String(NEXT_MONTH.month).padStart(2, "0")}-15`;
 const PICK_LABEL = `${NEXT_MONTH.month}월 15일`;
 

@@ -427,6 +427,8 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
       screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
+    // 본문도 같은 로딩이다 — "등록 전"이라고 단정하지 않는다
+    expect(screen.queryByText(/기기 등록 전이에요/)).not.toBeInTheDocument();
   });
 
   it("토큰 문서면 좌상단이 D-Day 블록이 된다", async () => {
@@ -446,5 +448,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     ).not.toBeInTheDocument();
     // 시안대로 헤더는 D-Day 블록 하나다 — 오른쪽 날짜는 구 문서에만 있다
     expect(screen.queryByText(todayLabel())).not.toBeInTheDocument();
+    // 블록은 버튼이라 스크린리더용 h1을 따로 둔다
+    expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
   });
 });

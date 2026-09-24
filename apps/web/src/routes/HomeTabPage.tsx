@@ -275,11 +275,23 @@ function HomeHeaderLead({
   identityPending: boolean;
 }) {
   if (getTokenSource() !== null) {
+    // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
+    const hiddenTitle = <h1 className="sr-only">홈</h1>;
     if (identityPending) {
-      return <Skeleton data-testid="home-header-pending" className="h-[54px] w-32 rounded-lg" />;
+      return (
+        <>
+          {hiddenTitle}
+          <Skeleton data-testid="home-header-pending" className="h-[54px] w-32 rounded-lg" />
+        </>
+      );
     }
     if (userId !== null) {
-      return <DdaySection userId={userId} />;
+      return (
+        <>
+          {hiddenTitle}
+          <DdaySection userId={userId} />
+        </>
+      );
     }
   }
   return (
@@ -305,7 +317,13 @@ export function HomeTabPage() {
           <HomeHeaderLead userId={userId} identityPending={identityPending} />
         </header>
 
-        {userId === null ? (
+        {identityPending ? (
+          // 첫 토큰을 기다리는 동안은 헤더와 같이 로딩이다 — "등록 전"이라고 단정하지 않는다.
+          <>
+            <Skeleton className="h-[101px] rounded-xl" />
+            <Skeleton className="h-[252px] rounded-xl" />
+          </>
+        ) : userId === null ? (
           <p className="p-4 text-sm text-muted-foreground">
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
