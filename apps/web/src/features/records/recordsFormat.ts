@@ -56,6 +56,15 @@ export function weekdayIndexOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDay();
 }
 
+/**
+ * 월=0 … 일=6. 주 시작을 월요일로 두는 주간 뷰 전용 인덱스
+ * (일=0…토=6인 `weekdayIndexOfDateKey`를 월요일 기준으로 옮긴다).
+ * `mondayWeekDateKeys`의 오프셋과 주간 차트의 요일 슬롯이 같은 공식을 쓰도록 한곳에 둔다.
+ */
+export function mondayIndexOfDateKey(dateKey: string): number {
+  return (weekdayIndexOfDateKey(dateKey) + 6) % 7;
+}
+
 export function dayOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDate();
 }

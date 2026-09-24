@@ -114,7 +114,7 @@ describe("weekTrendPoints / buildWeekTrendRows — 이번 주 미래 날짜 제�
     expect(lastPointIndex).toBe(2);
   });
 
-  it("지난주(compareDaily)는 과거라 요일 값을 그대로 채운다", () => {
+  it("지난주(compareDaily)도 과거 요일은 값을 채운다", () => {
     const points = weekTrendPoints(
       [],
       [day("2026-09-07", 3600), day("2026-09-13", 2 * 3600)],
@@ -122,6 +122,18 @@ describe("weekTrendPoints / buildWeekTrendRows — 이번 주 미래 날짜 제�
     );
     expect(points[0]?.lastWeekSec).toBe(3600); // 월
     expect(points[6]?.lastWeekSec).toBe(2 * 3600); // 일
+  });
+
+  it("지난주(compareDaily)도 todayKey 이후 요일은 null이다 — 미래 주 대칭 처리(회귀)", () => {
+    // 오늘 09-24(목). 서버가 0으로 채운 미래 요일(금·토·일)이 지난주 선에 0으로 그려지면 안 된다.
+    // 2026-09-21 월 … 09-27 일. 09-23(수)은 과거, 09-26(토)은 미래.
+    const points = weekTrendPoints(
+      [],
+      [day("2026-09-23", 3600), day("2026-09-26", 0)],
+      "2026-09-24",
+    );
+    expect(points[2]?.lastWeekSec).toBe(3600); // 수(과거) 값
+    expect(points[5]?.lastWeekSec).toBeNull(); // 토(미래) 제외
   });
 
   it("요일 순서를 섞어 넣어도 월=0…일=6으로 정렬한다", () => {

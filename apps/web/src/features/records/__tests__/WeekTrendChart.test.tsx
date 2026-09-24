@@ -53,6 +53,24 @@ describe("WeekTrendChart", () => {
     expect(screen.getByText("지난주")).toBeInTheDocument();
   });
 
+  it("범례는 겹침(Area) 순서와 무관하게 이번 주 → 지난주 순서로 나온다", () => {
+    const { container } = render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
+
+    // Area는 지난주를 먼저 그리지만(겹침), 범례는 chartConfig 순서로 이번 주가 먼저다.
+    const legend = container.querySelector(".recharts-legend-wrapper");
+    expect(legend).not.toBeNull();
+    const text = legend?.textContent ?? "";
+    expect(text.indexOf("이번 주")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("이번 주")).toBeLessThan(text.indexOf("지난주"));
+  });
+
   it("x축에 월~일 요일 라벨 7개를 그린다", () => {
     render(
       <WeekTrendChart

@@ -7,8 +7,9 @@ import {
   addDaysToDateKey,
   dayOfDateKey,
   isDateKeyInMonth,
+  isFutureDateKey,
+  mondayIndexOfDateKey,
   monthOfDateKey,
-  weekdayIndexOfDateKey,
 } from "./recordsFormat";
 
 /**
@@ -24,7 +25,7 @@ function pad2(value: number): string {
 
 /** `dateKey`가 속한 주(월~일) 7일의 키. */
 export function mondayWeekDateKeys(dateKey: string): string[] {
-  const monday = addDaysToDateKey(dateKey, -((weekdayIndexOfDateKey(dateKey) + 6) % 7));
+  const monday = addDaysToDateKey(dateKey, -mondayIndexOfDateKey(dateKey));
   return Array.from({ length: 7 }, (_, i) => addDaysToDateKey(monday, i));
 }
 
@@ -71,7 +72,7 @@ export function isFutureMonth(month: CalendarMonth, todayKey: string): boolean {
  * (오늘이 월요일이면 월요일 === 오늘이라 미래가 아니다).
  */
 export function isFutureWeek(weekAnchorKey: string, todayKey: string): boolean {
-  return mondayWeekDateKeys(weekAnchorKey)[0]! > todayKey;
+  return isFutureDateKey(mondayWeekDateKeys(weekAnchorKey)[0]!, todayKey);
 }
 
 export function sumFocusSec(daily: readonly DailyStudyStat[]): number {
@@ -110,10 +111,10 @@ export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, 
 /**
  * 주간 추이 차트 계산 (WeekTrendChart가 그리기만 하도록 순수 TS로 분리)
  *
- * `GET /api/stats/period`는 기간 전체를 0으로 채워 주므로, 이번 주는 아직 오지 않은 요일도
- * focusSec 0으로 내려온다. 그 0을 선으로 그리면 이번 주 선이 미래까지 이어지고 끝점이 일요일에
- * 찍힌다 — 이번 주(daily)는 `todayKey` 이후 날짜를 `null`로 둬 선/끝점에서 뺀다. 지난주
- * (compareDaily)는 과거라 그대로 그린다.
+ * `GET /api/stats/period`는 기간 전체를 0으로 채워 주므로, 아직 오지 않은 요일도 focusSec 0으로
+ * 내려온다. 그 0을 선으로 그리면 선이 미래까지 이어진다 — 이번 주·지난주 **둘 다** `todayKey` 이후
+ * 날짜를 `null`로 둬 선/끝점에서 뺀다(미래 주로 이동해도 지난주 선이 미래 요일에 0으로 그려지지
+ * 않게 하는 대칭 처리).
  */
 
 /** y축 상한(시간). 12를 넘으면 clamp해 축이 튀지 않게 한다. */
@@ -123,11 +124,6 @@ export const MAX_CHART_HOURS = 12;
 export const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
 
 export type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
-
-/** 일=0…토=6(`weekdayIndexOfDateKey`)을 월=0…일=6으로 옮긴다. */
-function mondayIndex(dateKey: string): number {
-  return (weekdayIndexOfDateKey(dateKey) + 6) % 7;
-}
 
 /** 순공 초 → 시간, `MAX_CHART_HOURS`에서 clamp(축이 튀지 않게). */
 export function toChartHours(focusSec: number): number {
@@ -143,7 +139,7 @@ export interface WeekTrendPoint {
 
 /**
  * 요일 인덱스로 이번 주·지난주 순공 초를 정렬한다.
- * 이번 주는 `todayKey` 이후 날짜를 건너뛰어 미래 0이 선에 들어가지 않게 한다.
+ * 이번 주·지난주 **둘 다** `todayKey` 이후 날짜를 건너뛰어 미래 0이 선에 들어가지 않게 한다.
  */
 export function weekTrendPoints(
   daily: readonly DailyStudyStat[],
@@ -156,16 +152,19 @@ export function weekTrendPoints(
     lastWeekSec: null,
   }));
   for (const stat of daily) {
-    if (stat.date > todayKey) {
+    if (isFutureDateKey(stat.date, todayKey)) {
       continue; // 미래 요일(0으로 채워짐)은 선에서 뺀다
     }
-    const point = points[mondayIndex(stat.date)];
+    const point = points[mondayIndexOfDateKey(stat.date)];
     if (point) {
       point.thisWeekSec = stat.focusSec;
     }
   }
   for (const stat of compareDaily) {
-    const point = points[mondayIndex(stat.date)];
+    if (isFutureDateKey(stat.date, todayKey)) {
+      continue; // 지난주도 대칭으로 미래 요일 제외(미래 주 이동 시 0 선 방지)
+    }
+    const point = points[mondayIndexOfDateKey(stat.date)];
     if (point) {
       point.lastWeekSec = stat.focusSec;
     }

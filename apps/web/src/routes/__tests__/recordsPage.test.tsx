@@ -321,6 +321,26 @@ describe("RecordsPage", () => {
     expect(screen.queryByText(/늘었어요|줄었어요|같아요/)).not.toBeInTheDocument();
   });
 
+  it("주간 뷰에서 이번 주 다음(미래 주)으로는 넘어가지 않는다(이전 주로는 이동)", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+
+    // 초기 주(이번 주) 범위 라벨.
+    const rangeLabel = await screen.findByText(/\d+월 \d+일 ~/);
+    const thisWeekLabel = rangeLabel.textContent;
+
+    // 다음 주(미래)로는 넘어가지 않는다 — 범위가 그대로다.
+    await userEvent.click(screen.getByRole("button", { name: "다음 주" }));
+    expect(screen.getByText(/\d+월 \d+일 ~/).textContent).toBe(thisWeekLabel);
+
+    // 이전 주(과거)로는 이동한다 — 범위가 바뀐다(상한이 미래에만 걸리는지 확인).
+    await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
+    expect(screen.getByText(/\d+월 \d+일 ~/).textContent).not.toBe(thisWeekLabel);
+  });
+
   it("주간 뷰에서 주 조회가 실패하면 순공·증감 숫자는 감추고 주 범위·네비는 남는다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));

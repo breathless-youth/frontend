@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { DailyStudyStat } from "@focusmakers/types";
 import { Area, type AreaProps, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -32,6 +32,24 @@ interface DotProps {
   cx?: number;
   cy?: number;
   index?: number;
+}
+
+/** 범례 표기 순서 — 겹침(Area) 순서와 무관하게 chartConfig 키 순서(이번 주 → 지난주)로 고정. */
+const LEGEND_ORDER = Object.keys(chartConfig);
+
+/**
+ * 범례를 chartConfig 순서로 정렬해 그린다.
+ *
+ * Area는 겹침 때문에 지난주를 먼저 렌더하므로 recharts가 주는 범례 payload도 "지난주 → 이번 주"다.
+ * 겹침 순서는 유지하되(이번 주가 위), 범례만 dataKey를 chartConfig 순서로 재정렬한다.
+ */
+function OrderedChartLegend(props: ComponentProps<typeof ChartLegendContent>): ReactElement {
+  const ordered = props.payload
+    ? [...props.payload].sort(
+        (a, b) => LEGEND_ORDER.indexOf(String(a.dataKey)) - LEGEND_ORDER.indexOf(String(b.dataKey)),
+      )
+    : props.payload;
+  return <ChartLegendContent {...props} payload={ordered} className="justify-start pl-8" />;
 }
 
 export function WeekTrendChart({
@@ -93,12 +111,9 @@ export function WeekTrendChart({
               <stop offset="100%" stopColor="var(--color-lastWeek)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          {/* 범례 좌측 정렬 + 왼쪽 여백(YAxis width 28 + margin left 4 = 그리는 영역 왼쪽). 시안 image 2. */}
-          <ChartLegend
-            verticalAlign="top"
-            align="left"
-            content={<ChartLegendContent className="justify-start pl-8" />}
-          />
+          {/* 범례 좌측 정렬 + 왼쪽 여백(YAxis width 28 + margin left 4 = 그리는 영역 왼쪽). 시안 image 2.
+              순서는 OrderedChartLegend가 chartConfig 순서(이번 주 → 지난주)로 고정한다. */}
+          <ChartLegend verticalAlign="top" align="left" content={<OrderedChartLegend />} />
           <CartesianGrid vertical={false} />
           <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
           <YAxis

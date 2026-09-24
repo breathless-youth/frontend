@@ -9,7 +9,7 @@ import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
 import { WeekTrendChart } from "./WeekTrendChart";
 import { addDaysToDateKey, kstDateKey, monthOfDateKey } from "./recordsFormat";
-import { mondayWeekDateKeys } from "./recordsPeriod";
+import { isFutureWeek, mondayWeekDateKeys } from "./recordsPeriod";
 import { useWeeklyData } from "./useWeeklyData";
 
 /**
@@ -41,6 +41,14 @@ export function WeeklyView({ userId }: { userId: number }) {
     void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
   };
 
+  // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 날짜를 막는 것과 같은 취지.
+  const goNextWeek = () => {
+    setWeekAnchorKey((key) => {
+      const next = addDaysToDateKey(key, 7);
+      return isFutureWeek(next, todayKey) ? key : next;
+    });
+  };
+
   return (
     <div>
       <WeekHeader
@@ -50,7 +58,7 @@ export function WeeklyView({ userId }: { userId: number }) {
         daily={week.status === "success" ? week.daily : undefined}
         compareDaily={week.status === "success" ? week.compareDaily : undefined}
         onPrevWeek={() => setWeekAnchorKey((key) => addDaysToDateKey(key, -7))}
-        onNextWeek={() => setWeekAnchorKey((key) => addDaysToDateKey(key, 7))}
+        onNextWeek={goNextWeek}
       />
 
       <div className="mt-6">
