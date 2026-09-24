@@ -296,6 +296,37 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("30분")).toBeInTheDocument();
   });
 
+  it("주간 뷰에서 주 조회가 실패하면 순공·증감 숫자는 감추고 주 범위·네비는 남는다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));
+
+    renderRecords();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+
+    // 주 범위 네비·리듬 카드는 상태와 무관하게 보인다.
+    expect(await screen.findByText("나의 공부 리듬")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이전 주" })).toBeInTheDocument();
+    // 오류 화면과 함께 "0분 · 지난주와 같아요" 같은 확정 숫자는 뜨지 않는다.
+    expect(screen.queryByText("이번 주 순공시간")).not.toBeInTheDocument();
+    expect(screen.queryByText(/지난주와 같아요/)).not.toBeInTheDocument();
+    expect(screen.getByText("주간 추이를 불러오지 못했어요")).toBeInTheDocument();
+  });
+
+  it("주간 뷰에서 주 조회가 pending이면 확정 숫자·증감 문구가 뜨지 않는다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    mockedPeriod.mockImplementation(() => new Promise(() => {}));
+
+    renderRecords();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+
+    expect(await screen.findByText("나의 공부 리듬")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음 주" })).toBeInTheDocument();
+    expect(screen.queryByText("0분")).not.toBeInTheDocument();
+    expect(screen.queryByText(/지난주와 같아요/)).not.toBeInTheDocument();
+  });
+
   it("period 조회가 실패해도 일별 세션 목록·선택일 제목은 그대로 보인다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
     mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));

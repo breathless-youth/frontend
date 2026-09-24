@@ -100,6 +100,45 @@ describe("useWeeklyData", () => {
     ]);
   });
 
+  it("주 이동 후 week 조회 범위가 정확하고, 이 달 조회는 anchor와 무관하게 고정된다", async () => {
+    mockedPeriod.mockResolvedValue(periodResponse([]));
+
+    const { rerender } = renderHook(({ anchor }) => useWeeklyData(1, anchor, MONTH), {
+      wrapper: createWrapper(),
+      initialProps: { anchor: "2026-09-18" }, // 2026-09-14(월)~20(일) 주
+    });
+
+    await waitFor(() => expect(mockedPeriod).toHaveBeenCalled());
+
+    // 이번 주 조회 — range=그 주, compareRange=직전 주.
+    expect(mockedPeriod).toHaveBeenCalledWith(
+      { from: "2026-09-14", to: "2026-09-20" },
+      { from: "2026-09-07", to: "2026-09-13" },
+    );
+    // 이 달 조회 — 9월 전체와 직전 달(8월).
+    expect(mockedPeriod).toHaveBeenCalledWith(
+      { from: "2026-09-01", to: "2026-09-30" },
+      { from: "2026-08-01", to: "2026-08-31" },
+    );
+
+    mockedPeriod.mockClear();
+
+    // 이전 주로 이동(anchor 2026-09-11 → 그 주 2026-09-07~13).
+    rerender({ anchor: "2026-09-11" });
+
+    await waitFor(() =>
+      expect(mockedPeriod).toHaveBeenCalledWith(
+        { from: "2026-09-07", to: "2026-09-13" },
+        { from: "2026-08-31", to: "2026-09-06" },
+      ),
+    );
+    // 이 달(9월) 조회는 키가 그대로라 다시 나가지 않는다.
+    expect(mockedPeriod).not.toHaveBeenCalledWith(
+      { from: "2026-09-01", to: "2026-09-30" },
+      { from: "2026-08-01", to: "2026-08-31" },
+    );
+  });
+
   it("한쪽 조회만 실패하면 그쪽만 error이고 다른 쪽은 success다", async () => {
     // month(2026-09-01~) 실패, week 성공.
     mockedPeriod.mockImplementation((range) => {

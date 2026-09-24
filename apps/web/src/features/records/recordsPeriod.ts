@@ -2,7 +2,13 @@ import type { DailyStudyStat } from "@focusmakers/types";
 
 import type { DateRange } from "@/lib/statsApi";
 
-import { type CalendarMonth, addDaysToDateKey, weekdayIndexOfDateKey } from "./recordsFormat";
+import {
+  type CalendarMonth,
+  addDaysToDateKey,
+  dayOfDateKey,
+  isDateKeyInMonth,
+  weekdayIndexOfDateKey,
+} from "./recordsFormat";
 
 /**
  * 기록 탭 주간·월간 조회 범위와 헤더 숫자
@@ -81,4 +87,111 @@ export function studiedDayCount(daily: readonly DailyStudyStat[]): number {
 /** 날짜 키 → 순공시간(초). 달력이 날짜별 순공시간을 O(1)로 찾는다. */
 export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, number> {
   return new Map(daily.map((day) => [day.date, day.focusSec]));
+}
+
+/**
+ * 주간 추이 차트 계산 (WeekTrendChart가 그리기만 하도록 순수 TS로 분리)
+ *
+ * `GET /api/stats/period`는 기간 전체를 0으로 채워 주므로, 이번 주는 아직 오지 않은 요일도
+ * focusSec 0으로 내려온다. 그 0을 선으로 그리면 이번 주 선이 미래까지 이어지고 끝점이 일요일에
+ * 찍힌다 — 이번 주(daily)는 `todayKey` 이후 날짜를 `null`로 둬 선/끝점에서 뺀다. 지난주
+ * (compareDaily)는 과거라 그대로 그린다.
+ */
+
+/** y축 상한(시간). 12를 넘으면 clamp해 축이 튀지 않게 한다. */
+export const MAX_CHART_HOURS = 12;
+
+/** 월요일 시작 7칸. XAxis 눈금 순서이자 슬롯 인덱스다. */
+export const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+
+export type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
+
+/** 일=0…토=6(`weekdayIndexOfDateKey`)을 월=0…일=6으로 옮긴다. */
+function mondayIndex(dateKey: string): number {
+  return (weekdayIndexOfDateKey(dateKey) + 6) % 7;
+}
+
+/** 순공 초 → 시간, `MAX_CHART_HOURS`에서 clamp(축이 튀지 않게). */
+export function toChartHours(focusSec: number): number {
+  return Math.min(focusSec / 3600, MAX_CHART_HOURS);
+}
+
+/** 요일별 순공 초(월~일). 미래 요일·기록 없는 요일은 `null`이다. */
+export interface WeekTrendPoint {
+  day: ChartWeekday;
+  thisWeekSec: number | null;
+  lastWeekSec: number | null;
+}
+
+/**
+ * 요일 인덱스로 이번 주·지난주 순공 초를 정렬한다.
+ * 이번 주는 `todayKey` 이후 날짜를 건너뛰어 미래 0이 선에 들어가지 않게 한다.
+ */
+export function weekTrendPoints(
+  daily: readonly DailyStudyStat[],
+  compareDaily: readonly DailyStudyStat[],
+  todayKey: string,
+): WeekTrendPoint[] {
+  const points: WeekTrendPoint[] = CHART_WEEKDAY_LABELS.map((day) => ({
+    day,
+    thisWeekSec: null,
+    lastWeekSec: null,
+  }));
+  for (const stat of daily) {
+    if (stat.date > todayKey) {
+      continue; // 미래 요일(0으로 채워짐)은 선에서 뺀다
+    }
+    const point = points[mondayIndex(stat.date)];
+    if (point) {
+      point.thisWeekSec = stat.focusSec;
+    }
+  }
+  for (const stat of compareDaily) {
+    const point = points[mondayIndex(stat.date)];
+    if (point) {
+      point.lastWeekSec = stat.focusSec;
+    }
+  }
+  return points;
+}
+
+/** 차트 선이 읽는 행 — 값은 clamp된 시간, 미래/기록 없음은 `null`. */
+export interface WeekTrendRow {
+  day: ChartWeekday;
+  thisWeek: number | null;
+  lastWeek: number | null;
+}
+
+/** `weekTrendPoints`의 초를 clamp된 시간으로 바꾼 차트 행. */
+export function buildWeekTrendRows(
+  daily: readonly DailyStudyStat[],
+  compareDaily: readonly DailyStudyStat[],
+  todayKey: string,
+): WeekTrendRow[] {
+  return weekTrendPoints(daily, compareDaily, todayKey).map((point) => ({
+    day: point.day,
+    thisWeek: point.thisWeekSec === null ? null : toChartHours(point.thisWeekSec),
+    lastWeek: point.lastWeekSec === null ? null : toChartHours(point.lastWeekSec),
+  }));
+}
+
+/**
+ * 비율 분모가 되는 그 달의 경과일 (MonthTiles "이 달 공부"):
+ * - 오늘이 속한 달이면 오늘 일자(그 달 1일부터 오늘까지)
+ * - 과거 달이면 말일, 미래 달이면 0
+ */
+export function elapsedDaysInMonth(month: CalendarMonth, todayKey: string): number {
+  if (isDateKeyInMonth(todayKey, month)) {
+    return dayOfDateKey(todayKey);
+  }
+  const firstDayKey = `${month.year}-${pad2(month.month)}-01`;
+  if (firstDayKey > todayKey) {
+    return 0; // 미래 달
+  }
+  return lastDayOfMonth(month); // 과거 달 말일
+}
+
+/** 공부 일수 / 경과일 비율(%) — 경과일 0이면 0%로 방어한다. */
+export function studiedRatioPercent(studiedDays: number, elapsedDays: number): number {
+  return elapsedDays === 0 ? 0 : Math.round((studiedDays / elapsedDays) * 100);
 }

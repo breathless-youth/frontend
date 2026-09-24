@@ -1,35 +1,13 @@
 import type { DailyStudyStat } from "@focusmakers/types";
 
-import {
-  type CalendarMonth,
-  dayOfDateKey,
-  formatDuration,
-  isDateKeyInMonth,
-  monthOfDateKey,
-} from "./recordsFormat";
-import { bestDay, studiedDayCount } from "./recordsPeriod";
+import { type CalendarMonth, dayOfDateKey, formatDuration, monthOfDateKey } from "./recordsFormat";
+import { bestDay, elapsedDaysInMonth, studiedDayCount, studiedRatioPercent } from "./recordsPeriod";
 
 /**
  * 특정 달에 대한 기록 카드 (왼쪽 "이 달 최고 기록"(bestDay), 오른쪽 "이 달 공부"(공부 일수 + 경과일 비율))
  *
- * 집계는 recordsPeriod 순수 함수에 맡기고 여기서는 경과일 분모만 계산해 그린다.
+ * 집계·경과일·비율 계산은 모두 recordsPeriod 순수 함수에 맡기고 여기서는 그리기만 한다.
  */
-
-/**
- * 비율 분모가 되는 그 달의 경과일:
- * - 오늘이 속한 달이면 오늘 일자(그 달 1일부터 오늘까지)
- * - 과거 달이면 말일, 미래 달이면 0
- */
-function elapsedDays(month: CalendarMonth, todayKey: string): number {
-  if (isDateKeyInMonth(todayKey, month)) {
-    return dayOfDateKey(todayKey);
-  }
-  const firstDayKey = `${month.year}-${String(month.month).padStart(2, "0")}-01`;
-  if (firstDayKey > todayKey) {
-    return 0; // 미래 달
-  }
-  return new Date(Date.UTC(month.year, month.month, 0)).getUTCDate(); // 과거 달 말일
-}
 
 function formatMonthDay(dateKey: string): string {
   return `${monthOfDateKey(dateKey).month}월 ${dayOfDateKey(dateKey)}일`;
@@ -46,8 +24,8 @@ export function MonthTiles({
 }) {
   const best = bestDay(daily);
   const studiedDays = studiedDayCount(daily);
-  const elapsed = elapsedDays(month, todayKey);
-  const ratio = elapsed === 0 ? 0 : Math.round((studiedDays / elapsed) * 100);
+  const elapsed = elapsedDaysInMonth(month, todayKey);
+  const ratio = studiedRatioPercent(studiedDays, elapsed);
 
   return (
     <div className="grid grid-cols-2 gap-3">

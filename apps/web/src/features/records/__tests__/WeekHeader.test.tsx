@@ -13,6 +13,7 @@ function renderHeader(props: Partial<Parameters<typeof WeekHeader>[0]> = {}) {
   return render(
     <WeekHeader
       weekAnchorKey="2026-09-16"
+      metricsStatus="success"
       daily={[]}
       compareDaily={[]}
       onPrevWeek={vi.fn()}
@@ -64,6 +65,29 @@ describe("WeekHeader", () => {
       compareDaily: [day("2026-09-07", 3600)],
     });
     expect(screen.getByText("지난주와 같아요")).toBeInTheDocument();
+  });
+
+  it("pending이면 범위·네비는 두고 순공·증감 자리엔 Skeleton을 그린다(확정 숫자 미표시)", () => {
+    renderHeader({ metricsStatus: "pending", daily: undefined, compareDaily: undefined });
+
+    // 범위 라벨·네비는 그대로 보인다.
+    expect(screen.getByText("9월 14일 ~ 20일")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이전 주" })).toBeInTheDocument();
+    // "0분"·증감 문구 같은 확정 숫자는 안 뜬다.
+    expect(screen.queryByText("0분")).not.toBeInTheDocument();
+    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
+    // 로딩 자리표시가 뜬다.
+    expect(screen.getAllByRole("status").length).toBeGreaterThan(0);
+  });
+
+  it("error면 범위·네비만 두고 순공·증감 영역을 아예 감춘다", () => {
+    renderHeader({ metricsStatus: "error", daily: undefined, compareDaily: undefined });
+
+    expect(screen.getByText("9월 14일 ~ 20일")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음 주" })).toBeInTheDocument();
+    expect(screen.queryByText("이번 주 순공시간")).not.toBeInTheDocument();
+    expect(screen.queryByText("0분")).not.toBeInTheDocument();
+    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
   });
 
   it("좌우 네비 버튼이 콜백을 부른다", () => {
