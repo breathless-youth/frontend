@@ -102,15 +102,19 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
       className="flex flex-col items-start text-left"
       {...triggerProps}
     >
-      <span
-        data-testid="dday-label"
-        className={cn(
-          "text-[32px] leading-[38px] font-extrabold tracking-[-0.8px] tabular-nums",
-          // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
-          daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
-        )}
-      >
-        {label}
+      <span className="flex items-center gap-2">
+        <span
+          data-testid="dday-label"
+          className={cn(
+            "text-[32px] leading-[38px] font-extrabold tracking-[-0.8px] tabular-nums",
+            // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
+            daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
+          )}
+        >
+          {label}
+        </span>
+        {/* 탭할 수 있다는 힌트 — 시안대로 숫자 옆에 작게, 글자 중심선보다 살짝 아래 */}
+        <IconChevronDown size={12} color="var(--color-muted-foreground)" className="mt-[3px]" />
       </span>
       <span data-testid="dday-caption" className="text-[13px] leading-4 text-muted-foreground">
         {caption}
