@@ -16,6 +16,7 @@ import {
 } from "@/features/onboarding/onboardingGuideStore";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import { todayLabel } from "@/features/home/homeFormat";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
@@ -443,5 +444,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(
       screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
     ).not.toBeInTheDocument();
+    // 오른쪽 오늘 날짜는 D-Day 블록이 와도 남는다
+    expect(screen.getByText(todayLabel())).toBeInTheDocument();
   });
 });
