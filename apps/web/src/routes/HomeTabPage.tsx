@@ -262,9 +262,10 @@ function HomeContent({ userId }: { userId: number }) {
 }
 
 /**
- * 헤더 왼쪽. D-Day API는 토큰 계약뿐이라 토큰 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전
- * 로고와 날짜를 그대로 둔다. 출처가 있는데 첫 `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저
- * 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
+ * 헤더 왼쪽. 오른쪽 오늘 날짜는 어느 문서든 그대로 있고 왼쪽만 갈린다. D-Day API는 토큰 계약뿐이라
+ * 토큰 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고를 둔다. 출처가 있는데 첫
+ * `auth-token`이 아직이면 스켈레톤이다 — 로고를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
+ * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
  */
 function HomeHeaderLead({
   userId,
@@ -281,12 +282,7 @@ function HomeHeaderLead({
       return <DdaySection userId={userId} />;
     }
   }
-  return (
-    <>
-      <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
-      <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
-    </>
-  );
+  return <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>;
 }
 
 export function HomeTabPage() {
@@ -302,6 +298,7 @@ export function HomeTabPage() {
       <div className="flex flex-col gap-3 px-5">
         <header className="flex items-end justify-between pb-2">
           <HomeHeaderLead userId={userId} identityPending={identityPending} />
+          <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
         </header>
 
         {userId === null ? (
