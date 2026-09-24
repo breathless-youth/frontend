@@ -8,8 +8,10 @@ import type * as Amplitude from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { deleteDday, getDday, putDday } from "@/lib/ddayApi";
 
+import { monthOfDateKey, shiftMonth } from "@/features/records/recordsFormat";
+
 import { DdaySection } from "../DdaySection";
-import { daysUntil, formatDday } from "../ddayFormat";
+import { daysUntil, formatDday, todayLocalDateKey } from "../ddayFormat";
 
 vi.mock("@/lib/ddayApi", () => ({
   getDday: vi.fn(),
@@ -41,6 +43,17 @@ const FUTURE = "2099-01-09";
 const PAST = "2020-09-20";
 const SET = { title: "2027 수능", targetDate: FUTURE };
 const SET_DAYS_LEFT = daysUntil(FUTURE);
+
+/** 달력에서 고를 날 — 다음 달 15일. 오늘 달 안에서 고르면 월말엔 지난 날이 될 수 있다. */
+const NEXT_MONTH = shiftMonth(monthOfDateKey(todayLocalDateKey()), 1);
+const PICK_KEY = `${NEXT_MONTH.year}-${String(NEXT_MONTH.month).padStart(2, "0")}-15`;
+const PICK_LABEL = `${NEXT_MONTH.month}월 15일`;
+
+/** 시트가 열린 뒤 다음 달로 넘겨 15일을 고른다. */
+function pickNextMonth15() {
+  fireEvent.click(screen.getByRole("button", { name: "다음 달" }));
+  fireEvent.click(screen.getByRole("button", { name: PICK_LABEL }));
+}
 
 function renderSection() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -93,7 +106,7 @@ describe("DdaySection — 좌상단 블록", () => {
 });
 
 describe("DdaySection — 시트", () => {
-  it("블록을 탭하면 시트가 열리고, 제목·날짜가 다 있어야 저장이 켜진다", async () => {
+  it("블록을 탭하면 시트가 열리고, 달력에서 날을 고르고 제목을 써야 저장이 켜진다", async () => {
     mockedGet.mockResolvedValue(null);
     mockedPut.mockImplementation((body) => Promise.resolve(body));
     renderSection();
@@ -110,21 +123,25 @@ describe("DdaySection — 시트", () => {
 
     fireEvent.change(screen.getByLabelText("제목"), { target: { value: " 수능 " } });
     expect(save).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("날짜"), { target: { value: FUTURE } });
+    pickNextMonth15();
+    expect(screen.getByTestId("dday-sheet-days")).toHaveTextContent(
+      formatDday(daysUntil(PICK_KEY)),
+    );
     expect(save).toBeEnabled();
 
     await userEvent.click(save);
 
     await waitFor(() => {
-      expect(mockedPut).toHaveBeenCalledWith({ title: "수능", targetDate: FUTURE });
+      expect(mockedPut).toHaveBeenCalledWith({ title: "수능", targetDate: PICK_KEY });
     });
-    expect(await screen.findByTestId("dday-label")).toHaveTextContent(formatDday(SET_DAYS_LEFT));
+    const pickedDaysLeft = daysUntil(PICK_KEY);
+    expect(await screen.findByTestId("dday-label")).toHaveTextContent(formatDday(pickedDaysLeft));
     expect(analytics.trackDdaySaved).toHaveBeenCalledWith({
       isNew: true,
-      daysLeft: SET_DAYS_LEFT,
+      daysLeft: pickedDaysLeft,
       titleLength: 2,
     });
-    expect(analytics.setDdayUserProperties).toHaveBeenLastCalledWith({ daysLeft: SET_DAYS_LEFT });
+    expect(analytics.setDdayUserProperties).toHaveBeenLastCalledWith({ daysLeft: pickedDaysLeft });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -138,7 +155,9 @@ describe("DdaySection — 시트", () => {
     fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
     expect(analytics.trackDdaySheetOpened).toHaveBeenCalledWith(true);
     expect(screen.getByLabelText("제목")).toHaveValue("2027 수능");
-    expect(screen.getByLabelText("날짜")).toHaveValue(FUTURE);
+    // 달력은 저장된 날의 달에서 열리고 그 날이 눌려 있다
+    expect(screen.getByText("2099년 1월")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1월 9일" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
@@ -156,11 +175,32 @@ describe("DdaySection — 시트", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
     fireEvent.change(await screen.findByLabelText("제목"), { target: { value: "수능" } });
-    fireEvent.change(screen.getByLabelText("날짜"), { target: { value: PAST } });
+    pickNextMonth15();
     await userEvent.click(screen.getByRole("button", { name: "저장" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("오늘 이후 날짜를 골라 주세요");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(analytics.trackDdaySaved).not.toHaveBeenCalled();
+  });
+
+  it("제목에 포커스가 가면 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {
+    mockedGet.mockResolvedValue(null);
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
+    await screen.findByRole("dialog", { name: "D-Day" });
+    pickNextMonth15();
+
+    fireEvent.focus(screen.getByLabelText("제목"));
+    expect(screen.queryByRole("button", { name: "다음 달" })).not.toBeInTheDocument();
+    const chip = screen.getByRole("button", { name: new RegExp(`${NEXT_MONTH.month}월 15일`) });
+    expect(chip).toHaveTextContent(formatDday(daysUntil(PICK_KEY)));
+
+    fireEvent.click(chip);
+    expect(screen.getByRole("button", { name: "다음 달" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: PICK_LABEL })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

@@ -30,3 +30,12 @@ export function todayLocalDateKey(now: Date = new Date()): string {
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
 }
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+/** 시트가 접혔을 때 칩에 보이는 날짜 — `11월 18일 (목)`. */
+export function formatKoreanDate(dateKey: string): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = localMidnight(year, month - 1, day);
+  return `${month}월 ${day}일 (${WEEKDAY_KO[date.getDay()]})`;
+}
