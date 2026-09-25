@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { ComponentProps, ReactElement } from "react";
 import type { DailyStudyStat } from "@focusmakers/types";
 import { Area, type AreaProps, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -16,7 +17,6 @@ import {
   MAX_CHART_HOURS,
   type WeekTrendRow,
   buildWeekTrendRows,
-  weekTrendPoints,
   weekTrendTooltipDuration,
 } from "./recordsPeriod";
 
@@ -76,10 +76,14 @@ export function WeekTrendChart({
    */
   todayIndex: number | null;
 }) {
+  // rows는 차트 선 값(clamp된 시간)과 sr-only 표·툴팁용 원본 초(*Sec)를 함께 담는다 —
+  // 한 번만 계산해 선·표가 같은 결과를 쓴다(weekTrendPoints를 두 번 부르지 않는다).
   const rows = buildWeekTrendRows(daily, compareDaily, todayKey);
 
-  // 색상만으로 두 선을 가르지 않도록 스크린리더용 요일별 값 요약을 함께 낸다(초 단위 원본).
-  const points = weekTrendPoints(daily, compareDaily, todayKey);
+  // 그라데이션 fill id는 인스턴스마다 유니크해야 한다(같은 문서에 두 번 렌더되면 고정 id가 충돌).
+  const gradientId = useId().replace(/:/g, "");
+  const thisWeekFillId = `weekTrendThisWeekFill-${gradientId}`;
+  const lastWeekFillId = `weekTrendLastWeekFill-${gradientId}`;
 
   const renderEndpointDot = ({ cx, cy, index }: DotProps): ReactElement => {
     // 오늘이 이 주에 있을 때만, 오늘 요일 위치에만 도트를 찍는다(과거·미래 주는 도트 없음).
@@ -110,11 +114,11 @@ export function WeekTrendChart({
         <AreaChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
           <defs>
             {/* 선 아래 그라데이션 — 위(선 색 opacity 0.25)에서 아래(투명)로. 시안 image 3. */}
-            <linearGradient id="weekTrendThisWeekFill" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={thisWeekFillId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--color-thisWeek)" stopOpacity={0.25} />
               <stop offset="100%" stopColor="var(--color-thisWeek)" stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="weekTrendLastWeekFill" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={lastWeekFillId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--color-lastWeek)" stopOpacity={0.25} />
               <stop offset="100%" stopColor="var(--color-lastWeek)" stopOpacity={0} />
             </linearGradient>
@@ -169,7 +173,7 @@ export function WeekTrendChart({
             type="linear"
             stroke="var(--color-lastWeek)"
             strokeWidth={2}
-            fill="url(#weekTrendLastWeekFill)"
+            fill={`url(#${lastWeekFillId})`}
             dot={false}
             connectNulls
             isAnimationActive={false}
@@ -179,7 +183,7 @@ export function WeekTrendChart({
             type="linear"
             stroke="var(--color-thisWeek)"
             strokeWidth={3}
-            fill="url(#weekTrendThisWeekFill)"
+            fill={`url(#${thisWeekFillId})`}
             dot={renderEndpointDot as AreaProps["dot"]}
             activeDot={{ r: 4 }}
             connectNulls
@@ -198,15 +202,11 @@ export function WeekTrendChart({
           </tr>
         </thead>
         <tbody>
-          {points.map((point) => (
-            <tr key={point.day}>
-              <th scope="row">{point.day}</th>
-              <td>
-                {point.thisWeekSec === null ? "기록 없음" : formatDuration(point.thisWeekSec)}
-              </td>
-              <td>
-                {point.lastWeekSec === null ? "기록 없음" : formatDuration(point.lastWeekSec)}
-              </td>
+          {rows.map((row) => (
+            <tr key={row.day}>
+              <th scope="row">{row.day}</th>
+              <td>{row.thisWeekSec === null ? "기록 없음" : formatDuration(row.thisWeekSec)}</td>
+              <td>{row.lastWeekSec === null ? "기록 없음" : formatDuration(row.lastWeekSec)}</td>
             </tr>
           ))}
         </tbody>

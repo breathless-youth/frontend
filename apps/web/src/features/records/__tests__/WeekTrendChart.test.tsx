@@ -193,8 +193,9 @@ describe("WeekTrendChart", () => {
 
     // 각 Area의 채움 path(.recharts-area-area) 두 개와 그라데이션 defs가 있다.
     expect(container.querySelectorAll(".recharts-area-area")).toHaveLength(2);
-    expect(container.querySelector("#weekTrendThisWeekFill")).not.toBeNull();
-    expect(container.querySelector("#weekTrendLastWeekFill")).not.toBeNull();
+    // 그라데이션 id는 useId로 인스턴스마다 유니크하므로 접두사로 확인한다.
+    expect(container.querySelector('[id^="weekTrendThisWeekFill"]')).not.toBeNull();
+    expect(container.querySelector('[id^="weekTrendLastWeekFill"]')).not.toBeNull();
   });
 
   it("오늘이 이 주에 있으면 오늘 요일에만 끝점 도트(파랑 테두리)를 하나 찍는다", () => {

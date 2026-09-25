@@ -167,6 +167,46 @@ describe("RecordsPage", () => {
     expect(screen.queryByText("나의 공부 리듬")).not.toBeInTheDocument();
   });
 
+  it("일간에서 다음 달로 이동한 뒤 주간을 거쳐 돌아와도 그 달이 유지된다(lift state)", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    const currentMonth = monthOfDateKey(kstDateKey());
+    await screen.findByText(/요일$/);
+
+    await userEvent.click(screen.getByRole("button", { name: "다음 달" }));
+    const nextMonth = shiftMonth(currentMonth, 1);
+    expect(screen.getByText(monthLabel(nextMonth))).toBeInTheDocument();
+
+    // 주간으로 갔다가 다시 일간으로 — 서브트리 unmount로 오늘 달로 리셋되지 않는다.
+    await userEvent.click(screen.getByRole("tab", { name: "주간" }));
+    await screen.findByText("나의 공부 리듬");
+    await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+
+    expect(screen.getByText(monthLabel(nextMonth))).toBeInTheDocument();
+  });
+
+  it("주간에서 이전 주로 이동한 뒤 일간을 거쳐 돌아와도 그 주가 유지된다(lift state)", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+    const thisWeekLabel = (await screen.findByText(/\d+월 \d+일 ~/)).textContent;
+
+    await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
+    const prevWeekLabel = screen.getByText(/\d+월 \d+일 ~/).textContent;
+    expect(prevWeekLabel).not.toBe(thisWeekLabel);
+
+    // 일간으로 갔다가 다시 주간으로 — 이번 주로 리셋되지 않고 이동했던 주가 유지된다.
+    await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+    await screen.findByText(/요일$/);
+    await userEvent.click(screen.getByRole("tab", { name: "주간" }));
+
+    expect(screen.getByText(/\d+월 \d+일 ~/).textContent).toBe(prevWeekLabel);
+  });
+
   it("선택일 제목을 요일과 함께 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
 

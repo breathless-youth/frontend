@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -8,7 +8,7 @@ import { MonthTiles } from "./MonthTiles";
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
 import { WeekTrendChart } from "./WeekTrendChart";
-import { addDaysToDateKey, kstDateKey, monthOfDateKey } from "./recordsFormat";
+import { addDaysToDateKey, monthOfDateKey } from "./recordsFormat";
 import { isFutureWeek, mondayWeekDateKeys } from "./recordsPeriod";
 import { useWeeklyData } from "./useWeeklyData";
 
@@ -25,9 +25,19 @@ import { useWeeklyData } from "./useWeeklyData";
  * TODO: `RhythmCard`는 준비 중 고정이라 데이터와 무관하게 항상 표시한다.
  */
 
-export function WeeklyView({ userId }: { userId: number }) {
-  const todayKey = kstDateKey();
-  const [weekAnchorKey, setWeekAnchorKey] = useState(todayKey);
+export function WeeklyView({
+  userId,
+  todayKey,
+  weekAnchorKey,
+  setWeekAnchorKey,
+}: {
+  userId: number;
+  todayKey: string;
+  // 보고 있는 주는 탭을 왕복해도 유지되도록 RecordsPage가 소유하고 내려준다.
+  weekAnchorKey: string;
+  setWeekAnchorKey: Dispatch<SetStateAction<string>>;
+}) {
+  // "이 달" 카드는 주 이동과 무관하게 오늘이 속한 달 고정이라 today 기준으로만 계산한다(보존 대상 아님).
   const month = monthOfDateKey(todayKey);
   const queryClient = useQueryClient();
 
