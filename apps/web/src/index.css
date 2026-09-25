@@ -116,6 +116,14 @@
   /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
   --dim: #00000066;
   /* colors.bg.dim.light */
+  --session-bar-glass-bg: rgba(255, 255, 255, 0.55);
+  /* Figma S1b control-bar 실측(light, node 5520:5030) */
+  --session-bar-glass-border: rgba(255, 255, 255, 0.75);
+  --session-bar-glass-shadow: rgba(31, 42, 61, 0.14);
+  --session-bar-glass-highlight: rgba(255, 255, 255, 0.9);
+  --session-btn-default-bg: rgba(31, 42, 61, 0.05);
+  --session-btn-default-border: rgba(31, 42, 61, 0.16);
+  --session-btn-default-fg: #1f2a3d;
   --radius: 0.75rem;
   /* colors.radius.md = 12px */
 
@@ -170,6 +178,14 @@
     /* colors.text.disabled.dark */
     --dim: #00000099;
     /* colors.bg.dim.dark */
+    --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
+    /* Figma S1b control-bar 실측(dark, node 5521:5030) */
+    --session-bar-glass-border: rgba(255, 255, 255, 0.18);
+    --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
+    --session-bar-glass-highlight: rgba(255, 255, 255, 0.25);
+    --session-btn-default-bg: rgba(255, 255, 255, 0.1);
+    --session-btn-default-border: rgba(255, 255, 255, 0.14);
+    --session-btn-default-fg: #ffffff;
     /* 다크 인주색은 시안에 없다 — 라이트와 같은 값(검수 대기). */
     --stamp-seal: #e5342a;
   }
@@ -202,6 +218,14 @@
   --state-distract-text: #ff9e1b;
   --text-disabled: #4e5968;
   --dim: #00000099;
+  --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
+  /* Figma S1b control-bar 실측(dark, node 5521:5030) */
+  --session-bar-glass-border: rgba(255, 255, 255, 0.18);
+  --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
+  --session-bar-glass-highlight: rgba(255, 255, 255, 0.25);
+  --session-btn-default-bg: rgba(255, 255, 255, 0.1);
+  --session-btn-default-border: rgba(255, 255, 255, 0.14);
+  --session-btn-default-fg: #ffffff;
   --stamp-seal: #e5342a;
 }
 
