@@ -164,7 +164,9 @@ export function RecordsPage() {
           <h1 className="text-2xl font-extrabold leading-[29px] tracking-[-0.48px] text-foreground">
             기록
           </h1>
-          <SegmentedControl value={mode} onChange={setMode} />
+          {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
+              — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
+          <SegmentedControl value={mode} onChange={setMode} weeklyDisabled={userId === null} />
         </div>
 
         {userId === null ? (

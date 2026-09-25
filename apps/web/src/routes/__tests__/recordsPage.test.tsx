@@ -260,12 +260,15 @@ describe("RecordsPage", () => {
     ]);
   });
 
-  it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
+  it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여주고 주간 탭을 막는다", () => {
     renderRecords("/records");
 
     expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
     expect(mockedPeriod).not.toHaveBeenCalled();
+    // 기기 미등록이면 주간 데이터를 못 받으므로 주간 탭 비활성(탭·내용 어긋남 방지).
+    expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "일간" })).not.toBeDisabled();
   });
 
   it("월을 옮기는 동안 이전 달 월 순공 합계가 새 달 제목 아래 보이지 않는다", async () => {

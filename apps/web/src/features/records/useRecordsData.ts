@@ -1,7 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import type { DailyStudyStat, StudySessionListResponse } from "@focusmakers/types";
+import type {
+  DailyStudyStat,
+  StudyPeriodStatsResponse,
+  StudySessionListResponse,
+} from "@focusmakers/types";
 import { dailyStatsQuery, periodStatsQuery } from "@/lib/statsQueries";
 
 import type { CalendarMonth } from "./recordsFormat";
@@ -19,6 +23,25 @@ export type RecordsPeriodState =
   | { status: "pending" }
   | { status: "error" }
   | { status: "success"; daily: DailyStudyStat[]; compareDaily: DailyStudyStat[] };
+
+/**
+ * `GET /api/stats/period` 쿼리를 화면용 tri-state로 파생하는 단일 정의처.
+ * data가 있으면 success(일별·직전 기간), 아니면 error/pending. period는 placeholderData를 안 쓰므로
+ * 기간을 넘기면 data가 undefined가 되어 자연히 pending으로 떨어진다. 주간(`useWeeklyData`)도 이걸 쓴다.
+ */
+export function derivePeriodState(query: {
+  data: StudyPeriodStatsResponse | undefined;
+  isError: boolean;
+}): RecordsPeriodState {
+  if (query.data !== undefined) {
+    return {
+      status: "success",
+      daily: query.data.dailyList,
+      compareDaily: query.data.compareDailyList,
+    };
+  }
+  return query.isError ? { status: "error" } : { status: "pending" };
+}
 
 /**
  * 기록 조회 훅
@@ -69,20 +92,11 @@ export function useRecordsData(
 
   // period는 placeholderData를 쓰지 않는다 — 달을 넘기면 새 쿼리가 끝날 때까지 data가 undefined라
   // pending으로 자연히 떨어지고, 이전 달 합계·농도가 새 달 제목 아래 남아있지 않는다.
-  const periodReady = period.data !== undefined;
   const dayFocusSec = useMemo(
     () => (period.data !== undefined ? buildDayFocusMap(period.data.dailyList) : EMPTY_DAY_FOCUS),
     [period.data],
   );
-  const periodState: RecordsPeriodState = periodReady
-    ? {
-        status: "success",
-        daily: period.data.dailyList,
-        compareDaily: period.data.compareDailyList,
-      }
-    : period.isError
-      ? { status: "error" }
-      : { status: "pending" };
+  const periodState = derivePeriodState(period);
 
   if (day.data !== undefined && !day.isPlaceholderData) {
     return { day: { status: "success", stats: day.data }, dayFocusSec, period: periodState };

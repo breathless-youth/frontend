@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type { StudyPeriodStatsResponse } from "@focusmakers/types";
 import { periodStatsQuery } from "@/lib/statsQueries";
 
 import type { CalendarMonth } from "./recordsFormat";
 import { monthRanges, weekRanges } from "./recordsPeriod";
-import type { RecordsPeriodState } from "./useRecordsData";
+import { derivePeriodState, type RecordsPeriodState } from "./useRecordsData";
 
 /**
  * 기록 주간탭에서 사용하는 데이터 훅
@@ -36,19 +35,5 @@ export function useWeeklyData(
     enabled: userId != null,
   });
 
-  return { week: toPeriodState(week), month: toPeriodState(monthQuery) };
-}
-
-function toPeriodState(query: {
-  data: StudyPeriodStatsResponse | undefined;
-  isError: boolean;
-}): RecordsPeriodState {
-  if (query.data !== undefined) {
-    return {
-      status: "success",
-      daily: query.data.dailyList,
-      compareDaily: query.data.compareDailyList,
-    };
-  }
-  return query.isError ? { status: "error" } : { status: "pending" };
+  return { week: derivePeriodState(week), month: derivePeriodState(monthQuery) };
 }
