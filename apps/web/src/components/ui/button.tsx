@@ -20,8 +20,8 @@ export const buttonVariants = cva(
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
-        /** 화면 하단 고정 CTA(Figma `Button / CTA` XL 56px, r16). 폭은 호출부의 flex가 정하므로 패딩 없음. */
         xl: "h-14 rounded-2xl text-[16px] leading-[19px] font-semibold",
+        icon: "h-[54px] w-[54px] rounded-full p-0",
       },
     },
     defaultVariants: {
