@@ -17,6 +17,7 @@ import {
   isFutureDateKey,
   isDateKeyInMonth,
   kstDateKey,
+  mondayIndexOfDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
@@ -173,6 +174,13 @@ describe("달력 유틸", () => {
     expect(isFutureDateKey("2026-07-27", "2026-07-26")).toBe(true);
     expect(isFutureDateKey("2026-07-26", "2026-07-26")).toBe(false);
     expect(isFutureDateKey("2026-07-25", "2026-07-26")).toBe(false);
+  });
+
+  it("월요일 기준 요일 인덱스(월=0…일=6)로 옮긴다", () => {
+    // 2026-09-21 월 … 2026-09-27 일
+    expect(mondayIndexOfDateKey("2026-09-21")).toBe(0); // 월
+    expect(mondayIndexOfDateKey("2026-09-24")).toBe(3); // 목
+    expect(mondayIndexOfDateKey("2026-09-27")).toBe(6); // 일
   });
 });
 

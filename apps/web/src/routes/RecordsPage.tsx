@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import { trackRecordsDateSelected, trackRecordsMonthChanged } from "@/lib/amplitude";
 
@@ -14,40 +15,47 @@ import {
   monthOfDateKey,
   shiftMonth,
 } from "@/features/records/recordsFormat";
-import { SegmentedControl } from "@/features/records/SegmentedControl";
+import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
 import { SessionListItem } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
+import { WeeklyView } from "@/features/records/WeeklyView";
 import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
 
 /**
- * 기록(S5) v2 — `apps/mobile/app/(tabs)/records.tsx`에서 이식(BY-330), Figma V2 일간 뷰로
- * 다시 조립(BY-567). 네이티브 셸이 `/records?userId=N`으로 로드한다(홈 S1과 같은 계약).
+ * 기록 탭
  *
- * RN판과의 동작 차이(의도된 것, BY-329가 홈에서 확정한 방침과 동일):
- * - userId는 익명 등록 쿼리가 아니라 URL 파라미터로 받는다 — 없으면 브라우저 단독 모드 문구만 보여준다.
- * - "오늘" 재계산은 `useFocusEffect` 대신 매 렌더 계산으로 대체한다(useHomeSummary의 `todayKstDateKey()`
- *   인라인 호출과 같은 방식) — 상태로 저장하지 않으니 자정 넘김을 놓치는 상태 자체가 없다.
  * - 탭 재진입 시 통계 재조회는 react-query 기본값(`refetchOnWindowFocus`)이 맡는다
  *   (`useRecordsData` 참고, `useFocusEffect` invalidate를 이식하지 않는다).
- *
- * v1 → v2(BY-567) 변경: 스트릭 배너·요약 타일 2×2·최신순 정렬 표시를 걷어내고 월 순공 요약
- * (`MonthSummary`)·농도 달력·세션 목록으로 바꾼다. 세션 행 상세 열기(`onSelect`)는 이 티켓에서
- * 연결하지 않는다 — 바로 다음 티켓 BY-568이 잇는다.
  */
 
-function RecordsContent({ userId }: { userId: number }) {
-  const todayKey = kstDateKey();
-  const [selectedKey, setSelectedKey] = useState(todayKey);
-  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
-  // 월 이동 방향·계측을 여기서 소유한다(BY-567 코덱스 리뷰) — 헤더 버튼과 MonthCalendar 내부
-  // 스와이프가 같은 changeMonth를 타야 애니메이션·trackRecordsMonthChanged가 갈라지지 않는다.
+function RecordsContent({
+  userId,
+  todayKey,
+  selectedKey,
+  setSelectedKey,
+  month,
+  setMonth,
+}: {
+  userId: number;
+  todayKey: string;
+  // 선택 날짜·보이는 달은 탭을 왕복해도 유지되도록 RecordsPage가 소유하고 내려준다.
+  selectedKey: string;
+  setSelectedKey: Dispatch<SetStateAction<string>>;
+  month: CalendarMonth;
+  setMonth: Dispatch<SetStateAction<CalendarMonth>>;
+}) {
+  // 월 이동 방향은 순수 애니메이션용이라 로컬로 둔다(탭 왕복에 보존할 "위치"가 아니다).
+  // 헤더 버튼과 MonthCalendar 내부 스와이프가 같은 changeMonth를 타야 애니메이션·계측이 갈라지지 않는다.
   const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
-  const changeMonth = useCallback((delta: -1 | 1, method: "button" | "swipe") => {
-    trackRecordsMonthChanged({ delta, method });
-    setSlideFrom(delta < 0 ? "left" : "right");
-    setMonth((current) => shiftMonth(current, delta));
-  }, []);
+  const changeMonth = useCallback(
+    (delta: -1 | 1, method: "button" | "swipe") => {
+      trackRecordsMonthChanged({ delta, method });
+      setSlideFrom(delta < 0 ? "left" : "right");
+      setMonth((current) => shiftMonth(current, delta));
+    },
+    [setMonth],
+  );
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
 
@@ -86,7 +94,12 @@ function RecordsContent({ userId }: { userId: number }) {
       </div>
 
       {period.status === "success" && (
-        <MonthSummary month={month} daily={period.daily} compareDaily={period.compareDaily} />
+        <MonthSummary
+          month={month}
+          todayKey={todayKey}
+          daily={period.daily}
+          compareDaily={period.compareDaily}
+        />
       )}
 
       <div className="mt-[18px]">
@@ -154,6 +167,14 @@ function RecordsContent({ userId }: { userId: number }) {
 
 export function RecordsPage() {
   const userId = useUserId();
+  const todayKey = kstDateKey();
+  // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로)
+  const [mode, setMode] = useState<RecordsView>("daily");
+  // 사용자가 보던 "위치"(일간: 선택 날짜·보이는 달, 주간: 보고 있는 주)는 여기서 소유한다 —
+  // 탭을 바꿔도 서브트리 unmount로 리셋되지 않게 lift state 한다.
+  const [selectedKey, setSelectedKey] = useState(todayKey);
+  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
+  const [weekAnchorKey, setWeekAnchorKey] = useState(todayKey);
 
   return (
     <main
@@ -165,16 +186,31 @@ export function RecordsPage() {
           <h1 className="text-2xl font-extrabold leading-[29px] tracking-[-0.48px] text-foreground">
             기록
           </h1>
-          {/* 이 티켓은 daily 고정이라 모드 state를 만들지 않는다(주간 비활성) — BY-566이 켠다. */}
-          <SegmentedControl value="daily" onChange={() => undefined} weeklyDisabled />
+          {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
+              — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
+          <SegmentedControl value={mode} onChange={setMode} weeklyDisabled={userId === null} />
         </div>
 
         {userId === null ? (
           <p className="mt-[13px] p-4 text-sm text-muted-foreground">
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
+        ) : mode === "weekly" ? (
+          <WeeklyView
+            userId={userId}
+            todayKey={todayKey}
+            weekAnchorKey={weekAnchorKey}
+            setWeekAnchorKey={setWeekAnchorKey}
+          />
         ) : (
-          <RecordsContent userId={userId} />
+          <RecordsContent
+            userId={userId}
+            todayKey={todayKey}
+            selectedKey={selectedKey}
+            setSelectedKey={setSelectedKey}
+            month={month}
+            setMonth={setMonth}
+          />
         )}
       </div>
     </main>
