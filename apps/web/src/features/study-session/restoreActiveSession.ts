@@ -1,7 +1,7 @@
 import type {
   ActiveSessionSnapshotResponse,
   StatusEventPayload,
-  SubjectTimePayload,
+  SubjectSegmentPayload,
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
@@ -38,8 +38,8 @@ export interface RestoredSession {
   baseStudySec: number;
   baseFocusSec: number;
   events: StatusEventPayload[];
-  /** 마지막 스냅샷의 항목별 시간 — 마지막 항목이 지금 선택이다(`subjectTimes.ts`). 없으면 빈 배열. */
-  subjectTimes?: SubjectTimePayload[];
+  /** 마지막 스냅샷의 과목 구간 — 시작 순, 마지막 원소가 지금 선택이다(`subjectSegments.ts`). 없으면 빈 배열. */
+  subjectSegments?: SubjectSegmentPayload[];
 }
 
 function isNonNegativeInt(value: unknown): value is number {
@@ -47,29 +47,23 @@ function isNonNegativeInt(value: unknown): value is number {
 }
 
 /**
- * 과목 시간은 이벤트와 달리 하나가 이상해도 세션 전체를 버리지 않는다 — 과목 없는 시간으로
- * 계속 재는 편이 처음부터 다시 시작하는 것보다 낫다. 읽을 수 있는 항목만 남긴다.
+ * 과목 구간은 이벤트와 달리 하나가 이상해도 세션 전체를 버리지 않는다 — 과목 없는 시간으로
+ * 계속 재는 편이 처음부터 다시 시작하는 것보다 낫다. 읽을 수 있는 구간만 남긴다.
  */
-function usableSubjectTimes(raw: unknown): SubjectTimePayload[] {
+function usableSubjectSegments(raw: unknown): SubjectSegmentPayload[] {
   if (!Array.isArray(raw)) {
     return [];
   }
-  return raw.flatMap((item: Partial<SubjectTimePayload> | null) => {
-    if (
-      item === null ||
-      !isNonNegativeInt(item.subjectId) ||
-      !isNonNegativeInt(item.studySec) ||
-      !isNonNegativeInt(item.focusSec)
-    ) {
+  return raw.flatMap((item: Partial<SubjectSegmentPayload> | null) => {
+    if (item === null || !isNonNegativeInt(item.subjectId)) {
       return [];
     }
-    return [
-      {
-        subjectId: item.subjectId,
-        studySec: item.studySec,
-        focusSec: Math.min(item.focusSec, item.studySec),
-      },
-    ];
+    const startedAtMs = typeof item.startedAt === "string" ? Date.parse(item.startedAt) : NaN;
+    const endedAtMs = typeof item.endedAt === "string" ? Date.parse(item.endedAt) : NaN;
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs <= startedAtMs) {
+      return [];
+    }
+    return [{ subjectId: item.subjectId, startedAt: item.startedAt!, endedAt: item.endedAt! }];
   });
 }
 
@@ -118,7 +112,7 @@ export async function restoreActiveSession(
       baseStudySec: body.studySec,
       baseFocusSec: body.focusSec,
       events: body.events,
-      subjectTimes: usableSubjectTimes(body.subjectTimes),
+      subjectSegments: usableSubjectSegments(body.subjectSegments),
     };
   } finally {
     clearTimeout(timer);

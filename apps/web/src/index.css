@@ -50,6 +50,13 @@
   --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
   --color-stamp-seal: var(--stamp-seal);
+  --color-chart-heat-low: var(--chart-heat-low);
+  --color-chart-heat-mid: var(--chart-heat-mid);
+  --color-chart-heat-high: var(--chart-heat-high);
+  --color-chart-empty: var(--chart-empty);
+  --color-bg-control-track: var(--bg-control-track);
+  --color-feedback-success: var(--feedback-success);
+  --color-feedback-danger: var(--feedback-danger);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -80,6 +87,7 @@
   /* UA 기본 캔버스와 폼 컨트롤 색을 테마에 맞춘다. 이 선언이 없으면 셀렉트·스크롤바 같은
      UA 그리기 요소만 라이트로 남는다. */
   color-scheme: light;
+  --shadow-segment-thumb: 0px 1px 1.5px rgba(31, 42, 61, 0.1);
   --background: #ffffff;
   /* colors.bg.base.light */
   --foreground: #191f28;
@@ -215,6 +223,13 @@
   --muted: #ffffff;
   --brand-subtle: #e6eefb;
   --bg-layer-2: #f1f5fc;
+  --chart-heat-low: #dbe7fb;
+  --chart-heat-mid: #a9c6f5;
+  --chart-heat-high: #6f9ff0;
+  --chart-empty: #eef1f6;
+  --bg-control-track: #eef1f6;
+  --feedback-success: #0e9f5d;
+  --feedback-danger: #f04452;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -228,6 +243,13 @@
     --muted: #1b2333;
     --brand-subtle: #1e2a44;
     --bg-layer-2: #232d40;
+    --chart-heat-low: #24344f;
+    --chart-heat-mid: #35558a;
+    --chart-heat-high: #3a66a8;
+    --chart-empty: #1e2636;
+    --bg-control-track: #1e2636;
+    --feedback-success: #32d583;
+    --feedback-danger: #ff6b7a;
   }
 }
 
@@ -241,6 +263,13 @@
   --muted: #1b2333;
   --brand-subtle: #1e2a44;
   --bg-layer-2: #232d40;
+  --chart-heat-low: #24344f;
+  --chart-heat-mid: #35558a;
+  --chart-heat-high: #3a66a8;
+  --chart-empty: #1e2636;
+  --bg-control-track: #1e2636;
+  --feedback-success: #32d583;
+  --feedback-danger: #ff6b7a;
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에

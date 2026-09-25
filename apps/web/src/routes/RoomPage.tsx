@@ -51,8 +51,8 @@ import { useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
-import type { SubjectSelection } from "@/features/study-session/subjectTimes";
-import { liveSubjectTime } from "@/features/study-session/subjectTimes";
+import type { SubjectSelection } from "@/features/study-session/subjectSegments";
+import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
@@ -316,7 +316,8 @@ function RoomSessionScreen({
     cameraStream,
     cameraFacing,
     subjectSelection,
-    subjectTimes,
+    subjectSegments,
+    sessionEvents,
     selectSubject,
     pause,
     resume,
@@ -526,6 +527,8 @@ function RoomSessionScreen({
     selectSubject(next);
   }
 
+  /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
+  const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
   /** 접힌 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
   const selectedSubject =
     subjectSelection === null
@@ -538,7 +541,7 @@ function RoomSessionScreen({
           name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
-            liveSubjectTime(subjectTimes, subjectSelection).focusSec,
+            liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
         };
 
   /** 컨트롤 바 종료 버튼 — **세션을 끝내지 않는다.** S3-7 확인 다이얼로그를 먼저 띄운다. */
@@ -726,7 +729,7 @@ function RoomSessionScreen({
                   onSelect={handleSelectSubject}
                   onRequestClose={() => handleSheetOpenChange(false)}
                   onNotice={showToast}
-                  liveTimes={subjectTimes}
+                  liveTotals={liveSubjectTotals}
                 />
               </SubjectSheet>
             </div>

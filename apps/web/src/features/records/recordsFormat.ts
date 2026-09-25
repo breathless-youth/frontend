@@ -2,11 +2,9 @@ import type { StudyEventStatus, StudySessionEventCounts } from "@focusmakers/typ
 import { todayKstDateKey } from "@/lib/dateKst";
 
 /**
- * S5 기록 화면 전용 표기·달력 유틸 — 순수 함수라 테스트 대상으로 분리한다.
- * (`apps/mobile/lib/recordsFormat.ts`에서 이식 — BY-330 기록 웹 이관. KST 날짜 키 규칙은
- * `@/lib/dateKst`의 `todayKstDateKey`를 그대로 쓴다 — BY-329가 이식한 것과 동일 규칙.)
+ * 기록 화면 전용 표기·달력 유틸
  *
- * 표기 규칙 원본은 `ai-wiki/product/voice-tone.md` §2·§4다 — 의역하지 않는다.
+ * KST 날짜 키 규칙은 `@/lib/dateKst`의 `todayKstDateKey`를 그대로 쓴다.
  */
 
 /** KST(UTC+9) 고정 오프셋. 한국은 서머타임이 없어 상수로 충분하다. */
@@ -14,7 +12,7 @@ const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** 달력 요일 헤더·주간 체크 도트 라벨(Figma S5 `65:649`~`65:655`). */
+/** 달력 요일 헤더·주간 체크 도트 라벨 */
 export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 export type CalendarMonth = {
@@ -58,6 +56,15 @@ export function weekdayIndexOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDay();
 }
 
+/**
+ * 월=0 … 일=6. 주 시작을 월요일로 두는 주간 뷰 전용 인덱스
+ * (일=0…토=6인 `weekdayIndexOfDateKey`를 월요일 기준으로 옮긴다).
+ * `mondayWeekDateKeys`의 오프셋과 주간 차트의 요일 슬롯이 같은 공식을 쓰도록 한곳에 둔다.
+ */
+export function mondayIndexOfDateKey(dateKey: string): number {
+  return (weekdayIndexOfDateKey(dateKey) + 6) % 7;
+}
+
 export function dayOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDate();
 }
@@ -85,7 +92,6 @@ export function summaryTitle(dateKey: string): string {
 
 /**
  * 월 달력 그리드. 일요일 시작 7열 고정이고, 앞뒤 빈칸은 `null`이다
- * (이전/다음 달 날짜를 흘려 그리지 않는다 — Figma도 빈칸으로 둔다).
  */
 export function buildMonthGrid({ year, month }: CalendarMonth): (string | null)[][] {
   const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
@@ -229,11 +235,51 @@ export function isDateKeyInMonth(dateKey: string, month: CalendarMonth): boolean
 /**
  * 보이는 달의 통계 조회용 날짜 키 — 선택일이 그 달에 있으면 선택일, 아니면 그 달 1일.
  * `GET /api/stats`는 일 단위 조회지만 `studiedDatesInMonth`(그 달의 공부일 목록)를 기록 여부와
- * 무관하게 항상 내려주므로(Swagger 2026-07-28 확인), 다른 달의 도트는 그 달 1일 조회로 얻는다.
+ * 무관하게 항상 내려주므로, 다른 달의 도트는 그 달 1일 조회로 얻는다.
  */
 export function statsQueryDateKey(selectedKey: string, month: CalendarMonth): string {
   if (isDateKeyInMonth(selectedKey, month)) {
     return selectedKey;
   }
   return `${month.year}-${pad2(month.month)}-01`;
+}
+
+/** 달력 농도 단계 — 경계는 1시간(mid 시작)과 3시간(high 시작)이다. */
+export function heatLevel(focusSec: number): "none" | "low" | "mid" | "high" {
+  if (focusSec <= 0) {
+    return "none";
+  }
+  if (focusSec < 3600) {
+    return "low";
+  }
+  if (focusSec < 3 * 3600) {
+    return "mid";
+  }
+  return "high";
+}
+
+/** 달력 칸 시간 라벨 `H:MM` — 시는 앞자리 0을 빼고 분은 두 자리, 1시간 미만도 시를 0으로 적는다. */
+export function formatHeatClock(focusSec: number): string {
+  const totalMinutes = Math.floor(Math.max(0, focusSec) / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}:${pad2(minutes)}`;
+}
+
+/** 선택일 제목 `M월 D일 요일`. */
+export function dayTitleWithWeekday(dateKey: string): string {
+  const month = monthOfDateKey(dateKey).month;
+  const day = dayOfDateKey(dateKey);
+  const weekday = WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)];
+  return `${month}월 ${day}일 ${weekday}요일`;
+}
+
+/** 세션 행 시각 범위 `HH:MM ~ HH:MM`(KST). V1의 formatSessionMeta와 달리 물결로 잇고 총 길이를 빼며 v2 행 전용이다. */
+export function formatSessionTimeRange(startedAt: string, endedAt: string): string {
+  return `${formatKstClock(startedAt)} ~ ${formatKstClock(endedAt)}`;
+}
+
+/** 세션 행 보조줄 `순공 {길이} · 집중 {N}%`. */
+export function formatSessionSubline(focusSec: number, focusRate: number): string {
+  return `순공 ${formatDuration(focusSec)} · 집중 ${formatFocusRate(focusRate)}`;
 }

@@ -3,8 +3,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StudySessionListResponse } from "@focusmakers/types";
-import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import type { StudyPeriodStatsResponse, StudySessionListResponse } from "@focusmakers/types";
+import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
 
 import { useRecordsData } from "../useRecordsData";
 
@@ -12,14 +12,17 @@ import { useRecordsData } from "../useRecordsData";
  * (RN 원본 `apps/mobile/components/records/__tests__/useRecordsData.test.tsx`의
  * "같은 달의 미캐시 날짜를 선택해도 달력 도트가 비지 않는다" 케이스를 웹 훅 시그니처로 이식 —
  * BY-330 리뷰 보강. 웹판은 userId를 인자로 직접 받으므로 등록 쿼리 모킹이 없다.)
+ *
+ * BY-567 Task 7: 달력 도트는 이제 monthStats/streak가 아니라 period 조회(getPeriodStats)가
+ * 채운다. streak 관련 단언은 지우고 period 단언을 더했다.
  */
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
-  getStreak: vi.fn(),
+  getPeriodStats: vi.fn(),
 }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
-const mockedStreak = vi.mocked(getStreak);
+const mockedPeriod = vi.mocked(getPeriodStats);
 
 function statsResponse(studiedDatesInMonth: string[]): StudySessionListResponse {
   return {
@@ -31,6 +34,20 @@ function statsResponse(studiedDatesInMonth: string[]): StudySessionListResponse 
     focusRate: 0,
     totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
     studiedDatesInMonth,
+  };
+}
+
+function periodResponse(
+  dailyList: StudyPeriodStatsResponse["dailyList"],
+  compareDailyList: StudyPeriodStatsResponse["compareDailyList"] = [],
+): StudyPeriodStatsResponse {
+  return {
+    from: "2026-07-01",
+    to: "2026-07-31",
+    compareFrom: null,
+    compareTo: null,
+    dailyList,
+    compareDailyList,
   };
 }
 
@@ -46,13 +63,12 @@ function createWrapper() {
   };
 }
 
-const TODAY_KEY = "2026-07-29";
 const MONTH = { year: 2026, month: 7 };
 
 describe("useRecordsData — placeholder 가드(useRecordsData.ts의 !day.isPlaceholderData)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    mockedPeriod.mockResolvedValue(periodResponse([]));
   });
 
   it("같은 달의 미캐시 날짜를 선택해도 이전 날짜 데이터가 새 날짜 아래 보이지 않는다 — pending 유지", async () => {
@@ -69,17 +85,13 @@ describe("useRecordsData — placeholder 가드(useRecordsData.ts의 !day.isPlac
     });
 
     const { result, rerender } = renderHook(
-      ({ selectedKey }: { selectedKey: string }) =>
-        useRecordsData(7, selectedKey, MONTH, TODAY_KEY),
+      ({ selectedKey }: { selectedKey: string }) => useRecordsData(7, selectedKey, MONTH),
       { wrapper: createWrapper(), initialProps: { selectedKey: "2026-07-26" } },
     );
     await waitFor(() => expect(result.current.day.status).toBe("success"));
-    expect(result.current.studiedDates).toEqual(dots);
 
     rerender({ selectedKey: "2026-07-24" });
 
-    // 도트(studiedDatesInMonth)는 placeholder로 이전 값을 유지해 깜빡이지 않는다.
-    expect(result.current.studiedDates).toEqual(dots);
     // 요약·리스트(day)는 placeholder를 success로 취급하지 않는다 — 7/24 응답이 오기 전까지는
     // 7/26 데이터가 "7/24 학습 요약" 제목 아래 새어나오면 안 되므로 pending으로 남는다.
     expect(result.current.day.status).toBe("pending");
@@ -88,5 +100,81 @@ describe("useRecordsData — placeholder 가드(useRecordsData.ts의 !day.isPlac
       resolveSecond?.(statsResponse(dots));
     });
     await waitFor(() => expect(result.current.day.status).toBe("success"));
+  });
+});
+
+describe("useRecordsData — period 조회(dayFocusSec·period 상태)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedStats.mockResolvedValue(statsResponse([]));
+  });
+
+  it("보이는 달의 period 응답으로 dayFocusSec와 period.daily를 채운다", async () => {
+    mockedPeriod.mockResolvedValue(
+      periodResponse([{ date: "2026-09-04", studySec: 11160, focusSec: 11160 }]),
+    );
+
+    const { result } = renderHook(() => useRecordsData(1, "2026-09-18", { year: 2026, month: 9 }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.period.status).toBe("success"));
+    expect(result.current.dayFocusSec.get("2026-09-04")).toBe(11160);
+  });
+
+  it("period 조회 전에는 dayFocusSec가 비어 있고 period는 pending이다", () => {
+    mockedPeriod.mockImplementation(() => new Promise(() => {}));
+
+    const { result } = renderHook(() => useRecordsData(1, "2026-09-18", { year: 2026, month: 9 }), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.period.status).toBe("pending");
+    expect(result.current.dayFocusSec.size).toBe(0);
+  });
+
+  it("period 조회가 실패하면 period.status가 error가 된다", async () => {
+    mockedPeriod.mockRejectedValue(new Error("기간 집계 조회 실패"));
+
+    const { result } = renderHook(() => useRecordsData(1, "2026-09-18", { year: 2026, month: 9 }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.period.status).toBe("error"));
+  });
+
+  it("월을 옮기는 동안(placeholder) period.status는 success가 아니고 dayFocusSec는 비어 있다 — 코덱스 리뷰 반영", async () => {
+    mockedPeriod.mockResolvedValueOnce(
+      periodResponse([{ date: "2026-09-04", studySec: 11160, focusSec: 11160 }]),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ month }: { month: { year: number; month: number } }) =>
+        useRecordsData(1, "2026-09-18", month),
+      { wrapper: createWrapper(), initialProps: { month: { year: 2026, month: 9 } } },
+    );
+    await waitFor(() => expect(result.current.period.status).toBe("success"));
+    expect(result.current.dayFocusSec.get("2026-09-04")).toBe(11160);
+
+    // 다음 달로 넘어간다 — period는 placeholderData를 쓰지 않으므로 새 조회가 끝날 때까지
+    // data가 undefined로 즉시 비워진다.
+    let resolveOctober: ((value: StudyPeriodStatsResponse) => void) | undefined;
+    mockedPeriod.mockImplementation(
+      () =>
+        new Promise<StudyPeriodStatsResponse>((resolve) => {
+          resolveOctober = resolve;
+        }),
+    );
+    rerender({ month: { year: 2026, month: 10 } });
+
+    // 10월 제목 아래 9월 합계·농도가 새어나오면 안 된다 — 새 조회 동안 pending으로 남는다.
+    expect(result.current.period.status).toBe("pending");
+    expect(result.current.dayFocusSec.size).toBe(0);
+
+    await act(async () => {
+      resolveOctober?.(periodResponse([{ date: "2026-10-02", studySec: 600, focusSec: 600 }]));
+    });
+    await waitFor(() => expect(result.current.period.status).toBe("success"));
+    expect(result.current.dayFocusSec.get("2026-10-02")).toBe(600);
   });
 });

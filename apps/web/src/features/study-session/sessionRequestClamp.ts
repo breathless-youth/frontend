@@ -1,4 +1,4 @@
-import type { StatusEventPayload, SubjectTimePayload } from "@focusmakers/types";
+import type { StatusEventPayload, SubjectSegmentPayload } from "@focusmakers/types";
 
 /**
  * 이벤트에 실린 PAUSE 구간의 합을 ms 그대로 돌려준다.
@@ -36,22 +36,37 @@ export function clampSessionSeconds(params: {
 }
 
 /**
- * 항목별 시간의 서버 규칙을 미리 적용한다 — `항목 studySec 합 ≤ 세션 studySec`,
- * `항목 focusSec ≤ 항목 studySec`. 세션 studySec이 위 클램프로 깎였을 때 항목 합이 그보다
- * 커지는 경우를 막는다. 앞 항목부터 채우고 넘치는 몫은 뒤 항목에서 잘라낸다.
+ * 과목 구간의 서버 규칙을 미리 적용한다 — 세션 구간 안, 종료 > 시작, 서로 겹치지 않음. 경계 밖은 잘라내고,
+ * 잘라서 0초가 되거나 읽을 수 없는 시각은 버리고, 앞 구간과 겹치는 시작은 앞 구간 끝으로 민다.
+ * 최종 제출과 진행 스냅샷이 함께 쓴다 — 제출은 boundaryMs로 endedAt을, 스냅샷은 reportedAt을 넘긴다.
  */
-export function clampSubjectTimes(
-  items: readonly SubjectTimePayload[],
-  studySec: number,
-): SubjectTimePayload[] {
-  let remaining = Math.max(0, studySec);
-  return items.map((item) => {
-    const itemStudy = Math.min(Math.max(0, item.studySec), remaining);
-    remaining -= itemStudy;
-    return {
-      ...item,
-      studySec: itemStudy,
-      focusSec: Math.min(Math.max(0, item.focusSec), itemStudy),
-    };
-  });
+export function clampSubjectSegments(
+  items: readonly SubjectSegmentPayload[],
+  startedAtMs: number,
+  boundaryMs: number,
+): SubjectSegmentPayload[] {
+  const sorted = items
+    .map((item) => ({
+      subjectId: item.subjectId,
+      startMs: Date.parse(item.startedAt),
+      endMs: Date.parse(item.endedAt),
+    }))
+    .filter((item) => Number.isFinite(item.startMs) && Number.isFinite(item.endMs))
+    .sort((a, b) => a.startMs - b.startMs);
+  const result: SubjectSegmentPayload[] = [];
+  let cursorMs = startedAtMs;
+  for (const item of sorted) {
+    const startMs = Math.max(item.startMs, cursorMs);
+    const endMs = Math.min(item.endMs, boundaryMs);
+    if (endMs <= startMs) {
+      continue;
+    }
+    result.push({
+      subjectId: item.subjectId,
+      startedAt: new Date(startMs).toISOString(),
+      endedAt: new Date(endMs).toISOString(),
+    });
+    cursorMs = endMs;
+  }
+  return result;
 }

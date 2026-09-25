@@ -1,79 +1,67 @@
-import { Fragment, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import { trackRecordsDateSelected } from "@/lib/amplitude";
+import { trackRecordsDateSelected, trackRecordsMonthChanged } from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { IconChevronDown } from "@/features/records/icons";
 import { MonthCalendar } from "@/features/records/MonthCalendar";
+import { MonthSummary } from "@/features/records/MonthSummary";
 import {
   type CalendarMonth,
-  dayOfDateKey,
+  dayTitleWithWeekday,
   kstDateKey,
+  monthLabel,
   monthOfDateKey,
   shiftMonth,
-  summaryTitle,
-  WEEKDAY_LABELS,
-  weekdayIndexOfDateKey,
-  weekDateKeys,
 } from "@/features/records/recordsFormat";
+import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
 import { SessionListItem } from "@/features/records/SessionListItem";
-import { StreakBanner, type StreakWeekDay } from "@/features/records/StreakBanner";
-import { SummaryTiles } from "@/features/records/SummaryTiles";
 import { useRecordsData } from "@/features/records/useRecordsData";
+import { WeeklyView } from "@/features/records/WeeklyView";
+import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
 
 /**
- * 기록(S5) — `apps/mobile/app/(tabs)/records.tsx`에서 이식 (BY-330).
- * 네이티브 셸이 `/records?userId=N`으로 로드한다(홈 S1과 같은 계약).
+ * 기록 탭
  *
- * RN판과의 동작 차이(의도된 것, BY-329가 홈에서 확정한 방침과 동일):
- * - userId는 익명 등록 쿼리가 아니라 URL 파라미터로 받는다 — 없으면 브라우저 단독 모드 문구만 보여준다.
- * - "오늘" 재계산은 `useFocusEffect` 대신 매 렌더 계산으로 대체한다(useHomeSummary의 `todayKstDateKey()`
- *   인라인 호출과 같은 방식) — 상태로 저장하지 않으니 자정 넘김을 놓치는 상태 자체가 없다.
  * - 탭 재진입 시 통계 재조회는 react-query 기본값(`refetchOnWindowFocus`)이 맡는다
  *   (`useRecordsData` 참고, `useFocusEffect` invalidate를 이식하지 않는다).
  */
 
-function EmptyDayNotice() {
-  // 선택일 빈 상태의 문구는 voice-tone §4 확정 카피지만 시각 레이아웃(일러스트·여백)은 Figma에
-  // 프레임이 없다 — 리스트 자리에 중앙 정렬 2줄로 최소 구현한다.
-  // TODO(SCR-S5-records.md): 기록이 아예 없는 첫 사용 전체 빈 상태와 로딩·에러 상태는 정의 자체가
-  // 없다 — 임의로 디자인하지 않고 방어적으로 빈 리스트만 둔다.
-  return (
-    <div className="flex flex-col items-center gap-1 py-8">
-      <p className="text-[15px] leading-[22px] text-muted-foreground">이날은 기록이 없어요</p>
-      <p className="text-[13px] leading-4 text-text-tertiary">기록이 있는 날에는 점이 표시돼요</p>
-    </div>
+function RecordsContent({
+  userId,
+  todayKey,
+  selectedKey,
+  setSelectedKey,
+  month,
+  setMonth,
+}: {
+  userId: number;
+  todayKey: string;
+  // 선택 날짜·보이는 달은 탭을 왕복해도 유지되도록 RecordsPage가 소유하고 내려준다.
+  selectedKey: string;
+  setSelectedKey: Dispatch<SetStateAction<string>>;
+  month: CalendarMonth;
+  setMonth: Dispatch<SetStateAction<CalendarMonth>>;
+}) {
+  // 월 이동 방향은 순수 애니메이션용이라 로컬로 둔다(탭 왕복에 보존할 "위치"가 아니다).
+  // 헤더 버튼과 MonthCalendar 내부 스와이프가 같은 changeMonth를 타야 애니메이션·계측이 갈라지지 않는다.
+  const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
+  const changeMonth = useCallback(
+    (delta: -1 | 1, method: "button" | "swipe") => {
+      trackRecordsMonthChanged({ delta, method });
+      setSlideFrom(delta < 0 ? "left" : "right");
+      setMonth((current) => shiftMonth(current, delta));
+    },
+    [setMonth],
   );
-}
 
-function RecordsContent({ userId }: { userId: number }) {
-  const todayKey = kstDateKey();
-  const [selectedKey, setSelectedKey] = useState(todayKey);
-  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
-
-  const { day, studiedDates, streakBanner } = useRecordsData(userId, selectedKey, month, todayKey);
-
-  // streakBanner는 훅이 렌더마다 새로 만드는 포장 객체라 통째로 의존하면 메모가 무효화된다 —
-  // 안쪽의 안정된 배열(doneDates)만 꺼내 의존한다(위 sessions 메모와 같은 패턴, 리뷰 반영).
-  const streakDoneDates = streakBanner.status === "success" ? streakBanner.doneDates : undefined;
-  const weekDays = useMemo<StreakWeekDay[]>(() => {
-    if (streakDoneDates === undefined) {
-      return [];
-    }
-    const done = new Set(streakDoneDates);
-    return weekDateKeys(todayKey).map((dateKey) => ({
-      dateKey,
-      weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
-      dayOfMonth: dayOfDateKey(dateKey),
-      state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
-    }));
-  }, [streakDoneDates, todayKey]);
+  const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
-  // (day.stats.sessions)로 건다 — 데이터가 같으면 참조가 유지되어 메모가 실제로 동작한다(리뷰 반영).
+  // (day.stats.sessions)로 건다 — 데이터가 같으면 참조가 유지되어 메모가 실제로 동작한다.
   const daySessions = day.status === "success" ? day.stats.sessions : undefined;
   const sessions = useMemo(
     () =>
@@ -82,45 +70,64 @@ function RecordsContent({ userId }: { userId: number }) {
   );
 
   return (
-    <div className="mt-[13px]">
-      {streakBanner.status === "pending" && <Skeleton className="h-[92px] rounded-2xl" />}
-      {streakBanner.status === "success" && (
-        <StreakBanner streakDays={streakBanner.streakDays} days={weekDays} />
-      )}
-      {/* hidden이면 아무것도 그리지 않는다 — 오류·재시도는 아래 일별 기록 ErrorState가 대표(2026-07-28 확정) */}
+    <div>
+      {/* 월 이동 — 카드 밖에 둔다(Figma v2). MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
+          카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
+      <div className="flex items-center justify-center gap-1.5 pt-4">
+        <button
+          type="button"
+          aria-label="이전 달"
+          onClick={() => changeMonth(-1, "button")}
+          className="flex size-11 items-center justify-center"
+        >
+          <IconChevronLeft size={13} color="var(--color-foreground)" />
+        </button>
+        <span className="px-2.5 text-[15px] font-bold text-foreground">{monthLabel(month)}</span>
+        <button
+          type="button"
+          aria-label="다음 달"
+          onClick={() => changeMonth(1, "button")}
+          className="flex size-11 items-center justify-center"
+        >
+          <IconChevronRight size={13} color="var(--color-foreground)" />
+        </button>
+      </div>
 
-      <div className="mt-6">
+      {period.status === "success" && (
+        <MonthSummary
+          month={month}
+          todayKey={todayKey}
+          daily={period.daily}
+          compareDaily={period.compareDaily}
+        />
+      )}
+
+      <div className="mt-[18px]">
         <MonthCalendar
           month={month}
           todayKey={todayKey}
           selectedKey={selectedKey}
-          studiedDates={studiedDates}
+          dayFocusSec={dayFocusSec}
           onSelectDate={(dateKey) => {
             // 절대 날짜 대신 오늘 여부·기록 유무만(BY-616 확장) — 과거 탐색 깊이의 근사.
             trackRecordsDateSelected({
               isToday: dateKey === todayKey,
-              hasRecords: studiedDates.includes(dateKey),
+              hasRecords: (dayFocusSec.get(dateKey) ?? 0) > 0,
             });
             setSelectedKey(dateKey);
           }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
-          onPrevMonth={() => setMonth((current) => shiftMonth(current, -1))}
-          onNextMonth={() => setMonth((current) => shiftMonth(current, 1))}
+          slideFrom={slideFrom}
+          onSwipeMonth={(delta) => changeMonth(delta, "swipe")}
         />
       </div>
 
       {day.status === "pending" && (
         <div className="mt-6 flex flex-col gap-2.5">
           <Skeleton className="h-[21px] w-40 rounded-md" />
-          <div className="flex flex-row gap-2.5">
-            <Skeleton className="h-[92px] flex-1 rounded-2xl" />
-            <Skeleton className="h-[92px] flex-1 rounded-2xl" />
-          </div>
-          <div className="flex flex-row gap-2.5">
-            <Skeleton className="h-[92px] flex-1 rounded-2xl" />
-            <Skeleton className="h-[92px] flex-1 rounded-2xl" />
-          </div>
+          <Skeleton className="h-16 rounded-2xl" />
+          <Skeleton className="h-16 rounded-2xl" />
         </div>
       )}
 
@@ -131,49 +138,28 @@ function RecordsContent({ userId }: { userId: number }) {
       )}
 
       {day.status === "success" && (
-        <>
-          <div className="mt-6 flex flex-col gap-2.5">
-            <p className="text-[17px] font-bold leading-[21px] text-foreground">
-              {summaryTitle(selectedKey)}
-            </p>
-            <SummaryTiles stats={day.stats} />
-          </div>
+        <div className="mt-[22px]">
+          <p className="text-base font-extrabold leading-[19px] text-foreground">
+            {dayTitleWithWeekday(selectedKey)}
+          </p>
 
-          {/*
-            학습 요약 → 공부 기록 간격. **Figma 실측은 8px이지만 의도적으로 24px로 벌렸다**
-            (2026-08-01 사용자 확인 — 두 섹션이 붙어 보임).
-
-            같은 화면의 다른 섹션 경계가 전부 24px(스트릭→달력, 달력→학습 요약)인데 여기만
-            8px이라, 두 섹션 제목의 무게가 같은데도 "학습 요약에 딸린 하위 목록"처럼 읽혔다.
-            8px은 섹션 사이가 아니라 섹션 **안**의 간격 크기다.
-          */}
-          <div className="mt-6">
-            <div className="flex flex-row items-end justify-between">
-              <p className="text-[17px] font-bold leading-[21px] text-foreground">공부 기록</p>
-              {/*
-                정렬 컨트롤은 표시만 하고 누를 수 없다 — V1.0은 최신순 고정이고 토글은 M2+다.
-                button으로 감싸지 않는다(눌리는 것처럼 보이면 안 된다). 셰브런을 남길지 제거할지는
-                디자이너 확인 대상이라 Figma 시각을 그대로 유지한다.
-              */}
-              <div className="flex flex-row items-center gap-1 pb-[2px]">
-                <span className="text-[13px] leading-4 text-muted-foreground">최신순</span>
-                <IconChevronDown size={9} />
-              </div>
-            </div>
-
+          <div className="mt-3">
             {sessions.length === 0 ? (
-              <EmptyDayNotice />
+              <div className="flex items-center justify-center rounded-[20px] bg-muted shadow-sb-card py-8">
+                <p className="text-[15px] leading-[22px] text-muted-foreground">
+                  이 날은 기록이 없어요
+                </p>
+              </div>
             ) : (
-              sessions.map((session, index) => (
-                <Fragment key={session.id}>
-                  {/* 아이템 사이 1px 헤어라인 */}
-                  {index > 0 && <div className="h-px bg-border" />}
-                  <SessionListItem session={session} />
-                </Fragment>
-              ))
+              <div className="rounded-[20px] bg-muted shadow-sb-card px-[18px] py-1">
+                {sessions.map((session) => (
+                  // onSelect는 이 티켓에서 넘기지 않는다 — BY-568이 상세 열기를 연결한다.
+                  <SessionListItem key={session.id} session={session} />
+                ))}
+              </div>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -181,21 +167,50 @@ function RecordsContent({ userId }: { userId: number }) {
 
 export function RecordsPage() {
   const userId = useUserId();
+  const todayKey = kstDateKey();
+  // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로)
+  const [mode, setMode] = useState<RecordsView>("daily");
+  // 사용자가 보던 "위치"(일간: 선택 날짜·보이는 달, 주간: 보고 있는 주)는 여기서 소유한다 —
+  // 탭을 바꿔도 서브트리 unmount로 리셋되지 않게 lift state 한다.
+  const [selectedKey, setSelectedKey] = useState(todayKey);
+  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
+  const [weekAnchorKey, setWeekAnchorKey] = useState(todayKey);
 
   return (
     <main
       data-testid="records-page"
-      className="min-h-dvh bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-2xl font-bold leading-[29px] text-foreground">기록</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold leading-[29px] tracking-[-0.48px] text-foreground">
+            기록
+          </h1>
+          {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
+              — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
+          <SegmentedControl value={mode} onChange={setMode} weeklyDisabled={userId === null} />
+        </div>
 
         {userId === null ? (
           <p className="mt-[13px] p-4 text-sm text-muted-foreground">
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
+        ) : mode === "weekly" ? (
+          <WeeklyView
+            userId={userId}
+            todayKey={todayKey}
+            weekAnchorKey={weekAnchorKey}
+            setWeekAnchorKey={setWeekAnchorKey}
+          />
         ) : (
-          <RecordsContent userId={userId} />
+          <RecordsContent
+            userId={userId}
+            todayKey={todayKey}
+            selectedKey={selectedKey}
+            setSelectedKey={setSelectedKey}
+            month={month}
+            setMonth={setMonth}
+          />
         )}
       </div>
     </main>
