@@ -7,10 +7,18 @@ import {
   type ChartConfig,
   ChartLegend,
   ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
 } from "@/components/ui/chart";
 
 import { formatDuration } from "./recordsFormat";
-import { MAX_CHART_HOURS, buildWeekTrendRows, weekTrendPoints } from "./recordsPeriod";
+import {
+  MAX_CHART_HOURS,
+  type WeekTrendRow,
+  buildWeekTrendRows,
+  weekTrendPoints,
+  weekTrendTooltipDuration,
+} from "./recordsPeriod";
 
 /**
  * 주간 추이 영역차트 (선 + 선 아래 그라데이션 채움)
@@ -124,7 +132,38 @@ export function WeekTrendChart({
             width={28}
             tickFormatter={(value: number) => (value >= MAX_CHART_HOURS ? "12+" : String(value))}
           />
-          {/* 지난주를 먼저 그려 이번 주 선·채움이 위에 오게 한다. */}
+          {/* 요일 호버/탭 시 그 요일의 이번 주·지난주 순공시간을 함께 보여준다.
+              값은 clamp 전 원본 초(row.*Sec)를 formatDuration으로 표기한다. 미래 요일(이번 주 값 null)은
+              recharts 기본 filterNull이 payload에서 빼므로 이번 주 항목이 아예 안 뜬다(0시간 오해 방지). */}
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(_value, _name, item) => {
+                  const row = item.payload as WeekTrendRow;
+                  const series = item.dataKey === "lastWeek" ? "lastWeek" : "thisWeek";
+                  const text = weekTrendTooltipDuration(
+                    series === "thisWeek" ? row.thisWeekSec : row.lastWeekSec,
+                  );
+                  if (text === null) {
+                    return null;
+                  }
+                  return (
+                    <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                          style={{ backgroundColor: `var(--color-${series})` }}
+                        />
+                        {chartConfig[series].label}
+                      </span>
+                      <span className="font-medium tabular-nums text-foreground">{text}</span>
+                    </div>
+                  );
+                }}
+              />
+            }
+          />
+          {/* 이번 주 차트가 지난주 차트 위에 오게 한다. */}
           <Area
             dataKey="lastWeek"
             type="linear"

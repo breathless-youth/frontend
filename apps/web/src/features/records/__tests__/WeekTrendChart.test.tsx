@@ -53,6 +53,21 @@ describe("WeekTrendChart", () => {
     expect(screen.getByText("지난주")).toBeInTheDocument();
   });
 
+  it("툴팁을 마운트한다 — 호버 상세용 Tooltip 래퍼가 크래시 없이 렌더된다", () => {
+    // recharts 툴팁 내용은 호버 시에만 뜨므로 jsdom에선 값 검증이 어렵다.
+    // 여기서는 Tooltip이 차트에 붙어 래퍼가 렌더되고 크래시가 없는지만 확인한다.
+    const { container } = render(
+      <WeekTrendChart
+        daily={thisWeek}
+        compareDaily={lastWeek}
+        todayKey={SUNDAY}
+        todayIndex={null}
+      />,
+    );
+
+    expect(container.querySelector(".recharts-tooltip-wrapper")).not.toBeNull();
+  });
+
   it("범례는 겹침(Area) 순서와 무관하게 이번 주 → 지난주 순서로 나온다", () => {
     const { container } = render(
       <WeekTrendChart
