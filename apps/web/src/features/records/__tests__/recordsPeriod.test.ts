@@ -10,13 +10,16 @@ import {
   isFutureMonth,
   isFutureWeek,
   mondayWeekDateKeys,
+  monthFocusDeltaSec,
   monthRanges,
   studiedDayCount,
   studiedRatioPercent,
   sumFocusSec,
   toChartHours,
+  weekFocusDeltaSec,
   weekRanges,
   weekTrendPoints,
+  weekTrendTooltipDuration,
 } from "../recordsPeriod";
 
 const day = (date: string, focusSec: number) => ({ date, studySec: focusSec + 100, focusSec });
@@ -190,6 +193,78 @@ describe("isFutureWeek — 그 주 월요일이 오늘보다 미래", () => {
     // 09-23(수) 앵커의 주 월요일은 09-21 > 오늘 09-16.
     expect(isFutureWeek("2026-09-23", "2026-09-16")).toBe(true);
     expect(isFutureWeek("2026-09-21", "2026-09-16")).toBe(true); // 다음 주 월요일 앵커
+  });
+});
+
+describe("weekFocusDeltaSec — 같은 경과 기간끼리 비교", () => {
+  it("진행 중인 주(월요일=경과 1일)면 지난주도 월요일까지만 비교한다", () => {
+    // 2026-09-21(월) 앵커·오늘. 이번 주는 월 하루, 지난주는 7일 전체가 내려와도 월요일까지만 본다.
+    const daily = [day("2026-09-21", 2 * 3600)]; // 월 2시간
+    const compare = [
+      day("2026-09-14", 3600), // 지난주 월 1시간 (비교 대상)
+      day("2026-09-15", 5 * 3600), // 지난주 화 (제외)
+      day("2026-09-20", 3 * 3600), // 지난주 일 (제외)
+    ];
+    // 전체 vs 전체라면 2h - 9h = -7h이지만, 월요일까지만 보면 2h - 1h = +1h.
+    expect(weekFocusDeltaSec(daily, compare, "2026-09-21", "2026-09-21")).toBe(3600);
+  });
+
+  it("완료된 과거 주는 전체 vs 전체로 비교한다", () => {
+    // 오늘 2026-09-25. 보는 주(월 09-14~일 09-20)는 완료된 과거.
+    const daily = [day("2026-09-14", 2 * 3600), day("2026-09-20", 3 * 3600)]; // 5시간
+    const compare = [day("2026-09-07", 3600)]; // 1시간
+    expect(weekFocusDeltaSec(daily, compare, "2026-09-14", "2026-09-25")).toBe(4 * 3600);
+  });
+});
+
+describe("monthFocusDeltaSec — 같은 경과 기간끼리 비교", () => {
+  it("진행 중인 달(5일)이면 지난달도 1~5일까지만 비교한다", () => {
+    const month = { year: 2026, month: 9 };
+    const daily = [
+      day("2026-09-01", 3600), // 1일 1시간
+      day("2026-09-05", 2 * 3600), // 5일(오늘) 2시간
+      day("2026-09-10", 5 * 3600), // 10일 미래 → 제외
+    ];
+    const compare = [
+      day("2026-08-01", 3600), // 지난달 1일 (비교)
+      day("2026-08-05", 4 * 3600), // 지난달 5일 (비교)
+      day("2026-08-20", 4 * 3600), // 지난달 20일 → 제외
+    ];
+    // 이번 달 1~5일 합 3h - 지난달 1~5일 합 5h = -2h.
+    expect(monthFocusDeltaSec(daily, compare, month, "2026-09-05")).toBe(-2 * 3600);
+  });
+
+  it("완료된 과거 달은 전체 vs 전체로 비교한다", () => {
+    // 오늘 2026-09-25. 보는 달은 8월(완료).
+    const month = { year: 2026, month: 8 };
+    const daily = [day("2026-08-01", 3600), day("2026-08-31", 5 * 3600)]; // 6시간
+    const compare = [day("2026-07-15", 2 * 3600)]; // 2시간
+    expect(monthFocusDeltaSec(daily, compare, month, "2026-09-25")).toBe(4 * 3600);
+  });
+});
+
+describe("weekTrendTooltipDuration — 툴팁 순공시간 표기", () => {
+  it("원본 초를 사람이 읽는 길이로 바꾼다(clamp 전 값이라 12h 초과도 정확)", () => {
+    expect(weekTrendTooltipDuration(2 * 3600 + 30 * 60)).toBe("2시간 30분");
+    expect(weekTrendTooltipDuration(15 * 3600)).toBe("15시간"); // 차트는 12h clamp지만 툴팁은 원본
+    expect(weekTrendTooltipDuration(0)).toBe("0분");
+  });
+
+  it("미래 요일·기록 없음(null)은 표시하지 않도록 null을 돌려준다", () => {
+    expect(weekTrendTooltipDuration(null)).toBeNull();
+  });
+});
+
+describe("buildWeekTrendRows — 툴팁용 원본 초 동봉", () => {
+  it("clamp된 차트 값과 함께 clamp 전 원본 초도 담는다", () => {
+    const rows = buildWeekTrendRows(
+      [day("2026-09-14", 15 * 3600)], // 월: 15시간(12h 초과)
+      [],
+      "2026-09-20",
+    );
+    expect(rows[0]?.thisWeek).toBe(12); // 차트 값은 clamp
+    expect(rows[0]?.thisWeekSec).toBe(15 * 3600); // 툴팁 원본은 그대로
+    expect(rows[3]?.thisWeekSec).toBeNull(); // 기록 없는 요일
   });
 });
 

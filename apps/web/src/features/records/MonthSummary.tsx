@@ -2,7 +2,7 @@ import type { DailyStudyStat } from "@focusmakers/types";
 
 import { FocusDeltaLabel } from "./FocusDeltaLabel";
 import { type CalendarMonth, formatDuration } from "./recordsFormat";
-import { focusDeltaSec, isFutureMonth, sumFocusSec } from "./recordsPeriod";
+import { isFutureMonth, monthFocusDeltaSec, sumFocusSec } from "./recordsPeriod";
 
 /**
  * 월 순공 합계와 지난달 대비 증감. period 응답의 dailyList·compareDailyList를
@@ -24,7 +24,7 @@ export function MonthSummary({
   compareDaily: readonly DailyStudyStat[];
 }) {
   const total = sumFocusSec(daily);
-  const delta = focusDeltaSec(daily, compareDaily);
+  const delta = monthFocusDeltaSec(daily, compareDaily, month, todayKey);
 
   return (
     <div className="flex flex-col items-center gap-1 pt-3">

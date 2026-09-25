@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { FocusDeltaLabel } from "./FocusDeltaLabel";
 import { IconChevronLeft, IconChevronRight } from "./icons";
 import { dayOfDateKey, formatDuration, monthOfDateKey } from "./recordsFormat";
-import { focusDeltaSec, isFutureWeek, mondayWeekDateKeys, sumFocusSec } from "./recordsPeriod";
+import { isFutureWeek, mondayWeekDateKeys, sumFocusSec, weekFocusDeltaSec } from "./recordsPeriod";
 
 /**
  * 주간 헤더 — 주 범위 네비 + 이번 주 순공 + 지난주 대비 증감.
@@ -77,6 +77,8 @@ export function WeekHeader({
         metricsStatus={metricsStatus}
         daily={daily}
         compareDaily={compareDaily}
+        weekAnchorKey={weekAnchorKey}
+        todayKey={todayKey}
         hideDelta={isFutureWeek(weekAnchorKey, todayKey)}
       />
     </div>
@@ -87,11 +89,15 @@ function WeekMetrics({
   metricsStatus,
   daily,
   compareDaily,
+  weekAnchorKey,
+  todayKey,
   hideDelta,
 }: {
   metricsStatus: "pending" | "error" | "success";
   daily?: readonly DailyStudyStat[];
   compareDaily?: readonly DailyStudyStat[];
+  weekAnchorKey: string;
+  todayKey: string;
   /** 미래 주면 순공 합계는 두되 증감(FocusDeltaLabel)은 그리지 않는다. */
   hideDelta: boolean;
 }) {
@@ -110,7 +116,7 @@ function WeekMetrics({
   }
 
   const total = sumFocusSec(daily ?? []);
-  const delta = focusDeltaSec(daily ?? [], compareDaily ?? []);
+  const delta = weekFocusDeltaSec(daily ?? [], compareDaily ?? [], weekAnchorKey, todayKey);
   return (
     <div className="flex flex-col items-center gap-1 pt-3">
       <p className="text-[13px] leading-4 text-muted-foreground">이번 주 순공시간</p>

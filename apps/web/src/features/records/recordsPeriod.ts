@@ -6,6 +6,7 @@ import {
   type CalendarMonth,
   addDaysToDateKey,
   dayOfDateKey,
+  formatDuration,
   isDateKeyInMonth,
   isFutureDateKey,
   mondayIndexOfDateKey,
@@ -79,12 +80,65 @@ export function sumFocusSec(daily: readonly DailyStudyStat[]): number {
   return daily.reduce((sum, day) => sum + day.focusSec, 0);
 }
 
-/** 지난 기간 대비 순공 증감(초) — 양수면 늘었다. 헤더의 "지난주보다 N 늘었어요". */
+/** 지난 기간 대비 순공 증감(초) — 양수면 늘었다. 완료된 과거 기간의 전체 vs 전체 비교에 쓴다. */
 export function focusDeltaSec(
   daily: readonly DailyStudyStat[],
   compareDaily: readonly DailyStudyStat[],
 ): number {
   return sumFocusSec(daily) - sumFocusSec(compareDaily);
+}
+
+/** 조건에 맞는 날만 합산한 순공 초. */
+function sumFocusWhere(daily: readonly DailyStudyStat[], keep: (date: string) => boolean): number {
+  return sumFocusSec(daily.filter((day) => keep(day.date)));
+}
+
+/**
+ * 주간 순공 증감(초) — "같은 경과 기간끼리" 비교.
+ *
+ * 진행 중인 주(오늘이 그 주에 포함)면 이번 주는 오늘까지, 지난주는 같은 요일까지만 합산해 견준다
+ * (주 초에 "이번 주 하루 vs 지난주 7일 전체"로 항상 크게 줄어 보이는 버그를 막는다).
+ * 완료된 과거 주(또는 숨겨지는 미래 주)는 전체 vs 전체다.
+ */
+export function weekFocusDeltaSec(
+  daily: readonly DailyStudyStat[],
+  compareDaily: readonly DailyStudyStat[],
+  weekAnchorKey: string,
+  todayKey: string,
+): number {
+  const week = mondayWeekDateKeys(weekAnchorKey);
+  const inProgress = !isFutureDateKey(week[0]!, todayKey) && !isFutureDateKey(todayKey, week[6]!); // 월≤오늘≤일
+  if (!inProgress) {
+    return focusDeltaSec(daily, compareDaily);
+  }
+  const todayMondayIndex = mondayIndexOfDateKey(todayKey);
+  const thisSum = sumFocusWhere(daily, (date) => !isFutureDateKey(date, todayKey));
+  const lastSum = sumFocusWhere(
+    compareDaily,
+    (date) => mondayIndexOfDateKey(date) <= todayMondayIndex,
+  );
+  return thisSum - lastSum;
+}
+
+/**
+ * 월간 순공 증감(초) — "같은 경과 기간끼리" 비교.
+ *
+ * 진행 중인 달(오늘이 그 달)이면 이번 달은 오늘까지, 지난달은 같은 '일'까지만 합산해 견준다.
+ * 완료된 과거 달(또는 숨겨지는 미래 달)은 전체 vs 전체다.
+ */
+export function monthFocusDeltaSec(
+  daily: readonly DailyStudyStat[],
+  compareDaily: readonly DailyStudyStat[],
+  month: CalendarMonth,
+  todayKey: string,
+): number {
+  if (!isDateKeyInMonth(todayKey, month)) {
+    return focusDeltaSec(daily, compareDaily);
+  }
+  const todayDay = dayOfDateKey(todayKey);
+  const thisSum = sumFocusWhere(daily, (date) => !isFutureDateKey(date, todayKey));
+  const lastSum = sumFocusWhere(compareDaily, (date) => dayOfDateKey(date) <= todayDay);
+  return thisSum - lastSum;
 }
 
 /** 가장 오래 공부한 날 — "이 달 최고 기록". 기록이 없으면 null, 동률이면 앞 날짜. */
@@ -121,9 +175,9 @@ export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, 
 export const MAX_CHART_HOURS = 12;
 
 /** 월요일 시작 7칸. XAxis 눈금 순서이자 슬롯 인덱스다. */
-export const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
 
-export type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
+type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
 
 /** 순공 초 → 시간, `MAX_CHART_HOURS`에서 clamp(축이 튀지 않게). */
 export function toChartHours(focusSec: number): number {
@@ -131,7 +185,7 @@ export function toChartHours(focusSec: number): number {
 }
 
 /** 요일별 순공 초(월~일). 미래 요일·기록 없는 요일은 `null`이다. */
-export interface WeekTrendPoint {
+interface WeekTrendPoint {
   day: ChartWeekday;
   thisWeekSec: number | null;
   lastWeekSec: number | null;
@@ -172,14 +226,20 @@ export function weekTrendPoints(
   return points;
 }
 
-/** 차트 선이 읽는 행 — 값은 clamp된 시간, 미래/기록 없음은 `null`. */
+/**
+ * 차트 선이 읽는 행.
+ * - `thisWeek`/`lastWeek`: 선이 그리는 값 — `MAX_CHART_HOURS`로 clamp된 시간(미래/기록 없음은 `null`).
+ * - `thisWeekSec`/`lastWeekSec`: 툴팁용 clamp 전 원본 순공 초 — 12h 초과여도 실제 값을 정확히 보여준다.
+ */
 export interface WeekTrendRow {
   day: ChartWeekday;
   thisWeek: number | null;
   lastWeek: number | null;
+  thisWeekSec: number | null;
+  lastWeekSec: number | null;
 }
 
-/** `weekTrendPoints`의 초를 clamp된 시간으로 바꾼 차트 행. */
+/** `weekTrendPoints`의 초를 clamp된 시간으로 바꾼 차트 행(원본 초도 함께 담아 툴팁이 정확히 쓰게 한다). */
 export function buildWeekTrendRows(
   daily: readonly DailyStudyStat[],
   compareDaily: readonly DailyStudyStat[],
@@ -189,7 +249,17 @@ export function buildWeekTrendRows(
     day: point.day,
     thisWeek: point.thisWeekSec === null ? null : toChartHours(point.thisWeekSec),
     lastWeek: point.lastWeekSec === null ? null : toChartHours(point.lastWeekSec),
+    thisWeekSec: point.thisWeekSec,
+    lastWeekSec: point.lastWeekSec,
   }));
+}
+
+/**
+ * 툴팁 한 항목의 순공시간 표기 — clamp 전 원본 초를 사람이 읽는 길이로.
+ * 값이 `null`(미래 요일·기록 없음)이면 `null`을 돌려 그 항목을 아예 표시하지 않게 한다(0시간 오해 방지).
+ */
+export function weekTrendTooltipDuration(focusSec: number | null): string | null {
+  return focusSec === null ? null : formatDuration(focusSec);
 }
 
 /**
