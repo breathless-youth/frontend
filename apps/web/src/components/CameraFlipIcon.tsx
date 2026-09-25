@@ -13,7 +13,7 @@ export function CameraFlipIcon({ turns, className }: { turns: number; className?
       {/* 혹+몸통을 한 path로(겹치면 경계선이 남는다). 혹 옆면은 대각선 사다리꼴 — 2026-08-25 레퍼런스. */}
       <path
         d="M7.8 7.2l2-2.2h4.4l2 2.2H18.2a3 3 0 0 1 3 3v6.6a3 3 0 0 1-3 3H5.8a3 3 0 0 1-3-3v-6.6a3 3 0 0 1 3-3Z"
-        stroke="white"
+        stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -25,26 +25,26 @@ export function CameraFlipIcon({ turns, className }: { turns: number; className?
       >
         <path
           d="M8.5 13a3.6 3.6 0 0 1 6.3-1.4"
-          stroke="white"
+          stroke="currentColor"
           strokeWidth="1.6"
           strokeLinecap="round"
         />
         <path
           d="M15.2 9.4v2.4h-2.4"
-          stroke="white"
+          stroke="currentColor"
           strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
           d="M15.5 14a3.6 3.6 0 0 1-6.3 1.4"
-          stroke="white"
+          stroke="currentColor"
           strokeWidth="1.6"
           strokeLinecap="round"
         />
         <path
           d="M8.8 17.6v-2.4h2.4"
-          stroke="white"
+          stroke="currentColor"
           strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"

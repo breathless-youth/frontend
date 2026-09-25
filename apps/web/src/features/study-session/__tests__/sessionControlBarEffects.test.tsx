@@ -31,8 +31,10 @@ describe("SessionControlBar 버튼 효과 (BY-435)", () => {
 
   it("일시정지↔재개 아이콘은 팝 애니메이션으로 교체된다", () => {
     renderBar();
-    const icon = screen.getByRole("button", { name: "일시정지" }).querySelector("img");
-    expect(icon?.className).toContain("control-icon-pop");
+    const icon = screen
+      .getByRole("button", { name: "일시정지" })
+      .querySelector('[data-testid="icon-pause"]');
+    expect(icon?.getAttribute("class")).toContain("control-icon-pop");
   });
 
   it("버튼은 눌림 스케일 효과를 가진다", () => {
