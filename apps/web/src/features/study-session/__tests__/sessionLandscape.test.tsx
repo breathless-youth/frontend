@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "@/routes/RoomPage";
 
-import { SessionCaption } from "../components/SessionCaption";
 import { SessionControlBar } from "../components/SessionControlBar";
 import { SessionTimer } from "../components/SessionTimer";
 import { sessionSurfaceStyle } from "../sessionTheme";
@@ -27,8 +26,9 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
  *
  * ⚠️ jsdom은 클래스에 붙은 `@media (orientation: landscape)`를 평가하지 않는다. 실제 가로
  * 렌더는 실기기·브라우저 QA의 몫이고, 여기서는 **델타가 코드에 존재하는지**와 **방향이 JS가
- * 아니라 CSS로 갈리는지**(회전 시 DOM이 유지되는지)를 고정한다. 치수 자체는 미디어쿼리 없이
- * 검증할 수 있도록 `SessionControlBar`의 `size="sm"`을 직접 렌더해서 확인한다.
+ * 아니라 CSS로 갈리는지**(회전 시 DOM이 유지되는지)를 고정한다. `SessionControlBar`는 세로·
+ * 가로가 같은 고정 54px 치수를 쓰고(`size` prop 자체가 없다 — 방향별 variant 없음), 그래서
+ * 미디어쿼리 없이 직접 렌더해 치수를 확인할 수 있다.
  */
 
 function renderRoom(url = "/room/7?userId=1") {
@@ -43,11 +43,10 @@ function renderRoom(url = "/room/7?userId=1") {
 
 const noop = () => {};
 
-function renderControlBar(size?: "md" | "sm" | "responsive") {
+function renderControlBar() {
   return render(
     <SessionControlBar
       paused={false}
-      size={size}
       onTogglePause={noop}
       onFlipCamera={noop}
       onRequestExit={noop}
@@ -55,65 +54,27 @@ function renderControlBar(size?: "md" | "sm" | "responsive") {
   );
 }
 
-describe("SessionControlBar — 가로 축소 변형 (S3-5 `61:463`)", () => {
-  it("size=sm은 218×68 축소 치수를 쓴다 — 바 높이 68 · 간격 20 · 패딩 22/13/9", () => {
-    renderControlBar("sm");
-
-    const bar = screen.getByRole("group", { name: "세션 컨트롤" });
-    expect(bar.className).toContain("h-[68px]");
-    expect(bar.className).toContain("gap-5");
-    expect(bar.className).toContain("px-[22px]");
-    expect(bar.className).toContain("pt-[13px]");
-    expect(bar.className).toContain("pb-[9px]");
-  });
-
-  it("드래그 핸들은 렌더되지 않는다 (2026-08-25 BY-427 — 동작 없는 장식 제거)", () => {
-    const { container } = renderControlBar("sm");
-
-    expect(container.querySelector('[aria-hidden="true"][class*="w-7"]')).toBeNull();
-    expect(container.querySelector('[class*="bg-white/22"]')).toBeNull();
-  });
-
-  it("가로에서도 버튼 히트 영역이 44px 미만으로 줄지 않는다 (접근성 최소치)", () => {
-    renderControlBar("sm");
+describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
+  it("바 버튼 3개가 모두 54px 원형이다 — 방향과 무관하게 고정", () => {
+    renderControlBar();
 
     for (const name of ["일시정지", "카메라 전환", "공부 종료"]) {
-      expect(screen.getByRole("button", { name }).className).toContain("size-[44px]");
+      const button = screen.getByRole("button", { name });
+      expect(button.className).toContain("h-[54px]");
+      expect(button.className).toContain("w-[54px]");
     }
   });
 
-  it("세로 md는 50px 버튼을 유지한다 — 그룹 간 축소 금지", () => {
-    renderControlBar("md");
-
-    expect(screen.getByRole("button", { name: "일시정지" }).className).toContain("size-[50px]");
-    expect(screen.getByRole("group", { name: "세션 컨트롤" }).className).toContain("gap-[22px]");
-  });
-
   it("버튼 구성·순서·색은 세로와 가로가 공유한다 — 가로 전용 컴포넌트를 만들지 않는다", () => {
-    const { container } = renderControlBar("sm");
+    const { container } = renderControlBar();
 
     const labels = [...container.querySelectorAll("button")].map((button) =>
       button.getAttribute("aria-label"),
     );
     expect(labels).toEqual(["일시정지", "카메라 전환", "공부 종료"]);
     expect(screen.getByRole("button", { name: "공부 종료" }).className).toContain(
-      "bg-[var(--session-exit-bg)]",
+      "bg-[var(--session-control-exit-bg)]",
     );
-  });
-
-  it("기본값은 하나의 DOM으로 세로·가로를 모두 그린다 — 회전에 언마운트가 없다", () => {
-    renderControlBar();
-
-    const bar = screen.getByRole("group", { name: "세션 컨트롤" });
-    expect(bar.className).toContain("h-20");
-    expect(bar.className).toContain("landscape:h-[68px]");
-
-    const pauseButton = screen.getByRole("button", { name: "일시정지" });
-    expect(pauseButton.className).toContain("size-[50px]");
-    expect(pauseButton.className).toContain("landscape:size-[44px]");
-    // 아이콘도 버튼과 같은 비율(44/50)로 줄어든다 — pause는 Figma 실측(16×18) 그대로다.
-    expect(pauseButton.querySelector("img")!.className).toContain("h-[18px]");
-    expect(pauseButton.querySelector("img")!.className).toContain("landscape:h-[15.8px]");
   });
 });
 
@@ -163,17 +124,6 @@ describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", (
     // 가로 심플 56px — Figma `61:531` 실측 26 / 64px과 1px 이내(육안 식별 불가).
     expect(Math.abs(near! * 56 - 26)).toBeLessThan(1);
     expect(Math.abs(far! * 56 - 64)).toBeLessThan(1);
-  });
-});
-
-describe("SessionCaption — 가로 축소 (S3-5 `61:462`)", () => {
-  it("가로에서 11px/45%로 줄어든다", () => {
-    render(<SessionCaption text="영상은 기기 안에서만 처리돼요" />);
-
-    const caption = screen.getByText("영상은 기기 안에서만 처리돼요");
-    expect(caption.className).toContain("text-[12px]");
-    expect(caption.className).toContain("landscape:text-[11px]");
-    expect(caption.className).toContain("landscape:text-white/45");
   });
 });
 
@@ -243,15 +193,6 @@ describe("RoomPage — 가로(거치) 배치", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
-    // 가로 비집중·일시정지는 Figma 미설계 — 서브 문구는 세로와 같이 필 바로 아래에 둔다.
-    expect(screen.getByText("다시 시작하면 이어서 측정돼요")).toBeInTheDocument();
-  });
-
-  it("가로에서도 싱글룸 프라이버시 문구만 쓴다", () => {
-    renderRoom();
-
-    expect(screen.getByText("영상은 기기 안에서만 처리돼요")).toBeInTheDocument();
-    expect(screen.queryByText(/서버로 전송되지 않/)).not.toBeInTheDocument();
   });
 
   it("심플 배경은 세로·가로가 같은 값을 쓴다 — 회전할 때 배경이 깜빡이지 않는다", () => {

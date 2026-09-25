@@ -17,7 +17,6 @@ import { createMediaStreamCameraAdapter } from "@/features/study-session/adapter
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
-import { SessionCaption } from "@/features/study-session/components/SessionCaption";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionControlBar } from "@/features/study-session/components/SessionControlBar";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
@@ -30,7 +29,6 @@ import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDu
 import {
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
-  captionFor,
   exitConfirmDescription,
   statusCopyFor,
 } from "@/features/study-session/sessionCopy";
@@ -73,7 +71,7 @@ import { cn } from "@/lib/utils";
  * ```text
  * row1 |        | 상태 필 | 순공 타이머(프리뷰) |  ← 필은 상단 중앙, 타이머는 우상단
  * row2 |         (심플 타이머 / 여백)          |  ← 1fr — 남는 세로 공간
- * row3 |               캡션                    |
+ * row3 |          (빈 트랙 — 캡션 제거로 비었다)  |
  * row4 |            컨트롤 바                  |
  * row5 |          userId 미지정 안내           |
  * ```
@@ -183,9 +181,9 @@ function useRotationPhase(): RotationPhase {
  * 세션 화면
  *
  * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
- *   상태 필·타이머 색·컨트롤 바 첫 버튼·하단 캡션이 여기 반응한다.
+ *   상태 필·타이머 색·컨트롤 바 첫 버튼이 여기 반응한다.
  * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
- *   카메라 프리뷰·하단 캡션의 유무와 타이머 발광·세로 배치가 여기 반응한다.
+ *   카메라 프리뷰 유무와 타이머 발광·세로 배치가 여기 반응한다.
  *
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
@@ -449,7 +447,7 @@ function RoomSessionScreen({
       ref={sessionSurfaceRef}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
-      // 컨트롤 바 아이콘(`<img>`)과 캡션·타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
+      // 컨트롤 바 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
       // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
       onDragStart={(event) => event.preventDefault()}
@@ -505,13 +503,11 @@ function RoomSessionScreen({
               onClick={() => setAmbientSheetOpen(true)}
               className="absolute top-[calc(env(safe-area-inset-top)+13px)] right-[calc(env(safe-area-inset-right)+24px)] landscape:top-[calc(env(safe-area-inset-top)+90px)] landscape:right-[calc(env(safe-area-inset-right)+28px)]"
             />
-            {/* 가로에서도 상단 중앙 — 서브 문구(비집중·일시정지)는 세로와 같이 필 바로 아래에
-                붙는다. 가로 비집중·일시정지 프레임은 Figma 미설계라(SCR-S3-5·S3-6 Current
-                Limitations 3) 세로와 같은 상대 위치를 유지하는 가장 보수적인 배치를 쓴다. */}
+            {/* 가로에서도 상단 중앙에 둔다. 가로 비집중·일시정지 프레임은 Figma 미설계라(SCR-S3-5·S3-6
+                Current Limitations 3) 세로와 같은 상대 위치를 유지하는 가장 보수적인 배치를 쓴다. */}
             <SessionStatusPill
               state={pillState}
               label={statusCopy.label}
-              subLabel={statusCopy.subLabel}
               className="landscape:col-start-2 landscape:row-start-1 landscape:justify-self-center"
             />
 
@@ -535,7 +531,7 @@ function RoomSessionScreen({
                 프리뷰의 음수 마진은 타이머를 레이어 패딩(우 28px) 안쪽에서 **우측 모서리로
                 끌어당긴다**(BY-336 확인: 상단은 그대로, 우측만 — Figma 실측 우28에서 의도적으로
                 이탈, 결과 여백은 우 8px + safe-area). 패딩 자체를 줄이지 않는 이유는 그 패딩이
-                상태 필·컨트롤 바·캡션까지 함께 밀기 때문이고, 음수 마진은 safe-area 몫을
+                상태 필·컨트롤 바까지 함께 밀기 때문이고, 음수 마진은 safe-area 몫을
                 침범하지 않는다 — 노치 쪽 인셋은 그대로 남는다. */}
             <SessionTimer
               focusSec={focusSec}
@@ -549,32 +545,12 @@ function RoomSessionScreen({
               }
             />
 
-            {/* 캡션은 심플 모드에 존재하지 않는 행이다(S3-4·S3-6 프레임 실측 — 프리뷰와 함께
-                사라진다). 프리뷰에서는 일시정지 여부에 따라 프라이버시 캡션 ↔ 일시정지 캡션이
-                교체된다. 가로에서는 컨트롤 바 바로 위 자기 행을 갖는다(간격은 바가 준다).
-
-                래퍼가 세로에서 캡션 높이(14px+mt 8px)를 **상주 예약**한다 — 캡션을 그냥
-                언마운트하면 전환 시작 프레임에 그 높이가 flex 가용 공간으로 즉시 편입/이탈해
-                타이머가 한 프레임에 스텝 점프한 뒤 미끄러지기 시작한다(BY-336).
-                텍스트는 여전히 DOM에서 빠지므로 "심플 모드에 캡션 없음" 스펙은 그대로다 —
-                텍스트 자체가 0ms에 사라지는 것은 알고 남긴 트레이드오프다(페이드를 주려면
-                지연 언마운트가 필요해 DOM 부재 스펙·테스트와 충돌한다).
-                높이 예약은 세로 전용이다: 가로는 스페이서가 없어 이 문제가 없고 캡션이
-                11px/13px로 줄므로 `landscape:h-auto`로 되돌린다. 빈 래퍼가 그리드 행 트랙을
-                차지하지 않도록 심플일 때는 숨긴다. */}
-            <div
-              className={cn(
-                "mt-2 h-[14px] landscape:col-span-full landscape:row-start-3 landscape:mt-0 landscape:h-auto landscape:justify-self-center",
-                simpleMode && "landscape:hidden",
-              )}
-            >
-              {!simpleMode && <SessionCaption text={captionFor(sessionState)} />}
-            </div>
-
             <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
-            {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute. */}
-            <div className="relative mt-4 flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
+            {/* 토스트는 컨트롤 바 위에 띄운다 — 뜨고 사라질 때 레이아웃이 흔들리지 않도록 absolute.
+                캡션 문구는 V2 시안에 없어 지웠다 — mt-[44px]는 그 자리 대신 타이머와 컨트롤 바
+                사이 간격(Figma 실측 — 타이머 하단 y=724 · 컨트롤 바 상단 y=768)을 그대로 유지한다. */}
+            <div className="relative mt-[44px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
               {toastMessage !== null && (
                 <Toast
                   message={toastMessage}

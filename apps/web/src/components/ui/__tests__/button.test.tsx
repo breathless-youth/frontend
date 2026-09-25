@@ -26,4 +26,16 @@ describe("Button", () => {
     render(<Button type="submit">제출</Button>);
     expect(screen.getByRole("button", { name: "제출" })).toHaveAttribute("type", "submit");
   });
+
+  it("icon 크기는 54px 원형이다", () => {
+    render(
+      <Button size="icon" aria-label="아이콘 버튼">
+        A
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "아이콘 버튼" });
+    expect(button.className).toContain("h-[54px]");
+    expect(button.className).toContain("w-[54px]");
+    expect(button.className).toContain("rounded-full");
+  });
 });

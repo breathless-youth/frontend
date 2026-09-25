@@ -2,8 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SessionStatusPill } from "../components/SessionStatusPill";
-import { statusCopyFor } from "../sessionCopy";
-import { distractionState } from "../sessionState";
 
 describe("SessionStatusPill", () => {
   it("자동 감지 변화를 알리도록 라이브 리전으로 렌더한다", () => {
@@ -14,13 +12,15 @@ describe("SessionStatusPill", () => {
     expect(status).toHaveTextContent("순공시간 측정 중");
   });
 
-  it("서브 문구는 필 바깥 아래에 렌더한다", () => {
-    const copy = statusCopyFor(distractionState("PHONE"));
-    render(<SessionStatusPill state="distract" label={copy.label} subLabel={copy.subLabel} />);
+  it("상태별로 Badge variant가 갈린다", () => {
+    const { rerender } = render(<SessionStatusPill state="focus" label="순공시간 측정 중" />);
+    expect(screen.getByRole("status").className).toContain("bg-[var(--session-pill-bg)]");
 
-    const pill = screen.getByText("휴대폰을 사용 중인 것 같아요").parentElement;
-    expect(pill).not.toHaveTextContent("내려놓으면 자동으로 다시 측정돼요");
-    expect(screen.getByText("내려놓으면 자동으로 다시 측정돼요")).toBeInTheDocument();
+    rerender(<SessionStatusPill state="distract" label="휴대폰을 사용 중인 것 같아요" />);
+    expect(screen.getByRole("status").className).toContain("bg-[var(--session-pill-bg-distract)]");
+
+    rerender(<SessionStatusPill state="paused" label="측정을 일시정지했어요" />);
+    expect(screen.getByRole("status").className).toContain("bg-[var(--session-pill-bg-paused)]");
   });
 
   it("색 단독으로 상태를 전달하지 않는다 — 문구가 항상 함께 있다", () => {

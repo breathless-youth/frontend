@@ -105,7 +105,7 @@ export function RoomControlBar({
         className="flex size-[50px] items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
       >
         {/* 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리. */}
-        <CameraFlipIcon turns={flipTurns} className="size-5" />
+        <CameraFlipIcon turns={flipTurns} className="size-5 text-white" />
       </button>
       <button
         type="button"
