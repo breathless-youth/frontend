@@ -56,13 +56,12 @@ const SESSION_SURFACE_VARS = {
   "--session-pill-bg-paused": "rgba(138, 148, 164, 0.3)",
   "--session-pill-border-paused": "rgba(200, 208, 220, 0.36)",
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
-  /** 재개 버튼 — colors.brand.primary.dark(#3182f6)와 Figma S3-3 실측이 일치한다. */
-  "--session-resume-bg": colors.brand.primary.dark,
-  /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
+  /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. `RoomControlBar`와
+   * `RoomPage`/`LiveRoomSession`의 에러 문구 색이 공유해서 값을 바꿀 수 없다. */
   "--session-exit-bg": colors.feedback.error.dark,
   /**
-   * 컨트롤 바 재개·종료 버튼 전용 — `--session-resume-bg`/`--session-exit-bg`와 값이 다르다
-   * (그 두 변수는 다른 화면과 공유돼 값을 바꿀 수 없다). Figma V2 `S1b` control-bar 실측
+   * 컨트롤 바 재개·종료 버튼 전용 — `--session-exit-bg`와 값이 다르다(그 변수는 위처럼 다른
+   * 화면과 공유돼 값을 바꿀 수 없다). Figma V2 `S1b` control-bar 실측
    * (node 5520:5030/5521:5030 — 라이트·다크 동일).
    */
   "--session-control-resume-bg": "#4593fc",

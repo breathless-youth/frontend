@@ -90,7 +90,7 @@ function ControlButton({
     <Button
       type="button"
       size="icon"
-      variant={null}
+      variant="unstyled"
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
@@ -123,6 +123,7 @@ export function SessionControlBar({
             <Play
               key="play"
               data-testid="icon-play"
+              aria-hidden="true"
               fill="currentColor"
               className={cn(CONTROL_ICON_SIZE, ICON_POP_CLASS)}
             />
@@ -130,6 +131,7 @@ export function SessionControlBar({
             <Pause
               key="pause"
               data-testid="icon-pause"
+              aria-hidden="true"
               fill="currentColor"
               className={cn(CONTROL_ICON_SIZE, ICON_POP_CLASS)}
             />
@@ -150,7 +152,13 @@ export function SessionControlBar({
       />
       <ControlButton
         label="공부 종료"
-        icon={<LogOut data-testid="icon-exit" className={cn(CONTROL_ICON_SIZE, ICON_POP_CLASS)} />}
+        icon={
+          <LogOut
+            data-testid="icon-exit"
+            aria-hidden="true"
+            className={cn(CONTROL_ICON_SIZE, ICON_POP_CLASS)}
+          />
+        }
         onClick={onRequestExit}
         variant="exit"
       />
