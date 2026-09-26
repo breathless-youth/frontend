@@ -12,7 +12,6 @@ import { clampSessionSeconds } from "./sessionRequestClamp";
 /**
  * 세션 제출 입력. 이 모듈은 값을 계산하지 않고 받기만 한다 —
  * studySec/focusSec/events는 `sessionTimeline.ts`(순수 로직)가 세션 상태 머신으로 계산해서 넘긴다.
- * 감지 신호는 아직 mock이라 실측 정확도는 실기기 스파이크 이후에 검증한다.
  */
 export interface SessionInput {
   startedAtMs: number;

@@ -8,10 +8,10 @@ import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { RemoteWebViewHost } from "./RemoteWebViewHost";
 
 /**
- * 탭 3개(홈·기록·설정) + 세션이 공유하는 원격 웹뷰 화면 골격(BY-333 2단계).
+ * 탭 4개(홈·기록·소셜·설정)와 세션이 공유하는 원격 웹뷰 화면 골격.
  *
  * 세 가지를 한 곳에 모은다 — 화면마다 복붙하지 않기 위해서다:
- * 1. `useRemoteQueryParams`로 4개 화면이 같은 쿼리 파라미터 세트(appVersion·capability 표시)를 붙인다.
+ * 1. `useRemoteQueryParams`로 모든 화면이 같은 쿼리 파라미터 세트(appVersion·capability 표시)를 붙인다.
  * 2. `handleBridgeMessage`로 브리지 수신(start-session·navigate-home·open-settings 등)을
  *    공용화한다.
  * 3. 파라미터 조립부터 첫 웹뷰 로드가 끝날 때까지 스플래시로 가려 흰 화면을 막는다.
@@ -49,7 +49,7 @@ export type RemoteScreenProps = {
   /**
    * 브리지 수신을 화면이 가로채야 할 때만 넘긴다 — 생략하면 공용 `handleBridgeMessage`다.
    * 세션 화면이 `motion-sensor`(BY-340)를 자기 수명에 묶기 위해 쓴다(`app/room/[id].tsx`).
-   * 넘기는 쪽이 공용 동작(제출 대행·홈 복귀 등)을 유지하려면 나머지 메시지를 직접
+   * 넘기는 쪽이 공용 동작(권한 게이트·홈 복귀 등)을 유지하려면 나머지 메시지를 직접
    * `handleBridgeMessage`로 위임해야 한다.
    */
   onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;

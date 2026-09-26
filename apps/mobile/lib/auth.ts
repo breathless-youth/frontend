@@ -14,7 +14,7 @@ import { getOrCreateDeviceId } from "./deviceId";
  */
 export type AuthState = {
   userId: number;
-  /** 서버가 아직 토큰을 주지 않으면(BY-526 전) null. 웹은 null이면 헤더 없이 보낸다. */
+  /** 등록·갱신 응답의 access 토큰. 지연 이관된 설치는 첫 갱신 전까지 null이고, 웹은 null이면 헤더 없이 보낸다. */
   accessToken: string | null;
   refreshToken: string | null;
 };
@@ -136,7 +136,7 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return stored;
     }
     // 지연 이관: 옛 설치는 userId만 옮기고 네트워크를 타지 않는다. 토큰은 첫 401의 갱신 경로에서
-    // 재등록으로 받는다 — 지금 서버는 어차피 토큰을 주지 않고, 부팅 시 왕복 하나가 준다.
+    // 재등록으로 받는다. 부팅 때 왕복 하나를 아끼기 위해서다.
     const legacy = await readItem(LEGACY_USER_ID_KEY);
     if (legacy) {
       const state = await writeAuth({

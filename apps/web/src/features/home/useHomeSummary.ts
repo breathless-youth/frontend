@@ -17,7 +17,8 @@ export type HomeSummaryState =
  * 오늘 통계·스트릭을 조회해 화면 모델로 만든다. 화면은 이 훅의 상태만 알고 데이터 배선은 모른다.
  *
  * 모바일판과의 차이:
- * - userId는 익명 등록 쿼리가 아니라 **셸이 준 URL 파라미터**를 인자로 받는다(등록은 네이티브 소유).
+ * - userId는 익명 등록 쿼리가 아니라 네이티브가 `auth-token`으로 넘긴 신원(`useUserId`)을 받는다(등록은 네이티브 소유).
+ *   구 앱 웹뷰처럼 토큰 출처가 없으면 `useUserId`가 URL의 `userId`로 폴백한다.
  * - 탭 재진입 갱신은 `useFocusEffect` 대신 react-query 기본값(`refetchOnWindowFocus`)이 맡는다 —
  *   웹뷰가 다시 보이면 stale 쿼리가 재조회된다.
  * - BY-316(미전송 로컬 세션 합산)이 이 훅에 얹힐 예정이라는 계획은 동일하다.

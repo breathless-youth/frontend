@@ -38,7 +38,7 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
- * `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션, BY-333) 전부가 같은 규칙으로 반응해야
+ * `RemoteWebViewHost`를 쓰는 화면(탭 4개와 세션) 전부가 같은 규칙으로 반응해야
  * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
  * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
  */

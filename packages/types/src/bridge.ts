@@ -24,7 +24,7 @@ export type ToWebMessage =
   /**
    * 탭 웹뷰를 탭 루트로 초기화하라는 요청 — Android 전용 발신. 시스템 뒤로가기로 탭을 떠날 때
    * 웹뷰가 내부 히스토리를 유지한 채 남아, 재진입 시 이전 하위 페이지가 보이는 문제를 막는다.
-   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리(`userId` 등 셸 계약)를 승계해 replace로
+   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리를 그대로 둔 채 replace로
    * 이동한다(`apps/web/src/lib/nativeRouteReset.ts`).
    */
   | { type: "reset-route"; path: string; atMs: number }
@@ -57,7 +57,7 @@ export type ToWebMessage =
    * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
    * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
    * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
-   * 실패이거나 아직 토큰을 주지 않는 서버다 — 웹은 헤더 없이 보낸다.
+   * 실패다. 웹은 헤더 없이 보낸다.
    */
   | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
   | CameraPermissionMessage
@@ -114,13 +114,12 @@ export type ToNativeMessage =
    * 세션 화면을 push한다(BY-334에서 웹 발신 추가).
    *
    * 온보딩이 웹으로 이관돼도 이 메시지는 필요하다: **권한 요청과 화면 스택은 네이티브 소유**라
-   * 웹이 대신할 수 없다. 수신·게이트 실행은 BY-333 범위다 — 그때까지 네이티브는 이 메시지를
-   * 무시하고(모르는 메시지는 흘려보내는 계약), 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   * 웹이 대신할 수 없다. 네이티브가 권한 게이트를 거쳐 세션 모달을 열고, 브라우저 단독 모드에서는
+   * 애초에 발신되지 않는다.
    */
   | { type: "start-session"; atMs: number }
   /**
-   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청.
-   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
   | { type: "open-settings"; atMs: number }
   /**

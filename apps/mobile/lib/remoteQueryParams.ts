@@ -5,7 +5,7 @@ import { Appearance, Platform } from "react-native";
 import { ensureUserRegistered } from "./userApi";
 
 /**
- * 원격 웹뷰 URL에 붙일 쿼리 파라미터 — 탭 3개(홈·기록·설정)와 세션 화면이 전부 같은
+ * 원격 웹뷰 URL에 붙일 쿼리 파라미터 — 탭 4개(홈·기록·소셜·설정)와 세션 화면이 전부 같은
  * 파라미터 세트를 쓴다(통합 검토 확정, BY-333). 화면마다 따로 조립하면 화면 간 이동에서
  * 값이 갈라진다 — 그래서 화면이 아니라 여기 한 곳에서 만든다.
  *
