@@ -78,7 +78,7 @@ describe("createDeviceHandlingDetector", () => {
     detector.subscribe((signal) => seen.push(signal));
 
     detector.start();
-    bridge.fromNative({ type: "app-state", state: "background", atMs: 1000 });
+    bridge.fromNative({ type: "session-closed", atMs: 1000 });
 
     expect(seen).toEqual([]);
   });

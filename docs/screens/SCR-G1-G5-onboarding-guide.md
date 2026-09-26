@@ -45,8 +45,8 @@ G1~G5는 5개의 독립 화면이 아니라 **하나의 플로우가 갖는 5개
   - `ai-wiki/product/user-flow.md` — 핵심 플로우 mermaid, 화면 목록 G1~G5 행
   - `ai-wiki/product/policies.md` — §1 카메라·데이터 프라이버시 (G5 근거)
   - `ai-wiki/project/glossary.md` — 순공시간·비집중·일시정지·심플 모드 노출 표기
-- Ownership: `frontend/docs/screen-ownership.md` — `apps/mobile` 소유(앱 셸)
-- 담당 앱: **`apps/mobile`**
+- Ownership: `frontend/docs/screen-ownership.md`, `apps/web` 소유(탭 웹뷰 안에서 웹 라우팅으로 연다)
+- 담당 앱: **`apps/web`** → `src/routes/OnboardingGuidePage.tsx`(라우트 `/onboarding-guide`)
 
 ## Ownership Boundary
 

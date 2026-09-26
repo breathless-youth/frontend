@@ -69,7 +69,7 @@ export type StudyRoomPhase =
   | { name: "unsaved"; studySec: number };
 
 export interface StudyRoomSessionOptions {
-  /** 기본값은 mock. 실제 구현체는 실기기 스파이크 이후 별도 티켓에서 주입한다. */
+  /** 기본값은 테스트용 mock이다. 실제 화면은 `RoomPage`가 `mediaStreamCamera` 구현체를 주입한다. */
   readonly camera?: CameraAdapter;
   readonly detector?: FocusDetector;
   /** 화면 꺼짐·백그라운드 신호원. 기본값은 표준 Page Visibility 기반 구현. */

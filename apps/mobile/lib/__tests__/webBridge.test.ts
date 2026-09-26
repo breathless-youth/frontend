@@ -2,7 +2,6 @@ import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from
 
 describe("parseToNativeMessage", () => {
   it.each([
-    "session-ready",
     "home-ready",
     "analytics-ready",
     "start-session",
@@ -176,8 +175,13 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });
 
+  it("지운 메시지(session-ready·pong)는 모르는 메시지로 버린다 — 구버전 웹이 보내도 죽지 않는다", () => {
+    expect(parseToNativeMessage('{"type":"session-ready","atMs":5}')).toBeNull();
+    expect(parseToNativeMessage('{"type":"pong","id":4,"atMs":5}')).toBeNull();
+  });
+
   it("atMs가 없으면 null을 돌려준다", () => {
-    expect(parseToNativeMessage('{"type":"session-ready"}')).toBeNull();
+    expect(parseToNativeMessage('{"type":"home-ready"}')).toBeNull();
   });
 
   it("JSON이 아니면 null을 돌려준다", () => {
@@ -206,7 +210,7 @@ describe("parseToNativeMessage", () => {
 
 describe("injectMessageScript", () => {
   it("웹이 설치한 전역을 호출한다 — 없으면 호출하지 않는다", () => {
-    const script = injectMessageScript({ type: "app-state", state: "active", atMs: 1 });
+    const script = injectMessageScript({ type: "camera-gate-result", granted: true, atMs: 1 });
 
     expect(script).toContain("if (window.__focusonNativeMessage)");
     expect(script).toContain("window.__focusonNativeMessage(");
@@ -242,19 +246,7 @@ describe("serializeToWebMessage", () => {
   });
 });
 
-describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
-  it("pong을 파싱한다", () => {
-    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: 4, atMs: 1000 }))).toEqual({
-      type: "pong",
-      id: 4,
-      atMs: 1000,
-    });
-  });
-
-  it("pong의 id가 number가 아니면 버린다 — 짝을 못 맞추는 응답은 생존 증거가 못 된다", () => {
-    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: "4", atMs: 1000 }))).toBeNull();
-  });
-
+describe("parseToNativeMessage — 화면 보고", () => {
   it("report-screen을 파싱한다 — restoreQuery는 문자열 값만 남긴다", () => {
     expect(
       parseToNativeMessage(

@@ -281,11 +281,11 @@ describe("RemoteWebViewHost", () => {
     });
     const reply = onBridgeMessage.mock.calls[0]![1] as (m: ToWebMessage) => void;
     act(() => {
-      reply({ type: "app-state", state: "active", atMs: 6 });
+      reply({ type: "camera-gate-result", granted: true, atMs: 6 });
     });
 
     expect(mockInjectJavaScript).toHaveBeenCalledWith(
-      expect.stringContaining('\\"type\\":\\"app-state\\"'),
+      expect.stringContaining('\\"type\\":\\"camera-gate-result\\"'),
     );
   });
 
@@ -647,13 +647,13 @@ describe("RemoteWebViewHost", () => {
     view.unmount();
 
     act(() => {
-      reply({ type: "app-state", state: "active", atMs: 6 });
+      reply({ type: "camera-gate-result", granted: true, atMs: 6 });
     });
 
     expect(mockInjectJavaScript).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalledWith(
       expect.stringContaining("[webview-bridge]"),
-      expect.objectContaining({ type: "app-state" }),
+      expect.objectContaining({ type: "camera-gate-result" }),
     );
     warn.mockRestore();
   });

@@ -11,7 +11,7 @@ import { subscribeToNativeMessages } from "./bridge";
  * 신호와 실행이 갈린다(`set-tab-bar`의 역방향과 같은 구도).
  *
  * `replace`로 이동한다 — 초기화가 히스토리에 새 층을 쌓으면 다음 초기화가 되돌릴 층만 는다.
- * 쿼리는 현재 값을 승계한다(`userId` 등 셸 계약 파라미터 유지). 브라우저 단독 모드에서는
+ * 쿼리는 현재 값을 그대로 둔다(셸이 붙인 appVersion·기능 표시와 구 앱 웹뷰의 `userId` 유지). 브라우저 단독 모드에서는
  * 메시지가 오지 않아 무동작이다.
  */
 export function useNativeRouteReset(): void {

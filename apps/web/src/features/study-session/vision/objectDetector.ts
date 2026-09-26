@@ -240,7 +240,7 @@ export function createObjectDetector(
       return null;
     }
 
-    // GPU 먼저, 실패하면 CPU. WebView에서 GPU delegate의 안정성이 검증되지 않았다(설계 §2).
+    // delegate 순서는 visionConfig가 정한다. 지금은 CPU만 쓴다. 에뮬레이터 GPU가 실패 대신 가짜 검출을 내서 폴백으로 잡을 수 없었다.
     for (const candidate of delegateOrder) {
       if (!wanted) {
         return null;

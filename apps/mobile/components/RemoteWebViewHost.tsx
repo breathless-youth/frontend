@@ -3,7 +3,7 @@ import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import { colors } from "@focusmakers/design-tokens";
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { HostPassedMessage, ToWebMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
@@ -84,14 +84,14 @@ export type RemoteWebViewHostProps = {
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
-   * 웹이 보낸 브리지 메시지(session-ready·start-session·navigate-home·open-settings 등)를
+   * 웹이 보낸 브리지 메시지(start-session·navigate-home·open-settings 등)를
    * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
    * (파싱 단계에서 걸러짐).
    *
    * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(`request-camera-permission` → `camera-permission`).
    * 통로가 이 컴포넌트 안(`webViewRef.injectJavaScript`)에 있어 핸들러가 직접 가질 수 없다.
    */
-  onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
+  onBridgeMessage?: (message: HostPassedMessage, reply: BridgeReply) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
   /**

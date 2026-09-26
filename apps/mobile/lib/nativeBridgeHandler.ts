@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { NavigateTabMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
@@ -38,15 +38,12 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
- * `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션, BY-333) 전부가 같은 규칙으로 반응해야
+ * `RemoteWebViewHost`를 쓰는 화면(탭 4개와 세션) 전부가 같은 규칙으로 반응해야
  * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
  * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
  */
-export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply): void {
+export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
-    case "session-ready":
-      // 기존 동작 유지 — 네이티브가 별도로 할 일은 아직 없다.
-      break;
     case "start-session":
       void (async () => {
         const result = await runCameraPermissionGate("single");
@@ -166,9 +163,14 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
       break;
-    default:
+    default: {
+      // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
+      // 빠뜨리면 이 줄에서 컴파일이 깨진다. 런타임에 오는 경우는 타입과 파서가 어긋났을 때뿐이라
+      // 예외 대신 개발 빌드 경고만 남긴다.
+      const unhandled: never = message;
       if (__DEV__) {
-        console.warn("[webview-bridge] ⚠️ case가 없는 타입", message.type);
+        console.warn("[webview-bridge] ⚠️ case가 없는 타입", (unhandled as { type: string }).type);
       }
+    }
   }
 }
