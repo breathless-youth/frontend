@@ -174,6 +174,21 @@ export type ToNativeMessage =
   | NavigateHomeMessage
   | AnalyticsReadyMessage;
 
+/** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
+type HostConsumedType = "home-ready" | "analytics-ready" | "set-back-gesture" | "set-orientation";
+
+/** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
+export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
+
+/** `RemoteScreen`이 처리하고 끝내는 메시지. `report-screen`은 호스트가 경로를 저장한 뒤 넘긴다. */
+type ScreenConsumedType = "set-back-lock" | "report-screen";
+
+/**
+ * 공용 핸들러(`handleBridgeMessage`)가 받는 메시지. 앞 단계가 처리한 타입을 빼 두어야
+ * 핸들러의 never 검사가 "어디에서도 처리하지 않은 메시지"만 잡는다.
+ */
+export type HandlerMessage = Exclude<HostPassedMessage, { type: ScreenConsumedType }>;
+
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
  *

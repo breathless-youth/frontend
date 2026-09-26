@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { ToNativeMessage } from "@focusmakers/types";
+import type { HandlerMessage } from "@focusmakers/types";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
 import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
@@ -291,8 +291,10 @@ describe("handleBridgeMessage", () => {
   it("개발 빌드에서 처리 case가 없는 type을 로그로 남긴다", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 
-    // "future"는 union에 없는 타입이다 — 타입과 파서가 어긋난 상황을 흉내내려 단언으로 통과시킨다.
-    handleBridgeMessage({ type: "future", atMs: 1 } as unknown as ToNativeMessage, noopReply);
+    // "future"는 union에 없는 타입이다 — 타입과 파서가 어긋난 상황을 흉내내려 단언으로
+    // 통과시킨다. never 검사는 컴파일 타임 보장이라, 여기서는
+    // 그 보장 밖(런타임)에서 어긋난 경우를 검증한다.
+    handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "future");
     warn.mockRestore();
@@ -303,7 +305,7 @@ describe("handleBridgeMessage", () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      handleBridgeMessage({ type: "future", atMs: 1 } as unknown as ToNativeMessage, noopReply);
+      handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
       expect(warn).not.toHaveBeenCalled();
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;

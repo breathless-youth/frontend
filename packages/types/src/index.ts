@@ -346,6 +346,8 @@ export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export type {
   CameraPermissionMessage,
+  HandlerMessage,
+  HostPassedMessage,
   NavigateHomeMessage,
   ReportScreenMessage,
   NavigateTabMessage,
