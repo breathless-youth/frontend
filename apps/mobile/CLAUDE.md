@@ -1,6 +1,6 @@
 # apps/mobile
 
-Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스터디룸은 WebView로 `apps/web`을 로드한다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 배경은 루트 [CLAUDE.md](../../CLAUDE.md), 되돌린 경위는 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
+Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·토큰을 맡고, 카메라 권한 거부 안내(`app/permission-denied.tsx`)를 뺀 모든 화면은 `RemoteScreen`이 원격 URL 웹뷰로 `apps/web`을 연다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 배경은 루트 [CLAUDE.md](../../CLAUDE.md), 되돌린 경위는 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
 
 ## 구조
 
@@ -9,7 +9,7 @@ Expo RN 앱(앱 셸). 앱 셸(홈 탭·권한 게이트·웹뷰 호스트) + 스
 - `lib/auth.ts`(BY-527)가 access·refresh 토큰의 유일한 소유자다. SecureStore 키 `focuson.auth` 하나에 JSON으로 저장하고 읽기·쓰기·삭제 전부에 `keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`를 넘긴다. 이 옵션을 빼면 iCloud 키체인 동기화로 1회용 refresh 토큰이 다른 기기에 복사되고, 두 기기가 같은 토큰을 써 서버가 탈취로 판정해 전량 폐기한다. 등록(`ensureAuth`)과 갱신(`refreshAuth`)은 앱 전체 single-flight이고, 토큰 변경은 `subscribeAuth`로 마운트된 모든 웹뷰 호스트에 `auth-token`으로 전파된다(분석 이벤트의 단일 sink와 반대). 웹뷰 URL의 `guestAuth=1`은 이 바이너리가 `auth-ready`에 답할 수 있다는 표시다.
 - **경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않고 어댑터 계층을 통한다. 공부 상태 계산은 순수 TS로 두고 카메라/Vision/RTC 구현과 분리한다.
 
-## WebView 스터디룸
+## 원격 웹뷰 화면
 
 - `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음).
 - **Dev Client가 필요하고 Expo Go는 지원하지 않는다.** 커스텀 엔트리(`index.ts`)가 푸시 모듈을, 그 모듈이 `@react-native-firebase/*`를 정적 import하기 때문이다(Expo Go에 없는 네이티브 모듈). `app.json` `plugins`의 `expo-build-properties`·RNFB config plugin도 prebuild/Dev Client 빌드에서만 적용된다.

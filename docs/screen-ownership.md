@@ -1,63 +1,40 @@
 # 화면 소유권 (Screen Ownership)
 
-앱 셸(온보딩/홈/기록/설정 등)은 `apps/mobile`에서 네이티브로 구현한다. **스터디룸 관련
-화면(S3-1~S3-8, S4)은 `apps/web`이 실제 구현체가 되고, 모바일은 WebView로 그 화면을 그대로
-로드한다**(ADR 0001 — 방침). 2026-07-25 기능 리셋으로 기존 임시 구현은 전부 삭제됐다
-(ADR 0003 갱신 노트, git 히스토리에서 복구 가능). 아래 목록은 소유권과 범위를 문서화한 것이다.
+카메라 권한 거부 안내(`apps/mobile/app/permission-denied.tsx`)를 뺀 모든 화면은 `apps/web`이 구현하고 모바일은 원격 URL로 연다. 모바일이 직접 그리는 것은 셸뿐이다.
 
-> **2026-07-26 ID 체계 정정**: 이 문서는 과거 임의 순번(`SCR-001~020`)을 썼으나, 실제 화면
-> 인벤토리·확정 사항의 단일원천은 `ai-wiki/product/design.md`이고 그 문서는 Figma 프레임명과
-> 일치하는 확정 ID(S1·S2-2/S2-3·S3-1~~S3-8·S4·S5·S6·G1~~G5·U1)를 쓴다. 소유권 경계(모바일 vs
-> 웹, ADR 0001 기준) 자체는 정확했으므로 그대로 유지하고, ID 표기만 이 확정 체계로 옮긴다.
-> 과거 `SCR-014`(랭킹)·`SCR-015`(프로필)는 현재 `ai-wiki/product/design.md`의 V1.0 화면
-> 인벤토리에도, `roadmap.md`의 V1.2~V1.4 계획에도 구체적으로 등재돼 있지 않다 — 랭킹은
-> `roadmap.md`의 장기 백로그("소셜 고도화" 항목)에 "검토" 수준으로만 언급되고, 프로필은 어디에도
-> 없다. 둘 다 이 문서에서 제외한다(부활 시 `design.md`를 먼저 갱신할 것).
-
-> 상태 범례: **[ ]** 문서상 소유권만 지정(미구현) · **[x]** 구현 완료(`docs/screens/SCR-*.md` 존재)
+- 모바일의 탭과 세션 화면은 `RemoteScreen`에 웹 경로만 넘긴다(`apps/mobile/components/RemoteScreen.tsx`).
+- 화면 ID는 `ai-wiki/product/design.md`의 확정 ID(Figma 프레임명)를 따른다.
+- 웹 경로는 `apps/web/src/App.tsx`의 라우트 표 기준이다.
+- 화면별 상세 스펙은 `docs/screens/SCR-{화면 ID}-*.md`에 있다.
+- 구조 전체는 [architecture.md](./architecture.md)에 있다.
 
 ## `apps/mobile` 소유 화면 (앱 셸)
 
-| ID    | 화면                                | 상태 | 비고                                                                       |
-| ----- | ----------------------------------- | :--: | -------------------------------------------------------------------------- |
-| S1    | 홈                                  | [x]  | `app/(tabs)/index.tsx`                                                     |
-| S2-2  | 카메라 권한 요청(OS 다이얼로그)     | [x]  | 커스텀 UI 없음 — `app.json`의 권한 문구·트리거 순서만                      |
-| S2-3  | 카메라 권한 거부 안내               | [x]  | `app/permission-denied.tsx` (탭 밖 전체 화면)                              |
-| S5    | 공부 기록(달력·통계·리스트)         | [x]  | `app/(tabs)/records.tsx` (신규 탭 — `app/(tabs)/_layout.tsx`에 등록)       |
-| S6    | 설정                                | [x]  | `app/(tabs)/settings.tsx` (신규 탭)                                        |
-| G1~G5 | 온보딩 가이드(5단계, 하나의 플로우) | [x]  | `app/onboarding-guide.tsx` (라우트 1개 · 최초 '집중 시작' 탭 시 자동 실행) |
-
-비핵심 화면(알림/공지사항, 개인정보처리방침, 이용약관, 외부 문의)은 필요 시 WebView 허용 영역이며 아직 `design.md`의 V1.0 화면 인벤토리에 구체 화면으로 등재되지 않았다 — 실제 착수 시 `design.md`를 먼저 확인한다.
-
-## 스터디룸 화면 — `apps/web`이 실제 구현체, 모바일은 WebView로 로드
-
-| ID   | 화면                                                          | 상태 | 비고                                                         |
-| ---- | ------------------------------------------------------------- | :--: | ------------------------------------------------------------ |
-| S3-1 | 세션 프리뷰                                                   | [x]  | `src/routes/RoomPage.tsx`                                    |
-| S3-2 | 세션 비집중                                                   | [x]  | 동일 트리(상태 prop)                                         |
-| S3-3 | 세션 일시정지(수동+화면꺼짐/백그라운드 통합, 2026-07-26 확정) | [x]  | 동일 트리(상태 prop)                                         |
-| S3-4 | 세션 심플 모드                                                | [x]  | 동일 트리(표시 모드 prop)                                    |
-| S3-5 | 세션 가로 프리뷰                                              | [x]  | 동일 트리(가로 브레이크포인트)                               |
-| S3-6 | 세션 가로 심플                                                | [x]  | 동일 트리(가로 브레이크포인트)                               |
-| S3-7 | 세션 종료 확인                                                | [x]  | 형제 오버레이(레이아웃 레이어 자식 아님)                     |
-| S3-8 | 세션 자동 종료 안내                                           | [x]  | 동일 트리, 단일 감시자                                       |
-| S4   | 공부 결과                                                     | [x]  | `src/routes/ResultPage.tsx` (별도 라우트 `/room/:id/result`) |
-
-V1.0에는 멀티룸 화면이 없다 — 소셜/멀티룸(S7~~S11)은 V1.2~~V1.4 범위([ADR 0002](./adr/0002-native-mobile-study-room-and-independent-web.md) 참고). WebView는 위 스터디룸 화면 전체에 쓰일 예정이다 — MVP 동안의 방침이며, [ADR 0003](./adr/0003-phased-rollout-webview-mvp-then-native.md)의 트리거 조건이 충족되면 네이티브로 되돌아간다.
-
-**V1.3 초대코드 룸(BY-409)에서 소셜 화면이 추가됐다** — 스펙은 `.ai` 레포
-`product/specs/BY-404-룸-참여.md`, 디자인은 Figma V1.4 파일의 "🆕 V1.3 · 초대코드 룸" 섹션.
-
-| ID     | 화면                  | 소유       | 구현                                                                             |
-| ------ | --------------------- | ---------- | -------------------------------------------------------------------------------- |
-| S9-1   | 소셜 홈 (액션 허브)   | `apps/web` | `src/routes/SocialHomePage.tsx` (`/social`, 네이티브 소셜 탭이 로드)             |
-| S9-2   | 초대코드 공유         | `apps/web` | `src/routes/InviteCodeSharePage.tsx` (`/social/code`)                            |
-| S9-3   | 초대코드 입력         | `apps/web` | `src/routes/InviteCodeJoinPage.tsx` (`/social/join`)                             |
-| S7-18  | 프로필 설정           | `apps/web` | `src/routes/ProfilePage.tsx` (`/profile`, 설정에서만 진입)                       |
-| S9-4~7 | 룸 내부 (자동 그리드) | `apps/web` | `src/routes/LiveRoomPage.tsx` (`/social/room/:roomId`, BY-410 — 영상 P2P는 후속) |
+| ID   | 화면                            | 구현                                                                                               |
+| ---- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| -    | 탭바                            | `app/(tabs)/_layout.tsx`, `components/TabBar.tsx`                                                  |
+| S2-2 | 카메라 권한 요청(OS 다이얼로그) | 커스텀 UI 없이 `app.json`의 권한 문구와 `lib/cameraPermission.ts`의 요청만 둔다                    |
+| S2-3 | 카메라 권한 거부 안내           | `app/permission-denied.tsx`(탭 밖 전체 화면)                                                       |
+| -    | 스플래시                        | `expo-splash-screen`(`app/_layout.tsx`)과 로드 중 스켈레톤(`components/RemoteSplashSkeletons.tsx`) |
 
 ## `apps/web` 소유 화면
 
-`apps/web`은 현재 `HomePage`(소개)·`RoomPage`(S3-1~S3-8 확정 디자인 적용 — 세로 4종·가로 브레이크포인트·종료 플로우)·`ResultPage`(S4 공부 결과 — 형제 라우트 `/room/:id/result`)를 제공한다. 스터디룸 화면은 위 표 기준으로 이 앱에 구현되어 모바일 WebView가 로드한다. 독립 브라우저 서비스로도 그대로 접근 가능하다.
+| ID        | 화면                        | 구현                                 | 경로                          |
+| --------- | --------------------------- | ------------------------------------ | ----------------------------- |
+| S1        | 홈                          | `src/routes/HomeTabPage.tsx`         | `/home`                       |
+| S5        | 공부 기록                   | `src/routes/RecordsPage.tsx`         | `/records`                    |
+| S6        | 설정                        | `src/routes/SettingsPage.tsx`        | `/settings`                   |
+| G1~G5     | 온보딩 가이드(5단계)        | `src/routes/OnboardingGuidePage.tsx` | `/onboarding-guide`           |
+| S3-1~S3-8 | 싱글 세션(프리뷰~자동 종료) | `src/routes/RoomPage.tsx`            | `/room/:id`                   |
+| S4        | 공부 결과                   | `src/routes/ResultPage.tsx`          | `/room/:id/result`            |
+| S9-1      | 소셜 홈                     | `src/routes/SocialHomePage.tsx`      | `/social`                     |
+| S9-2      | 초대코드 공유               | `src/routes/InviteCodeSharePage.tsx` | `/social/code`                |
+| S9-3      | 초대코드 입력               | `src/routes/InviteCodeJoinPage.tsx`  | `/social/join`                |
+| S9-4~7    | 소셜 룸(자동 그리드)        | `src/routes/LiveRoomPage.tsx`        | `/social/room/:roomId`        |
+| -         | 소셜 룸 결과                | `src/routes/ResultPage.tsx`          | `/social/room/:roomId/result` |
+| S7-18     | 프로필 설정                 | `src/routes/ProfilePage.tsx`         | `/profile`                    |
 
-배경은 [ADR 0001](./adr/0001-webview-based-study-room-architecture.md), [ADR 0003](./adr/0003-phased-rollout-webview-mvp-then-native.md) 참고. 화면별 상세 스펙은 `docs/screens/SCR-{화면 ID}-*.md` 참고(작성되는 대로 이 표의 상태를 갱신할 것).
+- S3-1~S3-8은 한 화면 트리가 세션 상태와 표시 모드, 가로 브레이크포인트에 따라 바뀌어 그린다.
+- 문의(`/contact`), 이용약관(`/terms`), 개인정보처리방침(`/privacy`), 오픈소스 라이선스(`/licenses`)도 웹 화면이다.
+- `/`의 `HomePage`는 브라우저로 접속했을 때의 소개 페이지이고 앱에서는 열지 않는다.
+- `/dev/webrtc-loopback`은 개발 빌드에만 있는 WebRTC 점검 화면이다.

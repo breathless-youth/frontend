@@ -4,12 +4,12 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 
 ## 아키텍처
 
-모바일 스터디룸은 `apps/web`을 WebView로 로드한다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
+모바일 앱은 카메라 권한 거부 안내(`apps/mobile/app/permission-denied.tsx`)를 뺀 모든 화면을 원격 URL 웹뷰로 열고, 화면 구현은 전부 `apps/web`에 있다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 네이티브 셸이 직접 맡는 것은 탭바·스택·권한·스플래시·토큰뿐이고, 전체 구조는 [docs/architecture.md](./docs/architecture.md)에 있다. 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
 
 ## 모노레포 구조
 
-- `apps/mobile` — Expo RN 앱(`expo-router`). 앱 셸(인증/네비게이션) + 스터디룸은 WebView로 `apps/web`을 로드. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
-- `apps/web` — Vite + React 웹 앱. 스터디룸의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
+- `apps/mobile` — Expo RN 앱(`expo-router`). 탭바·스택·권한·스플래시·토큰을 맡는 네이티브 셸이고, 카메라 권한 거부 안내를 뺀 모든 화면은 원격 URL 웹뷰로 `apps/web`을 연다. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
+- `apps/web` — Vite + React 웹 앱. 홈·기록·설정·온보딩·세션·소셜을 포함한 모든 화면의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
 - `packages/types` — 서버 전송용/API 계약 도메인 타입. **실제 백엔드 Swagger 기준으로만 정의한다**(명세에 없는 타입 금지). `packages/design-tokens`는 공유 의미 기반 디자인 토큰(구현체는 공유 안 함), `packages/config`는 공유 ESLint/Prettier 설정.
 
 ## 아키텍처 경계 (반드시 유지)
