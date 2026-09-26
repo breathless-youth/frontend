@@ -10,7 +10,6 @@
 export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
-  | { type: "app-state"; state: "active" | "background"; atMs: number }
   /** `request-camera-gate` 응답. `granted: false`면 네이티브가 권한 안내 화면을 이미 띄운 상태다. */
   | { type: "camera-gate-result"; granted: boolean; atMs: number }
   /**
@@ -28,16 +27,6 @@ export type ToWebMessage =
    * 이동한다(`apps/web/src/lib/nativeRouteReset.ts`).
    */
   | { type: "reset-route"; path: string; atMs: number }
-  /**
-   * 웹뷰 생존 확인(BY-436) — 네이티브가 포그라운드 복귀 시 보낸다. 웹은 `pong`으로 즉답한다.
-   *
-   * OS가 백그라운드에서 웹 렌더러 프로세스를 회수하면 사후 통보(iOS
-   * `onContentProcessDidTerminate`, Android `onRenderProcessGone`)가 **한참 늦게** 오거나
-   * 아예 오지 않아, 그동안 순백 화면(iOS)·죽은 잔상(Android)이 노출된다(실기기 확인).
-   * 그래서 통보를 기다리지 않고 복귀 시점에 직접 물어본다 — 응답이 없으면 죽은 것으로
-   * 보고 스플래시로 덮고 재로드한다. `id`로 요청과 응답의 짝을 맞춘다(낡은 pong 방지).
-   */
-  | { type: "ping"; id: number; atMs: number }
   /**
    * 앱 프로세스가 방금 시작했다는 알림 — 홈 웹뷰에만, 실행마다 한 번만 온다.
    *
@@ -86,8 +75,6 @@ export interface CameraPermissionMessage {
 
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
-  /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  | { type: "session-ready"; atMs: number }
   /**
    * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
    * `app-launched`로 응답한다.
@@ -98,8 +85,6 @@ export type ToNativeMessage =
    * 웹이 스스로 보내는 메시지로 만든다. 실패한 로드에서는 이 메시지 자체가 나가지 않는다.
    */
   | { type: "home-ready"; atMs: number }
-  /** `ping`(생존 확인)에 대한 즉답 — `id`는 받은 ping의 것을 그대로 되돌린다. */
-  | { type: "pong"; id: number; atMs: number }
   | ReportScreenMessage
   /**
    * 가속도 센서 구독을 켜고 끈다.

@@ -1,6 +1,8 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
+import type { ToNativeMessage } from "@focusmakers/types";
+
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
 import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
 import {
@@ -88,13 +90,6 @@ beforeEach(() => {
 });
 
 describe("handleBridgeMessage", () => {
-  it("session-ready는 아무 것도 하지 않는다 — 네이티브가 추가로 할 일이 없다", () => {
-    expect(() => handleBridgeMessage({ type: "session-ready", atMs: 1 }, noopReply)).not.toThrow();
-    expect(mockedRouter.push).not.toHaveBeenCalled();
-    expect(mockedRouter.back).not.toHaveBeenCalled();
-    expect(mockedOpenAppSettings).not.toHaveBeenCalled();
-  });
-
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
@@ -296,9 +291,10 @@ describe("handleBridgeMessage", () => {
   it("개발 빌드에서 처리 case가 없는 type을 로그로 남긴다", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 
-    handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+    // "future"는 union에 없는 타입이다 — 타입과 파서가 어긋난 상황을 흉내내려 단언으로 통과시킨다.
+    handleBridgeMessage({ type: "future", atMs: 1 } as unknown as ToNativeMessage, noopReply);
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "pong");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "future");
     warn.mockRestore();
   });
 
@@ -307,7 +303,7 @@ describe("handleBridgeMessage", () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+      handleBridgeMessage({ type: "future", atMs: 1 } as unknown as ToNativeMessage, noopReply);
       expect(warn).not.toHaveBeenCalled();
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;

@@ -44,9 +44,6 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
  */
 export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply): void {
   switch (message.type) {
-    case "session-ready":
-      // 기존 동작 유지 — 네이티브가 별도로 할 일은 아직 없다.
-      break;
     case "start-session":
       void (async () => {
         const result = await runCameraPermissionGate("single");

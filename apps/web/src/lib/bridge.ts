@@ -164,12 +164,6 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "device-handling" && typeof record.active === "boolean") {
     return { type: "device-handling", active: record.active, atMs: record.atMs };
   }
-  if (record.type === "app-state" && (record.state === "active" || record.state === "background")) {
-    return { type: "app-state", state: record.state, atMs: record.atMs };
-  }
-  if (record.type === "ping" && typeof record.id === "number") {
-    return { type: "ping", id: record.id, atMs: record.atMs };
-  }
   if (record.type === "camera-permission" && typeof record.granted === "boolean") {
     return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
   }

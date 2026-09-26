@@ -35,18 +35,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     return null;
   }
   switch (record.type) {
-    case "session-ready":
-      return { type: "session-ready", atMs: record.atMs };
     case "home-ready":
       return { type: "home-ready", atMs: record.atMs };
     case "analytics-ready":
       return { type: "analytics-ready", atMs: record.atMs };
-    case "pong":
-      // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
-      if (typeof record.id !== "number") {
-        return null;
-      }
-      return { type: "pong", id: record.id, atMs: record.atMs };
     case "report-screen": {
       // path는 우리 SPA의 절대 경로만 허용한다 — 임의 문자열이 재마운트 URL에 섞이면
       // 웹뷰가 외부 주소로 열릴 수 있다. `//host` 꼴(프로토콜 상대 URL)도 막는다.
