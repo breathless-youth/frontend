@@ -1,21 +1,29 @@
 import { act, renderHook } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 
-import type { VisionDetectorStatus } from "../adapters/focusDetector";
+import type * as FocusDetector from "../adapters/focusDetector";
+import type { VisionDetectorStatus, VisionFocusDetector } from "../adapters/focusDetector";
 import {
   classifyAssetCache,
   readVisionAssetCache,
+  useTrackedVisionDetector,
   useVisionReadyTracking,
 } from "../useVisionReadyTracking";
 import { DEFAULT_MODEL_VARIANT, MODEL_PATHS } from "../vision/visionConfig";
 
-const mocks = vi.hoisted(() => ({ ready: vi.fn() }));
+const mocks = vi.hoisted(() => ({ ready: vi.fn(), createVisionFocusDetector: vi.fn() }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackVisionDetectorReady: mocks.ready,
+}));
+
+vi.mock("../adapters/focusDetector", async (importOriginal) => ({
+  ...(await importOriginal<typeof FocusDetector>()),
+  createVisionFocusDetector: mocks.createVisionFocusDetector,
 }));
 
 const ORIGIN = "https://web.focusmakers.app";
@@ -137,6 +145,7 @@ describe("useVisionReadyTracking", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mocks.ready.mockClear();
+    mocks.createVisionFocusDetector.mockClear();
   });
 
   it("로딩 시작→준비 시간을 정수 ms로 room_type과 함께 보내고 측정값을 돌려준다", () => {
@@ -211,5 +220,54 @@ describe("useVisionReadyTracking", () => {
     source.emit("ready");
 
     expect(mocks.ready).not.toHaveBeenCalled();
+  });
+});
+
+describe("useTrackedVisionDetector", () => {
+  beforeEach(() => {
+    mocks.createVisionFocusDetector.mockReset();
+  });
+
+  afterEach(() => {
+    mocks.ready.mockClear();
+  });
+
+  it("검출기 생성과 동시에 구독을 걸어, start()가 동기로 쏘는 loading→ready도 놓치지 않는다", () => {
+    // start()가 그 순간 구독 중인 리스너에게만, 동기로 loading→ready를 쏜다 —
+    // useStudyRoomSession이 검출기를 받은 뒤 effect에서 start()를 부르는 실제 순서를 흉내 낸다.
+    // 구독이 start() 뒤에 걸리는 구현이었다면 이 리스너 목록이 비어 있어 신호를 아예 못 받고,
+    // 아래 "정확히 한 번" 단언이 실패한다.
+    const listeners = new Set<(status: VisionDetectorStatus) => void>();
+    const start = vi.fn(() => {
+      for (const listener of [...listeners]) {
+        listener("loading");
+      }
+      for (const listener of [...listeners]) {
+        listener("ready");
+      }
+    });
+    mocks.createVisionFocusDetector.mockReturnValue({
+      subscribeStatus(listener: (status: VisionDetectorStatus) => void) {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      start,
+    } as Pick<VisionFocusDetector, "subscribeStatus" | "start">);
+
+    const { result } = renderHook(() => {
+      const tracked = useTrackedVisionDetector({ current: null }, "single");
+      // useStudyRoomSession의 검출기 시작 effect를 흉내 낸다 — 구독은 useTrackedVisionDetector
+      // 안에서 이미 걸렸고, start()는 그보다 나중에 커밋되는 별도 effect에서 불린다.
+      useEffect(() => {
+        tracked.visionDetector.start();
+      }, [tracked.visionDetector]);
+      return tracked;
+    });
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(result.current.visionReady).not.toBeNull();
+    expect(mocks.ready).toHaveBeenCalledTimes(1);
   });
 });

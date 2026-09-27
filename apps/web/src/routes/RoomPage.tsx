@@ -9,10 +9,7 @@ import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientS
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
-import {
-  combineFocusDetectors,
-  createVisionFocusDetector,
-} from "@/features/study-session/adapters/focusDetector";
+import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -49,7 +46,7 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
-import { useVisionReadyTracking } from "@/features/study-session/useVisionReadyTracking";
+import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import {
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
@@ -218,14 +215,7 @@ function RoomSessionScreen({
    * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
    */
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
-  const [visionDetector] = useState(() =>
-    createVisionFocusDetector({ video: () => videoRef.current }),
-  );
-  // 검출기 상태 구독은 현재 상태를 다시 알려주지 않으므로, 로딩이 시작되기 전에 구독이 걸리도록
-  // 검출기를 시작하는 모든 훅·effect(useStudyRoomSession 내부의 detector.start() 포함, 아래
-  // 시작 effect도 포함)보다 먼저 둔다. 순서를 바꾸면 loading→ready 전환을 놓쳐 이벤트가
-  // 조용히 안 나간다.
-  const visionReady = useVisionReadyTracking(visionDetector, "single");
+  const { visionDetector, visionReady } = useTrackedVisionDetector(videoRef, "single");
   /**
    * 감지기는 둘이다 — 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`). 담당 트리거가 겹치지
    * 않으므로 하나로 묶어 훅에 넘긴다. 수명(`start`/`stop`)도 함께 움직이는 것이 맞다 —

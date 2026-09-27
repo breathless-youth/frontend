@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import type { RefObject } from "react";
 
-import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
+import {
+  createVisionFocusDetector,
+  type VisionFocusDetector,
+} from "@/features/study-session/adapters/focusDetector";
 import {
   DEFAULT_MODEL_VARIANT,
   MEDIAPIPE_WASM_PATH,
@@ -138,4 +142,23 @@ export function useVisionReadyTracking(
   }, [detector, roomType]);
 
   return measurement;
+}
+
+/**
+ * Vision 검출기를 만들면서 그 자리에서 바로 준비 추적을 건다.
+ *
+ * 생성과 동시에 상태 구독을 걸어야 하는 이유는 `useVisionReadyTracking`의 준비 시점 판정이
+ * "구독 이후" 상태 변화만 보기 때문이다 — 구독은 현재 상태를 다시 알려 주지 않는다. 검출기를
+ * 쓰는 훅(`useStudyRoomSession` 등)은 이 훅의 반환값(`visionDetector`)을 인자로 받으므로,
+ * 검출기를 시작하는 모든 호출은 데이터 의존으로 이 훅 뒤에 오게 된다.
+ */
+export function useTrackedVisionDetector(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  roomType: StudyRoomType,
+): { visionDetector: VisionFocusDetector; visionReady: VisionReadyMeasurement | null } {
+  const [visionDetector] = useState(() =>
+    createVisionFocusDetector({ video: () => videoRef.current }),
+  );
+  const visionReady = useVisionReadyTracking(visionDetector, roomType);
+  return { visionDetector, visionReady };
 }

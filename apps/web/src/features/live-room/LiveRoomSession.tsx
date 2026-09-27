@@ -17,10 +17,7 @@ import { useRoomStatePublisher } from "@/features/live-room/useRoomStatePublishe
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { createSystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
-import {
-  combineFocusDetectors,
-  createVisionFocusDetector,
-} from "@/features/study-session/adapters/focusDetector";
+import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
@@ -31,7 +28,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
-import { useVisionReadyTracking } from "@/features/study-session/useVisionReadyTracking";
+import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import {
   trackSocialRoomCameraOnDismissed,
@@ -114,14 +111,7 @@ export function LiveRoomSession({
   // 색이 빠진다.
   const sessionSurfaceRef = useRef<HTMLElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
-  const [visionDetector] = useState(() =>
-    createVisionFocusDetector({ video: () => videoRef.current }),
-  );
-  // 검출기 상태 구독은 현재 상태를 다시 알려주지 않으므로, 로딩이 시작되기 전에 구독이 걸리도록
-  // 검출기를 시작하는 모든 훅·effect(useStudyRoomSession 내부의 detector.start() 포함, 아래
-  // 시작 effect도 포함)보다 먼저 둔다. 순서를 바꾸면 loading→ready 전환을 놓쳐 이벤트가
-  // 조용히 안 나간다.
-  useVisionReadyTracking(visionDetector, "social");
+  const { visionDetector } = useTrackedVisionDetector(videoRef, "social");
   const [sensorDetector] = useState(() =>
     combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
   );
