@@ -136,7 +136,7 @@ export function LiveRoomSession({
     detector,
     systemPause,
     restored,
-    // 계측용(BY-472) — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
+    // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
   });
 
@@ -150,8 +150,8 @@ export function LiveRoomSession({
   );
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
-  // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
-  // 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다(BY-412).
+  // 유예 재입장을 포함해 모든 입장은 카메라 꺼짐(일시정지)으로 시작한다
+  // — 나가기 자체가 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다.
   const [cameraWanted, setCameraWanted] = useState(false);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   useEffect(() => channel.subscribe(dispatch), [channel]);
@@ -257,7 +257,7 @@ export function LiveRoomSession({
   const paused = sessionState.kind === "PAUSE";
   const cameraOn = !paused && isCameraRunning;
 
-  // 내 타일 전용 상태 뱃지(BY-427) — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
+  // 내 타일 전용 상태 뱃지 — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
   // 카메라 끔 = 측정 일시정지 동치라 paused가 최우선이다.
   const selfState: SelfBadgeState = paused
     ? "PAUSED"
@@ -297,7 +297,7 @@ export function LiveRoomSession({
       }
     }
     // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 —
-    // 사유·재시도 규칙은 kickVideoPlayback 주석 참고(2026-08-26 실기기).
+    // 사유·재시도 규칙은 kickVideoPlayback 주석 참고.
     if (video) {
       kickVideoPlayback(video);
     }
@@ -344,7 +344,7 @@ export function LiveRoomSession({
     // 숨어 있는 동안 공용 20분 감시자가 먼저 종료를 끝내면 만료 콜백이 오지 않는다 —
     // 이동 시점에 숨김 경과를 다시 물어 그 순서에서도 만료 취급이 빠지지 않게 한다.
     const expired = graceExpired || isExpiredNow();
-    // 퇴장 계측(BY-472) — leavingRef가 세션당 1회를 보장한다. 수동/자동 종료 구분은
+    // 퇴장 계측 — leavingRef가 세션당 1회를 보장한다. 수동/자동 종료 구분은
     // study_session_ended.end_reason(room_type=social)이 이미 가지므로 중복하지 않는다.
     const trackExit = () =>
       trackSocialRoomExited({
@@ -417,15 +417,15 @@ export function LiveRoomSession({
   ]);
 
   const myVideo = (
-    // 셀프뷰 보정(BY-427 시안 A): brightness/saturate 필터는 이 <video>의 **로컬 렌더링에만**
-    // 적용된다 — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
+    // 셀프뷰 보정: brightness/saturate 필터는 이 <video>의 로컬 렌더링에만 적용된다
+    // — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
     <video
       ref={videoRef}
       data-testid="room-my-video"
       playsInline
       muted
       {...VIDEO_PLAYBACK_KICK_PROPS}
-      // cover 고정(2026-08-26 디스코드 참조 확정): 정사각 타일에서는 가로·세로 송신자
+      // cover 고정: 정사각 타일에서는 가로·세로 송신자
       // 모두 긴 축이 대칭(~44%)으로 잘려 방향 혼합의 프레이밍 차이가 온건하다 —
       // 방향별 제한 크롭·레터박스 실험(useAdaptiveVideoFit)은 이 결정으로 걷어냈다.
       className={cn(
@@ -450,8 +450,7 @@ export function LiveRoomSession({
       data-testid="live-room-page"
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
-      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
-      // 문서 스크롤이 생기지 않게 한다.
+      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바를 잘라 문서 스크롤이 생기지 않게 한다.
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
@@ -467,7 +466,7 @@ export function LiveRoomSession({
         />
       )}
       {/* 다이얼로그의 포커스 트랩·바깥 차단은 Radix 가 스스로 한다. inert 를 겹치면 닫힐 때
-          포커스를 돌려줄 요소가 이미 inert 라 복귀가 조용히 실패한다. */}
+          포커스를 돌려줄 요소가 이미 inert 라 복귀가 실패한다. */}
       <div className="contents">
         <RoomGrid
           grid={grid}
