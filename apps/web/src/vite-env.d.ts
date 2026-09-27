@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_GA4_MEASUREMENT_ID?: string;
   /** Amplitude API 키. 미설정 시 Amplitude는 초기화되지 않는다(로컬 개발·테스트). */
   readonly VITE_AMPLITUDE_API_KEY?: string;
+  /** 측정용 전 빌드 전용. "off"면 홈에서 Vision 자원을 미리 받지 않는다. */
+  readonly VITE_VISION_PREFETCH?: string;
 }
 
 interface ImportMeta {

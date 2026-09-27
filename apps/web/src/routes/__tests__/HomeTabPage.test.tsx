@@ -44,6 +44,13 @@ vi.mock("@/lib/ddayApi", () => ({
   deleteDday: vi.fn(),
 }));
 
+/** 홈이 통계를 그린 뒤 부르는 Vision 자원 미리 받기. 받기 자체는 자기 테스트가 본다. */
+const prefetchVisionAssets = vi.hoisted(() => vi.fn());
+
+vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
+  prefetchVisionAssets,
+}));
+
 /** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
 const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
 
@@ -172,6 +179,38 @@ describe("HomeTabPage", () => {
 
     expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("Vision 자원 미리 받기", () => {
+    it("통계가 화면에 뜬 뒤에야 부른다 — 첫 화면과 대역폭을 다투지 않는다", async () => {
+      let resolveStats: (
+        value: Awaited<ReturnType<typeof listStudySessionStats>>,
+      ) => void = () => {};
+      mockedStats.mockReturnValue(
+        new Promise((resolve) => {
+          resolveStats = resolve;
+        }),
+      );
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHome();
+      await waitFor(() => expect(mockedStreak).toHaveBeenCalled());
+      expect(prefetchVisionAssets).not.toHaveBeenCalled();
+
+      resolveStats(statsResponse);
+      await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+      await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+    });
+
+    it("통계를 불러오지 못하면 부르지 않는다", async () => {
+      mockedStats.mockRejectedValue(new Error("network"));
+      mockedStreak.mockRejectedValue(new Error("network"));
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("기록을 불러오지 못했어요")).toBeInTheDocument());
+      expect(prefetchVisionAssets).not.toHaveBeenCalled();
+    });
   });
 
   describe("복구 안내 모달", () => {
