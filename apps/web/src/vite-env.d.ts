@@ -14,6 +14,12 @@ interface ImportMetaEnv {
    * 호출부 조건이 false로 접히고 패널이 번들에서 빠진다.
    */
   readonly VITE_PERF_PANEL?: string;
+  /**
+   * 측정 빌드 전용. "1"이면 `getUserMedia`를 캔버스 영상으로 바꿔 카메라 없는 iOS
+   * 시뮬레이터에서도 검출기가 로딩된다. 운영 빌드에서는 비어 있어 호출부 조건이 false로
+   * 접히고 이 코드가 번들에서 빠진다.
+   */
+  readonly VITE_FAKE_CAMERA?: string;
 }
 
 interface ImportMeta {
