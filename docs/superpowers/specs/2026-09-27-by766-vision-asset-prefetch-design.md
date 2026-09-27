@@ -71,9 +71,11 @@
 | `model_cache` | `"hit"` / `"miss"` / `"unknown"`                         |
 
 - 캐시 판정(Resource Timing, 이름으로 항목을 찾는다: `/mediapipe/wasm/`의 `.wasm`, 기본 모델 경로)
-  - `hit`: `transferSize < encodedBodySize`. 메모리·디스크 캐시와 304 재검증이 여기에 든다.
-  - `miss`: 본문을 다시 받았다.
-  - `unknown`: 항목이 없거나 `encodedBodySize`가 0이다(지원하지 않는 엔진, 버퍼가 가득 참).
+  - 본문이 네트워크를 건넌 근거가 있을 때만 `miss`로 본다.
+  - `miss`: `encodedBodySize > 0`이고 `transferSize >= encodedBodySize`다.
+  - `unknown`: 항목이 없거나 `transferSize`·`encodedBodySize`·`decodedBodySize`가 모두 0이다(교차 출처, 버퍼가 가득 참).
+  - `hit`: 그 밖의 경우다. 메모리·디스크 캐시와 304 재검증이 여기에 든다.
+  - WebKit은 304 재검증에 `encodedBodySize`를 0으로 준다(iOS 시뮬레이터 실측: `transferSize` 300, 본문 크기 0). 그래서 본문 크기가 아니라 `transferSize`로 `miss`를 가른다.
 - 플랫폼 속성은 두지 않는다. Amplitude 브라우저 SDK가 모든 이벤트에 `os_name`·기기 정보를 붙인다.
 - 카메라 프레임, 얼굴·검출 데이터, 별도 식별자는 싣지 않는다.
 - 트래킹 함수는 `amplitude.ts`에 `trackVisionDetectorReady`로 둔다. 한 번만 보내는 책임은 다른 세션 이벤트처럼 호출하는 쪽(훅)에 있다.

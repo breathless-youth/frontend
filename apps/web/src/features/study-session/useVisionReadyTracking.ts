@@ -9,11 +9,18 @@ import {
 import { trackVisionDetectorReady, type StudyRoomType } from "@/lib/amplitude";
 
 /**
- * 자원을 이번에 네트워크로 다시 받았는가.
+ * 자원을 이번에 네트워크로 다시 받았는가. "본문이 실제로 네트워크를 건넌 근거가 있을 때만 miss"로
+ * 판정한다.
  *
- * - `hit` — 전송량이 본문보다 작다. 메모리·디스크 캐시(0 B)와 304 재검증(헤더만)이 여기 든다.
- * - `miss` — 본문을 다시 받았다.
- * - `unknown` — 항목이 없거나 본문 크기를 알 수 없다(지원하지 않는 엔진, 버퍼가 가득 참).
+ * - `unknown` — 항목이 없거나 전송량·인코딩 본문·디코딩 본문이 전부 0이라 판단할 정보가 없다
+ *   (Timing-Allow-Origin 없는 크로스오리진 등).
+ * - `miss` — 인코딩 본문이 0보다 크고 전송량이 그 이상이다. 본문이 네트워크를 건넜다.
+ * - `hit` — 그 밖의 모든 경우. 메모리·디스크 캐시, 304 재검증이 여기 든다.
+ *
+ * `encodedBodySize`가 아니라 `transferSize`로 miss를 가르는 이유: WebKit은 304 재검증에서
+ * `encodedBodySize`를 0으로 준다(Chromium은 캐시된 본문 크기를 그대로 준다). `encodedBodySize`
+ * 존재 여부로 캐시를 판정하면 iOS의 모든 캐시 적중이 `unknown`이 된다. `transferSize`만 두
+ * 엔진에서 의미가 같다.
  */
 export type AssetCacheState = "hit" | "miss" | "unknown";
 
@@ -33,12 +40,17 @@ export interface VisionReadyMeasurement {
 }
 
 export function classifyAssetCache(
-  entry: Pick<PerformanceResourceTiming, "transferSize" | "encodedBodySize"> | undefined,
+  entry:
+    | Pick<PerformanceResourceTiming, "transferSize" | "encodedBodySize" | "decodedBodySize">
+    | undefined,
 ): AssetCacheState {
-  if (entry === undefined || entry.encodedBodySize === 0) {
+  if (
+    entry === undefined ||
+    (entry.transferSize === 0 && entry.encodedBodySize === 0 && entry.decodedBodySize === 0)
+  ) {
     return "unknown";
   }
-  return entry.transferSize < entry.encodedBodySize ? "hit" : "miss";
+  return entry.encodedBodySize > 0 && entry.transferSize >= entry.encodedBodySize ? "miss" : "hit";
 }
 
 function report(entry: PerformanceResourceTiming | undefined): AssetCacheReport {

@@ -27,11 +27,13 @@ function resource(
   transferSize: number,
   encodedBodySize: number,
   startTime = 0,
+  decodedBodySize = encodedBodySize,
 ): PerformanceResourceTiming {
   return {
     name: `${ORIGIN}${path}`,
     transferSize,
     encodedBodySize,
+    decodedBodySize,
     startTime,
   } as PerformanceResourceTiming;
 }
@@ -47,9 +49,13 @@ describe("classifyAssetCache", () => {
     expect(classifyAssetCache(resource(WASM, 3_392_792, 3_392_792))).toBe("miss");
   });
 
-  it("항목이 없거나 본문 크기를 알 수 없으면 unknown", () => {
+  it("항목이 없거나 세 크기가 전부 0이면 unknown", () => {
     expect(classifyAssetCache(undefined)).toBe("unknown");
-    expect(classifyAssetCache(resource(WASM, 0, 0))).toBe("unknown");
+    expect(classifyAssetCache(resource(WASM, 0, 0, 0, 0))).toBe("unknown");
+  });
+
+  it("WebKit 304 재검증은 본문 크기를 0으로 줘도 hit", () => {
+    expect(classifyAssetCache(resource(WASM, 300, 0, 0, 0))).toBe("hit");
   });
 });
 
