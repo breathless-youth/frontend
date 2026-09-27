@@ -10,6 +10,10 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "perf:build:before": "node scripts/copyMediapipeWasm.js && VITE_VISION_PREFETCH=off VITE_PERF_PANEL=1 VITE_SENTRY_DSN= VITE_AMPLITUDE_API_KEY= VITE_GA4_MEASUREMENT_ID= VITE_API_BASE_URL= VITE_DEPLOY_ENV= SENTRY_AUTH_TOKEN= vite build --outDir .perf/dist-before",
+    "perf:build:after": "node scripts/copyMediapipeWasm.js && VITE_PERF_PANEL=1 VITE_SENTRY_DSN= VITE_AMPLITUDE_API_KEY= VITE_GA4_MEASUREMENT_ID= VITE_API_BASE_URL= VITE_DEPLOY_ENV= SENTRY_AUTH_TOKEN= vite build --outDir .perf/dist-after",
+    "perf:serve": "node scripts/perf/serve.mjs",
+    "perf:measure": "node scripts/perf/measure-prefetch.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -55,6 +59,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "playwright-core": "^1.63.0",
     "tailwindcss": "^4.1.16",
     "typescript": "~6.0.2",
     "vite": "^7.3.6",
