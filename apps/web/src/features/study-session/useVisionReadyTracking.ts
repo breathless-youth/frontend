@@ -5,6 +5,7 @@ import {
   createVisionFocusDetector,
   type VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { resolveModelVariant } from "@/features/study-session/vision/objectDetector";
 import {
   DEFAULT_MODEL_VARIANT,
   MEDIAPIPE_WASM_PATH,
@@ -76,17 +77,21 @@ function lastEntry(
 }
 
 /**
- * wasm 바이너리와 기본 모델의 Resource Timing 항목을 경로로 찾아 판정한다.
+ * wasm 바이너리와 모델의 Resource Timing 항목을 경로로 찾아 판정한다.
  * `sinceMs` 이전 항목(이전 문서·이전 세션의 요청)은 무시하고, 남는 항목이 없으면 `unknown`이다.
+ *
+ * `modelPath`는 기본값이 `DEFAULT_MODEL_VARIANT`다 — 실제 세션은 `resolveModelVariant`로 고른
+ * 변형(DEV의 `?model=fp32` 등)의 경로를 넘겨야, 검출기가 실제로 받은 모델과 다른 경로를 찾다가
+ * `unknown`으로 오판하지 않는다.
  */
 export function readVisionAssetCache(
   entries: readonly PerformanceResourceTiming[],
   sinceMs: number,
+  modelPath: string = MODEL_PATHS[DEFAULT_MODEL_VARIANT],
 ): {
   wasm: AssetCacheReport;
   model: AssetCacheReport;
 } {
-  const modelPath = MODEL_PATHS[DEFAULT_MODEL_VARIANT];
   return {
     wasm: report(
       lastEntry(
@@ -130,6 +135,7 @@ export function useVisionReadyTracking(
       const assets = readVisionAssetCache(
         performance.getEntriesByType("resource") as PerformanceResourceTiming[],
         loadingAt,
+        MODEL_PATHS[resolveModelVariant(window.location.search)],
       );
       trackVisionDetectorReady({
         loadMs,

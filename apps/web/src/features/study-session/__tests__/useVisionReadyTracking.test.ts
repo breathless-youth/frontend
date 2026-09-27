@@ -146,6 +146,8 @@ describe("useVisionReadyTracking", () => {
     vi.restoreAllMocks();
     mocks.ready.mockClear();
     mocks.createVisionFocusDetector.mockClear();
+    // fp32 테스트가 쿼리를 바꾼 채 단언에서 실패해도 다음 테스트로 새지 않게 항상 되돌린다.
+    window.history.pushState({}, "", "/");
   });
 
   it("로딩 시작→준비 시간을 정수 ms로 room_type과 함께 보내고 측정값을 돌려준다", () => {
@@ -185,6 +187,20 @@ describe("useVisionReadyTracking", () => {
       wasmCache: "hit",
       modelCache: "miss",
     });
+  });
+
+  it("DEV에서 ?model=fp32로 열렸으면 fp32 경로로 모델 캐시를 판정한다", () => {
+    window.history.pushState({}, "", "/room/1?model=fp32");
+    vi.mocked(performance.getEntriesByType).mockReturnValue([
+      resource(MODEL_PATHS.fp32, 0, 4_500_000),
+    ]);
+    const source = createStatusSource();
+    renderHook(() => useVisionReadyTracking(source, "single"));
+
+    source.emit("loading");
+    source.emit("ready");
+
+    expect(mocks.ready).toHaveBeenCalledWith(expect.objectContaining({ modelCache: "hit" }));
   });
 
   it("검출기가 다시 준비돼도 한 번만 보낸다", () => {
