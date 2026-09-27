@@ -311,6 +311,27 @@ export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomTyp
   track("study_session_submitted", { ok, attempt, room_type: roomType });
 }
 
+/**
+ * 세션 검출기가 로딩을 시작해 준비될 때까지 걸린 시간과, 그때 wasm·모델을 캐시에서 받았는지.
+ * 홈 유휴 시간의 미리 받기가 실사용에서 효과가 있는지 보는 지표다. 세션당 한 번은 호출하는 훅
+ * (`features/study-session/useVisionReadyTracking.ts`)이 지킨다. 준비 실패는 Sentry가 받으므로 보내지 않는다.
+ * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 카메라 프레임·검출 결과·식별자는 싣지 않는다.
+ */
+export function trackVisionDetectorReady(input: {
+  readonly loadMs: number;
+  readonly roomType: StudyRoomType;
+  readonly wasmCache: "hit" | "miss" | "unknown";
+  readonly modelCache: "hit" | "miss" | "unknown";
+}) {
+  if (!initialized) return;
+  track("vision_detector_ready", {
+    load_ms: input.loadMs,
+    room_type: input.roomType,
+    wasm_cache: input.wasmCache,
+    model_cache: input.modelCache,
+  });
+}
+
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
  *
  * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰

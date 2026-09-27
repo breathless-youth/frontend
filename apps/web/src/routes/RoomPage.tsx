@@ -24,6 +24,7 @@ import type { SessionStatusPillState } from "@/features/study-session/components
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
+import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
 import {
@@ -48,6 +49,7 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
+import { useVisionReadyTracking } from "@/features/study-session/useVisionReadyTracking";
 import {
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
@@ -219,6 +221,11 @@ function RoomSessionScreen({
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
   );
+  // 검출기 상태 구독은 현재 상태를 다시 알려주지 않으므로, 로딩이 시작되기 전에 구독이 걸리도록
+  // 검출기를 시작하는 모든 훅·effect(useStudyRoomSession 내부의 detector.start() 포함, 아래
+  // 시작 effect도 포함)보다 먼저 둔다. 순서를 바꾸면 loading→ready 전환을 놓쳐 이벤트가
+  // 조용히 안 나간다.
+  const visionReady = useVisionReadyTracking(visionDetector, "single");
   /**
    * 감지기는 둘이다 — 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`). 담당 트리거가 겹치지
    * 않으므로 하나로 묶어 훅에 넘긴다. 수명(`start`/`stop`)도 함께 움직이는 것이 맞다 —
@@ -636,6 +643,10 @@ function RoomSessionScreen({
           쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
           치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
       {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
+
+      {/* 측정 빌드(VITE_PERF_PANEL=1) 전용. 운영 빌드에서는 조건이 false로 접혀 패널 모듈이
+          번들에서 빠진다. */}
+      {import.meta.env.VITE_PERF_PANEL === "1" && <VisionPerfPanel measurement={visionReady} />}
 
       {/* 종료 확인 다이얼로그는 `phase` 삼항 **밖**에 둔다. `공부 종료`를 누르면 같은 렌더에서
           `exitDialogOpen`이 false 가 되면서 `phase`도 `submitting`으로 바뀌는데, 삼항 안에
