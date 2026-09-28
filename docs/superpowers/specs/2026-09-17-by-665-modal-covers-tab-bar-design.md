@@ -149,3 +149,7 @@ export interface SetTabBarMessage {
 - 다이얼로그(가운데 카드)는 그대로 차단(딤)이다. 이 문서의 "웹뷰 높이 유지" 근거는 V1 인라인 탭 바
   시절 것이고, V2 떠 있는 바에서는 숨겨도 웹뷰 높이가 변하지 않는다.
 - 시트 바닥 여백은 탭 바 자리 대신 `safe-area-inset-bottom`만 피한다(`DdaySection.tsx`).
+- (같은 날 실기기 재확인) 숨김을 `null` 반환(언마운트)으로 하면 시트가 내려간 뒤 탭 바가 다시 마운트되며
+  한 프레임 번쩍인다. 웹이 네이티브 위를 덮을 수는 없으므로(탭 바가 웹뷰 위의 네이티브 뷰) 네이티브 쪽에서
+  `TabBar`를 항상 마운트해 두고 `hidden` prop으로 **180ms 페이드**(opacity, `useNativeDriver`)한다.
+  숨긴 동안 `pointerEvents="none"`·접근성 트리 제외. 전체 화면 라우트의 숨김도 같은 경로를 탄다.

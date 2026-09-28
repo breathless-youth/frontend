@@ -44,10 +44,10 @@ jest.mock("../components/TabBar", () => {
   /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
 
   return {
-    TabBar: function MockTabBar({ dimmed }: { dimmed?: boolean }) {
+    TabBar: function MockTabBar({ dimmed, hidden }: { dimmed?: boolean; hidden?: boolean }) {
       return ReactModule.createElement(
         View,
-        { testID: "tab-bar" },
+        { testID: hidden ? "tab-bar-hidden" : "tab-bar" },
         dimmed ? ReactModule.createElement(View, { testID: "tab-bar-dim" }) : null,
       );
     },
@@ -177,11 +177,12 @@ describe("모달 차단", () => {
     expect(queryByTestId("tab-bar-dim")).toBeNull();
   });
 
-  it("숨김 상태면 탭 바 자리까지 사라진다", () => {
+  it("숨김 상태면 탭 바를 언마운트하지 않고 hidden으로 넘겨 페이드로 감춘다", () => {
     setTabBarState("hidden");
 
-    const { queryByTestId } = render(<TabsLayout />);
+    const { getByTestId, queryByTestId } = render(<TabsLayout />);
 
+    expect(getByTestId("tab-bar-hidden")).toBeTruthy();
     expect(queryByTestId("tab-bar")).toBeNull();
     expect(queryByTestId("tab-bar-dim")).toBeNull();
   });

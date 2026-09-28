@@ -11,14 +11,13 @@ import { useTabBarState } from "../../lib/tabBarVisibility";
 
 export default function TabsLayout() {
   /**
-   * 전체 화면 웹 라우트(온보딩 가이드 G1~G5·문의·약관·방침)에서는 탭 바를 감춘다("hidden") —
-   * 그 화면들은 탭 웹뷰 **안에서** 웹 라우팅으로 열려 네이티브 스택을 건너므로, 웹이
-   * `set-tab-bar`로 알려주지 않으면 탭 바가 그대로 남는다(Figma G1~G5에는 탭 바가 없다).
-   * `null`을 돌려 **자리까지 없앤다** — 숨기기만 하면 빈 여백이 남아 가이드가 화면 끝까지
-   * 차지하지 못한다.
+   * 전체 화면 웹 라우트(온보딩 가이드 G1~G5·문의·약관·방침)와 바텀시트에서는 탭 바를
+   * 감춘다("hidden") — 그 화면들은 탭 웹뷰 **안에서** 웹 라우팅으로 열려 네이티브 스택을
+   * 건너므로, 웹이 `set-tab-bar`로 알려주지 않으면 탭 바가 그대로 남는다. V2 탭 바는 웹뷰
+   * 위에 떠 있어 자리를 차지하지 않으므로 언마운트하지 않고 `TabBar`가 페이드로 감춘다 —
+   * 마운트/언마운트는 나타날 때 한 프레임 번쩍여 웹 시트 애니메이션과 어긋난다(BY-658).
    *
-   * 웹 모달이 열려 있는 동안은 "blocked"다 — 탭 바는 자리에 남기고 딤으로 덮어 터치만
-   * 막는다. 자리까지 없애면 웹뷰 높이가 그만큼 커져 화면 중앙의 모달 카드가 튄다.
+   * 웹 다이얼로그가 열려 있는 동안은 "blocked"다 — 탭 바는 보이는 채 딤으로 덮어 터치만 막는다.
    */
   const tabBarState = useTabBarState();
   // tabBar render prop이 내비게이터 상태를 받을 때마다 갱신한다 — BackHandler 콜백이 등록
@@ -60,13 +59,11 @@ export default function TabsLayout() {
         activeRouteRef.current = state.routes[state.index]?.name ?? "index";
         // 브리지 핸들러가 `navigate-tab`의 출발 탭을 읽을 수 있게 모듈 스코프에도 기록한다(`lib/activeTab.ts`).
         setActiveTabRoute(activeRouteRef.current);
-        if (tabBarState === "hidden") {
-          return null;
-        }
         const bar = (
           <TabBar
             active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"}
             dimmed={tabBarState === "blocked"}
+            hidden={tabBarState === "hidden"}
           />
         );
         if (tabBarState !== "blocked") {

@@ -113,3 +113,21 @@ describe("TabBar — 딤", () => {
     expect(screen.queryByTestId("tab-bar-dim")).toBeNull();
   });
 });
+
+describe("TabBar — 숨김", () => {
+  it("hidden이면 터치를 받지 않고 접근성 트리에서 빠진다 — 언마운트 대신 페이드라 노드는 남는다", () => {
+    render(<TabBar active="home" hidden />);
+    // 접근성 트리에서 빠졌으므로 RNTL 기본 조회에도 안 잡힌다 — 그게 검증 대상이라 숨긴 요소까지 포함해 찾는다.
+    const root = screen.getByTestId("tab-bar", { includeHiddenElements: true });
+    expect(root.props.pointerEvents).toBe("none");
+    expect(root.props.accessibilityElementsHidden).toBe(true);
+    expect(root.props.importantForAccessibility).toBe("no-hide-descendants");
+  });
+
+  it("보이는 상태에서는 탭만 터치를 받는다(box-none)", () => {
+    render(<TabBar active="home" />);
+    const root = screen.getByTestId("tab-bar");
+    expect(root.props.pointerEvents).toBe("box-none");
+    expect(root.props.accessibilityElementsHidden).toBe(false);
+  });
+});
