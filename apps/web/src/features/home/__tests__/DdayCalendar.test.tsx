@@ -113,6 +113,18 @@ describe("DdayCalendar — 스와이프", () => {
     expect(screen.getByTestId("dday-calendar-swipe-area").className).toContain("flex-col");
     expect(screen.getByTestId("dday-calendar-swipe-area").className).toContain("gap-2");
   });
+
+  it("스와이프 영역이 비활성 셀을 포인터에 투명하게 만든다", () => {
+    renderCalendar();
+
+    // disabled 버튼은 포인터 이벤트를 디스패치하지 않는다 — 지난 날짜에서 시작한 스와이프가
+    // 컨테이너까지 오게 하려면 비활성 자식이 포인터를 통과시켜야 한다. jsdom은 그 규칙을
+    // 흉내 내지 않아 동작으로는 못 잡고, 규칙이 붙어 있는지로 확인한다.
+    fireEvent.click(screen.getByRole("button", { name: "연도·월 바로 가기" }));
+    expect(screen.getByTestId("dday-year-picker-swipe-area").className).toContain(
+      "[&_button:disabled]:pointer-events-none",
+    );
+  });
 });
 
 describe("DdayCalendar — 연/월 선택기", () => {

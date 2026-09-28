@@ -162,8 +162,12 @@ export function DdayCalendar({
 
       {picker ? (
         <div
+          // `[&_button:disabled]:pointer-events-none`: 브라우저는 disabled 버튼에 포인터 이벤트를
+          // 아예 디스패치하지 않아, 지난 날짜 셀에서 시작한 스와이프가 이 컨테이너까지 오지 못하고
+          // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에
+          // 투명하게 만들어 시작점이 어디든 여기서 받는다(눌리지 않는 것은 그대로다).
           data-testid="dday-year-picker-swipe-area"
-          className="touch-pan-y flex min-h-[284px] flex-col gap-2"
+          className="[&_button:disabled]:pointer-events-none touch-pan-y flex min-h-[284px] flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onClickCapture={handleClickCapture}
@@ -248,9 +252,13 @@ export function DdayCalendar({
         // 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어 pointercancel을 내서 스와이프가 끝까지 못 간다.
         <div
           data-testid="dday-calendar-swipe-area"
+          // `[&_button:disabled]:pointer-events-none`: 브라우저는 disabled 버튼에 포인터 이벤트를
+          // 아예 디스패치하지 않아, 지난 날짜 셀에서 시작한 스와이프가 이 컨테이너까지 오지 못하고
+          // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에
+          // 투명하게 만들어 시작점이 어디든 여기서 받는다(눌리지 않는 것은 그대로다).
           // 래퍼를 끼우면 요일 줄과 날짜 그리드가 바깥 `flex flex-col gap-2`의 자식에서 빠진다 —
           // 여기서 같은 간격을 다시 만든다(연/월 선택기 분기도 같은 이유로 들고 있다).
-          className="flex touch-pan-y flex-col gap-2"
+          className="[&_button:disabled]:pointer-events-none flex touch-pan-y flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onClickCapture={handleClickCapture}
