@@ -48,3 +48,6 @@ docs/superpowers/plans/
 
 # impeccable 훅의 로컬 생성 캐시 — 세션 ID와 절대경로가 담긴다.
 .impeccable/
+
+# 측정 도구(apps/web/scripts/perf)의 빌드 산출물·자체 서명 인증서·결과. 생성물이고 인증서는 개인 키다.
+.perf/

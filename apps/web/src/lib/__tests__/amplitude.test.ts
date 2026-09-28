@@ -920,6 +920,41 @@ describe("배경음 이벤트", () => {
   });
 });
 
+describe("Vision 검출기 준비 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackVisionDetectorReady({
+      loadMs: 2220,
+      roomType: "single",
+      wasmCache: "hit",
+      modelCache: "hit",
+    });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("로딩→준비 시간·룸 종류·캐시 판정만 싣는다 — 카메라·검출 데이터와 식별자는 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackVisionDetectorReady({
+      loadMs: 8741,
+      roomType: "social",
+      wasmCache: "miss",
+      modelCache: "unknown",
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith("vision_detector_ready", {
+      load_ms: 8741,
+      room_type: "social",
+      wasm_cache: "miss",
+      model_cache: "unknown",
+    });
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.

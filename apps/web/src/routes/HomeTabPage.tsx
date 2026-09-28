@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import inviteFriendsImage from "@/assets/home-invite-friends.png";
@@ -20,6 +20,7 @@ import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
+import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
@@ -27,10 +28,7 @@ import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 
 /**
- * 홈(S1). 네이티브 셸이 `/home?userId=N`으로 로드한다(세션 `/room/:id?userId=N`과 같은 규칙).
- *
- * 시안은 Figma V2 `홈 · 집중률 바 (Soft Blue)`다. 이 화면 서브트리에서만 `theme-soft-blue`로
- * V2 팔레트를 켠다.
+ * 홈
  *
  * 탭 전환(소셜·기록·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
  * 친구 초대 카드의 소셜 탭 이동도 그래서 `navigate-tab` 브리지로 네이티브에 맡기고,
@@ -40,10 +38,9 @@ import { cn } from "@/lib/utils";
  * 완료면 세션 시작 요청(`requestSessionStart`)으로 갈린다.
  */
 
-/** 초대 카드 이중 탭 무시 구간. 탭 전환 애니메이션이 끝나기 전의 재탭만 걸러낸다. */
+/** 초대 카드 이중 탭 무시 구간. 탭 전환 애니메이션이 끝나기 전의 탭 재시도만 걸러낸다. */
 const SOCIAL_TAP_GUARD_MS = 500;
 
-/** V2 카드 셸 — 반경 20, 테두리 없음, `shadow/card-soft-blue`. */
 const CARD_CLASS = "rounded-xl border-0 shadow-sb-card";
 
 function StreakCard({ summary }: { summary: HomeSummary }) {
@@ -131,7 +128,6 @@ function InviteCard({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className="flex min-h-11 items-center gap-4 rounded-xl bg-brand-subtle px-[22px] py-5 text-left"
     >
-      {/* 일러스트는 Figma 원본 PNG다. 글자가 카드의 뜻을 다 전하므로 이미지는 장식이다. */}
       <img src={inviteFriendsImage} alt="" width={64} height={64} className="size-16 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col gap-1 text-primary">
         <span className="text-base leading-5 font-bold">오늘은 혼자 집중하기 힘든가요?</span>
@@ -147,6 +143,19 @@ function InviteCard({ onClick }: { onClick: () => void }) {
 
 function HomeContent({ userId }: { userId: number }) {
   const summaryState = useHomeSummary(userId);
+
+  /**
+   * 통계까지 그린 뒤 세션의 Vision 자원(로더·wasm·모델)을 유휴 시간에 HTTP 캐시로 올려 둔다.
+   * 첫 화면·통계와 대역폭을 다투지 않도록 성공한 뒤에만 부른다.
+   * document당 한 번은 함수가 보장한다.
+   */
+  const summaryShown = summaryState.status === "success";
+  useEffect(() => {
+    if (summaryShown) {
+      prefetchVisionAssets();
+    }
+  }, [summaryShown]);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -180,7 +189,9 @@ function HomeContent({ userId }: { userId: number }) {
   }
 
   /**
-   * 친구 초대 카드 → 소셜 탭. 웹뷰에서는 `navigate-tab` 브리지로 네이티브 탭바를 움직인다.
+   * 친구 초대 카드 → 소셜 탭
+   *
+   * 웹뷰에서는 `navigate-tab` 브리지로 네이티브 탭바를 움직인다.
    * 웹 라우터로 `/social`에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바 활성 표시와 어긋난다.
    * 브라우저 단독 모드에서는 탭바가 없으므로 웹 라우트로 직접 가되 쿼리를 이어받는다.
    */
@@ -261,7 +272,9 @@ function HomeContent({ userId }: { userId: number }) {
 }
 
 /**
- * 헤더. 시안대로 좌상단 D-Day 블록 하나다(오른쪽 날짜 없음). D-Day API는 토큰 계약뿐이라 토큰
+ * 헤더
+ *
+ * 시안대로 좌상단 D-Day 블록 하나다(오른쪽 날짜 없음). D-Day API는 토큰 계약뿐이라 토큰
  * 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다. 출처가 있는데 첫
  * `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
  * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
