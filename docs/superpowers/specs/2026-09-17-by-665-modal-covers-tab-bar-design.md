@@ -153,3 +153,6 @@ export interface SetTabBarMessage {
   한 프레임 번쩍인다. 웹이 네이티브 위를 덮을 수는 없으므로(탭 바가 웹뷰 위의 네이티브 뷰) 네이티브 쪽에서
   `TabBar`를 항상 마운트해 두고 `hidden` prop으로 **180ms 페이드**(opacity, `useNativeDriver`)한다.
   숨긴 동안 `pointerEvents="none"`·접근성 트리 제외. 전체 화면 라우트의 숨김도 같은 경로를 탄다.
+- (같은 날) 닫힘 신호를 요소 제거가 아니라 Radix `data-state="closed"`가 붙는 순간(퇴장 애니메이션 시작)으로
+  당긴다. 그래야 탭 바 페이드가 시트가 내려가는 동안 같이 진행돼 열릴 때와 대칭이다. 다이얼로그의 딤 해제도
+  같은 시점으로 당겨진다.

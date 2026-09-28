@@ -14,7 +14,12 @@ import { useSyncExternalStore } from "react";
  * 밖의 document라 어느 컴포넌트에도 속하지 않는다.
  */
 
-const MODAL_SELECTOR = '[aria-modal="true"]';
+/**
+ * 퇴장 애니메이션 중인 모달은 이미 닫힌 것으로 본다. Radix는 닫는 순간 `data-state="closed"`를 붙이고
+ * 애니메이션이 끝나야 요소를 걷어내는데, 걷어낼 때까지 기다리면 네이티브 탭 바가 시트가 다 내려간
+ * 뒤에야 돌아와 늦어 보인다. 열릴 때(요소가 붙는 순간 숨김)와 대칭으로 닫힘도 시작 시점에 알린다.
+ */
+const MODAL_SELECTOR = '[aria-modal="true"]:not([data-state="closed"])';
 
 /**
  * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
@@ -59,9 +64,14 @@ function subscribe(listener: () => void): () => void {
     typeof MutationObserver !== "undefined" &&
     typeof document !== "undefined"
   ) {
-    // 모달은 열고 닫힐 때 요소 자체가 붙었다 떨어진다 — 속성 변화는 볼 필요가 없다.
+    // 요소가 붙고 떨어지는 것에 더해 `data-state`가 closed로 바뀌는 순간도 잡는다(위 셀렉터 주석).
     observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+    });
     sync();
   }
   return () => {

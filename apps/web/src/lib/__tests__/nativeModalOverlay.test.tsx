@@ -66,6 +66,20 @@ describe("useModalOverlayOpen", () => {
     });
   });
 
+  it("퇴장 애니메이션 중(data-state=closed)인 모달은 걷어내기 전에도 닫힘이다 — 탭 바가 시트와 함께 돌아와야 한다", async () => {
+    const { getByTestId } = render(<Probe />);
+    const modal = addModal({ role: "dialog", "aria-modal": "true", "data-state": "open" });
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("open");
+    });
+
+    modal.setAttribute("data-state", "closed");
+
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("closed");
+    });
+  });
+
   it("aria-modal 없는 오버레이는 열림으로 보지 않는다 — 토스트가 탭 이동을 막으면 안 된다", async () => {
     const { getByTestId } = render(<Probe />);
 
