@@ -16,20 +16,36 @@ import { useSyncExternalStore } from "react";
 
 const MODAL_SELECTOR = '[aria-modal="true"]';
 
+/**
+ * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
+ * 화면 바닥에 붙는 시트는 떠 있는 탭 바가 시트 아래쪽(저장 버튼)을 가리므로 탭 바를 숨겨야 한다.
+ * 공용 `ui/sheet.tsx`가 `side="bottom"`일 때 단다.
+ */
+export const COVERS_TAB_BAR_ATTR = "data-covers-tab-bar";
+const COVERING_MODAL_SELECTOR = `${MODAL_SELECTOR}[${COVERS_TAB_BAR_ATTR}]`;
+
 let open = false;
+let coversTabBar = false;
 let observer: MutationObserver | null = null;
 const listeners = new Set<() => void>();
 
-function readDocument(): boolean {
-  return typeof document !== "undefined" && document.querySelector(MODAL_SELECTOR) !== null;
+function readDocument(): { open: boolean; coversTabBar: boolean } {
+  if (typeof document === "undefined") {
+    return { open: false, coversTabBar: false };
+  }
+  return {
+    open: document.querySelector(MODAL_SELECTOR) !== null,
+    coversTabBar: document.querySelector(COVERING_MODAL_SELECTOR) !== null,
+  };
 }
 
 function sync(): void {
   const next = readDocument();
-  if (open === next) {
+  if (open === next.open && coversTabBar === next.coversTabBar) {
     return;
   }
-  open = next;
+  open = next.open;
+  coversTabBar = next.coversTabBar;
   // 복사본을 돌려 순회 중 구독 해제가 일어나도 안전하게 한다.
   for (const listener of [...listeners]) {
     listener();
@@ -69,10 +85,20 @@ export function useModalOverlayOpen(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+function getCoversSnapshot(): boolean {
+  return coversTabBar;
+}
+
+/** 열린 모달이 탭 바 자리까지 덮는지(바텀시트). 열린 모달이 없으면 false다. */
+export function useModalOverlayCoversTabBar(): boolean {
+  return useSyncExternalStore(subscribe, getCoversSnapshot, getServerSnapshot);
+}
+
 /** 테스트 전용: 모듈 스코프 상태를 기본값으로 되돌린다. 프로덕션 코드에서는 호출하지 않는다. */
 export function __resetModalOverlayForTests(): void {
   observer?.disconnect();
   observer = null;
   open = false;
+  coversTabBar = false;
   listeners.clear();
 }

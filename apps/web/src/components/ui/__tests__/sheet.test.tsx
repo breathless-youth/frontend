@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
+
 import { Sheet, SheetContent, SheetTitle, sheetVariants } from "../sheet";
 
 /**
@@ -74,5 +76,28 @@ describe("Sheet 모션", () => {
     expect(dim.className).toContain("data-[state=closed]:fade-out-0");
     expect(dim.className).not.toContain("slide-in-from");
     expect(dim.className).not.toContain("slide-out-to");
+  });
+});
+
+describe("Sheet — 네이티브 탭 바", () => {
+  it("바닥 시트만 탭 바 자리를 덮는다고 표시한다", () => {
+    const { unmount } = render(
+      <Sheet open>
+        <SheetContent side="bottom">
+          <SheetTitle>D-Day</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog")).toHaveAttribute(COVERS_TAB_BAR_ATTR);
+    unmount();
+
+    render(
+      <Sheet open>
+        <SheetContent side="right">
+          <SheetTitle>배경음</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog")).not.toHaveAttribute(COVERS_TAB_BAR_ATTR);
   });
 });

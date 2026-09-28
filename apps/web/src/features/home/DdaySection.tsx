@@ -77,7 +77,7 @@ export function DdaySection({ userId }: { userId: number }) {
       {/* 홈이 `theme-soft-blue`를 서브트리에만 켠다. 포털이 body로 나가므로 시트에도 같은 테마를 단다. */}
       <SheetContent
         side="bottom"
-        className="theme-soft-blue rounded-t-[24px] border-t-0 px-5 pt-3 pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.18)]"
+        className="theme-soft-blue rounded-t-[24px] border-t-0 px-5 pt-3 pb-[max(32px,calc(env(safe-area-inset-bottom)+8px))] shadow-[0_-12px_40px_rgba(0,0,0,0.18)]"
         // 설명 없는 시트다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
         aria-describedby={undefined}
       >

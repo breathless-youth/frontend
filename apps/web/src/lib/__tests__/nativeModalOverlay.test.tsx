@@ -1,7 +1,12 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { __resetModalOverlayForTests, useModalOverlayOpen } from "@/lib/nativeModalOverlay";
+import {
+  __resetModalOverlayForTests,
+  COVERS_TAB_BAR_ATTR,
+  useModalOverlayCoversTabBar,
+  useModalOverlayOpen,
+} from "@/lib/nativeModalOverlay";
 
 /**
  * 모달이 열렸는지를 `aria-modal="true"` 요소의 존재로 본다 — 모달마다 훅을 부르게 하면
@@ -10,6 +15,10 @@ import { __resetModalOverlayForTests, useModalOverlayOpen } from "@/lib/nativeMo
 
 function Probe() {
   return <span data-testid="state">{useModalOverlayOpen() ? "open" : "closed"}</span>;
+}
+
+function CoversProbe() {
+  return <span data-testid="covers">{useModalOverlayCoversTabBar() ? "covers" : "no"}</span>;
 }
 
 afterEach(() => {
@@ -64,6 +73,27 @@ describe("useModalOverlayOpen", () => {
 
     await waitFor(() => {
       expect(getByTestId("state").textContent).toBe("closed");
+    });
+  });
+});
+
+describe("useModalOverlayCoversTabBar", () => {
+  it("바텀시트(data-covers-tab-bar)가 붙으면 덮음이고 다이얼로그는 아니다", async () => {
+    const { getByTestId } = render(<CoversProbe />);
+
+    const dialog = addModal({ role: "dialog", "aria-modal": "true" });
+    await waitFor(() => {
+      expect(getByTestId("covers").textContent).toBe("no");
+    });
+    dialog.remove();
+
+    const sheet = addModal({ role: "dialog", "aria-modal": "true", [COVERS_TAB_BAR_ATTR]: "" });
+    await waitFor(() => {
+      expect(getByTestId("covers").textContent).toBe("covers");
+    });
+    sheet.remove();
+    await waitFor(() => {
+      expect(getByTestId("covers").textContent).toBe("no");
     });
   });
 });

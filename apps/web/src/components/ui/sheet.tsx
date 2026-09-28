@@ -2,6 +2,7 @@ import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
@@ -74,6 +75,9 @@ const SheetContent = React.forwardRef<
       // 차단 감지가 `aria-modal="true"` 의 존재 여부만 본다. props 보다 앞에 둬 호출부가
       // 필요하면 덮어쓸 수 있게 한다. 공용 `ui/dialog.tsx` 도 같은 이유로 달고 있다.
       aria-modal="true"
+      // 바닥에 붙는 시트는 떠 있는 네이티브 탭 바 자리까지 덮는다 — 딤 차단이 아니라 숨김을 받도록
+      // 표시한다(`nativeTabBar.ts`). 옆에서 나오는 시트는 탭 바와 겹치지 않아 그대로 둔다.
+      {...(side === "bottom" ? { [COVERS_TAB_BAR_ATTR]: "" } : {})}
       {...props}
     >
       {children}
