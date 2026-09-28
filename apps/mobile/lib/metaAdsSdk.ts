@@ -38,6 +38,11 @@ export const fbsdkMetaAdsAdapter: MetaAdsAdapter = {
     Settings.setAdvertiserIDCollectionEnabled(enabled);
   },
   logEvent(name, params, valueToSum) {
+    // 개발 빌드에서만 찍는다. 운영 대시보드에 이벤트가 안 보일 때 앱이 보낸 것인지, 전송이
+    // 막힌 것인지를 가르는 유일한 단서다 — 브리지 로그(`RemoteWebViewHost`)와 같은 태도.
+    if (__DEV__) {
+      console.warn("[meta-ads] → SDK", name, params ?? "", valueToSum ?? "");
+    }
     // fbsdk-next의 오버로드는 인자 개수로 갈린다 — `undefined`를 그대로 넘기면 파라미터 자리로 읽힌다.
     if (valueToSum !== undefined && params !== undefined) {
       AppEventsLogger.logEvent(name, valueToSum, params);
