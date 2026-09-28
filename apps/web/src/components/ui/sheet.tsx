@@ -27,10 +27,12 @@ SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
 export const sheetVariants = cva(
+  // `focus:outline-none`: Content 는 `tabIndex={-1}` 컨테이너라 포커스를 받아도 링이 필요 없다.
+  // 스크립트로 옮긴 포커스는 WebKit 이 `:focus-visible` 로 쳐서 기본 사각형 링을 그린다.
   // 퇴장은 트랜지션이 아니라 키프레임이어야 한다. Radix 는 닫을 때 CSS 애니메이션이 걸려
   // 있으면 animationend 를 기다렸다 요소를 걷어내지만, 트랜지션은 기다리지 않고 바로
   // 언마운트해 나가는 모습이 한 프레임도 보이지 않는다.
-  "fixed z-50 bg-background p-6 text-foreground shadow-lg duration-300 ease-overlay data-[state=open]:animate-in data-[state=closed]:animate-out",
+  "fixed z-50 bg-background p-6 text-foreground shadow-lg duration-300 ease-overlay focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out",
   {
     variants: {
       side: {

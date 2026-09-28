@@ -39,6 +39,7 @@ export const DDAY_TITLE_MAX_LENGTH = 10;
  */
 export function DdaySection({ userId }: { userId: number }) {
   const query = useQuery(ddayQuery(userId));
+  const sheetRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   // 열 때마다 1씩 올라 폼을 새로 만든다. `open`을 key로 쓰면 닫히는 순간 폼이 리셋돼 300ms 닫힘
   // 애니메이션 동안 방금 저장한 내용이 빈 폼으로 바뀌는 게 보인다.
@@ -76,7 +77,23 @@ export function DdaySection({ userId }: { userId: number }) {
       </SheetTrigger>
       {/* 홈이 `theme-soft-blue`를 서브트리에만 켠다. 포털이 body로 나가므로 시트에도 같은 테마를 단다. */}
       <SheetContent
+        ref={sheetRef}
         side="bottom"
+        // Radix 기본값은 첫 탭 가능 요소, 여기서는 달력의 `이전 달` 화살표로 포커스를 옮긴다 —
+        // 터치로 연 시트에 쓸모없는 포커스 링만 남는다. 시트 자체로 보내면 스크린리더는 그대로
+        // 시트 안으로 들어오고 링은 생기지 않는다(`ui/sheet.tsx`가 컨테이너 링을 끈다).
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          sheetRef.current?.focus();
+        }}
+        // 닫을 때 Radix 는 포커스를 트리거(좌상단 블록)로 되돌리는데, 스크립트 포커스라
+        // WebKit 이 링을 그려 시트를 닫을 때마다 블록에 사각형이 남는다. 터치 전용 화면이라
+        // 되돌릴 곳이 없어도 되므로 막는다.
+        // ponytail: 키보드로 Esc·저장을 눌러 닫아도 포커스가 body 로 떨어진다 — 외장 키보드
+        // 사용을 챙길 일이 생기면 닫힌 경로별로 갈라 복귀시킨다.
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+        }}
         className="theme-soft-blue rounded-t-[24px] border-t-0 px-5 pt-3 pb-[max(32px,calc(env(safe-area-inset-bottom)+8px))] shadow-[0_-12px_40px_rgba(0,0,0,0.18)]"
         // 설명 없는 시트다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
         aria-describedby={undefined}

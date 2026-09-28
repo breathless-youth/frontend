@@ -200,6 +200,26 @@ describe("DdaySection — 시트", () => {
     expect(analytics.trackDdaySaved).not.toHaveBeenCalled();
   });
 
+  it("포커스는 시트 자체에 머물고, 닫아도 좌상단 블록으로 돌아가지 않는다", async () => {
+    mockedGet.mockResolvedValue(null);
+    renderSection();
+
+    const trigger = await screen.findByRole("button", { name: "D-Day 설정" });
+    fireEvent.click(trigger);
+
+    // Radix 기본값이면 첫 탭 가능 요소(`이전 달` 화살표)가 포커스를 받아 링이 그려진다.
+    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    await waitFor(() => {
+      expect(dialog).toHaveFocus();
+    });
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(trigger).not.toHaveFocus();
+  });
+
   it("손잡이를 잡고 끌면 시트가 따라 내려오고, 덜 내리면 제자리로·충분히 내리면 닫힌다", async () => {
     mockedGet.mockResolvedValue(null);
     // jsdom에는 `PointerEvent`도 pointer capture도 없다 — 폴리필이 없으면 `clientY`가 실리지 않는다.
