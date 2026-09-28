@@ -6,6 +6,7 @@ import { readUserIdFromAccessToken } from "./jwt";
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
+import { logMetaRegistration } from "./metaAds";
 
 /**
  * 토큰의 유일한 소유자. SecureStore 키 하나에 JSON으로 묶어 저장한다 — 회전 도중 앱이 죽어도
@@ -98,8 +99,8 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
 /**
  * 등록 API 원본 호출. `Authorization`을 붙이지 않는다.
  *
- * 응답의 `isNew`는 서버 계약이라 타입에 있을 뿐, 분기에 쓰는 소비자가 없다(2026-07-31 검토).
- * 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다.
+ * 응답의 `isNew`는 Meta 가입 완료 이벤트(`logMetaRegistration`)만 소비한다 — 광고로 설치한 사용자가 실제
+ * 신규인지 세는 용도다. 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다.
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await apiFetch(`${apiBaseUrl()}/api/users`, {
@@ -148,7 +149,13 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return state;
     }
     const deviceId = await getOrCreateDeviceId();
-    const { accessToken, refreshToken } = await registerUser(deviceId);
+    const { isNew, accessToken, refreshToken } = await registerUser(deviceId);
+    if (isNew) {
+      // 등록 응답 직후에 찍는다 — 광고 전환이 재는 것은 서버에 유저가 생겼는가이지 이 기기의 저장
+      // 성공이 아니다. 아래 신원 파싱이나 저장이 실패해도 서버 유저는 남아, 다음 실행의 재등록은
+      // isNew=false다 — 여기서 놓치면 이 사용자의 가입 완료는 두 번 다시 찍을 기회가 없다.
+      logMetaRegistration();
+    }
     // 등록 응답에 userId가 없다 — 신원은 access 토큰의 `sub`뿐이다(BY-723).
     // 못 읽으면 저장을 만들지 않는다. 신원 없는 저장은 웹을 조용히 브라우저 단독 모드로 떨어뜨린다.
     const userId = readUserIdFromAccessToken(accessToken);

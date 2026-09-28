@@ -1,5 +1,12 @@
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  MetaAppEventMessage,
+  MetaAppEventParamValue,
+  ToNativeMessage,
+  ToWebMessage,
+} from "@focusmakers/types";
 import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
+
+import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -155,9 +162,71 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+    case "meta-app-event":
+      return parseMetaAppEvent(record);
     default:
       return null;
   }
+}
+
+/**
+ * 문자열 파라미터 값은 열거형 토큰만 받는다 — `room_type: "social"`, `method: "copied"` 같은 것.
+ * 계약(`MetaAppEventMessage` 주석)은 식별자·초대코드·자유 문자열 금지를 말로만 적어 뒀고, 그 규칙을
+ * 웹 쪽 관례로만 지키면 실수 한 번에 사용자 입력이 Meta 서버로 나간다. 닉네임·목표 문구 같은 자유
+ * 문자열은 공백·문장부호·한글을 달고 오므로 여기서 걸린다.
+ *
+ * ponytail: 짧은 ASCII 토큰이면 통과하므로 초대코드처럼 토큰꼴 식별자는 못 막는다. 키 화이트리스트를
+ * 두면 확실하지만 "전환 목록은 웹이 소유한다"는 설계를 깨므로, 그 교환이 필요해지면 그때 옮긴다.
+ */
+const META_PARAM_TOKEN_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
+function isMetaParamValue(value: unknown): value is MetaAppEventParamValue {
+  if (typeof value === "string") {
+    return META_PARAM_TOKEN_PATTERN.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * `meta-app-event`(웹 → Meta SDK 전환 이벤트)를 검증한다 — 이름이 Meta 형식에 어긋나면 통째로
+ * 버리고, 파라미터는 형식에 맞는 키·문자열/유한수 값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
+ * 전환 목록은 웹(`apps/web/src/lib/metaAppEvents.ts`)이 소유하고, 여기서 막으면 웹 배포만으로 전환을
+ * 바꿀 수 없게 된다. 형식 밖 값을 SDK에 그대로 넘기면 네이티브 예외로 이벤트가 통째로 사라진다.
+ */
+function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !META_EVENT_NAME_PATTERN.test(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let params: Record<string, MetaAppEventParamValue> | undefined;
+  if (record.params !== undefined) {
+    if (typeof record.params !== "object" || record.params === null) {
+      return null;
+    }
+    params = {};
+    for (const [key, value] of Object.entries(record.params)) {
+      if (Object.keys(params).length >= META_EVENT_MAX_PARAMS) {
+        break;
+      }
+      if (META_EVENT_NAME_PATTERN.test(key) && isMetaParamValue(value)) {
+        params[key] = value;
+      }
+    }
+  }
+  const valueToSum =
+    typeof record.valueToSum === "number" && Number.isFinite(record.valueToSum)
+      ? record.valueToSum
+      : undefined;
+  return {
+    type: "meta-app-event",
+    name: record.name,
+    ...(params !== undefined ? { params } : {}),
+    ...(valueToSum !== undefined ? { valueToSum } : {}),
+    atMs: record.atMs,
+  };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

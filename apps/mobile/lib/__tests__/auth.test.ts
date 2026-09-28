@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth, subscribeAuth } from "../auth";
+import { logMetaRegistration } from "../metaAds";
 import { ensureUserRegistered } from "../userApi";
 
 jest.mock("expo-secure-store", () => ({
@@ -15,6 +16,10 @@ jest.mock("expo-constants", () => ({
 }));
 jest.mock("../deviceId", () => ({
   getOrCreateDeviceId: jest.fn(async () => "0f8fad5b-d9cb-469f-a165-70867728950e"),
+}));
+// Meta 가입 완료 — 호출 여부만 본다(큐·초기화는 `metaAds.test.ts`).
+jest.mock("../metaAds", () => ({
+  logMetaRegistration: jest.fn(),
 }));
 
 /** SecureStore를 키별 메모리 맵으로 흉내 낸다 — `focuson.auth`와 옛 `focuson.userId`를 구분해야 한다. */
@@ -99,6 +104,8 @@ describe("ensureAuth", () => {
     expect(saved()).toEqual(REGISTERED);
     expect(listener).toHaveBeenCalledWith(REGISTERED);
     expect(headersOf(0).get("API-Version")).toBe("2");
+    // 신규 등록만 Meta 가입 완료로 센다.
+    expect(logMetaRegistration).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
 
@@ -107,6 +114,15 @@ describe("ensureAuth", () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, { isNew: false, accessToken: "not-a-jwt" }));
     await expect(ensureAuth()).resolves.toBeNull();
     expect(mockedSet).not.toHaveBeenCalled();
+    expect(logMetaRegistration).not.toHaveBeenCalled();
+  });
+
+  it("신규 등록 뒤 sub를 못 읽어 저장이 실패해도 가입 완료는 이미 찍혀 있다 — 재등록은 isNew=false라 기회가 없다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(201, { isNew: true, accessToken: "not-a-jwt" }));
+
+    await expect(ensureAuth()).resolves.toBeNull();
+    expect(mockedSet).not.toHaveBeenCalled();
+    expect(logMetaRegistration).toHaveBeenCalledTimes(1);
   });
 
   it("지연 이관: focuson.userId만 있으면 네트워크 없이 그 userId를 토큰 없이 옮기고 옛 키를 지운다", async () => {
