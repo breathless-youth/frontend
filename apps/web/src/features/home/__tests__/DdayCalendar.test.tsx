@@ -110,6 +110,22 @@ describe("DdayCalendar — 연/월 선택기", () => {
     expect(screen.getByText("2027년 1월")).toBeInTheDocument();
   });
 
+  it("선택기에서 좌우로 밀면 연도가 바뀌고, 올해보다 앞으로는 못 간다", () => {
+    renderCalendar();
+    fireEvent.click(screen.getByRole("button", { name: "연도·월 바로 가기" }));
+    const area = screen.getByTestId("dday-year-picker-swipe-area");
+
+    fireEvent.pointerDown(area, { clientX: 200, clientY: 300 });
+    fireEvent.pointerUp(area, { clientX: 120, clientY: 300 });
+    expect(screen.getByText("2027")).toBeInTheDocument();
+
+    fireEvent.pointerDown(area, { clientX: 200, clientY: 300 });
+    fireEvent.pointerUp(area, { clientX: 280, clientY: 300 });
+    fireEvent.pointerDown(area, { clientX: 200, clientY: 300 });
+    fireEvent.pointerUp(area, { clientX: 280, clientY: 300 });
+    expect(screen.getByText("2026")).toBeInTheDocument();
+  });
+
   it("빠른 이동 칩은 오늘 기준으로 달을 옮긴다", () => {
     renderCalendar();
 

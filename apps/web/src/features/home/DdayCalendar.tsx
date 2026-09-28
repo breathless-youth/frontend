@@ -64,6 +64,15 @@ export function DdayCalendar({
     setMonth((current) => shiftMonth(current, delta));
   }
 
+  /** 연/월 선택기의 연도 이동 — 올해보다 앞으로는 못 간다(지난 달은 어차피 전부 비활성). */
+  function shiftYearBy(delta: -1 | 1) {
+    if (delta < 0 && pickYear <= thisMonth.year) {
+      return;
+    }
+    setSlideFrom(delta < 0 ? "left" : "right");
+    setPickYear((year) => year + delta);
+  }
+
   function pickMonth(next: CalendarMonth) {
     setSlideFrom(null);
     setMonth(next);
@@ -72,6 +81,7 @@ export function DdayCalendar({
 
   // 시작점을 기록하고 놓는 순간 총 이동량으로 판정한다 — 셀 버튼 위에서 시작한 드래그도 부모로
   // 버블돼 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다. 세로 우세면 시트 스크롤 몫이라 무시한다.
+  // 달 그리드에서는 달을, 연/월 선택기에서는 연도를 넘긴다.
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -89,7 +99,12 @@ export function DdayCalendar({
     if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
       return;
     }
-    shiftBy(dx < 0 ? 1 : -1);
+    const delta = dx < 0 ? 1 : -1;
+    if (picker) {
+      shiftYearBy(delta);
+    } else {
+      shiftBy(delta);
+    }
   }
 
   return (
@@ -109,6 +124,7 @@ export function DdayCalendar({
           aria-label="연도·월 바로 가기"
           onClick={() => {
             setPickYear(month.year);
+            setSlideFrom(null);
             setPicker((open) => !open);
           }}
           className="flex h-11 items-center gap-1.5 px-2 text-foreground"
@@ -129,13 +145,18 @@ export function DdayCalendar({
       </div>
 
       {picker ? (
-        <div className="flex min-h-[284px] flex-col gap-2">
+        <div
+          data-testid="dday-year-picker-swipe-area"
+          className="touch-pan-y flex min-h-[284px] flex-col gap-2"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+        >
           <div className="flex h-11 items-center justify-center gap-1">
             <button
               type="button"
               aria-label="이전 연도"
               disabled={pickYear <= thisMonth.year}
-              onClick={() => setPickYear((year) => year - 1)}
+              onClick={() => shiftYearBy(-1)}
               className={cn(NAV_BUTTON_CLASS, "disabled:opacity-30")}
             >
               <IconChevronLeft size={13} color="var(--color-foreground)" />
@@ -146,13 +167,23 @@ export function DdayCalendar({
             <button
               type="button"
               aria-label="다음 연도"
-              onClick={() => setPickYear((year) => year + 1)}
+              onClick={() => shiftYearBy(1)}
               className={NAV_BUTTON_CLASS}
             >
               <IconChevronRight size={13} color="var(--color-foreground)" />
             </button>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div
+            // 연도가 바뀔 때마다 리마운트시켜 달 그리드와 같은 방향 모션을 재생한다
+            key={pickYear}
+            className={cn(
+              "grid grid-cols-4 gap-2",
+              slideFrom === "right" &&
+                "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+              slideFrom === "left" &&
+                "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+            )}
+          >
             {Array.from({ length: 12 }, (_, index) => {
               const candidate = { year: pickYear, month: index + 1 };
               const past = isBeforeMonth(candidate, thisMonth);
