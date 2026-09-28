@@ -17,17 +17,21 @@ const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }
   { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },
 ];
 
-/** 숨김·복귀 페이드 길이. 웹 시트의 슬라이드(300ms)보다 짧아 시트가 다 내려오기 전에 자리를 비운다. */
-const HIDE_FADE_MS = 180;
+/**
+ * 복귀 페이드 길이 — 웹 시트의 슬라이드(300ms)보다 짧아 시트가 내려가는 동안 함께 나타난다.
+ * 숨김은 페이드 없이 즉시다: 시트가 올라오는 순간 자리를 비워야 하고, 사라지는 쪽 페이드는 실기기에서
+ * 굼떠 보였다(BY-658).
+ */
+const SHOW_FADE_MS = 180;
 
 type TabBarProps = {
   active?: TabId;
   // 웹 모달이 열린 blocked 상태 — 탭 바를 덮어 터치를 막는다.
   dimmed?: boolean;
   /**
-   * hidden 상태 — 전체 화면 웹 라우트와 바텀시트. 언마운트하지 않고 페이드로 감춘다. 떠 있는 바라
-   * 자리 걱정이 없고, 마운트/언마운트는 나타날 때 한 프레임 번쩍여 웹 시트 애니메이션과 어긋난다.
-   * 보이지 않는 동안 터치를 받지 않고 접근성 트리에서도 빠진다.
+   * hidden 상태 — 전체 화면 웹 라우트와 바텀시트. 언마운트하지 않고 즉시 감췄다가 페이드로 되살린다.
+   * 떠 있는 바라 자리 걱정이 없고, 마운트/언마운트는 나타날 때 한 프레임 번쩍여 웹 시트 애니메이션과
+   * 어긋난다. 보이지 않는 동안 터치를 받지 않고 접근성 트리에서도 빠진다.
    */
   hidden?: boolean;
 };
@@ -39,11 +43,12 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
   const opacity = useRef(new Animated.Value(hidden ? 0 : 1)).current;
 
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: hidden ? 0 : 1,
-      duration: HIDE_FADE_MS,
-      useNativeDriver: true,
-    }).start();
+    if (hidden) {
+      opacity.stopAnimation();
+      opacity.setValue(0);
+      return;
+    }
+    Animated.timing(opacity, { toValue: 1, duration: SHOW_FADE_MS, useNativeDriver: true }).start();
   }, [hidden, opacity]);
 
   return (
