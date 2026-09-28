@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 
@@ -75,14 +75,13 @@ describe("S6 · 설정", () => {
 
     expect(screen.getByText("설정")).toBeInTheDocument();
 
-    // BY-409: 프로필 섹션 — 설정이 프로필 설정(S7-18)의 유일한 진입점이다.
+    // BY-409: 프로필 섹션 — 설정이 프로필 수정(S7-18)의 유일한 진입점이다.
     expect(screen.getByText("프로필")).toBeInTheDocument();
-    expect(screen.getByText("프로필 설정")).toBeInTheDocument();
+    expect(screen.getByText("프로필 수정")).toBeInTheDocument();
 
-    expect(screen.getByText("측정")).toBeInTheDocument();
+    expect(screen.getByText("서비스")).toBeInTheDocument();
     expect(screen.getByText("카메라 권한")).toBeInTheDocument();
-    expect(screen.getByText("측정 기준 안내")).toBeInTheDocument();
-    expect(screen.getByText("권한은 시스템 설정에서 바꿀 수 있어요")).toBeInTheDocument();
+    expect(screen.getByText("서비스 이용 가이드")).toBeInTheDocument();
 
     expect(screen.getByText("지원")).toBeInTheDocument();
     expect(screen.getByText("문의하기")).toBeInTheDocument();
@@ -92,7 +91,7 @@ describe("S6 · 설정", () => {
     expect(screen.getByText("개인정보처리방침")).toBeInTheDocument();
   });
 
-  it("프로필 설정 행은 기존 쿼리(userId·appVersion)를 승계해 /profile 로 이동한다 (BY-409)", () => {
+  it("프로필 수정 행은 기존 쿼리(userId·appVersion)를 승계해 /profile 로 이동한다 (BY-409)", () => {
     render(
       <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
         <Routes>
@@ -102,27 +101,27 @@ describe("S6 · 설정", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "프로필 설정" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 수정" }));
 
     expect(screen.getByTestId("profile-stub").textContent).toBe(
       "/profile?userId=7&appVersion=1.4.2",
     );
   });
 
-  it("측정 기준 안내 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
+  it("서비스 이용 가이드 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
     renderSettingsWithGuideStub("/settings");
 
-    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+    fireEvent.click(screen.getByRole("button", { name: "서비스 이용 가이드" }));
 
     expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
       "/onboarding-guide?entry=settings",
     );
   });
 
-  it("측정 기준 안내는 기존 쿼리(userId·appVersion)를 잃지 않고 entry만 얹어 승계한다 (리뷰 반영)", () => {
+  it("서비스 이용 가이드는 기존 쿼리(userId·appVersion)를 잃지 않고 entry만 얹어 승계한다 (리뷰 반영)", () => {
     renderSettingsWithGuideStub("/settings?userId=7&appVersion=1.4.2");
 
-    fireEvent.click(screen.getByRole("button", { name: "측정 기준 안내" }));
+    fireEvent.click(screen.getByRole("button", { name: "서비스 이용 가이드" }));
 
     expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
       "/onboarding-guide?userId=7&appVersion=1.4.2&entry=settings",
@@ -181,6 +180,12 @@ describe("S6 · 설정", () => {
     renderAt("/settings");
 
     expect(screen.getByText(__WEB_VERSION__)).toBeInTheDocument();
+  });
+
+  it("카메라 권한 행에 시안의 안내 툴팁 버튼(ⓘ)이 있다", () => {
+    renderAt("/settings");
+
+    expect(screen.getByRole("button", { name: "카메라 권한 안내" })).toBeInTheDocument();
   });
 
   it("카메라 권한 행은 클릭 시 open-settings 메시지를 네이티브로 보낸다", () => {
@@ -327,7 +332,7 @@ describe("설정 행 계측 (BY-616 확장 2차)", () => {
     ["이용약관", "terms"],
     ["개인정보처리방침", "privacy"],
     ["오픈소스 라이선스", "licenses"],
-    ["프로필 설정", "profile"],
+    ["프로필 수정", "profile"],
   ])("%s 행 터치를 row=%s로 남긴다", (label, row) => {
     analytics.trackSettingsRowPressed.mockClear();
     renderAt("/settings");
@@ -335,5 +340,59 @@ describe("설정 행 계측 (BY-616 확장 2차)", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
 
     expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith(row);
+  });
+});
+
+describe("버전 정보 복사", () => {
+  // Object.assign 으로 넣은 clipboard 는 전역 afterEach 의 unstubAllGlobals 로 복원되지 않아
+  // 다음 파일로 샌다. 원래 값을 저장해 직접 되돌린다(jsdom 기본엔 clipboard 가 없다).
+  let original: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  });
+
+  afterEach(() => {
+    if (original) {
+      Object.defineProperty(navigator, "clipboard", original);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  function setClipboard(writeText: () => Promise<void>) {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+  }
+
+  it("복사 성공 시 버전을 클립보드에 넣고 성공 토스트를 띄운다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard(writeText);
+
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: `${__WEB_VERSION__} 복사` }));
+
+    expect(writeText).toHaveBeenCalledWith(__WEB_VERSION__);
+    expect(await screen.findByText("버전을 복사했어요")).toBeInTheDocument();
+  });
+
+  it("복사가 거부되면 실패 토스트를 띄운다", async () => {
+    setClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: `${__WEB_VERSION__} 복사` }));
+
+    expect(await screen.findByText("복사하지 못했어요")).toBeInTheDocument();
+  });
+
+  it("클립보드 API가 없는 환경에서는 실패 토스트를 띄운다", async () => {
+    Reflect.deleteProperty(navigator, "clipboard");
+
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: `${__WEB_VERSION__} 복사` }));
+
+    expect(await screen.findByText("복사하지 못했어요")).toBeInTheDocument();
   });
 });

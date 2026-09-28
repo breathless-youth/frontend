@@ -1,10 +1,10 @@
 # apps/web
 
-Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현체이자, 모바일이 원격 URL로 WebView 로드하는 화면의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
+Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈·기록·설정·온보딩·세션·소셜)의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 브라우저로 직접 접속해도 같은 화면이 뜨므로 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
 
 ## 역할·구조
 
-브라우저용 싱글 세션 / 멀티룸(`getUserMedia` + MediaPipe + 표준 `RTCPeerConnection` P2P — [ADR 0006](../../docs/adr/0006-p2p-mesh-stomp-over-livekit.md))의 구현체이다. 모바일 WebView가 그대로 로드하고 브라우저로 직접 접근하는 독립 배포도 가능하다.
+싱글 세션과 멀티룸(`getUserMedia` + MediaPipe + 표준 `RTCPeerConnection` P2P, [ADR 0006](../../docs/adr/0006-p2p-mesh-stomp-over-livekit.md))을 포함한 모든 화면의 구현체이다. 모바일 웹뷰가 원격 URL로 그대로 열고 브라우저로 직접 접근하는 독립 배포도 가능하다.
 
 - `src/routes/`는 페이지 컴포넌트(`react-router-dom` 연결), `src/features/`는 기능 디렉터리, `src/lib/utils.ts`는 `cn` 등 공용 유틸.
 - `src/components/ui/`는 shadcn 스타일 프리미티브. 새 컴포넌트는 이 디렉터리 관례(`cva` variants, `cn` 헬퍼)를 따른다.
@@ -16,7 +16,7 @@ Vite + React 웹 앱. 브라우저용 스터디룸(WebRTC + Vision AI)의 구현
 
 ## 관측 도구 식별자 정제 (Sentry · GA4 · Amplitude)
 
-웹뷰가 모든 탭을 `?userId=N`으로 열기 때문에, 관측 도구로 나가는 URL에서 식별자를 정제하는 것이 상시 규칙이다. **왜 이런 구조인지, fail-closed 원칙, 실제 겪은 사고는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)에 있다.** 정제 규칙의 단일 소스는 `lib/sanitizePath.ts`의 `ALLOWED_SEARCH_PARAMS`이고 GA4·Sentry가 함께 쓴다. **분석용 쿼리를 추가하면 이 목록에 명시적으로 추가한다.**
+신 앱 셸은 URL에 `userId`를 싣지 않지만, 토큰이 없는 구 앱 웹뷰는 여전히 모든 문서를 `?userId=N`으로 열고 웹은 그 값을 구 방식 신원으로 쓴다(`lib/userId.ts`의 `legacyUserId`). 그래서 관측 도구로 나가는 URL에서 식별자를 정제하는 것이 상시 규칙이다. **왜 이런 구조인지, fail-closed 원칙, 실제 겪은 사고는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)에 있다.** 정제 규칙의 단일 소스는 `lib/sanitizePath.ts`의 `ALLOWED_SEARCH_PARAMS`이고 GA4·Sentry가 함께 쓴다. **분석용 쿼리를 추가하면 이 목록에 명시적으로 추가한다.**
 
 ### Sentry (`lib/sentry.ts`)
 

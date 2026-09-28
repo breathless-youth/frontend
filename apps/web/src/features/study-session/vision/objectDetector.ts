@@ -24,8 +24,9 @@ import {
  *    상위 모듈로 새 나가면 나중에 런타임을 갈아끼울 때 그 타입을 쓰는 모든 파일이 막힌다.
  * 2. **모듈 로딩** — 실제 `import("@mediapipe/tasks-vision")`은 이 파일이 아니라
  *    `./mediapipeModule.ts`에 있고, 여기서는 **동적으로만** 부른다. 그래서 (a) 무거운 wasm
- *    번들이 세션에 들어갈 때까지 로드되지 않고, (b) 워커 이전 시 교체 대상이 그 파일 하나로
- *    좁혀지며, (c) 테스트가 포트(`MediapipeVisionRuntime`)만 주입해 실제 패키지 없이 돈다.
+ *    번들이 첫 화면 로드에 끼지 않고(홈 유휴 시간의 미리 받기는 `./prefetchVisionAssets.ts`),
+ *    (b) 워커 이전 시 교체 대상이 그 파일 하나로 좁혀지며, (c) 테스트가 포트
+ *    (`MediapipeVisionRuntime`)만 주입해 실제 패키지 없이 돈다.
  *
  * **로딩 실패는 던지지 않는다.** `../adapters/mediaStreamCamera.ts`가 `getUserMedia` 실패를
  * 다루는 방식과 같은 계약이다 — 감지 불가는 예외가 아니라 정상 시나리오이고, 호출부가
@@ -240,7 +241,7 @@ export function createObjectDetector(
       return null;
     }
 
-    // GPU 먼저, 실패하면 CPU. WebView에서 GPU delegate의 안정성이 검증되지 않았다(설계 §2).
+    // delegate 순서는 visionConfig가 정한다. 지금은 CPU만 쓴다. 에뮬레이터 GPU가 실패 대신 가짜 검출을 내서 폴백으로 잡을 수 없었다.
     for (const candidate of delegateOrder) {
       if (!wanted) {
         return null;

@@ -3,6 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildStreakWeek, kstDateKey, weekDateKeys } from "@/features/records/recordsFormat";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 
 import { useHomeSummary } from "../useHomeSummary";
@@ -60,10 +61,48 @@ describe("useHomeSummary", () => {
         focusRate: 50,
         streakDays: 3,
         longestFocusSec: 1800,
+        weekDays: buildStreakWeek(kstDateKey(), []),
       },
     });
     expect(mockedStats).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
-    expect(mockedStreak).toHaveBeenCalledWith(undefined);
+  });
+
+  it("스트릭은 이번 주 일요일부터 오늘까지 범위로 조회한다 — 기록 탭 배너와 같은 키", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+    const { result } = renderHook(() => useHomeSummary(7), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    const todayKey = kstDateKey();
+    expect(mockedStreak).toHaveBeenCalledWith({ from: weekDateKeys(todayKey)[0], to: todayKey });
+  });
+
+  it("주간 도트를 조회 범위와 같은 오늘 기준으로 만든다 — 필드가 빠진 응답이면 전부 빈 도트", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValueOnce({
+      streak: 3,
+      maxStreak: 9,
+      studiedDatesInRange: ["2026-07-26", "2026-07-27"],
+    });
+
+    const { result } = renderHook(() => useHomeSummary(7), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(result.current.status === "success" && result.current.summary.weekDays).toEqual(
+      buildStreakWeek(kstDateKey(), ["2026-07-26", "2026-07-27"]),
+    );
+
+    mockedStreak.mockResolvedValueOnce({
+      streak: 3,
+      maxStreak: 9,
+    } as unknown as Awaited<ReturnType<typeof getStreak>>);
+    const second = renderHook(() => useHomeSummary(8), { wrapper: createWrapper() });
+    await waitFor(() => expect(second.result.current.status).toBe("success"));
+    expect(
+      second.result.current.status === "success" &&
+        second.result.current.summary.weekDays.map((day) => day.state),
+    ).not.toContain("done");
   });
 
   it("통계 조회 실패 시 error 상태가 되고 retry로 재시도한다", async () => {

@@ -46,27 +46,26 @@ const SESSION_SURFACE_VARS = {
    * 바뀌어야 한다). 디자이너가 가로 값을 확정하면 이 한 줄만 고친다.
    */
   "--session-simple-base": "#0b0f14",
-  /**
-   * 상태 필 배경 = `colors.bg.base.dark`(#101419) + 알파. 알파만 Figma 실측값이다.
-   * 세 변수의 값이 지금은 두 종류뿐이지만 **상태별로 갈릴 수 있으므로 변수는 분리 유지한다.**
-   */
-  "--session-pill-bg": withAlpha(colors.bg.base.dark, 0.65),
-  "--session-pill-bg-distract": withAlpha(colors.bg.base.dark, 0.68),
-  /** 일시정지 필 배경 — Figma S3-3 `59:358` 실측 68%(집중 65%와 값이 다르다). */
-  "--session-pill-bg-paused": withAlpha(colors.bg.base.dark, 0.68),
-  /** 비집중 상태색 35% — Figma 실측 `rgba(255,158,27,0.35)`와 동일한 값이 토큰에서 계산된다. */
-  "--session-pill-border-distract": withAlpha(sessionStateColors.DISTRACTION.dark, 0.35),
+  /** Figma V2 `S1b` 배지 실측(측정 중, node 5520:5024 / 5521:5024 — 라이트·다크 동일). */
+  "--session-pill-bg": "rgba(69, 147, 252, 0.34)",
+  "--session-pill-border-focus": "rgba(140, 190, 255, 0.42)",
+  /** Figma V2 `S1b` 배지 실측(비집중, node 5520:5048 / 5521:5048 — 라이트·다크 동일). */
+  "--session-pill-bg-distract": "rgba(240, 162, 87, 0.36)",
+  "--session-pill-border-distract": "rgba(255, 200, 150, 0.45)",
+  /** Figma V2 `S1b` 배지 실측(일시정지, node 5520:5072 / 5521:5072 — 라이트·다크 동일). */
+  "--session-pill-bg-paused": "rgba(138, 148, 164, 0.3)",
+  "--session-pill-border-paused": "rgba(200, 208, 220, 0.36)",
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
-  /**
-   * 가로(거치) 축소 컨트롤 바 배경 — Figma S3-5 `61:463` 실측 62%(세로 55%보다 진하다).
-   * 세로/가로 알파 차이는 SCR-S3-5·S3-6 델타 표에 **축소 변형의 일부로 명시**돼 있어
-   * 통일하지 않고 실측을 따른다(전면 배경과 달리 회전 시 눈에 띄는 깜빡임이 아니다).
-   */
-  "--session-bar-bg-compact": "rgba(22, 27, 34, 0.62)",
-  /** 재개 버튼 — colors.brand.primary.dark(#3182f6)와 Figma S3-3 실측이 일치한다. */
-  "--session-resume-bg": colors.brand.primary.dark,
-  /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. */
+  /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. `RoomControlBar`와
+   * `RoomPage`/`LiveRoomSession`의 에러 문구 색이 공유해서 값을 바꿀 수 없다. */
   "--session-exit-bg": colors.feedback.error.dark,
+  /**
+   * 컨트롤 바 재개·종료 버튼 전용 — `--session-exit-bg`와 값이 다르다(그 변수는 위처럼 다른
+   * 화면과 공유돼 값을 바꿀 수 없다). Figma V2 `S1b` control-bar 실측
+   * (node 5520:5030/5521:5030 — 라이트·다크 동일).
+   */
+  "--session-control-resume-bg": "#4593fc",
+  "--session-control-exit-bg": "#f0555f",
   /**
    * 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다.
    * 값을 바꾸면 `components/ui/toast.tsx`의 CSS 변수 폴백도 같은 값으로 맞출 것(toast.test.tsx가 고정).

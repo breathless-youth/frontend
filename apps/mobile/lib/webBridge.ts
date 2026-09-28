@@ -1,4 +1,5 @@
 import type { MetaAppEventMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
 
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
@@ -7,6 +8,11 @@ import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
  * 한쪽만 바꾸면 메시지가 조용히 사라진다(예외도 나지 않는다).
  */
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
+
+/** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
+function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
+  return typeof value === "string" && (list as readonly string[]).includes(value);
+}
 
 /**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
@@ -31,18 +37,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     return null;
   }
   switch (record.type) {
-    case "session-ready":
-      return { type: "session-ready", atMs: record.atMs };
     case "home-ready":
       return { type: "home-ready", atMs: record.atMs };
     case "analytics-ready":
       return { type: "analytics-ready", atMs: record.atMs };
-    case "pong":
-      // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
-      if (typeof record.id !== "number") {
-        return null;
-      }
-      return { type: "pong", id: record.id, atMs: record.atMs };
     case "report-screen": {
       // path는 우리 SPA의 절대 경로만 허용한다 — 임의 문자열이 재마운트 URL에 섞이면
       // 웹뷰가 외부 주소로 열릴 수 있다. `//host` 꼴(프로토콜 상대 URL)도 막는다.
@@ -74,7 +72,12 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
     case "navigate-home":
-      return { type: "navigate-home", atMs: record.atMs };
+      // 이어서 열 탭은 선택 필드 — 계약 밖 값이면 빼고(= 홈 탭) 모달 닫기는 살린다.
+      return {
+        type: "navigate-home",
+        ...(record.tab === "records" ? { tab: record.tab } : {}),
+        atMs: record.atMs,
+      };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
@@ -96,17 +99,31 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "navigate-tab":
       // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
       // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.
-      if (record.tab !== "records") {
+      if (!isOneOf(NAVIGATE_TAB_TARGETS, record.tab)) {
         return null;
       }
-      return { type: "navigate-tab", tab: record.tab, atMs: record.atMs };
+      // 발신처는 선택 필드 — 계약 밖 값이면 빼고(= `card` 기본) 메시지 자체는 살린다. 이동이
+      // 분석 속성 하나 때문에 막히면 안 된다.
+      return {
+        type: "navigate-tab",
+        tab: record.tab,
+        ...(isOneOf(NAVIGATE_TAB_SOURCES, record.via) ? { via: record.via } : {}),
+        atMs: record.atMs,
+      };
     case "set-tab-bar":
       // `visible`이 boolean이 아니면 통째로 버린다 — 기본값(보임)이 유지되는 편이 안전하다.
       // 여기서 truthy 판정으로 넘기면 오타 하나에 탭 바가 사라져 이동 수단이 없어진다.
       if (typeof record.visible !== "boolean") {
         return null;
       }
-      return { type: "set-tab-bar", visible: record.visible, atMs: record.atMs };
+      return {
+        type: "set-tab-bar",
+        visible: record.visible,
+        // 값이 이상해도 메시지를 통째로 버리지 않는다. 버리면 탭 바 신호 자체가 사라져
+        // 지금보다 나빠진다(`share`의 url과 같은 처리).
+        ...(record.blockedByModal === true ? { blockedByModal: true } : {}),
+        atMs: record.atMs,
+      };
     case "set-back-gesture":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 기본값(켜짐)이 유지되는 편이 안전하다.
       // 여기서 truthy 판정으로 넘기면 오타 하나에 문의하기 스와이프 복귀가 사라진다.

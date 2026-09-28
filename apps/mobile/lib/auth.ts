@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import type { AuthRefreshResponse, ToWebMessage, UserRegisterResponse } from "@focusmakers/types";
+import { readUserIdFromAccessToken } from "./jwt";
 
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
@@ -14,7 +15,7 @@ import { logMetaRegistration } from "./metaAds";
  */
 export type AuthState = {
   userId: number;
-  /** 서버가 아직 토큰을 주지 않으면(BY-526 전) null. 웹은 null이면 헤더 없이 보낸다. */
+  /** 등록·갱신 응답의 access 토큰. 지연 이관된 설치는 첫 갱신 전까지 null이고, 웹은 null이면 헤더 없이 보낸다. */
   accessToken: string | null;
   refreshToken: string | null;
 };
@@ -103,6 +104,7 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await apiFetch(`${apiBaseUrl()}/api/users`, {
+    endpoint: "register",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deviceId }),
@@ -135,7 +137,7 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return stored;
     }
     // 지연 이관: 옛 설치는 userId만 옮기고 네트워크를 타지 않는다. 토큰은 첫 401의 갱신 경로에서
-    // 재등록으로 받는다 — 지금 서버는 어차피 토큰을 주지 않고, 부팅 시 왕복 하나가 준다.
+    // 재등록으로 받는다. 부팅 때 왕복 하나를 아끼기 위해서다.
     const legacy = await readItem(LEGACY_USER_ID_KEY);
     if (legacy) {
       const state = await writeAuth({
@@ -147,18 +149,20 @@ async function loadOrRegister(): Promise<AuthState | null> {
       return state;
     }
     const deviceId = await getOrCreateDeviceId();
-    const { userId, isNew, accessToken, refreshToken } = await registerUser(deviceId);
-    const state = await writeAuth({
-      userId,
-      accessToken: accessToken ?? null,
-      refreshToken: refreshToken ?? null,
-    });
+    const { isNew, accessToken, refreshToken } = await registerUser(deviceId);
     if (isNew) {
-      // 저장이 끝난 뒤에 찍는다 — 저장 실패로 다음 실행에서 재등록되면 서버는 isNew=false를 주므로,
-      // 먼저 찍었다면 그 사용자의 가입 완료가 한 번도 안 남을 수 있다.
+      // 등록 응답 직후에 찍는다 — 광고 전환이 재는 것은 서버에 유저가 생겼는가이지 이 기기의 저장
+      // 성공이 아니다. 아래 신원 파싱이나 저장이 실패해도 서버 유저는 남아, 다음 실행의 재등록은
+      // isNew=false다 — 여기서 놓치면 이 사용자의 가입 완료는 두 번 다시 찍을 기회가 없다.
       logMetaRegistration();
     }
-    return state;
+    // 등록 응답에 userId가 없다 — 신원은 access 토큰의 `sub`뿐이다(BY-723).
+    // 못 읽으면 저장을 만들지 않는다. 신원 없는 저장은 웹을 조용히 브라우저 단독 모드로 떨어뜨린다.
+    const userId = readUserIdFromAccessToken(accessToken);
+    if (userId === null) {
+      throw new Error("등록 응답의 access 토큰에서 신원(sub)을 읽지 못했다");
+    }
+    return await writeAuth({ userId, accessToken, refreshToken });
   } catch (error) {
     console.warn("[auth] 토큰 발급 실패 — 다음 실행에서 재시도", error);
     return null;
@@ -193,6 +197,7 @@ async function refreshOnce(): Promise<AuthState | null> {
       return await ensureAuth();
     }
     const res = await apiFetch(`${apiBaseUrl()}/api/auth/refresh`, {
+      endpoint: "refresh",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: current.refreshToken }),

@@ -5,8 +5,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { ProfileUpdateRequest } from "@focusmakers/types";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
@@ -101,8 +104,8 @@ export function ProfilePage() {
 
   if (userId === null || query.isError) {
     return (
-      <main className="min-h-dvh bg-background text-foreground">
-        <ScreenBackHeader />
+      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
+        <ScreenBackHeader title="프로필 수정" />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
             screen="profile"
@@ -118,8 +121,8 @@ export function ProfilePage() {
 
   if (!query.data) {
     return (
-      <main className="min-h-dvh bg-background text-foreground">
-        <ScreenBackHeader />
+      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
+        <ScreenBackHeader title="프로필 수정" />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
           <Skeleton className="mx-auto size-[72px] rounded-full" />
@@ -177,13 +180,11 @@ export function ProfilePage() {
   return (
     <main
       data-testid="profile-page"
-      className="flex min-h-dvh flex-col bg-background text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader />
+      <ScreenBackHeader title="프로필 수정" />
 
       <div className="flex flex-col gap-[18px] px-5 pt-2 pb-6">
-        <h1 className="text-[22px] leading-[27px] font-bold text-foreground">프로필 설정</h1>
-
         <div className="flex justify-center py-1">
           {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
               바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백.
@@ -204,7 +205,7 @@ export function ProfilePage() {
           >
             닉네임
           </label>
-          <input
+          <Input
             id="profile-nickname"
             type="text"
             value={nickname}
@@ -220,7 +221,6 @@ export function ProfilePage() {
             }}
             aria-invalid={errors.nickname !== undefined || undefined}
             aria-describedby={errors.nickname !== undefined ? "profile-nickname-error" : undefined}
-            className="h-[52px] rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground"
           />
           {errors.nickname !== undefined && (
             <p
@@ -237,7 +237,7 @@ export function ProfilePage() {
           <label htmlFor="profile-goal" className="text-[13px] font-medium text-muted-foreground">
             목표 문구
           </label>
-          <input
+          <Input
             id="profile-goal"
             type="text"
             value={goal}
@@ -251,7 +251,6 @@ export function ProfilePage() {
             }}
             aria-invalid={errors.goal !== undefined || undefined}
             aria-describedby={errors.goal !== undefined ? "profile-goal-error" : undefined}
-            className="h-[52px] rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground"
           />
           {errors.goal !== undefined && (
             <p id="profile-goal-error" role="alert" className="text-sm text-state-distract-text">
@@ -262,33 +261,20 @@ export function ProfilePage() {
 
         <div className="flex flex-col gap-2">
           <p className="text-[13px] font-medium text-muted-foreground">목표 카테고리</p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="목표 카테고리">
-            {CATEGORY_CHIPS.map((chip) => {
-              const selected = category === chip.value;
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
-                    // 같은 칩을 다시 누르면 해제한다 — 카테고리는 선택 항목(null 허용).
-                    setCategory(selected ? null : chip.value);
-                  }}
-                  className="flex min-h-11 items-center"
-                >
-                  <span
-                    className={
-                      selected
-                        ? "rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground"
-                        : "rounded-full border border-border bg-muted px-3.5 py-2 text-[13px] font-medium text-muted-foreground"
-                    }
-                  >
-                    {chip.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <ToggleGroup
+            type="single"
+            aria-label="목표 카테고리"
+            // Radix single 은 선택 값을 다시 누르면 빈 문자열을 준다 — 카테고리는 선택 항목이라
+            // 빈 문자열을 null 로 되돌린다.
+            value={category ?? ""}
+            onValueChange={(next) => setCategory(next === "" ? null : next)}
+          >
+            {CATEGORY_CHIPS.map((chip) => (
+              <ToggleGroupItem key={chip.value} value={chip.value}>
+                {chip.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
 
         {errors.general !== undefined && (
@@ -299,8 +285,10 @@ export function ProfilePage() {
       </div>
 
       <div className="mt-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-        <button
+        <Button
           type="button"
+          size="xl"
+          className="w-full"
           // 길이 초과(목표 20자·닉네임 12자)는 입력 중 인라인 안내와 함께 저장 버튼도
           // 잠근다(2026-08-25 피드백) — 눌러도 거부될 버튼을 활성으로 두지 않는다.
           disabled={
@@ -310,10 +298,9 @@ export function ProfilePage() {
             validateNicknameLength(nickname) !== null
           }
           onClick={handleSave}
-          className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-50"
         >
           {saveMutation.isPending ? "저장 중..." : "저장하기"}
-        </button>
+        </Button>
       </div>
     </main>
   );

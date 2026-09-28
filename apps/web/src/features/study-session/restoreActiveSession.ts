@@ -52,6 +52,7 @@ export async function restoreActiveSession(
   }, timeoutMs);
   try {
     const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active${legacyQuery("")}`, {
+      endpoint: "activeSessionRestore",
       method: "GET",
       signal: controller.signal,
     });

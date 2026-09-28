@@ -57,7 +57,7 @@ export async function runFocusStartFlow(nav: FocusStartNavigator): Promise<void>
  * 완료와 건너뛰기가 여기서 갈라지지 않는 것이 6차 확정 사항의 핵심이다 — 그래서 종료 이유를
  * 인자로 받지 않는다. 갈리는 것은 종료 이유가 아니라 **진입 출처**다.
  *
- * 재진입(홈 가이드 카드 · 설정 측정 기준 안내)에서는 CTA를 눌러도 세션을 시작하지 않고
+ * 재진입(설정 서비스 이용 가이드)에서는 CTA를 눌러도 세션을 시작하지 않고
  * 가이드만 닫는다 — 2026-07-28 확정(BY-151). 세션 시작은 집중 시작 플로우(focus-start)에서만.
  */
 export async function continueAfterOnboardingGuide(
@@ -66,7 +66,7 @@ export async function continueAfterOnboardingGuide(
 ): Promise<void> {
   // 완료·건너뛰기 어느 쪽이든 "봤다"로 기록한다. 건너뛰기를 "안 본 것"으로 두면 다음
   // '집중 시작'에서 가이드가 다시 떠 확정 플로우와 어긋난다(스펙 Data Contract).
-  // 재진입(B·C)에서는 이미 true라 값이 바뀌지 않는다 — 멱등이라 그대로 호출한다.
+  // 재진입(C)에서는 이미 true라 값이 바뀌지 않는다 — 멱등이라 그대로 호출한다.
   await markOnboardingGuideSeen();
 
   if (entry !== "focus-start") {
@@ -80,7 +80,7 @@ export async function continueAfterOnboardingGuide(
  *
  * 세션을 시작하지 않는다 — 완료·건너뛰기(`continueAfterOnboardingGuide`)와 분리된 경로다.
  * 봤음 저장은 단일 규칙("가이드가 어떤 이유로든 닫히면 봤음")을 따른다 — 진입 경로 무관,
- * 멱등. 다시 보고 싶으면 홈 가이드 카드·설정 재진입 경로가 있다. 화면 복귀는 호출부가 한다.
+ * 멱등. 다시 보고 싶으면 설정 재진입 경로가 있다. 화면 복귀는 호출부가 한다.
  */
 export async function exitOnboardingGuide(): Promise<void> {
   await markOnboardingGuideSeen();

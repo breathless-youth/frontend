@@ -13,13 +13,14 @@ export interface UserRegisterRequest {
 }
 
 export interface UserRegisterResponse {
-  /** 발급된 유저 ID — 이후 모든 API 호출에 사용 */
-  userId: number;
   /** 신규 생성이면 true(HTTP 201), 기존 기기 재등록이면 false(HTTP 200) */
   isNew: boolean;
-  /** BY-526부터 내려온다. 그 전 서버 응답에는 없다 — 프론트는 없으면 null로 보관하고 헤더 없이 보낸다. */
-  accessToken?: string;
-  refreshToken?: string;
+  /**
+   * 신원은 이 토큰의 `sub` 클레임에 문자열로 들어 있다 — 응답 본문에 `userId`는 없다(BY-723 실측).
+   * 예전 계약에는 `userId` 필드가 있었으므로 옛 기록을 읽을 때 혼동하지 말 것.
+   */
+  accessToken: string;
+  refreshToken: string;
 }
 
 /**
@@ -170,6 +171,16 @@ export interface StudySessionStreakResponse {
 }
 
 /**
+ * 누적 공부 일 수 조회(`GET /api/stats/study-days`) 응답. 신원은 토큰으로만 받고, 구 앱 대응이 없는
+ * 새 경로라 API-Version은 기본값 1 하나다(백엔드 ADR-0015·0020) — 구 앱의 `?userId` 계약에는 이
+ * 경로가 없다. 기록이 없으면 0이다.
+ */
+export interface StudyDaysResponse {
+  /** 지금까지 공부 기록이 있는 날 수 */
+  totalDays: number;
+}
+
+/**
  * 기간 집계 조회 API 계약 (GET /api/stats/period) — Swagger 기준.
  * 총합·증감은 서버가 주지 않는다. 아래 배열을 합산해 계산한다.
  */
@@ -306,6 +317,21 @@ export interface ProfileUpdateRequest {
   category?: string | null;
 }
 
+/**
+ * 홈 D-Day — 유저당 1개. 백엔드 Swagger `Dday` 태그(`GET`·`PUT`·`DELETE /api/dday`, API-Version 1) 기준으로,
+ * 2026-09-24 api-dev `/v3/api-docs`와 대조했다(backend `project.study.dday.dto.DdayRequest/DdayResponse`).
+ * `GET`은 미설정이면 204(본문 없음)라 클라이언트가 null로 읽는다. 남은 일수(D-N)는 서버가 주지 않고 기기 날짜로 센다.
+ */
+export interface DdayResponse {
+  /** 제목, 앞뒤 공백 제외 1~10자 */
+  title: string;
+  /** 목표 날짜 `YYYY-MM-DD` */
+  targetDate: string;
+}
+
+/** `PUT /api/dday` 본문 — 응답과 같은 모양. 목표 날짜는 서버 기준 오늘(Asia/Seoul) **포함** 그 이후만 받고, 지난 날은 400. */
+export type DdayRequest = DdayResponse;
+
 export type {
   RoomFocusState,
   RoomMember,
@@ -315,8 +341,13 @@ export type {
   RoomStateUpdate,
 } from "./room";
 
+export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
+export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
+
 export type {
   CameraPermissionMessage,
+  HandlerMessage,
+  HostPassedMessage,
   NavigateHomeMessage,
   ReportScreenMessage,
   NavigateTabMessage,
@@ -329,3 +360,4 @@ export type {
   MetaAppEventParamValue,
   NativeAnalyticsPropertyValue,
 } from "./bridge";
+export { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "./bridge";

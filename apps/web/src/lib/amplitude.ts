@@ -258,6 +258,12 @@ export interface StudySessionEndedInput {
   readonly pauseTrigger: "MANUAL" | "BACKGROUND" | null;
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
+  /**
+   * 배경음을 한 번이라도 켰는가와 누적 재생 초. 싱글룸만 채운다 — 소셜룸(`LiveRoomSession`)도
+   * 같은 훅을 쓰지만 배경음이 없어 생략하고, 생략은 false/0 으로 나간다.
+   */
+  readonly ambientSoundUsed?: boolean;
+  readonly ambientSoundSec?: number;
 }
 
 /**
@@ -291,6 +297,8 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
     end_reason: input.endReason,
     pause_trigger: input.pauseTrigger,
     will_submit: input.willSubmit,
+    ambient_sound_used: input.ambientSoundUsed ?? false,
+    ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
   });
 }
 
@@ -301,6 +309,27 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
 export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomType: StudyRoomType) {
   if (!initialized) return;
   track("study_session_submitted", { ok, attempt, room_type: roomType });
+}
+
+/**
+ * 세션 검출기가 로딩을 시작해 준비될 때까지 걸린 시간과, 그때 wasm·모델을 캐시에서 받았는지.
+ * 홈 유휴 시간의 미리 받기가 실사용에서 효과가 있는지 보는 지표다. 세션당 한 번은 호출하는 훅
+ * (`features/study-session/useVisionReadyTracking.ts`)이 지킨다. 준비 실패는 Sentry가 받으므로 보내지 않는다.
+ * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 카메라 프레임·검출 결과·식별자는 싣지 않는다.
+ */
+export function trackVisionDetectorReady(input: {
+  readonly loadMs: number;
+  readonly roomType: StudyRoomType;
+  readonly wasmCache: "hit" | "miss" | "unknown";
+  readonly modelCache: "hit" | "miss" | "unknown";
+}) {
+  if (!initialized) return;
+  track("vision_detector_ready", {
+    load_ms: input.loadMs,
+    room_type: input.roomType,
+    wasm_cache: input.wasmCache,
+    model_cache: input.modelCache,
+  });
 }
 
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
@@ -667,11 +696,11 @@ export function trackSessionSimpleModeToggled(on: boolean) {
 
 /**
  * 온보딩 가이드 진입(2026-09-05) — 어느 경로로 들어왔는지(`entry`: 홈 "집중 시작" 첫 실행 /
- * 홈 가이드 카드 / 설정 "측정 기준 안내"). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
+ * 설정 "서비스 이용 가이드" / 출처 없음 `unknown`. 홈 가이드 카드는 V2 홈에서 빠졌다). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
  * 순간이지만 따로 둔다 — 스텝 이벤트는 진행을, 이 이벤트는 유입을 묻는다(같은 `entry`가 가이드
  * 이벤트 전부에 실려 어느 쪽으로도 세그먼트할 수 있다).
  */
-export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings") {
+export function trackGuideEntered(entry: "focus-start" | "settings" | "unknown") {
   if (!initialized) return;
   track("guide_entered", { entry });
 }
@@ -683,7 +712,7 @@ export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings
  */
 export function trackGuideStepViewed(input: {
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
   readonly method: "initial" | "cta" | "gesture" | "prev";
 }) {
   if (!initialized) return;
@@ -698,7 +727,7 @@ export function trackGuideStepViewed(input: {
 export function trackGuideFinished(input: {
   readonly reason: "completed" | "skipped";
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
 }) {
   if (!initialized) return;
   track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
@@ -754,10 +783,13 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
   track("profile_save_failed", { reason: result.reason });
 }
 
-/** S4 결과 화면을 닫음 — 하단 CTA(`cta`) 또는 우상단 X(`close`). 둘 다 홈(소셜)으로 간다. */
+/**
+ * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
+ * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "cta" | "close";
+  readonly via: "home" | "records";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -864,15 +896,6 @@ export function consumeStudyResultExit(pathname: string) {
   }
 }
 
-/** S4 비집중 통계 카드의 항목 펼치기/접기 — 결과를 얼마나 들여다보는지. */
-export function trackStudyResultDistractionToggled(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE" | "PAUSE";
-  readonly expanded: boolean;
-}) {
-  if (!initialized) return;
-  track("study_result_distraction_toggled", { status: input.status, expanded: input.expanded });
-}
-
 /** 세션 종료 안내 확인 — 자동 종료(S3-8) "결과 보기" / 순공 1분 미만 안내 "홈으로". */
 export function trackSessionNoticeConfirmed(input: {
   readonly notice: "auto_end" | "sub_minute";
@@ -924,4 +947,74 @@ export function trackForceUpdatePrompted(input: {
     app_version: input.appVersion,
     min_version: input.minVersion,
   });
+}
+
+/* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
+ *
+ * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
+ * `trackStudySessionEnded`가 싣는다.
+ */
+
+/**
+ * 켜진 소리 조합이 바뀔 때마다 — 레벨만 바뀌면 보내지 않는다. `source`는 시트에서 사용자가 직접
+ * 조절한 것인지 세션 시작 자동 재생인지. `sounds`는 카탈로그 순서의 id 를 쉼표로 잇는다.
+ */
+export function trackAmbientSoundChanged(input: {
+  readonly sounds: readonly string[];
+  readonly source: "dialog" | "auto_start";
+}) {
+  if (!initialized) return;
+  track("ambient_sound_changed", {
+    sounds: input.sounds.join(","),
+    sound_count: input.sounds.length,
+    source: input.source,
+  });
+}
+
+/** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
+export function trackAmbientSoundDuckToggled(enabled: boolean) {
+  if (!initialized) return;
+  track("ambient_sound_duck_toggled", { enabled });
+}
+
+/** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */
+export function trackDdaySheetOpened(hasDday: boolean) {
+  if (!initialized) return;
+  track("dday_sheet_opened", { has_dday: hasDday });
+}
+
+/** D-Day 저장 성공. 제목·날짜 값은 싣지 않고 길이와 남은 일수만 남긴다. */
+export function trackDdaySaved(input: {
+  readonly isNew: boolean;
+  readonly daysLeft: number;
+  readonly titleLength: number;
+}) {
+  if (!initialized) return;
+  track("dday_saved", {
+    is_new: input.isNew,
+    days_left: input.daysLeft,
+    title_length: input.titleLength,
+  });
+}
+
+/** D-Day 삭제 성공 — 지운 시점의 남은 일수(지난 뒤면 음수). */
+export function trackDdayDeleted(daysLeft: number) {
+  if (!initialized) return;
+  track("dday_deleted", { days_left: daysLeft });
+}
+
+/**
+ * D-Day 유무·남은 일수 user property. 홈이 값을 알게 될 때와 저장·삭제 뒤에 맞춘다.
+ * 별도 홈 노출 이벤트 없이 이 속성으로 D-Day 유무별 세그먼트를 가른다.
+ */
+export function setDdayUserProperties(dday: { readonly daysLeft: number } | null) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("has_dday", dday !== null);
+  if (dday === null) {
+    id.unset("dday_days_left");
+  } else {
+    id.set("dday_days_left", dday.daysLeft);
+  }
+  identify(id);
 }

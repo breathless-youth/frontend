@@ -1,10 +1,11 @@
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import { BackHandler, Platform } from "react-native";
 
 import TabsLayout from "../app/(tabs)/_layout";
 
 import { __resetActiveTabForTests, getActiveTab } from "../lib/activeTab";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
+import { __resetTabBarVisibilityForTests, setTabBarState } from "../lib/tabBarVisibility";
 import { subscribeTabReset } from "../lib/tabReset";
 
 /**
@@ -16,6 +17,8 @@ import { subscribeTabReset } from "../lib/tabReset";
  */
 
 const mockTabBarState = { index: 0, routes: [{ name: "index" }] as { name: string }[] };
+// 탭 바 스텁이 마운트된 횟수 — 상태 전환에서 리마운트되지 않는 것을 증명하는 데 쓴다.
+const mockTabBarMounts = { count: 0 };
 
 jest.mock("expo-router", () => {
   /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
@@ -34,12 +37,27 @@ jest.mock("expo-router", () => {
 
 jest.mock("@react-navigation/native", () => ({ useIsFocused: () => true }));
 
-// 탭 바 자체는 SafeAreaProvider를 요구하고 여기서 볼 대상도 아니다 — 렌더만 되게 비운다.
-jest.mock("../components/TabBar", () => ({
-  TabBar: function MockTabBar() {
-    return null;
-  },
-}));
+// 탭 바 자체는 SafeAreaProvider를 요구하고 여기서 볼 대상도 아니다 — 렌더만 되는 자리표시자로
+// 대체한다. testID를 갖는 View라야 "차단이면 탭 바가 남고, 숨김이면 사라진다"를 증명할 수 있다.
+jest.mock("../components/TabBar", () => {
+  /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
+  const ReactModule = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
+
+  return {
+    TabBar: function MockTabBar({ dimmed, hidden }: { dimmed?: boolean; hidden?: boolean }) {
+      ReactModule.useEffect(() => {
+        mockTabBarMounts.count += 1;
+      }, []);
+      return ReactModule.createElement(
+        View,
+        { testID: hidden ? "tab-bar-hidden" : "tab-bar" },
+        dimmed ? ReactModule.createElement(View, { testID: "tab-bar-dim" }) : null,
+      );
+    },
+  };
+});
 
 /** 등록된 hardwareBackPress 핸들러를 꺼내 눌린 것처럼 호출한다. */
 function pressHardwareBack(): boolean | undefined {
@@ -51,6 +69,8 @@ function pressHardwareBack(): boolean | undefined {
 beforeEach(() => {
   mockTabBarState.routes = [{ name: "index" }];
   mockTabBarState.index = 0;
+  mockTabBarMounts.count = 0;
+  __resetTabBarVisibilityForTests();
   jest
     .spyOn(BackHandler, "addEventListener")
     .mockReturnValue({ remove: jest.fn() } as unknown as ReturnType<
@@ -137,4 +157,51 @@ it("홈 탭에서의 뒤로가기는 앱 종료라 탭 이동 이벤트가 없�
 
   expect(received).toEqual([]);
   __resetNativeAnalyticsForTests();
+});
+
+describe("모달 차단", () => {
+  it("차단 상태면 탭 바와 딤이 함께 있고, 감싼 래퍼가 접근성 트리에서 빠진다 — 안 그러면 스크린리더가 딤을 건너뛰고 가려진 탭을 눌러 화면이 바뀐다", () => {
+    setTabBarState("blocked");
+
+    // 래퍼가 접근성 트리에서 빠진 것 자체를 검증하는 테스트라 기본 쿼리(접근성 숨김 요소
+    // 제외)로는 찾을 수 없다 — includeHiddenElements로 존재를 확인한다.
+    const { getByTestId, UNSAFE_getByProps } = render(<TabsLayout />);
+    const options = { includeHiddenElements: true };
+
+    expect(getByTestId("tab-bar", options)).toBeTruthy();
+    expect(getByTestId("tab-bar-dim", options)).toBeTruthy();
+    const wrapper = UNSAFE_getByProps({ accessibilityElementsHidden: true });
+    expect(wrapper.props.importantForAccessibility).toBe("no-hide-descendants");
+  });
+
+  it("보임 상태면 탭 바만 있고 딤은 없다", () => {
+    setTabBarState("visible");
+
+    const { getByTestId, queryByTestId } = render(<TabsLayout />);
+
+    expect(getByTestId("tab-bar")).toBeTruthy();
+    expect(queryByTestId("tab-bar-dim")).toBeNull();
+  });
+
+  it("숨김 상태면 탭 바를 언마운트하지 않고 hidden으로 넘겨 페이드로 감춘다", () => {
+    setTabBarState("hidden");
+
+    const { getByTestId, queryByTestId } = render(<TabsLayout />);
+
+    expect(getByTestId("tab-bar-hidden")).toBeTruthy();
+    expect(queryByTestId("tab-bar")).toBeNull();
+    expect(queryByTestId("tab-bar-dim")).toBeNull();
+  });
+
+  it("차단에서 숨김·보임으로 바뀌어도 탭 바는 리마운트되지 않는다 — 리마운트는 페이드를 건너뛰고 번쩍 나타난다", () => {
+    setTabBarState("blocked");
+    const { getByTestId } = render(<TabsLayout />);
+
+    act(() => setTabBarState("hidden"));
+    expect(getByTestId("tab-bar-hidden")).toBeTruthy();
+    act(() => setTabBarState("visible"));
+    expect(getByTestId("tab-bar")).toBeTruthy();
+
+    expect(mockTabBarMounts.count).toBe(1);
+  });
 });

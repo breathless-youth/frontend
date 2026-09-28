@@ -10,7 +10,6 @@
 export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
-  | { type: "app-state"; state: "active" | "background"; atMs: number }
   /** `request-camera-gate` 응답. `granted: false`면 네이티브가 권한 안내 화면을 이미 띄운 상태다. */
   | { type: "camera-gate-result"; granted: boolean; atMs: number }
   /**
@@ -24,20 +23,10 @@ export type ToWebMessage =
   /**
    * 탭 웹뷰를 탭 루트로 초기화하라는 요청 — Android 전용 발신. 시스템 뒤로가기로 탭을 떠날 때
    * 웹뷰가 내부 히스토리를 유지한 채 남아, 재진입 시 이전 하위 페이지가 보이는 문제를 막는다.
-   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리(`userId` 등 셸 계약)를 승계해 replace로
+   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리를 그대로 둔 채 replace로
    * 이동한다(`apps/web/src/lib/nativeRouteReset.ts`).
    */
   | { type: "reset-route"; path: string; atMs: number }
-  /**
-   * 웹뷰 생존 확인(BY-436) — 네이티브가 포그라운드 복귀 시 보낸다. 웹은 `pong`으로 즉답한다.
-   *
-   * OS가 백그라운드에서 웹 렌더러 프로세스를 회수하면 사후 통보(iOS
-   * `onContentProcessDidTerminate`, Android `onRenderProcessGone`)가 **한참 늦게** 오거나
-   * 아예 오지 않아, 그동안 순백 화면(iOS)·죽은 잔상(Android)이 노출된다(실기기 확인).
-   * 그래서 통보를 기다리지 않고 복귀 시점에 직접 물어본다 — 응답이 없으면 죽은 것으로
-   * 보고 스플래시로 덮고 재로드한다. `id`로 요청과 응답의 짝을 맞춘다(낡은 pong 방지).
-   */
-  | { type: "ping"; id: number; atMs: number }
   /**
    * 앱 프로세스가 방금 시작했다는 알림 — 홈 웹뷰에만, 실행마다 한 번만 온다.
    *
@@ -57,7 +46,7 @@ export type ToWebMessage =
    * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
    * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
    * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
-   * 실패이거나 아직 토큰을 주지 않는 서버다 — 웹은 헤더 없이 보낸다.
+   * 실패다. 웹은 헤더 없이 보낸다.
    */
   | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
   | CameraPermissionMessage
@@ -86,8 +75,6 @@ export interface CameraPermissionMessage {
 
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
-  /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  | { type: "session-ready"; atMs: number }
   /**
    * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
    * `app-launched`로 응답한다.
@@ -98,8 +85,6 @@ export type ToNativeMessage =
    * 웹이 스스로 보내는 메시지로 만든다. 실패한 로드에서는 이 메시지 자체가 나가지 않는다.
    */
   | { type: "home-ready"; atMs: number }
-  /** `ping`(생존 확인)에 대한 즉답 — `id`는 받은 ping의 것을 그대로 되돌린다. */
-  | { type: "pong"; id: number; atMs: number }
   | ReportScreenMessage
   /**
    * 가속도 센서 구독을 켜고 끈다.
@@ -114,13 +99,12 @@ export type ToNativeMessage =
    * 세션 화면을 push한다(BY-334에서 웹 발신 추가).
    *
    * 온보딩이 웹으로 이관돼도 이 메시지는 필요하다: **권한 요청과 화면 스택은 네이티브 소유**라
-   * 웹이 대신할 수 없다. 수신·게이트 실행은 BY-333 범위다 — 그때까지 네이티브는 이 메시지를
-   * 무시하고(모르는 메시지는 흘려보내는 계약), 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   * 웹이 대신할 수 없다. 네이티브가 권한 게이트를 거쳐 세션 모달을 열고, 브라우저 단독 모드에서는
+   * 애초에 발신되지 않는다.
    */
   | { type: "start-session"; atMs: number }
   /**
-   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청.
-   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
   | { type: "open-settings"; atMs: number }
   /**
@@ -191,6 +175,21 @@ export type ToNativeMessage =
   | AnalyticsReadyMessage
   | MetaAppEventMessage;
 
+/** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
+type HostConsumedType = "home-ready" | "analytics-ready" | "set-back-gesture" | "set-orientation";
+
+/** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
+export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
+
+/** `RemoteScreen`이 처리하고 끝내는 메시지. `report-screen`은 호스트가 경로를 저장한 뒤 넘긴다. */
+type ScreenConsumedType = "set-back-lock" | "report-screen";
+
+/**
+ * 공용 핸들러(`handleBridgeMessage`)가 받는 메시지. 앞 단계가 처리한 타입을 빼 두어야
+ * 핸들러의 never 검사가 "어디에서도 처리하지 않은 메시지"만 잡는다.
+ */
+export type HandlerMessage = Exclude<HostPassedMessage, { type: ScreenConsumedType }>;
+
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
  *
@@ -215,24 +214,36 @@ export interface ReportScreenMessage {
   atMs: number;
 }
 
+/** `navigate-tab`이 갈 수 있는 탭. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const NAVIGATE_TAB_TARGETS = ["records", "social"] as const;
+/** `navigate-tab` 발신처. 위와 같은 이유로 목록이 원천이다. */
+export const NAVIGATE_TAB_SOURCES = ["card", "study_result", "invite_card"] as const;
+
 /**
- * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
- * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
+ * 네이티브 하단 탭을 전환해 달라는 요청 — S4 결과 화면의 `기록으로 가기`와 홈 친구 초대 카드가
+ * 보낸다(옛 홈의 연속 공부 카드도 보냈다).
  *
  * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 document만
  * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
  * 신호만 보내고 실제 전환은 네이티브가 한다.
  *
- * `tab`이 `"records"` 하나뿐인 이유: 목적지가 확정된 탭 간 이동이 이것뿐이다(탭바 IA 원칙
- * "목적지가 확정되지 않은 탭을 임의로 늘리지 않는다"와 같은 태도). 새 이동이 확정되면
- * 유니온을 넓힌다 — 호환 변경이다.
+ * `tab`은 목적지가 확정된 탭 간 이동만 담는다(탭바 IA 원칙 "목적지가 확정되지 않은 탭을
+ * 임의로 늘리지 않는다"와 같은 태도). `records`는 결과 화면의 `기록으로 가기`, `social`은 홈
+ * 친구 초대 카드다. 새 이동이 확정되면 유니온을 넓힌다 — 호환 변경이다. 다만 배포된 셸은
+ * 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
  *
- * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트 `/records`로 직접 이동한다
- * (쿼리 승계 포함, 발신부 참고).
+ * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트(`/records`·`/social`)로 직접
+ * 이동한다(쿼리 승계 포함, 발신부 참고).
  */
 export interface NavigateTabMessage {
   type: "navigate-tab";
-  tab: "records";
+  tab: (typeof NAVIGATE_TAB_TARGETS)[number];
+  /**
+   * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
+   * `card`는 옛 홈의 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560),
+   * `invite_card`는 홈 친구 초대 카드다. 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
+   */
+  via?: (typeof NAVIGATE_TAB_SOURCES)[number];
   atMs: number;
 }
 
@@ -253,6 +264,14 @@ export interface NavigateTabMessage {
 export interface SetTabBarMessage {
   type: "set-tab-bar";
   visible: boolean;
+  /**
+   * 웹 모달이 덮고 있는 동안 탭 바를 자리에 둔 채 딤을 씌우고 터치만 막으라는 뜻이다.
+   * `visible: false`와 함께 온다 — 이 필드를 모르는 구버전 앱은 `visible`만 읽고 탭 바를
+   * 통째로 감추므로, 카드가 한 번 튀는 대신 탭이 눌리는 문제는 업데이트 전에도 사라진다.
+   * 전체 화면 라우트라 탭 바가 이미 없을 때는 보내지 않는다 — 딤을 그리려고 탭 바가
+   * 되살아나면 안 된다.
+   */
+  blockedByModal?: boolean;
   atMs: number;
 }
 
@@ -308,6 +327,16 @@ export interface SetBackLockMessage {
  */
 export interface NavigateHomeMessage {
   type: "navigate-home";
+  /**
+   * 모달을 닫은 뒤 이어서 열 탭. S4의 `기록으로 가기`가 솔로 결과에서 싣는다 — 모달 닫기와 탭
+   * 전환을 **한 메시지**로 보내야 한다. 둘로 나누면 첫 메시지가 이 WebView를 언마운트하는
+   * 사이 둘째(`navigate-tab`)가 유실될 수 있다. 네이티브는 `tab_pressed {via: study_result}`로
+   * 센다. 없으면 홈 탭에 머문다.
+   *
+   * 값은 `records`뿐이다. `navigate-tab`의 목적지 목록을 그대로 참조하면 셸 파서·핸들러가 모르는
+   * 값이 타입만 통과해 조용히 홈에 머문다. 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
+   */
+  tab?: "records";
   atMs: number;
 }
 

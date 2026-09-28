@@ -13,7 +13,8 @@
 | Sheet / Menu Item | `2405:138` | 없음 |
 | Control / Toggle | `43:89` | 설정 화면 로컬 |
 | Settings / Row (5종) | `43:117` | `features/settings` |
-| Input / Text, Input / PIN Box, Search / Field | `2403:118` `2403:123` `2403:136` | `features/social-room` 로컬 |
+| Input / Text, Search / Field | `2403:118` `2403:136` | `features/social-room` 로컬 |
+| Input / PIN Box | `2403:123` | `components/ui/input-otp.tsx`(input-otp) + `features/social-room/InviteCodeInput.tsx` (BY-716) |
 | Chip / Filter | `2402:114` | `features/social-room` |
 | Avatar | `2402:109` | `features/social-room` |
 | Navigation / Tab Bar (Active=Home·Social·Record·Settings) | `36:101` | 네이티브 셸이 그린다(`apps/mobile`). 웹에는 없다 |
@@ -24,10 +25,11 @@
 
 | Figma | 노드 | 코드 |
 |---|---|---|
-| Card / Hero Today | `39:80` | `routes/HomeTabPage.tsx` `HeroTodayCard` |
-| Card / Start CTA | `38:66` | `StartCtaCard` |
-| Card / Stat (Type=Streak·Longest) | `38:86` | `StatCard` |
-| Card / Guide | `39:108` | `GuideCard` |
+| V2 `streak-card` (S1 홈 Soft Blue `5381:3773`) | `5381:3773` | `routes/HomeTabPage.tsx` `StreakCard` = `Card` + `features/records/StreakBanner` `WeekDot` + `Tooltip` |
+| V2 `stats-card` (`5381:3812`, 순공·집중률 게이지·총 공부·최대 집중) | `5381:3812` | `StatsCard` = `Card` + `components/ui/progress.tsx` |
+| V2 `cta · 집중 시작` (`5381:3834`) | `5381:3834` | `components/ui/button.tsx` `size=xl` |
+| V2 `invite-card` (`5381:3836`, 친구 초대 → 소셜 탭) | `5381:3836` | `InviteCard`(`<button>`) + `assets/home-invite-friends.png` |
+| Card / Hero Today · Start CTA · Stat · Guide (V1.4 `39:80` `38:66` `38:86` `39:108`) | | V2 홈으로 대체됨. 코드 없음 |
 
 ## 기록
 

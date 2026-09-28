@@ -13,7 +13,6 @@ import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
-import { useNativePingResponder } from "@/lib/nativeLiveness";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
@@ -49,8 +48,6 @@ export function App() {
   // Android 시스템 뒤로가기로 탭을 떠날 때 네이티브가 보내는 초기화 신호를 받아 탭 루트로
   // 되돌린다(`lib/nativeRouteReset.ts`).
   useNativeRouteReset();
-  // 네이티브의 웹뷰 생존 확인(ping)에 즉답한다 — 응답 못 하면 재로드된다(`lib/nativeLiveness.ts`).
-  useNativePingResponder();
   // 렌더러 사망 복구용 현재 화면 보고(`lib/nativeScreenReport.ts`).
   useNativeScreenReport();
   // 네이티브가 관측한 사용자 이벤트(탭 터치·권한 게이트 등)를 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`).

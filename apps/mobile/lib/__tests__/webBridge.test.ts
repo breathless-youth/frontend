@@ -2,7 +2,6 @@ import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from
 
 describe("parseToNativeMessage", () => {
   it.each([
-    "session-ready",
     "home-ready",
     "analytics-ready",
     "start-session",
@@ -20,6 +19,18 @@ describe("parseToNativeMessage", () => {
 
   it("navigate-home 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"navigate-home","atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+  });
+
+  it("navigate-home의 이어서 열 탭(tab)은 계약 값만 통과시킨다 — 모르는 값은 빼고 모달 닫기는 살린다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"records","atMs":9}')).toEqual({
+      type: "navigate-home",
+      tab: "records",
+      atMs: 9,
+    });
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"profile","atMs":9}')).toEqual({
       type: "navigate-home",
       atMs: 9,
     });
@@ -86,6 +97,21 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-tab의 발신처(via)는 계약 값만 통과시킨다 — 모르는 값은 빼고 이동은 살린다", () => {
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"study_result","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", via: "study_result", atMs: 4 });
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"records","via":"banner","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "records", atMs: 4 });
+  });
+
+  it("navigate-tab은 소셜 탭도 받는다 — 홈 친구 초대 카드의 via=invite_card", () => {
+    expect(
+      parseToNativeMessage('{"type":"navigate-tab","tab":"social","via":"invite_card","atMs":4}'),
+    ).toEqual({ type: "navigate-tab", tab: "social", via: "invite_card", atMs: 4 });
+  });
+
   it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {
     expect(parseToNativeMessage('{"type":"navigate-tab","tab":"profile","atMs":4}')).toBeNull();
   });
@@ -100,6 +126,25 @@ describe("parseToNativeMessage", () => {
 
   it("set-tab-bar의 visible이 boolean이 아니면 null이다 — 탭 바가 사라지면 이동 수단이 없어진다", () => {
     expect(parseToNativeMessage('{"type":"set-tab-bar","visible":"no","atMs":9}')).toBeNull();
+  });
+
+  it("blockedByModal을 파싱한다", () => {
+    expect(
+      parseToNativeMessage('{"type":"set-tab-bar","visible":false,"blockedByModal":true,"atMs":9}'),
+    ).toEqual({
+      type: "set-tab-bar",
+      visible: false,
+      blockedByModal: true,
+      atMs: 9,
+    });
+  });
+
+  it("blockedByModal이 boolean이 아니면 그 필드만 버린다 — 메시지를 통째로 버리면 탭 바 신호가 사라진다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"set-tab-bar","visible":false,"blockedByModal":"yes","atMs":9}',
+      ),
+    ).toEqual({ type: "set-tab-bar", visible: false, atMs: 9 });
   });
 
   it("set-back-gesture를 파싱한다", () => {
@@ -130,8 +175,13 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"future","atMs":5}')).toBeNull();
   });
 
+  it("지운 메시지(session-ready·pong)는 모르는 메시지로 버린다 — 구버전 웹이 보내도 죽지 않는다", () => {
+    expect(parseToNativeMessage('{"type":"session-ready","atMs":5}')).toBeNull();
+    expect(parseToNativeMessage('{"type":"pong","id":4,"atMs":5}')).toBeNull();
+  });
+
   it("atMs가 없으면 null을 돌려준다", () => {
-    expect(parseToNativeMessage('{"type":"session-ready"}')).toBeNull();
+    expect(parseToNativeMessage('{"type":"home-ready"}')).toBeNull();
   });
 
   it("JSON이 아니면 null을 돌려준다", () => {
@@ -160,7 +210,7 @@ describe("parseToNativeMessage", () => {
 
 describe("injectMessageScript", () => {
   it("웹이 설치한 전역을 호출한다 — 없으면 호출하지 않는다", () => {
-    const script = injectMessageScript({ type: "app-state", state: "active", atMs: 1 });
+    const script = injectMessageScript({ type: "camera-gate-result", granted: true, atMs: 1 });
 
     expect(script).toContain("if (window.__focusonNativeMessage)");
     expect(script).toContain("window.__focusonNativeMessage(");
@@ -196,19 +246,7 @@ describe("serializeToWebMessage", () => {
   });
 });
 
-describe("parseToNativeMessage — BY-436 생존 확인·화면 보고", () => {
-  it("pong을 파싱한다", () => {
-    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: 4, atMs: 1000 }))).toEqual({
-      type: "pong",
-      id: 4,
-      atMs: 1000,
-    });
-  });
-
-  it("pong의 id가 number가 아니면 버린다 — 짝을 못 맞추는 응답은 생존 증거가 못 된다", () => {
-    expect(parseToNativeMessage(JSON.stringify({ type: "pong", id: "4", atMs: 1000 }))).toBeNull();
-  });
-
+describe("parseToNativeMessage — 화면 보고", () => {
   it("report-screen을 파싱한다 — restoreQuery는 문자열 값만 남긴다", () => {
     expect(
       parseToNativeMessage(

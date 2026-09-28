@@ -28,8 +28,8 @@ V1.0은 **익명 기기 계정**이라 로그인·로그아웃·계정 삭제 �
   - `ai-wiki/product/mvp-scope.md` — 감지 3종(측정 기준 안내 서브 문구의 근거)
   - `ai-wiki/project/glossary.md` — 자리 이탈·휴대폰 사용·기기 조작 노출 표기
   - `ai-wiki/notes/2026-07-26-디자인-반영-인터뷰-6차.md` — 최신 확정분(S6 관련 변경은 없음, 가이드 재진입 경로 유지 확인)
-- Ownership: `frontend/docs/screen-ownership.md` — **`apps/mobile` 소유**(앱 셸)
-- 담당 앱: `apps/mobile` → `app/(tabs)/settings.tsx`(신규 탭) + `app/(tabs)/_layout.tsx` 탭 등록
+- Ownership: `frontend/docs/screen-ownership.md`, **`apps/web` 소유**(모바일 설정 탭은 원격 URL 웹뷰로 연다)
+- 담당 앱: `apps/web` → `src/routes/SettingsPage.tsx`(라우트 `/settings`), 모바일 `app/(tabs)/settings.tsx`는 `RemoteScreen`으로 이 경로를 연다
 
 > **Figma × wiki 교차 대조 결과: 상충 없음.** Figma의 항목 구성·문구가 `user-flow.md`의 S6 정의, `voice-tone.md` §4 설정 문구와 정확히 일치한다(문자 단위 확인). S4에서 알려진 "화면 꺼짐 → 일시정지" 반영 지연 같은 괴리는 이 화면에 없다.
 

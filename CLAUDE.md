@@ -4,12 +4,12 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 
 ## 아키텍처
 
-모바일 스터디룸은 `apps/web`을 WebView로 로드한다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
+모바일 앱은 카메라 권한 거부 안내(`apps/mobile/app/permission-denied.tsx`)를 뺀 모든 화면을 원격 URL 웹뷰로 열고, 화면 구현은 전부 `apps/web`에 있다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 네이티브 셸이 직접 맡는 것은 탭바·스택·권한·스플래시·토큰뿐이고, 전체 구조는 [docs/architecture.md](./docs/architecture.md)에 있다. 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
 
 ## 모노레포 구조
 
-- `apps/mobile` — Expo RN 앱(`expo-router`). 앱 셸(인증/네비게이션) + 스터디룸은 WebView로 `apps/web`을 로드. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
-- `apps/web` — Vite + React 웹 앱. 스터디룸의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
+- `apps/mobile` — Expo RN 앱(`expo-router`). 탭바·스택·권한·스플래시·토큰을 맡는 네이티브 셸이고, 카메라 권한 거부 안내를 뺀 모든 화면은 원격 URL 웹뷰로 `apps/web`을 연다. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
+- `apps/web` — Vite + React 웹 앱. 홈·기록·설정·온보딩·세션·소셜을 포함한 모든 화면의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
 - `packages/types` — 서버 전송용/API 계약 도메인 타입. **실제 백엔드 Swagger 기준으로만 정의한다**(명세에 없는 타입 금지). `packages/design-tokens`는 공유 의미 기반 디자인 토큰(구현체는 공유 안 함), `packages/config`는 공유 ESLint/Prettier 설정.
 
 ## 아키텍처 경계 (반드시 유지)
@@ -55,3 +55,15 @@ pnpm --filter web dev      # web만
 - 검증되지 않은 네이티브 라이브러리를 추측으로 설치하지 말 것. 인터페이스 + mock으로 두고 실기기 스파이크로 검증한다.
 - 공유 패키지에 React Native/DOM/MediaPipe/미디어 SDK 의존성을 추가하지 말 것.
 - 패키지 매니저를 npm/yarn으로 바꾸지 말 것(pnpm 고정). `packages/config`의 공유 규칙을 개별 앱에서 무시하려면 반드시 이유를 주석으로 남길 것.
+
+## 하네스: 배경음(백색소음·앰비언트 사운드) 기능
+
+**목표:** 스터디룸 세션 중 사용자가 조합한 배경음(합성 노이즈·자연음 루프)을 세션 상태와 집중 상태에 맞춰 끊김 없이 재생하는 기능을 계획대로 구현한다.
+
+**트리거:** 백색소음·배경음·앰비언트·lofi·사운드 기능의 착수·후속·부분 재실행 요청 시 `.claude/skills/ambient-sound-orchestrator`를 사용하라. 단순 질문은 직접 응답 가능. 티켓·브랜치·PR은 `task-workflow`가 감싸고 이 하네스는 그 5단계 안에서 돈다. 에이전트 정의는 `.claude/agents/`, 설계·수행계획은 `docs/superpowers/specs/2026-09-20-BY-682-ambient-sound-design.md`.
+
+**변경 이력:**
+
+| 날짜       | 변경 내용                                                                       | 대상 | 사유                                      |
+| ---------- | ------------------------------------------------------------------------------- | ---- | ----------------------------------------- |
+| 2026-09-20 | 초기 구성 (에이전트 3, 스킬 3, 설계 문서). 루트 `.claude/`에서 이 저장소로 이동 | 전체 | BY-682 브랜치에 하네스를 함께 두기로 결정 |

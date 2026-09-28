@@ -1,3 +1,5 @@
+import { ChevronRight, Copy, ExternalLink } from "lucide-react";
+
 import { PermissionToggle } from "./PermissionToggle";
 
 /**
@@ -21,7 +23,9 @@ export type SettingsRowTrailing =
   /** 앱 밖(외부 브라우저)으로 나감. */
   | { kind: "external" }
   /** 값 표시만 — 누를 수 없다. */
-  | { kind: "value"; value: string };
+  | { kind: "value"; value: string }
+  /** 값 표시 + 복사 버튼. 버전 정보 행이 쓴다. */
+  | { kind: "copy"; value: string; onCopy: () => void };
 
 type SettingsRowProps = {
   label: string;
@@ -50,53 +54,35 @@ type SettingsRowProps = {
 /** 최소 44px 터치 타겟 — 실측 높이(47/59/65)가 이미 넘지만 폰트 축소 상황의 바닥값으로 둔다. */
 const ROW_CLASS_NAME = "min-h-11 flex w-full flex-row items-center justify-between gap-3 py-[14px]";
 
-function IconChevronRight({ size = 12 }: { size?: number }) {
-  // 원본 비율 7×12 — size는 높이 기준으로 두고 너비를 비율로 맞춘다.
-  return (
-    <svg width={(size * 7) / 12} height={size} viewBox="0 0 7 12" fill="none" aria-hidden="true">
-      <path
-        d="M0.928589 0.857147L6.07145 6L0.928589 11.1429"
-        stroke="#8B95A1"
-        strokeWidth={1.54286}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconExternalLink({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <path
-        d="M4.71428 2.14285H2.14285C1.91552 2.14285 1.6975 2.23316 1.53676 2.3939C1.37601 2.55465 1.28571 2.77267 1.28571 3V9.85714C1.28571 10.0845 1.37601 10.3025 1.53676 10.4632C1.6975 10.624 1.91552 10.7143 2.14285 10.7143H8.99999C9.22732 10.7143 9.44534 10.624 9.60608 10.4632C9.76683 10.3025 9.85713 10.0845 9.85713 9.85714V7.28571"
-        stroke="#8B95A1"
-        strokeWidth={1.28571}
-        strokeLinecap="round"
-      />
-      <path
-        d="M6.85712 1.28572H10.7143V5.14286M10.4571 1.54286L5.82855 6.17143"
-        stroke="#8B95A1"
-        strokeWidth={1.28571}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
   switch (trailing.kind) {
     case "toggle":
       return <PermissionToggle granted={trailing.granted} />;
+    // 손으로 그린 SVG는 획 색 #8B95A1을 하드코딩해 다크에서 밝게 남았다. lucide는 currentColor라
+    // 부모의 text-text-tertiary 토큰을 따른다.
     case "chevron":
-      return <IconChevronRight size={12} />;
+      return <ChevronRight size={20} className="text-text-tertiary shrink-0" aria-hidden="true" />;
     case "external":
-      return <IconExternalLink size={12} />;
+      return <ExternalLink size={16} className="text-text-tertiary shrink-0" aria-hidden="true" />;
     case "value":
       return (
         <span className="text-text-tertiary shrink-0 text-[15px] leading-[18px]">
           {trailing.value}
+        </span>
+      );
+    case "copy":
+      return (
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="text-text-tertiary text-[15px] leading-[18px]">{trailing.value}</span>
+          <button
+            type="button"
+            onClick={trailing.onCopy}
+            aria-label={`${trailing.value} 복사`}
+            // 아이콘은 16이지만 히트 영역은 44 — 세로 음수 마진으로 행 높이는 늘리지 않는다.
+            className="text-text-tertiary -my-3 flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+          >
+            <Copy size={16} aria-hidden="true" />
+          </button>
         </span>
       );
   }

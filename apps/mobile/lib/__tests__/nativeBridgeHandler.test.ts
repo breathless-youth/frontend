@@ -1,6 +1,8 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
+import type { HandlerMessage } from "@focusmakers/types";
+
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
 import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
 import {
@@ -94,13 +96,6 @@ beforeEach(() => {
 });
 
 describe("handleBridgeMessage", () => {
-  it("session-ready는 아무 것도 하지 않는다 — 네이티브가 추가로 할 일이 없다", () => {
-    expect(() => handleBridgeMessage({ type: "session-ready", atMs: 1 }, noopReply)).not.toThrow();
-    expect(mockedRouter.push).not.toHaveBeenCalled();
-    expect(mockedRouter.back).not.toHaveBeenCalled();
-    expect(mockedOpenAppSettings).not.toHaveBeenCalled();
-  });
-
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
@@ -331,9 +326,12 @@ describe("handleBridgeMessage", () => {
   it("개발 빌드에서 처리 case가 없는 type을 로그로 남긴다", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 
-    handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+    // "future"는 union에 없는 타입이다 — 타입과 파서가 어긋난 상황을 흉내내려 단언으로
+    // 통과시킨다. never 검사는 컴파일 타임 보장이라, 여기서는
+    // 그 보장 밖(런타임)에서 어긋난 경우를 검증한다.
+    handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "pong");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "future");
     warn.mockRestore();
   });
 
@@ -342,7 +340,7 @@ describe("handleBridgeMessage", () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      handleBridgeMessage({ type: "pong", id: 1, atMs: 1 }, noopReply);
+      handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
       expect(warn).not.toHaveBeenCalled();
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
@@ -388,6 +386,66 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
       ["tab_pressed", { tab: "record", from_tab: "home", via: "card" }],
     ]);
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("홈 친구 초대 카드가 보낸 navigate-tab social은 via=invite_card로 남기고 소셜 탭으로 간다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "social", via: "invite_card", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "social", from_tab: "home", via: "invite_card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/social");
+  });
+
+  it("소셜 결과 화면이 보낸 navigate-tab은 via=study_result로 남긴다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "records", via: "study_result", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("이미 기록 탭이면 이동은 no-op이라 tab_pressed를 남기지 않는다", () => {
+    setActiveTabRoute("records");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received).toEqual([]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  /**
+   * 솔로 결과의 `기록으로 가기`는 모달 닫기와 탭 전환을 한 메시지로 보낸다 — 둘로 나누면
+   * 첫 메시지가 세션 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다.
+   */
+  it("navigate-home에 tab이 실려 오면 모달을 닫고 이어서 그 탭으로 간다 — via=study_result", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-home", tab: "records", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+  });
+
+  it("tab 없는 navigate-home은 탭을 옮기지 않는다", () => {
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.navigate).not.toHaveBeenCalled();
+    expect(received).toEqual([]);
   });
 });
 

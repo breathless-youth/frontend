@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getPeriodStats, getStreak, listStudySessionStats } from "../statsApi";
+import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "../statsApi";
 
 /**
  * 기본 base URL은 same-origin(빈 문자열) — dev의 vite 프록시 환경과 같다.
@@ -103,6 +103,37 @@ describe("listStudySessionStats", () => {
       "/api/stats?date=2026-07-25%26userId%3D9",
       expect.objectContaining({ method: "GET" }),
     );
+  });
+});
+
+describe("getStudyDays", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("토큰 신원으로 누적 공부 일 수를 조회한다 — 쿼리에 userId를 싣지 않고 API-Version은 1을 명시한다", async () => {
+    // 구 앱 대응이 없는 새 경로라 서버 버전이 1 하나뿐이다. 토큰 요청의 기본 헤더(2)로 보내면 400이다.
+    mockedFetch.mockResolvedValue(jsonResponse(200, { totalDays: 12 }));
+
+    await expect(getStudyDays()).resolves.toEqual({ totalDays: 12 });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/study-days",
+      expect.objectContaining({ method: "GET" }),
+    );
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(new Headers((init as RequestInit).headers).get("API-Version")).toBe("1");
+  });
+
+  it("JSON 오류 본문을 읽지 못하면 HTTP 상태를 포함해 실패한다", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+
+    await expect(getStudyDays()).rejects.toThrow("누적 공부 일 수 조회 실패 (HTTP 500)");
   });
 });
 

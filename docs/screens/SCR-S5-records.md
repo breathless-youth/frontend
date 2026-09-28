@@ -28,8 +28,8 @@ FocusOn 모바일 앱의 기록 탭이다. 사용자가 "내가 얼마나 꾸준
   - `ai-wiki/product/mvp-scope.md` — 세션 상태 모델(일시정지 벽시계 별도 집계)
   - `ai-wiki/notes/2026-07-26-디자인-반영-인터뷰-6차.md` — 화면 꺼짐 → 일시정지 합산, 기록 정렬 최신순 고정, 뱃지 축약 표기
   - `ai-wiki/product/user-flow.md` — S5 행(날짜 선택 → 해당 날짜 기록, M2+ 이관 항목)
-- Ownership: `frontend/docs/screen-ownership.md` — **`apps/mobile` 소유**(앱 셸, 신규 탭)
-- 담당 앱: `apps/mobile` → `app/(tabs)/records.tsx` (신규) + `app/(tabs)/_layout.tsx` 탭 등록
+- Ownership: `frontend/docs/screen-ownership.md`, **`apps/web` 소유**(모바일 기록 탭은 원격 URL 웹뷰로 연다)
+- 담당 앱: `apps/web` → `src/routes/RecordsPage.tsx`(라우트 `/records`), 모바일 `app/(tabs)/records.tsx`는 `RemoteScreen`으로 이 경로를 연다
 
 Figma가 이 화면의 시각적 SSOT다. 구현 전 `get_design_context`로 `65:553`을 반드시 다시 읽고, 절대 좌표(`absolute` + `top/left`)를 그대로 베끼지 말고 세로 스크롤 + Flexbox 구조로 매핑한다.
 

@@ -1,9 +1,10 @@
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { copyText } from "@/lib/clipboard";
 
 /**
- * 초대코드 복사·공유. 실패해도 화면을 깨지 않는다 — 결과를 돌려주고 화면이 토스트로 알린다.
+ * 초대코드 복사·공유
  *
- * 2026-08-20 실기기·에뮬레이터 실측: iOS WKWebView는 `navigator.share` 시트가 뜨고,
+ * iOS WKWebView는 `navigator.share` 시트가 뜨고,
  * Android 웹뷰는 Web Share API 자체가 없다(Chrome 브라우저 전용). 그래서 Android 웹뷰는
  * 브리지(`share` → RN `Share.share`)로 네이티브 시트를 열고, 순수 브라우저에서만
  * 클립보드 복사로 폴백한다.
@@ -34,15 +35,6 @@ export const INVITE_SHARE_TITLE = "포커스 메이커스 그룹 스터디";
 /** 클립보드 복사. secure context(https·localhost)가 아니거나 거부되면 false. */
 export async function copyInviteCode(inviteCode: string): Promise<boolean> {
   return copyText(inviteCode);
-}
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

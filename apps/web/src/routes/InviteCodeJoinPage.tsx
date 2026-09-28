@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
+import { Button } from "@/components/ui/button";
 import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
@@ -83,7 +84,7 @@ export function InviteCodeJoinPage() {
   return (
     <main
       data-testid="invite-code-join-page"
-      className="flex min-h-dvh flex-col bg-background text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col text-foreground"
     >
       <ScreenBackHeader
         // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다.
@@ -100,7 +101,7 @@ export function InviteCodeJoinPage() {
       />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <p className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</p>
+        <h1 className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</h1>
         <div className="size-2" aria-hidden="true" />
         <InviteCodeInput
           value={code}
@@ -123,8 +124,10 @@ export function InviteCodeJoinPage() {
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-        <button
-          type="button"
+        <Button
+          variant="default"
+          size="xl"
+          className="shadow-sb-cta w-full"
           disabled={userId === null || !isCompleteInviteCode(code) || joinMutation.isPending}
           onClick={() => {
             // 키보드가 열린 채 제출되면 결과(이동·에러 문구)를 키보드가 가린다
@@ -135,23 +138,23 @@ export function InviteCodeJoinPage() {
             }
             joinMutation.mutate(code);
           }}
-          className="flex h-12 w-full items-center justify-center rounded-[14px] bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
         >
           참여하기
-        </button>
+        </Button>
         {storePlatform !== null && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="xl"
+            className="mt-2 w-full text-muted-foreground"
             onClick={() => {
               // 초대발 신규 설치 근사(BY-472) — 이동 전 전송이 베스트 에포트인 사유는
               // trackStoreLinkRedirected 주석 참고.
               trackStoreLinkRedirected(storePlatform);
               openInApp(storePlatform, isCompleteInviteCode(code) ? code : "");
             }}
-            className="mt-2 flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-semibold text-muted-foreground"
           >
             앱에서 참여하기
-          </button>
+          </Button>
         )}
       </div>
     </main>

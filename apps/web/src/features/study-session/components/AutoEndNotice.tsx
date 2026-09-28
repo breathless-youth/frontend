@@ -1,5 +1,7 @@
 import { Fragment, useId } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
@@ -8,28 +10,13 @@ import type { PauseTrigger } from "../sessionState";
 import { CheckCircle } from "./CheckCircle";
 
 /**
- * S3-8 자동 종료 안내 (Figma `63:569`).
+ * 세션 자동 종료 안내
  *
- * 일시정지가 임계값을 넘겨 세션이 **사용자 조작 없이** 끝났을 때의 사후 안내다.
- * "이미 저장됐다"는 안심 → 왜 끝났는지 → 순공·총 요약 → `결과 보기` 순서(voice-tone.md §1
- * "이득/안심 우선 구성"). 이미 끝난 일이므로 취소·재개 액션을 넣지 않는다.
- *
- * ## S3-7과 테마 처리를 묶지 말 것
- *
- * 종료 확인 다이얼로그(S3-7)는 카메라 위에 뜨는 **항상-다크 오버레이**지만, 이 화면은
- * **일반 앱 화면**이라 Figma에서도 시맨틱 변수(`bg/base`·`text/primary`·`brand/primary` …)에
- * 바인딩돼 있고 라이트/다크를 모두 따라간다. 그래서 세션 서브트리의 `--session-*` 다크 고정
- * 변수를 쓰지 않고 `index.css`의 테마 반응형 시맨틱 토큰을 그대로 쓴다.
- * 세션 화면(`<main>`의 `text-white`) 위에 얹히므로 색은 전부 명시한다.
- *
- * ## 값은 전부 props
- *
- * Figma의 `52분`·`1시간 8분`은 예시일 뿐이라 하드코딩하지 않는다. 표기는 voice-tone.md §2의
- * **한글 시간 길이** 규칙(`toKoreanDurationLength`)을 따른다 — 이 화면에는 `HH:MM:SS`를 쓰지 않는다.
+ * 일시정지가 임계값을 넘겨 세션이 사용자 조작 없이 끝났을 때의 사후 안내다.
  */
 export interface AutoEndNoticeProps {
   /**
-   * ⚠️ **본문 문구 선택 전용.** 자동 종료 임계값 판정에는 쓰이지 않는다
+   * ⚠️ 본문 문구 선택 전용. 자동 종료 임계값 판정에는 쓰이지 않는다
    * (판정은 `usePauseAutoEnd`가 트리거와 무관하게 `pausedSince` 하나로만 한다).
    */
   trigger: PauseTrigger;
@@ -97,13 +84,13 @@ export function AutoEndNotice({
         />
       </div>
 
-      <button
+      <Button
         type="button"
         onClick={onSeeResult}
-        className="h-14 w-full shrink-0 rounded-2xl bg-primary text-[17px] leading-[20px] font-bold text-primary-foreground transition-opacity duration-200 active:opacity-90 motion-reduce:transition-none"
+        className="mt-auto h-14 w-full shrink-0 rounded-2xl text-[17px] leading-[20px] font-bold motion-reduce:transition-none"
       >
         {AUTO_END_COPY.cta}
-      </button>
+      </Button>
     </section>
   );
 }
@@ -112,29 +99,19 @@ interface SummaryRow {
   label: string;
   /** 초 단위 원본값 — 표기 변환은 카드가 한 곳에서 한다. */
   value: number;
-  /** 첫 행(순공시간)만 Bold다(Figma `63:595` vs `63:599`). */
+  /** 첫 행(순공시간)만 Bold다. */
   emphasis?: boolean;
 }
 
 /**
- * 요약 카드 (Figma `summary-card` 63:592) — 라벨↔값 2행 + 구분선.
- *
- * S4(공부 결과)에도 비슷한 형태가 나오지만 **선점해서 공용화하지 않는다** — 실제로 두 번째
- * 소비자가 생길 때 `components/ui/`로 승격한다(SCR-S3-7·S3-8 Components).
- * 라벨↔값 쌍이 읽기 순서대로 연결되도록 `<dl>`로 마크업한다(Accessibility).
- *
- * ⚠️ **구분선 색 괴리(리뷰 항목)**: Figma `63:596`은 `#EFF1F3` 하드코딩이고 이 값은 시맨틱
- * 토큰 어디에도 없다(`border/default` 라이트는 `#E5E8EB`). 무엇보다 **다크 대응값이 없어**
- * 그대로 쓰면 다크 모드에서 카드 위에 흰 선이 남는다. 이 화면은 테마 반응형이므로
- * `border/default` 토큰을 쓰고, 라이트 3계조 차이는 디자인 확인 항목으로 남긴다.
+ * 요약 카드
  */
 function SummaryRowCard({ rows, className }: { rows: SummaryRow[]; className?: string }) {
   return (
-    <dl className={cn("w-full rounded-2xl border border-border bg-muted px-4", className)}>
-      {rows.map((row, index) => (
-        <Fragment key={row.label}>
-          {index > 0 && <div aria-hidden="true" className="h-px w-full bg-border" />}
-          <div className="flex items-center justify-between py-[14px]">
+    <Card className={cn("w-full px-4", className)}>
+      <dl>
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between py-[14px]">
             <dt className="text-[14px] leading-[17px] text-muted-foreground">{row.label}</dt>
             <dd
               className={cn(
@@ -145,8 +122,8 @@ function SummaryRowCard({ rows, className }: { rows: SummaryRow[]; className?: s
               {toKoreanDurationLength(row.value)}
             </dd>
           </div>
-        </Fragment>
-      ))}
-    </dl>
+        ))}
+      </dl>
+    </Card>
   );
 }

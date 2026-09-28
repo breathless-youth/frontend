@@ -11,13 +11,13 @@ import type {
  *
  * `objectDetector.ts`가 이 모듈을 동적으로만 부르기 때문에 세 가지가 따라온다.
  *
- * 1. **무거운 wasm/JS 번들이 세션에 들어갈 때까지 로드되지 않는다.** 홈·기록·설정 화면은
- *    이 청크를 받지 않는다.
- * 2. **워커 이전(설계 §3)의 교체 대상이 이 파일 하나로 좁혀진다.** 같은
+ * 1. 무거운 wasm/JS 번들이 첫 화면 로드에 끼지 않는다. 홈은 통계를 그린 뒤 유휴 시간에만 이
+ *    청크와 자원을 미리 받고(`./prefetchVisionAssets.ts`), 기록·설정 화면은 받지 않는다.
+ * 2. 워커 이전(설계 §3)의 교체 대상이 이 파일 하나로 좁혀진다. 같은
  *    `MediapipeVisionRuntime`을 구현하는 워커 프록시로 바꾸면 상위 코드는 그대로다.
  * 3. 검출 규칙·프레임 루프 테스트가 MediaPipe 설치 없이 돈다 — 그쪽은 이 파일에 닿지 않는다.
  *
- * `FilesetResolver`는 wasm 런타임을 받아오는 무거운 작업이라 **한 번만 하고 재사용**한다.
+ * `FilesetResolver`는 wasm 런타임을 받아오는 무거운 작업이라 한 번만 하고 재사용한다.
  * GPU가 실패해 CPU로 폴백할 때 이걸 다시 받으면 폴백이 두 배로 느려진다.
  */
 
@@ -38,6 +38,22 @@ function resolveFileset(wasmPath: string) {
     throw error;
   });
   return filesetPromise;
+}
+
+/**
+ * 세션이 받을 로더 JS·wasm 경로
+ *
+ * 홈의 prefetch(`./prefetchVisionAssets.ts`)가 쓴다.
+ *
+ * 라이브러리가 SIMD 지원 여부로 파일 이름을 고르므로 경로를 직접 적지 않고 세션과 같은
+ * `resolveFileset`에 묻는다. 그래야 prefetch한 파일과 세션이 요청하는 파일이 같은 캐시 항목이 된다.
+ * 경로만 계산한다.
+ */
+export async function resolveVisionAssetUrls(
+  wasmPath: string,
+): Promise<{ wasmLoaderPath: string; wasmBinaryPath: string }> {
+  const { wasmLoaderPath, wasmBinaryPath } = await resolveFileset(wasmPath);
+  return { wasmLoaderPath, wasmBinaryPath };
 }
 
 export function createMediapipeRuntime(): MediapipeVisionRuntime {

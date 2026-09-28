@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
@@ -11,26 +11,40 @@ import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
-import { setTabBarVisible } from "./tabBarVisibility";
+import { setTabBarState } from "./tabBarVisibility";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
 
-/** `navigate-tab`의 목적지 값 → 탭 id. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
-const NATIVE_TAB_BY_MESSAGE_TAB = { records: "record" } as const;
+/** `navigate-tab`의 목적지 값 → 탭 id와 라우트. 계약(`NavigateTabMessage.tab`)이 넓어지면 여기도 넓힌다. */
+const TAB_TARGET_BY_MESSAGE_TAB = {
+  records: { id: "record", href: "/records" },
+  social: { id: "social", href: "/social" },
+} as const;
+
+/**
+ * 웹이 요청한 탭 전환. 탭 전환은 네이티브 탭바 소유라 웹은 신호만 보낸다. `router.navigate`는
+ * 이미 활성인 탭이면 no-op이고, 그때는 탭 이동이 아니므로 `tab_pressed`도 남기지 않는다.
+ * 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `via`로 가른다.
+ */
+function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMessage["via"]>) {
+  const target = TAB_TARGET_BY_MESSAGE_TAB[tab];
+  const from = getActiveTab();
+  if (from !== target.id) {
+    trackNativeEvent("tab_pressed", { tab: target.id, from_tab: from, via });
+  }
+  router.navigate(target.href);
+}
 
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
- * `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션, BY-333) 전부가 같은 규칙으로 반응해야
+ * `RemoteWebViewHost`를 쓰는 화면(탭 4개와 세션) 전부가 같은 규칙으로 반응해야
  * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
  * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
  */
-export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply): void {
+export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
-    case "session-ready":
-      // 기존 동작 유지 — 네이티브가 별도로 할 일은 아직 없다.
-      break;
     case "start-session":
       void (async () => {
         const result = await runCameraPermissionGate("single");
@@ -75,6 +89,11 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       }
       // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없어 여기서 알린다.
       emitSessionClosed();
+      // S4 `기록으로 가기`(솔로): 모달 닫기와 탭 전환이 한 메시지로 온다 — 둘로 나누면 첫
+      // 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(계약 주석 참고).
+      if (message.tab !== undefined) {
+        openTab(message.tab, "study_result");
+      }
       break;
     case "open-settings":
       void openAppSettings();
@@ -115,20 +134,17 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       });
       break;
     case "navigate-tab":
-      // 홈 연속 공부 카드 → 기록 탭(Figma Card/Stat: "기록 탭 이동"). 탭 전환은 네이티브
-      // 탭바 소유라 웹이 신호만 보낸다. `router.navigate`는 이미 활성인 탭이면 no-op이다.
-      // 사용자에겐 탭 바 터치와 같은 탭 이동이라 `tab_pressed`로 세되 경로만 `card`로 가른다.
-      trackNativeEvent("tab_pressed", {
-        tab: NATIVE_TAB_BY_MESSAGE_TAB[message.tab],
-        from_tab: getActiveTab(),
-        via: "card",
-      });
-      router.navigate("/records");
+      // 소셜 결과 화면의 `기록으로 가기`(탭 웹뷰라 모달이 없다)와 홈 친구 초대 카드 → 소셜 탭.
+      // 발신처를 안 실은 옛 웹(연속 공부 카드 → 기록)은 `card`다.
+      // 솔로 결과는 모달을 닫아야 하므로 `navigate-home {tab}`으로 온다.
+      openTab(message.tab, message.via ?? "card");
       break;
     case "set-tab-bar":
       // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
-      setTabBarVisible(message.visible);
+      setTabBarState(
+        message.blockedByModal === true ? "blocked" : message.visible ? "visible" : "hidden",
+      );
       break;
     case "auth-ready":
       // 웹이 auth-token 구독을 걸었다 — 이 문서에만 현재 토큰으로 답한다(home-ready·analytics-ready와 같은
@@ -154,9 +170,14 @@ export function handleBridgeMessage(message: ToNativeMessage, reply: BridgeReply
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);
       break;
-    default:
+    default: {
+      // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
+      // 빠뜨리면 이 줄에서 컴파일이 깨진다. 런타임에 오는 경우는 타입과 파서가 어긋났을 때뿐이라
+      // 예외 대신 개발 빌드 경고만 남긴다.
+      const unhandled: never = message;
       if (__DEV__) {
-        console.warn("[webview-bridge] ⚠️ case가 없는 타입", message.type);
+        console.warn("[webview-bridge] ⚠️ case가 없는 타입", (unhandled as { type: string }).type);
       }
+    }
   }
 }

@@ -3,62 +3,34 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_END_COPY,
   EXIT_CONFIRM_COPY,
-  PAUSE_CAPTION,
-  PRIVACY_CAPTION,
   SUB_MINUTE_EXIT_DESCRIPTION,
   autoEndBodyLinesFor,
-  captionFor,
   exitConfirmDescription,
   statusCopyFor,
 } from "../sessionCopy";
 import { FOCUS_STATE, distractionState, pauseState, toEventStatus } from "../sessionState";
 
 describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
-  it("집중에는 서브 문구가 없다", () => {
+  it("집중 문구를 낸다", () => {
     expect(statusCopyFor(FOCUS_STATE)).toEqual({ label: "순공시간 측정 중" });
   });
 
   it("비집중 3종 문구를 전부 갖는다 — Figma에 없는 2종도 구현한다", () => {
-    expect(statusCopyFor(distractionState("AWAY"))).toEqual({
-      label: "자리를 비운 것 같아요",
-      subLabel: "돌아오면 자동으로 다시 측정돼요",
-    });
+    expect(statusCopyFor(distractionState("AWAY"))).toEqual({ label: "자리를 비운 것 같아요" });
     expect(statusCopyFor(distractionState("PHONE"))).toEqual({
       label: "휴대폰을 사용 중인 것 같아요",
-      subLabel: "내려놓으면 자동으로 다시 측정돼요",
     });
     expect(statusCopyFor(distractionState("DEVICE"))).toEqual({
       label: "기기를 조작 중인 것 같아요",
-      subLabel: "제자리에 두면 자동으로 다시 측정돼요",
     });
   });
 
   it("수동 일시정지와 화면 꺼짐은 같은 문구를 쓴다 — '화면 꺼짐'은 별도 유형이 아니다", () => {
     expect(statusCopyFor(pauseState("BACKGROUND"))).toEqual(statusCopyFor(pauseState("MANUAL")));
   });
-});
 
-describe("프라이버시 캡션", () => {
-  it("싱글룸 문구만 쓴다 — 멀티룸 문구를 끌어오지 않는다", () => {
-    expect(PRIVACY_CAPTION).toBe("영상은 기기 안에서만 처리돼요");
-    expect(PRIVACY_CAPTION).not.toContain("서버");
-  });
-});
-
-describe("captionFor — 하단 캡션은 한 줄만 (S3-3)", () => {
-  it("일시정지에서는 프라이버시 캡션을 일시정지 캡션으로 교체한다", () => {
-    expect(PAUSE_CAPTION).toBe("일시정지 중에는 시간이 흐르지 않아요");
-    expect(captionFor(pauseState("MANUAL"))).toBe(PAUSE_CAPTION);
-  });
-
-  it("화면 꺼짐 트리거도 같은 캡션을 쓴다 — '화면 꺼짐' 라벨은 UI에 없다", () => {
-    expect(captionFor(pauseState("BACKGROUND"))).toBe(PAUSE_CAPTION);
-    expect(captionFor(pauseState("BACKGROUND"))).not.toContain("화면 꺼짐");
-  });
-
-  it("일시정지가 아니면 프라이버시 캡션이다", () => {
-    expect(captionFor(FOCUS_STATE)).toBe(PRIVACY_CAPTION);
-    expect(captionFor(distractionState("PHONE"))).toBe(PRIVACY_CAPTION);
+  it("일시정지 문구를 낸다", () => {
+    expect(statusCopyFor(pauseState("MANUAL"))).toEqual({ label: "측정을 일시정지했어요" });
   });
 });
 
@@ -118,7 +90,6 @@ describe("exitConfirmDescription — 한글 시간 길이 + 미달 분기", () =
     for (const seconds of [0, 40, 59, 60, 90, 3120, 5048]) {
       expect(exitConfirmDescription(seconds)).not.toContain(":");
     }
-    // `1분 미만`의 '만'은 남지만 초 숫자는 어디에도 없다.
     expect(exitConfirmDescription(40)).not.toMatch(/\d+초/);
     expect(exitConfirmDescription(5048)).not.toMatch(/\d+초/);
   });
@@ -134,7 +105,7 @@ describe("자동 종료 안내 문구 — S3-8 (voice-tone.md §4)", () => {
 
   it("수동 일시정지 방치의 본문은 미정이라 비어 있다 — 화면 꺼짐 문구를 재사용하지 않는다", () => {
     // 화면을 끄지 않은 사용자에게 "화면이 꺼진 동안"이라고 안내하면 사실과 다르다.
-    // voice-tone.md §4에 ⚠️ 미정으로 남아 있으므로 문구를 지어내지 않는다.
+    // voice-tone.md §4에 ⚠️ 미정으로 명시돼 있으므로 문구를 지어내지 않는다.
     expect(autoEndBodyLinesFor("MANUAL")).toBeNull();
   });
 
