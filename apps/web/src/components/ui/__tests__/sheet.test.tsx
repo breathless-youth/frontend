@@ -101,3 +101,22 @@ describe("Sheet — 네이티브 탭 바", () => {
     expect(screen.getByRole("dialog")).not.toHaveAttribute(COVERS_TAB_BAR_ATTR);
   });
 });
+
+describe("Sheet 모션 — 바닥 시트", () => {
+  it("바닥 시트는 페이드 없이 슬라이드만 하고, 닫힘은 가속(ease-in)이다", () => {
+    const className = sheetVariants({ side: "bottom" });
+
+    expect(className).toContain("data-[state=closed]:slide-out-to-bottom");
+    expect(className).toContain("data-[state=closed]:ease-in");
+    expect(className).not.toContain("fade-in");
+    expect(className).not.toContain("fade-out");
+  });
+
+  it("옆에서 나오는 시트는 그대로 페이드를 겸한다", () => {
+    const className = sheetVariants({ side: "right" });
+
+    expect(className).toContain("data-[state=open]:fade-in-0");
+    expect(className).toContain("data-[state=closed]:fade-out-0");
+    expect(className).not.toContain("data-[state=closed]:ease-in");
+  });
+});

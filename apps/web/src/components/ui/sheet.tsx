@@ -30,16 +30,19 @@ export const sheetVariants = cva(
   // 퇴장은 트랜지션이 아니라 키프레임이어야 한다. Radix 는 닫을 때 CSS 애니메이션이 걸려
   // 있으면 animationend 를 기다렸다 요소를 걷어내지만, 트랜지션은 기다리지 않고 바로
   // 언마운트해 나가는 모습이 한 프레임도 보이지 않는다.
-  "fixed z-50 bg-background p-6 text-foreground shadow-lg duration-300 ease-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+  "fixed z-50 bg-background p-6 text-foreground shadow-lg duration-300 ease-overlay data-[state=open]:animate-in data-[state=closed]:animate-out",
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b border-border data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
+        top: "inset-x-0 top-0 border-b border-border data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
+        // 바닥 시트는 페이드 없이 슬라이드만 한다 — 페이드가 섞이면 내려가는 도중 투명해져 빨려
+        // 나가듯 보인다. 열림은 base의 ease-overlay(감속)로 멈추고, 닫힘은 ease-in(가속)으로
+        // 화면 밖으로 떨어진다. 딤은 그대로 페이드한다.
         bottom:
-          "inset-x-0 bottom-0 border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
+          "inset-x-0 bottom-0 border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=closed]:ease-in",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
         right:
-          "inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+          "inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
       },
     },
     defaultVariants: { side: "right" },
