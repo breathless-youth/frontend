@@ -21,7 +21,43 @@ import { postToNative } from "./bridge";
 /** Meta 표준 이벤트 "튜토리얼 완료". `fb_success`는 Meta 표준 파라미터(1=성공). */
 export const META_TUTORIAL_COMPLETION_EVENT = "fb_mobile_tutorial_completion";
 
+/**
+ * 같은 전환을 다시 보내지 않을 시간 창. 웹뷰가 같은 주소를 두 번 읽으면 마운트 1회 이펙트가
+ * 두 번 돌아 전환이 겹쳐 나간다(2026-09-29 실기 확인: `/room/1`·`/home` 모두 문서가 두 번 로드됐다).
+ * 겹친 전환은 Meta의 광고 최적화가 잘못된 신호로 학습하고 성과 지표도 부풀린다.
+ */
+const DEDUPE_WINDOW_MS = 10_000;
+const DEDUPE_KEY_PREFIX = "meta-app-event:";
+
+/**
+ * 창 안에 같은 전환이 이미 나갔는지 본다. 문서가 새로 뜨면 모듈 상태는 사라지므로 메모리로는
+ * 못 막는다 — 같은 웹뷰의 문서 교체를 건너뛰는 `sessionStorage`에 둔다.
+ *
+ * 읽기·쓰기 실패는 통과시킨다(fail-open). 전환 유실이 중복보다 비싸고, 브라우저 단독 모드나
+ * 저장소가 막힌 환경에서 계측이 통째로 멎으면 안 된다.
+ *
+ * ponytail: 이름+파라미터와 시간 창으로만 가른다. 세션 식별자를 키로 쓰는 편이 정확하지만 지금
+ * 훅에는 로드를 가로질러 안정적인 식별자가 없다 — 근본 원인(이중 로드)을 고칠 때 같이 정리한다.
+ */
+function isDuplicate(name: string, params?: MetaAppEventMessage["params"]): boolean {
+  const key = `${DEDUPE_KEY_PREFIX}${name}:${JSON.stringify(params ?? null)}`;
+  const now = Date.now();
+  try {
+    const previous = Number(window.sessionStorage.getItem(key));
+    if (Number.isFinite(previous) && previous > 0 && now - previous < DEDUPE_WINDOW_MS) {
+      return true;
+    }
+    window.sessionStorage.setItem(key, String(now));
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function postMetaAppEvent(name: string, params?: MetaAppEventMessage["params"]): void {
+  if (isDuplicate(name, params)) {
+    return;
+  }
   postToNative({
     type: "meta-app-event",
     name,
