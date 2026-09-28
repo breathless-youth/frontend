@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DdayCalendar } from "../DdayCalendar";
 
+// jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는 `clientX`/`clientY`가
+// 사라진다(`recordsComponents.test.tsx`와 같은 이유·같은 최소 폴리필).
+if (typeof window.PointerEvent === "undefined") {
+  window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+}
+
 // 오늘을 2026-09-23(수)으로 고정한다 — 달력은 todayKey만 보고 시계를 읽지 않는다.
 const TODAY = "2026-09-23";
 
@@ -49,6 +55,32 @@ describe("DdayCalendar — 날짜 고르기", () => {
     fireEvent.click(screen.getByRole("button", { name: "이전 달" }));
     fireEvent.click(screen.getByRole("button", { name: "이전 달" }));
     expect(screen.getByText("2026년 8월")).toBeInTheDocument();
+  });
+});
+
+describe("DdayCalendar — 스와이프", () => {
+  function swipe(dx: number, dy = 0) {
+    const area = screen.getByTestId("dday-calendar-swipe-area");
+    fireEvent.pointerDown(area, { clientX: 200, clientY: 300 });
+    fireEvent.pointerUp(area, { clientX: 200 + dx, clientY: 300 + dy });
+  }
+
+  it("왼쪽으로 밀면 다음 달, 오른쪽으로 밀면 이전 달이다", () => {
+    renderCalendar();
+
+    swipe(-80);
+    expect(screen.getByText("2026년 10월")).toBeInTheDocument();
+    swipe(80);
+    swipe(80);
+    expect(screen.getByText("2026년 8월")).toBeInTheDocument();
+  });
+
+  it("임계 미만이거나 세로가 우세하면 달을 넘기지 않는다 — 탭과 스크롤을 뺏지 않는다", () => {
+    renderCalendar();
+
+    swipe(-30);
+    swipe(-80, 120);
+    expect(screen.getByText("2026년 9월")).toBeInTheDocument();
   });
 });
 
