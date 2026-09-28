@@ -1,7 +1,7 @@
 import { colors, softBlue } from "@focusmakers/design-tokens";
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -40,7 +40,8 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const g = softBlue.glass;
-  const opacity = useRef(new Animated.Value(hidden ? 0 : 1)).current;
+  // 지연 초기화 — useRef(new …)는 렌더마다 Animated.Value를 만들었다 버린다.
+  const [opacity] = useState(() => new Animated.Value(hidden ? 0 : 1));
 
   useEffect(() => {
     if (hidden) {

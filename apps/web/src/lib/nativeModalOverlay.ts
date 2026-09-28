@@ -19,7 +19,8 @@ import { useSyncExternalStore } from "react";
  * 애니메이션이 끝나야 요소를 걷어내는데, 걷어낼 때까지 기다리면 네이티브 탭 바가 시트가 다 내려간
  * 뒤에야 돌아와 늦어 보인다. 열릴 때(요소가 붙는 순간 숨김)와 대칭으로 닫힘도 시작 시점에 알린다.
  */
-const MODAL_SELECTOR = '[aria-modal="true"]:not([data-state="closed"])';
+const MODAL_ATTR_SELECTOR = '[aria-modal="true"]';
+const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"])`;
 
 /**
  * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
@@ -57,6 +58,10 @@ function sync(): void {
   }
 }
 
+function isModalMutation(record: MutationRecord): boolean {
+  return record.type === "childList" || (record.target as Element).matches(MODAL_ATTR_SELECTOR);
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   if (
@@ -65,7 +70,13 @@ function subscribe(listener: () => void): () => void {
     typeof document !== "undefined"
   ) {
     // 요소가 붙고 떨어지는 것에 더해 `data-state`가 closed로 바뀌는 순간도 잡는다(위 셀렉터 주석).
-    observer = new MutationObserver(sync);
+    // `data-state`는 툴팁·스위치·탭 같은 Radix 프리미티브 전부가 흔드는 속성이라, 모달 요소 자신의
+    // 변화가 아니면 문서 전체 질의를 건너뛴다.
+    observer = new MutationObserver((records) => {
+      if (records.some(isModalMutation)) {
+        sync();
+      }
+    });
     observer.observe(document.body, {
       childList: true,
       subtree: true,

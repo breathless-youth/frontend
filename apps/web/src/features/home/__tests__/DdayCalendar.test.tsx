@@ -82,6 +82,18 @@ describe("DdayCalendar — 스와이프", () => {
     swipe(-80, 120);
     expect(screen.getByText("2026년 9월")).toBeInTheDocument();
   });
+
+  it("스와이프 뒤 마우스가 놓은 자리의 셀에 내는 click은 삼키고, 다음 탭은 그대로 먹힌다", () => {
+    const { onChange } = renderCalendar();
+
+    swipe(-80);
+    fireEvent.click(screen.getByRole("button", { name: "10월 15일" }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    swipe(-10);
+    fireEvent.click(screen.getByRole("button", { name: "10월 15일" }));
+    expect(onChange).toHaveBeenCalledWith("2026-10-15");
+  });
 });
 
 describe("DdayCalendar — 연/월 선택기", () => {

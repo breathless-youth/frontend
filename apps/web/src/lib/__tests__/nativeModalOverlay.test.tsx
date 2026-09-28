@@ -1,5 +1,5 @@
 import { render, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   __resetModalOverlayForTests,
@@ -25,6 +25,11 @@ afterEach(() => {
   __resetModalOverlayForTests();
   document.body.innerHTML = "";
 });
+
+/** MutationObserver 콜백(마이크로태스크)이 돌 때까지 기다린다. */
+function flushMutations(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 function addModal(attributes: Record<string, string>): HTMLElement {
   const element = document.createElement("div");
@@ -88,6 +93,19 @@ describe("useModalOverlayOpen", () => {
     await waitFor(() => {
       expect(getByTestId("state").textContent).toBe("closed");
     });
+  });
+
+  it("모달이 아닌 요소의 data-state 변화에는 문서를 다시 묻지 않는다 — 툴팁·스위치·탭이 늘 흔드는 속성이다", async () => {
+    render(<Probe />);
+    const toggle = addModal({ "data-state": "closed" });
+    await flushMutations();
+    const query = vi.spyOn(document, "querySelector");
+
+    toggle.setAttribute("data-state", "open");
+    await flushMutations();
+
+    expect(query).not.toHaveBeenCalled();
+    query.mockRestore();
   });
 });
 

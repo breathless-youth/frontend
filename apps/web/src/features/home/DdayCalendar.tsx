@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import {
@@ -83,9 +83,22 @@ export function DdayCalendar({
   // 버블돼 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다. 세로 우세면 시트 스크롤 몫이라 무시한다.
   // 달 그리드에서는 달을, 연/월 선택기에서는 연도를 넘긴다.
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  // 스와이프가 커밋된 뒤 마우스는 놓은 자리의 셀에 click을 한 번 더 낸다(터치는 내지 않는다) — 그 click이
+  // 옛 달의 날짜를 고르지 않게 다음 pointerdown까지 한 번 삼킨다. 터치처럼 click이 안 오면 다음
+  // pointerdown이 플래그를 지워 정상 탭이 먹힌다.
+  const swallowClickRef = useRef(false);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
+    swallowClickRef.current = false;
+  }
+
+  function handleClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!swallowClickRef.current) {
+      return;
+    }
+    swallowClickRef.current = false;
+    event.stopPropagation();
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
@@ -99,6 +112,7 @@ export function DdayCalendar({
     if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
       return;
     }
+    swallowClickRef.current = true;
     const delta = dx < 0 ? 1 : -1;
     if (picker) {
       shiftYearBy(delta);
@@ -150,6 +164,7 @@ export function DdayCalendar({
           className="touch-pan-y flex min-h-[284px] flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
+          onClickCapture={handleClickCapture}
         >
           <div className="flex h-11 items-center justify-center gap-1">
             <button
@@ -234,6 +249,7 @@ export function DdayCalendar({
           className="touch-pan-y"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
+          onClickCapture={handleClickCapture}
         >
           <div className="grid grid-cols-7">
             {WEEKDAY_LABELS.map((label) => (

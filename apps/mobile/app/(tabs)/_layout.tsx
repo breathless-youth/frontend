@@ -59,21 +59,20 @@ export default function TabsLayout() {
         activeRouteRef.current = state.routes[state.index]?.name ?? "index";
         // 브리지 핸들러가 `navigate-tab`의 출발 탭을 읽을 수 있게 모듈 스코프에도 기록한다(`lib/activeTab.ts`).
         setActiveTabRoute(activeRouteRef.current);
-        const bar = (
-          <TabBar
-            active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"}
-            dimmed={tabBarState === "blocked"}
-            hidden={tabBarState === "hidden"}
-          />
-        );
-        if (tabBarState !== "blocked") {
-          return bar;
-        }
-        // 딤은 TabBar 안에서 탭 바를 덮는다(자리를 남겨 웹뷰 높이를 유지). 래퍼는 접근성 트리에서
-        // 함께 빼 스크린리더가 밑 탭 버튼에 닿지 않게 한다.
+        const blocked = tabBarState === "blocked";
+        // 딤은 TabBar 안에서 탭 바를 덮는다. 차단 중엔 래퍼를 접근성 트리에서 함께 빼 스크린리더가
+        // 밑 탭 버튼에 닿지 않게 한다. 래퍼는 상태와 무관하게 늘 같은 View다 — 차단일 때만 감싸면
+        // 이 자리의 엘리먼트 타입이 바뀌어 TabBar가 리마운트되고, 복귀 페이드 대신 번쩍 나타난다.
         return (
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {bar}
+          <View
+            accessibilityElementsHidden={blocked}
+            importantForAccessibility={blocked ? "no-hide-descendants" : "auto"}
+          >
+            <TabBar
+              active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"}
+              dimmed={blocked}
+              hidden={tabBarState === "hidden"}
+            />
           </View>
         );
       }}
