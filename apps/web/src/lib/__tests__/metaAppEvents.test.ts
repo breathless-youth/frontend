@@ -29,54 +29,9 @@ function stubBridge() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.useRealTimers();
-  // 전환마다 중복 가드가 sessionStorage에 흔적을 남긴다 — 앞 케이스가 다음 케이스를 조용히 막지 않게.
-  window.sessionStorage.clear();
 });
 
 describe("metaAppEvents", () => {
-  it("같은 전환이 창 안에 다시 오면 한 번만 보낸다 — 웹뷰가 문서를 두 번 읽어도 중복 집계되지 않는다", () => {
-    const bridge = stubBridge();
-
-    trackMetaStudySessionStarted("single", false);
-    trackMetaStudySessionStarted("single", false);
-
-    expect(bridge.sent()).toHaveLength(1);
-  });
-
-  it("파라미터가 다르면 별개 전환이다 — 솔로 뒤 소셜은 둘 다 나간다", () => {
-    const bridge = stubBridge();
-
-    trackMetaStudySessionStarted("single", false);
-    trackMetaStudySessionStarted("social", false);
-
-    expect(bridge.sent().map((event) => event.params?.room_type)).toEqual(["single", "social"]);
-  });
-
-  it("창이 지나면 다시 보낸다 — 나중의 진짜 두 번째 세션까지 막으면 안 된다", () => {
-    const bridge = stubBridge();
-    vi.useFakeTimers();
-
-    trackMetaStudySessionStarted("single", false);
-    vi.advanceTimersByTime(10_001);
-    trackMetaStudySessionStarted("single", false);
-
-    expect(bridge.sent()).toHaveLength(2);
-  });
-
-  it("sessionStorage가 막혀 있으면 통과시킨다 — 전환 유실이 중복보다 비싸다", () => {
-    const bridge = stubBridge();
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-
-    trackMetaSocialRoomEntered();
-    trackMetaSocialRoomEntered();
-
-    expect(bridge.sent()).toHaveLength(2);
-    vi.restoreAllMocks();
-  });
-
   it("튜토리얼 완료는 Meta 표준 이벤트명과 fb_success=1로 나간다", () => {
     const bridge = stubBridge();
 

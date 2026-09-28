@@ -32,7 +32,7 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
    */
   it("추적 권한(ATT) 문구가 한국어 확정 카피다 (영어 기본값 주입 방지)", () => {
     expect(appConfig.expo.ios.infoPlist.NSUserTrackingUsageDescription).toBe(
-      "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상이나 공부 기록은 광고에 쓰이지 않아요.",
+      "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요.",
     );
   });
 

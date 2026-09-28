@@ -44,14 +44,14 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 - env `META_APP_ID`·`META_CLIENT_TOKEN` → `react-native-fbsdk-next` plugin 옵션 + `expo-tracking-transparency` plugin + `extra.metaAppId`. 둘 다 없으면 plugin을 넣지 않고 `extra.metaAppId`는 빈 문자열이다(Metro·광고 없는 개발 빌드는 그대로 돌아간다). 하나만 있으면 어느 변형이든 throw, 앱 ID가 숫자가 아니면 throw.
 - **production만 EAS 빌더(`EAS_BUILD=true`)에서 누락을 끊는다** — 어트리뷰션 없는 운영 바이너리가 조용히 나가면 광고 집행 뒤에야 알게 된다. eas-cli의 로컬 평가는 통과시킨다(BY-620과 같은 이유).
 - plugin 옵션: `appID`, `clientToken`, `displayName`(변형 표시명), `scheme: fb<앱 ID>`(plugin 필수값 — 로그인은 쓰지 않는다), `isAutoInitEnabled: true`(네이티브 auto-init — JS 초기화 전 이벤트도 SDK가 받는다), `autoLogAppEventsEnabled: true`(설치·실행·세션 길이 자동 로깅 — 설치 어트리뷰션의 근거), `advertiserIDCollectionEnabled: true`(Android GAID. iOS는 ATT 응답으로 런타임이 다시 정한다).
-- `app.json` `ios.infoPlist.NSUserTrackingUsageDescription`에 한국어 ATT 문구를 둔다: "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상이나 공부 기록은 광고에 쓰이지 않아요." 두 plugin 모두 옵션으로 덮어쓰지 않아 이 값이 그대로 실린다.
+- `app.json` `ios.infoPlist.NSUserTrackingUsageDescription`에 한국어 ATT 문구를 둔다: "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요." 두 plugin 모두 옵션으로 덮어쓰지 않아 이 값이 그대로 실린다.
 - `metaSdkConfig.test.ts`·`permissionCopy.test.ts`가 고정한다. `.env.local.example`에 두 env 항목을 추가했다.
 
 빌드 산출물에 생기는 변화(실기기 검증 때 확인할 것): iOS Info.plist에 `FacebookAppID`·`FacebookClientToken`·`SKAdNetworkItems`·URL 스킴 `fb<앱 ID>`·`LSApplicationQueriesSchemes`(fbapi 등), Android 매니페스트에 `com.facebook.sdk.*` meta-data, `com.facebook.FacebookActivity`·`CustomTabActivity`, **권한 `AD_ID` 추가**(BY-643의 권한 드리프트 점검 항목에 넣는다 — `permissionCopy.test.ts`의 app.json 열거와는 별개다).
 
 ## 변경 3: 어댑터 (`lib/metaAds.ts` · `lib/metaAdsSdk.ts`)
 
-`lib/metaAds.ts` — SDK를 import하지 않는 순수 모듈. `userApi`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나간다.
+`lib/metaAds.ts` — SDK를 import하지 않는 순수 모듈. `auth`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나간다.
 
 - `MetaAdsAdapter { initialize, requestTrackingPermission, setAdvertiserTrackingEnabled, logEvent }`, `setMetaAdsAdapter()`.
 - `initMetaAds()`: 프로세스당 한 번 — `initialize` → ATT 요청 → 응답을 `setAdvertiserTrackingEnabled`에 전달 → 큐 flush. 이후 호출은 같은 프라미스. 어댑터가 없으면 즉시 끝난다. 실패해도 resolve하고 큐를 흘린다(SKAN 경로는 ATT와 무관).
@@ -77,7 +77,7 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 
 | 이벤트                            | 파라미터                              | 발신                                                           | Meta 용도                               |
 | --------------------------------- | ------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
-| `fb_mobile_complete_registration` | —                                     | **네이티브** `lib/userApi.ts` — 서버 `isNew === true`일 때만   | 표준 이벤트 "가입 완료"                 |
+| `fb_mobile_complete_registration` | —                                     | **네이티브** `lib/auth.ts` — 등록 응답 `isNew === true`일 때만 | 표준 이벤트 "가입 완료"                 |
 | `fb_mobile_tutorial_completion`   | `fb_success: 1`                       | `OnboardingGuideFlow` `finish("completed")` — 건너뛰기 제외    | 표준 이벤트 "튜토리얼 완료"             |
 | `study_session_started`           | `room_type`                           | `useStudyRoomSession` 마운트 — 복원 진입(`restored`)은 안 보냄 | 커스텀 전환 "첫 공부 시작"(핵심 활성화) |
 | `study_session_ended`             | `room_type`, `study_sec`, `focus_sec` | `useStudyRoomSession` 세션당 한 번 가드 안                     | 커스텀 전환 "공부 완료"(값 필터 가능)   |
@@ -86,7 +86,7 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 
 `valueToSum`은 계약만 열어 두고 쓰지 않는다. 식별자·초대코드·자유 문자열은 싣지 않는다(`track-event`와 같은 원칙).
 
-## 변경 6: 가입 완료 (`lib/userApi.ts`)
+## 변경 6: 가입 완료 (`lib/auth.ts`)
 
 `registerOnce`가 `isNew`를 읽어 SecureStore 저장까지 끝난 뒤 `logMetaRegistration()`을 부른다. 저장 전에 찍으면 저장 실패 → 다음 실행 재등록(`isNew=false`)에서 그 사용자의 가입 완료가 한 번도 안 남을 수 있다. `isNew`는 이제 소비자가 있다(2026-07-31 검토의 "소비자 없음"은 낡았다) — 온보딩 분기에는 여전히 쓰지 않는다.
 

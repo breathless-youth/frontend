@@ -62,6 +62,16 @@ describe("Meta SDK 설정", () => {
       expect(names).not.toContain("expo-tracking-transparency");
       expect(appJson.expo.extra).not.toHaveProperty("metaAppId");
     });
+
+    it("fbsdk 파드를 정적으로 묶는다 — 지우면 iOS 링크가 RCTConvert에서 깨진다", () => {
+      // 이 파드의 RCTConvert 카테고리가 React 코어를 링크 대상으로 선언하지 않아, dynamic frameworks에
+      // 그대로 두면 `Undefined symbols: _OBJC_CLASS_$_RCTConvert`로 빌드가 전부 실패한다(2026-09-29 실측).
+      const buildProperties = (appJson.expo.plugins as unknown[]).find(
+        (plugin) => pluginName(plugin) === "expo-build-properties",
+      ) as [string, { ios?: { useFrameworks?: string; forceStaticLinking?: string[] } }];
+      expect(buildProperties[1].ios?.useFrameworks).toBe("dynamic");
+      expect(buildProperties[1].ios?.forceStaticLinking).toContain("react-native-fbsdk-next");
+    });
   });
 
   describe("app.config.ts", () => {

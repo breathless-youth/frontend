@@ -5,14 +5,14 @@
  * SDK만 다룬다. 그래서 SDK는 네이티브에 두고, 설치·앱 실행은 SDK의 자동 로깅(`autoLogAppEventsEnabled`)에
  * 맡기며, 앱 내 전환은 두 경로로 모은다.
  *
- * - 네이티브가 아는 전환: 가입 완료(`lib/userApi.ts`의 신규 등록 → `logMetaRegistration`).
+ * - 네이티브가 아는 전환: 가입 완료(`lib/auth.ts`의 `loadOrRegister` 신규 등록 → `logMetaRegistration`).
  * - 웹이 아는 전환: 브리지 `meta-app-event`(`lib/nativeBridgeHandler.ts`) → `logMetaAppEvent`. 이벤트 정의는
  *   웹(`apps/web/src/lib/metaAppEvents.ts`)이 소유해 전환 목록이 바뀌어도 앱을 다시 빌드하지 않는다.
  *
  * ## 이 모듈은 SDK를 import하지 않는다
  *
  * `react-native-fbsdk-next`는 루트 index를 로드하는 순간 네이티브 모듈 없이 죽는다(jest에서 `NativeEventEmitter`
- * invariant). 이 모듈은 `userApi`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나가므로,
+ * invariant). 이 모듈은 `auth`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나가므로,
  * SDK 호출은 `lib/metaAdsSdk.ts`의 어댑터에 두고 `app/_layout.tsx`가 모듈 스코프에서 붙인다
  * (`lib/remoteConfig.ts`의 `set*Adapter`와 같은 꼴). 어댑터가 없거나(Meta env 없는 빌드) 붙기 전이면 전부
  * no-op이다 — 분석 유실이 화면 동작을 막으면 안 된다(`lib/nativeAnalytics.ts`와 같은 태도).
@@ -91,6 +91,14 @@ export function initMetaAds(): Promise<void> {
   return initPromise;
 }
 
+/**
+ * ATT 응답을 SDK에 알린다. 상한 안에 온 응답과 상한 뒤에 온 응답이 모두 이 길로 들어오므로 두 번
+ * 불릴 수 있다 — 같은 값을 다시 쓰는 것이라 무해하다(SDK 쪽도 멱등이다).
+ */
+async function applyTracking(sdk: MetaAdsAdapter, granted: boolean): Promise<void> {
+  await sdk.setAdvertiserTrackingEnabled(granted);
+}
+
 async function runInit(): Promise<void> {
   const sdk = adapter;
   if (sdk === null) {
@@ -98,11 +106,17 @@ async function runInit(): Promise<void> {
   }
   try {
     sdk.initialize();
-    // ATT 프롬프트에 상한을 둔다. 앱이 백그라운드로 갔다 오는 사이 네이티브 콜백이 영영 안 오면
+    // ATT 프롬프트 대기에 상한을 둔다. 앱이 백그라운드로 갔다 오는 사이 네이티브 콜백이 영영 안 오면
     // 이 프라미스가 안 풀려 큐도 안 비고, 이 초기화를 기다리는 권장 업데이트 알림창(`app/_layout.tsx`)도
     // 같이 멎는다. 사용자가 읽고 답하는 시간은 넉넉히 덮고 진짜 멎은 경우만 끊을 길이다.
-    const granted = await withTimeout(sdk.requestTrackingPermission(), ATT_TIMEOUT_MS);
-    await sdk.setAdvertiserTrackingEnabled(granted);
+    const answer = sdk.requestTrackingPermission();
+    // 상한은 기다림만 끊는다 — 원본 프라미스는 살아 있으므로 늦게 온 응답도 반영한다. 상한 뒤에
+    // 사용자가 "허용"을 눌렀는데 이 호출이 빠지면 그 실행 내내 광고 식별자 매칭이 사라진다.
+    void answer.then(
+      (granted) => applyTracking(sdk, granted),
+      () => undefined,
+    );
+    await applyTracking(sdk, await withTimeout(answer, ATT_TIMEOUT_MS));
   } catch (error) {
     console.warn("[meta-ads] 초기화·추적 동의 처리 실패 — 이벤트는 계속 보낸다", error);
   }
@@ -139,7 +153,7 @@ export function logMetaAppEvent(
   send(adapter, event);
 }
 
-/** 가입 완료(Meta 표준 이벤트) — `lib/userApi.ts`가 서버 `isNew`로 신규 등록일 때만 부른다. */
+/** 가입 완료(Meta 표준 이벤트) — `lib/auth.ts`가 등록 응답의 `isNew`로 신규일 때만 부른다. */
 export function logMetaRegistration(): void {
   logMetaAppEvent(META_EVENT_COMPLETED_REGISTRATION);
 }
