@@ -36,10 +36,10 @@ export const sheetVariants = cva(
       side: {
         top: "inset-x-0 top-0 border-b border-border data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
         // 바닥 시트는 페이드 없이 슬라이드만 한다 — 페이드가 섞이면 내려가는 도중 투명해져 빨려
-        // 나가듯 보인다. 열림은 base의 ease-overlay(감속)로 멈추고, 닫힘은 ease-in(가속)으로
-        // 화면 밖으로 떨어진다. 딤은 그대로 페이드한다.
+        // 나가듯 보인다. 열림·닫힘 모두 base의 ease-overlay·300ms로 같은 속도감이다(닫힘을 ease-in으로
+        // 두면 초반이 느려 열릴 때보다 굼떠 보였다 — 실기기 확인). 딤은 그대로 페이드한다.
         bottom:
-          "inset-x-0 bottom-0 border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=closed]:ease-in",
+          "inset-x-0 bottom-0 border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
         left: "inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
         right:
           "inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
