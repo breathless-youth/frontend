@@ -398,6 +398,22 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
     sheet.style.transform = `translateY(${Math.max(0, event.clientY - startYRef.current)}px)`;
   }
 
+  /** 제자리로. 시트에 원래 걸린 transition(300ms·ease-overlay)이 데려간다. */
+  function settleBack(sheet: HTMLElement) {
+    sheet.style.transition = "";
+    sheet.style.transform = "";
+  }
+
+  // 시스템이 제스처를 가로챈 것(전화·알림 등)이라 사용자가 놓은 게 아니다 — 얼마나 내려왔든
+  // 닫지 않고 되돌린다. 닫아 버리면 입력하던 제목·날짜가 그대로 사라진다.
+  function handlePointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    startYRef.current = null;
+    const sheet = sheetOf(event);
+    if (sheet !== null) {
+      settleBack(sheet);
+    }
+  }
+
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const startY = startYRef.current;
     startYRef.current = null;
@@ -414,9 +430,7 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
       onDismiss();
       return;
     }
-    // 되돌림 — 시트에 원래 걸린 transition(300ms·ease-overlay)이 제자리까지 데려간다.
-    sheet.style.transition = "";
-    sheet.style.transform = "";
+    settleBack(sheet);
   }
 
   return (
@@ -428,7 +442,7 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div className="h-1 w-9 rounded-full bg-[#d1d6db]" />
     </div>

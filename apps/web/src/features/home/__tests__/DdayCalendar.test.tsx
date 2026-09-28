@@ -86,13 +86,32 @@ describe("DdayCalendar — 스와이프", () => {
   it("스와이프 뒤 마우스가 놓은 자리의 셀에 내는 click은 삼키고, 다음 탭은 그대로 먹힌다", () => {
     const { onChange } = renderCalendar();
 
+    // `detail: 1` — 마우스가 낸 click이다. `fireEvent.click` 기본값 0은 키보드 쪽이라 구분된다.
     swipe(-80);
-    fireEvent.click(screen.getByRole("button", { name: "10월 15일" }));
+    fireEvent.click(screen.getByRole("button", { name: "10월 15일" }), { detail: 1 });
     expect(onChange).not.toHaveBeenCalled();
 
     swipe(-10);
+    fireEvent.click(screen.getByRole("button", { name: "10월 15일" }), { detail: 1 });
+    expect(onChange).toHaveBeenCalledWith("2026-10-15");
+  });
+
+  it("스와이프 뒤라도 키보드로 누른 날짜는 삼키지 않는다", () => {
+    const { onChange } = renderCalendar();
+
+    // 터치 스와이프는 뒤따르는 click이 없어 플래그가 다음 pointerdown까지 남는다. 그 사이
+    // 키보드로 고른 날(Enter·Space는 `detail === 0`)까지 삼키면 키보드로는 못 고른다.
+    swipe(-80);
     fireEvent.click(screen.getByRole("button", { name: "10월 15일" }));
     expect(onChange).toHaveBeenCalledWith("2026-10-15");
+  });
+
+  it("스와이프 영역이 요일 줄과 날짜 그리드 사이 간격을 들고 있다", () => {
+    renderCalendar();
+
+    // 래퍼가 바깥 `flex flex-col gap-2`를 끊으므로 여기서 같은 간격을 다시 만든다.
+    expect(screen.getByTestId("dday-calendar-swipe-area").className).toContain("flex-col");
+    expect(screen.getByTestId("dday-calendar-swipe-area").className).toContain("gap-2");
   });
 });
 

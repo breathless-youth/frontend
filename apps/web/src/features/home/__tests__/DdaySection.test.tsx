@@ -248,6 +248,24 @@ describe("DdaySection — 시트", () => {
     });
   });
 
+  it("시스템이 제스처를 가로채면(pointercancel) 많이 내렸어도 닫지 않고 되돌린다", async () => {
+    mockedGet.mockResolvedValue(null);
+    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
+    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const handle = screen.getByTestId("dday-sheet-handle");
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 300, pointerId: 1 });
+    fireEvent.pointerCancel(handle, { clientY: 300, pointerId: 1 });
+
+    expect(dialog).toBeInTheDocument();
+    expect(dialog.style.transform).toBe("");
+  });
+
   it("제목에 포커스가 가면 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {
     mockedGet.mockResolvedValue(null);
     renderSection();

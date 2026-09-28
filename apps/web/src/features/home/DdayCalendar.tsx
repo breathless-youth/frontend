@@ -94,7 +94,9 @@ export function DdayCalendar({
   }
 
   function handleClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
-    if (!swallowClickRef.current) {
+    // `detail === 0`은 키보드 Enter·Space가 만든 click이다 — 스와이프가 남긴 플래그로
+    // 그것까지 삼키면 키보드로는 날짜를 고를 수 없다.
+    if (!swallowClickRef.current || event.detail === 0) {
       return;
     }
     swallowClickRef.current = false;
@@ -246,7 +248,9 @@ export function DdayCalendar({
         // 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어 pointercancel을 내서 스와이프가 끝까지 못 간다.
         <div
           data-testid="dday-calendar-swipe-area"
-          className="touch-pan-y"
+          // 래퍼를 끼우면 요일 줄과 날짜 그리드가 바깥 `flex flex-col gap-2`의 자식에서 빠진다 —
+          // 여기서 같은 간격을 다시 만든다(연/월 선택기 분기도 같은 이유로 들고 있다).
+          className="flex touch-pan-y flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onClickCapture={handleClickCapture}
