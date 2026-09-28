@@ -328,6 +328,29 @@ describe("parseToNativeMessage — meta-app-event", () => {
     ).toBeNull();
   });
 
+  it("자유 문자열 값은 뺀다 — 닉네임·목표 문구가 실수로 실려도 Meta로 안 나간다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "meta-app-event",
+          name: "study_session_started",
+          params: {
+            room_type: "single",
+            nickname: "포메12345",
+            goal: "오늘 3시간 공부하기",
+            long_id: "x".repeat(33),
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "meta-app-event",
+      name: "study_session_started",
+      params: { room_type: "single" },
+      atMs: 5,
+    });
+  });
+
   it("형식 밖 파라미터 항목만 뺀다 — 객체·boolean·NaN 값, 형식 밖 키", () => {
     expect(
       parseToNativeMessage(

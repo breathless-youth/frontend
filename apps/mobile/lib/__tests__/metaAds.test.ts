@@ -70,6 +70,26 @@ describe("metaAds — 초기화", () => {
     );
   });
 
+  it("ATT 응답이 영영 안 와도 초기화는 끝나고 큐를 흘린다 — 권장 알림창이 같이 멎으면 안 된다", async () => {
+    jest.useFakeTimers();
+    try {
+      const adapter = fakeAdapter({
+        requestTrackingPermission: jest.fn(() => new Promise<boolean>(() => {})),
+      });
+      setMetaAdsAdapter(adapter);
+      logMetaAppEvent("study_session_started");
+
+      const init = initMetaAds();
+      jest.advanceTimersByTime(60_000);
+      await expect(init).resolves.toBeUndefined();
+
+      expect(adapter.setAdvertiserTrackingEnabled).not.toHaveBeenCalled();
+      expect(adapter.logEvent).toHaveBeenCalledWith("study_session_started", undefined, undefined);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("두 번 불러도 초기화는 한 번이고 같은 프라미스를 돌려준다 — 권장 알림창이 이 프라미스를 기다린다", async () => {
     const adapter = fakeAdapter();
     setMetaAdsAdapter(adapter);

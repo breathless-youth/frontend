@@ -8,6 +8,7 @@ import {
   getRemoteConfigString,
   setRemoteConfigDefaults,
 } from "./remoteConfig";
+import { withTimeout } from "./withTimeout";
 
 /**
  * 네이티브 업데이트 판정 (BY-586) — 강제(min) + 권장(latest).
@@ -89,22 +90,6 @@ export type ForceUpdateDecision = {
   /** 판정에 쓴 최신 버전. 못 읽었으면 null. */
   latestVersion: string | null;
 };
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timeout ${ms}ms`)), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
-}
 
 /**
  * 부팅 시 한 번 호출한다. 어떤 경우에도 throw하지 않는다.

@@ -24,8 +24,13 @@
  * 때까지 큐에 두었다가 순서대로 흘린다. 초기화가 실패해도 큐는 흘린다 — SKAdNetwork 경로는 ATT와 무관하다.
  */
 
-/** Meta 앱 이벤트 파라미터 — SDK 계약(`Params`)이 문자열·수만 받는다. boolean은 발신자가 1/0으로 접는다. */
-export type MetaAppEventParams = Record<string, string | number>;
+import type { MetaAppEventParamValue } from "@focusmakers/types";
+
+import { withTimeout } from "./withTimeout";
+
+/** Meta 앱 이벤트 파라미터. 값 타입은 브리지 계약(`MetaAppEventParamValue`)과 같은 것을 쓴다 — 이 모듈이
+ * 나르는 것이 `meta-app-event` 페이로드라, 따로 선언하면 계약이 바뀔 때 조용히 어긋난다. */
+export type MetaAppEventParams = Record<string, MetaAppEventParamValue>;
 
 export type MetaAdsAdapter = {
   /** SDK 초기화. 네이티브 auto-init(`isAutoInitEnabled`)과 겹쳐도 무해하다. */
@@ -60,6 +65,12 @@ type PendingEvent = { name: string; params?: MetaAppEventParams; valueToSum?: nu
 /** 초기화 전에 쌓아 둘 최대 건수 — 첫 실행의 가입 완료 한두 건이 전부라 넉넉하다. 넘치면 오래된 것부터 버린다. */
 const MAX_PENDING = 50;
 
+/**
+ * ATT 프롬프트 응답을 기다리는 상한. 짧게 잡으면 천천히 답한 사용자의 동의를 놓쳐 광고 식별자 매칭이
+ * 빠지므로, 사람이 읽고 누르는 시간보다 한참 길게 둔다.
+ */
+const ATT_TIMEOUT_MS = 60_000;
+
 let adapter: MetaAdsAdapter | null = null;
 let ready = false;
 let pending: PendingEvent[] = [];
@@ -87,7 +98,10 @@ async function runInit(): Promise<void> {
   }
   try {
     sdk.initialize();
-    const granted = await sdk.requestTrackingPermission();
+    // ATT 프롬프트에 상한을 둔다. 앱이 백그라운드로 갔다 오는 사이 네이티브 콜백이 영영 안 오면
+    // 이 프라미스가 안 풀려 큐도 안 비고, 이 초기화를 기다리는 권장 업데이트 알림창(`app/_layout.tsx`)도
+    // 같이 멎는다. 사용자가 읽고 답하는 시간은 넉넉히 덮고 진짜 멎은 경우만 끊을 길이다.
+    const granted = await withTimeout(sdk.requestTrackingPermission(), ATT_TIMEOUT_MS);
     await sdk.setAdvertiserTrackingEnabled(granted);
   } catch (error) {
     console.warn("[meta-ads] 초기화·추적 동의 처리 실패 — 이벤트는 계속 보낸다", error);

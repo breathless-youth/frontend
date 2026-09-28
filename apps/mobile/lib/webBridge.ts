@@ -1,4 +1,9 @@
-import type { MetaAppEventMessage, ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  MetaAppEventMessage,
+  MetaAppEventParamValue,
+  ToNativeMessage,
+  ToWebMessage,
+} from "@focusmakers/types";
 import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
 
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
@@ -164,8 +169,22 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
   }
 }
 
-function isMetaParamValue(value: unknown): value is string | number {
-  return typeof value === "string" || (typeof value === "number" && Number.isFinite(value));
+/**
+ * 문자열 파라미터 값은 열거형 토큰만 받는다 — `room_type: "social"`, `method: "copied"` 같은 것.
+ * 계약(`MetaAppEventMessage` 주석)은 식별자·초대코드·자유 문자열 금지를 말로만 적어 뒀고, 그 규칙을
+ * 웹 쪽 관례로만 지키면 실수 한 번에 사용자 입력이 Meta 서버로 나간다. 닉네임·목표 문구 같은 자유
+ * 문자열은 공백·문장부호·한글을 달고 오므로 여기서 걸린다.
+ *
+ * ponytail: 짧은 ASCII 토큰이면 통과하므로 초대코드처럼 토큰꼴 식별자는 못 막는다. 키 화이트리스트를
+ * 두면 확실하지만 "전환 목록은 웹이 소유한다"는 설계를 깨므로, 그 교환이 필요해지면 그때 옮긴다.
+ */
+const META_PARAM_TOKEN_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
+function isMetaParamValue(value: unknown): value is MetaAppEventParamValue {
+  if (typeof value === "string") {
+    return META_PARAM_TOKEN_PATTERN.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 /**
@@ -182,7 +201,7 @@ function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage
   ) {
     return null;
   }
-  let params: Record<string, string | number> | undefined;
+  let params: Record<string, MetaAppEventParamValue> | undefined;
   if (record.params !== undefined) {
     if (typeof record.params !== "object" || record.params === null) {
       return null;
