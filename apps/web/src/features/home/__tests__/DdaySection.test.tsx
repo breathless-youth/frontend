@@ -200,6 +200,72 @@ describe("DdaySection — 시트", () => {
     expect(analytics.trackDdaySaved).not.toHaveBeenCalled();
   });
 
+  it("포커스는 시트 자체에 머물고, 닫아도 좌상단 블록으로 돌아가지 않는다", async () => {
+    mockedGet.mockResolvedValue(null);
+    renderSection();
+
+    const trigger = await screen.findByRole("button", { name: "D-Day 설정" });
+    fireEvent.click(trigger);
+
+    // Radix 기본값이면 첫 탭 가능 요소(`이전 달` 화살표)가 포커스를 받아 링이 그려진다.
+    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    await waitFor(() => {
+      expect(dialog).toHaveFocus();
+    });
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("손잡이를 잡고 끌면 시트가 따라 내려오고, 덜 내리면 제자리로·충분히 내리면 닫힌다", async () => {
+    mockedGet.mockResolvedValue(null);
+    // jsdom에는 `PointerEvent`도 pointer capture도 없다 — 폴리필이 없으면 `clientY`가 실리지 않는다.
+    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
+    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const handle = screen.getByTestId("dday-sheet-handle");
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 150, pointerId: 1 });
+    expect(dialog.style.transform).toBe("translateY(50px)");
+    fireEvent.pointerUp(handle, { clientY: 150, pointerId: 1 });
+    expect(dialog.style.transform).toBe("");
+    expect(dialog).toBeInTheDocument();
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 60, pointerId: 1 });
+    // 위로는 끌리지 않는다
+    expect(dialog.style.transform).toBe("translateY(0px)");
+    fireEvent.pointerUp(handle, { clientY: 200, pointerId: 1 });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("시스템이 제스처를 가로채면(pointercancel) 많이 내렸어도 닫지 않고 되돌린다", async () => {
+    mockedGet.mockResolvedValue(null);
+    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
+    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const handle = screen.getByTestId("dday-sheet-handle");
+
+    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 300, pointerId: 1 });
+    fireEvent.pointerCancel(handle, { clientY: 300, pointerId: 1 });
+
+    expect(dialog).toBeInTheDocument();
+    expect(dialog.style.transform).toBe("");
+  });
+
   it("제목에 포커스가 가면 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {
     mockedGet.mockResolvedValue(null);
     renderSection();

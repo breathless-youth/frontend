@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import {
@@ -20,6 +21,12 @@ const QUICK_JUMPS: readonly { readonly months: number; readonly label: string }[
 ];
 
 const NAV_BUTTON_CLASS = "flex size-11 items-center justify-center";
+
+/**
+ * 스와이프 커밋 임계(px) — 기록 탭 달력(`MonthCalendar.SWIPE_THRESHOLD_PX`)과 같은 값이다. 앱 안의
+ * 가로 스와이프 감각을 하나로 맞추되, 두 feature가 서로 import하지 않는 경계를 지키려 공유 상수로 올리지 않는다.
+ */
+const SWIPE_THRESHOLD_PX = 48;
 
 function isBeforeMonth(a: CalendarMonth, b: CalendarMonth): boolean {
   return a.year < b.year || (a.year === b.year && a.month < b.month);
@@ -46,10 +53,74 @@ export function DdayCalendar({
   const [picker, setPicker] = useState(false);
   const [pickYear, setPickYear] = useState(month.year);
   const thisMonth = monthOfDateKey(todayKey);
+  /**
+   * 마지막 월 이동 방향 — 그리드가 그 방향에서 밀려 들어오는 모션을 고른다(기록 탭 달력과 같은 방식).
+   * 화살표·스와이프 어느 쪽이든 같은 모션이고, 첫 마운트와 연/월 선택기로 건너뛴 때는 없다.
+   */
+  const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
+
+  function shiftBy(delta: -1 | 1) {
+    setSlideFrom(delta < 0 ? "left" : "right");
+    setMonth((current) => shiftMonth(current, delta));
+  }
+
+  /** 연/월 선택기의 연도 이동 — 올해보다 앞으로는 못 간다(지난 달은 어차피 전부 비활성). */
+  function shiftYearBy(delta: -1 | 1) {
+    if (delta < 0 && pickYear <= thisMonth.year) {
+      return;
+    }
+    setSlideFrom(delta < 0 ? "left" : "right");
+    setPickYear((year) => year + delta);
+  }
 
   function pickMonth(next: CalendarMonth) {
+    setSlideFrom(null);
     setMonth(next);
     setPicker(false);
+  }
+
+  // 시작점을 기록하고 놓는 순간 총 이동량으로 판정한다 — 셀 버튼 위에서 시작한 드래그도 부모로
+  // 버블돼 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다. 세로 우세면 시트 스크롤 몫이라 무시한다.
+  // 달 그리드에서는 달을, 연/월 선택기에서는 연도를 넘긴다.
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  // 스와이프가 커밋된 뒤 마우스는 놓은 자리의 셀에 click을 한 번 더 낸다(터치는 내지 않는다) — 그 click이
+  // 옛 달의 날짜를 고르지 않게 다음 pointerdown까지 한 번 삼킨다. 터치처럼 click이 안 오면 다음
+  // pointerdown이 플래그를 지워 정상 탭이 먹힌다.
+  const swallowClickRef = useRef(false);
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+    swallowClickRef.current = false;
+  }
+
+  function handleClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    // `detail === 0`은 키보드 Enter·Space가 만든 click이다 — 스와이프가 남긴 플래그로
+    // 그것까지 삼키면 키보드로는 날짜를 고를 수 없다.
+    if (!swallowClickRef.current || event.detail === 0) {
+      return;
+    }
+    swallowClickRef.current = false;
+    event.stopPropagation();
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (start === null) {
+      return;
+    }
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
+      return;
+    }
+    swallowClickRef.current = true;
+    const delta = dx < 0 ? 1 : -1;
+    if (picker) {
+      shiftYearBy(delta);
+    } else {
+      shiftBy(delta);
+    }
   }
 
   return (
@@ -58,7 +129,7 @@ export function DdayCalendar({
         <button
           type="button"
           aria-label="이전 달"
-          onClick={() => setMonth(shiftMonth(month, -1))}
+          onClick={() => shiftBy(-1)}
           className={cn(NAV_BUTTON_CLASS, "-ml-3.5")}
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
@@ -69,6 +140,7 @@ export function DdayCalendar({
           aria-label="연도·월 바로 가기"
           onClick={() => {
             setPickYear(month.year);
+            setSlideFrom(null);
             setPicker((open) => !open);
           }}
           className="flex h-11 items-center gap-1.5 px-2 text-foreground"
@@ -81,7 +153,7 @@ export function DdayCalendar({
         <button
           type="button"
           aria-label="다음 달"
-          onClick={() => setMonth(shiftMonth(month, 1))}
+          onClick={() => shiftBy(1)}
           className={cn(NAV_BUTTON_CLASS, "-mr-3.5")}
         >
           <IconChevronRight size={13} color="var(--color-foreground)" />
@@ -89,13 +161,23 @@ export function DdayCalendar({
       </div>
 
       {picker ? (
-        <div className="flex min-h-[284px] flex-col gap-2">
+        <div
+          // `[&_button:disabled]:pointer-events-none`: 브라우저는 disabled 버튼에 포인터 이벤트를
+          // 아예 디스패치하지 않아, 지난 날짜 셀에서 시작한 스와이프가 이 컨테이너까지 오지 못하고
+          // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에
+          // 투명하게 만들어 시작점이 어디든 여기서 받는다(눌리지 않는 것은 그대로다).
+          data-testid="dday-year-picker-swipe-area"
+          className="[&_button:disabled]:pointer-events-none touch-pan-y flex min-h-[284px] flex-col gap-2"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onClickCapture={handleClickCapture}
+        >
           <div className="flex h-11 items-center justify-center gap-1">
             <button
               type="button"
               aria-label="이전 연도"
               disabled={pickYear <= thisMonth.year}
-              onClick={() => setPickYear((year) => year - 1)}
+              onClick={() => shiftYearBy(-1)}
               className={cn(NAV_BUTTON_CLASS, "disabled:opacity-30")}
             >
               <IconChevronLeft size={13} color="var(--color-foreground)" />
@@ -106,13 +188,23 @@ export function DdayCalendar({
             <button
               type="button"
               aria-label="다음 연도"
-              onClick={() => setPickYear((year) => year + 1)}
+              onClick={() => shiftYearBy(1)}
               className={NAV_BUTTON_CLASS}
             >
               <IconChevronRight size={13} color="var(--color-foreground)" />
             </button>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div
+            // 연도가 바뀔 때마다 리마운트시켜 달 그리드와 같은 방향 모션을 재생한다
+            key={pickYear}
+            className={cn(
+              "grid grid-cols-4 gap-2",
+              slideFrom === "right" &&
+                "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+              slideFrom === "left" &&
+                "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+            )}
+          >
             {Array.from({ length: 12 }, (_, index) => {
               const candidate = { year: pickYear, month: index + 1 };
               const past = isBeforeMonth(candidate, thisMonth);
@@ -156,7 +248,21 @@ export function DdayCalendar({
           </div>
         </div>
       ) : (
-        <>
+        // `touch-pan-y`: 세로 스크롤은 브라우저에 남기고 가로 팬만 우리 포인터 이벤트로 가져온다 —
+        // 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어 pointercancel을 내서 스와이프가 끝까지 못 간다.
+        <div
+          data-testid="dday-calendar-swipe-area"
+          // `[&_button:disabled]:pointer-events-none`: 브라우저는 disabled 버튼에 포인터 이벤트를
+          // 아예 디스패치하지 않아, 지난 날짜 셀에서 시작한 스와이프가 이 컨테이너까지 오지 못하고
+          // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에
+          // 투명하게 만들어 시작점이 어디든 여기서 받는다(눌리지 않는 것은 그대로다).
+          // 래퍼를 끼우면 요일 줄과 날짜 그리드가 바깥 `flex flex-col gap-2`의 자식에서 빠진다 —
+          // 여기서 같은 간격을 다시 만든다(연/월 선택기 분기도 같은 이유로 들고 있다).
+          className="[&_button:disabled]:pointer-events-none flex touch-pan-y flex-col gap-2"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onClickCapture={handleClickCapture}
+        >
           <div className="grid grid-cols-7">
             {WEEKDAY_LABELS.map((label) => (
               <span
@@ -167,7 +273,17 @@ export function DdayCalendar({
               </span>
             ))}
           </div>
-          <div className="grid grid-cols-7">
+          <div
+            // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
+            key={`${String(month.year)}-${String(month.month)}`}
+            className={cn(
+              "grid grid-cols-7",
+              slideFrom === "right" &&
+                "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+              slideFrom === "left" &&
+                "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+            )}
+          >
             {buildMonthGrid(month).flatMap((week, row) =>
               week.map((dateKey, column) => {
                 if (dateKey === null) {
@@ -205,7 +321,7 @@ export function DdayCalendar({
               }),
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
