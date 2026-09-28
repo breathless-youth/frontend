@@ -112,6 +112,10 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 - Android AAB 매니페스트: `AD_ID` 권한과 `com.facebook.sdk.ApplicationId`가 있고 `RECORD_AUDIO`는 여전히 없다(BY-643 해독법).
 - iOS `useFrameworks: dynamic` + FBSDKCoreKit(CocoaPods XCFramework) 조합의 빌드 성공 — 실패하면 `expo-build-properties`의 `ios.forceStaticLinking`에 FBSDK pod를 넣는 것이 첫 탈출구다.
 
+## 알려진 빈틈
+
+- `resolveMetaSdk`는 **production + EAS 빌더**에서만 env 누락을 끊는다. staging 빌드는 env가 비면 어트리뷰션 없이 조용히 나간다 — 의도한 것이다(스테이징은 광고 대상이 아니다). 스테이징으로 광고를 돌릴 일이 생기면 가드를 넓힐 것.
+
 ## 하지 않는 것
 
 - Facebook 로그인·공유 다이얼로그(plugin의 `scheme`은 필수값일 뿐, `LoginManager`·`ShareDialog`를 쓰지 않는다).
