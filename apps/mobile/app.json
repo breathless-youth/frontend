@@ -61,7 +61,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "dynamic"
+            "useFrameworks": "dynamic",
+            "forceStaticLinking": ["react-native-fbsdk-next"]
           }
         }
       ],
