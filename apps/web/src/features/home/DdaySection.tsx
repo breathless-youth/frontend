@@ -150,7 +150,8 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
 /**
  * 시트 안 폼. `key`로 열 때마다 새로 만들어 직전 입력이 남지 않게 한다.
  * 위에서 아래로 손잡이(잡고 내리면 닫힌다) · 제목줄(오른쪽에 고른 날의 D-N) · 달력 · 제목 입력 · 저장/삭제.
- * 제목에 포커스가 가면 달력이 날짜 칩 한 줄로 접혀 키보드 위에 폼이 남는다. 칩을 누르면 다시 펼친다.
+ * 달력은 키보드가 떠 있는 동안(제목에 포커스)만 날짜 칩 한 줄로 접혀 키보드 위에 폼이 남는다. 완료·바깥
+ * 탭으로 키보드가 내려가면(포커스를 잃으면) 다시 펼친다. 칩을 눌러도 키보드를 내리고 펼친다.
  * 저장은 날짜·제목이 다 있을 때만 켜지고, 삭제는 편집일 때만 보이며 확인 없이 바로 지운다.
  */
 function DdayForm({
@@ -230,12 +231,6 @@ function DdayForm({
     submit();
   }
 
-  /** 접힌 칩을 누르면 키보드를 내리고 달력을 다시 펼친다. */
-  function expandCalendar() {
-    titleRef.current?.blur();
-    setTitleFocused(false);
-  }
-
   return (
     // noValidate: 검증은 서버가 하고 이 폼은 결과 문구만 보여 준다.
     <form
@@ -246,7 +241,9 @@ function DdayForm({
       <SheetHandle onDismiss={onClose} />
 
       <div className="flex items-baseline justify-between">
-        <SheetTitle className="text-[20px] leading-6 font-bold text-foreground">D-Day</SheetTitle>
+        <SheetTitle className="text-[18px] leading-[21px] font-bold text-foreground">
+          목표 날짜 설정
+        </SheetTitle>
         <span
           data-testid="dday-sheet-days"
           className="text-[15px] leading-[18px] font-extrabold text-primary tabular-nums"
@@ -258,7 +255,10 @@ function DdayForm({
       {titleFocused ? (
         <button
           type="button"
-          onClick={expandCalendar}
+          // 누르는 순간(mousedown) 제목이 포커스를 잃으면 칩이 달력으로 바뀐 뒤에 click이 떨어져
+          // 칩 자리에 온 달력 칸이 눌린다. 포커스는 click에서 내린다 — onBlur가 달력을 펼친다.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => titleRef.current?.blur()}
           className="flex h-[52px] items-center justify-between rounded-2xl bg-brand-subtle px-4"
         >
           <span className="flex items-center gap-2">
@@ -305,6 +305,9 @@ function DdayForm({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             onFocus={() => setTitleFocused(true)}
+            // ponytail: Android 뒤로 가기는 키보드만 내리고 포커스를 남겨 칩이 그대로다 — 칩을
+            // 누르면 펼쳐진다. 거슬리면 visualViewport 높이로 키보드 내림을 잡는다.
+            onBlur={() => setTitleFocused(false)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();

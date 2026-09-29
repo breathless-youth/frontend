@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -115,7 +115,7 @@ describe("DdaySection — 시트", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(analytics.trackDdaySheetOpened).toHaveBeenCalledWith(false);
     expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
@@ -175,7 +175,7 @@ describe("DdaySection — 시트", () => {
     renderSection();
 
     fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
-    await screen.findByRole("dialog", { name: "D-Day" });
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
 
     expect(screen.getByLabelText("제목")).toHaveValue("모의고사");
     expect(screen.getByTestId("dday-sheet-days")).toHaveTextContent("");
@@ -208,7 +208,7 @@ describe("DdaySection — 시트", () => {
     fireEvent.click(trigger);
 
     // Radix 기본값이면 첫 탭 가능 요소(`이전 달` 화살표)가 포커스를 받아 링이 그려진다.
-    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
     await waitFor(() => {
       expect(dialog).toHaveFocus();
     });
@@ -228,7 +228,7 @@ describe("DdaySection — 시트", () => {
     renderSection();
 
     fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
-    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
     const handle = screen.getByTestId("dday-sheet-handle");
 
     fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
@@ -255,7 +255,7 @@ describe("DdaySection — 시트", () => {
     renderSection();
 
     fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
-    const dialog = await screen.findByRole("dialog", { name: "D-Day" });
+    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
     const handle = screen.getByTestId("dday-sheet-handle");
 
     fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
@@ -266,15 +266,16 @@ describe("DdaySection — 시트", () => {
     expect(dialog.style.transform).toBe("");
   });
 
-  it("제목에 포커스가 가면 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {
+  it("키보드가 떠 있는 동안(제목 포커스)만 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {
     mockedGet.mockResolvedValue(null);
     renderSection();
 
     fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
-    await screen.findByRole("dialog", { name: "D-Day" });
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
     pickNextMonth15();
 
-    fireEvent.focus(screen.getByLabelText("제목"));
+    const titleInput = screen.getByLabelText("제목");
+    act(() => titleInput.focus());
     expect(screen.queryByRole("button", { name: "다음 달" })).not.toBeInTheDocument();
     const chip = screen.getByRole("button", { name: new RegExp(`${NEXT_MONTH.month}월 15일`) });
     expect(chip).toHaveTextContent(formatDday(daysUntil(PICK_KEY)));
@@ -285,5 +286,11 @@ describe("DdaySection — 시트", () => {
       "aria-pressed",
       "true",
     );
+
+    // 완료·바깥 탭으로 키보드가 내려가도(포커스를 잃어도) 칩에 머물지 않고 달력으로 돌아온다
+    act(() => titleInput.focus());
+    expect(screen.queryByRole("button", { name: "다음 달" })).not.toBeInTheDocument();
+    act(() => titleInput.blur());
+    expect(screen.getByRole("button", { name: "다음 달" })).toBeInTheDocument();
   });
 });
