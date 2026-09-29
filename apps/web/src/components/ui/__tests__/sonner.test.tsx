@@ -2,8 +2,9 @@ import { act, render, screen, within } from "@testing-library/react";
 import { toast } from "sonner";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { CTA_TOASTER_ID, CtaToaster, TOAST_PILL_CLASS, Toaster } from "@/components/ui/sonner";
+import { CtaToaster, TOAST_PILL_CLASS, Toaster } from "@/components/ui/sonner";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import { CTA_TOASTER_ID } from "@/lib/toast";
 
 afterEach(() => {
   act(() => {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Toaster as Sonner, toast, type ToasterProps } from "sonner";
 
+import { CTA_TOAST_ID, CTA_TOASTER_ID } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,10 +35,6 @@ export function Toaster({ className, toastOptions, ...props }: ToasterProps) {
     />
   );
 }
-
-export const CTA_TOASTER_ID = "cta";
-/** `showCtaToast`와 아래 언마운트 정리가 같은 id를 써야 해서 여기 둔다. */
-export const CTA_TOAST_ID = "focusmakers-cta-toast";
 
 const CTA_BOTTOM = "calc(100% + 12px)";
 

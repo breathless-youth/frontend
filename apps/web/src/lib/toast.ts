@@ -1,6 +1,8 @@
 import { toast } from "sonner";
 
-import { CTA_TOASTER_ID, CTA_TOAST_ID } from "@/components/ui/sonner";
+export const CTA_TOASTER_ID = "cta";
+/** `showCtaToast`와 언마운트 정리가 같은 id를 써야 해서 여기 둔다. */
+export const CTA_TOAST_ID = "focusmakers-cta-toast";
 
 /**
  * 고정 id로 부르면 Sonner가 기존 토스트를 제자리에서 갱신하고 5초 타이머를 다시 시작한다.
