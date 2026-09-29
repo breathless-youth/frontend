@@ -68,7 +68,7 @@ const SESSION_SURFACE_VARS = {
   "--session-control-exit-bg": "#f0555f",
   /**
    * 토스트 배경 — 시각 스펙 미확정(Current Limitations). 컨트롤 바보다 불투명하게 둔다.
-   * 값을 바꾸면 `components/ui/toast.tsx`의 CSS 변수 폴백도 같은 값으로 맞출 것(toast.test.tsx가 고정).
+   * 값을 바꾸면 `components/ui/sonner.tsx`의 CSS 변수 폴백도 같은 값으로 맞출 것(sonner.test.tsx가 고정).
    */
   // 2026-08-25 BY-427 실기기 피드백: 검정 알약 → 토스풍 회색 알약(+흰 글자)으로 변경.
   // #4E5968 = border.strong 다크값과 같은 회색 계열.

@@ -484,20 +484,6 @@ body {
   }
 }
 
-/* 하단 토스트 등장 페이드 업 — 지연 뒤 나타나는 토스트가 갑작스럽지 않게(BY-435).
-   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
-@keyframes toast-rise {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
 /* S4 공부 완료 히어로(BY-560) — BY-557 시안 프로토타입의 도장 모션을 CSS로 옮긴 것. 값(시간·
    곡선·키프레임)은 프로토타입 그대로다. 모션 축소는 사용처의 motion-reduce:animate-none /
    motion-reduce:hidden이 막고, 순서(지연)는 각 사용처의 animation-delay가 정한다. */
