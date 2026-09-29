@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { postToNative } from "./bridge";
-import { useModalOverlayOpen } from "./nativeModalOverlay";
+import { useModalOverlayCoversTabBar, useModalOverlayOpen } from "./nativeModalOverlay";
 
 /**
  * 네이티브 하단 탭 바 가시성을 현재 웹 라우트에 맞춘다(`set-tab-bar` 브리지 메시지).
@@ -20,6 +20,11 @@ import { useModalOverlayOpen } from "./nativeModalOverlay";
  * 경로가 그대로인 채로 열리고 닫히므로, 발신 여부를 결정하는 값이 하나 더 늘어난 것으로 다룬다.
  * 전체 화면 라우트에서는 모달이 열려도 차단을 싣지 않는다.
  * 이미 탭 바가 없는 화면에서 딤을 그리려고 탭 바를 되살릴 이유가 없다.
+ *
+ * - 바텀시트는 차단이 아니라 숨김이다
+ * 모달 중에서도 화면 바닥에 붙는 바텀시트(`data-covers-tab-bar`)는 탭 바를 숨긴다.
+ * 탭 바는 웹뷰 위에 떠 있어서 딤으로 남겨 두면 시트 아래쪽(저장 버튼)을 가린다.
+ * 떠 있는 바라 숨겨도 웹뷰 높이는 그대로다.
  */
 
 /**
@@ -77,16 +82,19 @@ export function toastBottomOffset(pathname: string, hasNativeBridge: boolean): s
 export function useNativeTabBarSync(): void {
   const { pathname } = useLocation();
   const modalOpen = useModalOverlayOpen();
+  const modalCoversTabBar = useModalOverlayCoversTabBar();
 
   useEffect(() => {
     const routeHidden = isFullScreenPath(pathname);
     const nativeCovered = isNativeCoveredPath(pathname);
+    // 바텀시트는 탭 바를 숨긴다 — blockedByModal 없이 visible:false만 보내면 네이티브가 "hidden"으로 읽는다.
+    const blockedByModal = modalOpen && !modalCoversTabBar && !routeHidden && !nativeCovered;
     const post = () => {
       postToNative({
         type: "set-tab-bar",
         visible: !routeHidden && !modalOpen,
         // 이미 탭 바가 없는 화면에서는 보내지 않는다 — 딤을 그리려고 탭 바가 되살아난다.
-        ...(modalOpen && !routeHidden && !nativeCovered ? { blockedByModal: true } : {}),
+        ...(blockedByModal ? { blockedByModal: true } : {}),
         atMs: Date.now(),
       });
     };
@@ -106,5 +114,5 @@ export function useNativeTabBarSync(): void {
     return () => {
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [pathname, modalOpen]);
+  }, [pathname, modalOpen, modalCoversTabBar]);
 }

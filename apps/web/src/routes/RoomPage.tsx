@@ -40,7 +40,7 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
-import { useUserId } from "@/lib/userId";
+import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
@@ -675,10 +675,14 @@ function SessionResultFallback({
  * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
  */
 export function RoomPage() {
+  // 신원이 오기 전에 세션을 띄우면 아래 `key`가 null에서 실제 id로 바뀌며 통째로 다시 마운트된다.
+  // 마운트 1회 계측(`study_session_started`)이 두 번 나가고 세션 타이머도 처음부터 다시 선다.
+  // 브라우저 단독 모드에는 기다릴 출처가 없어 언제나 false, 네이티브는 3초 한도가 있어 갇히지 않는다.
+  const identityPending = useIdentityPending();
   const userId = useUserId();
   const { settled, restored } = useActiveSessionRestore(userId);
 
-  if (!settled) {
+  if (identityPending || !settled) {
     return (
       <main
         data-testid="room-restore-gate"

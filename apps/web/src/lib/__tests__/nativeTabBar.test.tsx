@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { __resetModalOverlayForTests } from "@/lib/nativeModalOverlay";
+import { __resetModalOverlayForTests, COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import {
   isFullScreenPath,
   isNativeCoveredPath,
@@ -71,6 +71,13 @@ function openModal(): HTMLElement {
   element.setAttribute("role", "dialog");
   element.setAttribute("aria-modal", "true");
   document.body.appendChild(element);
+  return element;
+}
+
+/** 바닥에 붙는 시트 — `ui/sheet.tsx`가 `side="bottom"`일 때 다는 속성을 그대로 흉내 낸다. */
+function openBottomSheet(): HTMLElement {
+  const element = openModal();
+  element.setAttribute(COVERS_TAB_BAR_ATTR, "");
   return element;
 }
 
@@ -201,6 +208,23 @@ describe("useNativeTabBarSync", () => {
 
     await waitFor(() => {
       expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+  });
+
+  it("바텀시트가 열리면 차단이 아니라 숨기라고 알린다 — 떠 있는 탭 바가 시트 아래쪽을 가린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    const sheet = openBottomSheet();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+
+    sheet.remove();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
     });
   });
 
