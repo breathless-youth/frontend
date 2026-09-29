@@ -77,6 +77,8 @@
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
+  /* 하위 화면 좌우 슬라이드 곡선. iOS 기본 push에 가까운 감속이다. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   /* UA 기본 캔버스와 폼 컨트롤 색을 테마에 맞춘다. 이 선언이 없으면 셀렉트·스크롤바 같은
      UA 그리기 요소만 라이트로 남는다. */
   color-scheme: light;
@@ -381,6 +383,65 @@ body {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* 이전 화면을 완전히 밀어내면 화면 교체처럼 보여 슬라이드 느낌이 사라진다. 30%만 밀고
+   어둡게 해 뒤에 깔려 있다는 깊이감을 준다. */
+@keyframes page-enter-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes page-exit-to-left {
+  to {
+    transform: translateX(-30%);
+    filter: brightness(0.9);
+  }
+}
+
+@keyframes page-enter-from-left {
+  from {
+    transform: translateX(-30%);
+    filter: brightness(0.9);
+  }
+}
+
+@keyframes page-exit-to-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* 브라우저 기본 전환은 두 스냅샷을 plus-lighter로 섞는 크로스페이드라, 그대로 두면 밀리는
+   동안 겹친 부분이 밝게 번진다. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-page-transition]::view-transition-old(root),
+  html[data-page-transition]::view-transition-new(root) {
+    animation-duration: 300ms;
+    animation-timing-function: var(--ease-drawer);
+    animation-fill-mode: both;
+    mix-blend-mode: normal;
+  }
+
+  html[data-page-transition="forward"]::view-transition-new(root) {
+    animation-name: page-enter-from-right;
+  }
+
+  html[data-page-transition="forward"]::view-transition-old(root) {
+    animation-name: page-exit-to-left;
+  }
+
+  html[data-page-transition="back"]::view-transition-new(root) {
+    animation-name: page-enter-from-left;
+  }
+
+  /* 기본 순서(새 화면이 위)를 그대로 두면 뒤에서 들어오는 화면이 앞서 있던 화면을 덮어버려
+     밀려나는 것이 아니라 사라지는 것처럼 보인다. */
+  html[data-page-transition="back"]::view-transition-old(root) {
+    z-index: 1;
+    animation-name: page-exit-to-right;
   }
 }
 
