@@ -36,6 +36,7 @@ import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialHomePage } from "@/routes/SocialHomePage";
 import { TermsPage } from "@/routes/TermsPage";
+import { WorkerParityPage } from "@/routes/WorkerParityPage";
 
 export function App() {
   // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
@@ -89,6 +90,9 @@ export function App() {
             <Route path="/social" element={<SocialHomePage />} />
             {import.meta.env.DEV && (
               <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+            )}
+            {import.meta.env.VITE_PERF_PANEL === "1" && (
+              <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
             )}
             <Route path="/social/code" element={<InviteCodeSharePage />} />
             <Route path="/social/join" element={<InviteCodeJoinPage />} />
