@@ -79,8 +79,8 @@ module.exports = {
       // 셀프 호스팅 정적 폰트 — Regular·Bold를 `app/_layout.tsx`의 useFonts가 굵기별 키로 로드한다.
       // 정적 폰트라 fontWeight로는 굵기가 안 잡혀, 굵기별로 다른 패밀리 이름을 쓴다.
       fontFamily: {
-        sans: ["NanumSquareRound"],
-        "sans-bold": ["NanumSquareRoundBold"],
+        sans: ["Pretendard"],
+        "sans-bold": ["PretendardBold"],
       },
       borderRadius: {
         xs: "4px",

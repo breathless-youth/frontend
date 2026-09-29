@@ -1,7 +1,6 @@
 // Render "포커스 메이커스" wordmark PNGs (V2 brand colors) on transparent 1024x1024 canvas.
-// V2 시안(Figma "E1 · 스플래시" 5322:3661) — NanumSquareRound ExtraBold, 브랜드색 #3671cf / #5a90ea.
-// ExtraBold TTF는 웹의 woff2(apps/web/public/fonts)를 woff2_decompress로 변환해 assets/fonts에 둔다.
-// 이 파일은 스플래시 자산 생성 전용이라 useFonts에 등록하지 않는다(앱 번들에 안 실린다).
+// V2 시안(Figma "E1 · 스플래시" 5322:3661)의 브랜드색 #3671cf / #5a90ea, 글꼴은 Pretendard ExtraBold.
+// 글꼴 파일은 pretendard 패키지의 정적 OTF를 그대로 읽는다. 앱에서 쓰는 폰트와 원본을 한 곳으로 모으기 위해서다.
 // Usage: swift scripts/generate-splash-wordmark.swift <outDir>   (apps/mobile에서 실행, outDir=assets)
 import AppKit
 import CoreText
@@ -18,9 +17,10 @@ func brandColor(_ hex: String) -> NSColor {
     return NSColor(srgbRed: r, green: g, blue: b, alpha: 1)
 }
 
-// 저장소 TTF를 등록하고 그 PostScript 이름으로 NSFont를 만든다. 실패하면 시스템 라운드 볼드로
+// 글꼴 파일을 등록하고 그 PostScript 이름으로 NSFont를 만든다. 실패하면 시스템 라운드 볼드로
 // 폴백해 빌드가 멈추지 않게 한다(폴백 시 로그로 알린다).
-let fontPath = "assets/fonts/NanumSquareRound-ExtraBold.ttf"
+// 워크스페이스 루트 node_modules에 호이스트돼 있다(apps/mobile에서 실행하는 기준).
+let fontPath = "../../node_modules/pretendard/dist/public/static/Pretendard-ExtraBold.otf"
 var registeredFontName: String? = nil
 // cwd에 #·%·공백 등 URL 예약 문자가 있어도 안전하게 — URL(string:)이 아니라 파일 경로 API를 쓴다.
 let fontURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(fontPath)
@@ -31,11 +31,11 @@ if let data = NSData(contentsOf: fontURL),
     registeredFontName = cgFont.postScriptName as String?
 }
 
-func nanumFont(size: CGFloat) -> NSFont {
+func wordmarkFont(size: CGFloat) -> NSFont {
     if let name = registeredFontName, let f = NSFont(name: name, size: size) {
         return f
     }
-    FileHandle.standardError.write("WARN: NanumSquareRound-ExtraBold 등록 실패 — 시스템 라운드 볼드로 폴백\n".data(using: .utf8)!)
+    FileHandle.standardError.write("WARN: Pretendard-ExtraBold 등록 실패, 시스템 라운드 볼드로 폴백\n".data(using: .utf8)!)
     let base = NSFont.systemFont(ofSize: size, weight: .bold)
     if let desc = base.fontDescriptor.withDesign(.rounded), let f = NSFont(descriptor: desc, size: size) {
         return f
@@ -46,12 +46,12 @@ func nanumFont(size: CGFloat) -> NSFont {
 func render(hex: String, path: String) {
     // find font size so the text fits targetWidth
     var size: CGFloat = 100
-    let probeAttrs: [NSAttributedString.Key: Any] = [.font: nanumFont(size: size), .kern: size * -0.03]
+    let probeAttrs: [NSAttributedString.Key: Any] = [.font: wordmarkFont(size: size), .kern: size * -0.03]
     let probe = NSAttributedString(string: wordmark, attributes: probeAttrs).size()
     size = size * targetWidth / probe.width
 
     let attrs: [NSAttributedString.Key: Any] = [
-        .font: nanumFont(size: size),
+        .font: wordmarkFont(size: size),
         .foregroundColor: brandColor(hex),
         .kern: size * -0.03,
     ]
