@@ -5,6 +5,7 @@ import { continueAfterOnboardingGuide } from "@/features/onboarding/focusStartFl
 import { OnboardingGuideFlow } from "@/features/onboarding/OnboardingGuideFlow";
 import { parseOnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { useNativeBackGestureLock } from "@/lib/nativeBackGesture";
+import { slideNavigate } from "@/lib/pageTransition";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { readUserId } from "@/lib/userId";
 
@@ -54,14 +55,16 @@ export function OnboardingGuidePage() {
   const closeGuide = useCallback(() => {
     // 실제 앱은 BrowserRouter라 window.history.state.idx로 스택 깊이를 판단한다
     // (`ScreenBackHeader`와 같은 판단). 새로고침·딥링크로 곧장 열렸을 때는 idx가 없다.
-    const historyState = window.history.state as { idx?: number } | null;
-    if (historyState?.idx) {
-      navigate(-1);
-      return;
-    }
-    // 뒤로 갈 스택이 없으면 홈으로 보낸다. `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다 —
-    // 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장 모드로 뜬다.
-    navigate({ pathname: "/home", search: location.search }, { replace: true });
+    slideNavigate("back", () => {
+      const historyState = window.history.state as { idx?: number } | null;
+      if (historyState?.idx) {
+        navigate(-1);
+        return;
+      }
+      // 뒤로 갈 스택이 없으면 홈으로 보낸다. `/`는 개발용 데모 랜딩이고 앱 홈은 `/home`이다 —
+      // 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장 모드로 뜬다.
+      navigate({ pathname: "/home", search: location.search }, { replace: true });
+    });
   }, [navigate, location.search]);
 
   /**

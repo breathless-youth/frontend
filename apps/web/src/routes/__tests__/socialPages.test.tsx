@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { fireEvent } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +11,7 @@ import { openInApp } from "@/features/social-room/appHandoff";
 import { ApiError } from "@/lib/api";
 import { createRoom, enterLiveRoom, renewLiveRoomSeat } from "@/lib/roomApi";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 vi.mock("@/lib/roomApi", () => ({
   createRoom: vi.fn(),
@@ -61,6 +62,7 @@ function expectInviteCodeShown(code: string) {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   localStorage.clear();
@@ -105,6 +107,19 @@ describe("소셜 홈", () => {
     await userEvent.click(screen.getByRole("button", { name: "초대코드로 참여" }));
 
     expect(await screen.findByText("초대코드를 입력해 주세요")).toBeInTheDocument();
+  });
+
+  it("초대코드로 참여는 앞으로 방향 전환으로 이동한다", async () => {
+    const { updateDone } = stubViewTransition();
+    renderAt("/social?userId=7");
+
+    fireEvent.click(screen.getByRole("button", { name: "초대코드로 참여" }));
+
+    expect(document.documentElement.dataset.pageTransition).toBe("forward");
+    await act(async () => {
+      await updateDone();
+    });
+    expect(screen.getByText("초대코드를 입력해 주세요")).toBeInTheDocument();
   });
 
   it("초대코드로 참여로 진입하면 URL에 남은 이전 코드가 프리필되지 않는다 (BY-581)", async () => {

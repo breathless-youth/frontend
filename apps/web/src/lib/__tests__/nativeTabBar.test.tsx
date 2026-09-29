@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { __resetModalOverlayForTests } from "@/lib/nativeModalOverlay";
 import { isFullScreenPath, isNativeCoveredPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import {
+  pageTransitionFinished,
+  slideNavigate,
+  usePageTransitionCommit,
+} from "@/lib/pageTransition";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 /**
  * 전체 화면 웹 라우트에서 네이티브 탭 바를 감추는 동기화(`set-tab-bar`).
@@ -70,7 +76,9 @@ function openModal(): HTMLElement {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
   __resetModalOverlayForTests();
   document.body.innerHTML = "";
 });
@@ -320,5 +328,106 @@ describe("useNativeTabBarSync", () => {
     await waitFor(() => {
       expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
     });
+  });
+});
+
+function SlideHarness({ to, direction }: { to: string; direction: "forward" | "back" }) {
+  useNativeTabBarSync();
+  usePageTransitionCommit();
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => slideNavigate(direction, () => navigate(to))}>
+      이동
+    </button>
+  );
+}
+
+function renderSlide(path: string, to: string, direction: "forward" | "back") {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="*" element={<SlideHarness to={to} direction={direction} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+/** 뒤로 전환 대기 중 목적지가 다시 바뀌는 상황을 재현한다. 첫 목적지는 slideNavigate로, 다음 목적지는 전환 없이 직접 이동한다. */
+function CancelHarness() {
+  useNativeTabBarSync();
+  usePageTransitionCommit();
+  const navigate = useNavigate();
+  return (
+    <>
+      <button type="button" onClick={() => slideNavigate("back", () => navigate("/settings"))}>
+        뒤로
+      </button>
+      <button type="button" onClick={() => navigate("/records")}>
+        다음
+      </button>
+    </>
+  );
+}
+
+describe("useNativeTabBarSync — 페이지 전환", () => {
+  it("복귀 전환 중에는 탭 바를 전환이 끝난 뒤에 보여 준다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { finish, updateDone } = stubViewTransition();
+    renderSlide("/profile", "/settings", "back");
+
+    fireEvent.click(screen.getByRole("button", { name: "이동" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false]);
+
+    await act(async () => {
+      finish();
+      await pageTransitionFinished();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false, true]);
+  });
+
+  it("진입 전환의 숨김은 기다리지 않고 바로 알린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { updateDone } = stubViewTransition();
+    renderSlide("/settings", "/profile", "forward");
+
+    fireEvent.click(screen.getByRole("button", { name: "이동" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([true, false]);
+  });
+
+  it("복귀 전환 대기 중 라우트가 또 바뀌면 오래된 표시 신호를 보내지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { finish, updateDone } = stubViewTransition();
+    render(
+      <MemoryRouter initialEntries={["/onboarding-guide"]}>
+        <Routes>
+          <Route path="*" element={<CancelHarness />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false]);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    });
+
+    await act(async () => {
+      finish();
+      await pageTransitionFinished();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false, true]);
   });
 });

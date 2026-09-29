@@ -23,6 +23,7 @@ import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSess
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { slideNavigate } from "@/lib/pageTransition";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
@@ -185,7 +186,9 @@ function HomeContent({ userId }: { userId: number }) {
     hasOpenedGuideRef.current = true;
     const params = new URLSearchParams(location.search);
     params.set("entry", entry);
-    navigate({ pathname: "/onboarding-guide", search: params.toString() });
+    slideNavigate("forward", () =>
+      navigate({ pathname: "/onboarding-guide", search: params.toString() }),
+    );
   }
 
   /**
