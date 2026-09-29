@@ -175,6 +175,8 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         };
         worker.onerror = (event) => {
           // 구형 엔진이라 모듈을 못 불러왔거나 워커 안에서 잡히지 않은 오류가 났다.
+          // 취소하지 않으면 같은 오류가 페이지 전역으로 다시 보고돼 Sentry에 올라가므로, 이유는 `deadReason`과 reject로만 남긴다.
+          event.preventDefault();
           shutdown(`워커 오류: ${event.message || "스크립트를 불러오지 못했다"}`);
         };
         try {

@@ -44,8 +44,12 @@ class FakeWorker implements WorkerPort {
     this.onmessage?.({ data: message } as MessageEvent<WorkerToMainMessage>);
   }
 
-  crash(message: string): void {
-    this.onerror?.({ message } as ErrorEvent);
+  crash(message: string): ErrorEvent & { preventDefault: ReturnType<typeof vi.fn> } {
+    const event = { message, preventDefault: vi.fn() } as unknown as ErrorEvent & {
+      preventDefault: ReturnType<typeof vi.fn>;
+    };
+    this.onerror?.(event);
+    return event;
   }
 }
 
@@ -152,10 +156,12 @@ describe("createWorkerRuntime", () => {
     const { worker, runtime } = setup();
 
     const creating = runtime.createDetector(OPTIONS);
-    worker.crash("SyntaxError: Cannot use import statement outside a module");
+    const event = worker.crash("SyntaxError: Cannot use import statement outside a module");
 
     await expect(creating).rejects.toThrow("SyntaxError");
     expect(worker.terminated).toBe(true);
+    // 취소하지 않으면 같은 오류가 페이지의 window.onerror로 다시 올라가 Sentry에 잡힌다.
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
   });
 
   it("create를 보내다 던지면 워커를 끝내고 생성이 실패한다", async () => {
@@ -221,7 +227,8 @@ describe("createWorkerRuntime", () => {
     const { worker, runtime } = setup();
     const handle = await ready(worker, runtime);
 
-    worker.crash("out of memory");
+    const event = worker.crash("out of memory");
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
 
     // 원래 이유가 남아야 5회 실패 뒤 Sentry에 무엇이 죽였는지 올라간다.
     await expect(handle.detect(video, 0)).rejects.toThrow("out of memory");
