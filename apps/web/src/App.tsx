@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
@@ -14,6 +14,7 @@ import {
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { reloadOnChunkError } from "@/lib/chunkReload";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -24,24 +25,73 @@ import { useNativeShellClass } from "@/lib/nativeShell";
 import { usePageTransitionCommit } from "@/lib/pageTransition";
 import { queryClient } from "@/lib/queryClient";
 import { dismissToast } from "@/lib/toast";
-import { ContactPage } from "@/routes/ContactPage";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
-import { LicensesPage } from "@/routes/LicensesPage";
-import { LiveRoomPage } from "@/routes/LiveRoomPage";
-import { WebrtcLoopbackPage } from "@/routes/WebrtcLoopbackPage";
-import { OnboardingGuidePage } from "@/routes/OnboardingGuidePage";
-import { PrivacyPage } from "@/routes/PrivacyPage";
-import { ProfilePage } from "@/routes/ProfilePage";
 import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
+import {
+  loadContactPage,
+  loadLicensesPage,
+  loadOnboardingGuidePage,
+  loadPrivacyPage,
+  loadProfilePage,
+  loadResultPage,
+  loadTermsPage,
+} from "@/routes/lazyRoutes";
 import { RecordsPage } from "@/routes/RecordsPage";
-import { ResultPage } from "@/routes/ResultPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialHomePage } from "@/routes/SocialHomePage";
-import { TermsPage } from "@/routes/TermsPage";
-import { WorkerParityPage } from "@/routes/WorkerParityPage";
+
+/**
+ * 탭 밖 화면 lazy 로딩
+ *
+ * 탭 웹뷰의 첫 화면에 필요 없는 화면만 따로 받는다.
+ * 탭·초대 화면까지 lazy로 바꾸면 엔트리 실행 뒤 청크를 요청하는 워터폴과 Suspense reveal 지연으로 홈 첫 화면이 오히려 느려져 정적 import로 둔다.
+ * 세션 화면도 같은 이유로 정적 import다.
+ * 네이티브 세션 화면이 `/room/:id`를 새 문서로 열어, Suspense 폴백과 reveal 지연이 그대로 첫 페인트를 늦춘다.
+ * 배포 교체로 청크를 못 받으면 `reloadOnChunkError`가 한 번 새로고침한다.
+ */
+const ResultPage = lazy(
+  reloadOnChunkError(() => loadResultPage().then((module) => ({ default: module.ResultPage }))),
+);
+const LiveRoomPage = lazy(
+  reloadOnChunkError(() =>
+    import("@/routes/LiveRoomPage").then((module) => ({ default: module.LiveRoomPage })),
+  ),
+);
+const ProfilePage = lazy(
+  reloadOnChunkError(() => loadProfilePage().then((module) => ({ default: module.ProfilePage }))),
+);
+const OnboardingGuidePage = lazy(
+  reloadOnChunkError(() =>
+    loadOnboardingGuidePage().then((module) => ({ default: module.OnboardingGuidePage })),
+  ),
+);
+const ContactPage = lazy(
+  reloadOnChunkError(() => loadContactPage().then((module) => ({ default: module.ContactPage }))),
+);
+const TermsPage = lazy(
+  reloadOnChunkError(() => loadTermsPage().then((module) => ({ default: module.TermsPage }))),
+);
+const PrivacyPage = lazy(
+  reloadOnChunkError(() => loadPrivacyPage().then((module) => ({ default: module.PrivacyPage }))),
+);
+const LicensesPage = lazy(
+  reloadOnChunkError(() => loadLicensesPage().then((module) => ({ default: module.LicensesPage }))),
+);
+const WebrtcLoopbackPage = lazy(
+  reloadOnChunkError(() =>
+    import("@/routes/WebrtcLoopbackPage").then((module) => ({
+      default: module.WebrtcLoopbackPage,
+    })),
+  ),
+);
+const WorkerParityPage = lazy(
+  reloadOnChunkError(() =>
+    import("@/routes/WorkerParityPage").then((module) => ({ default: module.WorkerParityPage })),
+  ),
+);
 
 /** 라우트가 바뀔 때마다 탭 바를 피해 토스트 위치를 다시 잰다. */
 function AppToaster() {
@@ -103,31 +153,35 @@ export function App() {
             }}
           />
         ) : (
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/room/:id" element={<RoomPage />} />
-            <Route path="/room/:id/result" element={<ResultPage />} />
-            <Route path="/home" element={<HomeTabPage />} />
-            <Route path="/records" element={<RecordsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/social" element={<SocialHomePage />} />
-            {import.meta.env.DEV && (
-              <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
-            )}
-            {import.meta.env.VITE_PERF_PANEL === "1" && (
-              <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
-            )}
-            <Route path="/social/code" element={<InviteCodeSharePage />} />
-            <Route path="/social/join" element={<InviteCodeJoinPage />} />
-            <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
-            <Route path="/social/room/:roomId/result" element={<ResultPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/licenses" element={<LicensesPage />} />
-          </Routes>
+          // 앱 안 이동은 transition이라 청크가 올 때까지 이전 화면이 남는다.
+          // 폴백은 새 문서로 lazy 화면을 열 때만 잠깐 보인다.
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/room/:id" element={<RoomPage />} />
+              <Route path="/room/:id/result" element={<ResultPage />} />
+              <Route path="/home" element={<HomeTabPage />} />
+              <Route path="/records" element={<RecordsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/social" element={<SocialHomePage />} />
+              {import.meta.env.DEV && (
+                <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+              )}
+              {import.meta.env.VITE_PERF_PANEL === "1" && (
+                <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
+              )}
+              <Route path="/social/code" element={<InviteCodeSharePage />} />
+              <Route path="/social/join" element={<InviteCodeJoinPage />} />
+              <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
+              <Route path="/social/room/:roomId/result" element={<ResultPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/licenses" element={<LicensesPage />} />
+            </Routes>
+          </Suspense>
         )}
       </Sentry.ErrorBoundary>
     </QueryClientProvider>

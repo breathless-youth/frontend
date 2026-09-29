@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import type * as LazyRoutes from "@/routes/lazyRoutes";
 
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -29,6 +30,13 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackOsSettingsOpened: analytics.trackOsSettingsOpened,
   trackSettingsRowPressed: analytics.trackSettingsRowPressed,
+}));
+
+const prefetchSettingsSubPages = vi.hoisted(() => vi.fn());
+
+vi.mock("@/routes/lazyRoutes", async (importOriginal) => ({
+  ...(await importOriginal<typeof LazyRoutes>()),
+  prefetchSettingsSubPages,
 }));
 
 /**
@@ -77,6 +85,12 @@ afterEach(() => {
 });
 
 describe("S6 · 설정", () => {
+  it("화면이 뜨면 하위 화면 청크를 미리 받는다", () => {
+    renderSettingsWithGuideStub("/settings");
+
+    expect(prefetchSettingsSubPages).toHaveBeenCalled();
+  });
+
   it("2개 그룹 6개 행을 확정 문구 그대로 보여준다", () => {
     renderAt("/settings");
 
@@ -151,28 +165,32 @@ describe("S6 · 설정", () => {
     expect(hardNavigate).toHaveBeenCalledWith("/contact?userId=7&appVersion=1.4.2");
   });
 
-  it("이용약관 행은 /terms 로 이동한다", () => {
+  it("이용약관 행은 /terms 로 이동한다", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "이용약관" }));
 
-    expect(screen.getByRole("heading", { name: TERMS_OF_SERVICE.title })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: TERMS_OF_SERVICE.title }),
+    ).toBeInTheDocument();
   });
 
-  it("개인정보처리방침 행은 /privacy 로 이동한다", () => {
+  it("개인정보처리방침 행은 /privacy 로 이동한다", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "개인정보처리방침" }));
 
-    expect(screen.getByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
   });
 
-  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", () => {
+  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "오픈소스 라이선스" }));
 
-    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Open Source Licenses" }),
+    ).toBeInTheDocument();
   });
 
   it("appVersion 쿼리와 웹 버전을 함께 버전 정보 행에 반영한다", () => {

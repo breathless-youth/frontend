@@ -27,6 +27,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
+import { prefetchOnboardingGuidePage } from "@/routes/lazyRoutes";
 
 /**
  * 홈
@@ -148,12 +149,15 @@ function HomeContent({ userId }: { userId: number }) {
   /**
    * 통계까지 그린 뒤 세션의 Vision 자원(로더·wasm·모델)을 유휴 시간에 HTTP 캐시로 올려 둔다.
    * 첫 화면·통계와 대역폭을 다투지 않도록 성공한 뒤에만 부른다.
+   * 가이드 화면 청크도 같은 때 받는다.
+   * 가이드로 가는 슬라이드 전환은 청크를 기다리지 않는다.
    * document당 한 번은 함수가 보장한다.
    */
   const summaryShown = summaryState.status === "success";
   useEffect(() => {
     if (summaryShown) {
       prefetchVisionAssets();
+      prefetchOnboardingGuidePage();
     }
   }, [summaryShown]);
 

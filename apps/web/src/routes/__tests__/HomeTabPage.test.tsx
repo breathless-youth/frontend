@@ -51,6 +51,10 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
   prefetchVisionAssets,
 }));
 
+const prefetchOnboardingGuidePage = vi.hoisted(() => vi.fn());
+
+vi.mock("@/routes/lazyRoutes", () => ({ prefetchOnboardingGuidePage }));
+
 /** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
 const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
 
@@ -196,10 +200,12 @@ describe("HomeTabPage", () => {
       renderHome();
       await waitFor(() => expect(mockedStreak).toHaveBeenCalled());
       expect(prefetchVisionAssets).not.toHaveBeenCalled();
+      expect(prefetchOnboardingGuidePage).not.toHaveBeenCalled();
 
       resolveStats(statsResponse);
       await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
       await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+      await waitFor(() => expect(prefetchOnboardingGuidePage).toHaveBeenCalled());
     });
 
     it("통계를 불러오지 못하면 부르지 않는다", async () => {
@@ -210,6 +216,7 @@ describe("HomeTabPage", () => {
 
       await waitFor(() => expect(screen.getByText("기록을 불러오지 못했어요")).toBeInTheDocument());
       expect(prefetchVisionAssets).not.toHaveBeenCalled();
+      expect(prefetchOnboardingGuidePage).not.toHaveBeenCalled();
     });
   });
 

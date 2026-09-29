@@ -15,6 +15,7 @@ import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
+import { prefetchSettingsSubPages } from "@/routes/lazyRoutes";
 
 /**
  * 설정
@@ -56,6 +57,11 @@ export function SettingsPage() {
       showToast("프로필이 저장됐어요");
     }, PROFILE_SAVED_TOAST_DELAY_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // 하위 화면 청크를 미리 받아 첫 진입 때 전환이 청크를 기다리지 않게 한다.
+  useEffect(() => {
+    prefetchSettingsSubPages();
   }, []);
 
   const versionLabel = appVersionLabel(

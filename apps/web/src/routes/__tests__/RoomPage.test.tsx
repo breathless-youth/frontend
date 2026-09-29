@@ -19,6 +19,10 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 
+const prefetchResultPage = vi.hoisted(() => vi.fn());
+
+vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage }));
+
 /** 화면 꺼짐·백그라운드 전환을 jsdom에서 재현한다(Page Visibility API). */
 function setVisibility(state: DocumentVisibilityState) {
   Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
@@ -160,6 +164,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+    expect(prefetchResultPage).toHaveBeenCalledTimes(1);
   });
 
   it("기본 상태는 집중이며 상태 필을 라이브 리전으로 알린다", () => {

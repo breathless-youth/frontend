@@ -77,10 +77,10 @@ function renderGuideAt(path: string) {
 }
 
 describe("/onboarding-guide — 단계 전환", () => {
-  it("'다음'으로 G1→G5까지 이동하고 마지막 CTA만 '집중 시작하기'가 된다 (entry=focus-start)", () => {
+  it("'다음'으로 G1→G5까지 이동하고 마지막 CTA만 '집중 시작하기'가 된다 (entry=focus-start)", async () => {
     renderAt("/onboarding-guide?entry=focus-start");
 
-    expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
+    expect(await screen.findByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
     expect(screen.getByText("휴식 중에는 잠시 멈춰요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
