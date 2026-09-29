@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Sentry from "@sentry/react";
 
@@ -22,6 +25,9 @@ import {
  *   별도 스크러버가 없으면 `?userId=N`이 그대로 나간다.
  */
 const innerSend = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
+const replayIntegration = vi.hoisted(() => vi.fn(() => ({ name: "Replay" })));
+
+vi.mock("@sentry/replay", () => ({ replayIntegration }));
 
 vi.mock("@sentry/react", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -29,14 +35,34 @@ vi.mock("@sentry/react", async (importOriginal) => {
     ...actual,
     init: vi.fn(),
     addEventProcessor: vi.fn(),
-    replayIntegration: vi.fn(() => ({ name: "Replay" })),
+    addIntegration: vi.fn(),
     makeFetchTransport: vi.fn(() => ({ send: innerSend, flush: vi.fn() })),
   };
 });
 
+let idleCallbacks: IdleRequestCallback[] = [];
+
+beforeEach(() => {
+  idleCallbacks = [];
+  vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+    idleCallbacks.push(callback);
+    return idleCallbacks.length;
+  });
+  replayIntegration.mockClear();
+  (Sentry.addIntegration as unknown as ReturnType<typeof vi.fn>).mockClear();
+});
+
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
+
+async function runIdle() {
+  for (const callback of idleCallbacks.splice(0)) {
+    callback({ didTimeout: false, timeRemaining: () => 50 });
+  }
+  await vi.dynamicImportSettled();
+}
 
 function initOptions(): Record<string, unknown> {
   vi.stubEnv("VITE_SENTRY_DSN", "https://key@o0.ingest.example.test/123");
@@ -48,20 +74,28 @@ function initOptions(): Record<string, unknown> {
 }
 
 describe("initSentry Session Replay 설정", () => {
-  it("리플레이 통합을 등록하고 수집률은 일반 세션 10%·에러 세션 100%다", () => {
+  it("init 때는 리플레이 통합을 싣지 않고 수집률은 일반 세션 10%·에러 세션 100%다", () => {
     const options = initOptions();
 
     expect(options.replaysSessionSampleRate).toBe(0.1);
     expect(options.replaysOnErrorSampleRate).toBe(1.0);
-
     const integrations = (options.integrations ?? []) as { name?: string }[];
-    expect(integrations.some((integration) => integration.name === "Replay")).toBe(true);
+    expect(integrations.some((integration) => integration.name === "Replay")).toBe(false);
+    expect(replayIntegration).not.toHaveBeenCalled();
   });
 
-  it("미디어는 전부 차단하고 텍스트는 마스킹하지 않는다. Amplitude 리플레이와 같은 허용 범위다", () => {
+  it("유휴 시간에 리플레이 통합을 받아 붙인다", async () => {
     initOptions();
+    await runIdle();
 
-    expect(Sentry.replayIntegration).toHaveBeenCalledWith(
+    expect(Sentry.addIntegration).toHaveBeenCalledWith({ name: "Replay" });
+  });
+
+  it("미디어는 전부 차단하고 텍스트는 마스킹하지 않는다. Amplitude 리플레이와 같은 허용 범위다", async () => {
+    initOptions();
+    await runIdle();
+
+    expect(replayIntegration).toHaveBeenCalledWith(
       expect.objectContaining({
         blockAllMedia: true,
         maskAllText: false,
@@ -76,13 +110,24 @@ describe("initSentry Session Replay 설정", () => {
     expect(Sentry.addEventProcessor).toHaveBeenCalledWith(scrubReplayEvent);
   });
 
-  it("압축을 끄고 정제 전송 계층을 붙인다. 녹화 문자열을 전송 직전에 씻기 위한 한 세트다", () => {
+  it("압축을 끄고 정제 전송 계층을 붙인다. 녹화 문자열을 전송 직전에 씻기 위한 한 세트다", async () => {
     const options = initOptions();
+    await runIdle();
 
     expect(options.transport).toBe(makeScrubbingTransport);
-    expect(Sentry.replayIntegration).toHaveBeenCalledWith(
+    expect(replayIntegration).toHaveBeenCalledWith(
       expect.objectContaining({ useCompression: false }),
     );
+  });
+
+  it("리플레이 패키지 버전이 @sentry/react와 같다. 다르면 @sentry/core가 두 벌이 되어 통합이 붙지 않는다", () => {
+    // 저장소가 hoisted 설치라 패키지마다 놓인 node_modules가 달라 Node 해석으로 찾는다.
+    const resolve = createRequire(join(process.cwd(), "package.json")).resolve;
+    const version = (name: string) =>
+      (JSON.parse(readFileSync(resolve(`${name}/package.json`), "utf8")) as { version: string })
+        .version;
+
+    expect(version("@sentry/replay")).toBe(version("@sentry/react"));
   });
 
   it("DSN이 없으면 초기화하지 않는다. 로컬·테스트·CI에 영향이 없다", () => {
@@ -90,6 +135,37 @@ describe("initSentry Session Replay 설정", () => {
     init.mockClear();
     initSentry();
     expect(init).not.toHaveBeenCalled();
+    expect(idleCallbacks).toHaveLength(0);
+  });
+
+  it("리플레이 패키지를 받지 못해도 오류 수집은 그대로다", async () => {
+    const rejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    try {
+      vi.doMock("@sentry/replay", () => {
+        throw new Error("chunk load failed");
+      });
+      vi.resetModules();
+
+      const freshSentry = await import("@sentry/react");
+      const { initSentry: reloadedInitSentry } = await import("../sentry");
+      const init = freshSentry.init as unknown as ReturnType<typeof vi.fn>;
+      const addIntegration = freshSentry.addIntegration as unknown as ReturnType<typeof vi.fn>;
+
+      vi.stubEnv("VITE_SENTRY_DSN", "https://key@o0.ingest.example.test/123");
+      reloadedInitSentry();
+      await runIdle();
+
+      expect(init).toHaveBeenCalledTimes(1);
+      expect(addIntegration).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("@sentry/replay");
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+
+    expect(rejections).toHaveLength(0);
   });
 });
 

@@ -1,12 +1,12 @@
 import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
-import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
 import type { TrackEventMessage } from "@focusmakers/types";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
+import { whenIdle } from "./whenIdle";
 
 let initialized = false;
 
@@ -108,18 +108,8 @@ export function initAmplitude() {
   if (!apiKey || initialized) return;
   initialized = true;
 
-  // init보다 먼저 등록해야 세션 시작 이벤트부터 정제·리플레이가 붙는다.
+  // init보다 먼저 등록해야 세션 시작 이벤트부터 정제가 붙는다.
   add(sanitizeUrlPlugin());
-  add(
-    sessionReplayPlugin({
-      // 실제 수집률은 콘솔(Settings → Session Replay)의 sample_rate가 결정한다 — 리플레이
-      // SDK는 아래 analytics의 fetchRemoteConfig: false와 무관하게 자체 원격 설정을 가져와
-      // 이 값을 덮어쓴다. 여기 1은 콘솔에 설정이 없을 때의 폴백일 뿐이다(2026-08-07 진단:
-      // 콘솔 기본 1%가 로컬 100%를 덮어써 수집이 안 됐다).
-      sampleRate: 1,
-      privacyConfig: { blockSelector: ["video", ".amp-block"] },
-    }),
-  );
   /**
    * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
    * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
@@ -185,6 +175,32 @@ export function initAmplitude() {
   // 그래도 이 호출을 남기는 이유는, 브라우저 단독 모드에서 첫 라우트 이펙트까지 기다리면
   // 그 사이에 나가는 이벤트가 익명 device_id로 남기 때문이다.
   setAmplitudeUserId(readUserId(window.location.search));
+  whenIdle(() => void addReplayPlugin());
+}
+
+/**
+ * 리플레이 플러그인 지연 등록
+ *
+ * 리플레이 SDK는 초기 JS에서 큰 몫이라 첫 화면 뒤 유휴 시간에 받아 붙인다.
+ * 그래서 앱 시작 뒤 1~2초 동안은 리플레이 녹화가 붙지 않는다.
+ * `init` 뒤의 `add`도 SDK가 곧바로 `setup`을 부르고, 정제 플러그인은 이미 맨 앞에 있어 순서가 바뀌지 않는다.
+ * 로드가 실패해도 이벤트 수집은 그대로 간다.
+ */
+async function addReplayPlugin(): Promise<void> {
+  const replay = await import("@amplitude/plugin-session-replay-browser").catch(() => null);
+  if (!replay) {
+    return;
+  }
+  add(
+    replay.sessionReplayPlugin({
+      // 실제 수집률은 콘솔(Settings → Session Replay)의 sample_rate가 결정한다 — 리플레이
+      // SDK는 위 analytics의 fetchRemoteConfig: false와 무관하게 자체 원격 설정을 가져와
+      // 이 값을 덮어쓴다. 여기 1은 콘솔에 설정이 없을 때의 폴백일 뿐이다(2026-08-07 진단:
+      // 콘솔 기본 1%가 로컬 100%를 덮어써 수집이 안 됐다).
+      sampleRate: 1,
+      privacyConfig: { blockSelector: ["video", ".amp-block"] },
+    }),
+  );
 }
 
 /**
