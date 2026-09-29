@@ -24,7 +24,7 @@
 | Invite Code / OTP | input-otp | `components/ui/input-otp.tsx` (있음, BY-716) | `InputOTP`·`InputOTPSlot`. 셀 룩은 `features/social-room/codeCell.ts`의 `CODE_CELL_CLASS`(방 생성 완료 화면과 공유), 활성 칸은 `border-2 border-primary` + `animate-caret-blink` |
 | Settings / Row Type=Toggle, Control / Toggle | Switch | `components/ui/switch.tsx` (추가 예정, 필요 시) | 트랙 `data-[state=checked]:bg-primary` |
 | Avatar | Avatar | `components/ui/avatar.tsx` (추가 예정, 필요 시) | 크기 34·40·48·72 |
-| 토스트 | 기존 `components/ui/toast.tsx` 유지 | | `sonner` 보류. `ToastViewport`가 하단 위치를 소유한다 |
+| 토스트 | Sonner | `components/ui/sonner.tsx` (있음) | `unstyled` + 알약 클래스, `theme="light"` 고정(`next-themes` 없음). 전역 `Toaster`는 `App.tsx`가 라우트로 아래 여백을 정하고, 하단 버튼 화면은 `CtaToaster`. 호출은 `showToast`/`showCtaToast`(`lib/toast.ts`) |
 | Navigation / Tab Bar, iOS Status Bar | 없음 | 네이티브 셸 | 웹에서 그리지 않는다 |
 
 ## 커스텀 규칙
