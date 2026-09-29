@@ -25,3 +25,54 @@ index 95c0fcc91be3ce08c6bfab26bf488e49bf573d0f..a83b68ca1e0216c750cddc09f3a2056e
      [super updateProps:props oldProps:oldProps];
  }
  
+diff --git a/apple/RNCWebViewImpl.m b/apple/RNCWebViewImpl.m
+index 7f5c24d6e2cfb26eddbc513bf17a81c24a7273e2..0e8ff956cc46f46b16325e2a745e8512c4aa1ec4 100644
+--- a/apple/RNCWebViewImpl.m
++++ b/apple/RNCWebViewImpl.m
+@@ -128,6 +128,26 @@ @interface RNCWebViewImpl () <WKUIDelegate, WKNavigationDelegate, WKScriptMessag
+ @property (nonatomic, strong) WKUserScript *atEndScript;
+ @end
+ 
++#if !TARGET_OS_OSX
++// allowsBackForwardNavigationGestures를 끄면 WKWebView가 내비게이션 스냅샷 기록도 멈춰
++// 뒤로 스와이프 미리보기가 비어 보인다. 그래서 스위치는 켜 둔 채 앞으로가기 쪽 가장자리
++// 인식기만 끈다. WebKit은 스위치를 켤 때마다 인식기를 새로 만들므로 켤 때마다 다시 부른다.
++// 인식기를 찾지 못하면 아무것도 바꾸지 않는다.
++static void RNCDisableForwardNavigationGesture(WKWebView *webView)
++{
++  UIRectEdge forwardEdge =
++      webView.effectiveUserInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft
++          ? UIRectEdgeLeft
++          : UIRectEdgeRight;
++  for (UIGestureRecognizer *recognizer in webView.gestureRecognizers) {
++    if ([recognizer isKindOfClass:[UIScreenEdgePanGestureRecognizer class]] &&
++        ((UIScreenEdgePanGestureRecognizer *)recognizer).edges == forwardEdge) {
++      recognizer.enabled = NO;
++    }
++  }
++}
++#endif
++
+ @implementation RNCWebViewImpl
+ {
+ #if !TARGET_OS_OSX
+@@ -549,6 +569,9 @@ - (void)didMoveToWindow
+     _webView.allowsLinkPreview = _allowsLinkPreview;
+     [_webView addObserver:self forKeyPath:@"estimatedProgress" options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:nil];
+     _webView.allowsBackForwardNavigationGestures = _allowsBackForwardNavigationGestures;
++#if !TARGET_OS_OSX
++    RNCDisableForwardNavigationGesture(_webView);
++#endif
+ 
+     _webView.customUserAgent = _userAgent;
+ 
+@@ -595,6 +618,9 @@ - (void)didMoveToWindow
+ - (void)setAllowsBackForwardNavigationGestures:(BOOL)allowsBackForwardNavigationGestures {
+   _allowsBackForwardNavigationGestures = allowsBackForwardNavigationGestures;
+   _webView.allowsBackForwardNavigationGestures = _allowsBackForwardNavigationGestures;
++#if !TARGET_OS_OSX
++  RNCDisableForwardNavigationGesture(_webView);
++#endif
+ }
+ 
+ #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 130300 || \

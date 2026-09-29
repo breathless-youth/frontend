@@ -4,7 +4,8 @@ import path from "node:path";
 /**
  * pnpm 10은 package.json의 pnpm 필드를 읽지 않는다. 패치 목록이 pnpm-workspace.yaml에 없으면
  * lockfile을 다시 만드는 설치에서 목록이 빠지고 패치가 오류 없이 사라진다. 그러면 iOS 탭 바 위
- * 흰 줄과 FCM 토큰 실패가 되돌아온다. 이 테스트는 선언 위치와 세 패치의 존재를 고정한다.
+ * 흰 줄과 FCM 토큰 실패가 되돌아오고, 닫은 하위 화면이 iOS 앞으로가기 스와이프로 다시 열린다.
+ * 이 테스트는 선언 위치와 세 패치의 존재를 고정한다.
  *
  * 라이브러리 버전을 올릴 때 여기가 실패하면, 업스트림이 해당 수정을 포함했는지 먼저 확인하고
  * 그렇다면 패치와 이 단언을 함께 지운다.
@@ -81,5 +82,27 @@ describe("pnpm 패치 선언", () => {
     );
     expect(patch).toContain("setBackgroundColor");
     expect(patch).toContain("RCTUIColorFromSharedColor");
+  });
+
+  it("웹뷰 패치가 앞으로가기 가장자리 인식기만 끄는 함수를 담는다", () => {
+    const patch = readFileSync(
+      path.join(repoRoot, PATCHES["react-native-webview@13.15.0"]),
+      "utf-8",
+    );
+    expect(patch).toContain("static void RNCDisableForwardNavigationGesture(WKWebView *webView)");
+    expect(patch).toContain("UIScreenEdgePanGestureRecognizer");
+    expect(patch).toContain(".edges == forwardEdge");
+    expect(patch).toContain("recognizer.enabled = NO;");
+  });
+
+  // WebKit은 스와이프 스위치를 켤 때마다 인식기를 새로 만든다. 웹뷰 생성 때와 prop 변경 때
+  // 두 곳 중 하나라도 빠지면, 가이드처럼 스위치를 껐다 켠 뒤에 앞으로가기가 되살아난다.
+  it("웹뷰 패치가 스와이프 스위치를 켜는 두 지점 모두에서 앞으로가기를 끈다", () => {
+    const patch = readFileSync(
+      path.join(repoRoot, PATCHES["react-native-webview@13.15.0"]),
+      "utf-8",
+    );
+    const calls = patch.match(/^\+\s*RNCDisableForwardNavigationGesture\(_webView\);/gm) ?? [];
+    expect(calls).toHaveLength(2);
   });
 });
