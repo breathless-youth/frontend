@@ -54,7 +54,8 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 ## 웹뷰 배경
 
 - **웹뷰에는 배경색을 항상 넘긴다.** `RemoteWebViewHost`가 스킴별 `colors.bg.base`를 WebView `style`에 싣는다. 색을 빼면 다크 모드에서 흰 줄과 탭 전환 번쩍임이 돌아온다.
-- **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** 라이브러리를 올릴 때 업스트림이 `backgroundColor`를 전달하게 됐으면 패치와 `webviewPatch.test.ts`를 함께 지운다. 원인 실측은 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md).
+- **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** 원인 실측은 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md).
+- **같은 패치가 iOS 앞으로가기 스와이프도 끈다.** `allowsBackForwardNavigationGestures`를 끄면 뒤로 스와이프 미리보기(스냅샷)까지 사라져서, 스위치는 켜 둔 채 앞으로가기 쪽 가장자리 인식기만 끈다([BY-775 설계 문서](../../docs/superpowers/specs/2026-09-29-by-775-disable-forward-swipe-design.md)). 라이브러리를 올릴 때는 두 수정을 따로 확인한다. 업스트림이 한쪽만 해결했으면 그 hunk와 `webviewPatch.test.ts`의 해당 단언만 지우고 패치 파일은 남긴다.
 - 인스펙터 연결·브리지 개발 로그·색 실험 등 웹뷰 디버깅 절차는 [webview-debugging 런북](../../docs/runbooks/webview-debugging.md). 개발 빌드는 버려진 브리지 메시지와 나가는 메시지를 `[webview-bridge]` 접두사로 찍는다.
 
 ## 환경·주소·딥링크
