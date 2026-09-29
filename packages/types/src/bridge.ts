@@ -349,9 +349,9 @@ export type NativeAnalyticsPropertyValue = string | number | boolean | null;
  * 네이티브에서만 일어나는 사용자 이벤트를 웹 Amplitude로 넘긴다 — 하단 탭 터치, 카메라 권한
  * 게이트 결과, 권한 거부 안내(S2-3) 화면의 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
  *
- * 분석 SDK는 웹에만 있다(앱은 Firebase Analytics도 링크하지 않는다 — `apps/mobile/CLAUDE.md`).
- * 네이티브 SDK를 따로 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해지므로, 대신 이벤트를
- * 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
+ * 분석의 원천은 웹 Amplitude다 — 앱의 Firebase Analytics는 푸시 타겟팅용 사본만 받는다
+ * (`AnalyticsEventMessage`, ADR 0010). 네이티브 Amplitude SDK를 따로 들이면 device_id가 웹뷰와 갈라져
+ * 신원 통합이 필요해지므로, 대신 이벤트를 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
  *
  * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
  *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
@@ -427,6 +427,9 @@ export const ANALYTICS_USER_PROPERTY_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,23}
  * 문자열 값은 토큰만 — enum(`single`), 에러 코드(`HTTP_404`), 정제된 경로(`/room/:id`), 버전(`1.0.2`).
  * 공백·한글·문장부호가 든 자유 문자열(닉네임·목표 문구)은 걸린다. Meta 경로(`meta-app-event`)와 같은 원칙:
  * 계약을 말로만 적으면 실수 한 번에 사용자 입력이 Google 서버로 나간다.
+ *
+ * ponytail: 토큰꼴 식별자(초대코드·숫자 ID)는 못 막는다 — Meta 경로와 같은 한계다. 키 화이트리스트를 두면 확실하지만
+ * "이벤트 목록은 웹 카탈로그가 소유한다"는 설계를 깨므로, 카탈로그에 그런 속성이 생기면 그때 옮긴다.
  */
 export const ANALYTICS_PARAM_VALUE_PATTERN = /^[A-Za-z0-9_.:/-]{1,64}$/;
 /** 이벤트 하나의 파라미터 상한(Firebase 규칙 25개). 유저 속성 한 번의 갱신에도 같은 상한을 쓴다. */
@@ -442,7 +445,9 @@ export const ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH = 36;
  *   플러그인(`apps/web/src/lib/firebaseAnalyticsBridge.ts`)에서 Firebase 형식에 맞는 이벤트만 골라 보내고,
  *   네이티브는 이름을 화이트리스트하지 않고 형식만 검증해(`apps/mobile/lib/webBridge.ts`) SDK에 넘긴다.
  * - `name`·파라미터 키는 Firebase 규칙(영문자로 시작, 영숫자·`_`, 40자 이내). 파라미터는 25개 이내, 문자열 값은
- *   100자 이내. 예약 접두사(`firebase_`·`google_`·`ga_`)는 네이티브가 버린다.
+ *   64자 이내 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN`). 예약 접두사(`firebase_`·`google_`·`ga_`)는 네이티브가 버린다.
+ * - 수치 파라미터(공부 시간·집중률 같은 집계값)는 키 화이트리스트 없이 그대로 간다 — 개인정보 라벨·방침의
+ *   Google 위탁 범위에 "집계된 공부 지표"가 들어가야 하는 이유다(ADR 0010).
  */
 export interface AnalyticsEventMessage {
   type: "analytics-event";
