@@ -2,7 +2,7 @@
  * 릴리즈 PR(base `main`)의 버전 검사.
  *
  * 웹은 반드시 올라야 하고 앱은 내려가지만 않으면 된다. 앱을 제출하지 않는 주가 있기 때문이다.
- * base 값이 아직 CalVer가 아니어도 숫자 세그먼트 비교라 첫 전환 PR이 통과한다.
+ * 웹은 CalVer(`YY.WW.P`)이고, 앱은 스토어 제출마다 한 칸씩 올리는 `x.y.z`다.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -11,19 +11,27 @@ import { fileURLToPath } from "node:url";
 
 import { CALVER, compareVersions } from "./bump-version.mjs";
 
+export const APP_VERSION = /^\d+\.\d+\.\d+$/;
+
 const ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CHECKS = [
   { file: "apps/web/package.json", get: (j) => j.version, mustIncrease: true },
-  { file: "apps/mobile/app.json", get: (j) => j.expo.version, mustIncrease: false },
+  {
+    file: "apps/mobile/app.json",
+    get: (j) => j.expo.version,
+    mustIncrease: false,
+    format: APP_VERSION,
+    formatName: "x.y.z",
+  },
 ];
 
 /**
  * head/base 버전 한 쌍을 비교한 판정만 돌려주는 순수 함수. CLI 출력과 분리해 단위 테스트가
  * git이나 파일시스템 없이 이 판정 로직만 검증할 수 있다.
  */
-export function evaluate(head, baseValue, mustIncrease) {
-  if (!CALVER.test(head)) {
-    return { ok: false, reason: `${head}은(는) YY.WW.P 형식이 아닙니다` };
+export function evaluate(head, baseValue, mustIncrease, format = CALVER, formatName = "YY.WW.P") {
+  if (!format.test(head)) {
+    return { ok: false, reason: `${head}은(는) ${formatName} 형식이 아닙니다` };
   }
   const cmp = compareVersions(head, baseValue);
   if (cmp < 0 || (mustIncrease && cmp === 0)) {
@@ -45,7 +53,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
 
   let failed = false;
-  for (const { file, get, mustIncrease } of CHECKS) {
+  for (const { file, get, mustIncrease, format, formatName } of CHECKS) {
     let head;
     let baseValue;
     try {
@@ -60,7 +68,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       failed = true;
       continue;
     }
-    const result = evaluate(head, baseValue, mustIncrease);
+    const result = evaluate(head, baseValue, mustIncrease, format, formatName);
     if (!result.ok) {
       console.error(`${file}: ${result.reason}`);
       failed = true;

@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import { evaluate } from "./check-version.mjs";
+import { APP_VERSION, evaluate } from "./check-version.mjs";
 
 describe("evaluate", () => {
   it("웹은 증가하면 통과한다", () => {
@@ -28,6 +28,12 @@ describe("evaluate", () => {
   });
   it("비CalVer base는 숫자 비교로 통과한다", () => {
     assert.equal(evaluate("26.37.0", "1.0.2", true).ok, true);
+  });
+  it("앱 x.y.z 형식은 CalVer가 아니어도 통과한다", () => {
+    assert.equal(evaluate("1.0.3", "1.0.2", false, APP_VERSION, "x.y.z").ok, true);
+  });
+  it("앱 x.y.z 형식도 내려가면 실패한다", () => {
+    assert.equal(evaluate("1.0.2", "1.0.3", false, APP_VERSION, "x.y.z").ok, false);
   });
 });
 
