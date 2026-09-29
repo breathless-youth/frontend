@@ -313,13 +313,16 @@ export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomTyp
 
 /**
  * 세션 검출기가 로딩을 시작해 준비될 때까지 걸린 시간과, 그때 wasm·모델을 캐시에서 받았는지.
- * 홈 유휴 시간의 미리 받기가 실사용에서 효과가 있는지 보는 지표다. 세션당 한 번은 호출하는 훅
- * (`features/study-session/useVisionReadyTracking.ts`)이 지킨다. 준비 실패는 Sentry가 받으므로 보내지 않는다.
+ * 홈 유휴 시간의 미리 받기가 실사용에서 효과가 있는지 보는 지표다.
+ * `runtime`은 워커를 못 써 메인 스레드로 넘어간 비율을 본다.
+ * 세션당 한 번은 호출하는 훅(`features/study-session/useVisionReadyTracking.ts`)이 지킨다.
+ * 준비 실패는 Sentry가 받으므로 보내지 않는다.
  * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 카메라 프레임·검출 결과·식별자는 싣지 않는다.
  */
 export function trackVisionDetectorReady(input: {
   readonly loadMs: number;
   readonly roomType: StudyRoomType;
+  readonly runtime: "worker" | "main";
   readonly wasmCache: "hit" | "miss" | "unknown";
   readonly modelCache: "hit" | "miss" | "unknown";
 }) {
@@ -327,9 +330,22 @@ export function trackVisionDetectorReady(input: {
   track("vision_detector_ready", {
     load_ms: input.loadMs,
     room_type: input.roomType,
+    runtime: input.runtime,
     wasm_cache: input.wasmCache,
     model_cache: input.modelCache,
   });
+}
+
+/**
+ * 세션 도중 워커에서 메인 스레드로 갈아탄 기록
+ *
+ * 워커로 준비된 검출기가 프레임을 뜨지 못해 메인 스레드로 갈아탔을 때 세션당 한 번 보낸다.
+ * `vision_detector_ready`의 `runtime`은 준비 시점 값이라, 이 이벤트로 갈아탄 세션의 비율을 따로 본다.
+ * 카메라 프레임·검출 결과·식별자는 싣지 않는다.
+ */
+export function trackVisionRuntimeFallback(input: { readonly roomType: StudyRoomType }) {
+  if (!initialized) return;
+  track("vision_runtime_fallback", { room_type: input.roomType, reason: "frame_capture" });
 }
 
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────

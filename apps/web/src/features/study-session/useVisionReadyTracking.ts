@@ -5,13 +5,21 @@ import {
   createVisionFocusDetector,
   type VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
-import { resolveModelVariant } from "@/features/study-session/vision/objectDetector";
+import {
+  type AssetTiming,
+  resolveModelVariant,
+  type VisionRuntimeKind,
+} from "@/features/study-session/vision/objectDetector";
 import {
   DEFAULT_MODEL_VARIANT,
   MEDIAPIPE_WASM_PATH,
   MODEL_PATHS,
 } from "@/features/study-session/vision/visionConfig";
-import { trackVisionDetectorReady, type StudyRoomType } from "@/lib/amplitude";
+import {
+  trackVisionDetectorReady,
+  trackVisionRuntimeFallback,
+  type StudyRoomType,
+} from "@/lib/amplitude";
 
 /**
  * 자원을 이번에 네트워크로 다시 받았는가.
@@ -40,6 +48,8 @@ export interface VisionReadyMeasurement {
   readonly loadMs: number;
   /** 준비된 시각(문서 시작 기준). 새 문서로 열린 솔로 세션에서만 "문서 로드→준비"로 읽힌다. */
   readonly readyAtMs: number;
+  /** 검출기가 도는 곳. 워커를 못 써 메인 스레드로 넘어간 비율을 운영에서 본다. */
+  readonly runtime: VisionRuntimeKind;
   readonly wasm: AssetCacheReport;
   readonly model: AssetCacheReport;
 }
@@ -58,15 +68,15 @@ export function classifyAssetCache(
   return entry.encodedBodySize > 0 && entry.transferSize >= entry.encodedBodySize ? "miss" : "hit";
 }
 
-function report(entry: PerformanceResourceTiming | undefined): AssetCacheReport {
+function report(entry: AssetTiming | undefined): AssetCacheReport {
   return { cache: classifyAssetCache(entry), transferSize: entry?.transferSize ?? null };
 }
 
 function lastEntry(
-  entries: readonly PerformanceResourceTiming[],
+  entries: readonly AssetTiming[],
   sinceMs: number,
   matches: (pathname: string) => boolean,
-): PerformanceResourceTiming | undefined {
+): AssetTiming | undefined {
   // 같은 문서에서 홈이 먼저 받고 세션이 다시 요청했다면 뒤의 것이 세션의 요청이다.
   // sinceMs(이번 검출기의 로딩 시작 시각) 이전 항목은 배제한다 — Resource Timing 버퍼가
   // 가득 차 이번 요청이 기록되지 못하면, 배제하지 않을 경우 홈 프리페치나 같은 문서의
@@ -78,6 +88,7 @@ function lastEntry(
 
 /**
  * wasm 바이너리와 모델의 Resource Timing 항목을 경로로 찾아 판정한다.
+ * 워커가 받은 자원은 워커가 보내 준 `VisionFocusDetector.assetTimings`를 뒤에 붙여 넘긴다.
  * `sinceMs` 이전 항목(이전 문서·이전 세션의 요청)은 무시하고, 남는 항목이 없으면 `unknown`이다.
  *
  * `modelPath`는 기본값이 `DEFAULT_MODEL_VARIANT`다 — 실제 세션은 `resolveModelVariant`로 고른
@@ -85,7 +96,7 @@ function lastEntry(
  * `unknown`으로 오판하지 않는다.
  */
 export function readVisionAssetCache(
-  entries: readonly PerformanceResourceTiming[],
+  entries: readonly AssetTiming[],
   sinceMs: number,
   modelPath: string = MODEL_PATHS[DEFAULT_MODEL_VARIANT],
 ): {
@@ -111,17 +122,29 @@ export function readVisionAssetCache(
  * 구간을 "로딩 시작→준비"로 잡는 이유: 소셜룸은 탭 웹뷰 안의 라우팅으로 열려 문서 로드 기준이
  * 의미가 없고, 문서 로드 기준에는 카메라 첫 프레임 대기가 섞인다.
  * 준비 실패(`unavailable`)는 보내지 않는다. Sentry가 이미 받는다.
+ * 준비 뒤 워커에서 메인 스레드로 갈아타면 `vision_runtime_fallback`을 따로 한 번 보낸다.
  */
 export function useVisionReadyTracking(
-  detector: Pick<VisionFocusDetector, "subscribeStatus">,
+  detector: Pick<
+    VisionFocusDetector,
+    "subscribeStatus" | "subscribeRuntimeFallback" | "runtime" | "assetTimings"
+  >,
   roomType: StudyRoomType,
 ): VisionReadyMeasurement | null {
   const [measurement, setMeasurement] = useState<VisionReadyMeasurement | null>(null);
 
   useEffect(() => {
+    let fallbackSent = false;
+    const unsubscribeFallback = detector.subscribeRuntimeFallback(() => {
+      if (fallbackSent) {
+        return;
+      }
+      fallbackSent = true;
+      trackVisionRuntimeFallback({ roomType });
+    });
     let loadingAt: number | null = null;
     let sent = false;
-    return detector.subscribeStatus((status) => {
+    const unsubscribeStatus = detector.subscribeStatus((status) => {
       if (status === "loading") {
         loadingAt = performance.now();
         return;
@@ -132,19 +155,30 @@ export function useVisionReadyTracking(
       sent = true;
       const readyAtMs = performance.now();
       const loadMs = Math.round(readyAtMs - loadingAt);
+      const runtime = detector.runtime ?? "main";
+      // 워커가 받은 wasm·모델은 문서의 Resource Timing에 없다.
+      // 워커가 보내 준 항목을 뒤에 붙인다.
       const assets = readVisionAssetCache(
-        performance.getEntriesByType("resource") as PerformanceResourceTiming[],
+        [
+          ...(performance.getEntriesByType("resource") as PerformanceResourceTiming[]),
+          ...detector.assetTimings,
+        ],
         loadingAt,
         MODEL_PATHS[resolveModelVariant(window.location.search)],
       );
       trackVisionDetectorReady({
         loadMs,
         roomType,
+        runtime,
         wasmCache: assets.wasm.cache,
         modelCache: assets.model.cache,
       });
-      setMeasurement({ loadMs, readyAtMs, ...assets });
+      setMeasurement({ loadMs, readyAtMs, runtime, ...assets });
     });
+    return () => {
+      unsubscribeStatus();
+      unsubscribeFallback();
+    };
   }, [detector, roomType]);
 
   return measurement;

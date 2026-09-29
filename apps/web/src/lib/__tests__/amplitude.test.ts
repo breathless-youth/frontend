@@ -927,6 +927,7 @@ describe("Vision 검출기 준비 이벤트", () => {
     m.trackVisionDetectorReady({
       loadMs: 2220,
       roomType: "single",
+      runtime: "worker",
       wasmCache: "hit",
       modelCache: "hit",
     });
@@ -934,7 +935,7 @@ describe("Vision 검출기 준비 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("로딩→준비 시간·룸 종류·캐시 판정만 싣는다 — 카메라·검출 데이터와 식별자는 없다", async () => {
+  it("로딩→준비 시간·룸 종류·런타임·캐시 판정만 싣는다 — 카메라·검출 데이터와 식별자는 없다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
@@ -942,6 +943,7 @@ describe("Vision 검출기 준비 이벤트", () => {
     m.trackVisionDetectorReady({
       loadMs: 8741,
       roomType: "social",
+      runtime: "worker",
       wasmCache: "miss",
       modelCache: "unknown",
     });
@@ -949,8 +951,32 @@ describe("Vision 검출기 준비 이벤트", () => {
     expect(mocks.track).toHaveBeenCalledWith("vision_detector_ready", {
       load_ms: 8741,
       room_type: "social",
+      runtime: "worker",
       wasm_cache: "miss",
       model_cache: "unknown",
+    });
+  });
+});
+
+describe("Vision 런타임 폴백 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackVisionRuntimeFallback({ roomType: "single" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("룸 종류와 갈아탄 이유만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackVisionRuntimeFallback({ roomType: "social" });
+
+    expect(mocks.track).toHaveBeenCalledWith("vision_runtime_fallback", {
+      room_type: "social",
+      reason: "frame_capture",
     });
   });
 });
