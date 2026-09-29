@@ -21,7 +21,8 @@ import { fileURLToPath } from "node:url";
  *
  * ## `public/models/`는 왜 반대로 커밋하는가
  *
- * 모델(`efficientdet_lite0_*.tflite`)은 **npm에 없다.** MediaPipe가 GCS에 올려둔 배포본을
+ * 모델(`efficientdet_lite0_*.tflite`, `face_landmarker.task`)은 **npm에 없다.** MediaPipe가 GCS에
+ * 올려둔 배포본을
  * 받아야 하는데, 그것을 빌드 스텝으로 만들면 (1) 빌드가 네트워크에 의존하게 되고 — 세션이
  * 네트워크 없이 동작해야 한다는 원칙(설계 §1)을 빌드 단계에서 뒤집는다 — (2) 원격 파일이
  * 조용히 갱신돼도 알 수 없다. 반대로 저장소에 커밋해 두면 재생성할 원본이 없으므로 낡을

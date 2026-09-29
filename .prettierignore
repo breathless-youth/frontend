@@ -12,3 +12,7 @@ apps/mobile/assets/web-dist
 
 # 설치된 에이전트 스킬 묶음(chore b5e073c) — 외부 배포물이라 우리 포맷 규칙 대상이 아니다. 검사에 넣으면 130개 파일이 실패해 dev CI의 Format check가 늘 빨갛다(2026-09-04 확인).
 .claude/skills
+
+# MediaPipe wasm 런타임 사본(apps/web/scripts/copyMediapipeWasm.js가 채운다) — 생성물이라 검사하지
+# 않는다. 빌드를 한 번이라도 돌린 워크트리에서 format:check가 실패하는 것을 막는다.
+apps/web/public/mediapipe

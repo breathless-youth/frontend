@@ -1,11 +1,11 @@
-import { openObjectDetector } from "./mediapipeModule";
-import type { AssetTiming } from "./objectDetector";
+import type { AssetTiming } from "./mediapipePort";
+import { openFaceLandmarker, openObjectDetector } from "./mediapipeModule";
 import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerProtocol";
 
 /**
  * Vision 추론 워커
  *
- * `./workerRuntime.ts`가 모듈 워커로 띄운다.
+ * `./workerRuntime.ts`가 모듈 워커로 띄운다. 객체 검출기와 얼굴 모델이 이 워커 하나에 함께 산다.
  * 메시지 처리는 `./workerProtocol.ts`에 있고, 여기는 MediaPipe와 워커 전역을 잇기만 한다.
  */
 
@@ -32,6 +32,7 @@ import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerPr
 
 const handle = createWorkerMessageHandler({
   createDetector: openObjectDetector,
+  createFaceLandmarker: openFaceLandmarker,
   readAssetTimings() {
     // 워커의 `timeOrigin`이 문서와 달라 epoch ms로 바꿔 보낸다.
     // 메인이 문서 시각으로 되돌린다.

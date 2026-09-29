@@ -18,7 +18,7 @@ type EventChipProps = {
 };
 
 export function EventChip({ status, label }: EventChipProps) {
-  // 비집중 3종은 오렌지, 일시정지는 회색(`design.md` 6차 확정 · eventStatusColors).
+  // 휴식 4종은 오렌지, 일시정지는 회색(`design.md` 6차 확정 · eventStatusColors).
   const isPause = status === "PAUSE";
 
   return (
