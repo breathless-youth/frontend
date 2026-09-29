@@ -43,12 +43,16 @@ describe("firebaseAnalytics", () => {
     logAnalyticsEvent("study_session_started", { room_type: "single" });
     logAnalyticsEvent("app_opened");
     setAnalyticsUserId("7");
-    setAnalyticsUserProperties({ theme: "dark" });
+    setAnalyticsUserProperties({ has_dday: "false", dday_days_left: null });
 
     expect(adapter.logEvent).toHaveBeenCalledWith("study_session_started", { room_type: "single" });
     expect(adapter.logEvent).toHaveBeenCalledWith("app_opened", undefined);
     expect(adapter.setUserId).toHaveBeenCalledWith("7");
-    expect(adapter.setUserProperties).toHaveBeenCalledWith({ theme: "dark" });
+    // null은 지움 — 그대로 넘겨야 Firebase가 속성을 지운다.
+    expect(adapter.setUserProperties).toHaveBeenCalledWith({
+      has_dday: "false",
+      dday_days_left: null,
+    });
   });
 
   it("예약 접두사 이벤트명은 어댑터를 부르지 않는다 — SDK가 예외를 던지는 이름", () => {

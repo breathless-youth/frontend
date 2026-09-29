@@ -363,4 +363,12 @@ export type {
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
 } from "./bridge";
-export { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "./bridge";
+export {
+  ANALYTICS_EVENT_MAX_PARAMS,
+  ANALYTICS_NAME_PATTERN,
+  ANALYTICS_PARAM_VALUE_PATTERN,
+  ANALYTICS_USER_PROPERTY_NAME_PATTERN,
+  ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
+  NAVIGATE_TAB_SOURCES,
+  NAVIGATE_TAB_TARGETS,
+} from "./bridge";

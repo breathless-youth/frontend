@@ -2,6 +2,7 @@ import type { Types } from "@amplitude/analytics-browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  FIREBASE_USER_PROPERTY_KEYS,
   firebaseAnalyticsForwardPlugin,
   toFirebaseAnalyticsMessage,
 } from "@/lib/firebaseAnalyticsBridge";
@@ -18,8 +19,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("toFirebaseAnalyticsMessage", () => {
-  it("snake_case 이벤트를 파라미터와 함께 옮긴다 — boolean은 문자열로, 객체·null·긴 문자열은 뺀다", () => {
+describe("toFirebaseAnalyticsMessage — 이벤트", () => {
+  it("snake_case 이벤트를 파라미터와 함께 옮긴다 — boolean은 문자열로, 객체·null은 뺀다", () => {
     expect(
       toFirebaseAnalyticsMessage(
         event("study_session_ended", {
@@ -29,7 +30,6 @@ describe("toFirebaseAnalyticsMessage", () => {
             will_submit: true,
             pause_trigger: null,
             nested: { a: 1 },
-            long: "x".repeat(101),
             source: "native",
           },
         }),
@@ -43,12 +43,43 @@ describe("toFirebaseAnalyticsMessage", () => {
     });
   });
 
+  it("문자열 값은 토큰만 통과한다 — 카탈로그의 에러 코드·정제된 경로·버전은 살고 자유 문자열은 죽는다", () => {
+    expect(
+      toFirebaseAnalyticsMessage(
+        event("social_room_join_failed", {
+          event_properties: {
+            reason: "HTTP_404",
+            path: "/room/:id",
+            latest_version: "1.0.2",
+            nickname: "포메12345",
+            goal: "오늘 3시간 공부하기",
+            sentence: "hello world",
+            long_token: "x".repeat(65),
+            empty: "",
+          },
+        }),
+        5,
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "social_room_join_failed",
+      params: { reason: "HTTP_404", path: "/room/:id", latest_version: "1.0.2" },
+      atMs: 5,
+    });
+  });
+
   it("파라미터가 없으면 params 필드를 만들지 않는다", () => {
     expect(toFirebaseAnalyticsMessage(event("app_launched"), 5)).toEqual({
       type: "analytics-event",
       name: "app_launched",
       atMs: 5,
     });
+  });
+
+  it("파라미터는 25개까지만 남긴다", () => {
+    const event_properties = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`p${i}`, i]));
+    const message = toFirebaseAnalyticsMessage(event("many_params", { event_properties }), 5);
+    expect(Object.keys((message as { params: object }).params)).toHaveLength(25);
   });
 
   it.each([
@@ -59,36 +90,75 @@ describe("toFirebaseAnalyticsMessage", () => {
   ])("Amplitude 자체 이벤트(%s)는 보내지 않는다", (name) => {
     expect(toFirebaseAnalyticsMessage(event(name), 5)).toBeNull();
   });
+});
 
-  it("$identify는 $set·$setOnce를 유저 속성으로 옮긴다 — 같은 키면 $set이 이긴다, 36자 초과는 뺀다", () => {
+describe("toFirebaseAnalyticsMessage — $identify 유저 속성", () => {
+  it("화이트리스트 키만 옮긴다 — $set이 $setOnce를 이기고, 36자 초과·자유 문자열은 뺀다", () => {
     expect(
       toFirebaseAnalyticsMessage(
         event("$identify", {
           user_properties: {
             $setOnce: {
-              initial_referrer: "https://example.com/a/very/long/path/that/exceeds",
+              initial_referrer: "https://example.com/a/very/long/path",
               acquisition_channel: "ads",
             },
-            $set: { theme: "dark", is_webview: true, acquisition_channel: "preregister" },
-            $unset: { gone: "-" },
+            $set: {
+              acquisition_channel: "preregister",
+              camera_permission_granted: true,
+              has_dday: false,
+              dday_days_left: 7,
+              theme: "dark",
+              is_webview: true,
+              app_version: "1.0.2",
+              utm_source: "kakao",
+            },
           },
         }),
         5,
       ),
     ).toEqual({
       type: "analytics-user-properties",
-      properties: { acquisition_channel: "preregister", theme: "dark", is_webview: "true" },
+      properties: {
+        acquisition_channel: "preregister",
+        camera_permission_granted: "true",
+        has_dday: "false",
+        dday_days_left: "7",
+      },
       atMs: 5,
     });
   });
 
-  it("$identify에 옮길 속성이 없으면 null", () => {
+  it("$unset은 null로 옮긴다 — GA 쪽 값을 지워 Amplitude와 어긋나지 않게", () => {
     expect(
       toFirebaseAnalyticsMessage(
-        event("$identify", { user_properties: { $unset: { x: "-" } } }),
+        event("$identify", {
+          user_properties: { $set: { has_dday: false }, $unset: { dday_days_left: "-" } },
+        }),
+        5,
+      ),
+    ).toEqual({
+      type: "analytics-user-properties",
+      properties: { has_dday: "false", dday_days_left: null },
+      atMs: 5,
+    });
+  });
+
+  it("옮길 속성이 없으면 null", () => {
+    expect(
+      toFirebaseAnalyticsMessage(
+        event("$identify", { user_properties: { $set: { theme: "dark" }, $unset: { x: "-" } } }),
         5,
       ),
     ).toBeNull();
+  });
+
+  it("화이트리스트는 오디언스 조건이 될 만한 속성만이다 — 늘리면 GA 맞춤 정의 등록도 필요하다", () => {
+    expect(FIREBASE_USER_PROPERTY_KEYS).toEqual([
+      "acquisition_channel",
+      "camera_permission_granted",
+      "has_dday",
+      "dday_days_left",
+    ]);
   });
 });
 

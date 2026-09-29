@@ -7,16 +7,17 @@ import type {
   ToNativeMessage,
   ToWebMessage,
 } from "@focusmakers/types";
-import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
-
 import {
   ANALYTICS_EVENT_MAX_PARAMS,
   ANALYTICS_NAME_PATTERN,
-  ANALYTICS_PARAM_VALUE_MAX_LENGTH,
+  ANALYTICS_PARAM_VALUE_PATTERN,
   ANALYTICS_USER_PROPERTY_NAME_PATTERN,
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
-  isReservedAnalyticsName,
-} from "./firebaseAnalytics";
+  NAVIGATE_TAB_SOURCES,
+  NAVIGATE_TAB_TARGETS,
+} from "@focusmakers/types";
+
+import { isReservedAnalyticsName } from "./firebaseAnalytics";
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
 /**
@@ -264,10 +265,14 @@ function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage
   };
 }
 
-/** 문자열은 Firebase 상한(100자) 안의 비어 있지 않은 값, 수는 유한수만. boolean은 웹이 이미 문자열로 접었다. */
+/**
+ * 문자열은 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN`), 수는 유한수만. boolean은 웹이 이미 문자열로 접었다.
+ * 웹(`firebaseAnalyticsBridge.ts`)이 같은 규칙으로 걸러 보내지만, 웹 번들이 앱보다 앞설 수 있어 여기서도
+ * 거른다 — Meta 경로(`isMetaParamValue`)와 같은 이유로 자유 문자열이 Google 서버로 나가면 안 된다.
+ */
 function isAnalyticsParamValue(value: unknown): value is AnalyticsEventParamValue {
   if (typeof value === "string") {
-    return value.length > 0 && value.length <= ANALYTICS_PARAM_VALUE_MAX_LENGTH;
+    return ANALYTICS_PARAM_VALUE_PATTERN.test(value);
   }
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -308,13 +313,22 @@ function parseAnalyticsEvent(record: Record<string, unknown>): AnalyticsEventMes
   };
 }
 
-function isAnalyticsUserPropertyValue(value: unknown): value is string {
-  return typeof value === "string" && value.length <= ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH;
+/** `null`은 속성을 지우라는 뜻(Firebase 계약). 문자열은 36자 이내 토큰만. */
+function isAnalyticsUserPropertyValue(value: unknown): value is string | null {
+  if (value === null) {
+    return true;
+  }
+  return (
+    typeof value === "string" &&
+    value.length <= ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH &&
+    ANALYTICS_PARAM_VALUE_PATTERN.test(value)
+  );
 }
 
 /**
- * `analytics-user-properties`(웹 → Firebase 유저 속성)를 검증한다 — 키 24자·값 36자 이내 문자열만 남기고,
- * 남는 항목이 없으면 통째로 버린다(빈 갱신은 SDK 호출만 낭비한다).
+ * `analytics-user-properties`(웹 → Firebase 유저 속성)를 검증한다 — 키 24자·값 36자 이내 토큰(또는 지움을 뜻하는
+ * `null`)만 남기고, 남는 항목이 없으면 통째로 버린다(빈 갱신은 SDK 호출만 낭비한다). 키 화이트리스트는 웹이
+ * 소유한다(`FIREBASE_USER_PROPERTY_KEYS`) — 여기서 또 두면 웹 배포만으로 속성을 늘릴 수 없다.
  */
 function parseAnalyticsUserProperties(
   record: Record<string, unknown>,

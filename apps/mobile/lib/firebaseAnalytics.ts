@@ -5,7 +5,8 @@ import type { AnalyticsEventParamValue } from "@focusmakers/types";
  *
  * 분석의 원천은 여전히 웹 Amplitude다(`lib/nativeAnalytics.ts`). 이 모듈은 그 사본을 Firebase에도 남긴다:
  * 웹이 브리지 `analytics-event`·`analytics-user-properties`로 보내면(`lib/nativeBridgeHandler.ts`) SDK에
- * 넘기고, 백엔드 userId를 GA user_id로 붙인다(`lib/firebaseAnalyticsSdk.ts`).
+ * 넘기고, 백엔드 userId를 GA user_id로 붙인다(`lib/firebaseAnalyticsSdk.ts`). 형식 규칙(이름·값·개수)은
+ * `packages/types`의 `ANALYTICS_*` 상수가 원천이고 `lib/webBridge.ts`가 그것으로 거른다.
  *
  * ## 이 모듈은 SDK를 import하지 않는다
  *
@@ -15,21 +16,16 @@ import type { AnalyticsEventParamValue } from "@focusmakers/types";
  */
 
 export type AnalyticsEventParams = Record<string, AnalyticsEventParamValue>;
+/** `null`은 그 속성을 지운다(Firebase 계약). */
+export type AnalyticsUserProperties = Record<string, string | null>;
 
 export type FirebaseAnalyticsAdapter = {
   /** RNFB의 `logEvent`는 void를 돌려주고 나머지는 promise다 — 둘 다 받는다. */
   logEvent(name: string, params: AnalyticsEventParams | undefined): void | Promise<void>;
   setUserId(id: string | null): Promise<void>;
-  setUserProperties(properties: Record<string, string>): Promise<void>;
+  setUserProperties(properties: AnalyticsUserProperties): Promise<void>;
 };
 
-/** Firebase 이벤트명·파라미터 키 형식 — 영문자로 시작, 영숫자·`_`, 40자 이내. 웹이 보낸 이름은 `lib/webBridge.ts`가 이 형식으로 거른다. */
-export const ANALYTICS_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
-/** 유저 속성 키 형식 — 이벤트명과 같은 문자 집합, 24자 이내. */
-export const ANALYTICS_USER_PROPERTY_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
-export const ANALYTICS_EVENT_MAX_PARAMS = 25;
-export const ANALYTICS_PARAM_VALUE_MAX_LENGTH = 100;
-export const ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH = 36;
 /** Firebase가 자기 몫으로 예약한 접두사 — 이 이름으로 부르면 SDK가 예외를 던진다. */
 const RESERVED_PREFIXES = ["firebase_", "google_", "ga_"];
 
@@ -70,7 +66,7 @@ export function setAnalyticsUserId(id: string | null): void {
   run("setUserId", () => current.setUserId(id));
 }
 
-export function setAnalyticsUserProperties(properties: Record<string, string>): void {
+export function setAnalyticsUserProperties(properties: AnalyticsUserProperties): void {
   if (adapter === null) return;
   const allowed = Object.fromEntries(
     Object.entries(properties).filter(([key]) => !isReservedAnalyticsName(key)),

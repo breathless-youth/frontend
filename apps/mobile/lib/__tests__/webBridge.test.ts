@@ -447,7 +447,7 @@ describe("parseToNativeMessage — analytics-event", () => {
     },
   );
 
-  it("형식 밖 파라미터 항목만 뺀다 — 101자·빈 문자열, 객체·boolean·NaN 값, 형식 밖 키", () => {
+  it("형식 밖 파라미터 항목만 뺀다 — 자유 문자열·65자·빈 문자열, 객체·boolean·NaN 값, 형식 밖 키", () => {
     expect(
       parseToNativeMessage(
         JSON.stringify({
@@ -455,7 +455,10 @@ describe("parseToNativeMessage — analytics-event", () => {
           name: "study_session_started",
           params: {
             room_type: "single",
-            long_text: "x".repeat(101),
+            nickname: "포메12345",
+            goal: "오늘 3시간 공부하기",
+            sentence: "hello world",
+            long_token: "x".repeat(65),
             empty: "",
             nested: { a: 1 },
             flag: true,
@@ -470,6 +473,29 @@ describe("parseToNativeMessage — analytics-event", () => {
       type: "analytics-event",
       name: "study_session_started",
       params: { room_type: "single", ok_number: 3 },
+      atMs: 5,
+    });
+  });
+
+  it("카탈로그의 토큰 값은 통과한다 — 에러 코드·정제된 경로·버전·'true'", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-event",
+          name: "social_room_join_failed",
+          params: {
+            reason: "HTTP_404",
+            path: "/room/:id",
+            latest_version: "1.0.2",
+            restored: "true",
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "social_room_join_failed",
+      params: { reason: "HTTP_404", path: "/room/:id", latest_version: "1.0.2", restored: "true" },
       atMs: 5,
     });
   });
@@ -492,16 +518,18 @@ describe("parseToNativeMessage — analytics-event", () => {
 });
 
 describe("parseToNativeMessage — analytics-user-properties", () => {
-  it("문자열 속성만 남긴다 — 36자 초과·비문자열·형식 밖 키 제외", () => {
+  it("토큰 문자열과 null(지움)만 남긴다 — 36자 초과·자유 문자열·boolean·형식 밖 키 제외", () => {
     expect(
       parseToNativeMessage(
         JSON.stringify({
           type: "analytics-user-properties",
           properties: {
-            theme: "dark",
-            app_version: "1.0.2",
+            has_dday: "false",
+            dday_days_left: null,
+            acquisition_channel: "preregister",
             is_webview: true,
             long: "x".repeat(37),
+            nickname: "포메 12",
             한글: "값",
             a_very_long_property_name_over_24: "x",
           },
@@ -510,7 +538,7 @@ describe("parseToNativeMessage — analytics-user-properties", () => {
       ),
     ).toEqual({
       type: "analytics-user-properties",
-      properties: { theme: "dark", app_version: "1.0.2" },
+      properties: { has_dday: "false", dday_days_left: null, acquisition_channel: "preregister" },
       atMs: 5,
     });
   });

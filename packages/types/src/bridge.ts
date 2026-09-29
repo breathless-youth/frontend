@@ -414,6 +414,26 @@ export interface MetaAppEventMessage {
 /** Firebase Analytics 이벤트 파라미터 값 — SDK 계약이 문자열·수만 받는다. boolean은 웹이 "true"/"false"로 접는다. */
 export type AnalyticsEventParamValue = string | number;
 
+/*
+ * Firebase Analytics 계약 상수. 웹 발신(`apps/web/src/lib/firebaseAnalyticsBridge.ts`)과 네이티브 수신
+ * (`apps/mobile/lib/webBridge.ts`)이 같은 값으로 거른다 — 한쪽만 고치면 웹이 보낸 것을 네이티브가 버리거나,
+ * 네이티브가 받을 것을 웹이 안 보내는 어긋남이 생기므로 여기가 원천이다.
+ */
+/** 이벤트명·파라미터 키 — Firebase 규칙: 영문자로 시작, 영숫자·`_`, 40자 이내. */
+export const ANALYTICS_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+/** 유저 속성 키 — 같은 문자 집합, 24자 이내. */
+export const ANALYTICS_USER_PROPERTY_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
+/**
+ * 문자열 값은 토큰만 — enum(`single`), 에러 코드(`HTTP_404`), 정제된 경로(`/room/:id`), 버전(`1.0.2`).
+ * 공백·한글·문장부호가 든 자유 문자열(닉네임·목표 문구)은 걸린다. Meta 경로(`meta-app-event`)와 같은 원칙:
+ * 계약을 말로만 적으면 실수 한 번에 사용자 입력이 Google 서버로 나간다.
+ */
+export const ANALYTICS_PARAM_VALUE_PATTERN = /^[A-Za-z0-9_.:/-]{1,64}$/;
+/** 이벤트 하나의 파라미터 상한(Firebase 규칙 25개). 유저 속성 한 번의 갱신에도 같은 상한을 쓴다. */
+export const ANALYTICS_EVENT_MAX_PARAMS = 25;
+/** 유저 속성 값 상한(Firebase 규칙 36자). */
+export const ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH = 36;
+
 /**
  * 웹 Amplitude 이벤트를 네이티브 Firebase Analytics(GA4)에도 흘린다 — FCM 콘솔의 오디언스·유저 속성 타겟팅은
  * Firebase Analytics 데이터만 보기 때문이다. `meta-app-event`와 같은 역방향 통로다.
@@ -432,11 +452,16 @@ export interface AnalyticsEventMessage {
 }
 
 /**
- * 웹 Amplitude 유저 속성(`$identify`의 `$set`·`$setOnce`)을 Firebase 유저 속성으로 옮긴다 — 오디언스 조건에
- * 쓰는 값이다. 키는 24자, 값은 36자 이내 문자열(Firebase 규칙) — 넘는 항목은 웹이 빼고 보낸다.
+ * 웹 Amplitude 유저 속성(`$identify`)을 Firebase 유저 속성으로 옮긴다 — 오디언스 조건에 쓰는 값이다.
+ *
+ * - **키는 웹의 화이트리스트만** 넘어온다(`FIREBASE_USER_PROPERTY_KEYS`). GA4는 프로젝트당 커스텀 유저 속성이
+ *   25개라 Amplitude 속성을 카탈로그째 흘리면 attribution이 만드는 `utm_*`·`referrer` 따위가 한도를 먹는다.
+ * - `$set`·`$setOnce`는 값, `$unset`은 `null`로 온다. Firebase는 `null`로 속성을 지우므로 GA 쪽 값이
+ *   Amplitude와 어긋난 채 남지 않는다(지운 디데이로 오디언스가 잘못 잡히는 것을 막는다).
+ * - 키는 24자, 값은 36자 이내 토큰(`ANALYTICS_PARAM_VALUE_PATTERN`) — 넘는 항목은 웹이 빼고 보낸다.
  */
 export interface AnalyticsUserPropertiesMessage {
   type: "analytics-user-properties";
-  properties: Record<string, string>;
+  properties: Record<string, string | null>;
   atMs: number;
 }
