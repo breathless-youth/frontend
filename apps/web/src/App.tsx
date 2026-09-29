@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { Toaster } from "@/components/ui/sonner";
 import { ForceUpdateDialog } from "@/features/force-update/components/ForceUpdateDialog";
 import {
   FORCE_UPDATE_CONFIRM_LABEL,
@@ -11,14 +13,16 @@ import {
 } from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
+import { toastBottomOffset, useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { useNativeShellClass } from "@/lib/nativeShell";
-import { useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { queryClient } from "@/lib/queryClient";
+import { dismissToast } from "@/lib/toast";
 import { ContactPage } from "@/routes/ContactPage";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
@@ -36,6 +40,19 @@ import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialHomePage } from "@/routes/SocialHomePage";
 import { TermsPage } from "@/routes/TermsPage";
+
+/** 라우트가 바뀔 때마다 탭 바를 피해 토스트 위치를 다시 잰다. */
+function AppToaster() {
+  const { pathname } = useLocation();
+  const bottom = toastBottomOffset(pathname, isNativeBridgeAvailable());
+  // 전역 Toaster는 화면과 달리 언마운트되지 않아, 지우지 않으면 이전 화면의 토스트가
+  // 다음 화면까지 넘어간다. 이 컴포넌트가 <Routes>보다 앞선 형제라 이펙트가 먼저 돌고,
+  // 새로 마운트되는 화면이 자기 토스트를 부르면 그 호출이 막 건 dismiss를 취소한다.
+  useEffect(() => {
+    dismissToast();
+  }, [pathname]);
+  return <Toaster offset={{ bottom }} mobileOffset={{ bottom }} />;
+}
 
 export function App() {
   // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
@@ -65,6 +82,7 @@ export function App() {
         `onCaughtError`를 추가하면 이중 전송이 된다(`errorBoundary.test.tsx`가 고정).
       */}
       <Sentry.ErrorBoundary fallback={<ErrorFallback />}>
+        <AppToaster />
         {forceUpdateRequired ? (
           // 강제 업데이트가 걸리면 라우트 트리 자체를 마운트하지 않는다 — 모달 뒤에서 화면이
           // 계속 렌더되며 이펙트를 돌리는 것도, 라우트 에러가 같은 바운더리에서 이 모달을
