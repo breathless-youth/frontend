@@ -9,6 +9,7 @@ import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinEr
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
+import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { showCtaToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
@@ -41,15 +42,17 @@ export function InviteCodeSharePage() {
   const joinMutation = useMutation({
     mutationFn: (inviteCode: string) => enterLiveRoom(userId as number, inviteCode),
     onSuccess: (data, inviteCode) => {
-      navigate(
-        { pathname: `/social/room/${data.roomId}`, search: location.search },
-        {
-          state: {
-            inviteCode,
-            graceRejoin: data.graceRejoin,
-            iceServers: data.iceServers,
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: `/social/room/${data.roomId}`, search: location.search },
+          {
+            state: {
+              inviteCode,
+              graceRejoin: data.graceRejoin,
+              iceServers: data.iceServers,
+            },
           },
-        },
+        ),
       );
     },
     onError: (error) => {
@@ -75,12 +78,14 @@ export function InviteCodeSharePage() {
           onClick={() => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
             // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            navigate({ pathname: "/social", search: location.search }, { replace: true });
+            slideNavigate("back", () => {
+              const historyState = window.history.state as { idx?: number } | null;
+              if (historyState?.idx) {
+                navigate(-1);
+                return;
+              }
+              navigate({ pathname: "/social", search: location.search }, { replace: true });
+            });
           }}
           className="size-11 p-0"
         >

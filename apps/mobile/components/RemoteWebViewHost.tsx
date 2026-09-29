@@ -35,6 +35,13 @@ import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 // 선언하는 이유, 아래 핸들러 참고).
 type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 
+// onLoadEnd 이벤트 타입도 위와 같은 사정으로 재수출되지 않아 필요한 만큼만 직접 구성한다.
+// navigationType은 선언상 필수 필드지만 실제 문서 로드 이벤트에는 아예 없을 수 있어
+// 선택 필드로 다시 연다(아래 handleLoadEnd 주석 참고).
+type LoadEndNativeEvent = Omit<WebViewNavigation, "navigationType"> & {
+  navigationType?: WebViewNavigation["navigationType"];
+};
+
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
 const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
 
@@ -420,26 +427,35 @@ export function RemoteWebViewHost({
   }, [path]);
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
-  const handleLoadEnd = useCallback(() => {
-    if (__DEV__) {
-      console.warn("[webview-bridge] onLoadEnd", path);
-    }
-    // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
-    // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
-    setBackGestureEnabled(true);
-    recoveringRef.current = false;
-    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
-    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
-    // 남는 것을 막는다(2026-08-25 채점 지적).
-    if (Platform.OS === "android") {
-      sendToWeb({
-        type: "theme",
-        scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
-        atMs: Date.now(),
-      });
-    }
-    onLoadEnd?.(true);
-  }, [onLoadEnd, path, sendToWeb]);
+  const handleLoadEnd = useCallback(
+    (event?: { nativeEvent: LoadEndNativeEvent }) => {
+      if (__DEV__) {
+        console.warn("[webview-bridge] onLoadEnd", path);
+      }
+      // react-native-webview 13.15.0의 iOS History API shim(RNCWebViewImpl.m)은
+      // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
+      // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
+      // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
+      // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
+      // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
+      if (event?.nativeEvent.navigationType === undefined) {
+        setBackGestureEnabled(true);
+      }
+      recoveringRef.current = false;
+      // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
+      // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
+      // 남는 것을 막는다(2026-08-25 채점 지적).
+      if (Platform.OS === "android") {
+        sendToWeb({
+          type: "theme",
+          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+          atMs: Date.now(),
+        });
+      }
+      onLoadEnd?.(true);
+    },
+    [onLoadEnd, path, sendToWeb],
+  );
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.

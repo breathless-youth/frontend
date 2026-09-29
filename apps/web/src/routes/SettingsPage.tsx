@@ -6,6 +6,7 @@ import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude"
 import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
@@ -88,7 +89,9 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("profile");
-              navigate({ pathname: "/profile", search: location.search });
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/profile", search: location.search }),
+              );
             }}
           />
         </SettingsSection>
@@ -137,7 +140,9 @@ export function SettingsPage() {
               // (BY-327과 같은 유형의 쿼리 유실 버그).
               const params = new URLSearchParams(location.search);
               params.set("entry", "settings");
-              navigate({ pathname: "/onboarding-guide", search: params.toString() });
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/onboarding-guide", search: params.toString() }),
+              );
             }}
           />
         </SettingsSection>
@@ -173,7 +178,7 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("terms");
-              navigate("/terms");
+              slideNavigate("forward", () => navigate("/terms"));
             }}
           />
           <SettingsRow
@@ -181,7 +186,7 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("privacy");
-              navigate("/privacy");
+              slideNavigate("forward", () => navigate("/privacy"));
             }}
           />
           <SettingsRow
@@ -189,7 +194,7 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("licenses");
-              navigate("/licenses");
+              slideNavigate("forward", () => navigate("/licenses"));
             }}
           />
           <SettingsRow

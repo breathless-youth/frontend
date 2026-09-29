@@ -23,6 +23,7 @@ import {
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { firstGrapheme } from "@/lib/graphemes";
+import { slideNavigate } from "@/lib/pageTransition";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { useUserId } from "@/lib/userId";
@@ -72,13 +73,15 @@ export function ProfilePage() {
       markProfileSaved();
       // 저장 성공 시 설정 화면으로 복귀한다(2026-08-25 BY-427 확정 — "저장=완료").
       // ScreenBackHeader와 같은 판단: 스택이 있으면 뒤로, 딥링크 직행이면 설정 탭으로.
-      const historyState = window.history.state as { idx?: number } | null;
-      if (historyState?.idx) {
-        navigate(-1);
-        return;
-      }
-      // 쿼리(userId 등)를 승계하지 않으면 설정이 미저장 모드로 뜬다(BY-327과 같은 함정).
-      navigate({ pathname: "/settings", search: searchParams.toString() }, { replace: true });
+      slideNavigate("back", () => {
+        const historyState = window.history.state as { idx?: number } | null;
+        if (historyState?.idx) {
+          navigate(-1);
+          return;
+        }
+        // 쿼리(userId 등)를 승계하지 않으면 설정이 미저장 모드로 뜬다(BY-327과 같은 함정).
+        navigate({ pathname: "/settings", search: searchParams.toString() }, { replace: true });
+      });
     },
     onError: (error) => {
       trackProfileSaveResult({

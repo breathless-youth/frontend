@@ -11,6 +11,7 @@ import { hardNavigate } from "@/lib/hardNavigation";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 // jsdom은 실제 내비게이션을 구현하지 않아 `window.location.assign`을 직접 검증할 수 없다 —
 // 하드 내비게이션은 이 모듈 단위로 모킹한다(`lib/hardNavigation.ts` 주석).
@@ -64,6 +65,7 @@ function renderSettingsWithGuideStub(path: string) {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.unstubAllGlobals();
   vi.useRealTimers();
   // 모듈 모킹된 hardNavigation 호출 기록이 테스트 간 새지 않게 한다.
@@ -294,6 +296,38 @@ describe("S6 · 설정", () => {
         screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("프로필 수정 행은 오른쪽에서 들어오는 전환으로 이동한다", async () => {
+    const { start, updateDone } = stubViewTransition();
+    renderAt("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: /프로필 수정/ }));
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.dataset.pageTransition).toBe("forward");
+    await act(async () => {
+      await updateDone();
+    });
+    expect(screen.getByRole("heading", { name: "프로필 수정" })).toBeInTheDocument();
+  });
+
+  it("하위 화면의 뒤로 가기 버튼은 반대 방향 전환으로 돌아온다", async () => {
+    const { updateDone } = stubViewTransition();
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: /이용약관/ }));
+    await act(async () => {
+      await updateDone();
+    });
+
+    const back = stubViewTransition();
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(document.documentElement.dataset.pageTransition).toBe("back");
+    await act(async () => {
+      await back.updateDone();
+    });
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 });
 

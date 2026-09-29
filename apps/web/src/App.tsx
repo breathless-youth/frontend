@@ -21,6 +21,7 @@ import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { useNativeShellClass } from "@/lib/nativeShell";
+import { usePageTransitionCommit } from "@/lib/pageTransition";
 import { queryClient } from "@/lib/queryClient";
 import { dismissToast } from "@/lib/toast";
 import { ContactPage } from "@/routes/ContactPage";
@@ -55,6 +56,10 @@ function AppToaster() {
 }
 
 export function App() {
+  // 슬라이드 전환의 갱신 콜백이 라우트 커밋 시점에 풀리게 한다. Routes의 형제로 마운트해야
+  // 한다(lib/pageTransition.ts). 라우트 엘리먼트 안에 두면 이동과 함께 언마운트돼 새 위치를
+  // 못 본다.
+  usePageTransitionCommit();
   // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
   // 알려주지 않으면 탭 바가 그대로 남는다(`lib/nativeTabBar.ts`).
   useNativeTabBarSync();

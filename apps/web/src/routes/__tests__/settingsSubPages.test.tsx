@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
 import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { OPEN_SOURCE_ENTRIES } from "@/features/settings/openSourceLicenses";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 // jsdom은 실제 내비게이션을 구현하지 않는다 — 하드 내비게이션은 모듈 단위로 모킹한다
 // (`lib/hardNavigation.ts` 주석, `settingsPage.test.tsx`와 같은 패턴). 판정 순수 함수는
@@ -26,6 +27,7 @@ function renderAt(path: string) {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.restoreAllMocks();
   vi.clearAllMocks();
   // 개별 테스트가 인스턴스에 씌운 referrer·history.length 셰도잉을 걷는다.
@@ -108,6 +110,19 @@ describe("설정 하위 라우트", () => {
     renderAt("/terms");
     fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
 
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+
+  it("딥링크로 곧장 진입한 뒤로 가기도 뒤로 방향 전환을 쓴다", async () => {
+    const { updateDone } = stubViewTransition();
+    renderAt("/terms");
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(document.documentElement.dataset.pageTransition).toBe("back");
+    await act(async () => {
+      await updateDone();
+    });
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 });

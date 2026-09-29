@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { postToNative } from "./bridge";
 import { useModalOverlayCoversTabBar, useModalOverlayOpen } from "./nativeModalOverlay";
+import { pageTransitionFinished } from "./pageTransition";
 
 /**
  * 네이티브 하단 탭 바 가시성을 현재 웹 라우트에 맞춘다(`set-tab-bar` 브리지 메시지).
@@ -87,18 +88,31 @@ export function useNativeTabBarSync(): void {
   useEffect(() => {
     const routeHidden = isFullScreenPath(pathname);
     const nativeCovered = isNativeCoveredPath(pathname);
+    const visible = !routeHidden && !modalOpen;
     // 바텀시트는 탭 바를 숨긴다 — blockedByModal 없이 visible:false만 보내면 네이티브가 "hidden"으로 읽는다.
     const blockedByModal = modalOpen && !modalCoversTabBar && !routeHidden && !nativeCovered;
+    let disposed = false;
     const post = () => {
       postToNative({
         type: "set-tab-bar",
-        visible: !routeHidden && !modalOpen,
+        visible,
         // 이미 탭 바가 없는 화면에서는 보내지 않는다 — 딤을 그리려고 탭 바가 되살아난다.
         ...(blockedByModal ? { blockedByModal: true } : {}),
         atMs: Date.now(),
       });
     };
-    post();
+    // 탭 바는 네이티브가 그려 웹 슬라이드를 따라 움직이지 못한다. 복귀 중에 바로 띄우면
+    // 빠져나가는 화면 위에 겹쳐 보이므로 전환이 끝난 뒤 띄운다. 숨김은 새 화면이 덮으므로 즉시다.
+    const transition = visible ? pageTransitionFinished() : null;
+    if (transition) {
+      void transition.then(() => {
+        if (!disposed) {
+          post();
+        }
+      });
+    } else {
+      post();
+    }
     // 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외 — `ContactPage` 주석) 뒤로
     // 스와이프가 이전 문서를 bfcache에서 복원할 수 있게 됐다.
     // 복원은 렌더가 아니라 페이지 freeze 해제라 위 effect가 다시 실행되지 않는다
@@ -112,6 +126,7 @@ export function useNativeTabBarSync(): void {
     };
     window.addEventListener("pageshow", handlePageShow);
     return () => {
+      disposed = true;
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, [pathname, modalOpen, modalCoversTabBar]);

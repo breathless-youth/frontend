@@ -16,6 +16,7 @@ import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice
 import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { slideNavigate } from "@/lib/pageTransition";
 import { createRoom } from "@/lib/roomApi";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
@@ -63,9 +64,11 @@ export function SocialHomePage() {
       trackSocialRoomCreated();
       // 코드 공유 화면은 조회 API가 없어 router state로 전달한다 — 새로고침·딥링크로 state가
       // 없으면 그 화면이 소셜 홈으로 되돌린다. 쿼리(userId·appVersion)는 통째로 승계한다
-      navigate(
-        { pathname: "/social/code", search: location.search },
-        { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: "/social/code", search: location.search },
+          { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+        ),
       );
     },
     onError: (error: unknown) => {
@@ -121,7 +124,9 @@ export function SocialHomePage() {
               // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
               const params = new URLSearchParams(location.search);
               params.delete("code");
-              navigate({ pathname: "/social/join", search: params.toString() });
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/social/join", search: params.toString() }),
+              );
             }}
           >
             초대코드로 참여
