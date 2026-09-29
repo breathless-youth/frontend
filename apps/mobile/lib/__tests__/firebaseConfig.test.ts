@@ -378,20 +378,35 @@ describe("Firebase 설정 (BY-585)", () => {
 });
 
 /**
- * `@react-native-firebase/remote-config`는 `@react-native-firebase/analytics`를 peer로 요구해 pnpm이
- * 자동 설치한다. 그대로 두면 autolinking이 Firebase Analytics SDK(GoogleAppMeasurement)를 앱에 링크해
- * 자동 수집이 시작된다 — GA를 붙이지 않기로 한 결정(설계 문서 "확정한 결정")과 스토어 개인정보 라벨에
- * 어긋난다. 패키지는 남겨 두되 네이티브 링크만 막는다.
+ * FCM 콘솔의 오디언스·유저 속성 타겟팅은 Firebase Analytics 데이터만 본다. 그래서 analytics를 직접 의존성으로
+ * 두고, 네이티브 링크를 막던 `expo.autolinking.exclude`를 없앴다 — 되살리면 브리지로 오는 이벤트가 어댑터
+ * 없이 조용히 사라진다.
  */
-describe("Firebase Analytics 미링크 (BY-585)", () => {
-  it("package.json의 expo.autolinking.exclude가 analytics를 뺀다", () => {
-    expect(mobilePackageJson.expo.autolinking.exclude).toContain(
-      "@react-native-firebase/analytics",
-    );
+describe("Firebase Analytics 링크", () => {
+  it("앱 의존성에 analytics가 있다", () => {
+    expect(mobilePackageJson.dependencies).toHaveProperty("@react-native-firebase/analytics");
   });
 
-  it("앱 의존성에 analytics를 직접 넣지 않는다 — peer로만 존재한다", () => {
-    expect(mobilePackageJson.dependencies).not.toHaveProperty("@react-native-firebase/analytics");
+  it("autolinking exclude로 analytics를 막지 않는다", () => {
+    const exclude =
+      (mobilePackageJson as { expo?: { autolinking?: { exclude?: string[] } } }).expo?.autolinking
+        ?.exclude ?? [];
+    expect(exclude).not.toContain("@react-native-firebase/analytics");
+  });
+});
+
+/**
+ * iOS·Android SDK의 자동 화면 보고는 RN 화면 하나를 `screen_view`로 반복해서 찍는다 — 웹뷰 셸이라 의미가
+ * 없고 GA 실시간 보고서에서 가장 많은 이벤트가 되어 잡음만 늘린다. firebase.json에서 끈다.
+ */
+describe("Firebase Analytics 자동 화면 보고 해제", () => {
+  it("firebase.json이 google_analytics_automatic_screen_reporting_enabled를 false로 둔다", () => {
+    const firebaseJson = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "../../firebase.json"), "utf8"),
+    ) as { "react-native": Record<string, unknown> };
+    expect(firebaseJson["react-native"].google_analytics_automatic_screen_reporting_enabled).toBe(
+      false,
+    );
   });
 });
 

@@ -7,6 +7,7 @@ import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
@@ -169,6 +170,14 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);
+      break;
+    case "analytics-event":
+      // 웹 Amplitude 이벤트의 사본을 네이티브 Firebase Analytics(GA4)에 남긴다 — FCM 콘솔 타겟팅용. 형식은
+      // `parseToNativeMessage`가 걸렀고 어댑터가 없으면 no-op이다. 응답은 없다.
+      logAnalyticsEvent(message.name, message.params);
+      break;
+    case "analytics-user-properties":
+      setAnalyticsUserProperties(message.properties);
       break;
     default: {
       // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를

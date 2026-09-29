@@ -358,6 +358,9 @@ export type {
   AnalyticsReadyMessage,
   MetaAppEventMessage,
   MetaAppEventParamValue,
+  AnalyticsEventMessage,
+  AnalyticsEventParamValue,
+  AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
 } from "./bridge";
 export { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "./bridge";

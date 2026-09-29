@@ -6,6 +6,7 @@
     "@expo/metro-runtime": "~6.1.2",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
+    "@react-native-firebase/analytics": "^26.3.3",
     "@react-native-firebase/app": "^26.3.3",
     "@react-native-firebase/messaging": "^26.3.3",
     "@react-native-firebase/remote-config": "^26.3.3",
@@ -68,12 +69,5 @@
     "typecheck": "tsc --noEmit",
     "test": "jest"
   },
-  "private": true,
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "@react-native-firebase/analytics"
-      ]
-    }
-  }
+  "private": true
 }

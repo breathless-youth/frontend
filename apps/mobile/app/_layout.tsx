@@ -10,6 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { resolveForceUpdate } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
+import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { initMetaAds } from "../lib/metaAds";
@@ -30,6 +31,10 @@ initSentry();
 // 실행의 가입 완료 이벤트가 등록 경로(`lib/auth.ts`)에서 나오는데, 그보다 먼저 통로가 있어야
 // 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
 installMetaAdsSdk();
+
+// Firebase Analytics(GA4) 어댑터 — 웹뷰가 뜨자마자 브리지로 오는 이벤트를 받을 통로가 먼저 있어야 한다.
+// GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
+installFirebaseAnalyticsSdk();
 
 // NanumSquareRound 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
 // — 안 그러면 시스템 폰트로 한 프레임 그렸다가 NanumSquareRound로 바뀌는 깜빡임(FOUT)이 보인다.

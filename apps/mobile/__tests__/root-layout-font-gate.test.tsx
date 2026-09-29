@@ -79,6 +79,10 @@ jest.mock("../lib/pushBootstrap", () => ({
 jest.mock("../lib/metaAdsSdk", () => ({
   installMetaAdsSdk: jest.fn(),
 }));
+// Firebase Analytics 어댑터 설치도 호출만 기록한다(동작은 `lib/__tests__/firebaseAnalytics.test.ts`).
+jest.mock("../lib/firebaseAnalyticsSdk", () => ({
+  installFirebaseAnalyticsSdk: jest.fn(),
+}));
 const mockInitMetaAds = jest.fn(() => Promise.resolve());
 jest.mock("../lib/metaAds", () => ({
   initMetaAds: () => mockInitMetaAds() as Promise<void>,

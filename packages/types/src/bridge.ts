@@ -173,7 +173,9 @@ export type ToNativeMessage =
   | NavigateTabMessage
   | NavigateHomeMessage
   | AnalyticsReadyMessage
-  | MetaAppEventMessage;
+  | MetaAppEventMessage
+  | AnalyticsEventMessage
+  | AnalyticsUserPropertiesMessage;
 
 /** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
 type HostConsumedType = "home-ready" | "analytics-ready" | "set-back-gesture" | "set-orientation";
@@ -406,5 +408,35 @@ export interface MetaAppEventMessage {
   name: string;
   params?: Record<string, MetaAppEventParamValue>;
   valueToSum?: number;
+  atMs: number;
+}
+
+/** Firebase Analytics 이벤트 파라미터 값 — SDK 계약이 문자열·수만 받는다. boolean은 웹이 "true"/"false"로 접는다. */
+export type AnalyticsEventParamValue = string | number;
+
+/**
+ * 웹 Amplitude 이벤트를 네이티브 Firebase Analytics(GA4)에도 흘린다 — FCM 콘솔의 오디언스·유저 속성 타겟팅은
+ * Firebase Analytics 데이터만 보기 때문이다. `meta-app-event`와 같은 역방향 통로다.
+ *
+ * - **이벤트 정의는 여전히 웹 Amplitude 카탈로그가 소유한다.** 웹은 Amplitude 전송 파이프라인의 destination
+ *   플러그인(`apps/web/src/lib/firebaseAnalyticsBridge.ts`)에서 Firebase 형식에 맞는 이벤트만 골라 보내고,
+ *   네이티브는 이름을 화이트리스트하지 않고 형식만 검증해(`apps/mobile/lib/webBridge.ts`) SDK에 넘긴다.
+ * - `name`·파라미터 키는 Firebase 규칙(영문자로 시작, 영숫자·`_`, 40자 이내). 파라미터는 25개 이내, 문자열 값은
+ *   100자 이내. 예약 접두사(`firebase_`·`google_`·`ga_`)는 네이티브가 버린다.
+ */
+export interface AnalyticsEventMessage {
+  type: "analytics-event";
+  name: string;
+  params?: Record<string, AnalyticsEventParamValue>;
+  atMs: number;
+}
+
+/**
+ * 웹 Amplitude 유저 속성(`$identify`의 `$set`·`$setOnce`)을 Firebase 유저 속성으로 옮긴다 — 오디언스 조건에
+ * 쓰는 값이다. 키는 24자, 값은 36자 이내 문자열(Firebase 규칙) — 넘는 항목은 웹이 빼고 보낸다.
+ */
+export interface AnalyticsUserPropertiesMessage {
+  type: "analytics-user-properties";
+  properties: Record<string, string>;
   atMs: number;
 }
