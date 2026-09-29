@@ -29,7 +29,7 @@ Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈
 ### GA4 (`lib/analytics.ts`)
 
 - **측정 ID는 `VITE_GA4_MEASUREMENT_ID`로만 주입한다**(미설정이면 초기화 건너뜀). SPA라 자동 page_view를 끄고 `AnalyticsRouteTracker`가 라우트마다 보내므로 GA4 콘솔에서 "브라우저 기록 이벤트 기반 페이지 조회"를 꺼둘 것(중복 집계 방지).
-- **전송 경로는 반드시 `sanitizePagePath()`를 거친다**(`window.location.href` 그대로 금지). 공부 상태·집중률·카메라 데이터·사용자 식별자를 GA4로 보내지 말 것.
+- **전송 경로는 반드시 `sanitizePagePath()`를 거친다**(`window.location.href` 그대로 금지). 공부 상태·집중률·카메라 데이터·사용자 식별자를 이 웹 GA4 스트림으로 보내지 말 것. 앱 스트림(네이티브 Firebase Analytics)은 예외다 — 푸시 타겟팅을 위해 Amplitude 이벤트 사본과 백엔드 userId를 받는다([ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)). 두 스트림은 GA4 속성도 다르다(웹 속성 ↔ Firebase 프로젝트별 속성).
 
 ### Amplitude (`lib/amplitude.ts`)
 
@@ -38,7 +38,8 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - **API 키는 `VITE_AMPLITUDE_API_KEY`로만 주입한다**(하드코딩 금지). autocapture는 `pageViews`를 끄고 `sessions`·`elementInteractions`·`formInteractions`·`fileDownloads`는 켠다. **`remoteConfig.fetchRemoteConfig`를 다시 켜지 말 것**(콘솔 설정이 로컬을 덮어써 리뷰를 우회한다). autocapture 변경은 코드로만 한다.
 - **URL 정제는 `sanitizeUrlPlugin`이 `init()`보다 먼저 `add()`로 등록돼 전송 직전 일괄로 한다.** 이 플러그인과 `pageUrlEnrichment: false`·`attribution: { trackingMethod: "userProperty" }`는 한 세트라 하나만 되돌리면 누수가 되살아난다. 정제 대상은 `URL_EVENT_PROPERTIES`·`URL_USER_PROPERTIES` 명시 목록이고 키 이름 규칙으로 자동 판별하지 말 것. **검증은 `amplitudePipeline.test.ts`가 한다**(SDK를 mock하지 않고 fetch body를 본다).
 - **Session Replay는 카메라 차단 조건으로만 켠다.** `blockSelector: ["video", ".amp-block"]` + 카메라 요소 `amp-block`·`sentry-block` 함께 태깅. 캔버스 수집은 꺼두고 수집률은 Amplitude 콘솔이 결정한다. `@amplitude/unified`는 금지.
-- **user_id는 `?userId=N`을 `readUserId()`로 검증해 `setAmplitudeUserId()`로 넣는다.** 서버 값 그대로 보내고(해시·접두어 금지) 호출처는 `initAmplitude()` 말미와 `AnalyticsRouteTracker` 두 곳뿐이며 페이지뷰 전송보다 먼저 호출한다. `userId`가 `null`이면 이미 붙은 신원을 지우지 않는다. **GA4·Sentry에는 보내지 않는다.**
+- **user_id는 `?userId=N`을 `readUserId()`로 검증해 `setAmplitudeUserId()`로 넣는다.** 서버 값 그대로 보내고(해시·접두어 금지) 호출처는 `initAmplitude()` 말미와 `AnalyticsRouteTracker` 두 곳뿐이며 페이지뷰 전송보다 먼저 호출한다. `userId`가 `null`이면 이미 붙은 신원을 지우지 않는다. **웹 GA4(gtag)·Sentry에는 보내지 않는다.** 유일한 예외는 네이티브 Firebase Analytics(앱 스트림)로, 앱이 같은 번호를 GA user_id로 붙인다([ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)).
+- **네이티브 Firebase Analytics 포워딩은 `lib/firebaseAnalyticsBridge.ts`의 destination 플러그인 하나다.** Amplitude 이벤트·`$identify` 유저 속성을 브리지 `analytics-event`·`analytics-user-properties`로 앱에 넘긴다(FCM 콘솔 타겟팅용, [ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)). 이벤트 이름은 목록을 따로 두지 않지만 **값은 토큰만** 통과한다(`packages/types`의 `ANALYTICS_PARAM_VALUE_PATTERN` — enum·에러 코드·정제된 경로·버전은 통과, 공백·한글이 든 자유 문자열은 걸린다. 네이티브도 같은 상수로 다시 거른다). **유저 속성은 `FIREBASE_USER_PROPERTY_KEYS` 화이트리스트만** 넘기고 `$unset`은 `null`로 옮겨 GA 쪽 값을 지운다(GA4 커스텀 유저 속성 25개 한도 — 키를 늘리면 GA 맞춤 정의 등록도 필요). boolean은 문자열로 접는다. 브라우저 단독 모드에서는 아무것도 나가지 않는다.
 - 유입 채널은 autocapture `attribution`(UTM·referrer)과 `setAcquisitionChannel()`(자기 신고) 두 경로다. 후자를 지우지 말 것. 공부 도메인 지표(`study_session_started/ended/submitted`)는 `useStudyRoomSession`이 보내고 `ended`는 세션당 한 번, `submitted`는 시도마다이며 집계는 `computeSessionTotals` 결과를 그대로 넘긴다.
 - 네이티브 셸 이벤트(`source: "native"`)는 `useNativeAnalyticsRelay`가 받고 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다(웹은 형식만 검증). 룸 내부 상태 전이 이벤트는 **실제 전이가 일어났을 때만** 찍고(핸들러마다 찍으면 전이 없이도 난다), 권한 상태는 이벤트가 아니라 user property(`camera_permission_granted`), autocapture `Element Clicked`는 SDK 소유 안전망으로만 본다. 구독을 건 뒤 `analytics-ready`를 보내는 순서를 바꾸지 말 것(그 사이 도착한 이벤트가 버려진다). 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 - ⚠️ **개인정보처리방침의 위탁·국외 이전 조항이 분석 도구 사용을 담지 못했다.** 초안·절차는 [privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).

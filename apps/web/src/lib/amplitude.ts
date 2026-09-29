@@ -5,6 +5,7 @@ import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
 import type { TrackEventMessage } from "@focusmakers/types";
 
+import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
 
@@ -143,6 +144,9 @@ export function initAmplitude() {
    *   발생시키는 설계와 한 세트로만 할 것.
    */
   add(engagementPlugin());
+  // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
+  // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.
+  add(firebaseAnalyticsForwardPlugin());
   init(apiKey, {
     // ⚠️ 서버 user_id는 1부터 시작하는 DB 순번이라 1~4자리가 대부분인데, Amplitude 인제스트는
     // 기본적으로 5자 미만 id를 **이벤트에서 제거**하고 device_id로만 저장한다 — 이 옵션 없이는

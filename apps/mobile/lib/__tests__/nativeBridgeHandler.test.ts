@@ -13,6 +13,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
@@ -54,6 +55,11 @@ jest.mock("../metaAds", () => ({
   logMetaAppEvent: jest.fn(),
 }));
 
+jest.mock("../firebaseAnalytics", () => ({
+  logAnalyticsEvent: jest.fn(),
+  setAnalyticsUserProperties: jest.fn(),
+}));
+
 jest.mock("../auth", () => ({
   ...jest.requireActual<typeof import("../auth")>("../auth"),
   awaitAuth: jest.fn(),
@@ -83,6 +89,10 @@ const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
 >;
 const mockedEmitSessionClosed = emitSessionClosed as jest.MockedFunction<typeof emitSessionClosed>;
 const mockedLogMetaAppEvent = logMetaAppEvent as jest.MockedFunction<typeof logMetaAppEvent>;
+const mockedLogAnalyticsEvent = logAnalyticsEvent as jest.MockedFunction<typeof logAnalyticsEvent>;
+const mockedSetAnalyticsUserProperties = setAnalyticsUserProperties as jest.MockedFunction<
+  typeof setAnalyticsUserProperties
+>;
 const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
 const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
 const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
@@ -311,6 +321,35 @@ describe("handleBridgeMessage", () => {
     );
 
     expect(mockedLogMetaAppEvent).toHaveBeenCalledWith("social_room_entered", undefined, undefined);
+  });
+
+  it("analytics-event → Firebase Analytics 통로에 이름·파라미터를 그대로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "analytics-event",
+        name: "study_session_ended",
+        params: { room_type: "single", focus_sec: 600 },
+        atMs: 1,
+      },
+      noopReply,
+    );
+    handleBridgeMessage({ type: "analytics-event", name: "app_launched", atMs: 1 }, noopReply);
+
+    expect(mockedLogAnalyticsEvent).toHaveBeenCalledWith("study_session_ended", {
+      room_type: "single",
+      focus_sec: 600,
+    });
+    expect(mockedLogAnalyticsEvent).toHaveBeenCalledWith("app_launched", undefined);
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("analytics-user-properties → Firebase 유저 속성으로 넘긴다", () => {
+    handleBridgeMessage(
+      { type: "analytics-user-properties", properties: { theme: "dark" }, atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedSetAnalyticsUserProperties).toHaveBeenCalledWith({ theme: "dark" });
   });
 
   it("motion-sensor를 센서 릴레이에 위임한다", () => {

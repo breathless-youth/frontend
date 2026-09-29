@@ -3,10 +3,11 @@ import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
 /**
  * 네이티브에서만 관측되는 사용자 이벤트를 웹 Amplitude로 넘기는 통로(브리지 `track-event`).
  *
- * 분석 SDK는 웹에만 있다 — 앱은 Firebase Analytics도 링크하지 않고(`CLAUDE.md`), 네이티브
- * Amplitude SDK를 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해진다. 대신 여기서 이벤트를
- * 모아 두고, 웹뷰 호스트(`components/RemoteWebViewHost.tsx`)가 `injectJavaScript`로 옮겨 담는다.
- * 웹은 같은 user_id·세션으로 전송한다(`apps/web/src/lib/amplitude.ts`의 `trackNativeShellEvent`).
+ * 분석의 원천은 웹 Amplitude다 — 네이티브 Amplitude SDK를 들이면 device_id가 웹뷰와 갈라져 신원 통합이
+ * 필요해진다. 대신 여기서 이벤트를 모아 두고, 웹뷰 호스트(`components/RemoteWebViewHost.tsx`)가
+ * `injectJavaScript`로 옮겨 담는다. 웹은 같은 user_id·세션으로 전송한다(`apps/web/src/lib/amplitude.ts`의
+ * `trackNativeShellEvent`). 앱의 Firebase Analytics(`lib/firebaseAnalytics.ts`)는 웹이 되돌려 보내는
+ * 사본을 받을 뿐이라, 여기 이벤트도 웹을 한 바퀴 돌아 그쪽에 도착한다.
  *
  * ## 전달 대상은 언제나 하나(sink)다
  *
