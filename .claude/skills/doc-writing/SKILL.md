@@ -8,8 +8,15 @@ description: 프론트엔드 팀의 한국어 문서 작성 규칙. Jira 티켓 
 ## 공통 문서 작성 규칙 (Jira 티켓 · PR 본문 · 팀 공유 문안)
 
 팀원이 읽는 글은 AI가 쓴 티가 나지 않는 자연스러운 한국어로 작성한다. 한국어 윤문은
-**im-not-ai 스킬**(https://github.com/epoko77-ai/im-not-ai)을 사용한다.
-설치돼 있으면 반드시 invoke하고, 없으면 그 원칙(AI 문체 제거)을 따른다.
+**im-not-ai 스킬**(`humanize-korean`, https://github.com/epoko77-ai/im-not-ai)을 사용한다.
+설치돼 있으면 반드시 invoke한다. 없으면 아래 명령으로 설치한다.
+
+```
+/plugin marketplace add epoko77-ai/im-not-ai
+/plugin install humanize-korean@im-not-ai
+```
+
+설치할 수 없는 환경이면 그 원칙(AI 문체 제거)만이라도 따른다.
 
 이 규칙은 팀 문서뿐 아니라 **세션 답변 문체, 트러블슈팅 기록, 이해도 퀴즈에도 적용한다**. AI스러운 말투를 쓰지 않고, 금지 용어 표를 지키며, 헷갈리는 표현은 사전을 참고해 자연스러운 우리말로 쓴다. 세션 답변은 매번 im-not-ai를 invoke하지는 않되 이 원칙을 지킨다.
 
