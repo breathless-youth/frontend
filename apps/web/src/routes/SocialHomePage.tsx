@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
@@ -19,8 +18,8 @@ import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/ampli
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { slideNavigate } from "@/lib/pageTransition";
 import { createRoom } from "@/lib/roomApi";
+import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
-import { useToast } from "@/lib/useToast";
 
 /**
  * 소셜 홈
@@ -28,7 +27,6 @@ import { useToast } from "@/lib/useToast";
 export function SocialHomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message: toastMessage, showToast } = useToast();
 
   const userId = useUserId();
 
@@ -58,7 +56,7 @@ export function SocialHomePage() {
     } else {
       showToast(notice.message);
     }
-  }, [showToast]);
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: () => createRoom(),
@@ -164,8 +162,6 @@ export function SocialHomePage() {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <ToastViewport message={toastMessage} />
     </main>
   );
 }

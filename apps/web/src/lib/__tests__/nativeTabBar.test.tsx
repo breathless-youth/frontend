@@ -4,8 +4,13 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { __resetModalOverlayForTests } from "@/lib/nativeModalOverlay";
-import { isFullScreenPath, isNativeCoveredPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import { __resetModalOverlayForTests, COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
+import {
+  isFullScreenPath,
+  isNativeCoveredPath,
+  toastBottomOffset,
+  useNativeTabBarSync,
+} from "@/lib/nativeTabBar";
 import {
   pageTransitionFinished,
   slideNavigate,
@@ -72,6 +77,13 @@ function openModal(): HTMLElement {
   element.setAttribute("role", "dialog");
   element.setAttribute("aria-modal", "true");
   document.body.appendChild(element);
+  return element;
+}
+
+/** 바닥에 붙는 시트 — `ui/sheet.tsx`가 `side="bottom"`일 때 다는 속성을 그대로 흉내 낸다. */
+function openBottomSheet(): HTMLElement {
+  const element = openModal();
+  element.setAttribute(COVERS_TAB_BAR_ATTR, "");
   return element;
 }
 
@@ -204,6 +216,23 @@ describe("useNativeTabBarSync", () => {
 
     await waitFor(() => {
       expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+  });
+
+  it("바텀시트가 열리면 차단이 아니라 숨기라고 알린다 — 떠 있는 탭 바가 시트 아래쪽을 가린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    const sheet = openBottomSheet();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+
+    sheet.remove();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
     });
   });
 
@@ -429,5 +458,27 @@ describe("useNativeTabBarSync — 페이지 전환", () => {
       await pageTransitionFinished();
     });
     expect(sentVisibility(postMessage)).toEqual([false, true]);
+  });
+});
+
+describe("toastBottomOffset", () => {
+  const SAFE = "calc(env(safe-area-inset-bottom) + 16px)";
+
+  it("웹뷰의 탭 라우트는 탭 바 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", true)).toBe("var(--tab-bar-reserve)");
+    expect(toastBottomOffset("/social", true)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("탭 바가 없는 전체 화면 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/social/code", true)).toBe(SAFE);
+    expect(toastBottomOffset("/social/room/42", true)).toBe(SAFE);
+  });
+
+  it("네이티브 모달로 뜬 세션 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/room/7", true)).toBe(SAFE);
+  });
+
+  it("브라우저 단독 모드는 탭 바가 없어 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", false)).toBe(SAFE);
   });
 });

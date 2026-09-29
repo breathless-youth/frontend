@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Toaster } from "@/components/ui/sonner";
 import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import { getProfile, updateProfile } from "@/lib/profileApi";
@@ -47,6 +49,10 @@ afterEach(() => {
   vi.clearAllMocks();
   // 저장 완료 토스트 1회성 플래그가 테스트 간에 새지 않게 비운다.
   sessionStorage.clear();
+  // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
+  act(() => {
+    toast.dismiss();
+  });
 });
 
 describe("프로필 설정", () => {
@@ -275,6 +281,7 @@ describe("프로필 설정", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/profile?userId=7"]}>
+          <Toaster />
           <Routes>
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
@@ -299,6 +306,7 @@ describe("프로필 설정", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/profile?userId=7"]}>
+          <Toaster />
           <Routes>
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />

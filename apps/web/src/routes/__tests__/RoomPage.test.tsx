@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
@@ -142,9 +143,13 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   // 모듈 스코프 mock이라 clearAllMocks 없이는 호출 기록이 테스트 간 누적된다.
   // unstubAllGlobals: 카메라 전환 테스트가 stubGlobal("navigator", ...)을 거는데,
   // 다른 테스트로 새지 않게 매번 원복한다(스텁한 적 없으면 no-op).
+  // toast.dismiss: 카메라 전환 토스트가 다음 테스트로 새지 않게 지운다.
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   it("순공 타이머·총 공부 병기·컨트롤 바를 렌더링한다", () => {
@@ -227,6 +232,27 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
 
     expect(await screen.findByText("카메라를 전환했어요")).toBeInTheDocument();
+  });
+
+  it("카메라가 꺼져 있으면 전환 실패 토스트를 띄운다", async () => {
+    // navigator를 스텁하지 않는다 — jsdom 기본값 그대로면 카메라가 끝내 열리지 않는다.
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    expect(await screen.findByText("카메라가 꺼져 있어요")).toBeInTheDocument();
+  });
+
+  it("전환할 카메라가 하나뿐이면 대안 없음 토스트를 띄운다", async () => {
+    stubWorkingCamera(["videoinput"]);
+    renderRoom("/room/7?userId=1");
+    await waitFor(() => {
+      expect(document.querySelector("video")?.srcObject).toBeTruthy();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    expect(await screen.findByText("전환할 카메라가 없어요")).toBeInTheDocument();
   });
 
   it("종료 클릭 시 제출하고 S4(공부 결과)로 결과를 들고 넘어간다", async () => {
@@ -473,6 +499,9 @@ describe("RoomPage — S3-3 일시정지", () => {
   afterEach(() => {
     vi.clearAllMocks();
     setVisibility("visible");
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   it("상태 필을 일시정지 문구로 바꾼다", async () => {
@@ -630,6 +659,9 @@ describe("RoomPage — S3-4 심플 모드", () => {
     // 아래 `<video>` 유지 테스트가 stubGlobal("navigator", ...)을 건다 — 다른 테스트로 새지
     // 않게 원복한다(스텁한 적 없으면 no-op).
     vi.unstubAllGlobals();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   async function enterSimpleMode() {
@@ -825,6 +857,9 @@ describe("RoomPage — S3-4 심플 모드", () => {
 describe("RoomPage — S3-7 종료 확인", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   async function openExitDialog() {
@@ -983,6 +1018,9 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
   // 모듈 스코프 mock이라 정리하지 않으면 호출 기록이 테스트 간 누적된다(다른 describe와 동일).
   afterEach(() => {
     vi.clearAllMocks();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   it("결과 화면 대신 미달 안내를 보여준다", async () => {

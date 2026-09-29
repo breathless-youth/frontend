@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { act, fireEvent } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
@@ -67,6 +68,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();
   sessionStorage.clear();
+  // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
+  act(() => {
+    toast.dismiss();
+  });
 });
 
 describe("소셜 홈", () => {
@@ -97,8 +102,27 @@ describe("소셜 홈", () => {
     const button = screen.getByRole("button", { name: "방 만들기" });
     await userEvent.click(button);
 
-    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
     expect(button).toBeEnabled();
+  });
+
+  it("실패 토스트가 뜬 채로 재시도해 성공하면 코드 공유 화면에 낡은 토스트가 남지 않는다", async () => {
+    mockedCreateRoom
+      .mockRejectedValueOnce(new ApiError("서버 오류", 500))
+      .mockResolvedValueOnce({ roomId: 42, inviteCode: "0712", emptyTtlSeconds: 600 });
+    renderAt("/social?userId=7");
+
+    const button = screen.getByRole("button", { name: "방 만들기" });
+    await userEvent.click(button);
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+
+    await userEvent.click(button);
+    expect(await screen.findByText("방이 만들어졌어요")).toBeInTheDocument();
+
+    // sonner는 퇴장 애니메이션 뒤 약 200ms 지나야 DOM에서 걷어낸다.
+    await waitFor(() => {
+      expect(screen.queryByText("잠시 후 다시 시도해 주세요")).not.toBeInTheDocument();
+    });
   });
 
   it("초대코드로 참여를 누르면 입력 화면으로 이동한다", async () => {
@@ -147,28 +171,33 @@ describe("소셜 홈", () => {
     expect(screen.getByRole("button", { name: "방 만들기" })).toBeDisabled();
   });
 
-  it("룸에서 밀려나며 남긴 안내가 있으면 마운트 시 토스트로 보여주고 한 번만 뜬다", () => {
+  it("룸에서 밀려나며 남긴 안내가 있으면 마운트 시 토스트로 보여주고 한 번만 뜬다", async () => {
     markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
     const { unmount } = renderAt("/social?userId=7");
 
-    expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
+    expect(await screen.findByText("방이 만료되었어요")).toBeInTheDocument();
 
     // 안내는 1회성이다 — 웹뷰가 또 리로드돼 소셜 홈이 다시 마운트돼도 반복되지 않는다.
     unmount();
+    // sonner 토스트 상태는 화면 언마운트로 지워지지 않는다 — 남아 있으면 다음 마운트에
+    // 그대로 다시 그려져 "반복되지 않는다"는 이 테스트의 의도를 가짜로 통과시킨다.
+    act(() => {
+      toast.dismiss();
+    });
     renderAt("/social?userId=7");
     expect(screen.queryByText("방이 만료되었어요")).not.toBeInTheDocument();
   });
 
-  it("안내는 웹뷰(문서)가 달라도 전달된다 — sessionStorage가 아니라 localStorage에 남는다", () => {
+  it("안내는 웹뷰(문서)가 달라도 전달된다 — sessionStorage가 아니라 localStorage에 남는다", async () => {
     markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
     // 다른 웹뷰는 sessionStorage를 공유하지 않는다 — 지워도 안내가 살아 있어야 한다.
     sessionStorage.clear();
     renderAt("/social?userId=7");
 
-    expect(screen.getByText("방이 만료되었어요")).toBeInTheDocument();
+    expect(await screen.findByText("방이 만료되었어요")).toBeInTheDocument();
   });
 
-  it("네이티브 셸에서 noticeHandoff 이동은 안내를 소비하지 않는다 — 도착지 탭 웹뷰가 띄운다", () => {
+  it("네이티브 셸에서 noticeHandoff 이동은 안내를 소비하지 않는다 — 도착지 탭 웹뷰가 띄운다", async () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
     markSocialRoomNotice({
       kind: "failure",
@@ -186,13 +215,13 @@ describe("소셜 홈", () => {
     unmount();
     vi.unstubAllGlobals();
     renderAt("/social?userId=7");
-    expect(screen.getByText(/공부 기록을 저장했어요/)).toBeInTheDocument();
+    expect(await screen.findByText(/공부 기록을 저장했어요/)).toBeInTheDocument();
   });
 
   it("남긴 안내가 없으면 토스트가 뜨지 않는다", () => {
     renderAt("/social?userId=7");
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText("방이 만료되었어요")).not.toBeInTheDocument();
   });
 
   it("자리비움(grace-end) 안내는 토스트가 아니라 모달로 뜨고, 확인을 누르면 닫힌다", async () => {
@@ -204,18 +233,20 @@ describe("소셜 홈", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("자리를 오래 비워");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // 같은 문구가 모달 안에 이미 있어 queryByText로는 못 가른다 — 알림 영역 안에는 없는지로 본다.
+    const noticeRegion = screen.getByRole("region", { name: "알림" });
+    expect(within(noticeRegion).queryByText(/자리를 오래 비워/)).not.toBeInTheDocument();
 
     await userEvent.click(within(dialog).getByRole("button", { name: "확인" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("입장/생성 실패(failure) 안내는 모달이 아니라 기존대로 토스트로 뜬다", () => {
+  it("입장/생성 실패(failure) 안내는 모달이 아니라 기존대로 토스트로 뜬다", async () => {
     markSocialRoomNotice({ kind: "failure", message: "방이 만료되었어요" });
     renderAt("/social?userId=7");
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("방이 만료되었어요");
+    expect(await screen.findByText("방이 만료되었어요")).toBeInTheDocument();
   });
 });
 

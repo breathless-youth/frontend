@@ -343,13 +343,13 @@ Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
 
 공용 프리미티브는 `apps/web/src/components/ui/`에 있다.
 
-| 컴포넌트                  | API                                                                                                                                                   | 비고                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `Button`                  | `variant`: `default` `outline` `ghost` / `size`: `default`(h-10) `sm`(h-8) `lg`(h-12)                                                                 | shadcn 기반. `buttonVariants`도 함께 내보낸다 |
-| `Dialog`                  | `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogFooter` `DialogTitle` `DialogDescription` `DialogClose` `DialogOverlay` `DialogPortal` | Radix 기반                                    |
-| `Toast` / `ToastViewport` | `message`, `tone`(`session` 하나)                                                                                                                     | 다크 알약 고정. 배경은 `--session-toast-bg`   |
-| `Skeleton`                | `className`                                                                                                                                           | 로딩 자리표시                                 |
-| `ErrorState`              | `message`, `onRetry`, `screen`                                                                                                                        | 조회 실패 자리표시. `screen`은 계측용         |
+| 컴포넌트                                              | API                                                                                                                                                   | 비고                                                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Button`                                              | `variant`: `default` `outline` `ghost` / `size`: `default`(h-10) `sm`(h-8) `lg`(h-12)                                                                 | shadcn 기반. `buttonVariants`도 함께 내보낸다                                                          |
+| `Dialog`                                              | `Dialog` `DialogTrigger` `DialogContent` `DialogHeader` `DialogFooter` `DialogTitle` `DialogDescription` `DialogClose` `DialogOverlay` `DialogPortal` | Radix 기반                                                                                             |
+| `Toaster` / `CtaToaster` (`components/ui/sonner.tsx`) | 호출은 `showToast(msg)`, 버튼 위는 `showCtaToast(msg)`(`lib/toast.ts`)                                                                                | 다크 알약 고정. 배경은 `--session-toast-bg`. 5초·한 번에 하나. 탭 화면은 탭 바 위(`--tab-bar-reserve`) |
+| `Skeleton`                                            | `className`                                                                                                                                           | 로딩 자리표시                                                                                          |
+| `ErrorState`                                          | `message`, `onRetry`, `screen`                                                                                                                        | 조회 실패 자리표시. `screen`은 계측용                                                                  |
 
 공용 화면 조각은 `apps/web/src/components/`에 있다.
 

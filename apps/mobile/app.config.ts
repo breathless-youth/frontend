@@ -175,6 +175,81 @@ function guardFirebaseFile(
   return value;
 }
 
+/**
+ * Meta(Facebook) SDK 설정 주입.
+ *
+ * 앱 ID·클라이언트 토큰은 Meta 앱 대시보드 값이다. 둘 다 바이너리(Info.plist·AndroidManifest)에 박히는
+ * 공개 성격의 값이지만, 저장소가 public이고 dev/prod Meta 앱이 갈릴 수 있어 Firebase 파일과 같은 방식으로
+ * env(`META_APP_ID`·`META_CLIENT_TOKEN`)로 받는다. env가 없으면 SDK plugin을 넣지 않는다 — Metro만 띄우는
+ * 로컬 개발과 광고를 붙이지 않는 개발 빌드는 그대로 돌아가고, 런타임(`lib/metaAdsSdk.ts`)도 `extra.metaAppId`가
+ * 비어 있으면 ATT 프롬프트·이벤트 전부 no-op이다.
+ *
+ * production만 예외로 누락을 끊되, Firebase와 같은 이유로 **EAS 빌더(`EAS_BUILD=true`)에서만** 끊는다 —
+ * 어트리뷰션 없는 운영 바이너리가 조용히 나가면 광고 집행 뒤에야 알게 된다.
+ *
+ * plugin은 `react-native-fbsdk-next`(SDK 본체·SKAdNetwork 식별자·Info.plist/Manifest 키)와
+ * `expo-tracking-transparency`(Android `AD_ID` 권한, iOS 문구는 `app.json`의 `NSUserTrackingUsageDescription`을
+ * 그대로 둔다) 둘이다. fbsdk plugin은 로그인용 `scheme`·`displayName`이 없으면 throw하므로 관례값
+ * (`fb<앱 ID>`, 앱 표시명)을 넣는다 — 로그인은 쓰지 않는다.
+ */
+type MetaSdkConfig = { appId: string; clientToken: string };
+
+function resolveMetaSdk(variant: AppVariant): MetaSdkConfig | null {
+  const appId = process.env.META_APP_ID ?? "";
+  const clientToken = process.env.META_CLIENT_TOKEN ?? "";
+  if (appId === "" && clientToken === "") {
+    if (variant === "production" && isEasBuilder()) {
+      throw new Error(
+        "META_APP_ID·META_CLIENT_TOKEN이 비어 있습니다. " +
+          "production 빌드에는 EAS production environment에 Meta 앱 설정을 주입하세요 — " +
+          "없으면 설치 어트리뷰션이 빠진 바이너리가 나갑니다.",
+      );
+    }
+    return null;
+  }
+  if (appId === "" || clientToken === "") {
+    throw new Error(
+      `META_APP_ID와 META_CLIENT_TOKEN은 함께 있어야 합니다(비어 있는 값: ${
+        appId === "" ? "META_APP_ID" : "META_CLIENT_TOKEN"
+      }). 둘 다 Meta 앱 대시보드 > 앱 설정 > 기본 설정/고급 설정에서 가져옵니다.`,
+    );
+  }
+  if (!/^\d+$/.test(appId)) {
+    throw new Error(
+      `META_APP_ID가 숫자가 아닙니다(${appId}). Meta 앱 대시보드의 앱 ID를 넣으세요.`,
+    );
+  }
+  return { appId, clientToken };
+}
+
+function metaSdkPlugins(
+  meta: MetaSdkConfig | null,
+  displayName: string,
+): NonNullable<ExpoConfig["plugins"]> {
+  if (meta === null) {
+    return [];
+  }
+  return [
+    [
+      "react-native-fbsdk-next",
+      {
+        appID: meta.appId,
+        clientToken: meta.clientToken,
+        displayName,
+        scheme: `fb${meta.appId}`,
+        // 네이티브 auto-init — JS `Settings.initializeSDK()`보다 먼저 SDK가 서서, 첫 실행의 가입 완료처럼
+        // ATT 응답 전에 큐에 들어간 이벤트도 초기화 뒤 그대로 나간다(`lib/metaAds.ts`).
+        isAutoInitEnabled: true,
+        // 설치·앱 실행·세션 길이 자동 로깅 — 설치 어트리뷰션의 근거 이벤트다. 끄면 광고 성과가 0으로 보인다.
+        autoLogAppEventsEnabled: true,
+        // Android 광고 ID(GAID) 수집. iOS는 ATT 응답에 따라 런타임이 다시 정한다(`lib/metaAdsSdk.ts`).
+        advertiserIDCollectionEnabled: true,
+      },
+    ],
+    "expo-tracking-transparency",
+  ];
+}
+
 // 미설정만 development다. 오타가 development로 떨어지면 빈 주소 빌드가 아무 표시 없이
 // 나가므로, 세 값 밖의 문자열은 여기서 끊는다.
 function resolveAppVariant(raw: string | undefined): AppVariant {
@@ -250,6 +325,9 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
     bundleIdentifier,
   );
 
+  const appDisplayName = `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`;
+  const metaSdk = resolveMetaSdk(variant);
+
   const webBaseUrl = table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL);
   // development는 웹이 로컬 주소라 App Link를 걸 host가 없고, staging과 같은 host를 두 앱이
   // claim하면 어느 앱이 열릴지 OS가 보장하지 않는다. 그래서 상수 주소가 있는 변형만 선언한다.
@@ -278,6 +356,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
     plugins: [
       ...(config.plugins ?? []),
       ["expo-dev-client", { addGeneratedScheme: variant === "development" }],
+      ...metaSdkPlugins(metaSdk, appDisplayName),
     ],
     ios: {
       ...config.ios,
@@ -298,9 +377,11 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       appEnv: variant,
       appSchemes: table.schemes,
       deepLinkHosts,
-      appDisplayName: `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`,
+      appDisplayName,
       apiBaseUrl: table.apiBaseUrl ?? guardDevBaseUrl("API_BASE_URL", process.env.API_BASE_URL),
       webBaseUrl,
+      // 런타임 게이트(`lib/metaAdsSdk.ts`) — 비어 있으면 Meta SDK가 빌드에 없다는 뜻이다.
+      metaAppId: metaSdk?.appId ?? "",
     },
   };
 }

@@ -43,6 +43,14 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - 네이티브 셸 이벤트(`source: "native"`)는 `useNativeAnalyticsRelay`가 받고 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다(웹은 형식만 검증). 룸 내부 상태 전이 이벤트는 **실제 전이가 일어났을 때만** 찍고(핸들러마다 찍으면 전이 없이도 난다), 권한 상태는 이벤트가 아니라 user property(`camera_permission_granted`), autocapture `Element Clicked`는 SDK 소유 안전망으로만 본다. 구독을 건 뒤 `analytics-ready`를 보내는 순서를 바꾸지 말 것(그 사이 도착한 이벤트가 버려진다). 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 - ⚠️ **개인정보처리방침의 위탁·국외 이전 조항이 분석 도구 사용을 담지 못했다.** 초안·절차는 [privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
 
+### Meta 광고 전환 (`lib/metaAppEvents.ts`)
+
+앱 설치 광고의 전환은 브리지 `meta-app-event`로 네이티브 Meta SDK에 넘긴다(BY-644, `track-event`의 역방향). **전환 목록은 이 파일이 소유한다** — 네이티브는 이름을 해석하지 않고 형식(영문자 시작·영숫자·`_`·`-`·공백·40자 이내, 파라미터 25개·문자열/수)만 검증하므로 여기만 고치면 웹 배포로 끝난다.
+
+- **Amplitude의 의도적 부분집합이다.** Amplitude 함수와 같은 자리에서 같은 값으로 부르되, Meta는 광고 최적화용 소수의 전환만 원하고 여기 실린 것은 전부 Meta 서버로 나간다(개인정보처리방침 위탁 항목). 이벤트를 늘릴 때는 그 이유를 이 파일 주석에 남긴다.
+- 파라미터는 enum·수만, boolean은 1/0으로 접는다. 식별자·초대코드·자유 문자열 금지. 복원 진입(`restored`)·유예 재입장은 새 전환이 아니라 보내지 않는다.
+- 브라우저 단독 모드와 Meta env 없는 앱 빌드에서는 조용히 버려진다 — 호출부에서 분기하지 말 것.
+
 ## 네이티브 브리지 (`lib/bridge.ts`)
 
 - **`postToNative`의 `try/catch`를 제거하지 말 것.** 존재 검사를 통과해도 호출이 throw할 수 있다(웹뷰 파괴 중 iOS `ReactNativeWebView.postMessage` 껍데기만 남는 경우).
