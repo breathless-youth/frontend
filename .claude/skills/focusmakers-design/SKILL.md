@@ -54,7 +54,7 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 | 색만으로 의미 전달 | 도트·막대·도장에는 텍스트 라벨이나 `role="img"` + `aria-label`을 붙인다 |
 | 터치 타겟 | 누를 수 있는 것은 `min-h-11`(44px). 시각 크기가 작으면 `before:-inset-1`로 히트 영역을 넓힌다 |
 | 계산은 컴포넌트 밖 | 집중률·합계·날짜 계산은 순수 TS 모듈(`recordsFormat.ts`, `sessionResult.ts` 방식)에 두고 컴포넌트는 그리기만 한다 |
-| 하단 고정 | 새 화면에 `fixed bottom-*`을 쓰지 않는다. 토스트 위치는 `ToastViewport`가 소유한다 |
+| 하단 고정 | 새 화면에 `fixed bottom-*`을 쓰지 않는다. 토스트는 `showToast(msg)`(`lib/toast.ts`)만 부르고 위치는 `App.tsx`의 전역 `Toaster`가 정한다. 하단 버튼 위에 띄울 때만 `showCtaToast(msg)` + `CtaToaster` |
 | 이동 시 검색 문자열 | `navigate`할 때 `location.search`(`?userId=`)를 반드시 넘긴다 |
 
 ## Quick Reference

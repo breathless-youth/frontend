@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
-import { Toast } from "@/components/ui/toast";
+import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
@@ -37,8 +37,8 @@ import type {
 } from "@/features/study-session/sessionState";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { useToast } from "@/lib/useToast";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
+import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
@@ -233,7 +233,6 @@ function RoomSessionScreen({
   const sessionSurfaceRef = useRef<HTMLElement>(null);
   // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
-  const { message: toastMessage, showToast } = useToast();
   // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
@@ -374,10 +373,10 @@ function RoomSessionScreen({
     try {
       const result = await flipCamera();
       if (result.ok) {
-        showToast(CAMERA_TOAST_COPY.flipped);
+        showCtaToast(CAMERA_TOAST_COPY.flipped);
         return;
       }
-      showToast(
+      showCtaToast(
         result.reason === "camera-off"
           ? CAMERA_TOAST_COPY.cameraOff
           : CAMERA_TOAST_COPY.noAlternative,
@@ -498,12 +497,7 @@ function RoomSessionScreen({
             <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
             <div className="relative mt-[44px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
-              {toastMessage !== null && (
-                <Toast
-                  message={toastMessage}
-                  className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
-                />
-              )}
+              <CtaToaster />
               {/* 심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
                   추론만 끊긴다(그쪽 prop 주석). 화면을 한 번 탭해 프리뷰로 돌아오면 풀린다. */}
               <SessionControlBar

@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { ToastViewport } from "@/components/ui/toast";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
 import { hardNavigate } from "@/lib/hardNavigation";
-import { useToast } from "@/lib/useToast";
+import { showToast } from "@/lib/toast";
 import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
@@ -46,7 +45,6 @@ export function SettingsPage() {
   // 표시는 지연한다: /profile은 탭 바 숨김 라우트라 복귀 순간 네이티브 탭 바가 애니메이션으로
   // 되돌아오며 웹뷰 높이가 줄어드는데, 그동안 하단 고정 토스트가 리사이즈를 따라 눈에 띄게
   // 움직였다(2026-08-25 실기기 피드백). 복귀 애니메이션이 끝난 뒤에 등장시킨다.
-  const { message: toastMessage, showToast } = useToast();
   const profileSavedRef = useRef<boolean | null>(null);
   profileSavedRef.current ??= consumeProfileSavedNotice();
   useEffect(() => {
@@ -57,7 +55,7 @@ export function SettingsPage() {
       showToast("프로필이 저장됐어요");
     }, PROFILE_SAVED_TOAST_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [showToast]);
+  }, []);
 
   const versionLabel = appVersionLabel(
     searchParams.get("appVersion"),
@@ -200,12 +198,6 @@ export function SettingsPage() {
           />
         </SettingsSection>
       </div>
-
-      {/* 위치는 앱 전역 표준(ToastViewport) — 등장 페이드 업(BY-435)만 이 화면 개선으로 남긴다. */}
-      <ToastViewport
-        message={toastMessage}
-        toastClassName="animate-[toast-rise_240ms_ease-out] motion-reduce:animate-none"
-      />
     </main>
   );
 }

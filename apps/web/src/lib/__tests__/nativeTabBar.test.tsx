@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { __resetModalOverlayForTests, COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
-import { isFullScreenPath, isNativeCoveredPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import {
+  isFullScreenPath,
+  isNativeCoveredPath,
+  toastBottomOffset,
+  useNativeTabBarSync,
+} from "@/lib/nativeTabBar";
 
 /**
  * 전체 화면 웹 라우트에서 네이티브 탭 바를 감추는 동기화(`set-tab-bar`).
@@ -344,5 +349,27 @@ describe("useNativeTabBarSync", () => {
     await waitFor(() => {
       expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
     });
+  });
+});
+
+describe("toastBottomOffset", () => {
+  const SAFE = "calc(env(safe-area-inset-bottom) + 16px)";
+
+  it("웹뷰의 탭 라우트는 탭 바 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", true)).toBe("var(--tab-bar-reserve)");
+    expect(toastBottomOffset("/social", true)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("탭 바가 없는 전체 화면 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/social/code", true)).toBe(SAFE);
+    expect(toastBottomOffset("/social/room/42", true)).toBe(SAFE);
+  });
+
+  it("네이티브 모달로 뜬 세션 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/room/7", true)).toBe(SAFE);
+  });
+
+  it("브라우저 단독 모드는 탭 바가 없어 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", false)).toBe(SAFE);
   });
 });

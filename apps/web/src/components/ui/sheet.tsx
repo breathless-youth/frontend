@@ -60,7 +60,7 @@ export interface SheetContentProps
    *
    * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳에서는 반드시 그 서브트리의 요소를
    * 넘겨야 한다. body 로 나가면 변수가 풀리지 않아 색이 통째로 빠진다
-   * (같은 문제를 `ui/toast.tsx` 가 폴백 값으로 우회한다).
+   * (같은 문제를 `ui/sonner.tsx` 가 폴백 값으로 우회한다).
    */
   container?: HTMLElement | null;
   /** 딤에 얹을 클래스. 세션처럼 전역 `--dim` 과 다른 딤을 쓰는 곳이 덮어쓴다. */
