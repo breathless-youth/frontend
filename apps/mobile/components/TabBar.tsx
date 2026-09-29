@@ -165,6 +165,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   pill: { ...StyleSheet.absoluteFillObject, borderRadius: 999 },
-  // useFonts 등록 키는 app/_layout.tsx 기준 "NanumSquareRoundBold"(하이픈 없음).
-  label: { fontSize: 11, fontFamily: "NanumSquareRoundBold", lineHeight: 13 },
+  // 폰트 파일 속 이름이 아니라 app/_layout.tsx의 useFonts 등록 키를 써야 iOS와 Android에서 같은 폰트로 풀린다.
+  label: { fontSize: 11, fontFamily: "PretendardBold", lineHeight: 13 },
 });
