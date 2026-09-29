@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_AMPLITUDE_API_KEY?: string;
   /** 측정용 전 빌드 전용. "off"면 홈에서 Vision 자원을 미리 받지 않는다. */
   readonly VITE_VISION_PREFETCH?: string;
+  /** 측정용 전 빌드 전용. "off"면 Vision 추론을 워커 대신 메인 스레드에서 돌린다. */
+  readonly VITE_VISION_WORKER?: string;
   /**
    * 측정 빌드 전용. "1"이면 세션 화면에 `VisionPerfPanel`을 띄운다. 운영 빌드에서는 비어 있어
    * 호출부 조건이 false로 접히고 패널이 번들에서 빠진다.

@@ -12,13 +12,19 @@ import {
   useTrackedVisionDetector,
   useVisionReadyTracking,
 } from "../useVisionReadyTracking";
+import type { AssetTiming, VisionRuntimeKind } from "../vision/objectDetector";
 import { DEFAULT_MODEL_VARIANT, MODEL_PATHS } from "../vision/visionConfig";
 
-const mocks = vi.hoisted(() => ({ ready: vi.fn(), createVisionFocusDetector: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  ready: vi.fn(),
+  fallback: vi.fn(),
+  createVisionFocusDetector: vi.fn(),
+}));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackVisionDetectorReady: mocks.ready,
+  trackVisionRuntimeFallback: mocks.fallback,
 }));
 
 vi.mock("../adapters/focusDetector", async (importOriginal) => ({
@@ -113,10 +119,15 @@ describe("readVisionAssetCache", () => {
   });
 });
 
-/** 감지기의 상태 알림만 흉내 낸다. 훅은 subscribeStatus 말고는 보지 않는다. */
-function createStatusSource() {
+/** 감지기의 상태 알림과 준비 시점에 읽는 두 값만 흉내 낸다. */
+function createStatusSource(
+  options: { runtime?: VisionRuntimeKind; assetTimings?: readonly AssetTiming[] } = {},
+) {
   const listeners = new Set<(status: VisionDetectorStatus) => void>();
+  const fallbackListeners = new Set<() => void>();
   return {
+    runtime: options.runtime ?? "main",
+    assetTimings: options.assetTimings ?? [],
     subscribeStatus(listener: (status: VisionDetectorStatus) => void) {
       listeners.add(listener);
       return () => {
@@ -129,6 +140,17 @@ function createStatusSource() {
           listener(status);
         }
       });
+    },
+    subscribeRuntimeFallback(listener: () => void) {
+      fallbackListeners.add(listener);
+      return () => {
+        fallbackListeners.delete(listener);
+      };
+    },
+    emitFallback() {
+      for (const listener of [...fallbackListeners]) {
+        listener();
+      }
     },
   };
 }
@@ -145,6 +167,7 @@ describe("useVisionReadyTracking", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mocks.ready.mockClear();
+    mocks.fallback.mockClear();
     mocks.createVisionFocusDetector.mockClear();
     // fp32 테스트가 쿼리를 바꾼 채 단언에서 실패해도 다음 테스트로 새지 않게 항상 되돌린다.
     window.history.pushState({}, "", "/");
@@ -160,11 +183,20 @@ describe("useVisionReadyTracking", () => {
     source.emit("ready");
 
     expect(mocks.ready.mock.calls).toEqual([
-      [{ loadMs: 2_501, roomType: "single", wasmCache: "unknown", modelCache: "unknown" }],
+      [
+        {
+          loadMs: 2_501,
+          roomType: "single",
+          runtime: "main",
+          wasmCache: "unknown",
+          modelCache: "unknown",
+        },
+      ],
     ]);
     expect(result.current).toEqual({
       loadMs: 2_501,
       readyAtMs: 3_501.2,
+      runtime: "main",
       wasm: { cache: "unknown", transferSize: null },
       model: { cache: "unknown", transferSize: null },
     });
@@ -184,6 +216,7 @@ describe("useVisionReadyTracking", () => {
     expect(mocks.ready).toHaveBeenCalledWith({
       loadMs: 0,
       roomType: "social",
+      runtime: "main",
       wasmCache: "hit",
       modelCache: "miss",
     });
@@ -237,6 +270,51 @@ describe("useVisionReadyTracking", () => {
 
     expect(mocks.ready).not.toHaveBeenCalled();
   });
+
+  it("워커가 보낸 자원 항목으로 캐시를 판정하고 runtime을 싣는다 — 워커의 요청은 문서 Resource Timing에 없다", () => {
+    const source = createStatusSource({
+      runtime: "worker",
+      assetTimings: [resource(WASM, 300, 3_392_792), resource(MODEL, 3_416_796, 3_416_496)],
+    });
+    renderHook(() => useVisionReadyTracking(source, "single"));
+
+    source.emit("loading");
+    source.emit("ready");
+
+    expect(mocks.ready).toHaveBeenCalledWith({
+      loadMs: 0,
+      roomType: "single",
+      runtime: "worker",
+      wasmCache: "hit",
+      modelCache: "miss",
+    });
+  });
+});
+
+describe("useVisionReadyTracking 런타임 폴백", () => {
+  afterEach(() => {
+    mocks.fallback.mockClear();
+  });
+
+  it("세션 도중 메인 스레드로 갈아타면 룸 종류와 함께 한 번만 보낸다", () => {
+    const source = createStatusSource({ runtime: "worker" });
+    renderHook(() => useVisionReadyTracking(source, "social"));
+
+    source.emitFallback();
+    source.emitFallback();
+
+    expect(mocks.fallback.mock.calls).toEqual([[{ roomType: "social" }]]);
+  });
+
+  it("언마운트한 뒤의 갈아타기는 듣지 않는다", () => {
+    const source = createStatusSource({ runtime: "worker" });
+    const hook = renderHook(() => useVisionReadyTracking(source, "single"));
+
+    hook.unmount();
+    source.emitFallback();
+
+    expect(mocks.fallback).not.toHaveBeenCalled();
+  });
 });
 
 describe("useTrackedVisionDetector", () => {
@@ -269,8 +347,16 @@ describe("useTrackedVisionDetector", () => {
           listeners.delete(listener);
         };
       },
+      subscribeRuntimeFallback() {
+        return () => {};
+      },
       start,
-    } as Pick<VisionFocusDetector, "subscribeStatus" | "start">);
+      runtime: "main",
+      assetTimings: [],
+    } as Pick<
+      VisionFocusDetector,
+      "subscribeStatus" | "subscribeRuntimeFallback" | "start" | "runtime" | "assetTimings"
+    >);
 
     const { result } = renderHook(() => {
       const tracked = useTrackedVisionDetector({ current: null }, "single");

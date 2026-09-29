@@ -41,6 +41,7 @@ import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialHomePage } from "@/routes/SocialHomePage";
 import { TermsPage } from "@/routes/TermsPage";
+import { WorkerParityPage } from "@/routes/WorkerParityPage";
 
 /** 라우트가 바뀔 때마다 탭 바를 피해 토스트 위치를 다시 잰다. */
 function AppToaster() {
@@ -112,6 +113,9 @@ export function App() {
             <Route path="/social" element={<SocialHomePage />} />
             {import.meta.env.DEV && (
               <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+            )}
+            {import.meta.env.VITE_PERF_PANEL === "1" && (
+              <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
             )}
             <Route path="/social/code" element={<InviteCodeSharePage />} />
             <Route path="/social/join" element={<InviteCodeJoinPage />} />
