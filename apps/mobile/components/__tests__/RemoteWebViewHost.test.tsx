@@ -370,6 +370,32 @@ describe("RemoteWebViewHost", () => {
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
   });
 
+  it.each(["backforward", "other"] as const)(
+    "history shim이 쏘는 onLoadEnd(navigationType: %s)는 웹이 끈 제스처를 유지한다",
+    (navigationType) => {
+      render(<RemoteWebViewHost path="/social" testID="host" />);
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => {
+        onMessage({
+          nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":5}' },
+        });
+      });
+      expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+
+      // react-native-webview 13.15.0 iOS History API shim은 pushState·replaceState·popstate에도
+      // (setTimeout 뒤) onLoadingFinish를 쏘고 이때만 navigationType이 채워진다. 진짜 새 문서가
+      // 아니므로 웹이 방금 건 잠금을 되돌리면 안 된다.
+      const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as (event: {
+        nativeEvent: { navigationType?: string };
+      }) => void;
+      act(() => {
+        onLoadEnd({ nativeEvent: { navigationType } });
+      });
+
+      expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+    },
+  );
+
   it("앱을 새로 켰으면 홈 웹뷰의 준비 신호에 app-launched로 응답한다", () => {
     mockAppLaunchPending = true;
     render(<RemoteWebViewHost path="/home" testID="host" />);
