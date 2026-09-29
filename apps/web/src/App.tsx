@@ -53,7 +53,7 @@ function AppToaster() {
   useEffect(() => {
     dismissToast();
   }, [pathname]);
-  return <Toaster offset={{ bottom }} mobileOffset={{ bottom }} />;
+  return <Toaster bottom={bottom} />;
 }
 
 export function App() {

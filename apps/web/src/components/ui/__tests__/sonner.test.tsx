@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { CtaToaster, TOAST_PILL_CLASS, Toaster } from "@/components/ui/sonner";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { CTA_TOASTER_ID } from "@/lib/toast";
+import { CTA_TOASTER_ID, showCtaToast, showToast } from "@/lib/toast";
 
 afterEach(() => {
   act(() => {
@@ -57,5 +57,44 @@ describe("Toaster", () => {
   it("알약 배경 폴백이 세션 화면이 주입하는 값과 같다", () => {
     const injected = (sessionSurfaceStyle as Record<string, string>)["--session-toast-bg"];
     expect(TOAST_PILL_CLASS).toContain(`var(--session-toast-bg,${injected.replaceAll(" ", "")})`);
+  });
+
+  it("모바일 오프셋의 좌우를 0으로 둬서 알약 폭 보정이 어긋나지 않게 한다", async () => {
+    render(
+      <>
+        <div data-testid="global">
+          <Toaster bottom="12px" />
+        </div>
+        <div data-testid="cta">
+          <CtaToaster />
+        </div>
+      </>,
+    );
+    await act(async () => {
+      showToast("버전을 복사했어요");
+      showCtaToast("카메라를 전환했어요");
+    });
+
+    const global = screen.getByTestId("global");
+    const cta = screen.getByTestId("cta");
+    const globalOl = await within(global)
+      .findByText("버전을 복사했어요")
+      .then(() => global.querySelector("[data-sonner-toaster]"));
+    const ctaOl = await within(cta)
+      .findByText("카메라를 전환했어요")
+      .then(() => cta.querySelector("[data-sonner-toaster]"));
+
+    expect(globalOl).not.toBeNull();
+    expect(ctaOl).not.toBeNull();
+
+    expect((globalOl as HTMLElement).style.getPropertyValue("--mobile-offset-left")).toBe("0px");
+    expect((globalOl as HTMLElement).style.getPropertyValue("--mobile-offset-right")).toBe("0px");
+    expect((globalOl as HTMLElement).style.getPropertyValue("--mobile-offset-bottom")).toBe("12px");
+
+    expect((ctaOl as HTMLElement).style.getPropertyValue("--mobile-offset-left")).toBe("0px");
+    expect((ctaOl as HTMLElement).style.getPropertyValue("--mobile-offset-right")).toBe("0px");
+    expect((ctaOl as HTMLElement).style.getPropertyValue("--mobile-offset-bottom")).toBe(
+      "calc(100% + 12px)",
+    );
   });
 });

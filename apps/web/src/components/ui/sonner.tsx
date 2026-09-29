@@ -12,7 +12,12 @@ import { cn } from "@/lib/utils";
 export const TOAST_PILL_CLASS =
   "inset-x-0 mx-auto w-fit! rounded-3xl border border-white/10 bg-[var(--session-toast-bg,rgba(78,89,104,0.96))] px-4 py-2 text-center text-[13px] leading-[20px] whitespace-pre-line text-white shadow-lg backdrop-blur-[7px]";
 
-export function Toaster({ className, toastOptions, ...props }: ToasterProps) {
+export function Toaster({
+  bottom,
+  className,
+  toastOptions,
+  ...props
+}: Omit<ToasterProps, "offset" | "mobileOffset"> & { bottom?: string }) {
   return (
     <Sonner
       theme="light"
@@ -21,6 +26,10 @@ export function Toaster({ className, toastOptions, ...props }: ToasterProps) {
       visibleToasts={1}
       customAriaLabel="알림"
       {...props}
+      offset={{ bottom }}
+      // Sonner 모바일 규칙은 토스터 틀을 왼쪽 여백만큼 민 채 폭 100%로 두고 토스트 폭을 줄여 가운데를
+      // 맞춘다. 폭을 문구에 맞춘 알약은 그 보정을 못 받아 오른쪽으로 치우치므로 좌우 여백을 0으로 둔다.
+      mobileOffset={{ bottom, left: 0, right: 0 }}
       // Sonner 기본 CSS는 unstyled여도 z-index 999999999를 걸어서 Sheet·Dialog(z-50)의 딤 위로
       // 뜬다. 모달보다 아래에 둔다.
       className={cn("z-40!", className)}
@@ -57,8 +66,7 @@ export function CtaToaster() {
       className="absolute!"
       // 전역 Toaster도 빈 알림 영역을 늘 그리므로, 스크린리더에서 이름이 겹치지 않게 한다.
       customAriaLabel="화면 알림"
-      offset={{ bottom: CTA_BOTTOM }}
-      mobileOffset={{ bottom: CTA_BOTTOM }}
+      bottom={CTA_BOTTOM}
       toastOptions={{ classNames: { toast: "whitespace-nowrap" } }}
     />
   );
