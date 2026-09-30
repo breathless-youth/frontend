@@ -28,7 +28,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 `@react-native-firebase/app`·`remote-config`·`messaging`. 도입·설계는 [BY-585](../../docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md), 버전 게이트·알림은 [BY-586](../../docs/superpowers/specs/2026-09-04-by-586-remote-config-version-push-service-design.md)과 [docs/releases.md](../../docs/releases.md).
 
 - **설정 파일은 커밋하지 않는다.** `google-services.json`·`GoogleService-Info.plist`는 `apps/mobile/firebase/{dev,staging,prod}/`(gitignore)에 두고 `.env.local` 경로로 `app.config.ts`가 주입한다. 파일의 프로젝트·아이덴티티가 빌드와 다르면 `app.config.ts`가 throw한다(dev 빌드가 운영에 붙는 것을 막는다). 파일 형식은 경로 확장자가 아니라 변수(`GOOGLE_SERVICES_JSON`=JSON, `GOOGLE_SERVICES_PLIST`=plist)로 정한다. production 파일 누락만 EAS 빌더(`EAS_BUILD=true`)에서 끊는다 — eas-cli가 로컬에서도 설정을 평가하는데 secret file은 빌더에서만 풀리므로, 로컬에서 막으면 `eas build --profile production`이 시작조차 안 된다. `firebaseConfig.test.ts`가 고정한다.
-- **iOS는 SPM + dynamic frameworks다.** `disableSPM`이나 `static`으로 되돌리지 말 것(중복 심볼로 깨진다). 예외로 `expo-build-properties`의 `forceStaticLinking`에 `react-native-fbsdk-next` 하나가 들어 있다 — **지우지 말 것.** 이 파드의 `RCTConvert` 카테고리가 React 코어를 링크 대상으로 선언하지 않아, 동적으로 묶으면 `Undefined symbols: _OBJC_CLASS_$_RCTConvert`로 iOS 빌드가 전부 깨진다. `metaSdkConfig.test.ts`가 이 값을 고정한다. **Firebase Analytics는 링크하지 않는다** — `package.json`의 `expo.autolinking.exclude`로 막았다(자동 수집·개인정보 라벨 대상). 필요해지면 별도 티켓.
+- **iOS는 SPM + dynamic frameworks다.** `disableSPM`이나 `static`으로 되돌리지 말 것(중복 심볼로 깨진다). 예외로 `expo-build-properties`의 `forceStaticLinking`에 `react-native-fbsdk-next` 하나가 들어 있다 — **지우지 말 것.** 이 파드의 `RCTConvert` 카테고리가 React 코어를 링크 대상으로 선언하지 않아, 동적으로 묶으면 `Undefined symbols: _OBJC_CLASS_$_RCTConvert`로 iOS 빌드가 전부 깨진다. `metaSdkConfig.test.ts`가 이 값을 고정한다. **Firebase Analytics(GA4)는 링크한다** — FCM 콘솔의 오디언스·유저 속성 타겟팅이 이 데이터만 보기 때문이다. SDK는 `lib/firebaseAnalyticsSdk.ts`만 import하고 다른 코드는 `lib/firebaseAnalytics.ts`의 공개 함수만 본다(`metaAds`와 같은 경계, 어댑터 없으면 no-op). 이벤트의 원천은 여전히 웹 Amplitude이고, 웹이 브리지 `analytics-event`·`analytics-user-properties`로 사본을 보내면 네이티브는 형식만 검증해 SDK에 넘긴다(이름 화이트리스트 금지 — 목록은 웹 카탈로그가 소유). 형식 규칙은 `packages/types`의 `ANALYTICS_*` 상수가 원천이고 **문자열 값은 토큰만** 통과한다(자유 문자열이 Google로 나가면 안 된다 — Meta 경로와 같은 원칙). 유저 속성 키 화이트리스트는 웹이 갖고, `null`은 지움이다. GA user_id는 백엔드 userId다([ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)). ⚠️ **릴리즈 게이트**: 앱스토어 개인정보 라벨과 `docs/privacy-policy-analytics-sync.md`를 갱신하기 전에는 이 코드가 든 빌드를 스토어에 내지 않는다. `package.json`에 `expo.autolinking.exclude`를 되살리지 말 것 — 이벤트가 조용히 사라진다. SDK의 자동 화면 보고(`screen_view`)는 `firebase.json`으로 껐다 — 웹뷰 셸이라 RN 화면 하나만 반복 보고돼 잡음뿐이다. `firebaseConfig.test.ts`가 둘 다 고정한다.
 - **화면·컴포넌트는 `@react-native-firebase/*`를 직접 import하지 않는다.** `lib/remoteConfig.ts`·`lib/pushMessaging.ts` 어댑터만 거친다. **`messaging`은 pnpm patch가 걸려 있다**(iOS APNs 등록 후 `getToken` 실패 우회) — 올릴 때 패치가 깨지면 업스트림 수정 여부를 먼저 확인하고, `isDeviceRegisteredForRemoteMessages` 대신 APNs 토큰 유무로 판단한다.
 - **강제 업데이트는 네이티브가 판정한다.** `lib/forceUpdate.ts`가 Remote Config `min_supported_version`을 앱 버전과 비교한다. 기본값은 `UPDATE_CONFIG_DEFAULTS` 한 곳에서 한 번의 `setDefaults`로 등록한다(다른 곳에서 또 부르면 서로 지운다). 권장 업데이트는 `recommendedUpdateAlert.ts`가 최신 버전당 한 번 띄운다.
 - **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한 요청은 `__DEV__`에서만 한다. `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다.
@@ -37,7 +37,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 `react-native-fbsdk-next`·`expo-tracking-transparency`. 앱 설치 어트리뷰션과 앱 내 전환 이벤트(BY-644). 설계는 [BY-644](../../docs/superpowers/specs/2026-09-13-by-644-meta-sdk-install-attribution-design.md).
 
-- **SDK는 `lib/metaAdsSdk.ts`만 import한다.** 루트 import가 네이티브 없이(jest) 로드 시점에 죽고, 이 통로는 `auth`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나간다. 다른 코드는 `lib/metaAds.ts`의 공개 함수만 본다. `_layout` 테스트처럼 `app/_layout.tsx`를 렌더하는 테스트는 `lib/metaAdsSdk`를 mock한다(모듈 스코프 호출이라 factory 안에서 `jest.fn`을 만든다).
+- **SDK는 `lib/metaAdsSdk.ts`만 import한다.** 루트 import가 네이티브 없이(jest) 로드 시점에 죽고, 이 통로는 `auth`·`nativeBridgeHandler`·`webBridge`가 끌어와 테스트 대부분이 지나간다. 다른 코드는 `lib/metaAds.ts`의 공개 함수만 본다. **그 파일 안에서도 맨 위 import가 아니라 `installMetaAdsSdk`의 앱 ID 확인 뒤에 `require`한다** — 루트를 불러오기만 해도 Android가 `FBAccessToken` 네이티브 모듈을 만들어, Meta env 없는 빌드(development·staging)가 시작 직후 `FacebookSdkNotInitializedException`으로 죽는다. `metaAdsSdk.test.ts`가 고정한다. `_layout` 테스트처럼 `app/_layout.tsx`를 렌더하는 테스트는 `lib/metaAdsSdk`를 mock한다(모듈 스코프 호출이라 factory 안에서 `jest.fn`을 만든다).
 - **설정은 env 주입이다.** `META_APP_ID`·`META_CLIENT_TOKEN`이 둘 다 있을 때만 `app.config.ts`가 두 plugin과 `extra.metaAppId`를 넣는다. 둘 다 없으면 plugin도 런타임 동작(ATT 프롬프트·이벤트)도 없다. 하나만 있으면 throw, production은 EAS 빌더에서 누락도 throw — **다음 production 빌드 전에 EAS production environment에 두 값을 등록해야 한다.** `metaSdkConfig.test.ts`가 고정한다. `app.json`에 앱 ID를 직접 적지 말 것(공개 저장소).
 - **ATT 문구는 `app.json`의 `ios.infoPlist.NSUserTrackingUsageDescription`이다.** 두 plugin 모두 옵션(`iosUserTrackingPermission`·`userTrackingPermission`)을 주지 말 것 — 영어 기본값이나 다른 문구로 덮인다. `permissionCopy.test.ts`가 고정한다. Android `AD_ID` 권한은 tracking-transparency plugin이 매니페스트에 넣는다 — `app.json` 권한 열거에는 없지만 산출물에는 있다(권한 드리프트 점검 시 참고).
 - **초기화 순서**: 모듈 스코프 `installMetaAdsSdk()` → 홈이 그려진 뒤 `initMetaAds()`(ATT 프롬프트) → 그 뒤 권장 업데이트 알림창. 초기화 전 이벤트(첫 실행의 가입 완료)는 큐에 두었다가 ATT 응답을 SDK에 알린 뒤 흘린다. 이 순서를 바꾸면 iOS 광고 식별자 매칭이 빠지거나 OS 알림창이 겹친다.
@@ -54,7 +54,8 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 ## 웹뷰 배경
 
 - **웹뷰에는 배경색을 항상 넘긴다.** `RemoteWebViewHost`가 스킴별 `colors.bg.base`를 WebView `style`에 싣는다. 색을 빼면 다크 모드에서 흰 줄과 탭 전환 번쩍임이 돌아온다.
-- **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** 라이브러리를 올릴 때 업스트림이 `backgroundColor`를 전달하게 됐으면 패치와 `webviewPatch.test.ts`를 함께 지운다. 원인 실측은 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md).
+- **iOS는 `patches/react-native-webview@13.15.0.patch`가 있어야 이 색이 WKWebView까지 닿는다.** 원인 실측은 [BY-623 설계 문서](../../docs/superpowers/specs/2026-09-06-by-623-webview-theme-background-design.md).
+- **같은 패치가 iOS 앞으로가기 스와이프도 끈다.** `allowsBackForwardNavigationGestures`를 끄면 뒤로 스와이프 미리보기(스냅샷)까지 사라져서, 스위치는 켜 둔 채 앞으로가기 쪽 가장자리 인식기만 끈다([BY-775 설계 문서](../../docs/superpowers/specs/2026-09-29-by-775-disable-forward-swipe-design.md)). 라이브러리를 올릴 때는 두 수정을 따로 확인한다. 업스트림이 한쪽만 해결했으면 그 hunk와 `webviewPatch.test.ts`의 해당 단언만 지우고 패치 파일은 남긴다.
 - 인스펙터 연결·브리지 개발 로그·색 실험 등 웹뷰 디버깅 절차는 [webview-debugging 런북](../../docs/runbooks/webview-debugging.md). 개발 빌드는 버려진 브리지 메시지와 나가는 메시지를 `[webview-bridge]` 접두사로 찍는다.
 
 ## 환경·주소·딥링크
@@ -65,7 +66,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 ## 네이티브 사용자 이벤트 → 웹 Amplitude (`lib/nativeAnalytics.ts`)
 
-분석 SDK는 웹에만 있다. 네이티브에서만 일어나는 사용자 이벤트는 `trackNativeEvent`로 기록하고 웹뷰 호스트가 브리지로 웹 Amplitude에 넘긴다. 카탈로그는 `NativeAnalyticsEventMap` 한 곳이고 속성은 원시값만(식별자·초대코드·자유 문자열 금지).
+분석의 원천은 웹 Amplitude다(앱의 Firebase Analytics는 그 사본을 받을 뿐이다). 네이티브에서만 일어나는 사용자 이벤트는 `trackNativeEvent`로 기록하고 웹뷰 호스트가 브리지로 웹 Amplitude에 넘긴다. 카탈로그는 `NativeAnalyticsEventMap` 한 곳이고 속성은 원시값만(식별자·초대코드·자유 문자열 금지).
 
 - **전달 대상(sink)은 항상 하나다.** 탭 4개 웹뷰가 동시에 마운트돼 있어, `RemoteWebViewHost`는 `focused`이면서 웹이 `analytics-ready`를 보낸 문서일 때만 sink로 붙는다. sink가 없는 동안은 큐에 보관(최대 100건)했다가 다음 sink에 순서대로 흘린다.
 - **`analytics-ready`는 handshake다.** 호스트는 재시도·사망 복구 진입에서 준비 상태를 되돌리고 `onLoadEnd`에서는 되돌리지 않는다. 한 사건을 두 발신부에서 찍지 않는다. 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).

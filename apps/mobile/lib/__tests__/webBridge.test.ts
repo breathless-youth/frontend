@@ -401,3 +401,160 @@ describe("parseToNativeMessage — meta-app-event", () => {
     ).toEqual({ type: "meta-app-event", name: "x", atMs: 5 });
   });
 });
+
+describe("parseToNativeMessage — analytics-event", () => {
+  it("이름·파라미터를 파싱한다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-event",
+          name: "study_session_ended",
+          params: { room_type: "single", focus_sec: 600, will_submit: "true" },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "study_session_ended",
+      params: { room_type: "single", focus_sec: 600, will_submit: "true" },
+      atMs: 5,
+    });
+  });
+
+  it("파라미터 없이도 파싱한다 — 필드를 만들어 넣지 않는다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "analytics-event", name: "social_room_entered", atMs: 5 }),
+      ),
+    ).toEqual({ type: "analytics-event", name: "social_room_entered", atMs: 5 });
+  });
+
+  it.each(["1starts_with_digit", "한글이름", "a".repeat(41), "has-dash", "has space", ""])(
+    "이름이 Firebase 형식에 어긋나면(%s) 통째로 버린다 — SDK에 넘기면 예외",
+    (name) => {
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "analytics-event", name, atMs: 5 })),
+      ).toBeNull();
+    },
+  );
+
+  it.each(["firebase_event", "google_event", "ga_event", "GA_Event"])(
+    "예약 접두사 이름(%s)은 버린다",
+    (name) => {
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "analytics-event", name, atMs: 5 })),
+      ).toBeNull();
+    },
+  );
+
+  it("형식 밖 파라미터 항목만 뺀다 — 자유 문자열·65자·빈 문자열, 객체·boolean·NaN 값, 형식 밖 키", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-event",
+          name: "study_session_started",
+          params: {
+            room_type: "single",
+            nickname: "포메12345",
+            goal: "오늘 3시간 공부하기",
+            sentence: "hello world",
+            long_token: "x".repeat(65),
+            empty: "",
+            nested: { a: 1 },
+            flag: true,
+            한글키: 1,
+            "has-dash": 1,
+            ok_number: 3,
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "study_session_started",
+      params: { room_type: "single", ok_number: 3 },
+      atMs: 5,
+    });
+  });
+
+  it("카탈로그의 토큰 값은 통과한다 — 에러 코드·정제된 경로·버전·'true'", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-event",
+          name: "social_room_join_failed",
+          params: {
+            reason: "HTTP_404",
+            path: "/room/:id",
+            latest_version: "1.0.2",
+            restored: "true",
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "social_room_join_failed",
+      params: { reason: "HTTP_404", path: "/room/:id", latest_version: "1.0.2", restored: "true" },
+      atMs: 5,
+    });
+  });
+
+  it("파라미터는 25개까지만 남긴다", () => {
+    const params = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`p${i}`, i]));
+    const parsed = parseToNativeMessage(
+      JSON.stringify({ type: "analytics-event", name: "many_params", params, atMs: 5 }),
+    );
+    expect(Object.keys((parsed as { params: object }).params)).toHaveLength(25);
+  });
+
+  it("params가 객체가 아니면 통째로 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "analytics-event", name: "x", params: "bad", atMs: 5 }),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("parseToNativeMessage — analytics-user-properties", () => {
+  it("토큰 문자열과 null(지움)만 남긴다 — 36자 초과·자유 문자열·boolean·형식 밖 키 제외", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-user-properties",
+          properties: {
+            has_dday: "false",
+            dday_days_left: null,
+            acquisition_channel: "preregister",
+            is_webview: true,
+            long: "x".repeat(37),
+            nickname: "포메 12",
+            한글: "값",
+            a_very_long_property_name_over_24: "x",
+          },
+          atMs: 5,
+        }),
+      ),
+    ).toEqual({
+      type: "analytics-user-properties",
+      properties: { has_dday: "false", dday_days_left: null, acquisition_channel: "preregister" },
+      atMs: 5,
+    });
+  });
+
+  it("남는 속성이 없으면 버린다 — 빈 갱신은 SDK 호출만 낭비한다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "analytics-user-properties",
+          properties: { is_webview: true },
+          atMs: 5,
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "analytics-user-properties", atMs: 5 })),
+    ).toBeNull();
+  });
+});

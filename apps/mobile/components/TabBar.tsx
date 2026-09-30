@@ -2,7 +2,15 @@ import { colors, softBlue } from "@focusmakers/design-tokens";
 import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import {
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
@@ -19,8 +27,7 @@ const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }
 
 /**
  * 복귀 페이드 길이 — 웹 시트의 슬라이드(300ms)보다 짧아 시트가 내려가는 동안 함께 나타난다.
- * 숨김은 페이드 없이 즉시다: 시트가 올라오는 순간 자리를 비워야 하고, 사라지는 쪽 페이드는 실기기에서
- * 굼떠 보였다(BY-658).
+ * 숨김은 페이드 없이 즉시다: 시트가 올라오는 순간 자리를 비워야 하고, 사라지는 쪽 페이드는 실기기에서 굼떠 보였다.
  */
 const SHOW_FADE_MS = 180;
 
@@ -40,6 +47,7 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const g = softBlue.glass;
+  const pillColor = scheme === "light" ? colors.bg.layer2.light : g.activePill.dark;
   // 지연 초기화 — useRef(new …)는 렌더마다 Animated.Value를 만들었다 버린다.
   const [opacity] = useState(() => new Animated.Value(hidden ? 0 : 1));
 
@@ -53,7 +61,6 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
   }, [hidden, opacity]);
 
   return (
-    // 화면 흐름 밖에 떠 있는다 — 좌우 16, 아래 24(또는 safe area). 그림자는 여기(overflow 없음).
     <Animated.View
       testID="tab-bar"
       pointerEvents={hidden ? "none" : "box-none"}
@@ -64,26 +71,33 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
       <View
         style={[
           styles.shadowWrap,
-          {
-            shadowColor: g.shadow[scheme],
-            shadowOpacity: 1,
-            shadowRadius: 15,
-            shadowOffset: { width: 0, height: 10 },
-            elevation: 12,
-          },
+          // shadow*는 iOS 전용이고, Android elevation은 배경 없는 뷰에 그림자를 그리지 않는다.
+          // boxShadow 하나로 양쪽에 같은 그림자를 그린다.
+          { boxShadow: `0 10px 30px ${g.shadow[scheme]}` },
         ]}
       >
         <View style={[styles.surface, { borderColor: g.border[scheme] }]}>
-          {/* 프로스티드 바 — 표준 블러(iOS26 Liquid Glass 아님, 그건 NativeTabs 별도 티켓).
-              Android는 experimentalBlurMethod 없이는 intensity 블러가 안 먹고 backgroundColor만
-              보인다 — dimezisBlurView로 실제 블러를 켠다(iOS는 무시). */}
-          <BlurView
-            testID="tab-bar-blur"
-            intensity={22}
-            tint={scheme === "dark" ? "dark" : "light"}
-            experimentalBlurMethod="dimezisBlurView"
-            style={[StyleSheet.absoluteFill, { backgroundColor: g.surface[scheme] }]}
-          />
+          {/* 프로스티드 바. 표준 블러이고 iOS26 Liquid Glass는 아니다, 그건 NativeTabs 별도 티켓이다.
+              Android 블러는 탭 바가 속한 화면 전체를 찍어 흐리게 해서 알약과 아이콘까지 밑에 번진다.
+              대상만 골라 찍는 방법이 이 expo-blur 버전에는 없어 Android는 불투명 배경을 쓴다. */}
+          {Platform.OS === "android" ? (
+            <View
+              testID="tab-bar-surface"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
+                },
+              ]}
+            />
+          ) : (
+            <BlurView
+              testID="tab-bar-blur"
+              intensity={22}
+              tint={scheme === "dark" ? "dark" : "light"}
+              style={[StyleSheet.absoluteFill, { backgroundColor: g.surface[scheme] }]}
+            />
+          )}
           <View
             pointerEvents="none"
             style={[styles.innerHighlight, { backgroundColor: g.innerHighlight[scheme] }]}
@@ -109,18 +123,14 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
                 >
                   {isActive && (
                     <View
+                      testID="tab-bar-active-pill"
                       pointerEvents="none"
                       style={[
                         styles.pill,
                         {
-                          backgroundColor: g.activePill[scheme],
+                          backgroundColor: pillColor,
                           ...(scheme === "light"
-                            ? {
-                                shadowColor: "rgba(31,42,61,0.1)",
-                                shadowOpacity: 1,
-                                shadowRadius: 4,
-                                shadowOffset: { width: 0, height: 2 },
-                              }
+                            ? { boxShadow: "0 2px 8px rgba(31,42,61,0.1)" }
                             : null),
                         },
                       ]}
@@ -165,6 +175,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   pill: { ...StyleSheet.absoluteFillObject, borderRadius: 999 },
-  // useFonts 등록 키는 app/_layout.tsx 기준 "NanumSquareRoundBold"(하이픈 없음).
-  label: { fontSize: 11, fontFamily: "NanumSquareRoundBold", lineHeight: 13 },
+  // 폰트 파일 속 이름이 아니라 app/_layout.tsx의 useFonts 등록 키를 써야 iOS와 Android에서 같은 폰트로 풀린다.
+  label: { fontSize: 11, fontFamily: "PretendardBold", lineHeight: 13 },
 });

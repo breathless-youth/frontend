@@ -36,7 +36,7 @@ jest.mock("@sentry/react-native", () => ({
 
 const mockUseFonts = jest.fn();
 jest.mock("expo-font", () => ({
-  useFonts: () => mockUseFonts() as [boolean, Error | undefined],
+  useFonts: (fontMap: unknown) => mockUseFonts(fontMap) as [boolean, Error | undefined],
 }));
 
 const mockHideAsync = jest.fn();
@@ -78,6 +78,10 @@ jest.mock("../lib/pushBootstrap", () => ({
 // 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.
 jest.mock("../lib/metaAdsSdk", () => ({
   installMetaAdsSdk: jest.fn(),
+}));
+// Firebase Analytics 어댑터 설치도 호출만 기록한다(동작은 `lib/__tests__/firebaseAnalytics.test.ts`).
+jest.mock("../lib/firebaseAnalyticsSdk", () => ({
+  installFirebaseAnalyticsSdk: jest.fn(),
 }));
 const mockInitMetaAds = jest.fn(() => Promise.resolve());
 jest.mock("../lib/metaAds", () => ({
@@ -134,6 +138,24 @@ describe("RootLayout 폰트 로드 게이팅", () => {
 
     expect(toJSON()).toBeNull();
     expect(mockHideAsync).not.toHaveBeenCalled();
+  });
+
+  // tailwind의 font-sans·font-sans-bold는 패밀리 이름으로만 폰트를 찾는다. 등록 키와 이름이
+  // 어긋나면 오류 없이 시스템 폰트로 그려지므로, 두 쪽이 같은 이름을 쓰는지 여기서 맞춰 본다.
+  it("tailwind가 쓰는 폰트 패밀리 이름으로 폰트를 등록한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    render(<RootLayout />);
+    await waitFor(() => expect(mockUseFonts).toHaveBeenCalled());
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const tailwindConfig = require("../tailwind.config.js") as {
+      theme: { extend: { fontFamily: Record<string, string[]> } };
+    };
+    const families = Object.values(tailwindConfig.theme.extend.fontFamily).flat();
+    const fontMap = mockUseFonts.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(Object.keys(fontMap).sort()).toEqual([...families].sort());
   });
 
   it("성공([true, undefined])하면 앱 콘텐츠를 그리고 스플래시를 걷는다", async () => {

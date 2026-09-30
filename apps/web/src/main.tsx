@@ -11,6 +11,8 @@ import { initBridgeTokenSource } from "./lib/auth/tokenSource";
 import { installFakeCamera } from "./lib/fakeCamera";
 import { initNativeTheme } from "./lib/nativeTheme";
 import { initSentry, sentryRootOptions } from "./lib/sentry";
+// Tailwind의 CSS @import가 아니라 여기서 불러와야 Vite가 폰트 url()을 다시 쓰고 조각 파일에 해시를 붙인다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./index.css";
 
 initSentry();

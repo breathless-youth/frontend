@@ -10,6 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { resolveForceUpdate } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
+import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { initMetaAds } from "../lib/metaAds";
@@ -31,8 +32,12 @@ initSentry();
 // 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
 installMetaAdsSdk();
 
-// NanumSquareRound 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
-// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 NanumSquareRound로 바뀌는 깜빡임(FOUT)이 보인다.
+// Firebase Analytics(GA4) 어댑터 — 웹뷰가 뜨자마자 브리지로 오는 이벤트를 받을 통로가 먼저 있어야 한다.
+// GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
+installFirebaseAnalyticsSdk();
+
+// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
+// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다.
 // 위 initSentry와 같은 이유로 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다.
 // 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -40,8 +45,8 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
-    NanumSquareRound: require("../assets/fonts/NanumSquareRound-Regular.ttf") as number,
-    NanumSquareRoundBold: require("../assets/fonts/NanumSquareRound-Bold.ttf") as number,
+    Pretendard: require("pretendard/dist/public/static/Pretendard-Regular.otf") as number,
+    PretendardBold: require("pretendard/dist/public/static/Pretendard-Bold.otf") as number,
   });
   // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
   // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
@@ -134,7 +139,7 @@ function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // NanumSquareRound 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
+  // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
   if (!fontsReady || !gateReady) {

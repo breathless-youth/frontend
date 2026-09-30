@@ -1,11 +1,23 @@
 import type {
+  AnalyticsEventMessage,
+  AnalyticsEventParamValue,
+  AnalyticsUserPropertiesMessage,
   MetaAppEventMessage,
   MetaAppEventParamValue,
   ToNativeMessage,
   ToWebMessage,
 } from "@focusmakers/types";
-import { NAVIGATE_TAB_SOURCES, NAVIGATE_TAB_TARGETS } from "@focusmakers/types";
+import {
+  ANALYTICS_EVENT_MAX_PARAMS,
+  ANALYTICS_NAME_PATTERN,
+  ANALYTICS_PARAM_VALUE_PATTERN,
+  ANALYTICS_USER_PROPERTY_NAME_PATTERN,
+  ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
+  NAVIGATE_TAB_SOURCES,
+  NAVIGATE_TAB_TARGETS,
+} from "@focusmakers/types";
 
+import { isReservedAnalyticsName } from "./firebaseAnalytics";
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
 /**
@@ -164,9 +176,35 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
     case "meta-app-event":
       return parseMetaAppEvent(record);
+    case "analytics-event":
+      return parseAnalyticsEvent(record);
+    case "analytics-user-properties":
+      return parseAnalyticsUserProperties(record);
     default:
       return null;
   }
+}
+
+/** 파라미터 객체에서 형식에 맞는 키·값만 `max`개까지 남긴다. 객체가 아니면 null. */
+function pickParams<V>(
+  bag: unknown,
+  keyPattern: RegExp,
+  isValue: (value: unknown) => value is V,
+  max: number,
+): Record<string, V> | null {
+  if (typeof bag !== "object" || bag === null) {
+    return null;
+  }
+  const params: Record<string, V> = {};
+  for (const [key, value] of Object.entries(bag)) {
+    if (Object.keys(params).length >= max) {
+      break;
+    }
+    if (keyPattern.test(key) && isValue(value)) {
+      params[key] = value;
+    }
+  }
+  return params;
 }
 
 /**
@@ -203,18 +241,16 @@ function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage
   }
   let params: Record<string, MetaAppEventParamValue> | undefined;
   if (record.params !== undefined) {
-    if (typeof record.params !== "object" || record.params === null) {
+    const picked = pickParams(
+      record.params,
+      META_EVENT_NAME_PATTERN,
+      isMetaParamValue,
+      META_EVENT_MAX_PARAMS,
+    );
+    if (picked === null) {
       return null;
     }
-    params = {};
-    for (const [key, value] of Object.entries(record.params)) {
-      if (Object.keys(params).length >= META_EVENT_MAX_PARAMS) {
-        break;
-      }
-      if (META_EVENT_NAME_PATTERN.test(key) && isMetaParamValue(value)) {
-        params[key] = value;
-      }
-    }
+    params = picked;
   }
   const valueToSum =
     typeof record.valueToSum === "number" && Number.isFinite(record.valueToSum)
@@ -227,6 +263,89 @@ function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage
     ...(valueToSum !== undefined ? { valueToSum } : {}),
     atMs: record.atMs,
   };
+}
+
+/**
+ * 문자열은 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN`), 수는 유한수만. boolean은 웹이 이미 문자열로 접었다.
+ * 웹(`firebaseAnalyticsBridge.ts`)이 같은 규칙으로 걸러 보내지만, 웹 번들이 앱보다 앞설 수 있어 여기서도
+ * 거른다 — Meta 경로(`isMetaParamValue`)와 같은 이유로 자유 문자열이 Google 서버로 나가면 안 된다.
+ */
+function isAnalyticsParamValue(value: unknown): value is AnalyticsEventParamValue {
+  if (typeof value === "string") {
+    return ANALYTICS_PARAM_VALUE_PATTERN.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * `analytics-event`(웹 → Firebase Analytics)를 검증한다 — 이름이 Firebase 형식에 어긋나거나 예약 접두사면
+ * 통째로 버리고, 파라미터는 형식에 맞는 키·값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
+ * 이벤트 목록은 웹 Amplitude 카탈로그가 소유한다(`meta-app-event`와 같은 이유). 형식 밖 값을 SDK에 넘기면
+ * 네이티브 예외로 이벤트가 통째로 사라진다.
+ */
+function parseAnalyticsEvent(record: Record<string, unknown>): AnalyticsEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !ANALYTICS_NAME_PATTERN.test(record.name) ||
+    isReservedAnalyticsName(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let params: Record<string, AnalyticsEventParamValue> | undefined;
+  if (record.params !== undefined) {
+    const picked = pickParams(
+      record.params,
+      ANALYTICS_NAME_PATTERN,
+      isAnalyticsParamValue,
+      ANALYTICS_EVENT_MAX_PARAMS,
+    );
+    if (picked === null) {
+      return null;
+    }
+    params = picked;
+  }
+  return {
+    type: "analytics-event",
+    name: record.name,
+    ...(params !== undefined ? { params } : {}),
+    atMs: record.atMs,
+  };
+}
+
+/** `null`은 속성을 지우라는 뜻(Firebase 계약). 문자열은 36자 이내 토큰만. */
+function isAnalyticsUserPropertyValue(value: unknown): value is string | null {
+  if (value === null) {
+    return true;
+  }
+  return (
+    typeof value === "string" &&
+    value.length <= ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH &&
+    ANALYTICS_PARAM_VALUE_PATTERN.test(value)
+  );
+}
+
+/**
+ * `analytics-user-properties`(웹 → Firebase 유저 속성)를 검증한다 — 키 24자·값 36자 이내 토큰(또는 지움을 뜻하는
+ * `null`)만 남기고, 남는 항목이 없으면 통째로 버린다(빈 갱신은 SDK 호출만 낭비한다). 키 화이트리스트는 웹이
+ * 소유한다(`FIREBASE_USER_PROPERTY_KEYS`) — 여기서 또 두면 웹 배포만으로 속성을 늘릴 수 없다.
+ */
+function parseAnalyticsUserProperties(
+  record: Record<string, unknown>,
+): AnalyticsUserPropertiesMessage | null {
+  if (typeof record.atMs !== "number") {
+    return null;
+  }
+  const properties = pickParams(
+    record.properties,
+    ANALYTICS_USER_PROPERTY_NAME_PATTERN,
+    isAnalyticsUserPropertyValue,
+    ANALYTICS_EVENT_MAX_PARAMS,
+  );
+  if (properties === null || Object.keys(properties).length === 0) {
+    return null;
+  }
+  return { type: "analytics-user-properties", properties, atMs: record.atMs };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

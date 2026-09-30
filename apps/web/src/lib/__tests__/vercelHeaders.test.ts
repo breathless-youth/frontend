@@ -51,4 +51,29 @@ describe("vercel.json 응답 헤더", () => {
     expect(keys).toContain("Cross-Origin-Opener-Policy");
     expect(keys).toContain("Cross-Origin-Embedder-Policy");
   });
+
+  // Vercel 기본값은 해시된 파일도 max-age=0으로 내보내, 앱을 켤 때마다 폰트·JS·CSS를 서버에
+  // 다시 확인한다. 파일명에 해시가 있어 내용이 바뀌면 이름도 바뀌므로 오래 캐시해도 안전하다.
+  it("해시된 /assets 파일은 1년 immutable 캐시로 나간다", () => {
+    const applied = rules
+      .filter((rule) => rule.source === "/assets/(.*)")
+      .flatMap((rule) => rule.headers)
+      .filter((header) => header.key === "Cache-Control")
+      .map((header) => header.value);
+
+    expect(applied).toEqual(["public, max-age=31536000, immutable"]);
+  });
+
+  // index.html까지 immutable로 잡히면 배포해도 앱이 옛 화면과 옛 자산 목록을 계속 쓴다.
+  it("immutable 캐시는 /assets 밖으로 번지지 않는다", () => {
+    const immutableSources = rules
+      .filter((rule) =>
+        rule.headers.some(
+          (header) => header.key === "Cache-Control" && header.value.includes("immutable"),
+        ),
+      )
+      .map((rule) => rule.source);
+
+    expect(immutableSources).toEqual(["/assets/(.*)"]);
+  });
 });
