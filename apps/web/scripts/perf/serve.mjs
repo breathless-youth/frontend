@@ -185,7 +185,8 @@ async function handleStatic(req, res, root, compressed, bytesPerSec, pathname) {
   const stat = statSync(file);
   const headers = {
     "content-type": MIME[extname(file)] ?? "application/octet-stream",
-    // Vercel 기본값. 캐시는 하되 쓸 때마다 재검증한다(ETag가 같으면 304).
+    // Vercel 기본값을 흉내 낸다. 캐시는 하되 쓸 때마다 재검증한다(ETag가 같으면 304).
+    // 운영은 wasm·모델·사운드·assets가 immutable로 나가지만, 여기서는 매번 재검증하는 최악 조건을 측정하려고 유지한다.
     "cache-control": "public, max-age=0, must-revalidate",
     etag: `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
     vary: "accept-encoding",
