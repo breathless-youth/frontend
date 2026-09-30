@@ -31,7 +31,7 @@ function renderAt(path: string) {
   // App 전역 QueryClient는 기본 retry(3회 백오프)라 실패 케이스가 느려진다 —
   // HomeTabPage.test.tsx와 같은 패턴으로 retry를 끈 클라이언트로 감싼다.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -41,6 +41,7 @@ function renderAt(path: string) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 afterEach(() => {
@@ -439,5 +440,23 @@ describe("프로필 설정", () => {
     renderAt("/profile?userId=7");
 
     expect(await screen.findByTestId("profile-error")).toBeInTheDocument();
+  });
+
+  it("캐시가 있는 상태에서 재조회가 실패해도 폼과 편집 중인 값을 유지한다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    const { queryClient } = renderAt("/profile?userId=7");
+
+    const nicknameInput = await screen.findByLabelText("닉네임");
+    fireEvent.change(nicknameInput, { target: { value: "숨벅찬청년들" } });
+
+    mockedGetProfile.mockRejectedValue(new Error("network"));
+    await act(async () => {
+      await queryClient.refetchQueries();
+      // react-query는 상태 변경 알림을 다음 틱에 묶어 보내므로 한 틱 더 기다려야 화면에 반영된다.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.queryByTestId("profile-error")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("닉네임")).toHaveValue("숨벅찬청년들");
   });
 });

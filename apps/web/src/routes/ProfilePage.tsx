@@ -41,7 +41,9 @@ export function ProfilePage() {
   const userId = useUserId();
   const query = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 
-  if (userId === null || query.isError) {
+  // 캐시가 있으면 백그라운드 재조회가 실패해도 폼을 그대로 둔다.
+  // 오류 화면으로 바꾸면 폼이 언마운트돼 사용자가 고치던 값이 사라진다.
+  if (userId === null || (query.isError && !query.data)) {
     return (
       <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
         <ScreenBackHeader title="프로필 수정" />
