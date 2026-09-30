@@ -82,7 +82,7 @@ export function InfoTooltip({
           // touch-manipulation: 웹뷰의 더블탭 줌 인식기가 빠른 두 번째 탭을 삼키지 않게 한다.
           // 박스를 44px로 키우면 글자와 아이콘 사이가 벌어져서 터치 영역만 가상 요소로 넓힌다.
           style={{ width: iconSize, height: iconSize }}
-          className="relative flex touch-manipulation items-center justify-center rounded-full text-text-tertiary after:absolute after:-inset-[15px] after:content-[''] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+          className="relative flex touch-manipulation items-center justify-center rounded-full text-text-tertiary after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-1/2 after:content-[''] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
         >
           <Info size={iconSize} aria-hidden="true" />
         </TooltipTrigger>
