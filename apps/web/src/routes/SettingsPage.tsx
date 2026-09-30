@@ -23,10 +23,10 @@ import { detectStorePlatform } from "@/features/social-room/storeLink";
  *    같은 토글을 되살린다. 값을 모르는 동안(브라우저 단독 모드·조회 실패)은 원본의
  *    `granted === null` 분기 그대로 트레일링을 비운다. `onPress`는 `Linking.openSettings()`
  *    대신 `postToNative({ type: "open-settings", atMs: Date.now() })`로 네이티브에 요청만
- *    보낸다 — 브라우저 단독 모드에서는 브리지가 없어 조용히 무동작한다.
+ *    보낸다. 브라우저 단독 모드에서는 브리지가 없어 아무 동작도 하지 않는다.
  * 2. 버전 정보: 원본은 `expo-constants`에서 직접 읽는다. 웹은 네이티브 셸이 없어 그 값을
  *    얻을 수 없으므로 네이티브 셸이 실어 보내는 쿼리 `appVersion`을 읽는다. 여기에 웹
- *    자체 버전(`__WEB_VERSION__`)을 합쳐 한 줄로 보여준다 - 앱과 웹이 각자 배포되기 때문에
+ *    자체 버전(`__WEB_VERSION__`)을 합쳐 한 줄로 보여준다. 앱과 웹이 각자 배포되기 때문에
  *    둘 중 하나만으로는 사용자가 무엇을 쓰고 있는지 알 수 없다.
  */
 export function SettingsPage() {
@@ -51,8 +51,8 @@ export function SettingsPage() {
   return (
     <main
       data-testid="settings-page"
-      // 홈·기록과 같은 규칙으로 상단 안전영역을 더한다
-      // — 이 값이 빠져 있어 웹뷰에서 설정 제목만 상태 바 쪽으로 올라붙었다.
+      // 홈·기록과 같은 규칙으로 상단 안전영역을 더한다.
+      // 이 값이 빠져 있어 웹뷰에서 설정 제목만 상태 바 쪽으로 올라붙었다.
       // RN 원본의 `useSafeAreaInsets().top + 17`에 대응한다.
       // theme-soft-blue: 이 화면 서브트리에서만 V2 팔레트를 켠다. bg-soft-blue 가 배경 그라디언트.
       className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
@@ -74,6 +74,11 @@ export function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="서비스">
+          {/*
+            카메라 권한 행은 SettingsRow 없이 직접 조립한다.
+            라벨 버튼은 OS 설정을 열고 ⓘ 툴팁도 따로 버튼이라 행 전체를 <button>으로 감싸면 버튼이 중첩된다.
+            토글은 표시 전용이다.
+          */}
           <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-[14px]">
             <div className="flex min-w-0 items-center gap-1.5">
               <button
@@ -83,6 +88,7 @@ export function SettingsPage() {
                   trackOsSettingsOpened("settings_tab");
                   postToNative({ type: "open-settings", atMs: Date.now() });
                 }}
+                // 텍스트만으로는 높이가 19px라 세로 음수 마진으로 행 높이는 그대로 두고 버튼만 44px로 만든다.
                 className="text-foreground -my-3 flex min-h-11 items-center text-base leading-[19px]"
               >
                 카메라 권한
@@ -94,13 +100,17 @@ export function SettingsPage() {
             {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
             {granted !== null && <PermissionToggle granted={granted} />}
           </div>
+          {/*
+            온보딩 가이드로 다시 들어가는 행이다.
+            `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.
+          */}
           <SettingsRow
             label="서비스 이용 가이드"
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("guide");
-              // 홈과 같은 승계 패턴
-              // — entry만 하드코딩해 얹으면 userId·appVersion이 사라져 가이드에서 새로고침·딥링크 후 폴백 이탈 시 미저장 모드 홈으로 떨어진다
+              // 홈과 같은 방식으로 지금 쿼리를 이어받고 entry만 바꾼다.
+              // entry만 넣은 새 쿼리로 가면 userId·appVersion이 사라져, 가이드에서 새로고침하거나 딥링크로 들어왔다가 나갈 때 미저장 모드 홈으로 떨어진다.
               const params = new URLSearchParams(location.search);
               params.set("entry", "settings");
               slideNavigate("forward", () =>
@@ -112,19 +122,17 @@ export function SettingsPage() {
 
         <SettingsSection className="mt-5" label="지원">
           {/*
-            문의 폼은 앱 안에서 iframe으로 띄운다
-            — 외부 브라우저로 나가지 않으므로 chevron(앱 내 이동)이다.
+            문의 폼은 앱 안에서 iframe으로 띄운다.
+            외부 브라우저로 나가지 않으므로 앱 내 이동을 뜻하는 chevron을 쓴다.
             약관·방침과 달리 텍스트로 옮길 수 없다: 응답을 제출해야 하는 인터랙티브 폼이다.
           */}
           <SettingsRow
             label="문의하기"
             trailing={{ kind: "chevron" }}
             onPress={() => {
-              // SPA `navigate()`가 아니라 문서 단위 내비게이션이어야 한다
-              // (`lib/hardNavigation.ts`) — /contact만 COEP 없이 내려오는데(vercel.json),
-              // pushState는 문서를 새로 만들지 않아 이 문서(설정)의 `require-corp`를 승계해
-              // 구글 폼 iframe이 차단된다. 쿼리는 통째로 승계한다 — 측정 기준 안내 행과
-              // 같은 이유(딥링크·새로고침 후 쿼리 유실 방지, BY-327 유형).
+              // SPA `navigate()`가 아니라 문서 단위 이동인 `hardNavigate`를 써야 한다.
+              // vercel.json 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
+              // 쿼리는 측정 기준 안내 행과 같은 이유로 통째로 이어받아, 딥링크나 새로고침 뒤에도 사라지지 않게 한다.
               trackSettingsRowPressed("contact");
               hardNavigate(`/contact${location.search}`);
             }}
