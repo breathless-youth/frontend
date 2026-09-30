@@ -13,7 +13,7 @@ import {
   useVisionReadyTracking,
 } from "../useVisionReadyTracking";
 import type { AssetTiming, VisionRuntimeKind } from "../vision/objectDetector";
-import { DEFAULT_MODEL_VARIANT, MODEL_PATHS } from "../vision/visionConfig";
+import { DEFAULT_MODEL_VARIANT, MEDIAPIPE_WASM_PATH, MODEL_PATHS } from "../vision/visionConfig";
 
 const mocks = vi.hoisted(() => ({
   ready: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("../adapters/focusDetector", async (importOriginal) => ({
 }));
 
 const ORIGIN = "https://web.focusmakers.app";
-const WASM = "/mediapipe/wasm/vision_wasm_internal.wasm";
+const WASM = `${MEDIAPIPE_WASM_PATH}/vision_wasm_internal.wasm`;
 const MODEL = MODEL_PATHS[DEFAULT_MODEL_VARIANT];
 
 function resource(
@@ -76,7 +76,7 @@ describe("classifyAssetCache", () => {
 describe("readVisionAssetCache", () => {
   it("wasm 바이너리와 기본 모델 항목을 경로로 찾아 판정과 전송량을 낸다", () => {
     const entries = [
-      resource("/mediapipe/wasm/vision_wasm_internal.js", 300, 78_276),
+      resource(`${MEDIAPIPE_WASM_PATH}/vision_wasm_internal.js`, 300, 78_276),
       resource(WASM, 300, 3_392_792),
       resource("/models/other.tflite", 9_000_000, 8_999_000),
       resource(MODEL, 3_416_796, 3_416_496),
