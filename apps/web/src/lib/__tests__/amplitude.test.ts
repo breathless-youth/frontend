@@ -148,7 +148,12 @@ describe("initAmplitude", () => {
     await runIdle();
 
     const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
-    expect(names).toEqual(["focusmakers-sanitize-url", "engagement", "session-replay"]);
+    expect(names).toEqual([
+      "focusmakers-sanitize-url",
+      "engagement",
+      "focusmakers-firebase-analytics-forward",
+      "session-replay",
+    ]);
   });
 
   it("Session Replay는 카메라(video) 차단 설정 그대로 붙인다", async () => {
@@ -207,7 +212,11 @@ describe("initAmplitude", () => {
       expect(mocks.track).toHaveBeenCalledTimes(1);
       expect(unhandled).not.toHaveBeenCalled();
       const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
-      expect(names).toEqual(["focusmakers-sanitize-url", "engagement"]);
+      expect(names).toEqual([
+        "focusmakers-sanitize-url",
+        "engagement",
+        "focusmakers-firebase-analytics-forward",
+      ]);
     } finally {
       process.off("unhandledRejection", unhandled);
       vi.doUnmock("@amplitude/plugin-session-replay-browser");
