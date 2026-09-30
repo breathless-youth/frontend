@@ -134,11 +134,8 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
           <>
             <Separator className="mt-3" />
             <div className="flex items-center justify-between gap-3 pt-3">
-              <span className="flex min-w-0 items-center gap-[6px]">
-                <ResultStatusDot tone="focus" />
-                <span className="text-[14px] leading-[17px] break-keep text-foreground">
-                  {RESULT_COPY.longestFocusLabel}
-                </span>
+              <span className="min-w-0 text-[14px] leading-[17px] break-keep text-foreground">
+                {RESULT_COPY.longestFocusLabel}
               </span>
               <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
                 <span className="text-[16px] leading-[19px] font-bold text-foreground">

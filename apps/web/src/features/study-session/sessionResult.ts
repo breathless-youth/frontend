@@ -4,7 +4,7 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 
-import { toKoreanDurationLength } from "./formatDuration";
+import { SUB_MINUTE_SEC, toKoreanDurationLength } from "./formatDuration";
 import { LEGEND_COPY, RESULT_COPY } from "./resultCopy";
 
 /**
@@ -200,7 +200,9 @@ export function longestFocusStretch(session: StudySessionResponse): LongestFocus
     best = { start: cursor, end: endMs };
   }
   const ms = best.end - best.start;
-  if (ms <= 0) {
+  // 순공 1분 미만을 기록에서 빼는 경계와 같은 값을 써야, 기록에 남지 않을 만큼 짧은 구간을
+  // "최고 집중"으로 내세우지 않는다.
+  if (ms < SUB_MINUTE_SEC * 1000) {
     return null;
   }
   const startedAt = new Date(best.start).toISOString();

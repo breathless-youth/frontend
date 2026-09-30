@@ -530,7 +530,7 @@ body {
 @keyframes result-stamp-press {
   0% {
     opacity: 0;
-    transform: translate(-50%, -160px) perspective(560px) rotateX(48deg) scale(1.18);
+    transform: translate(-50%, -160px) scale(1, 1);
   }
 
   22% {
@@ -539,20 +539,20 @@ body {
 
   46% {
     opacity: 1;
-    transform: translate(-50%, 4px) perspective(560px) rotateX(8deg) scale(1);
+    transform: translate(-50%, 4px) scale(1, 1);
   }
 
   55% {
-    transform: translate(-50%, 12px) perspective(560px) rotateX(0deg) scale(1.03);
+    transform: translate(-50%, 12px) scale(1.05, 0.88);
   }
 
   68% {
-    transform: translate(-50%, -26px) perspective(560px) rotateX(6deg) scale(1);
+    transform: translate(-50%, -26px) scale(1, 1);
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -150px) perspective(560px) rotateX(42deg) scale(1.12);
+    transform: translate(-50%, -150px) scale(1, 1);
   }
 }
 
