@@ -75,9 +75,11 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   syncRef.current = syncAfterCommand;
 
   const commit = useCallback((next: AmbientSoundSettings) => {
-    settingsRef.current = next;
-    setSettings(next);
-    void saveAmbientSoundSettings(next);
+    // 빈 믹스로 lastMix 를 덮으면 전체 켜기로 되살릴 조합이 사라진다.
+    const settled = Object.keys(next.mix).length > 0 ? { ...next, lastMix: next.mix } : next;
+    settingsRef.current = settled;
+    setSettings(settled);
+    void saveAmbientSoundSettings(settled);
   }, []);
 
   const applyMix = useCallback(
@@ -140,8 +142,14 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       // 카탈로그 밖 id 는 지우고, 지운 게 있으면 그 결과를 저장한다.
       // 카탈로그가 비어 있으면 로드 실패일 수 있으니 판단을 보류하고 저장값을 건드리지 않는다.
       const ids = activeIds(loaded.mix, loadedCatalog);
-      const pruned = loadedCatalog.length > 0 && ids.length !== Object.keys(loaded.mix).length;
-      const initial = pruned ? { ...loaded, mix: pick(loaded.mix, ids) } : loaded;
+      const lastIds = activeIds(loaded.lastMix, loadedCatalog);
+      const pruned =
+        loadedCatalog.length > 0 &&
+        (ids.length !== Object.keys(loaded.mix).length ||
+          lastIds.length !== Object.keys(loaded.lastMix).length);
+      const initial = pruned
+        ? { ...loaded, mix: pick(loaded.mix, ids), lastMix: pick(loaded.lastMix, lastIds) }
+        : loaded;
       setCatalog(loadedCatalog);
       settingsRef.current = initial;
       setSettings(initial);
@@ -233,16 +241,30 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     [commit],
   );
 
+  const toggleAll = useCallback(() => {
+    const current = settingsRef.current;
+    if (!current) return;
+    if (Object.keys(current.mix).length > 0) {
+      // 아이콘으로 하나씩 다시 켤 때도 듣던 음량으로 돌아오게 지금 레벨을 붙잡아 둔다.
+      Object.assign(lastLevelRef.current, current.mix);
+      changeMix({}, "dialog");
+      return;
+    }
+    if (Object.keys(current.lastMix).length > 0) changeMix(current.lastMix, "dialog");
+  }, [changeMix]);
+
   const mix = settings?.mix ?? {};
   return {
     mix,
     catalog,
     duckEnabled,
     isOn: Object.keys(mix).length > 0,
+    canRestore: Object.keys(settings?.lastMix ?? {}).length > 0,
     /** 자동재생 정책에 막혀 컨텍스트가 못 살아난 상태 — 다음 조작에서 다시 시도된다. */
     blocked,
     changeLevel,
     toggleSound,
+    toggleAll,
     setDuckEnabled,
   };
 }

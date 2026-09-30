@@ -199,7 +199,7 @@ export function ResultPage() {
             variant="secondary"
             size="xl"
             onClick={() => leave("home")}
-            className="flex-1 transition-transform duration-150 active:scale-[0.97] motion-reduce:transition-none"
+            className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
           >
             {RESULT_COPY.ctaHome}
           </Button>
@@ -207,7 +207,7 @@ export function ResultPage() {
             type="button"
             size="xl"
             onClick={() => leave("records")}
-            className="shadow-sb-cta flex-[1.5] transition-transform duration-150 active:scale-[0.97] motion-reduce:transition-none"
+            className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
           >
             {RESULT_COPY.ctaRecords}
           </Button>

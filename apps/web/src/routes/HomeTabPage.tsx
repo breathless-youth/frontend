@@ -2,7 +2,6 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import inviteFriendsImage from "@/assets/home-invite-friends.png";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -71,7 +70,18 @@ function Stat({ label, value, className }: { label: string; value: string; class
   return (
     <div className={cn("flex flex-1 flex-col gap-1", className)}>
       <p className="text-[13px] leading-4 text-muted-foreground">{label}</p>
-      <p className="text-lg leading-[22px] font-extrabold text-foreground tabular-nums">{value}</p>
+      <p className="text-lg leading-[22px] font-extrabold text-foreground tabular-nums">
+        {/* 숫자만 자간을 벌리려고 숫자 덩어리를 따로 감싼다 */}
+        {value.split(/(\d+)/).map((part, i) =>
+          i % 2 ? (
+            <span key={i} className="tracking-[0.9px]">
+              {part}
+            </span>
+          ) : (
+            part
+          ),
+        )}
+      </p>
     </div>
   );
 }
@@ -82,15 +92,15 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
 
   return (
     <Card className={cn(CARD_CLASS, "flex flex-col gap-[18px] px-[22px] pt-[22px] pb-5")}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <div>
           <p className="text-sm leading-[17px] font-bold text-muted-foreground">오늘 순공시간</p>
           <p className="flex items-baseline pt-1.5 pb-2 text-foreground tabular-nums">
-            <span className="text-[40px] leading-[48px] font-extrabold tracking-[-1.2px]">
+            <span className="text-[40px] leading-[48px] font-extrabold tracking-[2px]">
               {hours}
             </span>
             <span className="text-[21px] font-bold">시간</span>
-            <span className="ml-1.5 text-[40px] leading-[48px] font-extrabold tracking-[-1.2px]">
+            <span className="ml-1.5 text-[40px] leading-[48px] font-extrabold tracking-[2px]">
               {minutes}
             </span>
             <span className="text-[21px] font-bold">분</span>
@@ -127,14 +137,15 @@ function InviteCard({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 items-center gap-4 rounded-xl bg-brand-subtle px-[22px] py-5 text-left"
+      className="flex min-h-11 items-center rounded-xl bg-brand-subtle px-[22px] py-5 text-left"
     >
-      <img src={inviteFriendsImage} alt="" width={64} height={64} className="size-16 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col gap-1 text-primary">
-        <span className="text-base leading-5 font-bold">오늘은 혼자 집중하기 힘든가요?</span>
-        <span className="text-sm leading-5">친구들을 초대해서 같이 공부해보세요</span>
-        <span className="flex items-center gap-1 pt-0.5 text-xs leading-[15px] font-bold">
-          친구 초대하여 공부하기
+        <span className="text-base leading-[22px] font-semibold">
+          오늘은 혼자 집중하기 힘든가요? <br />
+          사람들과 함께 공부해보세요
+        </span>{" "}
+        <span className="flex items-center gap-1 self-end pt-3.5 text-xs leading-[15px] font-bold">
+          그룹 스터디하러 이동
           <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
         </span>
       </span>
@@ -263,7 +274,7 @@ function HomeContent({ userId }: { userId: number }) {
 
       <Button
         size="xl"
-        className="w-full text-[17px] leading-[21px] font-bold"
+        className="w-full text-[18px] leading-[21px] font-bold tracking-[0.9px]"
         onClick={startFocusFlow}
       >
         집중 시작

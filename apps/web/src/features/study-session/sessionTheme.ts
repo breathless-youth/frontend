@@ -47,14 +47,12 @@ const SESSION_SURFACE_VARS = {
    */
   "--session-simple-base": "#0b0f14",
   /** Figma V2 `S1b` 배지 실측(측정 중, node 5520:5024 / 5521:5024 — 라이트·다크 동일). */
-  "--session-pill-bg": "rgba(69, 147, 252, 0.34)",
-  "--session-pill-border-focus": "rgba(140, 190, 255, 0.42)",
+  "--session-pill-bg": "rgba(42, 90, 154, 0.85)",
   /** Figma V2 `S1b` 배지 실측(비집중, node 5520:5048 / 5521:5048 — 라이트·다크 동일). */
-  "--session-pill-bg-distract": "rgba(240, 162, 87, 0.36)",
-  "--session-pill-border-distract": "rgba(255, 200, 150, 0.45)",
+  "--session-pill-bg-distract": "#f0a257",
+  "--session-pill-fg-distract": "#1f2a3d",
   /** Figma V2 `S1b` 배지 실측(일시정지, node 5520:5072 / 5521:5072 — 라이트·다크 동일). */
-  "--session-pill-bg-paused": "rgba(138, 148, 164, 0.3)",
-  "--session-pill-border-paused": "rgba(200, 208, 220, 0.36)",
+  "--session-pill-bg-paused": "rgba(83, 89, 98, 0.85)",
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)와 Figma 실측이 일치한다. `RoomControlBar`와
    * `RoomPage`/`LiveRoomSession`의 에러 문구 색이 공유해서 값을 바꿀 수 없다. */

@@ -702,27 +702,20 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  /**
-   * 프리뷰가 없는 화면에서 전환을 누르면 보이는 변화 없이 추론만 1~2초 끊긴다(BY-336).
-   * 버튼을 **없애지 않고 잠그는** 이유는 세 버튼 배치가 고정이라 하나가 빠지면 심플 모드
-   * 진입 자체가 레이아웃 점프가 되기 때문이다.
-   */
-  it("카메라 전환은 잠긴다 — 프리뷰가 없어 결과를 볼 수 없다", async () => {
+  it("카메라 전환은 숨고 배경음 버튼은 남는다", async () => {
     renderRoom("/room/7?userId=1");
-    const flip = () => screen.getByRole("button", { name: "카메라 전환" });
-
-    expect(flip()).toBeEnabled();
 
     await enterSimpleMode();
-    expect(flip()).toBeDisabled();
+
+    expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^배경음/ })).toBeInTheDocument();
 
     // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
     await enterSimpleMode();
-    expect(flip()).toBeEnabled();
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
   });
 
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {

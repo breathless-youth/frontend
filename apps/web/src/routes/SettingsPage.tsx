@@ -81,6 +81,13 @@ export function SettingsPage() {
           */}
           <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-[14px]">
             <div className="flex min-w-0 items-center gap-1.5">
+              <span className="text-foreground text-base leading-[19px]">카메라 권한</span>
+              <InfoTooltip label="카메라 권한 안내">
+                권한은 시스템 설정에서 바꿀 수 있어요
+              </InfoTooltip>
+            </div>
+            {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
+            {granted !== null && (
               <button
                 type="button"
                 aria-label={cameraPermissionRowLabel(granted)}
@@ -89,16 +96,11 @@ export function SettingsPage() {
                   postToNative({ type: "open-settings", atMs: Date.now() });
                 }}
                 // 텍스트만으로는 높이가 19px라 세로 음수 마진으로 행 높이는 그대로 두고 버튼만 44px로 만든다.
-                className="text-foreground -my-3 flex min-h-11 items-center text-base leading-[19px]"
+                className="-my-[6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
               >
-                카메라 권한
+                <PermissionToggle granted={granted} />
               </button>
-              <InfoTooltip label="카메라 권한 안내">
-                권한은 시스템 설정에서 바꿀 수 있어요
-              </InfoTooltip>
-            </div>
-            {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
-            {granted !== null && <PermissionToggle granted={granted} />}
+            )}
           </div>
           {/*
             온보딩 가이드로 다시 들어가는 행이다.

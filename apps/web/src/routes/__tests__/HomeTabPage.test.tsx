@@ -148,11 +148,19 @@ describe("HomeTabPage", () => {
     await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
     expect(screen.getByText("오늘 순공시간")).toBeInTheDocument();
     expect(screen.getByText("집중률")).toBeInTheDocument();
-    expect(screen.getByText("총 공부시간")).toBeInTheDocument();
-    expect(screen.getByText("2시간")).toBeInTheDocument();
-    expect(screen.getByText("최대 집중시간")).toBeInTheDocument();
-    expect(screen.getByText("52분")).toBeInTheDocument();
+    expect(screen.getByText("총 공부시간").nextElementSibling).toHaveTextContent(/^2시간$/);
+    expect(screen.getByText("최대 집중시간").nextElementSibling).toHaveTextContent(/^52분$/);
     expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument();
+  });
+
+  it("시간과 분이 함께 있는 스탯 값도 한 문장으로 읽힌다", async () => {
+    mockedStats.mockResolvedValue({ ...statsResponse, totalStudySec: 14520 });
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+    expect(screen.getByText("총 공부시간").nextElementSibling).toHaveTextContent(/^4시간 2분$/);
   });
 
   it("조회 실패 시 오류 상태와 다시 시도를 보여준다", async () => {
@@ -318,7 +326,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: /친구 초대하여 공부하기/ }));
+      fireEvent.click(screen.getByRole("button", { name: /그룹 스터디하러 이동/ }));
 
       expect(postMessage).toHaveBeenCalledWith(
         expect.stringContaining('"type":"navigate-tab","tab":"social"') as unknown as string,
@@ -339,7 +347,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const card = screen.getByRole("button", { name: /친구 초대하여 공부하기/ });
+      const card = screen.getByRole("button", { name: /그룹 스터디하러 이동/ });
       fireEvent.click(card);
       fireEvent.click(card);
 
@@ -357,10 +365,29 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: /친구 초대하여 공부하기/ }));
+      fireEvent.click(screen.getByRole("button", { name: /그룹 스터디하러 이동/ }));
 
       const stub = await screen.findByTestId("social-stub");
       expect(stub.textContent).toBe("/social?userId=7");
+    });
+
+    it("타이틀 두 줄이 보이고 옛 부제는 없다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHomeWithRoutes();
+
+      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
+
+      const card = screen.getByRole("button", { name: /그룹 스터디하러 이동/ });
+      expect(card).toHaveTextContent("오늘은 혼자 집중하기 힘든가요?");
+      expect(card).toHaveTextContent("사람들과 함께 공부해보세요");
+      expect(screen.queryByText("친구들을 초대해서 같이 공부해보세요")).not.toBeInTheDocument();
+      // <br />로만 줄바꿈하면 textContent에 구분자가 안 남아 문장이 그대로 붙는다.
+      const normalizedText = (card.textContent ?? "").replace(/\s+/g, " ").trim();
+      expect(normalizedText).toBe(
+        "오늘은 혼자 집중하기 힘든가요? 사람들과 함께 공부해보세요 그룹 스터디하러 이동",
+      );
     });
   });
 

@@ -318,6 +318,13 @@ describe("ResultPage — 타임라인 카드", () => {
     expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
   });
 
+  it("가장 긴 집중 구간이 1분 미만이면 최고 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
+    renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6241)] })] });
+
+    expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최고 집중/);
+  });
+
   it("축 라벨은 세션 시작·종료 벽시계다", () => {
     renderResult({ sessions: [exampleSession()] });
 

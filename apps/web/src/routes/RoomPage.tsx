@@ -16,6 +16,7 @@ import { CameraPreviewSurface } from "@/features/study-session/components/Camera
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionControlBar } from "@/features/study-session/components/SessionControlBar";
+import { SessionSideActions } from "@/features/study-session/components/SessionSideActions";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
@@ -452,18 +453,28 @@ function RoomSessionScreen({
           />
 
           <div className={SESSION_LAYER_LAYOUT}>
-            {/* 배경음 버튼 */}
-            <AmbientSoundButton
-              ref={ambientButtonRef}
-              on={ambient.isOn}
-              expanded={ambientSheetOpen}
-              onClick={() => setAmbientSheetOpen(true)}
-              className="absolute top-[calc(env(safe-area-inset-top)+13px)] right-[calc(env(safe-area-inset-right)+24px)] landscape:top-[calc(env(safe-area-inset-top)+90px)] landscape:right-[calc(env(safe-area-inset-right)+28px)]"
-            />
             <SessionStatusPill
               state={pillState}
               label={statusCopy.label}
               className="landscape:col-start-2 landscape:row-start-1 landscape:justify-self-center"
+            />
+
+            {/* 위를 기준으로 붙여야 심플 모드에서 카메라 전환이 빠져도 배경음이 움직이지 않는다.
+                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다. */}
+            <SessionSideActions
+              // 심플 모드는 프리뷰가 없어 전환 결과를 볼 수 없는데 추론만 잠깐 끊긴다.
+              showFlip={!simpleMode}
+              onFlipCamera={() => void handleFlipCamera()}
+              ambient={
+                /* 배경음 버튼 */
+                <AmbientSoundButton
+                  ref={ambientButtonRef}
+                  on={ambient.isOn}
+                  expanded={ambientSheetOpen}
+                  onClick={() => setAmbientSheetOpen(true)}
+                />
+              }
+              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+64px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
             />
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
@@ -498,13 +509,9 @@ function RoomSessionScreen({
 
             <div className="relative mt-[44px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
               <CtaToaster />
-              {/* 심플 모드에서는 카메라 전환을 잠근다 — 프리뷰가 없어 결과를 볼 수 없는데
-                  추론만 끊긴다(그쪽 prop 주석). 화면을 한 번 탭해 프리뷰로 돌아오면 풀린다. */}
               <SessionControlBar
                 paused={paused}
-                flipDisabled={simpleMode}
                 onTogglePause={() => (paused ? resume() : pause())}
-                onFlipCamera={() => void handleFlipCamera()}
                 onRequestExit={handleRequestExit}
               />
             </div>
@@ -526,9 +533,11 @@ function RoomSessionScreen({
             mix={ambient.mix}
             duckEnabled={ambient.duckEnabled}
             blocked={ambient.blocked}
+            canRestore={ambient.canRestore}
             onToggleSound={ambient.toggleSound}
             onChangeLevel={ambient.changeLevel}
             onSetDuckEnabled={ambient.setDuckEnabled}
+            onToggleAll={ambient.toggleAll}
             onOpenChange={setAmbientSheetOpen}
           />
         </>

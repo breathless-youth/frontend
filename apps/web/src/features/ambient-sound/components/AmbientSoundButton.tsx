@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { Music } from "lucide-react";
 
+import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
 import { cn } from "@/lib/utils";
 
 export interface AmbientSoundButtonProps {
@@ -9,7 +10,6 @@ export interface AmbientSoundButtonProps {
   /** 시트 개폐 상태 */
   expanded: boolean;
   onClick: () => void;
-  className?: string;
 }
 
 /**
@@ -19,7 +19,7 @@ export interface AmbientSoundButtonProps {
  * 세션 레이어가 `pointer-events-none` 이라 클릭을 받으려면 스스로 `pointer-events-auto` 여야 한다.
  */
 export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButtonProps>(
-  function AmbientSoundButton({ on, expanded, onClick, className }, ref) {
+  function AmbientSoundButton({ on, expanded, onClick }, ref) {
     return (
       <button
         ref={ref}
@@ -32,13 +32,12 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
         data-on={on}
         onClick={onClick}
         className={cn(
-          "pointer-events-auto flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/12 text-white backdrop-blur-[7px]",
-          "transition-[transform,opacity] duration-200 active:scale-90 active:opacity-80 motion-reduce:transition-none",
+          controlButtonVariants(),
+          "pointer-events-auto size-[54px] bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
           "data-[on=true]:text-[var(--state-focus)]",
-          className,
         )}
       >
-        <Music size={20} aria-hidden="true" />
+        <Music aria-hidden="true" className="size-[23px]" />
       </button>
     );
   },

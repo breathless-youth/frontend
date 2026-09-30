@@ -31,9 +31,11 @@ export interface AmbientSoundSheetProps {
   duckEnabled: boolean;
   /** 자동 재생 정책에 막혀 소리가 못 난 상태. 슬라이더를 움직이면 컨텍스트가 다시 살아난다. */
   blocked: boolean;
+  canRestore: boolean;
   onToggleSound: (id: SoundId) => void;
   onChangeLevel: (id: SoundId, level: number) => void;
   onSetDuckEnabled: (enabled: boolean) => void;
+  onToggleAll: () => void;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -59,9 +61,11 @@ export function AmbientSoundSheet({
   mix,
   duckEnabled,
   blocked,
+  canRestore,
   onToggleSound,
   onChangeLevel,
   onSetDuckEnabled,
+  onToggleAll,
   onOpenChange,
 }: AmbientSoundSheetProps) {
   // 툴팁을 직접 제어한다. Radix 기본은 hover·focus 라 터치 기기에서는 열리지 않는다.
@@ -75,6 +79,7 @@ export function AmbientSoundSheet({
   const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
+  const allOn = Object.keys(mix).length > 0;
 
   /**
    * 여는 요청은 무시하고 닫는 요청만 받는다.
@@ -130,6 +135,14 @@ export function AmbientSoundSheet({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {/* ⓘ 의 탭 영역이 좌우로 14px 번지므로, 스위치가 그 위를 덮지 않게 간격을 14px 로 맞춘다. */}
+            <Switch
+              className="ml-1.5"
+              checked={allOn}
+              onCheckedChange={onToggleAll}
+              disabled={!allOn && !canRestore}
+              aria-label="배경음"
+            />
           </div>
           <SheetClose
             aria-label="닫기"
