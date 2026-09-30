@@ -67,7 +67,11 @@
 ## 측정
 
 - 지금은 세션을 열 때마다 wasm 로더·바이너리·모델 3건과 켠 사운드 수만큼 조건부 요청이 나가 304를 받는다.
-- 바꾼 뒤에는 재방문 시 이 요청이 0건이어야 한다. 스테이징에 배포된 뒤 `curl -I`로 세 경로의 `cache-control`을 확인하고, 두 번째 세션의 `vision_detector_ready` 이벤트에서 `wasm_cache`·`model_cache`가 `hit`인지 본다.
+- 측정은 `reports/BY-795/measure-asset-cache.mjs`로 한다. web-dev 출처의 페이지 안에서 앱과 같은 same-origin `fetch`로 자산을 받고, 한 컨텍스트에서 5번 방문해 2회차부터의 왕복 수와 걸린 시간을 Resource Timing으로 모은다. 브라우저 단독 홈은 신원이 없어 프리페치가 돌지 않으므로 앱 화면 흐름에 묶지 않는다.
+- Chromium은 304 재검증도 `deliveryType: "cache"`, `responseStatus: 200`으로 보고하고 `transferSize`를 300B로 둔다. 그래서 전송 바이트로 가른다. 0B는 캐시 적중, 본문 크기 미만은 재검증 왕복, 그 이상은 전체 다운로드다.
+- 같은 이유로 `vision_detector_ready`의 `wasm_cache`·`model_cache`는 304도 `hit`로 분류하므로 전후 차이가 보이지 않는다. 이 이벤트로는 효과를 확인하지 않는다.
+- AS-IS는 dev 머지 전 web-dev에서, TO-BE는 머지 뒤 같은 스크립트로 잰다. 결과는 `reports/BY-795/`에 남긴다.
+- 배포 뒤 `curl -I`로 세 경로의 `cache-control`이 `public, max-age=31536000, immutable`인지도 확인한다.
 
 ## 범위 밖
 
