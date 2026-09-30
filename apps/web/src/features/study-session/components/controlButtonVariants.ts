@@ -1,7 +1,7 @@
 import { cva } from "class-variance-authority";
 
 export const controlButtonVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,transform] duration-200 active:scale-95 active:opacity-80 motion-reduce:transition-none motion-reduce:active:scale-100",
+  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,scale] duration-200 active:scale-95 active:opacity-80 motion-reduce:transition-none motion-reduce:active:scale-100",
   {
     variants: {
       /** 기본 버튼(일시정지/카메라 전환)만 라이트/다크를 따른다 — 재개·종료는 두 모드에서 색이 같다. */
