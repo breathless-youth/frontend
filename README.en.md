@@ -124,7 +124,8 @@ Values come from the team and must never be pushed to the remote repository. Cop
 | Web dev        | Vercel    | `dev` branch                                                             | `web-dev.focusmakers.app`                                                             |
 | App            | EAS Build | Profiles `development`, `development-simulator`, `staging`, `production` | `production` goes to the App Store and Google Play, the rest to internal distribution |
 
-- Web and app versions follow CalVer `YY.WW.P` and are bumped with `pnpm release:bump --web` in the release PR, adding `--app` in weeks when the app is also submitted.
+- Web and app versions follow CalVer `YY.WW.P`.
+- The release PR bumps them with `pnpm release:bump --web`, adding `--app` in weeks when the app is also submitted.
 - Release history and versioning rules are in [docs/releases.md](./docs/releases.md).
 
 ## Docs

@@ -37,7 +37,7 @@
 
 ## README 섹션
 
-1. 소개: 언어 전환 줄, 배너, 서비스 소개, 캠스터디 기능, 순공 시간 정의 인용(나무위키, 위키백과에는 문서가 없다). 개인정보 원칙은 `CLAUDE.md` 링크로 대신한다.
+1. 소개: 언어 전환 줄, 배너, 서비스 소개, 서비스 목표, 순공 시간 정의 인용(나무위키, 위키백과에는 문서가 없다). 개인정보 원칙은 `CLAUDE.md` 링크로 대신한다.
 2. 구조: `apps/web`, `apps/mobile`, `packages/types`, `packages/design-tokens`, `packages/config` 표와 mermaid 흐름 도식 한 장.
 3. 기술 스택: 웹과 모바일을 나눈 표 하나에 서버 상태·폼·실시간·비전 추론·웹뷰까지 담는다. Expo SDK 57 업그레이드가 예정돼 있어 고정 방침은 적지 않는다.
 4. 시작하기: Node 24, corepack pnpm 10.28.2, 웹 실행, 모바일 Dev Client 빌드와 Metro 실행, Expo Go 불가 주의 문구, 실기기 런북 링크.

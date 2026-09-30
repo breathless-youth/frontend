@@ -124,7 +124,8 @@ pnpm --filter mobile start
 | 웹 개발 | Vercel    | `dev` 브랜치                                                           | `web-dev.focusmakers.app`                                |
 | 앱      | EAS Build | 프로필 `development`, `development-simulator`, `staging`, `production` | `production`은 App Store·Google Play, 나머지는 내부 배포 |
 
-- 웹과 앱 버전은 CalVer `YY.WW.P`를 따르고 릴리즈 PR에서 `pnpm release:bump --web`으로 올리고, 앱을 함께 제출하는 주에는 `--app`을 붙인다.
+- 웹과 앱 버전은 CalVer `YY.WW.P`를 따른다.
+- 릴리즈 PR에서 `pnpm release:bump --web`으로 올리고, 앱을 함께 제출하는 주에는 `--app`을 붙인다.
 - 릴리즈 기록과 버전 규칙은 [docs/releases.md](./docs/releases.md)에 있다.
 
 ## 문서
