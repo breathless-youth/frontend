@@ -25,11 +25,11 @@ export const badgeVariants = cva(
         outline:
           "border-[1.5px] border-primary bg-muted px-3 py-[4px] text-[13px] leading-[16px] font-bold",
         /** 공부 세션 상태 필 — 측정 중(Figma V2 `S1b` 실측). 세션 로컬 변수는 sessionTheme.ts가 준다. */
-        "session-focus": `border border-[var(--session-pill-border-focus)] bg-[var(--session-pill-bg)] ${SESSION_PILL_BASE}`,
+        "session-focus": `bg-[var(--session-pill-bg)] ${SESSION_PILL_BASE}`,
         /** 상태 필 — 비집중(휴대폰 사용 등). */
-        "session-distract": `border border-[var(--session-pill-border-distract)] bg-[var(--session-pill-bg-distract)] ${SESSION_PILL_BASE}`,
+        "session-distract": `bg-[var(--session-pill-bg-distract)] ${SESSION_PILL_BASE} text-[var(--session-pill-fg-distract)]`,
         /** 상태 필 — 일시정지. */
-        "session-paused": `border border-[var(--session-pill-border-paused)] bg-[var(--session-pill-bg-paused)] ${SESSION_PILL_BASE}`,
+        "session-paused": `bg-[var(--session-pill-bg-paused)] ${SESSION_PILL_BASE}`,
       },
     },
     defaultVariants: { variant: "elevated" },
