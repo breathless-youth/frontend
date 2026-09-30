@@ -75,7 +75,15 @@ for (const page of PAGES) {
   }
   for (const name of names) {
     const pick = (key) => median(runs[name].map((run) => run[key]));
-    rows.push({ page, name, score: pick("score"), fcp: pick("fcp"), lcp: pick("lcp"), bootup: pick("bootup"), transfer: pick("transfer") });
+    rows.push({
+      page,
+      name,
+      score: pick("score"),
+      fcp: pick("fcp"),
+      lcp: pick("lcp"),
+      bootup: pick("bootup"),
+      transfer: pick("transfer"),
+    });
   }
 }
 
