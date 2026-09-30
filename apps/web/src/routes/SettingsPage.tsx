@@ -96,7 +96,7 @@ export function SettingsPage() {
                   postToNative({ type: "open-settings", atMs: Date.now() });
                 }}
                 // 텍스트만으로는 높이가 19px라 세로 음수 마진으로 행 높이는 그대로 두고 버튼만 44px로 만든다.
-                className="relative after:absolute after:inset-0 after:content-[''] -my-[6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+                className="-my-[6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
               >
                 <PermissionToggle granted={granted} />
               </button>
