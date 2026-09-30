@@ -7,8 +7,6 @@ import {
   validateNickname,
 } from "@/features/profile/profileValidation";
 
-export type ProfileFormValues = { nickname: string; goal: string; category: string | null };
-
 const CATEGORY_VALUES: ReadonlySet<string> = new Set(CATEGORY_CHIPS.map((chip) => chip.value));
 
 /**
@@ -53,3 +51,5 @@ export function makeProfileSchema(original: {
       }
     });
 }
+
+export type ProfileFormValues = z.infer<ReturnType<typeof makeProfileSchema>>;
