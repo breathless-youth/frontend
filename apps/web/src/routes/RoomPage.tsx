@@ -56,6 +56,7 @@ import {
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
+import { prefetchResultPage } from "@/routes/lazyRoutes";
 
 /**
  * 세션 레이어의 세로/가로 배치
@@ -690,6 +691,11 @@ export function RoomPage() {
   const identityPending = useIdentityPending();
   const userId = useUserId();
   const { settled, restored } = useActiveSessionRestore(userId);
+
+  // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
+  useEffect(() => {
+    prefetchResultPage();
+  }, []);
 
   if (identityPending || !settled) {
     return (

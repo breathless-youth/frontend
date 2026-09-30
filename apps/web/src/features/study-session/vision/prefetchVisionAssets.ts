@@ -1,3 +1,5 @@
+import { whenIdle } from "@/lib/whenIdle";
+
 import { DEFAULT_MODEL_VARIANT, MEDIAPIPE_WASM_PATH, MODEL_PATHS } from "./visionConfig";
 
 /**
@@ -18,9 +20,6 @@ import { DEFAULT_MODEL_VARIANT, MEDIAPIPE_WASM_PATH, MODEL_PATHS } from "./visio
  * JS 없이 고를 수 없다.
  */
 
-/** `requestIdleCallback`이 없을 때 미루는 시간. 통계 표시 직후의 첫 입력을 방해하지 않을 여유다. */
-const IDLE_FALLBACK_MS = 1_500;
-
 let requested = false;
 
 export function prefetchVisionAssets(): void {
@@ -36,11 +35,7 @@ export function prefetchVisionAssets(): void {
   if (connection?.saveData === true) {
     return;
   }
-  if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(() => void fetchVisionAssets());
-  } else {
-    setTimeout(() => void fetchVisionAssets(), IDLE_FALLBACK_MS);
-  }
+  whenIdle(() => void fetchVisionAssets());
 }
 
 async function fetchVisionAssets(): Promise<void> {

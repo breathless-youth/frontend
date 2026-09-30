@@ -260,6 +260,9 @@ importers:
       '@sentry/react':
         specifier: ^10.69.0
         version: 10.69.0(react@19.1.0)
+      '@sentry/replay':
+        specifier: 10.69.0
+        version: 10.69.0
       '@stomp/stompjs':
         specifier: ^7.3.0
         version: 7.3.0
