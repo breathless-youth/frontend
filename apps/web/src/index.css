@@ -96,7 +96,6 @@
   /* colors.bg.dim.light */
   --session-bar-glass-bg: rgba(255, 255, 255, 0.55);
   /* Figma S1b control-bar 실측(light, node 5520:5030) */
-  --session-bar-glass-border: rgba(255, 255, 255, 0.75);
   --session-bar-glass-shadow: rgba(31, 42, 61, 0.14);
   --session-bar-glass-highlight: rgba(255, 255, 255, 0.9);
   --session-btn-default-bg: rgba(31, 42, 61, 0.05);
@@ -158,7 +157,6 @@
     /* colors.bg.dim.dark */
     --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
     /* Figma S1b control-bar 실측(dark, node 5521:5030) */
-    --session-bar-glass-border: rgba(255, 255, 255, 0.18);
     --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
     --session-bar-glass-highlight: rgba(255, 255, 255, 0.25);
     --session-btn-default-bg: rgba(255, 255, 255, 0.1);
@@ -198,7 +196,6 @@
   --dim: #00000099;
   --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
   /* Figma S1b control-bar 실측(dark, node 5521:5030) */
-  --session-bar-glass-border: rgba(255, 255, 255, 0.18);
   --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
   --session-bar-glass-highlight: rgba(255, 255, 255, 0.25);
   --session-btn-default-bg: rgba(255, 255, 255, 0.1);

@@ -44,21 +44,14 @@ function renderRoom(url = "/room/7?userId=1") {
 const noop = () => {};
 
 function renderControlBar() {
-  return render(
-    <SessionControlBar
-      paused={false}
-      onTogglePause={noop}
-      onFlipCamera={noop}
-      onRequestExit={noop}
-    />,
-  );
+  return render(<SessionControlBar paused={false} onTogglePause={noop} onRequestExit={noop} />);
 }
 
 describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
-  it("바 버튼 3개가 모두 54px 원형이다 — 방향과 무관하게 고정", () => {
+  it("바 버튼 2개가 모두 54px 원형이다 — 방향과 무관하게 고정", () => {
     renderControlBar();
 
-    for (const name of ["일시정지", "카메라 전환", "공부 종료"]) {
+    for (const name of ["일시정지", "공부 종료"]) {
       const button = screen.getByRole("button", { name });
       expect(button.className).toContain("h-[54px]");
       expect(button.className).toContain("w-[54px]");
@@ -71,7 +64,7 @@ describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
     const labels = [...container.querySelectorAll("button")].map((button) =>
       button.getAttribute("aria-label"),
     );
-    expect(labels).toEqual(["일시정지", "카메라 전환", "공부 종료"]);
+    expect(labels).toEqual(["일시정지", "공부 종료"]);
     expect(screen.getByRole("button", { name: "공부 종료" }).className).toContain(
       "bg-[var(--session-control-exit-bg)]",
     );
