@@ -10,8 +10,8 @@ import SettingsScreen from "../app/(tabs)/settings";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router", () => ({
+  ...jest.requireActual("expo-router"),
   useIsFocused: () => true,
 }));
 
