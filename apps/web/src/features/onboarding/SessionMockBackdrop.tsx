@@ -108,8 +108,9 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
 }
 
 /**
- * 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더 /
- * Paused=회색 도트(2026-08-25 BY-427 — G4가 일시정지 상태를 그대로 보여주도록 추가).
+ * 세션 상단 중앙 상태 필
+ *
+ * 비집중만 주황 테두리를 두르고, 측정 중과 일시정지는 문구로 구분한다.
  */
 export function MockStatusPillBlock({
   pill,
@@ -131,7 +132,7 @@ export function MockStatusPillBlock({
       // 강조 대상이 아닐 때는 dim 아래 장식과 같은 취급 — 스크린 리더에서 제외한다.
       aria-hidden={emphasized ? undefined : true}
     >
-      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4, 2026-08-25 BY-427)로 켠다. */}
+      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4)로 켠다. */}
       <RingOutEmphasis
         active={emphasized || pill.ring === true}
         color={accent}
@@ -140,7 +141,7 @@ export function MockStatusPillBlock({
         <div
           role={emphasized ? "img" : undefined}
           aria-label={emphasized ? pill.label : undefined}
-          className="flex flex-row items-center gap-2 border px-4 py-[9px]"
+          className="flex flex-row items-center border px-4 py-[9px]"
           style={{
             backgroundColor: isDistract
               ? coachOverlay.pillBgDistract
@@ -151,11 +152,6 @@ export function MockStatusPillBlock({
             borderRadius: coachRadius.full,
           }}
         >
-          <span
-            aria-hidden="true"
-            className="size-2 rounded-full"
-            style={{ backgroundColor: accent }}
-          />
           <span className="text-[14px] leading-[18px] font-medium text-white">{pill.label}</span>
         </div>
       </RingOutEmphasis>

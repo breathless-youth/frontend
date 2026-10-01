@@ -475,7 +475,7 @@ function RoomSessionScreen({
                   onClick={() => setAmbientSheetOpen(true)}
                 />
               }
-              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+64px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
+              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
             />
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
