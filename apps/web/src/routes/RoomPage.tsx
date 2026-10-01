@@ -71,7 +71,7 @@ const SESSION_LAYER_LAYOUT = [
   "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+17px)]",
   "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
   "landscape:grid landscape:grid-cols-[1fr_auto_1fr] landscape:grid-rows-[auto_1fr_auto_auto_auto] landscape:items-start",
-  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc(env(safe-area-inset-bottom)+14px)]",
+  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc((env(safe-area-inset-bottom)+14px)/2)]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
 
@@ -501,7 +501,8 @@ function RoomSessionScreen({
               glow={simpleMode}
               className={
                 simpleMode
-                  ? "landscape:col-span-full landscape:row-start-2 landscape:justify-self-center landscape:self-center"
+                  ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
+                    "landscape:absolute landscape:top-1/2 landscape:left-1/2 landscape:-translate-x-1/2 landscape:-translate-y-1/2"
                   : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
             />
