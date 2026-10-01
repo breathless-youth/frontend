@@ -1,5 +1,5 @@
 diff --git a/apple/RNCWebView.mm b/apple/RNCWebView.mm
-index 95c0fcc91be3ce08c6bfab26bf488e49bf573d0f..a83b68ca1e0216c750cddc09f3a2056e6655f2d1 100644
+index c0816b6320820a8586f3735b7971790cac8704fa..22884ba16fefeabfb4d2a7e073334050066fcff5 100644
 --- a/apple/RNCWebView.mm
 +++ b/apple/RNCWebView.mm
 @@ -9,6 +9,7 @@
@@ -10,7 +10,7 @@ index 95c0fcc91be3ce08c6bfab26bf488e49bf573d0f..a83b68ca1e0216c750cddc09f3a2056e
  
  using namespace facebook::react;
  
-@@ -494,6 +495,14 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -514,6 +515,14 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
      }
      [_view setSource:source];
  

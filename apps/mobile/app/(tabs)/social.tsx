@@ -1,5 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useIsFocused, useLocalSearchParams } from "expo-router";
 
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { SocialTabSkeleton } from "../../components/RemoteSplashSkeletons";

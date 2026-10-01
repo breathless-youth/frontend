@@ -1,5 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
-import { Tabs } from "expo-router";
+import { Tabs, useIsFocused } from "expo-router";
 import { useEffect, useRef } from "react";
 import { BackHandler, Platform, View } from "react-native";
 
