@@ -1,4 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { HomeTabSkeleton } from "../../components/RemoteSplashSkeletons";

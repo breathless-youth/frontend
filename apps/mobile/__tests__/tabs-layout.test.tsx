@@ -32,10 +32,8 @@ jest.mock("expo-router", () => {
   Tabs.Screen = function TabsScreen() {
     return null;
   };
-  return { Tabs };
+  return { Tabs, useIsFocused: () => true };
 });
-
-jest.mock("@react-navigation/native", () => ({ useIsFocused: () => true }));
 
 // 탭 바 자체는 SafeAreaProvider를 요구하고 여기서 볼 대상도 아니다 — 렌더만 되는 자리표시자로
 // 대체한다. testID를 갖는 View라야 "차단이면 탭 바가 남고, 숨김이면 사라진다"를 증명할 수 있다.

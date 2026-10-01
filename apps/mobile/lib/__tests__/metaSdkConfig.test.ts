@@ -167,8 +167,8 @@ describe("Meta SDK 설정", () => {
       expect(mobilePackageJson.dependencies["react-native-fbsdk-next"]).toBe("13.4.3");
     });
 
-    it("expo-tracking-transparency는 SDK 54 번들 버전 범위다", () => {
-      expect(mobilePackageJson.dependencies["expo-tracking-transparency"]).toBe("~6.0.8");
+    it("expo-tracking-transparency는 SDK 57 번들 버전 범위다", () => {
+      expect(mobilePackageJson.dependencies["expo-tracking-transparency"]).toBe("~57.0.2");
     });
   });
 });

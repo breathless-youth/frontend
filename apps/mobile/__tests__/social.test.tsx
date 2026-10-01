@@ -11,10 +11,6 @@ jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7
 const mockParams: { code?: string } = {};
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
-}));
-
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
   useIsFocused: () => true,
 }));
 

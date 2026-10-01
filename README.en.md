@@ -39,8 +39,8 @@ flowchart LR
 
 | Area             | Web `apps/web`                     | Mobile `apps/mobile`           |
 | ---------------- | ---------------------------------- | ------------------------------ |
-| Core             | React 19, Vite 7, TypeScript 6     | Expo SDK 54, React Native 0.81 |
-| Routing          | React Router 7                     | Expo Router 6                  |
+| Core             | React 19, Vite 7, TypeScript 6     | Expo SDK 57, React Native 0.86 |
+| Routing          | React Router 7                     | Expo Router 57                 |
 | Server state     | TanStack Query 5                   | -                              |
 | Forms            | React Hook Form, Zod 4             | -                              |
 | Realtime         | STOMP, WebRTC                      | -                              |

@@ -382,7 +382,7 @@ describe("RemoteWebViewHost", () => {
       });
       expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
 
-      // react-native-webview 13.15.0 iOS History API shim은 pushState·replaceState·popstate에도
+      // react-native-webview 13.16.1 iOS History API shim은 pushState·replaceState·popstate에도
       // (setTimeout 뒤) onLoadingFinish를 쏘고 이때만 navigationType이 채워진다. 진짜 새 문서가
       // 아니므로 웹이 방금 건 잠금을 되돌리면 안 된다.
       const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as (event: {

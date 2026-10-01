@@ -14,7 +14,9 @@
 describe("orientation — 네이티브 모듈이 있는 빌드", () => {
   it("lockPortrait는 PORTRAIT_UP으로, unlockForSession은 DEFAULT로 잠근다", () => {
     jest.isolateModules(() => {
+      // expo 57은 전역 fetch를 처음 읽을 때 requireNativeModule을 부르므로 나머지 export는 실제 모듈 것을 쓴다.
       jest.doMock("expo-modules-core", () => ({
+        ...jest.requireActual("expo-modules-core"),
         requireOptionalNativeModule: jest.fn(() => ({})),
       }));
       const lockAsync = jest.fn(async () => undefined);
@@ -39,6 +41,7 @@ describe("orientation — 네이티브 모듈이 있는 빌드", () => {
   it("호출 층이 동기로 던져도 앱이 죽지 않는다 — .catch가 붙기 전의 예외", () => {
     jest.isolateModules(() => {
       jest.doMock("expo-modules-core", () => ({
+        ...jest.requireActual("expo-modules-core"),
         requireOptionalNativeModule: jest.fn(() => ({})),
       }));
       jest.doMock("expo-screen-orientation", () => ({
@@ -68,6 +71,7 @@ describe("orientation — 네이티브 모듈이 없는 구형 빌드", () => {
   it("패키지를 require조차 하지 않는다 — Metro가 팩토리 예외를 가로채 레드 스크린을 만들기 때문", () => {
     jest.isolateModules(() => {
       jest.doMock("expo-modules-core", () => ({
+        ...jest.requireActual("expo-modules-core"),
         requireOptionalNativeModule: jest.fn(() => null),
       }));
       // require되는 순간 던지는 목 — 실기기의 구형 빌드와 같은 동작. 구현이 존재 조사 없이

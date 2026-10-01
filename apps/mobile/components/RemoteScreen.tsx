@@ -1,3 +1,6 @@
+// eslint-config-expo 57이 react-hooks 7의 React Compiler 진단을 켰지만 이 앱은 컴파일러를 쓰지 않는다.
+// 사망 복구 콜백은 의도대로 선언 전 setter와 ref를 쓰므로 이 파일에서만 끄고, 정리는 후속 티켓에서 한다.
+/* eslint-disable react-hooks/immutability, react-hooks/preserve-manual-memoization */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 

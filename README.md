@@ -39,8 +39,8 @@ flowchart LR
 
 | 영역      | 웹 `apps/web`                      | 모바일 `apps/mobile`           |
 | --------- | ---------------------------------- | ------------------------------ |
-| 기반      | React 19, Vite 7, TypeScript 6     | Expo SDK 54, React Native 0.81 |
-| 라우팅    | React Router 7                     | Expo Router 6                  |
+| 기반      | React 19, Vite 7, TypeScript 6     | Expo SDK 57, React Native 0.86 |
+| 라우팅    | React Router 7                     | Expo Router 57                 |
 | 서버 상태 | TanStack Query 5                   | -                              |
 | 폼        | React Hook Form, Zod 4             | -                              |
 | 실시간    | STOMP, WebRTC                      | -                              |

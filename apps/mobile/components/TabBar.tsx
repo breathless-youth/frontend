@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     gap: 3,
     borderRadius: 999,
   },
-  pill: { ...StyleSheet.absoluteFillObject, borderRadius: 999 },
+  pill: { ...StyleSheet.absoluteFill, borderRadius: 999 },
   // 폰트 파일 속 이름이 아니라 app/_layout.tsx의 useFonts 등록 키를 써야 iOS와 Android에서 같은 폰트로 풀린다.
   label: { fontSize: 11, fontFamily: "PretendardBold", lineHeight: 13 },
 });
