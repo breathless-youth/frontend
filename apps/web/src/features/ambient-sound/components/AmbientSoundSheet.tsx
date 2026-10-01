@@ -105,6 +105,10 @@ export function AmbientSoundSheet({
           event.preventDefault();
           triggerRef.current?.focus();
         }}
+        // Radix 스크롤 잠금은 스크롤할 곳이 없는 자리의 touchmove 를 막는데, iOS 는 막힌 터치를 클릭으로 만들지 않는다.
+        // 그래서 손가락이 조금만 흔들려도 헤더 스위치와 탭이 눌리지 않았다.
+        // 세션 화면은 원래 스크롤되지 않아 잠금이 할 일이 없으므로 시트 안 터치를 잠금까지 올려 보내지 않는다.
+        onTouchMove={(event) => event.stopPropagation()}
         // 폭에 오른쪽 안전영역을 더한다. 시트가 화면 끝에 붙어 있어 그 인셋이 그대로 안쪽
         // 여백으로 들어가는데, 폭을 그만큼 늘리지 않으면 가로에서 내용이 204px 까지 좁아진다.
         // 위아래는 각자의 인셋을 쓴다. `py` 하나로 묶으면 아래쪽에도 위쪽 인셋이 들어가
