@@ -19,6 +19,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
 * 구현은 shadcn 프리미티브를 먼저 고르고 토큰으로 커스텀한다. 매핑표는 `focusmakers-design/references/shadcn-map.md`다.
 * React·TanStack Query 코드는 저장소 스킬(`vercel-react-best-practices`, `vercel-composition-patterns`, `tanstack-query-best-practices`)의 패턴을 먼저 읽고 그 기준으로 쓴다.
 * UI 티켓의 완료 조건에는 라이트·다크 스크린샷, reduced-motion 확인, 44px 터치 타겟과 aria 점검이 들어간다.
+* **UI 코드를 바꾸면 Figma 시안도 반드시 함께 반영한다.** 시안과 실제 화면이 갈라지면 다음 작업의 1차 출처(저장소 자체 스킬의 Figma 참조)가 거짓이 된다. `figma-use`·`figma-generate-design` 스킬로 변경분을 시안에 반영한다.
 
 ## 검토 요청과 실행 요청의 구분
 
