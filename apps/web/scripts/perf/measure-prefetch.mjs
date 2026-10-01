@@ -34,7 +34,7 @@ const SESSION_PATH = "/room/1?userId=7";
 const STATS_TEXT = "오늘 순공시간";
 // visionConfig.ts의 MODEL_PATHS[DEFAULT_MODEL_VARIANT]와 같은 값이어야 한다.
 // Node 스크립트라 TS 상수를 가져올 수 없어 손으로 맞춘다.
-const MODEL_PATH = "/models/efficientdet_lite0_int8.tflite";
+const MODEL_PATH = "/models/efficientdet_lite0_int8-0720bf24.tflite";
 
 /** 홈 문서에서 통계 카드가 DOM에 들어온 시각을 남긴다. addInitScript로 모든 문서 앞에 주입된다. */
 function recordStatsShown(text) {

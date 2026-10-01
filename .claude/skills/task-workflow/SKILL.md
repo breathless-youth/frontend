@@ -99,7 +99,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
   - `apps/web/.env.local` — `DEV_API_PROXY_TARGET` (없으면 Vite가 `/api`·`/ws`를 503으로 막는다)
   - `apps/mobile/.env.local` — `WEB_BASE_URL`·`API_BASE_URL` (없으면 웹뷰가 빈 주소 폴백 화면)
   - 터널 주소(`trycloudflare` 등)는 만료형이라 복사 후 실기기 검증 시점에 새로 발급해 갱신한다.
-- **웹 dev 서버는 반드시 `pnpm --filter web dev` 경로로 띄운다**. `dev` 스크립트는 vite 앞에 `scripts/copyMediapipeWasm.js`를 묶어 두어 gitignore 대상인 `public/mediapipe/wasm/`을 패키지에서 복사하는데, `exec vite`는 이 단계를 건너뛴다. 새 워크트리는 그 폴더가 한 번도 생성된 적이 없어 wasm 404로 감지가 통째로 죽는다.
+- **웹 dev 서버는 반드시 `pnpm --filter web dev` 경로로 띄운다**. `dev` 스크립트는 vite 앞에 `scripts/copyMediapipeWasm.js`를 묶어 두어 gitignore 대상인 `public/mediapipe/<버전>/wasm/`을 패키지에서 복사하는데, `exec vite`는 이 단계를 건너뛴다. 새 워크트리는 그 폴더가 한 번도 생성된 적이 없어 wasm 404로 감지가 통째로 죽는다.
   - 포트를 바꾸려면 `pnpm --filter web dev -- --port 5199`처럼 `dev` 스크립트를 거쳐 인자를 넘긴다.
   - 미리 채워 두려면 `pnpm --filter web prepare-assets`가 같은 스크립트를 돌린다.
 - **워크트리 진입 직후 저장소 자체 스킬을 찾아 읽는다**. 프론트 저장소는

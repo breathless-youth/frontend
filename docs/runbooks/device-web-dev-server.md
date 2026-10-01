@@ -8,7 +8,7 @@
 pnpm --filter web dev
 ```
 
-`dev` 스크립트가 vite 앞에서 `public/mediapipe/wasm/`을 패키지에서 복사한다. `exec vite`로 직접 띄우면 이 단계를 건너뛰어 새 워크트리에서 wasm 404로 감지가 통째로 죽는다. 홈·기록만 여는 검증은 wasm을 요청하지 않아 이 문제가 드러나지 않는다. 포트를 바꾸려면 `pnpm --filter web dev -- --port 5199`처럼 스크립트를 거쳐 인자를 넘긴다.
+`dev` 스크립트가 vite 앞에서 `public/mediapipe/<버전>/wasm/`을 패키지에서 복사한다. `exec vite`로 직접 띄우면 이 단계를 건너뛰어 새 워크트리에서 wasm 404로 감지가 통째로 죽는다. 홈·기록만 여는 검증은 wasm을 요청하지 않아 이 문제가 드러나지 않는다. 포트를 바꾸려면 `pnpm --filter web dev -- --port 5199`처럼 스크립트를 거쳐 인자를 넘긴다.
 
 ## Android
 

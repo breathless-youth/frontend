@@ -45,3 +45,6 @@ declare const __API_BASE__: string;
 
 /** 웹 자체 버전 `YY.WW.P`. `package.json`의 `version`을 빌드 타임에 주입한다. */
 declare const __WEB_VERSION__: string;
+
+/** 설치된 `@mediapipe/tasks-vision` 버전. wasm 폴더 이름이라 `MEDIAPIPE_WASM_PATH`가 이 값으로 경로를 조립한다. */
+declare const __MEDIAPIPE_VERSION__: string;
