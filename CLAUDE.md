@@ -2,7 +2,7 @@
 
 AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 모노레포. AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석해 총 공부시간·순공시간·집중률을 제공하고, 싱글 스터디룸(개인 집중도 측정)과 멀티룸(WebRTC P2P 기반 그룹 화면 공유 — [ADR 0006](./docs/adr/0006-p2p-mesh-stomp-over-livekit.md))을 지원한다. 용어는 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
-기획 명세·용어·정책·기술 결정의 원본은 `.ai/` 서브모듈(팀 위키)이다. 작업 전에 [AGENTS.md](./AGENTS.md)의 "먼저 읽을 것"을 따르고, 비어 있으면 `git submodule update --init`으로 받는다.
+기획 명세, 용어의 사용자 노출 표기, 서비스 정책, 저장소 간 결정의 원본은 `.ai/` 서브모듈(팀 위키)이다. 작업 전에 [AGENTS.md](./AGENTS.md)의 "먼저 읽을 것"을 따르고, 비어 있으면 `git submodule update --init`으로 받는다. 이 파일의 아키텍처 경계와 개인정보 원칙, `docs/adr/`의 FE 결정, `docs/domain-glossary.md`의 API 필드명은 이 저장소가 기준이다.
 
 ## 아키텍처
 
