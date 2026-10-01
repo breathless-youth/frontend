@@ -126,12 +126,12 @@ DELAY=150 RATE_KBPS=9000 pnpm --filter web perf:serve .perf/dist-before
 
 | 경우             | wasm 줄의 모습                                                                    |
 | ---------------- | --------------------------------------------------------------------------------- |
-| 새로 받음        | `GET /mediapipe/wasm/vision_wasm_internal.wasm 200 3399093B ...`                  |
+| 새로 받음        | `GET /mediapipe/1.0.0/wasm/vision_wasm_internal.wasm 200 3399093B ...`            |
 | 304 재검증       | `... 304 0B ...`                                                                  |
 | 받다가 끊김      | `... 200 ABORTED 16384B ...`. 끊기기 전까지 보낸 양이라 캐시가 채워진 것이 아니다 |
 | 디스크 캐시 적중 | 줄이 아예 없다                                                                    |
 
-모델은 `/models/efficientdet_lite0_int8.tflite`이고 새로 받으면 약 3,417,000B로 찍힌다. SIMD를 못 쓰는 엔진은 wasm 이름이 `vision_wasm_nosimd_internal.wasm`이다.
+모델은 `/models/efficientdet_lite0_int8-0720bf24.tflite`(파일명 해시는 `MODEL_PATHS` 기준, wasm 폴더의 버전은 설치된 패키지 기준)이고 새로 받으면 약 3,417,000B로 찍힌다. SIMD를 못 쓰는 엔진은 wasm 이름이 `vision_wasm_nosimd_internal.wasm`이다.
 
 ### Android 에뮬레이터
 

@@ -20,11 +20,13 @@ type HeaderRule = {
   headers: { key: string; value: string }[];
 };
 
-const rules = (
-  JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8")) as {
-    headers: HeaderRule[];
-  }
-).headers;
+const config = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8"),
+) as {
+  rewrites: { source: string; destination: string }[];
+  headers: HeaderRule[];
+};
+const rules = config.headers;
 
 /** 어떤 경로도 제외하지 않는 패턴. 제외가 붙으면 그 경로만 색인이 열린 채 남는다. */
 const ALL_PATHS = "/(.*)";
@@ -73,6 +75,24 @@ describe("vercel.json 응답 헤더", () => {
         .map((header) => header.value);
 
       expect(applied, source).toEqual(["public, max-age=31536000, immutable"]);
+    }
+  });
+
+  /**
+   * SPA 폴백이 자산 폴더까지 덮으면 없는 모델·wasm 경로가 HTML 200을 받고, 그 HTML에 immutable까지
+   * 붙어 그 URL은 1년 동안 HTML로 굳는다. 감지는 오류 없이 멈춰 가장 찾기 어려운 실패가 된다.
+   * 그래서 immutable 폴더는 폴백에서 빼서 404를 받게 한다.
+   */
+  it("SPA 폴백은 immutable 자산 폴더를 제외한다", () => {
+    const fallbacks = config.rewrites.filter((rewrite) => rewrite.destination === "/index.html");
+
+    expect(fallbacks).toHaveLength(1);
+
+    const excluded = /^\/\(\(\?!(.+)\)\.\*\)$/.exec(fallbacks[0].source)?.[1]?.split("|") ?? [];
+    for (const source of IMMUTABLE_SOURCES) {
+      const folder = `${source.split("/")[1]}/`;
+
+      expect(excluded, source).toContain(folder);
     }
   });
 
