@@ -49,6 +49,7 @@ const SESSION_SURFACE_VARS = {
   "--session-pill-bg-distract": withAlpha(colors.bg.base.dark, 0.68),
   "--session-pill-border-distract": sessionStateColors.DISTRACTION.dark,
   "--session-pill-bg-paused": withAlpha(colors.bg.base.dark, 0.68),
+  "--session-pill-border-paused": withAlpha("#ffffff", 0.4),
   "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
   /** 종료 버튼 — colors.feedback.error.dark(#ff6b77)다. `RoomControlBar`와
    * `RoomPage`/`LiveRoomSession`의 에러 문구 색이 공유해서 값을 바꿀 수 없다. */

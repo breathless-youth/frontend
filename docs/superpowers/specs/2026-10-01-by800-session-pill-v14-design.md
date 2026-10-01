@@ -19,7 +19,7 @@ v2에서 바꾼 상태 필(상태별 색 배경)보다 V1.4의 어두운 반투�
 | 배경         | `rgba(16, 20, 25, 0.65)`      | `rgba(16, 20, 25, 0.68)` | `rgba(16, 20, 25, 0.68)`   |
 | 테두리 1.5px | `#3182F6`(brand primary 다크) | `#FF9E1B`                | `rgba(255, 255, 255, 0.4)` |
 
-- 공통: 글자 14px Medium 흰색, 줄 높이 18px, 여백은 테두리 포함 위아래 9px·좌우 16px(CSS는 `py-[7.5px] px-[14.5px]` + 테두리 1.5px, 높이 36px), 배경 흐림 CSS 5px(Figma 배경 흐림 10), 그림자 없음. 배경색은 `withAlpha(colors.bg.base.dark, …)`, 테두리는 측정 중 `colors.brand.primary.dark`, 비집중 `sessionStateColors.DISTRACTION.dark`, 일시정지 `border-white/40`이다. V1.4 원본(1px, 흰색 12%·14%, 주황 35%)은 실기기에서 거의 보이지 않아 두께와 진하기를 올렸다.
+- 공통: 글자 14px Medium 흰색, 줄 높이 18px, 여백은 테두리 포함 위아래 9px·좌우 16px(CSS는 `py-[7.5px] px-[14.5px]` + 테두리 1.5px, 높이 36px), 배경 흐림 CSS 5px(Figma 배경 흐림 10), 그림자 없음. 배경색은 `withAlpha(colors.bg.base.dark, …)`, 테두리는 측정 중 `colors.brand.primary.dark`, 비집중 `sessionStateColors.DISTRACTION.dark`, 일시정지 흰색 40%이고, 세 값 모두 `sessionTheme.ts` 변수다. V1.4 원본(1px, 흰색 12%·14%, 주황 35%)은 실기기에서 거의 보이지 않아 두께와 진하기를 올렸다.
 - 비집중 전용 글자색 변수 `--session-pill-fg-distract`는 지운다.
 
 ## 영향

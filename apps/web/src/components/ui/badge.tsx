@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
  */
 /** 세션 상태 필 공통 */
 const SESSION_PILL_BASE =
+  // 테두리 두께만큼 여백을 줄여야 Figma 안쪽 선과 같은 높이가 나온다.
+  // 테두리를 바꾸면 여백도 같이 바꾼다.
   "border-[1.5px] px-[14.5px] py-[7.5px] text-[14px] leading-[18px] font-medium text-white backdrop-blur-[5px] transition-colors duration-200 motion-reduce:transition-none";
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
@@ -29,7 +31,7 @@ export const badgeVariants = cva(
         /** 상태 필 — 비집중(휴대폰 사용 등). */
         "session-distract": `bg-[var(--session-pill-bg-distract)] border-[var(--session-pill-border-distract)] ${SESSION_PILL_BASE}`,
         /** 상태 필 — 일시정지. */
-        "session-paused": `bg-[var(--session-pill-bg-paused)] border-white/40 ${SESSION_PILL_BASE}`,
+        "session-paused": `bg-[var(--session-pill-bg-paused)] border-[var(--session-pill-border-paused)] ${SESSION_PILL_BASE}`,
       },
     },
     defaultVariants: { variant: "elevated" },
