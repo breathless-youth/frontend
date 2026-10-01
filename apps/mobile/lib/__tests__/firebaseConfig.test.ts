@@ -14,7 +14,7 @@ import mobilePackageJson from "../../package.json";
  *
  * 설계: `docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md`. 여기서 고정하는 것은
  * (1) app.json의 plugin·entitlement, (2) `app.config.ts`의 설정 파일 주입과 dev/prod 오주입 차단,
- * (3) eas.json의 EAS environment 매핑과 Xcode 26.2 빌드 이미지다.
+ * (3) eas.json의 EAS environment 매핑과 iOS 빌드 이미지를 고정하지 않는 것이다.
  */
 describe("Firebase 설정 (BY-585)", () => {
   const baseConfig = appJson.expo as unknown as ExpoConfig;
@@ -366,12 +366,13 @@ describe("Firebase 설정 (BY-585)", () => {
     });
 
     /**
-     * Firebase 12.12+는 Xcode 26.2 이상을 요구하는데 SDK 54의 EAS 기본 이미지는 Xcode 26.0이다.
-     * 프로필 하나라도 빠지면 그 빌드만 pod install에서 죽는다.
+     * Firebase 12.12+는 Xcode 26.2 이상을 요구한다.
+     * SDK 57의 EAS 기본 이미지는 macos-tahoe-26.5-xcode-26.6이라 고정 없이도 이 조건을 만족한다.
+     * 옛 이미지 고정이 남으면 SDK 57 기본값보다 오래된 Xcode로 빌드된다.
      */
-    it("모든 프로필이 Xcode 26.2 빌드 이미지를 쓴다", () => {
-      for (const [name, profile] of Object.entries(profiles)) {
-        expect([name, profile.ios?.image]).toEqual([name, "macos-sequoia-15.6-xcode-26.2"]);
+    it("어떤 프로필도 iOS 빌드 이미지를 고정하지 않는다", () => {
+      for (const profile of Object.values(profiles)) {
+        expect(profile).not.toHaveProperty(["ios", "image"]);
       }
     });
   });
