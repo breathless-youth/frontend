@@ -71,7 +71,7 @@ const SESSION_LAYER_LAYOUT = [
   "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+17px)]",
   "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
   "landscape:grid landscape:grid-cols-[1fr_auto_1fr] landscape:grid-rows-[auto_1fr_auto_auto_auto] landscape:items-start",
-  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc((env(safe-area-inset-bottom)+14px)/2)]",
+  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
 
