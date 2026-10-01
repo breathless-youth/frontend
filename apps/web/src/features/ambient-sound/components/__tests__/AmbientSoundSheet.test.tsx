@@ -52,6 +52,18 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 
+  /** document 의 스크롤 잠금이 시트 안 touchmove 를 막으면 iOS 가 탭을 클릭으로 만들지 않는다. */
+  it("시트 안 touchmove 는 document 까지 올라가지 않는다", () => {
+    renderSheet();
+    const onDocumentTouchMove = vi.fn();
+    document.addEventListener("touchmove", onDocumentTouchMove);
+
+    fireEvent.touchMove(screen.getByRole("switch", { name: "배경음" }));
+
+    document.removeEventListener("touchmove", onDocumentTouchMove);
+    expect(onDocumentTouchMove).not.toHaveBeenCalled();
+  });
+
   /** 카메라 위라 딤도 세션 값이어야 한다. 전역 `--dim` 은 라이트 테마에서 뒤가 비친다. */
   it("딤이 전역 값이 아니라 세션 값을 쓴다", () => {
     const { baseElement } = renderSheet();
