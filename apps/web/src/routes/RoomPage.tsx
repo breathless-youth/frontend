@@ -71,7 +71,7 @@ const SESSION_LAYER_LAYOUT = [
   "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+17px)]",
   "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
   "landscape:grid landscape:grid-cols-[1fr_auto_1fr] landscape:grid-rows-[auto_1fr_auto_auto_auto] landscape:items-start",
-  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[calc(env(safe-area-inset-bottom)+14px)]",
+  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
 
@@ -183,7 +183,7 @@ function RoomSessionScreen({
   // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
   // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
   useRotationRepaintNudge();
-  // 가로 거치 모드(S3-5·S3-6) 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  // 가로 거치 모드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
   useSessionOrientationAnalytics("single");
   /**
    * 프리뷰
@@ -235,11 +235,10 @@ function RoomSessionScreen({
   const sessionSurfaceRef = useRef<HTMLElement>(null);
   // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
-  // 심플 모드(S3-4)는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
+  // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
-  // S3-7 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
-  // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인 — ai-wiki 명시 서술은 없는
-  // Figma 근거 추론이라 SCR-S3-7·S3-8 Review Checklist에 확인 항목으로 올라가 있다).
+  // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
+  // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
@@ -274,7 +273,7 @@ function RoomSessionScreen({
    * | 카메라 전환 중   | 재연결 | 정지 |
    * | 세션 종료·제출   | 훅이 정리 | 정지 |
    *
-   * 일시정지에서 스트림을 끄지 않는 이유는 셋이다 — Figma S3-3이 프리뷰를 그대로 보여주고,
+   * 일시정지에서 스트림을 끄지 않는 이유는 셋이다 — Figma가 프리뷰를 그대로 보여주고,
    * 배터리 주 소모원은 카메라 피드가 아니라 추론이며, 스트림을 끄면 재개 시 `getUserMedia`
    * 재호출로 1~2초 공백이 생겨 그 구간이 측정되지 않는다.
    *
@@ -311,8 +310,8 @@ function RoomSessionScreen({
    */
   const goToResult = useCallback(
     (sessions: StudySessionResponse[]) => {
-      // 쿼리(`?userId=N`)를 함께 넘긴다 — S4의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
-      // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다(BY-327 통합에서 실증).
+      // 쿼리(`?userId=N`)를 함께 넘긴다 — 결과 화면의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
+      // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다.
       navigate(
         { pathname: "result", search: searchParams.toString() },
         { state: { sessions }, replace: true },
@@ -475,17 +474,17 @@ function RoomSessionScreen({
                   onClick={() => setAmbientSheetOpen(true)}
                 />
               }
-              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+64px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
+              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
             />
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
                 늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
-                사이 여백의 중앙에 놓는다. Figma S3-4 실측은 207:350(≈3:5)으로 중앙보다 위지만
-                실기기에서 너무 높다는 확인(BY-336)으로 균등 배분으로 낮췄다.
+                사이 여백의 중앙에 놓는다. Figma는 ≈3:5로 중앙보다 위지만
+                실기기에서 너무 높다는 확인으로 균등 배분으로 낮췄다.
 
                 전환 애니메이션을 다시 넣지 말 것.
                 
-                예전에는 `transition-[flex-grow]`로 300ms ease-out(Figma Spec `14:7`) 슬라이드를 줬는데, 
+                예전에는 `transition-[flex-grow]`로 300ms ease-out 슬라이드를 줬는데,
                 타이머가 미끄러지는 것 자체가 거슬린다는 판단으로 걷어냈다. 지금은 위치만
                 즉시 바뀌고 배경·발광은 그대로 300ms로 페이드한다 — 움직이는 것은 타이머가
                 아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
@@ -501,7 +500,8 @@ function RoomSessionScreen({
               glow={simpleMode}
               className={
                 simpleMode
-                  ? "landscape:col-span-full landscape:row-start-2 landscape:justify-self-center landscape:self-center"
+                  ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
+                    "landscape:absolute landscape:top-1/2 landscape:left-1/2 landscape:-translate-x-1/2 landscape:-translate-y-1/2"
                   : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
             />
@@ -559,12 +559,11 @@ function RoomSessionScreen({
              좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
              검사와 동일하다. */
       phase.name === "done" && autoEndNoticeVisible(phase, endReason) ? (
-        /* S3-8 자동 종료 안내 — 저장이 **끝난 뒤에만** 보여준다(`phase === "done"`).
+        /* 자동 종료 안내 — 저장이 **끝난 뒤에만** 보여준다(`phase === "done"`).
            타이틀이 `여기까지 기록을 저장했어요`로 단언하므로 제출 중·실패·미저장(userId 없음)
            상태에서 이 화면을 띄우면 사실과 달라진다 — 그 경우는 아래 폴백의 재시도 경로로 간다.
 
-           `결과 보기`는 **이미 저장된 결과를 들고 S4로 이동**한다 — 여기서 다시 제출하지 않는다
-           (SCR-S4 진입 경로 표). */
+           `결과 보기`는 **이미 저장된 결과를 들고 결과 화면으로 이동**한다 — 여기서 다시 제출하지 않는다. */
         <AutoEndNotice
           trigger={endReason.trigger}
           focusSec={focusSec}

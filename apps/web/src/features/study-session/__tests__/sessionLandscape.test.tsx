@@ -175,9 +175,9 @@ describe("RoomPage — 가로(거치) 배치", () => {
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
     expect(container.querySelector('[class*="landscape:col-start-3"]')).toBeNull();
-    const timer = container.querySelector('[class*="landscape:row-start-2"]')!;
-    expect(timer.className).toContain("landscape:justify-self-center");
-    expect(timer.className).toContain("landscape:self-center");
+    const timer = container.querySelector('[class*="landscape:top-1/2"]')!;
+    expect(timer.className).toContain("landscape:-translate-y-1/2");
+    expect(timer.className).toContain("landscape:-translate-x-1/2");
   });
 
   it("가로에서도 상태 필 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {
