@@ -136,12 +136,22 @@ export function buildChecks(base, { models, assetPath }) {
       method: "HEAD",
       rules: [rules.status(200), rules.contentType("application/wasm"), rules.noindex],
     },
-    ...models.map((file) => ({
-      name: `모델 ${file}`,
-      url: url(`/models/${file}`),
-      method: "HEAD",
-      rules: [...binary, rules.immutable, rules.noindex],
-    })),
+    // 목록이 비면 모델 확인이 0개로 돌아 모델 자리에 HTML이 와도 통과하므로 실패로 남긴다.
+    ...(models.length > 0
+      ? models.map((file) => ({
+          name: `모델 ${file}`,
+          url: url(`/models/${file}`),
+          method: "HEAD",
+          rules: [...binary, rules.immutable, rules.noindex],
+        }))
+      : [
+          {
+            name: "모델",
+            url: url("/models/"),
+            method: "HEAD",
+            rules: [() => ["public/models에서 모델 파일을 찾지 못했다"]],
+          },
+        ]),
     {
       name: "없는 모델은 오류",
       url: url("/models/__verify-missing__.tflite"),
