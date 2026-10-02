@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
@@ -17,6 +18,10 @@ vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
+
+const prefetchResultPage = vi.hoisted(() => vi.fn());
+
+vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage }));
 
 /** 화면 꺼짐·백그라운드 전환을 jsdom에서 재현한다(Page Visibility API). */
 function setVisibility(state: DocumentVisibilityState) {
@@ -66,8 +71,8 @@ function renderRoom(url: string) {
 
 /**
  * 컨트롤 바 종료 버튼과 다이얼로그 확정 버튼은 **같은 이름**(`공부 종료`)을 갖는다 —
- * 실제 브라우저에서는 배경이 `inert`라 접근성 트리에 하나만 남지만 jsdom은 `inert`를
- * 접근성 계산에 반영하지 않으므로 테스트에서는 다이얼로그 안으로 범위를 좁힌다.
+ * Radix modal 이 배경을 `aria-hidden` 처리하면 접근성 트리에 다이얼로그 것만 남지만,
+ * 안전하게 다이얼로그 안으로 범위를 좁혀 확정 버튼을 집는다.
  */
 function confirmExitButton() {
   return within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" });
@@ -142,26 +147,46 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   // 모듈 스코프 mock이라 clearAllMocks 없이는 호출 기록이 테스트 간 누적된다.
   // unstubAllGlobals: 카메라 전환 테스트가 stubGlobal("navigator", ...)을 거는데,
   // 다른 테스트로 새지 않게 매번 원복한다(스텁한 적 없으면 no-op).
+  // toast.dismiss: 카메라 전환 토스트가 다음 테스트로 새지 않게 지운다.
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
-  it("순공 타이머·총 공부 병기·프라이버시 캡션·컨트롤 바를 렌더링한다", () => {
+  it("순공 타이머·총 공부 병기·컨트롤 바를 렌더링한다", () => {
     renderRoom("/room/7?userId=1");
 
     expect(screen.getByText("00:00:00")).toBeInTheDocument();
     expect(screen.getByText("총 00:00:00")).toBeInTheDocument();
-    expect(screen.getByText("영상은 기기 안에서만 처리돼요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+    expect(prefetchResultPage).toHaveBeenCalledTimes(1);
   });
 
   it("기본 상태는 집중이며 상태 필을 라이브 리전으로 알린다", () => {
     renderRoom("/room/7?userId=1");
 
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
+  });
+
+  it("Figma V2에 없는 하단 캡션 문구가 화면에 없다", () => {
+    renderRoom("/room/7?userId=1");
+
+    expect(screen.queryByText("영상은 기기 안에서만 처리돼요")).not.toBeInTheDocument();
+  });
+
+  it("Figma V2에 없는 상태 필 서브 문구가 일시정지에서도 없다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
+    expect(screen.queryByText("다시 시작하면 이어서 측정돼요")).not.toBeInTheDocument();
+    expect(screen.queryByText("일시정지 중에는 시간이 흐르지 않아요")).not.toBeInTheDocument();
   });
 
   it("V1.0 싱글룸에는 방 개념이 없어 방 번호를 표시하지 않는다", () => {
@@ -214,6 +239,27 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(await screen.findByText("카메라를 전환했어요")).toBeInTheDocument();
   });
 
+  it("카메라가 꺼져 있으면 전환 실패 토스트를 띄운다", async () => {
+    // navigator를 스텁하지 않는다 — jsdom 기본값 그대로면 카메라가 끝내 열리지 않는다.
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    expect(await screen.findByText("카메라가 꺼져 있어요")).toBeInTheDocument();
+  });
+
+  it("전환할 카메라가 하나뿐이면 대안 없음 토스트를 띄운다", async () => {
+    stubWorkingCamera(["videoinput"]);
+    renderRoom("/room/7?userId=1");
+    await waitFor(() => {
+      expect(document.querySelector("video")?.srcObject).toBeTruthy();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+
+    expect(await screen.findByText("전환할 카메라가 없어요")).toBeInTheDocument();
+  });
+
   it("종료 클릭 시 제출하고 S4(공부 결과)로 결과를 들고 넘어간다", async () => {
     // S4가 세션 단건 조회 API를 아직 쓰지 않으므로 제출 응답을 라우터 state로 넘긴다.
     vi.mocked(submitStudySession).mockResolvedValue([
@@ -237,7 +283,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
     expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
-      userId: 1,
       events: [],
     });
   });
@@ -263,7 +308,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -273,7 +318,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
   });
 
@@ -352,7 +397,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       expect(screen.getByRole("status")).toHaveTextContent("휴대폰을 사용 중인 것 같아요");
-      expect(screen.getByText("내려놓으면 자동으로 다시 측정돼요")).toBeInTheDocument();
 
       await act(async () => {
         detector!.emit({ trigger: "PHONE", active: false });
@@ -360,8 +404,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       // 해제는 색만 복귀 — 별도 안내 문구를 띄우지 않는다.
-      expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
-      expect(screen.queryByText("내려놓으면 자동으로 다시 측정돼요")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     } finally {
       vi.useRealTimers();
     }
@@ -461,43 +504,32 @@ describe("RoomPage — S3-3 일시정지", () => {
   afterEach(() => {
     vi.clearAllMocks();
     setVisibility("visible");
+    act(() => {
+      toast.dismiss();
+    });
   });
 
-  it("상태 필·서브 문구를 일시정지 문구로 바꾼다", async () => {
+  it("상태 필을 일시정지 문구로 바꾼다", async () => {
     renderRoom("/room/7?userId=1");
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
-    expect(screen.getByText("다시 시작하면 이어서 측정돼요")).toBeInTheDocument();
-  });
-
-  it("하단 캡션이 프라이버시 캡션을 대체한다 — 두 줄을 동시에 띄우지 않는다", async () => {
-    renderRoom("/room/7?userId=1");
-    expect(screen.getByText("영상은 기기 안에서만 처리돼요")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
-
-    expect(screen.getByText("일시정지 중에는 시간이 흐르지 않아요")).toBeInTheDocument();
-    expect(screen.queryByText("영상은 기기 안에서만 처리돼요")).not.toBeInTheDocument();
   });
 
   it("컨트롤 바 첫 버튼이 파란 재개 버튼으로 교체된다", async () => {
     renderRoom("/room/7?userId=1");
 
     const pauseButton = screen.getByRole("button", { name: "일시정지" });
-    expect(pauseButton.className).toContain("bg-white/12");
-    const pauseIconSrc = pauseButton.querySelector("img")?.getAttribute("src");
+    expect(pauseButton.querySelector('[data-testid="icon-pause"]')).not.toBeNull();
 
     await userEvent.click(pauseButton);
 
     const resumeButton = screen.getByRole("button", { name: "다시 시작" });
-    expect(resumeButton.className).toContain("bg-[var(--session-resume-bg)]");
-    // 아이콘도 play로 교체된다(Figma 인스턴스 오버라이드). Vite가 작은 SVG를 data URI로
-    // 인라인해서 파일명이 남지 않으므로 "pause와 다른 자산"인지로 검증한다.
-    const resumeIconSrc = resumeButton.querySelector("img")?.getAttribute("src");
-    expect(resumeIconSrc).toBeDefined();
-    expect(resumeIconSrc).not.toBe(pauseIconSrc);
+    expect(resumeButton.className).toContain("bg-[var(--session-control-resume-bg)]");
+    // 아이콘도 play로 교체된다(Figma 인스턴스 오버라이드).
+    expect(resumeButton.querySelector('[data-testid="icon-play"]')).not.toBeNull();
+    expect(resumeButton.querySelector('[data-testid="icon-pause"]')).toBeNull();
   });
 
   it("카메라 전환·종료 버튼은 일시정지 중에도 활성 상태를 유지한다", async () => {
@@ -517,7 +549,6 @@ describe("RoomPage — S3-3 일시정지", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
-    expect(screen.getByText("일시정지 중에는 시간이 흐르지 않아요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
     expect(screen.queryByText(/화면 꺼짐/)).not.toBeInTheDocument();
   });
@@ -633,6 +664,9 @@ describe("RoomPage — S3-4 심플 모드", () => {
     // 아래 `<video>` 유지 테스트가 stubGlobal("navigator", ...)을 건다 — 다른 테스트로 새지
     // 않게 원복한다(스텁한 적 없으면 no-op).
     vi.unstubAllGlobals();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   async function enterSimpleMode() {
@@ -666,62 +700,27 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(container.querySelector("video")).toBe(before);
   });
 
-  it("하단 캡션 행이 사라진다 — S3-4에는 캡션 자리가 없다", async () => {
-    renderRoom("/room/7?userId=1");
-
-    await enterSimpleMode();
-
-    expect(screen.queryByText("영상은 기기 안에서만 처리돼요")).not.toBeInTheDocument();
-  });
-
   it("상태 필과 컨트롤 바는 유지된다 — 색 단독으로 상태를 전달하지 않기 위함", async () => {
     renderRoom("/room/7?userId=1");
 
     await enterSimpleMode();
 
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  /**
-   * 프리뷰가 없는 화면에서 전환을 누르면 보이는 변화 없이 추론만 1~2초 끊긴다(BY-336).
-   * 버튼을 **없애지 않고 잠그는** 이유는 세 버튼 배치가 고정이라 하나가 빠지면 심플 모드
-   * 진입 자체가 레이아웃 점프가 되기 때문이다.
-   */
-  it("카메라 전환은 잠긴다 — 프리뷰가 없어 결과를 볼 수 없다", async () => {
+  it("카메라 전환은 숨고 배경음 버튼은 남는다", async () => {
     renderRoom("/room/7?userId=1");
-    const flip = () => screen.getByRole("button", { name: "카메라 전환" });
-
-    expect(flip()).toBeEnabled();
 
     await enterSimpleMode();
-    expect(flip()).toBeDisabled();
+
+    expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^배경음/ })).toBeInTheDocument();
 
     // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
     await enterSimpleMode();
-    expect(flip()).toBeEnabled();
-  });
-
-  /**
-   * 상태 필의 서브 문구가 생기고 사라지면 필 블록 높이가 22px 변하는데, 그 델타를 위아래
-   * 스페이서가 나눠 흡수하면서 심플 모드의 큰 타이머가 위아래로 흔들렸다(BY-336 실기기 관측).
-   * 서브 문구 줄을 상주시켜 막는다 — 이 테스트는 그 상주를 고정한다.
-   */
-  it("상태가 바뀌어도 상태 필 블록 높이가 변하지 않는다 — 타이머가 흔들리지 않기 위함", async () => {
-    renderRoom("/room/7?userId=1&detector=mock");
-    const subLabelRow = () => screen.getByRole("status").lastElementChild!;
-
-    // 집중에는 서브 문구가 없지만 줄 자체는 자리를 지킨다.
-    expect(subLabelRow().textContent).toBe("");
-    expect(subLabelRow().className).toContain("h-[14px]");
-
-    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
-
-    // 문구가 채워져도 같은 줄이다 — 새 행이 끼어들지 않는다.
-    expect(subLabelRow().textContent).not.toBe("");
-    expect(subLabelRow().className).toContain("h-[14px]");
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
   });
 
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {
@@ -833,7 +832,6 @@ describe("RoomPage — S3-4 심플 모드", () => {
     await enterSimpleMode();
 
     expect(container.querySelector('[data-session-surface="camera"]')).not.toBeNull();
-    expect(screen.getByText("영상은 기기 안에서만 처리돼요")).toBeInTheDocument();
   });
 
   it("표시 모드와 세션 상태는 직교한다 — 심플 모드에서 일시정지·재개해도 심플 모드가 유지된다", async () => {
@@ -843,8 +841,6 @@ describe("RoomPage — S3-4 심플 모드", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
     expect(container.querySelector('[data-session-surface="simple"]')).not.toBeNull();
-    // 심플 모드에는 캡션 행이 없으므로 일시정지 캡션도 놓일 자리가 없다(Figma 미설계 — 스펙 기록).
-    expect(screen.queryByText("일시정지 중에는 시간이 흐르지 않아요")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
 
@@ -859,6 +855,9 @@ describe("RoomPage — S3-4 심플 모드", () => {
 describe("RoomPage — S3-7 종료 확인", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   async function openExitDialog() {
@@ -874,7 +873,7 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(within(dialog).getByText("공부를 종료할까요?")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     // 세션 화면은 그대로 살아 있다 — 딤 뒤에서 계속 측정된다.
-    expect(screen.getByRole("status")).toHaveTextContent("집중 측정 중");
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
   });
 
   /**
@@ -982,33 +981,30 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(exitButton).toHaveFocus();
   });
 
-  it("열려 있는 동안 배경 세션 레이어를 inert로 만든다", async () => {
-    const { container } = renderRoom("/room/7?userId=1");
-    const tapLayer = screen.getByRole("button", { name: "심플 모드 전환" });
-    expect(tapLayer).not.toHaveAttribute("inert");
+  it("열려 있는 동안 배경 세션 레이어가 접근성 트리에서 가려진다", async () => {
+    renderRoom("/room/7?userId=1");
+    // 열기 전에는 심플 모드 전환 버튼과 종료 버튼이 접근성 트리에 있다.
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toBeInTheDocument();
 
     await openExitDialog();
 
-    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute("inert");
-    // 세션 레이아웃 레이어(상태 필·타이머·컨트롤 바를 담은 컨테이너)도 함께 꺼진다.
-    expect(container.querySelectorAll("[inert]")).toHaveLength(2);
+    // Radix 가 배경을 aria-hidden 처리하고 바깥 포인터를 막는다. 예전에는 inert 로 했고
+    // 그러면 닫힐 때 포커스를 돌려줄 버튼도 inert 라 복귀가 조용히 실패했다. 딤 뒤 탭이
+    // 심플 모드를 토글하지 못하는 것도 같은 차단에서 나온다.
+    expect(screen.queryByRole("button", { name: "심플 모드 전환" })).not.toBeInTheDocument();
   });
 
-  it("다이얼로그는 세션 레이아웃 레이어의 **형제**다 — 자식이면 가로 그리드가 깨진다", () => {
+  it("다이얼로그가 세션 레이아웃 레이어 밖(포털)에 그려진다 — 레이어 안이면 그리드가 밀린다", () => {
     // qa-WG3 실측: `SESSION_LAYER_LAYOUT` div의 자식으로 넣으면 (1) 가로에서 좌상단에 배치되고
     // (2) 심플 타이머가 밀리고 (3) pointer-events-none을 상속해 버튼이 클릭을 못 받는다.
-    // 구조 자체를 고정해 회귀를 막는다.
+    // Radix 포털이 레이어 밖으로 빼내므로 구조 자체로 회귀를 막는다.
     const { container } = renderRoom("/room/7?userId=1");
     fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
-    const dialogOverlay = screen.getByRole("alertdialog").parentElement!;
+    const dialog = screen.getByRole("alertdialog");
     const layoutLayer = container.querySelector(".pointer-events-none")!;
 
-    expect(layoutLayer.contains(dialogOverlay)).toBe(false);
-    expect(dialogOverlay.parentElement).toBe(layoutLayer.parentElement);
-    // 오버레이는 pointer-events를 직접 켠다(레이어의 none을 상속하지 않는다).
-    expect(dialogOverlay.className).toContain("pointer-events-auto");
-    expect(dialogOverlay.className).toContain("absolute inset-0");
+    expect(layoutLayer.contains(dialog)).toBe(false);
   });
 });
 
@@ -1020,6 +1016,9 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
   // 모듈 스코프 mock이라 정리하지 않으면 호출 기록이 테스트 간 누적된다(다른 describe와 동일).
   afterEach(() => {
     vi.clearAllMocks();
+    act(() => {
+      toast.dismiss();
+    });
   });
 
   it("결과 화면 대신 미달 안내를 보여준다", async () => {
@@ -1114,7 +1113,7 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     await endSession();
 
-    expect(await screen.findByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
 });

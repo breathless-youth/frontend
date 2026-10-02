@@ -1,3 +1,4 @@
+import type { VisionRuntimeKind } from "./objectDetector";
 import type { Delegate, ModelVariant } from "./visionConfig";
 
 /**
@@ -12,8 +13,8 @@ import type { Delegate, ModelVariant } from "./visionConfig";
  *
  * 금지를 주석이 아니라 **타입으로** 건다. `FrameDiagnostics`에 bbox를 넣을 자리가 없고,
  * `DiagnosticsSink`의 payload는 **스칼라만** 받는다(중첩 객체가 안 되므로 박스가 딸려 들어갈
- * 경로 자체가 없다). 남기는 것은 설계 §8 표 그대로다 —
- * person 유무 · 라벨별 최고 score · 최종 판정 · 프레임 소요시간 · 선택된 delegate · 상태 전이 시각.
+ * 경로 자체가 없다).
+ * 남기는 것은 설계 §8 표 그대로다 — person 유무 · 라벨별 최고 score · 최종 판정 · 프레임 소요시간 · 선택된 delegate · 검출기 런타임 · 상태 전이 시각.
  */
 
 /** 중첩 객체를 받지 않는다 — 이 제약이 bbox 유출을 구조적으로 막는다. */
@@ -57,7 +58,7 @@ export interface CameraStreamDiagnostics {
 }
 
 export interface VisionDiagnostics {
-  detectorReady(delegate: Delegate, modelVariant: ModelVariant): void;
+  detectorReady(delegate: Delegate, modelVariant: ModelVariant, runtime: VisionRuntimeKind): void;
   detectorUnavailable(reason: string): void;
   frame(diagnostics: FrameDiagnostics): void;
   /** 상태 전이 시각. 임계를 바꿨을 때 오탐이 얼마나 주는지 계산하는 근거가 된다. */
@@ -73,8 +74,8 @@ function round2(value: number): number {
 
 export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostics {
   return {
-    detectorReady(delegate, modelVariant) {
-      sink.log("detector:ready", { delegate, modelVariant });
+    detectorReady(delegate, modelVariant, runtime) {
+      sink.log("detector:ready", { delegate, modelVariant, runtime });
     },
     detectorUnavailable(reason) {
       sink.log("detector:unavailable", { reason });

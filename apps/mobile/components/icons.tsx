@@ -8,46 +8,59 @@ type IconProps = SvgProps & {
   size?: number;
 };
 
+// 안드로이드용 SVG
+// V2 (Figma "Nav / Glass Tab Bar" 5325:3730) 아웃라인 아이콘
+// 홈 탭
 export function IconTabHome({ color = "#1B64DA", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
       <Path
-        d="M12 4L4.5 10.3V19C4.5 19.2652 4.60536 19.5196 4.79289 19.7071C4.98043 19.8946 5.23478 20 5.5 20H9.7V15H14.3V20H18.5C18.7652 20 19.0196 19.8946 19.2071 19.7071C19.3946 19.5196 19.5 19.2652 19.5 19V10.3L12 4Z"
-        fill={color}
+        d="M15 21V13C15 12.7348 14.8946 12.4804 14.7071 12.2929C14.5196 12.1054 14.2652 12 14 12H10C9.73478 12 9.48043 12.1054 9.29289 12.2929C9.10536 12.4804 9 12.7348 9 13V21"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 10C2.99993 9.70907 3.06333 9.42162 3.18579 9.15772C3.30824 8.89381 3.4868 8.6598 3.709 8.472L10.709 2.473C11.07 2.16791 11.5274 2.00052 12 2.00052C12.4726 2.00052 12.93 2.16791 13.291 2.473L20.291 8.472C20.5132 8.6598 20.6918 8.89381 20.8142 9.15772C20.9367 9.42162 21.0001 9.70907 21 10V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V10Z"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
-/** 소셜 탭(사람 두 명) */
+/** 소셜 탭 */
 export function IconTabSocial({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
       <Path
-        d="M9 11.5C10.5464 11.5 11.8 10.2464 11.8 8.7C11.8 7.1536 10.5464 5.9 9 5.9C7.4536 5.9 6.2 7.1536 6.2 8.7C6.2 10.2464 7.4536 11.5 9 11.5Z"
+        d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H6C4.93913 15 3.92172 15.4214 3.17157 16.1716C2.42143 16.9217 2 17.9391 2 19V21"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M3.8 18.6C4.5 15.7 6.5 14.2 9 14.2C11.5 14.2 13.5 15.7 14.2 18.6"
+        d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M16.8 11.8C18.015 11.8 19 10.815 19 9.6C19 8.38497 18.015 7.4 16.8 7.4C15.585 7.4 14.6 8.38497 14.6 9.6C14.6 10.815 15.585 11.8 16.8 11.8Z"
+        d="M22 21V19C21.9993 18.1137 21.7044 17.2528 21.1614 16.5523C20.6184 15.8519 19.8581 15.3516 19 15.13"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M16 14.4C18.3 14.6 19.8 15.9 20.4 18.3"
+        d="M16 3.13C16.8604 3.3503 17.623 3.8507 18.1676 4.55231C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -59,35 +72,103 @@ export function IconTabRecord({ color = "#8B95A1", size = 24, ...rest }: IconPro
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
       <Path
-        d="M17 6H7C5.34315 6 4 7.34315 4 9V17C4 18.6569 5.34315 20 7 20H17C18.6569 20 20 18.6569 20 17V9C20 7.34315 18.6569 6 17 6Z"
+        d="M8 2V6"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <Path
-        d="M4 10.5H20M8.5 3.5V7.5M15.5 3.5V7.5"
+        d="M16 2V6"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 10H21"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
+// 설정 탭
 export function IconTabSettings({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
-      <Path d="M4 8H20M4 16H20" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
       <Path
-        d="M9.49999 10.7C10.9912 10.7 12.2 9.49122 12.2 8.00005C12.2 6.50888 10.9912 5.30005 9.49999 5.30005C8.00882 5.30005 6.79999 6.50888 6.79999 8.00005C6.79999 9.49122 8.00882 10.7 9.49999 10.7Z"
-        fill={color}
+        d="M21 4H14"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <Path
-        d="M14.5 18.7C15.9912 18.7 17.2 17.4912 17.2 16C17.2 14.5089 15.9912 13.3 14.5 13.3C13.0088 13.3 11.8 14.5089 11.8 16C11.8 17.4912 13.0088 18.7 14.5 18.7Z"
-        fill={color}
+        d="M10 4H3"
         stroke={color}
-        strokeWidth={1.7}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 12H12"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 12H3"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 20H16"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 20H3"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2V6"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 10V14"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 18V22"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -121,7 +202,7 @@ export function IconChevronRight({
 }
 
 /**
- * S5 기록의 달력 이전 달 버튼 아이콘(Figma `icon/chevron-left` 32:39 — 프레임 8×13).
+ * 기록의 달력 이전 달 버튼 아이콘
  * 익스포트 원본 stroke는 #191F28 하드코딩이지만 값이 `text/primary` 라이트값과 정확히 일치해
  * 토큰에 바인딩한다(다크모드 대응). 다음 달 버튼은 이 아이콘을 회전시키지 않고
  * 같은 세트의 `IconChevronRight`를 쓴다.
@@ -300,7 +381,8 @@ export function IllustFlame({ width = 19, height = 22, ...rest }: SvgProps) {
  * 다행히 사용된 색이 전부 기존 시맨틱 토큰의 라이트값과 정확히 일치해서(#191F28=text/primary,
  * white=bg/base, #F2F4F6=bg/layer-2, #1B64DA=brand/primary, #8B95A1=text/tertiary),
  * 색을 새로 정하지 않고 원래 의도됐을 토큰 바인딩을 복원했다. 디자이너가 다크 전용 변형을
- * 따로 제공하면 그것으로 교체한다(SCR-S1-home.md의 Review Checklist 참고).
+ * 따로 제공하면 그것으로 교체한다. Figma 원본은 색이 하드코딩돼 있어 원본에도 변수 바인딩을
+ * 넣어야 다음 익스포트에서 같은 문제가 반복되지 않는다.
  */
 export function IllustStudyDoodle({ width = 96, height = 75, ...rest }: SvgProps) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";

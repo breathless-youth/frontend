@@ -11,7 +11,7 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     goal: null,
     cameraOn: true,
     focusState: "FOCUS",
-    studySeconds: 0,
+    focusSec: 0,
     ...overrides,
   };
 }
@@ -69,14 +69,14 @@ describe("roomMembersReducer", () => {
     expect(state[0]?.focusState).toBe("DISTRACTED");
   });
 
-  it("STUDY_TIME은 해당 멤버의 studySeconds만 갱신한다", () => {
+  it("STUDY_TIME은 해당 멤버의 focusSec만 갱신한다", () => {
     const state = roomMembersReducer([member(7)], {
       type: "STUDY_TIME",
       userId: 7,
-      studySeconds: 12360,
+      focusSec: 12360,
     });
 
-    expect(state[0]?.studySeconds).toBe(12360);
+    expect(state[0]?.focusSec).toBe(12360);
   });
 
   it("상태 메시지가 JOINED보다 먼저 와도(레이스) 임시 추가 후 JOINED가 제자리 교체한다 — 중복 없음", () => {
@@ -91,6 +91,31 @@ describe("roomMembersReducer", () => {
 
     expect(state.filter((m) => m.userId === 99)).toHaveLength(1);
     expect(state.find((m) => m.userId === 99)?.nickname).toBe("멤버99");
+  });
+
+  it("SNAPSHOT은 멤버의 disconnected를 보존한다", () => {
+    const state = roomMembersReducer([], {
+      type: "SNAPSHOT",
+      members: [member(8, { disconnected: true })],
+    });
+
+    expect(state[0]?.disconnected).toBe(true);
+  });
+
+  it("MEMBER_JOINED는 멤버의 disconnected를 보존한다", () => {
+    const state = roomMembersReducer([], {
+      type: "MEMBER_JOINED",
+      member: member(8, { disconnected: false }),
+    });
+
+    expect(state[0]?.disconnected).toBe(false);
+  });
+
+  it("ROOM_UNAVAILABLE은 멤버 목록을 바꾸지 않는다 — 멤버 메시지가 아니다", () => {
+    const before = [member(7), member(8)];
+    const state = roomMembersReducer(before, { type: "ROOM_UNAVAILABLE", roomId: 10 });
+
+    expect(state).toBe(before);
   });
 });
 
@@ -116,9 +141,9 @@ describe("roomMembersReducer 자가복구 — 모르는 userId 상태 메시지 
   });
 
   it("STUDY_TIME의 모르는 userId는 그 순공시간으로 추가한다", () => {
-    const state = roomMembersReducer([], { type: "STUDY_TIME", userId: 8, studySeconds: 120 });
+    const state = roomMembersReducer([], { type: "STUDY_TIME", userId: 8, focusSec: 120 });
 
-    expect(state[0]).toMatchObject({ userId: 8, studySeconds: 120, cameraOn: false });
+    expect(state[0]).toMatchObject({ userId: 8, focusSec: 120, cameraOn: false });
   });
 
   it("아는 userId의 상태 메시지는 기존처럼 해당 필드만 갱신한다 — 중복 추가 없음", () => {

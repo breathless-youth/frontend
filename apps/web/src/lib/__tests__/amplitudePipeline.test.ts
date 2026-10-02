@@ -46,6 +46,11 @@ beforeEach(() => {
     configurable: true,
   });
   vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+  // 리플레이 플러그인은 유휴 시간에 붙는다. 곧바로 실행해 init 뒤에 붙은 상태를 검사한다.
+  vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+    callback({ didTimeout: false, timeRemaining: () => 50 });
+    return 1;
+  });
   vi.stubGlobal(
     "fetch",
     vi.fn((_url: string, init?: { body?: string }) => {
@@ -84,6 +89,7 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     initAmplitude();
     // init은 비동기다 — 끝나기 전에 track하면 큐에만 쌓이고 아직 파이프라인을 안 탄다.
     await tick();
+    await vi.dynamicImportSettled();
 
     trackAmplitudePageView("/room/42", "?userId=7&appVersion=1.0.0");
     trackStudySessionStarted("single");

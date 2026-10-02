@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
+import { trackMetaTutorialCompleted } from "@/lib/metaAppEvents";
 
 import {
   GUIDE_CLOSE_LABEL,
@@ -142,7 +143,7 @@ function StepBody({
 export function OnboardingGuideFlow({
   onFinish,
   isReentry,
-  entry = "home-card",
+  entry = "unknown",
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
@@ -175,6 +176,8 @@ export function OnboardingGuideFlow({
   const finish = useCallback(
     (reason: OnboardingGuideExitReason) => {
       trackGuideFinished({ reason, step: stepIndex + 1, entry });
+      // Meta 광고 전환 — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
+      if (reason === "completed") trackMetaTutorialCompleted();
       onFinish(reason);
     },
     [entry, onFinish, stepIndex],

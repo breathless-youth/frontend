@@ -4,11 +4,26 @@ import { describe, expect, it } from "vitest";
 import { RoomTile } from "../components/RoomTile";
 
 describe("RoomTile 폴백", () => {
-  it("nickname·studySeconds가 없으면 이름을 생략하고 시간은 --:--로 보여준다", () => {
+  it("nickname·focusSec가 없으면 이름을 생략하고 시간은 --:--로 보여준다", () => {
     render(<RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS" }} />);
 
     expect(screen.getByTestId("room-tile")).toHaveTextContent("--:--");
     expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+  });
+
+  it("카메라를 끈 타일에서 이모지 닉네임 이니셜이 깨지지 않는다", () => {
+    render(
+      <RoomTile
+        member={{
+          userId: 8,
+          cameraOn: false,
+          focusState: "FOCUS",
+          nickname: "🧑‍💻코딩",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
   });
 
   it("필드가 있으면 기존처럼 전부 표시한다", () => {
@@ -20,7 +35,7 @@ describe("RoomTile 폴백", () => {
           focusState: "FOCUS",
           nickname: "포메1",
           goal: "목표",
-          studySeconds: 3660,
+          focusSec: 3660,
         }}
       />,
     );
@@ -32,15 +47,15 @@ describe("RoomTile 폴백", () => {
 
 describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
   it.each([
-    ["FOCUS", "집중 측정 중"],
-    ["DISTRACTED", "비집중"],
+    ["FOCUS", "순공시간 측정 중"],
+    ["DISTRACTED", "휴식"],
     ["PAUSED", "일시정지"],
   ] as const)(
     "selfState=%s면 도트+sr-only 상태 텍스트를 가진 뱃지로 타이머를 그린다",
     (state, label) => {
       render(
         <RoomTile
-          member={{ userId: 7, cameraOn: true, focusState: "FOCUS", studySeconds: 3660 }}
+          member={{ userId: 7, cameraOn: true, focusState: "FOCUS", focusSec: 3660 }}
           selfState={state}
         />,
       );
@@ -54,9 +69,7 @@ describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
   );
 
   it("selfState가 없으면(타 참가자) 서버 발행 집중 상태 색을 쓴다 (2026-08-25 BY-435 개정)", () => {
-    render(
-      <RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", studySeconds: 60 }} />,
-    );
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 60 }} />);
 
     expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "FOCUS");
     expect(screen.getByText("00:01")).toBeInTheDocument();
@@ -64,17 +77,22 @@ describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
 
   it("타 참가자 비집중은 DISTRACTED 색 뱃지다", () => {
     render(
-      <RoomTile
-        member={{ userId: 8, cameraOn: true, focusState: "DISTRACTED", studySeconds: 60 }}
-      />,
+      <RoomTile member={{ userId: 8, cameraOn: true, focusState: "DISTRACTED", focusSec: 60 }} />,
     );
 
     expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "DISTRACTED");
+    expect(within(screen.getByTestId("tile-info")).getByText("휴식")).toHaveClass("sr-only");
+  });
+
+  it("타 참가자 집중 중은 스크린리더에 '집중 중'을 그대로 읽는다", () => {
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 60 }} />);
+
+    expect(within(screen.getByTestId("tile-info")).getByText("집중 중")).toHaveClass("sr-only");
   });
 
   it("타 참가자 카메라 꺼짐은 OFF(회색) 뱃지다", () => {
     render(
-      <RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS", studySeconds: 125 }} />,
+      <RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS", focusSec: 125 }} />,
     );
 
     expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "OFF");

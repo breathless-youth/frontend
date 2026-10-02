@@ -1,10 +1,12 @@
 import type {
+  StudyDaysResponse,
   StudyPeriodStatsResponse,
   StudySessionListResponse,
   StudySessionStreakResponse,
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseErrorMessage } from "./api";
+import { legacyQuery } from "./userId";
 
 /**
  * 일일 통계·스트릭 조회 (`apps/mobile/lib/statsApi.ts`에서 이식 — BY-329).
@@ -15,30 +17,24 @@ import { API_BASE_URL, apiFetch, parseErrorMessage } from "./api";
 /** 조회 범위 — 서버 규칙상 from/to는 항상 함께 보내야 한다(하나만 주면 400). */
 export type DateRange = { from: string; to: string };
 
-export async function listStudySessionStats(
-  userId: number,
-  date: string,
-): Promise<StudySessionListResponse> {
-  const res = await apiFetch(
-    `${API_BASE_URL}/api/stats?userId=${userId}&date=${encodeURIComponent(date)}`,
-    {
-      method: "GET",
-    },
-  );
+export async function listStudySessionStats(date: string): Promise<StudySessionListResponse> {
+  const query = `?date=${encodeURIComponent(date)}`;
+  const res = await apiFetch(`${API_BASE_URL}/api/stats${legacyQuery(query)}`, {
+    endpoint: "stats",
+    method: "GET",
+  });
   if (!res.ok) {
     throw await parseErrorMessage(res, "통계 조회 실패");
   }
   return (await res.json()) as StudySessionListResponse;
 }
 
-export async function getStreak(
-  userId: number,
-  range?: DateRange,
-): Promise<StudySessionStreakResponse> {
+export async function getStreak(range?: DateRange): Promise<StudySessionStreakResponse> {
   const rangeParams = range
-    ? `&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+    ? `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
     : "";
-  const res = await apiFetch(`${API_BASE_URL}/api/stats/streak?userId=${userId}${rangeParams}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/streak${legacyQuery(rangeParams)}`, {
+    endpoint: "statsStreak",
     method: "GET",
   });
   if (!res.ok) {
@@ -47,18 +43,34 @@ export async function getStreak(
   return (await res.json()) as StudySessionStreakResponse;
 }
 
+/**
+ * 구 앱 대응이 없는 새 경로라 서버 버전이 `1` 하나뿐이다(백엔드 ADR-0015·0020) — 버전은
+ * `API_ENDPOINTS.studyDays`가 정한다. 구 앱 `userId` 계약도 없어 `legacyQuery`를 붙이지 않는다
+ * (그 문서는 실패해 `—`로 남는다).
+ */
+export async function getStudyDays(): Promise<StudyDaysResponse> {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/study-days`, {
+    endpoint: "studyDays",
+    method: "GET",
+  });
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "누적 공부 일 수 조회 실패");
+  }
+  return (await res.json()) as StudyDaysResponse;
+}
+
 export async function getPeriodStats(
-  userId: number,
   range: DateRange,
   compareRange?: DateRange,
 ): Promise<StudyPeriodStatsResponse> {
   const compareParams = compareRange
     ? `&compareFrom=${encodeURIComponent(compareRange.from)}&compareTo=${encodeURIComponent(compareRange.to)}`
     : "";
-  const res = await apiFetch(
-    `${API_BASE_URL}/api/stats/period?userId=${userId}&from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`,
-    { method: "GET" },
-  );
+  const query = `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${compareParams}`;
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/period${legacyQuery(query)}`, {
+    endpoint: "statsPeriod",
+    method: "GET",
+  });
   if (!res.ok) {
     throw await parseErrorMessage(res, "기간 집계 조회 실패");
   }

@@ -16,7 +16,7 @@ const PROFILE_STALE_TIME_MS = 5 * 60 * 1000;
 export function profileQuery(userId: number) {
   return queryOptions({
     queryKey: profileKeys.detail(userId),
-    queryFn: () => getProfile(userId),
+    queryFn: () => getProfile(),
     staleTime: PROFILE_STALE_TIME_MS,
   });
 }

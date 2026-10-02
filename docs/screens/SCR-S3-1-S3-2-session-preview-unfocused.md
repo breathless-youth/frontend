@@ -311,7 +311,7 @@ export type SessionState =
   기본 구현은 **mock 하나뿐**이다. 실제 구현체는 실기기 스파이크 이후에 붙인다.
 
 - `Toast` — 하단 토스트(6차 신규 컴포넌트). 시각 스펙 미확정(Current Limitations 참고).
-- 아이콘 `icon/pause` · `icon/camera-flip` · `icon/exit` — **Figma에서 SVG로 내보내 커밋한다.** 손으로 `<path>`를 그리지 않는다. **PNG를 쓰지 말 것** — S1 작업에서 Figma PNG 익스포트에 캔버스 배경 `<rect>`가 합성돼 아이콘이 흰 네모로 보이는 문제가 실제로 발생했다(SCR-S1-home.md 참고). SVG에서 해당 `<rect>`만 제외하면 된다.
+- 아이콘 `icon/pause` · `icon/camera-flip` · `icon/exit` — **Figma에서 SVG로 내보내 커밋한다.** 손으로 `<path>`를 그리지 않는다. **PNG를 쓰지 말 것** — S1 작업에서 Figma PNG 익스포트에 캔버스 배경 `<rect>`가 합성돼 아이콘이 흰 네모로 보이는 문제가 실제로 발생했다. SVG에서 해당 `<rect>`만 제외하면 된다.
 
 ## Implementation Notes For AI Agents
 

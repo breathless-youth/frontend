@@ -8,7 +8,11 @@ import { loadEnv } from "vite";
 import type { Connect, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
-import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
+import {
+  MEDIAPIPE_VERSION,
+  WASM_PUBLIC_DIR,
+  WASM_SENTINEL_FILE,
+} from "./scripts/copyMediapipeWasm.js";
 import { assertNotProdApiHost, resolveApiBase } from "./scripts/resolveApiBase.js";
 
 /**
@@ -189,6 +193,7 @@ const deployDefines = {
   __RELEASE__: JSON.stringify(RELEASE),
   __API_BASE__: JSON.stringify(API_BASE),
   __WEB_VERSION__: JSON.stringify(WEB_VERSION),
+  __MEDIAPIPE_VERSION__: JSON.stringify(MEDIAPIPE_VERSION),
 };
 
 /**

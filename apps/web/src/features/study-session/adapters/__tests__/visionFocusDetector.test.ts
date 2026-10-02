@@ -8,6 +8,7 @@ import type {
   DetectionResult,
   DetectorState,
   VisionObjectDetector,
+  VisionRuntimeKind,
 } from "../../vision/objectDetector";
 import { FRAME_INTERVAL_MS } from "../../vision/visionConfig";
 
@@ -47,22 +48,28 @@ interface FakeDetectorOptions {
   readonly loadsTo?: DetectorState;
   /** 프레임마다 돌려줄 검출. `null`이면 "이번 프레임 판정 없음". */
   readonly frames?: readonly (readonly Detection[] | null)[];
+  /** 준비된 검출기가 도는 곳. 기본값은 main. */
+  readonly runtime?: VisionRuntimeKind;
 }
 
 function fakeObjectDetector(options: FakeDetectorOptions = {}) {
   const loadsTo = options.loadsTo ?? "ready";
   const frames = options.frames ?? [];
   let state: DetectorState = "idle";
+  let runtime: VisionRuntimeKind = options.runtime ?? "main";
   let index = 0;
-  const detect = vi.fn((_video: HTMLVideoElement, _timestampMs: number): DetectionResult | null => {
-    if (state !== "ready") {
-      return null;
-    }
-    // 배열을 다 쓰면 마지막 값을 계속 돌려준다 — 프레임 수를 테스트가 정확히 세지 않아도 된다.
-    const next = frames[Math.min(index, frames.length - 1)] ?? null;
-    index += 1;
-    return next === null ? null : { detections: next, durationMs: 1 };
-  });
+  const detect = vi.fn(
+    async (_video: HTMLVideoElement, _timestampMs: number): Promise<DetectionResult | null> => {
+      if (state !== "ready") {
+        return null;
+      }
+      // 배열을 다 쓰면 마지막 값을 계속 돌려준다.
+      // 그래서 테스트가 프레임 수를 정확히 세지 않아도 된다.
+      const next = frames[Math.min(index, frames.length - 1)] ?? null;
+      index += 1;
+      return next === null ? null : { detections: next, durationMs: 1 };
+    },
+  );
   const close = vi.fn(() => {
     state = "idle";
   });
@@ -78,12 +85,28 @@ function fakeObjectDetector(options: FakeDetectorOptions = {}) {
     get delegate() {
       return state === "ready" ? "GPU" : null;
     },
+    get runtime() {
+      return state === "ready" ? runtime : null;
+    },
+    assetTimings: [],
     modelVariant: "fp32",
     load,
     detect,
     close,
   };
-  return { detector, load, detect, close };
+  return {
+    detector,
+    load,
+    detect,
+    close,
+    /** 추론 도중 검출기 쪽의 변화를 흉내 낸다. 연속 실패로 포기하거나 메인 스레드로 갈아타는 경우다. */
+    setState(next: DetectorState) {
+      state = next;
+    },
+    setRuntime(next: VisionRuntimeKind) {
+      runtime = next;
+    },
+  };
 }
 
 function collect() {
@@ -338,5 +361,134 @@ describe("createVisionFocusDetector", () => {
       }),
     );
     expect(JSON.stringify(frame.mock.calls)).not.toContain("originX");
+  });
+
+  it("추론을 기다리는 사이 stop()하면 그 결과로 신호를 내지 않는다", async () => {
+    const { detector, detect } = fakeObjectDetector({ frames: [phoneFrame()] });
+    let resolveDetect: (result: DetectionResult | null) => void = () => {};
+    detect.mockImplementationOnce(
+      () =>
+        new Promise<DetectionResult | null>((resolve) => {
+          resolveDetect = resolve;
+        }),
+    );
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+    vision.subscribe(listener);
+
+    vision.start(); // 첫 프레임은 즉시 처리된다 — detect가 동기로 불린다
+    expect(detect).toHaveBeenCalledTimes(1);
+    vision.stop();
+    resolveDetect({ detections: phoneFrame(), durationMs: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(signals).toEqual([]);
+  });
+
+  it("추론을 기다리는 사이 stop() 뒤 다시 start()해도 멈추기 전 프레임의 결과로 신호를 내지 않는다", async () => {
+    const { detector, detect } = fakeObjectDetector({ frames: [phoneFrame()] });
+    let resolveStale: (result: DetectionResult | null) => void = () => {};
+    detect
+      .mockImplementationOnce(
+        () =>
+          new Promise<DetectionResult | null>((resolve) => {
+            resolveStale = resolve;
+          }),
+      )
+      // 재개 직후 프레임은 끝나지 않게 둔다.
+      // 신호가 나온다면 멈추기 전 프레임에서만 나올 수 있다.
+      .mockImplementationOnce(() => new Promise<DetectionResult | null>(() => {}));
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+    vision.subscribe(listener);
+
+    vision.start();
+    vision.stop();
+    vision.start(); // 일시정지→재개가 추론 한 번보다 빠른 경로, StrictMode의 start→stop→start
+    expect(detect).toHaveBeenCalledTimes(2);
+    resolveStale({ detections: phoneFrame(), durationMs: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(signals).toEqual([]);
+  });
+
+  it("runtime·assetTimings는 검출기 값을 그대로 보여 준다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [[]] });
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+
+    expect(vision.runtime).toBeNull();
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(vision.runtime).toBe("main");
+    expect(vision.assetTimings).toEqual([]);
+  });
+
+  it("준비 뒤 검출기가 감지 불가로 내려가면 status를 unavailable로 올리고 루프를 세운다", async () => {
+    const fake = fakeObjectDetector({ frames: [personFrame()] });
+    const detectorUnavailable = vi.fn();
+    const seen: string[] = [];
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector: fake.detector,
+      diagnostics: {
+        detectorReady: vi.fn(),
+        detectorUnavailable,
+        frame: vi.fn(),
+        transition: vi.fn(),
+        cameraStream: vi.fn(),
+      },
+    });
+    vision.subscribeStatus((status) => seen.push(status));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vision.status).toBe("ready");
+    // 연속 실패로 포기한 검출기처럼, 이번 추론은 null이고 상태는 unavailable이 된다.
+    fake.detect.mockImplementationOnce(async () => {
+      fake.setState("unavailable");
+      return null;
+    });
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    fake.detect.mockClear();
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 5);
+
+    expect(seen).toEqual(["loading", "ready", "unavailable"]);
+    expect(vision.status).toBe("unavailable");
+    expect(detectorUnavailable).toHaveBeenCalledWith("unavailable");
+    expect(fake.detect).not.toHaveBeenCalled();
+  });
+
+  it("세션 도중 워커에서 메인 스레드로 갈아타면 한 번만 알린다", async () => {
+    const fake = fakeObjectDetector({ frames: [personFrame()], runtime: "worker" });
+    const fallback = vi.fn();
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector: fake.detector });
+    vision.subscribeRuntimeFallback(fallback);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vision.runtime).toBe("worker");
+    expect(fallback).not.toHaveBeenCalled();
+    // 갈아타기는 추론 도중에 일어난다.
+    // 메인 검출기 생성이 실패해 이번 추론이 null이어도 알린다.
+    fake.detect.mockImplementationOnce(async () => {
+      fake.setRuntime("main");
+      return null;
+    });
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 5);
+
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("처음부터 메인 스레드였으면 갈아타기를 알리지 않는다", async () => {
+    const fake = fakeObjectDetector({ frames: [personFrame()] });
+    const fallback = vi.fn();
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector: fake.detector });
+    vision.subscribeRuntimeFallback(fallback);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
+
+    expect(fallback).not.toHaveBeenCalled();
   });
 });

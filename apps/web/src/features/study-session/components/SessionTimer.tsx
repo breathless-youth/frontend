@@ -14,8 +14,6 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * - `glow`(심플 모드)에서는 숫자가 **상태 컬러 + 발광**이 된다(`design.md` 확정: 심플 모드
  *   타이머 색 = 상태 컬러). 발광 실측값은 Figma Spec 페이지 `14:7`:
  *   `0 0 24 (근거리) 55%` + `0 0 60 (원거리) 35%` — 색은 `sessionGlowStyle`이 주입한다.
- * - 하단 캡션은 이 컴포넌트가 아니라 `SessionCaption`이 그린다 — 심플 모드에는 캡션 행 자체가
- *   없어서(S3-4 실측) 타이머와 수명이 다르다.
  * - `tabular-nums`로 초마다 폭이 흔들리지 않게 한다(voice-tone.md §2).
  *
  * ## 가로(거치) 변형 — S3-5·S3-6

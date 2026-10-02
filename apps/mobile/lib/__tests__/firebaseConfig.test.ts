@@ -14,7 +14,7 @@ import mobilePackageJson from "../../package.json";
  *
  * 설계: `docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md`. 여기서 고정하는 것은
  * (1) app.json의 plugin·entitlement, (2) `app.config.ts`의 설정 파일 주입과 dev/prod 오주입 차단,
- * (3) eas.json의 EAS environment 매핑과 Xcode 26.2 빌드 이미지다.
+ * (3) eas.json의 EAS environment 매핑과 iOS 빌드 이미지를 고정하지 않는 것이다.
  */
 describe("Firebase 설정 (BY-585)", () => {
   const baseConfig = appJson.expo as unknown as ExpoConfig;
@@ -166,6 +166,9 @@ describe("Firebase 설정 (BY-585)", () => {
           EAS_BUILD: "true",
           GOOGLE_SERVICES_JSON: json,
           GOOGLE_SERVICES_PLIST: plist,
+          // EAS 빌더의 production 평가는 Meta env도 요구한다 — 이 파일의 관심사가 아니라 채워 준다.
+          META_APP_ID: "1234567890123456",
+          META_CLIENT_TOKEN: "0123456789abcdef0123456789abcdef",
         });
         expect(config.android?.googleServicesFile).toBe(json);
         expect(config.ios?.googleServicesFile).toBe(plist);
@@ -363,32 +366,48 @@ describe("Firebase 설정 (BY-585)", () => {
     });
 
     /**
-     * Firebase 12.12+는 Xcode 26.2 이상을 요구하는데 SDK 54의 EAS 기본 이미지는 Xcode 26.0이다.
-     * 프로필 하나라도 빠지면 그 빌드만 pod install에서 죽는다.
+     * Firebase 12.12+는 Xcode 26.2 이상을 요구한다.
+     * SDK 57의 EAS 기본 이미지는 macos-tahoe-26.5-xcode-26.6이라 고정 없이도 이 조건을 만족한다.
+     * 옛 이미지 고정이 남으면 SDK 57 기본값보다 오래된 Xcode로 빌드된다.
      */
-    it("모든 프로필이 Xcode 26.2 빌드 이미지를 쓴다", () => {
-      for (const [name, profile] of Object.entries(profiles)) {
-        expect([name, profile.ios?.image]).toEqual([name, "macos-sequoia-15.6-xcode-26.2"]);
+    it("어떤 프로필도 iOS 빌드 이미지를 고정하지 않는다", () => {
+      for (const profile of Object.values(profiles)) {
+        expect(profile).not.toHaveProperty(["ios", "image"]);
       }
     });
   });
 });
 
 /**
- * `@react-native-firebase/remote-config`는 `@react-native-firebase/analytics`를 peer로 요구해 pnpm이
- * 자동 설치한다. 그대로 두면 autolinking이 Firebase Analytics SDK(GoogleAppMeasurement)를 앱에 링크해
- * 자동 수집이 시작된다 — GA를 붙이지 않기로 한 결정(설계 문서 "확정한 결정")과 스토어 개인정보 라벨에
- * 어긋난다. 패키지는 남겨 두되 네이티브 링크만 막는다.
+ * FCM 콘솔의 오디언스·유저 속성 타겟팅은 Firebase Analytics 데이터만 본다. 그래서 analytics를 직접 의존성으로
+ * 두고, 네이티브 링크를 막던 `expo.autolinking.exclude`를 없앴다 — 되살리면 브리지로 오는 이벤트가 어댑터
+ * 없이 조용히 사라진다.
  */
-describe("Firebase Analytics 미링크 (BY-585)", () => {
-  it("package.json의 expo.autolinking.exclude가 analytics를 뺀다", () => {
-    expect(mobilePackageJson.expo.autolinking.exclude).toContain(
-      "@react-native-firebase/analytics",
-    );
+describe("Firebase Analytics 링크", () => {
+  it("앱 의존성에 analytics가 있다", () => {
+    expect(mobilePackageJson.dependencies).toHaveProperty("@react-native-firebase/analytics");
   });
 
-  it("앱 의존성에 analytics를 직접 넣지 않는다 — peer로만 존재한다", () => {
-    expect(mobilePackageJson.dependencies).not.toHaveProperty("@react-native-firebase/analytics");
+  it("autolinking exclude로 analytics를 막지 않는다", () => {
+    const exclude =
+      (mobilePackageJson as { expo?: { autolinking?: { exclude?: string[] } } }).expo?.autolinking
+        ?.exclude ?? [];
+    expect(exclude).not.toContain("@react-native-firebase/analytics");
+  });
+});
+
+/**
+ * iOS·Android SDK의 자동 화면 보고는 RN 화면 하나를 `screen_view`로 반복해서 찍는다 — 웹뷰 셸이라 의미가
+ * 없고 GA 실시간 보고서에서 가장 많은 이벤트가 되어 잡음만 늘린다. firebase.json에서 끈다.
+ */
+describe("Firebase Analytics 자동 화면 보고 해제", () => {
+  it("firebase.json이 google_analytics_automatic_screen_reporting_enabled를 false로 둔다", () => {
+    const firebaseJson = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "../../firebase.json"), "utf8"),
+    ) as { "react-native": Record<string, unknown> };
+    expect(firebaseJson["react-native"].google_analytics_automatic_screen_reporting_enabled).toBe(
+      false,
+    );
   });
 });
 

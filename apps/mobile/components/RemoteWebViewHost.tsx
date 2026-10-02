@@ -1,13 +1,17 @@
+// eslint-config-expo 57이 react-hooks 7의 React Compiler 진단을 켰지만 이 앱은 컴파일러를 쓰지 않는다.
+// 웹뷰 복원 경로는 재마운트 때만 반영하려고 의도대로 렌더 중 ref를 읽으므로 이 파일에서만 끄고, 정리는 후속 티켓에서 한다.
+/* eslint-disable react-hooks/refs */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import { colors } from "@focusmakers/design-tokens";
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { HostPassedMessage, ToWebMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
+import { authTokenMessage, subscribeAuth } from "../lib/auth";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
 import { subscribeSessionClosed } from "../lib/sessionClosed";
@@ -34,6 +38,13 @@ import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 // 선언하는 이유, 아래 핸들러 참고).
 type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 
+// onLoadEnd 이벤트 타입도 위와 같은 사정으로 재수출되지 않아 필요한 만큼만 직접 구성한다.
+// navigationType은 선언상 필수 필드지만 실제 문서 로드 이벤트에는 아예 없을 수 있어
+// 선택 필드로 다시 연다(아래 handleLoadEnd 주석 참고).
+type LoadEndNativeEvent = Omit<WebViewNavigation, "navigationType"> & {
+  navigationType?: WebViewNavigation["navigationType"];
+};
+
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
 const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
 
@@ -46,6 +57,13 @@ function buildQueryString(query: Record<string, string | number> | undefined): s
   return `?${entries
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join("&")}`;
+}
+
+/** 로그로 남기기 전 access 토큰을 가린다 — Metro 로그에 실제 토큰이 찍히면 안 된다. */
+function forLog(message: ToWebMessage): ToWebMessage {
+  return message.type === "auth-token"
+    ? { ...message, accessToken: message.accessToken === null ? null : "<masked>" }
+    : message;
 }
 
 /** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
@@ -76,14 +94,14 @@ export type RemoteWebViewHostProps = {
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
-   * 웹이 보낸 브리지 메시지(session-ready·start-session·navigate-home·open-settings 등)를
+   * 웹이 보낸 브리지 메시지(start-session·navigate-home·open-settings 등)를
    * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
    * (파싱 단계에서 걸러짐).
    *
    * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(`request-camera-permission` → `camera-permission`).
    * 통로가 이 컴포넌트 안(`webViewRef.injectJavaScript`)에 있어 핸들러가 직접 가질 수 없다.
    */
-  onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
+  onBridgeMessage?: (message: HostPassedMessage, reply: BridgeReply) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
   /**
@@ -153,7 +171,7 @@ export function RemoteWebViewHost({
    * 소수점 높이의 마지막 픽셀 줄이 남고, 재부착 직후 첫 프레임에도 그 바탕이 그대로 보인다.
    * Android는 래퍼 뷰 색이 그대로 비친다. 두 경우 모두 테마 색이어야 흰 줄과 번쩍임이 없다.
    *
-   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.15.0.patch가
+   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.16.1.patch가
    * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
    */
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -310,7 +328,7 @@ export function RemoteWebViewHost({
     }
     webView.injectJavaScript(injectMessageScript(message));
     if (__DEV__) {
-      console.warn("[webview-bridge] 💬 앱->웹", message);
+      console.warn("[webview-bridge] 💬 앱->웹", forLog(message));
     }
   }, []);
 
@@ -412,26 +430,35 @@ export function RemoteWebViewHost({
   }, [path]);
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
-  const handleLoadEnd = useCallback(() => {
-    if (__DEV__) {
-      console.warn("[webview-bridge] onLoadEnd", path);
-    }
-    // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
-    // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
-    setBackGestureEnabled(true);
-    recoveringRef.current = false;
-    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
-    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
-    // 남는 것을 막는다(2026-08-25 채점 지적).
-    if (Platform.OS === "android") {
-      sendToWeb({
-        type: "theme",
-        scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
-        atMs: Date.now(),
-      });
-    }
-    onLoadEnd?.(true);
-  }, [onLoadEnd, path, sendToWeb]);
+  const handleLoadEnd = useCallback(
+    (event?: { nativeEvent: LoadEndNativeEvent }) => {
+      if (__DEV__) {
+        console.warn("[webview-bridge] onLoadEnd", path);
+      }
+      // react-native-webview 13.16.1의 iOS History API shim(RNCWebViewImpl.m)은
+      // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
+      // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
+      // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
+      // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
+      // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
+      if (event?.nativeEvent.navigationType === undefined) {
+        setBackGestureEnabled(true);
+      }
+      recoveringRef.current = false;
+      // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
+      // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
+      // 남는 것을 막는다(2026-08-25 채점 지적).
+      if (Platform.OS === "android") {
+        sendToWeb({
+          type: "theme",
+          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+          atMs: Date.now(),
+        });
+      }
+      onLoadEnd?.(true);
+    },
+    [onLoadEnd, path, sendToWeb],
+  );
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
@@ -449,6 +476,14 @@ export function RemoteWebViewHost({
   useEffect(() => {
     return subscribeSessionClosed(() => {
       sendToWeb({ type: "session-closed", atMs: Date.now() });
+    });
+  }, [sendToWeb]);
+
+  // 토큰이 바뀌면(갱신·재등록·이관) 마운트된 모든 호스트에 알린다 — 세션 종료 신호와 같은 전원 전파다.
+  // `focused`를 보지 않는다: 안 보이는 탭이 낡은 토큰을 들고 있으면 다음 요청에서 401을 맞는다.
+  useEffect(() => {
+    return subscribeAuth((state) => {
+      sendToWeb(authTokenMessage(state));
     });
   }, [sendToWeb]);
 
@@ -544,7 +579,7 @@ export function RemoteWebViewHost({
       >
         <Text
           accessibilityRole="header"
-          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-bold font-sans leading-[22px]"
+          className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-sans-bold leading-[22px]"
         >
           {LOAD_FAILURE_TITLE}
         </Text>

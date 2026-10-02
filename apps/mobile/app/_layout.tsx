@@ -10,8 +10,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { resolveForceUpdate } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
+import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
+import { initMetaAds } from "../lib/metaAds";
+import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
 import { startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
@@ -24,16 +27,27 @@ import { ensureUserRegistered } from "../lib/userApi";
  */
 initSentry();
 
-// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다 — 안 그러면 시스템 폰트로
-// 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다. 위 initSentry와 같은 이유로
-// 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다. 이미 숨겨진
-// 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
+// Meta 광고 SDK 어댑터 — Meta env가 주입된 빌드에서만 붙는다. 모듈 스코프인 이유는 위와 같다: 첫
+// 실행의 가입 완료 이벤트가 등록 경로(`lib/auth.ts`)에서 나오는데, 그보다 먼저 통로가 있어야
+// 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
+installMetaAdsSdk();
+
+// Firebase Analytics(GA4) 어댑터 — 웹뷰가 뜨자마자 브리지로 오는 이벤트를 받을 통로가 먼저 있어야 한다.
+// GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
+installFirebaseAnalyticsSdk();
+
+// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
+// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다.
+// 위 initSentry와 같은 이유로 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다.
+// 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
-    Pretendard: require("../assets/fonts/PretendardVariable.ttf") as number,
+    Pretendard: require("pretendard/dist/public/static/Pretendard-Regular.otf") as number,
+    PretendardLight: require("pretendard/dist/public/static/Pretendard-Light.otf") as number,
+    PretendardBold: require("pretendard/dist/public/static/Pretendard-Bold.otf") as number,
   });
   // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
   // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
@@ -69,11 +83,26 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
+  // Meta SDK 초기화 + iOS ATT 프롬프트 — 홈이 그려진 뒤(폰트·게이트 통과)에 한 번. 스플래시 위에서는
+  // OS가 프롬프트를 띄우지 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 즉시 끝난다.
+  useEffect(() => {
+    if (updateGate !== "pass" || !fontsReady) return;
+    void initMetaAds();
+  }, [updateGate, fontsReady]);
+
   // 권장 알림창은 홈이 그려진 뒤(폰트·게이트 준비 후)에 띄운다 — 앱 시작을 막지 않는다. 최신 버전당 한 번만
-  // 묻는 판단은 `recommendedUpdateAlert`가 한다.
+  // 묻는 판단은 `recommendedUpdateAlert`가 한다. ATT 프롬프트(위 `initMetaAds`)가 끝난 뒤에 띄운다 — 둘 다
+  // OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집힌다. `initMetaAds`는 같은 프라미스를 돌려주므로 두
+  // effect가 각자 불러도 초기화는 한 번이다.
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady || recommendedVersion === null) return;
-    void recommendedUpdateAlert.maybeShow(recommendedVersion);
+    let active = true;
+    void initMetaAds().then(() => {
+      if (active) void recommendedUpdateAlert.maybeShow(recommendedVersion);
+    });
+    return () => {
+      active = false;
+    };
   }, [updateGate, fontsReady, recommendedVersion]);
 
   useEffect(() => {

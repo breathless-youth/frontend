@@ -1,9 +1,7 @@
 /**
- * 카메라 어댑터 — **인터페이스 + mock만** 있다.
+ * 카메라 어댑터 인터페이스와 테스트용 mock.
  *
- * 실기기 기술 스파이크가 끝나기 전에는 `getUserMedia`/MediaPipe/LiveKit 등 어떤 SDK도
- * 설치·호출하지 않는다(`frontend/CLAUDE.md` "하지 말 것"). UI 컴포넌트는 이 인터페이스만 보고,
- * 실제 구현체는 스파이크 이후 별도 티켓에서 붙인다.
+ * UI는 이 인터페이스만 보고 `getUserMedia`를 직접 부르지 않는다. 실제 구현체는 `mediaStreamCamera.ts`다.
  */
 
 export type CameraFacing = "front" | "back";

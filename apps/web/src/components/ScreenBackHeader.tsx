@@ -2,6 +2,7 @@ import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { trackScreenBackPressed } from "@/lib/amplitude";
+import { slideNavigate } from "@/lib/pageTransition";
 import { sanitizePagePath } from "@/lib/sanitizePath";
 
 /**
@@ -46,13 +47,15 @@ export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
             onBack();
             return;
           }
-          const historyState = window.history.state as { idx?: number } | null;
-          if (historyState?.idx) {
-            navigate(-1);
-            return;
-          }
-          // 딥링크로 곧장 열렸을 때의 대비 — 스택이 비어 있으면 설정 탭으로 보낸다.
-          navigate("/settings", { replace: true });
+          slideNavigate("back", () => {
+            const historyState = window.history.state as { idx?: number } | null;
+            if (historyState?.idx) {
+              navigate(-1);
+              return;
+            }
+            // 딥링크로 곧장 열렸을 때의 대비 — 스택이 비어 있으면 설정 탭으로 보낸다.
+            navigate("/settings", { replace: true });
+          });
         }}
         aria-label="뒤로 가기"
         className="flex size-11 items-center justify-center"

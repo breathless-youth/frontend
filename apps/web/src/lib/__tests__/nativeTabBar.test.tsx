@@ -1,8 +1,25 @@
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { isFullScreenPath, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { __resetModalOverlayForTests, COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
+import {
+  __resetNativeTabBarForTests,
+  hasNativeTabBar,
+  isFullScreenPath,
+  isNativeCoveredPath,
+  toastBottomOffset,
+  useNativeTabBarClass,
+  useNativeTabBarSync,
+} from "@/lib/nativeTabBar";
+import {
+  pageTransitionFinished,
+  slideNavigate,
+  usePageTransitionCommit,
+} from "@/lib/pageTransition";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 /**
  * 전체 화면 웹 라우트에서 네이티브 탭 바를 감추는 동기화(`set-tab-bar`).
@@ -43,8 +60,43 @@ function sentVisibility(postMessage: ReturnType<typeof vi.fn>): boolean[] {
     .map((message) => message.visible);
 }
 
+function sentTabBarMessages(
+  postMessage: ReturnType<typeof vi.fn>,
+): { visible: boolean; blockedByModal?: boolean }[] {
+  return postMessage.mock.calls
+    .map(
+      ([raw]) =>
+        JSON.parse(raw as string) as { type: string; visible: boolean; blockedByModal?: boolean },
+    )
+    .filter((message) => message.type === "set-tab-bar")
+    .map(({ visible, blockedByModal }) => ({
+      visible,
+      ...(blockedByModal === undefined ? {} : { blockedByModal }),
+    }));
+}
+
+function openModal(): HTMLElement {
+  const element = document.createElement("div");
+  element.setAttribute("role", "dialog");
+  element.setAttribute("aria-modal", "true");
+  document.body.appendChild(element);
+  return element;
+}
+
+/** 바닥에 붙는 시트 — `ui/sheet.tsx`가 `side="bottom"`일 때 다는 속성을 그대로 흉내 낸다. */
+function openBottomSheet(): HTMLElement {
+  const element = openModal();
+  element.setAttribute(COVERS_TAB_BAR_ATTR, "");
+  return element;
+}
+
 afterEach(() => {
+  resetViewTransitionStub();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
+  __resetModalOverlayForTests();
+  __resetNativeTabBarForTests();
+  document.body.innerHTML = "";
 });
 
 describe("isFullScreenPath", () => {
@@ -74,6 +126,19 @@ describe("isFullScreenPath", () => {
   it("세션은 전체 화면이지만 목록에 없다 — 네이티브 모달이 이미 탭 바를 덮고, 탭 라우트로 돌아오지 않아 복귀 신호를 보낼 기회가 없다", () => {
     expect(isFullScreenPath("/room/1")).toBe(false);
     expect(isFullScreenPath("/room/1/result")).toBe(false);
+  });
+});
+
+describe("isNativeCoveredPath", () => {
+  it("솔로 세션 라우트는 네이티브가 이미 덮는다", () => {
+    expect(isNativeCoveredPath("/room/1")).toBe(true);
+    expect(isNativeCoveredPath("/room/1/result")).toBe(true);
+  });
+
+  it("탭 라우트와 종일룸은 해당하지 않는다", () => {
+    for (const path of ["/home", "/records", "/social/room/1"]) {
+      expect(isNativeCoveredPath(path)).toBe(false);
+    }
   });
 });
 
@@ -143,5 +208,357 @@ describe("useNativeTabBarSync", () => {
     });
 
     expect(sentVisibility(postMessage)).toEqual([]);
+  });
+
+  it("모달이 열리면 차단을 알린다 — 탭 바가 남은 채 터치만 막혀야 한다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+  });
+
+  it("바텀시트가 열리면 차단이 아니라 숨기라고 알린다 — 떠 있는 탭 바가 시트 아래쪽을 가린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    const sheet = openBottomSheet();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+
+    sheet.remove();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("시스템 탭 바에서도 바텀시트는 숨긴다 (시트 뒤에 바가 남지 않게)", async () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+    });
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    openBottomSheet();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  it("모달이 닫히면 경로 기준으로 돌아온다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    const modal = openModal();
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({
+        visible: false,
+        blockedByModal: true,
+      });
+    });
+
+    modal.remove();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("전체 화면 라우트에서는 모달이 열려도 차단을 싣지 않는다 — 사라진 탭 바가 딤 때문에 되살아나면 안 된다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/onboarding-guide");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  /**
+   * 손으로 만든 div가 아니라 실제 `Dialog`(`ForceUpdateDialog`·유예 안내 모달이 쓰는 것과
+   * 같은 컴포넌트)로 검증한다 — Radix가 `aria-modal`을 만들지 않아 감지가 안 됐던 문제는
+   * 합성 div 테스트로는 잡히지 않았다. Portal이 body에 붙으므로 MutationObserver가 잡는다.
+   */
+  it("실제 Dialog 컴포넌트가 열리면 차단을 알린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    function DialogHarness() {
+      const [open, setOpen] = useState(false);
+      useNativeTabBarSync();
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            열기
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogTitle>테스트 모달</DialogTitle>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+
+    const { getByText } = render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes>
+          <Route path="*" element={<DialogHarness />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    postMessage.mockClear();
+
+    act(() => {
+      fireEvent.click(getByText("열기"));
+    });
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false, blockedByModal: true }]);
+    });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
+    });
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("솔로 세션 화면에서는 모달이 열려도 차단을 싣지 않는다 — 네이티브가 이미 fullScreenModal로 탭 바를 덮고 있다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/room/42");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  it("솔로 세션 결과 화면에서도 마찬가지다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/room/42/result");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+
+  it("종일룸(/social/room)에서도 모달이 열려도 차단을 싣지 않는다 — 전체 화면 라우트 처리로 이미 커버된다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/social/room/42");
+    postMessage.mockClear();
+
+    openModal();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
+    });
+  });
+});
+
+function SlideHarness({ to, direction }: { to: string; direction: "forward" | "back" }) {
+  useNativeTabBarSync();
+  usePageTransitionCommit();
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => slideNavigate(direction, () => navigate(to))}>
+      이동
+    </button>
+  );
+}
+
+function renderSlide(path: string, to: string, direction: "forward" | "back") {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="*" element={<SlideHarness to={to} direction={direction} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+/** 뒤로 전환 대기 중 목적지가 다시 바뀌는 상황을 재현한다. 첫 목적지는 slideNavigate로, 다음 목적지는 전환 없이 직접 이동한다. */
+function CancelHarness() {
+  useNativeTabBarSync();
+  usePageTransitionCommit();
+  const navigate = useNavigate();
+  return (
+    <>
+      <button type="button" onClick={() => slideNavigate("back", () => navigate("/settings"))}>
+        뒤로
+      </button>
+      <button type="button" onClick={() => navigate("/records")}>
+        다음
+      </button>
+    </>
+  );
+}
+
+describe("useNativeTabBarSync — 페이지 전환", () => {
+  it("복귀 전환 중에는 탭 바를 전환이 끝난 뒤에 보여 준다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { finish, updateDone } = stubViewTransition();
+    renderSlide("/profile", "/settings", "back");
+
+    fireEvent.click(screen.getByRole("button", { name: "이동" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false]);
+
+    await act(async () => {
+      finish();
+      await pageTransitionFinished();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false, true]);
+  });
+
+  it("진입 전환의 숨김은 기다리지 않고 바로 알린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { updateDone } = stubViewTransition();
+    renderSlide("/settings", "/profile", "forward");
+
+    fireEvent.click(screen.getByRole("button", { name: "이동" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([true, false]);
+  });
+
+  it("복귀 전환 대기 중 라우트가 또 바뀌면 오래된 표시 신호를 보내지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { finish, updateDone } = stubViewTransition();
+    render(
+      <MemoryRouter initialEntries={["/onboarding-guide"]}>
+        <Routes>
+          <Route path="*" element={<CancelHarness />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
+    await act(async () => {
+      await updateDone();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false]);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    });
+
+    await act(async () => {
+      finish();
+      await pageTransitionFinished();
+    });
+    expect(sentVisibility(postMessage)).toEqual([false, true]);
+  });
+});
+
+describe("toastBottomOffset", () => {
+  const SAFE = "calc(env(safe-area-inset-bottom) + 16px)";
+
+  it("웹뷰의 탭 라우트는 탭 바 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", true)).toBe("var(--tab-bar-reserve)");
+    expect(toastBottomOffset("/social", true)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("탭 바가 없는 전체 화면 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/social/code", true)).toBe(SAFE);
+    expect(toastBottomOffset("/social/room/42", true)).toBe(SAFE);
+  });
+
+  it("네이티브 모달로 뜬 세션 라우트는 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/room/7", true)).toBe(SAFE);
+  });
+
+  it("브라우저 단독 모드는 탭 바가 없어 안전영역 위로 띄운다", () => {
+    expect(toastBottomOffset("/settings", false)).toBe(SAFE);
+  });
+});
+
+describe("hasNativeTabBar", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("nativeTabBar=1 쿼리가 있으면 시스템 탭 바다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    expect(hasNativeTabBar()).toBe(true);
+  });
+
+  it("표시가 없으면 플로팅 바다 — 구버전 앱·Android·브라우저", () => {
+    window.history.replaceState(null, "", "/home");
+    expect(hasNativeTabBar()).toBe(false);
+  });
+
+  it("앱 안에서 이동해 쿼리가 사라져도 첫 판정이 유지된다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    expect(hasNativeTabBar()).toBe(true);
+    window.history.replaceState(null, "", "/records");
+    expect(hasNativeTabBar()).toBe(true);
+  });
+});
+
+describe("useNativeTabBarClass", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    document.documentElement.classList.remove("native-tab-bar");
+  });
+
+  it("시스템 탭 바면 문서 루트에 클래스를 건다 — index.css가 하단 여백 공식을 바꾼다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    function Harness() {
+      useNativeTabBarClass();
+      return null;
+    }
+    render(<Harness />);
+    expect(document.documentElement.classList.contains("native-tab-bar")).toBe(true);
+  });
+
+  it("플로팅 바면 걸지 않는다", () => {
+    function Harness() {
+      useNativeTabBarClass();
+      return null;
+    }
+    render(<Harness />);
+    expect(document.documentElement.classList.contains("native-tab-bar")).toBe(false);
+  });
+});
+
+describe("toastBottomOffset — 시스템 탭 바", () => {
+  it("탭 라우트여도 안전 영역 식을 돌려준다 — 안전 영역에 바 높이가 이미 들어 있다", () => {
+    expect(toastBottomOffset("/home", true, true)).toBe("calc(env(safe-area-inset-bottom) + 16px)");
+  });
+
+  it("플로팅 바는 지금처럼 예약 변수를 쓴다", () => {
+    expect(toastBottomOffset("/home", true, false)).toBe("var(--tab-bar-reserve)");
   });
 });

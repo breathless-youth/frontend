@@ -2,7 +2,6 @@ import { Children, Fragment, type ReactNode } from "react";
 
 /**
  * S6 설정의 한 그룹 — 섹션 라벨 + group-card + (옵션) 카드 하단 캡션
- * (Figma `67:742` · `67:758` · `67:767`).
  *
  * **헤어라인은 이 카드가 그린다.** Figma `Settings / Row`(43:117) 컴포넌트 설명이
  * "행 사이 1px 헤어라인은 화면에서 배치"라고 못박고 있어, 행이 자기 아래 선을 그리지 않는다
@@ -33,7 +32,8 @@ export function SettingsSection({ label, caption, className, children }: Setting
     <div className={className}>
       <p className="text-text-tertiary px-1 text-[13px] leading-[15px] font-medium">{label}</p>
 
-      <div className="bg-muted border-border mt-1.5 rounded-lg border px-4">
+      {/* 카드 그림자는 소셜과 공유하는 shadow-sb-card 유틸(Figma shadow/card-soft-blue). */}
+      <div className="bg-muted border-border mt-1.5 rounded-xl border px-4 shadow-sb-card">
         {rows.map((row, index) => (
           // 행 목록은 JSX에 정적으로 적힌 고정 배열이라(추가·삭제·재정렬 없음) 인덱스가 안정적인 키다.
           <Fragment key={index}>

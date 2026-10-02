@@ -10,7 +10,6 @@
 export type ToWebMessage =
   /** 가속도 임계 초과 여부. 원시 값은 넘기지 않는다(스펙 §3 "가속도 신호의 경계"). */
   | { type: "device-handling"; active: boolean; atMs: number }
-  | { type: "app-state"; state: "active" | "background"; atMs: number }
   /** `request-camera-gate` 응답. `granted: false`면 네이티브가 권한 안내 화면을 이미 띄운 상태다. */
   | { type: "camera-gate-result"; granted: boolean; atMs: number }
   /**
@@ -24,20 +23,10 @@ export type ToWebMessage =
   /**
    * 탭 웹뷰를 탭 루트로 초기화하라는 요청 — Android 전용 발신. 시스템 뒤로가기로 탭을 떠날 때
    * 웹뷰가 내부 히스토리를 유지한 채 남아, 재진입 시 이전 하위 페이지가 보이는 문제를 막는다.
-   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리(`userId` 등 셸 계약)를 승계해 replace로
+   * `path`는 그 탭의 루트 웹 경로다. 웹은 현재 쿼리를 그대로 둔 채 replace로
    * 이동한다(`apps/web/src/lib/nativeRouteReset.ts`).
    */
   | { type: "reset-route"; path: string; atMs: number }
-  /**
-   * 웹뷰 생존 확인(BY-436) — 네이티브가 포그라운드 복귀 시 보낸다. 웹은 `pong`으로 즉답한다.
-   *
-   * OS가 백그라운드에서 웹 렌더러 프로세스를 회수하면 사후 통보(iOS
-   * `onContentProcessDidTerminate`, Android `onRenderProcessGone`)가 **한참 늦게** 오거나
-   * 아예 오지 않아, 그동안 순백 화면(iOS)·죽은 잔상(Android)이 노출된다(실기기 확인).
-   * 그래서 통보를 기다리지 않고 복귀 시점에 직접 물어본다 — 응답이 없으면 죽은 것으로
-   * 보고 스플래시로 덮고 재로드한다. `id`로 요청과 응답의 짝을 맞춘다(낡은 pong 방지).
-   */
-  | { type: "ping"; id: number; atMs: number }
   /**
    * 앱 프로세스가 방금 시작했다는 알림 — 홈 웹뷰에만, 실행마다 한 번만 온다.
    *
@@ -53,6 +42,13 @@ export type ToWebMessage =
    * 웹은 통계 쿼리를 무효화해 다음 표시 때 새로 받는다.
    */
   | { type: "session-closed"; atMs: number }
+  /**
+   * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
+   * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
+   * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
+   * 실패다. 웹은 헤더 없이 보낸다.
+   */
+  | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage;
 
@@ -79,8 +75,6 @@ export interface CameraPermissionMessage {
 
 /** 웹 → 네이티브. */
 export type ToNativeMessage =
-  /** 세션 화면이 살아 있고 브리지가 연결됐음을 알린다. */
-  | { type: "session-ready"; atMs: number }
   /**
    * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
    * `app-launched`로 응답한다.
@@ -91,8 +85,6 @@ export type ToNativeMessage =
    * 웹이 스스로 보내는 메시지로 만든다. 실패한 로드에서는 이 메시지 자체가 나가지 않는다.
    */
   | { type: "home-ready"; atMs: number }
-  /** `ping`(생존 확인)에 대한 즉답 — `id`는 받은 ping의 것을 그대로 되돌린다. */
-  | { type: "pong"; id: number; atMs: number }
   | ReportScreenMessage
   /**
    * 가속도 센서 구독을 켜고 끈다.
@@ -107,13 +99,12 @@ export type ToNativeMessage =
    * 세션 화면을 push한다(BY-334에서 웹 발신 추가).
    *
    * 온보딩이 웹으로 이관돼도 이 메시지는 필요하다: **권한 요청과 화면 스택은 네이티브 소유**라
-   * 웹이 대신할 수 없다. 수신·게이트 실행은 BY-333 범위다 — 그때까지 네이티브는 이 메시지를
-   * 무시하고(모르는 메시지는 흘려보내는 계약), 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   * 웹이 대신할 수 없다. 네이티브가 권한 게이트를 거쳐 세션 모달을 열고, 브라우저 단독 모드에서는
+   * 애초에 발신되지 않는다.
    */
   | { type: "start-session"; atMs: number }
   /**
-   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청.
-   * 네이티브 수신 구현은 BY-333 — 그 전까지는 웹에서 보내도 받는 쪽이 없어 아무 일도 안 일어난다.
+   * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
   | { type: "open-settings"; atMs: number }
   /**
@@ -169,12 +160,37 @@ export type ToNativeMessage =
    * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
    */
   | { type: "request-camera-gate"; atMs: number }
+  /** 웹이 `auth-token` 구독을 걸었다 — `analytics-ready`와 같은 handshake. 네이티브는 현재 토큰으로 그 문서에 답한다. */
+  | { type: "auth-ready"; atMs: number }
+  /**
+   * 웹이 401을 받았다. 네이티브가 갱신(앱 전체 single-flight)하고, 결과와 무관하게 이 문서에
+   * `auth-token`으로 답한다 — 갱신이 실패해도 문서의 대기가 풀려야 한다.
+   */
+  | { type: "request-token-refresh"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
   | NavigateTabMessage
   | NavigateHomeMessage
-  | AnalyticsReadyMessage;
+  | AnalyticsReadyMessage
+  | MetaAppEventMessage
+  | AnalyticsEventMessage
+  | AnalyticsUserPropertiesMessage;
+
+/** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
+type HostConsumedType = "home-ready" | "analytics-ready" | "set-back-gesture" | "set-orientation";
+
+/** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
+export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
+
+/** `RemoteScreen`이 처리하고 끝내는 메시지. `report-screen`은 호스트가 경로를 저장한 뒤 넘긴다. */
+type ScreenConsumedType = "set-back-lock" | "report-screen";
+
+/**
+ * 공용 핸들러(`handleBridgeMessage`)가 받는 메시지. 앞 단계가 처리한 타입을 빼 두어야
+ * 핸들러의 never 검사가 "어디에서도 처리하지 않은 메시지"만 잡는다.
+ */
+export type HandlerMessage = Exclude<HostPassedMessage, { type: ScreenConsumedType }>;
 
 /**
  * 웹 SPA의 현재 화면 보고(BY-436) — 라우트가 바뀔 때마다 웹이 보낸다.
@@ -200,24 +216,36 @@ export interface ReportScreenMessage {
   atMs: number;
 }
 
+/** `navigate-tab`이 갈 수 있는 탭. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const NAVIGATE_TAB_TARGETS = ["records", "social"] as const;
+/** `navigate-tab` 발신처. 위와 같은 이유로 목록이 원천이다. */
+export const NAVIGATE_TAB_SOURCES = ["card", "study_result", "invite_card"] as const;
+
 /**
- * 네이티브 하단 탭을 전환해 달라는 요청 — 홈(S1) 연속 공부 카드가 보낸다
- * (Figma `Card / Stat` 38:86: "Streak=불꽃+셰브런(**기록 탭 이동**)").
+ * 네이티브 하단 탭을 전환해 달라는 요청 — S4 결과 화면의 `기록으로 가기`와 홈 친구 초대 카드가
+ * 보낸다(옛 홈의 연속 공부 카드도 보냈다).
  *
  * 탭 전환은 네이티브 탭바 소유라 웹 라우터의 `navigate("/records")`로는 웹뷰 안의 document만
  * 바뀔 뿐 네이티브 탭이 움직이지 않는다 — `navigate-home`(세션 모달 닫기)과 같은 이유로
  * 신호만 보내고 실제 전환은 네이티브가 한다.
  *
- * `tab`이 `"records"` 하나뿐인 이유: 목적지가 확정된 탭 간 이동이 이것뿐이다(탭바 IA 원칙
- * "목적지가 확정되지 않은 탭을 임의로 늘리지 않는다"와 같은 태도). 새 이동이 확정되면
- * 유니온을 넓힌다 — 호환 변경이다.
+ * `tab`은 목적지가 확정된 탭 간 이동만 담는다(탭바 IA 원칙 "목적지가 확정되지 않은 탭을
+ * 임의로 늘리지 않는다"와 같은 태도). `records`는 결과 화면의 `기록으로 가기`, `social`은 홈
+ * 친구 초대 카드다. 새 이동이 확정되면 유니온을 넓힌다 — 호환 변경이다. 다만 배포된 셸은
+ * 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
  *
- * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트 `/records`로 직접 이동한다
- * (쿼리 승계 포함, 발신부 참고).
+ * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트(`/records`·`/social`)로 직접
+ * 이동한다(쿼리 승계 포함, 발신부 참고).
  */
 export interface NavigateTabMessage {
   type: "navigate-tab";
-  tab: "records";
+  tab: (typeof NAVIGATE_TAB_TARGETS)[number];
+  /**
+   * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
+   * `card`는 옛 홈의 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560),
+   * `invite_card`는 홈 친구 초대 카드다. 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
+   */
+  via?: (typeof NAVIGATE_TAB_SOURCES)[number];
   atMs: number;
 }
 
@@ -238,6 +266,14 @@ export interface NavigateTabMessage {
 export interface SetTabBarMessage {
   type: "set-tab-bar";
   visible: boolean;
+  /**
+   * 웹 모달이 덮고 있는 동안 탭 바를 자리에 둔 채 딤을 씌우고 터치만 막으라는 뜻이다.
+   * `visible: false`와 함께 온다 — 이 필드를 모르는 구버전 앱은 `visible`만 읽고 탭 바를
+   * 통째로 감추므로, 카드가 한 번 튀는 대신 탭이 눌리는 문제는 업데이트 전에도 사라진다.
+   * 전체 화면 라우트라 탭 바가 이미 없을 때는 보내지 않는다 — 딤을 그리려고 탭 바가
+   * 되살아나면 안 된다.
+   */
+  blockedByModal?: boolean;
   atMs: number;
 }
 
@@ -293,6 +329,16 @@ export interface SetBackLockMessage {
  */
 export interface NavigateHomeMessage {
   type: "navigate-home";
+  /**
+   * 모달을 닫은 뒤 이어서 열 탭. S4의 `기록으로 가기`가 솔로 결과에서 싣는다 — 모달 닫기와 탭
+   * 전환을 **한 메시지**로 보내야 한다. 둘로 나누면 첫 메시지가 이 WebView를 언마운트하는
+   * 사이 둘째(`navigate-tab`)가 유실될 수 있다. 네이티브는 `tab_pressed {via: study_result}`로
+   * 센다. 없으면 홈 탭에 머문다.
+   *
+   * 값은 `records`뿐이다. `navigate-tab`의 목적지 목록을 그대로 참조하면 셸 파서·핸들러가 모르는
+   * 값이 타입만 통과해 조용히 홈에 머문다. 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
+   */
+  tab?: "records";
   atMs: number;
 }
 
@@ -303,9 +349,9 @@ export type NativeAnalyticsPropertyValue = string | number | boolean | null;
  * 네이티브에서만 일어나는 사용자 이벤트를 웹 Amplitude로 넘긴다 — 하단 탭 터치, 카메라 권한
  * 게이트 결과, 권한 거부 안내(S2-3) 화면의 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
  *
- * 분석 SDK는 웹에만 있다(앱은 Firebase Analytics도 링크하지 않는다 — `apps/mobile/CLAUDE.md`).
- * 네이티브 SDK를 따로 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해지므로, 대신 이벤트를
- * 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
+ * 분석의 원천은 웹 Amplitude다 — 앱의 Firebase Analytics는 푸시 타겟팅용 사본만 받는다
+ * (`AnalyticsEventMessage`, ADR 0010). 네이티브 Amplitude SDK를 따로 들이면 device_id가 웹뷰와 갈라져
+ * 신원 통합이 필요해지므로, 대신 이벤트를 웹으로 옮겨 담아 같은 user_id·세션으로 찍히게 한다.
  *
  * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
  *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
@@ -336,5 +382,91 @@ export interface TrackEventMessage {
  */
 export interface AnalyticsReadyMessage {
   type: "analytics-ready";
+  atMs: number;
+}
+
+/** Meta 앱 이벤트 파라미터 값 — SDK 계약(`Params`)이 문자열·수만 받는다. boolean은 1/0으로 접어 보낸다. */
+export type MetaAppEventParamValue = string | number;
+
+/**
+ * 웹이 아는 광고 전환을 네이티브 Meta SDK로 넘긴다 — 첫 공부 세션 시작·종료, 온보딩 완료, 소셜룸 입장.
+ *
+ * 앱 설치 광고의 성과 측정은 네이티브 SDK만 할 수 있다(설치 이벤트·iOS SKAdNetwork). SDK는 앱에 있고 전환은
+ * 대부분 웹 화면에서 일어나므로, `track-event`(네이티브 → 웹 Amplitude)의 역방향으로 웹이 보낸다.
+ *
+ * - **이벤트 정의(이름·파라미터)는 발신자인 `apps/web/src/lib/metaAppEvents.ts`가 소유한다.** 네이티브는
+ *   이름을 화이트리스트하지 않고 형식만 검증해(`apps/mobile/lib/webBridge.ts`) SDK에 그대로 넘긴다 — 전환
+ *   목록이 바뀌어도 앱을 다시 빌드하지 않기 위해서다.
+ * - `name`은 Meta 규칙(영문자로 시작, 영숫자·`_`·`-`·공백, 40자 이내). Meta 표준 이벤트명(`fb_mobile_*`)도
+ *   이 형식이다. `params`는 25개 이내, 값은 문자열·수만. 식별자·초대코드·자유 문자열은 싣지 않는다
+ *   (`track-event`와 같은 원칙).
+ * - `valueToSum`은 Meta가 합산하는 수치(매출 등)다. 지금은 쓰지 않고 계약만 열어 둔다.
+ * - Meta env가 없는 빌드(개발)와 브라우저 단독 모드에서는 아무 일도 일어나지 않는다.
+ */
+export interface MetaAppEventMessage {
+  type: "meta-app-event";
+  name: string;
+  params?: Record<string, MetaAppEventParamValue>;
+  valueToSum?: number;
+  atMs: number;
+}
+
+/** Firebase Analytics 이벤트 파라미터 값 — SDK 계약이 문자열·수만 받는다. boolean은 웹이 "true"/"false"로 접는다. */
+export type AnalyticsEventParamValue = string | number;
+
+/*
+ * Firebase Analytics 계약 상수. 웹 발신(`apps/web/src/lib/firebaseAnalyticsBridge.ts`)과 네이티브 수신
+ * (`apps/mobile/lib/webBridge.ts`)이 같은 값으로 거른다 — 한쪽만 고치면 웹이 보낸 것을 네이티브가 버리거나,
+ * 네이티브가 받을 것을 웹이 안 보내는 어긋남이 생기므로 여기가 원천이다.
+ */
+/** 이벤트명·파라미터 키 — Firebase 규칙: 영문자로 시작, 영숫자·`_`, 40자 이내. */
+export const ANALYTICS_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+/** 유저 속성 키 — 같은 문자 집합, 24자 이내. */
+export const ANALYTICS_USER_PROPERTY_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,23}$/;
+/**
+ * 문자열 값은 토큰만 — enum(`single`), 에러 코드(`HTTP_404`), 정제된 경로(`/room/:id`), 버전(`1.0.2`).
+ * 공백·한글·문장부호가 든 자유 문자열(닉네임·목표 문구)은 걸린다. Meta 경로(`meta-app-event`)와 같은 원칙:
+ * 계약을 말로만 적으면 실수 한 번에 사용자 입력이 Google 서버로 나간다.
+ *
+ * ponytail: 토큰꼴 식별자(초대코드·숫자 ID)는 못 막는다 — Meta 경로와 같은 한계다. 키 화이트리스트를 두면 확실하지만
+ * "이벤트 목록은 웹 카탈로그가 소유한다"는 설계를 깨므로, 카탈로그에 그런 속성이 생기면 그때 옮긴다.
+ */
+export const ANALYTICS_PARAM_VALUE_PATTERN = /^[A-Za-z0-9_.:/-]{1,64}$/;
+/** 이벤트 하나의 파라미터 상한(Firebase 규칙 25개). 유저 속성 한 번의 갱신에도 같은 상한을 쓴다. */
+export const ANALYTICS_EVENT_MAX_PARAMS = 25;
+/** 유저 속성 값 상한(Firebase 규칙 36자). */
+export const ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH = 36;
+
+/**
+ * 웹 Amplitude 이벤트를 네이티브 Firebase Analytics(GA4)에도 흘린다 — FCM 콘솔의 오디언스·유저 속성 타겟팅은
+ * Firebase Analytics 데이터만 보기 때문이다. `meta-app-event`와 같은 역방향 통로다.
+ *
+ * - **이벤트 정의는 여전히 웹 Amplitude 카탈로그가 소유한다.** 웹은 Amplitude 전송 파이프라인의 destination
+ *   플러그인(`apps/web/src/lib/firebaseAnalyticsBridge.ts`)에서 Firebase 형식에 맞는 이벤트만 골라 보내고,
+ *   네이티브는 이름을 화이트리스트하지 않고 형식만 검증해(`apps/mobile/lib/webBridge.ts`) SDK에 넘긴다.
+ * - `name`·파라미터 키는 Firebase 규칙(영문자로 시작, 영숫자·`_`, 40자 이내). 파라미터는 25개 이내, 문자열 값은
+ *   64자 이내 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN`). 예약 접두사(`firebase_`·`google_`·`ga_`)는 네이티브가 버린다.
+ * - 수치 파라미터(공부 시간·집중률 같은 집계값)는 키 화이트리스트 없이 그대로 간다 — 개인정보 라벨·방침의
+ *   Google 위탁 범위에 "집계된 공부 지표"가 들어가야 하는 이유다(ADR 0010).
+ */
+export interface AnalyticsEventMessage {
+  type: "analytics-event";
+  name: string;
+  params?: Record<string, AnalyticsEventParamValue>;
+  atMs: number;
+}
+
+/**
+ * 웹 Amplitude 유저 속성(`$identify`)을 Firebase 유저 속성으로 옮긴다 — 오디언스 조건에 쓰는 값이다.
+ *
+ * - **키는 웹의 화이트리스트만** 넘어온다(`FIREBASE_USER_PROPERTY_KEYS`). GA4는 프로젝트당 커스텀 유저 속성이
+ *   25개라 Amplitude 속성을 카탈로그째 흘리면 attribution이 만드는 `utm_*`·`referrer` 따위가 한도를 먹는다.
+ * - `$set`·`$setOnce`는 값, `$unset`은 `null`로 온다. Firebase는 `null`로 속성을 지우므로 GA 쪽 값이
+ *   Amplitude와 어긋난 채 남지 않는다(지운 디데이로 오디언스가 잘못 잡히는 것을 막는다).
+ * - 키는 24자, 값은 36자 이내 토큰(`ANALYTICS_PARAM_VALUE_PATTERN`) — 넘는 항목은 웹이 빼고 보낸다.
+ */
+export interface AnalyticsUserPropertiesMessage {
+  type: "analytics-user-properties";
+  properties: Record<string, string | null>;
   atMs: number;
 }

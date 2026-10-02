@@ -4,9 +4,11 @@ import type * as sentryLib from "@/lib/sentry";
 import { reportHandled } from "@/lib/sentry";
 
 import type {
+  AssetTiming,
   DetectorCreateOptions,
   MediapipeDetectorHandle,
   MediapipeVisionRuntime,
+  VisionRuntimeKind,
 } from "../objectDetector";
 import { createObjectDetector, resolveModelVariant } from "../objectDetector";
 import {
@@ -29,12 +31,18 @@ vi.mock("@/lib/sentry", async (importOriginal) => ({
  * 그래서 테스트도 실제 패키지가 아니라 그 모듈이 선언한 포트(`MediapipeVisionRuntime`)를
  * 주입해 검증한다 — 이 테스트는 `@mediapipe/tasks-vision` 설치 여부와 무관하게 돈다.
  */
-function fakeHandle(result: unknown = { detections: [] }) {
+function fakeHandle(
+  result: unknown = { detections: [] },
+  runtime: VisionRuntimeKind = "main",
+  assetTimings: readonly AssetTiming[] = [],
+) {
   return {
-    detectForVideo: vi.fn(() => result),
+    runtime,
+    assetTimings,
+    detect: vi.fn(async () => result),
     close: vi.fn(),
   } as unknown as MediapipeDetectorHandle & {
-    detectForVideo: ReturnType<typeof vi.fn>;
+    detect: ReturnType<typeof vi.fn>;
     close: ReturnType<typeof vi.fn>;
   };
 }
@@ -211,7 +219,7 @@ describe("createObjectDetector — 로딩 중 close", () => {
     expect(handle.close).toHaveBeenCalledTimes(1);
     expect(detector.state).toBe("idle");
     expect(detector.delegate).toBeNull();
-    expect(detector.detect(video, 0)).toBeNull();
+    expect(await detector.detect(video, 0)).toBeNull();
   });
 
   it("GPU 시도 중 close가 들어오면 CPU 폴백을 시작하지 않는다", async () => {
@@ -254,17 +262,17 @@ describe("createObjectDetector — 로딩 중 close", () => {
 
     await detector.load();
     expect(detector.state).toBe("ready");
-    expect(detector.detect(video, 0)).not.toBeNull();
+    expect(await detector.detect(video, 0)).not.toBeNull();
   });
 });
 
 describe("createObjectDetector — 추론", () => {
-  it("ready 이전에는 null을 돌려준다 (감지 불가)", () => {
+  it("ready 이전에는 null을 돌려준다 (감지 불가)", async () => {
     const { loadRuntime } = fakeRuntime(async () => fakeHandle());
     const detector = createObjectDetector({ loadRuntime });
 
     expect(detector.state).toBe("idle");
-    expect(detector.detect(video, 0)).toBeNull();
+    expect(await detector.detect(video, 0)).toBeNull();
   });
 
   it("MediaPipe 결과를 우리 타입으로 정규화한다", async () => {
@@ -283,9 +291,9 @@ describe("createObjectDetector — 추론", () => {
     const detector = createObjectDetector({ loadRuntime });
     await detector.load();
 
-    const result = detector.detect(video, 1234);
+    const result = await detector.detect(video, 1234);
 
-    expect(handle.detectForVideo).toHaveBeenCalledWith(video, 1234);
+    expect(handle.detect).toHaveBeenCalledWith(video, 1234);
     expect(result?.detections).toEqual([
       { label: "person", score: 0.81, box: { originX: 12, originY: 34, width: 56, height: 78 } },
     ]);
@@ -310,35 +318,31 @@ describe("createObjectDetector — 추론", () => {
     const detector = createObjectDetector({ loadRuntime });
     await detector.load();
 
-    expect(detector.detect(video, 0)?.detections).toEqual([]);
+    expect((await detector.detect(video, 0))?.detections).toEqual([]);
   });
 
-  it("detectForVideo가 던져도 던지지 않고 null을 돌려준다", async () => {
+  it("추론이 실패해도 던지지 않고 null을 돌려준다", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const handle = fakeHandle();
-    handle.detectForVideo.mockImplementation(() => {
-      throw new Error("GPU context lost");
-    });
+    handle.detect.mockRejectedValue(new Error("GPU context lost"));
     const { loadRuntime } = fakeRuntime(async () => handle);
     const detector = createObjectDetector({ loadRuntime });
     await detector.load();
 
-    expect(detector.detect(video, 0)).toBeNull();
+    expect(await detector.detect(video, 0)).toBeNull();
     expect(detector.state).toBe("ready"); // 한 번 실패로 감지를 포기하지 않는다
   });
 
   it("연속 실패가 쌓이면 감지 불가로 내려간다 — 조용히 null만 흘리지 않는다", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const handle = fakeHandle();
-    handle.detectForVideo.mockImplementation(() => {
-      throw new Error("GPU context lost");
-    });
+    handle.detect.mockRejectedValue(new Error("GPU context lost"));
     const { loadRuntime } = fakeRuntime(async () => handle);
     const detector = createObjectDetector({ loadRuntime });
     await detector.load();
 
     for (let i = 0; i < 10; i += 1) {
-      detector.detect(video, i);
+      await detector.detect(video, i);
     }
 
     expect(detector.state).toBe("unavailable");
@@ -376,5 +380,53 @@ describe("resolveModelVariant", () => {
     expect(createDetector.mock.calls[0]?.[0]).toMatchObject({
       modelAssetPath: MODEL_PATHS.int8,
     });
+  });
+});
+
+describe("createObjectDetector — 비동기 추론", () => {
+  it("준비된 핸들의 runtime·assetTimings를 보여 주고, close()하면 비운다", async () => {
+    const timing: AssetTiming = {
+      name: "https://web.focusmakers.app/mediapipe/wasm/vision_wasm_internal.wasm",
+      startTime: 5,
+      transferSize: 0,
+      encodedBodySize: 10,
+      decodedBodySize: 10,
+    };
+    const handle = fakeHandle({ detections: [] }, "worker", [timing]);
+    const { loadRuntime } = fakeRuntime(async () => handle);
+    const detector = createObjectDetector({ loadRuntime });
+
+    expect(detector.runtime).toBeNull();
+    expect(detector.assetTimings).toEqual([]);
+    await detector.load();
+    expect(detector.runtime).toBe("worker");
+    expect(detector.assetTimings).toEqual([timing]);
+
+    detector.close();
+    expect(detector.runtime).toBeNull();
+    expect(detector.assetTimings).toEqual([]);
+  });
+
+  it("추론을 기다리는 사이 close()되면 null이고 실패로 세지 않는다", async () => {
+    vi.mocked(reportHandled).mockClear();
+    const handle = fakeHandle();
+    let rejectDetect: (error: Error) => void = () => {};
+    handle.detect.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectDetect = reject;
+        }),
+    );
+    const { loadRuntime } = fakeRuntime(async () => handle);
+    const detector = createObjectDetector({ loadRuntime });
+    await detector.load();
+
+    const pending = detector.detect(video, 0);
+    detector.close();
+    rejectDetect(new Error("워커가 닫혔다"));
+
+    await expect(pending).resolves.toBeNull();
+    expect(reportHandled).not.toHaveBeenCalled();
+    expect(detector.state).toBe("idle");
   });
 });

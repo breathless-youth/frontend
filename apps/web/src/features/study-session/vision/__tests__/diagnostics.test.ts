@@ -14,12 +14,16 @@ function recordingSink() {
 }
 
 describe("createVisionDiagnostics", () => {
-  it("delegate 선택을 남긴다 (설계 §8)", () => {
+  it("delegate 선택과 런타임을 남긴다 (설계 §8)", () => {
     const { sink, events } = recordingSink();
-    createVisionDiagnostics(sink).detectorReady("CPU", "fp32");
+    createVisionDiagnostics(sink).detectorReady("CPU", "fp32", "worker");
 
     expect(events).toHaveLength(1);
-    expect(events[0]?.payload).toMatchObject({ delegate: "CPU", modelVariant: "fp32" });
+    expect(events[0]?.payload).toMatchObject({
+      delegate: "CPU",
+      modelVariant: "fp32",
+      runtime: "worker",
+    });
   });
 
   it("감지 불가를 남긴다", () => {
@@ -59,7 +63,7 @@ describe("createVisionDiagnostics", () => {
     const { sink, events } = recordingSink();
     const diagnostics = createVisionDiagnostics(sink);
 
-    diagnostics.detectorReady("GPU", "int8");
+    diagnostics.detectorReady("GPU", "int8", "main");
     diagnostics.frame({
       personPresent: true,
       topScores: { person: 0.9 },
@@ -125,7 +129,7 @@ describe("visionDiagnostics (기본 인스턴스)", () => {
   it("개발 빌드에서는 console로 흘리고, 프로덕션에서는 아무것도 하지 않는다", () => {
     const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
 
-    visionDiagnostics.detectorReady("GPU", "fp32");
+    visionDiagnostics.detectorReady("GPU", "fp32", "main");
 
     // vitest는 DEV=true로 돈다. 프로덕션 빌드에서는 이 분기 자체가 사라진다(트리셰이킹).
     expect(debug).toHaveBeenCalledTimes(import.meta.env.DEV ? 1 : 0);

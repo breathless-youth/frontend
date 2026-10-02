@@ -1,16 +1,25 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { ToastViewport } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { slideNavigate } from "@/lib/pageTransition";
 import { createRoom } from "@/lib/roomApi";
+import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
-import { useToast } from "@/lib/useToast";
 
 /**
  * 소셜 홈
@@ -18,7 +27,6 @@ import { useToast } from "@/lib/useToast";
 export function SocialHomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message: toastMessage, showToast } = useToast();
 
   const userId = useUserId();
 
@@ -32,26 +40,35 @@ export function SocialHomePage() {
   const handoff =
     isNativeBridgeAvailable() &&
     (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
-  const noticeRef = useRef<string | null | undefined>(undefined);
+  const noticeRef = useRef<SocialRoomNotice | null | undefined>(undefined);
   if (!handoff) {
     noticeRef.current ??= consumeSocialRoomNotice();
   }
+  // 자리비움(grace-end)만 모달로 가른다 — 입장/생성 실패(failure)는 기존대로 토스트다.
+  const [graceMessage, setGraceMessage] = useState<string | null>(null);
   useEffect(() => {
-    if (noticeRef.current !== null && noticeRef.current !== undefined) {
-      showToast(noticeRef.current);
+    const notice = noticeRef.current;
+    if (notice == null) {
+      return;
     }
-  }, [showToast]);
+    if (notice.kind === "grace-end") {
+      setGraceMessage(notice.message);
+    } else {
+      showToast(notice.message);
+    }
+  }, []);
 
   const createMutation = useMutation({
-    // 버튼이 userId 없이는 비활성이라 여기 도달하면 null이 아니다.
-    mutationFn: () => createRoom(userId as number),
+    mutationFn: () => createRoom(),
     onSuccess: (data) => {
       trackSocialRoomCreated();
       // 코드 공유 화면은 조회 API가 없어 router state로 전달한다 — 새로고침·딥링크로 state가
       // 없으면 그 화면이 소셜 홈으로 되돌린다. 쿼리(userId·appVersion)는 통째로 승계한다
-      navigate(
-        { pathname: "/social/code", search: location.search },
-        { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: "/social/code", search: location.search },
+          { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+        ),
       );
     },
     onError: (error: unknown) => {
@@ -61,18 +78,21 @@ export function SocialHomePage() {
     },
   });
 
+  const [graceTitle, ...graceBodyLines] = (graceMessage ?? "").split("\n");
+  const graceBody = graceBodyLines.join("\n");
+
   return (
     <main
       data-testid="social-home-page"
       // 상단 안전영역 규칙은 홈·기록·설정과 동일 (SettingsPage 주석 참고).
-      className="flex min-h-dvh flex-col bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-[28px] leading-[34px] font-bold text-foreground">소셜</h1>
+        <h1 className="text-[24px] leading-[30px] font-bold text-foreground">소셜</h1>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <div className="flex size-[88px] items-center justify-center rounded-full bg-brand-subtle text-primary">
+        <div className="flex size-24 items-center justify-center rounded-full bg-brand-subtle text-primary">
           <IconSocialPeople size={40} />
         </div>
         <div className="size-2" aria-hidden="true" />
@@ -83,34 +103,65 @@ export function SocialHomePage() {
           받은 코드로 참여하세요
         </p>
         <div className="size-4" aria-hidden="true" />
-        <div className="flex gap-2.5">
-          <button
-            type="button"
+        <div className="flex w-full gap-2.5">
+          <Button
+            variant="default"
+            size="xl"
+            className="shadow-sb-cta flex-1"
             disabled={userId === null || createMutation.isPending}
             onClick={() => {
               createMutation.mutate();
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-primary px-5 text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
           >
             방 만들기
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="subtle"
+            size="xl"
+            className="w-[176px]"
             onClick={() => {
               // 이전 진입에서 URL에 남은 초대코드가 다시 프리필되지 않게 code만 뺀다 —
               // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
               const params = new URLSearchParams(location.search);
               params.delete("code");
-              navigate({ pathname: "/social/join", search: params.toString() });
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/social/join", search: params.toString() }),
+              );
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
           >
             초대코드로 참여
-          </button>
+          </Button>
         </div>
       </div>
 
-      <ToastViewport message={toastMessage} />
+      <Dialog
+        open={graceMessage !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGraceMessage(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg bg-muted"
+        >
+          <DialogHeader>
+            <DialogTitle>{graceTitle}</DialogTitle>
+            {graceBody.length > 0 ? (
+              <DialogDescription className="whitespace-pre-line">{graceBody}</DialogDescription>
+            ) : null}
+          </DialogHeader>
+          <Button
+            variant="default"
+            size="lg"
+            className="w-full"
+            onClick={() => setGraceMessage(null)}
+          >
+            확인
+          </Button>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
