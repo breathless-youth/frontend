@@ -167,8 +167,10 @@ function tunnelServerOptions() {
  * - `VERCEL_GIT_COMMIT_SHA` — 배포 커밋
  *
  * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
+ * GitHub Actions 배포(`deploy-web.yml`)는 Vercel 변수가 없어 `GITHUB_SHA`를 쓴다.
+ * 이 대체가 없으면 GitHub에서 빌드한 릴리즈가 `local`이 되고 소스맵도 올라가지 않는다.
  */
-const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
+const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
 const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
 
 /**
