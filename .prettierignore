@@ -12,3 +12,6 @@ apps/mobile/assets/web-dist
 
 # 설치된 에이전트 스킬 묶음(chore b5e073c) — 외부 배포물이라 우리 포맷 규칙 대상이 아니다. 검사에 넣으면 130개 파일이 실패해 dev CI의 Format check가 늘 빨갛다(2026-09-04 확인).
 .claude/skills
+
+# 팀 위키 서브모듈 — 외부 저장소 내용이라 이 저장소의 포맷 규칙 대상이 아니다.
+.ai
