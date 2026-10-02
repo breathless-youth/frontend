@@ -22,8 +22,8 @@ import { Platform } from "react-native";
  * `RemoteMessage`는 `PushMessage`로 좁혀 내보내므로 바깥 코드는 RNFB 타입을 모른다. 서버 토큰 등록은
  * BE API가 생기면 추가한다.
  *
- * 권한 요청 함수는 운영 빌드의 어떤 화면에도 연결돼 있지 않다 — 푸시 정책이 미정이다
- * (`docs/screens/SCR-S6-settings.md`). 개발 빌드만 `lib/pushBootstrap.ts`가 수신 검증용으로 부른다.
+ * 권한 요청은 `lib/pushBootstrap.ts`의 `ensurePushPermission`이 앱 시작 때 한 번 부른다. 설정 화면에는
+ * 알림 항목이 없다(`docs/screens/SCR-S6-settings.md`).
  * iOS 토큰 발급 자체는 권한 없이도 되지만 APNs 기기 토큰이
  * 먼저 있어야 한다. RNFB는 앱 시작 시 자동으로 APNs에 등록하지만(firebase.json 기본값) 토큰은 잠시
  * 뒤에 도착하므로, `getToken`은 APNs 토큰 유무를 먼저 보고 없을 때만 명시 등록으로 도착을 기다린다.

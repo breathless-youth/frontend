@@ -43,7 +43,7 @@
 | `invite_deep_link_opened`                                                                   | `has_code`                                                                                                       | `app/social/join.tsx` — 유니버설 링크·App Links·스킴·Install Referrer·알림이 전부 합류하는 앱 진입 경로. 웹 `invite_link_opened`(브라우저 포함, 페이지 진입)와는 다른 질문                                                                                                                                                                                                                                           |
 | `webview_load_failed` / `webview_retry_pressed` / `webview_recovery_started`                | `path`, `load_failed.reason` (`config/error/http`), `recovery.reason` (`process_terminated/render_process_gone`) | `RemoteWebViewHost` — 실패 폴백 노출·"다시 시도" 터치(네이티브 버튼이라 autocapture 밖)·렌더러 사망 복구 진입. 셋 다 그 웹뷰로는 못 나가 큐를 거친다. Android는 호스트마다 사망 통보가 오지만 `requestGlobalWebViewRecovery`가 복구를 실제로 시작한 첫 통보만 남긴다                                                                                                                                                 |
 
-**이 통로로 못 잡는 것**: **네이티브** 강제 업데이트 알림창(BY-586 이후 바이너리 — 웹뷰가 아예 마운트되지 않고, 큐는 메모리라 업데이트 후 재실행에서 사라진다. 구버전 바이너리가 보는 **웹** 강제 업데이트 모달은 웹이 `force_update_prompted`·`force_update_store_opened`로 직접 찍는다), `/contact` 문서 내비게이션 중(구 문서 파괴~새 문서 준비 사이). 푸시 권한 요청은 개발 빌드 전용이라 이벤트가 없다.
+**이 통로로 못 잡는 것**: **네이티브** 강제 업데이트 알림창(BY-586 이후 바이너리 — 웹뷰가 아예 마운트되지 않고, 큐는 메모리라 업데이트 후 재실행에서 사라진다. 구버전 바이너리가 보는 **웹** 강제 업데이트 모달은 웹이 `force_update_prompted`·`force_update_store_opened`로 직접 찍는다), `/contact` 문서 내비게이션 중(구 문서 파괴~새 문서 준비 사이). 푸시 권한 요청·응답은 이벤트로 남기지 않는다.
 
 ## 웹(`apps/web`) — 브리지 수신
 
