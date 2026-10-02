@@ -70,6 +70,11 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm --filter web build
 
+      # CloudFront가 압축하지 않는 wasm(10MB 초과)과 모델(octet-stream)을 미리 brotli로 압축한다.
+      - name: Precompress wasm and models
+        working-directory: apps/web
+        run: node scripts/precompressAssets.js dist
+
       # 파일명에 해시·버전이 있는 자산을 먼저 1년 immutable로 올리고 index.html을 맨 마지막에 올린다.
       # 그래야 새 index.html이 가리키는 자산이 이미 다 올라가 있다.
       # 해시 자산은 지우지 않는다(--delete 없음).
@@ -86,11 +91,16 @@ jobs:
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
             --cache-control "$IMMUTABLE" \
             --exclude "*" --include "assets/*" --include "mediapipe/*" --include "sounds/*.mp3" \
-            --exclude "*.map"
+            --exclude "*.map" --exclude "*.wasm"
+
+          # 미리 brotli로 압축한 wasm과 모델은 Content-Encoding을 붙여야 브라우저가 풀어 쓴다
+          aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
+            --cache-control "$IMMUTABLE" --content-encoding br \
+            --exclude "*" --include "mediapipe/*.wasm"
 
           # tflite의 type(CLI): binary/octet-stream
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
-            --cache-control "$IMMUTABLE" --content-type application/octet-stream \
+            --cache-control "$IMMUTABLE" --content-type application/octet-stream --content-encoding br \
             --exclude "*" --include "models/*" \
             --exclude "*.map"
 
