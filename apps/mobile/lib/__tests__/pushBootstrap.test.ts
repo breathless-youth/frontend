@@ -3,7 +3,11 @@ import {
   attachNativeAnalyticsSink,
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
-import { ensurePushPermission, startPushMessaging } from "../pushBootstrap";
+import {
+  ensurePushPermission,
+  PUSH_PERMISSION_TIMEOUT_MS,
+  startPushMessaging,
+} from "../pushBootstrap";
 import type { PushMessage } from "../pushMessaging";
 
 /**
@@ -180,6 +184,20 @@ describe("ensurePushPermission", () => {
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("권한 요청"), expect.any(Error));
     warn.mockRestore();
+  });
+
+  it("응답이 영영 안 와도 상한 뒤에는 끝난다 — 권장 업데이트 알림창이 멎지 않게", async () => {
+    jest.useFakeTimers();
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const deps = createDeps(false);
+    deps.requestPermission.mockReturnValue(new Promise(() => {}));
+
+    const done = ensurePushPermission(deps);
+    jest.advanceTimersByTime(PUSH_PERMISSION_TIMEOUT_MS);
+
+    await expect(done).resolves.toBeUndefined();
+    warn.mockRestore();
+    jest.useRealTimers();
   });
 });
 

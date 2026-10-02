@@ -10,6 +10,7 @@ import {
 } from "./pushMessaging";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { resolvePushRoute } from "./pushNotificationRouting";
+import { withTimeout } from "./withTimeout";
 
 /**
  * 푸시 알림 부팅 배선 (BY-586). `app/_layout.tsx`가 마운트 때 한 번 부르고 언마운트 때 해제한다.
@@ -87,6 +88,13 @@ export function startPushMessaging(overrides: Overrides): () => void {
   };
 }
 
+/**
+ * 권한 창 응답을 기다리는 상한. 앱이 백그라운드로 갔다 오는 사이 네이티브 콜백이 영영 안 오면 이 뒤에
+ * 이어지는 권장 업데이트 알림창까지 같이 멎는다. ATT 대기(`lib/metaAds.ts`)와 같은 길이로, 사람이 읽고
+ * 누르는 시간보다 한참 길게 둔다. 상한 뒤에 온 답도 OS가 저장하므로 잃는 것은 없다.
+ */
+export const PUSH_PERMISSION_TIMEOUT_MS = 60_000;
+
 export type PushPermissionDeps = {
   devBuild: boolean;
   requestPermission(): Promise<PushPermissionStatus>;
@@ -97,8 +105,8 @@ export type PushPermissionDeps = {
  * OS 알림 권한 요청. 권한이 없으면 iOS는 알림을 표시하지 않으므로 운영 빌드에서도 묻는다. OS는 창을 한 번만
  * 띄우고 이후 호출에는 저장된 답을 돌려주므로 실행마다 불러도 된다.
  *
- * `app/_layout.tsx`가 ATT 프롬프트 뒤, 권장 업데이트 알림창 앞에 부른다. 실패해도 거부하지 않는다 — 뒤에
- * 이어지는 알림창이 막히면 안 된다. 개발 빌드는 수신 검증용으로 토큰까지 로그에 남긴다.
+ * `app/_layout.tsx`가 ATT 프롬프트 뒤, 권장 업데이트 알림창 앞에 부른다. 실패하거나 응답이 상한을 넘겨도
+ * 거부하지 않고 끝난다 — 뒤에 이어지는 알림창이 막히면 안 된다. 개발 빌드는 수신 검증용으로 토큰까지 로그에 남긴다.
  */
 export async function ensurePushPermission(
   overrides: Partial<PushPermissionDeps> = {},
@@ -110,7 +118,7 @@ export async function ensurePushPermission(
     ...overrides,
   };
   try {
-    const status = await deps.requestPermission();
+    const status = await withTimeout(deps.requestPermission(), PUSH_PERMISSION_TIMEOUT_MS);
     if (deps.devBuild) {
       const token = await deps.getToken();
       // eslint-disable-next-line no-console -- 개발 빌드에서 수신·토큰 확인용 로그

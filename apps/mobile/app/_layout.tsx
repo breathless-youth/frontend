@@ -4,7 +4,7 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -87,17 +87,18 @@ function RootLayout() {
   // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
   // 않아 맨 앞이다. 홈이 그려진 뒤(폰트·게이트 통과)에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
   // 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 첫 단계가 즉시 끝난다.
-  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다.
+  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞의 두 단계는 프라미스를
+  // 붙잡아 두어, effect가 다시 돌아도 권한 요청이 겹쳐 나가지 않는다.
+  const permissionPrompts = useRef<Promise<void> | null>(null);
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady) return;
     let active = true;
-    void initMetaAds()
-      .then(() => ensurePushPermission())
-      .then(() => {
-        if (active && recommendedVersion !== null) {
-          void recommendedUpdateAlert.maybeShow(recommendedVersion);
-        }
-      });
+    permissionPrompts.current ??= initMetaAds().then(() => ensurePushPermission());
+    void permissionPrompts.current.then(() => {
+      if (active && recommendedVersion !== null) {
+        void recommendedUpdateAlert.maybeShow(recommendedVersion);
+      }
+    });
     return () => {
       active = false;
     };
