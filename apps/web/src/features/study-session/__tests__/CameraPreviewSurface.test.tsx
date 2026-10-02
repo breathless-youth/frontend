@@ -135,7 +135,7 @@ describe("CameraPreviewSurface", () => {
     if (PREVIEW_OBJECT_FIT === "contain") {
       expect(className).toContain("object-contain");
       expect(className).not.toContain("object-cover");
-      // 상단 정렬이라야 남는 공간이 아래로 모여 순공 타이머·캡션·컨트롤 바가 그 자리를 쓴다.
+      // 상단 정렬이라야 남는 공간이 아래로 모여 순공 타이머·컨트롤 바가 그 자리를 쓴다.
       // 가운데 정렬이면 위아래로 쪼개져 어느 쪽도 UI가 쓸 만한 크기가 안 된다.
       expect(className).toContain("object-top");
     } else {

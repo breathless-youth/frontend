@@ -72,7 +72,7 @@ describe("renewLiveRoomSeat", () => {
   it("마감하지 않는다", async () => {
     stubJoinOk();
 
-    await expect(renewLiveRoomSeat(7, "0712")).resolves.toEqual(JOIN_RESPONSE);
+    await expect(renewLiveRoomSeat("0712")).resolves.toEqual(JOIN_RESPONSE);
 
     expect(closeStaleSession).not.toHaveBeenCalled();
   });

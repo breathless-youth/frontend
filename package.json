@@ -11,6 +11,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "release:bump": "node scripts/bump-version.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
@@ -34,16 +36,5 @@
     "*.{json,md,yml,yaml}": [
       "prettier --write"
     ]
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "esbuild",
-      "unrs-resolver"
-    ],
-    "patchedDependencies": {
-      "expo-constants@18.0.13": "patches/expo-constants@18.0.13.patch",
-      "@react-native-firebase/messaging@26.3.3": "patches/@react-native-firebase__messaging@26.3.3.patch"
-    }
   }
 }

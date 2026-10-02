@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
+
 /**
  * 바 토글의 타일 이동·크기 변화를 FLIP(이전 위치로 transform 역적용 → 원위치)으로
  * 잇는다 — 바 슬라이드·글자 페이드와 **도착 시점을 맞춘다**(2026-08-26 피드백: 셋의
@@ -45,9 +47,7 @@ export function useTileFlipAnimation(controlsVisible: boolean) {
     const tiles = Array.from(
       rowsRef.current?.querySelectorAll<HTMLElement>('[data-testid="room-tile"]') ?? [],
     );
-    const reduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion = prefersReducedMotion();
     const rects = new Map<string, DOMRect>();
     for (const tile of tiles) {
       const key = tile.dataset.userId ?? "";

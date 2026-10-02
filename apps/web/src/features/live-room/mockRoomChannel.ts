@@ -26,6 +26,8 @@ export interface MockRoomChannel extends RoomChannel {
   /** 발행 기록 — 테스트가 페이로드를 검증한다. */
   readonly published: RoomStateUpdate[];
   readonly publishedSignals: RoomSignalPublish[];
+  /** requestSnapshot 호출 횟수 — 테스트가 재대조 주기를 검증한다. */
+  readonly snapshotRequests: number;
   /** 시나리오 밖 서버 메시지를 즉시 주입한다 — 테스트 전용. */
   emitServerMessage(message: RoomServerMessage): void;
 }
@@ -36,6 +38,7 @@ export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChann
   const published: RoomStateUpdate[] = [];
   const publishedSignals: RoomSignalPublish[] = [];
   const timers: ReturnType<typeof setTimeout>[] = [];
+  let snapshotRequestCount = 0;
 
   function emit(message: RoomServerMessage) {
     for (const listener of listeners) {
@@ -76,6 +79,12 @@ export function createMockRoomChannel(scenario: MockRoomScenario): MockRoomChann
       return () => {
         listeners.delete(listener);
       };
+    },
+    requestSnapshot() {
+      snapshotRequestCount += 1;
+    },
+    get snapshotRequests() {
+      return snapshotRequestCount;
     },
     publishState(message) {
       published.push(message);

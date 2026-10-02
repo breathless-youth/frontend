@@ -24,6 +24,12 @@ describe("resolveApiBase", () => {
     expect(apiBase).toBe("https://api.sunqstudio.kr");
   });
 
+  it("대시보드 값이 없으면 운영 기본값은 현재 운영 API다", () => {
+    expect(resolveApiBase({ VERCEL_ENV: "production" }).apiBase).toBe(
+      "https://api.focusmakers.app",
+    );
+  });
+
   it("preview는 개발 API로 간다", () => {
     const { apiBase } = resolveApiBase({ VERCEL_ENV: "preview" });
     expect(apiBase).toBe("https://api-dev.focusmakers.app");

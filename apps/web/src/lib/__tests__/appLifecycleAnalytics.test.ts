@@ -82,11 +82,9 @@ describe("initAppLifecycleAnalytics", () => {
     expect(mocks.setThemeUserProperty).toHaveBeenCalledWith("dark");
   });
 
-  it("포/백그라운드·권한 게이트 결과는 여기서 다루지 않는다 — 네이티브 단일 sink(BY-616)의 몫", async () => {
+  it("권한 게이트 결과는 여기서 다루지 않는다 — 네이티브 단일 sink의 몫", async () => {
     const handler = await initAndGetHandler();
 
-    handler({ type: "app-state", state: "active", atMs: 2 });
-    handler({ type: "app-state", state: "background", atMs: 3 });
     handler({ type: "camera-gate-result", granted: false, atMs: 5 });
 
     expect(mocks.trackAppLaunched).not.toHaveBeenCalled();
@@ -97,7 +95,7 @@ describe("initAppLifecycleAnalytics", () => {
   it("계측 대상이 아닌 메시지는 조용히 무시한다", async () => {
     const handler = await initAndGetHandler();
 
-    handler({ type: "ping", id: 1, atMs: 7 });
+    handler({ type: "session-closed", atMs: 7 });
     handler({ type: "reset-route", path: "/social", atMs: 8 });
 
     expect(mocks.trackAppLaunched).not.toHaveBeenCalled();

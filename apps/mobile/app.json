@@ -2,7 +2,7 @@
   "expo": {
     "name": "FocusMakers",
     "slug": "mobile",
-    "version": "1.0.2",
+    "version": "26.40.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -11,19 +11,18 @@
       "infoPlist": {
         "NSCameraUsageDescription": "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.",
         "NSMotionUsageDescription": "기기를 만지는 순간을 감지해요. 센서 값은 기기 안에서만 쓰이고 저장되지 않아요.",
+        "NSUserTrackingUsageDescription": "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": ["ko"],
         "CFBundleAllowMixedLocalizations": true
       },
-      "buildNumber": "1",
       "bundleIdentifier": "com.breathlessyouth.mobile",
       "entitlements": {
         "aps-environment": "development"
       }
     },
     "android": {
-      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#fdd9bb",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,6 +31,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"],
       "package": "com.breathlessyouth.mobile"
     },
     "plugins": [
@@ -41,12 +41,12 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#f8fafd",
           "dark": {
             "image": "./assets/splash-icon-dark.png",
-            "backgroundColor": "#101419"
+            "backgroundColor": "#0d1118"
           }
         }
       ],
@@ -54,15 +54,25 @@
         "@sentry/react-native/expo",
         {
           "organization": "breathless-youth",
-          "project": "focusmakers-app"
+          "project": "focusmakers-app",
+          "experimental_android": {
+            "enableAndroidGradlePlugin": true,
+            "uploadNativeSymbols": false,
+            "includeNativeSources": false
+          }
         }
       ],
       "./plugins/withAppDisplayName",
       [
         "expo-build-properties",
         {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          },
           "ios": {
-            "useFrameworks": "dynamic"
+            "useFrameworks": "dynamic",
+            "forceStaticLinking": ["react-native-fbsdk-next"]
           }
         }
       ],

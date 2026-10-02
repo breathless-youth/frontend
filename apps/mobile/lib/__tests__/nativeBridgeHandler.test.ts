@@ -1,7 +1,10 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
+import type { HandlerMessage } from "@focusmakers/types";
+
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
+import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -10,7 +13,10 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
+import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
+import { emitSessionClosed } from "../sessionClosed";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -41,6 +47,26 @@ jest.mock("../motionSensorRelay", () => ({
   getMotionSensorRelay: jest.fn(),
 }));
 
+jest.mock("../sessionClosed", () => ({
+  emitSessionClosed: jest.fn(),
+}));
+
+jest.mock("../metaAds", () => ({
+  logMetaAppEvent: jest.fn(),
+}));
+
+jest.mock("../firebaseAnalytics", () => ({
+  logAnalyticsEvent: jest.fn(),
+  setAnalyticsUserProperties: jest.fn(),
+}));
+
+jest.mock("../auth", () => ({
+  ...jest.requireActual<typeof import("../auth")>("../auth"),
+  awaitAuth: jest.fn(),
+  ensureAuth: jest.fn(),
+  refreshAuth: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -61,6 +87,18 @@ const mockedGetCameraPermissionStatus = getCameraPermissionStatus as jest.Mocked
 const mockedGetMotionSensorRelay = getMotionSensorRelay as jest.MockedFunction<
   typeof getMotionSensorRelay
 >;
+const mockedEmitSessionClosed = emitSessionClosed as jest.MockedFunction<typeof emitSessionClosed>;
+const mockedLogMetaAppEvent = logMetaAppEvent as jest.MockedFunction<typeof logMetaAppEvent>;
+const mockedLogAnalyticsEvent = logAnalyticsEvent as jest.MockedFunction<typeof logAnalyticsEvent>;
+const mockedSetAnalyticsUserProperties = setAnalyticsUserProperties as jest.MockedFunction<
+  typeof setAnalyticsUserProperties
+>;
+const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
+const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
+const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
+const flush = async () => {
+  for (let i = 0; i < 4; i += 1) await Promise.resolve();
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -68,13 +106,6 @@ beforeEach(() => {
 });
 
 describe("handleBridgeMessage", () => {
-  it("session-ready는 아무 것도 하지 않는다 — 네이티브가 추가로 할 일이 없다", () => {
-    expect(() => handleBridgeMessage({ type: "session-ready", atMs: 1 }, noopReply)).not.toThrow();
-    expect(mockedRouter.push).not.toHaveBeenCalled();
-    expect(mockedRouter.back).not.toHaveBeenCalled();
-    expect(mockedOpenAppSettings).not.toHaveBeenCalled();
-  });
-
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
@@ -145,6 +176,9 @@ describe("handleBridgeMessage", () => {
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없다. 통계 캐시를 새로
+    // 받게 하려면 이 신호가 나가야 한다.
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -158,6 +192,7 @@ describe("handleBridgeMessage", () => {
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedRouter.replace).toHaveBeenCalledWith("/");
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
   it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {
@@ -259,6 +294,64 @@ describe("handleBridgeMessage", () => {
     });
   });
 
+  it("meta-app-event → Meta SDK 통로에 이름·파라미터·valueToSum을 그대로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "meta-app-event",
+        name: "study_session_ended",
+        params: { room_type: "single", focus_sec: 600 },
+        valueToSum: 600,
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    expect(mockedLogMetaAppEvent).toHaveBeenCalledWith(
+      "study_session_ended",
+      { room_type: "single", focus_sec: 600 },
+      600,
+    );
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("meta-app-event는 파라미터가 없으면 undefined를 넘긴다 — 빈 객체를 만들어 넣지 않는다", () => {
+    handleBridgeMessage(
+      { type: "meta-app-event", name: "social_room_entered", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedLogMetaAppEvent).toHaveBeenCalledWith("social_room_entered", undefined, undefined);
+  });
+
+  it("analytics-event → Firebase Analytics 통로에 이름·파라미터를 그대로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "analytics-event",
+        name: "study_session_ended",
+        params: { room_type: "single", focus_sec: 600 },
+        atMs: 1,
+      },
+      noopReply,
+    );
+    handleBridgeMessage({ type: "analytics-event", name: "app_launched", atMs: 1 }, noopReply);
+
+    expect(mockedLogAnalyticsEvent).toHaveBeenCalledWith("study_session_ended", {
+      room_type: "single",
+      focus_sec: 600,
+    });
+    expect(mockedLogAnalyticsEvent).toHaveBeenCalledWith("app_launched", undefined);
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("analytics-user-properties → Firebase 유저 속성으로 넘긴다", () => {
+    handleBridgeMessage(
+      { type: "analytics-user-properties", properties: { theme: "dark" }, atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedSetAnalyticsUserProperties).toHaveBeenCalledWith({ theme: "dark" });
+  });
+
   it("motion-sensor를 센서 릴레이에 위임한다", () => {
     const handle = jest.fn();
     mockedGetMotionSensorRelay.mockReturnValue({ handle });
@@ -267,6 +360,31 @@ describe("handleBridgeMessage", () => {
     handleBridgeMessage(message, noopReply);
 
     expect(handle).toHaveBeenCalledWith(message, noopReply);
+  });
+
+  it("개발 빌드에서 처리 case가 없는 type을 로그로 남긴다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    // "future"는 union에 없는 타입이다 — 타입과 파서가 어긋난 상황을 흉내내려 단언으로
+    // 통과시킨다. never 검사는 컴파일 타임 보장이라, 여기서는
+    // 그 보장 밖(런타임)에서 어긋난 경우를 검증한다.
+    handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), "future");
+    warn.mockRestore();
+  });
+
+  it("운영 빌드에서는 처리 case가 없는 type을 로그로 남기지 않는다", () => {
+    const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      handleBridgeMessage({ type: "future", atMs: 1 } as unknown as HandlerMessage, noopReply);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
+      warn.mockRestore();
+    }
   });
 });
 
@@ -307,5 +425,110 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
       ["tab_pressed", { tab: "record", from_tab: "home", via: "card" }],
     ]);
     expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("홈 친구 초대 카드가 보낸 navigate-tab social은 via=invite_card로 남기고 소셜 탭으로 간다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "social", via: "invite_card", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "social", from_tab: "home", via: "invite_card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/social");
+  });
+
+  it("소셜 결과 화면이 보낸 navigate-tab은 via=study_result로 남긴다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "records", via: "study_result", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("이미 기록 탭이면 이동은 no-op이라 tab_pressed를 남기지 않는다", () => {
+    setActiveTabRoute("records");
+
+    handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
+
+    expect(received).toEqual([]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  /**
+   * 솔로 결과의 `기록으로 가기`는 모달 닫기와 탭 전환을 한 메시지로 보낸다 — 둘로 나누면
+   * 첫 메시지가 세션 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다.
+   */
+  it("navigate-home에 tab이 실려 오면 모달을 닫고 이어서 그 탭으로 간다 — via=study_result", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-home", tab: "records", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/records");
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "record", from_tab: "home", via: "study_result" }],
+    ]);
+  });
+
+  it("tab 없는 navigate-home은 탭을 옮기지 않는다", () => {
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.navigate).not.toHaveBeenCalled();
+    expect(received).toEqual([]);
+  });
+});
+
+describe("토큰 브리지", () => {
+  it("auth-ready → 현재 토큰으로 auth-token을 답한다. refresh 토큰은 싣지 않는다", async () => {
+    mockedAwaitAuth.mockResolvedValue({ userId: 7, accessToken: "a1", refreshToken: "r1" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "auth-ready", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", userId: 7, accessToken: "a1" }),
+    );
+    expect(reply.mock.calls[0]?.[0]).not.toHaveProperty("refreshToken");
+  });
+
+  it("auth-ready → 등록 실패면 userId·accessToken null로 답한다 — 웹이 영영 기다리지 않는다", async () => {
+    mockedAwaitAuth.mockResolvedValue(null);
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "auth-ready", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", userId: null, accessToken: null }),
+    );
+  });
+
+  it("request-token-refresh → 갱신 결과로 답한다", async () => {
+    mockedRefreshAuth.mockResolvedValue({ userId: 7, accessToken: "a2", refreshToken: "r2" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "request-token-refresh", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", accessToken: "a2" }),
+    );
+    expect(mockedEnsureAuth).not.toHaveBeenCalled();
+  });
+
+  it("request-token-refresh → 갱신이 실패해도 저장된 현재 상태로 답한다 — 요청 문서의 대기를 푼다", async () => {
+    mockedRefreshAuth.mockResolvedValue(null);
+    mockedEnsureAuth.mockResolvedValue({ userId: 7, accessToken: "a1", refreshToken: "r1" });
+    const reply = jest.fn();
+    handleBridgeMessage({ type: "request-token-refresh", atMs: 1 }, reply);
+    await flush();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth-token", accessToken: "a1" }),
+    );
   });
 });

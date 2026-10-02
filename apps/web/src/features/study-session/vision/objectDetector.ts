@@ -1,6 +1,13 @@
 import { reportHandled } from "@/lib/sentry";
 
 import type { Detection } from "./detectionRules";
+import type {
+  AssetTiming,
+  MediapipeDetectionResult,
+  MediapipeDetectorHandle,
+  MediapipeObjectRuntime,
+  VisionRuntimeKind,
+} from "./mediapipePort";
 import type { Delegate, ModelVariant } from "./visionConfig";
 import {
   CATEGORY_ALLOWLIST,
@@ -10,22 +17,21 @@ import {
   MEDIAPIPE_WASM_PATH,
   MODEL_PATHS,
 } from "./visionConfig";
+import { loadVisionRuntime } from "./visionRuntime";
 
 /**
  * MediaPipe `ObjectDetector` 래퍼 — **이 저장소에서 MediaPipe에 닿는 유일한 지점**이다.
  *
- * 다른 모듈이 `@mediapipe/tasks-vision`을 직접 import하지 않게 격리하는 것이 이 파일의 존재
- * 이유다(설계 §3). 스파이크 S3에서 끊김이 실측되면 **이 모듈만 워커 뒤로 옮긴다** — 그때
- * `detectionRules.ts`·`frameLoop.ts`·훅은 한 줄도 바뀌지 않는다.
+ * 다른 모듈이 `@mediapipe/tasks-vision`을 직접 import하지 않게 격리하는 것이 이 파일의 존재 이유다(설계 §3).
+ * 추론을 워커에서 돌리도록 바꿀 때 바뀐 것은 런타임인 `./workerRuntime.ts`뿐이고 `detectionRules.ts`·`frameLoop.ts`·훅은 포트가 비동기가 된 것 말고는 그대로다.
  *
  * 격리는 두 층으로 되어 있다.
  *
  * 1. **타입** — `detectForVideo`의 반환을 우리 `Detection[]`로 정규화한다. MediaPipe 타입이
  *    상위 모듈로 새 나가면 나중에 런타임을 갈아끼울 때 그 타입을 쓰는 모든 파일이 막힌다.
  * 2. **모듈 로딩** — 실제 `import("@mediapipe/tasks-vision")`은 이 파일이 아니라
- *    `./mediapipeModule.ts`에 있고, 여기서는 **동적으로만** 부른다. 그래서 (a) 무거운 wasm
- *    번들이 세션에 들어갈 때까지 로드되지 않고, (b) 워커 이전 시 교체 대상이 그 파일 하나로
- *    좁혀지며, (c) 테스트가 포트(`MediapipeVisionRuntime`)만 주입해 실제 패키지 없이 돈다.
+ *    `./mediapipeModule.ts`에 있고, 여기서는 **동적으로만** 부른다.
+ *    그래서 (a) 무거운 wasm 번들이 첫 화면 로드에 끼지 않고(홈 유휴 시간의 미리 받기는 `./prefetchVisionAssets.ts`), (b) 워커인 `./visionWorker.ts`도 같은 파일의 `openObjectDetector`로 검출기를 열어 메인 스레드와 같은 옵션을 쓰며, (c) 테스트가 포트(`MediapipeVisionRuntime`)만 주입해 실제 패키지 없이 돈다.
  *
  * **로딩 실패는 던지지 않는다.** `../adapters/mediaStreamCamera.ts`가 `getUserMedia` 실패를
  * 다루는 방식과 같은 계약이다 — 감지 불가는 예외가 아니라 정상 시나리오이고, 호출부가
@@ -33,53 +39,24 @@ import {
  * 리더 결정). 개발 빌드에서만 실패를 화면에 띄운다.
  */
 
-/* ------------------------------------------------------------------ *
- * MediaPipe 포트 — 우리가 필요한 만큼만 선언한다.
- * 구현은 `./mediapipeModule.ts`, 테스트는 fake가 채운다.
- * ------------------------------------------------------------------ */
-
-export interface MediapipeCategory {
-  readonly categoryName?: string;
-  readonly score: number;
-}
-
-export interface MediapipeBoundingBox {
-  readonly originX: number;
-  readonly originY: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface MediapipeRawDetection {
-  readonly categories: readonly MediapipeCategory[];
-  readonly boundingBox?: MediapipeBoundingBox;
-}
-
-export interface MediapipeDetectionResult {
-  readonly detections: readonly MediapipeRawDetection[];
-}
-
-export interface MediapipeDetectorHandle {
-  detectForVideo(video: HTMLVideoElement, timestampMs: number): MediapipeDetectionResult;
-  close(): void;
-}
-
-export interface DetectorCreateOptions {
-  readonly wasmPath: string;
-  readonly modelAssetPath: string;
-  readonly delegate: Delegate;
-  readonly categoryAllowlist: readonly string[];
-  readonly scoreThreshold: number;
-}
-
 /**
- * MediaPipe를 감싼 최소 런타임. 클래스(`FilesetResolver`·`ObjectDetector`)를 그대로 노출하지
- * 않고 **"detector 하나 만들어 줘"** 로 좁힌 이유는, 워커 뒤로 옮길 때 이 인터페이스가
- * 그대로 메시지 계약이 되기 때문이다.
+ * MediaPipe 포트는 `./mediapipePort.ts`가 갖는다. 얼굴 래퍼와 공유하기 때문이다.
+ * 기존 호출부가 이 파일에서 그대로 가져갈 수 있게 다시 내보낸다.
  */
-export interface MediapipeVisionRuntime {
-  createDetector(options: DetectorCreateOptions): Promise<MediapipeDetectorHandle>;
-}
+export type {
+  AssetTiming,
+  VisionRuntimeKind,
+  MediapipeCategory,
+  MediapipeBoundingBox,
+  MediapipeRawDetection,
+  MediapipeDetectionResult,
+  MediapipeDetectorHandle,
+  MediapipeInferenceHandle,
+  DetectorCreateOptions,
+  MediapipeObjectRuntime,
+  MediapipeFaceRuntime,
+  MediapipeVisionRuntime,
+} from "./mediapipePort";
 
 /* ------------------------------------------------------------------ *
  * 공개 타입
@@ -96,7 +73,12 @@ export type DetectorState = "idle" | "loading" | "ready" | "unavailable";
 
 export interface DetectionResult {
   readonly detections: readonly Detection[];
-  /** 이 프레임의 추론 소요시간(ms). 설계 §8이 진단 로그에 남기도록 허용한 항목이다. */
+  /**
+   * 이 프레임의 결과를 기다린 시간(ms).
+   *
+   * 설계 §8이 진단 로그에 남기도록 허용한 항목이다.
+   * 워커 경로는 프레임을 뜨고 넘기는 시간이 포함된다.
+   */
   readonly durationMs: number;
 }
 
@@ -104,18 +86,26 @@ export interface VisionObjectDetector {
   readonly state: DetectorState;
   /** 어느 delegate로 떨어졌는가. 진단 로그(§8)가 쓴다. `ready`가 아니면 null. */
   readonly delegate: Delegate | null;
+  /** 준비된 검출기가 도는 곳. `ready`가 아니면 null. */
+  readonly runtime: VisionRuntimeKind | null;
+  /** 준비된 검출기의 `assetTimings`. 없으면 빈 배열. */
+  readonly assetTimings: readonly AssetTiming[];
   readonly modelVariant: ModelVariant;
   /** **던지지 않는다.** 최종 상태를 돌려준다. 여러 번 불러도 detector는 하나만 만든다. */
   load(): Promise<DetectorState>;
-  /** 준비되지 않았거나 추론이 실패하면 `null` — 호출부는 "이번 프레임은 판정 없음"으로 다룬다. */
-  detect(video: HTMLVideoElement, timestampMs: number): DetectionResult | null;
+  /**
+   * 준비되지 않았거나 추론이 실패하면 `null` — 호출부는 "이번 프레임은 판정 없음"으로 다룬다.
+   * `throw`하지 않는다.
+   * 기다리는 사이 `close()`되면 `null`이다.
+   */
+  detect(video: HTMLVideoElement, timestampMs: number): Promise<DetectionResult | null>;
   /** 멱등. 로딩 중에 불러도 안전하다(뒤늦게 도착한 detector를 그 자리에서 닫는다). */
   close(): void;
 }
 
 export interface CreateObjectDetectorOptions {
-  /** 테스트·워커 이전용 주입점. 기본값은 `./mediapipeModule.ts`를 동적으로 로드한다. */
-  readonly loadRuntime?: () => Promise<MediapipeVisionRuntime>;
+  /** 테스트·측정용 주입점. 기본값인 `loadVisionRuntime`은 워커를 먼저 쓰고 안 되면 메인 스레드로 넘어간다. */
+  readonly loadRuntime?: () => Promise<MediapipeObjectRuntime>;
   /** 명시하지 않으면 DEV에서 `?model=` 쿼리를, 그 외에는 기본 변형을 쓴다. */
   readonly modelVariant?: ModelVariant;
   /**
@@ -130,7 +120,7 @@ export interface CreateObjectDetectorOptions {
 }
 
 /**
- * `detectForVideo`가 연속으로 이만큼 던지면 감지 불가로 내린다.
+ * 추론이 연속으로 이만큼 실패하면 감지 불가로 내린다.
  *
  * 한 번의 실패로 포기하지 않는 이유는 GPU 컨텍스트 일시 손실처럼 회복되는 경우가 있어서이고,
  * 무한히 `null`만 흘리지 않는 이유는 그러면 화면상 "계속 자리 이탈"로 보여 **조용히 틀리기**
@@ -193,12 +183,6 @@ function normalize(result: MediapipeDetectionResult): Detection[] {
   return detections;
 }
 
-async function defaultLoadRuntime(): Promise<MediapipeVisionRuntime> {
-  // 정적 import가 아니라 동적 import인 것이 핵심이다 — 위 주석의 격리 2층.
-  const module = await import("./mediapipeModule");
-  return module.createMediapipeRuntime();
-}
-
 interface OpenedDetector {
   readonly handle: MediapipeDetectorHandle;
   readonly delegate: Delegate;
@@ -207,7 +191,7 @@ interface OpenedDetector {
 export function createObjectDetector(
   options: CreateObjectDetectorOptions = {},
 ): VisionObjectDetector {
-  const loadRuntime = options.loadRuntime ?? defaultLoadRuntime;
+  const loadRuntime = options.loadRuntime ?? loadVisionRuntime;
   const delegateOrder = options.delegateOrder ?? DELEGATE_ORDER;
   const modelVariant =
     options.modelVariant ??
@@ -228,7 +212,7 @@ export function createObjectDetector(
   let wanted = false;
 
   async function openOnce(): Promise<OpenedDetector | null> {
-    let runtime: MediapipeVisionRuntime;
+    let runtime: MediapipeObjectRuntime;
     try {
       runtime = await loadRuntime();
     } catch (error: unknown) {
@@ -240,7 +224,7 @@ export function createObjectDetector(
       return null;
     }
 
-    // GPU 먼저, 실패하면 CPU. WebView에서 GPU delegate의 안정성이 검증되지 않았다(설계 §2).
+    // delegate 순서는 visionConfig가 정한다. 지금은 CPU만 쓴다. 에뮬레이터 GPU가 실패 대신 가짜 검출을 내서 폴백으로 잡을 수 없었다.
     for (const candidate of delegateOrder) {
       if (!wanted) {
         return null;
@@ -287,6 +271,12 @@ export function createObjectDetector(
     get delegate() {
       return delegate;
     },
+    get runtime() {
+      return handle?.runtime ?? null;
+    },
+    get assetTimings() {
+      return handle?.assetTimings ?? [];
+    },
     get modelVariant() {
       return modelVariant;
     },
@@ -328,23 +318,31 @@ export function createObjectDetector(
       return state;
     },
 
-    detect(video: HTMLVideoElement, timestampMs: number): DetectionResult | null {
-      if (state !== "ready" || handle === null) {
+    async detect(video: HTMLVideoElement, timestampMs: number): Promise<DetectionResult | null> {
+      const current = handle;
+      if (state !== "ready" || current === null) {
         return null;
       }
       const startedAt = performance.now();
       let raw: MediapipeDetectionResult;
       try {
-        raw = handle.detectForVideo(video, timestampMs);
+        raw = await current.detect(video, timestampMs);
       } catch (error: unknown) {
+        if (handle !== current) {
+          // 기다리는 사이 close()됐다. 닫힌 검출기의 실패는 세지 않는다.
+          return null;
+        }
         consecutiveFailures += 1;
-        console.warn(`[vision] detectForVideo 실패 (${consecutiveFailures}회 연속)`, error);
+        console.warn(`[vision] 추론 실패 (${consecutiveFailures}회 연속)`, error);
         if (consecutiveFailures >= MAX_CONSECUTIVE_DETECT_FAILURES) {
           // 포기가 확정되는 이 시점에만 전송한다 — 프레임마다 보내면 한 세션이 수백 건을 만든다.
           reportHandled(error, "vision-frame-loop");
           releaseHandle();
           state = "unavailable";
         }
+        return null;
+      }
+      if (handle !== current) {
         return null;
       }
       consecutiveFailures = 0;

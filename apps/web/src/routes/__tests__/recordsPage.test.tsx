@@ -46,7 +46,7 @@ function statsResponse(hasSession: boolean): StudySessionListResponse {
             studySec: 3600,
             focusSec: 1800,
             focusRate: 50,
-            eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+            eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
           },
         ]
       : [],
@@ -55,7 +55,7 @@ function statsResponse(hasSession: boolean): StudySessionListResponse {
     totalFocusSec: hasSession ? 1800 : 0,
     longestFocusSec: hasSession ? 1800 : 0,
     focusRate: hasSession ? 50 : 0,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
   };
 }
@@ -167,7 +167,7 @@ describe("RecordsPage", () => {
     const nextMonthFirstDay = statsQueryDateKey(todayKey, nextMonth);
     const recordedDateKey = `${nextMonthFirstDay.slice(0, -2)}15`;
 
-    mockedStats.mockImplementation(async (_userId, date) =>
+    mockedStats.mockImplementation(async (date) =>
       date === nextMonthFirstDay
         ? { ...statsResponse(false), studiedDatesInMonth: [recordedDateKey] }
         : statsResponse(false),
@@ -210,7 +210,7 @@ describe("RecordsPage", () => {
         studySec: 3600,
         focusSec: 1800,
         focusRate: 50,
-        eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+        eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
         ...overrides,
       };
     }
@@ -242,7 +242,7 @@ describe("RecordsPage", () => {
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여준다", () => {
     renderRecords("/records");
 
-    expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
+    expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
     expect(mockedStreak).not.toHaveBeenCalled();
   });

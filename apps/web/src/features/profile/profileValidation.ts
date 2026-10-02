@@ -68,20 +68,46 @@ export function validateNickname(nickname: string): string | null {
 }
 
 /**
- * 닉네임 길이만: 입력 중 실시간 안내용(12자 초과). 형식·최소 길이는 저장 시점의
- * `validateNickname`이 본다 — 타이핑 도중(1자, 조합 중)의 미완성 입력까지 실시간으로
- * 오류를 띄우면 정상 입력 과정이 계속 빨갛게 깜빡인다.
+ * 보이는 글자 12자 닉네임 자르기
+ *
+ * `maxLength`는 UTF-16 코드 단위를 세서 "🧑‍💻" 하나를 5칸으로 치므로, 서버가 받아 주는 이모지 닉네임을 입력칸이 먼저 막는다.
+ * 서버처럼 앞뒤 공백은 세지 않는다.
  */
-export function validateNicknameLength(nickname: string): string | null {
-  // 코드포인트 폴백에서는 이모지 조합이 여러 자로 잡혀 정상 입력을 12자 초과로
-  // 잘못 안내하므로, 같은 이유로 이 환경에서는 건너뛴다.
+export function clampNickname(nickname: string): string {
+  // 코드포인트 폴백에서는 이모지 조합을 여러 자로 세어 정상 입력을 잘라 버린다.
   if (!canSegmentGraphemes) {
-    return null;
+    return nickname;
   }
-  if (countGraphemes(normalizeNickname(nickname)) > 12) {
-    return "닉네임은 12자까지 쓸 수 있어요";
+  const graphemes = splitGraphemes(nickname);
+  // 아래 루프는 한 글자 뺄 때마다 전체를 다시 세므로, 긴 붙여넣기는 남을 수 있는 길이까지 먼저 줄인다.
+  // 앞 공백 뒤 12자를 넘어서 남을 수 있는 것은 뒤 공백뿐이다.
+  const isSpace = (char: string) => normalizeNickname(char) === "";
+  let end = graphemes.findIndex((char) => !isSpace(char));
+  if (end !== -1) {
+    end = Math.min(end + 12, graphemes.length);
+    while (end < graphemes.length && isSpace(graphemes[end])) {
+      end++;
+    }
+    graphemes.length = end;
   }
-  return null;
+  while (countGraphemes(normalizeNickname(graphemes.join(""))) > 12) {
+    graphemes.pop();
+  }
+  return graphemes.join("");
+}
+
+/**
+ * 닉네임 입력칸 길이 제한
+ *
+ * 보이는 글자 12자에 닿으면 지금 길이를 그대로 제한으로 걸어 브라우저가 더 받지 않게 한다.
+ * 브라우저가 막아야 키보드가 조합 중인 글자와 입력칸 값이 어긋나지 않고 커서도 제자리에 남는다.
+ * 12자 미만에서는 걸지 않아야 여러 코드 단위로 된 이모지도 한 글자로 계속 입력된다.
+ */
+export function nicknameMaxLength(nickname: string): number | undefined {
+  if (canSegmentGraphemes && countGraphemes(normalizeNickname(nickname)) >= 12) {
+    return nickname.length;
+  }
+  return undefined;
 }
 
 /** 목표 문구: 공백 포함 최대 20자. 빈 값은 허용(선택 항목 — null로 저장). */

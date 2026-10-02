@@ -14,9 +14,12 @@ import {
   trackStudySessionSubmitted,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
+import { statsKeys } from "@/lib/statsQueries";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
@@ -58,8 +61,6 @@ import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
-export { parseUserId } from "@/lib/userId";
-
 /** 제출 라이프사이클. 세션 내부 상태(FOCUS/DISTRACTION/PAUSE)와는 **다른 축**이다. */
 export type StudyRoomPhase =
   | { name: "studying" }
@@ -69,7 +70,7 @@ export type StudyRoomPhase =
   | { name: "unsaved"; studySec: number };
 
 export interface StudyRoomSessionOptions {
-  /** 기본값은 mock. 실제 구현체는 실기기 스파이크 이후 별도 티켓에서 주입한다. */
+  /** 기본값은 테스트용 mock이다. 실제 화면은 `RoomPage`가 `mediaStreamCamera` 구현체를 주입한다. */
   readonly camera?: CameraAdapter;
   readonly detector?: FocusDetector;
   /** 화면 꺼짐·백그라운드 신호원. 기본값은 표준 Page Visibility 기반 구현. */
@@ -97,6 +98,11 @@ export interface StudyRoomSessionOptions {
    * 세션 로직에는 관여하지 않는다.
    */
   readonly roomType?: StudyRoomType;
+  /**
+   * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * `roomType`처럼 세션 로직에는 관여하지 않는다. 배경음이 없는 소셜룸은 생략한다.
+   */
+  readonly ambientUsage?: () => { used: boolean; sec: number };
 }
 
 /**
@@ -120,6 +126,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const tickMs = options.tickMs ?? 200;
   // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
+  // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
+  const ambientUsageRef = useRef(options.ambientUsage);
+  ambientUsageRef.current = options.ambientUsage;
 
   /**
    * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
@@ -275,6 +284,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
+    // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
+    trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
 
   /**
@@ -311,7 +322,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     });
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
-      const next = { ...signalsRef.current, [signal.trigger]: signal.active };
+      const next = { ...signalsRef.current, [signal.source]: signal.active };
       signalsRef.current = next;
       // 신호가 바뀐 시각을 다음 tick이 아니라 **수신 시각**으로 기록한다.
       // tick에서만 반영하면 유지시간 판정이 최대 tickMs만큼 늦어진다.
@@ -374,7 +385,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
       reportActiveSession({
-        userId,
         startedAtMs: startedAtMsRef.current,
         reportedAtMs: nowMs,
         studySec: totals.studySec,
@@ -518,6 +528,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         // 인자 `reason`이 아니라 **최초로 확정된** 사유를 쓴다 — 재시도가 사유를 바꾸지 않듯
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;
+        const ambient = ambientUsageRef.current?.();
         trackStudySessionEnded({
           roomType,
           studySec: finalTotals.studySec,
@@ -527,6 +538,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           endReason: finalReason?.kind ?? "MANUAL",
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
+          ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
+        });
+        // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
+        trackMetaStudySessionEnded({
+          roomType,
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
         });
       }
 
@@ -540,7 +558,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const attempt = submitAttemptRef.current;
       try {
         const sessions = await submitStudySession({
-          userId,
           startedAtMs: startedAtMsRef.current,
           endedAtMs,
           studySec: finalTotals.studySec,
@@ -548,6 +565,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           events,
         });
         trackStudySessionSubmitted(true, attempt, roomType);
+        // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
+        // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
+        // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
+        // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
+        void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         setPhase({ name: "done", sessions });
       } catch (error) {
         trackStudySessionSubmitted(false, attempt, roomType);

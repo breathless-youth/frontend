@@ -28,8 +28,8 @@ V1.0은 **익명 기기 계정**이라 로그인·로그아웃·계정 삭제 �
   - `ai-wiki/product/mvp-scope.md` — 감지 3종(측정 기준 안내 서브 문구의 근거)
   - `ai-wiki/project/glossary.md` — 자리 이탈·휴대폰 사용·기기 조작 노출 표기
   - `ai-wiki/notes/2026-07-26-디자인-반영-인터뷰-6차.md` — 최신 확정분(S6 관련 변경은 없음, 가이드 재진입 경로 유지 확인)
-- Ownership: `frontend/docs/screen-ownership.md` — **`apps/mobile` 소유**(앱 셸)
-- 담당 앱: `apps/mobile` → `app/(tabs)/settings.tsx`(신규 탭) + `app/(tabs)/_layout.tsx` 탭 등록
+- Ownership: `frontend/docs/screen-ownership.md`, **`apps/web` 소유**(모바일 설정 탭은 원격 URL 웹뷰로 연다)
+- 담당 앱: `apps/web` → `src/routes/SettingsPage.tsx`(라우트 `/settings`), 모바일 `app/(tabs)/settings.tsx`는 `RemoteScreen`으로 이 경로를 연다
 
 > **Figma × wiki 교차 대조 결과: 상충 없음.** Figma의 항목 구성·문구가 `user-flow.md`의 S6 정의, `voice-tone.md` §4 설정 문구와 정확히 일치한다(문자 단위 확인). S4에서 알려진 "화면 꺼짐 → 일시정지" 반영 지연 같은 괴리는 이 화면에 없다.
 
@@ -79,6 +79,7 @@ S6 · 설정 (402×874, bg/base)
     hairline (67:788)
     Settings / Row [Value]  "버전 정보" / "1.0.0" (67:789) w330 h47
       value 15px Regular / lh18 · text/tertiary
+      ※ "1.0.0"은 Figma 원본 예시값. 현재 구현 표기는 26.37.A2.5 형식이다 (BY-417 CalVer).
   Navigation / Tab Bar (67:792)  y797 h77 · 홈 · 기록 · 설정(active = brand/primary SemiBold)
   iOS / Home Indicator (67:823 — OS 크롬)
   hs/tab-home (70:1218) · hs/tab-record (70:1220)  ← 프로토타입 핫스팟(구현 대상 아님, 링크 의도만 확인용)
@@ -114,7 +115,7 @@ S6 · 설정 (402×874, bg/base)
 
 화면이 표시하는 값 3종의 출처:
 
-1. **버전(`1.0.0`)** — 로컬 앱 메타데이터. `expo-constants`(이미 설치됨, `~18.0.13`)의 `Constants.expoConfig?.version`을 읽는다. `apps/mobile/app.json`의 `expo.version`이 현재 `"1.0.0"`으로 Figma 예시값과 일치한다. **하드코딩 금지** — 버전 문자열을 상수로 박으면 다음 릴리스에서 즉시 거짓말이 된다.
+1. **버전(`26.37.A2.5`)** — 앱 버전은 쿼리 `appVersion`, 웹 버전은 `__WEB_VERSION__`, `settingsInfo.ts`의 `appVersionLabel`이 `YY.WW.<A|I><앱 P>.<웹 P>`로 합친다(BY-417). 앱 버전의 원천은 `apps/mobile/app.json`의 `expo.version`(네이티브 셸이 `Constants.expoConfig?.version`을 읽어 웹뷰 쿼리에 실어 보낸다), 웹 버전의 원천은 `apps/web/package.json`의 `version`(`vite.config.ts`의 `define`이 빌드 타임에 박는다)이다. 주차가 다르면 `26.36.3 / 26.37.0`처럼 나란히 적고, 앱 버전이 없는 브라우저 단독 접속에서는 웹 버전만 보여준다. **하드코딩 금지**: 버전 문자열을 상수로 박으면 다음 릴리스에서 즉시 거짓말이 된다. 규칙은 `docs/releases.md`의 "버전 규칙".
 2. **카메라 권한 상태(토글 On/Off)** — **백엔드 계약이 아니라 OS 권한 상태**다. `lib/cameraPermission.ts`의 `getCameraPermissionStatus()`로 읽는다(`expo-camera` 권한 API, 2026-07-27 도입 — [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 조회는 **마운트 시 1회 + `AppState`가 `active`로 복귀할 때** 수행한다. 앱이 권한을 바꾸지는 않는다 — 읽기만 한다.
 
    상태는 `boolean | null` 3값으로 다룬다. `null`은 "아직 모른다"이며 **조회 실패 시에도 그대로 남는다** — 모르는 값을 `false`로 접으면 실제로 허용한 사용자에게 "허용 안 됨"으로 보이고, 그것은 낙관적 UI 금지 규칙의 반대편 오류다. `null`인 동안에는 토글을 렌더하지 않고 접근성 라벨에서도 상태 부분을 뺀다("카메라 권한, 시스템 설정 열기").
@@ -154,7 +155,7 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 | 6   | 행 `이용약관` · `개인정보처리방침`      | **앱 내 이동** — `router.push("/terms")` · `router.push("/privacy")`. 문서 본문을 앱이 직접 렌더하므로 chevron이 그대로 맞는 표기다(Figma 원본과 일치). 외부 브라우저로 내보내지 않는다.                                                               | ✅ 확정 (BY-257)                                                                                                    |
 | 6-a | 행 `오픈소스 라이선스`                  | **목적지·문서가 아직 없다.** `onPress`를 넘기지 않아 행이 버튼으로 노출되지 않는다(탭 no-op) — placeholder 목적지를 지어내지 않는다.                                                                                                                   | ⚠️ 목적지 미확정                                                                                                    |
 | 7   | 행 `버전 정보`                          | 탭 불가(트레일링이 값 텍스트뿐이고 chevron 없음).                                                                                                                                                                                                      | ✅ 확정                                                                                                             |
-| 8   | 탭 바 `홈`/`기록`                       | 각각 홈(S1)·기록(S5)으로 이동. **S5(MG3)가 아직 없으면 그 탭은 기존 방식대로 비활성 유지** — 존재하는 라우트만 연결한다.                                                                                                                               | ✅ 확정(방어 규칙은 `SCR-S1-home.md` 선례)                                                                          |
+| 8   | 탭 바 `홈`/`기록`                       | 각각 홈(S1)·기록(S5)으로 이동. **S5(MG3)가 아직 없으면 그 탭은 기존 방식대로 비활성 유지** — 존재하는 라우트만 연결한다.                                                                                                                               | ✅ 확정(S1 홈의 방어 규칙 선례를 따름)                                                                              |
 | 9   | 화면 진입                               | 스크롤 가능해야 한다. 콘텐츠 하단(622px)이 탭 바(797px)보다 위라 402×874에서는 스크롤이 없지만, 폰트 확대·소형 기기에서는 넘칠 수 있다.                                                                                                                | ✅ 확정                                                                                                             |
 
 **S2-3(권한 거부 안내)와 혼동하지 말 것**: S2-3은 최초 세션 시작 플로우에서 권한이 거부됐을 때 나오는 별도 화면이다. 설정 탭의 카메라 권한 행은 권한이 꺼져 있어도 S2-3으로 보내지 않고 **바로 시스템 설정으로 보낸다**(`user-flow.md` 기준).
@@ -245,7 +246,7 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 - **로그인·계정 관련 항목이 없다 — 미포함(V1.2+)이다.** `policies.md` §2: V1.0~V1.1은 익명 기기 계정, 로그인 도입은 V1.2(Google/Apple)부터. `user-flow.md` S6도 "로그아웃·계정 삭제 없음"으로 명시. `design.md` 화면 인벤토리에서 S0 로그인은 V1.2 항목이다. (V1.2 로그인 예고는 이 화면이 아니라 **U1 업데이트 안내 시트**가 담당한다 — MG6.)
 - **정적 안내 화면 S6-1은 존재하지 않는다** — `design.md`에서 "정적 안내 화면(S6-1)은 제거 — 가이드로 통합"으로 폐기됐다. 과거 문서에서 S6-1을 보더라도 만들지 말 것.
 - 헤어라인·토글 Off 색이 Figma에서 변수 미바인딩(하드코딩)이라 다크 모드 값이 원본에 없다(Design Tokens 섹션 참조).
-- 버전 행의 `1.0.0`은 `app.json`의 현재 값과 우연히 일치하는 상태다 — 빌드 버전이 올라가면 자동으로 따라가야 한다(하드코딩 금지).
+- 버전 행은 두 원천을 빌드·쿼리에서 읽으므로 하드코딩이 없다. 웹 버전은 `apps/web/package.json`을 빌드 타임에 읽고, 앱 버전은 네이티브 셸이 쿼리로 넘긴다. Figma의 `1.0.0`은 원본 예시값일 뿐이다.
 
 ## Review Checklist
 

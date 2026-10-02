@@ -16,7 +16,6 @@ const INPUT = {
 describe("buildActiveSnapshotRequest", () => {
   it("epoch ms를 UTC ISO-8601로 변환하고 reportedAt을 기준으로 담는다", () => {
     expect(buildActiveSnapshotRequest(INPUT)).toEqual({
-      userId: 1,
       startedAt: "2026-07-25T01:00:00.000Z",
       reportedAt: "2026-07-25T01:00:30.000Z",
       studySec: 30,
@@ -45,10 +44,9 @@ describe("reportActiveSession", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit).method).toBe("PUT");
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
-      userId: 1,
-      reportedAt: "2026-07-25T01:00:30.000Z",
-    });
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toMatchObject({ reportedAt: "2026-07-25T01:00:30.000Z" });
+    expect(body).not.toHaveProperty("userId");
   });
 
   it("실패는 status를 가진 ApiError로 던진다", async () => {
@@ -86,5 +84,30 @@ describe("reportActiveSession", () => {
 
     expect((error as Error).name).toBe("AbortError");
     vi.useRealTimers();
+  });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 본문에 userId를 싣는다(구 앱)", async () => {
+    window.history.replaceState(null, "", "/room/1?userId=7");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await reportActiveSession(INPUT);
+      const [, init] = fetchMock.mock.calls[0]!;
+      const body = JSON.parse(init.body as string) as {
+        userId?: number;
+        startedAt: string;
+        reportedAt: string;
+        studySec: number;
+        focusSec: number;
+      };
+      expect(body.userId).toBe(7);
+      expect(body.startedAt).toBe("2026-07-25T01:00:00.000Z");
+      expect(body.reportedAt).toBe("2026-07-25T01:00:30.000Z");
+      expect(body.studySec).toBe(30);
+      expect(body.focusSec).toBe(27);
+      expect(new Headers(init.headers).has("Authorization")).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
   });
 });

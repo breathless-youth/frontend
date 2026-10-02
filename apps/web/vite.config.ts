@@ -8,7 +8,11 @@ import { loadEnv } from "vite";
 import type { Connect, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
-import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
+import {
+  MEDIAPIPE_VERSION,
+  WASM_PUBLIC_DIR,
+  WASM_SENTINEL_FILE,
+} from "./scripts/copyMediapipeWasm.js";
 import { assertNotProdApiHost, resolveApiBase } from "./scripts/resolveApiBase.js";
 
 /**
@@ -163,9 +167,21 @@ function tunnelServerOptions() {
  * - `VERCEL_GIT_COMMIT_SHA` — 배포 커밋
  *
  * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
+ * GitHub Actions 배포(`deploy-web.yml`)는 Vercel 변수가 없어 `GITHUB_SHA`를 쓴다.
+ * 이 대체가 없으면 GitHub에서 빌드한 릴리즈가 `local`이 되고 소스맵도 올라가지 않는다.
  */
-const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
+const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
 const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
+
+/**
+ * 웹 자체 버전
+ * - `npm_package_version`은 `vite build`를 직접 부르면 비어 있어 쓰지 않고 원천 파일을 직접 읽는다.
+ */
+const WEB_VERSION = (
+  JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf8")) as {
+    version: string;
+  }
+).version;
 
 /**
  * 배포 환경 판별과 API 주소 결정은 scripts/resolveApiBase.ts가 전담한다 —
@@ -178,6 +194,8 @@ const deployDefines = {
   __DEPLOY_ENV__: JSON.stringify(DEPLOY_ENV),
   __RELEASE__: JSON.stringify(RELEASE),
   __API_BASE__: JSON.stringify(API_BASE),
+  __WEB_VERSION__: JSON.stringify(WEB_VERSION),
+  __MEDIAPIPE_VERSION__: JSON.stringify(MEDIAPIPE_VERSION),
 };
 
 /**

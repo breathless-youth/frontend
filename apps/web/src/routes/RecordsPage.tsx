@@ -1,5 +1,4 @@
 import { Fragment, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import { trackRecordsDateSelected } from "@/lib/amplitude";
 
@@ -8,21 +7,18 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { IconChevronDown } from "@/features/records/icons";
 import { MonthCalendar } from "@/features/records/MonthCalendar";
 import {
+  buildStreakWeek,
   type CalendarMonth,
-  dayOfDateKey,
   kstDateKey,
   monthOfDateKey,
   shiftMonth,
   summaryTitle,
-  WEEKDAY_LABELS,
-  weekdayIndexOfDateKey,
-  weekDateKeys,
 } from "@/features/records/recordsFormat";
 import { SessionListItem } from "@/features/records/SessionListItem";
-import { StreakBanner, type StreakWeekDay } from "@/features/records/StreakBanner";
+import { StreakBanner } from "@/features/records/StreakBanner";
 import { SummaryTiles } from "@/features/records/SummaryTiles";
 import { useRecordsData } from "@/features/records/useRecordsData";
-import { parseUserId } from "@/lib/userId";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 기록(S5) — `apps/mobile/app/(tabs)/records.tsx`에서 이식 (BY-330).
@@ -59,18 +55,10 @@ function RecordsContent({ userId }: { userId: number }) {
   // streakBanner는 훅이 렌더마다 새로 만드는 포장 객체라 통째로 의존하면 메모가 무효화된다 —
   // 안쪽의 안정된 배열(doneDates)만 꺼내 의존한다(위 sessions 메모와 같은 패턴, 리뷰 반영).
   const streakDoneDates = streakBanner.status === "success" ? streakBanner.doneDates : undefined;
-  const weekDays = useMemo<StreakWeekDay[]>(() => {
-    if (streakDoneDates === undefined) {
-      return [];
-    }
-    const done = new Set(streakDoneDates);
-    return weekDateKeys(todayKey).map((dateKey) => ({
-      dateKey,
-      weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
-      dayOfMonth: dayOfDateKey(dateKey),
-      state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
-    }));
-  }, [streakDoneDates, todayKey]);
+  const weekDays = useMemo(
+    () => (streakDoneDates === undefined ? [] : buildStreakWeek(todayKey, streakDoneDates)),
+    [streakDoneDates, todayKey],
+  );
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -181,20 +169,19 @@ function RecordsContent({ userId }: { userId: number }) {
 }
 
 export function RecordsPage() {
-  const [searchParams] = useSearchParams();
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
 
   return (
     <main
       data-testid="records-page"
-      className="min-h-dvh bg-background pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="min-h-dvh bg-background pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-2xl font-bold leading-[29px] text-foreground">기록</h1>
 
         {userId === null ? (
           <p className="mt-[13px] p-4 text-sm text-muted-foreground">
-            userId 없음 — 브라우저 단독 모드
+            기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
         ) : (
           <RecordsContent userId={userId} />

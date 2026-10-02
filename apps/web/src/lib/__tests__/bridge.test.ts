@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseToWebMessage, postToNative } from "@/lib/bridge";
+import { parseToWebMessage, postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
 describe("parseToWebMessage", () => {
   it("device-handling 메시지를 파싱한다", () => {
@@ -11,28 +11,13 @@ describe("parseToWebMessage", () => {
     });
   });
 
-  it("app-state 메시지를 파싱한다", () => {
-    expect(parseToWebMessage('{"type":"app-state","state":"background","atMs":2000}')).toEqual({
-      type: "app-state",
-      state: "background",
-      atMs: 2000,
-    });
-  });
-
-  it("ping 메시지를 파싱한다 — 생존 확인(BY-436)", () => {
-    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: 3, atMs: 1000 }))).toEqual({
-      type: "ping",
-      id: 3,
-      atMs: 1000,
-    });
-  });
-
-  it("ping의 id가 number가 아니면 null이다 — 짝을 맞출 수 없는 응답이 나간다", () => {
-    expect(parseToWebMessage(JSON.stringify({ type: "ping", id: "3", atMs: 1000 }))).toBeNull();
-  });
-
   it("알 수 없는 type은 null을 돌려준다 — 앱 버전이 앞서갈 때 죽지 않아야 한다", () => {
     expect(parseToWebMessage('{"type":"future-message","atMs":1}')).toBeNull();
+  });
+
+  it("지운 메시지(app-state·ping)는 모르는 메시지로 버린다 — 구버전 앱이 보내도 죽지 않는다", () => {
+    expect(parseToWebMessage('{"type":"app-state","state":"active","atMs":1}')).toBeNull();
+    expect(parseToWebMessage('{"type":"ping","id":1,"atMs":1}')).toBeNull();
   });
 
   it("camera-permission을 파싱한다", () => {
@@ -101,6 +86,42 @@ describe("parseToWebMessage", () => {
   it("app-launched에 atMs가 없으면 null을 돌려준다", () => {
     expect(parseToWebMessage('{"type":"app-launched"}')).toBeNull();
   });
+
+  it("session-closed를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"session-closed","atMs":1}')).toEqual({
+      type: "session-closed",
+      atMs: 1,
+    });
+  });
+
+  it("session-closed에 atMs가 없으면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
+  });
+
+  it("auth-token을 파싱한다", () => {
+    expect(
+      parseToWebMessage('{"type":"auth-token","userId":7,"accessToken":"a1","atMs":1}'),
+    ).toEqual({
+      type: "auth-token",
+      userId: 7,
+      accessToken: "a1",
+      atMs: 1,
+    });
+  });
+
+  it("auth-token은 userId·accessToken null을 허용한다 — 등록 실패·토큰 없는 서버", () => {
+    expect(
+      parseToWebMessage('{"type":"auth-token","userId":null,"accessToken":null,"atMs":1}'),
+    ).toEqual({ type: "auth-token", userId: null, accessToken: null, atMs: 1 });
+  });
+
+  it.each([
+    '{"type":"auth-token","userId":"7","accessToken":"a1","atMs":1}',
+    '{"type":"auth-token","userId":7,"atMs":1}',
+    '{"type":"auth-token","userId":7,"accessToken":"a1"}',
+  ])("auth-token의 필드가 어긋나면 null이다 — %s", (raw) => {
+    expect(parseToWebMessage(raw)).toBeNull();
+  });
 });
 
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
@@ -167,14 +188,14 @@ describe("postToNative", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
-    postToNative({ type: "session-ready", atMs: 42 });
+    postToNative({ type: "home-ready", atMs: 42 });
 
-    expect(postMessage).toHaveBeenCalledWith('{"type":"session-ready","atMs":42}');
+    expect(postMessage).toHaveBeenCalledWith('{"type":"home-ready","atMs":42}');
     vi.unstubAllGlobals();
   });
 
   it("브라우저 단독 모드에서는 아무 일도 하지 않는다", () => {
-    expect(() => postToNative({ type: "session-ready", atMs: 42 })).not.toThrow();
+    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
   });
 
   /**
@@ -191,7 +212,97 @@ describe("postToNative", () => {
       },
     });
 
-    expect(() => postToNative({ type: "session-ready", atMs: 42 })).not.toThrow();
+    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("개발 로그", () => {
+  it("전역 수신 함수가 버린 원문을 개발 빌드에서 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unsub = subscribeToNativeMessages(() => {});
+
+    (window as unknown as Record<string, (raw: string) => void>).__focusonNativeMessage(
+      '{"type":"nope","atMs":1}',
+    );
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      '{"type":"nope","atMs":1}',
+    );
+    warn.mockRestore();
+    unsub();
+  });
+
+  it("postToNative가 나가는 메시지를 개발 빌드에서 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+
+    postToNative({ type: "home-ready", atMs: 1 });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "home-ready" }),
+    );
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("운영 빌드에서는 전역 수신 함수가 버린 원문을 찍지 않는다", () => {
+    const original = import.meta.env.DEV;
+    (import.meta.env as unknown as { DEV: boolean }).DEV = false;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const unsub = subscribeToNativeMessages(() => {});
+      (window as unknown as Record<string, (raw: string) => void>).__focusonNativeMessage(
+        '{"type":"nope","atMs":1}',
+      );
+      expect(warn).not.toHaveBeenCalled();
+      unsub();
+    } finally {
+      (import.meta.env as unknown as { DEV: boolean }).DEV = original;
+      warn.mockRestore();
+    }
+  });
+
+  it("운영 빌드에서는 postToNative가 나가는 메시지를 찍지 않는다", () => {
+    const original = import.meta.env.DEV;
+    (import.meta.env as unknown as { DEV: boolean }).DEV = false;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    try {
+      postToNative({ type: "home-ready", atMs: 1 });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      (import.meta.env as unknown as { DEV: boolean }).DEV = original;
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("postMessage가 throw하면 개발 빌드에서 성공 로그 대신 전송 실패 로그를 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const thrown = new TypeError(
+      "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+    );
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: () => {
+        throw thrown;
+      },
+    });
+
+    postToNative({ type: "home-ready", atMs: 1 });
+
+    expect(warn).not.toHaveBeenCalledWith(
+      "[webview-bridge] 네이티브로 보냄",
+      expect.objectContaining({ type: "home-ready" }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      expect.objectContaining({ type: "home-ready" }),
+      thrown,
+    );
+    warn.mockRestore();
     vi.unstubAllGlobals();
   });
 });

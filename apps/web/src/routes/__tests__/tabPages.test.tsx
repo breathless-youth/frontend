@@ -45,13 +45,13 @@ describe("탭 라우트 골격", () => {
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 
-  it("/home?userId=7 에서는 userId 없음 문구가 보이지 않는다", () => {
+  it("/home?userId=7 에서는 기기 등록 전 문구가 보이지 않는다", () => {
     renderAt("/home?userId=7");
-    expect(screen.queryByText(/userId 없음/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/기기 등록 전/)).not.toBeInTheDocument();
   });
 
-  it("/home 에 userId 없이 접속하면 userId 없음 문구가 보인다", () => {
+  it("/home 에 userId 없이 접속하면 기기 등록 전 문구가 보인다", () => {
     renderAt("/home");
-    expect(screen.getByText(/userId 없음/)).toBeInTheDocument();
+    expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
   });
 });

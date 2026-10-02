@@ -1,10 +1,35 @@
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  AnalyticsEventMessage,
+  AnalyticsEventParamValue,
+  AnalyticsUserPropertiesMessage,
+  MetaAppEventMessage,
+  MetaAppEventParamValue,
+  ToNativeMessage,
+  ToWebMessage,
+} from "@focusmakers/types";
+import {
+  ANALYTICS_EVENT_MAX_PARAMS,
+  ANALYTICS_NAME_PATTERN,
+  ANALYTICS_PARAM_VALUE_PATTERN,
+  ANALYTICS_USER_PROPERTY_NAME_PATTERN,
+  ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
+  NAVIGATE_TAB_SOURCES,
+  NAVIGATE_TAB_TARGETS,
+} from "@focusmakers/types";
+
+import { isReservedAnalyticsName } from "./firebaseAnalytics";
+import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
  * 한쪽만 바꾸면 메시지가 조용히 사라진다(예외도 나지 않는다).
  */
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
+
+/** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
+function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
+  return typeof value === "string" && (list as readonly string[]).includes(value);
+}
 
 /**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
@@ -29,18 +54,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     return null;
   }
   switch (record.type) {
-    case "session-ready":
-      return { type: "session-ready", atMs: record.atMs };
     case "home-ready":
       return { type: "home-ready", atMs: record.atMs };
     case "analytics-ready":
       return { type: "analytics-ready", atMs: record.atMs };
-    case "pong":
-      // id가 없으면 버린다 — 어떤 ping의 응답인지 모르는 pong은 생존 증거로 쓸 수 없다.
-      if (typeof record.id !== "number") {
-        return null;
-      }
-      return { type: "pong", id: record.id, atMs: record.atMs };
     case "report-screen": {
       // path는 우리 SPA의 절대 경로만 허용한다 — 임의 문자열이 재마운트 URL에 섞이면
       // 웹뷰가 외부 주소로 열릴 수 있다. `//host` 꼴(프로토콜 상대 URL)도 막는다.
@@ -72,7 +89,12 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
     case "navigate-home":
-      return { type: "navigate-home", atMs: record.atMs };
+      // 이어서 열 탭은 선택 필드 — 계약 밖 값이면 빼고(= 홈 탭) 모달 닫기는 살린다.
+      return {
+        type: "navigate-home",
+        ...(record.tab === "records" ? { tab: record.tab } : {}),
+        atMs: record.atMs,
+      };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
@@ -94,10 +116,17 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "navigate-tab":
       // 목적지가 계약에 없는 값이면 통째로 버린다 — 모르는 경로로 navigate하면 죽거나
       // 엉뚱한 화면이 뜬다. 유니온이 넓어지면 여기 검사도 함께 넓힌다.
-      if (record.tab !== "records") {
+      if (!isOneOf(NAVIGATE_TAB_TARGETS, record.tab)) {
         return null;
       }
-      return { type: "navigate-tab", tab: record.tab, atMs: record.atMs };
+      // 발신처는 선택 필드 — 계약 밖 값이면 빼고(= `card` 기본) 메시지 자체는 살린다. 이동이
+      // 분석 속성 하나 때문에 막히면 안 된다.
+      return {
+        type: "navigate-tab",
+        tab: record.tab,
+        ...(isOneOf(NAVIGATE_TAB_SOURCES, record.via) ? { via: record.via } : {}),
+        atMs: record.atMs,
+      };
     case "set-tab-bar":
       // `visible`이 boolean이 아니면 통째로 버린다 — 기본값(보임)이 유지되는 편이 안전하다.
       // 여기서 truthy 판정으로 넘기면 오타 하나에 탭 바가 사라져 이동 수단이 없어진다.
@@ -134,6 +163,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
     case "request-camera-gate":
       return { type: "request-camera-gate", atMs: record.atMs };
+    case "auth-ready":
+      return { type: "auth-ready", atMs: record.atMs };
+    case "request-token-refresh":
+      return { type: "request-token-refresh", atMs: record.atMs };
     case "motion-sensor":
       // `enabled`가 boolean이 아니면 통째로 버린다 — 애매한 값으로 센서 구독을 잘못
       // 켜고 끄는 것보다 기존 상태를 유지하는 편이 안전하다.
@@ -141,9 +174,178 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+    case "meta-app-event":
+      return parseMetaAppEvent(record);
+    case "analytics-event":
+      return parseAnalyticsEvent(record);
+    case "analytics-user-properties":
+      return parseAnalyticsUserProperties(record);
     default:
       return null;
   }
+}
+
+/** 파라미터 객체에서 형식에 맞는 키·값만 `max`개까지 남긴다. 객체가 아니면 null. */
+function pickParams<V>(
+  bag: unknown,
+  keyPattern: RegExp,
+  isValue: (value: unknown) => value is V,
+  max: number,
+): Record<string, V> | null {
+  if (typeof bag !== "object" || bag === null) {
+    return null;
+  }
+  const params: Record<string, V> = {};
+  for (const [key, value] of Object.entries(bag)) {
+    if (Object.keys(params).length >= max) {
+      break;
+    }
+    if (keyPattern.test(key) && isValue(value)) {
+      params[key] = value;
+    }
+  }
+  return params;
+}
+
+/**
+ * 문자열 파라미터 값은 열거형 토큰만 받는다 — `room_type: "social"`, `method: "copied"` 같은 것.
+ * 계약(`MetaAppEventMessage` 주석)은 식별자·초대코드·자유 문자열 금지를 말로만 적어 뒀고, 그 규칙을
+ * 웹 쪽 관례로만 지키면 실수 한 번에 사용자 입력이 Meta 서버로 나간다. 닉네임·목표 문구 같은 자유
+ * 문자열은 공백·문장부호·한글을 달고 오므로 여기서 걸린다.
+ *
+ * ponytail: 짧은 ASCII 토큰이면 통과하므로 초대코드처럼 토큰꼴 식별자는 못 막는다. 키 화이트리스트를
+ * 두면 확실하지만 "전환 목록은 웹이 소유한다"는 설계를 깨므로, 그 교환이 필요해지면 그때 옮긴다.
+ */
+const META_PARAM_TOKEN_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
+function isMetaParamValue(value: unknown): value is MetaAppEventParamValue {
+  if (typeof value === "string") {
+    return META_PARAM_TOKEN_PATTERN.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * `meta-app-event`(웹 → Meta SDK 전환 이벤트)를 검증한다 — 이름이 Meta 형식에 어긋나면 통째로
+ * 버리고, 파라미터는 형식에 맞는 키·문자열/유한수 값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
+ * 전환 목록은 웹(`apps/web/src/lib/metaAppEvents.ts`)이 소유하고, 여기서 막으면 웹 배포만으로 전환을
+ * 바꿀 수 없게 된다. 형식 밖 값을 SDK에 그대로 넘기면 네이티브 예외로 이벤트가 통째로 사라진다.
+ */
+function parseMetaAppEvent(record: Record<string, unknown>): MetaAppEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !META_EVENT_NAME_PATTERN.test(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let params: Record<string, MetaAppEventParamValue> | undefined;
+  if (record.params !== undefined) {
+    const picked = pickParams(
+      record.params,
+      META_EVENT_NAME_PATTERN,
+      isMetaParamValue,
+      META_EVENT_MAX_PARAMS,
+    );
+    if (picked === null) {
+      return null;
+    }
+    params = picked;
+  }
+  const valueToSum =
+    typeof record.valueToSum === "number" && Number.isFinite(record.valueToSum)
+      ? record.valueToSum
+      : undefined;
+  return {
+    type: "meta-app-event",
+    name: record.name,
+    ...(params !== undefined ? { params } : {}),
+    ...(valueToSum !== undefined ? { valueToSum } : {}),
+    atMs: record.atMs,
+  };
+}
+
+/**
+ * 문자열은 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN`), 수는 유한수만. boolean은 웹이 이미 문자열로 접었다.
+ * 웹(`firebaseAnalyticsBridge.ts`)이 같은 규칙으로 걸러 보내지만, 웹 번들이 앱보다 앞설 수 있어 여기서도
+ * 거른다 — Meta 경로(`isMetaParamValue`)와 같은 이유로 자유 문자열이 Google 서버로 나가면 안 된다.
+ */
+function isAnalyticsParamValue(value: unknown): value is AnalyticsEventParamValue {
+  if (typeof value === "string") {
+    return ANALYTICS_PARAM_VALUE_PATTERN.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * `analytics-event`(웹 → Firebase Analytics)를 검증한다 — 이름이 Firebase 형식에 어긋나거나 예약 접두사면
+ * 통째로 버리고, 파라미터는 형식에 맞는 키·값만 25개까지 남긴다. 이름은 화이트리스트하지 않는다 —
+ * 이벤트 목록은 웹 Amplitude 카탈로그가 소유한다(`meta-app-event`와 같은 이유). 형식 밖 값을 SDK에 넘기면
+ * 네이티브 예외로 이벤트가 통째로 사라진다.
+ */
+function parseAnalyticsEvent(record: Record<string, unknown>): AnalyticsEventMessage | null {
+  if (
+    typeof record.name !== "string" ||
+    !ANALYTICS_NAME_PATTERN.test(record.name) ||
+    isReservedAnalyticsName(record.name) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  let params: Record<string, AnalyticsEventParamValue> | undefined;
+  if (record.params !== undefined) {
+    const picked = pickParams(
+      record.params,
+      ANALYTICS_NAME_PATTERN,
+      isAnalyticsParamValue,
+      ANALYTICS_EVENT_MAX_PARAMS,
+    );
+    if (picked === null) {
+      return null;
+    }
+    params = picked;
+  }
+  return {
+    type: "analytics-event",
+    name: record.name,
+    ...(params !== undefined ? { params } : {}),
+    atMs: record.atMs,
+  };
+}
+
+/** `null`은 속성을 지우라는 뜻(Firebase 계약). 문자열은 36자 이내 토큰만. */
+function isAnalyticsUserPropertyValue(value: unknown): value is string | null {
+  if (value === null) {
+    return true;
+  }
+  return (
+    typeof value === "string" &&
+    value.length <= ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH &&
+    ANALYTICS_PARAM_VALUE_PATTERN.test(value)
+  );
+}
+
+/**
+ * `analytics-user-properties`(웹 → Firebase 유저 속성)를 검증한다 — 키 24자·값 36자 이내 토큰(또는 지움을 뜻하는
+ * `null`)만 남기고, 남는 항목이 없으면 통째로 버린다(빈 갱신은 SDK 호출만 낭비한다). 키 화이트리스트는 웹이
+ * 소유한다(`FIREBASE_USER_PROPERTY_KEYS`) — 여기서 또 두면 웹 배포만으로 속성을 늘릴 수 없다.
+ */
+function parseAnalyticsUserProperties(
+  record: Record<string, unknown>,
+): AnalyticsUserPropertiesMessage | null {
+  if (typeof record.atMs !== "number") {
+    return null;
+  }
+  const properties = pickParams(
+    record.properties,
+    ANALYTICS_USER_PROPERTY_NAME_PATTERN,
+    isAnalyticsUserPropertyValue,
+    ANALYTICS_EVENT_MAX_PARAMS,
+  );
+  if (properties === null || Object.keys(properties).length === 0) {
+    return null;
+  }
+  return { type: "analytics-user-properties", properties, atMs: record.atMs };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

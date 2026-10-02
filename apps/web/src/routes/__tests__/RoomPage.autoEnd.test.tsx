@@ -208,7 +208,7 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
-    expect(screen.getByText(/서버에 저장되지 않았습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/저장되지 않았습니다/)).toBeInTheDocument();
   });
 
   it("일시정지 중 종료 다이얼로그를 열어 둔 채 임계값에 도달하면 다이얼로그가 사라지고 안내로 전환된다", async () => {

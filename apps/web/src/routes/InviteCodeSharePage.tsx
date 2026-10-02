@@ -1,14 +1,18 @@
 import { useMutation } from "@tanstack/react-query";
-import { X } from "lucide-react";
-import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Copy, Share, X } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import { Toast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
+import { CtaToaster } from "@/components/ui/sonner";
+import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
+import { trackMetaInviteShared } from "@/lib/metaAppEvents";
+import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
-import { parseUserId } from "@/lib/userId";
-import { useToast } from "@/lib/useToast";
+import { showCtaToast } from "@/lib/toast";
+import { useUserId } from "@/lib/userId";
 
 /**
  * 초대코드 공유
@@ -29,32 +33,32 @@ function isShareState(state: unknown): state is ShareState {
 }
 
 export function InviteCodeSharePage() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { message: toastMessage, showToast } = useToast();
 
-  const userId = parseUserId(searchParams.get("userId"));
+  const userId = useUserId();
   const state: unknown = location.state;
 
   const joinMutation = useMutation({
     mutationFn: (inviteCode: string) => enterLiveRoom(userId as number, inviteCode),
     onSuccess: (data, inviteCode) => {
-      navigate(
-        { pathname: `/social/room/${data.roomId}`, search: location.search },
-        {
-          state: {
-            inviteCode,
-            graceRejoin: data.graceRejoin,
-            iceServers: data.iceServers,
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: `/social/room/${data.roomId}`, search: location.search },
+          {
+            state: {
+              inviteCode,
+              graceRejoin: data.graceRejoin,
+              iceServers: data.iceServers,
+            },
           },
-        },
+        ),
       );
     },
     onError: (error) => {
       // 호스트의 자기 방 입장 실패(방 만료 등)도 같은 실패 축이다(BY-472).
       trackSocialRoomJoinFailed(joinErrorReason(error));
-      showToast(joinErrorMessage(error));
+      showCtaToast(joinErrorMessage(error));
     },
   });
 
@@ -65,92 +69,100 @@ export function InviteCodeSharePage() {
   return (
     <main
       data-testid="invite-code-share-page"
-      className="flex min-h-dvh flex-col bg-background pt-[env(safe-area-inset-top)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
     >
       <div className="flex h-[52px] items-center px-2">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           aria-label="닫기"
           onClick={() => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
             // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            navigate({ pathname: "/social", search: location.search }, { replace: true });
+            slideNavigate("back", () => {
+              const historyState = window.history.state as { idx?: number } | null;
+              if (historyState?.idx) {
+                navigate(-1);
+                return;
+              }
+              navigate({ pathname: "/social", search: location.search }, { replace: true });
+            });
           }}
-          className="flex size-11 items-center justify-center"
+          className="size-11 p-0"
         >
           <X size={22} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <p className="text-lg font-bold text-foreground">방이 만들어졌어요</p>
+        <h1 className="text-lg font-bold text-foreground">방이 만들어졌어요</h1>
         <div className="size-2" aria-hidden="true" />
-        <div className="flex h-24 w-full items-center justify-center rounded-[20px] bg-invite-surface">
-          <p className="text-[40px] font-bold tracking-[8px] text-invite-surface-text">
-            {state.inviteCode}
-          </p>
+        <div
+          role="group"
+          aria-label={`초대코드 ${state.inviteCode}`}
+          className="flex justify-center gap-2.5"
+        >
+          {state.inviteCode.split("").map((digit, index) => (
+            <div key={index} aria-hidden="true" className={CODE_CELL_CLASS}>
+              {digit}
+            </div>
+          ))}
         </div>
         <p className="text-sm leading-5 text-muted-foreground">
           모두가 나가면 방과 코드가 사라져요
         </p>
         <div className="size-4" aria-hidden="true" />
         <div className="flex gap-2.5">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            className="shadow-sb-card h-11 gap-1.5 rounded-full bg-muted px-5 text-foreground"
             onClick={() => {
               void copyInviteCode(state.inviteCode).then((copied) => {
                 // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
                 trackInviteShared(copied ? "copied" : "failed");
-                showToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
+                trackMetaInviteShared(copied ? "copied" : "failed");
+                showCtaToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-bg-layer-2 px-5 text-[15px] font-semibold text-foreground"
           >
+            <Copy size={18} aria-hidden="true" />
             코드 복사
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="subtle"
+            className="h-11 gap-1.5 rounded-full px-5"
             onClick={() => {
               void shareInvite(state.inviteCode).then((result) => {
                 trackInviteShared(result);
+                trackMetaInviteShared(result);
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.
                 if (result === "copied") {
-                  showToast("초대코드를 복사했어요");
+                  showCtaToast("초대코드를 복사했어요");
                 }
               });
             }}
-            className="flex h-12 items-center justify-center rounded-[14px] bg-share-tonal px-5 text-[15px] font-semibold text-share-tonal-text"
           >
+            <Share size={18} aria-hidden="true" />
             공유하기
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <div className="relative flex justify-center">
-          {toastMessage !== null && (
-            <Toast
-              message={toastMessage}
-              className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
-            />
-          )}
+          <CtaToaster />
         </div>
-        <button
-          type="button"
+        <Button
+          variant="default"
+          size="xl"
+          className="shadow-sb-cta w-full"
           disabled={userId === null || joinMutation.isPending}
           onClick={() => {
             joinMutation.mutate(state.inviteCode);
           }}
-          className="flex h-12 w-full items-center justify-center rounded-[14px] bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50"
         >
           입장하기
-        </button>
+        </Button>
       </div>
     </main>
   );

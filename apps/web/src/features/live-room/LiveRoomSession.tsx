@@ -17,10 +17,7 @@ import { useRoomStatePublisher } from "@/features/live-room/useRoomStatePublishe
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { createSystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
-import {
-  combineFocusDetectors,
-  createVisionFocusDetector,
-} from "@/features/study-session/adapters/focusDetector";
+import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
@@ -31,6 +28,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import {
   trackSocialRoomCameraOnDismissed,
@@ -50,6 +48,7 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 import type { CreateChannel } from "./liveRoomEntryState";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
+import { useRoomRejoin } from "./useRoomRejoin";
 import { useTapToggleControls } from "./useTapToggleControls";
 
 export const GRACE_END_SAVED_MESSAGE =
@@ -60,9 +59,19 @@ export const GRACE_END_PENDING_MESSAGE =
 export const GRACE_END_SUB_MINUTE_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요";
 
+// 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
+// GRACE_END와 같은 기준으로 가른다.
+export const ROOM_UNAVAILABLE_SAVED_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.";
+export const ROOM_UNAVAILABLE_PENDING_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.";
+export const ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE =
+  "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요";
+
 export function LiveRoomSession({
   roomId,
   userId,
+  inviteCode,
   createChannel,
   camera,
   createPeerConnection,
@@ -72,6 +81,7 @@ export function LiveRoomSession({
 }: {
   roomId: number;
   userId: number;
+  inviteCode: string;
   createChannel: CreateChannel;
   camera: CameraAdapter;
   createPeerConnection?: CreatePeerConnection;
@@ -97,10 +107,11 @@ export function LiveRoomSession({
   useSessionOrientationAnalytics("social");
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // 종료 다이얼로그의 포털 자리. `--session-dialog-*` 변수가 여기 주입돼 있어 body 로 나가면
+  // 색이 빠진다.
+  const sessionSurfaceRef = useRef<HTMLElement>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
-  const [visionDetector] = useState(() =>
-    createVisionFocusDetector({ video: () => videoRef.current }),
-  );
+  const { visionDetector } = useTrackedVisionDetector(videoRef, "social");
   const [sensorDetector] = useState(() =>
     combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
   );
@@ -125,17 +136,22 @@ export function LiveRoomSession({
     detector,
     systemPause,
     restored,
-    // 계측용(BY-472) — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
+    // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
   });
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
-  const [channel] = useState(() => createChannel({ roomId, userId }));
+  // 채널은 한 번만 생성되므로 나중에 정의되는 requestRejoin을 ref로 가리켜 순환을 끊는다 —
+  // 같은 ref를 ROOM_UNAVAILABLE 구독과 SNAPSHOT 미도착 콜백이 함께 쓴다.
+  const requestRejoinRef = useRef<() => void>(() => undefined);
+  const [channel] = useState(() =>
+    createChannel({ roomId, userId, onSnapshotUnrecovered: () => requestRejoinRef.current() }),
+  );
   // 카메라를 켜 둘 사용자 의도 — 토글이 즉시 바꾼다. pause/resume은 effect를 거쳐
   // 한 렌더 늦게 반영되므로, 발행값은 이 동기값과 실제 획득 상태로 계산한다.
-  // 유예 재입장을 포함해 **모든 입장은 카메라 꺼짐(일시정지)으로 시작한다** — 나가기 자체가
-  // 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다(BY-412).
+  // 유예 재입장을 포함해 모든 입장은 카메라 꺼짐(일시정지)으로 시작한다
+  // — 나가기 자체가 일시정지이므로 30초 안에 돌아와도 그 상태가 이어지는 것이 맞다.
   const [cameraWanted, setCameraWanted] = useState(false);
   const [members, dispatch] = useReducer(roomMembersReducer, [] as RoomMember[]);
   useEffect(() => channel.subscribe(dispatch), [channel]);
@@ -159,6 +175,31 @@ export function LiveRoomSession({
     onExpire: handleGraceExpire,
     systemPause,
   });
+
+  // 방에 다시 들어갈 수 없다는 신호(ROOM_UNAVAILABLE·SNAPSHOT 미도착)를 하나의 재호출로 모은다.
+  // 재호출도 실패하면(자리 회수 확정) 유예 만료와 같은 모양으로 측정분을 제출하고 안내한다.
+  const [roomUnavailable, setRoomUnavailable] = useState(false);
+  const handleRoomUnavailable = useCallback(() => {
+    setRoomUnavailable(true);
+    channel.disconnect();
+    void endAndSubmit(autoEndReason("BACKGROUND"));
+  }, [channel, endAndSubmit]);
+  const requestRejoin = useRoomRejoin({
+    channel,
+    inviteCode,
+    onUnavailable: handleRoomUnavailable,
+  });
+  requestRejoinRef.current = requestRejoin;
+  useEffect(
+    () =>
+      channel.subscribe((message) => {
+        // 개인 큐에 다른 방 신호가 섞여도 이 세션의 방일 때만 반응한다.
+        if (message.type === "ROOM_UNAVAILABLE" && message.roomId === roomId) {
+          requestRejoinRef.current();
+        }
+      }),
+    [channel, roomId],
+  );
 
   const debugEnabled = import.meta.env.DEV;
   const [debugLines, setDebugLines] = useState<string[]>([]);
@@ -216,7 +257,7 @@ export function LiveRoomSession({
   const paused = sessionState.kind === "PAUSE";
   const cameraOn = !paused && isCameraRunning;
 
-  // 내 타일 전용 상태 뱃지(BY-427) — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
+  // 내 타일 전용 상태 뱃지 — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
   // 카메라 끔 = 측정 일시정지 동치라 paused가 최우선이다.
   const selfState: SelfBadgeState = paused
     ? "PAUSED"
@@ -256,7 +297,7 @@ export function LiveRoomSession({
       }
     }
     // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 —
-    // 사유·재시도 규칙은 kickVideoPlayback 주석 참고(2026-08-26 실기기).
+    // 사유·재시도 규칙은 kickVideoPlayback 주석 참고.
     if (video) {
       kickVideoPlayback(video);
     }
@@ -282,8 +323,18 @@ export function LiveRoomSession({
     [focusSec],
   );
 
+  const roomUnavailableNotice = useCallback(
+    (submitted: boolean) =>
+      focusSec < SUB_MINUTE_SEC
+        ? ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE
+        : submitted
+          ? ROOM_UNAVAILABLE_SAVED_MESSAGE
+          : ROOM_UNAVAILABLE_PENDING_MESSAGE,
+    [focusSec],
+  );
+
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다. 백그라운드 자동 종료(유예 만료)는
-  // 제출이 실패해도 내보낸다 — 보관분이 다음 실행에서 재제출된다. 안내는 도착지(소셜
+  // 제출이 실패해도 내보낸다. 서버가 마지막 진행 스냅샷으로 세션을 확정한다. 안내는 도착지(소셜
   // 홈)가 띄우므로 sessionStorage 1회성 플래그로 넘긴다. 실패 이탈은 leaveRoom을
   // 부르지 않는다 — 유예가 끝났으면 서버가 이미 자리를 회수했다.
   useEffect(() => {
@@ -293,7 +344,7 @@ export function LiveRoomSession({
     // 숨어 있는 동안 공용 20분 감시자가 먼저 종료를 끝내면 만료 콜백이 오지 않는다 —
     // 이동 시점에 숨김 경과를 다시 물어 그 순서에서도 만료 취급이 빠지지 않게 한다.
     const expired = graceExpired || isExpiredNow();
-    // 퇴장 계측(BY-472) — leavingRef가 세션당 1회를 보장한다. 수동/자동 종료 구분은
+    // 퇴장 계측 — leavingRef가 세션당 1회를 보장한다. 수동/자동 종료 구분은
     // study_session_ended.end_reason(room_type=social)이 이미 가지므로 중복하지 않는다.
     const trackExit = () =>
       trackSocialRoomExited({
@@ -301,6 +352,19 @@ export function LiveRoomSession({
         exitReason: expired ? "grace_expired" : "session_end",
         durationSec: Math.round((Date.now() - enteredAtMsRef.current) / 1000),
       });
+    // 방 자체가 사라진 종료는 focusSec와 무관하게 결과 화면이 아니라 소셜 홈으로 보낸다.
+    // 자리가 이미 회수됐으므로 leaveRoom은 부르지 않는다.
+    if (roomUnavailable && (phase.name === "done" || phase.name === "error")) {
+      leavingRef.current = true;
+      const submitted = phase.name === "done";
+      markSocialRoomNotice({ kind: "grace-end", message: roomUnavailableNotice(submitted) });
+      trackExit();
+      navigate(
+        { pathname: "/social", search: location.search },
+        { replace: true, state: { noticeHandoff: true } },
+      );
+      return;
+    }
     if (phase.name === "done") {
       leavingRef.current = true;
       const nav = resolveLiveRoomDoneNavigation({
@@ -309,7 +373,7 @@ export function LiveRoomSession({
         focusSec,
         sessions: phase.sessions,
       });
-      void leaveRoom(roomId, userId).catch(() => undefined);
+      void leaveRoom(roomId).catch(() => undefined);
       if (nav.to === "result") {
         navigate(
           { pathname: `/social/room/${roomId}/result`, search: location.search },
@@ -318,7 +382,7 @@ export function LiveRoomSession({
         return;
       }
       if (expired) {
-        markSocialRoomNotice(graceEndNotice(true));
+        markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(true) });
       }
       trackExit();
       navigate(
@@ -329,7 +393,7 @@ export function LiveRoomSession({
     }
     if (phase.name === "error" && expired) {
       leavingRef.current = true;
-      markSocialRoomNotice(graceEndNotice(false));
+      markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(false) });
       trackExit();
       navigate(
         { pathname: "/social", search: location.search },
@@ -347,19 +411,21 @@ export function LiveRoomSession({
     navigate,
     phase,
     roomId,
+    roomUnavailable,
+    roomUnavailableNotice,
     userId,
   ]);
 
   const myVideo = (
-    // 셀프뷰 보정(BY-427 시안 A): brightness/saturate 필터는 이 <video>의 **로컬 렌더링에만**
-    // 적용된다 — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
+    // 셀프뷰 보정: brightness/saturate 필터는 이 <video>의 로컬 렌더링에만 적용된다
+    // — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
     <video
       ref={videoRef}
       data-testid="room-my-video"
       playsInline
       muted
       {...VIDEO_PLAYBACK_KICK_PROPS}
-      // cover 고정(2026-08-26 디스코드 참조 확정): 정사각 타일에서는 가로·세로 송신자
+      // cover 고정: 정사각 타일에서는 가로·세로 송신자
       // 모두 긴 축이 대칭(~44%)으로 잘려 방향 혼합의 프레이밍 차이가 온건하다 —
       // 방향별 제한 크롭·레터박스 실험(useAdaptiveVideoFit)은 이 결정으로 걷어냈다.
       className={cn(
@@ -380,11 +446,11 @@ export function LiveRoomSession({
 
   return (
     <main
+      ref={sessionSurfaceRef}
       data-testid="live-room-page"
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
-      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바(BY-435)를 잘라
-      // 문서 스크롤이 생기지 않게 한다.
+      // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바를 잘라 문서 스크롤이 생기지 않게 한다.
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
@@ -399,8 +465,9 @@ export function LiveRoomSession({
           lines={debugLines}
         />
       )}
-      {/* 다이얼로그가 열리면 배경 전체를 inert로 — 포커스가 뒤로 새지 않는다. */}
-      <div className="contents" inert={dialogOpen}>
+      {/* 다이얼로그의 포커스 트랩·바깥 차단은 Radix 가 스스로 한다. inert 를 겹치면 닫힐 때
+          포커스를 돌려줄 요소가 이미 inert 라 복귀가 실패한다. */}
+      <div className="contents">
         <RoomGrid
           grid={grid}
           allMembers={allMembers}
@@ -455,43 +522,45 @@ export function LiveRoomSession({
         </div>
       </div>
 
-      {cameraDialogOpen && (
-        <CameraOnConfirmDialog
-          preview={
-            <ClonedTrackPreview
-              stream={cameraStream}
-              facing={cameraFacing}
-              targetAspect={previewAspect ?? undefined}
-            />
-          }
-          onCancel={() => {
-            trackSocialRoomCameraOnDismissed();
-            setCameraDialogOpen(false);
-          }}
-          onConfirm={() => {
-            trackSocialRoomCameraToggled(true);
-            setCameraDialogOpen(false);
-            setCameraWanted(true);
-            resume();
-          }}
-        />
-      )}
-      {exitDialogOpen && (
-        <SessionConfirmDialog
-          title={EXIT_CONFIRM_COPY.title}
-          description={exitConfirmDescription(focusSec)}
-          cancelLabel={EXIT_CONFIRM_COPY.cancel}
-          confirmLabel={EXIT_CONFIRM_COPY.confirm}
-          onCancel={() => {
-            trackStudySessionExitCancelled("social");
-            setExitDialogOpen(false);
-          }}
-          onConfirm={() => {
-            setExitDialogOpen(false);
-            void endAndSubmit(MANUAL_END_REASON);
-          }}
-        />
-      )}
+      <CameraOnConfirmDialog
+        open={cameraDialogOpen}
+        preview={
+          <ClonedTrackPreview
+            stream={cameraStream}
+            facing={cameraFacing}
+            targetAspect={previewAspect ?? undefined}
+          />
+        }
+        onCancel={() => {
+          trackSocialRoomCameraOnDismissed();
+          setCameraDialogOpen(false);
+        }}
+        onConfirm={() => {
+          trackSocialRoomCameraToggled(true);
+          setCameraDialogOpen(false);
+          setCameraWanted(true);
+          resume();
+        }}
+      />
+      <SessionConfirmDialog
+        // 자동 종료 경로가 여럿이다(usePauseAutoEnd·유예 만료·ROOM_UNAVAILABLE). 그중 하나가
+        // exitDialogOpen 이 true 인 채 phase 를 studying 밖으로 옮기면, 여는 조건에 phase 를
+        // 걸지 않는 한 이미 끝난 세션 위에 종료 확인 다이얼로그가 남는다.
+        open={exitDialogOpen && phase.name === "studying"}
+        container={sessionSurfaceRef.current}
+        title={EXIT_CONFIRM_COPY.title}
+        description={exitConfirmDescription(focusSec)}
+        cancelLabel={EXIT_CONFIRM_COPY.cancel}
+        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        onCancel={() => {
+          trackStudySessionExitCancelled("social");
+          setExitDialogOpen(false);
+        }}
+        onConfirm={() => {
+          setExitDialogOpen(false);
+          void endAndSubmit(MANUAL_END_REASON);
+        }}
+      />
     </main>
   );
 }

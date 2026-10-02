@@ -61,14 +61,30 @@ function sanitizePlugin() {
   };
 }
 
+let idleCallbacks: IdleRequestCallback[] = [];
+
 beforeEach(() => {
   vi.resetModules();
+  idleCallbacks = [];
+  vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+    idleCallbacks.push(callback);
+    return idleCallbacks.length;
+  });
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
+
+/** 유휴 콜백을 돌리고 그 안의 동적 import가 끝날 때까지 기다린다. */
+async function runIdle() {
+  for (const callback of idleCallbacks.splice(0)) {
+    callback({ didTimeout: false, timeRemaining: () => 50 });
+  }
+  await vi.dynamicImportSettled();
+}
 
 describe("initAmplitude", () => {
   it("API 키가 없으면 아무것도 하지 않는다", async () => {
@@ -121,25 +137,37 @@ describe("initAmplitude", () => {
     expect(options.minIdLength).toBe(1);
   });
 
-  it("Session Replay를 카메라(video) 차단 설정으로 init 전에 등록한다", async () => {
+  it("리플레이 플러그인은 init 때 받지 않고 유휴 시간에 붙인다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude } = await loadModule();
 
     initAmplitude();
+    expect(mocks.init).toHaveBeenCalledTimes(1);
+    expect(mocks.sessionReplayPlugin).not.toHaveBeenCalled();
+
+    await runIdle();
+
+    const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
+    expect(names).toEqual([
+      "focusmakers-sanitize-url",
+      "engagement",
+      "focusmakers-firebase-analytics-forward",
+      "session-replay",
+    ]);
+  });
+
+  it("Session Replay는 카메라(video) 차단 설정 그대로 붙인다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+    await runIdle();
 
     // video 차단이 빠지면 세션 화면의 카메라 프리뷰가 리플레이에 실린다(개인정보 원칙).
     expect(mocks.sessionReplayPlugin).toHaveBeenCalledWith({
       sampleRate: 1,
       privacyConfig: { blockSelector: ["video", ".amp-block"] },
     });
-    const replayIndex = mocks.add.mock.calls.findIndex(
-      ([plugin]) => (plugin as { name?: string }).name === "session-replay",
-    );
-    expect(replayIndex).toBeGreaterThanOrEqual(0);
-    // init 이후 등록하면 세션 첫 구간이 리플레이에서 빠진다.
-    expect(mocks.add.mock.invocationCallOrder[replayIndex]).toBeLessThan(
-      mocks.init.mock.invocationCallOrder[0],
-    );
   });
 
   it("Guides & Surveys 플러그인을 정제 플러그인 뒤, init 전에 등록한다", async () => {
@@ -163,6 +191,36 @@ describe("initAmplitude", () => {
     expect(mocks.add.mock.invocationCallOrder[engagementIndex]).toBeLessThan(
       mocks.init.mock.invocationCallOrder[0],
     );
+  });
+
+  it("리플레이를 받지 못해도 init과 이벤트 수집은 그대로다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    vi.doMock("@amplitude/plugin-session-replay-browser", () => {
+      throw new Error("chunk load failed");
+    });
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const { initAmplitude, trackAmplitudePageView } = await loadModule();
+
+      initAmplitude();
+      await runIdle();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      trackAmplitudePageView("/home", "");
+
+      expect(mocks.init).toHaveBeenCalledTimes(1);
+      expect(mocks.track).toHaveBeenCalledTimes(1);
+      expect(unhandled).not.toHaveBeenCalled();
+      const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
+      expect(names).toEqual([
+        "focusmakers-sanitize-url",
+        "engagement",
+        "focusmakers-firebase-analytics-forward",
+      ]);
+    } finally {
+      process.off("unhandledRejection", unhandled);
+      vi.doUnmock("@amplitude/plugin-session-replay-browser");
+    }
   });
 });
 
@@ -452,6 +510,8 @@ describe("공부 세션 이벤트", () => {
       end_reason: "AUTO",
       pause_trigger: "BACKGROUND",
       will_submit: true,
+      ambient_sound_used: false,
+      ambient_sound_sec: 0,
     });
   });
 
@@ -774,14 +834,13 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     const m = await loadModule();
 
     m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
-    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "home-card" });
+    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "settings" });
     m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
     m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
     m.trackSettingsRowPressed("terms");
     m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
-    m.trackStudyResultConfirmed({ roomType: "single", via: "cta" });
-    m.trackStudyResultDistractionToggled({ status: "AWAY", expanded: true });
+    m.trackStudyResultConfirmed({ roomType: "single", via: "home" });
     m.trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
     m.trackErrorRetryPressed("home");
     m.trackErrorFallbackReloaded();
@@ -805,8 +864,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
-    m.trackStudyResultConfirmed({ roomType: "social", via: "close" });
-    m.trackStudyResultDistractionToggled({ status: "PHONE", expanded: false });
+    m.trackStudyResultConfirmed({ roomType: "social", via: "records" });
     m.trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
     m.trackErrorRetryPressed("live_room_entry");
     m.trackErrorFallbackReloaded();
@@ -826,8 +884,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ],
       ["profile_save_failed", { reason: "CONFLICT" }],
       ["profile_save_succeeded"],
-      ["study_result_confirmed", { room_type: "social", via: "close" }],
-      ["study_result_distraction_toggled", { status: "PHONE", expanded: false }],
+      ["study_result_confirmed", { room_type: "social", via: "records" }],
       ["session_notice_confirmed", { notice: "sub_minute", room_type: "single" }],
       ["error_retry_pressed", { screen: "live_room_entry" }],
       ["error_fallback_reloaded"],
@@ -866,6 +923,119 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
       ["session_simple_mode_toggled", { on: false }],
       ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
     ]);
+  });
+});
+
+describe("배경음 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(false);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("조합 변경·연동 토글을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "auto_start" });
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
+    m.trackAmbientSoundDuckToggled(true);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["ambient_sound_changed", { sounds: "white,rain", sound_count: 2, source: "auto_start" }],
+      ["ambient_sound_changed", { sounds: "", sound_count: 0, source: "dialog" }],
+      ["ambient_sound_duck_toggled", { enabled: true }],
+    ]);
+  });
+
+  it("세션 종료 이벤트에 배경음 사용 여부·시간을 싣고, 없으면 false/0 이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+    const base = {
+      roomType: "single" as const,
+      studySec: 100,
+      focusSec: 50,
+      pauseSec: 0,
+      distractionSec: 50,
+      endReason: "MANUAL" as const,
+      pauseTrigger: null,
+      willSubmit: true,
+    };
+
+    trackStudySessionEnded({ ...base, ambientSoundUsed: true, ambientSoundSec: 42 });
+    trackStudySessionEnded(base);
+
+    const payloads = mocks.track.mock.calls.map(
+      ([, payload]) => payload as Record<string, unknown>,
+    );
+    expect(payloads[0]).toMatchObject({ ambient_sound_used: true, ambient_sound_sec: 42 });
+    expect(payloads[1]).toMatchObject({ ambient_sound_used: false, ambient_sound_sec: 0 });
+  });
+});
+
+describe("Vision 검출기 준비 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackVisionDetectorReady({
+      loadMs: 2220,
+      roomType: "single",
+      runtime: "worker",
+      wasmCache: "hit",
+      modelCache: "hit",
+    });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("로딩→준비 시간·룸 종류·런타임·캐시 판정만 싣는다 — 카메라·검출 데이터와 식별자는 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackVisionDetectorReady({
+      loadMs: 8741,
+      roomType: "social",
+      runtime: "worker",
+      wasmCache: "miss",
+      modelCache: "unknown",
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith("vision_detector_ready", {
+      load_ms: 8741,
+      room_type: "social",
+      runtime: "worker",
+      wasm_cache: "miss",
+      model_cache: "unknown",
+    });
+  });
+});
+
+describe("Vision 런타임 폴백 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackVisionRuntimeFallback({ roomType: "single" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("룸 종류와 갈아탄 이유만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackVisionRuntimeFallback({ roomType: "social" });
+
+    expect(mocks.track).toHaveBeenCalledWith("vision_runtime_fallback", {
+      room_type: "social",
+      reason: "frame_capture",
+    });
   });
 });
 

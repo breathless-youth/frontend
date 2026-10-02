@@ -11,10 +11,6 @@ jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7
 const mockParams: { code?: string } = {};
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
-}));
-
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
   useIsFocused: () => true,
 }));
 
@@ -52,12 +48,12 @@ describe("SocialScreen", () => {
     delete mockParams.code;
   });
 
-  it("/social 경로 + 탭 공용 쿼리(userId·appVersion)로 조립한 URL을 로드한다", async () => {
+  it("/social 경로 + 탭 공용 쿼리(appVersion)로 조립한 URL을 로드한다", async () => {
     render(<SocialScreen />);
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
+      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1",
     });
   });
 
@@ -67,7 +63,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&code=5634",
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1&code=5634",
     });
   });
 
@@ -76,7 +72,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1",
+      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1",
     });
 
     mockParams.code = "5634";
@@ -84,7 +80,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?userId=7&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&code=5634",
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1&code=5634",
     });
   });
 });

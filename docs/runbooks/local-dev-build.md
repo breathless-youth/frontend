@@ -7,7 +7,7 @@
 > 아래에서 **환경 변수·Xcode/Android SDK·빌드 명령 절은 그대로 유효**하고, `sync-web`·web-dist
 > 복사·용량 확인 절은 해당 사항이 없다. 전면 개정은 BY-332 배포 파이프라인 확정 후에 한다.
 
-`apps/mobile`을 로컬에서 빌드해 시뮬레이터·에뮬레이터에 띄울 때 사용한다. **2026-07-28부터 Expo Go로는 앱이 돌지 않는다** — 로컬 HTTP 서버(`@dr.pogodin/react-native-static-server`)가 Expo Go에 없는 네이티브 모듈이라 Dev Build가 필요하다([ADR 0005](../adr/0005-bundled-web-assets-over-localhost-server.md), [설계 문서 §1](../superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md)).
+`apps/mobile`을 로컬에서 빌드해 시뮬레이터·에뮬레이터에 띄울 때 사용한다. **Expo Go로는 앱이 돌지 않는다** — 커스텀 엔트리(`index.ts`)가 정적 import하는 `@react-native-firebase/*`가 Expo Go에 없는 네이티브 모듈이라 Dev Build가 필요하다.
 
 EAS 클라우드 빌드는 별개다. **iOS 실기기** 빌드만 Apple Developer 계정이 필요하고, 시뮬레이터 빌드(로컬·EAS 둘 다)와 Android 빌드는 계정 없이 된다.
 
@@ -20,7 +20,7 @@ EAS 클라우드 빌드는 별개다. **iOS 실기기** 빌드만 Apple Develope
 | `LANG` · `LC_ALL` | `en_US.UTF-8`                                                    | `pod install`이 `Unicode Normalization not appropriate for ASCII-8BIT`로 즉사 (기본 로케일 `C`) |
 | `JAVA_HOME`       | `/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home` | Gradle이 `Unsupported class file major version 69`로 실패 — 기본 `java`가 **25**라 지원 밖이다  |
 | `ANDROID_HOME`    | `$HOME/Library/Android/sdk`                                      | Android 빌드가 SDK를 못 찾는다                                                                  |
-| `PATH`            | nvm의 node·`/usr/local/bin`·`platform-tools` 포함                | `pnpm`/`pod`/`cmake`/`adb`를 못 찾는다. CocoaPods를 gem으로 새로 깔려는 시도까지 간다           |
+| `PATH`            | nvm의 node·`/usr/local/bin`·`platform-tools` 포함                | `pnpm`/`pod`/`adb`를 못 찾는다. CocoaPods를 gem으로 새로 깔려는 시도까지 간다                   |
 
 ```bash
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
@@ -33,14 +33,11 @@ JDK는 17 또는 21이어야 한다(`/usr/libexec/java_home -V`로 목록 확인
 
 ## 전제
 
-| 도구      | 확인                                                               |
-| --------- | ------------------------------------------------------------------ |
-| Xcode     | `xcodebuild -version`                                              |
-| CocoaPods | `pod --version`                                                    |
-| CMake     | `which cmake` — lighttpd를 소스에서 빌드하므로 **반드시 필요하다** |
-| Android   | `adb devices` · `emulator -list-avds`                              |
-
-CMake가 Homebrew 경로에만 있으면 Xcode 빌드 스크립트가 못 찾는다. `patches/@dr.pogodin__react-native-static-server.patch`가 podspec에 `/opt/homebrew/bin`·`/usr/local/bin`을 넣어 그 문제를 덮는다 — 패치가 사라지면 CMake를 못 찾는 빌드 실패로 돌아온다.
+| 도구      | 확인                                  |
+| --------- | ------------------------------------- |
+| Xcode     | `xcodebuild -version`                 |
+| CocoaPods | `pod --version`                       |
+| Android   | `adb devices` · `emulator -list-avds` |
 
 ## 빌드 순서
 
@@ -62,7 +59,7 @@ xcrun simctl list devices available | grep iPhone
 LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pnpm exec expo run:ios --device "iPhone 15 Pro"
 ```
 
-첫 빌드는 lighttpd·pcre2를 소스에서 컴파일하므로 오래 걸린다. **네이티브 의존성이 바뀌지 않는 한 재빌드는 필요 없다** — 이후 JS 변경은 `pnpm --filter mobile start`로 붙는다.
+첫 빌드는 Pods와 네이티브 모듈을 전부 컴파일하므로 오래 걸린다. **네이티브 의존성이 바뀌지 않는 한 재빌드는 필요 없다** — 이후 JS 변경은 `pnpm --filter mobile start`로 붙는다.
 
 ### Android 에뮬레이터
 
@@ -75,7 +72,7 @@ pnpm --filter web build && pnpm --filter mobile sync-web
 cd apps/mobile && pnpm exec expo run:android
 ```
 
-첫 Android 빌드는 **NDK를 자동으로 내려받는다**(수백 MB). lighttpd를 네이티브로 컴파일하기 때문이며, 한 번만 발생한다. 라이브러리가 `-PreactNativeArchitectures` 필터를 따르지 않고 **4개 ABI 전부** 컴파일해서 첫 빌드가 약 35분 걸린다.
+첫 Android 빌드는 **NDK를 자동으로 내려받는다**(수백 MB). 한 번만 발생한다. 그 뒤 `-PreactNativeArchitectures=arm64-v8a` 빌드는 2분 안팎이다.
 
 #### ⚠️ Android prebuild 후에는 `app.json` diff를 확인한다
 
@@ -92,6 +89,42 @@ git diff apps/mobile/app.json   # prebuild 직후 항상 확인
 ```bash
 emulator -avd <AVD 이름> -camera-front webcam0
 ```
+
+## 실기기 Dev Client 빌드 (SDK 57)
+
+SDK 57의 최소 iOS는 16.4다. Xcode 27은 배포 타깃이 15.0 미만인 Pod을 거부하므로 로컬 빌드에서는 명령줄로 `IPHONEOS_DEPLOYMENT_TARGET=16.4`를 넘긴다. EAS 이미지는 이 덮어쓰기가 필요 없다.
+
+### iOS
+
+```bash
+cd apps/mobile
+APP_VARIANT=development CI=1 npx expo prebuild --platform ios --no-install
+cd ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
+xcodebuild -workspace FocusMakers.xcworkspace -scheme FocusMakers -configuration Debug \
+  -destination id=<UDID> -derivedDataPath <스크래치 경로> \
+  DEVELOPMENT_TEAM=<팀 ID> CODE_SIGN_STYLE=Automatic IPHONEOS_DEPLOYMENT_TARGET=16.4 \
+  -allowProvisioningUpdates build
+xcrun devicectl device install app --device <UDID> <빌드된 .app 경로>
+```
+
+- USB 연결과 잠금 해제가 필요하다.
+- 처음 실행할 때 로컬 네트워크 허용 팝업을 눌러야 Metro에 붙는다.
+- development 빌드에도 `GOOGLE_SERVICES_JSON`·`GOOGLE_SERVICES_PLIST`가 필요하고, 파일의 패키지 이름이 `.dev`와 맞아야 한다.
+
+### Android
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+cd apps/mobile
+APP_VARIANT=development CI=1 npx expo prebuild --platform android --no-install
+cd android && ./gradlew app:assembleDebug -PreactNativeArchitectures=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+- 예전 EAS DEV 앱과 서명 키가 다르면 덮어쓰기가 안 되고 `adb uninstall com.breathlessyouth.mobile.dev`가 필요하다.
+- `adb uninstall`은 앱 데이터를 지우니 먼저 확인받는다.
+- SDK를 올린 뒤에는 두 플랫폼 모두 새로 빌드한다(옛 바이너리로 열면 `Cannot find native module`이 난다).
 
 ## web-dist가 앱 안으로 들어가는 경로
 
@@ -124,20 +157,19 @@ du -sh apps/mobile/android/app/src/main/assets/web-dist   # apps/mobile/assets/w
 adb shell "run-as com.breathlessyouth.mobile du -sh files/web-dist"  # 세션 진입 후
 ```
 
-## 경로 공백 패치 두 개 (2026-07-28 이후로는 예방용)
+## 경로 공백 패치 (2026-07-28 이후로는 예방용)
 
-**상위 폴더가 `01_Breathless Youth` → `01_Breathless-Youth`로 바뀌어 공백이 사라졌으므로, 지금은 두 패치 모두 동작에 영향이 없다.** 아래는 왜 생겼는지와, 경로에 공백이 다시 생기면 무엇이 깨지는지의 기록이다.
+**상위 폴더가 `01_Breathless Youth` → `01_Breathless-Youth`로 바뀌어 공백이 사라졌으므로, 지금은 이 패치가 동작에 영향이 없다.** 아래는 왜 생겼는지와, 경로에 공백이 다시 생기면 무엇이 깨지는지의 기록이다.
 
-경로 변수를 인용하지 않는 pod 빌드 스크립트는 공백에서 그대로 쪼개진다. `patches/`의 두 패치가 이를 덮는다.
+경로 변수를 인용하지 않는 pod 빌드 스크립트는 공백에서 그대로 쪼개진다. `patches/`의 `expo-constants` 패치가 이를 덮는다.
 
-| 패치                                      | 무엇을 고치나                                              | 안 고치면                                                                     |
-| ----------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `@dr.pogodin__react-native-static-server` | `cmake`·`cmake --build`·`cp`의 경로 인용 (+ Homebrew PATH) | `CMake Error: The source directory "/Users/.../01_Breathless" does not exist` |
-| `expo-constants@18.0.13`                  | `bash -l -c "$PODS_TARGET_SRCROOT/..."`의 재인용           | `No such file or directory: /Users/.../01_Breathless`                         |
+| 패치                     | 무엇을 고치나                                    | 안 고치면                                             |
+| ------------------------ | ------------------------------------------------ | ----------------------------------------------------- |
+| `expo-constants@57.0.20` | `bash -l -c "$PODS_TARGET_SRCROOT/..."`의 재인용 | `No such file or directory: /Users/.../01_Breathless` |
 
-생성된 `ios/Pods/Pods.xcodeproj`의 shellScript 항목을 전부 훑어 확인한 결과, 경로 변수를 인용하지 않는 pod은 **이 둘뿐**이었다. 나머지(React Native, Hermes, ReactNativeDependencies 등)는 제대로 인용한다.
+생성된 `ios/Pods/Pods.xcodeproj`의 shellScript 항목을 전부 훑어 확인한 결과, 지금 남은 pod 중 경로 변수를 인용하지 않는 것은 **`expo-constants`뿐**이었다. 나머지(React Native, Hermes, ReactNativeDependencies 등)는 제대로 인용한다.
 
-`@dr.pogodin__react-native-static-server` 패치의 **Homebrew PATH 주입 부분은 공백과 무관하게 계속 필요하다** — Xcode 빌드 스크립트가 `cmake`를 못 찾는 문제를 덮는다. 반면 `expo-constants` 패치는 이제 순수하게 예방용이므로, Expo SDK 업그레이드에서 충돌하면 **그냥 떼도 된다.**
+`expo-constants` 패치는 순수하게 예방용이므로, Expo SDK 업그레이드에서 충돌하면 **그냥 떼도 된다.**
 
 ### ⚠️ 패치를 고친 뒤에는 `pod install`을 손으로 돌린다
 
@@ -154,7 +186,6 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
 | ------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------- |
 | `Unicode Normalization not appropriate for ASCII-8BIT` | 로케일이 `C`               | 위 `LANG` 절                                                                  |
 | `error: apps/web 빌드 산출물이 없습니다`               | `sync-web`을 안 돌림       | 빌드 순서 1단계                                                               |
-| CMake를 못 찾는 빌드 실패                              | podspec 패치 유실          | `pnpm install`로 패치 재적용 확인                                             |
 | 세션 화면이 "세션을 시작하지 못했어요"                 | 서버가 서빙 루트를 못 찾음 | 오류 메시지에 찍힌 경로를 확인 — `sync-web` 후 **재빌드**해야 번들에 반영된다 |
 
 **빌드 명령을 `| tail`로 파이프하지 말 것.** 종료 코드가 `tail`의 것으로 바뀌어 실패한 빌드가 성공처럼 보인다.

@@ -13,6 +13,8 @@ export default [
       // Emscripten이 뱉은 미니파이 글루 JS라 검사하면 규칙 위반만 수천 건 나온다.
       // apps/mobile이 assets/web-dist를 같은 이유로 제외한다.
       "public/mediapipe/**",
+      // 측정 도구의 빌드 산출물·인증서·결과(scripts/perf). 생성물이다.
+      ".perf/**",
     ],
   },
   js.configs.recommended,
@@ -25,6 +27,15 @@ export default [
       ecmaVersion: 2023,
       sourceType: "module",
       globals: globals.node,
+    },
+  },
+  {
+    // 측정 도구는 Node에서 돌지만 addInitScript·page.evaluate로 넘기는 함수는 브라우저에서 돈다.
+    files: ["scripts/perf/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: { ...globals.node, ...globals.browser },
     },
   },
   {

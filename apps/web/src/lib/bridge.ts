@@ -13,7 +13,7 @@ import type {
  * throw하면 브라우저에서 세션이 시작되지 않는다.
  *
  * 알 수 없는 메시지를 `null`로 흘려보내는 것도 같은 이유다.
- * 앱 버전이 웹보다 앞설 수 있고(번들 동봉이라 대체로 같이 가지만 하이브리드 갱신 여지가 있다),
+ * 원격 웹은 구버전 앱에도 곧바로 배포되므로 앱과 웹의 버전은 늘 어긋날 수 있고,
  * 모르는 메시지에 죽으면 세션 전체가 멈춘다.
  */
 
@@ -32,9 +32,20 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 export function postToNative(message: ToNativeMessage): void {
+  const bridge = nativeBridge();
+  if (bridge === null) {
+    // 브라우저 단독 모드 — 실제로 나가는 것이 없으니 성공 로그를 찍지 않는다.
+    return;
+  }
   try {
-    nativeBridge()?.postMessage(JSON.stringify(message));
-  } catch {
+    bridge.postMessage(JSON.stringify(message));
+    if (import.meta.env.DEV) {
+      console.warn("[webview-bridge] 네이티브로 보냄", message);
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn("[webview-bridge] 네이티브 전송 실패", message, error);
+    }
     /**
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
      * "네이티브가 없으면 아무것도 안 한다"는 명세대로 무시한다.
@@ -70,6 +81,9 @@ export function subscribeToNativeMessages(handler: (message: ToWebMessage) => vo
   target[NATIVE_MESSAGE_ENTRY] ??= (raw: string) => {
     const message = parseToWebMessage(raw);
     if (message === null) {
+      if (import.meta.env.DEV) {
+        console.warn("[webview-bridge] 파싱하지 못해 버린 메시지", raw);
+      }
       return;
     }
     // 복사본을 돌려 순회 중 해제가 일어나도 안전하게 한다.
@@ -150,12 +164,6 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "device-handling" && typeof record.active === "boolean") {
     return { type: "device-handling", active: record.active, atMs: record.atMs };
   }
-  if (record.type === "app-state" && (record.state === "active" || record.state === "background")) {
-    return { type: "app-state", state: record.state, atMs: record.atMs };
-  }
-  if (record.type === "ping" && typeof record.id === "number") {
-    return { type: "ping", id: record.id, atMs: record.atMs };
-  }
   if (record.type === "camera-permission" && typeof record.granted === "boolean") {
     return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
   }
@@ -167,6 +175,21 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "app-launched") {
     return { type: "app-launched", atMs: record.atMs };
+  }
+  if (record.type === "session-closed") {
+    return { type: "session-closed", atMs: record.atMs };
+  }
+  if (
+    record.type === "auth-token" &&
+    (typeof record.userId === "number" || record.userId === null) &&
+    (typeof record.accessToken === "string" || record.accessToken === null)
+  ) {
+    return {
+      type: "auth-token",
+      userId: record.userId,
+      accessToken: record.accessToken,
+      atMs: record.atMs,
+    };
   }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };

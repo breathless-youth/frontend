@@ -1,8 +1,25 @@
-import type { ActiveSessionSnapshotResponse, StatusEventPayload } from "@focusmakers/types";
+import type {
+  ActiveSessionSnapshotResponse,
+  StatusEventPayload,
+  StudyEventStatus,
+} from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { legacyQuery } from "@/lib/userId";
 
-const EVENT_STATUSES: ReadonlySet<string> = new Set(["PHONE", "DEVICE", "AWAY", "PAUSE"]);
+/**
+ * 명세의 전 멤버를 키로 요구한다. 새 status가 생겼는데 여기 없으면 컴파일 에러가 나야 한다.
+ * 그렇지 않으면 `isUsableEvent`가 그 이벤트를 모르는 값으로 보고 세션 복원을 통째로 포기한다.
+ */
+const KNOWN_EVENT_STATUSES = {
+  PHONE: true,
+  DEVICE: true,
+  AWAY: true,
+  SLEEP: true,
+  PAUSE: true,
+} as const satisfies Record<StudyEventStatus, true>;
+
+const EVENT_STATUSES: ReadonlySet<string> = new Set(Object.keys(KNOWN_EVENT_STATUSES));
 
 /**
  * 이벤트 한 건이 쓸 수 있는 값인지 본다.
@@ -43,7 +60,6 @@ const RESTORE_TIMEOUT_MS = 5_000;
  * 나머지 실패는 status를 가진 ApiError로 던져 호출부가 400·409와 일시 장애를 가른다.
  */
 export async function restoreActiveSession(
-  userId: number,
   timeoutMs: number = RESTORE_TIMEOUT_MS,
 ): Promise<RestoredSession | null> {
   const controller = new AbortController();
@@ -51,7 +67,8 @@ export async function restoreActiveSession(
     controller.abort();
   }, timeoutMs);
   try {
-    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active?userId=${userId}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active${legacyQuery("")}`, {
+      endpoint: "activeSessionRestore",
       method: "GET",
       signal: controller.signal,
     });

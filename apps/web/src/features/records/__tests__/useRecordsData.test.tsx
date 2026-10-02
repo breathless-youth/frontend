@@ -29,12 +29,15 @@ function statsResponse(studiedDatesInMonth: string[]): StudySessionListResponse 
     totalFocusSec: 0,
     longestFocusSec: 0,
     focusRate: 0,
-    totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+    totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
     studiedDatesInMonth,
   };
 }
 
 function createWrapper() {
+  // 이 파일이 쓰는 2026-07 고정 날짜는 dailyStatsQuery가 정착된 날짜로 판정해 쿼리 단위
+  // gcTime 30분을 실으므로, 그 키들에는 아래 gcTime 0이 덮여 이미 받은 날짜를 다시 눌러도
+  // 재조회가 나가지 않는다.
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -55,7 +58,7 @@ describe("useRecordsData — placeholder 가드(useRecordsData.ts의 !day.isPlac
   it("같은 달의 미캐시 날짜를 선택해도 이전 날짜 데이터가 새 날짜 아래 보이지 않는다 — pending 유지", async () => {
     const dots = ["2026-07-24", "2026-07-26"];
     let resolveSecond: ((value: StudySessionListResponse) => void) | undefined;
-    mockedStats.mockImplementation((_userId, date) => {
+    mockedStats.mockImplementation((date) => {
       if (date === "2026-07-26") {
         return Promise.resolve(statsResponse(dots));
       }

@@ -87,6 +87,7 @@ RNFB는 설정 파일로 네이티브에서 자동 초기화되므로 별도 ini
 - 어댑터는 Remote Config와 Messaging 둘로 나눈다. 테스트에서 서로 독립적으로 교체한다.
 - `aps-environment`는 `development`, 백그라운드 모드는 미추가.
 - `@react-native-firebase/analytics`는 remote-config의 peer로 설치되지만 `expo.autolinking.exclude`로 네이티브 링크를 막는다(prebuild 검증에서 발견). Analytics SDK를 넣지 않는다는 GA 결정과 같은 선상이다.
+  - **2026-09-29 갱신(BY-774): 이 결정을 뒤집었다.** FCM 콘솔의 오디언스·유저 속성 타겟팅이 Firebase Analytics 데이터만 보므로 analytics를 직접 의존성으로 링크한다(`lib/firebaseAnalytics.ts`·`lib/firebaseAnalyticsSdk.ts`, 웹 `lib/firebaseAnalyticsBridge.ts`). GA4 속성 하나에는 Firebase 프로젝트 하나만 연결되므로 dev·prod 프로젝트에 각각 속성을 붙이거나 앱 등록 구조를 바꿔야 한다.
 - Firebase 프로젝트 생성 시 Google Analytics와 Gemini는 dev·prod 모두 연결하지 않는다. 이번 범위(Remote Config 값 조회, FCM)에 필요 없고, GA4 속성은 Firebase 프로젝트와 1:1이라 운영 속성을 dev에 붙이면 오염 경로가 된다. Firebase A/B 테스트는 앱 스트림 이벤트로만 측정되어 웹뷰 중심인 이 앱에 맞지 않는다. 필요해지면 prod ↔ 운영 GA4, dev ↔ 별도 dev GA4로 짝을 맞춰 연결한다.
 
 ## 테스트

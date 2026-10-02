@@ -18,5 +18,9 @@ export function isLiveRoomState(state: unknown): state is LiveRoomLocationState 
   );
 }
 
-export type CreateChannel = (options: { roomId: number; userId: number }) => RoomChannel;
+export type CreateChannel = (options: {
+  roomId: number;
+  userId: number;
+  onSnapshotUnrecovered?: () => void;
+}) => RoomChannel;
 export type CreateCamera = () => CameraAdapter;

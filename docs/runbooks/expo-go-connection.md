@@ -1,5 +1,7 @@
 # Expo Go 연결 문제 런북
 
+> ⚠️ 이 앱은 더 이상 Expo Go로 뜨지 않는다. 커스텀 엔트리가 `@react-native-firebase/*`를 정적 import해 Expo Go에 없는 네이티브 모듈을 요구하기 때문이다. 실기기 검증은 Dev Client로 하고 절차는 [device-web-dev-server 런북](./device-web-dev-server.md)을 본다. 아래 내용은 Expo Go를 쓰던 시절의 기록이다.
+
 Expo Go에서 QR 코드를 읽은 뒤 `Could not connect to the server` 또는 타임아웃이 발생할 때 사용한다.
 
 ## 가장 빠른 복구: 터널 모드
@@ -30,7 +32,7 @@ pnpm --filter mobile exec expo start --tunnel --clear --port 8081
 
 ### 1. SDK 호환성 확인
 
-Expo Go 앱의 SDK와 프로젝트 SDK가 달라지면 연결 오류처럼 보일 수 있다. 현재 프로젝트는 Expo Go 54 계열과 맞추기 위해 SDK 54를 사용한다.
+Expo Go 앱의 SDK와 프로젝트 SDK가 달라지면 연결 오류처럼 보일 수 있다. Expo Go를 쓰던 때는 Expo Go 54 계열과 맞추려고 SDK 54를 썼고, 지금 프로젝트는 SDK 57이다.
 
 ```powershell
 pnpm --filter mobile list expo react react-native --depth 0
@@ -46,7 +48,7 @@ pnpm install
 
 ### 2. 실제 Expo manifest 확인
 
-Android Expo Go 요청과 같은 헤더로 manifest를 조회한다. `runtime`과 `sdk`가 `exposdk:54.0.0` 및 `54.0.0`이고, `projectRoot`가 `apps/mobile`이어야 한다.
+Android Expo Go 요청과 같은 헤더로 manifest를 조회한다. `runtime`과 `sdk`가 `exposdk:57.0.0` 및 `57.0.0`이고, `projectRoot`가 `apps/mobile`이어야 한다.
 
 ```powershell
 $expoManifestResponse = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8081' -Headers @{
@@ -63,7 +65,7 @@ $expoManifest.extra.expoGo.developer.projectRoot
 
 다음은 잘못된 실행 경로의 신호다.
 
-- `runtime=exposdk:57.0.0` 등 Expo Go와 다른 SDK가 나온다.
+- `runtime=exposdk:54.0.0` 등 프로젝트와 다른 SDK가 나온다.
 - `projectRoot`가 `apps/mobile`이 아니라 저장소 루트다.
 - `launchAsset.url`에 `expo/AppEntry.bundle`가 나온다. 정상 모바일 앱은 `expo-router/entry.bundle`이다.
 

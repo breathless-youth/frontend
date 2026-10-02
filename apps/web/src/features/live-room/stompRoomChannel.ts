@@ -3,6 +3,8 @@ import { Client } from "@stomp/stompjs";
 import type { RoomServerMessage, RoomSignalPublish, RoomStateUpdate } from "@focusmakers/types";
 
 import { API_BASE_URL } from "@/lib/api";
+import { getTokenSource } from "@/lib/auth/tokenSource";
+import { legacyUserId } from "@/lib/userId";
 
 import type { RoomChannel, RoomChannelStatus } from "./roomChannel";
 
@@ -22,6 +24,10 @@ export type StompClientConfig = {
 /** 테스트 주입용 최소 표면 — @stomp/stompjs의 Client가 구조적으로 만족한다. */
 export interface StompClientLike {
   onConnect: (() => void) | undefined;
+  /** 매 연결 시도 직전에 불린다. async를 지원하고, 안에서 deactivate하면 시도가 취소된다. */
+  beforeConnect: (() => void | Promise<void>) | undefined;
+  /** CONNECT 프레임의 네이티브 헤더. 정적 객체라 재연결마다 beforeConnect가 갈아 끼운다. */
+  connectHeaders: Record<string, string>;
   activate(): void;
   deactivate(): Promise<void> | void;
   subscribe(destination: string, callback: (frame: { body: string }) => void): unknown;
@@ -30,9 +36,10 @@ export interface StompClientLike {
 
 type StompRoomChannelOptions = {
   roomId: number;
-  userId: number;
   /** 테스트 전용 주입점 — 프로덕션은 기본값(실제 Client)을 쓴다. */
   createClient?: (config: StompClientConfig) => StompClientLike;
+  // 강제 재연결로도 SNAPSHOT을 못 살린 지점 — 드라우트당 1회. 상위가 join을 재호출한다.
+  onSnapshotUnrecovered?: () => void;
 };
 
 function defaultCreateClient(config: StompClientConfig): StompClientLike {
@@ -53,7 +60,8 @@ function isRoomMember(value: unknown): boolean {
     isFocusState(member.focusState) &&
     (member.nickname === undefined || typeof member.nickname === "string") &&
     (member.goal === undefined || member.goal === null || typeof member.goal === "string") &&
-    (member.focusSec === undefined || typeof member.focusSec === "number")
+    (member.focusSec === undefined || typeof member.focusSec === "number") &&
+    (member.disconnected === undefined || typeof member.disconnected === "boolean")
   );
 }
 
@@ -79,6 +87,8 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
       return typeof message.userId === "number" && isFocusState(message.focusState);
     case "STUDY_TIME":
       return typeof message.userId === "number" && typeof message.focusSec === "number";
+    case "ROOM_UNAVAILABLE":
+      return typeof message.roomId === "number";
     case "SIGNAL":
       return (
         typeof message.fromUserId === "number" &&
@@ -92,15 +102,17 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
 
 export function createStompRoomChannel({
   roomId,
-  userId,
   createClient = defaultCreateClient,
+  onSnapshotUnrecovered,
 }: StompRoomChannelOptions): RoomChannel {
   let status: RoomChannelStatus = "idle";
   const listeners = new Set<(message: RoomServerMessage) => void>();
 
   const wsBase = (API_BASE_URL || window.location.origin).replace(/^http/, "ws");
+  // 토큰 없는 문서(구 앱)의 신원은 문서 수명 동안 바뀌지 않으므로 생성 시 한 번만 읽는다.
+  const legacy = legacyUserId();
   const client = createClient({
-    brokerURL: `${wsBase}/ws?userId=${userId}`,
+    brokerURL: `${wsBase}/ws${legacy === null ? "" : `?userId=${legacy}`}`,
     reconnectDelay: 5000,
   });
 
@@ -120,6 +132,7 @@ export function createStompRoomChannel({
       snapshotReceived = true;
       // 배달이 정상임이 증명됐으니 연결 교체 예산을 되채운다 — 다음 유실도 같은 강도로 싸운다.
       snapshotForcedReconnectsLeft = SNAPSHOT_FORCED_RECONNECTS;
+      snapshotUnrecoveredNotified = false;
       clearSnapshotWatchdog();
     }
     for (const listener of listeners) {
@@ -153,11 +166,24 @@ export function createStompRoomChannel({
   let snapshotRetryIndex = 0;
   let snapshotRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let snapshotForcedReconnectsLeft = SNAPSHOT_FORCED_RECONNECTS;
+  // 드라우트당 1회 가드 — SNAPSHOT이 실제로 도착해야 리셋한다. 재연결(onConnect)에서는
+  // 리셋하지 않는다: 재연결만 반복되고 SNAPSHOT은 계속 안 오는 상황에서 매번 재호출하면
+  // "1회 재호출" 정책이 깨진다.
+  let snapshotUnrecoveredNotified = false;
 
   function clearSnapshotWatchdog() {
     if (snapshotRetryTimer !== null) {
       clearTimeout(snapshotRetryTimer);
       snapshotRetryTimer = null;
+    }
+  }
+
+  function publishSnapshotRequest() {
+    // 죽은 소켓 구간에서 버퍼링하지 않는다 — 실패는 버리고 다음 정규 요청이 대체한다.
+    try {
+      client.publish({ destination: `/app/room/${roomId}/snapshot`, body: "" });
+    } catch {
+      // 죽은 소켓 — 무시한다.
     }
   }
 
@@ -167,11 +193,7 @@ export function createStompRoomChannel({
     // stompjs 자동 재연결의 flush에서 유령 요청 최대 5개가 한꺼번에 나간다(크로스리뷰 M2).
     // 스냅샷 요청은 연결마다 새로 만드는 값이라 실패는 그냥 버린다 — 재연결 onConnect가
     // 어차피 새 요청을 시작한다.
-    try {
-      client.publish({ destination: `/app/room/${roomId}/snapshot`, body: "" });
-    } catch {
-      // 죽은 소켓 구간 — 다음 연결의 정규 요청이 대체한다.
-    }
+    publishSnapshotRequest();
     let delay = SNAPSHOT_RETRY_DELAYS_MS[snapshotRetryIndex];
     if (delay !== undefined) {
       snapshotRetryIndex += 1;
@@ -187,6 +209,10 @@ export function createStompRoomChannel({
       });
       return;
     } else {
+      if (!snapshotUnrecoveredNotified) {
+        snapshotUnrecoveredNotified = true;
+        onSnapshotUnrecovered?.();
+      }
       delay = SNAPSHOT_SLOW_RETRY_MS;
     }
     snapshotRetryTimer = setTimeout(() => {
@@ -213,6 +239,40 @@ export function createStompRoomChannel({
       pendingFrames.push(frame);
     }
   }
+
+  /**
+   * 핸드셰이크(GET /ws)는 인증 없이 열려 있다. 토큰 출처가 있는 문서는 신원을 CONNECT 프레임의
+   * `Authorization: Bearer <access>` 네이티브 헤더로 전달하고, 서버는 CONNECT 시점에 한 번만
+   * 검증한다(접속 중 만료돼도 그 세션은 유지된다). 헤더가 없거나 무효면 ERROR 프레임 뒤
+   * 소켓이 끊긴다. 토큰 출처가 없고 URL에 userId가 있는 문서(구 앱)는 핸드셰이크 쿼리
+   * `/ws?userId=`로 신원을 전하고 헤더 없이 붙는다. connectHeaders는 정적 객체라 재연결마다
+   * 여기서 갈아 끼운다.
+   *
+   * 붙기 직전에 토큰을 새로 받아 쓴다. 웹은 JWT를 열어보지 않아 만료를 알 수 없고, 만료된
+   * 토큰으로 붙으면 서버가 끊은 뒤 reconnectDelay가 5초마다 같은 실패를 반복한다. 갱신이
+   * 실패하면 갖고 있던 토큰으로라도 붙어 본다. 서버가 잠깐 흔들린 것을 인증 실패로 보고
+   * 방 연결을 포기하면 안 된다.
+   */
+  client.beforeConnect = async () => {
+    const source = getTokenSource();
+    // 토큰 없는 문서(구 앱)는 핸드셰이크 쿼리의 userId로 신원을 전한다. 헤더 없이 붙는다.
+    if (source === null && legacy !== null) {
+      client.connectHeaders = {};
+      return;
+    }
+    // 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
+    const token =
+      source === null ? null : ((await source.refresh()) ?? (await source.getAccessToken()));
+    if (token === null) {
+      // 토큰 없이 붙어 봐야 서버가 끊고, reconnectDelay가 5초마다 영원히 다시 시도한다.
+      // disconnect와 같은 종료 상태로 내려 워치독·재연결의 되살리기 경로를 전부 막는다.
+      status = "closed";
+      clearSnapshotWatchdog();
+      void client.deactivate();
+      return;
+    }
+    client.connectHeaders = { Authorization: `Bearer ${token}` };
+  };
 
   client.onConnect = () => {
     status = "open";
@@ -250,6 +310,12 @@ export function createStompRoomChannel({
       // 워치독의 강제 교체와 같은 패턴 — 소켓이 조용히 죽은 상태(배경 복귀)에서는
       // stompjs 자동 재연결(끊김 감지 후 5초)을 기다리는 것보다 즉시 가는 편이 빠르고,
       // 새 세션이 개인 큐 등록·스냅샷 동기화를 처음부터 다시 만든다.
+      // 외부 트리거(자리 재호출·배경 복귀)의 재연결은 전체 escalation 사다리를 새로 탄다 —
+      // 재무장하지 않으면, 앞 드라우트에서 예산이 소진되고 알림 가드가 걸린 뒤 SNAPSHOT이
+      // 끝내 안 오면 onSnapshotUnrecovered가 다시 안 불려 종료 경로가 영영 닫힌다. 내부 강제
+      // 재연결은 client.deactivate()를 직접 부르므로 이 초기화를 타지 않아 예산이 정상 소진된다.
+      snapshotForcedReconnectsLeft = SNAPSHOT_FORCED_RECONNECTS;
+      snapshotUnrecoveredNotified = false;
       clearSnapshotWatchdog();
       void Promise.resolve(client.deactivate()).then(() => {
         if (status !== "closed") {
@@ -262,6 +328,9 @@ export function createStompRoomChannel({
       return () => {
         listeners.delete(listener);
       };
+    },
+    requestSnapshot() {
+      publishSnapshotRequest();
     },
     publishState(message: RoomStateUpdate) {
       send({ destination: `/app/room/${roomId}/state`, body: JSON.stringify(message) });

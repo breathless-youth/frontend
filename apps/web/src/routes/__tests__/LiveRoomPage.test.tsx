@@ -128,6 +128,7 @@ function renderRoom({
   const channel = createMockRoomChannel(scenario);
   const pcs: FakePc[] = [];
   const pcConfigs: RTCConfiguration[] = [];
+  let onSnapshotUnrecovered: (() => void) | undefined;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
@@ -137,7 +138,10 @@ function renderRoom({
             path="/social/room/:roomId"
             element={
               <LiveRoomPage
-                createChannel={() => channel}
+                createChannel={(options) => {
+                  onSnapshotUnrecovered = options.onSnapshotUnrecovered;
+                  return channel;
+                }}
                 createCamera={createCamera ?? (() => camera)}
                 createPeerConnection={(config) => {
                   pcConfigs.push(config);
@@ -157,7 +161,7 @@ function renderRoom({
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { channel, pcs, pcConfigs };
+  return { channel, pcs, pcConfigs, getOnSnapshotUnrecovered: () => onSnapshotUnrecovered };
 }
 
 /**
@@ -254,7 +258,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(channel.status).toBe("open");
   });
 
@@ -362,7 +366,7 @@ describe("LiveRoomPage — 입장", () => {
 
     await enterRoom();
 
-    expect(mockedRenewSeat).toHaveBeenCalledWith(7, "0712");
+    expect(mockedRenewSeat).toHaveBeenCalledWith("0712");
     expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
   });
 
@@ -380,7 +384,7 @@ describe("LiveRoomPage — 입장", () => {
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe("방이 만료되었어요");
+    expect(consumeSocialRoomNotice()).toEqual({ kind: "failure", message: "방이 만료되었어요" });
   });
 
   it("소멸 10분이 지나 INVITE_CODE_NOT_FOUND로 바뀌어도 같은 안내로 내보낸다", async () => {
@@ -388,7 +392,7 @@ describe("LiveRoomPage — 입장", () => {
     renderRoom();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe("방이 만료되었어요");
+    expect(consumeSocialRoomNotice()).toEqual({ kind: "failure", message: "방이 만료되었어요" });
   });
 
   it("5xx는 내보내지 않는다 — 방이 살아 있는데 쫓아내면 측정이 날아간다", async () => {
@@ -902,7 +906,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
     await waitFor(() => {
-      expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+      expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
     });
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
   });
@@ -942,7 +946,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
       await waitFor(() => {
-        expect(mockedLeaveRoom).toHaveBeenCalledWith(42, 7);
+        expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
       });
       expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
     } finally {
@@ -974,6 +978,53 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
 
     expect(await screen.findByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(mockedLeaveRoom).not.toHaveBeenCalled();
+  });
+});
+
+describe("LiveRoomPage — ROOM_UNAVAILABLE (BY-668)", () => {
+  it("ROOM_UNAVAILABLE을 받으면 join을 재호출한다", async () => {
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
+  });
+
+  it("재-join이 실패하면 공부를 마치고 안내와 함께 소셜 홈으로 보낸다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+    const notice = consumeSocialRoomNotice();
+    expect(notice?.kind).toBe("grace-end");
+    expect(notice?.message).toContain("방");
+  });
+
+  it("다른 방의 ROOM_UNAVAILABLE은 무시한다", async () => {
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 99 }));
+    await act(async () => {});
+
+    expect(mockedRenewSeat).not.toHaveBeenCalled();
+  });
+
+  it("SNAPSHOT 미도착 escalation(onSnapshotUnrecovered)도 join을 재호출한다", async () => {
+    const { getOnSnapshotUnrecovered } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    mockedRenewSeat.mockClear();
+
+    act(() => getOnSnapshotUnrecovered()?.());
+
+    await waitFor(() => expect(mockedRenewSeat).toHaveBeenCalledWith("0712"));
   });
 });
 
@@ -1607,9 +1658,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     // 제출 시점에 채널이 이미 끊겨 있어야 한다 — 자동 재연결이 서버 상태를 건드리는 경쟁 차단.
     expect(channelStatusAtSubmit).toBe("closed");
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
+    });
   });
 
   it("제출이 실패해도 실패 안내를 남기고 소셜 홈으로 이동한다", async () => {
@@ -1620,9 +1672,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await expireGraceAndReturn();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
+    });
   });
 
   it("순공 1분 미만이면 제출 성패와 무관하게 미달 안내로 갈린다", async () => {
@@ -1635,9 +1688,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(vi.mocked(submitStudySession)).toHaveBeenCalledTimes(1);
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    });
   });
 
   it("순공 1분 미만 + 제출 실패도 같은 미달 안내로 소셜 홈에 간다", async () => {
@@ -1648,9 +1702,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await expireGraceAndReturn();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    });
   });
 
   it("카메라를 끈 채(수동 일시정지) 20분 넘게 숨어도 안내를 남기고 소셜 홈으로 이동한다", async () => {
@@ -1672,9 +1727,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    });
   });
 
   it("숨어 있는 동안 20분 감시자가 먼저 종료를 끝내도(제출 성공) 안내가 남는다", async () => {
@@ -1695,9 +1751,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    });
   });
 
   it("숨어 있는 동안 20분 감시자의 제출이 실패해도 복귀하면 안내를 남기고 이동한다", async () => {
@@ -1716,9 +1773,10 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(consumeSocialRoomNotice()).toBe(
-      "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
-    );
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    });
   });
 
   it("유예 안(30초 미만) 복귀는 종료하지 않는다 — 일시정지 유지", async () => {

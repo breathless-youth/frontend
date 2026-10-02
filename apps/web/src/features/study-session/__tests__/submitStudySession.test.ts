@@ -16,7 +16,6 @@ describe("buildSessionRequest", () => {
   it("epoch ms를 UTC ISO-8601로 변환하고 events 기본값은 빈 배열이다", () => {
     const req = buildSessionRequest(BASE_INPUT);
     expect(req).toEqual({
-      userId: 1,
       startedAt: "2026-07-25T01:00:00.000Z",
       endedAt: "2026-07-25T02:00:00.000Z",
       studySec: 3600,
@@ -91,7 +90,6 @@ describe("buildSessionRequest", () => {
     // 세션 100,900ms · PAUSE 10,400ms → computeSessionTotals가 내는 값은 floor(90,500/1000)=90.
     const startedAtMs = Date.UTC(2026, 6, 25, 1, 0, 0);
     const req = buildSessionRequest({
-      userId: 1,
       startedAtMs,
       endedAtMs: startedAtMs + 100_900,
       studySec: 90,
@@ -145,11 +143,9 @@ describe("submitStudySession", () => {
     expect(result).toEqual(sessions);
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions$/);
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
-      userId: 1,
-      studySec: 3600,
-      events: [],
-    });
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toMatchObject({ studySec: 3600, events: [] });
+    expect(body).not.toHaveProperty("userId");
   });
 
   it("400이면 서버 message로 throw한다", async () => {
@@ -194,5 +190,28 @@ describe("submitStudySession", () => {
     );
 
     await expect(submitStudySession(BASE_INPUT)).rejects.toThrow("세션 제출 실패 (HTTP 500)");
+  });
+
+  it("토큰 출처 없이 URL에 userId가 있으면 본문에 userId를 싣는다(구 앱)", async () => {
+    window.history.replaceState(null, "", "/room/1?userId=7");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await submitStudySession(BASE_INPUT);
+      const [, init] = fetchMock.mock.calls[0]!;
+      const body = JSON.parse(init.body as string) as {
+        userId?: number;
+        startedAt: string;
+      };
+      expect(body.userId).toBe(7);
+      expect(body.startedAt).toBe("2026-07-25T01:00:00.000Z");
+      expect(new Headers(init.headers).has("Authorization")).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
   });
 });
