@@ -34,7 +34,7 @@
 | `react-native-svg` | `15.12.1` | `15.15.4` | |
 | `@sentry/react-native` | `~7.2.0` | `~7.11.0` | `@sentry/react-native/expo`·`/metro` 진입점이 살아 있는지 확인 |
 | `@expo/metro-runtime` | `~6.1.2` | `~57.0.16` | |
-| `expo-blur` `expo-camera` `expo-font` `expo-constants` `expo-dev-client` `expo-splash-screen` `expo-build-properties` `expo-secure-store` `expo-sensors` `expo-linking` `expo-application` `expo-crypto` `expo-status-bar` `expo-tracking-transparency` `expo-screen-orientation` | 각 54 계열 | `~57.x` | 정확한 번호는 `expo install --fix`가 정한다 |
+| `expo-camera` `expo-font` `expo-constants` `expo-dev-client` `expo-splash-screen` `expo-build-properties` `expo-secure-store` `expo-sensors` `expo-linking` `expo-application` `expo-crypto` `expo-status-bar` `expo-tracking-transparency` `expo-screen-orientation` | 각 54 계열 | `~57.x` | 정확한 번호는 `expo install --fix`가 정한다 |
 | `expo-haptics` | 없음 | `~57.x` | PR #179(BY-697)가 dev에 들어온 뒤에만 생긴다 |
 | `jest-expo` | `~54.0.17` | `~57.0.5` | BY-805 범위지만 `--fix`가 함께 올린다 |
 | `babel-preset-expo`, `eslint-config-expo` | `~54.0.12`, `~10.0.0` | `--fix` 결과 | 목표 번호는 확인하지 못했다 |

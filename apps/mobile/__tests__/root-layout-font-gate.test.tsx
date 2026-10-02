@@ -141,7 +141,8 @@ describe("RootLayout 폰트 로드 게이팅", () => {
   });
 
   // tailwind의 font-sans·font-sans-bold는 패밀리 이름으로만 폰트를 찾는다. 등록 키와 이름이
-  // 어긋나면 오류 없이 시스템 폰트로 그려지므로, 두 쪽이 같은 이름을 쓰는지 여기서 맞춰 본다.
+  // 어긋나면 오류 없이 시스템 폰트로 그려지므로, tailwind가 쓰는 이름이 전부 등록됐는지 여기서 맞춰 본다.
+  // 네이티브 탭 바 라벨처럼 tailwind 밖에서만 쓰는 굵기는 더 등록돼 있어도 된다.
   it("tailwind가 쓰는 폰트 패밀리 이름으로 폰트를 등록한다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
 
@@ -155,7 +156,7 @@ describe("RootLayout 폰트 로드 게이팅", () => {
     const families = Object.values(tailwindConfig.theme.extend.fontFamily).flat();
     const fontMap = mockUseFonts.mock.calls[0]?.[0] as Record<string, unknown>;
 
-    expect(Object.keys(fontMap).sort()).toEqual([...families].sort());
+    expect(Object.keys(fontMap)).toEqual(expect.arrayContaining(families));
   });
 
   it("성공([true, undefined])하면 앱 콘텐츠를 그리고 스플래시를 걷는다", async () => {

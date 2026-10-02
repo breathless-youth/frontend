@@ -1,14 +1,17 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { __resetModalOverlayForTests, COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import {
+  __resetNativeTabBarForTests,
+  hasNativeTabBar,
   isFullScreenPath,
   isNativeCoveredPath,
   toastBottomOffset,
+  useNativeTabBarClass,
   useNativeTabBarSync,
 } from "@/lib/nativeTabBar";
 import {
@@ -92,6 +95,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
   __resetModalOverlayForTests();
+  __resetNativeTabBarForTests();
   document.body.innerHTML = "";
 });
 
@@ -233,6 +237,23 @@ describe("useNativeTabBarSync", () => {
     sheet.remove();
     await waitFor(() => {
       expect(sentTabBarMessages(postMessage).at(-1)).toEqual({ visible: true });
+    });
+  });
+
+  it("시스템 탭 바에서도 바텀시트는 숨긴다 (시트 뒤에 바가 남지 않게)", async () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+    });
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt("/home");
+    postMessage.mockClear();
+
+    openBottomSheet();
+
+    await waitFor(() => {
+      expect(sentTabBarMessages(postMessage)).toEqual([{ visible: false }]);
     });
   });
 
@@ -480,5 +501,64 @@ describe("toastBottomOffset", () => {
 
   it("브라우저 단독 모드는 탭 바가 없어 안전영역 위로 띄운다", () => {
     expect(toastBottomOffset("/settings", false)).toBe(SAFE);
+  });
+});
+
+describe("hasNativeTabBar", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("nativeTabBar=1 쿼리가 있으면 시스템 탭 바다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    expect(hasNativeTabBar()).toBe(true);
+  });
+
+  it("표시가 없으면 플로팅 바다 — 구버전 앱·Android·브라우저", () => {
+    window.history.replaceState(null, "", "/home");
+    expect(hasNativeTabBar()).toBe(false);
+  });
+
+  it("앱 안에서 이동해 쿼리가 사라져도 첫 판정이 유지된다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    expect(hasNativeTabBar()).toBe(true);
+    window.history.replaceState(null, "", "/records");
+    expect(hasNativeTabBar()).toBe(true);
+  });
+});
+
+describe("useNativeTabBarClass", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    document.documentElement.classList.remove("native-tab-bar");
+  });
+
+  it("시스템 탭 바면 문서 루트에 클래스를 건다 — index.css가 하단 여백 공식을 바꾼다", () => {
+    window.history.replaceState(null, "", "/home?nativeTabBar=1");
+    function Harness() {
+      useNativeTabBarClass();
+      return null;
+    }
+    render(<Harness />);
+    expect(document.documentElement.classList.contains("native-tab-bar")).toBe(true);
+  });
+
+  it("플로팅 바면 걸지 않는다", () => {
+    function Harness() {
+      useNativeTabBarClass();
+      return null;
+    }
+    render(<Harness />);
+    expect(document.documentElement.classList.contains("native-tab-bar")).toBe(false);
+  });
+});
+
+describe("toastBottomOffset — 시스템 탭 바", () => {
+  it("탭 라우트여도 안전 영역 식을 돌려준다 — 안전 영역에 바 높이가 이미 들어 있다", () => {
+    expect(toastBottomOffset("/home", true, true)).toBe("calc(env(safe-area-inset-bottom) + 16px)");
+  });
+
+  it("플로팅 바는 지금처럼 예약 변수를 쓴다", () => {
+    expect(toastBottomOffset("/home", true, false)).toBe("var(--tab-bar-reserve)");
   });
 });

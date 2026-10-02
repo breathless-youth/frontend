@@ -13,7 +13,6 @@
     "@sentry/react-native": "~7.11.0",
     "expo": "~57.0.26",
     "expo-application": "~57.0.3",
-    "expo-blur": "~57.0.3",
     "expo-build-properties": "~57.0.22",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.20",

@@ -8,9 +8,9 @@ type IconProps = SvgProps & {
   size?: number;
 };
 
-// V2 시안(Figma "Nav / Glass Tab Bar" 5325:3730) 아웃라인 아이콘. 홈은 V1의 채움에서
-// 선 기반으로 바뀌어 나머지 세 탭과 같은 아웃라인 계열로 통일된다. 색은 `stroke={color}`로
-// 부모(TabBar)가 활성/비활성 라벨색을 넘긴다 — 시안의 하드코딩 hex는 쓰지 않는다.
+// 안드로이드용 SVG
+// V2 (Figma "Nav / Glass Tab Bar" 5325:3730) 아웃라인 아이콘
+// 홈 탭
 export function IconTabHome({ color = "#1B64DA", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
@@ -32,7 +32,7 @@ export function IconTabHome({ color = "#1B64DA", size = 24, ...rest }: IconProps
   );
 }
 
-/** 소셜 탭(사람 두 명) */
+/** 소셜 탭 */
 export function IconTabSocial({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
@@ -103,6 +103,7 @@ export function IconTabRecord({ color = "#8B95A1", size = 24, ...rest }: IconPro
   );
 }
 
+// 설정 탭
 export function IconTabSettings({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
@@ -201,7 +202,7 @@ export function IconChevronRight({
 }
 
 /**
- * S5 기록의 달력 이전 달 버튼 아이콘(Figma `icon/chevron-left` 32:39 — 프레임 8×13).
+ * 기록의 달력 이전 달 버튼 아이콘
  * 익스포트 원본 stroke는 #191F28 하드코딩이지만 값이 `text/primary` 라이트값과 정확히 일치해
  * 토큰에 바인딩한다(다크모드 대응). 다음 달 버튼은 이 아이콘을 회전시키지 않고
  * 같은 세트의 `IconChevronRight`를 쓴다.
