@@ -97,6 +97,25 @@ describe("buildChecks", () => {
     expect(wasm?.method).toBe("HEAD");
   });
 
+  it("wasm과 모델은 content-encoding br이 아니면 실패한다", () => {
+    const wasm = byUrl(`${BASE}/mediapipe/${MEDIAPIPE_VERSION}/wasm/${WASM_SENTINEL_FILE}`)!;
+    const model = byUrl(`${BASE}/models/a-11111111.tflite`)!;
+    const wasmHeaders = { "x-robots-tag": "noindex", "content-type": "application/wasm" };
+    const modelHeaders = {
+      "x-robots-tag": "noindex",
+      "content-type": "application/octet-stream",
+      "content-length": "10",
+      "cache-control": "public, max-age=31536000, immutable",
+    };
+    const problems = (check: typeof wasm, headers: Record<string, string>) =>
+      check.rules.flatMap((rule) => rule(new Response(null, { headers })));
+
+    expect(problems(wasm, wasmHeaders)).toHaveLength(1);
+    expect(problems(wasm, { ...wasmHeaders, "content-encoding": "br" })).toEqual([]);
+    expect(problems(model, modelHeaders)).toHaveLength(1);
+    expect(problems(model, { ...modelHeaders, "content-encoding": "br" })).toEqual([]);
+  });
+
   it("모델 파일마다 확인이 하나씩 있다", () => {
     expect(byUrl(`${BASE}/models/a-11111111.tflite`)).toBeDefined();
     expect(byUrl(`${BASE}/models/b-22222222.task`)).toBeDefined();
@@ -195,11 +214,18 @@ const healthyFetch = async (input: string | URL | Request) => {
     return new Response(null, { headers: { ...noindex, "content-type": "application/json" } });
   }
   if (url.pathname.endsWith(".wasm")) {
-    return new Response(null, { headers: { ...noindex, "content-type": "application/wasm" } });
+    return new Response(null, {
+      headers: { ...noindex, "content-type": "application/wasm", "content-encoding": "br" },
+    });
   }
   if (url.pathname.startsWith("/models/")) {
     return new Response(null, {
-      headers: { ...immutable, "content-type": "application/octet-stream", "content-length": "10" },
+      headers: {
+        ...immutable,
+        "content-type": "application/octet-stream",
+        "content-length": "10",
+        "content-encoding": "br",
+      },
     });
   }
   if (url.pathname.startsWith("/assets/")) {
