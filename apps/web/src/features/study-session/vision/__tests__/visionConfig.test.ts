@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_DETECTION_PARAMS } from "../../detection";
@@ -6,9 +11,36 @@ import {
   EYE_CALIBRATION_SAMPLES,
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
+  FACE_MODEL_PATH,
   FACE_SMOOTHING_SAMPLES,
   FRAME_INTERVAL_MS,
+  MODEL_PATHS,
 } from "../visionConfig";
+
+const modelsDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../public/models",
+);
+
+/** `.DS_Store` 같은 숨김 파일은 배포 대상이 아니라서 뺀다. */
+const modelFiles = readdirSync(modelsDir).filter((file) => !file.startsWith("."));
+
+describe("모델 파일명", () => {
+  // `/models`는 1년 immutable 캐시로 나간다. 이름이 같으면 내용을 바꿔도 받은 기기는 옛 파일을 쓴다.
+  it("public/models의 모든 파일명이 내용 sha256 앞 8자로 끝난다", () => {
+    for (const file of modelFiles) {
+      const hash = createHash("sha256")
+        .update(readFileSync(path.join(modelsDir, file)))
+        .digest("hex");
+      expect(path.parse(file).name.endsWith(`-${hash.slice(0, 8)}`), file).toBe(true);
+    }
+  });
+
+  it("모델 경로 상수가 실제 파일을 가리킨다", () => {
+    const files = modelFiles.map((file) => `/models/${file}`);
+    expect(files).toEqual(expect.arrayContaining([...Object.values(MODEL_PATHS), FACE_MODEL_PATH]));
+  });
+});
 
 describe("눈 보정과 비율", () => {
   it("보정 표본이 최소 평활 표본보다 많다", () => {

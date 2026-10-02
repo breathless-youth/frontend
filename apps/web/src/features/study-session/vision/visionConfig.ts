@@ -227,8 +227,9 @@ export type Delegate = "GPU" | "CPU";
  * sha256 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff, 3,758,596 바이트.
  * `.tflite`와 같은 이유로 커밋한다 — npm에 없고, 빌드 스텝으로 받으면 빌드가 네트워크에
  * 의존하며 원격 파일이 바뀌어도 알 수 없다. `scripts/copyMediapipeWasm.js` 주석 참고.
+ * 파일명 끝 8자는 sha256 앞자리다. `/models`는 1년 immutable 캐시로 나가므로 파일을 바꾸면 이름도 바꾼다.
  */
-export const FACE_MODEL_PATH = "/models/face_landmarker.task";
+export const FACE_MODEL_PATH = "/models/face_landmarker-64184e22.task";
 
 /**
  * 얼굴 모델 생성 옵션.

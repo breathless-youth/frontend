@@ -23,7 +23,7 @@ const OPTIONS: DetectorCreateOptions = {
 
 const FACE_OPTIONS: FaceLandmarkerCreateOptions = {
   wasmPath: "/mediapipe/wasm",
-  modelAssetPath: "/models/face_landmarker.task",
+  modelAssetPath: "/models/face_landmarker-64184e22.task",
   delegate: "CPU",
   numFaces: 1,
   minFaceDetectionConfidence: 0.5,
