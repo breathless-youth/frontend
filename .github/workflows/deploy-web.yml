@@ -114,3 +114,7 @@ jobs:
             --paths "/*" --query Invalidation.Id --output text)
           echo "invalidation $ID"
           aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$ID"
+
+      # invalidation이 끝난 뒤라 엣지에 남은 옛 응답 없이 새 배포를 확인한다.
+      - name: Verify deploy
+        run: node apps/web/scripts/verifyDeploy.js https://web-dev.focusmakers.app
