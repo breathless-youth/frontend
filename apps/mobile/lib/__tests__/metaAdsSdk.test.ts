@@ -3,6 +3,8 @@
  * 루트를 불러오기만 해도 Android가 `FBAccessToken` 네이티브 모듈을 만들고, 앱 ID 없이 초기화되지 않은 SDK를 만나 앱이 죽는다.
  */
 
+import type * as MetaAdsSdkModule from "../metaAdsSdk";
+
 let mockMetaAppId = "";
 let mockSdkLoaded = false;
 
@@ -22,9 +24,9 @@ jest.mock("react-native-fbsdk-next", () => {
 jest.mock("../metaAds", () => ({ setMetaAdsAdapter: jest.fn() }));
 
 function install(): jest.Mock {
-  const { installMetaAdsSdk } = require("../metaAdsSdk") as typeof import("../metaAdsSdk");
+  const { installMetaAdsSdk } = jest.requireActual<typeof MetaAdsSdkModule>("../metaAdsSdk");
   installMetaAdsSdk();
-  return (require("../metaAds") as { setMetaAdsAdapter: jest.Mock }).setMetaAdsAdapter;
+  return jest.requireMock<{ setMetaAdsAdapter: jest.Mock }>("../metaAds").setMetaAdsAdapter;
 }
 
 beforeEach(() => {

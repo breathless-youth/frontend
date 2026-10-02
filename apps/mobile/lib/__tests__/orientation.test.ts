@@ -1,3 +1,5 @@
+import type * as OrientationModule from "../orientation";
+
 /**
  * 화면 방향 잠금(`lib/orientation.ts`) — 핵심은 **구형 Dev Client에서 죽지 않는 것**이다.
  *
@@ -27,7 +29,7 @@ describe("orientation — 네이티브 모듈이 있는 빌드", () => {
 
       /* eslint-disable @typescript-eslint/no-require-imports -- isolateModules 안에서는 동적 require만 가능 */
       const { lockPortrait, unlockForSession } =
-        require("../orientation") as typeof import("../orientation");
+        require("../orientation") as typeof OrientationModule;
       /* eslint-enable @typescript-eslint/no-require-imports */
 
       lockPortrait();
@@ -54,7 +56,7 @@ describe("orientation — 네이티브 모듈이 있는 빌드", () => {
 
       /* eslint-disable @typescript-eslint/no-require-imports -- isolateModules 안에서는 동적 require만 가능 */
       const { lockPortrait, unlockForSession } =
-        require("../orientation") as typeof import("../orientation");
+        require("../orientation") as typeof OrientationModule;
       /* eslint-enable @typescript-eslint/no-require-imports */
 
       expect(() => {
@@ -83,7 +85,7 @@ describe("orientation — 네이티브 모듈이 없는 구형 빌드", () => {
 
       /* eslint-disable @typescript-eslint/no-require-imports -- isolateModules 안에서는 동적 require만 가능 */
       const { lockPortrait, unlockForSession } =
-        require("../orientation") as typeof import("../orientation");
+        require("../orientation") as typeof OrientationModule;
       /* eslint-enable @typescript-eslint/no-require-imports */
 
       expect(() => {

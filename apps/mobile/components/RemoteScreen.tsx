@@ -1,6 +1,3 @@
-// eslint-config-expo 57이 react-hooks 7의 React Compiler 진단을 켰지만 이 앱은 컴파일러를 쓰지 않는다.
-// 사망 복구 콜백은 의도대로 선언 전 setter와 ref를 쓰므로 이 파일에서만 끄고, 정리는 후속 티켓에서 한다.
-/* eslint-disable react-hooks/immutability, react-hooks/preserve-manual-memoization */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
@@ -89,6 +86,19 @@ export function RemoteScreen({
   );
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
+  // 세션은 화면 단위 prop(blockHardwareBack)을 걸 자리가 없어 브리지 신호로 잠근다.
+  const [backLocked, setBackLocked] = useState(false);
+  /**
+   * 웹이 마지막으로 보고한 화면이 어두운 전체 화면(룸·세션)인지(BY-436). 렌더러 사망 복구로
+   * 스플래시가 되돌아올 때 이 값이 true면 라이트 스켈레톤 대신 다크 배경을 덮는다 —
+   * 어두운 룸 위에 소셜 홈 모양의 밝은 스켈레톤이 번쩍이면 흰 화면과 다를 게 없다.
+   */
+  const [darkScreen, setDarkScreen] = useState(false);
+  // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
+  // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
+  // boolean이 아니라 메시지를 통째로 드는 이유는 차단 여부까지 같이 되돌려야 하기 때문이다.
+  const lastTabBarMessageRef = useRef<SetTabBarMessage | null>(null);
   // 사망 복구(재로드·재마운트)에 들어가면 스플래시를 되돌린다 — 죽은 웹뷰의 흰 화면·잔상이
   // 드러나던 문제(BY-436). `loaded`를 첫 로드에서 true로 굳히면 복구가 가려지지 않는다.
   // WebView의 onLoadStart 이벤트가 아니라 호스트의 복구 진입 통지를 쓴다 — Android는
@@ -126,20 +136,6 @@ export function RemoteScreen({
     },
     [suppressTabBarMessages, onBridgeMessage],
   );
-
-  // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
-  // 세션은 화면 단위 prop(blockHardwareBack)을 걸 자리가 없어 브리지 신호로 잠근다.
-  const [backLocked, setBackLocked] = useState(false);
-  /**
-   * 웹이 마지막으로 보고한 화면이 어두운 전체 화면(룸·세션)인지(BY-436). 렌더러 사망 복구로
-   * 스플래시가 되돌아올 때 이 값이 true면 라이트 스켈레톤 대신 다크 배경을 덮는다 —
-   * 어두운 룸 위에 소셜 홈 모양의 밝은 스켈레톤이 번쩍이면 흰 화면과 다를 게 없다.
-   */
-  const [darkScreen, setDarkScreen] = useState(false);
-  // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
-  // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
-  // boolean이 아니라 메시지를 통째로 드는 이유는 차단 여부까지 같이 되돌려야 하기 때문이다.
-  const lastTabBarMessageRef = useRef<SetTabBarMessage | null>(null);
 
   const filteredBridgeMessage = useCallback(
     (message: HostPassedMessage, reply: BridgeReply) => {
