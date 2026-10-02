@@ -17,7 +17,7 @@ import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
-import { toastBottomOffset, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
@@ -116,6 +116,8 @@ export function App() {
   useNativeTabBarSync();
   // 웹뷰 안에서만 페이지 드래그·길게 눌러 선택을 막는다(`lib/nativeShell.ts`).
   useNativeShellClass();
+  // 시스템 탭 바(iOS)면 하단 여백 공식을 안전 영역 기준으로 바꾼다(`lib/nativeTabBar.ts`).
+  useNativeTabBarClass();
   // 포워드 스와이프로 닫았던 전체 화면 라우트가 되열리는 것을 막는다(`lib/historyGuard.ts`).
   useBlockForwardGestureIntoFullScreen();
   // Android 시스템 뒤로가기로 탭을 떠날 때 네이티브가 보내는 초기화 신호를 받아 탭 루트로

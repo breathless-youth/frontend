@@ -26,6 +26,8 @@ import { pageTransitionFinished } from "./pageTransition";
  * 모달 중에서도 화면 바닥에 붙는 바텀시트(`data-covers-tab-bar`)는 탭 바를 숨긴다.
  * 탭 바는 웹뷰 위에 떠 있어서 딤으로 남겨 두면 시트 아래쪽(저장 버튼)을 가린다.
  * 떠 있는 바라 숨겨도 웹뷰 높이는 그대로다.
+ * iOS 시스템 탭 바도 같은 규칙으로 숨긴다.
+ * 숨기면 `env(safe-area-inset-bottom)`이 바 높이만큼 줄어 시트 여백이 한 번 움직이지만, 시트 뒤에 바가 남는 쪽보다 낫다고 실기기에서 확인했다.
  */
 
 /**
@@ -65,12 +67,62 @@ export function isNativeCoveredPath(pathname: string): boolean {
 
 const SAFE_AREA_TOAST_BOTTOM = "calc(env(safe-area-inset-bottom) + 16px)";
 
+// 앱 안 이동은 URL에서 쿼리를 지우므로 첫 판정을 보관한다.
+// 표시는 바이너리마다 고정이라 다시 읽을 이유가 없다.
+let nativeTabBarCache: boolean | null = null;
+
+/**
+ * 네이티브 셸이 시스템 탭 바를 쓰는지.
+ *
+ * iOS 셸이 웹뷰 URL에 `nativeTabBar=1`을 붙인다(`remoteQueryParams.ts`).
+ * 시스템 탭 바는 웹뷰의 `env(safe-area-inset-bottom)`에 자기 높이를 넣으므로 웹이 바 높이를 따로 알 필요가 없다.
+ * 원격 웹은 구버전 앱에도 즉시 배포되므로 표시가 없으면 플로팅 바 공식을 유지한다.
+ */
+export function hasNativeTabBar(): boolean {
+  nativeTabBarCache ??= new URLSearchParams(window.location.search).get("nativeTabBar") === "1";
+  return nativeTabBarCache;
+}
+
+/** 테스트마다 URL을 바꿔 판정하도록 캐시를 비운다. */
+export function __resetNativeTabBarForTests(): void {
+  nativeTabBarCache = null;
+}
+
+/**
+ * 시스템 탭 바일 때 문서 루트에 `native-tab-bar` 클래스를 단다.
+ *
+ * `index.css`가 이 클래스에서 `--tab-bar-reserve`를 안전 영역 기준으로 덮는다.
+ * 판정은 실행 중 바뀌지 않으므로 마운트 때 한 번만 건다.
+ */
+export function useNativeTabBarClass(): void {
+  useEffect(() => {
+    if (!hasNativeTabBar()) {
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add("native-tab-bar");
+    return () => {
+      root.classList.remove("native-tab-bar");
+    };
+  }, []);
+}
+
 /**
  * 토스트 아래 여백. 네이티브 플로팅 탭 바는 웹뷰 위에 겹쳐 그려져 z-index로 앞지를 수 없으므로,
  * 탭 바가 보이는 라우트에서는 탭 바가 차지하는 높이만큼 띄운다.
  */
-export function toastBottomOffset(pathname: string, hasNativeBridge: boolean): string {
-  if (!hasNativeBridge || isFullScreenPath(pathname) || isNativeCoveredPath(pathname)) {
+export function toastBottomOffset(
+  pathname: string,
+  hasNativeBridge: boolean,
+  nativeTabBar: boolean = hasNativeTabBar(),
+): string {
+  // 시스템 탭 바는 안전 영역에 자기 높이를 넣으므로 안전 영역 식 하나로 보이는 바와 숨긴 바를 모두 피한다.
+  if (
+    !hasNativeBridge ||
+    nativeTabBar ||
+    isFullScreenPath(pathname) ||
+    isNativeCoveredPath(pathname)
+  ) {
     return SAFE_AREA_TOAST_BOTTOM;
   }
   return "var(--tab-bar-reserve)";
@@ -89,7 +141,7 @@ export function useNativeTabBarSync(): void {
     const routeHidden = isFullScreenPath(pathname);
     const nativeCovered = isNativeCoveredPath(pathname);
     const visible = !routeHidden && !modalOpen;
-    // 바텀시트는 탭 바를 숨긴다 — blockedByModal 없이 visible:false만 보내면 네이티브가 "hidden"으로 읽는다.
+    // 플로팅 바에서 바텀시트는 blockedByModal 없이 visible:false만 보내 네이티브가 "hidden"으로 읽게 한다.
     const blockedByModal = modalOpen && !modalCoversTabBar && !routeHidden && !nativeCovered;
     let disposed = false;
     const post = () => {
