@@ -22,10 +22,13 @@ const modelsDir = path.resolve(
   "../../../../../public/models",
 );
 
+/** `.DS_Store` 같은 숨김 파일은 배포 대상이 아니라서 뺀다. */
+const modelFiles = readdirSync(modelsDir).filter((file) => !file.startsWith("."));
+
 describe("모델 파일명", () => {
   // `/models`는 1년 immutable 캐시로 나간다. 이름이 같으면 내용을 바꿔도 받은 기기는 옛 파일을 쓴다.
   it("public/models의 모든 파일명이 내용 sha256 앞 8자로 끝난다", () => {
-    for (const file of readdirSync(modelsDir)) {
+    for (const file of modelFiles) {
       const hash = createHash("sha256")
         .update(readFileSync(path.join(modelsDir, file)))
         .digest("hex");
@@ -34,7 +37,7 @@ describe("모델 파일명", () => {
   });
 
   it("모델 경로 상수가 실제 파일을 가리킨다", () => {
-    const files = readdirSync(modelsDir).map((file) => `/models/${file}`);
+    const files = modelFiles.map((file) => `/models/${file}`);
     expect(files).toEqual(expect.arrayContaining([...Object.values(MODEL_PATHS), FACE_MODEL_PATH]));
   });
 });
