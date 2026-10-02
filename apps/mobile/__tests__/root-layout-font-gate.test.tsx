@@ -67,11 +67,13 @@ jest.mock("../lib/orientation", () => ({
 jest.mock("../lib/userApi", () => ({
   ensureUserRegistered: jest.fn(() => Promise.resolve(null)),
 }));
-// 푸시 배선(BY-586)은 네이티브 모듈을 끌어오므로 시작/해제 호출만 기록한다(동작은 `lib/__tests__/pushBootstrap.test.ts`).
+// 푸시 배선(BY-586)은 네이티브 모듈을 끌어오므로 시작/해제·권한 요청 호출만 기록한다(동작은 `lib/__tests__/pushBootstrap.test.ts`).
 const mockStopPush = jest.fn();
 const mockStartPush = jest.fn((_options: { navigate: (route: string) => void }) => mockStopPush);
+const mockEnsurePushPermission = jest.fn(() => Promise.resolve());
 jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
+  ensurePushPermission: () => mockEnsurePushPermission(),
 }));
 // Meta SDK — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
 // SDK 모듈은 네이티브 없이 로드조차 안 되므로 반드시 mock한다. `installMetaAdsSdk`는 `_layout`이 **모듈
@@ -127,6 +129,7 @@ beforeEach(() => {
   mockStartPush.mockClear();
   mockStopPush.mockClear();
   mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
+  mockEnsurePushPermission.mockReset().mockImplementation(() => Promise.resolve());
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -311,6 +314,46 @@ describe("RootLayout Meta SDK 초기화", () => {
     await screen.findByTestId("force-update-backdrop");
 
     expect(mockInitMetaAds).not.toHaveBeenCalled();
+    expect(mockEnsurePushPermission).not.toHaveBeenCalled();
+  });
+
+  it("알림 권한은 초기화(ATT) 뒤, 권장 알림창 앞에 한 번 묻는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+    let finishInit: () => void = () => {};
+    mockInitMetaAds.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishInit = resolve;
+        }),
+    );
+    let finishPermission: () => void = () => {};
+    mockEnsurePushPermission.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPermission = resolve;
+        }),
+    );
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
+    expect(mockEnsurePushPermission).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishInit();
+    });
+    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalledTimes(1));
+    expect(mockMaybeShow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishPermission();
+    });
+    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
   });
 
   it("권장 알림창은 초기화(ATT)가 끝난 뒤에 뜬다 — OS 알림창 두 개가 겹치지 않게", async () => {

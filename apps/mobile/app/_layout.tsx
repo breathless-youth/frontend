@@ -16,7 +16,7 @@ import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
-import { startPushMessaging } from "../lib/pushBootstrap";
+import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
@@ -83,23 +83,21 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
-  // Meta SDK 초기화 + iOS ATT 프롬프트 — 홈이 그려진 뒤(폰트·게이트 통과)에 한 번. 스플래시 위에서는
-  // OS가 프롬프트를 띄우지 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 즉시 끝난다.
+  // 시작 때 뜨는 OS 창 셋을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 알림 권한 → 권장 업데이트
+  // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
+  // 않아 맨 앞이다. 홈이 그려진 뒤(폰트·게이트 통과)에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
+  // 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 첫 단계가 즉시 끝난다.
+  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다.
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady) return;
-    void initMetaAds();
-  }, [updateGate, fontsReady]);
-
-  // 권장 알림창은 홈이 그려진 뒤(폰트·게이트 준비 후)에 띄운다 — 앱 시작을 막지 않는다. 최신 버전당 한 번만
-  // 묻는 판단은 `recommendedUpdateAlert`가 한다. ATT 프롬프트(위 `initMetaAds`)가 끝난 뒤에 띄운다 — 둘 다
-  // OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집힌다. `initMetaAds`는 같은 프라미스를 돌려주므로 두
-  // effect가 각자 불러도 초기화는 한 번이다.
-  useEffect(() => {
-    if (updateGate !== "pass" || !fontsReady || recommendedVersion === null) return;
     let active = true;
-    void initMetaAds().then(() => {
-      if (active) void recommendedUpdateAlert.maybeShow(recommendedVersion);
-    });
+    void initMetaAds()
+      .then(() => ensurePushPermission())
+      .then(() => {
+        if (active && recommendedVersion !== null) {
+          void recommendedUpdateAlert.maybeShow(recommendedVersion);
+        }
+      });
     return () => {
       active = false;
     };
@@ -121,8 +119,8 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 개발
-  // 빌드에서만 한다(`lib/pushBootstrap.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 위
+  // 시작 알림창 순서에서 한다. 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
   useEffect(() => startPushMessaging({ navigate: (route) => router.push(route) }), [router]);
 
   useEffect(() => {

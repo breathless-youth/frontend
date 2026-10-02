@@ -54,7 +54,7 @@ BY-585로 Firebase SDK와 어댑터(`lib/remoteConfig.ts`·`lib/pushMessaging.ts
 ### `lib/pushBootstrap.ts` + `app/_layout.tsx`
 
 - `startPushMessaging({ navigate })`: 포그라운드 수신 로그(표시 안 함), 알림 탭·초기 알림 → `router.push(경로)`, 토큰 갱신 로그. 해제 함수 반환. 어떤 실패도 throw하지 않는다.
-- **권한 요청은 개발 빌드(`__DEV__`)에서만** 부팅 시 한다 — 권한 없이는 iOS가 알림을 앱에 전달하지 않아 검증이 불가능해서다(2026-09-04 결정). 운영 빌드는 어떤 화면에서도 요청하지 않는다.
+- **권한 요청은 개발 빌드(`__DEV__`)에서만** 부팅 시 한다 — 권한 없이는 iOS가 알림을 앱에 전달하지 않아 검증이 불가능해서다(2026-09-04 결정). 운영 빌드는 어떤 화면에서도 요청하지 않는다. → BY-842에서 뒤집었다: 운영 빌드도 홈이 그려진 뒤 ATT 프롬프트 다음에 `ensurePushPermission`으로 묻는다(iOS 푸시 수신).
 - `lib/firebaseSmoke.ts`는 삭제했다. 개발 로그는 `[push] permission=… token=…`로 대체.
 
 ### `index.ts` (커스텀 엔트리) + `lib/pushBackground.ts`
