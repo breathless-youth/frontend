@@ -16,7 +16,7 @@ const emptyStatsResponse = {
   totalFocusSec: 0,
   longestFocusSec: 0,
   focusRate: 0,
-  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
   studiedDatesInMonth: ["2026-07-25"],
 };
 
@@ -45,7 +45,7 @@ describe("listStudySessionStats", () => {
           studySec: 3600,
           focusSec: 3300,
           focusRate: 91.7,
-          eventCounts: { PHONE: 1, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+          eventCounts: { PHONE: 1, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
         },
       ],
       sessionCount: 1,
@@ -53,7 +53,7 @@ describe("listStudySessionStats", () => {
       totalFocusSec: 3300,
       longestFocusSec: 1800,
       focusRate: 91.7,
-      totalEventCounts: { PHONE: 1, DEVICE: 0, AWAY: 0, PAUSE: 0 },
+      totalEventCounts: { PHONE: 1, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
     };
     mockedFetch.mockResolvedValue(jsonResponse(200, response));
 

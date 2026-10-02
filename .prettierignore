@@ -15,3 +15,7 @@ apps/mobile/assets/web-dist
 
 # 팀 위키 서브모듈 — 외부 저장소 내용이라 이 저장소의 포맷 규칙 대상이 아니다.
 .ai
+
+# MediaPipe wasm 런타임 사본(apps/web/scripts/copyMediapipeWasm.js가 채운다) — 생성물이라 검사하지
+# 않는다. 빌드를 한 번이라도 돌린 워크트리에서 format:check가 실패하는 것을 막는다.
+apps/web/public/mediapipe

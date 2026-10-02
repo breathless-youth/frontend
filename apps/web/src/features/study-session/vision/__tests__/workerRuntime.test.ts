@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DetectorCreateOptions,
+  FaceLandmarkerCreateOptions,
   MediapipeDetectionResult,
   MediapipeDetectorHandle,
+  MediapipeFaceLandmarkerHandle,
+  MediapipeFaceResult,
   MediapipeVisionRuntime,
-} from "../objectDetector";
+} from "../mediapipePort";
 import type { MainToWorkerMessage, WorkerToMainMessage } from "../workerProtocol";
 import type { WorkerPort } from "../workerRuntime";
 import {
@@ -44,6 +47,19 @@ class FakeWorker implements WorkerPort {
     this.onmessage?.({ data: message } as MessageEvent<WorkerToMainMessage>);
   }
 
+  /** 마지막으로 보낸 그 종류 메시지의 id. 답을 짝지을 때 쓴다. */
+  lastId(type: "create" | "detect"): number {
+    const found = this.posted.findLast((entry) => entry.message.type === type)?.message;
+    if (found === undefined || found.type === "close") {
+      throw new Error(`${type}를 보낸 적이 없다`);
+    }
+    return found.id;
+  }
+
+  replyResult(result: MediapipeDetectionResult): void {
+    this.reply({ type: "result", id: this.lastId("detect"), model: "object", result });
+  }
+
   crash(message: string): ErrorEvent & { preventDefault: ReturnType<typeof vi.fn> } {
     const event = { message, preventDefault: vi.fn() } as unknown as ErrorEvent & {
       preventDefault: ReturnType<typeof vi.fn>;
@@ -61,9 +77,21 @@ const OPTIONS: DetectorCreateOptions = {
   scoreThreshold: 0.3,
 };
 
+const FACE_OPTIONS: FaceLandmarkerCreateOptions = {
+  wasmPath: "/mediapipe/wasm",
+  modelAssetPath: "/models/face_landmarker.task",
+  delegate: "CPU",
+  numFaces: 1,
+  minFaceDetectionConfidence: 0.5,
+  minFacePresenceConfidence: 0.5,
+  minTrackingConfidence: 0.5,
+};
+
 const RESULT: MediapipeDetectionResult = {
   detections: [{ categories: [{ categoryName: "person", score: 0.9 }] }],
 };
+
+const FACE_RESULT: MediapipeFaceResult = { faceLandmarks: [], faceBlendshapes: [] };
 
 const video = {} as HTMLVideoElement;
 
@@ -79,18 +107,39 @@ function tick(): Promise<void> {
 function setup(
   captureFrame: (video: HTMLVideoElement) => Promise<ImageBitmap> = async () => fakeFrame(),
 ) {
-  const worker = new FakeWorker();
+  const workers: FakeWorker[] = [];
   const runtime = createWorkerRuntime({
-    createWorker: () => worker,
+    createWorker: () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    },
     captureFrame,
     timeOrigin: 1_000,
   });
-  return { worker, runtime };
+  return {
+    runtime,
+    workers,
+    /** 가장 최근에 띄운 워커. 아직 없으면 테스트가 잘못 짜인 것이다. */
+    get worker(): FakeWorker {
+      const latest = workers.at(-1);
+      if (latest === undefined) {
+        throw new Error("워커를 띄운 적이 없다");
+      }
+      return latest;
+    },
+  };
 }
 
-async function ready(worker: FakeWorker, runtime: MediapipeVisionRuntime) {
-  const creating = runtime.createDetector(OPTIONS);
-  worker.reply({ type: "created", assetTimings: [] });
+async function ready(env: ReturnType<typeof setup>) {
+  const creating = env.runtime.createDetector(OPTIONS);
+  env.worker.reply({ type: "created", id: env.worker.lastId("create"), assetTimings: [] });
+  return await creating;
+}
+
+async function readyFace(env: ReturnType<typeof setup>) {
+  const creating = env.runtime.createFaceLandmarker(FACE_OPTIONS);
+  env.worker.reply({ type: "created", id: env.worker.lastId("create"), assetTimings: [] });
   return await creating;
 }
 
@@ -115,11 +164,14 @@ describe("toDocumentTimings", () => {
 
 describe("createWorkerRuntime", () => {
   it("옵션을 create로 보내고, created면 워커 핸들을 돌려준다(자원 시각은 문서 시각)", async () => {
-    const { worker, runtime } = setup();
+    const env = setup();
+    const { runtime } = env;
 
     const creating = runtime.createDetector(OPTIONS);
+    const { worker } = env;
     worker.reply({
       type: "created",
+      id: 1,
       assetTimings: [
         {
           name: "x.wasm",
@@ -133,7 +185,7 @@ describe("createWorkerRuntime", () => {
     const handle = await creating;
 
     expect(worker.posted[0]).toEqual({
-      message: { type: "create", options: OPTIONS },
+      message: { type: "create", id: 1, model: "object", options: OPTIONS },
       transfer: [],
     });
     expect(handle.runtime).toBe("worker");
@@ -143,19 +195,21 @@ describe("createWorkerRuntime", () => {
   });
 
   it("createFailed면 워커를 끝내고 생성이 실패한다", async () => {
-    const { worker, runtime } = setup();
+    const env = setup();
 
-    const creating = runtime.createDetector(OPTIONS);
-    worker.reply({ type: "createFailed", reason: "document is not defined" });
+    const creating = env.runtime.createDetector(OPTIONS);
+    const { worker } = env;
+    worker.reply({ type: "createFailed", id: 1, reason: "document is not defined" });
 
     await expect(creating).rejects.toThrow("document is not defined");
     expect(worker.terminated).toBe(true);
   });
 
   it("생성 중 워커 오류(error 이벤트)면 워커를 끝내고 생성이 실패한다", async () => {
-    const { worker, runtime } = setup();
+    const env = setup();
 
-    const creating = runtime.createDetector(OPTIONS);
+    const creating = env.runtime.createDetector(OPTIONS);
+    const { worker } = env;
     const event = worker.crash("SyntaxError: Cannot use import statement outside a module");
 
     await expect(creating).rejects.toThrow("SyntaxError");
@@ -165,53 +219,68 @@ describe("createWorkerRuntime", () => {
   });
 
   it("create를 보내다 던지면 워커를 끝내고 생성이 실패한다", async () => {
-    const { worker, runtime } = setup();
-    worker.failCreatePost = true;
+    const workers: FakeWorker[] = [];
+    const runtime = createWorkerRuntime({
+      createWorker: () => {
+        const worker = new FakeWorker();
+        worker.failCreatePost = true;
+        workers.push(worker);
+        return worker;
+      },
+    });
 
     await expect(runtime.createDetector(OPTIONS)).rejects.toThrow("DataCloneError");
-    expect(worker.terminated).toBe(true);
+    expect(workers[0]?.terminated).toBe(true);
   });
 
   it("추론은 뜬 프레임을 소유권째 넘기고 result를 돌려준다", async () => {
     const frame = fakeFrame();
-    const { worker, runtime } = setup(async () => frame);
-    const handle = await ready(worker, runtime);
+    const env = setup(async () => frame);
+    const handle = await ready(env);
+    const { worker } = env;
 
     const detecting = handle.detect(video, 500);
     await tick();
-    worker.reply({ type: "result", result: RESULT });
+    worker.replyResult(RESULT);
 
     await expect(detecting).resolves.toEqual(RESULT);
     expect(worker.posted[1]).toEqual({
-      message: { type: "detect", frame, timestampMs: 500 },
+      message: { type: "detect", id: 2, handleId: 1, frame, timestampMs: 500 },
       transfer: [frame],
     });
   });
 
   it("detectFailed면 추론이 실패한다", async () => {
-    const { worker, runtime } = setup();
-    const handle = await ready(worker, runtime);
+    const env = setup();
+    const handle = await ready(env);
+    const { worker } = env;
 
     const detecting = handle.detect(video, 0);
     await tick();
-    worker.reply({ type: "detectFailed", reason: "timestamp must be monotonically increasing" });
+    worker.reply({
+      type: "detectFailed",
+      id: worker.lastId("detect"),
+      reason: "timestamp must be monotonically increasing",
+    });
 
     await expect(detecting).rejects.toThrow("monotonically");
   });
 
   it("프레임을 뜨지 못하면 FrameCaptureError로 실패하고 워커에 아무것도 보내지 않는다", async () => {
-    const { worker, runtime } = setup(async () => {
+    const env = setup(async () => {
       throw new Error("InvalidStateError");
     });
-    const handle = await ready(worker, runtime);
+    const handle = await ready(env);
+    const { worker } = env;
 
     await expect(handle.detect(video, 0)).rejects.toBeInstanceOf(FrameCaptureError);
     expect(worker.posted).toHaveLength(1); // create 하나뿐
   });
 
   it("close()하면 워커를 끝내고, 기다리던 추론과 이후 추론이 바로 실패한다", async () => {
-    const { worker, runtime } = setup();
-    const handle = await ready(worker, runtime);
+    const env = setup();
+    const handle = await ready(env);
+    const { worker } = env;
     const detecting = handle.detect(video, 0);
     await tick();
 
@@ -220,12 +289,14 @@ describe("createWorkerRuntime", () => {
     expect(worker.terminated).toBe(true);
     await expect(detecting).rejects.toThrow("워커가 닫혔다");
     await expect(handle.detect(video, 1)).rejects.toThrow("워커가 닫혔다");
-    expect(worker.posted).toHaveLength(2); // create, 닫히기 전 detect 하나
+    // create, 닫히기 전 detect 하나, 그 모델을 놓으라는 close
+    expect(worker.posted.map((entry) => entry.message.type)).toEqual(["create", "detect", "close"]);
   });
 
   it("생성 뒤 워커가 죽으면 이후 추론은 워커에 보내지 않고 바로 실패한다 — 답을 기다리다 루프가 멈추지 않게", async () => {
-    const { worker, runtime } = setup();
-    const handle = await ready(worker, runtime);
+    const env = setup();
+    const handle = await ready(env);
+    const { worker } = env;
 
     const event = worker.crash("out of memory");
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
@@ -236,8 +307,9 @@ describe("createWorkerRuntime", () => {
   });
 
   it("앞 추론이 끝나기 전에 다시 부르면 워커에 보내지 않고 바로 실패한다 — 앞 추론의 답을 잃지 않게", async () => {
-    const { worker, runtime } = setup();
-    const handle = await ready(worker, runtime);
+    const env = setup();
+    const handle = await ready(env);
+    const { worker } = env;
 
     const first = handle.detect(video, 0);
     const second = handle.detect(video, 1);
@@ -245,14 +317,15 @@ describe("createWorkerRuntime", () => {
     await expect(second).rejects.toThrow("이전 추론이 끝나지 않았다");
     await tick();
     expect(worker.posted).toHaveLength(2); // create, 첫 detect 하나
-    worker.reply({ type: "result", result: RESULT });
+    worker.replyResult(RESULT);
     await expect(first).resolves.toEqual(RESULT);
   });
 
   it("프레임을 워커로 보내지 못하면 프레임을 닫고 실패하며, 다음 추론은 막히지 않는다", async () => {
     const frame = fakeFrame();
-    const { worker, runtime } = setup(async () => frame);
-    const handle = await ready(worker, runtime);
+    const env = setup(async () => frame);
+    const handle = await ready(env);
+    const { worker } = env;
 
     worker.failDetectPost = true;
     await expect(handle.detect(video, 0)).rejects.toThrow("DataCloneError");
@@ -261,7 +334,7 @@ describe("createWorkerRuntime", () => {
     worker.failDetectPost = false;
     const detecting = handle.detect(video, 1);
     await tick();
-    worker.reply({ type: "result", result: RESULT });
+    worker.replyResult(RESULT);
     await expect(detecting).resolves.toEqual(RESULT);
   });
 });
@@ -275,9 +348,27 @@ function fakeHandle(runtime: "worker" | "main") {
   } satisfies MediapipeDetectorHandle;
 }
 
-function runtimeOf(create: () => Promise<MediapipeDetectorHandle>) {
+function fakeFaceHandle(runtime: "worker" | "main") {
+  return {
+    runtime,
+    detect: vi.fn(async () => FACE_RESULT),
+    close: vi.fn(),
+  } satisfies MediapipeFaceLandmarkerHandle;
+}
+
+function runtimeOf(
+  create: () => Promise<MediapipeDetectorHandle>,
+  createFace: () => Promise<MediapipeFaceLandmarkerHandle> = async () => {
+    throw new Error("이 테스트는 얼굴 모델을 쓰지 않는다");
+  },
+) {
   const createDetector = vi.fn(create);
-  return { runtime: { createDetector } satisfies MediapipeVisionRuntime, createDetector };
+  const createFaceLandmarker = vi.fn(createFace);
+  return {
+    runtime: { createDetector, createFaceLandmarker } satisfies MediapipeVisionRuntime,
+    createDetector,
+    createFaceLandmarker,
+  };
 }
 
 describe("createFallbackRuntime", () => {
@@ -294,7 +385,9 @@ describe("createFallbackRuntime", () => {
       async () => fallback.runtime,
     ).createDetector(OPTIONS);
 
-    expect(handle).toBe(main);
+    expect(handle.runtime).toBe("main");
+    await expect(handle.detect(video, 0)).resolves.toEqual(RESULT);
+    expect(main.detect).toHaveBeenCalledTimes(1);
     expect(fallback.createDetector).toHaveBeenCalledWith(OPTIONS);
   });
 
@@ -409,6 +502,157 @@ describe("createFallbackRuntime", () => {
 
     await expect(handle.detect(video, 0)).rejects.toThrow("wasm 로드 실패");
     expect(worker.close).toHaveBeenCalledTimes(1);
+    expect(handle.runtime).toBe("main");
+  });
+});
+
+describe("createWorkerRuntime — 객체 검출기와 얼굴 모델이 워커 하나를 함께 쓴다", () => {
+  it("두 모델을 열어도 워커는 하나만 띄운다", async () => {
+    const env = setup();
+
+    await ready(env);
+    await readyFace(env);
+
+    expect(env.workers).toHaveLength(1);
+    expect(env.worker.posted.map((entry) => entry.message)).toEqual([
+      { type: "create", id: 1, model: "object", options: OPTIONS },
+      { type: "create", id: 2, model: "face", options: FACE_OPTIONS },
+    ]);
+  });
+
+  it("두 모델의 추론이 겹쳐도 id로 짝지어 각자의 답을 받는다", async () => {
+    const env = setup();
+    const detector = await ready(env);
+    const landmarker = await readyFace(env);
+
+    const objectDetecting = detector.detect(video, 0);
+    const faceDetecting = landmarker.detect(video, 0);
+    await tick();
+    const [objectRequest, faceRequest] = env.worker.posted
+      .map((entry) => entry.message)
+      .filter((message) => message.type === "detect");
+    if (objectRequest?.type !== "detect" || faceRequest?.type !== "detect") {
+      throw new Error("두 추론이 모두 나가야 한다");
+    }
+    expect(objectRequest.handleId).toBe(1);
+    expect(faceRequest.handleId).toBe(2);
+
+    // 늦게 보낸 얼굴 답이 먼저 와도 섞이지 않는다.
+    env.worker.reply({ type: "result", id: faceRequest.id, model: "face", result: FACE_RESULT });
+    env.worker.reply({ type: "result", id: objectRequest.id, model: "object", result: RESULT });
+
+    await expect(faceDetecting).resolves.toEqual(FACE_RESULT);
+    await expect(objectDetecting).resolves.toEqual(RESULT);
+  });
+
+  it("한 모델을 닫으면 그 모델만 놓고 워커는 남는다. 마지막 모델이 닫을 때 워커를 끝낸다", async () => {
+    const env = setup();
+    const detector = await ready(env);
+    const landmarker = await readyFace(env);
+
+    landmarker.close();
+
+    expect(env.worker.terminated).toBe(false);
+    expect(env.worker.posted.at(-1)?.message).toEqual({ type: "close", handleId: 2 });
+    await expect(landmarker.detect(video, 0)).rejects.toThrow("워커가 닫혔다");
+
+    detector.close();
+
+    expect(env.worker.terminated).toBe(true);
+  });
+
+  it("얼굴 모델 생성이 실패해도 객체 검출기가 쓰는 워커는 끝내지 않는다", async () => {
+    const env = setup();
+    const detector = await ready(env);
+
+    const creating = env.runtime.createFaceLandmarker(FACE_OPTIONS);
+    env.worker.reply({ type: "createFailed", id: env.worker.lastId("create"), reason: "404" });
+
+    await expect(creating).rejects.toThrow("워커 검출기 생성 실패: 404");
+    expect(env.worker.terminated).toBe(false);
+    const detecting = detector.detect(video, 0);
+    await tick();
+    env.worker.replyResult(RESULT);
+    await expect(detecting).resolves.toEqual(RESULT);
+  });
+
+  it("워커가 죽으면 두 모델이 함께 실패하고, 다음에 여는 모델은 새 워커를 띄운다", async () => {
+    const env = setup();
+    const detector = await ready(env);
+    const landmarker = await readyFace(env);
+    const dead = env.worker;
+
+    dead.crash("out of memory");
+
+    await expect(detector.detect(video, 0)).rejects.toThrow("out of memory");
+    await expect(landmarker.detect(video, 0)).rejects.toThrow("out of memory");
+    await ready(env);
+    expect(env.workers).toHaveLength(2);
+    expect(env.worker).not.toBe(dead);
+  });
+
+  it("모든 모델을 닫은 뒤 다시 열면 새 워커를 띄운다 — 세션마다 wasm 힙을 새로 받는다", async () => {
+    const env = setup();
+    (await ready(env)).close();
+
+    await ready(env);
+
+    expect(env.workers).toHaveLength(2);
+    expect(env.workers[0]?.terminated).toBe(true);
+    expect(env.workers[1]?.terminated).toBe(false);
+  });
+});
+
+describe("createFallbackRuntime — 얼굴 모델", () => {
+  it("워커 얼굴 모델을 만들지 못하면 메인 스레드에서 만든다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const main = fakeFaceHandle("main");
+    const primary = runtimeOf(
+      async () => fakeHandle("worker"),
+      async () => {
+        throw new Error("OffscreenCanvas is not defined");
+      },
+    );
+    const fallback = runtimeOf(
+      async () => fakeHandle("main"),
+      async () => main,
+    );
+
+    const handle = await createFallbackRuntime(
+      primary.runtime,
+      async () => fallback.runtime,
+    ).createFaceLandmarker(FACE_OPTIONS);
+
+    expect(handle.runtime).toBe("main");
+    await expect(handle.detect(video, 0)).resolves.toEqual(FACE_RESULT);
+    expect(fallback.createFaceLandmarker).toHaveBeenCalledWith(FACE_OPTIONS);
+  });
+
+  it("프레임을 뜨지 못하면 얼굴 모델도 메인 스레드로 한 번 갈아탄다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const worker = fakeFaceHandle("worker");
+    worker.detect.mockRejectedValue(new FrameCaptureError("InvalidStateError"));
+    const main = fakeFaceHandle("main");
+    const loadFallback = vi.fn(
+      async () =>
+        runtimeOf(
+          async () => fakeHandle("main"),
+          async () => main,
+        ).runtime,
+    );
+
+    const handle = await createFallbackRuntime(
+      runtimeOf(
+        async () => fakeHandle("worker"),
+        async () => worker,
+      ).runtime,
+      loadFallback,
+    ).createFaceLandmarker(FACE_OPTIONS);
+
+    await expect(handle.detect(video, 0)).resolves.toEqual(FACE_RESULT);
+    await expect(handle.detect(video, 1)).resolves.toEqual(FACE_RESULT);
+    expect(worker.close).toHaveBeenCalledTimes(1);
+    expect(loadFallback).toHaveBeenCalledTimes(1);
     expect(handle.runtime).toBe("main");
   });
 });

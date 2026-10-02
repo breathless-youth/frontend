@@ -1,6 +1,13 @@
 import { reportHandled } from "@/lib/sentry";
 
 import type { Detection } from "./detectionRules";
+import type {
+  AssetTiming,
+  MediapipeDetectionResult,
+  MediapipeDetectorHandle,
+  MediapipeObjectRuntime,
+  VisionRuntimeKind,
+} from "./mediapipePort";
 import type { Delegate, ModelVariant } from "./visionConfig";
 import {
   CATEGORY_ALLOWLIST,
@@ -10,6 +17,7 @@ import {
   MEDIAPIPE_WASM_PATH,
   MODEL_PATHS,
 } from "./visionConfig";
+import { loadVisionRuntime } from "./visionRuntime";
 
 /**
  * MediaPipe `ObjectDetector` 래퍼 — **이 저장소에서 MediaPipe에 닿는 유일한 지점**이다.
@@ -31,71 +39,24 @@ import {
  * 리더 결정). 개발 빌드에서만 실패를 화면에 띄운다.
  */
 
-/* ------------------------------------------------------------------ *
- * MediaPipe 포트 — 우리가 필요한 만큼만 선언한다.
- * 구현은 `./mediapipeModule.ts`, 테스트는 fake가 채운다.
- * ------------------------------------------------------------------ */
-
-export interface MediapipeCategory {
-  readonly categoryName?: string;
-  readonly score: number;
-}
-
-export interface MediapipeBoundingBox {
-  readonly originX: number;
-  readonly originY: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface MediapipeRawDetection {
-  readonly categories: readonly MediapipeCategory[];
-  readonly boundingBox?: MediapipeBoundingBox;
-}
-
-export interface MediapipeDetectionResult {
-  readonly detections: readonly MediapipeRawDetection[];
-}
-
-/** 검출기가 도는 곳. `vision_detector_ready`의 `runtime` 속성으로도 나간다. */
-export type VisionRuntimeKind = "worker" | "main";
-
 /**
- * 캐시 판정에 쓰는 Resource Timing 값
- *
- * 워커가 받은 자원은 문서의 Resource Timing에 잡히지 않아 워커가 이 모양으로 보내 준다.
- * `startTime`은 `performance.now()` 기준의 문서 시각이다.
+ * MediaPipe 포트는 `./mediapipePort.ts`가 갖는다. 얼굴 래퍼와 공유하기 때문이다.
+ * 기존 호출부가 이 파일에서 그대로 가져갈 수 있게 다시 내보낸다.
  */
-export type AssetTiming = Pick<
-  PerformanceResourceTiming,
-  "name" | "startTime" | "transferSize" | "encodedBodySize" | "decodedBodySize"
->;
-
-export interface MediapipeDetectorHandle {
-  readonly runtime: VisionRuntimeKind;
-  /** 워커가 받은 wasm·모델의 Resource Timing. 메인 스레드 경로는 문서에 잡히므로 비어 있다. */
-  readonly assetTimings: readonly AssetTiming[];
-  /** 워커 경로는 프레임을 떠서 넘기고 결과를 기다린다. 메인 스레드 경로는 동기 추론을 감쌀 뿐이다. */
-  detect(video: HTMLVideoElement, timestampMs: number): Promise<MediapipeDetectionResult>;
-  close(): void;
-}
-
-export interface DetectorCreateOptions {
-  readonly wasmPath: string;
-  readonly modelAssetPath: string;
-  readonly delegate: Delegate;
-  readonly categoryAllowlist: readonly string[];
-  readonly scoreThreshold: number;
-}
-
-/**
- * MediaPipe를 감싼 최소 런타임. 클래스(`FilesetResolver`·`ObjectDetector`)를 그대로 노출하지
- * 않고 **"detector 하나 만들어 줘"** 로 좁힌 이유는, 워커 뒤로 옮길 때 이 인터페이스가
- * 그대로 메시지 계약이 되기 때문이다.
- */
-export interface MediapipeVisionRuntime {
-  createDetector(options: DetectorCreateOptions): Promise<MediapipeDetectorHandle>;
-}
+export type {
+  AssetTiming,
+  VisionRuntimeKind,
+  MediapipeCategory,
+  MediapipeBoundingBox,
+  MediapipeRawDetection,
+  MediapipeDetectionResult,
+  MediapipeDetectorHandle,
+  MediapipeInferenceHandle,
+  DetectorCreateOptions,
+  MediapipeObjectRuntime,
+  MediapipeFaceRuntime,
+  MediapipeVisionRuntime,
+} from "./mediapipePort";
 
 /* ------------------------------------------------------------------ *
  * 공개 타입
@@ -143,8 +104,8 @@ export interface VisionObjectDetector {
 }
 
 export interface CreateObjectDetectorOptions {
-  /** 테스트·측정용 주입점. 기본값인 `defaultLoadRuntime`은 워커를 먼저 쓰고 안 되면 메인 스레드로 넘어간다. */
-  readonly loadRuntime?: () => Promise<MediapipeVisionRuntime>;
+  /** 테스트·측정용 주입점. 기본값인 `loadVisionRuntime`은 워커를 먼저 쓰고 안 되면 메인 스레드로 넘어간다. */
+  readonly loadRuntime?: () => Promise<MediapipeObjectRuntime>;
   /** 명시하지 않으면 DEV에서 `?model=` 쿼리를, 그 외에는 기본 변형을 쓴다. */
   readonly modelVariant?: ModelVariant;
   /**
@@ -222,27 +183,6 @@ function normalize(result: MediapipeDetectionResult): Detection[] {
   return detections;
 }
 
-async function loadMainRuntime(): Promise<MediapipeVisionRuntime> {
-  // 정적 import가 아니라 동적 import인 것이 핵심이다 — 위 주석의 격리 2층.
-  const module = await import("./mediapipeModule");
-  return module.createMediapipeRuntime();
-}
-
-/**
- * 워커 우선 런타임 로더
- *
- * 워커를 쓸 수 있으면 워커를 먼저 쓰고 안 되면 메인 스레드로 넘어간다.
- * `VITE_VISION_WORKER=off`로 만든 측정용 전 빌드와 Worker가 없는 환경은 처음부터 메인 스레드를 쓴다.
- * 워커 모듈도 동적으로 불러 첫 화면 청크에 끼지 않게 한다.
- */
-async function defaultLoadRuntime(): Promise<MediapipeVisionRuntime> {
-  if (import.meta.env.VITE_VISION_WORKER === "off" || typeof Worker === "undefined") {
-    return await loadMainRuntime();
-  }
-  const { createFallbackRuntime, createWorkerRuntime } = await import("./workerRuntime");
-  return createFallbackRuntime(createWorkerRuntime(), loadMainRuntime);
-}
-
 interface OpenedDetector {
   readonly handle: MediapipeDetectorHandle;
   readonly delegate: Delegate;
@@ -251,7 +191,7 @@ interface OpenedDetector {
 export function createObjectDetector(
   options: CreateObjectDetectorOptions = {},
 ): VisionObjectDetector {
-  const loadRuntime = options.loadRuntime ?? defaultLoadRuntime;
+  const loadRuntime = options.loadRuntime ?? loadVisionRuntime;
   const delegateOrder = options.delegateOrder ?? DELEGATE_ORDER;
   const modelVariant =
     options.modelVariant ??
@@ -272,7 +212,7 @@ export function createObjectDetector(
   let wanted = false;
 
   async function openOnce(): Promise<OpenedDetector | null> {
-    let runtime: MediapipeVisionRuntime;
+    let runtime: MediapipeObjectRuntime;
     try {
       runtime = await loadRuntime();
     } catch (error: unknown) {
