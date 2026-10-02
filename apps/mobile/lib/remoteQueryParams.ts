@@ -43,6 +43,12 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 첫 토큰을 기다렸다가 `Authorization`을 붙인다 — 표시 없는 구버전 앱은 답할 수 없으므로 기다리지
   // 않고 오늘처럼 보낸다(`share`·`cameraGate`와 같은 capability 표시 방식).
   params.guestAuth = "1";
+  // `nativeTabBar=1`: 이 바이너리가 iOS에서 시스템 탭 바를 쓴다는 표시.
+  // 시스템 탭 바는 웹뷰의 하단 안전 영역에 바 높이를 포함시키므로 웹은 플로팅 바 공식 대신 안전 영역만 쓰면 된다.
+  // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.
+  if (Platform.OS === "ios") {
+    params.nativeTabBar = "1";
+  }
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면
   // 웹뷰가 통째로 재로드되므로, 실행 중 변경은 theme 브리지 메시지가 맡는다 —
