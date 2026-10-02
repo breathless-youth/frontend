@@ -120,6 +120,14 @@ describe("buildChecks", () => {
     expect(missing.rules.flatMap((rule) => rule(new Response(null, { status: 403 })))).toEqual([]);
   });
 
+  it("모델 목록이 비면 그 사실을 실패로 남긴다", () => {
+    const modelChecks = buildChecks(BASE, { models: [], assetPath: "/assets/index-x.js" }).filter(
+      (check) => check.name.startsWith("모델"),
+    );
+    expect(modelChecks).toHaveLength(1);
+    expect(modelChecks[0].rules.flatMap((rule) => rule(new Response(null)))).toHaveLength(1);
+  });
+
   it("자산 경로를 못 찾으면 그 사실을 실패로 남긴다", () => {
     const [assetCheck] = buildChecks(BASE, { models: [], assetPath: null }).filter((check) =>
       check.name.includes("해시 자산"),
