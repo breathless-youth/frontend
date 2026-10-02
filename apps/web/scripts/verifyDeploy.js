@@ -103,7 +103,13 @@ const page = [rules.status(200), rules.contentType("text/html"), rules.noindex];
  */
 export function buildChecks(base, { models, assetPath }) {
   const url = (pathname) => new URL(pathname, base).href;
-  const binary = [rules.status(200), rules.notContentType("text/html"), rules.nonEmpty];
+  // 업로드가 wasm과 모델을 미리 brotli로 압축하므로 br이 아니면 압축 없이 나가는 것이다.
+  const binary = [
+    rules.status(200),
+    rules.notContentType("text/html"),
+    rules.nonEmpty,
+    rules.header("content-encoding", "br"),
+  ];
 
   return [
     {
@@ -134,7 +140,12 @@ export function buildChecks(base, { models, assetPath }) {
       name: "MediaPipe wasm",
       url: url(`/mediapipe/${MEDIAPIPE_VERSION}/wasm/${WASM_SENTINEL_FILE}`),
       method: "HEAD",
-      rules: [rules.status(200), rules.contentType("application/wasm"), rules.noindex],
+      rules: [
+        rules.status(200),
+        rules.contentType("application/wasm"),
+        rules.header("content-encoding", "br"),
+        rules.noindex,
+      ],
     },
     // 목록이 비면 모델 확인이 0개로 돌아 모델 자리에 HTML이 와도 통과하므로 실패로 남긴다.
     ...(models.length > 0
