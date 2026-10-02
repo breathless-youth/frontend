@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import type * as AuthModule from "../../lib/auth";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
 import {
   __resetNativeAnalyticsForTests,
@@ -30,7 +31,7 @@ type AuthListener = (state: {
 }) => void;
 const mockAuthListeners = new Set<AuthListener>();
 jest.mock("../../lib/auth", () => ({
-  ...jest.requireActual<typeof import("../../lib/auth")>("../../lib/auth"),
+  ...jest.requireActual<typeof AuthModule>("../../lib/auth"),
   subscribeAuth: (listener: AuthListener) => {
     mockAuthListeners.add(listener);
     return () => {

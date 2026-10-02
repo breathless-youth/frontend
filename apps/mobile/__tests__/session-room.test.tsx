@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react-native";
 import { BackHandler } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
+import type * as OrientationModule from "../lib/orientation";
 
 /**
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
@@ -99,7 +100,7 @@ describe("SessionRoomScreen", () => {
    */
   it("마운트에서 회전을 열고 언마운트에서 세로로 되잠근다", () => {
     const { lockPortrait, unlockForSession } =
-      jest.requireMock<typeof import("../lib/orientation")>("../lib/orientation");
+      jest.requireMock<typeof OrientationModule>("../lib/orientation");
     // 앞선 테스트들의 렌더가 남긴 호출 누적을 걷어낸다 — 이 테스트는 횟수를 단언한다.
     (lockPortrait as jest.Mock).mockClear();
     (unlockForSession as jest.Mock).mockClear();

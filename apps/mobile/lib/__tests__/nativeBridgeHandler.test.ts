@@ -5,6 +5,7 @@ import type { HandlerMessage } from "@focusmakers/types";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
 import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
+import type * as AuthModule from "../auth";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -61,7 +62,7 @@ jest.mock("../firebaseAnalytics", () => ({
 }));
 
 jest.mock("../auth", () => ({
-  ...jest.requireActual<typeof import("../auth")>("../auth"),
+  ...jest.requireActual<typeof AuthModule>("../auth"),
   awaitAuth: jest.fn(),
   ensureAuth: jest.fn(),
   refreshAuth: jest.fn(),
