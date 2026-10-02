@@ -83,10 +83,21 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
+  // 아래 권한 요청 effect보다 먼저 선언한다.
+  // effect는 선언 순서로 돌아서 스플래시를 걷는 호출이 ATT 요청보다 앞에 나간다.
+  useEffect(() => {
+    // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
+    // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
+    if (fontsReady && gateReady) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsReady, gateReady]);
+
   // 시작 때 뜨는 OS 창 셋을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 알림 권한 → 권장 업데이트
   // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
   // 않아 맨 앞이다. 홈이 그려진 뒤(폰트·게이트 통과)에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
   // 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 첫 단계가 즉시 끝난다.
+  // 앱이 active가 되기 전이면 ATT 요청은 어댑터(`lib/metaAdsSdk.ts`)가 기다렸다 보낸다.
   // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞의 두 단계는 프라미스를
   // 붙잡아 두어, effect가 다시 돌아도 권한 요청이 겹쳐 나가지 않는다.
   const permissionPrompts = useRef<Promise<void> | null>(null);
@@ -103,14 +114,6 @@ function RootLayout() {
       active = false;
     };
   }, [updateGate, fontsReady, recommendedVersion]);
-
-  useEffect(() => {
-    // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
-    // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
-    if (fontsReady && gateReady) {
-      void SplashScreen.hideAsync();
-    }
-  }, [fontsReady, gateReady]);
 
   useEffect(() => {
     void ensureUserRegistered();

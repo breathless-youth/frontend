@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
-import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
-import { Platform } from "react-native";
+import { PermissionStatus, requestTrackingPermissionsAsync } from "expo-tracking-transparency";
+import { AppState, Platform } from "react-native";
 import type * as Fbsdk from "react-native-fbsdk-next";
 
 import { type MetaAdsAdapter, setMetaAdsAdapter } from "./metaAds";
@@ -20,14 +20,50 @@ export function metaAppIdFromConfig(): string | null {
   return typeof appId === "string" && appId.length > 0 ? appId : null;
 }
 
+/** ATT 프롬프트가 뜨지 못했을 때 다시 묻는 횟수와 간격. */
+const ATT_MAX_ATTEMPTS = 5;
+const ATT_RETRY_DELAY_MS = 1_000;
+
+/** 앱이 active가 될 때까지 기다린다. */
+function whenAppActive(): Promise<void> {
+  if (AppState.currentState === "active") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        subscription.remove();
+        resolve();
+      }
+    });
+  });
+}
+
 function createFbsdkMetaAdsAdapter({ AppEventsLogger, Settings }: typeof Fbsdk): MetaAdsAdapter {
   return {
     initialize() {
       Settings.initializeSDK();
     },
     async requestTrackingPermission() {
-      const { granted } = await requestTrackingPermissionsAsync();
-      return granted;
+      if (Platform.OS !== "ios") {
+        const { granted } = await requestTrackingPermissionsAsync();
+        return granted;
+      }
+      // iOS는 앱이 active일 때만 프롬프트를 띄운다.
+      // 그 전에 요청하면 창 없이 "미결정"이 돌아오는데, 릴리즈 빌드는 JS가 빨리 떠서 시작 직후가 그 구간에 걸린다.
+      // 그래서 active를 기다렸다 묻고, 미결정이면 다시 묻는다.
+      // 프롬프트가 떠 있는 동안은 앱이 inactive라, 답하기 전에 미결정이 먼저 돌아와도 다음 요청은 답한 뒤에 나가 저장된 값을 받는다.
+      for (let attempt = 0; attempt < ATT_MAX_ATTEMPTS; attempt += 1) {
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, ATT_RETRY_DELAY_MS));
+        }
+        await whenAppActive();
+        const { granted, status } = await requestTrackingPermissionsAsync();
+        if (status !== PermissionStatus.UNDETERMINED) {
+          return granted;
+        }
+      }
+      return false;
     },
     async setAdvertiserTrackingEnabled(enabled) {
       // fbsdk-next가 Android에서는 스스로 no-op이지만, 식별자 수집 플래그까지 iOS 전용으로 묶어 둔다 —
