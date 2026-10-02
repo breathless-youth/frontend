@@ -20,11 +20,13 @@ type HeaderRule = {
   headers: { key: string; value: string }[];
 };
 
-const rules = (
-  JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8")) as {
-    headers: HeaderRule[];
-  }
-).headers;
+const config = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8"),
+) as {
+  rewrites: { source: string; destination: string }[];
+  headers: HeaderRule[];
+};
+const rules = config.headers;
 
 /** 어떤 경로도 제외하지 않는 패턴. 제외가 붙으면 그 경로만 색인이 열린 채 남는다. */
 const ALL_PATHS = "/(.*)";
@@ -52,20 +54,50 @@ describe("vercel.json 응답 헤더", () => {
     expect(keys).toContain("Cross-Origin-Embedder-Policy");
   });
 
-  // Vercel 기본값은 해시된 파일도 max-age=0으로 내보내, 앱을 켤 때마다 폰트·JS·CSS를 서버에
-  // 다시 확인한다. 파일명에 해시가 있어 내용이 바뀌면 이름도 바뀌므로 오래 캐시해도 안전하다.
-  it("해시된 /assets 파일은 1년 immutable 캐시로 나간다", () => {
-    const applied = rules
-      .filter((rule) => rule.source === "/assets/(.*)")
-      .flatMap((rule) => rule.headers)
-      .filter((header) => header.key === "Cache-Control")
-      .map((header) => header.value);
+  /**
+   * 파일명에 해시나 버전이 있어 내용이 바뀌면 이름도 바뀌는 경로만 1년 immutable로 나간다.
+   * `/mediapipe`는 패키지 버전 폴더, `/models`와 `/sounds`는 파일명 해시가 그 조건을 지킨다.
+   * `catalog.json`은 소리를 추가하면 바뀌어야 해서 뺀다.
+   */
+  const IMMUTABLE_SOURCES = [
+    "/assets/(.*)",
+    "/mediapipe/(.*)",
+    "/models/(.*)",
+    "/sounds/((?!catalog\\.json).*)",
+  ];
 
-    expect(applied).toEqual(["public, max-age=31536000, immutable"]);
+  it("해시·버전 경로 네 곳이 1년 immutable 캐시로 나간다", () => {
+    for (const source of IMMUTABLE_SOURCES) {
+      const applied = rules
+        .filter((rule) => rule.source === source)
+        .flatMap((rule) => rule.headers)
+        .filter((header) => header.key === "Cache-Control")
+        .map((header) => header.value);
+
+      expect(applied, source).toEqual(["public, max-age=31536000, immutable"]);
+    }
+  });
+
+  /**
+   * SPA 폴백이 자산 폴더까지 덮으면 없는 모델·wasm 경로가 HTML 200을 받고, 그 HTML에 immutable까지
+   * 붙어 그 URL은 1년 동안 HTML로 굳는다. 감지는 오류 없이 멈춰 가장 찾기 어려운 실패가 된다.
+   * 그래서 immutable 폴더는 폴백에서 빼서 404를 받게 한다.
+   */
+  it("SPA 폴백은 immutable 자산 폴더를 제외한다", () => {
+    const fallbacks = config.rewrites.filter((rewrite) => rewrite.destination === "/index.html");
+
+    expect(fallbacks).toHaveLength(1);
+
+    const excluded = /^\/\(\(\?!(.+)\)\.\*\)$/.exec(fallbacks[0].source)?.[1]?.split("|") ?? [];
+    for (const source of IMMUTABLE_SOURCES) {
+      const folder = `${source.split("/")[1]}/`;
+
+      expect(excluded, source).toContain(folder);
+    }
   });
 
   // index.html까지 immutable로 잡히면 배포해도 앱이 옛 화면과 옛 자산 목록을 계속 쓴다.
-  it("immutable 캐시는 /assets 밖으로 번지지 않는다", () => {
+  it("immutable 캐시는 네 경로 밖으로 번지지 않는다", () => {
     const immutableSources = rules
       .filter((rule) =>
         rule.headers.some(
@@ -74,6 +106,6 @@ describe("vercel.json 응답 헤더", () => {
       )
       .map((rule) => rule.source);
 
-    expect(immutableSources).toEqual(["/assets/(.*)"]);
+    expect(immutableSources.sort()).toEqual([...IMMUTABLE_SOURCES].sort());
   });
 });

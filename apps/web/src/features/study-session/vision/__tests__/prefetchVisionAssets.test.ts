@@ -2,19 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_MODEL_VARIANT, MEDIAPIPE_WASM_PATH, MODEL_PATHS } from "../visionConfig";
 
-const LOADER = "/mediapipe/wasm/vision_wasm_internal.js";
-const WASM = "/mediapipe/wasm/vision_wasm_internal.wasm";
+const LOADER = `${MEDIAPIPE_WASM_PATH}/vision_wasm_internal.js`;
+const WASM = `${MEDIAPIPE_WASM_PATH}/vision_wasm_internal.wasm`;
 const MODEL = MODEL_PATHS[DEFAULT_MODEL_VARIANT];
 
 // MediaPipe 패키지 경계. 실제 경로 계산은 mediapipeModule.test.ts가 본다.
+// hoisted 블록은 import보다 먼저 돌아 상수를 못 쓰므로 반환값은 아래에서 넣는다.
 const resolveVisionAssetUrls = vi.hoisted(() =>
-  vi.fn(() =>
-    Promise.resolve({
-      wasmLoaderPath: "/mediapipe/wasm/vision_wasm_internal.js",
-      wasmBinaryPath: "/mediapipe/wasm/vision_wasm_internal.wasm",
-    }),
-  ),
+  vi.fn<() => Promise<{ wasmLoaderPath: string; wasmBinaryPath: string }>>(),
 );
+resolveVisionAssetUrls.mockResolvedValue({ wasmLoaderPath: LOADER, wasmBinaryPath: WASM });
 
 vi.mock("../mediapipeModule", () => ({ resolveVisionAssetUrls }));
 

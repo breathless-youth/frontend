@@ -27,17 +27,17 @@ const FOCUS_TIMER_COLORS: Record<FocusTimerTone, string> = {
 };
 
 /**
- * 온보딩 가이드 배경의 **세션 화면 목업** — Figma `Session / Camera Preview BG`(58:109),
- * `Session / Status Pill`(34:14), `Session / Control Bar`(34:32).
+ * 온보딩 가이드 배경의 **세션 화면 목업** — Figma `Session / Camera Preview BG`,
+ * `Session / Status Pill`, `Session / Control Bar`.
  *
- * **BY-151 재정의(2026-07-28 팀 확정):** 가이드 배경은 검정 단색이다.
+ * **재정의(팀 확정):** 가이드 배경은 검정 단색이다.
  * 카메라 흉내 사선 밴드·프리뷰 라벨 장식은 제거됐다.
  *
  * ## 이것이 하지 않는 것
  *
- * - **카메라를 켜지 않는다.** 가이드는 카메라 권한 요청(S2-2)보다 먼저 실행되므로 배경은
+ * - **카메라를 켜지 않는다.** 가이드는 카메라 권한 요청보다 먼저 실행되므로 배경은
  *   실제 프리뷰일 수 없다. 이 파일에 카메라·권한·Vision·WebView·LiveKit 코드는 들어가지 않는다.
- * - **실제 세션 컴포넌트를 재사용하지 않는다.** 진짜 세션 화면(S3-1~S3-8)은
+ * - **실제 세션 컴포넌트를 재사용하지 않는다.** 진짜 세션 화면은
  *   `features/study-session`이 구현하며, 이 화면(온보딩 목업)과는 컴포넌트를 공유하지 않는다
  *   (ADR 0001 — 화면끼리 컴포넌트를 공유하지 않는다. `coachIcons.tsx`와 같은 판단).
  * - **집계하지 않는다.** 타이머는 시연용 로컬 카운터이고 서버에 아무것도 보내지 않는다.
@@ -53,7 +53,7 @@ const FOCUS_TIMER_COLORS: Record<FocusTimerTone, string> = {
  * 수 있음에도 **이 포팅 범위를 RN 목업의 1:1 이식으로 한정**해 추가하지 않는다 — 블러 아래에
  * 깔리는 반투명 배경색만 그대로 쓴다. 장식 레이어라 정보 손실은 없다.
  *
- * (`apps/mobile/components/onboarding/SessionMockBackdrop.tsx`에서 이식 — BY-334 온보딩 웹 이관.
+ * (`apps/mobile/components/onboarding/SessionMockBackdrop.tsx`에서 이식 — 온보딩 웹 이관.
  * RN `AccessibilityInfo.isReduceMotionEnabled` 폴링 훅은 CSS `prefers-reduced-motion` 미디어쿼리
  * (`motion-reduce:` 유틸)로 대체했다 — JS 훅이 더 이상 필요 없다. RN `accessible` +
  * `accessibilityLabel`(개별 자식을 숨기고 하나로 묶어 읽는 것)은 `role="img"` + 요약
@@ -108,8 +108,9 @@ export function MockBaseLayer({ base }: { base: MockBackdrop["base"] }) {
 }
 
 /**
- * 세션 상단 중앙 상태 필. Focus=블루 도트 / Distract=오렌지 도트·오렌지 35% 보더 /
- * Paused=회색 도트(2026-08-25 BY-427 — G4가 일시정지 상태를 그대로 보여주도록 추가).
+ * 세션 상단 중앙 상태 필
+ *
+ * 비집중만 주황 테두리를 두르고, 측정 중과 일시정지는 문구로 구분한다.
  */
 export function MockStatusPillBlock({
   pill,
@@ -131,7 +132,7 @@ export function MockStatusPillBlock({
       // 강조 대상이 아닐 때는 dim 아래 장식과 같은 취급 — 스크린 리더에서 제외한다.
       aria-hidden={emphasized ? undefined : true}
     >
-      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4, 2026-08-25 BY-427)로 켠다. */}
+      {/* 링은 스텝 강조(G2) 또는 필 자체 플래그(G1·G4)로 켠다. */}
       <RingOutEmphasis
         active={emphasized || pill.ring === true}
         color={accent}
@@ -140,7 +141,7 @@ export function MockStatusPillBlock({
         <div
           role={emphasized ? "img" : undefined}
           aria-label={emphasized ? pill.label : undefined}
-          className="flex flex-row items-center gap-2 border px-4 py-[9px]"
+          className="flex flex-row items-center border px-4 py-[9px]"
           style={{
             backgroundColor: isDistract
               ? coachOverlay.pillBgDistract
@@ -151,11 +152,6 @@ export function MockStatusPillBlock({
             borderRadius: coachRadius.full,
           }}
         >
-          <span
-            aria-hidden="true"
-            className="size-2 rounded-full"
-            style={{ backgroundColor: accent }}
-          />
           <span className="text-[14px] leading-[18px] font-medium text-white">{pill.label}</span>
         </div>
       </RingOutEmphasis>
@@ -176,7 +172,7 @@ export function MockStatusPillBlock({
  * 순공 타이머 + 총 공부 병기.
  * 숫자는 `tabular-nums`로 고정폭 — 초가 바뀔 때 좌우로 흔들리지 않게 한다.
  * 프라이버시 캡션("영상은 기기 안에서만 처리돼요")은 2026-07-29 확정으로 삭제됐다 —
- * 프라이버시 안내는 G5 카드가 전담한다(BY-151).
+ * 프라이버시 안내는 G5 카드가 전담한다.
  */
 export function MockTimerBlock({
   focusSec,
@@ -248,7 +244,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       >
         {/* 손잡이 중앙정렬(2026-07-29) — 좌우 풀폭 래퍼의 justify-center로 맞춘다.
             구 방식(left-1/2 + 음수 마진 임의값 클래스)은 좌측으로 치우쳐 보였다. */}
-        {/* 드래그 핸들 목업은 실제 바에서 핸들이 제거되며(2026-08-25 BY-427) 함께 삭제했다. */}
+        {/* 드래그 핸들 목업은 실제 바에서 핸들이 제거되며 함께 삭제했다. */}
         <RingOutEmphasis
           active={emphasized}
           color={GUIDE_FOCUS_COLOR}

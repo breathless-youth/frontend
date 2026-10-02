@@ -61,7 +61,7 @@ function SummaryRow({
       <span className="text-[15px] leading-[18px] break-keep text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "shrink-0 text-[22px] leading-[26px] font-bold tabular-nums",
+          "shrink-0 text-[18px] leading-[22px] font-bold tabular-nums",
           accent ? "text-primary" : "text-foreground",
         )}
       >

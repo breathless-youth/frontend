@@ -1,15 +1,28 @@
-import { useIsFocused } from "@react-navigation/native";
-import { Tabs } from "expo-router";
+import { Tabs, useIsFocused } from "expo-router";
 import { useEffect, useRef } from "react";
 import { BackHandler, Platform, View } from "react-native";
 
+import { NativeTabsLayout } from "../../components/NativeTabsLayout";
 import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
 import { trackNativeEvent } from "../../lib/nativeAnalytics";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarState } from "../../lib/tabBarVisibility";
 
+/**
+ * 하단 탭 레이아웃
+ *
+ * iOS는 시스템 탭 바(`NativeTabsLayout`)를 쓴다.
+ * iOS 26은 Liquid Glass로 그려진다.
+ * Android는 V2 커스텀 바(`TabBar`)를 유지한다.
+ * Material 3 바는 시안과 다르고 유리 효과의 이점도 없다.
+ */
 export default function TabsLayout() {
+  return Platform.OS === "ios" ? <NativeTabsLayout /> : <CustomTabsLayout />;
+}
+
+/** Android 전용 커스텀 탭 바 레이아웃. */
+function CustomTabsLayout() {
   /**
    * 전체 화면 웹 라우트(온보딩 가이드 G1~G5·문의·약관·방침)와 바텀시트에서는 탭 바를
    * 감춘다("hidden") — 그 화면들은 탭 웹뷰 **안에서** 웹 라우팅으로 열려 네이티브 스택을

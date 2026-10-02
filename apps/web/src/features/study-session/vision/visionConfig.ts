@@ -63,19 +63,17 @@ export const CAMERA_CONSTRAINTS = {
 /**
  * MediaPipe wasm 런타임 디렉터리.
  *
- * `apps/web/public/`에 두면 `dist`를 거쳐 앱 번들까지 그대로 흘러간다
- * (`apps/mobile/scripts/syncWebDist.js`가 재귀 전체 복사). 그래서 브라우저(`localhost:5173`)와
- * WebView(`http://127.0.0.1:{포트}`) 양쪽에서 같은 절대 경로가 통한다.
- *
- * 이 디렉터리는 손으로 채우지 않는다 — `scripts/copyMediapipeWasm.js`가 npm 패키지에서
- * 복사한다. 손으로 넣으면 패키지 버전이 올라갈 때 wasm만 옛 버전으로 남는다.
+ * 버전 폴더가 들어가는 이유는 이 경로가 1년 immutable 캐시로 나가기 때문이다.
+ * 패키지를 올리면 버전이 바뀌어 URL도 바뀌고, 옛 캐시는 그냥 안 쓰이게 된다.
+ * 버전은 `scripts/copyMediapipeWasm.js`가 패키지에서 읽어 `vite.config.ts`의 define으로 넣는다.
+ * 이 디렉터리는 손으로 채우지 않는다. 같은 스크립트가 npm 패키지에서 복사한다.
  */
-export const MEDIAPIPE_WASM_PATH = "/mediapipe/wasm";
+export const MEDIAPIPE_WASM_PATH = `/mediapipe/${__MEDIAPIPE_VERSION__}/wasm`;
 
 /** 번들에 동봉하는 EfficientDet-Lite0 변형. 설계 §2가 둘 다 넣고 실측 비교하라고 정했다. */
 export const MODEL_PATHS = {
-  int8: "/models/efficientdet_lite0_int8.tflite",
-  fp32: "/models/efficientdet_lite0_fp32.tflite",
+  int8: "/models/efficientdet_lite0_int8-0720bf24.tflite",
+  fp32: "/models/efficientdet_lite0_fp32-40338edf.tflite",
 } as const;
 
 export type ModelVariant = keyof typeof MODEL_PATHS;

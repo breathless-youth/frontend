@@ -11,8 +11,8 @@ import HomeScreen from "../app/(tabs)/index";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router", () => ({
+  ...jest.requireActual("expo-router"),
   useIsFocused: () => true,
 }));
 
@@ -51,7 +51,7 @@ describe("HomeScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1",
     });
   });
 });

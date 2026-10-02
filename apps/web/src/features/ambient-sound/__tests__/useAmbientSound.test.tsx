@@ -465,3 +465,85 @@ describe("useAmbientSound — 음량 조작", () => {
     expect(result.current.mix).toEqual({});
   });
 });
+
+describe("useAmbientSound — 전체 켜기·끄기", () => {
+  it("전체를 끄면 모든 소리가 멈추고, 다시 켜면 마지막 조합이 돌아온다", async () => {
+    const saved = { rain: 37, white: 60 };
+    const { result, player } = setup({ mix: saved, lastMix: saved });
+    await flush();
+
+    await act(async () => {
+      result.current.toggleAll();
+    });
+    expect(result.current.mix).toEqual({});
+    expect(result.current.isOn).toBe(false);
+    expect(result.current.canRestore).toBe(true);
+    expect(player.commands.at(-1)).toEqual({ type: "applyMix", mix: {} });
+    expect(mocks.changed).toHaveBeenLastCalledWith({ sounds: [], source: "dialog" });
+
+    await act(async () => {
+      result.current.toggleAll();
+    });
+    expect(result.current.mix).toEqual(saved);
+    expect(player.commands.at(-1)).toEqual({ type: "applyMix", mix: saved });
+    expect(mocks.changed).toHaveBeenLastCalledWith({
+      sounds: ["white", "rain"],
+      source: "dialog",
+    });
+  });
+
+  it("켠 적이 없어 되살릴 조합이 없으면 전체 켜기는 아무것도 하지 않는다", async () => {
+    const { result, player } = setup();
+    await flush();
+
+    expect(result.current.canRestore).toBe(false);
+    await act(async () => {
+      result.current.toggleAll();
+    });
+
+    expect(player.commands).toEqual([]);
+    expect(mocks.changed).not.toHaveBeenCalled();
+  });
+
+  it("카탈로그에 없는 id 만 남은 lastMix 는 지워져 전체 켜기로 되살아나지 않는다", async () => {
+    const { result, player } = setup({ mix: {}, lastMix: { gone: 50 } });
+    await flush();
+
+    expect(result.current.canRestore).toBe(false);
+    await act(async () => {
+      result.current.toggleAll();
+    });
+
+    expect(player.commands).toEqual([]);
+    expect(mocks.changed).not.toHaveBeenCalled();
+  });
+
+  it("소리를 켜면 그 조합이 lastMix 로 저장되고, 슬라이더로 전부 꺼도 남는다", async () => {
+    const { result, store } = setup();
+    await flush();
+
+    await act(async () => {
+      result.current.changeLevel("rain", 60);
+    });
+    await act(async () => {
+      result.current.changeLevel("rain", 0);
+    });
+
+    expect(result.current.canRestore).toBe(true);
+    await expect(store.load()).resolves.toMatchObject({ mix: {}, lastMix: { rain: 60 } });
+  });
+
+  it("전체를 끈 뒤 소리 하나를 아이콘으로 켜면 끄기 전 음량으로 돌아온다", async () => {
+    const { result } = setup({ mix: { rain: 37 }, lastMix: { rain: 37 } });
+    await flush();
+
+    await act(async () => {
+      result.current.toggleAll();
+    });
+    await act(async () => {
+      result.current.toggleSound("rain");
+    });
+
+    expect(result.current.mix).toEqual({ rain: 37 });
+  });
+});

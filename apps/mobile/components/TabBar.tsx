@@ -1,16 +1,7 @@
 import { colors, softBlue } from "@focusmakers/design-tokens";
-import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Animated,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Animated, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
@@ -43,6 +34,11 @@ type TabBarProps = {
   hidden?: boolean;
 };
 
+/**
+ * Android 하단 플로팅 탭 바
+ *
+ * iOS는 시스템 탭 바(`NativeTabsLayout`)를 쓰므로 이 컴포넌트는 Android에서만 그려진다.
+ */
 export function TabBar({ active = "home", dimmed = false, hidden = false }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -77,27 +73,18 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
         ]}
       >
         <View style={[styles.surface, { borderColor: g.border[scheme] }]}>
-          {/* 프로스티드 바. 표준 블러이고 iOS26 Liquid Glass는 아니다, 그건 NativeTabs 별도 티켓이다.
-              Android 블러는 탭 바가 속한 화면 전체를 찍어 흐리게 해서 알약과 아이콘까지 밑에 번진다.
-              대상만 골라 찍는 방법이 이 expo-blur 버전에는 없어 Android는 불투명 배경을 쓴다. */}
-          {Platform.OS === "android" ? (
-            <View
-              testID="tab-bar-surface"
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
-                },
-              ]}
-            />
-          ) : (
-            <BlurView
-              testID="tab-bar-blur"
-              intensity={22}
-              tint={scheme === "dark" ? "dark" : "light"}
-              style={[StyleSheet.absoluteFill, { backgroundColor: g.surface[scheme] }]}
-            />
-          )}
+          {/* Android 전용 바라 불투명 배경이다.
+              블러는 화면 전체를 찍어 알약과 아이콘까지 번졌다.
+              iOS는 시스템 탭 바를 쓴다. */}
+          <View
+            testID="tab-bar-surface"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
+              },
+            ]}
+          />
           <View
             pointerEvents="none"
             style={[styles.innerHighlight, { backgroundColor: g.innerHighlight[scheme] }]}
@@ -174,7 +161,7 @@ const styles = StyleSheet.create({
     gap: 3,
     borderRadius: 999,
   },
-  pill: { ...StyleSheet.absoluteFillObject, borderRadius: 999 },
+  pill: { ...StyleSheet.absoluteFill, borderRadius: 999 },
   // 폰트 파일 속 이름이 아니라 app/_layout.tsx의 useFonts 등록 키를 써야 iOS와 Android에서 같은 폰트로 풀린다.
   label: { fontSize: 11, fontFamily: "PretendardBold", lineHeight: 13 },
 });

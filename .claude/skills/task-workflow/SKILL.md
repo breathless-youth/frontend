@@ -19,6 +19,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
 * 구현은 shadcn 프리미티브를 먼저 고르고 토큰으로 커스텀한다. 매핑표는 `focusmakers-design/references/shadcn-map.md`다.
 * React·TanStack Query 코드는 저장소 스킬(`vercel-react-best-practices`, `vercel-composition-patterns`, `tanstack-query-best-practices`)의 패턴을 먼저 읽고 그 기준으로 쓴다.
 * UI 티켓의 완료 조건에는 라이트·다크 스크린샷, reduced-motion 확인, 44px 터치 타겟과 aria 점검이 들어간다.
+* **UI 코드를 바꾸면 Figma 시안도 반드시 함께 반영한다.** 시안과 실제 화면이 갈라지면 다음 작업의 1차 출처(저장소 자체 스킬의 Figma 참조)가 거짓이 된다. `figma-use`·`figma-generate-design` 스킬로 변경분을 시안에 반영한다.
 
 ## 검토 요청과 실행 요청의 구분
 
@@ -99,7 +100,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
   - `apps/web/.env.local` — `DEV_API_PROXY_TARGET` (없으면 Vite가 `/api`·`/ws`를 503으로 막는다)
   - `apps/mobile/.env.local` — `WEB_BASE_URL`·`API_BASE_URL` (없으면 웹뷰가 빈 주소 폴백 화면)
   - 터널 주소(`trycloudflare` 등)는 만료형이라 복사 후 실기기 검증 시점에 새로 발급해 갱신한다.
-- **웹 dev 서버는 반드시 `pnpm --filter web dev` 경로로 띄운다**. `dev` 스크립트는 vite 앞에 `scripts/copyMediapipeWasm.js`를 묶어 두어 gitignore 대상인 `public/mediapipe/wasm/`을 패키지에서 복사하는데, `exec vite`는 이 단계를 건너뛴다. 새 워크트리는 그 폴더가 한 번도 생성된 적이 없어 wasm 404로 감지가 통째로 죽는다.
+- **웹 dev 서버는 반드시 `pnpm --filter web dev` 경로로 띄운다**. `dev` 스크립트는 vite 앞에 `scripts/copyMediapipeWasm.js`를 묶어 두어 gitignore 대상인 `public/mediapipe/<버전>/wasm/`을 패키지에서 복사하는데, `exec vite`는 이 단계를 건너뛴다. 새 워크트리는 그 폴더가 한 번도 생성된 적이 없어 wasm 404로 감지가 통째로 죽는다.
   - 포트를 바꾸려면 `pnpm --filter web dev -- --port 5199`처럼 `dev` 스크립트를 거쳐 인자를 넘긴다.
   - 미리 채워 두려면 `pnpm --filter web prepare-assets`가 같은 스크립트를 돌린다.
 - **워크트리 진입 직후 저장소 자체 스킬을 찾아 읽는다**. 프론트 저장소는
@@ -234,6 +235,7 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
 - **[승인 게이트]** 사용자에게 원격 Push 승인을 받은 후 `git push`를 진행한다.
 - 팀의 PR 작성 컨벤션 및 템플릿(`.github/pull_request_template.md`)에 따라 Draft PR(초안)을 작성한다.
   - PR 제목은 `[타입] BY-N 제목` 형식 (CI `pr-title` job이 강제). 관련 이슈에는 GitHub 이슈번호가 아니라 **Jira 키**를 쓴다.
+  - **Draft PR 생성 시 현재 세션 사용자 계정을 assignee로 자동 지정한다**(`gh pr create --assignee @me`). 지정한 뒤 사용자에게 지정했음을 알린다.
   - PR 본문도 티켓과 마찬가지로 **전문을 응답에 펼쳐 보여주고** 승인받는다.
   - 본문 구조는 `doc-writing` 스킬의 PR 본문 절을 따른다. 초안은 AI가 써도 본문의 책임은 사람에게 있으므로 올린 뒤 직접 읽고 고친다.
 

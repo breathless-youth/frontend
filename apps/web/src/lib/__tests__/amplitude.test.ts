@@ -61,14 +61,30 @@ function sanitizePlugin() {
   };
 }
 
+let idleCallbacks: IdleRequestCallback[] = [];
+
 beforeEach(() => {
   vi.resetModules();
+  idleCallbacks = [];
+  vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+    idleCallbacks.push(callback);
+    return idleCallbacks.length;
+  });
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
+
+/** 유휴 콜백을 돌리고 그 안의 동적 import가 끝날 때까지 기다린다. */
+async function runIdle() {
+  for (const callback of idleCallbacks.splice(0)) {
+    callback({ didTimeout: false, timeRemaining: () => 50 });
+  }
+  await vi.dynamicImportSettled();
+}
 
 describe("initAmplitude", () => {
   it("API 키가 없으면 아무것도 하지 않는다", async () => {
@@ -121,25 +137,37 @@ describe("initAmplitude", () => {
     expect(options.minIdLength).toBe(1);
   });
 
-  it("Session Replay를 카메라(video) 차단 설정으로 init 전에 등록한다", async () => {
+  it("리플레이 플러그인은 init 때 받지 않고 유휴 시간에 붙인다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude } = await loadModule();
 
     initAmplitude();
+    expect(mocks.init).toHaveBeenCalledTimes(1);
+    expect(mocks.sessionReplayPlugin).not.toHaveBeenCalled();
+
+    await runIdle();
+
+    const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
+    expect(names).toEqual([
+      "focusmakers-sanitize-url",
+      "engagement",
+      "focusmakers-firebase-analytics-forward",
+      "session-replay",
+    ]);
+  });
+
+  it("Session Replay는 카메라(video) 차단 설정 그대로 붙인다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+    await runIdle();
 
     // video 차단이 빠지면 세션 화면의 카메라 프리뷰가 리플레이에 실린다(개인정보 원칙).
     expect(mocks.sessionReplayPlugin).toHaveBeenCalledWith({
       sampleRate: 1,
       privacyConfig: { blockSelector: ["video", ".amp-block"] },
     });
-    const replayIndex = mocks.add.mock.calls.findIndex(
-      ([plugin]) => (plugin as { name?: string }).name === "session-replay",
-    );
-    expect(replayIndex).toBeGreaterThanOrEqual(0);
-    // init 이후 등록하면 세션 첫 구간이 리플레이에서 빠진다.
-    expect(mocks.add.mock.invocationCallOrder[replayIndex]).toBeLessThan(
-      mocks.init.mock.invocationCallOrder[0],
-    );
   });
 
   it("Guides & Surveys 플러그인을 정제 플러그인 뒤, init 전에 등록한다", async () => {
@@ -163,6 +191,36 @@ describe("initAmplitude", () => {
     expect(mocks.add.mock.invocationCallOrder[engagementIndex]).toBeLessThan(
       mocks.init.mock.invocationCallOrder[0],
     );
+  });
+
+  it("리플레이를 받지 못해도 init과 이벤트 수집은 그대로다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    vi.doMock("@amplitude/plugin-session-replay-browser", () => {
+      throw new Error("chunk load failed");
+    });
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const { initAmplitude, trackAmplitudePageView } = await loadModule();
+
+      initAmplitude();
+      await runIdle();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      trackAmplitudePageView("/home", "");
+
+      expect(mocks.init).toHaveBeenCalledTimes(1);
+      expect(mocks.track).toHaveBeenCalledTimes(1);
+      expect(unhandled).not.toHaveBeenCalled();
+      const names = mocks.add.mock.calls.map(([plugin]) => (plugin as { name?: string }).name);
+      expect(names).toEqual([
+        "focusmakers-sanitize-url",
+        "engagement",
+        "focusmakers-firebase-analytics-forward",
+      ]);
+    } finally {
+      process.off("unhandledRejection", unhandled);
+      vi.doUnmock("@amplitude/plugin-session-replay-browser");
+    }
   });
 });
 

@@ -14,10 +14,10 @@ import path from "node:path";
 const repoRoot = path.resolve(__dirname, "../../../..");
 
 const PATCHES: Record<string, string> = {
-  "expo-constants@18.0.13": "patches/expo-constants@18.0.13.patch",
+  "expo-constants@57.0.20": "patches/expo-constants@57.0.20.patch",
   "@react-native-firebase/messaging@26.3.3":
     "patches/@react-native-firebase__messaging@26.3.3.patch",
-  "react-native-webview@13.15.0": "patches/react-native-webview@13.15.0.patch",
+  "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch",
 };
 
 const ONLY_BUILT = ["@sentry/cli", "esbuild", "unrs-resolver"];
@@ -78,7 +78,7 @@ describe("pnpm 패치 선언", () => {
 
   it("웹뷰 패치가 배경색을 안쪽 뷰로 전달하는 변경을 담는다", () => {
     const patch = readFileSync(
-      path.join(repoRoot, PATCHES["react-native-webview@13.15.0"]),
+      path.join(repoRoot, PATCHES["react-native-webview@13.16.1"]),
       "utf-8",
     );
     expect(patch).toContain("setBackgroundColor");
@@ -87,7 +87,7 @@ describe("pnpm 패치 선언", () => {
 
   it("웹뷰 패치가 앞으로가기 가장자리 인식기만 끄는 함수를 담는다", () => {
     const patch = readFileSync(
-      path.join(repoRoot, PATCHES["react-native-webview@13.15.0"]),
+      path.join(repoRoot, PATCHES["react-native-webview@13.16.1"]),
       "utf-8",
     );
     expect(patch).toContain("static void RNCDisableForwardNavigationGesture(WKWebView *webView)");
@@ -100,7 +100,7 @@ describe("pnpm 패치 선언", () => {
   // 두 곳 중 하나라도 빠지면, 가이드처럼 스위치를 껐다 켠 뒤에 앞으로가기가 되살아난다.
   it("웹뷰 패치가 스와이프 스위치를 켜는 두 지점 모두에서 앞으로가기를 끈다", () => {
     const patch = readFileSync(
-      path.join(repoRoot, PATCHES["react-native-webview@13.15.0"]),
+      path.join(repoRoot, PATCHES["react-native-webview@13.16.1"]),
       "utf-8",
     );
     const calls = patch.match(/^\+\s*RNCDisableForwardNavigationGesture\(_webView\);/gm) ?? [];

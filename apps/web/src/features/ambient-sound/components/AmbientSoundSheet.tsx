@@ -31,9 +31,11 @@ export interface AmbientSoundSheetProps {
   duckEnabled: boolean;
   /** 자동 재생 정책에 막혀 소리가 못 난 상태. 슬라이더를 움직이면 컨텍스트가 다시 살아난다. */
   blocked: boolean;
+  canRestore: boolean;
   onToggleSound: (id: SoundId) => void;
   onChangeLevel: (id: SoundId, level: number) => void;
   onSetDuckEnabled: (enabled: boolean) => void;
+  onToggleAll: () => void;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -59,9 +61,11 @@ export function AmbientSoundSheet({
   mix,
   duckEnabled,
   blocked,
+  canRestore,
   onToggleSound,
   onChangeLevel,
   onSetDuckEnabled,
+  onToggleAll,
   onOpenChange,
 }: AmbientSoundSheetProps) {
   // 툴팁을 직접 제어한다. Radix 기본은 hover·focus 라 터치 기기에서는 열리지 않는다.
@@ -75,6 +79,7 @@ export function AmbientSoundSheet({
   const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
+  const allOn = Object.keys(mix).length > 0;
 
   /**
    * 여는 요청은 무시하고 닫는 요청만 받는다.
@@ -100,6 +105,10 @@ export function AmbientSoundSheet({
           event.preventDefault();
           triggerRef.current?.focus();
         }}
+        // Radix 스크롤 잠금은 스크롤할 곳이 없는 자리의 touchmove 를 막는데, iOS 는 막힌 터치를 클릭으로 만들지 않는다.
+        // 그래서 손가락이 조금만 흔들려도 헤더 스위치와 탭이 눌리지 않았다.
+        // 세션 화면은 원래 스크롤되지 않아 잠금이 할 일이 없으므로 시트 안 터치를 잠금까지 올려 보내지 않는다.
+        onTouchMove={(event) => event.stopPropagation()}
         // 폭에 오른쪽 안전영역을 더한다. 시트가 화면 끝에 붙어 있어 그 인셋이 그대로 안쪽
         // 여백으로 들어가는데, 폭을 그만큼 늘리지 않으면 가로에서 내용이 204px 까지 좁아진다.
         // 위아래는 각자의 인셋을 쓴다. `py` 하나로 묶으면 아래쪽에도 위쪽 인셋이 들어가
@@ -130,6 +139,14 @@ export function AmbientSoundSheet({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {/* ⓘ 의 탭 영역이 좌우로 14px 번지므로, 스위치가 그 위를 덮지 않게 간격을 14px 로 맞춘다. */}
+            <Switch
+              className="ml-1.5"
+              checked={allOn}
+              onCheckedChange={onToggleAll}
+              disabled={!allOn && !canRestore}
+              aria-label="배경음"
+            />
           </div>
           <SheetClose
             aria-label="닫기"

@@ -55,7 +55,7 @@ describe("SessionRoomScreen", () => {
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
+      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1",
     });
   });
 
@@ -87,7 +87,7 @@ describe("SessionRoomScreen", () => {
     });
 
     // `true` = "이 이벤트를 처리했으니 기본 동작(화면 닫기)을 하지 말라"
-    expect(spy.mock.calls.at(-1)?.[1]()).toBe(true);
+    expect(spy.mock.calls.at(-1)?.[1]({ type: "hardwareBackPress", timeStamp: 0 })).toBe(true);
     spy.mockRestore();
   });
 

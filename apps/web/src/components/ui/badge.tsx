@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
  */
 /** 세션 상태 필 공통 */
 const SESSION_PILL_BASE =
-  "h-[38px] px-4 text-[14px] leading-[18px] font-bold text-[#f4f7fb] backdrop-blur-[11px] shadow-[0px_10px_30px_rgba(0,0,0,0.35),inset_0px_1px_0px_rgba(255,255,255,0.22)] transition-colors duration-200 motion-reduce:transition-none";
+  // 테두리 두께만큼 여백을 줄여야 Figma 안쪽 선과 같은 높이가 나온다.
+  // 테두리를 바꾸면 여백도 같이 바꾼다.
+  "border-[1.5px] px-[14.5px] py-[7.5px] text-[14px] leading-[18px] font-medium text-white backdrop-blur-[5px] transition-colors duration-200 motion-reduce:transition-none";
 
 // eslint-disable-next-line react-refresh/only-export-components -- shadcn convention: variants ship alongside the component
 export const badgeVariants = cva(
@@ -19,17 +21,17 @@ export const badgeVariants = cva(
   {
     variants: {
       variant: {
-        /** 집중률 배지(히어로) — 옅은 브랜드색 배경에 브랜드색 글자(V2 시안 pill). */
+        /** 집중률 배지(히어로) — 옅은 브랜드색 배경에 브랜드색 글자. */
         elevated: "bg-brand-subtle px-[11px] py-[5px] text-[12px] leading-[15px] font-bold",
-        /** 최고 집중 배지(타임라인) — 카드색 배경에 브랜드색 1.5px 선 테두리(3차 시안 이미지). */
+        /** 최고 집중 배지(타임라인) — 카드색 배경에 브랜드색 1.5px 선 테두리. */
         outline:
           "border-[1.5px] border-primary bg-muted px-3 py-[4px] text-[13px] leading-[16px] font-bold",
-        /** 공부 세션 상태 필 — 측정 중(Figma V2 `S1b` 실측). 세션 로컬 변수는 sessionTheme.ts가 준다. */
-        "session-focus": `border border-[var(--session-pill-border-focus)] bg-[var(--session-pill-bg)] ${SESSION_PILL_BASE}`,
+        /** 공부 세션 상태 필 — 측정 중. 세션 로컬 변수는 sessionTheme.ts가 준다. */
+        "session-focus": `bg-[var(--session-pill-bg)] border-[var(--session-pill-border-focus)] ${SESSION_PILL_BASE}`,
         /** 상태 필 — 비집중(휴대폰 사용 등). */
-        "session-distract": `border border-[var(--session-pill-border-distract)] bg-[var(--session-pill-bg-distract)] ${SESSION_PILL_BASE}`,
+        "session-distract": `bg-[var(--session-pill-bg-distract)] border-[var(--session-pill-border-distract)] ${SESSION_PILL_BASE}`,
         /** 상태 필 — 일시정지. */
-        "session-paused": `border border-[var(--session-pill-border-paused)] bg-[var(--session-pill-bg-paused)] ${SESSION_PILL_BASE}`,
+        "session-paused": `bg-[var(--session-pill-bg-paused)] border-[var(--session-pill-border-paused)] ${SESSION_PILL_BASE}`,
       },
     },
     defaultVariants: { variant: "elevated" },

@@ -18,16 +18,27 @@ describe("Intl.Segmenter가 없는 환경", () => {
   });
 
   it("그래핌 개수에 의존하는 검증을 건너뛴다 — 코드포인트로 세면 정상 닉네임을 막아버린다", async () => {
-    const { validateNickname, validateNicknameLength } = await import("../profileValidation");
+    const { validateNickname } = await import("../profileValidation");
 
-    const nickname = "🧑‍💻".repeat(5);
-    expect(validateNickname(nickname)).toBeNull();
-    expect(validateNicknameLength(nickname)).toBeNull();
+    expect(validateNickname("🧑‍💻".repeat(5))).toBeNull();
   });
 
   it("형식 위반도 건너뛴다 — 이 환경에서는 서버 판정에 맡긴다", async () => {
     const { validateNickname } = await import("../profileValidation");
 
     expect(validateNickname("느낌표금지!")).toBeNull();
+  });
+
+  it("그래핌을 셀 수 없으면 닉네임을 자르지 않는다", async () => {
+    const { clampNickname } = await import("../profileValidation");
+
+    const nickname = "🧑‍💻".repeat(13);
+    expect(clampNickname(nickname)).toBe(nickname);
+  });
+
+  it("그래핌을 셀 수 없으면 입력 길이 제한을 걸지 않는다", async () => {
+    const { nicknameMaxLength } = await import("../profileValidation");
+
+    expect(nicknameMaxLength("가".repeat(12))).toBeUndefined();
   });
 });

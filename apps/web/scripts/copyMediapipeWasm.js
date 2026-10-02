@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 /**
- * `@mediapipe/tasks-vision`의 wasm 런타임을 `public/mediapipe/wasm/`으로 복사한다.
+ * `@mediapipe/tasks-vision`의 wasm 런타임을 `public/mediapipe/<버전>/wasm/`으로 복사한다.
  *
  * ## 왜 손으로 복사해 커밋하지 않는가
  *
@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
  *
  * 매 `dev`·`build` 앞에서 패키지로부터 다시 복사하면 둘이 어긋날 수 있는 구간 자체가 없어진다.
  * 그래서 `public/mediapipe/`는 **생성물**이고 `.gitignore`에 들어간다.
+ * 폴더 이름에 패키지 버전이 들어가므로 immutable 캐시를 걸어도 패키지를 올리면 새 URL을 받는다.
  *
  * ## `public/models/`는 왜 반대로 커밋하는가
  *
@@ -170,15 +171,62 @@ function verifyCopy({ srcDir, destDir, srcFiles }) {
  */
 export const WASM_SENTINEL_FILE = "vision_wasm_internal.wasm";
 
-/** `apps/web/public/mediapipe/wasm` — `visionConfig.ts`의 `MEDIAPIPE_WASM_PATH`와 짝이다. */
-export const WASM_PUBLIC_DIR = path.resolve(import.meta.dirname, "../public/mediapipe/wasm");
+/**
+ * 설치된 `@mediapipe/tasks-vision`의 버전.
+ *
+ * `package.json`은 `exports`에 없어 `require.resolve`로 못 푼다.
+ * 대신 패키지 진입점을 풀어 그 폴더의 `package.json`을 파일로 읽는다.
+ * 이 값이 wasm 폴더 이름과 화면 코드의 경로에 함께 들어가므로, 패키지를 올리면 URL이 저절로 바뀐다.
+ */
+export const MEDIAPIPE_VERSION = JSON.parse(
+  fs.readFileSync(
+    path.join(path.dirname(require.resolve("@mediapipe/tasks-vision")), "package.json"),
+    "utf8",
+  ),
+).version;
+
+/** `apps/web/public/mediapipe`. 버전 폴더들의 부모다. */
+export const WASM_PUBLIC_ROOT = path.resolve(import.meta.dirname, "../public/mediapipe");
+
+/**
+ * `apps/web/public/mediapipe/<버전>/wasm`.
+ * `visionConfig.ts`의 `MEDIAPIPE_WASM_PATH`와 짝이고, 그 짝은 `scripts/__tests__/copyMediapipeWasm.test.ts`가 지킨다.
+ */
+export const WASM_PUBLIC_DIR = path.join(WASM_PUBLIC_ROOT, MEDIAPIPE_VERSION, "wasm");
+
+/**
+ * 현재 버전이 아닌 폴더 정리
+ *
+ * 옛 버전 폴더가 남으면 dist가 불어나고, 캐시가 1년이라 낡은 wasm이 계속 서빙될 수 있다.
+ * 지운 항목의 이름을 돌려준다.
+ */
+export function pruneOtherVersions({ rootDir, keep }) {
+  if (!fs.existsSync(rootDir)) {
+    return [];
+  }
+  const removed = [];
+  for (const entry of fs.readdirSync(rootDir)) {
+    if (entry === keep) {
+      continue;
+    }
+    fs.rmSync(path.join(rootDir, entry), { recursive: true, force: true });
+    removed.push(entry);
+  }
+  return removed;
+}
 
 // `vite.config.ts`가 이 모듈을 import해 표식만 확인하므로, import만으로 복사가 돌면 안 된다.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const srcDir = resolveWasmSourceDir();
     const { files } = copyMediapipeWasm({ srcDir, destDir: WASM_PUBLIC_DIR });
-    console.log(`mediapipe wasm 복사 완료 (${files.length}개) → ${WASM_PUBLIC_DIR}`);
+    const removed = pruneOtherVersions({ rootDir: WASM_PUBLIC_ROOT, keep: MEDIAPIPE_VERSION });
+    console.log(
+      `mediapipe wasm ${MEDIAPIPE_VERSION} 복사 완료 (${files.length}개) → ${WASM_PUBLIC_DIR}`,
+    );
+    if (removed.length > 0) {
+      console.log(`옛 버전 폴더 정리: ${removed.join(", ")}`);
+    }
   } catch (error) {
     console.error("mediapipe wasm을 준비하지 못했습니다.");
     console.error(error instanceof Error ? error.message : error);

@@ -33,6 +33,8 @@ const mockedConstants = Constants as unknown as { expoConfig: { version?: string
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // replaceProperty로 바꾼 Platform.OS가 다음 테스트로 새면 플랫폼별 파라미터가 섞인다.
+  jest.restoreAllMocks();
   mockedConstants.expoConfig = { version: "1.4.2" };
   __resetRemoteQueryParamsCacheForTests();
 });
@@ -47,6 +49,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      nativeTabBar: "1",
     });
   });
 
@@ -59,6 +62,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      nativeTabBar: "1",
     });
   });
 
@@ -71,6 +75,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      nativeTabBar: "1",
     });
   });
 
@@ -124,6 +129,22 @@ describe("buildRemoteQueryParams", () => {
 
     expect(params).not.toHaveProperty("theme");
   });
+
+  it("iOS 셸은 시스템 탭 바를 쓴다는 표시를 nativeTabBar로 알린다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.nativeTabBar).toBe("1");
+  });
+
+  it("Android는 커스텀 탭 바라 nativeTabBar 표시가 없다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("nativeTabBar");
+  });
 });
 
 describe("useRemoteQueryParams", () => {
@@ -140,6 +161,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        nativeTabBar: "1",
       }),
     );
   });
@@ -155,6 +177,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        nativeTabBar: "1",
       }),
     );
     first.unmount();
@@ -168,6 +191,7 @@ describe("useRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      nativeTabBar: "1",
     });
   });
 
@@ -209,6 +233,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        nativeTabBar: "1",
       }),
     );
     first.unmount();
@@ -224,6 +249,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        nativeTabBar: "1",
       }),
     );
     expect(mockedEnsureUserRegistered).toHaveBeenCalledTimes(2);

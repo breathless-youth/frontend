@@ -9,43 +9,43 @@
  */
 export function CameraFlipIcon({ turns, className }: { turns: number; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <svg viewBox="0 0 28 28" fill="none" aria-hidden="true" className={className}>
       {/* 혹+몸통을 한 path로(겹치면 경계선이 남는다). 혹 옆면은 대각선 사다리꼴 — 2026-08-25 레퍼런스. */}
       <path
-        d="M7.8 7.2l2-2.2h4.4l2 2.2H18.2a3 3 0 0 1 3 3v6.6a3 3 0 0 1-3 3H5.8a3 3 0 0 1-3-3v-6.6a3 3 0 0 1 3-3Z"
+        d="M9.09533 8.40456L11.4287 5.83789H16.562L18.8953 8.40456H21.2287C22.1569 8.40456 23.0472 8.77331 23.7035 9.42968C24.3599 10.0861 24.7287 10.9763 24.7287 11.9046V19.6046C24.7287 20.5328 24.3599 21.4231 23.7035 22.0794C23.0472 22.7358 22.1569 23.1046 21.2287 23.1046H6.76199C5.83374 23.1046 4.9435 22.7358 4.28712 22.0794C3.63074 21.4231 3.26199 20.5328 3.26199 19.6046V11.9046C3.26199 10.9763 3.63074 10.0861 4.28712 9.42968C4.9435 8.77331 5.83374 8.40456 6.76199 8.40456H9.09533Z"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <g
         data-testid="camera-flip-arrows"
         className="transition-transform duration-300 ease-out motion-reduce:transition-none"
-        style={{ transform: `rotate(${turns * 180}deg)`, transformOrigin: "12px 13.5px" }}
+        style={{ transform: `rotate(${turns * 180}deg)`, transformOrigin: "14px 15.75px" }}
       >
         <path
-          d="M8.5 13a3.6 3.6 0 0 1 6.3-1.4"
+          d="M9.91199 15.1689C10.0986 14.4084 10.4942 13.7152 11.0539 13.1676C11.6137 12.62 12.3154 12.2399 13.0798 12.07C13.8442 11.9001 14.6409 11.9473 15.3799 12.2063C16.1189 12.4653 16.7708 12.9257 17.262 13.5355"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth={1.33}
           strokeLinecap="round"
         />
         <path
-          d="M15.2 9.4v2.4h-2.4"
+          d="M17.738 10.9619V13.7619H14.938"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth={1.33}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M15.5 14a3.6 3.6 0 0 1-6.3 1.4"
+          d="M18.088 16.3379C17.9014 17.0984 17.5058 17.7916 16.9461 18.3391C16.3863 18.8867 15.6846 19.2669 14.9202 19.4368C14.1558 19.6067 13.3591 19.5594 12.6201 19.3005C11.8811 19.0415 11.2292 18.5811 10.738 17.9712"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth={1.33}
           strokeLinecap="round"
         />
         <path
-          d="M8.8 17.6v-2.4h2.4"
+          d="M10.262 20.538V17.738H13.062"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth={1.33}
           strokeLinecap="round"
           strokeLinejoin="round"
         />

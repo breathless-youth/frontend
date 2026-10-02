@@ -1,3 +1,6 @@
+// eslint-config-expo 57이 react-hooks 7의 React Compiler 진단을 켰지만 이 앱은 컴파일러를 쓰지 않는다.
+// 웹뷰 복원 경로는 재마운트 때만 반영하려고 의도대로 렌더 중 ref를 읽으므로 이 파일에서만 끄고, 정리는 후속 티켓에서 한다.
+/* eslint-disable react-hooks/refs */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
@@ -168,7 +171,7 @@ export function RemoteWebViewHost({
    * 소수점 높이의 마지막 픽셀 줄이 남고, 재부착 직후 첫 프레임에도 그 바탕이 그대로 보인다.
    * Android는 래퍼 뷰 색이 그대로 비친다. 두 경우 모두 테마 색이어야 흰 줄과 번쩍임이 없다.
    *
-   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.15.0.patch가
+   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.16.1.patch가
    * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
    */
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -432,7 +435,7 @@ export function RemoteWebViewHost({
       if (__DEV__) {
         console.warn("[webview-bridge] onLoadEnd", path);
       }
-      // react-native-webview 13.15.0의 iOS History API shim(RNCWebViewImpl.m)은
+      // react-native-webview 13.16.1의 iOS History API shim(RNCWebViewImpl.m)은
       // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
       // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
       // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건

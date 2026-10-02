@@ -22,6 +22,7 @@ describe("loadAmbientSoundSettings", () => {
   it("저장값이 없으면 기본값", async () => {
     await expect(loadAmbientSoundSettings()).resolves.toEqual({
       mix: {},
+      lastMix: {},
       duckEnabled: true,
     });
   });
@@ -29,6 +30,7 @@ describe("loadAmbientSoundSettings", () => {
   it("저장한 값을 같은 키에서 그대로 복원한다", async () => {
     const settings = {
       mix: { white: 60, rain: 40 },
+      lastMix: { white: 60, rain: 40 },
       duckEnabled: false,
     };
     await saveAmbientSoundSettings(settings);
@@ -81,6 +83,7 @@ describe("parseAmbientSettings", () => {
     expect(parseAmbientSettings({ mix: [1], duckEnabled: "no" })).toEqual(DEFAULT_AMBIENT_SETTINGS);
     expect(parseAmbientSettings({ duckEnabled: false })).toEqual({
       mix: {},
+      lastMix: {},
       duckEnabled: false,
     });
   });
@@ -108,6 +111,21 @@ describe("parseAmbientSettings", () => {
         mix: { white: 60 },
         presets: [{ id: "p1", name: "a", mix: { rain: 20 } }],
       }),
-    ).toEqual({ mix: { white: 60 }, duckEnabled: true });
+    ).toEqual({ mix: { white: 60 }, lastMix: { white: 60 }, duckEnabled: true });
+  });
+
+  it("lastMix 도 mix 와 같은 규칙으로 잘못된 레벨을 버린다", () => {
+    expect(
+      parseAmbientSettings({
+        mix: { white: 60 },
+        lastMix: { white: "60", rain: 150, cafe: 30 },
+      }).lastMix,
+    ).toEqual({ rain: 100, cafe: 30 });
+  });
+
+  it("lastMix 가 없는 예전 저장값은 지금 믹스를 첫 lastMix 로 쓴다", () => {
+    expect(parseAmbientSettings({ mix: { white: 60 }, duckEnabled: true }).lastMix).toEqual({
+      white: 60,
+    });
   });
 });

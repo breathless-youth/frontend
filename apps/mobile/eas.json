@@ -10,10 +10,7 @@
       "env": {
         "APP_VARIANT": "development"
       },
-      "environment": "development",
-      "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
-      }
+      "environment": "development"
     },
     "development-simulator": {
       "developmentClient": true,
@@ -23,8 +20,7 @@
       },
       "environment": "development",
       "ios": {
-        "simulator": true,
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "simulator": true
       }
     },
     "staging": {
@@ -32,20 +28,14 @@
       "env": {
         "APP_VARIANT": "staging"
       },
-      "environment": "preview",
-      "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
-      }
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production"
       },
-      "environment": "production",
-      "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
-      }
+      "environment": "production"
     }
   },
   "submit": {
