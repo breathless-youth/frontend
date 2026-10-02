@@ -2,7 +2,6 @@ import { colors, softBlue } from "@focusmakers/design-tokens";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
 
 import { TabBar } from "../TabBar";
 import {
@@ -12,9 +11,10 @@ import {
 } from "../../lib/nativeAnalytics";
 
 /**
- * 탭 바 — BY-409에서 4탭으로 확장. 순서(홈·소셜·기록·설정, Figma V1.3 확정)와
- * 활성 상태 표시가 회귀하지 않게 고정한다. BY-729에서 Liquid Glass/제스처 알약 실험을
- * 되돌리고 정적 Figma 디자인(표준 블러 + 고정 알약)으로 복귀했다.
+ * Android 하단 플로팅 탭 바
+ *
+ * iOS는 시스템 탭 바를 쓰므로 이 바는 Android에서만 그려진다.
+ * 탭 순서(홈·소셜·기록·설정)와 불투명 배경, 고정 알약의 활성 표시가 회귀하지 않게 고정한다.
  */
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -23,13 +23,6 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("expo-router", () => ({
   router: { navigate: jest.fn() },
-}));
-
-jest.mock("expo-blur", () => ({
-  BlurView: ({ children, testID }: { children?: React.ReactNode; testID?: string }) => {
-    const { View } = require("react-native");
-    return <View testID={testID}>{children}</View>;
-  },
 }));
 
 /**
@@ -50,24 +43,15 @@ afterEach(() => {
   (router.navigate as jest.Mock).mockClear();
 });
 
-describe("TabBar — 유리 배경", () => {
-  it("iOS는 BlurView를 렌더한다", () => {
-    jest.replaceProperty(Platform, "OS", "ios");
+describe("TabBar 배경", () => {
+  it("라이트는 불투명 base 배경을 깐다", () => {
     render(<TabBar active="home" />);
-    expect(screen.getByTestId("tab-bar-blur")).toBeTruthy();
-  });
-
-  it("Android는 BlurView 대신 라이트 불투명 배경을 깐다", () => {
-    jest.replaceProperty(Platform, "OS", "android");
-    render(<TabBar active="home" />);
-    expect(screen.queryByTestId("tab-bar-blur")).toBeNull();
     expect(screen.getByTestId("tab-bar-surface")).toHaveStyle({
       backgroundColor: colors.bg.base.light,
     });
   });
 
   it("Android 다크는 layer1 배경을 깐다", () => {
-    jest.replaceProperty(Platform, "OS", "android");
     mockUseColorScheme.mockReturnValue("dark");
     render(<TabBar active="home" />);
     expect(screen.getByTestId("tab-bar-surface")).toHaveStyle({
@@ -76,15 +60,6 @@ describe("TabBar — 유리 배경", () => {
   });
 
   it("Android 라이트 활성 알약은 layer2 회색이다", () => {
-    jest.replaceProperty(Platform, "OS", "android");
-    render(<TabBar active="home" />);
-    expect(screen.getByTestId("tab-bar-active-pill")).toHaveStyle({
-      backgroundColor: colors.bg.layer2.light,
-    });
-  });
-
-  it("iOS 라이트 활성 알약도 layer2 회색이다", () => {
-    jest.replaceProperty(Platform, "OS", "ios");
     render(<TabBar active="home" />);
     expect(screen.getByTestId("tab-bar-active-pill")).toHaveStyle({
       backgroundColor: colors.bg.layer2.light,
@@ -92,7 +67,6 @@ describe("TabBar — 유리 배경", () => {
   });
 
   it("다크 활성 알약은 유리색이다", () => {
-    jest.replaceProperty(Platform, "OS", "ios");
     mockUseColorScheme.mockReturnValue("dark");
     render(<TabBar active="home" />);
     expect(screen.getByTestId("tab-bar-active-pill")).toHaveStyle({
