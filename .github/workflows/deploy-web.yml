@@ -91,7 +91,7 @@ jobs:
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
             --cache-control "$IMMUTABLE" \
             --exclude "*" --include "assets/*" --include "mediapipe/*" --include "sounds/*.mp3" \
-            --exclude "*.map" --exclude "*.wasm"
+            --exclude "*.map" --exclude "mediapipe/*.wasm"
 
           # 미리 brotli로 압축한 wasm과 모델은 Content-Encoding을 붙여야 브라우저가 풀어 쓴다
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
