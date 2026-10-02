@@ -1,0 +1,116 @@
+name: Deploy web (staging)
+
+# dev 푸시마다 웹을 빌드해 스테이징 S3 버킷에 올리고 CloudFront 캐시를 비운다.
+on:
+  push:
+    branches: [dev]
+  # 수동 실행 버튼은 이 파일이 기본 브랜치(main)에 들어간 뒤에 생긴다.
+  workflow_dispatch:
+
+# 실행 중인 배포는 취소하지 않는다.
+# 대기 중인 실행은 새 푸시가 오면 그것으로 바뀌어, 스테이징에는 항상 최신 커밋이 올라간다.
+concurrency:
+  group: deploy-web-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC 토큰으로 AWS 역할을 빌린다
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # environment: 를 쓰면 OIDC sub가 브랜치 대신 환경 이름이 되어 역할 신뢰 정책(ref:refs/heads/dev)과 맞지 않는다.
+    env:
+      BUCKET: ${{ vars.STAGING_WEB_BUCKET }}
+      DISTRIBUTION_ID: ${{ vars.STAGING_CF_DISTRIBUTION_ID }}
+      ROLE_ARN: ${{ vars.STAGING_DEPLOY_ROLE_ARN }}
+      VITE_SENTRY_DSN: ${{ vars.STAGING_VITE_SENTRY_DSN }}
+      VITE_AMPLITUDE_API_KEY: ${{ vars.STAGING_VITE_AMPLITUDE_API_KEY }}
+      # GA4 측정 ID는 넘기지 않는다. Vercel Preview 때부터 스테이징은 GA4를 끈 채였고, 운영 속성에 스테이징 방문이 섞이지 않게 한다.
+    steps:
+      # 분석 키나 Sentry 토큰이 비어도 빌드는 성공한다.
+      # 그러면 스테이징에 Sentry·Amplitude가 꺼지거나 소스맵이 빠진 채 배포되므로 시작 단계에서 막는다.
+      - name: Check deploy variables
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          for name in BUCKET DISTRIBUTION_ID ROLE_ARN VITE_SENTRY_DSN VITE_AMPLITUDE_API_KEY SENTRY_AUTH_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::저장소 변수 또는 시크릿이 비어 있습니다: $name"
+              exit 1
+            fi
+          done
+
+      # 역할을 빌드보다 먼저 빌린다. 신뢰 정책이 틀렸을 때 Sentry 릴리즈만 만들어지고 끝나는 일을 방지한다.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - uses: actions/checkout@v4
+
+      # pnpm 버전은 package.json의 packageManager 필드가 단일 소스다
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # preview는 API 주소를 api-dev로 고른다.
+      # SENTRY_AUTH_TOKEN이 있으면 소스맵을 Sentry에 올리고 dist에서 지운다.
+      - name: Build web
+        env:
+          VITE_DEPLOY_ENV: preview
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm --filter web build
+
+      # 파일명에 해시·버전이 있는 자산을 먼저 1년 immutable로 올리고 index.html을 맨 마지막에 올린다.
+      # 그래야 새 index.html이 가리키는 자산이 이미 다 올라가 있다.
+      # 해시 자산은 지우지 않는다(--delete 없음).
+      # 배포 중에 열려 있던 화면이 옛 index.html로 옛 청크를 받으러 오기 때문이다.
+      # Cache-Control 없이 올리면 CloudFront가 기본 TTL 24시간을 써서 index.html이 엣지에 하루 남는다.
+      - name: Upload to S3
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          IMMUTABLE="public, max-age=31536000, immutable"
+          REVALIDATE="public, max-age=0, must-revalidate"
+          AASA=".well-known/apple-app-site-association"
+
+          aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
+            --cache-control "$IMMUTABLE" \
+            --exclude "*" --include "assets/*" --include "mediapipe/*" --include "sounds/*.mp3" \
+            --exclude "*.map"
+
+          # tflite의 type(CLI): binary/octet-stream
+          aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
+            --cache-control "$IMMUTABLE" --content-type application/octet-stream \
+            --exclude "*" --include "models/*" \
+            --exclude "*.map"
+
+          # 나머지는 매번 확인하는 파일이라 이전 것을 지워도 된다
+          aws s3 sync dist/ "s3://$BUCKET" --delete --only-show-errors \
+            --cache-control "$REVALIDATE" \
+            --exclude "assets/*" --exclude "mediapipe/*" --exclude "sounds/*.mp3" --exclude "models/*" \
+            --exclude "$AASA" --exclude "index.html" --exclude "*.map"
+
+          # iOS 유니버설 링크 파일 (확장자가 없어 유형을 못 맞히는 CLI는 수동으로 content-type을 지정)
+          aws s3 cp "dist/$AASA" "s3://$BUCKET/$AASA" --only-show-errors \
+            --cache-control "$REVALIDATE" --content-type application/json
+
+          aws s3 cp dist/index.html "s3://$BUCKET/index.html" --only-show-errors \
+            --cache-control "$REVALIDATE" --content-type "text/html; charset=utf-8"
+
+      - name: Invalidate CloudFront
+        run: |
+          set -euo pipefail
+          ID=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*" --query Invalidation.Id --output text)
+          echo "invalidation $ID"
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$ID"
