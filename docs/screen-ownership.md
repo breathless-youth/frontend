@@ -10,12 +10,12 @@
 
 ## `apps/mobile` 소유 화면 (앱 셸)
 
-| ID   | 화면                            | 구현                                                                                               |
-| ---- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| -    | 탭바                            | `app/(tabs)/_layout.tsx`, `components/TabBar.tsx`                                                  |
-| S2-2 | 카메라 권한 요청(OS 다이얼로그) | 커스텀 UI 없이 `app.json`의 권한 문구와 `lib/cameraPermission.ts`의 요청만 둔다                    |
-| S2-3 | 카메라 권한 거부 안내           | `app/permission-denied.tsx`(탭 밖 전체 화면)                                                       |
-| -    | 스플래시                        | `expo-splash-screen`(`app/_layout.tsx`)과 로드 중 스켈레톤(`components/RemoteSplashSkeletons.tsx`) |
+| ID   | 화면                            | 구현                                                                                                                               |
+| ---- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| -    | 탭바                            | `app/(tabs)/_layout.tsx`, iOS `components/NativeTabsLayout.ios.tsx`(`.tsx`는 Android용 null 스텁), Android `components/TabBar.tsx` |
+| S2-2 | 카메라 권한 요청(OS 다이얼로그) | 커스텀 UI 없이 `app.json`의 권한 문구와 `lib/cameraPermission.ts`의 요청만 둔다                                                    |
+| S2-3 | 카메라 권한 거부 안내           | `app/permission-denied.tsx`(탭 밖 전체 화면)                                                                                       |
+| -    | 스플래시                        | `expo-splash-screen`(`app/_layout.tsx`)과 로드 중 스켈레톤(`components/RemoteSplashSkeletons.tsx`)                                 |
 
 ## `apps/web` 소유 화면
 

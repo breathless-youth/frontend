@@ -46,6 +46,7 @@ function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
     Pretendard: require("pretendard/dist/public/static/Pretendard-Regular.otf") as number,
+    PretendardLight: require("pretendard/dist/public/static/Pretendard-Light.otf") as number,
     PretendardBold: require("pretendard/dist/public/static/Pretendard-Bold.otf") as number,
   });
   // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
