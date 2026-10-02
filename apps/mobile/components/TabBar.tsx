@@ -7,11 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
-/**
- * Android 하단 플로팅 탭 바
- *
- * iOS는 시스템 탭 바(`NativeTabsLayout`)를 쓰므로 이 컴포넌트는 Android에서만 그려진다.
- */
 export type TabId = "home" | "social" | "record" | "settings";
 
 const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
@@ -39,6 +34,11 @@ type TabBarProps = {
   hidden?: boolean;
 };
 
+/**
+ * Android 하단 플로팅 탭 바
+ *
+ * iOS는 시스템 탭 바(`NativeTabsLayout`)를 쓰므로 이 컴포넌트는 Android에서만 그려진다.
+ */
 export function TabBar({ active = "home", dimmed = false, hidden = false }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
