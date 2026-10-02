@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { postToNative } from "./bridge";
@@ -67,9 +67,14 @@ export function isNativeCoveredPath(pathname: string): boolean {
 
 const SAFE_AREA_TOAST_BOTTOM = "calc(env(safe-area-inset-bottom) + 16px)";
 
-// 앱 안 이동은 URL에서 쿼리를 지우므로 첫 판정을 보관한다.
+// 앱 안 이동은 URL에서 쿼리를 지우므로 모듈을 읽는 시점에 한 번 판정해 보관한다.
+// 첫 호출 시점에 맡기면 라우터 리다이렉트가 먼저 쿼리를 지웠을 때 false가 돼 바뀌지 않는다.
 // 표시는 바이너리마다 고정이라 다시 읽을 이유가 없다.
-let nativeTabBarCache: boolean | null = null;
+function readNativeTabBarFlag(): boolean {
+  return new URLSearchParams(window.location.search).get("nativeTabBar") === "1";
+}
+
+let nativeTabBarCache: boolean | null = readNativeTabBarFlag();
 
 /**
  * 네이티브 셸이 시스템 탭 바를 쓰는지.
@@ -79,7 +84,7 @@ let nativeTabBarCache: boolean | null = null;
  * 원격 웹은 구버전 앱에도 즉시 배포되므로 표시가 없으면 플로팅 바 공식을 유지한다.
  */
 export function hasNativeTabBar(): boolean {
-  nativeTabBarCache ??= new URLSearchParams(window.location.search).get("nativeTabBar") === "1";
+  nativeTabBarCache ??= readNativeTabBarFlag();
   return nativeTabBarCache;
 }
 
@@ -93,9 +98,10 @@ export function __resetNativeTabBarForTests(): void {
  *
  * `index.css`가 이 클래스에서 `--tab-bar-reserve`를 안전 영역 기준으로 덮는다.
  * 판정은 실행 중 바뀌지 않으므로 마운트 때 한 번만 건다.
+ * 첫 페인트 전에 걸어야 첫 프레임이 플로팅 바 공식으로 그려졌다가 줄어드는 일이 없다.
  */
 export function useNativeTabBarClass(): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hasNativeTabBar()) {
       return;
     }
