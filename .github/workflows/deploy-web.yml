@@ -3,9 +3,7 @@ name: Deploy web (staging)
 # dev 푸시마다 웹을 빌드해 스테이징 S3 버킷에 올리고 CloudFront 캐시를 비운다.
 on:
   push:
-    branches:
-      - dev
-      - feature/BY-796-deploy-web-workflow # 머지 전 실제 실행 검증용. 머지 전에 지운다
+    branches: [dev]
   # 수동 실행 버튼은 이 파일이 기본 브랜치(main)에 들어간 뒤에 생긴다.
   workflow_dispatch:
 
