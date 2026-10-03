@@ -105,7 +105,7 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
   recommended_update_answered: { action: "update" | "later" | "dismissed"; latest_version: string };
   /** 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 쿼리를 뗀 앱 경로(초대코드 등 값은 싣지 않는다). */
   push_notification_opened: { route: string };
-  /** 초대 딥링크 라우트(`app/social/join.tsx`) 진입 — 유니버설 링크·App Links·스킴·Install Referrer·알림 전부 여기로 합류한다. */
+  /** 초대 딥링크 진입으로, 평소에는 `app/social/join.tsx`가, 세션 중에는 `lib/sessionInvite.ts`가 남기며 유니버설 링크·App Links·스킴·Install Referrer·알림이 모두 여기로 모인다. */
   invite_deep_link_opened: { has_code: boolean };
   /**
    * 원격 웹뷰 로드 실패 폴백 노출(`components/RemoteWebViewHost.tsx`). `config`는 베이스 URL 미설정

@@ -196,6 +196,32 @@ describe("handleBridgeMessage", () => {
     expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
+  it("navigate-home에 inviteCode가 실려 오면 모달을 닫고 기존 소셜 탭을 초대코드 화면으로 바꾼다", () => {
+    handleBridgeMessage({ type: "navigate-home", inviteCode: "4680", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+    // push가 아니라 navigate: 이미 있는 탭 셸로 가야 `(tabs)`가 하나 더 쌓이지 않는다.
+    expect(mockedRouter.navigate).toHaveBeenCalledWith({
+      pathname: "/(tabs)/social",
+      params: { code: "4680", at: "1" },
+    });
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("navigate-home에 tab과 inviteCode가 함께 오면 초대가 우선한다", () => {
+    handleBridgeMessage(
+      { type: "navigate-home", tab: "records", inviteCode: "4680", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedRouter.navigate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith({
+      pathname: "/(tabs)/social",
+      params: { code: "4680", at: "1" },
+    });
+  });
+
   it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {
     handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
 
