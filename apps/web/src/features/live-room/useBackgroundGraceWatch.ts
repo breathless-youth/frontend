@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 
 import type { SystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
 import { trackSocialRoomBackgroundReturned } from "@/lib/amplitude";
@@ -32,13 +32,16 @@ export function useBackgroundGraceWatch({
   graceMs?: number;
   now?: () => number;
 }): { isExpiredNow: () => boolean } {
-  const onExpireRef = useRef(onExpire);
-  onExpireRef.current = onExpire;
+  const fireExpire = useEffectEvent(onExpire);
   // Date.now 참조를 직접 담지 않고 호출 시점에 읽는다 — 렌더 시점 참조를 캡처하면
   // 리렌더 없는 일시정지 구간에서 가짜 시계 교체(테스트)가 반영되지 않는다.
   const nowFn = now ?? (() => Date.now());
   const nowRef = useRef(nowFn);
-  nowRef.current = nowFn;
+  // isExpiredNow는 호출부에 반환되는 함수라 이 시계를 ref로 남긴다.
+  // 렌더 중에는 ref를 쓸 수 없어 커밋 직후 ref에 최신 시계를 반영한다.
+  useLayoutEffect(() => {
+    nowRef.current = nowFn;
+  });
   const hiddenAtMsRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -62,7 +65,7 @@ export function useBackgroundGraceWatch({
         // 복귀마다 한 건(BY-616 확장) — 유예 이내 복귀 분포가 30초라는 값의 근거가 된다.
         trackSocialRoomBackgroundReturned({ hiddenSec: Math.round(hiddenMs / 1000), expired });
         if (expired) {
-          onExpireRef.current();
+          fireExpire();
         }
       },
     });

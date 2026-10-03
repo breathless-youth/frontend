@@ -1,5 +1,5 @@
 import { Info, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { RefObject } from "react";
 
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -73,9 +73,11 @@ export function AmbientSoundSheet({
   // 소리별 안내 툴팁. 한 번에 하나만 연다.
   const [openNote, setOpenNote] = useState<SoundId | null>(null);
   // 시트가 닫히면 열려 있던 안내 툴팁을 닫는다. 안 그러면 다시 열 때 남아 있던 툴팁이 뜬다.
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) setOpenNote(null);
-  }, [open]);
+  }
   const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;

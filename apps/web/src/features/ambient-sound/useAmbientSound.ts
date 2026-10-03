@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { trackAmbientSoundChanged, trackAmbientSoundDuckToggled } from "@/lib/amplitude";
 
@@ -56,9 +56,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 아이콘으로 껐다 켤 때 돌려줄 음량. 세션 안에서만 기억하면 되므로 저장하지 않는다.
   const lastLevelRef = useRef<Record<SoundId, number>>({});
   const studyingRef = useRef(studying);
-  studyingRef.current = studying;
   const pausedRef = useRef(paused);
-  pausedRef.current = paused;
 
   const syncAfterCommand = useCallback(
     (player: AmbientPlayer) => {
@@ -72,7 +70,14 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 카탈로그 로드 효과가 이 함수를 의존성으로 들면 usage 가 바뀔 때마다 다시 불러오고
   // 자동 시작이 한 번 더 난다. 거울 ref 로 최신 것만 읽는다.
   const syncRef = useRef(syncAfterCommand);
-  syncRef.current = syncAfterCommand;
+
+  // 렌더 중에는 ref 를 쓸 수 없어 커밋 직후 ref 에 최신값을 반영한다.
+  // 레이아웃 효과라 아래 일반 효과들이 돌기 전에 이미 최신값이 들어가 있다.
+  useLayoutEffect(() => {
+    studyingRef.current = studying;
+    pausedRef.current = paused;
+    syncRef.current = syncAfterCommand;
+  });
 
   const commit = useCallback((next: AmbientSoundSettings) => {
     // 빈 믹스로 lastMix 를 덮으면 전체 켜기로 되살릴 조합이 사라진다.
