@@ -48,14 +48,16 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
     ...(userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED),
   }));
 
+  // 사용자가 바뀌면 이전 사용자의 결과를 들고 있으면 안 되므로 대기 상태로 되돌린다.
+  if (state.userId !== userId) {
+    setState({ userId, ...(userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED) });
+  }
+
   useEffect(() => {
     if (userId === null) {
-      setState({ userId, ...NOTHING_TO_RESTORE });
       return;
     }
     let cancelled = false;
-    // 사용자가 바뀌면 이전 사용자의 결과를 들고 있으면 안 되므로 대기 상태로 되돌린다.
-    setState({ userId, ...NOT_SETTLED });
 
     async function run(id: number) {
       for (let attempt = 0; attempt <= MAX_RETRY; attempt += 1) {
@@ -98,6 +100,7 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
 
   // 사용자가 바뀐 직후에는 effect가 아직 돌지 않아 앞 사용자의 결과가 남아 있다. 그대로
   // 내주면 그 한 번의 렌더에서 새 사용자 화면이 만들어지며 남의 세션을 이어받는다.
+  // 렌더 중에 setState를 걸어도 이번 렌더는 끝까지 실행되므로 그 패스에서 호출부가 읽는 값은 이 가드가 거른다.
   if (state.userId !== userId) {
     return userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED;
   }

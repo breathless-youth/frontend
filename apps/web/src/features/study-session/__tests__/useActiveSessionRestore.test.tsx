@@ -174,4 +174,44 @@ describe("useActiveSessionRestore", () => {
     const leaked = seen.filter((entry) => entry.id === 9 && entry.restored !== null);
     expect(leaked).toEqual([]);
   });
+
+  it("같은 사용자가 null을 거쳐 돌아오면 옛 복원값을 내주지 않고 다시 조회한다", async () => {
+    // 토큰 갱신이 실패하면 네이티브가 잠시 null을 보냈다가 같은 id를 다시 보낸다.
+    const NEW = { ...RESTORED, baseStudySec: 2400 };
+    restoreActiveSession.mockResolvedValueOnce(RESTORED);
+    const seen: { id: number | null; settled: boolean; restored: unknown }[] = [];
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number | null }) => {
+        const state = useActiveSessionRestore(id);
+        seen.push({ id, ...state });
+        return state;
+      },
+      { initialProps: { id: 7 as number | null } },
+    );
+    await waitFor(() => {
+      expect(result.current).toEqual({ settled: true, restored: RESTORED });
+    });
+
+    rerender({ id: null });
+    expect(result.current).toEqual({ settled: true, restored: null });
+
+    let resolveSecond: (value: typeof NEW) => void = () => {};
+    restoreActiveSession.mockReturnValueOnce(
+      new Promise<typeof NEW>((resolve) => {
+        resolveSecond = resolve;
+      }),
+    );
+    seen.length = 0;
+    rerender({ id: 7 });
+
+    expect(result.current.settled).toBe(false);
+    expect(restoreActiveSession).toHaveBeenCalledTimes(2);
+    expect(seen.filter((entry) => entry.restored === RESTORED)).toEqual([]);
+
+    await act(async () => {
+      resolveSecond(NEW);
+    });
+    expect(result.current).toEqual({ settled: true, restored: NEW });
+  });
 });

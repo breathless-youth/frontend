@@ -252,6 +252,47 @@ describe("useLaunchSessionRecovery", () => {
     expect(result.current.recovered).toBeNull();
   });
 
+  it("사용자가 비었다가 같은 사용자로 돌아오면 앞 마감 결과를 다시 띄우지 않는다", async () => {
+    // 네이티브의 토큰 갱신이 실패하면 신원이 잠깐 비었다가 같은 사용자로 돌아온다.
+    // 이때 남아 있던 모달이 다시 뜨면 이미 확인한 기록을 또 보게 된다.
+    const NEXT = { ...RECOVERED, focusSec: 1200 };
+    let finishSecond: (() => void) | undefined;
+    closeStaleSession.mockResolvedValueOnce(RECOVERED).mockReturnValueOnce(
+      new Promise<typeof NEXT>((resolve) => {
+        finishSecond = () => {
+          resolve(NEXT);
+        };
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number | null }) => useLaunchSessionRecovery(id),
+      { initialProps: { id: 7 as number | null }, wrapper },
+    );
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(result.current.recovered).toEqual(RECOVERED);
+    });
+
+    rerender({ id: null });
+    rerender({ id: 7 });
+    expect(result.current.recovered).toBeNull();
+
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledTimes(2);
+    });
+    expect(result.current.recovered).toBeNull();
+
+    finishSecond?.();
+    await waitFor(() => {
+      expect(result.current.recovered).toEqual(NEXT);
+    });
+  });
+
   it("언마운트하면 신호를 더 받지 않는다", () => {
     const { unmount } = renderWithClient(7);
 
