@@ -73,6 +73,8 @@ export interface SubjectPanelProps {
   onSelect: (next: SubjectSelection | null) => void;
   /** 재생 버튼으로 골랐을 때 시트를 내린다. */
   onRequestClose: () => void;
+  /** 세션이 일시정지인가 — 고른 과목도 멈춘 모양(재생 버튼)으로 보이고, 그 버튼이 세션을 다시 시작한다. */
+  paused: boolean;
   /** 상한 안내 등 짧은 알림 — 호출부의 토스트. */
   onNotice: (message: string) => void;
   /** 이 세션에서 과목별로 쌓인 시간(`deriveSubjectTotals`의 결과). */
@@ -92,6 +94,8 @@ function usePressGestures(handlers: {
   onSwipeLeft?: () => void;
 }) {
   const [swipeX, setSwipeX] = useState(0);
+  /** 손가락이 닿아 있는 동안 — 행이 눌린 모양을 보여 길게 누르기가 먹히고 있음을 알린다. */
+  const [pressed, setPressed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateRef = useRef<{ startX: number; startY: number; swiping: boolean } | null>(null);
   const consumedRef = useRef(false);
@@ -109,10 +113,13 @@ function usePressGestures(handlers: {
     consumedRef.current = false;
     stateRef.current = { startX: event.clientX, startY: event.clientY, swiping: false };
     clearTimer();
+    setPressed(true);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       consumedRef.current = true;
       stateRef.current = null;
+      setPressed(false);
+      haptic("medium");
       handlers.onLongPress(element);
     }, LONG_PRESS_MS);
   }
@@ -126,6 +133,7 @@ function usePressGestures(handlers: {
       if (Math.abs(dx) < SWIPE_SLOP_PX && Math.abs(dy) < SWIPE_SLOP_PX) return;
       // 어느 쪽이든 움직였으면 길게 누르기는 아니다.
       clearTimer();
+      setPressed(false);
       if (handlers.onSwipeLeft === undefined || Math.abs(dx) <= Math.abs(dy)) {
         stateRef.current = null;
         return;
@@ -138,6 +146,7 @@ function usePressGestures(handlers: {
 
   function onPointerEnd() {
     clearTimer();
+    setPressed(false);
     const state = stateRef.current;
     stateRef.current = null;
     if (state?.swiping === true) {
@@ -161,6 +170,7 @@ function usePressGestures(handlers: {
 
   return {
     swipeX,
+    pressed,
     handlers: {
       onPointerDown,
       onPointerMove,
@@ -383,7 +393,7 @@ function TaskRow({
   onRemove: () => void;
 }) {
   const done = task.doneAt !== null;
-  const { swipeX, handlers } = usePressGestures({
+  const { swipeX, pressed, handlers } = usePressGestures({
     onTap: () => onToggle(!done),
     onLongPress,
     onSwipeLeft: onRemove,
@@ -414,6 +424,7 @@ function TaskRow({
         style={{ transform: `translateX(${swipeX}px)` }}
         className={cn(
           "relative flex min-h-12 w-full touch-pan-y items-center gap-1 rounded-xl pr-3 pl-2 select-none",
+          pressed && "scale-[0.98] opacity-70",
           swiping
             ? "bg-[rgb(16,20,25)]"
             : "bg-transparent transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
@@ -447,6 +458,7 @@ function TaskRow({
 function SubjectCard({
   subject,
   selected,
+  running,
   liveFocusSec,
   editing,
   menu,
@@ -465,6 +477,8 @@ function SubjectCard({
 }: {
   subject: SubjectResponse;
   selected: boolean;
+  /** 고른 과목의 시간이 지금 흐르는가 — 세션이 일시정지면 고른 과목도 멈춰 있다. */
+  running: boolean;
   liveFocusSec: number;
   editing: Editing | null;
   menu: Menu | null;
@@ -494,7 +508,7 @@ function SubjectCard({
     onOpenMenu({ subjectId: subject.id, taskId, top });
   }
 
-  const { handlers } = usePressGestures({
+  const { pressed, handlers } = usePressGestures({
     // 원본 `select`: 이미 고른 과목을 다시 탭하면 해제.
     onTap: () => (selected ? onDeselect() : onSelect()),
     onLongPress: (element) => openMenuBelow(element, null),
@@ -555,7 +569,8 @@ function SubjectCard({
             }
           }}
           className={cn(
-            "flex min-h-14 w-full touch-pan-y items-center gap-3 rounded-[14px] pr-3 pl-1 text-left select-none",
+            "flex min-h-14 w-full touch-pan-y items-center gap-3 rounded-[14px] pr-3 pl-1 text-left transition-[scale,opacity] duration-150 select-none motion-reduce:transition-none",
+            pressed && "scale-[0.98] opacity-70",
             selected
               ? "bg-[var(--session-sheet-selected-bg)] text-[var(--state-focus)] shadow-[inset_0_0_0_1px_var(--session-sheet-selected-ring)]"
               : "text-white",
@@ -585,12 +600,12 @@ function SubjectCard({
           {/* 재생/정지(원본 Play Button): 히트 44 · 원 36. 재생은 고르고 시트를 내리고, 정지는 해제. */}
           <button
             type="button"
-            aria-label={selected ? `${subject.name} 측정 멈추기` : `${subject.name} 측정 시작`}
+            aria-label={running ? `${subject.name} 측정 멈추기` : `${subject.name} 측정 시작`}
             onPointerDown={(event) => event.stopPropagation()}
             onPointerUp={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
-              if (selected) {
+              if (running) {
                 onDeselect();
               } else {
                 onPlay();
@@ -601,17 +616,17 @@ function SubjectCard({
             <span
               className={cn(
                 "flex size-9 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none",
-                selected ? "bg-[var(--session-control-resume-bg)]" : "bg-white/12",
+                running ? "bg-[var(--session-control-resume-bg)]" : "bg-white/12",
               )}
             >
               <img
-                key={selected ? "pause" : "play"}
-                src={selected ? pauseIcon : playIcon}
+                key={running ? "pause" : "play"}
+                src={running ? pauseIcon : playIcon}
                 alt=""
                 aria-hidden="true"
                 className={cn(
                   "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
-                  selected ? "h-[15px] w-[13.3px]" : "size-[15px]",
+                  running ? "h-[15px] w-[13.3px]" : "size-[15px]",
                 )}
               />
             </span>
@@ -665,11 +680,14 @@ function SubjectCard({
 
       {subject.tasks.length > 0 && (
         <ul className="flex flex-col gap-0.5">
-          {subject.tasks.map((task) => (
+          {subject.tasks.map((task, index) => (
             <li key={task.id} className="flex flex-col gap-0.5">
-              <div aria-hidden="true" className="py-0.5 pr-3 pl-[52px]">
-                <div className="h-px w-full bg-white/8" />
-              </div>
+              {/* 구분선은 할 일 사이에만 둔다 — 첫 할 일 위는 완료율 바가 이미 선 역할을 해서 두 줄로 겹쳐 보인다. */}
+              {index > 0 && (
+                <div aria-hidden="true" className="py-0.5 pr-3 pl-[52px]">
+                  <div className="h-px w-full bg-white/8" />
+                </div>
+              )}
               {editing?.kind === "rename-task" && editing.taskId === task.id ? (
                 <InlineNameEditor
                   initial={task.name}
@@ -713,7 +731,14 @@ function SubjectCard({
   );
 }
 
-function EmptyState({ onPick }: { onPick: (name: string) => void }) {
+function EmptyState({
+  pending,
+  onPick,
+}: {
+  /** 만드는 중인 추천 과목 — 응답이 올 때까지 그 행을 강조하고 나머지는 잠근다. */
+  pending: string | null;
+  onPick: (name: string) => void;
+}) {
   return (
     <div className="flex flex-col">
       <div className="flex flex-col items-center gap-1.5 px-2 pt-9 pb-5 text-center">
@@ -727,8 +752,15 @@ function EmptyState({ onPick }: { onPick: (name: string) => void }) {
           <li key={name}>
             <button
               type="button"
+              disabled={pending !== null}
+              aria-busy={pending === name}
               onClick={() => onPick(name)}
-              className="flex h-[52px] w-full items-center rounded-[14px] bg-[var(--session-sheet-surface)] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12"
+              className={cn(
+                "flex h-[52px] w-full items-center rounded-[14px] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12",
+                pending === name
+                  ? "animate-pulse bg-white/12 motion-reduce:animate-none"
+                  : "bg-[var(--session-sheet-surface)] disabled:opacity-50",
+              )}
             >
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-white">
                 {name}
@@ -753,12 +785,18 @@ export function SubjectPanel({
   selection,
   onSelect,
   onRequestClose,
+  paused,
   onNotice,
   liveTotals,
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [reorderingId, setReorderingId] = useState<number | null>(null);
+  /**
+   * 응답을 기다리는 추천 과목. 추가는 서버 id를 받아야 목록에 넣을 수 있어 그 사이 화면이 그대로인데,
+   * 반응이 없다고 한 번 더 누르면 같은 과목이 두 개 생긴다.
+   */
+  const [pendingPick, setPendingPick] = useState<string | null>(null);
   /**
    * 마지막으로 자리를 바꾼 상대 카드. 리렌더 전에 같은 카드 위에서 pointermove가 연달아 오면
    * 순서가 왔다 갔다 하므로 한 번만 바꾸고, 손가락이 자기 카드로 돌아오면(null) 다시 연다.
@@ -829,8 +867,11 @@ export function SubjectPanel({
     body = (
       <>
         <EmptyState
+          pending={pendingPick}
           onPick={(name) => {
+            setPendingPick(name);
             void store.addSubject(name, true).then((created) => {
+              setPendingPick(null);
               if (created !== null) {
                 onSelect(created.id);
               }
@@ -849,6 +890,7 @@ export function SubjectPanel({
               key={subject.id}
               subject={subject}
               selected={selection === subject.id}
+              running={selection === subject.id && !paused}
               liveFocusSec={liveSubjectTime(liveTotals, subject.id).focusSec}
               editing={editing}
               menu={menu}

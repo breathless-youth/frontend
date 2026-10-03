@@ -316,13 +316,14 @@ function RoomSessionScreen({
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 시트 — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
   const [sheetOpen, setSheetOpen] = useState(false);
-  // 목록은 시트를 처음 열 때(또는 복원된 선택의 이름을 보여줘야 할 때, 또는 복원 세션이면) 한 번 받는다 —
-  // 시트를 열지 않는 새 세션은 요청이 0건이다. 복원 세션은 앱이 죽기 전에 완료한 할 일을 제출에 실어야 해서
-  // 시트를 안 열어도 받는다. 기기 미등록이면 저장할 곳이 없어 받지 않는다.
-  const subjects = useSubjects(
-    userId !== null && (sheetOpen || subjectSelection !== null || restored !== null),
-    showCtaToast,
-  );
+  // 목록은 세션에 들어올 때 미리 받는다 — 시트를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
+  // 복원 세션이 죽기 전에 완료한 할 일을 제출에 싣는 데도 이 목록이 필요하다. 기기 미등록이면 저장할 곳이
+  // 없어 받지 않는다. 시트가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
+  const subjects = useSubjects(userId !== null, (message) => {
+    if (sheetOpen) {
+      showCtaToast(message);
+    }
+  });
   useLayoutEffect(() => {
     subjectsListRef.current = subjects.subjects;
   });
@@ -481,11 +482,19 @@ function RoomSessionScreen({
   function handleSheetOpenChange(open: boolean) {
     if (open && !sheetOpen) {
       trackSubjectSheetOpened();
+      // 미리 받기가 조용히 실패했으면 여는 순간 한 번 더 받는다.
+      if (subjects.status === "error") {
+        void subjects.reload();
+      }
     }
     setSheetOpen(open);
   }
 
   function handleSelectSubject(next: SubjectSelection | null) {
+    // 일시정지 중에 이미 고른 과목의 재생 버튼을 누르면 선택은 그대로다 — 전이가 없으니 계측도 남기지 않는다.
+    if (next === subjectSelection) {
+      return;
+    }
     trackSubjectItemSelected(next === null ? "none" : "subject");
     selectSubject(next);
   }
@@ -502,6 +511,7 @@ function RoomSessionScreen({
       ? null
       : {
           name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          paused,
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
@@ -668,7 +678,15 @@ function RoomSessionScreen({
                   store={subjects}
                   selection={subjectSelection}
                   onSelect={handleSelectSubject}
-                  onRequestClose={() => handleSheetOpenChange(false)}
+                  // 과목의 재생 버튼은 "이 과목으로 공부 시작"이다 — 일시정지 중이면 세션도 함께 다시 시작한다.
+                  // 행을 눌러 고르기만 할 때는 세션 상태를 건드리지 않는다.
+                  onRequestClose={() => {
+                    if (paused) {
+                      resume();
+                    }
+                    handleSheetOpenChange(false);
+                  }}
+                  paused={paused}
                   onNotice={showCtaToast}
                   liveTotals={liveSubjectTotals}
                 />

@@ -29,8 +29,14 @@ async function send<T>(path: string, init: RequestInit, fallback: string): Promi
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
-export function listSubjects(): Promise<SubjectResponse[]> {
-  return send("", { method: "GET" }, "과목 조회 실패");
+export async function listSubjects(): Promise<SubjectResponse[]> {
+  const body = await send<unknown>("", { method: "GET" }, "과목 조회 실패");
+  // 세션에 들어올 때 미리 받는 목록이라, 배열이 아닌 응답(프록시 오류 페이지 등)을 그대로 넘기면
+  // 세션 화면이 통째로 죽는다.
+  if (!Array.isArray(body)) {
+    throw new Error("과목 조회 실패");
+  }
+  return body as SubjectResponse[];
 }
 
 export function createSubject(body: SubjectCreateRequest): Promise<SubjectResponse> {
