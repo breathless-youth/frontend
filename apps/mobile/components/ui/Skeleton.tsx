@@ -30,10 +30,10 @@ export function Skeleton({
   const opacity = useSharedValue(1);
 
   useEffect(() => {
-    opacity.value = withRepeat(withTiming(0.4, { duration: 700 }), -1, true);
+    opacity.set(withRepeat(withTiming(0.4, { duration: 700 }), -1, true));
   }, [opacity]);
 
-  const pulse = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const pulse = useAnimatedStyle(() => ({ opacity: opacity.get() }));
 
   return (
     <Animated.View
