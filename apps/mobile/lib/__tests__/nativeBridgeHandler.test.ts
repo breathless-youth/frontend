@@ -14,6 +14,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { triggerHaptic } from "../haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
@@ -34,6 +35,8 @@ jest.mock("expo-router", () => ({
     canGoBack: jest.fn(() => true),
   },
 }));
+
+jest.mock("../haptics", () => ({ triggerHaptic: jest.fn() }));
 
 jest.mock("../cameraPermissionGate", () => ({
   runCameraPermissionGate: jest.fn(),
@@ -293,6 +296,11 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("haptic → 네이티브 햅틱을 낸다", () => {
+    handleBridgeMessage({ type: "haptic", style: "light", atMs: 1 }, noopReply);
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
   });
 
   it("meta-app-event → Meta SDK 통로에 이름·파라미터·valueToSum을 그대로 넘긴다", () => {

@@ -26,6 +26,13 @@
   --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
   --color-stamp-seal: var(--stamp-seal);
+  --color-chart-heat-low: var(--chart-heat-low);
+  --color-chart-heat-mid: var(--chart-heat-mid);
+  --color-chart-heat-high: var(--chart-heat-high);
+  --color-chart-empty: var(--chart-empty);
+  --color-bg-control-track: var(--bg-control-track);
+  --color-feedback-success: var(--feedback-success);
+  --color-feedback-danger: var(--feedback-danger);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -58,6 +65,7 @@
   /* UA 기본 캔버스와 폼 컨트롤 색을 테마에 맞춘다. 이 선언이 없으면 셀렉트·스크롤바 같은
      UA 그리기 요소만 라이트로 남는다. */
   color-scheme: light;
+  --shadow-segment-thumb: 0px 1px 1.5px rgba(31, 42, 61, 0.1);
   --background: #ffffff;
   /* colors.bg.base.light */
   --foreground: #191f28;
@@ -222,6 +230,13 @@
   --muted: #ffffff;
   --brand-subtle: #e6eefb;
   --bg-layer-2: #f1f5fc;
+  --chart-heat-low: #dbe7fb;
+  --chart-heat-mid: #a9c6f5;
+  --chart-heat-high: #6f9ff0;
+  --chart-empty: #eef1f6;
+  --bg-control-track: #eef1f6;
+  --feedback-success: #0e9f5d;
+  --feedback-danger: #f04452;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -235,6 +250,13 @@
     --muted: #1b2333;
     --brand-subtle: #1e2a44;
     --bg-layer-2: #232d40;
+    --chart-heat-low: #24344f;
+    --chart-heat-mid: #35558a;
+    --chart-heat-high: #3a66a8;
+    --chart-empty: #1e2636;
+    --bg-control-track: #1e2636;
+    --feedback-success: #32d583;
+    --feedback-danger: #ff6b7a;
   }
 }
 
@@ -249,6 +271,13 @@
   --muted: #1b2333;
   --brand-subtle: #1e2a44;
   --bg-layer-2: #232d40;
+  --chart-heat-low: #24344f;
+  --chart-heat-mid: #35558a;
+  --chart-heat-high: #3a66a8;
+  --chart-empty: #1e2636;
+  --bg-control-track: #1e2636;
+  --feedback-success: #32d583;
+  --feedback-danger: #ff6b7a;
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에
@@ -461,6 +490,14 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 과목 시트의 인라인 이름 입력은 예외 — iOS WKWebView는 `user-select: none`이 걸린 input에
+   캐럿을 두지 못해 타이핑이 막힌다. 입력 요소에만 선택을 되돌린다. */
+.session-no-drag input,
+.session-no-drag textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* 심플 모드(S3-4) 엣지 글로우 **잔향** — 공부 상태 전환 시 잠깐 켜졌다가 은은하게 꺼진다
    (design.md "전환 시 글로우 1~2초 잔향" 확정, BY-336). 점등(200ms)은 빠르고 소등(1.6초)은
    느린 비대칭 곡선이다. `forwards`로 끝 상태(꺼짐)에 머문다 — 재생은 SimpleModeSurface가
@@ -519,6 +556,21 @@ body {
 
   to {
     transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 과목 시트(S3-9) 내용 등장 — 알약이 시트로 펼쳐질 때 안쪽 내용이 살짝 아래에서 올라온다.
+   **닫힐 때는 이 이동을 되돌리지 않는다**(투명도만 줄인다). 시트 본체가 내려가는데 내용까지 같은
+   방향으로 한 번 더 움직이면 둘이 다른 속도로 떨어져 따로 노는 것처럼 보인다. */
+@keyframes sheet-content-rise {
+  from {
+    transform: translateY(72px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
     opacity: 1;
   }
 }

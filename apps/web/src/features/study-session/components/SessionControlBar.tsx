@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { LogOut, Pause, Play } from "lucide-react";
-import { type VariantProps } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { Button } from "@/components/ui/button";
 import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
@@ -19,13 +19,31 @@ import { cn } from "@/lib/utils";
  * `pointer-events-auto`로 바 위 클릭이 뒤의 전체화면 탭 레이어에 닿지 않게 한다.
  */
 
+/** `bare`면 알약 배경 없이 버튼만 남는다 — 과목 시트가 열려 바가 시트 안에 들어간 상태. */
+export type SessionControlBarSurface = "pill" | "bare";
+
 /**
  * 컨트롤 바 컨테이너 — 값은 시맨틱 토큰(`bg-bg-layer-2`/`border-border`)이 아니라 `index.css`의
  * `--session-bar-glass-*`/`--session-btn-default-*` 전용 변수에서 온다(Figma V2 `S1b`
  * control-bar 실측). 세션은 항상 다크라 이 변수에는 다크 값만 있다 — 세션 루트의 `theme-dark` 밖에서는 풀리지 않는다.
+ *
+ * `isolate`: 아래 유리 배경 레이어(`-z-10`)가 바 밖으로 빠져나가지 않고 버튼 바로 뒤에 깔린다.
  */
 const SESSION_CONTROL_BAR_CLASS =
-  "pointer-events-auto relative flex items-center justify-center gap-[14px] rounded-full bg-[var(--session-bar-glass-bg)] p-[10px] backdrop-blur-[11px] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)]";
+  "pointer-events-auto relative isolate flex items-center justify-center gap-[14px] rounded-full p-[10px]";
+
+/**
+ * 알약의 유리 배경·그림자·흐림은 **버튼 뒤의 별도 레이어**다. 클래스를 갈아끼워 없애면 배경이 한
+ * 프레임에 툭 사라지고 `backdrop-filter`는 애초에 전환되지 않는다 — 레이어 하나를 통째로
+ * 페이드시키면 흐림까지 같은 박자로 걷힌다. 길이·이징은 과목 시트의 변형과 같다.
+ */
+const barSurfaceVariants = cva(
+  "pointer-events-none absolute inset-0 -z-10 rounded-full bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+  {
+    variants: { surface: { pill: "opacity-100", bare: "opacity-0" } },
+    defaultVariants: { surface: "pill" },
+  },
+);
 
 /** 아이콘 팝 애니메이션 — 마운트·아이콘 교체(일시정지↔재개)마다 한 번 재생된다(BY-435 모션). */
 const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
@@ -36,6 +54,7 @@ const CONTROL_ICON_SIZE = "size-[23px]";
 export interface SessionControlBarProps {
   /** 일시정지 상태면 첫 버튼이 파란 '다시 시작'으로 바뀐다. */
   paused: boolean;
+  surface?: SessionControlBarSurface;
   onTogglePause: () => void;
   onRequestExit: () => void;
   className?: string;
@@ -65,12 +84,14 @@ function ControlButton({ label, icon, onClick, variant = "default" }: ControlBut
 
 export function SessionControlBar({
   paused,
+  surface = "pill",
   onTogglePause,
   onRequestExit,
   className,
 }: SessionControlBarProps) {
   return (
     <div role="group" aria-label="세션 컨트롤" className={cn(SESSION_CONTROL_BAR_CLASS, className)}>
+      <span aria-hidden="true" className={barSurfaceVariants({ surface })} />
       {/* 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
           (voice-tone.md §1) — key로 리마운트시켜 팝 애니메이션을 재생한다. */}
       <ControlButton

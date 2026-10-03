@@ -57,6 +57,9 @@ export const API_ENDPOINTS = {
   /** `GET`·`PUT`·`DELETE /api/dday` — 홈 D-Day. 구 앱 계약이 없는 새 경로다(Swagger `API-Version` 기본값 1, 2026-09-24 대조). */
   dday: { version: "1", parsedBy: "apps/web/src/lib/ddayApi.ts" },
 
+  /** `/api/subjects` 이하 전부 — 과목·할 일 CRUD와 순서 저장. 구 앱 계약이 없는 새 경로다. */
+  subjects: { version: "1", parsedBy: "apps/web/src/lib/subjectApi.ts" },
+
   /** `POST /api/study-sessions` — 세션 제출 */
   studySessionSubmit: {
     version: "2",

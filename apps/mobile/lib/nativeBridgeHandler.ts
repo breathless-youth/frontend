@@ -7,6 +7,7 @@ import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { triggerHaptic } from "./haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
@@ -159,6 +160,10 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void refreshAuth()
         .then((state) => state ?? ensureAuth())
         .then((state) => reply(authTokenMessage(state)));
+      break;
+    case "haptic":
+      // 웹뷰는 스스로 햅틱을 못 낸다(iOS는 API가 없고 Android는 강한 진동뿐) — 여기서 대신 낸다.
+      triggerHaptic(message.style);
       break;
     case "motion-sensor":
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로
