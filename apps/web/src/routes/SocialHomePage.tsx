@@ -10,16 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ToastViewport } from "@/components/ui/toast";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { slideNavigate } from "@/lib/pageTransition";
 import { createRoom } from "@/lib/roomApi";
+import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
-import { useToast } from "@/lib/useToast";
 
 /**
  * 소셜 홈
@@ -27,7 +27,6 @@ import { useToast } from "@/lib/useToast";
 export function SocialHomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message: toastMessage, showToast } = useToast();
 
   const userId = useUserId();
 
@@ -57,7 +56,7 @@ export function SocialHomePage() {
     } else {
       showToast(notice.message);
     }
-  }, [showToast]);
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: () => createRoom(),
@@ -65,9 +64,11 @@ export function SocialHomePage() {
       trackSocialRoomCreated();
       // 코드 공유 화면은 조회 API가 없어 router state로 전달한다 — 새로고침·딥링크로 state가
       // 없으면 그 화면이 소셜 홈으로 되돌린다. 쿼리(userId·appVersion)는 통째로 승계한다
-      navigate(
-        { pathname: "/social/code", search: location.search },
-        { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: "/social/code", search: location.search },
+          { state: { roomId: data.roomId, inviteCode: data.inviteCode } },
+        ),
       );
     },
     onError: (error: unknown) => {
@@ -84,7 +85,7 @@ export function SocialHomePage() {
     <main
       data-testid="social-home-page"
       // 상단 안전영역 규칙은 홈·기록·설정과 동일 (SettingsPage 주석 참고).
-      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-[24px] leading-[30px] font-bold text-foreground">소셜</h1>
@@ -123,7 +124,9 @@ export function SocialHomePage() {
               // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
               const params = new URLSearchParams(location.search);
               params.delete("code");
-              navigate({ pathname: "/social/join", search: params.toString() });
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/social/join", search: params.toString() }),
+              );
             }}
           >
             초대코드로 참여
@@ -141,7 +144,7 @@ export function SocialHomePage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
+          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg bg-muted"
         >
           <DialogHeader>
             <DialogTitle>{graceTitle}</DialogTitle>
@@ -159,8 +162,6 @@ export function SocialHomePage() {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <ToastViewport message={toastMessage} />
     </main>
   );
 }

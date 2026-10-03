@@ -15,6 +15,7 @@ import {
   trackStoreLinkRedirected,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { useUserId } from "@/lib/userId";
 
@@ -64,15 +65,17 @@ export function InviteCodeJoinPage() {
     // 실제 참여한 코드가 어긋날 수 있다.
     mutationFn: (submittedCode: string) => enterLiveRoom(userId as number, submittedCode),
     onSuccess: (data, submittedCode) => {
-      navigate(
-        { pathname: `/social/room/${data.roomId}`, search: location.search },
-        {
-          state: {
-            inviteCode: submittedCode,
-            graceRejoin: data.graceRejoin,
-            iceServers: data.iceServers,
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: `/social/room/${data.roomId}`, search: location.search },
+          {
+            state: {
+              inviteCode: submittedCode,
+              graceRejoin: data.graceRejoin,
+              iceServers: data.iceServers,
+            },
           },
-        },
+        ),
       );
     },
     onError: (error) => {
@@ -91,12 +94,14 @@ export function InviteCodeJoinPage() {
         // 쿼리 승계 규칙은 ScreenBackHeader 기본 동작과 동일
         // — 스택이 있으면 뒤로, 딥링크면 소셜 홈으로.
         onBack={() => {
-          const historyState = window.history.state as { idx?: number } | null;
-          if (historyState?.idx) {
-            navigate(-1);
-            return;
-          }
-          navigate({ pathname: "/social", search: location.search }, { replace: true });
+          slideNavigate("back", () => {
+            const historyState = window.history.state as { idx?: number } | null;
+            if (historyState?.idx) {
+              navigate(-1);
+              return;
+            }
+            navigate({ pathname: "/social", search: location.search }, { replace: true });
+          });
         }}
       />
 

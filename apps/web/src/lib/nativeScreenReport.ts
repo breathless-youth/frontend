@@ -40,7 +40,7 @@ export function useNativeScreenReport(): void {
         restoreQuery = { code };
       }
     } else if (location.pathname === "/onboarding-guide") {
-      // 진입 경로(`?entry=focus-start` 등) — 유실되면 복원된 가이드가 home-card 기본값으로
+      // 진입 경로(`?entry=focus-start` 등) — 유실되면 복원된 가이드가 unknown 기본값으로
       // 떨어져 완료가 세션을 시작하지 않는다. 값 검증은 페이지의 parseOnboardingGuideEntry가
       // 이미 하므로 여기서는 그대로 나른다.
       const entry = new URLSearchParams(location.search).get("entry");

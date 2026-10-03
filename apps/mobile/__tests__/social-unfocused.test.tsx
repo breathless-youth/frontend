@@ -9,8 +9,8 @@ import SocialScreen from "../app/(tabs)/social";
  * 화면에 없는 탭의 웹뷰가 suppress를 실제로 받는지 여기서 검증한다.
  */
 
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router", () => ({
+  ...jest.requireActual("expo-router"),
   useIsFocused: () => false,
 }));
 

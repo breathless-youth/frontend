@@ -136,3 +136,23 @@ export interface SetTabBarMessage {
 
 - Amplitude가 `aria-modal`을 달지 않을 때의 대체 감지. 실기기에서 확인한 뒤 결정한다.
 - 손으로 만든 모달 셋을 공용 `Dialog`로 합치는 일. 포커스 트랩과 Esc 처리를 얻는 개선이지만 이 버그와 별개다.
+
+## 갱신 (2026-09-28) — 바텀시트는 차단이 아니라 숨김
+
+홈 D-Day 시트(BY-651, 실기기 QA BY-658)에서 발견: 시트가 화면 바닥에 붙는데 V2 탭 바는 웹뷰 위에
+**떠 있는** 오버레이(`TabBar` `position: absolute`)라, 차단 상태로 남겨 두면 딤 처리된 탭 바가 시트
+아래쪽(저장·삭제 버튼)을 가린다.
+
+- 공용 `ui/sheet.tsx`가 `side="bottom"`일 때 `data-covers-tab-bar`를 단다. `nativeModalOverlay.ts`가
+  이 속성이 붙은 모달을 따로 읽고(`useModalOverlayCoversTabBar`), `nativeTabBar.ts`는 그때
+  `blockedByModal` 없이 `visible: false`만 보낸다 → 네이티브는 기존 계약대로 `"hidden"`. 네이티브 변경 없음.
+- 다이얼로그(가운데 카드)는 그대로 차단(딤)이다. 이 문서의 "웹뷰 높이 유지" 근거는 V1 인라인 탭 바
+  시절 것이고, V2 떠 있는 바에서는 숨겨도 웹뷰 높이가 변하지 않는다.
+- 시트 바닥 여백은 탭 바 자리 대신 `safe-area-inset-bottom`만 피한다(`DdaySection.tsx`).
+- (같은 날 실기기 재확인) 숨김을 `null` 반환(언마운트)으로 하면 시트가 내려간 뒤 탭 바가 다시 마운트되며
+  한 프레임 번쩍인다. 웹이 네이티브 위를 덮을 수는 없으므로(탭 바가 웹뷰 위의 네이티브 뷰) 네이티브 쪽에서
+  `TabBar`를 항상 마운트해 두고 `hidden` prop으로 감춘다 — 숨김은 즉시(`setValue(0)`), 복귀만 **180ms 페이드**(opacity, `useNativeDriver`). 사라지는 쪽 페이드는 실기기에서 굼떠 보여 뺐다.
+  숨긴 동안 `pointerEvents="none"`·접근성 트리 제외. 전체 화면 라우트의 숨김도 같은 경로를 탄다.
+- (같은 날) 닫힘 신호를 요소 제거가 아니라 Radix `data-state="closed"`가 붙는 순간(퇴장 애니메이션 시작)으로
+  당긴다. 그래야 탭 바 페이드가 시트가 내려가는 동안 같이 진행돼 열릴 때와 대칭이다. 다이얼로그의 딤 해제도
+  같은 시점으로 당겨진다.

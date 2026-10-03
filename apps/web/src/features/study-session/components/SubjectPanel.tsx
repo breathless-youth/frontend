@@ -233,7 +233,7 @@ function InlineNameEditor({
         onKeyDown={handleKeyDown}
         onBlur={commit}
         className={cn(
-          "h-10 min-w-0 flex-1 rounded-xl bg-white/8 px-3 text-white shadow-[inset_0_0_0_1px_var(--session-resume-bg)] outline-none placeholder:text-white/40",
+          "h-10 min-w-0 flex-1 rounded-xl bg-white/8 px-3 text-white shadow-[inset_0_0_0_1px_var(--session-control-resume-bg)] outline-none placeholder:text-white/40",
           large ? "text-[17px] font-semibold" : "text-[15px] font-medium",
         )}
       />
@@ -242,7 +242,7 @@ function InlineNameEditor({
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="h-10 shrink-0 rounded-xl bg-[var(--session-resume-bg)] px-3.5 text-[14px] font-semibold text-white active:opacity-80"
+        className="h-10 shrink-0 rounded-xl bg-[var(--session-control-resume-bg)] px-3.5 text-[14px] font-semibold text-white active:opacity-80"
       >
         {SUBJECT_SHEET_COPY.done}
       </button>
@@ -424,7 +424,7 @@ function TaskRow({
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
               done
-                ? "bg-[var(--session-resume-bg)]"
+                ? "bg-[var(--session-control-resume-bg)]"
                 : "shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.35)]",
             )}
           >
@@ -601,7 +601,7 @@ function SubjectCard({
             <span
               className={cn(
                 "flex size-9 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none",
-                selected ? "bg-[var(--session-resume-bg)]" : "bg-white/12",
+                selected ? "bg-[var(--session-control-resume-bg)]" : "bg-white/12",
               )}
             >
               <img
@@ -656,7 +656,7 @@ function SubjectCard({
             className="h-[3px] w-full overflow-hidden rounded-full bg-white/8"
           >
             <div
-              className="h-full rounded-full bg-[var(--session-resume-bg)] transition-[width] duration-250 motion-reduce:transition-none"
+              className="h-full rounded-full bg-[var(--session-control-resume-bg)] transition-[width] duration-250 motion-reduce:transition-none"
               style={{ width: `${(doneCount / subject.tasks.length) * 100}%` }}
             />
           </div>
@@ -768,12 +768,14 @@ export function SubjectPanel({
   const empty = status === "ready" && subjects.length === 0;
 
   // 접히면 편집·메뉴도 닫힌다(원본 `closeSheet`·`barUp`).
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (!open) {
       setEditing(null);
       setMenu(null);
     }
-  }, [open]);
+  }
 
   function startAddSubject() {
     if (subjects.length >= MAX_SUBJECTS) {

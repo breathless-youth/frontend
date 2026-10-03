@@ -87,7 +87,7 @@ describe("RoomPage 복원 게이트", () => {
 
     renderRoom();
 
-    expect(screen.getByTestId("room-restore-gate")).toBeInTheDocument();
+    expect(screen.getByTestId("room-restore-gate")).toHaveClass("theme-dark");
   });
 
   it("복원 세션이면 시트를 열지 않아도 과목 목록을 받는다 — 죽기 전에 완료한 할 일을 제출에 싣기 위해", async () => {

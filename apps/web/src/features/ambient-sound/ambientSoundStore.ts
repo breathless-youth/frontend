@@ -11,11 +11,13 @@ const KEY = "focuson.ambientSound.v1";
 
 export type AmbientSoundSettings = {
   mix: Mix;
+  lastMix: Mix;
   duckEnabled: boolean;
 };
 
 export const DEFAULT_AMBIENT_SETTINGS: AmbientSoundSettings = {
   mix: {},
+  lastMix: {},
   duckEnabled: true,
 };
 
@@ -41,8 +43,13 @@ function parseMix(raw: unknown): Mix {
 /** 저장된 값이 어떤 모양이든 예외 없이 정상 설정으로 만든다. */
 export function parseAmbientSettings(raw: unknown): AmbientSoundSettings {
   if (!isRecord(raw)) return DEFAULT_AMBIENT_SETTINGS;
+  const mix = parseMix(raw.mix);
+  const lastMix = parseMix(raw.lastMix);
   return {
-    mix: parseMix(raw.mix),
+    mix,
+    // 이 필드가 생기기 전에 저장한 사용자는 lastMix 가 없다.
+    // 지금 믹스를 첫 조합으로 삼아야 업데이트 직후에도 전체 끄기 뒤 다시 켜기가 동작한다.
+    lastMix: Object.keys(lastMix).length > 0 ? lastMix : mix,
     duckEnabled: typeof raw.duckEnabled === "boolean" ? raw.duckEnabled : true,
   };
 }

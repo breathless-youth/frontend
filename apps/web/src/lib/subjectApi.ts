@@ -11,19 +11,17 @@ import type {
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
 
 /**
- * 과목 > 할 일 CRUD (`/api/subjects`).
+ * 과목 > 할 일 CRUD (`/api/subjects`). 구 앱 계약이 없는 새 경로라 구 방식 분기가 없다.
  *
- * ⚠️ **이 API만 `API-Version: 1`이다.** 다른 토큰 요청은 `apiFetch`가 자동으로 2를 붙이지만(구 앱 계약과
- * 가르려고) 과목 API는 구 앱이 호출하지 않아 서버가 기본버전 하나로 매핑돼 있다. 버전을 명시하지 않으면
- * `apiFetch`가 2를 붙여 400이 난다 — 호출부가 지정한 버전은 그대로 유지된다.
- *
- * 인증은 그대로 토큰이 필요하다. 토큰이 없는 브라우저 단독에서는 401로 실패하고 호출부가 토스트로
+ * 인증은 토큰이 필요하다. 토큰이 없는 브라우저 단독에서는 401로 실패하고 호출부가 토스트로
  * 알린다(세션 자체는 그대로 진행된다).
  */
-const HEADERS = { "Content-Type": "application/json", "API-Version": "1" };
-
 async function send<T>(path: string, init: RequestInit, fallback: string): Promise<T> {
-  const res = await apiFetch(`${API_BASE_URL}/api/subjects${path}`, { ...init, headers: HEADERS });
+  const res = await apiFetch(`${API_BASE_URL}/api/subjects${path}`, {
+    ...init,
+    endpoint: "subjects",
+    headers: { "Content-Type": "application/json" },
+  });
   if (!res.ok) {
     throw await parseApiError(res, fallback);
   }

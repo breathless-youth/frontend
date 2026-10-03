@@ -72,14 +72,14 @@ function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
       );
     case "copy":
       return (
-        <span className="flex shrink-0 items-center gap-1.5">
+        <span className="flex shrink-0 items-center gap-2">
           <span className="text-text-tertiary text-[15px] leading-[18px]">{trailing.value}</span>
           <button
             type="button"
             onClick={trailing.onCopy}
             aria-label={`${trailing.value} 복사`}
             // 아이콘은 16이지만 히트 영역은 44 — 세로 음수 마진으로 행 높이는 늘리지 않는다.
-            className="text-text-tertiary -my-3 flex size-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+            className="text-text-tertiary relative mr-0.5 flex size-4 items-center justify-center rounded-full after:absolute after:-inset-[14px] after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
           >
             <Copy size={16} aria-hidden="true" />
           </button>

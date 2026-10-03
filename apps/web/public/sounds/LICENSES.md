@@ -8,11 +8,11 @@
 
 빗소리 둘과 카페 하나를 싣는다. 빗소리는 실외와 실내의 느낌이 달라 고를 값이 있다. 조용한 쪽 카페(`cafe-anya`)는 들어 보고 뺐다.
 
-| 파일           | 출처                                                       | 저작자         | 라이선스                | 원본                 | 가공                                                                                         |
-| -------------- | ---------------------------------------------------------- | -------------- | ----------------------- | -------------------- | -------------------------------------------------------------------------------------------- |
-| `rain-trp.mp3` | https://freesound.org/people/TRP/sounds/572417/            | TRP            | CC0 1.0 (퍼블릭 도메인) | FLAC 2:26            | 6초 지점부터 93초를 잘라 90초 루프로 만들고 3초 크로스페이드를 걸었다. mono 96kbps, -18 LUFS |
-| `rain-mm.mp3`  | https://freesound.org/people/musicalmorsels/sounds/510488/ | musicalmorsels | CC0 1.0 (퍼블릭 도메인) | WAV 16bit 7:37       | 114초 지점부터 93초. 먼 차 소리가 있는 70초 구간을 피해 고른 자리다. 같은 조건으로 인코딩    |
-| `cafe-vec.mp3` | https://freesound.org/people/Vecera_999/sounds/706805/     | Vecera_999     | CC0 1.0 (퍼블릭 도메인) | WAV 32bit float 3:12 | 35초 지점부터 93초. 30초의 큰 소리를 피해 고른 자리다. 같은 조건으로 인코딩                  |
+| 파일                    | 출처                                                       | 저작자         | 라이선스                | 원본                 | 가공                                                                                         |
+| ----------------------- | ---------------------------------------------------------- | -------------- | ----------------------- | -------------------- | -------------------------------------------------------------------------------------------- |
+| `rain-trp-cefd1558.mp3` | https://freesound.org/people/TRP/sounds/572417/            | TRP            | CC0 1.0 (퍼블릭 도메인) | FLAC 2:26            | 6초 지점부터 93초를 잘라 90초 루프로 만들고 3초 크로스페이드를 걸었다. mono 96kbps, -18 LUFS |
+| `rain-mm-e7cc0661.mp3`  | https://freesound.org/people/musicalmorsels/sounds/510488/ | musicalmorsels | CC0 1.0 (퍼블릭 도메인) | WAV 16bit 7:37       | 114초 지점부터 93초. 먼 차 소리가 있는 70초 구간을 피해 고른 자리다. 같은 조건으로 인코딩    |
+| `cafe-vec-a7724e1d.mp3` | https://freesound.org/people/Vecera_999/sounds/706805/     | Vecera_999     | CC0 1.0 (퍼블릭 도메인) | WAV 32bit float 3:12 | 35초 지점부터 93초. 30초의 큰 소리를 피해 고른 자리다. 같은 조건으로 인코딩                  |
 
 셋 다 CC0라 앱 안에 저작자를 표기할 의무는 없다. 그래도 출처를 여기에 남긴다.
 
@@ -41,7 +41,7 @@ BY-683에서 탭을 노이즈·주변 소리·음악 셋으로 늘렸다. 비트
 파일 하나를 더하는 순서다.
 
 1. 허용 라이선스(CC0 우선) 원본을 받는다. 판별 기준은 `.claude/skills/sound-asset-pipeline` 에 있다.
-2. 루프로 만든다. `bash .claude/skills/sound-asset-pipeline/scripts/encode-loop.sh raw/입력.wav apps/web/public/sounds/이름.mp3 90 3`. 장면 소리는 mono 96kbps, 음악은 stereo 128kbps 로 두고 `-18 LUFS` 로 맞춘다.
+2. 루프로 만든다. `bash .claude/skills/sound-asset-pipeline/scripts/encode-loop.sh raw/입력.wav apps/web/public/sounds/이름.mp3 90 3`. 장면 소리는 mono 96kbps, 음악은 stereo 128kbps 로 두고 `-18 LUFS` 로 맞춘다. 파일명은 `이름-<sha256 앞 8자리>.mp3`이고 해시는 `shasum -a 256 파일 | cut -c1-8`로 얻는다.
 3. `catalog.json` 에 한 줄을 더한다. `group` 은 `noise`·`ambience`·`music` 중 하나다.
    ```json
    { "id": "bonfire", "kind": "file", "group": "ambience", "label": "모닥불", "file": "bonfire.mp3" }

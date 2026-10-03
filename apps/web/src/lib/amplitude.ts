@@ -1,12 +1,13 @@
 import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
-import { sessionReplayPlugin } from "@amplitude/plugin-session-replay-browser";
 
-import type { TrackEventMessage } from "@focusmakers/types";
+import type { StudyEventStatus, TrackEventMessage } from "@focusmakers/types";
 
+import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
+import { whenIdle } from "./whenIdle";
 
 let initialized = false;
 
@@ -108,18 +109,8 @@ export function initAmplitude() {
   if (!apiKey || initialized) return;
   initialized = true;
 
-  // init보다 먼저 등록해야 세션 시작 이벤트부터 정제·리플레이가 붙는다.
+  // init보다 먼저 등록해야 세션 시작 이벤트부터 정제가 붙는다.
   add(sanitizeUrlPlugin());
-  add(
-    sessionReplayPlugin({
-      // 실제 수집률은 콘솔(Settings → Session Replay)의 sample_rate가 결정한다 — 리플레이
-      // SDK는 아래 analytics의 fetchRemoteConfig: false와 무관하게 자체 원격 설정을 가져와
-      // 이 값을 덮어쓴다. 여기 1은 콘솔에 설정이 없을 때의 폴백일 뿐이다(2026-08-07 진단:
-      // 콘솔 기본 1%가 로컬 100%를 덮어써 수집이 안 됐다).
-      sampleRate: 1,
-      privacyConfig: { blockSelector: ["video", ".amp-block"] },
-    }),
-  );
   /**
    * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
    * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
@@ -143,6 +134,9 @@ export function initAmplitude() {
    *   발생시키는 설계와 한 세트로만 할 것.
    */
   add(engagementPlugin());
+  // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
+  // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.
+  add(firebaseAnalyticsForwardPlugin());
   init(apiKey, {
     // ⚠️ 서버 user_id는 1부터 시작하는 DB 순번이라 1~4자리가 대부분인데, Amplitude 인제스트는
     // 기본적으로 5자 미만 id를 **이벤트에서 제거**하고 device_id로만 저장한다 — 이 옵션 없이는
@@ -185,6 +179,32 @@ export function initAmplitude() {
   // 그래도 이 호출을 남기는 이유는, 브라우저 단독 모드에서 첫 라우트 이펙트까지 기다리면
   // 그 사이에 나가는 이벤트가 익명 device_id로 남기 때문이다.
   setAmplitudeUserId(readUserId(window.location.search));
+  whenIdle(() => void addReplayPlugin());
+}
+
+/**
+ * 리플레이 플러그인 지연 등록
+ *
+ * 리플레이 SDK는 초기 JS에서 큰 몫이라 첫 화면 뒤 유휴 시간에 받아 붙인다.
+ * 그래서 앱 시작 뒤 1~2초 동안은 리플레이 녹화가 붙지 않는다.
+ * `init` 뒤의 `add`도 SDK가 곧바로 `setup`을 부르고, 정제 플러그인은 이미 맨 앞에 있어 순서가 바뀌지 않는다.
+ * 로드가 실패해도 이벤트 수집은 그대로 간다.
+ */
+async function addReplayPlugin(): Promise<void> {
+  const replay = await import("@amplitude/plugin-session-replay-browser").catch(() => null);
+  if (!replay) {
+    return;
+  }
+  add(
+    replay.sessionReplayPlugin({
+      // 실제 수집률은 콘솔(Settings → Session Replay)의 sample_rate가 결정한다 — 리플레이
+      // SDK는 위 analytics의 fetchRemoteConfig: false와 무관하게 자체 원격 설정을 가져와
+      // 이 값을 덮어쓴다. 여기 1은 콘솔에 설정이 없을 때의 폴백일 뿐이다(2026-08-07 진단:
+      // 콘솔 기본 1%가 로컬 100%를 덮어써 수집이 안 됐다).
+      sampleRate: 1,
+      privacyConfig: { blockSelector: ["video", ".amp-block"] },
+    }),
+  );
 }
 
 /**
@@ -309,6 +329,43 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
 export function trackStudySessionSubmitted(ok: boolean, attempt: number, roomType: StudyRoomType) {
   if (!initialized) return;
   track("study_session_submitted", { ok, attempt, room_type: roomType });
+}
+
+/**
+ * 세션 검출기가 로딩을 시작해 준비될 때까지 걸린 시간과, 그때 wasm·모델을 캐시에서 받았는지.
+ * 홈 유휴 시간의 미리 받기가 실사용에서 효과가 있는지 보는 지표다.
+ * `runtime`은 워커를 못 써 메인 스레드로 넘어간 비율을 본다.
+ * 세션당 한 번은 호출하는 훅(`features/study-session/useVisionReadyTracking.ts`)이 지킨다.
+ * 준비 실패는 Sentry가 받으므로 보내지 않는다.
+ * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 카메라 프레임·검출 결과·식별자는 싣지 않는다.
+ */
+export function trackVisionDetectorReady(input: {
+  readonly loadMs: number;
+  readonly roomType: StudyRoomType;
+  readonly runtime: "worker" | "main";
+  readonly wasmCache: "hit" | "miss" | "unknown";
+  readonly modelCache: "hit" | "miss" | "unknown";
+}) {
+  if (!initialized) return;
+  track("vision_detector_ready", {
+    load_ms: input.loadMs,
+    room_type: input.roomType,
+    runtime: input.runtime,
+    wasm_cache: input.wasmCache,
+    model_cache: input.modelCache,
+  });
+}
+
+/**
+ * 세션 도중 워커에서 메인 스레드로 갈아탄 기록
+ *
+ * 워커로 준비된 검출기가 프레임을 뜨지 못해 메인 스레드로 갈아탔을 때 세션당 한 번 보낸다.
+ * `vision_detector_ready`의 `runtime`은 준비 시점 값이라, 이 이벤트로 갈아탄 세션의 비율을 따로 본다.
+ * 카메라 프레임·검출 결과·식별자는 싣지 않는다.
+ */
+export function trackVisionRuntimeFallback(input: { readonly roomType: StudyRoomType }) {
+  if (!initialized) return;
+  track("vision_runtime_fallback", { room_type: input.roomType, reason: "frame_capture" });
 }
 
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
@@ -537,7 +594,7 @@ export function trackStudySessionResumed(input: {
 }
 
 /**
- * 비집중 구간 하나가 **끝났을 때** — 자리 이탈(AWAY)·휴대폰(PHONE)·기기 조작(DEVICE)이 얼마나
+ * 비집중 구간 하나가 **끝났을 때** — 휴식 유형(`StudyEventStatus`에서 PAUSE를 뺀 것)이 얼마나
  * 이어졌는지. 세션당 수십 건까지 날 수 있어 시작·끝을 따로 찍지 않고 끝에서 한 건으로 접는다.
  * 세션 종료로 닫히는 마지막 구간은 찍지 않는다 — 그 몫은 `study_session_ended.distraction_sec`.
  * 종료 이벤트의 `away_count/phone_count/device_count/pause_count`는 같은 집계의 세션 단위 요약이다
@@ -545,7 +602,7 @@ export function trackStudySessionResumed(input: {
  * 원본 프레임·얼굴 데이터는 없다. 상태 enum과 초 단위 길이뿐이다.
  */
 export function trackStudySessionDistracted(input: {
-  readonly status: "AWAY" | "PHONE" | "DEVICE";
+  readonly status: Exclude<StudyEventStatus, "PAUSE">;
   readonly durationSec: number;
   readonly roomType: StudyRoomType;
 }) {
@@ -675,11 +732,11 @@ export function trackSessionSimpleModeToggled(on: boolean) {
 
 /**
  * 온보딩 가이드 진입(2026-09-05) — 어느 경로로 들어왔는지(`entry`: 홈 "집중 시작" 첫 실행 /
- * 홈 가이드 카드 / 설정 "측정 기준 안내"). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
+ * 설정 "서비스 이용 가이드" / 출처 없음 `unknown`. 홈 가이드 카드는 V2 홈에서 빠졌다). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
  * 순간이지만 따로 둔다 — 스텝 이벤트는 진행을, 이 이벤트는 유입을 묻는다(같은 `entry`가 가이드
  * 이벤트 전부에 실려 어느 쪽으로도 세그먼트할 수 있다).
  */
-export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings") {
+export function trackGuideEntered(entry: "focus-start" | "settings" | "unknown") {
   if (!initialized) return;
   track("guide_entered", { entry });
 }
@@ -691,7 +748,7 @@ export function trackGuideEntered(entry: "focus-start" | "home-card" | "settings
  */
 export function trackGuideStepViewed(input: {
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
   readonly method: "initial" | "cta" | "gesture" | "prev";
 }) {
   if (!initialized) return;
@@ -706,7 +763,7 @@ export function trackGuideStepViewed(input: {
 export function trackGuideFinished(input: {
   readonly reason: "completed" | "skipped";
   readonly step: number;
-  readonly entry: "focus-start" | "home-card" | "settings";
+  readonly entry: "focus-start" | "settings" | "unknown";
 }) {
   if (!initialized) return;
   track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
@@ -976,4 +1033,46 @@ export function trackAmbientSoundChanged(input: {
 export function trackAmbientSoundDuckToggled(enabled: boolean) {
   if (!initialized) return;
   track("ambient_sound_duck_toggled", { enabled });
+}
+
+/** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */
+export function trackDdaySheetOpened(hasDday: boolean) {
+  if (!initialized) return;
+  track("dday_sheet_opened", { has_dday: hasDday });
+}
+
+/** D-Day 저장 성공. 제목·날짜 값은 싣지 않고 길이와 남은 일수만 남긴다. */
+export function trackDdaySaved(input: {
+  readonly isNew: boolean;
+  readonly daysLeft: number;
+  readonly titleLength: number;
+}) {
+  if (!initialized) return;
+  track("dday_saved", {
+    is_new: input.isNew,
+    days_left: input.daysLeft,
+    title_length: input.titleLength,
+  });
+}
+
+/** D-Day 삭제 성공 — 지운 시점의 남은 일수(지난 뒤면 음수). */
+export function trackDdayDeleted(daysLeft: number) {
+  if (!initialized) return;
+  track("dday_deleted", { days_left: daysLeft });
+}
+
+/**
+ * D-Day 유무·남은 일수 user property. 홈이 값을 알게 될 때와 저장·삭제 뒤에 맞춘다.
+ * 별도 홈 노출 이벤트 없이 이 속성으로 D-Day 유무별 세그먼트를 가른다.
+ */
+export function setDdayUserProperties(dday: { readonly daysLeft: number } | null) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("has_dday", dday !== null);
+  if (dday === null) {
+    id.unset("dday_days_left");
+  } else {
+    id.set("dday_days_left", dday.daysLeft);
+  }
+  identify(id);
 }

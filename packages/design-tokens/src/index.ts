@@ -53,7 +53,7 @@ export const colors = {
  * 근거: ai-wiki `product/mvp-scope.md` 세션 상태 모델 + `product/design.md`(2026-07-26 확정).
  *
  * - FOCUS(집중): 순공·총 공부 모두 진행. 기본 상태이므로 서버 이벤트로 기록되지 않는다.
- * - DISTRACTION(비집중): 감지 3종(자리 이탈·휴대폰 사용·기기 조작). 순공만 정지, 총 공부는 진행.
+ * - DISTRACTION(비집중): 휴식 4종(자리 이탈·휴대폰 사용·기기 조작·졸음). 순공만 정지, 총 공부는 진행.
  * - PAUSE(일시정지): 수동 일시정지 + 화면 꺼짐·백그라운드(2026-07-26 통합). 순공·총 공부 모두 정지.
  */
 export const sessionStateColors = {
@@ -64,22 +64,23 @@ export const sessionStateColors = {
 
 /**
  * 서버 이벤트 상태별 표시색. 키는 `@focusmakers/types`의 `StudyEventStatus`
- * (`"PHONE" | "DEVICE" | "AWAY" | "PAUSE"` — 백엔드 Swagger 계약)와 1:1로 대응한다.
+ * (`"PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE"` — 백엔드 Swagger 계약)와 1:1로 대응한다.
  *
  * 이 패키지는 순수 값 패키지라 `@focusmakers/types`를 import하지 않는다(아키텍처 경계 유지) —
  * 대신 키 집합이 어긋나지 않도록 테스트로 고정한다. 계약이 바뀌면 이 표와 테스트를 함께 고친다.
  *
- * 비집중 3종(PHONE·DEVICE·AWAY)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
+ * 휴식 4종(PHONE·DEVICE·AWAY·SLEEP)은 사용자에게 같은 오렌지로 보이고 라벨·뱃지 문구로만 구분된다
  * (`ai-wiki/product/glossary.md`의 노출 표기 참고).
  */
 export const eventStatusColors = {
   PHONE: sessionStateColors.DISTRACTION,
   DEVICE: sessionStateColors.DISTRACTION,
   AWAY: sessionStateColors.DISTRACTION,
+  SLEEP: sessionStateColors.DISTRACTION,
   PAUSE: sessionStateColors.PAUSE,
 } as const;
 
-/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 NanumSquareRound를 자체 호스팅해 적용한다. */
+/** 타이포 스케일. Figma "Typography"(node 21:2)에서 추출 — 폰트는 apps/web에 Pretendard를 자체 호스팅해 적용한다. */
 export const typography = {
   display: {
     /** 타이머 전용 */
@@ -130,6 +131,33 @@ export const radius = {
   full: 999,
 } as const;
 
+/**
+ * V2 Soft Blue 스코프 — 스플래시·하단 탭 바 전용. 기존 `colors`(V1)와 분리해 둔다.
+ * 아직 V1인 모바일 화면이 따라 바뀌면 안 되므로 별도 스코프로만 참조한다.
+ * 값 출처: Figma "Nav / Glass Tab Bar"(5325:3730)·"E1 · 스플래시"(5322:3661),
+ * 웹 `apps/web/src/index.css`의 `.theme-soft-blue`와 교차 확인.
+ */
+export const softBlue = {
+  /** 유리 표면·테두리·하이라이트·활성 알약·그림자 — RN 인라인 style 값(className 불가). */
+  glass: {
+    surface: { light: "rgba(255,255,255,0.55)", dark: "rgba(30,34,44,0.55)" },
+    border: { light: "rgba(255,255,255,0.75)", dark: "rgba(255,255,255,0.18)" },
+    innerHighlight: { light: "rgba(255,255,255,0.9)", dark: "rgba(255,255,255,0.25)" },
+    activePill: { light: "rgba(255,255,255,0.85)", dark: "rgba(255,255,255,0.14)" },
+    shadow: { light: "rgba(31,42,61,0.14)", dark: "rgba(0,0,0,0.35)" },
+  },
+  /** 탭 라벨 — 활성은 text/primary, 비활성은 text/secondary(색이 아니라 알약으로 구분). */
+  tab: {
+    labelActive: { light: "#1f2a3d", dark: "#eaf0f9" },
+    labelInactive: { light: "#556173", dark: "#9fabc0" },
+  },
+  /** 스플래시 배경·워드마크 — swift 스크립트·app.json과 같은 값. */
+  splash: {
+    bg: { light: "#f8fafd", dark: "#0d1118" },
+    wordmark: { light: "#3671cf", dark: "#5a90ea" },
+  },
+} as const;
+
 /** 아이콘 의미 키(플랫폼별 아이콘 세트 매핑용) — Figma Components 페이지 조사는 실제로 아이콘이 필요한 화면 구현 시점에 진행한다. */
 export const iconMeanings = {
   study: "study",
@@ -149,6 +177,7 @@ export const tokens = {
   spacing,
   radius,
   iconMeanings,
+  softBlue,
 } as const;
 
 export type Colors = typeof colors;
@@ -158,4 +187,5 @@ export type Typography = typeof typography;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;
 export type IconMeaning = (typeof iconMeanings)[keyof typeof iconMeanings];
+export type SoftBlue = typeof softBlue;
 export type DesignTokens = typeof tokens;

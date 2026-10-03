@@ -8,7 +8,8 @@ import { MonthCalendar } from "../MonthCalendar";
 import { MonthSummary } from "../MonthSummary";
 import { SegmentedControl } from "../SegmentedControl";
 import { SessionListItem } from "../SessionListItem";
-import { StreakBanner, type StreakWeekDay } from "../StreakBanner";
+import type { StreakWeekDay } from "../recordsFormat";
+import { StreakBanner } from "../StreakBanner";
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는
 // `clientX`/`clientY`가 사라진다(`OnboardingGuidePage.test.tsx`와 같은 이유·같은 최소 폴리필).
@@ -24,7 +25,13 @@ if (typeof window.PointerEvent === "undefined") {
  * 그래서 각 컴포넌트가 지닌 표기·접근성·인터랙션 규칙(주석에 적힌 것들)을 새로 커버한다.
  */
 
-const EMPTY_EVENT_COUNTS: StudySessionEventCounts = { PHONE: 0, DEVICE: 0, AWAY: 0, PAUSE: 0 };
+const EMPTY_EVENT_COUNTS: StudySessionEventCounts = {
+  PHONE: 0,
+  DEVICE: 0,
+  AWAY: 0,
+  SLEEP: 0,
+  PAUSE: 0,
+};
 
 // KST 07:30~08:16(2026-09-19), 순공 44분 · 집중 96% — v2 행 표기 고정값(계획 Task 6 Step 1).
 function session(overrides: Partial<StudySessionSummary> = {}): StudySessionSummary {

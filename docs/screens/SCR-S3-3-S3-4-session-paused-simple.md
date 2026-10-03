@@ -148,7 +148,7 @@ S3-4 · 미니멀 모드 (탭 전환)  [bg #0B0F14 — 프레임 전체가 탭 �
 
 ```ts
 // packages/types/src/index.ts — 백엔드 Swagger 기준, 상상 계약 아님
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE";
+export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
 
 export interface StatusEventPayload {
   status: StudyEventStatus;

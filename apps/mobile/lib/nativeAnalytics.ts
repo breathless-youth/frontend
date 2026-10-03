@@ -3,10 +3,11 @@ import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
 /**
  * 네이티브에서만 관측되는 사용자 이벤트를 웹 Amplitude로 넘기는 통로(브리지 `track-event`).
  *
- * 분석 SDK는 웹에만 있다 — 앱은 Firebase Analytics도 링크하지 않고(`CLAUDE.md`), 네이티브
- * Amplitude SDK를 들이면 device_id가 웹뷰와 갈라져 신원 통합이 필요해진다. 대신 여기서 이벤트를
- * 모아 두고, 웹뷰 호스트(`components/RemoteWebViewHost.tsx`)가 `injectJavaScript`로 옮겨 담는다.
- * 웹은 같은 user_id·세션으로 전송한다(`apps/web/src/lib/amplitude.ts`의 `trackNativeShellEvent`).
+ * 분석의 원천은 웹 Amplitude다 — 네이티브 Amplitude SDK를 들이면 device_id가 웹뷰와 갈라져 신원 통합이
+ * 필요해진다. 대신 여기서 이벤트를 모아 두고, 웹뷰 호스트(`components/RemoteWebViewHost.tsx`)가
+ * `injectJavaScript`로 옮겨 담는다. 웹은 같은 user_id·세션으로 전송한다(`apps/web/src/lib/amplitude.ts`의
+ * `trackNativeShellEvent`). 앱의 Firebase Analytics(`lib/firebaseAnalytics.ts`)는 웹이 되돌려 보내는
+ * 사본을 받을 뿐이라, 여기 이벤트도 웹을 한 바퀴 돌아 그쪽에 도착한다.
  *
  * ## 전달 대상은 언제나 하나(sink)다
  *
@@ -66,16 +67,17 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
   app_foregrounded: { background_sec: number };
   /**
    * 탭 이동. `via`는 경로 — `tab_bar`(하단 탭 터치, `components/TabBar.tsx`; 활성 탭은 비활성화돼
-   * 재터치는 없음) / `card`(웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
+   * 재터치는 없음) / `card`(옛 웹이 `navigate-tab`으로 옮김 — 홈 연속 공부 카드 → 기록,
    * `lib/nativeBridgeHandler.ts`) / `study_result`(웹 S4 결과 화면의 `기록으로 가기`가
-   * `navigate-tab {via: study_result}`로 옮김, BY-560) / `hardware_back`(Android 시스템 뒤로가기로
+   * `navigate-tab {via: study_result}`로 옮김, BY-560) / `invite_card`(홈 친구 초대 카드가
+   * `navigate-tab {tab: social, via: invite_card}`로 옮김) / `hardware_back`(Android 시스템 뒤로가기로
    * 홈 탭 복귀, `app/(tabs)/_layout.tsx`; 홈 탭에서의 뒤로가기는 앱 종료라 탭 이동이 아니다).
    * 사용자에겐 전부 같은 탭 이동이라 한 이벤트로 센다.
    */
   tab_pressed: {
     tab: NativeTab;
     from_tab: NativeTab;
-    via: "tab_bar" | "card" | "study_result" | "hardware_back";
+    via: "tab_bar" | "card" | "study_result" | "invite_card" | "hardware_back";
   };
   /**
    * 카메라 권한 게이트의 분기 결과(`lib/cameraPermissionGate.ts`). `already_denied`는 OS 다이얼로그

@@ -3,7 +3,7 @@ import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import { colors } from "@focusmakers/design-tokens";
-import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
+import type { HostPassedMessage, ToWebMessage } from "@focusmakers/types";
 
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
@@ -35,6 +35,13 @@ import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
 // 선언하는 이유, 아래 핸들러 참고).
 type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 
+// onLoadEnd 이벤트 타입도 위와 같은 사정으로 재수출되지 않아 필요한 만큼만 직접 구성한다.
+// navigationType은 선언상 필수 필드지만 실제 문서 로드 이벤트에는 아예 없을 수 있어
+// 선택 필드로 다시 연다(아래 handleLoadEnd 주석 참고).
+type LoadEndNativeEvent = Omit<WebViewNavigation, "navigationType"> & {
+  navigationType?: WebViewNavigation["navigationType"];
+};
+
 const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
 const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
 
@@ -58,6 +65,39 @@ function forLog(message: ToWebMessage): ToWebMessage {
 
 /** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
 const HOME_PATH = "/home";
+
+/**
+ * 베이스 URL 설정 읽기
+ *
+ * 설정이 없으면 null이고 실패 폴백으로 간다(`lib/webBaseUrl.ts`가 throw).
+ */
+function readWebBaseUrl(): string | null {
+  try {
+    return getWebBaseUrl();
+  } catch (error: unknown) {
+    if (__DEV__) {
+      console.warn("[RemoteWebViewHost] 웹 베이스 URL 설정 안 됨", error);
+    }
+    return null;
+  }
+}
+
+/**
+ * 재마운트할 때 돌아갈 경로
+ *
+ * `report-screen`이 기록한다.
+ */
+type RestoreTarget = { path: string; query?: Record<string, string> };
+
+/**
+ * 웹뷰 문서 세대.
+ *
+ * `key`가 바뀌면 WebView를 통째로 새로 만든다(재시도, Android 렌더러 사망).
+ * 복원 경로를 ref가 아니라 여기 싣는 이유는 `target`이 렌더 중 ref를 읽지 않게 하기 위해서다.
+ * 베이스 URL도 함께 싣는 이유는 쓰지 않는 의존성 없이 재시도 때 설정을 다시 읽게 하기 위해서다.
+ * 복원 경로는 재마운트 시점에만 반영된다는 규칙이 세대를 올리는 한 곳에 모인다.
+ */
+type DocGeneration = { key: number; baseUrl: string | null; restore: RestoreTarget | null };
 
 /** `baseUrl` + `path` + `query` → WebView에 넘길 완성 URL. */
 export function buildRemoteWebViewUrl(
@@ -84,14 +124,14 @@ export type RemoteWebViewHostProps = {
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
-   * 웹이 보낸 브리지 메시지(session-ready·start-session·navigate-home·open-settings 등)를
+   * 웹이 보낸 브리지 메시지(start-session·navigate-home·open-settings 등)를
    * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
    * (파싱 단계에서 걸러짐).
    *
    * 두 번째 인자 `reply`로 웹에 응답을 되돌려 보낸다(`request-camera-permission` → `camera-permission`).
    * 통로가 이 컴포넌트 안(`webViewRef.injectJavaScript`)에 있어 핸들러가 직접 가질 수 없다.
    */
-  onBridgeMessage?: (message: ToNativeMessage, reply: BridgeReply) => void;
+  onBridgeMessage?: (message: HostPassedMessage, reply: BridgeReply) => void;
   /** WebView·실패 화면에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만 넘긴다). */
   backgroundColor?: string;
   /**
@@ -161,7 +201,7 @@ export function RemoteWebViewHost({
    * 소수점 높이의 마지막 픽셀 줄이 남고, 재부착 직후 첫 프레임에도 그 바탕이 그대로 보인다.
    * Android는 래퍼 뷰 색이 그대로 비친다. 두 경우 모두 테마 색이어야 흰 줄과 번쩍임이 없다.
    *
-   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.15.0.patch가
+   * iOS에서 이 값이 WKWebView까지 닿으려면 patches/react-native-webview@13.16.1.patch가
    * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
    */
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -186,7 +226,11 @@ export function RemoteWebViewHost({
   const webOrientationUnlockedRef = useRef(false);
   // 재시도 시 베이스 URL 설정도 다시 읽는다 — retry 한 번으로 "설정 누락"과 "일시적 로드
   // 실패" 두 경우 모두를 같은 버튼으로 재시도할 수 있게 한다.
-  const [retryKey, setRetryKey] = useState(0);
+  const [doc, setDoc] = useState<DocGeneration>(() => ({
+    key: 0,
+    baseUrl: readWebBaseUrl(),
+    restore: null,
+  }));
   /**
    * 현재 문서가 `analytics-ready`를 보냈는가 — 웹이 `track-event` 구독을 걸었다는 뜻이고, 그
    * 전에 주입하면 전역이 없거나(스크립트가 조용히 건너뜀) 구독자 없이 버려진다. 문서 세대가
@@ -200,43 +244,48 @@ export function RemoteWebViewHost({
    * 웹이 `report-screen`으로 보고한 마지막 화면(BY-436). 렌더러 사망으로 웹뷰를 다시 띄울 때
    * 돌아갈 곳이다 — Android 재마운트는 초기 `source`가 탭 루트 경로라, 이 값이 없으면
    * 사용자가 있던 화면(소셜룸 등)을 잃는다. ref인 이유: 살아 있는 동안 `source`가 바뀌면
-   * 그 자체가 내비게이션이 되므로, 재마운트(retryKey) 시점에만 읽는다.
+   * 그 자체가 내비게이션이 되므로, 재마운트(문서 세대 전환) 시점에만 읽는다.
    */
-  const restoreRef = useRef<{ path: string; query?: Record<string, string> } | null>(null);
+  const restoreRef = useRef<RestoreTarget | null>(null);
   /** 사망 복구(재마운트·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 재마운트를 반복하지 않는다. */
   const recoveringRef = useRef(false);
 
+  /**
+   * 다음 문서 세대로 넘어간다.
+   *
+   * 그 시점에 보고돼 있던 복원 경로를 함께 싣는다.
+   * 핸들러·리스너에서만 부른다.
+   */
+  const nextGeneration = useCallback(() => {
+    const restore = restoreRef.current;
+    const baseUrl = readWebBaseUrl();
+    setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
+  }, []);
+
+  const { baseUrl, restore } = doc;
   const target = useMemo(() => {
-    try {
-      const baseUrl = getWebBaseUrl();
-      // 재마운트·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
-      const restore = restoreRef.current;
-      return {
-        uri: buildRemoteWebViewUrl(
-          baseUrl,
-          restore?.path ?? path,
-          restore?.query ? { ...(query ?? {}), ...restore.query } : query,
-        ),
-        origin: originOf(baseUrl),
-      };
-    } catch (error: unknown) {
-      if (__DEV__) {
-        console.warn("[RemoteWebViewHost] 웹 베이스 URL 설정 안 됨", error);
-      }
+    if (baseUrl === null) {
       return null;
     }
-    // retryKey는 값을 쓰지 않지만 재시도 신호로 재계산을 트리거하는 용도다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, query, retryKey]);
+    // 재마운트·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
+    return {
+      uri: buildRemoteWebViewUrl(
+        baseUrl,
+        restore?.path ?? path,
+        restore?.query ? { ...(query ?? {}), ...restore.query } : query,
+      ),
+      origin: originOf(baseUrl),
+    };
+  }, [path, query, baseUrl, restore]);
 
   const retry = useCallback(() => {
     trackNativeEvent("webview_retry_pressed", { path });
     setLoadFailed(false);
     // 새 문서가 뜬다 — 이전 문서의 준비 신호는 무효다(위 analyticsReady 주석).
     setAnalyticsReady(false);
-    setRetryKey((key) => key + 1);
+    nextGeneration();
     webViewRef.current?.reload();
-  }, [path]);
+  }, [path, nextGeneration]);
 
   /**
    * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
@@ -250,7 +299,7 @@ export function RemoteWebViewHost({
    *
    * iOS는 `reload()`가 새 콘텐츠 프로세스를 띄우므로 그걸로 충분하다. Android는 렌더러가
    * 죽은 WebView 인스턴스를 재사용할 수 없어(플랫폼 제약) reload 대신 `key`를 바꿔 웹뷰를
-   * 재마운트한다 — `retryKey`가 이미 그 역할의 신호라 재사용한다.
+   * 재마운트한다 — 문서 세대(`doc.key`)가 이미 그 역할의 신호라 재사용한다.
    */
   // ponytail: 반복 크래시 시 재로드 루프 가드 없음 — 페이지 자체가 프로세스를 죽이는 경우가
   // 생기면(현재 탭 페이지들은 경량이라 관측된 바 없음) 시도 횟수 제한을 추가할 것.
@@ -300,14 +349,14 @@ export function RemoteWebViewHost({
         return false;
       }
       enterRecovery();
-      setRetryKey((key) => key + 1);
+      nextGeneration();
       return true;
     };
     recoveryListeners.add(listener);
     return () => {
       recoveryListeners.delete(listener);
     };
-  }, [enterRecovery]);
+  }, [enterRecovery, nextGeneration]);
 
   /** 웹으로 나가는 메시지를 한 곳에 모으는 헬퍼 함수 — 개발 빌드에서 나가는 메시지를 로그로 남긴다. */
   const sendToWeb = useCallback((message: ToWebMessage) => {
@@ -420,26 +469,35 @@ export function RemoteWebViewHost({
   }, [path]);
 
   // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
-  const handleLoadEnd = useCallback(() => {
-    if (__DEV__) {
-      console.warn("[webview-bridge] onLoadEnd", path);
-    }
-    // 새 문서는 제스처를 끈 적이 없다 — 렌더러 재생성·reload 뒤에도 이전 문서의 잠금이
-    // 남지 않게 로드마다 기본값으로 되돌린다. 끈 쪽이 살아 있으면 다시 끄는 책임도 그쪽이다.
-    setBackGestureEnabled(true);
-    recoveringRef.current = false;
-    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
-    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
-    // 남는 것을 막는다(2026-08-25 채점 지적).
-    if (Platform.OS === "android") {
-      sendToWeb({
-        type: "theme",
-        scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
-        atMs: Date.now(),
-      });
-    }
-    onLoadEnd?.(true);
-  }, [onLoadEnd, path, sendToWeb]);
+  const handleLoadEnd = useCallback(
+    (event?: { nativeEvent: LoadEndNativeEvent }) => {
+      if (__DEV__) {
+        console.warn("[webview-bridge] onLoadEnd", path);
+      }
+      // react-native-webview 13.16.1의 iOS History API shim(RNCWebViewImpl.m)은
+      // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
+      // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
+      // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
+      // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
+      // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
+      if (event?.nativeEvent.navigationType === undefined) {
+        setBackGestureEnabled(true);
+      }
+      recoveringRef.current = false;
+      // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
+      // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
+      // 남는 것을 막는다(2026-08-25 채점 지적).
+      if (Platform.OS === "android") {
+        sendToWeb({
+          type: "theme",
+          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+          atMs: Date.now(),
+        });
+      }
+      onLoadEnd?.(true);
+    },
+    [onLoadEnd, path, sendToWeb],
+  );
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
@@ -583,7 +641,7 @@ export function RemoteWebViewHost({
   return (
     <WebView
       // 재시도·Android 렌더러 사망 시 웹뷰를 통째로 새로 만든다(위 handleRenderProcessGone 주석).
-      key={retryKey}
+      key={doc.key}
       ref={webViewRef}
       testID={testID}
       source={{ uri: target.uri }}

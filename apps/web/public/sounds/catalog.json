@@ -11,21 +11,21 @@
       "kind": "file",
       "group": "ambience",
       "label": "빗소리 (실외)",
-      "file": "rain-trp.mp3"
+      "file": "rain-trp-cefd1558.mp3"
     },
     {
       "id": "rain-mm",
       "kind": "file",
       "group": "ambience",
       "label": "빗소리 (실내)",
-      "file": "rain-mm.mp3"
+      "file": "rain-mm-e7cc0661.mp3"
     },
     {
       "id": "cafe-vec",
       "kind": "file",
       "group": "ambience",
       "label": "카페",
-      "file": "cafe-vec.mp3"
+      "file": "cafe-vec-a7724e1d.mp3"
     }
   ]
 }

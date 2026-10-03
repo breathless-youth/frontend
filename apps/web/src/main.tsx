@@ -8,8 +8,11 @@ import { initGA4 } from "./lib/analytics";
 import { initAmplitude } from "./lib/amplitude";
 import { initAppLifecycleAnalytics } from "./lib/appLifecycleAnalytics";
 import { initBridgeTokenSource } from "./lib/auth/tokenSource";
+import { installFakeCamera } from "./lib/fakeCamera";
 import { initNativeTheme } from "./lib/nativeTheme";
 import { initSentry, sentryRootOptions } from "./lib/sentry";
+// Tailwind의 CSS @import가 아니라 여기서 불러와야 Vite가 폰트 url()을 다시 쓰고 조각 파일에 해시를 붙인다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./index.css";
 
 initSentry();
@@ -21,6 +24,10 @@ initNativeTheme();
 initAppLifecycleAnalytics();
 // 라우트의 첫 react-query 요청이 App effect보다 먼저 돌므로 createRoot 전에 구독·auth-ready를 건다.
 initBridgeTokenSource();
+// 측정 빌드 전용 가짜 카메라 — 운영 빌드에서는 조건이 접혀 빠진다.
+if (import.meta.env.VITE_FAKE_CAMERA === "1") {
+  installFakeCamera();
+}
 
 createRoot(document.getElementById("root")!, sentryRootOptions).render(
   <StrictMode>

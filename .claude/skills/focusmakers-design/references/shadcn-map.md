@@ -13,7 +13,7 @@
 | Sheet / Bottom, 세션 상세 시트 | Drawer (vaul) | `components/ui/drawer.tsx` (추가 예정, BY-568) | 상단 반경 `rounded-t-xl`(20), 핸들 `aria-hidden`, `pb-[env(safe-area-inset-bottom)]`, 배경 `bg-background`, 그림자는 `shadow/sheet-up` 값 |
 | Control / Segmented (주간/월간) | Tabs | `components/ui/tabs.tsx` (추가 예정, BY-566) | `TabsList`를 `rounded-full bg-bg-layer-2 p-[3px]`, `TabsTrigger`를 `h-11 rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground text-text-tertiary`로. `TabsContent`는 쓰지 않고 상태만 쓴다 |
 | 휴식 카드 "자세히" 펼침 | Collapsible | `components/ui/collapsible.tsx` (추가 예정, BY-560) | 트리거는 `<button>` h-11 이상, 셰브런 `data-[state=open]:rotate-180 motion-reduce:transition-none` |
-| 홈 순공 게이지 | Progress | `components/ui/progress.tsx` (홈 개선안에 게이지가 남을 때만) | 트랙 `bg-bg-layer-2`, 인디케이터 `bg-primary`, `aria-valuetext`에 "오늘 순공 3시간 42분" |
+| 홈 집중률 게이지 | Progress | `components/ui/progress.tsx` (있음) | 높이 10, 트랙 `bg-bg-layer-2`, 인디케이터 `from-primary/50 to-primary` 그라디언트, `motion-reduce:transition-none`, 호출부가 `aria-label` |
 | Card / Hero Today·Stat·Guide, Result 카드, 기록 카드 | Card | `components/ui/card.tsx` (추가 예정) | `rounded-lg border border-border bg-muted`. 기존 `ResultCard`(study-session)와 `STAT_CARD_CLASS`(홈)를 이걸로 흡수 |
 | Chip / Event Tag, 집중률 필 | Badge | `components/ui/badge.tsx` (추가 예정) | variant `brand`(`bg-brand-subtle text-primary`), `distract`(`bg-state-distract-subtle text-state-distract-text`), `pause`(`bg-bg-layer-2 text-text-tertiary`) |
 | Record / Summary Tile | Card + 텍스트 | 위 Card 재사용 | Accent 변형은 값 색만 `text-primary` |
@@ -24,7 +24,7 @@
 | Invite Code / OTP | input-otp | `components/ui/input-otp.tsx` (있음, BY-716) | `InputOTP`·`InputOTPSlot`. 셀 룩은 `features/social-room/codeCell.ts`의 `CODE_CELL_CLASS`(방 생성 완료 화면과 공유), 활성 칸은 `border-2 border-primary` + `animate-caret-blink` |
 | Settings / Row Type=Toggle, Control / Toggle | Switch | `components/ui/switch.tsx` (추가 예정, 필요 시) | 트랙 `data-[state=checked]:bg-primary` |
 | Avatar | Avatar | `components/ui/avatar.tsx` (추가 예정, 필요 시) | 크기 34·40·48·72 |
-| 토스트 | 기존 `components/ui/toast.tsx` 유지 | | `sonner` 보류. `ToastViewport`가 하단 위치를 소유한다 |
+| 토스트 | Sonner | `components/ui/sonner.tsx` (있음) | `unstyled` + 알약 클래스, `theme="light"` 고정(`next-themes` 없음). 전역 `Toaster`는 `App.tsx`가 라우트로 아래 여백을 정하고, 하단 버튼 화면은 `CtaToaster`. 호출은 `showToast`/`showCtaToast`(`lib/toast.ts`) |
 | Navigation / Tab Bar, iOS Status Bar | 없음 | 네이티브 셸 | 웹에서 그리지 않는다 |
 
 ## 커스텀 규칙

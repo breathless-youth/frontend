@@ -9,6 +9,7 @@ import { legacyQuery } from "./userId";
 
 export async function getStudySessionDetail(id: number): Promise<StudySessionResponse> {
   const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/${id}${legacyQuery("")}`, {
+    endpoint: "studySessionDetail",
     method: "GET",
   });
   if (!res.ok) {

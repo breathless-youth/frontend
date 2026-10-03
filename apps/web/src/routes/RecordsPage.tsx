@@ -179,7 +179,7 @@ export function RecordsPage() {
   return (
     <main
       data-testid="records-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pb-6 pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <div className="flex items-center justify-between">

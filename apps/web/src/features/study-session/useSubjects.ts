@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
@@ -34,14 +34,16 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [status, setStatus] = useState<SubjectsStatus>("idle");
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
   /**
    * 드래그 중 최신 순서. pointermove의 setState는 pointerup 전에 렌더되지 않을 수 있어(연속 입력은
    * 우선순위가 낮다) 놓는 순간 state를 믿지 않는다 — `reorderSubject`가 여기에 먼저 쓰고
    * `commitReorder`가 여기서 읽는다. 렌더마다 state로 덮어 다른 변경과도 어긋나지 않는다.
    */
   const subjectsRef = useRef(subjects);
-  subjectsRef.current = subjects;
+  useLayoutEffect(() => {
+    onErrorRef.current = onError;
+    subjectsRef.current = subjects;
+  });
   /** 핸들을 잡는 순간의 id 순서 — 놓을 때 이것과 다를 때만 서버에 보낸다. null이면 드래그 중이 아니다. */
   const dragBaseRef = useRef<number[] | null>(null);
 
@@ -60,6 +62,7 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
 
   useEffect(() => {
     if (enabled && status === "idle") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 서버 조회를 시작하며 loading으로 바꾼다. 조회 자체가 외부 동기화다
       void reload();
     }
   }, [enabled, reload, status]);
