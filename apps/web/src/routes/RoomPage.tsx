@@ -28,6 +28,7 @@ import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDu
 import {
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
+  INVITE_CONFIRM_COPY,
   exitConfirmDescription,
   statusCopyFor,
 } from "@/features/study-session/sessionCopy";
@@ -37,6 +38,11 @@ import type {
   SessionState,
 } from "@/features/study-session/sessionState";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
+import {
+  clearSessionInvite,
+  leaveSessionForInvite,
+  useSessionInvite,
+} from "@/features/study-session/sessionInvite";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
@@ -171,9 +177,11 @@ function useRotationPhase(): RotationPhase {
 function RoomSessionScreen({
   userId,
   restored,
+  invite,
 }: {
   userId: number | null;
   restored: RestoredSession | null;
+  invite: string | null;
 }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -355,10 +363,31 @@ function RoomSessionScreen({
    * 30초 공부하고 20분 방치해 자동 종료된 세션도 기록에 남지 않으므로 `여기까지 기록을 저장했어요`가 거짓이 된다.
    */
   useEffect(() => {
-    if (phase.name === "done" && !endedBelowMinute && endReason?.kind !== "AUTO") {
+    if (
+      phase.name === "done" &&
+      invite === null &&
+      !endedBelowMinute &&
+      endReason?.kind !== "AUTO"
+    ) {
       goToResult(phase.sessions);
     }
-  }, [endReason, endedBelowMinute, goToResult, phase]);
+  }, [endReason, endedBelowMinute, goToResult, invite, phase]);
+
+  /**
+   * 초대를 받은 채 끝난 세션의 이동
+   *
+   * 확인 창에서 종료를 골랐든, 이미 끝난 세션에 초대가 왔든 같은 규칙이다.
+   * 저장 중이면 끝날 때까지 기다리고, 저장에 실패하면 `다시 제출` 화면에 머물렀다가 성공하면 간다.
+   * 네이티브가 모달을 닫기 전에 effect가 다시 돌아도 요청은 한 번만 보낸다.
+   */
+  const leftForInviteRef = useRef(false);
+  useEffect(() => {
+    if (invite === null || leftForInviteRef.current) return;
+    if (phase.name === "done" || phase.name === "unsaved") {
+      leftForInviteRef.current = true;
+      leaveSessionForInvite(invite);
+    }
+  }, [invite, phase]);
 
   /**
    * 전환 중에는 추론을 멈춘다(위 `detectionEnabled`). 전환이 끝나면 — 성공이든 실패든 —
@@ -548,7 +577,7 @@ function RoomSessionScreen({
              `phase === "done"`을 요구하는 이유 — 제출 중·실패·미저장 상태에서는
              아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
              걸러내는 것은 표시·합산 단계다. */
-      phase.name === "done" && endedBelowMinute ? (
+      phase.name === "done" && endedBelowMinute && invite === null ? (
         <SubMinuteEndNotice
           onGoHome={() => {
             trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
@@ -558,7 +587,7 @@ function RoomSessionScreen({
       ) : /* `phase.name === "done"`을 여기서 한 번 더 좁히는 이유: 타입 가드는 `endReason`만
              좁혀서 아래 `phase.sessions` 접근이 타입상 열리지 않는다. 조건 자체는 가드 안의
              검사와 동일하다. */
-      phase.name === "done" && autoEndNoticeVisible(phase, endReason) ? (
+      phase.name === "done" && invite === null && autoEndNoticeVisible(phase, endReason) ? (
         /* 자동 종료 안내 — 저장이 **끝난 뒤에만** 보여준다(`phase === "done"`).
            타이틀이 `여기까지 기록을 저장했어요`로 단언하므로 제출 중·실패·미저장(userId 없음)
            상태에서 이 화면을 띄우면 사실과 달라진다 — 그 경우는 아래 폴백의 재시도 경로로 간다.
@@ -597,7 +626,7 @@ function RoomSessionScreen({
         // 삼항 밖이라 마운트는 유지되므로, 여는 조건에 phase 를 직접 건다. 자동 종료로
         // phase 가 studying 을 벗어나면 열려 있던 다이얼로그도 open=false 가 되어 닫힘 모션을
         // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false로 가며 같은 경로를 탄다.
-        open={exitDialogOpen && phase.name === "studying"}
+        open={exitDialogOpen && phase.name === "studying" && invite === null}
         container={sessionSurfaceRef.current}
         title={EXIT_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
@@ -605,6 +634,20 @@ function RoomSessionScreen({
         confirmLabel={EXIT_CONFIRM_COPY.confirm}
         onCancel={handleCancelExit}
         onConfirm={handleConfirmExit}
+      />
+      {/*
+        세션 중 초대 확인은 종료 확인과 같은 이유로 `phase` 삼항 밖에 둔다.
+        확정하면 phase가 studying을 벗어나며 닫힌다.
+      */}
+      <SessionConfirmDialog
+        open={invite !== null && phase.name === "studying"}
+        container={sessionSurfaceRef.current}
+        title={INVITE_CONFIRM_COPY.title}
+        description={exitConfirmDescription(focusSec)}
+        cancelLabel={INVITE_CONFIRM_COPY.cancel}
+        confirmLabel={INVITE_CONFIRM_COPY.confirm}
+        onCancel={clearSessionInvite}
+        onConfirm={() => void endAndSubmit(MANUAL_END_REASON)}
       />
     </main>
   );
@@ -690,6 +733,8 @@ export function RoomPage() {
   const identityPending = useIdentityPending();
   const userId = useUserId();
   const { settled, restored } = useActiveSessionRestore(userId);
+  // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
+  const invite = useSessionInvite();
 
   // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
   useEffect(() => {
@@ -707,5 +752,5 @@ export function RoomPage() {
   }
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
-  return <RoomSessionScreen key={userId} userId={userId} restored={restored} />;
+  return <RoomSessionScreen key={userId} userId={userId} restored={restored} invite={invite} />;
 }
