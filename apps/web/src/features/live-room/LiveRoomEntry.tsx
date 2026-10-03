@@ -161,16 +161,20 @@ export function LiveRoomEntry({
   // 게이트를 지나고 join·프로필이 결합되면 입장
   // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
+  const ready = restoreSettled && gatePassed && (graceRejoin || (joined && profileSettled));
+  // 입장은 래치다.
+  // 조건이 나중에 거짓이 돼도 세션을 내리지 않는다.
+  if (!entered && ready) {
+    setEntered(true);
+  }
   useEffect(() => {
-    if (!entered && restoreSettled && gatePassed && (graceRejoin || (joined && profileSettled))) {
-      setEntered(true);
-      // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
-      // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
-      trackSocialRoomEntered(graceRejoin);
-      // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
-      if (!graceRejoin) trackMetaSocialRoomEntered();
-    }
-  }, [entered, gatePassed, graceRejoin, joined, profileSettled, restoreSettled]);
+    if (!entered) return;
+    // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
+    // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
+    trackSocialRoomEntered(graceRejoin);
+    // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
+    if (!graceRejoin) trackMetaSocialRoomEntered();
+  }, [entered, graceRejoin]);
 
   if (!entered) {
     return (
