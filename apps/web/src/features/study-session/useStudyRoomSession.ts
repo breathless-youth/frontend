@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
 
@@ -128,7 +128,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
-  ambientUsageRef.current = options.ambientUsage;
+  useLayoutEffect(() => {
+    ambientUsageRef.current = options.ambientUsage;
+  });
 
   /**
    * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
@@ -196,7 +198,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const snapshotErrorReportedRef = useRef(false);
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
-  const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
+  const detectionRef = useRef<DetectionState>(createDetectionState(initial.startedAtMs));
 
   /** 서버에서 받아 온 누적값 위에 지금 타임라인이 잰 값을 얹는다. */
   const withBase = useCallback(
@@ -314,6 +316,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 동기 시작 어댑터(mock)는 여기서 이미 반영된다. 비동기 어댑터만 아래 then에서 뒤늦게 반영한다 —
     // 값이 그대로면 setState 자체를 호출하지 않아 불필요한 리렌더가 생기지 않는다.
     const runningAfterCall = camera.isRunning;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 카메라 어댑터의 시작 직후 상태를 곧바로 반영한다. mock 어댑터는 start()가 동기로 켜진다
     setIsCameraRunning(runningAfterCall);
     void starting.then(() => {
       if (!cancelled && camera.isRunning !== runningAfterCall) {

@@ -196,6 +196,7 @@ export function useTrackedVisionDetector(
   videoRef: RefObject<HTMLVideoElement | null>,
   roomType: StudyRoomType,
 ): { visionDetector: VisionFocusDetector; visionReady: VisionReadyMeasurement | null } {
+  // eslint-disable-next-line react-hooks/refs -- video 게터는 추론 루프가 부른다. 생성 중에는 부르지 않는다
   const [visionDetector] = useState(() =>
     createVisionFocusDetector({ video: () => videoRef.current }),
   );
