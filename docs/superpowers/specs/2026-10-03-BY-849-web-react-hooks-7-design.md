@@ -14,7 +14,7 @@
 
 ## 실측
 
-- 41건의 파일·행·메시지: `reports/by-849/_workspace/00_findings.json`. 건별 분류와 처방: `reports/by-849/_workspace/01_classification.md`.
+- 41건의 파일·행·메시지와 건별 분류·처방은 저장소 밖 로컬 작업 폴더(`focus-makers/reports/by-849/_workspace/`)에 두었다. 저장소 안에서는 아래 범주별 건수와 작업 단위 표가 근거다. 같은 목록은 `ccf3f3fb`에 7.1.1만 올리고 `pnpm --filter web lint`를 돌리면 다시 얻을 수 있다.
 - `useForceUpdateGate.ts`의 `useRef(...).current` 한 줄에서 16건이 번졌다. 실제로 손댈 자리는 32곳, 약 115줄이다.
 - 7.1.1로 실측한 통과·불통과 패턴: `useState(() => Date.now())` 통과, `useLayoutEffect` 안 ref 대입 통과, effect·인터벌·구독 콜백 안 `useEffectEvent` 호출 통과, 렌더 중 조건부 setState 통과, callback ref로 받은 state를 포털 `container`로 넘기기 통과. 렌더 중 만든 객체(`useState` 초기화)에 ref 콜백을 넘기는 자리는 어떤 감싸기로도 불통과. `eslint-disable-next-line`은 보고된 행 바로 위에 있어야 먹는다.
 

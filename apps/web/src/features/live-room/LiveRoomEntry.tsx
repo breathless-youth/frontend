@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -167,14 +167,18 @@ export function LiveRoomEntry({
   if (!entered && ready) {
     setEntered(true);
   }
-  useEffect(() => {
-    if (!entered) return;
+  const trackEntered = useEffectEvent(() => {
     // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
     // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
+    // 래치는 되돌아가지 않아 entered 전환은 한 번뿐이고, 계측은 그 전환에만 반응한다.
     trackSocialRoomEntered(graceRejoin);
     // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
     if (!graceRejoin) trackMetaSocialRoomEntered();
-  }, [entered, graceRejoin]);
+  });
+  useEffect(() => {
+    if (!entered) return;
+    trackEntered();
+  }, [entered]);
 
   if (!entered) {
     return (
