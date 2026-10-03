@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
@@ -109,7 +109,7 @@ export function LiveRoomSession({
   const videoRef = useRef<HTMLVideoElement>(null);
   // 종료 다이얼로그의 포털 자리. `--session-dialog-*` 변수가 여기 주입돼 있어 body 로 나가면
   // 색이 빠진다.
-  const sessionSurfaceRef = useRef<HTMLElement>(null);
+  const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
   const { visionDetector } = useTrackedVisionDetector(videoRef, "social");
   const [sensorDetector] = useState(() =>
@@ -145,6 +145,7 @@ export function LiveRoomSession({
   // 채널은 한 번만 생성되므로 나중에 정의되는 requestRejoin을 ref로 가리켜 순환을 끊는다 —
   // 같은 ref를 ROOM_UNAVAILABLE 구독과 SNAPSHOT 미도착 콜백이 함께 쓴다.
   const requestRejoinRef = useRef<() => void>(() => undefined);
+  // eslint-disable-next-line react-hooks/refs -- ref는 채널이 연결 뒤 비동기로 부르는 콜백 안에서만 읽힌다. 렌더 중에는 읽지 않는다
   const [channel] = useState(() =>
     createChannel({ roomId, userId, onSnapshotUnrecovered: () => requestRejoinRef.current() }),
   );
@@ -189,7 +190,9 @@ export function LiveRoomSession({
     inviteCode,
     onUnavailable: handleRoomUnavailable,
   });
-  requestRejoinRef.current = requestRejoin;
+  useLayoutEffect(() => {
+    requestRejoinRef.current = requestRejoin;
+  });
   useEffect(
     () =>
       channel.subscribe((message) => {
@@ -309,7 +312,7 @@ export function LiveRoomSession({
     useCameraPreviewAspect(cameraDialogOpen);
   const leavingRef = useRef(false);
   // 체류 시간(social_room_exited.duration_sec)의 기점 — 이 컴포넌트 마운트가 곧 입장이다.
-  const enteredAtMsRef = useRef(Date.now());
+  const [enteredAtMs] = useState(() => Date.now());
 
   // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
   // 된다(sessionCopy.SUB_MINUTE_EXIT_DESCRIPTION과 같은 원칙). 제출은 그래도 한다.
@@ -350,7 +353,7 @@ export function LiveRoomSession({
       trackSocialRoomExited({
         memberCount: allMembers.length,
         exitReason: expired ? "grace_expired" : "session_end",
-        durationSec: Math.round((Date.now() - enteredAtMsRef.current) / 1000),
+        durationSec: Math.round((Date.now() - enteredAtMs) / 1000),
       });
     // 방 자체가 사라진 종료는 focusSec와 무관하게 결과 화면이 아니라 소셜 홈으로 보낸다.
     // 자리가 이미 회수됐으므로 leaveRoom은 부르지 않는다.
@@ -403,6 +406,7 @@ export function LiveRoomSession({
   }, [
     allMembers.length,
     endReason,
+    enteredAtMs,
     focusSec,
     graceEndNotice,
     graceExpired,
@@ -446,7 +450,7 @@ export function LiveRoomSession({
 
   return (
     <main
-      ref={sessionSurfaceRef}
+      ref={setSessionSurface}
       data-testid="live-room-page"
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
@@ -547,7 +551,7 @@ export function LiveRoomSession({
         // exitDialogOpen 이 true 인 채 phase 를 studying 밖으로 옮기면, 여는 조건에 phase 를
         // 걸지 않는 한 이미 끝난 세션 위에 종료 확인 다이얼로그가 남는다.
         open={exitDialogOpen && phase.name === "studying"}
-        container={sessionSurfaceRef.current}
+        container={sessionSurface}
         title={EXIT_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
         cancelLabel={EXIT_CONFIRM_COPY.cancel}
