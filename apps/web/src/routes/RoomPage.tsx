@@ -405,6 +405,11 @@ function RoomSessionScreen({
     void endAndSubmit(MANUAL_END_REASON);
   }
 
+  // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
+  // 그 밖의 세션 화면은 항상 다크다.
+  const endNoticeVisible =
+    phase.name === "done" && (endedBelowMinute || autoEndNoticeVisible(phase, endReason));
+
   return (
     <main
       ref={setSessionSurface}
@@ -414,7 +419,10 @@ function RoomSessionScreen({
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
       // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
       onDragStart={(event) => event.preventDefault()}
-      className="session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
+      className={cn(
+        !endNoticeVisible && "theme-dark",
+        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white",
+      )}
     >
       {/* 심플 모드는 보이는 프리뷰만 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
 
@@ -700,7 +708,7 @@ export function RoomPage() {
     return (
       <main
         data-testid="room-restore-gate"
-        className="relative flex h-dvh flex-col bg-background"
+        className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       />
     );

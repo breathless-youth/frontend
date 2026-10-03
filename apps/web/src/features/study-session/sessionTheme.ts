@@ -6,9 +6,10 @@ import { colors, sessionStateColors } from "@focusmakers/design-tokens";
  * 세션 오버레이 전용 스타일 변수.
  *
  * ⚠️ **세션 화면은 시스템 테마와 무관하게 항상 다크다.** `src/index.css`의 시맨틱 변수는
- * `prefers-color-scheme`에 따라 Light/Dark로 갈리므로, 세션 서브트리에서만 같은 이름의 변수를
- * **다크 값으로 덮어써서** Tailwind 토큰 유틸(`bg-state-focus`, `text-text-tertiary` 등)이
- * 라이트 모드에서도 다크 값을 쓰게 한다. 값의 출처는 항상 `@focusmakers/design-tokens`다.
+ * `prefers-color-scheme`에 따라 Light/Dark로 갈리므로, **세션 루트에는 이 스타일과 함께
+ * `theme-dark` 클래스를 반드시 붙인다** — 그 클래스가 시맨틱 변수 전체를 다크 값으로 고정한다.
+ * 여기서는 그 위에 세션 전용 변수를 얹고, 상태색 세 개만 `sessionStateColors` 경유로 다시 쓴다.
+ * 값의 출처는 항상 `@focusmakers/design-tokens`다.
  *
  * 상태색은 `colors.state.*`를 직접 읽지 않고 **`sessionStateColors`(FOCUS/DISTRACTION/PAUSE)**
  * 시맨틱 레이어를 경유한다 — 지금은 같은 값을 가리키는 별칭이지만, 상태 3색 매핑이 바뀌면

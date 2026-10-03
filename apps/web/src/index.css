@@ -94,13 +94,6 @@
   /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
   --dim: #00000066;
   /* colors.bg.dim.light */
-  --session-bar-glass-bg: rgba(255, 255, 255, 0.55);
-  /* Figma S1b control-bar 실측(light, node 5520:5030) */
-  --session-bar-glass-shadow: rgba(31, 42, 61, 0.14);
-  --session-bar-glass-highlight: rgba(255, 255, 255, 0.9);
-  --session-btn-default-bg: rgba(31, 42, 61, 0.05);
-  --session-btn-default-border: rgba(31, 42, 61, 0.16);
-  --session-btn-default-fg: #1f2a3d;
   --radius: 0.75rem;
   /* colors.radius.md = 12px */
 
@@ -179,7 +172,12 @@
    다크 토큰을 고칠 때 두 블록을 함께 고칠 것.** iOS·브라우저는 data-theme이 붙지 않아
    이 블록이 적용될 일이 없고, Android는 미디어쿼리가 항상 light로 평가되어 두 블록이
    충돌할 조합이 없다. 그래도 어긋나는 날을 대비해 위 미디어쿼리 블록은
-   data-theme="light"를 제외한다. */
+   data-theme="light"를 제외한다.
+
+   `.theme-dark`는 시스템 테마와 무관하게 그 서브트리를 다크로 고정한다 — 공부 세션(솔로·그룹)
+   루트가 붙인다. body로 나가는 포털은 이 서브트리 밖이라 세션 루트를 container로 넘길 것.
+   `--session-bar-glass-*`·`--session-btn-default-*`는 세션 전용이라 라이트 값이 없다. */
+.theme-dark,
 :root[data-theme="dark"] {
   color-scheme: dark;
   --background: #101419;
@@ -240,6 +238,7 @@
   }
 }
 
+.theme-dark .theme-soft-blue,
 :root[data-theme="dark"] .theme-soft-blue {
   --primary: #5a90ea;
   --primary-foreground: #ffffff;

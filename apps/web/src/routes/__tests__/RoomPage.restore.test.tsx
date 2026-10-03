@@ -69,7 +69,7 @@ describe("RoomPage 복원 게이트", () => {
 
     renderRoom();
 
-    expect(screen.getByTestId("room-restore-gate")).toBeInTheDocument();
+    expect(screen.getByTestId("room-restore-gate")).toHaveClass("theme-dark");
   });
 
   it("결착하면 복원값을 세션 훅에 넘긴다", async () => {
