@@ -232,7 +232,7 @@ function RoomSessionScreen({
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
   const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
   // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
-  const sessionSurfaceRef = useRef<HTMLElement>(null);
+  const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
@@ -407,7 +407,7 @@ function RoomSessionScreen({
 
   return (
     <main
-      ref={sessionSurfaceRef}
+      ref={setSessionSurface}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 컨트롤 바 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
@@ -528,7 +528,7 @@ function RoomSessionScreen({
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
           <AmbientSoundSheet
             open={ambientSheetOpen}
-            container={sessionSurfaceRef.current}
+            container={sessionSurface}
             triggerRef={ambientButtonRef}
             catalog={ambient.catalog}
             mix={ambient.mix}
@@ -598,7 +598,7 @@ function RoomSessionScreen({
         // phase 가 studying 을 벗어나면 열려 있던 다이얼로그도 open=false 가 되어 닫힘 모션을
         // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false로 가며 같은 경로를 탄다.
         open={exitDialogOpen && phase.name === "studying"}
-        container={sessionSurfaceRef.current}
+        container={sessionSurface}
         title={EXIT_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
         cancelLabel={EXIT_CONFIRM_COPY.cancel}
