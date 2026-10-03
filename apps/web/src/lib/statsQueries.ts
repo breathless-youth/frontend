@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import type { DateRange } from "./statsApi";
 import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "./statsApi";
+import { getStudySessionDetail } from "./studySessionApi";
 import { todayKstDateKey } from "./dateKst";
 
 /**
@@ -21,6 +22,8 @@ export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
   studyDays: (userId: number) => ["stats", "studyDays", userId] as const,
+  /** 세션 단건 상세 — 일간 목록이 같은 필드를 다 실어 기록 탭은 보통 안 쓰지만, 딥링크·결과 화면용으로 둔다. */
+  session: (userId: number, id: number) => ["stats", "session", userId, id] as const,
   streak: (userId: number, range?: DateRange) =>
     range
       ? (["stats", "streak", userId, range.from, range.to] as const)
@@ -90,5 +93,12 @@ export function periodStatsQuery(userId: number, range: DateRange, compareRange?
   return queryOptions({
     queryKey: statsKeys.period(userId, range, compareRange),
     queryFn: () => getPeriodStats(range, compareRange),
+  });
+}
+
+export function studySessionDetailQuery(userId: number, id: number) {
+  return queryOptions({
+    queryKey: statsKeys.session(userId, id),
+    queryFn: () => getStudySessionDetail(id),
   });
 }

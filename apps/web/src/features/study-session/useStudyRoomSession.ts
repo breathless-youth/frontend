@@ -55,12 +55,12 @@ import {
 import { reportActiveSession } from "./reportActiveSession";
 import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
-import type { SubjectSelection, SubjectTimeTracker } from "./subjectTimes";
+import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
 import {
-  createSubjectTimeTracker,
-  materializeSubjectTimes,
-  selectSubjectTime,
-} from "./subjectTimes";
+  createSubjectSegmentTracker,
+  materializeSubjectSegments,
+  selectSubjectSegment,
+} from "./subjectSegments";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
@@ -163,7 +163,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         priorEvents: [] as StatusEventPayload[],
         serverSeenMs: 0,
         restored: false,
-        subjectTracker: createSubjectTimeTracker(),
+        subjectTracker: createSubjectSegmentTracker(),
       };
     }
     const priorEvents = [...restored.events];
@@ -184,11 +184,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       priorEvents,
       serverSeenMs: restored.reportedAtMs,
       restored: true,
-      // 마지막 항목이 지금 선택으로 되살아나고, 복원 시점 누적값부터의 차이만 그 항목에 얹힌다.
-      subjectTracker: createSubjectTimeTracker(restored.subjectTimes ?? [], {
-        studySec: restored.baseStudySec,
-        focusSec: restored.baseFocusSec,
-      }),
+      // 마지막 구간의 과목이 마지막 보고 시각부터 다시 열린다 — 죽어 있던 동안은 위 타임라인이
+      // 일시정지로 기록해 서버 계산에서 그 몫이 0이 된다.
+      subjectTracker: createSubjectSegmentTracker(
+        restored.subjectSegments ?? [],
+        restored.reportedAtMs,
+      ),
     };
   });
 
@@ -213,11 +214,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const snapshotErrorReportedRef = useRef(false);
 
   /**
-   * 과목·할 일별 시간 — 계산은 `subjectTimes.ts`, 여기는 세션 타이머 값을 넘겨주는 배선만.
+   * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
    * ref인 이유는 스냅샷·제출이 렌더와 무관한 시점(인터벌·종료)에 최신 값을 읽기 때문이고,
    * 화면이 볼 선택은 아래 state로 따로 든다.
    */
-  const subjectTrackerRef = useRef<SubjectTimeTracker>(initial.subjectTracker);
+  const subjectTrackerRef = useRef<SubjectSegmentTracker>(initial.subjectTracker);
   const [subjectSelection, setSubjectSelection] = useState<SubjectSelection | null>(
     () => initial.subjectTracker.current?.subjectId ?? null,
   );
@@ -418,7 +419,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         studySec: totals.studySec,
         focusSec: totals.focusSec,
         events,
-        subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, totals),
+        subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
       })
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
@@ -510,17 +511,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [onReturnFromBackground, pause, phase.name, systemPause]);
 
   /**
-   * 과목 선택 전환 — 지금 타이머 값으로 이전 선택 구간을 닫고 새 구간을 연다.
-   * 종료 뒤(`phase !== "studying"`)에는 타임라인이 닫혀 있어 값이 더 흐르지 않으므로 막지 않는다.
+   * 과목 선택 전환 — 지금 시각으로 이전 구간을 닫고 새 구간을 연다. 종료 뒤(`phase !== "studying"`)에는
+   * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
    */
-  const selectSubject = useCallback(
-    (next: SubjectSelection | null) => {
-      const totals = withBase(computeSessionTotals(timelineRef.current, Date.now()));
-      subjectTrackerRef.current = selectSubjectTime(subjectTrackerRef.current, next, totals);
-      setSubjectSelection(subjectTrackerRef.current.current?.subjectId ?? null);
-    },
-    [withBase],
-  );
+  const selectSubject = useCallback((next: SubjectSelection | null) => {
+    subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, Date.now());
+    setSubjectSelection(subjectTrackerRef.current.current?.subjectId ?? null);
+  }, []);
 
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
@@ -599,7 +596,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
           events,
-          subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, finalTotals),
+          subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
           // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
           completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
         });
@@ -664,6 +661,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const cameraStream = camera.stream ?? null;
 
+  const renderNowMs = Date.now();
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
@@ -683,8 +681,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     cameraStream,
     /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */
     subjectSelection,
-    /** 이 세션에서 과목별로 쌓인 시간 — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서 다시 읽는다. */
-    subjectTimes: materializeSubjectTimes(subjectTrackerRef.current, totals),
+    /**
+     * 이 세션의 과목 구간(지금 구간은 현재 시각에서 닫음) — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서
+     * 다시 읽는다. 렌더 시각으로 닫는 이유는 타이머 틱마다 리렌더가 나 값이 함께 흐르기 때문이다.
+     */
+    subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, renderNowMs),
+    /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
+    sessionEvents: allEvents(renderNowMs),
     selectSubject,
     pause,
     resume,
