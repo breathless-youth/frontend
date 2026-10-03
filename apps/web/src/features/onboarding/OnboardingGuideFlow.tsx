@@ -219,8 +219,12 @@ export function OnboardingGuideFlow({
 
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.
-  useEffect(() => {
+  const [prevStepIndex, setPrevStepIndex] = useState(stepIndex);
+  if (stepIndex !== prevStepIndex) {
+    setPrevStepIndex(stepIndex);
     setElapsedSec(0);
+  }
+  useEffect(() => {
     const timer = setInterval(() => setElapsedSec((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
   }, [stepIndex]);
