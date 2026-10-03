@@ -293,6 +293,63 @@ describe("useLaunchSessionRecovery", () => {
     });
   });
 
+  it("앞 마감이 null을 거쳐 같은 사용자로 돌아오는 렌더에서 처리돼도 옛 결과를 띄우지 않는다", async () => {
+    // 앞 마감의 완료가 복귀 렌더와 함께 처리되면 같은 id라 되돌림이 걸리지 않아 옛 모달이 뜰 수 있다.
+    const NEXT = { ...RECOVERED, focusSec: 1200 };
+    let finishFirst: (() => void) | undefined;
+    let finishSecond: (() => void) | undefined;
+    closeStaleSession
+      .mockReturnValueOnce(
+        new Promise<typeof RECOVERED>((resolve) => {
+          finishFirst = () => {
+            resolve(RECOVERED);
+          };
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<typeof NEXT>((resolve) => {
+          finishSecond = () => {
+            resolve(NEXT);
+          };
+        }),
+      );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number | null }) => useLaunchSessionRecovery(id),
+      { initialProps: { id: 7 as number | null }, wrapper },
+    );
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledWith(7);
+    });
+
+    rerender({ id: null });
+    expect(result.current.recovered).toBeNull();
+
+    // 앞 마감의 완료와 복귀를 한 act에 묶어야 그 완료가 id 7 렌더에서 처리된다.
+    await act(async () => {
+      finishFirst?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      rerender({ id: 7 });
+    });
+    expect(result.current.recovered).toBeNull();
+
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledTimes(2);
+    });
+    expect(result.current.recovered).toBeNull();
+
+    finishSecond?.();
+    await waitFor(() => {
+      expect(result.current.recovered).toEqual(NEXT);
+    });
+  });
+
   it("언마운트하면 신호를 더 받지 않는다", () => {
     const { unmount } = renderWithClient(7);
 

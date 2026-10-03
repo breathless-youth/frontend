@@ -51,7 +51,8 @@ export function useLaunchSessionRecovery(userId: number | null): {
         void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         if (result !== null && result.focusSec >= 60) {
           trackSessionRecoveryPrompted(result.focusSec);
-          setState({ userId, result });
+          // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
+          setState((prev) => (prev.userId === userId ? { userId, result } : prev));
         }
       });
     });

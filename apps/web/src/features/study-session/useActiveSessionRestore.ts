@@ -60,11 +60,15 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
     let cancelled = false;
 
     async function run(id: number) {
+      // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
+      const settle = (next: ActiveSessionRestoreState) => {
+        setState((prev) => (prev.userId === id ? { userId: id, ...next } : prev));
+      };
       for (let attempt = 0; attempt <= MAX_RETRY; attempt += 1) {
         try {
           const restored = await restoreActiveSession();
           if (!cancelled) {
-            setState({ userId: id, settled: true, restored });
+            settle({ settled: true, restored });
           }
           return;
         } catch (error: unknown) {
@@ -88,7 +92,7 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
         }
       }
       if (!cancelled) {
-        setState({ userId: id, ...NOTHING_TO_RESTORE });
+        settle(NOTHING_TO_RESTORE);
       }
     }
 
