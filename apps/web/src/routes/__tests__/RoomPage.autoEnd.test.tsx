@@ -106,6 +106,18 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     expect(screen.getByRole("button", { name: "결과 보기" })).toBeInTheDocument();
   });
 
+  it("세션 중에는 다크로 고정하고, 종료 안내는 시스템 테마를 따른다", async () => {
+    renderRoom("/room/7?userId=1");
+    await focusPastMinute();
+    expect(screen.getByRole("main")).toHaveClass("theme-dark");
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    await waitPastThreshold();
+
+    expect(screen.getByRole("heading", { name: "여기까지 기록을 저장했어요" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).not.toHaveClass("theme-dark");
+  });
+
   it("화면 꺼짐으로 종료되면 확정된 사유 문구를 보여준다", async () => {
     renderRoom("/room/7?userId=1");
     await focusPastMinute();

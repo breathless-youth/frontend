@@ -20,9 +20,9 @@ import { cn } from "@/lib/utils";
  */
 
 /**
- * 컨트롤 바 컨테이너 — 라이트/다크를 따라간다(나머지 세션 화면은 강제 다크). 값은 시맨틱 토큰
- * (`bg-bg-layer-2`/`border-border`)이 아니라 `index.css`의 `--session-bar-glass-*`/
- * `--session-btn-default-*` 전용 변수에서 온다(Figma V2 `S1b` control-bar 실측).
+ * 컨트롤 바 컨테이너 — 값은 시맨틱 토큰(`bg-bg-layer-2`/`border-border`)이 아니라 `index.css`의
+ * `--session-bar-glass-*`/`--session-btn-default-*` 전용 변수에서 온다(Figma V2 `S1b`
+ * control-bar 실측). 세션은 항상 다크라 이 변수에는 다크 값만 있다 — 세션 루트의 `theme-dark` 밖에서는 풀리지 않는다.
  */
 const SESSION_CONTROL_BAR_CLASS =
   "pointer-events-auto relative flex items-center justify-center gap-[14px] rounded-full bg-[var(--session-bar-glass-bg)] p-[10px] backdrop-blur-[11px] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)]";

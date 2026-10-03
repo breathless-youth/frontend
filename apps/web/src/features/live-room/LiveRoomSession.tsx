@@ -455,7 +455,7 @@ export function LiveRoomSession({
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바를 잘라 문서 스크롤이 생기지 않게 한다.
-      className="relative flex h-dvh flex-col overflow-hidden bg-background"
+      className="theme-dark relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
       {debugEnabled && (
@@ -528,6 +528,7 @@ export function LiveRoomSession({
 
       <CameraOnConfirmDialog
         open={cameraDialogOpen}
+        container={sessionSurface}
         preview={
           <ClonedTrackPreview
             stream={cameraStream}

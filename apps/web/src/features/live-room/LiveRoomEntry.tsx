@@ -184,7 +184,7 @@ export function LiveRoomEntry({
     return (
       <main
         data-testid="live-room-page"
-        className="relative flex h-dvh flex-col bg-background"
+        className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
         {joinError !== null && (
