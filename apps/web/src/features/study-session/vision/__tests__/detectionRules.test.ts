@@ -95,6 +95,11 @@ describe("detectedAsUsedRule", () => {
     expect(detectedAsUsedRule.evaluate(frame([detection(PHONE_LABEL, justBelow)]))).toBe(false);
   });
 
+  it("폰이 아닌 물건이 받던 score 0.5는 사용 중으로 보지 않는다", () => {
+    // 실기기 측정에서 빗이 받은 최고 score다. 임계를 이 아래로 내리면 물건 오탐이 다시 생긴다.
+    expect(detectedAsUsedRule.evaluate(frame([detection(PHONE_LABEL, 0.5)]))).toBe(false);
+  });
+
   it("phone 규칙은 phone 임계만 본다 — person 임계를 넘어도 phone 임계 미만이면 사용 중 아님", () => {
     // person·phone 임계가 같아도 성립하도록 phone 임계 바로 아래 값을 쓴다.
     const justBelowPhone = SCORE_THRESHOLDS.phone - 0.0001;
