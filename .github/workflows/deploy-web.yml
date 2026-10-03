@@ -1,16 +1,17 @@
-name: Deploy web (staging)
+name: Deploy web
 
-# dev 푸시마다 웹을 빌드해 스테이징 S3 버킷에 올리고 CloudFront 캐시를 비운다.
+# dev 푸시는 스테이징, main 푸시는 운영 S3 버킷에 웹을 빌드해 올리고 CloudFront 캐시를 비운다.
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
   # 수동 실행 버튼은 이 파일이 기본 브랜치(main)에 들어간 뒤에 생긴다.
   workflow_dispatch:
 
 # 실행 중인 배포는 취소하지 않는다.
-# 대기 중인 실행은 새 푸시가 오면 그것으로 바뀌어, 스테이징에는 항상 최신 커밋이 올라간다.
+# 대기 중인 실행은 새 푸시가 오면 그것으로 바뀌어, 각 환경에는 항상 최신 커밋이 올라간다.
+# 그룹을 브랜치별로 나눠 스테이징 배포가 운영 배포를 기다리지 않는다.
 concurrency:
-  group: deploy-web-staging
+  group: deploy-web-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -21,27 +22,51 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # environment: 를 쓰면 OIDC sub가 브랜치 대신 환경 이름이 되어 역할 신뢰 정책(ref:refs/heads/dev)과 맞지 않는다.
+    # environment: 를 쓰면 OIDC sub가 브랜치 대신 환경 이름이 되어 역할 신뢰 정책(ref:refs/heads/<브랜치>)과 맞지 않는다.
+    # 그래서 환경 대신 브랜치로 PROD_·STAGING_ 접두사 변수를 고른다.
+    # `조건 && 운영값 || 스테이징값` 식으로 고르면 운영 변수가 비었을 때 오류 없이 스테이징 값으로 넘어가므로, 접두사를 붙여 변수 이름 자체를 고른다.
     env:
-      BUCKET: ${{ vars.STAGING_WEB_BUCKET }}
-      DISTRIBUTION_ID: ${{ vars.STAGING_CF_DISTRIBUTION_ID }}
-      ROLE_ARN: ${{ vars.STAGING_DEPLOY_ROLE_ARN }}
-      VITE_SENTRY_DSN: ${{ vars.STAGING_VITE_SENTRY_DSN }}
-      VITE_AMPLITUDE_API_KEY: ${{ vars.STAGING_VITE_AMPLITUDE_API_KEY }}
-      # GA4 측정 ID는 넘기지 않는다. Vercel Preview 때부터 스테이징은 GA4를 끈 채였고, 운영 속성에 스테이징 방문이 섞이지 않게 한다.
+      TARGET: ${{ github.ref_name == 'main' && 'PROD' || 'STAGING' }}
+      BUCKET: ${{ vars[format('{0}_WEB_BUCKET', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      DISTRIBUTION_ID: ${{ vars[format('{0}_CF_DISTRIBUTION_ID', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      ROLE_ARN: ${{ vars[format('{0}_DEPLOY_ROLE_ARN', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      VERIFY_URL: ${{ vars[format('{0}_VERIFY_URL', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      VITE_SENTRY_DSN: ${{ vars[format('{0}_VITE_SENTRY_DSN', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      VITE_AMPLITUDE_API_KEY: ${{ vars[format('{0}_VITE_AMPLITUDE_API_KEY', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      # GA4는 운영에만 넣는다. Vercel 때부터 스테이징은 GA4를 끈 채였고, 운영 속성에 스테이징 방문이 섞이지 않게 한다.
+      VITE_GA4_MEASUREMENT_ID: ${{ github.ref_name == 'main' && vars.PROD_VITE_GA4_MEASUREMENT_ID || '' }}
     steps:
       # 분석 키나 Sentry 토큰이 비어도 빌드는 성공한다.
-      # 그러면 스테이징에 Sentry·Amplitude가 꺼지거나 소스맵이 빠진 채 배포되므로 시작 단계에서 막는다.
+      # 그러면 Sentry·Amplitude가 꺼지거나 소스맵이 빠진 채 배포되므로 시작 단계에서 막는다.
       - name: Check deploy variables
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
-          for name in BUCKET DISTRIBUTION_ID ROLE_ARN VITE_SENTRY_DSN VITE_AMPLITUDE_API_KEY SENTRY_AUTH_TOKEN; do
+          # 수동 실행은 아무 브랜치나 고를 수 있다. dev·main이 아니면 스테이징으로 분류돼 빌드까지 가므로 여기서 멈춘다.
+          case "$GITHUB_REF" in
+            refs/heads/dev | refs/heads/main) ;;
+            *)
+              echo "::error::dev와 main만 배포할 수 있습니다: $GITHUB_REF"
+              exit 1
+              ;;
+          esac
+
+          names="BUCKET DISTRIBUTION_ID ROLE_ARN VERIFY_URL VITE_SENTRY_DSN VITE_AMPLITUDE_API_KEY SENTRY_AUTH_TOKEN"
+          if [ "$TARGET" = "PROD" ]; then
+            names="$names VITE_GA4_MEASUREMENT_ID"
+          fi
+          for name in $names; do
             if [ -z "${!name}" ]; then
-              echo "::error::저장소 변수 또는 시크릿이 비어 있습니다: $name"
+              echo "::error::저장소 변수 또는 시크릿이 비어 있습니다: $name ($TARGET)"
               exit 1
             fi
           done
+
+          # 잘못된 주소는 업로드가 끝난 뒤 검증 단계에서야 드러나므로 미리 확인한다.
+          if [[ "$VERIFY_URL" != https://* ]]; then
+            echo "::error::VERIFY_URL은 https://로 시작해야 합니다: $VERIFY_URL ($TARGET)"
+            exit 1
+          fi
 
       # 역할을 빌드보다 먼저 빌린다. 신뢰 정책이 틀렸을 때 Sentry 릴리즈만 만들어지고 끝나는 일을 방지한다.
       - uses: aws-actions/configure-aws-credentials@v4
@@ -62,13 +87,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # preview는 API 주소를 api-dev로 고른다.
+      # preview는 API 주소를 api-dev로, production은 api.focusmakers.app으로 고른다.
       # SENTRY_AUTH_TOKEN이 있으면 소스맵을 Sentry에 올리고 dist에서 지운다.
       - name: Build web
         env:
-          VITE_DEPLOY_ENV: preview
+          VITE_DEPLOY_ENV: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm --filter web build
+
+      # CloudFront가 압축하지 않는 wasm(10MB 초과)과 모델(octet-stream)을 미리 brotli로 압축한다.
+      - name: Precompress wasm and models
+        working-directory: apps/web
+        run: node scripts/precompressAssets.js dist
 
       # 파일명에 해시·버전이 있는 자산을 먼저 1년 immutable로 올리고 index.html을 맨 마지막에 올린다.
       # 그래야 새 index.html이 가리키는 자산이 이미 다 올라가 있다.
@@ -86,11 +116,16 @@ jobs:
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
             --cache-control "$IMMUTABLE" \
             --exclude "*" --include "assets/*" --include "mediapipe/*" --include "sounds/*.mp3" \
-            --exclude "*.map"
+            --exclude "*.map" --exclude "mediapipe/*.wasm"
+
+          # 미리 brotli로 압축한 wasm과 모델은 Content-Encoding을 붙여야 브라우저가 풀어 쓴다
+          aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
+            --cache-control "$IMMUTABLE" --content-encoding br \
+            --exclude "*" --include "mediapipe/*.wasm"
 
           # tflite의 type(CLI): binary/octet-stream
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
-            --cache-control "$IMMUTABLE" --content-type application/octet-stream \
+            --cache-control "$IMMUTABLE" --content-type application/octet-stream --content-encoding br \
             --exclude "*" --include "models/*" \
             --exclude "*.map"
 
@@ -114,3 +149,8 @@ jobs:
             --paths "/*" --query Invalidation.Id --output text)
           echo "invalidation $ID"
           aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$ID"
+
+      # invalidation이 끝난 뒤라 엣지에 남은 옛 응답 없이 새 배포를 확인한다.
+      # 운영은 컷오버 전까지 CloudFront 기본 주소를, 컷오버 뒤에는 실제 도메인을 VERIFY_URL로 둔다.
+      - name: Verify deploy
+        run: node apps/web/scripts/verifyDeploy.js "$VERIFY_URL"

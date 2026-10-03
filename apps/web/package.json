@@ -21,6 +21,7 @@
     "perf:measure:bundle": "node scripts/perf/measure-bundle.mjs",
     "perf:measure:lighthouse": "node scripts/perf/measure-lighthouse.mjs",
     "perf:measure:room-entry": "node scripts/perf/measure-room-entry.mjs",
+    "verify:deploy": "node scripts/verifyDeploy.js",
     "preview": "vite preview"
   },
   "dependencies": {
