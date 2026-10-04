@@ -44,7 +44,7 @@ export function SessionDetailSheet({
   }
 
   const subjectMap = subjectRefMap(subjects);
-  const subjectRows = shown ? subjectTotalsOf([shown]) : [];
+  const subjectRows = shown ? subjectTotalsOf([shown], subjectMap) : [];
   const tasks = shown ? completedTasksOf([shown]) : [];
   const slots = shown ? sessionTimetable(shown, dateKey) : [];
   const subjectSummary = subjectRows

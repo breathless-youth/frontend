@@ -84,11 +84,25 @@ export function sessionTimetable(session: TimetableSession, dateKey: string): Ti
   return dayTimetable([session], dateKey);
 }
 
-/** 과목 id → 이름·색. 지운 과목도 들어 있다(`deleted`). 응답에 `subjects`가 없으면 빈 맵. */
+/**
+ * 과목 id → 이름·색. 지운 과목도 들어 있다(`deleted`). 응답에 `subjects`가 없으면 빈 맵.
+ *
+ * 이름이 같은 과목은 id가 달라도 대표 하나로 모은다 — 지웠다 다시 만들어 id가 갈린 과목이 화면에서
+ * 한 줄·한 색으로 보이게 한다. 대표는 살아있는 과목, 없으면 응답에서 먼저 나온 과목이다.
+ */
 export function subjectRefMap(
   subjects: readonly SubjectRef[] | undefined,
 ): ReadonlyMap<number, SubjectRef> {
-  return new Map((subjects ?? []).map((subject) => [subject.id, subject]));
+  const byName = new Map<string, SubjectRef>();
+  for (const subject of subjects ?? []) {
+    const chosen = byName.get(subject.name);
+    if (chosen === undefined || (chosen.deleted && !subject.deleted)) {
+      byName.set(subject.name, subject);
+    }
+  }
+  return new Map(
+    (subjects ?? []).map((subject) => [subject.id, byName.get(subject.name) ?? subject]),
+  );
 }
 
 export interface SubjectTotalRow {
@@ -99,17 +113,20 @@ export interface SubjectTotalRow {
 
 /**
  * 세션들의 과목별 총공부·순공 합 — 서버가 구간마다 계산해 준 값을 더한다(로컬 재계산 없음).
- * 순서는 그 과목의 첫 구간이 나타난 순이다.
+ * 순서는 그 과목의 첫 구간이 나타난 순이다. `subjects`(`subjectRefMap`의 결과)를 주면 이름이 같은
+ * 과목을 대표 id 한 줄로 합친다.
  */
 export function subjectTotalsOf(
   sessions: readonly { readonly subjectSegments?: readonly SubjectSegmentResponse[] }[],
+  subjects?: ReadonlyMap<number, SubjectRef>,
 ): SubjectTotalRow[] {
   const rows = new Map<number, SubjectTotalRow>();
   for (const session of sessions) {
     for (const segment of session.subjectSegments ?? []) {
-      const prev = rows.get(segment.subjectId);
-      rows.set(segment.subjectId, {
-        subjectId: segment.subjectId,
+      const subjectId = subjects?.get(segment.subjectId)?.id ?? segment.subjectId;
+      const prev = rows.get(subjectId);
+      rows.set(subjectId, {
+        subjectId,
         studySec: (prev?.studySec ?? 0) + segment.studySec,
         focusSec: (prev?.focusSec ?? 0) + segment.focusSec,
       });

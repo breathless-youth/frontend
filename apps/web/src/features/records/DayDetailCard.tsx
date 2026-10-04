@@ -25,7 +25,7 @@ export function DayDetailCard({
   dateKey: string;
 }) {
   const subjects = subjectRefMap(stats.subjects);
-  const subjectRows = subjectTotalsOf(stats.sessions);
+  const subjectRows = subjectTotalsOf(stats.sessions, subjects);
   const slots = dayTimetable(stats.sessions, dateKey);
   const subjectSummary = subjectRows
     .map(
