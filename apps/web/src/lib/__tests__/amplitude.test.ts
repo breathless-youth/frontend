@@ -860,6 +860,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
     m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
     m.trackRecordsMonthChanged({ delta: 1, method: "button" });
+    m.trackRecordsSessionExpanded({ expanded: true });
     m.trackSettingsRowPressed("profile");
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
@@ -877,6 +878,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
       ["records_date_selected", { is_today: false, has_records: true }],
       ["records_month_changed", { delta: 1, method: "button" }],
+      ["records_session_expanded", { expanded: true }],
       ["settings_row_pressed", { row: "profile" }],
       [
         "profile_save_submitted",

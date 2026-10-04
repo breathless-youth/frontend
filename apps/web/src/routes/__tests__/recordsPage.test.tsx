@@ -33,7 +33,7 @@ import {
   shiftMonth,
 } from "@/features/records/recordsFormat";
 import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
-import { trackRecordsMonthChanged } from "@/lib/amplitude";
+import { trackRecordsMonthChanged, trackRecordsSessionExpanded } from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
 
 /**
@@ -58,12 +58,14 @@ vi.mock("@/lib/statsApi", () => ({
 vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
   trackRecordsMonthChanged: vi.fn(),
+  trackRecordsSessionExpanded: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
 }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedPeriod = vi.mocked(getPeriodStats);
 const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
+const mockedTrackSessionExpanded = vi.mocked(trackRecordsSessionExpanded);
 
 function statsResponse(hasSession: boolean): StudySessionListResponse {
   return {
@@ -122,29 +124,65 @@ describe("RecordsPage", () => {
     mockedPeriod.mockResolvedValue(periodResponse());
   });
 
-  it("세션 행을 누르면 상세 바텀시트가 열리고 닫기로 닫힌다", async () => {
+  it("세션 행을 누르면 그 자리에서 펼쳐지고 다시 누르면 접힌다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
 
     renderRecords();
 
-    const row = await screen.findByRole("button", { name: /09:00 ~ 10:00/ });
+    const row = await screen.findByRole("button", { name: /09:00부터 10:00까지/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+
     await userEvent.click(row);
-    const close = await screen.findByRole("button", { name: "닫기" });
-    expect(close).toBeInTheDocument();
-    await userEvent.click(close);
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
-    });
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("최대 집중 시간")).toBeInTheDocument();
+    expect(mockedTrackSessionExpanded).toHaveBeenLastCalledWith({ expanded: true });
+
+    await userEvent.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
+    expect(mockedTrackSessionExpanded).toHaveBeenLastCalledWith({ expanded: false });
   });
 
-  it("선택일(기본값 오늘)의 세션 목록을 v2 행(시각 범위·순공·집중률)으로 보여준다", async () => {
+  it("세션 행은 한 번에 하나만 펼쳐진다", async () => {
+    const base = statsResponse(true);
+    mockedStats.mockResolvedValue({
+      ...base,
+      sessions: [
+        base.sessions[0]!,
+        {
+          ...base.sessions[0]!,
+          id: 2,
+          startedAt: "2026-01-01T03:00:00.000Z",
+          endedAt: "2026-01-01T04:00:00.000Z",
+        },
+      ],
+      sessionCount: 2,
+    });
+
+    renderRecords();
+
+    const morning = await screen.findByRole("button", { name: /09:00부터 10:00까지/ });
+    const noon = screen.getByRole("button", { name: /12:00부터 13:00까지/ });
+
+    await userEvent.click(morning);
+    await userEvent.click(noon);
+
+    expect(morning).toHaveAttribute("aria-expanded", "false");
+    expect(noon).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByText("최대 집중 시간")).toHaveLength(1);
+  });
+
+  it("선택일(기본값 오늘)의 세션 목록을 순공·총 공부시간·집중률이 보이는 행으로 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
 
     renderRecords();
 
     // startedAt 2026-01-01T00:00Z / endedAt 2026-01-01T01:00Z → KST 09:00 ~ 10:00.
-    expect(await screen.findByText("09:00 ~ 10:00")).toBeInTheDocument();
-    expect(screen.getByText("순공 30분 · 집중 50%")).toBeInTheDocument();
+    const row = await screen.findByRole("button", {
+      name: "09:00부터 10:00까지, 순공 30분, 집중 50%",
+    });
+    expect(row).toHaveTextContent("총 공부시간 1시간");
+    expect(row).toHaveTextContent("집중 50%");
     expect(screen.queryByText("이 날은 기록이 없어요")).not.toBeInTheDocument();
   });
 
@@ -390,14 +428,10 @@ describe("RecordsPage", () => {
 
     await screen.findByText(/요일$/);
     // 내림차순(최신순 고정) — late(30분) → mid(20분) → early(10분).
-    const sublines = screen
-      .getAllByText(/^순공 (10|20|30)분 · 집중 50%$/)
-      .map((el) => el.textContent);
-    expect(sublines).toEqual([
-      "순공 30분 · 집중 50%",
-      "순공 20분 · 집중 50%",
-      "순공 10분 · 집중 50%",
-    ]);
+    const labels = screen
+      .getAllByRole("button", { name: /순공 (10|20|30)분, 집중 50%$/ })
+      .map((el) => el.getAttribute("aria-label")?.replace(/^.*, 순공 /, "순공 "));
+    expect(labels).toEqual(["순공 30분, 집중 50%", "순공 20분, 집중 50%", "순공 10분, 집중 50%"]);
   });
 
   it("userId가 없으면 데이터 조회 없이 단독 모드 안내만 보여주고 주간 탭을 막는다", () => {
@@ -504,7 +538,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    expect(await screen.findByText("09:00 ~ 10:00")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /09:00부터 10:00까지/ })).toBeInTheDocument();
     expect(screen.getByText(/요일$/)).toBeInTheDocument();
     // 달 합계·하루 평균은 period가 success일 때만 숫자를 적는다 — 실패하면 0분 같은 확정 값을 그리지 않는다.
     expect(screen.queryByText(/공부한 \d+일 기준|아직 공부한 날이 없어요/)).not.toBeInTheDocument();

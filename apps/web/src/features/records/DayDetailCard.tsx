@@ -4,7 +4,7 @@ import { formatDuration, formatFocusRate } from "./recordsFormat";
 import { Timetable } from "./Timetable";
 import {
   dayTimetable,
-  sessionRestSec,
+  totalRestSec,
   subjectColorVar,
   subjectRefMap,
   subjectTotalsOf,
@@ -81,9 +81,7 @@ export function DayDetailCard({
               휴식
             </span>
             <span className="text-xs leading-[15px] font-bold text-foreground tabular-nums">
-              {formatDuration(
-                sessionRestSec({ studySec: stats.totalStudySec, focusSec: stats.totalFocusSec }),
-              )}
+              {formatDuration(totalRestSec(stats.sessions))}
             </span>
           </li>
         </ul>

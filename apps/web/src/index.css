@@ -17,6 +17,8 @@
   --color-bg-layer-2: var(--bg-layer-2);
   --color-text-tertiary: var(--text-tertiary);
   --color-brand-subtle: var(--brand-subtle);
+  --color-brand-subtle-text: var(--brand-subtle-text);
+  --color-chart-peak: var(--chart-peak);
   --color-bg-guide: var(--bg-guide);
   --color-border-strong: var(--border-strong);
   --color-state-focus: var(--state-focus);
@@ -232,6 +234,8 @@
   --muted: #ffffff;
   --brand-subtle: #e6eefb;
   --bg-layer-2: #f1f5fc;
+  --brand-subtle-text: #3f5f96;
+  --chart-peak: #7a5af8;
   --chart-heat-1: #dbe7fb;
   --chart-heat-2: #b9d2f8;
   --chart-heat-3: #8fb5f3;
@@ -274,6 +278,8 @@
     --muted: #1b2333;
     --brand-subtle: #1e2a44;
     --bg-layer-2: #232d40;
+    --brand-subtle-text: #a9c6f5;
+    --chart-peak: #a18bff;
     --chart-heat-1: #24344f;
     --chart-heat-2: #2d4670;
     --chart-heat-3: #375a92;
@@ -317,6 +323,8 @@
   --muted: #1b2333;
   --brand-subtle: #1e2a44;
   --bg-layer-2: #232d40;
+  --brand-subtle-text: #a9c6f5;
+  --chart-peak: #a18bff;
   --chart-heat-1: #24344f;
   --chart-heat-2: #2d4670;
   --chart-heat-3: #375a92;

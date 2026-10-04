@@ -4,6 +4,7 @@ import {
   addDaysToDateKey,
   buildMonthGrid,
   dayHeadlineLabel,
+  durationParts,
   buildStreakWeek,
   dayTitleWithWeekday,
   eventChipItems,
@@ -13,8 +14,6 @@ import {
   formatKstClock,
   formatSessionCount,
   formatSessionMeta,
-  formatSessionSubline,
-  formatSessionTimeRange,
   heatLevel,
   isFutureDateKey,
   isDateKeyInMonth,
@@ -268,17 +267,16 @@ describe("dayTitleWithWeekday", () => {
   });
 });
 
-describe("formatSessionTimeRange", () => {
-  it("KST 시각 범위를 물결로 잇는다", () => {
-    expect(formatSessionTimeRange("2026-09-18T22:30:00Z", "2026-09-18T23:16:00Z")).toBe(
-      "07:30 ~ 08:16",
-    );
-  });
-});
-
-describe("formatSessionSubline", () => {
-  it("순공 길이와 집중률을 가운뎃점으로 잇는다", () => {
-    expect(formatSessionSubline(44 * 60, 96)).toBe("순공 44분 · 집중 96%");
+describe("durationParts", () => {
+  it("formatDuration과 같은 규칙으로 숫자와 단위를 나눈다", () => {
+    expect(durationParts(112 * 60)).toEqual([
+      { value: 1, unit: "시간" },
+      { value: 52, unit: "분" },
+    ]);
+    expect(durationParts(2 * 3600)).toEqual([{ value: 2, unit: "시간" }]);
+    expect(durationParts(20 * 60)).toEqual([{ value: 20, unit: "분" }]);
+    expect(durationParts(45)).toEqual([{ value: 45, unit: "초" }]);
+    expect(durationParts(0)).toEqual([{ value: 0, unit: "분" }]);
   });
 });
 

@@ -177,6 +177,28 @@ export function formatDuration(totalSeconds: number): string {
   return `${seconds}초`;
 }
 
+/**
+ * 시간 길이를 숫자와 단위로 나눈다 — 숫자를 크게, 단위를 작게 적는 자리(세션 행)가 쓴다.
+ * 규칙은 `formatDuration`과 같다(`1시간 52분` → 1·시간, 52·분).
+ */
+export function durationParts(totalSeconds: number): { value: number; unit: string }[] {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return minutes === 0
+      ? [{ value: hours, unit: "시간" }]
+      : [
+          { value: hours, unit: "시간" },
+          { value: minutes, unit: "분" },
+        ];
+  }
+  if (minutes > 0 || seconds === 0) {
+    return [{ value: minutes, unit: "분" }];
+  }
+  return [{ value: seconds, unit: "초" }];
+}
+
 /** UTC ISO-8601 → KST `HH:MM`(24시간제). */
 export function formatKstClock(iso: string): string {
   const kst = toKstWallClock(iso);
@@ -310,14 +332,4 @@ export function dayTitleWithWeekday(dateKey: string): string {
   const day = dayOfDateKey(dateKey);
   const weekday = WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)];
   return `${month}월 ${day}일 ${weekday}요일`;
-}
-
-/** 세션 행 시각 범위 `HH:MM ~ HH:MM`(KST). V1의 formatSessionMeta와 달리 물결로 잇고 총 길이를 빼며 v2 행 전용이다. */
-export function formatSessionTimeRange(startedAt: string, endedAt: string): string {
-  return `${formatKstClock(startedAt)} ~ ${formatKstClock(endedAt)}`;
-}
-
-/** 세션 행 보조줄 `순공 {길이} · 집중 {N}%`. */
-export function formatSessionSubline(focusSec: number, focusRate: number): string {
-  return `순공 ${formatDuration(focusSec)} · 집중 ${formatFocusRate(focusRate)}`;
 }

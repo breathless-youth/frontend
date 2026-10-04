@@ -787,6 +787,12 @@ export function trackRecordsMonthChanged(input: {
   track("records_month_changed", { delta: input.delta, method: input.method });
 }
 
+/** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
+export function trackRecordsSessionExpanded(input: { readonly expanded: boolean }) {
+  if (!initialized) return;
+  track("records_session_expanded", { expanded: input.expanded });
+}
+
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
   row: "profile" | "guide" | "contact" | "terms" | "privacy" | "licenses",

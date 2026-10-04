@@ -79,11 +79,6 @@ export function dayTimetable(
   );
 }
 
-/** 세션 바텀시트용 — 그 세션 하나만 칠한 하루 720칸. */
-export function sessionTimetable(session: TimetableSession, dateKey: string): TimetableSlot[] {
-  return dayTimetable([session], dateKey);
-}
-
 /**
  * 과목 id → 이름·색. 지운 과목도 들어 있다(`deleted`). 응답에 `subjects`가 없으면 빈 맵.
  *
@@ -197,7 +192,65 @@ export function condenseTimetable(slots: readonly TimetableSlot[]): TimetableSlo
   return out;
 }
 
-/** 세션 휴식 시간(초) = 총 공부 − 순공. 비집중 시간이다. 음수는 0으로 막는다. */
-export function sessionRestSec(session: { studySec: number; focusSec: number }): number {
-  return Math.max(0, session.studySec - session.focusSec);
+/**
+ * 휴식(초) — 세션 안에서 순공이 아닌 모든 시간. 자동 멈춤과 일시정지를 합친다.
+ * 그래서 `순공 + 휴식 = 세션 시각 범위의 길이`다(총 공부에서 순공을 빼면 일시정지가 빠진다).
+ */
+export function sessionRestSec(session: {
+  startedAt: string;
+  endedAt: string;
+  focusSec: number;
+}): number {
+  const spanSec = Math.floor((Date.parse(session.endedAt) - Date.parse(session.startedAt)) / 1000);
+  return Number.isFinite(spanSec) ? Math.max(0, spanSec - session.focusSec) : 0;
+}
+
+/** 세션들의 휴식 합(초). */
+export function totalRestSec(
+  sessions: readonly { startedAt: string; endedAt: string; focusSec: number }[],
+): number {
+  return sessions.reduce((sum, session) => sum + sessionRestSec(session), 0);
+}
+
+export interface MiniTimelinePiece {
+  /** 순공 · 자동 멈춤 · 일시정지 — 공부 결과 화면의 타임라인과 같은 구분이다. */
+  kind: "focus" | "distract" | "pause";
+  /** 세션 시각 범위에 대한 비율(0~1). 조각들의 합은 1이다. */
+  ratio: number;
+}
+
+/**
+ * 세션 행의 미니 타임라인 — 세션 시각 범위를 순공과 이벤트 조각으로 순서대로 자른다.
+ * 공부 결과 화면의 타임라인과 같은 데이터(세션의 `events`)를 쓴다.
+ */
+export function miniTimelinePieces(session: TimetableSession): MiniTimelinePiece[] {
+  const startMs = Date.parse(session.startedAt);
+  const endMs = Date.parse(session.endedAt);
+  const spanMs = endMs - startMs;
+  if (!Number.isFinite(spanMs) || spanMs <= 0) {
+    return [];
+  }
+  const pieces: MiniTimelinePiece[] = [];
+  const push = (kind: MiniTimelinePiece["kind"], fromMs: number, toMs: number) => {
+    if (toMs > fromMs) {
+      pieces.push({ kind, ratio: (toMs - fromMs) / spanMs });
+    }
+  };
+  let cursor = startMs;
+  const events = [...(session.events ?? [])].sort(
+    (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
+  );
+  for (const event of events) {
+    // 범위 밖이나 겹친 이벤트가 와도 막대가 깨지지 않게 세션 안으로 자르고 커서 뒤로는 가지 않는다.
+    const eventStart = Math.min(endMs, Math.max(cursor, Date.parse(event.startedAt)));
+    const eventEnd = Math.min(endMs, Math.max(cursor, Date.parse(event.endedAt)));
+    if (Number.isNaN(eventStart) || Number.isNaN(eventEnd)) {
+      continue;
+    }
+    push("focus", cursor, eventStart);
+    push(event.status === "PAUSE" ? "pause" : "distract", eventStart, eventEnd);
+    cursor = Math.max(cursor, eventEnd);
+  }
+  push("focus", cursor, endMs);
+  return pieces;
 }

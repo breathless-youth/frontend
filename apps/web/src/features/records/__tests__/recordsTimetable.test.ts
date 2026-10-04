@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   SLOTS_PER_DAY,
   condenseTimetable,
+  miniTimelinePieces,
   sessionRestSec,
+  totalRestSec,
   subjectColorVar,
   completedTasksOf,
   dayTimetable,
   kstDayStartMs,
-  sessionTimetable,
   subjectRefMap,
   subjectTotalsOf,
 } from "../recordsTimetable";
@@ -56,20 +57,6 @@ describe("recordsTimetable — 일간 응답을 2분 칸으로 바꾼다", () =>
     expect(slotOf(10 * 60 + 10)).toEqual({ kind: "subject", subjectId: 5 });
     expect(slotOf(10 * 60 + 30)).toEqual({ kind: "focus" }); // 과목 미선택
     expect(slotOf(10 * 60 + 36)).toEqual({ kind: "empty" }); // 세션 끝(반개구간)
-  });
-
-  it("세션 하나만 칠하는 바텀시트용도 같은 칸 규칙이다", () => {
-    const other = {
-      ...session,
-      startedAt: iso(14 * 60),
-      endedAt: iso(15 * 60),
-      events: [],
-      subjectSegments: [],
-    };
-    const day = dayTimetable([session, other], DAY);
-    const single = sessionTimetable(session, DAY);
-    expect(day[Math.floor((14 * 60 + 30) / 2)]).toEqual({ kind: "focus" });
-    expect(single[Math.floor((14 * 60 + 30) / 2)]).toEqual({ kind: "empty" });
   });
 
   it("과목별 합은 서버가 준 구간 값을 더하고 첫 등장 순을 지킨다", () => {
@@ -134,10 +121,54 @@ describe("condenseTimetable", () => {
   });
 });
 
-describe("sessionRestSec", () => {
-  it("총 공부에서 순공을 빼고 음수는 0으로 막는다", () => {
-    expect(sessionRestSec({ studySec: 46 * 60, focusSec: 44 * 60 })).toBe(2 * 60);
-    expect(sessionRestSec({ studySec: 10, focusSec: 30 })).toBe(0);
+describe("sessionRestSec — 휴식은 자동 멈춤과 일시정지를 합친다", () => {
+  it("세션 시각 범위에서 순공을 뺀다(총 공부에서 빼면 일시정지가 빠진다)", () => {
+    // 09:12~10:36 = 84분, 순공 60분 → 휴식 24분.
+    expect(
+      sessionRestSec({ startedAt: iso(9 * 60 + 12), endedAt: iso(10 * 60 + 36), focusSec: 3600 }),
+    ).toBe(24 * 60);
+    expect(
+      sessionRestSec({ startedAt: iso(9 * 60), endedAt: iso(9 * 60 + 1), focusSec: 600 }),
+    ).toBe(0);
+  });
+
+  it("하루 휴식은 세션별 휴식의 합이다", () => {
+    expect(
+      totalRestSec([
+        { startedAt: iso(9 * 60), endedAt: iso(10 * 60), focusSec: 50 * 60 },
+        { startedAt: iso(14 * 60), endedAt: iso(15 * 60), focusSec: 40 * 60 },
+      ]),
+    ).toBe(30 * 60);
+  });
+});
+
+describe("miniTimelinePieces — 세션 시각 범위를 순공·자동 멈춤·일시정지 조각으로 자른다", () => {
+  it("이벤트 사이를 순공으로 채우고 일시정지는 따로 구분한다", () => {
+    // 09:00~10:40(100분): 순공 30 → 자동 멈춤 10 → 순공 20 → 일시정지 10 → 순공 30.
+    const pieces = miniTimelinePieces({
+      startedAt: iso(9 * 60),
+      endedAt: iso(10 * 60 + 40),
+      events: [
+        { status: "PAUSE", startedAt: iso(10 * 60), endedAt: iso(10 * 60 + 10) },
+        { status: "PHONE", startedAt: iso(9 * 60 + 30), endedAt: iso(9 * 60 + 40) },
+      ],
+    });
+
+    expect(pieces.map((piece) => piece.kind)).toEqual([
+      "focus",
+      "distract",
+      "focus",
+      "pause",
+      "focus",
+    ]);
+    expect(pieces.map((piece) => Math.round(piece.ratio * 100))).toEqual([30, 10, 20, 10, 30]);
+  });
+
+  it("이벤트가 없으면 순공 한 조각, 길이가 0이면 빈 배열이다", () => {
+    expect(miniTimelinePieces({ startedAt: iso(9 * 60), endedAt: iso(10 * 60) })).toEqual([
+      { kind: "focus", ratio: 1 },
+    ]);
+    expect(miniTimelinePieces({ startedAt: iso(9 * 60), endedAt: iso(9 * 60) })).toEqual([]);
   });
 });
 

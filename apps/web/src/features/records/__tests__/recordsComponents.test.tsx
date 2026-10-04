@@ -349,23 +349,52 @@ describe("MonthCalendar", () => {
 });
 
 describe("SessionListItem", () => {
-  it("v2 행은 시각 범위와 순공·집중 보조줄을 버튼으로 보여준다", () => {
-    const onSelect = vi.fn();
-    render(<SessionListItem session={session()} onSelect={onSelect} />);
+  it("접힌 행은 순공시간·총 공부시간·집중률 필·시작과 종료 시각을 보여준다", () => {
+    render(<SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />);
 
-    const button = screen.getByRole("button", { name: /07:30 ~ 08:16/ });
-    expect(screen.getByText("순공 44분 · 집중 96%")).toBeInTheDocument();
-
-    button.click();
-    expect(onSelect).toHaveBeenCalled();
+    const row = screen.getByRole("button", { name: /07:30부터 08:16까지, 순공 44분, 집중 96%/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(row).toHaveTextContent("44분");
+    expect(row).toHaveTextContent("총 공부시간 46분");
+    expect(screen.getByText("07:30")).toBeInTheDocument();
+    expect(screen.getByText("08:16")).toBeInTheDocument();
+    expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
   });
 
-  it("onSelect가 없으면 버튼이 아니라 비인터랙티브 행이지만 시각 범위·보조줄은 그대로 보인다", () => {
-    render(<SessionListItem session={session()} />);
+  it("집중률이 90% 이상이면 필을 진하게, 아니면 옅게 칠한다", () => {
+    const { rerender } = render(
+      <SessionListItem session={session({ focusRate: 96 })} expanded={false} onToggle={vi.fn()} />,
+    );
+    expect(screen.getByText("집중 96%")).toHaveClass("bg-primary");
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("07:30 ~ 08:16")).toBeInTheDocument();
-    expect(screen.getByText("순공 44분 · 집중 96%")).toBeInTheDocument();
+    rerender(
+      <SessionListItem session={session({ focusRate: 83 })} expanded={false} onToggle={vi.fn()} />,
+    );
+    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle");
+  });
+
+  it("행을 누르면 onToggle을 부르고, 펼치면 시작 시간·종료 시간·최대 집중 시간과 그 구간을 보여준다", () => {
+    const onToggle = vi.fn();
+    // 07:30~08:16 사이 07:50~07:58 자동 멈춤 → 가장 긴 집중은 앞 구간 07:30~07:50(20분).
+    const withEvent = session({
+      events: [
+        { status: "PHONE", startedAt: "2026-09-18T22:50:00Z", endedAt: "2026-09-18T22:58:00Z" },
+      ],
+    });
+    const { rerender } = render(
+      <SessionListItem session={withEvent} expanded={false} onToggle={onToggle} />,
+    );
+
+    screen.getByRole("button").click();
+    expect(onToggle).toHaveBeenCalledWith(withEvent);
+
+    rerender(<SessionListItem session={withEvent} expanded onToggle={onToggle} />);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("시작 시간")).toBeInTheDocument();
+    expect(screen.getByText("종료 시간")).toBeInTheDocument();
+    expect(screen.getByText("최대 집중 시간")).toBeInTheDocument();
+    expect(screen.getByText("20분")).toHaveClass("text-chart-peak");
+    expect(screen.getByText("07:30 ~ 07:50")).toBeInTheDocument();
   });
 });
 

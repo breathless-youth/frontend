@@ -1,10 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { StudySessionListResponse, StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
 import { DayDetailCard } from "../DayDetailCard";
-import { SessionDetailSheet } from "../SessionDetailSheet";
 import { Timetable } from "../Timetable";
 import { dayTimetable } from "../recordsTimetable";
 
@@ -66,7 +65,7 @@ describe("DayDetailCard", () => {
     expect(screen.getByText("96%")).toBeInTheDocument();
     expect(screen.getByText("영어")).toBeInTheDocument();
     expect(screen.getByText("휴식")).toBeInTheDocument();
-    expect(screen.getByText("8분")).toBeInTheDocument(); // 휴식 = 총 공부 − 순공
+    expect(screen.getByText("2분")).toBeInTheDocument(); // 휴식 = 세션 범위(46분) − 순공(44분)
     // 타임테이블 대체 텍스트가 제목이 아니라 순공 요약을 담는다.
     expect(screen.getByRole("img", { name: /순공 44분/ })).toBeInTheDocument();
   });
@@ -107,73 +106,5 @@ describe("Timetable", () => {
     );
     expect(screen.getByRole("img", { name: "24시간 공부 분포" })).toBeInTheDocument();
     expect(container.querySelectorAll(".rounded-\\[2px\\]")).toHaveLength(144);
-  });
-});
-
-describe("SessionDetailSheet", () => {
-  it("session이 null이면 시트 내용을 그리지 않는다", () => {
-    render(
-      <SessionDetailSheet session={null} subjects={subjects} dateKey={DATE} onClose={() => {}} />,
-    );
-    expect(screen.queryByText("순공 시간")).not.toBeInTheDocument();
-  });
-
-  it("열리면 시각 범위·휴식·완료한 할 일을 보여주고, 포털에도 소프트블루 테마가 붙는다", () => {
-    render(
-      <SessionDetailSheet
-        session={session()}
-        subjects={subjects}
-        dateKey={DATE}
-        onClose={() => {}}
-      />,
-    );
-    expect(screen.getByText("07:30 ~ 08:16")).toBeInTheDocument();
-    expect(screen.getByText("휴식")).toBeInTheDocument();
-    expect(screen.getByText("8분")).toBeInTheDocument(); // 휴식 = studySec - focusSec
-    expect(screen.getByText("완료한 할 일")).toBeInTheDocument();
-    expect(screen.getByText("단어 60개 암기")).toBeInTheDocument();
-    // 포털 콘텐츠 루트에 theme-soft-blue가 붙어 토큰이 풀리지 않는다.
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.classList.contains("theme-soft-blue")).toBe(true);
-  });
-
-  it("닫기를 누르면 onClose가 불린다", () => {
-    const onClose = vi.fn();
-    render(
-      <SessionDetailSheet
-        session={session()}
-        subjects={subjects}
-        dateKey={DATE}
-        onClose={onClose}
-      />,
-    );
-    screen.getByRole("button", { name: "닫기" }).click();
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it("지운 과목·지운 할 일의 이름도 시트에 보여준다", () => {
-    // 수학(id 2)은 deleted:true, 할 일도 deleted:true — 둘 다 원래 이름을 그대로 보여줘야 한다.
-    const withDeleted = session({
-      subjectSegments: [
-        {
-          subjectId: 2,
-          startedAt: STARTED,
-          endedAt: "2026-09-17T23:14:00Z",
-          studySec: 50 * 60,
-          focusSec: 44 * 60,
-        },
-      ],
-      completedTasks: [{ id: 11, name: "지운 과제", subjectId: 2, deleted: true }],
-    });
-    render(
-      <SessionDetailSheet
-        session={withDeleted}
-        subjects={subjects}
-        dateKey={DATE}
-        onClose={() => {}}
-      />,
-    );
-    expect(screen.getByText("수학")).toBeInTheDocument();
-    expect(screen.getByText("지운 과제")).toBeInTheDocument();
   });
 });
