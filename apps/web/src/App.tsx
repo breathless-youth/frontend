@@ -39,6 +39,7 @@ import {
   loadResultPage,
   loadTermsPage,
 } from "@/routes/lazyRoutes";
+import { PlannerPage } from "@/routes/PlannerPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
@@ -214,6 +215,7 @@ export function App() {
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/records" element={<RecordsPage />} />
+              <Route path="/planner" element={<PlannerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialHomePage />} />
               {import.meta.env.DEV && (

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -101,12 +101,21 @@ function periodResponse(
   };
 }
 
+/** 플래너로 넘어갔는지 확인하는 자리표시 라우트 — 어느 날짜로 열었는지 적는다. */
+function PlannerRouteProbe() {
+  const location = useLocation();
+  return <p data-testid="planner-route">{`${location.pathname}${location.search}`}</p>;
+}
+
 function renderRecords(path = "/records?userId=7") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
-        <RecordsPage />
+        <Routes>
+          <Route path="/records" element={<RecordsPage />} />
+          <Route path="/planner" element={<PlannerRouteProbe />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -540,6 +549,21 @@ describe("RecordsPage", () => {
     // 화살표 이동도 그대로 동작하고 계측이 나간다.
     await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
     expect(vi.mocked(trackRecordsWeekChanged)).toHaveBeenLastCalledWith(-1);
+  });
+
+  it("선택일 줄의 플래너 버튼은 고른 날의 플래너를 열고, 날짜 상세 카드는 일간 탭에 없다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+
+    renderRecords();
+
+    const button = await screen.findByRole("button", { name: "플래너" });
+    // 날짜 상세(과목별 시간·24시간 타임테이블)는 플래너로 옮겼다.
+    expect(screen.queryByRole("img", { name: /24시간 공부 분포/ })).not.toBeInTheDocument();
+
+    await userEvent.click(button);
+    expect(await screen.findByTestId("planner-route")).toHaveTextContent(
+      `/planner?userId=7&date=${kstDateKey()}`,
+    );
   });
 
   it("주간 뷰는 주 요약 → 추이 카드 → 주 카드 → 나의 공부 리듬 순서로 보여준다", async () => {

@@ -814,6 +814,24 @@ export function trackRecordsPeriodPicked(input: {
   track("records_period_picked", { view: input.view, to_today: input.toToday });
 }
 
+/** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
+export function trackPlannerOpened(input: {
+  readonly via: "records" | "home" | "unknown";
+  readonly isToday: boolean;
+}) {
+  if (!initialized) return;
+  track("planner_opened", { via: input.via, is_today: input.isToday });
+}
+
+/** 플래너 날짜 이동. `delta`는 -1(전날)/1(다음 날), `method`는 꺾쇠 버튼/스와이프. */
+export function trackPlannerDateChanged(input: {
+  readonly delta: -1 | 1;
+  readonly method: "button" | "swipe";
+}) {
+  if (!initialized) return;
+  track("planner_date_changed", { delta: input.delta, method: input.method });
+}
+
 /** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
 export function trackRecordsSessionExpanded(input: { readonly expanded: boolean }) {
   if (!initialized) return;
@@ -976,7 +994,7 @@ export function trackSessionNoticeConfirmed(input: {
 
 /** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
 export function trackErrorRetryPressed(
-  screen: "home" | "records" | "profile" | "live_room_entry" | "contact",
+  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });

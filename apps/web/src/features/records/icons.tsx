@@ -96,6 +96,29 @@ export function IconChevronDown({
   );
 }
 
+/** 플래너 진입 버튼 아이콘(Figma `icon/planner` — 15×15). 색은 버튼 글자색을 따라가게 받는다. */
+export function IconPlanner({
+  color = "var(--color-brand-subtle-text)",
+  size = 15,
+  ...rest
+}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 15 15" fill="none" aria-hidden="true" {...rest}>
+      <path
+        d="M10.3125 1.64062H4.6875C3.39308 1.64062 2.34375 2.68996 2.34375 3.98438V11.0156C2.34375 12.31 3.39308 13.3594 4.6875 13.3594H10.3125C11.6069 13.3594 12.6562 12.31 12.6562 11.0156V3.98438C12.6562 2.68996 11.6069 1.64062 10.3125 1.64062Z"
+        stroke={color}
+        strokeWidth={1.5}
+      />
+      <path
+        d="M4.92188 4.92188H10.0781M4.92188 7.5H10.0781M4.92188 10.0781H8.20312"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** 연속 공부 스탯 배너의 2톤 불꽃 일러스트(색 고정 — 이모지가 아닌 일러스트, glossary 참고). */
 export function IllustFlame({
   width = 19,

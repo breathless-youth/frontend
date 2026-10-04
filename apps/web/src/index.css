@@ -20,6 +20,7 @@
   --color-brand-subtle-text: var(--brand-subtle-text);
   --color-chart-peak: var(--chart-peak);
   --color-chart-prev: var(--chart-prev);
+  --color-chart-rest: var(--chart-rest);
   --color-bg-guide: var(--bg-guide);
   --color-border-strong: var(--border-strong);
   --color-state-focus: var(--state-focus);
@@ -238,6 +239,7 @@
   --brand-subtle-text: #3f5f96;
   --chart-peak: #7a5af8;
   --chart-prev: #dde3ec;
+  --chart-rest: #d3d9e3;
   --chart-heat-1: #dbe7fb;
   --chart-heat-2: #b9d2f8;
   --chart-heat-3: #8fb5f3;
@@ -283,6 +285,7 @@
     --brand-subtle-text: #a9c6f5;
     --chart-peak: #a18bff;
     --chart-prev: #33405a;
+    --chart-rest: #3f4b63;
     --chart-heat-1: #24344f;
     --chart-heat-2: #2d4670;
     --chart-heat-3: #375a92;
@@ -329,6 +332,7 @@
   --brand-subtle-text: #a9c6f5;
   --chart-peak: #a18bff;
   --chart-prev: #33405a;
+  --chart-rest: #3f4b63;
   --chart-heat-1: #24344f;
   --chart-heat-2: #2d4670;
   --chart-heat-3: #375a92;

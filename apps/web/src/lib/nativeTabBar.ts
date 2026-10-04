@@ -42,6 +42,7 @@ const FULL_SCREEN_PATHS = [
   "/social/code",
   "/social/join",
   "/profile",
+  "/planner",
 ];
 
 /** 동적 세그먼트를 갖는 전체 화면 라우트 — prefix로 판정한다. */

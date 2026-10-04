@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   trackRecordsDateSelected,
@@ -32,10 +33,15 @@ import {
 } from "@/features/records/recordsPeriod";
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
 import { SessionListItem } from "@/features/records/SessionListItem";
-import { DayDetailCard } from "@/features/records/DayDetailCard";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
+import {
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlanner,
+} from "@/features/records/icons";
+import { slideNavigate } from "@/lib/pageTransition";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -79,6 +85,8 @@ function RecordsContent({
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
@@ -217,12 +225,30 @@ function RecordsContent({
 
       {day.status === "success" && (
         <div className="mt-[22px]">
-          <p className="text-base font-extrabold leading-[19px] text-foreground">
-            {dayTitleWithWeekday(selectedKey)}
-          </p>
-
-          <div className="mt-3">
-            <DayDetailCard stats={day.stats} dateKey={selectedKey} />
+          {/* 선택일 줄 — 오른쪽 버튼으로 그 날의 플래너를 연다(과목별 시간·타임테이블은 플래너에 있다). */}
+          <div className="flex items-center justify-between">
+            <p className="text-base leading-5 font-extrabold text-foreground">
+              {dayTitleWithWeekday(selectedKey)}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                // 셸이 붙인 쿼리(구 앱의 신원 등)는 그대로 들고 간다.
+                const params = new URLSearchParams(location.search);
+                params.set("date", selectedKey);
+                slideNavigate("forward", () => {
+                  navigate(
+                    { pathname: "/planner", search: `?${params.toString()}` },
+                    { state: { via: "records" } },
+                  );
+                });
+              }}
+              className="flex items-center gap-[5px] rounded-full bg-brand-subtle py-[7px] pr-2.5 pl-3 text-[13px] leading-4 font-bold text-brand-subtle-text"
+            >
+              <IconPlanner />
+              플래너
+              <IconChevronRight size={8.57} color="var(--color-brand-subtle-text)" />
+            </button>
           </div>
 
           <div className="mt-3">
