@@ -331,13 +331,15 @@ describe("MonthCalendar", () => {
 
     const legend = screen.getByRole("group", { name: /순공시간 범례/ });
     expect(legend).toHaveTextContent(/^0\+2\+4\+6\+8\+$/);
-    // 범례 → 하루 평균 → 합계 순서다. 합계 라벨에는 달을 붙이지 않는다.
+    // 범례 → 하루 평균 → 그 달 총 시간 순서다. 평균 아래에 기준 문구는 두지 않는다.
     expect(legend.parentElement).toHaveTextContent(
-      "0+2+4+6+8+하루 평균4시간 32분공부한 18일 기준합계81시간 30분",
+      `0+2+4+6+8+하루 평균4시간 32분${String(month.month)}월 총 시간81시간 30분`,
     );
-    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^81시간 30분$/);
+    expect(
+      screen.getByText(`${String(month.month)}월 총 시간`).nextElementSibling,
+    ).toHaveTextContent(/^81시간 30분$/);
     expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^4시간 32분$/);
-    expect(screen.getByText("공부한 18일 기준")).toBeInTheDocument();
+    expect(screen.queryByText(/일 기준$/)).not.toBeInTheDocument();
   });
 
   it("공부한 날이 없는 달은 합계와 하루 평균을 모두 0분으로 적는다", () => {
@@ -354,10 +356,12 @@ describe("MonthCalendar", () => {
       />,
     );
 
-    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^0분$/);
+    expect(
+      screen.getByText(`${String(month.month)}월 총 시간`).nextElementSibling,
+    ).toHaveTextContent(/^0분$/);
     expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^0분$/);
     expect(screen.queryByText("—")).not.toBeInTheDocument();
-    expect(screen.getByText("아직 공부한 날이 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("아직 공부한 날이 없어요")).not.toBeInTheDocument();
   });
 });
 

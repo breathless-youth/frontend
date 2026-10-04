@@ -545,21 +545,28 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "planner");
   });
 
-  it("과목이 없으면 빈 상태와 자주 쓰는 과목을 보여주고, 칩 한 번으로 과목을 만든다", async () => {
+  it("과목이 없으면 자주 쓰는 과목을 흐린 줄로 보여주고, 줄의 추가 한 번으로 과목을 만든다", async () => {
     mockedSubjects.mockResolvedValue([]);
     vi.mocked(createSubject).mockResolvedValue({ ...math, id: 9, name: "국어" });
     renderPlanner("?userId=7");
 
-    expect(await screen.findByText("아직 과목이 없어요")).toBeInTheDocument();
-    expect(screen.getByText("자주 쓰는 과목을 골라 시작해 보세요")).toBeInTheDocument();
-    await userEvent.click(
-      within(screen.getByRole("list", { name: "추천 과목" })).getByRole("button", { name: "국어" }),
-    );
+    const suggestions = await screen.findByRole("list", { name: "추천 과목" });
+    expect(within(suggestions).getAllByRole("button", { name: / 추가$/ })).toHaveLength(4);
+    expect(screen.queryByText("아직 과목이 없어요")).not.toBeInTheDocument();
+    await userEvent.click(within(suggestions).getByRole("button", { name: "국어 추가" }));
 
     expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
     expect(await screen.findByRole("heading", { name: "국어" })).toBeInTheDocument();
-    expect(screen.queryByText("아직 과목이 없어요")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "추천 과목" })).not.toBeInTheDocument();
     expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", true, "planner");
+  });
+
+  it("과목이 없어도 지난 날에는 흐린 추천 과목을 보여주지 않는다 — 과목 추가만 남는다", async () => {
+    mockedSubjects.mockResolvedValue([]);
+    renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+    expect(await screen.findByRole("button", { name: "과목 추가" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "추천 과목" })).not.toBeInTheDocument();
   });
 
   it("지난 날 플래너는 과목만 고칠 수 있다 — 지금의 과목을 전부 보여주되 할 일은 그날 완료한 것만 남긴다", async () => {

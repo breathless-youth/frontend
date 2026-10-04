@@ -319,11 +319,9 @@ describe("RecordsPage", () => {
     renderRecords();
 
     // 기간 조회가 끝나면 자리표시가 숫자로 바뀐다.
-    expect(await screen.findByText("공부한 2일 기준")).toBeInTheDocument();
-    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^3시간$/);
+    const total = await screen.findByText(`${String(month.month)}월 총 시간`);
+    await waitFor(() => expect(total.nextElementSibling).toHaveTextContent(/^3시간$/));
     expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^1시간 30분$/);
-    // 합계 라벨에는 달을 붙이지 않는다.
-    expect(screen.queryByText(`${String(month.month)}월 합계`)).not.toBeInTheDocument();
   });
 
   it("보는 달에 기록이 하나도 없으면 빈 상태에 다음 행동을 한 줄 더 알려 준다", async () => {
@@ -333,7 +331,6 @@ describe("RecordsPage", () => {
 
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
     expect(await screen.findByText("집중을 시작하면 여기에 쌓여요")).toBeInTheDocument();
-    expect(screen.getByText("아직 공부한 날이 없어요")).toBeInTheDocument();
   });
 
   it("달에는 기록이 있고 고른 날만 없으면 빈 상태 한 줄만 보여준다", async () => {
@@ -345,7 +342,8 @@ describe("RecordsPage", () => {
     renderRecords();
 
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
-    await screen.findByText("공부한 1일 기준");
+    const total = await screen.findByText(/월 총 시간$/);
+    await waitFor(() => expect(total.nextElementSibling).toHaveTextContent(/^1시간$/));
     expect(screen.queryByText("집중을 시작하면 여기에 쌓여요")).not.toBeInTheDocument();
   });
 
@@ -652,6 +650,8 @@ describe("RecordsPage", () => {
     expect(await screen.findByRole("button", { name: /09:00부터 10:00까지/ })).toBeInTheDocument();
     expect(screen.getByText(/요일$/)).toBeInTheDocument();
     // 달 합계·하루 평균은 period가 success일 때만 숫자를 적는다 — 실패하면 0분 같은 확정 값을 그리지 않는다.
-    expect(screen.queryByText(/공부한 \d+일 기준|아직 공부한 날이 없어요/)).not.toBeInTheDocument();
+    expect(screen.getByText(/월 총 시간$/).nextElementSibling?.textContent ?? "").not.toMatch(
+      /분|시간/,
+    );
   });
 });

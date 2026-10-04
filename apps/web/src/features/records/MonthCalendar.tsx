@@ -131,7 +131,7 @@ function CalendarCell({
 }
 
 /** 달력 아래 — 왼쪽에 농도 범례, 오른쪽에 그 달의 하루 평균과 합계. */
-function MonthStatsRow({ stats }: { stats: MonthStats | null }) {
+function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthLabel: string }) {
   return (
     <div className="mx-2 mt-1 flex items-start justify-between border-t border-border pt-[13px]">
       {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
@@ -154,20 +154,13 @@ function MonthStatsRow({ stats }: { stats: MonthStats | null }) {
           {stats === null ? (
             <Skeleton className="h-[18px] w-16 rounded-md" />
           ) : (
-            <>
-              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
-                {formatDuration(stats.averageFocusSec ?? 0)}
-              </p>
-              <p className="text-[11px] leading-[13px] text-muted-foreground">
-                {stats.studiedDays === 0
-                  ? "아직 공부한 날이 없어요"
-                  : `공부한 ${String(stats.studiedDays)}일 기준`}
-              </p>
-            </>
+            <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+              {formatDuration(stats.averageFocusSec ?? 0)}
+            </p>
           )}
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <p className="text-xs leading-[14px] text-muted-foreground">합계</p>
+          <p className="text-xs leading-[14px] text-muted-foreground">{monthLabel} 총 시간</p>
           {stats === null ? (
             <Skeleton className="h-[18px] w-16 rounded-md" />
           ) : (
@@ -298,7 +291,7 @@ export function MonthCalendar({
         </div>
       </div>
 
-      <MonthStatsRow stats={monthStats} />
+      <MonthStatsRow stats={monthStats} monthLabel={`${String(month.month)}월`} />
     </div>
   );
 }
