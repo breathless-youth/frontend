@@ -8,7 +8,6 @@ import {
   plannerDayWindow,
   plannerHours,
   plannerDateKeyOf,
-  shiftPlannerDate,
 } from "../plannerDay";
 
 const DAY = "2026-10-02";
@@ -74,12 +73,6 @@ describe("플래너의 하루 구간", () => {
     expect(hours[18]).toBe(23);
     expect(hours[19]).toBe(0);
     expect(hours[23]).toBe(4);
-  });
-
-  it("오늘보다 뒤로는 옮기지 않는다", () => {
-    expect(shiftPlannerDate(DAY, -1, NEXT)).toBe("2026-10-01");
-    expect(shiftPlannerDate(DAY, 1, NEXT)).toBe(NEXT);
-    expect(shiftPlannerDate(NEXT, 1, NEXT)).toBe(NEXT);
   });
 });
 

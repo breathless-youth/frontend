@@ -28,13 +28,17 @@ export interface PlannerSubjectItem {
  * 공부했지만 지금은 지운 과목을 그 뒤에 붙인다. 목록을 못 받았으면(`null`) 그날 기록에 남은 과목만
  * 보여 준다. 과목은 이름으로 맞춘다 — 지웠다 다시 만들어 id가 갈려도 한 줄이다.
  *
- * 할 일은 오늘 플래너(`withLiveTasks`)에서만 목록의 것(미완료 + 오늘 완료)을 보여 준다. 지난 날은
- * 그날 완료한 할 일만 보여 준다 — 할 일에는 날짜가 없어 그날의 미완료를 알 수 없다.
+ * 할 일에는 날짜가 없어 날짜마다 보여 줄 것이 다르다(`tasks`).
+ * - `live`(오늘): 목록의 것(미완료 + 오늘 완료)을 보여 주고 고칠 수 있다.
+ * - `completed`(지난 날): 그날 완료한 것만 보여 준다 — 그날의 미완료는 알 수 없다.
+ * - `upcoming`(미래): 지금 미완료인 것을 그대로 보여 준다. 체크는 오늘 플래너에서 한다.
  */
+export type PlannerTaskMode = "live" | "completed" | "upcoming";
+
 export function plannerSubjectItems(
   day: PlannerDay,
   liveSubjects: readonly SubjectResponse[] | null,
-  withLiveTasks = true,
+  tasks: PlannerTaskMode = "live",
 ): PlannerSubjectItem[] {
   const recorded = new Map<string, PlannerSubjectItem>();
   const recordedOf = (subjectId: number) => {
@@ -84,18 +88,23 @@ export function plannerSubjectItems(
       name: subject.name,
       colorIndex: subject.colorIndex,
       focusSec: fromRecord?.focusSec ?? 0,
-      tasks: withLiveTasks
-        ? [
-            ...subject.tasks.map((task) => ({
-              id: task.id,
-              name: task.name,
-              done: task.doneAt !== null,
-              live: true,
-            })),
-            // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
-            ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
-          ]
-        : (fromRecord?.tasks ?? []),
+      tasks:
+        tasks === "live"
+          ? [
+              ...subject.tasks.map((task) => ({
+                id: task.id,
+                name: task.name,
+                done: task.doneAt !== null,
+                live: true,
+              })),
+              // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
+              ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
+            ]
+          : tasks === "upcoming"
+            ? subject.tasks
+                .filter((task) => task.doneAt === null)
+                .map((task) => ({ id: task.id, name: task.name, done: false, live: false }))
+            : (fromRecord?.tasks ?? []),
       live: true,
     };
   });

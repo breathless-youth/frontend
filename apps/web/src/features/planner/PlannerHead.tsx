@@ -9,25 +9,22 @@ import { Skeleton } from "@/components/ui/Skeleton";
  */
 export function PlannerHead({
   dateKey,
-  canGoNext,
   onPrev,
   onNext,
   onOpenPicker,
   dday,
-  readOnly,
+  tasksLocked,
   totals,
 }: {
   dateKey: string;
-  /** 오늘 플래너에서는 다음 날로 갈 수 없다. */
-  canGoNext: boolean;
   onPrev: () => void;
   onNext: () => void;
   /** 날짜를 탭했다 — 날짜 선택 시트를 연다. */
   onOpenPicker: () => void;
   /** D-Day가 설정돼 있을 때만 — `D-62`와 제목. */
   dday: { label: string; title: string } | null;
-  /** 지난 날 플래너 — 볼 수만 있다는 안내를 붙인다. */
-  readOnly: boolean;
+  /** 오늘이 아닌 날의 플래너 — 할 일은 고칠 수 없다는 안내를 붙인다(과목은 어느 날에서나 고친다). */
+  tasksLocked: boolean;
   totals: { focusSec: number; studySec: number } | "pending" | "error";
 }) {
   return (
@@ -58,9 +55,8 @@ export function PlannerHead({
           <button
             type="button"
             aria-label="다음 날"
-            disabled={!canGoNext}
             onClick={onNext}
-            className="flex size-9 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex size-9 items-center justify-center"
           >
             <IconChevronRight size={13} color="var(--color-foreground)" />
           </button>
@@ -70,8 +66,10 @@ export function PlannerHead({
             {dday.label} · {dday.title}
           </p>
         )}
-        {readOnly && (
-          <p className="text-xs leading-4 text-text-tertiary">지난 날은 보기만 할 수 있어요</p>
+        {tasksLocked && (
+          <p className="text-xs leading-4 text-text-tertiary">
+            할 일은 오늘 플래너에서만 고칠 수 있어요
+          </p>
         )}
       </div>
 

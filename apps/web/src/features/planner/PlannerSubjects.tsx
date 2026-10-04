@@ -45,24 +45,29 @@ interface Menu {
  * 그날 완료한 할 일은 체크된 채 과목 아래에 보인다. 과목을 고르지 않고 공부한 순공은 목록 맨 아래에
  * `과목 없음` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
  *
- * `store`가 있으면(오늘 플래너) 세션 과목 시트와 같은 목록을 같은 방식으로 관리한다 — 할 일 탭=완료 토글,
+ * `store`가 있으면 세션 과목 시트와 같은 목록을 같은 방식으로 관리한다 — 할 일 탭=완료 토글,
  * 길게 누르기=`이름 변경 · 삭제` 메뉴, 할 일 왼쪽 스와이프=삭제, 과목을 길게 누른 채 끌기=순서 변경,
- * 추가·이름 변경은 그 자리의 입력 + `완료`. `store`가 없으면(지난 날) 보기 전용이다.
+ * 추가·이름 변경은 그 자리의 입력 + `완료`. 과목은 날짜와 무관한 목록이라 어느 날의 플래너에서나
+ * 고치고, 할 일은 오늘 플래너에서만 고친다(`tasksEditable`). `store`가 없으면(과목 목록을 못 받음)
+ * 보기 전용이다.
  */
 export function PlannerSubjects({
   items,
   unassignedFocusSec,
   emptyMessage,
   store = null,
+  tasksEditable = true,
   onNotice,
   onRetryLoad,
 }: {
   items: readonly PlannerSubjectItem[];
   unassignedFocusSec: number;
-  /** 보기 전용일 때 그날 기록이 없으면 과목 목록 아래에 보여 줄 문구 — 첫 줄이 제목, 둘째 줄이 설명. */
+  /** 그날 기록이 없으면 과목 목록 아래에 보여 줄 문구 — 첫 줄이 제목, 둘째 줄이 설명. */
   emptyMessage: readonly [string, string] | null;
-  /** 오늘 플래너의 과목 목록 — 있으면 관리할 수 있다. */
+  /** 과목 목록 — 있으면 관리할 수 있다. */
   store?: SubjectsStore | null;
+  /** 할 일을 추가·수정할 수 있는가 — 오늘 플래너만 그렇다. */
+  tasksEditable?: boolean;
   /** 개수 상한 같은 짧은 알림 — 호출부의 토스트. */
   onNotice?: (message: string) => void;
   /** 과목 목록 조회가 실패했을 때의 재시도 — 있으면 재시도 줄을 보여 준다. */
@@ -70,6 +75,12 @@ export function PlannerSubjects({
 }) {
   const hasUnassigned = unassignedFocusSec > 0;
   const unassigned = hasUnassigned && <UnassignedRow focusSec={unassignedFocusSec} />;
+  const emptyNote = emptyMessage !== null && (
+    <div className="flex flex-col gap-0.5 pt-2">
+      <p className="text-[15px] leading-5 font-semibold text-foreground">{emptyMessage[0]}</p>
+      <p className="text-xs leading-4 text-muted-foreground">{emptyMessage[1]}</p>
+    </div>
+  );
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -77,8 +88,10 @@ export function PlannerSubjects({
         <ManagedSubjects
           items={items}
           store={store}
+          tasksEditable={tasksEditable}
           onNotice={onNotice ?? noop}
           unassigned={unassigned}
+          emptyNote={emptyNote}
         />
       ) : (
         <>
@@ -88,14 +101,7 @@ export function PlannerSubjects({
             ))}
             {unassigned}
           </div>
-          {emptyMessage !== null && (
-            <div className="flex flex-col gap-0.5 pt-2">
-              <p className="text-[15px] leading-5 font-semibold text-foreground">
-                {emptyMessage[0]}
-              </p>
-              <p className="text-xs leading-4 text-muted-foreground">{emptyMessage[1]}</p>
-            </div>
-          )}
+          {emptyNote}
           {onRetryLoad !== undefined && (
             <p className="pt-2 text-xs leading-4 text-muted-foreground">
               {SUBJECT_SHEET_COPY.loadFailed}{" "}
@@ -512,6 +518,7 @@ function ManagedTask({
 function ManagedSubject({
   item,
   store,
+  tasksEditable,
   editing,
   menu,
   reordering,
@@ -525,6 +532,7 @@ function ManagedSubject({
 }: {
   item: PlannerSubjectItem;
   store: SubjectsStore;
+  tasksEditable: boolean;
   editing: Editing | null;
   menu: Menu | null;
   /** 어느 과목이든 순서를 끄는 중인가 — 모든 과목에 핸들이 보인다. */
@@ -670,7 +678,7 @@ function ManagedSubject({
           </ul>
         )}
 
-        {addingTask ? (
+        {!tasksEditable ? null : addingTask ? (
           <InlineEditor
             maxLength={100}
             placeholder="할 일 이름"
@@ -708,13 +716,17 @@ function ManagedSubject({
 function ManagedSubjects({
   items,
   store,
+  tasksEditable,
   onNotice,
   unassigned,
+  emptyNote,
 }: {
   items: readonly PlannerSubjectItem[];
   store: SubjectsStore;
+  tasksEditable: boolean;
   onNotice: (message: string) => void;
   unassigned: ReactNode;
+  emptyNote: ReactNode;
 }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -729,6 +741,7 @@ function ManagedSubjects({
         key={itemKey(item)}
         item={item}
         store={store}
+        tasksEditable={tasksEditable}
         editing={editing}
         menu={menu}
         reordering={reorder.reorderingId !== null}
@@ -753,6 +766,7 @@ function ManagedSubjects({
         {empty ? unassigned : subjects}
         {!empty && unassigned}
       </div>
+      {emptyNote}
 
       {empty && (
         <div className="flex flex-col gap-1 pt-2 pb-1">

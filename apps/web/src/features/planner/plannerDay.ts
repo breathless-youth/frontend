@@ -6,7 +6,7 @@ import type {
   SubjectRef,
 } from "@focusmakers/types";
 
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { kstDateKey } from "@/features/records/recordsFormat";
 import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetable";
 
 /**
@@ -298,10 +298,4 @@ export function plannerCellFills(day: Pick<PlannerDay, "startMs" | "paints">): P
     }
   }
   return cells;
-}
-
-/** 플래너 날짜를 하루 옮긴다. 오늘(플래너 기준)보다 뒤로는 가지 않는다. */
-export function shiftPlannerDate(dateKey: string, delta: -1 | 1, todayKey: string): string {
-  const next = addDaysToDateKey(dateKey, delta);
-  return next > todayKey ? dateKey : next;
 }
