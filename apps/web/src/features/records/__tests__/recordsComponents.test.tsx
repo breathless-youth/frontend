@@ -378,13 +378,13 @@ describe("SessionListItem", () => {
     const { rerender } = render(
       <SessionListItem session={session({ focusRate: 96 })} expanded={false} onToggle={vi.fn()} />,
     );
-    expect(screen.getByText("집중 96%")).toHaveClass("bg-brand-subtle", "text-brand-subtle-text");
+    expect(screen.getByText("집중 96%")).toHaveClass("bg-brand-subtle", "text-primary");
     expect(screen.getByText("집중 96%")).not.toHaveClass("bg-primary");
 
     rerender(
       <SessionListItem session={session({ focusRate: 83 })} expanded={false} onToggle={vi.fn()} />,
     );
-    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle", "text-brand-subtle-text");
+    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle", "text-primary");
   });
 
   it("미니 타임라인은 순공색 바탕 위에 자동 멈춤·일시정지 구간만 제자리에 덧칠한다", () => {
