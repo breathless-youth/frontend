@@ -1,4 +1,5 @@
 import type {
+  CompletedTasksResponse,
   SubjectCreateRequest,
   SubjectOrderRequest,
   SubjectResponse,
@@ -37,6 +38,15 @@ export async function listSubjects(): Promise<SubjectResponse[]> {
     throw new Error("과목 조회 실패");
   }
   return body as SubjectResponse[];
+}
+
+/** 기간(KST 날짜, 양끝 포함) 안에 완료한 할 일 — 완료 시각 포함. 서버 상한은 31일이다. */
+export function listCompletedTasks(range: {
+  from: string;
+  to: string;
+}): Promise<CompletedTasksResponse> {
+  const query = `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
+  return send(`/completed-tasks${query}`, { method: "GET" }, "완료한 할 일 조회 실패");
 }
 
 export function createSubject(body: SubjectCreateRequest): Promise<SubjectResponse> {

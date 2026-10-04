@@ -188,8 +188,8 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     const plannerKey = plannerTodayKey(new Date(startedAtMs));
     const day =
       plannerKey === dateKey
-        ? assemblePlannerDay(plannerKey, stats.json, empty)
-        : assemblePlannerDay(plannerKey, empty, stats.json);
+        ? assemblePlannerDay(plannerKey, stats.json, empty, { tasks: [], subjects: [] })
+        : assemblePlannerDay(plannerKey, empty, stats.json, { tasks: [], subjects: [] });
     // 과목별 시간은 순공 기준이다.
     expect(day.subjectRows).toEqual([
       { subjectId: english.json.id, focusSec: 1500 },

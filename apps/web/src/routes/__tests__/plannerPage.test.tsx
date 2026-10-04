@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  CompletedTasksResponse,
   StudySessionListResponse,
   StudySessionSummary,
   SubjectResponse,
@@ -25,6 +26,7 @@ import {
   createTask,
   deleteSubject,
   deleteTask,
+  listCompletedTasks,
   listSubjects,
   renameSubject,
   reorderSubjects,
@@ -36,6 +38,7 @@ import { PlannerPage } from "@/routes/PlannerPage";
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/subjectApi", () => ({
   listSubjects: vi.fn(),
+  listCompletedTasks: vi.fn(),
   createSubject: vi.fn(),
   renameSubject: vi.fn(),
   deleteSubject: vi.fn(),
@@ -64,6 +67,7 @@ window.PointerEvent = TestPointerEvent as unknown as typeof PointerEvent;
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedSubjects = vi.mocked(listSubjects);
+const mockedCompleted = vi.mocked(listCompletedTasks);
 const mockedDday = vi.mocked(getDday);
 
 const TODAY = plannerTodayKey();
@@ -108,7 +112,24 @@ function studiedYesterday(): StudySessionSummary {
         focusSec: 3000,
       },
     ],
-    completedTasks: [{ id: 9, name: "단어 60개 암기", subjectId: 3, deleted: false }],
+    completedTasks: [],
+  };
+}
+
+/** 어제 완료한 할 일 — 세션 중(09:40)에 하나, 세션 없이 밤(22:10)에 하나. */
+function completedYesterday(): CompletedTasksResponse {
+  return {
+    tasks: [
+      {
+        id: 9,
+        name: "단어 60개 암기",
+        subjectId: 3,
+        doneAt: kst(YESTERDAY, 9, 40),
+        deleted: false,
+      },
+      { id: 10, name: "오답 노트", subjectId: 3, doneAt: kst(YESTERDAY, 22, 10), deleted: false },
+    ],
+    subjects: [{ id: 3, name: "영어", colorIndex: 7, deleted: false }],
   };
 }
 
@@ -138,6 +159,9 @@ describe("PlannerPage", () => {
     mockedStats.mockImplementation((date) =>
       Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
     );
+    mockedCompleted.mockImplementation(({ from }) =>
+      Promise.resolve(from === YESTERDAY ? completedYesterday() : { tasks: [], subjects: [] }),
+    );
     mockedSubjects.mockResolvedValue([]);
     mockedDday.mockResolvedValue(null);
   });
@@ -148,7 +172,10 @@ describe("PlannerPage", () => {
     const english = await screen.findByRole("heading", { name: "영어" });
     expect(english.closest("section")).toHaveTextContent("50분");
     expect(screen.getByText("단어 60개 암기")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "완료" })).toBeInTheDocument();
+    // 세션 없이 체크한 할 일도 그날 완료로 보인다.
+    expect(screen.getByText("오답 노트")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "완료" })).toHaveLength(2);
+    expect(mockedCompleted).toHaveBeenCalledWith({ from: YESTERDAY, to: TODAY });
     // 과목 없이 공부한 1시간은 `과목 없음` 행으로 따로 보이고, 범례에도 같은 이름이 있다.
     expect(screen.getByRole("heading", { name: "과목 없음" }).closest("section")).toHaveTextContent(
       "1시간",
@@ -270,6 +297,16 @@ describe("PlannerPage", () => {
 
     await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(TODAY));
     expect(screen.getByRole("button", { name: "다음 날" })).toBeDisabled();
+  });
+
+  it("완료한 할 일 조회가 실패해도 과목별 시간과 타임테이블은 그린다", async () => {
+    mockedCompleted.mockRejectedValue(new Error("완료한 할 일 조회 실패"));
+    renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+    const english = await screen.findByRole("heading", { name: "영어" });
+    expect(english.closest("section")).toHaveTextContent("50분");
+    expect(screen.queryByText("단어 60개 암기")).not.toBeInTheDocument();
+    expect(screen.queryByText("플래너를 불러오지 못했어요")).not.toBeInTheDocument();
   });
 
   it("조회가 실패하면 오류 문구와 다시 시도를 보여준다", async () => {

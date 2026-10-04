@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { StudySessionListResponse, StudySessionSummary } from "@focusmakers/types";
+import type {
+  CompletedTasksResponse,
+  StudySessionListResponse,
+  StudySessionSummary,
+} from "@focusmakers/types";
 
 import {
-  assemblePlannerDay,
+  assemblePlannerDay as assembleWithCompleted,
   plannerCellFills,
   plannerDayWindow,
   plannerHours,
@@ -53,6 +57,15 @@ function stats(
     ...over,
   };
 }
+
+const NO_COMPLETED: CompletedTasksResponse = { tasks: [], subjects: [] };
+/** 완료 할 일이 관심사가 아닌 테스트는 빈 응답으로 조립한다. */
+const assemblePlannerDay = (
+  dateKey: string,
+  day: StudySessionListResponse,
+  next: StudySessionListResponse,
+  completed: CompletedTasksResponse = NO_COMPLETED,
+) => assembleWithCompleted(dateKey, day, next, completed);
 
 describe("플래너의 하루 구간", () => {
   it("05:00에 시작해 다음 날 05:00에 끝난다(KST)", () => {
@@ -200,7 +213,6 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
           focusSec: 3600,
         },
       ],
-      completedTasks: [{ id: 9, name: "단어 암기", subjectId: 3, deleted: false }],
     });
 
     const day = assemblePlannerDay(
@@ -212,13 +224,52 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
         ],
       }),
       stats([]),
+      {
+        tasks: [
+          { id: 9, name: "단어 암기", subjectId: 3, doneAt: kst(DAY, 9, 30), deleted: false },
+        ],
+        subjects: [{ id: 3, name: "소마", colorIndex: 2, deleted: true }],
+      },
     );
 
     expect(day.subjectRows).toEqual([{ subjectId: 5, focusSec: 7200 }]);
     expect(day.completedTasks).toEqual([
-      { id: 9, name: "단어 암기", subjectId: 5, deleted: false },
+      {
+        id: 9,
+        name: "단어 암기",
+        subjectId: 5,
+        doneAtMs: Date.parse(kst(DAY, 9, 30)),
+        deleted: false,
+      },
     ]);
     expect(day.paints).toHaveLength(1);
+  });
+});
+
+describe("그날 완료한 할 일", () => {
+  const task = (id: number, doneAt: string) => ({
+    id,
+    name: `할 일 ${id}`,
+    subjectId: 3,
+    doneAt,
+    deleted: false,
+  });
+
+  it("완료 시각이 05:00~다음 날 05:00에 든 것만 남긴다 — 세션이 없어도 된다", () => {
+    const day = assemblePlannerDay(DAY, stats([]), stats([]), {
+      tasks: [
+        task(1, kst(DAY, 4, 59)), // 전날 플래너의 몫
+        task(2, kst(DAY, 5)),
+        task(3, kst(DAY, 21, 30)),
+        task(4, kst(NEXT, 1, 20)), // 자정을 넘겼지만 05시 전이라 이날
+        task(5, kst(NEXT, 5)), // 다음 날 플래너의 몫
+      ],
+      subjects: [{ id: 3, name: "영어", colorIndex: 7, deleted: false }],
+    });
+
+    expect(day.completedTasks.map((done) => done.id)).toEqual([2, 3, 4]);
+    // 공부 기록이 없는 날도 과목 이름·색은 완료 할 일 응답에서 얻는다.
+    expect(day.subjects.get(3)?.name).toBe("영어");
   });
 });
 

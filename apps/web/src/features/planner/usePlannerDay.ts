@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import type { StudySessionListResponse } from "@focusmakers/types";
+import type { CompletedTasksResponse, StudySessionListResponse } from "@focusmakers/types";
 
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
-import { dailyStatsQuery } from "@/lib/statsQueries";
+import { completedTasksQuery, dailyStatsQuery } from "@/lib/statsQueries";
 
 import { assemblePlannerDay, type PlannerDay } from "./plannerDay";
 
@@ -26,12 +26,17 @@ const EMPTY_STATS: StudySessionListResponse = {
   subjects: [],
 };
 
+const NO_COMPLETED_TASKS: CompletedTasksResponse = { tasks: [], subjects: [] };
+
 /**
  * 플래너 하루 조회 훅
  *
  * 플래너의 하루(05:00~다음 날 05:00)는 서버의 날짜 둘에 걸친다. 일간 조회를 그 날짜와 다음 날짜
- * 두 번 받아 `assemblePlannerDay`로 조립한다(서버 변경 없음). 기록 탭 일간 뷰와 같은 쿼리 키를
- * 써서, 기록 탭에서 넘어오면 그날 조회는 캐시로 바로 그려진다.
+ * 두 번 받아 `assemblePlannerDay`로 조립한다. 기록 탭 일간 뷰와 같은 쿼리 키를 써서, 기록 탭에서
+ * 넘어오면 그날 조회는 캐시로 바로 그려진다.
+ *
+ * 완료한 할 일은 같은 이틀을 한 번에 받는다. 이 조회가 실패하면 할 일 없이 그린다 — 타임테이블과
+ * 과목별 시간까지 막을 이유가 없다.
  */
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
@@ -44,14 +49,20 @@ export function usePlannerDay(userId: number | null, dateKey: string): PlannerDa
     enabled: userId != null && !nextIsFuture,
   });
 
+  const completed = useQuery({
+    ...completedTasksQuery(userId ?? 0, { from: dateKey, to: nextKey }),
+    enabled: userId != null,
+  });
+
   const dayData = day.data;
+  const completedData = completed.data ?? (completed.isError ? NO_COMPLETED_TASKS : undefined);
   const nextData = nextIsFuture ? EMPTY_STATS : next.data;
   const assembled = useMemo(
     () =>
-      dayData !== undefined && nextData !== undefined
-        ? assemblePlannerDay(dateKey, dayData, nextData)
+      dayData !== undefined && nextData !== undefined && completedData !== undefined
+        ? assemblePlannerDay(dateKey, dayData, nextData, completedData)
         : null,
-    [dateKey, dayData, nextData],
+    [dateKey, dayData, nextData, completedData],
   );
 
   if (assembled !== null) {

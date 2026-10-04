@@ -1,5 +1,8 @@
 import type { SubjectResponse } from "@focusmakers/types";
 
+import { kstDateKey } from "@/features/records/recordsFormat";
+import { kstDayStartMs } from "@/features/records/recordsTimetable";
+
 import type { PlannerDay } from "./plannerDay";
 
 export interface PlannerTaskItem {
@@ -30,12 +33,19 @@ export interface PlannerSubjectItem {
  *
  * 할 일은 오늘 플래너(`withLiveTasks`)에서만 목록의 것(미완료 + 오늘 완료)을 보여 준다. 지난 날은
  * 그날 완료한 할 일만 보여 준다 — 할 일에는 날짜가 없어 그날의 미완료를 알 수 없다.
+ *
+ * 오늘 플래너에서 목록과 완료 기록이 맡는 범위는 겹치지 않는다. 목록은 자정(KST) 이후 완료한 것만
+ * 주므로 그 전에 완료한 것만 기록에서 채우고(새벽 0~5시의 오늘 플래너), 자정 이후는 목록을 따른다 —
+ * 방금 완료를 풀거나 지운 할 일이 낡은 기록 때문에 되살아나 보이지 않는다.
  */
 export function plannerSubjectItems(
   day: PlannerDay,
   liveSubjects: readonly SubjectResponse[] | null,
   withLiveTasks = true,
+  now: Date = new Date(),
 ): PlannerSubjectItem[] {
+  const liveSinceMs = kstDayStartMs(kstDateKey(now));
+  const doneAtMsById = new Map(day.completedTasks.map((task) => [task.id, task.doneAtMs]));
   const recorded = new Map<string, PlannerSubjectItem>();
   const recordedOf = (subjectId: number) => {
     const ref = day.subjects.get(subjectId);
@@ -63,6 +73,10 @@ export function plannerSubjectItems(
     }
   }
   for (const task of day.completedTasks) {
+    // 오늘 플래너에서는 지운 할 일을 숨긴다. 지난 날은 기록이라 남긴다.
+    if (withLiveTasks && task.deleted) {
+      continue;
+    }
     recordedOf(task.subjectId)?.tasks.push({
       id: task.id,
       name: task.name,
@@ -86,14 +100,18 @@ export function plannerSubjectItems(
       focusSec: fromRecord?.focusSec ?? 0,
       tasks: withLiveTasks
         ? [
-            ...subject.tasks.map((task) => ({
-              id: task.id,
-              name: task.name,
-              done: task.doneAt !== null,
-              live: true,
-            })),
-            // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
-            ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
+            ...subject.tasks
+              // 자정~05시에 완료한 것은 전날 플래너의 몫이다.
+              .filter((task) => task.doneAt === null || Date.parse(task.doneAt) >= day.startMs)
+              .map((task) => ({
+                id: task.id,
+                name: task.name,
+                done: task.doneAt !== null,
+                live: true,
+              })),
+            ...(fromRecord?.tasks.filter(
+              (task) => !liveTaskIds.has(task.id) && (doneAtMsById.get(task.id) ?? 0) < liveSinceMs,
+            ) ?? []),
           ]
         : (fromRecord?.tasks ?? []),
       live: true,

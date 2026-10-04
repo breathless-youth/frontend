@@ -1,5 +1,5 @@
 import type {
-  CompletedTaskResponse,
+  CompletedTasksResponse,
   StatusEventPayload,
   StudySessionListResponse,
   StudySessionSummary,
@@ -13,8 +13,8 @@ import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetabl
  * 플래너의 하루 — 순수 함수.
  *
  * 플래너의 하루는 05:00부터 다음 날 05:00까지다(KST). 밤 11시~새벽 1시에 공부하면 전부 전날
- * 플래너에 이어서 보인다. **서버는 바꾸지 않는다** — 세션 분할과 날짜 귀속은 자정 기준 그대로라,
- * 앱이 일간 조회를 그 날짜와 다음 날짜 두 번 받아 05:00~다음 날 05:00 구간만 남긴다.
+ * 플래너에 이어서 보인다. 서버의 날짜는 자정 기준 그대로라, 앱이 일간 조회를 그 날짜와 다음 날짜
+ * 두 번 받아 05:00~다음 날 05:00 구간만 남긴다. 완료한 할 일도 이틀치를 받아 완료 시각으로 가른다.
  * 그래서 새벽 0~5시에 공부한 날은 플래너의 순공과 기록 탭 달력 칸의 순공이 다를 수 있다.
  */
 
@@ -51,6 +51,15 @@ export interface PlannerSubjectRow {
   focusSec: number;
 }
 
+/** 그날 완료한 할 일 — 세션에서 체크했든 세션 없이 체크했든 완료 시각이 이 하루에 든 것. */
+export interface PlannerCompletedTask {
+  id: number;
+  name: string;
+  subjectId: number;
+  doneAtMs: number;
+  deleted: boolean;
+}
+
 export interface PlannerDay {
   dateKey: string;
   startMs: number;
@@ -63,8 +72,8 @@ export interface PlannerDay {
   subjectRows: PlannerSubjectRow[];
   /** 과목을 고르지 않고 공부한 순공(초). */
   unassignedFocusSec: number;
-  /** 그날 세션에서 완료한 할 일 — id 중복 없이. */
-  completedTasks: CompletedTaskResponse[];
+  /** 완료 시각이 이 하루에 든 할 일 — 완료 시각 순. */
+  completedTasks: PlannerCompletedTask[];
   /** 과목 id → 이름·색(이름이 같으면 대표 과목). */
   subjects: ReadonlyMap<number, SubjectRef>;
 }
@@ -156,7 +165,7 @@ function paintSession(
 }
 
 /**
- * 일간 조회 이틀치(그 날짜, 다음 날짜)로 플래너의 하루를 조립한다.
+ * 일간 조회 이틀치(그 날짜, 다음 날짜)와 같은 이틀의 완료 할 일로 플래너의 하루를 조립한다.
  *
  * 구간 안에 온전히 든 세션·과목 구간은 서버가 준 순공·총 공부를 그대로 쓴다. 05:00을 걸친 것만
  * 앱이 이벤트로 다시 나눈다(총 공부 = 길이 − 일시정지 겹침, 순공 = 길이 − 모든 이벤트 겹침).
@@ -165,11 +174,13 @@ export function assemblePlannerDay(
   dateKey: string,
   dayStats: StudySessionListResponse,
   nextDayStats: StudySessionListResponse,
+  completed: CompletedTasksResponse,
 ): PlannerDay {
   const window = plannerDayWindow(dateKey);
   const rawSubjects = subjectRefMap([
     ...(dayStats.subjects ?? []),
     ...(nextDayStats.subjects ?? []),
+    ...completed.subjects,
   ]);
   const canonical = (subjectId: number) => rawSubjects.get(subjectId)?.id ?? subjectId;
 
@@ -181,7 +192,6 @@ export function assemblePlannerDay(
   let studyMs = 0;
   const paints: PlannerPaint[] = [];
   const subjectFocusMs = new Map<number, number>();
-  const completedTasks = new Map<number, CompletedTaskResponse>();
 
   for (const session of sessions) {
     const span = clip(session.startedAt, session.endedAt, window);
@@ -218,14 +228,6 @@ export function assemblePlannerDay(
       subjectFocusMs.set(id, (subjectFocusMs.get(id) ?? 0) + ms);
     }
 
-    // 완료 할 일은 시각 없이 세션 조각에 붙어 온다 — 조각이 이 하루에서 시작했으면 이날 것으로 본다.
-    // ponytail: 05:00을 걸친 조각의 완료 할 일은 앞쪽 날에만 보인다. 완료 시각이 내려오면 그 시각으로 가른다.
-    if (Date.parse(session.startedAt) >= window.startMs) {
-      for (const task of session.completedTasks ?? []) {
-        completedTasks.set(task.id, { ...task, subjectId: canonical(task.subjectId) });
-      }
-    }
-
     paints.push(...paintSession(span, session, canonical));
   }
 
@@ -245,7 +247,20 @@ export function assemblePlannerDay(
     paints,
     subjectRows,
     unassignedFocusSec: Math.max(0, focusSec - assignedSec),
-    completedTasks: [...completedTasks.values()],
+    completedTasks: completed.tasks.flatMap((task) => {
+      const doneAtMs = Date.parse(task.doneAt);
+      return doneAtMs >= window.startMs && doneAtMs < window.endMs
+        ? [
+            {
+              id: task.id,
+              name: task.name,
+              subjectId: canonical(task.subjectId),
+              doneAtMs,
+              deleted: task.deleted,
+            },
+          ]
+        : [];
+    }),
     subjects: rawSubjects,
   };
 }

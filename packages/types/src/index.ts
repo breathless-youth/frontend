@@ -366,6 +366,27 @@ export interface CompletedTaskResponse {
   deleted: boolean;
 }
 
+/** 기간 안에 완료한 할 일 1건 (`GET /api/subjects/completed-tasks`) — 완료 시각이 함께 온다. */
+export interface CompletedTaskItem {
+  id: number;
+  name: string;
+  /** 과목 id — 응답의 `subjects[]`에서 이름·색을 찾는다 */
+  subjectId: number;
+  /** 완료 시각(UTC ISO-8601) */
+  doneAt: string;
+  /** 지운 할 일이면 true — 과목을 지워 함께 지워진 것도 포함 */
+  deleted: boolean;
+}
+
+/**
+ * 기간 안에 완료한 할 일. 기준은 할 일의 지금 완료 시각이라 세션 없이 체크한 것도 들어 있고, 완료를 해제한 것은 없다.
+ * `tasks`는 완료 시각 오름차순, `subjects`는 id 오름차순(지운 과목 포함).
+ */
+export interface CompletedTasksResponse {
+  tasks: CompletedTaskItem[];
+  subjects: SubjectRef[];
+}
+
 export interface TaskResponse {
   id: number;
   name: string;
