@@ -10,8 +10,7 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import { addDaysToDateKey } from "@/features/records/recordsFormat";
-import { plannerTodayKey } from "@/features/planner/plannerDay";
+import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { LONG_PRESS_MS } from "@/features/study-session/subjectInteractions";
 import {
   trackPlannerDateChanged,
@@ -66,7 +65,7 @@ const mockedStats = vi.mocked(listStudySessionStats);
 const mockedSubjects = vi.mocked(listSubjects);
 const mockedDday = vi.mocked(getDday);
 
-const TODAY = plannerTodayKey();
+const TODAY = kstDateKey();
 const YESTERDAY = addDaysToDateKey(TODAY, -1);
 const kst = (day: string, hour: number, minute = 0) =>
   new Date(
@@ -263,6 +262,20 @@ describe("PlannerPage", () => {
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
     expect(screen.getByText("완료한 할 일도 없어요")).toBeInTheDocument();
     expect(screen.queryByText(/^D-/)).not.toBeInTheDocument();
+  });
+
+  it("새벽 0~5시에도 달력의 오늘 플래너를 연다 — 05시 기준은 한 장에 담는 구간에만 쓴다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-05T03:00:00+09:00"));
+    try {
+      renderPlanner("?userId=7&date=2026-10-05", { via: "records" });
+
+      expect(await screen.findByRole("button", { name: /10월 5일/ })).toBeInTheDocument();
+      expect(screen.queryByText("지난 날은 보기만 할 수 있어요")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "다음 날" })).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("미래 날짜나 형식이 틀린 날짜로 열면 오늘 플래너를 연다", async () => {

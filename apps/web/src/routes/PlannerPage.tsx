@@ -8,13 +8,14 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
-import { plannerTodayKey, shiftPlannerDate } from "@/features/planner/plannerDay";
+import { shiftPlannerDate } from "@/features/planner/plannerDay";
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import type { PlannerEntry } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
+import { kstDateKey } from "@/features/records/recordsFormat";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -29,8 +30,10 @@ const SWIPE_THRESHOLD_PX = 48;
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
  *
- * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 플래너의 하루는
- * 05:00~다음 날 05:00이라, 새벽 0~5시에 여는 "오늘의 플래너"는 전날 플래너다.
+ * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 한 장에 담는 구간은
+ * 05:00~다음 날 05:00이지만, 열 때의 "오늘"은 달력 날짜(자정 기준)다 — 기록 탭에서 고른 날짜와
+ * 같은 날짜의 플래너가 열린다. 그래서 새벽 0~5시의 오늘 플래너는 타임테이블이 아직 비어 있고,
+ * 그 시간의 공부는 전날 플래너에 이어진다.
  * 과목·할 일 관리는 오늘 플래너에서만 되고(세션 과목 시트와 같은 목록), 지난 날은 보기 전용이다.
  * 탭 바 없는 전체 화면 라우트다(`/planner?date=YYYY-MM-DD`, `lib/nativeTabBar.ts`).
  */
@@ -40,7 +43,7 @@ export function PlannerPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const todayKey = plannerTodayKey();
+  const todayKey = kstDateKey();
   const requested = searchParams.get("date");
   // 형식이 틀리거나 미래 날짜면 오늘 플래너를 연다.
   const dateKey =

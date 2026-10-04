@@ -17,7 +17,7 @@ import {
   materializeSubjectSegments,
   selectSubjectSegment,
 } from "@/features/study-session/subjectSegments";
-import { assemblePlannerDay, plannerTodayKey } from "@/features/planner/plannerDay";
+import { assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 
 /**
@@ -185,7 +185,7 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     expect(refs.get(math.json.id)?.colorIndex).toBe(math.json.colorIndex);
     // 플래너의 하루로 조립한다 — 세션이 새벽 0~5시면 전날 플래너에 든다.
     const empty = { ...stats.json, sessions: [], sessionCount: 0, subjects: [] };
-    const plannerKey = plannerTodayKey(new Date(startedAtMs));
+    const plannerKey = plannerDateKeyOf(new Date(startedAtMs));
     const day =
       plannerKey === dateKey
         ? assemblePlannerDay(plannerKey, stats.json, empty)

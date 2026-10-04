@@ -30,9 +30,12 @@ export function plannerDayWindow(dateKey: string): { startMs: number; endMs: num
   return { startMs, endMs: startMs + DAY_MS };
 }
 
-/** 지금 시각이 속한 플래너 날짜 — 새벽 0~5시에는 전날이다. */
-export function plannerTodayKey(now: Date = new Date()): string {
-  return kstDateKey(new Date(now.getTime() - PLANNER_DAY_START_HOUR * HOUR_MS));
+/**
+ * 어떤 시각이 속한 플래너 날짜 — 새벽 0~5시는 전날 플래너에 든다.
+ * 플래너를 열 때의 "오늘"은 이 값이 아니라 달력 날짜(자정 기준)다. 05시 기준은 한 장에 담는 구간에만 쓴다.
+ */
+export function plannerDateKeyOf(at: Date): string {
+  return kstDateKey(new Date(at.getTime() - PLANNER_DAY_START_HOUR * HOUR_MS));
 }
 
 /** 타임테이블이 한 구간을 무엇으로 칠할지. */

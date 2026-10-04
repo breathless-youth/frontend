@@ -7,7 +7,7 @@ import {
   plannerCellFills,
   plannerDayWindow,
   plannerHours,
-  plannerTodayKey,
+  plannerDateKeyOf,
   shiftPlannerDate,
 } from "../plannerDay";
 
@@ -62,9 +62,9 @@ describe("플래너의 하루 구간", () => {
   });
 
   it("새벽 0~5시의 오늘 플래너는 전날이다", () => {
-    expect(plannerTodayKey(new Date(kst(NEXT, 4, 59)))).toBe(DAY);
-    expect(plannerTodayKey(new Date(kst(NEXT, 5)))).toBe(NEXT);
-    expect(plannerTodayKey(new Date(kst(DAY, 23, 30)))).toBe(DAY);
+    expect(plannerDateKeyOf(new Date(kst(NEXT, 4, 59)))).toBe(DAY);
+    expect(plannerDateKeyOf(new Date(kst(NEXT, 5)))).toBe(NEXT);
+    expect(plannerDateKeyOf(new Date(kst(DAY, 23, 30)))).toBe(DAY);
   });
 
   it("시 라벨은 5에서 시작해 다음 날 4에서 끝난다", () => {
