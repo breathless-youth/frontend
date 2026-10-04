@@ -225,13 +225,6 @@ export function PlannerPage() {
                   taskMode,
                 )}
                 unassignedFocusSec={state.day.unassignedFocusSec}
-                emptyMessage={
-                  taskMode === "completed" &&
-                  state.day.studySec === 0 &&
-                  state.day.completedTasks.length === 0
-                    ? ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]
-                    : null
-                }
                 // 과목 목록을 받은 뒤부터 관리할 수 있다. 할 일은 오늘 플래너에서만 고친다.
                 store={subjects.status === "ready" ? subjects : null}
                 tasksEditable={isToday}
