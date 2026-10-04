@@ -13,7 +13,6 @@ export function PlannerHead({
   onNext,
   onOpenPicker,
   dday,
-  tasksLocked,
   totals,
 }: {
   dateKey: string;
@@ -23,8 +22,6 @@ export function PlannerHead({
   onOpenPicker: () => void;
   /** D-Day가 설정돼 있을 때만 — `D-62`와 제목. */
   dday: { label: string; title: string } | null;
-  /** 오늘이 아닌 날의 플래너 — 할 일은 고칠 수 없다는 안내를 붙인다(과목은 어느 날에서나 고친다). */
-  tasksLocked: boolean;
   totals: { focusSec: number; studySec: number } | "pending" | "error";
 }) {
   return (
@@ -64,11 +61,6 @@ export function PlannerHead({
         {dday !== null && (
           <p className="truncate text-[13px] leading-4 font-semibold text-primary tabular-nums">
             {dday.label} · {dday.title}
-          </p>
-        )}
-        {tasksLocked && (
-          <p className="text-xs leading-4 text-text-tertiary">
-            할 일은 오늘 플래너에서만 고칠 수 있어요
           </p>
         )}
       </div>

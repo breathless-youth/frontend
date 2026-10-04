@@ -15,7 +15,6 @@ import {
   MAX_SUBJECTS,
   MAX_TASKS,
   subjectIdUnderPoint,
-  SWIPE_REMOVE_PX,
   SWIPE_SLOP_PX,
   useInlineNameEdit,
   usePressGestures,
@@ -46,7 +45,7 @@ interface Menu {
  * `과목 없음` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
  *
  * `store`가 있으면 세션 과목 시트와 같은 목록을 같은 방식으로 관리한다 — 할 일 탭=완료 토글,
- * 길게 누르기=`이름 변경 · 삭제` 메뉴, 할 일 왼쪽 스와이프=삭제, 과목을 길게 누른 채 끌기=순서 변경,
+ * 길게 누르기=`이름 변경 · 삭제` 메뉴, 과목을 길게 누른 채 끌기=순서 변경,
  * 추가·이름 변경은 그 자리의 입력 + `완료`. 과목은 날짜와 무관한 목록이라 어느 날의 플래너에서나
  * 고치고, 할 일은 오늘 플래너에서만 고친다(`tasksEditable`). `store`가 없으면(과목 목록을 못 받음)
  * 보기 전용이다.
@@ -457,58 +456,41 @@ function ManagedTask({
   menuOpen,
   onToggle,
   onOpenMenu,
-  onRemove,
   menu,
 }: {
   task: PlannerTaskItem;
   menuOpen: boolean;
   onToggle: (done: boolean) => void;
   onOpenMenu: () => void;
-  onRemove: () => void;
   menu: ReactNode;
 }) {
-  const { swipeX, pressed, handlers } = usePressGestures({
+  // 가로 스와이프는 날짜 넘김에 쓴다 — 삭제는 길게 눌러 여는 메뉴에서 한다.
+  const { pressed, handlers } = usePressGestures({
     onTap: () => onToggle(!task.done),
     onLongPress: onOpenMenu,
-    onSwipeLeft: onRemove,
   });
   return (
     <li className={cn("relative", menuOpen && "z-20")}>
-      <div className="relative overflow-hidden rounded-[8px]">
-        {/* 스와이프로 드러나는 삭제 표시 — 밀수록 진해지고 최대 75%까지다. */}
-        <span
-          aria-hidden
-          style={{ opacity: Math.min(0.75, (-swipeX * 1.5) / SWIPE_REMOVE_PX) }}
-          className="absolute inset-0 flex items-center justify-end rounded-[8px] bg-feedback-danger pr-3 text-xs leading-4 font-semibold text-white"
-        >
-          삭제
-        </span>
-        <div
-          role="checkbox"
-          tabIndex={0}
-          aria-checked={task.done}
-          aria-label={task.name}
-          {...handlers}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onToggle(!task.done);
-            }
-          }}
-          style={{ transform: `translateX(${String(swipeX)}px)` }}
-          className={cn(
-            TASK_ROW_CLASS,
-            "session-no-drag relative touch-pan-y select-none",
-            pressed && "opacity-60",
-            // 밀리는 동안에만 바탕을 칠해 뒤의 삭제 표시를 가린다 — 평소에는 과목 강조색이 비쳐야 한다.
-            swipeX === 0
-              ? "transition-transform duration-200 ease-out motion-reduce:transition-none"
-              : "rounded-none bg-muted",
-          )}
-        >
-          <TaskCheck done={task.done} />
-          <span className={taskNameClass(task.done)}>{task.name}</span>
-        </div>
+      <div
+        role="checkbox"
+        tabIndex={0}
+        aria-checked={task.done}
+        aria-label={task.name}
+        {...handlers}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggle(!task.done);
+          }
+        }}
+        className={cn(
+          TASK_ROW_CLASS,
+          "session-no-drag relative touch-pan-y select-none",
+          pressed && "opacity-60",
+        )}
+      >
+        <TaskCheck done={task.done} />
+        <span className={taskNameClass(task.done)}>{task.name}</span>
       </div>
       {menu}
     </li>
@@ -670,7 +652,6 @@ function ManagedSubject({
                   menuOpen={taskMenuOpen}
                   onToggle={(done) => void store.toggleTask(subjectId, task.id, done)}
                   onOpenMenu={() => onMenu({ subjectId, taskId: task.id })}
-                  onRemove={() => void store.removeTask(subjectId, task.id)}
                   menu={taskMenuOpen ? rowMenu(task.id) : null}
                 />
               );
