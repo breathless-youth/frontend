@@ -82,6 +82,9 @@ export function completedTasksQuery(userId: number, range: DateRange) {
   return queryOptions({
     queryKey: statsKeys.completedTasks(userId, range),
     queryFn: () => listCompletedTasks(range),
+    // 할 일을 체크·해제·삭제해도 이 조회를 따로 무효화하지 않는다. 대신 플래너를 열 때마다 다시
+    // 받는다 — 새벽에 오늘 플래너에서 고친 직후 어제 플래너로 넘어가도 낡은 완료 기록이 남지 않는다.
+    staleTime: 0,
   });
 }
 
