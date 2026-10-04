@@ -121,6 +121,8 @@ function RecordsContent({
               hasRecords: (dayFocusSec.get(dateKey) ?? 0) > 0,
             });
             setSelectedKey(dateKey);
+            // 같은 날로 돌아왔을 때 닫혔던 시트가 다시 열리지 않게 기억해 둔 세션도 지운다.
+            setSheetSessionId(null);
           }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
