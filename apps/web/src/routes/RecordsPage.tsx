@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   trackRecordsDateSelected,
@@ -13,6 +12,7 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { PeriodHeadline } from "@/features/records/PeriodHeadline";
 import { MonthPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
@@ -41,7 +41,6 @@ import {
   IconChevronRight,
   IconPlanner,
 } from "@/features/records/icons";
-import { slideNavigate } from "@/lib/pageTransition";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -85,8 +84,7 @@ function RecordsContent({
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const openPlanner = useOpenPlanner("records");
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
@@ -232,17 +230,7 @@ function RecordsContent({
             </p>
             <button
               type="button"
-              onClick={() => {
-                // 셸이 붙인 쿼리(구 앱의 신원 등)는 그대로 들고 간다.
-                const params = new URLSearchParams(location.search);
-                params.set("date", selectedKey);
-                slideNavigate("forward", () => {
-                  navigate(
-                    { pathname: "/planner", search: `?${params.toString()}` },
-                    { state: { via: "records" } },
-                  );
-                });
-              }}
+              onClick={() => openPlanner(selectedKey)}
               className="flex items-center gap-[5px] rounded-full bg-brand-subtle py-[7px] pr-2.5 pl-3 text-[13px] leading-4 font-bold text-brand-subtle-text"
             >
               <IconPlanner />

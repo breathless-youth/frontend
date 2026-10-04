@@ -14,7 +14,8 @@ import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
-import { IllustFlame } from "@/features/records/icons";
+import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { IconPlanner, IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
@@ -292,7 +293,7 @@ function HomeContent({ userId }: { userId: number }) {
 /**
  * 헤더
  *
- * 시안대로 좌상단 D-Day 블록 하나다(오른쪽 날짜 없음). D-Day API는 토큰 계약뿐이라 토큰
+ * 시안대로 좌상단 D-Day 블록, 맞은편에 오늘의 플래너로 가는 버튼이다. D-Day API는 토큰 계약뿐이라 토큰
  * 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다. 출처가 있는데 첫
  * `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
  * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
@@ -320,6 +321,7 @@ function HomeHeaderLead({
         <>
           {hiddenTitle}
           <DdaySection userId={userId} />
+          <PlannerEntryButton />
         </>
       );
     }
@@ -329,6 +331,21 @@ function HomeHeaderLead({
       <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
       <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
     </>
+  );
+}
+
+/** 헤더 오른쪽의 플래너 진입 버튼 — 오늘의 플래너를 연다. */
+function PlannerEntryButton() {
+  const openPlanner = useOpenPlanner("home");
+  return (
+    <button
+      type="button"
+      aria-label="오늘의 플래너"
+      onClick={() => openPlanner()}
+      className="flex size-10 shrink-0 items-center justify-center self-start rounded-full border border-border bg-muted text-brand-subtle-text"
+    >
+      <IconPlanner size={18} />
+    </button>
   );
 }
 

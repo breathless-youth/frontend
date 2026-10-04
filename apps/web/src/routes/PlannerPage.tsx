@@ -12,6 +12,7 @@ import { plannerTodayKey, shiftPlannerDate } from "@/features/planner/plannerDay
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
+import type { PlannerEntry } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
@@ -23,9 +24,6 @@ import { useUserId } from "@/lib/userId";
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 /** 날짜 넘김 스와이프 임계(px) — 기록 탭 달력의 월 스와이프와 같은 감각이다. */
 const SWIPE_THRESHOLD_PX = 48;
-
-/** 플래너를 연 곳 — 라우터 state로 받는다(URL에 싣지 않아 분석 경로가 하나로 유지된다). */
-export type PlannerEntry = "records" | "home";
 
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
