@@ -1,16 +1,27 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import { Skeleton } from "@/components/ui/Skeleton";
+
 import {
   buildMonthGrid,
   type CalendarMonth,
   dayOfDateKey,
   formatDuration,
   formatHeatClock,
+  type HeatLevel,
   heatLevel,
   isFutureDateKey,
-  WEEKDAY_LABELS,
+  MONDAY_FIRST_WEEKDAY_LABELS,
 } from "./recordsFormat";
+
+/** 달력 아래에 적는 그 달의 합계와 하루 평균. */
+export type MonthStats = {
+  totalFocusSec: number;
+  studiedDays: number;
+  /** 합계 ÷ 공부한 날 수. 공부한 날이 없으면 `null`. */
+  averageFocusSec: number | null;
+};
 
 /**
  * 월 달력
@@ -33,36 +44,58 @@ type MonthCalendarProps = {
   slideFrom: "left" | "right" | null;
   /** 스와이프로 월을 넘겼을 때 상위에 알린다. delta -1=이전, 1=다음. 계측·상태 갱신은 상위 몫. */
   onSwipeMonth: (delta: -1 | 1) => void;
+  /** 그 달의 합계·하루 평균. 기간 조회가 끝나기 전에는 `null`(자리표시를 그린다). */
+  monthStats: MonthStats | null;
 };
 
-const HEAT_BG: Record<"low" | "mid" | "high", string> = {
-  low: "bg-chart-heat-low",
-  mid: "bg-chart-heat-mid",
-  high: "bg-chart-heat-high",
+const HEAT_BG: Record<Exclude<HeatLevel, 0>, string> = {
+  1: "bg-chart-heat-1",
+  2: "bg-chart-heat-2",
+  3: "bg-chart-heat-3",
+  4: "bg-chart-heat-4",
+  5: "bg-chart-heat-5",
 };
+
+/** 범례 — 숫자는 "그 시간 이상"이다(0+는 2시간 미만). 달력 칸 농도(`heatLevel`)와 같은 2시간 간격. */
+const HEAT_LEGEND = [
+  { cls: HEAT_BG[1], label: "0+" },
+  { cls: HEAT_BG[2], label: "2+" },
+  { cls: HEAT_BG[3], label: "4+" },
+  { cls: HEAT_BG[4], label: "6+" },
+  { cls: HEAT_BG[5], label: "8+" },
+] as const;
 
 function CalendarCell({
   dateKey,
   isSelected,
+  isToday,
   isFuture,
   focusSec,
   onSelect,
 }: {
   dateKey: string;
   isSelected: boolean;
+  isToday: boolean;
   isFuture: boolean;
   focusSec: number;
   onSelect: (dateKey: string) => void;
 }) {
   const day = dayOfDateKey(dateKey);
   const level = heatLevel(focusSec);
-  const label = focusSec > 0 ? `${day}일, 순공 ${formatDuration(focusSec)}` : `${day}일, 기록 없음`;
+  const record = focusSec > 0 ? `순공 ${formatDuration(focusSec)}` : "기록 없음";
+  const label = `${isToday ? "오늘, " : ""}${day}일, ${record}`;
 
-  const fill = isSelected
-    ? "bg-primary text-primary-foreground"
-    : level === "none"
-      ? "bg-chart-empty text-muted-foreground"
-      : `${HEAT_BG[level]} text-foreground`;
+  // 진한 두 단계(6시간 이상)는 글자가 묻히지 않게 흰색으로 뒤집는다.
+  const onStrong = level >= 4;
+  const fill = isFuture ? "" : level === 0 ? "bg-chart-empty" : HEAT_BG[level];
+  const numberTone = isToday
+    ? // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
+      "rounded-full bg-foreground px-[5px] font-bold text-background"
+    : isFuture
+      ? "text-text-tertiary"
+      : onStrong
+        ? "font-bold text-white"
+        : "font-bold text-foreground";
 
   return (
     <button
@@ -75,16 +108,57 @@ function CalendarCell({
       className="flex aspect-square flex-1 items-center justify-center disabled:cursor-not-allowed"
     >
       <span
-        className={`flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[10px] ${fill}`}
+        // 선택일은 테두리로만 표시한다 — 농도 색을 가리지 않는다. ring-inset이라 칸 크기는 그대로다.
+        className={`flex aspect-square w-full flex-col items-center justify-center rounded-[10px] ${fill} ${
+          isSelected ? "ring-2 ring-foreground ring-inset" : ""
+        }`}
       >
-        <span className="text-[13px] leading-4 font-bold tabular-nums">{day}</span>
+        <span className={`text-xs leading-4 tabular-nums ${numberTone}`}>{day}</span>
         {focusSec > 0 && (
-          <span className={`text-[10px] leading-3 tabular-nums ${isSelected ? "opacity-85" : ""}`}>
+          <span
+            className={`text-[10px] leading-3 font-medium tabular-nums ${
+              onStrong ? "text-white" : "text-muted-foreground"
+            }`}
+          >
             {formatHeatClock(focusSec)}
           </span>
         )}
       </span>
     </button>
+  );
+}
+
+function MonthStatsRow({ month, stats }: { month: CalendarMonth; stats: MonthStats | null }) {
+  return (
+    <div className="flex gap-3 px-1 pt-3.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-[11px] leading-[14px] text-muted-foreground">{month.month}월 합계</p>
+        {stats === null ? (
+          <Skeleton className="h-[19px] w-20 rounded-md" />
+        ) : (
+          <p className="text-[15px] leading-[19px] font-bold text-foreground tabular-nums">
+            {formatDuration(stats.totalFocusSec)}
+          </p>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-[11px] leading-[14px] text-muted-foreground">하루 평균</p>
+        {stats === null ? (
+          <Skeleton className="h-[19px] w-20 rounded-md" />
+        ) : (
+          <>
+            <p className="text-[15px] leading-[19px] font-bold text-foreground tabular-nums">
+              {stats.averageFocusSec === null ? "—" : formatDuration(stats.averageFocusSec)}
+            </p>
+            <p className="text-[10.5px] leading-[13px] text-text-tertiary">
+              {stats.studiedDays === 0
+                ? "아직 공부한 날이 없어요"
+                : `공부한 ${String(stats.studiedDays)}일 기준`}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -104,8 +178,9 @@ export function MonthCalendar({
   onSelectDate,
   slideFrom,
   onSwipeMonth,
+  monthStats,
 }: MonthCalendarProps) {
-  const grid = useMemo(() => buildMonthGrid(month), [month]);
+  const grid = useMemo(() => buildMonthGrid(month, "monday"), [month]);
 
   // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
   // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
@@ -138,7 +213,7 @@ export function MonthCalendar({
   );
 
   return (
-    <div className="rounded-[20px] bg-muted shadow-sb-card px-2.5 pt-3.5 pb-[18px]">
+    <div className="rounded-[20px] bg-muted px-3 pt-3.5 pb-4 shadow-sb-card">
       {/*
         월 이동 헤더는 RecordsPage가 카드 밖에서 그린다(BY-567 v2 조립) — 여기서 또 그리면
         "이전 달"/"다음 달" 버튼이 화면에 두 벌 생긴다. `slideFrom`·계측(`trackRecordsMonthChanged`)도
@@ -156,10 +231,10 @@ export function MonthCalendar({
         onPointerUp={handlePointerUp}
       >
         <div className="flex flex-row">
-          {WEEKDAY_LABELS.map((label) => (
+          {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
             <span
               key={label}
-              className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
+              className="flex-1 text-center text-[11.5px] leading-[15px] font-medium text-muted-foreground"
             >
               {label}
             </span>
@@ -192,6 +267,7 @@ export function MonthCalendar({
                     key={dateKey}
                     dateKey={dateKey}
                     isSelected={dateKey === selectedKey}
+                    isToday={dateKey === todayKey}
                     isFuture={isFutureDateKey(dateKey, todayKey)}
                     focusSec={dayFocusSec.get(dateKey) ?? 0}
                     onSelect={onSelectDate}
@@ -203,16 +279,21 @@ export function MonthCalendar({
         </div>
       </div>
 
-      {/* 범례 — 농도만으로 뜻을 전하지 않도록 텍스트를 함께 둔다 */}
-      <div className="mt-3 flex justify-center gap-3">
-        {[
-          { cls: "bg-chart-heat-low", label: "1시간 미만" },
-          { cls: "bg-chart-heat-mid", label: "1~3시간" },
-          { cls: "bg-chart-heat-high", label: "3시간+" },
-        ].map((item) => (
-          <span key={item.label} className="flex items-center gap-1.5">
-            <span className={`size-2.5 rounded-xs ${item.cls}`} aria-hidden />
-            <span className="text-[10.5px] leading-[13px] text-muted-foreground">{item.label}</span>
+      <MonthStatsRow month={month} stats={monthStats} />
+
+      {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
+      <div
+        role="group"
+        aria-label="순공시간 범례, 숫자는 그 시간 이상"
+        className="flex items-center gap-2.5 px-1 pt-3"
+      >
+        <span className="text-[10.5px] leading-[13px] text-text-tertiary">순공시간</span>
+        {HEAT_LEGEND.map((item) => (
+          <span key={item.label} className="flex items-center gap-1">
+            <span className={`size-3.5 rounded-xs ${item.cls}`} aria-hidden />
+            <span className="text-[10.5px] leading-[13px] font-medium text-muted-foreground">
+              {item.label}
+            </span>
           </span>
         ))}
       </div>

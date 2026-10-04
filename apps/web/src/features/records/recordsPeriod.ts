@@ -9,6 +9,7 @@ import {
   formatDuration,
   isDateKeyInMonth,
   isFutureDateKey,
+  MONDAY_FIRST_WEEKDAY_LABELS,
   mondayIndexOfDateKey,
   monthOfDateKey,
 } from "./recordsFormat";
@@ -120,27 +121,6 @@ export function weekFocusDeltaSec(
   return thisSum - lastSum;
 }
 
-/**
- * 월간 순공 증감(초) — "같은 경과 기간끼리" 비교.
- *
- * 진행 중인 달(오늘이 그 달)이면 이번 달은 오늘까지, 지난달은 같은 '일'까지만 합산해 견준다.
- * 완료된 과거 달(또는 숨겨지는 미래 달)은 전체 vs 전체다.
- */
-export function monthFocusDeltaSec(
-  daily: readonly DailyStudyStat[],
-  compareDaily: readonly DailyStudyStat[],
-  month: CalendarMonth,
-  todayKey: string,
-): number {
-  if (!isDateKeyInMonth(todayKey, month)) {
-    return focusDeltaSec(daily, compareDaily);
-  }
-  const todayDay = dayOfDateKey(todayKey);
-  const thisSum = sumFocusWhere(daily, (date) => !isFutureDateKey(date, todayKey));
-  const lastSum = sumFocusWhere(compareDaily, (date) => dayOfDateKey(date) <= todayDay);
-  return thisSum - lastSum;
-}
-
 /** 가장 오래 공부한 날 — "이 달 최고 기록". 기록이 없으면 null, 동률이면 앞 날짜. */
 export function bestDay(daily: readonly DailyStudyStat[]): DailyStudyStat | null {
   let best: DailyStudyStat | null = null;
@@ -155,6 +135,15 @@ export function bestDay(daily: readonly DailyStudyStat[]): DailyStudyStat | null
 /** 공부한 날 수 — "이 달 공부 N일". 서버 집계가 순공 1분 미만 세션을 뺀 뒤라 focusSec > 0이 곧 기준이다. */
 export function studiedDayCount(daily: readonly DailyStudyStat[]): number {
   return daily.filter((day) => day.focusSec > 0).length;
+}
+
+/**
+ * 하루 평균 순공(초) — 합계 ÷ 공부한 날 수. 쉰 날로 평균이 깎이지 않게 공부한 날만 센다.
+ * 공부한 날이 없으면 `null`(화면은 `—`).
+ */
+export function averageFocusSecPerStudiedDay(daily: readonly DailyStudyStat[]): number | null {
+  const days = studiedDayCount(daily);
+  return days === 0 ? null : Math.floor(sumFocusSec(daily) / days);
 }
 
 /** 날짜 키 → 순공시간(초). 달력이 날짜별 순공시간을 O(1)로 찾는다. */
@@ -175,7 +164,7 @@ export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, 
 export const MAX_CHART_HOURS = 12;
 
 /** 월요일 시작 7칸. XAxis 눈금 순서이자 슬롯 인덱스다. */
-const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+const CHART_WEEKDAY_LABELS = MONDAY_FIRST_WEEKDAY_LABELS;
 
 type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
 

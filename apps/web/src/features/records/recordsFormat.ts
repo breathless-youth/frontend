@@ -15,6 +15,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** 달력 요일 헤더·주간 체크 도트 라벨 */
 export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
+/** 월요일 시작 요일 라벨 — 기록 탭 달력·주간 차트처럼 주를 월요일부터 세는 곳이 쓴다. */
+export const MONDAY_FIRST_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+
 export type CalendarMonth = {
   year: number;
   /** 1~12 (JS Date의 0-based month가 아니다) */
@@ -91,10 +94,15 @@ export function summaryTitle(dateKey: string): string {
 }
 
 /**
- * 월 달력 그리드. 일요일 시작 7열 고정이고, 앞뒤 빈칸은 `null`이다
+ * 월 달력 그리드. 7열 고정이고 앞뒤 빈칸은 `null`이다. 기본은 일요일 시작이고,
+ * 기록 탭 달력은 `"monday"`를 넘겨 월요일부터 센다.
  */
-export function buildMonthGrid({ year, month }: CalendarMonth): (string | null)[][] {
-  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+export function buildMonthGrid(
+  { year, month }: CalendarMonth,
+  weekStart: "sunday" | "monday" = "sunday",
+): (string | null)[][] {
+  const sundayIndex = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const firstWeekday = weekStart === "monday" ? (sundayIndex + 6) % 7 : sundayIndex;
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
   const cells: (string | null)[] = [
@@ -270,18 +278,14 @@ export function statsQueryDateKey(selectedKey: string, month: CalendarMonth): st
   return `${month.year}-${pad2(month.month)}-01`;
 }
 
-/** 달력 농도 단계 — 경계는 1시간(mid 시작)과 3시간(high 시작)이다. */
-export function heatLevel(focusSec: number): "none" | "low" | "mid" | "high" {
+export type HeatLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
+/** 달력 농도 단계 — 기록 없음 0, 그 뒤로 2시간 간격 5단계(2시간 미만 · 2+ · 4+ · 6+ · 8시간 이상). */
+export function heatLevel(focusSec: number): HeatLevel {
   if (focusSec <= 0) {
-    return "none";
+    return 0;
   }
-  if (focusSec < 3600) {
-    return "low";
-  }
-  if (focusSec < 3 * 3600) {
-    return "mid";
-  }
-  return "high";
+  return Math.min(5, Math.floor(focusSec / (2 * 3600)) + 1) as HeatLevel;
 }
 
 /** 달력 칸 시간 라벨 `H:MM` — 시는 앞자리 0을 빼고 분은 두 자리, 1시간 미만도 시를 0으로 적는다. */
@@ -290,6 +294,14 @@ export function formatHeatClock(focusSec: number): string {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${hours}:${pad2(minutes)}`;
+}
+
+/** 일간 머리 라벨 — 오늘을 골랐으면 `오늘 순공시간`, 다른 날이면 `M월 D일 순공시간`. */
+export function dayHeadlineLabel(selectedKey: string, todayKey: string): string {
+  if (selectedKey === todayKey) {
+    return "오늘 순공시간";
+  }
+  return `${monthOfDateKey(selectedKey).month}월 ${dayOfDateKey(selectedKey)}일 순공시간`;
 }
 
 /** 선택일 제목 `M월 D일 요일`. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_CHART_HOURS,
+  averageFocusSecPerStudiedDay,
   bestDay,
   buildDayFocusMap,
   buildWeekTrendRows,
@@ -10,7 +11,6 @@ import {
   isFutureMonth,
   isFutureWeek,
   mondayWeekDateKeys,
-  monthFocusDeltaSec,
   monthRanges,
   studiedDayCount,
   studiedRatioPercent,
@@ -217,29 +217,15 @@ describe("weekFocusDeltaSec — 같은 경과 기간끼리 비교", () => {
   });
 });
 
-describe("monthFocusDeltaSec — 같은 경과 기간끼리 비교", () => {
-  it("진행 중인 달(5일)이면 지난달도 1~5일까지만 비교한다", () => {
-    const month = { year: 2026, month: 9 };
-    const daily = [
-      day("2026-09-01", 3600), // 1일 1시간
-      day("2026-09-05", 2 * 3600), // 5일(오늘) 2시간
-      day("2026-09-10", 5 * 3600), // 10일 미래 → 제외
-    ];
-    const compare = [
-      day("2026-08-01", 3600), // 지난달 1일 (비교)
-      day("2026-08-05", 4 * 3600), // 지난달 5일 (비교)
-      day("2026-08-20", 4 * 3600), // 지난달 20일 → 제외
-    ];
-    // 이번 달 1~5일 합 3h - 지난달 1~5일 합 5h = -2h.
-    expect(monthFocusDeltaSec(daily, compare, month, "2026-09-05")).toBe(-2 * 3600);
+describe("averageFocusSecPerStudiedDay — 공부한 날만 센 하루 평균", () => {
+  it("합계를 공부한 날 수로 나눈다(쉰 날은 분모에서 뺀다)", () => {
+    const daily = [day("2026-09-01", 3 * 3600), day("2026-09-02", 0), day("2026-09-03", 3600)];
+    expect(averageFocusSecPerStudiedDay(daily)).toBe(2 * 3600);
   });
 
-  it("완료된 과거 달은 전체 vs 전체로 비교한다", () => {
-    // 오늘 2026-09-25. 보는 달은 8월(완료).
-    const month = { year: 2026, month: 8 };
-    const daily = [day("2026-08-01", 3600), day("2026-08-31", 5 * 3600)]; // 6시간
-    const compare = [day("2026-07-15", 2 * 3600)]; // 2시간
-    expect(monthFocusDeltaSec(daily, compare, month, "2026-09-25")).toBe(4 * 3600);
+  it("공부한 날이 없으면 null이다", () => {
+    expect(averageFocusSecPerStudiedDay([day("2026-09-01", 0)])).toBeNull();
+    expect(averageFocusSecPerStudiedDay([])).toBeNull();
   });
 });
 
