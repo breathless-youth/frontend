@@ -140,7 +140,8 @@ function SessionExpansion({ id, session }: { id: string; session: StudySessionSu
         <ExpansionStat label="종료 시간" value={formatKstClock(session.endedAt)} />
         <ExpansionStat
           label="최대 집중 시간"
-          value={longest === null ? "—" : formatDuration(longest.durationSec)}
+          // 끊기지 않은 구간이 1분에 못 미치면 구간을 내세우지 않고 `1분 미만`으로 적는다.
+          value={longest === null ? "1분 미만" : formatDuration(longest.durationSec)}
           valueClassName="text-chart-peak"
           caption={
             longest === null
