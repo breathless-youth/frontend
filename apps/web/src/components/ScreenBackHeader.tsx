@@ -26,9 +26,11 @@ type ScreenBackHeaderProps = {
    * 없음)을 다음 라우트까지 승계시킨다(`ContactPage` 주석 참고).
    */
   onBack?: () => void;
+  /** 바 높이를 44px로 줄인다 — 본문이 자기 제목 줄을 바로 아래에 두는 화면(플래너)이 쓴다. */
+  compact?: boolean;
 };
 
-export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
+export function ScreenBackHeader({ title, onBack, compact = false }: ScreenBackHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,7 +39,13 @@ export function ScreenBackHeader({ title, onBack }: ScreenBackHeaderProps) {
     // 아래까지 그려지는 기기(노치/다이나믹 아일랜드)에서 헤더가 통째로 가려져 **뒤로가기
     // 버튼을 누를 수 없다**(2026-08-01 iPhone 13 mini 확인). RN 원본은 `SafeAreaView`가
     // 처리하던 부분이고, 홈·기록·설정 본문도 같은 규칙(`env(safe-area-inset-top)`)을 쓴다.
-    <div className="flex h-[calc(52px+env(safe-area-inset-top))] items-center px-2 pt-[env(safe-area-inset-top)]">
+    <div
+      className={`flex items-center px-2 pt-[env(safe-area-inset-top)] ${
+        compact
+          ? "h-[calc(44px+env(safe-area-inset-top))]"
+          : "h-[calc(52px+env(safe-area-inset-top))]"
+      }`}
+    >
       {/* 아이콘뿐이라 라벨을 반드시 붙인다 — 아이콘만으로는 스크린리더가 읽지 못한다. */}
       <button
         type="button"

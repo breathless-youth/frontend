@@ -17,13 +17,8 @@ import {
   materializeSubjectSegments,
   selectSubjectSegment,
 } from "@/features/study-session/subjectSegments";
-import {
-  completedTasksOf,
-  dayTimetable,
-  kstDayStartMs,
-  subjectRefMap,
-  subjectTotalsOf,
-} from "@/features/records/recordsTimetable";
+import { assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { subjectRefMap } from "@/features/records/recordsTimetable";
 
 /**
  * 프론트와 백엔드를 실제로 왕복하는 통합 테스트 — 로컬 백엔드에 프론트의 실제 요청 빌더·구간 트래커로
@@ -188,20 +183,32 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     const refs = subjectRefMap(stats.json.subjects);
     expect(refs.get(english.json.id)?.name).toBe("영어");
     expect(refs.get(math.json.id)?.colorIndex).toBe(math.json.colorIndex);
-    expect(subjectTotalsOf(stats.json.sessions, refs)).toEqual([
-      { subjectId: english.json.id, studySec: 1800, focusSec: 1500 },
-      { subjectId: math.json.id, studySec: 1800, focusSec: 1800 },
+    // 플래너의 하루로 조립한다 — 세션이 새벽 0~5시면 전날 플래너에 든다.
+    const empty = { ...stats.json, sessions: [], sessionCount: 0, subjects: [] };
+    const plannerKey = plannerDateKeyOf(new Date(startedAtMs));
+    const day =
+      plannerKey === dateKey
+        ? assemblePlannerDay(plannerKey, stats.json, empty)
+        : assemblePlannerDay(plannerKey, empty, stats.json);
+    // 과목별 시간은 순공 기준이다.
+    expect(day.subjectRows).toEqual([
+      { subjectId: english.json.id, focusSec: 1500 },
+      { subjectId: math.json.id, focusSec: 1800 },
     ]);
-    expect(completedTasksOf(stats.json.sessions).map((t) => t.name)).toEqual(["문제집 1장 풀기"]);
+    expect(day.completedTasks.map((t) => t.name)).toEqual(["문제집 1장 풀기"]);
 
-    const slots = dayTimetable(stats.json.sessions, dateKey);
-    const slotAt = (minutesFromStart: number) =>
-      slots[
-        Math.floor((startedAtMs + minutesFromStart * 60_000 - kstDayStartMs(dateKey)) / 120_000)
-      ];
-    expect(slotAt(5)).toEqual({ kind: "subject", subjectId: english.json.id });
-    expect(slotAt(12)).toEqual({ kind: "rest", status: "PHONE" });
-    expect(slotAt(35)).toEqual({ kind: "subject", subjectId: math.json.id });
-    expect(slotAt(61)).toEqual({ kind: "empty" });
+    const paintAt = (minutesFromStart: number) => {
+      const ms = startedAtMs + minutesFromStart * 60_000;
+      const paint = day.paints.find((item) => ms >= item.startMs && ms < item.endMs);
+      return paint === undefined
+        ? null
+        : paint.kind === "subject"
+          ? { kind: paint.kind, subjectId: paint.subjectId }
+          : { kind: paint.kind };
+    };
+    expect(paintAt(5)).toEqual({ kind: "subject", subjectId: english.json.id });
+    expect(paintAt(12)).toEqual({ kind: "rest" });
+    expect(paintAt(35)).toEqual({ kind: "subject", subjectId: math.json.id });
+    expect(paintAt(61)).toBeNull();
   }, 60_000);
 });

@@ -1,27 +1,41 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import { trackRecordsDateSelected, trackRecordsMonthChanged } from "@/lib/amplitude";
+import {
+  trackRecordsDateSelected,
+  trackRecordsMonthChanged,
+  trackRecordsPeriodPicked,
+  trackRecordsPeriodPickerOpened,
+  trackRecordsSessionExpanded,
+  trackRecordsViewChanged,
+} from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { MonthCalendar } from "@/features/records/MonthCalendar";
-import { MonthSummary } from "@/features/records/MonthSummary";
+import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { PeriodHeadline } from "@/features/records/PeriodHeadline";
+import { MonthPickerSheet } from "@/features/records/PeriodPickerSheet";
+import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
 import {
   type CalendarMonth,
+  dayHeadlineLabel,
   dayTitleWithWeekday,
   kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
 } from "@/features/records/recordsFormat";
+import {
+  averageFocusSecPerStudiedDay,
+  isFutureMonth,
+  studiedDayCount,
+  sumFocusSec,
+} from "@/features/records/recordsPeriod";
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
-import { SessionListItem } from "@/features/records/SessionListItem";
-import { DayDetailCard } from "@/features/records/DayDetailCard";
-import { SessionDetailSheet } from "@/features/records/SessionDetailSheet";
+import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -50,17 +64,45 @@ function RecordsContent({
   // 월 이동 방향은 순수 애니메이션용이라 로컬로 둔다(탭 왕복에 보존할 "위치"가 아니다).
   // 헤더 버튼과 MonthCalendar 내부 스와이프가 같은 changeMonth를 타야 애니메이션·계측이 갈라지지 않는다.
   const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
+  // 미래에는 볼 기록이 없다 — 오늘이 속한 달이 끝이다. 버튼과 스와이프가 같은 판정을 탄다.
+  const isLatestMonth = isFutureMonth(shiftMonth(month, 1), todayKey);
   const changeMonth = useCallback(
     (delta: -1 | 1, method: "button" | "swipe") => {
+      if (delta === 1 && isLatestMonth) {
+        return;
+      }
       trackRecordsMonthChanged({ delta, method });
       setSlideFrom(delta < 0 ? "left" : "right");
       setMonth((current) => shiftMonth(current, delta));
     },
-    [setMonth],
+    [isLatestMonth, setMonth],
   );
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const openPlanner = useOpenPlanner("records");
+
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
-  const [sheetSessionId, setSheetSessionId] = useState<number | null>(null);
+  const periodDaily = period.status === "success" ? period.daily : undefined;
+  const monthStats = useMemo<MonthStats | null>(
+    () =>
+      periodDaily === undefined
+        ? null
+        : {
+            totalFocusSec: sumFocusSec(periodDaily),
+            studiedDays: studiedDayCount(periodDaily),
+            averageFocusSec: averageFocusSecPerStudiedDay(periodDaily),
+          },
+    [periodDaily],
+  );
+  // 한 번에 하나만 펼친다. id로만 기억해 두면 날짜가 바뀌어 그 세션이 목록에 없을 때 저절로 접힌다.
+  const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
+  const toggleSession = useCallback((sessionId: number) => {
+    setExpandedSessionId((current) => {
+      const next = current === sessionId ? null : sessionId;
+      trackRecordsSessionExpanded({ expanded: next !== null });
+      return next;
+    });
+  }, []);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -71,13 +113,10 @@ function RecordsContent({
       daySessions ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : [],
     [daySessions],
   );
-  // 시트에 띄울 세션은 id로만 기억하고 지금 보이는 날의 목록에서 찾는다 — 날짜가 바뀌면
-  // 그 id가 목록에 없어 시트가 저절로 닫히므로, 다른 날의 세션이 남아 열리는 일이 없다.
-  const sheetSession = sessions.find((session) => session.id === sheetSessionId) ?? null;
 
   return (
     <div>
-      {/* 월 이동 — 카드 밖에 둔다(Figma v2). MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
+      {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
           카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
       <div className="flex items-center justify-center gap-1.5 pt-4">
         <button
@@ -88,25 +127,53 @@ function RecordsContent({
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
-        <span className="px-2.5 text-[15px] font-bold text-foreground">{monthLabel(month)}</span>
+        {/* 라벨을 탭하면 기간 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => {
+            trackRecordsPeriodPickerOpened("daily");
+            setPickerOpen(true);
+          }}
+          className="flex h-11 items-center gap-1.5 px-2.5 text-[15px] font-bold text-foreground"
+        >
+          {monthLabel(month)}
+          <IconChevronDown />
+        </button>
         <button
           type="button"
           aria-label="다음 달"
+          disabled={isLatestMonth}
           onClick={() => changeMonth(1, "button")}
-          className="flex size-11 items-center justify-center"
+          className="flex size-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
         >
           <IconChevronRight size={13} color="var(--color-foreground)" />
         </button>
       </div>
 
-      {period.status === "success" && (
-        <MonthSummary
-          month={month}
-          todayKey={todayKey}
-          daily={period.daily}
-          compareDaily={period.compareDaily}
-        />
-      )}
+      <MonthPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        month={month}
+        todayKey={todayKey}
+        onPick={(picked, toToday) => {
+          trackRecordsPeriodPicked({ view: "daily", toToday });
+          // 시트로 건너뛴 이동에는 밀려 들어오는 애니메이션을 재생하지 않는다.
+          setSlideFrom(null);
+          setMonth(picked);
+          setPickerOpen(false);
+        }}
+      />
+
+      {/* 머리는 달이 아니라 고른 날을 요약한다 — 달을 옮겨도 고른 날의 값이 남는다. */}
+      <PeriodHeadline
+        label={dayHeadlineLabel(selectedKey, todayKey)}
+        totals={
+          day.status === "success"
+            ? { focusSec: day.stats.totalFocusSec, studySec: day.stats.totalStudySec }
+            : day.status
+        }
+      />
 
       <div className="mt-[18px]">
         <MonthCalendar
@@ -121,13 +188,14 @@ function RecordsContent({
               hasRecords: (dayFocusSec.get(dateKey) ?? 0) > 0,
             });
             setSelectedKey(dateKey);
-            // 같은 날로 돌아왔을 때 닫혔던 시트가 다시 열리지 않게 기억해 둔 세션도 지운다.
-            setSheetSessionId(null);
+            // 같은 날로 돌아왔을 때 접혔던 행이 다시 펼쳐지지 않게 기억해 둔 세션도 지운다.
+            setExpandedSessionId(null);
           }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
           slideFrom={slideFrom}
           onSwipeMonth={(delta) => changeMonth(delta, "swipe")}
+          monthStats={monthStats}
         />
       </div>
 
@@ -147,40 +215,52 @@ function RecordsContent({
 
       {day.status === "success" && (
         <div className="mt-[22px]">
-          <p className="text-base font-extrabold leading-[19px] text-foreground">
-            {dayTitleWithWeekday(selectedKey)}
-          </p>
-
-          <div className="mt-3">
-            <DayDetailCard stats={day.stats} dateKey={selectedKey} />
+          {/* 선택일 줄 — 오른쪽 버튼으로 그 날의 플래너를 연다(과목별 시간·타임테이블은 플래너에 있다). */}
+          <div className="flex items-center justify-between">
+            <p className="text-base leading-[19px] font-extrabold text-foreground">
+              {dayTitleWithWeekday(selectedKey)}
+            </p>
+            <button
+              type="button"
+              onClick={() => openPlanner(selectedKey)}
+              className="flex h-8 items-center gap-1 rounded-full bg-brand-subtle pr-2.5 pl-3 text-[13px] leading-4 font-semibold text-primary"
+            >
+              플래너
+              <IconChevronRight size={11} color="currentColor" />
+            </button>
           </div>
 
           <div className="mt-3">
             {sessions.length === 0 ? (
-              <div className="flex items-center justify-center rounded-[20px] bg-muted shadow-sb-card py-8">
-                <p className="text-[15px] leading-[22px] text-muted-foreground">
-                  이 날은 기록이 없어요
-                </p>
+              <div className="flex flex-col items-center gap-1 rounded-[20px] bg-muted py-[30px] shadow-sb-card">
+                <p className="text-[15px] leading-5 text-muted-foreground">이 날은 기록이 없어요</p>
+                {/* 보는 달에 기록이 하나도 없을 때만 다음 행동을 한 줄 더 알려 준다. */}
+                {monthStats?.studiedDays === 0 && (
+                  <p className="text-[13px] leading-4 text-text-tertiary">
+                    집중을 시작하면 여기에 쌓여요
+                  </p>
+                )}
               </div>
             ) : (
-              <div className="rounded-[20px] bg-muted shadow-sb-card px-[18px] py-1">
-                {sessions.map((session) => (
-                  <SessionListItem
-                    key={session.id}
-                    session={session}
-                    onSelect={(selected) => setSheetSessionId(selected.id)}
-                  />
-                ))}
+              <div className="rounded-[20px] bg-muted px-[18px] py-1 shadow-sb-card">
+                <ul>
+                  {sessions.map((session, index) => (
+                    <li
+                      key={session.id}
+                      className={index > 0 ? "border-t border-border pt-px" : undefined}
+                    >
+                      <SessionListItem
+                        session={session}
+                        expanded={session.id === expandedSessionId}
+                        onToggle={(toggled) => toggleSession(toggled.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                <SessionTimelineLegend />
               </div>
             )}
           </div>
-
-          <SessionDetailSheet
-            session={sheetSession}
-            subjects={day.stats.subjects}
-            dateKey={selectedKey}
-            onClose={() => setSheetSessionId(null)}
-          />
         </div>
       )}
     </div>
@@ -210,12 +290,21 @@ export function RecordsPage() {
           </h1>
           {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
               — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
-          <SegmentedControl value={mode} onChange={setMode} weeklyDisabled={userId === null} />
+          <SegmentedControl
+            value={mode}
+            onChange={(next) => {
+              if (next !== mode) {
+                trackRecordsViewChanged(next);
+              }
+              setMode(next);
+            }}
+            weeklyDisabled={userId === null}
+          />
         </div>
 
         {userId === null ? (
           <p className="mt-[13px] p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
+            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
           </p>
         ) : mode === "weekly" ? (
           <WeeklyView

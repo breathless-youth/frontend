@@ -5,9 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
-import { MonthSummary } from "../MonthSummary";
 import { SegmentedControl } from "../SegmentedControl";
-import { SessionListItem } from "../SessionListItem";
+import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
 import { StreakBanner } from "../StreakBanner";
 
@@ -81,11 +80,21 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
-    expect(screen.getByText("일")).toBeInTheDocument();
-    expect(screen.getByText("토")).toBeInTheDocument();
+    // 월요일에 시작한다 — 요일 헤더가 월~일 순서다.
+    const header = screen.getByText("월").parentElement;
+    expect(Array.from(header?.children ?? []).map((el) => el.textContent)).toEqual([
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일",
+    ]);
   });
 
   it("달력을 좌로 스와이프하면 delta 1(다음 달), 우로 스와이프하면 delta -1(이전 달)로 onSwipeMonth를 부른다 (BY-343)", () => {
@@ -99,6 +108,7 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={onSwipeMonth}
+        monthStats={null}
       />,
     );
     const swipeArea = screen.getByTestId("month-calendar-swipe-area");
@@ -123,6 +133,7 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={onSwipeMonth}
+        monthStats={null}
       />,
     );
     const swipeArea = screen.getByTestId("month-calendar-swipe-area");
@@ -149,6 +160,7 @@ describe("MonthCalendar", () => {
         onSelectDate={onSelectDate}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
@@ -168,6 +180,7 @@ describe("MonthCalendar", () => {
         onSelectDate={onSelectDate}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
@@ -188,6 +201,7 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
@@ -205,6 +219,7 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
@@ -221,6 +236,7 @@ describe("MonthCalendar", () => {
         onSelectDate={vi.fn()}
         slideFrom={null}
         onSwipeMonth={vi.fn()}
+        monthStats={null}
       />,
     );
 
@@ -228,31 +244,238 @@ describe("MonthCalendar", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "26일, 기록 없음" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "오늘, 26일, 기록 없음" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
   });
+
+  it("칸 농도는 순공 2시간 간격 5단계이고, 글자색은 칸에 달아 진한 두 단계만 흰색으로 뒤집는다", () => {
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey={todayKey}
+        dayFocusSec={
+          new Map([
+            ["2026-07-01", 50 * 60],
+            ["2026-07-02", 2 * 3600],
+            ["2026-07-03", 4 * 3600],
+            ["2026-07-04", 6 * 3600],
+            ["2026-07-05", 9 * 3600],
+          ])
+        }
+        onSelectDate={vi.fn()}
+        slideFrom={null}
+        onSwipeMonth={vi.fn()}
+        monthStats={null}
+      />,
+    );
+
+    const fillOf = (name: string) => screen.getByRole("button", { name }).firstElementChild;
+    expect(fillOf("1일, 순공 50분")).toHaveClass("bg-chart-heat-1");
+    expect(fillOf("2일, 순공 2시간")).toHaveClass("bg-chart-heat-2");
+    expect(fillOf("3일, 순공 4시간")).toHaveClass("bg-chart-heat-3");
+    expect(fillOf("4일, 순공 6시간")).toHaveClass("bg-chart-heat-4");
+    expect(fillOf("5일, 순공 9시간")).toHaveClass("bg-chart-heat-5");
+    expect(fillOf("4일, 순공 6시간")).toHaveClass("text-white");
+    expect(fillOf("5일, 순공 9시간")).toHaveClass("text-white");
+    expect(fillOf("3일, 순공 4시간")).toHaveClass("text-foreground");
+    expect(fillOf("3일, 순공 4시간")).not.toHaveClass("text-white");
+    // 기록 없는 날과 아직 오지 않은 날은 칸 색이 같고 숫자 색으로만 구분한다.
+    expect(fillOf("6일, 기록 없음")).toHaveClass("bg-chart-empty", "text-muted-foreground");
+    expect(fillOf("27일, 기록 없음")).toHaveClass("bg-chart-empty", "text-text-disabled");
+  });
+
+  it("오늘은 숫자 칩으로, 고른 날은 테두리로 표시하고 고른 날의 농도 색을 가리지 않는다", () => {
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey="2026-07-10"
+        dayFocusSec={new Map([["2026-07-10", 5 * 3600]])}
+        onSelectDate={vi.fn()}
+        slideFrom={null}
+        onSwipeMonth={vi.fn()}
+        monthStats={null}
+      />,
+    );
+
+    const selected = screen.getByRole("button", { name: "10일, 순공 5시간" }).firstElementChild;
+    expect(selected).toHaveClass(
+      "ring-[1.5px]",
+      "ring-foreground",
+      "ring-inset",
+      "bg-chart-heat-3",
+    );
+
+    // 다른 날을 골라도 오늘 칩은 남는다.
+    const today = screen.getByRole("button", { name: "오늘, 26일, 기록 없음" });
+    expect(today.firstElementChild).not.toHaveClass("ring-[1.5px]");
+    expect(screen.getByText("26")).toHaveClass("bg-foreground", "rounded-full");
+  });
+
+  it("달력 아래 왼쪽에 5단계 범례를, 오른쪽에 그 달의 하루 평균과 합계를 보여준다", () => {
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey={todayKey}
+        dayFocusSec={new Map()}
+        onSelectDate={vi.fn()}
+        slideFrom={null}
+        onSwipeMonth={vi.fn()}
+        monthStats={{ totalFocusSec: 81 * 3600 + 30 * 60, studiedDays: 18, averageFocusSec: 16320 }}
+      />,
+    );
+
+    const legend = screen.getByRole("group", { name: /순공시간 범례/ });
+    expect(legend).toHaveTextContent(/^0\+2\+4\+6\+8\+$/);
+    // 범례 → 하루 평균 → 그 달 총 시간 순서다. 평균 아래에 기준 문구는 두지 않는다.
+    expect(legend.parentElement).toHaveTextContent(
+      `0+2+4+6+8+하루 평균4시간 32분${String(month.month)}월 총 시간81시간 30분`,
+    );
+    expect(
+      screen.getByText(`${String(month.month)}월 총 시간`).nextElementSibling,
+    ).toHaveTextContent(/^81시간 30분$/);
+    expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^4시간 32분$/);
+    expect(screen.queryByText(/일 기준$/)).not.toBeInTheDocument();
+  });
+
+  it("공부한 날이 없는 달은 합계와 하루 평균을 모두 0분으로 적는다", () => {
+    render(
+      <MonthCalendar
+        month={month}
+        todayKey={todayKey}
+        selectedKey={todayKey}
+        dayFocusSec={new Map()}
+        onSelectDate={vi.fn()}
+        slideFrom={null}
+        onSwipeMonth={vi.fn()}
+        monthStats={{ totalFocusSec: 0, studiedDays: 0, averageFocusSec: null }}
+      />,
+    );
+
+    expect(
+      screen.getByText(`${String(month.month)}월 총 시간`).nextElementSibling,
+    ).toHaveTextContent(/^0분$/);
+    expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^0분$/);
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.queryByText("아직 공부한 날이 없어요")).not.toBeInTheDocument();
+  });
 });
 
 describe("SessionListItem", () => {
-  it("v2 행은 시각 범위와 순공·집중 보조줄을 버튼으로 보여준다", () => {
-    const onSelect = vi.fn();
-    render(<SessionListItem session={session()} onSelect={onSelect} />);
+  it("접힌 행은 순공시간·총 공부시간·집중률 필·시작과 종료 시각을 보여준다", () => {
+    render(<SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />);
 
-    const button = screen.getByRole("button", { name: /07:30 ~ 08:16/ });
-    expect(screen.getByText("순공 44분 · 집중 96%")).toBeInTheDocument();
-
-    button.click();
-    expect(onSelect).toHaveBeenCalled();
+    const row = screen.getByRole("button", { name: /07:30부터 08:16까지, 순공 44분, 집중 96%/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(row).toHaveTextContent("44분");
+    expect(row).toHaveTextContent("총 46분");
+    expect(screen.getByText("07:30")).toBeInTheDocument();
+    expect(screen.getByText("08:16")).toBeInTheDocument();
+    expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
   });
 
-  it("onSelect가 없으면 버튼이 아니라 비인터랙티브 행이지만 시각 범위·보조줄은 그대로 보인다", () => {
-    render(<SessionListItem session={session()} />);
+  it("집중률 필은 집중률이 높든 낮든 같은 옅은 색으로 칠한다", () => {
+    const { rerender } = render(
+      <SessionListItem session={session({ focusRate: 96 })} expanded={false} onToggle={vi.fn()} />,
+    );
+    expect(screen.getByText("집중 96%")).toHaveClass("bg-brand-subtle", "text-primary");
+    expect(screen.getByText("집중 96%")).not.toHaveClass("bg-primary");
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("07:30 ~ 08:16")).toBeInTheDocument();
-    expect(screen.getByText("순공 44분 · 집중 96%")).toBeInTheDocument();
+    rerender(
+      <SessionListItem session={session({ focusRate: 83 })} expanded={false} onToggle={vi.fn()} />,
+    );
+    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle", "text-primary");
+  });
+
+  it("미니 타임라인은 순공색 바탕 위에 자동 멈춤·일시정지 구간만 제자리에 덧칠한다", () => {
+    // 07:30~08:16(46분) 가운데 07:53~08:04.5 자동 멈춤(25%), 08:04.5~08:16 일시정지(25%).
+    const { container } = render(
+      <SessionListItem
+        session={session({
+          events: [
+            { status: "PHONE", startedAt: "2026-09-18T22:53:00Z", endedAt: "2026-09-18T23:04:30Z" },
+            { status: "PAUSE", startedAt: "2026-09-18T23:04:30Z", endedAt: "2026-09-18T23:16:00Z" },
+          ],
+        })}
+        expanded={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const overlays = Array.from(container.querySelectorAll<HTMLElement>("[data-kind]"));
+    expect(overlays.map((overlay) => overlay.dataset.kind)).toEqual(["distract", "pause"]);
+    expect(overlays[0]).toHaveClass("absolute", "bg-state-distract");
+    expect(overlays[0]).toHaveStyle({ left: "50%", width: "25%" });
+    expect(overlays[1]).toHaveClass("absolute", "bg-state-pause");
+    expect(overlays[1]).toHaveStyle({ left: "75%", width: "25%" });
+    // 순공은 조각이 아니라 바 자체의 색이다.
+    expect(overlays[0]?.parentElement).toHaveClass("bg-primary");
+    expect(overlays[0]?.parentElement?.children).toHaveLength(2);
+  });
+
+  it("이벤트가 없는 세션의 타임라인은 덧칠 없이 순공색 바 하나다", () => {
+    const { container } = render(
+      <SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />,
+    );
+
+    expect(container.querySelector("[data-kind]")).toBeNull();
+    expect(container.querySelector(".bg-primary")).not.toBeNull();
+  });
+
+  it("행을 누르면 onToggle을 부르고, 펼치면 시작 시간·종료 시간·최대 집중 시간과 그 구간을 보여준다", () => {
+    const onToggle = vi.fn();
+    // 07:30~08:16 사이 07:50~07:58 자동 멈춤 → 가장 긴 집중은 앞 구간 07:30~07:50(20분).
+    const withEvent = session({
+      events: [
+        { status: "PHONE", startedAt: "2026-09-18T22:50:00Z", endedAt: "2026-09-18T22:58:00Z" },
+      ],
+    });
+    const { rerender } = render(
+      <SessionListItem session={withEvent} expanded={false} onToggle={onToggle} />,
+    );
+
+    screen.getByRole("button").click();
+    expect(onToggle).toHaveBeenCalledWith(withEvent);
+
+    rerender(<SessionListItem session={withEvent} expanded onToggle={onToggle} />);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("시작 시간")).toBeInTheDocument();
+    expect(screen.getByText("종료 시간")).toBeInTheDocument();
+    expect(screen.getByText("최대 집중 시간")).toBeInTheDocument();
+    expect(screen.getByText("20분")).toHaveClass("text-chart-peak");
+    expect(screen.getByText("07:30 ~ 07:50")).toBeInTheDocument();
+  });
+
+  it("끊기지 않고 1분 이상 집중한 구간이 없으면 최대 집중 시간을 1분 미만으로 적고 구간은 적지 않는다", () => {
+    // 22:30:00~22:31:30 세션이 50초 집중 뒤 멈췄다가 끝났다 — 가장 긴 구간이 1분에 못 미친다.
+    const brief = session({
+      startedAt: "2026-09-18T22:30:00Z",
+      endedAt: "2026-09-18T22:31:30Z",
+      events: [
+        { status: "PHONE", startedAt: "2026-09-18T22:30:50Z", endedAt: "2026-09-18T22:31:30Z" },
+      ],
+    });
+    render(<SessionListItem session={brief} expanded onToggle={vi.fn()} />);
+
+    expect(screen.getByText("최대 집중 시간").nextElementSibling).toHaveTextContent(/^1분 미만$/);
+    expect(screen.queryByText(/~/)).not.toBeInTheDocument();
+  });
+});
+
+describe("SessionTimelineLegend", () => {
+  it("타임라인 색의 뜻을 순공 · 자동 멈춤 · 일시정지 순서로 알려 준다", () => {
+    render(<SessionTimelineLegend />);
+
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "순공",
+      "자동 멈춤",
+      "일시정지",
+    ]);
+    expect(screen.getByText("자동 멈춤").previousElementSibling).toHaveClass("bg-state-distract");
   });
 });
 
@@ -276,64 +499,6 @@ describe("StreakBanner", () => {
     expect(screen.getByRole("img", { name: "일요일, 공부함" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "월요일, 기록 없음" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "화요일, 오늘" })).toBeInTheDocument();
-  });
-});
-
-describe("MonthSummary", () => {
-  const month = { year: 2026, month: 9 };
-  const todayKey = "2026-09-20"; // 9월(현재 달) — 미래가 아니라 증감이 그려진다.
-  it("월 순공 합계와 증가 문구를 보여준다", () => {
-    render(
-      <MonthSummary
-        month={month}
-        todayKey={todayKey}
-        daily={[{ date: "2026-09-01", studySec: 0, focusSec: 6 * 3600 }]}
-        compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 0 }]}
-      />,
-    );
-    expect(screen.getByText("9월 순공시간")).toBeInTheDocument();
-    expect(screen.getByText("6시간")).toBeInTheDocument();
-    expect(screen.getByText(/지난달보다 6시간 늘었어요/)).toBeInTheDocument();
-  });
-
-  it("증감이 0이면 증감 문구를 아예 그리지 않는다(합계는 유지)", () => {
-    render(
-      <MonthSummary
-        month={month}
-        todayKey={todayKey}
-        daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
-        compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 3600 }]}
-      />,
-    );
-    expect(screen.getByText("1시간")).toBeInTheDocument();
-    expect(screen.queryByText(/지난달/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/같아요/)).not.toBeInTheDocument();
-  });
-
-  it("줄었으면 줄어든 문구를 보여준다", () => {
-    render(
-      <MonthSummary
-        month={month}
-        todayKey={todayKey}
-        daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
-        compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 2 * 3600 }]}
-      />,
-    );
-    expect(screen.getByText(/지난달보다 1시간 줄었어요/)).toBeInTheDocument();
-  });
-
-  it("미래 달은 순공 합계는 두되 증감을 감춘다", () => {
-    // 오늘은 8월인데 보고 있는 달은 9월 — 미래다. 그냥 두면 "늘었어요"가 떠야 하지만 감춘다.
-    render(
-      <MonthSummary
-        month={month}
-        todayKey="2026-08-20"
-        daily={[{ date: "2026-09-01", studySec: 0, focusSec: 3600 }]}
-        compareDaily={[{ date: "2026-08-01", studySec: 0, focusSec: 0 }]}
-      />,
-    );
-    expect(screen.getByText("1시간")).toBeInTheDocument();
-    expect(screen.queryByText(/늘었어요|줄었어요|같아요/)).not.toBeInTheDocument();
   });
 });
 

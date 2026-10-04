@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * shadcn 스타일 배지
  *
- * — 결과 화면의 두 알약(집중률 · 최고 집중 시간)을 하나로 묶었다.
+ * — 결과 화면의 두 알약(집중률 · 최대 집중 시간)을 하나로 묶었다.
  * 둘 다 브랜드색 글자이고, 배경을 옅은 브랜드색으로 채우느냐 선 테두리로 그리느냐만 다르다.
  */
 /** 세션 상태 필 공통 */
@@ -23,7 +23,7 @@ export const badgeVariants = cva(
       variant: {
         /** 집중률 배지(히어로) — 옅은 브랜드색 배경에 브랜드색 글자. */
         elevated: "bg-brand-subtle px-[11px] py-[5px] text-[12px] leading-[15px] font-bold",
-        /** 최고 집중 배지(타임라인) — 카드색 배경에 브랜드색 1.5px 선 테두리. */
+        /** 최대 집중 배지(타임라인) — 카드색 배경에 브랜드색 1.5px 선 테두리. */
         outline:
           "border-[1.5px] border-primary bg-muted px-3 py-[4px] text-[13px] leading-[16px] font-bold",
         /** 공부 세션 상태 필 — 측정 중. 세션 로컬 변수는 sessionTheme.ts가 준다. */

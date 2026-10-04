@@ -6,9 +6,8 @@ import {
   type CalendarMonth,
   addDaysToDateKey,
   dayOfDateKey,
-  formatDuration,
-  isDateKeyInMonth,
   isFutureDateKey,
+  MONDAY_FIRST_WEEKDAY_LABELS,
   mondayIndexOfDateKey,
   monthOfDateKey,
 } from "./recordsFormat";
@@ -93,6 +92,40 @@ function sumFocusWhere(daily: readonly DailyStudyStat[], keep: (date: string) =>
   return sumFocusSec(daily.filter((day) => keep(day.date)));
 }
 
+/** 진행 중인 주인가 — 오늘이 그 주(월~일)에 들어 있다. */
+export function isWeekInProgress(weekAnchorKey: string, todayKey: string): boolean {
+  const week = mondayWeekDateKeys(weekAnchorKey);
+  return !isFutureDateKey(week[0]!, todayKey) && !isFutureDateKey(todayKey, week[6]!); // 월≤오늘≤일
+}
+
+/** 주 범위 라벨 `9월 14일 ~ 20일`. 달이 바뀌는 주는 `9월 28일 ~ 10월 4일`. */
+export function weekRangeLabel(weekAnchorKey: string): string {
+  const week = mondayWeekDateKeys(weekAnchorKey);
+  const from = week[0]!;
+  const to = week[6]!;
+  const start = `${monthOfDateKey(from).month}월 ${dayOfDateKey(from)}일`;
+  const sameMonth = monthOfDateKey(from).month === monthOfDateKey(to).month;
+  const end = sameMonth
+    ? `${dayOfDateKey(to)}일`
+    : `${monthOfDateKey(to).month}월 ${dayOfDateKey(to)}일`;
+  return `${start} ~ ${end}`;
+}
+
+/**
+ * 추이 차트 범례가 그 주를 부르는 말. 이번 주를 볼 때는 `이번 주` · `지난주`,
+ * 과거 주를 볼 때는 오늘에서 센 `N주 전`(지난주를 보면 `1주 전` · `2주 전`)이다.
+ * `offset`이 1이면 보는 주의 바로 앞 주를 가리킨다.
+ */
+export function relativeWeekLabel(weekAnchorKey: string, todayKey: string, offset = 0): string {
+  const thisMonday = Date.parse(`${mondayWeekDateKeys(todayKey)[0]!}T00:00:00Z`);
+  const monday = Date.parse(`${mondayWeekDateKeys(weekAnchorKey)[0]!}T00:00:00Z`);
+  const viewedWeeksAgo = Math.round((thisMonday - monday) / (7 * 24 * 3600 * 1000));
+  if (viewedWeeksAgo <= 0) {
+    return offset <= 0 ? "이번 주" : offset === 1 ? "지난주" : `${String(offset)}주 전`;
+  }
+  return `${String(viewedWeeksAgo + offset)}주 전`;
+}
+
 /**
  * 주간 순공 증감(초) — "같은 경과 기간끼리" 비교.
  *
@@ -106,9 +139,7 @@ export function weekFocusDeltaSec(
   weekAnchorKey: string,
   todayKey: string,
 ): number {
-  const week = mondayWeekDateKeys(weekAnchorKey);
-  const inProgress = !isFutureDateKey(week[0]!, todayKey) && !isFutureDateKey(todayKey, week[6]!); // 월≤오늘≤일
-  if (!inProgress) {
+  if (!isWeekInProgress(weekAnchorKey, todayKey)) {
     return focusDeltaSec(daily, compareDaily);
   }
   const todayMondayIndex = mondayIndexOfDateKey(todayKey);
@@ -117,27 +148,6 @@ export function weekFocusDeltaSec(
     compareDaily,
     (date) => mondayIndexOfDateKey(date) <= todayMondayIndex,
   );
-  return thisSum - lastSum;
-}
-
-/**
- * 월간 순공 증감(초) — "같은 경과 기간끼리" 비교.
- *
- * 진행 중인 달(오늘이 그 달)이면 이번 달은 오늘까지, 지난달은 같은 '일'까지만 합산해 견준다.
- * 완료된 과거 달(또는 숨겨지는 미래 달)은 전체 vs 전체다.
- */
-export function monthFocusDeltaSec(
-  daily: readonly DailyStudyStat[],
-  compareDaily: readonly DailyStudyStat[],
-  month: CalendarMonth,
-  todayKey: string,
-): number {
-  if (!isDateKeyInMonth(todayKey, month)) {
-    return focusDeltaSec(daily, compareDaily);
-  }
-  const todayDay = dayOfDateKey(todayKey);
-  const thisSum = sumFocusWhere(daily, (date) => !isFutureDateKey(date, todayKey));
-  const lastSum = sumFocusWhere(compareDaily, (date) => dayOfDateKey(date) <= todayDay);
   return thisSum - lastSum;
 }
 
@@ -157,13 +167,78 @@ export function studiedDayCount(daily: readonly DailyStudyStat[]): number {
   return daily.filter((day) => day.focusSec > 0).length;
 }
 
+/** 평균은 분 단위로 반올림한다 — 화면 표기가 분을 버림하므로 그대로 넘기면 4시간 31.7분이 `4시간 31분`이 된다. */
+function roundToMinute(seconds: number): number {
+  return Math.round(seconds / 60) * 60;
+}
+
+/**
+ * 하루 평균 순공(초) — 합계 ÷ 공부한 날 수. 쉰 날로 평균이 깎이지 않게 공부한 날만 센다.
+ * 공부한 날이 없으면 `null`(화면은 `—`).
+ */
+export function averageFocusSecPerStudiedDay(daily: readonly DailyStudyStat[]): number | null {
+  const days = studiedDayCount(daily);
+  return days === 0 ? null : roundToMinute(sumFocusSec(daily) / days);
+}
+
+export function sumStudySec(daily: readonly DailyStudyStat[]): number {
+  return daily.reduce((sum, day) => sum + day.studySec, 0);
+}
+
+/** 하루 평균 공부시간(초) — 총 공부 합계 ÷ 공부한 날 수. 공부한 날이 없으면 `null`. */
+export function averageStudySecPerStudiedDay(daily: readonly DailyStudyStat[]): number | null {
+  const days = studiedDayCount(daily);
+  return days === 0 ? null : roundToMinute(sumStudySec(daily) / days);
+}
+
+/**
+ * 기간 평균 집중률(%) — 순공 합계 ÷ 총 공부 합계. 날짜별 집중률의 단순 평균이 아니다
+ * (짧게 공부한 날이 긴 날과 같은 무게를 갖지 않게). 총 공부가 0이면 `null`.
+ */
+export function averageFocusRatePercent(daily: readonly DailyStudyStat[]): number | null {
+  const study = sumStudySec(daily);
+  return study === 0 ? null : Math.round((sumFocusSec(daily) / study) * 100);
+}
+
+/**
+ * 추이 카드 제목이 말할 비교 — 두 주의 기록 유무로 갈린다.
+ * 진행 중인 주는 같은 경과 기간끼리, 끝난 주는 전체끼리 견준다(`weekFocusDeltaSec`).
+ */
+export type WeekComparison =
+  | { kind: "delta"; inProgress: boolean; deltaSec: number }
+  | { kind: "no-previous"; inProgress: boolean; totalSec: number }
+  | { kind: "no-current"; inProgress: boolean }
+  | { kind: "empty"; inProgress: boolean };
+
+export function weekComparison(
+  daily: readonly DailyStudyStat[],
+  compareDaily: readonly DailyStudyStat[],
+  weekAnchorKey: string,
+  todayKey: string,
+): WeekComparison {
+  const inProgress = isWeekInProgress(weekAnchorKey, todayKey);
+  const totalSec = sumFocusSec(daily);
+  const previousSec = sumFocusSec(compareDaily);
+  if (totalSec === 0) {
+    return previousSec === 0 ? { kind: "empty", inProgress } : { kind: "no-current", inProgress };
+  }
+  if (previousSec === 0) {
+    return { kind: "no-previous", inProgress, totalSec };
+  }
+  return {
+    kind: "delta",
+    inProgress,
+    deltaSec: weekFocusDeltaSec(daily, compareDaily, weekAnchorKey, todayKey),
+  };
+}
+
 /** 날짜 키 → 순공시간(초). 달력이 날짜별 순공시간을 O(1)로 찾는다. */
 export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, number> {
   return new Map(daily.map((day) => [day.date, day.focusSec]));
 }
 
 /**
- * 주간 추이 차트 계산 (WeekTrendChart가 그리기만 하도록 순수 TS로 분리)
+ * 주간 추이 차트 계산 (막대 차트가 그리기만 하도록 순수 TS로 분리)
  *
  * `GET /api/stats/period`는 기간 전체를 0으로 채워 주므로, 아직 오지 않은 요일도 focusSec 0으로
  * 내려온다. 그 0을 선으로 그리면 선이 미래까지 이어진다 — 이번 주·지난주 **둘 다** `todayKey` 이후
@@ -171,21 +246,16 @@ export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, 
  * 않게 하는 대칭 처리).
  */
 
-/** y축 상한(시간). 12를 넘으면 clamp해 축이 튀지 않게 한다. */
-export const MAX_CHART_HOURS = 12;
+/** 세로축 상한(시간). 8시간을 넘는 날은 상한에서 잘린다 — 달력 범례(8+)와 같은 단위다. */
+export const MAX_CHART_HOURS = 8;
 
 /** 월요일 시작 7칸. XAxis 눈금 순서이자 슬롯 인덱스다. */
-const CHART_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+const CHART_WEEKDAY_LABELS = MONDAY_FIRST_WEEKDAY_LABELS;
 
 type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
 
-/** 순공 초 → 시간, `MAX_CHART_HOURS`에서 clamp(축이 튀지 않게). */
-export function toChartHours(focusSec: number): number {
-  return Math.min(focusSec / 3600, MAX_CHART_HOURS);
-}
-
 /** 요일별 순공 초(월~일). 미래 요일·기록 없는 요일은 `null`이다. */
-interface WeekTrendPoint {
+export interface WeekTrendPoint {
   day: ChartWeekday;
   thisWeekSec: number | null;
   lastWeekSec: number | null;
@@ -224,61 +294,4 @@ export function weekTrendPoints(
     }
   }
   return points;
-}
-
-/**
- * 차트 선이 읽는 행.
- * - `thisWeek`/`lastWeek`: 선이 그리는 값 — `MAX_CHART_HOURS`로 clamp된 시간(미래/기록 없음은 `null`).
- * - `thisWeekSec`/`lastWeekSec`: 툴팁용 clamp 전 원본 순공 초 — 12h 초과여도 실제 값을 정확히 보여준다.
- */
-export interface WeekTrendRow {
-  day: ChartWeekday;
-  thisWeek: number | null;
-  lastWeek: number | null;
-  thisWeekSec: number | null;
-  lastWeekSec: number | null;
-}
-
-/** `weekTrendPoints`의 초를 clamp된 시간으로 바꾼 차트 행(원본 초도 함께 담아 툴팁이 정확히 쓰게 한다). */
-export function buildWeekTrendRows(
-  daily: readonly DailyStudyStat[],
-  compareDaily: readonly DailyStudyStat[],
-  todayKey: string,
-): WeekTrendRow[] {
-  return weekTrendPoints(daily, compareDaily, todayKey).map((point) => ({
-    day: point.day,
-    thisWeek: point.thisWeekSec === null ? null : toChartHours(point.thisWeekSec),
-    lastWeek: point.lastWeekSec === null ? null : toChartHours(point.lastWeekSec),
-    thisWeekSec: point.thisWeekSec,
-    lastWeekSec: point.lastWeekSec,
-  }));
-}
-
-/**
- * 툴팁 한 항목의 순공시간 표기 — clamp 전 원본 초를 사람이 읽는 길이로.
- * 값이 `null`(미래 요일·기록 없음)이면 `null`을 돌려 그 항목을 아예 표시하지 않게 한다(0시간 오해 방지).
- */
-export function weekTrendTooltipDuration(focusSec: number | null): string | null {
-  return focusSec === null ? null : formatDuration(focusSec);
-}
-
-/**
- * 비율 분모가 되는 그 달의 경과일 (MonthTiles "이 달 공부"):
- * - 오늘이 속한 달이면 오늘 일자(그 달 1일부터 오늘까지)
- * - 과거 달이면 말일, 미래 달이면 0
- */
-export function elapsedDaysInMonth(month: CalendarMonth, todayKey: string): number {
-  if (isDateKeyInMonth(todayKey, month)) {
-    return dayOfDateKey(todayKey);
-  }
-  const firstDayKey = `${month.year}-${pad2(month.month)}-01`;
-  if (firstDayKey > todayKey) {
-    return 0; // 미래 달
-  }
-  return lastDayOfMonth(month); // 과거 달 말일
-}
-
-/** 공부 일수 / 경과일 비율(%) — 경과일 0이면 0%로 방어한다. */
-export function studiedRatioPercent(studiedDays: number, elapsedDays: number): number {
-  return elapsedDays === 0 ? 0 : Math.round((studiedDays / elapsedDays) * 100);
 }

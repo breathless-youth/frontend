@@ -524,4 +524,38 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     // 블록은 버튼이라 스크린리더용 h1을 따로 둔다
     expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
   });
+
+  it("헤더 오른쪽 플래너 알약으로 오늘의 플래너를 연다 — 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome("/home?guestAuth=1");
+
+    const button = await screen.findByRole("button", { name: "플래너" });
+    navigateSpy.mockClear();
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    // 날짜 없이 열어 오늘의 플래너가 되고, 셸이 붙인 쿼리는 그대로 들고 간다.
+    expect(navigateSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).toHaveBeenCalledWith(
+      // 들어온 탭을 주소에도 싣는다 — 웹뷰가 다시 로드되면 state는 사라지고 주소만 남는다.
+      { pathname: "/planner", search: "?guestAuth=1&from=home" },
+      { state: { via: "home" } },
+    );
+  });
+
+  it("토큰 출처가 없는 문서의 헤더에는 플래너 버튼이 없다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome();
+
+    await screen.findByRole("heading", { level: 1, name: "FocusMakers" });
+    expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
+  });
 });

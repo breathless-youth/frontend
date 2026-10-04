@@ -12,7 +12,8 @@ const triggerClass =
   "rounded-[9px] px-4 py-[7px] text-[13px] leading-4 font-normal text-muted-foreground " +
   "transition-colors duration-200 motion-reduce:transition-none " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] " +
-  "disabled:pointer-events-none " +
+  // 누를 수 없는 탭은 흐리게 보여 준다(기기 미등록의 주간 탭).
+  "disabled:pointer-events-none disabled:opacity-40 " +
   "data-[state=active]:bg-muted data-[state=active]:font-bold data-[state=active]:text-foreground " +
   "data-[state=active]:shadow-[var(--shadow-segment-thumb)]";
 

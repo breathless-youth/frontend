@@ -76,6 +76,24 @@ describe("useNativeScreenReport", () => {
     expect(lastReport(postMessage).restoreQuery).toEqual({ entry: "focus-start" });
   });
 
+  it("플래너는 보던 날짜와 들어온 탭을 복원 쿼리로 싣는다 — 유실되면 뒤로 가기가 다른 탭 화면으로 간다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderAt({ pathname: "/planner", search: "?date=2026-10-04", state: { via: "home" } });
+
+    expect(lastReport(postMessage).restoreQuery).toEqual({ date: "2026-10-04", from: "home" });
+  });
+
+  it("복원된 플래너는 ?from 쿼리로 들어온 탭을 다시 보고한다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderAt({ pathname: "/planner", search: "?from=records" });
+
+    expect(lastReport(postMessage).restoreQuery).toEqual({ from: "records" });
+  });
+
   it("entry 없는 온보딩 가이드는 복원 쿼리도 없다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });

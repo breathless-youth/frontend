@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   addDaysToDateKey,
   buildMonthGrid,
+  dayHeadlineLabel,
+  durationParts,
   buildStreakWeek,
   dayTitleWithWeekday,
   eventChipItems,
@@ -12,8 +14,6 @@ import {
   formatKstClock,
   formatSessionCount,
   formatSessionMeta,
-  formatSessionSubline,
-  formatSessionTimeRange,
   heatLevel,
   isFutureDateKey,
   isDateKeyInMonth,
@@ -170,6 +170,16 @@ describe("달력 유틸", () => {
     expect(grid.flat().filter((cell) => cell !== null)).toHaveLength(31);
   });
 
+  it("월요일 시작을 넘기면 월~일 순서로 그리드를 만든다", () => {
+    // 2026-07-01은 수요일 → 월요일 시작이면 앞에 빈칸 2개.
+    const grid = buildMonthGrid({ year: 2026, month: 7 }, "monday");
+
+    expect(grid[0].slice(0, 2)).toEqual([null, null]);
+    expect(grid[0][2]).toBe("2026-07-01");
+    // 2026-11-01은 일요일 → 첫 주의 마지막 칸이다.
+    expect(buildMonthGrid({ year: 2026, month: 11 }, "monday")[0][6]).toBe("2026-11-01");
+  });
+
   it("주 키는 일~토 7일이고 월 경계를 넘어 이어진다", () => {
     // 2026-07-27(월)이 속한 주는 7/26(일)~8/1(토)이다.
     expect(weekDateKeys("2026-07-27")).toEqual([
@@ -223,12 +233,23 @@ describe("statsQueryDateKey", () => {
 });
 
 describe("heatLevel", () => {
-  it("0초는 none, 1시간 미만은 low, 1~3시간은 mid, 3시간 이상은 high", () => {
-    expect(heatLevel(0)).toBe("none");
-    expect(heatLevel(59 * 60)).toBe("low");
-    expect(heatLevel(3600)).toBe("mid");
-    expect(heatLevel(3 * 3600 - 1)).toBe("mid");
-    expect(heatLevel(3 * 3600)).toBe("high");
+  it("기록 없음은 0, 그 뒤로 2시간 간격 5단계다", () => {
+    expect(heatLevel(0)).toBe(0);
+    expect(heatLevel(1)).toBe(1);
+    expect(heatLevel(2 * 3600 - 1)).toBe(1);
+    expect(heatLevel(2 * 3600)).toBe(2);
+    expect(heatLevel(4 * 3600)).toBe(3);
+    expect(heatLevel(6 * 3600)).toBe(4);
+    expect(heatLevel(8 * 3600 - 1)).toBe(4);
+    expect(heatLevel(8 * 3600)).toBe(5);
+    expect(heatLevel(14 * 3600)).toBe(5);
+  });
+});
+
+describe("dayHeadlineLabel", () => {
+  it("오늘을 고르면 오늘 순공시간, 다른 날이면 날짜를 적는다", () => {
+    expect(dayHeadlineLabel("2026-09-18", "2026-09-18")).toBe("오늘 순공시간");
+    expect(dayHeadlineLabel("2026-09-15", "2026-09-18")).toBe("9월 15일 순공시간");
   });
 });
 
@@ -246,17 +267,16 @@ describe("dayTitleWithWeekday", () => {
   });
 });
 
-describe("formatSessionTimeRange", () => {
-  it("KST 시각 범위를 물결로 잇는다", () => {
-    expect(formatSessionTimeRange("2026-09-18T22:30:00Z", "2026-09-18T23:16:00Z")).toBe(
-      "07:30 ~ 08:16",
-    );
-  });
-});
-
-describe("formatSessionSubline", () => {
-  it("순공 길이와 집중률을 가운뎃점으로 잇는다", () => {
-    expect(formatSessionSubline(44 * 60, 96)).toBe("순공 44분 · 집중 96%");
+describe("durationParts", () => {
+  it("formatDuration과 같은 규칙으로 숫자와 단위를 나눈다", () => {
+    expect(durationParts(112 * 60)).toEqual([
+      { value: 1, unit: "시간" },
+      { value: 52, unit: "분" },
+    ]);
+    expect(durationParts(2 * 3600)).toEqual([{ value: 2, unit: "시간" }]);
+    expect(durationParts(20 * 60)).toEqual([{ value: 20, unit: "분" }]);
+    expect(durationParts(45)).toEqual([{ value: 45, unit: "초" }]);
+    expect(durationParts(0)).toEqual([{ value: 0, unit: "분" }]);
   });
 });
 

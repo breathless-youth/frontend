@@ -1,30 +1,35 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+
+import {
+  trackRecordsPeriodPicked,
+  trackRecordsPeriodPickerOpened,
+  trackRecordsWeekChanged,
+} from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-import { MonthTiles } from "./MonthTiles";
+import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
-import { WeekTrendChart } from "./WeekTrendChart";
-import { addDaysToDateKey, monthOfDateKey } from "./recordsFormat";
-import { isFutureWeek, mondayWeekDateKeys } from "./recordsPeriod";
+import { WeekTrendCard } from "./WeekTrendCard";
+import { addDaysToDateKey } from "./recordsFormat";
+import { isFutureWeek } from "./recordsPeriod";
 import { useWeeklyData } from "./useWeeklyData";
 
 /**
  * 기록 주간 탭
  *
+ * 위에서부터 주 이동 → 주 요약 → 추이 카드 → 나의 공부 리듬(예상 화면).
+ *
  * 데이터 배선은 `useWeeklyData`가 소유하고 여기서는 상태만 분리해 그린다.
- * - 주 이동은 `weekAnchorKey`(초기 오늘)를 ±7일씩 옮긴다.
- * - "이 달" 카드는 주 이동과 무관하게 오늘이 속한 달 고정이라 `month`는 오늘 기준으로만 계산한다.
- * - 주 데이터가 pending/error여도 헤더의 네비·범위 라벨은 항상 보인다. 순공·증감 숫자는
- *   `WeekHeader`가 `metricsStatus`로 갈라 pending이면 Skeleton, error면 감춘다(빈 배열을
- *   확정값처럼 그리지 않는다).
+ * - 주 이동은 `weekAnchorKey`(초기 오늘)를 ±7일씩 옮긴다. 오늘이 속한 주가 끝이다.
+ * - 주 데이터가 pending/error여도 헤더의 네비·범위 라벨은 항상 보인다. 숫자는 pending이면
+ *   자리표시, error면 감춘다(빈 배열을 확정값처럼 그리지 않는다).
  * - period 조회 상태는 retry 함수를 노출하지 않으므로(RecordsPeriodState) refetch로 되돌린다.
- * TODO: `RhythmCard`는 준비 중 고정이라 데이터와 무관하게 항상 표시한다.
  */
-
 export function WeeklyView({
   userId,
   todayKey,
@@ -37,42 +42,57 @@ export function WeeklyView({
   weekAnchorKey: string;
   setWeekAnchorKey: Dispatch<SetStateAction<string>>;
 }) {
-  // "이 달" 카드는 주 이동과 무관하게 오늘이 속한 달 고정이라 today 기준으로만 계산한다(보존 대상 아님).
-  const month = monthOfDateKey(todayKey);
   const queryClient = useQueryClient();
-
-  const { week, month: monthState } = useWeeklyData(userId, weekAnchorKey, month);
-
-  // 오늘이 보고 있는 주(월~일)에 있으면 그 요일 인덱스, 아니면 null(과거·미래 주는 끝점 도트 없음).
-  const todayIndexInWeek = mondayWeekDateKeys(weekAnchorKey).indexOf(todayKey);
-  const todayIndex = todayIndexInWeek >= 0 ? todayIndexInWeek : null;
+  const { week } = useWeeklyData(userId, weekAnchorKey);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const retryPeriod = () => {
     void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
   };
 
-  // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 날짜를 막는 것과 같은 취지.
+  // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 달을 막는 것과 같은 취지.
+  const canGoNext = !isFutureWeek(addDaysToDateKey(weekAnchorKey, 7), todayKey);
   const goNextWeek = () => {
-    setWeekAnchorKey((key) => {
-      const next = addDaysToDateKey(key, 7);
-      return isFutureWeek(next, todayKey) ? key : next;
-    });
+    if (!canGoNext) {
+      return;
+    }
+    trackRecordsWeekChanged(1);
+    setWeekAnchorKey((key) => addDaysToDateKey(key, 7));
+  };
+  const goPrevWeek = () => {
+    trackRecordsWeekChanged(-1);
+    setWeekAnchorKey((key) => addDaysToDateKey(key, -7));
   };
 
   return (
     <div>
       <WeekHeader
         weekAnchorKey={weekAnchorKey}
-        todayKey={todayKey}
         metricsStatus={week.status}
         daily={week.status === "success" ? week.daily : undefined}
-        compareDaily={week.status === "success" ? week.compareDaily : undefined}
-        onPrevWeek={() => setWeekAnchorKey((key) => addDaysToDateKey(key, -7))}
+        canGoNext={canGoNext}
+        onPrevWeek={goPrevWeek}
         onNextWeek={goNextWeek}
+        onOpenPicker={() => {
+          trackRecordsPeriodPickerOpened("weekly");
+          setPickerOpen(true);
+        }}
       />
 
-      <div className="mt-6">
-        {week.status === "pending" && <Skeleton className="h-[180px] w-full rounded-[20px]" />}
+      <WeekPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        weekAnchorKey={weekAnchorKey}
+        todayKey={todayKey}
+        onPick={(dateKey, toToday) => {
+          trackRecordsPeriodPicked({ view: "weekly", toToday });
+          setWeekAnchorKey(dateKey);
+          setPickerOpen(false);
+        }}
+      />
+
+      <div className="mt-5">
+        {week.status === "pending" && <Skeleton className="h-[296px] w-full rounded-[20px]" />}
         {week.status === "error" && (
           <ErrorState
             message="주간 추이를 불러오지 못했어요"
@@ -81,34 +101,16 @@ export function WeeklyView({
           />
         )}
         {week.status === "success" && (
-          <div className="rounded-[20px] bg-muted shadow-sb-card p-[18px]">
-            <WeekTrendChart
-              daily={week.daily}
-              compareDaily={week.compareDaily}
-              todayKey={todayKey}
-              todayIndex={todayIndex}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6">
-        <RhythmCard />
-      </div>
-
-      <div className="mt-6">
-        {monthState.status === "pending" && <Skeleton className="h-[104px] rounded-[20px]" />}
-        {monthState.status === "error" && (
-          <ErrorState
-            message="이 달 기록을 불러오지 못했어요"
-            onRetry={retryPeriod}
-            screen="records"
+          <WeekTrendCard
+            daily={week.daily}
+            compareDaily={week.compareDaily}
+            weekAnchorKey={weekAnchorKey}
+            todayKey={todayKey}
           />
         )}
-        {monthState.status === "success" && (
-          <MonthTiles daily={monthState.daily} month={month} todayKey={todayKey} />
-        )}
       </div>
+
+      <RhythmCard />
     </div>
   );
 }

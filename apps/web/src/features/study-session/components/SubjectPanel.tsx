@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
@@ -20,6 +12,15 @@ import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
 import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "../sessionCopy";
+import {
+  MAX_SUBJECTS,
+  MAX_TASKS,
+  subjectIdUnderPoint,
+  SWIPE_REMOVE_PX,
+  useInlineNameEdit,
+  usePressGestures,
+  useSubjectReorder,
+} from "../subjectInteractions";
 import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
@@ -42,14 +43,6 @@ import type { SubjectsStore } from "../useSubjects";
  * 화면에만 반영되고, 놓을 때 순서가 바뀌었으면 전체 순서를 서버에 한 번 저장한다(`useSubjects.commitReorder`,
  * `PUT /api/subjects/order`). 실패하면 토스트 뒤 서버 순서로 되돌린다.
  */
-
-const MAX_SUBJECTS = 20;
-const MAX_TASKS = 30;
-const LONG_PRESS_MS = 480;
-const SWIPE_SLOP_PX = 10;
-/** 이만큼 왼쪽으로 밀고 놓으면 제거된다(원본 96). 최대 이동은 160. */
-const SWIPE_REMOVE_PX = 96;
-const SWIPE_MAX_PX = 160;
 
 type Editing =
   | { kind: "new-subject" }
@@ -81,109 +74,6 @@ export interface SubjectPanelProps {
   liveTotals: ReadonlyMap<number, SubjectTotals>;
 }
 
-/**
- * 탭 · 길게 누르기 · (선택) 왼쪽 스와이프를 한 요소에서 가른다(원본 `rowDown`/`taskMove`).
- *
- * 길게 누르기가 발화하거나 스와이프로 판정되면 뒤따르는 `click`은 삼킨다. 스와이프는 가로
- * 이동이 세로보다 크고 10px을 넘을 때만 시작한다 — 목록 세로 스크롤과 겹치지 않도록
- * 사용처가 `touch-action: pan-y`를 준다.
- */
-function usePressGestures(handlers: {
-  onTap: () => void;
-  onLongPress: (element: HTMLElement) => void;
-  onSwipeLeft?: () => void;
-}) {
-  const [swipeX, setSwipeX] = useState(0);
-  /** 손가락이 닿아 있는 동안 — 행이 눌린 모양을 보여 길게 누르기가 먹히고 있음을 알린다. */
-  const [pressed, setPressed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stateRef = useRef<{ startX: number; startY: number; swiping: boolean } | null>(null);
-  const consumedRef = useRef(false);
-
-  function clearTimer() {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  function onPointerDown(event: ReactPointerEvent<HTMLElement>) {
-    if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
-    const element = event.currentTarget;
-    consumedRef.current = false;
-    stateRef.current = { startX: event.clientX, startY: event.clientY, swiping: false };
-    clearTimer();
-    setPressed(true);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      consumedRef.current = true;
-      stateRef.current = null;
-      setPressed(false);
-      haptic("medium");
-      handlers.onLongPress(element);
-    }, LONG_PRESS_MS);
-  }
-
-  function onPointerMove(event: ReactPointerEvent<HTMLElement>) {
-    const state = stateRef.current;
-    if (state === null) return;
-    const dx = event.clientX - state.startX;
-    const dy = event.clientY - state.startY;
-    if (!state.swiping) {
-      if (Math.abs(dx) < SWIPE_SLOP_PX && Math.abs(dy) < SWIPE_SLOP_PX) return;
-      // 어느 쪽이든 움직였으면 길게 누르기는 아니다.
-      clearTimer();
-      setPressed(false);
-      if (handlers.onSwipeLeft === undefined || Math.abs(dx) <= Math.abs(dy)) {
-        stateRef.current = null;
-        return;
-      }
-      state.swiping = true;
-      consumedRef.current = true;
-    }
-    setSwipeX(Math.max(-SWIPE_MAX_PX, Math.min(0, dx)));
-  }
-
-  function onPointerEnd() {
-    clearTimer();
-    setPressed(false);
-    const state = stateRef.current;
-    stateRef.current = null;
-    if (state?.swiping === true) {
-      if (swipeX <= -SWIPE_REMOVE_PX) {
-        haptic("light");
-        handlers.onSwipeLeft?.();
-      }
-      setSwipeX(0);
-    }
-  }
-
-  function onClick() {
-    if (consumedRef.current) {
-      consumedRef.current = false;
-      return;
-    }
-    handlers.onTap();
-  }
-
-  useEffect(() => clearTimer, []);
-
-  return {
-    swipeX,
-    pressed,
-    handlers: {
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: onPointerEnd,
-      onPointerCancel: onPointerEnd,
-      onPointerLeave: onPointerEnd,
-      onClick,
-      // Android 길게 누르기 컨텍스트 메뉴 차단(iOS는 `.session-no-drag`의 touch-callout이 막는다).
-      onContextMenu: (event: ReactMouseEvent<HTMLElement>) => event.preventDefault(),
-    },
-  };
-}
-
 /** 이름 입력 + `완료`(원본 Editing). Enter·완료 확정, Escape 취소, 포커스 이탈은 내용이 있으면 확정. */
 function InlineNameEditor({
   initial = "",
@@ -203,26 +93,11 @@ function InlineNameEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
-  const [value, setValue] = useState(initial);
-  const doneRef = useRef(false);
-  function commit() {
-    if (doneRef.current) return;
-    doneRef.current = true;
-    const trimmed = value.trim();
-    if (trimmed.length === 0 || trimmed === initial) {
-      onCancel();
-    } else {
-      onCommit(trimmed);
-    }
-  }
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      commit();
-    } else if (event.key === "Escape") {
-      doneRef.current = true;
-      onCancel();
-    }
-  }
+  const { value, setValue, commit, handleKeyDown } = useInlineNameEdit({
+    initial,
+    onCommit,
+    onCancel,
+  });
   return (
     <div
       className={cn(
@@ -295,11 +170,7 @@ function Grip({
       }}
       onPointerMove={(event) => {
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        const under = document.elementFromPoint(event.clientX, event.clientY);
-        const card = under?.closest<HTMLElement>("[data-subject-id]") ?? null;
-        const overId = card === null ? Number.NaN : Number(card.dataset.subjectId);
-        // 자기 카드 위이거나 카드 밖이면 null — 호출부가 "같은 카드 반복" 가드를 푼다.
-        onOver(Number.isFinite(overId) && overId !== subjectId ? overId : null);
+        onOver(subjectIdUnderPoint(event.clientX, event.clientY, subjectId));
       }}
       onPointerUp={(event) => {
         event.stopPropagation();
@@ -791,17 +662,12 @@ export function SubjectPanel({
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
-  const [reorderingId, setReorderingId] = useState<number | null>(null);
+  const reorder = useSubjectReorder(store);
   /**
    * 응답을 기다리는 추천 과목. 추가는 서버 id를 받아야 목록에 넣을 수 있어 그 사이 화면이 그대로인데,
    * 반응이 없다고 한 번 더 누르면 같은 과목이 두 개 생긴다.
    */
   const [pendingPick, setPendingPick] = useState<string | null>(null);
-  /**
-   * 마지막으로 자리를 바꾼 상대 카드. 리렌더 전에 같은 카드 위에서 pointermove가 연달아 오면
-   * 순서가 왔다 갔다 하므로 한 번만 바꾸고, 손가락이 자기 카드로 돌아오면(null) 다시 연다.
-   */
-  const lastOverRef = useRef<number | null>(null);
   const { subjects, status } = store;
   const empty = status === "ready" && subjects.length === 0;
 
@@ -905,30 +771,13 @@ export function SubjectPanel({
               onCloseMenu={() => setMenu(null)}
               onEditing={setEditing}
               onNotice={onNotice}
-              reordering={reorderingId === subject.id}
+              reordering={reorder.reorderingId === subject.id}
               onReorderStart={() => {
                 setMenu(null);
-                lastOverRef.current = null;
-                setReorderingId(subject.id);
-                store.startReorder();
+                reorder.start(subject.id);
               }}
-              onReorderOver={(overId) => {
-                if (overId === null) {
-                  lastOverRef.current = null;
-                  return;
-                }
-                if (lastOverRef.current === overId) return;
-                lastOverRef.current = overId;
-                store.reorderSubject(subject.id, overId);
-                // 햅틱은 누를 때가 아니라 다른 과목과 자리가 바뀌는 순간에(실기기 피드백).
-                haptic("light");
-              }}
-              onReorderEnd={() => {
-                lastOverRef.current = null;
-                setReorderingId(null);
-                // pointercancel도 여기로 온다 — 화면에 보이는 순서가 곧 저장되는 순서다.
-                void store.commitReorder();
-              }}
+              onReorderOver={(overId) => reorder.over(subject.id, overId)}
+              onReorderEnd={reorder.end}
               store={store}
             />
           ))}
