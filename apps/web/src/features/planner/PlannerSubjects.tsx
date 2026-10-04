@@ -735,34 +735,39 @@ function ManagedSubjects({
         {!empty && unassigned}
       </div>
 
+      {/* 과목이 없으면 자주 쓰는 과목을 있을 때의 모습 그대로 흐리게 그리고, 줄마다 `추가`를 둔다. */}
       {empty && (
-        <div className="flex flex-col gap-1 pt-2 pb-1">
-          <p className="text-[15px] leading-5 font-semibold text-foreground">아직 과목이 없어요</p>
-          <p className="text-xs leading-4 text-muted-foreground">
-            자주 쓰는 과목을 골라 시작해 보세요
-          </p>
-          <ul className="flex flex-wrap gap-1.5 pt-1.5" aria-label="추천 과목">
-            {SUBJECT_SUGGESTIONS.map((name) => (
-              <li key={name}>
-                <button
-                  type="button"
-                  disabled={pendingPick !== null}
-                  aria-busy={pendingPick === name}
-                  onClick={() => {
-                    setPendingPick(name);
-                    void store.addSubject(name, true).then(() => setPendingPick(null));
-                  }}
-                  className={cn(
-                    "flex h-8 items-center rounded-full bg-brand-subtle px-3 text-[13px] leading-4 font-semibold text-brand-subtle-text disabled:opacity-50",
-                    pendingPick === name && "animate-pulse motion-reduce:animate-none",
-                  )}
-                >
+        <ul className="flex flex-col gap-1" aria-label="추천 과목">
+          {SUBJECT_SUGGESTIONS.map((name, index) => (
+            <li key={name} className="flex h-9 items-center gap-2">
+              <span aria-hidden className="flex min-w-0 flex-1 items-center gap-2 opacity-40">
+                <span
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ background: subjectColorVar(index) }}
+                />
+                <span className="min-w-0 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
                   {name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </span>
+              </span>
+              <button
+                type="button"
+                disabled={pendingPick !== null}
+                aria-busy={pendingPick === name}
+                aria-label={`${name} 추가`}
+                onClick={() => {
+                  setPendingPick(name);
+                  void store.addSubject(name, true).then(() => setPendingPick(null));
+                }}
+                className={cn(
+                  "flex h-7 shrink-0 items-center rounded-full bg-brand-subtle px-2.5 text-xs leading-4 font-semibold text-primary disabled:opacity-50",
+                  pendingPick === name && "animate-pulse motion-reduce:animate-none",
+                )}
+              >
+                + 추가
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {editing?.kind === "new-subject" ? (
