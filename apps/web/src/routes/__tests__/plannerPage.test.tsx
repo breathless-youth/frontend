@@ -303,11 +303,15 @@ describe("PlannerPage", () => {
     }
   });
 
-  it("형식이 틀린 날짜로 열면 오늘 플래너를 연다", async () => {
-    renderPlanner("?userId=7&date=10-05");
+  it.each(["10-05", "2020-13-45", "2025-02-30"])(
+    "형식이 틀리거나 달력에 없는 날짜(%s)로 열면 오늘 플래너를 연다",
+    async (date) => {
+      renderPlanner(`?userId=7&date=${date}`);
 
-    await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(TODAY));
-  });
+      await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(TODAY));
+      expect(mockedStats).not.toHaveBeenCalledWith(date);
+    },
+  );
 
   it("미래 날짜의 플래너는 기록을 조회하지 않고, 지금 미완료인 할 일을 고칠 수 없는 채로 보여준다", async () => {
     mockedSubjects.mockResolvedValue([
