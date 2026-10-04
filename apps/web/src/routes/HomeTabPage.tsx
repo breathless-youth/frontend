@@ -334,17 +334,17 @@ function HomeHeaderLead({
   );
 }
 
-/** 헤더 오른쪽의 플래너 진입 버튼 — 오늘의 플래너를 연다. */
+/** 헤더 오른쪽의 플래너 알약 — 오늘의 플래너를 연다. */
 function PlannerEntryButton() {
   const openPlanner = useOpenPlanner("home");
   return (
     <button
       type="button"
-      aria-label="오늘의 플래너"
       onClick={() => openPlanner()}
-      className="flex size-10 shrink-0 items-center justify-center self-start rounded-full border border-border bg-muted text-brand-subtle-text"
+      className="mt-1 flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full bg-muted pr-3 pl-2.5 text-[13px] leading-4 font-semibold text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]"
     >
       <IconPlanner size={18} />
+      플래너
     </button>
   );
 }

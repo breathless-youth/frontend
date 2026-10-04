@@ -27,6 +27,7 @@
   --color-state-distract: var(--state-distract);
   --color-state-distract-subtle: var(--state-distract-subtle);
   --color-state-distract-text: var(--state-distract-text);
+  --color-state-pause: var(--state-pause);
   --color-text-disabled: var(--text-disabled);
   --color-dim: var(--dim);
   --color-stamp-seal: var(--stamp-seal);
@@ -103,6 +104,8 @@
   --state-distract-subtle: #fff4e5;
   /* colors.state.distractSubtle.light */
   --state-distract-text: #b36100;
+  /* 타임라인의 일시정지 조각 — Figma gray/500. 테마와 무관하게 같은 회색이다. */
+  --state-pause: #8b95a1;
   /* colors.state.distractText.light — S5 EventChip 소형 텍스트 전용 */
   --text-disabled: #d1d6db;
   /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
@@ -237,9 +240,11 @@
   --brand-subtle: #e6eefb;
   --bg-layer-2: #f1f5fc;
   --brand-subtle-text: #3f5f96;
+  --text-disabled: #b3bccb;
+  --state-distract: #ff9e1b;
   --chart-peak: #7a5af8;
   --chart-prev: #dde3ec;
-  --chart-rest: #d3d9e3;
+  --chart-rest: #b9c2d0;
   --chart-heat-1: #dbe7fb;
   --chart-heat-2: #b9d2f8;
   --chart-heat-3: #8fb5f3;
@@ -282,14 +287,15 @@
     --muted: #1b2333;
     --brand-subtle: #1e2a44;
     --bg-layer-2: #232d40;
-    --brand-subtle-text: #a9c6f5;
+    --brand-subtle-text: #a9c4f5;
+    --text-disabled: #6b7789;
     --chart-peak: #a18bff;
-    --chart-prev: #33405a;
-    --chart-rest: #3f4b63;
+    --chart-prev: #2a3752;
+    --chart-rest: #3d4a63;
     --chart-heat-1: #24344f;
-    --chart-heat-2: #2d4670;
-    --chart-heat-3: #375a92;
-    --chart-heat-4: #4673b8;
+    --chart-heat-2: #2c4568;
+    --chart-heat-3: #35558a;
+    --chart-heat-4: #3f6fb3;
     --chart-heat-5: #5a90ea;
     --chart-empty: #1e2636;
     --bg-control-track: #1e2636;
@@ -329,14 +335,15 @@
   --muted: #1b2333;
   --brand-subtle: #1e2a44;
   --bg-layer-2: #232d40;
-  --brand-subtle-text: #a9c6f5;
+  --brand-subtle-text: #a9c4f5;
+  --text-disabled: #6b7789;
   --chart-peak: #a18bff;
-  --chart-prev: #33405a;
-  --chart-rest: #3f4b63;
+  --chart-prev: #2a3752;
+  --chart-rest: #3d4a63;
   --chart-heat-1: #24344f;
-  --chart-heat-2: #2d4670;
-  --chart-heat-3: #375a92;
-  --chart-heat-4: #4673b8;
+  --chart-heat-2: #2c4568;
+  --chart-heat-3: #35558a;
+  --chart-heat-4: #3f6fb3;
   --chart-heat-5: #5a90ea;
   --chart-empty: #1e2636;
   --bg-control-track: #1e2636;

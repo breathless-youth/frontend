@@ -61,14 +61,13 @@ describe("WeekTrendCard — 비교 문장", () => {
     expect(screen.getByText(/^\d+시간$/)).toHaveClass("text-state-distract");
   });
 
-  it("과거 주는 완료형으로 말하고 한 주 전체끼리 견준 날짜를 적는다", () => {
+  it("과거 주는 완료형으로 말하고, 견준 주를 오늘에서 센 호칭으로 적는다", () => {
     renderCard({ todayKey: "2026-09-30" });
 
     // 전체 22시간 vs 28시간 → 6시간 덜.
     expect(screen.getByText(/지난주보다/)).toHaveTextContent("지난주보다 6시간 덜 공부했어요");
-    expect(
-      screen.getByText("바로 앞 주(9월 7일 ~ 13일)와 한 주 전체끼리 비교했어요"),
-    ).toBeInTheDocument();
+    // 오늘 09-30(수) → 보는 주(09-14~20)는 2주 전, 견준 앞 주는 3주 전.
+    expect(screen.getByText("3주 전을 기준으로 비교했어요")).toBeInTheDocument();
   });
 
   it("지난주 기록이 없으면 비교하지 않고 이번 주 합계만 말한다", () => {
@@ -83,10 +82,12 @@ describe("WeekTrendCard — 비교 문장", () => {
   it("이번 주 기록이 없거나 둘 다 없으면 그 사실을 말한다", () => {
     const { unmount } = renderCard({ daily: EMPTY });
     expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
+    expect(screen.getByText("지난주 막대만 보여드려요")).toBeInTheDocument();
     unmount();
 
     renderCard({ daily: EMPTY, compareDaily: EMPTY });
     expect(screen.getByText("아직 기록이 없어요")).toBeInTheDocument();
+    expect(screen.getByText("집중을 시작하면 요일별로 쌓여요")).toBeInTheDocument();
   });
 });
 
@@ -111,15 +112,43 @@ describe("WeekTrendCard — 막대와 범례", () => {
     expect(chart).toHaveAccessibleName(/월 이번 주 6시간 지난주 5시간/);
   });
 
-  it("범례는 이번 주 · 지난주이고, 과거 주에서는 오늘 기준 상대 호칭을 쓴다", () => {
+  it("범례는 이번 주 · 지난주이고, 과거 주에서는 오늘에서 센 N주 전으로 부른다", () => {
     const { unmount } = renderCard();
     expect(screen.getByText("이번 주", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("지난주", { selector: "span" })).toBeInTheDocument();
     unmount();
 
-    // 오늘 09-25(금) → 보는 주(09-14~20)는 지난주, 그 앞 주는 2주 전.
+    // 오늘 09-25(금) → 보는 주(09-14~20)는 1주 전, 그 앞 주는 2주 전.
     renderCard({ todayKey: "2026-09-25" });
-    expect(screen.getByText("지난주", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("1주 전")).toBeInTheDocument();
     expect(screen.getByText("2주 전")).toBeInTheDocument();
+    expect(screen.queryByText("지난주", { selector: "span" })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /요일별 순공시간/ })).toHaveAccessibleName(
+      /월 1주 전 6시간 2주 전 5시간/,
+    );
+  });
+
+  it("보는 주의 하루 평균을 점선과 범례로 보여주고, 공부한 날이 없으면 선 없이 —로 적는다", () => {
+    const { unmount } = renderCard();
+    // 공부한 4일의 합계 22시간 → 하루 평균 5시간 30분(8시간 눈금의 68.75%).
+    expect(screen.getByTestId("trend-average-line")).toHaveStyle({ bottom: "68.75%" });
+    expect(screen.getByText("하루 평균")).toHaveTextContent("하루 평균5시간 30분");
+    unmount();
+
+    renderCard({ daily: EMPTY });
+    expect(screen.queryByTestId("trend-average-line")).not.toBeInTheDocument();
+    expect(screen.getByText("하루 평균")).toHaveTextContent("하루 평균—");
+  });
+
+  it("진행 중인 주에서만 오늘 요일 라벨을 굵게 적는다", () => {
+    const { unmount } = renderCard();
+    expect(screen.getByText("금")).toHaveClass("font-bold", "text-foreground");
+    expect(screen.getByText("목")).toHaveClass("text-muted-foreground");
+    unmount();
+
+    // 과거 주를 보면 오늘과 같은 요일이라도 강조하지 않는다.
+    renderCard({ todayKey: "2026-09-25" });
+    expect(screen.getByText("금")).toHaveClass("text-muted-foreground");
+    expect(screen.getByText("금")).not.toHaveClass("font-bold");
   });
 });

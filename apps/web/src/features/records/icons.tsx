@@ -97,27 +97,34 @@ export function IconChevronDown({
 }
 
 /**
- * 플래너 진입 버튼 아이콘(Figma `icon/planner` — 15×15). 기본은 버튼 글자색을 따라간다.
+ * 플래너 아이콘(Figma `icon/planner` — 18×18, 달력에 체크). 기본은 글자색을 따라간다.
  * `var(--color-brand-subtle-text)`처럼 Soft Blue 테마에만 있는 토큰을 `--color-*`로 직접 쓰면 값이 비어
  * 아이콘이 안 보인다 — `--color-*`는 `:root`에서 풀리는데 그 토큰은 `.theme-soft-blue` 안에만 있다.
  */
 export function IconPlanner({
   color = "currentColor",
-  size = 15,
+  size = 18,
   ...rest
 }: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 15 15" fill="none" aria-hidden="true" {...rest}>
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true" {...rest}>
       <path
-        d="M10.3125 1.64062H4.6875C3.39308 1.64062 2.34375 2.68996 2.34375 3.98438V11.0156C2.34375 12.31 3.39308 13.3594 4.6875 13.3594H10.3125C11.6069 13.3594 12.6562 12.31 12.6562 11.0156V3.98438C12.6562 2.68996 11.6069 1.64062 10.3125 1.64062Z"
+        d="M12.375 3H5.625C4.38236 3 3.375 4.00736 3.375 5.25V13.125C3.375 14.3676 4.38236 15.375 5.625 15.375H12.375C13.6176 15.375 14.625 14.3676 14.625 13.125V5.25C14.625 4.00736 13.6176 3 12.375 3Z"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={1.275}
       />
       <path
-        d="M4.92188 4.92188H10.0781M4.92188 7.5H10.0781M4.92188 10.0781H8.20312"
+        d="M6.375 2.0625V4.3125M11.625 2.0625V4.3125M3.375 6.9375H14.625"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={1.275}
         strokeLinecap="round"
+      />
+      <path
+        d="M6.75 10.875L8.25 12.375L11.25 9.15"
+        stroke={color}
+        strokeWidth={1.275}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

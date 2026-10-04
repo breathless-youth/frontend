@@ -525,7 +525,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
   });
 
-  it("헤더 오른쪽 버튼으로 오늘의 플래너를 연다 — 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
+  it("헤더 오른쪽 플래너 알약으로 오늘의 플래너를 연다 — 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
     tokenSourceMock.source = {
       getUserId: () => 7,
       getAccessToken: () => "token",
@@ -536,7 +536,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
     renderHome("/home?guestAuth=1");
 
-    const button = await screen.findByRole("button", { name: "오늘의 플래너" });
+    const button = await screen.findByRole("button", { name: "플래너" });
     navigateSpy.mockClear();
     fireEvent.click(button);
     fireEvent.click(button);
@@ -555,6 +555,6 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     renderHome();
 
     await screen.findByRole("heading", { level: 1, name: "FocusMakers" });
-    expect(screen.queryByRole("button", { name: "오늘의 플래너" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
   });
 });

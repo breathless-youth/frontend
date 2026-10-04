@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SegmentedControl } from "../SegmentedControl";
-import { SessionListItem } from "../SessionListItem";
+import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
 import { StreakBanner } from "../StreakBanner";
 
@@ -250,7 +250,7 @@ describe("MonthCalendar", () => {
     );
   });
 
-  it("칸 농도는 순공 2시간 간격 5단계이고, 진한 두 단계는 글자를 흰색으로 뒤집는다", () => {
+  it("칸 농도는 순공 2시간 간격 5단계이고, 글자색은 칸에 달아 진한 두 단계만 흰색으로 뒤집는다", () => {
     render(
       <MonthCalendar
         month={month}
@@ -278,9 +278,13 @@ describe("MonthCalendar", () => {
     expect(fillOf("3일, 순공 4시간")).toHaveClass("bg-chart-heat-3");
     expect(fillOf("4일, 순공 6시간")).toHaveClass("bg-chart-heat-4");
     expect(fillOf("5일, 순공 9시간")).toHaveClass("bg-chart-heat-5");
-    expect(fillOf("6일, 기록 없음")).toHaveClass("bg-chart-empty");
-    expect(screen.getByText("9:00")).toHaveClass("text-white");
-    expect(screen.getByText("2:00")).toHaveClass("text-muted-foreground");
+    expect(fillOf("4일, 순공 6시간")).toHaveClass("text-white");
+    expect(fillOf("5일, 순공 9시간")).toHaveClass("text-white");
+    expect(fillOf("3일, 순공 4시간")).toHaveClass("text-foreground");
+    expect(fillOf("3일, 순공 4시간")).not.toHaveClass("text-white");
+    // 기록 없는 날과 아직 오지 않은 날은 칸 색이 같고 숫자 색으로만 구분한다.
+    expect(fillOf("6일, 기록 없음")).toHaveClass("bg-chart-empty", "text-muted-foreground");
+    expect(fillOf("27일, 기록 없음")).toHaveClass("bg-chart-empty", "text-text-disabled");
   });
 
   it("오늘은 숫자 칩으로, 고른 날은 테두리로 표시하고 고른 날의 농도 색을 가리지 않는다", () => {
@@ -298,15 +302,20 @@ describe("MonthCalendar", () => {
     );
 
     const selected = screen.getByRole("button", { name: "10일, 순공 5시간" }).firstElementChild;
-    expect(selected).toHaveClass("ring-2", "bg-chart-heat-3");
+    expect(selected).toHaveClass(
+      "ring-[1.5px]",
+      "ring-foreground",
+      "ring-inset",
+      "bg-chart-heat-3",
+    );
 
     // 다른 날을 골라도 오늘 칩은 남는다.
     const today = screen.getByRole("button", { name: "오늘, 26일, 기록 없음" });
-    expect(today.firstElementChild).not.toHaveClass("ring-2");
+    expect(today.firstElementChild).not.toHaveClass("ring-[1.5px]");
     expect(screen.getByText("26")).toHaveClass("bg-foreground", "rounded-full");
   });
 
-  it("달력 아래에 그 달 합계와 하루 평균, 5단계 범례를 보여준다", () => {
+  it("달력 아래 왼쪽에 5단계 범례를, 오른쪽에 그 달의 하루 평균과 합계를 보여준다", () => {
     render(
       <MonthCalendar
         month={month}
@@ -320,12 +329,15 @@ describe("MonthCalendar", () => {
       />,
     );
 
-    expect(screen.getByText("7월 합계")).toBeInTheDocument();
-    expect(screen.getByText("81시간 30분")).toBeInTheDocument();
-    expect(screen.getByText("4시간 32분")).toBeInTheDocument();
-    expect(screen.getByText("공부한 18일 기준")).toBeInTheDocument();
     const legend = screen.getByRole("group", { name: /순공시간 범례/ });
-    expect(legend).toHaveTextContent("순공시간0+2+4+6+8+");
+    expect(legend).toHaveTextContent(/^0\+2\+4\+6\+8\+$/);
+    // 범례 → 하루 평균 → 합계 순서다. 합계 라벨에는 달을 붙이지 않는다.
+    expect(legend.parentElement).toHaveTextContent(
+      "0+2+4+6+8+하루 평균4시간 32분공부한 18일 기준합계81시간 30분",
+    );
+    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^81시간 30분$/);
+    expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^4시간 32분$/);
+    expect(screen.getByText("공부한 18일 기준")).toBeInTheDocument();
   });
 
   it("공부한 날이 없는 달은 합계 0분, 하루 평균은 —로 적는다", () => {
@@ -361,16 +373,52 @@ describe("SessionListItem", () => {
     expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
   });
 
-  it("집중률이 90% 이상이면 필을 진하게, 아니면 옅게 칠한다", () => {
+  it("집중률 필은 집중률이 높든 낮든 같은 옅은 색으로 칠한다", () => {
     const { rerender } = render(
       <SessionListItem session={session({ focusRate: 96 })} expanded={false} onToggle={vi.fn()} />,
     );
-    expect(screen.getByText("집중 96%")).toHaveClass("bg-primary");
+    expect(screen.getByText("집중 96%")).toHaveClass("bg-brand-subtle", "text-brand-subtle-text");
+    expect(screen.getByText("집중 96%")).not.toHaveClass("bg-primary");
 
     rerender(
       <SessionListItem session={session({ focusRate: 83 })} expanded={false} onToggle={vi.fn()} />,
     );
-    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle");
+    expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle", "text-brand-subtle-text");
+  });
+
+  it("미니 타임라인은 순공색 바탕 위에 자동 멈춤·일시정지 구간만 제자리에 덧칠한다", () => {
+    // 07:30~08:16(46분) 가운데 07:53~08:04.5 자동 멈춤(25%), 08:04.5~08:16 일시정지(25%).
+    const { container } = render(
+      <SessionListItem
+        session={session({
+          events: [
+            { status: "PHONE", startedAt: "2026-09-18T22:53:00Z", endedAt: "2026-09-18T23:04:30Z" },
+            { status: "PAUSE", startedAt: "2026-09-18T23:04:30Z", endedAt: "2026-09-18T23:16:00Z" },
+          ],
+        })}
+        expanded={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const overlays = Array.from(container.querySelectorAll<HTMLElement>("[data-kind]"));
+    expect(overlays.map((overlay) => overlay.dataset.kind)).toEqual(["distract", "pause"]);
+    expect(overlays[0]).toHaveClass("absolute", "bg-state-distract");
+    expect(overlays[0]).toHaveStyle({ left: "50%", width: "25%" });
+    expect(overlays[1]).toHaveClass("absolute", "bg-state-pause");
+    expect(overlays[1]).toHaveStyle({ left: "75%", width: "25%" });
+    // 순공은 조각이 아니라 바 자체의 색이다.
+    expect(overlays[0]?.parentElement).toHaveClass("bg-primary");
+    expect(overlays[0]?.parentElement?.children).toHaveLength(2);
+  });
+
+  it("이벤트가 없는 세션의 타임라인은 덧칠 없이 순공색 바 하나다", () => {
+    const { container } = render(
+      <SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />,
+    );
+
+    expect(container.querySelector("[data-kind]")).toBeNull();
+    expect(container.querySelector(".bg-primary")).not.toBeNull();
   });
 
   it("행을 누르면 onToggle을 부르고, 펼치면 시작 시간·종료 시간·최대 집중 시간과 그 구간을 보여준다", () => {
@@ -395,6 +443,19 @@ describe("SessionListItem", () => {
     expect(screen.getByText("최대 집중 시간")).toBeInTheDocument();
     expect(screen.getByText("20분")).toHaveClass("text-chart-peak");
     expect(screen.getByText("07:30 ~ 07:50")).toBeInTheDocument();
+  });
+});
+
+describe("SessionTimelineLegend", () => {
+  it("타임라인 색의 뜻을 순공 · 자동 멈춤 · 일시정지 순서로 알려 준다", () => {
+    render(<SessionTimelineLegend />);
+
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "순공",
+      "자동 멈춤",
+      "일시정지",
+    ]);
+    expect(screen.getByText("자동 멈춤").previousElementSibling).toHaveClass("bg-state-distract");
   });
 });
 

@@ -22,7 +22,8 @@ describe("WeekHeader", () => {
 
     expect(screen.getByText("9월 14일 ~ 20일")).toBeInTheDocument();
     expect(screen.getByText("주간 순공시간")).toBeInTheDocument();
-    expect(screen.getByText("3시간")).toBeInTheDocument();
+    // 숫자는 크게, 단위는 작게 적어 요소가 나뉜다 — 줄 전체로 읽는다.
+    expect(screen.getByText("3").closest("p")).toHaveTextContent(/^3시간$/);
     expect(screen.getByText("주간 순공시간").parentElement).toHaveTextContent("총 4시간");
     expect(screen.queryByText(/지난주보다/)).not.toBeInTheDocument();
   });

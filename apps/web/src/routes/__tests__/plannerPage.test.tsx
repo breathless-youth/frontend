@@ -159,8 +159,8 @@ describe("PlannerPage", () => {
     expect(within(head).getByText("1시간 50분")).toBeInTheDocument();
     expect(head).toHaveTextContent("총 2시간");
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "records", isToday: false });
-    // 지난 날은 과목 목록을 조회하지 않는다.
-    expect(mockedSubjects).not.toHaveBeenCalled();
+    // 지난 날에도 과목 목록을 조회한다 — 그날 공부하지 않은 과목을 0분으로 보여 주려고.
+    expect(mockedSubjects).toHaveBeenCalled();
   });
 
   it("타임테이블은 5시에서 시작하고, 과목·휴식·과목 없는 순공을 구분해 칠한다", async () => {
@@ -196,6 +196,7 @@ describe("PlannerPage", () => {
     expect(await screen.findByRole("heading", { name: "영어" })).toBeInTheDocument();
     expect(screen.getByText("리스닝 모의고사 1회")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
+    expect(screen.queryByText("지난 날은 보기만 할 수 있어요")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다음 날" })).toBeDisabled();
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "unknown", isToday: true });
   });
@@ -229,9 +230,8 @@ describe("PlannerPage", () => {
 
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
-    // 일수는 플래너 날짜 기준으로 센다.
-    expect(await screen.findByText("D-10")).toBeInTheDocument();
-    expect(screen.getByText(/수능/)).toBeInTheDocument();
+    // 일수는 플래너 날짜 기준으로 세고, 제목과 한 줄에 적는다.
+    expect(await screen.findByText("D-10 · 수능")).toBeInTheDocument();
   });
 
   it("기록이 없는 지난 날은 빈 상태 문구를 보여준다", async () => {
@@ -418,7 +418,10 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     renderPlanner("?userId=7");
 
     expect(await screen.findByText("아직 과목이 없어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "+ 국어" }));
+    expect(screen.getByText("자주 쓰는 과목을 골라 시작해 보세요")).toBeInTheDocument();
+    await userEvent.click(
+      within(screen.getByRole("list", { name: "추천 과목" })).getByRole("button", { name: "국어" }),
+    );
 
     expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
     expect(await screen.findByRole("heading", { name: "국어" })).toBeInTheDocument();
@@ -426,14 +429,22 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", true, "planner");
   });
 
-  it("지난 날 플래너는 보기 전용이다", async () => {
+  it("지난 날 플래너는 보기 전용이다 — 지금의 과목을 전부 보여주되 할 일은 그날 완료한 것만 남긴다", async () => {
     mockedStats.mockImplementation((date) =>
       Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
     );
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
-    await screen.findByRole("heading", { name: "영어" });
-    expect(screen.getByText("지난 날의 할 일은 볼 수만 있어요")).toBeInTheDocument();
+    // 그날 공부하지 않은 과목도 0분으로 보인다.
+    const mathHeading = await screen.findByRole("heading", { name: "수학" });
+    expect(mathHeading.closest("section")).toHaveTextContent(/^수학0분$/);
+    const englishSection = screen.getByRole("heading", { name: "영어" }).closest("section")!;
+    expect(englishSection).toHaveTextContent("50분");
+    expect(within(englishSection).getByText("단어 60개 암기")).toBeInTheDocument();
+    // 할 일에는 날짜가 없어 지금 목록의 미완료 할 일은 지난 날에 보여 주지 않는다.
+    expect(screen.queryByText("리스닝 모의고사 1회")).not.toBeInTheDocument();
+
+    expect(screen.getByText("지난 날은 보기만 할 수 있어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "과목 추가" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();

@@ -185,6 +185,14 @@ describe("averageFocusSecPerStudiedDay — 공부한 날만 센 하루 평균", 
     expect(averageFocusSecPerStudiedDay(daily)).toBe(2 * 3600);
   });
 
+  it("평균은 분 단위로 반올림한다 — 화면이 분 아래를 버려도 31.7분이 31분이 되지 않게", () => {
+    // 4시간 31분 40초와 4시간 31분 44초의 평균 4시간 31분 42초 → 4시간 32분.
+    const daily = [day("2026-09-01", 16300), day("2026-09-02", 16304)];
+    expect(averageFocusSecPerStudiedDay(daily)).toBe(4 * 3600 + 32 * 60);
+    // 30초 미만은 내린다.
+    expect(averageFocusSecPerStudiedDay([day("2026-09-01", 3600 + 29)])).toBe(3600);
+  });
+
   it("공부한 날이 없으면 null이다", () => {
     expect(averageFocusSecPerStudiedDay([day("2026-09-01", 0)])).toBeNull();
     expect(averageFocusSecPerStudiedDay([])).toBeNull();
@@ -209,6 +217,10 @@ describe("주간 평균 — 공부시간과 집중률", () => {
   it("하루 평균 공부시간은 총 공부 합계를 공부한 날 수로 나눈다", () => {
     const daily = [stat("2026-09-14", 3600, 2 * 3600), stat("2026-09-15", 0, 0)];
     expect(averageStudySecPerStudiedDay(daily)).toBe(2 * 3600);
+    // 순공과 같이 분 단위로 반올림한다.
+    expect(averageStudySecPerStudiedDay([stat("2026-09-14", 3600, 2 * 3600 + 31)])).toBe(
+      2 * 3600 + 60,
+    );
     expect(averageStudySecPerStudiedDay([stat("2026-09-14", 0, 0)])).toBeNull();
   });
 
@@ -261,10 +273,10 @@ describe("주 라벨", () => {
     expect(weekRangeLabel("2026-10-01")).toBe("9월 28일 ~ 10월 4일");
   });
 
-  it("relativeWeekLabel — 오늘 기준 이번 주 · 지난주 · N주 전", () => {
+  it("relativeWeekLabel — 이번 주를 볼 때는 이번 주 · 지난주, 과거 주를 볼 때는 N주 전", () => {
     expect(relativeWeekLabel("2026-09-18", "2026-09-18")).toBe("이번 주");
     expect(relativeWeekLabel("2026-09-18", "2026-09-18", 1)).toBe("지난주");
-    expect(relativeWeekLabel("2026-09-09", "2026-09-18")).toBe("지난주");
+    expect(relativeWeekLabel("2026-09-09", "2026-09-18")).toBe("1주 전");
     expect(relativeWeekLabel("2026-09-09", "2026-09-18", 1)).toBe("2주 전");
   });
 });

@@ -32,15 +32,10 @@ import {
   sumFocusSec,
 } from "@/features/records/recordsPeriod";
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
-import { SessionListItem } from "@/features/records/SessionListItem";
+import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import {
-  IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
-  IconPlanner,
-} from "@/features/records/icons";
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -122,14 +117,13 @@ function RecordsContent({
   return (
     <div>
       {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
-          카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다.
-          버튼의 탭 영역은 44px이고, 음수 여백으로 자리만 시안 크기(꺾쇠 20 · 라벨 28)로 줄인다. */}
+          카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
       <div className="flex items-center justify-center gap-1.5 pt-4">
         <button
           type="button"
           aria-label="이전 달"
           onClick={() => changeMonth(-1, "button")}
-          className="-mx-3 -my-2 flex size-11 items-center justify-center"
+          className="flex size-11 items-center justify-center"
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
@@ -141,22 +135,19 @@ function RecordsContent({
             trackRecordsPeriodPickerOpened("daily");
             setPickerOpen(true);
           }}
-          className="-my-2 flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
+          className="flex h-11 items-center gap-1.5 px-2.5 text-[15px] font-bold text-foreground"
         >
           {monthLabel(month)}
-          <IconChevronDown color="var(--color-foreground)" />
+          <IconChevronDown />
         </button>
         <button
           type="button"
           aria-label="다음 달"
           disabled={isLatestMonth}
           onClick={() => changeMonth(1, "button")}
-          className="-mx-3 -my-2 flex size-11 items-center justify-center disabled:cursor-not-allowed"
+          className="flex size-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
         >
-          <IconChevronRight
-            size={13}
-            color={isLatestMonth ? "var(--color-text-tertiary)" : "var(--color-foreground)"}
-          />
+          <IconChevronRight size={13} color="var(--color-foreground)" />
         </button>
       </div>
 
@@ -226,46 +217,48 @@ function RecordsContent({
         <div className="mt-[22px]">
           {/* 선택일 줄 — 오른쪽 버튼으로 그 날의 플래너를 연다(과목별 시간·타임테이블은 플래너에 있다). */}
           <div className="flex items-center justify-between">
-            <p className="text-base leading-5 font-extrabold text-foreground">
+            <p className="text-base leading-[19px] font-extrabold text-foreground">
               {dayTitleWithWeekday(selectedKey)}
             </p>
             <button
               type="button"
               onClick={() => openPlanner(selectedKey)}
-              className="flex items-center gap-[5px] rounded-full bg-brand-subtle py-[7px] pr-2.5 pl-3 text-[13px] leading-4 font-bold text-brand-subtle-text"
+              className="flex h-8 items-center gap-1 rounded-full bg-brand-subtle pr-2.5 pl-3 text-[13px] leading-4 font-semibold text-brand-subtle-text"
             >
-              <IconPlanner />
               플래너
-              <IconChevronRight size={8.57} color="currentColor" />
+              <IconChevronRight size={11} color="currentColor" />
             </button>
           </div>
 
           <div className="mt-3">
             {sessions.length === 0 ? (
               <div className="flex flex-col items-center gap-1 rounded-[20px] bg-muted py-[30px] shadow-sb-card">
-                <p className="text-sm leading-[19px] font-medium text-muted-foreground">
-                  이 날은 기록이 없어요
-                </p>
+                <p className="text-[15px] leading-5 text-muted-foreground">이 날은 기록이 없어요</p>
                 {/* 보는 달에 기록이 하나도 없을 때만 다음 행동을 한 줄 더 알려 준다. */}
                 {monthStats?.studiedDays === 0 && (
-                  <p className="text-xs leading-4 text-text-tertiary">
+                  <p className="text-[13px] leading-4 text-text-tertiary">
                     집중을 시작하면 여기에 쌓여요
                   </p>
                 )}
               </div>
             ) : (
-              <ul className="rounded-[20px] bg-muted py-1 shadow-sb-card">
-                {sessions.map((session, index) => (
-                  <li key={session.id}>
-                    {index > 0 && <div className="mx-[18px] h-px bg-border" />}
-                    <SessionListItem
-                      session={session}
-                      expanded={session.id === expandedSessionId}
-                      onToggle={(toggled) => toggleSession(toggled.id)}
-                    />
-                  </li>
-                ))}
-              </ul>
+              <div className="rounded-[20px] bg-muted px-[18px] py-1 shadow-sb-card">
+                <ul>
+                  {sessions.map((session, index) => (
+                    <li
+                      key={session.id}
+                      className={index > 0 ? "border-t border-border pt-px" : undefined}
+                    >
+                      <SessionListItem
+                        session={session}
+                        expanded={session.id === expandedSessionId}
+                        onToggle={(toggled) => toggleSession(toggled.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                <SessionTimelineLegend />
+              </div>
             )}
           </div>
         </div>
@@ -311,7 +304,7 @@ export function RecordsPage() {
 
         {userId === null ? (
           <p className="mt-[13px] p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
+            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
           </p>
         ) : mode === "weekly" ? (
           <WeeklyView

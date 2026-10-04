@@ -59,8 +59,8 @@ export function PlannerPage() {
   }, [entry, isToday]);
 
   const state = usePlannerDay(userId, dateKey);
-  // 과목 목록은 오늘 플래너에서만 쓴다 — 지난 날은 그날 기록에 남은 과목만 보여 준다.
-  const subjects = useSubjects(isToday && userId !== null, showToast, "planner");
+  // 과목 목록은 지난 날에도 쓴다(그날 공부하지 않은 과목도 0분으로 보인다). 관리는 오늘만 된다.
+  const subjects = useSubjects(userId !== null, showToast, "planner");
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
   const changeDate = useCallback(
@@ -121,6 +121,7 @@ export function PlannerPage() {
       className="theme-soft-blue min-h-dvh bg-muted pb-[calc(env(safe-area-inset-bottom)+24px)] text-foreground"
     >
       <ScreenBackHeader
+        compact
         onBack={() => {
           slideNavigate("back", () => {
             const historyState = window.history.state as { idx?: number } | null;
@@ -152,6 +153,7 @@ export function PlannerPage() {
           onPrev={() => changeDate(-1, "button")}
           onNext={() => changeDate(1, "button")}
           dday={ddayLine}
+          readOnly={!isToday}
           totals={
             state.status === "success"
               ? { focusSec: state.day.focusSec, studySec: state.day.studySec }
@@ -159,10 +161,10 @@ export function PlannerPage() {
           }
         />
 
-        <div className="pt-[18px]">
+        <div className="pt-3.5">
           {userId === null ? (
             <p className="text-sm text-muted-foreground">
-              기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
+              기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
             </p>
           ) : state.status === "pending" ? (
             <div className="flex gap-3.5">
@@ -171,7 +173,7 @@ export function PlannerPage() {
                 <Skeleton className="h-[18px] w-3/4 rounded-md" />
                 <Skeleton className="h-[18px] w-full rounded-md" />
               </div>
-              <Skeleton className="h-[335px] w-[160px] rounded-lg" />
+              <Skeleton className="h-[360px] w-[184px] rounded-lg" />
             </div>
           ) : state.status === "error" ? (
             <ErrorState
@@ -180,19 +182,22 @@ export function PlannerPage() {
               screen="planner"
             />
           ) : (
-            <div className="flex items-start gap-3 pl-0.5">
+            <div className="flex items-start gap-3.5">
               <PlannerSubjects
                 items={plannerSubjectItems(
                   state.day,
-                  isToday && subjects.status === "ready" ? subjects.subjects : null,
+                  subjects.status === "ready" ? subjects.subjects : null,
+                  isToday,
                 )}
                 unassignedFocusSec={state.day.unassignedFocusSec}
-                // 오늘 플래너에서 과목 목록을 받는 동안에는 문구 없이 비워 둔다.
-                emptyMessage={isToday ? [] : ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]}
+                emptyMessage={
+                  !isToday && state.day.studySec === 0 && state.day.completedTasks.length === 0
+                    ? ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]
+                    : null
+                }
                 // 관리는 오늘 플래너에서만 — 과목 목록을 받은 뒤부터다.
                 store={isToday && subjects.status === "ready" ? subjects : null}
                 onNotice={showToast}
-                readOnly={!isToday}
                 onRetryLoad={
                   isToday && subjects.status === "error" ? () => void subjects.reload() : undefined
                 }

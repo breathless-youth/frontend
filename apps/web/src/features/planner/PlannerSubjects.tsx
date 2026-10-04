@@ -1,4 +1,4 @@
-import { Check, Plus } from "lucide-react";
+import { Check } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -55,19 +55,16 @@ export function PlannerSubjects({
   emptyMessage,
   store = null,
   onNotice,
-  readOnly = false,
   onRetryLoad,
 }: {
   items: readonly PlannerSubjectItem[];
   unassignedFocusSec: number;
-  /** 보기 전용일 때 과목도 과목 없는 순공도 없으면 보여 줄 문구(여러 줄). */
-  emptyMessage: readonly string[];
+  /** 보기 전용일 때 그날 기록이 없으면 과목 목록 아래에 보여 줄 문구 — 첫 줄이 제목, 둘째 줄이 설명. */
+  emptyMessage: readonly [string, string] | null;
   /** 오늘 플래너의 과목 목록 — 있으면 관리할 수 있다. */
   store?: SubjectsStore | null;
   /** 개수 상한 같은 짧은 알림 — 호출부의 토스트. */
   onNotice?: (message: string) => void;
-  /** 지난 날 플래너 — 볼 수만 있다는 안내를 붙인다. */
-  readOnly?: boolean;
   /** 과목 목록 조회가 실패했을 때의 재시도 — 있으면 재시도 줄을 보여 준다. */
   onRetryLoad?: () => void;
 }) {
@@ -75,7 +72,7 @@ export function PlannerSubjects({
   const unassigned = hasUnassigned && <UnassignedRow focusSec={unassignedFocusSec} />;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <div className="flex min-w-0 flex-1 flex-col">
       {store !== null ? (
         <ManagedSubjects
           items={items}
@@ -85,44 +82,40 @@ export function PlannerSubjects({
         />
       ) : (
         <>
-          {items.length === 0 && !hasUnassigned && (
-            <p className="pt-1 text-[13px] leading-[19px] text-muted-foreground">
-              {emptyMessage.map((line) => (
-                <span key={line} className="block">
-                  {line}
-                </span>
-              ))}
-            </p>
+          <div className="flex flex-col gap-1">
+            {items.map((item) => (
+              <StaticSubject key={itemKey(item)} item={item} />
+            ))}
+            {unassigned}
+          </div>
+          {emptyMessage !== null && (
+            <div className="flex flex-col gap-0.5 pt-2">
+              <p className="text-[15px] leading-5 font-semibold text-foreground">
+                {emptyMessage[0]}
+              </p>
+              <p className="text-xs leading-4 text-muted-foreground">{emptyMessage[1]}</p>
+            </div>
           )}
-          {items.map((item) => (
-            <StaticSubject key={itemKey(item)} item={item} />
-          ))}
-          {unassigned}
           {onRetryLoad !== undefined && (
-            <p className="text-xs leading-4 text-muted-foreground">
+            <p className="pt-2 text-xs leading-4 text-muted-foreground">
               {SUBJECT_SHEET_COPY.loadFailed}{" "}
               <button type="button" onClick={onRetryLoad} className="font-bold text-primary">
                 {SUBJECT_SHEET_COPY.retry}
               </button>
             </p>
           )}
-          {readOnly && items.length > 0 && (
-            <p className="text-[11px] leading-[14px] text-text-tertiary">
-              지난 날의 할 일은 볼 수만 있어요
-            </p>
-          )}
         </>
       )}
 
-      <div className="flex items-center gap-3 pt-0.5">
+      <div className="flex items-start gap-3 pt-3.5">
         <span className="flex items-center gap-[5px]">
-          <span aria-hidden className="size-2.5 rounded-[3px] bg-chart-rest" />
-          <span className="text-[11px] leading-[14px] text-muted-foreground">휴식</span>
+          <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
+          <span className="text-[11px] leading-[13px] text-muted-foreground">휴식</span>
         </span>
         {hasUnassigned && (
           <span className="flex items-center gap-[5px]">
-            <span aria-hidden className="size-2.5 rounded-[3px] bg-primary" />
-            <span className="text-[11px] leading-[14px] text-muted-foreground">과목 없음</span>
+            <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
+            <span className="text-[11px] leading-[13px] text-muted-foreground">과목 없음</span>
           </span>
         )}
       </div>
@@ -136,51 +129,52 @@ function itemKey(item: PlannerSubjectItem) {
   return `${item.name}-${String(item.subjectId)}`;
 }
 
+/** 과목 줄의 순공시간 — 공부하지 않은 과목(0분)은 흐리게 적는다. */
+function FocusTime({ focusSec }: { focusSec: number }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-[13px] leading-4 font-semibold tabular-nums",
+        focusSec > 0 ? "text-foreground" : "text-text-tertiary",
+      )}
+    >
+      {formatDuration(focusSec)}
+    </span>
+  );
+}
+
 function UnassignedRow({ focusSec }: { focusSec: number }) {
   return (
-    <section className="flex flex-col gap-[3px]">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex min-w-0 items-center gap-1.5">
-          <span aria-hidden className="h-3.5 w-[3px] shrink-0 rounded-[2px] bg-primary" />
-          <span className="truncate text-sm leading-[18px] font-bold text-foreground">
-            과목 없음
-          </span>
-        </h2>
-        <span className="shrink-0 text-[12.5px] leading-4 font-medium text-muted-foreground tabular-nums">
-          {formatDuration(focusSec)}
-        </span>
-      </div>
-      <p className="pl-[9px] text-[11px] leading-[14px] text-text-tertiary">
-        세션에서 과목을 고르지 않은 시간이에요
-      </p>
+    <section className="flex h-9 items-center gap-1">
+      <span aria-hidden className="size-2 shrink-0 rounded-[2px] bg-primary" />
+      <h2 className="min-w-0 flex-1 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
+        과목 없음
+      </h2>
+      <FocusTime focusSec={focusSec} />
     </section>
   );
 }
 
-/** 과목 머리의 내용 — 색 막대 · 이름 · 그날 순공. 순서를 바꾸는 동안에는 앞에 핸들이 보인다. */
+/** 과목 머리의 내용 — 색 점 · 이름 · 그날 순공. 순서를 바꾸는 동안에는 앞에 핸들이 보인다. */
 function SubjectHeadContent({ item, grip = false }: { item: PlannerSubjectItem; grip?: boolean }) {
   return (
     <>
-      <h2 className={cn("flex min-w-0 items-center", grip ? "gap-2" : "gap-1.5")}>
-        {grip && (
-          <span aria-hidden className="grid shrink-0 grid-cols-2 gap-[3px]">
-            {[0, 1, 2, 3, 4, 5].map((dot) => (
-              <span key={dot} className="size-[3px] rounded-full bg-text-tertiary" />
-            ))}
-          </span>
-        )}
-        <span
-          aria-hidden
-          className="h-3.5 w-[3px] shrink-0 rounded-[2px]"
-          style={{ background: subjectColorVar(item.colorIndex) }}
-        />
-        <span className="truncate text-sm leading-[18px] font-bold text-foreground">
-          {item.name}
+      {grip && (
+        <span aria-hidden className="grid shrink-0 grid-cols-2 gap-[3px]">
+          {[0, 1, 2, 3, 4, 5].map((dot) => (
+            <span key={dot} className="size-[3px] rounded-full bg-text-tertiary" />
+          ))}
         </span>
+      )}
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-[2px]"
+        style={{ background: subjectColorVar(item.colorIndex) }}
+      />
+      <h2 className="min-w-0 flex-1 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
+        {item.name}
       </h2>
-      <span className="shrink-0 text-[12.5px] leading-4 font-medium text-muted-foreground tabular-nums">
-        {formatDuration(item.focusSec)}
-      </span>
+      <FocusTime focusSec={item.focusSec} />
     </>
   );
 }
@@ -201,15 +195,18 @@ function TaskCheck({ done }: { done: boolean }) {
 
 function taskNameClass(done: boolean) {
   return cn(
-    "min-w-0 flex-1 text-[13px] leading-[17px]",
-    done ? "text-text-tertiary" : "text-foreground",
+    "min-w-0 flex-1 truncate text-sm leading-[18px] font-medium",
+    done ? "text-text-tertiary line-through" : "text-foreground",
   );
 }
+
+const SUBJECT_CLASS = "relative -mx-1 flex flex-col rounded-[12px] px-1 pt-0.5 pb-1.5";
+const TASK_ROW_CLASS = "flex h-8 items-center gap-2 rounded-[8px] px-1";
 
 /** 보기 전용 할 일 줄 — 지난 날, 그리고 오늘이라도 목록에서 지워진 할 일. */
 function StaticTask({ task }: { task: PlannerTaskItem }) {
   return (
-    <li className="flex items-center gap-2 py-0.5 pl-[9px]">
+    <li className={TASK_ROW_CLASS}>
       <span role="img" aria-label={task.done ? "완료" : "미완료"} className="flex shrink-0">
         <TaskCheck done={task.done} />
       </span>
@@ -220,12 +217,12 @@ function StaticTask({ task }: { task: PlannerTaskItem }) {
 
 function StaticSubject({ item }: { item: PlannerSubjectItem }) {
   return (
-    <section className="flex flex-col gap-[5px]">
-      <div className="flex items-center justify-between gap-2">
+    <section className={SUBJECT_CLASS}>
+      <div className="flex h-9 items-center gap-1">
         <SubjectHeadContent item={item} />
       </div>
       {item.tasks.length > 0 && (
-        <ul className="flex flex-col gap-[5px]">
+        <ul className="flex flex-col pl-[15px]">
           {item.tasks.map((task) => (
             <StaticTask key={task.id} task={task} />
           ))}
@@ -241,7 +238,6 @@ function InlineEditor({
   maxLength,
   placeholder,
   ariaLabel,
-  bold = false,
   onCommit,
   onCancel,
 }: {
@@ -249,8 +245,6 @@ function InlineEditor({
   maxLength: number;
   placeholder: string;
   ariaLabel: string;
-  /** 과목 이름은 굵게 쓴다. */
-  bold?: boolean;
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
@@ -261,7 +255,7 @@ function InlineEditor({
   });
   return (
     <div
-      className="flex w-full items-center gap-1.5 pt-1 pb-0.5"
+      className="flex w-full items-center gap-1.5 py-0.5"
       // 입력 안에서의 드래그가 날짜 넘김 스와이프로 읽히지 않게 한다.
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -276,17 +270,14 @@ function InlineEditor({
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={commit}
-        className={cn(
-          "min-w-0 flex-1 rounded-[10px] border-[1.5px] border-primary bg-muted px-2.5 py-2 leading-[17px] text-foreground outline-none placeholder:text-text-tertiary",
-          bold ? "text-sm font-bold" : "text-[13px]",
-        )}
+        className="h-8 min-w-0 flex-1 rounded-[8px] border border-primary bg-bg-layer-2 px-2 text-sm leading-[18px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
       />
       <button
         type="button"
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="shrink-0 rounded-[10px] bg-primary px-2.5 py-2 text-xs leading-4 font-bold text-primary-foreground active:opacity-80"
+        className="h-8 shrink-0 rounded-[8px] bg-primary px-[9px] text-xs leading-4 font-semibold text-primary-foreground active:opacity-80"
       >
         {SUBJECT_SHEET_COPY.done}
       </button>
@@ -318,22 +309,21 @@ function RowMenu({
     <div
       ref={ref}
       role="menu"
-      className="absolute top-full left-7 z-20 mt-1 flex w-[150px] flex-col overflow-hidden rounded-[12px] border border-border bg-muted py-1.5 shadow-[0_6px_20px_0_rgba(31,41,61,0.16)]"
+      className="absolute top-full left-3.5 z-20 flex w-[150px] flex-col rounded-[14px] border border-border bg-muted p-1.5 shadow-[0_12px_16px_0_rgba(15,23,42,0.18)]"
     >
       <button
         type="button"
         role="menuitem"
         onClick={onRename}
-        className="px-3.5 py-2.5 text-left text-sm leading-[18px] font-medium text-foreground active:bg-bg-layer-2"
+        className="flex h-10 items-center rounded-[10px] px-3 text-sm leading-[18px] font-medium text-foreground active:bg-bg-layer-2"
       >
         이름 변경
       </button>
-      <div aria-hidden className="h-px w-full bg-border" />
       <button
         type="button"
         role="menuitem"
         onClick={onRemove}
-        className="px-3.5 py-2.5 text-left text-sm leading-[18px] font-medium text-feedback-danger active:bg-bg-layer-2"
+        className="flex h-10 items-center rounded-[10px] px-3 text-sm leading-[18px] font-medium text-feedback-danger active:bg-bg-layer-2"
       >
         삭제
       </button>
@@ -478,12 +468,12 @@ function ManagedTask({
   });
   return (
     <li className={cn("relative", menuOpen && "z-20")}>
-      <div className="relative overflow-hidden">
-        {/* 스와이프로 드러나는 삭제 표시 — 임계의 절반쯤 밀면 다 진해진다(시안은 72px에서 불투명). */}
+      <div className="relative overflow-hidden rounded-[8px]">
+        {/* 스와이프로 드러나는 삭제 표시 — 밀수록 진해지고 최대 75%까지다. */}
         <span
           aria-hidden
-          style={{ opacity: Math.min(1, (-swipeX * 2) / SWIPE_REMOVE_PX) }}
-          className="absolute inset-y-0 right-0 flex w-16 items-center justify-center rounded-[8px] bg-feedback-danger text-xs leading-4 font-bold text-white"
+          style={{ opacity: Math.min(0.75, (-swipeX * 1.5) / SWIPE_REMOVE_PX) }}
+          className="absolute inset-0 flex items-center justify-end rounded-[8px] bg-feedback-danger pr-3 text-xs leading-4 font-semibold text-white"
         >
           삭제
         </span>
@@ -501,12 +491,13 @@ function ManagedTask({
           }}
           style={{ transform: `translateX(${String(swipeX)}px)` }}
           className={cn(
-            "session-no-drag relative flex touch-pan-y items-center gap-2 py-0.5 pl-[9px] select-none",
+            TASK_ROW_CLASS,
+            "session-no-drag relative touch-pan-y select-none",
             pressed && "opacity-60",
             // 밀리는 동안에만 바탕을 칠해 뒤의 삭제 표시를 가린다 — 평소에는 과목 강조색이 비쳐야 한다.
             swipeX === 0
               ? "transition-transform duration-200 ease-out motion-reduce:transition-none"
-              : "bg-muted",
+              : "rounded-none bg-muted",
           )}
         >
           <TaskCheck done={task.done} />
@@ -595,11 +586,10 @@ function ManagedSubject({
     <section
       data-subject-id={subjectId}
       className={cn(
-        "relative flex flex-col gap-[5px] rounded-[4px]",
-        // 바깥으로 8px 번지는 그림자로 칠해 자리를 밀지 않는다.
-        headMenuOpen && "z-20 bg-bg-layer-2 shadow-[0_0_0_8px_var(--bg-layer-2)]",
+        SUBJECT_CLASS,
+        menuHere && "z-20",
         lifted &&
-          "z-10 bg-muted shadow-[0_0_0_8px_var(--muted),0_0_0_9.5px_var(--primary),0_8px_20px_8px_rgba(31,41,61,0.18)]",
+          "z-10 bg-muted shadow-[0_0_0_1.5px_var(--primary),0_8px_20px_4px_rgba(31,41,61,0.18)]",
       )}
     >
       {renaming ? (
@@ -608,7 +598,6 @@ function ManagedSubject({
           maxLength={50}
           placeholder="과목 이름"
           ariaLabel="과목 이름"
-          bold
           onCommit={(name) => {
             onEditing(null);
             void store.renameSubject(subjectId, name);
@@ -631,7 +620,7 @@ function ManagedSubject({
               }
             }}
             className={cn(
-              "session-no-drag flex touch-pan-y items-center justify-between gap-2 select-none",
+              "session-no-drag flex h-9 touch-pan-y items-center gap-1 select-none",
               pressed && "opacity-60",
             )}
           >
@@ -641,73 +630,77 @@ function ManagedSubject({
         </div>
       )}
 
-      {item.tasks.length > 0 && (
-        <ul className="flex flex-col gap-[5px]">
-          {item.tasks.map((task) => {
-            if (!task.live) {
-              return <StaticTask key={task.id} task={task} />;
-            }
-            if (editing?.kind === "rename-task" && editing.taskId === task.id) {
+      <div className="flex flex-col pl-[15px]">
+        {item.tasks.length > 0 && (
+          <ul className="flex flex-col">
+            {item.tasks.map((task) => {
+              if (!task.live) {
+                return <StaticTask key={task.id} task={task} />;
+              }
+              if (editing?.kind === "rename-task" && editing.taskId === task.id) {
+                return (
+                  <li key={task.id}>
+                    <InlineEditor
+                      initial={task.name}
+                      maxLength={100}
+                      placeholder="할 일 이름"
+                      ariaLabel="할 일 이름"
+                      onCommit={(name) => {
+                        onEditing(null);
+                        void store.renameTask(subjectId, task.id, name);
+                      }}
+                      onCancel={() => onEditing(null)}
+                    />
+                  </li>
+                );
+              }
+              const taskMenuOpen = menuHere && menu.taskId === task.id;
               return (
-                <li key={task.id}>
-                  <InlineEditor
-                    initial={task.name}
-                    maxLength={100}
-                    placeholder="할 일 이름"
-                    ariaLabel="할 일 이름"
-                    onCommit={(name) => {
-                      onEditing(null);
-                      void store.renameTask(subjectId, task.id, name);
-                    }}
-                    onCancel={() => onEditing(null)}
-                  />
-                </li>
+                <ManagedTask
+                  key={task.id}
+                  task={task}
+                  menuOpen={taskMenuOpen}
+                  onToggle={(done) => void store.toggleTask(subjectId, task.id, done)}
+                  onOpenMenu={() => onMenu({ subjectId, taskId: task.id })}
+                  onRemove={() => void store.removeTask(subjectId, task.id)}
+                  menu={taskMenuOpen ? rowMenu(task.id) : null}
+                />
               );
-            }
-            const taskMenuOpen = menuHere && menu.taskId === task.id;
-            return (
-              <ManagedTask
-                key={task.id}
-                task={task}
-                menuOpen={taskMenuOpen}
-                onToggle={(done) => void store.toggleTask(subjectId, task.id, done)}
-                onOpenMenu={() => onMenu({ subjectId, taskId: task.id })}
-                onRemove={() => void store.removeTask(subjectId, task.id)}
-                menu={taskMenuOpen ? rowMenu(task.id) : null}
-              />
-            );
-          })}
-        </ul>
-      )}
+            })}
+          </ul>
+        )}
 
-      {addingTask ? (
-        <InlineEditor
-          maxLength={100}
-          placeholder="할 일 이름"
-          ariaLabel="새 할 일 이름"
-          onCommit={(name) => {
-            onEditing(null);
-            void store.addTask(subjectId, name);
-          }}
-          onCancel={() => onEditing(null)}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            if (liveTaskCount >= MAX_TASKS) {
-              onNotice(SUBJECT_SHEET_COPY.taskLimit);
-              return;
-            }
-            onMenu(null);
-            onEditing({ kind: "new-task", subjectId });
-          }}
-          className="flex w-full items-center gap-1.5 py-[3px] pl-[9px] text-xs leading-4 font-medium text-text-tertiary"
-        >
-          <Plus size={10} strokeWidth={2.5} aria-hidden />
-          {SUBJECT_SHEET_COPY.addTask}
-        </button>
-      )}
+        {addingTask ? (
+          <InlineEditor
+            maxLength={100}
+            placeholder="할 일 이름"
+            ariaLabel="새 할 일 이름"
+            onCommit={(name) => {
+              onEditing(null);
+              void store.addTask(subjectId, name);
+            }}
+            onCancel={() => onEditing(null)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (liveTaskCount >= MAX_TASKS) {
+                onNotice(SUBJECT_SHEET_COPY.taskLimit);
+                return;
+              }
+              onMenu(null);
+              onEditing({ kind: "new-task", subjectId });
+            }}
+            className="flex h-[30px] w-full items-center gap-1.5 px-1 text-[13px] leading-4 font-medium text-text-tertiary"
+          >
+            <span aria-hidden className="w-[18px] text-center text-base leading-4">
+              +
+            </span>
+            {SUBJECT_SHEET_COPY.addTask}
+          </button>
+        )}
+      </div>
     </section>
   );
 }
@@ -755,55 +748,55 @@ function ManagedSubjects({
 
   return (
     <>
-      {/* 과목이 하나도 없으면 과목 없이 공부한 행이 맨 위다. */}
-      {empty ? unassigned : subjects}
-      {!empty && unassigned}
+      <div className="flex flex-col gap-1">
+        {/* 과목이 하나도 없으면 과목 없이 공부한 행이 맨 위다. */}
+        {empty ? unassigned : subjects}
+        {!empty && unassigned}
+      </div>
 
       {empty && (
-        <div className="flex flex-col gap-1 pt-1.5 pb-2">
-          <p className="text-sm leading-[19px] font-bold text-foreground">아직 과목이 없어요</p>
+        <div className="flex flex-col gap-1 pt-2 pb-1">
+          <p className="text-[15px] leading-5 font-semibold text-foreground">아직 과목이 없어요</p>
           <p className="text-xs leading-4 text-muted-foreground">
-            과목을 추가하면 할 일과 공부한 시간이 여기에 쌓여요
+            자주 쓰는 과목을 골라 시작해 보세요
           </p>
-          <div className="flex flex-col gap-1.5 pt-2.5">
-            <p className="text-[11px] leading-[14px] text-text-tertiary">자주 쓰는 과목</p>
-            <ul className="flex flex-wrap gap-1.5" aria-label="추천 과목">
-              {SUBJECT_SUGGESTIONS.map((name) => (
-                <li key={name}>
-                  <button
-                    type="button"
-                    disabled={pendingPick !== null}
-                    aria-busy={pendingPick === name}
-                    onClick={() => {
-                      setPendingPick(name);
-                      void store.addSubject(name, true).then(() => setPendingPick(null));
-                    }}
-                    className={cn(
-                      "rounded-full bg-bg-layer-2 px-2.5 py-[5px] text-xs leading-4 font-medium text-brand-subtle-text disabled:opacity-50",
-                      pendingPick === name && "animate-pulse motion-reduce:animate-none",
-                    )}
-                  >
-                    + {name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="flex flex-wrap gap-1.5 pt-1.5" aria-label="추천 과목">
+            {SUBJECT_SUGGESTIONS.map((name) => (
+              <li key={name}>
+                <button
+                  type="button"
+                  disabled={pendingPick !== null}
+                  aria-busy={pendingPick === name}
+                  onClick={() => {
+                    setPendingPick(name);
+                    void store.addSubject(name, true).then(() => setPendingPick(null));
+                  }}
+                  className={cn(
+                    "flex h-8 items-center rounded-full bg-brand-subtle px-3 text-[13px] leading-4 font-semibold text-brand-subtle-text disabled:opacity-50",
+                    pendingPick === name && "animate-pulse motion-reduce:animate-none",
+                  )}
+                >
+                  {name}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
       {editing?.kind === "new-subject" ? (
-        <InlineEditor
-          maxLength={50}
-          placeholder="과목 이름"
-          ariaLabel="새 과목 이름"
-          bold
-          onCommit={(name) => {
-            setEditing(null);
-            void store.addSubject(name);
-          }}
-          onCancel={() => setEditing(null)}
-        />
+        <div className="pt-1">
+          <InlineEditor
+            maxLength={50}
+            placeholder="과목 이름"
+            ariaLabel="새 과목 이름"
+            onCommit={(name) => {
+              setEditing(null);
+              void store.addSubject(name);
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
       ) : (
         <button
           type="button"
@@ -815,9 +808,11 @@ function ManagedSubjects({
             setMenu(null);
             setEditing({ kind: "new-subject" });
           }}
-          className="flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-bg-layer-2 py-[9px] text-[13px] leading-4 font-bold text-brand-subtle-text active:opacity-80"
+          className="flex h-11 w-full items-center gap-1.5 pt-1 text-sm leading-[18px] font-semibold text-primary"
         >
-          <Plus size={10} strokeWidth={3} aria-hidden />
+          <span aria-hidden className="w-[18px] text-center text-lg leading-[18px] font-medium">
+            +
+          </span>
           {SUBJECT_SHEET_COPY.addSubject}
         </button>
       )}

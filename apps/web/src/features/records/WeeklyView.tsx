@@ -13,7 +13,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
-import { WeekCards } from "./WeekCards";
 import { WeekHeader } from "./WeekHeader";
 import { WeekTrendCard } from "./WeekTrendCard";
 import { addDaysToDateKey } from "./recordsFormat";
@@ -23,8 +22,7 @@ import { useWeeklyData } from "./useWeeklyData";
 /**
  * 기록 주간 탭
  *
- * 위에서부터 주 이동 → 주 요약 → 추이 카드 → 주 카드 → 나의 공부 리듬(예상 화면).
- * 실데이터가 있는 카드가 안내만 있는 카드보다 위에 온다.
+ * 위에서부터 주 이동 → 주 요약 → 추이 카드 → 나의 공부 리듬(예상 화면).
  *
  * 데이터 배선은 `useWeeklyData`가 소유하고 여기서는 상태만 분리해 그린다.
  * - 주 이동은 `weekAnchorKey`(초기 오늘)를 ±7일씩 옮긴다. 오늘이 속한 주가 끝이다.
@@ -93,13 +91,8 @@ export function WeeklyView({
         }}
       />
 
-      <div className="mt-[18px]">
-        {week.status === "pending" && (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-[240px] w-full rounded-[20px]" />
-            <Skeleton className="h-[95px] w-full rounded-[20px]" />
-          </div>
-        )}
+      <div className="mt-5">
+        {week.status === "pending" && <Skeleton className="h-[296px] w-full rounded-[20px]" />}
         {week.status === "error" && (
           <ErrorState
             message="주간 추이를 불러오지 못했어요"
@@ -108,21 +101,16 @@ export function WeeklyView({
           />
         )}
         {week.status === "success" && (
-          <div className="flex flex-col gap-[18px]">
-            <WeekTrendCard
-              daily={week.daily}
-              compareDaily={week.compareDaily}
-              weekAnchorKey={weekAnchorKey}
-              todayKey={todayKey}
-            />
-            <WeekCards daily={week.daily} />
-          </div>
+          <WeekTrendCard
+            daily={week.daily}
+            compareDaily={week.compareDaily}
+            weekAnchorKey={weekAnchorKey}
+            todayKey={todayKey}
+          />
         )}
       </div>
 
-      <div className="mt-6">
-        <RhythmCard />
-      </div>
+      <RhythmCard />
     </div>
   );
 }

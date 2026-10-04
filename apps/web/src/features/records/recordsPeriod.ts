@@ -112,17 +112,18 @@ export function weekRangeLabel(weekAnchorKey: string): string {
 }
 
 /**
- * 오늘 기준으로 그 주를 부르는 말 — `이번 주` · `지난주` · `N주 전`.
- * 추이 차트 범례가 쓴다(과거 주를 볼 때 `지난주 · 2주 전`).
+ * 추이 차트 범례가 그 주를 부르는 말. 이번 주를 볼 때는 `이번 주` · `지난주`,
+ * 과거 주를 볼 때는 오늘에서 센 `N주 전`(지난주를 보면 `1주 전` · `2주 전`)이다.
+ * `offset`이 1이면 보는 주의 바로 앞 주를 가리킨다.
  */
 export function relativeWeekLabel(weekAnchorKey: string, todayKey: string, offset = 0): string {
   const thisMonday = Date.parse(`${mondayWeekDateKeys(todayKey)[0]!}T00:00:00Z`);
   const monday = Date.parse(`${mondayWeekDateKeys(weekAnchorKey)[0]!}T00:00:00Z`);
-  const weeksAgo = Math.round((thisMonday - monday) / (7 * 24 * 3600 * 1000)) + offset;
-  if (weeksAgo <= 0) {
-    return "이번 주";
+  const viewedWeeksAgo = Math.round((thisMonday - monday) / (7 * 24 * 3600 * 1000));
+  if (viewedWeeksAgo <= 0) {
+    return offset <= 0 ? "이번 주" : offset === 1 ? "지난주" : `${String(offset)}주 전`;
   }
-  return weeksAgo === 1 ? "지난주" : `${String(weeksAgo)}주 전`;
+  return `${String(viewedWeeksAgo + offset)}주 전`;
 }
 
 /**

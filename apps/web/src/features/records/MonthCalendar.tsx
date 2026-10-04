@@ -87,15 +87,15 @@ function CalendarCell({
 
   // 진한 두 단계(6시간 이상)는 글자가 묻히지 않게 흰색으로 뒤집는다.
   const onStrong = level >= 4;
-  const fill = isFuture ? "" : level === 0 ? "bg-chart-empty" : HEAT_BG[level];
-  const numberTone = isToday
-    ? // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
-      "rounded-full bg-foreground px-[5px] font-bold text-background"
-    : isFuture
-      ? "text-text-tertiary"
+  // 기록 없는 날과 아직 오지 않은 날도 칸은 그린다 — 숫자 색으로만 구분한다.
+  const fill = isFuture || level === 0 ? "bg-chart-empty" : HEAT_BG[level];
+  const tone = isFuture
+    ? "text-text-disabled"
+    : level === 0
+      ? "text-muted-foreground"
       : onStrong
-        ? "font-bold text-white"
-        : "font-bold text-foreground";
+        ? "text-white"
+        : "text-foreground";
 
   return (
     <button
@@ -109,54 +109,73 @@ function CalendarCell({
     >
       <span
         // 선택일은 테두리로만 표시한다 — 농도 색을 가리지 않는다. ring-inset이라 칸 크기는 그대로다.
-        className={`flex aspect-square w-full flex-col items-center justify-center rounded-[10px] ${fill} ${
-          isSelected ? "ring-2 ring-foreground ring-inset" : ""
+        className={`flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[10px] tabular-nums ${fill} ${tone} ${
+          isSelected ? "ring-[1.5px] ring-foreground ring-inset" : ""
         }`}
       >
-        <span className={`text-xs leading-4 tabular-nums ${numberTone}`}>{day}</span>
-        {focusSec > 0 && (
-          <span
-            className={`text-[10px] leading-3 font-medium tabular-nums ${
-              onStrong ? "text-white" : "text-muted-foreground"
-            }`}
-          >
-            {formatHeatClock(focusSec)}
+        {isToday ? (
+          // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
+          <span className="flex h-[18px] items-center rounded-full bg-foreground px-[5px] text-xs leading-[14px] font-bold text-background">
+            {day}
           </span>
+        ) : (
+          <span className="text-[13px] leading-4 font-bold">{day}</span>
         )}
+        {/* 순공이 없어도 자리를 남겨 숫자 높이가 칸마다 같게 한다. */}
+        <span className="h-3 text-[10px] leading-3">
+          {focusSec > 0 ? formatHeatClock(focusSec) : ""}
+        </span>
       </span>
     </button>
   );
 }
 
-function MonthStatsRow({ month, stats }: { month: CalendarMonth; stats: MonthStats | null }) {
+/** 달력 아래 — 왼쪽에 농도 범례, 오른쪽에 그 달의 하루 평균과 합계. */
+function MonthStatsRow({ stats }: { stats: MonthStats | null }) {
   return (
-    <div className="flex gap-3 px-1 pt-3.5">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="text-[11px] leading-[14px] text-muted-foreground">{month.month}월 합계</p>
-        {stats === null ? (
-          <Skeleton className="h-[19px] w-20 rounded-md" />
-        ) : (
-          <p className="text-[15px] leading-[19px] font-bold text-foreground tabular-nums">
-            {formatDuration(stats.totalFocusSec)}
-          </p>
-        )}
+    <div className="mx-2 mt-1 flex items-start justify-between border-t border-border pt-[13px]">
+      {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
+      <div
+        role="group"
+        aria-label="순공시간 범례, 숫자는 그 시간 이상"
+        className="flex items-start gap-1 pt-0.5"
+      >
+        {HEAT_LEGEND.map((item) => (
+          <span key={item.label} className="flex flex-col items-center gap-[3px]">
+            <span className={`h-2.5 w-[18px] rounded-[3px] ${item.cls}`} aria-hidden />
+            <span className="text-[10px] leading-3 text-muted-foreground">{item.label}</span>
+          </span>
+        ))}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="text-[11px] leading-[14px] text-muted-foreground">하루 평균</p>
-        {stats === null ? (
-          <Skeleton className="h-[19px] w-20 rounded-md" />
-        ) : (
-          <>
-            <p className="text-[15px] leading-[19px] font-bold text-foreground tabular-nums">
-              {stats.averageFocusSec === null ? "—" : formatDuration(stats.averageFocusSec)}
+
+      <div className="flex items-start gap-5">
+        <div className="flex flex-col items-end gap-0.5">
+          <p className="text-xs leading-[14px] text-muted-foreground">하루 평균</p>
+          {stats === null ? (
+            <Skeleton className="h-[18px] w-16 rounded-md" />
+          ) : (
+            <>
+              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+                {stats.averageFocusSec === null ? "—" : formatDuration(stats.averageFocusSec)}
+              </p>
+              <p className="text-[11px] leading-[13px] text-muted-foreground">
+                {stats.studiedDays === 0
+                  ? "아직 공부한 날이 없어요"
+                  : `공부한 ${String(stats.studiedDays)}일 기준`}
+              </p>
+            </>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <p className="text-xs leading-[14px] text-muted-foreground">합계</p>
+          {stats === null ? (
+            <Skeleton className="h-[18px] w-16 rounded-md" />
+          ) : (
+            <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+              {formatDuration(stats.totalFocusSec)}
             </p>
-            <p className="text-[10.5px] leading-[13px] text-text-tertiary">
-              {stats.studiedDays === 0
-                ? "아직 공부한 날이 없어요"
-                : `공부한 ${String(stats.studiedDays)}일 기준`}
-            </p>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -213,7 +232,7 @@ export function MonthCalendar({
   );
 
   return (
-    <div className="rounded-[20px] bg-muted px-3 pt-3.5 pb-4 shadow-sb-card">
+    <div className="rounded-[20px] bg-muted px-2.5 pt-3.5 pb-4 shadow-sb-card">
       {/*
         월 이동 헤더는 RecordsPage가 카드 밖에서 그린다(BY-567 v2 조립) — 여기서 또 그리면
         "이전 달"/"다음 달" 버튼이 화면에 두 벌 생긴다. `slideFrom`·계측(`trackRecordsMonthChanged`)도
@@ -234,7 +253,7 @@ export function MonthCalendar({
           {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
             <span
               key={label}
-              className="flex-1 text-center text-[11.5px] leading-[15px] font-medium text-muted-foreground"
+              className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
             >
               {label}
             </span>
@@ -279,24 +298,7 @@ export function MonthCalendar({
         </div>
       </div>
 
-      <MonthStatsRow month={month} stats={monthStats} />
-
-      {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
-      <div
-        role="group"
-        aria-label="순공시간 범례, 숫자는 그 시간 이상"
-        className="flex items-center gap-2.5 px-1 pt-3"
-      >
-        <span className="text-[10.5px] leading-[13px] text-text-tertiary">순공시간</span>
-        {HEAT_LEGEND.map((item) => (
-          <span key={item.label} className="flex items-center gap-1">
-            <span className={`size-3.5 rounded-xs ${item.cls}`} aria-hidden />
-            <span className="text-[10.5px] leading-[13px] font-medium text-muted-foreground">
-              {item.label}
-            </span>
-          </span>
-        ))}
-      </div>
+      <MonthStatsRow stats={monthStats} />
     </div>
   );
 }

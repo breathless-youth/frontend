@@ -282,9 +282,9 @@ describe("RecordsPage", () => {
     renderRecords();
 
     const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
-    expect(await within(headline).findByText("30분")).toBeInTheDocument();
-    expect(within(headline).getByText("1시간")).toBeInTheDocument();
-    expect(headline).toHaveTextContent("총 1시간");
+    // 순공시간은 숫자를 크게, 단위를 작게 적어 요소가 나뉜다 — 줄 전체로 읽는다.
+    expect((await within(headline).findByText("30")).closest("p")).toHaveTextContent(/^30분$/);
+    expect(within(headline).getByText("총 1시간")).toBeInTheDocument();
   });
 
   it("다른 날을 고르면 머리 라벨이 그 날짜로 바뀌고, 달을 옮겨도 고른 날이 유지된다", async () => {
@@ -318,10 +318,12 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    expect(await screen.findByText(`${String(month.month)}월 합계`)).toBeInTheDocument();
-    expect(await screen.findByText("3시간")).toBeInTheDocument();
-    expect(screen.getByText("1시간 30분")).toBeInTheDocument();
-    expect(screen.getByText("공부한 2일 기준")).toBeInTheDocument();
+    // 기간 조회가 끝나면 자리표시가 숫자로 바뀐다.
+    expect(await screen.findByText("공부한 2일 기준")).toBeInTheDocument();
+    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^3시간$/);
+    expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^1시간 30분$/);
+    // 합계 라벨에는 달을 붙이지 않는다.
+    expect(screen.queryByText(`${String(month.month)}월 합계`)).not.toBeInTheDocument();
   });
 
   it("보는 달에 기록이 하나도 없으면 빈 상태에 다음 행동을 한 줄 더 알려 준다", async () => {
@@ -484,7 +486,7 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("3시간")).toBeInTheDocument();
   });
 
-  it("일간의 기간 라벨을 누르면 월 선택 시트가 열리고, 고른 달로 이동한 뒤 오늘로 돌아올 수 있다", async () => {
+  it("일간의 기간 라벨을 누르면 달 선택 시트가 열리고, 고른 달로 이동한 뒤 오늘로 돌아올 수 있다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
 
     renderRecords();
@@ -494,7 +496,7 @@ describe("RecordsPage", () => {
     await screen.findByText(/요일$/);
 
     await userEvent.click(screen.getByRole("button", { name: currentLabel }));
-    expect(await screen.findByText("월 선택")).toBeInTheDocument();
+    expect(await screen.findByText("달 선택")).toBeInTheDocument();
     expect(vi.mocked(trackRecordsPeriodPickerOpened)).toHaveBeenCalledWith("daily");
 
     // 지난해 같은 달로 건너뛴다.
@@ -503,7 +505,7 @@ describe("RecordsPage", () => {
 
     const lastYear = monthLabel({ year: currentMonth.year - 1, month: currentMonth.month });
     expect(await screen.findByRole("button", { name: lastYear })).toBeInTheDocument();
-    expect(screen.queryByText("월 선택")).not.toBeInTheDocument();
+    expect(screen.queryByText("달 선택")).not.toBeInTheDocument();
     expect(vi.mocked(trackRecordsPeriodPicked)).toHaveBeenLastCalledWith({
       view: "daily",
       toToday: false,
@@ -566,7 +568,7 @@ describe("RecordsPage", () => {
     );
   });
 
-  it("주간 뷰는 주 요약 → 추이 카드 → 주 카드 → 나의 공부 리듬 순서로 보여준다", async () => {
+  it("주간 뷰는 주 요약 → 추이 카드 → 나의 공부 리듬 순서로 보여준다(주 카드는 없다)", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     mockedPeriod.mockResolvedValue(
       periodResponse(
@@ -580,14 +582,14 @@ describe("RecordsPage", () => {
 
     const headline = await screen.findByText("주간 순공시간");
     const chart = await screen.findByRole("img", { name: /요일별 순공시간/ });
-    const best = screen.getByText("이 주 최고 기록");
     const rhythm = screen.getByRole("heading", { name: "나의 공부 리듬" });
 
     const follows = (a: Element, b: Element) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(headline, chart)).toBe(true);
-    expect(follows(chart, best)).toBe(true);
-    expect(follows(best, rhythm)).toBe(true);
+    expect(follows(chart, rhythm)).toBe(true);
+    // 추이 카드와 리듬 사이에 있던 주 카드(최고 기록·평균)는 주간 탭에서 뺐다.
+    expect(screen.queryByText("이 주 최고 기록")).not.toBeInTheDocument();
     expect(headline.parentElement).toHaveTextContent("총 2시간");
   });
 

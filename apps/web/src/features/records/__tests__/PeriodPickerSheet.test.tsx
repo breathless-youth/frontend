@@ -6,7 +6,7 @@ import { MonthPickerSheet, WeekPickerSheet } from "../PeriodPickerSheet";
 
 const TODAY = "2026-09-18"; // 금요일
 
-describe("MonthPickerSheet — 월 선택", () => {
+describe("MonthPickerSheet — 달 선택", () => {
   it("보고 있는 달을 선택으로 표시하고 미래 달은 고를 수 없다", () => {
     render(
       <MonthPickerSheet
@@ -18,7 +18,7 @@ describe("MonthPickerSheet — 월 선택", () => {
       />,
     );
 
-    expect(screen.getByText("월 선택")).toBeInTheDocument();
+    expect(screen.getByText("달 선택")).toBeInTheDocument();
     expect(screen.getByText("2026년")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "9월" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "8월" })).not.toBeDisabled();
@@ -112,6 +112,29 @@ describe("WeekPickerSheet — 주 선택", () => {
     expect(screen.getByText("2026년 8월")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "8월 20일" }));
     expect(onPick).toHaveBeenCalledWith("2026-08-20", false);
+  });
+
+  it("달의 첫 주·마지막 주는 이웃 달 날짜로 채우고, 오늘은 굵게 적는다", () => {
+    render(
+      <WeekPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        weekAnchorKey={TODAY}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+
+    // 2026년 9월은 화요일에 시작한다 — 첫 주는 8월 31일(월)부터, 마지막 주는 10월 4일(일)까지다.
+    const firstMonday = screen.getByRole("button", { name: "8월 31일" });
+    expect(firstMonday).not.toBeDisabled();
+    expect(firstMonday.parentElement).toBe(
+      screen.getByRole("button", { name: "9월 1일" }).parentElement,
+    );
+    expect(screen.getByRole("button", { name: "10월 4일" })).toBeDisabled();
+
+    expect(screen.getByRole("button", { name: "오늘, 9월 18일" })).toHaveClass("font-extrabold");
+    expect(screen.getByRole("button", { name: "9월 17일" })).not.toHaveClass("font-extrabold");
   });
 
   it("오늘을 누르면 오늘 날짜를 넘긴다", async () => {

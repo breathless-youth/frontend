@@ -6,15 +6,24 @@ import { IconChevronDown } from "./icons";
 import { durationParts, formatDuration, formatFocusRate, formatKstClock } from "./recordsFormat";
 import { type MiniTimelinePiece, miniTimelinePieces } from "./recordsTimetable";
 
-/** 집중률이 이 값 이상이면 필을 진하게 칠한다. */
-const HIGH_FOCUS_RATE = 90;
-
-const PIECE_CLASS: Record<MiniTimelinePiece["kind"], string> = {
-  // 공부 결과 화면의 타임라인과 같은 색 — 순공 · 자동 멈춤 · 일시정지.
-  focus: "bg-primary",
+/** 타임라인 바는 순공색이 바탕이고, 그 위에 순공이 아닌 구간만 덧칠한다. */
+const OVERLAY_CLASS: Record<Exclude<MiniTimelinePiece["kind"], "focus">, string> = {
   distract: "bg-state-distract",
-  pause: "bg-text-tertiary",
+  pause: "bg-state-pause",
 };
+
+/** 순공이 아닌 조각만 뽑아 바 위의 위치(비율)를 붙인다 — 시작 위치는 앞 조각들의 비율을 더한 값이다. */
+function timelineOverlays(pieces: readonly MiniTimelinePiece[]) {
+  const overlays: { kind: "distract" | "pause"; left: number; width: number }[] = [];
+  let cursor = 0;
+  for (const piece of pieces) {
+    if (piece.kind !== "focus") {
+      overlays.push({ kind: piece.kind, left: cursor, width: piece.ratio });
+    }
+    cursor += piece.ratio;
+  }
+  return overlays;
+}
 
 type SessionListItemProps = {
   session: StudySessionSummary;
@@ -27,73 +36,66 @@ type SessionListItemProps = {
  *
  * 접힌 채로도 순공·총 공부시간·집중률·흐름(미니 타임라인)이 보이고, 탭하면 그 자리에서 행에 없는
  * 것만 펼친다 — 시작 시간 · 종료 시간 · 최대 집중 시간. 한 번에 하나만 펼치는 것은 부모가 맡는다.
+ * 타임라인 색의 뜻은 목록 맨 아래의 범례(`SessionTimelineLegend`)가 한 번 알려 준다.
  */
 export function SessionListItem({ session, expanded, onToggle }: SessionListItemProps) {
-  const pieces = miniTimelinePieces(session);
   const startClock = formatKstClock(session.startedAt);
   const endClock = formatKstClock(session.endedAt);
-  const highFocus = Math.round(session.focusRate) >= HIGH_FOCUS_RATE;
   const detailId = `session-detail-${String(session.id)}`;
 
+  const overlays = timelineOverlays(miniTimelinePieces(session));
+
   return (
-    <div className={expanded ? "rounded-[14px] bg-bg-layer-2" : undefined}>
+    <div>
       <button
         type="button"
         aria-expanded={expanded}
         aria-controls={detailId}
         aria-label={`${startClock}부터 ${endClock}까지, 순공 ${formatDuration(session.focusSec)}, 집중 ${formatFocusRate(session.focusRate)}`}
         onClick={() => onToggle(session)}
-        className="flex w-full flex-col gap-2.5 px-[18px] py-[13px] text-left"
+        className="flex w-full flex-col gap-2.5 py-3.5 text-left"
       >
-        <span className="flex w-full items-center gap-3">
-          <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-            <span className="text-foreground tabular-nums">
+        <span className="flex w-full items-start justify-between">
+          <span className="flex min-w-0 flex-col gap-[3px]">
+            <span className="flex items-baseline gap-1.5 pr-1 text-foreground tabular-nums">
               {durationParts(session.focusSec).map((part, index) => (
-                <span key={part.unit}>
-                  <span className="text-xl leading-6 font-extrabold">
-                    {index > 0 ? " " : ""}
-                    {part.value}
-                  </span>
-                  {/* 단위는 줄 높이를 따로 갖지 않는다 — 숫자와 같은 24px을 주면 줄이 27px로 커진다. */}
-                  <span className="text-xs leading-none font-bold text-muted-foreground">
-                    {part.unit}
-                  </span>
+                <span key={part.unit} className="flex items-baseline gap-px">
+                  {index > 0 ? " " : ""}
+                  <span className="text-[22px] leading-[26px] font-extrabold">{part.value}</span>
+                  <span className="text-[13px] leading-4 font-bold">{part.unit}</span>
                 </span>
               ))}
             </span>
-            <span className="text-xs leading-4 text-muted-foreground">
-              총{" "}
-              <span className="font-bold text-foreground tabular-nums">
-                {formatDuration(session.studySec)}
-              </span>
+            <span className="text-[13px] leading-4 text-muted-foreground tabular-nums">
+              총 {formatDuration(session.studySec)}
             </span>
           </span>
-          <span
-            className={`shrink-0 rounded-full px-[9px] py-1 text-xs leading-4 font-bold tabular-nums ${
-              highFocus
-                ? "bg-primary text-primary-foreground"
-                : "bg-brand-subtle text-brand-subtle-text"
-            }`}
-          >
-            집중 {formatFocusRate(session.focusRate)}
-          </span>
-          <span className="flex size-3 shrink-0 items-center justify-center">
-            <IconChevronDown className={expanded ? "rotate-180" : undefined} />
+          <span className="flex shrink-0 items-center gap-2 pt-0.5">
+            <span className="flex h-6 items-center rounded-full bg-brand-subtle px-[9px] text-xs leading-4 font-semibold text-brand-subtle-text tabular-nums">
+              집중 {formatFocusRate(session.focusRate)}
+            </span>
+            <IconChevronDown size={10} className={expanded ? "rotate-180" : undefined} />
           </span>
         </span>
 
         <span className="flex w-full flex-col gap-[5px]">
-          {/* 범례는 두지 않는다 — 색의 뜻은 결과 화면과 같고, 값은 버튼 라벨이 읽어 준다. */}
-          <span aria-hidden className="flex h-2 w-full gap-[1.5px] overflow-hidden rounded-[4px]">
-            {pieces.map((piece, index) => (
+          <span
+            aria-hidden
+            className="relative block h-2 w-full overflow-hidden rounded-full bg-primary"
+          >
+            {overlays.map((overlay, index) => (
               <span
-                key={`${piece.kind}-${String(index)}`}
-                className={`h-full ${PIECE_CLASS[piece.kind]}`}
-                style={{ flexGrow: piece.ratio, flexBasis: 0 }}
+                key={`${overlay.kind}-${String(index)}`}
+                data-kind={overlay.kind}
+                className={`absolute inset-y-0 ${OVERLAY_CLASS[overlay.kind]}`}
+                style={{
+                  left: `${String(overlay.left * 100)}%`,
+                  width: `${String(overlay.width * 100)}%`,
+                }}
               />
             ))}
           </span>
-          <span className="flex w-full justify-between text-[10.5px] leading-[13px] text-text-tertiary tabular-nums">
+          <span className="flex w-full items-center justify-between text-[11px] leading-[13px] text-text-tertiary tabular-nums">
             <span>{startClock}</span>
             <span>{endClock}</span>
           </span>
@@ -105,6 +107,24 @@ export function SessionListItem({ session, expanded, onToggle }: SessionListItem
   );
 }
 
+/** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. */
+export function SessionTimelineLegend() {
+  return (
+    <ul className="-mt-1 flex items-start gap-2 pb-3">
+      {[
+        { label: "순공", dot: "bg-primary" },
+        { label: "자동 멈춤", dot: "bg-state-distract" },
+        { label: "일시정지", dot: "bg-state-pause" },
+      ].map((item) => (
+        <li key={item.label} className="flex items-center gap-1">
+          <span aria-hidden className={`size-1.5 rounded-full ${item.dot}`} />
+          <span className="text-[11px] leading-[13px] text-muted-foreground">{item.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SessionExpansion({ id, session }: { id: string; session: StudySessionSummary }) {
   const longest = longestFocusStretch({
     startedAt: session.startedAt,
@@ -113,14 +133,12 @@ function SessionExpansion({ id, session }: { id: string; session: StudySessionSu
   });
 
   return (
-    <div id={id} className="flex flex-col gap-3 px-[18px] pt-0.5 pb-[13px]">
-      <div className="h-px w-full bg-border" />
-      <dl className="flex items-center">
+    <div id={id} className="pb-3.5">
+      <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
         <ExpansionStat label="시작 시간" value={formatKstClock(session.startedAt)} />
-        <div className="h-[34px] w-px shrink-0 bg-border" />
         <ExpansionStat label="종료 시간" value={formatKstClock(session.endedAt)} />
-        <div className="h-[34px] w-px shrink-0 bg-border" />
         <ExpansionStat
+          wide
           label="최대 집중 시간"
           value={longest === null ? "—" : formatDuration(longest.durationSec)}
           valueClassName="text-chart-peak"
@@ -140,20 +158,23 @@ function ExpansionStat({
   value,
   valueClassName = "text-foreground",
   caption,
+  wide = false,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
   caption?: string;
+  /** 구간 시각까지 적는 칸은 조금 넓다. */
+  wide?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
-      <dt className="text-[11px] leading-[14px] text-muted-foreground">{label}</dt>
-      <dd className={`text-[17px] leading-[22px] font-extrabold tabular-nums ${valueClassName}`}>
+    <div className={`flex min-w-0 flex-col gap-[3px] ${wide ? "flex-[116]" : "flex-[83]"}`}>
+      <dt className="text-[11px] leading-[13px] text-muted-foreground">{label}</dt>
+      <dd className={`text-[15px] leading-[18px] font-bold tabular-nums ${valueClassName}`}>
         {value}
       </dd>
       {caption !== undefined && (
-        <dd className="text-[10.5px] leading-[13px] text-text-tertiary tabular-nums">{caption}</dd>
+        <dd className="text-[11px] leading-[13px] text-text-tertiary tabular-nums">{caption}</dd>
       )}
     </div>
   );

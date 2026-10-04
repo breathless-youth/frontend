@@ -38,10 +38,10 @@ export function PlannerTimetable({ day }: { day: PlannerDay }) {
     <div
       role="img"
       aria-label={`이 날의 시간대별 공부 분포. 순공 ${formatDuration(day.focusSec)}`}
-      className="flex w-[160px] shrink-0 flex-col gap-px"
+      className="flex w-[184px] shrink-0 flex-col gap-0.5 pt-0.5"
     >
       {HOURS.map((hour, row) => (
-        <div key={hour} className="flex items-center gap-[3px]">
+        <div key={hour} className="flex items-center gap-1">
           <span
             aria-hidden
             // 자정을 넘긴 0~4시는 다음 날이라 흐리게 적는다.
@@ -51,30 +51,32 @@ export function PlannerTimetable({ day }: { day: PlannerDay }) {
           >
             {hour}
           </span>
-          {Array.from({ length: PLANNER_CELLS_PER_ROW }, (_, column) => {
-            const fills = cells[row * PLANNER_CELLS_PER_ROW + column] ?? [];
-            return (
-              <span
-                key={column}
-                className="relative h-[13px] min-w-0 flex-1 overflow-hidden rounded-[2px] bg-chart-empty"
-              >
-                {fills.map((fill, index) => (
-                  <span
-                    key={index}
-                    data-paint={fill.paint.kind}
-                    className={`absolute inset-y-0 ${
-                      fill.paint.kind === "rest"
-                        ? "bg-chart-rest"
-                        : fill.paint.kind === "focus"
-                          ? "bg-primary"
-                          : ""
-                    }`}
-                    style={fillStyle(fill, day.subjects)}
-                  />
-                ))}
-              </span>
-            );
-          })}
+          <span className="flex min-w-0 flex-1 gap-px">
+            {Array.from({ length: PLANNER_CELLS_PER_ROW }, (_, column) => {
+              const fills = cells[row * PLANNER_CELLS_PER_ROW + column] ?? [];
+              return (
+                <span
+                  key={column}
+                  className="relative h-[13px] min-w-0 flex-1 overflow-hidden rounded-[2px] bg-chart-empty"
+                >
+                  {fills.map((fill, index) => (
+                    <span
+                      key={index}
+                      data-paint={fill.paint.kind}
+                      className={`absolute inset-y-0 ${
+                        fill.paint.kind === "rest"
+                          ? "bg-chart-rest"
+                          : fill.paint.kind === "focus"
+                            ? "bg-primary"
+                            : ""
+                      }`}
+                      style={fillStyle(fill, day.subjects)}
+                    />
+                  ))}
+                </span>
+              );
+            })}
+          </span>
         </div>
       ))}
     </div>

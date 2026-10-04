@@ -24,13 +24,17 @@ export interface PlannerSubjectItem {
 /**
  * 플래너 왼쪽 열의 과목 목록 — 순수 함수.
  *
- * 오늘 플래너(`liveSubjects`가 있다)는 과목 목록 순서 그대로 전부 보여 주고, 공부했지만 지금은
- * 지운 과목을 그 뒤에 붙인다. 지난 날 플래너(`liveSubjects`가 `null`)는 그날 공부한 과목과
- * 그날 완료한 할 일만 보여 준다. 과목은 이름으로 맞춘다 — 지웠다 다시 만들어 id가 갈려도 한 줄이다.
+ * 과목 목록(`liveSubjects`)이 있으면 그 순서대로 전부 보여 주고(공부하지 않은 과목은 0분), 그날
+ * 공부했지만 지금은 지운 과목을 그 뒤에 붙인다. 목록을 못 받았으면(`null`) 그날 기록에 남은 과목만
+ * 보여 준다. 과목은 이름으로 맞춘다 — 지웠다 다시 만들어 id가 갈려도 한 줄이다.
+ *
+ * 할 일은 오늘 플래너(`withLiveTasks`)에서만 목록의 것(미완료 + 오늘 완료)을 보여 준다. 지난 날은
+ * 그날 완료한 할 일만 보여 준다 — 할 일에는 날짜가 없어 그날의 미완료를 알 수 없다.
  */
 export function plannerSubjectItems(
   day: PlannerDay,
   liveSubjects: readonly SubjectResponse[] | null,
+  withLiveTasks = true,
 ): PlannerSubjectItem[] {
   const recorded = new Map<string, PlannerSubjectItem>();
   const recordedOf = (subjectId: number) => {
@@ -80,16 +84,18 @@ export function plannerSubjectItems(
       name: subject.name,
       colorIndex: subject.colorIndex,
       focusSec: fromRecord?.focusSec ?? 0,
-      tasks: [
-        ...subject.tasks.map((task) => ({
-          id: task.id,
-          name: task.name,
-          done: task.doneAt !== null,
-          live: true,
-        })),
-        // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
-        ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
-      ],
+      tasks: withLiveTasks
+        ? [
+            ...subject.tasks.map((task) => ({
+              id: task.id,
+              name: task.name,
+              done: task.doneAt !== null,
+              live: true,
+            })),
+            // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
+            ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
+          ]
+        : (fromRecord?.tasks ?? []),
       live: true,
     };
   });
