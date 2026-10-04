@@ -45,8 +45,14 @@ export function PlannerPage() {
 
   const todayKey = kstDateKey();
   const requested = searchParams.get("date");
-  // 날짜가 없거나 형식이 틀리면 오늘 플래너를 연다.
-  const dateKey = requested !== null && DATE_KEY_PATTERN.test(requested) ? requested : todayKey;
+  // 날짜가 없거나 형식이 틀리면 오늘 플래너를 연다. 모양만 맞고 달력에 없는 날짜(2020-13-45)는
+  // 날짜 계산을 한 바퀴 돌리면 다른 날짜가 되므로 그것으로 걸러 낸다.
+  const dateKey =
+    requested !== null &&
+    DATE_KEY_PATTERN.test(requested) &&
+    addDaysToDateKey(requested, 0) === requested
+      ? requested
+      : todayKey;
   const isToday = dateKey === todayKey;
   const taskMode = isToday ? "live" : dateKey < todayKey ? "completed" : "upcoming";
 
