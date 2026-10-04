@@ -3,18 +3,18 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDuration } from "./recordsFormat";
 
 /**
- * 일간 탭 머리 — 달력에서 고른 날의 순공시간과 총 공부시간.
+ * 기록 탭 머리 — 그 탭이 보는 기간의 순공시간과 총 공부시간. 일간·주간이 같은 꼴을 쓴다.
  *
- * 달을 옮겨도 고른 날은 그대로라, 값은 보이는 달의 기간 집계가 아니라 선택일 조회에서 온다.
- * 조회 중이면 자리표시, 실패하면 `—`를 그린다(재시도는 아래 세션 목록 자리의 오류 화면이 맡는다).
+ * 일간은 달력에서 고른 날(달을 옮겨도 그대로라 값은 선택일 조회에서 온다), 주간은 보는 주다.
+ * 조회 중이면 자리표시, 실패하면 `—`를 그린다(재시도는 아래 오류 화면이 맡는다).
  */
-export function DayHeadline({
+export function PeriodHeadline({
   label,
   totals,
 }: {
-  /** `오늘 순공시간` 또는 `M월 D일 순공시간`. */
+  /** `오늘 순공시간` · `M월 D일 순공시간` · `주간 순공시간`. */
   label: string;
-  /** 선택일의 순공·총 공부(초). 조회 중이면 `"pending"`, 실패면 `"error"`. */
+  /** 그 기간의 순공·총 공부(초). 조회 중이면 `"pending"`, 실패면 `"error"`. */
   totals: { focusSec: number; studySec: number } | "pending" | "error";
 }) {
   return (

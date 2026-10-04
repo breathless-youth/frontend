@@ -9,7 +9,7 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { DayHeadline } from "@/features/records/DayHeadline";
+import { PeriodHeadline } from "@/features/records/PeriodHeadline";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
 import {
   type CalendarMonth,
@@ -136,7 +136,7 @@ function RecordsContent({
       </div>
 
       {/* 머리는 달이 아니라 고른 날을 요약한다 — 달을 옮겨도 고른 날의 값이 남는다. */}
-      <DayHeadline
+      <PeriodHeadline
         label={dayHeadlineLabel(selectedKey, todayKey)}
         totals={
           day.status === "success"

@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  MAX_CHART_HOURS,
+  averageFocusRatePercent,
   averageFocusSecPerStudiedDay,
+  averageStudySecPerStudiedDay,
   bestDay,
   buildDayFocusMap,
-  buildWeekTrendRows,
-  elapsedDaysInMonth,
   focusDeltaSec,
   isFutureMonth,
   isFutureWeek,
   mondayWeekDateKeys,
   monthRanges,
   studiedDayCount,
-  studiedRatioPercent,
   sumFocusSec,
-  toChartHours,
+  relativeWeekLabel,
+  weekComparison,
   weekFocusDeltaSec,
+  weekRangeLabel,
   weekRanges,
   weekTrendPoints,
-  weekTrendTooltipDuration,
 } from "../recordsPeriod";
 
 const day = (date: string, focusSec: number) => ({ date, studySec: focusSec + 100, focusSec });
@@ -69,21 +68,7 @@ describe("recordsPeriod — 주간·월간 범위와 헤더 숫자", () => {
   });
 });
 
-describe("toChartHours — 12시간 clamp", () => {
-  it("초를 시간으로 바꾼다", () => {
-    expect(toChartHours(2 * 3600)).toBe(2);
-    expect(toChartHours(90 * 60)).toBe(1.5);
-    expect(toChartHours(0)).toBe(0);
-  });
-
-  it("12시간을 넘는 입력은 12로 자른다(고정 눈금이 아니라 값 자체를 clamp)", () => {
-    expect(toChartHours(13 * 3600)).toBe(MAX_CHART_HOURS);
-    expect(toChartHours(20 * 3600)).toBe(12);
-    expect(toChartHours(12 * 3600 + 1)).toBe(12);
-  });
-});
-
-describe("weekTrendPoints / buildWeekTrendRows — 이번 주 미래 날짜 제외", () => {
+describe("weekTrendPoints — 이번 주 미래 날짜 제외", () => {
   // 2026-09-14(월)~20(일). 실제 API처럼 7일을 focusSec 포함 0으로 채운다.
   const fullWeek = [
     day("2026-09-14", 2 * 3600), // 월
@@ -109,14 +94,6 @@ describe("weekTrendPoints / buildWeekTrendRows — 이번 주 미래 날짜 제�
     ]);
   });
 
-  it("clamp된 차트 행에서도 미래 요일은 null이고 오늘까지만 값이 있다", () => {
-    const rows = buildWeekTrendRows(fullWeek, [], "2026-09-16");
-    expect(rows.map((r) => r.thisWeek)).toEqual([2, 1, 3, null, null, null, null]);
-    // 끝점은 값이 있는 마지막 요일(수, index 2)이다.
-    const lastPointIndex = rows.reduce((acc, r, i) => (r.thisWeek != null ? i : acc), -1);
-    expect(lastPointIndex).toBe(2);
-  });
-
   it("지난주(compareDaily)도 과거 요일은 값을 채운다", () => {
     const points = weekTrendPoints(
       [],
@@ -140,29 +117,14 @@ describe("weekTrendPoints / buildWeekTrendRows — 이번 주 미래 날짜 제�
   });
 
   it("요일 순서를 섞어 넣어도 월=0…일=6으로 정렬한다", () => {
-    const rows = buildWeekTrendRows(
+    const points = weekTrendPoints(
       [day("2026-09-16", 3 * 3600), day("2026-09-14", 2 * 3600)],
       [],
       "2026-09-20",
     );
-    expect(rows.map((r) => r.day)).toEqual(["월", "화", "수", "목", "금", "토", "일"]);
-    expect(rows[0]?.thisWeek).toBe(2); // 월
-    expect(rows[2]?.thisWeek).toBe(3); // 수
-  });
-});
-
-describe("elapsedDaysInMonth / studiedRatioPercent", () => {
-  it("현재 달은 오늘 일자, 과거 달은 말일, 미래 달은 0이 경과일이다", () => {
-    expect(elapsedDaysInMonth({ year: 2026, month: 9 }, "2026-09-20")).toBe(20);
-    expect(elapsedDaysInMonth({ year: 2026, month: 9 }, "2026-10-05")).toBe(30);
-    expect(elapsedDaysInMonth({ year: 2026, month: 11 }, "2026-09-20")).toBe(0);
-  });
-
-  it("비율은 반올림, 경과일 0이면 0%로 방어한다", () => {
-    expect(studiedRatioPercent(3, 20)).toBe(15);
-    expect(studiedRatioPercent(15, 30)).toBe(50);
-    expect(studiedRatioPercent(0, 0)).toBe(0);
-    expect(studiedRatioPercent(5, 0)).toBe(0);
+    expect(points.map((p) => p.day)).toEqual(["월", "화", "수", "목", "금", "토", "일"]);
+    expect(points[0]?.thisWeekSec).toBe(2 * 3600); // 월
+    expect(points[2]?.thisWeekSec).toBe(3 * 3600); // 수
   });
 });
 
@@ -229,31 +191,6 @@ describe("averageFocusSecPerStudiedDay — 공부한 날만 센 하루 평균", 
   });
 });
 
-describe("weekTrendTooltipDuration — 툴팁 순공시간 표기", () => {
-  it("원본 초를 사람이 읽는 길이로 바꾼다(clamp 전 값이라 12h 초과도 정확)", () => {
-    expect(weekTrendTooltipDuration(2 * 3600 + 30 * 60)).toBe("2시간 30분");
-    expect(weekTrendTooltipDuration(15 * 3600)).toBe("15시간"); // 차트는 12h clamp지만 툴팁은 원본
-    expect(weekTrendTooltipDuration(0)).toBe("0분");
-  });
-
-  it("미래 요일·기록 없음(null)은 표시하지 않도록 null을 돌려준다", () => {
-    expect(weekTrendTooltipDuration(null)).toBeNull();
-  });
-});
-
-describe("buildWeekTrendRows — 툴팁용 원본 초 동봉", () => {
-  it("clamp된 차트 값과 함께 clamp 전 원본 초도 담는다", () => {
-    const rows = buildWeekTrendRows(
-      [day("2026-09-14", 15 * 3600)], // 월: 15시간(12h 초과)
-      [],
-      "2026-09-20",
-    );
-    expect(rows[0]?.thisWeek).toBe(12); // 차트 값은 clamp
-    expect(rows[0]?.thisWeekSec).toBe(15 * 3600); // 툴팁 원본은 그대로
-    expect(rows[3]?.thisWeekSec).toBeNull(); // 기록 없는 요일
-  });
-});
-
 describe("buildDayFocusMap", () => {
   it("날짜별 순공시간을 맵으로 만든다", () => {
     const map = buildDayFocusMap([
@@ -263,5 +200,71 @@ describe("buildDayFocusMap", () => {
     expect(map.get("2026-09-01")).toBe(90);
     expect(map.get("2026-09-02")).toBe(0);
     expect(map.has("2026-09-03")).toBe(false);
+  });
+});
+
+describe("주간 평균 — 공부시간과 집중률", () => {
+  const stat = (date: string, focusSec: number, studySec: number) => ({ date, studySec, focusSec });
+
+  it("하루 평균 공부시간은 총 공부 합계를 공부한 날 수로 나눈다", () => {
+    const daily = [stat("2026-09-14", 3600, 2 * 3600), stat("2026-09-15", 0, 0)];
+    expect(averageStudySecPerStudiedDay(daily)).toBe(2 * 3600);
+    expect(averageStudySecPerStudiedDay([stat("2026-09-14", 0, 0)])).toBeNull();
+  });
+
+  it("평균 집중률은 순공 합계 ÷ 총 공부 합계다(날짜별 집중률의 평균이 아니다)", () => {
+    // 하루는 1시간 중 1시간(100%), 하루는 9시간 중 3시간(33%) → 단순 평균 67%가 아니라 4 ÷ 10 = 40%.
+    const daily = [stat("2026-09-14", 3600, 3600), stat("2026-09-15", 3 * 3600, 9 * 3600)];
+    expect(averageFocusRatePercent(daily)).toBe(40);
+    expect(averageFocusRatePercent([])).toBeNull();
+  });
+});
+
+describe("weekComparison — 추이 카드 제목이 말할 비교", () => {
+  it("두 주 모두 기록이 있으면 같은 경과 기간끼리의 델타다", () => {
+    // 오늘 09-15(화). 이번 주 월·화 3시간, 지난주 월·화 5시간(수요일 4시간은 제외) → -2시간.
+    const daily = [day("2026-09-14", 2 * 3600), day("2026-09-15", 3600)];
+    const compare = [
+      day("2026-09-07", 3600),
+      day("2026-09-08", 4 * 3600),
+      day("2026-09-09", 4 * 3600),
+    ];
+    expect(weekComparison(daily, compare, "2026-09-15", "2026-09-15")).toEqual({
+      kind: "delta",
+      inProgress: true,
+      deltaSec: -2 * 3600,
+    });
+  });
+
+  it("기록 유무에 따라 비교 없음·이번 주 없음·둘 다 없음으로 갈린다", () => {
+    const some = [day("2026-09-14", 3600)];
+    const none = [day("2026-09-07", 0)];
+    expect(weekComparison(some, none, "2026-09-15", "2026-09-15")).toEqual({
+      kind: "no-previous",
+      inProgress: true,
+      totalSec: 3600,
+    });
+    expect(weekComparison(none, some, "2026-09-15", "2026-09-30")).toEqual({
+      kind: "no-current",
+      inProgress: false,
+    });
+    expect(weekComparison(none, none, "2026-09-15", "2026-09-15")).toEqual({
+      kind: "empty",
+      inProgress: true,
+    });
+  });
+});
+
+describe("주 라벨", () => {
+  it("weekRangeLabel — 같은 달이면 끝 날짜의 달을 생략한다", () => {
+    expect(weekRangeLabel("2026-09-18")).toBe("9월 14일 ~ 20일");
+    expect(weekRangeLabel("2026-10-01")).toBe("9월 28일 ~ 10월 4일");
+  });
+
+  it("relativeWeekLabel — 오늘 기준 이번 주 · 지난주 · N주 전", () => {
+    expect(relativeWeekLabel("2026-09-18", "2026-09-18")).toBe("이번 주");
+    expect(relativeWeekLabel("2026-09-18", "2026-09-18", 1)).toBe("지난주");
+    expect(relativeWeekLabel("2026-09-09", "2026-09-18")).toBe("지난주");
+    expect(relativeWeekLabel("2026-09-09", "2026-09-18", 1)).toBe("2주 전");
   });
 });

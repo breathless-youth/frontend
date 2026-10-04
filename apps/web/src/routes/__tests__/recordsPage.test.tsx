@@ -1,25 +1,8 @@
-import type { ReactElement } from "react";
-import { cloneElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import type * as Recharts from "recharts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-// 주간 뷰의 추이 차트가 렌더된다 — recharts ResponsiveContainer는 jsdom에서 ResizeObserver를
-// 요구하므로(WeekTrendChart.test.tsx와 같은 이유·같은 mock) 자식에 고정 크기를 준다.
-vi.mock("recharts", async (importOriginal) => {
-  const actual = await importOriginal<typeof Recharts>();
-  return {
-    ...actual,
-    ResponsiveContainer: ({
-      children,
-    }: {
-      children: ReactElement<{ width?: number; height?: number }>;
-    }) => cloneElement(children, { width: 800, height: 400 }),
-  };
-});
 
 import type {
   StudyPeriodStatsResponse,
@@ -481,6 +464,31 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("3시간")).toBeInTheDocument();
   });
 
+  it("주간 뷰는 주 요약 → 추이 카드 → 주 카드 → 나의 공부 리듬 순서로 보여준다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+    mockedPeriod.mockResolvedValue(
+      periodResponse(
+        [{ date: kstDateKey(), studySec: 7200, focusSec: 3600 }],
+        [{ date: "2026-01-01", studySec: 3600, focusSec: 1800 }],
+      ),
+    );
+
+    renderRecords();
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+
+    const headline = await screen.findByText("주간 순공시간");
+    const chart = await screen.findByRole("img", { name: /요일별 순공시간/ });
+    const best = screen.getByText("이 주 최고 기록");
+    const rhythm = screen.getByRole("heading", { name: "나의 공부 리듬" });
+
+    const follows = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(headline, chart)).toBe(true);
+    expect(follows(chart, best)).toBe(true);
+    expect(follows(best, rhythm)).toBe(true);
+    expect(headline.parentElement).toHaveTextContent("총 공부시간 2시간");
+  });
+
   it("주간 뷰에서 이번 주 다음(미래 주)으로는 넘어가지 않는다(이전 주로는 이동)", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
 
@@ -492,9 +500,8 @@ describe("RecordsPage", () => {
     const rangeLabel = await screen.findByText(/\d+월 \d+일 ~/);
     const thisWeekLabel = rangeLabel.textContent;
 
-    // 다음 주(미래)로는 넘어가지 않는다 — 범위가 그대로다.
-    await userEvent.click(screen.getByRole("button", { name: "다음 주" }));
-    expect(screen.getByText(/\d+월 \d+일 ~/).textContent).toBe(thisWeekLabel);
+    // 다음 주(미래)로는 넘어가지 않는다 — 버튼이 비활성이다.
+    expect(screen.getByRole("button", { name: "다음 주" })).toBeDisabled();
 
     // 이전 주(과거)로는 이동한다 — 범위가 바뀐다(상한이 미래에만 걸리는지 확인).
     await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
@@ -513,7 +520,7 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("나의 공부 리듬")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "이전 주" })).toBeInTheDocument();
     // 오류 화면과 함께 "0분 · 지난주와 같아요" 같은 확정 숫자는 뜨지 않는다.
-    expect(screen.queryByText("이번 주 순공시간")).not.toBeInTheDocument();
+    expect(screen.queryByText("주간 순공시간")).not.toBeInTheDocument();
     expect(screen.queryByText(/지난주와 같아요/)).not.toBeInTheDocument();
     expect(screen.getByText("주간 추이를 불러오지 못했어요")).toBeInTheDocument();
   });

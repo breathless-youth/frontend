@@ -3,20 +3,23 @@ import { describe, expect, it } from "vitest";
 
 import { RhythmCard } from "../RhythmCard";
 
-describe("RhythmCard", () => {
-  it("제목·기준·준비 중 안내 문구를 표시한다", () => {
+describe("RhythmCard — 나의 공부 리듬 예상 화면", () => {
+  it("제목과 준비 중 칩, 가운데 안내 문구를 보여준다", () => {
     render(<RhythmCard />);
 
-    expect(screen.getByText("나의 공부 리듬")).toBeInTheDocument();
-    expect(screen.getByText("최근 4주 기준")).toBeInTheDocument();
-    expect(screen.getByText("공부 기록을 모으는 중이에요")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "나의 공부 리듬" })).toBeInTheDocument();
+    expect(screen.getByText("집중 리포트 준비 중")).toBeInTheDocument();
+    expect(screen.getByText("기록이 쌓이면 나의 공부 리듬을 알려드려요")).toBeInTheDocument();
+    expect(
+      screen.getByText("요일 × 시간대로 언제 가장 집중하는지 보여드릴게요"),
+    ).toBeInTheDocument();
   });
 
-  it("플레이스홀더 막대 영역을 aria 라벨로 묶고 막대를 그린다", () => {
-    render(<RhythmCard />);
+  it("예시 히트맵(요일 7 × 시간 24)은 장식이라 보조 기술에서 숨긴다", () => {
+    const { container } = render(<RhythmCard />);
 
-    const bars = screen.getByRole("img", { name: "공부 기록을 모으는 중" });
-    expect(bars).toBeInTheDocument();
-    expect(bars.children.length).toBeGreaterThan(0);
+    const ghost = container.querySelector('[aria-hidden="true"]');
+    expect(ghost).not.toBeNull();
+    expect(ghost?.querySelectorAll(".h-\\[18px\\]")).toHaveLength(7 * 24);
   });
 });
