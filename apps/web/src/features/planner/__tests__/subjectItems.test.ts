@@ -49,7 +49,7 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
         name: "수학",
         colorIndex: 5,
         focusSec: 1800,
-        tasks: [{ id: 9, name: "오답 정리", done: true }],
+        tasks: [{ id: 9, name: "오답 정리", done: true, live: false }],
         live: false,
       },
     ]);
@@ -75,8 +75,8 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
       ["수학", 1800, false],
     ]);
     expect(items[1]!.tasks).toEqual([
-      { id: 20, name: "단어 암기", done: true },
-      { id: 21, name: "리스닝", done: false },
+      { id: 20, name: "단어 암기", done: true, live: true },
+      { id: 21, name: "리스닝", done: false, live: true },
     ]);
   });
 

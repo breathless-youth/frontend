@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
-import { trackSubjectItemAdded } from "@/lib/amplitude";
+import { type SubjectSurface, trackSubjectItemAdded } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import {
   createSubject,
@@ -38,7 +38,12 @@ function saveErrorMessage(error: unknown): string {
  * 끝에 붙는다. 드래그 중 자리 바꿈은 화면에만 반영하고, 놓을 때(`commitReorder`) 잡았을 때와 순서가 다르면
  * 전체 순서를 한 번 보낸다.
  */
-export function useSubjects(enabled: boolean, onError: (message: string) => void) {
+export function useSubjects(
+  enabled: boolean,
+  onError: (message: string) => void,
+  /** 이 목록을 다루는 화면 — 추가 이벤트의 `surface` 속성으로만 쓴다. */
+  surface: SubjectSurface = "sheet",
+) {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [status, setStatus] = useState<SubjectsStatus>("idle");
   const onErrorRef = useRef(onError);
@@ -119,29 +124,32 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
         const created = await createSubject({ name: trimmed });
         // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
         setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
-        trackSubjectItemAdded("subject", viaSuggestion);
+        trackSubjectItemAdded("subject", viaSuggestion, surface);
         return created;
       } catch (error) {
         onErrorRef.current(saveErrorMessage(error));
         return null;
       }
     },
-    [],
+    [surface],
   );
 
-  const addTask = useCallback(async (subjectId: number, name: string) => {
-    try {
-      const created = await createTask(subjectId, { name });
-      setSubjects((prev) =>
-        prev.map((subject) =>
-          subject.id === subjectId ? { ...subject, tasks: [...subject.tasks, created] } : subject,
-        ),
-      );
-      trackSubjectItemAdded("task");
-    } catch {
-      onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
-    }
-  }, []);
+  const addTask = useCallback(
+    async (subjectId: number, name: string) => {
+      try {
+        const created = await createTask(subjectId, { name });
+        setSubjects((prev) =>
+          prev.map((subject) =>
+            subject.id === subjectId ? { ...subject, tasks: [...subject.tasks, created] } : subject,
+          ),
+        );
+        trackSubjectItemAdded("task", false, surface);
+      } catch {
+        onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
+      }
+    },
+    [surface],
+  );
 
   /** 핸들 드래그 — `fromId` 과목을 `overId` 과목 자리로 옮긴다. 화면에만 반영하고 서버 요청은 `commitReorder`가 한다. */
   const reorderSubject = useCallback((fromId: number, overId: number) => {

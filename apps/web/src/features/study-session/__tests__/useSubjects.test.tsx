@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SubjectResponse } from "@focusmakers/types";
 
 import { ApiError } from "@/lib/api";
+import { trackSubjectItemAdded } from "@/lib/amplitude";
 import { createSubject, listSubjects, renameSubject, reorderSubjects } from "@/lib/subjectApi";
 
 import { SUBJECT_SHEET_COPY } from "../sessionCopy";
@@ -199,6 +200,8 @@ describe("useSubjects 이름 중복", () => {
     });
 
     expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
+    // 화면을 따로 알리지 않으면 과목 시트에서 만든 것으로 센다.
+    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "sheet");
     expect(renameSubject).toHaveBeenCalledWith(1, { name: "영어" });
     expect(hook.result.current.subjects.find((item) => item.id === 1)?.name).toBe("영어");
   });

@@ -17,6 +17,7 @@ import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { slideNavigate } from "@/lib/pageTransition";
+import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,13 +27,12 @@ const SWIPE_THRESHOLD_PX = 48;
 /** 플래너를 연 곳 — 라우터 state로 받는다(URL에 싣지 않아 분석 경로가 하나로 유지된다). */
 export type PlannerEntry = "records" | "home";
 
-function noop() {}
-
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
  *
  * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 플래너의 하루는
  * 05:00~다음 날 05:00이라, 새벽 0~5시에 여는 "오늘의 플래너"는 전날 플래너다.
+ * 과목·할 일 관리는 오늘 플래너에서만 되고(세션 과목 시트와 같은 목록), 지난 날은 보기 전용이다.
  * 탭 바 없는 전체 화면 라우트다(`/planner?date=YYYY-MM-DD`, `lib/nativeTabBar.ts`).
  */
 export function PlannerPage() {
@@ -62,7 +62,7 @@ export function PlannerPage() {
 
   const state = usePlannerDay(userId, dateKey);
   // 과목 목록은 오늘 플래너에서만 쓴다 — 지난 날은 그날 기록에 남은 과목만 보여 준다.
-  const subjects = useSubjects(isToday && userId !== null, noop);
+  const subjects = useSubjects(isToday && userId !== null, showToast, "planner");
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
   const changeDate = useCallback(
@@ -189,10 +189,14 @@ export function PlannerPage() {
                   isToday && subjects.status === "ready" ? subjects.subjects : null,
                 )}
                 unassignedFocusSec={state.day.unassignedFocusSec}
-                emptyMessage={
-                  isToday
-                    ? ["아직 과목이 없어요", "세션에서 과목을 만들면 여기에 보여요"]
-                    : ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]
+                // 오늘 플래너에서 과목 목록을 받는 동안에는 문구 없이 비워 둔다.
+                emptyMessage={isToday ? [] : ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]}
+                // 관리는 오늘 플래너에서만 — 과목 목록을 받은 뒤부터다.
+                store={isToday && subjects.status === "ready" ? subjects : null}
+                onNotice={showToast}
+                readOnly={!isToday}
+                onRetryLoad={
+                  isToday && subjects.status === "error" ? () => void subjects.reload() : undefined
                 }
               />
               <PlannerTimetable day={state.day} />

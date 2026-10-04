@@ -6,6 +6,8 @@ export interface PlannerTaskItem {
   id: number;
   name: string;
   done: boolean;
+  /** 과목 목록에 살아있는 할 일인가 — 기록에만 남은 할 일은 고칠 수 없다. */
+  live: boolean;
 }
 
 export interface PlannerSubjectItem {
@@ -57,7 +59,12 @@ export function plannerSubjectItems(
     }
   }
   for (const task of day.completedTasks) {
-    recordedOf(task.subjectId)?.tasks.push({ id: task.id, name: task.name, done: true });
+    recordedOf(task.subjectId)?.tasks.push({
+      id: task.id,
+      name: task.name,
+      done: true,
+      live: false,
+    });
   }
 
   if (liveSubjects === null) {
@@ -78,6 +85,7 @@ export function plannerSubjectItems(
           id: task.id,
           name: task.name,
           done: task.doneAt !== null,
+          live: true,
         })),
         // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
         ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),

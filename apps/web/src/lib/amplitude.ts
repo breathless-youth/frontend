@@ -1046,10 +1046,17 @@ export function trackSubjectSheetOpened() {
   track("subject_sheet_opened");
 }
 
-/** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지. */
-export function trackSubjectItemAdded(kind: "subject" | "task", viaSuggestion = false) {
+/** 과목·할 일을 관리하는 화면 — 세션 과목 시트와 플래너가 같은 목록을 다룬다. */
+export type SubjectSurface = "sheet" | "planner";
+
+/** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */
+export function trackSubjectItemAdded(
+  kind: "subject" | "task",
+  viaSuggestion = false,
+  surface: SubjectSurface = "sheet",
+) {
   if (!initialized) return;
-  track("subject_item_added", { kind, via_suggestion: viaSuggestion });
+  track("subject_item_added", { kind, via_suggestion: viaSuggestion, surface });
 }
 
 /** 과목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
