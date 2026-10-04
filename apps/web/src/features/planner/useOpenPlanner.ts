@@ -7,6 +7,17 @@ import { slideNavigate } from "@/lib/pageTransition";
 export type PlannerEntry = "records" | "home";
 
 /**
+ * 플래너가 어디서 열렸는지 읽는다. SPA로 들어오면 router state에, 셸이 웹뷰를 다시 띄워 복원한
+ * 문서에서는 `?from` 쿼리에 있다(state는 문서와 함께 사라진다 — `lib/nativeScreenReport.ts`).
+ */
+export function plannerEntryOf(location: { state: unknown; search: string }): PlannerEntry | null {
+  const via =
+    (location.state as { via?: unknown } | null)?.via ??
+    new URLSearchParams(location.search).get("from");
+  return via === "records" || via === "home" ? via : null;
+}
+
+/**
  * 플래너로 이동하는 함수를 돌려준다. 날짜를 주면 그날의 플래너, 안 주면 오늘의 플래너다.
  * 셸이 붙인 쿼리(구 앱의 신원 등)는 그대로 들고 간다.
  */
