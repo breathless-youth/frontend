@@ -21,7 +21,7 @@ function fillStyle(fill: PlannerCellFill, subjects: ReadonlyMap<number, SubjectR
   const subject = subjects.get(fill.paint.subjectId);
   // 응답에 없는 과목 id는 엉뚱한 과목 색 대신 기본 집중색으로 둔다.
   return subject === undefined
-    ? { ...position, background: "var(--color-primary)" }
+    ? { ...position, background: "var(--primary)" }
     : { ...position, background: subjectColorVar(subject.colorIndex) };
 }
 

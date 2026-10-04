@@ -149,15 +149,15 @@ describe("PlannerPage", () => {
     expect(english.closest("section")).toHaveTextContent("50분");
     expect(screen.getByText("단어 60개 암기")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "완료" })).toBeInTheDocument();
-    // 과목 없이 공부한 1시간은 따로 보인다.
-    expect(
-      screen.getByRole("heading", { name: "과목 없이 공부" }).closest("section"),
-    ).toHaveTextContent("1시간");
-    expect(screen.getByText("과목 없음")).toBeInTheDocument();
+    // 과목 없이 공부한 1시간은 `과목 없음` 행으로 따로 보이고, 범례에도 같은 이름이 있다.
+    expect(screen.getByRole("heading", { name: "과목 없음" }).closest("section")).toHaveTextContent(
+      "1시간",
+    );
+    expect(screen.getAllByText("과목 없음")).toHaveLength(2);
 
     const head = screen.getByText("순공시간").parentElement!;
     expect(within(head).getByText("1시간 50분")).toBeInTheDocument();
-    expect(head).toHaveTextContent("총 공부시간 2시간");
+    expect(head).toHaveTextContent("총 2시간");
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "records", isToday: false });
     // 지난 날은 과목 목록을 조회하지 않는다.
     expect(mockedSubjects).not.toHaveBeenCalled();

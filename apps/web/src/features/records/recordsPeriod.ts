@@ -166,13 +166,18 @@ export function studiedDayCount(daily: readonly DailyStudyStat[]): number {
   return daily.filter((day) => day.focusSec > 0).length;
 }
 
+/** 평균은 분 단위로 반올림한다 — 화면 표기가 분을 버림하므로 그대로 넘기면 4시간 31.7분이 `4시간 31분`이 된다. */
+function roundToMinute(seconds: number): number {
+  return Math.round(seconds / 60) * 60;
+}
+
 /**
  * 하루 평균 순공(초) — 합계 ÷ 공부한 날 수. 쉰 날로 평균이 깎이지 않게 공부한 날만 센다.
  * 공부한 날이 없으면 `null`(화면은 `—`).
  */
 export function averageFocusSecPerStudiedDay(daily: readonly DailyStudyStat[]): number | null {
   const days = studiedDayCount(daily);
-  return days === 0 ? null : Math.floor(sumFocusSec(daily) / days);
+  return days === 0 ? null : roundToMinute(sumFocusSec(daily) / days);
 }
 
 export function sumStudySec(daily: readonly DailyStudyStat[]): number {
@@ -182,7 +187,7 @@ export function sumStudySec(daily: readonly DailyStudyStat[]): number {
 /** 하루 평균 공부시간(초) — 총 공부 합계 ÷ 공부한 날 수. 공부한 날이 없으면 `null`. */
 export function averageStudySecPerStudiedDay(daily: readonly DailyStudyStat[]): number | null {
   const days = studiedDayCount(daily);
-  return days === 0 ? null : Math.floor(sumStudySec(daily) / days);
+  return days === 0 ? null : roundToMinute(sumStudySec(daily) / days);
 }
 
 /**

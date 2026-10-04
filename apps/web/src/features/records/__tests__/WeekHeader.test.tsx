@@ -23,7 +23,7 @@ describe("WeekHeader", () => {
     expect(screen.getByText("9월 14일 ~ 20일")).toBeInTheDocument();
     expect(screen.getByText("주간 순공시간")).toBeInTheDocument();
     expect(screen.getByText("3시간")).toBeInTheDocument();
-    expect(screen.getByText("주간 순공시간").parentElement).toHaveTextContent("총 공부시간 4시간");
+    expect(screen.getByText("주간 순공시간").parentElement).toHaveTextContent("총 4시간");
     expect(screen.queryByText(/지난주보다/)).not.toBeInTheDocument();
   });
 

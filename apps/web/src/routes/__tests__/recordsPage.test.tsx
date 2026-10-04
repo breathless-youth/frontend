@@ -184,7 +184,7 @@ describe("RecordsPage", () => {
     const row = await screen.findByRole("button", {
       name: "09:00부터 10:00까지, 순공 30분, 집중 50%",
     });
-    expect(row).toHaveTextContent("총 공부시간 1시간");
+    expect(row).toHaveTextContent("총 1시간");
     expect(row).toHaveTextContent("집중 50%");
     expect(screen.queryByText("이 날은 기록이 없어요")).not.toBeInTheDocument();
   });
@@ -284,7 +284,7 @@ describe("RecordsPage", () => {
     const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
     expect(await within(headline).findByText("30분")).toBeInTheDocument();
     expect(within(headline).getByText("1시간")).toBeInTheDocument();
-    expect(headline).toHaveTextContent("총 공부시간 1시간");
+    expect(headline).toHaveTextContent("총 1시간");
   });
 
   it("다른 날을 고르면 머리 라벨이 그 날짜로 바뀌고, 달을 옮겨도 고른 날이 유지된다", async () => {
@@ -588,7 +588,7 @@ describe("RecordsPage", () => {
     expect(follows(headline, chart)).toBe(true);
     expect(follows(chart, best)).toBe(true);
     expect(follows(best, rhythm)).toBe(true);
-    expect(headline.parentElement).toHaveTextContent("총 공부시간 2시간");
+    expect(headline.parentElement).toHaveTextContent("총 2시간");
   });
 
   it("주간 뷰에서 이번 주 다음(미래 주)으로는 넘어가지 않는다(이전 주로는 이동)", async () => {

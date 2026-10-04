@@ -355,7 +355,7 @@ describe("SessionListItem", () => {
     const row = screen.getByRole("button", { name: /07:30부터 08:16까지, 순공 44분, 집중 96%/ });
     expect(row).toHaveAttribute("aria-expanded", "false");
     expect(row).toHaveTextContent("44분");
-    expect(row).toHaveTextContent("총 공부시간 46분");
+    expect(row).toHaveTextContent("총 46분");
     expect(screen.getByText("07:30")).toBeInTheDocument();
     expect(screen.getByText("08:16")).toBeInTheDocument();
     expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();

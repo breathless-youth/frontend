@@ -66,16 +66,33 @@ export function WeekTrendCard({
       />
 
       <div className="flex items-center justify-end gap-3.5 pt-1.5">
-        <LegendItem swatchClassName="bg-primary" label={currentLabel} />
-        <LegendItem swatchClassName="bg-chart-prev" label={previousLabel} />
+        {/* 막대가 하나도 없는 쪽은 범례를 흐리게 둔다 — 그 주의 기록이 없다는 뜻이다. */}
+        <LegendItem
+          swatchClassName="bg-primary"
+          label={currentLabel}
+          faded={!points.some((point) => (point.thisWeekSec ?? 0) > 0)}
+        />
+        <LegendItem
+          swatchClassName="bg-chart-prev"
+          label={previousLabel}
+          faded={!points.some((point) => (point.lastWeekSec ?? 0) > 0)}
+        />
       </div>
     </div>
   );
 }
 
-function LegendItem({ swatchClassName, label }: { swatchClassName: string; label: string }) {
+function LegendItem({
+  swatchClassName,
+  label,
+  faded,
+}: {
+  swatchClassName: string;
+  label: string;
+  faded: boolean;
+}) {
   return (
-    <span className="flex items-center gap-[5px]">
+    <span className={`flex items-center gap-[5px] ${faded ? "opacity-35" : ""}`}>
       <span className={`size-2.5 rounded-[3px] ${swatchClassName}`} aria-hidden />
       <span className="text-[11px] leading-[14px] text-muted-foreground">{label}</span>
     </span>
@@ -196,7 +213,7 @@ function WeekTrendBars({
       />
       <div
         aria-hidden
-        className="absolute right-[3px] left-[27px] grid grid-cols-7"
+        className="absolute right-1.5 left-[30px] grid grid-cols-7"
         style={{ top: PLOT_TOP_PX, height: PLOT_HEIGHT_PX }}
       >
         {points.map((point) => (
@@ -220,13 +237,14 @@ function WeekTrendBars({
       </div>
       <div
         aria-hidden
-        className="absolute top-[130px] right-[3px] left-[27px] grid grid-cols-7 text-center text-[11px] leading-[14px]"
+        className="absolute top-[130px] right-1.5 left-[30px] grid grid-cols-7 text-center text-[11px] leading-[14px]"
       >
         {points.map((point, index) => (
           <span
             key={point.day}
             className={
-              index === todayIndex
+              // 오늘 요일은 오늘 막대가 있을 때만 강조한다 — 아직 공부하지 않았으면 지난 요일과 같다.
+              index === todayIndex && (point.thisWeekSec ?? 0) > 0
                 ? "font-bold text-primary"
                 : todayIndex !== null && index > todayIndex
                   ? "font-medium text-text-tertiary"

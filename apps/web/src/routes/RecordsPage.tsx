@@ -122,13 +122,14 @@ function RecordsContent({
   return (
     <div>
       {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
-          카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
+          카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다.
+          버튼의 탭 영역은 44px이고, 음수 여백으로 자리만 시안 크기(꺾쇠 20 · 라벨 28)로 줄인다. */}
       <div className="flex items-center justify-center gap-1.5 pt-4">
         <button
           type="button"
           aria-label="이전 달"
           onClick={() => changeMonth(-1, "button")}
-          className="flex size-11 items-center justify-center"
+          className="-mx-3 -my-2 flex size-11 items-center justify-center"
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
@@ -140,7 +141,7 @@ function RecordsContent({
             trackRecordsPeriodPickerOpened("daily");
             setPickerOpen(true);
           }}
-          className="flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
+          className="-my-2 flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
         >
           {monthLabel(month)}
           <IconChevronDown color="var(--color-foreground)" />
@@ -150,7 +151,7 @@ function RecordsContent({
           aria-label="다음 달"
           disabled={isLatestMonth}
           onClick={() => changeMonth(1, "button")}
-          className="flex size-11 items-center justify-center disabled:cursor-not-allowed"
+          className="-mx-3 -my-2 flex size-11 items-center justify-center disabled:cursor-not-allowed"
         >
           <IconChevronRight
             size={13}

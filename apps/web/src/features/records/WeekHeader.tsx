@@ -32,12 +32,13 @@ export function WeekHeader({
 }) {
   return (
     <div className="flex flex-col items-center">
+      {/* 버튼의 탭 영역은 44px이고, 음수 여백으로 자리만 시안 크기(꺾쇠 20 · 라벨 28)로 줄인다. */}
       <div className="flex items-center justify-center gap-1.5 pt-4">
         <button
           type="button"
           aria-label="이전 주"
           onClick={onPrevWeek}
-          className="flex size-11 items-center justify-center"
+          className="-mx-3 -my-2 flex size-11 items-center justify-center"
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
@@ -45,7 +46,7 @@ export function WeekHeader({
           type="button"
           aria-haspopup="dialog"
           onClick={onOpenPicker}
-          className="flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
+          className="-my-2 flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
         >
           {weekRangeLabel(weekAnchorKey)}
           <IconChevronDown color="var(--color-foreground)" />
@@ -55,7 +56,7 @@ export function WeekHeader({
           aria-label="다음 주"
           disabled={!canGoNext}
           onClick={onNextWeek}
-          className="flex size-11 items-center justify-center disabled:cursor-not-allowed"
+          className="-mx-3 -my-2 flex size-11 items-center justify-center disabled:cursor-not-allowed"
         >
           <IconChevronRight
             size={13}

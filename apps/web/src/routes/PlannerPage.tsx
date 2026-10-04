@@ -159,7 +159,7 @@ export function PlannerPage() {
           }
         />
 
-        <div className="pt-3.5">
+        <div className="pt-[18px]">
           {userId === null ? (
             <p className="text-sm text-muted-foreground">
               기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
@@ -180,7 +180,7 @@ export function PlannerPage() {
               screen="planner"
             />
           ) : (
-            <div className="flex items-start gap-3.5">
+            <div className="flex items-start gap-3 pl-0.5">
               <PlannerSubjects
                 items={plannerSubjectItems(
                   state.day,

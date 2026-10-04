@@ -31,7 +31,7 @@ export function PeriodHeadline({
             {totals === "error" ? "—" : formatDuration(totals.focusSec)}
           </p>
           <p className="text-[13px] leading-[17px] font-medium text-muted-foreground">
-            총 공부시간{" "}
+            총{" "}
             <span className="font-bold text-foreground tabular-nums">
               {totals === "error" ? "—" : formatDuration(totals.studySec)}
             </span>

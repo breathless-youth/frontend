@@ -43,7 +43,7 @@ interface Menu {
  * 플래너 왼쪽 열 — 과목마다 색·이름·그날 순공시간, 그 아래 할 일.
  *
  * 그날 완료한 할 일은 체크된 채 과목 아래에 보인다. 과목을 고르지 않고 공부한 순공은 목록 맨 아래에
- * `과목 없이 공부` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
+ * `과목 없음` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
  *
  * `store`가 있으면(오늘 플래너) 세션 과목 시트와 같은 목록을 같은 방식으로 관리한다 — 할 일 탭=완료 토글,
  * 길게 누르기=`이름 변경 · 삭제` 메뉴, 할 일 왼쪽 스와이프=삭제, 과목을 길게 누른 채 끌기=순서 변경,
@@ -143,7 +143,7 @@ function UnassignedRow({ focusSec }: { focusSec: number }) {
         <h2 className="flex min-w-0 items-center gap-1.5">
           <span aria-hidden className="h-3.5 w-[3px] shrink-0 rounded-[2px] bg-primary" />
           <span className="truncate text-sm leading-[18px] font-bold text-foreground">
-            과목 없이 공부
+            과목 없음
           </span>
         </h2>
         <span className="shrink-0 text-[12.5px] leading-4 font-medium text-muted-foreground tabular-nums">
@@ -318,7 +318,7 @@ function RowMenu({
     <div
       ref={ref}
       role="menu"
-      className="absolute top-full left-7 z-20 mt-1 flex w-[150px] flex-col overflow-hidden rounded-xl border border-border bg-muted py-1.5 shadow-[0_6px_20px_0_rgba(31,41,61,0.16)]"
+      className="absolute top-full left-7 z-20 mt-1 flex w-[150px] flex-col overflow-hidden rounded-[12px] border border-border bg-muted py-1.5 shadow-[0_6px_20px_0_rgba(31,41,61,0.16)]"
     >
       <button
         type="button"
@@ -479,11 +479,11 @@ function ManagedTask({
   return (
     <li className={cn("relative", menuOpen && "z-20")}>
       <div className="relative overflow-hidden">
-        {/* 스와이프로 드러나는 삭제 표시 — 임계에 가까워질수록 진해진다. */}
+        {/* 스와이프로 드러나는 삭제 표시 — 임계의 절반쯤 밀면 다 진해진다(시안은 72px에서 불투명). */}
         <span
           aria-hidden
-          style={{ opacity: Math.min(1, -swipeX / SWIPE_REMOVE_PX) }}
-          className="absolute inset-y-0 right-0 flex w-16 items-center justify-center rounded-lg bg-feedback-danger text-xs leading-4 font-bold text-white"
+          style={{ opacity: Math.min(1, (-swipeX * 2) / SWIPE_REMOVE_PX) }}
+          className="absolute inset-y-0 right-0 flex w-16 items-center justify-center rounded-[8px] bg-feedback-danger text-xs leading-4 font-bold text-white"
         >
           삭제
         </span>

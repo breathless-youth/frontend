@@ -54,14 +54,15 @@ export function SessionListItem({ session, expanded, onToggle }: SessionListItem
                     {index > 0 ? " " : ""}
                     {part.value}
                   </span>
-                  <span className="text-xs leading-6 font-bold text-muted-foreground">
+                  {/* 단위는 줄 높이를 따로 갖지 않는다 — 숫자와 같은 24px을 주면 줄이 27px로 커진다. */}
+                  <span className="text-xs leading-none font-bold text-muted-foreground">
                     {part.unit}
                   </span>
                 </span>
               ))}
             </span>
             <span className="text-xs leading-4 text-muted-foreground">
-              총 공부시간{" "}
+              총{" "}
               <span className="font-bold text-foreground tabular-nums">
                 {formatDuration(session.studySec)}
               </span>
@@ -83,7 +84,7 @@ export function SessionListItem({ session, expanded, onToggle }: SessionListItem
 
         <span className="flex w-full flex-col gap-[5px]">
           {/* 범례는 두지 않는다 — 색의 뜻은 결과 화면과 같고, 값은 버튼 라벨이 읽어 준다. */}
-          <span aria-hidden className="flex h-2 w-full gap-[1.5px] overflow-hidden rounded-xs">
+          <span aria-hidden className="flex h-2 w-full gap-[1.5px] overflow-hidden rounded-[4px]">
             {pieces.map((piece, index) => (
               <span
                 key={`${piece.kind}-${String(index)}`}

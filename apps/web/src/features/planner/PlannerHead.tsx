@@ -67,7 +67,7 @@ export function PlannerHead({
             </p>
           )}
           <p className="text-[11px] leading-[14px] text-muted-foreground">
-            총 공부시간{" "}
+            총{" "}
             <span className="font-bold text-foreground tabular-nums">
               {totals === "pending" || totals === "error" ? "—" : formatDuration(totals.studySec)}
             </span>

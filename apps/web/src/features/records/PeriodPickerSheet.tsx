@@ -172,7 +172,7 @@ function MonthGrid({
               disabled={future}
               aria-pressed={selected}
               onClick={() => onPick(candidate)}
-              className={`rounded-xl py-[13px] text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed ${
+              className={`rounded-[12px] py-[13px] text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed ${
                 selected
                   ? "bg-primary font-bold text-primary-foreground"
                   : future
