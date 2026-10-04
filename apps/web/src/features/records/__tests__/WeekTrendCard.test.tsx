@@ -109,11 +109,11 @@ describe("WeekTrendCard — 막대와 범례", () => {
     expect(screen.queryByTestId("trend-prev-목")).not.toBeInTheDocument();
   });
 
-  it("세로축 눈금은 0 · 2 · 4 · 6 · 8+이고, 값은 대체 텍스트로 읽힌다", () => {
+  it("세로축 눈금은 단위를 붙여 0 · 2h · 4h · 6h · 8h+로 적고, 값은 대체 텍스트로 읽힌다", () => {
     renderCard();
 
     const chart = screen.getByRole("img", { name: /요일별 순공시간/ });
-    expect(chart).toHaveTextContent("8+6420");
+    expect(chart).toHaveTextContent("8h+6h4h2h0");
     expect(chart).toHaveAccessibleName(/월 이번 주 6시간 지난주 5시간/);
   });
 
@@ -158,8 +158,8 @@ describe("WeekTrendCard — 막대와 범례", () => {
       compareDaily: short(LAST_WEEK, [60, 60, 60, 0, 30, 0, 0]),
     });
     expect(screen.getByTestId("trend-current-월")).toHaveStyle({ height: "75%" });
-    expect(screen.getByText("1.5")).toBeInTheDocument();
-    expect(screen.queryByText("8+")).not.toBeInTheDocument();
+    expect(screen.getByText("1.5h")).toBeInTheDocument();
+    expect(screen.queryByText("8h+")).not.toBeInTheDocument();
     unmount();
 
     // 하루 최대 3시간 → 상한 4시간.
@@ -168,7 +168,7 @@ describe("WeekTrendCard — 막대와 범례", () => {
       compareDaily: short(LAST_WEEK, [60, 60, 60, 0, 30, 0, 0]),
     });
     expect(screen.getByTestId("trend-current-월")).toHaveStyle({ height: "75%" });
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("3h")).toBeInTheDocument();
   });
 
   it("진행 중인 주에서만 오늘 요일 라벨을 굵게 적는다", () => {

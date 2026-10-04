@@ -16,7 +16,7 @@ const PLOT_HEIGHT_PX = 150;
 /**
  * 세로축 상한 후보(시간). 그 주에 보이는 값(두 주의 막대와 평균선)이 다 들어가는 가장 작은 것을 고른다 —
  * 하루 한두 시간 공부하는 주가 8시간 눈금 아래에 납작하게 깔리지 않게 한다. 가장 큰 상한을 넘는 날은
- * 거기서 잘리고 눈금을 `8+`로 적는다.
+ * 거기서 잘리고 눈금을 `8h+`로 적는다.
  */
 const CHART_SCALES_HOURS = [2, 4, MAX_CHART_HOURS] as const;
 
@@ -73,7 +73,7 @@ export function WeekTrendCard({
         averageSec={averageSec}
       />
 
-      <div className="flex flex-wrap items-start gap-x-3.5 gap-y-1 pt-2.5 pl-7 text-xs leading-[14px] text-muted-foreground">
+      <div className="flex flex-wrap items-start gap-x-3.5 gap-y-1 pt-2.5 pl-8 text-xs leading-[14px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
           {currentLabel}
@@ -179,7 +179,7 @@ function WeekTrendBars({
   const hasPrevious = points.some((point) => (point.lastWeekSec ?? 0) > 0);
   const hasCurrent = points.some((point) => (point.thisWeekSec ?? 0) > 0);
   const scaleHours = chartScaleHours(points, averageSec);
-  // 눈금은 상한을 4등분한다(8 → 8+·6·4·2·0, 4 → 4·3·2·1·0, 2 → 2·1.5·1·0.5·0).
+  // 눈금은 상한을 4등분한다(8 → 8h+·6h·4h·2h·0, 4 → 4h·3h·2h·1h·0, 2 → 2h·1.5h·1h·0.5h·0).
   const ticks = [4, 3, 2, 1, 0].map((step) => (scaleHours / 4) * step);
   const summary = points
     .map((point) => {
@@ -199,7 +199,7 @@ function WeekTrendBars({
     >
       <div
         aria-hidden
-        className="relative w-[22px] shrink-0 text-[11px] leading-3 text-text-tertiary tabular-nums"
+        className="relative w-[26px] shrink-0 text-[11px] leading-3 text-text-tertiary tabular-nums"
         style={{ height: PLOT_HEIGHT_PX }}
       >
         {ticks.map((tick) => (
@@ -208,7 +208,8 @@ function WeekTrendBars({
             className="absolute right-0"
             style={{ top: ((scaleHours - tick) / scaleHours) * PLOT_HEIGHT_PX - 6 }}
           >
-            {tick === MAX_CHART_HOURS ? `${String(tick)}+` : tick}
+            {/* 상한이 주마다 달라져 단위를 붙인다(0은 단위 없이). 8시간을 넘는 날은 잘리므로 `8h+`. */}
+            {tick === 0 ? 0 : `${String(tick)}h${tick === MAX_CHART_HOURS ? "+" : ""}`}
           </span>
         ))}
       </div>
