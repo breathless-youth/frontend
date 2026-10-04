@@ -55,6 +55,7 @@ export function PlannerSubjects({
   unassignedFocusSec,
   store = null,
   tasksEditable = true,
+  suggestSubjects = true,
   onNotice,
   onRetryLoad,
 }: {
@@ -64,6 +65,8 @@ export function PlannerSubjects({
   store?: SubjectsStore | null;
   /** 할 일을 추가·수정할 수 있는가 — 오늘 플래너만 그렇다. */
   tasksEditable?: boolean;
+  /** 과목이 없을 때 자주 쓰는 과목을 흐린 줄로 보여 주는가 — 지난 날에는 보여 주지 않는다. */
+  suggestSubjects?: boolean;
   /** 개수 상한 같은 짧은 알림 — 호출부의 토스트. */
   onNotice?: (message: string) => void;
   /** 과목 목록 조회가 실패했을 때의 재시도 — 있으면 재시도 줄을 보여 준다. */
@@ -79,6 +82,7 @@ export function PlannerSubjects({
           items={items}
           store={store}
           tasksEditable={tasksEditable}
+          suggestSubjects={suggestSubjects}
           onNotice={onNotice ?? noop}
           unassigned={unassigned}
         />
@@ -687,12 +691,14 @@ function ManagedSubjects({
   items,
   store,
   tasksEditable,
+  suggestSubjects,
   onNotice,
   unassigned,
 }: {
   items: readonly PlannerSubjectItem[];
   store: SubjectsStore;
   tasksEditable: boolean;
+  suggestSubjects: boolean;
   onNotice: (message: string) => void;
   unassigned: ReactNode;
 }) {
@@ -736,7 +742,7 @@ function ManagedSubjects({
       </div>
 
       {/* 과목이 없으면 자주 쓰는 과목을 있을 때의 모습 그대로 흐리게 그리고, 줄마다 `추가`를 둔다. */}
-      {empty && (
+      {empty && suggestSubjects && (
         <ul className="flex flex-col gap-1" aria-label="추천 과목">
           {SUBJECT_SUGGESTIONS.map((name, index) => (
             <li key={name} className="flex h-9 items-center gap-2">

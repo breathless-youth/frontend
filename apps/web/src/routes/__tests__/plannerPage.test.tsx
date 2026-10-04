@@ -524,6 +524,14 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", true, "planner");
   });
 
+  it("과목이 없어도 지난 날에는 흐린 추천 과목을 보여주지 않는다 — 과목 추가만 남는다", async () => {
+    mockedSubjects.mockResolvedValue([]);
+    renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+    expect(await screen.findByRole("button", { name: "과목 추가" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "추천 과목" })).not.toBeInTheDocument();
+  });
+
   it("지난 날 플래너는 과목만 고칠 수 있다 — 지금의 과목을 전부 보여주되 할 일은 그날 완료한 것만 남긴다", async () => {
     mockedStats.mockImplementation((date) =>
       Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),

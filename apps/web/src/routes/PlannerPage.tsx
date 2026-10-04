@@ -234,6 +234,7 @@ export function PlannerPage() {
                 // 과목 목록을 받은 뒤부터 관리할 수 있다. 할 일은 오늘 플래너에서만 고친다.
                 store={subjects.status === "ready" ? subjects : null}
                 tasksEditable={isToday}
+                suggestSubjects={taskMode !== "completed"}
                 onNotice={showToast}
                 onRetryLoad={subjects.status === "error" ? () => void subjects.reload() : undefined}
               />
