@@ -73,7 +73,7 @@ describe("recordsTimetable — 일간 응답을 2분 칸으로 바꾼다", () =>
   });
 
   it("과목별 합은 서버가 준 구간 값을 더하고 첫 등장 순을 지킨다", () => {
-    expect(subjectTotalsOf([session, session])).toEqual([
+    expect(subjectTotalsOf([session, session], subjectRefMap(undefined))).toEqual([
       { subjectId: 3, studySec: 5760, focusSec: 4560 },
       { subjectId: 5, studySec: 2400, focusSec: 2400 },
     ]);

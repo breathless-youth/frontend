@@ -188,7 +188,7 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     const refs = subjectRefMap(stats.json.subjects);
     expect(refs.get(english.json.id)?.name).toBe("영어");
     expect(refs.get(math.json.id)?.colorIndex).toBe(math.json.colorIndex);
-    expect(subjectTotalsOf(stats.json.sessions)).toEqual([
+    expect(subjectTotalsOf(stats.json.sessions, refs)).toEqual([
       { subjectId: english.json.id, studySec: 1800, focusSec: 1500 },
       { subjectId: math.json.id, studySec: 1800, focusSec: 1800 },
     ]);

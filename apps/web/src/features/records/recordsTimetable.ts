@@ -113,17 +113,17 @@ export interface SubjectTotalRow {
 
 /**
  * 세션들의 과목별 총공부·순공 합 — 서버가 구간마다 계산해 준 값을 더한다(로컬 재계산 없음).
- * 순서는 그 과목의 첫 구간이 나타난 순이다. `subjects`(`subjectRefMap`의 결과)를 주면 이름이 같은
- * 과목을 대표 id 한 줄로 합친다.
+ * 순서는 그 과목의 첫 구간이 나타난 순이다. 이름이 같은 과목은 `subjects`(`subjectRefMap`의 결과)의
+ * 대표 id 한 줄로 합친다.
  */
 export function subjectTotalsOf(
   sessions: readonly { readonly subjectSegments?: readonly SubjectSegmentResponse[] }[],
-  subjects?: ReadonlyMap<number, SubjectRef>,
+  subjects: ReadonlyMap<number, SubjectRef>,
 ): SubjectTotalRow[] {
   const rows = new Map<number, SubjectTotalRow>();
   for (const session of sessions) {
     for (const segment of session.subjectSegments ?? []) {
-      const subjectId = subjects?.get(segment.subjectId)?.id ?? segment.subjectId;
+      const subjectId = subjects.get(segment.subjectId)?.id ?? segment.subjectId;
       const prev = rows.get(subjectId);
       rows.set(subjectId, {
         subjectId,
