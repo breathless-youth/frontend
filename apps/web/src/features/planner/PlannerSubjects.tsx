@@ -53,7 +53,6 @@ interface Menu {
 export function PlannerSubjects({
   items,
   unassignedFocusSec,
-  emptyMessage,
   store = null,
   tasksEditable = true,
   onNotice,
@@ -61,8 +60,6 @@ export function PlannerSubjects({
 }: {
   items: readonly PlannerSubjectItem[];
   unassignedFocusSec: number;
-  /** 그날 기록이 없으면 과목 목록 아래에 보여 줄 문구 — 첫 줄이 제목, 둘째 줄이 설명. */
-  emptyMessage: readonly [string, string] | null;
   /** 과목 목록 — 있으면 관리할 수 있다. */
   store?: SubjectsStore | null;
   /** 할 일을 추가·수정할 수 있는가 — 오늘 플래너만 그렇다. */
@@ -74,12 +71,6 @@ export function PlannerSubjects({
 }) {
   const hasUnassigned = unassignedFocusSec > 0;
   const unassigned = hasUnassigned && <UnassignedRow focusSec={unassignedFocusSec} />;
-  const emptyNote = emptyMessage !== null && (
-    <div className="flex flex-col gap-0.5 pt-2">
-      <p className="text-[15px] leading-5 font-semibold text-foreground">{emptyMessage[0]}</p>
-      <p className="text-xs leading-4 text-muted-foreground">{emptyMessage[1]}</p>
-    </div>
-  );
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -90,7 +81,6 @@ export function PlannerSubjects({
           tasksEditable={tasksEditable}
           onNotice={onNotice ?? noop}
           unassigned={unassigned}
-          emptyNote={emptyNote}
         />
       ) : (
         <>
@@ -100,7 +90,6 @@ export function PlannerSubjects({
             ))}
             {unassigned}
           </div>
-          {emptyNote}
           {onRetryLoad !== undefined && (
             <p className="pt-2 text-xs leading-4 text-muted-foreground">
               {SUBJECT_SHEET_COPY.loadFailed}{" "}
@@ -700,14 +689,12 @@ function ManagedSubjects({
   tasksEditable,
   onNotice,
   unassigned,
-  emptyNote,
 }: {
   items: readonly PlannerSubjectItem[];
   store: SubjectsStore;
   tasksEditable: boolean;
   onNotice: (message: string) => void;
   unassigned: ReactNode;
-  emptyNote: ReactNode;
 }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -747,7 +734,6 @@ function ManagedSubjects({
         {empty ? unassigned : subjects}
         {!empty && unassigned}
       </div>
-      {emptyNote}
 
       {empty && (
         <div className="flex flex-col gap-1 pt-2 pb-1">

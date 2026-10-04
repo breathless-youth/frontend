@@ -255,11 +255,16 @@ describe("PlannerPage", () => {
     expect(await screen.findByText("D-10 · 수능")).toBeInTheDocument();
   });
 
-  it("기록이 없는 지난 날은 빈 상태 문구를 보여준다", async () => {
+  it("기록이 없는 지난 날은 안내 문구 없이 과목과 과목 추가만 보여준다", async () => {
+    mockedSubjects.mockResolvedValue([
+      { id: 3, name: "영어", colorIndex: 7, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
     renderPlanner(`?userId=7&date=${addDaysToDateKey(YESTERDAY, -3)}`);
 
-    expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
-    expect(screen.getByText("완료한 할 일도 없어요")).toBeInTheDocument();
+    const english = await screen.findByRole("heading", { name: "영어" });
+    expect(english.closest("section")).toHaveTextContent(/^영어0분$/);
+    expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
+    expect(screen.queryByText("이 날은 기록이 없어요")).not.toBeInTheDocument();
     expect(screen.queryByText(/^D-/)).not.toBeInTheDocument();
   });
 
