@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import type { DailyStudyStat } from "@focusmakers/types";
 
 import { formatDuration, MONDAY_FIRST_WEEKDAY_LABELS, mondayIndexOfDateKey } from "./recordsFormat";
@@ -36,7 +38,7 @@ function heightPercent(focusSec: number, scaleHours: number): number {
  * 추이 카드 — 제목이 지난주와의 비교를 문장으로 말하고, 바로 아래 막대가 그 근거가 된다.
  *
  * 요일마다 앞 주(연한 막대)와 보는 주(진한 막대)를 나란히 두고, 보는 주의 하루 평균을 점선으로 긋는다.
- * 차트 안에서는 탭·선택이 없다(툴팁 없음). 값은 대체 텍스트가 읽어 준다.
+ * 요일을 누르면 그 요일의 두 값이 막대 위 말풍선으로 뜬다.
  */
 export function WeekTrendCard({
   daily,
@@ -160,6 +162,9 @@ function compareCaption(
  * 요일별 막대 — 왼쪽이 앞 주(연한 막대), 오른쪽이 보는 주(진한 막대)다.
  * 한쪽 기록이 없으면 그 자리를 비워 둔다(아직 오지 않은 요일은 앞 주 막대만 남는다).
  * 세로축 상한은 그 주의 값에 맞춰 2·4·8시간 중에서 고르고, 8시간을 넘는 날은 상한에서 잘린다.
+ *
+ * 요일을 누르면 그 요일만 진하게 남고 말풍선이 두 주의 실제 값을 적는다(상한에서 잘린 날도 원래
+ * 값이다). 같은 요일을 다시 누르거나 차트 밖을 누르면 닫힌다.
  */
 function WeekTrendBars({
   points,
@@ -175,26 +180,43 @@ function WeekTrendBars({
   /** 보는 주의 하루 평균 순공(초) — 점선으로 긋는다. 공부한 날이 없으면 `null`. */
   averageSec: number | null;
 }) {
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pickedIndex === null) {
+      return;
+    }
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!chartRef.current?.contains(event.target as Node)) {
+        setPickedIndex(null);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    return () => document.removeEventListener("pointerdown", closeOnOutside);
+  }, [pickedIndex]);
+
   // 한 주 통째로 기록이 없는 쪽은 자리도 잡지 않는다 — 남은 쪽 막대가 요일 가운데에 선다.
   const hasPrevious = points.some((point) => (point.lastWeekSec ?? 0) > 0);
   const hasCurrent = points.some((point) => (point.thisWeekSec ?? 0) > 0);
   const scaleHours = chartScaleHours(points, averageSec);
   // 눈금은 상한을 4등분한다(8 → 8h+·6h·4h·2h·0, 4 → 4h·3h·2h·1h·0, 2 → 2h·1.5h·1h·0.5h·0).
   const ticks = [4, 3, 2, 1, 0].map((step) => (scaleHours / 4) * step);
-  const summary = points
-    .map((point) => {
-      const current =
-        point.thisWeekSec === null ? "" : ` ${currentLabel} ${formatDuration(point.thisWeekSec)}`;
-      const previous =
-        point.lastWeekSec === null ? "" : ` ${previousLabel} ${formatDuration(point.lastWeekSec)}`;
-      return `${point.day}${current}${previous}`;
-    })
-    .join(", ");
+  /** 그 요일에 적을 값 — 기록이 통째로 없는 주와 아직 오지 않은 요일의 보는 주는 뺀다. */
+  const rowsOf = (point: WeekTrendPoint): TrendTooltipRow[] => [
+    ...(hasCurrent && point.thisWeekSec !== null
+      ? [{ label: currentLabel, focusSec: point.thisWeekSec, swatch: "bg-primary" }]
+      : []),
+    ...(hasPrevious && point.lastWeekSec !== null
+      ? [{ label: previousLabel, focusSec: point.lastWeekSec, swatch: "bg-chart-prev" }]
+      : []),
+  ];
+  const picked = pickedIndex === null ? undefined : points[pickedIndex];
 
   return (
     <div
-      role="img"
-      aria-label={`요일별 순공시간. ${summary}`}
+      ref={chartRef}
+      role="group"
+      aria-label="요일별 순공시간"
       className="flex w-full items-start gap-1.5 pt-3.5"
     >
       <div
@@ -214,51 +236,81 @@ function WeekTrendBars({
         ))}
       </div>
 
-      <div aria-hidden className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div
           className="relative flex items-start border-b border-border pb-px"
           style={{ height: PLOT_HEIGHT_PX }}
         >
-          {points.map((point) => (
-            <div
-              key={point.day}
-              className="flex h-full min-w-0 flex-1 items-end justify-center gap-0.5"
-            >
-              {hasPrevious && (
-                <TrendBar
-                  testId={`trend-prev-${point.day}`}
-                  focusSec={point.lastWeekSec}
-                  scaleHours={scaleHours}
-                  className="bg-chart-prev"
-                />
-              )}
-              {hasCurrent && (
-                <TrendBar
-                  testId={`trend-current-${point.day}`}
-                  focusSec={point.thisWeekSec}
-                  scaleHours={scaleHours}
-                  className="bg-primary"
-                />
-              )}
-            </div>
-          ))}
+          {points.map((point, index) => {
+            const rows = rowsOf(point);
+            const dimmed = pickedIndex !== null && pickedIndex !== index;
+            return (
+              <button
+                key={point.day}
+                type="button"
+                // 적을 값이 없는 요일은 눌러도 보여 줄 것이 없다.
+                disabled={rows.length === 0}
+                aria-pressed={pickedIndex === index}
+                aria-label={`${point.day}요일${rows
+                  .map((row) => ` ${row.label} ${formatDuration(row.focusSec)}`)
+                  .join("")}`}
+                onClick={() => setPickedIndex(pickedIndex === index ? null : index)}
+                className={`flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 transition-opacity duration-150 motion-reduce:transition-none ${
+                  dimmed ? "opacity-35" : ""
+                }`}
+              >
+                {hasPrevious && (
+                  <TrendBar
+                    testId={`trend-prev-${point.day}`}
+                    focusSec={point.lastWeekSec}
+                    scaleHours={scaleHours}
+                    className="bg-chart-prev"
+                  />
+                )}
+                {hasCurrent && (
+                  <TrendBar
+                    testId={`trend-current-${point.day}`}
+                    focusSec={point.thisWeekSec}
+                    scaleHours={scaleHours}
+                    className="bg-primary"
+                  />
+                )}
+              </button>
+            );
+          })}
           {/* 공부한 날이 없으면 평균선은 바닥(0)에 붙는다. */}
           <span
+            aria-hidden
             data-testid={averageSec === null ? undefined : "trend-average-line"}
-            className="absolute inset-x-0 border-t-[1.5px] border-dashed border-muted-foreground"
+            className={`pointer-events-none absolute inset-x-0 border-t-[1.5px] border-dashed border-muted-foreground ${
+              pickedIndex === null ? "" : "opacity-35"
+            }`}
             style={{
               bottom: `${String(averageSec === null ? 0 : heightPercent(averageSec, scaleHours))}%`,
             }}
           />
+          {pickedIndex !== null && picked !== undefined && (
+            <TrendTooltip
+              day={picked.day}
+              index={pickedIndex}
+              rows={rowsOf(picked)}
+              topPercent={heightPercent(
+                Math.max(picked.thisWeekSec ?? 0, picked.lastWeekSec ?? 0),
+                scaleHours,
+              )}
+            />
+          )}
         </div>
-        <div className="flex pt-1.5 text-center text-xs leading-[14px]">
+        <div aria-hidden className="flex pt-1.5 text-center text-xs leading-[14px]">
           {points.map((point, index) => (
             <span
               key={point.day}
               className={
-                index === todayIndex
-                  ? "min-w-0 flex-1 font-bold text-foreground"
-                  : "min-w-0 flex-1 text-muted-foreground"
+                index === pickedIndex
+                  ? "min-w-0 flex-1 font-bold text-primary"
+                  : index === todayIndex
+                    ? "min-w-0 flex-1 font-bold text-foreground"
+                    : "min-w-0 flex-1 text-muted-foreground"
               }
             >
               {point.day}
@@ -267,6 +319,63 @@ function WeekTrendBars({
         </div>
       </div>
     </div>
+  );
+}
+
+interface TrendTooltipRow {
+  label: string;
+  focusSec: number;
+  swatch: string;
+}
+
+/**
+ * 누른 요일의 말풍선 — 그 요일의 가장 높은 막대 바로 위에 뜬다.
+ * 가운데 요일은 막대 중심에 맞추고, 양끝 두 요일씩은 플롯 가장자리에 붙여 카드 밖으로 나가지 않게 한다.
+ * 꼬리는 말풍선과 따로 두어 어느 쪽에 붙든 누른 요일을 가리킨다.
+ */
+function TrendTooltip({
+  day,
+  index,
+  rows,
+  topPercent,
+}: {
+  day: string;
+  index: number;
+  rows: readonly TrendTooltipRow[];
+  topPercent: number;
+}) {
+  const centerPercent = ((index + 0.5) / 7) * 100;
+  const position =
+    index <= 1
+      ? { left: 0 }
+      : index >= 5
+        ? { right: 0 }
+        : { left: `${String(centerPercent)}%`, transform: "translateX(-50%)" };
+  return (
+    <>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute z-10 size-2 rotate-45 rounded-[1px] bg-foreground"
+        style={{
+          left: `calc(${String(centerPercent)}% - 4px)`,
+          bottom: `calc(${String(topPercent)}% + 6px)`,
+        }}
+      />
+      <div
+        role="status"
+        className="pointer-events-none absolute z-10 flex flex-col gap-0.5 rounded-[10px] bg-foreground px-2.5 py-2 text-xs leading-4 whitespace-nowrap text-background tabular-nums"
+        style={{ ...position, bottom: `calc(${String(topPercent)}% + 10px)` }}
+      >
+        <strong className="font-bold">{day}요일</strong>
+        {rows.map((row) => (
+          <span key={row.label} className="flex items-center gap-1.5">
+            <span aria-hidden className={`size-2 rounded-[2px] ${row.swatch}`} />
+            <span className="opacity-70">{row.label}</span>
+            <b className="ml-auto pl-2.5 font-semibold">{formatDuration(row.focusSec)}</b>
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
 
