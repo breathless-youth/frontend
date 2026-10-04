@@ -7,8 +7,9 @@ import { slideNavigate } from "@/lib/pageTransition";
 export type PlannerEntry = "records" | "home";
 
 /**
- * 플래너가 어디서 열렸는지 읽는다. SPA로 들어오면 router state에, 셸이 웹뷰를 다시 띄워 복원한
- * 문서에서는 `?from` 쿼리에 있다(state는 문서와 함께 사라진다 — `lib/nativeScreenReport.ts`).
+ * 플래너가 어디서 열렸는지 읽는다. 열 때 router state와 `?from` 쿼리 둘 다에 싣는다. 웹뷰가 다시
+ * 로드되면(iOS 콘텐츠 프로세스 종료 뒤의 `reload()` 등) state와 SPA 스택은 사라지고 지금 URL만
+ * 남으므로 `?from`이 들어온 탭의 유일한 근거다.
  */
 export function plannerEntryOf(location: { state: unknown; search: string }): PlannerEntry | null {
   const via =
@@ -41,6 +42,7 @@ export function useOpenPlanner(via: PlannerEntry) {
     } else {
       params.set("date", dateKey);
     }
+    params.set("from", via);
     const search = params.toString();
     slideNavigate("forward", () => {
       navigate(

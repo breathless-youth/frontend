@@ -562,7 +562,7 @@ describe("RecordsPage", () => {
 
     await userEvent.click(button);
     expect(await screen.findByTestId("planner-route")).toHaveTextContent(
-      `/planner?userId=7&date=${kstDateKey()}`,
+      `/planner?userId=7&date=${kstDateKey()}&from=records`,
     );
   });
 

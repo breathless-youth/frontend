@@ -54,7 +54,7 @@
 
 - 뒤로 가기는 SPA 스택이 있으면 한 칸 뒤로 간다(들어온 화면).
 - 스택이 비어 있으면(딥링크로 곧장 열렸거나, 셸이 웹뷰를 다시 띄워 플래너로 복원한 문서) 들어온 탭의 루트로 간다 — 홈에서 왔으면 `/home`, 그 밖에는 `/records`. 홈 탭 웹뷰에서 기록 화면으로 보내면 탭과 화면이 어긋난다.
-- 그래서 플래너는 `report-screen`의 복원 쿼리에 보던 날짜(`date`)와 들어온 탭(`from`: `home` · `records`)을 싣는다(`lib/nativeScreenReport.ts`). 복원된 문서는 router state가 없어 `?from`에서 들어온 탭을 읽는다(`plannerEntryOf`).
+- 그래서 플래너를 열 때 들어온 탭을 주소에도 싣는다(`?from=home` · `?from=records`, `useOpenPlanner`). iOS는 콘텐츠 프로세스가 죽으면 웹뷰를 지금 주소 그대로 다시 읽어(`reload()`) router state와 SPA 스택이 사라지므로, 주소의 `from`이 유일한 근거다(`plannerEntryOf`). Android의 재마운트는 `report-screen`의 복원 쿼리(`date` · `from`)로 같은 값을 되살린다(`lib/nativeScreenReport.ts`). `from`은 분석 경로에 실리지 않는다(정제 허용 목록 밖).
 
 ## 분석 이벤트
 

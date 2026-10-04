@@ -260,6 +260,20 @@ describe("PlannerPage", () => {
       expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "home", isToday: false });
     });
 
+    it("날짜를 넘긴 뒤에도 들어온 탭을 잃지 않는다 — 주소의 from이 그대로 남는다", async () => {
+      renderPlanner(`?guestAuth=1&from=home`);
+      await screen.findByTestId("planner-page");
+
+      fireEvent.click(screen.getByRole("button", { name: "전날" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent(`date=${YESTERDAY}`),
+      );
+      expect(screen.getByTestId("location")).toHaveTextContent("from=home");
+
+      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+    });
+
     it("어디서 왔는지 모르거나 기록 탭에서 왔으면 기록 탭으로 간다", async () => {
       renderPlanner("?guestAuth=1&from=elsewhere");
       await screen.findByTestId("planner-page");

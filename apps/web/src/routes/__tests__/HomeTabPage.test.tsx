@@ -544,7 +544,8 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     // 날짜 없이 열어 오늘의 플래너가 되고, 셸이 붙인 쿼리는 그대로 들고 간다.
     expect(navigateSpy).toHaveBeenCalledTimes(1);
     expect(navigateSpy).toHaveBeenCalledWith(
-      { pathname: "/planner", search: "?guestAuth=1" },
+      // 들어온 탭을 주소에도 싣는다 — 웹뷰가 다시 로드되면 state는 사라지고 주소만 남는다.
+      { pathname: "/planner", search: "?guestAuth=1&from=home" },
       { state: { via: "home" } },
     );
   });
