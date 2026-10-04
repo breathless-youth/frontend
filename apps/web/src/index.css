@@ -236,6 +236,26 @@
   --chart-empty: #eef1f6;
   --bg-control-track: #eef1f6;
   --feedback-success: #0e9f5d;
+  --subject-0: #e5484d;
+  --subject-1: #ef6c33;
+  --subject-2: #f5a623;
+  --subject-3: #e8c500;
+  --subject-4: #9bbb2e;
+  --subject-5: #46a758;
+  --subject-6: #21a97a;
+  --subject-7: #12a594;
+  --subject-8: #d6409f;
+  --subject-9: #e93d82;
+  --subject-10: #ab4aba;
+  --subject-11: #8e4ec6;
+  --subject-12: #ad7f58;
+  --subject-13: #a18072;
+  --subject-14: #6b7280;
+  --subject-15: #d24b6e;
+  --subject-16: #7a9a3b;
+  --subject-17: #b8873a;
+  --subject-18: #4f9d8f;
+  --subject-19: #b0555f;
   --feedback-danger: #f04452;
 }
 
@@ -256,6 +276,26 @@
     --chart-empty: #1e2636;
     --bg-control-track: #1e2636;
     --feedback-success: #32d583;
+    --subject-0: #ff716f;
+    --subject-1: #fc7840;
+    --subject-2: #f5a623;
+    --subject-3: #e8c500;
+    --subject-4: #9bbb2e;
+    --subject-5: #5dbd6d;
+    --subject-6: #40be8e;
+    --subject-7: #3abcaa;
+    --subject-8: #fb63c0;
+    --subject-9: #fe699d;
+    --subject-10: #da77e9;
+    --subject-11: #c182fe;
+    --subject-12: #c99a72;
+    --subject-13: #be9c8e;
+    --subject-14: #9da5b4;
+    --subject-15: #fb7090;
+    --subject-16: #91b354;
+    --subject-17: #cc9a4f;
+    --subject-18: #68b5a7;
+    --subject-19: #e5848d;
     --feedback-danger: #ff6b7a;
   }
 }
@@ -277,6 +317,26 @@
   --chart-empty: #1e2636;
   --bg-control-track: #1e2636;
   --feedback-success: #32d583;
+  --subject-0: #ff716f;
+  --subject-1: #fc7840;
+  --subject-2: #f5a623;
+  --subject-3: #e8c500;
+  --subject-4: #9bbb2e;
+  --subject-5: #5dbd6d;
+  --subject-6: #40be8e;
+  --subject-7: #3abcaa;
+  --subject-8: #fb63c0;
+  --subject-9: #fe699d;
+  --subject-10: #da77e9;
+  --subject-11: #c182fe;
+  --subject-12: #c99a72;
+  --subject-13: #be9c8e;
+  --subject-14: #9da5b4;
+  --subject-15: #fb7090;
+  --subject-16: #91b354;
+  --subject-17: #cc9a4f;
+  --subject-18: #68b5a7;
+  --subject-19: #e5848d;
   --feedback-danger: #ff6b7a;
 }
 

@@ -17,6 +17,8 @@ import {
 } from "@/features/records/recordsFormat";
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
 import { SessionListItem } from "@/features/records/SessionListItem";
+import { DayDetailCard } from "@/features/records/DayDetailCard";
+import { SessionDetailSheet } from "@/features/records/SessionDetailSheet";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
 import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
@@ -58,6 +60,7 @@ function RecordsContent({
   );
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
+  const [sheetSessionId, setSheetSessionId] = useState<number | null>(null);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -68,6 +71,9 @@ function RecordsContent({
       daySessions ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : [],
     [daySessions],
   );
+  // 시트에 띄울 세션은 id로만 기억하고 지금 보이는 날의 목록에서 찾는다 — 날짜가 바뀌면
+  // 그 id가 목록에 없어 시트가 저절로 닫히므로, 다른 날의 세션이 남아 열리는 일이 없다.
+  const sheetSession = sessions.find((session) => session.id === sheetSessionId) ?? null;
 
   return (
     <div>
@@ -115,6 +121,8 @@ function RecordsContent({
               hasRecords: (dayFocusSec.get(dateKey) ?? 0) > 0,
             });
             setSelectedKey(dateKey);
+            // 같은 날로 돌아왔을 때 닫혔던 시트가 다시 열리지 않게 기억해 둔 세션도 지운다.
+            setSheetSessionId(null);
           }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
@@ -144,6 +152,10 @@ function RecordsContent({
           </p>
 
           <div className="mt-3">
+            <DayDetailCard stats={day.stats} dateKey={selectedKey} />
+          </div>
+
+          <div className="mt-3">
             {sessions.length === 0 ? (
               <div className="flex items-center justify-center rounded-[20px] bg-muted shadow-sb-card py-8">
                 <p className="text-[15px] leading-[22px] text-muted-foreground">
@@ -153,12 +165,22 @@ function RecordsContent({
             ) : (
               <div className="rounded-[20px] bg-muted shadow-sb-card px-[18px] py-1">
                 {sessions.map((session) => (
-                  // onSelect는 이 티켓에서 넘기지 않는다 — BY-568이 상세 열기를 연결한다.
-                  <SessionListItem key={session.id} session={session} />
+                  <SessionListItem
+                    key={session.id}
+                    session={session}
+                    onSelect={(selected) => setSheetSessionId(selected.id)}
+                  />
                 ))}
               </div>
             )}
           </div>
+
+          <SessionDetailSheet
+            session={sheetSession}
+            subjects={day.stats.subjects}
+            dateKey={selectedKey}
+            onClose={() => setSheetSessionId(null)}
+          />
         </div>
       )}
     </div>
