@@ -182,6 +182,7 @@ export const SUBJECT_SHEET_COPY = {
   taskLimit: "할 일은 과목마다 최대 30개까지 만들 수 있어요",
   loadFailed: "과목을 불러오지 못했어요",
   saveFailed: "저장하지 못했어요. 다시 시도해주세요",
+  duplicateName: "이미 있는 과목이에요",
   retry: "다시 시도",
   loading: "불러오는 중",
 } as const;
