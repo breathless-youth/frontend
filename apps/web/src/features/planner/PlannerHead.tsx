@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { dayTitleWithWeekday, formatDuration } from "@/features/records/recordsFormat";
 
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -12,6 +12,7 @@ export function PlannerHead({
   canGoNext,
   onPrev,
   onNext,
+  onOpenPicker,
   dday,
   readOnly,
   totals,
@@ -21,6 +22,8 @@ export function PlannerHead({
   canGoNext: boolean;
   onPrev: () => void;
   onNext: () => void;
+  /** 날짜를 탭했다 — 날짜 선택 시트를 연다. */
+  onOpenPicker: () => void;
   /** D-Day가 설정돼 있을 때만 — `D-62`와 제목. */
   dday: { label: string; title: string } | null;
   /** 지난 날 플래너 — 볼 수만 있다는 안내를 붙인다. */
@@ -40,8 +43,17 @@ export function PlannerHead({
           >
             <IconChevronLeft size={13} color="var(--color-foreground)" />
           </button>
+          {/* 날짜를 탭하면 날짜 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
           <h1 className="text-xl leading-6 font-bold text-foreground tabular-nums">
-            {dayTitleWithWeekday(dateKey)}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={onOpenPicker}
+              className="flex h-9 items-center gap-1.5"
+            >
+              {dayTitleWithWeekday(dateKey)}
+              <IconChevronDown />
+            </button>
           </h1>
           <button
             type="button"

@@ -823,10 +823,13 @@ export function trackPlannerOpened(input: {
   track("planner_opened", { via: input.via, is_today: input.isToday });
 }
 
-/** 플래너 날짜 이동. `delta`는 -1(전날)/1(다음 날), `method`는 꺾쇠 버튼/스와이프. */
+/**
+ * 플래너 날짜 이동. `delta`는 옮긴 날 수(전날 -1, 다음 날 1, 날짜 선택 시트는 고른 날까지의 차이),
+ * `method`는 꺾쇠 버튼/스와이프/날짜 선택 시트.
+ */
 export function trackPlannerDateChanged(input: {
-  readonly delta: -1 | 1;
-  readonly method: "button" | "swipe";
+  readonly delta: number;
+  readonly method: "button" | "swipe" | "picker";
 }) {
   if (!initialized) return;
   track("planner_date_changed", { delta: input.delta, method: input.method });

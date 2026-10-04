@@ -340,7 +340,7 @@ describe("MonthCalendar", () => {
     expect(screen.getByText("공부한 18일 기준")).toBeInTheDocument();
   });
 
-  it("공부한 날이 없는 달은 합계 0분, 하루 평균은 —로 적는다", () => {
+  it("공부한 날이 없는 달은 합계와 하루 평균을 모두 0분으로 적는다", () => {
     render(
       <MonthCalendar
         month={month}
@@ -354,8 +354,9 @@ describe("MonthCalendar", () => {
       />,
     );
 
-    expect(screen.getByText("0분")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("합계").nextElementSibling).toHaveTextContent(/^0분$/);
+    expect(screen.getByText("하루 평균").nextElementSibling).toHaveTextContent(/^0분$/);
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
     expect(screen.getByText("아직 공부한 날이 없어요")).toBeInTheDocument();
   });
 });

@@ -11,13 +11,25 @@ import {
   type WeekTrendPoint,
 } from "./recordsPeriod";
 
-/** 세로축 눈금(시간) — 고정이라 주끼리 비교된다. 맨 위는 `8+`로 적는다. */
-const Y_TICKS = [8, 6, 4, 2, 0] as const;
-/** 플롯 높이(px) — 8시간이 이 높이다. */
+/** 플롯 높이(px) — 세로축 맨 위 눈금이 이 높이다. */
 const PLOT_HEIGHT_PX = 150;
+/**
+ * 세로축 상한 후보(시간). 그 주에 보이는 값(두 주의 막대와 평균선)이 다 들어가는 가장 작은 것을 고른다 —
+ * 하루 한두 시간 공부하는 주가 8시간 눈금 아래에 납작하게 깔리지 않게 한다. 가장 큰 상한을 넘는 날은
+ * 거기서 잘리고 눈금을 `8+`로 적는다.
+ */
+const CHART_SCALES_HOURS = [2, 4, MAX_CHART_HOURS] as const;
 
-function heightPercent(focusSec: number): number {
-  return Math.min(focusSec / 3600 / MAX_CHART_HOURS, 1) * 100;
+function chartScaleHours(points: readonly WeekTrendPoint[], averageSec: number | null): number {
+  const peakSec = Math.max(
+    averageSec ?? 0,
+    ...points.map((point) => Math.max(point.thisWeekSec ?? 0, point.lastWeekSec ?? 0)),
+  );
+  return CHART_SCALES_HOURS.find((hours) => peakSec <= hours * 3600) ?? MAX_CHART_HOURS;
+}
+
+function heightPercent(focusSec: number, scaleHours: number): number {
+  return Math.min(focusSec / 3600 / scaleHours, 1) * 100;
 }
 
 /**
@@ -50,7 +62,7 @@ export function WeekTrendCard({
         <CompareSentence comparison={comparison} />
       </p>
       <p className="text-[13px] leading-[18px] text-muted-foreground">
-        {compareCaption(comparison, todayKey, previousLabel)}
+        {compareCaption(comparison, todayKey, currentLabel, previousLabel)}
       </p>
 
       <WeekTrendBars
@@ -76,7 +88,7 @@ export function WeekTrendCard({
             className="w-3 border-t-[1.5px] border-dashed border-muted-foreground"
           />
           하루 평균
-          <span>{averageSec === null ? "—" : formatDuration(averageSec)}</span>
+          <span>{formatDuration(averageSec ?? 0)}</span>
         </span>
       </div>
     </div>
@@ -124,13 +136,15 @@ function CompareSentence({ comparison }: { comparison: WeekComparison }) {
 function compareCaption(
   comparison: WeekComparison,
   todayKey: string,
+  currentLabel: string,
   previousLabel: string,
 ): string {
   switch (comparison.kind) {
     case "delta":
       return comparison.inProgress
         ? `지난주 ${MONDAY_FIRST_WEEKDAY_LABELS[mondayIndexOfDateKey(todayKey)]!}요일까지와 비교했어요`
-        : `${previousLabel}을 기준으로 비교했어요`;
+        : // 과거 주는 보고 있는 주를 기준으로 말한다(지난주를 보면 `1주 전을 기준으로`).
+          `${currentLabel}을 기준으로 비교했어요`;
     case "no-previous":
       return `${previousLabel} 기록이 없어 비교하지 않아요`;
     case "no-current":
@@ -145,7 +159,7 @@ function compareCaption(
 /**
  * 요일별 막대 — 왼쪽이 앞 주(연한 막대), 오른쪽이 보는 주(진한 막대)다.
  * 한쪽 기록이 없으면 그 자리를 비워 둔다(아직 오지 않은 요일은 앞 주 막대만 남는다).
- * 8시간을 넘는 날은 상한에서 잘린다.
+ * 세로축 상한은 그 주의 값에 맞춰 2·4·8시간 중에서 고르고, 8시간을 넘는 날은 상한에서 잘린다.
  */
 function WeekTrendBars({
   points,
@@ -164,6 +178,9 @@ function WeekTrendBars({
   // 한 주 통째로 기록이 없는 쪽은 자리도 잡지 않는다 — 남은 쪽 막대가 요일 가운데에 선다.
   const hasPrevious = points.some((point) => (point.lastWeekSec ?? 0) > 0);
   const hasCurrent = points.some((point) => (point.thisWeekSec ?? 0) > 0);
+  const scaleHours = chartScaleHours(points, averageSec);
+  // 눈금은 상한을 4등분한다(8 → 8+·6·4·2·0, 4 → 4·3·2·1·0, 2 → 2·1.5·1·0.5·0).
+  const ticks = [4, 3, 2, 1, 0].map((step) => (scaleHours / 4) * step);
   const summary = points
     .map((point) => {
       const current =
@@ -185,11 +202,11 @@ function WeekTrendBars({
         className="relative w-[22px] shrink-0 text-[11px] leading-3 text-text-tertiary tabular-nums"
         style={{ height: PLOT_HEIGHT_PX }}
       >
-        {Y_TICKS.map((tick) => (
+        {ticks.map((tick) => (
           <span
             key={tick}
             className="absolute right-0"
-            style={{ top: ((MAX_CHART_HOURS - tick) / MAX_CHART_HOURS) * PLOT_HEIGHT_PX - 6 }}
+            style={{ top: ((scaleHours - tick) / scaleHours) * PLOT_HEIGHT_PX - 6 }}
           >
             {tick === MAX_CHART_HOURS ? `${String(tick)}+` : tick}
           </span>
@@ -210,6 +227,7 @@ function WeekTrendBars({
                 <TrendBar
                   testId={`trend-prev-${point.day}`}
                   focusSec={point.lastWeekSec}
+                  scaleHours={scaleHours}
                   className="bg-chart-prev"
                 />
               )}
@@ -217,6 +235,7 @@ function WeekTrendBars({
                 <TrendBar
                   testId={`trend-current-${point.day}`}
                   focusSec={point.thisWeekSec}
+                  scaleHours={scaleHours}
                   className="bg-primary"
                 />
               )}
@@ -226,7 +245,9 @@ function WeekTrendBars({
           <span
             data-testid={averageSec === null ? undefined : "trend-average-line"}
             className="absolute inset-x-0 border-t-[1.5px] border-dashed border-muted-foreground"
-            style={{ bottom: `${String(averageSec === null ? 0 : heightPercent(averageSec))}%` }}
+            style={{
+              bottom: `${String(averageSec === null ? 0 : heightPercent(averageSec, scaleHours))}%`,
+            }}
           />
         </div>
         <div className="flex pt-1.5 text-center text-xs leading-[14px]">
@@ -252,10 +273,12 @@ function WeekTrendBars({
 function TrendBar({
   testId,
   focusSec,
+  scaleHours,
   className,
 }: {
   testId: string;
   focusSec: number | null;
+  scaleHours: number;
   className: string;
 }) {
   if (focusSec === null || focusSec <= 0) {
@@ -265,7 +288,7 @@ function TrendBar({
     <span
       data-testid={testId}
       className={`min-h-0.5 w-4 shrink-0 rounded-t-[4px] ${className}`}
-      style={{ height: `${String(heightPercent(focusSec))}%` }}
+      style={{ height: `${String(heightPercent(focusSec, scaleHours))}%` }}
     />
   );
 }

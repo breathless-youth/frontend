@@ -61,13 +61,18 @@ describe("WeekTrendCard — 비교 문장", () => {
     expect(screen.getByText(/^\d+시간$/)).toHaveClass("text-state-distract");
   });
 
-  it("과거 주는 완료형으로 말하고, 견준 주를 오늘에서 센 호칭으로 적는다", () => {
-    renderCard({ todayKey: "2026-09-30" });
+  it("과거 주는 완료형으로 말하고, 보고 있는 주를 오늘에서 센 호칭으로 기준 삼아 적는다", () => {
+    const { unmount } = renderCard({ todayKey: "2026-09-30" });
 
     // 전체 22시간 vs 28시간 → 6시간 덜.
     expect(screen.getByText(/지난주보다/)).toHaveTextContent("지난주보다 6시간 덜 공부했어요");
-    // 오늘 09-30(수) → 보는 주(09-14~20)는 2주 전, 견준 앞 주는 3주 전.
-    expect(screen.getByText("3주 전을 기준으로 비교했어요")).toBeInTheDocument();
+    // 오늘 09-30(수) → 보는 주(09-14~20)는 2주 전이다.
+    expect(screen.getByText("2주 전을 기준으로 비교했어요")).toBeInTheDocument();
+    unmount();
+
+    // 지난주로 넘기면 `1주 전을 기준으로`다.
+    renderCard({ todayKey: "2026-09-25" });
+    expect(screen.getByText("1주 전을 기준으로 비교했어요")).toBeInTheDocument();
   });
 
   it("지난주 기록이 없으면 비교하지 않고 이번 주 합계만 말한다", () => {
@@ -128,7 +133,7 @@ describe("WeekTrendCard — 막대와 범례", () => {
     );
   });
 
-  it("보는 주의 하루 평균을 점선과 범례로 보여주고, 공부한 날이 없으면 선 없이 —로 적는다", () => {
+  it("보는 주의 하루 평균을 점선과 범례로 보여주고, 공부한 날이 없으면 선을 바닥에 두고 0분으로 적는다", () => {
     const { unmount } = renderCard();
     // 공부한 4일의 합계 22시간 → 하루 평균 5시간 30분(8시간 눈금의 68.75%).
     expect(screen.getByTestId("trend-average-line")).toHaveStyle({ bottom: "68.75%" });
@@ -137,7 +142,33 @@ describe("WeekTrendCard — 막대와 범례", () => {
 
     renderCard({ daily: EMPTY });
     expect(screen.queryByTestId("trend-average-line")).not.toBeInTheDocument();
-    expect(screen.getByText("하루 평균")).toHaveTextContent("하루 평균—");
+    expect(screen.getByText("하루 평균")).toHaveTextContent("하루 평균0분");
+  });
+
+  it("세로축 상한은 그 주의 값에 맞춰 줄어들어 짧은 공부도 납작하게 깔리지 않는다", () => {
+    const short = (dates: typeof THIS_WEEK, minutes: number[]) =>
+      dates.map((stat, index) => ({
+        ...stat,
+        studySec: minutes[index]! * 60,
+        focusSec: minutes[index]! * 60,
+      }));
+    const { unmount } = renderCard({
+      // 두 주 모두 하루 최대 1시간 30분 → 상한 2시간(눈금 2 · 1.5 · 1 · 0.5 · 0).
+      daily: short(THIS_WEEK, [90, 60, 30, 0, 45, 0, 0]),
+      compareDaily: short(LAST_WEEK, [60, 60, 60, 0, 30, 0, 0]),
+    });
+    expect(screen.getByTestId("trend-current-월")).toHaveStyle({ height: "75%" });
+    expect(screen.getByText("1.5")).toBeInTheDocument();
+    expect(screen.queryByText("8+")).not.toBeInTheDocument();
+    unmount();
+
+    // 하루 최대 3시간 → 상한 4시간.
+    renderCard({
+      daily: short(THIS_WEEK, [180, 60, 30, 0, 45, 0, 0]),
+      compareDaily: short(LAST_WEEK, [60, 60, 60, 0, 30, 0, 0]),
+    });
+    expect(screen.getByTestId("trend-current-월")).toHaveStyle({ height: "75%" });
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 
   it("진행 중인 주에서만 오늘 요일 라벨을 굵게 적는다", () => {

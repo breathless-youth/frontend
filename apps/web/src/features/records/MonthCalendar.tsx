@@ -156,7 +156,7 @@ function MonthStatsRow({ stats }: { stats: MonthStats | null }) {
           ) : (
             <>
               <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
-                {stats.averageFocusSec === null ? "—" : formatDuration(stats.averageFocusSec)}
+                {formatDuration(stats.averageFocusSec ?? 0)}
               </p>
               <p className="text-[11px] leading-[13px] text-muted-foreground">
                 {stats.studiedDays === 0

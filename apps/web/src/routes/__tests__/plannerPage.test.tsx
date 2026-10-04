@@ -225,6 +225,29 @@ describe("PlannerPage", () => {
     });
   });
 
+  it("날짜를 누르면 날짜 선택 시트가 열리고, 고른 날의 플래너로 옮긴다", async () => {
+    renderPlanner(`?userId=7&date=${YESTERDAY}`);
+    await screen.findByRole("heading", { name: "영어" });
+    const picked = addDaysToDateKey(YESTERDAY, -2);
+    const [, pickedMonth, pickedDay] = picked.split("-").map(Number);
+
+    await userEvent.click(screen.getByRole("button", { name: /^\d+월 \d+일 .요일$/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("날짜 선택")).toBeInTheDocument();
+    // 시트는 보고 있는 날의 달을 편다. 그 달이 아니면 이전 달로 넘긴다.
+    const dayName = new RegExp(`${String(pickedMonth)}월 ${String(pickedDay)}일$`);
+    if (within(sheet).queryByRole("button", { name: dayName }) === null) {
+      await userEvent.click(within(sheet).getByRole("button", { name: "이전 달" }));
+    }
+    await userEvent.click(within(sheet).getByRole("button", { name: dayName }));
+
+    expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${picked}`);
+    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
+      delta: -2,
+      method: "picker",
+    });
+  });
+
   it("D-Day가 설정돼 있으면 날짜 아래에 보여주고, 없으면 그 줄을 생략한다", async () => {
     mockedDday.mockResolvedValue({ title: "수능", targetDate: addDaysToDateKey(YESTERDAY, 10) });
 

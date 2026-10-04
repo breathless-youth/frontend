@@ -19,7 +19,7 @@ import { isFutureMonth, mondayWeekDateKeys } from "./recordsPeriod";
 /**
  * 기간 선택 시트(S5-2) — 기간 라벨을 탭하면 열려 먼 달·주로 한 번에 옮긴다.
  *
- * 일간은 달 선택, 주간은 주 선택이다. 둘 다 `오늘`로 오늘이 속한 달·주로 돌아오고 미래는 고를 수 없다.
+ * 일간은 달 선택, 주간은 주 선택, 플래너는 날짜 선택이다. 둘 다 `오늘`로 오늘이 속한 달·주로 돌아오고 미래는 고를 수 없다.
  * 화살표·스와이프 이동은 이 시트와 별개로 그대로 동작한다.
  */
 
@@ -322,5 +322,108 @@ function WeekGridDay({
     >
       {dayOfDateKey(dateKey)}
     </button>
+  );
+}
+
+export function DayPickerSheet({
+  open,
+  onOpenChange,
+  dateKey,
+  todayKey,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** 지금 보고 있는 날 — 선택 표시와 처음 펼칠 달의 기준이다. */
+  dateKey: string;
+  /** 고를 수 있는 마지막 날. 플래너는 하루가 5시에 시작해 달력의 오늘과 다를 수 있다. */
+  todayKey: string;
+  onPick: (dateKey: string, toToday: boolean) => void;
+}) {
+  return (
+    <PickerSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="날짜 선택"
+      onToday={() => onPick(todayKey, true)}
+    >
+      <DayGrid dateKey={dateKey} todayKey={todayKey} onPick={(picked) => onPick(picked, false)} />
+    </PickerSheet>
+  );
+}
+
+function DayGrid({
+  dateKey,
+  todayKey,
+  onPick,
+}: {
+  dateKey: string;
+  todayKey: string;
+  onPick: (dateKey: string) => void;
+}) {
+  const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
+  const grid = buildMonthGrid(viewMonth, "monday");
+  const canGoNext = !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
+
+  return (
+    <>
+      <PickerNav
+        label={monthLabel(viewMonth)}
+        prevLabel="이전 달"
+        nextLabel="다음 달"
+        canGoNext={canGoNext}
+        onPrev={() => setViewMonth((current) => shiftMonth(current, -1))}
+        onNext={() => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current))}
+      />
+      <div className="flex pt-2 pb-1">
+        {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
+          <span
+            key={label}
+            className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1">
+        {grid.map((week) => (
+          <div key={week.find((cell) => cell !== null) ?? "empty-week"} className="flex h-10">
+            {week.map((cell, index) => {
+              if (cell === null) {
+                return <span key={`blank-${String(index)}`} className="flex-1" />;
+              }
+              const selected = cell === dateKey;
+              const isToday = cell === todayKey;
+              const future = isFutureDateKey(cell, todayKey);
+              return (
+                <button
+                  key={cell}
+                  type="button"
+                  disabled={future}
+                  aria-pressed={selected}
+                  aria-label={`${isToday ? "오늘, " : ""}${String(monthOfDateKey(cell).month)}월 ${String(dayOfDateKey(cell))}일`}
+                  onClick={() => onPick(cell)}
+                  className="flex h-full flex-1 items-center justify-center disabled:cursor-not-allowed"
+                >
+                  <span
+                    className={`flex size-9 items-center justify-center rounded-full text-sm leading-[18px] tabular-nums ${
+                      selected
+                        ? "bg-primary font-bold text-primary-foreground"
+                        : future
+                          ? "font-medium text-text-disabled"
+                          : isToday
+                            ? "font-extrabold text-foreground"
+                            : "font-medium text-foreground"
+                    }`}
+                  >
+                    {dayOfDateKey(cell)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

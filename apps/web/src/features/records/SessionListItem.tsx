@@ -134,11 +134,11 @@ function SessionExpansion({ id, session }: { id: string; session: StudySessionSu
 
   return (
     <div id={id} className="pb-3.5">
+      {/* 세 칸을 같은 폭으로 나누고 가운데에 맞춘다 — 왼쪽 정렬은 값이 짧아 한쪽으로 쏠려 보인다. */}
       <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
         <ExpansionStat label="시작 시간" value={formatKstClock(session.startedAt)} />
         <ExpansionStat label="종료 시간" value={formatKstClock(session.endedAt)} />
         <ExpansionStat
-          wide
           label="최대 집중 시간"
           value={longest === null ? "—" : formatDuration(longest.durationSec)}
           valueClassName="text-chart-peak"
@@ -158,17 +158,14 @@ function ExpansionStat({
   value,
   valueClassName = "text-foreground",
   caption,
-  wide = false,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
   caption?: string;
-  /** 구간 시각까지 적는 칸은 조금 넓다. */
-  wide?: boolean;
 }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-[3px] ${wide ? "flex-[116]" : "flex-[83]"}`}>
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-[3px] text-center">
       <dt className="text-[11px] leading-[13px] text-muted-foreground">{label}</dt>
       <dd className={`text-[15px] leading-[18px] font-bold tabular-nums ${valueClassName}`}>
         {value}

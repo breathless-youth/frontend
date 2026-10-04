@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -14,6 +14,7 @@ import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import type { PlannerEntry } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
+import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -83,6 +84,28 @@ export function PlannerPage() {
     [dateKey, location.state, setSearchParams, todayKey],
   );
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** 날짜 선택 시트에서 고른 날로 옮긴다. 같은 날이면 닫기만 한다. */
+  const pickDate = (picked: string) => {
+    setPickerOpen(false);
+    if (picked === dateKey) {
+      return;
+    }
+    const dayMs = 24 * 60 * 60 * 1000;
+    trackPlannerDateChanged({
+      delta: Math.round((Date.parse(picked) - Date.parse(dateKey)) / dayMs),
+      method: "picker",
+    });
+    setSearchParams(
+      (previous) => {
+        const params = new URLSearchParams(previous);
+        params.set("date", picked);
+        return params;
+      },
+      { replace: true, state: location.state },
+    );
+  };
+
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
@@ -141,6 +164,14 @@ export function PlannerPage() {
         }}
       />
 
+      <DayPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        dateKey={dateKey}
+        todayKey={todayKey}
+        onPick={pickDate}
+      />
+
       <div
         data-testid="planner-swipe-area"
         className="touch-pan-y px-5"
@@ -152,6 +183,7 @@ export function PlannerPage() {
           canGoNext={!isToday}
           onPrev={() => changeDate(-1, "button")}
           onNext={() => changeDate(1, "button")}
+          onOpenPicker={() => setPickerOpen(true)}
           dday={ddayLine}
           readOnly={!isToday}
           totals={
