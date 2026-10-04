@@ -581,7 +581,7 @@ describe("RecordsPage", () => {
     await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
 
     const headline = await screen.findByText("주간 순공시간");
-    const chart = await screen.findByRole("img", { name: /요일별 순공시간/ });
+    const chart = await screen.findByRole("group", { name: "요일별 순공시간" });
     const rhythm = screen.getByRole("heading", { name: "나의 공부 리듬" });
 
     const follows = (a: Element, b: Element) =>

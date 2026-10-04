@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { WeekTrendCard } from "../WeekTrendCard";
@@ -109,12 +109,41 @@ describe("WeekTrendCard — 막대와 범례", () => {
     expect(screen.queryByTestId("trend-prev-목")).not.toBeInTheDocument();
   });
 
-  it("세로축 눈금은 단위를 붙여 0 · 2h · 4h · 6h · 8h+로 적고, 값은 대체 텍스트로 읽힌다", () => {
+  it("세로축 눈금은 단위를 붙여 0 · 2h · 4h · 6h · 8h+로 적고, 값은 요일 버튼의 이름으로 읽힌다", () => {
     renderCard();
 
-    const chart = screen.getByRole("img", { name: /요일별 순공시간/ });
+    const chart = screen.getByRole("group", { name: "요일별 순공시간" });
     expect(chart).toHaveTextContent("8h+6h4h2h0");
-    expect(chart).toHaveAccessibleName(/월 이번 주 6시간 지난주 5시간/);
+    expect(
+      screen.getByRole("button", { name: "월요일 이번 주 6시간 지난주 5시간" }),
+    ).toBeInTheDocument();
+  });
+
+  it("요일을 누르면 그 요일의 실제 값이 말풍선으로 뜨고, 다시 누르거나 차트 밖을 누르면 닫힌다", () => {
+    renderCard();
+    const friday = screen.getByRole("button", { name: /^금요일/ });
+
+    fireEvent.click(friday);
+    // 막대는 8시간에서 잘리지만 말풍선은 원래 값(10시간)을 적는다.
+    expect(screen.getByRole("status")).toHaveTextContent("금요일이번 주10시간지난주4시간");
+    expect(friday).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^월요일/ })).toHaveClass("opacity-35");
+
+    fireEvent.click(friday);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^화요일/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("화요일");
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("아직 오지 않은 요일의 말풍선에는 지난주 값만 있다", () => {
+    renderCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "토요일 지난주 8시간" }));
+    expect(screen.getByRole("status")).toHaveTextContent("토요일지난주8시간");
+    expect(screen.getByRole("status")).not.toHaveTextContent("이번 주");
   });
 
   it("범례는 이번 주 · 지난주이고, 과거 주에서는 오늘에서 센 N주 전으로 부른다", () => {
@@ -128,9 +157,9 @@ describe("WeekTrendCard — 막대와 범례", () => {
     expect(screen.getByText("1주 전")).toBeInTheDocument();
     expect(screen.getByText("2주 전")).toBeInTheDocument();
     expect(screen.queryByText("지난주", { selector: "span" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /요일별 순공시간/ })).toHaveAccessibleName(
-      /월 1주 전 6시간 2주 전 5시간/,
-    );
+    expect(
+      screen.getByRole("button", { name: "월요일 1주 전 6시간 2주 전 5시간" }),
+    ).toBeInTheDocument();
   });
 
   it("보는 주의 하루 평균을 점선과 범례로 보여주고, 공부한 날이 없으면 선을 바닥에 두고 0분으로 적는다", () => {
