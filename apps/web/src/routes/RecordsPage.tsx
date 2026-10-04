@@ -247,7 +247,7 @@ function RecordsContent({
             >
               <IconPlanner />
               플래너
-              <IconChevronRight size={8.57} color="var(--color-brand-subtle-text)" />
+              <IconChevronRight size={8.57} color="currentColor" />
             </button>
           </div>
 

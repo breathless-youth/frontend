@@ -96,9 +96,13 @@ export function IconChevronDown({
   );
 }
 
-/** 플래너 진입 버튼 아이콘(Figma `icon/planner` — 15×15). 색은 버튼 글자색을 따라가게 받는다. */
+/**
+ * 플래너 진입 버튼 아이콘(Figma `icon/planner` — 15×15). 기본은 버튼 글자색을 따라간다.
+ * `var(--color-brand-subtle-text)`처럼 Soft Blue 테마에만 있는 토큰을 `--color-*`로 직접 쓰면 값이 비어
+ * 아이콘이 안 보인다 — `--color-*`는 `:root`에서 풀리는데 그 토큰은 `.theme-soft-blue` 안에만 있다.
+ */
 export function IconPlanner({
-  color = "var(--color-brand-subtle-text)",
+  color = "currentColor",
   size = 15,
   ...rest
 }: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
