@@ -78,6 +78,8 @@ export function usePressGestures(handlers: {
       clearTimer();
       setPressed(false);
       if (handlers.onSwipeLeft === undefined || Math.abs(dx) <= Math.abs(dy)) {
+        // 끌고 지나간 것은 탭이 아니다 — 뒤따르는 `click`이 행을 누른 것으로 처리되지 않게 한다.
+        consumedRef.current = true;
         stateRef.current = null;
         return;
       }

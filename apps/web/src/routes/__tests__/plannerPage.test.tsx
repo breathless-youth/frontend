@@ -195,7 +195,6 @@ describe("PlannerPage", () => {
     expect(await screen.findByRole("heading", { name: "영어" })).toBeInTheDocument();
     expect(screen.getByText("리스닝 모의고사 1회")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
-    expect(screen.queryByText("할 일은 오늘 플래너에서만 고칠 수 있어요")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "할 일 추가" })).toBeInTheDocument();
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "unknown", isToday: true });
   });
@@ -268,12 +267,10 @@ describe("PlannerPage", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-05T03:00:00+09:00"));
     try {
-      renderPlanner("?userId=7&date=2026-10-05", { via: "records" });
+      // 날짜 없이 열면 오늘 플래너다 — 05시 전에도 전날이 아니라 달력의 오늘이다.
+      renderPlanner("?userId=7");
 
       expect(await screen.findByRole("button", { name: /10월 5일/ })).toBeInTheDocument();
-      expect(
-        screen.queryByText("할 일은 오늘 플래너에서만 고칠 수 있어요"),
-      ).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -306,7 +303,6 @@ describe("PlannerPage", () => {
     expect(screen.queryByText("오늘 끝낸 단어")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
-    expect(screen.getByText("할 일은 오늘 플래너에서만 고칠 수 있어요")).toBeInTheDocument();
     // 과목은 날짜와 무관한 목록이라 미래 날짜에서도 고친다.
     expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
@@ -391,23 +387,18 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     );
   });
 
-  it("할 일을 왼쪽으로 밀면 지운다", async () => {
-    vi.mocked(deleteTask).mockResolvedValue(undefined);
+  it("할 일을 왼쪽으로 밀어도 지워지거나 체크되지 않고, 다음 날로 넘어간다", async () => {
     renderPlanner("?userId=7");
     const row = await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" });
 
     fireEvent.pointerDown(row, { clientX: 150, clientY: 100 });
     fireEvent.pointerMove(row, { clientX: 30, clientY: 102 });
     fireEvent.pointerUp(row, { clientX: 30, clientY: 102 });
+    fireEvent.click(row);
 
-    expect(deleteTask).toHaveBeenCalledWith(3, 21);
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("checkbox", { name: "리스닝 모의고사 1회" }),
-      ).not.toBeInTheDocument(),
-    );
-    // 오늘 플래너의 왼쪽 스와이프는 날짜를 넘기지 않는다.
-    expect(vi.mocked(trackPlannerDateChanged)).not.toHaveBeenCalled();
+    expect(deleteTask).not.toHaveBeenCalled();
+    expect(updateTask).not.toHaveBeenCalled();
+    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenCalledWith({ delta: 1, method: "swipe" });
   });
 
   it("과목을 길게 누르면 메뉴가 뜨고, 이름 변경은 그 자리의 입력으로 한다", async () => {
@@ -515,7 +506,6 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     // 할 일에는 날짜가 없어 지금 목록의 미완료 할 일은 지난 날에 보여 주지 않는다.
     expect(screen.queryByText("리스닝 모의고사 1회")).not.toBeInTheDocument();
 
-    expect(screen.getByText("할 일은 오늘 플래너에서만 고칠 수 있어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 

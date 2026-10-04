@@ -106,9 +106,7 @@ export function PlannerPage() {
 
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // 할 일 행의 가로 스와이프는 삭제다 — 거기서 시작한 움직임으로는 날짜를 넘기지 않는다.
-    const onTaskRow = (event.target as Element).closest('[role="checkbox"]') !== null;
-    pointerStartRef.current = onTaskRow ? null : { x: event.clientX, y: event.clientY };
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
   };
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = pointerStartRef.current;
@@ -185,7 +183,6 @@ export function PlannerPage() {
           onNext={() => changeDate(1, "button")}
           onOpenPicker={() => setPickerOpen(true)}
           dday={ddayLine}
-          tasksLocked={!isToday}
           totals={
             state.status === "success"
               ? { focusSec: state.day.focusSec, studySec: state.day.studySec }
