@@ -188,6 +188,21 @@ describe("useSubjects 이름 중복", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("과목 추가와 이름 변경은 앞뒤 공백을 뗀 이름으로 요청한다", async () => {
+    vi.mocked(createSubject).mockResolvedValue({ ...subject(7), name: "국어" });
+    vi.mocked(renameSubject).mockResolvedValue({ ...subject(1), name: "영어" });
+    const { hook } = await renderReady();
+
+    await act(async () => {
+      await hook.result.current.addSubject("  국어 ");
+      await hook.result.current.renameSubject(1, " 영어  ");
+    });
+
+    expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
+    expect(renameSubject).toHaveBeenCalledWith(1, { name: "영어" });
+    expect(hook.result.current.subjects.find((item) => item.id === 1)?.name).toBe("영어");
+  });
+
   it("서버가 되살려 준 과목은 예전 id 그대로 목록 끝에 한 번만 들어간다", async () => {
     const { hook } = await renderReady();
     vi.mocked(createSubject).mockResolvedValue({ ...subject(7), name: "국어", studySec: 600 });
