@@ -124,6 +124,7 @@ function renderPlanner(path: string, state?: unknown) {
         <Routes>
           <Route path="/planner" element={<PlannerPage />} />
           <Route path="/records" element={<p>기록 탭</p>} />
+          <Route path="/home" element={<p>홈 탭</p>} />
         </Routes>
         <LocationProbe />
       </MemoryRouter>
@@ -243,6 +244,30 @@ describe("PlannerPage", () => {
     expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
       delta: -2,
       method: "picker",
+    });
+  });
+
+  describe("스택 없이 열린 플래너의 뒤로 가기 — 딥링크, 또는 셸이 웹뷰를 다시 띄워 복원한 문서", () => {
+    it("홈에서 들어온 플래너는 홈으로 돌아간다 — 홈 탭 웹뷰에 기록 화면을 띄우지 않는다", async () => {
+      renderPlanner(`?guestAuth=1&date=${YESTERDAY}&from=home`);
+      await screen.findByTestId("planner-page");
+
+      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+      // 플래너 전용 쿼리는 떼고 셸이 붙인 쿼리만 들고 간다.
+      expect(screen.getByTestId("location")).toHaveTextContent("/home?guestAuth=1");
+      expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "home", isToday: false });
+    });
+
+    it("어디서 왔는지 모르거나 기록 탭에서 왔으면 기록 탭으로 간다", async () => {
+      renderPlanner("?guestAuth=1&from=elsewhere");
+      await screen.findByTestId("planner-page");
+
+      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+      expect(await screen.findByText("기록 탭")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent("/records?guestAuth=1");
     });
   });
 

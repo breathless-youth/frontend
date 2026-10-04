@@ -11,7 +11,7 @@ import { plannerSubjectItems } from "@/features/planner/subjectItems";
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
-import type { PlannerEntry } from "@/features/planner/useOpenPlanner";
+import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
@@ -56,7 +56,7 @@ export function PlannerPage() {
   const isToday = dateKey === todayKey;
   const taskMode = isToday ? "live" : dateKey < todayKey ? "completed" : "upcoming";
 
-  const entry = (location.state as { via?: PlannerEntry } | null)?.via;
+  const entry = plannerEntryOf(location);
   const openedRef = useRef(false);
   useEffect(() => {
     if (openedRef.current) {
@@ -156,12 +156,18 @@ export function PlannerPage() {
               navigate(-1);
               return;
             }
-            // 딥링크로 곧장 열렸을 때의 대비 — 스택이 비어 있으면 기록 탭으로 보낸다.
+            // 스택이 비어 있다 — 딥링크로 곧장 열렸거나, 셸이 웹뷰를 다시 띄워 플래너로 복원했다.
+            // 들어온 탭으로 돌려보낸다(홈 탭 웹뷰에서 기록 화면으로 보내면 탭과 화면이 어긋난다).
+            // 어디서 왔는지 모르면 기록 탭이다.
             const params = new URLSearchParams(location.search);
             params.delete("date");
+            params.delete("from");
             const search = params.toString();
             navigate(
-              { pathname: "/records", search: search === "" ? "" : `?${search}` },
+              {
+                pathname: entry === "home" ? "/home" : "/records",
+                search: search === "" ? "" : `?${search}`,
+              },
               { replace: true },
             );
           });
