@@ -223,7 +223,7 @@ function RecordsContent({
             <button
               type="button"
               onClick={() => openPlanner(selectedKey)}
-              className="flex h-8 items-center gap-1 rounded-full bg-brand-subtle pr-2.5 pl-3 text-[13px] leading-4 font-semibold text-brand-subtle-text"
+              className="flex h-8 items-center gap-1 rounded-full bg-brand-subtle pr-2.5 pl-3 text-[13px] leading-4 font-semibold text-primary"
             >
               플래너
               <IconChevronRight size={11} color="currentColor" />

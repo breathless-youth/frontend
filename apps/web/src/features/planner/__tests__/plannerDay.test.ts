@@ -11,8 +11,7 @@ import {
   plannerCellFills,
   plannerDayWindow,
   plannerHours,
-  plannerTodayKey,
-  shiftPlannerDate,
+  plannerDateKeyOf,
 } from "../plannerDay";
 
 const DAY = "2026-10-02";
@@ -75,9 +74,9 @@ describe("플래너의 하루 구간", () => {
   });
 
   it("새벽 0~5시의 오늘 플래너는 전날이다", () => {
-    expect(plannerTodayKey(new Date(kst(NEXT, 4, 59)))).toBe(DAY);
-    expect(plannerTodayKey(new Date(kst(NEXT, 5)))).toBe(NEXT);
-    expect(plannerTodayKey(new Date(kst(DAY, 23, 30)))).toBe(DAY);
+    expect(plannerDateKeyOf(new Date(kst(NEXT, 4, 59)))).toBe(DAY);
+    expect(plannerDateKeyOf(new Date(kst(NEXT, 5)))).toBe(NEXT);
+    expect(plannerDateKeyOf(new Date(kst(DAY, 23, 30)))).toBe(DAY);
   });
 
   it("시 라벨은 5에서 시작해 다음 날 4에서 끝난다", () => {
@@ -87,12 +86,6 @@ describe("플래너의 하루 구간", () => {
     expect(hours[18]).toBe(23);
     expect(hours[19]).toBe(0);
     expect(hours[23]).toBe(4);
-  });
-
-  it("오늘보다 뒤로는 옮기지 않는다", () => {
-    expect(shiftPlannerDate(DAY, -1, NEXT)).toBe("2026-10-01");
-    expect(shiftPlannerDate(DAY, 1, NEXT)).toBe(NEXT);
-    expect(shiftPlannerDate(NEXT, 1, NEXT)).toBe(NEXT);
   });
 });
 

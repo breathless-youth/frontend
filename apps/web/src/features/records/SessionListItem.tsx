@@ -71,7 +71,7 @@ export function SessionListItem({ session, expanded, onToggle }: SessionListItem
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2 pt-0.5">
-            <span className="flex h-6 items-center rounded-full bg-brand-subtle px-[9px] text-xs leading-4 font-semibold text-brand-subtle-text tabular-nums">
+            <span className="flex h-6 items-center rounded-full bg-brand-subtle px-[9px] text-xs leading-4 font-semibold text-primary tabular-nums">
               집중 {formatFocusRate(session.focusRate)}
             </span>
             <IconChevronDown size={10} className={expanded ? "rotate-180" : undefined} />

@@ -13,7 +13,7 @@ export type PlannerDayState =
   | { status: "error"; retry: () => void }
   | { status: "success"; day: PlannerDay };
 
-/** 아직 오지 않은 날짜의 조회를 대신하는 빈 응답 — 오늘 플래너의 "다음 날"이 여기에 해당한다. */
+/** 아직 오지 않은 날짜의 조회를 대신하는 빈 응답 — 오늘 플래너의 "다음 날"과 미래 날짜의 플래너가 여기에 해당한다. */
 const EMPTY_STATS: StudySessionListResponse = {
   sessions: [],
   sessionCount: 0,
@@ -40,22 +40,31 @@ const NO_COMPLETED_TASKS: CompletedTasksResponse = { tasks: [], subjects: [] };
  */
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
-  // 다음 날이 아직 오지 않았으면 조회하지 않는다 — 기록이 있을 수 없다.
-  const nextIsFuture = nextKey > kstDateKey();
+  // 아직 오지 않은 날짜는 조회하지 않는다 — 기록이 있을 수 없다. 미래 날짜의 플래너는 둘 다 건너뛴다.
+  const todayKey = kstDateKey();
+  const dayIsFuture = dateKey > todayKey;
+  const nextIsFuture = nextKey > todayKey;
 
-  const day = useQuery({ ...dailyStatsQuery(userId ?? 0, dateKey), enabled: userId != null });
+  const day = useQuery({
+    ...dailyStatsQuery(userId ?? 0, dateKey),
+    enabled: userId != null && !dayIsFuture,
+  });
   const next = useQuery({
     ...dailyStatsQuery(userId ?? 0, nextKey),
     enabled: userId != null && !nextIsFuture,
   });
 
+  // 완료 기록은 지난 날에만 쓴다 — 오늘은 과목 목록이, 미래는 미완료 할 일이 대신한다.
+  const needsCompleted = dateKey < todayKey;
   const completed = useQuery({
     ...completedTasksQuery(userId ?? 0, { from: dateKey, to: nextKey }),
-    enabled: userId != null,
+    enabled: userId != null && needsCompleted,
   });
 
-  const dayData = day.data;
-  const completedData = completed.data ?? (completed.isError ? NO_COMPLETED_TASKS : undefined);
+  const dayData = dayIsFuture ? EMPTY_STATS : day.data;
+  const completedData = needsCompleted
+    ? (completed.data ?? (completed.isError ? NO_COMPLETED_TASKS : undefined))
+    : NO_COMPLETED_TASKS;
   const nextData = nextIsFuture ? EMPTY_STATS : next.data;
   const assembled = useMemo(
     () =>

@@ -330,14 +330,17 @@ export function DayPickerSheet({
   onOpenChange,
   dateKey,
   todayKey,
+  allowFuture = false,
   onPick,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** 지금 보고 있는 날 — 선택 표시와 처음 펼칠 달의 기준이다. */
   dateKey: string;
-  /** 고를 수 있는 마지막 날. 플래너는 하루가 5시에 시작해 달력의 오늘과 다를 수 있다. */
+  /** 오늘. `allowFuture`가 아니면 고를 수 있는 마지막 날이기도 하다. */
   todayKey: string;
+  /** 오늘 뒤의 날도 고를 수 있다 — 플래너는 미래 날짜도 넘겨 본다. */
+  allowFuture?: boolean;
   onPick: (dateKey: string, toToday: boolean) => void;
 }) {
   return (
@@ -347,7 +350,12 @@ export function DayPickerSheet({
       title="날짜 선택"
       onToday={() => onPick(todayKey, true)}
     >
-      <DayGrid dateKey={dateKey} todayKey={todayKey} onPick={(picked) => onPick(picked, false)} />
+      <DayGrid
+        dateKey={dateKey}
+        todayKey={todayKey}
+        allowFuture={allowFuture}
+        onPick={(picked) => onPick(picked, false)}
+      />
     </PickerSheet>
   );
 }
@@ -355,15 +363,17 @@ export function DayPickerSheet({
 function DayGrid({
   dateKey,
   todayKey,
+  allowFuture,
   onPick,
 }: {
   dateKey: string;
   todayKey: string;
+  allowFuture: boolean;
   onPick: (dateKey: string) => void;
 }) {
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
   const grid = buildMonthGrid(viewMonth, "monday");
-  const canGoNext = !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
+  const canGoNext = allowFuture || !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
 
   return (
     <>
@@ -394,7 +404,7 @@ function DayGrid({
               }
               const selected = cell === dateKey;
               const isToday = cell === todayKey;
-              const future = isFutureDateKey(cell, todayKey);
+              const future = !allowFuture && isFutureDateKey(cell, todayKey);
               return (
                 <button
                   key={cell}

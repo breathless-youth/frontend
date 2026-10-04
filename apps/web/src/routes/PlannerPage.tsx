@@ -8,13 +8,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
-import { plannerTodayKey, shiftPlannerDate } from "@/features/planner/plannerDay";
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import type { PlannerEntry } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
+import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -29,9 +29,12 @@ const SWIPE_THRESHOLD_PX = 48;
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
  *
- * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 플래너의 하루는
- * 05:00~다음 날 05:00이라, 새벽 0~5시에 여는 "오늘의 플래너"는 전날 플래너다.
- * 과목·할 일 관리는 오늘 플래너에서만 되고(세션 과목 시트와 같은 목록), 지난 날은 보기 전용이다.
+ * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 한 장에 담는 구간은
+ * 05:00~다음 날 05:00이지만, 열 때의 "오늘"은 달력 날짜(자정 기준)다 — 기록 탭에서 고른 날짜와
+ * 같은 날짜의 플래너가 열린다. 그래서 새벽 0~5시의 오늘 플래너는 타임테이블이 아직 비어 있고,
+ * 그 시간의 공부는 전날 플래너에 이어진다.
+ * 날짜는 지난 날과 미래로 자유롭게 넘긴다. 과목은 날짜와 무관한 목록이라 어느 날에서나 고치고,
+ * 할 일은 오늘 플래너에서만 고친다 — 지난 날은 그날 완료한 것, 미래는 지금 미완료인 것을 보여 준다.
  * 탭 바 없는 전체 화면 라우트다(`/planner?date=YYYY-MM-DD`, `lib/nativeTabBar.ts`).
  */
 export function PlannerPage() {
@@ -40,14 +43,12 @@ export function PlannerPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const todayKey = plannerTodayKey();
+  const todayKey = kstDateKey();
   const requested = searchParams.get("date");
-  // 형식이 틀리거나 미래 날짜면 오늘 플래너를 연다.
-  const dateKey =
-    requested !== null && DATE_KEY_PATTERN.test(requested) && requested <= todayKey
-      ? requested
-      : todayKey;
+  // 날짜가 없거나 형식이 틀리면 오늘 플래너를 연다.
+  const dateKey = requested !== null && DATE_KEY_PATTERN.test(requested) ? requested : todayKey;
   const isToday = dateKey === todayKey;
+  const taskMode = isToday ? "live" : dateKey < todayKey ? "completed" : "upcoming";
 
   const entry = (location.state as { via?: PlannerEntry } | null)?.via;
   const openedRef = useRef(false);
@@ -60,16 +61,13 @@ export function PlannerPage() {
   }, [entry, isToday]);
 
   const state = usePlannerDay(userId, dateKey);
-  // 과목 목록은 지난 날에도 쓴다(그날 공부하지 않은 과목도 0분으로 보인다). 관리는 오늘만 된다.
+  // 과목 목록은 어느 날에서나 쓰고 고친다(그날 공부하지 않은 과목도 0분으로 보인다).
   const subjects = useSubjects(userId !== null, showToast, "planner");
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
   const changeDate = useCallback(
     (delta: -1 | 1, method: "button" | "swipe") => {
-      const next = shiftPlannerDate(dateKey, delta, todayKey);
-      if (next === dateKey) {
-        return;
-      }
+      const next = addDaysToDateKey(dateKey, delta);
       trackPlannerDateChanged({ delta, method });
       setSearchParams(
         (previous) => {
@@ -81,7 +79,7 @@ export function PlannerPage() {
         { replace: true, state: location.state },
       );
     },
-    [dateKey, location.state, setSearchParams, todayKey],
+    [dateKey, location.state, setSearchParams],
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -108,7 +106,9 @@ export function PlannerPage() {
 
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+    // 할 일 행의 가로 스와이프는 삭제다 — 거기서 시작한 움직임으로는 날짜를 넘기지 않는다.
+    const onTaskRow = (event.target as Element).closest('[role="checkbox"]') !== null;
+    pointerStartRef.current = onTaskRow ? null : { x: event.clientX, y: event.clientY };
   };
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = pointerStartRef.current;
@@ -169,6 +169,7 @@ export function PlannerPage() {
         onOpenChange={setPickerOpen}
         dateKey={dateKey}
         todayKey={todayKey}
+        allowFuture
         onPick={pickDate}
       />
 
@@ -180,12 +181,11 @@ export function PlannerPage() {
       >
         <PlannerHead
           dateKey={dateKey}
-          canGoNext={!isToday}
           onPrev={() => changeDate(-1, "button")}
           onNext={() => changeDate(1, "button")}
           onOpenPicker={() => setPickerOpen(true)}
           dday={ddayLine}
-          readOnly={!isToday}
+          tasksLocked={!isToday}
           totals={
             state.status === "success"
               ? { focusSec: state.day.focusSec, studySec: state.day.studySec }
@@ -219,20 +219,21 @@ export function PlannerPage() {
                 items={plannerSubjectItems(
                   state.day,
                   subjects.status === "ready" ? subjects.subjects : null,
-                  isToday,
+                  taskMode,
                 )}
                 unassignedFocusSec={state.day.unassignedFocusSec}
                 emptyMessage={
-                  !isToday && state.day.studySec === 0 && state.day.completedTasks.length === 0
+                  taskMode === "completed" &&
+                  state.day.studySec === 0 &&
+                  state.day.completedTasks.length === 0
                     ? ["이 날은 기록이 없어요", "완료한 할 일도 없어요"]
                     : null
                 }
-                // 관리는 오늘 플래너에서만 — 과목 목록을 받은 뒤부터다.
-                store={isToday && subjects.status === "ready" ? subjects : null}
+                // 과목 목록을 받은 뒤부터 관리할 수 있다. 할 일은 오늘 플래너에서만 고친다.
+                store={subjects.status === "ready" ? subjects : null}
+                tasksEditable={isToday}
                 onNotice={showToast}
-                onRetryLoad={
-                  isToday && subjects.status === "error" ? () => void subjects.reload() : undefined
-                }
+                onRetryLoad={subjects.status === "error" ? () => void subjects.reload() : undefined}
               />
               <PlannerTimetable day={state.day} />
             </div>
