@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
-import { listSubjects, reorderSubjects } from "@/lib/subjectApi";
+import { ApiError } from "@/lib/api";
+import { createSubject, listSubjects, renameSubject, reorderSubjects } from "@/lib/subjectApi";
 
 import { SUBJECT_SHEET_COPY } from "../sessionCopy";
 import { useSubjects } from "../useSubjects";
@@ -130,5 +131,72 @@ describe("useSubjects 순서 (BY-725)", () => {
     await waitFor(() => {
       expect(ids(hook)).toEqual([2, 1, 3]);
     });
+  });
+});
+
+describe("useSubjects 이름 중복", () => {
+  beforeEach(() => {
+    vi.mocked(listSubjects).mockReset();
+    vi.mocked(createSubject).mockReset();
+    vi.mocked(renameSubject).mockReset();
+    vi.mocked(listSubjects).mockResolvedValue(SERVER_ORDER);
+  });
+
+  it("이미 있는 이름으로는 과목을 만들지 않고 안내한다", async () => {
+    const { hook, onError } = await renderReady();
+
+    let created: SubjectResponse | null = subject(9);
+    await act(async () => {
+      created = await hook.result.current.addSubject(" 과목1 ");
+    });
+
+    expect(created).toBeNull();
+    expect(createSubject).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+  });
+
+  it("다른 과목이 쓰는 이름으로는 바꾸지 않고, 서버가 409로 거절해도 같은 안내를 한다", async () => {
+    const { hook, onError } = await renderReady();
+
+    await act(async () => {
+      await hook.result.current.renameSubject(2, "과목1");
+    });
+    expect(renameSubject).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenLastCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+
+    // 목록이 낡아 화면 검사를 지나친 경우 — 서버 거절을 같은 문구로 알린다.
+    onError.mockClear();
+    vi.mocked(renameSubject).mockRejectedValue(
+      new ApiError("이미 있는 과목 이름입니다", 409, "CONFLICT"),
+    );
+    await act(async () => {
+      await hook.result.current.renameSubject(2, "새 이름");
+    });
+    expect(onError).toHaveBeenCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+  });
+
+  it("같은 이름이 이미 둘인 과목도 지금 이름 그대로는 서버에 보낸다", async () => {
+    vi.mocked(listSubjects).mockResolvedValue([subject(1), { ...subject(2), name: "과목1" }]);
+    vi.mocked(renameSubject).mockResolvedValue(subject(1));
+    const { hook, onError } = await renderReady();
+
+    await act(async () => {
+      await hook.result.current.renameSubject(1, "과목1");
+    });
+
+    expect(renameSubject).toHaveBeenCalledWith(1, { name: "과목1" });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("서버가 되살려 준 과목은 예전 id 그대로 목록 끝에 한 번만 들어간다", async () => {
+    const { hook } = await renderReady();
+    vi.mocked(createSubject).mockResolvedValue({ ...subject(7), name: "국어", studySec: 600 });
+
+    await act(async () => {
+      await hook.result.current.addSubject("국어");
+    });
+
+    expect(ids(hook)).toEqual([2, 1, 3, 7]);
+    expect(hook.result.current.subjects.at(-1)?.studySec).toBe(600);
   });
 });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
 import { trackSubjectItemAdded } from "@/lib/amplitude";
+import { ApiError } from "@/lib/api";
 import {
   createSubject,
   createTask,
@@ -17,6 +18,13 @@ import {
 import { SUBJECT_SHEET_COPY } from "./sessionCopy";
 
 export type SubjectsStatus = "idle" | "loading" | "ready" | "error";
+
+/** 저장 실패 문구. 서버가 이름 중복(409)으로 거절한 것은 따로 알린다 — 목록이 낡아 화면 검사를 지나친 경우다. */
+function saveErrorMessage(error: unknown): string {
+  return error instanceof ApiError && error.status === 409
+    ? SUBJECT_SHEET_COPY.duplicateName
+    : SUBJECT_SHEET_COPY.saveFailed;
+}
 
 /**
  * 과목 시트의 서버 상태. react-query를 쓰지 않는 이유: 세션 화면(`RoomPage`)은
@@ -76,8 +84,8 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
       setSubjects(optimistic);
       try {
         await request();
-      } catch {
-        onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
+      } catch (error) {
+        onErrorRef.current(saveErrorMessage(error));
         void reload();
       }
     },
@@ -101,13 +109,20 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
   /** 만든 과목을 돌려준다 — 추천 행은 만든 즉시 측정 선택된다(Figma `Sheet / Suggest Row`). */
   const addSubject = useCallback(
     async (name: string, viaSuggestion = false): Promise<SubjectResponse | null> => {
+      // 과목 이름은 하나만 둔다. 서버도 막지만 요청 전에 걸러 바로 알린다.
+      const trimmed = name.trim();
+      if (subjectsRef.current.some((subject) => subject.name === trimmed)) {
+        onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
+        return null;
+      }
       try {
         const created = await createSubject({ name });
-        setSubjects((prev) => [...prev, created]);
+        // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
+        setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
         trackSubjectItemAdded("subject", viaSuggestion);
         return created;
-      } catch {
-        onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
+      } catch (error) {
+        onErrorRef.current(saveErrorMessage(error));
         return null;
       }
     },
@@ -174,11 +189,19 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
     reorderSubject,
     startReorder,
     commitReorder,
-    renameSubject: (id: number, name: string) =>
-      mutate(
+    renameSubject: (id: number, name: string) => {
+      const trimmed = name.trim();
+      // 지금 이름 그대로면 막지 않는다 — 서버와 같은 규칙이다.
+      const unchanged = subjects.some((subject) => subject.id === id && subject.name === trimmed);
+      if (!unchanged && subjects.some((subject) => subject.name === trimmed)) {
+        onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
+        return Promise.resolve();
+      }
+      return mutate(
         (prev) => prev.map((subject) => (subject.id === id ? { ...subject, name } : subject)),
         () => renameSubject(id, { name }),
-      ),
+      );
+    },
     removeSubject: (id: number) =>
       mutate(
         (prev) => prev.filter((subject) => subject.id !== id),
