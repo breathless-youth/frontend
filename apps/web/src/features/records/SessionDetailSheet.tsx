@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState } from "react";
 
 import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
@@ -21,7 +21,8 @@ import {
  * 세션 행을 누르면 그 세션의 시각 범위·순공·휴식·집중률, 과목별 시간, 완료한 할 일, 그 세션의 24시간 타임테이블을 하단 시트로 연다.
  *
  * 시트는 body로 포털되어 페이지의 .theme-soft-blue 스코프를 벗어나므로, 콘텐츠 루트에 그
- * 클래스를 다시 붙여 과목 색·소프트블루 토큰이 풀리지 않게 한다.
+ * 클래스를 다시 붙여 과목 색·소프트블루 토큰이 풀리지 않게 한다. 홈의 D-Day 시트와 같은 방식이다.
+ * `container`는 변수를 인라인 style로 주입해 클래스로 되살릴 수 없는 세션 화면용이라 쓰지 않는다.
  *
  * 닫는 동안(session=null) 마지막 세션을 유지해 300ms 퇴장 애니메이션 중 빈 시트가 보이지 않게 한다.
  * 휴식은 총 공부에서 순공을 뺀 값이고(sessionRestSec), 지운 과목·할 일 이름도 그대로 둔다.
@@ -37,11 +38,10 @@ export function SessionDetailSheet({
   dateKey: string;
   onClose: () => void;
 }) {
-  const lastSession = useRef<StudySessionSummary | null>(null);
-  if (session) {
-    lastSession.current = session;
+  const [shown, setShown] = useState(session);
+  if (session !== null && session !== shown) {
+    setShown(session);
   }
-  const shown = session ?? lastSession.current;
 
   const subjectMap = subjectRefMap(subjects);
   const subjectRows = shown ? subjectTotalsOf([shown]) : [];
@@ -77,8 +77,8 @@ export function SessionDetailSheet({
                   {formatDuration(shown.focusSec)}
                 </p>
 
-                <div className="flex gap-2 pt-3">
-                  <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                <div className="flex gap-4 pt-3 whitespace-nowrap">
+                  <div className="flex shrink-0 flex-col gap-[3px]">
                     <p className="text-[11px] leading-[13px] text-muted-foreground">휴식</p>
                     <p className="text-base leading-[19px] font-extrabold tracking-[-0.32px] text-foreground tabular-nums">
                       {formatDuration(sessionRestSec(shown))}

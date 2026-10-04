@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { StudySessionSummary } from "@focusmakers/types";
-
 import { trackRecordsDateSelected, trackRecordsMonthChanged } from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -62,7 +60,7 @@ function RecordsContent({
   );
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
-  const [sheetSession, setSheetSession] = useState<StudySessionSummary | null>(null);
+  const [sheetSessionId, setSheetSessionId] = useState<number | null>(null);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
   // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
@@ -73,6 +71,9 @@ function RecordsContent({
       daySessions ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : [],
     [daySessions],
   );
+  // 시트에 띄울 세션은 id로만 기억하고 지금 보이는 날의 목록에서 찾는다 — 날짜가 바뀌면
+  // 그 id가 목록에 없어 시트가 저절로 닫히므로, 다른 날의 세션이 남아 열리는 일이 없다.
+  const sheetSession = sessions.find((session) => session.id === sheetSessionId) ?? null;
 
   return (
     <div>
@@ -162,7 +163,11 @@ function RecordsContent({
             ) : (
               <div className="rounded-[20px] bg-muted shadow-sb-card px-[18px] py-1">
                 {sessions.map((session) => (
-                  <SessionListItem key={session.id} session={session} onSelect={setSheetSession} />
+                  <SessionListItem
+                    key={session.id}
+                    session={session}
+                    onSelect={(selected) => setSheetSessionId(selected.id)}
+                  />
                 ))}
               </div>
             )}
@@ -172,7 +177,7 @@ function RecordsContent({
             session={sheetSession}
             subjects={day.stats.subjects}
             dateKey={selectedKey}
-            onClose={() => setSheetSession(null)}
+            onClose={() => setSheetSessionId(null)}
           />
         </div>
       )}

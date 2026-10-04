@@ -2,7 +2,13 @@ import type { StudySessionListResponse } from "@focusmakers/types";
 
 import { formatDuration, formatFocusRate } from "./recordsFormat";
 import { Timetable } from "./Timetable";
-import { dayTimetable, subjectColorVar, subjectRefMap, subjectTotalsOf } from "./recordsTimetable";
+import {
+  dayTimetable,
+  sessionRestSec,
+  subjectColorVar,
+  subjectRefMap,
+  subjectTotalsOf,
+} from "./recordsTimetable";
 
 /**
  * 날짜 상세 카드
@@ -36,8 +42,8 @@ export function DayDetailCard({
           {formatDuration(stats.totalFocusSec)}
         </p>
 
-        <div className="flex gap-2 pt-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <div className="flex gap-4 pt-3 whitespace-nowrap">
+          <div className="flex shrink-0 flex-col gap-[3px]">
             <p className="text-[11px] leading-[13px] text-muted-foreground">총 공부</p>
             <p className="text-base leading-[19px] font-extrabold tracking-[-0.32px] text-foreground tabular-nums">
               {formatDuration(stats.totalStudySec)}
@@ -73,6 +79,11 @@ export function DayDetailCard({
             <span className="size-[9px] shrink-0 rounded-[2.5px] bg-border" aria-hidden />
             <span className="min-w-0 flex-1 text-xs leading-[15px] text-muted-foreground">
               휴식
+            </span>
+            <span className="text-xs leading-[15px] font-bold text-foreground tabular-nums">
+              {formatDuration(
+                sessionRestSec({ studySec: stats.totalStudySec, focusSec: stats.totalFocusSec }),
+              )}
             </span>
           </li>
         </ul>

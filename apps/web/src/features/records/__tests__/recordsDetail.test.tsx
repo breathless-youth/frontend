@@ -66,6 +66,7 @@ describe("DayDetailCard", () => {
     expect(screen.getByText("96%")).toBeInTheDocument();
     expect(screen.getByText("영어")).toBeInTheDocument();
     expect(screen.getByText("휴식")).toBeInTheDocument();
+    expect(screen.getByText("8분")).toBeInTheDocument(); // 휴식 = 총 공부 − 순공
     // 타임테이블 대체 텍스트가 제목이 아니라 순공 요약을 담는다.
     expect(screen.getByRole("img", { name: /순공 44분/ })).toBeInTheDocument();
   });
