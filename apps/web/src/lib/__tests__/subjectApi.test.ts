@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../api";
-import { reorderSubjects } from "../subjectApi";
+import { listCompletedTasks, reorderSubjects } from "../subjectApi";
 
 const mockedFetch = vi.fn();
 globalThis.fetch = mockedFetch as unknown as typeof fetch;
@@ -60,5 +60,38 @@ describe("reorderSubjects", () => {
     mockedFetch.mockResolvedValue({ ok: true, status: 204, json: async () => undefined });
 
     await expect(reorderSubjects({ subjectIds: [1] })).resolves.toBeUndefined();
+  });
+});
+
+describe("listCompletedTasks", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("기간을 쿼리로 보내고 완료한 할 일과 과목을 돌려준다", async () => {
+    const body = {
+      tasks: [
+        { id: 9, name: "단어", subjectId: 3, doneAt: "2026-10-04T12:30:00Z", deleted: false },
+      ],
+      subjects: [{ id: 3, name: "영어", colorIndex: 2, deleted: false }],
+    };
+    mockedFetch.mockResolvedValue(jsonResponse(200, body));
+
+    await expect(listCompletedTasks({ from: "2026-10-04", to: "2026-10-05" })).resolves.toEqual(
+      body,
+    );
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/subjects/completed-tasks?from=2026-10-04&to=2026-10-05",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("200이어도 모양이 다른 응답은 조회 실패로 돌린다 — 그대로 넘기면 플래너가 렌더 중에 죽는다", async () => {
+    for (const body of [{}, null, [], { tasks: [] }, { tasks: "x", subjects: [] }]) {
+      mockedFetch.mockResolvedValue(jsonResponse(200, body));
+      await expect(listCompletedTasks({ from: "2026-10-04", to: "2026-10-05" })).rejects.toThrow(
+        "완료한 할 일 조회 실패",
+      );
+    }
   });
 });
