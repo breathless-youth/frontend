@@ -16,7 +16,14 @@ import {
   shiftMonth,
 } from "@/features/records/recordsFormat";
 import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
-import { trackRecordsMonthChanged, trackRecordsSessionExpanded } from "@/lib/amplitude";
+import {
+  trackRecordsMonthChanged,
+  trackRecordsPeriodPicked,
+  trackRecordsPeriodPickerOpened,
+  trackRecordsSessionExpanded,
+  trackRecordsViewChanged,
+  trackRecordsWeekChanged,
+} from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
 
 /**
@@ -42,6 +49,10 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
   trackRecordsMonthChanged: vi.fn(),
   trackRecordsSessionExpanded: vi.fn(),
+  trackRecordsViewChanged: vi.fn(),
+  trackRecordsWeekChanged: vi.fn(),
+  trackRecordsPeriodPickerOpened: vi.fn(),
+  trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
 }));
 
@@ -462,6 +473,73 @@ describe("RecordsPage", () => {
       ]),
     );
     expect(await screen.findByText("3시간")).toBeInTheDocument();
+  });
+
+  it("일간의 기간 라벨을 누르면 월 선택 시트가 열리고, 고른 달로 이동한 뒤 오늘로 돌아올 수 있다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+
+    const currentMonth = monthOfDateKey(kstDateKey());
+    const currentLabel = monthLabel(currentMonth);
+    await screen.findByText(/요일$/);
+
+    await userEvent.click(screen.getByRole("button", { name: currentLabel }));
+    expect(await screen.findByText("월 선택")).toBeInTheDocument();
+    expect(vi.mocked(trackRecordsPeriodPickerOpened)).toHaveBeenCalledWith("daily");
+
+    // 지난해 같은 달로 건너뛴다.
+    await userEvent.click(screen.getByRole("button", { name: "이전 해" }));
+    await userEvent.click(screen.getByRole("button", { name: `${String(currentMonth.month)}월` }));
+
+    const lastYear = monthLabel({ year: currentMonth.year - 1, month: currentMonth.month });
+    expect(await screen.findByRole("button", { name: lastYear })).toBeInTheDocument();
+    expect(screen.queryByText("월 선택")).not.toBeInTheDocument();
+    expect(vi.mocked(trackRecordsPeriodPicked)).toHaveBeenLastCalledWith({
+      view: "daily",
+      toToday: false,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: lastYear }));
+    await userEvent.click(await screen.findByRole("button", { name: "오늘" }));
+
+    expect(await screen.findByRole("button", { name: currentLabel })).toBeInTheDocument();
+    expect(vi.mocked(trackRecordsPeriodPicked)).toHaveBeenLastCalledWith({
+      view: "daily",
+      toToday: true,
+    });
+  });
+
+  it("주간의 기간 라벨을 누르면 주 선택 시트가 열리고, 날짜를 고르면 그 날이 속한 주로 이동한다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(false));
+
+    renderRecords();
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+    expect(vi.mocked(trackRecordsViewChanged)).toHaveBeenCalledWith("weekly");
+
+    const rangeButton = await screen.findByRole("button", { name: /\d+월 \d+일 ~/ });
+    const thisWeekLabel = rangeButton.textContent;
+
+    await userEvent.click(rangeButton);
+    expect(await screen.findByText("주 선택")).toBeInTheDocument();
+    expect(vi.mocked(trackRecordsPeriodPickerOpened)).toHaveBeenCalledWith("weekly");
+
+    // 지난달 15일이 속한 주로 건너뛴다(지난달은 전부 과거라 항상 고를 수 있다).
+    await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
+    await userEvent.click(screen.getByRole("button", { name: /월 15일$/ }));
+
+    await waitFor(() => expect(screen.queryByText("주 선택")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /\d+월 \d+일 ~/ }).textContent).not.toBe(
+      thisWeekLabel,
+    );
+    expect(vi.mocked(trackRecordsPeriodPicked)).toHaveBeenLastCalledWith({
+      view: "weekly",
+      toToday: false,
+    });
+
+    // 화살표 이동도 그대로 동작하고 계측이 나간다.
+    await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
+    expect(vi.mocked(trackRecordsWeekChanged)).toHaveBeenLastCalledWith(-1);
   });
 
   it("주간 뷰는 주 요약 → 추이 카드 → 주 카드 → 나의 공부 리듬 순서로 보여준다", async () => {

@@ -1,9 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+
+import {
+  trackRecordsPeriodPicked,
+  trackRecordsPeriodPickerOpened,
+  trackRecordsWeekChanged,
+} from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 
+import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
 import { WeekCards } from "./WeekCards";
 import { WeekHeader } from "./WeekHeader";
@@ -38,6 +46,7 @@ export function WeeklyView({
 }) {
   const queryClient = useQueryClient();
   const { week } = useWeeklyData(userId, weekAnchorKey);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const retryPeriod = () => {
     void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
@@ -46,10 +55,15 @@ export function WeeklyView({
   // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 달을 막는 것과 같은 취지.
   const canGoNext = !isFutureWeek(addDaysToDateKey(weekAnchorKey, 7), todayKey);
   const goNextWeek = () => {
-    setWeekAnchorKey((key) => {
-      const next = addDaysToDateKey(key, 7);
-      return isFutureWeek(next, todayKey) ? key : next;
-    });
+    if (!canGoNext) {
+      return;
+    }
+    trackRecordsWeekChanged(1);
+    setWeekAnchorKey((key) => addDaysToDateKey(key, 7));
+  };
+  const goPrevWeek = () => {
+    trackRecordsWeekChanged(-1);
+    setWeekAnchorKey((key) => addDaysToDateKey(key, -7));
   };
 
   return (
@@ -59,8 +73,24 @@ export function WeeklyView({
         metricsStatus={week.status}
         daily={week.status === "success" ? week.daily : undefined}
         canGoNext={canGoNext}
-        onPrevWeek={() => setWeekAnchorKey((key) => addDaysToDateKey(key, -7))}
+        onPrevWeek={goPrevWeek}
         onNextWeek={goNextWeek}
+        onOpenPicker={() => {
+          trackRecordsPeriodPickerOpened("weekly");
+          setPickerOpen(true);
+        }}
+      />
+
+      <WeekPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        weekAnchorKey={weekAnchorKey}
+        todayKey={todayKey}
+        onPick={(dateKey, toToday) => {
+          trackRecordsPeriodPicked({ view: "weekly", toToday });
+          setWeekAnchorKey(dateKey);
+          setPickerOpen(false);
+        }}
       />
 
       <div className="mt-[18px]">

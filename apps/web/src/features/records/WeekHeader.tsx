@@ -1,6 +1,6 @@
 import type { DailyStudyStat } from "@focusmakers/types";
 
-import { IconChevronLeft, IconChevronRight } from "./icons";
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from "./icons";
 import { PeriodHeadline } from "./PeriodHeadline";
 import { sumFocusSec, sumStudySec, weekRangeLabel } from "./recordsPeriod";
 
@@ -17,6 +17,7 @@ export function WeekHeader({
   canGoNext,
   onPrevWeek,
   onNextWeek,
+  onOpenPicker,
 }: {
   weekAnchorKey: string;
   /** 숫자 영역의 상태. success일 때만 daily로 숫자를 그린다. */
@@ -26,6 +27,8 @@ export function WeekHeader({
   canGoNext: boolean;
   onPrevWeek: () => void;
   onNextWeek: () => void;
+  /** 주 범위 라벨을 탭했다 — 기간 선택 시트를 연다. */
+  onOpenPicker: () => void;
 }) {
   return (
     <div className="flex flex-col items-center">
@@ -38,9 +41,15 @@ export function WeekHeader({
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
-        <span className="px-2.5 text-[15px] font-bold text-foreground">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={onOpenPicker}
+          className="flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
+        >
           {weekRangeLabel(weekAnchorKey)}
-        </span>
+          <IconChevronDown color="var(--color-foreground)" />
+        </button>
         <button
           type="button"
           aria-label="다음 주"

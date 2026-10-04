@@ -787,6 +787,33 @@ export function trackRecordsMonthChanged(input: {
   track("records_month_changed", { delta: input.delta, method: input.method });
 }
 
+/** 기록 탭 일간·주간 세그먼트 전환. */
+export function trackRecordsViewChanged(view: "daily" | "weekly") {
+  if (!initialized) return;
+  track("records_view_changed", { view });
+}
+
+/** 기록 주간 탭의 주 이동. `records_month_changed`와 짝이다. `delta`는 -1(이전)/1(다음). */
+export function trackRecordsWeekChanged(delta: -1 | 1) {
+  if (!initialized) return;
+  track("records_week_changed", { delta });
+}
+
+/** 기간 라벨을 탭해 기간 선택 시트를 열었다. */
+export function trackRecordsPeriodPickerOpened(view: "daily" | "weekly") {
+  if (!initialized) return;
+  track("records_period_picker_opened", { view });
+}
+
+/** 기간 선택 시트에서 달·주를 골랐다. `toToday`는 `오늘` 버튼으로 돌아온 경우다. */
+export function trackRecordsPeriodPicked(input: {
+  readonly view: "daily" | "weekly";
+  readonly toToday: boolean;
+}) {
+  if (!initialized) return;
+  track("records_period_picked", { view: input.view, to_today: input.toToday });
+}
+
 /** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
 export function trackRecordsSessionExpanded(input: { readonly expanded: boolean }) {
   if (!initialized) return;

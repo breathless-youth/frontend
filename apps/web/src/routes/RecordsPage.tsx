@@ -4,12 +4,16 @@ import type { Dispatch, SetStateAction } from "react";
 import {
   trackRecordsDateSelected,
   trackRecordsMonthChanged,
+  trackRecordsPeriodPicked,
+  trackRecordsPeriodPickerOpened,
   trackRecordsSessionExpanded,
+  trackRecordsViewChanged,
 } from "@/lib/amplitude";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PeriodHeadline } from "@/features/records/PeriodHeadline";
+import { MonthPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
 import {
   type CalendarMonth,
@@ -31,7 +35,7 @@ import { SessionListItem } from "@/features/records/SessionListItem";
 import { DayDetailCard } from "@/features/records/DayDetailCard";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import { IconChevronLeft, IconChevronRight } from "@/features/records/icons";
+import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -73,6 +77,8 @@ function RecordsContent({
     },
     [isLatestMonth, setMonth],
   );
+
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
@@ -120,7 +126,19 @@ function RecordsContent({
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
         </button>
-        <span className="px-2.5 text-[15px] font-bold text-foreground">{monthLabel(month)}</span>
+        {/* 라벨을 탭하면 기간 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => {
+            trackRecordsPeriodPickerOpened("daily");
+            setPickerOpen(true);
+          }}
+          className="flex h-11 items-center gap-[5px] px-2.5 text-[15px] font-bold text-foreground"
+        >
+          {monthLabel(month)}
+          <IconChevronDown color="var(--color-foreground)" />
+        </button>
         <button
           type="button"
           aria-label="다음 달"
@@ -134,6 +152,20 @@ function RecordsContent({
           />
         </button>
       </div>
+
+      <MonthPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        month={month}
+        todayKey={todayKey}
+        onPick={(picked, toToday) => {
+          trackRecordsPeriodPicked({ view: "daily", toToday });
+          // 시트로 건너뛴 이동에는 밀려 들어오는 애니메이션을 재생하지 않는다.
+          setSlideFrom(null);
+          setMonth(picked);
+          setPickerOpen(false);
+        }}
+      />
 
       {/* 머리는 달이 아니라 고른 날을 요약한다 — 달을 옮겨도 고른 날의 값이 남는다. */}
       <PeriodHeadline
@@ -250,7 +282,16 @@ export function RecordsPage() {
           </h1>
           {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
               — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
-          <SegmentedControl value={mode} onChange={setMode} weeklyDisabled={userId === null} />
+          <SegmentedControl
+            value={mode}
+            onChange={(next) => {
+              if (next !== mode) {
+                trackRecordsViewChanged(next);
+              }
+              setMode(next);
+            }}
+            weeklyDisabled={userId === null}
+          />
         </div>
 
         {userId === null ? (

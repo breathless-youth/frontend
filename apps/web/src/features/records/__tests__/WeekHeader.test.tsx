@@ -16,6 +16,7 @@ describe("WeekHeader", () => {
         canGoNext={false}
         onPrevWeek={vi.fn()}
         onNextWeek={vi.fn()}
+        onOpenPicker={vi.fn()}
       />,
     );
 
@@ -34,6 +35,7 @@ describe("WeekHeader", () => {
         canGoNext
         onPrevWeek={vi.fn()}
         onNextWeek={vi.fn()}
+        onOpenPicker={vi.fn()}
       />,
     );
 
@@ -48,6 +50,7 @@ describe("WeekHeader", () => {
         canGoNext
         onPrevWeek={vi.fn()}
         onNextWeek={vi.fn()}
+        onOpenPicker={vi.fn()}
       />,
     );
 
@@ -65,6 +68,7 @@ describe("WeekHeader", () => {
         canGoNext
         onPrevWeek={onPrevWeek}
         onNextWeek={onNextWeek}
+        onOpenPicker={vi.fn()}
       />,
     );
 
@@ -80,6 +84,7 @@ describe("WeekHeader", () => {
         canGoNext={false}
         onPrevWeek={onPrevWeek}
         onNextWeek={onNextWeek}
+        onOpenPicker={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "다음 주" })).toBeDisabled();
