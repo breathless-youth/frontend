@@ -116,7 +116,7 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
         return null;
       }
       try {
-        const created = await createSubject({ name });
+        const created = await createSubject({ name: trimmed });
         // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
         setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
         trackSubjectItemAdded("subject", viaSuggestion);
@@ -192,14 +192,16 @@ export function useSubjects(enabled: boolean, onError: (message: string) => void
     renameSubject: (id: number, name: string) => {
       const trimmed = name.trim();
       // 지금 이름 그대로면 막지 않는다 — 서버와 같은 규칙이다.
-      const unchanged = subjects.some((subject) => subject.id === id && subject.name === trimmed);
-      if (!unchanged && subjects.some((subject) => subject.name === trimmed)) {
+      const current = subjectsRef.current;
+      const unchanged = current.some((subject) => subject.id === id && subject.name === trimmed);
+      if (!unchanged && current.some((subject) => subject.name === trimmed)) {
         onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
         return Promise.resolve();
       }
       return mutate(
-        (prev) => prev.map((subject) => (subject.id === id ? { ...subject, name } : subject)),
-        () => renameSubject(id, { name }),
+        (prev) =>
+          prev.map((subject) => (subject.id === id ? { ...subject, name: trimmed } : subject)),
+        () => renameSubject(id, { name: trimmed }),
       );
     },
     removeSubject: (id: number) =>

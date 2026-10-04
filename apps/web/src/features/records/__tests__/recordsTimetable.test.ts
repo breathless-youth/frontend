@@ -73,7 +73,7 @@ describe("recordsTimetable — 일간 응답을 2분 칸으로 바꾼다", () =>
   });
 
   it("과목별 합은 서버가 준 구간 값을 더하고 첫 등장 순을 지킨다", () => {
-    expect(subjectTotalsOf([session, session])).toEqual([
+    expect(subjectTotalsOf([session, session], subjectRefMap(undefined))).toEqual([
       { subjectId: 3, studySec: 5760, focusSec: 4560 },
       { subjectId: 5, studySec: 2400, focusSec: 2400 },
     ]);
@@ -91,6 +91,18 @@ describe("recordsTimetable — 일간 응답을 2분 칸으로 바꾼다", () =>
     ]);
     expect(map.get(5)?.deleted).toBe(true);
     expect(subjectRefMap(undefined).size).toBe(0);
+  });
+
+  it("이름이 같은 과목은 id가 달라도 살아있는 과목 한 줄·한 색으로 합친다", () => {
+    const map = subjectRefMap([
+      { id: 3, name: "소마", colorIndex: 2, deleted: true },
+      { id: 5, name: "소마", colorIndex: 7, deleted: false },
+    ]);
+
+    expect(map.get(3)).toEqual({ id: 5, name: "소마", colorIndex: 7, deleted: false });
+    expect(subjectTotalsOf([session], map)).toEqual([
+      { subjectId: 5, studySec: 4080, focusSec: 3480 },
+    ]);
   });
 });
 
