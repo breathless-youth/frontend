@@ -379,7 +379,7 @@ describe("createPeerMesh — 연결 수립", () => {
 });
 
 describe("createPeerMesh — 트랙과 품질", () => {
-  it("로컬 스트림을 설정하면 각 PC에 addTrack되고 240p·15fps·200kbps가 걸린다", async () => {
+  it("로컬 스트림을 설정하면 각 PC에 addTrack되고 360p·15fps·350kbps가 걸린다", async () => {
     const { channel, mesh, pcs } = setup();
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8)] });
     await vi.waitFor(() => expect(pcs).toHaveLength(1));

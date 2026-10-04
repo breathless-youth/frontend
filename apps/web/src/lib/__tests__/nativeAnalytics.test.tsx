@@ -82,7 +82,7 @@ describe("useNativeAnalyticsRelay", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
 
     render(<Harness />);
-    nativeEntry()?.(JSON.stringify({ type: "ping", id: 1, atMs: 1 }));
+    nativeEntry()?.(JSON.stringify({ type: "session-closed", atMs: 1 }));
 
     expect(mocks.trackNativeShellEvent).not.toHaveBeenCalled();
   });

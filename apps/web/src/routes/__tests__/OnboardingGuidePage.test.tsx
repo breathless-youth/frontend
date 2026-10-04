@@ -77,10 +77,10 @@ function renderGuideAt(path: string) {
 }
 
 describe("/onboarding-guide — 단계 전환", () => {
-  it("'다음'으로 G1→G5까지 이동하고 마지막 CTA만 '집중 시작하기'가 된다 (entry=focus-start)", () => {
+  it("'다음'으로 G1→G5까지 이동하고 마지막 CTA만 '집중 시작하기'가 된다 (entry=focus-start)", async () => {
     renderAt("/onboarding-guide?entry=focus-start");
 
-    expect(screen.getByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
+    expect(await screen.findByText("순공시간이 여기에 쌓여요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
     expect(screen.getByText("휴식 중에는 잠시 멈춰요")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: GUIDE_NEXT_LABEL }));
@@ -239,12 +239,12 @@ describe("/onboarding-guide — 종료 플로우(완료 플래그 저장 · 쿼�
   });
 
   it("건너뛰기를 눌러도 '봤다'로 기록하지만, 재진입 진입에서는 세션으로 이어지지 않는다", async () => {
-    renderGuideAt("/onboarding-guide?entry=home-card&userId=42");
+    renderGuideAt("/onboarding-guide?entry=settings&userId=42");
 
     fireEvent.click(screen.getByRole("button", { name: GUIDE_SKIP_LABEL }));
 
     const homeStub = await screen.findByTestId("home-stub");
-    expect(homeStub.textContent).toBe("/home?entry=home-card&userId=42");
+    expect(homeStub.textContent).toBe("/home?entry=settings&userId=42");
     expect(screen.queryByTestId("room-stub")).not.toBeInTheDocument();
     await waitFor(async () => {
       await expect(store.hasSeenGuide()).resolves.toBe(true);
@@ -328,9 +328,9 @@ describe("/onboarding-guide — 진입 계측 (BY-616 최종 검토)", () => {
     expect(analytics.trackGuideEntered).toHaveBeenCalledTimes(1);
   });
 
-  it("entry가 없으면 홈 가이드 카드 진입(home-card)으로 남긴다 — 페이지의 기본값과 같다", () => {
+  it("entry가 없으면 출처 없음(unknown)으로 남긴다 — 페이지의 기본값과 같다", () => {
     renderGuideAt("/onboarding-guide?userId=7");
 
-    expect(analytics.trackGuideEntered.mock.calls).toEqual([["home-card"]]);
+    expect(analytics.trackGuideEntered.mock.calls).toEqual([["unknown"]]);
   });
 });

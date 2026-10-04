@@ -8,6 +8,7 @@ import {
 import * as Sentry from "@sentry/react";
 
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
+import { whenIdle } from "./whenIdle";
 
 /**
  * `@sentry/react`는 `TransactionEvent`·`SpanJSON`을 재수출하지 않는다(`ErrorEvent`는 한다).
@@ -49,34 +50,13 @@ export function initSentry() {
         createRoutesFromChildren,
         matchRoutes,
       }),
-      /**
-       * Session Replay
-       *
-       * - `blockAllMedia: true`는 기본값이지만 계약이라 명시한다.
-       * - `maskAllText: false`는 타이머·집중률 등 화면 텍스트를 남긴다. Amplitude 리플레이에서
-       *   이미 허용된 범위와 동일하다. 입력 필드 마스킹은 기본값을 유지한다.
-       */
-      Sentry.replayIntegration({
-        blockAllMedia: true,
-        maskAllText: false,
-        // 녹화 안의 브레드크럼·성능 스팬 URL도 4종 콜백을 거치지 않아 이 훅이 씻는다.
-        // 단 SDK가 custom 이벤트에만 불러 주므로 rrweb Meta의 href는 여기서 못 씻고,
-        // 아래 transport의 makeScrubbingTransport가 막는다.
-        beforeAddRecordingEvent: scrubRecordingEvent,
-        /**
-         * **`transport`의 정제와 한 세트다. 하나만 되돌리면 유출이 부활하거나 수집이 멈춘다.**
-         * 압축을 켜면 녹화가 바이트로 직렬화돼 전송 계층에서 문자열 정제가 불가능해지고,
-         * 그 경우 transport는 fail-closed로 리플레이를 통째로 버린다.
-         */
-        useCompression: false,
-      }),
     ],
     // 성능 트레이스는 표본만 수집한다 — 에러는 샘플링과 무관하게 전부 잡힌다.
     tracesSampleRate: 0.2,
     // 리플레이는 일반 세션 10% 표본, 에러가 난 세션은 전부 수집한다.
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
-    // 리플레이 녹화의 userId를 전송 직전에 지우는 최종 방어선. 위 replayIntegration의
+    // 리플레이 녹화의 userId를 전송 직전에 지우는 최종 방어선. 아래 `addReplayIntegration`의
     // `useCompression: false`와 한 세트다.
     transport: makeScrubbingTransport,
     sendDefaultPii: false,
@@ -98,6 +78,47 @@ export function initSentry() {
    * 모든 이벤트에 불리므로 replay_event만 골라 씻는다.
    */
   Sentry.addEventProcessor(scrubReplayEvent);
+  whenIdle(() => void addReplayIntegration());
+}
+
+/**
+ * Session Replay 지연 등록
+ *
+ * 리플레이 코드는 초기 JS에서 큰 몫이라 첫 화면 뒤 유휴 시간에 받아 붙인다.
+ * `@sentry/react`에서 `import()`하면 같은 패키지가 정적으로도 실려 청크가 나뉘지 않아, 리플레이 패키지를 직접 불러온다.
+ * 샘플링 비율과 정제 transport는 init 때 걸려 있어 늦게 붙어도 그대로 적용된다.
+ * 그 대가로 앱 시작 뒤 1~2초 사이에 난 오류에는 리플레이가 붙지 않는다.
+ * 로드에 실패하면 리플레이만 빠지고 오류 수집은 계속된다.
+ */
+async function addReplayIntegration(): Promise<void> {
+  try {
+    const { replayIntegration } = await import("@sentry/replay");
+    Sentry.addIntegration(
+      /**
+       * Session Replay
+       *
+       * - `blockAllMedia: true`는 기본값이지만 계약이라 명시한다.
+       * - `maskAllText: false`는 타이머·집중률 등 화면 텍스트를 남긴다. Amplitude 리플레이에서
+       *   이미 허용된 범위와 동일하다. 입력 필드 마스킹은 기본값을 유지한다.
+       */
+      replayIntegration({
+        blockAllMedia: true,
+        maskAllText: false,
+        // 녹화 안의 브레드크럼·성능 스팬 URL도 4종 콜백을 거치지 않아 이 훅이 씻는다.
+        // 단 SDK가 custom 이벤트에만 불러 주므로 rrweb Meta의 href는 여기서 못 씻고,
+        // 위 transport의 makeScrubbingTransport가 막는다.
+        beforeAddRecordingEvent: scrubRecordingEvent,
+        /**
+         * **`transport`의 정제와 한 세트다. 하나만 되돌리면 유출이 부활하거나 수집이 멈춘다.**
+         * 압축을 켜면 녹화가 바이트로 직렬화돼 전송 계층에서 문자열 정제가 불가능해지고,
+         * 그 경우 transport는 fail-closed로 리플레이를 통째로 버린다.
+         */
+        useCompression: false,
+      }),
+    );
+  } catch {
+    return;
+  }
 }
 
 /**

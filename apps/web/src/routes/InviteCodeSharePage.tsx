@@ -3,14 +3,16 @@ import { Copy, Share, X } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Toast } from "@/components/ui/toast";
+import { CtaToaster } from "@/components/ui/sonner";
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
+import { trackMetaInviteShared } from "@/lib/metaAppEvents";
+import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
+import { showCtaToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
-import { useToast } from "@/lib/useToast";
 
 /**
  * 초대코드 공유
@@ -33,7 +35,6 @@ function isShareState(state: unknown): state is ShareState {
 export function InviteCodeSharePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message: toastMessage, showToast } = useToast();
 
   const userId = useUserId();
   const state: unknown = location.state;
@@ -41,21 +42,23 @@ export function InviteCodeSharePage() {
   const joinMutation = useMutation({
     mutationFn: (inviteCode: string) => enterLiveRoom(userId as number, inviteCode),
     onSuccess: (data, inviteCode) => {
-      navigate(
-        { pathname: `/social/room/${data.roomId}`, search: location.search },
-        {
-          state: {
-            inviteCode,
-            graceRejoin: data.graceRejoin,
-            iceServers: data.iceServers,
+      slideNavigate("forward", () =>
+        navigate(
+          { pathname: `/social/room/${data.roomId}`, search: location.search },
+          {
+            state: {
+              inviteCode,
+              graceRejoin: data.graceRejoin,
+              iceServers: data.iceServers,
+            },
           },
-        },
+        ),
       );
     },
     onError: (error) => {
       // 호스트의 자기 방 입장 실패(방 만료 등)도 같은 실패 축이다(BY-472).
       trackSocialRoomJoinFailed(joinErrorReason(error));
-      showToast(joinErrorMessage(error));
+      showCtaToast(joinErrorMessage(error));
     },
   });
 
@@ -75,12 +78,14 @@ export function InviteCodeSharePage() {
           onClick={() => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
             // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            navigate({ pathname: "/social", search: location.search }, { replace: true });
+            slideNavigate("back", () => {
+              const historyState = window.history.state as { idx?: number } | null;
+              if (historyState?.idx) {
+                navigate(-1);
+                return;
+              }
+              navigate({ pathname: "/social", search: location.search }, { replace: true });
+            });
           }}
           className="size-11 p-0"
         >
@@ -114,7 +119,8 @@ export function InviteCodeSharePage() {
               void copyInviteCode(state.inviteCode).then((copied) => {
                 // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
                 trackInviteShared(copied ? "copied" : "failed");
-                showToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
+                trackMetaInviteShared(copied ? "copied" : "failed");
+                showCtaToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
             }}
           >
@@ -127,10 +133,11 @@ export function InviteCodeSharePage() {
             onClick={() => {
               void shareInvite(state.inviteCode).then((result) => {
                 trackInviteShared(result);
+                trackMetaInviteShared(result);
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.
                 if (result === "copied") {
-                  showToast("초대코드를 복사했어요");
+                  showCtaToast("초대코드를 복사했어요");
                 }
               });
             }}
@@ -143,12 +150,7 @@ export function InviteCodeSharePage() {
 
       <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <div className="relative flex justify-center">
-          {toastMessage !== null && (
-            <Toast
-              message={toastMessage}
-              className="absolute bottom-[calc(100%+12px)] whitespace-nowrap"
-            />
-          )}
+          <CtaToaster />
         </div>
         <Button
           variant="default"

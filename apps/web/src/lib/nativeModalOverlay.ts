@@ -14,26 +14,52 @@ import { useSyncExternalStore } from "react";
  * 밖의 document라 어느 컴포넌트에도 속하지 않는다.
  */
 
-const MODAL_SELECTOR = '[aria-modal="true"]';
+/**
+ * 퇴장 애니메이션 중인 모달은 이미 닫힌 것으로 본다. Radix는 닫는 순간 `data-state="closed"`를 붙이고
+ * 애니메이션이 끝나야 요소를 걷어내는데, 걷어낼 때까지 기다리면 네이티브 탭 바가 시트가 다 내려간
+ * 뒤에야 돌아와 늦어 보인다. 열릴 때(요소가 붙는 순간 숨김)와 대칭으로 닫힘도 시작 시점에 알린다.
+ */
+const MODAL_ATTR_SELECTOR = '[aria-modal="true"]';
+const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"])`;
+
+/**
+ * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
+ * 화면 바닥에 붙는 시트는 떠 있는 탭 바가 시트 아래쪽(저장 버튼)을 가리므로 탭 바를 숨겨야 한다.
+ * 공용 `ui/sheet.tsx`가 `side="bottom"`일 때 단다.
+ */
+export const COVERS_TAB_BAR_ATTR = "data-covers-tab-bar";
+const COVERING_MODAL_SELECTOR = `${MODAL_SELECTOR}[${COVERS_TAB_BAR_ATTR}]`;
 
 let open = false;
+let coversTabBar = false;
 let observer: MutationObserver | null = null;
 const listeners = new Set<() => void>();
 
-function readDocument(): boolean {
-  return typeof document !== "undefined" && document.querySelector(MODAL_SELECTOR) !== null;
+function readDocument(): { open: boolean; coversTabBar: boolean } {
+  if (typeof document === "undefined") {
+    return { open: false, coversTabBar: false };
+  }
+  return {
+    open: document.querySelector(MODAL_SELECTOR) !== null,
+    coversTabBar: document.querySelector(COVERING_MODAL_SELECTOR) !== null,
+  };
 }
 
 function sync(): void {
   const next = readDocument();
-  if (open === next) {
+  if (open === next.open && coversTabBar === next.coversTabBar) {
     return;
   }
-  open = next;
+  open = next.open;
+  coversTabBar = next.coversTabBar;
   // 복사본을 돌려 순회 중 구독 해제가 일어나도 안전하게 한다.
   for (const listener of [...listeners]) {
     listener();
   }
+}
+
+function isModalMutation(record: MutationRecord): boolean {
+  return record.type === "childList" || (record.target as Element).matches(MODAL_ATTR_SELECTOR);
 }
 
 function subscribe(listener: () => void): () => void {
@@ -43,9 +69,20 @@ function subscribe(listener: () => void): () => void {
     typeof MutationObserver !== "undefined" &&
     typeof document !== "undefined"
   ) {
-    // 모달은 열고 닫힐 때 요소 자체가 붙었다 떨어진다 — 속성 변화는 볼 필요가 없다.
-    observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
+    // 요소가 붙고 떨어지는 것에 더해 `data-state`가 closed로 바뀌는 순간도 잡는다(위 셀렉터 주석).
+    // `data-state`는 툴팁·스위치·탭 같은 Radix 프리미티브 전부가 흔드는 속성이라, 모달 요소 자신의
+    // 변화가 아니면 문서 전체 질의를 건너뛴다.
+    observer = new MutationObserver((records) => {
+      if (records.some(isModalMutation)) {
+        sync();
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+    });
     sync();
   }
   return () => {
@@ -69,10 +106,20 @@ export function useModalOverlayOpen(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+function getCoversSnapshot(): boolean {
+  return coversTabBar;
+}
+
+/** 열린 모달이 탭 바 자리까지 덮는지(바텀시트). 열린 모달이 없으면 false다. */
+export function useModalOverlayCoversTabBar(): boolean {
+  return useSyncExternalStore(subscribe, getCoversSnapshot, getServerSnapshot);
+}
+
 /** 테스트 전용: 모듈 스코프 상태를 기본값으로 되돌린다. 프로덕션 코드에서는 호출하지 않는다. */
 export function __resetModalOverlayForTests(): void {
   observer?.disconnect();
   observer = null;
   open = false;
+  coversTabBar = false;
   listeners.clear();
 }

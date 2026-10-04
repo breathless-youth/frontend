@@ -56,6 +56,15 @@ export function weekdayIndexOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDay();
 }
 
+/**
+ * 월=0 … 일=6. 주 시작을 월요일로 두는 주간 뷰 전용 인덱스
+ * (일=0…토=6인 `weekdayIndexOfDateKey`를 월요일 기준으로 옮긴다).
+ * `mondayWeekDateKeys`의 오프셋과 주간 차트의 요일 슬롯이 같은 공식을 쓰도록 한곳에 둔다.
+ */
+export function mondayIndexOfDateKey(dateKey: string): number {
+  return (weekdayIndexOfDateKey(dateKey) + 6) % 7;
+}
+
 export function dayOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDate();
 }
@@ -108,6 +117,30 @@ export function weekDateKeys(dateKey: string): string[] {
 /** `YYYY-MM-DD`는 사전순 비교가 곧 시간순 비교다. */
 export function isFutureDateKey(dateKey: string, todayKey: string): boolean {
   return dateKey > todayKey;
+}
+
+export type WeekDotState = "done" | "today" | "none";
+
+export type StreakWeekDay = {
+  dateKey: string;
+  /** 일~토 */
+  weekdayLabel: string;
+  dayOfMonth: number;
+  state: WeekDotState;
+};
+
+/**
+ * 이번 주(일~토) 도트 7개. 오늘은 공부 여부와 무관하게 `today`, 공부한 날은 `done`, 나머지는
+ * `none`이다. 홈 연속 공부 카드와 기록 탭 배너가 같은 배열을 그린다.
+ */
+export function buildStreakWeek(todayKey: string, doneDates: readonly string[]): StreakWeekDay[] {
+  const done = new Set(doneDates);
+  return weekDateKeys(todayKey).map((dateKey) => ({
+    dateKey,
+    weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
+    dayOfMonth: dayOfDateKey(dateKey),
+    state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
+  }));
 }
 
 /**
@@ -178,6 +211,7 @@ const EVENT_SHORT_LABELS: Record<StudyEventStatus, string> = {
   AWAY: "자리 이탈",
   PHONE: "휴대폰",
   DEVICE: "기기 조작",
+  SLEEP: "졸음",
   PAUSE: "일시정지",
 };
 
@@ -193,7 +227,8 @@ const EVENT_CHIP_ORDER_INDEX = {
   AWAY: 0,
   PHONE: 1,
   DEVICE: 2,
-  PAUSE: 3,
+  SLEEP: 3,
+  PAUSE: 4,
 } as const satisfies Record<StudyEventStatus, number>;
 const EVENT_CHIP_ORDER = Object.keys(EVENT_CHIP_ORDER_INDEX) as StudyEventStatus[];
 

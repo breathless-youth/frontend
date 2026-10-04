@@ -66,37 +66,6 @@ export function IconChevronLeft({
 }
 
 /**
- * S5 연속 공부 배너의 주간 체크 도트 안 체크 표시(Figma `icon/check-sm` 32:33 — 프레임 13×13).
- * 브랜드 색 원 위에 얹히는 아이콘이라 색이 `text/onBrand` 고정이다(라이트·다크 동일값 `#FFFFFF`라
- * 토큰 조회가 필요 없다 — 원본과 동일 방침).
- */
-export function IconCheckSm({
-  color = "#FFFFFF",
-  size = 13,
-  ...rest
-}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
-  // 익스포트 원본 10.21×8.36이 13×13 프레임 안에 들어간다 — size는 프레임 기준.
-  return (
-    <svg
-      width={(size * 10.2143) / 13}
-      height={(size * 8.35716) / 13}
-      viewBox="0 0 10.2143 8.35716"
-      fill="none"
-      aria-hidden="true"
-      {...rest}
-    >
-      <path
-        d="M0.928571 4.64287L3.71429 7.42859L9.28571 0.928588"
-        stroke={color}
-        strokeWidth={1.85714}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/**
  * S5 기록의 정렬 라벨 옆 셰브런(Figma `icon/chevron-down` 32:42 — 프레임 9×6).
  * V1.0 정렬은 최신순 고정이라 **장식이다** — 누를 수 없는 자리에 놓는다
  * (`SCR-S5-records.md` Interaction Contract / Current Limitations 참고).

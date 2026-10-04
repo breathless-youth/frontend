@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { subscribeToNativeMessages } from "./bridge";
@@ -11,23 +11,24 @@ import { subscribeToNativeMessages } from "./bridge";
  * 신호와 실행이 갈린다(`set-tab-bar`의 역방향과 같은 구도).
  *
  * `replace`로 이동한다 — 초기화가 히스토리에 새 층을 쌓으면 다음 초기화가 되돌릴 층만 는다.
- * 쿼리는 현재 값을 승계한다(`userId` 등 셸 계약 파라미터 유지). 브라우저 단독 모드에서는
+ * 쿼리는 현재 값을 그대로 둔다(셸이 붙인 appVersion·기능 표시와 구 앱 웹뷰의 `userId` 유지). 브라우저 단독 모드에서는
  * 메시지가 오지 않아 무동작이다.
  */
 export function useNativeRouteReset(): void {
   const navigate = useNavigate();
-  // 구독은 마운트 1회만 걸고 최신 쿼리는 ref로 읽는다 — search가 바뀔 때마다 구독을 다시
+  // 구독은 마운트 1회만 걸고 최신 쿼리는 useEffectEvent로 읽는다 — search가 바뀔 때마다 구독을 다시
   // 만들면 그 사이에 도착한 메시지를 놓칠 수 있다.
   const { search } = useLocation();
-  const searchRef = useRef(search);
-  searchRef.current = search;
+  const resetTo = useEffectEvent((path: string) => {
+    void navigate({ pathname: path, search }, { replace: true });
+  });
 
   useEffect(() => {
     return subscribeToNativeMessages((message) => {
       if (message.type !== "reset-route") {
         return;
       }
-      void navigate({ pathname: message.path, search: searchRef.current }, { replace: true });
+      resetTo(message.path);
     });
-  }, [navigate]);
+  }, []);
 }

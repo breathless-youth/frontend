@@ -2,7 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ToNativeMessage } from "@focusmakers/types";
+import type { HandlerMessage } from "@focusmakers/types";
 
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
@@ -57,7 +57,7 @@ export default function SessionRoomScreen() {
    * 아래 effect의 cleanup이 맡는다.
    */
   const handleMessage = useCallback(
-    (message: ToNativeMessage, reply: BridgeReply) => {
+    (message: HandlerMessage, reply: BridgeReply) => {
       replyRef.current = reply;
       if (message.type === "motion-sensor") {
         if (message.enabled) {

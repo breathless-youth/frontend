@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
+import { trackMetaTutorialCompleted } from "@/lib/metaAppEvents";
 
 import {
   GUIDE_CLOSE_LABEL,
@@ -142,7 +143,7 @@ function StepBody({
 export function OnboardingGuideFlow({
   onFinish,
   isReentry,
-  entry = "home-card",
+  entry = "unknown",
 }: {
   /** 완료·건너뛰기 **둘 다** 여기로 나온다 — 이후 동작은 호출부(플로우 오케스트레이션)가 정한다. */
   onFinish: (reason: OnboardingGuideExitReason) => void;
@@ -175,6 +176,8 @@ export function OnboardingGuideFlow({
   const finish = useCallback(
     (reason: OnboardingGuideExitReason) => {
       trackGuideFinished({ reason, step: stepIndex + 1, entry });
+      // Meta 광고 전환 — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
+      if (reason === "completed") trackMetaTutorialCompleted();
       onFinish(reason);
     },
     [entry, onFinish, stepIndex],
@@ -216,8 +219,12 @@ export function OnboardingGuideFlow({
 
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.
-  useEffect(() => {
+  const [prevStepIndex, setPrevStepIndex] = useState(stepIndex);
+  if (stepIndex !== prevStepIndex) {
+    setPrevStepIndex(stepIndex);
     setElapsedSec(0);
+  }
+  useEffect(() => {
     const timer = setInterval(() => setElapsedSec((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
   }, [stepIndex]);

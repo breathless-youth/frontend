@@ -10,7 +10,7 @@ export type SoundGroup = {
 
 const LABELS: Record<SoundGroupId, string> = {
   noise: "노이즈",
-  ambience: "주변 소리",
+  ambience: "배경 소리",
   music: "음악",
 };
 

@@ -6,6 +6,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+  DISTRACTION_STATUSES,
   aggregateEvents,
   formatClockRange,
   formatClockTime,
@@ -264,6 +265,16 @@ describe("longestFocusStretch", () => {
     ).toBeNull();
   });
 
+  it("가장 긴 구간이 59초면 1분 미만이라 null이다", () => {
+    expect(longestFocusStretch(exampleSession({ events: [event("PAUSE", 0, 6241)] }))).toBeNull();
+  });
+
+  it("가장 긴 구간이 딱 60초면 그 구간을 돌려준다", () => {
+    const longest = longestFocusStretch(exampleSession({ events: [event("PAUSE", 0, 6240)] }));
+
+    expect(longest?.durationSec).toBe(60);
+  });
+
   it("겹친 이벤트가 와도 커서는 뒤로 가지 않는다 — 표시 방어", () => {
     // AWAY 0~3000 안에 PHONE 600~1200이 겹쳐 있어도 3000 이전에는 빈 구간이 없다.
     const longest = longestFocusStretch(
@@ -284,5 +295,26 @@ describe("longestFocusStretch", () => {
 
   it("toSessionResultView에 실린다", () => {
     expect(toSessionResultView(exampleSession()).longestFocus?.durationSec).toBe(2528);
+  });
+});
+
+describe("DISTRACTION_STATUSES", () => {
+  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP이다", () => {
+    expect([...DISTRACTION_STATUSES]).toEqual(["AWAY", "PHONE", "DEVICE", "SLEEP"]);
+  });
+
+  it("졸음 행이 보이고 휴식 합계에 들어간다", () => {
+    const withSleep = exampleSession({
+      events: [event("AWAY", 600, 300), event("SLEEP", 1200, 240), event("PAUSE", 2400, 180)],
+    });
+    const view = toSessionResultView(withSleep);
+
+    expect(view.distractions.map((t) => t.status)).toEqual(["AWAY", "SLEEP"]);
+    expect(view.distractions.find((t) => t.status === "SLEEP")).toMatchObject({
+      count: 1,
+      durationSec: 240,
+    });
+    // 일시정지는 휴식 합계에서 계속 빠진다.
+    expect(view.distractionSec).toBe(540);
   });
 });

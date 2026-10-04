@@ -15,14 +15,14 @@
  */
 export const RESULT_COPY = {
   /**
-   * 완료 히어로 타이틀·설명(BY-560). 출처는 BY-557 시안 프로토타입이다 — voice-tone.md에는 아직
-   * 없는 문구라 시안 문구를 그대로 쓴다(wiki 반영은 BY-557 확정 후).
+   * 완료 히어로 타이틀·설명. V2 시안(S4-1 공부 종료)의 문구를 그대로 쓴다 — 타이틀에 느낌표가
+   * 없고 설명은 한 줄로 짧다. voice-tone.md 반영은 V2 확정 후로 미룬다.
    *
    * 예전 타이틀 `공부 결과`(voice-tone §4)와 우상단 닫기(`64:553`)는 시안에서 빠졌다 —
    * 이탈은 하단 CTA 둘로만 한다.
    */
-  completeTitle: "오늘 공부 완료!",
-  completeDescription: "끝까지 해낸 시간이 그대로 기록됐어요",
+  completeTitle: "오늘 공부 완료",
+  completeDescription: "끝까지 해내셨네요!",
   /**
    * 히어로 지표 라벨(glossary 노출 표기). 시안은 `순공 시간`(띄어쓰기)이지만 glossary가 SSOT라
    * 붙여 쓴다 — 용어 교체는 BY-574 범위다.

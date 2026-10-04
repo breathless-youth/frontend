@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Appearance, AppState, Platform } from "react-native";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import type * as AuthModule from "../../lib/auth";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
 import {
   __resetNativeAnalyticsForTests,
@@ -30,7 +31,7 @@ type AuthListener = (state: {
 }) => void;
 const mockAuthListeners = new Set<AuthListener>();
 jest.mock("../../lib/auth", () => ({
-  ...jest.requireActual<typeof import("../../lib/auth")>("../../lib/auth"),
+  ...jest.requireActual<typeof AuthModule>("../../lib/auth"),
   subscribeAuth: (listener: AuthListener) => {
     mockAuthListeners.add(listener);
     return () => {
@@ -281,11 +282,11 @@ describe("RemoteWebViewHost", () => {
     });
     const reply = onBridgeMessage.mock.calls[0]![1] as (m: ToWebMessage) => void;
     act(() => {
-      reply({ type: "app-state", state: "active", atMs: 6 });
+      reply({ type: "camera-gate-result", granted: true, atMs: 6 });
     });
 
     expect(mockInjectJavaScript).toHaveBeenCalledWith(
-      expect.stringContaining('\\"type\\":\\"app-state\\"'),
+      expect.stringContaining('\\"type\\":\\"camera-gate-result\\"'),
     );
   });
 
@@ -369,6 +370,32 @@ describe("RemoteWebViewHost", () => {
 
     expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(true);
   });
+
+  it.each(["backforward", "other"] as const)(
+    "history shim이 쏘는 onLoadEnd(navigationType: %s)는 웹이 끈 제스처를 유지한다",
+    (navigationType) => {
+      render(<RemoteWebViewHost path="/social" testID="host" />);
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => {
+        onMessage({
+          nativeEvent: { data: '{"type":"set-back-gesture","enabled":false,"atMs":5}' },
+        });
+      });
+      expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+
+      // react-native-webview 13.16.1 iOS History API shim은 pushState·replaceState·popstate에도
+      // (setTimeout 뒤) onLoadingFinish를 쏘고 이때만 navigationType이 채워진다. 진짜 새 문서가
+      // 아니므로 웹이 방금 건 잠금을 되돌리면 안 된다.
+      const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as (event: {
+        nativeEvent: { navigationType?: string };
+      }) => void;
+      act(() => {
+        onLoadEnd({ nativeEvent: { navigationType } });
+      });
+
+      expect(screen.getByTestId("host").props.allowsBackForwardNavigationGestures).toBe(false);
+    },
+  );
 
   it("앱을 새로 켰으면 홈 웹뷰의 준비 신호에 app-launched로 응답한다", () => {
     mockAppLaunchPending = true;
@@ -647,13 +674,13 @@ describe("RemoteWebViewHost", () => {
     view.unmount();
 
     act(() => {
-      reply({ type: "app-state", state: "active", atMs: 6 });
+      reply({ type: "camera-gate-result", granted: true, atMs: 6 });
     });
 
     expect(mockInjectJavaScript).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalledWith(
       expect.stringContaining("[webview-bridge]"),
-      expect.objectContaining({ type: "app-state" }),
+      expect.objectContaining({ type: "camera-gate-result" }),
     );
     warn.mockRestore();
   });
@@ -744,6 +771,18 @@ describe("RemoteWebViewHost", () => {
     expect(screen.getByTestId("host").props.source).toBeUndefined();
   });
 
+  it("설정 누락으로 실패한 뒤 설정이 생기면 다시 시도가 그 베이스 URL로 연다", () => {
+    mockWebBaseUrl = "";
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    expect(screen.getByText("화면을 불러오지 못했어요")).toBeTruthy();
+
+    mockWebBaseUrl = "https://web.test";
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+    expect(screen.queryByText("화면을 불러오지 못했어요")).toBeNull();
+    expect(screen.getByTestId("host").props.source).toEqual({ uri: "https://web.test/home" });
+  });
+
   it("개발 빌드에서는 베이스 URL 미설정 사유를 노출한다", () => {
     mockWebBaseUrl = "";
 
@@ -796,6 +835,35 @@ describe("프로세스 종료 자동 복구 (BY-374)", () => {
     });
 
     expect(mockReload).toHaveBeenCalled();
+  });
+
+  it("iOS 프로세스 종료는 보고된 경로가 있어도 reload만 한다 — 재마운트도 복원 경로 반영도 없다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ appVersion: "1.4.2" }} testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: "report-screen",
+            path: "/social/room/42",
+            restoreQuery: { code: "0712" },
+            dark: true,
+            atMs: 1,
+          }),
+        },
+      });
+    });
+    const onTerminate = screen.getByTestId("host").props.onContentProcessDidTerminate as () => void;
+    act(() => {
+      onTerminate();
+    });
+
+    expect(mockReload).toHaveBeenCalledTimes(1);
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(1);
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social?");
+    expect(uri).not.toContain("/social/room/42");
   });
 
   it("Android 렌더 프로세스가 죽으면 웹뷰를 재마운트한다 — 죽은 인스턴스는 reload로 못 살린다", () => {
@@ -991,6 +1059,33 @@ describe("report-screen 복원 (BY-436)", () => {
     const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
     expect(uri).toContain("/social?");
     expect(uri).not.toContain("code=");
+  });
+
+  it("로드 실패 뒤 다시 시도도 보고된 경로로 연다 — 재시도 재마운트는 전역 복구와 같은 복원 규칙이다", () => {
+    render(<RemoteWebViewHost path="/social" query={{ appVersion: "1.4.2" }} testID="host" />);
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: "report-screen",
+            path: "/social/room/42",
+            restoreQuery: { code: "0712" },
+            dark: true,
+            atMs: 1,
+          }),
+        },
+      });
+    });
+    fireWebViewEvent("onError");
+    fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social/room/42");
+    expect(uri).toContain("code=0712");
+    expect(uri).toContain("appVersion=1.4.2");
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
   });
 });
 

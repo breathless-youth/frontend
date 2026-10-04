@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react-native";
 import { BackHandler } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
+import type * as OrientationModule from "../lib/orientation";
 
 /**
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
@@ -55,7 +56,7 @@ describe("SessionRoomScreen", () => {
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1",
+      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1",
     });
   });
 
@@ -87,7 +88,7 @@ describe("SessionRoomScreen", () => {
     });
 
     // `true` = "이 이벤트를 처리했으니 기본 동작(화면 닫기)을 하지 말라"
-    expect(spy.mock.calls.at(-1)?.[1]()).toBe(true);
+    expect(spy.mock.calls.at(-1)?.[1]({ type: "hardwareBackPress", timeStamp: 0 })).toBe(true);
     spy.mockRestore();
   });
 
@@ -99,7 +100,7 @@ describe("SessionRoomScreen", () => {
    */
   it("마운트에서 회전을 열고 언마운트에서 세로로 되잠근다", () => {
     const { lockPortrait, unlockForSession } =
-      jest.requireMock<typeof import("../lib/orientation")>("../lib/orientation");
+      jest.requireMock<typeof OrientationModule>("../lib/orientation");
     // 앞선 테스트들의 렌더가 남긴 호출 누적을 걷어낸다 — 이 테스트는 횟수를 단언한다.
     (lockPortrait as jest.Mock).mockClear();
     (unlockForSession as jest.Mock).mockClear();

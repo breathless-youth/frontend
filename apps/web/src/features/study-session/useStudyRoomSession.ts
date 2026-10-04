@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
 
@@ -14,6 +14,7 @@ import {
   trackStudySessionSubmitted,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { queryClient } from "@/lib/queryClient";
@@ -75,7 +76,7 @@ export type StudyRoomPhase =
   | { name: "unsaved"; studySec: number };
 
 export interface StudyRoomSessionOptions {
-  /** 기본값은 mock. 실제 구현체는 실기기 스파이크 이후 별도 티켓에서 주입한다. */
+  /** 기본값은 테스트용 mock이다. 실제 화면은 `RoomPage`가 `mediaStreamCamera` 구현체를 주입한다. */
   readonly camera?: CameraAdapter;
   readonly detector?: FocusDetector;
   /** 화면 꺼짐·백그라운드 신호원. 기본값은 표준 Page Visibility 기반 구현. */
@@ -139,7 +140,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
-  ambientUsageRef.current = options.ambientUsage;
+  useLayoutEffect(() => {
+    ambientUsageRef.current = options.ambientUsage;
+  });
 
   /**
    * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
@@ -216,18 +219,20 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   /**
    * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
    * ref인 이유는 스냅샷·제출이 렌더와 무관한 시점(인터벌·종료)에 최신 값을 읽기 때문이고,
-   * 화면이 볼 선택은 아래 state로 따로 든다.
+   * 화면은 선택이 바뀔 때만 갱신되는 아래 state 사본을 본다.
    */
   const subjectTrackerRef = useRef<SubjectSegmentTracker>(initial.subjectTracker);
-  const [subjectSelection, setSubjectSelection] = useState<SubjectSelection | null>(
-    () => initial.subjectTracker.current?.subjectId ?? null,
+  const [subjectTracker, setSubjectTracker] = useState<SubjectSegmentTracker>(
+    initial.subjectTracker,
   );
-  // 완료 할 일은 제출 때만 읽는다 — 옵션 객체가 매 렌더 새로 만들어져도 stale closure가 없게 ref로 든다.
+  // 완료 할 일은 제출 때만 읽는다 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있는다.
   const getCompletedTaskIdsRef = useRef(options.getCompletedTaskIds);
-  getCompletedTaskIdsRef.current = options.getCompletedTaskIds;
+  useLayoutEffect(() => {
+    getCompletedTaskIdsRef.current = options.getCompletedTaskIds;
+  });
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
-  const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
+  const detectionRef = useRef<DetectionState>(createDetectionState(initial.startedAtMs));
 
   /** 서버에서 받아 온 누적값 위에 지금 타임라인이 잰 값을 얹는다. */
   const withBase = useCallback(
@@ -315,6 +320,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
+    // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
+    trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
 
   /**
@@ -343,6 +350,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 동기 시작 어댑터(mock)는 여기서 이미 반영된다. 비동기 어댑터만 아래 then에서 뒤늦게 반영한다 —
     // 값이 그대로면 setState 자체를 호출하지 않아 불필요한 리렌더가 생기지 않는다.
     const runningAfterCall = camera.isRunning;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 카메라 어댑터의 시작 직후 상태를 곧바로 반영한다. mock 어댑터는 start()가 동기로 켜진다
     setIsCameraRunning(runningAfterCall);
     void starting.then(() => {
       if (!cancelled && camera.isRunning !== runningAfterCall) {
@@ -351,7 +359,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     });
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
-      const next = { ...signalsRef.current, [signal.trigger]: signal.active };
+      const next = { ...signalsRef.current, [signal.source]: signal.active };
       signalsRef.current = next;
       // 신호가 바뀐 시각을 다음 tick이 아니라 **수신 시각**으로 기록한다.
       // tick에서만 반영하면 유지시간 판정이 최대 tickMs만큼 늦어진다.
@@ -516,7 +524,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const selectSubject = useCallback((next: SubjectSelection | null) => {
     subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, Date.now());
-    setSubjectSelection(subjectTrackerRef.current.current?.subjectId ?? null);
+    setSubjectTracker(subjectTrackerRef.current);
   }, []);
 
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
@@ -578,6 +586,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
+        });
+        // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
+        trackMetaStudySessionEnded({
+          roomType,
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
         });
       }
 
@@ -661,6 +675,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const cameraStream = camera.stream ?? null;
 
+  // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 타이머 틱이 리렌더를 일으킬 때마다 새로 읽어 과목 시간이 타이머와 함께 흐른다
   const renderNowMs = Date.now();
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
@@ -680,13 +695,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     isCameraRunning,
     cameraStream,
     /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */
-    subjectSelection,
+    subjectSelection: subjectTracker.current?.subjectId ?? null,
     /**
      * 이 세션의 과목 구간(지금 구간은 현재 시각에서 닫음) — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서
      * 다시 읽는다. 렌더 시각으로 닫는 이유는 타이머 틱마다 리렌더가 나 값이 함께 흐르기 때문이다.
      */
-    subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, renderNowMs),
+    subjectSegments: materializeSubjectSegments(subjectTracker, renderNowMs),
     /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
+    // eslint-disable-next-line react-hooks/refs -- 타임라인은 틱·상태 전이 때만 바뀌고 그때마다 state가 함께 바뀌어 리렌더된다. 화면 표시용 사본이다
     sessionEvents: allEvents(renderNowMs),
     selectSubject,
     pause,

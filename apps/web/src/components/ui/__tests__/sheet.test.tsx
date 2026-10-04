@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
+
 import { Sheet, SheetContent, SheetTitle, sheetVariants } from "../sheet";
 
 /**
@@ -74,5 +76,49 @@ describe("Sheet 모션", () => {
     expect(dim.className).toContain("data-[state=closed]:fade-out-0");
     expect(dim.className).not.toContain("slide-in-from");
     expect(dim.className).not.toContain("slide-out-to");
+  });
+});
+
+describe("Sheet — 네이티브 탭 바", () => {
+  it("바닥 시트만 탭 바 자리를 덮는다고 표시한다", () => {
+    const { unmount } = render(
+      <Sheet open>
+        <SheetContent side="bottom">
+          <SheetTitle>D-Day</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog")).toHaveAttribute(COVERS_TAB_BAR_ATTR);
+    unmount();
+
+    render(
+      <Sheet open>
+        <SheetContent side="right">
+          <SheetTitle>배경음</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog")).not.toHaveAttribute(COVERS_TAB_BAR_ATTR);
+  });
+});
+
+describe("Sheet 모션 — 바닥 시트", () => {
+  it("바닥 시트는 페이드 없이 슬라이드만 하고, 열림·닫힘이 같은 곡선·길이다", () => {
+    const className = sheetVariants({ side: "bottom" });
+
+    expect(className).toContain("data-[state=open]:slide-in-from-bottom");
+    expect(className).toContain("data-[state=closed]:slide-out-to-bottom");
+    expect(className).not.toContain("fade-in");
+    expect(className).not.toContain("fade-out");
+    // 닫힘에 다른 곡선을 얹지 않는다 — base의 ease-overlay·duration-300이 양쪽에 그대로 적용된다
+    expect(className).not.toContain("data-[state=closed]:ease-");
+    expect(className).not.toContain("data-[state=closed]:duration-");
+  });
+
+  it("옆에서 나오는 시트는 그대로 페이드를 겸한다", () => {
+    const className = sheetVariants({ side: "right" });
+
+    expect(className).toContain("data-[state=open]:fade-in-0");
+    expect(className).toContain("data-[state=closed]:fade-out-0");
   });
 });

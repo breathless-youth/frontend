@@ -2,7 +2,7 @@
 
 ## Purpose
 
-공부(세션) 1회가 끝난 직후, 방금 무엇을 했는지 한 화면으로 정산해 보여주는 화면이다. 순공시간을 가장 크게 두고 집중률·총 공부 시간·시각 범위를 헤더에 모으고, 그 아래에 **공부 타임라인**(집중·비집중·일시정지 구간의 시간축 분포)과 **비집중 유형별 통계**(자리 이탈·휴대폰 사용·기기 조작 + 일시정지)를 둔다. "왜 내 시간이 이렇게 기록됐지?"에 대한 답을 이 화면이 담당한다(`ai-wiki/product/policies.md` §3 측정 정책).
+공부(세션) 1회가 끝난 직후, 방금 무엇을 했는지 한 화면으로 정산해 보여주는 화면이다. 순공시간을 가장 크게 두고 집중률·총 공부 시간·시각 범위를 헤더에 모으고, 그 아래에 **공부 타임라인**(집중·비집중·일시정지 구간의 시간축 분포)과 **비집중 유형별 통계**(자리 이탈·휴대폰 사용·기기 조작·졸음 + 일시정지)를 둔다. "왜 내 시간이 이렇게 기록됐지?"에 대한 답을 이 화면이 담당한다(`ai-wiki/product/policies.md` §3 측정 정책).
 
 세션 상태 머신(S3-1~S3-8)의 종착점이다. S3-7 종료 확인에서 사용자가 직접 끝냈든, S3-8 자동 종료로 끝났든 결과는 이 화면 하나로 수렴하고, CTA "확인"으로 홈(S1)으로 빠져나간다.
 
@@ -150,7 +150,7 @@ Figma 프레임에는 **로딩·에러·빈 결과 상태가 존재하지 않는
 
 ```ts
 // packages/types/src/index.ts — 이미 존재. 새로 만들지 말고 그대로 import한다.
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE";
+export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
 
 export interface StatusEventPayload {
   status: StudyEventStatus;
@@ -180,7 +180,7 @@ export interface StudySessionResponse {
 | `총 공부 N시간 M분`      | `studySec`                                   |                                                                                                                                                             |
 | `HH:MM – HH:MM`          | `startedAt` / `endedAt`                      | **벽시계**. 일시정지가 있으면 이 범위 > `studySec`                                                                                                          |
 | 타임라인 바 축           | `startedAt` → `endedAt`                      | 세그먼트 위치·너비를 이 벽시계 구간에 대한 비율로 계산                                                                                                      |
-| 타임라인 오렌지 세그먼트 | `events` 중 `AWAY`/`PHONE`/`DEVICE`          |                                                                                                                                                             |
+| 타임라인 오렌지 세그먼트 | `events` 중 `AWAY`/`PHONE`/`DEVICE`/`SLEEP`  |                                                                                                                                                             |
 | 타임라인 회색 세그먼트   | `events` 중 `PAUSE`                          | 있을 때만                                                                                                                                                   |
 | 통계 `자리 이탈` 행      | `events` 중 `AWAY`                           | 횟수 = 이벤트 개수, 시간 = `endedAt−startedAt` 합                                                                                                           |
 | 통계 `휴대폰 사용` 행    | `events` 중 `PHONE`                          |                                                                                                                                                             |
@@ -282,7 +282,7 @@ Figma의 예시값은 **구 모델(화면 꺼짐 = 비집중)** 기준이라 그
 | -------------------- | ------------------------------------------------------------------------------------------------------------- |
 | 일시정지 0회         | 통계의 일시정지 행 숨김 + 타임라인 범례에서 `일시정지` 숨김 + 회색 세그먼트 없음                              |
 | 일시정지 1회 이상    | 통계 행 노출(회색 도트) + 범례 3색 + 회색 세그먼트                                                            |
-| 비집중 3종 모두 0    | 통계 카드 타이틀·행 대신 `비집중 없이 이어간 공부예요` (voice-tone §4). 타임라인은 전부 파랑, 범례는 `집중`만 |
+| 비집중 4종 모두 0    | 통계 카드 타이틀·행 대신 `비집중 없이 이어간 공부예요` (voice-tone §4). 타임라인은 전부 파랑, 범례는 `집중`만 |
 | 특정 비집중 유형만 0 | 해당 행만 숨긴다(0회 행을 "0회"로 남기지 않는다 — Figma에 0회 행 시안 없음)                                   |
 
 ## Design Tokens Used
@@ -302,7 +302,7 @@ Figma의 예시값은 **구 모델(화면 꺼짐 = 비집중)** 기준이라 그
 | 집중(타임라인 바탕·범례 도트) | `colors.brand.primary`                                                                   | `#1b64da` / `#3182f6`                          |
 | 집중률 필 배경                | `colors.brand.subtle`                                                                    | `#e8f3ff` / `#1b2b4d`                          |
 | 집중률 필 텍스트              | `colors.brand.primary`                                                                   |                                                |
-| **비집중 도트·세그먼트**      | `colors.state.distract` (= `eventStatusColors.PHONE`/`DEVICE`/`AWAY`)                    | `#ff8a00` / `#ff9e1b`                          |
+| **비집중 도트·세그먼트**      | `colors.state.distract` (= `eventStatusColors.PHONE`/`DEVICE`/`AWAY`/`SLEEP`)            | `#ff8a00` / `#ff9e1b`                          |
 | CTA 배경 / 텍스트             | `colors.brand.primary` / `colors.text.onBrand`                                           |                                                |
 | 카드 반경 · CTA 반경          | `radius.lg` (16)                                                                         |                                                |
 | 필·도트·타임라인 바 반경      | `radius.full` (999)                                                                      |                                                |

@@ -373,6 +373,16 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 - **Tab bar height**: Cannot be measured programmatically
 - **FlatList transparency**: Use `disableTransparentOnScrollEdge` to fix issues
 - **Dynamic tabs**: Tabs must be static; changes remount navigator and lose state
+- **iOS 18 시뮬레이터**: Xcode 27에서는 iOS 18 시뮬레이터 런타임을 받을 수 없어(`xcodebuild -downloadPlatform iOS -buildVersion 18.x`가 "not available"을 돌려준다) iOS 18 확인은 실기기로 한다.
+
+## 확인된 동작 (SDK 57, 2026-10-02 실측)
+
+- `expo-router` 57.0.24의 `NativeTabs`는 `screenListeners.tabPress`로 네이티브 탭 누름을 알려 주고, 이 이벤트는 네비게이션 `JUMP_TO`보다 먼저 온다.
+- 트리거가 `disabled`면 누름은 막히지만 `tabPress`는 `data.isPrevented: true`를 달고 그대로 온다.
+- `state` 이벤트는 `screenListeners`에 라우트 없이 한 번 오고, 마운트 직후에도 한 번 와서 초기 탭을 기록할 수 있다.
+- iOS에서 탭 바가 보이면 웹뷰(WKWebView) 안 `env(safe-area-inset-bottom)`에 탭 바 높이가 들어가고(iPhone 17 Pro 시뮬레이터 기준 보일 때 83 = 49 + 34, `hidden`일 때 34) 웹뷰 높이는 그대로다.
+- `hidden` 전환은 페이드 없이 바로 바뀐다.
+- `disabled`는 네이티브 누름만 막고 JS의 `router.push`·`Link` 이동은 막지 않는다.
 
 ## Keyboard Handling (Android)
 

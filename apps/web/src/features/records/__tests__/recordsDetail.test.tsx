@@ -27,7 +27,7 @@ function session(over: Partial<StudySessionSummary> = {}): StudySessionSummary {
     studySec: 52 * 60,
     focusSec: 44 * 60,
     focusRate: 96,
-    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
     subjectSegments: [
       {
         subjectId: 1,
@@ -50,7 +50,7 @@ function listResponse(): StudySessionListResponse {
     totalFocusSec: 44 * 60,
     longestFocusSec: 44 * 60,
     focusRate: 96,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
     studiedDatesInMonth: [DATE],
     subjects,
   };

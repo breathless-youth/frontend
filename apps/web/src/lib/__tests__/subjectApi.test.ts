@@ -38,7 +38,7 @@ describe("reorderSubjects", () => {
     );
   });
 
-  it("과목 API라 API-Version 1을 명시한다 — apiFetch 기본값 2가 붙으면 400이 난다", async () => {
+  it("과목 API는 API-Version 1로 나간다 — 다른 값이면 서버가 400으로 거절한다", async () => {
     mockedFetch.mockResolvedValue(jsonResponse(200, []));
 
     await reorderSubjects({ subjectIds: [1] });

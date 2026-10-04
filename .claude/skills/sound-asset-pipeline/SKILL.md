@@ -61,6 +61,8 @@ bash .claude/skills/sound-asset-pipeline/scripts/encode-loop.sh raw/rain.wav app
 ```
 `id`는 코드의 `SoundId`와 1:1이다. `label`은 화면 문구이며 용어집(`docs/domain-glossary.md`) 확인 뒤 확정한다. 계약을 바꾸면 `_workspace/01_catalog_contract.json`을 먼저 고친다.
 
+`file` 값은 `이름-<sha256 앞 8자리>.mp3` 꼴이어야 한다. 이 경로는 1년 immutable 캐시로 나가므로 내용이 바뀌면 이름도 바뀌어야 한다. 해시는 `shasum -a 256 <파일> | cut -c1-8`로 얻고, 틀리면 `publicAssetHashes.test.ts`가 올바른 이름을 알려준다.
+
 ## 5. 라이선스 기록
 `apps/web/public/sounds/LICENSES.md`에 파일마다 한 표 행:
 

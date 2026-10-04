@@ -22,16 +22,23 @@ export function useLaunchSessionRecovery(userId: number | null): {
   dismiss: () => void;
 } {
   const queryClient = useQueryClient();
-  const [recovered, setRecovered] = useState<SessionRecoveryResponse | null>(null);
+  // 어느 사용자의 마감 결과인지 함께 들고 있어야 렌더 시점에 남의 값을 걸러낼 수 있다.
+  const [state, setState] = useState<{
+    userId: number | null;
+    result: SessionRecoveryResponse | null;
+  }>({ userId, result: null });
+
+  // 사용자가 바뀌면 이전 사용자의 결과를 들고 있으면 안 된다.
+  if (state.userId !== userId) {
+    setState({ userId, result: null });
+  }
 
   useEffect(() => {
     if (userId === null) {
       return;
     }
-    // 사용자가 바뀌면 이전 사용자의 결과를 들고 있으면 안 된다. 진행 중이던 마감이 화면
-    // 전환보다 늦게 끝나도 낡은 콜백이 남의 기록을 올리지 못하게 취소 플래그로 버린다.
+    // 진행 중이던 마감이 화면 전환보다 늦게 끝나도 낡은 콜백이 남의 기록을 올리지 못하게 취소 플래그로 버린다.
     let cancelled = false;
-    setRecovered(null);
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type !== "app-launched") {
         return;
@@ -44,7 +51,8 @@ export function useLaunchSessionRecovery(userId: number | null): {
         void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         if (result !== null && result.focusSec >= 60) {
           trackSessionRecoveryPrompted(result.focusSec);
-          setRecovered(result);
+          // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
+          setState((prev) => (prev.userId === userId ? { userId, result } : prev));
         }
       });
     });
@@ -61,8 +69,10 @@ export function useLaunchSessionRecovery(userId: number | null): {
 
   const dismiss = useCallback(() => {
     trackSessionRecoveryConfirmed();
-    setRecovered(null);
+    setState((prev) => ({ ...prev, result: null }));
   }, []);
 
+  // 되돌림을 예약한 이 렌더에서는 state가 아직 앞 사용자의 것이라 한 번 더 거른다.
+  const recovered = state.userId === userId ? state.result : null;
   return { recovered, dismiss };
 }

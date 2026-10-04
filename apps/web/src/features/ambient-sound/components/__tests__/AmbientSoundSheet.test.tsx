@@ -23,9 +23,11 @@ function renderSheet(overrides: Partial<AmbientSoundSheetProps> = {}) {
     mix: {},
     duckEnabled: true,
     blocked: false,
+    canRestore: false,
     onToggleSound: vi.fn(),
     onChangeLevel: vi.fn(),
     onSetDuckEnabled: vi.fn(),
+    onToggleAll: vi.fn(),
     onOpenChange: vi.fn(),
     ...overrides,
   };
@@ -48,6 +50,18 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     renderSheet();
 
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  /** document 의 스크롤 잠금이 시트 안 touchmove 를 막으면 iOS 가 탭을 클릭으로 만들지 않는다. */
+  it("시트 안 touchmove 는 document 까지 올라가지 않는다", () => {
+    renderSheet();
+    const onDocumentTouchMove = vi.fn();
+    document.addEventListener("touchmove", onDocumentTouchMove);
+
+    fireEvent.touchMove(screen.getByRole("switch", { name: "배경음" }));
+
+    document.removeEventListener("touchmove", onDocumentTouchMove);
+    expect(onDocumentTouchMove).not.toHaveBeenCalled();
   });
 
   /** 카메라 위라 딤도 세션 값이어야 한다. 전역 `--dim` 은 라이트 테마에서 뒤가 비친다. */
@@ -83,11 +97,11 @@ describe("AmbientSoundSheet — 음량 조절", () => {
    * 합성 노이즈와 녹음된 장면 소리를 한 목록에 쏟으면 성격이 다른 것이 섞여 고르기 어렵다.
    * 개수는 탭을 열어 보지 않고도 뭐가 몇 개인지 알려 준다.
    */
-  it("노이즈와 주변 소리 탭으로 나뉘고 각 탭에 개수가 붙는다", () => {
+  it("노이즈와 배경 소리 탭으로 나뉘고 각 탭에 개수가 붙는다", () => {
     renderSheet();
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["노이즈3", "주변 소리1"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["노이즈3", "배경 소리1"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
 
@@ -97,7 +111,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "빗소리" })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: /주변 소리/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /배경 소리/ }));
 
     expect(screen.getByRole("button", { name: "빗소리" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "백색소음" })).not.toBeInTheDocument();
@@ -124,7 +138,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
   it("켜진 소리의 줄은 aria-pressed 가 true 다", async () => {
     renderSheet({ mix: { rain: 70 } });
 
-    await userEvent.click(screen.getByRole("tab", { name: /주변 소리/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /배경 소리/ }));
 
     expect(screen.getByRole("button", { name: "빗소리" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("slider", { name: "빗소리 음량" })).toHaveValue("70");
@@ -220,10 +234,10 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     // 다른 소리에는 안내 버튼이 없다.
     expect(screen.queryByRole("button", { name: "백색소음 안내" })).not.toBeInTheDocument();
     // 열기 전에는 문구가 화면에 없다.
-    expect(screen.queryByText("이어폰을 껴야 제대로 들려요")).not.toBeInTheDocument();
+    expect(screen.queryByText("이어폰을 끼면 잘 들려요")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
-    expect(await screen.findByText("이어폰을 껴야 제대로 들려요")).toBeInTheDocument();
+    expect(await screen.findByText("이어폰을 끼면 잘 들려요")).toBeInTheDocument();
   });
 });
 
@@ -300,9 +314,11 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
             mix={{}}
             duckEnabled
             blocked={false}
+            canRestore={false}
             onToggleSound={vi.fn()}
             onChangeLevel={vi.fn()}
             onSetDuckEnabled={vi.fn()}
+            onToggleAll={vi.fn()}
             onOpenChange={setOpen}
           />
         </>
@@ -315,5 +331,81 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
     await userEvent.keyboard("{Escape}");
 
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("안내 문구를 연 채 시트를 닫았다 다시 열면 문구가 닫혀 있다", async () => {
+    // 도우미는 rerender 를 돌려주지 않아 바이노럴 한 줄짜리 목록으로 직접 그린다.
+    const props: AmbientSoundSheetProps = {
+      open: true,
+      container: null,
+      triggerRef: createRef<HTMLButtonElement>(),
+      catalog: [{ id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" }],
+      mix: {},
+      duckEnabled: true,
+      blocked: false,
+      canRestore: false,
+      onToggleSound: vi.fn(),
+      onChangeLevel: vi.fn(),
+      onSetDuckEnabled: vi.fn(),
+      onToggleAll: vi.fn(),
+      onOpenChange: vi.fn(),
+    };
+    const { rerender } = render(<AmbientSoundSheet {...props} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
+    expect(await screen.findByText("이어폰을 끼면 잘 들려요")).toBeInTheDocument();
+
+    rerender(<AmbientSoundSheet {...props} open={false} />);
+    // 다시 열면 첫 포커스를 받은 머리글 툴팁이 Radix 알림으로 다른 툴팁을 모두 닫는다.
+    // 그 알림을 막아 두어야 시트가 직접 문구를 닫는지만 볼 수 있다.
+    let blocked = 0;
+    const blockTooltipOpen = (event: Event) => {
+      blocked += 1;
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("tooltip.open", blockTooltipOpen, { capture: true });
+    try {
+      rerender(<AmbientSoundSheet {...props} open />);
+    } finally {
+      window.removeEventListener("tooltip.open", blockTooltipOpen, { capture: true });
+    }
+
+    // 알림을 하나도 막지 못했다면 Radix 쪽이 바뀐 것이라 이 테스트가 리셋을 가려내지 못한다.
+    expect(blocked).toBeGreaterThan(0);
+    // 시트 내용이 다시 그려진 것을 먼저 확인해야 문구가 없다는 단언이 의미를 가진다.
+    expect(screen.getByRole("button", { name: "바이노럴 비트 안내" })).toBeInTheDocument();
+    expect(screen.queryByText("이어폰을 끼면 잘 들려요")).not.toBeInTheDocument();
+  });
+});
+
+describe("AmbientSoundSheet — 배경음 전체 스위치", () => {
+  it("켜진 소리가 있으면 켜져 있고, 누르면 onToggleAll 을 부른다", async () => {
+    const props = renderSheet({ mix: { white: 60 }, canRestore: true });
+    const master = screen.getByRole("switch", { name: "배경음" });
+    expect(master).toHaveAttribute("aria-checked", "true");
+
+    await userEvent.click(master);
+
+    expect(props.onToggleAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("ON/OFF 줄이 없다", () => {
+    renderSheet({ mix: { white: 60 }, canRestore: true });
+
+    expect(screen.queryByText("ON/OFF")).not.toBeInTheDocument();
+  });
+
+  it("되살릴 조합이 없으면 꺼진 채 누를 수 없다", () => {
+    renderSheet({ mix: {}, canRestore: false });
+    const master = screen.getByRole("switch", { name: "배경음" });
+
+    expect(master).toHaveAttribute("aria-checked", "false");
+    expect(master).toBeDisabled();
+  });
+
+  it("꺼져 있어도 되살릴 조합이 있으면 누를 수 있다", () => {
+    renderSheet({ mix: {}, canRestore: true });
+
+    expect(screen.getByRole("switch", { name: "배경음" })).toBeEnabled();
   });
 });

@@ -336,6 +336,15 @@ describe("LiveRoomPage — 입장", () => {
     expect(screen.queryByRole("button", { name: "나가기" })).not.toBeInTheDocument();
   });
 
+  it("입장 대기와 세션 모두 시스템 테마와 무관하게 다크로 고정한다", async () => {
+    renderRoom();
+    expect(screen.getByTestId("live-room-page")).toHaveClass("theme-dark");
+
+    await enterRoom();
+
+    expect(screen.getByTestId("live-room-page")).toHaveClass("theme-dark");
+  });
+
   it("재-join이 실패하면 인라인 오류를 보여주고 다시 시도는 join부터 재시작한다", async () => {
     mockedRenewSeat.mockRejectedValue(new ApiError("정원 초과", 409, "CONFLICT"));
     renderRoom();

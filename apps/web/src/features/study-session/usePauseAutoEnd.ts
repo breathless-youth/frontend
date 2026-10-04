@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 import type { SystemPauseSource } from "./adapters/systemPauseSource";
 import type { PauseTrigger } from "./sessionState";
@@ -64,11 +64,9 @@ export function usePauseAutoEnd({
   now = Date.now,
 }: UsePauseAutoEndArgs): void {
   // 콜백·시계는 매 렌더 새 참조가 되기 쉬운데, effect 의존성에 넣으면 인터벌이 재시작된다.
-  // 판정 기준(sinceMs·임계값)이 아니므로 ref로 흘려보낸다.
-  const onAutoEndRef = useRef(onAutoEnd);
-  onAutoEndRef.current = onAutoEnd;
-  const nowRef = useRef(now);
-  nowRef.current = now;
+  // 판정 기준(sinceMs·임계값)이 아니므로 useEffectEvent로 흘려보낸다.
+  const fireAutoEnd = useEffectEvent(onAutoEnd);
+  const readNow = useEffectEvent(() => now());
   /**
    * 이미 자동 종료를 알린 일시정지 구간의 시작 시각. effect 바깥(ref)에 두는 이유는
    * **effect가 다시 실행돼도 같은 구간에서 두 번 발화하지 않게** 하기 위해서다 —
@@ -92,11 +90,11 @@ export function usePauseAutoEnd({
       }
       // **누적하지 않는다** — 매번 벽시계 경과를 다시 계산한다. 스로틀된 인터벌이 몇 번
       // 걸렀는지와 무관하게 같은 답이 나오는 것이 이 훅의 핵심이다.
-      if (nowRef.current() - pausedSinceMs < thresholdMs) {
+      if (readNow() - pausedSinceMs < thresholdMs) {
         return;
       }
       firedForSinceMsRef.current = pausedSinceMs;
-      onAutoEndRef.current(pauseTrigger);
+      fireAutoEnd(pauseTrigger);
     };
 
     // 구독 직후 1회 — 일시정지 중에 임계값 설정이 바뀌거나 재마운트된 경우를 즉시 판정한다.

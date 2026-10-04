@@ -8,7 +8,11 @@ import { loadEnv } from "vite";
 import type { Connect, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig } from "vitest/config";
 
-import { WASM_PUBLIC_DIR, WASM_SENTINEL_FILE } from "./scripts/copyMediapipeWasm.js";
+import {
+  MEDIAPIPE_VERSION,
+  WASM_PUBLIC_DIR,
+  WASM_SENTINEL_FILE,
+} from "./scripts/copyMediapipeWasm.js";
 import { assertNotProdApiHost, resolveApiBase } from "./scripts/resolveApiBase.js";
 
 /**
@@ -163,8 +167,10 @@ function tunnelServerOptions() {
  * - `VERCEL_GIT_COMMIT_SHA` — 배포 커밋
  *
  * 둘 다 `VITE_` 접두사가 없어 클라이언트에 자동 노출되지 않으므로 `define`으로 명시 주입한다.
+ * GitHub Actions 배포(`deploy-web.yml`)는 Vercel 변수가 없어 `GITHUB_SHA`를 쓴다.
+ * 이 대체가 없으면 GitHub에서 빌드한 릴리즈가 `local`이 되고 소스맵도 올라가지 않는다.
  */
-const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
+const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
 const RELEASE = COMMIT_SHA?.slice(0, 7) ?? "local";
 
 /**
@@ -189,6 +195,7 @@ const deployDefines = {
   __RELEASE__: JSON.stringify(RELEASE),
   __API_BASE__: JSON.stringify(API_BASE),
   __WEB_VERSION__: JSON.stringify(WEB_VERSION),
+  __MEDIAPIPE_VERSION__: JSON.stringify(MEDIAPIPE_VERSION),
 };
 
 /**
@@ -315,7 +322,13 @@ function warnMissingProxyTarget() {
 
 export default defineConfig({
   plugins: [
-    react(),
+    // 같은 설정을 dev 서버·vitest·build가 함께 읽으므로 컴파일러도 세 곳에 똑같이 걸린다.
+    // 테스트가 배포 산출물과 같은 변환을 거쳐야 컴파일러로 생긴 회귀를 테스트에서 잡을 수 있다.
+    react({
+      babel: {
+        plugins: [["babel-plugin-react-compiler", {}]],
+      },
+    }),
     tailwindcss(),
     requireMediapipeWasm(),
     sentrySourcemaps(),

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +46,7 @@ describe("RoomPage — 배경음 버튼·시트", () => {
     localStorage.clear();
   });
 
-  it("우상단 배경음 버튼이 꺼짐 상태로 있고 누르면 시트가 열린다", async () => {
+  it("배경음 버튼이 꺼짐 상태로 있고 누르면 시트가 열린다", async () => {
     renderRoom();
     const button = screen.getByRole("button", { name: "배경음" });
     expect(button).toHaveAttribute("aria-haspopup", "dialog");
@@ -58,17 +58,30 @@ describe("RoomPage — 배경음 버튼·시트", () => {
     expect(await screen.findByRole("slider", { name: "백색소음 음량" })).toBeInTheDocument();
   });
 
-  /**
-   * 가로 1행 3열은 비어 있지 않고 순공시간·총공부시간이 오른쪽 끝에 붙어 있다. 같은 높이에
-   * 두면 겹치므로 상태 필 아래로 내린다. jsdom 은 미디어쿼리를 평가하지 않아 클래스로 지킨다.
-   */
-  it("가로에서는 배경음 버튼이 상태 필 아래로 내려간다", () => {
+  it("배경음 버튼은 하단 바가 아니라 부가 기능 그룹에서 카메라 전환 위에 있다", () => {
     renderRoom();
 
-    const button = screen.getByRole("button", { name: "배경음" });
-    expect(button.className).toContain("landscape:top-[calc(env(safe-area-inset-top)+90px)]");
-    // 세로는 그대로 상단이다 — 그 아래가 가운데 타이머 자리라 좁은 기기에서 겹친다.
-    expect(button.className).toContain("top-[calc(env(safe-area-inset-top)+13px)]");
+    const namesIn = (group: string) =>
+      within(screen.getByRole("group", { name: group }))
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label"));
+    expect(namesIn("세션 컨트롤")).toEqual(["일시정지", "공부 종료"]);
+    expect(namesIn("부가 기능")).toEqual([expect.stringMatching(/^배경음/), "카메라 전환"]);
+  });
+
+  it("탭 순서가 부가 기능(배경음, 카메라 전환)에서 시작해 하단 바로 이어진다", async () => {
+    renderRoom();
+
+    const names: string[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      await userEvent.tab();
+      names.push(document.activeElement?.getAttribute("aria-label") ?? "");
+    }
+
+    const ambient = names.findIndex((name) => name.startsWith("배경음"));
+    expect(ambient).toBeGreaterThanOrEqual(0);
+    expect(names[ambient + 1]).toBe("카메라 전환");
+    expect(names.indexOf("일시정지")).toBeGreaterThan(ambient + 1);
   });
 
   /**

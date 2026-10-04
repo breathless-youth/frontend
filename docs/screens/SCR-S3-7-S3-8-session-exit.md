@@ -140,7 +140,7 @@ S3-8 · 자동 종료 안내
 
 ### 재사용하는 기존 타입 (`frontend/packages/types/src/index.ts` — 백엔드 Swagger 기준, 그대로 쓴다)
 
-- `StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "PAUSE"` — 일시정지 구간은 **`"PAUSE"`** 이벤트로 기록한다. 주석에 이미 `PAUSE=일시정지(총공부 타이머까지 정지)`로 정의돼 있어 6차 인터뷰의 통합 정책과 일치한다. **수동 일시정지와 화면 꺼짐·백그라운드를 구분하는 별도 status는 계약에 없다 — 둘 다 `PAUSE`로 보낸다**(새 status 값을 상상해 만들지 말 것).
+- `StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE"` — 일시정지 구간은 **`"PAUSE"`** 이벤트로 기록한다. 주석에 이미 `PAUSE=일시정지(총공부 타이머까지 정지)`로 정의돼 있어 6차 인터뷰의 통합 정책과 일치한다. **수동 일시정지와 화면 꺼짐·백그라운드를 구분하는 별도 status는 계약에 없다 — 둘 다 `PAUSE`로 보낸다**(새 status 값을 상상해 만들지 말 것).
 - `StatusEventPayload { status, startedAt, endedAt }` — UTC ISO-8601. 서버 규칙: **세션 구간 안 · 서로 겹침 불가 · 0초 불가.**
 - `StudySessionCreateRequest { userId, startedAt, endedAt, studySec, focusSec, events }` — 서버 규칙: `0 ≤ studySec ≤ (endedAt − startedAt) − PAUSE 시간 합`, `0 ≤ focusSec ≤ studySec`.
 - `StudySessionResponse { id, userId, statDate, startedAt, endedAt, studySec, focusSec, focusRate, events }` — **KST 자정을 넘는 세션은 날짜별로 분할돼 배열로 내려온다.**

@@ -2,14 +2,16 @@
 
 AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 모노레포. AI Vision으로 사용자의 공부 상태를 **단말 내부에서** 분석해 총 공부시간·순공시간·집중률을 제공하고, 싱글 스터디룸(개인 집중도 측정)과 멀티룸(WebRTC P2P 기반 그룹 화면 공유 — [ADR 0006](./docs/adr/0006-p2p-mesh-stomp-over-livekit.md))을 지원한다. 용어는 [docs/domain-glossary.md](./docs/domain-glossary.md) 참고.
 
+기획 명세, 용어의 사용자 노출 표기, 서비스 정책, 저장소 간 결정의 원본은 `.ai/` 서브모듈(팀 위키)이다. 작업 전에 [AGENTS.md](./AGENTS.md)의 "먼저 읽을 것"을 따르고, 비어 있으면 `git submodule update --init`으로 받는다. 이 파일의 아키텍처 경계와 개인정보 원칙, `docs/adr/`의 FE 결정, `docs/domain-glossary.md`의 API 필드명은 이 저장소가 기준이다.
+
 ## 아키텍처
 
-모바일 스터디룸은 `apps/web`을 WebView로 로드한다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
+모바일 앱은 카메라 권한 거부 안내(`apps/mobile/app/permission-denied.tsx`)를 뺀 모든 화면을 원격 URL 웹뷰로 열고, 화면 구현은 전부 `apps/web`에 있다([ADR 0001](./docs/adr/0001-webview-based-study-room-architecture.md)). 네이티브 셸이 직접 맡는 것은 탭바·스택·권한·스플래시·토큰뿐이고, 전체 구조는 [docs/architecture.md](./docs/architecture.md)에 있다. 이 방침으로 되돌린 경위와 무엇을 보존했는지는 [ADR 0003](./docs/adr/0003-phased-rollout-webview-mvp-then-native.md)에 나와있다. 초기 명세 기반 임시 구현을 삭제한 이력은 ADR 0003 갱신 노트에 있고 삭제 코드는 git 히스토리에서 복구한다. 설계·실측은 [vision-pipeline-design](./docs/superpowers/specs/2026-07-27-study-session-vision-pipeline-design.md) 참고.
 
 ## 모노레포 구조
 
-- `apps/mobile` — Expo RN 앱(`expo-router`). 앱 셸(인증/네비게이션) + 스터디룸은 WebView로 `apps/web`을 로드. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
-- `apps/web` — Vite + React 웹 앱. 스터디룸의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
+- `apps/mobile` — Expo RN 앱(`expo-router`). 탭바·스택·권한·스플래시·토큰을 맡는 네이티브 셸이고, 카메라 권한 거부 안내를 뺀 모든 화면은 원격 URL 웹뷰로 `apps/web`을 연다. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
+- `apps/web` — Vite + React 웹 앱. 홈·기록·설정·온보딩·세션·소셜을 포함한 모든 화면의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
 - `packages/types` — 서버 전송용/API 계약 도메인 타입. **실제 백엔드 Swagger 기준으로만 정의한다**(명세에 없는 타입 금지). `packages/design-tokens`는 공유 의미 기반 디자인 토큰(구현체는 공유 안 함), `packages/config`는 공유 ESLint/Prettier 설정.
 
 ## 아키텍처 경계 (반드시 유지)
@@ -67,3 +69,17 @@ pnpm --filter web dev      # web만
 | 날짜       | 변경 내용                                                                       | 대상 | 사유                                      |
 | ---------- | ------------------------------------------------------------------------------- | ---- | ----------------------------------------- |
 | 2026-09-20 | 초기 구성 (에이전트 3, 스킬 3, 설계 문서). 루트 `.claude/`에서 이 저장소로 이동 | 전체 | BY-682 브랜치에 하네스를 함께 두기로 결정 |
+
+## 하네스: Expo SDK 업그레이드
+
+**목표:** `apps/mobile`의 Expo SDK를 54에서 57로 올리면서 패치 3개, 네이티브 설정, 실기기 동작을 이전과 같게 유지한다.
+
+**트리거:** Expo SDK 업그레이드(BY-762와 하위 BY-803~807)의 착수·후속·부분 재실행 요청 시 `.claude/skills/expo-upgrade-orchestrator`를 사용하라. 단순 질문은 직접 응답 가능. 티켓·브랜치·PR은 `task-workflow`가 감싸고 이 하네스는 그 5단계 안에서 돈다.
+
+**변경 이력:**
+
+| 날짜       | 변경 내용                                                                             | 대상                                               | 사유                                          |
+| ---------- | ------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| 2026-10-01 | 초기 구성 (에이전트 3, 스킬 3)                                                        | 전체                                               | BY-762 SDK 57 업그레이드를 하네스로 실행      |
+| 2026-10-01 | 검증 명령 정정: expo-doctor는 `npx expo-doctor`, `pnpm why`는 `-r`                    | skills/expo-sdk-upgrade, expo-upgrade-orchestrator | 첫 실행에서 두 명령이 이 저장소에서 안 돌았다 |
+| 2026-10-01 | patch-commit이 pnpm-workspace.yaml을 다시 쓰는 함정과 lockfile 밖 사본 정리 항목 추가 | skills/pnpm-patch-retarget                         | 첫 실행에서 패치 담당이 겪음                  |

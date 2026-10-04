@@ -1,15 +1,17 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import type * as LazyRoutes from "@/routes/lazyRoutes";
 
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
-import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 // jsdom은 실제 내비게이션을 구현하지 않아 `window.location.assign`을 직접 검증할 수 없다 —
 // 하드 내비게이션은 이 모듈 단위로 모킹한다(`lib/hardNavigation.ts` 주석).
@@ -27,6 +29,13 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackOsSettingsOpened: analytics.trackOsSettingsOpened,
   trackSettingsRowPressed: analytics.trackSettingsRowPressed,
+}));
+
+const prefetchSettingsSubPages = vi.hoisted(() => vi.fn());
+
+vi.mock("@/routes/lazyRoutes", async (importOriginal) => ({
+  ...(await importOriginal<typeof LazyRoutes>()),
+  prefetchSettingsSubPages,
 }));
 
 /**
@@ -63,13 +72,34 @@ function renderSettingsWithGuideStub(path: string) {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.unstubAllGlobals();
   vi.useRealTimers();
   // 모듈 모킹된 hardNavigation 호출 기록이 테스트 간 새지 않게 한다.
   vi.clearAllMocks();
+  // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
+  act(() => {
+    toast.dismiss();
+  });
 });
 
+/** 네이티브가 `injectJavaScript`로 호출하는 전역을 테스트에서 대신 부른다. */
+function pushCameraPermission(granted: boolean) {
+  const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  act(() => {
+    receive(JSON.stringify({ type: "camera-permission", granted, atMs: 1 }));
+  });
+}
+
 describe("S6 · 설정", () => {
+  it("화면이 뜨면 하위 화면 청크를 미리 받는다", () => {
+    renderSettingsWithGuideStub("/settings");
+
+    expect(prefetchSettingsSubPages).toHaveBeenCalled();
+  });
+
   it("2개 그룹 6개 행을 확정 문구 그대로 보여준다", () => {
     renderAt("/settings");
 
@@ -144,28 +174,32 @@ describe("S6 · 설정", () => {
     expect(hardNavigate).toHaveBeenCalledWith("/contact?userId=7&appVersion=1.4.2");
   });
 
-  it("이용약관 행은 /terms 로 이동한다", () => {
+  it("이용약관 행은 /terms 로 이동한다", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "이용약관" }));
 
-    expect(screen.getByRole("heading", { name: TERMS_OF_SERVICE.title })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: TERMS_OF_SERVICE.title }),
+    ).toBeInTheDocument();
   });
 
-  it("개인정보처리방침 행은 /privacy 로 이동한다", () => {
+  it("개인정보처리방침 행은 /privacy 로 이동한다", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "개인정보처리방침" }));
 
-    expect(screen.getByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
   });
 
-  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", () => {
+  it("오픈소스 라이선스 행은 /licenses 로 이동한다 (BY-310)", async () => {
     renderAt("/settings");
 
     fireEvent.click(screen.getByRole("button", { name: "오픈소스 라이선스" }));
 
-    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Open Source Licenses" }),
+    ).toBeInTheDocument();
   });
 
   it("appVersion 쿼리와 웹 버전을 함께 버전 정보 행에 반영한다", () => {
@@ -188,39 +222,35 @@ describe("S6 · 설정", () => {
     expect(screen.getByRole("button", { name: "카메라 권한 안내" })).toBeInTheDocument();
   });
 
-  it("카메라 권한 행은 클릭 시 open-settings 메시지를 네이티브로 보낸다", () => {
+  it("카메라 권한 라벨은 글자이고, 토글을 감싼 버튼이 시스템 설정을 연다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderAt("/settings");
+
+    pushCameraPermission(true);
+
+    const toggle = screen.getByRole("button", { name: "카메라 권한, 허용됨, 시스템 설정 열기" });
+    expect(within(toggle).queryByText("카메라 권한")).not.toBeInTheDocument();
+    expect(screen.getByText("카메라 권한")).toBeInTheDocument();
+  });
+
+  it("카메라 권한 토글을 누르면 open-settings 메시지를 네이티브로 보낸다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     vi.useFakeTimers();
     vi.setSystemTime(new Date(1000));
 
     renderAt("/settings");
-    fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
+    pushCameraPermission(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: "카메라 권한, 허용 안 됨, 시스템 설정 열기" }),
+    );
 
     expect(postMessage).toHaveBeenCalledWith('{"type":"open-settings","atMs":1000}');
     // 설정 탭에서 OS 설정을 연 횟수(BY-616 확장) — 권한 회복 퍼널의 중간 단계.
     expect(analytics.trackOsSettingsOpened).toHaveBeenCalledWith("settings_tab");
   });
 
-  it("브라우저 단독 모드(브리지 없음)에서 카메라 권한 행을 눌러도 죽지 않는다", () => {
-    renderAt("/settings");
-
-    expect(() => {
-      fireEvent.click(screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }));
-    }).not.toThrow();
-  });
-
   describe("카메라 권한 토글", () => {
-    /** 네이티브가 `injectJavaScript`로 호출하는 전역을 테스트에서 대신 부른다. */
-    function pushCameraPermission(granted: boolean) {
-      const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
-        NATIVE_MESSAGE_ENTRY
-      ];
-      act(() => {
-        receive(JSON.stringify({ type: "camera-permission", granted, atMs: 1 }));
-      });
-    }
-
     it("마운트되면 네이티브에 권한 상태를 물어본다", () => {
       const postMessage = vi.fn();
       vi.stubGlobal("ReactNativeWebView", { postMessage });
@@ -232,14 +262,12 @@ describe("S6 · 설정", () => {
       );
     });
 
-    it("답을 받기 전에는 토글을 그리지 않는다 — 모름을 '허용 안 됨'으로 단언하지 않는다", () => {
+    it("답을 받기 전에는 토글도, 시스템 설정을 여는 버튼도 없다", () => {
       vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
 
       renderAt("/settings");
 
-      expect(
-        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
-      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /시스템 설정 열기/ })).not.toBeInTheDocument();
     });
 
     it("granted를 받으면 토글과 함께 허용됨으로 읽어준다", () => {
@@ -278,52 +306,47 @@ describe("S6 · 설정", () => {
       expect(postMessage.mock.calls.length).toBeGreaterThan(beforeReturn);
     });
 
-    it("브라우저 단독 모드에서는 묻지도, 토글을 그리지도 않는다", () => {
+    it("브라우저 단독 모드에서는 묻지도 않고, 누를 버튼도 없다", () => {
       renderAt("/settings");
 
       act(() => {
         document.dispatchEvent(new Event("visibilitychange"));
       });
 
-      expect(
-        screen.getByRole("button", { name: "카메라 권한, 시스템 설정 열기" }),
-      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /시스템 설정 열기/ })).not.toBeInTheDocument();
     });
   });
-});
 
-describe("프로필 저장 완료 토스트 (2026-08-25 BY-427 시안 A)", () => {
-  afterEach(() => {
-    sessionStorage.clear();
-  });
-
-  it("저장 플래그가 있으면 탭 바 복귀가 끝난 뒤 토스트를 보여주고 플래그를 소비한다", () => {
-    vi.useFakeTimers();
-    markProfileSaved();
-    const { unmount } = renderAt("/settings");
-
-    // 마운트 직후에는 아직 뜨지 않는다 — 네이티브 탭 바 복귀 애니메이션이 웹뷰 높이를
-    // 바꾸는 동안 하단 고정 토스트가 따라 움직이는 점프를 피한다(2026-08-25 실기기 피드백).
-    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
-
-    act(() => {
-      vi.advanceTimersByTime(450);
-    });
-    expect(screen.getByText("프로필이 저장됐어요")).toBeInTheDocument();
-
-    // 플래그는 1회성이다 — 다시 마운트하면(다른 경로로 재진입 등) 뜨지 않는다.
-    unmount();
-    renderAt("/settings");
-    act(() => {
-      vi.advanceTimersByTime(450);
-    });
-    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
-  });
-
-  it("플래그가 없으면 토스트가 뜨지 않는다", () => {
+  it("프로필 수정 행은 오른쪽에서 들어오는 전환으로 이동한다", async () => {
+    const { start, updateDone } = stubViewTransition();
     renderAt("/settings");
 
-    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /프로필 수정/ }));
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.dataset.pageTransition).toBe("forward");
+    await act(async () => {
+      await updateDone();
+    });
+    expect(screen.getByRole("heading", { name: "프로필 수정" })).toBeInTheDocument();
+  });
+
+  it("하위 화면의 뒤로 가기 버튼은 반대 방향 전환으로 돌아온다", async () => {
+    const { updateDone } = stubViewTransition();
+    renderAt("/settings");
+    fireEvent.click(screen.getByRole("button", { name: /이용약관/ }));
+    await act(async () => {
+      await updateDone();
+    });
+
+    const back = stubViewTransition();
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(document.documentElement.dataset.pageTransition).toBe("back");
+    await act(async () => {
+      await back.updateDone();
+    });
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 });
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
 import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { OPEN_SOURCE_ENTRIES } from "@/features/settings/openSourceLicenses";
+import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 // jsdom은 실제 내비게이션을 구현하지 않는다 — 하드 내비게이션은 모듈 단위로 모킹한다
 // (`lib/hardNavigation.ts` 주석, `settingsPage.test.tsx`와 같은 패턴). 판정 순수 함수는
@@ -26,6 +27,7 @@ function renderAt(path: string) {
 }
 
 afterEach(() => {
+  resetViewTransitionStub();
   vi.restoreAllMocks();
   vi.clearAllMocks();
   // 개별 테스트가 인스턴스에 씌운 referrer·history.length 셰도잉을 걷는다.
@@ -34,43 +36,46 @@ afterEach(() => {
 });
 
 describe("설정 하위 라우트", () => {
-  it("/terms 가 이용약관 본문을 렌더한다", () => {
+  it("/terms 가 이용약관 본문을 렌더한다", async () => {
     renderAt("/terms");
-    expect(screen.getByRole("heading", { name: TERMS_OF_SERVICE.title })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: TERMS_OF_SERVICE.title }),
+    ).toBeInTheDocument();
     expect(screen.getByText(TERMS_OF_SERVICE.sections[0].heading)).toBeInTheDocument();
   });
 
-  it("/privacy 가 개인정보처리방침 본문을 렌더한다", () => {
+  it("/privacy 가 개인정보처리방침 본문을 렌더한다", async () => {
     renderAt("/privacy");
-    expect(screen.getByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
     expect(screen.getByText(PRIVACY_POLICY.sections[0].heading)).toBeInTheDocument();
   });
 
-  it("/contact 가 문의 폼 iframe을 로딩 상태로 띄운다", () => {
+  it("/contact 가 문의 폼 iframe을 로딩 상태로 띄운다", async () => {
     renderAt("/contact");
-    expect(screen.getByText("문의 폼을 불러오는 중")).toBeInTheDocument();
+    expect(await screen.findByText("문의 폼을 불러오는 중")).toBeInTheDocument();
     const iframe = screen.getByTitle("문의하기");
     expect(iframe).toHaveAttribute("src", CONTACT_FORM_URL);
   });
 
-  it("/contact 의 iframe이 로드되면 로딩 표시가 사라진다", () => {
+  it("/contact 의 iframe이 로드되면 로딩 표시가 사라진다", async () => {
     renderAt("/contact");
-    const iframe = screen.getByTitle("문의하기");
+    const iframe = await screen.findByTitle("문의하기");
     fireEvent.load(iframe);
     expect(screen.queryByText("문의 폼을 불러오는 중")).not.toBeInTheDocument();
   });
 
-  it("/contact 의 iframe에서 error가 발생하면 실패 화면을 보여준다", () => {
+  it("/contact 의 iframe에서 error가 발생하면 실패 화면을 보여준다", async () => {
     renderAt("/contact");
-    const iframe = screen.getByTitle("문의하기");
+    const iframe = await screen.findByTitle("문의하기");
     fireEvent.error(iframe);
     expect(screen.getByText("문의 폼을 불러오지 못했어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
 
-  it("실패 화면에서 다시 시도를 누르면 실패 화면이 사라지고 iframe이 다시 렌더된다", () => {
+  it("실패 화면에서 다시 시도를 누르면 실패 화면이 사라지고 iframe이 다시 렌더된다", async () => {
     renderAt("/contact");
-    fireEvent.error(screen.getByTitle("문의하기"));
+    const iframe = await screen.findByTitle("문의하기");
+    fireEvent.error(iframe);
     expect(screen.getByText("문의 폼을 불러오지 못했어요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
@@ -79,9 +84,11 @@ describe("설정 하위 라우트", () => {
     expect(screen.getByTitle("문의하기")).toBeInTheDocument();
   });
 
-  it("/licenses 가 고지 항목과 라이선스 전문을 렌더한다 (BY-310)", () => {
+  it("/licenses 가 고지 항목과 라이선스 전문을 렌더한다 (BY-310)", async () => {
     renderAt("/licenses");
-    expect(screen.getByRole("heading", { name: "Open Source Licenses" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Open Source Licenses" }),
+    ).toBeInTheDocument();
     // 항목은 섹션·카드·강조 없이 한 문단으로 잇는다(2026-08-02 확정) — 이름 존재만 확인한다.
     for (const entry of OPEN_SOURCE_ENTRIES) {
       expect(document.body.textContent).toContain(entry.name);
@@ -90,24 +97,37 @@ describe("설정 하위 라우트", () => {
     expect(screen.getByText(/END OF TERMS AND CONDITIONS/)).toBeInTheDocument();
   });
 
-  it("뒤로 가기 버튼을 누르면 이전 경로로 돌아간다", () => {
+  it("뒤로 가기 버튼을 누르면 이전 경로로 돌아간다", async () => {
     render(
       <MemoryRouter initialEntries={["/settings", "/terms"]} initialIndex={1}>
         <App />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 
-  it("딥링크·새로고침으로 /terms에 곧장 진입하면(뒤로 갈 스택이 없으면) 설정으로 보낸다", () => {
+  it("딥링크·새로고침으로 /terms에 곧장 진입하면(뒤로 갈 스택이 없으면) 설정으로 보낸다", async () => {
     // 실제 앱은 BrowserRouter라 window.history.state.idx로 스택 깊이를 판단한다.
     // 새로고침·딥링크 직후에는 idx가 없으므로(진입 엔트리 1개) 그 상태를 그대로 재현한다.
     expect(window.history.state?.idx).toBeFalsy();
 
     renderAt("/terms");
-    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
 
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+
+  it("딥링크로 곧장 진입한 뒤로 가기도 뒤로 방향 전환을 쓴다", async () => {
+    const { updateDone } = stubViewTransition();
+    renderAt("/terms");
+
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
+
+    expect(document.documentElement.dataset.pageTransition).toBe("back");
+    await act(async () => {
+      await updateDone();
+    });
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
   });
 });
@@ -139,7 +159,7 @@ describe("/contact 문서 단위 뒤로 가기", () => {
     });
   });
 
-  it("설정에서 넘어온 경우 history.back()으로 이전 문서(COEP 걸린 설정)를 복원한다", () => {
+  it("설정에서 넘어온 경우 history.back()으로 이전 문서(COEP 걸린 설정)를 복원한다", async () => {
     Object.defineProperty(document, "referrer", {
       value: `${window.location.origin}/settings?userId=7`,
       configurable: true,
@@ -148,17 +168,17 @@ describe("/contact 문서 단위 뒤로 가기", () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
 
     renderAt("/contact?userId=7");
-    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
 
     expect(back).toHaveBeenCalledTimes(1);
     expect(hardReplace).not.toHaveBeenCalled();
   });
 
-  it("딥링크로 곧장 열렸으면 설정을 **하드 내비게이션**으로 연다(쿼리 승계) — SPA로 가면 이 문서의 'COEP 없음'이 설정 이후까지 승계된다", () => {
+  it("딥링크로 곧장 열렸으면 설정을 **하드 내비게이션**으로 연다(쿼리 승계) — SPA로 가면 이 문서의 'COEP 없음'이 설정 이후까지 승계된다", async () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
 
     renderAt("/contact?userId=7&appVersion=1.4.2");
-    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
 
     expect(hardReplace).toHaveBeenCalledWith("/settings?userId=7&appVersion=1.4.2");
     expect(back).not.toHaveBeenCalled();

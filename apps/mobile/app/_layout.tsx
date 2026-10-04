@@ -4,16 +4,19 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { resolveForceUpdate } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
+import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
+import { initMetaAds } from "../lib/metaAds";
+import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
-import { startPushMessaging } from "../lib/pushBootstrap";
+import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { ensureUserRegistered } from "../lib/userApi";
@@ -24,8 +27,17 @@ import { ensureUserRegistered } from "../lib/userApi";
  */
 initSentry();
 
-// NanumSquareRound 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
-// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 NanumSquareRound로 바뀌는 깜빡임(FOUT)이 보인다.
+// Meta 광고 SDK 어댑터 — Meta env가 주입된 빌드에서만 붙는다. 모듈 스코프인 이유는 위와 같다: 첫
+// 실행의 가입 완료 이벤트가 등록 경로(`lib/auth.ts`)에서 나오는데, 그보다 먼저 통로가 있어야
+// 큐에 들어간다. 실제 초기화·ATT 프롬프트는 홈이 그려진 뒤 `initMetaAds`가 한다.
+installMetaAdsSdk();
+
+// Firebase Analytics(GA4) 어댑터 — 웹뷰가 뜨자마자 브리지로 오는 이벤트를 받을 통로가 먼저 있어야 한다.
+// GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
+installFirebaseAnalyticsSdk();
+
+// Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
+// — 안 그러면 시스템 폰트로 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다.
 // 위 initSentry와 같은 이유로 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다.
 // 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -33,8 +45,9 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
-    NanumSquareRound: require("../assets/fonts/NanumSquareRound-Regular.ttf") as number,
-    NanumSquareRoundBold: require("../assets/fonts/NanumSquareRound-Bold.ttf") as number,
+    Pretendard: require("pretendard/dist/public/static/Pretendard-Regular.otf") as number,
+    PretendardLight: require("pretendard/dist/public/static/Pretendard-Light.otf") as number,
+    PretendardBold: require("pretendard/dist/public/static/Pretendard-Bold.otf") as number,
   });
   // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
   // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
@@ -70,11 +83,25 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
-  // 권장 알림창은 홈이 그려진 뒤(폰트·게이트 준비 후)에 띄운다 — 앱 시작을 막지 않는다. 최신 버전당 한 번만
-  // 묻는 판단은 `recommendedUpdateAlert`가 한다.
+  // 시작 때 뜨는 OS 창 셋을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 알림 권한 → 권장 업데이트
+  // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
+  // 않아 맨 앞이다. 홈이 그려진 뒤(폰트·게이트 통과)에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
+  // 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 첫 단계가 즉시 끝난다.
+  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞의 두 단계는 프라미스를
+  // 붙잡아 두어, effect가 다시 돌아도 권한 요청이 겹쳐 나가지 않는다.
+  const permissionPrompts = useRef<Promise<void> | null>(null);
   useEffect(() => {
-    if (updateGate !== "pass" || !fontsReady || recommendedVersion === null) return;
-    void recommendedUpdateAlert.maybeShow(recommendedVersion);
+    if (updateGate !== "pass" || !fontsReady) return;
+    let active = true;
+    permissionPrompts.current ??= initMetaAds().then(() => ensurePushPermission());
+    void permissionPrompts.current.then(() => {
+      if (active && recommendedVersion !== null) {
+        void recommendedUpdateAlert.maybeShow(recommendedVersion);
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [updateGate, fontsReady, recommendedVersion]);
 
   useEffect(() => {
@@ -93,8 +120,8 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 개발
-  // 빌드에서만 한다(`lib/pushBootstrap.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 위
+  // 시작 알림창 순서에서 한다. 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
   useEffect(() => startPushMessaging({ navigate: (route) => router.push(route) }), [router]);
 
   useEffect(() => {
@@ -112,7 +139,7 @@ function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // NanumSquareRound 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
+  // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
   if (!fontsReady || !gateReady) {
