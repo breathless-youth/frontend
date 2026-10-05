@@ -257,20 +257,22 @@ export function assemblePlannerDay(
     subjectRows,
     unassignedFocusSec: Math.max(0, focusSec - assignedSec),
     // 지난 날에는 그날 완료한 것만 보여 준다 — 미완료와 그날 뒤에 완료한 것은 버린다.
-    completedTasks: [...dayTasks.values()].flatMap((task) => {
-      const doneAtMs = task.doneAt === null ? Number.NaN : Date.parse(task.doneAt);
-      return doneAtMs >= window.startMs && doneAtMs < window.endMs
-        ? [
-            {
-              id: task.id,
-              name: task.name,
-              subjectId: canonical(task.subjectId),
-              doneAtMs,
-              deleted: task.deleted,
-            },
-          ]
-        : [];
-    }),
+    completedTasks: [...dayTasks.values()]
+      .flatMap((task) => {
+        const doneAtMs = task.doneAt === null ? Number.NaN : Date.parse(task.doneAt);
+        return doneAtMs >= window.startMs && doneAtMs < window.endMs
+          ? [
+              {
+                id: task.id,
+                name: task.name,
+                subjectId: canonical(task.subjectId),
+                doneAtMs,
+                deleted: task.deleted,
+              },
+            ]
+          : [];
+      })
+      .sort((a, b) => a.doneAtMs - b.doneAtMs),
     subjects: rawSubjects,
   };
 }

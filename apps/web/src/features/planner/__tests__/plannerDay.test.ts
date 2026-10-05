@@ -270,6 +270,21 @@ describe("그날 완료한 할 일", () => {
     expect(day.subjects.get(3)?.name).toBe("영어");
   });
 
+  it("완료한 할 일은 과목 순서와 상관없이 완료 시각 순이다", () => {
+    const day = assemblePlannerDay(
+      DAY,
+      stats([], {
+        subjects: [
+          { id: 3, name: "영어", colorIndex: 7, deleted: false, tasks: [task(1, kst(DAY, 21))] },
+          { id: 5, name: "수학", colorIndex: 5, deleted: false, tasks: [task(2, kst(DAY, 9))] },
+        ],
+      }),
+      stats([]),
+    );
+
+    expect(day.completedTasks.map((done) => done.id)).toEqual([2, 1]);
+  });
+
   it("과목에 할 일이 실려 오지 않는 서버의 응답이면 할 일 없이 조립한다", () => {
     const subjects = [{ id: 3, name: "영어", colorIndex: 7, deleted: false }];
     expect(

@@ -345,7 +345,9 @@ function WeekTrendBars({
                   // 공용 말풍선을 앱의 어두운 말풍선으로 덮어쓴다(배경·글자색 반전, 테두리·그림자 없음).
                   className="min-w-0 gap-0.5 rounded-[10px] border-0 bg-foreground px-2.5 py-2 leading-4 whitespace-nowrap text-background shadow-none"
                   labelClassName="font-bold"
-                  payload={payload?.toSorted((item) => (item.dataKey === "thisWeek" ? -1 : 1))}
+                  payload={payload
+                    ?.filter((item) => item.dataKey === "thisWeek")
+                    .concat(payload.filter((item) => item.dataKey !== "thisWeek"))}
                   labelFormatter={(day: string) => `${day}요일`}
                   formatter={(_value, _name, item) => {
                     const row = item.payload as TrendRow;

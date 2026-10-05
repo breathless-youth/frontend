@@ -4,7 +4,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 /**
  * 스와이프 커밋 임계(px) — 온보딩 가이드의 스텝 스와이프(`coachOverlayTheme.SWIPE_THRESHOLD_PX`)와
  * 같은 값이다. 앱 안의 가로 스와이프 감각을 하나로 맞춘다 — 공유 상수로 승격하지 않는 이유는
- * 두 feature가 서로 import하지 않는 경계를 지키기 위해서다(우연히 같은 값일 뿐 한쪽을 조정할
+ * 온보딩과 기록이 서로 import하지 않는 경계를 지키기 위해서다(우연히 같은 값일 뿐 한쪽을 조정할
  * 때 다른 쪽이 따라가야 한다는 계약이 아직 없다).
  */
 const SWIPE_THRESHOLD_PX = 48;

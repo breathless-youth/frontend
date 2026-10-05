@@ -1,7 +1,9 @@
 import type { StudySessionSummary } from "@focusmakers/types";
 
-import { ResultBarSegment } from "@/features/study-session/components/ResultCardParts";
-import { LegendItem } from "@/features/study-session/components/StudyTimelineCard";
+import {
+  ResultBarSegment,
+  ResultLegendItem,
+} from "@/features/study-session/components/ResultCardParts";
 import { LEGEND_COPY } from "@/features/study-session/resultCopy";
 import { longestFocusStretch, timelineSegments } from "@/features/study-session/sessionResult";
 
@@ -102,9 +104,9 @@ export function SessionListItem({ session, className }: SessionListItemProps) {
 export function SessionTimelineLegend() {
   return (
     <ul className="-mt-1 flex items-start gap-2 pb-3">
-      <LegendItem tone="focus" label={LEGEND_COPY.focus} />
-      <LegendItem tone="distract" label={LEGEND_COPY.distract} />
-      <LegendItem tone="pause" label={LEGEND_COPY.pause} />
+      <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
+      <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />
+      <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />
     </ul>
   );
 }
