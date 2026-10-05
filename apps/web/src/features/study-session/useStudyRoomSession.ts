@@ -605,16 +605,19 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       submitInFlightRef.current = true;
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
-      await submitStudySession({
-        startedAtMs: startedAtMsRef.current,
-        endedAtMs,
-        studySec: finalTotals.studySec,
-        focusSec: finalTotals.focusSec,
-        events,
-        subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
-        // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
-        completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
-      })
+      await Promise.resolve()
+        .then(() =>
+          submitStudySession({
+            startedAtMs: startedAtMsRef.current,
+            endedAtMs,
+            studySec: finalTotals.studySec,
+            focusSec: finalTotals.focusSec,
+            events,
+            subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
+            // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
+            completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+          }),
+        )
         .then((sessions) => {
           trackStudySessionSubmitted(true, attempt, roomType);
           // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
