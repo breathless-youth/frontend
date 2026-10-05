@@ -52,7 +52,7 @@ export function useBackgroundGraceWatch({
       // visibilitychange와 pagehide가 겹쳐 와도 첫 시각을 유지한다 — 뒤 신호로
       // 갱신하면 숨은 시간이 짧게 잡혀 만료를 놓친다.
       onLeave: () => {
-        hiddenAtMsRef.current ??= nowRef.current();
+        if (hiddenAtMsRef.current == null) hiddenAtMsRef.current = nowRef.current();
       },
       onReturn: () => {
         const hiddenAt = hiddenAtMsRef.current;
