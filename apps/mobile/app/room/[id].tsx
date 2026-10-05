@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { HandlerMessage } from "@focusmakers/types";
 
@@ -57,21 +57,18 @@ export default function SessionRoomScreen() {
    * 전환에만 오고, WebView가 통째로 사라지는 경로(모달 닫기)에서는 오지 않는다 — 그 정리는
    * 아래 effect의 cleanup이 맡는다.
    */
-  const handleMessage = useCallback(
-    (message: HandlerMessage, reply: BridgeReply) => {
-      replyRef.current = reply;
-      if (message.type === "motion-sensor") {
-        if (message.enabled) {
-          motionSource.start();
-        } else {
-          motionSource.stop();
-        }
-        return;
+  const handleMessage = (message: HandlerMessage, reply: BridgeReply) => {
+    replyRef.current = reply;
+    if (message.type === "motion-sensor") {
+      if (message.enabled) {
+        motionSource.start();
+      } else {
+        motionSource.stop();
       }
-      handleBridgeMessage(message, reply);
-    },
-    [motionSource],
-  );
+      return;
+    }
+    handleBridgeMessage(message, reply);
+  };
 
   /**
    * 가속도 원신호를 웹으로 올린다 — **boolean이 바뀔 때만** 간다(`createDeviceMotionSource`가
