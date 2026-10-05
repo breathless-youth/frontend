@@ -8,7 +8,7 @@ import SocialScreen from "../app/(tabs)/social";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
-const mockParams: { code?: string } = {};
+const mockParams: { code?: string; at?: string } = {};
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
   useIsFocused: () => true,
@@ -46,6 +46,7 @@ jest.mock("react-native-webview", () => {
 describe("SocialScreen", () => {
   afterEach(() => {
     delete mockParams.code;
+    delete mockParams.at;
   });
 
   it("/social 경로 + 탭 공용 쿼리(appVersion)로 조립한 URL을 로드한다", async () => {
@@ -82,5 +83,17 @@ describe("SocialScreen", () => {
     expect(screen.getByTestId("social-webview").props.source).toEqual({
       uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&nativeTabBar=1&code=5634",
     });
+  });
+
+  it("같은 코드라도 at이 바뀌면 웹뷰를 다시 마운트한다", async () => {
+    mockParams.code = "5634";
+    mockParams.at = "1";
+    const { rerender } = render(<SocialScreen />);
+    const first = await screen.findByTestId("social-webview");
+
+    mockParams.at = "2";
+    rerender(<SocialScreen />);
+
+    expect(await screen.findByTestId("social-webview")).not.toBe(first);
   });
 });

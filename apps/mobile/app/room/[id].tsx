@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { HandlerMessage } from "@focusmakers/types";
 
@@ -8,6 +8,7 @@ import { RemoteScreen } from "../../components/RemoteScreen";
 import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
 import { type BridgeReply, handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
+import { setSessionInviteHandler } from "../../lib/sessionInvite";
 
 /**
  * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 `RemoteScreen`으로 원격
@@ -56,21 +57,18 @@ export default function SessionRoomScreen() {
    * 전환에만 오고, WebView가 통째로 사라지는 경로(모달 닫기)에서는 오지 않는다 — 그 정리는
    * 아래 effect의 cleanup이 맡는다.
    */
-  const handleMessage = useCallback(
-    (message: HandlerMessage, reply: BridgeReply) => {
-      replyRef.current = reply;
-      if (message.type === "motion-sensor") {
-        if (message.enabled) {
-          motionSource.start();
-        } else {
-          motionSource.stop();
-        }
-        return;
+  const handleMessage = (message: HandlerMessage, reply: BridgeReply) => {
+    replyRef.current = reply;
+    if (message.type === "motion-sensor") {
+      if (message.enabled) {
+        motionSource.start();
+      } else {
+        motionSource.stop();
       }
-      handleBridgeMessage(message, reply);
-    },
-    [motionSource],
-  );
+      return;
+    }
+    handleBridgeMessage(message, reply);
+  };
 
   /**
    * 가속도 원신호를 웹으로 올린다 — **boolean이 바뀔 때만** 간다(`createDeviceMotionSource`가
@@ -89,6 +87,28 @@ export default function SessionRoomScreen() {
       motionSource.stop();
     };
   }, [motionSource]);
+
+  /**
+   * 세션 중에 들어온 초대를 웹으로 넘기는 창구
+   *
+   * 기록 저장은 웹만 시작할 수 있어서, 확인 창과 저장은 웹이 하고 끝나면 `navigate-home`으로 돌아온다.
+   * 웹이 아직 한 번도 메시지를 보내지 않았다면 로드 전이라 시작된 공부가 없으므로 바로 초대코드 화면으로 간다.
+   */
+  useEffect(
+    () =>
+      setSessionInviteHandler((code) => {
+        const reply = replyRef.current;
+        if (reply === null) {
+          handleBridgeMessage(
+            { type: "navigate-home", inviteCode: code, atMs: Date.now() },
+            () => undefined,
+          );
+          return;
+        }
+        reply({ type: "session-invite", code, atMs: Date.now() });
+      }),
+    [],
+  );
 
   return (
     <>

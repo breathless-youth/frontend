@@ -85,21 +85,18 @@ export function useSubjects(
   }, [enabled, reload, status]);
 
   /** 낙관적 반영 → 요청 → 실패 시 토스트 + 서버 값 복원. */
-  const mutate = useCallback(
-    async (
-      optimistic: (prev: SubjectResponse[]) => SubjectResponse[],
-      request: () => Promise<unknown>,
-    ) => {
-      setSubjects(optimistic);
-      try {
-        await request();
-      } catch (error) {
-        onErrorRef.current(saveErrorMessage(error));
-        void reload();
-      }
-    },
-    [reload],
-  );
+  const mutate = async (
+    optimistic: (prev: SubjectResponse[]) => SubjectResponse[],
+    request: () => Promise<unknown>,
+  ) => {
+    setSubjects(optimistic);
+    try {
+      await request();
+    } catch (error) {
+      onErrorRef.current(saveErrorMessage(error));
+      void reload();
+    }
+  };
 
   const patchTask =
     (subjectId: number, taskId: number, patch: Partial<TaskResponse>) =>
@@ -116,47 +113,44 @@ export function useSubjects(
       );
 
   /** 만든 과목을 돌려준다 — 추천 행은 만든 즉시 측정 선택된다(Figma `Sheet / Suggest Row`). */
-  const addSubject = useCallback(
-    async (name: string, viaSuggestion = false): Promise<SubjectResponse | null> => {
-      // 과목 이름은 하나만 둔다. 서버도 막지만 요청 전에 걸러 바로 알린다.
-      const trimmed = name.trim();
-      if (subjectsRef.current.some((subject) => subject.name === trimmed)) {
-        onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
-        return null;
-      }
-      try {
-        const created = await createSubject({ name: trimmed });
-        // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
-        setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
-        trackSubjectItemAdded("subject", viaSuggestion, surface);
-        return created;
-      } catch (error) {
-        onErrorRef.current(saveErrorMessage(error));
-        return null;
-      }
-    },
-    [surface],
-  );
+  const addSubject = async (
+    name: string,
+    viaSuggestion = false,
+  ): Promise<SubjectResponse | null> => {
+    // 과목 이름은 하나만 둔다. 서버도 막지만 요청 전에 걸러 바로 알린다.
+    const trimmed = name.trim();
+    if (subjectsRef.current.some((subject) => subject.name === trimmed)) {
+      onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
+      return null;
+    }
+    try {
+      const created = await createSubject({ name: trimmed });
+      // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
+      setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
+      trackSubjectItemAdded("subject", viaSuggestion, surface);
+      return created;
+    } catch (error) {
+      onErrorRef.current(saveErrorMessage(error));
+      return null;
+    }
+  };
 
-  const addTask = useCallback(
-    async (subjectId: number, name: string) => {
-      try {
-        const created = await createTask(subjectId, { name });
-        setSubjects((prev) =>
-          prev.map((subject) =>
-            subject.id === subjectId ? { ...subject, tasks: [...subject.tasks, created] } : subject,
-          ),
-        );
-        trackSubjectItemAdded("task", false, surface);
-      } catch {
-        onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
-      }
-    },
-    [surface],
-  );
+  const addTask = async (subjectId: number, name: string) => {
+    try {
+      const created = await createTask(subjectId, { name });
+      setSubjects((prev) =>
+        prev.map((subject) =>
+          subject.id === subjectId ? { ...subject, tasks: [...subject.tasks, created] } : subject,
+        ),
+      );
+      trackSubjectItemAdded("task", false, surface);
+    } catch {
+      onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
+    }
+  };
 
   /** 핸들 드래그 — `fromId` 과목을 `overId` 과목 자리로 옮긴다. 화면에만 반영하고 서버 요청은 `commitReorder`가 한다. */
-  const reorderSubject = useCallback((fromId: number, overId: number) => {
+  const reorderSubject = (fromId: number, overId: number) => {
     const prev = subjectsRef.current;
     const from = prev.findIndex((subject) => subject.id === fromId);
     const to = prev.findIndex((subject) => subject.id === overId);
@@ -166,18 +160,18 @@ export function useSubjects(
     next.splice(to, 0, moved!);
     subjectsRef.current = next;
     setSubjects(next);
-  }, []);
+  };
 
   /** 핸들을 잡는 순간 — 놓을 때 비교할 순서를 기억한다. */
-  const startReorder = useCallback(() => {
+  const startReorder = () => {
     dragBaseRef.current = subjectsRef.current.map((subject) => subject.id);
-  }, []);
+  };
 
   /**
    * 드래그가 끝날 때 1회. 잡았을 때와 순서가 다르면 전체 순서를 PUT하고, 실패는 다른 변경과 같이 토스트 +
    * 서버 값 복원. 응답 목록은 쓰지 않는다 — 놓은 직후의 낙관 편집을 덮지 않게(204여도 안전).
    */
-  const commitReorder = useCallback((): Promise<void> => {
+  const commitReorder = (): Promise<void> => {
     const base = dragBaseRef.current;
     dragBaseRef.current = null;
     const ids = subjectsRef.current.map((subject) => subject.id);
@@ -190,7 +184,7 @@ export function useSubjects(
       (prev) => prev,
       () => reorderSubjects({ subjectIds: ids }),
     );
-  }, [mutate]);
+  };
 
   return {
     subjects,

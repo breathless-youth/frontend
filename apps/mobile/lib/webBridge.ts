@@ -19,6 +19,7 @@ import {
 
 import { isReservedAnalyticsName } from "./firebaseAnalytics";
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
+import { isInviteCode } from "./sessionInvite";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -89,10 +90,12 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
     case "navigate-home":
-      // 이어서 열 탭은 선택 필드 — 계약 밖 값이면 빼고(= 홈 탭) 모달 닫기는 살린다.
+      // 이어서 열 탭과 초대코드는 선택 필드다.
+      // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).
       return {
         type: "navigate-home",
         ...(record.tab === "records" ? { tab: record.tab } : {}),
+        ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
         atMs: record.atMs,
       };
     case "open-settings":

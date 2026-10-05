@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -74,33 +74,31 @@ export function PlannerPage() {
   // 목록과 오늘의 할 일은 오늘의 일간 조회에 실려 온다. 플래너를 열 때마다 새로 받는다 — 방금 고친 것이
   // 캐시된 응답에는 없다. 오늘 플래너라면 화면이 받는 그 조회 한 번을 같이 쓴다.
   const queryClient = useQueryClient();
-  const loadSubjects = useCallback(async () => {
+  // useSubjects가 최신 함수를 ref로 읽어 매 렌더 새 함수여도 다시 받지 않는다.
+  const loadSubjects = async () => {
     const today = await queryClient
       .fetchQuery({ ...dailyStatsQuery(userId ?? 0, todayKey), staleTime: 0 })
       .catch(() => null);
-    // ponytail: 일간 조회가 실패했거나 과목별 할 일을 싣지 않는 서버면 과목 목록 API로 대신한다.
-    // 서버가 전부 새 응답을 주게 되면 이 대체 경로를 지운다.
+    // 대체 경로 — 일간 조회가 실패했거나 과목별 할 일을 싣지 않는 서버면 과목 목록 API로 대신한다.
+    // 서버가 전부 새 응답을 주게 되면 지운다.
     return (today && liveSubjectsOf(today)) ?? listSubjects();
-  }, [queryClient, userId, todayKey]);
+  };
   const subjects = useSubjects(userId !== null, showToast, "planner", loadSubjects);
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
-  const changeDate = useCallback(
-    (delta: -1 | 1, method: "button" | "swipe") => {
-      const next = addDaysToDateKey(dateKey, delta);
-      trackPlannerDateChanged({ delta, method });
-      setSearchParams(
-        (previous) => {
-          // 셸이 붙인 쿼리(구 앱의 신원 등)는 지우지 않고 날짜만 바꾼다.
-          const params = new URLSearchParams(previous);
-          params.set("date", next);
-          return params;
-        },
-        { replace: true, state: location.state },
-      );
-    },
-    [dateKey, location.state, setSearchParams],
-  );
+  const changeDate = (delta: -1 | 1, method: "button" | "swipe") => {
+    const next = addDaysToDateKey(dateKey, delta);
+    trackPlannerDateChanged({ delta, method });
+    setSearchParams(
+      (previous) => {
+        // 셸이 붙인 쿼리(구 앱의 신원 등)는 지우지 않고 날짜만 바꾼다.
+        const params = new URLSearchParams(previous);
+        params.set("date", next);
+        return params;
+      },
+      { replace: true, state: location.state },
+    );
+  };
 
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 날짜 선택 시트에서 고른 날로 옮긴다. 같은 날이면 닫기만 한다. */

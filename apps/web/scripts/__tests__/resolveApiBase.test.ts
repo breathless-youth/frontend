@@ -67,6 +67,15 @@ describe("가드", () => {
     },
   );
 
+  it.each(["http://api.focusmakers.app", "api.focusmakers.app", "api.focusmakers.app:443"])(
+    "production에서 https가 아닌 운영 주소(%s)면 던진다 — 토큰이 평문으로 나간다",
+    (url) => {
+      expect(() => resolveApiBase({ VERCEL_ENV: "production", VITE_API_BASE_URL: url })).toThrow(
+        /https/,
+      );
+    },
+  );
+
   it.each([
     "https://api.sunqstudio.kr",
     "https://api.focusmakers.app",

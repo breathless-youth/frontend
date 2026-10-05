@@ -179,6 +179,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "session-closed") {
     return { type: "session-closed", atMs: record.atMs };
   }
+  if (record.type === "session-invite" && typeof record.code === "string") {
+    return { type: "session-invite", code: record.code, atMs: record.atMs };
+  }
   if (
     record.type === "auth-token" &&
     (typeof record.userId === "number" || record.userId === null) &&

@@ -12,6 +12,7 @@ import {
 } from "@/features/study-session/components/StudyCompleteHero";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
+import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
 import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
@@ -85,6 +86,20 @@ export function ResultPage() {
       postToNative({ type: "navigate-home", atMs: Date.now() });
     }
   }, [sessions, home]);
+
+  /**
+   * 솔로 결과 화면에 있을 때 들어온 초대
+   *
+   * 기록은 이미 저장됐으니 묻지 않고 초대코드 화면으로 간다.
+   * 친구에게 합류하러 가는 길이라 결과 설문은 예약하지 않는다.
+   * `navigate-home`은 세션 모달을 닫는 신호라 앱 홈 결과에서만 보낸다.
+   */
+  const invite = useSessionInvite();
+  useEffect(() => {
+    if (invite !== null && home === "/home") {
+      leaveSessionForInvite(invite);
+    }
+  }, [invite, home]);
 
   // 도장 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
   useEffect(() => {

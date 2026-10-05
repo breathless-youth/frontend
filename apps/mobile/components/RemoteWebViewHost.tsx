@@ -278,14 +278,14 @@ export function RemoteWebViewHost({
     };
   }, [path, query, baseUrl, restore]);
 
-  const retry = useCallback(() => {
+  const retry = () => {
     trackNativeEvent("webview_retry_pressed", { path });
     setLoadFailed(false);
     // 새 문서가 뜬다 — 이전 문서의 준비 신호는 무효다(위 analyticsReady 주석).
     setAnalyticsReady(false);
     nextGeneration();
     webViewRef.current?.reload();
-  }, [path, nextGeneration]);
+  };
 
   /**
    * OS가 메모리 회수로 웹 콘텐츠 프로세스를 죽였을 때의 자동 복구(BY-374).
@@ -322,7 +322,7 @@ export function RemoteWebViewHost({
     onRecoveryStart?.();
   }, [onRecoveryStart]);
 
-  const handleContentProcessDidTerminate = useCallback(() => {
+  const handleContentProcessDidTerminate = () => {
     if (__DEV__) {
       console.warn("[webview-bridge] onContentProcessDidTerminate", path);
     }
@@ -330,17 +330,17 @@ export function RemoteWebViewHost({
     trackNativeEvent("webview_recovery_started", { path, reason: "process_terminated" });
     enterRecovery();
     webViewRef.current?.reload();
-  }, [enterRecovery, path]);
+  };
   // 렌더러 사망은 이 웹뷰만의 일이 아니다 — 전역 복구로 넓힌다(상단 recoveryListeners 주석).
   // Android는 마운트된 호스트마다 같은 통보가 오므로, 복구를 실제로 시작한 첫 통보만 이벤트로 남긴다.
-  const handleRenderProcessGone = useCallback(() => {
+  const handleRenderProcessGone = () => {
     if (__DEV__) {
       console.warn("[webview-bridge] onRenderProcessGone", path);
     }
     if (requestGlobalWebViewRecovery()) {
       trackNativeEvent("webview_recovery_started", { path, reason: "render_process_gone" });
     }
-  }, [path]);
+  };
 
   // 전역 복구 채널 구독 — 어느 호스트가 렌더러 사망을 감지하든 함께 재마운트한다.
   useEffect(() => {
@@ -371,133 +371,123 @@ export function RemoteWebViewHost({
     }
   }, []);
 
-  const handleMessage = useCallback(
-    (event: WebViewMessageEvent) => {
-      const message = parseToNativeMessage(event.nativeEvent.data);
-      if (message === null) {
-        if (__DEV__) {
-          console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", event.nativeEvent.data);
-        }
-        return;
+  const handleMessage = (event: WebViewMessageEvent) => {
+    const message = parseToNativeMessage(event.nativeEvent.data);
+    if (message === null) {
+      if (__DEV__) {
+        console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", event.nativeEvent.data);
       }
-      // 위 backGestureEnabled 주석의 이유로 이 메시지만 여기서 소비하고 핸들러로 넘기지 않는다.
-      // 앱을 새로 켰다는 사실은 네이티브만 안다. 웹은 전역 복구로 다시 선 웹뷰와 구분할 수
-      // 없어서 홈에만 한 번 알려 준다. 세션 웹뷰가 받으면 복원하려던 세션을 스스로 지운다.
-      // 로드 콜백에 걸지 않는 이유: Android는 로드가 실패해도 finish 이벤트를 합성해 onLoad까지
-      // 불러 줘서, 어느 로드 콜백도 웹 JS가 실제로 돌았음을 보장하지 못한다. 웹이 구독을 걸고
-      // 보내는 이 신호만이 그 보장이고, 실패한 로드에서는 이 신호 자체가 오지 않는다.
-      if (message.type === "home-ready") {
-        if (path === HOME_PATH && consumeAppLaunchSignal()) {
-          sendToWeb({ type: "app-launched", atMs: Date.now() });
-        }
-        return;
+      return;
+    }
+    // 위 backGestureEnabled 주석의 이유로 이 메시지만 여기서 소비하고 핸들러로 넘기지 않는다.
+    // 앱을 새로 켰다는 사실은 네이티브만 안다. 웹은 전역 복구로 다시 선 웹뷰와 구분할 수
+    // 없어서 홈에만 한 번 알려 준다. 세션 웹뷰가 받으면 복원하려던 세션을 스스로 지운다.
+    // 로드 콜백에 걸지 않는 이유: Android는 로드가 실패해도 finish 이벤트를 합성해 onLoad까지
+    // 불러 줘서, 어느 로드 콜백도 웹 JS가 실제로 돌았음을 보장하지 못한다. 웹이 구독을 걸고
+    // 보내는 이 신호만이 그 보장이고, 실패한 로드에서는 이 신호 자체가 오지 않는다.
+    if (message.type === "home-ready") {
+      if (path === HOME_PATH && consumeAppLaunchSignal()) {
+        sendToWeb({ type: "app-launched", atMs: Date.now() });
       }
-      if (message.type === "analytics-ready") {
-        // 웹이 track-event 구독을 걸었다 — 이 문서에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
-        setAnalyticsReady(true);
-        return;
+      return;
+    }
+    if (message.type === "analytics-ready") {
+      // 웹이 track-event 구독을 걸었다 — 이 문서에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
+      setAnalyticsReady(true);
+      return;
+    }
+    if (message.type === "set-back-gesture") {
+      setBackGestureEnabled(message.enabled);
+      return;
+    }
+    if (message.type === "set-orientation") {
+      // 양 플랫폼 공통이다(BY-444, 종전 "iOS 무시" 폐기) — iOS에서 소셜룸 가로가 됐던 것은
+      // 루트 세로 잠금이 통째로 우회되던 버그의 부수효과였다(`app/_layout.tsx`의 방향 주석).
+      // 잠금이 실동작하는 지금은 이 개방이 없으면 소셜룸 가로 모드가 iOS에서 죽는다.
+      webOrientationUnlockedRef.current = message.unlocked;
+      if (message.unlocked) {
+        unlockForSession();
+      } else {
+        lockPortrait();
       }
-      if (message.type === "set-back-gesture") {
-        setBackGestureEnabled(message.enabled);
-        return;
-      }
-      if (message.type === "set-orientation") {
-        // 양 플랫폼 공통이다(BY-444, 종전 "iOS 무시" 폐기) — iOS에서 소셜룸 가로가 됐던 것은
-        // 루트 세로 잠금이 통째로 우회되던 버그의 부수효과였다(`app/_layout.tsx`의 방향 주석).
-        // 잠금이 실동작하는 지금은 이 개방이 없으면 소셜룸 가로 모드가 iOS에서 죽는다.
-        webOrientationUnlockedRef.current = message.unlocked;
-        if (message.unlocked) {
-          unlockForSession();
-        } else {
-          lockPortrait();
-        }
-        return;
-      }
-      if (message.type === "report-screen") {
-        restoreRef.current = {
-          path: message.path,
-          ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
-        };
-        // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
-      }
-      onBridgeMessage?.(message, sendToWeb);
-    },
-    [onBridgeMessage, path, sendToWeb],
-  );
+      return;
+    }
+    if (message.type === "report-screen") {
+      restoreRef.current = {
+        path: message.path,
+        ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
+      };
+      // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
+    }
+    onBridgeMessage?.(message, sendToWeb);
+  };
 
   const targetOrigin = target?.origin;
-  const handleShouldStartLoadWithRequest = useCallback(
-    (request: ShouldStartLoadRequest) => {
-      // `=== false`로 명시 비교한다(`!request.isTopFrame`이 아니다) — `isTopFrame`은
-      // iOS만 채우는 필드라 Android에서는 `undefined`로 들어온다. `!undefined`도 `true`이므로
-      // `!request.isTopFrame`으로 쓰면 Android의 모든 최상위 요청이 하위 프레임으로 오판돼
-      // 오리진 검사를 통째로 건너뛰고 전부 허용된다(BY-333 리뷰 — Critical 보안 구멍,
-      // `mediaCapturePermissionGrantType="grant"`와 겹치면 임의 오리진이 카메라를 자동 승인
-      // 받는다). 필드가 없을 때는 "하위 프레임 아님"으로 안전하게 닫히도록 `=== false`만
-      // 하위 프레임으로 취급한다.
-      if (request.isTopFrame === false) {
-        // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상
-        // 허용한다. react-native-webview는 iframe 로드도 이 콜백에 태우는데,
-        // `originWhitelist`만으로는 최상위/하위 프레임을 구분하지 못해 화이트리스트에 없는
-        // iframe 오리진(docs.google.com)이 "외부 이동"으로 오판돼 시스템 브라우저로 튕겨나갔다
-        // (2026-07-31 실기기 확인 — 설정→문의하기 진입 시 크롬이 열림).
-        return true;
-      }
-      // 최상위 프레임이 우리 오리진이 아닌 곳으로 이동하려는 경우: 지금은 웹 안에서 외부로
-      // 나가는 최상위 이동이 설계상 없다(2026-07-31 검토) — 그래서 열어주기(Linking.openURL)
-      // 대신 보수적으로 로드를 막는다. 외부로 내보내야 하는 최상위 이동이 생기면 그때
-      // Linking.openURL 분기를 추가한다.
-      return originOf(request.url) === targetOrigin;
-    },
-    [targetOrigin],
-  );
+  const handleShouldStartLoadWithRequest = (request: ShouldStartLoadRequest) => {
+    // `=== false`로 명시 비교한다(`!request.isTopFrame`이 아니다) — `isTopFrame`은
+    // iOS만 채우는 필드라 Android에서는 `undefined`로 들어온다. `!undefined`도 `true`이므로
+    // `!request.isTopFrame`으로 쓰면 Android의 모든 최상위 요청이 하위 프레임으로 오판돼
+    // 오리진 검사를 통째로 건너뛰고 전부 허용된다(BY-333 리뷰 — Critical 보안 구멍,
+    // `mediaCapturePermissionGrantType="grant"`와 겹치면 임의 오리진이 카메라를 자동 승인
+    // 받는다). 필드가 없을 때는 "하위 프레임 아님"으로 안전하게 닫히도록 `=== false`만
+    // 하위 프레임으로 취급한다.
+    if (request.isTopFrame === false) {
+      // 하위 프레임(예: /contact가 임베드하는 구글 폼 iframe)은 오리진 검사 없이 항상
+      // 허용한다. react-native-webview는 iframe 로드도 이 콜백에 태우는데,
+      // `originWhitelist`만으로는 최상위/하위 프레임을 구분하지 못해 화이트리스트에 없는
+      // iframe 오리진(docs.google.com)이 "외부 이동"으로 오판돼 시스템 브라우저로 튕겨나갔다
+      // (2026-07-31 실기기 확인 — 설정→문의하기 진입 시 크롬이 열림).
+      return true;
+    }
+    // 최상위 프레임이 우리 오리진이 아닌 곳으로 이동하려는 경우: 지금은 웹 안에서 외부로
+    // 나가는 최상위 이동이 설계상 없다(2026-07-31 검토) — 그래서 열어주기(Linking.openURL)
+    // 대신 보수적으로 로드를 막는다. 외부로 내보내야 하는 최상위 이동이 생기면 그때
+    // Linking.openURL 분기를 추가한다.
+    return originOf(request.url) === targetOrigin;
+  };
 
   // 로드 실패는 이 웹뷰로는 못 나가는 이벤트다 — 큐에 있다가 다른 탭 웹뷰나 재시도 성공 뒤 흘러간다.
-  const handleError = useCallback(() => {
+  const handleError = () => {
     if (__DEV__) {
       console.warn("[webview-bridge] onError", path);
     }
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "error" });
-  }, [path]);
-  const handleHttpError = useCallback(() => {
+  };
+  const handleHttpError = () => {
     if (__DEV__) {
       console.warn("[webview-bridge] onHttpError", path);
     }
     setLoadFailed(true);
     trackNativeEvent("webview_load_failed", { path, reason: "http" });
-  }, [path]);
+  };
 
-  // 인라인 화살표로 넘기면 렌더마다 새 함수가 되어 WebView의 prop이 매번 바뀐다.
-  const handleLoadEnd = useCallback(
-    (event?: { nativeEvent: LoadEndNativeEvent }) => {
-      if (__DEV__) {
-        console.warn("[webview-bridge] onLoadEnd", path);
-      }
-      // react-native-webview 13.16.1의 iOS History API shim(RNCWebViewImpl.m)은
-      // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
-      // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
-      // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
-      // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
-      // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
-      if (event?.nativeEvent.navigationType === undefined) {
-        setBackGestureEnabled(true);
-      }
-      recoveringRef.current = false;
-      // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
-      // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
-      // 남는 것을 막는다(2026-08-25 채점 지적).
-      if (Platform.OS === "android") {
-        sendToWeb({
-          type: "theme",
-          scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
-          atMs: Date.now(),
-        });
-      }
-      onLoadEnd?.(true);
-    },
-    [onLoadEnd, path, sendToWeb],
-  );
+  const handleLoadEnd = (event?: { nativeEvent: LoadEndNativeEvent }) => {
+    if (__DEV__) {
+      console.warn("[webview-bridge] onLoadEnd", path);
+    }
+    // react-native-webview 13.16.1의 iOS History API shim(RNCWebViewImpl.m)은
+    // pushState·replaceState·popstate에도 onLoadingFinish를 쏘고(→ 이 onLoadEnd), 그때만
+    // navigationType이 채워진다("other"·"backforward"). 실제 문서 로드는 이 필드 자체가
+    // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
+    // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
+    // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
+    if (event?.nativeEvent.navigationType === undefined) {
+      setBackGestureEnabled(true);
+    }
+    recoveringRef.current = false;
+    // 캐시된 초기 테마가 낡았을 수 있으므로(URL 쿼리는 조립 시점에 고정된다) 로드가 끝날 때마다
+    // 현재 값을 실어 정정한다. 테마를 바꾼 뒤 처음 여는 탭이나 재로드된 문서가 이전 테마로
+    // 남는 것을 막는다(2026-08-25 채점 지적).
+    if (Platform.OS === "android") {
+      sendToWeb({
+        type: "theme",
+        scheme: Appearance.getColorScheme() === "dark" ? "dark" : "light",
+        atMs: Date.now(),
+      });
+    }
+    onLoadEnd?.(true);
+  };
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.

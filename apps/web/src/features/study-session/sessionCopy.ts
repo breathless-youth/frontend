@@ -65,6 +65,18 @@ export const EXIT_CONFIRM_COPY = {
 } as const;
 
 /**
+ * 세션 중 초대 확인 다이얼로그 문구
+ *
+ * 본문은 종료 확인과 같은 `exitConfirmDescription`을 써서 저장 결과를 먼저 말한다.
+ * 공부가 끝난다는 사실은 제목이 먼저 말하므로 확정 버튼은 `참여하기`로 짧게 둔다.
+ */
+export const INVITE_CONFIRM_COPY = {
+  title: "진행 중인 공부를 종료하고 초대에 참여할까요?",
+  cancel: "계속하기",
+  confirm: "참여하기",
+} as const;
+
+/**
  * 순공 1분 미만으로 종료할 때의 본문 — **저장을 약속하지 않는다.**
  *
  * 2026-07-27 확정으로 순공 1분 미만 세션은 기록 목록·합산에서 제외된다(ai-wiki
