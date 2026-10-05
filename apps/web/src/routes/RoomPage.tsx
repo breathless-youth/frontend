@@ -430,10 +430,10 @@ function RoomSessionScreen({
    * 아래 웹 라우터 이동은 그 사이 잠깐이라도 화면이 있을 브라우저 단독 모드를 위한
    * 폴백이다.
    */
-  const goHome = useCallback(() => {
+  const goHome = () => {
     postToNative({ type: "navigate-home", atMs: Date.now() });
     navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
-  }, [navigate, searchParams]);
+  };
 
   /**
    * 순공 1분 미만으로 끝났는가
