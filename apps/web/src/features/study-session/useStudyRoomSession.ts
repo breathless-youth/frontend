@@ -555,12 +555,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       if (submitInFlightRef.current) {
         return;
       }
-      endReasonRef.current ??= reason;
+      if (endReasonRef.current == null) endReasonRef.current = reason;
       setEndReason(endReasonRef.current);
       // 서버가 마지막으로 본 시각보다 앞설 수 없다. 세션 도중 단말 시계가 뒤로 조정되면
       // 종료 시각이 시작 시각에 붙어, 제출 클램프가 이어받은 누적값을 통째로 깎아 낸다.
       // 서버가 준 이벤트도 세션 구간 밖으로 밀려나 검증에 걸린다.
-      endedAtMsRef.current ??= Math.max(Date.now(), initial.serverSeenMs);
+      if (endedAtMsRef.current == null) {
+        endedAtMsRef.current = Math.max(Date.now(), initial.serverSeenMs);
+      }
       const endedAtMs = endedAtMsRef.current;
       timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
       const closed = timelineRef.current;

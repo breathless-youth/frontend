@@ -135,15 +135,17 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       loadAmbientSoundSettings(),
     ]).then(([loadedCatalog, loaded]) => {
       if (cancelled) return;
-      playerRef.current ??= createWebAudioPlayer({
-        catalog: loadedCatalog,
-        // 들리는 상태가 바뀌는 순간마다 계측을 맞춘다. applyMix 가 끝나기를 기다리면 느린
-        // 파일 하나 때문에 이미 나는 소리의 시간이 빠지고, 통화로 멈춘 구간은 반대로 더해진다.
-        onPlaybackChanged: () => {
-          const player = playerRef.current;
-          if (player) syncRef.current(player);
-        },
-      });
+      if (playerRef.current == null) {
+        playerRef.current = createWebAudioPlayer({
+          catalog: loadedCatalog,
+          // 들리는 상태가 바뀌는 순간마다 계측을 맞춘다. applyMix 가 끝나기를 기다리면 느린
+          // 파일 하나 때문에 이미 나는 소리의 시간이 빠지고, 통화로 멈춘 구간은 반대로 더해진다.
+          onPlaybackChanged: () => {
+            const player = playerRef.current;
+            if (player) syncRef.current(player);
+          },
+        });
+      }
       // 카탈로그 밖 id 는 지우고, 지운 게 있으면 그 결과를 저장한다.
       // 카탈로그가 비어 있으면 로드 실패일 수 있으니 판단을 보류하고 저장값을 건드리지 않는다.
       const ids = activeIds(loaded.mix, loadedCatalog);

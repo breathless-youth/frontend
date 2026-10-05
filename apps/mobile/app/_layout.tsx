@@ -93,7 +93,9 @@ function RootLayout() {
   useEffect(() => {
     if (updateGate !== "pass" || !fontsReady) return;
     let active = true;
-    permissionPrompts.current ??= initMetaAds().then(() => ensurePushPermission());
+    if (permissionPrompts.current == null) {
+      permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
+    }
     void permissionPrompts.current.then(() => {
       if (active && recommendedVersion !== null) {
         void recommendedUpdateAlert.maybeShow(recommendedVersion);
