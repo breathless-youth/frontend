@@ -264,6 +264,56 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     expect(authOf(0)).toBe("Bearer a1");
   });
 
+  it("다른 origin 요청에는 토큰을 싣지 않는다 — access 토큰이 외부 서버로 나가지 않는다", async () => {
+    const source = fakeSource("a1");
+    mocks.source = source;
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("https://evil.example/api/rooms", { endpoint: "roomCreate" });
+    expect(authOf(0)).toBeNull();
+    // 첫 토큰 대기(최대 3초)도 하지 않는다
+    expect(source.getAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("다른 origin Request 입력에도 토큰을 싣지 않는다", async () => {
+    mocks.source = fakeSource("a1");
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch(new Request("https://evil.example/api/rooms"), { endpoint: "roomCreate" });
+    expect(authOf(0)).toBeNull();
+  });
+
+  it("다른 realm의 Request도 url로 origin을 판정한다 — instanceof에 기대면 현재 문서로 오판한다", async () => {
+    mocks.source = fakeSource("a1");
+    mockedFetch.mockResolvedValue(status(200));
+    // iframe에서 만든 Request는 이 realm의 Request 인스턴스가 아니다. url만 가진 객체로 흉내 낸다.
+    const foreignRealmRequest = { url: "https://evil.example/api/rooms" } as unknown as Request;
+    await apiFetch(foreignRealmRequest, { endpoint: "roomCreate" });
+    expect(authOf(0)).toBeNull();
+  });
+
+  it("URL을 해석할 수 없으면 다른 origin으로 본다 — fail-closed", async () => {
+    mocks.source = fakeSource("a1");
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("http://[bad/api/rooms", { endpoint: "roomCreate" });
+    expect(authOf(0)).toBeNull();
+  });
+
+  it("다른 origin이 401을 줘도 갱신하지 않고 한 번만 보낸다", async () => {
+    const source = fakeSource("a1");
+    mocks.source = source;
+    mockedFetch.mockResolvedValue(status(401));
+    const res = await apiFetch("https://evil.example/api/rooms", { endpoint: "roomCreate" });
+    expect(res.status).toBe(401);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(source.refresh).not.toHaveBeenCalled();
+  });
+
+  it("같은 origin을 절대 URL로 넘겨도 토큰을 붙인다", async () => {
+    mocks.source = fakeSource("a1");
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch(`${location.origin}/api/rooms`, { endpoint: "roomCreate" });
+    expect(authOf(0)).toBe("Bearer a1");
+  });
+
   it("토큰이 null이면 헤더 없이 보낸다", async () => {
     mocks.source = fakeSource(null);
     mockedFetch.mockResolvedValue(status(200));
@@ -356,7 +406,8 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     // jsdom 환경은 자체 AbortController(DOM 구현체)를 전역에 놓지만 Request는 Node
     // 네이티브라 생성자에 그 signal을 그대로 넘기면 "Expected signal to be an instance of
     // AbortSignal"로 거부한다. 인스턴스 속성으로 얹어 우회한다 — apiFetch는 input.signal만 읽는다.
-    const req = new Request("https://api.test/api/rooms");
+    // 토큰 경로를 타야 하므로 API와 같은 origin이어야 한다(테스트에서 API 주소는 빈 값 = 현재 문서).
+    const req = new Request(`${location.origin}/api/rooms`);
     Object.defineProperty(req, "signal", { value: controller.signal, configurable: true });
     const source = fakeSource("a1", "a2");
     source.refresh = vi.fn().mockImplementation(async () => {
