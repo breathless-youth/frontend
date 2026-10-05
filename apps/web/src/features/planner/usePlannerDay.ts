@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 
 import type { StudySessionListResponse } from "@focusmakers/types";
 
@@ -51,13 +50,10 @@ export function usePlannerDay(userId: number | null, dateKey: string): PlannerDa
 
   const dayData = dayIsFuture ? EMPTY_STATS : day.data;
   const nextData = nextIsFuture ? EMPTY_STATS : next.data;
-  const assembled = useMemo(
-    () =>
-      dayData !== undefined && nextData !== undefined
-        ? assemblePlannerDay(dateKey, dayData, nextData)
-        : null,
-    [dateKey, dayData, nextData],
-  );
+  const assembled =
+    dayData !== undefined && nextData !== undefined
+      ? assemblePlannerDay(dateKey, dayData, nextData)
+      : null;
 
   if (assembled !== null) {
     return { status: "success", day: assembled };

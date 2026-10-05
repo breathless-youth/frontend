@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { continueAfterOnboardingGuide } from "@/features/onboarding/focusStartFlow";
@@ -52,7 +52,7 @@ export function OnboardingGuidePage() {
     new URLSearchParams(location.search).get("entry") ?? undefined,
   );
 
-  const closeGuide = useCallback(() => {
+  const closeGuide = () => {
     // 실제 앱은 BrowserRouter라 window.history.state.idx로 스택 깊이를 판단한다
     // (`ScreenBackHeader`와 같은 판단). 새로고침·딥링크로 곧장 열렸을 때는 idx가 없다.
     slideNavigate("back", () => {
@@ -65,7 +65,7 @@ export function OnboardingGuidePage() {
       // 쿼리를 함께 넘기지 않으면 `?userId=N`을 잃어 홈이 미저장 모드로 뜬다.
       navigate({ pathname: "/home", search: location.search }, { replace: true });
     });
-  }, [navigate, location.search]);
+  };
 
   /**
    * 종료 래치(리뷰 반영) — 완료·건너뛰기·X 중 **먼저 발화한 종료 핸들러만 유효**하고 나머지는
@@ -97,7 +97,7 @@ export function OnboardingGuidePage() {
    * `"native"`일 때만 여기서 `closeGuide()`를 호출한다 — 이때는 `navigateToSession`이 전혀
    * 불리지 않으므로 `closeGuide()`가 여전히 **유일한** 히스토리 조작이다(불변식 유지).
    */
-  const handleFinish = useCallback(() => {
+  const handleFinish = () => {
     if (hasClosedRef.current) {
       return;
     }
@@ -122,7 +122,7 @@ export function OnboardingGuidePage() {
       // 여기까지 오면 화면 전환이 실패한 경우다. 어떤 경우에도 세션을 시작하지 않는다.
       console.warn("[onboarding-guide] 가이드 종료 후 처리 실패", error);
     });
-  }, [closeGuide, entry, navigate, location.search]);
+  };
 
   // 우상단 X와 그 전용 경로(handleExit → exitOnboardingGuide)는 2026-08-25 BY-427 피드백으로
   // 제거했다 — 종료는 건너뛰기(G1~G4)와 마지막 CTA(G5)로만 한다(둘 다 handleFinish 경유).

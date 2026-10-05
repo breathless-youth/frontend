@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
@@ -100,7 +100,7 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
 function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: number }) {
   const queryClient = useQueryClient();
 
-  const schema = useMemo(() => makeProfileSchema(profile), [profile]);
+  const schema = makeProfileSchema(profile);
   const { control, handleSubmit, setError, trigger, formState } = useForm<ProfileFormValues>({
     resolver: zodResolver(schema),
     // 형식·최소 길이는 칸을 떠날 때 처음 알린다.

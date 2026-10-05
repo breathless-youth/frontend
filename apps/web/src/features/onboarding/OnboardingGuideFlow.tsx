@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { trackGuideEntered, trackGuideFinished, trackGuideStepViewed } from "@/lib/amplitude";
@@ -173,35 +173,32 @@ export function OnboardingGuideFlow({
     trackGuideStepViewed({ step: stepIndex + 1, entry, method: stepMethodRef.current });
   }, [stepIndex, entry]);
 
-  const finish = useCallback(
-    (reason: OnboardingGuideExitReason) => {
-      trackGuideFinished({ reason, step: stepIndex + 1, entry });
-      // Meta 광고 전환 — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
-      if (reason === "completed") trackMetaTutorialCompleted();
-      onFinish(reason);
-    },
-    [entry, onFinish, stepIndex],
-  );
+  const finish = (reason: OnboardingGuideExitReason) => {
+    trackGuideFinished({ reason, step: stepIndex + 1, entry });
+    // Meta 광고 전환 — 끝까지 본 완료만. 건너뛰기는 튜토리얼 완료가 아니다.
+    if (reason === "completed") trackMetaTutorialCompleted();
+    onFinish(reason);
+  };
 
-  const goNext = useCallback(() => {
+  const goNext = () => {
     if (isLastStep) {
       finish("completed");
       return;
     }
     stepMethodRef.current = "cta";
     setStepIndex((index) => index + 1);
-  }, [finish, isLastStep]);
+  };
 
-  const goPrev = useCallback(() => {
+  const goPrev = () => {
     // ⚠️ G1(첫 스텝)에서 "이전"이 비활성인지·숨김인지·무동작인지는 미정이다. Figma G1에도
     // 버튼이 그대로 그려져 있고 비활성 표현이 따로 없다 — 임의로 정하지 않고 "보이지만 아무
     // 동작 없음"으로 두되 그 사실이 `disabled`로 드러나게 했다.
     // TODO(SCR-G1-G5-onboarding-guide.md Review Checklist): G1 "이전" 처리 확정 필요.
     stepMethodRef.current = "prev";
     setStepIndex((index) => Math.max(0, index - 1));
-  }, []);
+  };
 
-  const skip = useCallback(() => finish("skipped"), [finish]);
+  const skip = () => finish("skipped");
 
   /**
    * 제스처(탭·스와이프) 전용 "다음" — **G5에서는 무동작이다**(BY-343). `goNext`는 마지막
@@ -209,13 +206,13 @@ export function OnboardingGuideFlow({
    * CTA("집중 시작하기"/"가이드 종료하기")·건너뛰기·X로만 연다 — 화면을 넘기려던 무심한
    * 탭 한 번이 세션 시작(권한 요청)까지 끌고 가면 안 된다. G1 왼쪽 탭 무동작과 대칭 계약.
    */
-  const goNextFromGesture = useCallback(() => {
+  const goNextFromGesture = () => {
     if (isLastStep) {
       return;
     }
     stepMethodRef.current = "gesture";
     setStepIndex((index) => index + 1);
-  }, [isLastStep]);
+  };
 
   // 시연용 로컬 카운터. 스텝이 바뀔 때마다 Figma 시안값에서 다시 출발한다 —
   // 서버에 아무것도 보내지 않고 세션 집계와도 무관하다.
@@ -233,44 +230,41 @@ export function OnboardingGuideFlow({
   // PanResponder의 캡처+릴리즈 판정을 pointerup 하나로 합친 것 — 위 파일 주석 참고).
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handleTapLayerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleTapLayerPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  }, []);
+  };
 
-  const handleTapLayerPointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const start = pointerStartRef.current;
-      pointerStartRef.current = null;
-      if (!start) {
-        return;
-      }
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
-      const isHorizontalDrag = Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy);
-      if (!isHorizontalDrag) {
-        // 탭(또는 세로 위주 드래그) — 좌/우 절반으로 방향을 가른다: 왼쪽 탭은 이전, 오른쪽
-        // 탭은 다음(BY-343, 스토리형 탐색 관례). 기준은 탭 시작점이다 — 손가락이 12px 안에서
-        // 흔들려도 사용자가 누른 자리로 판정한다. 탭 레이어가 `inset-0` 전면이라 화면 폭과
-        // 같으므로 `window.innerWidth`로 충분하다. G1에서 왼쪽 탭은 `goPrev`의 기존 계약대로
-        // 무동작이다(G1 "이전"과 동일).
-        if (start.x < window.innerWidth / 2) {
-          goPrev();
-          return;
-        }
-        goNextFromGesture();
-        return;
-      }
-      if (dx <= -SWIPE_THRESHOLD_PX) {
-        goNextFromGesture();
-        return;
-      }
-      if (dx >= SWIPE_THRESHOLD_PX) {
+  const handleTapLayerPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start) {
+      return;
+    }
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    const isHorizontalDrag = Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy);
+    if (!isHorizontalDrag) {
+      // 탭(또는 세로 위주 드래그) — 좌/우 절반으로 방향을 가른다: 왼쪽 탭은 이전, 오른쪽
+      // 탭은 다음(BY-343, 스토리형 탐색 관례). 기준은 탭 시작점이다 — 손가락이 12px 안에서
+      // 흔들려도 사용자가 누른 자리로 판정한다. 탭 레이어가 `inset-0` 전면이라 화면 폭과
+      // 같으므로 `window.innerWidth`로 충분하다. G1에서 왼쪽 탭은 `goPrev`의 기존 계약대로
+      // 무동작이다(G1 "이전"과 동일).
+      if (start.x < window.innerWidth / 2) {
         goPrev();
+        return;
       }
-      // 12~48px 사이의 가로 드래그는 스와이프 실패로 보고 아무 동작도 하지 않는다(RN PanResponder와 동일).
-    },
-    [goNextFromGesture, goPrev],
-  );
+      goNextFromGesture();
+      return;
+    }
+    if (dx <= -SWIPE_THRESHOLD_PX) {
+      goNextFromGesture();
+      return;
+    }
+    if (dx >= SWIPE_THRESHOLD_PX) {
+      goPrev();
+    }
+    // 12~48px 사이의 가로 드래그는 스와이프 실패로 보고 아무 동작도 하지 않는다(RN PanResponder와 동일).
+  };
 
   const { backdrop } = step;
   const focusSec = backdrop.freezeFocusTimer
