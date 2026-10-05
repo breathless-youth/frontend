@@ -19,6 +19,7 @@ import { lockPortrait } from "../lib/orientation";
 import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
+import { offerRouteToSession } from "../lib/sessionInvite";
 import { ensureUserRegistered } from "../lib/userApi";
 
 /**
@@ -124,7 +125,16 @@ function RootLayout() {
 
   // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 위
   // 시작 알림창 순서에서 한다. 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
-  useEffect(() => startPushMessaging({ navigate: (route) => router.push(route) }), [router]);
+  useEffect(
+    () =>
+      startPushMessaging({
+        // 세션 중 받은 초대 푸시는 세션 화면에 넘기고 화면을 쌓지 않는다.
+        navigate: (route) => {
+          if (!offerRouteToSession(route)) router.push(route);
+        },
+      }),
+    [router],
+  );
 
   useEffect(() => {
     // Install Referrer는 Android 전용이다 — iOS는 스토어가 값을 앱에 전달할 통로 자체가 없다.

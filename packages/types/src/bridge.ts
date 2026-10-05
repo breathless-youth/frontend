@@ -43,6 +43,12 @@ export type ToWebMessage =
    */
   | { type: "session-closed"; atMs: number }
   /**
+   * 세션 중에 들어온 초대.
+   * 세션 화면이 열려 있을 때 초대 링크나 초대 푸시가 오면 네이티브가 화면을 쌓지 않고 세션 웹뷰에만 보낸다.
+   * 기록 저장은 웹만 시작할 수 있어서, 웹이 확인 창으로 묻고 저장한 뒤 `navigate-home`의 `inviteCode`로 돌려준다.
+   */
+  | { type: "session-invite"; code: string; atMs: number }
+  /**
    * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
    * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
    * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
@@ -348,6 +354,12 @@ export interface NavigateHomeMessage {
    * 값이 타입만 통과해 조용히 홈에 머문다. 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
    */
   tab?: "records";
+  /**
+   * 모달을 닫은 뒤 열 초대코드 화면의 코드.
+   * 세션 중 초대를 받아 기록을 저장한 웹이 싣는다.
+   * `tab`과 같은 이유로 모달 닫기와 한 메시지로 보내고, 둘 다 오면 초대가 우선한다.
+   */
+  inviteCode?: string;
   atMs: number;
 }
 

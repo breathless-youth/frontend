@@ -4,13 +4,15 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
@@ -695,5 +697,38 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
 
     expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+  });
+});
+
+describe("ResultPage: 세션 중 초대", () => {
+  // 모듈 스코프 mock이라 앞선 테스트의 호출 기록이 남아 있을 수 있다.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    act(() => {
+      clearSessionInvite();
+    });
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("솔로 결과 화면에서 초대가 오면 초대코드를 실어 세션을 닫고 설문은 예약하지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderResult({ sessions: [exampleSession()] });
+
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      entry(JSON.stringify({ type: "session-invite", code: "4680", atMs: 1 }));
+    });
+
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"inviteCode":"4680"')),
+    );
+    expect(stageStudyResultExit).not.toHaveBeenCalled();
   });
 });
