@@ -11,9 +11,9 @@ import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
  * 공용 `ui/dialog.tsx`(Radix)를 쓴다. 포커스 트랩·복귀는 Radix 가 맡고, Escape 와 딤 탭만
  * 이 화면의 규칙에 맞게 막는다.
  *
- * 스타일은 Figma V2(node 5314:3767, Soft Blue) 기준. `body`로 포털되어 소셜 화면 루트
- * 밖에서 렌더되므로 `theme-soft-blue`를 `DialogContent`에 직접 붙여 팔레트를 스코프한다
- * — 세션 변수를 읽는 종료 확인과 달리 이 다이얼로그는 전역 :root 팔레트로는 렌더되면 안 된다.
+ * 스타일은 Figma V2(node 5314:3767, Soft Blue) 기준. `theme-soft-blue`를 `DialogContent`에
+ * 직접 붙여 팔레트를 스코프한다. 세션 화면은 항상 다크라, 호출부가 `container`로 세션 루트
+ * (`theme-dark`)를 넘겨야 시스템이 라이트여도 Soft Blue 다크 값으로 그려진다.
  * 구조·카피·접근성 계약은 확정분이다.
  * 미리보기 높이는 2026-08-25 BY-427 시안 B(234px) 확정.
  */
@@ -31,6 +31,8 @@ export interface CameraOnConfirmDialogProps {
   /** 확정 처리 중 — 두 버튼과 Escape를 잠가 중복 확정을 막는다. */
   busy?: boolean;
   cancelLabel?: string;
+  /** 포털이 그려질 자리 — 세션 루트를 넘긴다. 생략하면 `body`. */
+  container?: HTMLElement | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -42,6 +44,7 @@ export function CameraOnConfirmDialog({
   dismissable = true,
   busy = false,
   cancelLabel = "취소",
+  container,
   onCancel,
   onConfirm,
 }: CameraOnConfirmDialogProps) {
@@ -59,6 +62,7 @@ export function CameraOnConfirmDialog({
     >
       <DialogContent
         role="alertdialog"
+        container={container}
         showCloseButton={false}
         onEscapeKeyDown={(event) => {
           if (!escapeAllowed) event.preventDefault();

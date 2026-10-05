@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
+import type * as Amplitude from "@/lib/amplitude";
+import { trackSocialRoomEntered } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import type * as MetaAppEvents from "@/lib/metaAppEvents";
+import { trackMetaSocialRoomEntered } from "@/lib/metaAppEvents";
 import { renewLiveRoomSeat } from "@/lib/roomApi";
 
 import { LiveRoomEntry } from "../LiveRoomEntry";
@@ -22,6 +26,14 @@ vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
   useActiveSessionRestore: () => ({ settled: true, restored: null }),
 }));
 vi.mock("@/lib/roomApi", () => ({ renewLiveRoomSeat: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackSocialRoomEntered: vi.fn(),
+}));
+vi.mock("@/lib/metaAppEvents", async (importOriginal) => ({
+  ...(await importOriginal<typeof MetaAppEvents>()),
+  trackMetaSocialRoomEntered: vi.fn(),
+}));
 vi.mock("@/lib/profileQueries", () => ({
   profileQuery: (userId: number) => ({
     queryKey: ["profile", userId],
@@ -33,6 +45,8 @@ vi.mock("../LiveRoomSession", () => ({
 }));
 
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
+const mockedTrackEntered = vi.mocked(trackSocialRoomEntered);
+const mockedTrackMetaEntered = vi.mocked(trackMetaSocialRoomEntered);
 
 function fakeCamera(): CameraAdapter & { startCalls: number } {
   const adapter = {
@@ -118,6 +132,23 @@ it("graceRejoin은 join 없이 바로 입장한다", async () => {
 
   await screen.findByTestId("session");
   expect(mockedRenewSeat).not.toHaveBeenCalled();
+});
+
+it("입장 계측은 입장당 1회이고 유예 재입장은 Meta 전환을 세지 않는다", async () => {
+  mockedRenewSeat.mockResolvedValue({ iceServers: [] } as never);
+
+  renderEntry({ inviteCode: "1234" });
+  await screen.findByTestId("session");
+  expect(mockedTrackEntered).toHaveBeenCalledTimes(1);
+  expect(mockedTrackEntered).toHaveBeenLastCalledWith(false);
+  expect(mockedTrackMetaEntered).toHaveBeenCalledTimes(1);
+
+  cleanup();
+  renderEntry({ inviteCode: "1234", graceRejoin: true, iceServers: [] });
+  await screen.findByTestId("session");
+  expect(mockedTrackEntered).toHaveBeenCalledTimes(2);
+  expect(mockedTrackEntered).toHaveBeenLastCalledWith(true);
+  expect(mockedTrackMetaEntered).toHaveBeenCalledTimes(1);
 });
 
 it("브리지가 있으면 게이트를 발신하고, 허용 응답이면 입장한다", async () => {

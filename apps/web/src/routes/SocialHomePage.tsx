@@ -42,7 +42,9 @@ export function SocialHomePage() {
     (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
   const noticeRef = useRef<SocialRoomNotice | null | undefined>(undefined);
   if (!handoff) {
-    noticeRef.current ??= consumeSocialRoomNotice();
+    if (noticeRef.current == null) {
+      noticeRef.current = consumeSocialRoomNotice();
+    }
   }
   // 자리비움(grace-end)만 모달로 가른다 — 입장/생성 실패(failure)는 기존대로 토스트다.
   const [graceMessage, setGraceMessage] = useState<string | null>(null);

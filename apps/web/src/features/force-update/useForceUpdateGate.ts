@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { detectStorePlatform } from "@/features/social-room/storeLink";
@@ -17,10 +17,10 @@ import { minSupportedVersion, shouldForceUpdate } from "./version";
 export function useForceUpdateGate(): { forced: boolean; onUpdate: () => void } {
   const [searchParams] = useSearchParams();
   // appVersion은 첫 렌더링 시의 값으로 고정
-  const appVersion = useRef(searchParams.get("appVersion")).current;
+  const [appVersion] = useState(() => searchParams.get("appVersion"));
   // `nativeUpdateGate=1`은 BY-586 이후 바이너리가 붙인다 — 그 바이너리는 네이티브가 Remote Config로
   // 판정·차단하므로 여기서는 손대지 않는다. 이 게이트는 표시가 없는 구버전 바이너리 전용이다.
-  const nativeGate = useRef(searchParams.get("nativeUpdateGate") === "1").current;
+  const [nativeGate] = useState(() => searchParams.get("nativeUpdateGate") === "1");
   const platform =
     typeof navigator === "undefined"
       ? null

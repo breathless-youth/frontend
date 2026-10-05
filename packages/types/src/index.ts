@@ -64,6 +64,16 @@ export interface StudySessionCreateRequest {
   focusSec: number;
   /** 비공부 상태 이벤트 목록 — 없으면 빈 배열 */
   events: StatusEventPayload[];
+  /**
+   * 과목 구간 — 과목을 선택한 채 공부한 [startedAt, endedAt) 목록. 선택 필드. 세션 안·서로 겹침 불가·0초 불가,
+   * 순서 무관. 과목별 총공부·순공은 서버가 이벤트와 겹쳐 계산한다.
+   */
+  subjectSegments?: SubjectSegmentPayload[];
+  /**
+   * 이 세션 중 완료한 할 일 id — 선택 필드. 없으면 기존과 동일하게 저장된다. 토큰 유저의 할 일이 아니면 400,
+   * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
+   */
+  completedTaskIds?: number[];
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -80,6 +90,8 @@ export interface ActiveSessionSnapshotRequest {
   focusSec: number;
   /** 지금까지의 비공부 이벤트 전체 — 진행 중인 이벤트는 reportedAt에서 닫아 보낸다 */
   events: StatusEventPayload[];
+  /** 지금까지의 과목 구간 전체 — 선택 필드. 진행 중인 구간은 reportedAt에서 닫아 보낸다. 서버는 통째로 덮어쓴다. */
+  subjectSegments?: SubjectSegmentPayload[];
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
@@ -108,6 +120,8 @@ export interface ActiveSessionSnapshotResponse {
   focusSec: number;
   /** reportedAt까지의 비공부 이벤트 전체 — 진행 중이던 이벤트는 reportedAt에서 닫혀 있다 */
   events: StatusEventPayload[];
+  /** 마지막 스냅샷의 과목 구간 — 시작 오름차순. 마지막 원소의 과목이 죽기 직전 선택이다. null·누락일 수 있다 */
+  subjectSegments?: SubjectSegmentPayload[] | null;
 }
 
 /** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
@@ -123,6 +137,12 @@ export interface StudySessionResponse {
   /** 집중률(%) = focusSec ÷ studySec × 100, 소수 1자리 */
   focusRate: number;
   events: StatusEventPayload[];
+  /** 과목 구간 — 시작 오름차순, 서버 계산 studySec·focusSec 포함. 자정 분할 조각에는 잘린 구간만 담긴다. 없으면 [] */
+  subjectSegments?: SubjectSegmentResponse[];
+  /** 이 조각에서 완료한 할 일 — 이름 포함, id 오름차순. 자정 분할이면 완료 시각이 속한 조각에만 실린다. 없으면 [] */
+  completedTasks?: CompletedTaskResponse[];
+  /** 이 세션이 참조한 과목(구간·완료 할 일)의 이름·색 — id 오름차순, 지운 과목 포함. 없으면 [] */
+  subjects?: SubjectRef[];
 }
 
 /**
@@ -143,6 +163,12 @@ export interface StudySessionSummary {
   focusSec: number;
   focusRate: number;
   eventCounts: StudySessionEventCounts;
+  /** 비공부 이벤트 원본(시각) — 타임테이블의 휴식 칸 */
+  events?: StatusEventPayload[];
+  /** 과목 구간 — 시작 오름차순, 서버 계산 studySec·focusSec 포함 */
+  subjectSegments?: SubjectSegmentResponse[];
+  /** 이 세션에서 완료한 할 일 — 이름 포함, 지운 할 일도 남는다 */
+  completedTasks?: CompletedTaskResponse[];
 }
 
 export interface StudySessionListResponse {
@@ -154,6 +180,11 @@ export interface StudySessionListResponse {
   focusRate: number;
   totalEventCounts: StudySessionEventCounts;
   studiedDatesInMonth: string[];
+  /**
+   * 그날 세션이 참조한 과목의 이름·색 — id 오름차순, 지운 과목 포함(`deleted`). `sessions[].subjectSegments[].subjectId`·
+   * `completedTasks[].subjectId`를 여기서 찾는다. 과목 목록 API는 살아있는 과목만 주므로 이 배열이 이름의 출처다
+   */
+  subjects?: SubjectRef[];
 }
 
 /**
@@ -293,6 +324,102 @@ export type RoomJoinErrorCode =
   | "INTERNAL_ERROR";
 
 /**
+ * 과목 > 할 일 API 계약 (`/api/subjects`) — 토큰이 필요하지만 버전은 기본버전(`API-Version: 1`)이다.
+ * 과목별 시간은 세션 제출·스냅샷의 과목 구간(`subjectSegments`)으로 들어가고 서버가 계산한 값의 누적 합계만 내려온다.
+ */
+
+/**
+ * 세션 제출·스냅샷·복구에 공통으로 실리는 과목 구간 1건 — 과목을 선택한 채 공부한 [startedAt, endedAt).
+ * 길이·순공은 서버가 비공부 이벤트와 겹쳐 계산하므로 보내지 않는다. 측정 단위는 과목이다 — 할 일은 체크리스트다.
+ */
+export interface SubjectSegmentPayload {
+  subjectId: number;
+  /** 구간 시작(UTC ISO-8601) — 세션 구간 안 */
+  startedAt: string;
+  /** 구간 종료(UTC ISO-8601) — 시작 이후, 다른 구간과 겹칠 수 없다(맞닿음 허용). 진행 중이면 reportedAt/endedAt에서 닫는다 */
+  endedAt: string;
+}
+
+/** 저장된 과목 구간 — 서버가 계산한 값 포함. 자정 분할 조각에는 잘린 구간과 그 조각 이벤트로 계산한 값이 담긴다. */
+export interface SubjectSegmentResponse extends SubjectSegmentPayload {
+  /** 이 구간의 총 공부 시간(초) = 길이 − PAUSE 겹침 */
+  studySec: number;
+  /** 이 구간의 순공 시간(초) = 길이 − 모든 비공부 이벤트 겹침 */
+  focusSec: number;
+}
+
+/** 세션 응답이 참조한 과목의 이름·색. 지운 과목도 실린다 — 과목 목록 API에는 안 나오지만 기록엔 남는다. */
+export interface SubjectRef {
+  id: number;
+  name: string;
+  /** 색 팔레트 인덱스 0..19 — `SubjectResponse.colorIndex`와 같다 */
+  colorIndex: number;
+  deleted: boolean;
+}
+
+/** 세션에서 완료한 할 일 1건 — 이름 포함. 어제 완료한 할 일은 할 일 목록 API에 없으므로 여기가 이름의 출처다. */
+export interface CompletedTaskResponse {
+  id: number;
+  name: string;
+  /** 과목 id — 응답의 `subjects[]`에서 이름·색을 찾는다 */
+  subjectId: number;
+  deleted: boolean;
+}
+
+export interface TaskResponse {
+  id: number;
+  name: string;
+  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(KST)이 지나면 목록에서 빠진다 */
+  doneAt: string | null;
+}
+
+/**
+ * 과목 1건. 목록(`GET /api/subjects`)은 저장된 순서(`PUT /api/subjects/order`)로 내려오고 새 과목은 맨 뒤다 —
+ * 배열 순서가 곧 순서이며 정렬 필드는 따로 없다.
+ */
+export interface SubjectResponse {
+  id: number;
+  name: string;
+  /** 색 팔레트 인덱스 0..19 — 만들 때 서버가 덜 쓴 색을 배정하고 이후 바뀌지 않는다. 화면은 팔레트에 매핑만 한다 */
+  colorIndex: number;
+  /** 이 과목에서 잰 누적 총 공부 시간(초) */
+  studySec: number;
+  focusSec: number;
+  /** 보이는 할 일 — 미완료 전부 + 오늘(KST) 완료한 것, id 오름차순 */
+  tasks: TaskResponse[];
+}
+
+/** 과목 이름 — 공백 불가, 최대 50자. 살아있는 과목이 20개면 400 */
+export interface SubjectCreateRequest {
+  name: string;
+}
+
+export interface SubjectUpdateRequest {
+  name: string;
+}
+
+/**
+ * 과목 순서 저장 (PUT /api/subjects/order) — 드래그가 끝날 때 살아있는 과목 id 전부를 원하는 순서로 보낸다.
+ * 남의·지운·없는 id나 중복이면 400이고 아무것도 안 바뀐다. 빠뜨린 과목은 기존 순서대로 뒤에 붙는다.
+ * 응답은 정렬된 `SubjectResponse[]`(GET과 같은 모양).
+ */
+export interface SubjectOrderRequest {
+  subjectIds: number[];
+}
+
+/** 할 일 이름 — 공백 불가, 최대 100자. 그 과목의 살아있는 할 일이 30개면 400 */
+export interface TaskCreateRequest {
+  name: string;
+}
+
+/** 둘 중 보낸 것만 바뀐다. 둘 다 없으면 400 */
+export interface TaskUpdateRequest {
+  name?: string;
+  /** true면 지금 완료 처리, false면 완료 해제 */
+  done?: boolean;
+}
+
+/**
  * 프로필 API 계약
  */
 
@@ -348,6 +475,7 @@ export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export type {
   CameraPermissionMessage,
+  HapticStyle,
   HandlerMessage,
   HostPassedMessage,
   NavigateHomeMessage,

@@ -21,6 +21,13 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 
+/** 과목 목록 — 기본은 빈 목록이고, 과목이 필요한 테스트만 응답을 바꾼다. */
+const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<unknown[]> => []));
+vi.mock("@/lib/subjectApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listSubjects,
+}));
+
 const prefetchResultPage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage }));
@@ -218,6 +225,28 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     );
   });
 
+  it("과목 시트가 열리면 부가 기능 버튼이 숨고 바는 알약 배경을 잃는다 — 바깥 탭으로 닫으면 돌아온다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const sideActions = screen.getByRole("group", { name: "부가 기능" });
+    const barSurface = screen.getByRole("group", { name: "세션 컨트롤" }).firstElementChild;
+    expect(sideActions).not.toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-100");
+
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    expect(sideActions).toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-0");
+
+    // 심플 모드 토글이 아니라 시트만 접힌다.
+    await userEvent.click(screen.getByRole("button", { name: "과목 시트 닫기" }));
+    expect(sideActions).not.toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-100");
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
   it("일시정지 버튼이 '다시 시작'으로 토글된다", async () => {
     renderRoom("/room/7?userId=1");
 
@@ -225,6 +254,46 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+  });
+
+  it("일시정지 중에 과목의 재생 버튼을 누르면 세션도 함께 다시 시작한다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시작" })).not.toBeInTheDocument();
+  });
+
+  it("백그라운드로 일시정지되면 고른 과목도 멈춘 모양이 되고, 그 재생 버튼이 세션을 다시 시작한다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+
+    act(() => {
+      setVisibility("hidden");
+    });
+    act(() => {
+      setVisibility("visible");
+    });
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+
+    // 선택은 유지된 채(라벨에 과목이 남는다) 과목 버튼만 재생으로 돌아간다.
+    await userEvent.click(screen.getByRole("button", { name: /^수학.*순공/ }));
+    expect(screen.queryByRole("button", { name: "수학 측정 멈추기" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "수학 측정 시작" }));
+
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
   });
 

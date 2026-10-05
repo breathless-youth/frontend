@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
 
@@ -56,6 +56,12 @@ import {
 import { reportActiveSession } from "./reportActiveSession";
 import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
+import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
+import {
+  createSubjectSegmentTracker,
+  materializeSubjectSegments,
+  selectSubjectSegment,
+} from "./subjectSegments";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
@@ -99,6 +105,12 @@ export interface StudyRoomSessionOptions {
    */
   readonly roomType?: StudyRoomType;
   /**
+   * 제출 직전에 "이 세션에서 완료한 할 일 id"를 돌려준다. 과목 목록은 화면(`useSubjects`)이 들고 있어
+   * 훅이 모른다. 다른 옵션과 달리 매 렌더 ref로 갱신해 제출 시점의 최신 함수를 부른다. 세션 시작 시각은
+   * 훅 안에만 있어 인자로 넘긴다. 없으면 필드를 싣지 않는다(소셜룸 등).
+   */
+  readonly getCompletedTaskIds?: (startedAtMs: number) => number[];
+  /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
    * `roomType`처럼 세션 로직에는 관여하지 않는다. 배경음이 없는 소셜룸은 생략한다.
    */
@@ -128,7 +140,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
-  ambientUsageRef.current = options.ambientUsage;
+  useLayoutEffect(() => {
+    ambientUsageRef.current = options.ambientUsage;
+  });
 
   /**
    * 복원 초기 상태. 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
@@ -152,6 +166,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         priorEvents: [] as StatusEventPayload[],
         serverSeenMs: 0,
         restored: false,
+        subjectTracker: createSubjectSegmentTracker(),
       };
     }
     const priorEvents = [...restored.events];
@@ -172,6 +187,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       priorEvents,
       serverSeenMs: restored.reportedAtMs,
       restored: true,
+      // 마지막 구간의 과목이 마지막 보고 시각부터 다시 열린다 — 죽어 있던 동안은 위 타임라인이
+      // 일시정지로 기록해 서버 계산에서 그 몫이 0이 된다.
+      subjectTracker: createSubjectSegmentTracker(
+        restored.subjectSegments ?? [],
+        restored.reportedAtMs,
+      ),
     };
   });
 
@@ -195,8 +216,23 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const snapshotStoppedRef = useRef(false);
   const snapshotErrorReportedRef = useRef(false);
 
+  /**
+   * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
+   * ref인 이유는 스냅샷·제출이 렌더와 무관한 시점(인터벌·종료)에 최신 값을 읽기 때문이고,
+   * 화면은 선택이 바뀔 때만 갱신되는 아래 state 사본을 본다.
+   */
+  const subjectTrackerRef = useRef<SubjectSegmentTracker>(initial.subjectTracker);
+  const [subjectTracker, setSubjectTracker] = useState<SubjectSegmentTracker>(
+    initial.subjectTracker,
+  );
+  // 완료 할 일은 제출 때만 읽는다 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있는다.
+  const getCompletedTaskIdsRef = useRef(options.getCompletedTaskIds);
+  useLayoutEffect(() => {
+    getCompletedTaskIdsRef.current = options.getCompletedTaskIds;
+  });
+
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
-  const detectionRef = useRef<DetectionState>(createDetectionState(startedAtMsRef.current));
+  const detectionRef = useRef<DetectionState>(createDetectionState(initial.startedAtMs));
 
   /** 서버에서 받아 온 누적값 위에 지금 타임라인이 잰 값을 얹는다. */
   const withBase = useCallback(
@@ -314,6 +350,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 동기 시작 어댑터(mock)는 여기서 이미 반영된다. 비동기 어댑터만 아래 then에서 뒤늦게 반영한다 —
     // 값이 그대로면 setState 자체를 호출하지 않아 불필요한 리렌더가 생기지 않는다.
     const runningAfterCall = camera.isRunning;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 카메라 어댑터의 시작 직후 상태를 곧바로 반영한다. mock 어댑터는 start()가 동기로 켜진다
     setIsCameraRunning(runningAfterCall);
     void starting.then(() => {
       if (!cancelled && camera.isRunning !== runningAfterCall) {
@@ -390,6 +427,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         studySec: totals.studySec,
         focusSec: totals.focusSec,
         events,
+        subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
       })
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
@@ -480,6 +518,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     });
   }, [onReturnFromBackground, pause, phase.name, systemPause]);
 
+  /**
+   * 과목 선택 전환 — 지금 시각으로 이전 구간을 닫고 새 구간을 연다. 종료 뒤(`phase !== "studying"`)에는
+   * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
+   */
+  const selectSubject = useCallback((next: SubjectSelection | null) => {
+    subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, Date.now());
+    setSubjectTracker(subjectTrackerRef.current);
+  }, []);
+
   const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
     trackCameraFlipped(result, roomType);
@@ -508,12 +555,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       if (submitInFlightRef.current) {
         return;
       }
-      endReasonRef.current ??= reason;
+      if (endReasonRef.current == null) endReasonRef.current = reason;
       setEndReason(endReasonRef.current);
       // 서버가 마지막으로 본 시각보다 앞설 수 없다. 세션 도중 단말 시계가 뒤로 조정되면
       // 종료 시각이 시작 시각에 붙어, 제출 클램프가 이어받은 누적값을 통째로 깎아 낸다.
       // 서버가 준 이벤트도 세션 구간 밖으로 밀려나 검증에 걸린다.
-      endedAtMsRef.current ??= Math.max(Date.now(), initial.serverSeenMs);
+      if (endedAtMsRef.current == null) {
+        endedAtMsRef.current = Math.max(Date.now(), initial.serverSeenMs);
+      }
       const endedAtMs = endedAtMsRef.current;
       timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
       const closed = timelineRef.current;
@@ -556,32 +605,40 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       submitInFlightRef.current = true;
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
-      try {
-        const sessions = await submitStudySession({
-          startedAtMs: startedAtMsRef.current,
-          endedAtMs,
-          studySec: finalTotals.studySec,
-          focusSec: finalTotals.focusSec,
-          events,
+      await Promise.resolve()
+        .then(() =>
+          submitStudySession({
+            startedAtMs: startedAtMsRef.current,
+            endedAtMs,
+            studySec: finalTotals.studySec,
+            focusSec: finalTotals.focusSec,
+            events,
+            subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
+            // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
+            completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+          }),
+        )
+        .then((sessions) => {
+          trackStudySessionSubmitted(true, attempt, roomType);
+          // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
+          // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
+          // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
+          // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
+          void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+          setPhase({ name: "done", sessions });
+        })
+        .catch((error: unknown) => {
+          trackStudySessionSubmitted(false, attempt, roomType);
+          // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
+          reportHandled(error, "session-submit");
+          setPhase({
+            name: "error",
+            message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
+          });
+        })
+        .finally(() => {
+          submitInFlightRef.current = false;
         });
-        trackStudySessionSubmitted(true, attempt, roomType);
-        // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
-        // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
-        // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
-        // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
-        void queryClient.invalidateQueries({ queryKey: statsKeys.all });
-        setPhase({ name: "done", sessions });
-      } catch (error) {
-        trackStudySessionSubmitted(false, attempt, roomType);
-        // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
-        reportHandled(error, "session-submit");
-        setPhase({
-          name: "error",
-          message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
-        });
-      } finally {
-        submitInFlightRef.current = false;
-      }
     },
     [allEvents, initial.serverSeenMs, roomType, userId, withBase],
   );
@@ -625,6 +682,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const cameraStream = camera.stream ?? null;
 
+  // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 타이머 틱이 리렌더를 일으킬 때마다 새로 읽어 과목 시간이 타이머와 함께 흐른다
+  const renderNowMs = Date.now();
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
@@ -642,6 +701,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     cameraFacing,
     isCameraRunning,
     cameraStream,
+    /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */
+    subjectSelection: subjectTracker.current?.subjectId ?? null,
+    /**
+     * 이 세션의 과목 구간(지금 구간은 현재 시각에서 닫음) — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서
+     * 다시 읽는다. 렌더 시각으로 닫는 이유는 타이머 틱마다 리렌더가 나 값이 함께 흐르기 때문이다.
+     */
+    subjectSegments: materializeSubjectSegments(subjectTracker, renderNowMs),
+    /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
+    // eslint-disable-next-line react-hooks/refs -- 타임라인은 틱·상태 전이 때만 바뀌고 그때마다 state가 함께 바뀌어 리렌더된다. 화면 표시용 사본이다
+    sessionEvents: allEvents(renderNowMs),
+    selectSubject,
     pause,
     resume,
     onReturnFromBackground,

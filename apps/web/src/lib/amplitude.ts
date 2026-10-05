@@ -787,6 +787,60 @@ export function trackRecordsMonthChanged(input: {
   track("records_month_changed", { delta: input.delta, method: input.method });
 }
 
+/** 기록 탭 일간·주간 세그먼트 전환. */
+export function trackRecordsViewChanged(view: "daily" | "weekly") {
+  if (!initialized) return;
+  track("records_view_changed", { view });
+}
+
+/** 기록 주간 탭의 주 이동. `records_month_changed`와 짝이다. `delta`는 -1(이전)/1(다음). */
+export function trackRecordsWeekChanged(delta: -1 | 1) {
+  if (!initialized) return;
+  track("records_week_changed", { delta });
+}
+
+/** 기간 라벨을 탭해 기간 선택 시트를 열었다. */
+export function trackRecordsPeriodPickerOpened(view: "daily" | "weekly") {
+  if (!initialized) return;
+  track("records_period_picker_opened", { view });
+}
+
+/** 기간 선택 시트에서 달·주를 골랐다. `toToday`는 `오늘` 버튼으로 돌아온 경우다. */
+export function trackRecordsPeriodPicked(input: {
+  readonly view: "daily" | "weekly";
+  readonly toToday: boolean;
+}) {
+  if (!initialized) return;
+  track("records_period_picked", { view: input.view, to_today: input.toToday });
+}
+
+/** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
+export function trackPlannerOpened(input: {
+  readonly via: "records" | "home" | "unknown";
+  readonly isToday: boolean;
+}) {
+  if (!initialized) return;
+  track("planner_opened", { via: input.via, is_today: input.isToday });
+}
+
+/**
+ * 플래너 날짜 이동. `delta`는 옮긴 날 수(전날 -1, 다음 날 1, 날짜 선택 시트는 고른 날까지의 차이),
+ * `method`는 꺾쇠 버튼/스와이프/날짜 선택 시트.
+ */
+export function trackPlannerDateChanged(input: {
+  readonly delta: number;
+  readonly method: "button" | "swipe" | "picker";
+}) {
+  if (!initialized) return;
+  track("planner_date_changed", { delta: input.delta, method: input.method });
+}
+
+/** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
+export function trackRecordsSessionExpanded(input: { readonly expanded: boolean }) {
+  if (!initialized) return;
+  track("records_session_expanded", { expanded: input.expanded });
+}
+
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
   row: "profile" | "guide" | "contact" | "terms" | "privacy" | "licenses",
@@ -943,7 +997,7 @@ export function trackSessionNoticeConfirmed(input: {
 
 /** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
 export function trackErrorRetryPressed(
-  screen: "home" | "records" | "profile" | "live_room_entry" | "contact",
+  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });
@@ -983,6 +1037,35 @@ export function trackForceUpdatePrompted(input: {
     app_version: input.appVersion,
     min_version: input.minVersion,
   });
+}
+
+/* ── 과목 시트(S3-9) ────────────────────────────────────────────────
+ * 스펙이 정한 3종만 찍는다 — 시트 열림 · 과목/할 일 추가 · 항목 선택. 이름·문구는 보내지 않는다.
+ */
+
+/** 컨트롤 바를 끌어 올려(또는 라벨을 눌러) 시트가 펼쳐진 순간. 닫힘은 찍지 않는다. */
+export function trackSubjectSheetOpened() {
+  if (!initialized) return;
+  track("subject_sheet_opened");
+}
+
+/** 과목·할 일을 관리하는 화면 — 세션 과목 시트와 플래너가 같은 목록을 다룬다. */
+export type SubjectSurface = "sheet" | "planner";
+
+/** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */
+export function trackSubjectItemAdded(
+  kind: "subject" | "task",
+  viaSuggestion = false,
+  surface: SubjectSurface = "sheet",
+) {
+  if (!initialized) return;
+  track("subject_item_added", { kind, via_suggestion: viaSuggestion, surface });
+}
+
+/** 과목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
+export function trackSubjectItemSelected(kind: "subject" | "none") {
+  if (!initialized) return;
+  track("subject_item_selected", { kind });
 }
 
 /* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────

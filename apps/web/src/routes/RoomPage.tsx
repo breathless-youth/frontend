@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse } from "@focusmakers/types";
+import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
@@ -22,6 +22,8 @@ import type { SessionStatusPillState } from "@/features/study-session/components
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
+import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { SubjectSheet } from "@/features/study-session/components/SubjectSheet";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
@@ -29,6 +31,7 @@ import {
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
   INVITE_CONFIRM_COPY,
+  SUBJECT_SHEET_COPY,
   exitConfirmDescription,
   statusCopyFor,
 } from "@/features/study-session/sessionCopy";
@@ -51,6 +54,10 @@ import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import type { SubjectSelection } from "@/features/study-session/subjectSegments";
+import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
+import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
+import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
@@ -59,6 +66,8 @@ import {
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackSubjectItemSelected,
+  trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
@@ -80,6 +89,67 @@ const SESSION_LAYER_LAYOUT = [
   "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
   "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
+
+/** 시트가 다 열렸을 때 순공 타이머가 앉는 높이(뷰포트 비율) — 상태 필 바로 아래(시안 122/874). */
+const SHEET_OPEN_TIMER_TOP = 0.14;
+
+/**
+ * 과목 시트를 끌어 올리는 만큼 **같은 비율로 따라 올라오는 칸** — 순공 타이머가 유일한 사용처다.
+ *
+ * 시안 프로토타입은 타이머·라벨·바·시트를 한 덩어리로 끌어올린다. 이 화면은 그 구조를 쓸 수 없어
+ * (세로는 스페이서 비율, 가로는 그리드가 배치를 정한다) 레이아웃은 접힌 자리에 그대로 두고
+ * **변환만** 진행률에 묶는다. 진행률은 `SubjectSheet`가 문서 루트에 쓰는 CSS 변수로 흘러오므로
+ * 드래그 중에도 이 화면은 다시 그려지지 않는다.
+ *
+ * 이동 거리는 "지금 내 위치 − 목표 높이"라서 프리뷰(아래쪽)와 심플 모드(가운데)가 알아서 다른
+ * 거리를 갖는다. 가로에서는 타이머가 이미 위쪽에 있고 시안도 움직이지 않으므로 0으로 둔다.
+ */
+function SheetFollowingSlot({ className, children }: { className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  /**
+   * 거리는 **레이아웃 기준**으로만 잰다.
+   *
+   * ⚠️ `getBoundingClientRect()`를 쓰지 말 것. 그 값에는 지금 걸려 있는 변환이 섞여 있어서, 시트가
+   * 닫히며 타이머가 되돌아오는 동안 다시 재면 거리가 매 렌더 조금씩 줄어든다. 목적지가 계속 바뀌니
+   * 화면에서는 타이머가 덜덜 떨리는 것으로 보인다. `offsetTop`은 변환을 무시한 레이아웃 위치이고,
+   * 기준이 되는 세션 레이어가 화면 맨 위에서 시작하므로 그대로 화면 y로 쓸 수 있다.
+   */
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) {
+      return;
+    }
+    // `matchMedia`를 쓰지 않는다 — jsdom에 없어 테스트가 통째로 죽는다. 판정 기준은 이 파일의
+    // 회전 감지와 같은 `currentOrientation`이다.
+    const travel =
+      currentOrientation() === "landscape"
+        ? 0
+        : Math.max(0, element.offsetTop - window.innerHeight * SHEET_OPEN_TIMER_TOP);
+    const next = `${Math.round(travel)}px`;
+    if (element.style.getPropertyValue("--session-sheet-timer-travel") !== next) {
+      element.style.setProperty("--session-sheet-timer-travel", next);
+    }
+  });
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        transform:
+          "translateY(calc(var(--session-sheet-progress, 0) * var(--session-sheet-timer-travel, 0px) * -1))",
+        transitionProperty: "transform",
+        transitionTimingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        // 드래그 중에는 0s로 흘러와 손가락을 그대로 따라간다(시트와 같은 규칙).
+        transitionDuration: "var(--session-sheet-transition, 0s)",
+        willChange: "transform",
+      }}
+      className={cn("motion-reduce:transition-none", className)}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * 회전 구간의 수명
@@ -214,6 +284,8 @@ function RoomSessionScreen({
     combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
   );
   const detector = devDetector ?? sensorDetector;
+  // 제출 시점에 읽을 과목 목록 — 커밋마다 최신 값으로 덮는다(아래 useSubjects 뒤).
+  const subjectsListRef = useRef<SubjectResponse[]>([]);
   /**
    * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
    * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
@@ -227,6 +299,10 @@ function RoomSessionScreen({
     endReason,
     cameraStream,
     cameraFacing,
+    subjectSelection,
+    subjectSegments,
+    sessionEvents,
+    selectSubject,
     pause,
     resume,
     flipCamera,
@@ -235,14 +311,30 @@ function RoomSessionScreen({
     camera,
     detector,
     restored,
+    // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
+    getCompletedTaskIds: (startedAtMs) =>
+      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
   });
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
   const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
   // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
-  const sessionSurfaceRef = useRef<HTMLElement>(null);
+  const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
+  // 과목 시트 — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // 목록은 세션에 들어올 때 미리 받는다 — 시트를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
+  // 복원 세션이 죽기 전에 완료한 할 일을 제출에 싣는 데도 이 목록이 필요하다. 기기 미등록이면 저장할 곳이
+  // 없어 받지 않는다. 시트가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
+  const subjects = useSubjects(userId !== null, (message) => {
+    if (sheetOpen) {
+      showCtaToast(message);
+    }
+  });
+  useLayoutEffect(() => {
+    subjectsListRef.current = subjects.subjects;
+  });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
@@ -398,23 +490,62 @@ function RoomSessionScreen({
    * 새 스트림이 `<video>`에 붙어 첫 프레임을 그리기까지는 시간이 걸리지만, 그 구간은
    * 감지기가 `readyState`를 보고 스스로 건너뛴다 — 여기서 기다릴 필요가 없다.
    */
-  async function handleFlipCamera() {
+  function handleFlipCamera() {
     setFlippingCamera(true);
-    try {
-      const result = await flipCamera();
-      if (result.ok) {
-        showCtaToast(CAMERA_TOAST_COPY.flipped);
-        return;
-      }
-      showCtaToast(
-        result.reason === "camera-off"
-          ? CAMERA_TOAST_COPY.cameraOff
-          : CAMERA_TOAST_COPY.noAlternative,
-      );
-    } finally {
-      setFlippingCamera(false);
-    }
+    return flipCamera()
+      .then((result) => {
+        if (result.ok) {
+          showCtaToast(CAMERA_TOAST_COPY.flipped);
+          return;
+        }
+        showCtaToast(
+          result.reason === "camera-off"
+            ? CAMERA_TOAST_COPY.cameraOff
+            : CAMERA_TOAST_COPY.noAlternative,
+        );
+      })
+      .finally(() => {
+        setFlippingCamera(false);
+      });
   }
+
+  function handleSheetOpenChange(open: boolean) {
+    if (open && !sheetOpen) {
+      trackSubjectSheetOpened();
+      // 미리 받기가 조용히 실패했으면 여는 순간 한 번 더 받는다.
+      if (subjects.status === "error") {
+        void subjects.reload();
+      }
+    }
+    setSheetOpen(open);
+  }
+
+  function handleSelectSubject(next: SubjectSelection | null) {
+    // 일시정지 중에 이미 고른 과목의 재생 버튼을 누르면 선택은 그대로다 — 전이가 없으니 계측도 남기지 않는다.
+    if (next === subjectSelection) {
+      return;
+    }
+    trackSubjectItemSelected(next === null ? "none" : "subject");
+    selectSubject(next);
+  }
+
+  /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
+  const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
+  /** 접힌 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
+  const selectedSubject =
+    subjectSelection === null
+      ? null
+      : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
+  const sheetLabel =
+    subjectSelection === null
+      ? null
+      : {
+          name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          paused,
+          focusSec:
+            (selectedSubject?.focusSec ?? 0) +
+            liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
+        };
 
   /** 컨트롤 바 종료 버튼 */
   function handleRequestExit() {
@@ -434,16 +565,24 @@ function RoomSessionScreen({
     void endAndSubmit(MANUAL_END_REASON);
   }
 
+  // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
+  // 그 밖의 세션 화면은 항상 다크다.
+  const endNoticeVisible =
+    phase.name === "done" && (endedBelowMinute || autoEndNoticeVisible(phase, endReason));
+
   return (
     <main
-      ref={sessionSurfaceRef}
+      ref={setSessionSurface}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 컨트롤 바 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
       // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
       onDragStart={(event) => event.preventDefault()}
-      className="session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white"
+      className={cn(
+        !endNoticeVisible && "theme-dark",
+        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white",
+      )}
     >
       {/* 심플 모드는 보이는 프리뷰만 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
 
@@ -503,12 +642,18 @@ function RoomSessionScreen({
                   onClick={() => setAmbientSheetOpen(true)}
                 />
               }
-              className="absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] landscape:top-[calc(env(safe-area-inset-top)+96px)]"
+              // 시트가 열리면 숨긴다 — 세로는 올라온 타이머·시트 윗변과 맞닿고 가로는 시트 밑에 깔려
+              // 비쳐 보인다. 어차피 열린 동안에는 바깥 탭 캐처가 덮어 눌리지 않는다.
+              className={cn(
+                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-[260ms] motion-reduce:transition-none landscape:top-[calc(env(safe-area-inset-top)+96px)]",
+                sheetOpen && "invisible opacity-0",
+              )}
             />
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
                 늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
-                사이 여백의 중앙에 놓는다. Figma는 ≈3:5로 중앙보다 위지만
+                사이 여백의 중앙에 놓는다. 과목 시트는 이 비율을 건드리지 않는다 — 타이머는
+                레이아웃이 아니라 변환으로 따라 올라간다(`SheetFollowingSlot`). Figma는 ≈3:5로 중앙보다 위지만
                 실기기에서 너무 높다는 확인으로 균등 배분으로 낮췄다.
 
                 전환 애니메이션을 다시 넣지 말 것.
@@ -522,28 +667,60 @@ function RoomSessionScreen({
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
                 (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
-            <SessionTimer
-              focusSec={focusSec}
-              studySec={studySec}
-              state={pillState}
-              glow={simpleMode}
+            <SheetFollowingSlot
               className={
                 simpleMode
                   ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
                     "landscape:absolute landscape:top-1/2 landscape:left-1/2 landscape:-translate-x-1/2 landscape:-translate-y-1/2"
                   : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
               }
-            />
+            >
+              <SessionTimer
+                focusSec={focusSec}
+                studySec={studySec}
+                state={pillState}
+                glow={simpleMode}
+              />
+            </SheetFollowingSlot>
 
             <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
 
-            <div className="relative mt-[44px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
+            {/* 바 위에 과목 라벨(20px + 아래 10px)이 얹혀서 타이머와 바 사이 44px에서 그만큼 뺀다. */}
+            <div className="relative mt-[14px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
               <CtaToaster />
-              <SessionControlBar
-                paused={paused}
-                onTogglePause={() => (paused ? resume() : pause())}
-                onRequestExit={handleRequestExit}
-              />
+              {/* 컨트롤 바는 과목 시트의 손잡이다 — 위로 끌면 시트가 펼쳐지고 바가 함께 올라간다.
+                  바 위 한 줄 라벨이 선택 항목과 순공을 보여주고, 미선택이면 힌트다. */}
+              <SubjectSheet
+                open={sheetOpen}
+                onOpenChange={handleSheetOpenChange}
+                label={sheetLabel}
+                bar={(surface) => (
+                  <SessionControlBar
+                    paused={paused}
+                    surface={surface}
+                    onTogglePause={() => (paused ? resume() : pause())}
+                    onRequestExit={handleRequestExit}
+                  />
+                )}
+              >
+                <SubjectPanel
+                  open={sheetOpen}
+                  store={subjects}
+                  selection={subjectSelection}
+                  onSelect={handleSelectSubject}
+                  // 과목의 재생 버튼은 "이 과목으로 공부 시작"이다 — 일시정지 중이면 세션도 함께 다시 시작한다.
+                  // 행을 눌러 고르기만 할 때는 세션 상태를 건드리지 않는다.
+                  onRequestClose={() => {
+                    if (paused) {
+                      resume();
+                    }
+                    handleSheetOpenChange(false);
+                  }}
+                  paused={paused}
+                  onNotice={showCtaToast}
+                  liveTotals={liveSubjectTotals}
+                />
+              </SubjectSheet>
             </div>
 
             {userId === null && (
@@ -557,7 +734,7 @@ function RoomSessionScreen({
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
           <AmbientSoundSheet
             open={ambientSheetOpen}
-            container={sessionSurfaceRef.current}
+            container={sessionSurface}
             triggerRef={ambientButtonRef}
             catalog={ambient.catalog}
             mix={ambient.mix}
@@ -627,7 +804,7 @@ function RoomSessionScreen({
         // phase 가 studying 을 벗어나면 열려 있던 다이얼로그도 open=false 가 되어 닫힘 모션을
         // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false로 가며 같은 경로를 탄다.
         open={exitDialogOpen && phase.name === "studying" && invite === null}
-        container={sessionSurfaceRef.current}
+        container={sessionSurface}
         title={EXIT_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
         cancelLabel={EXIT_CONFIRM_COPY.cancel}
@@ -641,7 +818,7 @@ function RoomSessionScreen({
       */}
       <SessionConfirmDialog
         open={invite !== null && phase.name === "studying"}
-        container={sessionSurfaceRef.current}
+        container={sessionSurface}
         title={INVITE_CONFIRM_COPY.title}
         description={exitConfirmDescription(focusSec)}
         cancelLabel={INVITE_CONFIRM_COPY.cancel}
@@ -745,7 +922,7 @@ export function RoomPage() {
     return (
       <main
         data-testid="room-restore-gate"
-        className="relative flex h-dvh flex-col bg-background"
+        className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       />
     );

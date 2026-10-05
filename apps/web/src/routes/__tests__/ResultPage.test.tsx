@@ -295,7 +295,7 @@ describe("ResultPage — 타임라인 카드", () => {
 
     expect(
       screen.getByRole("img", {
-        name: "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
+        name: "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최대 집중 시간 42분",
       }),
     ).toBeInTheDocument();
   });
@@ -304,27 +304,27 @@ describe("ResultPage — 타임라인 카드", () => {
    * BY-560 시안(2026-09-14): 이벤트로 끊기지 않고 이어진 가장 긴 구간을 바 위 배지·바 안
    * 하이라이트·바 아래 행으로 보여준다. 예시 세션은 마지막 휴대폰 사용 뒤 42분이 가장 길다.
    */
-  it("최고 집중 시간을 배지와 행으로 보여준다 — 값과 시각 범위가 함께 간다", () => {
+  it("최대 집중 시간을 배지와 행으로 보여준다 — 값과 시각 범위가 함께 간다", () => {
     renderResult({ sessions: [exampleSession()] });
     const card = timelineCard();
 
     // 배지(장식, aria-hidden)와 행 라벨 — 둘 다 같은 문구를 쓴다.
-    expect(within(card).getAllByText(/최고 집중 시간/).length).toBeGreaterThanOrEqual(2);
+    expect(within(card).getAllByText(/최대 집중 시간/).length).toBeGreaterThanOrEqual(2);
     expect(within(card).getByText("42분")).toBeInTheDocument();
     expect(within(card).getByText("22:05 – 22:48")).toBeInTheDocument();
   });
 
-  it("이벤트가 세션 전체를 덮어 이어진 구간이 없으면 최고 집중 시간을 그리지 않는다", () => {
+  it("이벤트가 세션 전체를 덮어 이어진 구간이 없으면 최대 집중 시간을 그리지 않는다", () => {
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6300)] })] });
 
-    expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
+    expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
   });
 
-  it("가장 긴 집중 구간이 1분 미만이면 최고 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
+  it("가장 긴 집중 구간이 1분 미만이면 최대 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6241)] })] });
 
-    expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최고 집중/);
+    expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최대 집중/);
   });
 
   it("축 라벨은 세션 시작·종료 벽시계다", () => {

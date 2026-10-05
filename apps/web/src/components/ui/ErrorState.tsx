@@ -12,7 +12,7 @@ export function ErrorState({
   message: string;
   onRetry: () => void;
   /** 계측용 화면 식별자(BY-616 확장) — `error_retry_pressed.screen`. */
-  screen: "home" | "records" | "profile" | "live_room_entry";
+  screen: "home" | "records" | "planner" | "profile" | "live_room_entry";
 }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted px-5 py-8">
