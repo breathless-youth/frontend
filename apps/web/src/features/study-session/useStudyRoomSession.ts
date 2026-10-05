@@ -125,6 +125,15 @@ export interface StudyRoomSessionOptions {
  * 세션 중에는 일정 주기로 진행 스냅샷만 서버에 보고하고(비정상 종료 대비), 최종 제출은 종료 시
  * 1회 한다. 서버는 앱이 잰 studySec/focusSec을 그대로 저장한다.
  */
+/** 서버가 준 이벤트 뒤에 타임라인이 만든 이벤트를 잇는다. 화면과 제출이 같은 규칙을 쓰게 한 곳에 둔다. */
+function buildEvents(
+  priorEvents: readonly StatusEventPayload[],
+  timeline: SessionTimeline,
+  untilMs: number,
+): StatusEventPayload[] {
+  return [...priorEvents, ...toStatusEvents(timeline, untilMs)];
+}
+
 export function useStudyRoomSession(userId: number | null, options: StudyRoomSessionOptions = {}) {
   const [camera] = useState<CameraAdapter>(() => options.camera ?? createMockCameraAdapter());
   const [detector] = useState<FocusDetector>(() => options.detector ?? createMockFocusDetector());
@@ -247,12 +256,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     [initial.baseFocusSec, initial.baseStudySec],
   );
 
-  /** 서버가 준 이벤트 뒤에 지금 타임라인이 만든 이벤트를 잇는다. */
+  /** 스냅샷과 제출이 쓰는 최신 타임라인 기준 이벤트 목록이다. */
   const allEvents = useCallback(
-    (untilMs: number): StatusEventPayload[] => [
-      ...initial.priorEvents,
-      ...toStatusEvents(timelineRef.current, untilMs),
-    ],
+    (untilMs: number): StatusEventPayload[] =>
+      buildEvents(initial.priorEvents, timelineRef.current, untilMs),
     [initial.priorEvents],
   );
 
@@ -686,7 +693,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const cameraStream = camera.stream ?? null;
 
-  // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 타이머 틱이 리렌더를 일으킬 때마다 새로 읽어 과목 시간이 타이머와 함께 흐른다
+  // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 컴파일러가 메모하므로 타이머 틱이 totals를 바꿀 때마다 다시 읽혀 과목 시간이 타이머와 함께 흐른다
   const renderNowMs = Date.now();
   return {
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
@@ -713,7 +720,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
      */
     subjectSegments: materializeSubjectSegments(subjectTracker, renderNowMs),
     /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
-    sessionEvents: [...initial.priorEvents, ...toStatusEvents(timeline, renderNowMs)],
+    sessionEvents: buildEvents(initial.priorEvents, timeline, renderNowMs),
     selectSubject,
     pause,
     resume,
