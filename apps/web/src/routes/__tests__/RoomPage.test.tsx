@@ -1168,10 +1168,12 @@ describe("RoomPage: 세션 중 초대", () => {
     receiveInvite("4680");
 
     const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText("공부를 종료하고 초대에 참여할까요?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("진행 중인 공부를 종료하고 초대에 참여할까요?"),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(SUB_MINUTE_EXIT_DESCRIPTION)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "계속하기" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "종료하고 참여하기" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "참여하기" })).toBeInTheDocument();
   });
 
   it("계속하기를 누르면 세션에 남고 초대를 버린다", async () => {
@@ -1189,13 +1191,13 @@ describe("RoomPage: 세션 중 초대", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  it("종료하고 참여하기를 누르면 저장한 뒤 결과·안내 화면 없이 초대코드를 실어 세션을 닫는다", async () => {
+  it("참여하기를 누르면 저장한 뒤 결과·안내 화면 없이 초대코드를 실어 세션을 닫는다", async () => {
     const postMessage = stubNativeBridge();
     vi.mocked(submitStudySession).mockResolvedValue([]);
     renderRoom("/room/7?userId=1");
     receiveInvite("4680");
 
-    await userEvent.click(await screen.findByRole("button", { name: "종료하고 참여하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "참여하기" }));
 
     await waitFor(() =>
       expect(sentToNative(postMessage)).toContainEqual(
@@ -1220,7 +1222,7 @@ describe("RoomPage: 세션 중 초대", () => {
       });
       receiveInvite("4680");
       fireEvent.click(
-        within(screen.getByRole("alertdialog")).getByRole("button", { name: "종료하고 참여하기" }),
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "참여하기" }),
       );
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
@@ -1262,7 +1264,7 @@ describe("RoomPage: 세션 중 초대", () => {
     renderRoom("/room/7?userId=1");
     receiveInvite("4680");
 
-    await userEvent.click(await screen.findByRole("button", { name: "종료하고 참여하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "참여하기" }));
     const retryButton = await screen.findByRole("button", { name: "다시 제출" });
     expect(inviteLeaves(postMessage)).toEqual([]);
     await userEvent.click(retryButton);
@@ -1287,7 +1289,9 @@ describe("RoomPage: 세션 중 초대", () => {
 
     await waitFor(() => expect(screen.getAllByRole("alertdialog")).toHaveLength(1));
     expect(
-      within(screen.getByRole("alertdialog")).getByText("공부를 종료하고 초대에 참여할까요?"),
+      within(screen.getByRole("alertdialog")).getByText(
+        "진행 중인 공부를 종료하고 초대에 참여할까요?",
+      ),
     ).toBeInTheDocument();
   });
 

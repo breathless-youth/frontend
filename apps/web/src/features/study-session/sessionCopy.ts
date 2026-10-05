@@ -68,12 +68,12 @@ export const EXIT_CONFIRM_COPY = {
  * 세션 중 초대 확인 다이얼로그 문구
  *
  * 본문은 종료 확인과 같은 `exitConfirmDescription`을 써서 저장 결과를 먼저 말한다.
- * 확정 버튼은 공부가 끝난다는 사실이 라벨에 드러나야 해서 `참여하기`로 줄이지 않는다.
+ * 공부가 끝난다는 사실은 제목이 먼저 말하므로 확정 버튼은 `참여하기`로 짧게 둔다.
  */
 export const INVITE_CONFIRM_COPY = {
-  title: "공부를 종료하고 초대에 참여할까요?",
+  title: "진행 중인 공부를 종료하고 초대에 참여할까요?",
   cancel: "계속하기",
-  confirm: "종료하고 참여하기",
+  confirm: "참여하기",
 } as const;
 
 /**
