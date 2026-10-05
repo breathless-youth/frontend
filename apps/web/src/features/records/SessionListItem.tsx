@@ -1,9 +1,8 @@
 import type { StudySessionSummary } from "@focusmakers/types";
 
-import {
-  ResultBarSegment,
-  ResultStatusDot,
-} from "@/features/study-session/components/ResultCardParts";
+import { ResultBarSegment } from "@/features/study-session/components/ResultCardParts";
+import { LegendItem } from "@/features/study-session/components/StudyTimelineCard";
+import { LEGEND_COPY } from "@/features/study-session/resultCopy";
 import { longestFocusStretch, timelineSegments } from "@/features/study-session/sessionResult";
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -99,22 +98,13 @@ export function SessionListItem({ session, className }: SessionListItemProps) {
   );
 }
 
-/** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. */
+/** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. 항목과 문구는 공부 결과 화면의 범례 그대로다. */
 export function SessionTimelineLegend() {
   return (
     <ul className="-mt-1 flex items-start gap-2 pb-3">
-      {(
-        [
-          { label: "순공", tone: "focus" },
-          { label: "자동 멈춤", tone: "distract" },
-          { label: "일시정지", tone: "pause" },
-        ] as const
-      ).map((item) => (
-        <li key={item.label} className="flex items-center gap-1">
-          <ResultStatusDot tone={item.tone} />
-          <span className="text-[11px] leading-[13px] text-muted-foreground">{item.label}</span>
-        </li>
-      ))}
+      <LegendItem tone="focus" label={LEGEND_COPY.focus} />
+      <LegendItem tone="distract" label={LEGEND_COPY.distract} />
+      <LegendItem tone="pause" label={LEGEND_COPY.pause} />
     </ul>
   );
 }

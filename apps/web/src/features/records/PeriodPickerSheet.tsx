@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
-import { IconChevronLeft, IconChevronRight } from "./icons";
+import { PeriodNav } from "./PeriodNav";
 import {
   type CalendarMonth,
   dateKeyOfDate,
@@ -87,23 +87,18 @@ function PickerNav({
   onNext: () => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 pt-3">
-      <Button variant="unstyled" aria-label={prevLabel} onClick={onPrev} className="size-11 p-0">
-        <IconChevronLeft size={13} color="var(--color-foreground)" />
-      </Button>
+    <PeriodNav
+      prevLabel={prevLabel}
+      nextLabel={nextLabel}
+      canGoNext={canGoNext}
+      onPrev={onPrev}
+      onNext={onNext}
+      className="pt-3"
+    >
       <span className="w-[120px] text-center text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
         {label}
       </span>
-      <Button
-        variant="unstyled"
-        aria-label={nextLabel}
-        disabled={!canGoNext}
-        onClick={onNext}
-        className="size-11 p-0 disabled:opacity-30"
-      >
-        <IconChevronRight size={13} color="var(--color-foreground)" />
-      </Button>
-    </div>
+    </PeriodNav>
   );
 }
 

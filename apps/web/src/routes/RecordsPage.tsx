@@ -35,7 +35,8 @@ import { SegmentedControl, type RecordsView } from "@/features/records/Segmented
 import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
+import { IconChevronRight } from "@/features/records/icons";
+import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
 import { useUserId } from "@/lib/userId";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -120,38 +121,23 @@ function RecordsContent({
     <div>
       {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
           카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
-      <div className="flex items-center justify-center gap-1.5 pt-4">
-        <Button
-          variant="unstyled"
-          aria-label="이전 달"
-          onClick={() => changeMonth(-1, "button")}
-          className="size-11 p-0"
-        >
-          <IconChevronLeft size={13} color="var(--color-foreground)" />
-        </Button>
-        {/* 라벨을 탭하면 기간 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
-        <Button
-          variant="unstyled"
-          aria-haspopup="dialog"
+      <PeriodNav
+        prevLabel="이전 달"
+        nextLabel="다음 달"
+        canGoNext={!isLatestMonth}
+        onPrev={() => changeMonth(-1, "button")}
+        onNext={() => changeMonth(1, "button")}
+        className="pt-4"
+      >
+        <PeriodNavPickerButton
           onClick={() => {
             trackRecordsPeriodPickerOpened("daily");
             setPickerOpen(true);
           }}
-          className="h-11 gap-1.5 px-2.5 py-0 text-[15px] font-bold text-foreground"
         >
           {monthLabel(month)}
-          <IconChevronDown />
-        </Button>
-        <Button
-          variant="unstyled"
-          aria-label="다음 달"
-          disabled={isLatestMonth}
-          onClick={() => changeMonth(1, "button")}
-          className="size-11 p-0 disabled:opacity-30"
-        >
-          <IconChevronRight size={13} color="var(--color-foreground)" />
-        </Button>
-      </div>
+        </PeriodNavPickerButton>
+      </PeriodNav>
 
       <MonthPickerSheet
         open={pickerOpen}

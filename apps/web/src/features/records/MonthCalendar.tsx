@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 
@@ -130,41 +131,44 @@ function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
 /** 달력 아래 — 왼쪽에 농도 범례, 오른쪽에 그 달의 하루 평균과 합계. */
 function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthLabel: string }) {
   return (
-    <div className="mx-2 mt-1 flex items-start justify-between border-t border-border pt-[13px]">
-      {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
-      <div
-        role="group"
-        aria-label="순공시간 범례, 숫자는 그 시간 이상"
-        className="flex items-start gap-1 pt-0.5"
-      >
-        {HEAT_LEGEND.map((item) => (
-          <span key={item.label} className="flex flex-col items-center gap-[3px]">
-            <span className={`h-2.5 w-[18px] rounded-[3px] ${item.cls}`} aria-hidden />
-            <span className="text-[10px] leading-3 text-muted-foreground">{item.label}</span>
-          </span>
-        ))}
-      </div>
-
-      <div className="flex items-start gap-5">
-        <div className="flex flex-col items-end gap-0.5">
-          <p className="text-xs leading-[14px] text-muted-foreground">하루 평균</p>
-          {stats === null ? (
-            <Skeleton className="h-[18px] w-16 rounded-md" />
-          ) : (
-            <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
-              {formatDuration(stats.averageFocusSec ?? 0)}
-            </p>
-          )}
+    <div className="mx-2 mt-1">
+      <Separator />
+      <div className="flex items-start justify-between pt-[13px]">
+        {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
+        <div
+          role="group"
+          aria-label="순공시간 범례, 숫자는 그 시간 이상"
+          className="flex items-start gap-1 pt-0.5"
+        >
+          {HEAT_LEGEND.map((item) => (
+            <span key={item.label} className="flex flex-col items-center gap-[3px]">
+              <span className={`h-2.5 w-[18px] rounded-[3px] ${item.cls}`} aria-hidden />
+              <span className="text-[10px] leading-3 text-muted-foreground">{item.label}</span>
+            </span>
+          ))}
         </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <p className="text-xs leading-[14px] text-muted-foreground">{monthLabel} 총 시간</p>
-          {stats === null ? (
-            <Skeleton className="h-[18px] w-16 rounded-md" />
-          ) : (
-            <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
-              {formatDuration(stats.totalFocusSec)}
-            </p>
-          )}
+
+        <div className="flex items-start gap-5">
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-xs leading-[14px] text-muted-foreground">하루 평균</p>
+            {stats === null ? (
+              <Skeleton className="h-[18px] w-16 rounded-md" />
+            ) : (
+              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+                {formatDuration(stats.averageFocusSec ?? 0)}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-xs leading-[14px] text-muted-foreground">{monthLabel} 총 시간</p>
+            {stats === null ? (
+              <Skeleton className="h-[18px] w-16 rounded-md" />
+            ) : (
+              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+                {formatDuration(stats.totalFocusSec)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

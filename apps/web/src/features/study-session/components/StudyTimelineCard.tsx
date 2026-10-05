@@ -153,7 +153,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
   );
 }
 
-function LegendItem({ tone, label }: { tone: ResultStatusTone; label: string }) {
+export function LegendItem({ tone, label }: { tone: ResultStatusTone; label: string }) {
   return (
     <li className="flex items-center gap-[5px]">
       <ResultStatusDot tone={tone} />

@@ -105,9 +105,14 @@ export function PlannerSubjects({
           {onRetryLoad !== undefined && (
             <p className="pt-2 text-xs leading-4 text-muted-foreground">
               {SUBJECT_SHEET_COPY.loadFailed}{" "}
-              <button type="button" onClick={onRetryLoad} className="font-bold text-primary">
+              <Button
+                variant="unstyled"
+                onClick={onRetryLoad}
+                // 문장 안의 글자 버튼이라 공용 버튼의 높이·여백·글자 크기를 문장에 맞춘다.
+                className="h-auto rounded-none p-0 text-xs leading-4 font-bold text-primary"
+              >
                 {SUBJECT_SHEET_COPY.retry}
-              </button>
+              </Button>
             </p>
           )}
         </>
