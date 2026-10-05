@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SegmentedControl } from "../SegmentedControl";
+import { Accordion } from "@/components/ui/accordion";
+
 import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
 import { StreakBanner } from "../StreakBanner";
@@ -365,9 +367,29 @@ describe("MonthCalendar", () => {
   });
 });
 
+/** 세션 행은 Accordion의 한 항목이다 — 펼침 여부는 Accordion의 값으로 준다. */
+function sessionRow(
+  data: Parameters<typeof SessionListItem>[0]["session"],
+  {
+    expanded = false,
+    onToggle = vi.fn(),
+  }: { expanded?: boolean; onToggle?: (value: string) => void } = {},
+) {
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      value={expanded ? String(data.id) : ""}
+      onValueChange={onToggle}
+    >
+      <SessionListItem session={data} />
+    </Accordion>
+  );
+}
+
 describe("SessionListItem", () => {
   it("접힌 행은 순공시간·총 공부시간·집중률 필·시작과 종료 시각을 보여준다", () => {
-    render(<SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />);
+    render(sessionRow(session()));
 
     const row = screen.getByRole("button", { name: /07:30부터 08:16까지, 순공 44분, 집중 96%/ });
     expect(row).toHaveAttribute("aria-expanded", "false");
@@ -379,38 +401,35 @@ describe("SessionListItem", () => {
   });
 
   it("집중률 필은 집중률이 높든 낮든 같은 옅은 색으로 칠한다", () => {
-    const { rerender } = render(
-      <SessionListItem session={session({ focusRate: 96 })} expanded={false} onToggle={vi.fn()} />,
-    );
+    const { rerender } = render(sessionRow(session({ focusRate: 96 })));
     expect(screen.getByText("집중 96%")).toHaveClass("bg-brand-subtle", "text-primary");
     expect(screen.getByText("집중 96%")).not.toHaveClass("bg-primary");
 
-    rerender(
-      <SessionListItem session={session({ focusRate: 83 })} expanded={false} onToggle={vi.fn()} />,
-    );
+    rerender(sessionRow(session({ focusRate: 83 })));
     expect(screen.getByText("집중 83%")).toHaveClass("bg-brand-subtle", "text-primary");
   });
 
   it("미니 타임라인은 순공색 바탕 위에 자동 멈춤·일시정지 구간만 제자리에 덧칠한다", () => {
     // 07:30~08:16(46분) 가운데 07:53~08:04.5 자동 멈춤(25%), 08:04.5~08:16 일시정지(25%).
     const { container } = render(
-      <SessionListItem
-        session={session({
+      sessionRow(
+        session({
           events: [
             { status: "PHONE", startedAt: "2026-09-18T22:53:00Z", endedAt: "2026-09-18T23:04:30Z" },
             { status: "PAUSE", startedAt: "2026-09-18T23:04:30Z", endedAt: "2026-09-18T23:16:00Z" },
           ],
-        })}
-        expanded={false}
-        onToggle={vi.fn()}
-      />,
+        }),
+      ),
     );
 
-    const overlays = Array.from(container.querySelectorAll<HTMLElement>("[data-kind]"));
-    expect(overlays.map((overlay) => overlay.dataset.kind)).toEqual(["distract", "pause"]);
+    // 공부 결과 화면과 같은 조각(`ResultBarSegment`)이다 — 바 안의 자식이 덧칠한 구간이다.
+    const overlays = Array.from(
+      container.querySelectorAll<HTMLElement>(".rounded-full.bg-primary > span"),
+    );
+    expect(overlays).toHaveLength(2);
     expect(overlays[0]).toHaveClass("absolute", "bg-state-distract");
     expect(overlays[0]).toHaveStyle({ left: "50%", width: "25%" });
-    expect(overlays[1]).toHaveClass("absolute", "bg-state-pause");
+    expect(overlays[1]).toHaveClass("absolute", "bg-text-tertiary");
     expect(overlays[1]).toHaveStyle({ left: "75%", width: "25%" });
     // 순공은 조각이 아니라 바 자체의 색이다.
     expect(overlays[0]?.parentElement).toHaveClass("bg-primary");
@@ -418,11 +437,9 @@ describe("SessionListItem", () => {
   });
 
   it("이벤트가 없는 세션의 타임라인은 덧칠 없이 순공색 바 하나다", () => {
-    const { container } = render(
-      <SessionListItem session={session()} expanded={false} onToggle={vi.fn()} />,
-    );
+    const { container } = render(sessionRow(session()));
 
-    expect(container.querySelector("[data-kind]")).toBeNull();
+    expect(container.querySelector(".rounded-full.bg-primary > span")).toBeNull();
     expect(container.querySelector(".bg-primary")).not.toBeNull();
   });
 
@@ -434,14 +451,12 @@ describe("SessionListItem", () => {
         { status: "PHONE", startedAt: "2026-09-18T22:50:00Z", endedAt: "2026-09-18T22:58:00Z" },
       ],
     });
-    const { rerender } = render(
-      <SessionListItem session={withEvent} expanded={false} onToggle={onToggle} />,
-    );
+    const { rerender } = render(sessionRow(withEvent, { onToggle }));
 
     screen.getByRole("button").click();
-    expect(onToggle).toHaveBeenCalledWith(withEvent);
+    expect(onToggle).toHaveBeenCalledWith(String(withEvent.id));
 
-    rerender(<SessionListItem session={withEvent} expanded onToggle={onToggle} />);
+    rerender(sessionRow(withEvent, { expanded: true, onToggle }));
     expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("시작 시간")).toBeInTheDocument();
     expect(screen.getByText("종료 시간")).toBeInTheDocument();
@@ -459,7 +474,7 @@ describe("SessionListItem", () => {
         { status: "PHONE", startedAt: "2026-09-18T22:30:50Z", endedAt: "2026-09-18T22:31:30Z" },
       ],
     });
-    render(<SessionListItem session={brief} expanded onToggle={vi.fn()} />);
+    render(sessionRow(brief, { expanded: true }));
 
     expect(screen.getByText("최대 집중 시간").nextElementSibling).toHaveTextContent(/^1분 미만$/);
     expect(screen.queryByText(/~/)).not.toBeInTheDocument();

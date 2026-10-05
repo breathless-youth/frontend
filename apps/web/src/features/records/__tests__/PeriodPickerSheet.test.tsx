@@ -20,9 +20,10 @@ describe("MonthPickerSheet — 달 선택", () => {
 
     expect(screen.getByText("달 선택")).toBeInTheDocument();
     expect(screen.getByText("2026년")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "9월" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "8월" })).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "10월" })).toBeDisabled();
+    // 달 격자는 하나만 고르는 묶음(라디오)이다.
+    expect(screen.getByRole("radio", { name: "9월" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "8월" })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: "10월" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "다음 해" })).toBeDisabled();
   });
 
@@ -41,7 +42,7 @@ describe("MonthPickerSheet — 달 선택", () => {
     await userEvent.click(screen.getByRole("button", { name: "이전 해" }));
     expect(screen.getByText("2025년")).toBeInTheDocument();
     // 지난해는 12월까지 전부 고를 수 있다.
-    await userEvent.click(screen.getByRole("button", { name: "12월" }));
+    await userEvent.click(screen.getByRole("radio", { name: "12월" }));
 
     expect(onPick).toHaveBeenCalledWith({ year: 2025, month: 12 }, false);
   });
@@ -128,8 +129,8 @@ describe("WeekPickerSheet — 주 선택", () => {
     // 2026년 9월은 화요일에 시작한다 — 첫 주는 8월 31일(월)부터, 마지막 주는 10월 4일(일)까지다.
     const firstMonday = screen.getByRole("button", { name: "8월 31일" });
     expect(firstMonday).not.toBeDisabled();
-    expect(firstMonday.parentElement).toBe(
-      screen.getByRole("button", { name: "9월 1일" }).parentElement,
+    expect(firstMonday.closest("tr")).toBe(
+      screen.getByRole("button", { name: "9월 1일" }).closest("tr"),
     );
     expect(screen.getByRole("button", { name: "10월 4일" })).toBeDisabled();
 

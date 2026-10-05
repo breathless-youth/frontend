@@ -1,15 +1,17 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 import { IconChevronLeft, IconChevronRight } from "./icons";
 import {
-  buildMonthGrid,
   type CalendarMonth,
-  dayOfDateKey,
-  isFutureDateKey,
-  MONDAY_FIRST_WEEKDAY_LABELS,
+  dateKeyOfDate,
+  dateOfDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
@@ -55,13 +57,13 @@ function PickerSheet({
           <SheetTitle className="text-lg leading-[21px] font-bold tracking-normal text-foreground">
             {title}
           </SheetTitle>
-          <button
-            type="button"
+          <Button
+            variant="subtle"
             onClick={onToday}
-            className="flex h-8 items-center rounded-full bg-brand-subtle px-3.5 text-[13px] leading-4 font-semibold text-brand-subtle-text"
+            className="h-8 rounded-full px-3.5 py-0 text-[13px] leading-4 font-semibold text-brand-subtle-text"
           >
             오늘
-          </button>
+          </Button>
         </div>
         {children}
       </SheetContent>
@@ -86,26 +88,21 @@ function PickerNav({
 }) {
   return (
     <div className="flex items-center justify-center gap-1.5 pt-3">
-      <button
-        type="button"
-        aria-label={prevLabel}
-        onClick={onPrev}
-        className="flex size-11 items-center justify-center"
-      >
+      <Button variant="unstyled" aria-label={prevLabel} onClick={onPrev} className="size-11 p-0">
         <IconChevronLeft size={13} color="var(--color-foreground)" />
-      </button>
+      </Button>
       <span className="w-[120px] text-center text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
         {label}
       </span>
-      <button
-        type="button"
+      <Button
+        variant="unstyled"
         aria-label={nextLabel}
         disabled={!canGoNext}
         onClick={onNext}
-        className="flex size-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
+        className="size-11 p-0 disabled:opacity-30"
       >
         <IconChevronRight size={13} color="var(--color-foreground)" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -159,29 +156,25 @@ function MonthGrid({
         onPrev={() => setYear((current) => current - 1)}
         onNext={() => setYear((current) => Math.min(thisYear, current + 1))}
       />
-      <div className="grid grid-cols-4 gap-2 pt-2">
-        {MONTHS.map((value) => {
-          const candidate = { year, month: value };
-          const selected = year === month.year && value === month.month;
-          const future = isFutureMonth(candidate, todayKey);
-          return (
-            <button
-              key={value}
-              type="button"
-              disabled={future}
-              aria-pressed={selected}
-              onClick={() => onPick(candidate)}
-              className={`h-11 rounded-[12px] text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed disabled:opacity-35 ${
-                selected
-                  ? "bg-primary font-bold text-primary-foreground"
-                  : "bg-bg-layer-2 font-medium text-foreground"
-              }`}
-            >
-              {value}월
-            </button>
-          );
-        })}
-      </div>
+      <ToggleGroup
+        type="single"
+        value={year === month.year ? String(month.month) : ""}
+        // 고른 달을 다시 누르면 ToggleGroup은 선택을 풀어 빈 값을 준다 — 그때도 그 달을 고른 것으로 넘긴다.
+        onValueChange={(value) => onPick({ year, month: Number(value || month.month) })}
+        className="grid grid-cols-4 gap-2 pt-2"
+      >
+        {MONTHS.map((value) => (
+          <ToggleGroupItem
+            key={value}
+            value={String(value)}
+            disabled={isFutureMonth({ year, month: value }, todayKey)}
+            // 공용 칩 모양(테두리·알약·히트 영역)을 격자 칸 모양으로 덮어쓴다.
+            className="h-11 justify-center rounded-[12px] border-0 bg-bg-layer-2 px-0 text-sm leading-[18px] text-foreground tabular-nums before:hidden disabled:cursor-not-allowed disabled:opacity-35 data-[state=on]:font-bold"
+          >
+            {value}월
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
     </>
   );
 }
@@ -229,11 +222,8 @@ function WeekGrid({
   const selectedWeek = mondayWeekDateKeys(weekAnchorKey);
   // 보는 주가 두 달에 걸치면 그 주가 시작하는 달부터 연다.
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(selectedWeek[0]!));
-  // 주는 달을 넘나들어도 한 줄이다 — 달의 첫 주·마지막 주는 이웃 달 날짜로 채운다.
-  const weeks = buildMonthGrid(viewMonth, "monday").map((week) =>
-    mondayWeekDateKeys(week.find((cell) => cell !== null)!),
-  );
   const canGoNext = !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
+  const today = dateOfDateKey(todayKey);
 
   return (
     <>
@@ -245,83 +235,72 @@ function WeekGrid({
         onPrev={() => setViewMonth((current) => shiftMonth(current, -1))}
         onNext={() => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current))}
       />
-      <div className="flex pt-2 pb-1">
-        {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
-          <span
-            key={label}
-            className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-      <div className="flex flex-col gap-1">
-        {weeks.map((week) => {
-          const selected = week[0] === selectedWeek[0];
-          // 월요일이 아직 오지 않은 주는 통째로 고를 수 없다.
-          const futureWeek = isFutureDateKey(week[0]!, todayKey);
-          return (
-            <div
-              key={week[0]}
-              className={`flex h-10 rounded-[12px] ${selected ? "bg-brand-subtle" : ""} ${
-                futureWeek ? "opacity-35" : ""
-              }`}
-            >
-              {week.map((dateKey) => (
-                <WeekGridDay
-                  key={dateKey}
-                  dateKey={dateKey}
-                  isToday={dateKey === todayKey}
-                  isFuture={isFutureDateKey(dateKey, todayKey)}
-                  inSelectedWeek={selected}
-                  inViewMonth={monthOfDateKey(dateKey).month === viewMonth.month}
-                  onPick={onPick}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
+      <Calendar
+        // 주는 달을 넘나들어도 한 줄이다 — 달의 첫 주·마지막 주는 이웃 달 날짜로 채운다.
+        showOutsideDays
+        month={dateOfMonth(viewMonth)}
+        today={today}
+        disabled={{ after: today }}
+        modifiers={{
+          inWeek: selectedWeek.map(dateOfDateKey),
+          // 월요일이 아직 오지 않은 주는 통째로 고를 수 없다 — 이번 주 일요일 뒤의 날이 그렇다.
+          futureWeek: { after: dateOfDateKey(mondayWeekDateKeys(todayKey)[6]!) },
+        }}
+        modifiersClassNames={{
+          inWeek: "bg-brand-subtle first:rounded-l-[12px] last:rounded-r-[12px]",
+          futureWeek: "opacity-35",
+        }}
+        onDayClick={(date, modifiers) => {
+          if (!modifiers.disabled) {
+            onPick(dateKeyOfDate(date));
+          }
+        }}
+        className="pt-2"
+        classNames={PICKER_GRID_CLASSNAMES}
+        components={{ DayButton: WeekGridDay }}
+      />
     </>
   );
 }
 
-function WeekGridDay({
-  dateKey,
-  isToday,
-  isFuture,
-  inSelectedWeek,
-  inViewMonth,
-  onPick,
-}: {
-  dateKey: string;
-  isToday: boolean;
-  isFuture: boolean;
-  inSelectedWeek: boolean;
-  /** 보는 달의 날짜인가 — 이웃 달 날짜는 흐리게 적는다. */
-  inViewMonth: boolean;
-  onPick: (dateKey: string) => void;
-}) {
-  const tone = isFuture
+const PICKER_GRID_CLASSNAMES = {
+  weekdays: "flex pb-1",
+  weeks: "flex flex-col gap-1",
+  week: "flex h-10",
+};
+
+function dateOfMonth({ year, month }: CalendarMonth): Date {
+  return new Date(year, month - 1);
+}
+
+function dayLabel(date: Date, isToday: boolean): string {
+  return `${isToday ? "오늘, " : ""}${String(date.getMonth() + 1)}월 ${String(date.getDate())}일`;
+}
+
+function WeekGridDay({ day, modifiers, ...props }: CalendarDayButtonProps) {
+  const tone = modifiers.disabled
     ? "text-text-disabled"
-    : inSelectedWeek
+    : modifiers.inWeek
       ? "text-brand-subtle-text"
-      : inViewMonth
-        ? "text-foreground"
-        : "text-text-disabled";
+      : // 이웃 달 날짜는 흐리게 적는다.
+        modifiers.outside
+        ? "text-text-disabled"
+        : "text-foreground";
 
   return (
-    <button
-      type="button"
-      disabled={isFuture}
-      aria-label={`${isToday ? "오늘, " : ""}${String(monthOfDateKey(dateKey).month)}월 ${String(dayOfDateKey(dateKey))}일`}
-      onClick={() => onPick(dateKey)}
-      className={`flex h-full flex-1 items-center justify-center text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed ${tone} ${
-        isToday ? "font-extrabold" : "font-medium"
-      }`}
+    <CalendarDayButton
+      day={day}
+      modifiers={modifiers}
+      {...props}
+      aria-label={dayLabel(day.date, Boolean(modifiers.today))}
+      className={cn(
+        "flex h-full w-full items-center justify-center text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed",
+        tone,
+        modifiers.today ? "font-extrabold" : "font-medium",
+      )}
     >
-      {dayOfDateKey(dateKey)}
-    </button>
+      {day.date.getDate()}
+    </CalendarDayButton>
   );
 }
 
@@ -372,7 +351,7 @@ function DayGrid({
   onPick: (dateKey: string) => void;
 }) {
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
-  const grid = buildMonthGrid(viewMonth, "monday");
+  const today = dateOfDateKey(todayKey);
   const canGoNext = allowFuture || !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
 
   return (
@@ -385,55 +364,46 @@ function DayGrid({
         onPrev={() => setViewMonth((current) => shiftMonth(current, -1))}
         onNext={() => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current))}
       />
-      <div className="flex pt-2 pb-1">
-        {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
-          <span
-            key={label}
-            className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-      <div className="flex flex-col gap-1">
-        {grid.map((week) => (
-          <div key={week.find((cell) => cell !== null) ?? "empty-week"} className="flex h-10">
-            {week.map((cell, index) => {
-              if (cell === null) {
-                return <span key={`blank-${String(index)}`} className="flex-1" />;
-              }
-              const selected = cell === dateKey;
-              const isToday = cell === todayKey;
-              const future = !allowFuture && isFutureDateKey(cell, todayKey);
-              return (
-                <button
-                  key={cell}
-                  type="button"
-                  disabled={future}
-                  aria-pressed={selected}
-                  aria-label={`${isToday ? "오늘, " : ""}${String(monthOfDateKey(cell).month)}월 ${String(dayOfDateKey(cell))}일`}
-                  onClick={() => onPick(cell)}
-                  className="flex h-full flex-1 items-center justify-center disabled:cursor-not-allowed"
-                >
-                  <span
-                    className={`flex size-9 items-center justify-center rounded-full text-sm leading-[18px] tabular-nums ${
-                      selected
-                        ? "bg-primary font-bold text-primary-foreground"
-                        : future
-                          ? "font-medium text-text-disabled"
-                          : isToday
-                            ? "font-extrabold text-foreground"
-                            : "font-medium text-foreground"
-                    }`}
-                  >
-                    {dayOfDateKey(cell)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <Calendar
+        mode="single"
+        required
+        month={dateOfMonth(viewMonth)}
+        today={today}
+        selected={dateOfDateKey(dateKey)}
+        disabled={allowFuture ? undefined : { after: today }}
+        onSelect={(date) => onPick(dateKeyOfDate(date))}
+        className="pt-2"
+        classNames={PICKER_GRID_CLASSNAMES}
+        components={{ DayButton: DayGridDay }}
+      />
     </>
+  );
+}
+
+function DayGridDay({ day, modifiers, ...props }: CalendarDayButtonProps) {
+  return (
+    <CalendarDayButton
+      day={day}
+      modifiers={modifiers}
+      {...props}
+      aria-pressed={Boolean(modifiers.selected)}
+      aria-label={dayLabel(day.date, Boolean(modifiers.today))}
+      className="flex h-full w-full items-center justify-center disabled:cursor-not-allowed"
+    >
+      <span
+        className={cn(
+          "flex size-9 items-center justify-center rounded-full text-sm leading-[18px] tabular-nums",
+          modifiers.selected
+            ? "bg-primary font-bold text-primary-foreground"
+            : modifiers.disabled
+              ? "font-medium text-text-disabled"
+              : modifiers.today
+                ? "font-extrabold text-foreground"
+                : "font-medium text-foreground",
+        )}
+      >
+        {day.date.getDate()}
+      </span>
+    </CalendarDayButton>
   );
 }

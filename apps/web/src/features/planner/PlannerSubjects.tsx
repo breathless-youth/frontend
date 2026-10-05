@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -25,6 +24,15 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import type { PlannerSubjectItem, PlannerTaskItem } from "./subjectItems";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 type Editing =
   | { kind: "new-subject" }
@@ -177,19 +185,9 @@ function SubjectHeadContent({ item, grip = false }: { item: PlannerSubjectItem; 
   );
 }
 
-function TaskCheck({ done }: { done: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-[18px] shrink-0 items-center justify-center rounded-full",
-        done ? "bg-primary" : "border-[1.5px] border-text-tertiary",
-      )}
-    >
-      {done && <Check size={11} strokeWidth={3} className="text-primary-foreground" />}
-    </span>
-  );
-}
+/** 공용 Checkbox를 플래너의 둥근 체크 모양으로 맞춘다. */
+const TASK_CHECK_CLASS =
+  "size-[18px] rounded-full border-[1.5px] border-text-tertiary shadow-none data-[state=checked]:border-primary [&_svg]:size-[11px]";
 
 function taskNameClass(done: boolean) {
   return cn(
@@ -205,10 +203,16 @@ const TASK_ROW_CLASS = "flex h-8 items-center gap-2 rounded-[8px] px-1";
 function StaticTask({ task }: { task: PlannerTaskItem }) {
   return (
     <li className={TASK_ROW_CLASS}>
-      <span role="img" aria-label={task.done ? "완료" : "미완료"} className="flex shrink-0">
-        <TaskCheck done={task.done} />
+      <Checkbox
+        checked={task.done}
+        disabled
+        aria-label={task.name}
+        // 보기 전용이라 흐리게 하지 않는다. 누름은 받지 않고 흘려보내 이 위에서 시작한 날짜 넘김도 잡힌다.
+        className={cn(TASK_CHECK_CLASS, "pointer-events-none disabled:opacity-100")}
+      />
+      <span aria-hidden className={taskNameClass(task.done)}>
+        {task.name}
       </span>
-      <span className={taskNameClass(task.done)}>{task.name}</span>
     </li>
   );
 }
@@ -257,7 +261,7 @@ function InlineEditor({
       // 입력 안에서의 드래그가 날짜 넘김 스와이프로 읽히지 않게 한다.
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <input
+      <Input
         // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
         autoFocus
         aria-label={ariaLabel}
@@ -268,22 +272,27 @@ function InlineEditor({
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={commit}
-        className="h-8 min-w-0 flex-1 rounded-[8px] border border-primary bg-bg-layer-2 px-2 text-sm leading-[18px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
+        // 공용 입력(높이 52)을 플래너 줄 높이에 맞춘다. 테두리가 이미 브랜드색이라 포커스 링은 겹쳐 그리지 않는다.
+        className="h-8 min-w-0 flex-1 rounded-[8px] border-primary bg-bg-layer-2 px-2 text-sm leading-[18px] font-medium placeholder:text-muted-foreground focus-visible:ring-0"
       />
-      <button
-        type="button"
+      <Button
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="h-8 shrink-0 rounded-[8px] bg-primary px-[9px] text-xs leading-4 font-semibold text-primary-foreground active:opacity-80"
+        className="h-8 shrink-0 rounded-[8px] px-[9px] py-0 text-xs leading-4 font-semibold"
       >
         {SUBJECT_SHEET_COPY.done}
-      </button>
+      </Button>
     </div>
   );
 }
 
-/** 길게 누르기 메뉴 — 누른 행 바로 아래에 뜬다. 바깥을 누르면 닫힌다. */
+const ROW_MENU_ITEM_CLASS = "h-10 rounded-[10px] px-3 py-0 text-sm leading-[18px] font-medium";
+
+/**
+ * 길게 누르기 메뉴 — 누른 행 바로 아래에 뜬다. 공용 DropdownMenu를 쓰되 여는 것은 호출부의 길게 누르기가
+ * 정한다(열려 있을 때만 그린다). 바깥을 누르면 닫히는 것과 키보드 이동은 DropdownMenu가 맡는다.
+ */
 function RowMenu({
   onRename,
   onRemove,
@@ -293,39 +302,49 @@ function RowMenu({
   onRemove: () => void;
   onDismiss: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    function onPointerDown(event: globalThis.PointerEvent) {
-      if (ref.current !== null && !ref.current.contains(event.target as Node)) {
-        onDismiss();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [onDismiss]);
   return (
-    <div
-      ref={ref}
-      role="menu"
-      className="absolute top-full left-3.5 z-20 flex w-[150px] flex-col rounded-[14px] border border-border bg-muted p-1.5 shadow-[0_12px_16px_0_rgba(15,23,42,0.18)]"
+    <DropdownMenu
+      open
+      modal={false}
+      onOpenChange={(open) => {
+        if (!open) {
+          onDismiss();
+        }
+      }}
     >
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onRename}
-        className="flex h-10 items-center rounded-[10px] px-3 text-sm leading-[18px] font-medium text-foreground active:bg-bg-layer-2"
+      {/* 메뉴가 붙을 자리 — 행을 덮는 보이지 않는 기준점이다. 누름은 받지 않는다(행의 동작이 처리한다). */}
+      <DropdownMenuTrigger asChild>
+        <span aria-hidden className="pointer-events-none absolute inset-0" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        alignOffset={14}
+        sideOffset={0}
+        // 길게 누른 손가락 밑으로 뒤집혀 올라오지 않게 늘 행 아래에 둔다.
+        avoidCollisions={false}
+        // 길게 누른 손가락을 뗄 때 행이 포커스를 가져가도 닫지 않는다.
+        onFocusOutside={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        // 포털이 body로 나가므로 테마를 다시 단다. 명세가 모션을 더하지 않기로 해서 등장 애니메이션은 끈다.
+        className="theme-soft-blue w-[150px] min-w-0 rounded-[14px] p-1.5 shadow-[0_12px_16px_0_rgba(15,23,42,0.18)] data-[state=open]:animate-none"
       >
-        이름 변경
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onRemove}
-        className="flex h-10 items-center rounded-[10px] px-3 text-sm leading-[18px] font-medium text-feedback-danger active:bg-bg-layer-2"
-      >
-        삭제
-      </button>
-    </div>
+        <DropdownMenuItem
+          // 누른 채 메뉴 위로 끌고 와 떼는 것만으로 고르지 않게 한다 — 항목을 눌렀다 떼야 고른다.
+          onPointerUp={(event) => event.preventDefault()}
+          onSelect={onRename}
+          className={ROW_MENU_ITEM_CLASS}
+        >
+          이름 변경
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onPointerUp={(event) => event.preventDefault()}
+          onSelect={onRemove}
+          className={cn(ROW_MENU_ITEM_CLASS, "text-feedback-danger")}
+        >
+          삭제
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -464,26 +483,32 @@ function ManagedTask({
   });
   return (
     <li className={cn("relative", menuOpen && "z-20")}>
+      {/* 줄 전체가 누름 영역이다 — 누르면 완료, 길게 누르면 메뉴. */}
       <div
-        role="checkbox"
-        tabIndex={0}
-        aria-checked={task.done}
-        aria-label={task.name}
         {...handlers}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onToggle(!task.done);
-          }
-        }}
         className={cn(
           TASK_ROW_CLASS,
           "session-no-drag relative touch-pan-y select-none",
           pressed && "opacity-60",
         )}
       >
-        <TaskCheck done={task.done} />
-        <span className={taskNameClass(task.done)}>{task.name}</span>
+        <Checkbox
+          checked={task.done}
+          aria-label={task.name}
+          // 값은 줄의 누름 처리가 바꾼다 — 체크 상자가 따로 처리하지 않게 하고 클릭은 줄로 올려 보낸다
+          // (키보드 스페이스도 클릭으로 올라간다).
+          onClick={(event) => event.preventDefault()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onToggle(!task.done);
+            }
+          }}
+          className={TASK_CHECK_CLASS}
+        />
+        <span aria-hidden className={taskNameClass(task.done)}>
+          {task.name}
+        </span>
       </div>
       {menu}
     </li>
@@ -664,8 +689,8 @@ function ManagedSubject({
             onCancel={() => onEditing(null)}
           />
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="unstyled"
             onClick={() => {
               if (liveTaskCount >= MAX_TASKS) {
                 onNotice(SUBJECT_SHEET_COPY.taskLimit);
@@ -674,13 +699,13 @@ function ManagedSubject({
               onMenu(null);
               onEditing({ kind: "new-task", subjectId });
             }}
-            className="flex h-[30px] w-full items-center gap-1.5 px-1 text-[13px] leading-4 font-medium text-text-tertiary"
+            className="flex h-[30px] w-full justify-start gap-1.5 px-1 py-0 text-[13px] leading-4 text-text-tertiary"
           >
             <span aria-hidden className="w-[18px] text-center text-base leading-4">
               +
             </span>
             {SUBJECT_SHEET_COPY.addTask}
-          </button>
+          </Button>
         )}
       </div>
     </section>
@@ -755,8 +780,8 @@ function ManagedSubjects({
                   {name}
                 </span>
               </span>
-              <button
-                type="button"
+              <Button
+                variant="subtle"
                 disabled={pendingPick !== null}
                 aria-busy={pendingPick === name}
                 aria-label={`${name} 추가`}
@@ -765,12 +790,12 @@ function ManagedSubjects({
                   void store.addSubject(name, true).then(() => setPendingPick(null));
                 }}
                 className={cn(
-                  "flex h-7 shrink-0 items-center rounded-full bg-brand-subtle px-2.5 text-xs leading-4 font-semibold text-primary disabled:opacity-50",
+                  "h-7 shrink-0 rounded-full px-2.5 py-0 text-xs leading-4 font-semibold",
                   pendingPick === name && "animate-pulse motion-reduce:animate-none",
                 )}
               >
                 + 추가
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -790,8 +815,8 @@ function ManagedSubjects({
           />
         </div>
       ) : (
-        <button
-          type="button"
+        <Button
+          variant="unstyled"
           onClick={() => {
             if (store.subjects.length >= MAX_SUBJECTS) {
               onNotice(SUBJECT_SHEET_COPY.subjectLimit);
@@ -800,13 +825,13 @@ function ManagedSubjects({
             setMenu(null);
             setEditing({ kind: "new-subject" });
           }}
-          className="flex h-11 w-full items-center gap-1.5 pt-1 text-sm leading-[18px] font-semibold text-primary"
+          className="flex h-11 w-full justify-start gap-1.5 px-0 pt-1 pb-0 leading-[18px] font-semibold text-primary"
         >
           <span aria-hidden className="w-[18px] text-center text-lg leading-[18px] font-medium">
             +
           </span>
           {SUBJECT_SHEET_COPY.addSubject}
-        </button>
+        </Button>
       )}
     </>
   );

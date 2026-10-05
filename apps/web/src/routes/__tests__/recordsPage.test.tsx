@@ -499,7 +499,7 @@ describe("RecordsPage", () => {
 
     // 지난해 같은 달로 건너뛴다.
     await userEvent.click(screen.getByRole("button", { name: "이전 해" }));
-    await userEvent.click(screen.getByRole("button", { name: `${String(currentMonth.month)}월` }));
+    await userEvent.click(screen.getByRole("radio", { name: `${String(currentMonth.month)}월` }));
 
     const lastYear = monthLabel({ year: currentMonth.year - 1, month: currentMonth.month });
     expect(await screen.findByRole("button", { name: lastYear })).toBeInTheDocument();

@@ -2,6 +2,7 @@ import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/r
 import { dayTitleWithWeekday, formatDuration } from "@/features/records/recordsFormat";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/components/ui/button";
 
 /**
  * 플래너 머리 — 왼쪽에 날짜(전날·다음 날 꺾쇠)와 D-Day, 오른쪽에 그날 순공시간·총 공부시간.
@@ -29,34 +30,24 @@ export function PlannerHead({
       <div className="flex min-w-0 flex-col gap-1.5">
         {/* 꺾쇠의 탭 영역(36px)이 날짜 글자 줄보다 왼쪽으로 12px 나온다. */}
         <div className="-ml-3 flex items-center gap-0.5">
-          <button
-            type="button"
-            aria-label="전날"
-            onClick={onPrev}
-            className="flex size-9 items-center justify-center"
-          >
+          <Button variant="unstyled" aria-label="전날" onClick={onPrev} className="size-9 p-0">
             <IconChevronLeft size={13} color="var(--color-foreground)" />
-          </button>
+          </Button>
           {/* 날짜를 탭하면 날짜 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
           <h1 className="text-xl leading-6 font-bold text-foreground tabular-nums">
-            <button
-              type="button"
+            <Button
+              variant="unstyled"
               aria-haspopup="dialog"
               onClick={onOpenPicker}
-              className="flex h-9 items-center gap-1.5"
+              className="h-9 gap-1.5 p-0 text-[length:inherit] leading-[inherit] font-[inherit]"
             >
               {dayTitleWithWeekday(dateKey)}
               <IconChevronDown />
-            </button>
+            </Button>
           </h1>
-          <button
-            type="button"
-            aria-label="다음 날"
-            onClick={onNext}
-            className="flex size-9 items-center justify-center"
-          >
+          <Button variant="unstyled" aria-label="다음 날" onClick={onNext} className="size-9 p-0">
             <IconChevronRight size={13} color="var(--color-foreground)" />
-          </button>
+          </Button>
         </div>
         {dday !== null && (
           <p className="truncate text-[13px] leading-4 font-semibold text-primary tabular-nums">

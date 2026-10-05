@@ -37,6 +37,9 @@ import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
 import { useUserId } from "@/lib/userId";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Accordion } from "@/components/ui/accordion";
 
 /**
  * 기록 탭
@@ -96,12 +99,11 @@ function RecordsContent({
   );
   // 한 번에 하나만 펼친다. id로만 기억해 두면 날짜가 바뀌어 그 세션이 목록에 없을 때 저절로 접힌다.
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
-  const toggleSession = useCallback((sessionId: number) => {
-    setExpandedSessionId((current) => {
-      const next = current === sessionId ? null : sessionId;
-      trackRecordsSessionExpanded({ expanded: next !== null });
-      return next;
-    });
+  // Accordion은 펼친 항목의 값을 주고, 접으면 빈 문자열을 준다.
+  const changeExpandedSession = useCallback((value: string) => {
+    const next = value === "" ? null : Number(value);
+    trackRecordsSessionExpanded({ expanded: next !== null });
+    setExpandedSessionId(next);
   }, []);
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
@@ -119,36 +121,36 @@ function RecordsContent({
       {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
           카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
       <div className="flex items-center justify-center gap-1.5 pt-4">
-        <button
-          type="button"
+        <Button
+          variant="unstyled"
           aria-label="이전 달"
           onClick={() => changeMonth(-1, "button")}
-          className="flex size-11 items-center justify-center"
+          className="size-11 p-0"
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
-        </button>
+        </Button>
         {/* 라벨을 탭하면 기간 선택 시트가 열린다 — 아래 꺾쇠가 탭할 수 있음을 알린다. */}
-        <button
-          type="button"
+        <Button
+          variant="unstyled"
           aria-haspopup="dialog"
           onClick={() => {
             trackRecordsPeriodPickerOpened("daily");
             setPickerOpen(true);
           }}
-          className="flex h-11 items-center gap-1.5 px-2.5 text-[15px] font-bold text-foreground"
+          className="h-11 gap-1.5 px-2.5 py-0 text-[15px] font-bold text-foreground"
         >
           {monthLabel(month)}
           <IconChevronDown />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="unstyled"
           aria-label="다음 달"
           disabled={isLatestMonth}
           onClick={() => changeMonth(1, "button")}
-          className="flex size-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
+          className="size-11 p-0 disabled:opacity-30"
         >
           <IconChevronRight size={13} color="var(--color-foreground)" />
-        </button>
+        </Button>
       </div>
 
       <MonthPickerSheet
@@ -220,19 +222,19 @@ function RecordsContent({
             <p className="text-base leading-[19px] font-extrabold text-foreground">
               {dayTitleWithWeekday(selectedKey)}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="subtle"
               onClick={() => openPlanner(selectedKey)}
-              className="flex h-8 items-center gap-1 rounded-full bg-brand-subtle pr-2.5 pl-3 text-[13px] leading-4 font-semibold text-primary"
+              className="h-8 gap-1 rounded-full py-0 pr-2.5 pl-3 text-[13px] leading-4 font-semibold"
             >
               플래너
               <IconChevronRight size={11} color="currentColor" />
-            </button>
+            </Button>
           </div>
 
           <div className="mt-3">
             {sessions.length === 0 ? (
-              <div className="flex flex-col items-center gap-1 rounded-[20px] bg-muted py-[30px] shadow-sb-card">
+              <Card className="flex flex-col items-center gap-1 rounded-[20px] border-0 shadow-sb-card py-[30px]">
                 <p className="text-[15px] leading-5 text-muted-foreground">이 날은 기록이 없어요</p>
                 {/* 보는 달에 기록이 하나도 없을 때만 다음 행동을 한 줄 더 알려 준다. */}
                 {monthStats?.studiedDays === 0 && (
@@ -240,25 +242,28 @@ function RecordsContent({
                     집중을 시작하면 여기에 쌓여요
                   </p>
                 )}
-              </div>
+              </Card>
             ) : (
-              <div className="rounded-[20px] bg-muted px-[18px] py-1 shadow-sb-card">
-                <ul>
-                  {sessions.map((session, index) => (
-                    <li
-                      key={session.id}
-                      className={index > 0 ? "border-t border-border pt-px" : undefined}
-                    >
+              <Card className="rounded-[20px] border-0 shadow-sb-card px-[18px] py-1">
+                <Accordion
+                  type="single"
+                  collapsible
+                  asChild
+                  value={expandedSessionId === null ? "" : String(expandedSessionId)}
+                  onValueChange={changeExpandedSession}
+                >
+                  <ul>
+                    {sessions.map((session, index) => (
                       <SessionListItem
+                        key={session.id}
                         session={session}
-                        expanded={session.id === expandedSessionId}
-                        onToggle={(toggled) => toggleSession(toggled.id)}
+                        className={index > 0 ? "border-t border-border pt-px" : undefined}
                       />
-                    </li>
-                  ))}
-                </ul>
+                    ))}
+                  </ul>
+                </Accordion>
                 <SessionTimelineLegend />
-              </div>
+              </Card>
             )}
           </div>
         </div>

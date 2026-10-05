@@ -3,6 +3,7 @@ import type { DailyStudyStat } from "@focusmakers/types";
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "./icons";
 import { PeriodHeadline } from "./PeriodHeadline";
 import { sumFocusSec, sumStudySec, weekRangeLabel } from "./recordsPeriod";
+import { Button } from "@/components/ui/button";
 
 /**
  * 주간 뷰 헤더 — 주 이동과 그 주의 순공시간·총 공부시간.
@@ -33,32 +34,32 @@ export function WeekHeader({
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center justify-center gap-1.5 pt-4">
-        <button
-          type="button"
+        <Button
+          variant="unstyled"
           aria-label="이전 주"
           onClick={onPrevWeek}
-          className="flex size-11 items-center justify-center"
+          className="size-11 p-0"
         >
           <IconChevronLeft size={13} color="var(--color-foreground)" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="unstyled"
           aria-haspopup="dialog"
           onClick={onOpenPicker}
-          className="flex h-11 items-center gap-1.5 px-2.5 text-[15px] font-bold text-foreground"
+          className="h-11 gap-1.5 px-2.5 py-0 text-[15px] font-bold text-foreground"
         >
           {weekRangeLabel(weekAnchorKey)}
           <IconChevronDown />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="unstyled"
           aria-label="다음 주"
           disabled={!canGoNext}
           onClick={onNextWeek}
-          className="flex size-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-30"
+          className="size-11 p-0 disabled:opacity-30"
         >
           <IconChevronRight size={13} color="var(--color-foreground)" />
-        </button>
+        </Button>
       </div>
 
       {/* 오류 시 확정값처럼 보일 숫자를 아예 안 그린다(범위·네비만 남는다). */}

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { DailyStudyStat } from "@focusmakers/types";
+import { Bar, BarChart, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
+
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 import { formatDuration, MONDAY_FIRST_WEEKDAY_LABELS, mondayIndexOfDateKey } from "./recordsFormat";
 import {
@@ -12,9 +20,18 @@ import {
   type WeekComparison,
   type WeekTrendPoint,
 } from "./recordsPeriod";
+import { Card } from "@/components/ui/card";
 
-/** 플롯 높이(px) — 세로축 맨 위 눈금이 이 높이다. */
-const PLOT_HEIGHT_PX = 150;
+/** 세로축 눈금 글자가 들어갈 폭(px) — 범례의 왼쪽 여백(`pl-8`)과 맞춘다. */
+const Y_AXIS_WIDTH_PX = 32;
+/** 차트 높이와 위 여백·요일 줄 높이(px) — 말풍선을 막대 바로 위에 놓을 때 막대 꼭대기 위치를 여기서 셈한다. */
+const CHART_HEIGHT_PX = 176;
+const CHART_MARGIN_TOP_PX = 6;
+const X_AXIS_HEIGHT_PX = 20;
+/** 말풍선과 막대 꼭대기 사이 간격(px) */
+const TOOLTIP_GAP_PX = 6;
+/** 누르지 않은 요일을 흐리게 하는 정도 */
+const DIMMED_OPACITY = 0.35;
 /**
  * 세로축 상한 후보(시간). 그 주에 보이는 값(두 주의 막대와 평균선)이 다 들어가는 가장 작은 것을 고른다 —
  * 하루 한두 시간 공부하는 주가 8시간 눈금 아래에 납작하게 깔리지 않게 한다. 가장 큰 상한을 넘는 날은
@@ -30,8 +47,9 @@ function chartScaleHours(points: readonly WeekTrendPoint[], averageSec: number |
   return CHART_SCALES_HOURS.find((hours) => peakSec <= hours * 3600) ?? MAX_CHART_HOURS;
 }
 
-function heightPercent(focusSec: number, scaleHours: number): number {
-  return Math.min(focusSec / 3600 / scaleHours, 1) * 100;
+/** 막대·평균선의 높이(시간). 상한을 넘으면 상한에서 자른다. */
+function clampedHours(focusSec: number, scaleHours: number): number {
+  return Math.min(focusSec / 3600, scaleHours);
 }
 
 /**
@@ -59,7 +77,7 @@ export function WeekTrendCard({
   const averageSec = averageFocusSecPerStudiedDay(daily);
 
   return (
-    <div className="flex flex-col gap-1 rounded-[20px] bg-muted px-[18px] pt-[18px] pb-4 shadow-sb-card">
+    <Card className="flex flex-col gap-1 rounded-[20px] border-0 shadow-sb-card px-[18px] pt-[18px] pb-4">
       <p className="text-[17px] leading-6 font-bold text-foreground">
         <CompareSentence comparison={comparison} />
       </p>
@@ -93,7 +111,7 @@ export function WeekTrendCard({
           <span>{formatDuration(averageSec ?? 0)}</span>
         </span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -158,13 +176,20 @@ function compareCaption(
   }
 }
 
+/** 차트 한 요일의 값 — 막대 높이는 상한에서 자른 시간이고, 말풍선은 원래 초를 적는다. */
+interface TrendRow extends WeekTrendPoint {
+  thisWeek: number | null;
+  lastWeek: number | null;
+}
+
 /**
  * 요일별 막대 — 왼쪽이 앞 주(연한 막대), 오른쪽이 보는 주(진한 막대)다.
  * 한쪽 기록이 없으면 그 자리를 비워 둔다(아직 오지 않은 요일은 앞 주 막대만 남는다).
  * 세로축 상한은 그 주의 값에 맞춰 2·4·8시간 중에서 고르고, 8시간을 넘는 날은 상한에서 잘린다.
  *
  * 요일을 누르면 그 요일만 진하게 남고 말풍선이 두 주의 실제 값을 적는다(상한에서 잘린 날도 원래
- * 값이다). 같은 요일을 다시 누르거나 차트 밖을 누르면 닫힌다.
+ * 값이다). 같은 요일을 다시 누르거나 차트 밖을 누르면 닫힌다. 말풍선을 여닫는 것은 여기서 정하고
+ * (`pickedIndex`), 어느 요일인지는 차트가 마지막으로 눌린 요일을 기억한다.
  */
 function WeekTrendBars({
   points,
@@ -200,205 +225,234 @@ function WeekTrendBars({
   const hasCurrent = points.some((point) => (point.thisWeekSec ?? 0) > 0);
   const scaleHours = chartScaleHours(points, averageSec);
   // 눈금은 상한을 4등분한다(8 → 8h+·6h·4h·2h·0, 4 → 4h·3h·2h·1h·0, 2 → 2h·1.5h·1h·0.5h·0).
-  const ticks = [4, 3, 2, 1, 0].map((step) => (scaleHours / 4) * step);
-  /** 그 요일에 적을 값 — 기록이 통째로 없는 주와 아직 오지 않은 요일의 보는 주는 뺀다. */
-  const rowsOf = (point: WeekTrendPoint): TrendTooltipRow[] => [
-    ...(hasCurrent && point.thisWeekSec !== null
-      ? [{ label: currentLabel, focusSec: point.thisWeekSec, swatch: "bg-primary" }]
-      : []),
-    ...(hasPrevious && point.lastWeekSec !== null
-      ? [{ label: previousLabel, focusSec: point.lastWeekSec, swatch: "bg-chart-prev" }]
-      : []),
-  ];
-  const picked = pickedIndex === null ? undefined : points[pickedIndex];
+  const ticks = [0, 1, 2, 3, 4].map((step) => (scaleHours / 4) * step);
+  const rows: TrendRow[] = points.map((point) => ({
+    ...point,
+    thisWeek: point.thisWeekSec === null ? null : clampedHours(point.thisWeekSec, scaleHours),
+    lastWeek: point.lastWeekSec === null ? null : clampedHours(point.lastWeekSec, scaleHours),
+  }));
+  const config = {
+    thisWeek: { label: currentLabel, color: "var(--primary)" },
+    lastWeek: { label: previousLabel, color: "var(--chart-prev)" },
+  } satisfies ChartConfig;
+  /** 그 요일에 적을 값이 있는지 — 기록이 통째로 없는 주와 아직 오지 않은 요일의 보는 주는 뺀다. */
+  const hasValue = (row: TrendRow) =>
+    (hasCurrent && row.thisWeekSec !== null) || (hasPrevious && row.lastWeekSec !== null);
+  const opacityOf = (index: number) =>
+    pickedIndex !== null && pickedIndex !== index ? DIMMED_OPACITY : 1;
+  // 누른 요일의 가장 높은 막대 꼭대기(차트 위쪽에서 잰 px) — 말풍선이 그 바로 위에 앉는다.
+  const pickedRow = pickedIndex === null ? undefined : rows[pickedIndex];
+  const pickedBarTopPx =
+    CHART_MARGIN_TOP_PX +
+    (CHART_HEIGHT_PX - CHART_MARGIN_TOP_PX - X_AXIS_HEIGHT_PX) *
+      (1 - Math.max(pickedRow?.thisWeek ?? 0, pickedRow?.lastWeek ?? 0) / scaleHours);
 
   return (
-    <div
-      ref={chartRef}
-      role="group"
-      aria-label="요일별 순공시간"
-      className="flex w-full items-start gap-1.5 pt-3.5"
-    >
-      <div
-        aria-hidden
-        className="relative w-[26px] shrink-0 text-[11px] leading-3 text-text-tertiary tabular-nums"
-        style={{ height: PLOT_HEIGHT_PX }}
+    <div ref={chartRef} role="group" aria-label="요일별 순공시간" className="pt-2">
+      <ChartContainer
+        config={config}
+        className="aspect-auto w-full"
+        style={{ height: CHART_HEIGHT_PX }}
       >
-        {ticks.map((tick) => (
-          <span
-            key={tick}
-            className="absolute right-0"
-            style={{ top: ((scaleHours - tick) / scaleHours) * PLOT_HEIGHT_PX - 6 }}
-          >
-            {/* 상한이 주마다 달라져 단위를 붙인다(0은 단위 없이). 8시간을 넘는 날은 잘리므로 `8h+`. */}
-            {tick === 0 ? 0 : `${String(tick)}h${tick === MAX_CHART_HOURS ? "+" : ""}`}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div
-          className="relative flex items-start border-b border-border pb-px"
-          style={{ height: PLOT_HEIGHT_PX }}
+        <BarChart
+          accessibilityLayer
+          data={rows}
+          barGap={2}
+          margin={{ top: CHART_MARGIN_TOP_PX, right: 0, bottom: 0, left: 0 }}
+          onClick={({ activeTooltipIndex }) => {
+            const row = activeTooltipIndex === undefined ? undefined : rows[activeTooltipIndex];
+            // 적을 값이 없는 요일은 눌러도 보여 줄 것이 없다.
+            if (activeTooltipIndex === undefined || row === undefined || !hasValue(row)) {
+              setPickedIndex(null);
+              return;
+            }
+            setPickedIndex(pickedIndex === activeTooltipIndex ? null : activeTooltipIndex);
+          }}
         >
-          {points.map((point, index) => {
-            const rows = rowsOf(point);
-            const dimmed = pickedIndex !== null && pickedIndex !== index;
-            return (
-              <button
-                key={point.day}
-                type="button"
-                // 적을 값이 없는 요일은 눌러도 보여 줄 것이 없다.
-                disabled={rows.length === 0}
-                aria-pressed={pickedIndex === index}
-                aria-label={`${point.day}요일${rows
-                  .map((row) => ` ${row.label} ${formatDuration(row.focusSec)}`)
-                  .join("")}`}
-                onClick={() => setPickedIndex(pickedIndex === index ? null : index)}
-                className={`flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 transition-opacity duration-150 motion-reduce:transition-none ${
-                  dimmed ? "opacity-35" : ""
-                }`}
-              >
-                {hasPrevious && (
-                  <TrendBar
-                    testId={`trend-prev-${point.day}`}
-                    focusSec={point.lastWeekSec}
-                    scaleHours={scaleHours}
-                    className="bg-chart-prev"
-                  />
-                )}
-                {hasCurrent && (
-                  <TrendBar
-                    testId={`trend-current-${point.day}`}
-                    focusSec={point.thisWeekSec}
-                    scaleHours={scaleHours}
-                    className="bg-primary"
-                  />
-                )}
-              </button>
-            );
-          })}
-          {/* 공부한 날이 없으면 평균선은 바닥(0)에 붙는다. */}
-          <span
-            aria-hidden
-            data-testid={averageSec === null ? undefined : "trend-average-line"}
-            className={`pointer-events-none absolute inset-x-0 border-t-[1.5px] border-dashed border-muted-foreground ${
-              pickedIndex === null ? "" : "opacity-35"
-            }`}
-            style={{
-              bottom: `${String(averageSec === null ? 0 : heightPercent(averageSec, scaleHours))}%`,
-            }}
+          <YAxis
+            domain={[0, scaleHours]}
+            ticks={ticks}
+            interval={0}
+            width={Y_AXIS_WIDTH_PX}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 11, style: { fill: "var(--text-tertiary)" } }}
+            // 상한이 주마다 달라져 단위를 붙인다(0은 단위 없이). 8시간을 넘는 날은 잘리므로 `8h+`.
+            tickFormatter={(tick: number) =>
+              tick === 0 ? "0" : `${String(tick)}h${tick === MAX_CHART_HOURS ? "+" : ""}`
+            }
           />
-          {pickedIndex !== null && picked !== undefined && (
-            <TrendTooltip
-              day={picked.day}
-              index={pickedIndex}
-              rows={rowsOf(picked)}
-              topPercent={heightPercent(
-                Math.max(picked.thisWeekSec ?? 0, picked.lastWeekSec ?? 0),
-                scaleHours,
-              )}
-            />
-          )}
-        </div>
-        <div aria-hidden className="flex pt-1.5 text-center text-xs leading-[14px]">
-          {points.map((point, index) => (
-            <span
-              key={point.day}
-              className={
-                index === pickedIndex
-                  ? "min-w-0 flex-1 font-bold text-primary"
-                  : index === todayIndex
-                    ? "min-w-0 flex-1 font-bold text-foreground"
-                    : "min-w-0 flex-1 text-muted-foreground"
-              }
+          <XAxis
+            dataKey="day"
+            interval={0}
+            height={X_AXIS_HEIGHT_PX}
+            tickLine={false}
+            axisLine={{ stroke: "var(--border)" }}
+            tick={(tick: DayTickProps) => (
+              <DayTick {...tick} pickedIndex={pickedIndex} todayIndex={todayIndex} />
+            )}
+          />
+          <ChartTooltip
+            trigger="click"
+            // 다시 누르거나 밖을 눌러 닫은 뒤에는 차트가 기억하는 요일이 남아 있어도 띄우지 않는다.
+            active={pickedIndex !== null}
+            cursor={false}
+            // 누른 요일의 가장 높은 막대 바로 위에 띄운다 — 값과 막대가 떨어져 보이지 않게 한다.
+            // 가로는 차트가 누른 요일의 가운데를 주고(offset 0), 세로만 여기서 정한다. 높은 막대에서는
+            // 말풍선이 차트 위로 올라가므로 차트 밖으로 나가는 것을 허용한다.
+            position={{ y: pickedBarTopPx - TOOLTIP_GAP_PX }}
+            offset={0}
+            allowEscapeViewBox={{ x: true, y: true }}
+            isAnimationActive={false}
+            wrapperStyle={{ zIndex: 10 }}
+            // 막대는 앞 주를 먼저 그리지만 말풍선은 범례와 같이 보는 주를 먼저 적는다.
+            content={({ active, label, payload }) => (
+              <div
+                style={{
+                  // 말풍선의 아랫변을 막대 위에 맞추고, 가로는 요일 위치만큼만 당긴다 — 가운데 요일은
+                  // 막대 중심에 오고 양끝 요일은 플롯 가장자리에 붙어 카드 밖으로 나가지 않는다.
+                  transform: `translate(${String(-(((pickedIndex ?? 0) + 0.5) / rows.length) * 100)}%, -100%)`,
+                }}
+              >
+                <ChartTooltipContent
+                  active={active}
+                  label={label as string}
+                  payload={payload?.toSorted((item) => (item.dataKey === "thisWeek" ? -1 : 1))}
+                  labelFormatter={(day: string) => `${day}요일`}
+                  formatter={(_value, _name, item) => {
+                    const row = item.payload as TrendRow;
+                    const series = item.dataKey === "lastWeek" ? "lastWeek" : "thisWeek";
+                    const focusSec = series === "thisWeek" ? row.thisWeekSec : row.lastWeekSec;
+                    return (
+                      <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <span
+                            aria-hidden
+                            className="size-2.5 shrink-0 rounded-[2px]"
+                            style={{ backgroundColor: `var(--color-${series})` }}
+                          />
+                          {config[series].label}
+                        </span>
+                        <span className="font-medium text-foreground tabular-nums">
+                          {formatDuration(focusSec ?? 0)}
+                        </span>
+                      </div>
+                    );
+                  }}
+                />
+              </div>
+            )}
+          />
+          {hasPrevious && (
+            <Bar
+              dataKey="lastWeek"
+              className="trend-prev"
+              fill="var(--color-lastWeek)"
+              barSize={16}
+              radius={[4, 4, 0, 0]}
+              minPointSize={minBarHeight}
+              isAnimationActive={false}
             >
-              {point.day}
-            </span>
+              {rows.map((row, index) => (
+                <Cell key={row.day} fillOpacity={opacityOf(index)} />
+              ))}
+            </Bar>
+          )}
+          {hasCurrent && (
+            <Bar
+              dataKey="thisWeek"
+              className="trend-current"
+              fill="var(--color-thisWeek)"
+              barSize={16}
+              radius={[4, 4, 0, 0]}
+              minPointSize={minBarHeight}
+              isAnimationActive={false}
+            >
+              {rows.map((row, index) => (
+                <Cell key={row.day} fillOpacity={opacityOf(index)} />
+              ))}
+            </Bar>
+          )}
+          {/* 공부한 날이 없으면 평균선은 바닥(0)에 붙는다. */}
+          <ReferenceLine
+            y={averageSec === null ? 0 : clampedHours(averageSec, scaleHours)}
+            stroke="var(--muted-foreground)"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            strokeOpacity={pickedIndex === null ? 1 : DIMMED_OPACITY}
+          />
+        </BarChart>
+      </ChartContainer>
+
+      {/* 차트는 그림이라 값을 표로도 둔다 — 화면 낭독기가 요일별 값을 읽는다. */}
+      <table className="sr-only">
+        <caption>요일별 순공시간</caption>
+        <thead>
+          <tr>
+            <td />
+            {hasCurrent && <th>{currentLabel}</th>}
+            {hasPrevious && <th>{previousLabel}</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.day}>
+              <th scope="row">{row.day}</th>
+              {hasCurrent && (
+                <td>{row.thisWeekSec === null ? "기록 없음" : formatDuration(row.thisWeekSec)}</td>
+              )}
+              {hasPrevious && (
+                <td>{row.lastWeekSec === null ? "기록 없음" : formatDuration(row.lastWeekSec)}</td>
+              )}
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }
 
-interface TrendTooltipRow {
-  label: string;
-  focusSec: number;
-  swatch: string;
+/** 0보다 큰 값은 아무리 작아도 2px은 보이게 한다. 0인 날은 막대를 그리지 않는다. */
+function minBarHeight(value: number | undefined | null): number {
+  return value !== null && value !== undefined && value > 0 ? 2 : 0;
+}
+
+interface DayTickProps {
+  x: number;
+  y: number;
+  payload: { value: string; index: number };
 }
 
 /**
- * 누른 요일의 말풍선 — 그 요일의 가장 높은 막대 바로 위에 뜬다.
- * 가운데 요일은 막대 중심에 맞추고, 양끝 두 요일씩은 플롯 가장자리에 붙여 카드 밖으로 나가지 않게 한다.
- * 꼬리는 말풍선과 따로 두어 어느 쪽에 붙든 누른 요일을 가리킨다.
+ * 요일 라벨 — 누른 요일은 브랜드색, 진행 중인 주의 오늘은 굵게 적는다.
+ * 색은 인라인 style로 준다(차트 컨테이너가 눈금 글자색을 클래스로 고정해 클래스로는 못 이긴다).
  */
-function TrendTooltip({
-  day,
-  index,
-  rows,
-  topPercent,
-}: {
-  day: string;
-  index: number;
-  rows: readonly TrendTooltipRow[];
-  topPercent: number;
-}) {
-  const centerPercent = ((index + 0.5) / 7) * 100;
-  const position =
-    index <= 1
-      ? { left: 0 }
-      : index >= 5
-        ? { right: 0 }
-        : { left: `${String(centerPercent)}%`, transform: "translateX(-50%)" };
+function DayTick({
+  x,
+  y,
+  payload,
+  pickedIndex,
+  todayIndex,
+}: DayTickProps & { pickedIndex: number | null; todayIndex: number | null }) {
+  const picked = payload.index === pickedIndex;
+  const emphasized = picked || payload.index === todayIndex;
   return (
-    <>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute z-10 size-2 rotate-45 rounded-[1px] bg-foreground"
-        style={{
-          left: `calc(${String(centerPercent)}% - 4px)`,
-          bottom: `calc(${String(topPercent)}% + 6px)`,
-        }}
-      />
-      <div
-        role="status"
-        className="pointer-events-none absolute z-10 flex flex-col gap-0.5 rounded-[10px] bg-foreground px-2.5 py-2 text-xs leading-4 whitespace-nowrap text-background tabular-nums"
-        style={{ ...position, bottom: `calc(${String(topPercent)}% + 10px)` }}
-      >
-        <strong className="font-bold">{day}요일</strong>
-        {rows.map((row) => (
-          <span key={row.label} className="flex items-center gap-1.5">
-            <span aria-hidden className={`size-2 rounded-[2px] ${row.swatch}`} />
-            <span className="opacity-70">{row.label}</span>
-            <b className="ml-auto pl-2.5 font-semibold">{formatDuration(row.focusSec)}</b>
-          </span>
-        ))}
-      </div>
-    </>
-  );
-}
-
-/** 막대 한 개 — 기록이 없으면 자리만 차지한다(두 막대의 위치가 요일마다 같게). */
-function TrendBar({
-  testId,
-  focusSec,
-  scaleHours,
-  className,
-}: {
-  testId: string;
-  focusSec: number | null;
-  scaleHours: number;
-  className: string;
-}) {
-  if (focusSec === null || focusSec <= 0) {
-    return <span className="w-4 shrink-0" />;
-  }
-  return (
-    <span
-      data-testid={testId}
-      className={`min-h-0.5 w-4 shrink-0 rounded-t-[4px] ${className}`}
-      style={{ height: `${String(heightPercent(focusSec, scaleHours))}%` }}
-    />
+    <text
+      x={x}
+      y={y}
+      dy={12}
+      textAnchor="middle"
+      data-emphasis={picked ? "picked" : emphasized ? "today" : undefined}
+      style={{
+        fill: picked
+          ? "var(--primary)"
+          : emphasized
+            ? "var(--foreground)"
+            : "var(--muted-foreground)",
+        fontWeight: emphasized ? 700 : 400,
+      }}
+    >
+      {payload.value}
+    </text>
   );
 }

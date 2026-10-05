@@ -174,7 +174,7 @@ describe("PlannerPage", () => {
     expect(screen.getByText("단어 60개 암기")).toBeInTheDocument();
     // 세션 없이 체크한 할 일도 그날 완료로 보인다.
     expect(screen.getByText("오답 노트")).toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: "완료" })).toHaveLength(2);
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
     expect(mockedCompleted).toHaveBeenCalledWith({ from: YESTERDAY, to: TODAY });
     // 과목 없이 공부한 1시간은 `과목 없음` 행으로 따로 보이고, 범례에도 같은 이름이 있다.
     expect(screen.getByRole("heading", { name: "과목 없음" }).closest("section")).toHaveTextContent(
@@ -376,7 +376,7 @@ describe("PlannerPage", () => {
 
     expect(await screen.findByText("리스닝 모의고사 1회")).toBeInTheDocument();
     expect(screen.queryByText("오늘 끝낸 단어")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
     // 과목은 날짜와 무관한 목록이라 미래 날짜에서도 고친다.
     expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
@@ -599,7 +599,9 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     expect(screen.queryByText("리스닝 모의고사 1회")).not.toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    for (const check of screen.getAllByRole("checkbox")) {
+      expect(check).toBeDisabled();
+    }
 
     // 과목은 지난 날에서도 추가한다.
     vi.mocked(createSubject).mockResolvedValue({ ...math, id: 9, name: "한국사" });

@@ -1,18 +1,19 @@
-import { useCallback, useMemo, useRef } from "react";
+import { createContext, useCallback, useContext, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 import {
-  buildMonthGrid,
   type CalendarMonth,
-  dayOfDateKey,
+  dateKeyOfDate,
+  dateOfDateKey,
   formatDuration,
   formatHeatClock,
   type HeatLevel,
   heatLevel,
-  isFutureDateKey,
-  MONDAY_FIRST_WEEKDAY_LABELS,
 } from "./recordsFormat";
 
 /** 달력 아래에 적는 그 달의 합계와 하루 평균. */
@@ -65,25 +66,18 @@ const HEAT_LEGEND = [
   { cls: HEAT_BG[5], label: "8+" },
 ] as const;
 
-function CalendarCell({
-  dateKey,
-  isSelected,
-  isToday,
-  isFuture,
-  focusSec,
-  onSelect,
-}: {
-  dateKey: string;
-  isSelected: boolean;
-  isToday: boolean;
-  isFuture: boolean;
-  focusSec: number;
-  onSelect: (dateKey: string) => void;
-}) {
-  const day = dayOfDateKey(dateKey);
+/** 날짜 키 → 순공시간(초). 공용 Calendar가 그리는 날짜 칸에 그 달의 기록을 건넨다. */
+const DayFocusContext = createContext<ReadonlyMap<string, number>>(new Map());
+
+/** 공용 Calendar의 날짜 칸 — 순공시간 농도 · 시간 라벨 · 오늘 칩 · 선택 테두리를 그린다. */
+function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
+  const focusSec = useContext(DayFocusContext).get(dateKeyOfDate(day.date)) ?? 0;
+  const dayOfMonth = day.date.getDate();
+  const isToday = Boolean(modifiers.today);
+  // 아직 오지 않은 날만 고를 수 없다.
+  const isFuture = Boolean(modifiers.disabled);
   const level = heatLevel(focusSec);
   const record = focusSec > 0 ? `순공 ${formatDuration(focusSec)}` : "기록 없음";
-  const label = `${isToday ? "오늘, " : ""}${day}일, ${record}`;
 
   // 진한 두 단계(6시간 이상)는 글자가 묻히지 않게 흰색으로 뒤집는다.
   const onStrong = level >= 4;
@@ -98,35 +92,38 @@ function CalendarCell({
         : "text-foreground";
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(dateKey)}
-      disabled={isFuture}
-      aria-pressed={isSelected}
+    <CalendarDayButton
+      day={day}
+      modifiers={modifiers}
+      {...props}
+      aria-pressed={Boolean(modifiers.selected)}
       // 농도 배경만으로 뜻을 전달하지 않도록 순공시간을 라벨로도 준다.
-      aria-label={label}
-      className="flex aspect-square flex-1 items-center justify-center disabled:cursor-not-allowed"
+      aria-label={`${isToday ? "오늘, " : ""}${String(dayOfMonth)}일, ${record}`}
+      className="flex aspect-square w-full items-center justify-center disabled:cursor-not-allowed"
     >
       <span
         // 선택일은 테두리로만 표시한다 — 농도 색을 가리지 않는다. ring-inset이라 칸 크기는 그대로다.
-        className={`flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[10px] tabular-nums ${fill} ${tone} ${
-          isSelected ? "ring-[1.5px] ring-foreground ring-inset" : ""
-        }`}
+        className={cn(
+          "flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[10px] tabular-nums",
+          fill,
+          tone,
+          modifiers.selected && "ring-[1.5px] ring-foreground ring-inset",
+        )}
       >
         {isToday ? (
           // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
           <span className="flex h-[18px] items-center rounded-full bg-foreground px-[5px] text-xs leading-[14px] font-bold text-background">
-            {day}
+            {dayOfMonth}
           </span>
         ) : (
-          <span className="text-[13px] leading-4 font-bold">{day}</span>
+          <span className="text-[13px] leading-4 font-bold">{dayOfMonth}</span>
         )}
         {/* 순공이 없어도 자리를 남겨 숫자 높이가 칸마다 같게 한다. */}
         <span className="h-3 text-[10px] leading-3">
           {focusSec > 0 ? formatHeatClock(focusSec) : ""}
         </span>
       </span>
-    </button>
+    </CalendarDayButton>
   );
 }
 
@@ -192,7 +189,7 @@ export function MonthCalendar({
   onSwipeMonth,
   monthStats,
 }: MonthCalendarProps) {
-  const grid = useMemo(() => buildMonthGrid(month, "monday"), [month]);
+  const today = dateOfDateKey(todayKey);
 
   // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
   // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
@@ -225,7 +222,7 @@ export function MonthCalendar({
   );
 
   return (
-    <div className="rounded-[20px] bg-muted px-2.5 pt-3.5 pb-4 shadow-sb-card">
+    <Card className="rounded-[20px] border-0 shadow-sb-card px-2.5 pt-3.5 pb-4">
       {/*
         월 이동 헤더는 RecordsPage가 카드 밖에서 그린다(BY-567 v2 조립) — 여기서 또 그리면
         "이전 달"/"다음 달" 버튼이 화면에 두 벌 생긴다. `slideFrom`·계측(`trackRecordsMonthChanged`)도
@@ -242,56 +239,38 @@ export function MonthCalendar({
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
-        <div className="flex flex-row">
-          {MONDAY_FIRST_WEEKDAY_LABELS.map((label) => (
-            <span
-              key={label}
-              className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-
-        <div
-          // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
-          // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
-          key={`${String(month.year)}-${String(month.month)}`}
-          className={
-            slideFrom === null
-              ? "mt-2.5 flex flex-col gap-1.5"
-              : slideFrom === "right"
-                ? "mt-2.5 flex flex-col gap-1.5 animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none"
-                : "mt-2.5 flex flex-col gap-1.5 animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none"
-          }
-        >
-          {grid.map((week) => (
-            <div
-              key={week.find((cell) => cell !== null) ?? "empty-week"}
-              className="flex flex-row gap-1.5"
-            >
-              {week.map((dateKey, index) =>
-                dateKey === null ? (
-                  // 빈칸은 누를 수 없다 — 인접 셀의 터치를 뺏지 않도록 일반 div로 둔다.
-                  <div key={`blank-${String(index)}`} className="aspect-square flex-1" />
-                ) : (
-                  <CalendarCell
-                    key={dateKey}
-                    dateKey={dateKey}
-                    isSelected={dateKey === selectedKey}
-                    isToday={dateKey === todayKey}
-                    isFuture={isFutureDateKey(dateKey, todayKey)}
-                    focusSec={dayFocusSec.get(dateKey) ?? 0}
-                    onSelect={onSelectDate}
-                  />
-                ),
-              )}
-            </div>
-          ))}
-        </div>
+        <DayFocusContext.Provider value={dayFocusSec}>
+          <Calendar
+            // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
+            // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
+            key={`${String(month.year)}-${String(month.month)}`}
+            mode="single"
+            required
+            // 달 이동은 상위(헤더 버튼 · 스와이프)가 맡는다.
+            disableNavigation
+            month={new Date(month.year, month.month - 1)}
+            today={today}
+            selected={dateOfDateKey(selectedKey)}
+            disabled={{ after: today }}
+            onSelect={(date) => onSelectDate(dateKeyOfDate(date))}
+            classNames={{
+              // 요일 줄은 그대로 두고 날짜 줄만 밀려 들어온다.
+              weeks: cn(
+                "flex flex-col gap-1.5 pt-2.5",
+                slideFrom === "right" &&
+                  "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+                slideFrom === "left" &&
+                  "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+              ),
+              week: "flex gap-1.5",
+              day: "aspect-square flex-1 p-0",
+            }}
+            components={{ DayButton: HeatDayButton }}
+          />
+        </DayFocusContext.Provider>
       </div>
 
       <MonthStatsRow stats={monthStats} monthLabel={`${String(month.month)}월`} />
-    </div>
+    </Card>
   );
 }

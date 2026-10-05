@@ -26,6 +26,9 @@ export const badgeVariants = cva(
         /** 최대 집중 배지(타임라인) — 카드색 배경에 브랜드색 1.5px 선 테두리. */
         outline:
           "border-[1.5px] border-primary bg-muted px-3 py-[4px] text-[13px] leading-[16px] font-bold",
+        /** 안내 칩(준비 중 등) — 옅은 회색 배경에 보조 글자색. */
+        neutral:
+          "bg-bg-layer-2 px-2 py-[4.5px] text-[11px] leading-[13px] font-medium text-muted-foreground",
         /** 공부 세션 상태 필 — 측정 중. 세션 로컬 변수는 sessionTheme.ts가 준다. */
         "session-focus": `bg-[var(--session-pill-bg)] border-[var(--session-pill-border-focus)] ${SESSION_PILL_BASE}`,
         /** 상태 필 — 비집중(휴대폰 사용 등). */
