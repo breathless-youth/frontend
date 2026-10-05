@@ -461,22 +461,23 @@ function RoomSessionScreen({
    * 새 스트림이 `<video>`에 붙어 첫 프레임을 그리기까지는 시간이 걸리지만, 그 구간은
    * 감지기가 `readyState`를 보고 스스로 건너뛴다 — 여기서 기다릴 필요가 없다.
    */
-  async function handleFlipCamera() {
+  function handleFlipCamera() {
     setFlippingCamera(true);
-    try {
-      const result = await flipCamera();
-      if (result.ok) {
-        showCtaToast(CAMERA_TOAST_COPY.flipped);
-        return;
-      }
-      showCtaToast(
-        result.reason === "camera-off"
-          ? CAMERA_TOAST_COPY.cameraOff
-          : CAMERA_TOAST_COPY.noAlternative,
-      );
-    } finally {
-      setFlippingCamera(false);
-    }
+    return flipCamera()
+      .then((result) => {
+        if (result.ok) {
+          showCtaToast(CAMERA_TOAST_COPY.flipped);
+          return;
+        }
+        showCtaToast(
+          result.reason === "camera-off"
+            ? CAMERA_TOAST_COPY.cameraOff
+            : CAMERA_TOAST_COPY.noAlternative,
+        );
+      })
+      .finally(() => {
+        setFlippingCamera(false);
+      });
   }
 
   function handleSheetOpenChange(open: boolean) {

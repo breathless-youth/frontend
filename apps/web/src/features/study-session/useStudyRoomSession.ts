@@ -605,35 +605,37 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       submitInFlightRef.current = true;
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
-      try {
-        const sessions = await submitStudySession({
-          startedAtMs: startedAtMsRef.current,
-          endedAtMs,
-          studySec: finalTotals.studySec,
-          focusSec: finalTotals.focusSec,
-          events,
-          subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
-          // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
-          completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+      await submitStudySession({
+        startedAtMs: startedAtMsRef.current,
+        endedAtMs,
+        studySec: finalTotals.studySec,
+        focusSec: finalTotals.focusSec,
+        events,
+        subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
+        // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
+        completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+      })
+        .then((sessions) => {
+          trackStudySessionSubmitted(true, attempt, roomType);
+          // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
+          // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
+          // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
+          // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
+          void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+          setPhase({ name: "done", sessions });
+        })
+        .catch((error: unknown) => {
+          trackStudySessionSubmitted(false, attempt, roomType);
+          // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
+          reportHandled(error, "session-submit");
+          setPhase({
+            name: "error",
+            message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
+          });
+        })
+        .finally(() => {
+          submitInFlightRef.current = false;
         });
-        trackStudySessionSubmitted(true, attempt, roomType);
-        // 브라우저 단독 모드는 같은 document 안에서 홈으로 돌아오므로
-        // 여기서 통계를 무효화해야 캐시 기본값(staleTime)과 무관하게 새 기록이 보인다.
-        // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
-        // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
-        void queryClient.invalidateQueries({ queryKey: statsKeys.all });
-        setPhase({ name: "done", sessions });
-      } catch (error) {
-        trackStudySessionSubmitted(false, attempt, roomType);
-        // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
-        reportHandled(error, "session-submit");
-        setPhase({
-          name: "error",
-          message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
-        });
-      } finally {
-        submitInFlightRef.current = false;
-      }
     },
     [allEvents, initial.serverSeenMs, roomType, userId, withBase],
   );
