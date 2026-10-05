@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import type { CompletedTasksResponse, StudySessionListResponse } from "@focusmakers/types";
+import type { StudySessionListResponse } from "@focusmakers/types";
 
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
-import { completedTasksQuery, dailyStatsQuery } from "@/lib/statsQueries";
+import { dailyStatsQuery } from "@/lib/statsQueries";
 
 import { assemblePlannerDay, type PlannerDay } from "./plannerDay";
 
@@ -26,8 +26,6 @@ const EMPTY_STATS: StudySessionListResponse = {
   subjects: [],
 };
 
-const NO_COMPLETED_TASKS: CompletedTasksResponse = { tasks: [], subjects: [] };
-
 /**
  * 플래너 하루 조회 훅
  *
@@ -35,8 +33,9 @@ const NO_COMPLETED_TASKS: CompletedTasksResponse = { tasks: [], subjects: [] };
  * 두 번 받아 `assemblePlannerDay`로 조립한다. 기록 탭 일간 뷰와 같은 쿼리 키를 써서, 기록 탭에서
  * 넘어오면 그날 조회는 캐시로 바로 그려진다.
  *
- * 완료한 할 일은 같은 이틀을 한 번에 받는다. 이 조회가 실패하면 할 일 없이 그린다 — 타임테이블과
- * 과목별 시간까지 막을 이유가 없다.
+ * 완료한 할 일도 같은 두 응답에 실려 온다(`subjects[].tasks`). 지난 날 플래너는 그것을 쓰므로 열 때마다 다시
+ * 받는다 — 할 일을 체크·해제·삭제해도 일간 조회를 따로 무효화하지 않아서다. 캐시가 있으면 먼저 그리고
+ * 뒤에서 갱신한다. 오늘은 과목 목록이, 미래는 미완료 할 일이 완료 기록을 대신하므로 그럴 필요가 없다.
  */
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
@@ -45,33 +44,27 @@ export function usePlannerDay(userId: number | null, dateKey: string): PlannerDa
   const dayIsFuture = dateKey > todayKey;
   const nextIsFuture = nextKey > todayKey;
 
+  const freshOnOpen = dateKey < todayKey ? ({ refetchOnMount: "always" } as const) : {};
+
   const day = useQuery({
     ...dailyStatsQuery(userId ?? 0, dateKey),
+    ...freshOnOpen,
     enabled: userId != null && !dayIsFuture,
   });
   const next = useQuery({
     ...dailyStatsQuery(userId ?? 0, nextKey),
+    ...freshOnOpen,
     enabled: userId != null && !nextIsFuture,
   });
 
-  // 완료 기록은 지난 날에만 쓴다 — 오늘은 과목 목록이, 미래는 미완료 할 일이 대신한다.
-  const needsCompleted = dateKey < todayKey;
-  const completed = useQuery({
-    ...completedTasksQuery(userId ?? 0, { from: dateKey, to: nextKey }),
-    enabled: userId != null && needsCompleted,
-  });
-
   const dayData = dayIsFuture ? EMPTY_STATS : day.data;
-  const completedData = needsCompleted
-    ? (completed.data ?? (completed.isError ? NO_COMPLETED_TASKS : undefined))
-    : NO_COMPLETED_TASKS;
   const nextData = nextIsFuture ? EMPTY_STATS : next.data;
   const assembled = useMemo(
     () =>
-      dayData !== undefined && nextData !== undefined && completedData !== undefined
-        ? assemblePlannerDay(dateKey, dayData, nextData, completedData)
+      dayData !== undefined && nextData !== undefined
+        ? assemblePlannerDay(dateKey, dayData, nextData)
         : null,
-    [dateKey, dayData, nextData, completedData],
+    [dateKey, dayData, nextData],
   );
 
   if (assembled !== null) {

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
+import { liveSubjectsOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
@@ -19,6 +20,8 @@ import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { slideNavigate } from "@/lib/pageTransition";
+import { dailyStatsQuery } from "@/lib/statsQueries";
+import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
@@ -68,7 +71,18 @@ export function PlannerPage() {
 
   const state = usePlannerDay(userId, dateKey);
   // 과목 목록은 어느 날에서나 쓰고 고친다(그날 공부하지 않은 과목도 0분으로 보인다).
-  const subjects = useSubjects(userId !== null, showToast, "planner");
+  // 목록과 오늘의 할 일은 오늘의 일간 조회에 실려 온다. 플래너를 열 때마다 새로 받는다 — 방금 고친 것이
+  // 캐시된 응답에는 없다. 오늘 플래너라면 화면이 받는 그 조회 한 번을 같이 쓴다.
+  const queryClient = useQueryClient();
+  const loadSubjects = useCallback(async () => {
+    const today = await queryClient
+      .fetchQuery({ ...dailyStatsQuery(userId ?? 0, todayKey), staleTime: 0 })
+      .catch(() => null);
+    // ponytail: 일간 조회가 실패했거나 과목별 할 일을 싣지 않는 서버면 과목 목록 API로 대신한다.
+    // 서버가 전부 새 응답을 주게 되면 이 대체 경로를 지운다.
+    return (today && liveSubjectsOf(today)) ?? listSubjects();
+  }, [queryClient, userId, todayKey]);
+  const subjects = useSubjects(userId !== null, showToast, "planner", loadSubjects);
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
   const changeDate = useCallback(

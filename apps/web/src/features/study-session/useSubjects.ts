@@ -43,10 +43,13 @@ export function useSubjects(
   onError: (message: string) => void,
   /** 이 목록을 다루는 화면 — 추가 이벤트의 `surface` 속성으로만 쓴다. */
   surface: SubjectSurface = "sheet",
+  /** 목록을 받아 오는 방법 — 기본은 과목 목록 API다. 플래너는 일간 조회에 실려 오는 목록을 쓴다. */
+  load: () => Promise<SubjectResponse[]> = listSubjects,
 ) {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [status, setStatus] = useState<SubjectsStatus>("idle");
   const onErrorRef = useRef(onError);
+  const loadRef = useRef(load);
   /**
    * 드래그 중 최신 순서. pointermove의 setState는 pointerup 전에 렌더되지 않을 수 있어(연속 입력은
    * 우선순위가 낮다) 놓는 순간 state를 믿지 않는다 — `reorderSubject`가 여기에 먼저 쓰고
@@ -55,6 +58,7 @@ export function useSubjects(
   const subjectsRef = useRef(subjects);
   useLayoutEffect(() => {
     onErrorRef.current = onError;
+    loadRef.current = load;
     subjectsRef.current = subjects;
   });
   /** 핸들을 잡는 순간의 id 순서 — 놓을 때 이것과 다를 때만 서버에 보낸다. null이면 드래그 중이 아니다. */
@@ -65,7 +69,7 @@ export function useSubjects(
     setStatus((prev) => (prev === "ready" ? prev : "loading"));
     try {
       // 서버가 저장된 순서로 내려준다 — 여기서 다시 정렬하지 않는다.
-      setSubjects(await listSubjects());
+      setSubjects(await loadRef.current());
       setStatus("ready");
     } catch {
       setStatus("error");

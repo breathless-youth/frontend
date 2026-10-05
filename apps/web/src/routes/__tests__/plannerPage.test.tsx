@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
-  CompletedTasksResponse,
+  DayTaskItem,
   StudySessionListResponse,
   StudySessionSummary,
   SubjectResponse,
@@ -25,7 +25,6 @@ import {
   createTask,
   deleteSubject,
   deleteTask,
-  listCompletedTasks,
   listSubjects,
   renameSubject,
   reorderSubjects,
@@ -37,7 +36,6 @@ import { PlannerPage } from "@/routes/PlannerPage";
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/subjectApi", () => ({
   listSubjects: vi.fn(),
-  listCompletedTasks: vi.fn(),
   createSubject: vi.fn(),
   renameSubject: vi.fn(),
   deleteSubject: vi.fn(),
@@ -66,7 +64,6 @@ window.PointerEvent = TestPointerEvent as unknown as typeof PointerEvent;
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedSubjects = vi.mocked(listSubjects);
-const mockedCompleted = vi.mocked(listCompletedTasks);
 const mockedDday = vi.mocked(getDday);
 
 const TODAY = kstDateKey();
@@ -76,7 +73,10 @@ const kst = (day: string, hour: number, minute = 0) =>
     `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+09:00`,
   ).toISOString();
 
-function stats(sessions: StudySessionSummary[] = []): StudySessionListResponse {
+function stats(
+  sessions: StudySessionSummary[] = [],
+  tasks?: DayTaskItem[],
+): StudySessionListResponse {
   return {
     sessions,
     sessionCount: sessions.length,
@@ -86,7 +86,16 @@ function stats(sessions: StudySessionSummary[] = []): StudySessionListResponse {
     focusRate: 0,
     totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
-    subjects: [{ id: 3, name: "영어", colorIndex: 7, deleted: false }],
+    // `tasks`를 주면 과목에 그날의 할 일이 실려 온 응답이다. 안 주면 과목별 할 일을 싣지 않는 서버의 응답.
+    subjects: [
+      {
+        id: 3,
+        name: "영어",
+        colorIndex: 7,
+        deleted: false,
+        ...(tasks === undefined ? {} : { tasks }),
+      },
+    ],
   };
 }
 
@@ -116,20 +125,13 @@ function studiedYesterday(): StudySessionSummary {
 }
 
 /** 어제 완료한 할 일 — 세션 중(09:40)에 하나, 세션 없이 밤(22:10)에 하나. */
-function completedYesterday(): CompletedTasksResponse {
-  return {
-    tasks: [
-      {
-        id: 9,
-        name: "단어 60개 암기",
-        subjectId: 3,
-        doneAt: kst(YESTERDAY, 9, 40),
-        deleted: false,
-      },
-      { id: 10, name: "오답 노트", subjectId: 3, doneAt: kst(YESTERDAY, 22, 10), deleted: false },
-    ],
-    subjects: [{ id: 3, name: "영어", colorIndex: 7, deleted: false }],
-  };
+function completedYesterday(): DayTaskItem[] {
+  return [
+    { id: 9, name: "단어 60개 암기", done: true, doneAt: kst(YESTERDAY, 9, 40), deleted: false },
+    { id: 10, name: "오답 노트", done: true, doneAt: kst(YESTERDAY, 22, 10), deleted: false },
+    // 어제도 미완료였던 할 일 — 지난 날 플래너에는 보이지 않는다.
+    { id: 11, name: "어제 못 끝낸 일", done: false, doneAt: null, deleted: false },
+  ];
 }
 
 function LocationProbe() {
@@ -157,10 +159,9 @@ describe("PlannerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedStats.mockImplementation((date) =>
-      Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
-    );
-    mockedCompleted.mockImplementation(({ from }) =>
-      Promise.resolve(from === YESTERDAY ? completedYesterday() : { tasks: [], subjects: [] }),
+      Promise.resolve(
+        date === YESTERDAY ? stats([studiedYesterday()], completedYesterday()) : stats(),
+      ),
     );
     mockedSubjects.mockResolvedValue([]);
     mockedDday.mockResolvedValue(null);
@@ -175,7 +176,10 @@ describe("PlannerPage", () => {
     // 세션 없이 체크한 할 일도 그날 완료로 보인다.
     expect(screen.getByText("오답 노트")).toBeInTheDocument();
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
-    expect(mockedCompleted).toHaveBeenCalledWith({ from: YESTERDAY, to: TODAY });
+    // 미완료도 함께 내려오지만 지난 날에는 완료한 것만 보여 준다.
+    expect(screen.queryByText("어제 못 끝낸 일")).not.toBeInTheDocument();
+    // 완료한 할 일은 일간 조회 이틀치에 실려 온다 — 따로 묻지 않는다.
+    expect(mockedStats.mock.calls.map(([date]) => date).sort()).toEqual([YESTERDAY, TODAY]);
     // 과목 없이 공부한 1시간은 `과목 없음` 행으로 따로 보이고, 범례에도 같은 이름이 있다.
     expect(screen.getByRole("heading", { name: "과목 없음" }).closest("section")).toHaveTextContent(
       "1시간",
@@ -225,6 +229,55 @@ describe("PlannerPage", () => {
     expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
     expect(screen.getByRole("button", { name: "할 일 추가" })).toBeInTheDocument();
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "unknown", isToday: true });
+  });
+
+  it("일간 조회가 과목 목록과 할 일을 실어 주면 과목 목록 API를 부르지 않는다", async () => {
+    mockedStats.mockResolvedValue({
+      ...stats(),
+      subjects: [
+        {
+          id: 5,
+          name: "수학",
+          colorIndex: 5,
+          deleted: false,
+          tasks: [
+            {
+              id: 31,
+              name: "오답 정리",
+              done: true,
+              doneAt: new Date().toISOString(),
+              deleted: false,
+            },
+            { id: 32, name: "방금 지운 할 일", done: false, doneAt: null, deleted: true },
+          ],
+        },
+        {
+          id: 3,
+          name: "영어",
+          colorIndex: 7,
+          deleted: false,
+          tasks: [
+            { id: 21, name: "리스닝 모의고사 1회", done: false, doneAt: null, deleted: false },
+          ],
+        },
+        { id: 9, name: "한국사", colorIndex: 12, deleted: true, tasks: [] },
+      ],
+    });
+
+    renderPlanner("?userId=7");
+
+    // 응답 순서대로, 살아있는 과목만 관리 목록에 든다.
+    await screen.findByRole("heading", { name: "수학" });
+    expect(screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent)).toEqual([
+      "수학",
+      "영어",
+    ]);
+    expect(screen.getByRole("checkbox", { name: "오답 정리" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
+    expect(screen.queryByText("방금 지운 할 일")).not.toBeInTheDocument();
+    expect(mockedSubjects).not.toHaveBeenCalled();
+    // 오늘 플래너는 화면이 받는 일간 조회 한 번을 과목 목록에도 쓴다.
+    expect(mockedStats).toHaveBeenCalledTimes(1);
   });
 
   it("전날·다음 날 버튼과 좌우 스와이프로 날짜를 넘기고, 셸이 붙인 쿼리는 유지한다", async () => {
@@ -380,7 +433,8 @@ describe("PlannerPage", () => {
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
     // 과목은 날짜와 무관한 목록이라 미래 날짜에서도 고친다.
     expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
-    expect(mockedStats).not.toHaveBeenCalled();
+    // 미래 날짜의 기록은 조회하지 않는다 — 과목 목록을 받는 오늘의 일간 조회만 나간다.
+    expect(mockedStats.mock.calls.map(([date]) => date)).toEqual([TODAY]);
 
     // 다음 날로 더 넘어갈 수 있다.
     fireEvent.click(screen.getByRole("button", { name: "다음 날" }));
@@ -391,8 +445,10 @@ describe("PlannerPage", () => {
     );
   });
 
-  it("완료한 할 일 조회가 실패해도 과목별 시간과 타임테이블은 그린다", async () => {
-    mockedCompleted.mockRejectedValue(new Error("완료한 할 일 조회 실패"));
+  it("과목별 할 일을 싣지 않는 서버여도 과목별 시간과 타임테이블은 그린다", async () => {
+    mockedStats.mockImplementation((date) =>
+      Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
+    );
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
     const english = await screen.findByRole("heading", { name: "영어" });
@@ -585,7 +641,9 @@ describe("PlannerPage — 과목·할 일 관리", () => {
 
   it("지난 날 플래너는 과목만 고칠 수 있다 — 지금의 과목을 전부 보여주되 할 일은 그날 완료한 것만 남긴다", async () => {
     mockedStats.mockImplementation((date) =>
-      Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
+      Promise.resolve(
+        date === YESTERDAY ? stats([studiedYesterday()], completedYesterday()) : stats(),
+      ),
     );
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 

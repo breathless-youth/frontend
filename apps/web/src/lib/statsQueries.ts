@@ -3,7 +3,6 @@ import { queryOptions } from "@tanstack/react-query";
 import type { DateRange } from "./statsApi";
 import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "./statsApi";
 import { getStudySessionDetail } from "./studySessionApi";
-import { listCompletedTasks } from "./subjectApi";
 import { todayKstDateKey } from "./dateKst";
 
 /**
@@ -21,9 +20,6 @@ import { todayKstDateKey } from "./dateKst";
 export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
-  /** 플래너의 완료 할 일. 통계는 아니지만 세션이 끝나면 함께 낡으므로 같은 접두사 아래 둔다. */
-  completedTasks: (userId: number, range: DateRange) =>
-    ["stats", "completedTasks", userId, range.from, range.to] as const,
   studyDays: (userId: number) => ["stats", "studyDays", userId] as const,
   /** 세션 단건 상세 — 일간 목록이 같은 필드를 다 실어 기록 탭은 보통 안 쓰지만, 딥링크·결과 화면용으로 둔다. */
   session: (userId: number, id: number) => ["stats", "session", userId, id] as const,
@@ -75,16 +71,6 @@ export function dailyStatsQuery(userId: number, date: string) {
     queryKey: statsKeys.daily(userId, date),
     queryFn: () => listStudySessionStats(date),
     ...(isSettledStatsDate(date) ? { staleTime: Infinity, gcTime: SETTLED_GC_TIME_MS } : {}),
-  });
-}
-
-export function completedTasksQuery(userId: number, range: DateRange) {
-  return queryOptions({
-    queryKey: statsKeys.completedTasks(userId, range),
-    queryFn: () => listCompletedTasks(range),
-    // 할 일을 체크·해제·삭제해도 이 조회를 따로 무효화하지 않는다. 대신 플래너를 열 때마다 다시
-    // 받는다 — 새벽에 오늘 플래너에서 고친 직후 어제 플래너로 넘어가도 낡은 완료 기록이 남지 않는다.
-    staleTime: 0,
   });
 }
 

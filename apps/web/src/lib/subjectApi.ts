@@ -1,5 +1,4 @@
 import type {
-  CompletedTasksResponse,
   SubjectCreateRequest,
   SubjectOrderRequest,
   SubjectResponse,
@@ -38,25 +37,6 @@ export async function listSubjects(): Promise<SubjectResponse[]> {
     throw new Error("과목 조회 실패");
   }
   return body as SubjectResponse[];
-}
-
-/** 기간(KST 날짜, 양끝 포함) 안에 완료한 할 일 — 완료 시각 포함. 서버 상한은 31일이다. */
-export async function listCompletedTasks(range: {
-  from: string;
-  to: string;
-}): Promise<CompletedTasksResponse> {
-  const query = `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
-  const body = await send<Partial<CompletedTasksResponse> | null>(
-    `/completed-tasks${query}`,
-    { method: "GET" },
-    "완료한 할 일 조회 실패",
-  );
-  // 모양이 다른 200(프록시 오류 페이지, 이 조회가 없는 서버)을 그대로 넘기면 플래너 조립이 렌더 중에
-  // 던져 화면이 통째로 죽는다. 조회 실패로 돌려야 호출부가 할 일 없이 그린다.
-  if (!Array.isArray(body?.tasks) || !Array.isArray(body.subjects)) {
-    throw new Error("완료한 할 일 조회 실패");
-  }
-  return { tasks: body.tasks, subjects: body.subjects };
 }
 
 export function createSubject(body: SubjectCreateRequest): Promise<SubjectResponse> {
