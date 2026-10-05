@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import {
@@ -66,53 +66,43 @@ function RecordsContent({
   const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
   // 미래에는 볼 기록이 없다 — 오늘이 속한 달이 끝이다. 버튼과 스와이프가 같은 판정을 탄다.
   const isLatestMonth = isFutureMonth(shiftMonth(month, 1), todayKey);
-  const changeMonth = useCallback(
-    (delta: -1 | 1, method: "button" | "swipe") => {
-      if (delta === 1 && isLatestMonth) {
-        return;
-      }
-      trackRecordsMonthChanged({ delta, method });
-      setSlideFrom(delta < 0 ? "left" : "right");
-      setMonth((current) => shiftMonth(current, delta));
-    },
-    [isLatestMonth, setMonth],
-  );
+  const changeMonth = (delta: -1 | 1, method: "button" | "swipe") => {
+    if (delta === 1 && isLatestMonth) {
+      return;
+    }
+    trackRecordsMonthChanged({ delta, method });
+    setSlideFrom(delta < 0 ? "left" : "right");
+    setMonth((current) => shiftMonth(current, delta));
+  };
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const openPlanner = useOpenPlanner("records");
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
-  const monthStats = useMemo<MonthStats | null>(
-    () =>
-      periodDaily === undefined
-        ? null
-        : {
-            totalFocusSec: sumFocusSec(periodDaily),
-            studiedDays: studiedDayCount(periodDaily),
-            averageFocusSec: averageFocusSecPerStudiedDay(periodDaily),
-          },
-    [periodDaily],
-  );
+  const monthStats: MonthStats | null =
+    periodDaily === undefined
+      ? null
+      : {
+          totalFocusSec: sumFocusSec(periodDaily),
+          studiedDays: studiedDayCount(periodDaily),
+          averageFocusSec: averageFocusSecPerStudiedDay(periodDaily),
+        };
   // 한 번에 하나만 펼친다. id로만 기억해 두면 날짜가 바뀌어 그 세션이 목록에 없을 때 저절로 접힌다.
   const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
-  const toggleSession = useCallback((sessionId: number) => {
+  const toggleSession = (sessionId: number) => {
     setExpandedSessionId((current) => {
       const next = current === sessionId ? null : sessionId;
       trackRecordsSessionExpanded({ expanded: next !== null });
       return next;
     });
-  }, []);
+  };
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
-  // 의존성은 훅이 렌더마다 새로 만드는 포장 객체(day)가 아니라 react-query가 캐시하는 배열
-  // (day.stats.sessions)로 건다 — 데이터가 같으면 참조가 유지되어 메모가 실제로 동작한다.
   const daySessions = day.status === "success" ? day.stats.sessions : undefined;
-  const sessions = useMemo(
-    () =>
-      daySessions ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : [],
-    [daySessions],
-  );
+  const sessions = daySessions
+    ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    : [];
 
   return (
     <div>

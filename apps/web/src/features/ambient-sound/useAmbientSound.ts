@@ -111,20 +111,17 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   );
 
   /** 믹스 변경의 단일 통로 — 켜고 끄는 변화만 이벤트로 남기고 레벨만 바뀌면 보내지 않는다. */
-  const changeMix = useCallback(
-    (next: Mix, source: AmbientChangeSource) => {
-      const current = settingsRef.current;
-      if (!current || next === current.mix) return;
-      commit({ ...current, mix: next });
-      void applyMix(next);
-      const before = activeIds(current.mix, catalog);
-      const after = activeIds(next, catalog);
-      if (before.join(",") !== after.join(",")) {
-        trackAmbientSoundChanged({ sounds: after, source });
-      }
-    },
-    [applyMix, catalog, commit],
-  );
+  const changeMix = (next: Mix, source: AmbientChangeSource) => {
+    const current = settingsRef.current;
+    if (!current || next === current.mix) return;
+    commit({ ...current, mix: next });
+    void applyMix(next);
+    const before = activeIds(current.mix, catalog);
+    const after = activeIds(next, catalog);
+    if (before.join(",") !== after.join(",")) {
+      trackAmbientSoundChanged({ sounds: after, source });
+    }
+  };
 
   // 주입 카탈로그는 안정된 참조여야 한다 — 바뀌면 다시 불러와 자동 시작이 한 번 더 난다.
   const injectedCatalog = options.catalog;
@@ -209,46 +206,37 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     };
   }, [studying, usage]);
 
-  const changeLevel = useCallback(
-    (id: SoundId, level: number) => {
-      const current = settingsRef.current;
-      if (!current) return;
-      // 0 으로 내리는 것도 끄는 것이라, 사라지기 직전의 음량을 저장해 둬야 아이콘으로 다시
-      // 켤 때 그 값으로 돌아온다. 저장하지 않으면 기본값 60 으로 튄다.
-      const remembered = level > 0 ? level : current.mix[id];
-      if (remembered !== undefined && remembered > 0) lastLevelRef.current[id] = remembered;
-      changeMix(setLevel(current.mix, id, level), "dialog");
-    },
-    [changeMix],
-  );
+  const changeLevel = (id: SoundId, level: number) => {
+    const current = settingsRef.current;
+    if (!current) return;
+    // 0 으로 내리는 것도 끄는 것이라, 사라지기 직전의 음량을 저장해 둬야 아이콘으로 다시
+    // 켤 때 그 값으로 돌아온다. 저장하지 않으면 기본값 60 으로 튄다.
+    const remembered = level > 0 ? level : current.mix[id];
+    if (remembered !== undefined && remembered > 0) lastLevelRef.current[id] = remembered;
+    changeMix(setLevel(current.mix, id, level), "dialog");
+  };
 
   /** 아이콘 탭 - 켜진 소리는 0으로 내리고, 꺼진 소리는 마지막으로 듣던 음량으로 되돌린다. */
-  const toggleSound = useCallback(
-    (id: SoundId) => {
-      const current = settingsRef.current;
-      if (!current) return;
-      const level = current.mix[id];
-      if (level !== undefined) {
-        lastLevelRef.current[id] = level;
-        changeMix(setLevel(current.mix, id, 0), "dialog");
-        return;
-      }
-      changeMix(setLevel(current.mix, id, lastLevelRef.current[id] ?? DEFAULT_LEVEL), "dialog");
-    },
-    [changeMix],
-  );
+  const toggleSound = (id: SoundId) => {
+    const current = settingsRef.current;
+    if (!current) return;
+    const level = current.mix[id];
+    if (level !== undefined) {
+      lastLevelRef.current[id] = level;
+      changeMix(setLevel(current.mix, id, 0), "dialog");
+      return;
+    }
+    changeMix(setLevel(current.mix, id, lastLevelRef.current[id] ?? DEFAULT_LEVEL), "dialog");
+  };
 
-  const setDuckEnabled = useCallback(
-    (enabled: boolean) => {
-      const current = settingsRef.current;
-      if (!current || current.duckEnabled === enabled) return;
-      commit({ ...current, duckEnabled: enabled });
-      trackAmbientSoundDuckToggled(enabled);
-    },
-    [commit],
-  );
+  const setDuckEnabled = (enabled: boolean) => {
+    const current = settingsRef.current;
+    if (!current || current.duckEnabled === enabled) return;
+    commit({ ...current, duckEnabled: enabled });
+    trackAmbientSoundDuckToggled(enabled);
+  };
 
-  const toggleAll = useCallback(() => {
+  const toggleAll = () => {
     const current = settingsRef.current;
     if (!current) return;
     if (Object.keys(current.mix).length > 0) {
@@ -258,7 +246,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       return;
     }
     if (Object.keys(current.lastMix).length > 0) changeMix(current.lastMix, "dialog");
-  }, [changeMix]);
+  };
 
   const mix = settings?.mix ?? {};
   return {

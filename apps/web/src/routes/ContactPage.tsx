@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -54,24 +54,24 @@ export function ContactPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const location = useLocation();
 
-  const retry = useCallback(() => {
+  const retry = () => {
     trackErrorRetryPressed("contact");
     setFailed(false);
     setLoading(true);
     setReloadKey((key) => key + 1);
-  }, []);
+  };
 
   // 문서 단위 라우트의 뒤로 가기(`lib/hardNavigation.ts`의 canExitViaHistoryBack 주석 참고).
   // 폴백도 SPA가 아니라 하드 내비게이션이어야 한다 — SPA로 /settings에 가면 이 문서의
   // "COEP 없음"이 설정 이후까지 승계된다. 쿼리(userId·appVersion)는 설정 행이 승계해 준
   // 것을 그대로 되돌린다.
-  const exitToPreviousDocument = useCallback(() => {
+  const exitToPreviousDocument = () => {
     if (canExitViaHistoryBack(document.referrer, window.location.origin, window.history.length)) {
       window.history.back();
       return;
     }
     hardReplace(`/settings${location.search}`);
-  }, [location.search]);
+  };
 
   // React-DOM은 <iframe>에 "load" 이벤트만 위임 등록하고 "error"는 등록하지 않는다
   // (react-dom-client.development.js의 `case "iframe": listenToNonDelegatedEvent("load", ...)`).

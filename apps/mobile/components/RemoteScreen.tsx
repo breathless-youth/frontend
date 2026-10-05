@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
@@ -77,13 +77,10 @@ export function RemoteScreen({
   // extraQuery는 마운트 시점 값으로 고정한다(딥링크 파라미터는 화면 수명 동안 불변) —
   // 렌더마다 리터럴로 새 객체가 넘어와도 identity가 흔들려 URL 메모가 깨지지 않게.
   const [frozenExtraQuery] = useState(extraQuery);
-  const query = useMemo(
-    () =>
-      sharedQuery !== null && frozenExtraQuery
-        ? { ...sharedQuery, ...frozenExtraQuery }
-        : sharedQuery,
-    [sharedQuery, frozenExtraQuery],
-  );
+  const query =
+    sharedQuery !== null && frozenExtraQuery
+      ? { ...sharedQuery, ...frozenExtraQuery }
+      : sharedQuery;
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   // 웹이 켜고 끄는 하드웨어 뒤로가기 잠금 — 소셜룸처럼 탭 웹뷰 안 웹 라우팅으로 도는
@@ -103,7 +100,7 @@ export function RemoteScreen({
   // 드러나던 문제(BY-436). `loaded`를 첫 로드에서 true로 굳히면 복구가 가려지지 않는다.
   // WebView의 onLoadStart 이벤트가 아니라 호스트의 복구 진입 통지를 쓴다 — Android는
   // SPA 라우팅에도 onLoadStart가 발화해 스플래시가 영영 걷히지 않았다(호스트 prop 주석).
-  const onRecoveryStart = useCallback(() => {
+  const onRecoveryStart = () => {
     setLoaded(false);
     setLoadFailed(false);
     // 문서 교체가 확정되는 시점이다 — 새 문서는 아직 아무 것도 보고하지 않았으니 여기서
@@ -114,51 +111,45 @@ export function RemoteScreen({
     if (!suppressTabBarMessages) {
       onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
     }
-  }, [suppressTabBarMessages, onBridgeMessage]);
-  const onLoadEnd = useCallback(
-    (ok: boolean) => {
-      setLoaded(true);
-      setLoadFailed(!ok);
-      // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
-      // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
-      // 뒤로가기가 영영 막힌다.
-      setBackLocked(false);
-      if (ok) {
-        // 로드 성공에는 탭 바 상태를 건드리지 않는다 — 새 문서가 이미 자기 상태를
-        // 보고했을 수 있다(위 onRecoveryStart 주석). 되돌리는 시점은 문서 교체가 확정되는
-        // 복구 진입과, 살아 있는 문서가 없는 아래 실패 경로뿐이다.
-        return;
-      }
-      lastTabBarMessageRef.current = null;
-      if (!suppressTabBarMessages) {
-        onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
-      }
-    },
-    [suppressTabBarMessages, onBridgeMessage],
-  );
+  };
+  const onLoadEnd = (ok: boolean) => {
+    setLoaded(true);
+    setLoadFailed(!ok);
+    // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
+    // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
+    // 뒤로가기가 영영 막힌다.
+    setBackLocked(false);
+    if (ok) {
+      // 로드 성공에는 탭 바 상태를 건드리지 않는다 — 새 문서가 이미 자기 상태를
+      // 보고했을 수 있다(위 onRecoveryStart 주석). 되돌리는 시점은 문서 교체가 확정되는
+      // 복구 진입과, 살아 있는 문서가 없는 아래 실패 경로뿐이다.
+      return;
+    }
+    lastTabBarMessageRef.current = null;
+    if (!suppressTabBarMessages) {
+      onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
+    }
+  };
 
-  const filteredBridgeMessage = useCallback(
-    (message: HostPassedMessage, reply: BridgeReply) => {
-      if (message.type === "set-back-lock") {
-        // 셸이 소비한다 — 공용 핸들러가 알 필요 없는 웹뷰 자체 상태다.
-        setBackLocked(message.locked);
+  const filteredBridgeMessage = (message: HostPassedMessage, reply: BridgeReply) => {
+    if (message.type === "set-back-lock") {
+      // 셸이 소비한다 — 공용 핸들러가 알 필요 없는 웹뷰 자체 상태다.
+      setBackLocked(message.locked);
+      return;
+    }
+    if (message.type === "set-tab-bar") {
+      lastTabBarMessageRef.current = message;
+      if (suppressTabBarMessages) {
         return;
       }
-      if (message.type === "set-tab-bar") {
-        lastTabBarMessageRef.current = message;
-        if (suppressTabBarMessages) {
-          return;
-        }
-      }
-      if (message.type === "report-screen") {
-        // 셸이 소비한다(복구 스플래시 톤) — 복원 경로는 호스트가 이미 저장했다.
-        setDarkScreen(message.dark);
-        return;
-      }
-      onBridgeMessage(message, reply);
-    },
-    [suppressTabBarMessages, onBridgeMessage],
-  );
+    }
+    if (message.type === "report-screen") {
+      // 셸이 소비한다(복구 스플래시 톤) — 복원 경로는 호스트가 이미 저장했다.
+      setDarkScreen(message.dark);
+      return;
+    }
+    onBridgeMessage(message, reply);
+  };
 
   useEffect(() => {
     if (suppressTabBarMessages) {

@@ -1,5 +1,4 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 
 import type {
   DailyStudyStat,
@@ -92,10 +91,8 @@ export function useRecordsData(
 
   // period는 placeholderData를 쓰지 않는다 — 달을 넘기면 새 쿼리가 끝날 때까지 data가 undefined라
   // pending으로 자연히 떨어지고, 이전 달 합계·농도가 새 달 제목 아래 남아있지 않는다.
-  const dayFocusSec = useMemo(
-    () => (period.data !== undefined ? buildDayFocusMap(period.data.dailyList) : EMPTY_DAY_FOCUS),
-    [period.data],
-  );
+  const dayFocusSec =
+    period.data !== undefined ? buildDayFocusMap(period.data.dailyList) : EMPTY_DAY_FOCUS;
   const periodState = derivePeriodState(period);
 
   if (day.data !== undefined && !day.isPlaceholderData) {

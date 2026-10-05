@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -71,22 +71,19 @@ export function PlannerPage() {
   const subjects = useSubjects(userId !== null, showToast, "planner");
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
-  const changeDate = useCallback(
-    (delta: -1 | 1, method: "button" | "swipe") => {
-      const next = addDaysToDateKey(dateKey, delta);
-      trackPlannerDateChanged({ delta, method });
-      setSearchParams(
-        (previous) => {
-          // 셸이 붙인 쿼리(구 앱의 신원 등)는 지우지 않고 날짜만 바꾼다.
-          const params = new URLSearchParams(previous);
-          params.set("date", next);
-          return params;
-        },
-        { replace: true, state: location.state },
-      );
-    },
-    [dateKey, location.state, setSearchParams],
-  );
+  const changeDate = (delta: -1 | 1, method: "button" | "swipe") => {
+    const next = addDaysToDateKey(dateKey, delta);
+    trackPlannerDateChanged({ delta, method });
+    setSearchParams(
+      (previous) => {
+        // 셸이 붙인 쿼리(구 앱의 신원 등)는 지우지 않고 날짜만 바꾼다.
+        const params = new URLSearchParams(previous);
+        params.set("date", next);
+        return params;
+      },
+      { replace: true, state: location.state },
+    );
+  };
 
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 날짜 선택 시트에서 고른 날로 옮긴다. 같은 날이면 닫기만 한다. */

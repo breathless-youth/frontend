@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
 import { trackSessionRecoveryConfirmed, trackSessionRecoveryPrompted } from "@/lib/amplitude";
@@ -67,10 +67,10 @@ export function useLaunchSessionRecovery(userId: number | null): {
     };
   }, [queryClient, userId]);
 
-  const dismiss = useCallback(() => {
+  const dismiss = () => {
     trackSessionRecoveryConfirmed();
     setState((prev) => ({ ...prev, result: null }));
-  }, []);
+  };
 
   // 되돌림을 예약한 이 렌더에서는 state가 아직 앞 사용자의 것이라 한 번 더 거른다.
   const recovered = state.userId === userId ? state.result : null;

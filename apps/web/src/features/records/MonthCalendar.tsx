@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -198,31 +198,28 @@ export function MonthCalendar({
   // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  }, []);
+  };
 
-  const handlePointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const start = pointerStartRef.current;
-      pointerStartRef.current = null;
-      if (!start) {
-        return;
-      }
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
-      // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 스와이프로 본다.
-      if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
-        return;
-      }
-      if (dx < 0) {
-        onSwipeMonth(1);
-        return;
-      }
-      onSwipeMonth(-1);
-    },
-    [onSwipeMonth],
-  );
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start) {
+      return;
+    }
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 스와이프로 본다.
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
+      return;
+    }
+    if (dx < 0) {
+      onSwipeMonth(1);
+      return;
+    }
+    onSwipeMonth(-1);
+  };
 
   return (
     <div className="rounded-[20px] bg-muted px-2.5 pt-3.5 pb-4 shadow-sb-card">

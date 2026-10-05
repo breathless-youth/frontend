@@ -1,5 +1,4 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useCallback } from "react";
 
 import { weekDateKeys } from "@/features/records/recordsFormat";
 import { todayKstDateKey } from "@/lib/dateKst";
@@ -36,14 +35,14 @@ export function useHomeSummary(userId: number): HomeSummaryState {
     placeholderData: keepPreviousData,
   });
 
-  const retry = useCallback(() => {
+  const retry = () => {
     if (stats.isError) {
       void stats.refetch();
     }
     if (streak.isError) {
       void streak.refetch();
     }
-  }, [stats, streak]);
+  };
 
   if (stats.data !== undefined && streak.data !== undefined) {
     return { status: "success", summary: buildHomeSummary(stats.data, streak.data, dateKey) };
