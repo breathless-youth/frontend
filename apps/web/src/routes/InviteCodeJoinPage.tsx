@@ -56,9 +56,7 @@ export function InviteCodeJoinPage() {
     if (storePlatform !== null && shouldAutoOpenInApp(navigator.userAgent, code)) {
       openInApp(storePlatform, code);
     }
-    // code·storePlatform은 초깃값으로 고정돼 의존성이 바뀌지 않는다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [code, storePlatform]);
 
   const joinMutation = useMutation({
     // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와

@@ -69,4 +69,13 @@ describe("InviteCodeJoinPage 인앱 스킴 브리지", () => {
     );
     expect(openInApp).toHaveBeenCalledTimes(1);
   });
+
+  it("코드 입력이 바뀌어도 openInApp을 다시 부르지 않는다", async () => {
+    setUserAgent(KAKAO_UA);
+    renderAt("?userId=7&code=1234");
+    expect(openInApp).toHaveBeenCalledTimes(1);
+    await userEvent.clear(screen.getByLabelText("초대코드 4자리"));
+    await userEvent.type(screen.getByLabelText("초대코드 4자리"), "5678");
+    expect(openInApp).toHaveBeenCalledTimes(1);
+  });
 });
