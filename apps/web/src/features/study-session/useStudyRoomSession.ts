@@ -203,6 +203,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   // 세션이 수동 종료로 둔갑해 S3-8 대신 엉뚱한 화면이 뜬다.
   const endReasonRef = useRef<SessionEndReason | null>(null);
   const timelineRef = useRef<SessionTimeline>(initial.timeline);
+  // 콜백과 인터벌은 전이 직후 값을 동기로 봐야 해서 ref를 읽고, 화면은 이 사본을 읽는다.
+  const [timeline, setTimeline] = useState<SessionTimeline>(initial.timeline);
 
   /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
   const endTrackedRef = useRef(false);
@@ -282,6 +284,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     (next: SessionState, atMs: number = Date.now()) => {
       const before = timelineRef.current;
       timelineRef.current = transition(before, next, atMs);
+      setTimeline(timelineRef.current);
       // 비집중 구간이 방금 닫혔으면 한 건으로 남긴다(BY-616 확장) — 전이의 단일 통로라 여기가 유일한
       // 관측점이다. `transition`이 같은 상태를 무시하면 타임라인 참조가 그대로라 아무것도 찍히지 않는다.
       if (timelineRef.current !== before) {
@@ -565,6 +568,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       }
       const endedAtMs = endedAtMsRef.current;
       timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
+      setTimeline(timelineRef.current);
       const closed = timelineRef.current;
       const finalTotals = withBase(computeSessionTotals(closed, endedAtMs));
       const events = allEvents(endedAtMs);
@@ -709,8 +713,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
      */
     subjectSegments: materializeSubjectSegments(subjectTracker, renderNowMs),
     /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
-    // eslint-disable-next-line react-hooks/refs -- 타임라인은 틱·상태 전이 때만 바뀌고 그때마다 state가 함께 바뀌어 리렌더된다. 화면 표시용 사본이다
-    sessionEvents: allEvents(renderNowMs),
+    sessionEvents: [...initial.priorEvents, ...toStatusEvents(timeline, renderNowMs)],
     selectSubject,
     pause,
     resume,
