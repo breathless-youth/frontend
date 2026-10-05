@@ -1,5 +1,4 @@
-import { createContext, useCallback, useContext, useRef } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { createContext, useContext } from "react";
 
 import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import {
   type HeatLevel,
   heatLevel,
 } from "./recordsFormat";
+import { useHorizontalSwipe } from "./useHorizontalSwipe";
 
 /** 달력 아래에 적는 그 달의 합계와 하루 평균. */
 export type MonthStats = {
@@ -175,14 +175,6 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
   );
 }
 
-/**
- * 스와이프 커밋 임계(px) — 온보딩 가이드의 스텝 스와이프(`coachOverlayTheme.SWIPE_THRESHOLD_PX`)와
- * 같은 값이다. 앱 안의 가로 스와이프 감각을 하나로 맞춘다 — 공유 상수로 승격하지 않는 이유는
- * 두 feature가 서로 import하지 않는 경계를 지키기 위해서다(우연히 같은 값일 뿐 한쪽을 조정할
- * 때 다른 쪽이 따라가야 한다는 계약이 아직 없다).
- */
-const SWIPE_THRESHOLD_PX = 48;
-
 export function MonthCalendar({
   month,
   todayKey,
@@ -195,35 +187,7 @@ export function MonthCalendar({
 }: MonthCalendarProps) {
   const today = dateOfDateKey(todayKey);
 
-  // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
-  // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const start = pointerStartRef.current;
-      pointerStartRef.current = null;
-      if (!start) {
-        return;
-      }
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
-      // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 스와이프로 본다.
-      if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
-        return;
-      }
-      if (dx < 0) {
-        onSwipeMonth(1);
-        return;
-      }
-      onSwipeMonth(-1);
-    },
-    [onSwipeMonth],
-  );
+  const swipe = useHorizontalSwipe(onSwipeMonth);
 
   return (
     <Card className="rounded-[20px] border-0 shadow-sb-card px-2.5 pt-3.5 pb-4">
@@ -237,12 +201,7 @@ export function MonthCalendar({
         팬만 우리 포인터 이벤트로 가져온다 — 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어
         pointercancel을 내서 스와이프가 끝까지 도달하지 못한다.
       */}
-      <div
-        data-testid="month-calendar-swipe-area"
-        className="touch-pan-y"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-      >
+      <div data-testid="month-calendar-swipe-area" className="touch-pan-y" {...swipe}>
         <DayFocusContext.Provider value={dayFocusSec}>
           <Calendar
             // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다

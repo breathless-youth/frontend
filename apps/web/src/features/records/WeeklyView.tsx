@@ -10,11 +10,13 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
 import { WeekTrendCard } from "./WeekTrendCard";
+import { useHorizontalSwipe } from "./useHorizontalSwipe";
 import { addDaysToDateKey } from "./recordsFormat";
 import { isFutureWeek } from "./recordsPeriod";
 import { useWeeklyData } from "./useWeeklyData";
@@ -52,17 +54,19 @@ export function WeeklyView({
 
   // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 달을 막는 것과 같은 취지.
   const canGoNext = !isFutureWeek(addDaysToDateKey(weekAnchorKey, 7), todayKey);
-  const goNextWeek = () => {
-    if (!canGoNext) {
+  // 마지막 주 이동 방향 — 추이 카드가 그 방향에서 밀려 들어온다(일간 달력과 같은 모션). 첫 진입과
+  // 시트로 건너뛴 이동에는 움직이지 않는다.
+  const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
+  // 화살표와 카드 스와이프가 같은 경로를 타야 모션·계측이 갈라지지 않는다.
+  const changeWeek = (delta: -1 | 1, method: "button" | "swipe") => {
+    if (delta === 1 && !canGoNext) {
       return;
     }
-    trackRecordsWeekChanged(1);
-    setWeekAnchorKey((key) => addDaysToDateKey(key, 7));
+    trackRecordsWeekChanged(delta, method);
+    setSlideFrom(delta < 0 ? "left" : "right");
+    setWeekAnchorKey((key) => addDaysToDateKey(key, delta * 7));
   };
-  const goPrevWeek = () => {
-    trackRecordsWeekChanged(-1);
-    setWeekAnchorKey((key) => addDaysToDateKey(key, -7));
-  };
+  const swipe = useHorizontalSwipe((delta) => changeWeek(delta, "swipe"));
 
   return (
     <div>
@@ -71,8 +75,8 @@ export function WeeklyView({
         metricsStatus={week.status}
         daily={week.status === "success" ? week.daily : undefined}
         canGoNext={canGoNext}
-        onPrevWeek={goPrevWeek}
-        onNextWeek={goNextWeek}
+        onPrevWeek={() => changeWeek(-1, "button")}
+        onNextWeek={() => changeWeek(1, "button")}
         onOpenPicker={() => {
           trackRecordsPeriodPickerOpened("weekly");
           setPickerOpen(true);
@@ -86,6 +90,7 @@ export function WeeklyView({
         todayKey={todayKey}
         onPick={(dateKey, toToday) => {
           trackRecordsPeriodPicked({ view: "weekly", toToday });
+          setSlideFrom(null);
           setWeekAnchorKey(dateKey);
           setPickerOpen(false);
         }}
@@ -101,12 +106,27 @@ export function WeeklyView({
           />
         )}
         {week.status === "success" && (
-          <WeekTrendCard
-            daily={week.daily}
-            compareDaily={week.compareDaily}
-            weekAnchorKey={weekAnchorKey}
-            todayKey={todayKey}
-          />
+          // 좌우로 밀면 주를 넘긴다(일간 달력과 같은 판정). 주가 바뀔 때마다 리마운트해 밀려 들어오는
+          // 모션을 재생하고, 열려 있던 요일 말풍선도 닫는다.
+          <div
+            key={weekAnchorKey}
+            data-testid="week-trend-swipe-area"
+            className={cn(
+              "touch-pan-y",
+              slideFrom === "right" &&
+                "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+              slideFrom === "left" &&
+                "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+            )}
+            {...swipe}
+          >
+            <WeekTrendCard
+              daily={week.daily}
+              compareDaily={week.compareDaily}
+              weekAnchorKey={weekAnchorKey}
+              todayKey={todayKey}
+            />
+          </div>
         )}
       </div>
 
