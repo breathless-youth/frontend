@@ -28,8 +28,13 @@ const Y_AXIS_WIDTH_PX = 32;
 const CHART_HEIGHT_PX = 176;
 const CHART_MARGIN_TOP_PX = 6;
 const X_AXIS_HEIGHT_PX = 20;
-/** 말풍선과 막대 꼭대기 사이 간격(px) */
-const TOOLTIP_GAP_PX = 6;
+/** 막대 폭과 한 요일 안 두 막대 사이 간격(px) — 말풍선 꼬리가 가리킬 막대 위치도 여기서 셈한다. */
+const BAR_SIZE_PX = 16;
+const BAR_GAP_PX = 2;
+/** 말풍선 꼬리가 말풍선 양끝에서 떨어질 최소 거리(px) — 둥근 모서리(10px)에 걸리지 않게 한다. */
+const TOOLTIP_TAIL_INSET_PX = 14;
+/** 말풍선 아랫변과 막대 꼭대기 사이 간격(px) — 그 사이에 꼬리가 들어간다. */
+const TOOLTIP_GAP_PX = 10;
 /** 누르지 않은 요일을 흐리게 하는 정도 */
 const DIMMED_OPACITY = 0.35;
 /**
@@ -246,6 +251,15 @@ function WeekTrendBars({
     CHART_MARGIN_TOP_PX +
     (CHART_HEIGHT_PX - CHART_MARGIN_TOP_PX - X_AXIS_HEIGHT_PX) *
       (1 - Math.max(pickedRow?.thisWeek ?? 0, pickedRow?.lastWeek ?? 0) / scaleHours);
+  // 꼬리가 가리킬 막대 — 말풍선이 앉은 가장 높은 막대의 가운데. 두 주가 나란히 서면 막대 폭의 반과
+  // 막대 사이 간격의 반만큼 요일 가운데에서 비켜 있다(앞 주는 왼쪽, 보는 주는 오른쪽).
+  const pickedTallerIsPrevious = (pickedRow?.lastWeek ?? 0) > (pickedRow?.thisWeek ?? 0);
+  /** 누른 요일 가운데가 말풍선 폭에서 차지하는 자리(%) — 양끝 요일일수록 말풍선이 안쪽으로 당겨진다. */
+  const tailRatioPercent = (((pickedIndex ?? 0) + 0.5) / rows.length) * 100;
+  const tailOffsetPx =
+    hasPrevious && hasCurrent
+      ? ((pickedTallerIsPrevious ? -1 : 1) * (BAR_SIZE_PX + BAR_GAP_PX)) / 2
+      : 0;
 
   return (
     <div ref={chartRef} role="group" aria-label="요일별 순공시간" className="pt-2">
@@ -257,7 +271,7 @@ function WeekTrendBars({
         <BarChart
           accessibilityLayer
           data={rows}
-          barGap={2}
+          barGap={BAR_GAP_PX}
           margin={{ top: CHART_MARGIN_TOP_PX, right: 0, bottom: 0, left: 0 }}
           onClick={({ activeTooltipIndex }) => {
             const row = activeTooltipIndex === undefined ? undefined : rows[activeTooltipIndex];
@@ -308,15 +322,29 @@ function WeekTrendBars({
             // 막대는 앞 주를 먼저 그리지만 말풍선은 범례와 같이 보는 주를 먼저 적는다.
             content={({ active, label, payload }) => (
               <div
+                className="relative"
                 style={{
                   // 말풍선의 아랫변을 막대 위에 맞추고, 가로는 요일 위치만큼만 당긴다 — 가운데 요일은
                   // 막대 중심에 오고 양끝 요일은 플롯 가장자리에 붙어 카드 밖으로 나가지 않는다.
-                  transform: `translate(${String(-(((pickedIndex ?? 0) + 0.5) / rows.length) * 100)}%, -100%)`,
+                  // 꼬리가 둥근 모서리에 걸리지 않게, 꼬리 자리가 말풍선 끝에서 TOOLTIP_TAIL_INSET_PX
+                  // 안쪽에 오도록 그만큼만 더 민다(아래 꼬리의 clamp와 같은 식).
+                  transform: `translate(clamp(${String(tailOffsetPx + TOOLTIP_TAIL_INSET_PX)}px - 100%, ${String(-tailRatioPercent)}%, ${String(tailOffsetPx - TOOLTIP_TAIL_INSET_PX)}px), -100%)`,
                 }}
               >
+                {/* 꼬리 — 말풍선을 당긴 만큼 반대로 놓이고, 말풍선이 앉은 막대의 가운데를 가리킨다. */}
+                <span
+                  aria-hidden
+                  className="absolute -bottom-1 size-2 -translate-x-1/2 rotate-45 rounded-[1px] bg-foreground"
+                  style={{
+                    left: `clamp(${String(TOOLTIP_TAIL_INSET_PX)}px, calc(${String(tailRatioPercent)}% + ${String(tailOffsetPx)}px), calc(100% - ${String(TOOLTIP_TAIL_INSET_PX)}px))`,
+                  }}
+                />
                 <ChartTooltipContent
                   active={active}
                   label={label as string}
+                  // 공용 말풍선을 앱의 어두운 말풍선으로 덮어쓴다(배경·글자색 반전, 테두리·그림자 없음).
+                  className="min-w-0 gap-0.5 rounded-[10px] border-0 bg-foreground px-2.5 py-2 leading-4 whitespace-nowrap text-background shadow-none"
+                  labelClassName="font-bold"
                   payload={payload?.toSorted((item) => (item.dataKey === "thisWeek" ? -1 : 1))}
                   labelFormatter={(day: string) => `${day}요일`}
                   formatter={(_value, _name, item) => {
@@ -324,16 +352,16 @@ function WeekTrendBars({
                     const series = item.dataKey === "lastWeek" ? "lastWeek" : "thisWeek";
                     const focusSec = series === "thisWeek" ? row.thisWeekSec : row.lastWeekSec;
                     return (
-                      <div className="flex flex-1 items-center justify-between gap-4 leading-none">
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <div className="flex flex-1 items-center justify-between gap-2.5">
+                        <span className="flex items-center gap-1.5">
                           <span
                             aria-hidden
-                            className="size-2.5 shrink-0 rounded-[2px]"
+                            className="size-2 shrink-0 rounded-[2px]"
                             style={{ backgroundColor: `var(--color-${series})` }}
                           />
-                          {config[series].label}
+                          <span className="opacity-70">{config[series].label}</span>
                         </span>
-                        <span className="font-medium text-foreground tabular-nums">
+                        <span className="font-semibold tabular-nums">
                           {formatDuration(focusSec ?? 0)}
                         </span>
                       </div>
@@ -348,7 +376,7 @@ function WeekTrendBars({
               dataKey="lastWeek"
               className="trend-prev"
               fill="var(--color-lastWeek)"
-              barSize={16}
+              barSize={BAR_SIZE_PX}
               radius={[4, 4, 0, 0]}
               minPointSize={minBarHeight}
               isAnimationActive={false}
@@ -363,7 +391,7 @@ function WeekTrendBars({
               dataKey="thisWeek"
               className="trend-current"
               fill="var(--color-thisWeek)"
-              barSize={16}
+              barSize={BAR_SIZE_PX}
               radius={[4, 4, 0, 0]}
               minPointSize={minBarHeight}
               isAnimationActive={false}
