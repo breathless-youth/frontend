@@ -176,6 +176,7 @@ describe("PlannerPage", () => {
     // 세션 없이 체크한 할 일도 그날 완료로 보인다.
     expect(screen.getByText("오답 노트")).toBeInTheDocument();
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
+    expect(screen.getByText("휴식")).toBeInTheDocument();
     // 미완료도 함께 내려오지만 지난 날에는 완료한 것만 보여 준다.
     expect(screen.queryByText("어제 못 끝낸 일")).not.toBeInTheDocument();
     // 완료한 할 일은 일간 조회 이틀치에 실려 온다 — 따로 묻지 않는다.
@@ -433,6 +434,8 @@ describe("PlannerPage", () => {
     expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
     // 과목은 날짜와 무관한 목록이라 미래 날짜에서도 고친다.
     expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
+    // 공부한 기록이 없는 날은 타임테이블 범례를 두지 않는다.
+    expect(screen.queryByText("휴식")).not.toBeInTheDocument();
     // 미래 날짜의 기록은 조회하지 않는다 — 과목 목록을 받는 오늘의 일간 조회만 나간다.
     expect(mockedStats.mock.calls.map(([date]) => date)).toEqual([TODAY]);
 

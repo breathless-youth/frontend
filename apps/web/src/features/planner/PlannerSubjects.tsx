@@ -61,6 +61,7 @@ interface Menu {
 export function PlannerSubjects({
   items,
   unassignedFocusSec,
+  studied,
   store = null,
   tasksEditable = true,
   suggestSubjects = true,
@@ -69,6 +70,8 @@ export function PlannerSubjects({
 }: {
   items: readonly PlannerSubjectItem[];
   unassignedFocusSec: number;
+  /** 그날 공부한 기록이 있는가 — 없으면 타임테이블 범례를 두지 않는다. */
+  studied: boolean;
   /** 과목 목록 — 있으면 관리할 수 있다. */
   store?: SubjectsStore | null;
   /** 할 일을 추가·수정할 수 있는가 — 오늘 플래너만 그렇다. */
@@ -118,18 +121,21 @@ export function PlannerSubjects({
         </>
       )}
 
-      <div className="flex items-start gap-3 pt-3.5">
-        <span className="flex items-center gap-[5px]">
-          <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
-          <span className="text-[11px] leading-[13px] text-muted-foreground">휴식</span>
-        </span>
-        {hasUnassigned && (
+      {/* 범례는 타임테이블의 색을 풀이한다 — 공부하지 않은 날은 칠한 칸이 없어 두지 않는다. */}
+      {studied && (
+        <div className="flex items-start gap-3 pt-3.5">
           <span className="flex items-center gap-[5px]">
-            <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
-            <span className="text-[11px] leading-[13px] text-muted-foreground">과목 없음</span>
+            <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
+            <span className="text-[11px] leading-[13px] text-muted-foreground">휴식</span>
           </span>
-        )}
-      </div>
+          {hasUnassigned && (
+            <span className="flex items-center gap-[5px]">
+              <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
+              <span className="text-[11px] leading-[13px] text-muted-foreground">과목 없음</span>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
