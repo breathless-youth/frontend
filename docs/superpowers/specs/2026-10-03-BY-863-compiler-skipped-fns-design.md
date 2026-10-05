@@ -34,8 +34,8 @@
 
 ### 목표
 
-- 위 표의 범위 안 7개 함수가 모두 컴파일되고 `memoSlots`가 0보다 크다.
-- 건너뛴 함수는 설계상 예외 2곳만 남는다.
+- 위 표의 범위 안 7개 함수가 모두 컴파일되고 `memoSlots`가 0보다 크다. (리베이스 뒤 `useStudyRoomSession`은 아래 "리베이스 뒤 추가된 예외" 절의 이유로 빠진다.)
+- 건너뛴 함수는 설계상 예외만 남는다.
 - 사용자에게 보이는 동작은 바뀌지 않는다.
 
 ## 확정 결정
@@ -100,6 +100,14 @@ for (const f of files) {
 ```
 
 `OK <함수> memoSlots=N`이 컴파일된 것이고 `CompileError`가 건너뛴 것이다. 스크립트는 `@babel/core`와 `babel-plugin-react-compiler`를 실행 위치에서 찾는다.
+
+## 리베이스 뒤 추가된 예외 (2026-10-05)
+
+- 구현을 마친 뒤 `origin/dev`에 BY-817(플래너·과목 구간)이 머지돼 그 위로 리베이스했다. 충돌은 `endAndSubmit` 제출 페이로드 한 곳이고, BY-817이 넣은 `subjectSegments`·`completedTaskIds`를 프라미스 체인 쪽 페이로드에 합쳤다.
+- BY-817은 `useStudyRoomSession` 반환값에 `sessionEvents: allEvents(renderNowMs)`를 넣었다. `allEvents`가 `timelineRef.current`를 읽으므로 렌더 중 ref 접근이고, 그 줄에 `react-hooks/refs` 억제 주석이 있다. 둘 다 컴파일러가 함수를 건너뛰는 사유라, `finally`를 없앴어도 이 훅은 컴파일되지 않는다.
+- 작성자가 이유 주석까지 달아 의도한 설계이고 타임라인을 ref에서 state 사본으로 바꿔야 풀리므로 이 티켓에서는 다루지 않는다. 결과는 범위 안 7곳 중 6곳 컴파일, `useStudyRoomSession`은 설계상 예외 3번째로 남는다.
+- 리베이스 뒤 프로브: `CompileError`는 `useStudyRoomSession`, `LiveRoomSession`, `useTrackedVisionDetector` 3곳. `RoomSessionScreen`은 컴파일된다.
+- 번들·healthcheck 수치는 리베이스 전 트리(base `afcd6086`)에서 잰 값이다. 리베이스 뒤에는 lint·typecheck·세션·라우트 테스트(54파일 779건)와 프로브만 다시 확인했다.
 
 ## 바뀌지 않는 것
 
