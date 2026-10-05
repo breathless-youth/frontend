@@ -117,14 +117,6 @@ export interface StudyRoomSessionOptions {
   readonly ambientUsage?: () => { used: boolean; sec: number };
 }
 
-/**
- * 스터디룸 세션 로직 — 입장 시각 기록, **순공·총 공부 2축 타이머**, 세션 상태 머신,
- * 상태 이벤트(`StatusEventPayload[]`) 누적, 종료 시 세션 제출.
- *
- * 계산은 전부 순수 모듈(`sessionTimeline`·`detection`)에 있고 이 훅은 배선만 한다.
- * 세션 중에는 일정 주기로 진행 스냅샷만 서버에 보고하고(비정상 종료 대비), 최종 제출은 종료 시
- * 1회 한다. 서버는 앱이 잰 studySec/focusSec을 그대로 저장한다.
- */
 /** 서버가 준 이벤트 뒤에 타임라인이 만든 이벤트를 잇는다. 화면과 제출이 같은 규칙을 쓰게 한 곳에 둔다. */
 function buildEvents(
   priorEvents: readonly StatusEventPayload[],
@@ -134,6 +126,14 @@ function buildEvents(
   return [...priorEvents, ...toStatusEvents(timeline, untilMs)];
 }
 
+/**
+ * 스터디룸 세션 로직 — 입장 시각 기록, **순공·총 공부 2축 타이머**, 세션 상태 머신,
+ * 상태 이벤트(`StatusEventPayload[]`) 누적, 종료 시 세션 제출.
+ *
+ * 계산은 전부 순수 모듈(`sessionTimeline`·`detection`)에 있고 이 훅은 배선만 한다.
+ * 세션 중에는 일정 주기로 진행 스냅샷만 서버에 보고하고(비정상 종료 대비), 최종 제출은 종료 시
+ * 1회 한다. 서버는 앱이 잰 studySec/focusSec을 그대로 저장한다.
+ */
 export function useStudyRoomSession(userId: number | null, options: StudyRoomSessionOptions = {}) {
   const [camera] = useState<CameraAdapter>(() => options.camera ?? createMockCameraAdapter());
   const [detector] = useState<FocusDetector>(() => options.detector ?? createMockFocusDetector());
