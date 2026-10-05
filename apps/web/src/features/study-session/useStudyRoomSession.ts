@@ -479,7 +479,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   );
 
   /** 재개 — 집중으로 돌아가고, 감지가 아직 살아 있으면 다음 tick에서 비집중으로 다시 넘어간다. */
-  const resume = useCallback(() => {
+  const resume = () => {
     const before = currentState(timelineRef.current);
     const pausedSinceMs = currentStateSinceMs(timelineRef.current);
     applyState(FOCUS_STATE);
@@ -491,7 +491,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         roomType,
       });
     }
-  }, [applyState, roomType]);
+  };
 
   /**
    * **확정: 수동 재개**(2026-07-26 리더 확정). 화면 꺼짐·백그라운드에서 돌아와도 세션은
@@ -525,12 +525,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 과목 선택 전환 — 지금 시각으로 이전 구간을 닫고 새 구간을 연다. 종료 뒤(`phase !== "studying"`)에는
    * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
    */
-  const selectSubject = useCallback((next: SubjectSelection | null) => {
+  const selectSubject = (next: SubjectSelection | null) => {
     subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, Date.now());
     setSubjectTracker(subjectTrackerRef.current);
-  }, []);
+  };
 
-  const flipCamera = useCallback(async (): Promise<CameraFlipResult> => {
+  const flipCamera = async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
     trackCameraFlipped(result, roomType);
     if (result.ok) {
@@ -541,7 +541,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 화면과 상대에게 나가는 발행이 낡은 "켜짐"으로 남는다.
     setIsCameraRunning(camera.isRunning);
     return result;
-  }, [camera, roomType]);
+  };
 
   /**
    * 세션 종료 + 제출. `reason`은 **최초 호출에만** 반영된다(재시도는 사유를 바꾸지 않는다).
