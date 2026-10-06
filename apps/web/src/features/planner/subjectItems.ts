@@ -29,8 +29,9 @@ export interface PlannerSubjectItem {
  * 보여 준다. 과목은 이름으로 맞춘다 — 지웠다 다시 만들어 id가 갈려도 한 줄이다.
  *
  * 할 일에는 날짜가 없어 날짜마다 보여 줄 것이 다르다(`tasks`).
- * - `live`(오늘): 목록의 것(미완료 + 오늘 완료)을 보여 주고 고칠 수 있다.
- * - `completed`(지난 날): 그날 완료한 것만 보여 준다 — 그날의 미완료는 알 수 없다.
+ * - `live`(오늘): 목록의 것(미완료 + 자정 이후 완료)을 보여 주고 고칠 수 있다. 완료 기록은 쓰지
+ *   않는다 — 방금 완료를 풀거나 지운 할 일이 낡은 기록 때문에 되살아나 보이지 않는다.
+ * - `completed`(지난 날): 완료 시각이 그 하루에 든 것만 보여 준다(지운 것 포함). 그날의 미완료는 알 수 없다.
  * - `upcoming`(미래): 지금 미완료인 것을 그대로 보여 준다. 체크는 오늘 플래너에서 한다.
  */
 export type PlannerTaskMode = "live" | "completed" | "upcoming";
@@ -66,13 +67,15 @@ export function plannerSubjectItems(
       item.focusSec += row.focusSec;
     }
   }
-  for (const task of day.completedTasks) {
-    recordedOf(task.subjectId)?.tasks.push({
-      id: task.id,
-      name: task.name,
-      done: true,
-      live: false,
-    });
+  if (tasks === "completed") {
+    for (const task of day.completedTasks) {
+      recordedOf(task.subjectId)?.tasks.push({
+        id: task.id,
+        name: task.name,
+        done: true,
+        live: false,
+      });
+    }
   }
 
   if (liveSubjects === null) {
@@ -82,7 +85,6 @@ export function plannerSubjectItems(
   const items: PlannerSubjectItem[] = liveSubjects.map((subject) => {
     const fromRecord = recorded.get(subject.name);
     recorded.delete(subject.name);
-    const liveTaskIds = new Set(subject.tasks.map((task) => task.id));
     return {
       subjectId: subject.id,
       name: subject.name,
@@ -90,16 +92,12 @@ export function plannerSubjectItems(
       focusSec: fromRecord?.focusSec ?? 0,
       tasks:
         tasks === "live"
-          ? [
-              ...subject.tasks.map((task) => ({
-                id: task.id,
-                name: task.name,
-                done: task.doneAt !== null,
-                live: true,
-              })),
-              // 세션에서 완료한 뒤 지운 할 일은 목록에는 없지만 그날 한 일이라 완료로 남긴다.
-              ...(fromRecord?.tasks.filter((task) => !liveTaskIds.has(task.id)) ?? []),
-            ]
+          ? subject.tasks.map((task) => ({
+              id: task.id,
+              name: task.name,
+              done: task.doneAt !== null,
+              live: true,
+            }))
           : tasks === "upcoming"
             ? subject.tasks
                 .filter((task) => task.doneAt === null)

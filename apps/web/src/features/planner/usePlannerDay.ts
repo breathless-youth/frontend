@@ -29,8 +29,12 @@ const EMPTY_STATS: StudySessionListResponse = {
  * 플래너 하루 조회 훅
  *
  * 플래너의 하루(05:00~다음 날 05:00)는 서버의 날짜 둘에 걸친다. 일간 조회를 그 날짜와 다음 날짜
- * 두 번 받아 `assemblePlannerDay`로 조립한다(서버 변경 없음). 기록 탭 일간 뷰와 같은 쿼리 키를
- * 써서, 기록 탭에서 넘어오면 그날 조회는 캐시로 바로 그려진다.
+ * 두 번 받아 `assemblePlannerDay`로 조립한다. 기록 탭 일간 뷰와 같은 쿼리 키를 써서, 기록 탭에서
+ * 넘어오면 그날 조회는 캐시로 바로 그려진다.
+ *
+ * 완료한 할 일도 같은 두 응답에 실려 온다(`subjects[].tasks`). 지난 날 플래너는 그것을 쓰므로 열 때마다 다시
+ * 받는다 — 할 일을 체크·해제·삭제해도 일간 조회를 따로 무효화하지 않아서다. 캐시가 있으면 먼저 그리고
+ * 뒤에서 갱신한다. 오늘은 과목 목록이, 미래는 미완료 할 일이 완료 기록을 대신하므로 그럴 필요가 없다.
  */
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
@@ -39,12 +43,19 @@ export function usePlannerDay(userId: number | null, dateKey: string): PlannerDa
   const dayIsFuture = dateKey > todayKey;
   const nextIsFuture = nextKey > todayKey;
 
+  // 지난 날은 열 때와 날짜를 넘길 때 모두 새로 받는다. refetchOnMount는 마운트에만 듣고, 같은 화면에서
+  // 날짜만 바뀌면(쿼리 키 변경) staleTime을 따르므로 둘 다 준다.
+  const freshOnOpen =
+    dateKey < todayKey ? ({ staleTime: 0, refetchOnMount: "always" } as const) : {};
+
   const day = useQuery({
     ...dailyStatsQuery(userId ?? 0, dateKey),
+    ...freshOnOpen,
     enabled: userId != null && !dayIsFuture,
   });
   const next = useQuery({
     ...dailyStatsQuery(userId ?? 0, nextKey),
+    ...freshOnOpen,
     enabled: userId != null && !nextIsFuture,
   });
 

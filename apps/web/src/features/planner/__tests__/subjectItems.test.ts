@@ -34,7 +34,7 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
       { subjectId: 3, focusSec: 3600 },
       { subjectId: 5, focusSec: 1800 },
     ],
-    completedTasks: [{ id: 9, name: "오답 정리", subjectId: 5, deleted: false }],
+    completedTasks: [{ id: 9, name: "오답 정리", subjectId: 5, doneAtMs: 0 }],
     subjects: new Map([
       [3, english],
       [5, math],
@@ -42,7 +42,7 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
   });
 
   it("과목 목록을 못 받았으면 그날 공부한 과목과 그날 완료한 할 일만 보여준다", () => {
-    expect(plannerSubjectItems(recorded, null)).toEqual([
+    expect(plannerSubjectItems(recorded, null, "completed")).toEqual([
       { subjectId: 3, name: "영어", colorIndex: 7, focusSec: 3600, tasks: [], live: false },
       {
         subjectId: 5,
@@ -138,5 +138,37 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
     expect(items.filter((item) => item.name === "영어")).toEqual([
       { subjectId: 30, name: "영어", colorIndex: 7, focusSec: 3600, tasks: [], live: true },
     ]);
+  });
+
+  describe("완료 기록(완료 시각 기준)", () => {
+    const day = plannerDay({
+      completedTasks: [
+        { id: 40, name: "완료", subjectId: 3, doneAtMs: 1 },
+        { id: 41, name: "완료 후 지움", subjectId: 3, doneAtMs: 2 },
+      ],
+      subjects: new Map([[3, english]]),
+    });
+
+    it("오늘 플래너는 완료 기록을 쓰지 않고 목록만 따른다 — 방금 완료를 풀거나 지운 할 일이 되살아나지 않는다", () => {
+      const items = plannerSubjectItems(
+        day,
+        [live({ id: 3, tasks: [{ id: 40, name: "완료", doneAt: null }] })],
+        "live",
+      );
+
+      expect(items[0]!.tasks).toEqual([{ id: 40, name: "완료", done: false, live: true }]);
+    });
+
+    it("지난 날 플래너에는 그날 완료한 할 일이 지운 것까지 남는다", () => {
+      const items = plannerSubjectItems(day, [live({ id: 3 })], "completed");
+
+      expect(items[0]!.tasks.map((task) => task.id)).toEqual([40, 41]);
+    });
+
+    it("미래 날짜에는 완료 기록을 싣지 않는다", () => {
+      const items = plannerSubjectItems(day, [live({ id: 3 })], "upcoming");
+
+      expect(items[0]!.tasks).toEqual([]);
+    });
   });
 });

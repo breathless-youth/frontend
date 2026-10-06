@@ -4,6 +4,7 @@ import type { StudySessionListResponse, StudySessionSummary } from "@focusmakers
 
 import {
   assemblePlannerDay,
+  liveSubjectsOf,
   plannerCellFills,
   plannerDayWindow,
   plannerHours,
@@ -193,15 +194,22 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
           focusSec: 3600,
         },
       ],
-      completedTasks: [{ id: 9, name: "단어 암기", subjectId: 3, deleted: false }],
     });
 
     const day = assemblePlannerDay(
       DAY,
       stats([studied], {
         subjects: [
-          { id: 3, name: "소마", colorIndex: 2, deleted: true },
-          { id: 5, name: "소마", colorIndex: 7, deleted: false },
+          {
+            id: 3,
+            name: "소마",
+            colorIndex: 2,
+            deleted: true,
+            tasks: [
+              { id: 9, name: "단어 암기", done: true, doneAt: kst(DAY, 9, 30), deleted: false },
+            ],
+          },
+          { id: 5, name: "소마", colorIndex: 7, deleted: false, tasks: [] },
         ],
       }),
       stats([]),
@@ -209,9 +217,120 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
 
     expect(day.subjectRows).toEqual([{ subjectId: 5, focusSec: 7200 }]);
     expect(day.completedTasks).toEqual([
-      { id: 9, name: "단어 암기", subjectId: 5, deleted: false },
+      {
+        id: 9,
+        name: "단어 암기",
+        subjectId: 5,
+        doneAtMs: Date.parse(kst(DAY, 9, 30)),
+      },
     ]);
     expect(day.paints).toHaveLength(1);
+  });
+});
+
+describe("그날 완료한 할 일", () => {
+  const task = (id: number, doneAt: string | null) => ({
+    id,
+    name: `할 일 ${id}`,
+    done: doneAt !== null,
+    doneAt,
+    deleted: false,
+  });
+  const english = (tasks: ReturnType<typeof task>[]) => [
+    { id: 3, name: "영어", colorIndex: 7, deleted: false, tasks },
+  ];
+
+  it("완료 시각이 05:00~다음 날 05:00에 든 것만 남긴다 — 세션이 없어도 되고 미완료는 뺀다", () => {
+    // 서버는 그날의 할 일을 자정 기준 날짜별로 과목 아래에 준다 — 이틀치를 모아 05시로 가른다.
+    const day = assemblePlannerDay(
+      DAY,
+      stats([], {
+        subjects: english([
+          task(1, kst(DAY, 4, 59)), // 전날 플래너의 몫
+          task(2, kst(DAY, 5)),
+          task(3, kst(DAY, 21, 30)),
+          task(4, kst(NEXT, 1, 20)), // 다음 날 새벽에 완료한 것은 이틀 응답에 모두 실린다
+          task(6, null), // 미완료
+        ]),
+      }),
+      stats([], {
+        subjects: english([
+          task(4, kst(NEXT, 1, 20)), // 자정을 넘겼지만 05시 전이라 이날
+          task(5, kst(NEXT, 5)), // 다음 날 플래너의 몫
+          task(6, null),
+        ]),
+      }),
+    );
+
+    // 미완료(6)는 버리고, 이틀에 모두 실린 4는 한 번만 센다.
+    expect(day.completedTasks.map((done) => done.id)).toEqual([2, 3, 4]);
+    expect(day.completedTasks.every((done) => done.subjectId === 3)).toBe(true);
+    // 공부 기록이 없는 날도 과목 이름·색은 같은 응답의 `subjects`에서 얻는다.
+    expect(day.subjects.get(3)?.name).toBe("영어");
+  });
+
+  it("완료한 할 일은 과목 순서와 상관없이 완료 시각 순이다", () => {
+    const day = assemblePlannerDay(
+      DAY,
+      stats([], {
+        subjects: [
+          { id: 3, name: "영어", colorIndex: 7, deleted: false, tasks: [task(1, kst(DAY, 21))] },
+          { id: 5, name: "수학", colorIndex: 5, deleted: false, tasks: [task(2, kst(DAY, 9))] },
+        ],
+      }),
+      stats([]),
+    );
+
+    expect(day.completedTasks.map((done) => done.id)).toEqual([2, 1]);
+  });
+
+  it("과목에 할 일이 실려 오지 않는 서버의 응답이면 할 일 없이 조립한다", () => {
+    const subjects = [{ id: 3, name: "영어", colorIndex: 7, deleted: false }];
+    expect(
+      assemblePlannerDay(DAY, stats([], { subjects }), stats([], { subjects })).completedTasks,
+    ).toEqual([]);
+  });
+});
+
+describe("liveSubjectsOf — 일간 조회에서 과목 목록을 꺼낸다", () => {
+  it("살아있는 과목을 응답 순서대로, 지우지 않은 할 일만 담아 과목 목록 API와 같은 모양으로 준다", () => {
+    const response = stats([], {
+      subjects: [
+        {
+          id: 5,
+          name: "수학",
+          colorIndex: 5,
+          deleted: false,
+          tasks: [
+            { id: 21, name: "오답 정리", done: true, doneAt: kst(DAY, 11), deleted: false },
+            { id: 22, name: "지운 할 일", done: false, doneAt: null, deleted: true },
+          ],
+        },
+        { id: 3, name: "영어", colorIndex: 7, deleted: false, tasks: [] },
+        { id: 9, name: "한국사", colorIndex: 12, deleted: true, tasks: [] },
+      ],
+    });
+
+    expect(liveSubjectsOf(response)).toEqual([
+      {
+        id: 5,
+        name: "수학",
+        colorIndex: 5,
+        studySec: 0,
+        focusSec: 0,
+        tasks: [{ id: 21, name: "오답 정리", doneAt: kst(DAY, 11) }],
+      },
+      { id: 3, name: "영어", colorIndex: 7, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+  });
+
+  it("과목별 할 일을 싣지 않는 서버의 응답이거나 과목이 없으면 null — 호출부가 과목 목록 API로 대신한다", () => {
+    expect(
+      liveSubjectsOf(
+        stats([], { subjects: [{ id: 3, name: "영어", colorIndex: 7, deleted: false }] }),
+      ),
+    ).toBeNull();
+    expect(liveSubjectsOf(stats([]))).toBeNull();
   });
 });
 

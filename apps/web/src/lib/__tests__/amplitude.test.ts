@@ -862,7 +862,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsMonthChanged({ delta: 1, method: "button" });
     m.trackRecordsSessionExpanded({ expanded: true });
     m.trackRecordsViewChanged("weekly");
-    m.trackRecordsWeekChanged(-1);
+    m.trackRecordsWeekChanged(-1, "swipe");
     m.trackRecordsPeriodPickerOpened("daily");
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
     m.trackPlannerOpened({ via: "records", isToday: false });
@@ -888,7 +888,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_month_changed", { delta: 1, method: "button" }],
       ["records_session_expanded", { expanded: true }],
       ["records_view_changed", { view: "weekly" }],
-      ["records_week_changed", { delta: -1 }],
+      ["records_week_changed", { delta: -1, method: "swipe" }],
       ["records_period_picker_opened", { view: "daily" }],
       ["records_period_picked", { view: "weekly", to_today: true }],
       ["planner_opened", { via: "records", is_today: false }],

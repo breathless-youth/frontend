@@ -1,9 +1,9 @@
 import type {
-  CompletedTaskResponse,
   StatusEventPayload,
   StudySessionListResponse,
   StudySessionSummary,
   SubjectRef,
+  SubjectResponse,
 } from "@focusmakers/types";
 
 import { kstDateKey } from "@/features/records/recordsFormat";
@@ -13,8 +13,8 @@ import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetabl
  * 플래너의 하루 — 순수 함수.
  *
  * 플래너의 하루는 05:00부터 다음 날 05:00까지다(KST). 밤 11시~새벽 1시에 공부하면 전부 전날
- * 플래너에 이어서 보인다. **서버는 바꾸지 않는다** — 세션 분할과 날짜 귀속은 자정 기준 그대로라,
- * 앱이 일간 조회를 그 날짜와 다음 날짜 두 번 받아 05:00~다음 날 05:00 구간만 남긴다.
+ * 플래너에 이어서 보인다. 서버의 날짜는 자정 기준 그대로라, 앱이 일간 조회를 그 날짜와 다음 날짜
+ * 두 번 받아 05:00~다음 날 05:00 구간만 남긴다. 완료한 할 일도 이틀치를 받아 완료 시각으로 가른다.
  * 그래서 새벽 0~5시에 공부한 날은 플래너의 순공과 기록 탭 달력 칸의 순공이 다를 수 있다.
  */
 
@@ -54,6 +54,14 @@ export interface PlannerSubjectRow {
   focusSec: number;
 }
 
+/** 그날 완료한 할 일 — 세션에서 체크했든 세션 없이 체크했든 완료 시각이 이 하루에 든 것. */
+export interface PlannerCompletedTask {
+  id: number;
+  name: string;
+  subjectId: number;
+  doneAtMs: number;
+}
+
 export interface PlannerDay {
   dateKey: string;
   startMs: number;
@@ -66,8 +74,8 @@ export interface PlannerDay {
   subjectRows: PlannerSubjectRow[];
   /** 과목을 고르지 않고 공부한 순공(초). */
   unassignedFocusSec: number;
-  /** 그날 세션에서 완료한 할 일 — id 중복 없이. */
-  completedTasks: CompletedTaskResponse[];
+  /** 완료 시각이 이 하루에 든 할 일 — 완료 시각 순. */
+  completedTasks: PlannerCompletedTask[];
   /** 과목 id → 이름·색(이름이 같으면 대표 과목). */
   subjects: ReadonlyMap<number, SubjectRef>;
 }
@@ -159,7 +167,8 @@ function paintSession(
 }
 
 /**
- * 일간 조회 이틀치(그 날짜, 다음 날짜)로 플래너의 하루를 조립한다.
+ * 일간 조회 이틀치(그 날짜, 다음 날짜)로 플래너의 하루를 조립한다. 완료한 할 일도 같은 이틀의
+ * 응답(`subjects[].tasks`)에서 모아 완료 시각으로 가른다.
  *
  * 구간 안에 온전히 든 세션·과목 구간은 서버가 준 순공·총 공부를 그대로 쓴다. 05:00을 걸친 것만
  * 앱이 이벤트로 다시 나눈다(총 공부 = 길이 − 일시정지 겹침, 순공 = 길이 − 모든 이벤트 겹침).
@@ -174,6 +183,13 @@ export function assemblePlannerDay(
     ...(dayStats.subjects ?? []),
     ...(nextDayStats.subjects ?? []),
   ]);
+  // 같은 할 일이 이틀 응답에 모두 실릴 수 있어 id로 한 번만 센다(미완료이거나 다음 날 새벽에 완료한 것).
+  // 과목에 `tasks`가 없는 서버의 응답이면 완료한 할 일 없이 그린다.
+  const dayTasks = new Map(
+    [...(dayStats.subjects ?? []), ...(nextDayStats.subjects ?? [])].flatMap((subject) =>
+      (subject.tasks ?? []).map((task) => [task.id, { ...task, subjectId: subject.id }] as const),
+    ),
+  );
   const canonical = (subjectId: number) => rawSubjects.get(subjectId)?.id ?? subjectId;
 
   const sessions = [...dayStats.sessions, ...nextDayStats.sessions].sort(
@@ -184,7 +200,6 @@ export function assemblePlannerDay(
   let studyMs = 0;
   const paints: PlannerPaint[] = [];
   const subjectFocusMs = new Map<number, number>();
-  const completedTasks = new Map<number, CompletedTaskResponse>();
 
   for (const session of sessions) {
     const span = clip(session.startedAt, session.endedAt, window);
@@ -221,14 +236,6 @@ export function assemblePlannerDay(
       subjectFocusMs.set(id, (subjectFocusMs.get(id) ?? 0) + ms);
     }
 
-    // 완료 할 일은 시각 없이 세션 조각에 붙어 온다 — 조각이 이 하루에서 시작했으면 이날 것으로 본다.
-    // ponytail: 05:00을 걸친 조각의 완료 할 일은 앞쪽 날에만 보인다. 완료 시각이 내려오면 그 시각으로 가른다.
-    if (Date.parse(session.startedAt) >= window.startMs) {
-      for (const task of session.completedTasks ?? []) {
-        completedTasks.set(task.id, { ...task, subjectId: canonical(task.subjectId) });
-      }
-    }
-
     paints.push(...paintSession(span, session, canonical));
   }
 
@@ -248,7 +255,22 @@ export function assemblePlannerDay(
     paints,
     subjectRows,
     unassignedFocusSec: Math.max(0, focusSec - assignedSec),
-    completedTasks: [...completedTasks.values()],
+    // 지난 날에는 그날 완료한 것만 보여 준다 — 미완료와 그날 뒤에 완료한 것은 버린다.
+    completedTasks: [...dayTasks.values()]
+      .flatMap((task) => {
+        const doneAtMs = task.doneAt === null ? Number.NaN : Date.parse(task.doneAt);
+        return doneAtMs >= window.startMs && doneAtMs < window.endMs
+          ? [
+              {
+                id: task.id,
+                name: task.name,
+                subjectId: canonical(task.subjectId),
+                doneAtMs,
+              },
+            ]
+          : [];
+      })
+      .sort((a, b) => a.doneAtMs - b.doneAtMs),
     subjects: rawSubjects,
   };
 }
@@ -298,4 +320,29 @@ export function plannerCellFills(day: Pick<PlannerDay, "startMs" | "paints">): P
     }
   }
   return cells;
+}
+
+/**
+ * 일간 조회 응답에서 과목 목록 API와 같은 모양의 목록을 꺼낸다 — 살아있는 과목(응답 순서 그대로)과 그 날짜의
+ * 지우지 않은 할 일. 오늘 날짜의 응답이면 과목 목록 API가 주는 것(미완료 + 오늘 완료)과 같다.
+ * 과목마다 `tasks`가 실려 오지 않는 서버의 응답이거나 과목이 하나도 없으면 `null` — 호출부가 과목 목록 API로 대신한다.
+ */
+export function liveSubjectsOf(stats: StudySessionListResponse): SubjectResponse[] | null {
+  const subjects = stats.subjects ?? [];
+  if (subjects.length === 0 || subjects.some((subject) => !Array.isArray(subject.tasks))) {
+    return null;
+  }
+  return subjects
+    .filter((subject) => !subject.deleted)
+    .map((subject) => ({
+      id: subject.id,
+      name: subject.name,
+      colorIndex: subject.colorIndex,
+      // 누적 시간은 세션 과목 시트만 쓴다 — 플래너는 그날의 시간을 기록에서 따로 센다.
+      studySec: 0,
+      focusSec: 0,
+      tasks: (subject.tasks ?? [])
+        .filter((task) => !task.deleted)
+        .map((task) => ({ id: task.id, name: task.name, doneAt: task.doneAt })),
+    }));
 }

@@ -6,8 +6,7 @@ import { toKoreanDurationLength } from "../formatDuration";
 import { LEGEND_COPY, RESULT_COPY } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 import { formatClockTime, timelineSummaryLabel } from "../sessionResult";
-import type { ResultStatusTone } from "./ResultCardParts";
-import { ResultBarSegment, ResultStatusDot } from "./ResultCardParts";
+import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
 
 /**
  * 공부 타임라인 카드 (Figma `timeline-card` 64:561 → BY-560 시안 스크린샷으로 개편, 2026-09-14).
@@ -62,9 +61,9 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
         <CardTitle>{RESULT_COPY.timelineTitle}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {/* 집중은 항상 있다 — 바탕색이 집중이므로 범례에서 뺄 수 없다. */}
-          <LegendItem tone="focus" label={LEGEND_COPY.focus} />
-          {hasDistraction && <LegendItem tone="distract" label={LEGEND_COPY.distract} />}
-          {hasPause && <LegendItem tone="pause" label={LEGEND_COPY.pause} />}
+          <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
+          {hasDistraction && <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />}
+          {hasPause && <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />}
         </ul>
       </CardHeader>
       <CardContent>
@@ -150,14 +149,5 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function LegendItem({ tone, label }: { tone: ResultStatusTone; label: string }) {
-  return (
-    <li className="flex items-center gap-[5px]">
-      <ResultStatusDot tone={tone} />
-      <span className="text-[11px] leading-[13px] text-muted-foreground">{label}</span>
-    </li>
   );
 }

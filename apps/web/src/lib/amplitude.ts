@@ -794,9 +794,9 @@ export function trackRecordsViewChanged(view: "daily" | "weekly") {
 }
 
 /** 기록 주간 탭의 주 이동. `records_month_changed`와 짝이다. `delta`는 -1(이전)/1(다음). */
-export function trackRecordsWeekChanged(delta: -1 | 1) {
+export function trackRecordsWeekChanged(delta: -1 | 1, method: "button" | "swipe") {
   if (!initialized) return;
-  track("records_week_changed", { delta });
+  track("records_week_changed", { delta, method });
 }
 
 /** 기간 라벨을 탭해 기간 선택 시트를 열었다. */

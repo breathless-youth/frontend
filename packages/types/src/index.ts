@@ -181,10 +181,12 @@ export interface StudySessionListResponse {
   totalEventCounts: StudySessionEventCounts;
   studiedDatesInMonth: string[];
   /**
-   * 그날 세션이 참조한 과목의 이름·색 — id 오름차순, 지운 과목 포함(`deleted`). `sessions[].subjectSegments[].subjectId`·
-   * `completedTasks[].subjectId`를 여기서 찾는다. 과목 목록 API는 살아있는 과목만 주므로 이 배열이 이름의 출처다
+   * 과목 목록과 과목별 그날의 할 일. 지금 살아있는 과목 전부(과목 목록 API와 같은 순서)가 먼저 오고, 그날 기록에
+   * 나온 지운 과목(`deleted`)이 그 뒤에 붙는다. `sessions[].subjectSegments[].subjectId`·`completedTasks[].subjectId`를
+   * 여기서 찾는다 — 과목 목록 API는 살아있는 과목만 주므로 지운 과목 이름의 출처는 이 배열뿐이다.
+   * 과목마다 `tasks`가 없는 서버도 있다(그날 세션이 참조한 과목만, 할 일 없이 준다)
    */
-  subjects?: SubjectRef[];
+  subjects?: DaySubject[];
 }
 
 /**
@@ -357,12 +359,39 @@ export interface SubjectRef {
   deleted: boolean;
 }
 
-/** 세션에서 완료한 할 일 1건 — 이름 포함. 어제 완료한 할 일은 할 일 목록 API에 없으므로 여기가 이름의 출처다. */
+/**
+ * 세션에서 완료한 할 일 1건 — 이름 포함. 세션 제출 당시의 기록이라 나중에 완료를 풀어도 남는다.
+ * 플래너의 완료 할 일은 이것이 아니라 일간 조회의 `subjects[].tasks`(지금 상태 기준)를 쓴다.
+ */
 export interface CompletedTaskResponse {
   id: number;
   name: string;
   /** 과목 id — 응답의 `subjects[]`에서 이름·색을 찾는다 */
   subjectId: number;
+  deleted: boolean;
+}
+
+/**
+ * 일간 조회의 과목 1건 — 이름·색에 그날의 할 일이 딸려 온다. backend `DaySubjectResponse`·`DayTaskResponse`
+ * (#80)와 필드명·널 가능성을 dev Swagger로 대조했다(`doneAt`만 nullable).
+ */
+export interface DaySubject extends SubjectRef {
+  /**
+   * 그 날짜(KST)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.
+   * 세션 없이 체크한 것과 미완료도 들어 있다. `sessions[].completedTasks`는 제출 당시의 기록이라 뜻이 다르다
+   */
+  tasks?: DayTaskItem[];
+}
+
+/** 그 날짜의 할 일 1건 (`GET /api/stats`의 `subjects[].tasks`). */
+export interface DayTaskItem {
+  id: number;
+  name: string;
+  /** 지금 완료 상태인가. 그날 완료했는지는 `doneAt`으로 판단한다 — 그날 뒤에 완료한 것도 true로 온다 */
+  done: boolean;
+  /** 완료 시각(UTC ISO-8601), 미완료면 null */
+  doneAt: string | null;
+  /** 지운 할 일이면 true — 과목을 지워 함께 지워진 것도 포함 */
   deleted: boolean;
 }
 

@@ -1,4 +1,6 @@
 import { MONDAY_FIRST_WEEKDAY_LABELS } from "./recordsFormat";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 
 /**
  * 예시 히트맵의 농도(0~5) — 실데이터가 아니라 "이런 화면이 나온다"를 보여 주는 그림이다.
@@ -40,12 +42,10 @@ export function RhythmCard() {
         <h2 id="rhythm-title" className="text-[17px] leading-[21px] font-bold text-foreground">
           나의 공부 리듬
         </h2>
-        <span className="flex h-[22px] items-center rounded-full bg-bg-layer-2 px-2 text-[11px] leading-[13px] font-medium text-muted-foreground">
-          집중 리포트 준비 중
-        </span>
+        <Badge variant="neutral">집중 리포트 준비 중</Badge>
       </div>
 
-      <div className="mt-2.5 flex flex-col gap-1 overflow-hidden rounded-[20px] bg-muted px-[18px] pt-[18px] pb-4 shadow-sb-card">
+      <Card className="mt-2.5 flex flex-col gap-1 overflow-hidden rounded-[20px] border-0 shadow-sb-card px-[18px] pt-[18px] pb-4">
         <p className="text-[17px] leading-6 font-bold text-foreground">기록이 쌓이면 표시돼요</p>
         <p className="text-[13px] leading-[18px] text-muted-foreground">
           지금은 샘플 데이터가 표시돼요
@@ -84,7 +84,7 @@ export function RhythmCard() {
             <span>많음</span>
           </div>
         </div>
-      </div>
+      </Card>
     </section>
   );
 }

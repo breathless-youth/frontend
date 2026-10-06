@@ -72,6 +72,19 @@ export function dayOfDateKey(dateKey: string): number {
   return parseDateKey(dateKey).getUTCDate();
 }
 
+/**
+ * 날짜 키 ↔ 기기 현지 자정의 `Date`. 공용 `Calendar`(react-day-picker)가 `Date`로 날짜를 주고받아서
+ * 그 경계에서만 쓴다 — 시간대 변환이 아니라 달력 칸의 연·월·일을 그대로 옮긴다.
+ */
+export function dateOfDateKey(dateKey: string): Date {
+  const { year, month } = monthOfDateKey(dateKey);
+  return new Date(year, month - 1, dayOfDateKey(dateKey));
+}
+
+export function dateKeyOfDate(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
 export function monthOfDateKey(dateKey: string): CalendarMonth {
   const date = parseDateKey(dateKey);
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };

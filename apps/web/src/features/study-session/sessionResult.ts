@@ -165,7 +165,9 @@ export function aggregateEvents(
  * (SCR-S4 Data Contract). 다만 범위 밖 값이 오더라도 바가 깨지지 않게 0~1로만 잘라 둔다 —
  * 이건 **표시 방어**이지 데이터 보정이 아니다.
  */
-export function timelineSegments(session: StudySessionResponse): TimelineSegment[] {
+export function timelineSegments(
+  session: Pick<StudySessionResponse, "startedAt" | "endedAt" | "events">,
+): TimelineSegment[] {
   const startMs = Date.parse(session.startedAt);
   const spanMs = Date.parse(session.endedAt) - startMs;
   if (!Number.isFinite(spanMs) || spanMs <= 0) {

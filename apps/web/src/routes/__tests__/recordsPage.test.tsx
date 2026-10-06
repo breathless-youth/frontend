@@ -499,7 +499,7 @@ describe("RecordsPage", () => {
 
     // 지난해 같은 달로 건너뛴다.
     await userEvent.click(screen.getByRole("button", { name: "이전 해" }));
-    await userEvent.click(screen.getByRole("button", { name: `${String(currentMonth.month)}월` }));
+    await userEvent.click(screen.getByRole("radio", { name: `${String(currentMonth.month)}월` }));
 
     const lastYear = monthLabel({ year: currentMonth.year - 1, month: currentMonth.month });
     expect(await screen.findByRole("button", { name: lastYear })).toBeInTheDocument();
@@ -548,7 +548,38 @@ describe("RecordsPage", () => {
 
     // 화살표 이동도 그대로 동작하고 계측이 나간다.
     await userEvent.click(screen.getByRole("button", { name: "이전 주" }));
-    expect(vi.mocked(trackRecordsWeekChanged)).toHaveBeenLastCalledWith(-1);
+    expect(vi.mocked(trackRecordsWeekChanged)).toHaveBeenLastCalledWith(-1, "button");
+  });
+
+  it("주간 추이 카드를 좌우로 밀면 주가 넘어가고, 이번 주에서 왼쪽으로 밀면 넘어가지 않는다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+    renderRecords();
+    await userEvent.click(await screen.findByRole("tab", { name: "주간" }));
+    const thisWeekLabel = (await screen.findByRole("button", { name: /\d+월 \d+일 ~/ }))
+      .textContent;
+    const swipe = (fromX: number, toX: number) => {
+      const area = screen.getByTestId("week-trend-swipe-area");
+      fireEvent.pointerDown(area, { clientX: fromX, clientY: 200 });
+      fireEvent.pointerUp(area, { clientX: toX, clientY: 204 });
+    };
+
+    // 이번 주가 끝이라 다음 주로는 가지 않는다.
+    swipe(300, 200);
+    expect(screen.getByRole("button", { name: /\d+월 \d+일 ~/ }).textContent).toBe(thisWeekLabel);
+    expect(vi.mocked(trackRecordsWeekChanged)).not.toHaveBeenCalled();
+
+    // 오른쪽으로 밀면 지난주.
+    swipe(100, 220);
+    expect(screen.getByRole("button", { name: /\d+월 \d+일 ~/ }).textContent).not.toBe(
+      thisWeekLabel,
+    );
+    expect(vi.mocked(trackRecordsWeekChanged)).toHaveBeenLastCalledWith(-1, "swipe");
+
+    // 임계보다 짧은 움직임은 넘기지 않는다.
+    vi.mocked(trackRecordsWeekChanged).mockClear();
+    await screen.findByTestId("week-trend-swipe-area");
+    swipe(200, 230);
+    expect(vi.mocked(trackRecordsWeekChanged)).not.toHaveBeenCalled();
   });
 
   it("선택일 줄의 플래너 버튼은 고른 날의 플래너를 열고, 날짜 상세 카드는 일간 탭에 없다", async () => {

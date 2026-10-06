@@ -1,12 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
+import { liveSubjectsOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
 import { PlannerHead } from "@/features/planner/PlannerHead";
 import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
@@ -15,16 +15,17 @@ import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { slideNavigate } from "@/lib/pageTransition";
+import { dailyStatsQuery } from "@/lib/statsQueries";
+import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-/** 날짜 넘김 스와이프 임계(px) — 기록 탭 달력의 월 스와이프와 같은 감각이다. */
-const SWIPE_THRESHOLD_PX = 48;
 
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
@@ -68,7 +69,19 @@ export function PlannerPage() {
 
   const state = usePlannerDay(userId, dateKey);
   // 과목 목록은 어느 날에서나 쓰고 고친다(그날 공부하지 않은 과목도 0분으로 보인다).
-  const subjects = useSubjects(userId !== null, showToast, "planner");
+  // 목록과 오늘의 할 일은 오늘의 일간 조회에 실려 온다. 플래너를 열 때마다 새로 받는다 — 방금 고친 것이
+  // 캐시된 응답에는 없다. 오늘 플래너라면 화면이 받는 그 조회 한 번을 같이 쓴다.
+  const queryClient = useQueryClient();
+  // useSubjects가 최신 함수를 ref로 읽어 매 렌더 새 함수여도 다시 받지 않는다.
+  const loadSubjects = async () => {
+    const today = await queryClient
+      .fetchQuery({ ...dailyStatsQuery(userId ?? 0, todayKey), staleTime: 0 })
+      .catch(() => null);
+    // 대체 경로 — 일간 조회가 실패했거나 과목별 할 일을 싣지 않는 서버면 과목 목록 API로 대신한다.
+    // 서버가 전부 새 응답을 주게 되면 지운다.
+    return (today && liveSubjectsOf(today)) ?? listSubjects();
+  };
+  const subjects = useSubjects(userId !== null, showToast, "planner", loadSubjects);
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
 
   const changeDate = (delta: -1 | 1, method: "button" | "swipe") => {
@@ -107,24 +120,8 @@ export function PlannerPage() {
     );
   };
 
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = pointerStartRef.current;
-    pointerStartRef.current = null;
-    if (!start) {
-      return;
-    }
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 날짜를 넘긴다.
-    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
-      return;
-    }
-    changeDate(dx < 0 ? 1 : -1, "swipe");
-  };
+  // 기록 탭 달력·주간과 같은 판정으로 날짜를 넘긴다.
+  const swipe = useHorizontalSwipe((delta) => changeDate(delta, "swipe"));
 
   const ddayData = dday.data ?? null;
   const [year, month, dayOfMonth] = dateKey.split("-").map(Number);
@@ -180,12 +177,7 @@ export function PlannerPage() {
         onPick={pickDate}
       />
 
-      <div
-        data-testid="planner-swipe-area"
-        className="touch-pan-y px-5"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-      >
+      <div data-testid="planner-swipe-area" className="touch-pan-y px-5" {...swipe}>
         <PlannerHead
           dateKey={dateKey}
           onPrev={() => changeDate(-1, "button")}
@@ -228,6 +220,7 @@ export function PlannerPage() {
                   taskMode,
                 )}
                 unassignedFocusSec={state.day.unassignedFocusSec}
+                studied={state.day.paints.length > 0}
                 // 과목 목록을 받은 뒤부터 관리할 수 있다. 할 일은 오늘 플래너에서만 고친다.
                 store={subjects.status === "ready" ? subjects : null}
                 tasksEditable={isToday}
