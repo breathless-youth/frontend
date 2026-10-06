@@ -461,6 +461,45 @@ export interface DdayResponse {
 /** `PUT /api/dday` 본문 — 응답과 같은 모양. 목표 날짜는 서버 기준 오늘(Asia/Seoul) **포함** 그 이후만 받고, 지난 날은 400. */
 export type DdayRequest = DdayResponse;
 
+/**
+ * 공지 API 명세
+ *
+ * 2026-10-05 api-dev `/v3/api-docs`의 Notice·Interview 태그와 대조했다.
+ */
+
+/** 공지 대상 — `ALL`은 전원, 나머지 둘은 서버가 판정한 인터뷰 1·2번 그룹에게만 내려온다 */
+export type NoticeAudience = "ALL" | "G1_NOT_STARTED" | "G2_LAPSED";
+
+/** `GET /api/notices/active` 항목. 최신 시작순이고 우선순위는 아니다 */
+export interface NoticeResponse {
+  /** 다시 보지 않기 기록의 키 */
+  id: number;
+  title: string;
+  content: string;
+  /**
+   * 서버는 웹 기준 상대 경로를 보낸다. 없으면 null.
+   * 홈 문서가 COEP require-corp라 CORP 헤더 없는 다른 출처의 절대 URL은 차단될 수 있다.
+   */
+  imageUrl: string | null;
+  audience: NoticeAudience;
+  badgeText: string | null;
+  /** buttonUrl과 같이 있거나 같이 없다 */
+  buttonText: string | null;
+  buttonUrl: string | null;
+}
+
+/** `GET /api/interview/status` — 완료 화면 카드·설정 행 */
+export interface InterviewStatusResponse {
+  /** 3번 그룹이고 서버 설정이 켜져 있을 때 true */
+  cardEligible: boolean;
+  /** cardEligible이 false면 null */
+  cardUrl: string | null;
+  /** 그룹과 무관, 서버 설정이 켜져 있으면 true */
+  settingsEnabled: boolean;
+  /** settingsEnabled가 false면 null */
+  settingsUrl: string | null;
+}
+
 export type {
   RoomFocusState,
   RoomMember,
