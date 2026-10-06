@@ -1,6 +1,8 @@
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
 import { reportHandled } from "@/lib/sentry";
 
 import type {
+  MediapipeFaceInference,
   MediapipeFaceLandmarkerHandle,
   MediapipeFaceRuntime,
   MediapipeFaceResult,
@@ -46,9 +48,19 @@ export interface FaceMetrics {
 
 export interface FaceDetectionResult {
   readonly face: FaceObservation;
-  /** 이 프레임의 결과를 기다린 시간(ms). 진단 로그가 쓴다. 워커 경로는 프레임을 뜨고 넘기는 시간이 포함된다. */
+  /**
+   * 이 프레임의 결과를 기다린 시간(ms). 진단 로그가 쓴다. 워커 경로는 프레임을 뜨고 넘기는 시간이 포함된다.
+   * 사진을 요청한 틱은 사진을 만들고 압축하는 시간도 들어간다.
+   */
   readonly durationMs: number;
   readonly metrics: FaceMetrics;
+  /**
+   * 요청한 타임랩스 사진
+   *
+   * 가림이면 스티커를 덮은 뒤의 JPEG다.
+   * 만들지 못했으면 없다.
+   */
+  readonly photo?: ArrayBuffer;
 }
 
 export interface VisionFaceLandmarker {
@@ -62,8 +74,13 @@ export interface VisionFaceLandmarker {
   /**
    * 준비되지 않았거나 추론이 실패하면 `null` — 호출부는 "이번 프레임 판정 없음"으로 다룬다.
    * `throw`하지 않는다. 기다리는 사이 `close()`되면 `null`이다.
+   * `photo`를 주면 같은 프레임으로 만든 사진이 결과에 붙는다.
    */
-  detect(video: HTMLVideoElement, timestampMs: number): Promise<FaceDetectionResult | null>;
+  detect(
+    video: HTMLVideoElement,
+    timestampMs: number,
+    photo?: PhotoSpec,
+  ): Promise<FaceDetectionResult | null>;
   /** 멱등. 로딩 중에 불러도 안전하다. */
   close(): void;
 }
@@ -316,15 +333,16 @@ export function createFaceLandmarker(
     async detect(
       video: HTMLVideoElement,
       timestampMs: number,
+      photo?: PhotoSpec,
     ): Promise<FaceDetectionResult | null> {
       const current = handle;
       if (state !== "ready" || current === null) {
         return null;
       }
       const startedAt = performance.now();
-      let raw: MediapipeFaceResult;
+      let raw: MediapipeFaceInference;
       try {
-        raw = await current.detect(video, timestampMs);
+        raw = await current.detect(video, timestampMs, photo);
       } catch (error: unknown) {
         if (handle !== current) {
           // 기다리는 사이 close()됐다. 닫힌 모델의 실패는 세지 않는다.
@@ -344,7 +362,11 @@ export function createFaceLandmarker(
       }
       consecutiveFailures = 0;
       const { face, metrics } = normalize(raw);
-      return { face, metrics, durationMs: performance.now() - startedAt };
+      const durationMs = performance.now() - startedAt;
+      // 사진은 판정에 쓰지 않고 호출부가 촬영 쪽으로만 넘긴다.
+      return raw.photo === undefined
+        ? { face, metrics, durationMs }
+        : { face, metrics, durationMs, photo: raw.photo };
     },
 
     close(): void {

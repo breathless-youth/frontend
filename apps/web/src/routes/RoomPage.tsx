@@ -61,6 +61,7 @@ import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
+import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import {
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
@@ -274,7 +275,21 @@ function RoomSessionScreen({
    * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
    */
   const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
-  const { visionDetector, visionReady } = useTrackedVisionDetector(videoRef, "single");
+  /**
+   * 타임랩스 촬영
+   *
+   * 출시 전에는 빌드 플래그로만 켠다.
+   * 꺼진 빌드는 감지기에 촬영 창구를 주지 않아 워커 메시지가 지금과 같다.
+   * 소셜룸은 이 화면을 쓰지 않으므로 찍지 않는다.
+   */
+  const [timelapse] = useState(() =>
+    import.meta.env.VITE_TIMELAPSE === "on" ? createTimelapseRecorder() : null,
+  );
+  const { visionDetector, visionReady } = useTrackedVisionDetector(
+    videoRef,
+    "single",
+    timelapse?.photoTap,
+  );
   /**
    * 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`).
    * 담당 트리거가 겹치지 않으므로 하나로 묶어 훅에 넘긴다.
@@ -292,6 +307,7 @@ function RoomSessionScreen({
    */
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   const {
+    startedAtMs,
     focusSec,
     studySec,
     sessionState,
@@ -315,7 +331,12 @@ function RoomSessionScreen({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
+    onEnded: timelapse?.finish,
   });
+  // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
+  useEffect(() => {
+    timelapse?.begin(startedAtMs);
+  }, [startedAtMs, timelapse]);
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
   const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
   // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.

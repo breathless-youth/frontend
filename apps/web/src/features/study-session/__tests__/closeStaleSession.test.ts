@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeStaleSession } from "../closeStaleSession";
 
 const reportHandled = vi.hoisted(() => vi.fn());
+const settleRecoveredTimelapse = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
+// 타임랩스 정리 자체는 `timelapseRecorder.test.ts`가 실제 IndexedDB로 본다.
+// 여기서는 부르는 조건만 본다.
+vi.mock("@/features/timelapse/timelapseRecorder", () => ({ settleRecoveredTimelapse }));
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -34,7 +38,31 @@ describe("closeStaleSession", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.useRealTimers();
+    settleRecoveredTimelapse.mockClear();
+  });
+
+  it("타임랩스 빌드면 확정된 세션의 타임랩스를 정리한다", async () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    fetchMock.mockResolvedValue(jsonResponse(200, RECOVERED));
+
+    await closeStaleSession(7);
+
+    expect(settleRecoveredTimelapse).toHaveBeenCalledWith(RECOVERED);
+  });
+
+  it("타임랩스 빌드가 아니거나 확정된 세션이 없으면 정리하지 않는다", async () => {
+    // 로컬 `.env.local`이 플래그를 켜 두어도 앞 절반은 꺼진 빌드를 본다.
+    vi.stubEnv("VITE_TIMELAPSE", "");
+    fetchMock.mockResolvedValue(jsonResponse(200, RECOVERED));
+    await closeStaleSession(7);
+
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    fetchMock.mockResolvedValue(jsonResponse(404, { message: "복구할 세션이 없습니다" }));
+    await closeStaleSession(7);
+
+    expect(settleRecoveredTimelapse).not.toHaveBeenCalled();
   });
 
   it("복구 요청을 한 번만 보내고 확정된 기록을 돌려준다", async () => {

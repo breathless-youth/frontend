@@ -1,3 +1,4 @@
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
 import { reportHandled } from "@/lib/sentry";
 
 import type { Detection } from "./detectionRules";
@@ -99,6 +100,12 @@ export interface VisionObjectDetector {
    * 기다리는 사이 `close()`되면 `null`이다.
    */
   detect(video: HTMLVideoElement, timestampMs: number): Promise<DetectionResult | null>;
+  /**
+   * 추론 없이 지금 프레임으로 타임랩스 사진을 만든다.
+   * 준비되지 않았으면 `null`이고, 실패는 호출부가 보고하도록 이유째 throw한다.
+   * 사진 실패는 감지 실패가 아니라서 연속 실패로 세지 않는다.
+   */
+  capture(video: HTMLVideoElement, photo: PhotoSpec): Promise<ArrayBuffer | null>;
   /** 멱등. 로딩 중에 불러도 안전하다(뒤늦게 도착한 detector를 그 자리에서 닫는다). */
   close(): void;
 }
@@ -347,6 +354,14 @@ export function createObjectDetector(
       }
       consecutiveFailures = 0;
       return { detections: normalize(raw), durationMs: performance.now() - startedAt };
+    },
+
+    async capture(video: HTMLVideoElement, photo: PhotoSpec): Promise<ArrayBuffer | null> {
+      const current = handle;
+      if (state !== "ready" || current === null) {
+        return null;
+      }
+      return await current.capture(video, photo);
     },
 
     close(): void {

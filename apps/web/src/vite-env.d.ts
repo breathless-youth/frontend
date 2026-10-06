@@ -22,6 +22,13 @@ interface ImportMetaEnv {
    * 접히고 이 코드가 번들에서 빠진다.
    */
   readonly VITE_FAKE_CAMERA?: string;
+  /**
+   * 출시 전 차단 플래그
+   *
+   * "on"이면 싱글룸 세션이 타임랩스 사진을 찍어 기기에 보관한다.
+   * 설정·재생·안내 문구가 모두 들어가기 전에는 로컬 `.env.local`에서만 켠다.
+   */
+  readonly VITE_TIMELAPSE?: string;
 }
 
 interface ImportMeta {
