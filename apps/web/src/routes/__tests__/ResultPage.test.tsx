@@ -47,6 +47,18 @@ beforeEach(() => {
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
 });
 
+// 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
+// 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
+vi.mock("@/lib/interviewApi", () => ({
+  getInterviewStatus: () =>
+    Promise.resolve({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: false,
+      settingsUrl: null,
+    }),
+}));
+
 // 이탈 예약의 인자만 관측한다 — 나머지 계측은 미초기화 no-op 그대로 둔다.
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
@@ -286,6 +298,43 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
         vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
       });
     }).not.toThrow();
+  });
+});
+
+describe("ResultPage — 인터뷰 폼에서 돌아온 결과", () => {
+  it("이미 연출을 본 결과면 기다리지 않고 카드와 CTA를 바로 보이고 색종이를 터뜨리지 않는다", () => {
+    vi.useFakeTimers();
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+
+    renderResult({ sessions: [exampleSession()], introSeen: true }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
+    expect(screen.getByText("오늘 누적 순공시간")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "홈으로" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
+    expect(getContext).not.toHaveBeenCalled();
+  });
+
+  it("introSeen이 true가 아니면 평소처럼 연출한다", () => {
+    vi.useFakeTimers();
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+
+    renderResult({ sessions: [exampleSession()], introSeen: "yes" }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
+    expect(getContext).toHaveBeenCalled();
   });
 });
 

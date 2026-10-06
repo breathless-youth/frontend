@@ -20,10 +20,10 @@ type ScreenBackHeaderProps = {
   title?: string;
   /**
    * 뒤로 가기 동작 재정의. 기본 동작(`history.state.idx` 검사 + SPA `navigate`)은 SPA로
-   * 진입한 라우트 전제라, **문서 단위 내비게이션으로 진입하는 라우트(`/contact`)는 자기
+   * 진입한 라우트 전제라, **문서 단위 내비게이션으로 진입하는 라우트(`/contact`·`/interview`)는 자기
    * 규칙을 넘겨야 한다** — 하드 내비게이션 직후에는 BrowserRouter가 새 문서에 `idx: 0`을
    * 심어 기본 동작이 항상 딥링크로 오판하고, SPA 폴백 이동은 그 문서의 헤더 정책(COEP
-   * 없음)을 다음 라우트까지 승계시킨다(`ContactPage` 주석 참고).
+   * 없음)을 다음 라우트까지 승계시킨다(`GoogleFormPage` 주석 참고).
    */
   onBack?: () => void;
   /** 바 높이를 44px로 줄인다 — 본문이 자기 제목 줄을 바로 아래에 두는 화면(플래너)이 쓴다. */

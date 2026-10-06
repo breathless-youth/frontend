@@ -20,6 +20,8 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   studyDays: { current: "1", legacy: "1" },
   dday: { current: "1", legacy: "1" },
   subjects: { current: "1", legacy: "1" },
+  notices: { current: "1", legacy: "1" },
+  interview: { current: "1", legacy: "1" },
   studySessionSubmit: { current: "2", legacy: "1" },
   studySessionDetail: { current: "2", legacy: "1" },
   activeSessionReport: { current: "2", legacy: "1" },

@@ -13,6 +13,7 @@ export const loadTermsPage = () => import("./TermsPage");
 export const loadPrivacyPage = () => import("./PrivacyPage");
 export const loadLicensesPage = () => import("./LicensesPage");
 export const loadContactPage = () => import("./ContactPage");
+export const loadInterviewFormPage = () => import("./InterviewFormPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {

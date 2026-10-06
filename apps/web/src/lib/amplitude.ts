@@ -843,10 +843,34 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
-  row: "profile" | "guide" | "contact" | "terms" | "privacy" | "licenses",
+  row: "profile" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
+}
+
+/** 인터뷰 안내가 어디서 떴는지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type InterviewEventSource = "g1_revisit" | "g2_return" | "g3_complete" | "settings";
+
+/** 인터뷰 안내(모달·카드)가 화면에 보인 순간. exposure는 source별 몇 번째 노출인지다. */
+export function trackInterviewShown(params: { source: InterviewEventSource; exposure: number }) {
+  if (!initialized) return;
+  track("interview_shown", params);
+}
+
+/** 신청 버튼. 설정 행은 노출을 세지 않아 exposure가 없다. */
+export function trackInterviewClicked(params: { source: InterviewEventSource; exposure?: number }) {
+  if (!initialized) return;
+  track("interview_clicked", params);
+}
+
+export function trackInterviewDismissed(params: {
+  source: InterviewEventSource;
+  exposure: number;
+  action: "close" | "never_again" | "x";
+}) {
+  if (!initialized) return;
+  track("interview_dismissed", params);
 }
 
 /** 프로필 저장 제출(검증 통과 후). 어떤 필드를 바꿨는지만 — 값은 싣지 않는다. */
@@ -997,7 +1021,8 @@ export function trackSessionNoticeConfirmed(input: {
 
 /** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
 export function trackErrorRetryPressed(
-  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact",
+  screen:
+    "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact" | "interview_form",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });

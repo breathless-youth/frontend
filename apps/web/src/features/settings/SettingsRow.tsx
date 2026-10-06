@@ -1,5 +1,7 @@
 import { ChevronRight, Copy, ExternalLink } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+
 import { PermissionToggle } from "./PermissionToggle";
 
 /**
@@ -31,6 +33,8 @@ type SettingsRowProps = {
   label: string;
   /** 라벨 아래 보조 문구. 폰트 확대 시 두 줄이 될 수 있어 줄바꿈을 막지 않는다. */
   sublabel?: string;
+  /** 트레일링 앞에 붙는 알약. 화면에만 두면 스크린리더가 못 읽으므로 접근성 라벨에도 잇는다. */
+  badge?: string;
   /** 생략하면 트레일링 자리를 비운다 — 상태를 아직 모르는 행(카메라 권한 조회 전)이 쓴다. */
   trailing?: SettingsRowTrailing;
   /**
@@ -91,6 +95,7 @@ function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
 export function SettingsRow({
   label,
   sublabel,
+  badge,
   trailing,
   onPress,
   accessibilityLabel,
@@ -107,7 +112,16 @@ export function SettingsRow({
           <span className="text-text-tertiary text-xs leading-[15px]">{sublabel}</span>
         )}
       </div>
-      {trailing !== undefined && <RowTrailing trailing={trailing} />}
+      {badge === undefined ? (
+        trailing !== undefined && <RowTrailing trailing={trailing} />
+      ) : (
+        <span className="flex shrink-0 items-center gap-2.5">
+          <Badge variant="elevated" className="px-2 py-[2px] text-[11px] leading-[13px]">
+            {badge}
+          </Badge>
+          {trailing !== undefined && <RowTrailing trailing={trailing} />}
+        </span>
+      )}
     </>
   );
 
@@ -119,7 +133,10 @@ export function SettingsRow({
     <button
       type="button"
       onClick={onPress}
-      aria-label={accessibilityLabel ?? (sublabel === undefined ? label : `${label}, ${sublabel}`)}
+      aria-label={
+        accessibilityLabel ??
+        [label, badge, sublabel].filter((part) => part !== undefined).join(", ")
+      }
       className={ROW_CLASS_NAME}
     >
       {content}

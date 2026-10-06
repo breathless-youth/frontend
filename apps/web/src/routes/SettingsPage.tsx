@@ -1,18 +1,28 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import { trackOsSettingsOpened, trackSettingsRowPressed } from "@/lib/amplitude";
+import {
+  trackInterviewClicked,
+  trackOsSettingsOpened,
+  trackSettingsRowPressed,
+} from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
+import { useUserId } from "@/lib/userId";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
+import { openInterviewForm } from "@/features/interview/interviewForm";
+import { afterApplied } from "@/features/interview/interviewGate";
+import { updateInterviewState } from "@/features/interview/interviewStore";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import { prefetchSettingsSubPages } from "@/routes/lazyRoutes";
 
@@ -36,6 +46,17 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
+  const userId = useUserId();
+  const interview = useQuery({ ...interviewStatusQuery(userId ?? 0), enabled: userId !== null });
+  // 다시 받기가 실패해도 쿼리는 예전 data를 들고 있다. 서버가 막 끈 행을 계속 보이지 않게 실패면 숨긴다.
+  const interviewFormUrl =
+    !interview.isError && interview.data?.settingsEnabled ? interview.data.settingsUrl : null;
+  const interviewError = interview.error;
+  useEffect(() => {
+    if (interviewError !== null) {
+      console.warn("[interview] 상태를 불러오지 못해 신청 행을 숨긴다", interviewError);
+    }
+  }, [interviewError]);
 
   // 하위 화면 청크를 미리 받아 첫 진입 때 전환이 청크를 기다리지 않게 한다.
   useEffect(() => {
@@ -146,6 +167,20 @@ export function SettingsPage() {
               hardNavigate(`/contact${location.search}`);
             }}
           />
+          {interviewFormUrl !== null && (
+            <SettingsRow
+              label="인터뷰 신청하기"
+              badge="기프티콘 증정"
+              trailing={{ kind: "chevron" }}
+              onPress={() => {
+                trackSettingsRowPressed("interview");
+                trackInterviewClicked({ source: "settings" });
+                // 신청한 사람에게는 홈 카드·모달을 다시 띄우지 않도록 먼저 기록한다.
+                updateInterviewState(afterApplied);
+                openInterviewForm(interviewFormUrl, location.search);
+              }}
+            />
+          )}
         </SettingsSection>
 
         <SettingsSection className="mt-6" label="약관 · 정보">

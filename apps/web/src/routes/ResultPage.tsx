@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
+import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/features/study-session/components/StudyCompleteHero";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
 import { RESULT_COPY } from "@/features/study-session/resultCopy";
+import { readResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
 import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
@@ -44,6 +46,7 @@ const CONFETTI_AT_MS = 900;
  *    드러난다.
  *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
+ * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
  * 시안의 명언 인트로와 연속 공부(스트릭) 화면은 이 티켓 범위 밖이라 없다.
  *
  * `submitting`(제출 중) · `error`(제출 실패) · `unsaved`(userId 없어 미저장) · "저장 실패"는
@@ -69,8 +72,8 @@ export function ResultPage() {
   const home = resolveHome(location.pathname);
   const userId = useUserId();
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
-  const [reducedMotion] = useState(prefersReducedMotion);
-  const [revealed, setRevealed] = useState(reducedMotion);
+  const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
+  const [revealed, setRevealed] = useState(skipIntro);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -103,12 +106,12 @@ export function ResultPage() {
 
   // 도장 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
   useEffect(() => {
-    if (reducedMotion || sessions === null) {
+    if (skipIntro || sessions === null) {
       return;
     }
     const timer = window.setTimeout(() => setRevealed(true), RESULT_REVEAL_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [reducedMotion, sessions]);
+  }, [skipIntro, sessions]);
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
@@ -187,12 +190,12 @@ export function ResultPage() {
    * 처리 방식이 정해지면 이 한 줄과 아래 렌더만 바꾸면 된다.
    */
   const view = toSessionResultView(sessions[0]);
-  const phase: CompleteHeroPhase = reducedMotion ? "static" : revealed ? "revealed" : "intro";
+  const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
 
   return (
     <main className="theme-soft-blue bg-soft-blue relative flex h-svh w-full flex-col text-foreground">
       {/* 색종이는 화면 전체를 덮는 장식 캔버스 — 터치를 막지 않는다. */}
-      <ConfettiBurst enabled={!reducedMotion} fireAfterMs={CONFETTI_AT_MS} />
+      <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)·도장 모션이 좁은 화면 폭을 넘는다. */}
       <div className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4">
@@ -201,6 +204,7 @@ export function ResultPage() {
           <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
             <StudyTimelineCard view={view} />
             {userId !== null && <SessionSummaryCard userId={userId} />}
+            {userId !== null && <InterviewCardHost userId={userId} />}
           </div>
         )}
       </div>
