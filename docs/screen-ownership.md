@@ -33,8 +33,10 @@
 | S9-4~7    | 소셜 룸(자동 그리드)        | `src/routes/LiveRoomPage.tsx`        | `/social/room/:roomId`        |
 | -         | 소셜 룸 결과                | `src/routes/ResultPage.tsx`          | `/social/room/:roomId/result` |
 | S7-18     | 프로필 설정                 | `src/routes/ProfilePage.tsx`         | `/profile`                    |
+| -         | 인터뷰 신청 폼              | `src/routes/InterviewFormPage.tsx`   | `/interview`                  |
 
 - S3-1~S3-8은 한 화면 트리가 세션 상태와 표시 모드, 가로 브레이크포인트에 따라 바뀌어 그린다.
 - 문의(`/contact`), 이용약관(`/terms`), 개인정보처리방침(`/privacy`), 오픈소스 라이선스(`/licenses`)도 웹 화면이다.
+- 문의(`/contact`)와 인터뷰 신청 폼(`/interview`)은 같은 `src/routes/GoogleFormPage.tsx`로 구글 폼을 띄우고, 하드 내비게이션으로만 들어가고 나간다(`vercel.json`의 COEP 예외 경로).
 - `/`의 `HomePage`는 브라우저로 접속했을 때의 소개 페이지이고 앱에서는 열지 않는다.
 - `/dev/webrtc-loopback`은 개발 빌드에만 있는 WebRTC 점검 화면이다.
