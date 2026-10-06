@@ -1,3 +1,5 @@
+import { createPhotoRenderer, offscreenSurface } from "@/features/timelapse/photoFrame";
+
 import type { AssetTiming } from "./mediapipePort";
 import { openFaceLandmarker, openObjectDetector } from "./mediapipeModule";
 import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerProtocol";
@@ -46,8 +48,9 @@ const handle = createWorkerMessageHandler({
       }),
     );
   },
-  post(message) {
-    postMessage(message);
+  renderPhoto: createPhotoRenderer(offscreenSurface),
+  post(message, transfer = []) {
+    postMessage(message, { transfer });
   },
 });
 

@@ -1,3 +1,6 @@
+import type { PhotoSpec, RenderPhoto } from "@/features/timelapse/photoFrame";
+import { tryRenderPhoto } from "@/features/timelapse/photoFrame";
+
 import type {
   AssetTiming,
   DetectorCreateOptions,
@@ -33,13 +36,25 @@ export type MainToWorkerMessage =
       readonly model: "face";
       readonly options: FaceLandmarkerCreateOptions;
     }
-  /** `frame`은 transfer로 소유권째 넘어온다. 처리 뒤 워커가 닫는다. */
+  /**
+   * `frame`은 transfer로 소유권째 넘어온다.
+   * 처리 뒤 워커가 닫는다.
+   * `photo`는 얼굴 모델에만 붙고 촬영하지 않는 프레임에는 키 자체가 없다.
+   */
   | {
       readonly type: "detect";
       readonly id: number;
       readonly handleId: number;
       readonly frame: ImageBitmap;
       readonly timestampMs: number;
+      readonly photo?: PhotoSpec;
+    }
+  /** 어느 모델에도 묶이지 않고 추론 없이 사진만 만든다. */
+  | {
+      readonly type: "capture";
+      readonly id: number;
+      readonly frame: ImageBitmap;
+      readonly photo: PhotoSpec;
     }
   /** 모델 하나만 놓는다. 다른 모델은 계속 돈다. */
   | { readonly type: "close"; readonly handleId: number };
@@ -58,13 +73,20 @@ export type WorkerToMainMessage =
       readonly model: "object";
       readonly result: MediapipeDetectionResult;
     }
+  /**
+   * 랜드마크는 지금처럼 `result`로만 나간다.
+   * `photo`는 JPEG 바이트이고 가림이면 스티커를 덮은 뒤다.
+   */
   | {
       readonly type: "result";
       readonly id: number;
       readonly model: "face";
       readonly result: MediapipeFaceResult;
+      readonly photo?: ArrayBuffer;
     }
-  | { readonly type: "detectFailed"; readonly id: number; readonly reason: string };
+  | { readonly type: "detectFailed"; readonly id: number; readonly reason: string }
+  | { readonly type: "captured"; readonly id: number; readonly photo: ArrayBuffer }
+  | { readonly type: "captureFailed"; readonly id: number; readonly reason: string };
 
 /** 워커 안의 검출기. MediaPipe `ObjectDetector`가 그대로 맞는다. */
 export interface WorkerDetector {
@@ -83,7 +105,10 @@ export interface WorkerHandlerDeps {
   createFaceLandmarker(options: FaceLandmarkerCreateOptions): Promise<WorkerFaceLandmarker>;
   /** 워커가 지금까지 받은 자원의 Resource Timing. `startTime`은 epoch ms로 준다. */
   readAssetTimings(): readonly AssetTiming[];
-  post(message: WorkerToMainMessage): void;
+  /** 타임랩스 사진 한 장을 OffscreenCanvas로 만든다. */
+  renderPhoto: RenderPhoto;
+  /** `transfer`에 든 버퍼는 복사하지 않고 소유권째 메인으로 넘어간다. */
+  post(message: WorkerToMainMessage, transfer?: Transferable[]): void;
 }
 
 type WorkerModel =
@@ -129,7 +154,11 @@ export function createWorkerMessageHandler(
     deps.post({ type: "created", id: message.id, assetTimings: deps.readAssetTimings() });
   }
 
-  function detect(message: Extract<MainToWorkerMessage, { type: "detect" }>): void {
+  function frameSize(frame: ImageBitmap): { width: number; height: number } {
+    return { width: frame.width, height: frame.height };
+  }
+
+  async function detect(message: Extract<MainToWorkerMessage, { type: "detect" }>): Promise<void> {
     try {
       const entry = models.get(message.handleId);
       if (entry === undefined) {
@@ -143,17 +172,46 @@ export function createWorkerMessageHandler(
           result: entry.model.detectForVideo(message.frame, message.timestampMs),
         });
       } else {
-        deps.post({
-          type: "result",
-          id: message.id,
-          model: "face",
-          result: entry.model.detectForVideo(message.frame, message.timestampMs),
-        });
+        const result = entry.model.detectForVideo(message.frame, message.timestampMs);
+        // 추론이 본 프레임 그대로 사진을 만들어야 스티커가 그 순간의 얼굴 위에 놓인다.
+        // 사진이 실패해도 졸음 판정은 이어져야 하므로 결과는 사진 없이 보낸다.
+        const photo =
+          message.photo === undefined
+            ? undefined
+            : await tryRenderPhoto(deps.renderPhoto, {
+                source: message.frame,
+                frame: frameSize(message.frame),
+                spec: message.photo,
+                landmarks: result.faceLandmarks[0],
+              });
+        if (photo === undefined) {
+          deps.post({ type: "result", id: message.id, model: "face", result });
+        } else {
+          // JPEG 바이트를 복사하면 메인에 사본이 하나 더 생기므로 소유권째 넘긴다.
+          deps.post({ type: "result", id: message.id, model: "face", result, photo }, [photo]);
+        }
       }
     } catch (error: unknown) {
       deps.post({ type: "detectFailed", id: message.id, reason: reasonOf(error) });
     } finally {
       // 프레임마다 한 장씩 오므로 GC를 기다리지 않고 바로 놓는다.
+      message.frame.close();
+    }
+  }
+
+  async function capture(
+    message: Extract<MainToWorkerMessage, { type: "capture" }>,
+  ): Promise<void> {
+    try {
+      const photo = await deps.renderPhoto({
+        source: message.frame,
+        frame: frameSize(message.frame),
+        spec: message.photo,
+      });
+      deps.post({ type: "captured", id: message.id, photo }, [photo]);
+    } catch (error: unknown) {
+      deps.post({ type: "captureFailed", id: message.id, reason: reasonOf(error) });
+    } finally {
       message.frame.close();
     }
   }
@@ -176,7 +234,10 @@ export function createWorkerMessageHandler(
         await create(message);
         return;
       case "detect":
-        detect(message);
+        await detect(message);
+        return;
+      case "capture":
+        await capture(message);
         return;
       case "close":
         close(message.handleId);

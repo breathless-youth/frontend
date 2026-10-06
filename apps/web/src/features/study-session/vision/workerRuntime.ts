@@ -1,13 +1,16 @@
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+
 import type {
   AssetTiming,
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
   MediapipeDetectionResult,
   MediapipeDetectorHandle,
+  MediapipeFaceInference,
   MediapipeFaceLandmarkerHandle,
-  MediapipeFaceResult,
   MediapipeInferenceHandle,
   MediapipeVisionRuntime,
+  VisionRuntimeKind,
 } from "./mediapipePort";
 import { type MainToWorkerMessage, reasonOf, type WorkerToMainMessage } from "./workerProtocol";
 
@@ -63,6 +66,18 @@ export function toDocumentTimings(
 
 type ResultMessage = Extract<WorkerToMainMessage, { type: "result" }>;
 
+/**
+ * 워커에 연 모델 하나의 핸들
+ *
+ * 공개 핸들은 모델 종류에 맞는 메서드만 골라 낸다.
+ */
+interface WorkerModelHandle<Result> {
+  readonly runtime: VisionRuntimeKind;
+  detect(video: HTMLVideoElement, timestampMs: number, photo?: PhotoSpec): Promise<Result>;
+  capture(video: HTMLVideoElement, photo: PhotoSpec): Promise<ArrayBuffer>;
+  close(): void;
+}
+
 type Pending =
   | {
       readonly kind: "create";
@@ -72,6 +87,11 @@ type Pending =
   | {
       readonly kind: "detect";
       accept(message: ResultMessage): void;
+      reject(error: Error): void;
+    }
+  | {
+      readonly kind: "capture";
+      resolve(photo: ArrayBuffer): void;
       reject(error: Error): void;
     };
 
@@ -141,11 +161,17 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
           return;
         case "createFailed":
         case "detectFailed":
+        case "captureFailed":
           entry.reject(new Error(data.reason));
           return;
         case "result":
           if (entry.kind === "detect") {
             entry.accept(data);
+          }
+          return;
+        case "captured":
+          if (entry.kind === "capture") {
+            entry.resolve(data.photo);
           }
           return;
       }
@@ -180,7 +206,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
   async function open<Result>(
     send: (id: number) => MainToWorkerMessage,
     pick: (message: ResultMessage) => Result | undefined,
-  ): Promise<{ handle: MediapipeInferenceHandle<Result>; assetTimings: readonly AssetTiming[] }> {
+  ): Promise<{ handle: WorkerModelHandle<Result>; assetTimings: readonly AssetTiming[] }> {
     const slot = acquire();
     const handleId = slot.nextId++;
     let assetTimings: readonly AssetTiming[];
@@ -218,7 +244,16 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
       return closedReason ?? slot.deadReason;
     }
 
-    async function sendFrame(video: HTMLVideoElement, timestampMs: number): Promise<Result> {
+    /**
+     * 프레임을 떠서 소유권째 워커로 넘기고 답을 기다린다.
+     *
+     * `message`는 새 요청 id와 뜬 프레임으로 보낼 메시지를 만들고, `expect`는 그 답을 받을 자리를 만든다.
+     */
+    async function sendFrame<Answer>(
+      video: HTMLVideoElement,
+      message: (id: number, frame: ImageBitmap) => MainToWorkerMessage,
+      expect: (resolve: (answer: Answer) => void, reject: (error: Error) => void) => Pending,
+    ): Promise<Answer> {
       let frame: ImageBitmap;
       try {
         frame = await captureFrame(video);
@@ -231,21 +266,10 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         throw new Error(reason);
       }
       const id = slot.nextId++;
-      return await new Promise<Result>((resolve, reject) => {
-        slot.pending.set(id, {
-          kind: "detect",
-          accept(message) {
-            const result = pick(message);
-            if (result === undefined) {
-              reject(new Error("다른 모델의 답이 왔다"));
-              return;
-            }
-            resolve(result);
-          },
-          reject,
-        });
+      return await new Promise<Answer>((resolve, reject) => {
+        slot.pending.set(id, expect(resolve, reject));
         try {
-          slot.worker.postMessage({ type: "detect", id, handleId, frame, timestampMs }, [frame]);
+          slot.worker.postMessage(message(id, frame), [frame]);
         } catch (error: unknown) {
           // DataCloneError 등으로 보내지 못하면 소유권이 넘어가지 않았으니 여기서 놓는다.
           // `pending`을 비우지 않으면 오지 않을 답이 남는다.
@@ -256,9 +280,9 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
       });
     }
 
-    const handle: MediapipeInferenceHandle<Result> = {
+    const handle: WorkerModelHandle<Result> = {
       runtime: "worker",
-      async detect(video, timestampMs) {
+      async detect(video, timestampMs, photo) {
         const reason = unusableReason();
         if (reason !== null) {
           throw new Error(reason);
@@ -269,10 +293,40 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         // 첫 await 전에 자리를 잡아야 겹친 호출이 뜨기 도중에 끼어들지 못한다.
         inFlight = true;
         try {
-          return await sendFrame(video, timestampMs);
+          return await sendFrame<Result>(
+            video,
+            (id, frame) =>
+              // 사진을 찍지 않는 프레임은 지금과 같은 메시지를 보낸다.
+              photo === undefined
+                ? { type: "detect", id, handleId, frame, timestampMs }
+                : { type: "detect", id, handleId, frame, timestampMs, photo },
+            (resolve, reject) => ({
+              kind: "detect",
+              accept(message) {
+                const result = pick(message);
+                if (result === undefined) {
+                  reject(new Error("다른 모델의 답이 왔다"));
+                  return;
+                }
+                resolve(result);
+              },
+              reject,
+            }),
+          );
         } finally {
           inFlight = false;
         }
+      },
+      async capture(video, photo) {
+        const reason = unusableReason();
+        if (reason !== null) {
+          throw new Error(reason);
+        }
+        return await sendFrame<ArrayBuffer>(
+          video,
+          (id, frame) => ({ type: "capture", id, frame, photo }),
+          (resolve, reject) => ({ kind: "capture", resolve, reject }),
+        );
       },
       close() {
         if (closedReason !== null) {
@@ -302,6 +356,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         runtime: handle.runtime,
         assetTimings,
         detect: (video, timestampMs) => handle.detect(video, timestampMs),
+        capture: (video, photo) => handle.capture(video, photo),
         close: () => handle.close(),
       };
     },
@@ -309,30 +364,49 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
     async createFaceLandmarker(
       options: FaceLandmarkerCreateOptions,
     ): Promise<MediapipeFaceLandmarkerHandle> {
-      const { handle } = await open<MediapipeFaceResult>(
+      const { handle } = await open<MediapipeFaceInference>(
         (id) => ({ type: "create", id, model: "face", options }),
-        (message) => (message.model === "face" ? message.result : undefined),
+        (message) => {
+          if (message.model !== "face") {
+            return undefined;
+          }
+          return message.photo === undefined
+            ? message.result
+            : { ...message.result, photo: message.photo };
+        },
       );
-      return handle;
+      return {
+        runtime: handle.runtime,
+        detect: (video, timestampMs, photo) => handle.detect(video, timestampMs, photo),
+        close: () => handle.close(),
+      };
     },
   };
+}
+
+/** 추론과 사진 요청이 `run`으로 지금 핸들을 빌려 쓰는 갈아타기 핸들 */
+interface FallbackHandle<Handle> {
+  readonly runtime: VisionRuntimeKind;
+  run<T>(request: (handle: Handle) => Promise<T>): Promise<T>;
+  close(): void;
 }
 
 /**
  * 워커 핸들을 쓰다가 프레임을 뜨지 못하면 메인 스레드 핸들로 한 번 갈아타는 핸들
  *
  * 갈아타기는 모델마다 따로 일어난다. 객체 검출기가 갈아타도 얼굴 모델은 제 차례에 스스로 갈아탄다.
+ * 둘 다 같은 방법으로 프레임을 뜨므로 추론과 사진 요청이 같은 갈아타기를 공유한다.
  */
-function withFrameFallback<Result>(
-  first: MediapipeInferenceHandle<Result>,
-  openFallback: () => Promise<MediapipeInferenceHandle<Result>>,
-): MediapipeInferenceHandle<Result> {
+function withFrameFallback<Handle extends { readonly runtime: VisionRuntimeKind; close(): void }>(
+  first: Handle,
+  openFallback: () => Promise<Handle>,
+): FallbackHandle<Handle> {
   let current = first;
   /**
    * 메인 스레드 핸들로 갈아타는 중이거나 갈아탔다. 모델당 한 번이다.
    * 갈아타기가 실패하면 거절된 채로 남아 이후 추론이 같은 오류로 실패하고, 래퍼가 연속 실패를 보고한다.
    */
-  let switched: Promise<MediapipeInferenceHandle<Result>> | null = null;
+  let switched: Promise<Handle> | null = null;
   let closed = false;
 
   function assertOpen(): void {
@@ -343,16 +417,16 @@ function withFrameFallback<Result>(
   }
 
   return {
-    get runtime() {
+    get runtime(): VisionRuntimeKind {
       // 갈아타기를 시작한 순간 워커 핸들은 닫혔다.
       // 메인 생성이 실패해도 워커라고 보고하지 않는다.
       return switched === null ? current.runtime : "main";
     },
-    async detect(video, timestampMs) {
+    async run(request) {
       assertOpen();
       if (switched === null) {
         try {
-          return await current.detect(video, timestampMs);
+          return await request(current);
         } catch (error: unknown) {
           // 닫힌 뒤 뜨기가 실패했으면 이미 떠난 세션이라 메인 모델을 새로 만들지 않는다.
           if (!(error instanceof FrameCaptureError) || closed) {
@@ -372,7 +446,7 @@ function withFrameFallback<Result>(
       }
       const opened = await switched;
       assertOpen();
-      return await opened.detect(video, timestampMs);
+      return await request(opened);
     },
     close() {
       closed = true;
@@ -417,16 +491,25 @@ export function createFallbackRuntime(
           return handle.runtime;
         },
         assetTimings,
-        detect: (video, timestampMs) => handle.detect(video, timestampMs),
+        detect: (video, timestampMs) => handle.run((current) => current.detect(video, timestampMs)),
+        capture: (video, photo) => handle.run((current) => current.capture(video, photo)),
         close: () => handle.close(),
       };
     },
 
     async createFaceLandmarker(options) {
       const first = await openWithFallback((runtime) => runtime.createFaceLandmarker(options));
-      return withFrameFallback(first, async () =>
+      const handle = withFrameFallback(first, async () =>
         (await loadFallback()).createFaceLandmarker(options),
       );
+      return {
+        get runtime() {
+          return handle.runtime;
+        },
+        detect: (video, timestampMs, photo) =>
+          handle.run((current) => current.detect(video, timestampMs, photo)),
+        close: () => handle.close(),
+      };
     },
   };
 }

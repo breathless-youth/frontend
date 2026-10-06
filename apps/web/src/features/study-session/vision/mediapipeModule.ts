@@ -1,5 +1,12 @@
 import { FaceLandmarker, FilesetResolver, ObjectDetector } from "@mediapipe/tasks-vision";
 
+import type { RenderPhoto } from "@/features/timelapse/photoFrame";
+import {
+  createPhotoRenderer,
+  documentSurface,
+  tryRenderPhoto,
+} from "@/features/timelapse/photoFrame";
+
 import type {
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
@@ -108,12 +115,19 @@ export async function openFaceLandmarker(
   });
 }
 
+function videoSize(video: HTMLVideoElement): { width: number; height: number } {
+  return { width: video.videoWidth, height: video.videoHeight };
+}
+
 /**
  * 메인 스레드 런타임
  *
  * 워커를 못 쓰는 환경과 `VITE_VISION_WORKER=off` 빌드가 쓴다.
+ * 타임랩스 사진은 `<video>`를 캔버스에 그려 워커와 같은 규칙으로 만든다.
  */
-export function createMediapipeRuntime(): MediapipeVisionRuntime {
+export function createMediapipeRuntime(
+  renderPhoto: RenderPhoto = createPhotoRenderer(documentSurface),
+): MediapipeVisionRuntime {
   return {
     async createDetector(options: DetectorCreateOptions): Promise<MediapipeDetectorHandle> {
       const detector = await openObjectDetector(options);
@@ -123,6 +137,8 @@ export function createMediapipeRuntime(): MediapipeVisionRuntime {
         // 메인 스레드에서 동기로 돈다.
         // 워커 경로와 같은 모양으로 맞추려고 Promise로 감싼다.
         detect: async (video, timestampMs) => detector.detectForVideo(video, timestampMs),
+        capture: (video, photo) =>
+          renderPhoto({ source: video, frame: videoSize(video), spec: photo }),
         close: () => detector.close(),
       };
     },
@@ -133,7 +149,20 @@ export function createMediapipeRuntime(): MediapipeVisionRuntime {
       const landmarker = await openFaceLandmarker(options);
       return {
         runtime: "main",
-        detect: async (video, timestampMs) => landmarker.detectForVideo(video, timestampMs),
+        async detect(video, timestampMs, photo) {
+          const result = landmarker.detectForVideo(video, timestampMs);
+          if (photo === undefined) {
+            return result;
+          }
+          // 렌더러는 첫 await 전에 `<video>`를 그리므로 추론과 같은 프레임이 담긴다.
+          const bytes = await tryRenderPhoto(renderPhoto, {
+            source: video,
+            frame: videoSize(video),
+            spec: photo,
+            landmarks: result.faceLandmarks[0],
+          });
+          return bytes === undefined ? result : { ...result, photo: bytes };
+        },
         close: () => landmarker.close(),
       };
     },
