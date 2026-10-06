@@ -60,7 +60,6 @@ export interface PlannerCompletedTask {
   name: string;
   subjectId: number;
   doneAtMs: number;
-  deleted: boolean;
 }
 
 export interface PlannerDay {
@@ -267,7 +266,6 @@ export function assemblePlannerDay(
                 name: task.name,
                 subjectId: canonical(task.subjectId),
                 doneAtMs,
-                deleted: task.deleted,
               },
             ]
           : [];

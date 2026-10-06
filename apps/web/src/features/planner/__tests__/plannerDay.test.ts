@@ -222,7 +222,6 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
         name: "단어 암기",
         subjectId: 5,
         doneAtMs: Date.parse(kst(DAY, 9, 30)),
-        deleted: false,
       },
     ]);
     expect(day.paints).toHaveLength(1);

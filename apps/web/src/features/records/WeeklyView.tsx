@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import {
@@ -10,12 +10,12 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { reloadOnChunkError } from "@/lib/chunkReload";
 import { cn } from "@/lib/utils";
 
 import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
-import { WeekTrendCard } from "./WeekTrendCard";
 import { useHorizontalSwipe } from "./useHorizontalSwipe";
 import { addDaysToDateKey } from "./recordsFormat";
 import { isFutureWeek } from "./recordsPeriod";
@@ -32,6 +32,19 @@ import { useWeeklyData } from "./useWeeklyData";
  *   자리표시, error면 감춘다(빈 배열을 확정값처럼 그리지 않는다).
  * - period 조회 상태는 retry 함수를 노출하지 않으므로(RecordsPeriodState) refetch로 되돌린다.
  */
+/**
+ * 추이 카드는 차트(recharts)를 끌고 와 따로 받는다 — 주간 탭을 열 때만 필요하고, 메인 번들에 넣으면
+ * 웹뷰 첫 로드가 그만큼 무거워진다. 배포 교체로 청크를 못 받으면 한 번 새로고침한다(App의 lazy 페이지와 같다).
+ */
+const WeekTrendCard = lazy(
+  reloadOnChunkError(() =>
+    import("./WeekTrendCard").then((module) => ({ default: module.WeekTrendCard })),
+  ),
+);
+
+/** 추이 카드 자리표시 — 조회 중과 차트 청크를 받는 중에 같은 모양을 쓴다. */
+const TREND_SKELETON = <Skeleton className="h-[296px] w-full rounded-[20px]" />;
+
 export function WeeklyView({
   userId,
   todayKey,
@@ -97,7 +110,7 @@ export function WeeklyView({
       />
 
       <div className="mt-5">
-        {week.status === "pending" && <Skeleton className="h-[296px] w-full rounded-[20px]" />}
+        {week.status === "pending" && TREND_SKELETON}
         {week.status === "error" && (
           <ErrorState
             message="주간 추이를 불러오지 못했어요"
@@ -120,12 +133,14 @@ export function WeeklyView({
             )}
             {...swipe}
           >
-            <WeekTrendCard
-              daily={week.daily}
-              compareDaily={week.compareDaily}
-              weekAnchorKey={weekAnchorKey}
-              todayKey={todayKey}
-            />
+            <Suspense fallback={TREND_SKELETON}>
+              <WeekTrendCard
+                daily={week.daily}
+                compareDaily={week.compareDaily}
+                weekAnchorKey={weekAnchorKey}
+                todayKey={todayKey}
+              />
+            </Suspense>
           </div>
         )}
       </div>

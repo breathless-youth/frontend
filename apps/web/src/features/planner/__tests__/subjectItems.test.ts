@@ -34,7 +34,7 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
       { subjectId: 3, focusSec: 3600 },
       { subjectId: 5, focusSec: 1800 },
     ],
-    completedTasks: [{ id: 9, name: "오답 정리", subjectId: 5, doneAtMs: 0, deleted: false }],
+    completedTasks: [{ id: 9, name: "오답 정리", subjectId: 5, doneAtMs: 0 }],
     subjects: new Map([
       [3, english],
       [5, math],
@@ -143,8 +143,8 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
   describe("완료 기록(완료 시각 기준)", () => {
     const day = plannerDay({
       completedTasks: [
-        { id: 40, name: "완료", subjectId: 3, doneAtMs: 1, deleted: false },
-        { id: 41, name: "완료 후 지움", subjectId: 3, doneAtMs: 2, deleted: true },
+        { id: 40, name: "완료", subjectId: 3, doneAtMs: 1 },
+        { id: 41, name: "완료 후 지움", subjectId: 3, doneAtMs: 2 },
       ],
       subjects: new Map([[3, english]]),
     });
