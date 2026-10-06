@@ -36,12 +36,37 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("navigate-home의 초대코드(inviteCode)는 4자리 숫자만 통과시키고, 아니면 그 필드만 빼고 모달 닫기는 살린다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"4680","atMs":9}')).toEqual({
+      type: "navigate-home",
+      inviteCode: "4680",
+      atMs: 9,
+    });
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"46a0","atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":4680,"atMs":9}')).toEqual({
+      type: "navigate-home",
+      atMs: 9,
+    });
+  });
+
   it("motion-sensor 메시지를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"motion-sensor","enabled":true,"atMs":7}')).toEqual({
       type: "motion-sensor",
       enabled: true,
       atMs: 7,
     });
+  });
+
+  it("haptic 메시지를 파싱하고 모르는 세기는 버린다", () => {
+    expect(parseToNativeMessage('{"type":"haptic","style":"medium","atMs":3}')).toEqual({
+      type: "haptic",
+      style: "medium",
+      atMs: 3,
+    });
+    expect(parseToNativeMessage('{"type":"haptic","style":"boom","atMs":3}')).toBeNull();
   });
 
   it("motion-sensor의 enabled가 boolean이 아니면 null을 돌려준다", () => {

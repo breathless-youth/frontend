@@ -9,9 +9,15 @@ FocusON 모바일 앱의 **설정 탭**이다(V1.0 3탭 — 홈·기록·설정 
 > - **`측정 기준 안내` 행의 서브 문구(`자리 이탈 · 휴대폰 사용 · 기기 조작을 기기 안에서만 측정해요`)를 달지 않는다.** 행 자체(라벨 + chevron, 온보딩 가이드 재진입)는 그대로다 — 감지 3종 안내는 온보딩 가이드(G1~G5) 본문이 소유하고, 이 화면에서 문구를 복제하지 않는다.
 > - ~~`오픈소스 라이선스` 행은 목적지·문서가 아직 없어 `onPress` 없이 표시만 한다~~ **2026-08-02(BY-310)에 `/licenses` 라우트로 연결됐다** — EfficientDet-Lite0 모델·MediaPipe Tasks Vision·TFLite 런타임을 Apache License 2.0 전문과 함께 고지한다(`apps/web/src/features/settings/openSourceLicenses.ts`).
 >
+> - **2026-10-06(BY-886)에 `지원` 섹션의 `문의하기` 아래에 `인터뷰 신청하기` 행이 생겼다.**
+> - 인터뷰 행은 서버가 켜고 끄며, 설정 화면에 들어올 때 `GET /api/interview/status`를 불러 `settingsEnabled`가 `true`일 때만 그린다.
+> - 인터뷰 행은 라벨 옆에 `기프티콘 증정` 배지를 달고 트레일링은 chevron이다.
+> - 인터뷰 행을 누르면 신청한 것으로 저장하고(`focuson.interview.v1`의 `applied = true`) 앱 안의 `/interview` 신청 폼으로 이동한다.
+> - 이 행 때문에 이 화면이 처음으로 서버 API를 부르게 됐다.
+>
 > 그리고 **모든 행이 앱 안에 머문다** — 외부 브라우저로 나가는 행이 하나도 없다. Figma 원본을 이 구성에 맞춰야 다음 익스포트에서 되돌아가지 않는다(Review Checklist 참고).
 
-V1.0은 **익명 기기 계정**이라 로그인·로그아웃·계정 삭제 항목이 없다(`ai-wiki/product/policies.md` §2 — 로그인은 V1.2부터). 설정은 "기능을 켜고 끄는 곳"이 아니라 "**권한을 확인하고, 문서를 찾아보는 곳**"이다 — 이 화면에서 앱이 직접 바꾸는 상태는 하나도 없다.
+V1.0은 **익명 기기 계정**이라 로그인·로그아웃·계정 삭제 항목이 없다(`ai-wiki/product/policies.md` §2 — 로그인은 V1.2부터). 설정은 "기능을 켜고 끄는 곳"이 아니라 "**권한을 확인하고, 문서를 찾아보는 곳**"이다 — 이 화면에서 앱이 직접 바꾸는 상태는 `인터뷰 신청하기` 행을 눌렀을 때 localStorage에 신청 여부(`applied`)를 기록하는 것 하나뿐이다.
 
 ## Source Of Truth
 
@@ -101,6 +107,7 @@ S6 · 설정 (402×874, bg/base)
 | 섹션 1 하단 캡션 | `권한은 시스템 설정에서 바꿀 수 있어요`                                                     | `voice-tone.md` §4 설정(S6) "권한 안내" — Figma `67:756`과 일치                    |
 | 섹션 2 라벨      | `지원`                                                                                      | Figma `67:757`                                                                     |
 | 행 3 라벨        | `문의하기`                                                                                  | Figma `43:108`                                                                     |
+| 행 3-a 라벨·배지 | `인터뷰 신청하기` / `기프티콘 증정` (서버의 `settingsEnabled`가 `true`일 때만)              | BY-886 설계 문서 §6 설정 행                                                        |
 | 섹션 3 라벨      | `약관 · 정보`                                                                               | Figma `67:766` (가운뎃점 앞뒤 공백 있음 — `약관 · 정보`)                           |
 | 행 4~6 라벨      | `이용약관` / `개인정보처리방침` / `오픈소스 라이선스`                                       | Figma `67:828` / `67:832` / `67:836`                                               |
 | 행 7 라벨·값     | `버전 정보` / `1.0.0`                                                                       | Figma `43:114` / `43:115`                                                          |
@@ -111,7 +118,7 @@ S6 · 설정 (402×874, bg/base)
 
 ## Data Contract
 
-**이 화면은 백엔드 API를 호출하지 않는다.** `packages/types/src/index.ts`의 어떤 타입(`UserRegisterRequest/Response`, `StudySessionCreateRequest/Response`, `StudySessionSummary`, `StudySessionListResponse`, `StatusEventPayload`)도 이 화면에 필요하지 않다. 설정 화면용 서버 계약을 새로 만들지 말 것.
+**`인터뷰 신청하기` 행 노출 여부를 정하는 `GET /api/interview/status` 하나만 부른다(BY-886).** 그 밖에는 API를 부르지 않는다. 이 화면이 쓰는 `packages/types` 타입은 그 응답인 `InterviewStatusResponse` 하나다. 그 밖의 설정 화면용 서버 타입은 명세 없이 새로 만들지 말 것.
 
 화면이 표시하는 값 3종의 출처:
 
@@ -152,6 +159,7 @@ const CONTACT_FORM_URL = "https://forms.gle/64ZZyLDE3A2F1oAB8";
 | 4   | 행 `측정 기준 안내`                     | **앱 내 이동** — `router.push({ pathname: "/onboarding-guide", params: { entry: "settings" } })`. 온보딩 가이드(G1~G5)로 재진입시킨다. **서브 문구(감지 3종 안내)는 이 화면에 두지 않는다** — 가이드 본문이 소유하고 여기서 복제하면 두 곳이 갈라진다. | ✅ 확정 (BY-257) — 행 유지, 서브 문구만 제거                                                                        |
 | 4-a | 재진입 시 G5의 CTA `집중 시작하기` 동작 | 분기는 `lib/focusStartFlow.ts`가 갖고 있고 현재는 닫기만 한다 — **미정**이라 여기서 확정하지 않는다.                                                                                                                                                   | — 이 화면 범위 밖                                                                                                   |
 | 5   | 행 `문의하기`                           | **앱 내 이동** — `router.push("/contact")`. 폼은 `react-native-webview`가 앱 안에서 띄운다. 로딩 중 진행 표시, 실패 시 안내 + `다시 시도` 버튼. **`Linking.openURL`을 쓰지 않는다.**                                                                   | ✅ 확정 (BY-257) — ⚠️ Figma는 external-link 아이콘이라 chevron으로 수정 필요                                        |
+| 5-a | 행 `인터뷰 신청하기`                    | **앱 내 이동**. `focuson.interview.v1`에 `applied = true`를 저장하고 `/interview`로 하드 내비게이션한다. 폼은 `GoogleFormPage`가 iframe으로 띄운다. 행은 서버의 `settingsEnabled`가 `true`일 때만 보인다.                                              | ✅ 확정 (BY-886)                                                                                                    |
 | 6   | 행 `이용약관` · `개인정보처리방침`      | **앱 내 이동** — `router.push("/terms")` · `router.push("/privacy")`. 문서 본문을 앱이 직접 렌더하므로 chevron이 그대로 맞는 표기다(Figma 원본과 일치). 외부 브라우저로 내보내지 않는다.                                                               | ✅ 확정 (BY-257)                                                                                                    |
 | 6-a | 행 `오픈소스 라이선스`                  | **목적지·문서가 아직 없다.** `onPress`를 넘기지 않아 행이 버튼으로 노출되지 않는다(탭 no-op) — placeholder 목적지를 지어내지 않는다.                                                                                                                   | ⚠️ 목적지 미확정                                                                                                    |
 | 7   | 행 `버전 정보`                          | 탭 불가(트레일링이 값 텍스트뿐이고 chevron 없음).                                                                                                                                                                                                      | ✅ 확정                                                                                                             |

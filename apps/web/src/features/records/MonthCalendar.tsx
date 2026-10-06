@@ -1,25 +1,32 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { createContext, useContext } from "react";
 
-import { trackRecordsMonthChanged } from "@/lib/amplitude";
+import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 import {
-  buildMonthGrid,
   type CalendarMonth,
-  dayOfDateKey,
-  isFutureDateKey,
-  monthLabel,
-  WEEKDAY_LABELS,
+  dateKeyOfDate,
+  dateOfDateKey,
+  formatDuration,
+  formatHeatClock,
+  type HeatLevel,
+  heatLevel,
 } from "./recordsFormat";
-import { IconChevronLeft, IconChevronRight } from "./icons";
+import { useHorizontalSwipe } from "./useHorizontalSwipe";
+
+/** 달력 아래에 적는 그 달의 합계와 하루 평균. */
+export type MonthStats = {
+  totalFocusSec: number;
+  studiedDays: number;
+  /** 합계 ÷ 공부한 날 수. 공부한 날이 없으면 `null`. */
+  averageFocusSec: number | null;
+};
 
 /**
- * S5 월 달력 카드(Figma `calendar-card` 65:641 + `Record / Calendar Cell` 46:122).
- * (`apps/mobile/components/records/MonthCalendar.tsx`에서 이식 — BY-330 기록 웹 이관)
- *
- * Figma는 셀을 46×44로 그려두고 행 간격을 33px로 겹쳐 배치했다. 겹치는 터치 영역은 실제 앱에서
- * 서로 터치를 뺏으므로 재현하지 않는다 — 행을 44px로 쌓아 터치 타겟 44×44를 보장한다
- * (`SCR-S5-records.md` Accessibility Requirements). 그래서 카드 높이가 Figma(250)보다 커진다.
+ * 월 달력
  *
  * RN `Pressable(accessibilityRole="button")`는 `<button type="button">`으로, `hitSlop`은
  * 웹에 대응 개념이 없어 생략한다(시각 크기 32×32 자체가 이미 44px 행 안에서 충분한 타겟이다).
@@ -29,247 +36,206 @@ type MonthCalendarProps = {
   /** KST 기준 오늘 `YYYY-MM-DD` */
   todayKey: string;
   selectedKey: string;
-  /** `StudySessionListResponse.studiedDatesInMonth` — 이 배열에 있는 날에 도트를 찍는다. */
-  studiedDates: readonly string[];
+  /** 날짜 키 → 순공시간(초). 셀 농도·시간 라벨을 여기서 찾는다(`recordsPeriod.buildDayFocusMap`). */
+  dayFocusSec: ReadonlyMap<string, number>;
   onSelectDate: (dateKey: string) => void;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
+  /**
+   * 마지막 월 이동 방향 — 그리드가 그 방향에서 밀려 들어오는 애니메이션을 고른다.
+   * 첫 마운트(`null`)에는 애니메이션이 없다 — 탭에 들어왔을 뿐인데 달력이 움직이면 이상하다.
+   */
+  slideFrom: "left" | "right" | null;
+  /** 스와이프로 월을 넘겼을 때 상위에 알린다. delta -1=이전, 1=다음. 계측·상태 갱신은 상위 몫. */
+  onSwipeMonth: (delta: -1 | 1) => void;
+  /** 그 달의 합계·하루 평균. 기간 조회가 끝나기 전에는 `null`(자리표시를 그린다). */
+  monthStats: MonthStats | null;
 };
 
-function MonthNavButton({
-  direction,
-  onClick,
-}: {
-  direction: "prev" | "next";
-  onClick: () => void;
-}) {
-  // 두 버튼의 셰브런 색을 같게 맞춘다 — Figma는 다음 달 버튼도 같은 icon/chevron-left(text/primary)를
-  // 180° 회전해 쓴다. 여기서는 회전 대신 같은 세트의 chevron-right를 쓰되 색만 맞춘다.
-  const iconColor = "var(--color-foreground)";
+const HEAT_BG: Record<Exclude<HeatLevel, 0>, string> = {
+  1: "bg-chart-heat-1",
+  2: "bg-chart-heat-2",
+  3: "bg-chart-heat-3",
+  4: "bg-chart-heat-4",
+  5: "bg-chart-heat-5",
+};
+
+/** 범례 — 숫자는 "그 시간 이상"이다(0+는 2시간 미만). 달력 칸 농도(`heatLevel`)와 같은 2시간 간격. */
+const HEAT_LEGEND = [
+  { cls: HEAT_BG[1], label: "0+" },
+  { cls: HEAT_BG[2], label: "2+" },
+  { cls: HEAT_BG[3], label: "4+" },
+  { cls: HEAT_BG[4], label: "6+" },
+  { cls: HEAT_BG[5], label: "8+" },
+] as const;
+
+/** 날짜 키 → 순공시간(초). 공용 Calendar가 그리는 날짜 칸에 그 달의 기록을 건넨다. */
+const DayFocusContext = createContext<ReadonlyMap<string, number>>(new Map());
+
+/** 공용 Calendar의 날짜 칸 — 순공시간 농도 · 시간 라벨 · 오늘 칩 · 선택 테두리를 그린다. */
+function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
+  const focusSec = useContext(DayFocusContext).get(dateKeyOfDate(day.date)) ?? 0;
+  const dayOfMonth = day.date.getDate();
+  const isToday = Boolean(modifiers.today);
+  // 아직 오지 않은 날만 고를 수 없다.
+  const isFuture = Boolean(modifiers.disabled);
+  const level = heatLevel(focusSec);
+  const record = focusSec > 0 ? `순공 ${formatDuration(focusSec)}` : "기록 없음";
+
+  // 진한 두 단계(6시간 이상)는 글자가 묻히지 않게 흰색으로 뒤집는다.
+  const onStrong = level >= 4;
+  // 기록 없는 날과 아직 오지 않은 날도 칸은 그린다 — 숫자 색으로만 구분한다.
+  const fill = isFuture || level === 0 ? "bg-chart-empty" : HEAT_BG[level];
+  const tone = isFuture
+    ? "text-text-disabled"
+    : level === 0
+      ? "text-muted-foreground"
+      : onStrong
+        ? "text-white"
+        : "text-foreground";
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={direction === "prev" ? "이전 달" : "다음 달"}
-      // Figma는 이 배경을 #eff1f4로 하드코딩해뒀다(변수 미바인딩). 다크모드에서 밝은 회색이
-      // 그대로 남는 문제가 있어 가장 가까운 토큰 `bg/layer-2`(#f2f4f6)로 바인딩한다 —
-      // 값이 정확히 같지는 않아 Figma 원본 수정은 Review Checklist 항목으로 올라가 있다.
-      className="flex size-8 items-center justify-center rounded-full bg-bg-layer-2"
+    <CalendarDayButton
+      day={day}
+      modifiers={modifiers}
+      {...props}
+      aria-pressed={Boolean(modifiers.selected)}
+      // 농도 배경만으로 뜻을 전달하지 않도록 순공시간을 라벨로도 준다.
+      aria-label={`${isToday ? "오늘, " : ""}${String(dayOfMonth)}일, ${record}`}
+      className="flex aspect-square w-full items-center justify-center disabled:cursor-not-allowed"
     >
-      {direction === "prev" ? (
-        <IconChevronLeft size={13} color={iconColor} />
-      ) : (
-        <IconChevronRight size={13} color={iconColor} />
-      )}
-    </button>
+      <span
+        // 선택일은 테두리로만 표시한다 — 농도 색을 가리지 않는다. ring-inset이라 칸 크기는 그대로다.
+        className={cn(
+          "flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-[10px] tabular-nums",
+          fill,
+          tone,
+          modifiers.selected && "ring-[1.5px] ring-foreground ring-inset",
+        )}
+      >
+        {isToday ? (
+          // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
+          <span className="flex h-[18px] items-center rounded-full bg-foreground px-[5px] text-xs leading-[14px] font-bold text-background">
+            {dayOfMonth}
+          </span>
+        ) : (
+          <span className="text-[13px] leading-4 font-bold">{dayOfMonth}</span>
+        )}
+        {/* 순공이 없어도 자리를 남겨 숫자 높이가 칸마다 같게 한다. */}
+        <span className="h-3 text-[10px] leading-3">
+          {focusSec > 0 ? formatHeatClock(focusSec) : ""}
+        </span>
+      </span>
+    </CalendarDayButton>
   );
 }
 
-function CalendarCell({
-  dateKey,
-  isSelected,
-  isToday,
-  isFuture,
-  hasRecord,
-  onSelect,
-}: {
-  dateKey: string;
-  isSelected: boolean;
-  isToday: boolean;
-  isFuture: boolean;
-  hasRecord: boolean;
-  onSelect: (dateKey: string) => void;
-}) {
-  const day = dayOfDateKey(dateKey);
-
+/** 달력 아래 — 왼쪽에 농도 범례, 오른쪽에 그 달의 하루 평균과 합계. */
+function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthLabel: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(dateKey)}
-      // 미래 날짜는 비활성 — 아무 동작도 하지 않는다(`design.md` 달력 상세).
-      disabled={isFuture}
-      aria-pressed={isSelected}
-      // 도트만으로 뜻을 전달하지 않도록 기록 유무를 라벨로도 준다.
-      aria-label={`${day}일, ${hasRecord ? "기록 있음" : "기록 없음"}`}
-      className="flex h-11 flex-1 items-center justify-center disabled:cursor-not-allowed"
-    >
-      {isSelected || isToday ? (
-        <span
-          className={
-            isSelected
-              ? "flex size-[30px] items-center justify-center rounded-full bg-primary"
-              : "flex size-[30px] items-center justify-center rounded-full border-[1.5px] border-primary"
-          }
+    <div className="mx-2 mt-1">
+      <Separator />
+      <div className="flex items-start justify-between pt-[13px]">
+        {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
+        <div
+          role="group"
+          aria-label="순공시간 범례, 숫자는 그 시간 이상"
+          className="flex items-start gap-1 pt-0.5"
         >
-          <span
-            className={
-              isSelected
-                ? "text-[15px] leading-[18px] font-semibold text-primary-foreground"
-                : "text-[15px] leading-[18px] font-semibold text-primary"
-            }
-          >
-            {day}
-          </span>
-        </span>
-      ) : (
-        <span className="flex flex-col items-center gap-[2px]">
-          <span
-            className={
-              isFuture
-                ? "text-[15px] leading-5 text-text-disabled"
-                : "text-[15px] leading-5 text-foreground"
-            }
-          >
-            {day}
-          </span>
-          {/* 도트 자리는 기록이 없어도 유지한다(숫자 위치가 흔들리지 않게 — Figma도 투명 도트를 둔다) */}
-          <span className={hasRecord ? "size-1 rounded-full bg-primary" : "size-1"} />
-        </span>
-      )}
-    </button>
+          {HEAT_LEGEND.map((item) => (
+            <span key={item.label} className="flex flex-col items-center gap-[3px]">
+              <span className={`h-2.5 w-[18px] rounded-[3px] ${item.cls}`} aria-hidden />
+              <span className="text-[10px] leading-3 text-muted-foreground">{item.label}</span>
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-start gap-5">
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-xs leading-[14px] text-muted-foreground">하루 평균</p>
+            {stats === null ? (
+              <Skeleton className="h-[18px] w-16 rounded-md" />
+            ) : (
+              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+                {formatDuration(stats.averageFocusSec ?? 0)}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-xs leading-[14px] text-muted-foreground">{monthLabel} 총 시간</p>
+            {stats === null ? (
+              <Skeleton className="h-[18px] w-16 rounded-md" />
+            ) : (
+              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+                {formatDuration(stats.totalFocusSec)}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-
-/**
- * 스와이프 커밋 임계(px) — 온보딩 가이드의 스텝 스와이프(`coachOverlayTheme.SWIPE_THRESHOLD_PX`)와
- * 같은 값이다. 앱 안의 가로 스와이프 감각을 하나로 맞춘다 — 공유 상수로 승격하지 않는 이유는
- * 두 feature가 서로 import하지 않는 경계를 지키기 위해서다(우연히 같은 값일 뿐 한쪽을 조정할
- * 때 다른 쪽이 따라가야 한다는 계약이 아직 없다).
- */
-const SWIPE_THRESHOLD_PX = 48;
 
 export function MonthCalendar({
   month,
   todayKey,
   selectedKey,
-  studiedDates,
+  dayFocusSec,
   onSelectDate,
-  onPrevMonth,
-  onNextMonth,
+  slideFrom,
+  onSwipeMonth,
+  monthStats,
 }: MonthCalendarProps) {
-  const grid = useMemo(() => buildMonthGrid(month), [month]);
-  const studied = useMemo(() => new Set(studiedDates), [studiedDates]);
+  const today = dateOfDateKey(todayKey);
 
-  /**
-   * 마지막 월 이동 방향 — 그리드가 그 방향에서 밀려 들어오는 애니메이션을 고른다(BY-343).
-   * 버튼·스와이프 어느 쪽으로 이동해도 같은 모션이 나오도록 이동을 이 래퍼로만 태운다.
-   * 첫 마운트(`null`)에는 애니메이션이 없다 — 탭에 들어왔을 뿐인데 달력이 움직이면 이상하다.
-   */
-  const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
-
-  const goPrevMonth = useCallback(
-    (method: "button" | "swipe") => {
-      trackRecordsMonthChanged({ delta: -1, method });
-      setSlideFrom("left");
-      onPrevMonth();
-    },
-    [onPrevMonth],
-  );
-
-  const goNextMonth = useCallback(
-    (method: "button" | "swipe") => {
-      trackRecordsMonthChanged({ delta: 1, method });
-      setSlideFrom("right");
-      onNextMonth();
-    },
-    [onNextMonth],
-  );
-
-  // 온보딩 가이드 탭 레이어와 같은 판정(시작점 기록 → 놓는 순간 총 이동량) — 셀 버튼 위에서
-  // 시작한 드래그도 부모(pointerup 버블)로 올라와 잡히고, 임계 미만의 탭은 셀 클릭으로 남는다.
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const start = pointerStartRef.current;
-      pointerStartRef.current = null;
-      if (!start) {
-        return;
-      }
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
-      // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 스와이프로 본다.
-      if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
-        return;
-      }
-      if (dx < 0) {
-        goNextMonth("swipe");
-        return;
-      }
-      goPrevMonth("swipe");
-    },
-    [goNextMonth, goPrevMonth],
-  );
+  const swipe = useHorizontalSwipe(onSwipeMonth);
 
   return (
-    <div className="rounded-xl border border-border bg-muted px-[15px] py-[13px]">
-      <div className="flex items-center justify-between">
-        <MonthNavButton direction="prev" onClick={() => goPrevMonth("button")} />
-        <h2 className="text-base leading-[19px] font-bold text-foreground">{monthLabel(month)}</h2>
-        <MonthNavButton direction="next" onClick={() => goNextMonth("button")} />
-      </div>
-
+    <Card className="rounded-[20px] border-0 shadow-sb-card px-2.5 pt-3.5 pb-4">
       {/*
+        월 이동 헤더는 RecordsPage가 카드 밖에서 그린다(BY-567 v2 조립) — 여기서 또 그리면
+        "이전 달"/"다음 달" 버튼이 화면에 두 벌 생긴다. `slideFrom`·계측(`trackRecordsMonthChanged`)도
+        RecordsPage가 소유한다 — 헤더 버튼과 아래 스와이프가 같은 `changeMonth` 경로를 타야
+        방향 애니메이션·계측이 어느 쪽으로 이동해도 갈라지지 않는다.
+
         스와이프 영역 — 요일 행 + 그리드. `touch-pan-y`: 세로 스크롤은 브라우저에 남기고 가로
         팬만 우리 포인터 이벤트로 가져온다 — 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어
         pointercancel을 내서 스와이프가 끝까지 도달하지 못한다.
       */}
-      <div
-        data-testid="month-calendar-swipe-area"
-        className="touch-pan-y"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-      >
-        <div className="mt-3 flex flex-row">
-          {WEEKDAY_LABELS.map((label) => (
-            <span
-              key={label}
-              className="flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-
-        <div
-          // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
-          // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
-          key={`${String(month.year)}-${String(month.month)}`}
-          className={
-            slideFrom === null
-              ? "mt-1"
-              : slideFrom === "right"
-                ? "mt-1 animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none"
-                : "mt-1 animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none"
-          }
-        >
-          {grid.map((week) => (
-            <div key={week.find((cell) => cell !== null) ?? "empty-week"} className="flex flex-row">
-              {week.map((dateKey, index) =>
-                dateKey === null ? (
-                  // 빈칸은 누를 수 없다 — 인접 셀의 터치를 뺏지 않도록 일반 div로 둔다.
-                  <div key={`blank-${String(index)}`} className="h-11 flex-1" />
-                ) : (
-                  <CalendarCell
-                    key={dateKey}
-                    dateKey={dateKey}
-                    isSelected={dateKey === selectedKey}
-                    isToday={dateKey === todayKey}
-                    isFuture={isFutureDateKey(dateKey, todayKey)}
-                    hasRecord={studied.has(dateKey)}
-                    onSelect={onSelectDate}
-                  />
-                ),
-              )}
-            </div>
-          ))}
-        </div>
+      <div data-testid="month-calendar-swipe-area" className="touch-pan-y" {...swipe}>
+        <DayFocusContext.Provider value={dayFocusSec}>
+          <Calendar
+            // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
+            // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
+            key={`${String(month.year)}-${String(month.month)}`}
+            mode="single"
+            required
+            // 달 이동은 상위(헤더 버튼 · 스와이프)가 맡는다.
+            disableNavigation
+            month={new Date(month.year, month.month - 1)}
+            today={today}
+            selected={dateOfDateKey(selectedKey)}
+            disabled={{ after: today }}
+            onSelect={(date) => onSelectDate(dateKeyOfDate(date))}
+            classNames={{
+              // 날짜 줄과 같은 간격이어야 요일 글자가 칸 가운데에 온다.
+              weekdays: "flex gap-[3px]",
+              // 요일 줄은 그대로 두고 날짜 줄만 밀려 들어온다.
+              weeks: cn(
+                "flex flex-col gap-[3px] pt-2.5",
+                slideFrom === "right" &&
+                  "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
+                slideFrom === "left" &&
+                  "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
+              ),
+              week: "flex gap-[3px]",
+              day: "aspect-square flex-1 p-0",
+            }}
+            components={{ DayButton: HeatDayButton }}
+          />
+        </DayFocusContext.Provider>
       </div>
-    </div>
+
+      <MonthStatsRow stats={monthStats} monthLabel={`${String(month.month)}월`} />
+    </Card>
   );
 }

@@ -79,8 +79,8 @@ export interface TimelineSegment {
 }
 
 /**
- * 최고 집중 시간 — 세션 안에서 이벤트(AWAY/PHONE/DEVICE/PAUSE)로 끊기지 않고 이어진 **가장 긴
- * 구간**(BY-560 시안 "최고 집중 시간 37분"). 서버가 하루 단위로 주는 `longestFocusSec`과 같은
+ * 최대 집중 시간 — 세션 안에서 이벤트(AWAY/PHONE/DEVICE/PAUSE)로 끊기지 않고 이어진 **가장 긴
+ * 구간**(BY-560 시안 "최고 집중 시간 37분" — 화면 표기는 `최대 집중 시간`으로 통일했다). 서버가 하루 단위로 주는 `longestFocusSec`과 같은
  * 정의를 세션 1건에 적용한 값이다 — 서버는 세션별 값을 내려주지 않아 이벤트에서 만든다.
  */
 export interface LongestFocus {
@@ -165,7 +165,9 @@ export function aggregateEvents(
  * (SCR-S4 Data Contract). 다만 범위 밖 값이 오더라도 바가 깨지지 않게 0~1로만 잘라 둔다 —
  * 이건 **표시 방어**이지 데이터 보정이 아니다.
  */
-export function timelineSegments(session: StudySessionResponse): TimelineSegment[] {
+export function timelineSegments(
+  session: Pick<StudySessionResponse, "startedAt" | "endedAt" | "events">,
+): TimelineSegment[] {
   const startMs = Date.parse(session.startedAt);
   const spanMs = Date.parse(session.endedAt) - startMs;
   if (!Number.isFinite(spanMs) || spanMs <= 0) {
@@ -183,14 +185,16 @@ export function timelineSegments(session: StudySessionResponse): TimelineSegment
 }
 
 /**
- * 최고 집중 구간 — 이벤트 사이의 빈 구간 중 가장 긴 것.
+ * 최대 집중 구간 — 이벤트 사이의 빈 구간 중 가장 긴 것. 기록 탭의 세션 행 펼침도 이 함수를 쓴다.
  *
  * 커서를 세션 시작에 두고 이벤트를 순서대로 지나며 "커서 → 이벤트 시작"의 빈 구간 길이를 재고,
  * 마지막 이벤트 뒤 "커서 → 세션 끝"까지 본다. 정렬·병합은 서버 계약이 보장하므로 여기서 다시
  * 하지 않는다(`timelineSegments`와 같은 태도) — 다만 겹친 이벤트가 와도 커서가 뒤로 가지 않게
  * `max`로만 전진시킨다(표시 방어). 같은 길이면 먼저 나온 구간을 택한다.
  */
-export function longestFocusStretch(session: StudySessionResponse): LongestFocus | null {
+export function longestFocusStretch(
+  session: Pick<StudySessionResponse, "startedAt" | "endedAt" | "events">,
+): LongestFocus | null {
   const startMs = Date.parse(session.startedAt);
   const endMs = Date.parse(session.endedAt);
   const spanMs = endMs - startMs;
@@ -215,7 +219,7 @@ export function longestFocusStretch(session: StudySessionResponse): LongestFocus
   }
   const ms = best.end - best.start;
   // 순공 1분 미만을 기록에서 빼는 경계와 같은 값을 써야, 기록에 남지 않을 만큼 짧은 구간을
-  // "최고 집중"으로 내세우지 않는다.
+  // "최대 집중"으로 내세우지 않는다.
   if (ms < SUB_MINUTE_SEC * 1000) {
     return null;
   }
@@ -284,7 +288,7 @@ export function formatClockRange(startIso: string, endIso: string): string {
  * 타임라인 바의 스크린리더 요약.
  *
  * 바는 순수 시각 요소라 그대로 두면 정보가 사라진다 — `role="img"` + 이 라벨로 요약을 준다
- * (SCR-S4 Accessibility Requirements). 일시정지·최고 집중은 **있을 때만** 읽는다. 라벨은 범례와
+ * (SCR-S4 Accessibility Requirements). 일시정지·최대 집중은 **있을 때만** 읽는다. 라벨은 범례와
  * 같은 문구(`LEGEND_COPY`)를 쓴다 — 눈으로 보는 범례와 귀로 듣는 요약이 다른 말을 하면 안 된다.
  */
 export function timelineSummaryLabel(view: SessionResultView): string {

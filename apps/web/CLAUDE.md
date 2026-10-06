@@ -59,6 +59,7 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - 토큰 출처는 브리지가 있고 URL에 `guestAuth=1`이 있을 때만 `main.tsx`의 `initBridgeTokenSource()`가 만든다. 표시 없는 구버전 앱과 브라우저 단독은 출처가 없고 `apiFetch`는 헤더 없이 오늘처럼 보낸다. 라우트 안 훅으로 바꾸지 말 것. 자식 effect의 react-query 요청이 `App` effect보다 먼저 돌아 첫 요청이 토큰 없이 나간다.
 - `createBridgeTokenSource`는 구독을 건 뒤 `auth-ready`를 보낸다. `analytics-ready`와 같은 이유로 순서를 바꾸지 말 것. 첫 토큰 대기 3초, 갱신 대기 10초가 지나면 null로 진행한다.
 - `apiFetch`의 401 처리는 `res.status`만 읽는다. 기존 테스트가 fetch를 `{ok,status,json}` 객체로 mock하므로 `headers`·`clone()`을 읽지 말 것.
+- `apiFetch`는 API origin(`API_BASE_URL`, 비어 있으면 현재 문서)으로 가는 요청에만 Bearer를 붙인다(BY-673). 다른 origin은 토큰 없이 한 번 보내고 갱신하지 않는다. 이 조건을 지우지 말 것.
 
 ## 명령
 

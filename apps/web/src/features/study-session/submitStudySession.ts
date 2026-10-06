@@ -2,12 +2,13 @@ import type {
   StatusEventPayload,
   StudySessionCreateRequest,
   StudySessionResponse,
+  SubjectSegmentPayload,
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyUserId } from "@/lib/userId";
 
-import { clampSessionSeconds } from "./sessionRequestClamp";
+import { clampSessionSeconds, clampSubjectSegments } from "./sessionRequestClamp";
 
 /**
  * 세션 제출 입력. 이 모듈은 값을 계산하지 않고 받기만 한다 —
@@ -19,6 +20,10 @@ export interface SessionInput {
   studySec: number;
   focusSec: number;
   events?: StatusEventPayload[];
+  /** 과목 구간 — `subjectSegments.ts`가 남긴 값. 클램프 뒤 비어 있으면 필드를 싣지 않는다. */
+  subjectSegments?: SubjectSegmentPayload[];
+  /** 이 세션에서 완료한 할 일 id — `completedTasks.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
+  completedTaskIds?: number[];
 }
 
 /**
@@ -40,13 +45,26 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
     focusSec: input.focusSec,
     events,
   });
-  return {
+  const request: StudySessionCreateRequest = {
     startedAt: new Date(input.startedAtMs).toISOString(),
     endedAt: new Date(input.endedAtMs).toISOString(),
     studySec,
     focusSec,
     events,
   };
+  // 선택 필드 — 없으면 구 계약과 바이트 단위로 같은 요청이다(기존 테스트가 정확히 그 모양을 본다).
+  const subjectSegments = clampSubjectSegments(
+    input.subjectSegments ?? [],
+    input.startedAtMs,
+    input.endedAtMs,
+  );
+  if (subjectSegments.length > 0) {
+    request.subjectSegments = subjectSegments;
+  }
+  if (input.completedTaskIds !== undefined && input.completedTaskIds.length > 0) {
+    request.completedTaskIds = input.completedTaskIds;
+  }
+  return request;
 }
 
 /**

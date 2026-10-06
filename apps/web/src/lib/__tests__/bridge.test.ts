@@ -98,6 +98,18 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
   });
 
+  it("session-invite를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"session-invite","code":"4680","atMs":1}')).toEqual({
+      type: "session-invite",
+      code: "4680",
+      atMs: 1,
+    });
+  });
+
+  it("session-invite의 code가 문자열이 아니면 null을 돌려준다", () => {
+    expect(parseToWebMessage('{"type":"session-invite","code":4680,"atMs":1}')).toBeNull();
+  });
+
   it("auth-token을 파싱한다", () => {
     expect(
       parseToWebMessage('{"type":"auth-token","userId":7,"accessToken":"a1","atMs":1}'),

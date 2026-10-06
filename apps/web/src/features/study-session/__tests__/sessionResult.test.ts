@@ -219,20 +219,20 @@ describe("timelineSummaryLabel", () => {
   it("바의 시각 정보를 텍스트로 요약한다", () => {
     // 범례와 같은 문구를 읽는다.
     expect(timelineSummaryLabel(toSessionResultView(exampleSession()))).toBe(
-      "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
+      "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최대 집중 시간 42분",
     );
   });
 
   it("일시정지가 없으면 읽지 않는다", () => {
     const noPause = exampleSession({ events: [event("AWAY", 60, 600)] });
     expect(timelineSummaryLabel(toSessionResultView(noPause))).toBe(
-      "순공 1시간 24분, 자동 멈춤 10분, 최고 집중 시간 1시간 34분",
+      "순공 1시간 24분, 자동 멈춤 10분, 최대 집중 시간 1시간 34분",
     );
   });
 });
 
 /**
- * 최고 집중 시간(BY-560) — 이벤트로 끊기지 않고 이어진 가장 긴 구간. 예시 세션(105분)에서는
+ * 최대 집중 시간(BY-560) — 이벤트로 끊기지 않고 이어진 가장 긴 구간. 예시 세션(105분)에서는
  * 마지막 PHONE(3600+172=3772초)부터 세션 끝(6300초)까지 2528초 = 42분이 가장 길다.
  */
 describe("longestFocusStretch", () => {
@@ -246,7 +246,7 @@ describe("longestFocusStretch", () => {
     expect(longest?.widthRatio).toBeCloseTo(2528 / 6300, 6);
   });
 
-  it("이벤트가 없으면 세션 전체가 최고 집중 구간이다", () => {
+  it("이벤트가 없으면 세션 전체가 최대 집중 구간이다", () => {
     const longest = longestFocusStretch(exampleSession({ events: [] }));
 
     expect(longest?.durationSec).toBe(6300);

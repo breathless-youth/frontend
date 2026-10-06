@@ -6,8 +6,7 @@ import { toKoreanDurationLength } from "../formatDuration";
 import { LEGEND_COPY, RESULT_COPY } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 import { formatClockTime, timelineSummaryLabel } from "../sessionResult";
-import type { ResultStatusTone } from "./ResultCardParts";
-import { ResultBarSegment, ResultStatusDot } from "./ResultCardParts";
+import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
 
 /**
  * 공부 타임라인 카드 (Figma `timeline-card` 64:561 → BY-560 시안 스크린샷으로 개편, 2026-09-14).
@@ -19,7 +18,7 @@ import { ResultBarSegment, ResultStatusDot } from "./ResultCardParts";
  *
  * - 범례가 바 아래에서 **카드 헤더 오른쪽**으로 올라갔다(타이틀과 같은 줄).
  * - `비집중` 표기가 `자동 멈춤`으로 바뀌었다(`LEGEND_COPY` 주석 참고).
- * - **최고 집중 시간**이 생겼다: 바 위 배지(`최고 집중 시간 42분`)가 해당 구간 가운데를 가리키고,
+ * - **최대 집중 시간**이 생겼다: 바 위 배지(`최대 집중 시간 42분`)가 해당 구간 가운데를 가리키고,
  *   바 안에서는 그 구간이 좌우 간격(`LONGEST_GAP_PX`)으로 **분리된 조각**(바 높이 그대로, 모서리
  *   3px)으로 보이며, 바
  *   아래에는 값·시각 범위 행이 붙는다. 구간은 `sessionResult.longestFocusStretch`가 이벤트에서
@@ -44,7 +43,7 @@ import { ResultBarSegment, ResultStatusDot } from "./ResultCardParts";
  * (SCR-S4 Accessibility). 범례는 도트 + 텍스트를 항상 병기한다 — 색 단독 전달 금지. 배지와
  * 조각·간격은 아래 행이 같은 정보를 텍스트로 주므로 `aria-hidden`이다.
  */
-/** 최고 집중 조각과 이웃 구간 사이의 배경색 간격(px, 좌우) — 3차 시안 이미지 실측에 가까운 값. */
+/** 최대 집중 조각과 이웃 구간 사이의 배경색 간격(px, 좌우) — 3차 시안 이미지 실측에 가까운 값. */
 const LONGEST_GAP_PX = 3;
 
 export function StudyTimelineCard({ view }: { view: SessionResultView }) {
@@ -62,9 +61,9 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
         <CardTitle>{RESULT_COPY.timelineTitle}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {/* 집중은 항상 있다 — 바탕색이 집중이므로 범례에서 뺄 수 없다. */}
-          <LegendItem tone="focus" label={LEGEND_COPY.focus} />
-          {hasDistraction && <LegendItem tone="distract" label={LEGEND_COPY.distract} />}
-          {hasPause && <LegendItem tone="pause" label={LEGEND_COPY.pause} />}
+          <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
+          {hasDistraction && <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />}
+          {hasPause && <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />}
         </ul>
       </CardHeader>
       <CardContent>
@@ -103,7 +102,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
                 widthRatio={segment.widthRatio}
               />
             ))}
-            {/* 최고 집중 조각(2026-09-14 3차 시안 이미지) — 구간 좌우에 카드색 간격을 두고 조각은 바와
+            {/* 최대 집중 조각(2026-09-14 3차 시안 이미지) — 구간 좌우에 카드색 간격을 두고 조각은 바와
               같은 높이로, 모서리는 살짝만 둥글게. 카드색 바탕(간격 포함 폭)을 먼저 깔고 그 위에
               조각을 칠해야 둥근 모서리 바깥이 바탕색(집중 블루)이 아니라 카드색으로 보인다. */}
             {longest !== null && (
@@ -150,14 +149,5 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function LegendItem({ tone, label }: { tone: ResultStatusTone; label: string }) {
-  return (
-    <li className="flex items-center gap-[5px]">
-      <ResultStatusDot tone={tone} />
-      <span className="text-[11px] leading-[13px] text-muted-foreground">{label}</span>
-    </li>
   );
 }

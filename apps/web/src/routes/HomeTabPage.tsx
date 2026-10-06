@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,11 @@ import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
+import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
-import { IllustFlame } from "@/features/records/icons";
+import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { IconPlanner, IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
@@ -292,7 +294,7 @@ function HomeContent({ userId }: { userId: number }) {
 /**
  * 헤더
  *
- * 시안대로 좌상단 D-Day 블록 하나다(오른쪽 날짜 없음). D-Day API는 토큰 계약뿐이라 토큰
+ * 시안대로 좌상단 D-Day 블록, 맞은편에 오늘의 플래너로 가는 버튼이다. D-Day API는 토큰 계약뿐이라 토큰
  * 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다. 출처가 있는데 첫
  * `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
  * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
@@ -320,6 +322,7 @@ function HomeHeaderLead({
         <>
           {hiddenTitle}
           <DdaySection userId={userId} />
+          <PlannerEntryButton />
         </>
       );
     }
@@ -332,10 +335,28 @@ function HomeHeaderLead({
   );
 }
 
+/** 헤더 오른쪽의 플래너 알약 — 오늘의 플래너를 연다. */
+function PlannerEntryButton() {
+  const openPlanner = useOpenPlanner("home");
+  return (
+    <button
+      type="button"
+      onClick={() => openPlanner()}
+      className="mt-1 flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full bg-muted pr-3 pl-2.5 text-[13px] leading-4 font-semibold text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]"
+    >
+      <IconPlanner size={18} />
+      플래너
+    </button>
+  );
+}
+
 export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const { recovered, dismiss } = useLaunchSessionRecovery(userId);
+  // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
+  const [noticeSettled, setNoticeSettled] = useState(false);
+  const recoveryReady = userId === null || noticeSettled;
 
   return (
     <main
@@ -362,7 +383,16 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {recovered !== null && <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />}
+      {userId !== null && (
+        <NoticeModalHost
+          userId={userId}
+          paused={recovered !== null && recoveryReady}
+          onSettled={() => setNoticeSettled(true)}
+        />
+      )}
+      {recovered !== null && recoveryReady && (
+        <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
+      )}
     </main>
   );
 }

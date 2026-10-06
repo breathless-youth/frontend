@@ -1,7 +1,10 @@
 import { act, render, screen } from "@testing-library/react-native";
+import { router } from "expo-router";
 import { BackHandler } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
+import type * as OrientationModule from "../lib/orientation";
+import { offerRouteToSession } from "../lib/sessionInvite";
 
 /**
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
@@ -15,6 +18,12 @@ import SessionRoomScreen from "../app/room/[id]";
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "1" }),
+  router: {
+    back: jest.fn(),
+    replace: jest.fn(),
+    navigate: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  },
 }));
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
@@ -28,6 +37,9 @@ jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
 }));
+
+/** 웹으로 보내는 통로(`injectJavaScript`)의 관찰점 */
+const mockInjectJavaScript = jest.fn();
 
 jest.mock("react-native-webview", () => {
   /*
@@ -43,7 +55,10 @@ jest.mock("react-native-webview", () => {
       props: Record<string, unknown>,
       ref: React.Ref<{ reload: () => void }>,
     ) {
-      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      ReactModule.useImperativeHandle(ref, () => ({
+        reload: jest.fn(),
+        injectJavaScript: mockInjectJavaScript,
+      }));
       return ReactModule.createElement(View, props);
     }),
   };
@@ -99,7 +114,7 @@ describe("SessionRoomScreen", () => {
    */
   it("마운트에서 회전을 열고 언마운트에서 세로로 되잠근다", () => {
     const { lockPortrait, unlockForSession } =
-      jest.requireMock<typeof import("../lib/orientation")>("../lib/orientation");
+      jest.requireMock<typeof OrientationModule>("../lib/orientation");
     // 앞선 테스트들의 렌더가 남긴 호출 누적을 걷어낸다 — 이 테스트는 횟수를 단언한다.
     (lockPortrait as jest.Mock).mockClear();
     (unlockForSession as jest.Mock).mockClear();
@@ -110,5 +125,66 @@ describe("SessionRoomScreen", () => {
 
     unmount();
     expect(lockPortrait).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SessionRoomScreen: 세션 중 초대", () => {
+  beforeEach(() => {
+    mockInjectJavaScript.mockClear();
+    jest.mocked(router.back).mockClear();
+    jest.mocked(router.navigate).mockClear();
+  });
+
+  it("웹이 메시지를 보낸 뒤에 온 초대는 session-invite로 웹에 넘긴다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    // 웹이 무엇이든 한 번 보내야 응답 통로(reply)가 잡힌다.
+    // 세션 화면이 직접 소비하는 메시지를 쓴다.
+    act(() => {
+      (webview.props.onMessage as (event: unknown) => void)({
+        nativeEvent: { data: '{"type":"motion-sensor","enabled":false,"atMs":1}' },
+      });
+    });
+
+    let offered = false;
+    act(() => {
+      offered = offerRouteToSession("/social/join?code=4680");
+    });
+
+    expect(offered).toBe(true);
+    const scripts = mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("session-invite"));
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0]).toContain('\\"code\\":\\"4680\\"');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it("웹이 아직 아무 메시지도 보내지 않았으면 세션 화면을 닫고 초대코드 화면을 연다", async () => {
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    act(() => {
+      offerRouteToSession("/social/join?code=4680");
+    });
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.navigate).toHaveBeenCalledWith({
+      pathname: "/(tabs)/social",
+      params: { code: "4680", at: expect.any(String) },
+    });
+  });
+
+  it("세션 화면이 사라지면 초대를 받지 않는다", async () => {
+    const { unmount } = render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+    expect(offerRouteToSession("/social/join?code=4680")).toBe(true);
+
+    unmount();
+
+    expect(offerRouteToSession("/social/join?code=4680")).toBe(false);
   });
 });

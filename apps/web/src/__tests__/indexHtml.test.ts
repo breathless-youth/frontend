@@ -92,6 +92,13 @@ describe("index.css color-scheme", () => {
     expect(attribute).toContain("color-scheme: dark;");
   });
 
+  it("theme-dark 서브트리는 시스템이 라이트여도 다크 토큰을 쓴다 — 다크 블록을 공유한다", () => {
+    expect(css).toMatch(/\.theme-dark,\s*:root\[data-theme="dark"\]\s*{/);
+    expect(css).toMatch(
+      /\.theme-dark \.theme-soft-blue,\s*:root\[data-theme="dark"\] \.theme-soft-blue\s*{/,
+    );
+  });
+
   it("시스템이 다크여도 data-theme=light면 미디어쿼리 다크 블록이 적용되지 않는다", () => {
     const mediaBlock = /@media \(prefers-color-scheme: dark\)\s*{\s*([^{]+){/
       .exec(css)?.[1]

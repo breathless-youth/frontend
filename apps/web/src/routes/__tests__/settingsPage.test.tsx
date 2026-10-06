@@ -1,8 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as InterviewForm from "@/features/interview/interviewForm";
 import type * as Amplitude from "@/lib/amplitude";
 import type * as LazyRoutes from "@/routes/lazyRoutes";
 
@@ -23,12 +26,23 @@ vi.mock("@/lib/hardNavigation", () => ({
 const analytics = vi.hoisted(() => ({
   trackOsSettingsOpened: vi.fn(),
   trackSettingsRowPressed: vi.fn(),
+  trackInterviewClicked: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackOsSettingsOpened: analytics.trackOsSettingsOpened,
   trackSettingsRowPressed: analytics.trackSettingsRowPressed,
+  trackInterviewClicked: analytics.trackInterviewClicked,
+}));
+
+const getInterviewStatus = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/interviewApi", () => ({ getInterviewStatus }));
+
+const openInterviewForm = vi.hoisted(() => vi.fn());
+vi.mock("@/features/interview/interviewForm", async (importOriginal) => ({
+  ...(await importOriginal<typeof InterviewForm>()),
+  openInterviewForm,
 }));
 
 const prefetchSettingsSubPages = vi.hoisted(() => vi.fn());
@@ -57,19 +71,37 @@ function LocationProbe({ testId }: { testId: string }) {
   return <div data-testid={testId}>{location.pathname + location.search}</div>;
 }
 
+/** App은 자체 QueryClientProvider를 갖지만 SettingsPage를 단독으로 그릴 때는 직접 감싸야 한다. */
+function withQueryClient(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
+}
+
 function renderSettingsWithGuideStub(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route
-          path="/onboarding-guide"
-          element={<LocationProbe testId="onboarding-guide-stub" />}
-        />
-      </Routes>
-    </MemoryRouter>,
+    withQueryClient(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/onboarding-guide"
+            element={<LocationProbe testId="onboarding-guide-stub" />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    ),
   );
 }
+
+beforeEach(() => {
+  localStorage.clear();
+  getInterviewStatus.mockResolvedValue({
+    cardEligible: false,
+    cardUrl: null,
+    settingsEnabled: false,
+    settingsUrl: null,
+  });
+});
 
 afterEach(() => {
   resetViewTransitionStub();
@@ -123,12 +155,14 @@ describe("S6 · 설정", () => {
 
   it("프로필 수정 행은 기존 쿼리(userId·appVersion)를 승계해 /profile 로 이동한다 (BY-409)", () => {
     render(
-      <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<LocationProbe testId="profile-stub" />} />
-        </Routes>
-      </MemoryRouter>,
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/profile" element={<LocationProbe testId="profile-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "프로필 수정" }));
@@ -417,5 +451,82 @@ describe("버전 정보 복사", () => {
     fireEvent.click(screen.getByRole("button", { name: `${__WEB_VERSION__} 복사` }));
 
     expect(await screen.findByText("복사하지 못했어요")).toBeInTheDocument();
+  });
+});
+
+describe("인터뷰 신청하기 행", () => {
+  const FORM = "https://docs.google.com/forms/d/e/a/viewform?entry.1=NICKNAME";
+
+  it("서버가 켜면 문의하기 아래에 배지와 함께 보인다", async () => {
+    getInterviewStatus.mockResolvedValue({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: true,
+      settingsUrl: FORM,
+    });
+    renderSettingsWithGuideStub("/settings?userId=7");
+
+    const row = await screen.findByRole("button", { name: "인터뷰 신청하기, 기프티콘 증정" });
+    const buttons = screen
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent);
+    expect(buttons.indexOf("문의하기")).toBe(
+      buttons.indexOf(row.getAttribute("aria-label") ?? "") - 1,
+    );
+  });
+
+  it("서버가 끄면 보이지 않는다", async () => {
+    renderSettingsWithGuideStub("/settings?userId=7");
+
+    await waitFor(() => expect(getInterviewStatus).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /인터뷰 신청하기/ })).toBeNull();
+  });
+
+  it("누르면 신청으로 남기고 폼을 연다", async () => {
+    getInterviewStatus.mockResolvedValue({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: true,
+      settingsUrl: FORM,
+    });
+    renderSettingsWithGuideStub("/settings?userId=7");
+
+    fireEvent.click(await screen.findByRole("button", { name: "인터뷰 신청하기, 기프티콘 증정" }));
+
+    expect(JSON.parse(localStorage.getItem("focuson.interview.v1")!).applied).toBe(true);
+    expect(openInterviewForm).toHaveBeenCalledWith(FORM, "?userId=7");
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("interview");
+    expect(analytics.trackInterviewClicked).toHaveBeenCalledWith({ source: "settings" });
+  });
+
+  it("다시 받다가 실패하면 예전 값이 남아 있어도 숨기고 한 번 경고한다", async () => {
+    getInterviewStatus.mockResolvedValue({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: true,
+      settingsUrl: FORM,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/settings?userId=7"]}>
+          <SettingsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: "인터뷰 신청하기, 기프티콘 증정" });
+
+    getInterviewStatus.mockRejectedValue(new Error("network"));
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ["interview"] });
+    });
+
+    expect(getInterviewStatus).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /인터뷰 신청하기/ })).toBeNull(),
+    );
+    expect(warn.mock.calls.filter(([m]) => String(m).startsWith("[interview]"))).toHaveLength(1);
+    warn.mockRestore();
   });
 });

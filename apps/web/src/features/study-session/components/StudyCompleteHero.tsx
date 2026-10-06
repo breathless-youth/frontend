@@ -150,10 +150,10 @@ export function StudyCompleteHero({
 function useCountUp(target: number, enabled: boolean): number {
   const from = Math.min(SUB_MINUTE_SEC, target);
   const [value, setValue] = useState(enabled ? from : target);
+  const canAnimate = enabled && typeof requestAnimationFrame === "function";
 
   useEffect(() => {
-    if (!enabled || typeof requestAnimationFrame !== "function") {
-      setValue(target);
+    if (!canAnimate) {
       return;
     }
     let frame = 0;
@@ -168,9 +168,9 @@ function useCountUp(target: number, enabled: boolean): number {
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [target, enabled, from]);
+  }, [target, canAnimate, from]);
 
-  return value;
+  return canAnimate ? value : target;
 }
 
 /**

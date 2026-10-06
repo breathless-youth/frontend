@@ -64,6 +64,21 @@ export async function parseApiError(
 }
 
 /**
+ * 요청이 우리 API로 가는지. 기준은 빌드가 정한 API 주소의 origin이고, 로컬처럼 값이 비어 있으면
+ * 현재 문서의 origin이 된다(same-origin 프록시). 파싱이 안 되면 다른 origin으로 본다.
+ */
+function isApiOrigin(input: RequestInfo | URL): boolean {
+  // instanceof 대신 모양으로 가른다 — 다른 realm(iframe)의 Request는 instanceof에 걸리지 않고,
+  // 그러면 "[object Request]"가 상대 경로로 풀려 현재 문서 origin으로 오판된다.
+  const url = typeof input === "string" ? input : "url" in input ? input.url : input.href;
+  try {
+    return new URL(url, location.href).origin === new URL(API_BASE_URL, location.href).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 모든 호출이 거치는 공통 fetch 래퍼
  *
  * `API-Version`은 **엔드포인트마다 다르다**(`API_ENDPOINTS`). 전역 기본값을 두면 어떤 요청에는 반드시
@@ -93,7 +108,8 @@ export async function apiFetch(input: RequestInfo | URL, init: ApiFetchInit): Pr
   // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 구 계약으로 말한다.
   const source = getTokenSource();
   headers.set("API-Version", apiVersionFor(endpoint, source === null));
-  if (source === null) {
+  // 다른 origin에는 토큰을 싣지 않는다. 401이 와도 우리 토큰 문제가 아니라 갱신하지 않는다.
+  if (source === null || !isApiOrigin(input)) {
     return send();
   }
   const sent = await source.getAccessToken();

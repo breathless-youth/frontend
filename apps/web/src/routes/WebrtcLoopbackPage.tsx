@@ -146,7 +146,7 @@ export function WebrtcLoopbackPage() {
 
   return (
     <main
-      className="flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground"
+      className="theme-dark flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground"
       style={sessionSurfaceStyle}
     >
       <h1 className="text-lg font-bold">WebRTC 루프백 스파이크</h1>

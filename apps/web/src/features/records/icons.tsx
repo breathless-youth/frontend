@@ -1,94 +1,98 @@
+import { ChevronDown, ChevronLeft, ChevronRight, type LucideProps } from "lucide-react";
 import type { SVGProps } from "react";
 
 /**
  * S5 기록 아이콘·일러스트 (`apps/mobile/components/icons.tsx`의 기록 사용분만 이식 — BY-330).
- * SVG path는 Figma 익스포트 원본 그대로다 — 손으로 그리지 않는다.
+ * SVG path는 Figma 익스포트 원본 그대로다 — 손으로 그리지 않는다(꺾쇠 3종만 같은 모양의 lucide 아이콘을 쓴다).
  * 색은 RN판의 `useColorScheme` 분기 대신 CSS 변수(`--color-*`)로 라이트/다크를 따라간다
  * (`apps/web/src/features/home/icons.tsx`가 세운 관례와 동일).
  */
 
-export function IconChevronRight({
-  color = "#8B95A1",
-  size = 12,
-  ...rest
-}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
-  // 원본 비율 7×12 — size는 높이 기준으로 두고 너비를 비율로 맞춘다.
+type ChevronProps = Omit<LucideProps, "size"> & { size?: number };
+
+/*
+ * 꺾쇠 3종 — 모양은 lucide 아이콘이다. lucide는 24 격자 한가운데에 꺾쇠를 작게 그려서 그대로 쓰면
+ * 둘레 여백만큼 옆 글자와의 간격이 벌어진다. 그래서 보이는 영역(viewBox)을 꺾쇠에 붙여 자르고
+ * 선 굵기를 시안 값에 맞춘다 — 호출부는 꺾쇠 자체의 크기만 넘기면 된다.
+ */
+
+/** `size`는 높이. */
+export function IconChevronRight({ color = "#8B95A1", size = 12, ...rest }: ChevronProps) {
   return (
-    <svg
+    <ChevronRight
+      viewBox="7.9167 5 8.1667 14"
       width={(size * 7) / 12}
       height={size}
-      viewBox="0 0 7 12"
-      fill="none"
-      aria-hidden="true"
+      color={color}
+      strokeWidth={1.8}
       {...rest}
-    >
-      <path
-        d="M0.928589 0.857147L6.07145 6L0.928589 11.1429"
-        stroke={color}
-        strokeWidth={1.54286}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    />
   );
 }
 
-/**
- * S5 기록의 달력 이전 달 버튼 아이콘(Figma `icon/chevron-left` 32:39 — 프레임 8×13).
- * 익스포트 원본 stroke는 #191F28 하드코딩이지만 값이 `text/primary` 라이트값과 정확히 일치해
- * 토큰(`--color-foreground`)에 바인딩한다(다크모드 대응) — 다음 달 버튼은 이 아이콘을 회전시키지
- * 않고 같은 세트의 `IconChevronRight`를 쓴다(원본과 동일 방침).
- */
+/** `size`는 높이. */
 export function IconChevronLeft({
   color = "var(--color-foreground)",
   size = 13,
   ...rest
-}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
-  // 익스포트 원본 비율 7.24×12.81 — size는 높이 기준으로 두고 너비를 비율로 맞춘다.
+}: ChevronProps) {
   return (
-    <svg
-      width={(size * 7.24286) / 12.8143}
+    <ChevronLeft
+      viewBox="8.1 5.1 7.8 13.8"
+      width={(size * 7.8) / 13.8}
       height={size}
-      viewBox="0 0 7.24286 12.8143"
-      fill="none"
-      aria-hidden="true"
+      color={color}
+      strokeWidth={1.8}
       {...rest}
-    >
-      <path
-        d="M6.40714 0.835714L0.835714 6.40714L6.40714 11.9786"
-        stroke={color}
-        strokeWidth={1.67143}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    />
   );
 }
 
-/**
- * S5 기록의 정렬 라벨 옆 셰브런(Figma `icon/chevron-down` 32:42 — 프레임 9×6).
- * V1.0 정렬은 최신순 고정이라 **장식이다** — 누를 수 없는 자리에 놓는다
- * (`SCR-S5-records.md` Interaction Contract / Current Limitations 참고).
- */
+/** `size`는 너비. */
 export function IconChevronDown({
   color = "var(--color-text-tertiary)",
   size = 9,
   ...rest
-}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
-  // 익스포트 원본 비율 8.23×4.8 — size는 너비 기준.
+}: ChevronProps) {
   return (
-    <svg
+    <ChevronDown
+      viewBox="4.8 7.8 14.4 8.4"
       width={size}
-      height={(size * 4.8) / 8.22857}
-      viewBox="0 0 8.22857 4.8"
-      fill="none"
-      aria-hidden="true"
+      height={(size * 8.4) / 14.4}
+      color={color}
+      strokeWidth={2.4}
       {...rest}
-    >
+    />
+  );
+}
+
+/**
+ * 플래너 아이콘(Figma `icon/planner` — 18×18, 달력에 체크). 기본은 글자색을 따라간다.
+ * `var(--color-brand-subtle-text)`처럼 Soft Blue 테마에만 있는 토큰을 `--color-*`로 직접 쓰면 값이 비어
+ * 아이콘이 안 보인다 — `--color-*`는 `:root`에서 풀리는데 그 토큰은 `.theme-soft-blue` 안에만 있다.
+ */
+export function IconPlanner({
+  color = "currentColor",
+  size = 18,
+  ...rest
+}: SVGProps<SVGSVGElement> & { color?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true" {...rest}>
       <path
-        d="M0.685714 0.685714L4.11429 4.11429L7.54286 0.685714"
+        d="M12.375 3H5.625C4.38236 3 3.375 4.00736 3.375 5.25V13.125C3.375 14.3676 4.38236 15.375 5.625 15.375H12.375C13.6176 15.375 14.625 14.3676 14.625 13.125V5.25C14.625 4.00736 13.6176 3 12.375 3Z"
         stroke={color}
-        strokeWidth={1.37143}
+        strokeWidth={1.275}
+      />
+      <path
+        d="M6.375 2.0625V4.3125M11.625 2.0625V4.3125M3.375 6.9375H14.625"
+        stroke={color}
+        strokeWidth={1.275}
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.75 10.875L8.25 12.375L11.25 9.15"
+        stroke={color}
+        strokeWidth={1.275}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

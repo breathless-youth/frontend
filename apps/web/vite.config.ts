@@ -322,7 +322,13 @@ function warnMissingProxyTarget() {
 
 export default defineConfig({
   plugins: [
-    react(),
+    // 같은 설정을 dev 서버·vitest·build가 함께 읽으므로 컴파일러도 세 곳에 똑같이 걸린다.
+    // 테스트가 배포 산출물과 같은 변환을 거쳐야 컴파일러로 생긴 회귀를 테스트에서 잡을 수 있다.
+    react({
+      babel: {
+        plugins: [["babel-plugin-react-compiler", {}]],
+      },
+    }),
     tailwindcss(),
     requireMediapipeWasm(),
     sentrySourcemaps(),

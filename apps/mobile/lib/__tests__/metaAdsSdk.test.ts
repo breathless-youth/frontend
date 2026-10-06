@@ -6,6 +6,7 @@
 import type * as ReactNative from "react-native";
 
 import type { MetaAdsAdapter } from "../metaAds";
+import type * as MetaAdsSdkModule from "../metaAdsSdk";
 
 let mockMetaAppId = "";
 let mockSdkLoaded = false;
@@ -30,9 +31,9 @@ jest.mock("react-native-fbsdk-next", () => {
 jest.mock("../metaAds", () => ({ setMetaAdsAdapter: jest.fn() }));
 
 function install(): jest.Mock {
-  const { installMetaAdsSdk } = require("../metaAdsSdk") as typeof import("../metaAdsSdk");
+  const { installMetaAdsSdk } = jest.requireActual<typeof MetaAdsSdkModule>("../metaAdsSdk");
   installMetaAdsSdk();
-  return (require("../metaAds") as { setMetaAdsAdapter: jest.Mock }).setMetaAdsAdapter;
+  return jest.requireMock<{ setMetaAdsAdapter: jest.Mock }>("../metaAds").setMetaAdsAdapter;
 }
 
 function installedAdapter(): MetaAdsAdapter {
@@ -47,7 +48,7 @@ function installedAdapter(): MetaAdsAdapter {
  * `emit`은 상태를 바꾸고 등록된 리스너를 부른다.
  */
 function controlAppState(initial: string) {
-  const { AppState } = require("react-native") as typeof ReactNative;
+  const { AppState } = jest.requireActual<typeof ReactNative>("react-native");
   const state = AppState as unknown as { currentState: string };
   const listeners = new Set<(next: string) => void>();
   state.currentState = initial;

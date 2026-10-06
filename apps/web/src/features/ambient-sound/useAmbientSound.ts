@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { trackAmbientSoundChanged, trackAmbientSoundDuckToggled } from "@/lib/amplitude";
 
@@ -56,9 +56,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 아이콘으로 껐다 켤 때 돌려줄 음량. 세션 안에서만 기억하면 되므로 저장하지 않는다.
   const lastLevelRef = useRef<Record<SoundId, number>>({});
   const studyingRef = useRef(studying);
-  studyingRef.current = studying;
   const pausedRef = useRef(paused);
-  pausedRef.current = paused;
 
   const syncAfterCommand = useCallback(
     (player: AmbientPlayer) => {
@@ -72,7 +70,14 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 카탈로그 로드 효과가 이 함수를 의존성으로 들면 usage 가 바뀔 때마다 다시 불러오고
   // 자동 시작이 한 번 더 난다. 거울 ref 로 최신 것만 읽는다.
   const syncRef = useRef(syncAfterCommand);
-  syncRef.current = syncAfterCommand;
+
+  // 렌더 중에는 ref 를 쓸 수 없어 커밋 직후 ref 에 최신값을 반영한다.
+  // 레이아웃 효과라 아래 일반 효과들이 돌기 전에 이미 최신값이 들어가 있다.
+  useLayoutEffect(() => {
+    studyingRef.current = studying;
+    pausedRef.current = paused;
+    syncRef.current = syncAfterCommand;
+  });
 
   const commit = useCallback((next: AmbientSoundSettings) => {
     // 빈 믹스로 lastMix 를 덮으면 전체 켜기로 되살릴 조합이 사라진다.
@@ -106,20 +111,17 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   );
 
   /** 믹스 변경의 단일 통로 — 켜고 끄는 변화만 이벤트로 남기고 레벨만 바뀌면 보내지 않는다. */
-  const changeMix = useCallback(
-    (next: Mix, source: AmbientChangeSource) => {
-      const current = settingsRef.current;
-      if (!current || next === current.mix) return;
-      commit({ ...current, mix: next });
-      void applyMix(next);
-      const before = activeIds(current.mix, catalog);
-      const after = activeIds(next, catalog);
-      if (before.join(",") !== after.join(",")) {
-        trackAmbientSoundChanged({ sounds: after, source });
-      }
-    },
-    [applyMix, catalog, commit],
-  );
+  const changeMix = (next: Mix, source: AmbientChangeSource) => {
+    const current = settingsRef.current;
+    if (!current || next === current.mix) return;
+    commit({ ...current, mix: next });
+    void applyMix(next);
+    const before = activeIds(current.mix, catalog);
+    const after = activeIds(next, catalog);
+    if (before.join(",") !== after.join(",")) {
+      trackAmbientSoundChanged({ sounds: after, source });
+    }
+  };
 
   // 주입 카탈로그는 안정된 참조여야 한다 — 바뀌면 다시 불러와 자동 시작이 한 번 더 난다.
   const injectedCatalog = options.catalog;
@@ -130,15 +132,17 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       loadAmbientSoundSettings(),
     ]).then(([loadedCatalog, loaded]) => {
       if (cancelled) return;
-      playerRef.current ??= createWebAudioPlayer({
-        catalog: loadedCatalog,
-        // 들리는 상태가 바뀌는 순간마다 계측을 맞춘다. applyMix 가 끝나기를 기다리면 느린
-        // 파일 하나 때문에 이미 나는 소리의 시간이 빠지고, 통화로 멈춘 구간은 반대로 더해진다.
-        onPlaybackChanged: () => {
-          const player = playerRef.current;
-          if (player) syncRef.current(player);
-        },
-      });
+      if (playerRef.current == null) {
+        playerRef.current = createWebAudioPlayer({
+          catalog: loadedCatalog,
+          // 들리는 상태가 바뀌는 순간마다 계측을 맞춘다. applyMix 가 끝나기를 기다리면 느린
+          // 파일 하나 때문에 이미 나는 소리의 시간이 빠지고, 통화로 멈춘 구간은 반대로 더해진다.
+          onPlaybackChanged: () => {
+            const player = playerRef.current;
+            if (player) syncRef.current(player);
+          },
+        });
+      }
       // 카탈로그 밖 id 는 지우고, 지운 게 있으면 그 결과를 저장한다.
       // 카탈로그가 비어 있으면 로드 실패일 수 있으니 판단을 보류하고 저장값을 건드리지 않는다.
       const ids = activeIds(loaded.mix, loadedCatalog);
@@ -202,46 +206,37 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     };
   }, [studying, usage]);
 
-  const changeLevel = useCallback(
-    (id: SoundId, level: number) => {
-      const current = settingsRef.current;
-      if (!current) return;
-      // 0 으로 내리는 것도 끄는 것이라, 사라지기 직전의 음량을 저장해 둬야 아이콘으로 다시
-      // 켤 때 그 값으로 돌아온다. 저장하지 않으면 기본값 60 으로 튄다.
-      const remembered = level > 0 ? level : current.mix[id];
-      if (remembered !== undefined && remembered > 0) lastLevelRef.current[id] = remembered;
-      changeMix(setLevel(current.mix, id, level), "dialog");
-    },
-    [changeMix],
-  );
+  const changeLevel = (id: SoundId, level: number) => {
+    const current = settingsRef.current;
+    if (!current) return;
+    // 0 으로 내리는 것도 끄는 것이라, 사라지기 직전의 음량을 저장해 둬야 아이콘으로 다시
+    // 켤 때 그 값으로 돌아온다. 저장하지 않으면 기본값 60 으로 튄다.
+    const remembered = level > 0 ? level : current.mix[id];
+    if (remembered !== undefined && remembered > 0) lastLevelRef.current[id] = remembered;
+    changeMix(setLevel(current.mix, id, level), "dialog");
+  };
 
   /** 아이콘 탭 - 켜진 소리는 0으로 내리고, 꺼진 소리는 마지막으로 듣던 음량으로 되돌린다. */
-  const toggleSound = useCallback(
-    (id: SoundId) => {
-      const current = settingsRef.current;
-      if (!current) return;
-      const level = current.mix[id];
-      if (level !== undefined) {
-        lastLevelRef.current[id] = level;
-        changeMix(setLevel(current.mix, id, 0), "dialog");
-        return;
-      }
-      changeMix(setLevel(current.mix, id, lastLevelRef.current[id] ?? DEFAULT_LEVEL), "dialog");
-    },
-    [changeMix],
-  );
+  const toggleSound = (id: SoundId) => {
+    const current = settingsRef.current;
+    if (!current) return;
+    const level = current.mix[id];
+    if (level !== undefined) {
+      lastLevelRef.current[id] = level;
+      changeMix(setLevel(current.mix, id, 0), "dialog");
+      return;
+    }
+    changeMix(setLevel(current.mix, id, lastLevelRef.current[id] ?? DEFAULT_LEVEL), "dialog");
+  };
 
-  const setDuckEnabled = useCallback(
-    (enabled: boolean) => {
-      const current = settingsRef.current;
-      if (!current || current.duckEnabled === enabled) return;
-      commit({ ...current, duckEnabled: enabled });
-      trackAmbientSoundDuckToggled(enabled);
-    },
-    [commit],
-  );
+  const setDuckEnabled = (enabled: boolean) => {
+    const current = settingsRef.current;
+    if (!current || current.duckEnabled === enabled) return;
+    commit({ ...current, duckEnabled: enabled });
+    trackAmbientSoundDuckToggled(enabled);
+  };
 
-  const toggleAll = useCallback(() => {
+  const toggleAll = () => {
     const current = settingsRef.current;
     if (!current) return;
     if (Object.keys(current.mix).length > 0) {
@@ -251,7 +246,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       return;
     }
     if (Object.keys(current.lastMix).length > 0) changeMix(current.lastMix, "dialog");
-  }, [changeMix]);
+  };
 
   const mix = settings?.mix ?? {};
   return {

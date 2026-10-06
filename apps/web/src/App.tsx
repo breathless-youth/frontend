@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Profiler, Suspense, useEffect } from "react";
+import type { ProfilerOnRenderCallback } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
@@ -12,6 +13,7 @@ import {
   FORCE_UPDATE_TITLE,
 } from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
+import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
@@ -31,6 +33,7 @@ import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
   loadContactPage,
+  loadInterviewFormPage,
   loadLicensesPage,
   loadOnboardingGuidePage,
   loadPrivacyPage,
@@ -38,6 +41,7 @@ import {
   loadResultPage,
   loadTermsPage,
 } from "@/routes/lazyRoutes";
+import { PlannerPage } from "@/routes/PlannerPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
@@ -71,6 +75,11 @@ const OnboardingGuidePage = lazy(
 const ContactPage = lazy(
   reloadOnChunkError(() => loadContactPage().then((module) => ({ default: module.ContactPage }))),
 );
+const InterviewFormPage = lazy(
+  reloadOnChunkError(() =>
+    loadInterviewFormPage().then((module) => ({ default: module.InterviewFormPage })),
+  ),
+);
 const TermsPage = lazy(
   reloadOnChunkError(() => loadTermsPage().then((module) => ({ default: module.TermsPage }))),
 );
@@ -93,6 +102,52 @@ const WorkerParityPage = lazy(
   ),
 );
 
+// 세션 화면의 커밋 횟수를 개발 빌드에서만 기록한다.
+// React Compiler 전후 비교의 근거다.
+const roomCommitStats = { commits: 0, actualMs: 0, lastLogAt: 0 };
+const onRoomRender: ProfilerOnRenderCallback = (
+  _id,
+  phase,
+  actualDuration,
+  _base,
+  _start,
+  commitTime,
+) => {
+  if (phase === "mount") {
+    roomCommitStats.commits = 1;
+    roomCommitStats.actualMs = actualDuration;
+    roomCommitStats.lastLogAt = commitTime;
+    return;
+  }
+  roomCommitStats.commits += 1;
+  roomCommitStats.actualMs += actualDuration;
+  if (commitTime - roomCommitStats.lastLogAt >= 10_000) {
+    roomCommitStats.lastLogAt = commitTime;
+    // eslint-disable-next-line no-console -- 개발 빌드에서만 찍는 측정 로그다
+    console.info(
+      `[profile] RoomPage commits=${roomCommitStats.commits} actualMs=${roomCommitStats.actualMs.toFixed(1)}`,
+    );
+  }
+};
+
+function RoomPageProfiled() {
+  useEffect(() => {
+    return () => {
+      // StrictMode가 마운트 직후 정리를 한 번 더 돌려 커밋 1건짜리 요약은 건너뛴다.
+      if (roomCommitStats.commits <= 1) return;
+      // eslint-disable-next-line no-console -- 개발 빌드에서만 찍는 측정 로그다
+      console.info(
+        `[profile] RoomPage unmount commits=${roomCommitStats.commits} actualMs=${roomCommitStats.actualMs.toFixed(1)}`,
+      );
+    };
+  }, []);
+  return (
+    <Profiler id="RoomPage" onRender={onRoomRender}>
+      <RoomPage />
+    </Profiler>
+  );
+}
+
 /** 라우트가 바뀔 때마다 탭 바를 피해 토스트 위치를 다시 잰다. */
 function AppToaster() {
   const { pathname } = useLocation();
@@ -107,6 +162,7 @@ function AppToaster() {
 }
 
 export function App() {
+  useRecordLastHidden();
   // 슬라이드 전환의 갱신 콜백이 라우트 커밋 시점에 풀리게 한다. Routes의 형제로 마운트해야
   // 한다(lib/pageTransition.ts). 라우트 엘리먼트 안에 두면 이동과 함께 언마운트돼 새 위치를
   // 못 본다.
@@ -160,10 +216,14 @@ export function App() {
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/room/:id" element={<RoomPage />} />
+              <Route
+                path="/room/:id"
+                element={import.meta.env.DEV ? <RoomPageProfiled /> : <RoomPage />}
+              />
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/records" element={<RecordsPage />} />
+              <Route path="/planner" element={<PlannerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialHomePage />} />
               {import.meta.env.DEV && (
@@ -179,6 +239,7 @@ export function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/interview" element={<InterviewFormPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />

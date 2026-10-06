@@ -1,4 +1,4 @@
-import type { StatusEventPayload } from "@focusmakers/types";
+import type { StatusEventPayload, SubjectSegmentPayload } from "@focusmakers/types";
 
 /**
  * 이벤트에 실린 PAUSE 구간의 합을 ms 그대로 돌려준다.
@@ -33,4 +33,40 @@ export function clampSessionSeconds(params: {
   const studySec = Math.min(Math.max(0, params.studySec), studyCapSec);
   const focusSec = Math.min(Math.max(0, params.focusSec), studySec);
   return { studySec, focusSec };
+}
+
+/**
+ * 과목 구간의 서버 규칙을 미리 적용한다 — 세션 구간 안, 종료 > 시작, 서로 겹치지 않음. 경계 밖은 잘라내고,
+ * 잘라서 0초가 되거나 읽을 수 없는 시각은 버리고, 앞 구간과 겹치는 시작은 앞 구간 끝으로 민다.
+ * 최종 제출과 진행 스냅샷이 함께 쓴다 — 제출은 boundaryMs로 endedAt을, 스냅샷은 reportedAt을 넘긴다.
+ */
+export function clampSubjectSegments(
+  items: readonly SubjectSegmentPayload[],
+  startedAtMs: number,
+  boundaryMs: number,
+): SubjectSegmentPayload[] {
+  const sorted = items
+    .map((item) => ({
+      subjectId: item.subjectId,
+      startMs: Date.parse(item.startedAt),
+      endMs: Date.parse(item.endedAt),
+    }))
+    .filter((item) => Number.isFinite(item.startMs) && Number.isFinite(item.endMs))
+    .sort((a, b) => a.startMs - b.startMs);
+  const result: SubjectSegmentPayload[] = [];
+  let cursorMs = startedAtMs;
+  for (const item of sorted) {
+    const startMs = Math.max(item.startMs, cursorMs);
+    const endMs = Math.min(item.endMs, boundaryMs);
+    if (endMs <= startMs) {
+      continue;
+    }
+    result.push({
+      subjectId: item.subjectId,
+      startedAt: new Date(startMs).toISOString(),
+      endedAt: new Date(endMs).toISOString(),
+    });
+    cursorMs = endMs;
+  }
+  return result;
 }

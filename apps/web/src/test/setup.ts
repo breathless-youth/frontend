@@ -9,3 +9,11 @@ Object.defineProperty(HTMLMediaElement.prototype, "play", {
   writable: true,
   value: () => Promise.resolve(),
 });
+
+// jsdom에는 ResizeObserver가 없다. 차트(recharts ResponsiveContainer)가 마운트하며 만들므로
+// 아무것도 재지 않는 구현을 둔다 — 차트 크기가 필요한 테스트는 ResponsiveContainer를 따로 mock한다.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

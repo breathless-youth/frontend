@@ -48,6 +48,14 @@ function hostnameOf(url: string): string | undefined {
   return undefined;
 }
 
+function isHttps(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 개발 환경의 값이 운영 API를 가리키면 던진다. 빈 값·호스트를 못 뽑는 값은 통과 —
  * 형식 검증은 가드의 일이 아니고, 그런 값은 어차피 운영에 붙지 못한다.
@@ -76,6 +84,11 @@ export function resolveApiBase(env: NodeJS.ProcessEnv): { deployEnv: DeployEnv; 
     const host = hostnameOf(apiBase);
     if (host === undefined || !PROD_API_HOSTS.includes(host)) {
       throw new Error(`운영 빌드의 API 주소가 운영 호스트가 아닙니다: ${apiBase || "(빈 값)"}`);
+    }
+    // 호스트만 맞고 스킴이 http면 Authorization·STOMP CONNECT의 Bearer가 평문으로 나간다
+    // (STOMP 주소는 이 값의 http를 ws로 바꿔 만든다). 스킴이 없거나 파싱이 안 되는 값도 거부한다.
+    if (!isHttps(apiBase)) {
+      throw new Error(`운영 빌드의 API 주소는 https여야 합니다: ${apiBase}`);
     }
   } else {
     assertNotProdApiHost("API 주소", apiBase);

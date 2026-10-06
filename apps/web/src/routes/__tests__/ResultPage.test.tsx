@@ -4,13 +4,15 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
@@ -44,6 +46,18 @@ beforeEach(() => {
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
 });
+
+// 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
+// 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
+vi.mock("@/lib/interviewApi", () => ({
+  getInterviewStatus: () =>
+    Promise.resolve({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: false,
+      settingsUrl: null,
+    }),
+}));
 
 // 이탈 예약의 인자만 관측한다 — 나머지 계측은 미초기화 no-op 그대로 둔다.
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -287,13 +301,50 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
   });
 });
 
+describe("ResultPage — 인터뷰 폼에서 돌아온 결과", () => {
+  it("이미 연출을 본 결과면 기다리지 않고 카드와 CTA를 바로 보이고 색종이를 터뜨리지 않는다", () => {
+    vi.useFakeTimers();
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+
+    renderResult({ sessions: [exampleSession()], introSeen: true }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
+    expect(screen.getByText("오늘 누적 순공시간")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "홈으로" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
+    expect(getContext).not.toHaveBeenCalled();
+  });
+
+  it("introSeen이 true가 아니면 평소처럼 연출한다", () => {
+    vi.useFakeTimers();
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+
+    renderResult({ sessions: [exampleSession()], introSeen: "yes" }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
+    expect(getContext).toHaveBeenCalled();
+  });
+});
+
 describe("ResultPage — 타임라인 카드", () => {
   it("바는 요약 라벨을 가진 이미지로 노출된다 — 시각 요소만으로 정보를 전달하지 않는다", () => {
     renderResult({ sessions: [exampleSession()] });
 
     expect(
       screen.getByRole("img", {
-        name: "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최고 집중 시간 42분",
+        name: "순공 1시간 24분, 자동 멈춤 18분, 일시정지 3분, 최대 집중 시간 42분",
       }),
     ).toBeInTheDocument();
   });
@@ -302,27 +353,27 @@ describe("ResultPage — 타임라인 카드", () => {
    * BY-560 시안(2026-09-14): 이벤트로 끊기지 않고 이어진 가장 긴 구간을 바 위 배지·바 안
    * 하이라이트·바 아래 행으로 보여준다. 예시 세션은 마지막 휴대폰 사용 뒤 42분이 가장 길다.
    */
-  it("최고 집중 시간을 배지와 행으로 보여준다 — 값과 시각 범위가 함께 간다", () => {
+  it("최대 집중 시간을 배지와 행으로 보여준다 — 값과 시각 범위가 함께 간다", () => {
     renderResult({ sessions: [exampleSession()] });
     const card = timelineCard();
 
     // 배지(장식, aria-hidden)와 행 라벨 — 둘 다 같은 문구를 쓴다.
-    expect(within(card).getAllByText(/최고 집중 시간/).length).toBeGreaterThanOrEqual(2);
+    expect(within(card).getAllByText(/최대 집중 시간/).length).toBeGreaterThanOrEqual(2);
     expect(within(card).getByText("42분")).toBeInTheDocument();
     expect(within(card).getByText("22:05 – 22:48")).toBeInTheDocument();
   });
 
-  it("이벤트가 세션 전체를 덮어 이어진 구간이 없으면 최고 집중 시간을 그리지 않는다", () => {
+  it("이벤트가 세션 전체를 덮어 이어진 구간이 없으면 최대 집중 시간을 그리지 않는다", () => {
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6300)] })] });
 
-    expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
+    expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
   });
 
-  it("가장 긴 집중 구간이 1분 미만이면 최고 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
+  it("가장 긴 집중 구간이 1분 미만이면 최대 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6241)] })] });
 
-    expect(within(timelineCard()).queryByText(/최고 집중 시간/)).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최고 집중/);
+    expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최대 집중/);
   });
 
   it("축 라벨은 세션 시작·종료 벽시계다", () => {
@@ -695,5 +746,38 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
 
     expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+  });
+});
+
+describe("ResultPage: 세션 중 초대", () => {
+  // 모듈 스코프 mock이라 앞선 테스트의 호출 기록이 남아 있을 수 있다.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    act(() => {
+      clearSessionInvite();
+    });
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("솔로 결과 화면에서 초대가 오면 초대코드를 실어 세션을 닫고 설문은 예약하지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderResult({ sessions: [exampleSession()] });
+
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      entry(JSON.stringify({ type: "session-invite", code: "4680", atMs: 1 }));
+    });
+
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"inviteCode":"4680"')),
+    );
+    expect(stageStudyResultExit).not.toHaveBeenCalled();
   });
 });

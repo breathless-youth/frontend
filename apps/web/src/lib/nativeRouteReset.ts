@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { subscribeToNativeMessages } from "./bridge";
@@ -16,18 +16,19 @@ import { subscribeToNativeMessages } from "./bridge";
  */
 export function useNativeRouteReset(): void {
   const navigate = useNavigate();
-  // 구독은 마운트 1회만 걸고 최신 쿼리는 ref로 읽는다 — search가 바뀔 때마다 구독을 다시
+  // 구독은 마운트 1회만 걸고 최신 쿼리는 useEffectEvent로 읽는다 — search가 바뀔 때마다 구독을 다시
   // 만들면 그 사이에 도착한 메시지를 놓칠 수 있다.
   const { search } = useLocation();
-  const searchRef = useRef(search);
-  searchRef.current = search;
+  const resetTo = useEffectEvent((path: string) => {
+    void navigate({ pathname: path, search }, { replace: true });
+  });
 
   useEffect(() => {
     return subscribeToNativeMessages((message) => {
       if (message.type !== "reset-route") {
         return;
       }
-      void navigate({ pathname: message.path, search: searchRef.current }, { replace: true });
+      resetTo(message.path);
     });
-  }, [navigate]);
+  }, []);
 }

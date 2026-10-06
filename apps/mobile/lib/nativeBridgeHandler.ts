@@ -7,6 +7,7 @@ import { getActiveTab } from "./activeTab";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
+import { triggerHaptic } from "./haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
@@ -90,9 +91,17 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       }
       // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없어 여기서 알린다.
       emitSessionClosed();
-      // S4 `기록으로 가기`(솔로): 모달 닫기와 탭 전환이 한 메시지로 온다 — 둘로 나누면 첫
-      // 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(계약 주석 참고).
-      if (message.tab !== undefined) {
+      // 세션 중 받은 초대는 기존 탭 셸의 소셜 탭으로 보내 새 `(tabs)`를 쌓지 않는다.
+      // 소셜 탭은 `code`가 바뀌면 초대코드 화면을 다시 연다.
+      // 같은 코드가 다시 와도 새로 열리도록 매번 다른 `at`을 함께 싣는다.
+      if (message.inviteCode !== undefined) {
+        router.navigate({
+          pathname: "/(tabs)/social",
+          params: { code: message.inviteCode, at: String(message.atMs) },
+        });
+      } else if (message.tab !== undefined) {
+        // S4 `기록으로 가기`(솔로): 모달 닫기와 탭 전환이 한 메시지로 온다 — 둘로 나누면 첫
+        // 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(계약 주석 참고).
         openTab(message.tab, "study_result");
       }
       break;
@@ -159,6 +168,10 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void refreshAuth()
         .then((state) => state ?? ensureAuth())
         .then((state) => reply(authTokenMessage(state)));
+      break;
+    case "haptic":
+      // 웹뷰는 스스로 햅틱을 못 낸다(iOS는 API가 없고 Android는 강한 진동뿐) — 여기서 대신 낸다.
+      triggerHaptic(message.style);
       break;
     case "motion-sensor":
       // 소셜룸(소셜 탭·딥링크 join WebView) 경로

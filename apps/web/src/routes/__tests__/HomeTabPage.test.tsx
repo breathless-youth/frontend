@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { SessionRecoveryResponse } from "@focusmakers/types";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { NoticeResponse, SessionRecoveryResponse } from "@focusmakers/types";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,10 @@ vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
 }));
+
+/** 홈 공지는 자기 테스트가 따로 본다. 기본은 띄울 공지가 없게 두고 복구 창 순서 테스트만 바꾼다. */
+const getActiveNotices = vi.hoisted(() => vi.fn(() => Promise.resolve<NoticeResponse[]>([])));
+vi.mock("@/lib/noticeApi", () => ({ getActiveNotices }));
 
 vi.mock("@/lib/ddayApi", () => ({
   getDday: vi.fn(() => Promise.resolve(null)),
@@ -140,7 +144,9 @@ describe("HomeTabPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     closeStaleSession.mockResolvedValue(null);
+    getActiveNotices.mockImplementation(() => Promise.resolve([]));
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("성공 시 순공시간·집중률·스탯 카드를 보여준다", async () => {
@@ -274,6 +280,134 @@ describe("HomeTabPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    const NOTICE: NoticeResponse = {
+      id: 3,
+      title: "점검 안내",
+      content: "c",
+      imageUrl: null,
+      audience: "ALL",
+      badgeText: null,
+      buttonText: null,
+      buttonUrl: null,
+    };
+
+    it("공지가 떠 있는 동안은 기다렸다가 공지를 닫으면 뜬다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+      expect(await screen.findByRole("dialog", { name: "점검 안내" })).toBeInTheDocument();
+      await waitFor(() => expect(closeStaleSession).toHaveBeenCalled());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.queryByText("저장되지 않은 기록을 복구했어요")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+
+      expect(await screen.findByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
+    });
+
+    it("공지가 떠 있는 동안 홈이 다시 보여도 복구 창이 겹치지 않는다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+      await screen.findByRole("dialog", { name: "점검 안내" });
+      await waitFor(() => expect(closeStaleSession).toHaveBeenCalled());
+
+      document.dispatchEvent(new Event("visibilitychange"));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByText("저장되지 않은 기록을 복구했어요")).toBeNull();
+    });
+
+    it("공지 조회가 끝나지 않아도 3초 뒤 복구 창이 뜨고, 늦게 온 공지는 그 위에 뜨지 않는다", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        mockedStats.mockResolvedValue(statsResponse);
+        mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+        let resolveNotices: (value: NoticeResponse[]) => void = () => {};
+        getActiveNotices.mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              resolveNotices = resolve;
+            }),
+        );
+        closeStaleSession.mockResolvedValue(RECOVERED);
+
+        renderHome();
+        emitAppLaunched();
+        await waitFor(() => expect(closeStaleSession).toHaveBeenCalled());
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(screen.queryByText("저장되지 않은 기록을 복구했어요")).toBeNull();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(3000);
+        });
+        expect(screen.getByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
+
+        await act(async () => resolveNotices([NOTICE]));
+        expect(screen.queryByRole("dialog", { name: "점검 안내" })).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("3초 마감 뒤 늦게 온 공지는 버려서, 나중에 온 복구 창만 뜬다", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        mockedStats.mockResolvedValue(statsResponse);
+        mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+        let resolveNotices: (value: NoticeResponse[]) => void = () => {};
+        getActiveNotices.mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              resolveNotices = resolve;
+            }),
+        );
+        closeStaleSession.mockResolvedValue(RECOVERED);
+
+        renderHome();
+        await waitFor(() => expect(getActiveNotices).toHaveBeenCalled());
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(3000);
+        });
+        await act(async () => resolveNotices([NOTICE]));
+        expect(screen.queryByRole("dialog", { name: "점검 안내" })).toBeNull();
+
+        emitAppLaunched();
+
+        expect(await screen.findByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
+        expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("복구 결과가 공지를 닫은 뒤에 와도 뜬다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
+      emitAppLaunched();
+
+      expect(await screen.findByText("저장되지 않은 기록을 복구했어요")).toBeInTheDocument();
     });
   });
 
@@ -523,5 +657,39 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.queryByText(todayLabel())).not.toBeInTheDocument();
     // 블록은 버튼이라 스크린리더용 h1을 따로 둔다
     expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
+  });
+
+  it("헤더 오른쪽 플래너 알약으로 오늘의 플래너를 연다 — 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome("/home?guestAuth=1");
+
+    const button = await screen.findByRole("button", { name: "플래너" });
+    navigateSpy.mockClear();
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    // 날짜 없이 열어 오늘의 플래너가 되고, 셸이 붙인 쿼리는 그대로 들고 간다.
+    expect(navigateSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).toHaveBeenCalledWith(
+      // 들어온 탭을 주소에도 싣는다 — 웹뷰가 다시 로드되면 state는 사라지고 주소만 남는다.
+      { pathname: "/planner", search: "?guestAuth=1&from=home" },
+      { state: { via: "home" } },
+    );
+  });
+
+  it("토큰 출처가 없는 문서의 헤더에는 플래너 버튼이 없다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    renderHome();
+
+    await screen.findByRole("heading", { level: 1, name: "FocusMakers" });
+    expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
   });
 });

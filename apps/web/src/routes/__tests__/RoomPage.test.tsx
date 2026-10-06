@@ -4,10 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
+import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { RoomPage } from "../RoomPage";
 
 /** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
@@ -17,6 +19,13 @@ vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
 
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
+}));
+
+/** 과목 목록 — 기본은 빈 목록이고, 과목이 필요한 테스트만 응답을 바꾼다. */
+const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<unknown[]> => []));
+vi.mock("@/lib/subjectApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listSubjects,
 }));
 
 const prefetchResultPage = vi.hoisted(() => vi.fn());
@@ -216,6 +225,28 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     );
   });
 
+  it("과목 시트가 열리면 부가 기능 버튼이 숨고 바는 알약 배경을 잃는다 — 바깥 탭으로 닫으면 돌아온다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    const sideActions = screen.getByRole("group", { name: "부가 기능" });
+    const barSurface = screen.getByRole("group", { name: "세션 컨트롤" }).firstElementChild;
+    expect(sideActions).not.toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-100");
+
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    expect(sideActions).toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-0");
+
+    // 심플 모드 토글이 아니라 시트만 접힌다.
+    await userEvent.click(screen.getByRole("button", { name: "과목 시트 닫기" }));
+    expect(sideActions).not.toHaveClass("invisible");
+    expect(barSurface).toHaveClass("opacity-100");
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
   it("일시정지 버튼이 '다시 시작'으로 토글된다", async () => {
     renderRoom("/room/7?userId=1");
 
@@ -223,6 +254,46 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+  });
+
+  it("일시정지 중에 과목의 재생 버튼을 누르면 세션도 함께 다시 시작한다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시작" })).not.toBeInTheDocument();
+  });
+
+  it("백그라운드로 일시정지되면 고른 과목도 멈춘 모양이 되고, 그 재생 버튼이 세션을 다시 시작한다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+
+    act(() => {
+      setVisibility("hidden");
+    });
+    act(() => {
+      setVisibility("visible");
+    });
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+
+    // 선택은 유지된 채(라벨에 과목이 남는다) 과목 버튼만 재생으로 돌아간다.
+    await userEvent.click(screen.getByRole("button", { name: /^수학.*순공/ }));
+    expect(screen.queryByRole("button", { name: "수학 측정 멈추기" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "수학 측정 시작" }));
+
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
   });
 
@@ -1115,5 +1186,204 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     expect(await screen.findByText(/저장되지 않았습니다/)).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
+  });
+});
+
+/** 네이티브가 세션 웹뷰에 초대를 넘긴 상황을 재현한다. */
+function receiveInvite(code: string) {
+  const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  act(() => {
+    entry(JSON.stringify({ type: "session-invite", code, atMs: Date.now() }));
+  });
+}
+
+function sentToNative(postMessage: ReturnType<typeof vi.fn>) {
+  return postMessage.mock.calls.map(
+    ([raw]) => JSON.parse(raw as string) as Record<string, unknown>,
+  );
+}
+
+function inviteLeaves(postMessage: ReturnType<typeof vi.fn>) {
+  return sentToNative(postMessage).filter(
+    (message) => message.type === "navigate-home" && message.inviteCode !== undefined,
+  );
+}
+
+function stubNativeBridge() {
+  const postMessage = vi.fn();
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+  return postMessage;
+}
+
+describe("RoomPage: 세션 중 초대", () => {
+  // 모듈 스코프 mock이라 앞선 테스트의 호출 기록이 남아 있을 수 있다.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    act(() => {
+      clearSessionInvite();
+    });
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("공부 중에 초대가 오면 저장 안내를 담은 초대 확인 창을 띄운다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    receiveInvite("4680");
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText("진행 중인 공부를 종료하고 초대에 참여할까요?"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(SUB_MINUTE_EXIT_DESCRIPTION)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "계속하기" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "참여하기" })).toBeInTheDocument();
+  });
+
+  it("계속하기를 누르면 세션에 남고 초대를 버린다", async () => {
+    const postMessage = stubNativeBridge();
+    renderRoom("/room/7?userId=1");
+    receiveInvite("4680");
+
+    await userEvent.click(await screen.findByRole("button", { name: "계속하기" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(submitStudySession).not.toHaveBeenCalled();
+    expect(sentToNative(postMessage).filter((message) => message.type === "navigate-home")).toEqual(
+      [],
+    );
+    expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+  });
+
+  it("참여하기를 누르면 저장한 뒤 결과·안내 화면 없이 초대코드를 실어 세션을 닫는다", async () => {
+    const postMessage = stubNativeBridge();
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+    receiveInvite("4680");
+
+    await userEvent.click(await screen.findByRole("button", { name: "참여하기" }));
+
+    await waitFor(() =>
+      expect(sentToNative(postMessage)).toContainEqual(
+        expect.objectContaining({ type: "navigate-home", inviteCode: "4680" }),
+      ),
+    );
+    expect(submitStudySession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
+    expect(inviteLeaves(postMessage)).toHaveLength(1);
+  });
+
+  it("1분 넘게 공부했어도 결과 화면으로 가지 않고 초대코드 화면으로 간다", async () => {
+    const postMessage = stubNativeBridge();
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      receiveInvite("4680");
+      fireEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "참여하기" }),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await waitFor(() =>
+      expect(sentToNative(postMessage)).toContainEqual(
+        expect.objectContaining({ type: "navigate-home", inviteCode: "4680" }),
+      ),
+    );
+    expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
+  });
+
+  it("이미 끝난 세션에 초대가 오면 확인 창 없이 초대코드 화면으로 간다", async () => {
+    const postMessage = stubNativeBridge();
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+
+    receiveInvite("4680");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(sentToNative(postMessage)).toContainEqual(
+        expect.objectContaining({ type: "navigate-home", inviteCode: "4680" }),
+      ),
+    );
+  });
+
+  it("저장이 실패하면 다시 제출 화면에 머물고, 다시 제출에 성공하면 초대코드 화면으로 간다", async () => {
+    const postMessage = stubNativeBridge();
+    vi.mocked(submitStudySession)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce([]);
+    renderRoom("/room/7?userId=1");
+    receiveInvite("4680");
+
+    await userEvent.click(await screen.findByRole("button", { name: "참여하기" }));
+    const retryButton = await screen.findByRole("button", { name: "다시 제출" });
+    expect(inviteLeaves(postMessage)).toEqual([]);
+    await userEvent.click(retryButton);
+
+    await waitFor(() =>
+      expect(sentToNative(postMessage)).toContainEqual(
+        expect.objectContaining({ type: "navigate-home", inviteCode: "4680" }),
+      ),
+    );
+    expect(submitStudySession).toHaveBeenCalledTimes(2);
+    const leaves = inviteLeaves(postMessage);
+    expect(leaves).toHaveLength(1);
+    expect(leaves[0]?.inviteCode).toBe("4680");
+  });
+
+  it("종료 확인 창이 열려 있을 때 초대가 오면 초대 확인 창 하나만 보인다", async () => {
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    expect(await screen.findByText("공부를 종료할까요?")).toBeInTheDocument();
+
+    receiveInvite("4680");
+
+    await waitFor(() => expect(screen.getAllByRole("alertdialog")).toHaveLength(1));
+    expect(
+      within(screen.getByRole("alertdialog")).getByText(
+        "진행 중인 공부를 종료하고 초대에 참여할까요?",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("초대를 받아 둔 채 자동 종료되면 자동 종료 안내 없이 초대코드 화면으로 간다", async () => {
+    const postMessage = stubNativeBridge();
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+      receiveInvite("4680");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20 * 60_000 + 1_000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await waitFor(() => expect(inviteLeaves(postMessage)).toHaveLength(1));
+    expect(submitStudySession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
   });
 });

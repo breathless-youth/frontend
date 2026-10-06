@@ -36,12 +36,14 @@ import { pageTransitionFinished } from "./pageTransition";
 const FULL_SCREEN_PATHS = [
   "/onboarding-guide",
   "/contact",
+  "/interview",
   "/terms",
   "/privacy",
   "/licenses",
   "/social/code",
   "/social/join",
   "/profile",
+  "/planner",
 ];
 
 /** 동적 세그먼트를 갖는 전체 화면 라우트 — prefix로 판정한다. */
@@ -171,7 +173,7 @@ export function useNativeTabBarSync(): void {
     } else {
       post();
     }
-    // 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외 — `ContactPage` 주석) 뒤로
+    // 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외 — `GoogleFormPage` 주석) 뒤로
     // 스와이프가 이전 문서를 bfcache에서 복원할 수 있게 됐다.
     // 복원은 렌더가 아니라 페이지 freeze 해제라 위 effect가 다시 실행되지 않는다
     // — 복귀 신호가 유실되면 탭 바가 사라진 채 남는다.

@@ -27,7 +27,7 @@ import { isFullScreenPath } from "@/lib/nativeTabBar";
  *
  * ※ 문의(`/contact`)는 문서 단위 내비게이션으로 바뀌어(COEP 예외) 이 가드가 잡지 못한다 —
  * 문서 경계를 넘는 포워드는 same-document POP으로 오지 않는다. 수용한 트레이드오프이며
- * 근거는 `routes/ContactPage.tsx` 머리 주석 참고.
+ * 근거는 `routes/GoogleFormPage.tsx` 머리 주석 참고.
  */
 
 type NavigationType = "POP" | "PUSH" | "REPLACE";

@@ -860,6 +860,15 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
     m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
     m.trackRecordsMonthChanged({ delta: 1, method: "button" });
+    m.trackRecordsSessionExpanded({ expanded: true });
+    m.trackRecordsViewChanged("weekly");
+    m.trackRecordsWeekChanged(-1, "swipe");
+    m.trackRecordsPeriodPickerOpened("daily");
+    m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
+    m.trackPlannerOpened({ via: "records", isToday: false });
+    m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
+    m.trackSubjectItemAdded("task");
+    m.trackSubjectItemAdded("subject", true, "planner");
     m.trackSettingsRowPressed("profile");
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
@@ -877,6 +886,15 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
       ["records_date_selected", { is_today: false, has_records: true }],
       ["records_month_changed", { delta: 1, method: "button" }],
+      ["records_session_expanded", { expanded: true }],
+      ["records_view_changed", { view: "weekly" }],
+      ["records_week_changed", { delta: -1, method: "swipe" }],
+      ["records_period_picker_opened", { view: "daily" }],
+      ["records_period_picked", { view: "weekly", to_today: true }],
+      ["planner_opened", { via: "records", is_today: false }],
+      ["planner_date_changed", { delta: -1, method: "swipe" }],
+      ["subject_item_added", { kind: "task", via_suggestion: false, surface: "sheet" }],
+      ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "planner" }],
       ["settings_row_pressed", { row: "profile" }],
       [
         "profile_save_submitted",
@@ -1181,5 +1199,33 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     initialized.initAmplitude();
     expect(() => initialized.consumeStudyResultExit("/home")).not.toThrow();
     expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
+  });
+});
+
+describe("인터뷰 모집 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackInterviewShown({ source: "g1_revisit", exposure: 1 });
+    m.trackInterviewClicked({ source: "settings" });
+    m.trackInterviewDismissed({ source: "g3_complete", exposure: 2, action: "x" });
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("source·노출 순번·action을 그대로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackInterviewShown({ source: "g2_return", exposure: 2 });
+    m.trackInterviewClicked({ source: "g3_complete", exposure: 1 });
+    m.trackInterviewClicked({ source: "settings" });
+    m.trackInterviewDismissed({ source: "g1_revisit", exposure: 1, action: "never_again" });
+
+    expect(mocks.track.mock.calls.slice(-4)).toEqual([
+      ["interview_shown", { source: "g2_return", exposure: 2 }],
+      ["interview_clicked", { source: "g3_complete", exposure: 1 }],
+      ["interview_clicked", { source: "settings" }],
+      ["interview_dismissed", { source: "g1_revisit", exposure: 1, action: "never_again" }],
+    ]);
   });
 });

@@ -1,4 +1,7 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
+// 타입 전용 import라 런타임에 사라진다.
+// 아래 "정적 import 금지" 규칙은 그대로다.
+import type * as ScreenOrientation from "expo-screen-orientation";
 
 /**
  * 화면 방향 잠금 — **세션(`room/[id]`)만 회전하고 나머지는 전부 세로**(SCR-S3-5-S3-6).
@@ -53,7 +56,7 @@ import { requireOptionalNativeModule } from "expo-modules-core";
  * 던질 일이 없다.
  */
 
-type ScreenOrientationModule = typeof import("expo-screen-orientation");
+type ScreenOrientationModule = typeof ScreenOrientation;
 
 /** `undefined` = 아직 시도 안 함, `null` = 네이티브 모듈 없음(구형 빌드 — 경고는 최초 1회만). */
 let cachedModule: ScreenOrientationModule | null | undefined;

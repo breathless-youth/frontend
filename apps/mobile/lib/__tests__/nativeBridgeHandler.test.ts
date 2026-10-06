@@ -5,6 +5,7 @@ import type { HandlerMessage } from "@focusmakers/types";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
 import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
+import type * as AuthModule from "../auth";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -13,6 +14,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
+import { triggerHaptic } from "../haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
@@ -33,6 +35,8 @@ jest.mock("expo-router", () => ({
     canGoBack: jest.fn(() => true),
   },
 }));
+
+jest.mock("../haptics", () => ({ triggerHaptic: jest.fn() }));
 
 jest.mock("../cameraPermissionGate", () => ({
   runCameraPermissionGate: jest.fn(),
@@ -61,7 +65,7 @@ jest.mock("../firebaseAnalytics", () => ({
 }));
 
 jest.mock("../auth", () => ({
-  ...jest.requireActual<typeof import("../auth")>("../auth"),
+  ...jest.requireActual<typeof AuthModule>("../auth"),
   awaitAuth: jest.fn(),
   ensureAuth: jest.fn(),
   refreshAuth: jest.fn(),
@@ -195,6 +199,32 @@ describe("handleBridgeMessage", () => {
     expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
+  it("navigate-home에 inviteCode가 실려 오면 모달을 닫고 기존 소셜 탭을 초대코드 화면으로 바꾼다", () => {
+    handleBridgeMessage({ type: "navigate-home", inviteCode: "4680", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+    // push가 아니라 navigate: 이미 있는 탭 셸로 가야 `(tabs)`가 하나 더 쌓이지 않는다.
+    expect(mockedRouter.navigate).toHaveBeenCalledWith({
+      pathname: "/(tabs)/social",
+      params: { code: "4680", at: "1" },
+    });
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("navigate-home에 tab과 inviteCode가 함께 오면 초대가 우선한다", () => {
+    handleBridgeMessage(
+      { type: "navigate-home", tab: "records", inviteCode: "4680", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedRouter.navigate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith({
+      pathname: "/(tabs)/social",
+      params: { code: "4680", at: "1" },
+    });
+  });
+
   it("navigate-tab → 기록 탭으로 이동한다 (홈 연속 공부 카드)", () => {
     handleBridgeMessage({ type: "navigate-tab", tab: "records", atMs: 1 }, noopReply);
 
@@ -292,6 +322,11 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("haptic → 네이티브 햅틱을 낸다", () => {
+    handleBridgeMessage({ type: "haptic", style: "light", atMs: 1 }, noopReply);
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
   });
 
   it("meta-app-event → Meta SDK 통로에 이름·파라미터·valueToSum을 그대로 넘긴다", () => {

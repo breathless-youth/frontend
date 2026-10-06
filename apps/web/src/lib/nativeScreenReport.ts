@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { isLiveRoomState } from "@/features/live-room/liveRoomEntryState";
+import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 
 import { postToNative } from "./bridge";
 
@@ -46,6 +47,14 @@ export function useNativeScreenReport(): void {
       const entry = new URLSearchParams(location.search).get("entry");
       if (entry !== null) {
         restoreQuery = { entry };
+      }
+    } else if (location.pathname === "/planner") {
+      // 보던 날짜와 들어온 탭. 들어온 탭이 유실되면 복원된 플래너의 뒤로 가기가 스택 없이 기록 탭으로
+      // 떨어져, 홈 탭 웹뷰에 기록 화면이 뜬다.
+      const date = new URLSearchParams(location.search).get("date");
+      const from = plannerEntryOf(location);
+      if (date !== null || from !== null) {
+        restoreQuery = { ...(date !== null ? { date } : {}), ...(from !== null ? { from } : {}) };
       }
     }
     postToNative({

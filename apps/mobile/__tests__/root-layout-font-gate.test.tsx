@@ -6,6 +6,7 @@ import type * as ReactNative from "react-native";
 import RootLayout from "../app/_layout";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
+import { setSessionInviteHandler } from "../lib/sessionInvite";
 
 /**
  * 라우트 컨텍스트 격리 이유는 `permission-denied.test.tsx` 상단 주석 참고 — `app/` 밖(`__tests__/`)에 둔다.
@@ -181,6 +182,25 @@ describe("RootLayout 폰트 로드 게이팅", () => {
     expect(mockStartPush).toHaveBeenCalledWith({ navigate: expect.any(Function) });
     unmount();
     expect(mockStopPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("세션 화면이 받은 초대 푸시는 화면을 쌓지 않고, 세션이 없으면 평소대로 연다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockRouter.push.mockClear();
+    const handler = jest.fn();
+    const release = setSessionInviteHandler(handler);
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    const { navigate } = mockStartPush.mock.calls[0][0];
+
+    navigate("/social/join?code=4680");
+    expect(handler).toHaveBeenCalledWith("4680");
+    expect(mockRouter.push).not.toHaveBeenCalled();
+
+    release();
+    navigate("/social/join?code=4680");
+    expect(mockRouter.push).toHaveBeenCalledWith("/social/join?code=4680");
   });
 
   it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", async () => {
