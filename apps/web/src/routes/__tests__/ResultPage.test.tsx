@@ -47,6 +47,18 @@ beforeEach(() => {
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
 });
 
+// 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
+// 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
+vi.mock("@/lib/interviewApi", () => ({
+  getInterviewStatus: () =>
+    Promise.resolve({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: false,
+      settingsUrl: null,
+    }),
+}));
+
 // 이탈 예약의 인자만 관측한다 — 나머지 계측은 미초기화 no-op 그대로 둔다.
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),

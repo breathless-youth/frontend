@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
+import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -201,6 +202,7 @@ export function ResultPage() {
           <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
             <StudyTimelineCard view={view} />
             {userId !== null && <SessionSummaryCard userId={userId} />}
+            {userId !== null && <InterviewCardHost userId={userId} />}
           </div>
         )}
       </div>
