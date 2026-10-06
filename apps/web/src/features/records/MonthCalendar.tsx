@@ -217,15 +217,17 @@ export function MonthCalendar({
             disabled={{ after: today }}
             onSelect={(date) => onSelectDate(dateKeyOfDate(date))}
             classNames={{
+              // 날짜 줄과 같은 간격이어야 요일 글자가 칸 가운데에 온다.
+              weekdays: "flex gap-[3px]",
               // 요일 줄은 그대로 두고 날짜 줄만 밀려 들어온다.
               weeks: cn(
-                "flex flex-col gap-1.5 pt-2.5",
+                "flex flex-col gap-[3px] pt-2.5",
                 slideFrom === "right" &&
                   "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
                 slideFrom === "left" &&
                   "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
               ),
-              week: "flex gap-1.5",
+              week: "flex gap-[3px]",
               day: "aspect-square flex-1 p-0",
             }}
             components={{ DayButton: HeatDayButton }}
