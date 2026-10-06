@@ -1,5 +1,6 @@
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
+import { settleRecoveredTimelapse } from "@/features/timelapse/timelapseRecorder";
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
 import { legacyQuery } from "@/lib/userId";
@@ -99,6 +100,7 @@ function isCalendarDateKey(value: string): boolean {
  *
  * 확정한 기록 요약을 돌려준다. 마감할 세션이 없거나 실패하면 null이다.
  * 앱 실행 복구가 이 값으로 안내 모달을 채운다.
+ * 옛 세션을 마감하는 길이 모두 이 함수를 지나므로 확정된 세션의 타임랩스도 여기서 정리한다.
  */
 export async function closeStaleSession(
   userId: number | null,
@@ -114,8 +116,9 @@ export async function closeStaleSession(
       resolve(null);
     }, DEADLINE_MS);
   });
+  let recovered: SessionRecoveryResponse | null;
   try {
-    return await Promise.race([
+    recovered = await Promise.race([
       retryOnce(controller.signal, () => requestRecovery(controller.signal)).catch(
         (error: unknown): null => {
           if (!controller.signal.aborted) {
@@ -129,4 +132,9 @@ export async function closeStaleSession(
   } finally {
     clearTimeout(timer);
   }
+  if (recovered !== null && import.meta.env.VITE_TIMELAPSE === "on") {
+    // 기기 저장소 정리 때문에 새 세션 시작이 늦어지면 안 되어 기다리지 않는다.
+    void settleRecoveredTimelapse(recovered);
+  }
+  return recovered;
 }

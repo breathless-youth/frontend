@@ -115,6 +115,28 @@ export interface StudyRoomSessionOptions {
    * `roomType`처럼 세션 로직에는 관여하지 않는다. 배경음이 없는 소셜룸은 생략한다.
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
+  /**
+   * 세션이 끝난 순간 한 번 부르는 알림
+   *
+   * 서버 제출 성패와 관계없이 기기가 잰 값을 준다.
+   * 타임랩스가 이 값으로 사진을 남길지 정한다.
+   * 소셜룸은 넘기지 않는다.
+   */
+  readonly onEnded?: (ended: EndedSession) => void;
+}
+
+/**
+ * 세션이 끝난 순간의 기기 집계
+ *
+ * 제출 재시도와 무관하게 세션당 한 번 나온다.
+ */
+export interface EndedSession {
+  readonly startedAtMs: number;
+  readonly endedAtMs: number;
+  readonly studySec: number;
+  readonly focusSec: number;
+  /** 결과 화면 타임라인과 같은 비공부 구간 */
+  readonly events: readonly StatusEventPayload[];
 }
 
 /** 서버가 준 이벤트 뒤에 타임라인이 만든 이벤트를 잇는다. 화면과 제출이 같은 규칙을 쓰게 한 곳에 둔다. */
@@ -151,6 +173,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const ambientUsageRef = useRef(options.ambientUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
+  });
+  const onEndedRef = useRef(options.onEnded);
+  useLayoutEffect(() => {
+    onEndedRef.current = options.onEnded;
   });
 
   /**
@@ -606,6 +632,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
         });
+        onEndedRef.current?.({
+          startedAtMs: startedAtMsRef.current,
+          endedAtMs,
+          studySec: finalTotals.studySec,
+          focusSec: finalTotals.focusSec,
+          events,
+        });
       }
 
       if (userId === null) {
@@ -696,6 +729,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 컴파일러가 메모하므로 타이머 틱이 totals를 바꿀 때마다 다시 읽혀 과목 시간이 타이머와 함께 흐른다
   const renderNowMs = Date.now();
   return {
+    /**
+     * 세션 시작 시각
+     *
+     * 이어받은 세션은 서버가 준 시각이다.
+     * 마운트 뒤 바뀌지 않는다.
+     */
+    startedAtMs: initial.startedAtMs,
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
     focusSec: totals.focusSec,
     /** 총 공부 시간(초) — 일시정지에서만 멈춘다. */
