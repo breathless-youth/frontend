@@ -107,6 +107,21 @@ describe("InterviewCardHost", () => {
     expect(openInterviewForm).toHaveBeenCalledWith(FORM, "?userId=7");
   });
 
+  it("폼으로 떠나기 전에 지금 히스토리 항목에 결과 연출을 봤다고 남긴다", async () => {
+    window.history.replaceState({ key: "k1", idx: 3, usr: { sessions: [] } }, "");
+    getInterviewStatus.mockResolvedValue(eligible);
+    renderHost();
+
+    fireEvent.click(await screen.findByRole("button", { name: "인터뷰 신청하기" }));
+
+    expect(window.history.state).toEqual({
+      key: "k1",
+      idx: 3,
+      usr: { sessions: [], introSeen: true },
+    });
+    expect(openInterviewForm).toHaveBeenCalledWith(FORM, "?userId=7");
+  });
+
   it("조회가 실패하면 그리지 않는다", async () => {
     getInterviewStatus.mockRejectedValue(new Error("x"));
     vi.spyOn(console, "warn").mockImplementation(() => {});

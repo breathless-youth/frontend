@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
+import { markResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import {
   trackInterviewClicked,
   trackInterviewDismissed,
@@ -54,6 +55,7 @@ export function InterviewCardHost({ userId }: { userId: number }) {
       onApply={() => {
         updateInterviewState(afterApplied);
         trackInterviewClicked({ source: "g3_complete", exposure: card.exposure });
+        markResultIntroSeen();
         openInterviewForm(card.url, location.search);
       }}
       onDismiss={() => {
