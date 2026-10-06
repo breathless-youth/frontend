@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
+import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
 import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
@@ -353,6 +354,9 @@ export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const { recovered, dismiss } = useLaunchSessionRecovery(userId);
+  // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
+  const [noticeSettled, setNoticeSettled] = useState(false);
+  const recoveryReady = userId === null || noticeSettled;
 
   return (
     <main
@@ -379,7 +383,16 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {recovered !== null && <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />}
+      {userId !== null && (
+        <NoticeModalHost
+          userId={userId}
+          paused={recovered !== null && recoveryReady}
+          onSettled={() => setNoticeSettled(true)}
+        />
+      )}
+      {recovered !== null && recoveryReady && (
+        <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
+      )}
     </main>
   );
 }
