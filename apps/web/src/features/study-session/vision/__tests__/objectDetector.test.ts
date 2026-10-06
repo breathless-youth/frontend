@@ -430,3 +430,47 @@ describe("createObjectDetector — 비동기 추론", () => {
     expect(detector.state).toBe("idle");
   });
 });
+
+describe("createObjectDetector 타임랩스 사진", () => {
+  const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
+  const spec = { aspect: "9:16" as const, mask: false };
+
+  function handleWithCapture(capture: () => Promise<ArrayBuffer>) {
+    return { ...fakeHandle(), capture: vi.fn(capture) };
+  }
+
+  it("준비되기 전에는 null이다", async () => {
+    const detector = createObjectDetector({
+      loadRuntime: fakeRuntime(async () => handleWithCapture(async () => PHOTO)).loadRuntime,
+    });
+
+    await expect(detector.capture(video, spec)).resolves.toBeNull();
+  });
+
+  it("준비되면 핸들의 capture로 사진을 만든다", async () => {
+    const handle = handleWithCapture(async () => PHOTO);
+    const detector = createObjectDetector({
+      loadRuntime: fakeRuntime(async () => handle).loadRuntime,
+    });
+    await detector.load();
+
+    await expect(detector.capture(video, spec)).resolves.toBe(PHOTO);
+    expect(handle.capture).toHaveBeenCalledWith(video, spec);
+  });
+
+  it("사진 실패는 이유째 throw하고 감지 불가로 내려가지 않는다", async () => {
+    const handle = handleWithCapture(async () => {
+      throw new Error("captureFailed");
+    });
+    const detector = createObjectDetector({
+      loadRuntime: fakeRuntime(async () => handle).loadRuntime,
+    });
+    await detector.load();
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await expect(detector.capture(video, spec)).rejects.toThrow("captureFailed");
+    }
+
+    expect(detector.state).toBe("ready");
+  });
+});

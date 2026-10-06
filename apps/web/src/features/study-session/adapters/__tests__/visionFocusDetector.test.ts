@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DetectorSignal } from "../focusDetector";
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+
+import type { DetectorSignal, PhotoTap } from "../focusDetector";
 import { createVisionFocusDetector } from "../focusDetector";
 import type { Detection, DetectionFrame } from "../../vision/detectionRules";
 import { PERSON_LABEL, PHONE_LABEL } from "../../vision/detectionRules";
@@ -32,6 +34,10 @@ import {
  * `<video>`도 필요한 속성만 가진 평범한 객체로 대체한다.
  */
 
+/** 객체 검출기 핸들이 추론 없이 찍은 사진과 얼굴 모델이 같은 프레임으로 찍은 사진을 가른다. */
+const OBJECT_PHOTO = new Uint8Array([1]).buffer;
+const FACE_PHOTO = new Uint8Array([2]).buffer;
+
 function box(): Detection["box"] {
   return { originX: 0, originY: 0, width: 10, height: 10 };
 }
@@ -52,6 +58,16 @@ function fakeVideo(overrides: Partial<HTMLVideoElement> = {}): HTMLVideoElement 
     videoHeight: 480,
     ...overrides,
   } as unknown as HTMLVideoElement;
+}
+
+/** 카메라 스트림 대역. 촬영 가드는 영상 트랙의 `readyState`만 본다. */
+function fakeStream(readyState: MediaStreamTrackState): MediaStream {
+  return { getVideoTracks: () => [{ readyState }] } as unknown as MediaStream;
+}
+
+/** 백그라운드에서 돌아온 뒤 끊긴 채 남은 카메라 스트림. */
+function endedStream(): MediaStream {
+  return fakeStream("ended");
 }
 
 interface FakeDetectorOptions {
@@ -81,6 +97,10 @@ function fakeObjectDetector(options: FakeDetectorOptions = {}) {
       return next === null ? null : { detections: next, durationMs: 1 };
     },
   );
+  const capture = vi.fn(
+    async (_video: HTMLVideoElement, _photo: PhotoSpec): Promise<ArrayBuffer | null> =>
+      state === "ready" ? OBJECT_PHOTO : null,
+  );
   const close = vi.fn(() => {
     state = "idle";
   });
@@ -103,12 +123,14 @@ function fakeObjectDetector(options: FakeDetectorOptions = {}) {
     modelVariant: "fp32",
     load,
     detect,
+    capture,
     close,
   };
   return {
     detector,
     load,
     detect,
+    capture,
     close,
     /** 추론 도중 검출기 쪽의 변화를 흉내 낸다. 연속 실패로 포기하거나 메인 스레드로 갈아타는 경우다. */
     setState(next: DetectorState) {
@@ -133,6 +155,8 @@ interface FakeFaceOptions {
   readonly diesAfterDetects?: number;
   /** 얼굴 틱마다 넘길 고개 각도. 없으면 null(자세 행렬 없음). 배열을 다 쓰면 마지막 값을 반복한다. */
   readonly pitches?: readonly (number | null)[];
+  /** 사진을 요청받아도 붙이지 않는다. 스티커를 못 받아 사진이 실패한 런타임을 흉내 낸다. */
+  readonly photoFails?: boolean;
 }
 
 /** 얼굴이 보이는 관측 하나. 양쪽 눈에 같은 값을 넣는다. */
@@ -192,19 +216,32 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
   const diesAfterDetects = options.diesAfterDetects ?? null;
   let state: DetectorState = "idle";
   let index = 0;
-  const detect = vi.fn(async (_video: HTMLVideoElement, _timestampMs: number) => {
-    if (state !== "ready") {
-      return null;
-    }
-    if (diesAfterDetects !== null && index >= diesAfterDetects) {
-      state = "unavailable";
-      return null;
-    }
-    const next = faces[Math.min(index, faces.length - 1)] ?? null;
-    const pitch = pitches[Math.min(index, pitches.length - 1)] ?? null;
-    index += 1;
-    return next === null ? null : { face: next, durationMs: 1, metrics: { headPitchDeg: pitch } };
-  });
+  const detect = vi.fn(
+    async (
+      _video: HTMLVideoElement,
+      _timestampMs: number,
+      photo?: PhotoSpec,
+    ): Promise<FaceDetectionResult | null> => {
+      if (state !== "ready") {
+        return null;
+      }
+      if (diesAfterDetects !== null && index >= diesAfterDetects) {
+        state = "unavailable";
+        return null;
+      }
+      const next = faces[Math.min(index, faces.length - 1)] ?? null;
+      const pitch = pitches[Math.min(index, pitches.length - 1)] ?? null;
+      index += 1;
+      if (next === null) {
+        return null;
+      }
+      const result = { face: next, durationMs: 1, metrics: { headPitchDeg: pitch } };
+      // 실제 런타임처럼 사진을 요청받았을 때만 사진을 붙인다.
+      return photo === undefined || options.photoFails === true
+        ? result
+        : { ...result, photo: FACE_PHOTO };
+    },
+  );
   const close = vi.fn(() => {
     state = "idle";
   });
@@ -1536,5 +1573,299 @@ describe("내려다봄 게이트 — 고개가 내려가 있으면 눈 판정을
       .map((call) => (call[0] as { face: { skipReason: string | null } | null }).face?.skipReason)
       .filter((reason) => reason === "looking-down");
     expect(reasons.length).toBeGreaterThan(0);
+  });
+});
+
+const MASK_OFF: PhotoSpec = { aspect: "9:16", mask: false };
+const MASK_ON: PhotoSpec = { aspect: "9:16", mask: true };
+
+/** 매 프레임 찍을 차례라고 답하는 촬영 창구. */
+function alwaysDue(spec: PhotoSpec) {
+  const saved: ArrayBuffer[] = [];
+  const failed: unknown[] = [];
+  const tap: PhotoTap = {
+    due: () => spec,
+    save: (photo) => {
+      saved.push(photo);
+    },
+    fail: (error) => {
+      failed.push(error);
+    },
+  };
+  return { tap, saved, failed };
+}
+
+describe("타임랩스 촬영 가림 끔", () => {
+  it("가림이 꺼져 있으면 객체 검출기 핸들로 추론 없이 찍는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
+    const { tap, saved } = alwaysDue(MASK_OFF);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
+
+    expect(capture).toHaveBeenCalledWith(expect.anything(), MASK_OFF);
+    expect(saved.length).toBeGreaterThan(0);
+    expect(saved.every((photo) => photo === OBJECT_PHOTO)).toBe(true);
+    // 얼굴 추론에는 사진을 붙이지 않는다.
+    expect(faceDetect.mock.calls.every((call) => call[2] === undefined)).toBe(true);
+  });
+});
+
+describe("타임랩스 촬영 멈춤", () => {
+  it("찍는 사이 멈추면 그 사진을 버린다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [[]] });
+    let finishCapture: (photo: ArrayBuffer | null) => void = () => {};
+    capture.mockImplementationOnce(
+      () =>
+        new Promise<ArrayBuffer | null>((resolve) => {
+          finishCapture = resolve;
+        }),
+    );
+    const { tap, saved } = alwaysDue(MASK_OFF);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      sleepDetection: false,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(capture).toHaveBeenCalledTimes(1);
+    vision.stop();
+    finishCapture(OBJECT_PHOTO);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(saved).toEqual([]);
+  });
+});
+
+describe("타임랩스 촬영 가림 켬", () => {
+  it("가림이 켜져 있고 사람이 보이면 얼굴 틱의 사진만 쓰고 다른 프레임은 건너뛴다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
+    const { tap, saved } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 8);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(faceDetect).toHaveBeenCalledWith(expect.anything(), expect.any(Number), MASK_ON);
+    // 판정 프레임 아홉 중 얼굴 틱은 넷이고 사진도 넷이다.
+    expect(saved).toEqual([FACE_PHOTO, FACE_PHOTO, FACE_PHOTO, FACE_PHOTO]);
+  });
+});
+
+describe("타임랩스 촬영 경계", () => {
+  it("가림이 켜져 있어도 사람이 없으면 객체 검출기 핸들로 찍는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [[]] });
+    const { landmarker } = fakeFaceLandmarker({ faces: [seen(0.1)] });
+    const { tap, saved } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+
+    expect(capture).toHaveBeenCalledWith(expect.anything(), MASK_ON);
+    expect(saved.length).toBeGreaterThan(0);
+  });
+
+  it("가림이 켜져 있는데 얼굴 모델이 없으면 사람이 보이는 장면은 찍지 않는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker } = fakeFaceLandmarker({ loadsTo: "unavailable" });
+    const { tap, saved } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 6);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+
+  it("가림이 켜져 있고 사람이 보이는데 얼굴 추론이 null이면 찍지 않는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [null] });
+    const { tap, saved } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 6);
+
+    expect(faceDetect).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+
+  it("가림이 켜져 있고 사람이 보이는데 얼굴 결과에 사진이 없으면 찍지 않고 실패를 창구에 알린다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({
+      faces: [seen(0.1)],
+      photoFails: true,
+    });
+    const { tap, saved, failed } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 6);
+
+    expect(faceDetect).toHaveBeenCalledWith(expect.anything(), expect.any(Number), MASK_ON);
+    expect(capture).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+    expect(failed.length).toBeGreaterThan(0);
+    expect(failed.every((error) => error instanceof Error)).toBe(true);
+  });
+
+  it("객체 검출기 핸들의 사진이 실패하면 그 이유를 창구에 알리고 루프는 계속 돈다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [[]] });
+    capture.mockRejectedValue(new Error("JPEG로 압축하지 못했다"));
+    const { tap, saved, failed } = alwaysDue(MASK_OFF);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      sleepDetection: false,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+
+    expect(capture.mock.calls.length).toBeGreaterThan(1);
+    expect(saved).toEqual([]);
+    expect(failed.length).toBe(capture.mock.calls.length);
+    expect((failed[0] as Error).message).toBe("JPEG로 압축하지 못했다");
+  });
+
+  it("카메라 트랙이 끊겨 있으면 추론은 돌되 사진은 찍지 않고 실패로도 알리지 않는다", async () => {
+    const { detector, detect, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
+    const { tap, saved, failed } = alwaysDue(MASK_ON);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo({ srcObject: endedStream() }),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 6);
+
+    expect(detect.mock.calls.length).toBeGreaterThan(1);
+    expect(faceDetect).toHaveBeenCalled();
+    // 얼굴 추론에도 사진을 붙이지 않는다.
+    expect(faceDetect.mock.calls.every((call) => call[2] === undefined)).toBe(true);
+    expect(capture).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+    expect(failed).toEqual([]);
+  });
+
+  it("카메라 트랙이 끊겨 있으면 가림이 꺼진 세션도 찍지 않는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [[]] });
+    const { tap, saved, failed } = alwaysDue(MASK_OFF);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo({ srcObject: endedStream() }),
+      detector,
+      sleepDetection: false,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+    expect(failed).toEqual([]);
+  });
+
+  it("카메라 트랙이 살아 있으면 그대로 찍는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [[]] });
+    const { tap, saved } = alwaysDue(MASK_OFF);
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo({ srcObject: fakeStream("live") }),
+      detector,
+      sleepDetection: false,
+      photoTap: tap,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+
+    expect(capture).toHaveBeenCalled();
+    expect(saved.length).toBeGreaterThan(0);
+  });
+
+  it("찍을 차례가 아니거나 촬영 창구가 없으면 사진을 요청하지 않는다", async () => {
+    const { detector, capture } = fakeObjectDetector({ frames: [personFrame()] });
+    const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
+    const notDue: PhotoTap = { due: () => null, save: vi.fn(), fail: vi.fn() };
+    const withTap = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: landmarker,
+      photoTap: notDue,
+    });
+    withTap.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4);
+    withTap.close();
+
+    const other = fakeObjectDetector({ frames: [personFrame()] });
+    const withoutTap = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector: other.detector,
+    });
+    withoutTap.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4);
+    withoutTap.close();
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(other.capture).not.toHaveBeenCalled();
+    expect(faceDetect.mock.calls.every((call) => call[2] === undefined)).toBe(true);
+    expect(notDue.save).not.toHaveBeenCalled();
   });
 });

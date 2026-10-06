@@ -1,3 +1,5 @@
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+
 import type { DetectionSource } from "../detection";
 import type {
   Detection,
@@ -130,6 +132,19 @@ export function createMockFocusDetector(): MockFocusDetector {
 const MIN_VIDEO_READY_STATE = 2;
 
 /**
+ * 카메라 트랙 생존 여부
+ *
+ * 스트림이 아닌 출처나 테스트 대역은 트랙이 없으므로 살아 있다고 본다.
+ */
+function cameraTrackLive(element: HTMLVideoElement): boolean {
+  const source = element.srcObject as Partial<MediaStream> | null | undefined;
+  if (typeof source?.getVideoTracks !== "function") {
+    return true;
+  }
+  return source.getVideoTracks().some((track) => track.readyState === "live");
+}
+
+/**
  * - `idle` — 아직 시작하지 않았거나 `close()`로 정리된 상태.
  * - `loading` — 모델을 받는 중. 이 동안 판정은 나오지 않는다(직전 신호가 유지된다).
  * - `ready` — 추론 중.
@@ -183,6 +198,21 @@ export interface VisionFocusDetector extends FocusDetector {
   close(): void;
 }
 
+/**
+ * 타임랩스 촬영 창구
+ *
+ * 감지 루프가 프레임마다 찍을 차례인지 묻고 찍은 사진을 넘긴다.
+ * 루프가 도는 동안만 물으므로 일시정지·카메라 전환·백그라운드에는 사진이 없다.
+ */
+export interface PhotoTap {
+  /** 지금 찍을 차례면 촬영 요청을, 아니면 null을 돌려준다. */
+  due(): PhotoSpec | null;
+  /** 가림이 켜진 세션이면 스티커를 덮은 뒤의 JPEG 바이트를 받는다. */
+  save(photo: ArrayBuffer): void;
+  /** 워커 안에서는 보고할 수 없어 사진을 만들지 못한 실패도 이 창구로 모은다. */
+  fail(error: unknown): void;
+}
+
 export interface VisionFocusDetectorOptions {
   /**
    * 추론에 쓸 `<video>`.
@@ -209,6 +239,8 @@ export interface VisionFocusDetectorOptions {
   /** 판정 규칙 교체 지점(설계 §4). 후속 폰 사용 규칙이 여기로 들어온다. */
   readonly phoneRule?: PhoneUsageRule;
   readonly presenceRule?: PersonPresenceRule;
+  /** 타임랩스 촬영 창구이고, 없으면 사진을 묻지 않아 런타임 메시지가 지금과 같다. */
+  readonly photoTap?: PhotoTap;
 }
 
 /**
@@ -247,6 +279,7 @@ export function createVisionFocusDetector(
     phoneRule,
     presenceRule,
     sleepRule,
+    photoTap,
   } = options;
 
   const sleepEnabled = options.sleepDetection ?? true;
@@ -587,6 +620,8 @@ export function createVisionFocusDetector(
       eyeGateMisses = 0;
     }
 
+    // 카메라 트랙이 끊기면 마지막 프레임이 반복돼 같은 사진만 쌓이므로 찍지 않는다.
+    const photo = cameraTrackLive(element) ? (photoTap?.due() ?? null) : null;
     let faceRan: FaceDetectionResult | null = null;
     /** 내려다봄 게이트를 지난 관측. 게이트가 지운 눈은 진단에도 지워진 채로 나간다. */
     let faceObserved: FaceObservation | null = null;
@@ -598,7 +633,12 @@ export function createVisionFocusDetector(
         setFaceStatus("unavailable");
         dropFaceObservations();
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
-        faceRan = await faceLandmarker.detect(element, atMs);
+        // 가림이 켜진 세션은 이 추론이 본 프레임으로 찍어야 스티커가 그 얼굴 위에 놓인다.
+        faceRan = await faceLandmarker.detect(
+          element,
+          atMs,
+          photo?.mask === true ? photo : undefined,
+        );
         if (frameRunId !== runId) {
           // 얼굴 추론을 기다리는 사이 멈췄다. 객체 판정과 같은 이유로 이 프레임을 통째로 버린다.
           // 여기서 신호를 내면 멈춘 세션이나 재개한 세션에 옛 프레임의 판정이 섞인다.
@@ -657,6 +697,48 @@ export function createVisionFocusDetector(
             },
     });
     publish(signals, sleep);
+    if (photo !== null && photoTap !== undefined) {
+      await takePhoto(photoTap, photo, signals.personPresent, faceRan, element, frameRunId);
+    }
+  }
+
+  /**
+   * 타임랩스 사진 한 장 남기기
+   *
+   * 사람이 없거나 가림이 꺼져 있으면 판정을 낸 뒤 객체 검출기 핸들로 추론 없이 찍어 신호가 압축 시간만큼 늦지 않는다.
+   * 가림이 켜진 세션에서 사람이 보이면 얼굴 모델이 같은 프레임으로 만든 사진만 쓰므로 그 틱의 신호는 압축이 끝난 뒤에 나간다.
+   * 그 틱에 얼굴 모델이 돌지 못했거나 사진을 만들지 못했으면 찍지 않고 다음 틱으로 미룬다.
+   * 촬영 때문에 얼굴 추론을 더 돌리지 않는다.
+   * 사진을 만들지 못한 실패는 창구에 알려 메인 스레드에서 보고한다.
+   */
+  async function takePhoto(
+    tap: PhotoTap,
+    spec: PhotoSpec,
+    personPresent: boolean,
+    faceRan: FaceDetectionResult | null,
+    element: HTMLVideoElement,
+    frameRunId: number,
+  ): Promise<void> {
+    if (spec.mask && personPresent) {
+      if (faceRan?.photo !== undefined) {
+        tap.save(faceRan.photo);
+      } else if (faceRan !== null) {
+        // 얼굴 추론은 됐는데 사진만 빠졌으면 런타임이 사진을 만들지 못한 것이고 그 이유는 워커가 들고 있다.
+        tap.fail(new Error("얼굴 틱의 사진을 만들지 못했다"));
+      }
+      return;
+    }
+    let shot: ArrayBuffer | null;
+    try {
+      shot = await detector.capture(element, spec);
+    } catch (error: unknown) {
+      tap.fail(error);
+      return;
+    }
+    // 찍는 사이 멈췄으면 멈춘 구간의 장면처럼 보일 수 있어 버린다.
+    if (shot !== null && frameRunId === runId) {
+      tap.save(shot);
+    }
   }
 
   const loop = createFrameLoop({ onFrame: processFrame });
