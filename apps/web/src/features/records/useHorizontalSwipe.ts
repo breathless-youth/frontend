@@ -23,6 +23,10 @@ export function useHorizontalSwipe(onSwipe: (delta: -1 | 1) => void) {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
       startRef.current = { x: event.clientX, y: event.clientY };
     },
+    // 브라우저가 제스처를 가져가면(스크롤 등) 시작점을 버린다 — 다음 pointerup이 옛 시작점으로 판정하지 않게.
+    onPointerCancel: () => {
+      startRef.current = null;
+    },
     onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
       const start = startRef.current;
       startRef.current = null;
