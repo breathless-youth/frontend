@@ -1201,3 +1201,31 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 });
+
+describe("인터뷰 모집 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackInterviewShown({ source: "g1_revisit", exposure: 1 });
+    m.trackInterviewClicked({ source: "settings" });
+    m.trackInterviewDismissed({ source: "g3_complete", exposure: 2, action: "x" });
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("source·노출 순번·action을 그대로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackInterviewShown({ source: "g2_return", exposure: 2 });
+    m.trackInterviewClicked({ source: "g3_complete", exposure: 1 });
+    m.trackInterviewClicked({ source: "settings" });
+    m.trackInterviewDismissed({ source: "g1_revisit", exposure: 1, action: "never_again" });
+
+    expect(mocks.track.mock.calls.slice(-4)).toEqual([
+      ["interview_shown", { source: "g2_return", exposure: 2 }],
+      ["interview_clicked", { source: "g3_complete", exposure: 1 }],
+      ["interview_clicked", { source: "settings" }],
+      ["interview_dismissed", { source: "g1_revisit", exposure: 1, action: "never_again" }],
+    ]);
+  });
+});
