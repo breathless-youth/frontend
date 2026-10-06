@@ -132,6 +132,17 @@ describe("buildChecks", () => {
     expect(problems).toHaveLength(1);
   });
 
+  it("/interview는 격리 헤더가 있으면 실패한다", async () => {
+    const interview = byUrl(`${BASE}/interview`)!;
+    const html = {
+      "content-type": "text/html",
+      "x-robots-tag": "noindex",
+      "cross-origin-embedder-policy": "require-corp",
+    };
+    const problems = interview.rules.flatMap((rule) => rule(new Response(null, { headers: html })));
+    expect(problems).toHaveLength(1);
+  });
+
   it("없는 모델 확인은 HTML 200을 실패로 잡는다", () => {
     const missing = byUrl(`${BASE}/models/__verify-missing__.tflite`)!;
     const html200 = new Response(null, { status: 200, headers: { "content-type": "text/html" } });
@@ -232,7 +243,7 @@ const healthyFetch = async (input: string | URL | Request) => {
     return new Response(null, { headers: immutable });
   }
   const isolated: Record<string, string> =
-    url.pathname === "/contact"
+    url.pathname === "/contact" || url.pathname === "/interview"
       ? {}
       : {
           "cross-origin-opener-policy": "same-origin",

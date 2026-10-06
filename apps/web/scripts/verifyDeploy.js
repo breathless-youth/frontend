@@ -137,6 +137,12 @@ export function buildChecks(base, { models, assetPath }) {
       rules: [...page, rules.noHeader(COOP), rules.noHeader(COEP)],
     },
     {
+      name: "/interview는 격리 헤더 없음",
+      url: url("/interview"),
+      method: "GET",
+      rules: [...page, rules.noHeader(COOP), rules.noHeader(COEP)],
+    },
+    {
       name: "MediaPipe wasm",
       url: url(`/mediapipe/${MEDIAPIPE_VERSION}/wasm/${WASM_SENTINEL_FILE}`),
       method: "HEAD",

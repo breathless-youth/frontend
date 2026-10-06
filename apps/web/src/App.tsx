@@ -13,6 +13,7 @@ import {
   FORCE_UPDATE_TITLE,
 } from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
+import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
@@ -32,6 +33,7 @@ import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
   loadContactPage,
+  loadInterviewFormPage,
   loadLicensesPage,
   loadOnboardingGuidePage,
   loadPrivacyPage,
@@ -72,6 +74,11 @@ const OnboardingGuidePage = lazy(
 );
 const ContactPage = lazy(
   reloadOnChunkError(() => loadContactPage().then((module) => ({ default: module.ContactPage }))),
+);
+const InterviewFormPage = lazy(
+  reloadOnChunkError(() =>
+    loadInterviewFormPage().then((module) => ({ default: module.InterviewFormPage })),
+  ),
 );
 const TermsPage = lazy(
   reloadOnChunkError(() => loadTermsPage().then((module) => ({ default: module.TermsPage }))),
@@ -155,6 +162,7 @@ function AppToaster() {
 }
 
 export function App() {
+  useRecordLastHidden();
   // 슬라이드 전환의 갱신 콜백이 라우트 커밋 시점에 풀리게 한다. Routes의 형제로 마운트해야
   // 한다(lib/pageTransition.ts). 라우트 엘리먼트 안에 두면 이동과 함께 언마운트돼 새 위치를
   // 못 본다.
@@ -231,6 +239,7 @@ export function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/interview" element={<InterviewFormPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />

@@ -178,7 +178,7 @@ describe("useNativeTabBarSync", () => {
   });
 
   /**
-   * 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외 — `ContactPage` 주석) 뒤로
+   * 문의(/contact)가 문서 단위 내비게이션이 되면서(COEP 예외, `GoogleFormPage` 주석) 뒤로
    * 스와이프가 이전 문서를 bfcache에서 복원할 수 있다 — 복원은 effect를 다시 돌리지 않으므로
    * `pageshow(persisted)`가 유일한 복귀 신호다.
    */
