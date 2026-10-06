@@ -43,7 +43,10 @@ export function usePlannerDay(userId: number | null, dateKey: string): PlannerDa
   const dayIsFuture = dateKey > todayKey;
   const nextIsFuture = nextKey > todayKey;
 
-  const freshOnOpen = dateKey < todayKey ? ({ refetchOnMount: "always" } as const) : {};
+  // 지난 날은 열 때와 날짜를 넘길 때 모두 새로 받는다. refetchOnMount는 마운트에만 듣고, 같은 화면에서
+  // 날짜만 바뀌면(쿼리 키 변경) staleTime을 따르므로 둘 다 준다.
+  const freshOnOpen =
+    dateKey < todayKey ? ({ staleTime: 0, refetchOnMount: "always" } as const) : {};
 
   const day = useQuery({
     ...dailyStatsQuery(userId ?? 0, dateKey),

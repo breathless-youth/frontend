@@ -359,7 +359,10 @@ export interface SubjectRef {
   deleted: boolean;
 }
 
-/** 세션에서 완료한 할 일 1건 — 이름 포함. 어제 완료한 할 일은 할 일 목록 API에 없으므로 여기가 이름의 출처다. */
+/**
+ * 세션에서 완료한 할 일 1건 — 이름 포함. 세션 제출 당시의 기록이라 나중에 완료를 풀어도 남는다.
+ * 플래너의 완료 할 일은 이것이 아니라 일간 조회의 `subjects[].tasks`(지금 상태 기준)를 쓴다.
+ */
 export interface CompletedTaskResponse {
   id: number;
   name: string;
@@ -368,7 +371,10 @@ export interface CompletedTaskResponse {
   deleted: boolean;
 }
 
-/** 일간 조회의 과목 1건 — 이름·색에 그날의 할 일이 딸려 온다. */
+/**
+ * 일간 조회의 과목 1건 — 이름·색에 그날의 할 일이 딸려 온다. backend `DaySubjectResponse`·`DayTaskResponse`
+ * (#80)와 필드명·널 가능성을 dev Swagger로 대조했다(`doneAt`만 nullable).
+ */
 export interface DaySubject extends SubjectRef {
   /**
    * 그 날짜(KST)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.

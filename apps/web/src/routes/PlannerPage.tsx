@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -16,6 +15,7 @@ import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -26,8 +26,6 @@ import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-/** 날짜 넘김 스와이프 임계(px) — 기록 탭 달력의 월 스와이프와 같은 감각이다. */
-const SWIPE_THRESHOLD_PX = 48;
 
 /**
  * 플래너(S12) — 하루를 한 장으로 본다.
@@ -122,24 +120,8 @@ export function PlannerPage() {
     );
   };
 
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = pointerStartRef.current;
-    pointerStartRef.current = null;
-    if (!start) {
-      return;
-    }
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    // 세로 위주 움직임은 페이지 스크롤 몫이다 — 가로 우세일 때만 날짜를 넘긴다.
-    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) {
-      return;
-    }
-    changeDate(dx < 0 ? 1 : -1, "swipe");
-  };
+  // 기록 탭 달력·주간과 같은 판정으로 날짜를 넘긴다.
+  const swipe = useHorizontalSwipe((delta) => changeDate(delta, "swipe"));
 
   const ddayData = dday.data ?? null;
   const [year, month, dayOfMonth] = dateKey.split("-").map(Number);
@@ -195,12 +177,7 @@ export function PlannerPage() {
         onPick={pickDate}
       />
 
-      <div
-        data-testid="planner-swipe-area"
-        className="touch-pan-y px-5"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-      >
+      <div data-testid="planner-swipe-area" className="touch-pan-y px-5" {...swipe}>
         <PlannerHead
           dateKey={dateKey}
           onPrev={() => changeDate(-1, "button")}
