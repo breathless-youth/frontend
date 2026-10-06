@@ -37,6 +37,7 @@ export type MetaAdsAdapter = {
   initialize(): void;
   /**
    * iOS ATT 프롬프트. 이미 답했으면 OS가 저장된 값을 즉시 돌려주고 다시 묻지 않는다.
+   * 앱이 active가 된 뒤에 묻고, 프롬프트가 뜨지 못했으면 다시 묻는 것까지 구현이 맡는다.
    * Android·iOS 13 이하는 항상 true(expo-tracking-transparency 계약).
    */
   requestTrackingPermission(): Promise<boolean>;
@@ -104,8 +105,14 @@ async function runInit(): Promise<void> {
   if (sdk === null) {
     return;
   }
+  // SDK 초기화가 throw해도 ATT는 묻는다.
+  // 한 try에 두면 초기화 실패가 프롬프트 요청까지 건너뛴다.
   try {
     sdk.initialize();
+  } catch (error) {
+    console.warn("[meta-ads] SDK 초기화 실패 — 추적 동의는 계속 묻는다", error);
+  }
+  try {
     // ATT 프롬프트 대기에 상한을 둔다. 앱이 백그라운드로 갔다 오는 사이 네이티브 콜백이 영영 안 오면
     // 이 프라미스가 안 풀려 큐도 안 비고, 이 초기화를 기다리는 권장 업데이트 알림창(`app/_layout.tsx`)도
     // 같이 멎는다. 사용자가 읽고 답하는 시간은 넉넉히 덮고 진짜 멎은 경우만 끊을 길이다.
@@ -118,7 +125,7 @@ async function runInit(): Promise<void> {
     );
     await applyTracking(sdk, await withTimeout(answer, ATT_TIMEOUT_MS));
   } catch (error) {
-    console.warn("[meta-ads] 초기화·추적 동의 처리 실패 — 이벤트는 계속 보낸다", error);
+    console.warn("[meta-ads] 추적 동의 처리 실패 — 이벤트는 계속 보낸다", error);
   }
   ready = true;
   for (const event of pending.splice(0)) {

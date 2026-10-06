@@ -70,6 +70,21 @@ describe("metaAds — 초기화", () => {
     );
   });
 
+  it("initialize가 throw해도 ATT는 묻는다 — 초기화 실패가 프롬프트를 건너뛰게 하면 안 된다", async () => {
+    const adapter = fakeAdapter({
+      initialize: jest.fn(() => {
+        throw new Error("sdk boom");
+      }),
+    });
+    setMetaAdsAdapter(adapter);
+
+    await expect(initMetaAds()).resolves.toBeUndefined();
+
+    expect(adapter.requestTrackingPermission).toHaveBeenCalledTimes(1);
+    expect(adapter.setAdvertiserTrackingEnabled).toHaveBeenCalledWith(true);
+    expect(warn).toHaveBeenCalled();
+  });
+
   it("ATT 응답이 영영 안 와도 초기화는 끝나고 큐를 흘린다 — 권장 알림창이 같이 멎으면 안 된다", async () => {
     jest.useFakeTimers();
     try {
