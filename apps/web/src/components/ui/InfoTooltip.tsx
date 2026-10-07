@@ -89,7 +89,8 @@ export function InfoTooltip({
         <TooltipContent
           side={side}
           align={align}
-          className="bg-foreground text-background"
+          // 세션 툴팁보다 넓은 안내 툴팁 폭에 맞추고, 한글 단어 중간에서 줄이 갈리지 않게 한다.
+          className="bg-foreground text-background max-w-[262px] break-keep"
           onPointerDownOutside={(event) => {
             if (triggerRef.current?.contains(event.target as Node)) {
               event.preventDefault();
