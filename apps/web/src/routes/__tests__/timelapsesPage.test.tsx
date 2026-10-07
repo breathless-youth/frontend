@@ -130,6 +130,35 @@ describe("타임랩스 전체 목록", () => {
     await waitFor(() => expect(trash).toHaveFocus());
   });
 
+  it("삭제하면 다음 줄의 휴지통으로 포커스를 옮긴다", async () => {
+    await seed(NOON - 26 * HOUR);
+    await seed(NOON - HOUR);
+    renderPage();
+
+    const trash = await screen.findByRole("button", { name: /10월 7일 11:00 타임랩스 삭제/ });
+    trash.focus();
+    fireEvent.click(trash);
+    const dialog = await screen.findByRole("alertdialog", { name: "타임랩스 삭제" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /10월 6일 10:00 타임랩스 삭제/ })).toHaveFocus(),
+    );
+  });
+
+  it("마지막 하나를 지우면 뒤로 가기로 포커스를 옮긴다", async () => {
+    await seed(NOON - HOUR);
+    renderPage();
+
+    const trash = await screen.findByRole("button", { name: /타임랩스 삭제/ });
+    trash.focus();
+    fireEvent.click(trash);
+    const dialog = await screen.findByRole("alertdialog", { name: "타임랩스 삭제" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "뒤로 가기" })).toHaveFocus());
+  });
+
   it("Esc를 누르면 취소와 같다", async () => {
     await seed(NOON - HOUR);
     renderPage();

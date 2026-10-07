@@ -62,6 +62,7 @@ function TimelapseRow({
           type="button"
           onClick={onDelete}
           aria-label={`${timelapseStartLabel(record.startedAtMs)} 타임랩스 삭제`}
+          data-delete-for={record.startedAtMs}
           className="text-feedback-danger absolute -top-2.5 -right-2.5 flex size-11 items-center justify-center"
         >
           <Trash2 size={18} aria-hidden="true" />
@@ -86,9 +87,16 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
   const cancelRef = useRef<HTMLButtonElement>(null);
   // `open`으로만 여는 창이라 닫힌 뒤 누른 휴지통으로 포커스를 직접 돌려줘야 한다.
   const focusRestore = useDialogFocusRestore();
+  const mainRef = useRef<HTMLElement>(null);
+  // 지운 줄의 휴지통은 사라지므로 다음 줄의 휴지통(없으면 뒤로 가기)으로 포커스를 옮긴다.
+  const focusAfterDeleteRef = useRef<number | "back" | null>(null);
   const remove = useMutation({
     mutationFn: (startedAtMs: number) => store.remove(startedAtMs),
     onSuccess: (_result, startedAtMs) => {
+      const records = queryClient.getQueryData<TimelapseRecord[]>(recentTimelapsesKey) ?? [];
+      const index = records.findIndex((record) => record.startedAtMs === startedAtMs);
+      const neighbor = records[index + 1] ?? records[index - 1];
+      focusAfterDeleteRef.current = neighbor?.startedAtMs ?? "back";
       queryClient.setQueryData<TimelapseRecord[]>(recentTimelapsesKey, (records) =>
         records?.filter((record) => record.startedAtMs !== startedAtMs),
       );
@@ -112,7 +120,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
   };
 
   return (
-    <main className="theme-soft-blue bg-soft-blue text-foreground min-h-dvh pb-10">
+    <main ref={mainRef} className="theme-soft-blue bg-soft-blue text-foreground min-h-dvh pb-10">
       <ScreenBackHeader title="최근 타임랩스" onBack={goBack} />
       <div className="flex flex-col gap-4 px-5 pt-2">
         <p className="text-muted-foreground text-[13px] leading-4">
@@ -150,7 +158,20 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
             event.preventDefault();
             cancelRef.current?.focus();
           }}
-          onCloseAutoFocus={focusRestore.onCloseAutoFocus}
+          onCloseAutoFocus={(event) => {
+            const target = focusAfterDeleteRef.current;
+            focusAfterDeleteRef.current = null;
+            if (target === null) {
+              focusRestore.onCloseAutoFocus(event);
+              return;
+            }
+            event.preventDefault();
+            const selector =
+              target === "back"
+                ? 'button[aria-label="뒤로 가기"]'
+                : `[data-delete-for="${target}"]`;
+            mainRef.current?.querySelector<HTMLElement>(selector)?.focus();
+          }}
           // 앱의 다른 확인 창(카메라 켜기·세션 복구)과 같은 모양이다.
           className="theme-soft-blue bg-muted text-foreground w-[calc(100%-2.5rem)] max-w-[320px] gap-0 rounded-3xl border-0 px-[22px] pt-[26px] pb-[22px] sm:rounded-3xl"
         >
