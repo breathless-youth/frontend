@@ -117,9 +117,13 @@ export function ResultPage() {
       const box = container.getBoundingClientRect();
       const card = timelapseCard.getBoundingClientRect();
       // 카드 전체가 보이게 하되 카드가 화면보다 길면 위쪽을 맞춘다.
-      const top =
-        container.scrollTop + Math.min(card.top - box.top - 16, card.bottom - box.bottom + 16);
-      container.scrollTo({ top, behavior: "smooth" });
+      const down = Math.min(card.top - box.top - 16, card.bottom - box.bottom + 16);
+      // 카드가 이미 다 보이면 움직이지 않는다. 늦게 뜬 카드 때문에 위로 끌어올리지 않는다.
+      if (down <= 0) {
+        unwatch();
+        return;
+      }
+      container.scrollTo({ top: container.scrollTop + down, behavior: "smooth" });
       watchTimer = window.setTimeout(unwatch, TIMELAPSE_SCROLL_WATCH_MS);
     }, TIMELAPSE_SCROLL_DELAY_MS);
     function stop() {

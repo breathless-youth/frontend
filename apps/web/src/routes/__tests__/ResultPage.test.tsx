@@ -846,7 +846,15 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
   });
 
   describe("자동 스크롤", () => {
-    function renderAnimatedWithCard() {
+    /** 스크롤 영역은 0~800, 카드는 cardTop부터 400px 높이에 있다고 잰다. */
+    function renderAnimatedWithCard(cardTop = 900) {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        const isCard = this.getAttribute("data-testid") === "timelapse-card";
+        const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
+        return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
+      });
       vi.stubEnv("VITE_TIMELAPSE", "on");
       vi.useFakeTimers();
       vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
@@ -864,6 +872,8 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
 
     afterEach(() => {
       delete (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo;
+      const rect = Element.prototype.getBoundingClientRect;
+      if (vi.isMockFunction(rect)) rect.mockRestore();
     });
 
     it("카드가 보이면 잠시 뒤 카드까지 부드럽게 스크롤한다", () => {
@@ -874,6 +884,16 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
       act(() => vi.advanceTimersByTime(1_000));
 
       expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("카드가 이미 다 보이면 스크롤하지 않는다", () => {
+      // 늦게 뜬 카드가 이미 화면 안에 있으면 위로 끌어올리지 않는다.
+      const scrollTo = renderAnimatedWithCard(300);
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalled();
     });
 
     it("스크롤하기 전에 화면을 만지면 스크롤하지 않는다", () => {
