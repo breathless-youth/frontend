@@ -110,6 +110,8 @@ export interface TimelapseStore {
   annotate(startedAtMs: number, patch: TimelapseAnnotation): Promise<void>;
   /** 한 타임랩스의 사진을 찍은 순서로 준다. */
   listPhotos(startedAtMs: number): Promise<TimelapsePhoto[]>;
+  /** 썸네일용으로 가운데 사진 한 장만 읽는다. 사진이 없으면 null이다. */
+  middlePhoto(startedAtMs: number): Promise<ArrayBuffer | null>;
 }
 
 function photoRange(startedAtMs: number): IDBKeyRange {
@@ -271,6 +273,17 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
 
     async listPhotos(startedAtMs) {
       return await (await database()).getAll("photos", photoRange(startedAtMs));
+    },
+
+    async middlePhoto(startedAtMs) {
+      const photos = (await database()).transaction("photos").store;
+      const range = photoRange(startedAtMs);
+      const count = await photos.count(range);
+      let cursor = await photos.openCursor(range);
+      if (cursor !== null && count > 1) {
+        cursor = await cursor.advance(Math.floor(count / 2));
+      }
+      return cursor?.value.bytes ?? null;
     },
   };
 }

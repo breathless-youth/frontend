@@ -284,3 +284,19 @@ describe("annotate", () => {
     await expect(store.get(T0 + 1)).resolves.toBeNull();
   });
 });
+
+describe("middlePhoto", () => {
+  it("찍은 사진 중 가운데 한 장을 준다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, T0, 5);
+    await store.finalize(T0, SUMMARY);
+
+    const photo = await store.middlePhoto(T0);
+
+    expect(photo === null ? undefined : firstByte(photo)).toBe(2);
+  });
+
+  it("사진이 없으면 null이다", async () => {
+    await expect(store.middlePhoto(T0)).resolves.toBeNull();
+  });
+});
