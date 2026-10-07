@@ -568,6 +568,11 @@ export function createVisionFocusDetector(
       // 던지거나 쓰레기 결과를 낸다 — 준비될 때까지 건너뛴다.
       return;
     }
+    if (!cameraTrackLive(element)) {
+      // 트랙이 끊겨도 `<video>`는 마지막 프레임을 들고 있다. 그 장면으로 판정하면 멈춘 화면이
+      // 공부 상태를 정한다(BY-893, Android 백그라운드 복귀). 훅이 카메라를 다시 잡을 때까지 건너뛴다.
+      return;
+    }
     ensureLoaded();
 
     const atMs = nowMs();
@@ -620,8 +625,7 @@ export function createVisionFocusDetector(
       eyeGateMisses = 0;
     }
 
-    // 카메라 트랙이 끊기면 마지막 프레임이 반복돼 같은 사진만 쌓이므로 찍지 않는다.
-    const photo = cameraTrackLive(element) ? (photoTap?.due() ?? null) : null;
+    const photo = photoTap?.due() ?? null;
     let faceRan: FaceDetectionResult | null = null;
     /** 내려다봄 게이트를 지난 관측. 게이트가 지운 눈은 진단에도 지워진 채로 나간다. */
     let faceObserved: FaceObservation | null = null;
