@@ -24,7 +24,7 @@ export interface SystemPauseHandlers {
   /** 화면 꺼짐·백그라운드 전환 — 일시정지에 진입한다. */
   readonly onLeave: () => void;
   /**
-   * 복귀 — **재개 방식(자동/수동)이 미확정**이라 훅에서 no-op으로 받는다.
+   * 복귀 — 세션은 자동으로 재개하지 않고(수동 재개 확정) 훅이 카메라만 다시 확인한다.
    * 자세한 경위는 `useStudyRoomSession.onReturnFromBackground` 주석 참고.
    */
   readonly onReturn: () => void;
