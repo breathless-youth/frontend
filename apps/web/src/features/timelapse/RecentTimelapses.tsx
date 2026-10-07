@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
 import { slideNavigate } from "@/lib/pageTransition";
-import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
 import { recentDayLabel } from "./recentDayLabel";
+import { TimelapsesEmpty } from "./TimelapsesEmpty";
 import { TimelapseThumb } from "./TimelapseThumb";
 import { recentTimelapsesQuery } from "./timelapseQueries";
 import type { TimelapseRecord, TimelapseStore } from "./timelapseStore";
@@ -51,11 +51,6 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
   // react-router navigate()는 항상 push라 빠른 이중 탭에 목록이 두 장 쌓인다.
   const openedRef = useRef(false);
   const recent = useQuery(recentTimelapsesQuery(store));
-  const shown = recent.isSuccess;
-
-  useEffect(() => {
-    if (shown) prefetchTimelapsesPage();
-  }, [shown]);
 
   if (!recent.isSuccess) {
     return null;
@@ -102,14 +97,5 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
         </ul>
       )}
     </section>
-  );
-}
-
-/** 보관 중인 타임랩스가 없을 때의 안내. 홈 목록과 전체 목록이 함께 쓴다. */
-export function TimelapsesEmpty() {
-  return (
-    <p className="bg-muted text-muted-foreground shadow-sb-card rounded-[20px] px-5 py-6 text-center text-sm">
-      공부를 완료하고 공부한 모습을 공유해보세요
-    </p>
   );
 }

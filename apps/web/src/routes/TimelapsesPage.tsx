@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
-import { TimelapsesEmpty } from "@/features/timelapse/RecentTimelapses";
+import { TimelapsesEmpty } from "@/features/timelapse/TimelapsesEmpty";
 import { timelapseRangeLabel, timelapseStartLabel } from "@/features/timelapse/recentDayLabel";
 import { focusRatePercent } from "@/features/timelapse/timelapseFrame";
 import { recentTimelapsesKey, recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";

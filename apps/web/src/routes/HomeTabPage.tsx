@@ -29,7 +29,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
-import { prefetchOnboardingGuidePage } from "@/routes/lazyRoutes";
+import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
 /**
  * 홈
@@ -172,6 +172,8 @@ function HomeContent({ userId }: { userId: number }) {
     if (summaryShown) {
       prefetchVisionAssets();
       prefetchOnboardingGuidePage();
+      // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
+      if (import.meta.env.VITE_TIMELAPSE === "on") prefetchTimelapsesPage();
     }
   }, [summaryShown]);
 
