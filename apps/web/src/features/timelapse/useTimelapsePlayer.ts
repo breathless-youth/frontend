@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 import { TIMELAPSE_FPS } from "./timelapseFrame";
 
@@ -30,6 +30,7 @@ interface Shown {
  * 앞쪽 몇 장만 디코드해 두고 초당 12장으로 넘기며, 마지막 장 다음에는 처음으로 돌아간다.
  * 다음 장이 아직 풀리지 않았으면 그 화면 갱신은 건너뛰고, 풀지 못하는 사진은 아예 건너뛴다.
  * 멈춰 있어도 지금 장은 그려 둔다.
+ * 장이 넘어가도 React 렌더를 일으키지 않는다. 화면 갱신은 모두 `draw`가 맡는다.
  */
 export function useTimelapsePlayer({
   photos,
@@ -37,8 +38,7 @@ export function useTimelapsePlayer({
   draw,
   redrawKey,
   decode = decodeJpeg,
-}: Options): { index: number } {
-  const [index, setIndex] = useState(0);
+}: Options): void {
   // 재생·일시정지로 효과가 다시 돌아도 보던 장에서 이어간다.
   const indexRef = useRef(0);
   const shownRef = useRef<Shown | null>(null);
@@ -86,7 +86,6 @@ export function useTimelapsePlayer({
     const moveTo = (target: number) => {
       current = target;
       indexRef.current = target;
-      setIndex(target);
     };
 
     const decodeAt = (target: number) => {
@@ -182,6 +181,4 @@ export function useTimelapsePlayer({
       drawFrame(shown.bitmap, shown.index);
     }
   }, [redrawKey]);
-
-  return { index };
 }

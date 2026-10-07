@@ -1,5 +1,5 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { StrictMode } from "react";
+import { Profiler, StrictMode } from "react";
 import { mockAllIsIntersecting } from "react-intersection-observer/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -313,36 +313,67 @@ describe("TimelapsePlayer", () => {
     expect(progressWidth()).not.toBe("0%");
   });
 
-  it("캔버스 픽셀 크기를 사진 크기에 맞춘다", async () => {
-    const { container } = render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
-
-    await advance(0);
-    const canvas = container.querySelector("canvas")!;
-
-    expect([canvas.width, canvas.height]).toEqual([405, 720]);
-  });
-
-  it("뒤 사진의 크기가 달라도 캔버스는 첫 사진 크기를 유지한다", async () => {
-    let call = 0;
+  it.each([
+    ["9:16", [540, 960]],
+    ["16:9", [960, 540]],
+  ] as const)("캔버스 픽셀 크기는 사진과 관계없이 %s 고정 크기다", async (aspect, expected) => {
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(() => {
-        call += 1;
-        const bitmap = fakeBitmap(-1);
-        return Promise.resolve(
-          call > 1 ? Object.assign(bitmap, { width: 400, height: 700 }) : bitmap,
-        );
-      }),
+      vi.fn(() => Promise.resolve(Object.assign(fakeBitmap(-1), { width: 640, height: 480 }))),
     );
-    const { container } = render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+    const { container } = render(
+      <TimelapsePlayer aspect={aspect} photos={FIVE} overlay={overlay} />,
+    );
     await advance(0);
     act(() => mockAllIsIntersecting(true));
 
     await advance(STEP_MS * 3);
     const canvas = container.querySelector("canvas")!;
 
+    expect([canvas.width, canvas.height]).toEqual(expected);
+  });
+
+  it("상자 높이는 CSS 비율 계산이 아니라 캔버스 자체 비율이 정한다", () => {
+    // 기기 웹뷰가 화면을 돌린 뒤 aspect-ratio 높이를 다시 계산하지 않아 영상이 찌그러졌다.
+    const { container } = render(<TimelapsePlayer aspect="16:9" photos={FIVE} overlay={overlay} />);
+    const canvas = container.querySelector("canvas")!;
+
+    expect(canvas.parentElement).not.toHaveClass("aspect-video");
+    expect(canvas).toHaveClass("w-full", "h-auto");
+  });
+
+  it("재생하는 동안 장이 넘어가도 컴포넌트를 다시 렌더하지 않는다", async () => {
+    const onRender = vi.fn();
+    render(
+      <Profiler id="player" onRender={onRender}>
+        <TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />
+      </Profiler>,
+    );
+    await advance(0);
+    act(() => mockAllIsIntersecting(true));
+    await advance(0);
+    const before = onRender.mock.calls.length;
+
+    await advance(STEP_MS * 6);
+
     expect(progressWidth()).not.toBe("0%");
-    expect([canvas.width, canvas.height]).toEqual([405, 720]);
+    expect(onRender.mock.calls.length).toBe(before);
+  });
+
+  it("흐름 바를 그리는 타임랩스는 같은 자리의 진행 막대를 숨긴다", () => {
+    render(
+      <TimelapsePlayer
+        aspect="9:16"
+        photos={FIVE}
+        overlay={{
+          ...overlay,
+          info: { ...overlay.info, flowBar: true },
+          flow: [{ startRatio: 0, widthRatio: 0.1, color: "#ff9e1b" }],
+        }}
+      />,
+    );
+
+    expect(screen.queryByTestId("timelapse-progress")).not.toBeInTheDocument();
   });
 
   it("캔버스와 진행 막대는 스크린리더에서 숨긴다", () => {

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
 
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -10,6 +10,9 @@ import { streakQuery } from "@/lib/statsQueries";
 import { flowSegmentsFor, overlayTextFor } from "./timelapseFrame";
 import { TimelapsePlayer } from "./TimelapsePlayer";
 import { getTimelapseStore, type TimelapseAnnotation, type TimelapseStore } from "./timelapseStore";
+
+const RECORDING_POLL_MS = 500;
+const RECORDING_POLL_LIMIT = 60;
 
 type ResultTimelapseCardProps = {
   startedAtMs: number;
@@ -37,7 +40,11 @@ export function ResultTimelapseCard({
     queryFn: () => store.get(startedAtMs),
     staleTime: Infinity,
     // 촬영 정리는 제출과 함께 시작해 결과 화면이 먼저 열릴 수 있다. 정리가 끝날 때까지만 다시 읽는다.
-    refetchInterval: (query) => (query.state.data?.status === "recording" ? 500 : false),
+    // 정리가 실패해 끝나지 않을 수도 있어 30초가 지나면 그만 읽는다.
+    refetchInterval: (query) =>
+      query.state.data?.status === "recording" && query.state.dataUpdateCount < RECORDING_POLL_LIMIT
+        ? RECORDING_POLL_MS
+        : false,
   });
   const ready = record.data?.status === "ready" ? record.data : null;
   const photos = useQuery({
@@ -95,25 +102,27 @@ export function ResultTimelapseCard({
   }
 
   return (
-    <Card
-      ref={cardRef}
-      className="shadow-sb-card flex flex-col items-center gap-5 px-[18px] pt-4 pb-[18px]"
-    >
-      <div className="flex w-full items-center gap-1">
-        <InfoTooltip label="타임랩스 안내">타임랩스는 언제든 설정에서 끌 수 있어요</InfoTooltip>
-        <p className="text-muted-foreground text-xs break-keep">
-          이미지를 터치하여 타임랩스를 공유하거나 저장해보세요
-        </p>
+    <Card ref={cardRef} className="shadow-sb-card pt-4 pb-[18px]">
+      <CardHeader className="justify-start gap-1.5">
+        <CardTitle>타임랩스</CardTitle>
+        <InfoTooltip label="타임랩스 안내">
+          타임랩스 촬영은 설정에서 언제든 끌 수 있어요
+        </InfoTooltip>
+      </CardHeader>
+      <p className="text-muted-foreground mt-1.5 px-4 text-xs break-keep">
+        이미지를 터치하여 타임랩스를 공유하거나 저장해보세요
+      </p>
+      <div className="mt-4 flex justify-center px-4">
+        <TimelapsePlayer
+          aspect={ready.settings.aspect}
+          photos={photos.data}
+          overlay={{
+            info: ready.settings.info,
+            text: overlayTextFor(ready, { ddayLabel, streakDays }),
+            flow: flowSegmentsFor(ready),
+          }}
+        />
       </div>
-      <TimelapsePlayer
-        aspect={ready.settings.aspect}
-        photos={photos.data}
-        overlay={{
-          info: ready.settings.info,
-          text: overlayTextFor(ready, { ddayLabel, streakDays }),
-          flow: flowSegmentsFor(ready),
-        }}
-      />
     </Card>
   );
 }

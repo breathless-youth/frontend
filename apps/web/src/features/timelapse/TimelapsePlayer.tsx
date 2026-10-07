@@ -30,9 +30,11 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
   const [paused, setPaused] = useState(() => prefersReducedMotion());
   const [fontsReady, setFontsReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sizedRef = useRef(false);
+  const progressRef = useRef<HTMLDivElement>(null);
   const size = canvasSizeFor(aspect);
   const lastIndex = Math.max(1, photos.length - 1);
+  // 흐름 바가 같은 자리에서 진행만큼 채워지므로 그때는 진행 막대를 따로 두지 않는다.
+  const showProgress = !(overlay.info.flowBar && overlay.flow !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +50,7 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
     };
   }, []);
 
-  const { index } = useTimelapsePlayer({
+  useTimelapsePlayer({
     photos: fontsReady ? photos : NO_PHOTOS,
     playing: inView && !paused,
     // D-Day·연속 공부처럼 늦게 오는 값이 멈춘 화면에도 반영되게 한다.
@@ -58,11 +60,9 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
       if (canvas === null) {
         return;
       }
-      // 사진 크기는 기기 카메라마다 달라 처음 그린 장에 한 번만 맞춘다.
-      if (!sizedRef.current && photo.width > 0) {
-        canvas.width = photo.width;
-        canvas.height = photo.height;
-        sizedRef.current = true;
+      // 진행 막대는 렌더 없이 직접 바꾼다. 초당 12번 컴포넌트를 다시 그릴 이유가 없다.
+      if (progressRef.current !== null) {
+        progressRef.current.style.width = `${Math.round((frame / lastIndex) * 100)}%`;
       }
       const ctx = canvas.getContext("2d");
       if (ctx === null) {
@@ -83,7 +83,9 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
       ref={ref}
       className={cn(
         "relative overflow-hidden rounded-[14px] bg-[#333e4d]",
-        aspect === "9:16" ? "h-[427px] w-[240px]" : "aspect-video w-full",
+        // 높이는 캔버스 자체 비율이 정한다. 기기 웹뷰가 화면을 돌린 뒤
+        // aspect-ratio 높이를 다시 계산하지 않아 영상이 찌그러졌다.
+        aspect === "9:16" ? "w-[240px]" : "w-full",
         className,
       )}
     >
@@ -92,30 +94,34 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
         width={size.width}
         height={size.height}
         aria-hidden="true"
-        className="block size-full"
+        className="block h-auto w-full"
       />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-3 bottom-[3px] h-[3px] overflow-hidden rounded-[2px] bg-white/30"
-      >
+      {showProgress && (
+        // 둥근 모서리에 닿지 않게 워터마크와 같은 거리만큼 안쪽에 둔다.
         <div
-          data-testid="timelapse-progress"
-          className="h-full bg-white"
-          style={{ width: `${Math.round((index / lastIndex) * 100)}%` }}
-        />
-      </div>
+          aria-hidden="true"
+          className="absolute inset-x-3 bottom-3 h-[3px] overflow-hidden rounded-[2px] bg-white/30"
+        >
+          <div
+            ref={progressRef}
+            data-testid="timelapse-progress"
+            className="bg-primary h-full"
+            style={{ width: "0%" }}
+          />
+        </div>
+      )}
       {/* 오른쪽 아래는 영상 정보 자리라 비어 있는 왼쪽 아래에 둔다. */}
       <button
         type="button"
         onClick={() => setPaused((value) => !value)}
         aria-label={paused ? "타임랩스 재생" : "타임랩스 일시정지"}
-        className="absolute bottom-6 left-1.5 flex size-11 items-center justify-center rounded-full text-white focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+        className="absolute bottom-7 left-1.5 flex size-11 items-center justify-center rounded-full text-white focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
       >
-        <span className="flex size-8 items-center justify-center rounded-full bg-black/35">
+        <span className="flex size-10 items-center justify-center rounded-full bg-black/35">
           {paused ? (
-            <Play size={16} fill="currentColor" aria-hidden="true" />
+            <Play size={18} fill="currentColor" aria-hidden="true" />
           ) : (
-            <Pause size={16} fill="currentColor" aria-hidden="true" />
+            <Pause size={18} fill="currentColor" aria-hidden="true" />
           )}
         </span>
       </button>

@@ -16,7 +16,7 @@ export const FLOW_COLORS = {
 
 const WATERMARK_TEXT = "포커스 메이커스";
 const WATERMARK_COLOR = "#3671cf";
-const WATERMARK_BACKGROUND = "rgba(0,0,0,0.35)";
+const WATERMARK_BACKGROUND = "#ffffff";
 const TEXT_COLOR = "#ffffff";
 const TEXT_SHADOW = "rgba(0,0,0,0.45)";
 const FONT_FAMILY = "Pretendard, system-ui, sans-serif";
@@ -135,6 +135,20 @@ function clearShadow(ctx: CanvasRenderingContext2D) {
   ctx.shadowOffsetY = 0;
 }
 
+/** 사진을 늘리지 않고 가운데를 잘라 캔버스를 채운다. 기기 카메라 비율이 영상 비율과 달라도 찌그러지지 않는다. */
+function drawPhotoCover(
+  ctx: CanvasRenderingContext2D,
+  photo: CanvasImageSource,
+  width: number,
+  height: number,
+) {
+  const { width: photoWidth, height: photoHeight } = photo as { width: number; height: number };
+  const scale = Math.min(photoWidth / width, photoHeight / height);
+  const sw = width * scale;
+  const sh = height * scale;
+  ctx.drawImage(photo, (photoWidth - sw) / 2, (photoHeight - sh) / 2, sw, sh, 0, 0, width, height);
+}
+
 interface Line {
   readonly text: string;
   readonly weight: number;
@@ -158,7 +172,7 @@ export function drawTimelapseFrame(ctx: CanvasRenderingContext2D, scene: Timelap
     ctx.fillStyle = "#3b4655";
     ctx.fillRect(0, 0, width, height);
   } else {
-    ctx.drawImage(scene.photo, 0, 0, width, height);
+    drawPhotoCover(ctx, scene.photo, width, height);
   }
 
   // 왼쪽 위 D-Day와 연속 공부

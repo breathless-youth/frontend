@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDday } from "@/lib/ddayApi";
@@ -61,6 +61,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
 });
 
@@ -72,9 +73,14 @@ describe("ResultTimelapseCard", () => {
     const player = await screen.findByTestId("player");
     expect(player).toHaveAttribute("data-aspect", "16:9");
     expect(player).toHaveAttribute("data-count", "2");
-    expect(
-      screen.getByText("이미지를 터치하여 타임랩스를 공유하거나 저장해보세요"),
-    ).toBeInTheDocument();
+    const title = screen.getByRole("heading", { level: 2, name: "타임랩스" });
+    const guide = screen.getByText("이미지를 터치하여 타임랩스를 공유하거나 저장해보세요");
+    // ⓘ는 제목 오른쪽, 안내 문구는 제목 아래에 둔다.
+    expect(title.parentElement).toContainElement(
+      screen.getByRole("button", { name: "타임랩스 안내" }),
+    );
+    expect(title.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.parentElement).not.toContainElement(guide);
   });
 
   it("ⓘ를 누르면 설정에서 끌 수 있다고 알려준다", async () => {
@@ -85,7 +91,7 @@ describe("ResultTimelapseCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "타임랩스 안내" }));
 
     expect(
-      await screen.findByText("타임랩스는 언제든 설정에서 끌 수 있어요", {
+      await screen.findByText("타임랩스 촬영은 설정에서 언제든 끌 수 있어요", {
         selector: "[data-state]",
       }),
     ).toBeInTheDocument();
@@ -150,6 +156,40 @@ describe("ResultTimelapseCard", () => {
     await store.finalize(T0, SUMMARY);
 
     expect(await screen.findByTestId("player", {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it("촬영 정리가 끝나지 않으면 30초 뒤에는 다시 읽지 않는다", async () => {
+    vi.useFakeTimers();
+    const stuck: TimelapseStore = {
+      ...store,
+      get: vi.fn(() =>
+        Promise.resolve({
+          startedAtMs: T0,
+          status: "recording" as const,
+          settings: DEFAULT_TIMELAPSE_SETTINGS,
+          intervalMs: 10_000,
+          nextSeq: 0,
+          photoCount: 0,
+        }),
+      ),
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ResultTimelapseCard startedAtMs={T0} userId={7} store={stuck} />
+      </QueryClientProvider>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    const calls = vi.mocked(stuck.get).mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(calls).toBeGreaterThan(30);
+    expect(vi.mocked(stuck.get).mock.calls.length).toBe(calls);
   });
 
   it("보관된 기록인데 사진이 하나도 없으면 아무것도 그리지 않는다", async () => {

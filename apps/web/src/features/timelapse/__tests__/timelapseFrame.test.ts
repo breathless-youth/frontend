@@ -14,7 +14,8 @@ import {
 type Call =
   | { op: "fillText"; text: string; align: CanvasTextAlign; x: number }
   | { op: "fillRect"; fill: string; x: number; y: number; w: number; h: number }
-  | { op: "drawImage"; args: number[] };
+  | { op: "drawImage"; args: number[] }
+  | { op: "fill"; fill: string };
 
 /** 그린 내용만 남기는 가짜 2D 컨텍스트 */
 function recordingContext() {
@@ -36,7 +37,9 @@ function recordingContext() {
     beginPath() {},
     closePath() {},
     clip() {},
-    fill() {},
+    fill() {
+      calls.push({ op: "fill", fill: String(ctx.fillStyle) });
+    },
     rect() {},
     roundRect() {},
     clearRect() {},
@@ -93,6 +96,14 @@ describe("drawTimelapseFrame", () => {
     expect(texts(calls).map((call) => call.text)).not.toContain("D-108 · 2027 수능");
   });
 
+  it("워터마크는 흰 바탕 위에 그린다", () => {
+    const { ctx, calls } = recordingContext();
+
+    drawTimelapseFrame(ctx, scene());
+
+    expect(calls).toContainEqual({ op: "fill", fill: "#ffffff" });
+  });
+
   it("D-Day와 연속 공부는 왼쪽 정렬, 나머지 정보는 오른쪽 정렬로 그린다", () => {
     const { ctx, calls } = recordingContext();
 
@@ -143,12 +154,31 @@ describe("drawTimelapseFrame", () => {
     );
   });
 
-  it("사진이 있으면 캔버스 전체에 그린다", () => {
+  it("사진 비율이 캔버스와 같으면 사진 전체를 캔버스에 그린다", () => {
     const { ctx, calls } = recordingContext();
 
-    drawTimelapseFrame(ctx, scene({ photo: {} as CanvasImageSource }));
+    drawTimelapseFrame(ctx, scene({ photo: { width: 405, height: 720 } as CanvasImageSource }));
 
-    expect(calls[0]).toEqual({ op: "drawImage", args: [0, 0, 540, 960] });
+    expect(calls[0]).toEqual({ op: "drawImage", args: [0, 0, 405, 720, 0, 0, 540, 960] });
+  });
+
+  it("사진 비율이 캔버스와 다르면 늘리지 않고 가운데를 잘라 채운다", () => {
+    const { ctx, calls } = recordingContext();
+
+    // 4:3 가로 사진을 9:16 캔버스에: 높이를 다 쓰고 좌우를 잘라낸다.
+    drawTimelapseFrame(ctx, scene({ photo: { width: 960, height: 720 } as CanvasImageSource }));
+    // 9:16 세로 사진을 16:9 캔버스에: 너비를 다 쓰고 위아래를 잘라낸다.
+    drawTimelapseFrame(
+      ctx,
+      scene({ width: 960, height: 540, photo: { width: 405, height: 720 } as CanvasImageSource }),
+    );
+
+    const draws = calls.filter((call) => call.op === "drawImage");
+    expect(draws[0]!.args).toEqual([277.5, 0, 405, 720, 0, 0, 540, 960]);
+    expect(draws[1]!.args[0]).toBe(0);
+    expect(draws[1]!.args[2]).toBe(405);
+    expect(draws[1]!.args[3]).toBeCloseTo(227.8125);
+    expect(draws[1]!.args[1]).toBeCloseTo((720 - 227.8125) / 2);
   });
 });
 
