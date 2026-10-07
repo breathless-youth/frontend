@@ -3,13 +3,14 @@ import type { TimelapseAspect, TimelapseInfoKey } from "./timelapseSettings";
 
 type InfoLine = { key: TimelapseInfoKey; text: string; className: string };
 
-const SAMPLE_DDAY_LABEL = "D-108 · 2027 수능";
+/** 사용자의 D-Day를 아직 모를 때 쓰는 문구. 가짜 숫자가 내 D-Day로 읽히지 않게 숫자를 뺐다. */
+const UNKNOWN_DDAY_LABEL = "D-Day";
 
 const SMALL_LINE = "text-[7.5px] font-semibold";
 
 /** 왼쪽 위 정보 줄의 표시 순서와 예시 값 */
 const TOP_LINES = [
-  { key: "dday", text: SAMPLE_DDAY_LABEL, className: "text-[10px] font-bold" },
+  { key: "dday", text: UNKNOWN_DDAY_LABEL, className: "text-[10px] font-bold" },
   { key: "streak", text: "5일 연속 공부 🔥", className: SMALL_LINE },
 ] as const satisfies readonly InfoLine[];
 
@@ -46,7 +47,7 @@ const FLOW_SEGMENTS = [
 type TimelapsePreviewProps = {
   aspect: TimelapseAspect;
   info: Readonly<Record<TimelapseInfoKey, boolean>>;
-  /** 사용자의 D-Day. 아직 모르면 예시 값을 쓴다. */
+  /** 사용자의 D-Day. 아직 모르면 숫자 없는 `D-Day`를 쓴다. */
   ddayLabel?: string;
 };
 
@@ -61,7 +62,7 @@ type TimelapsePreviewProps = {
 export function TimelapsePreview({
   aspect,
   info,
-  ddayLabel = SAMPLE_DDAY_LABEL,
+  ddayLabel = UNKNOWN_DDAY_LABEL,
 }: TimelapsePreviewProps) {
   const topLines = TOP_LINES.filter((line) => info[line.key]);
   const bottomLines = BOTTOM_LINES.filter((line) => info[line.key]);

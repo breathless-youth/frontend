@@ -159,6 +159,20 @@ describe("설정 › 타임랩스", () => {
     expect(screen.getByTestId("timelapse-preview")).not.toBe(portrait);
   });
 
+  it("D-Day를 불러오는 동안 미리보기에는 숫자 없이 D-Day만 보여준다", async () => {
+    setTimelapseSettingsStore(
+      createMemoryTimelapseSettingsStore({
+        ...DEFAULT_TIMELAPSE_SETTINGS,
+        info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, dday: true },
+      }),
+    );
+    vi.mocked(getDday).mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    const top = await screen.findByTestId("timelapse-preview-top");
+    expect(within(top).getByText("D-Day")).toBeInTheDocument();
+  });
+
   it("D-Day를 켜면 미리보기에 실제 D-Day를 보여준다", async () => {
     const target = new Date();
     target.setDate(target.getDate() + 10);
@@ -226,7 +240,7 @@ describe("설정 › 타임랩스", () => {
     expect(screen.queryByText("디데이 설정 필요")).toBeNull();
   });
 
-  it("실제 D-Day를 받아 둔 뒤 재조회가 실패하면 미리보기는 예시 값으로 돌아간다", async () => {
+  it("실제 D-Day를 받아 둔 뒤 재조회가 실패하면 미리보기는 숫자 없는 D-Day로 돌아간다", async () => {
     queryClient.setQueryData(
       ["dday", 7],
       { title: "기말고사", targetDate: "2027-01-23" },
@@ -241,10 +255,9 @@ describe("설정 › 타임랩스", () => {
     vi.mocked(getDday).mockRejectedValue(new Error("D-Day 조회 실패"));
     renderPage();
 
-    const preview = await screen.findByTestId("timelapse-preview");
-    expect(
-      await within(preview).findByText("D-108 · 2027 수능", {}, { timeout: 3000 }),
-    ).toBeInTheDocument();
+    const top = await screen.findByTestId("timelapse-preview-top");
+    expect(await within(top).findByText("D-Day", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(within(top).queryByText(/기말고사/)).toBeNull();
     expect(screen.getByRole("switch", { name: "D-Day" })).toBeInTheDocument();
   });
 

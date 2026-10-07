@@ -33,7 +33,7 @@ describe("TimelapsePreview", () => {
     );
     const top = screen.getByTestId("timelapse-preview-top");
 
-    expect(within(top).getByText("D-108 · 2027 수능")).toBeInTheDocument();
+    expect(within(top).getByText("D-Day")).toBeInTheDocument();
     expect(within(top).getByText("5일 연속 공부 🔥")).toBeInTheDocument();
     expect(within(top).queryByText("10월 5일")).toBeNull();
     expect(top).toHaveClass("items-start");
@@ -45,7 +45,7 @@ describe("TimelapsePreview", () => {
     );
 
     expect(screen.getByText("D-3 · 기말고사")).toBeInTheDocument();
-    expect(screen.queryByText("D-108 · 2027 수능")).toBeNull();
+    expect(screen.queryByText("D-Day")).toBeNull();
   });
 
   it("D-Day와 연속 공부를 모두 끄면 왼쪽 위 묶음이 없다", () => {
