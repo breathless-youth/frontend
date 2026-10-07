@@ -291,6 +291,18 @@ describe("TimelapsePlayer", () => {
       expect(glyphs).toContain("포커스 메이커스");
     });
 
+    it("글꼴 요청이 멈춰도 대체 글꼴로 재생한다", async () => {
+      // 약한 네트워크에서 한글 조각 파일 요청이 끝나지 않으면 빈 상자로 남았다.
+      load.mockImplementation(() => new Promise(() => {}));
+      render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+      await advance(0);
+      act(() => mockAllIsIntersecting(true));
+
+      await advance(STEP_MS * 3);
+
+      expect(progressWidth()).not.toBe("0%");
+    });
+
     it("늦게 온 D-Day 글자도 불러온다", async () => {
       const { rerender } = render(
         <TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />,

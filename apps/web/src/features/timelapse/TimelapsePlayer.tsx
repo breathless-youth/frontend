@@ -15,8 +15,6 @@ import {
 import type { TimelapseAspect } from "./timelapseSettings";
 import { useTimelapsePlayer } from "./useTimelapsePlayer";
 
-const NO_PHOTOS: readonly ArrayBuffer[] = [];
-
 type TimelapsePlayerProps = {
   aspect: TimelapseAspect;
   photos: readonly ArrayBuffer[];
@@ -29,12 +27,13 @@ type TimelapsePlayerProps = {
  *
  * 절반 이상 화면에 보일 때만 재생하고 끝나면 처음부터 다시 돈다.
  * 저절로 오래 움직이는 화면이라 일시정지 버튼을 두고, 움직임 줄이기 설정이면 멈춘 채로 시작한다.
- * 캔버스 글자가 대체 글꼴로 먼저 그려지지 않게 Pretendard를 불러온 뒤 그린다.
+ * 글꼴을 기다리지 않고 바로 그린다. Pretendard가 늦게 오면 처음 몇 장은 대체 글꼴이고,
+ * 도착하면 멈춘 화면도 다시 그린다. 글꼴 요청이 멈추면 빈 상자로 남았다.
  */
 export function TimelapsePlayer({ aspect, photos, overlay, className }: TimelapsePlayerProps) {
   const { ref, inView } = useInView({ threshold: 0.5 });
   const [paused, setPaused] = useState(() => prefersReducedMotion());
-  // 마지막으로 글꼴을 받아 둔 글자. null이면 아직 한 번도 받지 않았다.
+  // 마지막으로 글꼴을 받아 둔 글자
   const [loadedGlyphs, setLoadedGlyphs] = useState<string | null>(null);
   const glyphs = timelapseGlyphs(overlay.text);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -49,7 +48,6 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
     // 한글은 여러 조각 파일로 나뉘어 있어 그릴 글자를 넘겨야 그 글자가 든 조각을 받는다.
     const loading =
       document.fonts?.load(`800 16px ${TIMELAPSE_FONT_FAMILY}`, glyphs) ?? Promise.resolve();
-    // 글꼴을 못 불러와도 대체 글꼴로 재생한다.
     void loading
       .catch(() => {})
       .then(() => {
@@ -61,7 +59,7 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
   }, [glyphs]);
 
   useTimelapsePlayer({
-    photos: loadedGlyphs !== null ? photos : NO_PHOTOS,
+    photos,
     playing: inView && !paused,
     // D-Day·연속 공부처럼 늦게 오는 값이 멈춘 화면에도 반영되게 한다.
     // 늦게 온 글자의 글꼴이 도착하면 멈춘 화면도 그 글꼴로 다시 그린다.
