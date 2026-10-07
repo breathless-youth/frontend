@@ -50,6 +50,16 @@ export interface TimelapseRecord {
   readonly nextSeq: number;
   readonly photoCount: number;
   readonly summary?: TimelapseSummary;
+  /** 결과 화면에서 받은 그날의 D-Day 표기. 나중에 다시 볼 때도 그날 값으로 그린다. */
+  readonly ddayLabel?: string | null;
+  /** 결과 화면에서 받은 그날의 연속 공부 일수 */
+  readonly streakDays?: number | null;
+}
+
+/** 결과 화면이 재생할 때 레코드에 남기는 값 */
+export interface TimelapseAnnotation {
+  readonly ddayLabel?: string | null;
+  readonly streakDays?: number | null;
 }
 
 export interface TimelapsePhoto {
@@ -95,6 +105,9 @@ export interface TimelapseStore {
   sweep(nowMs: number): Promise<void>;
   /** 목록에 보일 기록을 최신부터 준다. */
   listReady(): Promise<TimelapseRecord[]>;
+  get(startedAtMs: number): Promise<TimelapseRecord | null>;
+  /** 목록에 올린 기록에만 더하고, 촬영 중이거나 없는 기록은 그대로 둔다. */
+  annotate(startedAtMs: number, patch: TimelapseAnnotation): Promise<void>;
   /** 한 타임랩스의 사진을 찍은 순서로 준다. */
   listPhotos(startedAtMs: number): Promise<TimelapsePhoto[]>;
 }
@@ -241,6 +254,19 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
       return all
         .filter((record) => record.status === "ready")
         .sort((a, b) => b.startedAtMs - a.startedAtMs);
+    },
+
+    async get(startedAtMs) {
+      return (await (await database()).get("timelapses", startedAtMs)) ?? null;
+    },
+
+    async annotate(startedAtMs, patch) {
+      const tx = (await database()).transaction("timelapses", "readwrite");
+      const record = await tx.store.get(startedAtMs);
+      if (record?.status === "ready") {
+        await tx.store.put({ ...record, ...patch });
+      }
+      await tx.done;
     },
 
     async listPhotos(startedAtMs) {
