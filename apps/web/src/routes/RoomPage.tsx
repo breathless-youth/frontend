@@ -332,6 +332,7 @@ function RoomSessionScreen({
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
     onEnded: timelapse?.finish,
+    onCameraLost: () => showCtaToast(CAMERA_TOAST_COPY.cameraOff),
   });
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   useEffect(() => {
