@@ -31,7 +31,11 @@ function fakeStreamWithSettings(settings: MediaTrackSettings) {
   } as unknown as MediaStream;
 }
 
-/** 영상 트랙 상태를 바꿀 수 있는 스트림. 백그라운드에서 Android가 트랙을 끊는 상황을 흉내 낸다. */
+/**
+ * 영상 트랙 상태를 바꿀 수 있는 스트림
+ *
+ * 백그라운드에서 Android가 트랙을 끊는 상황을 흉내 낸다.
+ */
 function liveStream() {
   const track = { stop: vi.fn(), readyState: "live" as MediaStreamTrackState };
   return {

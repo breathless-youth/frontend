@@ -38,7 +38,9 @@ function stopStream(stream: MediaStream | null): void {
 }
 
 /**
- * 영상 트랙이 하나라도 살아 있는가. 트랙 표면이 없는 출처(테스트 대역)는 살아 있다고 본다 —
+ * 영상 트랙 생존 여부
+ *
+ * 트랙 표면이 없는 출처(테스트 대역)는 살아 있다고 본다.
  * 감지기의 `cameraTrackLive`와 같은 기준이다.
  */
 function hasLiveVideo(current: MediaStream): boolean {
@@ -101,7 +103,9 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
    */
   let wanted = false;
   /**
-   * 열려 있던 카메라를 다시 잡지 못했다. 처음부터 열지 못한 경우(권한 거부)와 가르는 값이다 —
+   * 열려 있던 카메라를 다시 잡지 못했다는 표시
+   *
+   * 처음부터 열지 못한 경우(권한 거부)와 가르는 값이다.
    * 그쪽까지 다시 열면 재개할 때마다 권한 창이 다시 뜬다.
    */
   let lost = false;
@@ -122,7 +126,11 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
     }
   }
 
-  /** 한 번 실패하면 잠깐 뒤 한 번 더 연다 — 방금 놓인 카메라는 해제가 늦을 수 있다. */
+  /**
+   * 한 번 실패하면 잠깐 뒤 한 번 더 여는 열기
+   *
+   * 방금 놓인 카메라는 해제가 늦어 바로 열리지 않을 수 있다.
+   */
   async function openWithRetry(next: CameraFacing): Promise<MediaStream | null> {
     const opened = await open(next);
     if (opened !== null) {
@@ -244,8 +252,8 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
         return { ok: false, reason: "camera-off" };
       }
       if (opened === null) {
-        // 복원까지 실패했다 — 카메라 없는 상태를 그대로 알린다. 열려 있던 카메라를 잃은 것이라
-        // 다음 `ensureLive()`(재개)가 다시 연다.
+        // 복원까지 실패했다 — 카메라 없는 상태를 그대로 알린다.
+        // 열려 있던 카메라를 잃은 것이라 재개 때 `ensureLive()`가 다시 연다.
         lost = true;
         return { ok: false, reason: "camera-off" };
       }

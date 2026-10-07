@@ -7,8 +7,10 @@ import { createMockSystemPauseSource } from "../adapters/systemPauseSource";
 import { useStudyRoomSession } from "../useStudyRoomSession";
 
 /**
- * Android 웹뷰는 백그라운드에서 카메라 트랙을 끊는다(BY-893). 훅은 복귀·재개·트랙 `ended`에서
- * 어댑터에 다시 잡기를 맡기고, 바뀐 스트림을 화면에 내준다.
+ * 세션 훅의 카메라 재획득 대역
+ *
+ * Android 웹뷰는 백그라운드에서 카메라 트랙을 끊는다.
+ * 훅은 복귀·재개·트랙 `ended`에서 어댑터에 다시 잡기를 맡기고, 바뀐 스트림을 화면에 내준다.
  */
 function fakeTrack() {
   const listeners = new Set<() => void>();
@@ -62,9 +64,10 @@ function revivableCamera(first: MediaStream) {
 }
 
 /**
- * 대기 중인 비동기 작업을 다 흘려보낸다. 훅은 `ensureLive`를 기다린 뒤 state를 바꾸고, 마운트 때
- * `start()` 뒤의 반영도 늦게 돈다. 렌더 직후에도 불러야 그 반영이 뒤늦게 새 스트림을 읽어
- * 재획득 배선 없이 통과하는 일을 막는다.
+ * 대기 중인 비동기 작업 비우기
+ *
+ * 훅은 `ensureLive`를 기다린 뒤 state를 바꾸고, 마운트 때 `start()` 뒤의 반영도 늦게 돈다.
+ * 렌더 직후에도 불러야 그 반영이 뒤늦게 새 스트림을 읽어 재획득 연결 없이 통과하는 일을 막는다.
  */
 async function settle() {
   await act(async () => {

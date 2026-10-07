@@ -124,10 +124,10 @@ export interface StudyRoomSessionOptions {
    */
   readonly onEnded?: (ended: EndedSession) => void;
   /**
-   * 켜져 있던 카메라를 다시 잡지 못했을 때 부르는 알림(BY-893)
+   * 켜져 있던 카메라를 다시 잡지 못했을 때 부르는 알림
    *
    * 화면이 토스트로 알린다.
-   * 소셜룸은 넘기지 않는다 — 카메라 꺼짐이 타일과 컨트롤 바에 그대로 보인다.
+   * 소셜룸은 넘기지 않는다. 카메라 꺼짐이 타일과 컨트롤 바에 그대로 보인다.
    */
   readonly onCameraLost?: () => void;
 }
@@ -309,12 +309,20 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [cameraFacing, setCameraFacing] = useState(camera.facing);
   const [isCameraRunning, setIsCameraRunning] = useState(camera.isRunning);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(camera.stream ?? null);
-  /** 어댑터의 실행 상태와 스트림을 화면 state로 옮긴다. 값이 그대로면 React가 리렌더를 건너뛴다. */
+  /**
+   * 어댑터의 실행 상태와 스트림을 화면 state에 반영하는 함수
+   *
+   * 값이 그대로면 React가 리렌더를 건너뛴다.
+   */
   const syncCamera = useCallback(() => {
     setIsCameraRunning(camera.isRunning);
     setCameraStream(camera.stream ?? null);
   }, [camera]);
-  /** 세션 화면이 떠 있는 동안만 참 — 화면을 떠난 뒤 끝난 재획득이 실패 알림을 내지 않게 한다. */
+  /**
+   * 세션 화면이 떠 있는 동안만 참인 표시
+   *
+   * 화면을 떠난 뒤 끝난 재획득이 실패 알림을 내지 않게 한다.
+   */
   const cameraActiveRef = useRef(false);
   const [phase, setPhase] = useState<StudyRoomPhase>({ name: "studying" });
   const [endReason, setEndReason] = useState<SessionEndReason | null>(null);
@@ -402,8 +410,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useEffect(() => {
     let cancelled = false;
     cameraActiveRef.current = true;
-    // `syncCamera`를 쓰지 않는다. 컴파일러가 `camera.stream` 읽기를 그 함수의 의존성으로 잡아
-    // 스트림이 바뀔 때마다 새 함수가 된다. 여기 의존성에 넣으면 재획득할 때마다 카메라를 껐다 켠다.
+    // `syncCamera`를 쓰지 않는다.
+    // 컴파일러가 `camera.stream` 읽기를 그 함수의 의존성으로 잡아 스트림이 바뀔 때마다 새 함수가 된다.
+    // 여기 의존성에 넣으면 재획득할 때마다 카메라를 껐다 켠다.
     const applyCamera = () => {
       setIsCameraRunning(camera.isRunning);
       setCameraStream(camera.stream ?? null);
@@ -436,10 +445,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [camera, detectionParams, detector]);
 
   /**
-   * 끊긴 카메라 다시 잡기(BY-893)
+   * 끊긴 카메라 다시 잡기
    *
-   * Android 웹뷰는 백그라운드에서 카메라 트랙을 끊는다. 어댑터가 다시 열고, 여기서는 결과를
-   * 화면에 옮긴다. 켜져 있던 카메라가 꺼진 채 끝났을 때만 실패를 알린다.
+   * Android 웹뷰는 백그라운드에서 카메라 트랙을 끊는다.
+   * 어댑터가 다시 열고, 여기서는 결과를 화면에 반영한다.
+   * 켜져 있던 카메라가 꺼진 채 끝났을 때만 실패를 알린다.
    */
   const reviveCamera = useCallback(async () => {
     if (camera.ensureLive === undefined) {
@@ -458,7 +468,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   /**
    * 화면이 보이는 중에 트랙이 끊기면(다른 앱이 카메라를 가져가는 등) 바로 다시 잡는다.
-   * 숨은 동안 끊긴 것은 복귀(`onReturnFromBackground`)가 맡는다 — 숨은 웹뷰에서는 카메라를 열 수 없다.
+   * 숨은 동안 끊긴 것은 복귀(`onReturnFromBackground`)가 맡는다. 숨은 웹뷰에서는 카메라를 열 수 없다.
    * `stop()`으로 우리가 끈 트랙은 `ended`를 내지 않는다.
    */
   useEffect(() => {
@@ -590,16 +600,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         roomType,
       });
     }
-    // 복귀 때 다시 잡지 못했으면 한 번 더 시도한다. 재개는 기다리지 않는다 — 카메라가 없어도 세션은 이어진다.
+    // 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
+    // 재개는 기다리지 않는다. 카메라가 없어도 세션은 이어진다.
     void reviveCamera();
   };
 
   /**
    * **확정: 수동 재개**(2026-07-26 리더 확정). 화면 꺼짐·백그라운드에서 돌아와도 세션은
    * 자동으로 재개되지 않는다 — 사용자가 일시정지 화면의 재개 버튼을 직접 눌러야 한다.
-   * 그래서 복귀 시 세션 상태는 바꾸지 않는다 — 이건 임시가 아니라 확정된 동작이다. 카메라만 다시
-   * 잡는다. Android는 백그라운드에서 트랙을 끊어, 그대로 두면 일시정지 화면 프리뷰와 재개 뒤 판정이
-   * 멈춘 장면에 머문다(BY-893).
+   * 그래서 복귀 시 세션 상태는 바꾸지 않는다 — 이건 임시가 아니라 확정된 동작이다.
+   * 카메라만 다시 잡는다.
+   * Android는 백그라운드에서 트랙을 끊어, 그대로 두면 일시정지 화면 프리뷰와 재개 뒤 판정이 멈춘 장면에 머문다.
    */
   const onReturnFromBackground = useCallback(() => {
     void reviveCamera();
@@ -641,7 +652,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     }
     // 전환은 기존 스트림을 먼저 정지하므로(Android는 기존 카메라를 놓아야 반대 카메라가
     // 열린다) 복원까지 실패하면 카메라가 실제로 꺼진다. 여기서 실행 상태를 다시 읽지 않으면
-    // 화면과 상대에게 나가는 발행이 낡은 "켜짐"으로 남는다. 스트림도 새로 열렸으니 함께 옮긴다.
+    // 화면과 상대에게 나가는 발행이 낡은 "켜짐"으로 남는다.
+    // 스트림도 새로 열렸으니 함께 반영한다.
     syncCamera();
     return result;
   };
@@ -812,7 +824,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     isCameraRunning,
     /**
      * `stream`은 실제 어댑터에만 있다(mock에는 없다) — 없으면 null이고, 그러면
-     * CameraPreviewSurface가 목업 서피스를 그린다. 재획득(BY-893)으로 스트림만 바뀔 수 있어 state다.
+     * CameraPreviewSurface가 목업 서피스를 그린다.
+     * 재획득으로 스트림만 바뀔 수 있어 state다.
      */
     cameraStream,
     /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */

@@ -569,8 +569,9 @@ export function createVisionFocusDetector(
       return;
     }
     if (!cameraTrackLive(element)) {
-      // 트랙이 끊겨도 `<video>`는 마지막 프레임을 들고 있다. 그 장면으로 판정하면 멈춘 화면이
-      // 공부 상태를 정한다(BY-893, Android 백그라운드 복귀). 훅이 카메라를 다시 잡을 때까지 건너뛴다.
+      // 트랙이 끊겨도 `<video>`는 마지막 프레임을 들고 있다.
+      // 그 장면으로 판정하면 멈춘 화면이 공부 상태를 정한다. Android에서 백그라운드에 다녀오면 이렇게 된다.
+      // 훅이 카메라를 다시 잡을 때까지 건너뛴다.
       return;
     }
     ensureLoaded();

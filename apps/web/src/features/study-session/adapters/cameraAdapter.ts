@@ -30,11 +30,12 @@ export interface CameraAdapter {
   start(): Promise<void>;
   stop(): void;
   /**
-   * 한 번 열렸다가 끊긴 카메라를 다시 연다 — **선택**이다.
+   * 끊긴 카메라 다시 열기
    *
-   * Android 웹뷰는 앱이 백그라운드로 가면 카메라 트랙을 끊는다(BY-893). 끝난 뒤에는
-   * `isRunning`·`stream`이 결과를 담고 있다. 실제 피드가 없는 mock에는 둘 이유가 없어
-   * `stream`처럼 옵셔널로 둔다.
+   * 한 번 열렸다가 끊긴 카메라만 다시 연다.
+   * Android 웹뷰는 앱이 백그라운드로 가면 카메라 트랙을 끊는다.
+   * 끝난 뒤에는 `isRunning`·`stream`이 결과를 담고 있다.
+   * 실제 피드가 없는 mock에는 둘 이유가 없어 `stream`처럼 옵셔널로 둔다.
    */
   ensureLive?(): Promise<void>;
   flip(): Promise<CameraFlipResult>;
