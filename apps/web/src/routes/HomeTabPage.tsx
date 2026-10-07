@@ -21,6 +21,7 @@ import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
+import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
@@ -287,6 +288,7 @@ function HomeContent({ userId }: { userId: number }) {
       </Button>
 
       <InviteCard onClick={openSocial} />
+      {import.meta.env.VITE_TIMELAPSE === "on" && <RecentTimelapses />}
     </>
   );
 }
