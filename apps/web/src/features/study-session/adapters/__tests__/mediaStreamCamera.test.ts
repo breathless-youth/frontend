@@ -31,6 +31,22 @@ function fakeStreamWithSettings(settings: MediaTrackSettings) {
   } as unknown as MediaStream;
 }
 
+/**
+ * 영상 트랙 상태를 바꿀 수 있는 스트림
+ *
+ * 백그라운드에서 Android가 트랙을 끊는 상황을 흉내 낸다.
+ */
+function liveStream() {
+  const track = { stop: vi.fn(), readyState: "live" as MediaStreamTrackState };
+  return {
+    getTracks: () => [track],
+    getVideoTracks: () => [track],
+    __track: track,
+  } as unknown as MediaStream & {
+    __track: { stop: ReturnType<typeof vi.fn>; readyState: MediaStreamTrackState };
+  };
+}
+
 function stubMediaDevices(getUserMedia: ReturnType<typeof vi.fn>, deviceKinds: string[] = []) {
   vi.stubGlobal("navigator", {
     mediaDevices: {
@@ -371,6 +387,234 @@ describe("createMediaStreamCameraAdapter", () => {
 
       expect(camera.isRunning).toBe(true);
       expect(visionDiagnostics.cameraStream).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("끊긴 트랙 재획득 (BY-893)", () => {
+    it("영상 트랙이 끊겼으면 같은 방향 카메라를 다시 열고 옛 스트림을 정리한다", async () => {
+      const first = liveStream();
+      const second = liveStream();
+      const getUserMedia = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      first.__track.readyState = "ended";
+
+      await camera.ensureLive();
+
+      expect(camera.stream).toBe(second);
+      expect(camera.isRunning).toBe(true);
+      expect(first.__track.stop).toHaveBeenCalled();
+      expect(getUserMedia).toHaveBeenLastCalledWith(
+        expect.objectContaining({ video: expect.objectContaining({ facingMode: "user" }) }),
+      );
+    });
+
+    it("영상 트랙이 살아 있으면 다시 열지 않는다", async () => {
+      const first = liveStream();
+      const getUserMedia = vi.fn().mockResolvedValue(first);
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      await camera.ensureLive();
+
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(camera.stream).toBe(first);
+    });
+
+    it("첫 재획득이 실패하면 잠깐 뒤 한 번 더 연다 — 방금 놓인 카메라의 해제 지연 대비", async () => {
+      vi.useFakeTimers();
+      try {
+        const first = liveStream();
+        const second = liveStream();
+        const getUserMedia = vi
+          .fn()
+          .mockResolvedValueOnce(first)
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockResolvedValueOnce(second);
+        stubMediaDevices(getUserMedia);
+        const camera = createMediaStreamCameraAdapter();
+        await camera.start();
+        first.__track.readyState = "ended";
+
+        const reviving = camera.ensureLive();
+        await vi.advanceTimersByTimeAsync(700);
+        await reviving;
+
+        expect(camera.stream).toBe(second);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("끝내 못 열면 카메라를 끄고, 다음 호출이 다시 시도한다", async () => {
+      vi.useFakeTimers();
+      try {
+        const first = liveStream();
+        const later = liveStream();
+        const getUserMedia = vi
+          .fn()
+          .mockResolvedValueOnce(first)
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockResolvedValueOnce(later);
+        stubMediaDevices(getUserMedia);
+        const camera = createMediaStreamCameraAdapter();
+        await camera.start();
+        first.__track.readyState = "ended";
+
+        const failing = camera.ensureLive();
+        await vi.advanceTimersByTimeAsync(700);
+        await failing;
+        expect(camera.isRunning).toBe(false);
+        expect(camera.stream).toBeNull();
+
+        await camera.ensureLive();
+        expect(camera.stream).toBe(later);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("처음부터 열지 못한 카메라는 다시 시도하지 않는다 — 재개마다 권한 창이 뜨면 안 된다", async () => {
+      const getUserMedia = vi.fn().mockRejectedValue(new Error("NotAllowedError"));
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      await camera.ensureLive();
+
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it("재획득 도중 stop이 들어오면 뒤늦게 열린 스트림을 멈추고 붙잡지 않는다", async () => {
+      const first = liveStream();
+      const late = liveStream();
+      let resolveLate: (stream: MediaStream) => void = () => {};
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockReturnValueOnce(new Promise<MediaStream>((resolve) => (resolveLate = resolve)));
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      first.__track.readyState = "ended";
+
+      const reviving = camera.ensureLive();
+      camera.stop();
+      resolveLate(late);
+      await reviving;
+
+      expect(camera.stream).toBeNull();
+      expect(late.__track.stop).toHaveBeenCalled();
+    });
+
+    it("재획득이 이미 진행 중이면 두 번째 호출은 그 결과를 기다리고 따로 열지 않는다", async () => {
+      const first = liveStream();
+      const second = liveStream();
+      let resolveSecond: (stream: MediaStream) => void = () => {};
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockReturnValueOnce(new Promise<MediaStream>((resolve) => (resolveSecond = resolve)));
+      stubMediaDevices(getUserMedia);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+      first.__track.readyState = "ended";
+
+      // 복귀와 트랙 `ended`가 거의 같이 들어오는 경우다.
+      const reviving = camera.ensureLive();
+      const joining = camera.ensureLive();
+      resolveSecond(second);
+      await joining;
+
+      expect(camera.stream).toBe(second);
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      await reviving;
+    });
+
+    it("전환 복원까지 실패해 꺼진 카메라도 다음 호출이 다시 연다", async () => {
+      vi.useFakeTimers();
+      try {
+        const first = liveStream();
+        const later = liveStream();
+        const getUserMedia = vi
+          .fn()
+          .mockResolvedValueOnce(first)
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockResolvedValueOnce(later);
+        stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+        const camera = createMediaStreamCameraAdapter();
+        await camera.start();
+
+        const flipping = camera.flip();
+        await vi.advanceTimersByTimeAsync(700);
+        await expect(flipping).resolves.toEqual({ ok: false, reason: "camera-off" });
+
+        await camera.ensureLive();
+        expect(camera.stream).toBe(later);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("재시도 대기 중 stop이 들어오면 카메라를 다시 요청하지 않는다", async () => {
+      vi.useFakeTimers();
+      try {
+        const first = liveStream();
+        const getUserMedia = vi
+          .fn()
+          .mockResolvedValueOnce(first)
+          .mockRejectedValueOnce(new Error("NotReadableError"))
+          .mockResolvedValue(liveStream());
+        stubMediaDevices(getUserMedia);
+        const camera = createMediaStreamCameraAdapter();
+        await camera.start();
+        first.__track.readyState = "ended";
+
+        const reviving = camera.ensureLive();
+        await vi.advanceTimersByTimeAsync(0);
+        camera.stop();
+        await vi.advanceTimersByTimeAsync(700);
+        await reviving;
+
+        // 떠난 화면에서 카메라를 다시 열면 인디케이터가 잠깐 켜진다.
+        expect(getUserMedia).toHaveBeenCalledTimes(2);
+        expect(camera.stream).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("전환이 카메라를 여는 중이면 끝날 때까지 기다리고 따로 열지 않는다", async () => {
+      const first = liveStream();
+      const back = liveStream();
+      let resolveBack: (stream: MediaStream) => void = () => {};
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockReturnValueOnce(new Promise<MediaStream>((resolve) => (resolveBack = resolve)));
+      stubMediaDevices(getUserMedia, ["videoinput", "videoinput"]);
+      const camera = createMediaStreamCameraAdapter();
+      await camera.start();
+
+      const flipping = camera.flip();
+      // flip이 enumerateDevices를 기다린 뒤 getUserMedia를 건다.
+      await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
+      let revived = false;
+      const reviving = camera.ensureLive().then(() => {
+        revived = true;
+      });
+      await Promise.resolve();
+      expect(revived).toBe(false);
+
+      resolveBack(back);
+      await Promise.all([flipping, reviving]);
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      expect(camera.stream).toBe(back);
     });
   });
 });

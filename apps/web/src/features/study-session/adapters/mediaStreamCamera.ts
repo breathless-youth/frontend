@@ -23,6 +23,7 @@ import type { CameraAdapter, CameraFacing, CameraFlipResult } from "./cameraAdap
  */
 export interface MediaStreamCameraAdapter extends CameraAdapter {
   readonly stream: MediaStream | null;
+  ensureLive(): Promise<void>;
 }
 
 async function countVideoInputs(): Promise<number> {
@@ -34,6 +35,19 @@ function stopStream(stream: MediaStream | null): void {
   for (const track of stream?.getTracks() ?? []) {
     track.stop();
   }
+}
+
+/**
+ * 영상 트랙 생존 여부
+ *
+ * 트랙 표면이 없는 출처(테스트 대역)는 살아 있다고 본다.
+ * 감지기의 `cameraTrackLive`와 같은 기준이다.
+ */
+function hasLiveVideo(current: MediaStream): boolean {
+  if (typeof current.getVideoTracks !== "function") {
+    return true;
+  }
+  return current.getVideoTracks().some((track) => track.readyState === "live");
 }
 
 /**
@@ -88,6 +102,13 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
    * 트랙은 누구도 잡고 있지 않은 채 살아남는다(카메라 인디케이터 점등·배터리 소모).
    */
   let wanted = false;
+  /**
+   * 열려 있던 카메라를 다시 잡지 못했다는 표시
+   *
+   * 처음부터 열지 못한 경우(권한 거부)와 가르는 값이다.
+   * 그쪽까지 다시 열면 재개할 때마다 권한 창이 다시 뜬다.
+   */
+  let lost = false;
 
   async function open(next: CameraFacing): Promise<MediaStream | null> {
     try {
@@ -103,6 +124,21 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       reportHandled(error, "camera-acquire");
       return null;
     }
+  }
+
+  /**
+   * 한 번 실패하면 잠깐 뒤 한 번 더 여는 열기
+   *
+   * 방금 놓인 카메라는 해제가 늦어 바로 열리지 않을 수 있다.
+   */
+  async function openWithRetry(next: CameraFacing): Promise<MediaStream | null> {
+    const opened = await open(next);
+    if (opened !== null) {
+      return opened;
+    }
+    await wait(RESTORE_RETRY_MS);
+    // 기다리는 사이 세션을 떠났으면 열지 않는다. 열었다 바로 닫아도 카메라 표시등이 잠깐 켜진다.
+    return wanted ? open(next) : null;
   }
 
   return {
@@ -138,8 +174,34 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
     },
     stop() {
       wanted = false;
+      lost = false;
       stopStream(stream);
       stream = null;
+    },
+    async ensureLive() {
+      if (!wanted) {
+        return;
+      }
+      if (pending !== null) {
+        // 전환이나 다른 재획득이 이미 여는 중이다. 겹쳐 열면 한쪽 스트림이 고아가 된다.
+        await pending;
+        return;
+      }
+      if (stream === null ? !lost : hasLiveVideo(stream)) {
+        return;
+      }
+      stopStream(stream);
+      stream = null;
+      pending = openWithRetry(facing);
+      const opened = await pending;
+      pending = null;
+      if (!wanted) {
+        // 여는 도중 stop()이 들어왔다(= 세션 이탈). 붙여 두면 그대로 누수다.
+        stopStream(opened);
+        return;
+      }
+      stream = opened;
+      lost = opened === null;
     },
     async flip(): Promise<CameraFlipResult> {
       if (stream === null) {
@@ -178,14 +240,8 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
           return openedNext;
         }
         // 전환 실패 — 이전 카메라를 복원한다. 전환 실패로 프리뷰가 통째로 꺼지면 세션이
-        // 측정 불가 상태가 되기 때문이다. 방금 정지한 카메라라 해제가 늦을 수 있어
-        // 한 번만 잠깐 뒤 재시도한다.
-        const restored = await open(previous);
-        if (restored !== null) {
-          return restored;
-        }
-        await wait(RESTORE_RETRY_MS);
-        return open(previous);
+        // 측정 불가 상태가 되기 때문이다.
+        return openWithRetry(previous);
       })();
       const opened = await pending;
       pending = null;
@@ -197,11 +253,14 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
       }
       if (opened === null) {
         // 복원까지 실패했다 — 카메라 없는 상태를 그대로 알린다.
+        // 열려 있던 카메라를 잃은 것이라 재개 때 `ensureLive()`가 다시 연다.
+        lost = true;
         return { ok: false, reason: "camera-off" };
       }
 
       stream = opened;
       facing = openedFacing;
+      lost = false;
       return openedFacing === next ? { ok: true, facing } : { ok: false, reason: "no-alternative" };
     },
   };

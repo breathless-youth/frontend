@@ -60,7 +60,7 @@ function fakeVideo(overrides: Partial<HTMLVideoElement> = {}): HTMLVideoElement 
   } as unknown as HTMLVideoElement;
 }
 
-/** 카메라 스트림 대역. 촬영 가드는 영상 트랙의 `readyState`만 본다. */
+/** 카메라 스트림 대역. 끊긴 트랙 가드는 영상 트랙의 `readyState`만 본다. */
 function fakeStream(readyState: MediaStreamTrackState): MediaStream {
   return { getVideoTracks: () => [{ readyState }] } as unknown as MediaStream;
 }
@@ -440,6 +440,24 @@ describe("createVisionFocusDetector", () => {
     // 여기서 detectForVideo를 부르면 MediaPipe가 던지거나 쓰레기 결과를 낸다.
     expect(detect).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("카메라 트랙이 끊기면 멈춘 마지막 프레임으로 판정하지 않는다 (BY-893)", async () => {
+    const { detector, detect } = fakeObjectDetector({ frames: [[]] });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo({ srcObject: endedStream() }),
+      detector,
+    });
+    vision.subscribe(listener);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
+
+    // 살아 있는 트랙이었다면 빈 프레임에서 AWAY가 올라갔을 것이다.
+    expect(detect).not.toHaveBeenCalled();
+    expect(signals).toEqual([]);
   });
 
   it("카메라가 없으면(`<video>` null) 모델을 받지 않는다 — 받아봐야 쓸 데가 없다", async () => {
@@ -1777,7 +1795,7 @@ describe("타임랩스 촬영 경계", () => {
     expect((failed[0] as Error).message).toBe("JPEG로 압축하지 못했다");
   });
 
-  it("카메라 트랙이 끊겨 있으면 추론은 돌되 사진은 찍지 않고 실패로도 알리지 않는다", async () => {
+  it("카메라 트랙이 끊겨 있으면 추론도 사진도 하지 않고 실패로도 알리지 않는다", async () => {
     const { detector, detect, capture } = fakeObjectDetector({ frames: [personFrame()] });
     const { landmarker, detect: faceDetect } = fakeFaceLandmarker({ faces: [seen(0.1)] });
     const { tap, saved, failed } = alwaysDue(MASK_ON);
@@ -1792,10 +1810,8 @@ describe("타임랩스 촬영 경계", () => {
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 6);
 
-    expect(detect.mock.calls.length).toBeGreaterThan(1);
-    expect(faceDetect).toHaveBeenCalled();
-    // 얼굴 추론에도 사진을 붙이지 않는다.
-    expect(faceDetect.mock.calls.every((call) => call[2] === undefined)).toBe(true);
+    expect(detect).not.toHaveBeenCalled();
+    expect(faceDetect).not.toHaveBeenCalled();
     expect(capture).not.toHaveBeenCalled();
     expect(saved).toEqual([]);
     expect(failed).toEqual([]);
