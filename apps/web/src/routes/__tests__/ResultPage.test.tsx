@@ -49,6 +49,27 @@ beforeEach(() => {
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
 // 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
+/** 타임랩스 카드는 따로 검증했다. 결과 화면이 넘기는 값과 스크롤만 본다. */
+const timelapseCard = vi.hoisted(() => ({ props: [] as { startedAtMs: number }[] }));
+vi.mock("@/features/timelapse/ResultTimelapseCard", async () => {
+  const { useEffect, useRef } = await import("react");
+  return {
+    ResultTimelapseCard: (props: {
+      startedAtMs: number;
+      onShown?: (element: HTMLElement) => void;
+    }) => {
+      timelapseCard.props.push(props);
+      const ref = useRef<HTMLDivElement>(null);
+      useEffect(() => {
+        if (ref.current !== null) props.onShown?.(ref.current);
+        // 처음 그려졌을 때 한 번만 알린다.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      return <div ref={ref} data-testid="timelapse-card" />;
+    },
+  };
+});
+
 vi.mock("@/lib/interviewApi", () => ({
   getInterviewStatus: () =>
     Promise.resolve({
@@ -779,5 +800,166 @@ describe("ResultPage: 세션 중 초대", () => {
       expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"inviteCode":"4680"')),
     );
     expect(stageStudyResultExit).not.toHaveBeenCalled();
+  });
+});
+
+describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
+  beforeEach(() => {
+    timelapseCard.props = [];
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("플래그가 켜진 솔로 결과면 맨 아래에 카드를 두고 세션 시작 시각을 넘긴다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    renderResult({ sessions: [exampleSession()], startedAtMs: 1_000 });
+
+    const card = screen.getByTestId("timelapse-card");
+    expect(card.parentElement?.lastElementChild).toBe(card);
+    expect(
+      timelineCard().compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(timelapseCard.props.at(-1)?.startedAtMs).toBe(1_000);
+  });
+
+  it("state에 시작 시각이 없으면 세션의 시작 시각으로 찾는다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(timelapseCard.props.at(-1)?.startedAtMs).toBe(SESSION_START.getTime());
+  });
+
+  it("플래그가 꺼져 있으면 카드가 없다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "");
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
+  });
+
+  it("소셜 결과에는 카드가 없다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
+  });
+
+  describe("자동 스크롤", () => {
+    /** 스크롤 영역은 0~800, 카드는 cardTop부터 400px 높이에 있다고 잰다. */
+    function renderAnimatedWithCard(cardTop = 900) {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        const isCard = this.getAttribute("data-testid") === "timelapse-card";
+        const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
+        return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
+      });
+      vi.stubEnv("VITE_TIMELAPSE", "on");
+      vi.useFakeTimers();
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
+      vi.stubGlobal("requestAnimationFrame", () => 0);
+      vi.stubGlobal("cancelAnimationFrame", () => undefined);
+      const scrollTo = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+        configurable: true,
+        writable: true,
+        value: scrollTo,
+      });
+      renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
+      return scrollTo;
+    }
+
+    afterEach(() => {
+      delete (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo;
+      const rect = Element.prototype.getBoundingClientRect;
+      if (vi.isMockFunction(rect)) rect.mockRestore();
+    });
+
+    it("카드가 보이면 잠시 뒤 카드까지 부드럽게 스크롤한다", () => {
+      const scrollTo = renderAnimatedWithCard();
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      expect(scrollTo).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("카드가 이미 다 보이면 스크롤하지 않는다", () => {
+      // 늦게 뜬 카드가 이미 화면 안에 있으면 위로 끌어올리지 않는다.
+      const scrollTo = renderAnimatedWithCard(300);
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("스크롤하기 전에 화면을 만지면 스크롤하지 않는다", () => {
+      const scrollTo = renderAnimatedWithCard();
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+
+      const container = screen
+        .getByTestId("timelapse-card")
+        .closest<HTMLElement>(".overflow-y-auto")!;
+      act(() => {
+        container.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("카드가 뜨기 전에 사용자가 이미 화면을 만졌으면 자동 스크롤하지 않는다", () => {
+      // 촬영 정리를 기다리느라 카드가 늦게 뜨면 사용자는 이미 결과를 읽으며 스크롤 중일 수 있다.
+      const scrollTo = renderAnimatedWithCard();
+      act(() => {
+        document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it.each(["pointerdown", "wheel", "keydown"])(
+      "스크롤하는 중에 %s가 오면 그 자리에서 멈춘다",
+      (eventName) => {
+        const scrollTo = renderAnimatedWithCard();
+        act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+        act(() => vi.advanceTimersByTime(1_000));
+        expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+        const container = screen
+          .getByTestId("timelapse-card")
+          .closest<HTMLElement>(".overflow-y-auto")!;
+
+        // 스크롤 영역 밖(하단 버튼 줄 등)을 만져도 멈춘다.
+        act(() => {
+          document.body.dispatchEvent(new Event(eventName, { bubbles: true }));
+        });
+
+        expect(scrollTo).toHaveBeenLastCalledWith({ top: container.scrollTop });
+      },
+    );
+
+    it("움직임 줄이기 설정이면 자동 스크롤하지 않는다", () => {
+      vi.stubEnv("VITE_TIMELAPSE", "on");
+      vi.useFakeTimers();
+      const scrollTo = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+        configurable: true,
+        writable: true,
+        value: scrollTo,
+      });
+      renderResult({ sessions: [exampleSession()] });
+
+      act(() => vi.advanceTimersByTime(2_000));
+
+      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
   });
 });

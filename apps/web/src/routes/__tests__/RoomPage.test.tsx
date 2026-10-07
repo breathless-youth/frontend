@@ -47,12 +47,16 @@ function setVisibility(state: DocumentVisibilityState) {
  */
 function ResultRouteProbe() {
   const location = useLocation();
-  const { sessions } = (location.state ?? {}) as { sessions?: StudySessionResponse[] };
+  const { sessions, startedAtMs } = (location.state ?? {}) as {
+    sessions?: StudySessionResponse[];
+    startedAtMs?: unknown;
+  };
   return (
     <div>
       <p>결과 라우트</p>
       <p>{location.pathname}</p>
       <p>{`전달된 세션: ${sessions?.map((session) => session.statDate).join(",") ?? "없음"}`}</p>
+      <p>{`시작 시각: ${typeof startedAtMs === "number" ? "있음" : "없음"}`}</p>
     </div>
   );
 }
@@ -389,6 +393,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
     expect(screen.getByText("전달된 세션: 2026-07-25")).toBeInTheDocument();
+    // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
+    expect(screen.getByText("시작 시각: 있음")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
       events: [],
     });

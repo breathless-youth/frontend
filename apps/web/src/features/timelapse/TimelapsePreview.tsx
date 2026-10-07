@@ -123,7 +123,7 @@ export function TimelapsePreview({
           </div>
         )}
       </div>
-      <span className="absolute top-3 right-3 rounded-[4px] bg-black/35 px-[5px] py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
+      <span className="absolute top-3 right-3 rounded-[4px] bg-white px-[5px] py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
         포커스 메이커스
       </span>
     </div>

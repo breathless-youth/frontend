@@ -248,3 +248,39 @@ describe("sweep", () => {
     await expect(store.listPhotos(T0)).resolves.toEqual([]);
   });
 });
+
+describe("get", () => {
+  it("저장한 기록을 주고 없는 키는 null을 준다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+
+    await expect(store.get(T0)).resolves.toMatchObject({ startedAtMs: T0, status: "recording" });
+    await expect(store.get(T0 + 1)).resolves.toBeNull();
+  });
+});
+
+describe("annotate", () => {
+  it("목록에 올린 기록에 D-Day와 연속 공부 일수를 더한다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, T0, 1);
+    await store.finalize(T0, SUMMARY);
+
+    await store.annotate(T0, { ddayLabel: "D-108 · 2027 수능" });
+    await store.annotate(T0, { streakDays: 5 });
+
+    await expect(store.get(T0)).resolves.toMatchObject({
+      status: "ready",
+      ddayLabel: "D-108 · 2027 수능",
+      streakDays: 5,
+    });
+  });
+
+  it("촬영 중 기록과 없는 키는 그대로 둔다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+
+    await store.annotate(T0, { streakDays: 5 });
+    await store.annotate(T0 + 1, { streakDays: 5 });
+
+    await expect(store.get(T0)).resolves.not.toHaveProperty("streakDays");
+    await expect(store.get(T0 + 1)).resolves.toBeNull();
+  });
+});
