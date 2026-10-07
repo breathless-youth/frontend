@@ -33,6 +33,8 @@ const CONFETTI_AT_MS = 900;
 const TIMELAPSE_SCROLL_DELAY_MS = 700;
 /** 부드러운 스크롤이 끝났다고 보고 사용자 입력 감시를 거두는 시간 */
 const TIMELAPSE_SCROLL_WATCH_MS = 1_500;
+/** 사용자가 직접 화면을 움직이려는 입력. 자동 스크롤을 하지 않거나 멈추는 기준이다. */
+const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
 
 /**
  * 공부 결과
@@ -81,23 +83,35 @@ export function ResultPage() {
   const [revealed, setRevealed] = useState(skipIntro);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [timelapseCard, setTimelapseCard] = useState<HTMLElement | null>(null);
+  // 카드가 뜨기 전에 사용자가 화면을 만졌는지. 촬영 정리를 기다리느라 카드가 늦게 뜨면
+  // 사용자는 이미 결과를 읽으며 스크롤하는 중일 수 있다.
+  const touchedRef = useRef(false);
+
+  useEffect(() => {
+    const mark = () => {
+      touchedRef.current = true;
+    };
+    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, mark, { passive: true });
+    return () => {
+      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, mark);
+    };
+  }, []);
 
   /**
    * 타임랩스 카드까지 자동 스크롤
    *
    * 연출을 건너뛴 진입(움직임 줄이기, 인터뷰에서 돌아옴)에서는 하지 않는다.
-   * 그 전이든 스크롤 도중이든 사용자가 화면을 만지면 그 자리에서 멈춘다.
+   * 카드가 뜨기 전에 이미 화면을 만졌으면 하지 않고, 스크롤 도중에 만지면 그 자리에서 멈춘다.
    */
   useEffect(() => {
     const container = scrollRef.current;
-    if (timelapseCard === null || container === null || skipIntro) {
+    if (timelapseCard === null || container === null || skipIntro || touchedRef.current) {
       return;
     }
-    const events = ["pointerdown", "wheel", "keydown"] as const;
     let watchTimer: number | undefined;
     const unwatch = () => {
       window.clearTimeout(watchTimer);
-      for (const name of events) window.removeEventListener(name, stop);
+      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, stop);
     };
     const scrollTimer = window.setTimeout(() => {
       const box = container.getBoundingClientRect();
@@ -115,7 +129,7 @@ export function ResultPage() {
       container?.scrollTo({ top: container.scrollTop });
     }
     // 스크롤 영역 밖(하단 버튼 줄)을 만져도 멈추도록 화면 전체에서 듣는다.
-    for (const name of events) window.addEventListener(name, stop, { passive: true });
+    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, stop, { passive: true });
     return () => {
       window.clearTimeout(scrollTimer);
       unwatch();

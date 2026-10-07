@@ -154,10 +154,18 @@ describe("drawTimelapseFrame", () => {
     );
   });
 
+  it("글자는 웹이 선언한 Pretendard Variable로 그린다", () => {
+    const { ctx } = recordingContext();
+
+    drawTimelapseFrame(ctx, scene({}));
+
+    expect(ctx.font).toContain('"Pretendard Variable"');
+  });
+
   it("사진 비율이 캔버스와 같으면 사진 전체를 캔버스에 그린다", () => {
     const { ctx, calls } = recordingContext();
 
-    drawTimelapseFrame(ctx, scene({ photo: { width: 405, height: 720 } as CanvasImageSource }));
+    drawTimelapseFrame(ctx, scene({ photo: { width: 405, height: 720 } as ImageBitmap }));
 
     expect(calls[0]).toEqual({ op: "drawImage", args: [0, 0, 405, 720, 0, 0, 540, 960] });
   });
@@ -166,11 +174,11 @@ describe("drawTimelapseFrame", () => {
     const { ctx, calls } = recordingContext();
 
     // 4:3 가로 사진을 9:16 캔버스에: 높이를 다 쓰고 좌우를 잘라낸다.
-    drawTimelapseFrame(ctx, scene({ photo: { width: 960, height: 720 } as CanvasImageSource }));
+    drawTimelapseFrame(ctx, scene({ photo: { width: 960, height: 720 } as ImageBitmap }));
     // 9:16 세로 사진을 16:9 캔버스에: 너비를 다 쓰고 위아래를 잘라낸다.
     drawTimelapseFrame(
       ctx,
-      scene({ width: 960, height: 540, photo: { width: 405, height: 720 } as CanvasImageSource }),
+      scene({ width: 960, height: 540, photo: { width: 405, height: 720 } as ImageBitmap }),
     );
 
     const draws = calls.filter((call) => call.op === "drawImage");

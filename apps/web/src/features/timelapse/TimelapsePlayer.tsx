@@ -5,7 +5,13 @@ import { useInView } from "react-intersection-observer";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
-import { canvasSizeFor, drawTimelapseFrame, type TimelapseScene } from "./timelapseFrame";
+import {
+  canvasSizeFor,
+  drawTimelapseFrame,
+  TIMELAPSE_FONT_FAMILY,
+  timelapseGlyphs,
+  type TimelapseScene,
+} from "./timelapseFrame";
 import type { TimelapseAspect } from "./timelapseSettings";
 import { useTimelapsePlayer } from "./useTimelapsePlayer";
 
@@ -28,7 +34,9 @@ type TimelapsePlayerProps = {
 export function TimelapsePlayer({ aspect, photos, overlay, className }: TimelapsePlayerProps) {
   const { ref, inView } = useInView({ threshold: 0.5 });
   const [paused, setPaused] = useState(() => prefersReducedMotion());
-  const [fontsReady, setFontsReady] = useState(false);
+  // 마지막으로 글꼴을 받아 둔 글자. null이면 아직 한 번도 받지 않았다.
+  const [loadedGlyphs, setLoadedGlyphs] = useState<string | null>(null);
+  const glyphs = timelapseGlyphs(overlay.text);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const size = canvasSizeFor(aspect);
@@ -38,23 +46,26 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
 
   useEffect(() => {
     let cancelled = false;
-    const loading = document.fonts?.load(`800 16px Pretendard`) ?? Promise.resolve();
+    // 한글은 여러 조각 파일로 나뉘어 있어 그릴 글자를 넘겨야 그 글자가 든 조각을 받는다.
+    const loading =
+      document.fonts?.load(`800 16px ${TIMELAPSE_FONT_FAMILY}`, glyphs) ?? Promise.resolve();
     // 글꼴을 못 불러와도 대체 글꼴로 재생한다.
     void loading
       .catch(() => {})
       .then(() => {
-        if (!cancelled) setFontsReady(true);
+        if (!cancelled) setLoadedGlyphs(glyphs);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [glyphs]);
 
   useTimelapsePlayer({
-    photos: fontsReady ? photos : NO_PHOTOS,
+    photos: loadedGlyphs !== null ? photos : NO_PHOTOS,
     playing: inView && !paused,
     // D-Day·연속 공부처럼 늦게 오는 값이 멈춘 화면에도 반영되게 한다.
-    redrawKey: JSON.stringify(overlay),
+    // 늦게 온 글자의 글꼴이 도착하면 멈춘 화면도 그 글꼴로 다시 그린다.
+    redrawKey: JSON.stringify(overlay) + loadedGlyphs,
     draw: (photo, frame) => {
       const canvas = canvasRef.current;
       if (canvas === null) {

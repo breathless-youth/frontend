@@ -19,7 +19,8 @@ const WATERMARK_COLOR = "#3671cf";
 const WATERMARK_BACKGROUND = "#ffffff";
 const TEXT_COLOR = "#ffffff";
 const TEXT_SHADOW = "rgba(0,0,0,0.45)";
-const FONT_FAMILY = "Pretendard, system-ui, sans-serif";
+/** 웹이 불러오는 Pretendard CSS는 이 이름 하나만 선언한다. `Pretendard`로 쓰면 대체 글꼴로 그려진다. */
+export const TIMELAPSE_FONT_FAMILY = '"Pretendard Variable", system-ui, sans-serif';
 
 /** 설정 미리보기의 짧은 변. 모든 치수는 이 길이를 기준으로 비례해 키운다. */
 const BASE_SHORT_EDGE = 180;
@@ -41,7 +42,7 @@ export interface TimelapseOverlayText {
 export interface TimelapseScene {
   readonly width: number;
   readonly height: number;
-  readonly photo: CanvasImageSource | null;
+  readonly photo: ImageBitmap | null;
   /** 0~1. 흐름 바를 이만큼 채운다. */
   readonly progress: number;
   readonly info: Readonly<Record<TimelapseInfoKey, boolean>>;
@@ -103,6 +104,13 @@ export function flowSegmentsFor(record: TimelapseRecord): FlowSegment[] | null {
   }));
 }
 
+/** 한 장면에 그리는 모든 글자. 글꼴 조각 파일을 미리 받을 때 쓴다. */
+export function timelapseGlyphs(text: TimelapseOverlayText): string {
+  return [text.date, text.focusTime, text.focusRate, text.dday, text.streak, WATERMARK_TEXT]
+    .filter((line) => line !== null)
+    .join("");
+}
+
 function roundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -121,7 +129,7 @@ function roundedRect(
 }
 
 function setTextStyle(ctx: CanvasRenderingContext2D, weight: number, size: number, unit: number) {
-  ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
+  ctx.font = `${weight} ${size}px ${TIMELAPSE_FONT_FAMILY}`;
   ctx.fillStyle = TEXT_COLOR;
   ctx.shadowColor = TEXT_SHADOW;
   ctx.shadowBlur = 2 * unit;
@@ -138,15 +146,24 @@ function clearShadow(ctx: CanvasRenderingContext2D) {
 /** 사진을 늘리지 않고 가운데를 잘라 캔버스를 채운다. 기기 카메라 비율이 영상 비율과 달라도 찌그러지지 않는다. */
 function drawPhotoCover(
   ctx: CanvasRenderingContext2D,
-  photo: CanvasImageSource,
+  photo: ImageBitmap,
   width: number,
   height: number,
 ) {
-  const { width: photoWidth, height: photoHeight } = photo as { width: number; height: number };
-  const scale = Math.min(photoWidth / width, photoHeight / height);
+  const scale = Math.min(photo.width / width, photo.height / height);
   const sw = width * scale;
   const sh = height * scale;
-  ctx.drawImage(photo, (photoWidth - sw) / 2, (photoHeight - sh) / 2, sw, sh, 0, 0, width, height);
+  ctx.drawImage(
+    photo,
+    (photo.width - sw) / 2,
+    (photo.height - sh) / 2,
+    sw,
+    sh,
+    0,
+    0,
+    width,
+    height,
+  );
 }
 
 interface Line {
@@ -233,7 +250,7 @@ export function drawTimelapseFrame(ctx: CanvasRenderingContext2D, scene: Timelap
 
   // 오른쪽 위 워터마크는 항상 그린다.
   clearShadow(ctx);
-  ctx.font = `800 ${8 * u}px ${FONT_FAMILY}`;
+  ctx.font = `800 ${8 * u}px ${TIMELAPSE_FONT_FAMILY}`;
   const chipWidth = ctx.measureText(WATERMARK_TEXT).width + 10 * u;
   const chipHeight = (8 * 1.2 + 5) * u;
   const chipX = width - 12 * u - chipWidth;

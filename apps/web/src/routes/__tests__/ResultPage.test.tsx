@@ -891,6 +891,20 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
       expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
     });
 
+    it("카드가 뜨기 전에 사용자가 이미 화면을 만졌으면 자동 스크롤하지 않는다", () => {
+      // 촬영 정리를 기다리느라 카드가 늦게 뜨면 사용자는 이미 결과를 읽으며 스크롤 중일 수 있다.
+      const scrollTo = renderAnimatedWithCard();
+      act(() => {
+        document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
     it.each(["pointerdown", "wheel", "keydown"])(
       "스크롤하는 중에 %s가 오면 그 자리에서 멈춘다",
       (eventName) => {

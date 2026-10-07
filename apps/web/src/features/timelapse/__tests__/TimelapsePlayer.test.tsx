@@ -264,6 +264,48 @@ describe("TimelapsePlayer", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
 
+  describe("글꼴", () => {
+    let load: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      load = vi.fn(() => Promise.resolve([]));
+      Object.defineProperty(document, "fonts", { configurable: true, value: { load } });
+    });
+
+    afterEach(() => {
+      delete (document as { fonts?: unknown }).fonts;
+    });
+
+    it("그릴 글자와 함께 Pretendard Variable을 불러온다", async () => {
+      // 한글은 여러 조각 파일로 나뉘어 있어 글자를 넘겨야 그 글자가 든 조각을 받는다.
+      const text = { ...overlay.text, focusTime: "순공 2시간 14분" };
+      render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={{ ...overlay, text }} />);
+      await advance(0);
+
+      expect(load).toHaveBeenCalledWith(
+        expect.stringContaining('"Pretendard Variable"'),
+        expect.any(String),
+      );
+      const [, glyphs] = load.mock.calls[0] as [string, string];
+      expect(glyphs).toContain("순공 2시간 14분");
+      expect(glyphs).toContain("포커스 메이커스");
+    });
+
+    it("늦게 온 D-Day 글자도 불러온다", async () => {
+      const { rerender } = render(
+        <TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />,
+      );
+      await advance(0);
+
+      const text = { ...overlay.text, dday: "D-108 · 2027 수능" };
+      rerender(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={{ ...overlay, text }} />);
+      await advance(0);
+
+      const [, glyphs] = load.mock.lastCall as [string, string];
+      expect(glyphs).toContain("D-108 · 2027 수능");
+    });
+  });
+
   function progressWidth() {
     return (screen.getByTestId("timelapse-progress") as HTMLElement).style.width;
   }
