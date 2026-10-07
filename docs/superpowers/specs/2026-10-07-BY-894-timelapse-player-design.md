@@ -37,7 +37,7 @@
 - 사진 비율이 캔버스와 다르면 늘리지 않고 가운데를 잘라 채운다.
 - 워터마크는 흰 바탕에 `#3671cf` 글자다.
 - 얼굴 가림은 촬영 때 사진에 이미 입혀져 있어 다시 그리지 않는다.
-- 글꼴은 `document.fonts.load`로 Pretendard를 불러온 뒤 그리고, 실패하면 시스템 글꼴로 그린다.
+- 글꼴 이름은 웹이 선언한 `"Pretendard Variable"`이다. 그릴 글자를 넘겨 `document.fonts.load`로 한글 조각 파일을 받되 기다리지 않고 바로 그리고, 글꼴이 도착하면 멈춘 화면도 다시 그린다.
 
 ## 재생기 (`features/timelapse/TimelapsePlayer.tsx`, `useTimelapsePlayer.ts`)
 
