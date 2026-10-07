@@ -106,6 +106,10 @@ describe("isFullScreenPath", () => {
     }
   });
 
+  it("타임랩스 설정은 전체 화면이다", () => {
+    expect(isFullScreenPath("/timelapse-settings")).toBe(true);
+  });
+
   it("탭 라우트는 가리지 않는다", () => {
     for (const path of ["/home", "/records", "/settings", "/social", "/"]) {
       expect(isFullScreenPath(path)).toBe(false);

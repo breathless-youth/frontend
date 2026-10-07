@@ -838,6 +838,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
     m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
     m.trackSettingsRowPressed("terms");
+    m.trackTimelapseSettingChanged({ setting: "enabled", value: false });
     m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "single", via: "home" });
@@ -870,6 +871,8 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackSubjectItemAdded("task");
     m.trackSubjectItemAdded("subject", true, "planner");
     m.trackSettingsRowPressed("profile");
+    m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
+    m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
@@ -896,6 +899,8 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["subject_item_added", { kind: "task", via_suggestion: false, surface: "sheet" }],
       ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "planner" }],
       ["settings_row_pressed", { row: "profile" }],
+      ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
+      ["timelapse_setting_changed", { setting: "face_mask", value: true }],
       [
         "profile_save_submitted",
         { changed_nickname: true, changed_goal: true, changed_category: false },

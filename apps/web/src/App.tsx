@@ -40,6 +40,7 @@ import {
   loadProfilePage,
   loadResultPage,
   loadTermsPage,
+  loadTimelapseSettingsPage,
 } from "@/routes/lazyRoutes";
 import { PlannerPage } from "@/routes/PlannerPage";
 import { RecordsPage } from "@/routes/RecordsPage";
@@ -88,6 +89,11 @@ const PrivacyPage = lazy(
 );
 const LicensesPage = lazy(
   reloadOnChunkError(() => loadLicensesPage().then((module) => ({ default: module.LicensesPage }))),
+);
+const TimelapseSettingsPage = lazy(
+  reloadOnChunkError(() =>
+    loadTimelapseSettingsPage().then((module) => ({ default: module.TimelapseSettingsPage })),
+  ),
 );
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
@@ -243,6 +249,9 @@ export function App() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />
+              {import.meta.env.VITE_TIMELAPSE === "on" && (
+                <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+              )}
             </Routes>
           </Suspense>
         )}
