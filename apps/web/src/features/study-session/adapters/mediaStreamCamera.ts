@@ -232,14 +232,8 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
           return openedNext;
         }
         // 전환 실패 — 이전 카메라를 복원한다. 전환 실패로 프리뷰가 통째로 꺼지면 세션이
-        // 측정 불가 상태가 되기 때문이다. 방금 정지한 카메라라 해제가 늦을 수 있어
-        // 한 번만 잠깐 뒤 재시도한다.
-        const restored = await open(previous);
-        if (restored !== null) {
-          return restored;
-        }
-        await wait(RESTORE_RETRY_MS);
-        return open(previous);
+        // 측정 불가 상태가 되기 때문이다.
+        return openWithRetry(previous);
       })();
       const opened = await pending;
       pending = null;
