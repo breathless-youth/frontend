@@ -15,6 +15,7 @@ export const loadLicensesPage = () => import("./LicensesPage");
 export const loadContactPage = () => import("./ContactPage");
 export const loadInterviewFormPage = () => import("./InterviewFormPage");
 export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage");
+export const loadTimelapsesPage = () => import("./TimelapsesPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -50,4 +51,13 @@ export function prefetchSettingsSubPages(): void {
       void load().catch(() => {});
     }
   });
+}
+
+/**
+ * 타임랩스 전체 목록 미리 받기
+ *
+ * 홈 `더보기`가 슬라이드 전환으로 전체 목록을 연다. 전환이 청크를 기다리지 않게 미리 받는다.
+ */
+export function prefetchTimelapsesPage(): void {
+  whenIdle(() => void loadTimelapsesPage().catch(() => {}));
 }
