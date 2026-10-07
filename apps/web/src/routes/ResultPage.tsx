@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focusmakers/types";
@@ -16,6 +16,7 @@ import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { readResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
+import { ResultTimelapseCard } from "@/features/timelapse/ResultTimelapseCard";
 import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -28,6 +29,10 @@ export const RESULT_REVEAL_DELAY_MS = 3500;
 
 /** 색종이가 터지는 시점 — 도장이 종이에 닿는 순간(도장 모션 46% ≈ 0.92s)에 맞춘 프로토타입 값. */
 const CONFETTI_AT_MS = 900;
+/** 카드 묶음이 떠오르는 연출(0.12초 지연 + 0.5초)이 끝난 뒤에 스크롤한다. */
+const TIMELAPSE_SCROLL_DELAY_MS = 700;
+/** 부드러운 스크롤이 끝났다고 보고 사용자 입력 감시를 거두는 시간 */
+const TIMELAPSE_SCROLL_WATCH_MS = 1_500;
 
 /**
  * 공부 결과
@@ -74,6 +79,48 @@ export function ResultPage() {
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
   const [revealed, setRevealed] = useState(skipIntro);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [timelapseCard, setTimelapseCard] = useState<HTMLElement | null>(null);
+
+  /**
+   * 타임랩스 카드까지 자동 스크롤
+   *
+   * 연출을 건너뛴 진입(움직임 줄이기, 인터뷰에서 돌아옴)에서는 하지 않는다.
+   * 그 전이든 스크롤 도중이든 사용자가 화면을 만지면 그 자리에서 멈춘다.
+   */
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (timelapseCard === null || container === null || skipIntro) {
+      return;
+    }
+    const events = ["pointerdown", "wheel", "keydown"] as const;
+    let watchTimer: number | undefined;
+    const unwatch = () => {
+      window.clearTimeout(watchTimer);
+      for (const name of events) window.removeEventListener(name, stop);
+    };
+    const scrollTimer = window.setTimeout(() => {
+      const box = container.getBoundingClientRect();
+      const card = timelapseCard.getBoundingClientRect();
+      // 카드 전체가 보이게 하되 카드가 화면보다 길면 위쪽을 맞춘다.
+      const top =
+        container.scrollTop + Math.min(card.top - box.top - 16, card.bottom - box.bottom + 16);
+      container.scrollTo({ top, behavior: "smooth" });
+      watchTimer = window.setTimeout(unwatch, TIMELAPSE_SCROLL_WATCH_MS);
+    }, TIMELAPSE_SCROLL_DELAY_MS);
+    function stop() {
+      window.clearTimeout(scrollTimer);
+      unwatch();
+      // 진행 중인 부드러운 스크롤은 지금 위치로 다시 스크롤해야 멈춘다.
+      container?.scrollTo({ top: container.scrollTop });
+    }
+    // 스크롤 영역 밖(하단 버튼 줄)을 만져도 멈추도록 화면 전체에서 듣는다.
+    for (const name of events) window.addEventListener(name, stop, { passive: true });
+    return () => {
+      window.clearTimeout(scrollTimer);
+      unwatch();
+    };
+  }, [timelapseCard, skipIntro]);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -190,6 +237,9 @@ export function ResultPage() {
    * 처리 방식이 정해지면 이 한 줄과 아래 렌더만 바꾸면 된다.
    */
   const view = toSessionResultView(sessions[0]);
+  const timelapseStartedAtMs = readStartedAtMs(location.state) ?? Date.parse(sessions[0].startedAt);
+  // 타임랩스는 싱글룸에서만 찍는다.
+  const showTimelapse = import.meta.env.VITE_TIMELAPSE === "on" && home === "/home";
   const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
 
   return (
@@ -198,13 +248,23 @@ export function ResultPage() {
       <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)·도장 모션이 좁은 화면 폭을 넘는다. */}
-      <div className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
+      >
         <StudyCompleteHero view={view} phase={phase} />
         {revealed && (
           <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
             <StudyTimelineCard view={view} />
             {userId !== null && <SessionSummaryCard userId={userId} />}
             {userId !== null && <InterviewCardHost userId={userId} />}
+            {showTimelapse && (
+              <ResultTimelapseCard
+                startedAtMs={timelapseStartedAtMs}
+                userId={userId}
+                onShown={setTimelapseCard}
+              />
+            )}
           </div>
         )}
       </div>
@@ -251,6 +311,19 @@ function readSessions(state: unknown): [StudySessionResponse, ...StudySessionRes
     return null;
   }
   return sessions as [StudySessionResponse, ...StudySessionResponse[]];
+}
+
+/**
+ * 세션과 타임랩스를 잇는 시작 시각
+ *
+ * 서버가 돌려준 `startedAt`의 밀리초가 그대로라는 보장이 없어 세션 화면이 기기 값을 함께 싣는다.
+ */
+function readStartedAtMs(state: unknown): number | null {
+  if (typeof state !== "object" || state === null) {
+    return null;
+  }
+  const value = (state as Record<string, unknown>).startedAtMs;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function isStudySession(value: unknown): value is StudySessionResponse {

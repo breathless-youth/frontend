@@ -435,10 +435,11 @@ function RoomSessionScreen({
       // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다.
       navigate(
         { pathname: "result", search: searchParams.toString() },
-        { state: { sessions }, replace: true },
+        // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
+        { state: { sessions, startedAtMs }, replace: true },
       );
     },
-    [navigate, searchParams],
+    [navigate, searchParams, startedAtMs],
   );
 
   /**
