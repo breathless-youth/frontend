@@ -843,10 +843,32 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
-  row: "profile" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
+  row:
+    "profile" | "timelapse" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
+}
+
+/** 타임랩스 설정 항목. lib가 features를 참조하지 않도록 이벤트용 이름을 여기 둔다. */
+export type TimelapseSettingEventKey =
+  | "enabled"
+  | "aspect"
+  | "face_mask"
+  | "flow_bar"
+  | "date"
+  | "focus_time"
+  | "focus_rate"
+  | "dday"
+  | "streak";
+
+/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 나머지는 켜짐 여부다. */
+export function trackTimelapseSettingChanged(input: {
+  readonly setting: TimelapseSettingEventKey;
+  readonly value: boolean | "9:16" | "16:9";
+}) {
+  if (!initialized) return;
+  track("timelapse_setting_changed", { setting: input.setting, value: input.value });
 }
 
 /** 인터뷰 안내가 어디서 떴는지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */

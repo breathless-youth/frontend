@@ -384,6 +384,56 @@ describe("S6 · 설정", () => {
   });
 });
 
+describe("타임랩스 행", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("플래그가 켜져 있으면 카메라 권한과 서비스 이용 가이드 사이에 행이 있다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    renderAt("/settings");
+
+    const row = screen.getByRole("button", { name: "타임랩스" });
+
+    expect(
+      screen.getByText("카메라 권한").compareDocumentPosition(row) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      row.compareDocumentPosition(screen.getByRole("button", { name: "서비스 이용 가이드" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("누르면 기존 쿼리를 이어받아 타임랩스 설정으로 가고 행 터치를 남긴다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "on");
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings?userId=7&appVersion=1.4.2"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/timelapse-settings" element={<LocationProbe testId="timelapse-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "타임랩스" }));
+
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("timelapse");
+    expect(screen.getByTestId("timelapse-stub").textContent).toBe(
+      "/timelapse-settings?userId=7&appVersion=1.4.2",
+    );
+  });
+
+  it("플래그가 꺼져 있으면 행이 없다", () => {
+    vi.stubEnv("VITE_TIMELAPSE", "");
+    renderAt("/settings");
+
+    expect(screen.queryByRole("button", { name: "타임랩스" })).toBeNull();
+  });
+});
+
 describe("설정 행 계측 (BY-616 확장 2차)", () => {
   it.each([
     ["이용약관", "terms"],

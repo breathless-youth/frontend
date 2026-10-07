@@ -15,8 +15,11 @@ import { Children, Fragment, type ReactNode } from "react";
  */
 
 type SettingsSectionProps = {
-  /** 섹션 라벨. 화면 좌우 패딩(20)에 4px 더한 x24가 Figma 실측값이라 라벨만 `px-1`을 갖는다. */
-  label: string;
+  /**
+   * 섹션 라벨. 화면 좌우 패딩(20)에 4px 더한 x24가 Figma 실측값이라 라벨만 `px-1`을 갖는다.
+   * 생략하면 카드만 그린다.
+   */
+  label?: string;
   /** 카드 아래 안내 캡션. */
   caption?: string;
   /** 섹션 간 간격은 Figma 실측이 균일하지 않아(23/20/24) 호출부가 지정한다. */
@@ -30,10 +33,14 @@ export function SettingsSection({ label, caption, className, children }: Setting
 
   return (
     <div className={className}>
-      <p className="text-text-tertiary px-1 text-[13px] leading-[15px] font-medium">{label}</p>
+      {label !== undefined && (
+        <p className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-[15px] font-medium">
+          {label}
+        </p>
+      )}
 
       {/* 카드 그림자는 소셜과 공유하는 shadow-sb-card 유틸(Figma shadow/card-soft-blue). */}
-      <div className="bg-muted border-border mt-1.5 rounded-xl border px-4 shadow-sb-card">
+      <div className="bg-muted border-border rounded-xl border px-4 shadow-sb-card">
         {rows.map((row, index) => (
           // 행 목록은 JSX에 정적으로 적힌 고정 배열이라(추가·삭제·재정렬 없음) 인덱스가 안정적인 키다.
           <Fragment key={index}>

@@ -130,6 +130,19 @@ export function SettingsPage() {
               </button>
             )}
           </div>
+          {/* 촬영과 같은 빌드 플래그를 따라야 저장이 켜져 있다고 보이는데 아무것도 찍히지 않는 빌드가 없다. */}
+          {import.meta.env.VITE_TIMELAPSE === "on" && (
+            <SettingsRow
+              label="타임랩스"
+              trailing={{ kind: "chevron" }}
+              onPress={() => {
+                trackSettingsRowPressed("timelapse");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/timelapse-settings", search: location.search }),
+                );
+              }}
+            />
+          )}
           {/*
             온보딩 가이드로 다시 들어가는 행이다.
             `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.
