@@ -6,7 +6,7 @@ const FRAME_MS = 1000 / TIMELAPSE_FPS;
 /** 미리 풀어 둘 장 수. 360장을 한꺼번에 풀면 약 400MB라 앞쪽만 푼다. */
 const LOOKAHEAD = 6;
 
-function decodeJpeg(bytes: ArrayBuffer): Promise<ImageBitmap> {
+export function decodeJpeg(bytes: ArrayBuffer): Promise<ImageBitmap> {
   return createImageBitmap(new Blob([bytes], { type: "image/jpeg" }));
 }
 
