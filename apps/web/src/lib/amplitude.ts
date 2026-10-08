@@ -1,4 +1,12 @@
-import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
+import {
+  add,
+  flush,
+  Identify,
+  identify,
+  init,
+  setUserId,
+  track,
+} from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
@@ -457,13 +465,23 @@ export function trackInviteLinkOpened(hasCode: boolean) {
 }
 
 /**
- * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대발 신규 설치의 근사치다.
+ * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대 참여 화면과 설치 링크(/download)발 신규 설치의 근사치다.
+ * 둘은 같은 방문의 UTM(attribution)으로 나눠 본다.
  * ⚠️ 스토어 이동으로 페이지가 내려가면 전송이 유실될 수 있는 베스트 에포트 이벤트다 —
  * 모바일 브라우저는 스토어가 별도 앱으로 열려 페이지가 살아남는 경우가 대부분이라 감수한다.
  */
 export function trackStoreLinkRedirected(platform: "android" | "ios") {
   if (!initialized) return;
   track("store_link_redirected", { platform });
+}
+
+/**
+ * 모아 둔 이벤트를 지금 보낸다. 곧바로 페이지를 떠나는 화면(설치 링크)이 이동 전에 기다린다.
+ * 기본 전송은 이벤트를 모았다가 주기적으로 보내서, 떠나기 전에 부르지 않으면 남은 이벤트가 사라진다.
+ */
+export function flushAmplitude(): Promise<void> {
+  if (!initialized) return Promise.resolve();
+  return flush().promise;
 }
 
 /* ── WebRTC 연결 품질 (BY-472) ── */

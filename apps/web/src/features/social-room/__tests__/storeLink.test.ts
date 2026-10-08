@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectStorePlatform, storeLink } from "../storeLink";
+import { detectStorePlatform, installLink, readInstallUtm, storeLink } from "../storeLink";
 
 const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
@@ -42,5 +42,45 @@ describe("storeLink", () => {
     expect(storeLink("android", "")).toBe(
       "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
     );
+  });
+});
+
+const UTM = { utm_source: "timelapse", utm_medium: "share", utm_campaign: "timelapse_share" };
+
+describe("readInstallUtm", () => {
+  it("UTM 세 개만 읽고 나머지 쿼리는 버린다", () => {
+    expect(
+      readInstallUtm("?utm_source=timelapse&code=0412&utm_campaign=timelapse_share&foo=1"),
+    ).toEqual({ utm_source: "timelapse", utm_campaign: "timelapse_share" });
+  });
+});
+
+describe("installLink", () => {
+  it("Android는 UTM을 Play referrer에 한 번 인코딩해 싣는다", () => {
+    expect(installLink("android", UTM)).toBe(
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile&referrer=utm_source%3Dtimelapse%26utm_medium%3Dshare%26utm_campaign%3Dtimelapse_share",
+    );
+  });
+
+  it("iOS는 팀 provider 토큰과 utm_campaign을 캠페인 이름으로 싣는다", () => {
+    expect(installLink("ios", UTM)).toBe(
+      "https://apps.apple.com/app/apple-store/id6797220287?pt=129235193&ct=timelapse_share&mt=8",
+    );
+  });
+
+  it("그 밖의 기기는 랜딩에 UTM을 그대로 붙인다", () => {
+    expect(installLink(null, UTM)).toBe(
+      "https://focusmakers.app/?utm_source=timelapse&utm_medium=share&utm_campaign=timelapse_share",
+    );
+  });
+
+  it("UTM이 없으면 유입 표시 없이 각 목적지로 보낸다", () => {
+    expect(installLink("android", {})).toBe(
+      "https://play.google.com/store/apps/details?id=com.breathlessyouth.mobile",
+    );
+    expect(installLink("ios", {})).toBe(
+      "https://apps.apple.com/app/apple-store/id6797220287?pt=129235193&mt=8",
+    );
+    expect(installLink(null, {})).toBe("https://focusmakers.app/");
   });
 });
