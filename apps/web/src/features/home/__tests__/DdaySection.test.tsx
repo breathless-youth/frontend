@@ -164,7 +164,7 @@ describe("DdaySection — 시트", () => {
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
     // 확인 전에는 아무것도 지우지 않는다. 취소하면 시트로 돌아온다.
-    const confirm = await screen.findByRole("alertdialog", { name: "D-Day를 삭제할까요?" });
+    const confirm = await screen.findByRole("alertdialog", { name: "목표 날짜를 삭제할까요?" });
     fireEvent.click(within(confirm).getByRole("button", { name: "취소" }));
     await waitFor(() => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();

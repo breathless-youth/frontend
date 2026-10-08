@@ -406,7 +406,7 @@ function DeleteConfirmDialog({
       >
         {/* 시트 제목(`목표 날짜 설정`)과 같은 굵기·크기 — 카메라 확인 모달의 extrabold는 여기선 과했다. */}
         <DialogTitle className="text-[18px] leading-[21px] font-bold text-foreground">
-          D-Day를 삭제할까요?
+          목표 날짜를 삭제할까요?
         </DialogTitle>
         <div className="mt-4 flex gap-2">
           <Button
