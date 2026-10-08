@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { CAPTURE_START_INTERVAL_MS, FINAL_PHOTO_COUNT, THIN_AT_COUNT } from "../captureSchedule";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import type { TimelapseStore } from "../timelapseStore";
-import { KEEP_MS, createIndexedDbTimelapseStore } from "../timelapseStore";
+import { KEEP_COUNT, KEEP_MS, createIndexedDbTimelapseStore } from "../timelapseStore";
 
 /**
  * fake-indexeddb 위에서 실제 저장 코드를 돌린다.
@@ -298,5 +298,91 @@ describe("middlePhoto", () => {
 
   it("사진이 없으면 null이다", async () => {
     await expect(store.middlePhoto(T0)).resolves.toBeNull();
+  });
+});
+
+describe("videos", () => {
+  async function readyWithPhoto(startedAtMs: number) {
+    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, startedAtMs, 1);
+    await store.finalize(startedAtMs, { ...SUMMARY, endedAtMs: startedAtMs + 3_600_000 });
+  }
+
+  it("보관한 영상을 그대로 돌려준다", async () => {
+    await readyWithPhoto(T0);
+
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(42), mimeType: "video/mp4" });
+
+    const video = await store.getVideo(T0);
+    expect(video?.mimeType).toBe("video/mp4");
+    expect(firstByte(video!.bytes)).toBe(42);
+  });
+
+  it("영상이 없으면 null이다", async () => {
+    await expect(store.getVideo(T0)).resolves.toBeNull();
+  });
+
+  it("목록에 올린 기록이 없으면 넣지 않는다", async () => {
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(1), mimeType: "video/mp4" });
+    await store.begin(T0 + 1, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.putVideo({ startedAtMs: T0 + 1, bytes: bytes(1), mimeType: "video/mp4" });
+
+    await expect(store.getVideo(T0)).resolves.toBeNull();
+    await expect(store.getVideo(T0 + 1)).resolves.toBeNull();
+  });
+
+  it("remove가 영상도 지운다", async () => {
+    await readyWithPhoto(T0);
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(1), mimeType: "video/mp4" });
+
+    await store.remove(T0);
+
+    await expect(store.getVideo(T0)).resolves.toBeNull();
+  });
+
+  it("sweep이 기한 지난 타임랩스의 영상도 지운다", async () => {
+    await readyWithPhoto(T0);
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(1), mimeType: "video/mp4" });
+
+    await store.sweep(T0 + KEEP_MS + 1);
+
+    await expect(store.getVideo(T0)).resolves.toBeNull();
+  });
+
+  it("sweep이 최신 7개 밖으로 밀려난 타임랩스의 영상도 지운다", async () => {
+    for (let index = 0; index <= KEEP_COUNT; index += 1) {
+      await readyWithPhoto(T0 + index * 3_600_000);
+    }
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(1), mimeType: "video/mp4" });
+    await store.putVideo({ startedAtMs: T0 + 3_600_000, bytes: bytes(2), mimeType: "video/mp4" });
+
+    await store.sweep(T0 + (KEEP_COUNT + 1) * 3_600_000);
+
+    await expect(store.getVideo(T0)).resolves.toBeNull();
+    expect(firstByte((await store.getVideo(T0 + 3_600_000))!.bytes)).toBe(2);
+  });
+
+  it("버전 1 DB를 열면 기존 기록을 지키고 영상 저장소를 만든다", async () => {
+    const { openDB } = await import("idb");
+    const v1 = await openDB("focuson-timelapse", 1, {
+      upgrade(db) {
+        db.createObjectStore("timelapses", { keyPath: "startedAtMs" });
+        db.createObjectStore("photos", { keyPath: ["startedAtMs", "seq"] });
+      },
+    });
+    await v1.put("timelapses", {
+      startedAtMs: T0,
+      status: "ready",
+      settings: DEFAULT_TIMELAPSE_SETTINGS,
+      intervalMs: CAPTURE_START_INTERVAL_MS,
+      nextSeq: 1,
+      photoCount: 1,
+      summary: SUMMARY,
+    });
+    v1.close();
+
+    await expect(store.get(T0)).resolves.toMatchObject({ status: "ready" });
+    await store.putVideo({ startedAtMs: T0, bytes: bytes(7), mimeType: "video/mp4" });
+    expect(firstByte((await store.getVideo(T0))!.bytes)).toBe(7);
   });
 });

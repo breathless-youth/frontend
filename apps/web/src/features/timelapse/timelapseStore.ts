@@ -70,9 +70,17 @@ export interface TimelapsePhoto {
   readonly bytes: ArrayBuffer;
 }
 
+export interface TimelapseVideo {
+  readonly startedAtMs: number;
+  /** 공유·저장용 mp4 바이트. 사진과 같은 이유로 Blob이 아니라 ArrayBuffer로 둔다. */
+  readonly bytes: ArrayBuffer;
+  readonly mimeType: string;
+}
+
 interface TimelapseDb extends DBSchema {
   timelapses: { key: number; value: TimelapseRecord };
   photos: { key: [number, number]; value: TimelapsePhoto };
+  videos: { key: number; value: TimelapseVideo };
 }
 
 export interface TimelapseStore {
@@ -112,6 +120,12 @@ export interface TimelapseStore {
   listPhotos(startedAtMs: number): Promise<TimelapsePhoto[]>;
   /** 썸네일용으로 가운데 사진 한 장만 읽는다. 사진이 없으면 null이다. */
   middlePhoto(startedAtMs: number): Promise<ArrayBuffer | null>;
+  /**
+   * 목록에 올린 기록이 있을 때만 넣는다.
+   * 만드는 동안 사용자가 지운 타임랩스의 영상만 남으면 보관 기한 정리가 찾지 못한다.
+   */
+  putVideo(video: TimelapseVideo): Promise<void>;
+  getVideo(startedAtMs: number): Promise<TimelapseVideo | null>;
 }
 
 function photoRange(startedAtMs: number): IDBKeyRange {
@@ -123,10 +137,15 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
 
   function database(): Promise<IDBPDatabase<TimelapseDb>> {
     // 실패한 promise를 들고 있으면 다음 세션도 열지 못한다.
-    opening ??= openDB<TimelapseDb>(DB_NAME, 1, {
-      upgrade(db) {
-        db.createObjectStore("timelapses", { keyPath: "startedAtMs" });
-        db.createObjectStore("photos", { keyPath: ["startedAtMs", "seq"] });
+    opening ??= openDB<TimelapseDb>(DB_NAME, 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          db.createObjectStore("timelapses", { keyPath: "startedAtMs" });
+          db.createObjectStore("photos", { keyPath: ["startedAtMs", "seq"] });
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore("videos", { keyPath: "startedAtMs" });
+        }
       },
     }).catch((error: unknown) => {
       opening = null;
@@ -221,18 +240,20 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
     },
 
     async remove(startedAtMs) {
-      const tx = (await database()).transaction(["timelapses", "photos"], "readwrite");
+      const tx = (await database()).transaction(["timelapses", "photos", "videos"], "readwrite");
       await Promise.all([
         tx.objectStore("timelapses").delete(startedAtMs),
         tx.objectStore("photos").delete(photoRange(startedAtMs)),
+        tx.objectStore("videos").delete(startedAtMs),
       ]);
       await tx.done;
     },
 
     async sweep(nowMs) {
-      const tx = (await database()).transaction(["timelapses", "photos"], "readwrite");
+      const tx = (await database()).transaction(["timelapses", "photos", "videos"], "readwrite");
       const records = tx.objectStore("timelapses");
       const photos = tx.objectStore("photos");
+      const videos = tx.objectStore("videos");
       const all = await records.getAll();
       const expired = (record: TimelapseRecord) => nowMs - record.startedAtMs > KEEP_MS;
       const ready = all
@@ -246,6 +267,7 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
         doomed.flatMap((record) => [
           records.delete(record.startedAtMs),
           photos.delete(photoRange(record.startedAtMs)),
+          videos.delete(record.startedAtMs),
         ]),
       );
       await tx.done;
@@ -284,6 +306,19 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
         cursor = await cursor.advance(Math.floor(count / 2));
       }
       return cursor?.value.bytes ?? null;
+    },
+
+    async putVideo(video) {
+      const tx = (await database()).transaction(["timelapses", "videos"], "readwrite");
+      const record = await tx.objectStore("timelapses").get(video.startedAtMs);
+      if (record?.status === "ready") {
+        await tx.objectStore("videos").put(video);
+      }
+      await tx.done;
+    },
+
+    async getVideo(startedAtMs) {
+      return (await (await database()).get("videos", startedAtMs)) ?? null;
     },
   };
 }
