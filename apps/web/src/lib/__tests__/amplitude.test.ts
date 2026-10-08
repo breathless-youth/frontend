@@ -1062,6 +1062,50 @@ describe("Vision 런타임 폴백 이벤트", () => {
   });
 });
 
+describe("타임랩스 영상 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackTimelapseVideoCreated({
+      method: "webcodecs",
+      durationMs: 1,
+      bytes: 1,
+      frames: 1,
+      aspect: "9:16",
+    });
+    m.trackTimelapseVideoFailed({ method: "none", stage: "unsupported" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("방식·걸린 시간·크기·장수·비율만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackTimelapseVideoCreated({
+      method: "recorder",
+      durationMs: 30_412,
+      bytes: 8_912_331,
+      frames: 360,
+      aspect: "16:9",
+    });
+    m.trackTimelapseVideoFailed({ method: "webcodecs", stage: "encode" });
+
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_video_created", {
+      method: "recorder",
+      duration_ms: 30_412,
+      bytes: 8_912_331,
+      frames: 360,
+      aspect: "16:9",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_video_failed", {
+      method: "webcodecs",
+      stage: "encode",
+    });
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.

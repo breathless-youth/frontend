@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { streakQuery } from "@/lib/statsQueries";
 
 import { flowSegmentsFor, overlayTextFor } from "./timelapseFrame";
 import { TimelapsePlayer } from "./TimelapsePlayer";
+import { timelapseVideoQuery } from "./timelapseQueries";
 import { getTimelapseStore, type TimelapseAnnotation, type TimelapseStore } from "./timelapseStore";
 
 const RECORDING_POLL_MS = 500;
@@ -76,8 +77,11 @@ export function ResultTimelapseCard({
   const ddayFetched = dday.isSuccess;
   const streakFetched = streak.isSuccess;
 
+  const queryClient = useQueryClient();
+  // 영상에는 그날 D-Day와 연속 공부가 들어가고 다시 만들지 않으므로 두 값을 남긴 뒤에 만든다.
+  const overlaySettled = userId === null || (!dday.isPending && !streak.isPending);
   useEffect(() => {
-    if (ready === null || (!ddayFetched && !streakFetched)) {
+    if (ready === null || (!ddayFetched && !streakFetched && !overlaySettled)) {
       return;
     }
     const patch: TimelapseAnnotation = {
@@ -85,8 +89,25 @@ export function ResultTimelapseCard({
       ...(streakFetched ? { streakDays } : {}),
     };
     // 기록하지 못해도 이번 재생에는 지장이 없다. 다음에 다시 볼 때 그 값이 빠질 뿐이다.
-    store.annotate(startedAtMs, patch).catch(() => {});
-  }, [ready, ddayFetched, streakFetched, ddayLabel, streakDays, store, startedAtMs]);
+    void store
+      .annotate(startedAtMs, patch)
+      .catch(() => {})
+      .then(() => {
+        if (overlaySettled) {
+          void queryClient.prefetchQuery(timelapseVideoQuery(startedAtMs, store));
+        }
+      });
+  }, [
+    ready,
+    overlaySettled,
+    ddayFetched,
+    streakFetched,
+    ddayLabel,
+    streakDays,
+    store,
+    startedAtMs,
+    queryClient,
+  ]);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const visible = ready !== null && photos.isSuccess && photos.data.length > 0;
