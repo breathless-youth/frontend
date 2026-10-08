@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -149,7 +149,7 @@ describe("DdaySection — 시트", () => {
     });
   });
 
-  it("편집 모드의 삭제는 확인 없이 바로 지우고 블록이 미설정으로 돌아간다", async () => {
+  it("편집 모드의 삭제는 확인 다이얼로그를 거쳐 지우고 블록이 미설정으로 돌아간다", async () => {
     mockedGet.mockResolvedValue(SET);
     mockedDelete.mockResolvedValue(undefined);
     renderSection();
@@ -162,6 +162,20 @@ describe("DdaySection — 시트", () => {
     expect(screen.getByRole("button", { name: "1월 9일" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+
+    // 확인 전에는 아무것도 지우지 않는다. 취소하면 시트로 돌아온다.
+    const confirm = await screen.findByRole("alertdialog", { name: "D-Day를 삭제할까요?" });
+    fireEvent.click(within(confirm).getByRole("button", { name: "취소" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "목표 날짜 설정" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "삭제" }),
+    );
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
     expect(screen.getByTestId("dday-caption")).toHaveTextContent("목표 날짜를 설정하세요");

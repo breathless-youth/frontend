@@ -5,6 +5,7 @@ import type { FormEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { DdayRequest, DdayResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { IconChevronDown } from "@/features/records/icons";
@@ -18,13 +19,14 @@ import { ApiError } from "@/lib/api";
 import { deleteDday, putDday } from "@/lib/ddayApi";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { ddayKeys, ddayQuery } from "@/lib/ddayQueries";
+import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 import { cn } from "@/lib/utils";
 
 import { DdayCalendar } from "./DdayCalendar";
 import { daysUntil, formatDday, formatKoreanDate } from "./ddayFormat";
 
 /** 서버와 같은 상한. 입력은 여기서 막고 서버는 최종 판정만 한다. */
-export const DDAY_TITLE_MAX_LENGTH = 10;
+export const DDAY_TITLE_MAX_LENGTH = 15;
 
 /**
  * 홈 좌상단 D-Day 블록과 설정 시트.
@@ -152,7 +154,7 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
  * 위에서 아래로 손잡이(잡고 내리면 닫힌다) · 제목줄(오른쪽에 고른 날의 D-N) · 달력 · 제목 입력 · 저장/삭제.
  * 달력은 키보드가 떠 있는 동안(제목에 포커스)만 날짜 칩 한 줄로 접혀 키보드 위에 폼이 남는다. 완료·바깥
  * 탭으로 키보드가 내려가면(포커스를 잃으면) 다시 펼친다. 칩을 눌러도 키보드를 내리고 펼친다.
- * 저장은 날짜·제목이 다 있을 때만 켜지고, 삭제는 편집일 때만 보이며 확인 없이 바로 지운다.
+ * 저장은 날짜·제목이 다 있을 때만 켜지고, 삭제는 편집일 때만 보이며 확인 다이얼로그를 거쳐 지운다.
  */
 function DdayForm({
   userId,
@@ -175,6 +177,7 @@ function DdayForm({
   );
   const [titleFocused, setTitleFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const saveMutation = useMutation({
     // react-query가 두 번째 인자로 컨텍스트를 넘기므로 API 함수에 그대로 물리지 않는다
@@ -351,16 +354,80 @@ function DdayForm({
             size="lg"
             className="text-sm font-medium text-muted-foreground"
             disabled={busy}
-            onClick={() => {
-              setError(null);
-              deleteMutation.mutate();
-            }}
+            onClick={() => setConfirmingDelete(true)}
           >
             삭제
           </Button>
         )}
       </div>
+
+      <DeleteConfirmDialog
+        open={confirmingDelete}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => {
+          setConfirmingDelete(false);
+          setError(null);
+          deleteMutation.mutate();
+        }}
+      />
     </form>
+  );
+}
+
+/**
+ * 삭제 확인 — 시트 위에 뜨는 작은 다이얼로그. 틀은 카메라 켜기 확인 모달과 같고(공용 `ui/dialog.tsx`,
+ * `theme-soft-blue` 스코프), 설명 줄 없이 제목과 두 버튼만 둔다. Esc·딤 탭은 취소다.
+ */
+function DeleteConfirmDialog({
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const focusRestore = useDialogFocusRestore();
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel();
+      }}
+    >
+      <DialogContent
+        role="alertdialog"
+        showCloseButton={false}
+        onOpenAutoFocus={focusRestore.onOpenAutoFocus}
+        onCloseAutoFocus={focusRestore.onCloseAutoFocus}
+        className="theme-soft-blue w-full max-w-[320px] gap-0 rounded-3xl border-0 bg-muted px-[22px] pt-[26px] pb-[22px] text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
+        // 설명 없는 다이얼로그다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
+        aria-describedby={undefined}
+      >
+        {/* 시트 제목(`목표 날짜 설정`)과 같은 굵기·크기 — 카메라 확인 모달의 extrabold는 여기선 과했다. */}
+        <DialogTitle className="text-[18px] leading-[21px] font-bold text-foreground">
+          D-Day를 삭제할까요?
+        </DialogTitle>
+        <div className="mt-4 flex gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            className="h-[52px] flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
+          >
+            취소
+          </Button>
+          <Button
+            type="button"
+            variant="unstyled"
+            onClick={onConfirm}
+            className="h-[52px] flex-1 rounded-lg bg-feedback-danger text-[15px] font-semibold text-white hover:opacity-90"
+          >
+            삭제
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
