@@ -61,6 +61,11 @@ function dateLabel(ms: number): string {
   return `${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
+/** 영상 오버레이와 전체 목록이 같은 값을 보이도록 한 곳에서 계산한다. */
+export function focusRatePercent(studySec: number, focusSec: number): number {
+  return studySec > 0 ? Math.round((focusSec / studySec) * 100) : 0;
+}
+
 /**
  * 오버레이 표시 문자열
  *
@@ -72,7 +77,7 @@ export function overlayTextFor(
 ): TimelapseOverlayText {
   const studySec = record.summary?.studySec ?? 0;
   const focusSec = record.summary?.focusSec ?? 0;
-  const rate = studySec > 0 ? Math.round((focusSec / studySec) * 100) : 0;
+  const rate = focusRatePercent(studySec, focusSec);
   return {
     date: dateLabel(record.startedAtMs),
     focusTime: `순공 ${toKoreanDurationLength(focusSec)}`,

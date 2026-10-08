@@ -5,21 +5,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
 import { slideNavigate } from "@/lib/pageTransition";
-import { cn } from "@/lib/utils";
 
 import { recentDayLabel } from "./recentDayLabel";
+import { TimelapsesEmpty } from "./TimelapsesEmpty";
+import { TimelapseThumb } from "./TimelapseThumb";
+import { recentTimelapsesQuery } from "./timelapseQueries";
 import type { TimelapseRecord, TimelapseStore } from "./timelapseStore";
 import { getTimelapseStore } from "./timelapseStore";
-
-/** 썸네일 한 장은 수십 KB라 data URL로 들고 있어도 작고, Blob URL처럼 해제할 것이 없다. */
-function toDataUrl(bytes: ArrayBuffer): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("썸네일을 읽지 못했어요"));
-    reader.readAsDataURL(new Blob([bytes], { type: "image/jpeg" }));
-  });
-}
 
 function TimelapseThumbCard({
   record,
@@ -30,47 +22,9 @@ function TimelapseThumbCard({
   store: TimelapseStore;
   nowMs: number;
 }) {
-  const thumb = useQuery({
-    queryKey: ["timelapse", record.startedAtMs, "thumb"],
-    queryFn: async () => {
-      const bytes = await store.middlePhoto(record.startedAtMs);
-      return bytes === null ? null : await toDataUrl(bytes);
-    },
-    // 목록에 올라간 타임랩스의 사진은 바뀌지 않는다.
-    staleTime: Infinity,
-  });
-  const src = thumb.data ?? null;
-  // 타임랩스 사진은 분석 도구로 보내지 않는다(ADR 0013). 카메라 화면과 같은 세션 리플레이 차단 표식이다.
-  const replayBlocked = "amp-block sentry-block";
-
   return (
     <li className="relative h-64 w-36 shrink-0 snap-start overflow-hidden rounded-[14px] bg-black">
-      {src !== null &&
-        (record.settings.aspect === "16:9" ? (
-          <>
-            {/* 가로 영상은 같은 장면을 흐리게 키워 세로 카드의 위아래를 채운다. */}
-            <img
-              src={src}
-              alt=""
-              className={cn(
-                replayBlocked,
-                "absolute inset-0 size-full scale-125 object-cover blur-[18px]",
-              )}
-            />
-            <div className="absolute inset-0 bg-black/25" />
-            <img
-              src={src}
-              alt=""
-              className={cn(replayBlocked, "absolute inset-0 size-full object-contain")}
-            />
-          </>
-        ) : (
-          <img
-            src={src}
-            alt=""
-            className={cn(replayBlocked, "absolute inset-0 size-full object-cover")}
-          />
-        ))}
+      <TimelapseThumb record={record} store={store} className="absolute inset-0" />
       <div className="absolute inset-x-0 bottom-0 h-[120px] bg-linear-to-b from-black/0 to-black/70" />
       <p className="absolute bottom-3 left-3 flex flex-col gap-0.5 text-white">
         <span className="text-base leading-[19px] font-bold">
@@ -96,14 +50,7 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
   const location = useLocation();
   // react-router navigate()는 항상 push라 빠른 이중 탭에 목록이 두 장 쌓인다.
   const openedRef = useRef(false);
-  const recent = useQuery({
-    queryKey: ["timelapse", "recent"],
-    queryFn: async () => {
-      // 세션을 오래 안 하면 지울 기회가 없어 홈을 열 때도 보관 기한을 적용한다.
-      await store.sweep(Date.now());
-      return await store.listReady();
-    },
-  });
+  const recent = useQuery(recentTimelapsesQuery(store));
 
   if (!recent.isSuccess) {
     return null;
@@ -125,21 +72,17 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
         >
           최근 타임랩스
         </h2>
-        {records.length > 0 && (
-          <button
-            type="button"
-            onClick={openList}
-            className="text-muted-foreground -my-3 -mr-2 flex min-h-11 items-center gap-1.5 px-2 text-sm"
-          >
-            더보기
-            <ChevronRight size={12} aria-hidden="true" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openList}
+          className="text-muted-foreground -my-3 -mr-2 flex min-h-11 items-center gap-1.5 px-2 text-sm"
+        >
+          더보기
+          <ChevronRight size={12} aria-hidden="true" />
+        </button>
       </div>
       {records.length === 0 ? (
-        <p className="bg-muted text-muted-foreground shadow-sb-card rounded-[20px] px-5 py-6 text-center text-sm">
-          공부를 완료하고 공부한 모습을 공유해보세요
-        </p>
+        <TimelapsesEmpty />
       ) : (
         // 홈 본문 좌우 여백(px-5)을 넘어 화면 양 끝까지 이어 붙이고, 카드는 여백 자리에 맞춰 멈춘다.
         <ul className="-mx-5 flex snap-x scroll-px-5 gap-2.5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

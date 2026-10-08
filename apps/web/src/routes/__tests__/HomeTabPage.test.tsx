@@ -57,7 +57,10 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
 
 const prefetchOnboardingGuidePage = vi.hoisted(() => vi.fn());
 
-vi.mock("@/routes/lazyRoutes", () => ({ prefetchOnboardingGuidePage }));
+vi.mock("@/routes/lazyRoutes", () => ({
+  prefetchOnboardingGuidePage,
+  prefetchTimelapsesPage: vi.fn(),
+}));
 
 vi.mock("@/features/timelapse/RecentTimelapses", () => ({
   RecentTimelapses: () => <div data-testid="recent-timelapses" />,

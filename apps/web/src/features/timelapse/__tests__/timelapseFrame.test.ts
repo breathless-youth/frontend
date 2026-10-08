@@ -6,6 +6,7 @@ import {
   FLOW_COLORS,
   canvasSizeFor,
   drawTimelapseFrame,
+  focusRatePercent,
   flowSegmentsFor,
   overlayTextFor,
   type TimelapseScene,
@@ -260,5 +261,12 @@ describe("canvasSizeFor", () => {
   it("세로는 540×960, 가로는 960×540이다", () => {
     expect(canvasSizeFor("9:16")).toEqual({ width: 540, height: 960 });
     expect(canvasSizeFor("16:9")).toEqual({ width: 960, height: 540 });
+  });
+});
+
+describe("focusRatePercent", () => {
+  it("순공을 총 공부로 나눠 반올림하고, 공부 시간이 0이면 0이다", () => {
+    expect(focusRatePercent(9_600, 8_040)).toBe(84);
+    expect(focusRatePercent(0, 0)).toBe(0);
   });
 });

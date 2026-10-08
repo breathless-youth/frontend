@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RecentTimelapses } from "../RecentTimelapses";
-import { recentDayLabel } from "../recentDayLabel";
+import { recentDayLabel, timelapseRangeLabel, timelapseStartLabel } from "../recentDayLabel";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import type { TimelapseStore } from "../timelapseStore";
 import { createIndexedDbTimelapseStore } from "../timelapseStore";
@@ -68,6 +68,19 @@ describe("recentDayLabel", () => {
     expect(recentDayLabel(new Date(2026, 9, 7, 0, 10).getTime(), now)).toBe("오늘");
     expect(recentDayLabel(new Date(2026, 9, 6, 23, 50).getTime(), now)).toBe("어제");
     expect(recentDayLabel(new Date(2026, 9, 3, 12, 0).getTime(), now)).toBe("10월 3일");
+  });
+
+  it("전체 목록 줄은 요일 붙은 날짜와 시작·끝 시각을 엔대시로 잇는다", () => {
+    expect(
+      timelapseRangeLabel(
+        new Date(2026, 9, 5, 18, 23).getTime(),
+        new Date(2026, 9, 5, 21, 3).getTime(),
+      ),
+    ).toBe("10월 5일 (월) 18:23 – 21:03");
+  });
+
+  it("삭제 버튼 라벨용 시작 시각은 날짜와 시각이다", () => {
+    expect(timelapseStartLabel(new Date(2026, 9, 5, 9, 5).getTime())).toBe("10월 5일 09:05");
   });
 });
 
@@ -142,13 +155,15 @@ describe("RecentTimelapses", () => {
     await waitFor(() => expect(item.querySelectorAll("img")).toHaveLength(1));
   });
 
-  it("보관 중인 타임랩스가 없으면 안내를 보여주고 더보기를 숨긴다", async () => {
+  it("보관 중인 타임랩스가 없어도 안내와 함께 더보기를 둔다", async () => {
     renderSection();
 
     expect(
       await screen.findByText("공부를 완료하고 공부한 모습을 공유해보세요"),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "더보기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(await screen.findByText("이동: /timelapses?userId=7")).toBeInTheDocument();
   });
 
   it("7일이 지난 타임랩스는 지우고 보여주지 않는다", async () => {
