@@ -10,9 +10,15 @@ import { getStreak } from "@/lib/statsApi";
 import { ResultTimelapseCard } from "../ResultTimelapseCard";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import { createIndexedDbTimelapseStore, type TimelapseStore } from "../timelapseStore";
+import type * as TimelapseVideo from "../timelapseVideo";
+import { buildTimelapseVideo } from "../timelapseVideo";
 
 vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
 vi.mock("@/lib/statsApi", () => ({ getStreak: vi.fn() }));
+vi.mock("../timelapseVideo", async (importOriginal) => ({
+  ...(await importOriginal<typeof TimelapseVideo>()),
+  buildTimelapseVideo: vi.fn(),
+}));
 
 /** 재생기는 따로 검증했다. 카드가 넘기는 값만 본다. */
 vi.mock("../TimelapsePlayer", () => ({
@@ -35,6 +41,8 @@ const T0 = new Date(2026, 9, 5, 21, 3).getTime();
 const SUMMARY = { endedAtMs: T0 + 3_600_000, studySec: 3_600, focusSec: 2_880, events: [] };
 
 let store: TimelapseStore;
+/** 영상을 만들 때의 레코드 값. D-Day와 연속 공부가 먼저 남았는지 본다. */
+let builtWith: { ddayLabel?: string | null; streakDays?: number | null } | null;
 
 async function readyTimelapse(photoCount = 2, aspect: "9:16" | "16:9" = "9:16") {
   await store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, aspect });
@@ -58,6 +66,18 @@ beforeEach(() => {
   store = createIndexedDbTimelapseStore();
   vi.mocked(getDday).mockResolvedValue({ title: "기말고사", targetDate: "2099-01-01" });
   vi.mocked(getStreak).mockResolvedValue({ streak: 5, maxStreak: 9, studiedDatesInRange: [] });
+  builtWith = null;
+  vi.mocked(buildTimelapseVideo).mockImplementation(async (ms, videoStore) => {
+    const record = await videoStore.get(ms);
+    builtWith = { ddayLabel: record?.ddayLabel, streakDays: record?.streakDays };
+    return {
+      bytes: new Uint8Array([1]).buffer,
+      mimeType: "video/mp4",
+      method: "webcodecs",
+      frames: 2,
+      aspect: "9:16",
+    };
+  });
 });
 
 afterEach(() => {
@@ -129,6 +149,31 @@ describe("ResultTimelapseCard", () => {
     await screen.findByTestId("player");
     expect(getDday).not.toHaveBeenCalled();
     expect(getStreak).not.toHaveBeenCalled();
+  });
+
+  it("D-Day와 연속 공부를 레코드에 남긴 뒤 영상을 만든다", async () => {
+    await readyTimelapse();
+    renderCard();
+
+    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
+    expect(builtWith).toEqual({ ddayLabel: expect.stringContaining("기말고사"), streakDays: 5 });
+  });
+
+  it("연속 공부 조회가 끝나기 전에는 만들지 않는다", async () => {
+    vi.mocked(getStreak).mockReturnValue(new Promise(() => {}));
+    await readyTimelapse();
+    renderCard();
+
+    await screen.findByTestId("player");
+    await waitFor(async () => expect((await store.get(T0))?.ddayLabel).toBeDefined());
+    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+  });
+
+  it("신원이 없으면 조회 없이 바로 만든다", async () => {
+    await readyTimelapse();
+    renderCard(null);
+
+    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
   });
 
   it("레코드가 없으면 아무것도 그리지 않는다", async () => {

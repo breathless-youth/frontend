@@ -376,6 +376,38 @@ export function trackVisionRuntimeFallback(input: { readonly roomType: StudyRoom
   track("vision_runtime_fallback", { room_type: input.roomType, reason: "frame_capture" });
 }
 
+/**
+ * 타임랩스 공유용 영상을 만든 기록
+ *
+ * 기기별 인코딩 방식·걸린 시간과 실제 파일 크기로 보관 상한(7개)을 다시 확인한다.
+ * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 사진·영상 내용과 식별자는 싣지 않는다.
+ */
+export function trackTimelapseVideoCreated(input: {
+  readonly method: "webcodecs" | "recorder";
+  readonly durationMs: number;
+  readonly bytes: number;
+  readonly frames: number;
+  readonly aspect: "9:16" | "16:9";
+}) {
+  if (!initialized) return;
+  track("timelapse_video_created", {
+    method: input.method,
+    duration_ms: input.durationMs,
+    bytes: input.bytes,
+    frames: input.frames,
+    aspect: input.aspect,
+  });
+}
+
+/** `none`은 WebCodecs도 mp4 녹화도 없는 기기다. `store`는 만들었지만 보관에 실패한 경우다. */
+export function trackTimelapseVideoFailed(input: {
+  readonly method: "webcodecs" | "recorder" | "none";
+  readonly stage: "unsupported" | "decode" | "encode" | "store";
+}) {
+  if (!initialized) return;
+  track("timelapse_video_failed", { method: input.method, stage: input.stage });
+}
+
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
  *
  * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰
