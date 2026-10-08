@@ -130,7 +130,7 @@ describe("openRecorderSink", () => {
     expect(openRecorderSink(capturableCanvas().element)).toBeNull();
   });
 
-  it("장면마다 프레임을 요청하고 1/12초씩 기다린 뒤 mp4 바이트를 돌려준다", async () => {
+  it("장면마다 프레임을 요청하고 장면 길이만큼 기다린 뒤 mp4 바이트를 돌려준다", async () => {
     vi.stubGlobal("MediaRecorder", FakeRecorder);
     const { element, requestFrame, stopTrack } = capturableCanvas();
     const wait = vi.fn(() => Promise.resolve());
@@ -143,10 +143,47 @@ describe("openRecorderSink", () => {
     expect(sink.method).toBe("recorder");
     expect(FakeRecorder.last?.options).toMatchObject({ mimeType: "video/mp4" });
     expect(requestFrame).toHaveBeenCalledTimes(2);
-    expect(wait).toHaveBeenCalledWith(1000 / TIMELAPSE_FPS);
+    expect(wait).toHaveBeenCalledTimes(2);
     expect(stopTrack).toHaveBeenCalled();
     expect(out.mimeType).toBe("video/mp4");
     expect(new Uint8Array(out.bytes)[0]).toBe(5);
+  });
+
+  /** 기다린 만큼 시계를 흘려 실제 녹화처럼 벽시계가 가게 한다. */
+  function clockedSink() {
+    vi.stubGlobal("MediaRecorder", FakeRecorder);
+    const clock = { now: 0 };
+    const wait = vi.fn((ms: number) => {
+      clock.now += ms;
+      return Promise.resolve();
+    });
+    const sink = openRecorderSink(capturableCanvas().element, wait, () => clock.now)!;
+    return { sink, wait, clock, waited: () => wait.mock.calls.map(([ms]) => ms) };
+  }
+
+  it("그리기에 쓴 시간을 빼고 장면이 끝날 시각까지만 기다린다", async () => {
+    const { sink, clock, waited } = clockedSink();
+
+    for (let index = 0; index < 3; index += 1) {
+      clock.now += 10;
+      await sink.add(index);
+    }
+
+    expect(waited()).toHaveLength(3);
+    for (const ms of waited()) {
+      expect(ms).toBeCloseTo(1000 / TIMELAPSE_FPS - 10, 6);
+    }
+  });
+
+  it("이미 늦었으면 기다리지 않고 다음 장면에서 따라잡는다", async () => {
+    const { sink, clock, waited } = clockedSink();
+
+    clock.now += 200;
+    await sink.add(0);
+    await sink.add(1);
+    await sink.add(2);
+
+    expect(waited()).toEqual([0, 0, 50]);
   });
 
   it("캔버스 스트림에 비디오 트랙이 없으면 null이다", () => {

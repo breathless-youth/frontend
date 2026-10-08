@@ -67,6 +67,7 @@ function sleep(ms: number): Promise<void> {
 export function openRecorderSink(
   canvas: HTMLCanvasElement,
   wait: (ms: number) => Promise<void> = sleep,
+  now: () => number = () => performance.now(),
 ): VideoSink | null {
   if (
     typeof MediaRecorder === "undefined" ||
@@ -113,6 +114,7 @@ export function openRecorderSink(
     stopTracks();
     return null;
   }
+  const startedAt = now();
   const stop = () => {
     if (recorder.state !== "inactive") {
       recorder.stop();
@@ -121,10 +123,11 @@ export function openRecorderSink(
   };
   return {
     method: "recorder",
-    async add() {
+    async add(index) {
       track.requestFrame();
-      // 녹화는 벽시계로 장면 길이를 정하므로 1/12초를 실제로 기다린다.
-      await wait(1000 / TIMELAPSE_FPS);
+      // 녹화는 벽시계로 장면 길이를 정하므로 그리기에 쓴 시간을 빼고 이 장면이 끝날 시각까지만 기다린다.
+      const due = startedAt + ((index + 1) * 1000) / TIMELAPSE_FPS;
+      await wait(Math.max(0, due - now()));
     },
     async finish() {
       stop();
