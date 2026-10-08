@@ -119,38 +119,43 @@ describe("WeekTrendCard — 비교 문장", () => {
     );
   });
 
-  it("과거 주는 완료형으로 말하고, 보고 있는 주를 오늘에서 센 호칭으로 기준 삼아 적는다", () => {
+  it("과거 주는 완료형으로 말하고, 견준 두 주를 오늘에서 센 호칭으로 적는다", () => {
     const { unmount } = renderCard({ todayKey: "2026-09-30" });
 
     // 전체 22시간 vs 28시간 → 6시간 덜.
     expect(screen.getByText(/지난주보다/)).toHaveTextContent("지난주보다 6시간 덜 공부했어요");
-    // 오늘 09-30(수) → 보는 주(09-14~20)는 2주 전이다.
-    expect(screen.getByText("2주 전을 기준으로 비교했어요")).toBeInTheDocument();
+    // 오늘 09-30(수) → 보는 주(09-14~20)는 2주 전, 그 앞 주는 3주 전이다.
+    expect(screen.getByText("2주 전과 3주 전을 비교했어요")).toBeInTheDocument();
     unmount();
 
-    // 지난주로 넘기면 `1주 전을 기준으로`다.
+    // 지난주로 넘기면 `1주 전과 2주 전을`이다.
     renderCard({ todayKey: "2026-09-25" });
-    expect(screen.getByText("1주 전을 기준으로 비교했어요")).toBeInTheDocument();
+    expect(screen.getByText("1주 전과 2주 전을 비교했어요")).toBeInTheDocument();
   });
 
   it("지난주 기록이 없으면 비교하지 않고 이번 주 합계만 말한다", () => {
-    renderCard({ compareDaily: EMPTY });
+    const { unmount } = renderCard({ compareDaily: EMPTY });
 
-    expect(screen.getByText(/이번 주/, { selector: "p" })).toHaveTextContent(
+    expect(screen.getByText(/공부하는 중$/, { selector: "p" })).toHaveTextContent(
       "이번 주 22시간 공부하는 중",
     );
-    expect(screen.getByText("지난주 기록이 없어 비교하지 않아요")).toBeInTheDocument();
+    expect(screen.getByText("지난주 기록이 없어 이번 주 기록만 표시했어요")).toBeInTheDocument();
+    unmount();
+
+    // 과거 주도 두 주를 호칭으로 부른다.
+    renderCard({ compareDaily: EMPTY, todayKey: "2026-09-25" });
+    expect(screen.getByText("2주 전 기록이 없어 1주 전 기록만 표시했어요")).toBeInTheDocument();
   });
 
   it("이번 주 기록이 없거나 둘 다 없으면 그 사실을 말한다", () => {
     const { unmount } = renderCard({ daily: EMPTY });
     expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
-    expect(screen.getByText("지난주 막대만 보여드려요")).toBeInTheDocument();
+    expect(screen.getByText("지난주 기록만 표시했어요")).toBeInTheDocument();
     unmount();
 
     renderCard({ daily: EMPTY, compareDaily: EMPTY });
     expect(screen.getByText("아직 기록이 없어요")).toBeInTheDocument();
-    expect(screen.getByText("집중을 시작하면 요일별로 쌓여요")).toBeInTheDocument();
+    expect(screen.getByText("공부를 시작하고 패턴을 확인해보세요")).toBeInTheDocument();
   });
 });
 

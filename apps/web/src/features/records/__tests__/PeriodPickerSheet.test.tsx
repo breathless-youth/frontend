@@ -1,8 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { MonthPickerSheet, WeekPickerSheet } from "../PeriodPickerSheet";
+import { DayPickerSheet, MonthPickerSheet, WeekPickerSheet } from "../PeriodPickerSheet";
+
+// jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는 `clientX`가 사라진다
+// (`recordsComponents.test.tsx`와 같은 최소 폴리필).
+if (typeof window.PointerEvent === "undefined") {
+  window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
+}
 
 const TODAY = "2026-09-18"; // 금요일
 
@@ -45,6 +51,31 @@ describe("MonthPickerSheet — 달 선택", () => {
     await userEvent.click(screen.getByRole("radio", { name: "12월" }));
 
     expect(onPick).toHaveBeenCalledWith({ year: 2025, month: 12 }, false);
+  });
+
+  it("달 격자를 좌우로 밀면 해를 넘기고, 올해에서는 더 가지 않는다", () => {
+    render(
+      <MonthPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        month={{ year: 2026, month: 9 }}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+    const grid = screen.getByTestId("month-picker-swipe-area");
+
+    // 오른쪽으로 밀면 이전 해.
+    fireEvent.pointerDown(grid, { clientX: 100, clientY: 200 });
+    fireEvent.pointerUp(grid, { clientX: 100 + 60, clientY: 200 });
+    expect(screen.getByText("2025년")).toBeInTheDocument();
+
+    // 왼쪽으로 밀면 다음 해 — 올해까지만.
+    fireEvent.pointerDown(grid, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(grid, { clientX: 300 - 60, clientY: 200 });
+    fireEvent.pointerDown(grid, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(grid, { clientX: 300 - 60, clientY: 200 });
+    expect(screen.getByText("2026년")).toBeInTheDocument();
   });
 
   it("오늘을 누르면 오늘이 속한 달을 넘긴다", async () => {
@@ -115,6 +146,29 @@ describe("WeekPickerSheet — 주 선택", () => {
     expect(onPick).toHaveBeenCalledWith("2026-08-20", false);
   });
 
+  it("달력을 좌우로 밀면 달을 넘기고, 오늘이 속한 달에서는 더 가지 않는다", () => {
+    render(
+      <WeekPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        weekAnchorKey={TODAY}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+    const area = screen.getByTestId("week-picker-swipe-area");
+
+    fireEvent.pointerDown(area, { clientX: 100, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 100 + 60, clientY: 200 });
+    expect(screen.getByText("2026년 8월")).toBeInTheDocument();
+
+    fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
+    fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
+    expect(screen.getByText("2026년 9월")).toBeInTheDocument();
+  });
+
   it("달의 첫 주·마지막 주는 이웃 달 날짜로 채우고, 오늘은 굵게 적는다", () => {
     render(
       <WeekPickerSheet
@@ -152,5 +206,31 @@ describe("WeekPickerSheet — 주 선택", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "오늘" }));
     expect(onPick).toHaveBeenCalledWith(TODAY, true);
+  });
+});
+
+describe("DayPickerSheet — 날짜 선택", () => {
+  it("달력을 좌우로 밀면 달을 넘기고, 미래를 허용하면 다음 달로도 간다", () => {
+    render(
+      <DayPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        dateKey={TODAY}
+        todayKey={TODAY}
+        allowFuture
+        onPick={vi.fn()}
+      />,
+    );
+    const area = screen.getByTestId("day-picker-swipe-area");
+
+    fireEvent.pointerDown(area, { clientX: 100, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 100 + 60, clientY: 200 });
+    expect(screen.getByText("2026년 8월")).toBeInTheDocument();
+
+    fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
+    fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
+    expect(screen.getByText("2026년 10월")).toBeInTheDocument();
   });
 });

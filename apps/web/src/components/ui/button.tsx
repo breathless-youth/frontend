@@ -13,6 +13,9 @@ export const buttonVariants = cva(
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
         subtle: "bg-brand-subtle text-primary hover:opacity-90",
+        /** `subtle`에 테두리·옅은 그림자를 더해 누를 수 있어 보이게 한 것 — 제목 줄 옆 작은 알약(`오늘`·`플래너`). */
+        raised:
+          "border border-primary/35 bg-brand-subtle font-bold text-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:opacity-90",
         /** 보조 CTA(결과 화면 `홈으로`) — `bg/layer-2` 위 기본 글자색. */
         secondary: "bg-bg-layer-2 text-foreground hover:opacity-90",
         /** variant 클래스를 전혀 주지 않는다 — 배경·hover까지 호출부가 자체 cva로 100% 책임지는
