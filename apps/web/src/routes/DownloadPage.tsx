@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import { detectStorePlatform, installLink, readInstallUtm } from "@/features/social-room/storeLink";
-import { trackStoreLinkRedirected } from "@/lib/amplitude";
+import { flushAmplitude, trackStoreLinkRedirected } from "@/lib/amplitude";
+
+/** 분석 전송을 기다리는 상한. 네트워크가 느려도 사용자를 이 이상 붙잡지 않는다. */
+const FLUSH_WAIT_MS = 800;
 
 function replaceLocation(url: string) {
   // 뒤로 가기로 이 중간 페이지에 다시 들어오지 않게 기록을 바꿔 끼운다.
@@ -28,7 +31,10 @@ export function DownloadPage({ go = replaceLocation }: { go?: (url: string) => v
     movedRef.current = true;
     // 스토어 이동만 센다. PC는 랜딩으로 가므로 스토어 이동이 아니다.
     if (platform !== null) trackStoreLinkRedirected(platform);
-    go(target);
+    // 열자마자 떠나면 이동 이벤트와 UTM 유입 기록이 전송되기 전에 사라진다.
+    // 전송을 기다리되 상한을 넘기면 그냥 이동한다.
+    const waited = new Promise<void>((resolve) => window.setTimeout(resolve, FLUSH_WAIT_MS));
+    void Promise.race([flushAmplitude().catch(() => {}), waited]).then(() => go(target));
   }, [go, platform, target]);
 
   return (

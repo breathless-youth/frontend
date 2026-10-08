@@ -1,4 +1,12 @@
-import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
+import {
+  add,
+  flush,
+  Identify,
+  identify,
+  init,
+  setUserId,
+  track,
+} from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
@@ -465,6 +473,15 @@ export function trackInviteLinkOpened(hasCode: boolean) {
 export function trackStoreLinkRedirected(platform: "android" | "ios") {
   if (!initialized) return;
   track("store_link_redirected", { platform });
+}
+
+/**
+ * 모아 둔 이벤트를 지금 보낸다. 곧바로 페이지를 떠나는 화면(설치 링크)이 이동 전에 기다린다.
+ * 기본 전송은 이벤트를 모았다가 주기적으로 보내서, 떠나기 전에 부르지 않으면 남은 이벤트가 사라진다.
+ */
+export function flushAmplitude(): Promise<void> {
+  if (!initialized) return Promise.resolve();
+  return flush().promise;
 }
 
 /* ── WebRTC 연결 품질 (BY-472) ── */
