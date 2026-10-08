@@ -168,16 +168,15 @@ function compareCaption(
     case "delta":
       return comparison.inProgress
         ? `지난주 ${MONDAY_FIRST_WEEKDAY_LABELS[mondayIndexOfDateKey(todayKey)]!}요일까지와 비교했어요`
-        : // 과거 주는 보고 있는 주를 기준으로 말한다(지난주를 보면 `1주 전을 기준으로`).
-          `${currentLabel}을 기준으로 비교했어요`;
+        : // 과거 주는 두 주를 다 호칭으로 부른다(지난주를 보면 `1주 전과 2주 전을`) — 제목의
+          // "지난주"가 어느 주인지 여기서 풀어 준다.
+          `${currentLabel}과 ${previousLabel}을 비교했어요`;
     case "no-previous":
-      return `${previousLabel} 기록이 없어 비교하지 않아요`;
+      return `${previousLabel} 기록이 없어 ${currentLabel} 기록만 표시했어요`;
     case "no-current":
-      return `${previousLabel} 막대만 보여드려요`;
+      return `${previousLabel} 기록만 표시했어요`;
     case "empty":
-      return comparison.inProgress
-        ? "집중을 시작하면 요일별로 쌓여요"
-        : "이 주와 그 앞 주 모두 기록이 없어요";
+      return "공부를 시작하고 패턴을 확인해보세요";
   }
 }
 
@@ -265,7 +264,9 @@ function WeekTrendBars({
     <div ref={chartRef} role="group" aria-label="요일별 순공시간" className="pt-2">
       <ChartContainer
         config={config}
-        className="aspect-auto w-full"
+        // 요일 글자의 기준선이 svg 바닥선에 놓여, 시스템 글자 크기를 키운 기기에서는 기준선 아래
+        // 획이 잘렸다. svg 밖으로 나간 글자도 그리게 한다(아래 범례와는 10px 여유가 있다).
+        className="aspect-auto w-full [&_.recharts-surface]:overflow-visible"
         style={{ height: CHART_HEIGHT_PX }}
       >
         <BarChart

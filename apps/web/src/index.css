@@ -292,10 +292,11 @@
     --chart-peak: #a18bff;
     --chart-prev: #2a3752;
     --chart-rest: #3d4a63;
-    --chart-heat-1: #24344f;
-    --chart-heat-2: #2c4568;
-    --chart-heat-3: #35558a;
-    --chart-heat-4: #3f6fb3;
+    /* 0+(2시간 미만)가 빈 칸(#1e2636)과 구분되게 다섯 단계를 한 칸씩 밝게 둔다. */
+    --chart-heat-1: #2c4568;
+    --chart-heat-2: #35558a;
+    --chart-heat-3: #3f6fb3;
+    --chart-heat-4: #4b82d6;
     --chart-heat-5: #5a90ea;
     --chart-empty: #1e2636;
     --bg-control-track: #1e2636;
@@ -340,10 +341,10 @@
   --chart-peak: #a18bff;
   --chart-prev: #2a3752;
   --chart-rest: #3d4a63;
-  --chart-heat-1: #24344f;
-  --chart-heat-2: #2c4568;
-  --chart-heat-3: #35558a;
-  --chart-heat-4: #3f6fb3;
+  --chart-heat-1: #2c4568;
+  --chart-heat-2: #35558a;
+  --chart-heat-3: #3f6fb3;
+  --chart-heat-4: #4b82d6;
   --chart-heat-5: #5a90ea;
   --chart-empty: #1e2636;
   --bg-control-track: #1e2636;
