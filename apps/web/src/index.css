@@ -292,11 +292,12 @@
     --chart-peak: #a18bff;
     --chart-prev: #2a3752;
     --chart-rest: #3d4a63;
-    /* 0+(2시간 미만)가 빈 칸(#1e2636)과 구분되게 다섯 단계를 한 칸씩 밝게 둔다. */
+    /* 0+(2시간 미만)가 빈 칸(#1e2636)과 구분되게 다섯 단계를 한 칸씩 밝게 둔다.
+       4단계는 흰 날짜 글자 대비 4.5:1(AA)을 지키는 선까지만 밝힌다. */
     --chart-heat-1: #2c4568;
     --chart-heat-2: #35558a;
     --chart-heat-3: #3f6fb3;
-    --chart-heat-4: #4b82d6;
+    --chart-heat-4: #4276c2;
     --chart-heat-5: #5a90ea;
     --chart-empty: #1e2636;
     --bg-control-track: #1e2636;
@@ -344,7 +345,7 @@
   --chart-heat-1: #2c4568;
   --chart-heat-2: #35558a;
   --chart-heat-3: #3f6fb3;
-  --chart-heat-4: #4b82d6;
+  --chart-heat-4: #4276c2;
   --chart-heat-5: #5a90ea;
   --chart-empty: #1e2636;
   --bg-control-track: #1e2636;
