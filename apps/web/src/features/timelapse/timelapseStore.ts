@@ -147,6 +147,11 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
           db.createObjectStore("videos", { keyPath: "startedAtMs" });
         }
       },
+      // 다른 웹뷰가 새 버전으로 열 때 이 연결이 막지 않게 닫는다. 다음 호출이 다시 연다.
+      blocking(_currentVersion, _blockedVersion, event) {
+        (event.target as IDBDatabase | null)?.close();
+        opening = null;
+      },
     }).catch((error: unknown) => {
       opening = null;
       throw error;

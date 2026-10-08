@@ -386,3 +386,25 @@ describe("videos", () => {
     expect(firstByte((await store.getVideo(T0))!.bytes)).toBe(7);
   });
 });
+
+describe("다른 웹뷰의 새 버전 열기", () => {
+  it("연결이 열려 있어도 더 높은 버전으로 여는 요청을 막지 않는다", async () => {
+    await store.get(T0);
+    const { openDB } = await import("idb");
+
+    const opened = openDB("focuson-timelapse", 3, {
+      upgrade(db) {
+        db.createObjectStore("later");
+      },
+    }).then((db) => {
+      db.close();
+      return "opened";
+    });
+    const result = await Promise.race([
+      opened,
+      new Promise<string>((resolve) => setTimeout(() => resolve("blocked"), 1_000)),
+    ]);
+
+    expect(result).toBe("opened");
+  });
+});
