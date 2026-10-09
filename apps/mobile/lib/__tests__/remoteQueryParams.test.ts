@@ -49,6 +49,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      videoShare: "1",
       nativeTabBar: "1",
     });
   });
@@ -62,6 +63,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      videoShare: "1",
       nativeTabBar: "1",
     });
   });
@@ -75,6 +77,7 @@ describe("buildRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      videoShare: "1",
       nativeTabBar: "1",
     });
   });
@@ -99,6 +102,14 @@ describe("buildRemoteQueryParams", () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
     const params = await buildRemoteQueryParams();
     expect(params.nativeUpdateGate).toBe("1");
+  });
+
+  it("셸이 영상 저장·공유를 처리할 수 있음을 videoShare로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.videoShare).toBe("1");
   });
 
   it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
@@ -161,6 +172,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        videoShare: "1",
         nativeTabBar: "1",
       }),
     );
@@ -177,6 +189,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        videoShare: "1",
         nativeTabBar: "1",
       }),
     );
@@ -191,6 +204,7 @@ describe("useRemoteQueryParams", () => {
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
+      videoShare: "1",
       nativeTabBar: "1",
     });
   });
@@ -233,6 +247,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        videoShare: "1",
         nativeTabBar: "1",
       }),
     );
@@ -249,6 +264,7 @@ describe("useRemoteQueryParams", () => {
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
+        videoShare: "1",
         nativeTabBar: "1",
       }),
     );

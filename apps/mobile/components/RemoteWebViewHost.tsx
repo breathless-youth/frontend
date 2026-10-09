@@ -375,7 +375,12 @@ export function RemoteWebViewHost({
     const message = parseToNativeMessage(event.nativeEvent.data);
     if (message === null) {
       if (__DEV__) {
-        console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", event.nativeEvent.data);
+        // 영상 조각의 base64 데이터가 로그에 남지 않도록 원문은 찍지 않고 길이와 type만 남긴다.
+        const raw = event.nativeEvent.data;
+        console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", {
+          length: raw.length,
+          type: /"type"\s*:\s*"([^"]{1,64})"/.exec(raw)?.[1],
+        });
       }
       return;
     }
