@@ -75,6 +75,17 @@ export function TimelapseShareDialog({ open, onOpenChange, ...body }: TimelapseS
   const toastAfterClose = useRef<string | null>(null);
   // 저장 중에 먼저 닫았으면 저장 결과가 닫힘 뒤에 와서 바로 띄워야 한다.
   const closeFinished = useRef(false);
+  // 열 때마다, 그리고 레코드가 바뀔 때마다 번호를 올려 본문을 새로 만든다.
+  // 닫히는 도중 다시 열면 본문이 남아 앞 열림에서 보낸 저장·공유의 결과가 새 창의 잠금과 안내를 바꾸기 때문이다.
+  const startedAtMs = body.record.startedAtMs;
+  const [session, setSession] = useState({ open, startedAtMs, id: 0 });
+  if (open !== session.open || startedAtMs !== session.startedAtMs) {
+    setSession({ open, startedAtMs, id: open ? session.id + 1 : session.id });
+  }
+  const currentSession = useRef(session.id);
+  useEffect(() => {
+    currentSession.current = session.id;
+  }, [session.id]);
   // 닫히는 도중 다시 열면 언마운트가 일어나지 않으므로 앞 저장의 문구를 여기서 버린다.
   // 다시 열린 창은 아직 닫히지 않았으므로 닫힘 끝남 표시도 끈다.
   useEffect(() => {
@@ -118,10 +129,16 @@ export function TimelapseShareDialog({ open, onOpenChange, ...body }: TimelapseS
           className="theme-soft-blue group text-foreground fixed inset-0 z-50 flex touch-none flex-col outline-none duration-300 ease-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         >
           <ShareDialogBody
+            key={session.id}
             {...body}
             onSaved={(toast) => {
               if (closeFinished.current) {
                 if (toast !== null) showToast(toast);
+                return;
+              }
+              // 앞 열림의 저장도 실제로 됐으므로 알리되, 새로 연 창은 닫지 않고 그 창이 닫힌 뒤에 띄운다.
+              if (session.id !== currentSession.current) {
+                if (toast !== null) toastAfterClose.current = toast;
                 return;
               }
               toastAfterClose.current = toast;
@@ -189,16 +206,16 @@ function ShareDialogBody({
     setBusy(true);
     setNotice(null);
     let result: VideoResultStatus = "failed";
+    // 컴파일러가 try 안의 조건식을 다루지 못해 보낼 함수를 먼저 고른다.
+    const send = action === "save" ? saveTimelapse : shareTimelapse;
     try {
-      result =
-        action === "save"
-          ? await saveTimelapse(route, video.data, startedAtMs)
-          : await shareTimelapse(route, video.data, startedAtMs);
+      result = await send(route, video.data, startedAtMs);
     } catch {
-      // 결과 대신 오류가 와도 실패로 기록하고 잠금은 finally가 푼다.
-    } finally {
-      setBusy(false);
+      // 결과 대신 오류가 와도 실패로 기록한다.
     }
+    // catch가 모든 오류를 받으므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
+    // 컴파일러가 finally를 다루지 못해 finally에 두지 않는다.
+    setBusy(false);
     trackTimelapseShareTapped({ button, result, entry });
     const resultNotice = shareResultNotice(action, route, result);
     // 결과 화면은 저장되면 시트를 닫고, 앱 저장이면 닫힌 뒤에도 보이도록 토스트로 알린다.

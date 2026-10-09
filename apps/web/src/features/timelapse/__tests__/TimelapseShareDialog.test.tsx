@@ -127,15 +127,18 @@ function renderDialog(entry: "result" | "list" = "list") {
 function renderClosingDialog(entry: "result" | "list") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   let setOpenFromTest: (open: boolean) => void = () => {};
+  let setTargetFromTest: (target: TimelapseRecord) => void = () => {};
   function Closing() {
     const [open, setOpen] = useState(true);
+    const [target, setTarget] = useState(record);
     setOpenFromTest = setOpen;
+    setTargetFromTest = setTarget;
     return (
       <TimelapseShareDialog
         open={open}
         onOpenChange={setOpen}
-        record={record}
-        overlay={savedOverlayFor(record)}
+        record={target}
+        overlay={savedOverlayFor(target)}
         entry={entry}
         store={store}
       />
@@ -146,7 +149,16 @@ function renderClosingDialog(entry: "result" | "list") {
       <Closing />
     </QueryClientProvider>,
   );
-  return { ...view, setOpen: (open: boolean) => act(() => setOpenFromTest(open)) };
+  return {
+    ...view,
+    setOpen: (open: boolean) => act(() => setOpenFromTest(open)),
+    /** 목록에서 다른 줄을 누른 것처럼 레코드를 바꿔 다시 연다. */
+    openWith: (target: TimelapseRecord) =>
+      act(() => {
+        setTargetFromTest(target);
+        setOpenFromTest(true);
+      }),
+  };
 }
 
 /**
@@ -707,5 +719,65 @@ describe("닫힘 애니메이션 중 다시 열기", () => {
     await act(() => new Promise((done) => setTimeout(done, 0)));
 
     expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("앞 레코드 저장 중 닫고 다른 레코드로 다시 열면 앞 실패가 새 시트에 남지 않는다", async () => {
+    nativeApp();
+    const pending = deferred<"failed">();
+    vi.mocked(saveVideoNatively).mockReturnValueOnce(pending.promise);
+    const T1 = T0 + 86_400_000;
+    await store.begin(T1, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.addPhoto(T1, new Uint8Array([2]).buffer, T1);
+    await store.finalize(T1, { endedAtMs: T1 + 3_600_000, studySec: 3_600, focusSec: 2_880 });
+    const other = (await store.get(T1))!;
+    animateDialogStates();
+    const { openWith } = renderClosingDialog("list");
+
+    fireEvent.click(await readyButton("저장하기"));
+    const dialog = await openedDialog();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(dialog).toHaveAttribute("data-state", "closed");
+    await openWith(other);
+    expect(dialog).toHaveAttribute("data-state", "open");
+    await act(async () => pending.resolve("failed"));
+
+    const save = await readyButton("저장하기");
+    expect(within(dialog).getByRole("status")).not.toHaveTextContent("저장하지 못했어요");
+    expect(save).toHaveAttribute("aria-disabled", "false");
+    expect(trackTimelapseShareTapped).toHaveBeenCalledTimes(1);
+    expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
+      button: "save",
+      result: "failed",
+      entry: "list",
+    });
+  });
+
+  it("저장 중 닫고 다시 열면 앞 저장이 끝나도 새 시트를 닫지 않고 그 시트가 닫힌 뒤 토스트를 띄운다", async () => {
+    nativeApp();
+    const pending = deferred<"saved">();
+    vi.mocked(saveVideoNatively).mockReturnValueOnce(pending.promise);
+    animateDialogStates();
+    const { setOpen } = renderClosingDialog("result");
+
+    fireEvent.click(await readyButton("저장하기"));
+    const dialog = await openedDialog();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(dialog).toHaveAttribute("data-state", "closed");
+    await setOpen(true);
+    await act(async () => pending.resolve("saved"));
+
+    expect(trackTimelapseShareTapped).toHaveBeenCalledTimes(1);
+    expect(dialog).toHaveAttribute("data-state", "open");
+    expect(screen.getByRole("dialog", { name: "공유하기" })).toBe(dialog);
+    expect(showToast).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    endExitAnimation(dialog);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // 언마운트 뒤 포커스 복귀 타이머까지 흘려 보낸다.
+    await act(() => new Promise((done) => setTimeout(done, 0)));
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
   });
 });
