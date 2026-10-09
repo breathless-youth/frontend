@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import { trackTimelapseVideoCreated, trackTimelapseVideoFailed } from "@/lib/amplitude";
 
@@ -21,6 +21,23 @@ export function recentTimelapsesQuery(store: TimelapseStore) {
   });
 }
 
+/**
+ * 재생할 사진 바이트
+ *
+ * 결과 카드와 공유 다이얼로그가 같은 키를 써 결과 화면에서는 다시 읽지 않는다.
+ * 기기 안 저장소만 읽으므로 오프라인에서도 읽는다.
+ */
+export function timelapsePhotosQuery(startedAtMs: number, store: TimelapseStore) {
+  return queryOptions({
+    queryKey: ["timelapse", startedAtMs, "photos"] as const,
+    queryFn: async () => (await store.listPhotos(startedAtMs)).map((photo) => photo.bytes),
+    staleTime: Infinity,
+    // 사진 바이트가 15MB쯤이라 화면을 떠나면 캐시에 남기지 않는다.
+    gcTime: 0,
+    networkMode: "always",
+  });
+}
+
 export function timelapseVideoKey(startedAtMs: number) {
   return ["timelapse", startedAtMs, "video"] as const;
 }
@@ -28,6 +45,19 @@ export function timelapseVideoKey(startedAtMs: number) {
 /** 만드는 중 진행률(0~1). 공유 다이얼로그가 읽는다. */
 export function timelapseVideoProgressKey(startedAtMs: number) {
   return ["timelapse", startedAtMs, "video-progress"] as const;
+}
+
+/**
+ * 영상 만드는 진행률 구독
+ *
+ * 값은 영상 쿼리가 만드는 동안 넣으므로 이 쿼리는 직접 읽지 않는다.
+ */
+export function timelapseVideoProgressQuery(startedAtMs: number) {
+  return queryOptions<number>({
+    queryKey: timelapseVideoProgressKey(startedAtMs),
+    queryFn: skipToken,
+    staleTime: Infinity,
+  });
 }
 
 /**
@@ -48,6 +78,8 @@ export function timelapseVideoQuery(
       if (saved !== null) {
         return new Blob([saved.bytes], { type: saved.mimeType });
       }
+      // 앞 시도의 진행률이 남아 막대가 중간에서 시작하지 않게 비운다.
+      client.setQueryData(timelapseVideoProgressKey(startedAtMs), 0);
       const startedAt = performance.now();
       const video = await build(startedAtMs, store, (progress) => {
         client.setQueryData(timelapseVideoProgressKey(startedAtMs), progress);
@@ -73,5 +105,7 @@ export function timelapseVideoQuery(
     staleTime: Infinity,
     // 녹화 방식은 30초쯤 걸려 실패를 자동으로 되풀이하지 않는다. 공유를 누를 때 다시 시도한다.
     retry: false,
+    // 기기 안에서만 만들므로 비행기 모드에서도 만든다.
+    networkMode: "always",
   });
 }

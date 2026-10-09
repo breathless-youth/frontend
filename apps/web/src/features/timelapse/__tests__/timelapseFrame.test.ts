@@ -9,6 +9,7 @@ import {
   focusRatePercent,
   flowSegmentsFor,
   overlayTextFor,
+  savedOverlayFor,
   type TimelapseScene,
 } from "../timelapseFrame";
 
@@ -268,5 +269,21 @@ describe("focusRatePercent", () => {
   it("순공을 총 공부로 나눠 반올림하고, 공부 시간이 0이면 0이다", () => {
     expect(focusRatePercent(9_600, 8_040)).toBe(84);
     expect(focusRatePercent(0, 0)).toBe(0);
+  });
+});
+
+describe("savedOverlayFor", () => {
+  it("레코드에 남은 그날 D-Day와 연속 공부로 오버레이를 만든다", () => {
+    const saved = record({ ddayLabel: "D-3 · 기말고사", streakDays: 4 });
+
+    expect(savedOverlayFor(saved)).toEqual({
+      info: saved.settings.info,
+      text: overlayTextFor(saved, { ddayLabel: "D-3 · 기말고사", streakDays: 4 }),
+      flow: flowSegmentsFor(saved),
+    });
+  });
+
+  it("남은 값이 없으면 D-Day와 연속 공부를 비운다", () => {
+    expect(savedOverlayFor(record()).text).toMatchObject({ dday: null, streak: null });
   });
 });
