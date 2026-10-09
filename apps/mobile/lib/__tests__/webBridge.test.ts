@@ -583,3 +583,59 @@ describe("parseToNativeMessage — analytics-user-properties", () => {
     ).toBeNull();
   });
 });
+
+describe("parseToNativeMessage: 타임랩스 영상", () => {
+  const ID = "0b6f3f4e-7c1d-4f6a-9a51-3d2b1c0e9f87";
+  const parse = (message: Record<string, unknown>) => parseToNativeMessage(JSON.stringify(message));
+
+  it("video-chunk를 파싱한다", () => {
+    expect(parse({ type: "video-chunk", id: ID, seq: 0, data: "AAEC", atMs: 1 })).toEqual({
+      type: "video-chunk",
+      id: ID,
+      seq: 0,
+      data: "AAEC",
+      atMs: 1,
+    });
+  });
+
+  it.each(["../../Documents/x", "timelapse", "", 7])(
+    "id가 UUID 모양이 아니면 버린다 (캐시 파일 이름에 들어간다): %s",
+    (id) => {
+      expect(parse({ type: "video-chunk", id, seq: 0, data: "AAEC", atMs: 1 })).toBeNull();
+      expect(parse({ type: "video-save", id, chunks: 1, atMs: 1 })).toBeNull();
+      expect(parse({ type: "video-share", id, chunks: 1, text: "본문", atMs: 1 })).toBeNull();
+    },
+  );
+
+  it.each([-1, 1.5, "0", null])("video-chunk의 seq가 0 이상의 정수가 아니면 버린다: %s", (seq) => {
+    expect(parse({ type: "video-chunk", id: ID, seq, data: "AAEC", atMs: 1 })).toBeNull();
+  });
+
+  it("video-chunk의 data가 문자열이 아니면 버린다", () => {
+    expect(parse({ type: "video-chunk", id: ID, seq: 0, data: 1, atMs: 1 })).toBeNull();
+  });
+
+  it("video-save를 파싱하고 chunks가 0 이상의 정수가 아니면 버린다", () => {
+    expect(parse({ type: "video-save", id: ID, chunks: 3, atMs: 1 })).toEqual({
+      type: "video-save",
+      id: ID,
+      chunks: 3,
+      atMs: 1,
+    });
+    expect(parse({ type: "video-save", id: ID, chunks: 2.5, atMs: 1 })).toBeNull();
+    expect(parse({ type: "video-save", id: ID, atMs: 1 })).toBeNull();
+  });
+
+  it("video-share를 파싱하고 title은 문자열일 때만 싣는다", () => {
+    expect(
+      parse({ type: "video-share", id: ID, chunks: 2, text: "본문", title: "제목", atMs: 1 }),
+    ).toEqual({ type: "video-share", id: ID, chunks: 2, text: "본문", title: "제목", atMs: 1 });
+    expect(
+      parse({ type: "video-share", id: ID, chunks: 2, text: "본문", title: 1, atMs: 1 }),
+    ).toEqual({ type: "video-share", id: ID, chunks: 2, text: "본문", atMs: 1 });
+  });
+
+  it("video-share의 text가 문자열이 아니면 버린다", () => {
+    expect(parse({ type: "video-share", id: ID, chunks: 2, atMs: 1 })).toBeNull();
+  });
+});
