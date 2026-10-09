@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -20,6 +20,13 @@ type TimelapsePlayerProps = {
   photos: readonly ArrayBuffer[];
   overlay: Pick<TimelapseScene, "info" | "text" | "flow">;
   className?: string;
+  /**
+   * 재생기 위에 덮을 내용
+   *
+   * 일시정지 버튼보다 앞에 그리므로 이 내용에 z-index를 주지 않아야 일시정지 버튼이 위층에 남는다.
+   * 그래야 덮은 내용과 일시정지 버튼을 함께 누를 수 있다.
+   */
+  children?: ReactNode;
 };
 
 /**
@@ -30,7 +37,13 @@ type TimelapsePlayerProps = {
  * 글꼴을 기다리지 않고 바로 그린다. Pretendard가 늦게 오면 처음 몇 장은 대체 글꼴이고,
  * 도착하면 멈춘 화면도 다시 그린다. 글꼴 요청이 멈추면 빈 상자로 남았다.
  */
-export function TimelapsePlayer({ aspect, photos, overlay, className }: TimelapsePlayerProps) {
+export function TimelapsePlayer({
+  aspect,
+  photos,
+  overlay,
+  className,
+  children,
+}: TimelapsePlayerProps) {
   const { ref, inView } = useInView({ threshold: 0.5 });
   const [paused, setPaused] = useState(() => prefersReducedMotion());
   // 마지막으로 글꼴을 받아 둔 글자
@@ -119,6 +132,7 @@ export function TimelapsePlayer({ aspect, photos, overlay, className }: Timelaps
           />
         </div>
       )}
+      {children}
       {/* 오른쪽 아래는 영상 정보 자리라 비어 있는 왼쪽 아래에 둔다. */}
       <button
         type="button"

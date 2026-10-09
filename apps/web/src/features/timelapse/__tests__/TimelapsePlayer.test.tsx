@@ -441,4 +441,17 @@ describe("TimelapsePlayer", () => {
       "true",
     );
   });
+
+  it("얹은 내용은 일시정지 버튼과 같은 상자에서 그 버튼보다 아래층에 둔다", () => {
+    render(
+      <TimelapsePlayer aspect="9:16" photos={photos(2)} overlay={overlay}>
+        <button type="button">공유</button>
+      </TimelapsePlayer>,
+    );
+
+    const share = screen.getByRole("button", { name: "공유" });
+    const pause = screen.getByRole("button", { name: /^타임랩스 (재생|일시정지)$/ });
+    expect(share.parentElement).toBe(pause.parentElement);
+    expect(share.compareDocumentPosition(pause) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
