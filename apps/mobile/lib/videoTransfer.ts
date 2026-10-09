@@ -12,7 +12,7 @@ import type { VideoResultStatus } from "@focusmakers/types";
  * 저장은 끝나면 결과와 관계없이 임시 파일을 바로 지운다.
  * 공유는 바로 지우지 않는다.
  * Android의 공유 시트는 사용자가 대상 앱을 고른 순간 결과를 돌려주는데, 그때 지우면 대상 앱이 파일을 읽지 못한다.
- * 그래서 공유가 남긴 파일은 다음 전달의 첫 조각이 올 때 지운다.
+ * 그래서 공유가 남긴 파일은 다음 전달의 첫 조각이 올 때나 앱이 다시 시작할 때 지운다.
  */
 
 /**
@@ -69,8 +69,9 @@ function removeFile(file: File): void {
  * 진행 중인 id의 파일은 남긴다.
  * 저장과 공유가 같은 다이얼로그에서 겹치면 조각이 섞여 들어오기 때문이다.
  * 공유 시트가 아직 열려 있는 id도 기록에 남아 있어 함께 보호된다.
+ * 앱 시작 때는 진행 중인 id가 없으므로 지난 실행이 남긴 사본이 전부 지워진다.
  */
-function removeLeftovers(): void {
+export function removeLeftoverVideoFiles(): void {
   try {
     const now = Date.now();
     for (const [id, atMs] of lastChunkAtById) {
@@ -98,7 +99,7 @@ export function appendVideoChunk(id: string, seq: number, data: string): void {
     return;
   }
   if (seq === 0) {
-    removeLeftovers();
+    removeLeftoverVideoFiles();
   }
   try {
     // 첫 조각은 덮어써서 같은 이름으로 남은 파일이 있어도 처음부터 다시 쓴다.

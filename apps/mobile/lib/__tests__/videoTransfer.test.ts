@@ -1,8 +1,13 @@
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import { requestPermissionsAsync, saveToLibraryAsync } from "expo-media-library/legacy";
 import Share from "react-native-share";
 
-import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
+import {
+  appendVideoChunk,
+  removeLeftoverVideoFiles,
+  saveVideo,
+  shareVideo,
+} from "../videoTransfer";
 
 /**
  * 영상 전달 어댑터
@@ -350,5 +355,37 @@ describe("appendVideoChunk", () => {
     finishSave();
     await expect(pending).resolves.toBe("saved");
     expect(cacheFile(saving).exists).toBe(false);
+  });
+});
+
+describe("removeLeftoverVideoFiles", () => {
+  it("앱 시작 때 부르면 지난 실행이 남긴 timelapse 파일을 전부 지우고 다른 파일은 둔다", async () => {
+    const shared = nextId();
+    const fromLastRun = new File(Paths.cache, `timelapse-${nextId()}.mp4`);
+    fromLastRun.write("AAEC", { encoding: "base64" });
+    const unrelated = new File(Paths.cache, "other.txt");
+    unrelated.write("keep");
+    appendVideoChunk(shared, 0, "AAEC");
+    await shareVideo(shared, 1, "본문");
+    expect(cacheFile(shared).exists).toBe(true);
+
+    removeLeftoverVideoFiles();
+
+    expect(cacheFile(shared).exists).toBe(false);
+    expect(fromLastRun.exists).toBe(false);
+    expect(unrelated.exists).toBe(true);
+  });
+
+  it("캐시 목록을 읽지 못해도 throw하지 않는다", () => {
+    // `Paths.cache`는 읽을 때마다 새 Directory를 돌려줘 인스턴스가 아니라 프로토타입을 바꿔야 한다.
+    jest.spyOn(Directory.prototype, "list").mockImplementation(() => {
+      throw new Error("EACCES");
+    });
+
+    expect(() => removeLeftoverVideoFiles()).not.toThrow();
+    expect(console.warn).toHaveBeenCalledWith(
+      "[videoTransfer] 남은 임시 영상 파일 정리 실패",
+      expect.any(Error),
+    );
   });
 });

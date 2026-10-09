@@ -21,6 +21,7 @@ import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { offerRouteToSession } from "../lib/sessionInvite";
 import { ensureUserRegistered } from "../lib/userApi";
+import { removeLeftoverVideoFiles } from "../lib/videoTransfer";
 
 /**
  * **렌더 밖(모듈 스코프)에서 부른다.** effect로 미루면 그 사이에 나는 에러 — 특히 앱 시작
@@ -120,6 +121,8 @@ function RootLayout() {
 
   useEffect(() => {
     void ensureUserRegistered();
+    // 공유 시트에 넘긴 타임랩스 사본은 공유 직후 지울 수 없어 다음 실행이 지운다.
+    removeLeftoverVideoFiles();
     // 앱 전역 세로 잠금 — 세션(`room/[id]`)이 자기 마운트에서 풀고 언마운트에서 되잠근다.
     // 아래 rn-screens `orientation` 옵션은 iOS에서 무력해서(P0-3 정정, `lib/orientation.ts`)
     // 실제 잠금은 이 호출이 담당한다.
