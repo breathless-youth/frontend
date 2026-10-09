@@ -221,18 +221,18 @@ describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", 
 });
 
 describe("postToNative", () => {
-  it("ReactNativeWebView가 있으면 직렬화해 보낸다", () => {
+  it("ReactNativeWebView가 있으면 직렬화해 보내고 true를 돌려준다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
-    postToNative({ type: "home-ready", atMs: 42 });
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(true);
 
     expect(postMessage).toHaveBeenCalledWith('{"type":"home-ready","atMs":42}');
     vi.unstubAllGlobals();
   });
 
-  it("브라우저 단독 모드에서는 아무 일도 하지 않는다", () => {
-    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
+  it("브라우저 단독 모드에서는 아무 일도 하지 않고 false를 돌려준다", () => {
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(false);
   });
 
   /**
@@ -240,7 +240,7 @@ describe("postToNative", () => {
    * 조합이 실제로 존재한다 — iOS에서 웹뷰가 파괴되는 중이면 껍데기만 남고 그 안의
    * `window.webkit.messageHandlers`가 사라진다(2026-08-05 실기기, FOCUSMAKERS-WEB-1·2).
    */
-  it("postMessage가 던져도 삼킨다 — 웹뷰 파괴 중 호출", () => {
+  it("postMessage가 던져도 삼키고 false를 돌려준다 — 웹뷰 파괴 중 호출", () => {
     vi.stubGlobal("ReactNativeWebView", {
       postMessage: () => {
         throw new TypeError(
@@ -249,7 +249,7 @@ describe("postToNative", () => {
       },
     });
 
-    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(false);
     vi.unstubAllGlobals();
   });
 });

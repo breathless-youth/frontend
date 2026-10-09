@@ -25,7 +25,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  postMessage.mockClear();
+  postMessage.mockReset();
   window.history.replaceState(null, "", "/");
   __resetNativeVideoForTests();
 });
@@ -148,7 +148,7 @@ describe("saveVideoNatively", () => {
     await expect(pending).resolves.toBe("denied");
   });
 
-  it("120초 안에 결과가 없으면 failed로 끝낸다", async () => {
+  it("시간 제한 없이 앱의 결과를 기다린다", async () => {
     vi.useFakeTimers();
     enableNativeVideo();
     const pending = saveVideoNatively(fakeBlob(bytesOf(10)));
@@ -158,11 +158,11 @@ describe("saveVideoNatively", () => {
     });
     await lastMessageIs("video-save");
 
-    await vi.advanceTimersByTimeAsync(119_000);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(settled).toBe(false);
 
-    await vi.advanceTimersByTimeAsync(1_000);
-    await expect(pending).resolves.toBe("failed");
+    replyResult(String(sent()[0]?.id), "save", "saved");
+    await expect(pending).resolves.toBe("saved");
   });
 
   it("videoShare 표시가 있어도 브리지가 없으면 보내지 않고 failed다", async () => {
@@ -197,6 +197,27 @@ describe("saveVideoNatively", () => {
 
     await expect(saveVideoNatively(broken)).resolves.toBe("failed");
     expect(sent().some((message) => message.type === "video-save")).toBe(false);
+  });
+
+  it("저장 요청을 넘기지 못하면 결과를 기다리지 않고 failed다", async () => {
+    enableNativeVideo();
+    postMessage.mockImplementation((raw: string) => {
+      if ((JSON.parse(raw) as SentMessage).type === "video-save") {
+        throw new TypeError("webview destroyed");
+      }
+    });
+
+    await expect(saveVideoNatively(fakeBlob(bytesOf(10)))).resolves.toBe("failed");
+  });
+
+  it("조각을 넘기지 못하면 나머지를 보내지 않고 failed다", async () => {
+    enableNativeVideo();
+    postMessage.mockImplementationOnce(() => {
+      throw new TypeError("webview destroyed");
+    });
+
+    await expect(saveVideoNatively(fakeBlob(bytesOf(CHUNK_BYTES * 2)))).resolves.toBe("failed");
+    expect(sent().map((message) => message.type)).toEqual(["video-chunk"]);
   });
 });
 

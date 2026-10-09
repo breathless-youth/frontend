@@ -13,14 +13,6 @@ import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from
 const CHUNK_BYTES = 384 * 1024;
 
 /**
- * 저장 결과를 기다리는 한도
- *
- * 처음 저장할 때 뜨는 사진 권한 창 앞에서 고민하는 시간이 이 안에 들어간다.
- * 앱이 끝내 답하지 않아도 호출한 쪽이 영원히 기다리지 않게 하는 안전장치다.
- */
-const SAVE_TIMEOUT_MS = 120_000;
-
-/**
  * `String.fromCharCode`에 한 번에 넘기는 바이트 수
  *
  * 엔진의 인자 개수 한도를 넘지 않게 나눈다.
@@ -68,21 +60,18 @@ export function timelapseShareText(origin: string): string {
 }
 
 export function saveVideoNatively(blob: Blob): Promise<VideoResultStatus> {
-  return sendVideo(
-    blob,
-    (id, chunks) => ({ type: "video-save", id, chunks, atMs: Date.now() }),
-    SAVE_TIMEOUT_MS,
-  );
+  return sendVideo(blob, (id, chunks) => ({ type: "video-save", id, chunks, atMs: Date.now() }));
 }
 
 export function shareVideoNatively(blob: Blob): Promise<VideoResultStatus> {
   const text = timelapseShareText(window.location.origin);
-  // 공유는 사용자가 시트에서 고르는 동안 끝나지 않으므로 시간 제한을 두지 않는다.
-  return sendVideo(
-    blob,
-    (id, chunks) => ({ type: "video-share", id, chunks, text, atMs: Date.now() }),
-    null,
-  );
+  return sendVideo(blob, (id, chunks) => ({
+    type: "video-share",
+    id,
+    chunks,
+    text,
+    atMs: Date.now(),
+  }));
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -99,12 +88,12 @@ function toBase64(bytes: Uint8Array): string {
  * 영상 전체를 문자열 하나로 만들지 않도록 조각마다 읽고 바꿔 바로 보낸다.
  * 구독은 첫 조각을 보내기 전에 건다.
  * 결과를 기다리는 동안 화면을 막지 않으므로 호출한 쪽은 결과를 버려도 된다.
- * 읽다가 실패하면 `failed`로 끝낸다.
+ * 읽거나 넘기다 실패하면 `failed`로 끝낸다.
+ * 앱은 저장·공유가 실패해도 결과를 돌려주므로 시간 제한 없이 기다린다.
  */
 function sendVideo(
   blob: Blob,
   request: (id: string, chunks: number) => ToNativeMessage,
-  timeoutMs: number | null,
 ): Promise<VideoResultStatus> {
   // LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
   // 앱 파서가 UUID 형식만 받으므로 다른 형식으로 대신하지 않고 failed로 끝낸다.
@@ -115,14 +104,12 @@ function sendVideo(
   const id = crypto.randomUUID();
   return new Promise((resolve) => {
     let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const settle = (status: VideoResultStatus) => {
       if (settled) {
         return;
       }
       settled = true;
       unsubscribe();
-      clearTimeout(timer);
       resolve(status);
     };
     const unsubscribe = subscribeToNativeMessages((message) => {
@@ -135,12 +122,15 @@ function sendVideo(
       for (let seq = 0; seq < chunks; seq += 1) {
         const start = seq * CHUNK_BYTES;
         const bytes = new Uint8Array(await blob.slice(start, start + CHUNK_BYTES).arrayBuffer());
-        postToNative({ type: "video-chunk", id, seq, data: toBase64(bytes), atMs: Date.now() });
+        const data = toBase64(bytes);
+        if (!postToNative({ type: "video-chunk", id, seq, data, atMs: Date.now() })) {
+          settle("failed");
+          return;
+        }
       }
-      if (timeoutMs !== null) {
-        timer = setTimeout(() => settle("failed"), timeoutMs);
+      if (!postToNative(request(id, chunks))) {
+        settle("failed");
       }
-      postToNative(request(id, chunks));
     })().catch(() => settle("failed"));
   });
 }

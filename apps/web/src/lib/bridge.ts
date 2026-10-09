@@ -45,17 +45,24 @@ function forLog(message: ToNativeMessage): ToNativeMessage {
     : message;
 }
 
-export function postToNative(message: ToNativeMessage): void {
+/**
+ * 네이티브로 메시지 보내기
+ *
+ * 브리지에 넘겼으면 `true`, 브리지가 없거나 넘기다 실패하면 `false`다.
+ * 답을 기다리는 호출만 이 값을 보고, 보내고 마는 호출은 무시해도 된다.
+ */
+export function postToNative(message: ToNativeMessage): boolean {
   const bridge = nativeBridge();
   if (bridge === null) {
     // 브라우저 단독 모드 — 실제로 나가는 것이 없으니 성공 로그를 찍지 않는다.
-    return;
+    return false;
   }
   try {
     bridge.postMessage(JSON.stringify(message));
     if (import.meta.env.DEV) {
       console.warn("[webview-bridge] 네이티브로 보냄", forLog(message));
     }
+    return true;
   } catch (error) {
     if (import.meta.env.DEV) {
       console.warn("[webview-bridge] 네이티브 전송 실패", forLog(message), error);
@@ -64,6 +71,7 @@ export function postToNative(message: ToNativeMessage): void {
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
      * "네이티브가 없으면 아무것도 안 한다"는 명세대로 무시한다.
      */
+    return false;
   }
 }
 
