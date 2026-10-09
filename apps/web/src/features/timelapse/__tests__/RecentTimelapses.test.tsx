@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -183,5 +183,13 @@ describe("RecentTimelapses", () => {
     fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
 
     expect(await screen.findByText("이동: /timelapses?userId=7")).toBeInTheDocument();
+  });
+
+  it("썸네일은 누를 수 없다", async () => {
+    await seed(Date.now() - HOUR);
+    renderSection();
+
+    const item = await screen.findByRole("listitem");
+    expect(within(item).queryByRole("button")).toBeNull();
   });
 });

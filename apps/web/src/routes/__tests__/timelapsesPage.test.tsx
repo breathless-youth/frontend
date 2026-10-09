@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
@@ -9,11 +10,23 @@ import { App } from "@/App";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "@/features/timelapse/timelapseSettings";
 import type { TimelapseStore } from "@/features/timelapse/timelapseStore";
 import { createIndexedDbTimelapseStore } from "@/features/timelapse/timelapseStore";
+import type * as TimelapseVideo from "@/features/timelapse/timelapseVideo";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
 import { showToast } from "@/lib/toast";
 import { TimelapsesPage } from "@/routes/TimelapsesPage";
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn(), dismissToast: vi.fn() }));
+vi.mock("@/features/timelapse/timelapseVideo", async (importOriginal) => ({
+  ...(await importOriginal<typeof TimelapseVideo>()),
+  buildTimelapseVideo: vi.fn(() => new Promise(() => {})),
+}));
+
+/** 재생기는 따로 검증했다. */
+vi.mock("@/features/timelapse/TimelapsePlayer", () => ({
+  TimelapsePlayer: (props: { children?: ReactNode }) => (
+    <div data-testid="player">{props.children}</div>
+  ),
+}));
 
 /**
  * fake-indexeddb 위의 실제 저장소로 전체 목록을 그린다.
@@ -213,6 +226,30 @@ describe("타임랩스 전체 목록", () => {
     fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
 
     expect(await screen.findByText("홈 화면")).toBeInTheDocument();
+  });
+
+  it("줄을 누르면 공유 창이 열리고 닫으면 그 줄로 포커스가 돌아온다", async () => {
+    await seed(NOON - HOUR);
+    renderPage();
+
+    const row = await screen.findByRole("button", { name: /순공 2시간 14분/ });
+    expect(row).toHaveAttribute("aria-haspopup", "dialog");
+    row.focus();
+    fireEvent.click(row);
+    const dialog = await screen.findByRole("dialog", { name: "공유하기" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(row).toHaveFocus();
+  });
+
+  it("휴지통을 누르면 공유 창이 아니라 삭제 확인 창만 열린다", async () => {
+    await seed(NOON - HOUR);
+    renderPage();
+
+    await openDeleteDialog();
+
+    expect(screen.queryByRole("dialog", { name: "공유하기" })).toBeNull();
   });
 });
 

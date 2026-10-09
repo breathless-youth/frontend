@@ -16,10 +16,11 @@ import {
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
 import { TimelapsesEmpty } from "@/features/timelapse/TimelapsesEmpty";
 import { timelapseRangeLabel, timelapseStartLabel } from "@/features/timelapse/recentDayLabel";
-import { focusRatePercent } from "@/features/timelapse/timelapseFrame";
+import { focusRatePercent, savedOverlayFor } from "@/features/timelapse/timelapseFrame";
 import { recentTimelapsesKey, recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import type { TimelapseRecord, TimelapseStore } from "@/features/timelapse/timelapseStore";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
+import { TimelapseShareDialog } from "@/features/timelapse/TimelapseShareDialog";
 import { TimelapseThumb } from "@/features/timelapse/TimelapseThumb";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
@@ -28,10 +29,12 @@ import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 function TimelapseRow({
   record,
   store,
+  onOpen,
   onDelete,
 }: {
   record: TimelapseRecord;
   store: TimelapseStore;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
   const studySec = record.summary?.studySec ?? 0;
@@ -39,35 +42,43 @@ function TimelapseRow({
   const endedAtMs = record.summary?.endedAtMs ?? record.startedAtMs;
 
   return (
-    <li className="bg-muted shadow-sb-card flex gap-3.5 rounded-[20px] p-3">
-      <TimelapseThumb
-        record={record}
-        store={store}
-        className="h-[100px] w-14 shrink-0 rounded-[10px]"
-      />
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-col gap-1.5 py-1 pr-8">
-          <p className="text-foreground text-lg leading-[21px] font-bold">
-            순공 {toKoreanDurationLength(focusSec)}
-          </p>
-          <p className="text-muted-foreground text-sm leading-[17px]">
-            총 공부 {toKoreanDurationLength(studySec)} · 집중률{" "}
-            {focusRatePercent(studySec, focusSec)}%
-          </p>
-        </div>
-        <p className="text-muted-foreground mt-auto self-end px-1 text-xs leading-[14px]">
-          {timelapseRangeLabel(record.startedAtMs, endedAtMs)}
-        </p>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={`${timelapseStartLabel(record.startedAtMs)} 타임랩스 삭제`}
-          data-delete-for={record.startedAtMs}
-          className="text-feedback-danger absolute -top-2.5 -right-2.5 flex size-11 items-center justify-center"
-        >
-          <Trash2 size={18} aria-hidden="true" />
-        </button>
-      </div>
+    <li className="relative">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={onOpen}
+        className="bg-muted shadow-sb-card flex w-full gap-3.5 rounded-[20px] p-3 text-left focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+      >
+        <TimelapseThumb
+          record={record}
+          store={store}
+          className="h-[100px] w-14 shrink-0 rounded-[10px]"
+        />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex flex-col gap-1.5 py-1 pr-8">
+            <span className="text-foreground text-lg leading-[21px] font-bold">
+              순공 {toKoreanDurationLength(focusSec)}
+            </span>
+            <span className="text-muted-foreground text-sm leading-[17px]">
+              총 공부 {toKoreanDurationLength(studySec)} · 집중률{" "}
+              {focusRatePercent(studySec, focusSec)}%
+            </span>
+          </span>
+          <span className="text-muted-foreground mt-auto self-end px-1 text-xs leading-[14px]">
+            {timelapseRangeLabel(record.startedAtMs, endedAtMs)}
+          </span>
+        </span>
+      </button>
+      {/* 버튼 안에 버튼을 둘 수 없어 줄 버튼의 형제로 두고 같은 자리에 겹친다. */}
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`${timelapseStartLabel(record.startedAtMs)} 타임랩스 삭제`}
+        data-delete-for={record.startedAtMs}
+        className="text-feedback-danger absolute top-0.5 right-0.5 flex size-11 items-center justify-center"
+      >
+        <Trash2 size={18} aria-hidden="true" />
+      </button>
     </li>
   );
 }
@@ -75,8 +86,9 @@ function TimelapseRow({
 /**
  * 타임랩스 전체 목록
  *
- * 홈 `더보기`로 홈 탭 웹뷰 안에서 열린다. 홈 목록과 같은 쿼리·캐시를 써서 여기서 지우면
- * 홈으로 돌아갔을 때도 이미 빠져 있다. 줄을 눌러 여는 공유 다이얼로그는 BY-889에서 붙인다.
+ * 홈 `더보기`로 홈 탭 웹뷰 안에서 열린다.
+ * 홈 목록과 같은 쿼리·캐시를 써서 여기서 지우면 홈으로 돌아갔을 때도 이미 빠져 있다.
+ * 줄을 누르면 공유 다이얼로그가 열린다.
  */
 export function TimelapsesPage({ store = getTimelapseStore() }: { store?: TimelapseStore }) {
   const navigate = useNavigate();
@@ -84,6 +96,9 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
   const queryClient = useQueryClient();
   const list = useQuery(recentTimelapsesQuery(store));
   const [pending, setPending] = useState<TimelapseRecord | null>(null);
+  // 닫히는 동안에도 내용이 남아 있도록 연 타임랩스는 닫을 때 지우지 않는다.
+  const [shareTarget, setShareTarget] = useState<TimelapseRecord | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   // `open`으로만 여는 창이라 닫힌 뒤 누른 휴지통으로 포커스를 직접 돌려줘야 한다.
   const focusRestore = useDialogFocusRestore();
@@ -136,12 +151,27 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
                   key={record.startedAtMs}
                   record={record}
                   store={store}
+                  onOpen={() => {
+                    setShareTarget(record);
+                    setShareOpen(true);
+                  }}
                   onDelete={() => setPending(record)}
                 />
               ))}
             </ul>
           ))}
       </div>
+
+      {shareTarget !== null && (
+        <TimelapseShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          record={shareTarget}
+          overlay={savedOverlayFor(shareTarget)}
+          entry="list"
+          store={store}
+        />
+      )}
 
       <Dialog
         open={pending !== null}

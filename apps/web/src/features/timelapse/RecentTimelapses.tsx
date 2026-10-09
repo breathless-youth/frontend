@@ -41,8 +41,8 @@ function TimelapseThumbCard({
 /**
  * 홈 최근 타임랩스
  *
- * 기기에 보관 중인 타임랩스를 가운데 사진 한 장으로 보여준다. 재생과 공유는 카드를 눌러 여는
- * 공유 다이얼로그(BY-889)에서 하고, 그 전까지 카드는 누를 수 없다.
+ * 기기에 보관 중인 타임랩스를 가운데 사진 한 장으로 보여준다.
+ * 카드는 누를 수 없고 재생과 공유는 전체 목록에서 연다.
  * 세션은 다른 웹뷰에서 끝나므로 홈 탭으로 돌아올 때 react-query 기본값으로 다시 읽는다.
  */
 export function RecentTimelapses({ store = getTimelapseStore() }: { store?: TimelapseStore }) {
