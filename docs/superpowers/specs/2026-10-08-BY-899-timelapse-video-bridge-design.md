@@ -19,7 +19,7 @@
 | 공유 본문     | `포커스 메이커스와 함께한 공부 모습이에요` + 줄바꿈 + 설치 링크                                                                                                                                                 |
 | 설치 링크     | `{origin}/download?utm_source=timelapse&utm_medium=share&utm_campaign=timelapse_share` (BY-891)                                                                                                                 |
 | 구 버전 앱    | 쿼리 플래그 `videoShare=1`. 웹은 모듈을 읽을 때 한 번 판정해 보관한다. 플래그가 없을 때의 화면 처리는 BY-898이 정한다                                                                                           |
-| 결과 대기     | 저장은 120초까지 기다린다(권한 창 포함, 화면을 막지 않는 안전장치). 공유는 시트가 닫힐 때까지 기다린다                                                                                                          |
+| 결과 대기     | 저장·공유 모두 시간 제한 없이 앱의 결과를 기다린다(앱은 실패해도 답한다). 조각이나 요청을 넘기지 못하면 바로 `failed`로 끝낸다                                                                                  |
 | iOS 권한 문구 | `NSPhotoLibraryAddUsageDescription`: `타임랩스 영상을 사진 앱에 저장하려면 사진 추가 권한이 필요해요`. `NSPhotoLibraryUsageDescription`: `타임랩스 영상을 사진 앱에 저장할 때 사용해요`                         |
 | Android 권한  | 저장용 `WRITE_EXTERNAL_STORAGE`는 expo-media-library가 Android 12 이하에서 저장 전에 런타임으로 요청하므로 유지한다. Play의 사진·영상 권한 정책이 보는 `READ_MEDIA_*` 읽기 권한은 `blockedPermissions`로 막는다 |
 | 문서          | ADR 0014(웹뷰→앱 파일 전달과 새 네이티브 모듈), `docs/architecture.md` 브리지 절. 위키 앱 심사 체크리스트는 위키 PR로 따로                                                                                      |
@@ -55,8 +55,8 @@
 - `video-save` / `video-share`: 받은 조각 수가 `chunks`와 다르거나 실패로 표시된 id면 `failed`를 돌려준다.
   - 저장: `requestPermissionsAsync(true)`(write-only). 허용되지 않으면 `denied`, 허용되면 `saveToLibraryAsync(uri)` 뒤 `saved`.
   - 공유: `Share.open({ url: uri, type: "video/mp4", message: text, title, failOnCancel: false })`. 사용자가 취소하면 `dismissed`, 아니면 `shared`.
-  - 저장은 끝나면 성공·실패와 관계없이 임시 파일을 바로 지운다. 공유는 바로 지우지 않는다. Android에서 react-native-share가 사용자가 대상 앱을 고른 순간 resolve하므로, 그때 파일을 지우면 받는 앱이 파일을 읽지 못한다. 대신 새 전달이 시작될 때(`seq === 0`) 캐시에 남은 다른 id의 `timelapse-*.mp4`를 지운다. 조각만 오다 멈춰 요청이 오지 않은 id도 마지막 조각 뒤 2분이 지났으면 이때 파일과 순번 기록을 함께 지운다.
-- 동시에 여러 id가 오면 id별로 따로 관리한다. 앱 실행 중 남은 임시 파일은 다음 같은 id가 없으므로 앱 캐시 정리에 맡긴다.
+  - 저장은 끝나면 성공·실패와 관계없이 임시 파일을 바로 지운다. 공유는 바로 지우지 않는다. Android에서 react-native-share가 사용자가 대상 앱을 고른 순간 resolve하므로, 그때 파일을 지우면 받는 앱이 파일을 읽지 못한다. 대신 새 전달이 시작될 때(`seq === 0`) 캐시에 남은 다른 id의 `timelapse-*.mp4`를 지운다. 조각만 오다 멈춰 요청이 오지 않은 id도 마지막 조각 뒤 2분이 지났으면 이때 파일과 순번 기록을 함께 지운다. 앱이 시작할 때도 같은 정리를 한 번 돌린다. 시작 시점에는 진행 중인 id가 없어 지난 실행이 남긴 사본이 모두 지워진다.
+- 동시에 여러 id가 오면 id별로 따로 관리한다. 앱이 꺼진 뒤 남은 임시 파일은 다음 앱 시작 때 지운다.
 - `remoteQueryParams`에 `videoShare: "1"`을 더한다.
 - `app.json`
   - plugins: `["expo-media-library", { photosPermission, savePhotosPermission, granularPermissions: [] }]`, `"react-native-share"`(플러그인 옵션 없음 — `shareSingle`을 쓰지 않는다).
@@ -68,7 +68,8 @@
 
 - `canUseNativeVideo()`: 브리지가 있고 모듈을 읽을 때의 URL에 `videoShare=1`이 있으면 참.
 - `saveVideoNatively(blob)` / `shareVideoNatively(blob)`: `crypto.randomUUID()`로 id를 만들고, Blob을 384KB씩 잘라 base64로 바꿔 `video-chunk`로 차례로 보낸 뒤 `video-save` / `video-share`를 보낸다. `video-result`(같은 id)를 기다려 `status`를 돌려준다.
-  - 저장은 120초가 지나면 `failed`로 끝낸다. 공유는 시간 제한을 두지 않는다.
+  - 저장·공유 모두 시간 제한 없이 앱의 결과를 기다린다. 앱은 실패해도 `failed`로 답한다.
+  - 조각이나 요청을 브리지에 넘기지 못하면(`postToNative`가 `false`) 기다리지 않고 바로 `failed`로 끝낸다.
   - 결과를 기다리는 동안 화면을 막지 않는다. 호출한 쪽이 결과를 버려도 된다.
 - 공유 본문은 `timelapseShareText(origin)`로 만든다. 설치 링크의 UTM 값은 `features/social-room/storeLink.ts`의 `InstallUtm` 형태를 쓴다.
 - `parseToWebMessage`에 `video-result`를 더한다.
@@ -88,6 +89,7 @@
   - 저장: 권한 거부 → `denied`, 허용 → `saveToLibraryAsync` 호출 후 `saved`
   - 공유: 파일·본문을 넘기고 취소면 `dismissed`, 아니면 `shared`
   - 끝나면 임시 파일을 지운다
+  - 앱 시작 때 지난 실행이 남긴 `timelapse-*.mp4`를 지운다
 - `nativeBridgeHandler`: 세 메시지가 `videoTransfer`로 가고 결과가 `reply`로 나간다
 - `remoteQueryParams`: `videoShare=1`
 - `permissionCopy`: 새 iOS 문구와 Android 권한 목록
@@ -95,7 +97,7 @@
   - 플래그와 브리지가 있을 때만 `canUseNativeVideo()`가 참
   - Blob을 384KB씩 잘라 순서대로 보내고, 마지막에 조각 수와 함께 동작 메시지를 보낸다
   - 같은 id의 `video-result`로 끝나고, 다른 id는 무시한다
-  - 저장은 120초가 지나면 `failed`
+  - 시간 제한 없이 결과를 기다리고, 조각이나 요청을 넘기지 못하면 바로 `failed`
   - 공유 본문에 UTM이 붙은 설치 링크가 들어간다
 - 실기기: 로컬 Dev Client로 iPhone·A23에서 저장(첫 권한 창 포함)·공유·권한 거부를 확인하고, 10MB 영상의 전달 시간을 잰다.
 

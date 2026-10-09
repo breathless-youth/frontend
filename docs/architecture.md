@@ -61,8 +61,9 @@ apps/web (Vite + React)
 - 브리지는 문자열만 오가므로 웹이 만든 타임랩스 mp4는 base64 조각으로 넘긴다([ADR 0014](./adr/0014-webview-video-transfer-to-native.md)).
 - 웹은 원본 384KB씩 자른 `video-chunk`를 차례로 보낸 뒤 `video-save`나 `video-share`로 조각 수를 알린다(`apps/web/src/lib/nativeVideo.ts`).
 - 앱은 조각을 캐시 파일에 이어 쓰고, 저장이나 공유를 마친 뒤 같은 `id`를 담은 `video-result`로 답한다(`apps/mobile/lib/videoTransfer.ts`).
-- 웹은 저장 결과를 120초까지 기다리고, 공유 결과는 시트가 닫힐 때까지 기다린다.
-- 저장이 끝난 임시 파일은 바로 지우고, 공유가 남긴 파일은 다음 전달의 첫 조각이 올 때 지운다.
+- 웹은 저장·공유 결과를 시간 제한 없이 기다린다. 앱은 실패해도 `failed`로 답한다.
+- 조각이나 요청을 브리지에 넘기지 못하면 웹은 바로 `failed`로 끝낸다.
+- 저장이 끝난 임시 파일은 바로 지우고, 공유가 남긴 파일은 다음 전달의 첫 조각이 올 때나 앱이 시작할 때 지운다.
 
 ## 신원과 API
 
