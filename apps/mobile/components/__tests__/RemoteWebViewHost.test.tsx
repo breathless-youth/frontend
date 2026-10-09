@@ -302,18 +302,39 @@ describe("RemoteWebViewHost", () => {
     expect(onBridgeMessage).not.toHaveBeenCalled();
   });
 
-  it("개발 빌드에서 버려진 메시지의 원문을 로그로 남긴다", () => {
+  it("개발 빌드에서 버려진 메시지는 원문 대신 길이와 type만 로그로 남긴다", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     render(<RemoteWebViewHost path="/social" testID="host" />);
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    const raw = '{"type":"nope","atMs":1}';
     act(() => {
-      onMessage({ nativeEvent: { data: '{"type":"nope","atMs":1}' } });
+      onMessage({ nativeEvent: { data: raw } });
     });
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("[webview-bridge]"),
-      '{"type":"nope","atMs":1}',
-    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), {
+      length: raw.length,
+      type: "nope",
+    });
     warn.mockRestore();
+  });
+
+  it("버려진 영상 조각의 데이터는 로그에 찍히지 않는다", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    render(<RemoteWebViewHost path="/social" testID="host" />);
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    const marker = "SECRET_VIDEO_BYTES";
+    const raw = `{"type":"video-chunk","id":"x","seq":0,"data":"${marker}${"A".repeat(1000)}","atMs":1}`;
+    act(() => {
+      onMessage({ nativeEvent: { data: raw } });
+    });
+    const logged = [...warn.mock.calls, ...log.mock.calls].flat();
+    expect(logged.some((arg) => JSON.stringify(arg).includes(marker))).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("[webview-bridge]"), {
+      length: raw.length,
+      type: "video-chunk",
+    });
+    warn.mockRestore();
+    log.mockRestore();
   });
 
   it("운영 빌드에서는 버려진 메시지를 로그로 남기지 않는다", () => {

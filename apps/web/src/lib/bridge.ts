@@ -3,7 +3,9 @@ import type {
   ToNativeMessage,
   ToWebMessage,
   TrackEventMessage,
+  VideoResultStatus,
 } from "@focusmakers/types";
+import { VIDEO_RESULT_STATUSES } from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 종단점
@@ -31,25 +33,45 @@ export function isNativeBridgeAvailable(): boolean {
   return nativeBridge() !== null;
 }
 
-export function postToNative(message: ToNativeMessage): void {
+/**
+ * 로그에 남기기 전 영상 조각 본문을 가린다
+ *
+ * 조각은 카메라로 찍은 타임랩스를 base64로 바꾼 512KB라 개인정보 원칙상 개발 로그에도 남기지 않는다.
+ * 통째로 찍으면 인스펙터가 멈추고 실기기 전달 시간 측정도 로그 비용만큼 부풀려진다.
+ */
+function forLog(message: ToNativeMessage): ToNativeMessage {
+  return message.type === "video-chunk"
+    ? { ...message, data: `<${message.data.length} chars>` }
+    : message;
+}
+
+/**
+ * 네이티브로 메시지 보내기
+ *
+ * 브리지에 넘겼으면 `true`, 브리지가 없거나 넘기다 실패하면 `false`다.
+ * 답을 기다리는 호출만 이 값을 보고, 보내고 마는 호출은 무시해도 된다.
+ */
+export function postToNative(message: ToNativeMessage): boolean {
   const bridge = nativeBridge();
   if (bridge === null) {
     // 브라우저 단독 모드 — 실제로 나가는 것이 없으니 성공 로그를 찍지 않는다.
-    return;
+    return false;
   }
   try {
     bridge.postMessage(JSON.stringify(message));
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브로 보냄", message);
+      console.warn("[webview-bridge] 네이티브로 보냄", forLog(message));
     }
+    return true;
   } catch (error) {
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브 전송 실패", message, error);
+      console.warn("[webview-bridge] 네이티브 전송 실패", forLog(message), error);
     }
     /**
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
      * "네이티브가 없으면 아무것도 안 한다"는 명세대로 무시한다.
      */
+    return false;
   }
 }
 
@@ -145,6 +167,10 @@ function parseTrackEvent(record: Record<string, unknown>): TrackEventMessage | n
   };
 }
 
+function isVideoResultStatus(value: unknown): value is VideoResultStatus {
+  return (VIDEO_RESULT_STATUSES as readonly unknown[]).includes(value);
+}
+
 export function parseToWebMessage(raw: string): ToWebMessage | null {
   let parsed: unknown;
   try {
@@ -196,6 +222,20 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "reset-route" && typeof record.path === "string") {
     return { type: "reset-route", path: record.path, atMs: record.atMs };
+  }
+  if (
+    record.type === "video-result" &&
+    typeof record.id === "string" &&
+    (record.action === "save" || record.action === "share") &&
+    isVideoResultStatus(record.status)
+  ) {
+    return {
+      type: "video-result",
+      id: record.id,
+      action: record.action,
+      status: record.status,
+      atMs: record.atMs,
+    };
   }
   if (record.type === "track-event") {
     return parseTrackEvent(record);

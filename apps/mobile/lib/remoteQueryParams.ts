@@ -43,6 +43,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 첫 토큰을 기다렸다가 `Authorization`을 붙인다 — 표시 없는 구버전 앱은 답할 수 없으므로 기다리지
   // 않고 오늘처럼 보낸다(`share`·`cameraGate`와 같은 capability 표시 방식).
   params.guestAuth = "1";
+  // `videoShare=1`: 이 바이너리가 `video-chunk`·`video-save`·`video-share`를 처리할 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 영상 저장·공유를 앱에 맡긴다(`apps/web/src/lib/nativeVideo.ts`).
+  // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 처리 가능 여부를 알 수 없다.
+  params.videoShare = "1";
   // `nativeTabBar=1`: 이 바이너리가 iOS에서 시스템 탭 바를 쓴다는 표시.
   // 시스템 탭 바는 웹뷰의 하단 안전 영역에 바 높이를 포함시키므로 웹은 플로팅 바 공식 대신 안전 영역만 쓰면 된다.
   // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.

@@ -55,6 +55,20 @@ export type ToWebMessage =
    * 실패다. 웹은 헤더 없이 보낸다.
    */
   | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
+  /**
+   * 영상 저장·공유 결과
+   *
+   * `video-save`·`video-share`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * 같은 다이얼로그에서 저장과 공유가 겹칠 수 있어 타입만으로는 어느 요청의 답인지 가를 수 없다.
+   * `dismissed`는 사용자가 공유 시트를 닫은 경우이고 `denied`는 사진 추가 권한을 거부한 경우다.
+   */
+  | {
+      type: "video-result";
+      id: string;
+      action: "save" | "share";
+      status: VideoResultStatus;
+      atMs: number;
+    }
   | CameraPermissionMessage
   | TrackEventMessage;
 
@@ -78,6 +92,10 @@ export interface CameraPermissionMessage {
   granted: boolean;
   atMs: number;
 }
+
+/** `video-result`의 결과 목록. 웹 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const VIDEO_RESULT_STATUSES = ["saved", "shared", "dismissed", "denied", "failed"] as const;
+export type VideoResultStatus = (typeof VIDEO_RESULT_STATUSES)[number];
 
 /** 웹 → 네이티브. */
 /** 햅틱 세기 — expo-haptics `ImpactFeedbackStyle`과 같은 세 단계. */
@@ -143,6 +161,36 @@ export type ToNativeMessage =
    * 레거시 웹 메시지 수신 호환을 위해 남겨 둔다.
    */
   | { type: "share"; text: string; url?: string; title?: string; atMs: number }
+  /**
+   * 타임랩스 영상 조각
+   *
+   * 웹이 mp4를 원본 384KB씩 잘라 base64로 바꾼 뒤 `seq` 0부터 차례로 보낸다.
+   * 13MB 문자열을 한 번에 보내면 저사양 기기에서 웹·네이티브·JS가 같은 문자열을 동시에 들고 있어 메모리를 압박한다.
+   * 앱은 받는 대로 캐시 파일에 이어 쓰고 답하지 않는다.
+   * `id`는 웹이 저장·공유마다 `crypto.randomUUID()`로 새로 만들고 앱은 그 모양만 받는다.
+   */
+  | { type: "video-chunk"; id: string; seq: number; data: string; atMs: number }
+  /**
+   * 모은 영상을 사진 앱에 저장하라는 요청
+   *
+   * 앱은 받은 조각 수가 `chunks`와 같은지 확인하고 사진 추가 권한을 물은 뒤 `video-result`로 답한다.
+   * 권한 거부는 `denied`로만 알리고 안내와 설정 열기는 웹이 맡는다.
+   */
+  | { type: "video-save"; id: string; chunks: number; atMs: number }
+  /**
+   * 모은 영상을 OS 공유 시트로 보내라는 요청
+   *
+   * 파일과 함께 설치 링크가 든 `text`를 본문으로 넘긴다.
+   * 앱은 시트가 닫힌 뒤 `video-result`로 답한다.
+   */
+  | {
+      type: "video-share";
+      id: string;
+      chunks: number;
+      text: string;
+      title?: string;
+      atMs: number;
+    }
   /**
    * 화면 회전 잠금 제어 — 실시간 룸(`/social/room/:id`)이 마운트 동안 `unlocked: true`,
    * 언마운트에서 `false`를 보낸다. 룸은 탭 웹뷰 안 웹 라우트라 네이티브 화면 전환이 없어

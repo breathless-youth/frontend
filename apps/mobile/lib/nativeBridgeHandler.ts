@@ -14,6 +14,7 @@ import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { setTabBarState } from "./tabBarVisibility";
+import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -141,6 +142,23 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         ...(message.title !== undefined ? { title: message.title } : {}),
       }).catch((error: unknown) => {
         console.warn("[bridge] 공유 시트(share) 열기 실패", error);
+      });
+      break;
+    case "video-chunk":
+      // 조각은 받는 대로 이어 쓰고 답하지 않는다.
+      // 순서가 어긋나면 어댑터가 기억했다가 저장·공유 요청에서 failed로 돌려준다.
+      appendVideoChunk(message.id, message.seq, message.data);
+      break;
+    case "video-save":
+      // 같은 다이얼로그에서 저장과 공유가 겹칠 수 있어 요청의 id를 그대로 실어 답한다.
+      // 어댑터는 실패도 결과로 돌려주므로 웹이 답을 못 받는 경우가 없다.
+      void saveVideo(message.id, message.chunks).then((status) => {
+        reply({ type: "video-result", id: message.id, action: "save", status, atMs: Date.now() });
+      });
+      break;
+    case "video-share":
+      void shareVideo(message.id, message.chunks, message.text, message.title).then((status) => {
+        reply({ type: "video-result", id: message.id, action: "share", status, atMs: Date.now() });
       });
       break;
     case "navigate-tab":

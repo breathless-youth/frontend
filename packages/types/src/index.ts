@@ -560,6 +560,7 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  VideoResultStatus,
 } from "./bridge";
 export {
   ANALYTICS_EVENT_MAX_PARAMS,
@@ -569,4 +570,5 @@ export {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  VIDEO_RESULT_STATUSES,
 } from "./bridge";

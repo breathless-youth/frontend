@@ -19,6 +19,7 @@ import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalyt
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
+import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -71,6 +72,12 @@ jest.mock("../auth", () => ({
   refreshAuth: jest.fn(),
 }));
 
+jest.mock("../videoTransfer", () => ({
+  appendVideoChunk: jest.fn(),
+  saveVideo: jest.fn(),
+  shareVideo: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -100,6 +107,9 @@ const mockedSetAnalyticsUserProperties = setAnalyticsUserProperties as jest.Mock
 const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
 const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
 const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
+const mockedAppendVideoChunk = appendVideoChunk as jest.MockedFunction<typeof appendVideoChunk>;
+const mockedSaveVideo = saveVideo as jest.MockedFunction<typeof saveVideo>;
+const mockedShareVideo = shareVideo as jest.MockedFunction<typeof shareVideo>;
 const flush = async () => {
   for (let i = 0; i < 4; i += 1) await Promise.resolve();
 };
@@ -564,6 +574,53 @@ describe("토큰 브리지", () => {
     await flush();
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({ type: "auth-token", accessToken: "a1" }),
+    );
+  });
+});
+
+describe("handleBridgeMessage: 타임랩스 영상", () => {
+  const ID = "0b6f3f4e-7c1d-4f6a-9a51-3d2b1c0e9f87";
+
+  it("video-chunk는 어댑터에 넘기고 답하지 않는다", () => {
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "video-chunk", id: ID, seq: 0, data: "AAEC", atMs: 1 }, reply);
+
+    expect(mockedAppendVideoChunk).toHaveBeenCalledWith(ID, 0, "AAEC");
+    expect(reply).not.toHaveBeenCalled();
+  });
+
+  it("video-save는 저장 결과를 같은 id로 답한다", async () => {
+    mockedSaveVideo.mockResolvedValue("denied");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "video-save", id: ID, chunks: 3, atMs: 1 }, reply);
+    await flush();
+
+    expect(mockedSaveVideo).toHaveBeenCalledWith(ID, 3);
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "video-result", id: ID, action: "save", status: "denied" }),
+    );
+  });
+
+  it("video-share는 본문과 제목을 넘기고 공유 결과를 같은 id로 답한다", async () => {
+    mockedShareVideo.mockResolvedValue("dismissed");
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      { type: "video-share", id: ID, chunks: 2, text: "본문", title: "제목", atMs: 1 },
+      reply,
+    );
+    await flush();
+
+    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", "제목");
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "video-result",
+        id: ID,
+        action: "share",
+        status: "dismissed",
+      }),
     );
   });
 });

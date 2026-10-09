@@ -136,6 +136,31 @@ describe("parseToWebMessage", () => {
   });
 });
 
+describe("parseToWebMessage: video-result", () => {
+  const ID = "0b6f3f4e-7c1d-4f6a-9a51-3d2b1c0e9f87";
+
+  it.each(["saved", "shared", "dismissed", "denied", "failed"])(
+    "status %s를 파싱한다",
+    (status) => {
+      expect(
+        parseToWebMessage(
+          JSON.stringify({ type: "video-result", id: ID, action: "save", status, atMs: 1 }),
+        ),
+      ).toEqual({ type: "video-result", id: ID, action: "save", status, atMs: 1 });
+    },
+  );
+
+  it.each([
+    { type: "video-result", id: ID, action: "save", status: "unknown", atMs: 1 },
+    { type: "video-result", id: ID, action: "upload", status: "saved", atMs: 1 },
+    { type: "video-result", id: 1, action: "share", status: "shared", atMs: 1 },
+    { type: "video-result", action: "share", status: "shared", atMs: 1 },
+    { type: "video-result", id: ID, action: "share", status: "shared" },
+  ])("필드가 빠지거나 목록 밖 값이면 버린다: %o", (message) => {
+    expect(parseToWebMessage(JSON.stringify(message))).toBeNull();
+  });
+});
+
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
   it("이름과 원시값 속성을 파싱한다", () => {
     expect(
@@ -196,18 +221,18 @@ describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", 
 });
 
 describe("postToNative", () => {
-  it("ReactNativeWebView가 있으면 직렬화해 보낸다", () => {
+  it("ReactNativeWebView가 있으면 직렬화해 보내고 true를 돌려준다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
-    postToNative({ type: "home-ready", atMs: 42 });
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(true);
 
     expect(postMessage).toHaveBeenCalledWith('{"type":"home-ready","atMs":42}');
     vi.unstubAllGlobals();
   });
 
-  it("브라우저 단독 모드에서는 아무 일도 하지 않는다", () => {
-    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
+  it("브라우저 단독 모드에서는 아무 일도 하지 않고 false를 돌려준다", () => {
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(false);
   });
 
   /**
@@ -215,7 +240,7 @@ describe("postToNative", () => {
    * 조합이 실제로 존재한다 — iOS에서 웹뷰가 파괴되는 중이면 껍데기만 남고 그 안의
    * `window.webkit.messageHandlers`가 사라진다(2026-08-05 실기기, FOCUSMAKERS-WEB-1·2).
    */
-  it("postMessage가 던져도 삼킨다 — 웹뷰 파괴 중 호출", () => {
+  it("postMessage가 던져도 삼키고 false를 돌려준다 — 웹뷰 파괴 중 호출", () => {
     vi.stubGlobal("ReactNativeWebView", {
       postMessage: () => {
         throw new TypeError(
@@ -224,7 +249,7 @@ describe("postToNative", () => {
       },
     });
 
-    expect(() => postToNative({ type: "home-ready", atMs: 42 })).not.toThrow();
+    expect(postToNative({ type: "home-ready", atMs: 42 })).toBe(false);
     vi.unstubAllGlobals();
   });
 });
@@ -256,6 +281,31 @@ describe("개발 로그", () => {
       expect.stringContaining("[webview-bridge]"),
       expect.objectContaining({ type: "home-ready" }),
     );
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("video-chunk는 성공·실패 로그 모두 조각 본문 대신 길이만 찍는다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const chunk = { type: "video-chunk", id: "id", seq: 0, data: "AAEC", atMs: 1 } as const;
+    const masked = { ...chunk, data: "<4 chars>" };
+
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    postToNative(chunk);
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("[webview-bridge]"), masked);
+
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: () => {
+        throw new TypeError("gone");
+      },
+    });
+    postToNative(chunk);
+    expect(warn).toHaveBeenLastCalledWith(
+      expect.stringContaining("[webview-bridge]"),
+      masked,
+      expect.any(TypeError),
+    );
+
     warn.mockRestore();
     vi.unstubAllGlobals();
   });

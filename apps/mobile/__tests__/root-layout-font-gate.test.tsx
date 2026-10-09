@@ -68,6 +68,11 @@ jest.mock("../lib/orientation", () => ({
 jest.mock("../lib/userApi", () => ({
   ensureUserRegistered: jest.fn(() => Promise.resolve(null)),
 }));
+// 지난 실행이 남긴 영상 사본 정리는 호출 여부만 본다(동작은 `lib/__tests__/videoTransfer.test.ts`).
+const mockRemoveLeftoverVideoFiles = jest.fn();
+jest.mock("../lib/videoTransfer", () => ({
+  removeLeftoverVideoFiles: () => mockRemoveLeftoverVideoFiles(),
+}));
 // 푸시 배선(BY-586)은 네이티브 모듈을 끌어오므로 시작/해제·권한 요청 호출만 기록한다(동작은 `lib/__tests__/pushBootstrap.test.ts`).
 const mockStopPush = jest.fn();
 const mockStartPush = jest.fn((_options: { navigate: (route: string) => void }) => mockStopPush);
@@ -129,6 +134,7 @@ beforeEach(() => {
   mockAlertReshow.mockClear();
   mockStartPush.mockClear();
   mockStopPush.mockClear();
+  mockRemoveLeftoverVideoFiles.mockClear();
   mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
   mockEnsurePushPermission.mockReset().mockImplementation(() => Promise.resolve());
 });
@@ -170,6 +176,15 @@ describe("RootLayout 폰트 로드 게이팅", () => {
 
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("마운트 때 지난 실행이 남긴 영상 사본을 지운다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+
+    expect(mockRemoveLeftoverVideoFiles).toHaveBeenCalledTimes(1);
   });
 
   it("마운트 때 푸시 배선을 시작하고 언마운트 때 해제한다", async () => {

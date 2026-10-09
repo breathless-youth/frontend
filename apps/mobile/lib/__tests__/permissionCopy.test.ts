@@ -55,4 +55,50 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
       "HIGH_SAMPLING_RATE_SENSORS",
     ]);
   });
+
+  /**
+   * 사진 앱 저장 권한 문구
+   *
+   * `expo-media-library` 플러그인은 옵션 값을 먼저, 없으면 `infoPlist` 값을, 둘 다 없을 때만 영어 기본 문구를 넣는다.
+   * 두 곳을 같은 문구로 고정해 어느 쪽을 고치든 산출물이 바뀌지 않게 한다.
+   * 읽기 문구는 우리가 읽기 권한을 요청하지 않아도 react-native-share가 사진 보관함 API를 참조해 필요하다.
+   */
+  const PHOTO_ADD_USAGE_COPY = "타임랩스 영상을 사진 앱에 저장하려면 사진 추가 권한이 필요해요";
+  const PHOTO_READ_USAGE_COPY = "타임랩스 영상을 사진 앱에 저장할 때 사용해요";
+
+  it("사진 추가·읽기 권한 문구가 한국어 확정 카피다 (영어 기본값 주입 방지)", () => {
+    expect(appConfig.expo.ios.infoPlist.NSPhotoLibraryAddUsageDescription).toBe(
+      PHOTO_ADD_USAGE_COPY,
+    );
+    expect(appConfig.expo.ios.infoPlist.NSPhotoLibraryUsageDescription).toBe(PHOTO_READ_USAGE_COPY);
+  });
+
+  it("expo-media-library 플러그인 옵션이 같은 문구를 쓰고 Android 사진·영상 읽기 권한을 넣지 않는다", () => {
+    const entry = (appConfig.expo.plugins as unknown[]).find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-media-library",
+    ) as [string, Record<string, unknown>] | undefined;
+
+    expect(entry?.[1]).toEqual({
+      photosPermission: PHOTO_READ_USAGE_COPY,
+      savePhotosPermission: PHOTO_ADD_USAGE_COPY,
+      granularPermissions: [],
+    });
+  });
+
+  /**
+   * 플러그인이 넣는 읽기 권한 차단
+   *
+   * 저장에는 쓰기 권한만 필요하고 사진·영상을 읽는 기능은 없다.
+   * 읽기 권한이 남으면 스토어 심사에서 사진 접근 사유를 따로 소명해야 한다.
+   */
+  it("플러그인이 넣는 사진·영상 읽기 권한을 막는다", () => {
+    expect(appConfig.expo.android.blockedPermissions).toEqual([
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VIDEO",
+      "android.permission.READ_MEDIA_AUDIO",
+      "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+    ]);
+  });
 });
