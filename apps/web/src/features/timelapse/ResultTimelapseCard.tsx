@@ -91,7 +91,11 @@ export function ResultTimelapseCard({
   const streakFetched = streak.isSuccess;
 
   const queryClient = useQueryClient();
-  // 두 값을 남기고 미리 받기를 시작한 뒤에만 공유 창을 연다.
+  // 앱과 브라우저 기능은 이 화면에 있는 동안 바뀌지 않는다.
+  const [routes] = useState(shareRoutes);
+  const shareAvailable = routes.save !== null || routes.share !== null;
+  // 두 값을 남긴 뒤에만 공유 창을 연다.
+  // 저장이나 공유를 할 수 있는 환경이면 영상 미리 받기도 이때 시작한다.
   const [shareable, setShareable] = useState(false);
   const [sharing, setSharing] = useState(false);
   // 영상에는 그날 D-Day와 연속 공부가 들어가고 다시 만들지 않으므로 두 값을 남긴 뒤에 만든다.
@@ -116,7 +120,9 @@ export function ResultTimelapseCard({
       .catch(() => {})
       .then(() => {
         if (current && overlaySettled) {
-          void queryClient.prefetchQuery(timelapseVideoQuery(startedAtMs, store));
+          if (shareAvailable) {
+            void queryClient.prefetchQuery(timelapseVideoQuery(startedAtMs, store));
+          }
           setShareable(true);
         }
       });
@@ -133,10 +139,9 @@ export function ResultTimelapseCard({
     store,
     startedAtMs,
     queryClient,
+    shareAvailable,
   ]);
 
-  // 앱과 브라우저 기능은 이 화면에 있는 동안 바뀌지 않는다.
-  const [routes] = useState(shareRoutes);
   // 위에서 미리 받기 시작한 영상을 같은 키로 구독해 다운로드 버튼에 진행률을 보인다.
   const video = useQuery({
     ...timelapseVideoQuery(startedAtMs, store),
@@ -162,10 +167,11 @@ export function ResultTimelapseCard({
     try {
       result = await saveTimelapse(routes.save, video.data, startedAtMs);
     } catch {
-      // 결과 대신 오류가 와도 실패로 기록하고 잠금은 finally가 푼다.
-    } finally {
-      setSaving(false);
+      // 결과 대신 오류가 와도 실패로 기록한다.
     }
+    // catch가 모든 오류를 받으므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
+    // 컴파일러가 finally를 다루지 못해 finally에 두지 않는다.
+    setSaving(false);
     trackTimelapseShareTapped({ button: "save", result, entry: "result" });
     const resultNotice = shareResultNotice("save", routes.save, result);
     // 앱 저장이 끝났다는 알림은 공유 창의 저장과 같이 토스트로 띄운다.

@@ -90,6 +90,10 @@ function oldApp() {
   vi.mocked(isNativeBridgeAvailable).mockReturnValue(true);
 }
 
+function stubCanShare(canShare: boolean) {
+  Object.defineProperty(navigator, "canShare", { configurable: true, value: () => canShare });
+}
+
 async function readyDownload() {
   const button = await screen.findByRole("button", { name: "다운로드" });
   await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
@@ -125,6 +129,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Reflect.deleteProperty(navigator, "canShare");
   vi.useRealTimers();
   vi.clearAllMocks();
   vi.mocked(canUseNativeVideo).mockReturnValue(false);
@@ -454,6 +459,7 @@ describe("ResultTimelapseCard", () => {
 
   it("저장할 수 없는 구 버전 앱에서는 다운로드를 숨긴다", async () => {
     oldApp();
+    stubCanShare(true);
     await readyTimelapse();
     renderCard();
 
@@ -461,6 +467,19 @@ describe("ResultTimelapseCard", () => {
     await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("button", { name: "타임랩스 공유하기" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: /다운로드|만드는 중/ })).toBeNull();
+  });
+
+  it("저장도 공유도 할 수 없는 구 버전 앱에서는 영상을 미리 만들지 않는다", async () => {
+    oldApp();
+    stubCanShare(false);
+    await readyTimelapse();
+    renderCard();
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    await waitFor(() => expect(open).toBeEnabled());
+    // 보관된 영상을 읽은 뒤에 만들기 시작하므로 그만큼 기다린다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(buildTimelapseVideo).not.toHaveBeenCalled();
   });
 
   it("D-Day와 연속 공부를 남기기 전에는 공유 창을 열지 않는다", async () => {
