@@ -1106,6 +1106,40 @@ describe("타임랩스 영상 이벤트", () => {
   });
 });
 
+describe("타임랩스 공유 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "result" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("버튼·결과·진입 화면만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackTimelapseShareTapped({ button: "kakao", result: "dismissed", entry: "list" });
+
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_share_tapped", {
+      button: "kakao",
+      result: "dismissed",
+      entry: "list",
+    });
+  });
+
+  it("공유 시트의 설정 열기는 출처를 timelapse_share로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackOsSettingsOpened("timelapse_share");
+
+    expect(mocks.track).toHaveBeenCalledWith("os_settings_opened", { source: "timelapse_share" });
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.

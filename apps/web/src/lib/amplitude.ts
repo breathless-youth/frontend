@@ -10,7 +10,7 @@ import {
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
-import type { StudyEventStatus, TrackEventMessage } from "@focusmakers/types";
+import type { StudyEventStatus, TrackEventMessage, VideoResultStatus } from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
@@ -408,6 +408,25 @@ export function trackTimelapseVideoFailed(input: {
   track("timelapse_video_failed", { method: input.method, stage: input.stage });
 }
 
+/**
+ * 타임랩스 공유 시트의 저장·공유 결과
+ *
+ * 누른 버튼, 앱이나 브라우저가 돌려준 결과, 다이얼로그를 연 화면만 싣는다.
+ * 영상과 식별자는 싣지 않는다.
+ */
+export function trackTimelapseShareTapped(input: {
+  readonly button: "save" | "instagram" | "kakao" | "more";
+  readonly result: VideoResultStatus;
+  readonly entry: "result" | "home" | "list";
+}) {
+  if (!initialized) return;
+  track("timelapse_share_tapped", {
+    button: input.button,
+    result: input.result,
+    entry: input.entry,
+  });
+}
+
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
  *
  * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰
@@ -732,8 +751,13 @@ export function trackFocusStartTapped(destination: "guide" | "session") {
   track("focus_start_tapped", { destination });
 }
 
-/** 설정 탭 카메라 권한 행 → OS 설정 열기 요청. 권한 거부 안내(S2-3)의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다. */
-export function trackOsSettingsOpened(source: "settings_tab") {
+/**
+ * OS 설정 열기 요청
+ *
+ * 설정 탭 카메라 권한 행과 타임랩스 공유 시트의 사진 권한 안내에서 보낸다.
+ * 권한 거부 안내의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다.
+ */
+export function trackOsSettingsOpened(source: "settings_tab" | "timelapse_share") {
   if (!initialized) return;
   track("os_settings_opened", { source });
 }
