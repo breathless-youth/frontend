@@ -230,7 +230,7 @@ export function ResultTimelapseCard({
             // disabled 속성을 쓰면 누른 버튼이 잠기는 순간 포커스가 문서 밖으로 빠진다.
             aria-disabled={downloadLocked}
             onClick={() => void download()}
-            className="bg-transparent text-primary border-[0.5px] border-primary/60 h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
+            className="bg-transparent text-primary border border-primary/40 h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
           >
             <ArrowDownToLine size={18} aria-hidden="true" />
             {building ? `만드는 중 ${Math.round((progress.data ?? 0) * 100)}%` : "다운로드"}
