@@ -97,6 +97,14 @@ export interface CameraPermissionMessage {
 export const VIDEO_RESULT_STATUSES = ["saved", "shared", "dismissed", "denied", "failed"] as const;
 export type VideoResultStatus = (typeof VIDEO_RESULT_STATUSES)[number];
 
+/**
+ * 공유 시트를 거치지 않고 바로 열 수 있는 앱
+ *
+ * 앱은 이 앱을 열 수 없으면 OS 공유 시트로 돌아간다.
+ */
+export const VIDEO_SHARE_TARGETS = ["instagram", "kakao"] as const;
+export type VideoShareTarget = (typeof VIDEO_SHARE_TARGETS)[number];
+
 /** 웹 → 네이티브. */
 /** 햅틱 세기 — expo-haptics `ImpactFeedbackStyle`과 같은 세 단계. */
 export type HapticStyle = "light" | "medium" | "heavy";
@@ -181,7 +189,8 @@ export type ToNativeMessage =
    * 모은 영상을 OS 공유 시트로 보내라는 요청
    *
    * 파일과 함께 설치 링크가 든 `text`를 본문으로 넘긴다.
-   * 앱은 시트가 닫힌 뒤 `video-result`로 답한다.
+   * `target`이 있으면 앱은 그 앱을 먼저 바로 열어 보고, 열 수 없으면 OS 공유 시트를 연다.
+   * 앱은 시트가 닫히거나 대상 앱을 연 뒤 `video-result`로 답한다.
    */
   | {
       type: "video-share";
@@ -189,6 +198,7 @@ export type ToNativeMessage =
       chunks: number;
       text: string;
       title?: string;
+      target?: VideoShareTarget;
       atMs: number;
     }
   /**

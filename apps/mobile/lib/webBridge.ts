@@ -15,6 +15,7 @@ import {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
 
 import { isReservedAnalyticsName } from "./firebaseAnalytics";
@@ -153,13 +154,14 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (!isVideoId(record.id) || !isCount(record.chunks) || typeof record.text !== "string") {
         return null;
       }
-      // 제목은 선택 필드라 문자열이 아니면 그 필드만 빼고 공유는 살린다.
+      // 제목과 목적지는 선택 필드라 모르는 값이면 그 필드만 빼고 공유는 살린다.
       return {
         type: "video-share",
         id: record.id,
         chunks: record.chunks,
         text: record.text,
         ...(typeof record.title === "string" ? { title: record.title } : {}),
+        ...(isOneOf(VIDEO_SHARE_TARGETS, record.target) ? { target: record.target } : {}),
         atMs: record.atMs,
       };
     case "navigate-tab":
