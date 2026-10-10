@@ -109,6 +109,24 @@ export function flowSegmentsFor(record: TimelapseRecord): FlowSegment[] | null {
   }));
 }
 
+/**
+ * 레코드에 남은 그날 값으로 만든 오버레이
+ *
+ * 영상 파일도 이 함수로 그려 다이얼로그 화면과 저장되는 영상이 같다.
+ */
+export function savedOverlayFor(
+  record: TimelapseRecord,
+): Pick<TimelapseScene, "info" | "text" | "flow"> {
+  return {
+    info: record.settings.info,
+    text: overlayTextFor(record, {
+      ddayLabel: record.ddayLabel ?? null,
+      streakDays: record.streakDays ?? null,
+    }),
+    flow: flowSegmentsFor(record),
+  };
+}
+
 /** 한 장면에 그리는 모든 글자. 글꼴 조각 파일을 미리 받을 때 쓴다. */
 export function timelapseGlyphs(text: TimelapseOverlayText): string {
   return [text.date, text.focusTime, text.focusRate, text.dday, text.streak, WATERMARK_TEXT]

@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
+import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
@@ -290,7 +291,14 @@ export function ResultPage() {
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="flex shrink-0 gap-[10px] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+        <div className="relative flex shrink-0 gap-[10px] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+          {/* 저장 토스트 자리
+
+              하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.
+              Sonner의 알림 영역은 빈 상태로도 자리에 남아 flex 간격을 하나 더 만들기 때문에 높이 0인 absolute 상자에 넣는다. */}
+          <div className="absolute inset-x-0 top-0">
+            <CtaToaster />
+          </div>
           <Button
             type="button"
             variant="secondary"

@@ -310,6 +310,17 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
     expect(screen.getByText("순공시간")).toBeInTheDocument();
   });
 
+  it("CTA가 드러나면 저장 토스트가 버튼을 덮지 않도록 CTA 줄 안에 화면 알림 영역을 둔다", () => {
+    renderAnimated();
+
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+
+    const ctaRow = screen.getByRole("button", { name: "홈으로" }).parentElement!;
+    expect(within(ctaRow).getByRole("region", { name: "화면 알림" })).toBeInTheDocument();
+  });
+
   it("연출 중 화면을 떠나면 공개 타이머를 걷는다 — 사라진 화면에 setState하지 않는다", () => {
     const { unmount } = renderAnimated();
     unmount();

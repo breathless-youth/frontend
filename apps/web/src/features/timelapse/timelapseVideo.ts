@@ -1,8 +1,7 @@
 import {
   canvasSizeFor,
   drawTimelapseFrame,
-  flowSegmentsFor,
-  overlayTextFor,
+  savedOverlayFor,
   TIMELAPSE_FONT_FAMILY,
   timelapseGlyphs,
 } from "./timelapseFrame";
@@ -70,13 +69,9 @@ export async function buildTimelapseVideo(
     throw new Error("보관된 타임랩스가 없다");
   }
   const photos = await store.listPhotos(startedAtMs);
-  const text = overlayTextFor(record, {
-    ddayLabel: record.ddayLabel ?? null,
-    streakDays: record.streakDays ?? null,
-  });
-  const overlay = { info: record.settings.info, text, flow: flowSegmentsFor(record) };
+  const overlay = savedOverlayFor(record);
   // 글꼴을 받지 못해도 시스템 글꼴로 만든다. 공유를 막을 만한 일은 아니다.
-  await deps.loadFonts(timelapseGlyphs(text)).catch(() => {});
+  await deps.loadFonts(timelapseGlyphs(overlay.text)).catch(() => {});
 
   const aspect = record.settings.aspect;
   const base = canvasSizeFor(aspect);

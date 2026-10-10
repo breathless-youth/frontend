@@ -1,11 +1,19 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { trackOsSettingsOpened, trackTimelapseShareTapped } from "@/lib/amplitude";
+import type * as Bridge from "@/lib/bridge";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { getDday } from "@/lib/ddayApi";
+import type * as NativeVideo from "@/lib/nativeVideo";
+import { canUseNativeVideo, saveVideoNatively } from "@/lib/nativeVideo";
 import { getStreak } from "@/lib/statsApi";
+import { showCtaToast } from "@/lib/toast";
 
 import { ResultTimelapseCard } from "../ResultTimelapseCard";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
@@ -13,8 +21,24 @@ import { createIndexedDbTimelapseStore, type TimelapseStore } from "../timelapse
 import type * as TimelapseVideo from "../timelapseVideo";
 import { buildTimelapseVideo } from "../timelapseVideo";
 
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackTimelapseShareTapped: vi.fn(),
+  trackOsSettingsOpened: vi.fn(),
+}));
+vi.mock("@/lib/bridge", async (importOriginal) => ({
+  ...(await importOriginal<typeof Bridge>()),
+  isNativeBridgeAvailable: vi.fn(() => false),
+  postToNative: vi.fn(() => true),
+}));
+vi.mock("@/lib/nativeVideo", async (importOriginal) => ({
+  ...(await importOriginal<typeof NativeVideo>()),
+  canUseNativeVideo: vi.fn(() => false),
+  saveVideoNatively: vi.fn(),
+}));
 vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
 vi.mock("@/lib/statsApi", () => ({ getStreak: vi.fn() }));
+vi.mock("@/lib/toast", () => ({ showCtaToast: vi.fn() }));
 vi.mock("../timelapseVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseVideo>()),
   buildTimelapseVideo: vi.fn(),
@@ -26,6 +50,7 @@ vi.mock("../TimelapsePlayer", () => ({
     aspect: string;
     photos: readonly ArrayBuffer[];
     overlay: { text: { dday: string | null; streak: string | null } };
+    children?: ReactNode;
   }) => (
     <div
       data-testid="player"
@@ -33,7 +58,9 @@ vi.mock("../TimelapsePlayer", () => ({
       data-count={props.photos.length}
       data-dday={props.overlay.text.dday ?? ""}
       data-streak={props.overlay.text.streak ?? ""}
-    />
+    >
+      {props.children}
+    </div>
   ),
 }));
 
@@ -50,6 +77,27 @@ async function readyTimelapse(photoCount = 2, aspect: "9:16" | "16:9" = "9:16") 
     await store.addPhoto(T0, new Uint8Array([index]).buffer, T0 + index * 10_000);
   }
   await store.finalize(T0, SUMMARY);
+}
+
+function nativeApp() {
+  vi.mocked(canUseNativeVideo).mockReturnValue(true);
+  vi.mocked(isNativeBridgeAvailable).mockReturnValue(true);
+}
+
+/** 영상 메시지를 모르는 구 버전 앱 */
+function oldApp() {
+  vi.mocked(canUseNativeVideo).mockReturnValue(false);
+  vi.mocked(isNativeBridgeAvailable).mockReturnValue(true);
+}
+
+function stubCanShare(canShare: boolean) {
+  Object.defineProperty(navigator, "canShare", { configurable: true, value: () => canShare });
+}
+
+async function readyDownload() {
+  const button = await screen.findByRole("button", { name: "다운로드" });
+  await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
+  return button;
 }
 
 function renderCard(userId: number | null = 7) {
@@ -81,12 +129,15 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Reflect.deleteProperty(navigator, "canShare");
   vi.useRealTimers();
   vi.clearAllMocks();
+  vi.mocked(canUseNativeVideo).mockReturnValue(false);
+  vi.mocked(isNativeBridgeAvailable).mockReturnValue(false);
 });
 
 describe("ResultTimelapseCard", () => {
-  it("보관된 타임랩스가 있으면 안내 문구와 재생기를 보여준다", async () => {
+  it("보관된 타임랩스가 있으면 제목과 재생기를 보여준다", async () => {
     await readyTimelapse(2, "16:9");
     renderCard();
 
@@ -94,13 +145,11 @@ describe("ResultTimelapseCard", () => {
     expect(player).toHaveAttribute("data-aspect", "16:9");
     expect(player).toHaveAttribute("data-count", "2");
     const title = screen.getByRole("heading", { level: 2, name: "타임랩스" });
-    const guide = screen.getByText("이미지를 터치하여 타임랩스를 공유하거나 저장해보세요");
-    // ⓘ는 제목 오른쪽, 안내 문구는 제목 아래에 둔다.
+    // ⓘ는 제목 오른쪽에 둔다.
     expect(title.parentElement).toContainElement(
       screen.getByRole("button", { name: "타임랩스 안내" }),
     );
-    expect(title.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(title.parentElement).not.toContainElement(guide);
+    expect(screen.queryByText(/이미지를 터치하여/)).toBeNull();
   });
 
   it("ⓘ를 누르면 설정에서 끌 수 있다고 알려준다", async () => {
@@ -169,6 +218,34 @@ describe("ResultTimelapseCard", () => {
     expect(buildTimelapseVideo).not.toHaveBeenCalled();
   });
 
+  it("기록을 남기기 전에 화면을 떠나면 영상을 만들지 않는다", async () => {
+    await readyTimelapse();
+    let finish!: () => void;
+    const slow: TimelapseStore = {
+      ...store,
+      annotate: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <ResultTimelapseCard startedAtMs={T0} userId={null} store={slow} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(slow.annotate).toHaveBeenCalled());
+
+    unmount();
+    finish();
+    // 보관된 영상을 읽은 뒤에 만들기 시작하므로 그만큼 기다린다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+  });
+
   it("신원이 없으면 조회 없이 바로 만든다", async () => {
     await readyTimelapse();
     renderCard(null);
@@ -179,7 +256,7 @@ describe("ResultTimelapseCard", () => {
   it("레코드가 없으면 아무것도 그리지 않는다", async () => {
     const { container } = renderCard();
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -187,7 +264,7 @@ describe("ResultTimelapseCard", () => {
     await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
     const { container } = renderCard();
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -195,7 +272,7 @@ describe("ResultTimelapseCard", () => {
     await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
     await store.addPhoto(T0, new Uint8Array([0]).buffer, T0);
     renderCard();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(screen.queryByTestId("player")).not.toBeInTheDocument();
 
     await store.finalize(T0, SUMMARY);
@@ -247,7 +324,7 @@ describe("ResultTimelapseCard", () => {
       </QueryClientProvider>,
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -281,5 +358,165 @@ describe("ResultTimelapseCard", () => {
     const player = await screen.findByTestId("player");
     expect(player).toHaveAttribute("data-dday", "");
     expect(player).toHaveAttribute("data-streak", "");
+  });
+
+  it("재생기를 눌러도 공유 창을 열지 않는다", async () => {
+    await readyTimelapse();
+    renderCard();
+
+    const player = await screen.findByTestId("player");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "타임랩스 공유하기" })).toBeEnabled(),
+    );
+    expect(within(player).queryByRole("button")).toBeNull();
+    fireEvent.click(player);
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("공유하기를 누르면 공유 창이 열리고 닫으면 버튼으로 포커스가 돌아온다", async () => {
+    await readyTimelapse();
+    renderCard();
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    await waitFor(() => expect(open).toBeEnabled());
+    expect(open).toHaveAttribute("aria-haspopup", "dialog");
+    open.focus();
+    fireEvent.click(open);
+    const dialog = await screen.findByRole("dialog", { name: "공유하기" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(open).toHaveFocus();
+  });
+
+  it("다운로드를 누르면 사진 앱에 저장하고 토스트로 알린다", async () => {
+    nativeApp();
+    vi.mocked(saveVideoNatively).mockResolvedValue("saved");
+    await readyTimelapse();
+    renderCard();
+
+    fireEvent.click(await readyDownload());
+
+    await waitFor(() => expect(showCtaToast).toHaveBeenCalledWith("사진 앱에 저장했어요"));
+    expect(screen.getByRole("status")).not.toHaveTextContent("사진 앱에 저장했어요");
+    expect(saveVideoNatively).toHaveBeenCalledTimes(1);
+    expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
+      button: "save",
+      result: "saved",
+      entry: "result",
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("사진 권한이 꺼져 있으면 설정 열기를 함께 보여준다", async () => {
+    nativeApp();
+    vi.mocked(saveVideoNatively).mockResolvedValue("denied");
+    await readyTimelapse();
+    renderCard();
+
+    fireEvent.click(await readyDownload());
+    fireEvent.click(await screen.findByRole("button", { name: "설정 열기" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("사진 접근 권한이 꺼져 있어요");
+    expect(showCtaToast).not.toHaveBeenCalled();
+    expect(trackOsSettingsOpened).toHaveBeenCalledWith("timelapse_share");
+    expect(postToNative).toHaveBeenCalledWith(expect.objectContaining({ type: "open-settings" }));
+  });
+
+  it("저장하는 동안에는 다운로드를 다시 누를 수 없다", async () => {
+    nativeApp();
+    let finish!: (status: "failed") => void;
+    vi.mocked(saveVideoNatively).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await readyTimelapse();
+    renderCard();
+
+    const download = await readyDownload();
+    fireEvent.click(download);
+    fireEvent.click(download);
+
+    expect(download).toHaveAttribute("aria-disabled", "true");
+    await act(async () => finish("failed"));
+    expect(saveVideoNatively).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("저장하지 못했어요");
+  });
+
+  it("영상을 만드는 동안 다운로드 버튼에 진행률을 보여준다", async () => {
+    vi.mocked(buildTimelapseVideo).mockImplementation((_ms, _store, onProgress) => {
+      onProgress(0.37);
+      return new Promise(() => {});
+    });
+    await readyTimelapse();
+    renderCard();
+
+    const download = await screen.findByRole("button", { name: "만드는 중 37%" });
+    expect(download).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("저장할 수 없는 구 버전 앱에서는 다운로드를 숨긴다", async () => {
+    oldApp();
+    stubCanShare(true);
+    await readyTimelapse();
+    renderCard();
+
+    // 공유 창에 쓸 영상은 그대로 미리 만든다.
+    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "타임랩스 공유하기" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /다운로드|만드는 중/ })).toBeNull();
+  });
+
+  it("저장도 공유도 할 수 없는 구 버전 앱에서는 영상을 미리 만들지 않는다", async () => {
+    oldApp();
+    stubCanShare(false);
+    await readyTimelapse();
+    renderCard();
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    await waitFor(() => expect(open).toBeEnabled());
+    // 보관된 영상을 읽은 뒤에 만들기 시작하므로 그만큼 기다린다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+  });
+
+  it("D-Day와 연속 공부를 남기기 전에는 공유 창을 열지 않는다", async () => {
+    vi.mocked(getStreak).mockReturnValue(new Promise(() => {}));
+    await readyTimelapse();
+    renderCard();
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    fireEvent.click(open);
+
+    expect(open).toBeDisabled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+  });
+
+  it("오프라인이면 조회를 기다리지 않고 레코드에 남은 값으로 공유 창을 연다", async () => {
+    await readyTimelapse();
+    await store.annotate(T0, { ddayLabel: "D-9 · 모의고사", streakDays: 3 });
+    // 레코드는 온라인일 때 읽어 두고 D-Day와 연속 공부 조회는 오프라인에서 시작하게 한다.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(["timelapse", T0], await store.get(T0));
+    onlineManager.setOnline(false);
+    try {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ResultTimelapseCard startedAtMs={T0} userId={7} store={store} />
+        </QueryClientProvider>,
+      );
+
+      const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+      await waitFor(() => expect(open).toBeEnabled());
+      expect(screen.getByTestId("player")).toHaveAttribute("data-dday", "D-9 · 모의고사");
+      await waitFor(() =>
+        expect(builtWith).toEqual({ ddayLabel: "D-9 · 모의고사", streakDays: 3 }),
+      );
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 });
