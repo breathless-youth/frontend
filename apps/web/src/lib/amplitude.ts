@@ -414,11 +414,12 @@ export function trackTimelapseVideoFailed(input: {
  * 누른 버튼, 앱이나 브라우저가 돌려준 결과, 다이얼로그를 연 화면만 싣는다.
  * 영상과 식별자는 싣지 않는다.
  * 바로 공유가 붙기 전까지는 인스타그램·카카오톡·더 보기가 같은 OS 공유 시트를 열므로 button은 누른 버튼일 뿐 채널별 공유 수로 읽지 않는다.
+ * 브라우저 다운로드는 결과를 알 수 없어 saved가 저장 완료가 아니라 다운로드를 시도했다는 뜻이다.
  */
 export function trackTimelapseShareTapped(input: {
   readonly button: "save" | "instagram" | "kakao" | "more";
   readonly result: VideoResultStatus;
-  readonly entry: "result" | "home" | "list";
+  readonly entry: "result" | "list";
 }) {
   if (!initialized) return;
   track("timelapse_share_tapped", {

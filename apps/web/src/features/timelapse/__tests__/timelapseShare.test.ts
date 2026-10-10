@@ -195,6 +195,14 @@ describe("shareTimelapse", () => {
     );
     await expect(shareTimelapse("browser", VIDEO, T0)).resolves.toBe("failed");
   });
+
+  it("이름만 AbortError인 일반 오류는 취소로 보지 않는다", async () => {
+    stubWebShare(
+      () => true,
+      vi.fn(() => Promise.reject(Object.assign(new Error("가짜"), { name: "AbortError" }))),
+    );
+    await expect(shareTimelapse("browser", VIDEO, T0)).resolves.toBe("failed");
+  });
 });
 
 describe("sendTimelapse", () => {
@@ -227,7 +235,7 @@ describe("sendTimelapse", () => {
         route: "native",
         video: VIDEO,
         startedAtMs: T0,
-        entry: "home",
+        entry: "list",
       }),
     ).resolves.toBe("shared");
 

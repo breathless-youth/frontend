@@ -102,7 +102,7 @@ export async function shareTimelapse(
     await navigator.share({ files: [file], text: timelapseShareText(window.location.origin) });
     return "shared";
   } catch (error) {
-    return (error as Error | null)?.name === "AbortError" ? "dismissed" : "failed";
+    return error instanceof DOMException && error.name === "AbortError" ? "dismissed" : "failed";
   }
 }
 
