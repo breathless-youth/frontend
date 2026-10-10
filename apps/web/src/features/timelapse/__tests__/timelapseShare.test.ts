@@ -168,7 +168,12 @@ describe("shareTimelapse", () => {
     vi.mocked(shareVideoNatively).mockResolvedValue("dismissed");
 
     await expect(shareTimelapse("native", VIDEO, T0)).resolves.toBe("dismissed");
-    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO);
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO, undefined);
+  });
+
+  it("새 앱에는 목적지를 함께 넘긴다", async () => {
+    await shareTimelapse("native", VIDEO, T0, "instagram");
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO, "instagram");
   });
 
   it("브라우저는 mp4 파일과 설치 링크 본문을 공유한다", async () => {
@@ -180,6 +185,14 @@ describe("shareTimelapse", () => {
     expect(data.files?.[0]?.name).toBe("focusmakers-timelapse-20261005.mp4");
     expect(data.files?.[0]?.type).toBe("video/mp4");
     expect(data.text).toContain("/download?utm_source=timelapse");
+  });
+
+  it("브라우저는 목적지가 있어도 같은 공유 창을 연다", async () => {
+    const share = stubWebShare(() => true);
+
+    await expect(shareTimelapse("browser", VIDEO, T0, "kakao")).resolves.toBe("shared");
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(shareVideoNatively).not.toHaveBeenCalled();
   });
 
   it("공유 창을 닫으면 dismissed, 그 밖의 오류는 failed로 바꾼다", async () => {
@@ -239,8 +252,30 @@ describe("sendTimelapse", () => {
       }),
     ).resolves.toBe("shared");
 
-    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO);
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO, "kakao");
     expect(saveVideoNatively).not.toHaveBeenCalled();
+  });
+
+  it("더 보기는 목적지 없이 보낸다", async () => {
+    await sendTimelapse({
+      button: "more",
+      route: "native",
+      video: VIDEO,
+      startedAtMs: T0,
+      entry: "list",
+    });
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO, undefined);
+  });
+
+  it("인스타그램은 instagram 목적지로 보낸다", async () => {
+    await sendTimelapse({
+      button: "instagram",
+      route: "native",
+      video: VIDEO,
+      startedAtMs: T0,
+      entry: "result",
+    });
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO, "instagram");
   });
 
   it("결과 대신 오류가 오면 실패로 돌려주고 실패로 기록한다", async () => {

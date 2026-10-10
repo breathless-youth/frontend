@@ -19,6 +19,7 @@ interface SentMessage {
   data?: string;
   chunks?: number;
   text?: string;
+  target?: string;
 }
 
 afterEach(() => {
@@ -239,12 +240,21 @@ describe("shareVideoNatively", () => {
       text: timelapseShareText(window.location.origin),
     });
     expect(request).not.toHaveProperty("title");
+    expect(request).not.toHaveProperty("target");
 
     await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(settled).toBe(false);
 
     replyResult(String(request?.id), "share", "dismissed");
     await expect(pending).resolves.toBe("dismissed");
+  });
+
+  it("목적지를 받으면 공유 요청에 싣는다", async () => {
+    enableNativeVideo();
+    void shareVideoNatively(fakeBlob(bytesOf(10)), "instagram");
+    await lastMessageIs("video-share");
+
+    expect(sent().at(-1)).toMatchObject({ type: "video-share", target: "instagram" });
   });
 });
 
