@@ -1,5 +1,4 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import type { VideoResultStatus } from "@focusmakers/types";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownToLine, Ellipsis } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -7,7 +6,6 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import instagramIcon from "@/assets/icons/brand-instagram.svg";
 import kakaotalkIcon from "@/assets/icons/brand-kakaotalk.svg";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
-import { trackTimelapseShareTapped } from "@/lib/amplitude";
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -22,17 +20,15 @@ import {
 } from "./timelapseQueries";
 import {
   openTimelapseSettings,
-  saveTimelapse,
+  sendTimelapse,
   type ShareNotice,
+  type ShareTapped,
   shareResultNotice,
   shareRoutes,
-  shareTimelapse,
   shareVideoWidth,
 } from "./timelapseShare";
 import { getTimelapseStore, type TimelapseRecord, type TimelapseStore } from "./timelapseStore";
 import { TimelapseVideoError } from "./timelapseVideo";
-
-type ShareTapped = Parameters<typeof trackTimelapseShareTapped>[0];
 
 type TimelapseShareDialogProps = {
   open: boolean;
@@ -205,18 +201,9 @@ function ShareDialogBody({
     if (!video.isSuccess || busy || route === null) return;
     setBusy(true);
     setNotice(null);
-    let result: VideoResultStatus = "failed";
-    // 컴파일러가 try 안의 조건식을 다루지 못해 보낼 함수를 먼저 고른다.
-    const send = action === "save" ? saveTimelapse : shareTimelapse;
-    try {
-      result = await send(route, video.data, startedAtMs);
-    } catch {
-      // 결과 대신 오류가 와도 실패로 기록한다.
-    }
-    // catch가 모든 오류를 받으므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
-    // 컴파일러가 finally를 다루지 못해 finally에 두지 않는다.
+    const result = await sendTimelapse({ button, route, video: video.data, startedAtMs, entry });
+    // 보내기는 오류도 결과로 돌려주므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
     setBusy(false);
-    trackTimelapseShareTapped({ button, result, entry });
     const resultNotice = shareResultNotice(action, route, result);
     // 결과 화면은 저장되면 시트를 닫고, 앱 저장이면 닫힌 뒤에도 보이도록 토스트로 알린다.
     if (sheetOnly && action === "save" && result === "saved") {

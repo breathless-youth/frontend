@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { trackTimelapseShareTapped } from "@/lib/amplitude";
 import type * as Bridge from "@/lib/bridge";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import type * as NativeVideo from "@/lib/nativeVideo";
@@ -7,6 +9,7 @@ import { canUseNativeVideo, saveVideoNatively, shareVideoNatively } from "@/lib/
 
 import {
   saveTimelapse,
+  sendTimelapse,
   shareResultNotice,
   shareRoutes,
   shareTimelapse,
@@ -14,6 +17,10 @@ import {
   timelapseFileName,
 } from "../timelapseShare";
 
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackTimelapseShareTapped: vi.fn(),
+}));
 vi.mock("@/lib/nativeVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof NativeVideo>()),
   canUseNativeVideo: vi.fn(() => false),
@@ -187,6 +194,80 @@ describe("shareTimelapse", () => {
       vi.fn(() => Promise.reject(new DOMException("겹침", "InvalidStateError"))),
     );
     await expect(shareTimelapse("browser", VIDEO, T0)).resolves.toBe("failed");
+  });
+});
+
+describe("sendTimelapse", () => {
+  it("저장 결과를 그대로 돌려주고 누른 버튼과 결과를 한 번 기록한다", async () => {
+    vi.mocked(saveVideoNatively).mockResolvedValue("denied");
+
+    await expect(
+      sendTimelapse({
+        button: "save",
+        route: "native",
+        video: VIDEO,
+        startedAtMs: T0,
+        entry: "list",
+      }),
+    ).resolves.toBe("denied");
+
+    expect(saveVideoNatively).toHaveBeenCalledWith(VIDEO);
+    expect(trackTimelapseShareTapped).toHaveBeenCalledTimes(1);
+    expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
+      button: "save",
+      result: "denied",
+      entry: "list",
+    });
+  });
+
+  it("공유 버튼은 공유로 보낸다", async () => {
+    await expect(
+      sendTimelapse({
+        button: "kakao",
+        route: "native",
+        video: VIDEO,
+        startedAtMs: T0,
+        entry: "home",
+      }),
+    ).resolves.toBe("shared");
+
+    expect(shareVideoNatively).toHaveBeenCalledWith(VIDEO);
+    expect(saveVideoNatively).not.toHaveBeenCalled();
+  });
+
+  it("결과 대신 오류가 오면 실패로 돌려주고 실패로 기록한다", async () => {
+    vi.mocked(saveVideoNatively).mockRejectedValue(new Error("브리지 끊김"));
+
+    await expect(
+      sendTimelapse({
+        button: "save",
+        route: "native",
+        video: VIDEO,
+        startedAtMs: T0,
+        entry: "result",
+      }),
+    ).resolves.toBe("failed");
+
+    expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
+      button: "save",
+      result: "failed",
+      entry: "result",
+    });
+  });
+
+  it("브라우저 공유 창은 부른 그 자리에서 연다", async () => {
+    const share = stubWebShare(() => true);
+
+    const pending = sendTimelapse({
+      button: "more",
+      route: "browser",
+      video: VIDEO,
+      startedAtMs: T0,
+      entry: "list",
+    });
+
+    expect(share).toHaveBeenCalledTimes(1);
+    await pending;
   });
 });
 

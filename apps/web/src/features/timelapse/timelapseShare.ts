@@ -1,6 +1,6 @@
 import type { VideoResultStatus } from "@focusmakers/types";
 
-import { trackOsSettingsOpened } from "@/lib/amplitude";
+import { trackOsSettingsOpened, trackTimelapseShareTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import {
   canUseNativeVideo,
@@ -10,6 +10,8 @@ import {
 } from "@/lib/nativeVideo";
 
 import type { TimelapseAspect } from "./timelapseSettings";
+
+export type ShareTapped = Parameters<typeof trackTimelapseShareTapped>[0];
 
 const MP4 = "video/mp4";
 
@@ -102,6 +104,36 @@ export async function shareTimelapse(
   } catch (error) {
     return (error as Error | null)?.name === "AbortError" ? "dismissed" : "failed";
   }
+}
+
+/**
+ * 저장·공유를 보내고 결과를 기록
+ *
+ * 결과 대신 오류가 와도 실패로 돌려주고 실패로 기록한다.
+ * 브라우저 공유 창은 누른 직후에만 열리므로 보내기 앞에서 기다리지 않는다.
+ */
+export async function sendTimelapse({
+  button,
+  route,
+  video,
+  startedAtMs,
+  entry,
+}: {
+  button: ShareTapped["button"];
+  route: ShareRoute;
+  video: Blob;
+  startedAtMs: number;
+  entry: ShareTapped["entry"];
+}): Promise<VideoResultStatus> {
+  const send = button === "save" ? saveTimelapse : shareTimelapse;
+  let result: VideoResultStatus = "failed";
+  try {
+    result = await send(route, video, startedAtMs);
+  } catch {
+    // 위의 실패 기본값을 그대로 쓴다.
+  }
+  trackTimelapseShareTapped({ button, result, entry });
+  return result;
 }
 
 /**

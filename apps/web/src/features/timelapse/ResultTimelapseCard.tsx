@@ -1,4 +1,3 @@
-import type { VideoResultStatus } from "@focusmakers/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, Share } from "lucide-react";
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
@@ -7,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
-import { trackTimelapseShareTapped } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { streakQuery } from "@/lib/statsQueries";
 import { showToast } from "@/lib/toast";
@@ -21,7 +19,7 @@ import {
 } from "./timelapseQueries";
 import {
   openTimelapseSettings,
-  saveTimelapse,
+  sendTimelapse,
   type ShareNotice,
   shareResultNotice,
   shareRoutes,
@@ -163,16 +161,15 @@ export function ResultTimelapseCard({
     }
     setSaving(true);
     setNotice(null);
-    let result: VideoResultStatus = "failed";
-    try {
-      result = await saveTimelapse(routes.save, video.data, startedAtMs);
-    } catch {
-      // 결과 대신 오류가 와도 실패로 기록한다.
-    }
-    // catch가 모든 오류를 받으므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
-    // 컴파일러가 finally를 다루지 못해 finally에 두지 않는다.
+    const result = await sendTimelapse({
+      button: "save",
+      route: routes.save,
+      video: video.data,
+      startedAtMs,
+      entry: "result",
+    });
+    // 보내기는 오류도 결과로 돌려주므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
     setSaving(false);
-    trackTimelapseShareTapped({ button: "save", result, entry: "result" });
     const resultNotice = shareResultNotice("save", routes.save, result);
     // 앱 저장이 끝났다는 알림은 공유 창의 저장과 같이 토스트로 띄운다.
     if (routes.save === "native" && result === "saved" && resultNotice !== null) {
