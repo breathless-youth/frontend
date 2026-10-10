@@ -37,7 +37,7 @@
 - expo-media-library 57은 패키지 루트에서 가져온 `saveToLibraryAsync` 같은 옛 함수가 실행 중에 throw하므로 `expo-media-library/legacy`에서 불러온다.
 - react-native-share는 불러오는 순간 네이티브 모듈을 찾으므로 앱은 공유할 때만 이 패키지를 불러온다.
 - react-native-share의 인스타그램 공유 코드가 사진 보관함 API를 참조해, 읽기 권한을 요청하지 않아도 iOS에 `NSPhotoLibraryUsageDescription`이 있어야 한다(react-native-share 이슈 #1783).
-- react-native-share 플러그인은 옵션이 없어도 빈 객체를 넘겨야 한다(문자열만 적으면 `props.android`를 읽다 `TypeError`가 난다). 이 플러그인은 안에서 expo-build-properties를 다시 부르므로 우리 `expo-build-properties` 항목보다 뒤에 둔다.
+- react-native-share 플러그인에는 객체를 넘겨야 한다(문자열만 적으면 `props.android`를 읽다 `TypeError`가 난다). 바로 공유에 필요한 스킴과 패키지 조회는 이 옵션으로 넣는다([ADR 0015](./0015-timelapse-direct-share-local-module.md)). 이 플러그인은 안에서 expo-build-properties를 다시 부르므로 우리 `expo-build-properties` 항목보다 뒤에 둔다.
 - expo-media-library 플러그인이 넣는 사진·영상 읽기 권한은 `android.blockedPermissions`로 막고 저장용 `WRITE_EXTERNAL_STORAGE`만 남긴다. 같은 플러그인이 `android:requestLegacyExternalStorage="true"`도 넣는다.
 - expo-media-library는 Android 12 이하에서 저장 전에 `WRITE_EXTERNAL_STORAGE`를 런타임에 요청하므로 이 권한은 유지하고, Play의 사진·영상 권한 정책이 보는 `READ_MEDIA_*` 읽기 권한만 막는다.
 - `id`는 캐시 파일 이름에 그대로 들어가므로 앱 파서는 `crypto.randomUUID()` 모양만 받고 나머지는 버린다.
