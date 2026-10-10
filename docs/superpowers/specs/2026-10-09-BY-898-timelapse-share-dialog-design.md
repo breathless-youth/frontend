@@ -36,13 +36,13 @@
 
 - Radix Dialog 하나가 화면 전체를 덮는다.
 - 위쪽 가운데 흰 카드에 `TimelapsePlayer`와 파란 글자 `포커스 메이커스`를 둔다. 시안의 로고는 글자다.
-- 아래쪽 시트에 손잡이, `공유하기` 제목, 버튼 4개, 안내 줄을 둔다.
+- 아래쪽 시트에 `공유하기` 제목, 버튼 4개, 안내 줄을 둔다.
 - 카드는 시트 위에 남은 높이 안에서 비율을 지키며 줄어든다. 명세 §7의 "공유 시트에 가리지 않도록" 조건이다.
 - 재생기 크기는 `aspect-ratio`가 아니라 캔버스의 고유 비율이 정한다. iOS 웹뷰에서 회전 뒤 `aspect-ratio` 높이가 옛 값으로 남은 일이 있었기 때문이다.
 - 카드는 살짝 확대되며, 시트는 아래에서 올라오며 나타난다. 움직임 줄이기 설정이면 확대와 이동 없이 페이드만 한다(명세 §7).
 - 카드와 시트 밖 빈 곳을 누르면 닫힌다.
 - 결과 화면은 카드를 그리지 않고 시트만 둔다. 딤, 빈 곳 눌러 닫기, 포커스 가두기와 복귀, `aria-modal`, `data-covers-tab-bar`는 같다.
-- 손잡이는 모양만 두고 끌어서 닫기는 넣지 않는다.
+- 시트에는 손잡이를 두지 않고 끌어서 닫기도 넣지 않는다.
 - portal이 body로 나가므로 `theme-soft-blue`를 Content에 다시 단다.
 - 시트에는 `onTouchMove` stopPropagation과 `touch-manipulation`을 둔다. Radix 스크롤 잠금이 iOS에서 탭을 먹는 문제를 피하기 위해서다.
 - 인스타그램·카카오톡 아이콘은 Figma `brand/*` 컴포넌트(Simple Icons CC0)를 SVG로 받아 쓴다.
@@ -56,6 +56,7 @@
 - 결과 카드는 이미 계산한 오버레이를 넘기지만 시트만 열어 화면에는 쓰이지 않는다.
 - 전체 목록은 `overlayTextFor(record, { ddayLabel: record.ddayLabel ?? null, streakDays: record.streakDays ?? null })`로 레코드에 남은 그날 값을 넘긴다. 영상 파일도 레코드 값으로 그리므로 다이얼로그 화면과 영상이 같다.
 - 영상은 다이얼로그가 열릴 때 `useQuery(timelapseVideoQuery(startedAtMs, store))`로 가져온다. 결과 화면은 미리 받아 두었고 목록은 이때 만들기 시작한다.
+- 영상은 그날 D-Day와 연속 공부로 한 번 만들어 보관한다. 그래서 오프라인에서 레코드에 남은 값으로 만들었다면 나중에 값이 바뀌어도 다시 만들지 않는다.
 - 진행률은 `timelapseVideoProgressKey`를 `enabled: false` 쿼리로 구독한다. 값이 없으면 0으로 그린다.
 
 ## 누르는 곳
