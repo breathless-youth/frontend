@@ -164,6 +164,34 @@ describe("timelapseVideoQuery", () => {
     expect(blob.size).toBe(1);
     expect(trackTimelapseVideoFailed).toHaveBeenCalledWith({ method: "webcodecs", stage: "store" });
   });
+
+  it("관찰자가 빠지고 30초가 지나면 캐시를 비우고 다시 열 때 보관본을 읽는다", async () => {
+    await ready();
+    const client = new QueryClient();
+    const build = vi.fn(() => Promise.resolve(built));
+    const query = timelapseVideoQuery(startedAtMs, store, build);
+    const first = new QueryObserver(client, query);
+    const unsubscribe = first.subscribe(() => {});
+    await vi.waitFor(() => expect(first.getCurrentResult().isSuccess).toBe(true));
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      unsubscribe();
+      vi.advanceTimersByTime(30_000);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(client.getQueryCache().find({ queryKey: query.queryKey })).toBeUndefined();
+
+    const again = new QueryObserver(client, query);
+    const unsubscribeAgain = again.subscribe(() => {});
+    await vi.waitFor(() => expect(again.getCurrentResult().isSuccess).toBe(true));
+    unsubscribeAgain();
+
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(again.getCurrentResult().data?.size).toBe(1);
+  });
+
   it("기기가 오프라인이어도 만든다", async () => {
     await ready();
     const build = vi.fn(async () => ({
@@ -182,6 +210,31 @@ describe("timelapseVideoQuery", () => {
     } finally {
       onlineManager.setOnline(true);
     }
+  });
+
+  it("진행률도 관찰자가 빠지고 30초가 지나면 캐시를 비운다", async () => {
+    await ready();
+    const client = new QueryClient();
+    const progress = timelapseVideoProgressQuery(startedAtMs);
+    const observer = new QueryObserver(client, progress);
+    const unsubscribe = observer.subscribe(() => {});
+    await client.fetchQuery(
+      timelapseVideoQuery(startedAtMs, store, async (_ms, _store, onProgress) => {
+        onProgress(1);
+        return built;
+      }),
+    );
+    expect(client.getQueryData(progress.queryKey)).toBe(1);
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      unsubscribe();
+      vi.advanceTimersByTime(30_000);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(client.getQueryCache().find({ queryKey: progress.queryKey })).toBeUndefined();
   });
 
   it("진행률 쿼리는 영상 쿼리가 넣는 값을 받기만 한다", async () => {

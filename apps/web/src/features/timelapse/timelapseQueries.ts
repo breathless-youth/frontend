@@ -38,6 +38,14 @@ export function timelapsePhotosQuery(startedAtMs: number, store: TimelapseStore)
   });
 }
 
+/**
+ * 영상과 진행률 캐시를 남겨 두는 시간
+ *
+ * 영상은 저장소에 사본이 있어 금방 다시 읽으므로 닫았다 바로 다시 열 때 만드는 중 덮개가 깜빡이지 않을 만큼만 둔다.
+ * 진행률도 같이 비워야 다시 열 때 덮개 막대가 앞 만들기의 값으로 보이지 않는다.
+ */
+const VIDEO_GC_MS = 30_000;
+
 export function timelapseVideoKey(startedAtMs: number) {
   return ["timelapse", startedAtMs, "video"] as const;
 }
@@ -57,6 +65,7 @@ export function timelapseVideoProgressQuery(startedAtMs: number) {
     queryKey: timelapseVideoProgressKey(startedAtMs),
     queryFn: skipToken,
     staleTime: Infinity,
+    gcTime: VIDEO_GC_MS,
   });
 }
 
@@ -103,6 +112,7 @@ export function timelapseVideoQuery(
       return new Blob([video.bytes], { type: video.mimeType });
     },
     staleTime: Infinity,
+    gcTime: VIDEO_GC_MS,
     // 녹화 방식은 30초쯤 걸려 실패를 자동으로 되풀이하지 않는다. 공유를 누를 때 다시 시도한다.
     retry: false,
     // 기기 안에서만 만들므로 비행기 모드에서도 만든다.
