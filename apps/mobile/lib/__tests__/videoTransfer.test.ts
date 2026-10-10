@@ -1,7 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { requestPermissionsAsync, saveToLibraryAsync } from "expo-media-library/legacy";
+import { Platform } from "react-native";
 import Share from "react-native-share";
 
+import { shareToInstagramReels, shareToKakaoTalk } from "../../modules/direct-share";
+import { metaAppIdFromConfig } from "../metaAds";
 import {
   appendVideoChunk,
   removeLeftoverVideoFiles,
@@ -26,11 +29,21 @@ jest.mock("react-native-share", () => ({
   default: { open: jest.fn() },
 }));
 
+jest.mock("../../modules/direct-share", () => ({
+  shareToInstagramReels: jest.fn(),
+  shareToKakaoTalk: jest.fn(),
+}));
+
+jest.mock("../metaAds", () => ({ metaAppIdFromConfig: jest.fn() }));
+
 const mockedRequestPermissions = requestPermissionsAsync as jest.MockedFunction<
   typeof requestPermissionsAsync
 >;
 const mockedSaveToLibrary = saveToLibraryAsync as jest.MockedFunction<typeof saveToLibraryAsync>;
 const mockedOpen = Share.open as jest.MockedFunction<typeof Share.open>;
+const mockedReels = shareToInstagramReels as jest.MockedFunction<typeof shareToInstagramReels>;
+const mockedKakao = shareToKakaoTalk as jest.MockedFunction<typeof shareToKakaoTalk>;
+const mockedAppId = metaAppIdFromConfig as jest.MockedFunction<typeof metaAppIdFromConfig>;
 
 let idCounter = 0;
 
@@ -64,6 +77,9 @@ beforeEach(() => {
   mockedRequestPermissions.mockResolvedValue(permission(true));
   mockedSaveToLibrary.mockResolvedValue(undefined);
   mockedOpen.mockResolvedValue({ success: true, message: "" });
+  mockedReels.mockResolvedValue(true);
+  mockedKakao.mockResolvedValue(true);
+  mockedAppId.mockReturnValue("1234");
 });
 
 afterEach(() => {
@@ -260,6 +276,106 @@ describe("shareVideo", () => {
     await expect(firstResult).resolves.toBe("shared");
     await expect(secondResult).resolves.toBe("shared");
     expect(mockedOpen).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("shareVideo 바로 공유", () => {
+  it("인스타그램은 Meta 앱 ID와 함께 릴스로 넘기고 공유 시트를 열지 않는다", async () => {
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "instagram")).resolves.toBe("shared");
+    expect(mockedReels).toHaveBeenCalledWith(cacheFile(id).uri, "1234");
+    expect(mockedOpen).not.toHaveBeenCalled();
+  });
+
+  it("Android는 대상 앱이 읽을 수 있는 content 주소를 넘긴다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(File.prototype, "contentUri", "get").mockReturnValue("content://cache/clip.mp4");
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await shareVideo(id, 1, "본문", undefined, "instagram");
+    expect(mockedReels).toHaveBeenCalledWith("content://cache/clip.mp4", "1234");
+  });
+
+  it("Meta 앱 ID가 없는 빌드는 릴스를 부르지 않고 공유 시트를 연다", async () => {
+    mockedAppId.mockReturnValue(null);
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "instagram")).resolves.toBe("shared");
+    expect(mockedReels).not.toHaveBeenCalled();
+    expect(mockedOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("릴스로 넘기지 못하면 공유 시트 결과를 돌려준다", async () => {
+    mockedReels.mockResolvedValue(false);
+    mockedOpen.mockResolvedValue({ success: false, message: "CANCELED", dismissedAction: true });
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "instagram")).resolves.toBe("dismissed");
+    expect(mockedOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("바로 공유가 throw하면 경고를 남기고 공유 시트를 연다", async () => {
+    mockedKakao.mockRejectedValue(new Error("activity 없음"));
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "kakao")).resolves.toBe("shared");
+    expect(console.warn).toHaveBeenCalledWith(
+      "[videoTransfer] 대상 앱 바로 열기 실패",
+      "kakao",
+      expect.any(Error),
+    );
+    expect(mockedOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("카카오톡은 본문과 함께 넘긴다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    jest.spyOn(File.prototype, "contentUri", "get").mockReturnValue("content://cache/clip.mp4");
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "kakao")).resolves.toBe("shared");
+    expect(mockedKakao).toHaveBeenCalledWith("content://cache/clip.mp4", "본문");
+    expect(mockedOpen).not.toHaveBeenCalled();
+  });
+
+  it("카카오톡을 열지 못하면 공유 시트를 연다", async () => {
+    mockedKakao.mockResolvedValue(false);
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 1, "본문", undefined, "kakao")).resolves.toBe("shared");
+    expect(mockedOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("목적지가 없으면 바로 공유를 부르지 않는다", async () => {
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await shareVideo(id, 1, "본문");
+    expect(mockedReels).not.toHaveBeenCalled();
+    expect(mockedKakao).not.toHaveBeenCalled();
+  });
+
+  it("바로 공유한 뒤에도 임시 파일을 바로 지우지 않는다", async () => {
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await shareVideo(id, 1, "본문", undefined, "instagram");
+    expect(cacheFile(id).exists).toBe(true);
+  });
+
+  it("조각 수가 맞지 않으면 바로 공유도 하지 않고 failed다", async () => {
+    const id = nextId();
+    appendVideoChunk(id, 0, "AAEC");
+
+    await expect(shareVideo(id, 2, "본문", undefined, "instagram")).resolves.toBe("failed");
+    expect(mockedReels).not.toHaveBeenCalled();
   });
 });
 

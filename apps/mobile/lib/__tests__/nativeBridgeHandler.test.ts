@@ -613,7 +613,7 @@ describe("handleBridgeMessage: 타임랩스 영상", () => {
     );
     await flush();
 
-    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", "제목");
+    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", "제목", undefined);
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "video-result",
@@ -622,5 +622,17 @@ describe("handleBridgeMessage: 타임랩스 영상", () => {
         status: "dismissed",
       }),
     );
+  });
+
+  it("video-share는 목적지를 넘긴다", async () => {
+    mockedShareVideo.mockResolvedValue("shared");
+
+    handleBridgeMessage(
+      { type: "video-share", id: ID, chunks: 2, text: "본문", target: "kakao", atMs: 1 },
+      jest.fn(),
+    );
+    await flush();
+
+    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", undefined, "kakao");
   });
 });

@@ -1,13 +1,18 @@
 import { File, Paths } from "expo-file-system";
 import { requestPermissionsAsync, saveToLibraryAsync } from "expo-media-library/legacy";
+import { Platform } from "react-native";
 import type RNShare from "react-native-share";
 
-import type { VideoResultStatus } from "@focusmakers/types";
+import type { VideoResultStatus, VideoShareTarget } from "@focusmakers/types";
+
+import { shareToInstagramReels, shareToKakaoTalk } from "../modules/direct-share";
+import { metaAppIdFromConfig } from "./metaAds";
 
 /**
  * 타임랩스 영상 전달 어댑터
  *
  * 웹이 보낸 base64 조각을 캐시 파일에 이어 쓰고, 다 모이면 사진 앱에 저장하거나 공유 시트로 보낸다.
+ * 공유에 목적지가 있으면 그 앱을 먼저 바로 열어 보고, 열 수 없을 때만 공유 시트로 보낸다.
  * 파일·사진 보관함·공유 시트 SDK는 이 파일에서만 불러온다.
  * 저장은 끝나면 결과와 관계없이 임시 파일을 바로 지운다.
  * 공유는 바로 지우지 않는다.
@@ -160,8 +165,12 @@ export function shareVideo(
   chunks: number,
   text: string,
   title?: string,
+  target?: VideoShareTarget,
 ): Promise<VideoResultStatus> {
   return finish(id, chunks, true, async (uri) => {
+    if (target !== undefined && (await openDirectly(target, uri, text))) {
+      return "shared";
+    }
     // 이 패키지는 불러오는 순간 네이티브 모듈을 찾고 없으면 throw한다.
     // 브리지 핸들러를 지나는 모든 화면과 테스트가 이 파일을 불러오므로 공유할 때만 불러온다.
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- 필요할 때만 동기로 불러오는 방법이 require뿐이다.
@@ -179,4 +188,25 @@ export function shareVideo(
     const result = await turn;
     return result.dismissedAction === true ? "dismissed" : "shared";
   });
+}
+
+/**
+ * 공유 시트를 거치지 않고 대상 앱 열기
+ *
+ * 열지 못하면 false를 돌려 공유 시트로 돌아가게 한다.
+ * Android 대상 앱은 앱 캐시의 file 주소를 읽을 수 없어 content 주소를 넘긴다.
+ * 인스타그램은 Meta 앱 ID 없이는 받아 주지 않으므로 ID가 없는 빌드에서는 부르지 않는다.
+ */
+async function openDirectly(target: VideoShareTarget, uri: string, text: string): Promise<boolean> {
+  try {
+    const shareUri = Platform.OS === "android" ? new File(uri).contentUri : uri;
+    if (target === "instagram") {
+      const appId = metaAppIdFromConfig();
+      return appId !== null && (await shareToInstagramReels(shareUri, appId));
+    }
+    return await shareToKakaoTalk(shareUri, text);
+  } catch (error: unknown) {
+    console.warn("[videoTransfer] 대상 앱 바로 열기 실패", target, error);
+    return false;
+  }
 }

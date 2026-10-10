@@ -157,9 +157,17 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       });
       break;
     case "video-share":
-      void shareVideo(message.id, message.chunks, message.text, message.title).then((status) => {
-        reply({ type: "video-result", id: message.id, action: "share", status, atMs: Date.now() });
-      });
+      void shareVideo(message.id, message.chunks, message.text, message.title, message.target).then(
+        (status) => {
+          reply({
+            type: "video-result",
+            id: message.id,
+            action: "share",
+            status,
+            atMs: Date.now(),
+          });
+        },
+      );
       break;
     case "navigate-tab":
       // 소셜 결과 화면의 `기록으로 가기`(탭 웹뷰라 모달이 없다)와 홈 친구 초대 카드 → 소셜 탭.
