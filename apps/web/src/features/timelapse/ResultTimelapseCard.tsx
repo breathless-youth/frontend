@@ -221,7 +221,8 @@ export function ResultTimelapseCard({
       <div className="mt-4 flex justify-center px-4">
         <TimelapsePlayer aspect={ready.settings.aspect} photos={photos.data} overlay={overlay} />
       </div>
-      {/* 초대코드 공유 화면의 코드 복사·공유하기 버튼과 같은 모양이다. */}
+      {/* 공유하기는 초대코드 공유 화면의 공유하기 버튼과 같은 모양이다.
+          다운로드는 흰 카드 위에서 경계가 보이도록 가는 외곽선으로 둔다. */}
       <div className="mt-4 flex justify-center gap-2.5 px-4">
         {routes.save !== null && (
           <Button
@@ -229,7 +230,7 @@ export function ResultTimelapseCard({
             // disabled 속성을 쓰면 누른 버튼이 잠기는 순간 포커스가 문서 밖으로 빠진다.
             aria-disabled={downloadLocked}
             onClick={() => void download()}
-            className="shadow-sb-card bg-muted text-foreground h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
+            className="bg-transparent text-primary border-[0.5px] border-primary/60 h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
           >
             <ArrowDownToLine size={18} aria-hidden="true" />
             {building ? `만드는 중 ${Math.round((progress.data ?? 0) * 100)}%` : "다운로드"}
