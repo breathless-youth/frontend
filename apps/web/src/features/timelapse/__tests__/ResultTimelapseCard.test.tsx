@@ -13,7 +13,7 @@ import { getDday } from "@/lib/ddayApi";
 import type * as NativeVideo from "@/lib/nativeVideo";
 import { canUseNativeVideo, saveVideoNatively } from "@/lib/nativeVideo";
 import { getStreak } from "@/lib/statsApi";
-import { showToast } from "@/lib/toast";
+import { showCtaToast } from "@/lib/toast";
 
 import { ResultTimelapseCard } from "../ResultTimelapseCard";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
@@ -38,7 +38,7 @@ vi.mock("@/lib/nativeVideo", async (importOriginal) => ({
 }));
 vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
 vi.mock("@/lib/statsApi", () => ({ getStreak: vi.fn() }));
-vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+vi.mock("@/lib/toast", () => ({ showCtaToast: vi.fn() }));
 vi.mock("../timelapseVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseVideo>()),
   buildTimelapseVideo: vi.fn(),
@@ -398,7 +398,7 @@ describe("ResultTimelapseCard", () => {
 
     fireEvent.click(await readyDownload());
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith("사진 앱에 저장했어요"));
+    await waitFor(() => expect(showCtaToast).toHaveBeenCalledWith("사진 앱에 저장했어요"));
     expect(screen.getByRole("status")).not.toHaveTextContent("사진 앱에 저장했어요");
     expect(saveVideoNatively).toHaveBeenCalledTimes(1);
     expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
@@ -419,7 +419,7 @@ describe("ResultTimelapseCard", () => {
     fireEvent.click(await screen.findByRole("button", { name: "설정 열기" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("사진 접근 권한이 꺼져 있어요");
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
     expect(trackOsSettingsOpened).toHaveBeenCalledWith("timelapse_share");
     expect(postToNative).toHaveBeenCalledWith(expect.objectContaining({ type: "open-settings" }));
   });

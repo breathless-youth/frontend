@@ -8,7 +8,7 @@ import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { streakQuery } from "@/lib/statsQueries";
-import { showToast } from "@/lib/toast";
+import { showCtaToast } from "@/lib/toast";
 
 import { flowSegmentsFor, overlayTextFor } from "./timelapseFrame";
 import { TimelapsePlayer } from "./TimelapsePlayer";
@@ -173,7 +173,7 @@ export function ResultTimelapseCard({
     const resultNotice = shareResultNotice("save", routes.save, result);
     // 앱 저장이 끝났다는 알림은 공유 창의 저장과 같이 토스트로 띄운다.
     if (routes.save === "native" && result === "saved" && resultNotice !== null) {
-      showToast(resultNotice.text);
+      showCtaToast(resultNotice.text);
       return;
     }
     setNotice(resultNotice);

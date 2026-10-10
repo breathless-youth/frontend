@@ -7,7 +7,7 @@ import instagramIcon from "@/assets/icons/brand-instagram.svg";
 import kakaotalkIcon from "@/assets/icons/brand-kakaotalk.svg";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
-import { showToast } from "@/lib/toast";
+import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 
@@ -114,7 +114,7 @@ export function TimelapseShareDialog({ open, onOpenChange, ...body }: TimelapseS
             closeFinished.current = true;
             const toast = toastAfterClose.current;
             toastAfterClose.current = null;
-            if (toast !== null) showToast(toast);
+            if (toast !== null) showCtaToast(toast);
           }}
           onClick={(event) => {
             if (event.target === event.currentTarget) onOpenChange(false);
@@ -129,7 +129,7 @@ export function TimelapseShareDialog({ open, onOpenChange, ...body }: TimelapseS
             {...body}
             onSaved={(toast) => {
               if (closeFinished.current) {
-                if (toast !== null) showToast(toast);
+                if (toast !== null) showCtaToast(toast);
                 return;
               }
               // 앞 열림의 저장도 실제로 됐으므로 알리되, 새로 연 창은 닫지 않고 그 창이 닫힌 뒤에 띄운다.

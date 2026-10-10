@@ -11,7 +11,7 @@ import type * as Bridge from "@/lib/bridge";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import type * as NativeVideo from "@/lib/nativeVideo";
 import { canUseNativeVideo, saveVideoNatively, shareVideoNatively } from "@/lib/nativeVideo";
-import { showToast } from "@/lib/toast";
+import { showCtaToast } from "@/lib/toast";
 
 import { TimelapseShareDialog } from "../TimelapseShareDialog";
 import { savedOverlayFor } from "../timelapseFrame";
@@ -40,7 +40,7 @@ vi.mock("@/lib/nativeVideo", async (importOriginal) => ({
   saveVideoNatively: vi.fn(),
   shareVideoNatively: vi.fn(),
 }));
-vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+vi.mock("@/lib/toast", () => ({ showCtaToast: vi.fn() }));
 vi.mock("../timelapseVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseVideo>()),
   buildTimelapseVideo: vi.fn(),
@@ -613,7 +613,7 @@ describe("결과 화면", () => {
     nativeApp();
     vi.mocked(saveVideoNatively).mockResolvedValue("saved");
     let dialogAtToast: HTMLElement | null | undefined;
-    vi.mocked(showToast).mockImplementationOnce(() => {
+    vi.mocked(showCtaToast).mockImplementationOnce(() => {
       dialogAtToast = screen.queryByRole("dialog");
     });
     renderClosingDialog("result");
@@ -621,8 +621,8 @@ describe("결과 화면", () => {
     fireEvent.click(await readyButton("저장하기"));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
-    expect(showToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
+    await waitFor(() => expect(showCtaToast).toHaveBeenCalledTimes(1));
+    expect(showCtaToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
     expect(dialogAtToast).toBeNull();
     expect(trackTimelapseShareTapped).toHaveBeenCalledTimes(1);
     expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
@@ -643,11 +643,11 @@ describe("결과 화면", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     // 언마운트 뒤 포커스 복귀 타이머까지 흘려 보내 닫힘을 끝낸다.
     await act(() => new Promise((done) => setTimeout(done, 0)));
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
     await act(async () => pending.resolve("saved"));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
-    expect(showToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
+    await waitFor(() => expect(showCtaToast).toHaveBeenCalledTimes(1));
+    expect(showCtaToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
   });
 
   it("사진 권한이 꺼져 있으면 시트에 남아 설정 열기를 보여준다", async () => {
@@ -661,7 +661,7 @@ describe("결과 화면", () => {
     await waitFor(() => expect(status).toHaveTextContent("사진 접근 권한이 꺼져 있어요"));
     expect(within(status).getByRole("button", { name: "설정 열기" })).toBeInTheDocument();
     expect(onOpenChange).not.toHaveBeenCalled();
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
   });
 
   it("브라우저 다운로드가 시작되면 토스트 없이 시트만 닫는다", async () => {
@@ -675,7 +675,7 @@ describe("결과 화면", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     // 닫힌 뒤 포커스 복귀 타이머까지 흘려 보낸다.
     await act(() => new Promise((done) => setTimeout(done, 0)));
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
   });
 
   it("영상을 만드는 동안 시트 안내 줄에 문구와 진행률을 보여준다", async () => {
@@ -718,7 +718,7 @@ describe("닫힘 애니메이션 중 다시 열기", () => {
     // 언마운트 뒤 포커스 복귀 타이머까지 흘려 보낸다.
     await act(() => new Promise((done) => setTimeout(done, 0)));
 
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
   });
 
   it("앞 레코드 저장 중 닫고 다른 레코드로 다시 열면 앞 실패가 새 시트에 남지 않는다", async () => {
@@ -769,7 +769,7 @@ describe("닫힘 애니메이션 중 다시 열기", () => {
     expect(trackTimelapseShareTapped).toHaveBeenCalledTimes(1);
     expect(dialog).toHaveAttribute("data-state", "open");
     expect(screen.getByRole("dialog", { name: "공유하기" })).toBe(dialog);
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
 
     fireEvent.keyDown(dialog, { key: "Escape" });
     endExitAnimation(dialog);
@@ -777,7 +777,7 @@ describe("닫힘 애니메이션 중 다시 열기", () => {
     // 언마운트 뒤 포커스 복귀 타이머까지 흘려 보낸다.
     await act(() => new Promise((done) => setTimeout(done, 0)));
 
-    expect(showToast).toHaveBeenCalledTimes(1);
-    expect(showToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
+    expect(showCtaToast).toHaveBeenCalledTimes(1);
+    expect(showCtaToast).toHaveBeenCalledWith("사진 앱에 저장했어요");
   });
 });
