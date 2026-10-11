@@ -13,8 +13,7 @@ import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
-import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
-import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
+import { useFocusStart } from "@/features/onboarding/useFocusStart";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { IconPlanner, IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
@@ -23,10 +22,7 @@ import { SessionRecoveryDialog } from "@/features/study-session/components/Sessi
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
-import { slideNavigate } from "@/lib/pageTransition";
-import { requestSessionStart } from "@/lib/sessionStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/lazyRoutes";
@@ -34,7 +30,7 @@ import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/la
 /**
  * 홈
  *
- * 탭 전환(소셜·기록·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
+ * 탭 전환(소셜·기록·랭킹·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
  * 친구 초대 카드의 소셜 탭 이동도 그래서 `navigate-tab` 브리지로 네이티브에 맡기고,
  * 브라우저 단독 모드에서만 웹 라우트로 직접 간다.
  *
@@ -180,36 +176,13 @@ function HomeContent({ userId }: { userId: number }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /**
-   * 가이드 이동 래치. react-router `navigate()`는 무조건 push라 빠른 이중 탭에서 가이드가 두 번
-   * 열려(스택에 두 장 쌓여) X를 눌러도 그 아래 가이드가 다시 보인다. 첫 탭만 유효하게 막는다.
-   * 세션 시작 경로는 아래 `isStartingRef`가 따로 막는다. 그쪽은 서버 응답을 기다리는 구간이라
-   * 이유가 다르다.
-   */
-  const hasOpenedGuideRef = useRef(false);
-  /** 집중 시작이 서버 응답을 기다리는 동안 다시 눌리는 것을 막는다. */
-  const isStartingRef = useRef(false);
+  const startFocus = useFocusStart(userId);
+
   /**
    * 초대 카드의 마지막 탭 시각. 빠른 이중 탭이 `navigate-tab`을 두 번 보내면 셸이 `tab_pressed`를
    * 두 번 남긴다. 가이드 래치와 달리 홈 문서는 탭을 오가도 살아 있으므로 영구 래치가 아니라 잠깐만 막는다.
    */
   const lastSocialTapAtRef = useRef(0);
-
-  /**
-   * 온보딩 가이드로 이동한다. 현재 쿼리(`?userId=N`)를 잃지 않도록 `entry`만 더해 넘긴다.
-   * 쿼리를 잃으면 가이드가 미저장 모드로 뜬다.
-   */
-  function openOnboardingGuide(entry: OnboardingGuideEntry) {
-    if (hasOpenedGuideRef.current) {
-      return;
-    }
-    hasOpenedGuideRef.current = true;
-    const params = new URLSearchParams(location.search);
-    params.set("entry", entry);
-    slideNavigate("forward", () =>
-      navigate({ pathname: "/onboarding-guide", search: params.toString() }),
-    );
-  }
 
   /**
    * 친구 초대 카드 → 소셜 탭
@@ -229,38 +202,6 @@ function HomeContent({ userId }: { userId: number }) {
       return;
     }
     navigate({ pathname: "/social", search: location.search });
-  }
-
-  /**
-   * "집중 시작". 분기는 `focusStartFlow.runFocusStartFlow`가 소유한다. 이 화면은 그 명세의 웹
-   * 구현만 제공한다. 가이드로 갈 때는 `openOnboardingGuide`에, 세션 시작은 `requestSessionStart`
-   * (브리지 있으면 발신, 없으면 세션 라우트로 직접 이동)에 그대로 맡긴다.
-   */
-  function startFocusFlow() {
-    // 세션 시작은 서버에 옛 세션 마감을 먼저 보내고 기다린다. 그 사이 한 번 더 누르면 요청과
-    // 화면 전환이 두 벌 나가므로 진행 중에는 막는다. 실패로 끝나면 다시 누를 수 있게 푼다.
-    if (isStartingRef.current) {
-      return;
-    }
-    isStartingRef.current = true;
-    void runFocusStartFlow({
-      openOnboardingGuide: (entry) => {
-        trackFocusStartTapped("guide");
-        openOnboardingGuide(entry);
-      },
-      startSession: async () => {
-        trackFocusStartTapped("session");
-        await requestSessionStart(userId, () =>
-          navigate({ pathname: "/room/1", search: location.search }),
-        );
-      },
-    })
-      .catch((error: unknown) => {
-        console.warn("[home] 집중 시작 처리 실패", error);
-      })
-      .finally(() => {
-        isStartingRef.current = false;
-      });
   }
 
   return (
@@ -284,7 +225,7 @@ function HomeContent({ userId }: { userId: number }) {
       <Button
         size="xl"
         className="w-full text-[18px] leading-[21px] font-bold tracking-[0.9px]"
-        onClick={startFocusFlow}
+        onClick={() => startFocus("home")}
       >
         집중 시작
       </Button>
