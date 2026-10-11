@@ -39,12 +39,14 @@ import {
   loadOnboardingGuidePage,
   loadPrivacyPage,
   loadProfilePage,
+  loadRankingRecordsPage,
   loadResultPage,
   loadTermsPage,
   loadTimelapseSettingsPage,
   loadTimelapsesPage,
 } from "@/routes/lazyRoutes";
 import { PlannerPage } from "@/routes/PlannerPage";
+import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
@@ -100,6 +102,11 @@ const TimelapseSettingsPage = lazy(
 const TimelapsesPage = lazy(
   reloadOnChunkError(() =>
     loadTimelapsesPage().then((module) => ({ default: module.TimelapsesPage })),
+  ),
+);
+const RankingRecordsPage = lazy(
+  reloadOnChunkError(() =>
+    loadRankingRecordsPage().then((module) => ({ default: module.RankingRecordsPage })),
   ),
 );
 const WebrtcLoopbackPage = lazy(
@@ -236,6 +243,8 @@ export function App() {
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/records" element={<RecordsPage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/ranking/records" element={<RankingRecordsPage />} />
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialHomePage />} />
