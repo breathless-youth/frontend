@@ -312,9 +312,10 @@ Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
 | `apps/web/src/features/home/icons.tsx`            | `IconPlay` `IconChevronRight` `IllustFlame` `IllustStudyDoodle`                              |
 | `apps/web/src/features/records/icons.tsx`         | `IconChevronRight` `IconChevronLeft` `IconCheckSm` `IconChevronDown` `IllustFlame`           |
 | `apps/web/src/features/social-room/icons.tsx`     | `IconSocialPeople`                                                                           |
+| `apps/web/src/features/ranking/icons.tsx`         | `IllustMedal` `IllustMedalRing` `IllustCrown` `IconCrownOutline` `IconTrophy`                |
 | `apps/web/src/features/onboarding/coachIcons.tsx` | `IconPause` `IconCameraFlip` `IconExit` `IconClose` `IllustPrivacyCamera` `CoachTooltipTail` |
 | `apps/web/src/components/CameraFlipIcon.tsx`      | `CameraFlipIcon`                                                                             |
-| `apps/mobile/components/icons.tsx`                | 탭 아이콘 4종 포함 13개                                                                      |
+| `apps/mobile/components/icons.tsx`                | 탭 아이콘 5종 포함 14개                                                                      |
 
 세션 컨트롤 아이콘만 컴포넌트가 아니라 SVG 파일이고 `apps/web/src/assets/icons/`에 있다
 (`session-play` `session-pause` `session-exit` `session-camera` `session-camera-off`).
@@ -543,7 +544,7 @@ MCP가 생성한 결과는 참고 입력이며 저장소에 바로 병합할 완
   `apps/web/src/index.css`에 CSS 변수로 옮겨 쓴다.
 - 브랜드 색은 `#1b64da`, 기본 배경은 흰색이다.
 - 폰트는 Pretendard로 고정한다.
-- 탭은 네 개이고 순서는 홈·소셜·기록·설정이다.
+- 탭은 다섯 개이고 순서는 홈·소셜·기록·랭킹·설정이다.
 - 공부 상태는 순공·휴식·일시정지 3색 체계이고, 서버 이벤트 네 종이 여기에 매핑된다.
 - 컴포넌트 구현체는 웹·모바일이 공유하지 않는다. 토큰만 공유한다.
 - 화면은 Figma에서 하나씩 완성한 뒤 구현한다. 공통 컴포넌트는 점진적으로 추출한다.
