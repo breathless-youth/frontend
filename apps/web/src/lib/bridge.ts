@@ -205,6 +205,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "session-closed") {
     return { type: "session-closed", atMs: record.atMs };
   }
+  if (record.type === "tab-focus" && typeof record.focused === "boolean") {
+    return { type: "tab-focus", focused: record.focused, atMs: record.atMs };
+  }
   if (record.type === "session-invite" && typeof record.code === "string") {
     return { type: "session-invite", code: record.code, atMs: record.atMs };
   }
