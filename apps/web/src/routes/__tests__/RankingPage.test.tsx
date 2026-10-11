@@ -397,36 +397,17 @@ describe("RankingPage", () => {
       expect(screen.queryByRole("region", { name: "내 주변 순위" })).toBeNull();
     });
 
-    it("묶음이 없는 배포 전 응답은 한 사람씩인 목록을 그대로 보인다", async () => {
-      const person = (rank: number, nickname: string, value: number, me = false) => ({
-        rank,
-        nickname,
-        value,
-        focusing: false,
-        me,
-      });
+    it("묶음이 오지 않으면 around에 사람이 있어도 한 사람씩인 목록 대신 빈 묶음 목록을 둔다", async () => {
       openTotalDays({
         ...FIXTURE_TOTAL_DAYS,
-        podiumGroups: undefined,
         aroundGroups: null,
-        podium: [
-          person(1, "도서관지박령", 412),
-          person(2, "합격기원", 388),
-          person(3, "공시생J", 351),
-        ],
-        around: [
-          person(1528, "형광펜", 68),
-          person(1529, "커피세잔", 67),
-          person(1530, "오늘도출석", 64, true),
-          person(1531, "열공모드", 63),
-          person(1532, "공시생J2", 61),
-        ],
+        around: [{ rank: 1530, nickname: "오늘도출석", value: 64, focusing: false, me: true }],
       });
 
-      const list = await screen.findByRole("region", { name: "내 주변 순위" });
-      expect(within(list).getAllByRole("listitem")).toHaveLength(5);
-      expect(within(list).getByRole("listitem", { current: true })).toHaveTextContent("오늘도출석");
-      expect(screen.queryByRole("region", { name: "내 주변 누적 일수 순위" })).toBeNull();
+      const list = await screen.findByRole("region", { name: "내 주변 누적 일수 순위" });
+      expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
+      expect(screen.queryByRole("region", { name: "내 주변 순위" })).toBeNull();
+      expect(screen.queryByText("오늘도출석")).toBeNull();
     });
   });
 });

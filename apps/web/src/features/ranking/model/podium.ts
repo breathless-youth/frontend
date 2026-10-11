@@ -1,5 +1,6 @@
 import type { MedalRank, RankingBoardResponse } from "@focusmakers/types";
 
+import { isDayType } from "./board";
 import { interpolateRows } from "./live";
 
 /**
@@ -43,14 +44,15 @@ const SPOTS: readonly MedalRank[] = [1, 2, 3];
  * 일수 판은 `podiumGroups`의 첫 묶음부터 차례로 1·2·3번 자리에 세운다.
  * 일수 판은 공동 순위라 자리 번호 대신 묶음 순위를 읽고, 빈자리는 묶음 순위와 겹치지 않게 `빈자리`로 읽는다.
  * 일수 판의 값은 실시간으로 오르지 않아 묶음 일수를 그대로 쓴다.
- * `podiumGroups`가 없는 응답은 배포 전 서버라 `podium`의 1·2·3위를 세우고, 빈자리도 자리 번호로 읽는다.
+ * 일수 판의 `podium`은 늘 빈 배열이라 묶음이 오지 않으면 빈 묶음으로 보고 세 자리를 모두 비운다.
+ * 다른 판은 `podium`의 1·2·3위를 세우고, 순위가 자리 번호와 같아 빈자리도 자리 번호로 읽는다.
  */
 export function podiumStands(
-  board: Pick<RankingBoardResponse, "podium" | "podiumGroups">,
+  board: Pick<RankingBoardResponse, "type" | "podium" | "podiumGroups">,
   elapsedSec: number,
 ): PodiumStand[] {
-  const groups = board.podiumGroups;
-  if (groups != null) {
+  if (isDayType(board.type)) {
+    const groups = board.podiumGroups ?? [];
     return SPOTS.map((spot) => {
       const group = groups[spot - 1];
       if (group === undefined) {

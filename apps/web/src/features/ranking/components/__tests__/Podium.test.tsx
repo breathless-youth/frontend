@@ -216,24 +216,15 @@ describe("Podium", () => {
       ["undefined", undefined],
       ["null", null],
     ])(
-      "묶음이 없는 배포 전 응답(podiumGroups가 %s)은 podium의 1·2·3위를 그대로 세운다",
+      "묶음이 오지 않으면(podiumGroups가 %s) podium에 사람이 있어도 세 자리를 모두 빈자리로 둔다",
       (_, podiumGroups) => {
-        const person = (rank: number, nickname: string, value: number) => ({
-          rank,
-          nickname,
-          value,
-          focusing: false,
-          me: false,
-        });
         render(
           <Podium
             board={{
               ...FIXTURE_TOTAL_DAYS,
               podiumGroups,
               podium: [
-                person(1, "도서관지박령", 412),
-                person(2, "합격기원", 388),
-                person(3, "공시생J", 351),
+                { rank: 1, nickname: "도서관지박령", value: 412, focusing: false, me: false },
               ],
             }}
             elapsedSec={0}
@@ -241,13 +232,12 @@ describe("Podium", () => {
         );
 
         const items = within(screen.getByRole("list")).getAllByRole("listitem");
-        expect(within(items[0]!).getByText("1위")).toBeInTheDocument();
-        expect(items[0]).toHaveTextContent("도서관지박령412일");
-        expect(within(items[1]!).getByText("2위")).toBeInTheDocument();
-        expect(items[1]).toHaveTextContent("합격기원388일");
-        expect(within(items[2]!).getByText("3위")).toBeInTheDocument();
-        expect(items[2]).toHaveTextContent("공시생J351일");
-        expect(screen.getByRole("list")).not.toHaveTextContent(/외 .*명/);
+        expect(items).toHaveLength(3);
+        for (const item of items) {
+          expect(within(item).getByText("빈자리")).toBeInTheDocument();
+          expect(item.querySelector("[data-medal-ring]")).toBeNull();
+        }
+        expect(screen.queryByText("도서관지박령")).toBeNull();
       },
     );
   });

@@ -435,7 +435,7 @@ function BoardBody({
  * 내 주변 목록
  *
  * 일수 판은 같은 일수끼리 공동 순위라 묶음 목록을 쓴다.
- * 묶음이 없는 일수 판 응답은 누적 일수 묶음이 배포되기 전 서버라 한 사람씩인 목록을 그대로 쓴다.
+ * 일수 판의 `around`는 늘 빈 배열이라 묶음이 오지 않으면 빈 묶음으로 본다.
  * 1위 화면은 어느 목록이든 나와 뒤 2줄만 남긴다.
  */
 function NearbyList({
@@ -449,9 +449,13 @@ function NearbyList({
   rows: LiveRow[];
   drop: number | null;
 }) {
-  const groups = board.aroundGroups;
-  if (isDayType(board.type) && groups != null) {
-    return <DayGroupList type={board.type} groups={aroundGroupsForScreen(groups, screen)} />;
+  if (isDayType(board.type)) {
+    return (
+      <DayGroupList
+        type={board.type}
+        groups={aroundGroupsForScreen(board.aroundGroups ?? [], screen)}
+      />
+    );
   }
   return (
     <AroundList
