@@ -1,6 +1,6 @@
 import type { MedalRank, RankingRecord, RankingRecordsSummary } from "@focusmakers/types";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -96,16 +96,20 @@ export function RecordsSheet({
     enabled: open && rank !== "all",
   });
   const focusRestore = useDialogFocusRestore();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={contentRef}
         side="bottom"
-        // 열 때는 포커스가 있던 요소를 기억하고, 터치로 연 시트에 포커스 링이 남지 않게 첫 요소에는 포커스를 주지 않는다.
+        // 열 때는 포커스가 있던 요소를 기억한다.
+        // 터치로 연 시트의 첫 칩에 포커스 링이 남지 않게, 첫 요소 대신 시트 자체에 포커스를 주어 화면 낭독기도 시트 안에서 시작한다.
         // 닫을 때는 기억한 요소로 포커스를 돌려준다.
         onOpenAutoFocus={(event) => {
           focusRestore.onOpenAutoFocus();
           event.preventDefault();
+          contentRef.current?.focus();
         }}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
         aria-describedby={undefined}
