@@ -541,6 +541,29 @@ export type {
 export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
 export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
+export { RANKING_PERIODS, RANKING_TYPES, TIME_SLOTS } from "./ranking";
+export type {
+  MedalRank,
+  RankingBest,
+  RankingBoardResponse,
+  RankingClosest,
+  RankingDayGroup,
+  RankingEligibility,
+  RankingEntry,
+  RankingGoalExample,
+  RankingMe,
+  RankingNeighbor,
+  RankingNextTier,
+  RankingPeriod,
+  RankingRecord,
+  RankingRecordType,
+  RankingRecordsPage,
+  RankingRecordsSummary,
+  RankingStreak,
+  RankingType,
+  TimeSlot,
+} from "./ranking";
+
 export type {
   CameraPermissionMessage,
   HapticStyle,

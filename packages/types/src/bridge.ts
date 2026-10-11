@@ -43,6 +43,13 @@ export type ToWebMessage =
    */
   | { type: "session-closed"; atMs: number }
   /**
+   * 탭 웹뷰가 지금 보이는지.
+   * 탭은 웹뷰를 띄워 둔 채 바뀌어 문서가 가려진 줄 모른다.
+   * 포커스가 바뀔 때와 가려진 채 문서가 새로 뜬 직후에 보낸다(`RemoteWebViewHost`).
+   * 웹은 첫 신호 전까지 보이는 것으로 본다(`apps/web/src/lib/nativeTabFocus.ts`).
+   */
+  | { type: "tab-focus"; focused: boolean; atMs: number }
+  /**
    * 세션 중에 들어온 초대.
    * 세션 화면이 열려 있을 때 초대 링크나 초대 푸시가 오면 네이티브가 화면을 쌓지 않고 세션 웹뷰에만 보낸다.
    * 기록 저장은 웹만 시작할 수 있어서, 웹이 확인 창으로 묻고 저장한 뒤 `navigate-home`의 `inviteCode`로 돌려준다.
