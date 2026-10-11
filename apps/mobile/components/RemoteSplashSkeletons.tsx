@@ -54,6 +54,26 @@ export function RecordsTabSkeleton() {
   );
 }
 
+/** 랭킹 (웹 `RankingPage`의 자리표시와 같은 높이와 간격) */
+export function RankingTabSkeleton() {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View className="flex-1 px-5" style={{ paddingTop: insets.top + 24 }}>
+      <View className="h-[29px] flex-row items-center justify-between">
+        <Skeleton className="h-[29px] w-40 rounded-md" />
+        <Skeleton className="h-7 w-[76px] rounded-full" />
+      </View>
+      <Skeleton className="mt-[7px] h-9 rounded-full" />
+      <View className="mt-3 gap-3">
+        <Skeleton className="h-[176px] rounded-xl" />
+        <Skeleton className="h-[158px] rounded-xl" />
+        <Skeleton className="h-[262px] rounded-xl" />
+      </View>
+    </View>
+  );
+}
+
 /**
  * 설정 섹션 하나
  */

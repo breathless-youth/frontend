@@ -111,7 +111,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).
       return {
         type: "navigate-home",
-        ...(record.tab === "records" ? { tab: record.tab } : {}),
+        ...(record.tab === "records" || record.tab === "ranking" ? { tab: record.tab } : {}),
         ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
         atMs: record.atMs,
       };

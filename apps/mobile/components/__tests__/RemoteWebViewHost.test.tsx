@@ -1271,8 +1271,8 @@ describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
 
 /**
  * 네이티브 사용자 이벤트의 전달 대상(sink) 배선(`lib/nativeAnalytics.ts`). 호스트는 "포커스된
- * 화면 + 웹이 `analytics-ready`를 보낸 문서"일 때만 붙어야 한다 — 탭 4개 웹뷰가 동시에 살아
- * 있어 조건이 하나라도 빠지면 한 터치가 N번 찍히거나 구독자 없는 문서에 버려진다.
+ * 화면 + 웹이 `analytics-ready`를 보낸 문서"일 때만 붙어야 한다.
+ * 탭 5개 웹뷰가 동시에 살아 있어 조건이 하나라도 빠지면 한 터치가 N번 찍히거나 구독자 없는 문서에 버려진다.
  */
 describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
   /** 웹으로 주입된 track-event 메시지만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
@@ -1469,5 +1469,74 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     expect(received).toEqual([
       ["webview_recovery_started", { path: "/social", reason: "render_process_gone" }],
     ]);
+  });
+});
+
+describe("RemoteWebViewHost tab-focus", () => {
+  const tabFocusScripts = () =>
+    mockInjectJavaScript.mock.calls
+      .map(([script]) => script as string)
+      .filter((script) => script.includes('\\"tab-focus\\"'));
+
+  beforeEach(() => mockInjectJavaScript.mockClear());
+
+  it("보이는 채로 처음 뜨면 보내지 않는다", () => {
+    render(<RemoteWebViewHost path="/ranking" testID="host" />);
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    expect(tabFocusScripts()).toEqual([]);
+  });
+
+  it("포커스가 바뀔 때마다 보낸다", () => {
+    const view = render(<RemoteWebViewHost path="/ranking" testID="host" focused />);
+
+    view.rerender(<RemoteWebViewHost path="/ranking" testID="host" focused={false} />);
+    view.rerender(<RemoteWebViewHost path="/ranking" testID="host" focused />);
+
+    const scripts = tabFocusScripts();
+    expect(scripts).toHaveLength(2);
+    expect(scripts[0]).toContain('\\"focused\\":false');
+    expect(scripts[1]).toContain('\\"focused\\":true');
+  });
+
+  it("가려진 채 문서가 뜨면 로드 직후에 가려졌다고 보낸다", () => {
+    render(<RemoteWebViewHost path="/ranking" testID="host" focused={false} />);
+
+    act(() => {
+      (screen.getByTestId("host").props.onLoadEnd as () => void)();
+    });
+
+    expect(tabFocusScripts()).toHaveLength(1);
+    expect(tabFocusScripts()[0]).toContain('\\"focused\\":false');
+  });
+
+  it("가려진 채 auth-ready가 오면 토큰보다 먼저 가려졌다고 보낸다", () => {
+    const onBridgeMessage = (message: ToNativeMessage, reply: (m: ToWebMessage) => void) => {
+      if (message.type === "auth-ready") {
+        reply({ type: "auth-token", userId: 7, accessToken: "a1", atMs: 2 });
+      }
+    };
+    render(
+      <RemoteWebViewHost
+        path="/ranking"
+        testID="host"
+        focused={false}
+        onBridgeMessage={onBridgeMessage}
+      />,
+    );
+
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"auth-ready","atMs":1}' } });
+    });
+
+    const scripts = mockInjectJavaScript.mock.calls.map(([script]) => script as string);
+    const focusAt = scripts.findIndex((script) => script.includes('\\"tab-focus\\"'));
+    const tokenAt = scripts.findIndex((script) => script.includes('\\"auth-token\\"'));
+    expect(focusAt).toBeGreaterThanOrEqual(0);
+    expect(scripts[focusAt]).toContain('\\"focused\\":false');
+    expect(focusAt).toBeLessThan(tokenAt);
   });
 });

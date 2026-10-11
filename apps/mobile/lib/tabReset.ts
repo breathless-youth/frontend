@@ -14,6 +14,7 @@
 const WEB_PATH_BY_TAB_ROUTE: Record<string, string> = {
   social: "/social",
   records: "/records",
+  ranking: "/ranking",
   settings: "/settings",
 };
 

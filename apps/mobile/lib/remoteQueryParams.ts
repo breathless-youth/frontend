@@ -5,7 +5,9 @@ import { Appearance, Platform } from "react-native";
 import { ensureUserRegistered } from "./userApi";
 
 /**
- * 원격 웹뷰 URL에 붙일 쿼리 파라미터 — 탭 4개(홈·기록·소셜·설정)와 세션 화면이 전부 같은
+ * 원격 웹뷰 URL에 붙일 쿼리 파라미터
+ *
+ * 탭 5개(홈·소셜·기록·랭킹·설정)와 세션 화면이 전부 같은
  * 파라미터 세트를 쓴다(통합 검토 확정, BY-333). 화면마다 따로 조립하면 화면 간 이동에서
  * 값이 갈라진다 — 그래서 화면이 아니라 여기 한 곳에서 만든다.
  *
@@ -47,6 +49,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 영상 저장·공유를 앱에 맡긴다(`apps/web/src/lib/nativeVideo.ts`).
   // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 처리 가능 여부를 알 수 없다.
   params.videoShare = "1";
+  // `ranking=1`: 이 바이너리에 랭킹 탭이 있다는 표시.
+  // 웹은 이 표시가 있을 때만 다른 화면에서 랭킹 탭으로 보내는 진입점을 보인다(`apps/web/src/lib/rankingCapability.ts`).
+  // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 탭이 있는지 알 수 없다.
+  params.ranking = "1";
   // `nativeTabBar=1`: 이 바이너리가 iOS에서 시스템 탭 바를 쓴다는 표시.
   // 시스템 탭 바는 웹뷰의 하단 안전 영역에 바 높이를 포함시키므로 웹은 플로팅 바 공식 대신 안전 영역만 쓰면 된다.
   // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.

@@ -137,6 +137,19 @@ describe("parseToNativeMessage", () => {
     ).toEqual({ type: "navigate-tab", tab: "social", via: "invite_card", atMs: 4 });
   });
 
+  it("navigate-home과 navigate-tab이 랭킹 탭과 랭킹 진입점 발신처를 받는다", () => {
+    expect(parseToNativeMessage('{"type":"navigate-home","tab":"ranking","atMs":9}')).toEqual({
+      type: "navigate-home",
+      tab: "ranking",
+      atMs: 9,
+    });
+    expect(
+      parseToNativeMessage(
+        '{"type":"navigate-tab","tab":"ranking","via":"overtake_popup","atMs":4}',
+      ),
+    ).toEqual({ type: "navigate-tab", tab: "ranking", via: "overtake_popup", atMs: 4 });
+  });
+
   it("navigate-tab의 목적지가 계약에 없으면 null이다 — 모르는 경로로 navigate하지 않는다", () => {
     expect(parseToNativeMessage('{"type":"navigate-tab","tab":"profile","atMs":4}')).toBeNull();
   });

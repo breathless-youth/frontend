@@ -69,7 +69,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 분석의 원천은 웹 Amplitude다(앱의 Firebase Analytics는 그 사본을 받을 뿐이다). 네이티브에서만 일어나는 사용자 이벤트는 `trackNativeEvent`로 기록하고 웹뷰 호스트가 브리지로 웹 Amplitude에 넘긴다. 카탈로그는 `NativeAnalyticsEventMap` 한 곳이고 속성은 원시값만(식별자·초대코드·자유 문자열 금지).
 
-- **전달 대상(sink)은 항상 하나다.** 탭 4개 웹뷰가 동시에 마운트돼 있어, `RemoteWebViewHost`는 `focused`이면서 웹이 `analytics-ready`를 보낸 문서일 때만 sink로 붙는다. sink가 없는 동안은 큐에 보관(최대 100건)했다가 다음 sink에 순서대로 흘린다.
+- **전달 대상(sink)은 항상 하나다.** 탭 5개 웹뷰가 동시에 마운트돼 있어, `RemoteWebViewHost`는 `focused`이면서 웹이 `analytics-ready`를 보낸 문서일 때만 sink로 붙는다. sink가 없는 동안은 큐에 보관(최대 100건)했다가 다음 sink에 순서대로 흘린다.
 - **`analytics-ready`는 handshake다.** 호스트는 재시도·사망 복구 진입에서 준비 상태를 되돌리고 `onLoadEnd`에서는 되돌리지 않는다. 한 사건을 두 발신부에서 찍지 않는다. 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 
 ## 화면 방향 — 룸만 회전
