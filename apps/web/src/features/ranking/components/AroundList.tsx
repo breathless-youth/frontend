@@ -200,7 +200,7 @@ function AroundRow({
             <span
               className={cn(
                 "text-[11px] leading-[13px] font-semibold",
-                !row.me && "text-feedback-success",
+                !row.me && "text-rank-live",
               )}
             >
               집중 중
