@@ -13,12 +13,14 @@
 - 저장소의 첫 로컬 Expo 모듈인 `apps/mobile/modules/direct-share`를 두고, autolinking이 찾는 `DirectShare` 모듈에 `shareToInstagramReels`와 `shareToKakaoTalk`을 둔다.
 - 웹은 `video-share`의 선택 필드 `target`에 누른 버튼(`instagram`·`kakao`)만 싣고, 바로 열 수 있는지는 앱이 판단한다.
 - 앱은 `Share.open`보다 먼저 대상 앱을 열어 보고, 열지 못하면 기존 `Share.open` 공유 시트로 돌아간다.
-- 대상 앱이 없거나 영상이 3초보다 짧으면 공유 시트로 돌아간다.
+- 대상 앱이 없으면 공유 시트로 돌아간다.
+- 인스타그램 릴스는 영상이 3초보다 짧을 때도 공유 시트로 돌아간다.
+- Android 카카오톡은 영상 길이를 보지 않고 설치돼 있으면 바로 연다.
 - Meta 앱 ID 없이 만든 빌드와 이 모듈이 없는 옛 Dev Client도 공유 시트로 돌아간다.
 - 모듈이 throw할 때와 iOS에서 카카오톡을 골랐을 때도 공유 시트로 돌아간다.
 - iOS 릴스는 `com.instagram.sharedSticker.backgroundVideo`와 `com.instagram.sharedSticker.appID`를 붙여넣기 보관함에 넣고 `instagram-reels://share`를 연다.
 - Android 릴스는 `com.instagram.share.ADD_TO_REEL` 인텐트에 `content://` 주소와 Meta 앱 ID를 싣고 인스타그램에 읽기 권한을 준다.
-- Android 카카오톡은 `ACTION_SEND` 인텐트를 `com.kakao.talk`으로 보내고, 열기 직전에 설치 링크가 든 공유 본문을 클립보드에 복사한다.
+- Android 카카오톡은 `ACTION_SEND` 인텐트를 `com.kakao.talk`으로 보내고, 연 뒤에 설치 링크가 든 공유 본문을 클립보드에 복사한다.
 - JS 래퍼는 `requireOptionalNativeModule`로 모듈을 불러와서, 모듈이 없으면 throw하지 않고 `false`를 돌려준다.
 - 옛 앱 파서는 아는 칸만 골라 담아 모르는 `target`을 버리고 공유 시트를 열기 때문에 `target`에는 기능 표시 쿼리를 붙이지 않는다.
 - 대상 앱 조회에 필요한 iOS 스킴 `instagram-reels`와 Android 패키지 `com.instagram.android`·`com.kakao.talk`은 react-native-share 플러그인 옵션으로 등록한다.
@@ -58,10 +60,9 @@
 - 그래서 이 ADR이 0013·0014의 보관 위치를 iOS 붙여넣기 보관함까지 넓힌다.
 - Android는 기존 공유 시트 경로와 같이 앱 캐시 파일의 읽기 권한만 인스타그램·카카오톡에 준다.
 - 인스타그램과 카카오톡은 실제로 올렸는지 돌려주지 않아서, 바로 열었을 때의 `shared`는 그 앱에 넘겼다는 뜻이다.
-- Android 13 이상은 카카오톡을 열기 직전 클립보드에 복사할 때 시스템 복사 알림이 뜬다.
-- Android의 두 함수는 `runOnQueue(Queues.MAIN)`으로 메인 큐에서 인텐트를 실행한다.
-- 영상 길이 확인은 릴스 함수만 하고 이것도 메인 큐에서 돈다.
-- 메인 큐의 길이 확인이 화면을 버벅이게 하는지는 실기기에서 확인한다.
+- Android 13 이상은 카카오톡을 연 뒤 클립보드에 복사할 때 시스템 복사 알림이 뜬다.
+- Android 릴스 함수는 파일을 읽는 길이 확인을 메인 스레드 밖에서 하고, 인텐트만 메인 스레드에서 실행한다.
+- Android 카카오톡 함수는 길이를 보지 않아 `runOnQueue(Queues.MAIN)`으로 메인 큐에서 인텐트를 실행한다.
 - 설치된 expo-modules-core 57.0.20에서 `Queues`는 `expo.modules.kotlin.functions.Queues`로 가져온다.
 - 루트 `.gitignore`가 이름이 `ios/`·`android/`인 폴더를 전부 무시해서 `apps/mobile/modules/*/ios/`와 `apps/mobile/modules/*/android/`를 다시 포함하는 두 줄을 더했다.
 - 앞으로 만드는 로컬 모듈의 네이티브 소스도 이 두 줄 덕분에 커밋 대상에 들어간다.
