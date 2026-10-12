@@ -9,11 +9,16 @@ import type { NativeTab } from "./nativeAnalytics";
  * `tabBarVisibility`·`tabReset`과 같은 모듈 스코프 통로다.
  */
 
-/** expo-router 라우트 이름 → 탭 id. 확정 4탭(BY-409에서 소셜 추가)이 모두 실재하는 라우트다. */
+/**
+ * expo-router 라우트 이름 → 탭 id
+ *
+ * 확정 5탭이 모두 실재하는 라우트다.
+ */
 export const TAB_BY_ROUTE_NAME: Record<string, NativeTab> = {
   index: "home",
   social: "social",
   records: "record",
+  ranking: "ranking",
   settings: "settings",
 };
 

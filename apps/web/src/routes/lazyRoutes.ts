@@ -16,6 +16,7 @@ export const loadContactPage = () => import("./ContactPage");
 export const loadInterviewFormPage = () => import("./InterviewFormPage");
 export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage");
 export const loadTimelapsesPage = () => import("./TimelapsesPage");
+export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {

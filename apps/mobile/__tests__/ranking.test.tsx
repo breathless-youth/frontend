@@ -1,0 +1,50 @@
+import { render, screen } from "@testing-library/react-native";
+
+import RankingScreen from "../app/(tabs)/ranking";
+
+jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
+jest.mock("expo-router", () => ({
+  ...jest.requireActual("expo-router"),
+  useIsFocused: () => true,
+}));
+
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
+}));
+
+// 스플래시 스켈레톤(`RemoteSplashSkeletons`)이 상단 안전영역을 읽는다.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
+jest.mock("react-native-webview", () => {
+  /*
+    eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --
+    `jest.mock` 팩토리는 상단 import보다 먼저 호이스팅돼 평가되므로 import 바인딩을 참조할 수 없다.
+  */
+  const ReactModule = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
+
+  return {
+    WebView: ReactModule.forwardRef(function MockWebView(
+      props: Record<string, unknown>,
+      ref: React.Ref<{ reload: () => void }>,
+    ) {
+      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      return ReactModule.createElement(View, props);
+    }),
+  };
+});
+
+describe("RankingScreen", () => {
+  it("/ranking 경로와 탭 공용 쿼리로 웹뷰를 연다", async () => {
+    render(<RankingScreen />);
+
+    expect(await screen.findByTestId("ranking-webview")).toBeTruthy();
+    expect(screen.getByTestId("ranking-webview").props.source).toEqual({
+      uri: "https://web.test/ranking?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+    });
+  });
+});

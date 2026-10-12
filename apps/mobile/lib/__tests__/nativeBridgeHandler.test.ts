@@ -525,11 +525,62 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
     ]);
   });
 
-  it("tab 없는 navigate-home은 탭을 옮기지 않는다", () => {
+  it("랭킹 카드가 보낸 navigate-tab으로 랭킹 탭에 가고 발신처를 남긴다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "ranking", via: "home_ranking_card", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "ranking", from_tab: "home", via: "home_ranking_card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/ranking");
+  });
+
+  it("navigate-home에 랭킹 탭이 실려 오면 모달을 닫고 랭킹 탭으로 간다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-home", tab: "ranking", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/ranking");
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "ranking", from_tab: "home", via: "result_ranking_card" }],
+    ]);
+  });
+
+  it("홈에서 연 세션의 tab 없는 navigate-home은 모달만 닫고 탭을 바꾸지 않는다", () => {
+    setActiveTabRoute("index");
+
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
     expect(mockedRouter.navigate).not.toHaveBeenCalled();
     expect(received).toEqual([]);
+  });
+
+  /**
+   * 랭킹에서 연 세션의 홈으로
+   *
+   * 랭킹 탭에도 집중 시작이 있어 모달만 닫으면 세션을 연 랭킹 탭이 드러난다.
+   * `홈으로`는 이름대로 홈 탭으로 보내고, 탭 이동 이벤트는 남기지 않는다.
+   */
+  it("랭킹에서 연 세션의 tab 없는 navigate-home은 모달을 닫고 홈 탭으로 간다", () => {
+    setActiveTabRoute("ranking");
+
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    expect(received).toEqual([]);
+    // 모달을 먼저 닫아야 드러난 탭 위에서 홈으로 바뀐다.
+    expect(mockedRouter.back.mock.invocationCallOrder[0]).toBeLessThan(
+      mockedRouter.navigate.mock.invocationCallOrder[0]!,
+    );
   });
 });
 

@@ -12,7 +12,7 @@ import { useTabBarState } from "../lib/tabBarVisibility";
  * iOS 26은 Liquid Glass로, iOS 18 이하는 기본 탭 바로 시스템이 그린다.
  * 아이콘은 Android 커스텀 바와 같은 패스를 검정 템플릿 PNG로 구운 것이라 색은 시스템 tint가 입힌다.
  * 활성 아이콘은 같은 패스의 안쪽을 채운 것이라 모양은 그대로고 색만 반전돼 보인다.
- * 탭 4개는 조건 없이 항상 렌더한다.
+ * 탭 5개는 조건 없이 항상 렌더한다.
  * 실행 중 트리거를 넣고 빼면 네비게이터가 다시 마운트돼 상태를 잃는다.
  */
 const TABS = [
@@ -33,6 +33,12 @@ const TABS = [
     label: "기록",
     icon: require("../assets/tabs/record.png") as number,
     iconSelected: require("../assets/tabs/record-selected.png") as number,
+  },
+  {
+    name: "ranking",
+    label: "랭킹",
+    icon: require("../assets/tabs/ranking.png") as number,
+    iconSelected: require("../assets/tabs/ranking-selected.png") as number,
   },
   {
     name: "settings",

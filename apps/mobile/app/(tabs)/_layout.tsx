@@ -93,6 +93,7 @@ function CustomTabsLayout() {
       <Tabs.Screen name="index" options={{ title: "홈" }} />
       <Tabs.Screen name="social" options={{ title: "소셜" }} />
       <Tabs.Screen name="records" options={{ title: "기록" }} />
+      <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
       <Tabs.Screen name="settings" options={{ title: "설정" }} />
     </Tabs>
   );

@@ -139,14 +139,13 @@ export interface RankingBoardResponse {
    * 일수 판의 내 주변 묶음
    *
    * 내 묶음 앞 2개, 내 묶음, 뒤 2개이고 내 순위가 없으면 빈 배열이다.
-   * 이 묶음이 누적 일수 판까지 배포되기 전 응답에서는 연속 공부 판에만 온다.
+   * 일수 판에만 오므로 다른 판에서는 비어 있다.
    */
   aroundGroups?: RankingDayGroup[] | null;
   /**
    * 일수 판의 시상대 묶음
    *
    * 일수 판만 보내고, 일수가 많은 순으로 최대 3묶음이며 내 참가와 상관없이 온다.
-   * 이 필드가 배포되기 전 응답에는 없다.
    */
   podiumGroups?: RankingDayGroup[] | null;
   goalExamples?: RankingGoalExample[] | null;

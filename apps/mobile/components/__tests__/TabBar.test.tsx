@@ -14,7 +14,7 @@ import {
  * Android 하단 플로팅 탭 바
  *
  * iOS는 시스템 탭 바를 쓰므로 이 바는 Android에서만 그려진다.
- * 탭 순서(홈·소셜·기록·설정)와 불투명 배경, 고정 알약의 활성 표시가 회귀하지 않게 고정한다.
+ * 탭 순서(홈·소셜·기록·랭킹·설정)와 불투명 배경, 고정 알약의 활성 표시가 회귀하지 않게 고정한다.
  */
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -80,11 +80,17 @@ describe("TabBar 배경", () => {
 });
 
 describe("TabBar", () => {
-  it("4탭을 홈·소셜·기록·설정 순서로 렌더한다", () => {
+  it("5탭을 홈·소셜·기록·랭킹·설정 순서로 렌더한다", () => {
     render(<TabBar active="home" />);
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual(["홈", "소셜", "기록", "설정"]);
+    expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
+      "홈",
+      "소셜",
+      "기록",
+      "랭킹",
+      "설정",
+    ]);
   });
 
   it("소셜 탭 활성 시 selected 상태가 소셜에만 붙는다", () => {
@@ -94,6 +100,7 @@ describe("TabBar", () => {
     expect(tabs.map((tab) => tab.props.accessibilityState?.selected)).toEqual([
       false,
       true,
+      false,
       false,
       false,
     ]);
@@ -124,6 +131,17 @@ describe("TabBar — tab_pressed 이벤트", () => {
       ["tab_pressed", { tab: "record", from_tab: "home", via: "tab_bar" }],
     ]);
     expect(router.navigate).toHaveBeenCalledWith("/records");
+  });
+
+  it("랭킹 탭을 누르면 /ranking으로 간다", () => {
+    render(<TabBar active="home" />);
+
+    fireEvent.press(screen.getByRole("tab", { name: "랭킹" }));
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "ranking", from_tab: "home", via: "tab_bar" }],
+    ]);
+    expect(router.navigate).toHaveBeenCalledWith("/ranking");
   });
 
   it("활성 탭은 비활성화돼 있어 눌러도 이벤트가 없다", () => {

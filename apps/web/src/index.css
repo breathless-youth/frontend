@@ -11,6 +11,7 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-deep: var(--primary-deep);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -40,6 +41,10 @@
   --color-bg-control-track: var(--bg-control-track);
   --color-feedback-success: var(--feedback-success);
   --color-feedback-danger: var(--feedback-danger);
+  --color-rank-alert: var(--rank-alert);
+  --color-rank-alert-badge-bg: var(--rank-alert-badge-bg);
+  --color-rank-alert-badge-fg: var(--rank-alert-badge-fg);
+  --color-rank-live: var(--rank-live);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -232,6 +237,9 @@
 .theme-soft-blue {
   --primary: #3671cf;
   --primary-foreground: #ffffff;
+  /* Figma softblue/primary-deep.
+     흰 글자를 올리는 선택 칩, 작은 집중 시작, 내 줄의 채움이다. */
+  --primary-deep: #3671cf;
   --foreground: #1f2a3d;
   --muted-foreground: #556173;
   --text-tertiary: #b3bccb;
@@ -274,12 +282,26 @@
   --subject-18: #4f9d8f;
   --subject-19: #b0555f;
   --feedback-danger: #f04452;
+  /* 랭킹 아랫줄 경고 글자.
+     빨강을 글자색 쪽으로 눌러 채도를 낮추고 카드 위에서 4.5:1을 넘긴다. */
+  --rank-alert: color-mix(in srgb, var(--feedback-danger) 80%, var(--foreground));
+  /* ▼N 배지 바탕.
+     배지는 내 줄의 파란 채움 위에 놓여, 카드 면에 빨강을 조금만 섞은 연한 빨강으로 줄과 갈라 보이게 한다. */
+  --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 10%, var(--muted));
+  /* ▼N 배지 글자.
+     연한 배지 바탕 위에서 4.5:1을 넘기도록 빨강을 글자색 쪽으로 누른다. */
+  --rank-alert-badge-fg: color-mix(in srgb, var(--feedback-danger) 75%, var(--foreground));
+  /* 랭킹 목록의 집중 중 글자.
+     작은 초록 글자라 글자색 쪽으로 조금 눌러 흰 카드 위에서 4.5:1을 넘긴다. */
+  --rank-live: color-mix(in srgb, var(--feedback-success) 77%, var(--foreground));
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .theme-soft-blue {
     --primary: #5a90ea;
     --primary-foreground: #ffffff;
+    /* Figma softblue/primary-deep는 다크에서도 라이트와 같은 값이다. */
+    --primary-deep: #3671cf;
     --foreground: #eaf0f9;
     --muted-foreground: #9fabc0;
     --text-tertiary: #6b7789;
@@ -321,6 +343,18 @@
     --subject-18: #68b5a7;
     --subject-19: #e5848d;
     --feedback-danger: #ff6b7a;
+    /* 랭킹 아랫줄 경고 글자.
+       다크 빨강은 이미 밝아 어두운 카드 면에 조금만 섞는다. */
+    --rank-alert: color-mix(in srgb, var(--feedback-danger) 90%, var(--muted));
+    /* ▼N 배지 바탕.
+       배지는 내 줄의 파란 채움 위에 놓여, 어두운 카드 면에 빨강을 조금 섞은 어두운 빨강으로 줄과 갈라 보이게 한다. */
+    --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 14%, var(--muted));
+    /* ▼N 배지 글자.
+       다크 빨강 그대로도 배지 바탕 위에서 4.5:1을 넘긴다. */
+    --rank-alert-badge-fg: var(--feedback-danger);
+    /* 랭킹 목록의 집중 중 글자.
+       다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */
+    --rank-live: var(--feedback-success);
   }
 }
 
@@ -328,6 +362,8 @@
 :root[data-theme="dark"] .theme-soft-blue {
   --primary: #5a90ea;
   --primary-foreground: #ffffff;
+  /* Figma softblue/primary-deep는 다크에서도 라이트와 같은 값이다. */
+  --primary-deep: #3671cf;
   --foreground: #eaf0f9;
   --muted-foreground: #9fabc0;
   --text-tertiary: #6b7789;
@@ -369,6 +405,18 @@
   --subject-18: #68b5a7;
   --subject-19: #e5848d;
   --feedback-danger: #ff6b7a;
+  /* 랭킹 아랫줄 경고 글자.
+     다크 빨강은 이미 밝아 어두운 카드 면에 조금만 섞는다. */
+  --rank-alert: color-mix(in srgb, var(--feedback-danger) 90%, var(--muted));
+  /* ▼N 배지 바탕.
+     배지는 내 줄의 파란 채움 위에 놓여, 어두운 카드 면에 빨강을 조금 섞은 어두운 빨강으로 줄과 갈라 보이게 한다. */
+  --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 14%, var(--muted));
+  /* ▼N 배지 글자.
+     다크 빨강 그대로도 배지 바탕 위에서 4.5:1을 넘긴다. */
+  --rank-alert-badge-fg: var(--feedback-danger);
+  /* 랭킹 목록의 집중 중 글자.
+     다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */
+  --rank-live: var(--feedback-success);
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에

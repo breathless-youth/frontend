@@ -11,8 +11,8 @@ import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
  *
  * ## 전달 대상은 언제나 하나(sink)다
  *
- * 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다. 호스트는
- * "포커스된 화면의 웹뷰이면서 웹이 `analytics-ready`를 보낸 문서"일 때만 sink로 붙고, 마지막에
+ * 탭 5개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다.
+ * 호스트는 "포커스된 화면의 웹뷰이면서 웹이 `analytics-ready`를 보낸 문서"일 때만 sink로 붙고, 마지막에
  * 붙은 sink가 활성이다. sink가 하나도 없는 동안(권한 거부 화면이 탭을 덮음·로드 실패·재로드·
  * 렌더러 복구 중)은 큐에 보관했다가 다음 sink가 붙는 순간 순서대로 흘려보낸다 — 그래서 S2-3
  * 화면에서 일어난 일도 홈으로 돌아온 뒤 도착한다. 이벤트의 `atMs`는 이때를 위해 발생 시각을
@@ -37,7 +37,7 @@ import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
  */
 
 /** `components/TabBar.tsx`의 `TabId`와 같은 값 집합 — 탭 바가 좁혀서 보낸다. */
-export type NativeTab = "home" | "social" | "record" | "settings";
+export type NativeTab = "home" | "social" | "record" | "ranking" | "settings";
 
 export type NativeAnalyticsProperties = Record<string, NativeAnalyticsPropertyValue>;
 
@@ -72,12 +72,23 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
    * `navigate-tab {via: study_result}`로 옮김, BY-560) / `invite_card`(홈 친구 초대 카드가
    * `navigate-tab {tab: social, via: invite_card}`로 옮김) / `hardware_back`(Android 시스템 뒤로가기로
    * 홈 탭 복귀, `app/(tabs)/_layout.tsx`; 홈 탭에서의 뒤로가기는 앱 종료라 탭 이동이 아니다).
+   * `home_ranking_card`·`overtake_popup`·`top3_modal`·`result_ranking_card`는 웹의 랭킹 진입점이 랭킹 탭으로 보낸 것이다.
+   * 대부분 `navigate-tab {tab: ranking}`으로 오고, 솔로 결과의 랭킹 카드만 모달을 닫아야 해서 `navigate-home {tab: ranking}`으로 와 `result_ranking_card`로 센다.
    * 사용자에겐 전부 같은 탭 이동이라 한 이벤트로 센다.
    */
   tab_pressed: {
     tab: NativeTab;
     from_tab: NativeTab;
-    via: "tab_bar" | "card" | "study_result" | "invite_card" | "hardware_back";
+    via:
+      | "tab_bar"
+      | "card"
+      | "study_result"
+      | "invite_card"
+      | "hardware_back"
+      | "home_ranking_card"
+      | "overtake_popup"
+      | "top3_modal"
+      | "result_ranking_card";
   };
   /**
    * 카메라 권한 게이트의 분기 결과(`lib/cameraPermissionGate.ts`). `already_denied`는 OS 다이얼로그
