@@ -98,7 +98,13 @@
           "granularPermissions": []
         }
       ],
-      ["react-native-share", {}]
+      [
+        "react-native-share",
+        {
+          "ios": ["instagram-reels"],
+          "android": ["com.instagram.android", "com.kakao.talk"]
+        }
+      ]
     ],
     "extra": {
       "appDisplayName": "포커스 메이커스",

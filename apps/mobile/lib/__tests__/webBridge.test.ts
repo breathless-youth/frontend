@@ -635,6 +635,25 @@ describe("parseToNativeMessage: 타임랩스 영상", () => {
     ).toEqual({ type: "video-share", id: ID, chunks: 2, text: "본문", atMs: 1 });
   });
 
+  it("video-share의 target은 아는 값일 때만 싣는다", () => {
+    expect(
+      parse({ type: "video-share", id: ID, chunks: 2, text: "본문", target: "instagram", atMs: 1 }),
+    ).toEqual({
+      type: "video-share",
+      id: ID,
+      chunks: 2,
+      text: "본문",
+      target: "instagram",
+      atMs: 1,
+    });
+    expect(
+      parse({ type: "video-share", id: ID, chunks: 2, text: "본문", target: "kakao", atMs: 1 }),
+    ).toEqual({ type: "video-share", id: ID, chunks: 2, text: "본문", target: "kakao", atMs: 1 });
+    expect(
+      parse({ type: "video-share", id: ID, chunks: 2, text: "본문", target: "tiktok", atMs: 1 }),
+    ).toEqual({ type: "video-share", id: ID, chunks: 2, text: "본문", atMs: 1 });
+  });
+
   it("video-share의 text가 문자열이 아니면 버린다", () => {
     expect(parse({ type: "video-share", id: ID, chunks: 2, atMs: 1 })).toBeNull();
   });

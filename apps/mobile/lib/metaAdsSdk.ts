@@ -1,9 +1,8 @@
-import Constants from "expo-constants";
 import { PermissionStatus, requestTrackingPermissionsAsync } from "expo-tracking-transparency";
 import { AppState, Platform } from "react-native";
 import type * as Fbsdk from "react-native-fbsdk-next";
 
-import { type MetaAdsAdapter, setMetaAdsAdapter } from "./metaAds";
+import { type MetaAdsAdapter, metaAppIdFromConfig, setMetaAdsAdapter } from "./metaAds";
 
 /**
  * `react-native-fbsdk-next`·`expo-tracking-transparency` 실구현 어댑터.
@@ -13,12 +12,6 @@ import { type MetaAdsAdapter, setMetaAdsAdapter } from "./metaAds";
  * `app/_layout.tsx`가 모듈 스코프에서 `installMetaAdsSdk()`를 불러 Meta env가 있는 빌드에서만 붙인다.
  * SDK 패키지는 파일 맨 위가 아니라 `installMetaAdsSdk`의 앱 ID 확인 뒤에서 불러온다.
  */
-
-/** `app.config.ts`가 `META_APP_ID` env에서 `extra.metaAppId`로 옮겨 적는다. 없는 빌드는 빈 문자열이다. */
-export function metaAppIdFromConfig(): string | null {
-  const appId = Constants.expoConfig?.extra?.metaAppId as string | undefined;
-  return typeof appId === "string" && appId.length > 0 ? appId : null;
-}
 
 /** ATT 프롬프트가 뜨지 못했을 때 다시 묻는 횟수와 간격. */
 const ATT_MAX_ATTEMPTS = 5;

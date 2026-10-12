@@ -1,4 +1,4 @@
-import type { ToNativeMessage, VideoResultStatus } from "@focusmakers/types";
+import type { ToNativeMessage, VideoResultStatus, VideoShareTarget } from "@focusmakers/types";
 
 import type { InstallUtm } from "@/features/social-room/storeLink";
 
@@ -63,13 +63,17 @@ export function saveVideoNatively(blob: Blob): Promise<VideoResultStatus> {
   return sendVideo(blob, (id, chunks) => ({ type: "video-save", id, chunks, atMs: Date.now() }));
 }
 
-export function shareVideoNatively(blob: Blob): Promise<VideoResultStatus> {
+export function shareVideoNatively(
+  blob: Blob,
+  target?: VideoShareTarget,
+): Promise<VideoResultStatus> {
   const text = timelapseShareText(window.location.origin);
   return sendVideo(blob, (id, chunks) => ({
     type: "video-share",
     id,
     chunks,
     text,
+    ...(target !== undefined ? { target } : {}),
     atMs: Date.now(),
   }));
 }

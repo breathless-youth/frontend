@@ -28,7 +28,12 @@ jest.mock("react-native-fbsdk-next", () => {
   mockSdkLoaded = true;
   return { AppEventsLogger: { logEvent: jest.fn() }, Settings: { initializeSDK: jest.fn() } };
 });
-jest.mock("../metaAds", () => ({ setMetaAdsAdapter: jest.fn() }));
+jest.mock("../metaAds", () => ({
+  metaAppIdFromConfig: jest.requireActual<{ metaAppIdFromConfig: () => string | null }>(
+    "../metaAds",
+  ).metaAppIdFromConfig,
+  setMetaAdsAdapter: jest.fn(),
+}));
 
 function install(): jest.Mock {
   const { installMetaAdsSdk } = jest.requireActual<typeof MetaAdsSdkModule>("../metaAdsSdk");

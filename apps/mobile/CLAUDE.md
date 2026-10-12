@@ -87,7 +87,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 ## 개인정보 원칙 (변경 불가, WebView·네이티브 공통)
 
 - 카메라 원본 프레임·얼굴 이미지·랜드마크 좌표는 단말 내부에서만 처리. 서버 전송·저장·로그 금지. 서버에는 비공부 상태 이벤트(`StudyEventStatus`)와 세션 집계만 전송. 용어는 [docs/domain-glossary.md](../../docs/domain-glossary.md).
-- 싱글룸 타임랩스 사진과 그 사진으로 만든 공유용 영상만 [ADR 0013](../../docs/adr/0013-timelapse-photo-storage-exception.md)의 조건으로 기기 IndexedDB에 보관하고 서버로 보내지 않는다. 웹이 넘긴 타임랩스 영상은 저장·공유할 때 [ADR 0014](../../docs/adr/0014-webview-video-transfer-to-native.md)의 조건으로 앱 캐시에 사본이 생기고 서버로 보내지 않는다. 저장 사본은 바로 지워지고 공유 사본은 다음 앱 시작이나 다음 전달 때까지 남는다.
+- 싱글룸 타임랩스 사진과 그 사진으로 만든 공유용 영상만 [ADR 0013](../../docs/adr/0013-timelapse-photo-storage-exception.md)의 조건으로 기기 IndexedDB에 보관하고 서버로 보내지 않는다. 웹이 넘긴 타임랩스 영상은 저장·공유할 때 [ADR 0014](../../docs/adr/0014-webview-video-transfer-to-native.md)의 조건으로 앱 캐시에 사본이 생기고 서버로 보내지 않는다. 저장 사본은 바로 지워지고 공유 사본은 다음 앱 시작이나 다음 전달 때까지 남는다. iOS에서 인스타그램 릴스로 보낼 때는 [ADR 0015](../../docs/adr/0015-timelapse-direct-share-local-module.md)의 조건으로 영상이 붙여넣기 보관함에 다른 기기와 동기화하지 않은 채 5분 동안 남는다. DirectShare 모듈이 든 빌드를 스토어에 내기 전에 이 붙여넣기 보관함 사본을 개인정보처리방침에 적을지 정한다.
 - 싱글룸은 영상 자체가 어디에도 전송되지 않는다. 멀티룸은 카메라 영상이 WebRTC P2P로 상대 참여자에게 전송된다(서버 미경유, 녹화·저장 안 함). "영상이 서버로 전송되지 않는다"고 쓰지 말 것. 싱글/멀티 안내 문구를 동일하게 쓰지 말 것.
 
 ## 그 밖

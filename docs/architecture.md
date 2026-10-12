@@ -64,6 +64,8 @@ apps/web (Vite + React)
 - 웹은 저장·공유 결과를 시간 제한 없이 기다린다. 앱은 실패해도 `failed`로 답한다.
 - 조각이나 요청을 브리지에 넘기지 못하면 웹은 바로 `failed`로 끝낸다.
 - 저장이 끝난 임시 파일은 바로 지우고, 공유가 남긴 파일은 다음 전달의 첫 조각이 올 때나 앱이 시작할 때 지운다.
+- `video-share`에 `target`(`instagram`·`kakao`)이 있으면 앱은 `DirectShare` 모듈로 그 앱을 먼저 바로 열고, 열 수 없으면 OS 공유 시트로 돌아간다([ADR 0015](./adr/0015-timelapse-direct-share-local-module.md)).
+- 옛 앱은 모르는 `target`을 버리고 공유 시트를 열기 때문에 이 필드에는 기능 표시 쿼리가 없다.
 
 ## 신원과 API
 

@@ -1,4 +1,4 @@
-import type { VideoResultStatus } from "@focusmakers/types";
+import type { VideoResultStatus, VideoShareTarget } from "@focusmakers/types";
 
 import { trackOsSettingsOpened, trackTimelapseShareTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
@@ -88,14 +88,16 @@ export function saveTimelapse(
  *
  * 브라우저 공유 창은 누른 직후에만 열리므로 navigator.share 앞에서 기다리지 않는다.
  * 사용자가 공유 창을 닫으면 AbortError가 온다.
+ * 목적지는 앱만 쓴다. 브라우저는 대상 앱을 고를 수 없어 같은 공유 창을 연다.
  */
 export async function shareTimelapse(
   route: ShareRoute,
   video: Blob,
   startedAtMs: number,
+  target?: VideoShareTarget,
 ): Promise<VideoResultStatus> {
   if (route === "native") {
-    return shareVideoNatively(video);
+    return shareVideoNatively(video, target);
   }
   const file = new File([video], timelapseFileName(startedAtMs), { type: MP4 });
   try {
@@ -125,10 +127,11 @@ export async function sendTimelapse({
   startedAtMs: number;
   entry: ShareTapped["entry"];
 }): Promise<VideoResultStatus> {
-  const send = button === "save" ? saveTimelapse : shareTimelapse;
   let result: VideoResultStatus = "failed";
   try {
-    result = await send(route, video, startedAtMs);
+    result = await (button === "save"
+      ? saveTimelapse(route, video, startedAtMs)
+      : shareTimelapse(route, video, startedAtMs, button === "more" ? undefined : button));
   } catch {
     // 위의 실패 기본값을 그대로 쓴다.
   }
