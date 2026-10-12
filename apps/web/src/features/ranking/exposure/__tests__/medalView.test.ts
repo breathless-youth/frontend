@@ -99,37 +99,6 @@ describe("medalModalView", () => {
     expect(view.more).toBe(2);
   });
 
-  it("4개 이상의 그림은 딴 순위마다 메달 하나를 셋일 때처럼 가운데 1위·오른쪽 2위·왼쪽 3위로 둔다", () => {
-    const view = medalModalView(FIXTURE_UNSEEN_FIVE)!;
-
-    expect(view.stack).toEqual({ left: 3, center: 1, right: 2 });
-    expect(view.crown).toBe(true);
-  });
-
-  it("4개 이상에서 딴 순위가 둘이면 둘일 때처럼 높은 순위를 가운데, 다른 순위를 오른쪽에 둔다", () => {
-    const records = [
-      daily(1, "2026-10-09", 1, "2026-10-09T15:00:00Z"),
-      daily(2, "2026-10-09", 1, "2026-10-09T15:00:00Z"),
-      daily(3, "2026-10-09", 1, "2026-10-09T15:00:00Z"),
-      daily(4, "2026-10-09", 3, "2026-10-09T15:00:00Z"),
-    ];
-
-    expect(medalModalView({ total: 4, records })!.stack).toEqual({
-      left: null,
-      center: 1,
-      right: 3,
-    });
-  });
-
-  it("4개 이상이 모두 같은 순위면 메달 하나만 그린다", () => {
-    const records = [1, 2, 3, 4].map((id) => daily(id, "2026-10-09", 2, "2026-10-09T15:00:00Z"));
-
-    expect(medalModalView({ total: 4, records })).toMatchObject({
-      stack: { left: null, center: 2, right: null },
-      crown: false,
-    });
-  });
-
   it("개수 줄에서 0개인 순위는 뺀다", () => {
     const records = [
       daily(1, "2026-10-09", 1, "2026-10-09T15:00:00Z"),
@@ -144,17 +113,30 @@ describe("medalModalView", () => {
     ]);
   });
 
-  it("둘이면 높은 순위를 가운데, 둘째를 오른쪽에 두고 1위가 없으면 왕관이 없다", () => {
+  it.each([
+    ["둘(은·동)", [2, 3]],
+    ["둘(금·금)", [1, 1]],
+    ["넷(모두 은)", [2, 2, 2, 2]],
+    ["넷(금·동)", [1, 1, 1, 3]],
+    ["다섯(금·은·동)", [1, 1, 2, 3, 3]],
+  ] as const)("%s이어도 그림은 늘 가운데 1위·오른쪽 2위·왼쪽 3위와 왕관이다", (_, ranks) => {
+    const records = ranks.map((rank, index) =>
+      daily(index + 1, "2026-10-09", rank, "2026-10-09T15:00:00Z"),
+    );
+
+    expect(medalModalView({ total: ranks.length, records })).toMatchObject({
+      stack: { left: 3, center: 1, right: 2 },
+      crown: true,
+    });
+  });
+
+  it("여럿일 때 가장 높은 순위는 그림이 아니라 실제 메달에서 고른다", () => {
     const records = [
       daily(1, "2026-10-09", 2, "2026-10-09T15:00:00Z"),
       daily(2, "2026-10-09", 3, "2026-10-09T15:00:00Z"),
     ];
 
-    expect(medalModalView({ total: 2, records })).toMatchObject({
-      stack: { left: null, center: 2, right: 3 },
-      crown: false,
-      bestRank: 2,
-    });
+    expect(medalModalView({ total: 2, records })!.bestRank).toBe(2);
   });
 
   it("기간이 섞이고 마감 시각이 같으면 위 줄은 마감 시각, 줄마다 기간을 쓴다", () => {
