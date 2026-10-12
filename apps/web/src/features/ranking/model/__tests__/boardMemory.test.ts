@@ -7,8 +7,10 @@ import {
   mergeOnFocus,
   readBoardMemory,
   requestBoard,
+  requestRecordsPage,
   resetBoardMemoryStore,
   setBoardMemoryStore,
+  takeRecordsPageRequest,
   withSelection,
   writeBoardMemory,
 } from "../boardMemory";
@@ -160,5 +162,50 @@ describe("판 바꾸기와 포커스 복귀", () => {
     });
 
     expect(mergeOnFocus(DEFAULT_BOARD_MEMORY, stored)).toEqual(stored);
+  });
+});
+
+describe("모두 보기 요청", () => {
+  it("한 번만 꺼내고 판 기억과 넘겨준 구간은 남긴다", () => {
+    requestBoard({ type: "TIME_SLOT", period: "DAILY", slot: "EVENING" });
+    requestRecordsPage(1_000);
+
+    expect(takeRecordsPageRequest(2_000)).toBe(true);
+    expect(takeRecordsPageRequest(2_000)).toBe(false);
+    expect(readBoardMemory().ranking).toEqual({
+      type: "TIME_SLOT",
+      period: "DAILY",
+      slot: "EVENING",
+    });
+  });
+
+  it("1분이 지난 요청은 열지 않고 지운다", () => {
+    requestRecordsPage(0);
+
+    expect(takeRecordsPageRequest(60_001)).toBe(false);
+    expect(JSON.parse(store.raw!)).not.toHaveProperty("requestedRecordsAt");
+  });
+
+  it("판 기억을 다시 적으면 요청도 지워진다", () => {
+    requestRecordsPage(0);
+
+    writeBoardMemory(readBoardMemory());
+
+    expect(takeRecordsPageRequest(0)).toBe(false);
+  });
+
+  it("저장소를 읽지 못하면 요청이 없는 것으로 보고 throw하지 않는다", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    setBoardMemoryStore({
+      read: () => {
+        throw new Error("blocked");
+      },
+      write: () => {
+        throw new Error("blocked");
+      },
+    });
+
+    expect(() => requestRecordsPage()).not.toThrow();
+    expect(takeRecordsPageRequest()).toBe(false);
   });
 });
