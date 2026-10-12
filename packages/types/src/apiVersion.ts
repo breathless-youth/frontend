@@ -63,6 +63,18 @@ export const API_ENDPOINTS = {
   notices: { version: "1", parsedBy: "apps/web/src/lib/noticeApi.ts" },
   /** `GET /api/interview/status` — 완료 화면 카드·설정 행. 새 경로다. */
   interview: { version: "1", parsedBy: "apps/web/src/lib/interviewApi.ts" },
+  /**
+   * `GET /api/rankings/board`: 랭킹판.
+   * 새 경로라 명세가 하나다.
+   */
+  rankingBoard: { version: "1", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingBoard" },
+  /** `GET /api/rankings/records/summary`: 메달 버튼과 랭킹 기록 시트. */
+  rankingRecordsSummary: {
+    version: "1",
+    parsedBy: "apps/web/src/lib/rankingApi.ts getRankingRecordsSummary",
+  },
+  /** `GET /api/rankings/records`: 랭킹 기록 모두 보기. */
+  rankingRecords: { version: "1", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingRecords" },
 
   /** `POST /api/study-sessions` — 세션 제출 */
   studySessionSubmit: {

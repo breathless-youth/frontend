@@ -114,8 +114,12 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/timelapses")).toBe(true);
   });
 
+  it("랭킹 기록 모두 보기는 전체 화면이다", () => {
+    expect(isFullScreenPath("/ranking/records")).toBe(true);
+  });
+
   it("탭 라우트는 가리지 않는다", () => {
-    for (const path of ["/home", "/records", "/settings", "/social", "/"]) {
+    for (const path of ["/home", "/records", "/ranking", "/settings", "/social", "/"]) {
       expect(isFullScreenPath(path)).toBe(false);
     }
   });

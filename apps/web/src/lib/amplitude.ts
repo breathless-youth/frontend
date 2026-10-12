@@ -10,7 +10,16 @@ import {
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
-import type { StudyEventStatus, TrackEventMessage, VideoResultStatus } from "@focusmakers/types";
+import type {
+  MedalRank,
+  RankingPeriod,
+  RankingRecordType,
+  RankingType,
+  StudyEventStatus,
+  TimeSlot,
+  TrackEventMessage,
+  VideoResultStatus,
+} from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
@@ -745,13 +754,22 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
+/** 집중 시작을 누른 자리. */
+export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+
 /**
- * 홈 "집중 시작" 탭 — 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정한다. autocapture
- * 클릭은 분기를 모른다. F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모.
+ * 홈과 랭킹의 "집중 시작" 탭
+ *
+ * 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정하고, autocapture 클릭은 이 분기를 모른다.
+ * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
+ * `source`는 누른 자리다.
  */
-export function trackFocusStartTapped(destination: "guide" | "session") {
+export function trackFocusStartTapped(
+  destination: "guide" | "session",
+  source: FocusStartSource = "home",
+) {
   if (!initialized) return;
-  track("focus_start_tapped", { destination });
+  track("focus_start_tapped", { destination, source });
 }
 
 /**
@@ -891,6 +909,59 @@ export function trackRecordsPeriodPicked(input: {
   track("records_period_picked", { view: input.view, to_today: input.toToday });
 }
 
+/**
+ * 랭킹판 보기
+ *
+ * 랭킹판을 그렸다.
+ * 판을 바꿨거나 다시 보여 첫 데이터를 그렸을 때 한 번 보낸다.
+ * 명예의 전당은 기간·구간이 `none`이다.
+ */
+export function trackRankingBoardViewed(input: {
+  readonly type: RankingType;
+  readonly period: RankingPeriod | null;
+  readonly slot: TimeSlot | null;
+  readonly state: "ranked" | "first_place" | "reset" | "first" | "ineligible";
+}) {
+  if (!initialized) return;
+  track("ranking_board_viewed", {
+    type: input.type,
+    period: input.period ?? "none",
+    slot: input.slot ?? "none",
+    state: input.state,
+  });
+}
+
+/**
+ * 랭킹 기록 열기
+ *
+ * 메달 버튼으로 랭킹 기록 시트를 열었다.
+ * 요약을 아직 못 받았으면 개수를 싣지 않는다.
+ */
+export function trackRankingRecordsOpened(total: number | null) {
+  if (!initialized) return;
+  track("ranking_records_opened", total === null ? {} : { total });
+}
+
+/**
+ * 랭킹 기록 메달 탭
+ *
+ * 랭킹 기록의 메달을 눌러 그 판으로 갔다.
+ */
+export function trackRankingRecordTapped(input: {
+  readonly rank: MedalRank;
+  readonly type: RankingRecordType;
+  readonly period: RankingPeriod;
+  readonly from: "sheet" | "all";
+}) {
+  if (!initialized) return;
+  track("ranking_record_tapped", {
+    rank: input.rank,
+    type: input.type,
+    period: input.period,
+    from: input.from,
+  });
+}
+
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";
@@ -1023,9 +1094,9 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
 
 /**
  * 예약을 소비할 화면의 경로. **경로로 못박는 것이 이 설계의 핵심 안전장치다** — 네이티브는 탭
- * 4개 웹뷰를 동시에 마운트해 두고(`apps/mobile/CLAUDE.md`), `document.visibilityState`는 어느
+ * 5개 웹뷰를 동시에 마운트해 두고(`apps/mobile/CLAUDE.md`), `document.visibilityState`는 어느
  * 탭이 보이는지가 아니라 앱 전체의 포/백그라운드에만 반응한다. 못박지 않으면 앱을 잠갔다 푸는
- * 것만으로 네 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
+ * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
 export type ResultExitPath = "/home" | "/social" | "/records";
@@ -1121,7 +1192,14 @@ export function trackSessionNoticeConfirmed(input: {
 /** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
 export function trackErrorRetryPressed(
   screen:
-    "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact" | "interview_form",
+    | "home"
+    | "records"
+    | "planner"
+    | "profile"
+    | "live_room_entry"
+    | "contact"
+    | "interview_form"
+    | "ranking",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });

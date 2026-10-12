@@ -98,6 +98,15 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
   });
 
+  it("tab-focus는 focused가 boolean일 때만 받는다", () => {
+    expect(parseToWebMessage('{"type":"tab-focus","focused":false,"atMs":3}')).toEqual({
+      type: "tab-focus",
+      focused: false,
+      atMs: 3,
+    });
+    expect(parseToWebMessage('{"type":"tab-focus","focused":"no","atMs":3}')).toBeNull();
+  });
+
   it("session-invite를 파싱한다", () => {
     expect(parseToWebMessage('{"type":"session-invite","code":"4680","atMs":1}')).toEqual({
       type: "session-invite",
