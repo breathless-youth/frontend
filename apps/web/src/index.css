@@ -45,6 +45,8 @@
   --color-rank-alert-badge-bg: var(--rank-alert-badge-bg);
   --color-rank-alert-badge-fg: var(--rank-alert-badge-fg);
   --color-rank-live: var(--rank-live);
+  --color-rank-rise: var(--rank-rise);
+  --color-rank-value: var(--rank-value);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -294,6 +296,13 @@
   /* 랭킹 목록의 집중 중 글자.
      작은 초록 글자라 글자색 쪽으로 조금 눌러 흰 카드 위에서 4.5:1을 넘긴다. */
   --rank-live: color-mix(in srgb, var(--feedback-success) 77%, var(--foreground));
+  /* ▲N 오름 글자.
+     초록을 글자색 쪽으로 눌러 연한 배지와 칩 바탕 위에서 4.5:1을 넘긴다. */
+  --rank-rise: color-mix(in srgb, var(--feedback-success) 65%, var(--foreground));
+  /* 회색 상자 위 파란 값 글자.
+     파랑을 글자색 쪽으로 눌러 bg-layer-2 위에서 4.5:1을 넘긴다.
+     다크도 같은 식이고, 다크 블록이 바꾼 파랑과 글자색을 그대로 읽어 다시 적지 않는다. */
+  --rank-value: color-mix(in srgb, var(--primary) 90%, var(--foreground));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -355,6 +364,9 @@
     /* 랭킹 목록의 집중 중 글자.
        다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */
     --rank-live: var(--feedback-success);
+    /* ▲N 오름 글자.
+       다크 초록 그대로도 배지와 칩 바탕 위에서 4.5:1을 넘긴다. */
+    --rank-rise: var(--feedback-success);
   }
 }
 
@@ -417,6 +429,9 @@
   /* 랭킹 목록의 집중 중 글자.
      다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */
   --rank-live: var(--feedback-success);
+  /* ▲N 오름 글자.
+     다크 초록 그대로도 배지와 칩 바탕 위에서 4.5:1을 넘긴다. */
+  --rank-rise: var(--feedback-success);
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에
