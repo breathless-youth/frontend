@@ -23,7 +23,7 @@ export async function shareToInstagramReels(uri: string, appId: string): Promise
  * 카카오톡 공유 대상 선택 화면으로 영상 넘기기
  *
  * iOS에는 카카오톡을 골라 영상을 보내는 공식 경로가 없어 Android만 연다.
- * 카카오톡은 파일과 함께 온 글을 버릴 수 있어 열기 직전에 본문을 클립보드에 복사한다.
+ * 카카오톡은 파일과 함께 온 글을 버릴 수 있어 연 뒤에 본문을 클립보드에 복사한다.
  */
 export async function shareToKakaoTalk(uri: string, text: string): Promise<boolean> {
   if (Platform.OS !== "android") {
