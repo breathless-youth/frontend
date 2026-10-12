@@ -3,6 +3,7 @@
  *
  * 공유 타입은 백엔드 명세에 있는 모양만 두므로 dev 백엔드 Swagger(`/v3/api-docs`)와 대조해 맞췄다(2026-10-11).
  * 랭킹판과 기록 API 모두 Swagger 기준이고, dev에 배포된 일수 판 시상대 묶음(`podiumGroups`)도 여기에 든다.
+ * 홈, 안 본 기록, 본 것 표시, 세션 뒤 오른 순위는 개발 서버 Swagger와 대조했다(2026-10-12).
  * 시각은 UTC ISO-8601, 날짜는 KST `yyyy-MM-dd`다.
  * 값과 차이의 단위는 시간 판이 초, 일수 판이 일, 집중률이 %(소수 1자리)다.
  */
@@ -195,4 +196,104 @@ export interface RankingRecordsSummary {
 export interface RankingRecordsPage {
   items: RankingRecord[];
   nextCursor: string | null;
+}
+
+/** 홈 한 줄 카드의 바로 위 사람. */
+export interface RankingHomeNeighbor {
+  nickname: string;
+  /** 순공 차이(초). */
+  gap: number;
+}
+
+/** 이번 주 순공 판의 내 자리. */
+export interface RankingHomeCard {
+  rank: number;
+  /** 순공(초). */
+  value: number;
+  /** 1위면 null이다. */
+  above: RankingHomeNeighbor | null;
+}
+
+/** `since` 뒤로 나를 추월한 사람 하나. */
+export interface RankingOvertaker {
+  nickname: string;
+  /** 지금 나와의 순공 차이(초). */
+  gap: number;
+  /** `since` 뒤 처음 공부를 시작한 시각이고, 그때 공부 중이었으면 `since`다. */
+  studiedFrom: string;
+  /** `since` 뒤로 쌓은 순공(초). */
+  studiedFocusSec: number;
+}
+
+/** 자리를 비운 사이 바뀐 이번 주 순공 순위. */
+export interface RankingOvertaken {
+  fromRank: number;
+  toRank: number;
+  /** `since`에 내 뒤였거나 참가 전이었다가 지금 내 앞인 사람 수. */
+  count: number;
+  /** 그중 지금 나와 가장 가까운 사람부터 최대 2명. */
+  nearest: RankingOvertaker[];
+}
+
+/**
+ * `GET /api/rankings/home`
+ *
+ * `card`는 이번 주 기록이 없으면 null이다.
+ * `overtaken`은 `since`가 없거나, 이번 주 월요일 0시(KST) 전이거나 미래이거나, `since`에 내 순위가 없었거나, 순위가 내려가지 않았으면 null이다.
+ */
+export interface RankingHomeResponse {
+  card: RankingHomeCard | null;
+  overtaken: RankingOvertaken | null;
+}
+
+/**
+ * `GET /api/rankings/records/unseen`
+ *
+ * `records`는 순위, 일·주·월, 순공·집중률·시간대 순이고 최대 100개다.
+ */
+export interface RankingUnseenResponse {
+  /** 본 것까지 더한 누적 메달 수. */
+  total: number;
+  records: RankingRecord[];
+}
+
+/**
+ * `POST /api/rankings/records/seen` 본문
+ *
+ * `ids`는 최대 100개다.
+ */
+export interface RankingRecordSeenRequest {
+  ids: number[];
+}
+
+/**
+ * 판 하나의 순위 변화
+ *
+ * `before`는 이번 제출을 뺀 내 값의 순위다.
+ */
+export interface RankingGain {
+  before: number;
+  after: number;
+  delta: number;
+}
+
+/** 주간 순공 밖에서 오른 판. */
+export interface RankingBoardGain extends RankingGain {
+  type: RankingType;
+  /** 명예의 전당은 null이다. */
+  period: RankingPeriod | null;
+  /** 시간대 판만 값이 있다. */
+  slot: TimeSlot | null;
+}
+
+/**
+ * `GET /api/rankings/session-gains`
+ *
+ * 오른 판만 온다.
+ * `others`는 순공 일·월, 집중률 주·월, 시간대 일·주, 명예의 전당 순이다.
+ */
+export interface RankingSessionGainsResponse {
+  /** 주간 순공이 오르지 않았으면 null이다. */
+  weekly: RankingGain | null;
+  others: RankingBoardGain[];
 }
