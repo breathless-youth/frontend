@@ -47,15 +47,21 @@ function notice(id: number, audience: NoticeResponse["audience"]): NoticeRespons
 function renderHost({ paused = false }: { paused?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onSettled = vi.fn();
+  const onShown = vi.fn();
   const tree = (nextPaused: boolean) => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/home?userId=7"]}>
-        <NoticeModalHost userId={7} paused={nextPaused} onSettled={onSettled} />
+        <NoticeModalHost userId={7} paused={nextPaused} onShown={onShown} onSettled={onSettled} />
       </MemoryRouter>
     </QueryClientProvider>
   );
   const result = render(tree(paused));
-  return { ...result, onSettled, setPaused: (next: boolean) => result.rerender(tree(next)) };
+  return {
+    ...result,
+    onSettled,
+    onShown,
+    setPaused: (next: boolean) => result.rerender(tree(next)),
+  };
 }
 
 function setVisibility(state: DocumentVisibilityState) {
@@ -177,6 +183,20 @@ describe("NoticeModalHost", () => {
 
     await waitFor(() => expect(getActiveNotices).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("공지를 띄우면 홈에 알리고, 띄울 공지가 없으면 알리지 않는다", async () => {
+    getActiveNotices.mockResolvedValueOnce([notice(1, "ALL")]);
+    const shown = renderHost();
+    await screen.findByRole("dialog", { name: "공지1" });
+    expect(shown.onShown).toHaveBeenCalledTimes(1);
+    shown.unmount();
+
+    sessionStorage.clear();
+    getActiveNotices.mockResolvedValueOnce([]);
+    const none = renderHost();
+    await waitFor(() => expect(none.onSettled).toHaveBeenCalled());
+    expect(none.onShown).not.toHaveBeenCalled();
   });
 
   it("이번 실행 기록을 저장하지 못해도 같은 문서에서는 다시 띄우지 않는다", async () => {
