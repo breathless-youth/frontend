@@ -35,6 +35,7 @@ import {
   activeSelection,
   mergeOnFocus,
   readBoardMemory,
+  takeRecordsPageRequest,
   withSelection,
   writeBoardMemory,
 } from "@/features/ranking/model/boardMemory";
@@ -141,6 +142,26 @@ function RankingContent({ userId }: { userId: number }) {
   const [memory, setMemory] = useState(readBoardMemory);
   const [sheetOpen, setSheetOpen] = useState(false);
   const selection = activeSelection(memory);
+  const openRecordsPage = () =>
+    slideNavigate("forward", () =>
+      navigate({ pathname: "/ranking/records", search: location.search }),
+    );
+
+  /**
+   * 넘겨받은 모두 보기 요청
+   *
+   * 다른 화면이 모두 보기를 열어 달라고 했으면 한 번만 연다.
+   * 판 기억을 다시 적으면 요청이 지워지므로, 마운트 때는 기억을 적는 effect보다 먼저 선언하고 포커스 때도 적기 전에 꺼낸다.
+   */
+  const openRequestedRecords = useEffectEvent(() => {
+    if (takeRecordsPageRequest()) {
+      openRecordsPage();
+    }
+  });
+
+  useEffect(() => {
+    openRequestedRecords();
+  }, []);
 
   useEffect(() => {
     writeBoardMemory(memory);
@@ -152,6 +173,7 @@ function RankingContent({ userId }: { userId: number }) {
         if (!focused) {
           return;
         }
+        openRequestedRecords();
         // 읽기는 updater 밖에서 한 번만 한다(StrictMode가 updater를 두 번 불러도 같은 값이 들어간다).
         const stored = readBoardMemory();
         setMemory((current) => mergeOnFocus(current, stored));
@@ -225,10 +247,6 @@ function RankingContent({ userId }: { userId: number }) {
   const hall = memory.active === "hall";
   const changeSelection = (next: BoardSelection) =>
     setMemory((current) => withSelection(current, next));
-  const openRecordsPage = () =>
-    slideNavigate("forward", () =>
-      navigate({ pathname: "/ranking/records", search: location.search }),
-    );
 
   return (
     <>

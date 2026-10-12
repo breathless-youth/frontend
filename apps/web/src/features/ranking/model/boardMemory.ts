@@ -109,7 +109,19 @@ function parseSelection(raw: unknown, mode: BoardMode): BoardSelection | null {
   return selectPeriod(selectType(DEFAULT_RANKING_BOARD, rankingType), period as RankingPeriod);
 }
 
-function serialize(memory: BoardMemory, requestedSlot: TimeSlot | null = null) {
+/**
+ * 모두 보기 요청이 유효한 시간
+ *
+ * 셸이 탭을 바로 바꾸지 못했거나 랭킹 탭이 다른 화면에 있으면 요청이 남는다.
+ * 한참 뒤 랭킹 탭에 돌아왔을 때 모두 보기가 엉뚱하게 열리지 않게 이보다 오래된 요청은 버린다.
+ */
+const RECORDS_REQUEST_TTL_MS = 60_000;
+
+function serialize(
+  memory: BoardMemory,
+  requestedSlot: TimeSlot | null = null,
+  requestedRecordsAt: number | null = null,
+) {
   const strip = (selection: BoardSelection) =>
     "period" in selection
       ? { type: selection.type, period: selection.period }
@@ -119,6 +131,7 @@ function serialize(memory: BoardMemory, requestedSlot: TimeSlot | null = null) {
     ranking: strip(memory.ranking),
     hall: strip(memory.hall),
     ...(requestedSlot === null ? {} : { requestedSlot }),
+    ...(requestedRecordsAt === null ? {} : { requestedRecordsAt }),
   });
 }
 
@@ -131,6 +144,36 @@ function save(raw: string): void {
 }
 
 /**
+ * 저장된 기억 꺼내기
+ *
+ * 마지막 판 읽기와 모두 보기 요청 꺼내기가 같은 저장 형태를 읽는다.
+ * 저장소를 읽지 못하면 받은 경고를 남기고 null이다.
+ * 비었거나 풀 수 없거나 객체가 아니면 경고 없이 null이다.
+ */
+function readStoredRecord(warning: string): Record<string, unknown> | null {
+  let raw: string | null;
+  try {
+    raw = store.read();
+  } catch (error) {
+    console.warn(warning, error);
+    return null;
+  }
+  if (raw === null) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/**
  * 마지막 판 읽기
  *
  * 다른 화면이 넘겨준 구간(`requestedSlot`)이 있으면 그 구간으로 연다.
@@ -139,26 +182,10 @@ function save(raw: string): void {
  * 그 밖의 구간은 적지 않으므로 시간대 판은 지금 구간으로 열린다.
  */
 export function readBoardMemory(): BoardMemory {
-  let raw: string | null;
-  try {
-    raw = store.read();
-  } catch (error) {
-    console.warn("[ranking] 마지막 판을 읽지 못해 기본 판으로 연다", error);
+  const record = readStoredRecord("[ranking] 마지막 판을 읽지 못해 기본 판으로 연다");
+  if (record === null) {
     return DEFAULT_BOARD_MEMORY;
   }
-  if (raw === null) {
-    return DEFAULT_BOARD_MEMORY;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return DEFAULT_BOARD_MEMORY;
-  }
-  if (typeof parsed !== "object" || parsed === null) {
-    return DEFAULT_BOARD_MEMORY;
-  }
-  const record = parsed as Record<string, unknown>;
   const ranking = parseSelection(record.ranking, "ranking") ?? DEFAULT_RANKING_BOARD;
   const requested = (TIME_SLOTS as readonly unknown[]).includes(record.requestedSlot)
     ? (record.requestedSlot as TimeSlot)
@@ -186,6 +213,38 @@ export function writeBoardMemory(memory: BoardMemory): void {
  */
 export function requestBoard(selection: BoardSelection): void {
   save(serialize(withSelection(readBoardMemory(), selection), slotOf(selection)));
+}
+
+/**
+ * 다른 화면의 모두 보기 열기 요청
+ *
+ * 랭킹 탭이 다음에 보일 때 랭킹 기록 모두 보기를 한 번 열게 적는다.
+ * 넘겨준 구간이 있으면 그대로 남긴다.
+ * 탭 전환은 호출부가 한다.
+ */
+export function requestRecordsPage(nowMs: number = Date.now()): void {
+  const memory = readBoardMemory();
+  save(serialize(memory, slotOf(memory.ranking), nowMs));
+}
+
+/**
+ * 모두 보기 요청 꺼내기
+ *
+ * 요청이 있으면 지우고, 유효한 시간 안이었으면 참이다.
+ * 판 기억을 다시 적으면 요청도 지워지므로 랭킹 탭은 기억을 적기 전에 이 함수를 부른다.
+ * 읽지 못하면 요청이 없는 것으로 본다.
+ */
+export function takeRecordsPageRequest(nowMs: number = Date.now()): boolean {
+  const record = readStoredRecord("[ranking] 모두 보기 요청을 읽지 못했다");
+  if (record === null || !("requestedRecordsAt" in record)) {
+    return false;
+  }
+  const { requestedRecordsAt, ...rest } = record;
+  save(JSON.stringify(rest));
+  return (
+    typeof requestedRecordsAt === "number" &&
+    Math.abs(nowMs - requestedRecordsAt) <= RECORDS_REQUEST_TTL_MS
+  );
 }
 
 /**

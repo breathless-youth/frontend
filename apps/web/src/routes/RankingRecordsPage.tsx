@@ -1,5 +1,5 @@
 import type { RankingRecord, RankingRecordType, RankingRecordsSummary } from "@focusmakers/types";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { focusManager, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { RankChips, type RankChip } from "@/features/ranking/components/RecordsSheet";
 import { IllustCrown, IllustMedal } from "@/features/ranking/icons";
 import { selectionOfRecord } from "@/features/ranking/model/board";
-import { requestBoard } from "@/features/ranking/model/boardMemory";
+import { requestBoard, takeRecordsPageRequest } from "@/features/ranking/model/boardMemory";
 import { recordName, recordPeriod, recordValue } from "@/features/ranking/model/format";
 import { groupRecordsByMonth } from "@/features/ranking/model/records";
 import { useNow } from "@/features/ranking/useNow";
@@ -49,6 +49,17 @@ export function RankingRecordsPage() {
   const identityPending = useIdentityPending();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 이미 모두 보기에 있으면 넘겨받은 요청을 버린다.
+  // 남겨 두면 랭킹 탭으로 돌아간 뒤 모두 보기가 다시 열린다.
+  useEffect(() => {
+    takeRecordsPageRequest();
+    return focusManager.subscribe((focused) => {
+      if (focused) {
+        takeRecordsPageRequest();
+      }
+    });
+  }, []);
 
   const goBack = () =>
     slideNavigate("back", () => {

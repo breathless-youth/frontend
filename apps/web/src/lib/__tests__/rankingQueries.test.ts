@@ -1,20 +1,36 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FIXTURE_FOCUS_WEEKLY, FIXTURE_RECORDS_PAGE } from "@/lib/rankingFixtures";
-import { getRankingBoard, getRankingRecords } from "@/lib/rankingApi";
+import {
+  FIXTURE_FOCUS_WEEKLY,
+  FIXTURE_HOME_NONE,
+  FIXTURE_RECORDS_PAGE,
+  FIXTURE_SESSION_GAINS_EMPTY,
+} from "@/lib/rankingFixtures";
+import {
+  getRankingBoard,
+  getRankingHome,
+  getRankingRecords,
+  getRankingSessionGains,
+} from "@/lib/rankingApi";
 import {
   LIVE_POLL_MS,
   rankingBoardQuery,
+  rankingHomeQuery,
   rankingKeys,
   rankingRecordsQuery,
+  rankingSessionGainsQuery,
   rankingSummaryQuery,
+  rankingUnseenQuery,
 } from "@/lib/rankingQueries";
 
 vi.mock("@/lib/rankingApi", () => ({
   getRankingBoard: vi.fn(),
   getRankingRecordsSummary: vi.fn(),
   getRankingRecords: vi.fn(),
+  getRankingHome: vi.fn(),
+  getRankingRecordsUnseen: vi.fn(),
+  getRankingSessionGains: vi.fn(),
 }));
 
 afterEach(() => vi.clearAllMocks());
@@ -89,5 +105,37 @@ describe("기록 쿼리", () => {
 
   it("무효화 뿌리는 ranking 하나다", () => {
     expect(rankingKeys.all).toEqual(["ranking"]);
+  });
+});
+
+describe("노출 지점 쿼리", () => {
+  it("홈 추월과 안 본 메달은 사용자별 키이고 신선하다고 보지 않는다", () => {
+    expect(rankingHomeQuery(7, "2026-10-11T14:00:00.000Z")).toMatchObject({
+      queryKey: ["ranking", "home", 7, "2026-10-11T14:00:00.000Z"],
+      staleTime: 0,
+    });
+    expect(rankingUnseenQuery(7)).toMatchObject({
+      queryKey: ["ranking", "records", "unseen", 7],
+      staleTime: 0,
+    });
+  });
+
+  it("오른 순위는 끝난 제출 하나의 결과라 다시 받지 않는다", () => {
+    expect(rankingSessionGainsQuery(7, "2026-10-12T00:00:00.000Z")).toMatchObject({
+      queryKey: ["ranking", "session-gains", 7, "2026-10-12T00:00:00.000Z"],
+      staleTime: Infinity,
+    });
+  });
+
+  it("받을 때 시각과 취소 신호를 넘긴다", async () => {
+    vi.mocked(getRankingHome).mockResolvedValue(FIXTURE_HOME_NONE);
+    vi.mocked(getRankingSessionGains).mockResolvedValue(FIXTURE_SESSION_GAINS_EMPTY);
+    const client = new QueryClient();
+
+    await client.fetchQuery(rankingHomeQuery(7, "since-iso"));
+    await client.fetchQuery(rankingSessionGainsQuery(7, "started-iso"));
+
+    expect(getRankingHome).toHaveBeenCalledWith("since-iso", expect.any(AbortSignal));
+    expect(getRankingSessionGains).toHaveBeenCalledWith("started-iso", expect.any(AbortSignal));
   });
 });

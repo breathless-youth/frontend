@@ -13,8 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createMemoryBoardMemoryStore,
   requestBoard,
+  requestRecordsPage,
   resetBoardMemoryStore,
   setBoardMemoryStore,
+  takeRecordsPageRequest,
 } from "@/features/ranking/model/boardMemory";
 import type * as Amplitude from "@/lib/amplitude";
 import {
@@ -160,6 +162,29 @@ describe("RankingPage", () => {
     });
 
     expect(await screen.findByRole("heading", { name: "저녁 구간 TOP 3" })).toBeInTheDocument();
+  });
+
+  it("다른 화면이 모두 보기를 요청해 두었으면 열 때 모두 보기로 간다", async () => {
+    requestRecordsPage();
+
+    renderPage();
+
+    expect(await screen.findByText("모두 보기 화면")).toBeInTheDocument();
+    expect(takeRecordsPageRequest()).toBe(false);
+  });
+
+  it("다시 보일 때 모두 보기 요청이 있으면 한 번만 연다", async () => {
+    renderPage();
+    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+
+    act(() => {
+      requestRecordsPage();
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(await screen.findByText("모두 보기 화면")).toBeInTheDocument();
+    expect(takeRecordsPageRequest()).toBe(false);
   });
 
   it("내 순위가 없고 직전 기간에 있었으면 리셋 카드와 직전 결과를 보이고 기록 보기로 간다", async () => {

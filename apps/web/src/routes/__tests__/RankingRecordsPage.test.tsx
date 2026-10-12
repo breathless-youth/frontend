@@ -1,5 +1,10 @@
-import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  focusManager,
+  onlineManager,
+} from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockAllIsIntersecting } from "react-intersection-observer/test-utils";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -7,8 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMemoryBoardMemoryStore,
+  requestRecordsPage,
   resetBoardMemoryStore,
   setBoardMemoryStore,
+  takeRecordsPageRequest,
 } from "@/features/ranking/model/boardMemory";
 import type * as Amplitude from "@/lib/amplitude";
 import { getRankingRecords, getRankingRecordsSummary } from "@/lib/rankingApi";
@@ -48,8 +55,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // 화면을 먼저 내린다.
+  // 붙어 있는 화면은 포커스 초기화에 반응해 요청을 꺼내므로, 그대로 두면 저장소 되돌리기와의 줄 순서에 결과가 달린다.
+  cleanup();
   vi.useRealTimers();
   onlineManager.setOnline(true);
+  focusManager.setFocused(undefined);
   resetBoardMemoryStore();
   vi.clearAllMocks();
 });
@@ -276,5 +287,25 @@ describe("RankingRecordsPage", () => {
       period: "DAILY",
       from: "all",
     });
+  });
+
+  it("열 때 남아 있던 모두 보기 요청을 버린다", () => {
+    requestRecordsPage();
+
+    renderPage();
+
+    expect(takeRecordsPageRequest()).toBe(false);
+  });
+
+  it("모두 보기에 있을 때 들어온 요청은 버려 랭킹 탭으로 돌아가도 다시 열리지 않는다", () => {
+    renderPage();
+
+    act(() => {
+      requestRecordsPage();
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(takeRecordsPageRequest()).toBe(false);
   });
 });

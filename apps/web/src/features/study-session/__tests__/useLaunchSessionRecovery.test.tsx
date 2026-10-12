@@ -8,7 +8,8 @@ import type * as Amplitude from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { statsKeys } from "@/lib/statsQueries";
 
-import { useLaunchSessionRecovery } from "../useLaunchSessionRecovery";
+import { hasShownRecoveryThisLaunch } from "../recoveryLaunchStore";
+import { LAUNCH_SIGNAL_WAIT_MS, useLaunchSessionRecovery } from "../useLaunchSessionRecovery";
 
 const closeStaleSession = vi.hoisted(() => vi.fn());
 
@@ -49,6 +50,18 @@ function renderWithClient(userId: number | null) {
   return { ...view, client };
 }
 
+/** 렌더 사이에 사용자를 바꿀 수 있게 띄운다. */
+function renderSwitchable(initial: number | null) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return renderHook(({ id }: { id: number | null }) => useLaunchSessionRecovery(id), {
+    initialProps: { id: initial },
+    wrapper,
+  });
+}
+
 describe("useLaunchSessionRecovery", () => {
   const postMessage = vi.fn();
 
@@ -57,6 +70,7 @@ describe("useLaunchSessionRecovery", () => {
     closeStaleSession.mockResolvedValue(null);
     postMessage.mockReset();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
+    sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -395,5 +409,142 @@ describe("useLaunchSessionRecovery 계측 (BY-616 확장)", () => {
     await waitFor(() => expect(closeStaleSession).toHaveBeenCalledWith(7));
 
     expect(analytics.prompted).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLaunchSessionRecovery 판단 끝남", () => {
+  const postMessage = vi.fn();
+
+  beforeEach(() => {
+    closeStaleSession.mockReset();
+    closeStaleSession.mockResolvedValue(null);
+    postMessage.mockReset();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("셸이 없으면 기다릴 실행 신호가 없어 처음부터 끝난 것으로 본다", () => {
+    const { result } = renderWithClient(7);
+
+    expect(result.current.settled).toBe(true);
+  });
+
+  it("사용자가 없으면 끝난 것으로 본다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    const { result } = renderWithClient(null);
+
+    expect(result.current.settled).toBe(true);
+  });
+
+  it("실행 신호가 오지 않으면 기다림 상한 뒤에 끝난 것으로 본다", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { result } = renderWithClient(7);
+    expect(result.current.settled).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS - 1);
+    });
+    expect(result.current.settled).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.settled).toBe(true);
+  });
+
+  it("실행 신호가 오면 상한이 지나도 마감이 끝날 때까지 기다린다", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    let finish: (value: null) => void = () => {};
+    closeStaleSession.mockReturnValue(
+      new Promise<null>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { result } = renderWithClient(7);
+
+    act(() => {
+      emit(LAUNCHED);
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS * 3);
+    });
+    expect(result.current.settled).toBe(false);
+
+    await act(async () => {
+      finish(null);
+    });
+    expect(result.current.settled).toBe(true);
+    expect(hasShownRecoveryThisLaunch()).toBe(false);
+  });
+
+  it("사용자가 바뀌면 끝남을 되돌리고 새 사용자의 기다림을 처음부터 센다", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { result, rerender } = renderSwitchable(7);
+    act(() => {
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS);
+    });
+    expect(result.current.settled).toBe(true);
+
+    rerender({ id: 8 });
+    expect(result.current.settled).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS);
+    });
+    expect(result.current.settled).toBe(true);
+  });
+
+  it("사용자가 비었다가 돌아오면 앞 기다림이 아니라 새 기다림이 끝날 때 끝난다", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { result, rerender } = renderSwitchable(7);
+    act(() => {
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS - 100);
+    });
+
+    rerender({ id: null });
+    rerender({ id: 7 });
+    expect(result.current.settled).toBe(false);
+
+    // 앞 기다림이 끝났을 시각이다.
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(result.current.settled).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(LAUNCH_SIGNAL_WAIT_MS - 100);
+    });
+    expect(result.current.settled).toBe(true);
+  });
+
+  it("복구 창을 띄울 기록이면 이번 실행에 떴다고 먼저 적고 끝낸다", async () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(result.current.recovered).toEqual(RECOVERED);
+    expect(hasShownRecoveryThisLaunch()).toBe(true);
+  });
+
+  it("순공 1분 미만 기록은 떴다고 적지 않는다", async () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    closeStaleSession.mockResolvedValue({ ...RECOVERED, focusSec: 59 });
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(result.current.recovered).toBeNull();
+    expect(hasShownRecoveryThisLaunch()).toBe(false);
   });
 });

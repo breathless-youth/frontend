@@ -1,8 +1,11 @@
 import type {
   RankingBoardResponse,
+  RankingHomeResponse,
   RankingPeriod,
   RankingRecordsPage,
   RankingRecordsSummary,
+  RankingSessionGainsResponse,
+  RankingUnseenResponse,
 } from "@focusmakers/types";
 
 import type { RankingBoardParams, RankingRecordsParams } from "./rankingApi";
@@ -11,18 +14,28 @@ import {
   FIXTURE_FIRST_PLACE,
   FIXTURE_FIRST_PREVIOUS,
   FIXTURE_FOCUS_WEEKLY,
+  FIXTURE_HOME_NONE,
+  FIXTURE_HOME_OVERTAKEN,
   FIXTURE_INELIGIBLE,
   FIXTURE_OVERTAKEN,
   FIXTURE_RATE_WEEKLY,
   FIXTURE_RECORDS_PAGE,
   FIXTURE_RESET_DAILY,
   FIXTURE_RESET_PREVIOUS,
+  FIXTURE_SESSION_GAINS,
+  FIXTURE_SESSION_GAINS_EMPTY,
+  FIXTURE_SESSION_GAINS_NO_WEEKLY,
   FIXTURE_SLOT_DAILY,
   FIXTURE_STREAK,
   FIXTURE_SUMMARY,
   FIXTURE_SUMMARY_EMPTY,
   FIXTURE_TOTAL_DAYS,
   FIXTURE_TOTAL_TIME,
+  FIXTURE_UNSEEN_FIVE,
+  FIXTURE_UNSEEN_MIXED,
+  FIXTURE_UNSEEN_NONE,
+  FIXTURE_UNSEEN_ONE,
+  FIXTURE_UNSEEN_THREE,
 } from "./rankingFixtures";
 
 /**
@@ -39,6 +52,13 @@ export const RANKING_MOCK_SCENES = [
   "ineligible",
   "first-place",
   "no-records",
+  "overtaken",
+  "medal-1",
+  "medal-3",
+  "medal-5",
+  "medal-mixed",
+  "gain",
+  "gain-none",
 ] as const;
 export type RankingMockScene = (typeof RANKING_MOCK_SCENES)[number];
 
@@ -147,4 +167,44 @@ export function mockRecords(
       (params.type === undefined || item.type === params.type),
   );
   return { items: items.slice(0, params.size), nextCursor: null };
+}
+
+/**
+ * 홈 추월
+ *
+ * `overtaken` 장면만 추월 2명을 준다.
+ */
+export function mockHome(scene: RankingMockScene): RankingHomeResponse {
+  return scene === "overtaken" ? FIXTURE_HOME_OVERTAKEN : FIXTURE_HOME_NONE;
+}
+
+const UNSEEN_BY_SCENE: Partial<Record<RankingMockScene, RankingUnseenResponse>> = {
+  "medal-1": FIXTURE_UNSEEN_ONE,
+  "medal-3": FIXTURE_UNSEEN_THREE,
+  "medal-5": FIXTURE_UNSEEN_FIVE,
+  "medal-mixed": FIXTURE_UNSEEN_MIXED,
+};
+
+/**
+ * 안 본 메달
+ *
+ * 메달 장면이 아니면 빈 목록이라 다른 장면에서 메달 모달이 뜨지 않는다.
+ */
+export function mockUnseen(scene: RankingMockScene): RankingUnseenResponse {
+  return UNSEEN_BY_SCENE[scene] ?? FIXTURE_UNSEEN_NONE;
+}
+
+/**
+ * 세션 뒤 오른 순위
+ *
+ * `gain`은 칩 넷(같은 판 둘), `gain-none`은 주간 순공 없음이다.
+ */
+export function mockSessionGains(scene: RankingMockScene): RankingSessionGainsResponse {
+  if (scene === "gain") {
+    return FIXTURE_SESSION_GAINS;
+  }
+  if (scene === "gain-none") {
+    return FIXTURE_SESSION_GAINS_NO_WEEKLY;
+  }
+  return FIXTURE_SESSION_GAINS_EMPTY;
 }

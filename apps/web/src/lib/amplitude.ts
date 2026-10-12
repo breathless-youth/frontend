@@ -755,7 +755,8 @@ export function trackSocialRoomBackgroundReturned(input: {
 }
 
 /** 집중 시작을 누른 자리. */
-export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+export type FocusStartSource =
+  "home" | "ranking_card" | "ranking_empty" | "ranking_records" | "overtake_popup";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -962,6 +963,82 @@ export function trackRankingRecordTapped(input: {
   });
 }
 
+/**
+ * 추월 바텀시트 노출
+ *
+ * 순위 값만 싣고 추월한 사람의 닉네임은 싣지 않는다.
+ */
+export function trackRankingOvertakeShown(input: {
+  readonly count: number;
+  readonly fromRank: number;
+  readonly toRank: number;
+}) {
+  if (!initialized) return;
+  track("ranking_overtake_shown", {
+    count: input.count,
+    from_rank: input.fromRank,
+    to_rank: input.toRank,
+  });
+}
+
+/**
+ * 추월 바텀시트 동작
+ *
+ * 끌어내리거나 바깥을 눌러 닫은 것도 `close`로 센다.
+ */
+export function trackRankingOvertakeAction(action: "study" | "ranking" | "close") {
+  if (!initialized) return;
+  track("ranking_overtake_action", { action });
+}
+
+/**
+ * 마감 메달 모달 노출
+ *
+ * `mixed_period`는 기간이나 기간 시작일이 다른 메달이 함께 떴는지다.
+ */
+export function trackRankingMedalModalShown(input: {
+  readonly count: number;
+  readonly bestRank: MedalRank;
+  readonly mixedPeriod: boolean;
+}) {
+  if (!initialized) return;
+  track("ranking_medal_modal_shown", {
+    count: input.count,
+    best_rank: input.bestRank,
+    mixed_period: input.mixedPeriod,
+  });
+}
+
+/** 마감 메달 모달 동작. */
+export function trackRankingMedalModalAction(action: "records" | "close") {
+  if (!initialized) return;
+  track("ranking_medal_modal_action", { action });
+}
+
+/**
+ * 공부 결과 랭킹 카드 노출
+ *
+ * 방 구분은 `study_result_confirmed`와 같은 `room_type`으로 실어 결과 화면 이벤트끼리 묶어 볼 수 있게 한다.
+ */
+export function trackRankingGainCardShown(input: {
+  readonly delta: number;
+  readonly chipCount: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("ranking_gain_card_shown", {
+    delta: input.delta,
+    chip_count: input.chipCount,
+    room_type: input.roomType,
+  });
+}
+
+/** 공부 결과 랭킹 카드의 `랭킹 보기`. */
+export function trackRankingGainCardTapped(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("ranking_gain_card_tapped", { room_type: roomType });
+}
+
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";
@@ -1070,10 +1147,11 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
 /**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ * 결과 랭킹 카드의 `랭킹 보기 ›`로 나가면 `ranking`이다.
  */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "home" | "records";
+  readonly via: "home" | "records" | "ranking";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -1099,7 +1177,19 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
  * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records";
+export type ResultExitPath = "/home" | "/social" | "/records" | "/ranking";
+
+/**
+ * 도착 화면별 `destination` 값
+ *
+ * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
+ */
+const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record" | "ranking"> = {
+  "/home": "home",
+  "/social": "home",
+  "/records": "record",
+  "/ranking": "ranking",
+};
 
 interface PendingResultExit {
   readonly roomType: StudyRoomType;
@@ -1116,9 +1206,8 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
     (record.roomType === "single" || record.roomType === "social") &&
     typeof record.focusSec === "number" &&
     Number.isFinite(record.focusSec) &&
-    (record.consumeAt === "/home" ||
-      record.consumeAt === "/social" ||
-      record.consumeAt === "/records") &&
+    typeof record.consumeAt === "string" &&
+    Object.hasOwn(EXIT_DESTINATION, record.consumeAt) &&
     typeof record.ts === "number" &&
     Number.isFinite(record.ts)
   );
@@ -1172,8 +1261,7 @@ export function consumeStudyResultExit(pathname: string) {
     track("study_result_exited", {
       room_type: pending.roomType,
       focus_sec: pending.focusSec,
-      // 소셜 탭 복귀도 홈 복귀로 센다 — 솔로·소셜 구분은 `room_type`이 갖는다.
-      destination: pending.consumeAt === "/records" ? "record" : "home",
+      destination: EXIT_DESTINATION[pending.consumeAt],
     });
   } catch {
     // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.

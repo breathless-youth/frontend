@@ -15,6 +15,7 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { useFocusStart } from "@/features/onboarding/useFocusStart";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IconPlanner, IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
@@ -298,10 +299,18 @@ function PlannerEntryButton() {
 export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
-  const { recovered, dismiss } = useLaunchSessionRecovery(userId);
+  const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
   const recoveryReady = userId === null || noticeSettled;
+  // 랭킹 팝업이 떠 있는 동안 늦게 온 복구 창은 공지 때처럼 그 팝업이 닫힐 때까지 미룬다.
+  const [rankingPopupOpen, setRankingPopupOpen] = useState(false);
+  // 이번 실행 표시를 sessionStorage에 쓰지 못한 기기에서도 같은 문서에서는 홈 팝업 하나를 지키도록 메모리에도 둔다.
+  const [homePopupInDoc, setHomePopupInDoc] = useState(false);
+  const [recoveryInDoc, setRecoveryInDoc] = useState(false);
+  if (recovered !== null && !recoveryInDoc) {
+    setRecoveryInDoc(true);
+  }
 
   return (
     <main
@@ -331,12 +340,32 @@ export function HomeTabPage() {
       {userId !== null && (
         <NoticeModalHost
           userId={userId}
-          paused={recovered !== null && recoveryReady}
+          paused={(recovered !== null && recoveryReady) || homePopupInDoc}
+          onShown={() => setHomePopupInDoc(true)}
           onSettled={() => setNoticeSettled(true)}
         />
       )}
-      {recovered !== null && recoveryReady && (
+      {recovered !== null && recoveryReady && !rankingPopupOpen && (
         <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
+      )}
+      {/*
+        랭킹 팝업은 공지·인터뷰·복구 창 다음 차례라 두 판단이 끝난 뒤에 판단한다.
+        복구 결과는 실행 신호 기다림이 끝난 뒤에도 늦게 올 수 있다.
+        그때 이미 떠 있는 랭킹 팝업은 내리지 않고 복구 창을 그 팝업이 닫힐 때까지 미룬다.
+        메달은 띄운 직후 본 것으로 보내서, 내리면 사용자가 못 본 메달이 본 것으로 넘어간다.
+      */}
+      {userId !== null && (
+        <HomeRankingPopupHost
+          userId={userId}
+          ready={noticeSettled && recoverySettled}
+          blocked={homePopupInDoc || recoveryInDoc}
+          onOpenChange={(open) => {
+            setRankingPopupOpen(open);
+            if (open) {
+              setHomePopupInDoc(true);
+            }
+          }}
+        />
       )}
     </main>
   );

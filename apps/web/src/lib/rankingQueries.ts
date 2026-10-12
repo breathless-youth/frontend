@@ -3,8 +3,11 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import {
   getRankingBoard,
+  getRankingHome,
   getRankingRecords,
   getRankingRecordsSummary,
+  getRankingRecordsUnseen,
+  getRankingSessionGains,
   type RankingBoardParams,
 } from "./rankingApi";
 
@@ -37,6 +40,10 @@ export const rankingKeys = {
       filter.type ?? "all",
       filter.size,
     ] as const,
+  home: (userId: number, since: string) => ["ranking", "home", userId, since] as const,
+  unseen: (userId: number) => ["ranking", "records", "unseen", userId] as const,
+  sessionGains: (userId: number, startedAt: string) =>
+    ["ranking", "session-gains", userId, startedAt] as const,
 };
 
 /**
@@ -91,5 +98,44 @@ export function rankingRecordsQuery(userId: number, filter: RecordsFilter) {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60_000,
+  });
+}
+
+/**
+ * 홈 추월 queryOptions
+ *
+ * 하루 한 번만 묻고 그 결과를 다시 쓰지 않아 신선하다고 보지 않는다.
+ */
+export function rankingHomeQuery(userId: number, since: string) {
+  return queryOptions({
+    queryKey: rankingKeys.home(userId, since),
+    queryFn: ({ signal }) => getRankingHome(since, signal),
+    staleTime: 0,
+  });
+}
+
+/**
+ * 안 본 메달 queryOptions
+ *
+ * 본 것으로 표시하면 바로 달라지므로 신선하다고 보지 않는다.
+ */
+export function rankingUnseenQuery(userId: number) {
+  return queryOptions({
+    queryKey: rankingKeys.unseen(userId),
+    queryFn: ({ signal }) => getRankingRecordsUnseen(signal),
+    staleTime: 0,
+  });
+}
+
+/**
+ * 세션 뒤 오른 순위 queryOptions
+ *
+ * 끝난 제출 하나의 결과라 결과 화면에 있는 동안 다시 받지 않는다.
+ */
+export function rankingSessionGainsQuery(userId: number, startedAt: string) {
+  return queryOptions({
+    queryKey: rankingKeys.sessionGains(userId, startedAt),
+    queryFn: ({ signal }) => getRankingSessionGains(startedAt, signal),
+    staleTime: Infinity,
   });
 }

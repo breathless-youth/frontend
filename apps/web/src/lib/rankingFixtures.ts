@@ -2,9 +2,12 @@ import type {
   RankingBoardResponse,
   RankingDayGroup,
   RankingEntry,
+  RankingHomeResponse,
   RankingRecord,
   RankingRecordsPage,
   RankingRecordsSummary,
+  RankingSessionGainsResponse,
+  RankingUnseenResponse,
 } from "@focusmakers/types";
 
 /**
@@ -490,4 +493,219 @@ export const FIXTURE_RECORDS_PAGE: RankingRecordsPage = {
     ),
   ],
   nextCursor: null,
+};
+
+/**
+ * 추월 바텀시트를 띄우는 홈 응답
+ *
+ * 가까운 사람부터 온다.
+ */
+export const FIXTURE_HOME_OVERTAKEN: RankingHomeResponse = {
+  card: { rank: 1205, value: 98400, above: { nickname: "커피세잔", gap: 1320 } },
+  overtaken: {
+    fromRank: 1201,
+    toRank: 1205,
+    count: 4,
+    nearest: [
+      {
+        nickname: "커피세잔",
+        gap: 1320,
+        studiedFrom: "2026-10-11T23:10:00Z",
+        studiedFocusSec: 5400,
+      },
+      {
+        nickname: "형광펜",
+        gap: 1860,
+        studiedFrom: "2026-10-11T22:40:00Z",
+        studiedFocusSec: 7200,
+      },
+    ],
+  },
+};
+
+/** 추월이 없는 홈 응답. */
+export const FIXTURE_HOME_NONE: RankingHomeResponse = { card: null, overtaken: null };
+
+/** 안 본 메달이 없는 응답. */
+export const FIXTURE_UNSEEN_NONE: RankingUnseenResponse = { total: 18, records: [] };
+
+const MORNING_FIRST = record(
+  41,
+  {
+    type: "TIME_SLOT",
+    period: "DAILY",
+    slot: "MORNING",
+    periodStart: "2026-10-09",
+    rank: 1,
+    value: 11060,
+  },
+  "2026-10-09T15:00:00Z",
+);
+
+const FOCUS_SECOND = record(
+  43,
+  {
+    type: "FOCUS_TIME",
+    period: "DAILY",
+    slot: null,
+    periodStart: "2026-10-09",
+    rank: 2,
+    value: 34810,
+  },
+  "2026-10-09T15:00:00Z",
+);
+
+const EVENING_THIRD = record(
+  44,
+  {
+    type: "TIME_SLOT",
+    period: "DAILY",
+    slot: "EVENING",
+    periodStart: "2026-10-09",
+    rank: 3,
+    value: 10080,
+  },
+  "2026-10-09T15:00:00Z",
+);
+
+/** 10월 9일 오전 구간 1위 메달 하나. */
+export const FIXTURE_UNSEEN_ONE: RankingUnseenResponse = { total: 19, records: [MORNING_FIRST] };
+
+/** 10월 1주 순공 주간 3위 메달 하나. */
+export const FIXTURE_UNSEEN_WEEKLY_THIRD: RankingUnseenResponse = {
+  total: 19,
+  records: [
+    record(
+      42,
+      {
+        type: "FOCUS_TIME",
+        period: "WEEKLY",
+        slot: null,
+        periodStart: "2026-09-28",
+        rank: 3,
+        value: 148800,
+      },
+      "2026-10-04T15:00:00Z",
+    ),
+  ],
+};
+
+/** 10월 9일 일간 1·2·3위 메달 셋. */
+export const FIXTURE_UNSEEN_THREE: RankingUnseenResponse = {
+  total: 21,
+  records: [MORNING_FIRST, FOCUS_SECOND, EVENING_THIRD],
+};
+
+/** 10월 9일 일간 메달 다섯이고, 1위 둘, 2위 하나, 3위 둘이다. */
+export const FIXTURE_UNSEEN_FIVE: RankingUnseenResponse = {
+  total: 21,
+  records: [
+    MORNING_FIRST,
+    record(
+      45,
+      {
+        type: "TIME_SLOT",
+        period: "DAILY",
+        slot: "DAWN",
+        periodStart: "2026-10-09",
+        rank: 1,
+        value: 10210,
+      },
+      "2026-10-09T15:00:00Z",
+    ),
+    FOCUS_SECOND,
+    EVENING_THIRD,
+    record(
+      46,
+      {
+        type: "TIME_SLOT",
+        period: "DAILY",
+        slot: "AFTERNOON",
+        periodStart: "2026-10-09",
+        rank: 3,
+        value: 9000,
+      },
+      "2026-10-09T15:00:00Z",
+    ),
+  ],
+};
+
+/**
+ * 일간과 주간이 함께 마감된 메달 셋
+ *
+ * 모두 10월 12일 0시에 마감했다.
+ */
+export const FIXTURE_UNSEEN_MIXED: RankingUnseenResponse = {
+  total: 21,
+  records: [
+    record(
+      47,
+      {
+        type: "TIME_SLOT",
+        period: "DAILY",
+        slot: "MORNING",
+        periodStart: "2026-10-11",
+        rank: 1,
+        value: 11060,
+      },
+      "2026-10-11T15:00:00Z",
+    ),
+    record(
+      48,
+      {
+        type: "FOCUS_TIME",
+        period: "WEEKLY",
+        slot: null,
+        periodStart: "2026-10-05",
+        rank: 2,
+        value: 137560,
+      },
+      "2026-10-11T15:00:00Z",
+    ),
+    record(
+      49,
+      {
+        type: "TIME_SLOT",
+        period: "DAILY",
+        slot: "EVENING",
+        periodStart: "2026-10-11",
+        rank: 3,
+        value: 10080,
+      },
+      "2026-10-11T15:00:00Z",
+    ),
+  ],
+};
+
+/**
+ * 주간 순공과 다른 판 넷이 오른 결과
+ *
+ * 저녁 구간은 일간과 주간이 함께 올랐다.
+ */
+export const FIXTURE_SESSION_GAINS: RankingSessionGainsResponse = {
+  weekly: { before: 1205, after: 1202, delta: 3 },
+  others: [
+    { type: "FOCUS_RATE", period: "WEEKLY", slot: null, before: 3410, after: 3202, delta: 208 },
+    { type: "TIME_SLOT", period: "DAILY", slot: "EVENING", before: 52, after: 43, delta: 9 },
+    { type: "TIME_SLOT", period: "WEEKLY", slot: "EVENING", before: 230, after: 226, delta: 4 },
+    { type: "TOTAL_TIME", period: null, slot: null, before: 2911, after: 2870, delta: 41 },
+  ],
+};
+
+/** 주간 순공은 오르지 않고 다른 판만 오른 결과. */
+export const FIXTURE_SESSION_GAINS_NO_WEEKLY: RankingSessionGainsResponse = {
+  weekly: null,
+  others: [
+    { type: "FOCUS_RATE", period: "WEEKLY", slot: null, before: 3410, after: 3202, delta: 208 },
+  ],
+};
+
+/**
+ * 오른 판이 없는 결과
+ *
+ * 그 시각의 세션이 없다는 404도 이 모양으로 바뀐다.
+ */
+export const FIXTURE_SESSION_GAINS_EMPTY: RankingSessionGainsResponse = {
+  weekly: null,
+  others: [],
 };
