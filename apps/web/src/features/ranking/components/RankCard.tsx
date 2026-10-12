@@ -37,17 +37,22 @@ const FILLED_FOCUS_RING =
 export function CardShell({
   title,
   titleClassName,
+  className,
   aside,
   children,
 }: {
   title: string;
   titleClassName?: string;
+  className?: string;
   aside?: ReactNode;
   children?: ReactNode;
 }) {
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className="rounded-xl bg-muted p-[18px] shadow-sb-card">
+    <section
+      aria-labelledby={titleId}
+      className={cn("rounded-xl bg-muted p-[18px] shadow-sb-card", className)}
+    >
       <div className="flex items-baseline justify-between gap-3">
         <h2
           id={titleId}
@@ -169,10 +174,13 @@ export function RankedCard({
   const cumulative = board.type === "TOTAL_TIME" || board.type === "TOTAL_DAYS";
   const progressType = board.type === "MAX_STREAK" ? null : board.type;
   const canStart = !isOffSlot(board, serverNow);
+  const footer = board.type !== "FOCUS_RATE" && !cumulative && (subLine !== null || canStart);
 
   return (
     <CardShell
       title={cardTitle(board)}
+      // 아랫줄 버튼이 카드 바닥에 붙어 보이게 아래 여백을 줄인다.
+      className={footer ? "pb-2.5" : undefined}
       aside={
         cumulative && me !== null ? (
           <p className="shrink-0 text-[13px] leading-[15px] font-extrabold text-primary">
@@ -201,8 +209,8 @@ export function RankedCard({
       ) : cumulative ? (
         <NextTierBox board={board} />
       ) : (
-        (subLine !== null || canStart) && (
-          <div className="mt-3.5 flex min-h-[31px] items-center justify-between gap-3">
+        footer && (
+          <div className="mt-2.5 flex min-h-[31px] items-center justify-between gap-3">
             {/* 버튼 옆 남은 폭을 다 써야 Safari가 닉네임 뒤에서 줄을 한 번 더 바꾸지 않는다. */}
             <SubLineText line={subLine} className="flex-1" />
             {canStart && <FocusStartPill onClick={onFocusStart} />}

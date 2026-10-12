@@ -44,7 +44,12 @@ export function IneligibleCard({
         : null;
 
   return (
-    <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
+    <CardShell
+      title={cardTitle(board)}
+      // 아랫줄 버튼이 카드 바닥에 붙어 보이게 아래 여백을 줄인다.
+      className="pb-2.5"
+      aside={deadline !== null && <Deadline text={deadline} />}
+    >
       <p className="mt-2.5 text-2xl leading-8 font-extrabold tracking-[-0.7px] text-foreground">
         참가까지{" "}
         <span className="text-primary">{formatGapDuration(Math.max(0, required - focusSec))}</span>
@@ -60,7 +65,7 @@ export function IneligibleCard({
         </span>
         <span>{formatDuration(required)}</span>
       </div>
-      <div className="mt-4 flex min-h-[31px] items-center justify-between gap-3">
+      <div className="mt-2.5 flex min-h-[31px] items-center justify-between gap-3">
         {expectation !== null ? (
           <p className="text-[13px] leading-[15px] font-semibold break-keep text-pretty text-primary">
             현재 집중률이면 {expectation}
