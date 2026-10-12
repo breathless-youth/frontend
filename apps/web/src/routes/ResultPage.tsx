@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
+import { gainCardView } from "@/features/ranking/exposure/gainView";
+import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
+import { DEFAULT_RANKING_BOARD } from "@/features/ranking/model/board";
+import { requestBoard } from "@/features/ranking/model/boardMemory";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -18,9 +23,16 @@ import { readResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
 import { ResultTimelapseCard } from "@/features/timelapse/ResultTimelapseCard";
-import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
+import {
+  stageStudyResultExit,
+  trackStudyResultConfirmed,
+  type ResultExitPath,
+  type StudyRoomType,
+} from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
+import { hasRankingTab } from "@/lib/rankingCapability";
+import { rankingSessionGainsQuery } from "@/lib/rankingQueries";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -52,6 +64,7 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 인주·타이틀이 접혀 올라가고 순공시간 아래로
  *    타임라인(최대 집중 시간 포함)·누적 요약 카드가, 하단에 CTA 둘(`홈으로`·`기록으로 가기`)이
  *    드러난다.
+ *    주간 순공 순위가 올랐으면 `session-gains` 응답이 온 뒤 결과 랭킹 카드(`RankingGainCard`)가 타임라인 위에 나타난다.
  *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
@@ -66,9 +79,10 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * `lib/studySessionApi.ts`에 있지만, 이 화면은 아직 쓰지 않는다.
  * 세션은 라우터 state가 유일한 입력이고, state가 없거나 형태가 다르면 홈으로 되돌린다.
  *
- * 예외적으로 누적 요약 카드(`SessionSummaryCard`)만 저장된 통계를 서버에서 읽는다
+ * 예외적으로 누적 요약 카드(`SessionSummaryCard`)는 저장된 통계를 서버에서 읽는다
  * — 세션이 아니라 오늘 합계·학습 일 수라 라우터 state에 실을 수 없는 값이다.
- * `?userId`가 없는 미저장 모드에서는 카드를 그리지 않는다.
+ * 결과 랭킹 카드(`RankingGainCard`)도 이번 세션으로 오른 순위를 서버(`session-gains`)에서 읽는다.
+ * `?userId`가 없는 미저장 모드에서는 두 카드 모두 그리지 않는다.
  */
 export function ResultPage() {
   const location = useLocation();
@@ -79,6 +93,12 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
+  // 랭킹 탭을 열 수 있을 때 저장된 세션만 오른 순위를 묻는다.
+  // 결과를 드러내기 전에 받아 두어 카드가 늦게 끼어드는 일을 줄인다.
+  const gainsQuery = useQuery({
+    ...rankingSessionGainsQuery(userId ?? 0, sessions?.[0].startedAt ?? ""),
+    enabled: userId !== null && sessions !== null && hasRankingTab(),
+  });
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
   const [revealed, setRevealed] = useState(skipIntro);
@@ -188,9 +208,11 @@ export function ResultPage() {
     return <Navigate to={{ pathname: home, search: location.search }} replace />;
   }
 
+  const roomType: StudyRoomType = home === "/home" ? "single" : "social";
+
   /**
-   * 이탈 경로는 하단 CTA **둘**뿐이다 — `홈으로`와 `기록으로 가기`. 시안에서 우상단 X가
-   * 빠졌고, 둘 다 공개(`revealed`) 뒤에만 있다.
+   * 이탈 경로는 하단 CTA **둘**(`홈으로`·`기록으로 가기`)과 랭킹이 올랐을 때 보이는 결과 랭킹 카드의 `랭킹 보기 ›`뿐이다.
+   * 시안에서 우상단 X가 빠졌고, 셋 다 공개(`revealed`) 뒤에만 있다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
    * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
@@ -214,11 +236,14 @@ export function ResultPage() {
    *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
+   *
+   * 결과 랭킹 카드의 랭킹 보기도 탭 전환이라 기록으로 가기와 같은 길로 랭킹 탭을 연다.
    */
   // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
-  const leave = (via: "home" | "records") => {
-    const roomType = home === "/home" ? "single" : "social";
+  const leave = (via: "home" | "records" | "ranking") => {
     trackStudyResultConfirmed({ roomType, via });
+    const exitPath: ResultExitPath =
+      via === "records" ? "/records" : via === "ranking" ? "/ranking" : home;
     /**
      * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
      * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
@@ -228,7 +253,7 @@ export function ResultPage() {
     stageStudyResultExit({
       roomType,
       focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
-      consumeAt: via === "records" ? "/records" : home,
+      consumeAt: exitPath,
     });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
@@ -236,14 +261,26 @@ export function ResultPage() {
     if (home === "/home") {
       postToNative({
         type: "navigate-home",
-        ...(via === "records" ? { tab: "records" } : {}),
+        ...(via === "home" ? {} : { tab: via }),
         atMs: Date.now(),
       });
-    } else if (via === "records") {
-      postToNative({ type: "navigate-tab", tab: "records", via: "study_result", atMs: Date.now() });
+    } else if (via !== "home") {
+      postToNative({
+        type: "navigate-tab",
+        tab: via,
+        via: via === "records" ? "study_result" : "result_ranking_card",
+        atMs: Date.now(),
+      });
     }
-    const webTarget = via === "records" && !isNativeBridgeAvailable() ? "/records" : home;
+    const webTarget = via !== "home" && !isNativeBridgeAvailable() ? exitPath : home;
     navigate({ pathname: webTarget, search: location.search }, { replace: true });
+  };
+
+  const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
+  // 카드가 보여 준 판(순공 주간)을 넘겨주고 결과 화면을 떠난다.
+  const openRanking = () => {
+    requestBoard(DEFAULT_RANKING_BOARD);
+    leave("ranking");
   };
 
   /**
@@ -274,6 +311,9 @@ export function ResultPage() {
         <StudyCompleteHero view={view} phase={phase} />
         {revealed && (
           <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+            {gainView !== null && (
+              <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
+            )}
             <StudyTimelineCard view={view} />
             {userId !== null && <SessionSummaryCard userId={userId} />}
             {userId !== null && <InterviewCardHost userId={userId} />}

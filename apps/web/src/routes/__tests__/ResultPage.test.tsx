@@ -9,11 +9,22 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  createMemoryBoardMemoryStore,
+  resetBoardMemoryStore,
+  setBoardMemoryStore,
+} from "@/features/ranking/model/boardMemory";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { todayKstDateKey } from "@/lib/dateKst";
+import { __resetRankingTabForTests } from "@/lib/rankingCapability";
+import {
+  FIXTURE_SESSION_GAINS,
+  FIXTURE_SESSION_GAINS_EMPTY,
+  FIXTURE_SESSION_GAINS_NO_WEEKLY,
+} from "@/lib/rankingFixtures";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
@@ -28,6 +39,14 @@ vi.mock("@/lib/statsApi", () => ({
 }));
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStudyDays = vi.mocked(getStudyDays);
+
+/**
+ * 랭킹 카드가 묻는 오른 순위
+ *
+ * 기본은 오른 판이 없어 카드가 없다.
+ */
+const getRankingSessionGains = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rankingApi", () => ({ getRankingSessionGains }));
 
 /** 오늘 합계 3시간 36분(12960초) — 시안 스크린샷 값. */
 const statsResponse = {
@@ -45,6 +64,7 @@ beforeEach(() => {
   mockedStats.mockResolvedValue(statsResponse);
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
+  getRankingSessionGains.mockResolvedValue({ weekly: null, others: [] });
 });
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
@@ -137,6 +157,16 @@ function RecordsProbe() {
 }
 
 /**
+ * 랭킹 도착 관측용 프로브
+ *
+ * 브라우저 단독 모드의 `랭킹 보기 ›`가 여기로 온다.
+ */
+function RankingProbe() {
+  const { search } = useLocation();
+  return <p>랭킹 화면{search}</p>;
+}
+
+/**
  * 모션 축소 여부를 `matchMedia`로 심는다 — jsdom에는 `matchMedia`가 없어 `ResultPage`는 "축소
  * 아님"으로 본다.
  *
@@ -185,6 +215,7 @@ function renderResult(
         <Routes>
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
+          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/room/:id/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -699,6 +730,7 @@ function renderResultAtSocial(state: unknown, search = "?userId=7") {
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/social" element={<SocialProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
+          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/social/room/:roomId/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -972,5 +1004,153 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
       expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
       expect(scrollTo).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("ResultPage: 랭킹 카드", () => {
+  const CARD = { name: "랭킹이 올랐어요" };
+  let boardStore: ReturnType<typeof createMemoryBoardMemoryStore>;
+
+  beforeEach(() => {
+    boardStore = createMemoryBoardMemoryStore();
+    setBoardMemoryStore(boardStore);
+    getRankingSessionGains.mockResolvedValue(FIXTURE_SESSION_GAINS);
+  });
+
+  afterEach(() => {
+    resetBoardMemoryStore();
+    window.history.replaceState(null, "", "/");
+    __resetRankingTabForTests();
+  });
+
+  /** 셸이 랭킹 탭 표시를 실은 앱 웹뷰를 흉내 낸다. */
+  function stubAppWithRankingTab() {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    window.history.replaceState(null, "", "/?ranking=1");
+    __resetRankingTabForTests();
+    return postMessage;
+  }
+
+  function sentMessages(postMessage: ReturnType<typeof vi.fn>) {
+    return postMessage.mock.calls.map(
+      ([raw]) => JSON.parse(raw as string) as Record<string, unknown>,
+    );
+  }
+
+  it("주간 순공이 오르면 히어로 아래, 타임라인 위에 카드를 보인다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    const card = await screen.findByRole("region", CARD);
+    const heroTitle = screen.getByRole("heading", { level: 1 });
+    expect(heroTitle.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      card.compareDocumentPosition(timelineCard()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(card).getByText("1,205위 → 1,202위")).toBeInTheDocument();
+    expect(within(card).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("제출한 세션의 시작 시각으로 묻는다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    await screen.findByRole("region", CARD);
+    expect(getRankingSessionGains).toHaveBeenCalledWith(
+      SESSION_START.toISOString(),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("응답이 오기 전에는 자리를 잡지 않는다", () => {
+    getRankingSessionGains.mockReturnValue(new Promise(() => {}));
+
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(timelineCard()).toBeInTheDocument();
+  });
+
+  it.each([
+    ["주간 순공이 오르지 않았으면", FIXTURE_SESSION_GAINS_NO_WEEKLY],
+    ["오른 판이 없거나 세션이 없다는 404였으면", FIXTURE_SESSION_GAINS_EMPTY],
+  ])("%s 카드를 숨긴다", async (_, response) => {
+    getRankingSessionGains.mockResolvedValue(response);
+
+    renderResult({ sessions: [exampleSession()] });
+    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+
+  it("요청이 실패해도 오류 없이 카드만 숨긴다", async () => {
+    getRankingSessionGains.mockRejectedValue(new Error("network"));
+
+    renderResult({ sessions: [exampleSession()] });
+    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+    expect(timelineCard()).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
+  });
+
+  it("미저장 모드에서는 묻지 않는다", () => {
+    renderResult({ sessions: [exampleSession()] }, "");
+
+    expect(getRankingSessionGains).not.toHaveBeenCalled();
+  });
+
+  it("랭킹 탭이 없는 앱에서는 묻지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    __resetRankingTabForTests();
+
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(getRankingSessionGains).not.toHaveBeenCalled();
+  });
+
+  it("브라우저에서 랭킹 보기는 순공 주간 판을 넘겨주고 웹 라우트 /ranking으로 간다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(screen.getByText("랭킹 화면?userId=7")).toBeInTheDocument();
+    expect(JSON.parse(boardStore.raw!).ranking).toEqual({ type: "FOCUS_TIME", period: "WEEKLY" });
+    expect(stageStudyResultExit).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "single", consumeAt: "/ranking" }),
+    );
+  });
+
+  it("앱 솔로 결과에서는 모달 닫기 신호 하나에 랭킹 탭을 싣는다", async () => {
+    const postMessage = stubAppWithRankingTab();
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(sentMessages(postMessage)).toEqual([
+      expect.objectContaining({ type: "navigate-home", tab: "ranking" }),
+    ]);
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
+  });
+
+  it("앱 소셜 결과에서는 탭 전환 신호만 보내고 웹뷰는 소셜 홈으로 돌린다", async () => {
+    const postMessage = stubAppWithRankingTab();
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(sentMessages(postMessage)).toEqual([
+      expect.objectContaining({ type: "navigate-tab", tab: "ranking", via: "result_ranking_card" }),
+    ]);
+    expect(screen.getByText("소셜 홈?userId=7")).toBeInTheDocument();
+    expect(stageStudyResultExit).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "social", consumeAt: "/ranking" }),
+    );
   });
 });
