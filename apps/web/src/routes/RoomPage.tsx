@@ -278,17 +278,13 @@ function RoomSessionScreen({
   /**
    * 타임랩스 촬영
    *
-   * 출시 전에는 빌드 플래그로만 켠다.
-   * 꺼진 빌드는 감지기에 촬영 창구를 주지 않아 워커 메시지가 지금과 같다.
    * 소셜룸은 이 화면을 쓰지 않으므로 찍지 않는다.
    */
-  const [timelapse] = useState(() =>
-    import.meta.env.VITE_TIMELAPSE === "on" ? createTimelapseRecorder() : null,
-  );
+  const [timelapse] = useState(() => createTimelapseRecorder());
   const { visionDetector, visionReady } = useTrackedVisionDetector(
     videoRef,
     "single",
-    timelapse?.photoTap,
+    timelapse.photoTap,
   );
   /**
    * 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`).
@@ -331,12 +327,12 @@ function RoomSessionScreen({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
-    onEnded: timelapse?.finish,
+    onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(CAMERA_TOAST_COPY.cameraOff),
   });
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   useEffect(() => {
-    timelapse?.begin(startedAtMs);
+    timelapse.begin(startedAtMs);
   }, [startedAtMs, timelapse]);
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
   const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);

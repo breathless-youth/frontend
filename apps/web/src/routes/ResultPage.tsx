@@ -295,7 +295,7 @@ export function ResultPage() {
   const view = toSessionResultView(sessions[0]);
   const timelapseStartedAtMs = readStartedAtMs(location.state) ?? Date.parse(sessions[0].startedAt);
   // 타임랩스는 싱글룸에서만 찍는다.
-  const showTimelapse = import.meta.env.VITE_TIMELAPSE === "on" && home === "/home";
+  const showTimelapse = home === "/home";
   const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
 
   return (

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -256,7 +256,6 @@ describe("타임랩스 전체 목록", () => {
 describe("타임랩스 전체 목록 라우트", () => {
   afterEach(() => {
     appQueryClient.clear();
-    vi.unstubAllEnvs();
   });
 
   function renderApp() {
@@ -267,20 +266,9 @@ describe("타임랩스 전체 목록 라우트", () => {
     );
   }
 
-  it("플래그가 켜져 있으면 /timelapses가 열린다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("/timelapses가 열린다", async () => {
     renderApp();
 
     expect(await screen.findByRole("heading", { name: "최근 타임랩스" })).toBeInTheDocument();
-  });
-
-  it("플래그가 꺼져 있으면 /timelapses가 없다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    // 청크를 미리 받아 두어야 라우트가 있을 때 아래 대기 안에 페이지가 그려진다.
-    await import("@/routes/TimelapsesPage");
-    renderApp();
-
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-    expect(screen.queryByRole("heading", { name: "최근 타임랩스" })).toBeNull();
   });
 });

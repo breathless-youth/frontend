@@ -38,13 +38,11 @@ describe("closeStaleSession", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
     vi.useRealTimers();
     settleRecoveredTimelapse.mockClear();
   });
 
-  it("타임랩스 빌드면 확정된 세션의 타임랩스를 정리한다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("확정된 세션의 타임랩스를 정리한다", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, RECOVERED));
 
     await closeStaleSession(7);
@@ -52,13 +50,7 @@ describe("closeStaleSession", () => {
     expect(settleRecoveredTimelapse).toHaveBeenCalledWith(RECOVERED);
   });
 
-  it("타임랩스 빌드가 아니거나 확정된 세션이 없으면 정리하지 않는다", async () => {
-    // 로컬 `.env.local`이 플래그를 켜 두어도 앞 절반은 꺼진 빌드를 본다.
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    fetchMock.mockResolvedValue(jsonResponse(200, RECOVERED));
-    await closeStaleSession(7);
-
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("확정된 세션이 없으면 정리하지 않는다", async () => {
     fetchMock.mockResolvedValue(jsonResponse(404, { message: "복구할 세션이 없습니다" }));
     await closeStaleSession(7);
 

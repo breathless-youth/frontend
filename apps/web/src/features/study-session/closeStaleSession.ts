@@ -132,7 +132,7 @@ export async function closeStaleSession(
   } finally {
     clearTimeout(timer);
   }
-  if (recovered !== null && import.meta.env.VITE_TIMELAPSE === "on") {
+  if (recovered !== null) {
     // 기기 저장소 정리 때문에 새 세션 시작이 늦어지면 안 되어 기다리지 않는다.
     void settleRecoveredTimelapse(recovered);
   }

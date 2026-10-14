@@ -112,13 +112,11 @@ async function tick(ms: number) {
 }
 
 afterEach(() => {
-  vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
 
 describe("RoomPage 타임랩스 연결", () => {
-  it("타임랩스 빌드면 세션 시작 시각으로 기록을 열고 끝날 때 한 번 알린다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("세션 시작 시각으로 기록을 열고 끝날 때 한 번 알린다", async () => {
     renderRoom();
 
     await waitFor(() => {
@@ -135,16 +133,7 @@ describe("RoomPage 타임랩스 연결", () => {
     expect(recorder.finish.mock.calls[0]?.[0].startedAtMs).toBe(recorder.begin.mock.calls[0]?.[0]);
   });
 
-  it("타임랩스 빌드가 아니면 촬영을 만들지 않는다", () => {
-    // 로컬 `.env.local`이 플래그를 켜 두어도 이 테스트는 꺼진 빌드를 본다.
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    renderRoom();
-
-    expect(createTimelapseRecorder).not.toHaveBeenCalled();
-  });
-
   it("일시정지와 백그라운드 전환 중에는 사진을 저장하지 않고 다시 시작하면 이어 찍는다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
     vi.useFakeTimers();
     const { due, save } = recorder.photoTap;
     due.mockReturnValue({ aspect: "9:16", mask: false });

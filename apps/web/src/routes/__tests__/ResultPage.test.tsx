@@ -851,12 +851,7 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
     timelapseCard.props = [];
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("플래그가 켜진 솔로 결과면 맨 아래에 카드를 두고 세션 시작 시각을 넘긴다", () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("솔로 결과면 맨 아래에 카드를 두고 세션 시작 시각을 넘긴다", () => {
     renderResult({ sessions: [exampleSession()], startedAtMs: 1_000 });
 
     const card = screen.getByTestId("timelapse-card");
@@ -868,21 +863,12 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
   });
 
   it("state에 시작 시각이 없으면 세션의 시작 시각으로 찾는다", () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
     renderResult({ sessions: [exampleSession()] });
 
     expect(timelapseCard.props.at(-1)?.startedAtMs).toBe(SESSION_START.getTime());
   });
 
-  it("플래그가 꺼져 있으면 카드가 없다", () => {
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    renderResult({ sessions: [exampleSession()] });
-
-    expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
-  });
-
   it("소셜 결과에는 카드가 없다", () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
     renderResultAtSocial({ sessions: [exampleSession()] });
 
     expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
@@ -898,7 +884,6 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
         const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
         return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
       });
-      vi.stubEnv("VITE_TIMELAPSE", "on");
       vi.useFakeTimers();
       vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
       vi.stubGlobal("requestAnimationFrame", () => 0);
@@ -989,7 +974,6 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
     );
 
     it("움직임 줄이기 설정이면 자동 스크롤하지 않는다", () => {
-      vi.stubEnv("VITE_TIMELAPSE", "on");
       vi.useFakeTimers();
       const scrollTo = vi.fn();
       Object.defineProperty(HTMLElement.prototype, "scrollTo", {
