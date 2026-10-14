@@ -135,7 +135,7 @@ export default function PermissionDeniedScreen() {
           </Text>
 
           <Text className="text-text-tertiary mt-[10px] text-center text-[12px] font-sans leading-[14px]">
-            영상은 기기 안에서만 처리되고 저장되지 않아요
+            영상과 사진은 기기 밖으로 나가지 않아요
           </Text>
         </View>
       </ScrollView>
