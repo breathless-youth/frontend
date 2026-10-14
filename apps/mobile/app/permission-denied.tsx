@@ -29,7 +29,8 @@ import { trackNativeEvent } from "../lib/nativeAnalytics";
  * 그러니 "우회 경로를 만들지 않는다"를 근거로 이 화면을 그대로 굳히지 말 것.
  *
  * 문구는 `ai-wiki/product/voice-tone.md` §4에서 그대로 가져온 확정 카피다 — 의역·개행·문장부호 변경 금지.
- * 프라이버시 캡션은 **싱글룸 문구**다(V1.0에 멀티룸 화면이 없다 — 멀티룸 표현을 가져오지 않는다).
+ * 이 화면은 싱글룸 시작과 소셜룸 입장 게이트가 함께 쓰므로 프라이버시 캡션은 AI 분석 범위만 말한다.
+ * 멀티룸 영상은 상대 참여자에게 전송되고 타임랩스 사진은 사용자가 공유하면 기기를 떠나서 "영상·사진이 안 나간다"고 쓰지 않는다.
  */
 export default function PermissionDeniedScreen() {
   const insets = useSafeAreaInsets();
@@ -135,7 +136,7 @@ export default function PermissionDeniedScreen() {
           </Text>
 
           <Text className="text-text-tertiary mt-[10px] text-center text-[12px] font-sans leading-[14px]">
-            영상과 사진은 기기 밖으로 나가지 않아요
+            AI 분석용 영상은 기기 밖으로 나가지 않아요
           </Text>
         </View>
       </ScrollView>

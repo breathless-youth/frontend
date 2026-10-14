@@ -50,7 +50,7 @@ describe("S2-3 · 권한 거부 안내", () => {
     expect(
       screen.getByText("측정은 카메라로만 할 수 있어요.\n설정에서 허용하면 바로 시작할 수 있어요."),
     ).toBeTruthy();
-    expect(screen.getByText("영상과 사진은 기기 밖으로 나가지 않아요")).toBeTruthy();
+    expect(screen.getByText("AI 분석용 영상은 기기 밖으로 나가지 않아요")).toBeTruthy();
     expect(screen.getByText("설정 열기")).toBeTruthy();
     expect(screen.getByText("홈으로 돌아가기")).toBeTruthy();
   });
