@@ -170,7 +170,7 @@ function HomeContent({ userId }: { userId: number }) {
       prefetchVisionAssets();
       prefetchOnboardingGuidePage();
       // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
-      if (import.meta.env.VITE_TIMELAPSE === "on") prefetchTimelapsesPage();
+      prefetchTimelapsesPage();
     }
   }, [summaryShown]);
 
@@ -232,7 +232,7 @@ function HomeContent({ userId }: { userId: number }) {
       </Button>
 
       <InviteCard onClick={openSocial} />
-      {import.meta.env.VITE_TIMELAPSE === "on" && <RecentTimelapses />}
+      <RecentTimelapses />
     </>
   );
 }

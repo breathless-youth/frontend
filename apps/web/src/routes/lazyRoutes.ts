@@ -47,7 +47,7 @@ export function prefetchSettingsSubPages(): void {
       loadPrivacyPage,
       loadLicensesPage,
       loadContactPage,
-      ...(import.meta.env.VITE_TIMELAPSE === "on" ? [loadTimelapseSettingsPage] : []),
+      loadTimelapseSettingsPage,
     ]) {
       void load().catch(() => {});
     }

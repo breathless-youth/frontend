@@ -41,7 +41,6 @@ async function findSaveSwitch() {
 }
 
 beforeEach(() => {
-  vi.stubEnv("VITE_TIMELAPSE", "on");
   store = createMemoryTimelapseSettingsStore();
   setTimelapseSettingsStore(store);
   vi.mocked(getDday).mockResolvedValue({ title: "2027 수능", targetDate: "2027-01-23" });
@@ -50,7 +49,6 @@ beforeEach(() => {
 afterEach(() => {
   // App은 모듈 하나의 QueryClient를 쓰므로 앞 테스트의 D-Day 응답이 캐시에 남는다.
   queryClient.clear();
-  vi.unstubAllEnvs();
   resetTimelapseSettingsStore();
   vi.clearAllMocks();
 });
@@ -291,15 +289,5 @@ describe("설정 › 타임랩스", () => {
     fireEvent.click(await screen.findByRole("switch", { name: label }));
 
     expect(analytics.trackTimelapseSettingChanged).toHaveBeenCalledWith({ setting, value: true });
-  });
-
-  it("플래그가 꺼져 있으면 페이지가 없다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    // 청크를 미리 받아 두어야 라우트가 있을 때 아래 대기 안에 페이지가 그려진다.
-    await import("@/routes/TimelapseSettingsPage");
-    renderPage();
-
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-    expect(screen.queryByRole("switch", { name: "타임랩스 저장" })).toBeNull();
   });
 });

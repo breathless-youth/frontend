@@ -915,25 +915,12 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
 });
 
 describe("HomeTabPage — 최근 타임랩스 (BY-895)", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("플래그가 켜져 있으면 초대 카드 다음에 보인다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "on");
+  it("초대 카드 다음에 보인다", async () => {
     renderHome();
 
     const section = await screen.findByTestId("recent-timelapses");
     const invite = screen.getByRole("button", { name: /그룹 스터디하러 이동/ });
 
     expect(invite.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("플래그가 꺼져 있으면 보이지 않는다", async () => {
-    vi.stubEnv("VITE_TIMELAPSE", "");
-    renderHome();
-
-    await screen.findByRole("button", { name: /그룹 스터디하러 이동/ });
-    expect(screen.queryByTestId("recent-timelapses")).not.toBeInTheDocument();
   });
 });
