@@ -99,7 +99,7 @@ ST-Q17(보호자가 관리하는 청소년 기기)은 해당 기기가 없어 �
 3. **재실행 정리를 앱 시작에 자동으로 붙인다.** 진행 중인 공부가 없으면 `resetBlocks`와 예약 정리를 부른다(D12). 이번에는 버튼으로만 확인했다.
 4. **`apps/mobile/targets/`를 어떻게 다룰지 정한다.** config plugin의 `copyToTargetFolder` 기본값 때문에 prebuild마다 확장 소스 사본이 생기고 gitignore 대상이 아니다. 커밋하거나 옵션을 꺼서 생성되지 않게 한다.
 5. **plugin이 확장 타깃에 팀 ID를 넘기지 않는다.** `[bacons/apple-targets] ... missing required ios.appleTeamId` 경고가 난다. 명령줄 `DEVELOPMENT_TEAM`이나 EAS 서명이 덮어써서 빌드에는 문제가 없었다.
-6. **[결정 필요] 확장의 최소 iOS(18.0)와 앱의 최소 iOS(16.4)가 다르다.** config plugin이 확장 3개를 18.0으로 만든다. 확장은 최소 iOS보다 낮은 기기에서 실행되지 않으므로, 그대로 EAS로 빌드하면 iOS 16.4~17.x 기기에서는 예약 해제(S4)와 잠금 화면 문구(S3)가 빠진다. 이번 시험은 명령줄 `IPHONEOS_DEPLOYMENT_TARGET=16.4`가 확장까지 16.4로 덮어쓴 빌드라 이 경우를 확인하지 못했다. BY-745 착수 전에 셋 중 하나를 정한다: (a) 앱 최소 iOS를 18.0으로 올린다, (b) 확장 최소 iOS를 16.4로 낮추고 iOS 16·17 실기기로 확인한다, (c) iOS 18 미만에서는 방해 앱 잠금을 끄고 안내한다.
+6. **[결정 필요] 확장의 최소 iOS(18.0)와 앱의 최소 iOS(16.4)가 다르다.** config plugin이 확장 3개를 18.0으로 만든다. 확장은 최소 iOS보다 낮은 기기에서 실행되지 않으므로, 그대로 EAS로 빌드하면 iOS 16.4~~17.x 기기에서는 예약 해제(S4)와 잠금 화면 문구(S3)가 빠진다. 이번 시험은 명령줄 `IPHONEOS_DEPLOYMENT_TARGET=16.4`가 확장까지 16.4로 덮어쓴 빌드라 이 경우를 확인하지 못했다. 잠그기(`blockSelection`)는 확장 없이 본체가 하므로, 그 기기에서는 **잠금은 걸리는데 풀어 줄 예약이 돌지 않는다.** 잠금 화면도 시스템 기본 화면으로 나온다. 사용자가 앱을 다시 열어 재실행 정리를 타기 전까지 잠금에서 빠져나오지 못할 수 있어 D12·D13과 정면으로 부딪힌다. BY-745 착수 전에 셋 중 하나를 정한다: (a) 앱 최소 iOS를 18.0으로 올린다, (b) 확장 최소 iOS를 16.4로 낮춘다. 이 경우 iOS 16·17 실기기에서 S3~~S5를 반드시 다시 돌린다, (c) iOS 18 미만에서는 방해 앱 잠금을 끄고 안내한다. (c)는 기능을 덜 주는 선택이 아니라 이 안전 문제를 피하는 선택이다.
 7. **예약을 먼저 걸고 잠근다.** 아래 시험 코드는 잠근 다음 예약을 건다. 그 사이에 앱이 죽으면 예약 없이 잠금만 남는다(S5에서 본 상황). 본 구현에서는 `startMonitoring`으로 안전 해제 예약을 건 뒤 `blockSelection`을 부른다.
 8. 기존 DEV 앱이 든 derivedData에 서명 없이 빌드한 결과가 남아 있으면, 서명 빌드를 해도 프레임워크가 서명되지 않은 채 설치가 `ApplicationVerificationFailed`로 막혔다. 서명 빌드 전에 `Build/Products`를 지운다.
 
@@ -109,23 +109,23 @@ ST-Q17(보호자가 관리하는 청소년 기기)은 해당 기기가 없어 �
 
 ### 시험 화면 핵심 코드
 
-시험에서는 버튼을 따로 눌러 잠금 → 예약 순서로 불렀다. 본 구현에서는 주의점 7대로 예약을 먼저 건다. `releaseSchedule(now, minutes)`는 지금 시각에 시작해 `minutes`분 뒤에 끝나는 일회성 예약(`repeats: false`)을 만드는 시험용 헬퍼다.
+아래 코드는 주의점 7의 순서(예약 → 잠금)로 적었다. 시험에서는 버튼을 따로 눌러 잠금 → 예약 순서로 불렀다는 점만 다르다. `releaseSchedule(now, minutes)`는 지금 시각에 시작해 `minutes`분 뒤에 끝나는 일회성 예약(`repeats: false`)을 만드는 시험용 헬퍼다.
 
 ```ts
-// 잠그기: 잠금 화면 문구를 정하고 고른 앱을 잠근다
-RNDA.updateShield(
-  { title: "공부 중이에요", subtitle: "공부가 끝나면 다시 열려요", primaryButtonLabel: "닫기" },
-  { primary: { behavior: "close" } },
-);
-RNDA.blockSelection({ activitySelectionId: SELECTION_ID }, "spike");
-
-// 안전 해제: 예약이 끝나면 확장이 고른 앱을 푼다(앱이 꺼져 있어도)
+// 1. 안전 해제부터 건다: 예약이 끝나면 확장이 고른 앱을 푼다(앱이 꺼져 있어도)
 RNDA.configureActions({
   activityName: ACTIVITY,
   callbackName: "intervalDidEnd",
   actions: [{ type: "unblockSelection", familyActivitySelectionId: SELECTION_ID }],
 });
 await RNDA.startMonitoring(ACTIVITY, releaseSchedule(new Date(), 15), []);
+
+// 2. 그다음 잠근다: 잠금 화면 문구를 정하고 고른 앱을 잠근다
+RNDA.updateShield(
+  { title: "공부 중이에요", subtitle: "공부가 끝나면 다시 열려요", primaryButtonLabel: "닫기" },
+  { primary: { behavior: "close" } },
+);
+RNDA.blockSelection({ activitySelectionId: SELECTION_ID }, "spike");
 
 // 재실행 정리
 RNDA.resetBlocks("spike-cleanup");
