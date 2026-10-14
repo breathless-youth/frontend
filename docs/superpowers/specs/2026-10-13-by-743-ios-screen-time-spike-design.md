@@ -95,18 +95,21 @@ ST-Q17(보호자가 관리하는 청소년 기기)은 해당 기기가 없어 �
 ### BY-745에 넘길 주의점
 
 1. **App Group은 Apple 사이트에 직접 등록해야 한다.** 명령줄 자동 서명은 App ID와 개발용 Family Controls는 만들지만 App Group은 등록·배정하지 않아, 처음 서명 빌드가 `doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement`로 실패했다. 이번에는 `group.com.breathlessyouth.mobile.dev`를 등록하고 App ID 4개에 배정했다. 스테이징·운영도 같은 절차가 필요하다.
-2. **권한 상태는 `approved`인지로만 판단한다.** 설정에서 끈 뒤에는 `denied`가 아니라 `notDetermined`로 돌아온다. "denied면 꺼짐"으로 짜면 D20 감지가 빠진다.
+2. **권한 상태는 `approved`인지로만 판단하고, 전에 허용했었다는 기록을 따로 둔다.** 설정에서 끈 뒤에는 `denied`가 아니라 `notDetermined`로 돌아온다. "denied면 꺼짐"으로 짜면 D20 감지가 빠진다. 그런데 `notDetermined`는 처음 쓰는 사용자와 값이 같아서 상태만으로는 "껐다"와 "처음이다"를 가를 수 없다. 처음 `approved`를 받을 때 기기에 기록을 남기고, 그 기록이 있는데 지금 `approved`가 아니면 끈 것으로 본다.
 3. **재실행 정리를 앱 시작에 자동으로 붙인다.** 진행 중인 공부가 없으면 `resetBlocks`와 예약 정리를 부른다(D12). 이번에는 버튼으로만 확인했다.
 4. **`apps/mobile/targets/`를 어떻게 다룰지 정한다.** config plugin의 `copyToTargetFolder` 기본값 때문에 prebuild마다 확장 소스 사본이 생기고 gitignore 대상이 아니다. 커밋하거나 옵션을 꺼서 생성되지 않게 한다.
 5. **plugin이 확장 타깃에 팀 ID를 넘기지 않는다.** `[bacons/apple-targets] ... missing required ios.appleTeamId` 경고가 난다. 명령줄 `DEVELOPMENT_TEAM`이나 EAS 서명이 덮어써서 빌드에는 문제가 없었다.
-6. **명령줄 `IPHONEOS_DEPLOYMENT_TARGET=16.4`가 확장의 18.0까지 덮어쓴다.** 컴파일은 됐지만, EAS 빌드에서는 확장이 18.0으로 남는다. 이 경우 iOS 16·17 기기에서 확장이 동작하는지 따로 확인한다.
-7. 기존 DEV 앱이 든 derivedData에 서명 없이 빌드한 결과가 남아 있으면, 서명 빌드를 해도 프레임워크가 서명되지 않은 채 설치가 `ApplicationVerificationFailed`로 막혔다. 서명 빌드 전에 `Build/Products`를 지운다.
+6. **[결정 필요] 확장의 최소 iOS(18.0)와 앱의 최소 iOS(16.4)가 다르다.** config plugin이 확장 3개를 18.0으로 만든다. 확장은 최소 iOS보다 낮은 기기에서 실행되지 않으므로, 그대로 EAS로 빌드하면 iOS 16.4~17.x 기기에서는 예약 해제(S4)와 잠금 화면 문구(S3)가 빠진다. 이번 시험은 명령줄 `IPHONEOS_DEPLOYMENT_TARGET=16.4`가 확장까지 16.4로 덮어쓴 빌드라 이 경우를 확인하지 못했다. BY-745 착수 전에 셋 중 하나를 정한다: (a) 앱 최소 iOS를 18.0으로 올린다, (b) 확장 최소 iOS를 16.4로 낮추고 iOS 16·17 실기기로 확인한다, (c) iOS 18 미만에서는 방해 앱 잠금을 끄고 안내한다.
+7. **예약을 먼저 걸고 잠근다.** 아래 시험 코드는 잠근 다음 예약을 건다. 그 사이에 앱이 죽으면 예약 없이 잠금만 남는다(S5에서 본 상황). 본 구현에서는 `startMonitoring`으로 안전 해제 예약을 건 뒤 `blockSelection`을 부른다.
+8. 기존 DEV 앱이 든 derivedData에 서명 없이 빌드한 결과가 남아 있으면, 서명 빌드를 해도 프레임워크가 서명되지 않은 채 설치가 `ApplicationVerificationFailed`로 막혔다. 서명 빌드 전에 `Build/Products`를 지운다.
 
 ### ST-Q17 보호자가 관리하는 청소년 기기
 
 실기기로 확인하지 못했다. Apple 문서(`requestAuthorization(for:)`)는 "보호자가 자녀 계정을, 개인은 자기 계정을 인증한다"고만 적고, 가족 공유로 관리되는 자녀 기기에서 `.individual`을 요청할 때의 동작은 밝히지 않는다. 지원 여부는 해당 기기를 구해 확인하기 전까지 "안내 문구만"으로 두는 쪽을 권한다.
 
 ### 시험 화면 핵심 코드
+
+시험에서는 버튼을 따로 눌러 잠금 → 예약 순서로 불렀다. 본 구현에서는 주의점 7대로 예약을 먼저 건다.
 
 ```ts
 // 잠그기: 잠금 화면 문구를 정하고 고른 앱을 잠근다
