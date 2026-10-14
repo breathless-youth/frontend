@@ -351,7 +351,7 @@ export const ONBOARDING_GUIDE_STEPS: readonly OnboardingGuideStep[] = [
     tooltip: null,
     privacyCard: {
       title: "영상은 기기 밖으로 나가지 않아요",
-      body: "측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요. 공부 시간만 기록돼요.",
+      body: "측정은 기기 안에서만 이루어지고, 타임랩스 사진도 내 기기에만 남아요. 서버에는 공부 시간만 기록돼요.",
     },
     anchor: "privacy-card",
     spacing: { topFlex: 1, midFlex: 1, bottomFlex: 0 },
