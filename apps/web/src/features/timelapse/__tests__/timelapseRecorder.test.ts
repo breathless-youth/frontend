@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EndedSession } from "@/features/study-session/useStudyRoomSession";
 
@@ -264,6 +264,15 @@ describe("createTimelapseRecorder 종료", () => {
 });
 
 describe("settleRecoveredTimelapse", () => {
+  // 정리는 벽시계로 7일 기한을 보므로 고정 픽스처가 낡지 않게 Date만 그 무렵으로 고정한다.
+  beforeEach(() => {
+    vi.useFakeTimers({ now: T0 + 1_800_000, toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const RECOVERED = {
     statDate: "2026-10-06",
     startedAt: new Date(T0).toISOString(),
