@@ -201,14 +201,13 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
 
 ## 자주 겪는 실패
 
-| 증상                                                   | 원인                       | 조치                                                                          |
-| ------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------- |
-| `Unicode Normalization not appropriate for ASCII-8BIT` | 로케일이 `C`               | 위 `LANG` 절                                                                  |
-| `error: apps/web 빌드 산출물이 없습니다`               | `sync-web`을 안 돌림       | 빌드 순서 1단계                                                               |
-| 세션 화면이 "세션을 시작하지 못했어요"                 | 서버가 서빙 루트를 못 찾음 | 오류 메시지에 찍힌 경로를 확인 — `sync-web` 후 **재빌드**해야 번들에 반영된다 |
-
-| `Path to GoogleService-Info.plist is not defined` (로컬 `eas build` prebuild) | 로컬 빌더는 EAS Secret 파일 변수를 못 받음 | STG 빌드 절의 `GOOGLE_SERVICES_*` env |
-| `GOOGLE_SERVICES_PLIST에 이 빌드의 아이덴티티(…dev)가 없습니다` (로컬 `eas build`) | 로컬 설정 평가에 `APP_VARIANT`가 없어 development로 잡힘 | 셸에 `APP_VARIANT=staging` |
-| 아카이브 끝 `sentry-cli ... API request failed` (로컬 `eas build`) | 로컬에 `SENTRY_AUTH_TOKEN`이 없음 | `SENTRY_DISABLE_AUTO_UPLOAD=true` |
+| 증상                                                                               | 원인                                                     | 조치                                                                          |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Unicode Normalization not appropriate for ASCII-8BIT`                             | 로케일이 `C`                                             | 위 `LANG` 절                                                                  |
+| `error: apps/web 빌드 산출물이 없습니다`                                           | `sync-web`을 안 돌림                                     | 빌드 순서 1단계                                                               |
+| 세션 화면이 "세션을 시작하지 못했어요"                                             | 서버가 서빙 루트를 못 찾음                               | 오류 메시지에 찍힌 경로를 확인 — `sync-web` 후 **재빌드**해야 번들에 반영된다 |
+| `Path to GoogleService-Info.plist is not defined` (로컬 `eas build` prebuild)      | 로컬 빌더는 EAS Secret 파일 변수를 못 받음               | STG 빌드 절의 `GOOGLE_SERVICES_*` env                                         |
+| `GOOGLE_SERVICES_PLIST에 이 빌드의 아이덴티티(…dev)가 없습니다` (로컬 `eas build`) | 로컬 설정 평가에 `APP_VARIANT`가 없어 development로 잡힘 | 셸에 `APP_VARIANT=staging`                                                    |
+| 아카이브 끝 `sentry-cli ... API request failed` (로컬 `eas build`)                 | 로컬에 `SENTRY_AUTH_TOKEN`이 없음                        | `SENTRY_DISABLE_AUTO_UPLOAD=true`                                             |
 
 **빌드 명령을 `| tail`로 파이프하지 말 것.** 종료 코드가 `tail`의 것으로 바뀌어 실패한 빌드가 성공처럼 보인다.
