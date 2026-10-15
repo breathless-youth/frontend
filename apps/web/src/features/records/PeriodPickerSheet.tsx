@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
 import { PeriodNav } from "./PeriodNav";
+import { useHorizontalSwipe } from "./useHorizontalSwipe";
 import {
   type CalendarMonth,
   dateKeyOfDate,
@@ -58,9 +59,9 @@ function PickerSheet({
             {title}
           </SheetTitle>
           <Button
-            variant="subtle"
+            variant="raised"
             onClick={onToday}
-            className="h-8 rounded-full px-3.5 py-0 text-[13px] leading-4 font-semibold text-brand-subtle-text"
+            className="h-8 rounded-full px-3.5 py-0 text-[13px] leading-4 text-brand-subtle-text"
           >
             오늘
           </Button>
@@ -140,6 +141,11 @@ function MonthGrid({
 }) {
   const [year, setYear] = useState(month.year);
   const thisYear = monthOfDateKey(todayKey).year;
+  const goPrev = () => setYear((current) => current - 1);
+  const goNext = () => setYear((current) => Math.min(thisYear, current + 1));
+  // 격자를 좌우로 밀어도 해를 넘긴다(기록 탭 달력과 같은 판정). 격자 칸 사이를 가로질러 놓으면
+  // 누른 칸과 놓은 칸이 달라 달 선택 click은 나지 않는다.
+  const swipe = useHorizontalSwipe((delta) => (delta < 0 ? goPrev() : goNext()));
 
   return (
     <>
@@ -148,15 +154,17 @@ function MonthGrid({
         prevLabel="이전 해"
         nextLabel="다음 해"
         canGoNext={year < thisYear}
-        onPrev={() => setYear((current) => current - 1)}
-        onNext={() => setYear((current) => Math.min(thisYear, current + 1))}
+        onPrev={goPrev}
+        onNext={goNext}
       />
       <ToggleGroup
         type="single"
         value={year === month.year ? String(month.month) : ""}
         // 고른 달을 다시 누르면 ToggleGroup은 선택을 풀어 빈 값을 준다 — 그때도 그 달을 고른 것으로 넘긴다.
         onValueChange={(value) => onPick({ year, month: Number(value || month.month) })}
-        className="grid grid-cols-4 gap-2 pt-2"
+        data-testid="month-picker-swipe-area"
+        className="grid grid-cols-4 gap-2 pt-2 touch-pan-y"
+        {...swipe}
       >
         {MONTHS.map((value) => (
           <ToggleGroupItem
@@ -219,6 +227,9 @@ function WeekGrid({
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(selectedWeek[0]!));
   const canGoNext = !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
   const today = dateOfDateKey(todayKey);
+  const goPrev = () => setViewMonth((current) => shiftMonth(current, -1));
+  const goNext = () => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current));
+  const swipe = useHorizontalSwipe((delta) => (delta < 0 ? goPrev() : goNext()));
 
   return (
     <>
@@ -227,33 +238,36 @@ function WeekGrid({
         prevLabel="이전 달"
         nextLabel="다음 달"
         canGoNext={canGoNext}
-        onPrev={() => setViewMonth((current) => shiftMonth(current, -1))}
-        onNext={() => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current))}
+        onPrev={goPrev}
+        onNext={goNext}
       />
-      <Calendar
-        // 주는 달을 넘나들어도 한 줄이다 — 달의 첫 주·마지막 주는 이웃 달 날짜로 채운다.
-        showOutsideDays
-        month={dateOfMonth(viewMonth)}
-        today={today}
-        disabled={{ after: today }}
-        modifiers={{
-          inWeek: selectedWeek.map(dateOfDateKey),
-          // 월요일이 아직 오지 않은 주는 통째로 고를 수 없다 — 이번 주 일요일 뒤의 날이 그렇다.
-          futureWeek: { after: dateOfDateKey(mondayWeekDateKeys(todayKey)[6]!) },
-        }}
-        modifiersClassNames={{
-          inWeek: "bg-brand-subtle first:rounded-l-[12px] last:rounded-r-[12px]",
-          futureWeek: "opacity-35",
-        }}
-        onDayClick={(date, modifiers) => {
-          if (!modifiers.disabled) {
-            onPick(dateKeyOfDate(date));
-          }
-        }}
-        className="pt-2"
-        classNames={PICKER_GRID_CLASSNAMES}
-        components={{ DayButton: WeekGridDay }}
-      />
+      {/* 달력을 좌우로 밀어도 달을 넘긴다 — DayPicker는 포인터 핸들러를 루트에 내리지 않아 감싼다. */}
+      <div data-testid="week-picker-swipe-area" className="touch-pan-y" {...swipe}>
+        <Calendar
+          // 주는 달을 넘나들어도 한 줄이다 — 달의 첫 주·마지막 주는 이웃 달 날짜로 채운다.
+          showOutsideDays
+          month={dateOfMonth(viewMonth)}
+          today={today}
+          disabled={{ after: today }}
+          modifiers={{
+            inWeek: selectedWeek.map(dateOfDateKey),
+            // 월요일이 아직 오지 않은 주는 통째로 고를 수 없다 — 이번 주 일요일 뒤의 날이 그렇다.
+            futureWeek: { after: dateOfDateKey(mondayWeekDateKeys(todayKey)[6]!) },
+          }}
+          modifiersClassNames={{
+            inWeek: "bg-brand-subtle first:rounded-l-[12px] last:rounded-r-[12px]",
+            futureWeek: "opacity-35",
+          }}
+          onDayClick={(date, modifiers) => {
+            if (!modifiers.disabled) {
+              onPick(dateKeyOfDate(date));
+            }
+          }}
+          className="pt-2"
+          classNames={PICKER_GRID_CLASSNAMES}
+          components={{ DayButton: WeekGridDay }}
+        />
+      </div>
     </>
   );
 }
@@ -348,6 +362,9 @@ function DayGrid({
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
   const today = dateOfDateKey(todayKey);
   const canGoNext = allowFuture || !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
+  const goPrev = () => setViewMonth((current) => shiftMonth(current, -1));
+  const goNext = () => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current));
+  const swipe = useHorizontalSwipe((delta) => (delta < 0 ? goPrev() : goNext()));
 
   return (
     <>
@@ -356,21 +373,24 @@ function DayGrid({
         prevLabel="이전 달"
         nextLabel="다음 달"
         canGoNext={canGoNext}
-        onPrev={() => setViewMonth((current) => shiftMonth(current, -1))}
-        onNext={() => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current))}
+        onPrev={goPrev}
+        onNext={goNext}
       />
-      <Calendar
-        mode="single"
-        required
-        month={dateOfMonth(viewMonth)}
-        today={today}
-        selected={dateOfDateKey(dateKey)}
-        disabled={allowFuture ? undefined : { after: today }}
-        onSelect={(date) => onPick(dateKeyOfDate(date))}
-        className="pt-2"
-        classNames={PICKER_GRID_CLASSNAMES}
-        components={{ DayButton: DayGridDay }}
-      />
+      {/* 주 선택과 같은 이유로 감싼다 — 달력을 좌우로 밀어도 달을 넘긴다. */}
+      <div data-testid="day-picker-swipe-area" className="touch-pan-y" {...swipe}>
+        <Calendar
+          mode="single"
+          required
+          month={dateOfMonth(viewMonth)}
+          today={today}
+          selected={dateOfDateKey(dateKey)}
+          disabled={allowFuture ? undefined : { after: today }}
+          onSelect={(date) => onPick(dateKeyOfDate(date))}
+          className="pt-2"
+          classNames={PICKER_GRID_CLASSNAMES}
+          components={{ DayButton: DayGridDay }}
+        />
+      </div>
     </>
   );
 }

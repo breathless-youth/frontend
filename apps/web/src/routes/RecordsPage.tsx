@@ -199,9 +199,9 @@ function RecordsContent({
               {dayTitleWithWeekday(selectedKey)}
             </p>
             <Button
-              variant="subtle"
+              variant="raised"
               onClick={() => openPlanner(selectedKey)}
-              className="h-8 gap-1 rounded-full py-0 pr-2.5 pl-3 text-[13px] leading-4 font-semibold"
+              className="h-8 gap-1 rounded-full py-0 pr-2.5 pl-3 text-[13px] leading-4"
             >
               플래너
               <IconChevronRight size={11} color="currentColor" />
