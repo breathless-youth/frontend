@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { CAPTURE_START_INTERVAL_MS, FINAL_PHOTO_COUNT, THIN_AT_COUNT } from "../captureSchedule";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
-import type { TimelapseStore } from "../timelapseStore";
+import type { TimelapsePhoto, TimelapseStore } from "../timelapseStore";
 import { KEEP_COUNT, KEEP_MS, createIndexedDbTimelapseStore } from "../timelapseStore";
 
 /**
@@ -27,6 +27,17 @@ function firstByte(buffer: ArrayBuffer): number | undefined {
 async function addPhotos(store: TimelapseStore, startedAtMs: number, count: number) {
   for (let index = 0; index < count; index += 1) {
     await store.addPhoto(startedAtMs, bytes(index % 256), startedAtMs + index * 10_000);
+  }
+}
+
+/** 찍은 시각처럼 저장 형식까지 확인하는 테스트는 DB를 직접 읽는다. */
+async function storedPhotos(startedAtMs: number): Promise<TimelapsePhoto[]> {
+  const { openDB } = await import("idb");
+  const db = await openDB("focuson-timelapse");
+  try {
+    return await db.getAll("photos", IDBKeyRange.bound([startedAtMs, 0], [startedAtMs, Infinity]));
+  } finally {
+    db.close();
   }
 }
 
@@ -55,7 +66,7 @@ describe("begin", () => {
     await expect(
       store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: false }),
     ).resolves.toBeNull();
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 });
 
@@ -67,7 +78,7 @@ describe("addPhoto", () => {
     const record = await store.addPhoto(T0, bytes(8), T0 + 11_000);
 
     expect(record).toMatchObject({ nextSeq: 2, photoCount: 2 });
-    const photos = await store.listPhotos(T0);
+    const photos = await storedPhotos(T0);
     expect(photos.map((photo) => [photo.seq, photo.atMs, firstByte(photo.bytes)])).toEqual([
       [0, T0 + 1_000, 7],
       [1, T0 + 11_000, 8],
@@ -85,7 +96,7 @@ describe("addPhoto", () => {
       nextSeq: THIN_AT_COUNT,
       intervalMs: CAPTURE_START_INTERVAL_MS * 2,
     });
-    const seqs = (await store.listPhotos(T0)).map((photo) => photo.seq);
+    const seqs = await store.photoSeqs(T0);
     expect(seqs).toHaveLength(THIN_AT_COUNT / 2);
     expect(seqs.slice(0, 3)).toEqual([0, 2, 4]);
   });
@@ -105,7 +116,7 @@ describe("addPhoto", () => {
       nextSeq: THIN_AT_COUNT + THIN_AT_COUNT / 2,
       intervalMs: CAPTURE_START_INTERVAL_MS * 4,
     });
-    const photos = await store.listPhotos(T0);
+    const photos = await storedPhotos(T0);
     expect(photos).toHaveLength(THIN_AT_COUNT / 2);
     const gaps = photos.slice(1).map((photo, index) => photo.atMs - photos[index]!.atMs);
     expect(gaps.every((gap) => gap === 40_000)).toBe(true);
@@ -137,7 +148,7 @@ describe("finalize", () => {
       photoCount: FINAL_PHOTO_COUNT,
       summary: SUMMARY,
     });
-    const seqs = (await store.listPhotos(T0)).map((photo) => photo.seq);
+    const seqs = await store.photoSeqs(T0);
     expect(seqs).toHaveLength(FINAL_PHOTO_COUNT);
     expect(seqs[0]).toBe(0);
     expect(seqs.at(-1)).toBe(539);
@@ -164,7 +175,7 @@ describe("addPhoto 끝난 기록", () => {
     await store.finalize(T0, SUMMARY);
 
     await expect(store.addPhoto(T0, bytes(2), T0 + 1)).resolves.toBeNull();
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(1);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(1);
   });
 });
 
@@ -175,7 +186,7 @@ describe("remove", () => {
 
     await store.remove(T0);
 
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
     await expect(
       store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: false }),
     ).resolves.toBeNull();
@@ -189,7 +200,7 @@ describe("discard", () => {
 
     await store.discard(T0);
 
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 
   it("목록에 올린 기록은 지우지 않는다", async () => {
@@ -200,7 +211,7 @@ describe("discard", () => {
     await store.discard(T0);
 
     await expect(store.listReady()).resolves.toHaveLength(1);
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(2);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(2);
   });
 });
 
@@ -221,7 +232,7 @@ describe("sweep", () => {
     const ready = await store.listReady();
     expect(ready).toHaveLength(7);
     expect(ready.at(-1)?.startedAtMs).toBe(T0 + 3_600_000);
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 
   it("7일이 지난 타임랩스를 지운다", async () => {
@@ -242,10 +253,10 @@ describe("sweep", () => {
 
     await store.sweep(T0 + 10);
     expect(await store.listReady()).toHaveLength(7);
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(1);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(1);
 
     await store.sweep(T0 + KEEP_MS + 1);
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 });
 
@@ -282,6 +293,40 @@ describe("annotate", () => {
 
     await expect(store.get(T0)).resolves.not.toHaveProperty("streakDays");
     await expect(store.get(T0 + 1)).resolves.toBeNull();
+  });
+});
+
+describe("photoSeqs", () => {
+  it("사진 번호만 찍은 순서로 주고 다른 타임랩스의 사진은 넣지 않는다", async () => {
+    const other = T0 + 3_600_000;
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, T0, 3);
+    await store.begin(other, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, other, 2);
+
+    await expect(store.photoSeqs(T0)).resolves.toEqual([0, 1, 2]);
+  });
+
+  it("사진이 없으면 빈 배열이다", async () => {
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
+  });
+});
+
+describe("readPhoto", () => {
+  it("번호에 맞는 사진 한 장의 바이트를 준다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, T0, 3);
+
+    const photo = await store.readPhoto(T0, 1);
+
+    expect(photo === null ? undefined : firstByte(photo)).toBe(1);
+  });
+
+  it("없는 사진은 null이다", async () => {
+    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await addPhotos(store, T0, 1);
+
+    await expect(store.readPhoto(T0, 5)).resolves.toBeNull();
   });
 });
 

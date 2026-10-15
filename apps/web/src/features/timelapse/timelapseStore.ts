@@ -116,8 +116,10 @@ export interface TimelapseStore {
   get(startedAtMs: number): Promise<TimelapseRecord | null>;
   /** 목록에 올린 기록에만 더하고, 촬영 중이거나 없는 기록은 그대로 둔다. */
   annotate(startedAtMs: number, patch: TimelapseAnnotation): Promise<void>;
-  /** 한 타임랩스의 사진을 찍은 순서로 준다. */
-  listPhotos(startedAtMs: number): Promise<TimelapsePhoto[]>;
+  /** 한 타임랩스의 사진 번호를 찍은 순서로 준다. 바이트는 담지 않는다. */
+  photoSeqs(startedAtMs: number): Promise<number[]>;
+  /** 사진 한 장의 바이트. 그사이 지워졌으면 null이다. */
+  readPhoto(startedAtMs: number, seq: number): Promise<ArrayBuffer | null>;
   /** 썸네일용으로 가운데 사진 한 장만 읽는다. 사진이 없으면 null이다. */
   middlePhoto(startedAtMs: number): Promise<ArrayBuffer | null>;
   /**
@@ -298,8 +300,13 @@ export function createIndexedDbTimelapseStore(): TimelapseStore {
       await tx.done;
     },
 
-    async listPhotos(startedAtMs) {
-      return await (await database()).getAll("photos", photoRange(startedAtMs));
+    async photoSeqs(startedAtMs) {
+      const keys = await (await database()).getAllKeys("photos", photoRange(startedAtMs));
+      return keys.map(([, seq]) => seq);
+    },
+
+    async readPhoto(startedAtMs, seq) {
+      return (await (await database()).get("photos", [startedAtMs, seq]))?.bytes ?? null;
     },
 
     async middlePhoto(startedAtMs) {
