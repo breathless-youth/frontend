@@ -102,14 +102,15 @@ description: (팀 공용판) Jira 티켓 확인·생성부터 브랜치·워크�
 - **웹 dev 서버는 반드시 `pnpm --filter web dev` 경로로 띄운다**. `dev` 스크립트는 vite 앞에 `scripts/copyMediapipeWasm.js`를 묶어 두어 gitignore 대상인 `public/mediapipe/<버전>/wasm/`을 패키지에서 복사하는데, `exec vite`는 이 단계를 건너뛴다. 새 워크트리는 그 폴더가 한 번도 생성된 적이 없어 wasm 404로 감지가 통째로 죽는다.
   - 포트를 바꾸려면 `pnpm --filter web dev -- --port 5199`처럼 `dev` 스크립트를 거쳐 인자를 넘긴다.
   - 미리 채워 두려면 `pnpm --filter web prepare-assets`가 같은 스크립트를 돌린다.
-- **구현 착수 전 `.ai` 서브모듈을 참고용으로 최신화한다**. `.ai`는 팀 위키 저장소를 가리키는
-  서브모듈이고, 다른 세션이 계속 위키에 커밋한다. 비어 있으면 `git submodule update --init`으로
-  받고, 있으면 `cd .ai && git fetch origin && git checkout origin/main`으로 최신 커밋을 참고한다.
-  (`checkout`은 서브모듈을 detached HEAD로 둔다. 문제 없다.)
-  - 이 포인터 변경은 이번 작업과 무관하므로 로컬 커밋에 싣지 않는다. `.ai`를 `git add` 대상에서
-    제외한다.
-  - 위키 자체를 이번 작업에서 의도적으로 바꾸는 경우에만, 그 사실을 알리고 별도 chore 커밋으로
-    분리해 싣는다.
+- **구현 착수 전 `.ai` 서브모듈 내용을 참고용으로 최신화한다. 포인터는 움직이지 않는다.**
+  `.ai`는 팀 위키 저장소를 가리키는 서브모듈이고, 다른 세션이 계속 위키에 커밋한다.
+  - 비어 있으면 `git submodule update --init`으로 커밋된 포인터를 먼저 받는다. 이건 슈퍼프로젝트가
+    기록한 시점의 커밋일 뿐 최신화가 아니므로, 아래 단계를 그대로 잇는다.
+  - 비어 있든 있든 `cd .ai && git fetch origin`으로 최신을 받고, `git show origin/main:<파일>`로
+    필요한 문서를 읽는다. `checkout`은 쓰지 않는다 — 포인터가 바뀌면 `git add -A`·`commit -a`
+    한 번에 커밋으로 샐 수 있어, 아예 포인터가 안 움직이는 쪽이 안전하다.
+  - 위키 자체를 이번 작업에서 의도적으로 바꾸는 경우에만, 그 사실을 알리고 포인터 변경을 별도
+    chore 커밋으로 분리해 싣는다.
   - 최신화하지 않으면 4번의 표준 조사가 낡은 위키를 1차 출처로 삼게 된다.
 - **워크트리 진입 직후 저장소 자체 스킬을 찾아 읽는다**. 프론트 저장소는
   `<워크트리>/.claude/skills/*/SKILL.md`에 이 스택의 스킬을 담고 있다
