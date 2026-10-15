@@ -126,6 +126,25 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - `adb uninstall`은 앱 데이터를 지우니 먼저 확인받는다.
 - SDK를 올린 뒤에는 두 플랫폼 모두 새로 빌드한다(옛 바이너리로 열면 `Cannot find native module`이 난다).
 
+## STG 빌드 (`eas build --local`)
+
+STG는 EAS 크레딧을 쓰지 않고 로컬에서 `eas build --local`로 만든다. EAS 보관 키로 서명하므로 기기에 깔린 STG 앱 위에 그대로 덮어써진다.
+
+```bash
+cd apps/mobile
+APP_VARIANT=staging \
+GOOGLE_SERVICES_PLIST=<staging 아이덴티티의 GoogleService-Info.plist 경로> \
+GOOGLE_SERVICES_JSON=<google-services.json 경로> \
+SENTRY_DISABLE_AUTO_UPLOAD=true \
+npx eas-cli build --local --profile staging --platform ios --non-interactive --output <ipa 경로>
+xcrun devicectl device install app --device <UDID> <ipa 경로>
+```
+
+- EAS 환경의 Secret 변수(Firebase 파일, `SENTRY_AUTH_TOKEN`)는 로컬 빌더에 내려오지 않으므로 셸에서 직접 준다.
+- eas-cli가 업로드 전에 돌리는 로컬 설정 평가에는 프로필의 `APP_VARIANT`도 적용되지 않아, 빠지면 development로 잡혀 staging plist가 아이덴티티 검사에서 막힌다.
+- Sentry 업로드를 끄지 않으면 컴파일이 다 끝난 뒤 아카이브 단계에서 `sentry-cli`가 토큰이 없어 실패해 빌드 시간을 통째로 버린다(소스맵은 EAS 클라우드 빌드만 올린다).
+- iOS staging 프로필은 internal(ad-hoc) 배포라 기기가 프로비저닝 프로필에 등록돼 있어야 설치된다.
+
 ## web-dist가 앱 안으로 들어가는 경로
 
 `apps/mobile/plugins/withWebDistAssets.js`(config plugin)가 처리한다. Expo CNG라 `ios/`·`android/`는 매 prebuild마다 다시 생성되므로, 라이브러리 README의 수동 Xcode·gradle 설정은 쓸 수 없다.
@@ -187,5 +206,9 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
 | `Unicode Normalization not appropriate for ASCII-8BIT` | 로케일이 `C`               | 위 `LANG` 절                                                                  |
 | `error: apps/web 빌드 산출물이 없습니다`               | `sync-web`을 안 돌림       | 빌드 순서 1단계                                                               |
 | 세션 화면이 "세션을 시작하지 못했어요"                 | 서버가 서빙 루트를 못 찾음 | 오류 메시지에 찍힌 경로를 확인 — `sync-web` 후 **재빌드**해야 번들에 반영된다 |
+
+| `Path to GoogleService-Info.plist is not defined` (로컬 `eas build` prebuild) | 로컬 빌더는 EAS Secret 파일 변수를 못 받음 | STG 빌드 절의 `GOOGLE_SERVICES_*` env |
+| `GOOGLE_SERVICES_PLIST에 이 빌드의 아이덴티티(…dev)가 없습니다` (로컬 `eas build`) | 로컬 설정 평가에 `APP_VARIANT`가 없어 development로 잡힘 | 셸에 `APP_VARIANT=staging` |
+| 아카이브 끝 `sentry-cli ... API request failed` (로컬 `eas build`) | 로컬에 `SENTRY_AUTH_TOKEN`이 없음 | `SENTRY_DISABLE_AUTO_UPLOAD=true` |
 
 **빌드 명령을 `| tail`로 파이프하지 말 것.** 종료 코드가 `tail`의 것으로 바뀌어 실패한 빌드가 성공처럼 보인다.
