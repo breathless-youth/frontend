@@ -13,27 +13,25 @@ import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
-import { runFocusStartFlow } from "@/features/onboarding/focusStartFlow";
-import type { OnboardingGuideEntry } from "@/features/onboarding/onboardingGuideSteps";
+import { useFocusStart } from "@/features/onboarding/useFocusStart";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IconPlanner, IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
+import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import { trackFocusStartTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
-import { slideNavigate } from "@/lib/pageTransition";
-import { requestSessionStart } from "@/lib/sessionStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
-import { prefetchOnboardingGuidePage } from "@/routes/lazyRoutes";
+import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
 /**
  * 홈
  *
- * 탭 전환(소셜·기록·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
+ * 탭 전환(소셜·기록·랭킹·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
  * 친구 초대 카드의 소셜 탭 이동도 그래서 `navigate-tab` 브리지로 네이티브에 맡기고,
  * 브라우저 단독 모드에서만 웹 라우트로 직접 간다.
  *
@@ -171,42 +169,21 @@ function HomeContent({ userId }: { userId: number }) {
     if (summaryShown) {
       prefetchVisionAssets();
       prefetchOnboardingGuidePage();
+      // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
+      prefetchTimelapsesPage();
     }
   }, [summaryShown]);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  /**
-   * 가이드 이동 래치. react-router `navigate()`는 무조건 push라 빠른 이중 탭에서 가이드가 두 번
-   * 열려(스택에 두 장 쌓여) X를 눌러도 그 아래 가이드가 다시 보인다. 첫 탭만 유효하게 막는다.
-   * 세션 시작 경로는 아래 `isStartingRef`가 따로 막는다. 그쪽은 서버 응답을 기다리는 구간이라
-   * 이유가 다르다.
-   */
-  const hasOpenedGuideRef = useRef(false);
-  /** 집중 시작이 서버 응답을 기다리는 동안 다시 눌리는 것을 막는다. */
-  const isStartingRef = useRef(false);
+  const startFocus = useFocusStart(userId);
+
   /**
    * 초대 카드의 마지막 탭 시각. 빠른 이중 탭이 `navigate-tab`을 두 번 보내면 셸이 `tab_pressed`를
    * 두 번 남긴다. 가이드 래치와 달리 홈 문서는 탭을 오가도 살아 있으므로 영구 래치가 아니라 잠깐만 막는다.
    */
   const lastSocialTapAtRef = useRef(0);
-
-  /**
-   * 온보딩 가이드로 이동한다. 현재 쿼리(`?userId=N`)를 잃지 않도록 `entry`만 더해 넘긴다.
-   * 쿼리를 잃으면 가이드가 미저장 모드로 뜬다.
-   */
-  function openOnboardingGuide(entry: OnboardingGuideEntry) {
-    if (hasOpenedGuideRef.current) {
-      return;
-    }
-    hasOpenedGuideRef.current = true;
-    const params = new URLSearchParams(location.search);
-    params.set("entry", entry);
-    slideNavigate("forward", () =>
-      navigate({ pathname: "/onboarding-guide", search: params.toString() }),
-    );
-  }
 
   /**
    * 친구 초대 카드 → 소셜 탭
@@ -226,38 +203,6 @@ function HomeContent({ userId }: { userId: number }) {
       return;
     }
     navigate({ pathname: "/social", search: location.search });
-  }
-
-  /**
-   * "집중 시작". 분기는 `focusStartFlow.runFocusStartFlow`가 소유한다. 이 화면은 그 명세의 웹
-   * 구현만 제공한다. 가이드로 갈 때는 `openOnboardingGuide`에, 세션 시작은 `requestSessionStart`
-   * (브리지 있으면 발신, 없으면 세션 라우트로 직접 이동)에 그대로 맡긴다.
-   */
-  function startFocusFlow() {
-    // 세션 시작은 서버에 옛 세션 마감을 먼저 보내고 기다린다. 그 사이 한 번 더 누르면 요청과
-    // 화면 전환이 두 벌 나가므로 진행 중에는 막는다. 실패로 끝나면 다시 누를 수 있게 푼다.
-    if (isStartingRef.current) {
-      return;
-    }
-    isStartingRef.current = true;
-    void runFocusStartFlow({
-      openOnboardingGuide: (entry) => {
-        trackFocusStartTapped("guide");
-        openOnboardingGuide(entry);
-      },
-      startSession: async () => {
-        trackFocusStartTapped("session");
-        await requestSessionStart(userId, () =>
-          navigate({ pathname: "/room/1", search: location.search }),
-        );
-      },
-    })
-      .catch((error: unknown) => {
-        console.warn("[home] 집중 시작 처리 실패", error);
-      })
-      .finally(() => {
-        isStartingRef.current = false;
-      });
   }
 
   return (
@@ -281,12 +226,13 @@ function HomeContent({ userId }: { userId: number }) {
       <Button
         size="xl"
         className="w-full text-[18px] leading-[21px] font-bold tracking-[0.9px]"
-        onClick={startFocusFlow}
+        onClick={() => startFocus("home")}
       >
         집중 시작
       </Button>
 
       <InviteCard onClick={openSocial} />
+      <RecentTimelapses />
     </>
   );
 }
@@ -353,10 +299,18 @@ function PlannerEntryButton() {
 export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
-  const { recovered, dismiss } = useLaunchSessionRecovery(userId);
+  const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
   const recoveryReady = userId === null || noticeSettled;
+  // 랭킹 팝업이 떠 있는 동안 늦게 온 복구 창은 공지 때처럼 그 팝업이 닫힐 때까지 미룬다.
+  const [rankingPopupOpen, setRankingPopupOpen] = useState(false);
+  // 이번 실행 표시를 sessionStorage에 쓰지 못한 기기에서도 같은 문서에서는 홈 팝업 하나를 지키도록 메모리에도 둔다.
+  const [homePopupInDoc, setHomePopupInDoc] = useState(false);
+  const [recoveryInDoc, setRecoveryInDoc] = useState(false);
+  if (recovered !== null && !recoveryInDoc) {
+    setRecoveryInDoc(true);
+  }
 
   return (
     <main
@@ -386,12 +340,32 @@ export function HomeTabPage() {
       {userId !== null && (
         <NoticeModalHost
           userId={userId}
-          paused={recovered !== null && recoveryReady}
+          paused={(recovered !== null && recoveryReady) || homePopupInDoc}
+          onShown={() => setHomePopupInDoc(true)}
           onSettled={() => setNoticeSettled(true)}
         />
       )}
-      {recovered !== null && recoveryReady && (
+      {recovered !== null && recoveryReady && !rankingPopupOpen && (
         <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
+      )}
+      {/*
+        랭킹 팝업은 공지·인터뷰·복구 창 다음 차례라 두 판단이 끝난 뒤에 판단한다.
+        복구 결과는 실행 신호 기다림이 끝난 뒤에도 늦게 올 수 있다.
+        그때 이미 떠 있는 랭킹 팝업은 내리지 않고 복구 창을 그 팝업이 닫힐 때까지 미룬다.
+        메달은 띄운 직후 본 것으로 보내서, 내리면 사용자가 못 본 메달이 본 것으로 넘어간다.
+      */}
+      {userId !== null && (
+        <HomeRankingPopupHost
+          userId={userId}
+          ready={noticeSettled && recoverySettled}
+          blocked={homePopupInDoc || recoveryInDoc}
+          onOpenChange={(open) => {
+            setRankingPopupOpen(open);
+            if (open) {
+              setHomePopupInDoc(true);
+            }
+          }}
+        />
       )}
     </main>
   );

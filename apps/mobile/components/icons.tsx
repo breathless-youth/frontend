@@ -103,6 +103,55 @@ export function IconTabRecord({ color = "#8B95A1", size = 24, ...rest }: IconPro
   );
 }
 
+/**
+ * 랭킹 탭 아이콘
+ *
+ * Figma `icon/trophy` 그대로는 다른 탭 아이콘보다 15%쯤 작아 보여, 그림 중심을 기준으로 1.16배 키웠다.
+ * 선 두께를 다른 탭과 같은 1.9로 두려고 변환 대신 좌표 자체를 키웠다.
+ * iOS 탭바가 쓰는 `assets/tabs/ranking*.png`도 이 경로로 그렸다.
+ */
+export function IconTabRanking({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
+      <Path
+        d="M6.2 2.48H17.8V7.932C17.8 9.4703 17.1889 10.9456 16.1012 12.0332C15.0136 13.1209 13.5383 13.732 12 13.732C10.4617 13.732 8.9865 13.1209 7.8988 12.0332C6.8111 10.9456 6.2 9.4703 6.2 7.932V2.48Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M6.2 4.8H3.184V6.076C3.1823 7.083 3.5658 8.0526 4.256 8.7859C4.9462 9.5192 5.8907 9.9607 6.896 10.02"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M17.8 4.8H20.816V6.076C20.8177 7.083 20.4342 8.0526 19.744 8.7859C19.0538 9.5192 18.1093 9.9607 17.104 10.02"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 13.732V17.444"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7.94 21.62H16.06V19.532C16.06 18.9782 15.8401 18.4472 15.4484 18.0556C15.0568 17.6639 14.5258 17.444 13.972 17.444H10.028C9.7538 17.444 9.4823 17.4981 9.229 17.6029C8.9756 17.7079 8.7454 17.8617 8.5516 18.0556C8.3577 18.2495 8.2039 18.4796 8.0989 18.733C7.994 18.9863 7.94 19.2578 7.94 19.532V21.62Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // 설정 탭
 export function IconTabSettings({ color = "#8B95A1", size = 24, ...rest }: IconProps) {
   return (

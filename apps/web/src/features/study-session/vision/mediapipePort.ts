@@ -1,3 +1,5 @@
+import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+
 import type { Delegate } from "./visionConfig";
 
 /**
@@ -60,6 +62,13 @@ export interface MediapipeInferenceHandle<Result> {
 export interface MediapipeDetectorHandle extends MediapipeInferenceHandle<MediapipeDetectionResult> {
   /** 워커가 받은 wasm·모델의 Resource Timing. 메인 스레드 경로는 문서에 잡히므로 비어 있다. */
   readonly assetTimings: readonly AssetTiming[];
+  /**
+   * 추론 없이 지금 프레임으로 타임랩스 사진 한 장을 JPEG로 만든다.
+   *
+   * 객체 검출기는 세션 내내 살아 있어 이 핸들에 둔다.
+   * 랜드마크가 없어 얼굴을 가리지 못하므로 가림이 켜진 세션은 사람이 없을 때만 부른다.
+   */
+  capture(video: HTMLVideoElement, photo: PhotoSpec): Promise<ArrayBuffer>;
 }
 
 export interface DetectorCreateOptions {
@@ -95,7 +104,28 @@ export interface MediapipeFaceResult {
   readonly facialTransformationMatrixes?: readonly MediapipeMatrix[];
 }
 
-export type MediapipeFaceLandmarkerHandle = MediapipeInferenceHandle<MediapipeFaceResult>;
+/**
+ * 얼굴 추론 결과와 같은 프레임으로 만든 사진
+ *
+ * 사진을 요청하지 않았거나 만들지 못했으면 없다.
+ */
+export interface MediapipeFaceInference extends MediapipeFaceResult {
+  readonly photo?: ArrayBuffer;
+}
+
+/**
+ * 얼굴 모델 핸들
+ *
+ * `photo`를 주면 추론에 쓴 프레임으로 사진을 만들고, 가림이면 그 프레임의 랜드마크에 스티커를 덮는다.
+ * 사진은 추론이 도는 곳에서 만들어지므로 랜드마크가 사진 때문에 새로 밖으로 나가지 않는다.
+ */
+export interface MediapipeFaceLandmarkerHandle extends MediapipeInferenceHandle<MediapipeFaceInference> {
+  detect(
+    video: HTMLVideoElement,
+    timestampMs: number,
+    photo?: PhotoSpec,
+  ): Promise<MediapipeFaceInference>;
+}
 
 export interface FaceLandmarkerCreateOptions {
   readonly wasmPath: string;

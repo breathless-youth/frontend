@@ -14,6 +14,7 @@ import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { setTabBarState } from "./tabBarVisibility";
+import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -22,6 +23,7 @@ export type BridgeReply = (message: ToWebMessage) => void;
 const TAB_TARGET_BY_MESSAGE_TAB = {
   records: { id: "record", href: "/records" },
   social: { id: "social", href: "/social" },
+  ranking: { id: "ranking", href: "/ranking" },
 } as const;
 
 /**
@@ -41,7 +43,7 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
- * `RemoteWebViewHost`를 쓰는 화면(탭 4개와 세션) 전부가 같은 규칙으로 반응해야
+ * `RemoteWebViewHost`를 쓰는 화면(탭 5개와 세션) 전부가 같은 규칙으로 반응해야
  * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
  * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
  */
@@ -81,9 +83,9 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       });
       break;
     case "navigate-home":
-      // S4 결과 CTA·미달 종료 안내가 보낸다 — 세션은 탭 위에 `fullScreenModal`로 떠 있으므로
-      // 모달을 닫으면 그 아래 홈 탭이 그대로 드러난다. 스택이 비어 있는 경우(딥링크 진입 등)는
-      // 탭 루트로 교체한다 — 아무 일도 안 일어나면 사용자가 결과 화면에 갇힌다.
+      // 결과 화면 버튼과 1분 미만 종료 안내가 보낸다.
+      // 세션은 탭 위에 `fullScreenModal`로 떠 있어 모달을 닫으면 세션을 연 탭이 드러난다.
+      // 스택이 비어 있으면(딥링크 진입 등) 탭 루트로 바꿔서 사용자가 결과 화면에 갇히지 않게 한다.
       if (router.canGoBack()) {
         router.back();
       } else {
@@ -100,9 +102,15 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
           params: { code: message.inviteCode, at: String(message.atMs) },
         });
       } else if (message.tab !== undefined) {
-        // S4 `기록으로 가기`(솔로): 모달 닫기와 탭 전환이 한 메시지로 온다 — 둘로 나누면 첫
-        // 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(계약 주석 참고).
-        openTab(message.tab, "study_result");
+        // 솔로 결과 화면의 탭 이동은 모달 닫기와 한 메시지로 온다.
+        // 둘로 나누면 첫 메시지가 이 웹뷰를 언마운트하는 사이 둘째가 유실될 수 있다(`NavigateHomeMessage.tab` 주석 참고).
+        // `records`는 `기록으로 가기`라 `study_result`로, `ranking`은 결과 랭킹 카드라 `result_ranking_card`로 센다.
+        openTab(message.tab, message.tab === "ranking" ? "result_ranking_card" : "study_result");
+      } else if (getActiveTab() !== "home") {
+        // 랭킹 탭에서도 세션을 열 수 있어, 모달만 닫으면 `홈으로`를 눌렀는데 랭킹 탭이 드러난다.
+        // 탭바 터치와 같은 방법으로 홈 탭으로 바꾼다.
+        // `tab_pressed`의 `via`에 `홈으로`에 맞는 값이 없어 탭 이동 이벤트는 남기지 않는다.
+        router.navigate("/");
       }
       break;
     case "open-settings":
@@ -142,6 +150,31 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       }).catch((error: unknown) => {
         console.warn("[bridge] 공유 시트(share) 열기 실패", error);
       });
+      break;
+    case "video-chunk":
+      // 조각은 받는 대로 이어 쓰고 답하지 않는다.
+      // 순서가 어긋나면 어댑터가 기억했다가 저장·공유 요청에서 failed로 돌려준다.
+      appendVideoChunk(message.id, message.seq, message.data);
+      break;
+    case "video-save":
+      // 같은 다이얼로그에서 저장과 공유가 겹칠 수 있어 요청의 id를 그대로 실어 답한다.
+      // 어댑터는 실패도 결과로 돌려주므로 웹이 답을 못 받는 경우가 없다.
+      void saveVideo(message.id, message.chunks).then((status) => {
+        reply({ type: "video-result", id: message.id, action: "save", status, atMs: Date.now() });
+      });
+      break;
+    case "video-share":
+      void shareVideo(message.id, message.chunks, message.text, message.title, message.target).then(
+        (status) => {
+          reply({
+            type: "video-result",
+            id: message.id,
+            action: "share",
+            status,
+            atMs: Date.now(),
+          });
+        },
+      );
       break;
     case "navigate-tab":
       // 소셜 결과 화면의 `기록으로 가기`(탭 웹뷰라 모달이 없다)와 홈 친구 초대 카드 → 소셜 탭.

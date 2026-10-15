@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
-import type { FormEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { FormEvent } from "react";
 
 import type { DdayRequest, DdayResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SheetHandle } from "@/components/ui/SheetHandle";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { IconChevronDown } from "@/features/records/icons";
 import {
@@ -241,7 +242,12 @@ function DdayForm({
       noValidate
       className={cn("flex flex-col", titleFocused ? "gap-4" : "gap-5")}
     >
-      <SheetHandle onDismiss={onClose} />
+      <SheetHandle
+        onDismiss={onClose}
+        testId="dday-sheet-handle"
+        // 공용 손잡이로 바꾸기 전 막대 색을 그대로 써 D-Day 시트가 예전과 똑같이 보이게 한다.
+        barClassName="h-1 w-9 rounded-full bg-[#d1d6db]"
+      />
 
       <div className="flex items-baseline justify-between">
         <SheetTitle className="text-[18px] leading-[21px] font-bold text-foreground">
@@ -428,93 +434,5 @@ function DeleteConfirmDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** 손잡이를 놓았을 때 이만큼 이상 내려와 있으면 닫는다. 덜 내렸으면 제자리로 돌아간다. */
-const DISMISS_THRESHOLD_PX = 80;
-/** `ui/sheet.tsx`의 `duration-300` — 시트 퇴장 키프레임 길이. */
-const SHEET_CLOSE_MS = 300;
-
-/**
- * 시트 손잡이. 잡고 끌면 시트가 손가락을 따라 내려오고, 충분히 내린 채 놓으면 닫힌다.
- * 시트 요소는 가장 가까운 dialog로 찾는다(Radix Content가 그 역할을 단다). 보이는 막대는 4px지만
- * 잡는 영역은 시트 위 여백과 아래 간격까지 음수 마진으로 넓힌다 — 레이아웃은 그대로다.
- */
-function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
-  const startYRef = useRef<number | null>(null);
-
-  function sheetOf(event: ReactPointerEvent<HTMLDivElement>) {
-    return event.currentTarget.closest<HTMLElement>('[role="dialog"]');
-  }
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    const sheet = sheetOf(event);
-    if (sheet === null) {
-      return;
-    }
-    startYRef.current = event.clientY;
-    // 손가락이 손잡이를 벗어나도 move/up을 계속 받는다.
-    event.currentTarget.setPointerCapture(event.pointerId);
-    // 시트에 걸린 transition(`duration-300`)이 끌리는 동안 transform을 늦추지 않게 끈다.
-    sheet.style.transition = "none";
-  }
-
-  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const sheet = sheetOf(event);
-    if (startYRef.current === null || sheet === null) {
-      return;
-    }
-    sheet.style.transform = `translateY(${Math.max(0, event.clientY - startYRef.current)}px)`;
-  }
-
-  /** 제자리로. 시트에 원래 걸린 transition(300ms·ease-overlay)이 데려간다. */
-  function settleBack(sheet: HTMLElement) {
-    sheet.style.transition = "";
-    sheet.style.transform = "";
-  }
-
-  // 시스템이 제스처를 가로챈 것(전화·알림 등)이라 사용자가 놓은 게 아니다 — 얼마나 내려왔든
-  // 닫지 않고 되돌린다. 닫아 버리면 입력하던 제목·날짜가 그대로 사라진다.
-  function handlePointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
-    startYRef.current = null;
-    const sheet = sheetOf(event);
-    if (sheet !== null) {
-      settleBack(sheet);
-    }
-  }
-
-  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    const startY = startYRef.current;
-    startYRef.current = null;
-    const sheet = sheetOf(event);
-    if (startY === null || sheet === null) {
-      return;
-    }
-    const dy = Math.max(0, event.clientY - startY);
-    if (dy >= DISMISS_THRESHOLD_PX) {
-      // 퇴장 키프레임(`slide-out-to-bottom`)은 `to`만 있어 지금 위치에서 이어 내려간다. 남은 거리만큼
-      // 시간을 줄여 다 내려간 뒤 굼뜨게 남지 않게 한다.
-      const remaining = Math.max(0.3, 1 - dy / sheet.offsetHeight);
-      sheet.style.animationDuration = `${Math.round(SHEET_CLOSE_MS * remaining)}ms`;
-      onDismiss();
-      return;
-    }
-    settleBack(sheet);
-  }
-
-  return (
-    // `touch-none`: 세로 드래그를 iOS가 스크롤로 집어 pointercancel을 내지 않게 한다.
-    <div
-      aria-hidden="true"
-      data-testid="dday-sheet-handle"
-      className="-mt-3 -mb-4 flex touch-none justify-center pt-3 pb-4"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-    >
-      <div className="h-1 w-9 rounded-full bg-[#d1d6db]" />
-    </div>
   );
 }

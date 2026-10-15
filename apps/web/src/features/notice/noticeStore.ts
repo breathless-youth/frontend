@@ -8,6 +8,8 @@
  */
 
 const DISMISSED_PREFIX = "focuson.noticeDismissed.";
+// 홈 랭킹 팝업도 이 값을 적어, 한 실행에 홈 팝업이 하나만 뜨게 공지와 자리를 나눠 쓴다.
+// 공지 쪽 동작을 바꿀 때는 랭킹 팝업 순서(`HomeRankingPopupHost`)도 함께 확인한다.
 const SHOWN_THIS_LAUNCH_KEY = "focuson.notice.shownThisLaunch";
 
 export function isNoticeDismissed(id: number): boolean {

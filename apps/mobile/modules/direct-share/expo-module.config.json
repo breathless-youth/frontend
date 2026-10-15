@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DirectShareModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.directshare.DirectShareModule"]
+  }
+}

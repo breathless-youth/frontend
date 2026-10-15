@@ -134,6 +134,6 @@ describe("문서 구성", () => {
 describe("effectiveDateLabel", () => {
   it("시행일 문구를 한 곳에서 만든다", () => {
     expect(effectiveDateLabel(TERMS_OF_SERVICE)).toBe("시행일: 2026년 7월 26일");
-    expect(effectiveDateLabel(PRIVACY_POLICY)).toBe("시행일: 2026년 7월 26일");
+    expect(effectiveDateLabel(PRIVACY_POLICY)).toBe("시행일: 2026년 10월 21일");
   });
 });

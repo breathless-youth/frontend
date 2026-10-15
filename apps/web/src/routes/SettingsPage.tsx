@@ -130,6 +130,16 @@ export function SettingsPage() {
               </button>
             )}
           </div>
+          <SettingsRow
+            label="타임랩스"
+            trailing={{ kind: "chevron" }}
+            onPress={() => {
+              trackSettingsRowPressed("timelapse");
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/timelapse-settings", search: location.search }),
+              );
+            }}
+          />
           {/*
             온보딩 가이드로 다시 들어가는 행이다.
             `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.

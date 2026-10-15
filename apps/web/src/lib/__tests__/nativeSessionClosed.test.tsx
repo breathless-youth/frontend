@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { queryClient } from "@/lib/queryClient";
+import { rankingKeys } from "@/lib/rankingQueries";
 import { statsKeys } from "@/lib/statsQueries";
 
 /** 네이티브가 주입하는 것과 같은 경로로 신호를 흘려보낸다. mock이 아니라 실물 구독을 지난다. */
@@ -39,13 +40,14 @@ describe("useNativeSessionClosed", () => {
     vi.unstubAllGlobals();
   });
 
-  it("session-closed를 받으면 통계 쿼리를 무효화한다", () => {
+  it("session-closed를 받으면 통계와 랭킹 쿼리를 무효화한다", () => {
     render();
 
     emit('{"type":"session-closed","atMs":1}');
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(invalidateQueries).toHaveBeenCalledTimes(2);
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: statsKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: rankingKeys.all });
   });
 
   it("다른 메시지에는 반응하지 않는다", () => {

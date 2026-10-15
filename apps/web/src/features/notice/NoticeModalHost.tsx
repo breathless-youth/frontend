@@ -45,11 +45,23 @@ const SETTLE_DEADLINE_MS = 3000;
 export function NoticeModalHost({
   userId,
   paused,
+  onShown,
   onSettled,
 }: {
   userId: number;
-  /** 복구 창이 떠 있는 동안 켠다. 홈이 다시 보여도 그 위에 공지를 겹쳐 띄우지 않는다 */
+  /**
+   * 공지를 띄우지 않을 때 켠다
+   *
+   * 복구 창이 떠 있거나 이 문서에서 홈 랭킹 팝업이 이미 떴을 때다.
+   * 홈이 다시 보여도 그 위나 그 뒤에 공지를 띄우지 않는다.
+   */
   paused: boolean;
+  /**
+   * 공지를 띄웠을 때 알린다
+   *
+   * 이번 실행 표시를 저장하지 못한 기기에서도 홈이 같은 문서의 랭킹 팝업을 막을 수 있게 한다.
+   */
+  onShown?: () => void;
   onSettled: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -57,9 +69,11 @@ export function NoticeModalHost({
   const [open, setOpen] = useState<Open | null>(null);
   // 조회 콜백이 최신 값을 읽어야 해서 ref에 담는다. 렌더 중에는 쓰지 않는다.
   const pausedRef = useRef(paused);
+  const onShownRef = useRef(onShown);
   const onSettledRef = useRef(onSettled);
   useEffect(() => {
     pausedRef.current = paused;
+    onShownRef.current = onShown;
     onSettledRef.current = onSettled;
   });
   // 이번 실행 기록이 sessionStorage에 써지지 않은 기기에서도 같은 문서에서 두 번 띄우지 않는다.
@@ -110,6 +124,7 @@ export function NoticeModalHost({
           }
           shownInDocRef.current = true;
           markNoticeShownThisLaunch();
+          onShownRef.current?.();
           if (choice.kind === "interview") {
             const exposure =
               updateInterviewState((s) => afterModalShown(s, nowMs))?.modalCount ?? 1;

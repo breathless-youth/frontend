@@ -16,6 +16,15 @@ describe("sanitizePagePath", () => {
     expect(sanitizePagePath("/home", "?userId=7&appVersion=1.0.0")).toBe("/home?appVersion=1.0.0");
   });
 
+  it("유입 측정용 UTM 세 개는 남기고 식별자·초대코드는 지운다", () => {
+    expect(
+      sanitizePagePath(
+        "/download",
+        "?userId=7&utm_source=timelapse&utm_medium=share&utm_campaign=timelapse_share&code=0412",
+      ),
+    ).toBe("/download?utm_source=timelapse&utm_medium=share&utm_campaign=timelapse_share");
+  });
+
   it("남길 쿼리가 없으면 경로만 돌려준다", () => {
     expect(sanitizePagePath("/home", "?userId=7")).toBe("/home");
   });

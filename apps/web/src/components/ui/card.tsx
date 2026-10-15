@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { ComponentProps, HTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * shadcn 원본과 다른 두 곳: 세로 패딩이 없다(카드마다 Figma 실측이 달라 호출부가 준다), 타이틀이
  * `div`가 아니라 `h2`다(화면 타이틀이 `h1`이라 카드 제목은 그 아래 단계). 라딕스 의존 없음.
  */
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="card"

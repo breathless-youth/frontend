@@ -1,0 +1,193 @@
+import type { RankingBoardResponse, RankingGoalExample } from "@focusmakers/types";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import { FIXTURE_FIRST, FIXTURE_RESET_DAILY, FIXTURE_RESET_PREVIOUS } from "@/lib/rankingFixtures";
+
+import { FirstCard, GoalExamplesCard, PreviousResultCard, ResetCard } from "../EmptyStateCards";
+
+function paragraph(text: string) {
+  return screen.getByText((_, element) => element?.tagName === "P" && element.textContent === text);
+}
+
+/** 픽스처 기준 시각(14시 12분)이라 지금 구간은 오후다. */
+const SERVER_NOW = Date.parse(FIXTURE_RESET_DAILY.asOf);
+
+const EVENING_RESET: RankingBoardResponse = {
+  ...FIXTURE_RESET_DAILY,
+  type: "TIME_SLOT",
+  slot: "EVENING",
+};
+
+describe("ResetCard", () => {
+  it("지금 시작하면 몇 위인지와 새로 시작된 때를 말한다", async () => {
+    const onFocusStart = vi.fn();
+    render(
+      <ResetCard
+        board={FIXTURE_RESET_DAILY}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={onFocusStart}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "순공 · 일간" })).toBeInTheDocument();
+    expect(paragraph("지금 시작하면 4위예요")).toBeInTheDocument();
+    expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+    expect(onFocusStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말하고 순위를 보이지 않는다", () => {
+    render(
+      <ResetCard
+        board={EVENING_RESET}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("저녁 구간에 공부하면 순위가 생겨요")).toBeInTheDocument();
+    expect(screen.queryByText(/\d위/)).toBeNull();
+    expect(screen.getByText("오늘 저녁 구간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+  });
+
+  it("지금 구간인 시간대 판은 지금 시작하면 몇 위인지 그대로 말한다", () => {
+    render(
+      <ResetCard
+        board={{ ...EVENING_RESET, slot: "AFTERNOON" }}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("지금 시작하면 4위예요")).toBeInTheDocument();
+  });
+
+  it("지금 시작하면 받을 순위가 오지 않으면 순위를 지어내지 않고 첫 공부 문구를 쓴다", () => {
+    render(
+      <ResetCard
+        board={{ ...FIXTURE_RESET_DAILY, startNowRank: null }}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("첫 공부를 마치면바로 순위가 생겨요")).toBeInTheDocument();
+    expect(screen.queryByText(/\d위/)).toBeNull();
+    expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+  });
+});
+
+describe("PreviousResultCard", () => {
+  it("직전 기간 최종 순위와 값을 보이고 기록 보기로 간다", async () => {
+    const onShowRecords = vi.fn();
+    render(<PreviousResultCard previous={FIXTURE_RESET_PREVIOUS} onShowRecords={onShowRecords} />);
+
+    const card = screen.getByRole("region", { name: "어제 최종 결과" });
+    expect(within(card).getByText("1,240위 · 7시간 12분")).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole("button", { name: "기록 보기 ›" }));
+    expect(onShowRecords).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("FirstCard", () => {
+  it("첫 공부를 마치면 순위가 생긴다고 말하고 겨루는 기준을 적는다", () => {
+    render(
+      <FirstCard
+        board={FIXTURE_FIRST}
+        deadline="마감 1일 9시간"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면바로 순위가 생겨요")).toBeInTheDocument();
+    expect(screen.getByText("이번 주 순공으로 겨루는 중")).toBeInTheDocument();
+  });
+
+  it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말한다", () => {
+    render(
+      <FirstCard
+        board={{ ...FIXTURE_FIRST, type: "TIME_SLOT", period: "DAILY", slot: "EVENING" }}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("저녁 구간에 공부하면 순위가 생겨요")).toBeInTheDocument();
+    expect(screen.queryByText("바로 순위가 생겨요", { exact: false })).toBeNull();
+  });
+
+  it("연속 공부 판은 하루 10분 기준을 말한다", () => {
+    render(
+      <FirstCard
+        board={{ ...FIXTURE_FIRST, type: "MAX_STREAK", period: null, slot: null }}
+        deadline={null}
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("하루 10분 이상 공부하면순위가 생겨요")).toBeInTheDocument();
+    expect(screen.queryByText("바로 순위가 생겨요", { exact: false })).toBeNull();
+  });
+});
+
+/** 서버가 보내는 모양 그대로다(상위 1·5·10·20·30·50%, 오름차순). */
+const BACKEND_EXAMPLES: RankingGoalExample[] = [
+  { percent: 1, value: 90000 },
+  { percent: 5, value: 54000 },
+  { percent: 10, value: 43200 },
+  { percent: 20, value: 28800 },
+  { percent: 30, value: 18000 },
+  { percent: 50, value: 10800 },
+];
+
+describe("GoalExamplesCard", () => {
+  it("구간마다 필요한 순공을 분까지 줄로 보인다", () => {
+    render(<GoalExamplesCard examples={FIXTURE_FIRST.goalExamples!} />);
+
+    expect(screen.getByRole("heading", { name: "이번 주에 이만큼 하면" })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "3시간 27분상위 50%",
+      "8시간상위 20%",
+      "15시간상위 5%",
+    ]);
+  });
+
+  it("서버가 보낸 여섯 구간 중 50·20·5%만 이 순서로 보인다", () => {
+    render(<GoalExamplesCard examples={BACKEND_EXAMPLES} />);
+
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "3시간상위 50%",
+      "8시간상위 20%",
+      "15시간상위 5%",
+    ]);
+  });
+
+  it("빠진 구간은 건너뛴다", () => {
+    render(
+      <GoalExamplesCard examples={BACKEND_EXAMPLES.filter((example) => example.percent !== 20)} />,
+    );
+
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "3시간상위 50%",
+      "15시간상위 5%",
+    ]);
+  });
+
+  it("예시가 없으면 그리지 않는다", () => {
+    const { container } = render(<GoalExamplesCard examples={[]} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});

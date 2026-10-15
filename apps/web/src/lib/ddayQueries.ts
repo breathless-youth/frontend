@@ -7,13 +7,16 @@ export const ddayKeys = {
   detail: (userId: number) => ["dday", userId] as const,
 };
 
-/** D-Day는 사용자가 시트에서 저장할 때만 바뀌고, 저장·삭제는 setQueryData로 바로 반영된다. */
-const DDAY_STALE_TIME_MS = 5 * 60 * 1000;
-
+/**
+ * D-Day 조회
+ *
+ * 저장·삭제는 홈 시트가 setQueryData로 바로 반영하지만 그 캐시는 홈 탭 웹뷰 안에만 있다.
+ * 설정·기록 탭은 다른 웹뷰라 바뀐 사실을 모르므로, 탭이 다시 보일 때마다 새로 읽도록 바로 만료시킨다.
+ */
 export function ddayQuery(userId: number) {
   return queryOptions({
     queryKey: ddayKeys.detail(userId),
     queryFn: () => getDday(),
-    staleTime: DDAY_STALE_TIME_MS,
+    staleTime: 0,
   });
 }

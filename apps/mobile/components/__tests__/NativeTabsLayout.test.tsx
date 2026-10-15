@@ -58,9 +58,17 @@ beforeEach(() => {
   __resetNativeAnalyticsForTests();
 });
 
-it("4탭을 홈·소셜·기록·설정 라우트 순서로 고정 렌더한다 — 동적 추가·삭제는 네비게이터를 다시 마운트한다", () => {
+it("탭 다섯 개를 홈·소셜·기록·랭킹·설정 순서로 둔다", () => {
+  captured.triggers = [];
   render(<NativeTabsLayout />);
-  expect(captured.triggers.map((t) => t.name)).toEqual(["index", "social", "records", "settings"]);
+
+  expect(captured.triggers.map((trigger) => trigger.name)).toEqual([
+    "index",
+    "social",
+    "records",
+    "ranking",
+    "settings",
+  ]);
 });
 
 it("숨김 상태면 바 전체를 hidden으로 넘긴다", () => {
@@ -70,7 +78,7 @@ it("숨김 상태면 바 전체를 hidden으로 넘긴다", () => {
   expect(captured.triggers.every((t) => !t.disabled)).toBe(true);
 });
 
-it("차단 상태면 바는 보이고 트리거 4개가 전부 disabled다", () => {
+it("차단 상태면 바는 보이고 트리거 5개가 전부 disabled다", () => {
   setTabBarState("blocked");
   render(<NativeTabsLayout />);
   expect(captured.hidden).toBe(false);
@@ -89,6 +97,20 @@ it("네이티브 탭 누름을 tab_pressed로 센다 — 출발 탭은 누르기
   });
 
   expect(received).toEqual([["tab_pressed", { tab: "record", from_tab: "home", via: "tab_bar" }]]);
+});
+
+it("랭킹 탭 누름을 tab_pressed로 센다", () => {
+  const received: unknown[] = [];
+  attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));
+  setActiveTabRoute("index");
+  render(<NativeTabsLayout />);
+
+  captured.listeners({ name: "ranking", key: "ranking-k" }).tabPress?.({
+    target: "ranking-k",
+    data: { isPrevented: false },
+  });
+
+  expect(received).toEqual([["tab_pressed", { tab: "ranking", from_tab: "home", via: "tab_bar" }]]);
 });
 
 it("disabled로 막힌 누름은 세지 않는다 — 이동이 없었다", () => {

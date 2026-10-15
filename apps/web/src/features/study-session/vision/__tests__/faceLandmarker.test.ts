@@ -442,3 +442,38 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
     }
   });
 });
+
+describe("createFaceLandmarker 타임랩스 사진", () => {
+  const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
+
+  function handleReturning(result: unknown) {
+    return { runtime: "main", detect: vi.fn(async () => result), close: vi.fn() };
+  }
+
+  it("사진 요청을 핸들에 넘기고 같은 프레임의 사진을 결과에 붙인다", async () => {
+    const handle = handleReturning({ ...faceResult(), photo: PHOTO });
+    const landmarker = createFaceLandmarker({
+      loadRuntime: fakeRuntime(async () => handle).loadRuntime,
+    });
+    await landmarker.load();
+    const spec = { aspect: "9:16" as const, mask: true };
+
+    const result = await landmarker.detect(video, 10, spec);
+
+    expect(handle.detect).toHaveBeenCalledWith(video, 10, spec);
+    expect(result?.photo).toBe(PHOTO);
+    expect(result?.face.facePresent).toBe(true);
+  });
+
+  it("사진이 없으면 결과에 사진 키가 없다", async () => {
+    const handle = handleReturning(faceResult());
+    const landmarker = createFaceLandmarker({
+      loadRuntime: fakeRuntime(async () => handle).loadRuntime,
+    });
+    await landmarker.load();
+
+    const result = await landmarker.detect(video, 10);
+
+    expect(result).not.toHaveProperty("photo");
+  });
+});

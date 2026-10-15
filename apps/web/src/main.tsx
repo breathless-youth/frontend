@@ -9,6 +9,7 @@ import { initAmplitude } from "./lib/amplitude";
 import { initAppLifecycleAnalytics } from "./lib/appLifecycleAnalytics";
 import { initBridgeTokenSource } from "./lib/auth/tokenSource";
 import { installFakeCamera } from "./lib/fakeCamera";
+import { initNativeTabFocus } from "./lib/nativeTabFocus";
 import { initNativeTheme } from "./lib/nativeTheme";
 import { initSentry, sentryRootOptions } from "./lib/sentry";
 // Tailwind의 CSS @import가 아니라 여기서 불러와야 Vite가 폰트 url()을 다시 쓰고 조각 파일에 해시를 붙인다.
@@ -21,6 +22,7 @@ initAmplitude();
 // initAmplitude(user property no-op 방지) 뒤여야 한다. 초기 테마는 index.html 인라인
 // 스크립트가 첫 페인트 전에 data-theme에 이미 반영해 둔다.
 initNativeTheme();
+initNativeTabFocus();
 initAppLifecycleAnalytics();
 // 라우트의 첫 react-query 요청이 App effect보다 먼저 돌므로 createRoot 전에 구독·auth-ready를 건다.
 initBridgeTokenSource();

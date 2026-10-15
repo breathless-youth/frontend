@@ -37,6 +37,10 @@ coverage/
 # native
 ios/
 android/
+# 로컬 Expo 모듈의 네이티브 소스는 커밋한다.
+# 위 두 줄은 prebuild가 만드는 폴더를 위한 것이다.
+!apps/mobile/modules/*/ios/
+!apps/mobile/modules/*/android/
 *.ipa
 *.apk
 

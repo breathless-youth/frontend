@@ -15,8 +15,12 @@ import {
   setOnboardingGuideStore,
 } from "@/features/onboarding/onboardingGuideStore";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { __resetRankingTabForTests } from "@/lib/rankingCapability";
+import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { todayLabel } from "@/features/home/homeFormat";
+import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
+import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
@@ -42,6 +46,26 @@ vi.mock("@/lib/statsApi", () => ({
 const getActiveNotices = vi.hoisted(() => vi.fn(() => Promise.resolve<NoticeResponse[]>([])));
 vi.mock("@/lib/noticeApi", () => ({ getActiveNotices }));
 
+/**
+ * 홈 랭킹 팝업 응답
+ *
+ * 팝업 자체는 자기 테스트가 따로 본다.
+ * 기본은 띄울 것이 없게 두고 순서 테스트만 바꾼다.
+ */
+const rankingApi = vi.hoisted(() => ({
+  getRankingRecordsUnseen: vi.fn(),
+  getRankingHome: vi.fn(),
+  postRankingRecordsSeen: vi.fn(),
+}));
+vi.mock("@/lib/rankingApi", () => rankingApi);
+
+// 파일의 모든 describe가 같은 기본값에서 시작하게 맨 바깥에 둔다.
+beforeEach(() => {
+  rankingApi.getRankingRecordsUnseen.mockResolvedValue({ total: 0, records: [] });
+  rankingApi.getRankingHome.mockResolvedValue({ card: null, overtaken: null });
+  rankingApi.postRankingRecordsSeen.mockResolvedValue(undefined);
+});
+
 vi.mock("@/lib/ddayApi", () => ({
   getDday: vi.fn(() => Promise.resolve(null)),
   putDday: vi.fn(),
@@ -57,7 +81,14 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
 
 const prefetchOnboardingGuidePage = vi.hoisted(() => vi.fn());
 
-vi.mock("@/routes/lazyRoutes", () => ({ prefetchOnboardingGuidePage }));
+vi.mock("@/routes/lazyRoutes", () => ({
+  prefetchOnboardingGuidePage,
+  prefetchTimelapsesPage: vi.fn(),
+}));
+
+vi.mock("@/features/timelapse/RecentTimelapses", () => ({
+  RecentTimelapses: () => <div data-testid="recent-timelapses" />,
+}));
 
 /** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
 const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
@@ -103,6 +134,35 @@ const statsResponse = {
   totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
   studiedDatesInMonth: [],
 };
+
+const RECOVERED = {
+  statDate: "2026-08-27",
+  startedAt: "2026-08-27T12:03:00Z",
+  endedAt: "2026-08-27T13:48:00Z",
+  studySec: 6300,
+  focusSec: 5040,
+};
+
+const RECOVERY_TITLE = "저장되지 않은 기록을 복구했어요";
+
+const NOTICE: NoticeResponse = {
+  id: 3,
+  title: "점검 안내",
+  content: "c",
+  imageUrl: null,
+  audience: "ALL",
+  badgeText: null,
+  buttonText: null,
+  buttonUrl: null,
+};
+
+/** 네이티브가 주입하는 것과 같은 경로로 앱 실행 신호를 흘린다. */
+function emitAppLaunched() {
+  const receiver = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  receiver?.('{"type":"app-launched","atMs":1}');
+}
 
 function renderHome(path = "/home?userId=7") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -235,22 +295,6 @@ describe("HomeTabPage", () => {
   });
 
   describe("복구 안내 모달", () => {
-    const RECOVERED = {
-      statDate: "2026-08-27",
-      startedAt: "2026-08-27T12:03:00Z",
-      endedAt: "2026-08-27T13:48:00Z",
-      studySec: 6300,
-      focusSec: 5040,
-    };
-
-    /** 네이티브가 주입하는 것과 같은 경로로 앱 실행 신호를 흘린다. */
-    function emitAppLaunched() {
-      const receiver = (
-        globalThis as unknown as Record<string, ((raw: string) => void) | undefined>
-      )[NATIVE_MESSAGE_ENTRY];
-      receiver?.('{"type":"app-launched","atMs":1}');
-    }
-
     it("서버가 대신 확정한 기록이 있으면 모달이 뜬다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
@@ -281,17 +325,6 @@ describe("HomeTabPage", () => {
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-
-    const NOTICE: NoticeResponse = {
-      id: 3,
-      title: "점검 안내",
-      content: "c",
-      imageUrl: null,
-      audience: "ALL",
-      badgeText: null,
-      buttonText: null,
-      buttonUrl: null,
-    };
 
     it("공지가 떠 있는 동안은 기다렸다가 공지를 닫으면 뜬다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
@@ -553,7 +586,7 @@ describe("HomeTabPage", () => {
       const stub = await screen.findByTestId("onboarding-guide-stub");
       expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=focus-start");
       // 분기 계측(BY-616 확장) — 가이드로 갔다는 사실은 autocapture 클릭이 모른다.
-      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("guide");
+      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("guide", "home");
     });
 
     it("가이드를 이미 봤으면(완료) 쿼리를 승계해 세션 라우트로 바로 이동한다", async () => {
@@ -568,7 +601,7 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
-      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("session");
+      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("session", "home");
     });
 
     it("가이드를 이미 봤을 때 빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {
@@ -600,6 +633,193 @@ describe("HomeTabPage", () => {
 
       await screen.findByTestId("onboarding-guide-stub");
       expect(navigateSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("홈 랭킹 팝업 순서", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      window.history.replaceState(null, "", "/");
+      __resetRankingTabForTests();
+    });
+
+    it("공지가 뜬 실행에는 공지를 닫아도 랭킹 팝업을 띄우지 않는다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
+      rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+
+      renderHome();
+      fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    });
+
+    it("복구 창이 뜬 실행에는 확인을 눌러도 랭킹 팝업을 띄우지 않는다", async () => {
+      window.history.replaceState(null, "", "/home?ranking=1");
+      __resetRankingTabForTests();
+      // 셸처럼 준비 신호를 받은 자리에서 실행 신호로 답한다.
+      const postMessage = vi.fn((raw: string) => {
+        if ((JSON.parse(raw) as { type: string }).type === "home-ready") {
+          emitAppLaunched();
+        }
+      });
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+      rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+
+      renderHome();
+      fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    });
+
+    it("공지와 복구 창이 없으면 안 본 메달 모달을 띄운다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+
+      renderHome();
+
+      expect(await screen.findByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
+      expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalledWith([41]);
+    });
+
+    it("메달 모달이 뜬 뒤 복구 결과가 늦게 오면 모달을 두고, 모달을 닫은 뒤에 복구 창을 띄운다", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        window.history.replaceState(null, "", "/home?ranking=1");
+        __resetRankingTabForTests();
+        // 준비 신호에 바로 답하지 않는 셸이라 기다림이 끝나야 복구 판단이 끝난다.
+        vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+        mockedStats.mockResolvedValue(statsResponse);
+        mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+        closeStaleSession.mockResolvedValue(RECOVERED);
+        rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+
+        renderHome();
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(LAUNCH_SIGNAL_WAIT_MS);
+        });
+        expect(await screen.findByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
+
+        emitAppLaunched();
+        await waitFor(() => expect(hasShownRecoveryThisLaunch()).toBe(true));
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        // 메달은 띄운 직후 본 것으로 보냈으므로 내리면 사용자가 못 본 메달이 본 것으로 넘어간다.
+        expect(screen.getByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
+        // 열린 모달 밖은 aria-hidden이 되어 역할 조회로는 겹침을 놓치므로 글자로 찾는다.
+        expect(screen.queryByText(RECOVERY_TITLE)).toBeNull();
+
+        fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+
+        expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
+        expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe("이번 실행 표시를 저장하지 못한 기기", () => {
+    let restoreStorage: () => void = () => {};
+
+    beforeEach(() => {
+      // sessionStorage 쓰기만 막고 localStorage는 그대로 둔다.
+      const original = Storage.prototype.setItem;
+      const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+        this: Storage,
+        key: string,
+        value: string,
+      ) {
+        if (this === window.sessionStorage) {
+          throw new Error("blocked");
+        }
+        original.call(this, key, value);
+      });
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      restoreStorage = () => {
+        spy.mockRestore();
+        vi.mocked(console.warn).mockRestore();
+      };
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+      rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+    });
+
+    afterEach(() => {
+      restoreStorage();
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(document, "visibilityState");
+      window.history.replaceState(null, "", "/");
+      __resetRankingTabForTests();
+    });
+
+    it("공지를 띄운 문서에서는 공지를 닫아도 랭킹 팝업을 띄우지 않는다", async () => {
+      getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
+
+      renderHome();
+      fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    });
+
+    it("복구 창이 뜬 문서에서는 랭킹 팝업이 앞서지 않고, 확인을 눌러도 띄우지 않는다", async () => {
+      window.history.replaceState(null, "", "/home?ranking=1");
+      __resetRankingTabForTests();
+      const postMessage = vi.fn((raw: string) => {
+        if ((JSON.parse(raw) as { type: string }).type === "home-ready") {
+          emitAppLaunched();
+        }
+      });
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
+      expect(screen.queryByText("1위로 마감했어요")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "확인" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    });
+
+    it("랭킹 팝업을 띄운 문서에서는 다시 보여도 공지를 띄우지 않는다", async () => {
+      getActiveNotices
+        .mockImplementationOnce(() => Promise.resolve([]))
+        .mockImplementation(() => Promise.resolve([NOTICE]));
+
+      renderHome();
+      fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByText(NOTICE.title)).toBeNull();
     });
   });
 });
@@ -691,5 +911,16 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
 
     await screen.findByRole("heading", { level: 1, name: "FocusMakers" });
     expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
+  });
+});
+
+describe("HomeTabPage — 최근 타임랩스 (BY-895)", () => {
+  it("초대 카드 다음에 보인다", async () => {
+    renderHome();
+
+    const section = await screen.findByTestId("recent-timelapses");
+    const invite = screen.getByRole("button", { name: /그룹 스터디하러 이동/ });
+
+    expect(invite.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -43,6 +43,13 @@ export type ToWebMessage =
    */
   | { type: "session-closed"; atMs: number }
   /**
+   * 탭 웹뷰가 지금 보이는지.
+   * 탭은 웹뷰를 띄워 둔 채 바뀌어 문서가 가려진 줄 모른다.
+   * 포커스가 바뀔 때와 가려진 채 문서가 새로 뜬 직후에 보낸다(`RemoteWebViewHost`).
+   * 웹은 첫 신호 전까지 보이는 것으로 본다(`apps/web/src/lib/nativeTabFocus.ts`).
+   */
+  | { type: "tab-focus"; focused: boolean; atMs: number }
+  /**
    * 세션 중에 들어온 초대.
    * 세션 화면이 열려 있을 때 초대 링크나 초대 푸시가 오면 네이티브가 화면을 쌓지 않고 세션 웹뷰에만 보낸다.
    * 기록 저장은 웹만 시작할 수 있어서, 웹이 확인 창으로 묻고 저장한 뒤 `navigate-home`의 `inviteCode`로 돌려준다.
@@ -50,11 +57,26 @@ export type ToWebMessage =
   | { type: "session-invite"; code: string; atMs: number }
   /**
    * 현재 신원과 access 토큰. `auth-ready`의 응답으로 그 문서에 가고, 갱신·재등록 뒤에는 마운트된
-   * 모든 호스트(탭 4개 + 세션 모달)에 간다 — 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
+   * 모든 호스트(탭 5개 + 세션 모달)에 간다.
+   * 다른 탭이 낡은 토큰으로 401을 맞지 않게 하기 위해서다.
    * `track-event`의 단일 sink 규칙과 반대다. refresh 토큰은 싣지 않는다. 둘 다 null이면 등록
    * 실패다. 웹은 헤더 없이 보낸다.
    */
   | { type: "auth-token"; userId: number | null; accessToken: string | null; atMs: number }
+  /**
+   * 영상 저장·공유 결과
+   *
+   * `video-save`·`video-share`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * 같은 다이얼로그에서 저장과 공유가 겹칠 수 있어 타입만으로는 어느 요청의 답인지 가를 수 없다.
+   * `dismissed`는 사용자가 공유 시트를 닫은 경우이고 `denied`는 사진 추가 권한을 거부한 경우다.
+   */
+  | {
+      type: "video-result";
+      id: string;
+      action: "save" | "share";
+      status: VideoResultStatus;
+      atMs: number;
+    }
   | CameraPermissionMessage
   | TrackEventMessage;
 
@@ -78,6 +100,18 @@ export interface CameraPermissionMessage {
   granted: boolean;
   atMs: number;
 }
+
+/** `video-result`의 결과 목록. 웹 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const VIDEO_RESULT_STATUSES = ["saved", "shared", "dismissed", "denied", "failed"] as const;
+export type VideoResultStatus = (typeof VIDEO_RESULT_STATUSES)[number];
+
+/**
+ * 공유 시트를 거치지 않고 바로 열 수 있는 앱
+ *
+ * 앱은 이 앱을 열 수 없으면 OS 공유 시트로 돌아간다.
+ */
+export const VIDEO_SHARE_TARGETS = ["instagram", "kakao"] as const;
+export type VideoShareTarget = (typeof VIDEO_SHARE_TARGETS)[number];
 
 /** 웹 → 네이티브. */
 /** 햅틱 세기 — expo-haptics `ImpactFeedbackStyle`과 같은 세 단계. */
@@ -143,6 +177,38 @@ export type ToNativeMessage =
    * 레거시 웹 메시지 수신 호환을 위해 남겨 둔다.
    */
   | { type: "share"; text: string; url?: string; title?: string; atMs: number }
+  /**
+   * 타임랩스 영상 조각
+   *
+   * 웹이 mp4를 원본 384KB씩 잘라 base64로 바꾼 뒤 `seq` 0부터 차례로 보낸다.
+   * 13MB 문자열을 한 번에 보내면 저사양 기기에서 웹·네이티브·JS가 같은 문자열을 동시에 들고 있어 메모리를 압박한다.
+   * 앱은 받는 대로 캐시 파일에 이어 쓰고 답하지 않는다.
+   * `id`는 웹이 저장·공유마다 `crypto.randomUUID()`로 새로 만들고 앱은 그 모양만 받는다.
+   */
+  | { type: "video-chunk"; id: string; seq: number; data: string; atMs: number }
+  /**
+   * 모은 영상을 사진 앱에 저장하라는 요청
+   *
+   * 앱은 받은 조각 수가 `chunks`와 같은지 확인하고 사진 추가 권한을 물은 뒤 `video-result`로 답한다.
+   * 권한 거부는 `denied`로만 알리고 안내와 설정 열기는 웹이 맡는다.
+   */
+  | { type: "video-save"; id: string; chunks: number; atMs: number }
+  /**
+   * 모은 영상을 OS 공유 시트로 보내라는 요청
+   *
+   * 파일과 함께 설치 링크가 든 `text`를 본문으로 넘긴다.
+   * `target`이 있으면 앱은 그 앱을 먼저 바로 열어 보고, 열 수 없으면 OS 공유 시트를 연다.
+   * 앱은 시트가 닫히거나 대상 앱을 연 뒤 `video-result`로 답한다.
+   */
+  | {
+      type: "video-share";
+      id: string;
+      chunks: number;
+      text: string;
+      title?: string;
+      target?: VideoShareTarget;
+      atMs: number;
+    }
   /**
    * 화면 회전 잠금 제어 — 실시간 룸(`/social/room/:id`)이 마운트 동안 `unlocked: true`,
    * 언마운트에서 `false`를 보낸다. 룸은 탭 웹뷰 안 웹 라우트라 네이티브 화면 전환이 없어
@@ -232,9 +298,17 @@ export interface ReportScreenMessage {
 }
 
 /** `navigate-tab`이 갈 수 있는 탭. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
-export const NAVIGATE_TAB_TARGETS = ["records", "social"] as const;
+export const NAVIGATE_TAB_TARGETS = ["records", "social", "ranking"] as const;
 /** `navigate-tab` 발신처. 위와 같은 이유로 목록이 원천이다. */
-export const NAVIGATE_TAB_SOURCES = ["card", "study_result", "invite_card"] as const;
+export const NAVIGATE_TAB_SOURCES = [
+  "card",
+  "study_result",
+  "invite_card",
+  "home_ranking_card",
+  "overtake_popup",
+  "top3_modal",
+  "result_ranking_card",
+] as const;
 
 /**
  * 네이티브 하단 탭을 전환해 달라는 요청 — S4 결과 화면의 `기록으로 가기`와 홈 친구 초대 카드가
@@ -246,8 +320,11 @@ export const NAVIGATE_TAB_SOURCES = ["card", "study_result", "invite_card"] as c
  *
  * `tab`은 목적지가 확정된 탭 간 이동만 담는다(탭바 IA 원칙 "목적지가 확정되지 않은 탭을
  * 임의로 늘리지 않는다"와 같은 태도). `records`는 결과 화면의 `기록으로 가기`, `social`은 홈
- * 친구 초대 카드다. 새 이동이 확정되면 유니온을 넓힌다 — 호환 변경이다. 다만 배포된 셸은
- * 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
+ * 친구 초대 카드다.
+ * `ranking`은 홈 랭킹 카드·추월 팝업·마감 모달·결과 랭킹 카드다.
+ * 새 이동이 확정되면 유니온을 넓힌다.
+ * 넓히는 것은 호환 변경이다.
+ * 다만 배포된 셸은 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
  *
  * 브라우저 단독 모드에서는 발신하지 않는다 — 호출부가 웹 라우트(`/records`·`/social`)로 직접
  * 이동한다(쿼리 승계 포함, 발신부 참고).
@@ -259,6 +336,7 @@ export interface NavigateTabMessage {
    * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
    * `card`는 옛 홈의 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560),
    * `invite_card`는 홈 친구 초대 카드다. 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
+   * `home_ranking_card`·`overtake_popup`·`top3_modal`·`result_ranking_card`는 랭킹 진입점이다.
    */
   via?: (typeof NAVIGATE_TAB_SOURCES)[number];
   atMs: number;
@@ -347,13 +425,16 @@ export interface NavigateHomeMessage {
   /**
    * 모달을 닫은 뒤 이어서 열 탭. S4의 `기록으로 가기`가 솔로 결과에서 싣는다 — 모달 닫기와 탭
    * 전환을 **한 메시지**로 보내야 한다. 둘로 나누면 첫 메시지가 이 WebView를 언마운트하는
-   * 사이 둘째(`navigate-tab`)가 유실될 수 있다. 네이티브는 `tab_pressed {via: study_result}`로
-   * 센다. 없으면 홈 탭에 머문다.
+   * 사이 둘째(`navigate-tab`)가 유실될 수 있다.
+   * 솔로 결과의 랭킹 카드도 같은 이유로 `ranking`을 싣는다.
+   * 네이티브는 `records`를 `tab_pressed {via: study_result}`로, `ranking`을 `tab_pressed {via: result_ranking_card}`로 센다.
+   * 없으면 홈 탭에 머문다.
    *
-   * 값은 `records`뿐이다. `navigate-tab`의 목적지 목록을 그대로 참조하면 셸 파서·핸들러가 모르는
-   * 값이 타입만 통과해 조용히 홈에 머문다. 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
+   * 값은 `records`와 `ranking`이다.
+   * `navigate-tab`의 목적지 목록을 그대로 참조하면 셸 파서·핸들러가 모르는 값이 타입만 통과해 알리지 않고 홈에 머문다.
+   * 다른 탭이 필요해지면 파서·핸들러와 함께 넓힌다.
    */
-  tab?: "records";
+  tab?: "records" | "ranking";
   /**
    * 모달을 닫은 뒤 열 초대코드 화면의 코드.
    * 세션 중 초대를 받아 기록을 저장한 웹이 싣는다.
@@ -376,7 +457,8 @@ export type NativeAnalyticsPropertyValue = string | number | boolean | null;
  *
  * - **이벤트 카탈로그(이름·속성)는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다.**
  *   웹은 이름을 해석하지 않고 형식만 검증해(`^[a-z][a-z0-9_]*$`, 속성은 원시값) 그대로 전송한다.
- * - **전달 대상은 하나다.** 탭 4개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한
+ * - 전달 대상은 하나다.
+ *   탭 5개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한
  *   터치가 N번 찍힌다. 네이티브는 "포커스된 화면의 웹뷰이면서 `analytics-ready`를 보낸 document"
  *   하나에만 보내고, 그런 웹뷰가 없는 동안(권한 거부 화면·로드 실패·재로드 중)은 큐에 보관했다가
  *   준비되는 순간 순서대로 흘려보낸다.

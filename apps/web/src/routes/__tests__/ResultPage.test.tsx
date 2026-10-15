@@ -9,11 +9,22 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  createMemoryBoardMemoryStore,
+  resetBoardMemoryStore,
+  setBoardMemoryStore,
+} from "@/features/ranking/model/boardMemory";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { todayKstDateKey } from "@/lib/dateKst";
+import { __resetRankingTabForTests } from "@/lib/rankingCapability";
+import {
+  FIXTURE_SESSION_GAINS,
+  FIXTURE_SESSION_GAINS_EMPTY,
+  FIXTURE_SESSION_GAINS_NO_WEEKLY,
+} from "@/lib/rankingFixtures";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
@@ -28,6 +39,14 @@ vi.mock("@/lib/statsApi", () => ({
 }));
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStudyDays = vi.mocked(getStudyDays);
+
+/**
+ * 랭킹 카드가 묻는 오른 순위
+ *
+ * 기본은 오른 판이 없어 카드가 없다.
+ */
+const getRankingSessionGains = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rankingApi", () => ({ getRankingSessionGains }));
 
 /** 오늘 합계 3시간 36분(12960초) — 시안 스크린샷 값. */
 const statsResponse = {
@@ -45,10 +64,32 @@ beforeEach(() => {
   mockedStats.mockResolvedValue(statsResponse);
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
+  getRankingSessionGains.mockResolvedValue({ weekly: null, others: [] });
 });
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
 // 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
+/** 타임랩스 카드는 따로 검증했다. 결과 화면이 넘기는 값과 스크롤만 본다. */
+const timelapseCard = vi.hoisted(() => ({ props: [] as { startedAtMs: number }[] }));
+vi.mock("@/features/timelapse/ResultTimelapseCard", async () => {
+  const { useEffect, useRef } = await import("react");
+  return {
+    ResultTimelapseCard: (props: {
+      startedAtMs: number;
+      onShown?: (element: HTMLElement) => void;
+    }) => {
+      timelapseCard.props.push(props);
+      const ref = useRef<HTMLDivElement>(null);
+      useEffect(() => {
+        if (ref.current !== null) props.onShown?.(ref.current);
+        // 처음 그려졌을 때 한 번만 알린다.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      return <div ref={ref} data-testid="timelapse-card" />;
+    },
+  };
+});
+
 vi.mock("@/lib/interviewApi", () => ({
   getInterviewStatus: () =>
     Promise.resolve({
@@ -116,6 +157,16 @@ function RecordsProbe() {
 }
 
 /**
+ * 랭킹 도착 관측용 프로브
+ *
+ * 브라우저 단독 모드의 `랭킹 보기 ›`가 여기로 온다.
+ */
+function RankingProbe() {
+  const { search } = useLocation();
+  return <p>랭킹 화면{search}</p>;
+}
+
+/**
  * 모션 축소 여부를 `matchMedia`로 심는다 — jsdom에는 `matchMedia`가 없어 `ResultPage`는 "축소
  * 아님"으로 본다.
  *
@@ -164,6 +215,7 @@ function renderResult(
         <Routes>
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
+          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/room/:id/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -287,6 +339,17 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
     );
     // 순공시간은 접히지 않고 남는다.
     expect(screen.getByText("순공시간")).toBeInTheDocument();
+  });
+
+  it("CTA가 드러나면 저장 토스트가 버튼을 덮지 않도록 CTA 줄 안에 화면 알림 영역을 둔다", () => {
+    renderAnimated();
+
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+
+    const ctaRow = screen.getByRole("button", { name: "홈으로" }).parentElement!;
+    expect(within(ctaRow).getByRole("region", { name: "화면 알림" })).toBeInTheDocument();
   });
 
   it("연출 중 화면을 떠나면 공개 타이머를 걷는다 — 사라진 화면에 setState하지 않는다", () => {
@@ -667,6 +730,7 @@ function renderResultAtSocial(state: unknown, search = "?userId=7") {
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/social" element={<SocialProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
+          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/social/room/:roomId/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -779,5 +843,298 @@ describe("ResultPage: 세션 중 초대", () => {
       expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"inviteCode":"4680"')),
     );
     expect(stageStudyResultExit).not.toHaveBeenCalled();
+  });
+});
+
+describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
+  beforeEach(() => {
+    timelapseCard.props = [];
+  });
+
+  it("솔로 결과면 맨 아래에 카드를 두고 세션 시작 시각을 넘긴다", () => {
+    renderResult({ sessions: [exampleSession()], startedAtMs: 1_000 });
+
+    const card = screen.getByTestId("timelapse-card");
+    expect(card.parentElement?.lastElementChild).toBe(card);
+    expect(
+      timelineCard().compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(timelapseCard.props.at(-1)?.startedAtMs).toBe(1_000);
+  });
+
+  it("state에 시작 시각이 없으면 세션의 시작 시각으로 찾는다", () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(timelapseCard.props.at(-1)?.startedAtMs).toBe(SESSION_START.getTime());
+  });
+
+  it("소셜 결과에는 카드가 없다", () => {
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
+  });
+
+  describe("자동 스크롤", () => {
+    /** 스크롤 영역은 0~800, 카드는 cardTop부터 400px 높이에 있다고 잰다. */
+    function renderAnimatedWithCard(cardTop = 900) {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        const isCard = this.getAttribute("data-testid") === "timelapse-card";
+        const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
+        return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
+      });
+      vi.useFakeTimers();
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
+      vi.stubGlobal("requestAnimationFrame", () => 0);
+      vi.stubGlobal("cancelAnimationFrame", () => undefined);
+      const scrollTo = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+        configurable: true,
+        writable: true,
+        value: scrollTo,
+      });
+      renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
+      return scrollTo;
+    }
+
+    afterEach(() => {
+      delete (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo;
+      const rect = Element.prototype.getBoundingClientRect;
+      if (vi.isMockFunction(rect)) rect.mockRestore();
+    });
+
+    it("카드가 보이면 잠시 뒤 카드까지 부드럽게 스크롤한다", () => {
+      const scrollTo = renderAnimatedWithCard();
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      expect(scrollTo).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("카드가 이미 다 보이면 스크롤하지 않는다", () => {
+      // 늦게 뜬 카드가 이미 화면 안에 있으면 위로 끌어올리지 않는다.
+      const scrollTo = renderAnimatedWithCard(300);
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("스크롤하기 전에 화면을 만지면 스크롤하지 않는다", () => {
+      const scrollTo = renderAnimatedWithCard();
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+
+      const container = screen
+        .getByTestId("timelapse-card")
+        .closest<HTMLElement>(".overflow-y-auto")!;
+      act(() => {
+        container.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("카드가 뜨기 전에 사용자가 이미 화면을 만졌으면 자동 스크롤하지 않는다", () => {
+      // 촬영 정리를 기다리느라 카드가 늦게 뜨면 사용자는 이미 결과를 읽으며 스크롤 중일 수 있다.
+      const scrollTo = renderAnimatedWithCard();
+      act(() => {
+        document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it.each(["pointerdown", "wheel", "keydown"])(
+      "스크롤하는 중에 %s가 오면 그 자리에서 멈춘다",
+      (eventName) => {
+        const scrollTo = renderAnimatedWithCard();
+        act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+        act(() => vi.advanceTimersByTime(1_000));
+        expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+        const container = screen
+          .getByTestId("timelapse-card")
+          .closest<HTMLElement>(".overflow-y-auto")!;
+
+        // 스크롤 영역 밖(하단 버튼 줄 등)을 만져도 멈춘다.
+        act(() => {
+          document.body.dispatchEvent(new Event(eventName, { bubbles: true }));
+        });
+
+        expect(scrollTo).toHaveBeenLastCalledWith({ top: container.scrollTop });
+      },
+    );
+
+    it("움직임 줄이기 설정이면 자동 스크롤하지 않는다", () => {
+      vi.useFakeTimers();
+      const scrollTo = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+        configurable: true,
+        writable: true,
+        value: scrollTo,
+      });
+      renderResult({ sessions: [exampleSession()] });
+
+      act(() => vi.advanceTimersByTime(2_000));
+
+      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("ResultPage: 랭킹 카드", () => {
+  const CARD = { name: "랭킹이 올랐어요" };
+  let boardStore: ReturnType<typeof createMemoryBoardMemoryStore>;
+
+  beforeEach(() => {
+    boardStore = createMemoryBoardMemoryStore();
+    setBoardMemoryStore(boardStore);
+    getRankingSessionGains.mockResolvedValue(FIXTURE_SESSION_GAINS);
+  });
+
+  afterEach(() => {
+    resetBoardMemoryStore();
+    window.history.replaceState(null, "", "/");
+    __resetRankingTabForTests();
+  });
+
+  /** 셸이 랭킹 탭 표시를 실은 앱 웹뷰를 흉내 낸다. */
+  function stubAppWithRankingTab() {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    window.history.replaceState(null, "", "/?ranking=1");
+    __resetRankingTabForTests();
+    return postMessage;
+  }
+
+  function sentMessages(postMessage: ReturnType<typeof vi.fn>) {
+    return postMessage.mock.calls.map(
+      ([raw]) => JSON.parse(raw as string) as Record<string, unknown>,
+    );
+  }
+
+  it("주간 순공이 오르면 히어로 아래, 타임라인 위에 카드를 보인다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    const card = await screen.findByRole("region", CARD);
+    const heroTitle = screen.getByRole("heading", { level: 1 });
+    expect(heroTitle.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      card.compareDocumentPosition(timelineCard()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(card).getByText("1,205위 → 1,202위")).toBeInTheDocument();
+    expect(within(card).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("제출한 세션의 시작 시각으로 묻는다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    await screen.findByRole("region", CARD);
+    expect(getRankingSessionGains).toHaveBeenCalledWith(
+      SESSION_START.toISOString(),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("응답이 오기 전에는 자리를 잡지 않는다", () => {
+    getRankingSessionGains.mockReturnValue(new Promise(() => {}));
+
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(timelineCard()).toBeInTheDocument();
+  });
+
+  it.each([
+    ["주간 순공이 오르지 않았으면", FIXTURE_SESSION_GAINS_NO_WEEKLY],
+    ["오른 판이 없거나 세션이 없다는 404였으면", FIXTURE_SESSION_GAINS_EMPTY],
+  ])("%s 카드를 숨긴다", async (_, response) => {
+    getRankingSessionGains.mockResolvedValue(response);
+
+    renderResult({ sessions: [exampleSession()] });
+    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+
+  it("요청이 실패해도 오류 없이 카드만 숨긴다", async () => {
+    getRankingSessionGains.mockRejectedValue(new Error("network"));
+
+    renderResult({ sessions: [exampleSession()] });
+    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+    expect(timelineCard()).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
+  });
+
+  it("미저장 모드에서는 묻지 않는다", () => {
+    renderResult({ sessions: [exampleSession()] }, "");
+
+    expect(getRankingSessionGains).not.toHaveBeenCalled();
+  });
+
+  it("랭킹 탭이 없는 앱에서는 묻지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    __resetRankingTabForTests();
+
+    renderResult({ sessions: [exampleSession()] });
+
+    expect(getRankingSessionGains).not.toHaveBeenCalled();
+  });
+
+  it("브라우저에서 랭킹 보기는 순공 주간 판을 넘겨주고 웹 라우트 /ranking으로 간다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(screen.getByText("랭킹 화면?userId=7")).toBeInTheDocument();
+    expect(JSON.parse(boardStore.raw!).ranking).toEqual({ type: "FOCUS_TIME", period: "WEEKLY" });
+    expect(stageStudyResultExit).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "single", consumeAt: "/ranking" }),
+    );
+  });
+
+  it("앱 솔로 결과에서는 모달 닫기 신호 하나에 랭킹 탭을 싣는다", async () => {
+    const postMessage = stubAppWithRankingTab();
+    renderResult({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(sentMessages(postMessage)).toEqual([
+      expect.objectContaining({ type: "navigate-home", tab: "ranking" }),
+    ]);
+    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
+  });
+
+  it("앱 소셜 결과에서는 탭 전환 신호만 보내고 웹뷰는 소셜 홈으로 돌린다", async () => {
+    const postMessage = stubAppWithRankingTab();
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
+
+    expect(sentMessages(postMessage)).toEqual([
+      expect.objectContaining({ type: "navigate-tab", tab: "ranking", via: "result_ranking_card" }),
+    ]);
+    expect(screen.getByText("소셜 홈?userId=7")).toBeInTheDocument();
+    expect(stageStudyResultExit).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "social", consumeAt: "/ranking" }),
+    );
   });
 });

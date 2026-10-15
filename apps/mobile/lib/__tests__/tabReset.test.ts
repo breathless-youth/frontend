@@ -21,6 +21,7 @@ it("홈이 아닌 탭 라우트는 웹 경로를, 홈·모르는 라우트는 nu
   expect(tabResetTargetForBack("settings")).toBe("/settings");
   expect(tabResetTargetForBack("social")).toBe("/social");
   expect(tabResetTargetForBack("records")).toBe("/records");
+  expect(tabResetTargetForBack("ranking")).toBe("/ranking");
   expect(tabResetTargetForBack("index")).toBeNull();
   expect(tabResetTargetForBack("unknown")).toBeNull();
 });

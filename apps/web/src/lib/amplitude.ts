@@ -1,8 +1,25 @@
-import { add, Identify, identify, init, setUserId, track } from "@amplitude/analytics-browser";
+import {
+  add,
+  flush,
+  Identify,
+  identify,
+  init,
+  setUserId,
+  track,
+} from "@amplitude/analytics-browser";
 import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
-import type { StudyEventStatus, TrackEventMessage } from "@focusmakers/types";
+import type {
+  MedalRank,
+  RankingPeriod,
+  RankingRecordType,
+  RankingType,
+  StudyEventStatus,
+  TimeSlot,
+  TrackEventMessage,
+  VideoResultStatus,
+} from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
@@ -368,6 +385,60 @@ export function trackVisionRuntimeFallback(input: { readonly roomType: StudyRoom
   track("vision_runtime_fallback", { room_type: input.roomType, reason: "frame_capture" });
 }
 
+/**
+ * 타임랩스 공유용 영상을 만든 기록
+ *
+ * 기기별 인코딩 방식·걸린 시간과 실제 파일 크기로 보관 상한(7개)을 다시 확인한다.
+ * 플랫폼은 SDK가 붙이는 `os_name`으로 가른다. 사진·영상 내용과 식별자는 싣지 않는다.
+ */
+export function trackTimelapseVideoCreated(input: {
+  readonly method: "webcodecs" | "recorder";
+  readonly durationMs: number;
+  readonly bytes: number;
+  readonly frames: number;
+  readonly aspect: "9:16" | "16:9";
+}) {
+  if (!initialized) return;
+  track("timelapse_video_created", {
+    method: input.method,
+    duration_ms: input.durationMs,
+    bytes: input.bytes,
+    frames: input.frames,
+    aspect: input.aspect,
+  });
+}
+
+/** `none`은 WebCodecs도 mp4 녹화도 없는 기기다. `store`는 만들었지만 보관에 실패한 경우다. */
+export function trackTimelapseVideoFailed(input: {
+  readonly method: "webcodecs" | "recorder" | "none";
+  readonly stage: "unsupported" | "decode" | "encode" | "store";
+}) {
+  if (!initialized) return;
+  track("timelapse_video_failed", { method: input.method, stage: input.stage });
+}
+
+/**
+ * 타임랩스 공유 시트의 저장·공유 결과
+ *
+ * 누른 버튼, 앱이나 브라우저가 돌려준 결과, 다이얼로그를 연 화면만 싣는다.
+ * 영상과 식별자는 싣지 않는다.
+ * 인스타그램과 Android 카카오톡은 그 앱을 바로 열고, 이때 shared는 실제로 올렸다는 뜻이 아니라 그 앱에 넘겼다는 뜻이다.
+ * 바로 열 수 없으면 OS 공유 시트로 돌아가므로 button을 채널별 공유 수로 그대로 읽지 않는다.
+ * 브라우저 다운로드는 결과를 알 수 없어 saved가 저장 완료가 아니라 다운로드를 시도했다는 뜻이다.
+ */
+export function trackTimelapseShareTapped(input: {
+  readonly button: "save" | "instagram" | "kakao" | "more";
+  readonly result: VideoResultStatus;
+  readonly entry: "result" | "list";
+}) {
+  if (!initialized) return;
+  track("timelapse_share_tapped", {
+    button: input.button,
+    result: input.result,
+    entry: input.entry,
+  });
+}
+
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
  *
  * ⚠️ 초대코드 값은 어떤 이벤트 속성으로도 보내지 않는다 — 코드는 입장 권한 토큰
@@ -457,13 +528,23 @@ export function trackInviteLinkOpened(hasCode: boolean) {
 }
 
 /**
- * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대발 신규 설치의 근사치다.
+ * 앱 미설치 브라우저에서 스토어 링크로 이동 — 초대 참여 화면과 설치 링크(/download)발 신규 설치의 근사치다.
+ * 둘은 같은 방문의 UTM(attribution)으로 나눠 본다.
  * ⚠️ 스토어 이동으로 페이지가 내려가면 전송이 유실될 수 있는 베스트 에포트 이벤트다 —
  * 모바일 브라우저는 스토어가 별도 앱으로 열려 페이지가 살아남는 경우가 대부분이라 감수한다.
  */
 export function trackStoreLinkRedirected(platform: "android" | "ios") {
   if (!initialized) return;
   track("store_link_redirected", { platform });
+}
+
+/**
+ * 모아 둔 이벤트를 지금 보낸다. 곧바로 페이지를 떠나는 화면(설치 링크)이 이동 전에 기다린다.
+ * 기본 전송은 이벤트를 모았다가 주기적으로 보내서, 떠나기 전에 부르지 않으면 남은 이벤트가 사라진다.
+ */
+export function flushAmplitude(): Promise<void> {
+  if (!initialized) return Promise.resolve();
+  return flush().promise;
 }
 
 /* ── WebRTC 연결 품질 (BY-472) ── */
@@ -673,17 +754,32 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
+/** 집중 시작을 누른 자리. */
+export type FocusStartSource =
+  "home" | "ranking_card" | "ranking_empty" | "ranking_records" | "overtake_popup";
+
 /**
- * 홈 "집중 시작" 탭 — 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정한다. autocapture
- * 클릭은 분기를 모른다. F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모.
+ * 홈과 랭킹의 "집중 시작" 탭
+ *
+ * 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정하고, autocapture 클릭은 이 분기를 모른다.
+ * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
+ * `source`는 누른 자리다.
  */
-export function trackFocusStartTapped(destination: "guide" | "session") {
+export function trackFocusStartTapped(
+  destination: "guide" | "session",
+  source: FocusStartSource = "home",
+) {
   if (!initialized) return;
-  track("focus_start_tapped", { destination });
+  track("focus_start_tapped", { destination, source });
 }
 
-/** 설정 탭 카메라 권한 행 → OS 설정 열기 요청. 권한 거부 안내(S2-3)의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다. */
-export function trackOsSettingsOpened(source: "settings_tab") {
+/**
+ * OS 설정 열기 요청
+ *
+ * 설정 탭 카메라 권한 행과 타임랩스 공유 시트의 사진 권한 안내에서 보낸다.
+ * 권한 거부 안내의 같은 행동은 네이티브가 `permission_denied_settings_opened`로 찍는다.
+ */
+export function trackOsSettingsOpened(source: "settings_tab" | "timelapse_share") {
   if (!initialized) return;
   track("os_settings_opened", { source });
 }
@@ -814,6 +910,135 @@ export function trackRecordsPeriodPicked(input: {
   track("records_period_picked", { view: input.view, to_today: input.toToday });
 }
 
+/**
+ * 랭킹판 보기
+ *
+ * 랭킹판을 그렸다.
+ * 판을 바꿨거나 다시 보여 첫 데이터를 그렸을 때 한 번 보낸다.
+ * 명예의 전당은 기간·구간이 `none`이다.
+ */
+export function trackRankingBoardViewed(input: {
+  readonly type: RankingType;
+  readonly period: RankingPeriod | null;
+  readonly slot: TimeSlot | null;
+  readonly state: "ranked" | "first_place" | "reset" | "first" | "ineligible";
+}) {
+  if (!initialized) return;
+  track("ranking_board_viewed", {
+    type: input.type,
+    period: input.period ?? "none",
+    slot: input.slot ?? "none",
+    state: input.state,
+  });
+}
+
+/**
+ * 랭킹 기록 열기
+ *
+ * 메달 버튼으로 랭킹 기록 시트를 열었다.
+ * 요약을 아직 못 받았으면 개수를 싣지 않는다.
+ */
+export function trackRankingRecordsOpened(total: number | null) {
+  if (!initialized) return;
+  track("ranking_records_opened", total === null ? {} : { total });
+}
+
+/**
+ * 랭킹 기록 메달 탭
+ *
+ * 랭킹 기록의 메달을 눌러 그 판으로 갔다.
+ */
+export function trackRankingRecordTapped(input: {
+  readonly rank: MedalRank;
+  readonly type: RankingRecordType;
+  readonly period: RankingPeriod;
+  readonly from: "sheet" | "all";
+}) {
+  if (!initialized) return;
+  track("ranking_record_tapped", {
+    rank: input.rank,
+    type: input.type,
+    period: input.period,
+    from: input.from,
+  });
+}
+
+/**
+ * 추월 바텀시트 노출
+ *
+ * 순위 값만 싣고 추월한 사람의 닉네임은 싣지 않는다.
+ */
+export function trackRankingOvertakeShown(input: {
+  readonly count: number;
+  readonly fromRank: number;
+  readonly toRank: number;
+}) {
+  if (!initialized) return;
+  track("ranking_overtake_shown", {
+    count: input.count,
+    from_rank: input.fromRank,
+    to_rank: input.toRank,
+  });
+}
+
+/**
+ * 추월 바텀시트 동작
+ *
+ * 끌어내리거나 바깥을 눌러 닫은 것도 `close`로 센다.
+ */
+export function trackRankingOvertakeAction(action: "study" | "ranking" | "close") {
+  if (!initialized) return;
+  track("ranking_overtake_action", { action });
+}
+
+/**
+ * 마감 메달 모달 노출
+ *
+ * `mixed_period`는 기간이나 기간 시작일이 다른 메달이 함께 떴는지다.
+ */
+export function trackRankingMedalModalShown(input: {
+  readonly count: number;
+  readonly bestRank: MedalRank;
+  readonly mixedPeriod: boolean;
+}) {
+  if (!initialized) return;
+  track("ranking_medal_modal_shown", {
+    count: input.count,
+    best_rank: input.bestRank,
+    mixed_period: input.mixedPeriod,
+  });
+}
+
+/** 마감 메달 모달 동작. */
+export function trackRankingMedalModalAction(action: "records" | "close") {
+  if (!initialized) return;
+  track("ranking_medal_modal_action", { action });
+}
+
+/**
+ * 공부 결과 랭킹 카드 노출
+ *
+ * 방 구분은 `study_result_confirmed`와 같은 `room_type`으로 실어 결과 화면 이벤트끼리 묶어 볼 수 있게 한다.
+ */
+export function trackRankingGainCardShown(input: {
+  readonly delta: number;
+  readonly chipCount: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("ranking_gain_card_shown", {
+    delta: input.delta,
+    chip_count: input.chipCount,
+    room_type: input.roomType,
+  });
+}
+
+/** 공부 결과 랭킹 카드의 `랭킹 보기`. */
+export function trackRankingGainCardTapped(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("ranking_gain_card_tapped", { room_type: roomType });
+}
+
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";
@@ -843,10 +1068,32 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
-  row: "profile" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
+  row:
+    "profile" | "timelapse" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
+}
+
+/** 타임랩스 설정 항목. lib가 features를 참조하지 않도록 이벤트용 이름을 여기 둔다. */
+export type TimelapseSettingEventKey =
+  | "enabled"
+  | "aspect"
+  | "face_mask"
+  | "flow_bar"
+  | "date"
+  | "focus_time"
+  | "focus_rate"
+  | "dday"
+  | "streak";
+
+/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 나머지는 켜짐 여부다. */
+export function trackTimelapseSettingChanged(input: {
+  readonly setting: TimelapseSettingEventKey;
+  readonly value: boolean | "9:16" | "16:9";
+}) {
+  if (!initialized) return;
+  track("timelapse_setting_changed", { setting: input.setting, value: input.value });
 }
 
 /** 인터뷰 안내가 어디서 떴는지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
@@ -900,10 +1147,11 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
 /**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ * 결과 랭킹 카드의 `랭킹 보기 ›`로 나가면 `ranking`이다.
  */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "home" | "records";
+  readonly via: "home" | "records" | "ranking";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -924,12 +1172,24 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
 
 /**
  * 예약을 소비할 화면의 경로. **경로로 못박는 것이 이 설계의 핵심 안전장치다** — 네이티브는 탭
- * 4개 웹뷰를 동시에 마운트해 두고(`apps/mobile/CLAUDE.md`), `document.visibilityState`는 어느
+ * 5개 웹뷰를 동시에 마운트해 두고(`apps/mobile/CLAUDE.md`), `document.visibilityState`는 어느
  * 탭이 보이는지가 아니라 앱 전체의 포/백그라운드에만 반응한다. 못박지 않으면 앱을 잠갔다 푸는
- * 것만으로 네 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
+ * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records";
+export type ResultExitPath = "/home" | "/social" | "/records" | "/ranking";
+
+/**
+ * 도착 화면별 `destination` 값
+ *
+ * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
+ */
+const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record" | "ranking"> = {
+  "/home": "home",
+  "/social": "home",
+  "/records": "record",
+  "/ranking": "ranking",
+};
 
 interface PendingResultExit {
   readonly roomType: StudyRoomType;
@@ -946,9 +1206,8 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
     (record.roomType === "single" || record.roomType === "social") &&
     typeof record.focusSec === "number" &&
     Number.isFinite(record.focusSec) &&
-    (record.consumeAt === "/home" ||
-      record.consumeAt === "/social" ||
-      record.consumeAt === "/records") &&
+    typeof record.consumeAt === "string" &&
+    Object.hasOwn(EXIT_DESTINATION, record.consumeAt) &&
     typeof record.ts === "number" &&
     Number.isFinite(record.ts)
   );
@@ -1002,8 +1261,7 @@ export function consumeStudyResultExit(pathname: string) {
     track("study_result_exited", {
       room_type: pending.roomType,
       focus_sec: pending.focusSec,
-      // 소셜 탭 복귀도 홈 복귀로 센다 — 솔로·소셜 구분은 `room_type`이 갖는다.
-      destination: pending.consumeAt === "/records" ? "record" : "home",
+      destination: EXIT_DESTINATION[pending.consumeAt],
     });
   } catch {
     // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.
@@ -1022,7 +1280,14 @@ export function trackSessionNoticeConfirmed(input: {
 /** 오류 상태의 "다시 시도" — 어느 화면의 어떤 로드가 실패했는지. */
 export function trackErrorRetryPressed(
   screen:
-    "home" | "records" | "planner" | "profile" | "live_room_entry" | "contact" | "interview_form",
+    | "home"
+    | "records"
+    | "planner"
+    | "profile"
+    | "live_room_entry"
+    | "contact"
+    | "interview_form"
+    | "ranking",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });

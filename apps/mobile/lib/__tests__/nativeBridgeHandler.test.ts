@@ -19,6 +19,7 @@ import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalyt
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
+import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -71,6 +72,12 @@ jest.mock("../auth", () => ({
   refreshAuth: jest.fn(),
 }));
 
+jest.mock("../videoTransfer", () => ({
+  appendVideoChunk: jest.fn(),
+  saveVideo: jest.fn(),
+  shareVideo: jest.fn(),
+}));
+
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
 const noopReply = jest.fn();
 
@@ -100,6 +107,9 @@ const mockedSetAnalyticsUserProperties = setAnalyticsUserProperties as jest.Mock
 const mockedAwaitAuth = awaitAuth as jest.MockedFunction<typeof awaitAuth>;
 const mockedEnsureAuth = ensureAuth as jest.MockedFunction<typeof ensureAuth>;
 const mockedRefreshAuth = refreshAuth as jest.MockedFunction<typeof refreshAuth>;
+const mockedAppendVideoChunk = appendVideoChunk as jest.MockedFunction<typeof appendVideoChunk>;
+const mockedSaveVideo = saveVideo as jest.MockedFunction<typeof saveVideo>;
+const mockedShareVideo = shareVideo as jest.MockedFunction<typeof shareVideo>;
 const flush = async () => {
   for (let i = 0; i < 4; i += 1) await Promise.resolve();
 };
@@ -515,11 +525,62 @@ describe("handleBridgeMessage — navigate-tab도 탭 이동으로 센다", () =
     ]);
   });
 
-  it("tab 없는 navigate-home은 탭을 옮기지 않는다", () => {
+  it("랭킹 카드가 보낸 navigate-tab으로 랭킹 탭에 가고 발신처를 남긴다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage(
+      { type: "navigate-tab", tab: "ranking", via: "home_ranking_card", atMs: 1 },
+      noopReply,
+    );
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "ranking", from_tab: "home", via: "home_ranking_card" }],
+    ]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/ranking");
+  });
+
+  it("navigate-home에 랭킹 탭이 실려 오면 모달을 닫고 랭킹 탭으로 간다", () => {
+    setActiveTabRoute("index");
+
+    handleBridgeMessage({ type: "navigate-home", tab: "ranking", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/ranking");
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["tab_pressed", { tab: "ranking", from_tab: "home", via: "result_ranking_card" }],
+    ]);
+  });
+
+  it("홈에서 연 세션의 tab 없는 navigate-home은 모달만 닫고 탭을 바꾸지 않는다", () => {
+    setActiveTabRoute("index");
+
     handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
 
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
     expect(mockedRouter.navigate).not.toHaveBeenCalled();
     expect(received).toEqual([]);
+  });
+
+  /**
+   * 랭킹에서 연 세션의 홈으로
+   *
+   * 랭킹 탭에도 집중 시작이 있어 모달만 닫으면 세션을 연 랭킹 탭이 드러난다.
+   * `홈으로`는 이름대로 홈 탭으로 보내고, 탭 이동 이벤트는 남기지 않는다.
+   */
+  it("랭킹에서 연 세션의 tab 없는 navigate-home은 모달을 닫고 홈 탭으로 간다", () => {
+    setActiveTabRoute("ranking");
+
+    handleBridgeMessage({ type: "navigate-home", atMs: 1 }, noopReply);
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    expect(received).toEqual([]);
+    // 모달을 먼저 닫아야 드러난 탭 위에서 홈으로 바뀐다.
+    expect(mockedRouter.back.mock.invocationCallOrder[0]).toBeLessThan(
+      mockedRouter.navigate.mock.invocationCallOrder[0]!,
+    );
   });
 });
 
@@ -565,5 +626,64 @@ describe("토큰 브리지", () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({ type: "auth-token", accessToken: "a1" }),
     );
+  });
+});
+
+describe("handleBridgeMessage: 타임랩스 영상", () => {
+  const ID = "0b6f3f4e-7c1d-4f6a-9a51-3d2b1c0e9f87";
+
+  it("video-chunk는 어댑터에 넘기고 답하지 않는다", () => {
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "video-chunk", id: ID, seq: 0, data: "AAEC", atMs: 1 }, reply);
+
+    expect(mockedAppendVideoChunk).toHaveBeenCalledWith(ID, 0, "AAEC");
+    expect(reply).not.toHaveBeenCalled();
+  });
+
+  it("video-save는 저장 결과를 같은 id로 답한다", async () => {
+    mockedSaveVideo.mockResolvedValue("denied");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "video-save", id: ID, chunks: 3, atMs: 1 }, reply);
+    await flush();
+
+    expect(mockedSaveVideo).toHaveBeenCalledWith(ID, 3);
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "video-result", id: ID, action: "save", status: "denied" }),
+    );
+  });
+
+  it("video-share는 본문과 제목을 넘기고 공유 결과를 같은 id로 답한다", async () => {
+    mockedShareVideo.mockResolvedValue("dismissed");
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      { type: "video-share", id: ID, chunks: 2, text: "본문", title: "제목", atMs: 1 },
+      reply,
+    );
+    await flush();
+
+    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", "제목", undefined);
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "video-result",
+        id: ID,
+        action: "share",
+        status: "dismissed",
+      }),
+    );
+  });
+
+  it("video-share는 목적지를 넘긴다", async () => {
+    mockedShareVideo.mockResolvedValue("shared");
+
+    handleBridgeMessage(
+      { type: "video-share", id: ID, chunks: 2, text: "본문", target: "kakao", atMs: 1 },
+      jest.fn(),
+    );
+    await flush();
+
+    expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", undefined, "kakao");
   });
 });

@@ -5,6 +5,8 @@ import type {
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
 } from "../mediapipePort";
+import type { PhotoInput } from "@/features/timelapse/photoFrame";
+
 import type { WorkerDetector, WorkerFaceLandmarker, WorkerToMainMessage } from "../workerProtocol";
 import { createWorkerMessageHandler } from "../workerProtocol";
 
@@ -42,14 +44,22 @@ const TIMING: AssetTiming = {
 };
 
 function fakeFrame() {
-  return { close: vi.fn() } as unknown as ImageBitmap & { close: ReturnType<typeof vi.fn> };
+  return { close: vi.fn(), width: 1280, height: 720 } as unknown as ImageBitmap & {
+    close: ReturnType<typeof vi.fn>;
+  };
 }
+
+const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
 
 function setup(
   detector: WorkerDetector | Error,
   landmarker: WorkerFaceLandmarker | Error = fakeLandmarker(),
+  renderPhoto: (input: PhotoInput) => Promise<ArrayBuffer> = async () => PHOTO,
 ) {
   const posted: WorkerToMainMessage[] = [];
+  /** 메시지마다 함께 넘긴 transfer 목록이고 없으면 undefined다. */
+  const transfers: (Transferable[] | undefined)[] = [];
+  const render = vi.fn(renderPhoto);
   const handle = createWorkerMessageHandler({
     createDetector: vi.fn(async () => {
       if (detector instanceof Error) {
@@ -64,9 +74,13 @@ function setup(
       return landmarker;
     }),
     readAssetTimings: () => [TIMING],
-    post: (message) => posted.push(message),
+    renderPhoto: render,
+    post: (message, transfer) => {
+      posted.push(message);
+      transfers.push(transfer);
+    },
   });
-  return { posted, handle };
+  return { posted, transfers, handle, renderPhoto: render };
 }
 
 function fakeDetector() {
@@ -207,6 +221,7 @@ describe("createWorkerMessageHandler", () => {
           finish = resolve;
         }),
       readAssetTimings: () => [],
+      renderPhoto: async () => PHOTO,
       post: (message) => posted.push(message),
     });
 
@@ -217,5 +232,116 @@ describe("createWorkerMessageHandler", () => {
 
     expect(landmarker.close).toHaveBeenCalledTimes(1);
     expect(posted).toEqual([]);
+  });
+});
+
+describe("createWorkerMessageHandler 타임랩스 사진", () => {
+  const LANDMARKS = [
+    { x: 0.4, y: 0.3 },
+    { x: 0.6, y: 0.6 },
+  ];
+
+  async function readyFace(renderPhoto?: (input: PhotoInput) => Promise<ArrayBuffer>) {
+    const landmarker = {
+      detectForVideo: vi.fn(() => ({ faceLandmarks: [LANDMARKS], faceBlendshapes: [] })),
+      close: vi.fn(),
+    };
+    const env = setup(fakeDetector(), landmarker, renderPhoto);
+    await env.handle({ type: "create", id: 1, model: "face", options: FACE_OPTIONS });
+    return env;
+  }
+
+  it("사진을 요청하면 추론한 프레임과 그 랜드마크로 사진을 만들어 결과에 담는다", async () => {
+    const env = await readyFace();
+    const frame = fakeFrame();
+    const photo = { aspect: "9:16" as const, mask: true };
+
+    await env.handle({ type: "detect", id: 2, handleId: 1, frame, timestampMs: 0, photo });
+
+    expect(env.renderPhoto).toHaveBeenCalledWith({
+      source: frame,
+      frame: { width: 1280, height: 720 },
+      spec: photo,
+      landmarks: LANDMARKS,
+    });
+    expect(env.posted.at(-1)).toEqual({
+      type: "result",
+      id: 2,
+      model: "face",
+      result: { faceLandmarks: [LANDMARKS], faceBlendshapes: [] },
+      photo: PHOTO,
+    });
+    // 사진 바이트는 복사하지 않고 소유권째 넘긴다.
+    expect(env.transfers.at(-1)).toEqual([PHOTO]);
+    expect(frame.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("사진을 요청하지 않으면 결과에 사진 키가 없고 사진을 만들지 않는다", async () => {
+    const env = await readyFace();
+
+    await env.handle({ type: "detect", id: 2, handleId: 1, frame: fakeFrame(), timestampMs: 0 });
+
+    expect(env.renderPhoto).not.toHaveBeenCalled();
+    expect(Object.keys(env.posted.at(-1) ?? {})).not.toContain("photo");
+  });
+
+  it("사진을 만들지 못해도 추론 결과는 사진 없이 보내고 프레임을 놓는다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = await readyFace(async () => {
+      throw new Error("convertToBlob 실패");
+    });
+    const frame = fakeFrame();
+
+    await env.handle({
+      type: "detect",
+      id: 2,
+      handleId: 1,
+      frame,
+      timestampMs: 0,
+      photo: { aspect: "9:16", mask: true },
+    });
+
+    expect(env.posted.at(-1)).toEqual({
+      type: "result",
+      id: 2,
+      model: "face",
+      result: { faceLandmarks: [LANDMARKS], faceBlendshapes: [] },
+    });
+    expect(frame.close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createWorkerMessageHandler capture", () => {
+  it("capture는 추론 없이 사진만 만들어 captured로 답하고 프레임을 놓는다", async () => {
+    const detector = fakeDetector();
+    const env = setup(detector);
+    const frame = fakeFrame();
+    const photo = { aspect: "16:9" as const, mask: false };
+
+    await env.handle({ type: "capture", id: 3, frame, photo });
+
+    expect(detector.detectForVideo).not.toHaveBeenCalled();
+    expect(env.renderPhoto).toHaveBeenCalledWith({
+      source: frame,
+      frame: { width: 1280, height: 720 },
+      spec: photo,
+    });
+    expect(env.posted).toEqual([{ type: "captured", id: 3, photo: PHOTO }]);
+    expect(env.transfers).toEqual([[PHOTO]]);
+    expect(frame.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("capture가 실패하면 captureFailed로 답하고 프레임을 놓는다", async () => {
+    const env = setup(fakeDetector(), fakeLandmarker(), async () => {
+      throw new Error("2D 컨텍스트를 만들지 못했다");
+    });
+    const frame = fakeFrame();
+
+    await env.handle({ type: "capture", id: 3, frame, photo: { aspect: "9:16", mask: false } });
+
+    expect(env.posted).toEqual([
+      { type: "captureFailed", id: 3, reason: "2D 컨텍스트를 만들지 못했다" },
+    ]);
+    expect(frame.close).toHaveBeenCalledTimes(1);
   });
 });

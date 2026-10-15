@@ -153,9 +153,9 @@ export type RemoteWebViewHostProps = {
   onRecoveryStart?: (() => void) | undefined;
   /**
    * 이 웹뷰가 지금 사용자에게 보이는 활성 화면인가(기본 true). 네이티브 사용자 이벤트
-   * (`lib/nativeAnalytics.ts`)의 전달 대상을 고르는 기준이다 — 탭 4개의 웹뷰가 동시에 마운트돼
-   * 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다. 탭 화면은 `useIsFocused`를 내려 주고
-   * (`RemoteScreen` 경유), 세션 화면은 탭 위에 전체 화면으로 뜨므로 생략해 항상 활성이다.
+   * (`lib/nativeAnalytics.ts`)의 전달 대상을 고르는 기준이다.
+   * 탭 5개의 웹뷰가 동시에 마운트돼 있어 아무 웹뷰에나 주입하면 한 터치가 N번 찍힌다.
+   * 탭 화면은 `useIsFocused`를 내려 주고(`RemoteScreen` 경유), 세션 화면은 탭 위에 전체 화면으로 뜨므로 생략해 항상 활성이다.
    */
   focused?: boolean;
   testID?: string;
@@ -164,9 +164,9 @@ export type RemoteWebViewHostProps = {
 /**
  * Android 렌더러 사망의 전역 복구 채널(BY-436).
  *
- * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 4개)가 공유하고, **죽은
- * 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다**(플랫폼 계약). 사망을 감지한
- * 호스트 하나만 재마운트하면 이웃 웹뷰들이 죽은 렌더러를 계속 잡고 있어 새 WebView가 그
+ * Android WebView는 렌더러 프로세스 하나를 앱의 모든 WebView(탭 5개)가 공유한다.
+ * 죽은 렌더러는 거기 붙어 있던 WebView를 전부 파괴해야 대체된다(플랫폼 동작).
+ * 사망을 감지한 호스트 하나만 재마운트하면 이웃 웹뷰들이 죽은 렌더러를 계속 잡고 있어 새 WebView가 그
  * 죽은 렌더러에 붙고, 로드가 영영 시작되지 않는다 — 실기기에서 복구 스플래시(소셜
  * 스켈레톤)가 걷히지 않던 원인. 그래서 사망 판정·통보는 마운트된 모든 호스트의 재마운트로
  * 넓힌다. iOS는 WKWebView 프로세스가 웹뷰별 독립이라 이 채널을 쓰지 않는다(개별 reload).
@@ -375,7 +375,12 @@ export function RemoteWebViewHost({
     const message = parseToNativeMessage(event.nativeEvent.data);
     if (message === null) {
       if (__DEV__) {
-        console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", event.nativeEvent.data);
+        // 영상 조각의 base64 데이터가 로그에 남지 않도록 원문은 찍지 않고 길이와 type만 남긴다.
+        const raw = event.nativeEvent.data;
+        console.warn("[webview-bridge] 파싱이 불가한 메시지입니다", {
+          length: raw.length,
+          type: /"type"\s*:\s*"([^"]{1,64})"/.exec(raw)?.[1],
+        });
       }
       return;
     }
@@ -418,6 +423,11 @@ export function RemoteWebViewHost({
         ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
       };
       // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
+    }
+    // iOS 탭은 앱을 켤 때 모두 로드되고, 웹은 로드가 끝나야 가려진 줄 안다.
+    // 웹은 신원을 받아야 데이터를 받으므로 토큰보다 먼저 알리면 그 틈이 닫힌다.
+    if (message.type === "auth-ready" && !focused) {
+      sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
     }
     onBridgeMessage?.(message, sendToWeb);
   };
@@ -486,6 +496,9 @@ export function RemoteWebViewHost({
         atMs: Date.now(),
       });
     }
+    if (!focused) {
+      sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
+    }
     onLoadEnd?.(true);
   };
 
@@ -515,6 +528,18 @@ export function RemoteWebViewHost({
       sendToWeb(authTokenMessage(state));
     });
   }, [sendToWeb]);
+
+  // 탭은 웹뷰를 띄워 둔 채 바뀌어 문서가 가려진 줄 모른다.
+  // 바뀔 때마다 알려 웹의 폴링과 tick을 멈추게 한다.
+  // 웹은 첫 신호 전까지 보이는 것으로 보므로 처음 값은 보내지 않고, 가려진 채 뜬 문서는 auth-ready와 로드 직후에 알린다.
+  const sentFocusRef = useRef(focused);
+  useEffect(() => {
+    if (sentFocusRef.current === focused) {
+      return;
+    }
+    sentFocusRef.current = focused;
+    sendToWeb({ type: "tab-focus", focused, atMs: Date.now() });
+  }, [focused, sendToWeb]);
 
   /**
    * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다 — **포커스된 화면이면서 웹이 준비 신호를

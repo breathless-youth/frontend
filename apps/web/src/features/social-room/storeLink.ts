@@ -3,9 +3,17 @@
  *
  * - Android: Play의 `referrer` 파라미터에 초대코드를 실어 설치 후 첫 실행에서 복원한다(Install Referrer).
  * - iOS: 스토어가 값을 앱에 전달할 공식 통로가 없어 페이지 이동만 한다(추후 Branch, OneLink 등으로 대체 가능).
+ *
+ * 공유용 설치 링크(`installLink`)는 초대코드 대신 UTM을 싣는다. iOS는 App Store 캠페인 링크로 유입만 센다.
  */
 const ANDROID_PACKAGE = "com.breathlessyouth.mobile";
 const IOS_APP_ID = "6797220287";
+// 팀 기존 App Store 캠페인 링크와 같은 provider 토큰(공개 값)이다.
+const IOS_PROVIDER_TOKEN = "129235193";
+const LANDING_URL = "https://focusmakers.app/";
+const INSTALL_UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign"] as const;
+
+export type InstallUtm = Partial<Record<(typeof INSTALL_UTM_KEYS)[number], string>>;
 
 export function detectStorePlatform(
   userAgent: string,
@@ -26,6 +34,38 @@ export function storeLink(platform: "android" | "ios", inviteCode: string): stri
     return `${base}&referrer=${encodeURIComponent(`code=${inviteCode}`)}`;
   }
   return `https://apps.apple.com/app/id${IOS_APP_ID}`;
+}
+
+/** 설치 링크 주소에서 유입 표시만 꺼낸다. 아무 값이나 스토어 쪽으로 흘려보내지 않게 세 키만 받는다. */
+export function readInstallUtm(search: string): InstallUtm {
+  const params = new URLSearchParams(search);
+  const utm: InstallUtm = {};
+  for (const key of INSTALL_UTM_KEYS) {
+    const value = params.get(key);
+    if (value !== null && value !== "") utm[key] = value;
+  }
+  return utm;
+}
+
+/**
+ * 설치 링크의 목적지
+ *
+ * 팀의 기존 유입 측정 방식을 따른다. Play는 referrer에 UTM을, App Store는 캠페인 이름(ct)에
+ * utm_campaign을 싣고, 그 밖의 기기는 랜딩에 UTM을 그대로 넘긴다.
+ */
+export function installLink(platform: "android" | "ios" | null, utm: InstallUtm): string {
+  const query = new URLSearchParams(utm).toString();
+  if (platform === "android") {
+    const base = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+    return query === "" ? base : `${base}&referrer=${encodeURIComponent(query)}`;
+  }
+  if (platform === "ios") {
+    const params = new URLSearchParams({ pt: IOS_PROVIDER_TOKEN });
+    if (utm.utm_campaign !== undefined) params.set("ct", utm.utm_campaign);
+    params.set("mt", "8");
+    return `https://apps.apple.com/app/apple-store/id${IOS_APP_ID}?${params.toString()}`;
+  }
+  return query === "" ? LANDING_URL : `${LANDING_URL}?${query}`;
 }
 
 /**

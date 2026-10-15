@@ -44,6 +44,9 @@ const FULL_SCREEN_PATHS = [
   "/social/join",
   "/profile",
   "/planner",
+  "/timelapse-settings",
+  "/timelapses",
+  "/ranking/records",
 ];
 
 /** 동적 세그먼트를 갖는 전체 화면 라우트 — prefix로 판정한다. */

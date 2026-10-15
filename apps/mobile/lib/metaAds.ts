@@ -24,6 +24,8 @@
  * 때까지 큐에 두었다가 순서대로 흘린다. 초기화가 실패해도 큐는 흘린다 — SKAdNetwork 경로는 ATT와 무관하다.
  */
 
+import Constants from "expo-constants";
+
 import type { MetaAppEventParamValue } from "@focusmakers/types";
 
 import { withTimeout } from "./withTimeout";
@@ -71,6 +73,12 @@ const MAX_PENDING = 50;
  * 빠지므로, 사람이 읽고 누르는 시간보다 한참 길게 둔다.
  */
 const ATT_TIMEOUT_MS = 60_000;
+
+/** `app.config.ts`가 `META_APP_ID` env에서 `extra.metaAppId`로 옮겨 적는다. 없는 빌드는 빈 문자열이다. */
+export function metaAppIdFromConfig(): string | null {
+  const appId = Constants.expoConfig?.extra?.metaAppId as string | undefined;
+  return typeof appId === "string" && appId.length > 0 ? appId : null;
+}
 
 let adapter: MetaAdsAdapter | null = null;
 let ready = false;

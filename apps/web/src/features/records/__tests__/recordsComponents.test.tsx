@@ -517,21 +517,50 @@ describe("StreakBanner", () => {
   });
 });
 
+const RECORDS_OPTIONS = [
+  { value: "daily", label: "일간" },
+  { value: "weekly", label: "주간" },
+] as const;
+
 describe("SegmentedControl", () => {
-  it("현재 값을 선택 상태로 표시하고, 주간 비활성이면 누를 수 없다", () => {
-    const onChange = vi.fn();
-    render(<SegmentedControl value="daily" onChange={onChange} weeklyDisabled />);
-    const daily = screen.getByRole("tab", { name: "일간" });
-    const weekly = screen.getByRole("tab", { name: "주간" });
-    expect(daily).toHaveAttribute("aria-selected", "true");
-    expect(weekly).toBeDisabled();
+  it("현재 값을 선택 상태로 표시하고, 비활성 옵션은 누를 수 없다", () => {
+    render(
+      <SegmentedControl
+        value="daily"
+        options={[RECORDS_OPTIONS[0], { ...RECORDS_OPTIONS[1], disabled: true }]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: "일간" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
   });
 
-  it("활성 상태에서 다른 탭을 누르면 onChange가 불린다", async () => {
+  it("다른 탭을 누르면 onChange가 불린다", async () => {
     const onChange = vi.fn();
-    render(<SegmentedControl value="daily" onChange={onChange} />);
+    render(<SegmentedControl value="daily" options={RECORDS_OPTIONS} onChange={onChange} />);
     // Radix Tabs는 포인터/포커스 이벤트로 활성화한다 — jsdom의 raw `.click()`으로는 안 불린다.
     await userEvent.click(screen.getByRole("tab", { name: "주간" }));
     expect(onChange).toHaveBeenCalledWith("weekly");
+  });
+
+  it("옵션 수만큼 그리고 이름표를 단다", () => {
+    render(
+      <SegmentedControl
+        ariaLabel="기간"
+        value="WEEKLY"
+        options={[
+          { value: "DAILY", label: "일간" },
+          { value: "WEEKLY", label: "주간" },
+          { value: "MONTHLY", label: "월간" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("tablist", { name: "기간" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "일간",
+      "주간",
+      "월간",
+    ]);
   });
 });
