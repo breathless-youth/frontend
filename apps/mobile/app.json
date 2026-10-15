@@ -84,7 +84,8 @@
           },
           "ios": {
             "useFrameworks": "dynamic",
-            "forceStaticLinking": ["react-native-fbsdk-next"]
+            "forceStaticLinking": ["react-native-fbsdk-next"],
+            "enableSceneSupport": true
           }
         }
       ],
