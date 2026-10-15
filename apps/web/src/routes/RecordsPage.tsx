@@ -273,13 +273,16 @@ export function RecordsPage() {
               — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
           <SegmentedControl
             value={mode}
+            options={[
+              { value: "daily", label: "일간" },
+              { value: "weekly", label: "주간", disabled: userId === null },
+            ]}
             onChange={(next) => {
               if (next !== mode) {
                 trackRecordsViewChanged(next);
               }
               setMode(next);
             }}
-            weeklyDisabled={userId === null}
           />
         </div>
 

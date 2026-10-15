@@ -29,6 +29,7 @@ import { queryClient } from "@/lib/queryClient";
 import { dismissToast } from "@/lib/toast";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { DownloadPage } from "@/routes/DownloadPage";
 import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
@@ -38,10 +39,14 @@ import {
   loadOnboardingGuidePage,
   loadPrivacyPage,
   loadProfilePage,
+  loadRankingRecordsPage,
   loadResultPage,
   loadTermsPage,
+  loadTimelapseSettingsPage,
+  loadTimelapsesPage,
 } from "@/routes/lazyRoutes";
 import { PlannerPage } from "@/routes/PlannerPage";
+import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
@@ -88,6 +93,21 @@ const PrivacyPage = lazy(
 );
 const LicensesPage = lazy(
   reloadOnChunkError(() => loadLicensesPage().then((module) => ({ default: module.LicensesPage }))),
+);
+const TimelapseSettingsPage = lazy(
+  reloadOnChunkError(() =>
+    loadTimelapseSettingsPage().then((module) => ({ default: module.TimelapseSettingsPage })),
+  ),
+);
+const TimelapsesPage = lazy(
+  reloadOnChunkError(() =>
+    loadTimelapsesPage().then((module) => ({ default: module.TimelapsesPage })),
+  ),
+);
+const RankingRecordsPage = lazy(
+  reloadOnChunkError(() =>
+    loadRankingRecordsPage().then((module) => ({ default: module.RankingRecordsPage })),
+  ),
 );
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
@@ -223,6 +243,8 @@ export function App() {
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/records" element={<RecordsPage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/ranking/records" element={<RankingRecordsPage />} />
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialHomePage />} />
@@ -234,6 +256,8 @@ export function App() {
               )}
               <Route path="/social/code" element={<InviteCodeSharePage />} />
               <Route path="/social/join" element={<InviteCodeJoinPage />} />
+              {/* 공유 본문의 설치 링크. 받는 사람이 새 문서로 바로 여는 화면이라 지연 로딩하지 않는다. */}
+              <Route path="/download" element={<DownloadPage />} />
               <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
               <Route path="/social/room/:roomId/result" element={<ResultPage />} />
               <Route path="/profile" element={<ProfilePage />} />
@@ -243,6 +267,8 @@ export function App() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />
+              <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+              <Route path="/timelapses" element={<TimelapsesPage />} />
             </Routes>
           </Suspense>
         )}

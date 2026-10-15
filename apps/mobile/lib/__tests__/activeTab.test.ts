@@ -13,6 +13,9 @@ it("기본값은 홈이고, 라우트 이름을 탭 id로 바꿔 기록한다", 
 
   setActiveTabRoute("social");
   expect(getActiveTab()).toBe("social");
+
+  setActiveTabRoute("ranking");
+  expect(getActiveTab()).toBe("ranking");
 });
 
 it("모르는 라우트는 직전 값을 유지한다 — 탭 밖 화면이 잠깐 끼어도 출발 탭이 사라지지 않는다", () => {

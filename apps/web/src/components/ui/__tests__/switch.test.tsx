@@ -57,4 +57,18 @@ describe("Switch", () => {
 
     expect(screen.getByRole("switch").className).toContain("after:-inset-y-2.5");
   });
+
+  it("settings 크기는 51×31 트랙에 테마 토큰 색을 쓰고 탭 영역을 44px로 덧댄다", () => {
+    render(<Switch size="settings" checked={false} aria-label="날짜" onCheckedChange={vi.fn()} />);
+    const toggle = screen.getByRole("switch", { name: "날짜" });
+
+    expect(toggle).toHaveClass(
+      "h-[31px]",
+      "w-[51px]",
+      "after:-inset-y-[6.5px]",
+      "data-[state=checked]:bg-primary",
+      "data-[state=unchecked]:bg-bg-layer-2",
+    );
+    expect(toggle).not.toHaveClass("data-[state=unchecked]:bg-white/25");
+  });
 });

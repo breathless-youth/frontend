@@ -80,7 +80,7 @@ describe("GuidePrivacyCard", () => {
     const { container } = render(
       <GuidePrivacyCard
         title="영상은 기기 밖으로 나가지 않아요"
-        body="측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요."
+        body="측정은 기기 안에서만 이루어지고, 타임랩스 사진도 내 기기에만 남아요."
       />,
     );
 
@@ -88,7 +88,7 @@ describe("GuidePrivacyCard", () => {
       screen.getByRole("heading", { level: 2, name: "영상은 기기 밖으로 나가지 않아요" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("측정은 기기 안에서만 이루어지고, 영상은 저장하지 않아요."),
+      screen.getByText("측정은 기기 안에서만 이루어지고, 타임랩스 사진도 내 기기에만 남아요."),
     ).toBeInTheDocument();
     expect(container.querySelector("svg")).toBeInTheDocument();
   });

@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
+import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
+import { gainCardView } from "@/features/ranking/exposure/gainView";
+import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
+import { DEFAULT_RANKING_BOARD } from "@/features/ranking/model/board";
+import { requestBoard } from "@/features/ranking/model/boardMemory";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -16,9 +22,17 @@ import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { readResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
-import { stageStudyResultExit, trackStudyResultConfirmed } from "@/lib/amplitude";
+import { ResultTimelapseCard } from "@/features/timelapse/ResultTimelapseCard";
+import {
+  stageStudyResultExit,
+  trackStudyResultConfirmed,
+  type ResultExitPath,
+  type StudyRoomType,
+} from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
+import { hasRankingTab } from "@/lib/rankingCapability";
+import { rankingSessionGainsQuery } from "@/lib/rankingQueries";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -28,6 +42,12 @@ export const RESULT_REVEAL_DELAY_MS = 3500;
 
 /** 색종이가 터지는 시점 — 도장이 종이에 닿는 순간(도장 모션 46% ≈ 0.92s)에 맞춘 프로토타입 값. */
 const CONFETTI_AT_MS = 900;
+/** 카드 묶음이 떠오르는 연출(0.12초 지연 + 0.5초)이 끝난 뒤에 스크롤한다. */
+const TIMELAPSE_SCROLL_DELAY_MS = 700;
+/** 부드러운 스크롤이 끝났다고 보고 사용자 입력 감시를 거두는 시간 */
+const TIMELAPSE_SCROLL_WATCH_MS = 1_500;
+/** 사용자가 직접 화면을 움직이려는 입력. 자동 스크롤을 하지 않거나 멈추는 기준이다. */
+const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
 
 /**
  * 공부 결과
@@ -44,6 +64,7 @@ const CONFETTI_AT_MS = 900;
  * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 인주·타이틀이 접혀 올라가고 순공시간 아래로
  *    타임라인(최대 집중 시간 포함)·누적 요약 카드가, 하단에 CTA 둘(`홈으로`·`기록으로 가기`)이
  *    드러난다.
+ *    주간 순공 순위가 올랐으면 `session-gains` 응답이 온 뒤 결과 랭킹 카드(`RankingGainCard`)가 타임라인 위에 나타난다.
  *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
@@ -58,9 +79,10 @@ const CONFETTI_AT_MS = 900;
  * `lib/studySessionApi.ts`에 있지만, 이 화면은 아직 쓰지 않는다.
  * 세션은 라우터 state가 유일한 입력이고, state가 없거나 형태가 다르면 홈으로 되돌린다.
  *
- * 예외적으로 누적 요약 카드(`SessionSummaryCard`)만 저장된 통계를 서버에서 읽는다
+ * 예외적으로 누적 요약 카드(`SessionSummaryCard`)는 저장된 통계를 서버에서 읽는다
  * — 세션이 아니라 오늘 합계·학습 일 수라 라우터 state에 실을 수 없는 값이다.
- * `?userId`가 없는 미저장 모드에서는 카드를 그리지 않는다.
+ * 결과 랭킹 카드(`RankingGainCard`)도 이번 세션으로 오른 순위를 서버(`session-gains`)에서 읽는다.
+ * `?userId`가 없는 미저장 모드에서는 두 카드 모두 그리지 않는다.
  */
 export function ResultPage() {
   const location = useLocation();
@@ -71,9 +93,73 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
+  // 랭킹 탭을 열 수 있을 때 저장된 세션만 오른 순위를 묻는다.
+  // 결과를 드러내기 전에 받아 두어 카드가 늦게 끼어드는 일을 줄인다.
+  const gainsQuery = useQuery({
+    ...rankingSessionGainsQuery(userId ?? 0, sessions?.[0].startedAt ?? ""),
+    enabled: userId !== null && sessions !== null && hasRankingTab(),
+  });
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
   const [revealed, setRevealed] = useState(skipIntro);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [timelapseCard, setTimelapseCard] = useState<HTMLElement | null>(null);
+  // 카드가 뜨기 전에 사용자가 화면을 만졌는지. 촬영 정리를 기다리느라 카드가 늦게 뜨면
+  // 사용자는 이미 결과를 읽으며 스크롤하는 중일 수 있다.
+  const touchedRef = useRef(false);
+
+  useEffect(() => {
+    const mark = () => {
+      touchedRef.current = true;
+    };
+    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, mark, { passive: true });
+    return () => {
+      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, mark);
+    };
+  }, []);
+
+  /**
+   * 타임랩스 카드까지 자동 스크롤
+   *
+   * 연출을 건너뛴 진입(움직임 줄이기, 인터뷰에서 돌아옴)에서는 하지 않는다.
+   * 카드가 뜨기 전에 이미 화면을 만졌으면 하지 않고, 스크롤 도중에 만지면 그 자리에서 멈춘다.
+   */
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (timelapseCard === null || container === null || skipIntro || touchedRef.current) {
+      return;
+    }
+    let watchTimer: number | undefined;
+    const unwatch = () => {
+      window.clearTimeout(watchTimer);
+      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, stop);
+    };
+    const scrollTimer = window.setTimeout(() => {
+      const box = container.getBoundingClientRect();
+      const card = timelapseCard.getBoundingClientRect();
+      // 카드 전체가 보이게 하되 카드가 화면보다 길면 위쪽을 맞춘다.
+      const down = Math.min(card.top - box.top - 16, card.bottom - box.bottom + 16);
+      // 카드가 이미 다 보이면 움직이지 않는다. 늦게 뜬 카드 때문에 위로 끌어올리지 않는다.
+      if (down <= 0) {
+        unwatch();
+        return;
+      }
+      container.scrollTo({ top: container.scrollTop + down, behavior: "smooth" });
+      watchTimer = window.setTimeout(unwatch, TIMELAPSE_SCROLL_WATCH_MS);
+    }, TIMELAPSE_SCROLL_DELAY_MS);
+    function stop() {
+      window.clearTimeout(scrollTimer);
+      unwatch();
+      // 진행 중인 부드러운 스크롤은 지금 위치로 다시 스크롤해야 멈춘다.
+      container?.scrollTo({ top: container.scrollTop });
+    }
+    // 스크롤 영역 밖(하단 버튼 줄)을 만져도 멈추도록 화면 전체에서 듣는다.
+    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, stop, { passive: true });
+    return () => {
+      window.clearTimeout(scrollTimer);
+      unwatch();
+    };
+  }, [timelapseCard, skipIntro]);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -122,9 +208,11 @@ export function ResultPage() {
     return <Navigate to={{ pathname: home, search: location.search }} replace />;
   }
 
+  const roomType: StudyRoomType = home === "/home" ? "single" : "social";
+
   /**
-   * 이탈 경로는 하단 CTA **둘**뿐이다 — `홈으로`와 `기록으로 가기`. 시안에서 우상단 X가
-   * 빠졌고, 둘 다 공개(`revealed`) 뒤에만 있다.
+   * 이탈 경로는 하단 CTA **둘**(`홈으로`·`기록으로 가기`)과 랭킹이 올랐을 때 보이는 결과 랭킹 카드의 `랭킹 보기 ›`뿐이다.
+   * 시안에서 우상단 X가 빠졌고, 셋 다 공개(`revealed`) 뒤에만 있다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
    * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
@@ -148,11 +236,14 @@ export function ResultPage() {
    *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
+   *
+   * 결과 랭킹 카드의 랭킹 보기도 탭 전환이라 기록으로 가기와 같은 길로 랭킹 탭을 연다.
    */
   // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
-  const leave = (via: "home" | "records") => {
-    const roomType = home === "/home" ? "single" : "social";
+  const leave = (via: "home" | "records" | "ranking") => {
     trackStudyResultConfirmed({ roomType, via });
+    const exitPath: ResultExitPath =
+      via === "records" ? "/records" : via === "ranking" ? "/ranking" : home;
     /**
      * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
      * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
@@ -162,7 +253,7 @@ export function ResultPage() {
     stageStudyResultExit({
       roomType,
       focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
-      consumeAt: via === "records" ? "/records" : home,
+      consumeAt: exitPath,
     });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
@@ -170,14 +261,26 @@ export function ResultPage() {
     if (home === "/home") {
       postToNative({
         type: "navigate-home",
-        ...(via === "records" ? { tab: "records" } : {}),
+        ...(via === "home" ? {} : { tab: via }),
         atMs: Date.now(),
       });
-    } else if (via === "records") {
-      postToNative({ type: "navigate-tab", tab: "records", via: "study_result", atMs: Date.now() });
+    } else if (via !== "home") {
+      postToNative({
+        type: "navigate-tab",
+        tab: via,
+        via: via === "records" ? "study_result" : "result_ranking_card",
+        atMs: Date.now(),
+      });
     }
-    const webTarget = via === "records" && !isNativeBridgeAvailable() ? "/records" : home;
+    const webTarget = via !== "home" && !isNativeBridgeAvailable() ? exitPath : home;
     navigate({ pathname: webTarget, search: location.search }, { replace: true });
+  };
+
+  const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
+  // 카드가 보여 준 판(순공 주간)을 넘겨주고 결과 화면을 떠난다.
+  const openRanking = () => {
+    requestBoard(DEFAULT_RANKING_BOARD);
+    leave("ranking");
   };
 
   /**
@@ -190,6 +293,9 @@ export function ResultPage() {
    * 처리 방식이 정해지면 이 한 줄과 아래 렌더만 바꾸면 된다.
    */
   const view = toSessionResultView(sessions[0]);
+  const timelapseStartedAtMs = readStartedAtMs(location.state) ?? Date.parse(sessions[0].startedAt);
+  // 타임랩스는 싱글룸에서만 찍는다.
+  const showTimelapse = home === "/home";
   const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
 
   return (
@@ -198,13 +304,26 @@ export function ResultPage() {
       <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)·도장 모션이 좁은 화면 폭을 넘는다. */}
-      <div className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
+      >
         <StudyCompleteHero view={view} phase={phase} />
         {revealed && (
           <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+            {gainView !== null && (
+              <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
+            )}
             <StudyTimelineCard view={view} />
             {userId !== null && <SessionSummaryCard userId={userId} />}
             {userId !== null && <InterviewCardHost userId={userId} />}
+            {showTimelapse && (
+              <ResultTimelapseCard
+                startedAtMs={timelapseStartedAtMs}
+                userId={userId}
+                onShown={setTimelapseCard}
+              />
+            )}
           </div>
         )}
       </div>
@@ -212,7 +331,14 @@ export function ResultPage() {
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="flex shrink-0 gap-[10px] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+        <div className="relative flex shrink-0 gap-[10px] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+          {/* 저장 토스트 자리
+
+              하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.
+              Sonner의 알림 영역은 빈 상태로도 자리에 남아 flex 간격을 하나 더 만들기 때문에 높이 0인 absolute 상자에 넣는다. */}
+          <div className="absolute inset-x-0 top-0">
+            <CtaToaster />
+          </div>
           <Button
             type="button"
             variant="secondary"
@@ -251,6 +377,19 @@ function readSessions(state: unknown): [StudySessionResponse, ...StudySessionRes
     return null;
   }
   return sessions as [StudySessionResponse, ...StudySessionResponse[]];
+}
+
+/**
+ * 세션과 타임랩스를 잇는 시작 시각
+ *
+ * 서버가 돌려준 `startedAt`의 밀리초가 그대로라는 보장이 없어 세션 화면이 기기 값을 함께 싣는다.
+ */
+function readStartedAtMs(state: unknown): number | null {
+  if (typeof state !== "object" || state === null) {
+    return null;
+  }
+  const value = (state as Record<string, unknown>).startedAtMs;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function isStudySession(value: unknown): value is StudySessionResponse {

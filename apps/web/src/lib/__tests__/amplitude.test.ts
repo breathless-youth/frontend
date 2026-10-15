@@ -821,7 +821,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["social_room_camera_toggled", { on: false }],
       ["social_room_camera_on_dismissed"],
       ["social_room_background_returned", { hidden_sec: 31, expired: true }],
-      ["focus_start_tapped", { destination: "session" }],
+      ["focus_start_tapped", { destination: "session", source: "home" }],
       ["os_settings_opened", { source: "settings_tab" }],
       ["session_recovery_prompted", { focus_sec: 5040 }],
       ["session_recovery_confirmed"],
@@ -838,6 +838,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
     m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
     m.trackSettingsRowPressed("terms");
+    m.trackTimelapseSettingChanged({ setting: "enabled", value: false });
     m.trackProfileSaveSubmitted({ nickname: true, goal: false, category: false });
     m.trackProfileSaveResult({ ok: true });
     m.trackStudyResultConfirmed({ roomType: "single", via: "home" });
@@ -870,6 +871,8 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackSubjectItemAdded("task");
     m.trackSubjectItemAdded("subject", true, "planner");
     m.trackSettingsRowPressed("profile");
+    m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
+    m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
@@ -896,6 +899,8 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["subject_item_added", { kind: "task", via_suggestion: false, surface: "sheet" }],
       ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "planner" }],
       ["settings_row_pressed", { row: "profile" }],
+      ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
+      ["timelapse_setting_changed", { setting: "face_mask", value: true }],
       [
         "profile_save_submitted",
         { changed_nickname: true, changed_goal: true, changed_category: false },
@@ -1057,6 +1062,84 @@ describe("Vision 런타임 폴백 이벤트", () => {
   });
 });
 
+describe("타임랩스 영상 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackTimelapseVideoCreated({
+      method: "webcodecs",
+      durationMs: 1,
+      bytes: 1,
+      frames: 1,
+      aspect: "9:16",
+    });
+    m.trackTimelapseVideoFailed({ method: "none", stage: "unsupported" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("방식·걸린 시간·크기·장수·비율만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackTimelapseVideoCreated({
+      method: "recorder",
+      durationMs: 30_412,
+      bytes: 8_912_331,
+      frames: 360,
+      aspect: "16:9",
+    });
+    m.trackTimelapseVideoFailed({ method: "webcodecs", stage: "encode" });
+
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_video_created", {
+      method: "recorder",
+      duration_ms: 30_412,
+      bytes: 8_912_331,
+      frames: 360,
+      aspect: "16:9",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_video_failed", {
+      method: "webcodecs",
+      stage: "encode",
+    });
+  });
+});
+
+describe("타임랩스 공유 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "result" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("버튼·결과·진입 화면만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackTimelapseShareTapped({ button: "kakao", result: "dismissed", entry: "list" });
+
+    expect(mocks.track).toHaveBeenCalledWith("timelapse_share_tapped", {
+      button: "kakao",
+      result: "dismissed",
+      entry: "list",
+    });
+  });
+
+  it("공유 시트의 설정 열기는 출처를 timelapse_share로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackOsSettingsOpened("timelapse_share");
+
+    expect(mocks.track).toHaveBeenCalledWith("os_settings_opened", { source: "timelapse_share" });
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
@@ -1121,9 +1204,9 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
   });
 
   /**
-   * 네이티브는 탭 4개 웹뷰를 동시에 마운트해 두고 `visibilitychange`는 앱 전체 포/백그라운드에만
-   * 반응한다 — 잠금 해제 한 번에 네 웹뷰가 동시에 여기로 들어온다. 못박은 경로가 아니면 손대지
-   * 않아야 정작 도착한 탭이 보낼 몫이 남는다.
+   * 네이티브는 탭 5개 웹뷰를 동시에 마운트해 두고 `visibilitychange`는 앱 전체 포/백그라운드에만 반응한다.
+   * 잠금 해제 한 번에 다섯 웹뷰가 동시에 여기로 들어온다.
+   * 못박은 경로가 아니면 손대지 않아야 정작 도착한 탭이 보낼 몫이 남는다.
    */
   it("다른 화면은 남의 예약을 집어가지도 지우지도 않는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
@@ -1177,6 +1260,7 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
       '{"roomType":"single","focusSec":"1200","consumeAt":"/home","ts":1}',
       // 경로가 없던 옛 버전의 예약 — 어디서 소비할지 모르므로 버린다.
       '{"roomType":"single","focusSec":1200,"ts":1}',
+      '{"roomType":"single","focusSec":1200,"consumeAt":"toString","ts":1}',
     ]) {
       localStorage.setItem(KEY, bad);
       m.consumeStudyResultExit("/home");
@@ -1199,6 +1283,21 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     initialized.initAmplitude();
     expect(() => initialized.consumeStudyResultExit("/home")).not.toThrow();
     expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
+  });
+
+  it("랭킹 탭 몫이면 랭킹 화면만 보내고 destination이 ranking이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "single", focusSec: 900, consumeAt: "/ranking" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/home");
+    m.consumeStudyResultExit("/ranking");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "ranking" }],
+    ]);
   });
 });
 
@@ -1227,5 +1326,89 @@ describe("인터뷰 모집 이벤트", () => {
       ["interview_clicked", { source: "settings" }],
       ["interview_dismissed", { source: "g1_revisit", exposure: 1, action: "never_again" }],
     ]);
+  });
+});
+
+describe("랭킹 이벤트", () => {
+  it("판 보기·기록 열기·메달 누르기·집중 시작 출처를 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackRankingBoardViewed({
+      type: "TIME_SLOT",
+      period: "DAILY",
+      slot: "MORNING",
+      state: "ranked",
+    });
+    m.trackRankingBoardViewed({ type: "TOTAL_TIME", period: null, slot: null, state: "first" });
+    m.trackRankingRecordsOpened(18);
+    m.trackRankingRecordsOpened(null);
+    m.trackRankingRecordTapped({ rank: 1, type: "FOCUS_TIME", period: "WEEKLY", from: "sheet" });
+    m.trackFocusStartTapped("guide", "ranking_empty");
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "ranking_board_viewed",
+        { type: "TIME_SLOT", period: "DAILY", slot: "MORNING", state: "ranked" },
+      ],
+      [
+        "ranking_board_viewed",
+        { type: "TOTAL_TIME", period: "none", slot: "none", state: "first" },
+      ],
+      ["ranking_records_opened", { total: 18 }],
+      ["ranking_records_opened", {}],
+      ["ranking_record_tapped", { rank: 1, type: "FOCUS_TIME", period: "WEEKLY", from: "sheet" }],
+      ["focus_start_tapped", { destination: "guide", source: "ranking_empty" }],
+    ]);
+  });
+
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackRankingBoardViewed({ type: "FOCUS_TIME", period: "WEEKLY", slot: null, state: "first" });
+    m.trackRankingRecordsOpened(1);
+    m.trackRankingRecordTapped({ rank: 2, type: "FOCUS_RATE", period: "MONTHLY", from: "all" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("노출 지점 이벤트는 숫자와 정해진 값만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackRankingOvertakeShown({ count: 4, fromRank: 1201, toRank: 1205 });
+    m.trackRankingOvertakeAction("close");
+    m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
+    m.trackRankingMedalModalAction("records");
+    m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
+    m.trackRankingGainCardTapped("single");
+    m.trackFocusStartTapped("session", "overtake_popup");
+    m.trackStudyResultConfirmed({ roomType: "single", via: "ranking" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["ranking_overtake_shown", { count: 4, from_rank: 1201, to_rank: 1205 }],
+      ["ranking_overtake_action", { action: "close" }],
+      ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
+      ["ranking_medal_modal_action", { action: "records" }],
+      ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],
+      ["ranking_gain_card_tapped", { room_type: "single" }],
+      ["focus_start_tapped", { destination: "session", source: "overtake_popup" }],
+      ["study_result_confirmed", { room_type: "single", via: "ranking" }],
+    ]);
+  });
+
+  it("노출 지점 이벤트도 미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackRankingOvertakeShown({ count: 1, fromRank: 3, toRank: 4 });
+    m.trackRankingOvertakeAction("study");
+    m.trackRankingMedalModalShown({ count: 1, bestRank: 2, mixedPeriod: false });
+    m.trackRankingMedalModalAction("close");
+    m.trackRankingGainCardShown({ delta: 1, chipCount: 0, roomType: "single" });
+    m.trackRankingGainCardTapped("social");
+
+    expect(mocks.track).not.toHaveBeenCalled();
   });
 });

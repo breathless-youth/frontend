@@ -541,6 +541,39 @@ export type {
 export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
 export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
+export { RANKING_PERIODS, RANKING_TYPES, TIME_SLOTS } from "./ranking";
+export type {
+  MedalRank,
+  RankingBest,
+  RankingBoardGain,
+  RankingBoardResponse,
+  RankingClosest,
+  RankingDayGroup,
+  RankingEligibility,
+  RankingEntry,
+  RankingGain,
+  RankingGoalExample,
+  RankingHomeCard,
+  RankingHomeNeighbor,
+  RankingHomeResponse,
+  RankingMe,
+  RankingNeighbor,
+  RankingNextTier,
+  RankingOvertaken,
+  RankingOvertaker,
+  RankingPeriod,
+  RankingRecord,
+  RankingRecordSeenRequest,
+  RankingRecordType,
+  RankingRecordsPage,
+  RankingRecordsSummary,
+  RankingSessionGainsResponse,
+  RankingStreak,
+  RankingType,
+  RankingUnseenResponse,
+  TimeSlot,
+} from "./ranking";
+
 export type {
   CameraPermissionMessage,
   HapticStyle,
@@ -560,6 +593,8 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  VideoResultStatus,
+  VideoShareTarget,
 } from "./bridge";
 export {
   ANALYTICS_EVENT_MAX_PARAMS,
@@ -569,4 +604,6 @@ export {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  VIDEO_RESULT_STATUSES,
+  VIDEO_SHARE_TARGETS,
 } from "./bridge";

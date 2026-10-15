@@ -6,7 +6,7 @@ import appConfig from "../../app.json";
  * Figma `52:155` 세 곳과 문자 단위로 일치해야 한다(의역·줄임·문장부호 변경 금지).
  */
 const CONFIRMED_CAMERA_USAGE_COPY =
-  "집중 측정에 사용해요. 영상은 기기 안에서만 처리되고 저장되지 않아요.";
+  "집중 측정과 공부 타임랩스에 사용해요. 영상은 기기 안에서만 처리되고, 사진은 내 기기에만 남아요.";
 
 describe("app.json 카메라 권한 문구 (S2-2)", () => {
   it("확정 카피와 문자 단위로 일치한다", () => {
@@ -53,6 +53,52 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
       // 300ms 창에 표본이 2개만 들어가고 표준편차 판정이 성립하지 않는다.
       // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
       "HIGH_SAMPLING_RATE_SENSORS",
+    ]);
+  });
+
+  /**
+   * 사진 앱 저장 권한 문구
+   *
+   * `expo-media-library` 플러그인은 옵션 값을 먼저, 없으면 `infoPlist` 값을, 둘 다 없을 때만 영어 기본 문구를 넣는다.
+   * 두 곳을 같은 문구로 고정해 어느 쪽을 고치든 산출물이 바뀌지 않게 한다.
+   * 읽기 문구는 우리가 읽기 권한을 요청하지 않아도 react-native-share가 사진 보관함 API를 참조해 필요하다.
+   */
+  const PHOTO_ADD_USAGE_COPY = "타임랩스 영상을 사진 앱에 저장하려면 사진 추가 권한이 필요해요";
+  const PHOTO_READ_USAGE_COPY = "타임랩스 영상을 사진 앱에 저장할 때 사용해요";
+
+  it("사진 추가·읽기 권한 문구가 한국어 확정 카피다 (영어 기본값 주입 방지)", () => {
+    expect(appConfig.expo.ios.infoPlist.NSPhotoLibraryAddUsageDescription).toBe(
+      PHOTO_ADD_USAGE_COPY,
+    );
+    expect(appConfig.expo.ios.infoPlist.NSPhotoLibraryUsageDescription).toBe(PHOTO_READ_USAGE_COPY);
+  });
+
+  it("expo-media-library 플러그인 옵션이 같은 문구를 쓰고 Android 사진·영상 읽기 권한을 넣지 않는다", () => {
+    const entry = (appConfig.expo.plugins as unknown[]).find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-media-library",
+    ) as [string, Record<string, unknown>] | undefined;
+
+    expect(entry?.[1]).toEqual({
+      photosPermission: PHOTO_READ_USAGE_COPY,
+      savePhotosPermission: PHOTO_ADD_USAGE_COPY,
+      granularPermissions: [],
+    });
+  });
+
+  /**
+   * 플러그인이 넣는 읽기 권한 차단
+   *
+   * 저장에는 쓰기 권한만 필요하고 사진·영상을 읽는 기능은 없다.
+   * 읽기 권한이 남으면 스토어 심사에서 사진 접근 사유를 따로 소명해야 한다.
+   */
+  it("플러그인이 넣는 사진·영상 읽기 권한을 막는다", () => {
+    expect(appConfig.expo.android.blockedPermissions).toEqual([
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VIDEO",
+      "android.permission.READ_MEDIA_AUDIO",
+      "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
     ]);
   });
 });

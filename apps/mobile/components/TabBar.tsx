@@ -4,15 +4,22 @@ import { useEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconTabHome, IconTabRecord, IconTabSettings, IconTabSocial } from "./icons";
+import {
+  IconTabHome,
+  IconTabRanking,
+  IconTabRecord,
+  IconTabSettings,
+  IconTabSocial,
+} from "./icons";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
-export type TabId = "home" | "social" | "record" | "settings";
+export type TabId = "home" | "social" | "record" | "ranking" | "settings";
 
 const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
   { id: "home", label: "홈", Icon: IconTabHome, href: "/" },
   { id: "social", label: "소셜", Icon: IconTabSocial, href: "/social" },
   { id: "record", label: "기록", Icon: IconTabRecord, href: "/records" },
+  { id: "ranking", label: "랭킹", Icon: IconTabRanking, href: "/ranking" },
   { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },
 ];
 

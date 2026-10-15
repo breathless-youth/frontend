@@ -16,7 +16,14 @@
  * **새 쿼리를 분석에 쓰려면 여기에 명시적으로 추가한다.** 한 번 고치면 GA4·Sentry 양쪽에
  * 동시에 반영된다.
  */
-const ALLOWED_SEARCH_PARAMS = ["appVersion", "detector"];
+const ALLOWED_SEARCH_PARAMS = [
+  "appVersion",
+  "detector",
+  // 설치 링크(/download)의 유입 표시. GA4가 페이지 주소의 UTM으로 유입 경로를 나눈다.
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+];
 
 /** URL 파싱이 실패했을 때 남기는 표식. 빈 문자열로 두면 "원래 없었던 값"과 구분되지 않는다. */
 export const UNPARSEABLE_URL = "[unparseable]";

@@ -48,7 +48,7 @@ class FakeWorker implements WorkerPort {
   }
 
   /** 마지막으로 보낸 그 종류 메시지의 id. 답을 짝지을 때 쓴다. */
-  lastId(type: "create" | "detect"): number {
+  lastId(type: "create" | "detect" | "capture"): number {
     const found = this.posted.findLast((entry) => entry.message.type === type)?.message;
     if (found === undefined || found.type === "close") {
       throw new Error(`${type}를 보낸 적이 없다`);
@@ -344,6 +344,7 @@ function fakeHandle(runtime: "worker" | "main") {
     runtime,
     assetTimings: [],
     detect: vi.fn(async () => RESULT),
+    capture: vi.fn(async (): Promise<ArrayBuffer> => PHOTO),
     close: vi.fn(),
   } satisfies MediapipeDetectorHandle;
 }
@@ -654,5 +655,118 @@ describe("createFallbackRuntime — 얼굴 모델", () => {
     expect(worker.close).toHaveBeenCalledTimes(1);
     expect(loadFallback).toHaveBeenCalledTimes(1);
     expect(handle.runtime).toBe("main");
+  });
+});
+
+const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
+
+describe("createWorkerRuntime 타임랩스 사진", () => {
+  const spec = { aspect: "9:16" as const, mask: true };
+
+  it("얼굴 추론에 사진을 요청하면 detect 메시지에 싣고 답의 사진을 결과에 붙인다", async () => {
+    const frame = fakeFrame();
+    const env = setup(async () => frame);
+    const handle = await readyFace(env);
+    const { worker } = env;
+
+    const detecting = handle.detect(video, 700, spec);
+    await tick();
+    worker.reply({
+      type: "result",
+      id: worker.lastId("detect"),
+      model: "face",
+      result: FACE_RESULT,
+      photo: PHOTO,
+    });
+
+    await expect(detecting).resolves.toEqual({ ...FACE_RESULT, photo: PHOTO });
+    expect(worker.posted.at(-1)).toEqual({
+      message: { type: "detect", id: 2, handleId: 1, frame, timestampMs: 700, photo: spec },
+      transfer: [frame],
+    });
+  });
+
+  it("사진을 요청하지 않으면 detect 메시지에 사진 키가 없다", async () => {
+    const env = setup();
+    const handle = await readyFace(env);
+
+    void handle.detect(video, 700);
+    await tick();
+
+    expect(Object.keys(env.worker.posted.at(-1)?.message ?? {})).not.toContain("photo");
+  });
+});
+
+describe("createWorkerRuntime capture", () => {
+  const spec = { aspect: "9:16" as const, mask: true };
+
+  it("객체 검출기 핸들의 capture는 뜬 프레임을 capture로 넘기고 사진을 돌려준다", async () => {
+    const frame = fakeFrame();
+    const env = setup(async () => frame);
+    const handle = await ready(env);
+    const { worker } = env;
+
+    const capturing = handle.capture(video, spec);
+    await tick();
+    worker.reply({ type: "captured", id: worker.lastId("capture"), photo: PHOTO });
+
+    await expect(capturing).resolves.toBe(PHOTO);
+    expect(worker.posted.at(-1)).toEqual({
+      message: { type: "capture", id: 2, frame, photo: spec },
+      transfer: [frame],
+    });
+  });
+
+  it("captureFailed면 capture가 실패한다", async () => {
+    const env = setup();
+    const handle = await ready(env);
+
+    const capturing = handle.capture(video, spec);
+    await tick();
+    env.worker.reply({
+      type: "captureFailed",
+      id: env.worker.lastId("capture"),
+      reason: "2D 컨텍스트를 만들지 못했다",
+    });
+
+    await expect(capturing).rejects.toThrow("2D 컨텍스트");
+  });
+});
+
+describe("createFallbackRuntime 타임랩스 사진", () => {
+  it("사진 요청이 프레임을 뜨지 못해도 메인 스레드 검출기로 한 번 갈아탄다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const worker = fakeHandle("worker");
+    worker.capture.mockRejectedValue(new FrameCaptureError("InvalidStateError"));
+    const main = fakeHandle("main");
+    const loadFallback = vi.fn(async () => runtimeOf(async () => main).runtime);
+
+    const handle = await createFallbackRuntime(
+      runtimeOf(async () => worker).runtime,
+      loadFallback,
+    ).createDetector(OPTIONS);
+
+    await expect(handle.capture(video, { aspect: "9:16", mask: false })).resolves.toBe(PHOTO);
+    await expect(handle.detect(video, 1)).resolves.toEqual(RESULT);
+    expect(worker.close).toHaveBeenCalledTimes(1);
+    expect(loadFallback).toHaveBeenCalledTimes(1);
+    expect(main.capture).toHaveBeenCalledTimes(1);
+    expect(handle.runtime).toBe("main");
+  });
+
+  it("얼굴 모델은 사진 요청을 지금 핸들에 그대로 넘긴다", async () => {
+    const worker = fakeFaceHandle("worker");
+    const spec = { aspect: "16:9" as const, mask: true };
+
+    const handle = await createFallbackRuntime(
+      runtimeOf(
+        async () => fakeHandle("worker"),
+        async () => worker,
+      ).runtime,
+      vi.fn(),
+    ).createFaceLandmarker(FACE_OPTIONS);
+    await handle.detect(video, 3, spec);
+
+    expect(worker.detect).toHaveBeenCalledWith(video, 3, spec);
   });
 });

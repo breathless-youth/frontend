@@ -15,6 +15,7 @@ import {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
 
 import { isReservedAnalyticsName } from "./firebaseAnalytics";
@@ -30,6 +31,23 @@ const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 /** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
+}
+
+/**
+ * 영상 id 형식
+ *
+ * id가 캐시 파일 이름에 그대로 들어가므로 웹이 `crypto.randomUUID()`로 만든 모양만 받는다.
+ * 경로 문자가 섞인 값이 캐시 밖 파일을 가리키지 못하게 막는다.
+ */
+const VIDEO_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function isVideoId(value: unknown): value is string {
+  return typeof value === "string" && VIDEO_ID_PATTERN.test(value);
+}
+
+/** 조각 순번과 조각 수. 0 이상의 정수만 받는다. */
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 /**
@@ -94,7 +112,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).
       return {
         type: "navigate-home",
-        ...(record.tab === "records" ? { tab: record.tab } : {}),
+        ...(record.tab === "records" || record.tab === "ranking" ? { tab: record.tab } : {}),
         ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
         atMs: record.atMs,
       };
@@ -114,6 +132,36 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         text: record.text,
         ...(typeof record.url === "string" ? { url: record.url } : {}),
         ...(typeof record.title === "string" ? { title: record.title } : {}),
+        atMs: record.atMs,
+      };
+    case "video-chunk":
+      if (!isVideoId(record.id) || !isCount(record.seq) || typeof record.data !== "string") {
+        return null;
+      }
+      return {
+        type: "video-chunk",
+        id: record.id,
+        seq: record.seq,
+        data: record.data,
+        atMs: record.atMs,
+      };
+    case "video-save":
+      if (!isVideoId(record.id) || !isCount(record.chunks)) {
+        return null;
+      }
+      return { type: "video-save", id: record.id, chunks: record.chunks, atMs: record.atMs };
+    case "video-share":
+      if (!isVideoId(record.id) || !isCount(record.chunks) || typeof record.text !== "string") {
+        return null;
+      }
+      // 제목과 목적지는 선택 필드라 모르는 값이면 그 필드만 빼고 공유는 살린다.
+      return {
+        type: "video-share",
+        id: record.id,
+        chunks: record.chunks,
+        text: record.text,
+        ...(typeof record.title === "string" ? { title: record.title } : {}),
+        ...(isOneOf(VIDEO_SHARE_TARGETS, record.target) ? { target: record.target } : {}),
         atMs: record.atMs,
       };
     case "navigate-tab":
