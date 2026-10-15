@@ -48,7 +48,7 @@ vi.mock("../timelapseVideo", async (importOriginal) => ({
 vi.mock("../TimelapsePlayer", () => ({
   TimelapsePlayer: (props: {
     aspect: string;
-    photos: readonly ArrayBuffer[];
+    photos: readonly number[];
     overlay: { text: { dday: string | null; streak: string | null } };
     children?: ReactNode;
   }) => (
@@ -316,7 +316,7 @@ describe("ResultTimelapseCard", () => {
 
   it("보관된 기록인데 사진이 하나도 없으면 아무것도 그리지 않는다", async () => {
     await readyTimelapse();
-    const empty: TimelapseStore = { ...store, listPhotos: () => Promise.resolve([]) };
+    const empty: TimelapseStore = { ...store, photoSeqs: () => Promise.resolve([]) };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(
       <QueryClientProvider client={queryClient}>

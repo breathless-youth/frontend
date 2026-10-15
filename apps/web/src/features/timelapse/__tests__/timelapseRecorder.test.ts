@@ -57,7 +57,7 @@ describe("createTimelapseRecorder", () => {
     nowMs += 1;
     expect(rec.photoTap.due()).not.toBeNull();
     await rec.idle();
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(1);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(1);
   });
 
   it("틱이 늦어 찍은 시각이 밀려도 다음 차례는 처음 간격 기준으로 온다", async () => {
@@ -94,7 +94,7 @@ describe("createTimelapseRecorder", () => {
     rec.photoTap.save(PHOTO);
     await rec.idle();
 
-    expect((await store.listPhotos(T0)).map((photo) => photo.seq)).toEqual([0, 1]);
+    expect(await store.photoSeqs(T0)).toEqual([0, 1]);
   });
 
   it("저장소가 늘린 간격을 다음 차례에 쓴다", async () => {
@@ -144,7 +144,7 @@ describe("createTimelapseRecorder 저장소 실패", () => {
     rec.photoTap.save(PHOTO);
     await rec.idle();
 
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(1);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(1);
   });
 
   it("사진 저장이 한 번 실패해도 다음 사진과 종료 정리는 이어진다", async () => {
@@ -249,7 +249,7 @@ describe("createTimelapseRecorder 종료", () => {
     await rec.idle();
 
     await expect(store.listReady()).resolves.toEqual([]);
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 
   it("기록을 열기 전에 끝나도 열지 않고 끝낸다", async () => {
@@ -301,7 +301,7 @@ describe("settleRecoveredTimelapse", () => {
 
     await settleRecoveredTimelapse({ ...RECOVERED, focusSec: 30 }, store);
 
-    await expect(store.listPhotos(T0)).resolves.toEqual([]);
+    await expect(store.photoSeqs(T0)).resolves.toEqual([]);
   });
 
   it("기기에서 이미 목록에 올린 타임랩스는 서버 순공이 1분 미만이어도 지우지 않는다", async () => {
@@ -315,7 +315,7 @@ describe("settleRecoveredTimelapse", () => {
     await settleRecoveredTimelapse({ ...RECOVERED, focusSec: 45 }, store);
 
     await expect(store.listReady()).resolves.toHaveLength(1);
-    await expect(store.listPhotos(T0)).resolves.toHaveLength(1);
+    await expect(store.photoSeqs(T0)).resolves.toHaveLength(1);
   });
 
   it("정리에 실패하면 throw하지 않고 Sentry에 보고한다", async () => {

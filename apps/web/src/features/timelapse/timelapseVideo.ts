@@ -68,9 +68,9 @@ export async function buildTimelapseVideo(
   if (record?.status !== "ready") {
     throw new Error("보관된 타임랩스가 없다");
   }
-  const photos = await store.listPhotos(startedAtMs);
+  const seqs = await store.photoSeqs(startedAtMs);
   const overlay = savedOverlayFor(record);
-  // 글꼴을 받지 못해도 시스템 글꼴로 만든다. 공유를 막을 만한 일은 아니다.
+  // 글꼴을 받지 못해도 시스템 글꼴로 만든다.
   await deps.loadFonts(timelapseGlyphs(overlay.text)).catch(() => {});
 
   const aspect = record.settings.aspect;
@@ -85,14 +85,20 @@ export async function buildTimelapseVideo(
     throw new TimelapseVideoError("none", "unsupported");
   }
 
-  const lastIndex = Math.max(1, photos.length - 1);
+  const lastIndex = Math.max(1, seqs.length - 1);
   let frames = 0;
   let reported = 0;
   try {
-    for (const [index, photo] of photos.entries()) {
+    for (const [index, seq] of seqs.entries()) {
+      // 사진 전체를 한 번에 읽으면 만드는 동안 바이트 전부가 메모리에 남으므로 한 장씩 읽는다.
+      const bytes = await store.readPhoto(startedAtMs, seq);
+      // 만드는 동안 지워진 사진은 깨진 사진처럼 건너뛴다.
+      if (bytes === null) {
+        continue;
+      }
       let bitmap: ImageBitmap;
       try {
-        bitmap = await deps.decode(photo.bytes);
+        bitmap = await deps.decode(bytes);
       } catch {
         // 재생기처럼 깨진 사진은 건너뛴다.
         continue;
@@ -110,7 +116,7 @@ export async function buildTimelapseVideo(
       }
       await sink.add(frames);
       frames += 1;
-      reported = (index + 1) / photos.length;
+      reported = (index + 1) / seqs.length;
       onProgress(reported);
     }
   } catch (error) {

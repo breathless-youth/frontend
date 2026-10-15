@@ -52,11 +52,7 @@ vi.mock("../timelapseVideo", async (importOriginal) => ({
  * 재생기는 따로 검증했으므로 다이얼로그가 넘기는 값과 children 내용만 본다.
  */
 vi.mock("../TimelapsePlayer", () => ({
-  TimelapsePlayer: (props: {
-    aspect: string;
-    photos: readonly ArrayBuffer[];
-    children?: ReactNode;
-  }) => (
+  TimelapsePlayer: (props: { aspect: string; photos: readonly number[]; children?: ReactNode }) => (
     <div data-testid="player" data-aspect={props.aspect} data-count={props.photos.length}>
       {props.children}
     </div>
@@ -591,7 +587,7 @@ describe("카드 크기", () => {
 describe("결과 화면", () => {
   it("카드 없이 시트만 열고 사진을 읽지 않는다", async () => {
     nativeApp();
-    const listPhotos = vi.spyOn(store, "listPhotos");
+    const photoSeqs = vi.spyOn(store, "photoSeqs");
     const { onOpenChange } = renderDialog("result");
 
     const dialog = await openedDialog();
@@ -601,7 +597,7 @@ describe("결과 화면", () => {
     }
     expect(within(dialog).queryByText("포커스 메이커스")).toBeNull();
     expect(within(dialog).queryByTestId("player")).toBeNull();
-    expect(listPhotos).not.toHaveBeenCalled();
+    expect(photoSeqs).not.toHaveBeenCalled();
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("data-covers-tab-bar");
 

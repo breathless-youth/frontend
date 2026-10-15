@@ -22,18 +22,17 @@ export function recentTimelapsesQuery(store: TimelapseStore) {
 }
 
 /**
- * 재생할 사진 바이트
+ * 재생할 사진 번호
  *
+ * 바이트는 재생기가 풀 차례에 한 장씩 읽어, 사진 전체가 메모리에 오래 남지 않는다.
  * 결과 카드와 공유 다이얼로그가 같은 키를 써 결과 화면에서는 다시 읽지 않는다.
  * 기기 안 저장소만 읽으므로 오프라인에서도 읽는다.
  */
 export function timelapsePhotosQuery(startedAtMs: number, store: TimelapseStore) {
   return queryOptions({
     queryKey: ["timelapse", startedAtMs, "photos"] as const,
-    queryFn: async () => (await store.listPhotos(startedAtMs)).map((photo) => photo.bytes),
+    queryFn: () => store.photoSeqs(startedAtMs),
     staleTime: Infinity,
-    // 사진 바이트가 15MB쯤이라 화면을 떠나면 캐시에 남기지 않는다.
-    gcTime: 0,
     networkMode: "always",
   });
 }
