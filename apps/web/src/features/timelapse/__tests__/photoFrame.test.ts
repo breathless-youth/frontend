@@ -289,7 +289,7 @@ describe("캔버스 압축 설정", () => {
     vi.restoreAllMocks();
   });
 
-  it("워커 캔버스는 JPEG 품질 0.8로 압축한다", async () => {
+  it("워커 캔버스는 JPEG 품질 0.5로 압축한다", async () => {
     const convertToBlob = vi.fn(async (_options?: ImageEncodeOptions) => blob);
     vi.stubGlobal(
       "OffscreenCanvas",
@@ -303,10 +303,10 @@ describe("캔버스 압축 설정", () => {
 
     await expect(offscreenSurface({ width: 405, height: 720 }).encode()).resolves.toBe(ENCODED);
 
-    expect(convertToBlob).toHaveBeenCalledWith({ type: "image/jpeg", quality: 0.8 });
+    expect(convertToBlob).toHaveBeenCalledWith({ type: "image/jpeg", quality: 0.5 });
   });
 
-  it("메인 스레드 캔버스도 JPEG 품질 0.8로 압축한다", async () => {
+  it("메인 스레드 캔버스도 JPEG 품질 0.5로 압축한다", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => context as never);
     const toBlob = vi
       .spyOn(HTMLCanvasElement.prototype, "toBlob")
@@ -314,7 +314,7 @@ describe("캔버스 압축 설정", () => {
 
     await expect(documentSurface({ width: 405, height: 720 }).encode()).resolves.toBe(ENCODED);
 
-    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.8);
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.5);
   });
 });
 
