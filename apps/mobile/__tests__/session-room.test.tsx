@@ -5,6 +5,7 @@ import { BackHandler } from "react-native";
 import SessionRoomScreen from "../app/room/[id]";
 import type * as OrientationModule from "../lib/orientation";
 import { offerRouteToSession } from "../lib/sessionInvite";
+import { __resetSessionPresenceForTests, runAfterSession } from "../lib/sessionPresence";
 
 /**
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
@@ -125,6 +126,23 @@ describe("SessionRoomScreen", () => {
 
     unmount();
     expect(lockPortrait).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SessionRoomScreen: 세션 중 미루기", () => {
+  beforeEach(() => {
+    __resetSessionPresenceForTests();
+  });
+
+  it("화면이 떠 있는 동안 미뤄 둔 일은 화면이 사라질 때 실행된다", () => {
+    const run = jest.fn();
+
+    const { unmount } = render(<SessionRoomScreen />);
+    runAfterSession(run);
+    expect(run).not.toHaveBeenCalled();
+
+    unmount();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });
 

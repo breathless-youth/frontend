@@ -9,6 +9,7 @@ import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
 import { type BridgeReply, handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { setSessionInviteHandler } from "../../lib/sessionInvite";
+import { markSessionOpen } from "../../lib/sessionPresence";
 
 /**
  * 싱글룸 세션(S3-1~S3-8) — 화면 구현체는 `apps/web`이고 여기서는 `RemoteScreen`으로 원격
@@ -49,6 +50,9 @@ export default function SessionRoomScreen() {
       lockPortrait();
     };
   }, []);
+
+  // 세션 중에 업데이트 알림창이 끼어들지 않게 화면이 떠 있음을 알린다.
+  useEffect(() => markSessionOpen(), []);
 
   /**
    * 세션 전용 브리지 확장 — `motion-sensor`만 여기서 받고 나머지는 전부 공용
