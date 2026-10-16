@@ -1,9 +1,4 @@
-import {
-  activate,
-  fetchConfig,
-  getRemoteConfig,
-  getString,
-} from "@react-native-firebase/remote-config";
+import { activate, getRemoteConfig, getString } from "@react-native-firebase/remote-config";
 
 /**
  * Firebase Remote Config 어댑터 (BY-585).
@@ -12,8 +7,8 @@ import {
  * 계층이다(`apps/mobile/CLAUDE.md` 경계 규칙, `cameraPermission.ts`와 같은 꼴). 값의 소비자
  * (BY-586 최소 지원 버전 게이트)는 아래 공개 함수만 본다.
  *
- * 부팅 전략(BY-586): 지난 실행에서 fetch해 둔 값을 `activate`로 즉시 적용해 판정하고, `fetch`는
- * 백그라운드로 돌려 다음 실행에 반영한다 — 스플래시를 네트워크에 묶지 않는다.
+ * 운영의 최소 fetch 간격은 접속할 때만 `fetch(0)`으로 넘는다.
+ * 접속은 앱 실행과 30분 이상 비운 뒤 복귀뿐이라 호출 수가 그 횟수를 넘지 않는다.
  */
 
 export type RemoteConfigDefaults = Record<string, string | number | boolean>;
@@ -23,8 +18,14 @@ export type RemoteConfigAdapter = {
   setDefaults(defaults: RemoteConfigDefaults): Promise<void>;
   /** 마지막으로 fetch해 둔 값을 활성화한다. 새 값이 적용됐으면 true. */
   activate(): Promise<boolean>;
-  /** 서버에서 값을 받아 둔다(활성화는 하지 않는다). 최소 fetch 간격 안이면 캐시로 끝난다. */
-  fetch(): Promise<void>;
+  /**
+   * 서버 값 받기
+   *
+   * 받아 두기만 하고 적용은 하지 않는다.
+   * `maxAgeSec`를 주면 그보다 오래된 캐시를 버리고 새로 받고, 0이면 항상 새로 받는다.
+   * 안 주면 설정의 최소 fetch 간격 안에서는 캐시로 끝난다.
+   */
+  fetch(maxAgeSec?: number): Promise<void>;
   getString(key: string): string;
 };
 
@@ -48,8 +49,12 @@ export const rnfbRemoteConfigAdapter: RemoteConfigAdapter = {
   activate() {
     return activate(getRemoteConfig());
   },
-  fetch() {
-    return fetchConfig(getRemoteConfig());
+  fetch(maxAgeSec) {
+    // 모듈형 `fetchConfig`는 유효 시간을 받지 못하고, 인스턴스 메서드만 `expirationDurationSeconds`를 받는다.
+    const remoteConfig = getRemoteConfig() as unknown as {
+      fetch(expirationDurationSeconds?: number): Promise<void>;
+    };
+    return remoteConfig.fetch(maxAgeSec);
   },
   getString(key) {
     return getString(getRemoteConfig(), key);
@@ -71,18 +76,8 @@ export function activateRemoteConfig(): Promise<boolean> {
   return adapter.activate();
 }
 
-export function fetchRemoteConfig(): Promise<void> {
-  return adapter.fetch();
-}
-
-/**
- * 다음 실행에 반영할 값을 받아 둔다. 실패는 로그로만 남긴다 — 값을 못 받으면 마지막 값(또는
- * 기본값)으로 동작하는 것이 이 계층의 계약이다(fail-open).
- */
-export function fetchRemoteConfigInBackground(): void {
-  void adapter.fetch().catch((error: unknown) => {
-    console.warn("[remote-config] 백그라운드 fetch 실패", error);
-  });
+export function fetchRemoteConfig(maxAgeSec?: number): Promise<void> {
+  return adapter.fetch(maxAgeSec);
 }
 
 export function getRemoteConfigString(key: string): string {

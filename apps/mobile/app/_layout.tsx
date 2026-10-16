@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { resolveForceUpdate } from "../lib/forceUpdate";
+import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
@@ -20,6 +20,8 @@ import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { offerRouteToSession } from "../lib/sessionInvite";
+import { runAfterSession } from "../lib/sessionPresence";
+import { checkUpdateOnConnect, createReconnectListener } from "../lib/updateOnConnect";
 import { ensureUserRegistered } from "../lib/userApi";
 import { removeLeftoverVideoFiles } from "../lib/videoTransfer";
 
@@ -51,28 +53,37 @@ function RootLayout() {
     PretendardLight: require("pretendard/dist/public/static/Pretendard-Light.otf") as number,
     PretendardBold: require("pretendard/dist/public/static/Pretendard-Bold.otf") as number,
   });
-  // 강제 업데이트 게이트(BY-586) — 지난 실행에서 받아 둔 Remote Config 값으로 판정한다. 최대 1초 안에
-  // 끝나고, 실패하면 통과시킨다(`lib/forceUpdate.ts`). "forced"면 라우터 스택 대신 빈 배경만 그리고
-  // 그 위에 OS 알림창(`lib/forceUpdateAlert.ts`)을 띄운다.
+  // 앱을 켤 때 서버 값을 짧게 기다려 판정하고, 늦으면 지난 값으로 먼저 판정한다(`lib/forceUpdate.ts`).
+  // "forced"면 라우터 스택 대신 빈 배경만 그리고 그 위에 OS 알림창(`lib/forceUpdateAlert.ts`)을 띄운다.
+  // 30분 이상 백그라운드에 있다 돌아올 때도 서버 값을 새로 받아 다시 판정한다(`lib/updateOnConnect.ts`).
+  // 판정이 나중에 forced로 바뀌면 홈 위에서 바로 막는다.
   const [updateGate, setUpdateGate] = useState<"pending" | "pass" | "forced">("pending");
-  // 권장 업데이트(BY-586) — 같은 판정에서 나온 `latest_version`. 막히지 않았을 때만 값이 들어온다.
+  // 권장 업데이트는 마지막 판정에서 나온 `latest_version`이고, 권장 대상이 아니면 null이다.
   const [recommendedVersion, setRecommendedVersion] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void resolveForceUpdate()
-      .then((decision) => {
-        if (!active) return;
-        setUpdateGate(decision.forced ? "forced" : "pass");
-        if (decision.recommended && decision.latestVersion !== null) {
-          setRecommendedVersion(decision.latestVersion);
-        }
-      })
-      .catch(() => {
+    const apply = (decision: ForceUpdateDecision) => {
+      if (!active) return;
+      setUpdateGate(decision.forced ? "forced" : "pass");
+      setRecommendedVersion(decision.recommended ? decision.latestVersion : null);
+    };
+    void resolveForceUpdateOnLaunch().then(
+      ({ decision, late }) => {
+        apply(decision);
+        void late?.then((next) => runAfterSession(() => apply(next)));
+      },
+      () => {
         if (active) setUpdateGate("pass");
-      });
+      },
+    );
+    const sub = AppState.addEventListener(
+      "change",
+      createReconnectListener(() => void checkUpdateOnConnect("resume", apply)),
+    );
     return () => {
       active = false;
+      sub.remove();
     };
   }, []);
 
@@ -110,9 +121,10 @@ function RootLayout() {
       permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
     }
     void permissionPrompts.current.then(() => {
-      if (active && recommendedVersion !== null) {
-        void recommendedUpdateAlert.maybeShow(recommendedVersion);
-      }
+      if (!active || recommendedVersion === null) return;
+      runAfterSession(() => {
+        if (active) void recommendedUpdateAlert.maybeShow(recommendedVersion);
+      });
     });
     return () => {
       active = false;

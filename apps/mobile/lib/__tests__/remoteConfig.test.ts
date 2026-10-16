@@ -1,22 +1,23 @@
 import * as remoteConfig from "../remoteConfig";
 import type { RemoteConfigAdapter } from "../remoteConfig";
 
-const mockRcInstance: { settings?: unknown; defaultConfig?: unknown } = {};
 const mockActivate = jest.fn();
-const mockFetchConfig = jest.fn();
+const mockFetch = jest.fn();
 const mockGetString = jest.fn();
+const mockRcInstance: { settings?: unknown; defaultConfig?: unknown; fetch: typeof mockFetch } = {
+  fetch: mockFetch,
+};
 
 jest.mock("@react-native-firebase/remote-config", () => ({
   getRemoteConfig: () => mockRcInstance,
   activate: (...args: unknown[]) => mockActivate(...args) as Promise<boolean>,
-  fetchConfig: (...args: unknown[]) => mockFetchConfig(...args) as Promise<void>,
   getString: (...args: unknown[]) => mockGetString(...args) as string,
 }));
 
 describe("remoteConfig 어댑터 (BY-585)", () => {
   beforeEach(() => {
     mockActivate.mockReset();
-    mockFetchConfig.mockReset();
+    mockFetch.mockReset();
     mockGetString.mockReset();
     delete mockRcInstance.settings;
     delete mockRcInstance.defaultConfig;
@@ -34,33 +35,24 @@ describe("remoteConfig 어댑터 (BY-585)", () => {
     expect(mockRcInstance.defaultConfig).toEqual({ min_supported_version: "1.0.0" });
   });
 
-  it("activate·fetch·getString은 RNFB 모듈 함수에 인스턴스를 넘겨 위임한다", async () => {
+  it("activate·getString은 RNFB 모듈 함수에 인스턴스를 넘겨 위임한다", async () => {
     mockActivate.mockResolvedValue(true);
-    mockFetchConfig.mockResolvedValue(undefined);
     mockGetString.mockReturnValue("1.2.0");
 
     await expect(remoteConfig.activateRemoteConfig()).resolves.toBe(true);
-    await expect(remoteConfig.fetchRemoteConfig()).resolves.toBeUndefined();
     expect(remoteConfig.getRemoteConfigString("min_supported_version")).toBe("1.2.0");
 
     expect(mockActivate).toHaveBeenCalledWith(mockRcInstance);
-    expect(mockFetchConfig).toHaveBeenCalledWith(mockRcInstance);
     expect(mockGetString).toHaveBeenCalledWith(mockRcInstance, "min_supported_version");
   });
 
-  it("백그라운드 fetch 실패는 던지지 않고 경고 로그로 흡수한다 (fail-open)", async () => {
-    mockFetchConfig.mockRejectedValue(new Error("offline"));
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  it("fetch는 인스턴스 메서드에 유효 시간을 그대로 넘긴다 — 0이면 최소 간격을 무시하고 새로 받는다", async () => {
+    mockFetch.mockResolvedValue(undefined);
 
-    expect(() => remoteConfig.fetchRemoteConfigInBackground()).not.toThrow();
-    await Promise.resolve();
-    await Promise.resolve();
+    await expect(remoteConfig.fetchRemoteConfig(0)).resolves.toBeUndefined();
+    await expect(remoteConfig.fetchRemoteConfig()).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("백그라운드 fetch 실패"),
-      expect.any(Error),
-    );
-    warn.mockRestore();
+    expect(mockFetch.mock.calls).toEqual([[0], [undefined]]);
   });
 
   it("setRemoteConfigAdapter로 교체한 어댑터가 공개 함수에 그대로 반영된다", async () => {
