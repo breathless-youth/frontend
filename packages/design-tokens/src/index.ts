@@ -25,7 +25,7 @@ export const colors = {
     subtlePressed: { light: "#c9e2ff", dark: "#194aa6" },
   },
   feedback: {
-    error: { light: "#f04452", dark: "#ff6b77" },
+    error: { light: "#d22030", dark: "#ff6b77" },
     errorSubtle: { light: "#ffebee", dark: "#3d1b1f" },
     success: { light: "#12b76a", dark: "#32d583" },
   },

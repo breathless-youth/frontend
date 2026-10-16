@@ -35,7 +35,7 @@ const colors = {
     "subtlePressed-dark": "#194aa6",
   },
   feedback: {
-    error: "#f04452",
+    error: "#d22030",
     "error-dark": "#ff6b77",
     errorSubtle: "#ffebee",
     "errorSubtle-dark": "#3d1b1f",
