@@ -660,7 +660,7 @@ describe("브리지 기반 앱 이벤트 (BY-472)", () => {
     setCameraPermissionUserProperty(false);
 
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
-    expect(sent.sets).toEqual([["camera_permission_granted", false]]);
+    expect(sent.sets).toEqual([["camera_permission", false]]);
     expect(mocks.track).not.toHaveBeenCalledWith("camera_permission_result", expect.anything());
   });
 
@@ -1410,5 +1410,113 @@ describe("랭킹 이벤트", () => {
     m.trackRankingGainCardTapped("social");
 
     expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("푸시 타겟용 user property", () => {
+  type Sent = InstanceType<typeof mocks.FakeIdentify>;
+  const sentSets = () => (mocks.identify.mock.calls as [Sent][]).map(([sent]) => sent.sets);
+
+  it("미초기화 상태에서는 전부 무시한다", async () => {
+    const m = await loadModule();
+
+    m.setStudyStatusUserProperties({
+      streakDays: 1,
+      maxStreak: 1,
+      weekStudyDays: 1,
+      todayStudyMin: 1,
+      studiedToday: true,
+    });
+    m.setSubjectsUserProperties({ subjectCount: 1, taskCount: 1 });
+    m.setHasTimelapseUserProperty(true);
+    m.setStudyDaysTotalUserProperty(3);
+
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("홈 통계 값을 한 번의 identify로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.setStudyStatusUserProperties({
+      streakDays: 3,
+      maxStreak: 9,
+      weekStudyDays: 2,
+      todayStudyMin: 120,
+      studiedToday: true,
+    });
+
+    expect(sentSets()).toEqual([
+      [
+        ["streak_days", 3],
+        ["max_streak", 9],
+        ["week_study_days", 2],
+        ["today_study_min", 120],
+        ["studied_today", true],
+      ],
+    ]);
+  });
+
+  it("과목·할 일 개수와 유무, 타임랩스 유무, 누적 공부일을 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.setSubjectsUserProperties({ subjectCount: 0, taskCount: 0 });
+    m.setSubjectsUserProperties({ subjectCount: 2, taskCount: 5 });
+    m.setHasTimelapseUserProperty(false);
+    m.setStudyDaysTotalUserProperty(12);
+
+    expect(sentSets()).toEqual([
+      [
+        ["has_subjects", false],
+        ["subject_count", 0],
+        ["task_count", 0],
+      ],
+      [
+        ["has_subjects", true],
+        ["subject_count", 2],
+        ["task_count", 5],
+      ],
+      [["has_timelapse", false]],
+      [["study_days_total", 12]],
+    ]);
+  });
+
+  it("세션 시작은 룸 종류별 이용 이력을 남긴다 — 복원 진입도 이용이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionStarted("social");
+    m.trackStudySessionStarted("single", true);
+    m.trackStudySessionStarted("social");
+
+    expect(sentSets()).toEqual([[["used_social", true]], [["used_single", true]]]);
+  });
+
+  it("가이드 완주·초대 공유 성공·배경음 켬·타임랩스 공유 탭은 행동 이력을 한 번만 남기고, 건너뜀·실패·끔은 남기지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "settings" });
+    m.trackInviteShared("failed");
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
+    expect(mocks.identify).not.toHaveBeenCalled();
+
+    m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
+    m.trackInviteShared("copied");
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "auto_start" });
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "dialog" });
+    m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "list" });
+
+    expect(sentSets()).toEqual([
+      [["guide_finished", true]],
+      [["invite_shared", true]],
+      [["ambient_sound_used", true]],
+      [["timelapse_shared", true]],
+    ]);
   });
 });

@@ -30,11 +30,15 @@ const closeStaleSession = vi.hoisted(() =>
 
 vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
 
-const analytics = vi.hoisted(() => ({ trackFocusStartTapped: vi.fn() }));
+const analytics = vi.hoisted(() => ({
+  trackFocusStartTapped: vi.fn(),
+  setStudyStatusUserProperties: vi.fn(),
+}));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackFocusStartTapped: analytics.trackFocusStartTapped,
+  setStudyStatusUserProperties: analytics.setStudyStatusUserProperties,
 }));
 
 vi.mock("@/lib/statsApi", () => ({
@@ -257,6 +261,56 @@ describe("HomeTabPage", () => {
 
     expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     expect(mockedStats).not.toHaveBeenCalled();
+  });
+
+  describe("푸시 타겟용 공부 상태 user property", () => {
+    it("통계가 오면 스트릭·주간 공부일·오늘 분·오늘 공부 여부를 한 번만 보낸다", async () => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({
+        streak: 3,
+        maxStreak: 9,
+        studiedDatesInRange: ["2026-10-13", "2026-10-15"],
+      });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+      await waitFor(() => expect(analytics.setStudyStatusUserProperties).toHaveBeenCalled());
+      expect(analytics.setStudyStatusUserProperties).toHaveBeenCalledTimes(1);
+      expect(analytics.setStudyStatusUserProperties).toHaveBeenCalledWith({
+        streakDays: 3,
+        maxStreak: 9,
+        weekStudyDays: 2,
+        todayStudyMin: 120,
+        studiedToday: true,
+      });
+    });
+
+    it("오늘 공부 시간이 1분 미만이면 공부하지 않은 것으로 본다", async () => {
+      mockedStats.mockResolvedValue({ ...statsResponse, totalStudySec: 59 });
+      mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+
+      renderHome();
+
+      await waitFor(() => expect(analytics.setStudyStatusUserProperties).toHaveBeenCalled());
+      expect(analytics.setStudyStatusUserProperties).toHaveBeenCalledWith({
+        streakDays: 0,
+        maxStreak: 0,
+        weekStudyDays: 0,
+        todayStudyMin: 0,
+        studiedToday: false,
+      });
+    });
+
+    it("통계를 불러오지 못하면 보내지 않는다", async () => {
+      mockedStats.mockRejectedValue(new Error("network"));
+      mockedStreak.mockRejectedValue(new Error("network"));
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("기록을 불러오지 못했어요")).toBeInTheDocument());
+      expect(analytics.setStudyStatusUserProperties).not.toHaveBeenCalled();
+    });
   });
 
   describe("Vision 자원 미리 받기", () => {

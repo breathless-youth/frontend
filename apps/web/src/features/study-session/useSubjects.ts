@@ -2,7 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
-import { type SubjectSurface, trackSubjectItemAdded } from "@/lib/amplitude";
+import {
+  setSubjectsUserProperties,
+  type SubjectSurface,
+  trackSubjectItemAdded,
+} from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import {
   createSubject,
@@ -48,6 +52,11 @@ export function useSubjects(
 ) {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [status, setStatus] = useState<SubjectsStatus>("idle");
+  /**
+   * 서버가 확정한 목록이 몇 번째인지.
+   * 조회와 개수를 바꾸는 변경이 성공할 때만 올라가, 변경이 하나씩 진행될 때 낙관 반영 중인 개수는 분석에 나가지 않는다.
+   */
+  const [confirmedCount, setConfirmedCount] = useState(0);
   const onErrorRef = useRef(onError);
   const loadRef = useRef(load);
   /**
@@ -71,6 +80,7 @@ export function useSubjects(
       // 서버가 저장된 순서로 내려준다 — 여기서 다시 정렬하지 않는다.
       setSubjects(await loadRef.current());
       setStatus("ready");
+      setConfirmedCount((count) => count + 1);
     } catch {
       setStatus("error");
       onErrorRef.current(SUBJECT_SHEET_COPY.loadFailed);
@@ -84,14 +94,26 @@ export function useSubjects(
     }
   }, [enabled, reload, status]);
 
-  /** 낙관적 반영 → 요청 → 실패 시 토스트 + 서버 값 복원. */
+  // 푸시 타겟용 과목·할 일 개수 user property. 확정 횟수가 오를 때 그 시점의 목록(ref)으로 보낸다.
+  useEffect(() => {
+    if (confirmedCount === 0) return;
+    const list = subjectsRef.current;
+    setSubjectsUserProperties({
+      subjectCount: list.length,
+      taskCount: list.reduce((sum, subject) => sum + subject.tasks.length, 0),
+    });
+  }, [confirmedCount]);
+
+  /** 낙관적 반영 → 요청 → 실패 시 토스트 + 서버 값 복원. `changesCount`는 과목·할 일 개수가 바뀌는 변경이다. */
   const mutate = async (
     optimistic: (prev: SubjectResponse[]) => SubjectResponse[],
     request: () => Promise<unknown>,
+    changesCount = false,
   ) => {
     setSubjects(optimistic);
     try {
       await request();
+      if (changesCount) setConfirmedCount((count) => count + 1);
     } catch (error) {
       onErrorRef.current(saveErrorMessage(error));
       void reload();
@@ -127,6 +149,7 @@ export function useSubjects(
       const created = await createSubject({ name: trimmed });
       // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
       setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
+      setConfirmedCount((count) => count + 1);
       trackSubjectItemAdded("subject", viaSuggestion, surface);
       return created;
     } catch (error) {
@@ -143,6 +166,7 @@ export function useSubjects(
           subject.id === subjectId ? { ...subject, tasks: [...subject.tasks, created] } : subject,
         ),
       );
+      setConfirmedCount((count) => count + 1);
       trackSubjectItemAdded("task", false, surface);
     } catch {
       onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
@@ -214,6 +238,7 @@ export function useSubjects(
       mutate(
         (prev) => prev.filter((subject) => subject.id !== id),
         () => deleteSubject(id),
+        true,
       ),
     renameTask: (subjectId: number, taskId: number, name: string) =>
       mutate(patchTask(subjectId, taskId, { name }), () => updateTask(subjectId, taskId, { name })),
@@ -235,6 +260,7 @@ export function useSubjects(
               : subject,
           ),
         () => deleteTask(subjectId, taskId),
+        true,
       ),
   };
 }
