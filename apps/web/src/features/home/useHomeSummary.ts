@@ -1,6 +1,8 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { weekDateKeys } from "@/features/records/recordsFormat";
+import { setStudyStatusUserProperties } from "@/lib/amplitude";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { dailyStatsQuery, streakQuery } from "@/lib/statsQueries";
 
@@ -34,6 +36,26 @@ export function useHomeSummary(userId: number): HomeSummaryState {
     ...streakQuery(userId, { from: weekDateKeys(dateKey)[0], to: dateKey }),
     placeholderData: keepPreviousData,
   });
+
+  // 푸시 타겟용 공부 상태 user property. 서버 응답을 받을 때마다 보내되, 주가 바뀌는 순간 placeholder로
+  // 남은 지난주 스트릭은 보내지 않는다. 같은 값이 다시 와도 응답 시각이 바뀌므로 다시 보낸다.
+  const statsData = stats.data;
+  const streakData = streak.isPlaceholderData ? undefined : streak.data;
+  const statsUpdatedAt = stats.dataUpdatedAt;
+  const streakUpdatedAt = streak.dataUpdatedAt;
+  useEffect(() => {
+    if (statsData === undefined || streakData === undefined) {
+      return;
+    }
+    const todayStudyMin = Math.floor(statsData.totalStudySec / 60);
+    setStudyStatusUserProperties({
+      streakDays: streakData.streak,
+      maxStreak: streakData.maxStreak,
+      weekStudyDays: (streakData.studiedDatesInRange ?? []).length,
+      todayStudyMin,
+      studiedToday: todayStudyMin >= 1,
+    });
+  }, [statsData, streakData, statsUpdatedAt, streakUpdatedAt]);
 
   const retry = () => {
     if (stats.isError) {

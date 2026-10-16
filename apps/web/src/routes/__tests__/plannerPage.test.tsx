@@ -52,6 +52,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackScreenBackPressed: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
   trackSubjectItemAdded: vi.fn(),
+  setSubjectsUserProperties: vi.fn(),
 }));
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 스와이프·길게 누르기 판정에 쓰는 좌표와 `isPrimary`를 채운다.
