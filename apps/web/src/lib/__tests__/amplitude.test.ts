@@ -1491,11 +1491,12 @@ describe("푸시 타겟용 user property", () => {
 
     m.trackStudySessionStarted("social");
     m.trackStudySessionStarted("single", true);
+    m.trackStudySessionStarted("social");
 
     expect(sentSets()).toEqual([[["used_social", true]], [["used_single", true]]]);
   });
 
-  it("가이드 완주·초대 공유 성공·배경음 켬·타임랩스 공유 탭은 행동 이력을 남기고, 건너뜀·실패·끔은 남기지 않는다", async () => {
+  it("가이드 완주·초대 공유 성공·배경음 켬·타임랩스 공유 탭은 행동 이력을 한 번만 남기고, 건너뜀·실패·끔은 남기지 않는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
@@ -1508,6 +1509,7 @@ describe("푸시 타겟용 user property", () => {
     m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
     m.trackInviteShared("copied");
     m.trackAmbientSoundChanged({ sounds: ["white"], source: "auto_start" });
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "dialog" });
     m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "list" });
 
     expect(sentSets()).toEqual([
