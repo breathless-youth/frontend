@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
+import { setHasTimelapseUserProperty } from "@/lib/amplitude";
 import { slideNavigate } from "@/lib/pageTransition";
 
 import { recentDayLabel } from "./recentDayLabel";
@@ -51,6 +52,14 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
   // react-router navigate()는 항상 push라 빠른 이중 탭에 목록이 두 장 쌓인다.
   const openedRef = useRef(false);
   const recent = useQuery(recentTimelapsesQuery(store));
+
+  // 푸시 타겟용 타임랩스 유무 user property. 목록을 읽을 때마다 맞춘다.
+  const hasTimelapse = recent.isSuccess ? recent.data.length > 0 : undefined;
+  useEffect(() => {
+    if (hasTimelapse !== undefined) {
+      setHasTimelapseUserProperty(hasTimelapse);
+    }
+  }, [hasTimelapse]);
 
   if (!recent.isSuccess) {
     return null;
