@@ -114,12 +114,16 @@ export function RemoteScreen({
     }
     // 새 문서는 잠근 적이 없으니 웹 주도 뒤로가기 잠금도 풀림으로 되돌린다.
     // 이전 문서의 잠금이 남으면 새 문서에서 뒤로가기가 영영 막히고 세션 중 표시도 남는다.
-    // onLoadEnd에서 되돌리지 않는 이유는 iOS가 같은 문서 안 이동에도 로드 완료를 보내 세션 중 잠금이 풀리기 때문이다.
     setBackLocked(false);
   };
-  const onLoadEnd = (ok: boolean) => {
+  const onLoadEnd = (ok: boolean, newDocument: boolean) => {
     setLoaded(true);
     setLoadFailed(!ok);
+    // 복구 진입 없이 문서가 통째로 바뀐 경우(웹의 location.reload 등)에도 새 문서는 잠근 적이 없다.
+    // 같은 문서 안 이동에는 되돌리지 않는다. iOS는 그때도 로드 완료를 보내 세션 중 잠금이 풀리기 때문이다.
+    if (newDocument) {
+      setBackLocked(false);
+    }
     if (ok) {
       // 로드 성공에는 탭 바 상태를 건드리지 않는다 — 새 문서가 이미 자기 상태를
       // 보고했을 수 있다(위 onRecoveryStart 주석). 되돌리는 시점은 문서 교체가 확정되는

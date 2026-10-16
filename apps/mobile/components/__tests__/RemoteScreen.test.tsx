@@ -687,6 +687,20 @@ describe("RemoteScreen — 소셜룸 세션 중 미루기", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("세션 중 문서가 통째로 다시 로드되면 세션 표시가 풀린다", async () => {
+    const { send, webview } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    runAfterSession(run);
+
+    // location.reload()처럼 복구 진입 없이 새 문서가 뜨면 navigationType이 없는 로드 완료만 온다.
+    act(() => {
+      (webview.props.onLoadEnd as (e: unknown) => void)({ nativeEvent: {} });
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("같은 문서 안 이동으로 로드 완료가 와도 세션 표시가 유지된다", async () => {
     const { send, webview } = await renderLoaded();
     const run = jest.fn();
