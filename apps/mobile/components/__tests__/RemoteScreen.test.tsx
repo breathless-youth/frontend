@@ -9,6 +9,7 @@ import {
 } from "../../lib/nativeAnalytics";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
+import { __resetSessionPresenceForTests, runAfterSession } from "../../lib/sessionPresence";
 import { ensureUserRegistered } from "../../lib/userApi";
 
 /**
@@ -318,7 +319,7 @@ describe("RemoteScreen", () => {
     spy.mockRestore();
   });
 
-  it("문서가 다시 로드되면 웹 주도 잠금이 기본값(풀림)으로 돌아간다 — 렌더러 재생성 대비", async () => {
+  it("문서가 교체되면(렌더러 종료 복구) 웹 주도 잠금이 기본값(풀림)으로 돌아간다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
     const remove = jest.fn();
     const spy = jest
@@ -338,9 +339,9 @@ describe("RemoteScreen", () => {
     });
     expect(spy).toHaveBeenCalledTimes(1);
 
-    // 렌더러 크래시 등으로 새 문서가 로드되면 — 새 문서는 잠근 적이 없다
+    // 렌더러가 죽어 새 문서로 교체되면 새 문서는 잠근 적이 없다
     act(() => {
-      onLoadEnd();
+      (webview.props.onContentProcessDidTerminate as () => void)();
     });
 
     expect(remove).toHaveBeenCalled();
@@ -626,5 +627,117 @@ describe("RemoteScreen — 네이티브 사용자 이벤트 sink", () => {
     attachNativeAnalyticsSink((event) => received.push(event.name));
 
     expect(received).toEqual([]);
+  });
+});
+
+describe("RemoteScreen — 소셜룸 세션 중 미루기", () => {
+  const lock = (locked: boolean) => `{"type":"set-back-lock","locked":${String(locked)},"atMs":5}`;
+
+  async function renderLoaded(props: { suppressTabBarMessages?: boolean } = {}) {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const result = render(<RemoteScreen testID="social-webview" path="/social" {...props} />);
+    const webview = await screen.findByTestId("social-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    const send = (data: string) => {
+      act(() => {
+        (webview.props.onMessage as (e: unknown) => void)({ nativeEvent: { data } });
+      });
+    };
+    return { ...result, webview, send };
+  }
+
+  beforeEach(() => {
+    __resetSessionPresenceForTests();
+  });
+
+  it("세션이 잠금을 건 동안 미뤄 둔 일은 잠금이 풀릴 때 실행된다", async () => {
+    const { send } = await renderLoaded();
+    const run = jest.fn();
+
+    send(lock(true));
+    runAfterSession(run);
+    expect(run).not.toHaveBeenCalled();
+
+    send(lock(false));
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("포커스가 없는 탭에서도 세션 중으로 친다", async () => {
+    const { send } = await renderLoaded({ suppressTabBarMessages: true });
+    const run = jest.fn();
+
+    send(lock(true));
+    runAfterSession(run);
+
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("문서가 교체되면(렌더러 종료 복구) 세션 표시가 풀린다", async () => {
+    const { send, webview } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    runAfterSession(run);
+
+    act(() => {
+      (webview.props.onContentProcessDidTerminate as () => void)();
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("같은 문서 안 이동으로 로드 완료가 와도 세션 표시가 유지된다", async () => {
+    const { send, webview } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    runAfterSession(run);
+
+    // iOS 웹뷰는 pushState·replaceState에도 로드 완료를 보내고, 이때만 navigationType이 있다.
+    act(() => {
+      (webview.props.onLoadEnd as (e: unknown) => void)({
+        nativeEvent: { navigationType: "other" },
+      });
+    });
+    expect(run).not.toHaveBeenCalled();
+
+    send(lock(false));
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("로드가 실패해 실패 화면이 뜨면 세션 표시가 풀린다", async () => {
+    const { send, webview } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    runAfterSession(run);
+
+    act(() => {
+      (webview.props.onError as () => void)();
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("잠금 신호가 두 번 와도 한 번의 해제로 풀린다", async () => {
+    const { send } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    send(lock(true));
+    runAfterSession(run);
+
+    send(lock(false));
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("화면이 사라지면 세션 표시가 풀린다", async () => {
+    const { send, unmount } = await renderLoaded();
+    const run = jest.fn();
+    send(lock(true));
+    runAfterSession(run);
+
+    unmount();
+
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });
