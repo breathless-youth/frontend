@@ -283,6 +283,14 @@ function setUserProperties(properties: Record<string, string | number | boolean>
   identify(id);
 }
 
+/** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
+const sentFlags = new Set<string>();
+function setFlagOnce(key: string) {
+  if (!initialized || sentFlags.has(key)) return;
+  sentFlags.add(key);
+  setUserProperties({ [key]: true });
+}
+
 /**
  * 세션이 열린 룸의 종류 — 개인(single) / 그룹 스터디 소셜룸(social).
  *
@@ -323,7 +331,7 @@ export function trackStudySessionStarted(roomType: StudyRoomType, restored = fal
   if (!initialized) return;
   track("study_session_started", { room_type: roomType, restored });
   // 룸 종류별 이용 이력. 서버 세션 기록에는 룸 종류가 없어 시작 순간에 남긴다.
-  setUserProperties({ [roomType === "social" ? "used_social" : "used_single"]: true });
+  setFlagOnce(roomType === "social" ? "used_social" : "used_single");
 }
 
 /**
@@ -449,7 +457,7 @@ export function trackTimelapseShareTapped(input: {
     result: input.result,
     entry: input.entry,
   });
-  setUserProperties({ timelapse_shared: true });
+  setFlagOnce("timelapse_shared");
 }
 
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
@@ -532,7 +540,7 @@ export function trackSocialRoomGraceExceeded() {
 export function trackInviteShared(method: "shared" | "copied" | "failed") {
   if (!initialized) return;
   track("invite_shared", { method });
-  if (method !== "failed") setUserProperties({ invite_shared: true });
+  if (method !== "failed") setFlagOnce("invite_shared");
 }
 
 /** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
@@ -877,7 +885,7 @@ export function trackGuideFinished(input: {
 }) {
   if (!initialized) return;
   track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
-  if (input.reason === "completed") setUserProperties({ guide_finished: true });
+  if (input.reason === "completed") setFlagOnce("guide_finished");
 }
 
 /** 기록 달력 날짜 선택. 절대 날짜는 싣지 않고 오늘 여부·기록 유무만 — 과거 탐색 깊이의 근사. */
@@ -1459,7 +1467,7 @@ export function trackAmbientSoundChanged(input: {
     sound_count: input.sounds.length,
     source: input.source,
   });
-  if (input.sounds.length > 0) setUserProperties({ ambient_sound_used: true });
+  if (input.sounds.length > 0) setFlagOnce("ambient_sound_used");
 }
 
 /** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
