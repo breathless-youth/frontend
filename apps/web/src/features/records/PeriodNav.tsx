@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { IconChevronDown, IconChevronLeft, IconChevronRight } from "./icons";
+import { IconCaretLeft, IconCaretRight } from "./icons";
 
 /**
  * 기간 이동 줄 — `이전 · (가운데 라벨) · 다음`.
@@ -38,7 +38,7 @@ export function PeriodNav({
       className={cn("flex items-center", compact ? "gap-0.5" : "justify-center gap-1.5", className)}
     >
       <Button variant="unstyled" aria-label={prevLabel} onClick={onPrev} className={hitArea}>
-        <IconChevronLeft size={13} color="var(--color-foreground)" />
+        <IconCaretLeft size={10} />
       </Button>
       {children}
       <Button
@@ -48,7 +48,7 @@ export function PeriodNav({
         onClick={onNext}
         className={cn(hitArea, "disabled:opacity-30")}
       >
-        <IconChevronRight size={13} color="var(--color-foreground)" />
+        <IconCaretRight size={10} />
       </Button>
     </div>
   );
@@ -68,7 +68,6 @@ export function PeriodNavPickerButton({
   return (
     <Button variant="unstyled" aria-haspopup="dialog" onClick={onClick} className={className}>
       {children}
-      <IconChevronDown />
     </Button>
   );
 }

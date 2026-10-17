@@ -9,6 +9,8 @@
 | Button / CTA V2 (Kind=Primary·Neutral·Destructive·Subtle, Size=56·48·44·38·36·32) | `2403:111` | `components/ui/button.tsx` (`Button`, `buttonVariants`). 없는 Kind·Size는 variant·size를 추가한다 |
 | Button / CTA (구 4종) | `40:94` | 같은 `Button`. 새 화면은 V2 기준 |
 | Dialog / Confirm V2 (Buttons=One·Two·Two Destructive) | `2405:126` | `components/ui/dialog.tsx` |
+| Button (V2 파일 `YcyImcuVORDbBneii41Byh`, Kind=Outline Primary·Outline Destructive·Link) | `5458:498` | `components/ui/button.tsx`의 `variant="outline-primary"` · `"outline-destructive"` · `"link"` |
+| 삭제 확인 다이얼로그 | `2405:126` (Buttons=Two Destructive) | `components/ui/confirm-dialog.tsx` (`ConfirmDialog`) |
 | Sheet / Bottom | `44:96` | 없음 → `components/ui/drawer.tsx`(vaul) 예정 |
 | Sheet / Menu Item | `2405:138` | 없음 |
 | Control / Toggle | `43:89` | 설정 화면 로컬 |

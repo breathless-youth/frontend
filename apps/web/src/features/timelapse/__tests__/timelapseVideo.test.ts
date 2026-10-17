@@ -118,6 +118,60 @@ describe("buildTimelapseVideo", () => {
     });
   });
 
+  it("사진 전체를 한 번에 읽지 않고 장마다 한 장씩 읽는다", async () => {
+    await readyTimelapse(3);
+    const order: string[] = [];
+    const original = store.readPhoto;
+    const readPhoto = vi.spyOn(store, "readPhoto").mockImplementation((startedAtMs, seq) => {
+      order.push(`read ${seq}`);
+      return original(startedAtMs, seq);
+    });
+    const { built } = deps();
+    const decode = built.decode;
+    built.decode = (bytes) => {
+      order.push("decode");
+      return decode(bytes);
+    };
+
+    await buildTimelapseVideo(T0, store, () => {}, built);
+
+    expect(readPhoto.mock.calls).toEqual([
+      [T0, 0],
+      [T0, 1],
+      [T0, 2],
+    ]);
+    expect(order).toEqual(["read 0", "decode", "read 1", "decode", "read 2", "decode"]);
+  });
+
+  it("사진 번호에 빈자리가 있으면 위치가 아니라 번호로 읽는다", async () => {
+    await readyTimelapse(3);
+    vi.spyOn(store, "photoSeqs").mockResolvedValue([0, 2]);
+    const readPhoto = vi.spyOn(store, "readPhoto");
+    const { built, sink } = deps();
+
+    await buildTimelapseVideo(T0, store, () => {}, built);
+
+    expect(readPhoto.mock.calls).toEqual([
+      [T0, 0],
+      [T0, 2],
+    ]);
+    expect(sink.add.mock.calls.map(([index]) => index)).toEqual([0, 1]);
+  });
+
+  it("만드는 동안 지워진 사진은 건너뛰고 장면 번호를 비우지 않는다", async () => {
+    await readyTimelapse(3);
+    const original = store.readPhoto;
+    vi.spyOn(store, "readPhoto").mockImplementation((startedAtMs, seq) =>
+      seq === 1 ? Promise.resolve(null) : original(startedAtMs, seq),
+    );
+    const { built, sink } = deps();
+
+    await buildTimelapseVideo(T0, store, () => {}, built);
+
+    expect(scenes()).toHaveLength(2);
+    expect(sink.add.mock.calls.map(([index]) => index)).toEqual([0, 1]);
+  });
+
   it("디코드에 실패한 사진은 건너뛰고 장면 번호를 비우지 않는다", async () => {
     await readyTimelapse(3);
     let call = 0;
@@ -154,6 +208,18 @@ describe("buildTimelapseVideo", () => {
       method: "recorder",
       stage: "encode",
     });
+    expect(sink.cancel).toHaveBeenCalled();
+  });
+
+  it("사진을 읽지 못하면 encode 실패로 끝내고 인코더를 닫는다", async () => {
+    await readyTimelapse(2);
+    vi.spyOn(store, "readPhoto").mockRejectedValueOnce(new Error("읽기 실패"));
+    const { built, sink } = deps();
+
+    const error = await buildTimelapseVideo(T0, store, () => {}, built).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TimelapseVideoError);
+    expect(error).toMatchObject({ method: "webcodecs", stage: "encode" });
     expect(sink.cancel).toHaveBeenCalled();
   });
 

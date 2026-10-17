@@ -273,12 +273,12 @@ describe("timelapsePhotosQuery", () => {
     await store.addPhoto(startedAtMs, new Uint8Array([2]).buffer, startedAtMs + 10_000);
   }
 
-  it("사진 바이트를 찍은 순서대로 읽는다", async () => {
+  it("사진 바이트 없이 번호만 찍은 순서대로 읽는다", async () => {
     await seedPhotos();
 
     const photos = await new QueryClient().fetchQuery(timelapsePhotosQuery(startedAtMs, store));
 
-    expect(photos.map((bytes) => new Uint8Array(bytes)[0])).toEqual([1, 2]);
+    expect(photos).toEqual([0, 1]);
   });
 
   it("결과 카드와 같은 키를 쓴다", () => {

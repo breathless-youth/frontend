@@ -94,6 +94,23 @@ describe("useNativeScreenReport", () => {
     expect(lastReport(postMessage).restoreQuery).toEqual({ from: "records" });
   });
 
+  it("입력 화면은 날짜·입구·기록 id와 플래너가 붙인 from을 복원 쿼리로 보고한다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderAt({
+      pathname: "/manual-record",
+      search: "?userId=7&date=2025-03-04&from=home&entry=planner_cell&id=9",
+    });
+
+    expect(lastReport(postMessage).restoreQuery).toEqual({
+      date: "2025-03-04",
+      entry: "planner_cell",
+      id: "9",
+      from: "home",
+    });
+  });
+
   it("entry 없는 온보딩 가이드는 복원 쿼리도 없다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });

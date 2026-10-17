@@ -5,6 +5,7 @@ import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focus
 
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
+import { markSessionOpen } from "../lib/sessionPresence";
 import { RemoteWebViewHost } from "./RemoteWebViewHost";
 
 /**
@@ -111,14 +112,18 @@ export function RemoteScreen({
     if (!suppressTabBarMessages) {
       onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
     }
+    // 새 문서는 잠근 적이 없으니 웹 주도 뒤로가기 잠금도 풀림으로 되돌린다.
+    // 이전 문서의 잠금이 남으면 새 문서에서 뒤로가기가 영영 막히고 세션 중 표시도 남는다.
+    setBackLocked(false);
   };
-  const onLoadEnd = (ok: boolean) => {
+  const onLoadEnd = (ok: boolean, newDocument: boolean) => {
     setLoaded(true);
     setLoadFailed(!ok);
-    // 새 문서는 잠근 적이 없다 — 렌더러 재생성·reload로 문서 세대가 바뀌면 웹 주도
-    // 뒤로가기 잠금을 기본값(풀림)으로 되돌린다. 이전 문서의 잠금이 남으면 새 문서에서
-    // 뒤로가기가 영영 막힌다.
-    setBackLocked(false);
+    // 복구 진입 없이 문서가 통째로 바뀐 경우(웹의 location.reload 등)에도 새 문서는 잠근 적이 없다.
+    // 같은 문서 안 이동에는 되돌리지 않는다. iOS는 그때도 로드 완료를 보내 세션 중 잠금이 풀리기 때문이다.
+    if (newDocument) {
+      setBackLocked(false);
+    }
     if (ok) {
       // 로드 성공에는 탭 바 상태를 건드리지 않는다 — 새 문서가 이미 자기 상태를
       // 보고했을 수 있다(위 onRecoveryStart 주석). 되돌리는 시점은 문서 교체가 확정되는
@@ -129,6 +134,8 @@ export function RemoteScreen({
     if (!suppressTabBarMessages) {
       onBridgeMessage({ type: "set-tab-bar", visible: true, atMs: Date.now() }, () => undefined);
     }
+    // 살아 있는 문서가 없으니 웹 주도 뒤로가기 잠금과 세션 중 표시도 푼다.
+    setBackLocked(false);
   };
 
   const filteredBridgeMessage = (message: HostPassedMessage, reply: BridgeReply) => {
@@ -161,6 +168,10 @@ export function RemoteScreen({
     }
     onBridgeMessage({ ...last, atMs: Date.now() }, () => undefined);
   }, [suppressTabBarMessages, onBridgeMessage]);
+
+  // 웹이 뒤로가기를 잠근 동안은 소셜룸 세션이 진행 중이라, 업데이트 알림창이 끼어들지 않게 세션 중으로 표시한다.
+  // 탭 포커스와 상관없이 건다. 뒤로가기 차단과 달리 다른 탭을 보는 사이에도 세션은 이어지기 때문이다.
+  useEffect(() => (backLocked ? markSessionOpen() : undefined), [backLocked]);
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이
   // 붙어 다시 로드되는 깜빡임·이중 로드(그리고 그 첫 로드의 "브라우저 단독 모드")를 막는다.

@@ -40,7 +40,7 @@ type TimelapseShareDialogProps = {
 };
 
 /** 사진을 읽기 전에도 캔버스 고유 비율로 카드 높이를 잡아 두려고 빈 목록을 넘긴다. */
-const NO_PHOTOS: readonly ArrayBuffer[] = [];
+const NO_PHOTOS: readonly number[] = [];
 
 /**
  * 아직 측정하지 않은 자리
@@ -252,6 +252,7 @@ function ShareDialogBody({
               <TimelapsePlayer
                 aspect={aspect}
                 photos={photos.data ?? NO_PHOTOS}
+                readPhoto={(seq) => store.readPhoto(startedAtMs, seq)}
                 overlay={overlay}
                 className="w-full rounded-sm"
               >

@@ -11,12 +11,13 @@ export function decodeJpeg(bytes: ArrayBuffer): Promise<ImageBitmap> {
 }
 
 interface Options {
-  readonly photos: readonly ArrayBuffer[];
+  readonly photos: readonly number[];
   readonly playing: boolean;
   readonly draw: (photo: ImageBitmap, index: number) => void;
   /** 바뀌면 멈춰 있어도 지금 장을 다시 그린다. 오버레이 값이 늦게 도착할 때 쓴다. */
   readonly redrawKey?: string;
-  readonly decode?: (bytes: ArrayBuffer) => Promise<ImageBitmap>;
+  /** 번호에 맞는 사진을 읽어 푼다. 실패하면 그 장은 깨진 장으로 건너뛴다. */
+  readonly decode: (seq: number) => Promise<ImageBitmap>;
 }
 
 interface Shown {
@@ -32,18 +33,12 @@ interface Shown {
  * 멈춰 있어도 지금 장은 그려 둔다.
  * 장이 넘어가도 React 렌더를 일으키지 않는다. 화면 갱신은 모두 `draw`가 맡는다.
  */
-export function useTimelapsePlayer({
-  photos,
-  playing,
-  draw,
-  redrawKey,
-  decode = decodeJpeg,
-}: Options): void {
+export function useTimelapsePlayer({ photos, playing, draw, redrawKey, decode }: Options): void {
   // 재생·일시정지로 효과가 다시 돌아도 보던 장에서 이어간다.
   const indexRef = useRef(0);
   const shownRef = useRef<Shown | null>(null);
   // 깨진 사진은 일시정지·재생으로 효과가 다시 돌아도 다시 풀지 않는다.
-  const failedRef = useRef(new WeakMap<readonly ArrayBuffer[], Set<number>>());
+  const failedRef = useRef(new WeakMap<readonly number[], Set<number>>());
   const drawFrame = useEffectEvent(draw);
   const decodePhoto = useEffectEvent(decode);
 
@@ -89,9 +84,9 @@ export function useTimelapsePlayer({
     };
 
     const decodeAt = (target: number) => {
-      const bytes = photos[target];
+      const seq = photos[target];
       if (
-        bytes === undefined ||
+        seq === undefined ||
         target === shownRef.current?.index ||
         decoded.has(target) ||
         pending.has(target) ||
@@ -100,7 +95,7 @@ export function useTimelapsePlayer({
         return;
       }
       pending.add(target);
-      decodePhoto(bytes).then(
+      decodePhoto(seq).then(
         (bitmap) => {
           pending.delete(target);
           if (disposed) {

@@ -44,6 +44,7 @@ const FULL_SCREEN_PATHS = [
   "/social/join",
   "/profile",
   "/planner",
+  "/manual-record",
   "/timelapse-settings",
   "/timelapses",
   "/ranking/records",

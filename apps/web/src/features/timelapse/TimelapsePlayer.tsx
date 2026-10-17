@@ -13,11 +13,13 @@ import {
   type TimelapseScene,
 } from "./timelapseFrame";
 import type { TimelapseAspect } from "./timelapseSettings";
-import { useTimelapsePlayer } from "./useTimelapsePlayer";
+import { decodeJpeg, useTimelapsePlayer } from "./useTimelapsePlayer";
 
 type TimelapsePlayerProps = {
   aspect: TimelapseAspect;
-  photos: readonly ArrayBuffer[];
+  photos: readonly number[];
+  /** 번호에 맞는 사진 한 장의 바이트. 지워졌으면 null이다. */
+  readPhoto: (seq: number) => Promise<ArrayBuffer | null>;
   overlay: Pick<TimelapseScene, "info" | "text" | "flow">;
   className?: string;
   /**
@@ -40,6 +42,7 @@ type TimelapsePlayerProps = {
 export function TimelapsePlayer({
   aspect,
   photos,
+  readPhoto,
   overlay,
   className,
   children,
@@ -73,6 +76,13 @@ export function TimelapsePlayer({
 
   useTimelapsePlayer({
     photos,
+    decode: async (seq) => {
+      const bytes = await readPhoto(seq);
+      if (bytes === null) {
+        throw new Error("재생하는 동안 사진이 지워졌다");
+      }
+      return await decodeJpeg(bytes);
+    },
     playing: inView && !paused,
     // D-Day·연속 공부처럼 늦게 오는 값이 멈춘 화면에도 반영되게 한다.
     // 늦게 온 글자의 글꼴이 도착하면 멈춘 화면도 그 글꼴로 다시 그린다.
@@ -119,7 +129,6 @@ export function TimelapsePlayer({
         className="block h-auto w-full"
       />
       {showProgress && (
-        // 둥근 모서리에 닿지 않게 워터마크와 같은 거리만큼 안쪽에 둔다.
         <div
           aria-hidden="true"
           className="absolute inset-x-3 bottom-3 h-[3px] overflow-hidden rounded-[2px] bg-white/30"
@@ -133,7 +142,7 @@ export function TimelapsePlayer({
         </div>
       )}
       {children}
-      {/* 오른쪽 아래는 영상 정보 자리라 비어 있는 왼쪽 아래에 둔다. */}
+      {/* 재생/일시정지 버튼 */}
       <button
         type="button"
         onClick={() => setPaused((value) => !value)}

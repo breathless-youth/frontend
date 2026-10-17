@@ -1412,3 +1412,61 @@ describe("랭킹 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 });
+
+describe("수동 기록 이벤트", () => {
+  it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackManualRecordAdd({
+      entry: "planner_button",
+      durationMin: 60,
+      hasSubject: false,
+      daysAgo: 0,
+      trimmedMin: 0,
+      pieces: 1,
+    });
+    m.trackManualRecordEdit({ entry: "records", durationMin: 30, hasSubject: true, daysAgo: 2 });
+    m.trackManualRecordDelete({ entry: "planner_cell", durationMin: 90, daysAgo: 1 });
+    m.trackManualRecordOverlapBlocked({ entry: "records", daysAgo: 0 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("명세의 이름과 snake_case 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackManualRecordAdd({
+      entry: "planner_cell",
+      durationMin: 90,
+      hasSubject: true,
+      daysAgo: 3,
+      trimmedMin: 30,
+      pieces: 2,
+    });
+    m.trackManualRecordEdit({ entry: "records", durationMin: 45, hasSubject: false, daysAgo: 0 });
+    m.trackManualRecordDelete({ entry: "planner_cell", durationMin: 120, daysAgo: 1 });
+    m.trackManualRecordOverlapBlocked({ entry: "planner_button", daysAgo: 0 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "manual_record_add",
+        {
+          entry: "planner_cell",
+          duration_min: 90,
+          has_subject: true,
+          days_ago: 3,
+          trimmed_min: 30,
+          pieces: 2,
+        },
+      ],
+      [
+        "manual_record_edit",
+        { entry: "records", duration_min: 45, has_subject: false, days_ago: 0 },
+      ],
+      ["manual_record_delete", { entry: "planner_cell", duration_min: 120, days_ago: 1 }],
+      ["manual_record_overlap_blocked", { entry: "planner_button", days_ago: 0 }],
+    ]);
+  });
+});

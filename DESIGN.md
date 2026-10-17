@@ -170,7 +170,7 @@ FocusMakers의 시각적 성격은 차분함, 명료함, 신뢰, 지속적인 �
 | Token                  | Light     | Dark      | Use               |
 | ---------------------- | --------- | --------- | ----------------- |
 | `feedback.success`     | `#12b76a` | `#32d583` | 완료, 성공        |
-| `feedback.error`       | `#f04452` | `#ff6b77` | 오류, 파괴적 행동 |
+| `feedback.error`       | `#d22030` | `#ff6b77` | 오류, 파괴적 행동 |
 | `feedback.errorSubtle` | `#ffebee` | `#3d1b1f` | 오류 배경         |
 
 경고(warning)와 정보(info) 색은 **아직 정의돼 있지 않다.** 필요해지면 임의로 만들지 말고

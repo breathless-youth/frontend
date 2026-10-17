@@ -219,7 +219,12 @@ export function ResultTimelapseCard({
         </InfoTooltip>
       </CardHeader>
       <div className="mt-4 flex justify-center px-4">
-        <TimelapsePlayer aspect={ready.settings.aspect} photos={photos.data} overlay={overlay} />
+        <TimelapsePlayer
+          aspect={ready.settings.aspect}
+          photos={photos.data}
+          readPhoto={(seq) => store.readPhoto(startedAtMs, seq)}
+          overlay={overlay}
+        />
       </div>
       {/* 공유하기는 초대코드 공유 화면의 공유하기 버튼과 같은 모양이다.
           다운로드는 흰 카드 위에서 경계가 보이도록 가는 외곽선으로 둔다. */}

@@ -339,10 +339,10 @@ export function dayHeadlineLabel(selectedKey: string, todayKey: string): string 
   return `${monthOfDateKey(selectedKey).month}월 ${dayOfDateKey(selectedKey)}일 순공시간`;
 }
 
-/** 선택일 제목 `M월 D일 요일`. */
-export function dayTitleWithWeekday(dateKey: string): string {
+/** 선택일 제목 `M월 D일 요일`. `short`면 요일을 한 글자(`금`)로 줄인다 — 플래너 상단 바 제목처럼 자리가 좁은 곳. */
+export function dayTitleWithWeekday(dateKey: string, short = false): string {
   const month = monthOfDateKey(dateKey).month;
   const day = dayOfDateKey(dateKey);
   const weekday = WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)];
-  return `${month}월 ${day}일 ${weekday}요일`;
+  return `${month}월 ${day}일 ${weekday}${short ? "" : "요일"}`;
 }

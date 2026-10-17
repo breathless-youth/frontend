@@ -14,9 +14,9 @@ import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { useFocusStart } from "@/features/onboarding/useFocusStart";
-import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
-import { IconPlanner, IllustFlame } from "@/features/records/icons";
+import { IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
@@ -50,7 +50,7 @@ function StreakCard({ summary }: { summary: HomeSummary }) {
       <IllustFlame width={38} height={44} />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex items-center gap-1">
-          <h2 className="text-[15px] leading-[19px] font-bold text-foreground">
+          <h2 className="text-[15px] leading-4.75 font-bold text-foreground">
             {summary.streakDays}일 연속 공부 중
           </h2>
           <InfoTooltip label="연속 공부 기준 안내" iconSize={14}>
@@ -71,7 +71,7 @@ function Stat({ label, value, className }: { label: string; value: string; class
   return (
     <div className={cn("flex flex-1 flex-col gap-1", className)}>
       <p className="text-[13px] leading-4 text-muted-foreground">{label}</p>
-      <p className="text-lg leading-[22px] font-extrabold text-foreground tabular-nums">
+      <p className="text-lg leading-5.5 font-extrabold text-foreground tabular-nums">
         {/* 숫자만 자간을 벌리려고 숫자 덩어리를 따로 감싼다 */}
         {value.split(/(\d+)/).map((part, i) =>
           i % 2 ? (
@@ -92,16 +92,14 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
   const focusPercent = Math.round(Math.min(100, Math.max(0, summary.focusRate)));
 
   return (
-    <Card className={cn(CARD_CLASS, "flex flex-col gap-[18px] px-[22px] pt-[22px] pb-5")}>
+    <Card className={cn(CARD_CLASS, "flex flex-col gap-4.5 px-5.5 pt-5.5 pb-5")}>
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm leading-[17px] font-bold text-muted-foreground">오늘 순공시간</p>
+          <p className="text-sm leading-4.25 font-bold text-muted-foreground">오늘 순공시간</p>
           <p className="flex items-baseline pt-1.5 pb-2 text-foreground tabular-nums">
-            <span className="text-[40px] leading-[48px] font-extrabold tracking-[2px]">
-              {hours}
-            </span>
+            <span className="text-[40px] leading-12 font-extrabold tracking-[2px]">{hours}</span>
             <span className="text-[21px] font-bold">시간</span>
-            <span className="ml-1.5 text-[40px] leading-[48px] font-extrabold tracking-[2px]">
+            <span className="ml-1.5 text-[40px] leading-12 font-extrabold tracking-[2px]">
               {minutes}
             </span>
             <span className="text-[21px] font-bold">분</span>
@@ -110,8 +108,8 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm leading-[17px] font-bold text-muted-foreground">집중률</p>
-            <p className="text-[15px] leading-[18px] font-extrabold text-primary tabular-nums">
+            <p className="text-sm leading-4.25 font-bold text-muted-foreground">집중률</p>
+            <p className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums">
               {focusPercent}%
             </p>
           </div>
@@ -138,14 +136,14 @@ function InviteCard({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 items-center rounded-xl bg-brand-subtle px-[22px] py-5 text-left"
+      className="flex min-h-11 items-center rounded-xl bg-brand-subtle px-5.5 py-5 text-left"
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1 text-primary">
-        <span className="text-base leading-[22px] font-semibold">
+        <span className="text-base leading-5.5 font-semibold">
           오늘은 혼자 집중하기 힘든가요? <br />
           사람들과 함께 공부해보세요
         </span>{" "}
-        <span className="flex items-center gap-1 self-end pt-3.5 text-xs leading-[15px] font-bold">
+        <span className="flex items-center gap-1 self-end pt-3.5 text-xs leading-3.75 font-bold">
           그룹 스터디하러 이동
           <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
         </span>
@@ -209,8 +207,8 @@ function HomeContent({ userId }: { userId: number }) {
     <>
       {summaryState.status === "pending" && (
         <>
-          <Skeleton className="h-[101px] rounded-xl" />
-          <Skeleton className="h-[252px] rounded-xl" />
+          <Skeleton className="h-25.25 rounded-xl" />
+          <Skeleton className="h-63 rounded-xl" />
         </>
       )}
       {summaryState.status === "error" && (
@@ -225,7 +223,7 @@ function HomeContent({ userId }: { userId: number }) {
 
       <Button
         size="xl"
-        className="w-full text-[18px] leading-[21px] font-bold tracking-[0.9px]"
+        className="w-full text-[18px] leading-5.25 font-bold tracking-[0.9px]"
         onClick={() => startFocus("home")}
       >
         집중 시작
@@ -259,7 +257,7 @@ function HomeHeaderLead({
       return (
         <>
           {hiddenTitle}
-          <Skeleton data-testid="home-header-pending" className="h-[54px] w-32 rounded-lg" />
+          <Skeleton data-testid="home-header-pending" className="h-13.5 w-32 rounded-lg" />
         </>
       );
     }
@@ -268,31 +266,16 @@ function HomeHeaderLead({
         <>
           {hiddenTitle}
           <DdaySection userId={userId} />
-          <PlannerEntryButton />
+          <PlannerPillButton via="home" className="mt-1 self-start" />
         </>
       );
     }
   }
   return (
     <>
-      <h1 className="text-[24px] leading-[30px] font-bold text-foreground">FocusMakers</h1>
-      <p className="text-sm leading-[17px] text-muted-foreground">{todayLabel()}</p>
+      <h1 className="text-[24px] leading-7.5 font-bold text-foreground">FocusMakers</h1>
+      <p className="text-sm leading-4.25 text-muted-foreground">{todayLabel()}</p>
     </>
-  );
-}
-
-/** 헤더 오른쪽의 플래너 알약 — 오늘의 플래너를 연다. */
-function PlannerEntryButton() {
-  const openPlanner = useOpenPlanner("home");
-  return (
-    <button
-      type="button"
-      onClick={() => openPlanner()}
-      className="mt-1 flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full bg-muted pr-3 pl-2.5 text-[13px] leading-4 font-semibold text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]"
-    >
-      <IconPlanner size={18} />
-      플래너
-    </button>
   );
 }
 
@@ -315,7 +298,7 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
         <header className="flex items-end justify-between pb-2">
@@ -325,8 +308,8 @@ export function HomeTabPage() {
         {identityPending ? (
           // 첫 토큰을 기다리는 동안은 헤더와 같이 로딩이다 — "등록 전"이라고 단정하지 않는다.
           <>
-            <Skeleton className="h-[101px] rounded-xl" />
-            <Skeleton className="h-[252px] rounded-xl" />
+            <Skeleton className="h-25.25 rounded-xl" />
+            <Skeleton className="h-63 rounded-xl" />
           </>
         ) : userId === null ? (
           <p className="p-4 text-sm text-muted-foreground">

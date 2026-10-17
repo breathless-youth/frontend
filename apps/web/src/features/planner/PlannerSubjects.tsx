@@ -47,10 +47,10 @@ interface Menu {
 }
 
 /**
- * 플래너 왼쪽 열 — 과목마다 색·이름·그날 순공시간, 그 아래 할 일.
+ * 플래너 왼쪽 열 — 과목마다 색·이름·그날 순공시간, 할 일
  *
- * 그날 완료한 할 일은 체크된 채 과목 아래에 보인다. 과목을 고르지 않고 공부한 순공은 목록 맨 아래에
- * `과목 없음` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
+ * 그날 완료한 할 일은 체크된 채 과목 아래에 보인다.
+ * 과목을 고르지 않고 공부한 순공은 목록 맨 아래에 `과목 없음` 행으로 따로 보인다(과목이 하나도 없으면 그 행이 맨 위다).
  *
  * `store`가 있으면 세션 과목 시트와 같은 목록을 같은 방식으로 관리한다 — 할 일 탭=완료 토글,
  * 길게 누르기=`이름 변경 · 삭제` 메뉴, 과목을 길게 누른 채 끌기=순서 변경,
@@ -123,15 +123,15 @@ export function PlannerSubjects({
 
       {/* 범례는 타임테이블의 색을 풀이한다 — 공부하지 않은 날은 칠한 칸이 없어 두지 않는다. */}
       {studied && (
-        <div className="flex items-start gap-3 pt-3.5">
-          <span className="flex items-center gap-[5px]">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 pt-3.5">
+          <span className="flex items-center gap-1.25">
             <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
-            <span className="text-[11px] leading-[13px] text-muted-foreground">휴식</span>
+            <span className="text-[11px] leading-3.25 text-muted-foreground">휴식</span>
           </span>
           {hasUnassigned && (
-            <span className="flex items-center gap-[5px]">
+            <span className="flex items-center gap-1.25">
               <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
-              <span className="text-[11px] leading-[13px] text-muted-foreground">과목 없음</span>
+              <span className="text-[11px] leading-3.25 text-muted-foreground">과목 없음</span>
             </span>
           )}
         </div>
@@ -164,7 +164,7 @@ function UnassignedRow({ focusSec }: { focusSec: number }) {
   return (
     <section className="flex h-9 items-center gap-1">
       <span aria-hidden className="size-2 shrink-0 rounded-[2px] bg-primary" />
-      <h2 className="min-w-0 flex-1 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
+      <h2 className="min-w-0 flex-1 truncate pl-0.75 text-[15px] leading-5 font-semibold text-foreground">
         과목 없음
       </h2>
       <FocusTime focusSec={focusSec} />
@@ -177,9 +177,9 @@ function SubjectHeadContent({ item, grip = false }: { item: PlannerSubjectItem; 
   return (
     <>
       {grip && (
-        <span aria-hidden className="grid shrink-0 grid-cols-2 gap-[3px]">
+        <span aria-hidden className="grid shrink-0 grid-cols-2 gap-0.75">
           {[0, 1, 2, 3, 4, 5].map((dot) => (
-            <span key={dot} className="size-[3px] rounded-full bg-text-tertiary" />
+            <span key={dot} className="size-0.75 rounded-full bg-text-tertiary" />
           ))}
         </span>
       )}
@@ -188,7 +188,7 @@ function SubjectHeadContent({ item, grip = false }: { item: PlannerSubjectItem; 
         className="size-2 shrink-0 rounded-[2px]"
         style={{ background: subjectColorVar(item.colorIndex) }}
       />
-      <h2 className="min-w-0 flex-1 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
+      <h2 className="min-w-0 flex-1 truncate pl-0.75 text-[15px] leading-5 font-semibold text-foreground">
         {item.name}
       </h2>
       <FocusTime focusSec={item.focusSec} />
@@ -198,17 +198,17 @@ function SubjectHeadContent({ item, grip = false }: { item: PlannerSubjectItem; 
 
 /** 공용 Checkbox를 플래너의 둥근 체크 모양으로 맞춘다. */
 const TASK_CHECK_CLASS =
-  "size-[18px] rounded-full border-[1.5px] border-text-tertiary shadow-none data-[state=checked]:border-primary [&_svg]:size-[11px]";
+  "size-4.5 rounded-full border-[1.5px] border-text-tertiary shadow-none data-[state=checked]:border-primary [&_svg]:size-2.75";
 
 function taskNameClass(done: boolean) {
   return cn(
-    "min-w-0 flex-1 truncate text-sm leading-[18px] font-medium",
+    "min-w-0 flex-1 truncate text-sm leading-4.5 font-medium",
     done ? "text-text-tertiary line-through" : "text-foreground",
   );
 }
 
 const SUBJECT_CLASS = "relative -mx-1 flex flex-col rounded-[12px] px-1 pt-0.5 pb-1.5";
-const TASK_ROW_CLASS = "flex h-8 items-center gap-2 rounded-[8px] px-1";
+const TASK_ROW_CLASS = "flex h-8 items-center gap-2 rounded-sm px-1";
 
 /** 보기 전용 할 일 줄 — 지난 날, 그리고 오늘이라도 목록에서 지워진 할 일. */
 function StaticTask({ task }: { task: PlannerTaskItem }) {
@@ -235,7 +235,7 @@ function StaticSubject({ item }: { item: PlannerSubjectItem }) {
         <SubjectHeadContent item={item} />
       </div>
       {item.tasks.length > 0 && (
-        <ul className="flex flex-col pl-[15px]">
+        <ul className="flex flex-col pl-3.75">
           {item.tasks.map((task) => (
             <StaticTask key={task.id} task={task} />
           ))}
@@ -284,13 +284,13 @@ function InlineEditor({
         onKeyDown={handleKeyDown}
         onBlur={commit}
         // 공용 입력(높이 52)을 플래너 줄 높이에 맞춘다. 테두리가 이미 브랜드색이라 포커스 링은 겹쳐 그리지 않는다.
-        className="h-8 min-w-0 flex-1 rounded-[8px] border-primary bg-bg-layer-2 px-2 text-sm leading-[18px] font-medium placeholder:text-muted-foreground focus-visible:ring-0"
+        className="h-8 min-w-0 flex-1 rounded-sm border-primary bg-bg-layer-2 px-2 text-sm leading-4.5 font-medium placeholder:text-muted-foreground focus-visible:ring-0"
       />
       <Button
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="h-8 shrink-0 rounded-[8px] px-[9px] py-0 text-xs leading-4 font-semibold"
+        className="h-8 shrink-0 rounded-sm px-2.25 py-0 text-xs leading-4 font-semibold"
       >
         {SUBJECT_SHEET_COPY.done}
       </Button>
@@ -298,7 +298,7 @@ function InlineEditor({
   );
 }
 
-const ROW_MENU_ITEM_CLASS = "h-10 rounded-[10px] px-3 py-0 text-sm leading-[18px] font-medium";
+const ROW_MENU_ITEM_CLASS = "h-10 rounded-[10px] px-3 py-0 text-sm leading-4.5 font-medium";
 
 /**
  * 길게 누르기 메뉴 — 누른 행 바로 아래에 뜬다. 공용 DropdownMenu를 쓰되 여는 것은 호출부의 길게 누르기가
@@ -337,7 +337,7 @@ function RowMenu({
         onFocusOutside={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
         // 포털이 body로 나가므로 테마를 다시 단다. 명세가 모션을 더하지 않기로 해서 등장 애니메이션은 끈다.
-        className="theme-soft-blue w-[150px] min-w-0 rounded-[14px] p-1.5 shadow-[0_12px_16px_0_rgba(15,23,42,0.18)] data-[state=open]:animate-none"
+        className="theme-soft-blue w-37.5 min-w-0 rounded-[14px] p-1.5 shadow-[0_12px_16px_0_rgba(15,23,42,0.18)] data-[state=open]:animate-none"
       >
         <DropdownMenuItem
           // 누른 채 메뉴 위로 끌고 와 떼는 것만으로 고르지 않게 한다 — 항목을 눌렀다 떼야 고른다.
@@ -649,7 +649,7 @@ function ManagedSubject({
         </div>
       )}
 
-      <div className="flex flex-col pl-[15px]">
+      <div className="flex flex-col pl-3.75">
         {item.tasks.length > 0 && (
           <ul className="flex flex-col">
             {item.tasks.map((task) => {
@@ -710,9 +710,9 @@ function ManagedSubject({
               onMenu(null);
               onEditing({ kind: "new-task", subjectId });
             }}
-            className="flex h-[30px] w-full justify-start gap-1.5 px-1 py-0 text-[13px] leading-4 text-text-tertiary"
+            className="flex h-7.5 w-full justify-start gap-1.5 px-1 py-0 text-[13px] leading-4 text-text-tertiary"
           >
-            <span aria-hidden className="w-[18px] text-center text-base leading-4">
+            <span aria-hidden className="w-4.5 text-center text-base leading-4">
               +
             </span>
             {SUBJECT_SHEET_COPY.addTask}
@@ -787,7 +787,7 @@ function ManagedSubjects({
                   className="size-2 shrink-0 rounded-[2px]"
                   style={{ background: subjectColorVar(index) }}
                 />
-                <span className="min-w-0 truncate pl-[3px] text-[15px] leading-5 font-semibold text-foreground">
+                <span className="min-w-0 truncate pl-0.75 text-[15px] leading-5 font-semibold text-foreground">
                   {name}
                 </span>
               </span>
@@ -836,9 +836,9 @@ function ManagedSubjects({
             setMenu(null);
             setEditing({ kind: "new-subject" });
           }}
-          className="flex h-11 w-full justify-start gap-1.5 px-0 pt-1 pb-0 leading-[18px] font-semibold text-primary"
+          className="flex h-11 w-full justify-start gap-1.5 px-0 pt-1 pb-0 leading-4.5 font-semibold text-primary"
         >
-          <span aria-hidden className="w-[18px] text-center text-lg leading-[18px] font-medium">
+          <span aria-hidden className="w-4.5 text-center text-lg leading-4.5 font-medium">
             +
           </span>
           {SUBJECT_SHEET_COPY.addSubject}

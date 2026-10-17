@@ -116,6 +116,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
         atMs: record.atMs,
       };
+    case "records-changed":
+      return { type: "records-changed", atMs: record.atMs };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
     case "request-camera-permission":
