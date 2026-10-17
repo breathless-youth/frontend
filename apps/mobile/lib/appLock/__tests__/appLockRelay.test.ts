@@ -13,6 +13,13 @@ import { handleAppLockMessage, notifyPickerClosed } from "../appLockRelay";
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 jest.mock("../appLock", () => ({
   authorizeAppLock: jest.fn(),
+  fallbackAppLockState: () => ({
+    supported: true,
+    authorized: false,
+    revoked: false,
+    appCount: 0,
+    categoryCount: 0,
+  }),
   getAppLockState: jest.fn(),
   isAppLockSupported: jest.fn(),
   saveSelection: jest.fn(),

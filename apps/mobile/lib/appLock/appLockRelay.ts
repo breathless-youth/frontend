@@ -5,6 +5,7 @@ import type { HandlerMessage, ToWebMessage } from "@focusmakers/types";
 import {
   type AppLockState,
   authorizeAppLock,
+  fallbackAppLockState,
   getAppLockState,
   isAppLockSupported,
   saveSelection,
@@ -33,13 +34,7 @@ async function pickerState(read: () => Promise<AppLockState>): Promise<AppLockSt
     return await read();
   } catch (error) {
     console.warn("[app-lock] 고르기 상태 읽기 실패", error);
-    return {
-      supported: isAppLockSupported(),
-      authorized: false,
-      revoked: false,
-      appCount: 0,
-      categoryCount: 0,
-    };
+    return fallbackAppLockState();
   }
 }
 

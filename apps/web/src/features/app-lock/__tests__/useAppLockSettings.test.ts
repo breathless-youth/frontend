@@ -96,6 +96,46 @@ describe("useAppLockSettings", () => {
     expect(showToast).not.toHaveBeenCalled();
   });
 
+  it("허용했는데 고른 앱이 없으면 바로 고르기 화면을 연다", async () => {
+    vi.mocked(authorizeAppLock).mockResolvedValue({
+      ...STATE,
+      authorized: true,
+      appCount: 0,
+      categoryCount: 0,
+    });
+    vi.mocked(pickAppLockApps).mockResolvedValue({ ...STATE, authorized: true, appCount: 2 });
+    const { result } = await renderSettings();
+    await act(() => result.current.toggle(true));
+    expect(result.current.enabled).toBe(true);
+    expect(pickAppLockApps).toHaveBeenCalledTimes(1);
+    expect(result.current).toMatchObject({ appCount: 2, busy: false });
+    expect(analytics.trackAppLockAppsSelected).toHaveBeenCalledWith({
+      appCount: 2,
+      categoryCount: 1,
+    });
+  });
+
+  it("허용했고 고른 앱이 있으면 고르기 화면을 열지 않는다", async () => {
+    vi.mocked(authorizeAppLock).mockResolvedValue({
+      ...STATE,
+      authorized: true,
+      appCount: 3,
+      categoryCount: 0,
+    });
+    const { result } = await renderSettings();
+    await act(() => result.current.toggle(true));
+    expect(result.current.enabled).toBe(true);
+    expect(pickAppLockApps).not.toHaveBeenCalled();
+  });
+
+  it("거부하면 고른 앱이 없어도 고르기 화면을 열지 않는다", async () => {
+    vi.mocked(authorizeAppLock).mockResolvedValue({ ...STATE, appCount: 0, categoryCount: 0 });
+    const { result } = await renderSettings();
+    await act(() => result.current.toggle(true));
+    expect(result.current.enabled).toBe(false);
+    expect(pickAppLockApps).not.toHaveBeenCalled();
+  });
+
   it("권한 창에서 거부하면 끈 채로 두고 안내하지 않는다", async () => {
     vi.mocked(authorizeAppLock).mockResolvedValue(STATE);
     const { result } = await renderSettings();

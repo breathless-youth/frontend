@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import {
   authorizeAppLock,
   cleanupOnLaunch,
+  fallbackAppLockState,
   getAppLockState,
   isAppLockSupported,
   safetyReleaseSchedule,
@@ -96,6 +97,20 @@ describe("isAppLockSupported", () => {
   });
 });
 
+describe("fallbackAppLockState", () => {
+  it("지원 여부만 기기에 맞추고 나머지는 잠글 수 없는 상태다", () => {
+    expect(fallbackAppLockState()).toEqual({
+      supported: true,
+      authorized: false,
+      revoked: false,
+      appCount: 0,
+      categoryCount: 0,
+    });
+    mockedGetRnda.mockReturnValue(null);
+    expect(fallbackAppLockState()).toMatchObject({ supported: false });
+  });
+});
+
 describe("getAppLockState", () => {
   it("허용 상태면 개수를 싣고 허용 기록을 남긴다", async () => {
     await expect(getAppLockState()).resolves.toEqual({
@@ -118,6 +133,30 @@ describe("getAppLockState", () => {
     rnda.getAuthorizationStatus.mockReturnValue(0);
     await expect(getAppLockState()).resolves.toMatchObject({ authorized: false, revoked: false });
   });
+
+  it("권한 상태를 읽다 던지면 경고 한 번만 남기고 허용 안 됨으로 답한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    rnda.getAuthorizationStatus.mockImplementation(() => {
+      throw new Error("native");
+    });
+    await expect(getAppLockState()).resolves.toMatchObject({ supported: true, authorized: false });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["app-lock-query", "app-lock-authorize"] as const)(
+    "권한 상태를 읽다 던져도 %s에 그 id로 답한다",
+    async (type) => {
+      jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      rnda.getAuthorizationStatus.mockImplementation(() => {
+        throw new Error("native");
+      });
+      const reply = jest.fn();
+      await handleAppLockMessage({ type, id: "r1", atMs: 1 }, reply);
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "app-lock-state", id: "r1", authorized: false }),
+      );
+    },
+  );
 });
 
 describe("authorizeAppLock", () => {
@@ -346,8 +385,7 @@ describe("브리지로 온 시작·해제 순서", () => {
   });
 
   it("앞 처리가 실패해도 다음 메시지를 처리한다", async () => {
-    jest.spyOn(console, "warn").mockImplementation(() => undefined);
-    rnda.getAuthorizationStatus.mockImplementationOnce(() => {
+    mockedGetRnda.mockImplementationOnce(() => {
       throw new Error("native");
     });
     const reply = jest.fn();

@@ -57,6 +57,11 @@ export function isAppLockSupported(): boolean {
   return supportedRnda() !== null;
 }
 
+/** 상태를 읽지 못했을 때 웹에 답할 잠글 수 없는 상태 */
+export function fallbackAppLockState(): AppLockState {
+  return { ...UNSUPPORTED, supported: isAppLockSupported() };
+}
+
 /** 잠금 실패가 공부 측정을 막으면 안 되어서 RNDA 호출은 전부 경고만 남기고 넘어간다. */
 function safely(label: string, call: () => void): boolean {
   try {
@@ -75,6 +80,16 @@ function selectionCounts(rnda: RndaApi): { appCount: number; categoryCount: numb
   } catch (error) {
     console.warn("[appLock] 선택 개수 읽기 실패", error);
     return { appCount: 0, categoryCount: 0 };
+  }
+}
+
+// 던지면 조회·권한 요청이 웹에 답하지 못해 웹이 시간 제한까지 기다려서 허용 안 됨으로 읽는다.
+function isAuthorized(rnda: RndaApi): boolean {
+  try {
+    return rnda.getAuthorizationStatus() === APPROVED_STATUS;
+  } catch (error) {
+    console.warn("[appLock] 권한 상태 읽기 실패", error);
+    return false;
   }
 }
 
@@ -97,7 +112,7 @@ export async function getAppLockState(): Promise<AppLockState> {
   if (rnda === null) {
     return UNSUPPORTED;
   }
-  const authorized = rnda.getAuthorizationStatus() === APPROVED_STATUS;
+  const authorized = isAuthorized(rnda);
   const approvedBefore = await readApprovedBefore();
   if (authorized && !approvedBefore) {
     await SecureStore.setItemAsync(APPROVED_BEFORE_KEY, "1", STORE_OPTIONS).catch(() => undefined);
@@ -114,7 +129,7 @@ export async function getAppLockState(): Promise<AppLockState> {
 
 export async function authorizeAppLock(): Promise<AppLockState> {
   const rnda = supportedRnda();
-  if (rnda === null || rnda.getAuthorizationStatus() === APPROVED_STATUS) {
+  if (rnda === null || isAuthorized(rnda)) {
     return getAppLockState();
   }
   try {
@@ -176,7 +191,7 @@ export async function startStudyLock(
   now: Date = new Date(),
 ): Promise<{ appCount: number; categoryCount: number } | null> {
   const rnda = supportedRnda();
-  if (rnda === null || rnda.getAuthorizationStatus() !== APPROVED_STATUS) {
+  if (rnda === null || !isAuthorized(rnda)) {
     return null;
   }
   const counts = selectionCounts(rnda);

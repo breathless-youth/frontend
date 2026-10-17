@@ -91,6 +91,8 @@ export function useAppLockSettings() {
       writeAppLockEnabled(true);
       setEnabled(true);
       trackAppLockToggled({ on: true, source: "settings" });
+      // 고른 앱 없이 켜 두면 켜짐으로 보여도 공부할 때 아무것도 잠기지 않는다.
+      if (state.appCount + state.categoryCount === 0) await pick();
     }
   };
 
