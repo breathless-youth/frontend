@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import type * as ReactNative from "react-native";
 
 import RootLayout from "../app/_layout";
+import { cleanupOnLaunch } from "../lib/appLock/appLock";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 import { setSessionInviteHandler } from "../lib/sessionInvite";
@@ -88,6 +89,10 @@ jest.mock("../lib/pushBootstrap", () => ({
 // 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.
 jest.mock("../lib/metaAdsSdk", () => ({
   installMetaAdsSdk: jest.fn(),
+}));
+// 방해 앱 잠금 정리는 모듈 스코프에서 부르므로 factory 안에서 만든다(동작은 `lib/appLock/__tests__/appLock.test.ts`).
+jest.mock("../lib/appLock/appLock", () => ({
+  cleanupOnLaunch: jest.fn(() => Promise.resolve()),
 }));
 // Firebase Analytics 어댑터 설치도 호출만 기록한다(동작은 `lib/__tests__/firebaseAnalytics.test.ts`).
 jest.mock("../lib/firebaseAnalyticsSdk", () => ({
@@ -503,6 +508,14 @@ describe("RootLayout 권장 알림창 시점", () => {
     });
 
     expect(mockMaybeShow).not.toHaveBeenCalled();
+  });
+});
+
+describe("RootLayout 방해 앱 잠금 정리", () => {
+  it("프로세스가 시작될 때 한 번 남은 잠금을 정리하고 다시 그려도 부르지 않는다", () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    render(<RootLayout />);
+    expect(cleanupOnLaunch).toHaveBeenCalledTimes(1);
   });
 });
 

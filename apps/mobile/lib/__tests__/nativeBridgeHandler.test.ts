@@ -20,6 +20,7 @@ import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
+import { handleAppLockMessage } from "../appLock/appLockRelay";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -70,6 +71,10 @@ jest.mock("../auth", () => ({
   awaitAuth: jest.fn(),
   ensureAuth: jest.fn(),
   refreshAuth: jest.fn(),
+}));
+
+jest.mock("../appLock/appLockRelay", () => ({
+  handleAppLockMessage: jest.fn(async () => undefined),
 }));
 
 jest.mock("../videoTransfer", () => ({
@@ -694,5 +699,19 @@ describe("handleBridgeMessage: 타임랩스 영상", () => {
     await flush();
 
     expect(mockedShareVideo).toHaveBeenCalledWith(ID, 2, "본문", undefined, "kakao");
+  });
+});
+
+describe("handleBridgeMessage: 방해 앱 잠금", () => {
+  it.each([
+    "app-lock-query",
+    "app-lock-authorize",
+    "app-lock-pick",
+    "app-lock-start",
+    "app-lock-stop",
+  ] as const)("%s는 잠금 릴레이에 같은 답 통로와 함께 넘긴다", (type) => {
+    const reply = jest.fn();
+    handleBridgeMessage({ type, atMs: 1 }, reply);
+    expect(handleAppLockMessage).toHaveBeenCalledWith({ type, atMs: 1 }, reply);
   });
 });
