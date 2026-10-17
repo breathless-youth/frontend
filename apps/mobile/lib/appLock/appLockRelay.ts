@@ -54,6 +54,9 @@ export function handleAppLockMessage(message: AppLockMessage, reply: Reply): Pro
   if (message.type !== "app-lock-start" && message.type !== "app-lock-stop") {
     return handleNow(message, reply);
   }
+  // 네이티브 호출은 언젠가 끝난다고 보고 줄에 시간 제한을 두지 않는다.
+  // 시작이 startMonitoring에서 멈춰도 그때는 안전 해제 예약만 걸리고 아직 잠그지 않아서 남는 잠금이 없다.
+  // 멈추면 뒤의 시작·해제가 다음 프로세스 시작까지 기다리게 되고, 그 시작의 실행 시 정리는 이 줄 밖에서 돈다.
   const run = queue.then(() => handleNow(message, reply));
   queue = run.catch(() => undefined);
   return run;

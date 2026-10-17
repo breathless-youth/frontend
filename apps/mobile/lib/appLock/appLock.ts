@@ -84,12 +84,13 @@ function selectionCounts(rnda: RndaApi): { appCount: number; categoryCount: numb
 }
 
 // 던지면 조회·권한 요청이 웹에 답하지 못해 웹이 시간 제한까지 기다려서 허용 안 됨으로 읽는다.
-function isAuthorized(rnda: RndaApi): boolean {
+// 읽기 실패를 허용 안 됨과 같은 false로 돌려주면 일시적인 실패가 권한을 끈 것으로 읽혀 웹이 기능을 꺼서 null로 따로 돌려준다.
+function readAuthorized(rnda: RndaApi): boolean | null {
   try {
     return rnda.getAuthorizationStatus() === APPROVED_STATUS;
   } catch (error) {
     console.warn("[appLock] 권한 상태 읽기 실패", error);
-    return false;
+    return null;
   }
 }
 
@@ -112,7 +113,8 @@ export async function getAppLockState(): Promise<AppLockState> {
   if (rnda === null) {
     return UNSUPPORTED;
   }
-  const authorized = isAuthorized(rnda);
+  const status = readAuthorized(rnda);
+  const authorized = status === true;
   const approvedBefore = await readApprovedBefore();
   if (authorized && !approvedBefore) {
     await SecureStore.setItemAsync(APPROVED_BEFORE_KEY, "1", STORE_OPTIONS).catch(() => undefined);
@@ -122,14 +124,14 @@ export async function getAppLockState(): Promise<AppLockState> {
     authorized,
     // 키체인 기록은 앱을 지워도 남을 수 있지만, 재설치하면 웹의 켜짐 표시도 지워지고 꺼짐 확인은 켜져 있을 때만 돌아서 낡은 기록이 기능을 잘못 끄지 않는다.
     // 웹의 켜짐 표시가 재설치 뒤에도 남게 바뀌면 이 판단을 다시 본다.
-    revoked: approvedBefore && !authorized,
+    revoked: approvedBefore && status === false,
     ...selectionCounts(rnda),
   };
 }
 
 export async function authorizeAppLock(): Promise<AppLockState> {
   const rnda = supportedRnda();
-  if (rnda === null || isAuthorized(rnda)) {
+  if (rnda === null || readAuthorized(rnda) === true) {
     return getAppLockState();
   }
   try {
@@ -191,7 +193,7 @@ export async function startStudyLock(
   now: Date = new Date(),
 ): Promise<{ appCount: number; categoryCount: number } | null> {
   const rnda = supportedRnda();
-  if (rnda === null || !isAuthorized(rnda)) {
+  if (rnda === null || readAuthorized(rnda) !== true) {
     return null;
   }
   const counts = selectionCounts(rnda);

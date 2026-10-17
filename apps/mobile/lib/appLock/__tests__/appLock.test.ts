@@ -143,6 +143,15 @@ describe("getAppLockState", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("허용 기록이 있어도 권한 상태를 읽다 던지면 revoked가 아니다", async () => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    mockedGet.mockResolvedValue("1");
+    rnda.getAuthorizationStatus.mockImplementation(() => {
+      throw new Error("native");
+    });
+    await expect(getAppLockState()).resolves.toMatchObject({ authorized: false, revoked: false });
+  });
+
   it.each(["app-lock-query", "app-lock-authorize"] as const)(
     "권한 상태를 읽다 던져도 %s에 그 id로 답한다",
     async (type) => {
