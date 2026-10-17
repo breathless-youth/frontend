@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FIXTURE_FOCUS_WEEKLY, FIXTURE_OVERTAKEN, FIXTURE_SLOT_DAILY } from "@/lib/rankingFixtures";
@@ -47,14 +47,34 @@ const before = interpolateRows(FIXTURE_FOCUS_WEEKLY.around, 0);
 const after = interpolateRows(FIXTURE_OVERTAKEN.around, 0);
 
 describe("AroundList", () => {
-  it("순위·닉네임·값을 순서대로 보이고 내 줄을 표시한다", () => {
+  it("순위·닉네임 첫 글자·닉네임·값을 순서대로 보이고 내 줄을 표시한다", () => {
     render(<AroundList type="FOCUS_TIME" rows={before} drop={null} />);
 
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(5);
     expect(items[2]).toHaveAttribute("aria-current", "true");
-    expect(items[2]).toHaveTextContent("1,205나오늘도출석12:40:00");
+    expect(items[2]).toHaveTextContent("1,205오오늘도출석12:40:00");
     expect(items[3]).toHaveTextContent("도서관지박령집중 중12:34:00");
+  });
+
+  it("집중 중인 줄은 닉네임 아래 글자 대신 값 앞에 표시를 둔다", () => {
+    render(<AroundList type="FOCUS_TIME" rows={before} drop={null} />);
+
+    const items = screen.getAllByRole("listitem");
+    expect(within(items[3]!).getByText("집중 중").parentElement).toHaveTextContent(
+      /^집중 중12:34:00$/,
+    );
+  });
+
+  it("집중 중인 줄에만 낭독기에서 숨긴 깜빡이는 점을 두고, 움직임 줄이기 설정이면 멈춘다", () => {
+    render(<AroundList type="FOCUS_TIME" rows={before} drop={null} />);
+
+    const items = screen.getAllByRole("listitem");
+    const dot = within(items[3]!).getByText("집중 중").previousElementSibling;
+    expect(dot).toHaveAttribute("aria-hidden", "true");
+    expect(dot).toHaveClass("animate-pulse", "motion-reduce:animate-none");
+    expect(within(items[0]!).queryByText("집중 중")).toBeNull();
+    expect(items[0]!.querySelector(".animate-pulse")).toBeNull();
   });
 
   it("▼N을 내 줄에 붙이고 화면 낭독기에 한 번 알린다", () => {

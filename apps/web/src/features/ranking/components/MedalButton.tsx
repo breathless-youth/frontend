@@ -6,7 +6,9 @@ import { IllustMedal } from "../icons";
  * 겹친 금·은·동 메달과 받은 메달 수
  *
  * 0개면 메달을 흐리게 그린다.
- * 누르는 영역은 44px이고, 7px 아래 기간 칸의 누르는 영역과 겹치지 않게 위로 더 넓힌다.
+ * 테두리·그림자와 오른쪽 `›`로 누르면 기록이 열리는 버튼이라는 것을 보인다.
+ * 누르는 영역은 44px이고, 아래 기간 칸의 누르는 영역과 겹치지 않게 위로 더 넓힌다.
+ * 넓히는 기준이 테두리 안쪽이라 넓히는 값에 테두리 1px을 위아래로 더한다.
  */
 export function MedalButton({ total, onClick }: { total: number | null; onClick: () => void }) {
   return (
@@ -15,7 +17,7 @@ export function MedalButton({ total, onClick }: { total: number | null; onClick:
       onClick={onClick}
       aria-haspopup="dialog"
       aria-label={total === null ? "랭킹 기록" : `랭킹 기록, 메달 ${total}개`}
-      className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 before:absolute before:inset-x-0 before:-top-3.5 before:-bottom-0.5 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+      className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted pr-2 pl-2.5 shadow-sb-card before:absolute before:inset-x-0 before:-top-[15px] before:-bottom-[3px] before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
     >
       <span className={cn("flex", total === 0 && "opacity-45")}>
         {([1, 2, 3] as const).map((rank, index) => (
@@ -38,6 +40,9 @@ export function MedalButton({ total, onClick }: { total: number | null; onClick:
           {total}
         </span>
       )}
+      <span aria-hidden="true" className="text-[15px] leading-none font-bold text-muted-foreground">
+        ›
+      </span>
     </button>
   );
 }
