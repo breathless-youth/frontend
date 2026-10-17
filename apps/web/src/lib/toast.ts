@@ -12,7 +12,13 @@ export const CTA_TOAST_ID = "focusmakers-cta-toast";
 const GLOBAL_TOAST_ID = "focusmakers-toast";
 
 export function showToast(message: string) {
-  toast(message, { id: GLOBAL_TOAST_ID });
+  // 같은 id로 갱신하면 Sonner가 이전 옵션에 덮어 합친다. 위치를 빼면 떠 있던 위쪽 토스트 자리를 물려받는다.
+  toast(message, { id: GLOBAL_TOAST_ID, position: "bottom-center" });
+}
+
+/** 세션 화면은 아래에 컨트롤 바가 떠 있어서, 위쪽 상태 필 바로 아래에 띄운다. */
+export function showTopToast(message: string) {
+  toast(message, { id: GLOBAL_TOAST_ID, position: "top-center" });
 }
 
 /** 전역 Toaster는 App.tsx에 상시 마운트라 화면이 바뀌어도 토스트가 그대로 남는다. 화면 전환 시점에 불러 지운다. */
