@@ -13,6 +13,7 @@ import {
   isManualSession,
 } from "@/features/manual-record/manualRecord";
 import { MANUAL_RECORD_PARAMS } from "@/features/manual-record/useOpenManualRecord";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { addDaysToDateKey, isFutureDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -60,7 +61,9 @@ export function ManualRecordPage() {
   const [searchParams] = useSearchParams();
 
   const todayKey = kstDateKey();
-  const dateKey = dateKeyOf(searchParams.get("date")) ?? todayKey;
+  // 입구는 미래 날짜로 열지 않는다. 주소로 미래가 오면 기본 구간의 종료가 시작보다 일러 저장할 수 없는 화면이 되므로 오늘로 연다.
+  const dateParam = dateKeyOf(searchParams.get("date"));
+  const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
   const rawEntry = searchParams.get("entry");
   const entry = rawEntry === "planner_button" || rawEntry === "planner_cell" ? rawEntry : "records";
   const editId = positiveIntOf(searchParams.get("id"));
@@ -173,7 +176,14 @@ export function ManualRecordPage() {
       for (const key of MANUAL_RECORD_PARAMS) {
         params.delete(key);
       }
-      params.set("date", dateKey);
+      // 플래너의 하루는 05시에 시작해 새벽 칸과 새벽 기록은 date(달력 날짜)의 전날 플래너에 있다.
+      const anchorMs = startMs ?? (edited !== undefined ? Date.parse(edited.startedAt) : undefined);
+      params.set(
+        "date",
+        entry === "planner_cell" && anchorMs !== undefined
+          ? plannerDateKeyOf(new Date(anchorMs))
+          : dateKey,
+      );
       navigate(
         {
           pathname: entry === "records" ? "/records" : "/planner",
