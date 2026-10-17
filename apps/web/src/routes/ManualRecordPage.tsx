@@ -135,9 +135,11 @@ export function ManualRecordPage() {
   const blocked = isEdit ? failed.length > 0 : day.isError || subjects.isError;
   const pending = needed.some((query) => query.isPending);
 
+  // 묶음 키가 없으면 겹침으로 잘린 다른 조각을 찾을 수 없다.
+  // 조각 하나로 저장하면 서버가 묶음 전체를 지우고 새로 만들어 나머지 조각이 사라지므로 수정 화면을 열지 않는다.
   const mode: ManualRecordMode | null = !isEdit
     ? { kind: "add", entry, startMs }
-    : edited !== undefined && isManualSession(edited)
+    : edited !== undefined && isManualSession(edited) && edited.submissionStartedAt !== undefined
       ? {
           kind: "edit",
           entry: entry === "records" ? "records" : "planner_cell",

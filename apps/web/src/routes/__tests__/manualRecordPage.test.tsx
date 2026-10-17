@@ -347,6 +347,21 @@ describe("ManualRecordPage", () => {
       );
     });
 
+    it("묶음 키가 없는 수동 기록은 수정 화면을 열지 않고 이전 화면으로 돌아간다", async () => {
+      // 키가 없으면 겹침으로 잘린 다른 조각을 찾을 수 없다. 조각 하나로 저장하면 서버가 묶음 전체를 바꿔 나머지가 사라진다.
+      withStack();
+      mockedStats.mockImplementation((date) =>
+        Promise.resolve(
+          date === DAY
+            ? stats([piece(1, kst(DAY, 9), kst(DAY, 10), { source: "MANUAL" })])
+            : stats(),
+        ),
+      );
+      renderPage(`?userId=7&date=${DAY}&entry=planner_cell&id=1`);
+
+      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+    });
+
     it("없는 id로 열리면 이전 화면으로 돌아간다", async () => {
       withStack();
       renderPage(`?userId=7&date=${DAY}&entry=planner_cell&id=99`);

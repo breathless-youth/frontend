@@ -181,6 +181,24 @@ describe("ManualRecordForm", () => {
     expect(endInput()).toHaveValue("11:30");
   });
 
+  it("화면을 연 뒤 흐른 시간은 시각을 바꿀 때 지금으로 다시 읽어 미래로 막지 않는다", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const today = "2026-10-17";
+      vi.setSystemTime(new Date(`${today}T14:00:00+09:00`));
+      renderForm({ dateKey: today });
+
+      vi.setSystemTime(new Date(`${today}T14:10:00+09:00`));
+      fireEvent.change(startInput(), { target: { value: "13:00" } });
+      fireEvent.change(endInput(), { target: { value: "14:05" } });
+
+      expect(screen.queryByText("지금 이후 시간은 넣을 수 없어요")).not.toBeInTheDocument();
+      expect(saveButton()).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("1분 미만이면 안내를 읽어 주고 저장을 끈다", () => {
     renderForm();
 

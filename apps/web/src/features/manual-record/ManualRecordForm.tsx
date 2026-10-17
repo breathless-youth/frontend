@@ -89,9 +89,10 @@ export function ManualRecordForm({
   const endId = useId();
   const messageId = useId();
   const nextDayId = useId();
-  // 렌더마다 시계를 읽지 않도록 화면을 연 시각을 지금으로 쓴다.
-  // 화면을 오래 열어 두면 지금이 열 때에 머물러 미래 판정이 조금 엄격해진다. 문제가 되면 저장 때 다시 판정한다.
-  const [nowMs] = useState(() => fixedNowMs ?? Date.now());
+  // 렌더마다 시계를 읽지 않도록 지금은 화면을 열 때와 시각을 바꿀 때만 읽는다.
+  // 화면을 열어 둔 채 시간이 흘러도 바꾸는 순간의 시각으로 미래를 판정해, 연 뒤에 지난 시각이 막히지 않는다.
+  const readNow = () => fixedNowMs ?? Date.now();
+  const [nowMs, setNowMs] = useState(readNow);
   const todayKey = kstDateKey(new Date(nowMs));
   const recordDateKey =
     mode.kind === "edit" ? kstDateKey(new Date(bundleSpan(mode.bundle).startMs)) : dateKey;
@@ -178,8 +179,9 @@ export function ManualRecordForm({
   });
   const busy = mutation.isPending;
 
-  function changeSpan(next: ManualSpan) {
+  function changeSpan(next: ManualSpan, now = readNow()) {
     setSpan(next);
+    setNowMs(now);
     setServerError(null);
   }
 
@@ -253,7 +255,10 @@ export function ManualRecordForm({
             key={chip.label}
             variant="outline"
             disabled={busy || reachedNow(span, nowMs)}
-            onClick={() => changeSpan(applyChip(span, chip.minutes, nowMs))}
+            onClick={() => {
+              const now = readNow();
+              changeSpan(applyChip(span, chip.minutes, now), now);
+            }}
             className="h-11 rounded-full px-0 text-[14px] font-semibold text-foreground"
           >
             {chip.label}
