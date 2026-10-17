@@ -21,11 +21,11 @@ const EVENING_RESET: RankingBoardResponse = {
 };
 
 describe("ResetCard", () => {
-  it("지금 시작하면 몇 위인지와 새로 시작된 때를 말한다", async () => {
+  it("지금 시작하면 3위 안에 들 때는 몇 위인지와 새로 시작된 때를 말한다", async () => {
     const onFocusStart = vi.fn();
     render(
       <ResetCard
-        board={FIXTURE_RESET_DAILY}
+        board={{ ...FIXTURE_RESET_DAILY, startNowRank: 3 }}
         deadline="00시 마감"
         serverNow={SERVER_NOW}
         onFocusStart={onFocusStart}
@@ -33,10 +33,25 @@ describe("ResetCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "순공 · 일간" })).toBeInTheDocument();
-    expect(paragraph("지금 시작하면 4위예요")).toBeInTheDocument();
+    expect(paragraph("지금 시작하면 3위")).toBeInTheDocument();
     expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("지금 시작해도 3위 밖(4위 이하)이면 순위 대신 첫 공부 문구를 쓴다", () => {
+    render(
+      <ResetCard
+        board={{ ...FIXTURE_RESET_DAILY, startNowRank: 4 }}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
+    expect(screen.queryByText("지금 시작하면", { exact: false })).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말하고 순위를 보이지 않는다", () => {
@@ -49,7 +64,7 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("저녁 구간에 공부하면 순위가 생겨요")).toBeInTheDocument();
+    expect(paragraph("저녁 구간에 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.getByText("오늘 저녁 구간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
@@ -58,14 +73,14 @@ describe("ResetCard", () => {
   it("지금 구간인 시간대 판은 지금 시작하면 몇 위인지 그대로 말한다", () => {
     render(
       <ResetCard
-        board={{ ...EVENING_RESET, slot: "AFTERNOON" }}
+        board={{ ...EVENING_RESET, slot: "AFTERNOON", startNowRank: 2 }}
         deadline="00시 마감"
         serverNow={SERVER_NOW}
         onFocusStart={vi.fn()}
       />,
     );
 
-    expect(paragraph("지금 시작하면 4위예요")).toBeInTheDocument();
+    expect(paragraph("지금 시작하면 2위")).toBeInTheDocument();
   });
 
   it("지금 시작하면 받을 순위가 오지 않으면 순위를 지어내지 않고 첫 공부 문구를 쓴다", () => {
@@ -78,7 +93,7 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("첫 공부를 마치면바로 순위가 생겨요")).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
@@ -109,8 +124,8 @@ describe("FirstCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
-    expect(paragraph("첫 공부를 마치면바로 순위가 생겨요")).toBeInTheDocument();
-    expect(screen.getByText("이번 주 순공으로 겨루는 중")).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
+    expect(screen.getByText("이번 주 순공으로 겨루고 있어요")).toBeInTheDocument();
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말한다", () => {
@@ -123,8 +138,8 @@ describe("FirstCard", () => {
       />,
     );
 
-    expect(paragraph("저녁 구간에 공부하면 순위가 생겨요")).toBeInTheDocument();
-    expect(screen.queryByText("바로 순위가 생겨요", { exact: false })).toBeNull();
+    expect(paragraph("저녁 구간에 공부하면 랭킹 진입")).toBeInTheDocument();
+    expect(screen.queryByText("첫 공부를 마치면", { exact: false })).toBeNull();
   });
 
   it("연속 공부 판은 하루 10분 기준을 말한다", () => {
@@ -137,8 +152,8 @@ describe("FirstCard", () => {
       />,
     );
 
-    expect(paragraph("하루 10분 이상 공부하면순위가 생겨요")).toBeInTheDocument();
-    expect(screen.queryByText("바로 순위가 생겨요", { exact: false })).toBeNull();
+    expect(paragraph("하루 10분 이상 공부하면랭킹 진입")).toBeInTheDocument();
+    expect(screen.queryByText("첫 공부를 마치면", { exact: false })).toBeNull();
   });
 });
 

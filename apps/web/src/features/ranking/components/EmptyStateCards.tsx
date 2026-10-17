@@ -13,15 +13,18 @@ import {
 } from "../model/labels";
 import { CardShell, Deadline, FocusStartButton } from "./RankCard";
 
+/** 새 기간 카드가 지금 시작하면 받을 순위를 보여 주는 가장 낮은 순위. */
+const START_NOW_RANK_SHOWN = 3;
+
 const HEADLINE =
-  "mt-2.5 text-2xl leading-8 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
+  "mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
   return (
     <p className={HEADLINE}>
       첫 공부를 마치면
       <br />
-      바로 순위가 생겨요
+      랭킹 진입
     </p>
   );
 }
@@ -30,7 +33,8 @@ function FirstStudyHeadline() {
  * 기간이 막 새로 시작돼 아직 내 기록이 없는 판의 카드
  *
  * 지금 구간이 아닌 시간대 판은 지금 공부해도 그 판에 들어가지 않아 순위 대신 그 구간을 말한다.
- * 지금 시작하면 받을 순위가 오지 않으면 순위를 짐작해 적지 않고 처음 카드의 큰 문구를 쓴다.
+ * 지금 시작하면 받을 순위가 오지 않거나 3위 밖이면 순위 대신 처음 카드의 큰 문구를 쓴다.
+ * 3위 밖 순위는 크게 보여 줘도 시작할 마음이 잘 생기지 않는다.
  */
 export function ResetCard({
   board,
@@ -47,18 +51,17 @@ export function ResetCard({
     <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
       {isOffSlot(board, serverNow) ? (
         <p className={HEADLINE}>{offSlotHeadline(board)}</p>
-      ) : board.startNowRank === null ? (
+      ) : board.startNowRank === null || board.startNowRank > START_NOW_RANK_SHOWN ? (
         <FirstStudyHeadline />
       ) : (
         <p className={HEADLINE}>
           지금 시작하면 <span className="text-primary">{formatRank(board.startNowRank)}위</span>
-          예요
         </p>
       )}
-      <p className="mt-2.5 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
         {resetNotice(board)}
       </p>
-      <FocusStartButton onClick={onFocusStart} className="mt-3.5" />
+      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
     </CardShell>
   );
 }
@@ -131,15 +134,15 @@ export function FirstCard({
         <p className={HEADLINE}>
           하루 10분 이상 공부하면
           <br />
-          순위가 생겨요
+          랭킹 진입
         </p>
       ) : (
         <FirstStudyHeadline />
       )}
-      <p className="mt-2.5 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
         {competitionLine(board)}
       </p>
-      <FocusStartButton onClick={onFocusStart} className="mt-3.5" />
+      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
     </CardShell>
   );
 }

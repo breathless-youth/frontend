@@ -106,7 +106,7 @@ export function RankingPage() {
       <div className="flex flex-col px-5">
         {identityPending ? (
           <>
-            <div className="flex h-[29px] items-center justify-between">
+            <div className="flex h-[37px] items-start justify-between">
               <Skeleton className="h-[29px] w-40 rounded-md" />
               <Skeleton className="h-7 w-[76px] rounded-full" />
             </div>
@@ -250,7 +250,7 @@ function RankingContent({ userId }: { userId: number }) {
 
   return (
     <>
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex items-start justify-between gap-3">
         <BoardModeTabs
           value={memory.active}
           onChange={(mode) => setMemory((current) => ({ ...current, active: mode }))}
@@ -381,6 +381,7 @@ function BoardBody({
             board={board}
             subLine={subLine}
             deadline={deadline}
+            serverNow={serverNow}
             onFocusStart={fromCard}
           />
           <NearbyList board={board} screen={screen} rows={rows} drop={drop} />

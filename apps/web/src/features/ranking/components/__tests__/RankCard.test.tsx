@@ -24,25 +24,25 @@ const AFTERNOON_NOW = Date.parse(FIXTURE_FOCUS_WEEKLY.asOf);
 const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
 describe("RankedCard", () => {
-  it("순공 판은 이름 없이 다음 순위까지 남은 시간, 진행바, 아랫줄, 작은 집중 시작 버튼", async () => {
+  it("순공 판은 이름 없이 다음 순위까지 남은 시간, 아랫줄, 작은 집중 시작 버튼을 두고 게이지는 없다", async () => {
     const onFocusStart = vi.fn();
     render(
       <RankedCard
         board={FIXTURE_FOCUS_WEEKLY}
         aboveGap={1320}
-        subLine={{ text: "한 세션이면 따라잡을 수 있어요", tone: "muted" }}
-        deadline="마감 3일 14시간"
+        subLine={{ text: "한 번 더 공부하면 따라잡을 수 있어요", tone: "muted" }}
+        deadline="마감 3일 14시간 전"
         serverNow={AFTERNOON_NOW}
         onFocusStart={onFocusStart}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "순공 · 주간" })).toBeInTheDocument();
-    expect(screen.getByText("마감 3일 14시간")).toBeInTheDocument();
+    expect(screen.getByText("마감 3일 14시간 전")).toBeInTheDocument();
     expect(paragraph("다음 순위까지 22분")).toBeInTheDocument();
     expect(screen.queryByText("커피세잔", { exact: false })).toBeNull();
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "45");
-    expect(screen.getByText("한 세션이면 따라잡을 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.getByText("한 번 더 공부하면 따라잡을 수 있어요")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
@@ -53,7 +53,7 @@ describe("RankedCard", () => {
         board={FIXTURE_RATE_WEEKLY}
         aboveGap={0.4}
         subLine={null}
-        deadline="마감 1일 9시간"
+        deadline="마감 1일 9시간 전"
         serverNow={AFTERNOON_NOW}
         onFocusStart={vi.fn()}
       />,
@@ -76,7 +76,7 @@ describe("RankedCard", () => {
         }}
         aboveGap={0.4}
         subLine={null}
-        deadline="마감 1일 9시간"
+        deadline="마감 1일 9시간 전"
         serverNow={AFTERNOON_NOW}
         onFocusStart={vi.fn()}
       />,
@@ -101,8 +101,8 @@ describe("RankedCard", () => {
     expect(screen.getByText("상위 6%")).toBeInTheDocument();
     expect(paragraph("다음 순위까지 3시간 20분")).toBeInTheDocument();
     expect(screen.queryByText("모의고사1등급", { exact: false })).toBeNull();
-    expect(paragraph("상위 5%까지 28시간")).toBeInTheDocument();
-    expect(paragraph("지금 페이스면 약 9일 뒤")).toBeInTheDocument();
+    expect(paragraph("상위 5%까지 28시간 남았어요")).toBeInTheDocument();
+    expect(paragraph("지금 페이스면 약 9일 뒤에 역전해요")).toBeInTheDocument();
   });
 
   it("예상 날짜가 없으면 뒤를 뺀다", () => {
@@ -119,7 +119,7 @@ describe("RankedCard", () => {
 
     expect(paragraph("다음 순위까지 3일")).toBeInTheDocument();
     expect(screen.queryByText("커피세잔", { exact: false })).toBeNull();
-    expect(paragraph("상위 20%까지 4일")).toBeInTheDocument();
+    expect(paragraph("상위 20%까지 4일 남았어요")).toBeInTheDocument();
     expect(screen.queryByText("지금 페이스면", { exact: false })).toBeNull();
   });
 
@@ -139,23 +139,23 @@ describe("RankedCard", () => {
     expect(screen.queryByText("수능D-40", { exact: false })).toBeNull();
   });
 
-  it("바로 위가 집중 중이라는 문구는 두 줄로 그리되 한 문장으로 읽힌다", () => {
+  it("바로 위가 집중 중이면 경고 문구와 작은 집중 시작을 같이 둔다", () => {
     render(
       <RankedCard
         board={FIXTURE_FOCUS_WEEKLY}
         aboveGap={1320}
-        subLine={{ text: "커피세잔님이 집중 중이라\n차이가 벌어지고 있어요", tone: "alert" }}
-        deadline="마감 3일 14시간"
+        subLine={{ text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" }}
+        deadline="마감 3일 14시간 전"
         serverNow={AFTERNOON_NOW}
         onFocusStart={vi.fn()}
       />,
     );
 
-    const line = screen.getByText("커피세잔님이 집중 중이라 차이가 벌어지고 있어요");
-    expect(line.textContent).toBe("커피세잔님이 집중 중이라\n차이가 벌어지고 있어요");
+    expect(screen.getByText("앞 순위와 차이가 벌어지고 있어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
 
-  it("지금 구간이 아닌 시간대 판은 작은 집중 시작을 두지 않는다", () => {
+  it("지금 구간이 아닌 시간대 판은 그 판의 내 순위와 들어가는 시각을 말하고 작은 집중 시작을 두지 않는다", () => {
     render(
       <RankedCard
         board={FIXTURE_SLOT_DAILY}
@@ -171,7 +171,9 @@ describe("RankedCard", () => {
       />,
     );
 
-    expect(paragraph("다음 순위까지 9분")).toBeInTheDocument();
+    expect(paragraph("오전 구간 4위")).toBeInTheDocument();
+    expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
+    expect(screen.getByText("오전 7–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
     expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });
@@ -194,21 +196,38 @@ describe("RankedCard", () => {
 });
 
 describe("FirstPlaceCard", () => {
-  it("1위 지키는 중과 아랫줄, 큰 집중 시작 버튼", async () => {
+  it("1위 지키는 중과 아랫줄, 작은 집중 시작 버튼", async () => {
     const onFocusStart = vi.fn();
     render(
       <FirstPlaceCard
         board={FIXTURE_FIRST_PLACE}
-        subLine={{ text: "합격까지달린다님이 5분 차로 따라오고 있어요", tone: "alert" }}
+        subLine={{ text: "뒤 순위와 차이가 줄어들고 있어요", tone: "alert" }}
         deadline="00시 마감"
+        serverNow={MORNING_NOW}
         onFocusStart={onFocusStart}
       />,
     );
 
     const headline = paragraph("1위 지키는 중");
     expect(headline.querySelector(".text-primary")?.textContent).toBe("1위");
-    expect(screen.getByText("합격까지달린다님이 5분 차로 따라오고 있어요")).toBeInTheDocument();
+    expect(screen.getByText("뒤 순위와 차이가 줄어들고 있어요")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("지금 구간이 아닌 시간대 판에서는 1위여도 집중 시작을 두지 않는다", () => {
+    render(
+      <FirstPlaceCard
+        board={FIXTURE_FIRST_PLACE}
+        subLine={{ text: "오전 7–12시에 공부한 시간만 이 순위에 들어가요", tone: "muted" }}
+        deadline="00시 마감"
+        serverNow={AFTERNOON_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("1위 지키는 중")).toBeInTheDocument();
+    expect(screen.getByText("오전 7–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });
 });
