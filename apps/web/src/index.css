@@ -437,19 +437,24 @@
 }
 
 /* 소셜 배경 3단 그라디언트 — 단색 --background 대신 쓴다(그라디언트라 단일 변수에
-   안 담긴다). 다크는 같은 클래스에 모드별로 재정의. */
+   안 담긴다). 다크는 같은 클래스에 모드별로 재정의.
+   --bg-soft-blue-end는 그라디언트의 바닥 색이다. 화면 바닥에 붙는 버튼 줄처럼 그라디언트 위를
+   가려야 하는 요소는 이 단색을 쓴다(그라디언트를 또 깔면 위쪽 하늘색이 띠로 드러난다). */
 .bg-soft-blue {
-  background: linear-gradient(180deg, #eef3fb 0%, #f8fafd 45%, #ffffff 100%);
+  --bg-soft-blue-end: #ffffff;
+  background: linear-gradient(180deg, #eef3fb 0%, #f8fafd 45%, var(--bg-soft-blue-end) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .bg-soft-blue {
-    background: linear-gradient(180deg, #172032 0%, #10151f 45%, #0d1118 100%);
+    --bg-soft-blue-end: #0d1118;
+    background: linear-gradient(180deg, #172032 0%, #10151f 45%, var(--bg-soft-blue-end) 100%);
   }
 }
 
 :root[data-theme="dark"] .bg-soft-blue {
-  background: linear-gradient(180deg, #172032 0%, #10151f 45%, #0d1118 100%);
+  --bg-soft-blue-end: #0d1118;
+  background: linear-gradient(180deg, #172032 0%, #10151f 45%, var(--bg-soft-blue-end) 100%);
 }
 
 /* Soft Blue 카드·CTA 그림자 — Figma shadow/card-soft-blue, shadow/brand-cta */

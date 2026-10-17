@@ -118,6 +118,10 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/ranking/records")).toBe(true);
   });
 
+  it("시간 직접 입력은 전체 화면이다", () => {
+    expect(isFullScreenPath("/manual-record")).toBe(true);
+  });
+
   it("탭 라우트는 가리지 않는다", () => {
     for (const path of ["/home", "/records", "/ranking", "/settings", "/social", "/"]) {
       expect(isFullScreenPath(path)).toBe(false);
