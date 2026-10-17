@@ -10,8 +10,20 @@ describe("parseToNativeMessage", () => {
     "auth-ready",
     "request-token-refresh",
     "records-changed",
+    "app-lock-query",
+    "app-lock-authorize",
+    "app-lock-pick",
+    "app-lock-start",
+    "app-lock-stop",
   ] as const)("%s 메시지를 파싱한다", (type) => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
+  });
+
+  it("app-lock-* 메시지는 모르는 필드를 버린다", () => {
+    expect(parseToNativeMessage('{"type":"app-lock-start","selection":"x","atMs":5}')).toEqual({
+      type: "app-lock-start",
+      atMs: 5,
+    });
   });
 
   it("auth-ready에 atMs가 없으면 null이다 — 다른 메시지와 같은 규칙", () => {

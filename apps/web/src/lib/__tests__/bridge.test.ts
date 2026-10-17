@@ -145,6 +145,46 @@ describe("parseToWebMessage", () => {
   });
 });
 
+describe("parseToWebMessage: 방해 앱 잠금", () => {
+  const state = {
+    type: "app-lock-state",
+    supported: true,
+    authorized: true,
+    revoked: false,
+    appCount: 3,
+    categoryCount: 1,
+    atMs: 1,
+  };
+
+  it("app-lock-state를 파싱한다", () => {
+    expect(parseToWebMessage(JSON.stringify(state))).toEqual(state);
+  });
+
+  it.each(["supported", "authorized", "revoked", "appCount", "categoryCount"])(
+    "app-lock-state의 %s 타입이 틀리면 버린다",
+    (key) => {
+      expect(parseToWebMessage(JSON.stringify({ ...state, [key]: "1" }))).toBeNull();
+    },
+  );
+
+  it.each([
+    ["appCount", -1],
+    ["appCount", 1.5],
+    ["categoryCount", -1],
+    ["categoryCount", 0.5],
+  ])("개수 %s가 음이 아닌 정수가 아니면(%s) 버린다", (key, value) => {
+    const started = { type: "app-lock-started", appCount: 2, categoryCount: 0, atMs: 1 };
+    expect(parseToWebMessage(JSON.stringify({ ...state, [key]: value }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...started, [key]: value }))).toBeNull();
+  });
+
+  it("app-lock-started를 파싱한다", () => {
+    const started = { type: "app-lock-started", appCount: 2, categoryCount: 0, atMs: 1 };
+    expect(parseToWebMessage(JSON.stringify(started))).toEqual(started);
+    expect(parseToWebMessage(JSON.stringify({ ...started, appCount: null }))).toBeNull();
+  });
+});
+
 describe("parseToWebMessage: video-result", () => {
   const ID = "0b6f3f4e-7c1d-4f6a-9a51-3d2b1c0e9f87";
 

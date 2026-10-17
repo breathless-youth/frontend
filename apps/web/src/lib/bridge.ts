@@ -167,6 +167,10 @@ function parseTrackEvent(record: Record<string, unknown>): TrackEventMessage | n
   };
 }
 
+function isCount(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0;
+}
+
 function isVideoResultStatus(value: unknown): value is VideoResultStatus {
   return (VIDEO_RESULT_STATUSES as readonly unknown[]).includes(value);
 }
@@ -237,6 +241,36 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       id: record.id,
       action: record.action,
       status: record.status,
+      atMs: record.atMs,
+    };
+  }
+  if (
+    record.type === "app-lock-state" &&
+    typeof record.supported === "boolean" &&
+    typeof record.authorized === "boolean" &&
+    typeof record.revoked === "boolean" &&
+    isCount(record.appCount) &&
+    isCount(record.categoryCount)
+  ) {
+    return {
+      type: "app-lock-state",
+      supported: record.supported,
+      authorized: record.authorized,
+      revoked: record.revoked,
+      appCount: record.appCount,
+      categoryCount: record.categoryCount,
+      atMs: record.atMs,
+    };
+  }
+  if (
+    record.type === "app-lock-started" &&
+    isCount(record.appCount) &&
+    isCount(record.categoryCount)
+  ) {
+    return {
+      type: "app-lock-started",
+      appCount: record.appCount,
+      categoryCount: record.categoryCount,
       atMs: record.atMs,
     };
   }
