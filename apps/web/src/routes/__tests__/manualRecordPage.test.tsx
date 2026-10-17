@@ -113,10 +113,12 @@ function LocationProbe() {
 }
 
 /** 기록 탭 → 홈 탭 → 입력 화면 순서로 쌓인 메모리 스택. 스택이 있다고 볼지는 `withStack()`이 정한다. */
-function renderPage(search: string) {
-  const queryClient = new QueryClient({
+function renderPage(
+  search: string,
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
@@ -217,6 +219,32 @@ describe("ManualRecordPage", () => {
     resolveSubjects([KOREAN]);
     expect(await screen.findByLabelText("시작")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "국어" })).toBeInTheDocument();
+  });
+
+  it("과목 목록이 캐시에 있어도 열 때마다 다시 받고, 받기 전에는 옛 목록을 보여 주지 않는다", async () => {
+    // 앱과 같은 30초 신선도에서, 다른 화면에서 과목을 바꾸기 전에 받은 옛 목록이 캐시에 남아 있는 상황이다.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
+    queryClient.setQueryData(["subjects", "list", 7], [KOREAN]);
+    const MATH: SubjectResponse = { ...KOREAN, id: 4, name: "수학", colorIndex: 2 };
+    let resolveSubjects!: (subjects: SubjectResponse[]) => void;
+    vi.mocked(listSubjects).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSubjects = resolve;
+      }),
+    );
+
+    renderPage(`?userId=7&date=${DAY}&entry=records`, queryClient);
+
+    await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(NEXT));
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+    expect(listSubjects).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "국어" })).not.toBeInTheDocument();
+
+    resolveSubjects([MATH]);
+    expect(await screen.findByRole("button", { name: "수학" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "국어" })).not.toBeInTheDocument();
   });
 
   it("과목 목록 조회가 실패하면 다시 시도를 보여 주고, 다시 받으면 과목 칩과 함께 폼을 연다", async () => {
