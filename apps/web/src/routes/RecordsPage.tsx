@@ -1,5 +1,7 @@
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   trackRecordsDateSelected,
@@ -12,14 +14,18 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
+import { subjectIdOf, subjectNameOf } from "@/features/manual-record/manualRecord";
+import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
+import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { PeriodHeadline } from "@/features/records/PeriodHeadline";
 import { MonthPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
 import {
   type CalendarMonth,
+  addDaysToDateKey,
   dayHeadlineLabel,
   dayTitleWithWeekday,
+  isFutureDateKey,
   kstDateKey,
   monthLabel,
   monthOfDateKey,
@@ -32,13 +38,12 @@ import {
   sumFocusSec,
 } from "@/features/records/recordsPeriod";
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
+import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
-import { IconChevronRight } from "@/features/records/icons";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
-import { useUserId } from "@/lib/userId";
-import { Button } from "@/components/ui/button";
+import { hasTokenSource, useUserId } from "@/lib/userId";
 import { Card } from "@/components/ui/card";
 import { Accordion } from "@/components/ui/accordion";
 
@@ -53,15 +58,15 @@ function RecordsContent({
   userId,
   todayKey,
   selectedKey,
-  setSelectedKey,
+  onSelectDate,
   month,
   setMonth,
 }: {
   userId: number;
   todayKey: string;
-  // 선택 날짜·보이는 달은 탭을 왕복해도 유지되도록 RecordsPage가 소유하고 내려준다.
+  // 선택일은 RecordsPage가 주소에서 읽어 내려준다. 보이는 달은 탭을 왕복해도 유지되도록 RecordsPage가 소유한다.
   selectedKey: string;
-  setSelectedKey: Dispatch<SetStateAction<string>>;
+  onSelectDate: (dateKey: string) => void;
   month: CalendarMonth;
   setMonth: Dispatch<SetStateAction<CalendarMonth>>;
 }) {
@@ -80,7 +85,6 @@ function RecordsContent({
   };
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const openPlanner = useOpenPlanner("records");
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
@@ -106,6 +110,12 @@ function RecordsContent({
   const sessions = daySessions
     ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     : [];
+
+  // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 입구를 모두 숨긴다.
+  const canWrite = hasTokenSource();
+  const openManualRecord = useOpenManualRecord();
+  const subjectRefs = subjectRefMap(day.status === "success" ? day.stats.subjects : undefined);
+  const canAdd = canWrite && !isFutureDateKey(selectedKey, todayKey);
 
   return (
     <div>
@@ -153,7 +163,7 @@ function RecordsContent({
         }
       />
 
-      <div className="mt-[18px]">
+      <div className="mt-4.5">
         <MonthCalendar
           month={month}
           todayKey={todayKey}
@@ -165,7 +175,7 @@ function RecordsContent({
               isToday: dateKey === todayKey,
               hasRecords: (dayFocusSec.get(dateKey) ?? 0) > 0,
             });
-            setSelectedKey(dateKey);
+            onSelectDate(dateKey);
             // 같은 날로 돌아왔을 때 접혔던 행이 다시 펼쳐지지 않게 기억해 둔 세션도 지운다.
             setExpandedSessionId(null);
           }}
@@ -179,7 +189,7 @@ function RecordsContent({
 
       {day.status === "pending" && (
         <div className="mt-6 flex flex-col gap-2.5">
-          <Skeleton className="h-[21px] w-40 rounded-md" />
+          <Skeleton className="h-5.25 w-40 rounded-md" />
           <Skeleton className="h-16 rounded-2xl" />
           <Skeleton className="h-16 rounded-2xl" />
         </div>
@@ -192,25 +202,30 @@ function RecordsContent({
       )}
 
       {day.status === "success" && (
-        <div className="mt-[22px]">
-          {/* 선택일 줄 — 오른쪽 버튼으로 그 날의 플래너를 연다(과목별 시간·타임테이블은 플래너에 있다). */}
+        <div className="mt-5.5">
+          {/* 플래너 입구는 머리에 있고, 이 줄은 고른 날에 기록을 넣는 자리다. */}
           <div className="flex items-center justify-between">
-            <p className="text-base leading-[19px] font-extrabold text-foreground">
+            <p className="text-base leading-4.75 font-extrabold text-foreground">
               {dayTitleWithWeekday(selectedKey)}
             </p>
-            <Button
-              variant="raised"
-              onClick={() => openPlanner(selectedKey)}
-              className="h-8 gap-1 rounded-full py-0 pr-2.5 pl-3 text-[13px] leading-4"
-            >
-              플래너
-              <IconChevronRight size={11} color="currentColor" />
-            </Button>
+            {canAdd && (
+              <button
+                type="button"
+                onClick={() =>
+                  openManualRecord({ kind: "add", dateKey: selectedKey, entry: "records" })
+                }
+                // 글자 링크라도 누르는 영역은 44px을 지키고, 음수 여백으로 줄 높이는 날짜 글자에 맞춘다.
+                className="-my-3 flex min-h-11 items-center gap-1 text-xs leading-3.75 font-bold text-primary"
+              >
+                시간 직접 입력
+                <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <div className="mt-3">
             {sessions.length === 0 ? (
-              <Card className="flex flex-col items-center gap-1 rounded-[20px] border-0 shadow-sb-card py-[30px]">
+              <Card className="flex flex-col items-center gap-1 rounded-xl border-0 shadow-sb-card py-7.5">
                 <p className="text-[15px] leading-5 text-muted-foreground">이 날은 기록이 없어요</p>
                 {/* 보는 달에 기록이 하나도 없을 때만 다음 행동을 한 줄 더 알려 준다. */}
                 {monthStats?.studiedDays === 0 && (
@@ -220,7 +235,7 @@ function RecordsContent({
                 )}
               </Card>
             ) : (
-              <Card className="rounded-[20px] border-0 shadow-sb-card px-[18px] py-1">
+              <Card className="rounded-xl border-0 shadow-sb-card px-4.5 py-1">
                 <Accordion
                   type="single"
                   collapsible
@@ -233,6 +248,18 @@ function RecordsContent({
                       <SessionListItem
                         key={session.id}
                         session={session}
+                        subjectName={subjectNameOf(subjectIdOf(session), subjectRefs)}
+                        onEdit={
+                          canWrite
+                            ? (edited) =>
+                                openManualRecord({
+                                  kind: "edit",
+                                  dateKey: selectedKey,
+                                  entry: "records",
+                                  id: edited.id,
+                                })
+                            : undefined
+                        }
                         className={index > 0 ? "border-t border-border pt-px" : undefined}
                       />
                     ))}
@@ -248,46 +275,79 @@ function RecordsContent({
   );
 }
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export function RecordsPage() {
   const userId = useUserId();
   const todayKey = kstDateKey();
+  const [searchParams, setSearchParams] = useSearchParams();
   // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로)
   const [mode, setMode] = useState<RecordsView>("daily");
-  // 사용자가 보던 "위치"(일간: 선택 날짜·보이는 달, 주간: 보고 있는 주)는 여기서 소유한다 —
-  // 탭을 바꿔도 서브트리 unmount로 리셋되지 않게 lift state 한다.
-  const [selectedKey, setSelectedKey] = useState(todayKey);
-  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(todayKey));
+  // 고른 날은 주소의 `date`가 단일 출처다. 입력 화면이나 플래너에서 돌아오면 이 화면이 다시 마운트되는데,
+  // state에 두면 오늘로 돌아가 방금 고친 날이 사라진다.
+  // 모양만 맞고 달력에 없는 날짜(2020-13-45)는 날짜 계산을 한 바퀴 돌리면 다른 날짜가 되어 걸러지고, 미래는 볼 기록이 없어 오늘로 연다.
+  const requested = searchParams.get("date");
+  const selectedKey =
+    requested !== null &&
+    DATE_KEY_PATTERN.test(requested) &&
+    addDaysToDateKey(requested, 0) === requested &&
+    !isFutureDateKey(requested, todayKey)
+      ? requested
+      : todayKey;
+  /** 셸이 붙인 쿼리는 지우지 않고 날짜만 바꾼다. replace라 날짜를 고를 때마다 뒤로 가기 스택이 쌓이지 않는다. */
+  const selectDate = (dateKey: string) => {
+    setSearchParams(
+      (previous) => {
+        const params = new URLSearchParams(previous);
+        if (dateKey === todayKey) {
+          params.delete("date");
+        } else {
+          params.set("date", dateKey);
+        }
+        return params;
+      },
+      { replace: true },
+    );
+  };
+  // 보이는 달과 주는 화면 상태라 주소에 싣지 않는다. 처음 보이는 달은 고른 날의 달이다.
+  const [month, setMonth] = useState<CalendarMonth>(() => monthOfDateKey(selectedKey));
   const [weekAnchorKey, setWeekAnchorKey] = useState(todayKey);
 
   return (
     <main
       data-testid="records-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-extrabold leading-[29px] tracking-[-0.48px] text-foreground">
+          <h1 className="text-2xl font-extrabold leading-7.25 tracking-[-0.48px] text-foreground">
             기록
           </h1>
-          {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다
-              — placeholder만 보이는데 주간 탭이 눌려 탭·내용이 어긋나지 않게. */}
-          <SegmentedControl
-            value={mode}
-            options={[
-              { value: "daily", label: "일간" },
-              { value: "weekly", label: "주간", disabled: userId === null },
-            ]}
-            onChange={(next) => {
-              if (next !== mode) {
-                trackRecordsViewChanged(next);
-              }
-              setMode(next);
-            }}
-          />
+          {/* 일간·주간이 머리를 같이 쓰므로 어느 쪽에서든 달력에서 고른 날의 플래너를 연다.
+              등록 전에는 플래너에도 볼 기록이 없어 숨긴다. */}
+          {userId !== null && <PlannerPillButton via="records" dateKey={selectedKey} />}
         </div>
 
+        {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다.
+            안내만 보이는데 주간 탭이 눌려 탭과 내용이 어긋나지 않게. */}
+        <SegmentedControl
+          value={mode}
+          options={[
+            { value: "daily", label: "일간" },
+            { value: "weekly", label: "주간", disabled: userId === null },
+          ]}
+          onChange={(next) => {
+            if (next !== mode) {
+              trackRecordsViewChanged(next);
+            }
+            setMode(next);
+          }}
+          className="mt-4 flex w-full"
+          triggerClassName="flex-1 justify-center"
+        />
+
         {userId === null ? (
-          <p className="mt-[13px] p-4 text-sm text-muted-foreground">
+          <p className="mt-3.25 p-4 text-sm text-muted-foreground">
             기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
           </p>
         ) : mode === "weekly" ? (
@@ -302,7 +362,7 @@ export function RecordsPage() {
             userId={userId}
             todayKey={todayKey}
             selectedKey={selectedKey}
-            setSelectedKey={setSelectedKey}
+            onSelectDate={selectDate}
             month={month}
             setMonth={setMonth}
           />

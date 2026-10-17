@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, type LucideProps } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Play, type LucideProps } from "lucide-react";
 import type { SVGProps } from "react";
 
 /**
@@ -46,6 +46,38 @@ export function IconChevronLeft({
       {...rest}
     />
   );
+}
+
+/*
+ * 기간 이동 화살표 2종 — lucide `play`를 채워서 쓴다. iOS 달력의 월 이동 화살표처럼 작고 둥근 삼각형이다.
+ * 꺾쇠 3종과 같은 세트라 손으로 그리지 않고, 꺾쇠처럼 보이는 영역만 삼각형에 붙여 자른다.
+ * 뒤로 가기·링크의 꺾쇠는 그대로 둔다.
+ */
+
+/** `size`는 높이. */
+export function IconCaretRight({
+  color = "var(--color-foreground)",
+  size = 10,
+  ...rest
+}: ChevronProps) {
+  return (
+    <Play
+      // 삼각형(6,3)~(20,21) 둘레로 선이 1.25 더 나가므로 그만큼 넓게 잘라야 끝이 잘리지 않는다.
+      viewBox="4.5 1.5 17 21"
+      width={(size * 17) / 21}
+      height={size}
+      color={color}
+      fill={color}
+      strokeWidth={2.5}
+      strokeLinejoin="round"
+      {...rest}
+    />
+  );
+}
+
+/** `size`는 높이. 오른쪽 화살표를 뒤집는다. */
+export function IconCaretLeft({ size = 10, style, ...rest }: ChevronProps) {
+  return <IconCaretRight size={size} style={{ transform: "scaleX(-1)", ...style }} {...rest} />;
 }
 
 /** `size`는 너비. */
