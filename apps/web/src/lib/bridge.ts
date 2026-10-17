@@ -246,6 +246,8 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (
     record.type === "app-lock-state" &&
+    typeof record.id === "string" &&
+    record.id !== "" &&
     typeof record.supported === "boolean" &&
     typeof record.authorized === "boolean" &&
     typeof record.revoked === "boolean" &&
@@ -254,6 +256,7 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   ) {
     return {
       type: "app-lock-state",
+      id: record.id,
       supported: record.supported,
       authorized: record.authorized,
       revoked: record.revoked,

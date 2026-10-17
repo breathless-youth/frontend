@@ -40,7 +40,19 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  setVisibility("visible");
 });
+
+function setVisibility(state: DocumentVisibilityState): void {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+}
+
+function returnToApp(): void {
+  setVisibility("hidden");
+  document.dispatchEvent(new Event("visibilitychange"));
+  setVisibility("visible");
+  document.dispatchEvent(new Event("visibilitychange"));
+}
 
 async function renderSettings() {
   const view = renderHook(() => useAppLockSettings());
@@ -120,5 +132,40 @@ describe("useAppLockSettings", () => {
       appCount: 5,
       categoryCount: 0,
     });
+  });
+
+  it("설정 앱에서 권한을 끄고 돌아오면 스위치를 끄고 이벤트를 한 번 남긴다", async () => {
+    writeAppLockEnabled(true);
+    const { result } = await renderSettings();
+    vi.mocked(queryAppLock).mockResolvedValue({ ...STATE, revoked: true, appCount: 0 });
+
+    returnToApp();
+    await waitFor(() => expect(result.current.enabled).toBe(false));
+    expect(result.current.appCount).toBe(0);
+    expect(readAppLockEnabled()).toBe(false);
+    expect(analytics.trackAppLockToggled).toHaveBeenCalledTimes(1);
+    expect(analytics.trackAppLockToggled).toHaveBeenCalledWith({
+      on: false,
+      source: "permission_lost",
+    });
+  });
+
+  it("다른 화면이 먼저 꺼 두었으면 돌아와도 이벤트를 남기지 않는다", async () => {
+    const { result } = await renderSettings();
+    vi.mocked(queryAppLock).mockResolvedValue({ ...STATE, revoked: true, appCount: 0 });
+
+    returnToApp();
+    await waitFor(() => expect(result.current.appCount).toBe(0));
+    expect(result.current.enabled).toBe(false);
+    expect(analytics.trackAppLockToggled).not.toHaveBeenCalled();
+  });
+
+  it("묻는 중에 다시 돌아와도 한 번만 묻는다", async () => {
+    await renderSettings();
+    vi.mocked(queryAppLock).mockClear();
+    vi.mocked(queryAppLock).mockReturnValue(new Promise(() => undefined));
+    returnToApp();
+    returnToApp();
+    expect(queryAppLock).toHaveBeenCalledTimes(1);
   });
 });

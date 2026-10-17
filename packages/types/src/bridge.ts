@@ -81,7 +81,8 @@ export type ToWebMessage =
   /**
    * 방해 앱 잠금 상태
    *
-   * `app-lock-query`·`app-lock-authorize`·`app-lock-pick`에 대한 응답이다.
+   * `app-lock-query`·`app-lock-authorize`·`app-lock-pick`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * 응답이 늦게 오면 타입만으로는 시간이 다 된 요청의 답인지 새 요청의 답인지 가를 수 없다.
    * 고른 앱은 개수만 싣는다.
    * 앱 이름과 선택 토큰은 기기 밖으로 내보내지 않는다.
    * `revoked`는 전에 허용했는데 지금은 아닌 상태다.
@@ -89,6 +90,7 @@ export type ToWebMessage =
    */
   | {
       type: "app-lock-state";
+      id: string;
       supported: boolean;
       authorized: boolean;
       revoked: boolean;
@@ -284,11 +286,11 @@ export type ToNativeMessage =
    * 방해 앱 잠금 설정 조작
    *
    * 설정 화면이 상태 조회, 권한 요청, 잠글 앱 고르기를 요청하고 네이티브는 `app-lock-state`로 답한다.
-   * 한 번에 하나만 진행되는 설정 화면 조작이라 요청 id 없이 타입으로만 짝짓는다.
+   * `id`는 웹이 요청마다 새로 만들고 앱은 응답에 그대로 돌려준다.
    */
-  | { type: "app-lock-query"; atMs: number }
-  | { type: "app-lock-authorize"; atMs: number }
-  | { type: "app-lock-pick"; atMs: number }
+  | { type: "app-lock-query"; id: string; atMs: number }
+  | { type: "app-lock-authorize"; id: string; atMs: number }
+  | { type: "app-lock-pick"; id: string; atMs: number }
   /**
    * 공부 시작·종료에 맞춘 잠금과 해제
    *

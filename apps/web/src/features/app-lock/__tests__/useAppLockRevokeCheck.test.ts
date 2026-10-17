@@ -102,4 +102,16 @@ describe("useAppLockRevokeCheck", () => {
     renderHook(() => useAppLockRevokeCheck());
     expect(queryAppLock).not.toHaveBeenCalled();
   });
+
+  it("묻는 동안 다른 화면이 먼저 껐으면 이벤트를 남기지 않는다", async () => {
+    writeAppLockEnabled(true);
+    let answer: (state: typeof STATE) => void = () => undefined;
+    vi.mocked(queryAppLock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    renderHook(() => useAppLockRevokeCheck());
+    writeAppLockEnabled(false);
+    answer(STATE);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(analytics.trackAppLockToggled).not.toHaveBeenCalled();
+  });
 });

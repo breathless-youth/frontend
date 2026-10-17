@@ -10,14 +10,25 @@ describe("parseToNativeMessage", () => {
     "auth-ready",
     "request-token-refresh",
     "records-changed",
-    "app-lock-query",
-    "app-lock-authorize",
-    "app-lock-pick",
     "app-lock-start",
     "app-lock-stop",
   ] as const)("%s 메시지를 파싱한다", (type) => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
   });
+
+  it.each(["app-lock-query", "app-lock-authorize", "app-lock-pick"] as const)(
+    "%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다",
+    (type) => {
+      expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({
+        type,
+        id: "r1",
+        atMs: 5,
+      });
+      expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
+      expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
+      expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
+    },
+  );
 
   it("app-lock-* 메시지는 모르는 필드를 버린다", () => {
     expect(parseToNativeMessage('{"type":"app-lock-start","selection":"x","atMs":5}')).toEqual({

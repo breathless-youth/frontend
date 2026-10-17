@@ -123,6 +123,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "app-lock-query":
     case "app-lock-authorize":
     case "app-lock-pick":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: record.type, id: record.id, atMs: record.atMs };
     case "app-lock-start":
     case "app-lock-stop":
       return { type: record.type, atMs: record.atMs };

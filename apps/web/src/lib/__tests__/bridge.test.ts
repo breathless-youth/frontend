@@ -148,6 +148,7 @@ describe("parseToWebMessage", () => {
 describe("parseToWebMessage: 방해 앱 잠금", () => {
   const state = {
     type: "app-lock-state",
+    id: "request-1",
     supported: true,
     authorized: true,
     revoked: false,
@@ -158,6 +159,10 @@ describe("parseToWebMessage: 방해 앱 잠금", () => {
 
   it("app-lock-state를 파싱한다", () => {
     expect(parseToWebMessage(JSON.stringify(state))).toEqual(state);
+  });
+
+  it.each([undefined, "", 1])("app-lock-state의 요청 id가 %j이면 버린다", (id) => {
+    expect(parseToWebMessage(JSON.stringify({ ...state, id }))).toBeNull();
   });
 
   it.each(["supported", "authorized", "revoked", "appCount", "categoryCount"])(

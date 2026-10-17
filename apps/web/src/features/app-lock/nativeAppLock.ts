@@ -5,61 +5,48 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { hasAppLockCapability } from "./appLockCapability";
 import { readAppLockEnabled } from "./appLockSettings";
 
-export type AppLockState = Omit<Extract<ToWebMessage, { type: "app-lock-state" }>, "type" | "atMs">;
+export type AppLockState = Omit<
+  Extract<ToWebMessage, { type: "app-lock-state" }>,
+  "type" | "id" | "atMs"
+>;
 
 export const APP_LOCK_RESPONSE_TIMEOUT_MS = 5000;
 // 권한 창 앞에서 사용자가 고민하는 시간이 이 안에 들어간다.
 // 짧게 잡으면 뒤늦게 누른 허용이 버려진다.
 const AUTHORIZE_TIMEOUT_MS = 120_000;
+// 사용자가 고르는 시간보다 넉넉하게 잡는다.
+// 응답을 잃어도 고르기 화면 요청이 끝나지 않고 남지 않게 한다.
+const PICK_TIMEOUT_MS = 10 * 60_000;
 
-type RequestType = Extract<ToNativeMessage, { type: `app-lock-${string}` }>["type"];
-
-// 끝나지 않은 마지막 요청이다. 비어 있으면 바로 보낸다.
-let lastRequest: Promise<unknown> | null = null;
+type RequestType = Extract<ToNativeMessage, { type: `app-lock-${string}`; id: string }>["type"];
 
 /**
- * `app-lock-state` 응답을 기다리는 요청
+ * 요청 하나를 보내고 같은 id의 응답 기다리기
  *
- * 응답에 요청 id가 없어 다음에 오는 상태를 답으로 본다.
- * 겹쳐 보내면 두 요청이 한 응답을 나눠 가지므로 앞 요청이 답을 받거나 시간이 다 된 뒤에 보낸다.
+ * 구독을 먼저 걸고 보내야 빠른 응답을 놓치지 않는다.
+ * 시간이 다 된 요청의 늦은 응답은 id가 달라 다음 요청의 답이 되지 않는다.
  */
-function requestState(type: RequestType, timeoutMs: number | null): Promise<AppLockState | null> {
+function requestState(type: RequestType, timeoutMs: number): Promise<AppLockState | null> {
   if (!hasAppLockCapability()) {
     return Promise.resolve(null);
   }
-  const send = () => sendAndWait(type, timeoutMs);
-  const request = lastRequest === null ? send() : lastRequest.then(send);
-  lastRequest = request;
-  void request.then(() => {
-    if (lastRequest === request) lastRequest = null;
-  });
-  return request;
-}
-
-/**
- * 요청 하나를 보내고 응답 기다리기
- *
- * 구독을 먼저 걸고 보내야 빠른 응답을 놓치지 않는다.
- * `timeoutMs`가 null이면 사용자가 닫을 때까지 기다린다.
- */
-function sendAndWait(type: RequestType, timeoutMs: number | null): Promise<AppLockState | null> {
+  // LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
+  // 앱은 비지 않은 문자열이면 받으므로 그때는 난수 문자열로 대신한다.
+  const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
   return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (state: AppLockState | null) => {
       unsubscribe();
       clearTimeout(timer);
       resolve(state);
     };
     const unsubscribe = subscribeToNativeMessages((message) => {
-      if (message.type === "app-lock-state") {
-        const { type: _type, atMs: _atMs, ...state } = message;
+      if (message.type === "app-lock-state" && message.id === id) {
+        const { type: _type, id: _id, atMs: _atMs, ...state } = message;
         finish(state);
       }
     });
-    if (timeoutMs !== null) {
-      timer = setTimeout(() => finish(null), timeoutMs);
-    }
-    if (!postToNative({ type, atMs: Date.now() })) {
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    if (!postToNative({ type, id, atMs: Date.now() })) {
       finish(null);
     }
   });
@@ -74,7 +61,7 @@ export function authorizeAppLock(): Promise<AppLockState | null> {
 }
 
 export function pickAppLockApps(): Promise<AppLockState | null> {
-  return requestState("app-lock-pick", null);
+  return requestState("app-lock-pick", PICK_TIMEOUT_MS);
 }
 
 export function startAppLock(): void {

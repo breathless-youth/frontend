@@ -14,6 +14,7 @@ import {
   pickAppLockApps,
   queryAppLock,
 } from "./nativeAppLock";
+import { turnOffForLostPermission } from "./useAppLockRevokeCheck";
 
 /**
  * 방해 앱 잠금 설정 화면 상태
@@ -30,6 +31,32 @@ export function useAppLockSettings() {
   const applyCounts = (state: AppLockState) => {
     setCounts({ appCount: state.appCount, categoryCount: state.categoryCount });
   };
+
+  // 탭마다 웹뷰가 따로라 설정 앱에 다녀와도 이 화면은 다시 그려지지 않아서 보일 때마다 다시 묻는다.
+  // 사용자 조작이 진행 중이면 그 응답이 상태를 정하므로 묻지 않는다.
+  useEffect(() => {
+    if (busy) return;
+    let active = true;
+    let checking = false;
+    const refresh = () => {
+      if (checking || document.visibilityState !== "visible") return;
+      checking = true;
+      void queryAppLock().then((state) => {
+        checking = false;
+        if (!active || state === null) return;
+        applyCounts(state);
+        if (state.revoked) {
+          turnOffForLostPermission();
+          setEnabled(false);
+        }
+      });
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [busy]);
 
   useEffect(() => {
     let active = true;

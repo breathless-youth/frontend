@@ -15,11 +15,32 @@ import {
 type Reply = (message: ToWebMessage) => void;
 type AppLockMessage = Extract<HandlerMessage, { type: `app-lock-${string}` }>;
 
-// 고르기 화면이 닫힐 때 그 화면을 연 문서에만 답한다.
-let pickerReply: Reply | null = null;
+// 고르기 화면이 닫힐 때 그 화면을 연 문서의 그 요청에만 답한다.
+let pickerReply: ((state: AppLockState) => void) | null = null;
 
-function stateMessage(state: AppLockState): ToWebMessage {
-  return { type: "app-lock-state", ...state, atMs: Date.now() };
+function stateMessage(state: AppLockState, id: string): ToWebMessage {
+  return { type: "app-lock-state", id, ...state, atMs: Date.now() };
+}
+
+/**
+ * 고르기 요청에 답할 상태
+ *
+ * 답이 없으면 웹의 고르기 요청이 시간 제한까지 기다린다.
+ * 실패한 조회를 다시 부르지 않고 잠글 수 없는 상태로 답한다.
+ */
+async function pickerState(read: () => Promise<AppLockState>): Promise<AppLockState> {
+  try {
+    return await read();
+  } catch (error) {
+    console.warn("[app-lock] 고르기 상태 읽기 실패", error);
+    return {
+      supported: isAppLockSupported(),
+      authorized: false,
+      revoked: false,
+      appCount: 0,
+      categoryCount: 0,
+    };
+  }
 }
 
 let queue: Promise<void> = Promise.resolve();
@@ -41,19 +62,29 @@ export function handleAppLockMessage(message: AppLockMessage, reply: Reply): Pro
 async function handleNow(message: AppLockMessage, reply: Reply): Promise<void> {
   switch (message.type) {
     case "app-lock-query":
-      reply(stateMessage(await getAppLockState()));
+      reply(stateMessage(await getAppLockState(), message.id));
       break;
     case "app-lock-authorize":
-      reply(stateMessage(await authorizeAppLock()));
+      reply(stateMessage(await authorizeAppLock(), message.id));
       break;
-    case "app-lock-pick":
-      if (!isAppLockSupported()) {
-        reply(stateMessage(await getAppLockState()));
+    case "app-lock-pick": {
+      const { id } = message;
+      // 이미 열린 화면의 답을 덮어쓰면 먼저 연 요청은 답을 받지 못한다.
+      if (!isAppLockSupported() || pickerReply !== null) {
+        reply(stateMessage(await pickerState(getAppLockState), id));
         break;
       }
-      pickerReply = reply;
-      router.push("/app-lock-picker");
+      pickerReply = (state) => reply(stateMessage(state, id));
+      try {
+        router.push("/app-lock-picker");
+      } catch (error) {
+        // 화면이 열리지 않으면 닫힘 알림도 오지 않는다.
+        pickerReply = null;
+        reply(stateMessage(await pickerState(getAppLockState), id));
+        throw error;
+      }
       break;
+    }
     case "app-lock-start": {
       const counts = await startStudyLock();
       if (counts !== null) {
@@ -81,8 +112,8 @@ export async function notifyPickerClosed(selection: string | null | undefined): 
   }
   pickerReply = null;
   reply(
-    stateMessage(
-      selection === undefined ? await getAppLockState() : await saveSelection(selection),
+    await pickerState(() =>
+      selection === undefined ? getAppLockState() : saveSelection(selection),
     ),
   );
 }

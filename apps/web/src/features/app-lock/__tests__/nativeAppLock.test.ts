@@ -35,10 +35,20 @@ function fromNative(message: object): void {
   );
 }
 
-function sentTypes(): string[] {
+function sent(): { type: string; id?: string }[] {
   return postMessage.mock.calls.map(
-    (call) => (JSON.parse(call[0] as string) as { type: string }).type,
+    (call) => JSON.parse(call[0] as string) as { type: string; id?: string },
   );
+}
+
+function sentTypes(): string[] {
+  return sent().map((message) => message.type);
+}
+
+function idOf(index: number): string {
+  const id = sent()[index]?.id;
+  if (id === undefined) throw new Error(`${index}번째 요청에 id가 없다`);
+  return id;
 }
 
 beforeEach(() => {
@@ -60,11 +70,11 @@ describe("응답을 기다리는 요청", () => {
     expect(postMessage).not.toHaveBeenCalled();
   });
 
-  it("query를 보내고 app-lock-state를 상태로 돌려준다", async () => {
+  it("query를 보내고 같은 id의 app-lock-state를 상태로 돌려준다", async () => {
     withShell();
     const pending = queryAppLock();
     expect(sentTypes()).toEqual(["app-lock-query"]);
-    fromNative({ type: "app-lock-state", ...STATE });
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE });
     await expect(pending).resolves.toEqual(STATE);
   });
 
@@ -80,43 +90,54 @@ describe("응답을 기다리는 요청", () => {
     const pending = authorizeAppLock();
     expect(sentTypes()).toEqual(["app-lock-authorize"]);
     await vi.advanceTimersByTimeAsync(30_000);
-    fromNative({ type: "app-lock-state", ...STATE });
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE });
     await expect(pending).resolves.toEqual(STATE);
   });
 
-  it("요청이 겹치면 앞 요청이 끝난 뒤에 보내 각자 자기 응답을 받는다", async () => {
+  it("시간이 다 된 요청의 늦은 응답은 다음 요청의 답이 되지 않는다", async () => {
     withShell();
     const query = queryAppLock();
+    await vi.advanceTimersByTimeAsync(APP_LOCK_RESPONSE_TIMEOUT_MS);
+    await expect(query).resolves.toBeNull();
+
     const authorize = authorizeAppLock();
+    const settled = vi.fn();
+    void authorize.then(settled);
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE, authorized: false });
     await vi.advanceTimersByTimeAsync(0);
-    expect(sentTypes()).toEqual(["app-lock-query"]);
+    expect(settled).not.toHaveBeenCalled();
 
-    fromNative({ type: "app-lock-state", ...STATE, authorized: false });
-    await expect(query).resolves.toMatchObject({ authorized: false });
-    expect(sentTypes()).toEqual(["app-lock-query", "app-lock-authorize"]);
-
-    fromNative({ type: "app-lock-state", ...STATE, authorized: true });
+    fromNative({ type: "app-lock-state", id: idOf(1), ...STATE, authorized: true });
     await expect(authorize).resolves.toMatchObject({ authorized: true });
   });
 
-  it("앞 요청이 시간 초과로 끝나도 다음 요청을 보낸다", async () => {
+  it("겹친 요청은 바로 보내고 응답 순서가 바뀌어도 각자 자기 응답을 받는다", async () => {
     withShell();
     const query = queryAppLock();
-    const next = queryAppLock();
-    await vi.advanceTimersByTimeAsync(APP_LOCK_RESPONSE_TIMEOUT_MS);
-    await expect(query).resolves.toBeNull();
-    expect(sentTypes()).toEqual(["app-lock-query", "app-lock-query"]);
-    fromNative({ type: "app-lock-state", ...STATE });
-    await expect(next).resolves.toEqual(STATE);
+    const authorize = authorizeAppLock();
+    expect(sentTypes()).toEqual(["app-lock-query", "app-lock-authorize"]);
+    expect(idOf(0)).not.toBe(idOf(1));
+
+    fromNative({ type: "app-lock-state", id: idOf(1), ...STATE, authorized: true });
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE, authorized: false });
+    await expect(authorize).resolves.toMatchObject({ authorized: true });
+    await expect(query).resolves.toMatchObject({ authorized: false });
   });
 
-  it("고르기는 모달이 닫힐 때까지 기다린다", async () => {
+  it("고르기는 모달 앞에서 고르는 동안 기다린다", async () => {
     withShell();
     const pending = pickAppLockApps();
     expect(sentTypes()).toEqual(["app-lock-pick"]);
-    await vi.advanceTimersByTimeAsync(10 * 60_000);
-    fromNative({ type: "app-lock-state", ...STATE, appCount: 5 });
+    await vi.advanceTimersByTimeAsync(9 * 60_000);
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE, appCount: 5 });
     await expect(pending).resolves.toMatchObject({ appCount: 5 });
+  });
+
+  it("고르기 응답이 10분 안에 오지 않으면 null이다", async () => {
+    withShell();
+    const pending = pickAppLockApps();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    await expect(pending).resolves.toBeNull();
   });
 });
 

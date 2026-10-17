@@ -704,14 +704,14 @@ describe("handleBridgeMessage: 타임랩스 영상", () => {
 
 describe("handleBridgeMessage: 방해 앱 잠금", () => {
   it.each([
-    "app-lock-query",
-    "app-lock-authorize",
-    "app-lock-pick",
-    "app-lock-start",
-    "app-lock-stop",
-  ] as const)("%s는 잠금 릴레이에 같은 답 통로와 함께 넘긴다", (type) => {
+    { type: "app-lock-query", id: "r1", atMs: 1 },
+    { type: "app-lock-authorize", id: "r1", atMs: 1 },
+    { type: "app-lock-pick", id: "r1", atMs: 1 },
+    { type: "app-lock-start", atMs: 1 },
+    { type: "app-lock-stop", atMs: 1 },
+  ] as const)("$type는 잠금 릴레이에 같은 답 통로와 함께 넘긴다", (message) => {
     const reply = jest.fn();
-    handleBridgeMessage({ type, atMs: 1 }, reply);
-    expect(handleAppLockMessage).toHaveBeenCalledWith({ type, atMs: 1 }, reply);
+    handleBridgeMessage(message, reply);
+    expect(handleAppLockMessage).toHaveBeenCalledWith(message, reply);
   });
 });
