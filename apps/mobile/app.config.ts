@@ -356,6 +356,12 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
     plugins: [
       ...(config.plugins ?? []),
       ["expo-dev-client", { addGeneratedScheme: variant === "development" }],
+      // 방해 앱 잠금의 스크린타임 확장 3개와 App Group을 붙인다.
+      // App Group은 Apple Developer에 환경마다 직접 등록하고 앱·확장 App ID에 배정해야 서명된다.
+      [
+        "react-native-device-activity",
+        { appleTeamId: "9BCSD3ZRDQ", appGroup: `group.${bundleIdentifier}` },
+      ],
       ...metaSdkPlugins(metaSdk, appDisplayName),
     ],
     ios: {
