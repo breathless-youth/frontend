@@ -13,6 +13,7 @@ import {
   isManualSession,
 } from "@/features/manual-record/manualRecord";
 import { MANUAL_RECORD_PARAMS } from "@/features/manual-record/useOpenManualRecord";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { addDaysToDateKey, isFutureDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -60,11 +61,21 @@ export function ManualRecordPage() {
   const [searchParams] = useSearchParams();
 
   const todayKey = kstDateKey();
-  const dateKey = dateKeyOf(searchParams.get("date")) ?? todayKey;
+  // 입구는 미래 날짜로 열지 않는다. 주소로 미래가 오면 기본 구간의 종료가 시작보다 일러 저장할 수 없는 화면이 되므로 오늘로 연다.
+  const dateParam = dateKeyOf(searchParams.get("date"));
+  const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
   const rawEntry = searchParams.get("entry");
   const entry = rawEntry === "planner_button" || rawEntry === "planner_cell" ? rawEntry : "records";
   const editId = positiveIntOf(searchParams.get("id"));
-  const startMs = positiveIntOf(searchParams.get("start")) ?? undefined;
+  // 칸 시각은 그 칸의 달력 날짜를 date로 함께 넘긴다. 날짜가 다르면 주소가 잘못됐거나 미래 날짜를 오늘로 바꾼 것이라 버린다.
+  // 정수라도 Date 범위를 넘으면 기본 구간과 돌아갈 플래너 날짜가 NaN이 되어 함께 버린다.
+  const rawStart = positiveIntOf(searchParams.get("start"));
+  const startMs =
+    rawStart !== null &&
+    Number.isFinite(new Date(rawStart).getTime()) &&
+    kstDateKey(new Date(rawStart)) === dateKey
+      ? rawStart
+      : undefined;
   const isEdit = editId !== null;
 
   // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 조회도 폼도 없다.
@@ -173,7 +184,14 @@ export function ManualRecordPage() {
       for (const key of MANUAL_RECORD_PARAMS) {
         params.delete(key);
       }
-      params.set("date", dateKey);
+      // 플래너의 하루는 05시에 시작해 새벽 칸과 새벽 기록은 date(달력 날짜)의 전날 플래너에 있다.
+      const anchorMs = startMs ?? (edited !== undefined ? Date.parse(edited.startedAt) : undefined);
+      params.set(
+        "date",
+        entry === "planner_cell" && anchorMs !== undefined
+          ? plannerDateKeyOf(new Date(anchorMs))
+          : dateKey,
+      );
       navigate(
         {
           pathname: entry === "records" ? "/records" : "/planner",

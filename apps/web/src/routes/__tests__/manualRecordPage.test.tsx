@@ -11,7 +11,11 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import { dayTitleWithWeekday } from "@/features/records/recordsFormat";
+import {
+  addDaysToDateKey,
+  dayTitleWithWeekday,
+  kstDateKey,
+} from "@/features/records/recordsFormat";
 import { trackManualRecordAdd } from "@/lib/amplitude";
 import { createManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
 import { listStudySessionStats } from "@/lib/statsApi";
@@ -247,6 +251,48 @@ describe("ManualRecordPage", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
   });
 
+  it("스택 없이 열린 새벽 칸 추가 화면의 뒤로 가기는 칸이 속한 전날 플래너로 간다", async () => {
+    // 플래너의 하루는 05시에 시작해 다음 날 02시 칸은 전날 플래너에 있다. 입력 화면의 date는 기록의 달력 날짜다.
+    renderPage(
+      `?userId=7&date=${NEXT}&entry=planner_cell&start=${String(Date.parse(kst(NEXT, 2)))}`,
+    );
+    await screen.findByLabelText("시작");
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(await screen.findByText("플래너")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
+  });
+
+  it("날짜로 읽을 수 없는 start는 없는 값으로 보고 그날로 열며, 뒤로 가기도 그날 플래너로 간다", async () => {
+    renderPage(`?userId=7&date=${DAY}&entry=planner_cell&start=9007199254740991`);
+    await screen.findByLabelText("시작");
+    expect(screen.getByText(dayTitleWithWeekday(DAY))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(await screen.findByText("플래너")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
+  });
+
+  it("주소의 날짜와 칸 시각이 미래면 칸 시각을 버리고 오늘 화면을 저장할 수 있게 연다", async () => {
+    const today = kstDateKey();
+    const future = addDaysToDateKey(today, 3);
+    renderPage(
+      `?userId=7&date=${future}&entry=planner_cell&start=${String(Date.parse(kst(future, 9)))}`,
+    );
+
+    expect(await screen.findByText(dayTitleWithWeekday(today))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
+  });
+
+  it("주소의 날짜가 미래면 오늘로 연다", async () => {
+    const today = kstDateKey();
+    renderPage(`?userId=7&date=${addDaysToDateKey(today, 3)}&entry=planner_button`);
+
+    expect(await screen.findByText(dayTitleWithWeekday(today))).toBeInTheDocument();
+  });
+
   it("저장 중에 뒤로 가면 저장이 끝나도 한 번 더 돌아가지 않는다", async () => {
     let finish: (pieces: StudySessionResponse[]) => void = () => undefined;
     vi.mocked(createManualRecord).mockReturnValue(
@@ -360,6 +406,21 @@ describe("ManualRecordPage", () => {
       renderPage(`?userId=7&date=${DAY}&entry=planner_cell&id=1`);
 
       expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+    });
+
+    it("스택 없이 열린 새벽 수정 화면의 뒤로 가기는 기록이 속한 전날 플래너로 간다", async () => {
+      mockedStats.mockImplementation((date) =>
+        Promise.resolve(
+          date === NEXT ? stats([manual(1, kst(NEXT, 2), kst(NEXT, 3), kst(NEXT, 2))]) : stats(),
+        ),
+      );
+      renderPage(`?userId=7&date=${NEXT}&entry=planner_cell&id=1`);
+      await screen.findByLabelText("시작");
+
+      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+      expect(await screen.findByText("플래너")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
     });
 
     it("없는 id로 열리면 이전 화면으로 돌아간다", async () => {
