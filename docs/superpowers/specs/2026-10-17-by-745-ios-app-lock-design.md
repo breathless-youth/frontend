@@ -53,7 +53,7 @@
 | `app-lock-state`   | `id`(요청의 id), `supported`(iOS 18 이상), `authorized`, `revoked`(전에 허용했는데 지금은 아님), `appCount`, `categoryCount` |
 | `app-lock-started` | `appCount`, `categoryCount`                                                                                                  |
 
-요청과 응답은 `id`로 짝짓는다(`video-save`·`video-result` 방식). 웹이 요청마다 새 id를 만들고 네이티브는 `app-lock-state`에 그대로 돌려준다. 탭 웹뷰 다섯 개의 요청이 네이티브에서 한 줄로 처리되어, 한 탭의 권한 요청이 OS 권한 창에서 기다리는 동안 다른 탭의 조회가 시간 초과로 끝날 수 있다. 타입으로만 짝지으면 그 늦은 응답을 다음 요청이 답으로 가져간다. `app-lock-start`·`app-lock-stop`·`app-lock-started`는 응답을 짝지을 일이 없어 id가 없다.
+요청과 응답은 `id`로 짝짓는다(`video-save`·`video-result` 방식). 웹이 요청마다 새 id를 만들고 네이티브는 `app-lock-state`에 그대로 돌려준다. 네이티브는 조회·권한 요청·고르기를 기다리지 않고 바로 처리해서, 한 탭의 권한 요청이 OS 권한 창에서 기다리는 동안 다른 탭의 조회 응답이 먼저 돌아온다. 타입으로만 짝지으면 권한 요청을 기다리던 쪽이 그 조회 응답을 답으로 가져간다. 네이티브가 온 순서대로 하나씩 처리하는 것은 `app-lock-start`·`app-lock-stop`뿐이다. 시작이 예약을 기다리는 사이 해제가 먼저 끝나면 예약 없이 잠금만 남기 때문이다. 권한 요청까지 같은 줄에 세우면 권한 창이 닫히고 다시 보인 홈의 꺼짐 확인 조회가 그 뒤에서 기다리다 웹의 시간 제한을 넘긴다. `app-lock-start`·`app-lock-stop`·`app-lock-started`는 응답을 짝지을 일이 없어 id가 없다.
 
 ### 웹 (`apps/web`)
 

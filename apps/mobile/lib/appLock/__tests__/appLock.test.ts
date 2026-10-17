@@ -351,7 +351,7 @@ describe("브리지로 온 시작·해제 순서", () => {
       throw new Error("native");
     });
     const reply = jest.fn();
-    const first = handleAppLockMessage({ type: "app-lock-query", id: "r1", atMs: 1 }, reply);
+    const first = handleAppLockMessage({ type: "app-lock-start", atMs: 1 }, reply);
     const second = handleAppLockMessage({ type: "app-lock-stop", atMs: 2 }, reply);
     await expect(first).rejects.toThrow("native");
     await expect(second).resolves.toBeUndefined();

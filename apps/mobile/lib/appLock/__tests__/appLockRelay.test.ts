@@ -58,6 +58,14 @@ describe("handleAppLockMessage", () => {
     );
   });
 
+  it("권한 창이 떠 있는 동안에도 query에 바로 답한다", async () => {
+    (authorizeAppLock as jest.Mock).mockReturnValue(new Promise(() => undefined));
+    void handleAppLockMessage({ type: "app-lock-authorize", id: "a1", atMs: 1 }, jest.fn());
+    const reply = jest.fn();
+    await handleAppLockMessage({ type: "app-lock-query", id: "q1", atMs: 2 }, reply);
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
+  });
+
   it("start로 잠갔으면 개수를 알린다", async () => {
     const reply = jest.fn();
     await handleAppLockMessage({ type: "app-lock-start", atMs: 1 }, reply);

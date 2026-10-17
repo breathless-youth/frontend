@@ -105,6 +105,8 @@ export async function getAppLockState(): Promise<AppLockState> {
   return {
     supported: true,
     authorized,
+    // 키체인 기록은 앱을 지워도 남을 수 있지만, 재설치하면 웹의 켜짐 표시도 지워지고 꺼짐 확인은 켜져 있을 때만 돌아서 낡은 기록이 기능을 잘못 끄지 않는다.
+    // 웹의 켜짐 표시가 재설치 뒤에도 남게 바뀌면 이 판단을 다시 본다.
     revoked: approvedBefore && !authorized,
     ...selectionCounts(rnda),
   };

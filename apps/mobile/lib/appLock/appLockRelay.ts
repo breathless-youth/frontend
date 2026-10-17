@@ -50,10 +50,15 @@ let queue: Promise<void> = Promise.resolve();
  *
  * 응답에는 개수만 싣는다.
  * 앱 이름과 선택 토큰은 기기 App Group 밖으로 내보내지 않는다.
- * 시작이 예약을 기다리는 사이 해제가 먼저 끝나면 예약 없이 잠금만 남아서, 메시지는 온 순서대로 하나씩 처리한다.
- * 앞 처리가 실패해도 뒤 메시지는 처리한다.
+ * 시작이 예약을 기다리는 사이 해제가 먼저 끝나면 예약 없이 잠금만 남아서, 시작과 해제는 온 순서대로 하나씩 처리한다.
+ * 권한 요청은 사용자가 OS 창에 답할 때까지 끝나지 않아서, 같은 줄에 세우면 그 뒤의 조회가 웹의 시간 제한을 넘긴다.
+ * 조회·권한 요청·고르기는 잠금을 걸거나 풀지 않으므로 줄을 거치지 않고 바로 처리한다.
+ * 앞 시작·해제가 실패해도 뒤 메시지는 처리한다.
  */
 export function handleAppLockMessage(message: AppLockMessage, reply: Reply): Promise<void> {
+  if (message.type !== "app-lock-start" && message.type !== "app-lock-stop") {
+    return handleNow(message, reply);
+  }
   const run = queue.then(() => handleNow(message, reply));
   queue = run.catch(() => undefined);
   return run;
