@@ -33,6 +33,7 @@ import { DownloadPage } from "@/routes/DownloadPage";
 import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
+  loadAppLockSettingsPage,
   loadContactPage,
   loadInterviewFormPage,
   loadLicensesPage,
@@ -98,6 +99,11 @@ const LicensesPage = lazy(
 const TimelapseSettingsPage = lazy(
   reloadOnChunkError(() =>
     loadTimelapseSettingsPage().then((module) => ({ default: module.TimelapseSettingsPage })),
+  ),
+);
+const AppLockSettingsPage = lazy(
+  reloadOnChunkError(() =>
+    loadAppLockSettingsPage().then((module) => ({ default: module.AppLockSettingsPage })),
   ),
 );
 const TimelapsesPage = lazy(
@@ -270,6 +276,7 @@ export function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />
               <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+              <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />
             </Routes>
           </Suspense>

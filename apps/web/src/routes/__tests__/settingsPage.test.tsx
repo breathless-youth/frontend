@@ -36,6 +36,9 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackInterviewClicked: analytics.trackInterviewClicked,
 }));
 
+const hasAppLockCapability = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/features/app-lock/appLockCapability", () => ({ hasAppLockCapability }));
+
 const getInterviewStatus = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/interviewApi", () => ({ getInterviewStatus }));
 
@@ -418,6 +421,51 @@ describe("타임랩스 행", () => {
     expect(screen.getByTestId("timelapse-stub").textContent).toBe(
       "/timelapse-settings?userId=7&appVersion=1.4.2",
     );
+  });
+});
+
+describe("방해 앱 잠금 행", () => {
+  afterEach(() => {
+    hasAppLockCapability.mockReturnValue(false);
+    localStorage.clear();
+  });
+
+  it("앱이 잠금을 처리할 수 없으면 숨긴다", () => {
+    renderAt("/settings");
+    expect(screen.queryByRole("button", { name: /방해 앱 잠금/ })).toBeNull();
+  });
+
+  it("타임랩스 아래에 꺼짐 값과 함께 보이고, 누르면 쿼리를 이어받아 설정으로 간다", () => {
+    hasAppLockCapability.mockReturnValue(true);
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings?userId=7&appLock=1"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/app-lock-settings" element={<LocationProbe testId="app-lock-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    const row = screen.getByRole("button", { name: "방해 앱 잠금, 꺼짐" });
+    expect(
+      screen.getByRole("button", { name: "타임랩스" }).compareDocumentPosition(row) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(row);
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("app_lock");
+    expect(screen.getByTestId("app-lock-stub").textContent).toBe(
+      "/app-lock-settings?userId=7&appLock=1",
+    );
+  });
+
+  it("켜져 있으면 켜짐을 보여 준다", () => {
+    hasAppLockCapability.mockReturnValue(true);
+    localStorage.setItem("focusmakers.appLock.enabled", "1");
+    renderAt("/settings");
+    expect(screen.getByRole("button", { name: "방해 앱 잠금, 켜짐" })).toBeTruthy();
   });
 });
 

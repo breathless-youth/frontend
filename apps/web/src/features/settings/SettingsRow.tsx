@@ -26,6 +26,8 @@ export type SettingsRowTrailing =
   | { kind: "external" }
   /** 값 표시만 — 누를 수 없다. */
   | { kind: "value"; value: string }
+  /** 값 표시 + 앱 내 이동. 값도 접근성 라벨에 잇는다. */
+  | { kind: "valueChevron"; value: string }
   /** 값 표시 + 복사 버튼. 버전 정보 행이 쓴다. */
   | { kind: "copy"; value: string; onCopy: () => void };
 
@@ -72,6 +74,13 @@ function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
       return (
         <span className="text-text-tertiary shrink-0 text-[15px] leading-[18px]">
           {trailing.value}
+        </span>
+      );
+    case "valueChevron":
+      return (
+        <span className="flex shrink-0 items-center gap-1">
+          <span className="text-text-tertiary text-[15px] leading-[18px]">{trailing.value}</span>
+          <ChevronRight size={20} className="text-text-tertiary shrink-0" aria-hidden="true" />
         </span>
       );
     case "copy":
@@ -135,7 +144,9 @@ export function SettingsRow({
       onClick={onPress}
       aria-label={
         accessibilityLabel ??
-        [label, badge, sublabel].filter((part) => part !== undefined).join(", ")
+        [label, badge, sublabel, trailing?.kind === "valueChevron" ? trailing.value : undefined]
+          .filter((part) => part !== undefined)
+          .join(", ")
       }
       className={ROW_CLASS_NAME}
     >

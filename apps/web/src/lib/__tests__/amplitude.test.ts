@@ -1140,6 +1140,54 @@ describe("타임랩스 공유 이벤트", () => {
   });
 });
 
+describe("방해 앱 잠금 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackAppLockPermissionResult({ granted: true });
+    m.trackAppLockAppsSelected({ appCount: 1, categoryCount: 0 });
+    m.trackAppLockToggled({ on: true, source: "settings" });
+    m.setAppLockEnabledUserProperty(true);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("권한 결과·고른 개수·켜고 끔을 이름과 속성대로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAppLockPermissionResult({ granted: false });
+    m.trackAppLockAppsSelected({ appCount: 3, categoryCount: 1 });
+    m.trackAppLockToggled({ on: false, source: "permission_lost" });
+
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_permission_result", {
+      platform: "ios",
+      granted: false,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_apps_selected", {
+      app_count: 3,
+      category_count: 1,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_toggled", {
+      on: false,
+      source: "permission_lost",
+    });
+  });
+
+  it("켜짐 상태는 app_lock_enabled user property로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.setAppLockEnabledUserProperty(true);
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["app_lock_enabled", true]]);
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
