@@ -123,6 +123,8 @@ export const API_ENDPOINTS = {
     legacy: "1",
     parsedBy: "apps/web/src/features/study-session/closeStaleSession.ts",
   },
+  /** `POST /api/study-sessions/manual`, `PATCH`·`DELETE /api/study-sessions/manual/{id}`: 수동 기록. 구 앱이 부른 적 없는 새 경로다. */
+  studySessionManual: { version: "1", parsedBy: "apps/web/src/lib/manualRecordApi.ts" },
 
   /** `POST /api/rooms` — 방 생성 */
   roomCreate: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/roomApi.ts createRoom" },

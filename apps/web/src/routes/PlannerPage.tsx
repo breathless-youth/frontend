@@ -1,11 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import type { StudySessionSummary } from "@focusmakers/types";
+
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
+import { cellTapTarget } from "@/features/manual-record/manualRecord";
+import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
 import { liveSubjectsOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
 import { PlannerHead } from "@/features/planner/PlannerHead";
@@ -13,8 +19,13 @@ import { PlannerSubjects } from "@/features/planner/PlannerSubjects";
 import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
+import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
 import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import {
+  addDaysToDateKey,
+  dayTitleWithWeekday,
+  kstDateKey,
+} from "@/features/records/recordsFormat";
 import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
@@ -23,12 +34,12 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
-import { useUserId } from "@/lib/userId";
+import { hasTokenSource, useUserId } from "@/lib/userId";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * 플래너(S12) — 하루를 한 장으로 본다.
+ * 플래너
  *
  * 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 한 장에 담는 구간은
  * 05:00~다음 날 05:00이지만, 열 때의 "오늘"은 달력 날짜(자정 기준)다 — 기록 탭에서 고른 날짜와
@@ -83,6 +94,46 @@ export function PlannerPage() {
   };
   const subjects = useSubjects(userId !== null, showToast, "planner", loadSubjects);
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
+
+  // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 입구를 모두 숨긴다.
+  const canWrite = userId !== null && hasTokenSource();
+  const dayIsFuture = dateKey > todayKey;
+  const openManualRecord = useOpenManualRecord();
+
+  /** 묶음 첫 조각이 시작한 날과 그 id로 연다. 앞뒤 날 조각은 입력 화면이 받아 묶음 전체를 찾는다. */
+  const editBundle = (bundle: readonly StudySessionSummary[]) => {
+    const first = bundle[0];
+    if (first !== undefined) {
+      openManualRecord({
+        kind: "edit",
+        dateKey: kstDateKey(new Date(first.startedAt)),
+        entry: "planner_cell",
+        id: first.id,
+      });
+    }
+  };
+
+  /** 칸 시작 시각이 속한 곳으로 정한다. 빈 칸은 추가, 수동 기록은 수정, 측정 기록과 지금 이후는 무시한다. */
+  const tapCell = (cellStartMs: number) => {
+    if (state.status !== "success") {
+      return;
+    }
+    const target = cellTapTarget(cellStartMs, state.day.sessions, Date.now());
+    if (target === null) {
+      return;
+    }
+    if (target.kind === "edit") {
+      editBundle(target.bundle);
+      return;
+    }
+    // 한 장이 05시~다음 날 05시라 새벽 줄은 다음 달력 날짜의 기록이다.
+    openManualRecord({
+      kind: "add",
+      dateKey: kstDateKey(new Date(cellStartMs)),
+      entry: "planner_cell",
+      startMs: cellStartMs,
+    });
+  };
 
   const changeDate = (delta: -1 | 1, method: "button" | "swipe") => {
     const next = addDaysToDateKey(dateKey, delta);
@@ -143,6 +194,25 @@ export function PlannerPage() {
     >
       <ScreenBackHeader
         compact
+        center={
+          // 꺾쇠(36px)와 날짜 글자가 상단 바 가운데에 온다. 날짜를 누르면 날짜 선택 시트가 열린다.
+          <PeriodNav
+            compact
+            prevLabel="전날"
+            nextLabel="다음 날"
+            onPrev={() => changeDate(-1, "button")}
+            onNext={() => changeDate(1, "button")}
+          >
+            <h1 className="text-[18px] leading-5.5 font-bold text-foreground tabular-nums">
+              <PeriodNavPickerButton
+                onClick={() => setPickerOpen(true)}
+                className="h-9 gap-1.5 p-0 text-[length:inherit] leading-[inherit] font-[inherit]"
+              >
+                {dayTitleWithWeekday(dateKey, true)}
+              </PeriodNavPickerButton>
+            </h1>
+          </PeriodNav>
+        }
         onBack={() => {
           slideNavigate("back", () => {
             const historyState = window.history.state as { idx?: number } | null;
@@ -179,10 +249,6 @@ export function PlannerPage() {
 
       <div data-testid="planner-swipe-area" className="touch-pan-y px-5" {...swipe}>
         <PlannerHead
-          dateKey={dateKey}
-          onPrev={() => changeDate(-1, "button")}
-          onNext={() => changeDate(1, "button")}
-          onOpenPicker={() => setPickerOpen(true)}
           dday={ddayLine}
           totals={
             state.status === "success"
@@ -199,11 +265,11 @@ export function PlannerPage() {
           ) : state.status === "pending" ? (
             <div className="flex gap-3.5">
               <div className="flex min-w-0 flex-1 flex-col gap-3">
-                <Skeleton className="h-[18px] w-full rounded-md" />
-                <Skeleton className="h-[18px] w-3/4 rounded-md" />
-                <Skeleton className="h-[18px] w-full rounded-md" />
+                <Skeleton className="h-4.5 w-full rounded-md" />
+                <Skeleton className="h-4.5 w-3/4 rounded-md" />
+                <Skeleton className="h-4.5 w-full rounded-md" />
               </div>
-              <Skeleton className="h-[360px] w-[184px] rounded-lg" />
+              <Skeleton className="h-90 w-46 rounded-lg" />
             </div>
           ) : state.status === "error" ? (
             <ErrorState
@@ -228,7 +294,25 @@ export function PlannerPage() {
                 onNotice={showToast}
                 onRetryLoad={subjects.status === "error" ? () => void subjects.reload() : undefined}
               />
-              <PlannerTimetable day={state.day} />
+              <div className="flex shrink-0 flex-col items-end gap-3">
+                <PlannerTimetable
+                  day={state.day}
+                  onCellTap={canWrite ? tapCell : undefined}
+                  onEditBundle={canWrite ? editBundle : undefined}
+                />
+                {canWrite && !dayIsFuture && (
+                  <Button
+                    variant="link"
+                    onClick={() =>
+                      openManualRecord({ kind: "add", dateKey, entry: "planner_button" })
+                    }
+                    className="h-11 gap-1.5 px-4 text-[15px] leading-4.75"
+                  >
+                    <Pencil aria-hidden size={16} />
+                    시간 직접 입력
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>

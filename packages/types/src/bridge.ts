@@ -38,6 +38,7 @@ export type ToWebMessage =
   /**
    * 세션 모달이 닫혔다는 알림.
    * 결과 화면 확인이나 1분 미만 종료로 웹이 `navigate-home`을 보내 모달이 닫힐 때 네이티브가 모든 탭 웹뷰에 보낸다.
+   * 웹이 수동 기록을 저장·수정·삭제하고 `records-changed`를 보낼 때도 같은 이유로 모든 탭 웹뷰에 보낸다.
    * 세션은 별도 document라 탭의 통계 캐시를 직접 무효화할 수 없고, 재노출 신호는 제출 직전에도 와서 순서를 믿을 수 없다.
    * 웹은 통계 쿼리를 무효화해 다음 표시 때 새로 받는다.
    */
@@ -248,6 +249,13 @@ export type ToNativeMessage =
    * 응답은 없다. 브라우저 단독 모드에서는 발신되지 않는다(웹이 `navigator.vibrate`로 폴백).
    */
   | { type: "haptic"; style: HapticStyle; atMs: number }
+  /**
+   * 수동 기록을 저장·수정·삭제했다는 알림.
+   * 탭마다 별도 웹뷰 문서라 저장한 탭의 캐시 무효화가 다른 탭에 닿지 않는다.
+   * 네이티브는 `session-closed`를 모든 탭 웹뷰에 보내 같은 통계 무효화를 태운다.
+   * 이 메시지를 모르는 구버전 앱은 버리므로, 그때 다른 탭은 다음 재조회 때 갱신된다.
+   */
+  | { type: "records-changed"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

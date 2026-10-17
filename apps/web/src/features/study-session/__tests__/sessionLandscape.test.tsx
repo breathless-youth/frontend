@@ -53,8 +53,8 @@ describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
 
     for (const name of ["일시정지", "공부 종료"]) {
       const button = screen.getByRole("button", { name });
-      expect(button.className).toContain("h-[54px]");
-      expect(button.className).toContain("w-[54px]");
+      expect(button.className).toContain("h-13.5");
+      expect(button.className).toContain("w-13.5");
     }
   });
 

@@ -34,6 +34,7 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   activeSessionReport: { current: "2", legacy: "1" },
   activeSessionRestore: { current: "2", legacy: "1" },
   sessionRecovery: { current: "2", legacy: "1" },
+  studySessionManual: { current: "1", legacy: "1" },
   roomCreate: { current: "2", legacy: "1" },
   roomJoin: { current: "2", legacy: "1" },
   roomLeave: { current: "2", legacy: "1" },

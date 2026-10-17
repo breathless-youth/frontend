@@ -13,21 +13,23 @@ export const buttonVariants = cva(
         outline: "border border-border bg-transparent hover:bg-muted",
         ghost: "hover:bg-muted",
         subtle: "bg-brand-subtle text-primary hover:opacity-90",
-        /** `subtle`에 테두리·옅은 그림자를 더해 누를 수 있어 보이게 한 것 — 제목 줄 옆 작은 알약(`오늘`·`플래너`). */
         raised:
           "border border-primary/35 bg-brand-subtle font-bold text-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:opacity-90",
-        /** 보조 CTA(결과 화면 `홈으로`) — `bg/layer-2` 위 기본 글자색. */
         secondary: "bg-bg-layer-2 text-foreground hover:opacity-90",
-        /** variant 클래스를 전혀 주지 않는다 — 배경·hover까지 호출부가 자체 cva로 100% 책임지는
-            경우(세션 컨트롤 바처럼 로컬 색 체계가 있는 화면)를 위한 탈출구. */
+        "outline-primary":
+          "border border-primary bg-transparent text-primary hover:bg-brand-subtle",
+        link: "bg-transparent font-bold text-primary underline underline-offset-2 hover:opacity-90",
+        "outline-destructive":
+          "border border-feedback-danger bg-transparent text-feedback-danger hover:opacity-90",
+        /** 배경·hover까지 호출부가 자체 cva로 100% 책임지는 경우(세션 컨트롤 바처럼 로컬 색 체계가 있는 화면) */
         unstyled: "",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-8 px-3",
         lg: "h-12 px-6",
-        xl: "h-14 rounded-2xl text-[16px] leading-[19px] font-semibold",
-        icon: "h-[54px] w-[54px] rounded-full p-0",
+        xl: "h-14 rounded-2xl text-[16px] leading-4.75 font-semibold",
+        icon: "h-13.5 w-13.5 rounded-full p-0",
       },
     },
     defaultVariants: {

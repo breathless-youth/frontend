@@ -1,7 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -10,6 +17,9 @@ import type {
   StudySessionSummary,
 } from "@focusmakers/types";
 import {
+  addDaysToDateKey,
+  dayOfDateKey,
+  dayTitleWithWeekday,
   kstDateKey,
   monthLabel,
   monthOfDateKey,
@@ -25,6 +35,7 @@ import {
   trackRecordsWeekChanged,
 } from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
+import type * as UserIdModule from "@/lib/userId";
 
 /**
  * (모바일판 `__tests__/records.test.tsx`에서 케이스 이식 — BY-330, v2 조립으로 갱신 — BY-567 Task 8.
@@ -54,6 +65,11 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsPeriodPickerOpened: vi.fn(),
   trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
+}));
+const tokenMock = vi.hoisted(() => ({ has: false }));
+vi.mock("@/lib/userId", async (importOriginal) => ({
+  ...(await importOriginal<typeof UserIdModule>()),
+  hasTokenSource: () => tokenMock.has,
 }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
@@ -101,10 +117,34 @@ function periodResponse(
   };
 }
 
-/** 플래너로 넘어갔는지 확인하는 자리표시 라우트 — 어느 날짜로 열었는지 적는다. */
-function PlannerRouteProbe() {
+/** 다른 화면으로 넘어갔는지 확인하는 자리표시 라우트. 어느 경로·쿼리로 열었는지 적는다. */
+function RouteProbe() {
   const location = useLocation();
-  return <p data-testid="planner-route">{`${location.pathname}${location.search}`}</p>;
+  return <p data-testid="route-probe">{`${location.pathname}${location.search}`}</p>;
+}
+
+/** 입력 화면 자리표시. 닫기는 입력 화면의 뒤로 가기처럼 스택을 한 칸 되돌린다. */
+function ManualRecordProbe() {
+  const navigate = useNavigate();
+  return (
+    <>
+      <RouteProbe />
+      <button type="button" onClick={() => navigate(-1)}>
+        입력 화면 닫기
+      </button>
+    </>
+  );
+}
+
+/** 지금 주소와 마지막 이동 방식(PUSH·REPLACE·POP). */
+function LocationProbe() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  return (
+    <output data-testid="location" data-navigation={navigationType}>
+      {`${location.pathname}${location.search}`}
+    </output>
+  );
 }
 
 function renderRecords(path = "/records?userId=7") {
@@ -114,8 +154,10 @@ function renderRecords(path = "/records?userId=7") {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/records" element={<RecordsPage />} />
-          <Route path="/planner" element={<PlannerRouteProbe />} />
+          <Route path="/planner" element={<RouteProbe />} />
+          <Route path="/manual-record" element={<ManualRecordProbe />} />
         </Routes>
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -124,6 +166,7 @@ function renderRecords(path = "/records?userId=7") {
 describe("RecordsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tokenMock.has = false;
     mockedPeriod.mockResolvedValue(periodResponse());
   });
 
@@ -305,6 +348,67 @@ describe("RecordsPage", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
+  describe("고른 날은 주소의 date", () => {
+    beforeEach(() => {
+      mockedStats.mockResolvedValue(statsResponse(false));
+    });
+
+    it("주소에 날짜가 있으면 그날을 고른 채 그 달 달력으로 연다", async () => {
+      renderRecords("/records?userId=7&date=2025-03-04");
+
+      expect(await screen.findByText(dayTitleWithWeekday("2025-03-04"))).toBeInTheDocument();
+      expect(screen.getByText("3월 4일 순공시간")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: monthLabel(monthOfDateKey("2025-03-04")) }),
+      ).toBeInTheDocument();
+      expect(mockedStats).toHaveBeenCalledWith("2025-03-04");
+    });
+
+    it("날짜를 고르면 셸 쿼리를 남긴 채 주소의 date만 바꾸고, 스택은 쌓지 않는다", async () => {
+      renderRecords("/records?userId=7&guestAuth=1");
+      await screen.findByText("오늘 순공시간");
+
+      // 오늘이 1일이어도 고를 수 있게 지난달로 가서 15일을 고른다.
+      await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
+      const prevMonth = shiftMonth(monthOfDateKey(kstDateKey()), -1);
+      await userEvent.click(screen.getByRole("button", { name: "15일, 기록 없음" }));
+
+      const picked = `${String(prevMonth.year)}-${String(prevMonth.month).padStart(2, "0")}-15`;
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent(
+          `/records?userId=7&guestAuth=1&date=${picked}`,
+        ),
+      );
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("지난 날을 고른 뒤 오늘을 고르면 주소에서 date만 지우고 셸 쿼리는 남긴다", async () => {
+      renderRecords("/records?userId=7&guestAuth=1&date=2025-03-04");
+      await screen.findByText("3월 4일 순공시간");
+
+      // 달 선택 시트의 `오늘`로 이번 달에 돌아온 뒤 오늘 칸을 고른다.
+      await userEvent.click(
+        screen.getByRole("button", { name: monthLabel(monthOfDateKey("2025-03-04")) }),
+      );
+      await screen.findByText("달 선택");
+      await userEvent.click(screen.getByRole("button", { name: "오늘" }));
+      await userEvent.click(await screen.findByRole("button", { name: /^오늘, / }));
+
+      expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/records\?userId=7&guestAuth=1$/);
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("달력에 없거나 미래인 날짜는 오늘로 연다", async () => {
+      const { unmount } = renderRecords("/records?userId=7&date=2025-13-45");
+      expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
+      unmount();
+
+      renderRecords(`/records?userId=7&date=${addDaysToDateKey(kstDateKey(), 1)}`);
+      expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
+    });
+  });
+
   it("달력 아래에 그 달 합계와 공부한 날 기준 하루 평균을 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     const month = monthOfDateKey(kstDateKey());
@@ -446,6 +550,8 @@ describe("RecordsPage", () => {
     // 기기 미등록이면 주간 데이터를 못 받으므로 주간 탭 비활성(탭·내용 어긋남 방지).
     expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
     expect(screen.getByRole("tab", { name: "일간" })).not.toBeDisabled();
+    // 등록 전에는 열어도 볼 기록이 없어 플래너 알약이 없다.
+    expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
   });
 
   it("월을 옮기는 동안 이전 달 합계가 새 달 제목 아래 보이지 않는다", async () => {
@@ -582,18 +688,23 @@ describe("RecordsPage", () => {
     expect(vi.mocked(trackRecordsWeekChanged)).not.toHaveBeenCalled();
   });
 
-  it("선택일 줄의 플래너 버튼은 고른 날의 플래너를 열고, 날짜 상세 카드는 일간 탭에 없다", async () => {
+  it("머리 오른쪽 플래너 알약은 고른 날의 플래너를 열고, 주간에서도 보인다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
 
-    renderRecords();
+    renderRecords("/records?userId=7&date=2025-03-04");
 
-    const button = await screen.findByRole("button", { name: "플래너" });
-    // 날짜 상세(과목별 시간·24시간 타임테이블)는 플래너로 옮겼다.
+    const titleRow = (await screen.findByRole("heading", { level: 1, name: "기록" }))
+      .parentElement!;
+    await screen.findByText(dayTitleWithWeekday("2025-03-04"));
+    // 플래너 입구는 머리 하나다. 날짜 상세(과목별 시간·24시간 타임테이블)는 플래너에 있다.
+    expect(screen.getAllByRole("button", { name: "플래너" })).toHaveLength(1);
     expect(screen.queryByRole("img", { name: /24시간 공부 분포/ })).not.toBeInTheDocument();
 
-    await userEvent.click(button);
-    expect(await screen.findByTestId("planner-route")).toHaveTextContent(
-      `/planner?userId=7&date=${kstDateKey()}&from=records`,
+    await userEvent.click(screen.getByRole("tab", { name: "주간" }));
+    await userEvent.click(within(titleRow).getByRole("button", { name: "플래너" }));
+
+    expect(await screen.findByTestId("route-probe")).toHaveTextContent(
+      "/planner?userId=7&date=2025-03-04&from=records",
     );
   });
 
@@ -684,5 +795,128 @@ describe("RecordsPage", () => {
     expect(screen.getByText(/월 총 시간$/).nextElementSibling?.textContent ?? "").not.toMatch(
       /분|시간/,
     );
+  });
+
+  describe("수동 기록", () => {
+    const TODAY = kstDateKey();
+    /** KST 2026-01-01 14:00~15:30 국어 수동 기록. 기록 탭은 고른 날 응답을 그대로 그린다. */
+    const manualDay: StudySessionListResponse = {
+      ...statsResponse(false),
+      sessions: [
+        {
+          id: 9,
+          statDate: "2026-01-01",
+          startedAt: "2026-01-01T05:00:00.000Z",
+          endedAt: "2026-01-01T06:30:00.000Z",
+          studySec: 5400,
+          focusSec: 5400,
+          focusRate: 100,
+          eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+          events: [],
+          subjectSegments: [
+            {
+              subjectId: 3,
+              startedAt: "2026-01-01T05:00:00.000Z",
+              endedAt: "2026-01-01T06:30:00.000Z",
+              studySec: 5400,
+              focusSec: 5400,
+            },
+          ],
+          source: "MANUAL",
+          submissionStartedAt: "2026-01-01T05:00:00.000Z",
+        },
+      ],
+      sessionCount: 1,
+      subjects: [{ id: 3, name: "국어", colorIndex: 1, deleted: false }],
+    };
+
+    beforeEach(() => {
+      tokenMock.has = true;
+      mockedStats.mockImplementation((date) =>
+        Promise.resolve(date === TODAY ? manualDay : statsResponse(false)),
+      );
+    });
+
+    it("선택일 줄 오른쪽의 시간 직접 입력이 고른 날짜로 입력 화면을 열고, 목록 아래에는 입구가 없다", async () => {
+      renderRecords();
+
+      const dayRow = (await screen.findByText(dayTitleWithWeekday(TODAY))).parentElement!;
+      expect(screen.getAllByRole("button", { name: "시간 직접 입력" })).toHaveLength(1);
+
+      await userEvent.click(within(dayRow).getByRole("button", { name: "시간 직접 입력" }));
+
+      expect(await screen.findByTestId("route-probe")).toHaveTextContent(
+        `/manual-record?userId=7&date=${TODAY}&entry=records`,
+      );
+    });
+
+    it("수동 행과 범례를 보여 주고, 펼친 행의 수정은 그 조각 id로 수정 화면을 연다", async () => {
+      renderRecords();
+
+      const row = await screen.findByRole("button", {
+        name: "수동 기록, 국어, 오후 2시부터 3시 30분, 1시간 30분",
+      });
+      expect(screen.getByText("직접 입력")).toBeInTheDocument();
+
+      await userEvent.click(row);
+      await userEvent.click(screen.getByRole("button", { name: "수정" }));
+
+      expect(await screen.findByTestId("route-probe")).toHaveTextContent(
+        `/manual-record?userId=7&date=${TODAY}&entry=records&id=9`,
+      );
+    });
+
+    it("토큰 없는 문서에는 입구와 수정이 없다", async () => {
+      tokenMock.has = false;
+      renderRecords();
+
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: "수동 기록, 국어, 오후 2시부터 3시 30분, 1시간 30분",
+        }),
+      );
+      expect(screen.queryByRole("button", { name: "시간 직접 입력" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+    });
+
+    /** 달 선택 시트로 그 달에 간 뒤 날짜를 고른다. 지난 날이라야 다음 날 조회가 실제로 일어난다. */
+    async function pickDay(dateKey: string) {
+      const current = monthOfDateKey(TODAY);
+      const target = monthOfDateKey(dateKey);
+      await userEvent.click(await screen.findByRole("button", { name: monthLabel(current) }));
+      await screen.findByText("달 선택");
+      for (let year = current.year; year > target.year; year -= 1) {
+        await userEvent.click(screen.getByRole("button", { name: "이전 해" }));
+      }
+      await userEvent.click(screen.getByRole("radio", { name: `${String(target.month)}월` }));
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: `${String(dayOfDateKey(dateKey))}일, 기록 없음`,
+        }),
+      );
+    }
+
+    it("지난 날을 골라 입력 화면에 갔다가 돌아오면 같은 날이 보이고, 입력 화면 주소에는 셸 쿼리가 남는다", async () => {
+      const DAY = "2025-03-04";
+      renderRecords("/records?userId=7&guestAuth=1");
+      await pickDay(DAY);
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent(
+          `/records?userId=7&guestAuth=1&date=${DAY}`,
+        ),
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "시간 직접 입력" }));
+      expect(await screen.findByTestId("route-probe")).toHaveTextContent(
+        `/manual-record?userId=7&guestAuth=1&date=${DAY}&entry=records`,
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "입력 화면 닫기" }));
+
+      expect(await screen.findByText(dayTitleWithWeekday(DAY))).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/records?userId=7&guestAuth=1&date=${DAY}`,
+      );
+    });
   });
 });

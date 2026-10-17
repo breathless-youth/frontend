@@ -11,13 +11,13 @@ export interface SegmentOption<T extends string> {
 
 const triggerClass =
   "relative mb-0 min-h-0 border-b-0 before:absolute before:-inset-x-0 before:-top-[7px] before:-bottom-[7px] before:content-[''] " +
-  "rounded-[9px] px-4 py-[7px] text-[13px] leading-4 font-normal text-muted-foreground " +
+  "rounded-[9px] px-4 py-1.75 text-[13px] leading-4 font-normal text-muted-foreground " +
   "transition-colors duration-200 motion-reduce:transition-none " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus) " +
   // 누를 수 없는 옵션은 흐리게 보여 준다(기기 미등록의 주간 탭).
   "disabled:pointer-events-none disabled:opacity-40 " +
   "data-[state=active]:bg-muted data-[state=active]:font-bold data-[state=active]:text-foreground " +
-  "data-[state=active]:shadow-[var(--shadow-segment-thumb)]";
+  "data-[state=active]:shadow-(--shadow-segment-thumb)";
 
 /**
  * 알약 모양 세그먼트
@@ -31,19 +31,25 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   ariaLabel,
+  className,
   triggerClassName,
 }: {
   value: T;
   options: readonly SegmentOption<T>[];
   onChange: (value: T) => void;
   ariaLabel?: string;
+  /** 놓이는 곳마다 폭이 달라(기록 탭 머리는 줄을 채운다) 목록 상자에 덧붙인다. */
+  className?: string;
   triggerClassName?: string;
 }) {
   return (
     <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
       <TabsList
         aria-label={ariaLabel}
-        className="inline-flex items-center gap-0.5 rounded-[12px] border-b-0 bg-bg-control-track p-1"
+        className={cn(
+          "inline-flex items-center gap-0.5 rounded-[12px] border-b-0 bg-bg-control-track p-1",
+          className,
+        )}
       >
         {options.map((option) => (
           <TabsTrigger

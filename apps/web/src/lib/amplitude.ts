@@ -1060,6 +1060,72 @@ export function trackPlannerDateChanged(input: {
   track("planner_date_changed", { delta: input.delta, method: input.method });
 }
 
+/** 수동 기록 입력 화면을 연 곳. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
+type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records";
+type ManualRecordEditEntry = "planner_cell" | "records";
+
+/**
+ * 수동 기록 추가 성공. 길이는 서버가 저장한 조각의 합이다.
+ * `trimmedMin`은 다른 기록과 겹쳐 빠진 분, `pieces`는 자정·겹침으로 나뉜 조각 수다.
+ */
+export function trackManualRecordAdd(input: {
+  readonly entry: ManualRecordAddEntry;
+  readonly durationMin: number;
+  readonly hasSubject: boolean;
+  readonly daysAgo: number;
+  readonly trimmedMin: number;
+  readonly pieces: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_add", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    has_subject: input.hasSubject,
+    days_ago: input.daysAgo,
+    trimmed_min: input.trimmedMin,
+    pieces: input.pieces,
+  });
+}
+
+/** 수동 기록 수정 성공. */
+export function trackManualRecordEdit(input: {
+  readonly entry: ManualRecordEditEntry;
+  readonly durationMin: number;
+  readonly hasSubject: boolean;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_edit", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    has_subject: input.hasSubject,
+    days_ago: input.daysAgo,
+  });
+}
+
+/** 수동 기록 삭제 성공. 길이는 지운 묶음 전체다. */
+export function trackManualRecordDelete(input: {
+  readonly entry: ManualRecordEditEntry;
+  readonly durationMin: number;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_delete", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    days_ago: input.daysAgo,
+  });
+}
+
+/** 전부 겹쳐 저장이 막힌 안내가 처음 뜰 때. 입력 화면을 한 번 여는 동안 한 번만 보낸다. */
+export function trackManualRecordOverlapBlocked(input: {
+  readonly entry: ManualRecordAddEntry;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_overlap_blocked", { entry: input.entry, days_ago: input.daysAgo });
+}
+
 /** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
 export function trackRecordsSessionExpanded(input: { readonly expanded: boolean }) {
   if (!initialized) return;
