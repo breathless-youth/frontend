@@ -275,6 +275,17 @@ describe("ManualRecordPage", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
   });
 
+  it("주소의 날짜와 칸 시각이 미래면 칸 시각을 버리고 오늘 화면을 저장할 수 있게 연다", async () => {
+    const today = kstDateKey();
+    const future = addDaysToDateKey(today, 3);
+    renderPage(
+      `?userId=7&date=${future}&entry=planner_cell&start=${String(Date.parse(kst(future, 9)))}`,
+    );
+
+    expect(await screen.findByText(dayTitleWithWeekday(today))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
+  });
+
   it("주소의 날짜가 미래면 오늘로 연다", async () => {
     const today = kstDateKey();
     renderPage(`?userId=7&date=${addDaysToDateKey(today, 3)}&entry=planner_button`);

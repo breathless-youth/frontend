@@ -67,10 +67,15 @@ export function ManualRecordPage() {
   const rawEntry = searchParams.get("entry");
   const entry = rawEntry === "planner_button" || rawEntry === "planner_cell" ? rawEntry : "records";
   const editId = positiveIntOf(searchParams.get("id"));
-  // 정수라도 Date 범위를 넘으면 기본 구간과 돌아갈 플래너 날짜가 NaN이 되어 없는 값으로 본다.
+  // 칸 시각은 그 칸의 달력 날짜를 date로 함께 넘긴다. 날짜가 다르면 주소가 잘못됐거나 미래 날짜를 오늘로 바꾼 것이라 버린다.
+  // 정수라도 Date 범위를 넘으면 기본 구간과 돌아갈 플래너 날짜가 NaN이 되어 함께 버린다.
   const rawStart = positiveIntOf(searchParams.get("start"));
   const startMs =
-    rawStart !== null && Number.isFinite(new Date(rawStart).getTime()) ? rawStart : undefined;
+    rawStart !== null &&
+    Number.isFinite(new Date(rawStart).getTime()) &&
+    kstDateKey(new Date(rawStart)) === dateKey
+      ? rawStart
+      : undefined;
   const isEdit = editId !== null;
 
   // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 조회도 폼도 없다.
