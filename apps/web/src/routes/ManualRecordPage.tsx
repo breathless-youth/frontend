@@ -122,10 +122,14 @@ export function ManualRecordPage() {
     ...dailyStatsQuery(userId ?? 0, extraKey ?? ""),
     enabled: canWrite && extraKey !== null,
   });
+  // 과목은 플래너·세션 화면이 react-query 밖에서 바꿔 이 캐시가 모르는 사이에 낡는다.
+  // 그래서 항상 낡은 것으로 보고 다시 받으며, 받기 전의 캐시 목록으로는 폼을 열지 않는다.
+  // 마운트 때만 다시 받으면 웹뷰처럼 신원이 늦게 와 키가 바뀌는 경로에서 다시 받지 않아 자리표시가 풀리지 않는다.
   const subjects = useQuery({
     queryKey: ["subjects", "list", userId],
     queryFn: () => listSubjects(),
     enabled: canWrite,
+    staleTime: 0,
   });
 
   const loaded = [prev.data, day.data, next.data, extra.data].filter((data) => data !== undefined);
@@ -144,7 +148,7 @@ export function ManualRecordPage() {
   // 수정은 묶음 조각이 빠진 채 저장하면 기록이 줄어들어 모두 받아야 연다.
   // 과목 목록이 없으면 과목 없음 칩만 보여 과목을 고를 수 없어 어느 모드든 받아야 연다.
   const blocked = isEdit ? failed.length > 0 : day.isError || subjects.isError;
-  const pending = needed.some((query) => query.isPending);
+  const pending = needed.some((query) => query.isPending) || !subjects.isFetchedAfterMount;
 
   // 묶음 키가 없으면 겹침으로 잘린 다른 조각을 찾을 수 없다.
   // 조각 하나로 저장하면 서버가 묶음 전체를 지우고 새로 만들어 나머지 조각이 사라지므로 수정 화면을 열지 않는다.
