@@ -192,6 +192,8 @@ export async function startStudyLock(
     rnda.blockSelection(SELECTION, "study-start");
   } catch (error) {
     console.warn("[appLock] 잠금 실패", error);
+    // 잠그지 못했으면 풀어 줄 잠금이 없어서 먼저 걸어 둔 안전 해제 예약도 지운다.
+    safely("실패한 시작의 예약 해제", () => rnda.stopMonitoring([ACTIVITY_NAME]));
     return null;
   }
   return counts;

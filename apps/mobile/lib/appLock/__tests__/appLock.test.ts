@@ -252,6 +252,15 @@ describe("startStudyLock", () => {
     await expect(startStudyLock()).resolves.toBeNull();
     expect(rnda.blockSelection).not.toHaveBeenCalled();
   });
+
+  it("예약 뒤 잠금이 실패하면 예약을 지워 아무것도 남기지 않는다", async () => {
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    rnda.blockSelection.mockImplementation(() => {
+      throw new Error("block");
+    });
+    await expect(startStudyLock()).resolves.toBeNull();
+    expect(rnda.stopMonitoring).toHaveBeenCalledWith(["focusmakers_study_lock"]);
+  });
 });
 
 describe("safetyReleaseSchedule", () => {
