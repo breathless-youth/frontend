@@ -1135,7 +1135,15 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
   row:
-    "profile" | "timelapse" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
+    | "profile"
+    | "timelapse"
+    | "app_lock"
+    | "guide"
+    | "contact"
+    | "interview"
+    | "terms"
+    | "privacy"
+    | "licenses",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
@@ -1160,6 +1168,46 @@ export function trackTimelapseSettingChanged(input: {
 }) {
   if (!initialized) return;
   track("timelapse_setting_changed", { setting: input.setting, value: input.value });
+}
+
+/**
+ * 방해 앱 잠금 권한 결과
+ *
+ * 지금은 iOS에서만 권한을 묻는다.
+ * 안드로이드가 붙으면 `platform` 값이 늘어난다.
+ */
+export function trackAppLockPermissionResult(input: { readonly granted: boolean }) {
+  if (!initialized) return;
+  track("app_lock_permission_result", { platform: "ios", granted: input.granted });
+}
+
+/** 앱 이름·선택 토큰은 기기 밖으로 나가지 않아서 개수만 싣는다. */
+export function trackAppLockAppsSelected(input: {
+  readonly appCount: number;
+  readonly categoryCount: number;
+}) {
+  if (!initialized) return;
+  track("app_lock_apps_selected", {
+    app_count: input.appCount,
+    category_count: input.categoryCount,
+  });
+}
+
+/** `permission_lost`는 스크린타임 권한이 꺼진 것을 알아채 앱이 스스로 끈 경우다. */
+export function trackAppLockToggled(input: {
+  readonly on: boolean;
+  readonly source: "settings" | "permission_lost";
+}) {
+  if (!initialized) return;
+  track("app_lock_toggled", { on: input.on, source: input.source });
+}
+
+/** 잠금을 켠 사용자와 안 켠 사용자의 집중률을 가르는 기준이라 이벤트가 아니라 상태로 둔다. */
+export function setAppLockEnabledUserProperty(enabled: boolean) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("app_lock_enabled", enabled);
+  identify(id);
 }
 
 /** 인터뷰 안내가 어디서 떴는지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */

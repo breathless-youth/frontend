@@ -57,6 +57,16 @@ EXPO_PACKAGER_PROXY_URL=https://<발급된-metro>.trycloudflare.com pnpm --filte
 
 `VITE_DEV_TUNNEL=1`은 `apps/web/vite.config.ts`의 터널 모드를 켜 발급 URL을 허용 호스트에 넣는다. `EXPO_PACKAGER_PROXY_URL`은 Metro가 기기에 안내하는 번들 주소를 터널 주소로 바꾼다. 터널 주소는 만료형이라 세션마다 새로 발급되고, 공개 URL이라 검증이 끝나면 반드시 내린다.
 
+터널로 연 화면은 앱이 백그라운드에서 돌아올 때마다 다시 로드된다. 백그라운드 동안 Vite HMR 소켓이 끊기고, 다시 붙으면 Vite 클라이언트가 페이지를 새로 고치기 때문이다(`vite/dist/client/client.mjs`의 `vite:ws:disconnect` 처리). 공부 화면이면 서버 체크포인트로 복구되면서 시간이 최대 30초 빠져 보이는데, 운영 빌드에는 Vite 클라이언트가 없어 생기지 않는다(2026-10-17 BY-745 실기기에서 확인). 백그라운드 복귀 동작을 볼 때는 커밋하지 않는 임시 설정으로 소켓을 끄고 띄운다.
+
+```bash
+# apps/web/.vite-nohmr.config.local.ts (검증 뒤 지운다)
+#   import { mergeConfig } from "vite";
+#   import base from "./vite.config";
+#   export default mergeConfig(base, { server: { hmr: false, ws: false } });
+VITE_DEV_TUNNEL=1 pnpm --filter web exec vite --config .vite-nohmr.config.local.ts
+```
+
 ## Dev Client 반영
 
 Dev Client에서는 주소가 Metro 매니페스트로 오므로 Metro만 재시작하면 반영된다. 3티어 환경 값의 원천과 파생은 [ADR 0007](../adr/0007-three-tier-environment-model-and-eas-profiles.md)을 본다.

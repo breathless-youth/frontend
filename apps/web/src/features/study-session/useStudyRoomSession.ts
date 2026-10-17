@@ -14,12 +14,19 @@ import {
   trackStudySessionSubmitted,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import { formatLockStartedToast } from "@/features/app-lock/appLockSummary";
+import {
+  startAppLock,
+  stopAppLock,
+  subscribeAppLockStarted,
+} from "@/features/app-lock/nativeAppLock";
 import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
 import { statsKeys } from "@/lib/statsQueries";
+import { showTopToast } from "@/lib/toast";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
 import { createMockCameraAdapter } from "./adapters/cameraAdapter";
@@ -388,6 +395,24 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [roomType, initial.restored]);
 
   /**
+   * 방해 앱 잠금
+   *
+   * 솔로와 소셜이 함께 쓰는 세션 수명에 건다.
+   * 일시정지에는 아무것도 보내지 않아 잠금이 유지되고, 끝내지 않고 화면을 떠나도 풀린다.
+   * 잠갔다는 알림을 놓치지 않게 구독을 먼저 건다.
+   */
+  useEffect(() => {
+    const unsubscribe = subscribeAppLockStarted(({ appCount, categoryCount }) => {
+      showTopToast(formatLockStartedToast(appCount, categoryCount));
+    });
+    startAppLock();
+    return () => {
+      unsubscribe();
+      stopAppLock();
+    };
+  }, []);
+
+  /**
    * 에러 이벤트에 "세션의 어느 단계였나"를 싣는다(BY-372). setPhase 호출부마다 심지 않고
    * phase.name 변화를 여기서 한 번에 관측한다 — 전환 지점이 늘어도 이 코드는 안 바뀐다.
    * DSN 미설정이면 둘 다 no-op. 값은 phase명(enum)뿐 — 개인정보 없음.
@@ -693,6 +718,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 제출 성공/실패는 아래 `study_session_submitted`가 시도마다 따로 기록한다.
       if (!endTrackedRef.current) {
         endTrackedRef.current = true;
+        // 결과 화면을 보는 동안에도 잠겨 있지 않게 끝낸 순간 푼다.
+        stopAppLock();
         // 인자 `reason`이 아니라 **최초로 확정된** 사유를 쓴다 — 재시도가 사유를 바꾸지 않듯
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;

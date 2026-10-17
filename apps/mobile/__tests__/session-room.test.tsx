@@ -1,8 +1,9 @@
 import { act, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
-import { BackHandler } from "react-native";
+import { BackHandler, Platform } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
+import { getRnda, type RndaApi } from "../lib/appLock/rnda";
 import type * as OrientationModule from "../lib/orientation";
 import { offerRouteToSession } from "../lib/sessionInvite";
 import { __resetSessionPresenceForTests, runAfterSession } from "../lib/sessionPresence";
@@ -33,6 +34,8 @@ jest.mock("../lib/orientation", () => ({
   lockPortrait: jest.fn(),
   unlockForSession: jest.fn(),
 }));
+
+jest.mock("../lib/appLock/rnda", () => ({ getRnda: jest.fn(() => null) }));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -204,5 +207,71 @@ describe("SessionRoomScreen: 세션 중 초대", () => {
     unmount();
 
     expect(offerRouteToSession("/social/join?code=4680")).toBe(false);
+  });
+});
+
+describe("SessionRoomScreen: 방해 앱 잠금", () => {
+  let calls: string[];
+  let finishSchedule: () => void;
+
+  beforeEach(() => {
+    calls = [];
+    const record = (name: string) => () => {
+      calls.push(name);
+    };
+    jest.spyOn(Platform, "Version", "get").mockReturnValue("18.2");
+    jest.mocked(getRnda).mockReturnValue({
+      getAuthorizationStatus: () => 2,
+      activitySelectionMetadata: () => ({ applicationCount: 1, categoryCount: 0 }),
+      configureActions: record("configureActions"),
+      startMonitoring: () =>
+        new Promise<void>((resolve) => {
+          calls.push("startMonitoring");
+          finishSchedule = resolve;
+        }),
+      updateShield: record("updateShield"),
+      blockSelection: record("blockSelection"),
+      resetBlocks: record("resetBlocks"),
+      stopMonitoring: record("stopMonitoring"),
+    } as unknown as RndaApi);
+  });
+
+  afterEach(() => {
+    jest.mocked(getRnda).mockReturnValue(null);
+    jest.restoreAllMocks();
+  });
+
+  it("세션 화면이 닫히면 웹이 해제를 보내지 못해도 잠금을 푼다", async () => {
+    const { unmount } = render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    unmount();
+    await act(async () => undefined);
+
+    expect(calls).toEqual(["resetBlocks", "stopMonitoring"]);
+  });
+
+  it("시작이 예약을 기다리는 중에 화면이 닫혀도 잠근 뒤에 푼다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+    act(() => {
+      (webview.props.onMessage as (event: unknown) => void)({
+        nativeEvent: { data: '{"type":"app-lock-start","atMs":1}' },
+      });
+    });
+    await act(async () => undefined);
+
+    screen.unmount();
+    finishSchedule();
+    await act(async () => undefined);
+
+    expect(calls).toEqual([
+      "configureActions",
+      "startMonitoring",
+      "updateShield",
+      "blockSelection",
+      "resetBlocks",
+      "stopMonitoring",
+    ]);
   });
 });
