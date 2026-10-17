@@ -123,12 +123,13 @@ export function ManualRecordPage() {
     enabled: canWrite && extraKey !== null,
   });
   // 과목은 플래너·세션 화면이 react-query 밖에서 바꿔 이 캐시가 모르는 사이에 낡는다.
-  // 그래서 열 때마다 서버에서 다시 받고, 받기 전의 캐시 목록으로는 폼을 열지 않는다.
+  // 그래서 항상 낡은 것으로 보고 다시 받으며, 받기 전의 캐시 목록으로는 폼을 열지 않는다.
+  // 마운트 때만 다시 받으면 웹뷰처럼 신원이 늦게 와 키가 바뀌는 경로에서 다시 받지 않아 자리표시가 풀리지 않는다.
   const subjects = useQuery({
     queryKey: ["subjects", "list", userId],
     queryFn: () => listSubjects(),
     enabled: canWrite,
-    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   const loaded = [prev.data, day.data, next.data, extra.data].filter((data) => data !== undefined);

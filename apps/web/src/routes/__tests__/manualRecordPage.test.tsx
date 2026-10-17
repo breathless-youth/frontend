@@ -39,12 +39,34 @@ vi.mock("@/lib/amplitude", () => ({
   trackManualRecordOverlapBlocked: vi.fn(),
 }));
 
-// 토큰 문서 여부만 바꾼다. 신원은 그대로 `?userId=`에서 읽는다.
+// 토큰 문서 여부를 바꾼다. 신원은 기본으로 `?userId=`에서 읽고, `identityMock.late`면 웹뷰처럼 나중에 도착한다.
 const tokenMock = vi.hoisted(() => ({ has: true }));
-vi.mock("@/lib/userId", async (importOriginal) => ({
-  ...(await importOriginal<typeof UserIdModule>()),
-  hasTokenSource: () => tokenMock.has,
+const identityMock = vi.hoisted(() => ({
+  late: false,
+  userId: null as number | null,
+  listeners: new Set<() => void>(),
+  arrive(userId: number) {
+    this.userId = userId;
+    for (const listener of this.listeners) listener();
+  },
 }));
+vi.mock("@/lib/userId", async (importOriginal) => {
+  const actual = await importOriginal<typeof UserIdModule>();
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    identityMock.listeners.add(listener);
+    return () => identityMock.listeners.delete(listener);
+  };
+  return {
+    ...actual,
+    hasTokenSource: () => tokenMock.has,
+    useUserId: () => {
+      const arrived = useSyncExternalStore(subscribe, () => identityMock.userId);
+      const fromUrl = actual.useUserId();
+      return identityMock.late ? arrived : fromUrl;
+    },
+  };
+});
 
 const mockedStats = vi.mocked(listStudySessionStats);
 
@@ -145,6 +167,8 @@ function withStack() {
 describe("ManualRecordPage", () => {
   beforeEach(() => {
     tokenMock.has = true;
+    identityMock.late = false;
+    identityMock.userId = null;
     vi.clearAllMocks();
     mockedStats.mockResolvedValue(stats());
     vi.mocked(listSubjects).mockResolvedValue([KOREAN]);
@@ -238,11 +262,27 @@ describe("ManualRecordPage", () => {
     renderPage(`?userId=7&date=${DAY}&entry=records`, queryClient);
 
     await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(NEXT));
-    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
-    expect(listSubjects).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("button", { name: "국어" })).not.toBeInTheDocument();
 
     resolveSubjects([MATH]);
+    expect(await screen.findByRole("button", { name: "수학" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "국어" })).not.toBeInTheDocument();
+  });
+
+  it("신원이 늦게 도착해도 캐시의 과목 목록을 다시 받아 폼을 연다", async () => {
+    // 웹뷰는 첫 렌더에 신원이 없다. 신원이 오면 쿼리 키가 바뀌는데, 마운트가 아니라서 신선한 캐시면 다시 받지 않을 수 있다.
+    identityMock.late = true;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
+    queryClient.setQueryData(["subjects", "list", 7], [KOREAN]);
+    const MATH: SubjectResponse = { ...KOREAN, id: 4, name: "수학", colorIndex: 2 };
+    vi.mocked(listSubjects).mockResolvedValue([MATH]);
+
+    renderPage(`?date=${DAY}&entry=records`, queryClient);
+    act(() => identityMock.arrive(7));
+
     expect(await screen.findByRole("button", { name: "수학" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "국어" })).not.toBeInTheDocument();
   });
