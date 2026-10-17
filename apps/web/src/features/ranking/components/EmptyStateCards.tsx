@@ -20,13 +20,7 @@ const HEADLINE =
   "mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
-  return (
-    <p className={HEADLINE}>
-      첫 공부를 마치면
-      <br />
-      랭킹 진입
-    </p>
-  );
+  return <p className={HEADLINE}>첫 공부를 마치면 랭킹 진입</p>;
 }
 
 /**

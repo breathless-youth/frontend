@@ -172,7 +172,7 @@ function Headline({ children }: { children: ReactNode }) {
  *
  * 위에는 다음 순위까지 남은 양을 두고, 아래는 종목마다 다르다.
  * 가장 큰 글자에서 한 사람을 짚으면 불편할 수 있어 이름 없이 쓴다.
- * 순공·시간대는 아랫줄 문구와 집중 시작, 집중률은 따라잡기 문구, 누적은 다음 구간 상자다.
+ * 순공·시간대는 아랫줄 문구와 집중 시작, 집중률은 따라잡기 문구와 집중 시작, 누적은 다음 구간 상자다.
  * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 줄일 수 없는 차이 대신 이 판의 내 순위를 쓰고 집중 시작을 두지 않는다.
  */
 export function RankedCard({
@@ -222,7 +222,9 @@ export function RankedCard({
         )
       )}
       {board.type === "FOCUS_RATE" ? (
-        <RateCatchUp board={board} />
+        <FocusStartRow onFocusStart={onFocusStart}>
+          <RateCatchUp board={board} />
+        </FocusStartRow>
       ) : cumulative ? (
         <NextTierBox board={board} />
       ) : offSlot ? (
@@ -246,7 +248,7 @@ function RateCatchUp({ board }: { board: RankingBoardResponse }) {
     return null;
   }
   return (
-    <p className="mt-1 text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
+    <p className="text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
       조금만 더 집중하면 따라잡아요
     </p>
   );

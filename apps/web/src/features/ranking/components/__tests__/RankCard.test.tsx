@@ -47,7 +47,8 @@ describe("RankedCard", () => {
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
-  it("집중률 판은 숫자 없이 따라잡을 수 있다고 말하고 버튼이 없다", () => {
+  it("집중률 판은 숫자 없이 따라잡을 수 있다고 말하고 그 옆에 작은 집중 시작을 둔다", async () => {
+    const onFocusStart = vi.fn();
     render(
       <RankedCard
         board={FIXTURE_RATE_WEEKLY}
@@ -55,7 +56,7 @@ describe("RankedCard", () => {
         subLine={null}
         deadline="마감 1일 9시간 전"
         serverNow={AFTERNOON_NOW}
-        onFocusStart={vi.fn()}
+        onFocusStart={onFocusStart}
       />,
     );
 
@@ -64,10 +65,11 @@ describe("RankedCard", () => {
     const catchUp = paragraph("조금만 더 집중하면 따라잡아요");
     expect(catchUp.textContent).not.toMatch(/\d/);
     expect(catchUp.querySelector("strong")).toBeNull();
-    expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+    expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
-  it("집중률 판에서 따라잡을 순공이 null로 오면 그 줄을 비운다", () => {
+  it("집중률 판에서 따라잡을 순공이 null로 오면 그 줄은 비우고 집중 시작은 남긴다", () => {
     render(
       <RankedCard
         board={{
@@ -84,6 +86,7 @@ describe("RankedCard", () => {
 
     expect(paragraph("다음 순위까지 0.4%")).toBeInTheDocument();
     expect(screen.queryByText("집중하면 따라잡아요", { exact: false })).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
 
   it("누적 판은 상위 %와 다음 구간 상자를 둔다", () => {

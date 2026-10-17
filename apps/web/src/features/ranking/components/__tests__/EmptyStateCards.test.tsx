@@ -49,7 +49,7 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText("지금 시작하면", { exact: false })).toBeNull();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("FirstCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
-    expect(paragraph("첫 공부를 마치면랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
     expect(screen.getByText("이번 주 순공으로 겨루고 있어요")).toBeInTheDocument();
   });
 
