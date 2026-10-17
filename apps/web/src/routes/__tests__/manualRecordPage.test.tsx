@@ -264,6 +264,17 @@ describe("ManualRecordPage", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
   });
 
+  it("날짜로 읽을 수 없는 start는 없는 값으로 보고 그날로 열며, 뒤로 가기도 그날 플래너로 간다", async () => {
+    renderPage(`?userId=7&date=${DAY}&entry=planner_cell&start=9007199254740991`);
+    await screen.findByLabelText("시작");
+    expect(screen.getByText(dayTitleWithWeekday(DAY))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(await screen.findByText("플래너")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${DAY}`);
+  });
+
   it("주소의 날짜가 미래면 오늘로 연다", async () => {
     const today = kstDateKey();
     renderPage(`?userId=7&date=${addDaysToDateKey(today, 3)}&entry=planner_button`);
