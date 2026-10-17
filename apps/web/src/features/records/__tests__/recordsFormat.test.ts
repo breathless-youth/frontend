@@ -264,6 +264,7 @@ describe("formatHeatClock", () => {
 describe("dayTitleWithWeekday", () => {
   it("월 일 요일을 한글로 적는다", () => {
     expect(dayTitleWithWeekday("2026-09-18")).toBe("9월 18일 금요일");
+    expect(dayTitleWithWeekday("2026-09-18", true)).toBe("9월 18일 금");
   });
 });
 
