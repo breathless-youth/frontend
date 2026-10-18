@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-17
-- Relates to: [BY-745 iOS 방해 앱 잠금 구현 설계](../superpowers/specs/2026-10-17-by-745-ios-app-lock-design.md), [BY-743 iOS 스크린타임 스파이크](../superpowers/specs/2026-10-13-by-743-ios-screen-time-spike-design.md), 위키 `product/screen-time/`
+- Relates to: [ADR 0017 Android 방해 앱 잠금](./0017-android-app-lock-local-module.md), [BY-745 iOS 방해 앱 잠금 구현 설계](../superpowers/specs/2026-10-17-by-745-ios-app-lock-design.md), [BY-743 iOS 스크린타임 스파이크](../superpowers/specs/2026-10-13-by-743-ios-screen-time-spike-design.md), 위키 `product/screen-time/`
 
 ## 배경
 
