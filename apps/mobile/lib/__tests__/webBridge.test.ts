@@ -9,6 +9,7 @@ describe("parseToNativeMessage", () => {
     "open-settings",
     "auth-ready",
     "request-token-refresh",
+    "records-changed",
   ] as const)("%s 메시지를 파싱한다", (type) => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
   });

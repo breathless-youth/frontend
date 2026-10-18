@@ -11,7 +11,11 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import {
+  addDaysToDateKey,
+  dayTitleWithWeekday,
+  kstDateKey,
+} from "@/features/records/recordsFormat";
 import { LONG_PRESS_MS } from "@/features/study-session/subjectInteractions";
 import {
   trackPlannerDateChanged,
@@ -31,6 +35,7 @@ import {
   updateTask,
 } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
+import type * as UserIdModule from "@/lib/userId";
 import { PlannerPage } from "@/routes/PlannerPage";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
@@ -53,6 +58,13 @@ vi.mock("@/lib/amplitude", () => ({
   trackErrorRetryPressed: vi.fn(),
   trackSubjectItemAdded: vi.fn(),
   setSubjectsUserProperties: vi.fn(),
+}));
+
+// 토큰 문서 여부만 바꾼다. 신원은 그대로 `?userId=`에서 읽는다.
+const tokenMock = vi.hoisted(() => ({ has: false }));
+vi.mock("@/lib/userId", async (importOriginal) => ({
+  ...(await importOriginal<typeof UserIdModule>()),
+  hasTokenSource: () => tokenMock.has,
 }));
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 스와이프·길게 누르기 판정에 쓰는 좌표와 `isPrimary`를 채운다.
@@ -125,12 +137,44 @@ function studiedYesterday(): StudySessionSummary {
   };
 }
 
+const TWO_DAYS_AGO = addDaysToDateKey(TODAY, -2);
+
+/** 어제 14:00~15:30 영어 수동 기록. */
+function manualYesterday(): StudySessionSummary {
+  return {
+    id: 2,
+    statDate: YESTERDAY,
+    startedAt: kst(YESTERDAY, 14),
+    endedAt: kst(YESTERDAY, 15, 30),
+    studySec: 5400,
+    focusSec: 5400,
+    focusRate: 100,
+    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    events: [],
+    subjectSegments: [
+      {
+        subjectId: 3,
+        startedAt: kst(YESTERDAY, 14),
+        endedAt: kst(YESTERDAY, 15, 30),
+        studySec: 5400,
+        focusSec: 5400,
+      },
+    ],
+    completedTasks: [],
+    source: "MANUAL",
+    submissionStartedAt: kst(YESTERDAY, 14),
+  };
+}
+
+/** 칸 번호. 5시가 0행이고 한 행은 10분 칸 6개다. 새벽 0~4시는 다음 날 줄(19~23행)이다. */
+const cellIndex = (hour: number, minute = 0) => ((hour - 5 + 24) % 24) * 6 + minute / 10;
+
 /** 어제 완료한 할 일 — 세션 중(09:40)에 하나, 세션 없이 밤(22:10)에 하나. */
 function completedYesterday(): DayTaskItem[] {
   return [
     { id: 9, name: "단어 60개 암기", done: true, doneAt: kst(YESTERDAY, 9, 40), deleted: false },
     { id: 10, name: "오답 노트", done: true, doneAt: kst(YESTERDAY, 22, 10), deleted: false },
-    // 어제도 미완료였던 할 일 — 지난 날 플래너에는 보이지 않는다.
+    // 어제도 미완료였던 할 일. 지난 날 플래너에는 보이지 않는다.
     { id: 11, name: "어제 못 끝낸 일", done: false, doneAt: null, deleted: false },
   ];
 }
@@ -149,6 +193,7 @@ function renderPlanner(path: string, state?: unknown) {
           <Route path="/planner" element={<PlannerPage />} />
           <Route path="/records" element={<p>기록 탭</p>} />
           <Route path="/home" element={<p>홈 탭</p>} />
+          <Route path="/manual-record" element={<p>입력 화면</p>} />
         </Routes>
         <LocationProbe />
       </MemoryRouter>
@@ -158,6 +203,7 @@ function renderPlanner(path: string, state?: unknown) {
 
 describe("PlannerPage", () => {
   beforeEach(() => {
+    tokenMock.has = false;
     vi.clearAllMocks();
     mockedStats.mockImplementation((date) =>
       Promise.resolve(
@@ -312,7 +358,7 @@ describe("PlannerPage", () => {
     const picked = addDaysToDateKey(YESTERDAY, -2);
     const [, pickedMonth, pickedDay] = picked.split("-").map(Number);
 
-    await userEvent.click(screen.getByRole("button", { name: /^\d+월 \d+일 .요일$/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^\d+월 \d+일 .$/ }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("날짜 선택")).toBeInTheDocument();
     // 시트는 보고 있는 날의 달을 편다. 그 달이 아니면 이전 달로 넘긴다.
@@ -367,13 +413,27 @@ describe("PlannerPage", () => {
     });
   });
 
-  it("D-Day가 설정돼 있으면 날짜 아래에 보여주고, 없으면 그 줄을 생략한다", async () => {
+  it("D-Day가 설정돼 있으면 머리 왼쪽에 일수와 제목을 두 줄로 보여주고, 없으면 생략한다", async () => {
     mockedDday.mockResolvedValue({ title: "수능", targetDate: addDaysToDateKey(YESTERDAY, 10) });
 
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
-    // 일수는 플래너 날짜 기준으로 세고, 제목과 한 줄에 적는다.
-    expect(await screen.findByText("D-10 · 수능")).toBeInTheDocument();
+    // 일수는 플래너 날짜 기준으로 센다. 큰 `D-10` 아래 작은 제목이다.
+    const label = await screen.findByText("D-10");
+    expect(label.nextElementSibling).toHaveTextContent("수능");
+  });
+
+  it("날짜와 전날·다음 날 꺾쇠는 상단 바 가운데 제목이다", async () => {
+    renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+    const title = await screen.findByRole("heading", { level: 1 });
+    // 요일은 한 글자다(`9월 18일 금`).
+    expect(title).toHaveTextContent(dayTitleWithWeekday(YESTERDAY, true));
+    expect(title).not.toHaveTextContent("요일");
+    const bar = screen.getByRole("button", { name: "뒤로 가기" }).parentElement!;
+    expect(bar).toContainElement(title);
+    expect(bar).toContainElement(screen.getByRole("button", { name: "전날" }));
+    expect(bar).toContainElement(screen.getByRole("button", { name: "다음 날" }));
   });
 
   it("기록이 없는 지난 날은 안내 문구 없이 과목과 과목 추가만 보여준다", async () => {
@@ -468,6 +528,137 @@ describe("PlannerPage", () => {
 
     expect(await screen.findByText("플래너를 불러오지 못했어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
+  });
+
+  describe("수동 기록", () => {
+    beforeEach(() => {
+      tokenMock.has = true;
+      mockedStats.mockImplementation((date) =>
+        Promise.resolve(
+          date === YESTERDAY
+            ? stats([studiedYesterday(), manualYesterday()], completedYesterday())
+            : stats(),
+        ),
+      );
+    });
+
+    it("지난 날 플래너는 타임테이블 아래에 입구를 두고, 누르면 그날 입력 화면으로 간다", async () => {
+      renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+      await userEvent.click(await screen.findByRole("button", { name: "시간 직접 입력" }));
+
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_button`,
+      );
+    });
+
+    it("미래 날짜와 토큰 없는 문서에는 입구가 없다", async () => {
+      const { unmount } = renderPlanner(`?userId=7&date=${addDaysToDateKey(TODAY, 1)}`);
+      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
+      expect(screen.queryByRole("button", { name: "시간 직접 입력" })).not.toBeInTheDocument();
+      unmount();
+
+      tokenMock.has = false;
+      renderPlanner(`?userId=7&date=${YESTERDAY}`);
+      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
+      expect(screen.queryByRole("button", { name: "시간 직접 입력" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^수동 기록, / })).not.toBeInTheDocument();
+    });
+
+    it("수동 블록은 측정 블록과 같은 색이고 범례 항목 없이 스크린리더용 수정 버튼만 둔다", async () => {
+      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
+
+      await screen.findByText("수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분");
+      const fill = container.querySelector<HTMLElement>('[data-manual][data-paint="subject"]');
+      expect(fill?.style.background).not.toBe("");
+      expect(container.querySelector('[data-manual] ~ [data-paint="rest"]')).toBeNull();
+      expect(screen.queryByText("직접 입력")).not.toBeInTheDocument();
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분" }),
+      );
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&id=2`,
+      );
+    });
+
+    it("빈 칸을 누르면 그 칸 시각을 싣고 입력 화면으로 간다", async () => {
+      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
+      await screen.findByRole("button", { name: /^수동 기록, / });
+
+      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(12)]!);
+
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&start=${Date.parse(kst(YESTERDAY, 12))}`,
+      );
+    });
+
+    it("수동 블록 칸을 누르면 그 묶음 첫 조각 id로 수정 화면을 연다", async () => {
+      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
+      await screen.findByRole("button", { name: /^수동 기록, / });
+
+      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(14, 10)]!);
+
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&id=2`,
+      );
+    });
+
+    it("측정 기록 칸과 지금 이후 칸은 반응하지 않는다", async () => {
+      const { container, unmount } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
+      await screen.findByRole("button", { name: /^수동 기록, / });
+      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(9, 10)]!);
+      expect(screen.queryByText("입력 화면")).not.toBeInTheDocument();
+      unmount();
+
+      const today = renderPlanner("?userId=7");
+      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
+      // 오늘 플래너의 마지막 칸은 내일 04:50이라 언제 돌려도 지금 이후다.
+      fireEvent.click(today.container.querySelectorAll("[data-cell]")[143]!);
+      expect(screen.queryByText("입력 화면")).not.toBeInTheDocument();
+    });
+
+    it("새벽 줄 칸은 다음 달력 날짜로 입력 화면을 연다", async () => {
+      const { container } = renderPlanner(`?userId=7&date=${TWO_DAYS_AGO}`);
+      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
+
+      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(1)]!);
+
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&start=${Date.parse(kst(YESTERDAY, 1))}`,
+      );
+    });
+
+    it("새벽 줄 묶음 칸은 묶음 첫 조각이 시작한 날과 그 id로 연다", async () => {
+      const THREE_DAYS_AGO = addDaysToDateKey(TODAY, -3);
+      // 그저께 03:00부터 어제 02:00까지 한 묶음. 한 장(3일 전 플래너)은 그저께 조회까지만 받는다.
+      const first = {
+        ...manualYesterday(),
+        id: 21,
+        statDate: TWO_DAYS_AGO,
+        startedAt: kst(TWO_DAYS_AGO, 3),
+        endedAt: kst(YESTERDAY, 0),
+        subjectSegments: [],
+        submissionStartedAt: kst(TWO_DAYS_AGO, 3),
+      };
+      mockedStats.mockImplementation((date) =>
+        Promise.resolve(date === TWO_DAYS_AGO ? stats([first]) : stats()),
+      );
+      const { container } = renderPlanner(`?userId=7&date=${THREE_DAYS_AGO}`);
+      await screen.findByRole("button", { name: /^수동 기록, / });
+
+      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(3)]!);
+
+      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/manual-record?userId=7&date=${TWO_DAYS_AGO}&entry=planner_cell&id=21`,
+      );
+    });
   });
 });
 

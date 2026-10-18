@@ -30,6 +30,7 @@ export function useNativeBackGestureLock(): void {
  *
  * 소셜룸 세션이 위 제스처 잠금과 함께 쓴다: 세션 종료가 나가기 버튼으로만 확정되게
  * 두 플랫폼의 뒤로가기 출구를 모두 막는다(`SetBackLockMessage` 주석 참고).
+ * 네이티브는 이 잠금 동안을 세션 중으로 보고 업데이트 알림창을 미루므로 세션이 아닌 화면에서는 쓰지 않는다.
  */
 export function useNativeBackLock(): void {
   useEffect(() => {

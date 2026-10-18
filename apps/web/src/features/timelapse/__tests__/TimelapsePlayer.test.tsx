@@ -1,7 +1,7 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { Profiler, StrictMode } from "react";
 import { mockAllIsIntersecting } from "react-intersection-observer/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import { TimelapsePlayer } from "../TimelapsePlayer";
@@ -19,9 +19,10 @@ interface FakeBitmap {
 
 let bitmaps: FakeBitmap[];
 let broken: Set<number>;
+let readPhoto: Mock<(seq: number) => Promise<ArrayBuffer | null>>;
 
-function photos(count: number): ArrayBuffer[] {
-  return Array.from({ length: count }, (_, index) => new Uint8Array([index]).buffer);
+function photos(count: number): number[] {
+  return Array.from({ length: count }, (_, index) => index);
 }
 
 beforeEach(() => {
@@ -38,6 +39,9 @@ beforeEach(() => {
   });
   bitmaps = [];
   broken = new Set();
+  readPhoto = vi.fn((seq: number) =>
+    Promise.resolve<ArrayBuffer | null>(new Uint8Array([seq]).buffer),
+  );
   // 컴포넌트 테스트는 브라우저 디코더를 거친다. jsdom에는 없어 흉내 낸다.
   vi.stubGlobal(
     "createImageBitmap",
@@ -51,9 +55,8 @@ function fakeBitmap(index: number): FakeBitmap {
   return bitmap;
 }
 
-/** 사진 바이트 첫 값이 번호다. 번호가 `broken`에 있으면 디코드에 실패한다. */
-function decode(bytes: ArrayBuffer): Promise<ImageBitmap> {
-  const index = new Uint8Array(bytes)[0] ?? -1;
+/** 번호가 `broken`에 있으면 디코드에 실패한다. */
+function decode(index: number): Promise<ImageBitmap> {
   if (broken.has(index)) {
     return Promise.reject(new Error("decode failed"));
   }
@@ -134,10 +137,10 @@ describe("useTimelapsePlayer", () => {
   it("다음 사진이 먼저 풀린 뒤 첫 사진이 실패해도 멈춘 화면에 다음 사진을 그린다", async () => {
     const draw = vi.fn();
     const list = photos(3);
-    const lateFailure = (bytes: ArrayBuffer): Promise<ImageBitmap> =>
-      new Uint8Array(bytes)[0] === 0
+    const lateFailure = (seq: number): Promise<ImageBitmap> =>
+      seq === 0
         ? new Promise((_, reject) => setTimeout(() => reject(new Error("decode failed")), 50))
-        : decode(bytes);
+        : decode(seq);
     renderHook(() =>
       useTimelapsePlayer({ photos: list, playing: false, draw, decode: lateFailure }),
     );
@@ -207,8 +210,7 @@ describe("useTimelapsePlayer", () => {
       { initialProps: { playing: true } },
     );
     await advance(STEP_MS * 2);
-    const attemptsForBroken = () =>
-      spy.mock.calls.filter(([bytes]) => new Uint8Array(bytes)[0] === 1).length;
+    const attemptsForBroken = () => spy.mock.calls.filter(([seq]) => seq === 1).length;
     const before = attemptsForBroken();
 
     rerender({ playing: false });
@@ -279,7 +281,14 @@ describe("TimelapsePlayer", () => {
     it("그릴 글자와 함께 Pretendard Variable을 불러온다", async () => {
       // 한글은 여러 조각 파일로 나뉘어 있어 글자를 넘겨야 그 글자가 든 조각을 받는다.
       const text = { ...overlay.text, focusTime: "순공 2시간 14분" };
-      render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={{ ...overlay, text }} />);
+      render(
+        <TimelapsePlayer
+          aspect="9:16"
+          photos={FIVE}
+          readPhoto={readPhoto}
+          overlay={{ ...overlay, text }}
+        />,
+      );
       await advance(0);
 
       expect(load).toHaveBeenCalledWith(
@@ -294,7 +303,9 @@ describe("TimelapsePlayer", () => {
     it("글꼴 요청이 멈춰도 대체 글꼴로 재생한다", async () => {
       // 약한 네트워크에서 한글 조각 파일 요청이 끝나지 않으면 빈 상자로 남았다.
       load.mockImplementation(() => new Promise(() => {}));
-      render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+      render(
+        <TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />,
+      );
       await advance(0);
       act(() => mockAllIsIntersecting(true));
 
@@ -305,12 +316,19 @@ describe("TimelapsePlayer", () => {
 
     it("늦게 온 D-Day 글자도 불러온다", async () => {
       const { rerender } = render(
-        <TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />,
+        <TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />,
       );
       await advance(0);
 
       const text = { ...overlay.text, dday: "D-108 · 2027 수능" };
-      rerender(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={{ ...overlay, text }} />);
+      rerender(
+        <TimelapsePlayer
+          aspect="9:16"
+          photos={FIVE}
+          readPhoto={readPhoto}
+          overlay={{ ...overlay, text }}
+        />,
+      );
       await advance(0);
 
       const [, glyphs] = load.mock.lastCall as [string, string];
@@ -322,8 +340,32 @@ describe("TimelapsePlayer", () => {
     return (screen.getByTestId("timelapse-progress") as HTMLElement).style.width;
   }
 
+  it("사진 전체가 아니라 앞쪽 몇 장만 저장소에서 읽는다", async () => {
+    render(
+      <TimelapsePlayer
+        aspect="9:16"
+        photos={[0, 2, 5, 9, 14, 20, 27, 35]}
+        readPhoto={readPhoto}
+        overlay={overlay}
+      />,
+    );
+
+    await advance(STEP_MS);
+
+    expect(readPhoto.mock.calls.map(([seq]) => seq)).toEqual([0, 2, 5, 9, 14, 20]);
+  });
+
+  it("지워진 사진은 풀지 않는다", async () => {
+    readPhoto.mockResolvedValue(null);
+    render(<TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />);
+
+    await advance(STEP_MS);
+
+    expect(createImageBitmap).not.toHaveBeenCalled();
+  });
+
   it("보이지 않으면 넘기지 않고 보이면 넘긴다", async () => {
-    render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+    render(<TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />);
     act(() => mockAllIsIntersecting(false));
     await advance(STEP_MS * 3);
     expect(progressWidth()).toBe("0%");
@@ -335,7 +377,7 @@ describe("TimelapsePlayer", () => {
   });
 
   it("일시정지를 누르면 멈추고 버튼이 재생으로 바뀐다", async () => {
-    render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+    render(<TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />);
     // 글꼴을 기다린 뒤 보이게 해야 가짜 관찰자가 지금 요소에 신호를 보낸다.
     await advance(0);
     act(() => mockAllIsIntersecting(true));
@@ -355,7 +397,7 @@ describe("TimelapsePlayer", () => {
       "matchMedia",
       vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
     );
-    render(<TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />);
+    render(<TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />);
     await advance(0);
     act(() => mockAllIsIntersecting(true));
     await advance(STEP_MS * 3);
@@ -376,7 +418,7 @@ describe("TimelapsePlayer", () => {
       vi.fn(() => Promise.resolve(Object.assign(fakeBitmap(-1), { width: 640, height: 480 }))),
     );
     const { container } = render(
-      <TimelapsePlayer aspect={aspect} photos={FIVE} overlay={overlay} />,
+      <TimelapsePlayer aspect={aspect} photos={FIVE} readPhoto={readPhoto} overlay={overlay} />,
     );
     await advance(0);
     act(() => mockAllIsIntersecting(true));
@@ -389,7 +431,9 @@ describe("TimelapsePlayer", () => {
 
   it("상자 높이는 CSS 비율 계산이 아니라 캔버스 자체 비율이 정한다", () => {
     // 기기 웹뷰가 화면을 돌린 뒤 aspect-ratio 높이를 다시 계산하지 않아 영상이 찌그러졌다.
-    const { container } = render(<TimelapsePlayer aspect="16:9" photos={FIVE} overlay={overlay} />);
+    const { container } = render(
+      <TimelapsePlayer aspect="16:9" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />,
+    );
     const canvas = container.querySelector("canvas")!;
 
     expect(canvas.parentElement).not.toHaveClass("aspect-video");
@@ -400,7 +444,7 @@ describe("TimelapsePlayer", () => {
     const onRender = vi.fn();
     render(
       <Profiler id="player" onRender={onRender}>
-        <TimelapsePlayer aspect="9:16" photos={FIVE} overlay={overlay} />
+        <TimelapsePlayer aspect="9:16" photos={FIVE} readPhoto={readPhoto} overlay={overlay} />
       </Profiler>,
     );
     await advance(0);
@@ -419,6 +463,7 @@ describe("TimelapsePlayer", () => {
       <TimelapsePlayer
         aspect="9:16"
         photos={FIVE}
+        readPhoto={readPhoto}
         overlay={{
           ...overlay,
           info: { ...overlay.info, flowBar: true },
@@ -432,7 +477,7 @@ describe("TimelapsePlayer", () => {
 
   it("캔버스와 진행 막대는 스크린리더에서 숨긴다", () => {
     const { container } = render(
-      <TimelapsePlayer aspect="16:9" photos={photos(2)} overlay={overlay} />,
+      <TimelapsePlayer aspect="16:9" photos={photos(2)} readPhoto={readPhoto} overlay={overlay} />,
     );
 
     expect(container.querySelector("canvas")).toHaveAttribute("aria-hidden", "true");
@@ -444,7 +489,7 @@ describe("TimelapsePlayer", () => {
 
   it("얹은 내용은 일시정지 버튼과 같은 상자에서 그 버튼보다 아래층에 둔다", () => {
     render(
-      <TimelapsePlayer aspect="9:16" photos={photos(2)} overlay={overlay}>
+      <TimelapsePlayer aspect="9:16" photos={photos(2)} readPhoto={readPhoto} overlay={overlay}>
         <button type="button">공유</button>
       </TimelapsePlayer>,
     );

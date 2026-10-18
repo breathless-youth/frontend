@@ -8,8 +8,8 @@
 
 - `/planner?date=YYYY-MM-DD` — 탭 바 없는 전체 화면(`lib/nativeTabBar.ts`의 `FULL_SCREEN_PATHS`). `date`가 없거나 형식이 틀리면(달력에 없는 날짜 포함) 오늘 플래너를 연다. 지난 날과 미래 날짜 모두 열 수 있다.
 - 진입은 두 곳이고 둘 다 `features/planner/useOpenPlanner.ts`를 쓴다(빠른 이중 탭에도 한 번만 이동).
-  - 기록 탭 일간의 선택일 줄 `플래너 ›` 알약 → 고른 날의 플래너(라우터 state `via: "records"`).
-  - 홈 헤더 오른쪽 `플래너` 알약(D-Day 블록 맞은편) → 오늘의 플래너(`via: "home"`). 토큰 문서의 헤더에만 있고, 로고와 날짜를 쓰는 구 문서 헤더에는 없다.
+  - 기록 탭 머리 오른쪽 `플래너` 알약(일간·주간 공통, `features/planner/PlannerPillButton.tsx`) → 달력에서 고른 날의 플래너(라우터 state `via: "records"`).
+  - 홈 헤더 오른쪽 `플래너` 알약(D-Day 블록 맞은편, 같은 `PlannerPillButton`) → 오늘의 플래너(`via: "home"`). 토큰 문서의 헤더에만 있고, 로고와 날짜를 쓰는 구 문서 헤더에는 없다.
 - 뒤로 가기는 온 곳으로 돌아간다. 히스토리가 비어 있으면(딥링크) 기록 탭으로 보낸다.
 
 ## 플래너의 하루
@@ -21,7 +21,8 @@
 
 ## 화면 구성
 
-- **머리**(`PlannerHead.tsx`): 날짜(`9월 18일 금요일`)와 전날·다음 날 꺾쇠, 그 아래 D-Day(`D-62 · 수능`, 설정했을 때만 — 일수는 플래너 날짜 기준), 오른쪽에 그날 순공시간과 `총 N`. 전날·다음 날 꺾쇠와 본문 좌우 스와이프로 지난 날과 미래로 넘기고(할 일 행 위에서 밀어도 날짜가 넘어간다 — 할 일 삭제는 길게 눌러 여는 메뉴에서만 한다. 세션 화면의 과목 시트에는 밀어서 삭제가 그대로 있다), 날짜를 탭하면 날짜 선택 시트(`DayPickerSheet`)가 열려 먼 날로 한 번에 간다(미래도 고를 수 있고 `오늘`로 돌아온다).
+- **상단 바**(`ScreenBackHeader` `center`): 왼쪽 뒤로 가기, 가운데 제목이 날짜(`9월 18일 금`, 18px, 요일은 한 글자)와 전날·다음 날 꺾쇠다(2026-10-17 — 머리에서 상단 바로 올려 본문 공간을 벌었다).
+- **머리**(`PlannerHead.tsx`): 왼쪽에 D-Day(큰 `D-62` 아래 작은 `수능`, 설정했을 때만 — 일수는 플래너 날짜 기준), 오른쪽에 그날 순공시간과 `총 N`. 전날·다음 날 꺾쇠와 본문 좌우 스와이프로 지난 날과 미래로 넘기고(할 일 행 위에서 밀어도 날짜가 넘어간다 — 할 일 삭제는 길게 눌러 여는 메뉴에서만 한다. 세션 화면의 과목 시트에는 밀어서 삭제가 그대로 있다), 날짜를 탭하면 날짜 선택 시트(`DayPickerSheet`)가 열려 먼 날로 한 번에 간다(미래도 고를 수 있고 `오늘`로 돌아온다).
 - **왼쪽 — 과목과 할 일**(`PlannerSubjects.tsx`, `subjectItems.ts`): 과목마다 색 점·이름·그날 순공(공부하지 않은 과목은 흐린 `0분`), 그 아래 할 일(완료는 취소선).
   - 과목 목록(`GET /api/subjects`)의 순서대로 전부 보여 준다 — 지난 날도 같다. 그날 공부했지만 지금은 지운 과목은 그 뒤에 붙는다. 같은 이름 과목은 한 줄로 합친다(기록 탭과 같은 규칙).
   - 할 일은 오늘이면 목록의 것(미완료 + 오늘 완료), 지난 날이면 그날 완료한 것만, 미래 날짜면 지금 미완료인 것만 보인다.
@@ -64,6 +65,11 @@
 - `planner_opened {via: records | home | unknown, is_today}` — 화면을 열 때 한 번.
 - `planner_date_changed {delta, method: button | swipe | picker}` — 날짜를 넘길 때. `delta`는 옮긴 날 수다(꺾쇠·스와이프는 -1 · 1).
 - 과목·할 일 추가는 과목 시트의 `subject_item_added`를 그대로 쓰고 `surface`(`sheet` · `planner`)로 화면을 구분한다.
+- `manual_record_add {entry: planner_button | planner_cell | records, duration_min, has_subject, days_ago, trimmed_min, pieces}`. 수동 기록 추가 저장이 성공했을 때. 길이는 서버가 저장한 조각의 합이고, `trimmed_min`은 겹쳐서 빠진 분이다.
+- `manual_record_edit {entry: planner_cell | records, duration_min, has_subject, days_ago}`. 수정 저장이 성공했을 때.
+- `manual_record_delete {entry: planner_cell | records, duration_min, days_ago}`. 삭제가 성공했을 때. 길이는 지운 묶음 전체다.
+- `manual_record_overlap_blocked {entry, days_ago}`. 전부 겹쳐 저장이 막힌 안내가 입력 화면을 한 번 여는 동안 처음 뜰 때.
+- `days_ago`는 오늘 달력 날짜에서 기록 시작 날짜까지의 날 수다(오늘 0).
 
 ## 알려진 한계
 

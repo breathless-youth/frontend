@@ -349,9 +349,9 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
 
     expect(cells).toHaveLength(144);
     expect(cells[0]).toEqual([
-      { left: 0, width: 0.4, paint: { kind: "focus" } },
-      { left: 0.4, width: expect.closeTo(0.2), paint: { kind: "rest" } },
-      { left: 0.6, width: expect.closeTo(0.4), paint: { kind: "focus" } },
+      { left: 0, width: 0.4, paint: { kind: "focus" }, manual: false },
+      { left: 0.4, width: expect.closeTo(0.2), paint: { kind: "rest" }, manual: false },
+      { left: 0.6, width: expect.closeTo(0.4), paint: { kind: "focus" }, manual: false },
     ]);
     expect(cells[1]).toEqual([]);
   });
@@ -368,8 +368,33 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
     const cells = plannerCellFills(assemblePlannerDay(DAY, stats([studied]), stats([])));
     const nineOClock = (9 - 5) * 6;
 
-    expect(cells[nineOClock]).toEqual([{ left: 0.5, width: 0.5, paint: { kind: "focus" } }]);
-    expect(cells[nineOClock + 1]).toEqual([{ left: 0, width: 1, paint: { kind: "focus" } }]);
-    expect(cells[nineOClock + 2]).toEqual([{ left: 0, width: 0.5, paint: { kind: "focus" } }]);
+    expect(cells[nineOClock]).toEqual([
+      { left: 0.5, width: 0.5, paint: { kind: "focus" }, manual: false },
+    ]);
+    expect(cells[nineOClock + 1]).toEqual([
+      { left: 0, width: 1, paint: { kind: "focus" }, manual: false },
+    ]);
+    expect(cells[nineOClock + 2]).toEqual([
+      { left: 0, width: 0.5, paint: { kind: "focus" }, manual: false },
+    ]);
+  });
+
+  it("수동 기록은 휴식 없이 과목 없는 순공으로 칠하고 수동 표시를 단다", () => {
+    const typed = session({
+      startedAt: kst(DAY, 9),
+      endedAt: kst(DAY, 9, 10),
+      studySec: 600,
+      focusSec: 600,
+      source: "MANUAL",
+      submissionStartedAt: kst(DAY, 9),
+    });
+
+    const day = assemblePlannerDay(DAY, stats([typed]), stats([]));
+    const cells = plannerCellFills(day);
+
+    expect(day.sessions).toEqual([typed]);
+    expect(cells[(9 - 5) * 6]).toEqual([
+      { left: 0, width: 1, paint: { kind: "focus" }, manual: true },
+    ]);
   });
 });

@@ -32,7 +32,12 @@ export interface NormalizedPoint {
 }
 
 export const PHOTO_MAX_LONG_EDGE = 1280;
-export const PHOTO_JPEG_QUALITY = 0.8;
+/**
+ * 사진 JPEG 압축 품질
+ *
+ * 실제 사진을 품질별로 나란히 비교했을 때 0.5에서도 화질 차이가 눈에 띄지 않았고, 장당 크기는 0.8의 절반 가까이로 준다.
+ */
+export const PHOTO_JPEG_QUALITY = 0.5;
 export const STICKER_URL = "/timelapse/face-sticker.png";
 
 /**

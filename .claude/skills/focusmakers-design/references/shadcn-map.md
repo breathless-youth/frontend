@@ -9,7 +9,9 @@
 | Figma 컴포넌트 | shadcn | 저장소 파일 | 커스텀 포인트 |
 |---|---|---|---|
 | Button / CTA V2 (Kind=Primary·Neutral·Destructive·Subtle, Size=56·48·44·38·36·32) | Button | `components/ui/button.tsx` (있음, `size="xl"`·`variant="subtle"` 추가됨 — BY-716) | `cva`에 Kind → `variant`, Size → `size`를 1:1로 추가. 높이는 `h-14`(xl)·`h-12`·`h-11` 등 시스템 값, 반경 `rounded-lg`/`rounded-xl`(xl), 비활성 `text-text-disabled` |
+| Button (V2 `5458:498`, Kind=Outline Primary·Outline Destructive·Link) | Button | `components/ui/button.tsx` (`variant="outline-primary"` · `"outline-destructive"` · `"link"`) | 배경 없이 `border-primary text-primary` · `border-feedback-danger text-feedback-danger`. `link`는 테두리도 없이 밑줄 친 `text-primary`(플래너 `시간 직접 입력` 입구, 기록 탭 펼친 행의 `수정`). 높이는 호출부가 정한다(입구·`수정` `h-11`, 페이지 삭제 `size="xl"`) |
 | Dialog / Confirm V2 (Buttons=One·Two·Two Destructive) | Dialog | `components/ui/dialog.tsx` (있음) | 버튼 배치만 조합, 새 variant 만들지 않음 |
+| 삭제 확인(제목 + 취소·확인 두 버튼) | Dialog | `components/ui/confirm-dialog.tsx` (`ConfirmDialog`) | `role="alertdialog"`, 문구는 prop. D-Day 삭제와 수동 기록 삭제가 같이 쓴다 |
 | Sheet / Bottom, 세션 상세 시트 | Drawer (vaul) | `components/ui/drawer.tsx` (추가 예정, BY-568) | 상단 반경 `rounded-t-xl`(20), 핸들 `aria-hidden`, `pb-[env(safe-area-inset-bottom)]`, 배경 `bg-background`, 그림자는 `shadow/sheet-up` 값 |
 | Control / Segmented (주간/월간) | Tabs | `components/ui/tabs.tsx` (추가 예정, BY-566) | `TabsList`를 `rounded-full bg-bg-layer-2 p-[3px]`, `TabsTrigger`를 `h-11 rounded-full data-[state=active]:bg-background data-[state=active]:text-foreground text-text-tertiary`로. `TabsContent`는 쓰지 않고 상태만 쓴다 |
 | 휴식 카드 "자세히" 펼침 | Collapsible | `components/ui/collapsible.tsx` (추가 예정, BY-560) | 트리거는 `<button>` h-11 이상, 셰브런 `data-[state=open]:rotate-180 motion-reduce:transition-none` |

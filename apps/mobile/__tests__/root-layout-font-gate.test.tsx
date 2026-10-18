@@ -7,6 +7,8 @@ import RootLayout from "../app/_layout";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
 import { setSessionInviteHandler } from "../lib/sessionInvite";
+import { __resetSessionPresenceForTests, markSessionOpen } from "../lib/sessionPresence";
+import { RECONNECT_AFTER_BACKGROUND_MS } from "../lib/updateOnConnect";
 
 /**
  * 라우트 컨텍스트 격리 이유는 `permission-denied.test.tsx` 상단 주석 참고 — `app/` 밖(`__tests__/`)에 둔다.
@@ -96,14 +98,17 @@ jest.mock("../lib/metaAds", () => ({
   initMetaAds: () => mockInitMetaAds() as Promise<void>,
 }));
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
+// 접속 재판정(`refreshForceUpdate`)도 기본은 통과 — 부팅 판정과 같은 결과를 돌려주면 화면이 바뀌지 않는다.
+type Decision = { forced: boolean; recommended: boolean; latestVersion: string | null };
+// 앱을 켤 때의 판정은 기본으로 "새 값이 상한을 넘김" 경로를 흉내 낸다: 지난 값(`mockResolveForceUpdate`)으로
+// 첫 판정을 하고 새 값(`mockRefreshForceUpdate`)은 늦게 온다. 상한 안에 온 경로는 개별 테스트에서 바꾼다.
 const mockResolveForceUpdate = jest.fn();
+const mockRefreshForceUpdate = jest.fn();
+const mockResolveOnLaunch = jest.fn();
 jest.mock("../lib/forceUpdate", () => ({
-  resolveForceUpdate: () =>
-    mockResolveForceUpdate() as Promise<{
-      forced: boolean;
-      recommended: boolean;
-      latestVersion: string | null;
-    }>,
+  resolveForceUpdateOnLaunch: () =>
+    mockResolveOnLaunch() as Promise<{ decision: Decision; late: Promise<Decision> | null }>,
+  refreshForceUpdate: (trigger: string) => mockRefreshForceUpdate(trigger) as Promise<Decision>,
 }));
 // 권장 알림창 — 호출 여부만 본다(동작은 `lib/__tests__/recommendedUpdateAlert.test.ts`).
 const mockMaybeShow = jest.fn((_version: string) => Promise.resolve(true));
@@ -128,6 +133,13 @@ beforeEach(() => {
   mockResolveForceUpdate
     .mockReset()
     .mockResolvedValue({ forced: false, recommended: false, latestVersion: null });
+  // 새 값은 기본으로 지난 값과 같다. 서버 값이 바뀌는 경우는 개별 테스트에서 바꾼다.
+  mockRefreshForceUpdate.mockReset().mockImplementation(() => mockResolveForceUpdate());
+  mockResolveOnLaunch.mockReset().mockImplementation(async () => ({
+    decision: (await mockResolveForceUpdate()) as Decision,
+    late: mockRefreshForceUpdate("cold_start") as Promise<Decision>,
+  }));
+  __resetSessionPresenceForTests();
   mockMaybeShow.mockClear();
   mockAlertStart.mockClear();
   mockAlertStop.mockClear();
@@ -241,11 +253,9 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
 
   it("forced면 라우터 스택 대신 빈 배경만 그리고 알림창을 시작하며, 배경을 탭하면 다시 띄운다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
-    mockResolveForceUpdate.mockResolvedValue({
-      forced: true,
-      recommended: false,
-      latestVersion: "1.0.4",
-    });
+    const forced = { forced: true, recommended: false, latestVersion: "1.0.4" };
+    mockResolveForceUpdate.mockResolvedValue(forced);
+    mockRefreshForceUpdate.mockResolvedValue(forced);
 
     const { unmount } = render(<RootLayout />);
 
@@ -314,6 +324,188 @@ describe("RootLayout 강제 업데이트 게이트 (BY-586)", () => {
   });
 });
 
+describe("RootLayout 접속 시 업데이트 재판정", () => {
+  /** react-native `AppState.addEventListener` mock에 들어간 리스너를 직접 부른다. */
+  function emitAppState(state: string) {
+    const calls = (AppState.addEventListener as unknown as jest.Mock).mock.calls as [
+      string,
+      (state: string) => void,
+    ][];
+    act(() => {
+      for (const [, listener] of calls) listener(state);
+    });
+  }
+
+  beforeEach(() => {
+    (AppState.addEventListener as unknown as jest.Mock).mockClear();
+  });
+
+  it("새 값이 상한을 넘겨 늦게 오면 지난 값으로 홈을 그린 뒤 다시 판정하고, 강제면 홈 위에서 막는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    let finishRefresh: (decision: Decision) => void = () => {};
+    mockRefreshForceUpdate.mockReturnValue(
+      new Promise<Decision>((resolve) => {
+        finishRefresh = resolve;
+      }),
+    );
+
+    render(<RootLayout />);
+    await waitFor(() => expect(screen.getByTestId("safe-area-provider")).toBeTruthy());
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockRefreshForceUpdate).toHaveBeenCalledWith("cold_start"));
+
+    await act(async () => {
+      finishRefresh({ forced: true, recommended: false, latestVersion: "1.0.4" });
+    });
+
+    await screen.findByTestId("force-update-backdrop");
+    expect(screen.queryByTestId("safe-area-provider")).toBeNull();
+    expect(mockAlertStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("앱을 켤 때 새 값이 상한 안에 와서 강제면 홈을 그리지 않고 바로 막는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveOnLaunch.mockResolvedValue({
+      decision: { forced: true, recommended: false, latestVersion: "1.0.4" },
+      late: null,
+    });
+    render(<RootLayout />);
+    await screen.findByTestId("force-update-backdrop");
+
+    expect(screen.queryByTestId("safe-area-provider")).toBeNull();
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+    expect(mockRefreshForceUpdate).not.toHaveBeenCalled();
+  });
+
+  it("재판정으로 권장이 되면 권한 창들 뒤에 권장 알림창을 띄운다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockRefreshForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+
+    const { toJSON } = render(<RootLayout />);
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
+    expect(mockMaybeShow).toHaveBeenCalledTimes(1);
+  });
+
+  it("30분 이상 백그라운드에 있다 돌아오면 다시 판정하고, 그보다 짧으면 하지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const nowSpy = jest.spyOn(Date, "now");
+    let now = 1_000_000;
+    nowSpy.mockImplementation(() => now);
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockRefreshForceUpdate).toHaveBeenCalledTimes(1));
+
+    emitAppState("background");
+    now += RECONNECT_AFTER_BACKGROUND_MS - 1;
+    emitAppState("active");
+    expect(mockRefreshForceUpdate).toHaveBeenCalledTimes(1);
+
+    emitAppState("background");
+    now += RECONNECT_AFTER_BACKGROUND_MS;
+    emitAppState("active");
+    await waitFor(() => expect(mockRefreshForceUpdate).toHaveBeenCalledTimes(2));
+    expect(mockRefreshForceUpdate).toHaveBeenLastCalledWith("resume");
+
+    nowSpy.mockRestore();
+  });
+
+  it("세션 화면이 떠 있으면 재판정 결과를 세션이 끝난 뒤에 적용한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const closeSession = markSessionOpen();
+    mockRefreshForceUpdate.mockResolvedValue({
+      forced: true,
+      recommended: false,
+      latestVersion: "1.0.4",
+    });
+
+    render(<RootLayout />);
+    await waitFor(() => expect(screen.getByTestId("safe-area-provider")).toBeTruthy());
+    await waitFor(() => expect(mockRefreshForceUpdate).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(screen.queryByTestId("force-update-backdrop")).toBeNull();
+
+    act(() => {
+      closeSession();
+    });
+
+    await screen.findByTestId("force-update-backdrop");
+    expect(mockAlertStart).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RootLayout 권장 알림창 시점", () => {
+  /** 알림 권한 요청을 붙잡아 두고, 풀어 주는 함수를 돌려준다. */
+  function holdPushPermission() {
+    let finish: () => void = () => {};
+    mockEnsurePushPermission.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    return () => finish();
+  }
+
+  it("권한 요청을 기다리는 사이 세션 화면이 열리면 권장 알림창은 세션이 끝난 뒤에 뜬다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+    const finishPermission = holdPushPermission();
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalled());
+    const closeSession = markSessionOpen();
+
+    await act(async () => {
+      finishPermission();
+    });
+    expect(mockMaybeShow).not.toHaveBeenCalled();
+
+    act(() => {
+      closeSession();
+    });
+    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
+  });
+
+  it("늦게 온 새 판정이 권장을 철회하면 앞선 권장 알림창을 띄우지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockResolveForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+    mockRefreshForceUpdate.mockResolvedValue({
+      forced: false,
+      recommended: false,
+      latestVersion: "0.0.0",
+    });
+    const finishPermission = holdPushPermission();
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalled());
+    await act(async () => {});
+
+    await act(async () => {
+      finishPermission();
+    });
+
+    expect(mockMaybeShow).not.toHaveBeenCalled();
+  });
+});
+
 describe("RootLayout Meta SDK 초기화", () => {
   it("모듈 로드 시점에 어댑터를 설치한다 — 첫 실행의 가입 완료보다 먼저 통로가 있어야 한다", () => {
     expect(installMetaAdsSdk).toHaveBeenCalled();
@@ -339,11 +531,9 @@ describe("RootLayout Meta SDK 초기화", () => {
 
   it("forced면 부르지 않는다 — 막힌 실행에서 추적 동의를 물을 이유가 없다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
-    mockResolveForceUpdate.mockResolvedValue({
-      forced: true,
-      recommended: false,
-      latestVersion: "1.0.4",
-    });
+    const forced = { forced: true, recommended: false, latestVersion: "1.0.4" };
+    mockResolveForceUpdate.mockResolvedValue(forced);
+    mockRefreshForceUpdate.mockResolvedValue(forced);
 
     render(<RootLayout />);
     await screen.findByTestId("force-update-backdrop");

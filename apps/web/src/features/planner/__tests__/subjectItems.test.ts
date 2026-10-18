@@ -16,6 +16,7 @@ function plannerDay(over: Partial<PlannerDay>): PlannerDay {
     subjectRows: [],
     unassignedFocusSec: 0,
     completedTasks: [],
+    sessions: [],
     subjects: new Map(),
     ...over,
   };

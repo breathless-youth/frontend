@@ -188,7 +188,7 @@ function AroundRow({
           {formatRank(row.rank)}
         </span>
         <RankAvatar nickname={row.nickname} me={row.me} onBrand={row.me} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="min-w-0 flex-1">
           <Nickname
             name={row.nickname}
             className={cn(
@@ -196,16 +196,6 @@ function AroundRow({
               row.me ? "font-extrabold" : "font-semibold text-foreground",
             )}
           />
-          {row.focusing && (
-            <span
-              className={cn(
-                "text-[11px] leading-[13px] font-semibold",
-                !row.me && "text-rank-live",
-              )}
-            >
-              집중 중
-            </span>
-          )}
         </div>
         {drop !== null && (
           <span
@@ -217,10 +207,19 @@ function AroundRow({
         )}
         <span
           className={cn(
-            "shrink-0 text-[15px] leading-[18px] tracking-[0.5px] tabular-nums",
+            "flex shrink-0 items-center gap-1.5 text-[15px] leading-[18px] tracking-[0.5px] tabular-nums",
             row.me ? "font-extrabold" : "font-bold text-foreground",
           )}
         >
+          {row.focusing && (
+            <>
+              <span
+                aria-hidden="true"
+                className="size-1.5 animate-pulse rounded-full bg-feedback-success motion-reduce:animate-none"
+              />
+              <span className="sr-only">집중 중</span>
+            </>
+          )}
           {formatValue(type, row.display)}
         </span>
       </div>

@@ -45,6 +45,7 @@ import {
   loadTimelapseSettingsPage,
   loadTimelapsesPage,
 } from "@/routes/lazyRoutes";
+import { ManualRecordPage } from "@/routes/ManualRecordPage";
 import { PlannerPage } from "@/routes/PlannerPage";
 import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
@@ -246,6 +247,7 @@ export function App() {
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/ranking/records" element={<RankingRecordsPage />} />
               <Route path="/planner" element={<PlannerPage />} />
+              <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialHomePage />} />
               {import.meta.env.DEV && (

@@ -124,6 +124,22 @@ export interface ActiveSessionSnapshotResponse {
   subjectSegments?: SubjectSegmentPayload[] | null;
 }
 
+/** 기록이 만들어진 방법. 카메라로 측정한 세션과 사용자가 시각을 직접 넣은 수동 기록이 있다. */
+export type StudySessionSource = "MEASURED" | "MANUAL";
+
+/**
+ * 수동 기록 저장·수정 요청 (`POST /api/study-sessions/manual`, `PATCH /api/study-sessions/manual/{id}`).
+ * 서버가 초 이하를 버리고, 다른 기록과 겹치는 구간을 빼고, KST 자정에서 나눠 조각 배열로 돌려준다.
+ */
+export interface ManualStudySessionRequest {
+  /** 시작 시각(UTC ISO-8601) */
+  startedAt: string;
+  /** 종료 시각(UTC ISO-8601). 시작보다 1분 이상 뒤이고 서버 지금 이전이어야 한다 */
+  endedAt: string;
+  /** 과목 id. 없으면 과목 없는 기록이다. 지운 과목은 수정에서 묶음의 지금 과목을 다시 보낼 때만 받는다 */
+  subjectId?: number;
+}
+
 /** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
 export interface StudySessionResponse {
   id: number;
@@ -143,6 +159,10 @@ export interface StudySessionResponse {
   completedTasks?: CompletedTaskResponse[];
   /** 이 세션이 참조한 과목(구간·완료 할 일)의 이름·색 — id 오름차순, 지운 과목 포함. 없으면 [] */
   subjects?: SubjectRef[];
+  /** 기록 출처. 이 필드를 싣지 않는 서버의 응답은 측정 세션이다 */
+  source?: StudySessionSource;
+  /** 한 번의 저장으로 생긴 조각들이 공유하는 키(UTC ISO-8601). 수동 기록은 남은 첫 조각의 시작 시각이다 */
+  submissionStartedAt?: string;
 }
 
 /**
@@ -169,6 +189,10 @@ export interface StudySessionSummary {
   subjectSegments?: SubjectSegmentResponse[];
   /** 이 세션에서 완료한 할 일 — 이름 포함, 지운 할 일도 남는다 */
   completedTasks?: CompletedTaskResponse[];
+  /** 기록 출처. 이 필드를 싣지 않는 서버의 응답은 측정 세션이다 */
+  source?: StudySessionSource;
+  /** 한 번의 저장으로 생긴 조각들이 공유하는 키(UTC ISO-8601). 자정·겹침으로 나뉜 수동 기록 조각을 한 묶음으로 찾는다 */
+  submissionStartedAt?: string;
 }
 
 export interface StudySessionListResponse {

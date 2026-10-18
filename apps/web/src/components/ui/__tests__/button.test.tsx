@@ -34,8 +34,35 @@ describe("Button", () => {
       </Button>,
     );
     const button = screen.getByRole("button", { name: "아이콘 버튼" });
-    expect(button.className).toContain("h-[54px]");
-    expect(button.className).toContain("w-[54px]");
+    expect(button.className).toContain("h-13.5");
+    expect(button.className).toContain("w-13.5");
     expect(button.className).toContain("rounded-full");
+  });
+
+  it("outline-primary는 배경 없이 브랜드색 테두리와 글자다", () => {
+    render(<Button variant="outline-primary">시간 직접 입력</Button>);
+    expect(screen.getByRole("button", { name: "시간 직접 입력" })).toHaveClass(
+      "border-primary",
+      "bg-transparent",
+      "text-primary",
+    );
+  });
+
+  it("link는 배경·테두리 없이 밑줄 친 브랜드색 글자다", () => {
+    render(<Button variant="link">수정</Button>);
+    expect(screen.getByRole("button", { name: "수정" })).toHaveClass(
+      "bg-transparent",
+      "text-primary",
+      "underline",
+    );
+  });
+
+  it("outline-destructive는 배경 없이 오류색 테두리와 글자다", () => {
+    render(<Button variant="outline-destructive">삭제</Button>);
+    expect(screen.getByRole("button", { name: "삭제" })).toHaveClass(
+      "border-feedback-danger",
+      "bg-transparent",
+      "text-feedback-danger",
+    );
   });
 });

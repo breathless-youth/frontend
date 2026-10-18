@@ -3,11 +3,18 @@ import {
   DEFAULT_MIN_SUPPORTED_VERSION,
   LATEST_VERSION_KEY,
   MIN_SUPPORTED_VERSION_KEY,
+  refreshForceUpdate,
   resolveForceUpdate,
+  resolveForceUpdateOnLaunch,
   shouldForceUpdate,
   shouldRecommendUpdate,
   UPDATE_CONFIG_DEFAULTS,
 } from "../forceUpdate";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../nativeAnalytics";
 import { setRemoteConfigAdapter } from "../remoteConfig";
 import type { RemoteConfigAdapter } from "../remoteConfig";
 
@@ -16,7 +23,6 @@ jest.mock("expo-application", () => ({ nativeApplicationVersion: "1.0.2" }));
 jest.mock("@react-native-firebase/remote-config", () => ({
   getRemoteConfig: () => ({}),
   activate: jest.fn(),
-  fetchConfig: jest.fn(),
   getString: jest.fn(),
 }));
 
@@ -35,6 +41,47 @@ function fakeAdapter(overrides: Partial<RemoteConfigAdapter> = {}) {
 /** 키별 서버 값. 안 준 키는 빈 문자열(값 없음). */
 function valuesAdapter(values: Record<string, string>) {
   return fakeAdapter({ getString: jest.fn((key: string) => values[key] ?? "") });
+}
+
+/**
+ * 서버를 흉내 내는 가짜 어댑터
+ *
+ * 받은 값은 `activate`해야 읽힌다.
+ * 받은 뒤 적용을 빼먹으면 판정이 옛 값으로 남아 테스트가 실패하게 하려는 것이다.
+ * `holdFetch`면 `release()`를 부를 때까지 받기가 끝나지 않는다.
+ */
+function serverAdapter(
+  active: Record<string, string>,
+  server: Record<string, string>,
+  { holdFetch = false }: { holdFetch?: boolean } = {},
+) {
+  let fetched: Record<string, string> | null = null;
+  let release: () => void = () => {};
+  const adapter = fakeAdapter({
+    fetch: jest.fn(() => {
+      const receive = () => {
+        fetched = { ...server };
+      };
+      if (!holdFetch) {
+        receive();
+        return Promise.resolve();
+      }
+      return new Promise<void>((resolve) => {
+        release = () => {
+          receive();
+          resolve();
+        };
+      });
+    }),
+    activate: jest.fn(() => {
+      if (fetched === null) return Promise.resolve(false);
+      Object.assign(active, fetched);
+      fetched = null;
+      return Promise.resolve(true);
+    }),
+    getString: jest.fn((key: string) => active[key] ?? ""),
+  });
+  return { adapter, release: () => release() };
 }
 
 describe("compareVersions / shouldForceUpdate", () => {
@@ -142,12 +189,12 @@ describe("resolveForceUpdate", () => {
     });
   });
 
-  it("판정과 무관하게 다음 실행용 fetch를 백그라운드로 건다", async () => {
+  it("지난 값 판정은 서버에 가지 않는다 — 받기는 resolveForceUpdateOnLaunch·refreshForceUpdate의 몫이다", async () => {
     const adapter = fakeAdapter({ getString: jest.fn(() => "1.0.0") });
 
     await resolveForceUpdate();
 
-    expect(adapter.fetch).toHaveBeenCalledTimes(1);
+    expect(adapter.fetch).not.toHaveBeenCalled();
   });
 
   it("activate가 제한 시간 안에 끝나지 않으면 통과시킨다 — 스플래시를 네트워크에 묶지 않는다", async () => {
@@ -166,7 +213,7 @@ describe("resolveForceUpdate", () => {
       minVersion: null,
       latestVersion: null,
     });
-    expect(adapter.fetch).toHaveBeenCalledTimes(1);
+    expect(adapter.fetch).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("fail-open"), expect.any(Error));
     warn.mockRestore();
   });
@@ -183,5 +230,153 @@ describe("resolveForceUpdate", () => {
     fakeAdapter({ getString: jest.fn(() => "") });
 
     await expect(resolveForceUpdate()).resolves.toMatchObject({ forced: false, minVersion: null });
+  });
+});
+
+describe("refreshForceUpdate — 접속 시 재판정", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("최소 fetch 간격을 무시하고(fetch(0)) 새 값을 받아 활성화한 뒤 판정하고, 성공을 이벤트로 남긴다", async () => {
+    const { adapter } = serverAdapter(
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.0" },
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.3" },
+    );
+
+    const decision = await refreshForceUpdate("cold_start");
+
+    expect(adapter.fetch).toHaveBeenCalledWith(0);
+    expect(adapter.activate).toHaveBeenCalledTimes(1);
+    expect(adapter.setDefaults).not.toHaveBeenCalled();
+    expect(decision).toMatchObject({ forced: true, minVersion: "1.0.3" });
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["update_config_refreshed", { trigger: "cold_start", result: "ok" }],
+    ]);
+  });
+
+  it("받기에 실패하면 지난 값으로 판정하고 실패를 이벤트로 남긴다 — fail-open, throw하지 않는다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    fakeAdapter({
+      fetch: jest.fn(() => Promise.reject(new Error("offline"))),
+      getString: jest.fn((key: string) => (key === LATEST_VERSION_KEY ? "1.0.3" : "1.0.0")),
+    });
+
+    await expect(refreshForceUpdate("resume")).resolves.toMatchObject({
+      forced: false,
+      recommended: true,
+      latestVersion: "1.0.3",
+    });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("fail-open"), expect.any(Error));
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["update_config_refreshed", { trigger: "resume", result: "failed" }],
+    ]);
+    warn.mockRestore();
+  });
+});
+
+describe("resolveForceUpdateOnLaunch — 앱을 켤 때 판정", () => {
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("지난 값을 먼저 적용한 뒤 새 값을 받는다", async () => {
+    const calls: string[] = [];
+    fakeAdapter({
+      activate: jest.fn(() => {
+        calls.push("activate");
+        return Promise.resolve(true);
+      }),
+      fetch: jest.fn(() => {
+        calls.push("fetch");
+        return Promise.resolve();
+      }),
+    });
+
+    await resolveForceUpdateOnLaunch();
+
+    expect(calls).toEqual(["activate", "fetch", "activate"]);
+  });
+
+  it("새 값이 상한 안에 오면 그 값으로 첫 판정을 하고 늦게 올 판정은 없다", async () => {
+    serverAdapter(
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.0" },
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.3" },
+    );
+
+    const { decision, late } = await resolveForceUpdateOnLaunch({ freshWaitMs: 50 });
+
+    expect(decision).toMatchObject({ forced: true, minVersion: "1.0.3" });
+    expect(late).toBeNull();
+  });
+
+  it("상한을 넘기면 지난 값으로 판정하고, 늦게 온 새 값의 판정을 넘긴다", async () => {
+    const { release } = serverAdapter(
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.0" },
+      { [MIN_SUPPORTED_VERSION_KEY]: "1.0.3" },
+      { holdFetch: true },
+    );
+
+    const { decision, late } = await resolveForceUpdateOnLaunch({ freshWaitMs: 10 });
+
+    expect(decision).toMatchObject({ forced: false, minVersion: "1.0.0" });
+    expect(late).not.toBeNull();
+    release();
+    await expect(late).resolves.toMatchObject({ forced: true, minVersion: "1.0.3" });
+  });
+
+  it("받기가 상한 안에 실패하면 지난 값으로 판정하고 늦게 올 판정은 없다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    fakeAdapter({
+      fetch: jest.fn(() => Promise.reject(new Error("offline"))),
+      getString: jest.fn((key: string) => (key === LATEST_VERSION_KEY ? "1.0.3" : "1.0.0")),
+    });
+
+    const { decision, late } = await resolveForceUpdateOnLaunch({ freshWaitMs: 50 });
+
+    expect(decision).toMatchObject({ forced: false, recommended: true, latestVersion: "1.0.3" });
+    expect(late).toBeNull();
+    warn.mockRestore();
+  });
+
+  it("새 값 대기 상한은 지난 값 적용 시간까지 포함해 센다", async () => {
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const adapter = fakeAdapter({
+      fetch: jest.fn(() => delay(50).then(() => undefined)),
+      getString: jest.fn(() => "1.0.0"),
+    });
+    // 지난 값 적용만 느리고, 새 값을 받은 뒤의 적용은 바로 끝난다.
+    (adapter.activate as jest.Mock).mockImplementationOnce(() => delay(100).then(() => true));
+
+    const { late } = await resolveForceUpdateOnLaunch({ freshWaitMs: 120 });
+
+    expect(late).not.toBeNull();
+    await late;
+  });
+
+  it("값 읽기가 예외를 내도 통과로 판정한다 — throw하지 않는다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    fakeAdapter({
+      getString: jest.fn(() => {
+        throw new Error("not initialized");
+      }),
+    });
+
+    await expect(resolveForceUpdateOnLaunch({ freshWaitMs: 50 })).resolves.toMatchObject({
+      decision: { forced: false, recommended: false, minVersion: null, latestVersion: null },
+    });
+    await expect(refreshForceUpdate("resume")).resolves.toMatchObject({
+      forced: false,
+      minVersion: null,
+    });
+    warn.mockRestore();
   });
 });

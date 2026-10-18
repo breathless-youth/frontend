@@ -114,6 +114,16 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
   recommended_update_prompted: { latest_version: string };
   /** 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). */
   recommended_update_answered: { action: "update" | "later" | "dismissed"; latest_version: string };
+  /**
+   * 접속 때 업데이트 판정용 Remote Config 값을 새로 받은 결과
+   *
+   * `lib/forceUpdate.ts`의 `refreshForceUpdate`가 앱을 새로 켤 때와 30분 이상 백그라운드 뒤 복귀 때 남긴다.
+   * `failed`면 지난 값으로 판정했다는 뜻이다.
+   * 접속마다 한 건이라 `failed` 비율이 업데이트 안내가 한 접속 늦어진 비율이다.
+   * 강제 업데이트로 막힌 실행은 웹뷰가 없어 이 이벤트가 전달되지 않으니 비율을 볼 때 감안한다.
+   * 오류 문구는 싣지 않는다.
+   */
+  update_config_refreshed: { trigger: "cold_start" | "resume"; result: "ok" | "failed" };
   /** 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 쿼리를 뗀 앱 경로(초대코드 등 값은 싣지 않는다). */
   push_notification_opened: { route: string };
   /** 초대 딥링크 진입으로, 평소에는 `app/social/join.tsx`가, 세션 중에는 `lib/sessionInvite.ts`가 남기며 유니버설 링크·App Links·스킴·Install Referrer·알림이 모두 여기로 모인다. */
