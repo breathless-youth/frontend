@@ -28,6 +28,8 @@ export type RemoteScreenProps = {
    * `buildRemoteWebViewUrl`이 쿼리를 `?`로 한 번 더 이어 URL이 깨지므로 반드시 이걸 쓴다.
    */
   extraQuery?: Record<string, string>;
+  /** 뒤로가기 탭 초기화의 기준 경로(탭 루트). 딥링크로 하위 경로를 열 때 탭이 넘긴다. 생략하면 `path`. */
+  resetPath?: string;
   /** WebView·스플래시에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만). */
   backgroundColor?: string;
   /**
@@ -67,6 +69,7 @@ export type RemoteScreenProps = {
 export function RemoteScreen({
   path,
   extraQuery,
+  resetPath,
   backgroundColor,
   blockHardwareBack = false,
   splash,
@@ -78,9 +81,15 @@ export function RemoteScreen({
   // extraQuery는 마운트 시점 값으로 고정한다(딥링크 파라미터는 화면 수명 동안 불변) —
   // 렌더마다 리터럴로 새 객체가 넘어와도 identity가 흔들려 URL 메모가 깨지지 않게.
   const [frozenExtraQuery] = useState(extraQuery);
+  // 공용 파라미터(appVersion·capability 표시)는 링크 쿼리가 덮어쓰지 못한다.
   const query =
     sharedQuery !== null && frozenExtraQuery
-      ? { ...sharedQuery, ...frozenExtraQuery }
+      ? {
+          ...sharedQuery,
+          ...Object.fromEntries(
+            Object.entries(frozenExtraQuery).filter(([key]) => !Object.hasOwn(sharedQuery, key)),
+          ),
+        }
       : sharedQuery;
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -203,6 +212,7 @@ export function RemoteScreen({
         <RemoteWebViewHost
           testID={testID}
           path={path}
+          resetPath={resetPath}
           query={query}
           backgroundColor={backgroundColor}
           onBridgeMessage={filteredBridgeMessage}

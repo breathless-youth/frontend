@@ -1,7 +1,8 @@
-import { useIsFocused } from "expo-router";
+import { useIsFocused, useLocalSearchParams } from "expo-router";
 
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { SettingsTabSkeleton } from "../../components/RemoteSplashSkeletons";
+import { remoteScreenInput } from "../../lib/tabDeepLink";
 
 /**
  * S6 · 설정 — 화면 구현체는 `apps/web`이고, 여기서는 `RemoteScreen`(BY-333)으로 `/settings`를
@@ -12,11 +13,19 @@ import { SettingsTabSkeleton } from "../../components/RemoteSplashSkeletons";
  */
 export default function SettingsScreen() {
   const isFocused = useIsFocused();
+  // 푸시 알림이 path·at 파라미터로 이 탭 안의 웹 경로를 열 수 있다(`lib/tabDeepLink.ts`).
+  const target = remoteScreenInput(
+    useLocalSearchParams<{ path?: string; at?: string }>(),
+    "/settings",
+  );
   return (
     <RemoteScreen
+      key={target.key}
       suppressTabBarMessages={!isFocused}
       testID="settings-webview"
-      path="/settings"
+      path={target.path}
+      resetPath={target.resetPath}
+      extraQuery={target.extraQuery}
       splash={<SettingsTabSkeleton />}
     />
   );
