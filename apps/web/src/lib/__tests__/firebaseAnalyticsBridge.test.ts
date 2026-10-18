@@ -1,6 +1,8 @@
 import type { Types } from "@amplitude/analytics-browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ANALYTICS_USER_PROPERTY_NAME_PATTERN } from "@focusmakers/types";
+
 import {
   FIREBASE_USER_PROPERTY_KEYS,
   firebaseAnalyticsForwardPlugin,
@@ -104,7 +106,7 @@ describe("toFirebaseAnalyticsMessage — $identify 유저 속성", () => {
             },
             $set: {
               acquisition_channel: "preregister",
-              camera_permission_granted: true,
+              camera_permission: true,
               has_dday: false,
               dday_days_left: 7,
               theme: "dark",
@@ -120,7 +122,7 @@ describe("toFirebaseAnalyticsMessage — $identify 유저 속성", () => {
       type: "analytics-user-properties",
       properties: {
         acquisition_channel: "preregister",
-        camera_permission_granted: "true",
+        camera_permission: "true",
         has_dday: "false",
         dday_days_left: "7",
       },
@@ -155,10 +157,35 @@ describe("toFirebaseAnalyticsMessage — $identify 유저 속성", () => {
   it("화이트리스트는 오디언스 조건이 될 만한 속성만이다 — 늘리면 GA 맞춤 정의 등록도 필요하다", () => {
     expect(FIREBASE_USER_PROPERTY_KEYS).toEqual([
       "acquisition_channel",
-      "camera_permission_granted",
+      "camera_permission",
       "has_dday",
       "dday_days_left",
+      "streak_days",
+      "max_streak",
+      "week_study_days",
+      "today_study_min",
+      "studied_today",
+      "has_timelapse",
+      "study_days_total",
+      "has_subjects",
+      "subject_count",
+      "task_count",
+      "used_social",
+      "used_single",
+      "guide_finished",
+      "invite_shared",
+      "ambient_sound_used",
+      "timelapse_shared",
     ]);
+  });
+
+  it("화이트리스트 키는 전부 GA 유저 속성 이름 한도(24자) 안이다 — 넘으면 네이티브가 버려 Firebase에 닿지 않는다", () => {
+    for (const key of FIREBASE_USER_PROPERTY_KEYS) {
+      expect(key).toMatch(ANALYTICS_USER_PROPERTY_NAME_PATTERN);
+    }
+    expect(new Set(FIREBASE_USER_PROPERTY_KEYS).size).toBe(FIREBASE_USER_PROPERTY_KEYS.length);
+    // GA4 커스텀 유저 속성 한도
+    expect(FIREBASE_USER_PROPERTY_KEYS.length).toBeLessThanOrEqual(25);
   });
 });
 

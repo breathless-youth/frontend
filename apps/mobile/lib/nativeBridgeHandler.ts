@@ -113,6 +113,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         router.navigate("/");
       }
       break;
+    case "records-changed":
+      // 다른 탭 웹뷰는 별도 문서라 저장한 탭의 무효화가 닿지 않는다.
+      // 세션 종료와 같은 통계 무효화라 같은 신호로 모든 탭에 알린다.
+      emitSessionClosed();
+      break;
     case "open-settings":
       void openAppSettings();
       break;

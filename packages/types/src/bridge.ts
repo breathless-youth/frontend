@@ -38,6 +38,7 @@ export type ToWebMessage =
   /**
    * 세션 모달이 닫혔다는 알림.
    * 결과 화면 확인이나 1분 미만 종료로 웹이 `navigate-home`을 보내 모달이 닫힐 때 네이티브가 모든 탭 웹뷰에 보낸다.
+   * 웹이 수동 기록을 저장·수정·삭제하고 `records-changed`를 보낼 때도 같은 이유로 모든 탭 웹뷰에 보낸다.
    * 세션은 별도 document라 탭의 통계 캐시를 직접 무효화할 수 없고, 재노출 신호는 제출 직전에도 와서 순서를 믿을 수 없다.
    * 웹은 통계 쿼리를 무효화해 다음 표시 때 새로 받는다.
    */
@@ -248,6 +249,13 @@ export type ToNativeMessage =
    * 응답은 없다. 브라우저 단독 모드에서는 발신되지 않는다(웹이 `navigator.vibrate`로 폴백).
    */
   | { type: "haptic"; style: HapticStyle; atMs: number }
+  /**
+   * 수동 기록을 저장·수정·삭제했다는 알림.
+   * 탭마다 별도 웹뷰 문서라 저장한 탭의 캐시 무효화가 다른 탭에 닿지 않는다.
+   * 네이티브는 `session-closed`를 모든 탭 웹뷰에 보내 같은 통계 무효화를 태운다.
+   * 이 메시지를 모르는 구버전 앱은 버리므로, 그때 다른 탭은 다음 재조회 때 갱신된다.
+   */
+  | { type: "records-changed"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
@@ -399,6 +407,8 @@ export interface SetBackGestureMessage {
  * 신호로 잠근다. 화면 내의 나가기 버튼으로만 세션을 종료할 수 있다(싱글룸과 같은 정책).
  *
  * `locked: false`로 되푸는 책임은 잠근 쪽(세션 언마운트)에 있다 — 풀린 상태가 기본값이다.
+ * 네이티브는 잠금이 걸린 동안을 소셜룸 세션 중으로도 보고 업데이트 알림창을 미룬다.
+ * 그래서 세션이 아닌 화면에서 이 잠금을 쓰면 그 화면도 세션 중으로 취급된다.
  * iOS 가장자리 스와이프는 `set-back-gesture`가 담당하고, 브라우저 단독 모드에서는
  * 발신돼도 받는 쪽이 없다.
  */

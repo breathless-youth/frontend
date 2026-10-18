@@ -195,6 +195,15 @@ describe("handleBridgeMessage", () => {
     expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
   });
 
+  it("records-changed → 모달을 건드리지 않고 모든 탭에 통계 무효화 신호만 보낸다", () => {
+    handleBridgeMessage({ type: "records-changed", atMs: 1 }, noopReply);
+
+    // 수동 기록을 저장한 탭 말고 다른 탭 웹뷰도 옛 통계를 버려야 한다.
+    expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.back).not.toHaveBeenCalled();
+    expect(mockedRouter.navigate).not.toHaveBeenCalled();
+  });
+
   /**
    * 스택이 비어 있을 때 아무 일도 하지 않으면 사용자가 결과 화면에 갇힌다 — 웹 라우터
    * 폴백은 WebView 안의 웹 홈을 열 뿐 네이티브 탭으로 나오지 못한다.

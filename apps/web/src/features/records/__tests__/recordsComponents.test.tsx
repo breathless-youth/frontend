@@ -481,6 +481,78 @@ describe("SessionListItem", () => {
   });
 });
 
+function manualRow(
+  data: StudySessionSummary,
+  {
+    expanded = false,
+    onEdit,
+    subjectName = "국어",
+  }: {
+    expanded?: boolean;
+    onEdit?: (session: StudySessionSummary) => void;
+    subjectName?: string;
+  } = {},
+) {
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      value={expanded ? String(data.id) : ""}
+      onValueChange={vi.fn()}
+    >
+      <SessionListItem session={data} subjectName={subjectName} onEdit={onEdit} />
+    </Accordion>
+  );
+}
+
+describe("SessionListItem, 수동 기록", () => {
+  // KST 07:30~08:16, 46분.
+  const typed = session({
+    studySec: 46 * 60,
+    focusSec: 46 * 60,
+    focusRate: 100,
+    events: [],
+    source: "MANUAL",
+    submissionStartedAt: "2026-09-18T22:30:00Z",
+  });
+
+  it("접힌 행은 총 줄 없이 수동 배지와 시작·종료 시각을 보여 주고 낭독 문장을 쓴다", () => {
+    render(manualRow(typed));
+
+    const row = screen.getByRole("button", {
+      name: "수동 기록, 국어, 오전 7시 30분부터 8시 16분, 46분",
+    });
+    expect(row).toHaveTextContent("46분");
+    expect(row).not.toHaveTextContent("총");
+    expect(screen.getByText("직접 입력")).toBeInTheDocument();
+    expect(screen.queryByText(/집중 \d+%/)).not.toBeInTheDocument();
+    expect(screen.getByText("07:30")).toBeInTheDocument();
+    expect(screen.getByText("08:16")).toBeInTheDocument();
+  });
+
+  it("펼치면 시작·종료·과목 세 칸과 수정을 보여 주고 수정은 그 조각을 넘긴다", () => {
+    const onEdit = vi.fn();
+    render(manualRow(typed, { expanded: true, onEdit }));
+
+    expect(screen.getByText("시작")).toBeInTheDocument();
+    expect(screen.getByText("종료")).toBeInTheDocument();
+    expect(screen.getByText("과목").nextElementSibling).toHaveTextContent("국어");
+    expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "수정" }));
+    expect(onEdit).toHaveBeenCalledWith(typed);
+  });
+
+  it("수정 입구가 없으면 버튼을 두지 않고, 측정 세션 행에는 수정이 없다", () => {
+    const { unmount } = render(manualRow(typed, { expanded: true }));
+    expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+    unmount();
+
+    render(sessionRow(session(), { expanded: true }));
+    expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+  });
+});
+
 describe("SessionTimelineLegend", () => {
   it("타임라인 색의 뜻을 순공 · 자동 멈춤 · 일시정지 순서로 알려 준다", () => {
     render(<SessionTimelineLegend />);

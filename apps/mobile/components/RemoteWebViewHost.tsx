@@ -138,8 +138,10 @@ export type RemoteWebViewHostProps = {
    * 로드가 끝나면 호출된다(성공·실패 둘 다). 스플래시를 언제 걷을지 판단하는 용도이고,
    * `ok`는 실패 폴백 화면이 떠 있는지를 알려준다 — 세션 화면이 안드로이드 하드웨어
    * 뒤로가기를 막을지 결정하는 데 쓴다(`RemoteScreen` 참고).
+   * `newDocument`는 같은 문서 안 이동이 아니라 문서가 새로 떴는지를 알려준다.
+   * 새 문서는 이전 문서가 건 웹 주도 상태(뒤로가기 잠금 등)를 모르니 받는 쪽이 되돌리는 데 쓴다.
    */
-  onLoadEnd?: (ok: boolean) => void;
+  onLoadEnd?: (ok: boolean, newDocument: boolean) => void;
   /**
    * 사망 복구(재로드·재마운트)에 들어가면 호출된다. 스플래시를 **다시 덮기** 위한 신호다 —
    * 렌더러가 죽은 웹뷰는 빈 화면·잔상만 남기므로 복구가 끝날 때(onLoadEnd)까지 가린다(BY-436).
@@ -482,7 +484,8 @@ export function RemoteWebViewHost({
     // 없다. 같은 문서 안 이동인데도 매번 되돌리면, 웹이 직전에 set-back-gesture로 건
     // 잠금이 SPA 라우팅 한 번에 풀린다. 그래서 진짜 새 문서일 때만(필드가 없을 때만)
     // 되돌린다. 끈 쪽이 살아 있는 문서면 다시 끄는 책임도 그쪽이다.
-    if (event?.nativeEvent.navigationType === undefined) {
+    const newDocument = event?.nativeEvent.navigationType === undefined;
+    if (newDocument) {
       setBackGestureEnabled(true);
     }
     recoveringRef.current = false;
@@ -499,7 +502,7 @@ export function RemoteWebViewHost({
     if (!focused) {
       sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
     }
-    onLoadEnd?.(true);
+    onLoadEnd?.(true, newDocument);
   };
 
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
@@ -598,7 +601,7 @@ export function RemoteWebViewHost({
   // 화면(그리고 "다시 시도" 버튼)을 영영 가려 조작 불가 상태가 된다(BY-333 실기기 확인).
   useEffect(() => {
     if (showFailureFallback) {
-      onLoadEnd?.(false);
+      onLoadEnd?.(false, false);
     }
   }, [showFailureFallback, onLoadEnd]);
 

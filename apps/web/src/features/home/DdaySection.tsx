@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 
 import type { DdayRequest, DdayResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SheetHandle } from "@/components/ui/SheetHandle";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -20,7 +20,6 @@ import { ApiError } from "@/lib/api";
 import { deleteDday, putDday } from "@/lib/ddayApi";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { ddayKeys, ddayQuery } from "@/lib/ddayQueries";
-import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 import { cn } from "@/lib/utils";
 
 import { DdayCalendar } from "./DdayCalendar";
@@ -70,7 +69,7 @@ export function DdaySection({ userId }: { userId: number }) {
   }
 
   if (!loaded) {
-    return <Skeleton className="h-[54px] w-32 rounded-lg" />;
+    return <Skeleton className="h-13.5 w-32 rounded-lg" />;
   }
 
   return (
@@ -97,7 +96,7 @@ export function DdaySection({ userId }: { userId: number }) {
         onCloseAutoFocus={(event) => {
           event.preventDefault();
         }}
-        className="theme-soft-blue rounded-t-[24px] border-t-0 px-5 pt-3 pb-[max(32px,calc(env(safe-area-inset-bottom)+8px))] shadow-[0_-12px_40px_rgba(0,0,0,0.18)]"
+        className="theme-soft-blue rounded-t-3xl border-t-0 px-5 pt-3 pb-[max(32px,calc(env(safe-area-inset-bottom)+8px))] shadow-[0_-12px_40px_rgba(0,0,0,0.18)]"
         // 설명 없는 시트다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
         aria-describedby={undefined}
       >
@@ -133,7 +132,7 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
         <span
           data-testid="dday-label"
           className={cn(
-            "text-[32px] leading-[38px] font-extrabold tracking-[-0.8px] tabular-nums",
+            "text-[32px] leading-9.5 font-extrabold tracking-[-0.8px] tabular-nums",
             // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
             daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
           )}
@@ -141,7 +140,7 @@ function DdayBlock({ dday, ...triggerProps }: { dday: DdayResponse | null }) {
           {label}
         </span>
         {/* 탭할 수 있다는 힌트 — 시안대로 숫자 옆에 작게, 글자 중심선보다 살짝 아래 */}
-        <IconChevronDown size={12} color="var(--color-muted-foreground)" className="mt-[3px]" />
+        <IconChevronDown size={12} color="var(--color-muted-foreground)" className="mt-0.75" />
       </span>
       <span data-testid="dday-caption" className="text-[13px] leading-4 text-muted-foreground">
         {caption}
@@ -230,7 +229,7 @@ function DdayForm({
     saveMutation.mutate({ title: trimmedTitle, targetDate });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     submit();
   }
@@ -250,12 +249,12 @@ function DdayForm({
       />
 
       <div className="flex items-baseline justify-between">
-        <SheetTitle className="text-[18px] leading-[21px] font-bold text-foreground">
+        <SheetTitle className="text-[18px] leading-5.25 font-bold text-foreground">
           목표 날짜 설정
         </SheetTitle>
         <span
           data-testid="dday-sheet-days"
-          className="text-[15px] leading-[18px] font-extrabold text-primary tabular-nums"
+          className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums"
         >
           {selectedLabel}
         </span>
@@ -268,12 +267,12 @@ function DdayForm({
           // 칩 자리에 온 달력 칸이 눌린다. 포커스는 click에서 내린다 — onBlur가 달력을 펼친다.
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => titleRef.current?.blur()}
-          className="flex h-[52px] items-center justify-between rounded-2xl bg-brand-subtle px-4"
+          className="flex h-13 items-center justify-between rounded-2xl bg-brand-subtle px-4"
         >
           <span className="flex items-center gap-2">
             <span
               className={cn(
-                "text-[15px] leading-[18px] font-semibold",
+                "text-[15px] leading-4.5 font-semibold",
                 targetDate === null ? "text-muted-foreground" : "text-foreground",
               )}
             >
@@ -281,7 +280,7 @@ function DdayForm({
             </span>
             <IconChevronDown size={9} color="var(--color-muted-foreground)" />
           </span>
-          <span className="text-[15px] leading-[18px] font-extrabold text-primary tabular-nums">
+          <span className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums">
             {selectedLabel}
           </span>
         </button>
@@ -297,12 +296,12 @@ function DdayForm({
       )}
 
       <div className="flex flex-col gap-2">
-        <label htmlFor={titleId} className="text-sm leading-[17px] font-bold text-muted-foreground">
+        <label htmlFor={titleId} className="text-sm leading-4.25 font-bold text-muted-foreground">
           제목
         </label>
         <div
           className={cn(
-            "flex h-[52px] items-center justify-between rounded-[20px] border bg-muted px-4 transition-[border-color,box-shadow] duration-150",
+            "flex h-13 items-center justify-between rounded-xl border bg-muted px-4 transition-[border-color,box-shadow] duration-150",
             titleFocused
               ? "border-primary shadow-[0_0_0_1px_var(--color-primary)]"
               : "border-border",
@@ -338,7 +337,7 @@ function DdayForm({
       </div>
 
       {error !== null && (
-        <p role="alert" className="text-sm leading-[17px] text-state-distract-text">
+        <p role="alert" className="text-sm leading-4.25 text-state-distract-text">
           {error}
         </p>
       )}
@@ -367,8 +366,11 @@ function DdayForm({
         )}
       </div>
 
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={confirmingDelete}
+        title="목표 날짜를 삭제할까요?"
+        cancelLabel="취소"
+        confirmLabel="삭제"
         onCancel={() => setConfirmingDelete(false)}
         onConfirm={() => {
           setConfirmingDelete(false);
@@ -377,62 +379,5 @@ function DdayForm({
         }}
       />
     </form>
-  );
-}
-
-/**
- * 삭제 확인 — 시트 위에 뜨는 작은 다이얼로그. 틀은 카메라 켜기 확인 모달과 같고(공용 `ui/dialog.tsx`,
- * `theme-soft-blue` 스코프), 설명 줄 없이 제목과 두 버튼만 둔다. Esc·딤 탭은 취소다.
- */
-function DeleteConfirmDialog({
-  open,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const focusRestore = useDialogFocusRestore();
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onCancel();
-      }}
-    >
-      <DialogContent
-        role="alertdialog"
-        showCloseButton={false}
-        onOpenAutoFocus={focusRestore.onOpenAutoFocus}
-        onCloseAutoFocus={focusRestore.onCloseAutoFocus}
-        className="theme-soft-blue w-full max-w-[320px] gap-0 rounded-3xl border-0 bg-muted px-[22px] pt-[26px] pb-[22px] text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
-        // 설명 없는 다이얼로그다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
-        aria-describedby={undefined}
-      >
-        {/* 시트 제목(`목표 날짜 설정`)과 같은 굵기·크기 — 카메라 확인 모달의 extrabold는 여기선 과했다. */}
-        <DialogTitle className="text-[18px] leading-[21px] font-bold text-foreground">
-          목표 날짜를 삭제할까요?
-        </DialogTitle>
-        <div className="mt-4 flex gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onCancel}
-            className="h-[52px] flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
-          >
-            취소
-          </Button>
-          <Button
-            type="button"
-            variant="unstyled"
-            onClick={onConfirm}
-            className="h-[52px] flex-1 rounded-lg bg-feedback-danger text-[15px] font-semibold text-white hover:opacity-90"
-          >
-            삭제
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

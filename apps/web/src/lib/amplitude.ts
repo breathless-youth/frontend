@@ -273,6 +273,24 @@ export function setAcquisitionChannel(channel: string) {
   identify(id);
 }
 
+/** user property 여러 개를 identify 한 번으로 보낸다. 미초기화면 no-op. */
+function setUserProperties(properties: Record<string, string | number | boolean>) {
+  if (!initialized) return;
+  const id = new Identify();
+  for (const [key, value] of Object.entries(properties)) {
+    id.set(key, value);
+  }
+  identify(id);
+}
+
+/** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
+const sentFlags = new Set<string>();
+function setFlagOnce(key: string) {
+  if (!initialized || sentFlags.has(key)) return;
+  sentFlags.add(key);
+  setUserProperties({ [key]: true });
+}
+
 /**
  * 세션이 열린 룸의 종류 — 개인(single) / 그룹 스터디 소셜룸(social).
  *
@@ -312,6 +330,8 @@ export interface StudySessionEndedInput {
 export function trackStudySessionStarted(roomType: StudyRoomType, restored = false) {
   if (!initialized) return;
   track("study_session_started", { room_type: roomType, restored });
+  // 룸 종류별 이용 이력. 서버 세션 기록에는 룸 종류가 없어 시작 순간에 남긴다.
+  setFlagOnce(roomType === "social" ? "used_social" : "used_single");
 }
 
 /**
@@ -437,6 +457,7 @@ export function trackTimelapseShareTapped(input: {
     result: input.result,
     entry: input.entry,
   });
+  setFlagOnce("timelapse_shared");
 }
 
 /* ── 그룹 스터디(소셜룸) 이벤트 (BY-472) ─────────────────────────────────────
@@ -519,6 +540,7 @@ export function trackSocialRoomGraceExceeded() {
 export function trackInviteShared(method: "shared" | "copied" | "failed") {
   if (!initialized) return;
   track("invite_shared", { method });
+  if (method !== "failed") setFlagOnce("invite_shared");
 }
 
 /** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
@@ -589,7 +611,7 @@ export function trackAppLaunched() {
 export function setCameraPermissionUserProperty(granted: boolean) {
   if (!initialized) return;
   const id = new Identify();
-  id.set("camera_permission_granted", granted);
+  id.set("camera_permission", granted);
   identify(id);
 }
 
@@ -863,6 +885,7 @@ export function trackGuideFinished(input: {
 }) {
   if (!initialized) return;
   track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
+  if (input.reason === "completed") setFlagOnce("guide_finished");
 }
 
 /** 기록 달력 날짜 선택. 절대 날짜는 싣지 않고 오늘 여부·기록 유무만 — 과거 탐색 깊이의 근사. */
@@ -1058,6 +1081,72 @@ export function trackPlannerDateChanged(input: {
 }) {
   if (!initialized) return;
   track("planner_date_changed", { delta: input.delta, method: input.method });
+}
+
+/** 수동 기록 입력 화면을 연 곳. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
+type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records";
+type ManualRecordEditEntry = "planner_cell" | "records";
+
+/**
+ * 수동 기록 추가 성공. 길이는 서버가 저장한 조각의 합이다.
+ * `trimmedMin`은 다른 기록과 겹쳐 빠진 분, `pieces`는 자정·겹침으로 나뉜 조각 수다.
+ */
+export function trackManualRecordAdd(input: {
+  readonly entry: ManualRecordAddEntry;
+  readonly durationMin: number;
+  readonly hasSubject: boolean;
+  readonly daysAgo: number;
+  readonly trimmedMin: number;
+  readonly pieces: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_add", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    has_subject: input.hasSubject,
+    days_ago: input.daysAgo,
+    trimmed_min: input.trimmedMin,
+    pieces: input.pieces,
+  });
+}
+
+/** 수동 기록 수정 성공. */
+export function trackManualRecordEdit(input: {
+  readonly entry: ManualRecordEditEntry;
+  readonly durationMin: number;
+  readonly hasSubject: boolean;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_edit", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    has_subject: input.hasSubject,
+    days_ago: input.daysAgo,
+  });
+}
+
+/** 수동 기록 삭제 성공. 길이는 지운 묶음 전체다. */
+export function trackManualRecordDelete(input: {
+  readonly entry: ManualRecordEditEntry;
+  readonly durationMin: number;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_delete", {
+    entry: input.entry,
+    duration_min: input.durationMin,
+    days_ago: input.daysAgo,
+  });
+}
+
+/** 전부 겹쳐 저장이 막힌 안내가 처음 뜰 때. 입력 화면을 한 번 여는 동안 한 번만 보낸다. */
+export function trackManualRecordOverlapBlocked(input: {
+  readonly entry: ManualRecordAddEntry;
+  readonly daysAgo: number;
+}) {
+  if (!initialized) return;
+  track("manual_record_overlap_blocked", { entry: input.entry, days_ago: input.daysAgo });
 }
 
 /** 기록 일간 탭의 세션 행 펼침·접힘. 다른 행을 눌러 바뀐 것은 새 행의 펼침 한 번으로 센다. */
@@ -1378,6 +1467,7 @@ export function trackAmbientSoundChanged(input: {
     sound_count: input.sounds.length,
     source: input.source,
   });
+  if (input.sounds.length > 0) setFlagOnce("ambient_sound_used");
 }
 
 /** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
@@ -1426,4 +1516,49 @@ export function setDdayUserProperties(dday: { readonly daysLeft: number } | null
     id.set("dday_days_left", dday.daysLeft);
   }
   identify(id);
+}
+
+/**
+ * 홈 통계가 알려 주는 공부 상태 user property
+ *
+ * 푸시 타겟(스트릭 유지·오늘 미공부 리마인드·주간 목표) 조건이다.
+ * 홈이 서버 값을 받을 때마다 맞추므로 기존 사용자도 다음 접속에 잡힌다.
+ * ponytail: `studied_today`는 홈을 다시 열기 전까지 어제 값으로 남는다. 발송 조건에 "오늘 앱을 연 사용자"를 같이 건다.
+ */
+export function setStudyStatusUserProperties(input: {
+  readonly streakDays: number;
+  readonly maxStreak: number;
+  readonly weekStudyDays: number;
+  readonly todayStudyMin: number;
+  readonly studiedToday: boolean;
+}) {
+  setUserProperties({
+    streak_days: input.streakDays,
+    max_streak: input.maxStreak,
+    week_study_days: input.weekStudyDays,
+    today_study_min: input.todayStudyMin,
+    studied_today: input.studiedToday,
+  });
+}
+
+/** 과목·할 일 개수 user property. 과목 목록을 받거나 바꿀 때마다 맞춘다(세션 화면·플래너). */
+export function setSubjectsUserProperties(input: {
+  readonly subjectCount: number;
+  readonly taskCount: number;
+}) {
+  setUserProperties({
+    has_subjects: input.subjectCount > 0,
+    subject_count: input.subjectCount,
+    task_count: input.taskCount,
+  });
+}
+
+/** 이 기기에 저장된 타임랩스가 있는지. 홈 최근 타임랩스 목록을 읽을 때 맞춘다(기기 단위 값). */
+export function setHasTimelapseUserProperty(hasTimelapse: boolean) {
+  setUserProperties({ has_timelapse: hasTimelapse });
+}
+
+/** 누적 공부일 user property. 세션 결과 화면이 서버 값을 받을 때 맞춘다. */
+export function setStudyDaysTotalUserProperty(totalDays: number) {
+  setUserProperties({ study_days_total: totalDays });
 }
