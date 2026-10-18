@@ -58,7 +58,7 @@ describe("방해 앱 잠금 권한 안내", () => {
     render(<AppLockConsentScreen />);
     expect(
       screen.getByText(
-        "잠그고 싶은 앱을 고를 수 있게 기기에 설치된 앱 목록을 조회해요. 앱 목록은 기기 밖으로 전송되지 않아요.",
+        "잠그고 싶은 앱을 고를 수 있게 기기에 설치된 앱 목록을 조회해요. 조회된 정보는 기기 밖으로 전송되지 않아요.",
       ),
     ).toBeTruthy();
   });
