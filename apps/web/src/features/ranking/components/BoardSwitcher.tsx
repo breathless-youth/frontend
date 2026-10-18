@@ -28,7 +28,7 @@ import {
  *
  * 기본 칩 모양(테두리 알약)을 시안의 흰 칩과 진한 파란 선택 칩으로 덮어쓴다.
  * 시안처럼 테두리 없이 채움만으로 선택을 나눈다.
- * 누르는 영역은 위아래 6.5px씩 넓혀 44px로 맞추고, 5px 아래 시간대 구간 칸에 닿지 않게 한다.
+ * 누르는 영역은 위아래 6.5px씩 넓혀 44px로 맞춘다.
  */
 export const CHIP_CLASS =
   "h-[31px] min-w-11 justify-center rounded-full border-0 bg-muted px-2.5 text-[13px] leading-[15px] font-semibold text-muted-foreground before:-inset-y-[6.5px] " +
@@ -38,14 +38,13 @@ export const CHIP_CLASS =
 /**
  * 큰 글자 탭
  *
- * 공용 탭의 밑줄을 고른 탭에만 칠해 누를 수 있는 탭으로 보이게 한다.
- * 보이는 높이는 글자 29px, 밑줄까지 띄운 6px, 밑줄 2px을 더한 37px이고, 누르는 영역은 위로만 넓혀 44px로 맞춘다.
- * 7px 아래에 칩 줄이 있어 아래로 넓히면 칩의 누르는 영역과 겹친다.
+ * 보이는 높이는 글자 줄 높이 29px이고, 누르는 영역은 위로만 넓혀 44px로 맞춘다.
+ * 12px 아래에 칩 줄이 있어 아래로 넓히면 칩의 누르는 영역과 겹친다.
  */
 const MODE_TRIGGER_CLASS =
-  "relative mb-0 h-[37px] min-h-0 min-w-11 px-0 pb-1.5 text-2xl leading-[29px] font-extrabold tracking-[-0.7px] text-text-tertiary " +
-  "before:absolute before:inset-x-0 before:-top-[7px] before:bottom-0 before:content-[''] " +
-  "data-[state=active]:border-foreground data-[state=active]:text-foreground";
+  "relative mb-0 h-[29px] min-h-0 min-w-11 border-b-0 px-0 text-2xl leading-[29px] font-extrabold tracking-[-0.7px] text-text-tertiary " +
+  "before:absolute before:inset-x-0 before:-top-[15px] before:bottom-0 before:content-[''] " +
+  "data-[state=active]:text-foreground";
 
 /**
  * 랭킹과 명예의 전당 고르기
@@ -77,7 +76,7 @@ export function BoardModeTabs({
 /**
  * 판 고르기
  *
- * 랭킹 쪽은 종목 칩과 기간 세그먼트를 한 줄에 두고, 시간대면 아래에 구간 칸 5개를 둔다.
+ * 랭킹 쪽은 종목 칩 아래에 기간 세그먼트를 폭에 맞춰 두고, 시간대면 그 아래에 구간 칸 5개를 둔다.
  * 명예의 전당 쪽은 종목 칩만 둔다.
  * 선택된 칩을 다시 누르면 ToggleGroup이 빈 값을 주는데, 판은 늘 하나가 골라져 있어야 해서 무시한다.
  * 지금 구간으로 연 시간대 판은 서버가 고른 구간을 선택으로 보인다.
@@ -101,39 +100,36 @@ export function BoardSwitcher({
   const slot = slotOf(selection) ?? resolvedSlot ?? nowSlot;
 
   return (
-    <div className={cn("flex flex-col gap-[5px]", className)}>
-      <div className="flex items-center justify-between gap-2">
-        <ToggleGroup
-          type="single"
-          aria-label="종목"
-          value={selection.type}
-          onValueChange={(next) => {
-            if (next !== "" && next !== selection.type) {
-              onChange(selectType(selection, next as RankingType));
-            }
-          }}
-          className="flex-nowrap gap-1.5"
-        >
-          {types.map((type) => (
-            <ToggleGroupItem key={type} value={type} className={CHIP_CLASS}>
-              {TYPE_LABEL[type]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        {period !== null && (
-          <SegmentedControl
-            ariaLabel="기간"
-            value={period}
-            options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
-            onChange={(next) => onChange(selectPeriod(selection, next))}
-            // 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 위아래 8px씩 넓혀 44px로 맞춘다.
-            triggerClassName={cn(
-              "text-xs leading-[14px] font-bold before:-top-2 before:-bottom-2",
-              periods.length > 2 && "px-3",
-            )}
-          />
-        )}
-      </div>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <ToggleGroup
+        type="single"
+        aria-label="종목"
+        value={selection.type}
+        onValueChange={(next) => {
+          if (next !== "" && next !== selection.type) {
+            onChange(selectType(selection, next as RankingType));
+          }
+        }}
+        className="flex-nowrap gap-1.5"
+      >
+        {types.map((type) => (
+          <ToggleGroupItem key={type} value={type} className={CHIP_CLASS}>
+            {TYPE_LABEL[type]}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {period !== null && (
+        <SegmentedControl
+          ariaLabel="기간"
+          value={period}
+          options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
+          onChange={(next) => onChange(selectPeriod(selection, next))}
+          className="w-full"
+          // 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 넓혀 44px로 맞춘다.
+          // 위 칩의 누르는 영역에 닿지 않게 위로는 4px, 아래로는 12px 넓힌다.
+          triggerClassName="flex-1 justify-center text-xs leading-[14px] font-bold before:-top-1 before:-bottom-3"
+        />
+      )}
       {selection.type === "TIME_SLOT" && (
         <ToggleGroup
           type="single"
@@ -146,7 +142,7 @@ export function BoardSwitcher({
           }}
           className="grid grid-cols-5 gap-1.5"
         >
-          {/* 누르는 영역은 위로 넓히면 칩과 기간 칸의 영역에 닿아, 시상대 쪽 틈으로만 4px 넓혀 44px로 맞춘다. */}
+          {/* 누르는 영역은 위로 넓히면 기간 칸의 영역에 닿아, 시상대 쪽 틈으로만 4px 넓혀 44px로 맞춘다. */}
           {TIME_SLOTS.map((value) => (
             <ToggleGroupItem
               key={value}

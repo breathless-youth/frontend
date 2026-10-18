@@ -108,12 +108,14 @@ export function rankCardSubLine(input: {
   if (me === null) {
     return null;
   }
-  const offSlot = isOffSlot(board, serverNow);
-  if (!offSlot && above !== null && above.focusing) {
+  if (isOffSlot(board, serverNow)) {
+    const notice = offSlotNotice(board);
+    return notice === null ? null : { text: notice, tone: "muted" };
+  }
+  if (above !== null && above.focusing) {
     return { text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" };
   }
   if (
-    !offSlot &&
     isTimeType(board.type) &&
     below !== null &&
     below.focusing &&
@@ -124,9 +126,6 @@ export function rankCardSubLine(input: {
       text: "뒤 순위와 차이가 줄어들고 있어요",
       tone: "alert",
     };
-  }
-  if (offSlot) {
-    return { text: offSlotNotice(board), tone: "muted" };
   }
   if (me.rank === 1) {
     if (below === null) {

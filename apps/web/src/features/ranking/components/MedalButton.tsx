@@ -7,7 +7,7 @@ import { IllustMedal } from "../icons";
  *
  * 0개면 메달을 흐리게 그린다.
  * 테두리·그림자와 오른쪽 `›`로 누르면 기록이 열리는 버튼이라는 것을 보인다.
- * 누르는 영역은 44px이고, 아래 기간 칸의 누르는 영역과 겹치지 않게 위로 더 넓힌다.
+ * 누르는 영역은 44px이고, 좁은 화면에서 버튼 밑까지 오는 칩의 누르는 영역과 겹치지 않게 위로 더 넓힌다.
  * 넓히는 기준이 테두리 안쪽이라 넓히는 값에 테두리 1px을 위아래로 더한다.
  */
 export function MedalButton({ total, onClick }: { total: number | null; onClick: () => void }) {
