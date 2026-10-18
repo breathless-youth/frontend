@@ -168,7 +168,7 @@ private fun iconPng(drawable: Drawable): String {
  * 이 기기 안에만 두고 웹에는 개수만 넘긴다.
  * 앱의 자동 백업 규칙이 SharedPreferences를 통째로 클라우드 백업과 기기 이전에 실어서, 앱 설정을 건드리지 않고 백업에서 빠지는 noBackupFilesDir에 한 줄에 하나씩 적는다.
  * 읽을 때 지운 앱은 목록에서 지우고, 기본 홈 앱과 이 앱은 빼서 예전에 고른 목록이 남아 있어도 잠그지 않는다.
- * 홈 앱은 다시 바뀔 수 있어 저장 목록에서는 지우지 않는다.
+ * 읽기만 할 때는 홈 앱을 저장 목록에서 지우지 않지만, 고르기 화면에서 저장하면 빠진 채로 덮어쓴다.
  */
 internal object AppLockPrefs {
   private const val FILE_NAME = "app_lock_packages"
