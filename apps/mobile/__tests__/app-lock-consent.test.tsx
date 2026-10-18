@@ -54,6 +54,15 @@ describe("방해 앱 잠금 권한 안내", () => {
     expect(screen.getByText("공부 중에 잠긴 앱을 열면 잠금 화면을 띄워요.")).toBeTruthy();
   });
 
+  it("설정을 열기 전에 설치된 앱 목록을 조회하는 이유와 기기 밖으로 보내지 않음을 알린다", () => {
+    render(<AppLockConsentScreen />);
+    expect(
+      screen.getByText(
+        "잠그고 싶은 앱을 고를 수 있게 기기에 설치된 앱 목록을 조회해요. 앱 목록은 기기 밖으로 전송되지 않아요.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("동의하면 사용정보 접근 설정부터 연다", () => {
     render(<AppLockConsentScreen />);
     fireEvent.press(screen.getByRole("button", { name: "동의하고 설정 열기" }));

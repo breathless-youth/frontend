@@ -66,6 +66,11 @@ export default function AppLockConsentScreen() {
         title="다른 앱 위에 표시"
         body="공부 중에 잠긴 앱을 열면 잠금 화면을 띄워요."
       />
+      {/* Play 사용자 데이터 정책상 설치된 앱 목록은 권한 요청 전에 앱 안에서 알려야 한다. */}
+      <Text className="text-text-secondary dark:text-text-secondary-dark mt-2 font-sans text-[13px] leading-[19px]">
+        잠그고 싶은 앱을 고를 수 있게 기기에 설치된 앱 목록을 조회해요. 조회된 정보는 기기 밖으로
+        전송되지 않아요.
+      </Text>
     </AppLockSheet>
   );
 }
