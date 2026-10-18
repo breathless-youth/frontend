@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
+import { setStudyDaysTotalUserProperty } from "@/lib/amplitude";
 import { todayKstDateKey } from "@/lib/dateKst";
 import { dailyStatsQuery, studyDaysQuery } from "@/lib/statsQueries";
 
@@ -29,6 +31,14 @@ export interface ResultSummary {
 export function useResultSummary(userId: number): ResultSummary {
   const daily = useQuery(dailyStatsQuery(userId, todayKstDateKey()));
   const studyDays = useQuery(studyDaysQuery(userId));
+
+  // 푸시 타겟용 누적 공부일 user property. 값을 받은 때만 보낸다.
+  const totalDays = studyDays.data?.totalDays;
+  useEffect(() => {
+    if (totalDays !== undefined) {
+      setStudyDaysTotalUserProperty(totalDays);
+    }
+  }, [totalDays]);
 
   return {
     todayFocusSec: toState(daily.data?.totalFocusSec, daily.isError),

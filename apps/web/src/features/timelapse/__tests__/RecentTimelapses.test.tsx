@@ -5,6 +5,8 @@ import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setHasTimelapseUserProperty } from "@/lib/amplitude";
+
 import { RecentTimelapses } from "../RecentTimelapses";
 import { recentDayLabel, timelapseRangeLabel, timelapseStartLabel } from "../recentDayLabel";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
@@ -18,6 +20,8 @@ import { createIndexedDbTimelapseStore } from "../timelapseStore";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
+
+vi.mock("@/lib/amplitude", () => ({ setHasTimelapseUserProperty: vi.fn() }));
 
 let store: TimelapseStore;
 
@@ -60,6 +64,45 @@ function renderSection() {
     </QueryClientProvider>,
   );
 }
+
+describe("RecentTimelapses 푸시 타겟용 user property", () => {
+  beforeEach(() => {
+    vi.mocked(setHasTimelapseUserProperty).mockReset();
+  });
+
+  it("목록을 읽으면 타임랩스 유무를 보낸다", async () => {
+    await seed(new Date(2026, 9, 7, 9, 0).getTime());
+
+    renderSection();
+
+    await waitFor(() => expect(setHasTimelapseUserProperty).toHaveBeenCalledWith(true));
+    expect(setHasTimelapseUserProperty).toHaveBeenCalledTimes(1);
+  });
+
+  it("저장된 타임랩스가 없으면 false로 보낸다", async () => {
+    renderSection();
+
+    await waitFor(() => expect(setHasTimelapseUserProperty).toHaveBeenCalledWith(false));
+  });
+
+  it("목록을 읽지 못하면 보내지 않는다", async () => {
+    const broken: TimelapseStore = {
+      ...store,
+      listReady: () => Promise.reject(new Error("IndexedDB 열기 실패")),
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/home?userId=7"]}>
+          <RecentTimelapses store={broken} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(setHasTimelapseUserProperty).not.toHaveBeenCalled();
+  });
+});
 
 describe("recentDayLabel", () => {
   const now = new Date(2026, 9, 7, 9, 0).getTime();

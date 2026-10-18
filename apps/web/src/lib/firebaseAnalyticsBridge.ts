@@ -44,9 +44,25 @@ import { postToNative } from "./bridge";
  */
 export const FIREBASE_USER_PROPERTY_KEYS: readonly string[] = [
   "acquisition_channel",
-  "camera_permission_granted",
+  "camera_permission",
   "has_dday",
   "dday_days_left",
+  "streak_days",
+  "max_streak",
+  "week_study_days",
+  "today_study_min",
+  "studied_today",
+  "has_timelapse",
+  "study_days_total",
+  "has_subjects",
+  "subject_count",
+  "task_count",
+  "used_social",
+  "used_single",
+  "guide_finished",
+  "invite_shared",
+  "ambient_sound_used",
+  "timelapse_shared",
 ];
 
 const AMPLITUDE_INTERNAL_EVENTS = new Set(["session_start", "session_end"]);
