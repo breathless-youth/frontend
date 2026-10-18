@@ -31,19 +31,24 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   ariaLabel,
+  className,
   triggerClassName,
 }: {
   value: T;
   options: readonly SegmentOption<T>[];
   onChange: (value: T) => void;
   ariaLabel?: string;
+  className?: string;
   triggerClassName?: string;
 }) {
   return (
     <Tabs value={value} onValueChange={(next) => onChange(next as T)}>
       <TabsList
         aria-label={ariaLabel}
-        className="inline-flex items-center gap-0.5 rounded-[12px] border-b-0 bg-bg-control-track p-1"
+        className={cn(
+          "inline-flex items-center gap-0.5 rounded-[12px] border-b-0 bg-bg-control-track p-1",
+          className,
+        )}
       >
         {options.map((option) => (
           <TabsTrigger
