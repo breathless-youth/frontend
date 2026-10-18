@@ -57,6 +57,22 @@ describe("openPushRoute", () => {
     });
   });
 
+  it("세션 중 초대 링크가 오면 앞서 대기 중이던 알림도 열지 않는다", async () => {
+    const push = jest.fn();
+    const invite = jest.fn();
+    const closeSession = markSessionOpen();
+    const unregister = setSessionInviteHandler(invite);
+
+    openPushRoute("/planner", push, () => AT);
+    openPushRoute("/social/join?code=1234", push, () => AT + 1);
+    closeSession();
+    await flush();
+
+    expect(invite).toHaveBeenCalledWith("1234");
+    expect(push).not.toHaveBeenCalled();
+    unregister();
+  });
+
   it("세션 중 초대 링크는 세션 화면에 넘기고 이동하지 않는다", async () => {
     const push = jest.fn();
     const invite = jest.fn();

@@ -17,8 +17,9 @@ export function openPushRoute(
   push: (target: PushTarget) => void,
   now: () => number = Date.now,
 ): void {
-  if (offerRouteToSession(route)) return;
+  // 초대 링크도 "마지막 알림"이다. 앞서 대기 중이던 알림은 더 이상 열지 않는다.
   const ticket = ++latestTicket;
+  if (offerRouteToSession(route)) return;
   runAfterSession(() => {
     if (ticket !== latestTicket) return;
     queueMicrotask(() => push(pushTargetForRoute(route, now())));
