@@ -38,13 +38,14 @@ export const CHIP_CLASS =
 /**
  * 큰 글자 탭
  *
- * 보이는 높이는 글자 줄 높이 29px이고, 누르는 영역은 위로만 넓혀 44px로 맞춘다.
+ * 공용 탭의 밑줄을 고른 탭에만 칠해 누를 수 있는 탭으로 보이게 한다.
+ * 보이는 높이는 글자 29px, 밑줄까지 띄운 6px, 밑줄 2px을 더한 37px이고, 누르는 영역은 위로만 넓혀 44px로 맞춘다.
  * 7px 아래에 칩 줄이 있어 아래로 넓히면 칩의 누르는 영역과 겹친다.
  */
 const MODE_TRIGGER_CLASS =
-  "relative mb-0 h-[29px] min-h-0 min-w-11 border-b-0 px-0 text-2xl leading-[29px] font-extrabold tracking-[-0.7px] text-text-tertiary " +
-  "before:absolute before:inset-x-0 before:-top-[15px] before:bottom-0 before:content-[''] " +
-  "data-[state=active]:text-foreground";
+  "relative mb-0 h-[37px] min-h-0 min-w-11 px-0 pb-1.5 text-2xl leading-[29px] font-extrabold tracking-[-0.7px] text-text-tertiary " +
+  "before:absolute before:inset-x-0 before:-top-[7px] before:bottom-0 before:content-[''] " +
+  "data-[state=active]:border-foreground data-[state=active]:text-foreground";
 
 /**
  * 랭킹과 명예의 전당 고르기
