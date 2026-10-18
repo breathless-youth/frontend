@@ -23,6 +23,12 @@ import { getRnda } from "../appLock/rnda";
 
 jest.mock("../userApi", () => ({ ensureUserRegistered: jest.fn() }));
 jest.mock("../appLock/rnda", () => ({ getRnda: jest.fn(() => null) }));
+const mockAppLockModule: { appLockNative: object | null } = { appLockNative: null };
+jest.mock("../../modules/app-lock", () => ({
+  get appLockNative() {
+    return mockAppLockModule.appLockNative;
+  },
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { version: "1.4.2" } },
@@ -48,6 +54,19 @@ describe("buildRemoteQueryParams", () => {
 
     (getRnda as jest.Mock).mockReturnValueOnce({});
     await expect(buildRemoteQueryParams()).resolves.toHaveProperty("appLock", "1");
+  });
+
+  it("잠금 모듈이 든 Android 빌드에는 버전과 상관없이 appLock=1을 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("appLock");
+
+    mockAppLockModule.appLockNative = {};
+    try {
+      await expect(buildRemoteQueryParams()).resolves.toHaveProperty("appLock", "1");
+    } finally {
+      mockAppLockModule.appLockNative = null;
+    }
   });
 
   it("신원은 URL에 싣지 않는다 — 웹은 auth-token으로 받는다", async () => {

@@ -98,6 +98,10 @@ async function handleNow(message: AppLockMessage, reply: Reply): Promise<void> {
     case "app-lock-stop":
       await stopStudyLock();
       break;
+    case "app-lock-battery-guide":
+      // 처음 한 번 띄웠다는 기록과 상관없이 연다. 사용자가 직접 다시 연 것이라 기록도 남기지 않는다.
+      router.push("/app-lock-battery");
+      break;
   }
 }
 

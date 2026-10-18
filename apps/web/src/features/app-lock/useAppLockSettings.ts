@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { detectStorePlatform } from "@/features/social-room/storeLink";
 import {
   trackAppLockAppsSelected,
   trackAppLockPermissionResult,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/amplitude";
 import { showToast } from "@/lib/toast";
 
+import { hasAppLockCapability } from "./appLockCapability";
 import { readAppLockEnabled, writeAppLockEnabled } from "./appLockSettings";
 import {
   type AppLockState,
@@ -27,9 +29,12 @@ export function useAppLockSettings() {
   const [counts, setCounts] = useState({ appCount: 0, categoryCount: 0 });
   // 처음 상태를 받기 전에는 지원 여부와 고른 앱을 몰라서 조작을 막아 둔다.
   const [busy, setBusy] = useState(true);
+  const [supported, setSupported] = useState(false);
+  const android = detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints) === "android";
 
   const applyCounts = (state: AppLockState) => {
     setCounts({ appCount: state.appCount, categoryCount: state.categoryCount });
+    setSupported(state.supported);
   };
 
   // 탭마다 웹뷰가 따로라 설정 앱에 다녀와도 이 화면은 다시 그려지지 않아서 보일 때마다 다시 묻는다.
@@ -83,7 +88,8 @@ export function useAppLockSettings() {
     if (state === null) return;
     applyCounts(state);
     if (!state.supported) {
-      showToast("방해 앱 잠금은 iOS 18 이상에서 쓸 수 있어요");
+      // 네이티브는 지원 여부만 알려 주므로 안내할 최소 버전은 웹이 기기에 맞춰 고른다.
+      showToast(`방해 앱 잠금은 ${android ? "Android 8" : "iOS 18"} 이상에서 쓸 수 있어요`);
       return;
     }
     trackAppLockPermissionResult({ granted: state.authorized });
@@ -105,5 +111,9 @@ export function useAppLockSettings() {
     trackAppLockAppsSelected({ appCount: state.appCount, categoryCount: state.categoryCount });
   };
 
-  return { enabled, ...counts, busy, toggle, pick };
+  // 배터리를 아끼려고 잠금 서비스를 멈추는 건 Android만의 일이라 iOS와 브라우저에는 안내를 두지 않는다.
+  // 잠금을 쓸 수 없는 기기에서는 멈출 서비스도 없어서 안내하지 않는다.
+  const batteryGuide = android && hasAppLockCapability() && supported;
+
+  return { enabled, ...counts, busy, batteryGuide, toggle, pick };
 }

@@ -299,6 +299,13 @@ export type ToNativeMessage =
    */
   | { type: "app-lock-start"; atMs: number }
   | { type: "app-lock-stop"; atMs: number }
+  /**
+   * Android 배터리 예외 안내 시트 다시 열기
+   *
+   * 처음 켤 때 한 번 뜬 안내를 닫은 사용자가 설정 화면에서 다시 연다.
+   * 응답은 없고, 이 메시지를 모르는 구버전 앱은 버린다.
+   */
+  | { type: "app-lock-battery-guide"; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

@@ -98,6 +98,15 @@ describe("handleAppLockMessage", () => {
     expect(reply).not.toHaveBeenCalled();
   });
 
+  it("battery-guide는 배터리 안내 화면을 열고 상태를 묻거나 답하지 않는다", async () => {
+    const reply = jest.fn();
+    await handleAppLockMessage({ type: "app-lock-battery-guide", atMs: 1 }, reply);
+    expect(router.push).toHaveBeenCalledWith("/app-lock-battery");
+    expect(authorizeAppLock).not.toHaveBeenCalled();
+    expect(getAppLockState).not.toHaveBeenCalled();
+    expect(reply).not.toHaveBeenCalled();
+  });
+
   it("pick은 고르기 화면을 열고, 닫히면 저장한 뒤 그 문서에 상태를 보낸다", async () => {
     const reply = jest.fn();
     await handleAppLockMessage({ type: "app-lock-pick", id: "p1", atMs: 1 }, reply);

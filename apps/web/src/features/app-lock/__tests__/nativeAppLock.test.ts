@@ -7,6 +7,7 @@ import { writeAppLockEnabled } from "../appLockSettings";
 import {
   APP_LOCK_RESPONSE_TIMEOUT_MS,
   authorizeAppLock,
+  openAppLockBatteryGuide,
   pickAppLockApps,
   queryAppLock,
   startAppLock,
@@ -124,6 +125,14 @@ describe("응답을 기다리는 요청", () => {
     await expect(query).resolves.toMatchObject({ authorized: false });
   });
 
+  it("Android에서 설정 화면 두 곳을 다녀오는 동안 2분에 끊지 않는다", async () => {
+    withShell();
+    const pending = authorizeAppLock();
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    fromNative({ type: "app-lock-state", id: idOf(0), ...STATE });
+    await expect(pending).resolves.toEqual(STATE);
+  });
+
   it("고르기는 모달 앞에서 고르는 동안 기다린다", async () => {
     withShell();
     const pending = pickAppLockApps();
@@ -161,11 +170,18 @@ describe("세션 잠금", () => {
     expect(sentTypes()).toEqual(["app-lock-stop"]);
   });
 
+  it("배터리 안내는 켜짐과 상관없이 보내고 답을 기다리지 않는다", () => {
+    withShell();
+    openAppLockBatteryGuide();
+    expect(sent()).toEqual([{ type: "app-lock-battery-guide", atMs: expect.any(Number) }]);
+  });
+
   it("기능 조회가 없는 셸에는 아무것도 보내지 않는다", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     writeAppLockEnabled(true);
     startAppLock();
     stopAppLock();
+    openAppLockBatteryGuide();
     expect(postMessage).not.toHaveBeenCalled();
   });
 
