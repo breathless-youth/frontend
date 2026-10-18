@@ -39,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   localStorage.clear();
   setVisibility("visible");
 });
@@ -82,6 +83,17 @@ describe("useAppLockSettings", () => {
     await act(() => result.current.toggle(true));
     expect(result.current.enabled).toBe(false);
     expect(showToast).toHaveBeenCalledWith("방해 앱 잠금은 iOS 18 이상에서 쓸 수 있어요");
+  });
+
+  it("Android 8 미만이면 Android 기준으로 안내한다", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 7.1.2; SM-J330) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+    );
+    vi.mocked(authorizeAppLock).mockResolvedValue({ ...STATE, supported: false });
+    const { result } = await renderSettings();
+    await act(() => result.current.toggle(true));
+    expect(result.current.enabled).toBe(false);
+    expect(showToast).toHaveBeenCalledWith("방해 앱 잠금은 Android 8 이상에서 쓸 수 있어요");
   });
 
   it("허용하면 켜고 저장한다", async () => {

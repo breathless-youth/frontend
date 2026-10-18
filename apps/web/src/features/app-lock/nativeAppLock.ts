@@ -12,8 +12,9 @@ export type AppLockState = Omit<
 
 export const APP_LOCK_RESPONSE_TIMEOUT_MS = 5000;
 // 권한 창 앞에서 사용자가 고민하는 시간이 이 안에 들어간다.
+// Android는 설정 화면 두 곳을 다녀와야 해서 고르기와 같이 넉넉하게 잡는다.
 // 짧게 잡으면 뒤늦게 누른 허용이 버려진다.
-const AUTHORIZE_TIMEOUT_MS = 120_000;
+const AUTHORIZE_TIMEOUT_MS = 10 * 60_000;
 // 사용자가 고르는 시간보다 넉넉하게 잡는다.
 // 응답을 잃어도 고르기 화면 요청이 끝나지 않고 남지 않게 한다.
 const PICK_TIMEOUT_MS = 10 * 60_000;
@@ -74,6 +75,13 @@ export function startAppLock(): void {
 export function stopAppLock(): void {
   if (hasAppLockCapability()) {
     postToNative({ type: "app-lock-stop", atMs: Date.now() });
+  }
+}
+
+/** 배터리 예외 안내는 켜기와 따로 보는 설정이라 켜짐 여부를 보지 않는다. */
+export function openAppLockBatteryGuide(): void {
+  if (hasAppLockCapability()) {
+    postToNative({ type: "app-lock-battery-guide", atMs: Date.now() });
   }
 }
 
