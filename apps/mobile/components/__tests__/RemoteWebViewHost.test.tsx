@@ -427,6 +427,15 @@ describe("RemoteWebViewHost", () => {
     expect(sentAppLaunched()).toHaveLength(1);
   });
 
+  it("홈 탭을 딥링크로 하위 경로에서 열어도 탭 루트(resetPath) 기준으로 앱 실행 신호에 응답한다", () => {
+    mockAppLaunchPending = true;
+    render(<RemoteWebViewHost path="/timelapses" resetPath="/home" testID="host" />);
+
+    fireHomeReady();
+
+    expect(sentAppLaunched()).toHaveLength(1);
+  });
+
   it("전역 복구로 다시 선 문서가 준비 신호를 또 보내도 두 번 응답하지 않는다", () => {
     mockAppLaunchPending = true;
     render(<RemoteWebViewHost path="/home" testID="host" />);
@@ -584,6 +593,22 @@ describe("RemoteWebViewHost", () => {
     mockInjectJavaScript.mockClear();
     act(() => {
       emitTabReset("/records");
+    });
+    expect(mockInjectJavaScript).not.toHaveBeenCalled();
+  });
+
+  it("딥링크로 하위 경로를 연 탭은 resetPath(탭 루트) 신호를 받는다", () => {
+    render(<RemoteWebViewHost path="/planner" resetPath="/records" testID="host" />);
+
+    act(() => {
+      emitTabReset("/records");
+    });
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    expect(mockInjectJavaScript.mock.calls[0][0] as string).toContain('\\"reset-route\\"');
+
+    mockInjectJavaScript.mockClear();
+    act(() => {
+      emitTabReset("/planner");
     });
     expect(mockInjectJavaScript).not.toHaveBeenCalled();
   });
