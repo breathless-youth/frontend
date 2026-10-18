@@ -8,7 +8,7 @@ import SocialScreen from "../app/(tabs)/social";
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
 
-const mockParams: { code?: string; at?: string } = {};
+const mockParams: { code?: string; at?: string; path?: string } = {};
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
   useIsFocused: () => true,
@@ -47,6 +47,28 @@ describe("SocialScreen", () => {
   afterEach(() => {
     delete mockParams.code;
     delete mockParams.at;
+    delete mockParams.path;
+  });
+
+  it("푸시 path 파라미터로 소셜 탭 안의 초대코드 공유 화면을 연다", async () => {
+    mockParams.path = "/social/code";
+    mockParams.at = "1";
+    render(<SocialScreen />);
+    expect(await screen.findByTestId("social-webview")).toBeTruthy();
+    expect(screen.getByTestId("social-webview").props.source).toEqual({
+      uri: "https://web.test/social/code?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+    });
+  });
+
+  it("code와 path가 같이 오면 초대 참여가 이긴다", async () => {
+    mockParams.code = "5634";
+    mockParams.path = "/social/code";
+    mockParams.at = "1";
+    render(<SocialScreen />);
+    expect(await screen.findByTestId("social-webview")).toBeTruthy();
+    expect(screen.getByTestId("social-webview").props.source).toEqual({
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1&code=5634",
+    });
   });
 
   it("/social 경로 + 탭 공용 쿼리(appVersion)로 조립한 URL을 로드한다", async () => {

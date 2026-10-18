@@ -37,7 +37,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
   - `package.json`에 `expo.autolinking.exclude`를 되살리지 말 것 — 이벤트가 조용히 사라진다. SDK의 자동 화면 보고(`screen_view`)는 `firebase.json`으로 껐다 — 웹뷰 셸이라 RN 화면 하나만 반복 보고돼 잡음뿐이다. `firebaseConfig.test.ts`가 둘 다 고정한다.
 - **화면·컴포넌트는 `@react-native-firebase/*`를 직접 import하지 않는다.** `lib/remoteConfig.ts`·`lib/pushMessaging.ts` 어댑터만 거친다. **`messaging`은 pnpm patch가 걸려 있다**(iOS APNs 등록 후 `getToken` 실패 우회) — 올릴 때 패치가 깨지면 업스트림 수정 여부를 먼저 확인하고, `isDeviceRegisteredForRemoteMessages` 대신 APNs 토큰 유무로 판단한다.
 - **강제 업데이트는 네이티브가 판정한다.** `lib/forceUpdate.ts`가 Remote Config `min_supported_version`을 앱 버전과 비교한다. 기본값은 `UPDATE_CONFIG_DEFAULTS` 한 곳에서 한 번의 `setDefaults`로 등록한다(다른 곳에서 또 부르면 서로 지운다). 권장 업데이트는 `recommendedUpdateAlert.ts`가 최신 버전당 한 번 띄운다.
-- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다 — 홈이 그려진 뒤 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 ATT 프롬프트 다음, 권장 업데이트 알림창 앞에 부른다(iOS는 권한이 없으면 알림을 표시하지 않는다). `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다.
+- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다 — 홈이 그려진 뒤 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 ATT 프롬프트 다음, 권장 업데이트 알림창 앞에 부른다(iOS는 권한이 없으면 알림을 표시하지 않는다). `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다. 알림 탭 경로는 `lib/pushNotificationRouting.ts`의 `WEB_PATH_TAB`이 담당 탭으로 바꾸고 탭이 `path`·`at` 파라미터로 그 웹 경로를 연다(`lib/tabDeepLink.ts`) — 표에 없는 경로와 세션 화면은 홈으로 간다. 세션 중에는 `lib/pushRouteOpener.ts`가 세션이 닫힌 뒤 이동한다.
 
 ## Meta 광고 SDK (`lib/metaAds.ts` · `lib/metaAdsSdk.ts`)
 
