@@ -709,6 +709,7 @@ describe("handleBridgeMessage: 방해 앱 잠금", () => {
     { type: "app-lock-pick", id: "r1", atMs: 1 },
     { type: "app-lock-start", atMs: 1 },
     { type: "app-lock-stop", atMs: 1 },
+    { type: "app-lock-battery-guide", atMs: 1 },
   ] as const)("$type는 잠금 릴레이에 같은 답 통로와 함께 넘긴다", (message) => {
     const reply = jest.fn();
     handleBridgeMessage(message, reply);

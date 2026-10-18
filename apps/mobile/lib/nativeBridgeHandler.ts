@@ -236,6 +236,7 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "app-lock-pick":
     case "app-lock-start":
     case "app-lock-stop":
+    case "app-lock-battery-guide":
       // 잠금 실패가 공부 측정을 막지 않도록 어댑터가 RNDA 예외를 삼키고, 여기서는 남은 예외만 경고로 남긴다.
       void handleAppLockMessage(message, reply).catch((error: unknown) => {
         console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);

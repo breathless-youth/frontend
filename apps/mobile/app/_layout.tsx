@@ -235,9 +235,19 @@ function RootLayout() {
         <Stack.Screen name="permission-denied" />
         {/*
           잠글 앱 고르기 — iOS 스크린타임 선택 화면이라 웹뷰 대신 네이티브 모달로 연다.
+          Android는 설치된 앱 목록(`app-lock-picker.android.tsx`)이고, 앱 이름을 웹에 넘기지 않으려고 같은 모달로 연다.
           쓸어 닫아도 고른 결과는 저장된다.
         */}
         <Stack.Screen name="app-lock-picker" options={{ presentation: "modal" }} />
+        {/* Android 방해 앱 잠금 권한 안내와 배터리 안내. 뒤 화면이 비쳐 보이는 아래 시트로 띄운다. */}
+        <Stack.Screen
+          name="app-lock-consent"
+          options={{ presentation: "transparentModal", animation: "fade" }}
+        />
+        <Stack.Screen
+          name="app-lock-battery"
+          options={{ presentation: "transparentModal", animation: "fade" }}
+        />
         {/*
           G1~G5 온보딩 가이드·이용약관·개인정보처리방침·문의하기는 웹으로 이관됐다(BY-333) —
           네이티브 라우트를 더 이상 두지 않는다.
