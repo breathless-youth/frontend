@@ -134,6 +134,21 @@
   }
 }
 
+/*
+  아래 시트·고정 버튼처럼 배경을 따로 가진 상자를 page-column과 같은 폭으로 가운데에 둔다.
+  폰과 가로 폰에서는 규칙이 걸리지 않는다.
+*/
+@utility page-width {
+  @variant regular {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--container-page);
+  }
+  @variant short-side-lg {
+    max-width: var(--container-page-lg);
+  }
+}
+
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {

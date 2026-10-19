@@ -144,11 +144,13 @@ describe("페이지 열", () => {
     );
   });
 
-  it("max-w-page·max-w-page-lg는 regular·short-side-lg 미디어 쿼리 안에서 열 폭 토큰을 읽는 규칙으로 생성된다", async () => {
-    expect(await utilityRules("regular:max-w-page")).toEqual([
-      { media: regularMedia, declarations: ["max-width: var(--container-page)"] },
-    ]);
-    expect(await utilityRules("short-side-lg:max-w-page-lg")).toEqual([
+  it("page-width는 폰에서 규칙이 없고 태블릿에서 열 폭으로 가운데에 둔다", async () => {
+    // page-column과 같은 이유로 큰 태블릿 규칙이 뒤에 나와야 한다.
+    expect(await utilityRules("page-width")).toEqual([
+      {
+        media: regularMedia,
+        declarations: ["margin-inline: auto", "width: 100%", "max-width: var(--container-page)"],
+      },
       { media: largeMedia, declarations: ["max-width: var(--container-page-lg)"] },
     ]);
   });

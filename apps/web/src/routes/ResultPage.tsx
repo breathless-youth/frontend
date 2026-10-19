@@ -335,7 +335,7 @@ export function ResultPage() {
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="relative flex shrink-0 gap-2.5 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] regular:mx-auto regular:w-full regular:max-w-page short-side-lg:max-w-page-lg animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+        <div className="relative flex shrink-0 gap-2.5 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] page-width animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
           {/* 저장 토스트 자리
 
               하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.

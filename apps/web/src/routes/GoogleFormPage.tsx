@@ -114,7 +114,7 @@ export function GoogleFormPage({
       </div>
 
       {showFailure ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 regular:mx-auto regular:w-full regular:max-w-page short-side-lg:max-w-page-lg">
+        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 page-width">
           <h1 className="text-center text-[20px] leading-[24px] font-bold text-foreground">
             {failureTitle}
           </h1>
