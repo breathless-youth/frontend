@@ -45,13 +45,15 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 | `lg:` | 폭 1200 이상 | 노트북, 13인치 iPad 가로 |
 | `xl:` | 폭 1600 이상 | 큰 모니터 |
 | `landscape-compact:` | 가로이면서 높이 480 미만 | 폰 가로 거치, Fold 접은 가로 |
+| `short-side-lg:` | 폭과 높이 모두 1000 이상 | 13인치 iPad 세로·가로 |
 
 - 가로 폰은 폭이 840을 넘기도 한다. 폰 거치 배치는 반드시 `landscape-compact:`로 쓰고 `md:`·`landscape:`로 쓰지 않는다.
 - 2분할처럼 높이가 필요한 배치는 `md:`에 더해 `landscape-compact:`에서 되돌린다.
 - 태블릿 배치(폭 600 이상이면서 폰 가로가 아님)는 `sm:not-landscape-compact:`로 쓴다. `landscape-compact` 정의의 바깥 괄호를 지우면 이 조합이 무효 쿼리가 되어 조용히 사라진다.
+- 큰 태블릿 크기는 `sm:not-landscape-compact:` 클래스 뒤에 `short-side-lg:` 클래스를 더해 덧씌운다. 빌드 CSS에서 `short-side-lg` 규칙이 뒤에 나와 같은 속성이면 이긴다.
 - 여러 화면에 들어가는 부품(카드·타일·행)은 `@container`와 `@sm:` 같은 container query로, 페이지 골격은 뷰포트 브레이크포인트로 맞춘다.
 - 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다.
-- 태블릿 시안은 Figma V2 파일의 `Tablet v2.0` 페이지에 있다.
+- 태블릿 시안은 Figma V2 파일의 `5. Tablet (V2)` 페이지에 있다.
 
 ## 함정
 
