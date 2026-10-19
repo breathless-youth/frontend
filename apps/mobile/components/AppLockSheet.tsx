@@ -26,7 +26,11 @@ export function AppLockSheet({
       className="bg-bg-layer1 dark:bg-bg-layer1-dark px-5 pt-3"
       style={{ paddingBottom: insets.bottom + 8 }}
     >
-      <View className="bg-border-strong dark:bg-border-strong-dark mb-6 h-1 w-9 self-center rounded-full" />
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="bg-border-strong dark:bg-border-strong-dark mb-6 h-1 w-9 self-center rounded-full"
+      />
       <Text
         accessibilityRole="header"
         className="text-text-primary dark:text-text-primary-dark mb-4 text-[20px] font-sans-bold leading-[28px]"
