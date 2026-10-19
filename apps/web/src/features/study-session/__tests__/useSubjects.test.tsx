@@ -4,8 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SubjectResponse } from "@focusmakers/types";
 
 import { ApiError } from "@/lib/api";
-import { trackSubjectItemAdded } from "@/lib/amplitude";
-import { createSubject, listSubjects, renameSubject, reorderSubjects } from "@/lib/subjectApi";
+import { setSubjectsUserProperties, trackSubjectItemAdded } from "@/lib/amplitude";
+import {
+  createSubject,
+  deleteSubject,
+  listSubjects,
+  renameSubject,
+  reorderSubjects,
+} from "@/lib/subjectApi";
 
 import { SUBJECT_SHEET_COPY } from "../sessionCopy";
 import { useSubjects } from "../useSubjects";
@@ -20,7 +26,10 @@ vi.mock("@/lib/subjectApi", () => ({
   updateTask: vi.fn(),
   deleteTask: vi.fn(),
 }));
-vi.mock("@/lib/amplitude", () => ({ trackSubjectItemAdded: vi.fn() }));
+vi.mock("@/lib/amplitude", () => ({
+  setSubjectsUserProperties: vi.fn(),
+  trackSubjectItemAdded: vi.fn(),
+}));
 
 function subject(id: number): SubjectResponse {
   return { id, name: `과목${id}`, colorIndex: id, studySec: 0, focusSec: 0, tasks: [] };
@@ -41,6 +50,106 @@ async function renderReady() {
 function ids(hook: ReturnType<typeof renderHook<ReturnType<typeof useSubjects>, unknown>>) {
   return hook.result.current.subjects.map((s) => s.id);
 }
+
+describe("useSubjects 푸시 타겟용 user property", () => {
+  beforeEach(() => {
+    vi.mocked(listSubjects).mockReset();
+    vi.mocked(setSubjectsUserProperties).mockReset();
+  });
+
+  it("목록을 받으면 과목·할 일 개수를 보낸다", async () => {
+    vi.mocked(listSubjects).mockResolvedValue([
+      { ...subject(1), tasks: [{ id: 10, name: "a", doneAt: null }] },
+      {
+        ...subject(2),
+        tasks: [
+          { id: 11, name: "b", doneAt: "2026-10-17T00:00:00Z" },
+          { id: 12, name: "c", doneAt: null },
+        ],
+      },
+    ]);
+
+    await renderReady();
+
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(1);
+    expect(setSubjectsUserProperties).toHaveBeenCalledWith({ subjectCount: 2, taskCount: 3 });
+  });
+
+  it("빈 목록은 0으로 보낸다", async () => {
+    vi.mocked(listSubjects).mockResolvedValue([]);
+
+    await renderReady();
+
+    expect(setSubjectsUserProperties).toHaveBeenCalledWith({ subjectCount: 0, taskCount: 0 });
+  });
+
+  it("삭제가 서버에서 확정된 뒤에만 줄어든 개수를 보낸다", async () => {
+    vi.mocked(listSubjects).mockResolvedValue([subject(1), subject(2)]);
+    let resolveDelete: () => void = () => {};
+    vi.mocked(deleteSubject).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDelete = resolve;
+      }),
+    );
+    const { hook } = await renderReady();
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(1);
+
+    let removing: Promise<void> = Promise.resolve();
+    act(() => {
+      removing = hook.result.current.removeSubject(1);
+    });
+    // 화면은 먼저 줄지만 분석은 아직이다.
+    expect(ids(hook)).toEqual([2]);
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveDelete();
+      await removing;
+    });
+
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(2);
+    expect(setSubjectsUserProperties).toHaveBeenLastCalledWith({ subjectCount: 1, taskCount: 0 });
+  });
+
+  it("삭제와 복구 조회가 모두 실패하면 잘못된 개수를 남기지 않는다", async () => {
+    vi.mocked(listSubjects)
+      .mockResolvedValueOnce([subject(1), subject(2)])
+      .mockRejectedValue(new Error("network"));
+    vi.mocked(deleteSubject).mockRejectedValue(new Error("network"));
+    const { hook } = await renderReady();
+
+    await act(async () => {
+      await hook.result.current.removeSubject(1);
+    });
+    await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(2));
+
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(1);
+    expect(setSubjectsUserProperties).toHaveBeenLastCalledWith({ subjectCount: 2, taskCount: 0 });
+  });
+
+  it("같은 목록을 다시 받아도 다시 보낸다", async () => {
+    vi.mocked(listSubjects).mockResolvedValue([subject(1)]);
+    const { hook } = await renderReady();
+
+    await act(async () => {
+      await hook.result.current.reload();
+    });
+
+    expect(setSubjectsUserProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it("목록 조회에 실패하면 보내지 않는다", async () => {
+    const onError = vi.fn();
+    vi.mocked(listSubjects).mockRejectedValue(new Error("network"));
+
+    const hook = renderHook(() => useSubjects(true, onError));
+    await waitFor(() => {
+      expect(hook.result.current.status).toBe("error");
+    });
+
+    expect(setSubjectsUserProperties).not.toHaveBeenCalled();
+  });
+});
 
 describe("useSubjects 순서 (BY-725)", () => {
   beforeEach(() => {

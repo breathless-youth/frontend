@@ -237,7 +237,8 @@ describe("RootLayout 폰트 로드 게이팅", () => {
 
     release();
     navigate("/social/join?code=4680");
-    expect(mockRouter.push).toHaveBeenCalledWith("/social/join?code=4680");
+    // 이동은 한 틱 미뤄 실행된다(세션 종료 cleanup과 스택 pop이 겹치지 않게).
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/social/join?code=4680"));
   });
 
   it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", async () => {

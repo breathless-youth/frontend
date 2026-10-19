@@ -47,6 +47,7 @@ import {
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import { sheetTimerTravel } from "@/features/study-session/sheetTimerTravel";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -77,22 +78,20 @@ import { prefetchResultPage } from "@/routes/lazyRoutes";
 /**
  * 세션 레이어의 세로/가로 배치
  *
- * 세로는 flex 컬럼, 가로는 3열 그리드다. 방향은 `@media (orientation: landscape)`만 보고
+ * 세로는 flex 컬럼, 가로는 3열 그리드다. 방향은 `landscape-compact`(가로이면서 높이 30rem 미만)만 보고
  * 갈린다 — JS 방향 감지도, 방향 상태도 없다(`useStudyRoomSession`은 방향을 모른다).
  * 회전해도 DOM 트리가 그대로여야 포커스와 진행 중인 세션이 살아남기 때문이다.
  * 그래서 가로 프레임을 별도 라우트·별도 컴포넌트로 만들지 않고 같은 자식들을 그리드 셀에 재배치하기만 한다.
+ * 태블릿 가로는 세로 배치를 받는다.
  */
 const SESSION_LAYER_LAYOUT = [
   "pointer-events-none relative flex h-full w-full flex-col items-center",
   "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+17px)]",
   "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
-  "landscape:grid landscape:grid-cols-[1fr_auto_1fr] landscape:grid-rows-[auto_1fr_auto_auto_auto] landscape:items-start",
-  "landscape:pt-[calc(env(safe-area-inset-top)+18px)] landscape:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
-  "landscape:pl-[calc(env(safe-area-inset-left)+28px)] landscape:pr-[calc(env(safe-area-inset-right)+28px)]",
+  "landscape-compact:grid landscape-compact:grid-cols-[1fr_auto_1fr] landscape-compact:grid-rows-[auto_1fr_auto_auto_auto] landscape-compact:items-start",
+  "landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)] landscape-compact:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
+  "landscape-compact:pl-[calc(env(safe-area-inset-left)+28px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+28px)]",
 ].join(" ");
-
-/** 시트가 다 열렸을 때 순공 타이머가 앉는 높이(뷰포트 비율) — 상태 필 바로 아래(시안 122/874). */
-const SHEET_OPEN_TIMER_TOP = 0.14;
 
 /**
  * 과목 시트를 끌어 올리는 만큼 **같은 비율로 따라 올라오는 칸** — 순공 타이머가 유일한 사용처다.
@@ -103,7 +102,7 @@ const SHEET_OPEN_TIMER_TOP = 0.14;
  * 드래그 중에도 이 화면은 다시 그려지지 않는다.
  *
  * 이동 거리는 "지금 내 위치 − 목표 높이"라서 프리뷰(아래쪽)와 심플 모드(가운데)가 알아서 다른
- * 거리를 갖는다. 가로에서는 타이머가 이미 위쪽에 있고 시안도 움직이지 않으므로 0으로 둔다.
+ * 거리를 갖는다. 폰 가로 거치에서는 타이머가 이미 위쪽에 있고 시안도 움직이지 않으므로 0으로 둔다.
  */
 function SheetFollowingSlot({ className, children }: { className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -116,22 +115,31 @@ function SheetFollowingSlot({ className, children }: { className?: string; child
    * 화면에서는 타이머가 덜덜 떨리는 것으로 보인다. `offsetTop`은 변환을 무시한 레이아웃 위치이고,
    * 기준이 되는 세션 레이어가 화면 맨 위에서 시작하므로 그대로 화면 y로 쓸 수 있다.
    */
-  useLayoutEffect(() => {
+  const measure = useCallback(() => {
     const element = ref.current;
     if (element === null) {
       return;
     }
-    // `matchMedia`를 쓰지 않는다 — jsdom에 없어 테스트가 통째로 죽는다. 판정 기준은 이 파일의
-    // 회전 감지와 같은 `currentOrientation`이다.
-    const travel =
-      currentOrientation() === "landscape"
-        ? 0
-        : Math.max(0, element.offsetTop - window.innerHeight * SHEET_OPEN_TIMER_TOP);
+    // `matchMedia`를 쓰지 않는다. jsdom에 없어 테스트가 통째로 죽는다.
+    const travel = sheetTimerTravel(
+      element.offsetTop,
+      element.offsetHeight,
+      window.innerWidth,
+      window.innerHeight,
+    );
     const next = `${Math.round(travel)}px`;
     if (element.style.getPropertyValue("--session-sheet-timer-travel") !== next) {
       element.style.setProperty("--session-sheet-timer-travel", next);
     }
-  });
+  }, []);
+
+  useLayoutEffect(measure);
+
+  // 일시정지 중에는 다시 그려지지 않아 창 크기만 바뀌면 거리가 갱신되지 않는다.
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
 
   return (
     <div
@@ -600,7 +608,7 @@ function RoomSessionScreen({
       onDragStart={(event) => event.preventDefault()}
       className={cn(
         !endNoticeVisible && "theme-dark",
-        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white",
+        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-(--session-camera-base) text-white",
       )}
     >
       {/* 심플 모드는 보이는 프리뷰만 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
@@ -643,11 +651,12 @@ function RoomSessionScreen({
             <SessionStatusPill
               state={pillState}
               label={statusCopy.label}
-              className="landscape:col-start-2 landscape:row-start-1 landscape:justify-self-center"
+              className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center sm:not-landscape-compact:px-4.5 sm:not-landscape-compact:py-2 sm:not-landscape-compact:text-base sm:not-landscape-compact:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25"
             />
 
             {/* 위를 기준으로 붙여야 심플 모드에서 카메라 전환이 빠져도 배경음이 움직이지 않는다.
-                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다. */}
+                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다.
+                폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다. */}
             <SessionSideActions
               // 심플 모드는 프리뷰가 없어 전환 결과를 볼 수 없는데 추론만 잠깐 끊긴다.
               showFlip={!simpleMode}
@@ -664,7 +673,7 @@ function RoomSessionScreen({
               // 시트가 열리면 숨긴다 — 세로는 올라온 타이머·시트 윗변과 맞닿고 가로는 시트 밑에 깔려
               // 비쳐 보인다. 어차피 열린 동안에는 바깥 탭 캐처가 덮어 눌리지 않는다.
               className={cn(
-                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-[260ms] motion-reduce:transition-none landscape:top-[calc(env(safe-area-inset-top)+96px)]",
+                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-260 motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)] sm:not-landscape-compact:top-[calc(env(safe-area-inset-top)+65px)] sm:not-landscape-compact:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+74px)] short-side-lg:gap-4.5",
                 sheetOpen && "invisible opacity-0",
               )}
             />
@@ -682,7 +691,7 @@ function RoomSessionScreen({
                 즉시 바뀌고 배경·발광은 그대로 300ms로 페이드한다 — 움직이는 것은 타이머가
                 아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
                 숫자가 끊기거나 리셋되지는 않는다. 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div className="grow landscape:hidden" />
+            <div className="grow landscape-compact:hidden" />
 
             {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
                 (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
@@ -690,8 +699,8 @@ function RoomSessionScreen({
               className={
                 simpleMode
                   ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
-                    "landscape:absolute landscape:top-1/2 landscape:left-1/2 landscape:-translate-x-1/2 landscape:-translate-y-1/2"
-                  : "landscape:col-start-3 landscape:row-start-1 landscape:-mr-5 landscape:justify-self-end"
+                    "landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2"
+                  : "landscape-compact:col-start-3 landscape-compact:row-start-1 landscape-compact:-mr-5 landscape-compact:justify-self-end"
               }
             >
               <SessionTimer
@@ -702,10 +711,10 @@ function RoomSessionScreen({
               />
             </SheetFollowingSlot>
 
-            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape:hidden")} />
+            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape-compact:hidden")} />
 
             {/* 바 위에 과목 라벨(20px + 아래 10px)이 얹혀서 타이머와 바 사이 44px에서 그만큼 뺀다. */}
-            <div className="relative mt-[14px] flex flex-col items-center landscape:col-span-full landscape:row-start-4 landscape:mt-2 landscape:justify-self-center">
+            <div className="relative mt-3.5 flex flex-col items-center landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:mt-2 landscape-compact:justify-self-center">
               <CtaToaster />
               {/* 컨트롤 바는 과목 시트의 손잡이다 — 위로 끌면 시트가 펼쳐지고 바가 함께 올라간다.
                   바 위 한 줄 라벨이 선택 항목과 순공을 보여주고, 미선택이면 힌트다. */}
@@ -743,7 +752,7 @@ function RoomSessionScreen({
             </div>
 
             {userId === null && (
-              <p className="mt-3 text-center text-[12px] leading-[16px] text-white/55 landscape:col-span-full landscape:row-start-5 landscape:justify-self-center">
+              <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-5 landscape-compact:justify-self-center">
                 이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
               </p>
             )}
@@ -895,7 +904,7 @@ function SessionResultFallback({
 
       {phase.name === "error" && (
         <>
-          <p className="text-center text-sm text-[var(--session-exit-bg)]">{phase.message}</p>
+          <p className="text-center text-sm text-(--session-exit-bg)">{phase.message}</p>
           <button
             type="button"
             onClick={onRetry}

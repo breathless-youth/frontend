@@ -639,7 +639,7 @@ describe("RoomPage — S3-3 일시정지", () => {
     await userEvent.click(pauseButton);
 
     const resumeButton = screen.getByRole("button", { name: "다시 시작" });
-    expect(resumeButton.className).toContain("bg-[var(--session-control-resume-bg)]");
+    expect(resumeButton.className).toContain("bg-(--session-control-resume-bg)");
     // 아이콘도 play로 교체된다(Figma 인스턴스 오버라이드).
     expect(resumeButton.querySelector('[data-testid="icon-play"]')).not.toBeNull();
     expect(resumeButton.querySelector('[data-testid="icon-pause"]')).toBeNull();
@@ -848,7 +848,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     await enterSimpleMode();
 
-    expect(timerOf().className).toContain("text-[var(--session-state-color)]");
+    expect(timerOf().className).toContain("text-(--session-state-color)");
     expect(timerOf().style.textShadow).toContain("var(--session-glow-near)");
   });
 

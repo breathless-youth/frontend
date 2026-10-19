@@ -2,12 +2,11 @@ import type { RankingBoardResponse } from "@focusmakers/types";
 import { useId, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 import { isOffSlot } from "../model/board";
-import { formatGap, progressPercent } from "../model/format";
-import { cardTitle } from "../model/labels";
+import { formatGap, formatRank } from "../model/format";
+import { cardTitle, slotName } from "../model/labels";
 import type { SubLine, SubLineTone } from "../model/live";
 
 /**
@@ -51,7 +50,7 @@ export function CardShell({
   return (
     <section
       aria-labelledby={titleId}
-      className={cn("rounded-xl bg-muted p-[18px] shadow-sb-card", className)}
+      className={cn("rounded-xl bg-muted px-[18px] pt-3.5 pb-2.5 shadow-sb-card", className)}
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2
@@ -119,7 +118,7 @@ export function FocusStartButton({
 /**
  * 순위 카드 아랫줄
  *
- * 문구에 든 줄바꿈 자리에서 줄을 바꾸되 글자는 한 덩어리로 둬 스크린리더가 한 문장으로 읽게 한다.
+ * 한 줄에 들어가는 문구를 톤에 맞는 색으로 그린다.
  */
 export function SubLineText({ line, className }: { line: SubLine | null; className?: string }) {
   if (line === null) {
@@ -128,7 +127,7 @@ export function SubLineText({ line, className }: { line: SubLine | null; classNa
   return (
     <p
       className={cn(
-        "min-w-0 text-[13px] leading-[15px] break-keep whitespace-pre-line text-pretty",
+        "min-w-0 text-[13px] leading-[15px] break-keep text-pretty",
         TONE_CLASS[line.tone],
         className,
       )}
@@ -138,9 +137,31 @@ export function SubLineText({ line, className }: { line: SubLine | null; classNa
   );
 }
 
+/**
+ * 아랫줄과 작은 집중 시작
+ *
+ * 버튼을 아랫줄 오른쪽 끝에 두고 이 줄을 큰 글자 바로 아래에 붙인다.
+ * 버튼이 아랫줄보다 높아 따로 띄우지 않아도 아랫줄이 큰 글자와 8px쯤 떨어진다.
+ * 글자를 키운 기기에서 아랫줄이 두 줄로 넘어가도 큰 글자에 붙지 않게 아랫줄 위아래에 4px을 둔다.
+ */
+export function FocusStartRow({
+  children,
+  onFocusStart,
+}: {
+  children: ReactNode;
+  onFocusStart: () => void;
+}) {
+  return (
+    <div className="flex min-h-[31px] items-center justify-between gap-2">
+      <div className="min-w-0 flex-1 py-1">{children}</div>
+      <FocusStartPill onClick={onFocusStart} />
+    </div>
+  );
+}
+
 function Headline({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-2.5 flex min-w-0 items-baseline text-2xl leading-8 font-extrabold tracking-[-0.7px] text-foreground">
+    <p className="mt-2 flex min-w-0 items-baseline text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
       {children}
     </p>
   );
@@ -149,10 +170,10 @@ function Headline({ children }: { children: ReactNode }) {
 /**
  * 순위가 있는 판의 카드
  *
- * 위에는 다음 순위까지 남은 양과 진행바를 두고, 아래는 종목마다 다르다.
+ * 위에는 다음 순위까지 남은 양을 두고, 아래는 종목마다 다르다.
  * 가장 큰 글자에서 한 사람을 짚으면 불편할 수 있어 이름 없이 쓴다.
- * 순공·시간대는 아랫줄 문구와 집중 시작, 집중률은 따라잡기 문구, 누적은 다음 구간 상자다.
- * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 작은 집중 시작을 두지 않는다.
+ * 순공·시간대는 아랫줄 문구와 집중 시작, 집중률은 따라잡기 문구와 집중 시작, 누적은 다음 구간 상자다.
+ * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 줄일 수 없는 차이 대신 이 판의 내 순위를 쓰고 집중 시작을 두지 않는다.
  */
 export function RankedCard({
   board,
@@ -172,15 +193,11 @@ export function RankedCard({
   const { above, me } = board;
   const gap = aboveGap ?? above?.gap ?? 0;
   const cumulative = board.type === "TOTAL_TIME" || board.type === "TOTAL_DAYS";
-  const progressType = board.type === "MAX_STREAK" ? null : board.type;
-  const canStart = !isOffSlot(board, serverNow);
-  const footer = board.type !== "FOCUS_RATE" && !cumulative && (subLine !== null || canStart);
+  const offSlot = isOffSlot(board, serverNow);
 
   return (
     <CardShell
       title={cardTitle(board)}
-      // 아랫줄 버튼이 카드 바닥에 붙어 보이게 아래 여백을 줄인다.
-      className={footer ? "pb-2.5" : undefined}
       aside={
         cumulative && me !== null ? (
           <p className="shrink-0 text-[13px] leading-[15px] font-extrabold text-primary">
@@ -191,31 +208,31 @@ export function RankedCard({
         )
       }
     >
-      {above !== null && (
+      {offSlot && me !== null ? (
         <Headline>
-          <span className="whitespace-pre">다음 순위까지 </span>
-          <span className="text-primary">{formatGap(board.type, gap)}</span>
+          <span className="whitespace-pre">{`${slotName(board)} `}</span>
+          <span className="text-primary">{formatRank(me.rank)}위</span>
         </Headline>
-      )}
-      {progressType !== null && (
-        <Progress
-          value={progressPercent(progressType, gap)}
-          aria-label="바로 위까지 가까운 정도"
-          className="mt-2.5"
-        />
+      ) : (
+        above !== null && (
+          <Headline>
+            <span className="whitespace-pre">다음 순위까지 </span>
+            <span className="text-primary">{formatGap(board.type, gap)}</span>
+          </Headline>
+        )
       )}
       {board.type === "FOCUS_RATE" ? (
-        <RateCatchUp board={board} />
+        <FocusStartRow onFocusStart={onFocusStart}>
+          <RateCatchUp board={board} />
+        </FocusStartRow>
       ) : cumulative ? (
         <NextTierBox board={board} />
+      ) : offSlot ? (
+        <SubLineText line={subLine} className="mt-1" />
       ) : (
-        footer && (
-          <div className="mt-2.5 flex min-h-[31px] items-center justify-between gap-3">
-            {/* 버튼 옆 남은 폭을 다 써야 Safari가 닉네임 뒤에서 줄을 한 번 더 바꾸지 않는다. */}
-            <SubLineText line={subLine} className="flex-1" />
-            {canStart && <FocusStartPill onClick={onFocusStart} />}
-          </div>
-        )
+        <FocusStartRow onFocusStart={onFocusStart}>
+          <SubLineText line={subLine} />
+        </FocusStartRow>
       )}
     </CardShell>
   );
@@ -231,7 +248,7 @@ function RateCatchUp({ board }: { board: RankingBoardResponse }) {
     return null;
   }
   return (
-    <p className="mt-2.5 text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
+    <p className="text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
       조금만 더 집중하면 따라잡아요
     </p>
   );
@@ -243,13 +260,15 @@ function NextTierBox({ board }: { board: RankingBoardResponse }) {
     return null;
   }
   return (
-    <div className="mt-2.5 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-[15px] break-keep text-pretty">
+    <div className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-[15px] break-keep text-pretty">
       <p className="text-foreground">
         <strong className="font-bold">상위 {tier.percent}%</strong>까지{" "}
-        {formatGap(board.type, tier.remaining)}
+        {formatGap(board.type, tier.remaining)} 남았어요
       </p>
       {tier.etaDays !== null && (
-        <p className="mt-1 text-muted-foreground">지금 페이스면 약 {tier.etaDays}일 뒤</p>
+        <p className="mt-1 text-muted-foreground">
+          지금 페이스면 약 {tier.etaDays}일 뒤에 역전해요
+        </p>
       )}
     </div>
   );
@@ -258,26 +277,34 @@ function NextTierBox({ board }: { board: RankingBoardResponse }) {
 /**
  * 내가 1위인 판의 카드
  *
- * 따라오는 사람 문구와 큰 집중 시작 버튼을 둔다.
+ * 2위와의 차이나 따라오는 사람 문구 옆에 작은 집중 시작을 둔다.
+ * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 집중 시작을 두지 않는다.
  */
 export function FirstPlaceCard({
   board,
   subLine,
   deadline,
+  serverNow,
   onFocusStart,
 }: {
   board: RankingBoardResponse;
   subLine: SubLine | null;
   deadline: string | null;
+  serverNow: number;
   onFocusStart: () => void;
 }) {
   return (
     <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
-      <p className="mt-2.5 text-2xl leading-8 font-extrabold tracking-[-0.7px] text-foreground">
+      <p className="mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
         <span className="text-primary">1위</span> 지키는 중
       </p>
-      <SubLineText line={subLine} className="mt-2.5" />
-      <FocusStartButton onClick={onFocusStart} className="mt-3.5" />
+      {isOffSlot(board, serverNow) ? (
+        <SubLineText line={subLine} className="mt-1" />
+      ) : (
+        <FocusStartRow onFocusStart={onFocusStart}>
+          <SubLineText line={subLine} />
+        </FocusStartRow>
+      )}
     </CardShell>
   );
 }

@@ -18,9 +18,9 @@ import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
 import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
+import { openPushRoute } from "../lib/pushRouteOpener";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
-import { offerRouteToSession } from "../lib/sessionInvite";
 import { runAfterSession } from "../lib/sessionPresence";
 import { checkUpdateOnConnect, createReconnectListener } from "../lib/updateOnConnect";
 import { ensureUserRegistered } from "../lib/userApi";
@@ -159,10 +159,8 @@ function RootLayout() {
   useEffect(
     () =>
       startPushMessaging({
-        // 세션 중 받은 초대 푸시는 세션 화면에 넘기고 화면을 쌓지 않는다.
-        navigate: (route) => {
-          if (!offerRouteToSession(route)) router.push(route);
-        },
+        // 초대 푸시는 세션 화면에 넘기고, 그 밖의 경로는 세션이 끝난 뒤 담당 탭으로 연다.
+        navigate: (route) => openPushRoute(route, (target) => router.push(target)),
       }),
     [router],
   );

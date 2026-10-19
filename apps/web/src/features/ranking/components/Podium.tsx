@@ -106,7 +106,7 @@ function PodiumSpot({
         </span>
       ) : (
         <span className="relative inline-flex">
-          <RankAvatar nickname={row.nickname} me={row.me} meLetter="initial" size={look.avatar} />
+          <RankAvatar nickname={row.nickname} me={row.me} size={look.avatar} />
           {!medalless && (
             <IllustMedalRing
               rank={spot}
@@ -175,7 +175,7 @@ function PodiumSpot({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "rounded-full bg-feedback-success",
+                  "animate-pulse rounded-full bg-feedback-success motion-reduce:animate-none",
                   first ? "size-1.5" : "size-[5px]",
                 )}
               />

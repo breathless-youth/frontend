@@ -28,10 +28,16 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 `@react-native-firebase/app`·`remote-config`·`messaging`. 도입·설계는 [BY-585](../../docs/superpowers/specs/2026-09-03-by-585-firebase-sdk-design.md), 버전 게이트·알림은 [BY-586](../../docs/superpowers/specs/2026-09-04-by-586-remote-config-version-push-service-design.md)과 [docs/releases.md](../../docs/releases.md).
 
 - **설정 파일은 커밋하지 않는다.** `google-services.json`·`GoogleService-Info.plist`는 `apps/mobile/firebase/{dev,staging,prod}/`(gitignore)에 두고 `.env.local` 경로로 `app.config.ts`가 주입한다. 파일의 프로젝트·아이덴티티가 빌드와 다르면 `app.config.ts`가 throw한다(dev 빌드가 운영에 붙는 것을 막는다). 파일 형식은 경로 확장자가 아니라 변수(`GOOGLE_SERVICES_JSON`=JSON, `GOOGLE_SERVICES_PLIST`=plist)로 정한다. production 파일 누락만 EAS 빌더(`EAS_BUILD=true`)에서 끊는다 — eas-cli가 로컬에서도 설정을 평가하는데 secret file은 빌더에서만 풀리므로, 로컬에서 막으면 `eas build --profile production`이 시작조차 안 된다. `firebaseConfig.test.ts`가 고정한다.
-- **iOS는 SPM + dynamic frameworks다.** `disableSPM`이나 `static`으로 되돌리지 말 것(중복 심볼로 깨진다). 예외로 `expo-build-properties`의 `forceStaticLinking`에 `react-native-fbsdk-next` 하나가 들어 있다 — **지우지 말 것.** 이 파드의 `RCTConvert` 카테고리가 React 코어를 링크 대상으로 선언하지 않아, 동적으로 묶으면 `Undefined symbols: _OBJC_CLASS_$_RCTConvert`로 iOS 빌드가 전부 깨진다. `metaSdkConfig.test.ts`가 이 값을 고정한다. **Firebase Analytics(GA4)는 링크한다** — FCM 콘솔의 오디언스·유저 속성 타겟팅이 이 데이터만 보기 때문이다. SDK는 `lib/firebaseAnalyticsSdk.ts`만 import하고 다른 코드는 `lib/firebaseAnalytics.ts`의 공개 함수만 본다(`metaAds`와 같은 경계, 어댑터 없으면 no-op). 이벤트의 원천은 여전히 웹 Amplitude이고, 웹이 브리지 `analytics-event`·`analytics-user-properties`로 사본을 보내면 네이티브는 형식만 검증해 SDK에 넘긴다(이름 화이트리스트 금지 — 목록은 웹 카탈로그가 소유). 형식 규칙은 `packages/types`의 `ANALYTICS_*` 상수가 원천이고 **문자열 값은 토큰만** 통과한다(자유 문자열이 Google로 나가면 안 된다 — Meta 경로와 같은 원칙). 유저 속성 키 화이트리스트는 웹이 갖고, `null`은 지움이다. GA user_id는 백엔드 userId다([ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)). ⚠️ **릴리즈 게이트**: 앱스토어 개인정보 라벨과 `docs/privacy-policy-analytics-sync.md`를 갱신하기 전에는 이 코드가 든 빌드를 스토어에 내지 않는다. `package.json`에 `expo.autolinking.exclude`를 되살리지 말 것 — 이벤트가 조용히 사라진다. SDK의 자동 화면 보고(`screen_view`)는 `firebase.json`으로 껐다 — 웹뷰 셸이라 RN 화면 하나만 반복 보고돼 잡음뿐이다. `firebaseConfig.test.ts`가 둘 다 고정한다.
+- **iOS는 SPM + dynamic frameworks다.** `disableSPM`이나 `static`으로 되돌리지 말 것(중복 심볼로 깨진다). 예외로 `expo-build-properties`의 `forceStaticLinking`에 `react-native-fbsdk-next` 하나가 들어 있다 — **지우지 말 것.** 이 파드의 `RCTConvert` 카테고리가 React 코어를 링크 대상으로 선언하지 않아, 동적으로 묶으면 `Undefined symbols: _OBJC_CLASS_$_RCTConvert`로 iOS 빌드가 전부 깨진다. `metaSdkConfig.test.ts`가 이 값을 고정한다.
+- **Firebase Analytics(GA4)는 링크한다** — FCM 콘솔의 오디언스·유저 속성 타겟팅이 이 데이터만 보기 때문이다. GA user_id는 백엔드 userId다([ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)).
+  - SDK는 `lib/firebaseAnalyticsSdk.ts`만 import하고 다른 코드는 `lib/firebaseAnalytics.ts`의 공개 함수만 본다(`metaAds`와 같은 경계, 어댑터 없으면 no-op).
+  - 이벤트의 원천은 여전히 웹 Amplitude이고, 웹이 브리지 `analytics-event`·`analytics-user-properties`로 사본을 보내면 네이티브는 형식만 검증해 SDK에 넘긴다(이름 화이트리스트 금지 — 목록은 웹 카탈로그가 소유). 형식 규칙은 `packages/types`의 `ANALYTICS_*` 상수가 원천이고 **문자열 값은 토큰만** 통과한다(자유 문자열이 Google로 나가면 안 된다 — Meta 경로와 같은 원칙).
+  - 유저 속성 키 화이트리스트는 웹이 갖고, `null`은 지움이다. **null은 키마다 `setUserProperty`로 따로 보낸다** — RNFB가 iOS TurboModule용으로 객체 안 null을 `{__rnfbNull: true}` 표식으로 바꾸는데 `setUserProperties`의 NSDictionary 인자는 그 표식을 되돌리지 않아 Firebase가 거부한다(26.3.3 실측, `firebaseAnalyticsSdk.test.ts`가 고정). 한 호출로 합치지 말 것.
+  - ⚠️ **릴리즈 게이트**: 앱스토어 개인정보 라벨과 `docs/privacy-policy-analytics-sync.md`를 갱신하기 전에는 이 코드가 든 빌드를 스토어에 내지 않는다.
+  - `package.json`에 `expo.autolinking.exclude`를 되살리지 말 것 — 이벤트가 조용히 사라진다. SDK의 자동 화면 보고(`screen_view`)는 `firebase.json`으로 껐다 — 웹뷰 셸이라 RN 화면 하나만 반복 보고돼 잡음뿐이다. `firebaseConfig.test.ts`가 둘 다 고정한다.
 - **화면·컴포넌트는 `@react-native-firebase/*`를 직접 import하지 않는다.** `lib/remoteConfig.ts`·`lib/pushMessaging.ts` 어댑터만 거친다. **`messaging`은 pnpm patch가 걸려 있다**(iOS APNs 등록 후 `getToken` 실패 우회) — 올릴 때 패치가 깨지면 업스트림 수정 여부를 먼저 확인하고, `isDeviceRegisteredForRemoteMessages` 대신 APNs 토큰 유무로 판단한다.
 - **강제 업데이트는 네이티브가 판정한다.** `lib/forceUpdate.ts`가 Remote Config `min_supported_version`을 앱 버전과 비교한다. 기본값은 `UPDATE_CONFIG_DEFAULTS` 한 곳에서 한 번의 `setDefaults`로 등록한다(다른 곳에서 또 부르면 서로 지운다). 권장 업데이트는 `recommendedUpdateAlert.ts`가 최신 버전당 한 번 띄운다.
-- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다 — 홈이 그려진 뒤 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 ATT 프롬프트 다음, 권장 업데이트 알림창 앞에 부른다(iOS는 권한이 없으면 알림을 표시하지 않는다). `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다.
+- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다 — 홈이 그려진 뒤 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 ATT 프롬프트 다음, 권장 업데이트 알림창 앞에 부른다(iOS는 권한이 없으면 알림을 표시하지 않는다). `aps-environment`는 `development`로 두고(배포 export에서 Xcode가 바꾼다) Android `POST_NOTIFICATIONS`는 정식 권한 정책 전까지 선언하지 않는다. 알림 탭 경로는 `lib/pushNotificationRouting.ts`의 `WEB_PATH_TAB`이 담당 탭으로 바꾸고 탭이 `path`·`at` 파라미터로 그 웹 경로를 연다(`lib/tabDeepLink.ts`) — 표에 없는 경로와 세션 화면은 홈으로 간다. 세션 중에는 `lib/pushRouteOpener.ts`가 세션이 닫힌 뒤 이동한다.
 
 ## Meta 광고 SDK (`lib/metaAds.ts` · `lib/metaAdsSdk.ts`)
 
@@ -72,9 +78,9 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **전달 대상(sink)은 항상 하나다.** 탭 5개 웹뷰가 동시에 마운트돼 있어, `RemoteWebViewHost`는 `focused`이면서 웹이 `analytics-ready`를 보낸 문서일 때만 sink로 붙는다. sink가 없는 동안은 큐에 보관(최대 100건)했다가 다음 sink에 순서대로 흘린다.
 - **`analytics-ready`는 handshake다.** 호스트는 재시도·사망 복구 진입에서 준비 상태를 되돌리고 `onLoadEnd`에서는 되돌리지 않는다. 한 사건을 두 발신부에서 찍지 않는다. 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 
-## 화면 방향 — 룸만 회전
+## 화면 방향 — 폰은 룸만 회전
 
-**싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 세로다.** 정책은 세 곳이 함께 만들고 한쪽만 보고 고치면 티 나지 않게 깨진다. 정정·재정정 경위는 `lib/orientation.ts` 주석과 [SCR-S3-5](../../docs/screens/SCR-S3-5-S3-6-session-landscape.md).
+**폰에서는 싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 세로다.** 태블릿은 아래 "태블릿에서는 세로 잠금이 지켜지지 않는다"를 본다. 정책은 세 곳이 함께 만들고 한쪽만 보고 고치면 티 나지 않게 깨진다. 정정·재정정 경위는 `lib/orientation.ts` 주석과 [SCR-S3-5](../../docs/screens/SCR-S3-5-S3-6-session-landscape.md).
 
 | 위치                                            | 값                                        | 역할                            |
 | ----------------------------------------------- | ----------------------------------------- | ------------------------------- |
@@ -82,7 +88,18 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 | `lib/orientation.ts`(`expo-screen-orientation`) | 루트 세로 잠금 / 룸에서 해제              | iOS의 단일 집행자               |
 | `app/_layout.tsx`의 `screenOptions`             | Android에서만 `portrait` / 세션 `default` | Android 집행                    |
 
-- **`app.json`을 `"portrait"`로 되돌리지 말 것**(상한을 세로로 닫아 세션이 회전하지 않게 된다). **rn-screens `orientation` 옵션은 Android에서만 싣는다** — iOS에 되살리면 `expo-screen-orientation`이 rn-screens에 양보해 세로 잠금이 통째로 죽는다. 세션 해제는 `ALL`이 아니라 `DEFAULT`로 둔다(iOS에서 `ALL`은 거꾸로 세로까지 포함). `expo-screen-orientation`은 네이티브 모듈이라 Dev Client 리빌드가 필요하고, 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것.
+- **`app.json`을 `"portrait"`로 되돌리지 말 것**(상한을 세로로 닫아 세션이 회전하지 않게 된다). **rn-screens `orientation` 옵션은 Android에서만 싣는다** — iOS에 되살리면 `expo-screen-orientation`이 rn-screens에 양보해 세로 잠금이 통째로 죽는다. 세션 해제는 `ALL`이 아니라 `DEFAULT`로 둔다(iOS에서 `ALL`은 거꾸로 세로까지 포함). `expo-screen-orientation`은 네이티브 모듈이라 Dev Client 리빌드가 필요하고, 폰의 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것.
+
+### 태블릿에서는 세로 잠금이 지켜지지 않는다
+
+2026-10-19 iPad 시뮬레이터(iPadOS 27)와 Android 태블릿 에뮬레이터(API 35·36)로 확인한 사실이다. 잠금 코드는 그대로 두기로 했다. 아래 두 설정값은 저장소 파일에 없고 빌드 때 정해진다. `UIRequiresFullScreen=false`는 `app.json`에 `supportsTablet: true`만 있고 `requireFullScreen`이 없어서 Expo 설정 플러그인이 넣는다. `targetSdk 36`은 React Native 기본값(`react-native/gradle/libs.versions.toml`)이다.
+
+- iPad는 화면 분할을 지원하는 앱(`UIRequiresFullScreen=false`)이라 iPadOS가 세로 잠금을 무시하고 탭 화면도 회전한다. 잠금 호출 자체는 성공으로 끝나서 로그만 보면 잠긴 것처럼 보인다.
+- Android 16(targetSdk 36) 태블릿(짧은 변 600dp 이상)도 세로 잠금을 무시하고 네 방향으로 회전한다.
+- Android 15 이하 태블릿은 잠금이 걸린다. 가로로 둔 기기에서는 가운데에 세로 화면이 검은 여백과 함께 보인다.
+- 그래서 태블릿의 탭 화면 웹은 가로로도 열린다고 보고 만든다. 웹 쪽 태블릿 배치 기준은 `focusmakers-design` 스킬의 "반응형 기준"에 있다.
+- iPadOS 18 이상 넓은 화면에서는 NativeTabs 탭 바가 화면 위쪽에 뜬다. 그 높이가 웹뷰의 `env(safe-area-inset-top)`에 들어가므로(실측 위 96px, 아래 20px) 탭 페이지 상단 여백은 고칠 필요가 없다. 지금 설정에서는 사이드바 전환 버튼도 나오지 않는다.
+- Android 태블릿 가로에서 커스텀 탭 바는 폭 402dp로 가운데에 뜬다. 깨지거나 겹치는 곳은 없다.
 
 ## 개인정보 원칙 (변경 불가, WebView·네이티브 공통)
 

@@ -63,6 +63,56 @@ function normalizeRoute(route: string): string | null {
   return withoutTrailingSlash === "" ? PUSH_HOME_ROUTE : withoutTrailingSlash;
 }
 
+/**
+ * 웹 전용 경로를 담당 탭으로 보내는 표
+ *
+ * 탭 웹뷰가 경로와 쿼리를 그대로 열도록 `path`·`at` 파라미터로 넘긴다(초대코드가 소셜 탭으로 가는 방식).
+ * 여기 없는 웹 경로는 홈으로 간다. 세션 화면(`/room/:id`·`/social/room/:id`)은 푸시로 열면 빈 세션이 뜨므로 넣지 않는다.
+ */
+const WEB_PATH_TAB: Readonly<Record<string, string>> = {
+  "/home": "/(tabs)",
+  "/timelapses": "/(tabs)",
+  "/onboarding-guide": "/(tabs)",
+  "/records": "/(tabs)/records",
+  "/planner": "/(tabs)/records",
+  "/manual-record": "/(tabs)/records",
+  "/ranking": "/(tabs)/ranking",
+  "/ranking/records": "/(tabs)/ranking",
+  "/settings": "/(tabs)/settings",
+  "/timelapse-settings": "/(tabs)/settings",
+  "/profile": "/(tabs)/settings",
+  "/social": "/(tabs)/social",
+  "/social/code": "/(tabs)/social",
+};
+
+/** 웹 경로를 여는 탭 href. 표에 없으면 null. 탭이 딥링크 파라미터를 검증할 때도 쓴다(`lib/tabDeepLink.ts`). */
+export function tabHrefForWebPath(pathname: string): string | null {
+  return WEB_PATH_TAB[pathname] ?? null;
+}
+
+/** 쿼리 없이 그대로 네이티브 라우트인 경로. 초대 참여는 자기 라우트(`app/social/join.tsx`)가 있다. */
+const NATIVE_ROUTES = new Set(["/", "/records", "/ranking", "/settings", "/social"]);
+
+export type PushTarget = string | { pathname: string; params: { path: string; at: string } };
+
+/**
+ * 알림 경로를 expo-router가 열 수 있는 대상으로 바꾼다
+ *
+ * 탭 루트와 초대 참여는 그대로, 허용된 웹 전용 경로는 담당 탭에 `path` 파라미터로, 나머지는 홈이다.
+ * `at`은 같은 경로를 연달아 눌러도 탭이 다시 마운트되게 하는 일회용 값이다.
+ * `path`는 한 번 인코딩해 보낸다. expo-router는 href를 만들 때 인코딩하고 상태로 풀 때 한 번, `useLocalSearchParams`에서 또 한 번 디코딩하므로 쿼리 값의 `%26` 같은 이스케이프가 그대로 풀려 버린다.
+ */
+export function pushTargetForRoute(route: string, at: number = Date.now()): PushTarget {
+  const withoutHash = route.split("#")[0] ?? "";
+  const [pathname, query = ""] = withoutHash.split("?");
+  if (pathname === "/home" && query === "") return PUSH_HOME_ROUTE;
+  if (NATIVE_ROUTES.has(pathname) && query === "") return pathname;
+  if (pathname === "/social/join") return withoutHash;
+  const tab = tabHrefForWebPath(pathname);
+  if (tab === null) return PUSH_HOME_ROUTE;
+  return { pathname: tab, params: { path: encodeURIComponent(withoutHash), at: String(at) } };
+}
+
 /** 알림 페이로드에서 이동할 경로. 항상 문자열을 돌려준다(없으면 홈). */
 export function resolvePushRoute(
   data: Record<string, string>,

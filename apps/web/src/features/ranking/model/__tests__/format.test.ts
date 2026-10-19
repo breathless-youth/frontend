@@ -8,7 +8,6 @@ import {
   formatMonthDay,
   formatRank,
   formatValue,
-  progressPercent,
   recordMonthKey,
   recordName,
   recordPeriod,
@@ -94,16 +93,18 @@ describe("마감", () => {
   });
 
   it("주간·월간은 남은 시간을 단위에 맞춰 줄인다", () => {
-    expect(formatDeadline(weekly, at((3 * 24 + 14) * 3_600_000 + 59_000))).toBe("마감 3일 14시간");
-    expect(formatDeadline(weekly, at(3 * 24 * 3_600_000))).toBe("마감 3일");
-    expect(formatDeadline(weekly, at(5 * 3_600_000 + 20 * 60_000))).toBe("마감 5시간 20분");
-    expect(formatDeadline(weekly, at(5 * 3_600_000))).toBe("마감 5시간");
-    expect(formatDeadline(weekly, at(12 * 60_000 + 30_000))).toBe("마감 13분");
-    expect(formatDeadline(weekly, at(-10_000))).toBe("마감 1분");
+    expect(formatDeadline(weekly, at((3 * 24 + 14) * 3_600_000 + 59_000))).toBe(
+      "마감 3일 14시간 전",
+    );
+    expect(formatDeadline(weekly, at(3 * 24 * 3_600_000))).toBe("마감 3일 전");
+    expect(formatDeadline(weekly, at(5 * 3_600_000 + 20 * 60_000))).toBe("마감 5시간 20분 전");
+    expect(formatDeadline(weekly, at(5 * 3_600_000))).toBe("마감 5시간 전");
+    expect(formatDeadline(weekly, at(12 * 60_000 + 30_000))).toBe("마감 13분 전");
+    expect(formatDeadline(weekly, at(-10_000))).toBe("마감 1분 전");
   });
 
   it("분을 올려 60분이 되면 시간으로 쓴다", () => {
-    expect(formatDeadline(weekly, at(59 * 60_000 + 30_000))).toBe("마감 1시간");
+    expect(formatDeadline(weekly, at(59 * 60_000 + 30_000))).toBe("마감 1시간 전");
   });
 
   it("명예의 전당은 마감이 없다", () => {
@@ -121,19 +122,7 @@ describe("마감", () => {
     const now = serverNowMs(asOf, deviceReceivedAt, deviceNow);
 
     expect(now).toBe(Date.parse(asOf) + 30 * 60_000);
-    expect(formatDeadline(weekly, now)).toBe("마감 4시간 30분");
-  });
-});
-
-describe("진행바", () => {
-  it("차이가 0이면 100%, 창 이상이면 최소 6%다", () => {
-    expect(progressPercent("FOCUS_TIME", 0)).toBe(100);
-    expect(progressPercent("FOCUS_TIME", 1320)).toBe(45);
-    expect(progressPercent("FOCUS_TIME", 2400)).toBe(6);
-    expect(progressPercent("TIME_SLOT", 9000)).toBe(6);
-    expect(progressPercent("FOCUS_RATE", 0.4)).toBe(80);
-    expect(progressPercent("TOTAL_TIME", 12000)).toBe(67);
-    expect(progressPercent("TOTAL_DAYS", 3)).toBe(70);
+    expect(formatDeadline(weekly, now)).toBe("마감 4시간 30분 전");
   });
 });
 

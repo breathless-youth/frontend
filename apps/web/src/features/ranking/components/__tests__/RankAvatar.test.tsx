@@ -23,14 +23,8 @@ describe("RankAvatar", () => {
     expect(container.textContent).toBe("🇰🇷");
   });
 
-  it("나는 나를 쓴다", () => {
+  it("나도 다른 사람처럼 닉네임 첫 글자를 쓴다", () => {
     const { container } = render(<RankAvatar nickname="오늘도출석" me />);
-
-    expect(container.textContent).toBe("나");
-  });
-
-  it("내 글자를 첫 글자로 고르면 나도 닉네임 첫 글자를 쓴다", () => {
-    const { container } = render(<RankAvatar nickname="오늘도출석" me meLetter="initial" />);
 
     expect(container.textContent).toBe("오");
   });

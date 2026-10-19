@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildStreakWeek, kstDateKey, weekDateKeys } from "@/features/records/recordsFormat";
+import { setStudyStatusUserProperties } from "@/lib/amplitude";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 
 import { useHomeSummary } from "../useHomeSummary";
@@ -16,6 +17,8 @@ vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
 }));
+
+vi.mock("@/lib/amplitude", () => ({ setStudyStatusUserProperties: vi.fn() }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStreak = vi.mocked(getStreak);
@@ -31,10 +34,9 @@ const statsResponse = {
   studiedDatesInMonth: [],
 };
 
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function createWrapper(
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
@@ -127,5 +129,71 @@ describe("useHomeSummary", () => {
     const { result } = renderHook(() => useHomeSummary(7), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.status).toBe("error"));
+  });
+});
+
+describe("useHomeSummary 푸시 타겟용 공부 상태 user property", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("같은 응답을 다시 받아도 다시 보낸다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    const { result } = renderHook(() => useHomeSummary(7), {
+      wrapper: createWrapper(queryClient),
+    });
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    await waitFor(() => expect(setStudyStatusUserProperties).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await queryClient.refetchQueries();
+    });
+
+    await waitFor(() => expect(setStudyStatusUserProperties).toHaveBeenCalledTimes(2));
+    expect(setStudyStatusUserProperties).toHaveBeenLastCalledWith({
+      streakDays: 3,
+      maxStreak: 9,
+      weekStudyDays: 0,
+      todayStudyMin: 120,
+      studiedToday: true,
+    });
+  });
+
+  it("주가 바뀌어 지난주 스트릭이 placeholder로 남는 동안은 보내지 않는다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T12:00:00+09:00")); // 토요일
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValueOnce({
+      streak: 3,
+      maxStreak: 9,
+      studiedDatesInRange: ["2026-10-13", "2026-10-15", "2026-10-16"],
+    });
+    // 새 주의 스트릭 응답은 오지 않은 채로 둔다.
+    mockedStreak.mockReturnValue(new Promise(() => {}));
+
+    const { result, rerender } = renderHook(() => useHomeSummary(7), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    await waitFor(() => expect(setStudyStatusUserProperties).toHaveBeenCalledTimes(1));
+    expect(setStudyStatusUserProperties).toHaveBeenLastCalledWith(
+      expect.objectContaining({ weekStudyDays: 3 }),
+    );
+
+    vi.setSystemTime(new Date("2026-10-18T12:00:00+09:00")); // 일요일, 새 주
+    rerender();
+    await waitFor(() => expect(mockedStreak).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockedStats).toHaveBeenCalledTimes(2));
+
+    // 화면은 지난주 도트를 placeholder로 유지하지만 분석에는 지난주 값이 나가지 않는다.
+    expect(result.current.status).toBe("success");
+    expect(setStudyStatusUserProperties).toHaveBeenCalledTimes(1);
   });
 });

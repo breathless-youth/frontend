@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ToWebMessage } from "@focusmakers/types";
+import { ANALYTICS_USER_PROPERTY_NAME_PATTERN } from "@focusmakers/types";
 
 const mocks = vi.hoisted(() => ({
   setAppEnvironmentUserProperties: vi.fn(),
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   trackAppLaunched: vi.fn(),
   isNativeBridgeAvailable: vi.fn(() => false),
   subscribeToNativeMessages: vi.fn(),
+  postToNative: vi.fn((_message: unknown) => false),
 }));
 
 vi.mock("@/lib/amplitude", () => ({
@@ -21,6 +23,7 @@ vi.mock("@/lib/amplitude", () => ({
 vi.mock("@/lib/bridge", () => ({
   isNativeBridgeAvailable: mocks.isNativeBridgeAvailable,
   subscribeToNativeMessages: mocks.subscribeToNativeMessages,
+  postToNative: mocks.postToNative,
 }));
 
 async function initAndGetHandler(): Promise<(message: ToWebMessage) => void> {
@@ -68,6 +71,37 @@ describe("initAppLifecycleAnalytics", () => {
       // jsdom에는 matchMedia가 없다 — 존재 검사를 지나 light 폴백이어야 한다.
       theme: "light",
     });
+  });
+
+  it("옛 initial_* Firebase 속성 19개를 null로 한 메시지에 담아 문서당 한 번 지운다", async () => {
+    const { initAppLifecycleAnalytics } = await import("../appLifecycleAnalytics");
+    initAppLifecycleAnalytics();
+    initAppLifecycleAnalytics();
+
+    const clears = mocks.postToNative.mock.calls.filter(
+      ([message]) => (message as { type: string }).type === "analytics-user-properties",
+    );
+    expect(clears).toHaveLength(1);
+    const [message] = clears[0] as [{ properties: Record<string, null> }];
+    const keys = Object.keys(message.properties);
+    expect(keys).toHaveLength(19);
+    for (const key of keys) {
+      expect(key).toMatch(/^initial_/);
+      expect(key).toMatch(ANALYTICS_USER_PROPERTY_NAME_PATTERN);
+    }
+    expect(Object.values(message.properties).every((value) => value === null)).toBe(true);
+  });
+
+  it("브리지가 없어 전송이 실패해도 영속 플래그를 두지 않아 다음 문서에서 다시 보낸다", async () => {
+    mocks.postToNative.mockReturnValue(false);
+    const first = await import("../appLifecycleAnalytics");
+    first.initAppLifecycleAnalytics();
+    expect(mocks.postToNative).toHaveBeenCalledTimes(1);
+
+    vi.resetModules();
+    const second = await import("../appLifecycleAnalytics");
+    second.initAppLifecycleAnalytics();
+    expect(mocks.postToNative).toHaveBeenCalledTimes(2);
   });
 
   it("브리지 메시지를 각 이벤트·user property로 옮긴다", async () => {

@@ -110,35 +110,13 @@ export function formatDeadline(
   const hours = Math.floor((remain % DAY_MS) / HOUR_MS);
   const minutes = Math.floor((remain % HOUR_MS) / MINUTE_MS);
   if (days > 0) {
-    return hours === 0 ? `마감 ${days}일` : `마감 ${days}일 ${hours}시간`;
+    return hours === 0 ? `마감 ${days}일 전` : `마감 ${days}일 ${hours}시간 전`;
   }
   if (hours > 0) {
-    return minutes === 0 ? `마감 ${hours}시간` : `마감 ${hours}시간 ${minutes}분`;
+    return minutes === 0 ? `마감 ${hours}시간 전` : `마감 ${hours}시간 ${minutes}분 전`;
   }
   const roundedMinutes = Math.max(1, Math.ceil(remain / MINUTE_MS));
-  return roundedMinutes < 60 ? `마감 ${roundedMinutes}분` : "마감 1시간";
-}
-
-export type ProgressType = "FOCUS_TIME" | "TIME_SLOT" | "FOCUS_RATE" | "TOTAL_TIME" | "TOTAL_DAYS";
-
-/**
- * 진행바가 최소 폭이 되는 차이
- *
- * 이보다 멀면 6%로 둔다.
- */
-const PROGRESS_WINDOW: Record<ProgressType, number> = {
-  FOCUS_TIME: 2400,
-  TIME_SLOT: 2400,
-  FOCUS_RATE: 2,
-  TOTAL_TIME: 36000,
-  TOTAL_DAYS: 10,
-};
-
-export function progressPercent(type: ProgressType, gap: number): number {
-  if (gap <= 0) {
-    return 100;
-  }
-  return Math.max(6, Math.round(100 * (1 - gap / PROGRESS_WINDOW[type])));
+  return roundedMinutes < 60 ? `마감 ${roundedMinutes}분 전` : "마감 1시간 전";
 }
 
 export function formatMonthDay(dateKey: string): string {

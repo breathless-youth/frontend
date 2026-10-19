@@ -16,6 +16,7 @@ import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
  * invalidateFlipRects가 기준을 버려 가짜 비행을 막는다. 토글이 아닌 레이아웃 변화
  * (입장·퇴장)는 애니메이션하지 않는다(종전과 같은 즉시 반영). 가로에서는 바 토글이
  * 레이아웃을 바꾸지 않아 자연히 무동작이다.
+ * 폭 600 이상 창도 아래 여백이 바와 무관하게 고정이라 같다.
  *
  * `rowsRef`는 타일 래퍼(`room-grid-rows`)에, `invalidateFlipRects`는 스크롤 컨테이너의
  * onScroll에 붙인다.

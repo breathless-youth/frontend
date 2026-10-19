@@ -43,14 +43,14 @@ export function SessionSideActions({
           }}
           className={cn(
             controlButtonVariants(),
-            "pointer-events-auto bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
+            "pointer-events-auto bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
           )}
         >
           <CameraFlipIcon
             // 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리.
             // Figma 벡터 원본이 28px 프레임이라 다른 아이콘과 같은 23px로 그리면 가늘고 작게 보인다.
             turns={flipTurns}
-            className="size-7"
+            className="size-7 sm:not-landscape-compact:size-8.25 short-side-lg:size-10.25"
           />
         </Button>
       )}

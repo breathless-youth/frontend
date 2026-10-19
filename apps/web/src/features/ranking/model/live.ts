@@ -7,6 +7,7 @@ import type {
 
 import { SLOT_SUBJECT, isOffSlot, isTimeType } from "./board";
 import { formatGap } from "./format";
+import { offSlotNotice } from "./labels";
 
 export interface LiveRow extends RankingEntry {
   /**
@@ -79,8 +80,7 @@ export type SubLineTone = "alert" | "muted";
 
 export interface SubLine {
   /**
-   * 문구 한 문장.
-   * 줄을 꼭 나눠야 하는 자리에는 `\n`이 들어 있고, 그리는 쪽은 이 자리에서 반드시 줄을 바꾼다.
+   * 한 줄에 들어가는 문구 한 문장.
    */
   text: string;
   tone: SubLineTone;
@@ -95,7 +95,8 @@ const CHASE_WINDOW_SEC = 300;
  * 차이가 벌어지는 중, 따라오는 중, 평소 문구 순으로 먼저 맞는 것을 쓴다.
  * 벌어지는 중은 바로 위 한 사람만 보는데, 차이를 늘리는 것은 그 사람뿐이라서다.
  * 지금 구간이 아닌 시간대 판은 누가 집중 중이어도 그 판 값이 움직이지 않는다.
- * 그래서 그 판에서는 벌어지는 중, 따라오는 중, 구간이 끝나기 전 문구를 쓰지 않고 1위의 차이 문구만 남긴다.
+ * 그래서 그 판에서는 1위여도 이 판에 들어가는 시각만 알린다.
+ * 이 문구가 그 판 카드에 집중 시작 버튼이 없는 이유도 함께 설명한다.
  */
 export function rankCardSubLine(input: {
   board: RankingBoardResponse;
@@ -107,12 +108,14 @@ export function rankCardSubLine(input: {
   if (me === null) {
     return null;
   }
-  const offSlot = isOffSlot(board, serverNow);
-  if (!offSlot && above !== null && above.focusing) {
-    return { text: `${above.nickname}님이 집중 중이라\n차이가 벌어지고 있어요`, tone: "alert" };
+  if (isOffSlot(board, serverNow)) {
+    const notice = offSlotNotice(board);
+    return notice === null ? null : { text: notice, tone: "muted" };
+  }
+  if (above !== null && above.focusing) {
+    return { text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" };
   }
   if (
-    !offSlot &&
     isTimeType(board.type) &&
     below !== null &&
     below.focusing &&
@@ -120,7 +123,7 @@ export function rankCardSubLine(input: {
     belowGap <= CHASE_WINDOW_SEC
   ) {
     return {
-      text: `${below.nickname}님이 ${formatGap(board.type, belowGap)} 차로 따라오고 있어요`,
+      text: "뒤 순위와 차이가 줄어들고 있어요",
       tone: "alert",
     };
   }
@@ -132,12 +135,12 @@ export function rankCardSubLine(input: {
     // 2위와 값이 같으면 아래 목록에 같은 수가 보이므로 최소 1분·1일로 적힌 차이를 비운다.
     return gap <= 0
       ? null
-      : { text: `${below.nickname}님과 ${formatGap(board.type, gap)} 차이예요`, tone: "muted" };
+      : { text: `2위와 ${formatGap(board.type, gap)} 차이예요`, tone: "muted" };
   }
   if (board.type === "FOCUS_TIME") {
-    return { text: "한 세션이면 따라잡을 수 있어요", tone: "muted" };
+    return { text: "한 번 더 공부하면 따라잡을 수 있어요", tone: "muted" };
   }
-  if (board.type === "TIME_SLOT" && board.slot !== null && !offSlot) {
+  if (board.type === "TIME_SLOT" && board.slot !== null) {
     return { text: `${SLOT_SUBJECT[board.slot]} 끝나기 전에 따라잡을 수 있어요`, tone: "muted" };
   }
   return null;

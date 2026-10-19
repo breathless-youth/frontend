@@ -5,6 +5,7 @@ import {
   trackAppLaunched,
 } from "./amplitude";
 import { isNativeBridgeAvailable, subscribeToNativeMessages } from "./bridge";
+import { clearLegacyFirebaseUserProperties } from "./clearLegacyFirebaseUserProperties";
 
 /**
  * 네이티브→웹 브리지 메시지를 Amplitude 이벤트·user property로 옮긴다
@@ -34,6 +35,8 @@ export function initAppLifecycleAnalytics(): void {
     appVersion: new URLSearchParams(window.location.search).get("appVersion"),
     theme: datasetTheme === "dark" || (datasetTheme !== "light" && prefersDark) ? "dark" : "light",
   });
+  // 한시 코드 — 옛 `initial_*` 속성이 Firebase 슬롯을 차지해 새 속성이 들어가지 못하는 기기를 정리한다.
+  clearLegacyFirebaseUserProperties();
 
   subscribeToNativeMessages((message) => {
     switch (message.type) {
