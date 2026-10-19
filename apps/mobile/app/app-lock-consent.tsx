@@ -24,7 +24,7 @@ function readGrants() {
  *
  * 두 권한 모두 설정 화면에서 켜야 해서 앱으로 돌아올 때마다 다시 읽는다.
  * 둘 다 켜졌으면 닫고, 하나가 남았으면 남은 권한을 여는 버튼으로 바꾼다.
- * 쓸어 닫기·뒤로가기·나중에 할게요가 모두 언마운트를 지나므로 닫힘 알림은 언마운트에서 한 번만 보낸다.
+ * 쓸어 닫기·배경 누르기·뒤로가기가 모두 언마운트를 지나므로 닫힘 알림은 언마운트에서 한 번만 보낸다.
  */
 export default function AppLockConsentScreen() {
   const [grants, setGrants] = useState(readGrants);
@@ -52,7 +52,6 @@ export default function AppLockConsentScreen() {
     <AppLockSheet
       title={"방해 앱 잠금을 켜려면\n권한 두 가지가 필요해요"}
       primary={{ label: action?.label ?? "완료", onPress: open }}
-      secondaryLabel="나중에 할게요"
     >
       <PermissionItem
         step={1}

@@ -51,6 +51,14 @@ void cleanupOnLaunch();
 // 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// 모서리 20은 tailwind `rounded-xl`과 같다.
+const APP_LOCK_SHEET_OPTIONS = {
+  presentation: "formSheet",
+  sheetAllowedDetents: "fitToContents",
+  sheetCornerRadius: 20,
+  contentStyle: { backgroundColor: "transparent" },
+} as const;
+
 function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, fontError] = useFonts({
@@ -239,15 +247,12 @@ function RootLayout() {
           쓸어 닫아도 고른 결과는 저장된다.
         */}
         <Stack.Screen name="app-lock-picker" options={{ presentation: "modal" }} />
-        {/* Android 방해 앱 잠금 권한 안내와 배터리 안내. 뒤 화면이 비쳐 보이는 아래 시트로 띄운다. */}
-        <Stack.Screen
-          name="app-lock-consent"
-          options={{ presentation: "transparentModal", animation: "fade" }}
-        />
-        <Stack.Screen
-          name="app-lock-battery"
-          options={{ presentation: "transparentModal", animation: "fade" }}
-        />
+        {/*
+          Android 방해 앱 잠금 권한 안내와 배터리 안내. 쓸어 닫기·배경 어둡게·배경 눌러 닫기를 시스템 시트에 맡긴다.
+          시트 색은 화면이 토큰으로 칠해 라이트·다크를 따르게 하고, 네이티브 배경은 투명으로 둔다.
+        */}
+        <Stack.Screen name="app-lock-consent" options={APP_LOCK_SHEET_OPTIONS} />
+        <Stack.Screen name="app-lock-battery" options={APP_LOCK_SHEET_OPTIONS} />
         {/*
           G1~G5 온보딩 가이드·이용약관·개인정보처리방침·문의하기는 웹으로 이관됐다(BY-333) —
           네이티브 라우트를 더 이상 두지 않는다.

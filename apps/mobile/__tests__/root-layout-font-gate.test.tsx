@@ -52,10 +52,15 @@ jest.mock("expo-splash-screen", () => ({
 // 실제 expo-router의 useRouter는 안정된 객체를 돌려준다 — 렌더마다 새 객체를 주면 [router] 의존 effect가
 // 매 렌더 재실행돼 시작/해제 횟수 단언이 깨진다.
 const mockRouter = { push: jest.fn() };
+// 라우트별 화면 옵션을 확인하려고 Stack.Screen에 넘어온 props를 남긴다.
+const mockScreenProps: { name: string; options?: Record<string, unknown> }[] = [];
 jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
   Stack: Object.assign(({ children }: { children?: ReactNode }) => children, {
-    Screen: () => null,
+    Screen: (props: { name: string; options?: Record<string, unknown> }) => {
+      mockScreenProps.push(props);
+      return null;
+    },
   }),
 }));
 
@@ -516,6 +521,23 @@ describe("RootLayout 방해 앱 잠금 정리", () => {
     mockUseFonts.mockReturnValue([true, undefined]);
     render(<RootLayout />);
     expect(cleanupOnLaunch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RootLayout 방해 앱 잠금 시트", () => {
+  it("권한 안내와 배터리 안내는 내용 높이에 맞춘 시스템 시트로 띄운다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockScreenProps.length = 0;
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+
+    for (const name of ["app-lock-consent", "app-lock-battery"]) {
+      expect(mockScreenProps.find((props) => props.name === name)?.options).toMatchObject({
+        presentation: "formSheet",
+        sheetAllowedDetents: "fitToContents",
+        sheetCornerRadius: 20,
+      });
+    }
   });
 });
 
