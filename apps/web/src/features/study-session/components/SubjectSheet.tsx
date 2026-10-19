@@ -399,7 +399,7 @@ export function SubjectSheet({
         data-merged={merged}
         style={{ transform: `translateY(${y}px)` }}
         className={cn(
-          "fixed inset-x-0 top-[var(--sheet-top)] flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape:[--sheet-top:23svh]",
+          "fixed inset-x-0 top-[var(--sheet-top)] flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape-compact:[--sheet-top:23svh]",
           "transition-transform motion-reduce:transition-none",
           // 접힌 그룹은 바 위 18px 여백과 좌우 빈 곳까지 덮고 있다. 그대로 터치를 받으면 라벨 아랫부분과
           // 바 옆 화면 탭(심플 모드 전환)을 가로챈다 — 접힌 동안은 바와 핸들만 받는다.

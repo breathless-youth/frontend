@@ -71,6 +71,27 @@
   --radius-xl: 20px;
 }
 
+/*
+  브레이크포인트
+
+  - Material 창 크기 클래스(600·840·1200·1600)에 맞춘다.
+  - 이름은 shadcn·기존 코드와 맞추려고 sm~xl을 유지한다.
+*/
+@theme {
+  --breakpoint-*: initial;
+  --breakpoint-sm: 37.5rem;
+  --breakpoint-md: 52.5rem;
+  --breakpoint-lg: 75rem;
+  --breakpoint-xl: 100rem;
+}
+
+/*
+  폰을 가로로 거치한 화면이다.
+  가로 폰은 폭이 태블릿만큼 넓어 폭으로는 가를 수 없어 높이로 가른다.
+  sheetTimerTravel.ts의 LANDSCAPE_COMPACT_MAX_HEIGHT(480)와 같은 경계여야 한다.
+*/
+@custom-variant landscape-compact (@media (orientation: landscape) and (height < 30rem));
+
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {

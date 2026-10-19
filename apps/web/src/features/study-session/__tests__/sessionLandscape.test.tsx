@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +24,7 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
  * 가로는 새로운 세션 상태가 아니라 세로(S3-1~S3-4)와 같은 상태·문구·데이터 계약에 얹히는
  * 레이아웃 변형이다. 그래서 이 파일은 상태 로직을 다시 검증하지 않고 **방향 델타**만 고정한다.
  *
- * ⚠️ jsdom은 클래스에 붙은 `@media (orientation: landscape)`를 평가하지 않는다. 실제 가로
+ * ⚠️ jsdom은 클래스에 붙은 `landscape-compact`(가로이면서 높이 30rem 미만)를 평가하지 않는다. 실제 가로
  * 렌더는 실기기·브라우저 QA의 몫이고, 여기서는 **델타가 코드에 존재하는지**와 **방향이 JS가
  * 아니라 CSS로 갈리는지**(회전 시 DOM이 유지되는지)를 고정한다. `SessionControlBar`는 세로·
  * 가로가 같은 고정 54px 치수를 쓰고(`size` prop 자체가 없다 — 방향별 variant 없음), 그래서
@@ -77,29 +77,29 @@ describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", (
 
     const number = screen.getByText("00:00:00").parentElement!;
     expect(number.className).toContain("text-[52px]");
-    expect(number.className).toContain("landscape:text-[35px]");
-    expect(number.className).toContain("landscape:text-right");
-    expect(number.parentElement!.className).toContain("landscape:items-end");
+    expect(number.className).toContain("landscape-compact:text-[35px]");
+    expect(number.className).toContain("landscape-compact:text-right");
+    expect(number.parentElement!.className).toContain("landscape-compact:items-end");
   });
 
   it("가로 프리뷰 총 공부 병기는 13px/40%로 줄고 타이머 아래 우측에 붙는다", () => {
     render(<SessionTimer focusSec={0} studySec={0} state="focus" />);
 
     const total = screen.getByText("총 00:00:00").parentElement!;
-    expect(total.className).toContain("landscape:text-[13px]");
-    expect(total.className).toContain("landscape:text-white/40");
-    expect(total.className).toContain("landscape:text-right");
+    expect(total.className).toContain("landscape-compact:text-[13px]");
+    expect(total.className).toContain("landscape-compact:text-white/40");
+    expect(total.className).toContain("landscape-compact:text-right");
   });
 
   it("가로 심플 타이머는 56px다 — design.md의 84px이 아니라 Figma 실측·display.lg 토큰 값", () => {
     render(<SessionTimer focusSec={0} studySec={0} state="focus" glow />);
 
     const number = screen.getByText("00:00:00").parentElement!;
-    expect(number.className).toContain("landscape:text-[56px]");
-    expect(number.className).toContain("landscape:leading-[64px]");
+    expect(number.className).toContain("landscape-compact:text-[56px]");
+    expect(number.className).toContain("landscape-compact:leading-[64px]");
     expect(number.className).not.toContain("84px");
     // 심플은 가로에서도 중앙 정렬을 유지한다(우상단으로 가는 건 프리뷰뿐).
-    expect(number.parentElement!.className).not.toContain("landscape:items-end");
+    expect(number.parentElement!.className).not.toContain("landscape-compact:items-end");
   });
 
   it("발광 반경이 숫자 크기에 비례한다 — 52px에서 24/60px, 56px에서 26/64px", () => {
@@ -122,7 +122,7 @@ describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", (
 
 describe("RoomPage — 가로(거치) 배치", () => {
   function layerOf(container: HTMLElement) {
-    return container.querySelector<HTMLElement>(".landscape\\:grid")!;
+    return container.querySelector<HTMLElement>(".landscape-compact\\:grid")!;
   }
 
   it("방향을 JS로 감지하지 않는다 — 미디어쿼리만으로 갈린다", () => {
@@ -139,34 +139,38 @@ describe("RoomPage — 가로(거치) 배치", () => {
 
     const layer = layerOf(container);
     expect(layer.className).toContain("flex-col");
-    expect(layer.className).toContain("landscape:grid-cols-[1fr_auto_1fr]");
-    expect(layer.className).toContain("landscape:grid-rows-[auto_1fr_auto_auto_auto]");
+    expect(layer.className).toContain("landscape-compact:grid-cols-[1fr_auto_1fr]");
+    expect(layer.className).toContain("landscape-compact:grid-rows-[auto_1fr_auto_auto_auto]");
   });
 
   it("가로 좌우 안전 영역을 반영한다 — 거치 시 노치가 좌우로 온다", () => {
     const { container } = renderRoom();
 
     const layer = layerOf(container);
-    expect(layer.className).toContain("landscape:pl-[calc(env(safe-area-inset-left)+28px)]");
-    expect(layer.className).toContain("landscape:pr-[calc(env(safe-area-inset-right)+28px)]");
+    expect(layer.className).toContain(
+      "landscape-compact:pl-[calc(env(safe-area-inset-left)+28px)]",
+    );
+    expect(layer.className).toContain(
+      "landscape-compact:pr-[calc(env(safe-area-inset-right)+28px)]",
+    );
     // 가로에는 iOS 상태바가 없어 상단 여백이 13 → 18로 바뀐다(상태바 높이만큼 빠진다).
-    expect(layer.className).toContain("landscape:pt-[calc(env(safe-area-inset-top)+18px)]");
+    expect(layer.className).toContain("landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)]");
   });
 
   it("가로 프리뷰 — 상태 필은 상단 중앙, 타이머는 같은 행 우측 열에 둔다(겹침 방지)", () => {
     const { container } = renderRoom();
 
     const pill = screen.getByRole("status");
-    expect(pill.className).toContain("landscape:col-start-2");
-    expect(pill.className).toContain("landscape:row-start-1");
+    expect(pill.className).toContain("landscape-compact:col-start-2");
+    expect(pill.className).toContain("landscape-compact:row-start-1");
 
-    const timer = container.querySelector('[class*="landscape:col-start-3"]')!;
-    expect(timer.className).toContain("landscape:row-start-1");
-    expect(timer.className).toContain("landscape:justify-self-end");
+    const timer = container.querySelector('[class*="landscape-compact:col-start-3"]')!;
+    expect(timer.className).toContain("landscape-compact:row-start-1");
+    expect(timer.className).toContain("landscape-compact:justify-self-end");
     // 우측 모서리로 끌어당기는 음수 마진(BY-336) — 레이어 패딩(28px)은 공용이라 줄이지 않고
     // 타이머만 붙인다(결과 여백 8px + safe-area). 상단은 실측(18px) 그대로다.
-    expect(timer.className).toContain("landscape:-mr-5");
-    expect(timer.className).not.toContain("landscape:-mt-");
+    expect(timer.className).toContain("landscape-compact:-mr-5");
+    expect(timer.className).not.toContain("landscape-compact:-mt-");
   });
 
   it("가로 심플 — 타이머가 우상단에서 중앙으로 옮겨간다", async () => {
@@ -174,10 +178,10 @@ describe("RoomPage — 가로(거치) 배치", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
-    expect(container.querySelector('[class*="landscape:col-start-3"]')).toBeNull();
-    const timer = container.querySelector('[class*="landscape:top-1/2"]')!;
-    expect(timer.className).toContain("landscape:-translate-y-1/2");
-    expect(timer.className).toContain("landscape:-translate-x-1/2");
+    expect(container.querySelector('[class*="landscape-compact:col-start-3"]')).toBeNull();
+    const timer = container.querySelector('[class*="landscape-compact:top-1/2"]')!;
+    expect(timer.className).toContain("landscape-compact:-translate-y-1/2");
+    expect(timer.className).toContain("landscape-compact:-translate-x-1/2");
   });
 
   it("가로에서도 상태 필 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {
@@ -186,6 +190,32 @@ describe("RoomPage — 가로(거치) 배치", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
+  });
+
+  it("창 높이가 바뀌면 타이머 이동 거리를 다시 잰다 — 높이 480 미만이면 0, 480부터는 세로 계산", () => {
+    const { innerWidth, innerHeight } = window;
+    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(600);
+    try {
+      window.innerWidth = 900;
+      window.innerHeight = 479;
+      const { container } = renderRoom();
+      const slot = () =>
+        container.querySelector<HTMLElement>('[style*="--session-sheet-timer-travel"]')!;
+
+      expect(slot().style.getPropertyValue("--session-sheet-timer-travel")).toBe("0px");
+
+      window.innerHeight = 480;
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // 600 - 480 * 0.14 = 532.8
+      expect(slot().style.getPropertyValue("--session-sheet-timer-travel")).toBe("533px");
+    } finally {
+      offsetTop.mockRestore();
+      window.innerWidth = innerWidth;
+      window.innerHeight = innerHeight;
+    }
   });
 
   it("심플 배경은 세로·가로가 같은 값을 쓴다 — 회전할 때 배경이 깜빡이지 않는다", () => {
