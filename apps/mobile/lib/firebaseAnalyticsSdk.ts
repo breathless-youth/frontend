@@ -3,6 +3,7 @@ import {
   logEvent,
   setUserId,
   setUserProperties,
+  setUserProperty,
 } from "@react-native-firebase/analytics";
 
 import { ensureAuth, subscribeAuth } from "./auth";
@@ -29,8 +30,22 @@ export const rnfbFirebaseAnalyticsAdapter: FirebaseAnalyticsAdapter = {
   setUserId(id) {
     return setUserId(getAnalytics(), id);
   },
-  setUserProperties(properties) {
-    return setUserProperties(getAnalytics(), properties);
+  async setUserProperties(properties) {
+    // null(지움)은 키마다 `setUserProperty`로 따로 보낸다. RNFB는 iOS TurboModule이 객체 안의 null을 떨어뜨리는 것을
+    // 피하려고 `{__rnfbNull: true}` 표식으로 바꿔 보내는데, `setUserProperties`의 NSDictionary 인자는 그 표식을
+    // 되돌리는 경로를 타지 않아 Firebase가 "User property must be NSString"으로 거부한다(26.3.3 실측). 인자 하나짜리
+    // `setUserProperty`의 최상위 null은 표식 없이 nil로 넘어가 삭제가 된다. Android는 둘 다 동작한다.
+    const analytics = getAnalytics();
+    const kept: Record<string, string> = {};
+    const cleared: string[] = [];
+    for (const [key, value] of Object.entries(properties)) {
+      if (value === null) cleared.push(key);
+      else kept[key] = value;
+    }
+    await Promise.all([
+      ...(Object.keys(kept).length > 0 ? [setUserProperties(analytics, kept)] : []),
+      ...cleared.map((key) => setUserProperty(analytics, key, null)),
+    ]);
   },
 };
 

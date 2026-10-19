@@ -121,6 +121,11 @@ export function originOf(url: string): string {
 export type RemoteWebViewHostProps = {
   /** `apps/web` 라우트 경로. 예: `/home`, `/room/1`. */
   path: string;
+  /**
+   * 뒤로가기 탭 초기화 신호를 받을 기준 경로(탭 루트). 딥링크로 탭 안의 하위 경로를 열면 `path`가 루트와 달라지므로
+   * 탭이 루트를 따로 알려 준다. 생략하면 `path`다.
+   */
+  resetPath?: string;
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
@@ -188,6 +193,7 @@ export function requestGlobalWebViewRecovery(): boolean {
 
 export function RemoteWebViewHost({
   path,
+  resetPath,
   query,
   onBridgeMessage,
   backgroundColor,
@@ -393,7 +399,8 @@ export function RemoteWebViewHost({
     // 불러 줘서, 어느 로드 콜백도 웹 JS가 실제로 돌았음을 보장하지 못한다. 웹이 구독을 걸고
     // 보내는 이 신호만이 그 보장이고, 실패한 로드에서는 이 신호 자체가 오지 않는다.
     if (message.type === "home-ready") {
-      if (path === HOME_PATH && consumeAppLaunchSignal()) {
+      // 홈 탭을 딥링크로 하위 경로에서 열어도 탭 루트 기준으로 판단한다.
+      if ((resetPath ?? path) === HOME_PATH && consumeAppLaunchSignal()) {
         sendToWeb({ type: "app-launched", atMs: Date.now() });
       }
       return;
@@ -508,13 +515,14 @@ export function RemoteWebViewHost({
   // 뒤로가기로 이 탭을 떠날 때 웹을 탭 루트로 되돌린다(`lib/tabReset.ts`). 경로 비교로 자기
   // 탭 신호만 받는다 — 세션 웹뷰(`/room/:id`)는 탭 경로와 일치할 일이 없어 자연히 무시된다.
   useEffect(() => {
+    const ownPath = resetPath ?? path;
     return subscribeTabReset((webPath) => {
-      if (webPath !== path) {
+      if (webPath !== ownPath) {
         return;
       }
       sendToWeb({ type: "reset-route", path: webPath, atMs: Date.now() });
     });
-  }, [path, sendToWeb]);
+  }, [path, resetPath, sendToWeb]);
 
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).

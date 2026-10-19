@@ -57,6 +57,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackScreenBackPressed: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
   trackSubjectItemAdded: vi.fn(),
+  setSubjectsUserProperties: vi.fn(),
 }));
 
 // 토큰 문서 여부만 바꾼다. 신원은 그대로 `?userId=`에서 읽는다.
