@@ -93,7 +93,7 @@ class AppLockService : Service() {
     locked = AppLockPrefs.selected(this)
     val startGeneration = intent?.getLongExtra(EXTRA_GENERATION, 0L) ?: 0L
     lastQueryAt = System.currentTimeMillis()
-    // Handler 지연은 기기가 잠든 시간을 세지 않아 12시간 타이머로 걸면 잠금이 12시간을 훌쩍 넘길 수 있다.
+    // Handler 지연은 기기가 잠든 시간을 세지 않아 마감 타이머로 걸면 잠금이 마감을 훌쩍 넘길 수 있다.
     // 잠든 시간까지 세는 elapsedRealtime으로 마감을 잡고 조회할 때마다 확인한다.
     // 잠든 동안에는 화면이 꺼져 잠금 화면이 보일 일이 없고 깨어나면 첫 조회에서 멈추므로 알람은 따로 걸지 않는다.
     deadline = nextDeadline(

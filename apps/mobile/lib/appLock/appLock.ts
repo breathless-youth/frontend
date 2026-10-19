@@ -16,7 +16,7 @@ export type AppLockState = {
 
 export const SELECTION_ID = "focusmakers_app_lock";
 export const ACTIVITY_NAME = "focusmakers_study_lock";
-export const SAFETY_RELEASE_HOURS = 12;
+export const SAFETY_RELEASE_HOURS = 6;
 
 const APPROVED_STATUS = 2;
 // react-native-device-activity가 선택을 id별로 담아 두는 App Group 키다.
@@ -314,7 +314,7 @@ export async function startStudyLock(now: Date = new Date()): Promise<Counts | n
  * Android 공부 시작 잠금
  *
  * 서비스가 앱과 같은 프로세스에서 돌아 앱이 죽으면 잠금도 함께 풀려서 iOS 같은 안전 해제 예약이 따로 없다.
- * 서비스 안의 12시간 타이머는 앱이 살아 있는 채로 공부 끝을 놓쳤을 때를 위한 것이다.
+ * 서비스 안의 6시간 타이머는 앱이 살아 있는 채로 공부 끝을 놓쳤을 때를 위한 것이다.
  * 앱이 뒤에 있을 때 포그라운드 서비스 시작이 막히는 기기도 있어 실패는 잠그지 않은 것으로 처리한다.
  */
 function startAndroidLock(native: AppLockNative): Counts | null {

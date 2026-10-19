@@ -250,9 +250,9 @@ describe("saveSelection", () => {
 });
 
 describe("startStudyLock", () => {
-  it("허용되고 고른 앱이 있으면 12시간 잠금 서비스를 시작하고 개수를 돌려준다", async () => {
+  it("허용되고 고른 앱이 있으면 6시간 잠금 서비스를 시작하고 개수를 돌려준다", async () => {
     await expect(startStudyLock()).resolves.toEqual({ appCount: 2, categoryCount: 0 });
-    expect(native.startLock).toHaveBeenCalledWith(12 * 3_600_000);
+    expect(native.startLock).toHaveBeenCalledWith(6 * 3_600_000);
   });
 
   it("권한이 없으면 시작하지 않는다", async () => {

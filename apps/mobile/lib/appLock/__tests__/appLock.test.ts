@@ -312,10 +312,10 @@ describe("startStudyLock", () => {
 });
 
 describe("safetyReleaseSchedule", () => {
-  it("12시간 뒤에 끝나는 일회성 예약을 만들고 자정을 넘긴다", () => {
+  it("6시간 뒤에 끝나는 일회성 예약을 만들고 자정을 넘긴다", () => {
     const schedule = safetyReleaseSchedule(new Date(2026, 9, 17, 23, 30, 0));
     expect(schedule.intervalStart).toMatchObject({ hour: 23, minute: 30 });
-    expect(schedule.intervalEnd).toMatchObject({ hour: 11, minute: 30 });
+    expect(schedule.intervalEnd).toMatchObject({ hour: 5, minute: 30 });
     expect(schedule.repeats).toBe(false);
   });
 });
