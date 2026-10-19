@@ -27,6 +27,8 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * | 프리뷰  | 52px 중앙 · 총 15px/42%  | **35px 우측 정렬 · 총 13px/40%** |
  * | 심플    | 52px 중앙 발광           | **56px 중앙 발광**               |
  *
+ * 폭 600 이상이면서 `landscape-compact`가 아닌 창은 세로 배치 그대로 순공 96px, 총 22px로 키운다.
+ *
  * ⚠️ 가로 심플 **56px**는 `ai-wiki/product/design.md`가 적은 84px과 어긋난다
  * (SCR-S3-5·S3-6 Current Limitations 2). Figma 실측(`61:531`)이 56px이고 이는
  * `typography.display.lg`(56/64/bold)와 정확히 일치하므로 **토큰 체계와 맞는 Figma 값을 따른다.**
@@ -83,11 +85,11 @@ export function SessionTimer({
           위치·색·발광의 duration이 제각각이면 전환이 세 박자로 쪼개져 보인다(BY-336). */}
       <p
         className={cn(
-          "text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none",
+          "text-center text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none sm:not-landscape-compact:text-8xl sm:not-landscape-compact:leading-none sm:not-landscape-compact:tracking-[-0.03em] short-side-lg:text-[7.5rem]",
           glow
-            ? "text-[var(--session-state-color)] landscape-compact:text-[56px] landscape-compact:leading-[64px]"
+            ? "text-(--session-state-color) landscape-compact:text-[56px] landscape-compact:leading-16"
             : cn(
-                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-[42px] landscape-compact:tracking-[-0.3px]",
+                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-10.5 landscape-compact:tracking-[-0.3px]",
                 state === "focus" ? "text-white" : "text-text-tertiary",
               ),
         )}
@@ -98,10 +100,10 @@ export function SessionTimer({
       </p>
       <p
         className={cn(
-          "mt-[7px] text-center text-[15px] leading-[18px] font-medium text-white/42 tabular-nums",
+          "mt-1.75 text-center text-[15px] leading-4.5 font-medium text-white/42 tabular-nums sm:not-landscape-compact:mt-2.75 sm:not-landscape-compact:text-[1.375rem] sm:not-landscape-compact:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75",
           glow
-            ? "landscape-compact:mt-[10px]"
-            : "landscape-compact:mt-[3px] landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-[15px] landscape-compact:text-white/40",
+            ? "landscape-compact:mt-2.5"
+            : "landscape-compact:mt-0.75 landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-3.75 landscape-compact:text-white/40",
         )}
       >
         <span aria-hidden="true">총 {formatElapsed(studySec)}</span>
