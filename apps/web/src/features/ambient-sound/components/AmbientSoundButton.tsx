@@ -37,7 +37,7 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
           "data-[on=true]:text-[var(--state-focus)]",
         )}
       >
-        <Music aria-hidden="true" className="size-[23px]" />
+        <Music aria-hidden="true" className="size-[23px] sm:not-landscape-compact:size-6.75" />
       </button>
     );
   },

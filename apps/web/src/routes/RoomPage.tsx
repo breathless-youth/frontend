@@ -121,7 +121,12 @@ function SheetFollowingSlot({ className, children }: { className?: string; child
       return;
     }
     // `matchMedia`를 쓰지 않는다. jsdom에 없어 테스트가 통째로 죽는다.
-    const travel = sheetTimerTravel(element.offsetTop, window.innerWidth, window.innerHeight);
+    const travel = sheetTimerTravel(
+      element.offsetTop,
+      element.offsetHeight,
+      window.innerWidth,
+      window.innerHeight,
+    );
     const next = `${Math.round(travel)}px`;
     if (element.style.getPropertyValue("--session-sheet-timer-travel") !== next) {
       element.style.setProperty("--session-sheet-timer-travel", next);
@@ -646,11 +651,12 @@ function RoomSessionScreen({
             <SessionStatusPill
               state={pillState}
               label={statusCopy.label}
-              className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center"
+              className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center sm:not-landscape-compact:px-4.5 sm:not-landscape-compact:py-2 sm:not-landscape-compact:text-base sm:not-landscape-compact:leading-5"
             />
 
             {/* 위를 기준으로 붙여야 심플 모드에서 카메라 전환이 빠져도 배경음이 움직이지 않는다.
-                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다. */}
+                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다.
+                폭 600 이상 창은 상태 필과 윗선을 맞춘다. */}
             <SessionSideActions
               // 심플 모드는 프리뷰가 없어 전환 결과를 볼 수 없는데 추론만 잠깐 끊긴다.
               showFlip={!simpleMode}
@@ -667,7 +673,7 @@ function RoomSessionScreen({
               // 시트가 열리면 숨긴다 — 세로는 올라온 타이머·시트 윗변과 맞닿고 가로는 시트 밑에 깔려
               // 비쳐 보인다. 어차피 열린 동안에는 바깥 탭 캐처가 덮어 눌리지 않는다.
               className={cn(
-                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-[260ms] motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)]",
+                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-[260ms] motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)] sm:not-landscape-compact:top-[calc(env(safe-area-inset-top)+13px)] sm:not-landscape-compact:gap-3.5",
                 sheetOpen && "invisible opacity-0",
               )}
             />

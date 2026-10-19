@@ -218,6 +218,28 @@ describe("RoomPage — 가로(거치) 배치", () => {
     }
   });
 
+  it("태블릿 가로에서는 타이머 높이를 재서 시트 윗변 위로 목표를 올린다", () => {
+    const { innerWidth, innerHeight } = window;
+    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(600);
+    const offsetHeight = vi
+      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockReturnValue(135);
+    try {
+      window.innerWidth = 1180;
+      window.innerHeight = 820;
+      const { container } = renderRoom();
+      const slot = container.querySelector<HTMLElement>('[style*="--session-sheet-timer-travel"]')!;
+
+      // 600 - (820 * 0.27 - 135 - 8) = 521.6
+      expect(slot.style.getPropertyValue("--session-sheet-timer-travel")).toBe("522px");
+    } finally {
+      offsetTop.mockRestore();
+      offsetHeight.mockRestore();
+      window.innerWidth = innerWidth;
+      window.innerHeight = innerHeight;
+    }
+  });
+
   it("심플 배경은 세로·가로가 같은 값을 쓴다 — 회전할 때 배경이 깜빡이지 않는다", () => {
     // Figma는 세로 #0B0F14 / 가로 #0A0F18로 값이 다르지만(미확정 불일치) 세로 값으로 통일했다.
     const vars = sessionSurfaceStyle as unknown as Record<string, string>;

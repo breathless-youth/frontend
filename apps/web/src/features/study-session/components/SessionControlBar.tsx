@@ -30,7 +30,7 @@ export type SessionControlBarSurface = "pill" | "bare";
  * `isolate`: 아래 유리 배경 레이어(`-z-10`)가 바 밖으로 빠져나가지 않고 버튼 바로 뒤에 깔린다.
  */
 const SESSION_CONTROL_BAR_CLASS =
-  "pointer-events-auto relative isolate flex items-center justify-center gap-[14px] rounded-full p-[10px]";
+  "pointer-events-auto relative isolate flex items-center justify-center gap-[14px] rounded-full p-[10px] sm:not-landscape-compact:gap-4 sm:not-landscape-compact:p-3";
 
 /**
  * 알약의 유리 배경·그림자·흐림은 **버튼 뒤의 별도 레이어**다. 클래스를 갈아끼워 없애면 배경이 한
@@ -49,7 +49,8 @@ const barSurfaceVariants = cva(
 const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
 
 /** 54px 버튼 기준 아이콘 크기 — Figma V2 `S1b` 실측으로 네 아이콘 모두 23px 동일하다. */
-const CONTROL_ICON_SIZE = "size-[23px]";
+// 폭 600 이상 창은 64px 버튼에 같은 비율로 맞춘다.
+const CONTROL_ICON_SIZE = "size-[23px] sm:not-landscape-compact:size-6.75";
 
 export interface SessionControlBarProps {
   /** 일시정지 상태면 첫 버튼이 파란 '다시 시작'으로 바뀐다. */
