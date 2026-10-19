@@ -115,7 +115,7 @@ export function RoomGrid({
   return grid.mode === "fullscreen" ? (
     <div
       ref={selfSurfaceRef}
-      className="absolute inset-0 bg-[var(--session-dialog-bg)] landscape-compact:left-[calc(env(safe-area-inset-left)+16px)] landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:overflow-hidden landscape-compact:rounded-3xl"
+      className="absolute inset-0 bg-(--session-dialog-bg) landscape-compact:left-[calc(env(safe-area-inset-left)+16px)] landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:overflow-hidden landscape-compact:rounded-3xl"
     >
       {cameraOn ? (
         myVideo

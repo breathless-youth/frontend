@@ -66,7 +66,7 @@ describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
     );
     expect(labels).toEqual(["일시정지", "공부 종료"]);
     expect(screen.getByRole("button", { name: "공부 종료" }).className).toContain(
-      "bg-[var(--session-control-exit-bg)]",
+      "bg-(--session-control-exit-bg)",
     );
   });
 });
@@ -96,7 +96,7 @@ describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", (
 
     const number = screen.getByText("00:00:00").parentElement!;
     expect(number.className).toContain("landscape-compact:text-[56px]");
-    expect(number.className).toContain("landscape-compact:leading-[64px]");
+    expect(number.className).toContain("landscape-compact:leading-16");
     expect(number.className).not.toContain("84px");
     // 심플은 가로에서도 중앙 정렬을 유지한다(우상단으로 가는 건 프리뷰뿐).
     expect(number.parentElement!.className).not.toContain("landscape-compact:items-end");

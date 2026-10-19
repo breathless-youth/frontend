@@ -347,17 +347,17 @@ export function SubjectSheet({
         onClick={handleLabelClick}
         style={{ opacity: labelOpacity }}
         className={cn(
-          "relative mb-[10px] flex h-5 max-w-[min(100vw-48px,320px)] items-center gap-2 text-[13px] leading-4 font-semibold transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+          "relative mb-2.5 flex h-5 max-w-[min(100vw-48px,320px)] items-center gap-2 text-[13px] leading-4 font-semibold transition-opacity duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
           // 글자 줄은 20px뿐이라 누르기 어렵다 — 보이는 모양은 그대로 두고 터치 영역만 위 12px·아래는
           // 바 윗변까지·좌우 24px 넓힌다(높이 42px).
-          "before:absolute before:-inset-x-6 before:-top-3 before:-bottom-[10px] before:content-['']",
+          "before:absolute before:-inset-x-6 before:-top-3 before:-bottom-2.5 before:content-['']",
           merged ? "pointer-events-none" : "pointer-events-auto",
         )}
       >
         {label === null ? (
           <>
             <span className="text-white/55">{SUBJECT_SHEET_COPY.hint}</span>
-            <ChevronUp aria-hidden="true" className="size-[14px] text-white/40" strokeWidth={2.5} />
+            <ChevronUp aria-hidden="true" className="size-3.5 text-white/40" strokeWidth={2.5} />
           </>
         ) : (
           <>
@@ -366,7 +366,7 @@ export function SubjectSheet({
               alt=""
               aria-hidden="true"
               className={cn(
-                "size-[6px]",
+                "size-1.5",
                 // 세션이 일시정지면 과목 시간도 멈춰 있다 — 깜빡임을 끄고 옅게 둔다.
                 label.paused ? "opacity-40" : "animate-pulse motion-reduce:animate-none",
               )}
@@ -395,7 +395,7 @@ export function SubjectSheet({
       {/* 큰 태블릿은 80px 버튼 바(80×2 + 20 + 15×2, 높이 110)에 맞춘다. */}
       <div
         ref={slotRef}
-        className="relative h-[74px] w-[142px] sm:not-landscape-compact:h-22 sm:not-landscape-compact:w-42 short-side-lg:h-27.5 short-side-lg:w-52.5"
+        className="relative h-18.5 w-35.5 sm:not-landscape-compact:h-22 sm:not-landscape-compact:w-42 short-side-lg:h-27.5 short-side-lg:w-52.5"
       />
 
       <div
@@ -405,7 +405,7 @@ export function SubjectSheet({
         style={{ transform: `translateY(${y}px)` }}
         className={cn(
           // 27svh는 sheetTimerTravel.ts의 SHEET_TOP과 같은 값이어야 한다.
-          "fixed inset-x-0 top-[var(--sheet-top)] flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape-compact:[--sheet-top:23svh]",
+          "fixed inset-x-0 top-(--sheet-top) flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape-compact:[--sheet-top:23svh]",
           // 넓은 창에서 전폭 시트는 목록 한 줄이 너무 길어진다.
           // 양쪽 inset이 0인 고정 요소라 auto 여백이 가운데로 모은다.
           "sm:not-landscape-compact:mx-auto sm:not-landscape-compact:max-w-120 short-side-lg:max-w-140",
@@ -414,7 +414,7 @@ export function SubjectSheet({
           // 바 옆 화면 탭(심플 모드 전환)을 가로챈다 — 접힌 동안은 바와 핸들만 받는다.
           merged ? "pointer-events-auto" : "pointer-events-none",
           // 드래그 중에는 위치를 핸들러가 직접 그리고, 놓았을 때만 전환을 태운다.
-          dragging ? "transition-none" : "duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+          dragging ? "transition-none" : "duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
         )}
       >
         {/* 배경과 상단 하이라이트는 별도 레이어다 — 클래스로 껐다 켜면 한 프레임에 튄다.
@@ -425,7 +425,7 @@ export function SubjectSheet({
         <div
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute inset-0 rounded-t-[28px] bg-[var(--session-sheet-bg)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+            "pointer-events-none absolute inset-0 rounded-t-[28px] bg-(--session-sheet-bg) shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] transition-opacity duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
             merged ? "opacity-100" : "opacity-0",
           )}
         />
@@ -435,7 +435,7 @@ export function SubjectSheet({
             그룹 상단 6px로 올라간다. 히트 영역은 열림 여부로 갈린다(위 제스처 주석). */}
         <div
           className={cn(
-            "relative flex w-full flex-col items-center pt-[18px]",
+            "relative flex w-full flex-col items-center pt-4.5",
             merged && "cursor-grab touch-none active:cursor-grabbing",
           )}
           // 열린 시트는 머리 영역 전체(핸들 줄 + 바 줄, 좌우 여백까지)가 손잡이다 — 버튼만 뺀다.
@@ -452,8 +452,8 @@ export function SubjectSheet({
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute top-0 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-white/22 transition-transform duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
-              merged ? "translate-y-[6px]" : "translate-y-[24px]",
+              "pointer-events-none absolute top-0 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-white/22 transition-transform duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+              merged ? "translate-y-1.5" : "translate-y-6",
             )}
           />
 
@@ -461,7 +461,7 @@ export function SubjectSheet({
           {!merged && (
             <div
               aria-label="과목 시트 끌기"
-              className="pointer-events-auto absolute top-[18px] left-1/2 h-7 w-11 -translate-x-1/2 cursor-grab touch-none active:cursor-grabbing"
+              className="pointer-events-auto absolute top-4.5 left-1/2 h-7 w-11 -translate-x-1/2 cursor-grab touch-none active:cursor-grabbing"
               onPointerDown={handlePointerDown}
             />
           )}
@@ -481,7 +481,7 @@ export function SubjectSheet({
             merged
               ? "animate-[sheet-content-rise_260ms_cubic-bezier(0.2,0.8,0.2,1)] opacity-100 motion-reduce:animate-none"
               : // 접힌 동안은 보이지 않는 내용이 바 아랫단(헤더의 음수 마진)과 화면 맨 아래를 덮어 탭·드래그를 가로채지 않게 한다.
-                "pointer-events-none opacity-0 transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+                "pointer-events-none opacity-0 transition-opacity duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
           )}
         >
           {children}

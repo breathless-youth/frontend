@@ -608,7 +608,7 @@ function RoomSessionScreen({
       onDragStart={(event) => event.preventDefault()}
       className={cn(
         !endNoticeVisible && "theme-dark",
-        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-[var(--session-camera-base)] text-white",
+        "session-no-drag relative flex h-svh w-full flex-col items-center overflow-hidden bg-(--session-camera-base) text-white",
       )}
     >
       {/* 심플 모드는 보이는 프리뷰만 걷어낸다 — `<video>`는 계속 마운트된 채 숨어 있다.
@@ -673,7 +673,7 @@ function RoomSessionScreen({
               // 시트가 열리면 숨긴다 — 세로는 올라온 타이머·시트 윗변과 맞닿고 가로는 시트 밑에 깔려
               // 비쳐 보인다. 어차피 열린 동안에는 바깥 탭 캐처가 덮어 눌리지 않는다.
               className={cn(
-                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-[260ms] motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)] sm:not-landscape-compact:top-[calc(env(safe-area-inset-top)+65px)] sm:not-landscape-compact:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+74px)] short-side-lg:gap-4.5",
+                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-260 motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)] sm:not-landscape-compact:top-[calc(env(safe-area-inset-top)+65px)] sm:not-landscape-compact:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+74px)] short-side-lg:gap-4.5",
                 sheetOpen && "invisible opacity-0",
               )}
             />
@@ -714,7 +714,7 @@ function RoomSessionScreen({
             <div className={cn(simpleMode ? "grow" : "grow-0", "landscape-compact:hidden")} />
 
             {/* 바 위에 과목 라벨(20px + 아래 10px)이 얹혀서 타이머와 바 사이 44px에서 그만큼 뺀다. */}
-            <div className="relative mt-[14px] flex flex-col items-center landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:mt-2 landscape-compact:justify-self-center">
+            <div className="relative mt-3.5 flex flex-col items-center landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:mt-2 landscape-compact:justify-self-center">
               <CtaToaster />
               {/* 컨트롤 바는 과목 시트의 손잡이다 — 위로 끌면 시트가 펼쳐지고 바가 함께 올라간다.
                   바 위 한 줄 라벨이 선택 항목과 순공을 보여주고, 미선택이면 힌트다. */}
@@ -752,7 +752,7 @@ function RoomSessionScreen({
             </div>
 
             {userId === null && (
-              <p className="mt-3 text-center text-[12px] leading-[16px] text-white/55 landscape-compact:col-span-full landscape-compact:row-start-5 landscape-compact:justify-self-center">
+              <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-5 landscape-compact:justify-self-center">
                 이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
               </p>
             )}
@@ -904,7 +904,7 @@ function SessionResultFallback({
 
       {phase.name === "error" && (
         <>
-          <p className="text-center text-sm text-[var(--session-exit-bg)]">{phase.message}</p>
+          <p className="text-center text-sm text-(--session-exit-bg)">{phase.message}</p>
           <button
             type="button"
             onClick={onRetry}

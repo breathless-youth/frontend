@@ -43,7 +43,7 @@ export function SessionSideActions({
           }}
           className={cn(
             controlButtonVariants(),
-            "pointer-events-auto bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
+            "pointer-events-auto bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
           )}
         >
           <CameraFlipIcon

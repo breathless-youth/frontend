@@ -38,7 +38,7 @@ const SESSION_CONTROL_BAR_CLASS =
  * 페이드시키면 흐림까지 같은 박자로 걷힌다. 길이·이징은 과목 시트의 변형과 같다.
  */
 const barSurfaceVariants = cva(
-  "pointer-events-none absolute inset-0 -z-10 rounded-full bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+  "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-opacity duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
   {
     variants: { surface: { pill: "opacity-100", bare: "opacity-0" } },
     defaultVariants: { surface: "pill" },

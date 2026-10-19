@@ -85,11 +85,11 @@ export function SessionTimer({
           위치·색·발광의 duration이 제각각이면 전환이 세 박자로 쪼개져 보인다(BY-336). */}
       <p
         className={cn(
-          "text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none sm:not-landscape-compact:text-8xl sm:not-landscape-compact:leading-none sm:not-landscape-compact:tracking-[-0.03em] short-side-lg:text-[7.5rem]",
+          "text-center text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none sm:not-landscape-compact:text-8xl sm:not-landscape-compact:leading-none sm:not-landscape-compact:tracking-[-0.03em] short-side-lg:text-[7.5rem]",
           glow
-            ? "text-[var(--session-state-color)] landscape-compact:text-[56px] landscape-compact:leading-[64px]"
+            ? "text-(--session-state-color) landscape-compact:text-[56px] landscape-compact:leading-16"
             : cn(
-                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-[42px] landscape-compact:tracking-[-0.3px]",
+                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-10.5 landscape-compact:tracking-[-0.3px]",
                 state === "focus" ? "text-white" : "text-text-tertiary",
               ),
         )}
@@ -100,10 +100,10 @@ export function SessionTimer({
       </p>
       <p
         className={cn(
-          "mt-[7px] text-center text-[15px] leading-[18px] font-medium text-white/42 tabular-nums sm:not-landscape-compact:mt-2.75 sm:not-landscape-compact:text-[1.375rem] sm:not-landscape-compact:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75",
+          "mt-1.75 text-center text-[15px] leading-4.5 font-medium text-white/42 tabular-nums sm:not-landscape-compact:mt-2.75 sm:not-landscape-compact:text-[1.375rem] sm:not-landscape-compact:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75",
           glow
-            ? "landscape-compact:mt-[10px]"
-            : "landscape-compact:mt-[3px] landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-[15px] landscape-compact:text-white/40",
+            ? "landscape-compact:mt-2.5"
+            : "landscape-compact:mt-0.75 landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-3.75 landscape-compact:text-white/40",
         )}
       >
         <span aria-hidden="true">총 {formatElapsed(studySec)}</span>

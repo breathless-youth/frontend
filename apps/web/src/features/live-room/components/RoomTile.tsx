@@ -78,7 +78,7 @@ export function SelfStateBadge({
       data-testid="self-state-badge"
       data-state={state}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[5px] backdrop-blur sm:not-landscape-compact:gap-2 sm:not-landscape-compact:py-1.5 sm:not-landscape-compact:pr-3.5 sm:not-landscape-compact:pl-3 short-side-lg:gap-2.5 short-side-lg:py-2 short-side-lg:pr-4.5 short-side-lg:pl-3.75",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.25 backdrop-blur sm:not-landscape-compact:gap-2 sm:not-landscape-compact:py-1.5 sm:not-landscape-compact:pr-3.5 sm:not-landscape-compact:pl-3 short-side-lg:gap-2.5 short-side-lg:py-2 short-side-lg:pr-4.5 short-side-lg:pl-3.75",
         className,
       )}
       style={spec.pill}
@@ -132,7 +132,7 @@ export function RoomTile({
       data-testid="room-tile"
       data-user-id={member.userId}
       data-state={member.cameraOn ? member.focusState : "OFF"}
-      className={`relative overflow-hidden rounded-xl bg-[var(--session-dialog-bg)] ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-xl bg-(--session-dialog-bg) ${className ?? ""}`}
     >
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
@@ -145,10 +145,10 @@ export function RoomTile({
           aria-hidden="true"
           data-testid="tile-scrim"
           className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]",
+            "pointer-events-none absolute inset-x-0 bottom-0 h-19 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]",
             // 500ms·시트 곡선은 바 슬라이드(RoomControlBar)·타일 FLIP(LiveRoomSession)과
             // 도착 시점을 맞춘 값이다(2026-08-26 피드백) — 셋을 함께 바꿀 것.
-            "transition-opacity duration-[500ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            "transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
             infoHidden && "opacity-0",
           )}
         />
@@ -166,7 +166,7 @@ export function RoomTile({
         data-testid="tile-info"
         aria-hidden={infoHidden || undefined}
         className={cn(
-          "absolute bottom-3 left-3 transition-opacity duration-[500ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          "absolute bottom-3 left-3 transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
           infoHidden && "opacity-0",
         )}
       >
@@ -182,7 +182,7 @@ export function RoomTile({
           </span>
         </p>
         {member.goal != null && (
-          <p className="mt-1 text-xs leading-[15px] text-white/72 sm:not-landscape-compact:text-sm sm:not-landscape-compact:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5">
+          <p className="mt-1 text-xs leading-3.75 text-white/72 sm:not-landscape-compact:text-sm sm:not-landscape-compact:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5">
             {member.goal}
           </p>
         )}
