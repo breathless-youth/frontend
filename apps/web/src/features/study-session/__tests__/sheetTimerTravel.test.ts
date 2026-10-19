@@ -28,6 +28,12 @@ describe("sheetTimerTravel", () => {
     expect(sheetTimerTravel(900, 135, 820, 1180)).toBeCloseTo(900 - 165.2);
   });
 
+  it("상한은 폭 600부터 걸린다", () => {
+    // 900 * 0.14 = 126, 900 * 0.27 - 135 - 8 = 100
+    expect(sheetTimerTravel(600, 135, 599, 900)).toBeCloseTo(600 - 126);
+    expect(sheetTimerTravel(600, 135, 600, 900)).toBeCloseTo(600 - 100);
+  });
+
   it("경계 높이 480은 compact가 아니다", () => {
     expect(sheetTimerTravel(400, 0, 900, 480)).toBeCloseTo(400 - 67.2);
   });

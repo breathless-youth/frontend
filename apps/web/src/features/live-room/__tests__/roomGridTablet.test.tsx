@@ -60,14 +60,17 @@ const gridWidth = () =>
   screen.getByTestId("room-grid-rows").style.getPropertyValue("--room-grid-width");
 
 describe("RoomGrid 태블릿 격자", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   // jsdom은 클래스의 여백을 계산하지 않아 측정기가 여백을 뺀 칸 크기를 바로 준다.
-  it("가로 1180×820에서 4명은 2열 344px이다", () => {
+  it("가로 1180×820에서 4명은 2열 342px이다", () => {
     stubResizeObserver(1148, 692);
     renderGrid(4);
 
-    expect(tileSize()).toBe("344px");
+    expect(tileSize()).toBe("342px");
     expect(gridWidth()).toBe("692px");
   });
 
@@ -75,16 +78,44 @@ describe("RoomGrid 태블릿 격자", () => {
     stubResizeObserver(1148, 692);
     renderGrid(6);
 
-    expect(tileSize()).toBe("344px");
-    expect(gridWidth()).toBe("1040px");
+    expect(tileSize()).toBe("342px");
+    expect(gridWidth()).toBe("1042px");
   });
 
-  it("세로 820×1180에서 3명은 2열 392px이다", () => {
+  it("세로 820×1180에서 3명은 2열 390px이다", () => {
     stubResizeObserver(788, 1052);
     renderGrid(3);
 
-    expect(tileSize()).toBe("392px");
+    expect(tileSize()).toBe("390px");
     expect(gridWidth()).toBe("788px");
+  });
+
+  // 짧은 변이 1000 이상인 창은 아래를 136 비운다.
+  it("큰 태블릿 가로 1376×1032에서 6명은 3열 436px이다", () => {
+    stubResizeObserver(1344, 880);
+    renderGrid(6);
+
+    expect(tileSize()).toBe("436px");
+    expect(gridWidth()).toBe("1324px");
+  });
+
+  it("큰 태블릿 세로 1032×1376에서 6명은 2열 402px이다", () => {
+    stubResizeObserver(1000, 1224);
+    renderGrid(6);
+
+    expect(tileSize()).toBe("402px");
+    expect(gridWidth()).toBe("812px");
+  });
+
+  it("측정기 콜백이 오기 전에도 마운트 직후 칸을 재서 변수를 쓴다", () => {
+    // 기본 측정기는 콜백을 부르지 않는다.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ width: 1148, height: 692 }),
+    );
+    renderGrid(4);
+
+    expect(tileSize()).toBe("342px");
+    expect(gridWidth()).toBe("692px");
   });
 
   it("재기 전에는 변수를 쓰지 않아 폰 배치를 그대로 쓴다", () => {

@@ -95,6 +95,14 @@
 */
 @custom-variant landscape-compact (@media ((orientation: landscape) and (height < 30rem)));
 
+/*
+  짧은 변까지 1000 이상인 큰 태블릿 창이다.
+  태블릿 크기는 13인치에서 화면에 비해 작게 보여 한 단계 더 키운다.
+  폭만 보면 노트북 창도 걸려 높이까지 함께 본다.
+  not 조합에 대비해 조건 전체를 괄호로 한 번 더 감싼다.
+*/
+@custom-variant short-side-lg (@media ((width >= 62.5rem) and (height >= 62.5rem)));
+
 /* 값은 Figma "FocusON V1.0 Design"(KmTbXL79g6ximY1RcnBZDz) Foundations의 시맨틱 토큰과 동일 —
    packages/design-tokens/src/index.ts 참고. CSS는 TS를 import할 수 없어 값을 그대로 옮겨적는다. */
 :root {
