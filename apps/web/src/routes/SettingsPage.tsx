@@ -83,7 +83,7 @@ export function SettingsPage() {
       // 이 값이 빠져 있어 웹뷰에서 설정 제목만 상태 바 쪽으로 올라붙었다.
       // RN 원본의 `useSafeAreaInsets().top + 17`에 대응한다.
       // theme-soft-blue: 이 화면 서브트리에서만 V2 팔레트를 켠다. bg-soft-blue 가 배경 그라디언트.
-      className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>

@@ -304,34 +304,38 @@ export function ResultPage() {
       <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)·도장 모션이 좁은 화면 폭을 넘는다. */}
+      {/* 열 여백을 main이 아니라 스크롤 영역에 두어야 태블릿에서 열 바깥을 끌어도 스크롤된다.
+          page-column과 px-5가 같은 좌우 padding이라 안쪽을 한 겹 감싼다. */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-x-hidden overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
+        className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
       >
-        <StudyCompleteHero view={view} phase={phase} />
-        {revealed && (
-          <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-            {gainView !== null && (
-              <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
-            )}
-            <StudyTimelineCard view={view} />
-            {userId !== null && <SessionSummaryCard userId={userId} />}
-            {userId !== null && <InterviewCardHost userId={userId} />}
-            {showTimelapse && (
-              <ResultTimelapseCard
-                startedAtMs={timelapseStartedAtMs}
-                userId={userId}
-                onShown={setTimelapseCard}
-              />
-            )}
-          </div>
-        )}
+        <div className="px-5">
+          <StudyCompleteHero view={view} phase={phase} />
+          {revealed && (
+            <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+              {gainView !== null && (
+                <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
+              )}
+              <StudyTimelineCard view={view} />
+              {userId !== null && <SessionSummaryCard userId={userId} />}
+              {userId !== null && <InterviewCardHost userId={userId} />}
+              {showTimelapse && (
+                <ResultTimelapseCard
+                  startedAtMs={timelapseStartedAtMs}
+                  userId={userId}
+                  onShown={setTimelapseCard}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="relative flex shrink-0 gap-[10px] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+        <div className="relative flex shrink-0 gap-2.5 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] regular:mx-auto regular:w-full regular:max-w-page short-side-lg:max-w-page-lg animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
           {/* 저장 토스트 자리
 
               하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.

@@ -45,7 +45,7 @@ export function ProfilePage() {
   // 오류 화면으로 바꾸면 폼이 언마운트돼 사용자가 고치던 값이 사라진다.
   if (userId === null || (query.isError && !query.data)) {
     return (
-      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
+      <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
         <ScreenBackHeader title="프로필 수정" />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
@@ -62,7 +62,7 @@ export function ProfilePage() {
 
   if (!query.data) {
     return (
-      <main className="theme-soft-blue bg-soft-blue min-h-dvh text-foreground">
+      <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
         <ScreenBackHeader title="프로필 수정" />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
@@ -169,7 +169,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
   return (
     <main
       data-testid="profile-page"
-      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
       <ScreenBackHeader title="프로필 수정" />
 

@@ -135,7 +135,10 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
   };
 
   return (
-    <main ref={mainRef} className="theme-soft-blue bg-soft-blue text-foreground min-h-dvh pb-10">
+    <main
+      ref={mainRef}
+      className="theme-soft-blue bg-soft-blue page-column text-foreground min-h-dvh pb-10"
+    >
       <ScreenBackHeader title="최근 타임랩스" onBack={goBack} />
       <div className="flex flex-col gap-4 px-5 pt-2">
         <p className="text-muted-foreground text-[13px] leading-4">

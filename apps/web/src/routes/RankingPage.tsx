@@ -99,7 +99,7 @@ export function RankingPage() {
   return (
     <main
       data-testid="ranking-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pt-[calc(env(safe-area-inset-top)+24px)] pb-[var(--tab-bar-reserve)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue page-column pt-[calc(env(safe-area-inset-top)+24px)] pb-(--tab-bar-reserve) text-foreground"
     >
       <h1 className="sr-only">랭킹</h1>
       <div className="flex flex-col px-5">

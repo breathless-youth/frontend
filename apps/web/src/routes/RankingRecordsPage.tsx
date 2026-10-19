@@ -72,7 +72,7 @@ export function RankingRecordsPage() {
     });
 
   return (
-    <main className="theme-soft-blue min-h-dvh bg-soft-blue pb-10 text-foreground">
+    <main className="theme-soft-blue min-h-dvh bg-soft-blue page-column pb-10 text-foreground">
       <ScreenBackHeader title="랭킹 기록" onBack={goBack} />
       {identityPending ? (
         <div className="flex flex-col px-5 pt-4">

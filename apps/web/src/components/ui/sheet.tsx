@@ -40,8 +40,10 @@ export const sheetVariants = cva(
         // 바닥 시트는 페이드 없이 슬라이드만 한다 — 페이드가 섞이면 내려가는 도중 투명해져 빨려
         // 나가듯 보인다. 열림·닫힘 모두 base의 ease-overlay·300ms로 같은 속도감이다(닫힘을 ease-in으로
         // 두면 초반이 느려 열릴 때보다 굼떠 보였다 — 실기기 확인). 딤은 그대로 페이드한다.
+        // 태블릿에서는 본문 열과 같은 폭으로 가운데에 띄운다.
+        // 가운데 정렬을 translate가 아니라 margin으로 하는 것은 슬라이드 모션이 transform을 쓰기 때문이다.
         bottom:
-          "inset-x-0 bottom-0 border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+          "inset-x-0 bottom-0 border-t border-border regular:mx-auto regular:max-w-page short-side-lg:max-w-page-lg data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
         left: "inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
         right:
           "inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",

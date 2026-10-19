@@ -190,7 +190,7 @@ export function PlannerPage() {
   return (
     <main
       data-testid="planner-page"
-      className="theme-soft-blue min-h-dvh bg-muted pb-[calc(env(safe-area-inset-bottom)+24px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-muted page-column pb-[calc(env(safe-area-inset-bottom)+24px)] text-foreground"
     >
       <ScreenBackHeader
         compact

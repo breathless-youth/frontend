@@ -216,7 +216,7 @@ export function ManualRecordPage() {
   }, [missing]);
 
   return (
-    <main className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col overflow-x-hidden text-foreground">
+    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col overflow-x-hidden text-foreground">
       <ScreenBackHeader title={isEdit ? "기록 수정" : "시간 직접 입력"} onBack={leave} />
 
       <div className="flex flex-1 flex-col px-5 pt-3">

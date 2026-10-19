@@ -298,7 +298,7 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
         <header className="flex items-end justify-between pb-2">

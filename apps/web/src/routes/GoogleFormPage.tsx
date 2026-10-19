@@ -108,10 +108,13 @@ export function GoogleFormPage({
     // 않아 아래 `flex-1`과 iframe의 `height:100%`가 기댈 기준이 없어지고, iframe이 기본
     // 150px로 쪼그라든다(2026-08-01 웹뷰 실기기에서 화면 1/4만 차지하는 것으로 확인).
     <div className="flex h-dvh flex-col bg-background">
-      <ScreenBackHeader title={title} onBack={exitToPreviousDocument} />
+      {/* 구글 폼은 자체 가운데 열과 배경을 그려 iframe만 전폭으로 두고 헤더와 실패 화면을 열에 맞춘다. */}
+      <div className="page-column">
+        <ScreenBackHeader title={title} onBack={exitToPreviousDocument} />
+      </div>
 
       {showFailure ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-[78px]">
+        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 regular:mx-auto regular:w-full regular:max-w-page short-side-lg:max-w-page-lg">
           <h1 className="text-center text-[20px] leading-[24px] font-bold text-foreground">
             {failureTitle}
           </h1>
