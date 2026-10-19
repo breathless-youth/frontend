@@ -78,7 +78,7 @@ export function SelfStateBadge({
       data-testid="self-state-badge"
       data-state={state}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[5px] backdrop-blur",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[5px] backdrop-blur sm:not-landscape-compact:gap-2 sm:not-landscape-compact:py-1.5 sm:not-landscape-compact:pr-3.5 sm:not-landscape-compact:pl-3",
         className,
       )}
       style={spec.pill}
@@ -89,7 +89,10 @@ export function SelfStateBadge({
         className="size-1.5 rounded-full"
         style={{ backgroundColor: spec.ink }}
       />
-      <span className="text-[13px] leading-4 font-bold tabular-nums" style={{ color: spec.ink }}>
+      <span
+        className="text-[13px] leading-4 font-bold tabular-nums sm:not-landscape-compact:text-base sm:not-landscape-compact:leading-5"
+        style={{ color: spec.ink }}
+      >
         {focusSec === undefined ? "--:--" : formatStudyHhMm(focusSec)}
       </span>
       {spec.label !== "" && <span className="sr-only">{spec.label}</span>}
@@ -134,7 +137,7 @@ export function RoomTile({
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
-        <RoomAvatarFallback nickname={member.nickname} />
+        <RoomAvatarFallback nickname={member.nickname} scaleWithTile />
       )}
       {showMedia && (
         /* 영상 위 텍스트 가독성용 하단 스크림 */
@@ -167,7 +170,7 @@ export function RoomTile({
           infoHidden && "opacity-0",
         )}
       >
-        <p className="text-[15px] font-bold text-white">
+        <p className="text-[15px] font-bold text-white sm:not-landscape-compact:text-[1.0625rem]">
           {member.nickname}
           {/* 타 참가자의 집중상태는 시각 표시가 없다 */}
           <span className="sr-only">
@@ -179,7 +182,9 @@ export function RoomTile({
           </span>
         </p>
         {member.goal != null && (
-          <p className="mt-1 text-xs leading-[15px] text-white/72">{member.goal}</p>
+          <p className="mt-1 text-xs leading-[15px] text-white/72 sm:not-landscape-compact:text-sm sm:not-landscape-compact:leading-4.5">
+            {member.goal}
+          </p>
         )}
       </div>
     </div>
