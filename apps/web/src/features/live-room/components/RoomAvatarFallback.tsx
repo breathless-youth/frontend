@@ -14,20 +14,17 @@ export function RoomAvatarFallback({
     <div
       className={cn(
         "absolute inset-0 flex items-center justify-center",
-        scaleWithTile && "sm:not-landscape-compact:@container",
+        scaleWithTile && "regular:@container",
       )}
     >
       <div
         className={cn(
           "flex size-14 items-center justify-center rounded-full bg-white/10",
-          scaleWithTile && "sm:not-landscape-compact:size-[21cqi]",
+          scaleWithTile && "regular:size-[21cqi]",
         )}
       >
         <span
-          className={cn(
-            "text-xl font-bold text-white",
-            scaleWithTile && "sm:not-landscape-compact:text-[10cqi]",
-          )}
+          className={cn("text-xl font-bold text-white", scaleWithTile && "regular:text-[10cqi]")}
         >
           {firstGrapheme(nickname ?? "")}
         </span>

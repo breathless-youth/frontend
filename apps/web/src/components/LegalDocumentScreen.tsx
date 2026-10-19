@@ -55,7 +55,7 @@ function BlockView({ block }: { block: LegalBlock }) {
 
 export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="page-column min-h-dvh bg-background">
       {/* 제목은 본문 첫 줄이 크게 그린다 — 상단 바에 또 넣지 않는다(중복 낭독 방지). */}
       <ScreenBackHeader />
 

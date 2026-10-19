@@ -12,7 +12,7 @@ import { APACHE_LICENSE_2_0, OPEN_SOURCE_ENTRIES } from "@/features/settings/ope
  */
 export function LicensesPage() {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="page-column min-h-dvh bg-background">
       {/* 제목은 본문 첫 줄이 크게 그린다 — 상단 바에 또 넣지 않는다(약관·방침과 같은 규칙). */}
       <ScreenBackHeader />
 
