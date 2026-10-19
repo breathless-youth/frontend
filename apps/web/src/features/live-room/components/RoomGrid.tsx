@@ -63,10 +63,12 @@ export function RoomGrid({
     const measure = (width: number, height: number) => {
       const style = getComputedStyle(element);
       const px = (value: string) => Number.parseFloat(value) || 0;
-      setSpace({
+      const next = {
         width: width - px(style.paddingLeft) - px(style.paddingRight),
         height: height - px(style.paddingTop) - px(style.paddingBottom),
-      });
+      };
+      // 크기가 같아도 새 객체를 넣으면 격자 전체를 다시 그린다.
+      setSpace((prev) => (prev?.width === next.width && prev.height === next.height ? prev : next));
     };
     // 측정기의 첫 콜백은 페인트 뒤에 와서 한 프레임 동안 폰 배치가 보인다.
     // 그래서 페인트 전에 한 번 직접 잰다.
@@ -76,10 +78,17 @@ export function RoomGrid({
       measure(rect.width, rect.height);
     }
     const observer = new ResizeObserver(([entry]) => {
-      const box = entry?.borderBoxSize?.[0];
+      if (entry === undefined) {
+        return;
+      }
+      const box = entry.borderBoxSize?.[0];
       if (box !== undefined) {
         measure(box.inlineSize, box.blockSize);
+        return;
       }
+      // iOS 15.4 이전 사파리는 바깥 상자 크기를 주지 않아 요소를 직접 잰다.
+      const target = entry.target.getBoundingClientRect();
+      measure(target.width, target.height);
     });
     // 바 토글은 안쪽 여백만 바꾼다.
     // 바깥 상자를 재야 토글마다 다시 그리지 않는다.

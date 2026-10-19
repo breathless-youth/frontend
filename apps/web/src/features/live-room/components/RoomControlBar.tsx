@@ -77,7 +77,7 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={`flex size-12.5 items-center sm:not-landscape-compact:size-16 short-side-lg:size-20 justify-center rounded-full transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none ${
+        className={`flex size-12.5 items-center justify-center rounded-full transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20 ${
           // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
           // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
           cameraOn ? "bg-white/12" : "bg-[#ff6b77]/20"
@@ -102,7 +102,7 @@ export function RoomControlBar({
           setFlipTurns((turns) => turns + 1);
           onFlipCamera();
         }}
-        className="flex size-12.5 items-center sm:not-landscape-compact:size-16 short-side-lg:size-20 justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
+        className="flex size-12.5 items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20"
       >
         {/* 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리. */}
         <CameraFlipIcon
@@ -116,7 +116,7 @@ export function RoomControlBar({
         onPointerDown={playPressPop}
         disabled={disabled}
         onClick={onExit}
-        className="flex size-12.5 items-center sm:not-landscape-compact:size-16 short-side-lg:size-20 justify-center rounded-full bg-(--session-exit-bg) transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none"
+        className="flex size-12.5 items-center justify-center rounded-full bg-(--session-exit-bg) transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20"
       >
         <img
           src={exitIcon}

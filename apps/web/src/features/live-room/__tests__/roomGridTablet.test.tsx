@@ -1,6 +1,7 @@
-import { createRef } from "react";
+import { Profiler, createRef } from "react";
+import type { ReactNode } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomMember } from "@focusmakers/types";
@@ -37,7 +38,30 @@ function stubResizeObserver(inlineSize: number, blockSize: number) {
   );
 }
 
-function renderGrid(count: number) {
+/** 콜백을 붙잡아 두었다가 테스트가 원할 때 크기를 알려 주는 측정기 */
+function stubManualResizeObserver() {
+  let notify: ((inlineSize: number, blockSize: number) => void) | undefined;
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      readonly callback: ResizeObserverCallback;
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+      }
+      observe() {
+        notify = (inlineSize, blockSize) =>
+          this.callback(
+            [{ borderBoxSize: [{ inlineSize, blockSize }] } as unknown as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+      }
+      disconnect() {}
+    },
+  );
+  return (inlineSize: number, blockSize: number) => act(() => notify?.(inlineSize, blockSize));
+}
+
+function renderGrid(count: number, wrapper?: (props: { children: ReactNode }) => ReactNode) {
   return render(
     <RoomGrid
       grid={roomGridSpec(count)}
@@ -51,6 +75,7 @@ function renderGrid(count: number) {
       remoteStreams={new Map()}
       selfSurfaceRef={createRef<HTMLDivElement>()}
     />,
+    { wrapper },
   );
 }
 
@@ -116,6 +141,54 @@ describe("RoomGrid 태블릿 격자", () => {
 
     expect(tileSize()).toBe("342px");
     expect(gridWidth()).toBe("692px");
+  });
+
+  it("측정기가 바깥 상자 크기를 주지 않으면 대상 요소를 직접 잰다", () => {
+    let observed = false;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() =>
+      DOMRect.fromRect(observed ? { width: 1148, height: 692 } : { width: 0, height: 0 }),
+    );
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        readonly callback: ResizeObserverCallback;
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+        }
+        observe(target: Element) {
+          observed = true;
+          this.callback(
+            [{ target } as unknown as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        }
+        disconnect() {}
+      },
+    );
+    renderGrid(4);
+
+    expect(tileSize()).toBe("342px");
+    expect(gridWidth()).toBe("692px");
+  });
+
+  it("같은 크기를 다시 알려 주면 다시 그리지 않는다", () => {
+    const notify = stubManualResizeObserver();
+    const onRender = vi.fn();
+    renderGrid(4, ({ children }) => (
+      <Profiler id="room-grid" onRender={onRender}>
+        {children}
+      </Profiler>
+    ));
+    notify(1148, 692);
+    // React는 갱신 직후 같은 값 하나는 한 번 그려 본 뒤에야 건너뛴다.
+    notify(1148, 692);
+    const commits = onRender.mock.calls.length;
+
+    notify(1148, 692);
+    notify(1148, 692);
+
+    expect(onRender).toHaveBeenCalledTimes(commits);
+    expect(tileSize()).toBe("342px");
   });
 
   it("재기 전에는 변수를 쓰지 않아 폰 배치를 그대로 쓴다", () => {
