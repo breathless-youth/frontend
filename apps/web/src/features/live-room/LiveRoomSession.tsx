@@ -488,7 +488,7 @@ export function LiveRoomSession({
         {/* 가로는 바를 11px 더 낮게(17→6px) — 세로 기준 오프셋이 가로에선 높아 보인다
             (2026-08-26 피드백). 숨김 슬라이드 이동량은 +17px 기준이라 가로에서도 화면
             밖까지 충분히 나간다(RoomControlBar의 translate 주석). */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+17px)] landscape:bottom-[calc(env(safe-area-inset-bottom)+6px)] flex flex-col items-center gap-2">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+17px)] landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)] flex flex-col items-center gap-2">
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">

@@ -18,9 +18,9 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  *
  * ## 가로(거치) 변형 — S3-5·S3-6
  *
- * 방향은 JS가 아니라 `@media (orientation: landscape)`가 판정한다(회전 시 DOM을 갈아끼우지
+ * 방향은 JS가 아니라 `landscape-compact`(가로이면서 높이 30rem 미만)가 판정한다(회전 시 DOM을 갈아끼우지
  * 않아야 포커스가 유지된다 — SCR-S3-5·S3-6 Accessibility). 그래서 표시 모드(`glow`)만 prop이고
- * 방향은 전부 `landscape:` 유틸리티다.
+ * 방향은 전부 `landscape-compact:` 유틸리티다.
  *
  * | 표시    | 세로                     | 가로                             |
  * | ------- | ------------------------ | -------------------------------- |
@@ -75,7 +75,7 @@ export function SessionTimer({
       className={cn(
         "flex flex-col items-center",
         // 가로 프리뷰만 우상단으로 간다 — 가로 심플은 세로와 같은 중앙 정렬을 유지한다.
-        !glow && "landscape:items-end",
+        !glow && "landscape-compact:items-end",
         className,
       )}
     >
@@ -85,9 +85,9 @@ export function SessionTimer({
         className={cn(
           "text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums transition-[color,text-shadow] duration-300 ease-out motion-reduce:transition-none",
           glow
-            ? "text-[var(--session-state-color)] landscape:text-[56px] landscape:leading-[64px]"
+            ? "text-[var(--session-state-color)] landscape-compact:text-[56px] landscape-compact:leading-[64px]"
             : cn(
-                "landscape:text-right landscape:text-[35px] landscape:leading-[42px] landscape:tracking-[-0.3px]",
+                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-[42px] landscape-compact:tracking-[-0.3px]",
                 state === "focus" ? "text-white" : "text-text-tertiary",
               ),
         )}
@@ -100,8 +100,8 @@ export function SessionTimer({
         className={cn(
           "mt-[7px] text-center text-[15px] leading-[18px] font-medium text-white/42 tabular-nums",
           glow
-            ? "landscape:mt-[10px]"
-            : "landscape:mt-[3px] landscape:text-right landscape:text-[13px] landscape:leading-[15px] landscape:text-white/40",
+            ? "landscape-compact:mt-[10px]"
+            : "landscape-compact:mt-[3px] landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-[15px] landscape-compact:text-white/40",
         )}
       >
         <span aria-hidden="true">총 {formatElapsed(studySec)}</span>
