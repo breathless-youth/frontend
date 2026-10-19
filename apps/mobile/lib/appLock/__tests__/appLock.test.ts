@@ -266,8 +266,8 @@ describe("startStudyLock", () => {
     await startStudyLock();
     expect(rnda.updateShield).toHaveBeenCalledWith(
       {
-        title: "지금은 공부에 집중하고,\n쉴 땐 확실히 쉬자고요:)",
-        subtitle: "공부가 끝나면 다시 열려요",
+        title: "지금은 공부에 집중하는 시간이에요",
+        subtitle: "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요",
         primaryButtonLabel: "닫기",
         iconSystemName: "lock.fill",
         // brand/primary 라이트 #1b64da

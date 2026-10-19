@@ -26,8 +26,9 @@ const APPROVED_BEFORE_KEY = "appLock.approvedBefore";
 const STORE_OPTIONS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 const SELECTION = { activitySelectionId: SELECTION_ID };
 const SHIELD = {
-  title: "지금은 공부에 집중하고,\n쉴 땐 확실히 쉬자고요:)",
-  subtitle: "공부가 끝나면 다시 열려요",
+  title: "지금은 공부에 집중하는 시간이에요",
+  // 앱을 강제 종료한 사람은 공부가 끝났다고 여겨 "공부가 끝나면"으로는 우리 앱을 다시 열어야 풀린다는 걸 모른다.
+  subtitle: "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요",
   primaryButtonLabel: "닫기",
   iconSystemName: "lock.fill",
   // Shield는 RGB 값 하나만 받아 다크 모드를 따라가지 못해서 라이트 값을 쓴다.

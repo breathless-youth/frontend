@@ -244,14 +244,14 @@ class AppLockService : Service() {
       addView(icon, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER))
     }
     val title = TextView(this).apply {
-      text = "지금은 공부에 집중하고,\n쉴 땐 확실히 쉬자고요:)"
+      text = "지금은 공부에 집중하는 시간이에요"
       setTextColor(primaryText)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
       typeface = Typeface.DEFAULT_BOLD
       gravity = Gravity.CENTER
     }
     val subtitle = TextView(this).apply {
-      text = "공부가 끝나면 다시 열려요"
+      text = "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요"
       setTextColor(secondaryText)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
       gravity = Gravity.CENTER
