@@ -36,7 +36,6 @@ export default function AppLockBatteryScreen() {
           router.back();
         },
       }}
-      secondaryLabel="다음에 할게요"
     >
       <Text className="text-text-secondary dark:text-text-secondary-dark -mt-2 mb-4 font-sans text-[13px] leading-[19px]">
         휴대폰이 배터리를 아끼기 위해 잠금을 풀 수도 있어요.

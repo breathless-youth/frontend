@@ -88,10 +88,11 @@ describe("방해 앱 잠금 권한 안내", () => {
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
-  it("나중에 할게요는 닫는다", () => {
+  it("닫기는 시스템 시트에 맡기고 시트 안에는 설정 여는 버튼만 둔다", () => {
     render(<AppLockConsentScreen />);
-    fireEvent.press(screen.getByRole("button", { name: "나중에 할게요" }));
-    expect(router.back).toHaveBeenCalled();
+    expect(screen.getAllByRole("button").map((button) => button.props.accessibilityLabel)).toEqual([
+      "동의하고 설정 열기",
+    ]);
   });
 
   it("어떻게 닫히든 닫힘을 알린다", () => {

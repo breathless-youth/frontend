@@ -67,24 +67,11 @@ describe("배터리 예외 안내", () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it("다음에 할게요는 설정을 열지 않고 닫는다", () => {
+  it("닫기는 시스템 시트에 맡기고 시트 안에는 설정 열기 버튼만 둔다", () => {
     setManufacturer("samsung");
     render(<AppLockBatteryScreen />);
-    fireEvent.press(screen.getByRole("button", { name: "다음에 할게요" }));
-    expect(mockNative.openAppBatterySettings).not.toHaveBeenCalled();
-    expect(router.back).toHaveBeenCalled();
-  });
-
-  it("배경은 닫기 버튼으로 읽히고 누르면 닫는다", () => {
-    setManufacturer("samsung");
-    render(<AppLockBatteryScreen />);
-    fireEvent.press(screen.getByRole("button", { name: "닫기" }));
-    expect(router.back).toHaveBeenCalled();
-  });
-
-  it("시트는 화면 읽기에서 모달로 다룬다", () => {
-    setManufacturer("samsung");
-    const { toJSON } = render(<AppLockBatteryScreen />);
-    expect(toJSON()).toMatchObject({ props: { accessibilityViewIsModal: true } });
+    expect(screen.getAllByRole("button").map((button) => button.props.accessibilityLabel)).toEqual([
+      "설정 열기",
+    ]);
   });
 });
