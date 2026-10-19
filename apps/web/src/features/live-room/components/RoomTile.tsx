@@ -78,7 +78,7 @@ export function SelfStateBadge({
       data-testid="self-state-badge"
       data-state={state}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.25 backdrop-blur sm:not-landscape-compact:gap-2 sm:not-landscape-compact:py-1.5 sm:not-landscape-compact:pr-3.5 sm:not-landscape-compact:pl-3 short-side-lg:gap-2.5 short-side-lg:py-2 short-side-lg:pr-4.5 short-side-lg:pl-3.75",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.25 backdrop-blur regular:gap-2 regular:py-1.5 regular:pr-3.5 regular:pl-3 short-side-lg:gap-2.5 short-side-lg:py-2 short-side-lg:pr-4.5 short-side-lg:pl-3.75",
         className,
       )}
       style={spec.pill}
@@ -90,7 +90,7 @@ export function SelfStateBadge({
         style={{ backgroundColor: spec.ink }}
       />
       <span
-        className="text-[13px] leading-4 font-bold tabular-nums sm:not-landscape-compact:text-base sm:not-landscape-compact:leading-5 short-side-lg:text-xl short-side-lg:leading-6.25"
+        className="text-[13px] leading-4 font-bold tabular-nums regular:text-base regular:leading-5 short-side-lg:text-xl short-side-lg:leading-6.25"
         style={{ color: spec.ink }}
       >
         {focusSec === undefined ? "--:--" : formatStudyHhMm(focusSec)}
@@ -170,7 +170,7 @@ export function RoomTile({
           infoHidden && "opacity-0",
         )}
       >
-        <p className="text-[15px] font-bold text-white sm:not-landscape-compact:text-[1.0625rem] short-side-lg:text-[1.3125rem]">
+        <p className="text-[15px] font-bold text-white regular:text-[1.0625rem] short-side-lg:text-[1.3125rem]">
           {member.nickname}
           {/* 타 참가자의 집중상태는 시각 표시가 없다 */}
           <span className="sr-only">
@@ -182,7 +182,7 @@ export function RoomTile({
           </span>
         </p>
         {member.goal != null && (
-          <p className="mt-1 text-xs leading-3.75 text-white/72 sm:not-landscape-compact:text-sm sm:not-landscape-compact:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5">
+          <p className="mt-1 text-xs leading-3.75 text-white/72 regular:text-sm regular:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5">
             {member.goal}
           </p>
         )}

@@ -62,7 +62,7 @@ export function RoomControlBar({
       // 300ms는 올라올 때 '확' 나타나는 인상이 있었다(2026-08-26 피드백, 디스코드 참조).
       // 타일 쪽은 레이아웃 트랜지션 금지(랙·페인트 사고 이력)라 바의 정착감이 토글의
       // 부드러움을 혼자 담당한다.
-      className={`flex h-20 items-center gap-5.5 rounded-full border border-white/10 bg-(--session-bar-bg) px-6 backdrop-blur-[7px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:not-landscape-compact:h-22 sm:not-landscape-compact:gap-4 sm:not-landscape-compact:px-3 short-side-lg:h-27.5 short-side-lg:gap-5 short-side-lg:px-3.75 ${
+      className={`flex h-20 items-center gap-5.5 rounded-full border border-white/10 bg-(--session-bar-bg) px-6 backdrop-blur-[7px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none regular:h-22 regular:gap-4 regular:px-3 short-side-lg:h-27.5 short-side-lg:gap-5 short-side-lg:px-3.75 ${
         // 이동량 = 바 높이(100%) + 래퍼의 bottom 오프셋(safe-area+17px) — 화면 밖까지 정확히
         // 나간다. 부모 main의 overflow-hidden이 내려간 바를 잘라 문서 스크롤을 막는다.
         hidden
@@ -77,7 +77,7 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={`flex size-12.5 items-center justify-center rounded-full transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20 ${
+        className={`flex size-12.5 items-center justify-center rounded-full transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none regular:size-16 short-side-lg:size-20 ${
           // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
           // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
           cameraOn ? "bg-white/12" : "bg-[#ff6b77]/20"
@@ -88,7 +88,7 @@ export function RoomControlBar({
           key={cameraOn ? "on" : "off"}
           src={cameraOn ? cameraIcon : cameraOffIcon}
           alt=""
-          className="size-5 animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none sm:not-landscape-compact:size-6.75 short-side-lg:size-8.5"
+          className="size-5 animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none regular:size-6.75 short-side-lg:size-8.5"
         />
       </button>
       <button
@@ -102,12 +102,12 @@ export function RoomControlBar({
           setFlipTurns((turns) => turns + 1);
           onFlipCamera();
         }}
-        className="flex size-12.5 items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20"
+        className="flex size-12.5 items-center justify-center rounded-full bg-white/12 transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none regular:size-16 short-side-lg:size-20"
       >
         {/* 몸통은 고정, 안의 화살표만 돈다(2026-08-25 피드백) — 회전은 컴포넌트 내부 g가 처리. */}
         <CameraFlipIcon
           turns={flipTurns}
-          className="size-6 text-white sm:not-landscape-compact:size-8.25 short-side-lg:size-10.25"
+          className="size-6 text-white regular:size-8.25 short-side-lg:size-10.25"
         />
       </button>
       <button
@@ -116,13 +116,9 @@ export function RoomControlBar({
         onPointerDown={playPressPop}
         disabled={disabled}
         onClick={onExit}
-        className="flex size-12.5 items-center justify-center rounded-full bg-(--session-exit-bg) transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none sm:not-landscape-compact:size-16 short-side-lg:size-20"
+        className="flex size-12.5 items-center justify-center rounded-full bg-(--session-exit-bg) transition-transform duration-200 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none regular:size-16 short-side-lg:size-20"
       >
-        <img
-          src={exitIcon}
-          alt=""
-          className="size-5 sm:not-landscape-compact:size-6.75 short-side-lg:size-8.5"
-        />
+        <img src={exitIcon} alt="" className="size-5 regular:size-6.75 short-side-lg:size-8.5" />
       </button>
     </div>
   );

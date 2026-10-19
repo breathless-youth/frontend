@@ -12,7 +12,7 @@ import type { RoomGridSpec } from "@/features/live-room/roomGrid";
 import { useTileFlipAnimation } from "@/features/live-room/useTileFlipAnimation";
 import { cn } from "@/lib/utils";
 
-/** 폭 600 이상 창의 타일 간격(px)이다. 타일 묶음의 `sm:not-landscape-compact:gap-2`와 같은 값이어야 한다. */
+/** 폭 600 이상 창의 타일 간격(px)이다. 타일 묶음의 `regular:gap-2`와 같은 값이어야 한다. */
 const TILE_GAP_PX = 8;
 
 function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, MediaStream>) {
@@ -152,7 +152,7 @@ export function RoomGrid({
         "landscape-compact:pb-2",
         // 폭 600 이상 창은 바 표시와 무관하게 아래 바 자리를 비워 둔다.
         // 바 토글이 타일 크기를 바꾸지 않는다.
-        "sm:not-landscape-compact:px-4 sm:not-landscape-compact:pt-[calc(env(safe-area-inset-top)+16px)] sm:not-landscape-compact:pb-[calc(env(safe-area-inset-bottom)+112px)]",
+        "regular:px-4 regular:pt-[calc(env(safe-area-inset-top)+16px)] regular:pb-[calc(env(safe-area-inset-bottom)+112px)]",
         // 큰 태블릿은 바가 커져 그만큼 더 비운다.
         "short-side-lg:pb-[calc(env(safe-area-inset-bottom)+136px)]",
       )}
@@ -174,8 +174,7 @@ export function RoomGrid({
           allMembers.length > 4 &&
             "landscape-compact:mx-auto landscape-compact:max-w-[calc(132dvh+8px)]",
           // 한 줄 폭을 열 수만큼으로 묶어 justify-center가 마지막 줄을 가운데 놓는다.
-          fit !== null &&
-            "sm:not-landscape-compact:mx-auto sm:not-landscape-compact:w-(--room-grid-width) sm:not-landscape-compact:gap-2",
+          fit !== null && "regular:mx-auto regular:w-(--room-grid-width) regular:gap-2",
         )}
       >
         {allMembers.map((member) => (
@@ -211,7 +210,7 @@ export function RoomGrid({
                   : allMembers.length === 4
                     ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4))]"
                     : "landscape-compact:h-[44dvh]",
-              fit !== null && "sm:not-landscape-compact:size-(--room-tile-size)",
+              fit !== null && "regular:size-(--room-tile-size)",
             )}
           />
         ))}

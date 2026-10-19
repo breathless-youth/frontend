@@ -81,9 +81,16 @@ async function utilityRules(candidate: string) {
     }));
 }
 
+async function themeDeclarations(candidate: string) {
+  const compiler = await compile(css, { base: srcDir, loadStylesheet });
+  return rulesIn(compiler.build([candidate]))
+    .filter((rule) => rule.ancestors.includes("@layer theme"))
+    .flatMap((rule) => rule.declarations);
+}
+
 describe("직접 만든 반응형 변형", () => {
-  it("폭 600 이상이면서 가로 폰이 아닐 때는 not 쿼리가 조건 전체를 감싼다", async () => {
-    expect(await utilityRules("sm:not-landscape-compact:size-16")).toEqual([
+  it("태블릿 변형은 폭 600 이상이면서 가로 폰이 아닐 때 걸리고 not 쿼리가 조건 전체를 감싼다", async () => {
+    expect(await utilityRules("regular:size-16")).toEqual([
       {
         media: ["(width >= 37.5rem)", "not ((orientation: landscape) and (height < 30rem))"],
         declarations: ["width: calc(var(--spacing) * 16)", "height: calc(var(--spacing) * 16)"],
@@ -106,6 +113,43 @@ describe("직접 만든 반응형 변형", () => {
         media: ["((orientation: landscape) and (height < 30rem))"],
         declarations: ["display: grid"],
       },
+    ]);
+  });
+});
+
+describe("페이지 열", () => {
+  const regularMedia = [
+    "(width >= 37.5rem)",
+    "not ((orientation: landscape) and (height < 30rem))",
+  ];
+  const largeMedia = ["((width >= 62.5rem) and (height >= 62.5rem))"];
+
+  it("폰에서는 규칙이 없고 태블릿과 큰 태블릿에서만 좌우를 비운다", async () => {
+    // 큰 태블릿 규칙이 뒤에 나와야 두 조건이 함께 맞는 창에서 720 기준이 이긴다.
+    expect(await utilityRules("page-column")).toEqual([
+      {
+        media: regularMedia,
+        declarations: ["padding-inline: max(0rem, (100% - var(--container-page)) / 2)"],
+      },
+      {
+        media: largeMedia,
+        declarations: ["padding-inline: max(0rem, (100% - var(--container-page-lg)) / 2)"],
+      },
+    ]);
+  });
+
+  it("열 폭은 태블릿 640, 큰 태블릿 720이다", async () => {
+    expect(await themeDeclarations("page-column")).toEqual(
+      expect.arrayContaining(["--container-page: 40rem", "--container-page-lg: 45rem"]),
+    );
+  });
+
+  it("max-w-page·max-w-page-lg는 regular·short-side-lg 미디어 쿼리 안에서 열 폭 토큰을 읽는 규칙으로 생성된다", async () => {
+    expect(await utilityRules("regular:max-w-page")).toEqual([
+      { media: regularMedia, declarations: ["max-width: var(--container-page)"] },
+    ]);
+    expect(await utilityRules("short-side-lg:max-w-page-lg")).toEqual([
+      { media: largeMedia, declarations: ["max-width: var(--container-page-lg)"] },
     ]);
   });
 });
