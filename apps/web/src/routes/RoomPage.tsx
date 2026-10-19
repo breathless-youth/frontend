@@ -47,6 +47,7 @@ import {
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import { sheetTimerTravel } from "@/features/study-session/sheetTimerTravel";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -72,7 +73,6 @@ import {
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
-import { sheetTimerTravel } from "@/features/study-session/sheetTimerTravel";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
 /**
