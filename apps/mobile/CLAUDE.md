@@ -78,9 +78,9 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **전달 대상(sink)은 항상 하나다.** 탭 5개 웹뷰가 동시에 마운트돼 있어, `RemoteWebViewHost`는 `focused`이면서 웹이 `analytics-ready`를 보낸 문서일 때만 sink로 붙는다. sink가 없는 동안은 큐에 보관(최대 100건)했다가 다음 sink에 순서대로 흘린다.
 - **`analytics-ready`는 handshake다.** 호스트는 재시도·사망 복구 진입에서 준비 상태를 되돌리고 `onLoadEnd`에서는 되돌리지 않는다. 한 사건을 두 발신부에서 찍지 않는다. 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 
-## 화면 방향 — 룸만 회전
+## 화면 방향 — 폰은 룸만 회전
 
-**싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 세로다.** 정책은 세 곳이 함께 만들고 한쪽만 보고 고치면 티 나지 않게 깨진다. 정정·재정정 경위는 `lib/orientation.ts` 주석과 [SCR-S3-5](../../docs/screens/SCR-S3-5-S3-6-session-landscape.md).
+**폰에서는 싱글룸(`room/[id]`)과 소셜룸(웹 브리지 `set-orientation`)만 회전하고 나머지는 세로다.** 태블릿은 아래 "태블릿에서는 세로 잠금이 지켜지지 않는다"를 본다. 정책은 세 곳이 함께 만들고 한쪽만 보고 고치면 티 나지 않게 깨진다. 정정·재정정 경위는 `lib/orientation.ts` 주석과 [SCR-S3-5](../../docs/screens/SCR-S3-5-S3-6-session-landscape.md).
 
 | 위치                                            | 값                                        | 역할                            |
 | ----------------------------------------------- | ----------------------------------------- | ------------------------------- |
@@ -89,6 +89,17 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 | `app/_layout.tsx`의 `screenOptions`             | Android에서만 `portrait` / 세션 `default` | Android 집행                    |
 
 - **`app.json`을 `"portrait"`로 되돌리지 말 것**(상한을 세로로 닫아 세션이 회전하지 않게 된다). **rn-screens `orientation` 옵션은 Android에서만 싣는다** — iOS에 되살리면 `expo-screen-orientation`이 rn-screens에 양보해 세로 잠금이 통째로 죽는다. 세션 해제는 `ALL`이 아니라 `DEFAULT`로 둔다(iOS에서 `ALL`은 거꾸로 세로까지 포함). `expo-screen-orientation`은 네이티브 모듈이라 Dev Client 리빌드가 필요하고, 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것.
+
+### 태블릿에서는 세로 잠금이 지켜지지 않는다
+
+2026-10-19 iPad 시뮬레이터(iPadOS 27)와 Android 태블릿 에뮬레이터(API 35·36)로 확인한 사실이다. 잠금 코드는 그대로 두기로 했다.
+
+- iPad는 화면 분할을 지원하는 앱(`UIRequiresFullScreen=false`)이라 iPadOS가 세로 잠금을 무시하고 탭 화면도 회전한다. 잠금 호출 자체는 성공으로 끝나서 로그만 보면 잠긴 것처럼 보인다.
+- Android 16(targetSdk 36) 태블릿(짧은 변 600dp 이상)도 세로 잠금을 무시하고 네 방향으로 회전한다.
+- Android 15 이하 태블릿은 잠금이 걸린다. 가로로 둔 기기에서는 가운데에 세로 화면이 검은 여백과 함께 보인다.
+- 그래서 태블릿의 탭 화면 웹은 가로로도 열린다고 보고 만든다. 웹 쪽 태블릿 배치 기준은 `focusmakers-design` 스킬의 "반응형 기준"에 있다.
+- iPadOS 18 이상 넓은 화면에서는 NativeTabs 탭 바가 화면 위쪽에 뜬다. 그 높이가 웹뷰의 `env(safe-area-inset-top)`에 들어가므로(실측 위 96px, 아래 20px) 탭 페이지 상단 여백은 고칠 필요가 없다. 지금 설정에서는 사이드바 전환 버튼도 나오지 않는다.
+- Android 태블릿 가로에서 커스텀 탭 바는 폭 402dp로 가운데에 뜬다. 깨지거나 겹치는 곳은 없다.
 
 ## 개인정보 원칙 (변경 불가, WebView·네이티브 공통)
 
