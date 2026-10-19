@@ -88,11 +88,11 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 | `lib/orientation.ts`(`expo-screen-orientation`) | 루트 세로 잠금 / 룸에서 해제              | iOS의 단일 집행자               |
 | `app/_layout.tsx`의 `screenOptions`             | Android에서만 `portrait` / 세션 `default` | Android 집행                    |
 
-- **`app.json`을 `"portrait"`로 되돌리지 말 것**(상한을 세로로 닫아 세션이 회전하지 않게 된다). **rn-screens `orientation` 옵션은 Android에서만 싣는다** — iOS에 되살리면 `expo-screen-orientation`이 rn-screens에 양보해 세로 잠금이 통째로 죽는다. 세션 해제는 `ALL`이 아니라 `DEFAULT`로 둔다(iOS에서 `ALL`은 거꾸로 세로까지 포함). `expo-screen-orientation`은 네이티브 모듈이라 Dev Client 리빌드가 필요하고, 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것.
+- **`app.json`을 `"portrait"`로 되돌리지 말 것**(상한을 세로로 닫아 세션이 회전하지 않게 된다). **rn-screens `orientation` 옵션은 Android에서만 싣는다** — iOS에 되살리면 `expo-screen-orientation`이 rn-screens에 양보해 세로 잠금이 통째로 죽는다. 세션 해제는 `ALL`이 아니라 `DEFAULT`로 둔다(iOS에서 `ALL`은 거꾸로 세로까지 포함). `expo-screen-orientation`은 네이티브 모듈이라 Dev Client 리빌드가 필요하고, 폰의 세션 외 화면에 가로 레이아웃을 만들기 전에는 이 정책을 풀지 말 것.
 
 ### 태블릿에서는 세로 잠금이 지켜지지 않는다
 
-2026-10-19 iPad 시뮬레이터(iPadOS 27)와 Android 태블릿 에뮬레이터(API 35·36)로 확인한 사실이다. 잠금 코드는 그대로 두기로 했다.
+2026-10-19 iPad 시뮬레이터(iPadOS 27)와 Android 태블릿 에뮬레이터(API 35·36)로 확인한 사실이다. 잠금 코드는 그대로 두기로 했다. 아래 두 설정값은 저장소 파일에 없고 빌드 때 정해진다. `UIRequiresFullScreen=false`는 `app.json`에 `supportsTablet: true`만 있고 `requireFullScreen`이 없어서 Expo 설정 플러그인이 넣는다. `targetSdk 36`은 React Native 기본값(`react-native/gradle/libs.versions.toml`)이다.
 
 - iPad는 화면 분할을 지원하는 앱(`UIRequiresFullScreen=false`)이라 iPadOS가 세로 잠금을 무시하고 탭 화면도 회전한다. 잠금 호출 자체는 성공으로 끝나서 로그만 보면 잠긴 것처럼 보인다.
 - Android 16(targetSdk 36) 태블릿(짧은 변 600dp 이상)도 세로 잠금을 무시하고 네 방향으로 회전한다.
