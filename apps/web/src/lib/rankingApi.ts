@@ -1,7 +1,6 @@
 import type {
   MedalRank,
   RankingBoardResponse,
-  RankingHomeResponse,
   RankingPeriod,
   RankingRecordSeenRequest,
   RankingRecordType,
@@ -49,11 +48,7 @@ function toQuery(pairs: [string, string | number | null | undefined][]): string 
 }
 
 type RankingGetEndpoint =
-  | "rankingBoard"
-  | "rankingRecordsSummary"
-  | "rankingRecords"
-  | "rankingHome"
-  | "rankingRecordsUnseen";
+  "rankingBoard" | "rankingRecordsSummary" | "rankingRecords" | "rankingRecordsUnseen";
 
 async function getJson<T>(
   path: string,
@@ -134,28 +129,6 @@ export async function getRankingRecords(
     ["size", params.size],
   ]);
   return getJson(`/api/rankings/records${query}`, "rankingRecords", "랭킹 기록 조회 실패", signal);
-}
-
-/**
- * 홈 추월 조회
- *
- * `since`는 마지막으로 앱이 가려진 UTC 시각이다.
- * 서버가 부를 때마다 이번 주를 다시 세므로 호출부는 그날 첫 확인에만 부른다.
- */
-export async function getRankingHome(
-  since: string,
-  signal?: AbortSignal,
-): Promise<RankingHomeResponse> {
-  const dev = await devMock();
-  if (dev !== null) {
-    return dev.mock.mockHome(dev.scene);
-  }
-  return getJson(
-    `/api/rankings/home${toQuery([["since", since]])}`,
-    "rankingHome",
-    "홈 랭킹 조회 실패",
-    signal,
-  );
 }
 
 /**

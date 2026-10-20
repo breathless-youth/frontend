@@ -1426,25 +1426,19 @@ describe("랭킹 이벤트", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackRankingOvertakeShown({ count: 4, fromRank: 1201, toRank: 1205 });
-    m.trackRankingOvertakeAction("close");
-    m.trackRankingOvertakeAction("close", "swipe");
     m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
     m.trackRankingMedalModalAction("records");
     m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
     m.trackRankingGainCardTapped("single");
-    m.trackFocusStartTapped("session", "overtake_popup");
+    m.trackFocusStartTapped("session", "ranking_records");
     m.trackStudyResultConfirmed({ roomType: "single", via: "ranking" });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["ranking_overtake_shown", { count: 4, from_rank: 1201, to_rank: 1205 }],
-      ["ranking_overtake_action", { action: "close" }],
-      ["ranking_overtake_action", { action: "close", close_method: "swipe" }],
       ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
       ["ranking_medal_modal_action", { action: "records" }],
       ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],
       ["ranking_gain_card_tapped", { room_type: "single" }],
-      ["focus_start_tapped", { destination: "session", source: "overtake_popup" }],
+      ["focus_start_tapped", { destination: "session", source: "ranking_records" }],
       ["study_result_confirmed", { room_type: "single", via: "ranking" }],
     ]);
   });
@@ -1452,8 +1446,6 @@ describe("랭킹 이벤트", () => {
   it("노출 지점 이벤트도 미초기화 상태에서는 보내지 않는다", async () => {
     const m = await loadModule();
 
-    m.trackRankingOvertakeShown({ count: 1, fromRank: 3, toRank: 4 });
-    m.trackRankingOvertakeAction("study");
     m.trackRankingMedalModalShown({ count: 1, bestRank: 2, mixedPeriod: false });
     m.trackRankingMedalModalAction("close");
     m.trackRankingGainCardShown({ delta: 1, chipCount: 0, roomType: "single" });

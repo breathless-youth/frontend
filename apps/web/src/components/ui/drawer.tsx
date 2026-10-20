@@ -16,9 +16,6 @@ const DrawerClose = DrawerPrimitive.Close;
 const DrawerTitle = DrawerPrimitive.Title;
 const DrawerDescription = DrawerPrimitive.Description;
 
-/** `onOpenChange`가 넘기는 닫힌 이유. 추월 시트가 분석 속성으로 옮겨 싣는다. */
-export type DrawerCloseReason = DrawerPrimitive.Root.ChangeEventReason;
-
 const DRAWER_EASE = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {

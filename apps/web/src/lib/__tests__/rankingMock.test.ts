@@ -3,15 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as ApiModule from "@/lib/api";
 import {
   getRankingBoard,
-  getRankingHome,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
   getRankingSessionGains,
   postRankingRecordsSeen,
 } from "@/lib/rankingApi";
 import {
-  FIXTURE_HOME_NONE,
-  FIXTURE_HOME_OVERTAKEN,
   FIXTURE_OVERTAKEN,
   FIXTURE_SESSION_GAINS,
   FIXTURE_SESSION_GAINS_EMPTY,
@@ -27,7 +24,6 @@ import {
   __resetRankingMockForTests,
   activeRankingScene,
   mockBoard,
-  mockHome,
   mockRecords,
   mockSessionGains,
   mockUnseen,
@@ -108,14 +104,12 @@ describe("노출 지점 가짜 응답", () => {
     expect(activeRankingScene()).toBe("medal-mixed");
   });
 
-  it("장면마다 추월·안 본 메달·오른 순위를 고르고, 해당 없는 장면은 빈 응답이다", () => {
-    expect(mockHome("overtaken")).toEqual(FIXTURE_HOME_OVERTAKEN);
-    expect(mockHome("default")).toEqual(FIXTURE_HOME_NONE);
+  it("장면마다 안 본 메달·오른 순위를 고르고, 해당 없는 장면은 빈 응답이다", () => {
     expect(mockUnseen("medal-1")).toEqual(FIXTURE_UNSEEN_ONE);
     expect(mockUnseen("medal-3")).toEqual(FIXTURE_UNSEEN_THREE);
     expect(mockUnseen("medal-5")).toEqual(FIXTURE_UNSEEN_FIVE);
     expect(mockUnseen("medal-mixed")).toEqual(FIXTURE_UNSEEN_MIXED);
-    expect(mockUnseen("overtaken")).toEqual(FIXTURE_UNSEEN_NONE);
+    expect(mockUnseen("default")).toEqual(FIXTURE_UNSEEN_NONE);
     expect(mockSessionGains("gain")).toEqual(FIXTURE_SESSION_GAINS);
     expect(mockSessionGains("gain-none")).toEqual(FIXTURE_SESSION_GAINS_NO_WEEKLY);
     expect(mockSessionGains("medal-1")).toEqual(FIXTURE_SESSION_GAINS_EMPTY);
@@ -125,7 +119,6 @@ describe("노출 지점 가짜 응답", () => {
     open("/home?rankingMock=medal-1");
 
     await expect(getRankingRecordsUnseen()).resolves.toEqual(FIXTURE_UNSEEN_ONE);
-    await expect(getRankingHome("2026-10-11T14:00:00.000Z")).resolves.toEqual(FIXTURE_HOME_NONE);
     await expect(getRankingSessionGains("2026-10-12T00:00:00.000Z")).resolves.toEqual(
       FIXTURE_SESSION_GAINS_EMPTY,
     );

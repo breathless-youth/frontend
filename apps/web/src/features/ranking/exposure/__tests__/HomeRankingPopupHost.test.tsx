@@ -1,17 +1,11 @@
-import type { RankingHomeResponse, RankingUnseenResponse } from "@focusmakers/types";
+import type { RankingUnseenResponse } from "@focusmakers/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createMemoryInterviewStore,
-  recordLastHiddenAt,
-  resetInterviewStore,
-  setInterviewStore,
-} from "@/features/interview/interviewStore";
 import { hasShownNoticeThisLaunch, markNoticeShownThisLaunch } from "@/features/notice/noticeStore";
 import {
   createMemoryBoardMemoryStore,
@@ -22,68 +16,36 @@ import {
 import { markRecoveryShownThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import type * as Amplitude from "@/lib/amplitude";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
-import {
-  FIXTURE_HOME_NONE,
-  FIXTURE_HOME_OVERTAKEN,
-  FIXTURE_UNSEEN_NONE,
-  FIXTURE_UNSEEN_ONE,
-} from "@/lib/rankingFixtures";
+import { FIXTURE_UNSEEN_NONE, FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 
 import { HomeRankingPopupHost } from "../HomeRankingPopupHost";
 
 const rankingApi = vi.hoisted(() => ({
   getRankingRecordsUnseen: vi.fn(),
-  getRankingHome: vi.fn(),
   postRankingRecordsSeen: vi.fn(),
 }));
 vi.mock("@/lib/rankingApi", () => rankingApi);
 
-const startFocus = vi.hoisted(() => vi.fn());
-vi.mock("@/features/onboarding/useFocusStart", () => ({ useFocusStart: () => startFocus }));
-
 const analytics = vi.hoisted(() => ({
   trackRankingMedalModalShown: vi.fn(),
   trackRankingMedalModalAction: vi.fn(),
-  trackRankingOvertakeShown: vi.fn(),
-  trackRankingOvertakeAction: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   ...analytics,
 }));
 
-/** 마지막으로 앱이 가려진 시각이고 KST로 10월 11일 오후 11시다. */
-const LAST_HIDDEN_AT = Date.parse("2026-10-11T14:00:00Z");
-const OVERTAKE_TITLE = "자리 비운 사이 4명이 추월했어요";
-
-let boardStore: ReturnType<typeof createMemoryBoardMemoryStore>;
-
-// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
-beforeAll(async () => {
-  await import("../OvertakeSheet");
-});
-
 beforeEach(() => {
-  // 지금을 KST 10월 12일 오전 10시로 둔다.
-  // 날짜만 고정해 쿼리 타이머는 그대로 돈다.
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-10-12T01:00:00Z"));
-  localStorage.clear();
   sessionStorage.clear();
-  setInterviewStore(createMemoryInterviewStore({}, LAST_HIDDEN_AT));
-  boardStore = createMemoryBoardMemoryStore();
-  setBoardMemoryStore(boardStore);
+  setBoardMemoryStore(createMemoryBoardMemoryStore());
   rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_NONE);
-  rankingApi.getRankingHome.mockResolvedValue(FIXTURE_HOME_OVERTAKEN);
   rankingApi.postRankingRecordsSeen.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   vi.restoreAllMocks();
-  resetInterviewStore();
   resetBoardMemoryStore();
   Reflect.deleteProperty(document, "visibilityState");
   window.history.replaceState(null, "", "/");
@@ -99,12 +61,10 @@ function renderHost({
   ready = true,
   blocked = false,
   strict = false,
-  Host = HomeRankingPopupHost,
 }: {
   ready?: boolean;
   blocked?: boolean;
   strict?: boolean;
-  Host?: typeof HomeRankingPopupHost;
 } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
@@ -117,7 +77,12 @@ function renderHost({
             <Route
               path="/home"
               element={
-                <Host userId={7} ready={isReady} blocked={isBlocked} onOpenChange={onOpenChange} />
+                <HomeRankingPopupHost
+                  userId={7}
+                  ready={isReady}
+                  blocked={isBlocked}
+                  onOpenChange={onOpenChange}
+                />
               }
             />
             <Route path="/ranking" element={<Probe />} />
@@ -177,9 +142,6 @@ describe("HomeRankingPopupHost: 메달 모달", () => {
       mixedPeriod: false,
     });
     expect(hasShownNoticeThisLaunch()).toBe(true);
-    expect(localStorage.getItem("focuson.ranking.medalShownOn")).toBe("2026-10-12");
-    // 메달이 있으면 추월은 묻지 않는다.
-    expect(rankingApi.getRankingHome).not.toHaveBeenCalled();
   });
 
   it("StrictMode가 판단을 두 번 돌려도 모달과 본 것 보내기, 노출 이벤트는 한 번이다", async () => {
@@ -345,155 +307,6 @@ describe("HomeRankingPopupHost: 홈과 주고받기", () => {
   });
 });
 
-describe("HomeRankingPopupHost: 추월 시트", () => {
-  it("판단이 늦어져도 홈이 뜰 때의 숨김 시각으로 추월을 묻는다", async () => {
-    const view = renderHost({ ready: false });
-    // 판단을 기다리는 사이 앱을 잠깐 내렸다 올려 숨김 기록이 지금으로 바뀐 경우다.
-    recordLastHiddenAt(Date.now());
-
-    view.setReady(true);
-
-    await screen.findByRole("dialog", { name: OVERTAKE_TITLE });
-    expect(rankingApi.getRankingHome).toHaveBeenCalledWith(
-      "2026-10-11T14:00:00.000Z",
-      expect.any(AbortSignal),
-    );
-  });
-
-  it("메달이 없으면 그날 첫 확인에 마지막으로 가려진 뒤의 추월을 묻고 시트를 띄운다", async () => {
-    renderHost();
-
-    expect(await screen.findByRole("dialog", { name: OVERTAKE_TITLE })).toBeInTheDocument();
-    expect(rankingApi.getRankingHome).toHaveBeenCalledWith(
-      "2026-10-11T14:00:00.000Z",
-      expect.any(AbortSignal),
-    );
-    expect(analytics.trackRankingOvertakeShown).toHaveBeenCalledWith({
-      count: 4,
-      fromRank: 1201,
-      toRank: 1205,
-    });
-    expect(localStorage.getItem("focuson.ranking.overtakeCheckedOn")).toBe("2026-10-12");
-    expect(hasShownNoticeThisLaunch()).toBe(true);
-  });
-
-  it.each([["focuson.ranking.overtakeCheckedOn"], ["focuson.ranking.medalShownOn"]])(
-    "%s가 오늘이면 추월을 묻지 않는다",
-    async (key) => {
-      localStorage.setItem(key, "2026-10-12");
-      renderHost();
-
-      await settle();
-
-      expect(rankingApi.getRankingHome).not.toHaveBeenCalled();
-      expect(screen.queryByRole("dialog")).toBeNull();
-    },
-  );
-
-  it("마지막으로 가려진 시각이 없으면 묻지 않고 그날 확인한 것으로 적는다", async () => {
-    setInterviewStore(createMemoryInterviewStore());
-    renderHost();
-
-    await waitFor(() =>
-      expect(localStorage.getItem("focuson.ranking.overtakeCheckedOn")).toBe("2026-10-12"),
-    );
-    expect(rankingApi.getRankingHome).not.toHaveBeenCalled();
-  });
-
-  it("추월이 없으면 아무것도 띄우지 않는다", async () => {
-    rankingApi.getRankingHome.mockResolvedValue(FIXTURE_HOME_NONE);
-    renderHost();
-
-    await waitFor(() => expect(rankingApi.getRankingHome).toHaveBeenCalled());
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(hasShownNoticeThisLaunch()).toBe(false);
-  });
-
-  it("공부하러 가기는 추월 출처로 집중 시작을 연다", async () => {
-    renderHost();
-
-    await userEvent.click(await screen.findByRole("button", { name: "공부하러 가기" }));
-
-    expect(startFocus).toHaveBeenCalledWith("overtake_popup");
-    expect(analytics.trackRankingOvertakeAction).toHaveBeenCalledWith("study");
-  });
-
-  it("랭킹 보기는 순공 주간 판을 넘겨주고 랭킹으로 간다", async () => {
-    renderHost();
-
-    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
-
-    expect(await screen.findByText("/ranking?userId=7")).toBeInTheDocument();
-    expect(JSON.parse(boardStore.raw!).ranking).toEqual({ type: "FOCUS_TIME", period: "WEEKLY" });
-    expect(analytics.trackRankingOvertakeAction).toHaveBeenCalledWith("ranking");
-  });
-
-  it("닫은 추월 시트는 같은 날 새 실행에도 다시 띄우지 않는다", async () => {
-    const first = renderHost();
-    await screen.findByRole("dialog", { name: OVERTAKE_TITLE });
-
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(analytics.trackRankingOvertakeAction).toHaveBeenCalledWith("close", "escape");
-
-    first.unmount();
-    sessionStorage.clear();
-    renderHost();
-    await settle();
-
-    expect(rankingApi.getRankingHome).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("추월 시트 코드를 받지 못하면 닫힌 것으로 알리고 close 이벤트는 남기지 않는다", async () => {
-    // 받은 시트는 모듈에 남으므로 아직 받지 않은 새 호스트 모듈로 본다.
-    vi.resetModules();
-    vi.doMock("../OvertakeSheet", () => {
-      throw new Error("chunk load failed");
-    });
-    try {
-      const interview = await import("@/features/interview/interviewStore");
-      interview.setInterviewStore(interview.createMemoryInterviewStore({}, LAST_HIDDEN_AT));
-      const { HomeRankingPopupHost: FreshHost } = await import("../HomeRankingPopupHost");
-      const { onOpenChange } = renderHost({ Host: FreshHost });
-
-      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(true));
-      await waitFor(() => expect(onOpenChange).toHaveBeenLastCalledWith(false));
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(analytics.trackRankingOvertakeAction).not.toHaveBeenCalled();
-    } finally {
-      vi.doUnmock("../OvertakeSheet");
-    }
-  });
-
-  it.each([
-    ["앱이 가려지면", () => setVisibility("hidden")],
-    ["복구 창이 뜨면", markRecoveryShownThisLaunch],
-  ])("추월 응답을 기다리는 사이 %s 시트를 띄우지 않는다", async (_, interrupt) => {
-    let resolveHome: (value: RankingHomeResponse) => void = () => {};
-    rankingApi.getRankingHome.mockReturnValue(
-      new Promise<RankingHomeResponse>((resolve) => {
-        resolveHome = resolve;
-      }),
-    );
-    renderHost();
-    await waitFor(() => expect(rankingApi.getRankingHome).toHaveBeenCalled());
-
-    interrupt();
-    await act(async () => {
-      resolveHome(FIXTURE_HOME_OVERTAKEN);
-    });
-
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(analytics.trackRankingOvertakeShown).not.toHaveBeenCalled();
-    expect(hasShownNoticeThisLaunch()).toBe(false);
-  });
-});
-
 describe("HomeRankingPopupHost: 쉬는 실행", () => {
   it.each([
     ["공지나 인터뷰", markNoticeShownThisLaunch],
@@ -521,26 +334,20 @@ describe("HomeRankingPopupHost: 쉬는 실행", () => {
     expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
   });
 
-  it("메달 요청이 실패하면 추월도 묻지 않고 아무것도 띄우지 않는다", async () => {
+  it("안 본 메달이 없으면 아무것도 띄우지 않는다", async () => {
+    renderHost();
+    await settle();
+
+    await expect(screen.findByRole("dialog", undefined, { timeout: 300 })).rejects.toThrow();
+    expect(hasShownNoticeThisLaunch()).toBe(false);
+  });
+
+  it("메달 요청이 실패하면 아무것도 띄우지 않는다", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     rankingApi.getRankingRecordsUnseen.mockRejectedValue(new Error("network"));
     renderHost();
 
     await settle();
-
-    expect(rankingApi.getRankingHome).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("추월 요청이 실패해도 아무것도 띄우지 않는다", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    rankingApi.getRankingHome.mockRejectedValue(new Error("network"));
-    renderHost();
-
-    await waitFor(() => expect(rankingApi.getRankingHome).toHaveBeenCalled());
-    await act(async () => {
-      await Promise.resolve();
-    });
 
     expect(screen.queryByRole("dialog")).toBeNull();
   });

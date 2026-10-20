@@ -777,8 +777,7 @@ export function trackSocialRoomBackgroundReturned(input: {
 }
 
 /** 집중 시작을 누른 자리. */
-export type FocusStartSource =
-  "home" | "ranking_card" | "ranking_empty" | "ranking_records" | "overtake_popup";
+export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -984,43 +983,6 @@ export function trackRankingRecordTapped(input: {
     period: input.period,
     from: input.from,
   });
-}
-
-/**
- * 추월 바텀시트 노출
- *
- * 순위 값만 싣고 추월한 사람의 닉네임은 싣지 않는다.
- */
-export function trackRankingOvertakeShown(input: {
-  readonly count: number;
-  readonly fromRank: number;
-  readonly toRank: number;
-}) {
-  if (!initialized) return;
-  track("ranking_overtake_shown", {
-    count: input.count,
-    from_rank: input.fromRank,
-    to_rank: input.toRank,
-  });
-}
-
-/** 추월 시트를 닫은 방법. Android 뒤로 가기는 `back`이다. */
-export type RankingOvertakeCloseMethod = "swipe" | "outside" | "escape" | "button" | "back";
-
-/**
- * 추월 바텀시트 동작
- *
- * `close`에는 닫은 방법을 함께 싣는다. 방법을 알 수 없는 닫힘은 속성 없이 보낸다.
- */
-export function trackRankingOvertakeAction(
-  action: "study" | "ranking" | "close",
-  closeMethod?: RankingOvertakeCloseMethod,
-) {
-  if (!initialized) return;
-  track(
-    "ranking_overtake_action",
-    closeMethod === undefined ? { action } : { action, close_method: closeMethod },
-  );
 }
 
 /**

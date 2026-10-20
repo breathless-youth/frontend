@@ -75,8 +75,6 @@ export const API_ENDPOINTS = {
   },
   /** `GET /api/rankings/records`: 랭킹 기록 모두 보기. */
   rankingRecords: { version: "1", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingRecords" },
-  /** `GET /api/rankings/home`: 홈 추월 바텀시트. */
-  rankingHome: { version: "1", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingHome" },
   /** `GET /api/rankings/records/unseen`: 홈 마감 메달 모달. */
   rankingRecordsUnseen: {
     version: "1",

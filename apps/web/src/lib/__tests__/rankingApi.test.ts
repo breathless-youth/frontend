@@ -3,14 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as ApiModule from "@/lib/api";
 import {
   getRankingBoard,
-  getRankingHome,
   getRankingRecords,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
   getRankingSessionGains,
   postRankingRecordsSeen,
 } from "@/lib/rankingApi";
-import { FIXTURE_HOME_NONE, FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
+import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 
 const apiFetch = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api", async (importOriginal) => ({
@@ -105,16 +104,6 @@ describe("getRankingRecords", () => {
 });
 
 describe("노출 지점 호출", () => {
-  it("홈 추월은 since를 쿼리로 싣고 rankingHome으로 GET한다", async () => {
-    apiFetch.mockResolvedValue(ok(FIXTURE_HOME_NONE));
-
-    await expect(getRankingHome("2026-10-11T14:00:00.000Z")).resolves.toEqual(FIXTURE_HOME_NONE);
-    expect(apiFetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/rankings\/home\?since=2026-10-11T14%3A00%3A00\.000Z$/),
-      expect.objectContaining({ endpoint: "rankingHome", method: "GET" }),
-    );
-  });
-
   it("안 본 기록은 rankingRecordsUnseen으로 GET한다", async () => {
     apiFetch.mockResolvedValue(ok(FIXTURE_UNSEEN_ONE));
 

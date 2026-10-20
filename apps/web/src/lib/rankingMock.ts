@@ -1,6 +1,5 @@
 import type {
   RankingBoardResponse,
-  RankingHomeResponse,
   RankingPeriod,
   RankingRecordsPage,
   RankingRecordsSummary,
@@ -14,8 +13,6 @@ import {
   FIXTURE_FIRST_PLACE,
   FIXTURE_FIRST_PREVIOUS,
   FIXTURE_FOCUS_WEEKLY,
-  FIXTURE_HOME_NONE,
-  FIXTURE_HOME_OVERTAKEN,
   FIXTURE_INELIGIBLE,
   FIXTURE_OVERTAKEN,
   FIXTURE_RATE_WEEKLY,
@@ -52,7 +49,6 @@ export const RANKING_MOCK_SCENES = [
   "ineligible",
   "first-place",
   "no-records",
-  "overtaken",
   "medal-1",
   "medal-3",
   "medal-5",
@@ -167,15 +163,6 @@ export function mockRecords(
       (params.type === undefined || item.type === params.type),
   );
   return { items: items.slice(0, params.size), nextCursor: null };
-}
-
-/**
- * 홈 추월
- *
- * `overtaken` 장면만 추월 2명을 준다.
- */
-export function mockHome(scene: RankingMockScene): RankingHomeResponse {
-  return scene === "overtaken" ? FIXTURE_HOME_OVERTAKEN : FIXTURE_HOME_NONE;
 }
 
 const UNSEEN_BY_SCENE: Partial<Record<RankingMockScene, RankingUnseenResponse>> = {
