@@ -198,54 +198,6 @@ export interface RankingRecordsPage {
   nextCursor: string | null;
 }
 
-/** 홈 한 줄 카드의 바로 위 사람. */
-export interface RankingHomeNeighbor {
-  nickname: string;
-  /** 순공 차이(초). */
-  gap: number;
-}
-
-/** 이번 주 순공 판의 내 자리. */
-export interface RankingHomeCard {
-  rank: number;
-  /** 순공(초). */
-  value: number;
-  /** 1위면 null이다. */
-  above: RankingHomeNeighbor | null;
-}
-
-/** `since` 뒤로 나를 추월한 사람 하나. */
-export interface RankingOvertaker {
-  nickname: string;
-  /** 지금 나와의 순공 차이(초). */
-  gap: number;
-  /** `since` 뒤 처음 공부를 시작한 시각이고, 그때 공부 중이었으면 `since`다. */
-  studiedFrom: string;
-  /** `since` 뒤로 쌓은 순공(초). */
-  studiedFocusSec: number;
-}
-
-/** 자리를 비운 사이 바뀐 이번 주 순공 순위. */
-export interface RankingOvertaken {
-  fromRank: number;
-  toRank: number;
-  /** `since`에 내 뒤였거나 참가 전이었다가 지금 내 앞인 사람 수. */
-  count: number;
-  /** 그중 지금 나와 가장 가까운 사람부터 최대 2명. */
-  nearest: RankingOvertaker[];
-}
-
-/**
- * `GET /api/rankings/home`
- *
- * `card`는 이번 주 기록이 없으면 null이다.
- * `overtaken`은 `since`가 없거나, 이번 주 월요일 0시(KST) 전이거나 미래이거나, `since`에 내 순위가 없었거나, 순위가 내려가지 않았으면 null이다.
- */
-export interface RankingHomeResponse {
-  card: RankingHomeCard | null;
-  overtaken: RankingOvertaken | null;
-}
-
 /**
  * `GET /api/rankings/records/unseen`
  *

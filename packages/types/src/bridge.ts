@@ -329,7 +329,7 @@ export const NAVIGATE_TAB_SOURCES = [
  * `tab`은 목적지가 확정된 탭 간 이동만 담는다(탭바 IA 원칙 "목적지가 확정되지 않은 탭을
  * 임의로 늘리지 않는다"와 같은 태도). `records`는 결과 화면의 `기록으로 가기`, `social`은 홈
  * 친구 초대 카드다.
- * `ranking`은 홈 랭킹 카드·추월 팝업·마감 모달·결과 랭킹 카드다.
+ * `ranking`은 홈 랭킹 카드·마감 모달·결과 랭킹 카드다(옛 홈 추월 팝업도 보냈다).
  * 새 이동이 확정되면 유니온을 넓힌다.
  * 넓히는 것은 호환 변경이다.
  * 다만 배포된 셸은 모르는 값을 버리므로 새 값은 셸 빌드가 나간 뒤에야 동작한다.
@@ -344,7 +344,7 @@ export interface NavigateTabMessage {
    * 발신처 — 네이티브가 `tab_pressed.via`로 옮겨 적는다(`apps/mobile/lib/nativeAnalytics.ts`).
    * `card`는 옛 홈의 연속 공부 카드, `study_result`는 S4 결과 화면의 `기록으로 가기`(BY-560),
    * `invite_card`는 홈 친구 초대 카드다. 없으면 `card`로 본다 — 이 필드가 생기기 전 웹과의 호환이다.
-   * `home_ranking_card`·`overtake_popup`·`top3_modal`·`result_ranking_card`는 랭킹 진입점이다.
+   * `home_ranking_card`·`top3_modal`·`result_ranking_card`는 랭킹 진입점이고, `overtake_popup`은 옛 홈 추월 팝업이다.
    */
   via?: (typeof NAVIGATE_TAB_SOURCES)[number];
   atMs: number;

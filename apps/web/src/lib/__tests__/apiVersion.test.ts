@@ -25,7 +25,6 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   rankingBoard: { current: "1", legacy: "1" },
   rankingRecordsSummary: { current: "1", legacy: "1" },
   rankingRecords: { current: "1", legacy: "1" },
-  rankingHome: { current: "1", legacy: "1" },
   rankingRecordsUnseen: { current: "1", legacy: "1" },
   rankingRecordsSeen: { current: "1", legacy: "1" },
   rankingSessionGains: { current: "1", legacy: "1" },
