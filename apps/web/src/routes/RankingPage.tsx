@@ -18,7 +18,6 @@ import {
 import { MedalButton } from "@/features/ranking/components/MedalButton";
 import { Podium } from "@/features/ranking/components/Podium";
 import { FirstPlaceCard, RankedCard } from "@/features/ranking/components/RankCard";
-import { RecordsSheet } from "@/features/ranking/components/RecordsSheet";
 import { StreakCard } from "@/features/ranking/components/StreakCard";
 import { DayGroupList } from "@/features/ranking/components/DayGroupList";
 import {
@@ -69,7 +68,16 @@ import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
 import { cannotLoad, rankingBoardQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 import { useIdentityPending, useUserId } from "@/lib/userId";
-import { cn } from "@/lib/utils";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { whenIdle } from "@/lib/whenIdle";
+
+/**
+ * 랭킹 기록 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 랭킹 탭은 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
+ */
+const { LazySheet: LazyRecordsSheet, preload: preloadRecordsSheet } = lazyWithPreload(() =>
+  import("@/features/ranking/components/RecordsSheet").then((module) => module.RecordsSheet),
+);
 
 /**
  * 판 자리표시
@@ -100,7 +108,7 @@ export function RankingPage() {
   return (
     <main
       data-testid="ranking-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pt-[calc(env(safe-area-inset-top)+24px)] pb-[var(--tab-bar-reserve)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue page-column pt-[calc(env(safe-area-inset-top)+24px)] pb-(--tab-bar-reserve) text-foreground"
     >
       <h1 className="sr-only">랭킹</h1>
       <div className="flex flex-col px-5">
@@ -110,7 +118,8 @@ export function RankingPage() {
               <Skeleton className="h-[29px] w-40 rounded-md" />
               <Skeleton className="h-7 w-[76px] rounded-full" />
             </div>
-            <Skeleton className="mt-[7px] h-9 rounded-full" />
+            <Skeleton className="mt-3 h-[31px] w-44 rounded-full" />
+            <Skeleton className="mt-2 h-9 rounded-[12px]" />
             <div className="mt-3 flex flex-col gap-3">
               <BoardSkeleton />
             </div>
@@ -141,6 +150,9 @@ function RankingContent({ userId }: { userId: number }) {
   const startFocus = useFocusStart(userId);
   const [memory, setMemory] = useState(readBoardMemory);
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    whenIdle(preloadRecordsSheet);
+  }, []);
   const selection = activeSelection(memory);
   const openRecordsPage = () =>
     slideNavigate("forward", () =>
@@ -241,10 +253,9 @@ function RankingContent({ userId }: { userId: number }) {
   }, [viewKey]);
 
   // 판 고르기와 시상대 간격
-  // 랭킹 쪽은 머리 줄 아래 7px에 기간 칸 줄(36px)을 둔다.
-  // 명예의 전당은 기간 칸이 없어 칩 줄이 31px로 낮으므로 머리 줄 아래를 12px로 넓혀 시상대 높이를 랭킹 쪽과 같게 둔다.
-  // 시상대는 판 고르기의 마지막 줄(시간대면 구간 칸) 아래 12px에 두어 아래 카드끼리의 간격 12px과 맞춘다.
-  const hall = memory.active === "hall";
+  // 칩 줄은 두 탭 모두 머리 줄 아래 12px에 두어, 랭킹과 명예의 전당을 오가도 제자리에 있게 한다.
+  // 시상대는 판 고르기의 마지막 줄 아래 12px에 두어 아래 카드끼리의 간격 12px과 맞춘다.
+  // 명예의 전당은 기간 칸이 없어 시상대가 그만큼 위에서 시작한다.
   const changeSelection = (next: BoardSelection) =>
     setMemory((current) => withSelection(current, next));
 
@@ -271,7 +282,7 @@ function RankingContent({ userId }: { userId: number }) {
         resolvedSlot={board?.slot ?? null}
         nowSlot={currentSlot(serverNow)}
         onChange={changeSelection}
-        className={cn("mt-[7px]", hall && "mt-3")}
+        className="mt-3"
       />
       <div className="mt-3 flex flex-col gap-3">
         {/* 폴링이 한 번 실패해도 받아 둔 판을 그대로 보이고, 오류는 판이 없을 때만 보인다. */}
@@ -314,7 +325,7 @@ function RankingContent({ userId }: { userId: number }) {
           </>
         )}
       </div>
-      <RecordsSheet
+      <LazyRecordsSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         userId={userId}
@@ -381,6 +392,7 @@ function BoardBody({
             board={board}
             subLine={subLine}
             deadline={deadline}
+            serverNow={serverNow}
             onFocusStart={fromCard}
           />
           <NearbyList board={board} screen={screen} rows={rows} drop={drop} />

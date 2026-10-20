@@ -118,11 +118,11 @@ pnpm --filter mobile start
 
 ## 배포
 
-| 대상    | 방식      | 기준                                                                   | 배포처                                                   |
-| ------- | --------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| 웹 운영 | Vercel    | `main` 머지                                                            | `web.focusmakers.app`                                    |
-| 웹 개발 | Vercel    | `dev` 브랜치                                                           | `web-dev.focusmakers.app`                                |
-| 앱      | EAS Build | 프로필 `development`, `development-simulator`, `staging`, `production` | `production`은 App Store·Google Play, 나머지는 내부 배포 |
+| 대상    | 방식       | 기준                                                                   | 배포처                                                   |
+| ------- | ---------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| 웹 운영 | CloudFront | `main` 머지                                                            | `web.focusmakers.app`                                    |
+| 웹 개발 | CloudFront | `dev` 브랜치                                                           | `web-dev.focusmakers.app`                                |
+| 앱      | EAS Build  | 프로필 `development`, `development-simulator`, `staging`, `production` | `production`은 App Store·Google Play, 나머지는 내부 배포 |
 
 - 웹과 앱 버전은 CalVer `YY.WW.P`를 따른다.
 - 릴리즈 PR에서 `pnpm release:bump --web`으로 올리고, 앱을 함께 제출하는 주에는 `--app`을 붙인다.

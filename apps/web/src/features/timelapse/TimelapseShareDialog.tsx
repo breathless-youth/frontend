@@ -264,7 +264,8 @@ function ShareDialogBody({
         )}
       </div>
 
-      <section className="bg-muted rounded-t-[24px] px-5 pt-7 pb-[max(34px,calc(env(safe-area-inset-bottom)+8px))] duration-300 ease-overlay motion-safe:group-data-[state=open]:animate-in motion-safe:group-data-[state=open]:slide-in-from-bottom motion-safe:group-data-[state=closed]:animate-out motion-safe:group-data-[state=closed]:slide-out-to-bottom shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
+      {/* 공용 바닥 시트(ui/sheet.tsx)와 같은 폭이어야 태블릿에서 다른 시트와 어긋나 보이지 않는다. */}
+      <section className="bg-muted rounded-t-3xl px-5 pt-7 pb-[max(34px,calc(env(safe-area-inset-bottom)+8px))] page-width duration-300 ease-overlay motion-safe:group-data-[state=open]:animate-in motion-safe:group-data-[state=open]:slide-in-from-bottom motion-safe:group-data-[state=closed]:animate-out motion-safe:group-data-[state=closed]:slide-out-to-bottom shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
         <DialogTitle className="text-foreground text-center text-[17px] leading-5 font-bold tracking-normal">
           공유하기
         </DialogTitle>

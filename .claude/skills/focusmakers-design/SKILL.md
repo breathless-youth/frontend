@@ -33,6 +33,31 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
    그대로 따른다. keyframes는 `index.css`에, 사용처는 `animate-[...] motion-reduce:animate-none`.
 7. PR 전에 `review-animations`(모션)와 `accessibility-audit`(44px·aria·대비)를 돌린다.
 
+## 반응형 기준
+
+기준은 기기가 아니라 창 크기다. 접두사가 없는 기본값이 폰 세로이고, 위로 갈수록 넓은 창이다.
+
+| variant | 조건 | 주로 걸리는 화면 |
+|---|---|---|
+| (없음) | 폭 600 미만 | 폰 세로, iPad 창 모드·Slide Over |
+| `sm:` | 폭 600 이상 | 태블릿 세로, Fold 펼침 |
+| `md:` | 폭 840 이상 | 태블릿 가로 |
+| `lg:` | 폭 1200 이상 | 노트북, 13인치 iPad 가로 |
+| `xl:` | 폭 1600 이상 | 큰 모니터 |
+| `landscape-compact:` | 가로이면서 높이 480 미만 | 폰 가로 거치, Fold 접은 가로 |
+| `regular:` | 폭 600 이상이면서 `landscape-compact`가 아님 | 태블릿 세로·가로, Fold 펼침 |
+| `short-side-lg:` | 폭과 높이 모두 1000 이상 | 13인치 iPad 세로·가로 |
+
+- 가로 폰은 폭이 840을 넘기도 한다. 폰 거치 배치는 반드시 `landscape-compact:`로 쓰고 `md:`·`landscape:`로 쓰지 않는다.
+- 2분할처럼 높이가 필요한 배치는 `md:`에 더해 `landscape-compact:`에서 되돌린다.
+- 태블릿 배치(폭 600 이상이면서 폰 가로가 아님)는 `regular:`로 쓴다. `sm:not-landscape-compact:`를 직접 조합하지 않는다. `regular`는 `index.css`에서 `sm`과 `not-landscape-compact`를 겹쳐 만들어서 `landscape-compact` 정의의 바깥 괄호를 지우면 함께 무효 쿼리가 된다. `customVariantsCss.test.ts`가 이 미디어 쿼리를 고정한다.
+- 큰 태블릿 크기는 `regular:` 클래스 뒤에 `short-side-lg:` 클래스를 더해 덧씌운다. `index.css`에서 `regular`를 `short-side-lg`보다 먼저 정의해 빌드 CSS에서 `short-side-lg` 규칙이 뒤에 나온다. 정의 순서를 바꾸지 않는다.
+- `regular:`는 직접 만든 변형이라 `md:`·`lg:`보다 뒤에 정렬된다. 한 요소에서 `regular:`와 `md:`·`lg:`로 같은 속성을 겹쳐 쓰면 넓은 창에서도 `regular:` 값이 이긴다.
+- 탭·하위 화면의 루트(`<main>`)에는 `page-column`을 붙인다. 태블릿에서 좌우 여백만 늘려 콘텐츠를 640(큰 태블릿 720) 열로 모으고 배경은 전폭으로 남긴다. 루트에 좌우 padding을 따로 주지 않는다(같은 속성이라 순서에 따라 한쪽이 진다). 안쪽 div가 스크롤하는 화면(결과 화면)은 열 바깥을 끌어도 스크롤되도록 스크롤 영역에 붙인다. 열에 넣을 수 없는 하단 고정 줄·전폭 iframe 옆 요소와 아래 시트는 `page-width`로 같은 폭을 맞춘다(`ui/sheet.tsx` 참고).
+- 여러 화면에 들어가는 부품(카드·타일·행)은 `@container`와 `@sm:` 같은 container query로, 페이지 골격은 뷰포트 브레이크포인트로 맞춘다.
+- 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다.
+- 태블릿 시안은 Figma V2 파일의 `5. Tablet (V2)` 페이지에 있다.
+
 ## 함정
 
 | 함정 | 규칙 |

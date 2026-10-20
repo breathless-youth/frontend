@@ -777,8 +777,7 @@ export function trackSocialRoomBackgroundReturned(input: {
 }
 
 /** 집중 시작을 누른 자리. */
-export type FocusStartSource =
-  "home" | "ranking_card" | "ranking_empty" | "ranking_records" | "overtake_popup";
+export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -987,34 +986,6 @@ export function trackRankingRecordTapped(input: {
 }
 
 /**
- * 추월 바텀시트 노출
- *
- * 순위 값만 싣고 추월한 사람의 닉네임은 싣지 않는다.
- */
-export function trackRankingOvertakeShown(input: {
-  readonly count: number;
-  readonly fromRank: number;
-  readonly toRank: number;
-}) {
-  if (!initialized) return;
-  track("ranking_overtake_shown", {
-    count: input.count,
-    from_rank: input.fromRank,
-    to_rank: input.toRank,
-  });
-}
-
-/**
- * 추월 바텀시트 동작
- *
- * 끌어내리거나 바깥을 눌러 닫은 것도 `close`로 센다.
- */
-export function trackRankingOvertakeAction(action: "study" | "ranking" | "close") {
-  if (!initialized) return;
-  track("ranking_overtake_action", { action });
-}
-
-/**
  * 마감 메달 모달 노출
  *
  * `mixed_period`는 기간이나 기간 시작일이 다른 메달이 함께 떴는지다.
@@ -1158,7 +1129,15 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 /** 설정 탭의 행 터치. 카메라 권한 행은 `os_settings_opened`가 따로 갖는다. */
 export function trackSettingsRowPressed(
   row:
-    "profile" | "timelapse" | "guide" | "contact" | "interview" | "terms" | "privacy" | "licenses",
+    | "profile"
+    | "timelapse"
+    | "app_lock"
+    | "guide"
+    | "contact"
+    | "interview"
+    | "terms"
+    | "privacy"
+    | "licenses",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
@@ -1183,6 +1162,48 @@ export function trackTimelapseSettingChanged(input: {
 }) {
   if (!initialized) return;
   track("timelapse_setting_changed", { setting: input.setting, value: input.value });
+}
+
+/**
+ * 방해 앱 잠금 권한 결과
+ *
+ * 플랫폼마다 묻는 권한이 달라(iOS 스크린타임, Android 사용정보 접근·다른 앱 위에 표시) 허용률을 따로 본다.
+ */
+export function trackAppLockPermissionResult(input: {
+  readonly platform: "ios" | "android";
+  readonly granted: boolean;
+}) {
+  if (!initialized) return;
+  track("app_lock_permission_result", { platform: input.platform, granted: input.granted });
+}
+
+/** 앱 이름·선택 토큰은 기기 밖으로 나가지 않아서 개수만 싣는다. */
+export function trackAppLockAppsSelected(input: {
+  readonly appCount: number;
+  readonly categoryCount: number;
+}) {
+  if (!initialized) return;
+  track("app_lock_apps_selected", {
+    app_count: input.appCount,
+    category_count: input.categoryCount,
+  });
+}
+
+/** `permission_lost`는 스크린타임 권한이 꺼진 것을 알아채 앱이 스스로 끈 경우다. */
+export function trackAppLockToggled(input: {
+  readonly on: boolean;
+  readonly source: "settings" | "permission_lost";
+}) {
+  if (!initialized) return;
+  track("app_lock_toggled", { on: input.on, source: input.source });
+}
+
+/** 잠금을 켠 사용자와 안 켠 사용자의 집중률을 가르는 기준이라 이벤트가 아니라 상태로 둔다. */
+export function setAppLockEnabledUserProperty(enabled: boolean) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.set("app_lock_enabled", enabled);
+  identify(id);
 }
 
 /** 인터뷰 안내가 어디서 떴는지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */

@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
-import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { SettingsSection } from "@/features/settings/SettingsSection";
+import { ROW_CLASS_NAME, ROW_LABEL_CLASS_NAME, SwitchRow } from "@/features/settings/SwitchRow";
 import { TimelapsePreview } from "@/features/timelapse/TimelapsePreview";
 import {
   TIMELAPSE_INFO_KEYS,
@@ -44,42 +43,6 @@ const ASPECTS: readonly { value: TimelapseAspect; label: string }[] = [
   { value: "16:9", label: "가로 16:9" },
 ];
 
-const ROW_CLASS_NAME = "flex min-h-11 items-center justify-between gap-3 py-[14px]";
-const ROW_LABEL_CLASS_NAME = "text-foreground text-base leading-[19px]";
-
-type SwitchRowProps = {
-  label: string;
-  tooltip?: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-};
-
-/**
- * 라벨, 선택 툴팁, 스위치로 된 설정 행
- *
- * 툴팁 트리거도 버튼이라 행 전체를 label로 감싸지 않고 스위치 이름만 라벨 글자에 잇는다.
- */
-function SwitchRow({ label, tooltip, checked, onCheckedChange }: SwitchRowProps) {
-  const labelId = useId();
-
-  return (
-    <div className={ROW_CLASS_NAME}>
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span id={labelId} className={ROW_LABEL_CLASS_NAME}>
-          {label}
-        </span>
-        {tooltip !== undefined && <InfoTooltip label={`${label} 안내`}>{tooltip}</InfoTooltip>}
-      </div>
-      <Switch
-        size="settings"
-        aria-labelledby={labelId}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-      />
-    </div>
-  );
-}
-
 /**
  * 설정 › 타임랩스 페이지
  *
@@ -110,7 +73,7 @@ export function TimelapseSettingsPage() {
   };
 
   return (
-    <main className="theme-soft-blue bg-soft-blue min-h-dvh pb-10 text-foreground">
+    <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-10 text-foreground">
       <ScreenBackHeader title="타임랩스" />
 
       {settings !== null && (

@@ -120,6 +120,17 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "records-changed", atMs: record.atMs };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
+    case "app-lock-query":
+    case "app-lock-authorize":
+    case "app-lock-pick":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: record.type, id: record.id, atMs: record.atMs };
+    case "app-lock-start":
+    case "app-lock-stop":
+    case "app-lock-battery-guide":
+      return { type: record.type, atMs: record.atMs };
     case "request-camera-permission":
       return { type: "request-camera-permission", atMs: record.atMs };
     case "share":

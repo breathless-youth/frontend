@@ -15,6 +15,9 @@ import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
+import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
+import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
+import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
@@ -46,6 +49,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
+  const appLock = useAppLockSettings();
   const userId = useUserId();
   const interview = useQuery({ ...interviewStatusQuery(userId ?? 0), enabled: userId !== null });
   // 다시 받기가 실패해도 쿼리는 예전 data를 들고 있다. 서버가 막 끈 행을 계속 보이지 않게 실패면 숨긴다.
@@ -83,7 +87,7 @@ export function SettingsPage() {
       // 이 값이 빠져 있어 웹뷰에서 설정 제목만 상태 바 쪽으로 올라붙었다.
       // RN 원본의 `useSafeAreaInsets().top + 17`에 대응한다.
       // theme-soft-blue: 이 화면 서브트리에서만 V2 팔레트를 켠다. bg-soft-blue 가 배경 그라디언트.
-      className="theme-soft-blue bg-soft-blue min-h-dvh pb-[var(--tab-bar-reserve)] pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>
@@ -140,6 +144,26 @@ export function SettingsPage() {
               );
             }}
           />
+          {/* 스크린타임 모듈이 없는 앱과 브라우저에서는 잠글 수단이 없어 숨긴다. */}
+          {hasAppLockCapability() && (
+            <SettingsRow
+              label="방해 앱 잠금"
+              trailing={{
+                kind: "valueChevron",
+                value: formatAppLockRowValue(
+                  appLock.enabled,
+                  appLock.appCount,
+                  appLock.categoryCount,
+                ),
+              }}
+              onPress={() => {
+                trackSettingsRowPressed("app_lock");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/app-lock-settings", search: location.search }),
+                );
+              }}
+            />
+          )}
           {/*
             온보딩 가이드로 다시 들어가는 행이다.
             `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.
@@ -171,7 +195,7 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               // SPA `navigate()`가 아니라 문서 단위 이동인 `hardNavigate`를 써야 한다.
-              // vercel.json 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
+              // 배포 헤더 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
               // 쿼리는 측정 기준 안내 행과 같은 이유로 통째로 이어받아, 딥링크나 새로고침 뒤에도 사라지지 않게 한다.
               trackSettingsRowPressed("contact");
               hardNavigate(`/contact${location.search}`);

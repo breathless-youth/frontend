@@ -1140,6 +1140,54 @@ describe("타임랩스 공유 이벤트", () => {
   });
 });
 
+describe("방해 앱 잠금 이벤트", () => {
+  it("미초기화 상태에서는 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackAppLockPermissionResult({ platform: "ios", granted: true });
+    m.trackAppLockAppsSelected({ appCount: 1, categoryCount: 0 });
+    m.trackAppLockToggled({ on: true, source: "settings" });
+    m.setAppLockEnabledUserProperty(true);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("권한 결과·고른 개수·켜고 끔을 이름과 속성대로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAppLockPermissionResult({ platform: "android", granted: false });
+    m.trackAppLockAppsSelected({ appCount: 3, categoryCount: 1 });
+    m.trackAppLockToggled({ on: false, source: "permission_lost" });
+
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_permission_result", {
+      platform: "android",
+      granted: false,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_apps_selected", {
+      app_count: 3,
+      category_count: 1,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("app_lock_toggled", {
+      on: false,
+      source: "permission_lost",
+    });
+  });
+
+  it("켜짐 상태는 app_lock_enabled user property로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.setAppLockEnabledUserProperty(true);
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.sets).toEqual([["app_lock_enabled", true]]);
+  });
+});
+
 describe("Amplitude 의존성 가드", () => {
   it("@amplitude/unified를 쓰지 않는다 — initAll이 카메라 차단·URL 정제 설정을 우회한다", () => {
     // vitest는 패키지 루트(apps/web)에서 돈다 — jsdom에선 import.meta.url이 file 스킴이 아니라 못 쓴다.
@@ -1378,23 +1426,19 @@ describe("랭킹 이벤트", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackRankingOvertakeShown({ count: 4, fromRank: 1201, toRank: 1205 });
-    m.trackRankingOvertakeAction("close");
     m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
     m.trackRankingMedalModalAction("records");
     m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
     m.trackRankingGainCardTapped("single");
-    m.trackFocusStartTapped("session", "overtake_popup");
+    m.trackFocusStartTapped("session", "ranking_records");
     m.trackStudyResultConfirmed({ roomType: "single", via: "ranking" });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["ranking_overtake_shown", { count: 4, from_rank: 1201, to_rank: 1205 }],
-      ["ranking_overtake_action", { action: "close" }],
       ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
       ["ranking_medal_modal_action", { action: "records" }],
       ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],
       ["ranking_gain_card_tapped", { room_type: "single" }],
-      ["focus_start_tapped", { destination: "session", source: "overtake_popup" }],
+      ["focus_start_tapped", { destination: "session", source: "ranking_records" }],
       ["study_result_confirmed", { room_type: "single", via: "ranking" }],
     ]);
   });
@@ -1402,8 +1446,6 @@ describe("랭킹 이벤트", () => {
   it("노출 지점 이벤트도 미초기화 상태에서는 보내지 않는다", async () => {
     const m = await loadModule();
 
-    m.trackRankingOvertakeShown({ count: 1, fromRank: 3, toRank: 4 });
-    m.trackRankingOvertakeAction("study");
     m.trackRankingMedalModalShown({ count: 1, bestRank: 2, mixedPeriod: false });
     m.trackRankingMedalModalAction("close");
     m.trackRankingGainCardShown({ delta: 1, chipCount: 0, roomType: "single" });

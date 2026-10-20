@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CtaToaster, Toaster } from "@/components/ui/sonner";
-import { showCtaToast, showToast } from "@/lib/toast";
+import { showCtaToast, showToast, showTopToast } from "@/lib/toast";
 
 afterEach(() => {
   act(() => {
@@ -48,6 +48,40 @@ describe("showToast", () => {
       expect(screen.queryByText("A")).not.toBeInTheDocument();
       expect(screen.queryByText("B")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("showTopToast", () => {
+  it("전역 Toaster의 위쪽 목록에 상태 필 아래 여백으로 뜬다", async () => {
+    render(<Toaster />);
+
+    act(() => {
+      showTopToast("방해 앱 3개를 잠갔어요");
+    });
+
+    const list = (await screen.findByText("방해 앱 3개를 잠갔어요")).closest(
+      "[data-sonner-toaster]",
+    ) as HTMLElement;
+    expect(list).toHaveAttribute("data-y-position", "top");
+    expect(list.style.getPropertyValue("--mobile-offset-top")).toContain(
+      "env(safe-area-inset-top)",
+    );
+  });
+
+  it("떠 있는 위쪽 토스트를 일반 토스트가 대체하면 아래로 돌아온다", async () => {
+    render(<Toaster />);
+
+    act(() => {
+      showTopToast("A");
+    });
+    await screen.findByText("A");
+    act(() => {
+      showToast("B");
+    });
+
+    const list = (await screen.findByText("B")).closest("[data-sonner-toaster]");
+    expect(list).toHaveAttribute("data-y-position", "bottom");
+    expect(screen.queryByText("A")).not.toBeInTheDocument();
   });
 });
 

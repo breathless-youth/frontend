@@ -37,6 +37,6 @@
 
 - S3-1~S3-8은 한 화면 트리가 세션 상태와 표시 모드, 가로 브레이크포인트에 따라 바뀌어 그린다.
 - 문의(`/contact`), 이용약관(`/terms`), 개인정보처리방침(`/privacy`), 오픈소스 라이선스(`/licenses`)도 웹 화면이다.
-- 문의(`/contact`)와 인터뷰 신청 폼(`/interview`)은 같은 `src/routes/GoogleFormPage.tsx`로 구글 폼을 띄우고, 하드 내비게이션으로만 들어가고 나간다(`vercel.json`의 COEP 예외 경로).
+- 문의(`/contact`)와 인터뷰 신청 폼(`/interview`)은 같은 `src/routes/GoogleFormPage.tsx`로 구글 폼을 띄우고, 하드 내비게이션으로만 들어가고 나간다(배포 헤더 설정의 COEP 예외 경로: `vercel.json`, infra `web/web.tf`, `verifyDeploy.js`).
 - `/`의 `HomePage`는 브라우저로 접속했을 때의 소개 페이지이고 앱에서는 열지 않는다.
 - `/dev/webrtc-loopback`은 개발 빌드에만 있는 WebRTC 점검 화면이다.

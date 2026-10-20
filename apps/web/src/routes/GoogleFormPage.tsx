@@ -17,7 +17,7 @@ import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
  * 이 화면을 쓰는 라우트는 SPA 라우팅이 아니라 **하드 내비게이션으로만 진입·이탈한다**(진입 쪽의
  * `hardNavigate`, 아래 뒤로 가기의 `history.back()`/`hardReplace`). 구글 폼 iframe은 CORP
  * 헤더가 없어 COEP `require-corp` 문서에서 네트워크 레벨로 차단되는데, COEP는 문서 요청의
- * 응답에서만 정해지므로 /contact·/interview를 제 문서로 열어야 `vercel.json`의 예외(COEP 미적용)가
+ * 응답에서만 정해지므로 /contact·/interview를 제 문서로 열어야 배포 헤더 설정의 예외(COEP 미적용)가
  * 실제로 걸린다(`lib/hardNavigation.ts` 주석의 재현 근거 참고). 같은 이유로 이 문서 안에서
  * SPA `navigate`로 다른 라우트에 가면 "COEP 없음"이 그 라우트까지 승계되므로 금지 —
  * 세션(SharedArrayBuffer)이 필요로 하는 교차 출처 격리가 조용히 풀린다.
@@ -108,10 +108,13 @@ export function GoogleFormPage({
     // 않아 아래 `flex-1`과 iframe의 `height:100%`가 기댈 기준이 없어지고, iframe이 기본
     // 150px로 쪼그라든다(2026-08-01 웹뷰 실기기에서 화면 1/4만 차지하는 것으로 확인).
     <div className="flex h-dvh flex-col bg-background">
-      <ScreenBackHeader title={title} onBack={exitToPreviousDocument} />
+      {/* 구글 폼은 자체 가운데 열과 배경을 그려 iframe만 전폭으로 두고 헤더와 실패 화면을 열에 맞춘다. */}
+      <div className="page-column">
+        <ScreenBackHeader title={title} onBack={exitToPreviousDocument} />
+      </div>
 
       {showFailure ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-[78px]">
+        <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 page-width">
           <h1 className="text-center text-[20px] leading-[24px] font-bold text-foreground">
             {failureTitle}
           </h1>

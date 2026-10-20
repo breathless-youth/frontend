@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -93,6 +93,43 @@ describe("MonthPickerSheet — 달 선택", () => {
     await userEvent.click(screen.getByRole("button", { name: "오늘" }));
 
     expect(onPick).toHaveBeenCalledWith({ year: 2026, month: 9 }, true);
+  });
+
+  it("격자를 가로로 미는 동작은 시트 끌어 닫기에서 뺀다", () => {
+    render(
+      <MonthPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        month={{ year: 2026, month: 9 }}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("month-picker-swipe-area")).toHaveAttribute(
+      "data-base-ui-swipe-ignore",
+      "x",
+    );
+  });
+
+  it("오늘·해 넘기기 버튼에서 시작한 손가락은 끌기에서 빼고, 제목에서는 끌어 닫을 수 있다", () => {
+    // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 한다.
+    render(
+      <MonthPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        month={{ year: 2026, month: 9 }}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+
+    for (const name of ["오늘", "이전 해", "다음 해"]) {
+      expect(
+        screen.getByRole("button", { name }).closest("[data-base-ui-swipe-ignore]"),
+      ).not.toBeNull();
+    }
+    expect(screen.getByText("달 선택").closest("[data-base-ui-swipe-ignore]")).toBeNull();
   });
 });
 
@@ -207,6 +244,23 @@ describe("WeekPickerSheet — 주 선택", () => {
     await userEvent.click(screen.getByRole("button", { name: "오늘" }));
     expect(onPick).toHaveBeenCalledWith(TODAY, true);
   });
+
+  it("달력을 가로로 미는 동작은 시트 끌어 닫기에서 뺀다", () => {
+    render(
+      <WeekPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        weekAnchorKey={TODAY}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("week-picker-swipe-area")).toHaveAttribute(
+      "data-base-ui-swipe-ignore",
+      "x",
+    );
+  });
 });
 
 describe("DayPickerSheet — 날짜 선택", () => {
@@ -232,5 +286,40 @@ describe("DayPickerSheet — 날짜 선택", () => {
     fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
     fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
     expect(screen.getByText("2026년 10월")).toBeInTheDocument();
+  });
+
+  it("달력을 가로로 미는 동작은 시트 끌어 닫기에서 뺀다", () => {
+    render(
+      <DayPickerSheet
+        open
+        onOpenChange={vi.fn()}
+        dateKey={TODAY}
+        todayKey={TODAY}
+        onPick={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("day-picker-swipe-area")).toHaveAttribute(
+      "data-base-ui-swipe-ignore",
+      "x",
+    );
+  });
+
+  it("열어도 포커스를 시트 안으로 옮기지 않는다", async () => {
+    render(
+      <>
+        <button type="button">기간</button>
+        <DayPickerSheet
+          open
+          onOpenChange={vi.fn()}
+          dateKey={TODAY}
+          todayKey={TODAY}
+          onPick={vi.fn()}
+        />
+      </>,
+    );
+    await act(async () => {});
+
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(false);
   });
 });

@@ -40,6 +40,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+# react-native-device-activity config plugin이 prebuild마다 node_modules에서 다시 복사하는 확장 소스
+/targets/
 
 # Firebase 설정 파일(google-services.json / GoogleService-Info.plist) — 커밋 금지, EAS file env·.env.local로 주입 (BY-585)
 /firebase/

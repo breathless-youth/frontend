@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import {
@@ -11,9 +11,10 @@ import {
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { reloadOnChunkError } from "@/lib/chunkReload";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { cn } from "@/lib/utils";
+import { whenIdle } from "@/lib/whenIdle";
 
-import { WeekPickerSheet } from "./PeriodPickerSheet";
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
 import { useHorizontalSwipe } from "./useHorizontalSwipe";
@@ -45,6 +46,11 @@ const WeekTrendCard = lazy(
 /** 추이 카드 자리표시 — 조회 중과 차트 청크를 받는 중에 같은 모양을 쓴다. */
 const TREND_SKELETON = <Skeleton className="h-[296px] w-full rounded-[20px]" />;
 
+/** 주 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다. 주간 탭이 뜬 뒤 한가할 때 미리 받아 둔다. */
+const { LazySheet: LazyWeekPickerSheet, preload: preloadWeekPickerSheet } = lazyWithPreload(() =>
+  import("./PeriodPickerSheet").then((module) => module.WeekPickerSheet),
+);
+
 export function WeeklyView({
   userId,
   todayKey,
@@ -60,6 +66,9 @@ export function WeeklyView({
   const queryClient = useQueryClient();
   const { week } = useWeeklyData(userId, weekAnchorKey);
   const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    whenIdle(preloadWeekPickerSheet);
+  }, []);
 
   const retryPeriod = () => {
     void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
@@ -96,7 +105,7 @@ export function WeeklyView({
         }}
       />
 
-      <WeekPickerSheet
+      <LazyWeekPickerSheet
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         weekAnchorKey={weekAnchorKey}

@@ -58,7 +58,6 @@ vi.mock("@/lib/noticeApi", () => ({ getActiveNotices }));
  */
 const rankingApi = vi.hoisted(() => ({
   getRankingRecordsUnseen: vi.fn(),
-  getRankingHome: vi.fn(),
   postRankingRecordsSeen: vi.fn(),
 }));
 vi.mock("@/lib/rankingApi", () => rankingApi);
@@ -66,7 +65,6 @@ vi.mock("@/lib/rankingApi", () => rankingApi);
 // 파일의 모든 describe가 같은 기본값에서 시작하게 맨 바깥에 둔다.
 beforeEach(() => {
   rankingApi.getRankingRecordsUnseen.mockResolvedValue({ total: 0, records: [] });
-  rankingApi.getRankingHome.mockResolvedValue({ card: null, overtaken: null });
   rankingApi.postRankingRecordsSeen.mockResolvedValue(undefined);
 });
 

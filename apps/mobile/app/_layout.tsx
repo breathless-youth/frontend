@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { cleanupOnLaunch } from "../lib/appLock/appLock";
 import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
@@ -40,11 +41,23 @@ installMetaAdsSdk();
 // GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
 installFirebaseAnalyticsSdk();
 
+// 지난 프로세스가 남긴 방해 앱 잠금과 안전 해제 예약을 지운다.
+// 새 프로세스에는 진행 중인 공부가 없고, 웹뷰가 잠금을 요청하기 전에 끝나야 해서 모듈 스코프에서 한 번만 부른다.
+void cleanupOnLaunch();
+
 // Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
 // — 안 그러면 시스템 폰트로 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다.
 // 위 initSentry와 같은 이유로 모듈 스코프에서 부른다: effect까지 미루면 그 사이 자동으로 숨어버릴 수 있다.
 // 이미 숨겨진 상태에서 또 불리는 등 실패해도 무해하므로 거부는 무시한다.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// 모서리 20은 tailwind `rounded-xl`과 같다.
+const APP_LOCK_SHEET_OPTIONS = {
+  presentation: "formSheet",
+  sheetAllowedDetents: "fitToContents",
+  sheetCornerRadius: 20,
+  contentStyle: { backgroundColor: "transparent" },
+} as const;
 
 function RootLayout() {
   const router = useRouter();
@@ -226,6 +239,18 @@ function RootLayout() {
         <Stack.Screen name="(tabs)" />
         {/* S2-3 권한 거부 안내 — 탭 위에 올라오는 전체 화면. 백 제스처를 막지 않는다(홈 복귀와 동일 결과). */}
         <Stack.Screen name="permission-denied" />
+        {/*
+          잠글 앱 고르기 — iOS 스크린타임 선택 화면이라 웹뷰 대신 네이티브 모달로 연다.
+          Android는 설치된 앱 목록(`app-lock-picker.android.tsx`)이고, 앱 이름을 웹에 넘기지 않으려고 같은 모달로 연다.
+          쓸어 닫아도 고른 결과는 저장된다.
+        */}
+        <Stack.Screen name="app-lock-picker" options={{ presentation: "modal" }} />
+        {/*
+          Android 방해 앱 잠금 권한 안내와 배터리 안내. 쓸어 닫기·배경 어둡게·배경 눌러 닫기를 시스템 시트에 맡긴다.
+          시트 색은 화면이 토큰으로 칠해 라이트·다크를 따르게 하고, 네이티브 배경은 투명으로 둔다.
+        */}
+        <Stack.Screen name="app-lock-consent" options={APP_LOCK_SHEET_OPTIONS} />
+        <Stack.Screen name="app-lock-battery" options={APP_LOCK_SHEET_OPTIONS} />
         {/*
           G1~G5 온보딩 가이드·이용약관·개인정보처리방침·문의하기는 웹으로 이관됐다(BY-333) —
           네이티브 라우트를 더 이상 두지 않는다.

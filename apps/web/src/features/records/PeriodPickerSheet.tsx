@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
@@ -42,23 +42,21 @@ function PickerSheet({
   children: ReactNode;
 }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={onOpenChange}>
       {/* 기록 탭이 `theme-soft-blue`를 서브트리에만 켠다. 포털이 body로 나가므로 시트에도 같은 테마를 단다. */}
-      <SheetContent
-        side="bottom"
+      <DrawerContent
+        className="theme-soft-blue"
         // 터치로 연 시트에 포커스 링이 남지 않게 첫 요소로 포커스를 옮기지 않는다(D-Day 시트와 같은 처리).
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        className="theme-soft-blue gap-0 rounded-t-[24px] border-t-0 px-5 pt-2.5 pb-[max(34px,calc(env(safe-area-inset-bottom)+8px))]"
-        // 설명 없는 시트다. 비워 두면 Radix가 aria-describedby 누락을 경고한다.
-        aria-describedby={undefined}
+        initialFocus={false}
+        finalFocus={false}
       >
-        <span aria-hidden className="mx-auto block h-1 w-9 rounded-[2px] bg-text-tertiary" />
         <div className="flex items-center justify-between pt-3.5">
-          <SheetTitle className="text-lg leading-[21px] font-bold tracking-normal text-foreground">
+          <DrawerTitle className="text-lg leading-[21px] font-bold tracking-normal text-foreground">
             {title}
-          </SheetTitle>
+          </DrawerTitle>
+          {/* 시트 안 버튼은 끌기에서 뺀다. iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려진다. */}
           <Button
+            data-base-ui-swipe-ignore=""
             variant="raised"
             onClick={onToday}
             className="h-8 rounded-full px-3.5 py-0 text-[13px] leading-4 text-brand-subtle-text"
@@ -67,8 +65,8 @@ function PickerSheet({
           </Button>
         </div>
         {children}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -88,18 +86,21 @@ function PickerNav({
   onNext: () => void;
 }) {
   return (
-    <PeriodNav
-      prevLabel={prevLabel}
-      nextLabel={nextLabel}
-      canGoNext={canGoNext}
-      onPrev={onPrev}
-      onNext={onNext}
-      className="pt-3"
-    >
-      <span className="w-[120px] text-center text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
-        {label}
-      </span>
-    </PeriodNav>
+    // 꺾쇠 버튼도 오늘 버튼과 같은 이유로 끌기에서 뺀다. 공용 `PeriodNav`는 속성을 받지 않아 줄째 감싼다.
+    <div data-base-ui-swipe-ignore="">
+      <PeriodNav
+        prevLabel={prevLabel}
+        nextLabel={nextLabel}
+        canGoNext={canGoNext}
+        onPrev={onPrev}
+        onNext={onNext}
+        className="pt-3"
+      >
+        <span className="w-[120px] text-center text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+          {label}
+        </span>
+      </PeriodNav>
+    </div>
   );
 }
 
@@ -163,6 +164,10 @@ function MonthGrid({
         // 고른 달을 다시 누르면 ToggleGroup은 선택을 풀어 빈 값을 준다 — 그때도 그 달을 고른 것으로 넘긴다.
         onValueChange={(value) => onPick({ year, month: Number(value || month.month) })}
         data-testid="month-picker-swipe-area"
+        // 가로로 미는 손가락은 시트가 아니라 격자에 넘긴다. 세로로 끌면 시트가 닫힌다.
+        // 칸 버튼에는 끌기 제외를 따로 달지 않는다. 이 영역은 어느 쪽으로든 6px을 넘기 전까지 손가락을 막지 않아
+        // 살짝 움직인 탭이 살고, 칸마다 달면 격자 위에서 시트를 끌어 닫을 수 없다.
+        data-base-ui-swipe-ignore="x"
         className="grid grid-cols-4 gap-2 pt-2 touch-pan-y"
         {...swipe}
       >
@@ -242,7 +247,13 @@ function WeekGrid({
         onNext={goNext}
       />
       {/* 달력을 좌우로 밀어도 달을 넘긴다 — DayPicker는 포인터 핸들러를 루트에 내리지 않아 감싼다. */}
-      <div data-testid="week-picker-swipe-area" className="touch-pan-y" {...swipe}>
+      <div
+        data-testid="week-picker-swipe-area"
+        // 가로로 미는 손가락은 시트가 아니라 달력에 넘긴다. 세로로 끌면 시트가 닫힌다.
+        data-base-ui-swipe-ignore="x"
+        className="touch-pan-y"
+        {...swipe}
+      >
         <Calendar
           // 주는 달을 넘나들어도 한 줄이다 — 달의 첫 주·마지막 주는 이웃 달 날짜로 채운다.
           showOutsideDays
@@ -377,7 +388,12 @@ function DayGrid({
         onNext={goNext}
       />
       {/* 주 선택과 같은 이유로 감싼다 — 달력을 좌우로 밀어도 달을 넘긴다. */}
-      <div data-testid="day-picker-swipe-area" className="touch-pan-y" {...swipe}>
+      <div
+        data-testid="day-picker-swipe-area"
+        data-base-ui-swipe-ignore="x"
+        className="touch-pan-y"
+        {...swipe}
+      >
         <Calendar
           mode="single"
           required

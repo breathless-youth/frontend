@@ -1,5 +1,7 @@
 # 랭킹 FE 설계
 
+> **갱신 노트 (2026-10-20)**: 홈 추월 시트는 BY-944에서 뺐다. 이 문서의 추월 시트와 `GET /api/rankings/home` 설명은 당시 설계 기록으로 남겨 뒀다.
+
 - 날짜: 2026-10-10
 - 티켓: [BY-827](https://breathless-youth.atlassian.net/browse/BY-827) (FE), 짝 티켓 [BY-828](https://breathless-youth.atlassian.net/browse/BY-828) (BE), 스토리 [BY-819](https://breathless-youth.atlassian.net/browse/BY-819)
 - 명세: `.ai/product/specs/BY-819-랭킹.md` (breathless-youth/.ai#23, `baa1a1bc` 기준 5차 수정본)

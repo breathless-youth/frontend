@@ -98,7 +98,12 @@ const AFTERNOON_NOW = Date.parse(FIXTURE_FOCUS_WEEKLY.asOf);
 const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
 describe("순위 카드 아랫줄", () => {
-  it("바로 위가 집중 중이면 나를 넘어온 사람이 아니어도 두 줄로 차이가 벌어진다고 말한다", () => {
+  const MORNING_NOTICE = {
+    text: "오전 7–12시에 공부한 시간만 이 순위에 들어가요",
+    tone: "muted",
+  };
+
+  it("바로 위가 집중 중이면 나를 넘어온 사람이 아니어도 차이가 벌어진다고 말한다", () => {
     expect(
       rankCardSubLine({
         board: {
@@ -108,13 +113,13 @@ describe("순위 카드 아랫줄", () => {
         belowGap: 360,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toEqual({ text: "커피세잔님이 집중 중이라\n차이가 벌어지고 있어요", tone: "alert" });
+    ).toEqual({ text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" });
   });
 
   it("바로 위가 집중 중이면 바로 아래가 5분 안에서 따라와도 벌어지는 문구를 먼저 쓴다", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_OVERTAKEN, belowGap: 180, serverNow: AFTERNOON_NOW }),
-    ).toEqual({ text: "열공모드님이 집중 중이라\n차이가 벌어지고 있어요", tone: "alert" });
+    ).toEqual({ text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" });
   });
 
   it("두 칸 이상 위가 집중 중이어도 바로 위가 집중 중이 아니면 이 문구를 쓰지 않는다", () => {
@@ -128,7 +133,7 @@ describe("순위 카드 아랫줄", () => {
     expect(board.podium.some((row) => row.focusing)).toBe(true);
     expect(board.above?.focusing).toBe(false);
     expect(rankCardSubLine({ board, belowGap: 360, serverNow: AFTERNOON_NOW })).toEqual({
-      text: "한 세션이면 따라잡을 수 있어요",
+      text: "한 번 더 공부하면 따라잡을 수 있어요",
       tone: "muted",
     });
   });
@@ -137,16 +142,16 @@ describe("순위 카드 아랫줄", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_FIRST_PLACE, belowGap: 290, serverNow: MORNING_NOW }),
     ).toEqual({
-      text: "합격까지달린다님이 5분 차로 따라오고 있어요",
+      text: "뒤 순위와 차이가 줄어들고 있어요",
       tone: "alert",
     });
   });
 
-  it("순공은 한 세션, 시간대는 구간이 끝나기 전", () => {
+  it("순공은 한 번 더 공부, 시간대는 구간이 끝나기 전", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_FOCUS_WEEKLY, belowGap: 360, serverNow: AFTERNOON_NOW }),
     ).toEqual({
-      text: "한 세션이면 따라잡을 수 있어요",
+      text: "한 번 더 공부하면 따라잡을 수 있어요",
       tone: "muted",
     });
     expect(
@@ -157,17 +162,17 @@ describe("순위 카드 아랫줄", () => {
     });
   });
 
-  it("지금 구간이 아닌 시간대 판은 구간이 끝나기 전 문구를 비운다", () => {
+  it("지금 구간이 아닌 시간대 판은 구간이 끝나기 전 문구 대신 이 판에 들어가는 시각을 알린다", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_SLOT_DAILY, belowGap: 360, serverNow: AFTERNOON_NOW }),
-    ).toBeNull();
+    ).toEqual(MORNING_NOTICE);
     expect(
       rankCardSubLine({
         board: { ...FIXTURE_SLOT_DAILY, period: "WEEKLY" },
         belowGap: 360,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toBeNull();
+    ).toEqual(MORNING_NOTICE);
     expect(
       rankCardSubLine({
         board: { ...FIXTURE_SLOT_DAILY, slot: "AFTERNOON" },
@@ -185,30 +190,43 @@ describe("순위 카드 아랫줄", () => {
 
     expect(
       rankCardSubLine({ board: aboveFocusing, belowGap: 360, serverNow: AFTERNOON_NOW }),
-    ).toBeNull();
+    ).toEqual(MORNING_NOTICE);
     expect(
       rankCardSubLine({
         board: { ...aboveFocusing, slot: "AFTERNOON" },
         belowGap: 360,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toEqual({ text: "수능D-40님이 집중 중이라\n차이가 벌어지고 있어요", tone: "alert" });
+    ).toEqual({ text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" });
   });
 
   it("지금 구간이 아닌 시간대 판은 바로 아래가 집중 중이어도 따라온다고 말하지 않는다", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_SLOT_DAILY, belowGap: 290, serverNow: AFTERNOON_NOW }),
-    ).toBeNull();
+    ).toEqual(MORNING_NOTICE);
     expect(
       rankCardSubLine({ board: FIXTURE_FIRST_PLACE, belowGap: 290, serverNow: AFTERNOON_NOW }),
-    ).toEqual({ text: "합격까지달린다님과 5분 차이예요", tone: "muted" });
+    ).toEqual(MORNING_NOTICE);
+  });
+
+  it("지금 구간이 아닌 시간대 판은 1위여도 2위와의 차이 대신 이 판에 들어가는 시각을 알린다", () => {
+    expect(
+      rankCardSubLine({ board: FIXTURE_FIRST_PLACE, belowGap: 600, serverNow: AFTERNOON_NOW }),
+    ).toEqual(MORNING_NOTICE);
+    expect(
+      rankCardSubLine({
+        board: { ...FIXTURE_FIRST_PLACE, below: null },
+        belowGap: null,
+        serverNow: AFTERNOON_NOW,
+      }),
+    ).toEqual(MORNING_NOTICE);
   });
 
   it("1위는 2위와의 차이를 회색으로, 2위가 없으면 비운다", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_FIRST_PLACE, belowGap: 600, serverNow: MORNING_NOW }),
     ).toEqual({
-      text: "합격까지달린다님과 10분 차이예요",
+      text: "2위와 10분 차이예요",
       tone: "muted",
     });
     expect(
@@ -263,7 +281,7 @@ describe("순위 카드 아랫줄", () => {
         belowGap: 3,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toEqual({ text: "합격기원님과 3일 차이예요", tone: "muted" });
+    ).toEqual({ text: "2위와 3일 차이예요", tone: "muted" });
   });
 
   it("집중률 판은 1위가 아니면 이 문구를 쓰지 않는다", () => {
@@ -285,7 +303,7 @@ describe("순위 카드 아랫줄", () => {
         belowGap: 0.2,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toEqual({ text: "합격까지달린다님과 0.2% 차이예요", tone: "muted" });
+    ).toEqual({ text: "2위와 0.2% 차이예요", tone: "muted" });
   });
 });
 

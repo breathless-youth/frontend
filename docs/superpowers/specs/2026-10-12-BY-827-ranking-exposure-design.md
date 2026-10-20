@@ -1,5 +1,7 @@
 # BY-827 랭킹 노출 지점 (PR ②) 설계
 
+> **갱신 노트 (2026-10-20)**: 홈 추월 시트는 BY-944에서 뺐다. 이 문서의 추월 시트와 `GET /api/rankings/home` 설명은 당시 설계 기록으로 남겨 뒀다.
+
 - 티켓: BY-827, BE 짝은 BY-828
 - 브랜치: `feature/BY-819-ranking-exposure`, base는 PR ① 브랜치 `feature/BY-819-ranking`이다. PR ①이 `dev`에 머지되면 base를 `dev`로 바꾼다.
 - 앞선 설계: `docs/superpowers/specs/2026-10-10-BY-827-ranking-design.md`(PR ①). 이 문서는 그 문서 §16 PR ② 개요를 대신한다.

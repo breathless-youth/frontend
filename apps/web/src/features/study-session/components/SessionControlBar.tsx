@@ -30,7 +30,7 @@ export type SessionControlBarSurface = "pill" | "bare";
  * `isolate`: 아래 유리 배경 레이어(`-z-10`)가 바 밖으로 빠져나가지 않고 버튼 바로 뒤에 깔린다.
  */
 const SESSION_CONTROL_BAR_CLASS =
-  "pointer-events-auto relative isolate flex items-center justify-center gap-[14px] rounded-full p-[10px]";
+  "pointer-events-auto relative isolate flex items-center justify-center gap-3.5 rounded-full p-2.5 regular:gap-4 regular:p-3 short-side-lg:gap-5 short-side-lg:p-3.75";
 
 /**
  * 알약의 유리 배경·그림자·흐림은 **버튼 뒤의 별도 레이어**다. 클래스를 갈아끼워 없애면 배경이 한
@@ -38,7 +38,7 @@ const SESSION_CONTROL_BAR_CLASS =
  * 페이드시키면 흐림까지 같은 박자로 걷힌다. 길이·이징은 과목 시트의 변형과 같다.
  */
 const barSurfaceVariants = cva(
-  "pointer-events-none absolute inset-0 -z-10 rounded-full bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-opacity duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+  "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-opacity duration-260 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
   {
     variants: { surface: { pill: "opacity-100", bare: "opacity-0" } },
     defaultVariants: { surface: "pill" },
@@ -49,7 +49,8 @@ const barSurfaceVariants = cva(
 const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
 
 /** 54px 버튼 기준 아이콘 크기 — Figma V2 `S1b` 실측으로 네 아이콘 모두 23px 동일하다. */
-const CONTROL_ICON_SIZE = "size-[23px]";
+// 폭 600 이상 창은 64px 버튼에, 큰 태블릿은 80px 버튼에 같은 비율로 맞춘다.
+const CONTROL_ICON_SIZE = "size-5.75 regular:size-6.75 short-side-lg:size-8.5";
 
 export interface SessionControlBarProps {
   /** 일시정지 상태면 첫 버튼이 파란 '다시 시작'으로 바뀐다. */

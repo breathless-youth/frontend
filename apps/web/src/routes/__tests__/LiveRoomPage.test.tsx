@@ -1273,24 +1273,24 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
-    expect(grid.className).not.toContain("landscape:grid");
+    expect(grid.className).not.toContain("landscape-compact:grid");
     const rows = screen.getByTestId("room-grid-rows");
-    expect(rows).not.toHaveClass("landscape:contents");
+    expect(rows).not.toHaveClass("landscape-compact:contents");
     // 세로·가로 공통으로 항상 세로 가운데(my-auto) — 바 토글이 배치를 흔들지 않는다.
     expect(rows).toHaveClass("my-auto");
     expect(rows).toHaveClass("gap-1");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).not.toHaveClass("landscape:aspect-[2/1]");
+    expect(tile).not.toHaveClass("landscape-compact:aspect-[2/1]");
     // 세로 비율(정사각)이 가로에서도 그대로, 높이는 min(88dvh, 폭 예산)으로 고정 —
     // 2장이 한 행에 줄바꿈 없이 들어가는 폭 상한(기기 검산은 구현 주석).
     expect(tile).toHaveClass("aspect-square");
-    expect(tile.className).toContain("landscape:h-[min(88dvh,");
-    expect(tile).toHaveClass("landscape:w-auto");
+    expect(tile.className).toContain("landscape-compact:h-[min(88dvh,");
+    expect(tile).toHaveClass("landscape-compact:w-auto");
 
     // 가로는 바를 11px 더 낮게 건다(2026-08-26 피드백) — 래퍼의 landscape 오프셋.
     expect(screen.getByTestId("room-control-bar").parentElement).toHaveClass(
-      "landscape:bottom-[calc(env(safe-area-inset-bottom)+6px)]",
+      "landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)]",
     );
   });
 
@@ -1299,9 +1299,9 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     await enterRoom();
 
     const grid = screen.getByTestId("room-grid");
-    expect(grid.className).not.toContain("landscape:grid");
+    expect(grid.className).not.toContain("landscape-compact:grid");
     // 가로에서는 바가 타일 위에 겹친다(pb-2) — 타일 크기가 바와 무관해야 토글이 안 흔들린다.
-    expect(grid).toHaveClass("landscape:pb-2");
+    expect(grid).toHaveClass("landscape-compact:pb-2");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
@@ -1326,11 +1326,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
     // 45dvh면 SE에서 3장 폭이 화면을 넘어 2행 3열 줄바꿈이 깨진다 — 44가 상한.
-    expect(tile).toHaveClass("landscape:h-[44dvh]");
+    expect(tile).toHaveClass("landscape-compact:h-[44dvh]");
     // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기는 것을 3장+간격 폭으로 자른다.
     const rows = screen.getByTestId("room-grid-rows");
-    expect(rows).toHaveClass("landscape:max-w-[calc(132dvh+8px)]");
-    expect(rows).toHaveClass("landscape:mx-auto");
+    expect(rows).toHaveClass("landscape-compact:max-w-[calc(132dvh+8px)]");
+    expect(rows).toHaveClass("landscape-compact:mx-auto");
   });
 
   it("타일 크기 급이 바뀌는 인원 경계에서 타일을 재마운트한다 — iOS 영상 리사이즈 페인트 누락 방어", async () => {

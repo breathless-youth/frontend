@@ -46,6 +46,7 @@ const FULL_SCREEN_PATHS = [
   "/planner",
   "/manual-record",
   "/timelapse-settings",
+  "/app-lock-settings",
   "/timelapses",
   "/ranking/records",
 ];

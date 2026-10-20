@@ -10,19 +10,19 @@ function paragraph(text: string) {
 }
 
 describe("IneligibleCard", () => {
-  it("참가까지 남은 순공, 양 끝 숫자, 예상 상위 %를 보인다", () => {
+  it("참가까지 남은 순공과 예상 상위 %만 보이고 게이지와 숫자 줄은 없다", () => {
     render(
       <IneligibleCard
         board={FIXTURE_INELIGIBLE}
-        deadline="마감 1일 9시간"
+        deadline="마감 1일 9시간 전"
         onFocusStart={vi.fn()}
       />,
     );
 
     expect(paragraph("참가까지 3시간 40분")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "63");
-    expect(screen.getByText("이번 주 순공 6시간 20분")).toBeInTheDocument();
-    expect(screen.getByText("10시간")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText("이번 주 순공", { exact: false })).toBeNull();
+    expect(screen.queryByText("10시간")).toBeNull();
     expect(screen.getByText("현재 집중률이면 상위 15%예요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
@@ -96,7 +96,6 @@ describe("IneligibleCard", () => {
     );
 
     expect(paragraph("참가까지 30시간")).toBeInTheDocument();
-    expect(screen.getByText("이번 달 순공 0분")).toBeInTheDocument();
   });
 });
 

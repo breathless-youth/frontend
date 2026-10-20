@@ -3,7 +3,6 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import {
   getRankingBoard,
-  getRankingHome,
   getRankingRecords,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
@@ -40,7 +39,6 @@ export const rankingKeys = {
       filter.type ?? "all",
       filter.size,
     ] as const,
-  home: (userId: number, since: string) => ["ranking", "home", userId, since] as const,
   unseen: (userId: number) => ["ranking", "records", "unseen", userId] as const,
   sessionGains: (userId: number, startedAt: string) =>
     ["ranking", "session-gains", userId, startedAt] as const,
@@ -98,19 +96,6 @@ export function rankingRecordsQuery(userId: number, filter: RecordsFilter) {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60_000,
-  });
-}
-
-/**
- * 홈 추월 queryOptions
- *
- * 하루 한 번만 묻고 그 결과를 다시 쓰지 않아 신선하다고 보지 않는다.
- */
-export function rankingHomeQuery(userId: number, since: string) {
-  return queryOptions({
-    queryKey: rankingKeys.home(userId, since),
-    queryFn: ({ signal }) => getRankingHome(since, signal),
-    staleTime: 0,
   });
 }
 

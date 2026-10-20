@@ -33,11 +33,11 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
         onClick={onClick}
         className={cn(
           controlButtonVariants(),
-          "pointer-events-auto size-[54px] bg-[var(--session-bar-glass-bg)] shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
-          "data-[on=true]:text-[var(--state-focus)]",
+          "pointer-events-auto size-13.5 bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]",
+          "data-[on=true]:text-(--state-focus)",
         )}
       >
-        <Music aria-hidden="true" className="size-[23px]" />
+        <Music aria-hidden="true" className="size-5.75 regular:size-6.75 short-side-lg:size-8.5" />
       </button>
     );
   },

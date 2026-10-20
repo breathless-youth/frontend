@@ -8,7 +8,7 @@ import {
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMemoryBoardMemoryStore,
@@ -77,6 +77,11 @@ function paragraph(text: string) {
 
 let store: ReturnType<typeof createMemoryBoardMemoryStore>;
 
+// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
+beforeAll(async () => {
+  await import("@/features/ranking/components/RecordsSheet");
+});
+
 beforeEach(() => {
   store = createMemoryBoardMemoryStore();
   setBoardMemoryStore(store);
@@ -93,6 +98,9 @@ afterEach(() => {
   onlineManager.setOnline(true);
   vi.clearAllMocks();
 });
+
+/** 지금 시작하면 받을 순위가 3위 안이라 리셋 카드가 그 순위를 말하는 판. */
+const RESET_IN_TOP3 = { ...FIXTURE_RESET_DAILY, startNowRank: 3 };
 
 function renderPage(seed?: (client: QueryClient) => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -189,12 +197,12 @@ describe("RankingPage", () => {
 
   it("내 순위가 없고 직전 기간에 있었으면 리셋 카드와 직전 결과를 보이고 기록 보기로 간다", async () => {
     vi.mocked(getRankingBoard).mockImplementation(async (params) =>
-      params.offset === -1 ? FIXTURE_RESET_PREVIOUS : FIXTURE_RESET_DAILY,
+      params.offset === -1 ? FIXTURE_RESET_PREVIOUS : RESET_IN_TOP3,
     );
     renderPage();
 
     expect(await screen.findByText("지금 시작하면", { exact: false })).toHaveTextContent(
-      "지금 시작하면 4위예요",
+      "지금 시작하면 3위",
     );
     expect(screen.getByRole("region", { name: "어제 최종 결과" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "기록 보기 ›" }));
@@ -239,13 +247,13 @@ describe("RankingPage", () => {
 
   it("판은 있고 직전 기간을 오프라인이라 못 받으면 직전 결과 없이 화면을 그리고, 연결되면 리셋 카드로 바꾼다", async () => {
     vi.mocked(getRankingBoard).mockImplementation(async (params) =>
-      params.offset === -1 ? FIXTURE_RESET_PREVIOUS : FIXTURE_RESET_DAILY,
+      params.offset === -1 ? FIXTURE_RESET_PREVIOUS : RESET_IN_TOP3,
     );
     onlineManager.setOnline(false);
     renderPage((client) =>
       client.setQueryData(
         rankingKeys.board(7, { type: "FOCUS_TIME", period: "WEEKLY" }),
-        FIXTURE_RESET_DAILY,
+        RESET_IN_TOP3,
       ),
     );
 
@@ -255,7 +263,7 @@ describe("RankingPage", () => {
     act(() => onlineManager.setOnline(true));
 
     expect(await screen.findByText("지금 시작하면", { exact: false })).toHaveTextContent(
-      "지금 시작하면 4위예요",
+      "지금 시작하면 3위",
     );
     expect(screen.getByRole("region", { name: "어제 최종 결과" })).toBeInTheDocument();
   });
@@ -358,7 +366,7 @@ describe("RankingPage", () => {
     await userEvent.click(medal);
 
     expect(getRankingRecordsSummary).toHaveBeenCalledTimes(2);
-    const sheet = screen.getByRole("dialog", { name: "랭킹 기록" });
+    const sheet = await screen.findByRole("dialog", { name: "랭킹 기록" });
     expect(within(sheet).getByText("모두 18번")).toBeInTheDocument();
     expect(within(sheet).queryByRole("status")).toBeNull();
 
