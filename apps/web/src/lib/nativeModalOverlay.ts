@@ -18,14 +18,15 @@ import { useSyncExternalStore } from "react";
  * 퇴장 애니메이션 중인 모달은 이미 닫힌 것으로 본다. Radix는 닫는 순간 `data-state="closed"`를 붙이고
  * 애니메이션이 끝나야 요소를 걷어내는데, 걷어낼 때까지 기다리면 네이티브 탭 바가 시트가 다 내려간
  * 뒤에야 돌아와 늦어 보인다. 열릴 때(요소가 붙는 순간 숨김)와 대칭으로 닫힘도 시작 시점에 알린다.
+ * Base UI 바닥 시트(`ui/drawer.tsx`)는 같은 순간 `data-state` 대신 `data-closed`를 붙인다.
  */
 const MODAL_ATTR_SELECTOR = '[aria-modal="true"]';
-const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"])`;
+const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"]):not([data-closed])`;
 
 /**
  * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
  * 화면 바닥에 붙는 시트는 떠 있는 탭 바가 시트 아래쪽(저장 버튼)을 가리므로 탭 바를 숨겨야 한다.
- * 공용 `ui/sheet.tsx`가 `side="bottom"`일 때 단다.
+ * 공용 `ui/drawer.tsx`가 모든 바닥 시트에 단다. 타임랩스 공유 창처럼 Dialog로 만든 바닥 시트는 직접 단다.
  */
 export const COVERS_TAB_BAR_ATTR = "data-covers-tab-bar";
 const COVERING_MODAL_SELECTOR = `${MODAL_SELECTOR}[${COVERS_TAB_BAR_ATTR}]`;
@@ -69,7 +70,8 @@ function subscribe(listener: () => void): () => void {
     typeof MutationObserver !== "undefined" &&
     typeof document !== "undefined"
   ) {
-    // 요소가 붙고 떨어지는 것에 더해 `data-state`가 closed로 바뀌는 순간도 잡는다(위 셀렉터 주석).
+    // 요소가 붙고 떨어지는 것에 더해 닫힘 표시가 붙는 순간도 잡는다(위 셀렉터 주석).
+    // Radix는 `data-state`, Base UI는 `data-open`·`data-closed`로 알린다.
     // `data-state`는 툴팁·스위치·탭 같은 Radix 프리미티브 전부가 흔드는 속성이라, 모달 요소 자신의
     // 변화가 아니면 문서 전체 질의를 건너뛴다.
     observer = new MutationObserver((records) => {
@@ -81,7 +83,7 @@ function subscribe(listener: () => void): () => void {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-state"],
+      attributeFilter: ["data-state", "data-open", "data-closed"],
     });
     sync();
   }

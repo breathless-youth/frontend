@@ -83,7 +83,7 @@ function openModal(): HTMLElement {
   return element;
 }
 
-/** 바닥에 붙는 시트 — `ui/sheet.tsx`가 `side="bottom"`일 때 다는 속성을 그대로 흉내 낸다. */
+/** 바닥에 붙는 시트 — `ui/drawer.tsx`가 다는 속성을 그대로 흉내 낸다. */
 function openBottomSheet(): HTMLElement {
   const element = openModal();
   element.setAttribute(COVERS_TAB_BAR_ATTR, "");
