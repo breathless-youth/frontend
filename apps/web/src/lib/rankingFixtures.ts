@@ -2,7 +2,6 @@ import type {
   RankingBoardResponse,
   RankingDayGroup,
   RankingEntry,
-  RankingHomeResponse,
   RankingRecord,
   RankingRecordsPage,
   RankingRecordsSummary,
@@ -494,37 +493,6 @@ export const FIXTURE_RECORDS_PAGE: RankingRecordsPage = {
   ],
   nextCursor: null,
 };
-
-/**
- * 추월 바텀시트를 띄우는 홈 응답
- *
- * 가까운 사람부터 온다.
- */
-export const FIXTURE_HOME_OVERTAKEN: RankingHomeResponse = {
-  card: { rank: 1205, value: 98400, above: { nickname: "커피세잔", gap: 1320 } },
-  overtaken: {
-    fromRank: 1201,
-    toRank: 1205,
-    count: 4,
-    nearest: [
-      {
-        nickname: "커피세잔",
-        gap: 1320,
-        studiedFrom: "2026-10-11T23:10:00Z",
-        studiedFocusSec: 5400,
-      },
-      {
-        nickname: "형광펜",
-        gap: 1860,
-        studiedFrom: "2026-10-11T22:40:00Z",
-        studiedFocusSec: 7200,
-      },
-    ],
-  },
-};
-
-/** 추월이 없는 홈 응답. */
-export const FIXTURE_HOME_NONE: RankingHomeResponse = { card: null, overtaken: null };
 
 /** 안 본 메달이 없는 응답. */
 export const FIXTURE_UNSEEN_NONE: RankingUnseenResponse = { total: 18, records: [] };
