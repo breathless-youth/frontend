@@ -35,11 +35,18 @@ class AppLockModule : Module() {
 
     Function("canDrawOverlays") { Settings.canDrawOverlays(context) }
 
+    // 문서상 이 화면은 입력을 받지 않지만, 패키지 주소를 실으면 삼성 Android 14(A23)는 목록 대신 이 앱의 허용 화면을 연다.
+    // 주소를 받는 화면이 없는 기기에서는 주소 없이 목록을 연다.
     Function("openUsageAccessSettings") {
-      openSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+      try {
+        openSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:${context.packageName}")))
+      } catch (e: ActivityNotFoundException) {
+        openSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+      }
     }
 
-    // 패키지 주소를 실어야 목록이 아니라 이 앱의 허용 화면이 바로 열린다.
+    // 패키지 주소를 실으면 이 앱 자리를 찾아 준다. Android 11부터는 이 앱 화면이 아니라 목록이 열리고,
+    // 삼성은 목록을 이 앱 위치로 옮겨 잠깐 강조한다.
     Function("openOverlaySettings") {
       openSettings(
         Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
