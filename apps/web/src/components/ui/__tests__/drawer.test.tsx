@@ -99,6 +99,12 @@ describe("DrawerContent — 모양", () => {
     expect(classes).toContain("theme-soft-blue");
   });
 
+  it("태블릿에서는 본문 열 폭으로 가운데에 띄운다", () => {
+    const { sheet } = renderDrawer();
+
+    expect(sheet.className.split(" ")).toContain("page-width");
+  });
+
   it("모션 축소에서는 미끄러지지 않고 페이드만 한다", () => {
     const { sheet } = renderDrawer();
     const classes = sheet.className.split(" ");

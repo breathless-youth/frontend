@@ -49,7 +49,8 @@ function DrawerContent({ className, children, ...props }: DrawerContentProps) {
           aria-modal="true"
           {...{ [COVERS_TAB_BAR_ATTR]: "" }}
           className={cn(
-            "relative w-full rounded-t-[24px] bg-muted px-5 pb-[max(28px,calc(env(safe-area-inset-bottom)+8px))] text-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none",
+            // 태블릿에서는 본문 열과 같은 폭으로 가운데에 띄운다(`page-width`). 끌기가 transform을 쓰므로 가운데 정렬은 margin이 맡는다.
+            "relative w-full page-width rounded-t-[24px] bg-muted px-5 pb-[max(28px,calc(env(safe-area-inset-bottom)+8px))] text-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none",
             // 위로 튕길 때 시트 아래가 비어 보이지 않게 같은 바탕을 화면 밖까지 잇는다.
             "after:absolute after:inset-x-0 after:top-full after:h-12 after:bg-inherit",
             "[transform:translateY(var(--drawer-swipe-movement-y,0px))] duration-300 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)]",
