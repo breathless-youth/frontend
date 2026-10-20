@@ -115,14 +115,14 @@ describe("문서 구성", () => {
     expect(numbers).toEqual(Array.from({ length: 14 }, (_, index) => index + 1));
   });
 
-  it("개인정보처리방침은 1.부터 14.까지 번호가 이어진다", () => {
+  it("개인정보처리방침은 1.부터 15.까지 번호가 이어진다", () => {
     const numbers = PRIVACY_POLICY.sections.map((section) => {
       const matched = /^(\d+)\. /.exec(section.heading);
       expect(matched).not.toBeNull();
       return Number((matched as RegExpExecArray)[1]);
     });
 
-    expect(numbers).toEqual(Array.from({ length: 14 }, (_, index) => index + 1));
+    expect(numbers).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
   });
 
   it("도입 문단은 개인정보처리방침에만 있다", () => {
@@ -134,6 +134,6 @@ describe("문서 구성", () => {
 describe("effectiveDateLabel", () => {
   it("시행일 문구를 한 곳에서 만든다", () => {
     expect(effectiveDateLabel(TERMS_OF_SERVICE)).toBe("시행일: 2026년 7월 26일");
-    expect(effectiveDateLabel(PRIVACY_POLICY)).toBe("시행일: 2026년 10월 25일");
+    expect(effectiveDateLabel(PRIVACY_POLICY)).toBe("시행일: 2026년 10월 27일");
   });
 });

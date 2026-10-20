@@ -237,7 +237,7 @@ export const TERMS_OF_SERVICE: LegalDocument = {
 
 export const PRIVACY_POLICY: LegalDocument = {
   title: "개인정보처리방침",
-  effectiveDate: "2026년 10월 25일",
+  effectiveDate: "2026년 10월 27일",
   intro:
     "숨 벅찬 청년들(이하 “팀”)은 공부 집중 측정 서비스 FocusMakers(이하 “서비스”)를 제공하면서 이용자의 개인정보를 소중하게 다루며, 「개인정보 보호법」 등 관련 법령을 준수합니다. 본 방침은 서비스가 어떤 정보를 왜 수집하고, 어떻게 보관하며, 이용자가 어떤 권리를 갖는지 설명합니다.",
   sections: [
@@ -283,7 +283,22 @@ export const PRIVACY_POLICY: LegalDocument = {
             },
             {
               label: "서비스 이용 기록",
-              value: "접속 IP 주소, 접속 일시, 서비스 이용 기록",
+              value:
+                "접속 IP 주소, 접속 일시, 화면 이동과 버튼 누름 같은 이용 기록, 서비스 유입 경로(광고·링크 등), 공부 세션 요약(공부·집중·휴식 시간, 집중률, 종료 사유), 이용자가 응답한 설문 내용, 화면 재생 기록. 화면 재생 기록에는 카메라 화면이 담기지 않습니다.",
+            },
+            {
+              label: "기기 및 접속 환경 정보",
+              value: "기기 모델, 운영체제와 앱 버전, 브라우저 종류, 앱 설치 식별자, 푸시 알림 토큰",
+            },
+            {
+              label: "오류 기록",
+              value:
+                "오류가 났을 때의 오류 내용, 오류가 난 화면, 기기 환경, 오류 전후의 화면 재생 기록",
+            },
+            {
+              label: "광고 식별자",
+              value:
+                "Android 광고 ID와 iOS 광고 식별자(IDFA). 앱에 포함된 Meta SDK가 수집하며, iOS에서는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
             },
           ],
         },
@@ -301,7 +316,11 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 광고를 게재하지 않으며, 광고 식별자(Android 광고 ID, iOS IDFA)를 수집하거나 이용하지 않습니다.",
+          text: "서비스는 광고를 게재하지 않습니다. 다만 앱 설치 광고의 성과를 측정하기 위해 앱에 포함된 Meta SDK가 광고 식별자와 주요 이용 기록을 수집하며, 자세한 내용과 거부 방법은 9번 항목에 적었습니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "서비스 이용 기록, 기기 및 접속 환경 정보, 오류 기록, 광고 식별자는 이용자가 앱과 웹을 이용하는 동안 자동으로 생성되어 수집됩니다.",
         },
       ],
     },
@@ -348,6 +367,9 @@ export const PRIVACY_POLICY: LegalDocument = {
             "일간·주간·월간 공부 통계와 스트릭(연속 기록) 제공",
             "기기 내 데이터 손실 시 기존 공부 기록의 복원 및 연속 제공",
             "문의 접수 및 응대",
+            "서비스 이용 행태 분석 및 기능 개선",
+            "푸시 알림 발송 및 발송 대상 선정",
+            "앱 설치 광고의 성과 측정",
             "서비스 오류 진단 및 품질 개선",
             "부정 이용 방지 및 서버 안정성 확보",
           ],
@@ -416,6 +438,10 @@ export const PRIVACY_POLICY: LegalDocument = {
           kind: "paragraph",
           text: "팀은 이용자의 정보를 외부에 제공하지 않습니다. 다만 법령에 근거한 수사기관의 적법한 요청이 있는 경우는 예외로 합니다.",
         },
+        {
+          kind: "paragraph",
+          text: "앱 설치 광고의 성과 측정을 위해 앱에 포함된 Meta SDK가 직접 수집하는 정보는 9번 항목에서 따로 안내합니다.",
+        },
       ],
     },
     {
@@ -429,6 +455,23 @@ export const PRIVACY_POLICY: LegalDocument = {
               label: "Amazon Web Services, Inc.",
               value: "서버 운영 및 데이터 보관 / 대한민국(아시아 태평양 서울 리전)",
             },
+            {
+              label: "Google LLC",
+              value:
+                "웹사이트와 서비스의 이용 통계 분석(Google Analytics, Firebase Analytics), 푸시 알림 발송(Firebase Cloud Messaging), 앱 원격 설정(Firebase Remote Config) / 미국",
+            },
+            {
+              label: "Hotjar Ltd. (Contentsquare 그룹)",
+              value: "웹사이트 이용 행태 분석(히트맵·세션 녹화) / 아일랜드",
+            },
+            {
+              label: "Amplitude, Inc.",
+              value: "서비스 이용 행태 분석, 화면 재생 기록 분석, 이용자 설문 / 미국",
+            },
+            {
+              label: "Functional Software, Inc. (Sentry)",
+              value: "오류 진단 및 서비스 안정성 모니터링 / 미국",
+            },
           ],
         },
         {
@@ -440,15 +483,179 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       heading: "8. 개인정보의 국외 이전",
       blocks: [
-        { kind: "paragraph", text: "서비스는 개인정보를 국외로 이전하지 않습니다." },
         {
           kind: "paragraph",
-          text: "서비스가 수집한 정보는 Amazon Web Services의 대한민국 서울 리전(ap-northeast-2)에 보관되며 국외 서버로 이전되거나 저장되지 않습니다.",
+          text: "서비스가 수집한 정보는 Amazon Web Services의 대한민국 서울 리전(ap-northeast-2)에 보관합니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "다만 이용 통계 분석, 오류 진단, 푸시 알림 발송을 위해 아래와 같이 정보를 국외로 이전합니다. 이 이전은 「개인정보 보호법」 제28조의8 제1항 제3호의 처리 위탁·보관에 해당하여 본 방침으로 알립니다.",
+        },
+        {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "Google LLC" },
+            { label: "연락처", value: "googlekrsupport@google.com" },
+            { label: "이전 국가", value: "미국" },
+            {
+              label: "이전 항목",
+              value:
+                "쿠키 및 유사 기술로 수집되는 온라인 식별자, 접속 IP 주소(마지막 옥텟을 가린 형태), 브라우저·기기 정보, 방문 페이지와 이용 기록",
+            },
+            { label: "이전 일시 및 방법", value: "웹사이트 접속 시 네트워크를 통해 자동 전송" },
+            { label: "이용 목적", value: "웹사이트 이용 현황 분석 및 서비스 개선" },
+            { label: "보유 및 이용 기간", value: "수집일로부터 최대 14개월" },
+          ],
+        },
+        {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "Hotjar Ltd. (Contentsquare 그룹)" },
+            {
+              label: "연락처",
+              value:
+                "Hotjar 개인정보처리방침(https://www.hotjar.com/legal/policies/privacy/)의 문의 안내",
+            },
+            { label: "이전 국가", value: "아일랜드(유럽연합)" },
+            {
+              label: "이전 항목",
+              value:
+                "쿠키 및 유사 기술로 수집되는 온라인 식별자, 접속 IP 주소(마지막 옥텟을 가린 형태), 브라우저·기기 정보, 페이지 내 마우스 이동·클릭·스크롤 등 화면 조작 기록",
+            },
+            { label: "이전 일시 및 방법", value: "웹사이트 접속 시 네트워크를 통해 자동 전송" },
+            { label: "이용 목적", value: "화면 구성 개선을 위한 이용 행태 분석" },
+            { label: "보유 및 이용 기간", value: "수집일로부터 최대 365일" },
+          ],
+        },
+        {
+          kind: "paragraph",
+          text: "Hotjar 는 화면 조작 기록을 수집하지만, 이용자가 입력창에 적은 내용은 수집하지 않습니다.",
+        },
+        {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "Amplitude, Inc." },
+            { label: "연락처", value: "privacy@amplitude.com" },
+            { label: "이전 국가", value: "미국" },
+            {
+              label: "이전 항목",
+              value:
+                "서버가 기기 식별자에 붙인 번호, Amplitude가 만든 기기 식별자, 접속 IP 주소, 브라우저·기기 정보, 화면 이동과 버튼 누름 같은 이용 기록, 서비스 유입 경로, 공부 세션 요약(공부·집중·휴식 시간, 집중률, 종료 사유), 설문 응답, 화면 재생 기록(카메라 화면 제외)",
+            },
+            { label: "이전 일시 및 방법", value: "서비스 이용 중 네트워크를 통해 수시 전송" },
+            { label: "이용 목적", value: "서비스 이용 행태 분석, 기능 개선, 이용자 설문" },
+            {
+              label: "보유 및 이용 기간",
+              value: "각 회사의 데이터 보관 정책 및 서비스 설정에 따릅니다",
+            },
+          ],
+        },
+        {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "Google LLC" },
+            { label: "연락처", value: "googlekrsupport@google.com" },
+            { label: "이전 국가", value: "미국" },
+            {
+              label: "이전 항목",
+              value:
+                "쿠키 및 앱 설치 식별자, 서버가 기기 식별자에 붙인 번호(앱에 한함), 접속 IP 주소, 브라우저·기기 정보, 화면 이동 기록, 이용 이벤트와 공부 세션 요약 수치, 푸시 알림 토큰",
+            },
+            { label: "이전 일시 및 방법", value: "서비스 이용 중 네트워크를 통해 수시 전송" },
+            {
+              label: "이용 목적",
+              value: "서비스 이용 통계 분석, 푸시 알림 발송 및 발송 대상 선정, 앱 원격 설정",
+            },
+            {
+              label: "보유 및 이용 기간",
+              value:
+                "이용 통계는 각 회사의 데이터 보관 정책 및 서비스 설정에 따릅니다, 푸시 알림 토큰은 앱을 삭제하거나 토큰이 만료될 때까지",
+            },
+          ],
+        },
+        {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "Functional Software, Inc. (Sentry)" },
+            { label: "연락처", value: "compliance@sentry.io" },
+            { label: "이전 국가", value: "미국" },
+            {
+              label: "이전 항목",
+              value:
+                "오류 내용과 오류가 난 화면 경로, 브라우저·기기·운영체제·앱 버전, 화면 로딩 성능 기록, 웹 화면의 오류 전후 화면 재생 기록(카메라 화면과 이미지·영상 제외)",
+            },
+            {
+              label: "이전 일시 및 방법",
+              value: "오류가 났을 때와 이용 중 일부 표본을 네트워크를 통해 전송",
+            },
+            { label: "이용 목적", value: "오류 진단 및 서비스 안정성 확보" },
+            {
+              label: "보유 및 이용 기간",
+              value: "각 회사의 데이터 보관 정책 및 서비스 설정에 따릅니다",
+            },
+          ],
+        },
+        {
+          kind: "paragraph",
+          text: "앱 설치 광고의 성과 측정을 위해 Meta Platforms, Inc.(미국)가 앱에서 직접 수집하는 정보는 9번 항목에서 안내합니다.",
+        },
+        { kind: "paragraph", text: "위 표의 이전 항목에 카메라 영상은 포함되지 않습니다." },
+        {
+          kind: "paragraph",
+          text: "이용자는 개인정보의 국외 이전을 거부할 수 있습니다. 웹사이트의 Google Analytics 수집을 원하지 않으시면 Google Analytics 차단 브라우저 부가기능(https://tools.google.com/dlpage/gaoptout)을 설치하실 수 있고, Hotjar 수집을 원하지 않으시면 Hotjar 수집 거부(Do Not Track) 페이지(https://www.hotjar.com/policies/do-not-track/)에서 거부하실 수 있습니다. 브라우저에서 쿠키를 차단하는 방법도 있습니다. 앱과 서비스 화면에서 Amplitude, Google, Sentry로 보내는 정보의 전송 거부를 원하시면 아래 개인정보 보호책임자에게 요청해 주시기 바랍니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "국외 이전을 거부해도 공부 측정과 기록 같은 기본 기능은 그대로 이용할 수 있습니다.",
         },
       ],
     },
     {
-      heading: "9. 이용자의 권리와 행사 방법",
+      heading: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "서비스는 앱 설치 광고의 성과를 측정하기 위해 앱에 Meta Platforms, Inc.의 SDK를 포함하고 있으며, 이 SDK가 아래 행태정보를 수집합니다.",
+        },
+        {
+          kind: "fields",
+          rows: [
+            {
+              label: "수집하는 자",
+              value: "Meta Platforms, Inc. (미국). 앱에 포함된 Meta SDK가 직접 수집합니다.",
+            },
+            {
+              label: "수집 항목",
+              value:
+                "광고 식별자(Android 광고 ID, iOS IDFA), 앱 설치·실행 기록, 첫 실행 시 기기 등록 완료·온보딩 완료·공부 시작·공부 종료(공부 시간과 집중 시간 포함)·소셜룸 입장·초대 공유 기록, 기기 정보, 접속 IP 주소. iOS IDFA는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
+            },
+            {
+              label: "수집 방법",
+              value: "앱을 이용하는 동안 자동으로 생성되어 Meta로 전송됩니다.",
+            },
+            { label: "이용 목적", value: "앱 설치 광고의 성과 측정" },
+            { label: "보유 및 이용 기간", value: "Meta의 데이터 보관 정책에 따릅니다." },
+          ],
+        },
+        {
+          kind: "paragraph",
+          text: "이용자는 아래 방법으로 광고 식별자 수집을 거부할 수 있습니다.",
+        },
+        {
+          kind: "bullets",
+          items: [
+            "Android: 기기 설정의 광고 메뉴에서 광고 ID를 삭제하거나 재설정할 수 있습니다. 메뉴 위치는 기기 제조사와 Android 버전에 따라 다릅니다.",
+            "iOS: 설정 > 개인정보 보호 및 보안 > 추적에서 앱의 추적 허용을 끌 수 있습니다.",
+          ],
+        },
+        {
+          kind: "paragraph",
+          text: "광고 ID를 삭제하거나 앱 추적을 허용하지 않으면 광고 식별자는 Meta로 전송되지 않습니다. 다만 위 표의 나머지 기록은 광고 식별자 없이 계속 전송됩니다. 카메라 영상과 얼굴 정보는 Meta로 전송하지 않습니다.",
+        },
+      ],
+    },
+    {
+      heading: "10. 이용자의 권리와 행사 방법",
       blocks: [
         {
           kind: "paragraph",
@@ -465,7 +672,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       ],
     },
     {
-      heading: "10. 만 14세 미만 아동의 개인정보",
+      heading: "11. 만 14세 미만 아동의 개인정보",
       blocks: [
         {
           kind: "paragraph",
@@ -473,7 +680,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 광고를 게재하지 않으며 이름·이메일·전화번호 등 개인을 식별할 수 있는 정보를 수집하지 않습니다. 수집하는 정보는 기기에서 자동 생성되는 무작위 식별자와 공부 시간 기록에 한정되며, 타임랩스 사진과 영상은 이용자의 기기 안에서만 처리하고 수집하지 않습니다. 방해 앱 잠금에 쓰는 앱 정보도 기기 안에서만 처리하고 수집하지 않습니다.",
+          text: "서비스는 광고를 게재하지 않으며 이름·이메일·전화번호 등 개인을 식별할 수 있는 정보를 수집하지 않습니다. 수집하는 정보는 기기에서 자동 생성되는 무작위 식별자, 공부 시간 기록, 1번 항목에 적은 서비스 이용 기록·기기 및 접속 환경 정보·오류 기록·광고 식별자에 한정되며, 타임랩스 사진과 영상은 이용자의 기기 안에서만 처리하고 수집하지 않습니다. 방해 앱 잠금에 쓰는 앱 정보도 기기 안에서만 처리하고 수집하지 않습니다.",
         },
         {
           kind: "paragraph",
@@ -482,7 +689,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       ],
     },
     {
-      heading: "11. 안전성 확보 조치",
+      heading: "12. 안전성 확보 조치",
       blocks: [
         {
           kind: "bullets",
@@ -497,7 +704,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       ],
     },
     {
-      heading: "12. 개인정보 보호책임자",
+      heading: "13. 개인정보 보호책임자",
       blocks: [
         {
           kind: "paragraph",
@@ -515,7 +722,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       ],
     },
     {
-      heading: "13. 권익침해 구제 방법",
+      heading: "14. 권익침해 구제 방법",
       blocks: [
         {
           kind: "paragraph",
@@ -533,7 +740,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       ],
     },
     {
-      heading: "14. 방침의 변경",
+      heading: "15. 방침의 변경",
       blocks: [
         {
           kind: "paragraph",
