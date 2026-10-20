@@ -17,7 +17,7 @@ import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
  * 이 화면을 쓰는 라우트는 SPA 라우팅이 아니라 **하드 내비게이션으로만 진입·이탈한다**(진입 쪽의
  * `hardNavigate`, 아래 뒤로 가기의 `history.back()`/`hardReplace`). 구글 폼 iframe은 CORP
  * 헤더가 없어 COEP `require-corp` 문서에서 네트워크 레벨로 차단되는데, COEP는 문서 요청의
- * 응답에서만 정해지므로 /contact·/interview를 제 문서로 열어야 `vercel.json`의 예외(COEP 미적용)가
+ * 응답에서만 정해지므로 /contact·/interview를 제 문서로 열어야 배포 헤더 설정의 예외(COEP 미적용)가
  * 실제로 걸린다(`lib/hardNavigation.ts` 주석의 재현 근거 참고). 같은 이유로 이 문서 안에서
  * SPA `navigate`로 다른 라우트에 가면 "COEP 없음"이 그 라우트까지 승계되므로 금지 —
  * 세션(SharedArrayBuffer)이 필요로 하는 교차 출처 격리가 조용히 풀린다.

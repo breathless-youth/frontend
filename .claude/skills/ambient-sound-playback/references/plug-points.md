@@ -39,5 +39,5 @@
 | 모달 프리미티브 | `apps/web/src/components/ui/dialog.tsx` (바텀시트 컴포넌트는 없음) |
 | 테스트 설정 | `apps/web/src/test/setup.ts` :7 `HTMLMediaElement.prototype.play` 스텁 |
 | 테스트 위치 예 | `apps/web/src/features/study-session/__tests__/sessionControlBarEffects.test.tsx`, `apps/web/src/routes/__tests__/RoomPage.test.tsx` |
-| 정적 자산 | `apps/web/public/` (Vercel 원격 서빙, CDN 없음). `sounds/` 폴더 신설 |
+| 정적 자산 | `apps/web/public/` (CloudFront 서빙). `sounds/` 폴더 신설 |
 | 개정할 정책 문구 | `docs/screens/SCR-S3-7-S3-8-session-exit.md` :306 "세션 중 알림·소리·진동 미사용이 확정 정책" |
