@@ -183,14 +183,9 @@ internal object AppLockPrefs {
   fun selected(context: Context): Set<String> {
     val file = File(context.noBackupFilesDir, FILE_NAME)
     val stored = if (file.exists()) file.readLines().filter { it.isNotBlank() }.toSet() else emptySet()
+    // 설치 앱 조회는 앱 업데이트 중처럼 잠깐 일부를 빠뜨릴 수 있어, 읽을 때는 걸러서 돌려주기만 하고 파일은 고치지 않는다.
+    // 지운 앱은 앱 고르기 화면에서 저장할 때 목록에서 빠진다.
     val installed = installedOnly(stored, launcherActivities(context).map { it.activityInfo.packageName }.toSet())
-    // 지운 앱 정리는 다음에 읽을 때 다시 하므로, 저장에 실패해도 읽기는 그대로 마쳐 잠금 서비스가 죽지 않게 한다.
-    if (installed != stored) {
-      try {
-        save(context, installed)
-      } catch (e: IOException) {
-      }
-    }
     return lockable(installed, defaultHomePackage(context), context.packageName)
   }
 
