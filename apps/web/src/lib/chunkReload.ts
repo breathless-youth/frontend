@@ -10,7 +10,8 @@ export const RELOAD_AT_KEY = "focusmakers:chunk-reload-at";
 /**
  * 청크 로드 실패 뒤 한 번 새로고침
  *
- * 배포가 바뀌면 열려 있던 화면이 지워진 해시 청크를 요청하고, `vercel.json`이 모든 경로를 `index.html`로 돌려 동적 import가 실패한다.
+ * 열려 있던 화면이 받을 수 없는 해시 청크를 요청하면 동적 import가 실패한다.
+ * Vercel은 새 배포에서 옛 청크가 사라지고 모든 경로를 `index.html`로 돌린다. CloudFront는 옛 청크를 남기지만 없는 파일에는 403을 준다.
  * 한 번 새로고침해 새 배포의 엔트리를 받는다.
  * 새로고침 시각을 `sessionStorage`에 남겨, 10초 안에 또 실패하면 새로고침하지 않고 `false`를 돌려준다.
  * 저장소를 쓸 수 없으면 반복을 막을 방법이 없어 새로고침하지 않는다.

@@ -35,9 +35,10 @@ export function initSentry() {
     dsn,
     /**
      * `import.meta.env.MODE`는 `vite build`면 Preview든 Production이든 항상 `"production"`이라
-     * 두 배포를 구분하지 못한다. Vercel 시스템 변수 `VERCEL_ENV`를 빌드 타임에 주입해
-     * (`vite.config.ts`의 `define`) `production`·`preview`·`development`를 나눈다 — PR마다 뜨는
-     * Preview 배포의 에러가 실사용자 에러와 한 통에 섞이면 게이트 판단이 불가능해진다.
+     * 두 배포를 구분하지 못한다. 배포 워크플로의 `VITE_DEPLOY_ENV`(없으면 Vercel 시스템 변수
+     * `VERCEL_ENV`)를 빌드 타임에 주입해(`vite.config.ts`의 `define`) `production`·`preview`·
+     * `development`를 나눈다 — 스테이징 배포의 에러가 실사용자 에러와 한 통에 섞이면 게이트 판단이
+     * 불가능해진다.
      */
     environment: __DEPLOY_ENV__,
     /** 배포 커밋 SHA(7자리). 어느 배포에서 난 에러인지 묶는 기준이자 소스맵 대조 키. */

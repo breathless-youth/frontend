@@ -171,7 +171,7 @@ export function SettingsPage() {
             trailing={{ kind: "chevron" }}
             onPress={() => {
               // SPA `navigate()`가 아니라 문서 단위 이동인 `hardNavigate`를 써야 한다.
-              // vercel.json 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
+              // 배포 헤더 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
               // 쿼리는 측정 기준 안내 행과 같은 이유로 통째로 이어받아, 딥링크나 새로고침 뒤에도 사라지지 않게 한다.
               trackSettingsRowPressed("contact");
               hardNavigate(`/contact${location.search}`);

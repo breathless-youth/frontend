@@ -118,11 +118,11 @@ Values come from the team and must never be pushed to the remote repository. Cop
 
 ## Deployment
 
-| Target         | Method    | Trigger                                                                  | Destination                                                                           |
-| -------------- | --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Web production | Vercel    | Merge to `main`                                                          | `web.focusmakers.app`                                                                 |
-| Web dev        | Vercel    | `dev` branch                                                             | `web-dev.focusmakers.app`                                                             |
-| App            | EAS Build | Profiles `development`, `development-simulator`, `staging`, `production` | `production` goes to the App Store and Google Play, the rest to internal distribution |
+| Target         | Method     | Trigger                                                                  | Destination                                                                           |
+| -------------- | ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Web production | CloudFront | Merge to `main`                                                          | `web.focusmakers.app`                                                                 |
+| Web dev        | CloudFront | `dev` branch                                                             | `web-dev.focusmakers.app`                                                             |
+| App            | EAS Build  | Profiles `development`, `development-simulator`, `staging`, `production` | `production` goes to the App Store and Google Play, the rest to internal distribution |
 
 - Web and app versions follow CalVer `YY.WW.P`.
 - The release PR bumps them with `pnpm release:bump --web`, adding `--app` in weeks when the app is also submitted.

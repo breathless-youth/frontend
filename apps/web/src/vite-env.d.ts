@@ -29,8 +29,8 @@ interface ImportMeta {
 }
 
 /**
- * 배포 환경 — `vite.config.ts`의 `define`이 Vercel 시스템 변수 `VERCEL_ENV`를 빌드 타임에
- * 박아 넣는다. `import.meta.env.MODE`는 Preview·Production을 구분하지 못해 쓸 수 없다.
+ * 배포 환경 — `vite.config.ts`의 `define`이 `VITE_DEPLOY_ENV`(없으면 Vercel 시스템 변수
+ * `VERCEL_ENV`)를 빌드 타임에 박아 넣는다. `import.meta.env.MODE`는 Preview·Production을 구분하지 못해 쓸 수 없다.
  */
 declare const __DEPLOY_ENV__: "production" | "preview" | "development";
 
