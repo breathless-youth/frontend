@@ -1380,6 +1380,7 @@ describe("랭킹 이벤트", () => {
 
     m.trackRankingOvertakeShown({ count: 4, fromRank: 1201, toRank: 1205 });
     m.trackRankingOvertakeAction("close");
+    m.trackRankingOvertakeAction("close", "swipe");
     m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
     m.trackRankingMedalModalAction("records");
     m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
@@ -1390,6 +1391,7 @@ describe("랭킹 이벤트", () => {
     expect(mocks.track.mock.calls).toEqual([
       ["ranking_overtake_shown", { count: 4, from_rank: 1201, to_rank: 1205 }],
       ["ranking_overtake_action", { action: "close" }],
+      ["ranking_overtake_action", { action: "close", close_method: "swipe" }],
       ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
       ["ranking_medal_modal_action", { action: "records" }],
       ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],

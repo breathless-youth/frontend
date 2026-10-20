@@ -1,5 +1,5 @@
 import type { RankingOvertaken } from "@focusmakers/types";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -44,10 +44,10 @@ describe("OvertakeSheet", () => {
     ).toBeInTheDocument();
   });
 
-  it("열리면 포커스가 시트로 들어온다", () => {
+  it("열리면 포커스가 시트로 들어온다", async () => {
     renderSheet();
 
-    expect(screen.getByRole("dialog")).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("dialog")).toHaveFocus());
   });
 
   it("차이가 가장 작은 줄을 강조한다", () => {
@@ -91,30 +91,37 @@ describe("OvertakeSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: "닫기" }));
 
     expect(handlers.onClose).toHaveBeenCalledTimes(1);
+    expect(handlers.onClose).toHaveBeenCalledWith("button");
     expect(handlers.onStudy).not.toHaveBeenCalled();
     expect(handlers.onRanking).not.toHaveBeenCalled();
   });
 
-  it("Esc를 누르면 닫힌다", async () => {
+  it("Esc로 닫으면 escape로 알린다", async () => {
     const handlers = renderSheet();
 
     await userEvent.keyboard("{Escape}");
 
     expect(handlers.onClose).toHaveBeenCalledTimes(1);
+    expect(handlers.onClose).toHaveBeenCalledWith("escape");
   });
 
-  it("손잡이를 충분히 끌어내리면 닫힌다", () => {
-    // jsdom에는 PointerEvent와 pointer capture가 없다.
-    // 폴리필이 없으면 clientY가 실리지 않는다.
-    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
-    HTMLElement.prototype.setPointerCapture = vi.fn();
+  it("바깥을 누르면 outside로 알린다", async () => {
     const handlers = renderSheet();
-    const handle = screen.getByTestId("overtake-sheet-handle");
 
-    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientY: 200, pointerId: 1 });
-    fireEvent.pointerUp(handle, { clientY: 200, pointerId: 1 });
+    await userEvent.click(document.body);
 
-    expect(handlers.onClose).toHaveBeenCalledTimes(1);
+    expect(handlers.onClose).toHaveBeenCalledWith("outside");
+  });
+
+  it("버튼에서 시작한 손가락은 끌기에서 빼고, 제목에서 시작하면 끌어 닫을 수 있다", () => {
+    // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 한다.
+    renderSheet();
+
+    for (const name of ["공부하러 가기", "랭킹 보기"]) {
+      expect(
+        screen.getByRole("button", { name }).closest("[data-base-ui-swipe-ignore]"),
+      ).not.toBeNull();
+    }
+    expect(screen.getByRole("heading").closest("[data-base-ui-swipe-ignore]")).toBeNull();
   });
 });
