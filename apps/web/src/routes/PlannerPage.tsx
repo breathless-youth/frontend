@@ -20,7 +20,6 @@ import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
-import { DayPickerSheet } from "@/features/records/PeriodPickerSheet";
 import {
   addDaysToDateKey,
   dayTitleWithWeekday,
@@ -30,11 +29,21 @@ import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { slideNavigate } from "@/lib/pageTransition";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
 import { hasTokenSource, useUserId } from "@/lib/userId";
+import { whenIdle } from "@/lib/whenIdle";
+
+/**
+ * 날짜 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 플래너는 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
+ */
+const { LazySheet: LazyDayPickerSheet, preload: preloadDayPickerSheet } = lazyWithPreload(() =>
+  import("@/features/records/PeriodPickerSheet").then((module) => module.DayPickerSheet),
+);
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -150,6 +159,9 @@ export function PlannerPage() {
   };
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    whenIdle(preloadDayPickerSheet);
+  }, []);
   /** 날짜 선택 시트에서 고른 날로 옮긴다. 같은 날이면 닫기만 한다. */
   const pickDate = (picked: string) => {
     setPickerOpen(false);
@@ -238,7 +250,7 @@ export function PlannerPage() {
         }}
       />
 
-      <DayPickerSheet
+      <LazyDayPickerSheet
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         dateKey={dateKey}

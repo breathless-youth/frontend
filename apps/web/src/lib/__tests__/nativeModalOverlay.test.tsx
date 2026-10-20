@@ -85,6 +85,35 @@ describe("useModalOverlayOpen", () => {
     });
   });
 
+  it("Base UI 시트는 닫히기 시작해(data-closed) 걷어내기 전에도 닫힘이다", async () => {
+    const { getByTestId } = render(<Probe />);
+    const modal = addModal({ role: "dialog", "aria-modal": "true", "data-open": "" });
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("open");
+    });
+
+    modal.removeAttribute("data-open");
+    modal.setAttribute("data-closed", "");
+
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("closed");
+    });
+  });
+
+  it("닫히던 Base UI 시트가 다시 열리면 열림으로 돌아온다", async () => {
+    const { getByTestId } = render(<Probe />);
+    const modal = addModal({ role: "dialog", "aria-modal": "true", "data-closed": "" });
+    await flushMutations();
+    expect(getByTestId("state").textContent).toBe("closed");
+
+    modal.removeAttribute("data-closed");
+    modal.setAttribute("data-open", "");
+
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("open");
+    });
+  });
+
   it("aria-modal 없는 오버레이는 열림으로 보지 않는다 — 토스트가 탭 이동을 막으면 안 된다", async () => {
     const { getByTestId } = render(<Probe />);
 
@@ -124,6 +153,26 @@ describe("useModalOverlayCoversTabBar", () => {
       expect(getByTestId("covers").textContent).toBe("covers");
     });
     sheet.remove();
+    await waitFor(() => {
+      expect(getByTestId("covers").textContent).toBe("no");
+    });
+  });
+
+  it("닫히기 시작한 Base UI 바텀시트는 덮지 않는다", async () => {
+    const { getByTestId } = render(<CoversProbe />);
+    const sheet = addModal({
+      role: "dialog",
+      "aria-modal": "true",
+      "data-open": "",
+      [COVERS_TAB_BAR_ATTR]: "",
+    });
+    await waitFor(() => {
+      expect(getByTestId("covers").textContent).toBe("covers");
+    });
+
+    sheet.removeAttribute("data-open");
+    sheet.setAttribute("data-closed", "");
+
     await waitFor(() => {
       expect(getByTestId("covers").textContent).toBe("no");
     });

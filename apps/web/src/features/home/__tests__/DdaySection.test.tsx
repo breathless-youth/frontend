@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 
@@ -65,6 +65,11 @@ function renderSection() {
     </QueryClientProvider>,
   );
 }
+
+// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
+beforeAll(async () => {
+  await import("../DdaySheet");
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -156,10 +161,14 @@ describe("DdaySection — 시트", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
     expect(analytics.trackDdaySheetOpened).toHaveBeenCalledWith(true);
-    expect(screen.getByLabelText("제목")).toHaveValue("2027 수능");
+    expect(await screen.findByLabelText("제목")).toHaveValue("2027 수능");
     // 달력은 저장된 날의 달에서 열리고 그 날이 눌려 있다
     expect(screen.getByText("2099년 1월")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "1월 9일" })).toHaveAttribute("aria-pressed", "true");
+    // 확인 창은 열리기 직전 포커스로 돌려준다. 시트가 첫 포커스를 받은 뒤에 누른다(실제로는 탭보다 훨씬 먼저다).
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: "목표 날짜 설정" })).toHaveFocus();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
@@ -170,7 +179,10 @@ describe("DdaySection — 시트", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
     expect(mockedDelete).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "목표 날짜 설정" })).toBeInTheDocument();
+    const sheet = screen.getByRole("dialog", { name: "목표 날짜 설정" });
+    await waitFor(() => {
+      expect(sheet.contains(document.activeElement)).toBe(true);
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
     fireEvent.click(
@@ -234,50 +246,80 @@ describe("DdaySection — 시트", () => {
     expect(trigger).not.toHaveFocus();
   });
 
-  it("손잡이를 잡고 끌면 시트가 따라 내려오고, 덜 내리면 제자리로·충분히 내리면 닫힌다", async () => {
-    mockedGet.mockResolvedValue(null);
-    // jsdom에는 `PointerEvent`도 pointer capture도 없다 — 폴리필이 없으면 `clientY`가 실리지 않는다.
-    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
-    HTMLElement.prototype.setPointerCapture = vi.fn();
+  it("확인 창이 떠 있는 동안 Esc는 확인 창만 닫고 시트는 남긴다", async () => {
+    mockedGet.mockResolvedValue(SET);
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
-    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
-    const handle = screen.getByTestId("dday-sheet-handle");
+    fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+    await screen.findByRole("alertdialog");
 
-    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientY: 150, pointerId: 1 });
-    expect(dialog.style.transform).toBe("translateY(50px)");
-    fireEvent.pointerUp(handle, { clientY: 150, pointerId: 1 });
-    expect(dialog.style.transform).toBe("");
-    expect(dialog).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
 
-    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientY: 60, pointerId: 1 });
-    // 위로는 끌리지 않는다
-    expect(dialog.style.transform).toBe("translateY(0px)");
-    fireEvent.pointerUp(handle, { clientY: 200, pointerId: 1 });
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("dialog", { name: "목표 날짜 설정" })).toBeInTheDocument();
+  });
+
+  it("확인 창의 삭제를 눌러도 그 누름으로 시트가 닫히지 않고, 지운 뒤에 닫힌다", async () => {
+    mockedGet.mockResolvedValue(SET);
+    let finishDelete: (() => void) | undefined;
+    mockedDelete.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishDelete = resolve;
+      }),
+    );
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "삭제" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("dialog", { name: "목표 날짜 설정" })).toBeInTheDocument();
+
+    await act(async () => {
+      finishDelete?.();
+    });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 
-  it("시스템이 제스처를 가로채면(pointercancel) 많이 내렸어도 닫지 않고 되돌린다", async () => {
+  it("블록은 시트를 여는 버튼임을 보조기기에 알린다", async () => {
     mockedGet.mockResolvedValue(null);
-    window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
-    HTMLElement.prototype.setPointerCapture = vi.fn();
     renderSection();
 
-    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
-    const dialog = await screen.findByRole("dialog", { name: "목표 날짜 설정" });
-    const handle = screen.getByTestId("dday-sheet-handle");
+    const trigger = await screen.findByRole("button", { name: "D-Day 설정" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientY: 300, pointerId: 1 });
-    fireEvent.pointerCancel(handle, { clientY: 300, pointerId: 1 });
+    fireEvent.click(trigger);
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+  });
 
-    expect(dialog).toBeInTheDocument();
-    expect(dialog.style.transform).toBe("");
+  it("버튼·입력에서 시작한 손가락은 끌기에서 빼고, 제목줄에서는 끌어 닫을 수 있다", async () => {
+    // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 한다.
+    mockedGet.mockResolvedValue(SET);
+    renderSection();
+
+    fireEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
+    const ignored = (element: Element) => element.closest("[data-base-ui-swipe-ignore]") !== null;
+    expect(ignored(await screen.findByLabelText("제목"))).toBe(true);
+    expect(ignored(screen.getByRole("button", { name: "저장" }))).toBe(true);
+    expect(ignored(screen.getByRole("button", { name: "삭제" }))).toBe(true);
+    expect(ignored(screen.getByRole("heading", { name: "목표 날짜 설정" }))).toBe(false);
+
+    // 키보드가 뜨면 달력 대신 오는 날짜 칩도 같다.
+    const titleInput = screen.getByLabelText("제목");
+    act(() => titleInput.focus());
+    expect(ignored(screen.getByRole("button", { name: /1월 9일/ }))).toBe(true);
   });
 
   it("키보드가 떠 있는 동안(제목 포커스)만 달력이 날짜 칩으로 접히고, 칩을 누르면 다시 펼쳐진다", async () => {

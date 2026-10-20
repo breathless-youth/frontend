@@ -8,7 +8,7 @@ import {
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMemoryBoardMemoryStore,
@@ -76,6 +76,11 @@ function paragraph(text: string) {
 }
 
 let store: ReturnType<typeof createMemoryBoardMemoryStore>;
+
+// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
+beforeAll(async () => {
+  await import("@/features/ranking/components/RecordsSheet");
+});
 
 beforeEach(() => {
   store = createMemoryBoardMemoryStore();
@@ -361,7 +366,7 @@ describe("RankingPage", () => {
     await userEvent.click(medal);
 
     expect(getRankingRecordsSummary).toHaveBeenCalledTimes(2);
-    const sheet = screen.getByRole("dialog", { name: "랭킹 기록" });
+    const sheet = await screen.findByRole("dialog", { name: "랭킹 기록" });
     expect(within(sheet).getByText("모두 18번")).toBeInTheDocument();
     expect(within(sheet).queryByRole("status")).toBeNull();
 

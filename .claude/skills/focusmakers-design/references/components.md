@@ -11,7 +11,7 @@
 | Dialog / Confirm V2 (Buttons=One·Two·Two Destructive) | `2405:126` | `components/ui/dialog.tsx` |
 | Button (V2 파일 `YcyImcuVORDbBneii41Byh`, Kind=Outline Primary·Outline Destructive·Link) | `5458:498` | `components/ui/button.tsx`의 `variant="outline-primary"` · `"outline-destructive"` · `"link"` |
 | 삭제 확인 다이얼로그 | `2405:126` (Buttons=Two Destructive) | `components/ui/confirm-dialog.tsx` (`ConfirmDialog`) |
-| Sheet / Bottom | `44:96` | 없음 → `components/ui/drawer.tsx`(vaul) 예정 |
+| Sheet / Bottom | `44:96` (V1.4 노드다. V2 파일 `YcyImcuVORDbBneii41Byh`의 노드는 다시 확인한다) | `components/ui/drawer.tsx` (Base UI Drawer, BY-940). 바닥 시트 모양은 `DrawerContent`에서만 정한다. 시트 안 버튼·칩·입력에는 `data-base-ui-swipe-ignore`를 단다(iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려진다). 가로로 미는 영역은 `data-base-ui-swipe-ignore="x"` |
 | Sheet / Menu Item | `2405:138` | 없음 |
 | Control / Toggle | `43:89` | 설정 화면 로컬 |
 | Settings / Row (5종) | `43:117` | `features/settings` |
