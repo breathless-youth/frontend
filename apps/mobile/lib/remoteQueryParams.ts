@@ -2,6 +2,8 @@ import Constants from "expo-constants";
 import { useEffect, useState } from "react";
 import { Appearance, Platform } from "react-native";
 
+import { appLockNative } from "../modules/app-lock";
+import { getRnda } from "./appLock/rnda";
 import { ensureUserRegistered } from "./userApi";
 
 /**
@@ -58,6 +60,13 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.
   if (Platform.OS === "ios") {
     params.nativeTabBar = "1";
+  }
+  // `appLock=1`: 이 바이너리가 `app-lock-*`를 처리할 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 방해 앱 잠금 설정을 보이고 세션에서 잠금을 요청한다(`apps/web/src/features/app-lock/appLockCapability.ts`).
+  // 잠금 모듈이 없는 구버전 바이너리에는 붙지 않는다.
+  // OS 버전이 낮아도 붙여서 웹이 켜기를 눌렀을 때 지원 버전을 안내하게 한다.
+  if (getRnda() !== null || (Platform.OS === "android" && appLockNative !== null)) {
+    params.appLock = "1";
   }
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면

@@ -106,7 +106,7 @@ describe("딥링크 선언은 APP_VARIANT에서 파생된다", () => {
 
     it("app.json의 다른 플러그인은 그대로 남는다", () => {
       const cfg = build("staging");
-      expect(cfg.plugins?.slice(0, -1)).toEqual(appJson.expo.plugins);
+      expect(cfg.plugins?.slice(0, appJson.expo.plugins.length)).toEqual(appJson.expo.plugins);
     });
   });
 });

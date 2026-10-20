@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
 import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
@@ -283,6 +284,7 @@ export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
+  useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
   const recoveryReady = userId === null || noticeSettled;

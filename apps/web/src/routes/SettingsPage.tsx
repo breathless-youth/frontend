@@ -15,6 +15,9 @@ import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
+import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
+import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
+import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
@@ -46,6 +49,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
+  const appLock = useAppLockSettings();
   const userId = useUserId();
   const interview = useQuery({ ...interviewStatusQuery(userId ?? 0), enabled: userId !== null });
   // 다시 받기가 실패해도 쿼리는 예전 data를 들고 있다. 서버가 막 끈 행을 계속 보이지 않게 실패면 숨긴다.
@@ -140,6 +144,26 @@ export function SettingsPage() {
               );
             }}
           />
+          {/* 스크린타임 모듈이 없는 앱과 브라우저에서는 잠글 수단이 없어 숨긴다. */}
+          {hasAppLockCapability() && (
+            <SettingsRow
+              label="방해 앱 잠금"
+              trailing={{
+                kind: "valueChevron",
+                value: formatAppLockRowValue(
+                  appLock.enabled,
+                  appLock.appCount,
+                  appLock.categoryCount,
+                ),
+              }}
+              onPress={() => {
+                trackSettingsRowPressed("app_lock");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/app-lock-settings", search: location.search }),
+                );
+              }}
+            />
+          )}
           {/*
             온보딩 가이드로 다시 들어가는 행이다.
             `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.

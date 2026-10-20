@@ -4,6 +4,7 @@ import { Share } from "react-native";
 import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmakers/types";
 
 import { getActiveTab } from "./activeTab";
+import { handleAppLockMessage } from "./appLock/appLockRelay";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
@@ -229,6 +230,17 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       break;
     case "analytics-user-properties":
       setAnalyticsUserProperties(message.properties);
+      break;
+    case "app-lock-query":
+    case "app-lock-authorize":
+    case "app-lock-pick":
+    case "app-lock-start":
+    case "app-lock-stop":
+    case "app-lock-battery-guide":
+      // 잠금 실패가 공부 측정을 막지 않도록 어댑터가 RNDA 예외를 삼키고, 여기서는 남은 예외만 경고로 남긴다.
+      void handleAppLockMessage(message, reply).catch((error: unknown) => {
+        console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);
+      });
       break;
     default: {
       // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
