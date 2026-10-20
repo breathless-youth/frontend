@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DayTaskItem,
@@ -200,6 +200,11 @@ function renderPlanner(path: string, state?: unknown) {
     </QueryClientProvider>,
   );
 }
+
+// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
+beforeAll(async () => {
+  await import("@/features/records/PeriodPickerSheet");
+});
 
 describe("PlannerPage", () => {
   beforeEach(() => {
