@@ -1144,7 +1144,7 @@ describe("방해 앱 잠금 이벤트", () => {
   it("미초기화 상태에서는 조용히 무시한다", async () => {
     const m = await loadModule();
 
-    m.trackAppLockPermissionResult({ granted: true });
+    m.trackAppLockPermissionResult({ platform: "ios", granted: true });
     m.trackAppLockAppsSelected({ appCount: 1, categoryCount: 0 });
     m.trackAppLockToggled({ on: true, source: "settings" });
     m.setAppLockEnabledUserProperty(true);
@@ -1158,12 +1158,12 @@ describe("방해 앱 잠금 이벤트", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackAppLockPermissionResult({ granted: false });
+    m.trackAppLockPermissionResult({ platform: "android", granted: false });
     m.trackAppLockAppsSelected({ appCount: 3, categoryCount: 1 });
     m.trackAppLockToggled({ on: false, source: "permission_lost" });
 
     expect(mocks.track).toHaveBeenCalledWith("app_lock_permission_result", {
-      platform: "ios",
+      platform: "android",
       granted: false,
     });
     expect(mocks.track).toHaveBeenCalledWith("app_lock_apps_selected", {

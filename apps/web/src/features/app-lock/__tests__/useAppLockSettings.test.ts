@@ -96,13 +96,29 @@ describe("useAppLockSettings", () => {
     expect(showToast).toHaveBeenCalledWith("방해 앱 잠금은 Android 8 이상에서 쓸 수 있어요");
   });
 
+  it("Android에서 권한 결과를 android로 보낸다", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 14; SM-A235N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+    );
+    vi.mocked(authorizeAppLock).mockResolvedValue({ ...STATE, authorized: true });
+    const { result } = await renderSettings();
+    await act(() => result.current.toggle(true));
+    expect(analytics.trackAppLockPermissionResult).toHaveBeenCalledWith({
+      platform: "android",
+      granted: true,
+    });
+  });
+
   it("허용하면 켜고 저장한다", async () => {
     vi.mocked(authorizeAppLock).mockResolvedValue({ ...STATE, authorized: true });
     const { result } = await renderSettings();
     await act(() => result.current.toggle(true));
     expect(result.current.enabled).toBe(true);
     expect(readAppLockEnabled()).toBe(true);
-    expect(analytics.trackAppLockPermissionResult).toHaveBeenCalledWith({ granted: true });
+    expect(analytics.trackAppLockPermissionResult).toHaveBeenCalledWith({
+      platform: "ios",
+      granted: true,
+    });
     expect(analytics.trackAppLockToggled).toHaveBeenCalledWith({ on: true, source: "settings" });
     expect(analytics.setAppLockEnabledUserProperty).toHaveBeenLastCalledWith(true);
     expect(showToast).not.toHaveBeenCalled();
@@ -153,7 +169,10 @@ describe("useAppLockSettings", () => {
     const { result } = await renderSettings();
     await act(() => result.current.toggle(true));
     expect(result.current.enabled).toBe(false);
-    expect(analytics.trackAppLockPermissionResult).toHaveBeenCalledWith({ granted: false });
+    expect(analytics.trackAppLockPermissionResult).toHaveBeenCalledWith({
+      platform: "ios",
+      granted: false,
+    });
     expect(showToast).not.toHaveBeenCalled();
   });
 

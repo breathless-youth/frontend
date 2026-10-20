@@ -92,7 +92,10 @@ export function useAppLockSettings() {
       showToast(`방해 앱 잠금은 ${android ? "Android 8" : "iOS 18"} 이상에서 쓸 수 있어요`);
       return;
     }
-    trackAppLockPermissionResult({ granted: state.authorized });
+    trackAppLockPermissionResult({
+      platform: android ? "android" : "ios",
+      granted: state.authorized,
+    });
     if (state.authorized) {
       writeAppLockEnabled(true);
       setEnabled(true);

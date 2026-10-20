@@ -1205,12 +1205,14 @@ export function trackTimelapseSettingChanged(input: {
 /**
  * 방해 앱 잠금 권한 결과
  *
- * 지금은 iOS에서만 권한을 묻는다.
- * 안드로이드가 붙으면 `platform` 값이 늘어난다.
+ * 플랫폼마다 묻는 권한이 달라(iOS 스크린타임, Android 사용정보 접근·다른 앱 위에 표시) 허용률을 따로 본다.
  */
-export function trackAppLockPermissionResult(input: { readonly granted: boolean }) {
+export function trackAppLockPermissionResult(input: {
+  readonly platform: "ios" | "android";
+  readonly granted: boolean;
+}) {
   if (!initialized) return;
-  track("app_lock_permission_result", { platform: "ios", granted: input.granted });
+  track("app_lock_permission_result", { platform: input.platform, granted: input.granted });
 }
 
 /** 앱 이름·선택 토큰은 기기 밖으로 나가지 않아서 개수만 싣는다. */
