@@ -33,7 +33,7 @@ description: "앱에 실을 배경음·백색소음·자연음·lofi 음원 파�
 ## 2. 포맷·용량
 - 컨테이너·코덱: **mp3, 44.1kHz, 96kbps**. 자연음·노이즈성은 mono, 음악은 stereo 128kbps. iOS WKWebView·Android WebView 양쪽의 `decodeAudioData`가 확실히 지원하는 조합이라 고른다. ogg/opus는 iOS 디코딩이 불확실해 쓰지 않는다.
 - 길이: 60~120초. 짧으면 반복이 들리고, 길면 용량이 는다.
-- 상한: 파일당 1.2MB, `public/sounds/` 전체 6MB. 소리 파일은 사용자가 켤 때 처음 받으므로 첫 로드 비용이 그대로 사용자에게 간다.
+- 상한: 파일당 1.2MB, `public/sounds/` 전체 12MB(BY-683, `catalog.test.ts`가 검사). 소리 파일은 사용자가 켤 때 처음 받으므로 첫 로드 비용이 그대로 사용자에게 간다.
 - 라우드니스: `-16 LUFS` 근처로 맞춘다(`loudnorm`). 소리마다 음량이 다르면 사용자가 매번 기기 볼륨을 만진다.
 
 ## 3. 루프 만들기
