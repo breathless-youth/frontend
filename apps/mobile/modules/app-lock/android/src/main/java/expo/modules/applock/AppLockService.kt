@@ -83,7 +83,17 @@ class AppLockService : Service() {
     val stopCommand = intent?.action == ACTION_STOP
     // startForegroundService로 온 시작 명령은 멈추기 전에도 startForeground를 불러야 앱이 죽지 않는다.
     // 해제 명령은 startService로 오고, 앞선 시작 명령이 이미 startForeground를 불렀다.
-    if (!stopCommand) startInForeground(intent?.getIntExtra(EXTRA_COUNT, 0) ?: 0)
+    if (!stopCommand) {
+      // 명령이 처리되기 직전에 앱이 뒤로 가거나 제조사 정책이 막으면 startForeground가 예외를 던진다.
+      // 서비스는 앱 프로세스에서 돌아 그대로 두면 공부 중인 앱이 죽으므로, 이번 시작만 없던 일로 하고 잠그지 않는다.
+      try {
+        startInForeground(intent?.getIntExtra(EXTRA_COUNT, 0) ?: 0)
+      } catch (e: Exception) {
+        requests.stopIfCurrent(intent?.getLongExtra(EXTRA_GENERATION, 0L) ?: 0L)
+        finish()
+        return START_NOT_STICKY
+      }
+    }
     // 명령은 온 순서대로 오지만 그사이 시작·해제가 더 왔을 수 있어 명령 종류가 아니라 지금 요청 상태를 따른다.
     if (!requests.running) {
       finish()
