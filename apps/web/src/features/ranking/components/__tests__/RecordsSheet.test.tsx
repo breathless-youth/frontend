@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -98,16 +98,16 @@ describe("RecordsSheet", () => {
     expect(onPickRecord).toHaveBeenCalledWith(FIXTURE_SUMMARY.recent[0]);
   });
 
-  it("받아 둔 기록으로 열리면 첫 칩이 아니라 시트 자체에 포커스를 두어 화면 낭독기가 시트 안에서 시작한다", () => {
+  it("받아 둔 기록으로 열리면 첫 칩이 아니라 시트 자체에 포커스를 두어 화면 낭독기가 시트 안에서 시작한다", async () => {
     // 랭킹 탭은 메달 버튼 숫자 때문에 요약을 먼저 받아 두어, 시트는 자리표시 없이 기록과 함께 열린다.
-    // 자리표시가 사라지면 Radix가 시트로 포커스를 보내 주므로, 그 도움이 없는 이 경우를 따로 본다.
+    // 자리표시를 거치지 않아도 첫 칩이 아니라 시트로 포커스가 가는지 본다.
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(rankingKeys.summary(7), FIXTURE_SUMMARY);
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY);
     renderSheet({}, client);
 
     expect(screen.getByRole("heading", { name: "랭킹 기록" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "랭킹 기록" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "랭킹 기록" })).toHaveFocus());
     expect(screen.getByRole("radio", { name: "전체" })).not.toHaveFocus();
   });
 

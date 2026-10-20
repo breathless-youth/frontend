@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { RankChips, type RankChip } from "@/features/ranking/components/RecordsSheet";
+import { RankChips, type RankChip } from "@/features/ranking/components/RankChips";
 import { IllustCrown, IllustMedal } from "@/features/ranking/icons";
 import { selectionOfRecord } from "@/features/ranking/model/board";
 import { requestBoard, takeRecordsPageRequest } from "@/features/ranking/model/boardMemory";
