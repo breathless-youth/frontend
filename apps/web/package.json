@@ -28,6 +28,7 @@
     "@amplitude/analytics-browser": "^2.45.5",
     "@amplitude/engagement-browser": "^1.0.12",
     "@amplitude/plugin-session-replay-browser": "^1.33.7",
+    "@base-ui/react": "1.9.0",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
     "@hookform/resolvers": "^5.9.1",
