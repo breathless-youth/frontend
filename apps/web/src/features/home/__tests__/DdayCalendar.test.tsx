@@ -56,6 +56,31 @@ describe("DdayCalendar — 날짜 고르기", () => {
     fireEvent.click(screen.getByRole("button", { name: "이전 달" }));
     expect(screen.getByText("2026년 8월")).toBeInTheDocument();
   });
+
+  it("가로로 미는 영역은 시트 끌어 닫기에서 뺀다", () => {
+    renderCalendar();
+
+    expect(screen.getByTestId("dday-calendar-swipe-area")).toHaveAttribute(
+      "data-base-ui-swipe-ignore",
+      "x",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "연도·월 바로 가기" }));
+    expect(screen.getByTestId("dday-year-picker-swipe-area")).toHaveAttribute(
+      "data-base-ui-swipe-ignore",
+      "x",
+    );
+  });
+
+  it("달 넘기기 줄의 버튼에서 시작한 손가락은 끌기에서 뺀다", () => {
+    // iOS에서 살짝 움직인 탭이 시트 끌기로 잡혀 버려지지 않게 한다.
+    renderCalendar();
+
+    for (const name of ["이전 달", "연도·월 바로 가기", "다음 달"]) {
+      expect(
+        screen.getByRole("button", { name }).closest("[data-base-ui-swipe-ignore]"),
+      ).not.toBeNull();
+    }
+  });
 });
 
 describe("DdayCalendar — 스와이프", () => {
