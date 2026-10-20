@@ -1,5 +1,7 @@
 # BY-746 Android 방해 앱 잠금 구현 설계
 
+> **갱신(2026-10-20):** 안전 해제를 12시간에서 6시간으로 줄였다(ADR 0017, `SAFETY_RELEASE_HOURS`). 아래 본문의 12시간은 작성 당시 값이다.
+
 - Jira: BY-746 (스토리 BY-740), 시안 BY-929(1차, 구현하며 다듬는다)
 - 브랜치: `feature/BY-746-android-app-lock` → PR base `feature/BY-740-app-lock`
 - 기획: `.ai` `product/screen-time/features.md` §0, `decisions.md`(ST-D16·D19·D20), `platform.md` Android 구성, `app-review-checklist.md` §9 Google Play

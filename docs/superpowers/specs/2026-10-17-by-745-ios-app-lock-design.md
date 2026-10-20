@@ -1,5 +1,7 @@
 # BY-745 iOS 방해 앱 잠금 구현 설계
 
+> **갱신(2026-10-20):** 안전 해제를 12시간에서 6시간으로 줄였다(ADR 0016, `SAFETY_RELEASE_HOURS`). 아래 본문의 12시간은 작성 당시 값이다.
+
 - Jira: BY-745 (스토리 BY-740)
 - 브랜치: `feature/BY-745-ios-app-lock` → PR base `feature/BY-740-app-lock` (dev와 분리된 기능 브랜치)
 - 기획 원본: `.ai` `product/screen-time/features.md` §0, `decisions.md`, `platform.md` (PR #36 브랜치 `docs/screen-time-ios18-gate` 기준)
