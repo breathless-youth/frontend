@@ -85,7 +85,7 @@ export function InviteCodeJoinPage() {
   return (
     <main
       data-testid="invite-code-join-page"
-      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
       <ScreenBackHeader
         // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다.

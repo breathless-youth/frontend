@@ -73,7 +73,7 @@ export function TimelapseSettingsPage() {
   };
 
   return (
-    <main className="theme-soft-blue bg-soft-blue min-h-dvh pb-10 text-foreground">
+    <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-10 text-foreground">
       <ScreenBackHeader title="타임랩스" />
 
       {settings !== null && (

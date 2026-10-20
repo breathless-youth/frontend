@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -98,16 +98,16 @@ describe("RecordsSheet", () => {
     expect(onPickRecord).toHaveBeenCalledWith(FIXTURE_SUMMARY.recent[0]);
   });
 
-  it("받아 둔 기록으로 열리면 첫 칩이 아니라 시트 자체에 포커스를 두어 화면 낭독기가 시트 안에서 시작한다", () => {
+  it("받아 둔 기록으로 열리면 첫 칩이 아니라 시트 자체에 포커스를 두어 화면 낭독기가 시트 안에서 시작한다", async () => {
     // 랭킹 탭은 메달 버튼 숫자 때문에 요약을 먼저 받아 두어, 시트는 자리표시 없이 기록과 함께 열린다.
-    // 자리표시가 사라지면 Radix가 시트로 포커스를 보내 주므로, 그 도움이 없는 이 경우를 따로 본다.
+    // 자리표시를 거치지 않아도 첫 칩이 아니라 시트로 포커스가 가는지 본다.
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(rankingKeys.summary(7), FIXTURE_SUMMARY);
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY);
     renderSheet({}, client);
 
     expect(screen.getByRole("heading", { name: "랭킹 기록" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "랭킹 기록" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "랭킹 기록" })).toHaveFocus());
     expect(screen.getByRole("radio", { name: "전체" })).not.toHaveFocus();
   });
 
@@ -126,6 +126,28 @@ describe("RecordsSheet", () => {
     expect(screen.getByText("오전 구간 12분 차")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
+  });
+
+  // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게, 시트 안 버튼은 끌기 제외 영역 안에 둔다.
+  it("빈 상태의 집중 시작은 끌기에서 빼고 안내 제목은 그대로 끌린다", async () => {
+    vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
+    renderSheet();
+
+    const focusStart = await screen.findByRole("button", { name: "집중 시작" });
+    expect(focusStart.closest("[data-base-ui-swipe-ignore]")).not.toBeNull();
+    expect(
+      screen
+        .getByRole("heading", { name: "아직 TOP 3 기록이 없어요" })
+        .closest("[data-base-ui-swipe-ignore]"),
+    ).toBeNull();
+  });
+
+  it("오류의 다시 시도도 끌기에서 뺀다", async () => {
+    vi.mocked(getRankingRecordsSummary).mockRejectedValue(new Error("network"));
+    renderSheet();
+
+    const retry = await screen.findByRole("button", { name: "다시 시도" });
+    expect(retry.closest("[data-base-ui-swipe-ignore]")).not.toBeNull();
   });
 
   describe("TOP 3에 가장 가까운 판 줄", () => {

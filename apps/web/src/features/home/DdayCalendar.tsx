@@ -125,7 +125,8 @@ export function DdayCalendar({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex h-11 items-center justify-between">
+      {/* 시트 안 버튼은 끌기에서 뺀다. iOS에서 살짝 움직인 탭이 시트 끌기로 잡혀 버려진다. */}
+      <div data-base-ui-swipe-ignore="" className="flex h-11 items-center justify-between">
         <button
           type="button"
           aria-label="이전 달"
@@ -167,6 +168,10 @@ export function DdayCalendar({
           // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에
           // 투명하게 만들어 시작점이 어디든 여기서 받는다(눌리지 않는 것은 그대로다).
           data-testid="dday-year-picker-swipe-area"
+          // 가로로 미는 손가락은 시트가 아니라 달력에 넘긴다. 세로로 끌면 시트가 닫힌다.
+          // 안의 버튼에는 끌기 제외를 따로 달지 않는다. 이 영역은 어느 쪽으로든 6px을 넘기 전까지 손가락을 막지 않아
+          // 살짝 움직인 탭이 살고, 버튼마다 달면 달력 위에서 시트를 끌어 닫을 수 없다.
+          data-base-ui-swipe-ignore="x"
           className="[&_button:disabled]:pointer-events-none touch-pan-y flex min-h-[284px] flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
@@ -252,6 +257,8 @@ export function DdayCalendar({
         // 없으면 iOS가 가로 드래그도 스크롤 제스처로 집어 pointercancel을 내서 스와이프가 끝까지 못 간다.
         <div
           data-testid="dday-calendar-swipe-area"
+          // 가로로 미는 손가락은 시트가 아니라 달력에 넘긴다. 세로로 끌면 시트가 닫힌다.
+          data-base-ui-swipe-ignore="x"
           // `[&_button:disabled]:pointer-events-none`: 브라우저는 disabled 버튼에 포인터 이벤트를
           // 아예 디스패치하지 않아, 지난 날짜 셀에서 시작한 스와이프가 이 컨테이너까지 오지 못하고
           // 조용히 죽는다. 월말에는 그리드 앞부분이 통째로 죽은 영역이 된다. 비활성 자식을 포인터에

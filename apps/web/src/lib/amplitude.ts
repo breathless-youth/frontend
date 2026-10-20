@@ -1004,14 +1004,23 @@ export function trackRankingOvertakeShown(input: {
   });
 }
 
+/** 추월 시트를 닫은 방법. Android 뒤로 가기는 `back`이다. */
+export type RankingOvertakeCloseMethod = "swipe" | "outside" | "escape" | "button" | "back";
+
 /**
  * 추월 바텀시트 동작
  *
- * 끌어내리거나 바깥을 눌러 닫은 것도 `close`로 센다.
+ * `close`에는 닫은 방법을 함께 싣는다. 방법을 알 수 없는 닫힘은 속성 없이 보낸다.
  */
-export function trackRankingOvertakeAction(action: "study" | "ranking" | "close") {
+export function trackRankingOvertakeAction(
+  action: "study" | "ranking" | "close",
+  closeMethod?: RankingOvertakeCloseMethod,
+) {
   if (!initialized) return;
-  track("ranking_overtake_action", { action });
+  track(
+    "ranking_overtake_action",
+    closeMethod === undefined ? { action } : { action, close_method: closeMethod },
+  );
 }
 
 /**

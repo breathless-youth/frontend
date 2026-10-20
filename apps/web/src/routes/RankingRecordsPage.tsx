@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { RankChips, type RankChip } from "@/features/ranking/components/RecordsSheet";
+import { RankChips, type RankChip } from "@/features/ranking/components/RankChips";
 import { IllustCrown, IllustMedal } from "@/features/ranking/icons";
 import { selectionOfRecord } from "@/features/ranking/model/board";
 import { requestBoard, takeRecordsPageRequest } from "@/features/ranking/model/boardMemory";
@@ -72,7 +72,7 @@ export function RankingRecordsPage() {
     });
 
   return (
-    <main className="theme-soft-blue min-h-dvh bg-soft-blue pb-10 text-foreground">
+    <main className="theme-soft-blue min-h-dvh bg-soft-blue page-column pb-10 text-foreground">
       <ScreenBackHeader title="랭킹 기록" onBack={goBack} />
       {identityPending ? (
         <div className="flex flex-col px-5 pt-4">

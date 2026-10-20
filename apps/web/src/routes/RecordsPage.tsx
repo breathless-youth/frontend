@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -18,7 +18,6 @@ import { subjectIdOf, subjectNameOf } from "@/features/manual-record/manualRecor
 import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { PeriodHeadline } from "@/features/records/PeriodHeadline";
-import { MonthPickerSheet } from "@/features/records/PeriodPickerSheet";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
 import {
   type CalendarMonth,
@@ -44,8 +43,18 @@ import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
 import { hasTokenSource, useUserId } from "@/lib/userId";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { whenIdle } from "@/lib/whenIdle";
 import { Card } from "@/components/ui/card";
 import { Accordion } from "@/components/ui/accordion";
+
+/**
+ * 달 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 기록 탭은 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
+ */
+const { LazySheet: LazyMonthPickerSheet, preload: preloadMonthPickerSheet } = lazyWithPreload(() =>
+  import("@/features/records/PeriodPickerSheet").then((module) => module.MonthPickerSheet),
+);
 
 /**
  * 기록 탭
@@ -85,6 +94,9 @@ function RecordsContent({
   };
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    whenIdle(preloadMonthPickerSheet);
+  }, []);
 
   const { day, dayFocusSec, period } = useRecordsData(userId, selectedKey, month);
   const periodDaily = period.status === "success" ? period.daily : undefined;
@@ -139,7 +151,7 @@ function RecordsContent({
         </PeriodNavPickerButton>
       </PeriodNav>
 
-      <MonthPickerSheet
+      <LazyMonthPickerSheet
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         month={month}
@@ -316,7 +328,7 @@ export function RecordsPage() {
   return (
     <main
       data-testid="records-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue page-column pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
         <div className="flex items-center justify-between">

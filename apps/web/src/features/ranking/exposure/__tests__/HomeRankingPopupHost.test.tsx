@@ -4,7 +4,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMemoryInterviewStore,
@@ -58,6 +58,11 @@ const OVERTAKE_TITLE = "자리 비운 사이 4명이 추월했어요";
 
 let boardStore: ReturnType<typeof createMemoryBoardMemoryStore>;
 
+// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
+beforeAll(async () => {
+  await import("../OvertakeSheet");
+});
+
 beforeEach(() => {
   // 지금을 KST 10월 12일 오전 10시로 둔다.
   // 날짜만 고정해 쿼리 타이머는 그대로 돈다.
@@ -94,7 +99,13 @@ function renderHost({
   ready = true,
   blocked = false,
   strict = false,
-}: { ready?: boolean; blocked?: boolean; strict?: boolean } = {}) {
+  Host = HomeRankingPopupHost,
+}: {
+  ready?: boolean;
+  blocked?: boolean;
+  strict?: boolean;
+  Host?: typeof HomeRankingPopupHost;
+} = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
   const wrap = (children: ReactNode) => (strict ? <StrictMode>{children}</StrictMode> : children);
@@ -106,12 +117,7 @@ function renderHost({
             <Route
               path="/home"
               element={
-                <HomeRankingPopupHost
-                  userId={7}
-                  ready={isReady}
-                  blocked={isBlocked}
-                  onOpenChange={onOpenChange}
-                />
+                <Host userId={7} ready={isReady} blocked={isBlocked} onOpenChange={onOpenChange} />
               }
             />
             <Route path="/ranking" element={<Probe />} />
@@ -432,7 +438,7 @@ describe("HomeRankingPopupHost: 추월 시트", () => {
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(analytics.trackRankingOvertakeAction).toHaveBeenCalledWith("close");
+    expect(analytics.trackRankingOvertakeAction).toHaveBeenCalledWith("close", "escape");
 
     first.unmount();
     sessionStorage.clear();
@@ -441,6 +447,27 @@ describe("HomeRankingPopupHost: 추월 시트", () => {
 
     expect(rankingApi.getRankingHome).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("추월 시트 코드를 받지 못하면 닫힌 것으로 알리고 close 이벤트는 남기지 않는다", async () => {
+    // 받은 시트는 모듈에 남으므로 아직 받지 않은 새 호스트 모듈로 본다.
+    vi.resetModules();
+    vi.doMock("../OvertakeSheet", () => {
+      throw new Error("chunk load failed");
+    });
+    try {
+      const interview = await import("@/features/interview/interviewStore");
+      interview.setInterviewStore(interview.createMemoryInterviewStore({}, LAST_HIDDEN_AT));
+      const { HomeRankingPopupHost: FreshHost } = await import("../HomeRankingPopupHost");
+      const { onOpenChange } = renderHost({ Host: FreshHost });
+
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(true));
+      await waitFor(() => expect(onOpenChange).toHaveBeenLastCalledWith(false));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(analytics.trackRankingOvertakeAction).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("../OvertakeSheet");
+    }
   });
 
   it.each([

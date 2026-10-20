@@ -18,7 +18,6 @@ import {
 import { MedalButton } from "@/features/ranking/components/MedalButton";
 import { Podium } from "@/features/ranking/components/Podium";
 import { FirstPlaceCard, RankedCard } from "@/features/ranking/components/RankCard";
-import { RecordsSheet } from "@/features/ranking/components/RecordsSheet";
 import { StreakCard } from "@/features/ranking/components/StreakCard";
 import { DayGroupList } from "@/features/ranking/components/DayGroupList";
 import {
@@ -69,6 +68,16 @@ import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
 import { cannotLoad, rankingBoardQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 import { useIdentityPending, useUserId } from "@/lib/userId";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { whenIdle } from "@/lib/whenIdle";
+
+/**
+ * 랭킹 기록 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 랭킹 탭은 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
+ */
+const { LazySheet: LazyRecordsSheet, preload: preloadRecordsSheet } = lazyWithPreload(() =>
+  import("@/features/ranking/components/RecordsSheet").then((module) => module.RecordsSheet),
+);
 
 /**
  * 판 자리표시
@@ -99,7 +108,7 @@ export function RankingPage() {
   return (
     <main
       data-testid="ranking-page"
-      className="theme-soft-blue min-h-dvh bg-soft-blue pt-[calc(env(safe-area-inset-top)+24px)] pb-[var(--tab-bar-reserve)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-soft-blue page-column pt-[calc(env(safe-area-inset-top)+24px)] pb-(--tab-bar-reserve) text-foreground"
     >
       <h1 className="sr-only">랭킹</h1>
       <div className="flex flex-col px-5">
@@ -141,6 +150,9 @@ function RankingContent({ userId }: { userId: number }) {
   const startFocus = useFocusStart(userId);
   const [memory, setMemory] = useState(readBoardMemory);
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    whenIdle(preloadRecordsSheet);
+  }, []);
   const selection = activeSelection(memory);
   const openRecordsPage = () =>
     slideNavigate("forward", () =>
@@ -313,7 +325,7 @@ function RankingContent({ userId }: { userId: number }) {
           </>
         )}
       </div>
-      <RecordsSheet
+      <LazyRecordsSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         userId={userId}

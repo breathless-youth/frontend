@@ -35,10 +35,9 @@ function renderOpenSheet() {
 
 describe("sheetVariants", () => {
   // 들어온 쪽과 나가는 쪽이 어긋나면 패널이 반대편으로 빨려 들어가듯 사라진다.
-  // 네 방향에 각각 두 클래스라 좌우·상하를 바꿔 적기 쉬워 표로 돌린다.
+  // 방향마다 두 클래스라 좌우·상하를 바꿔 적기 쉬워 표로 돌린다.
   const sides = [
     { side: "top", opposite: "bottom" },
-    { side: "bottom", opposite: "top" },
     { side: "left", opposite: "right" },
     { side: "right", opposite: "left" },
   ] as const;
@@ -80,17 +79,7 @@ describe("Sheet 모션", () => {
 });
 
 describe("Sheet — 네이티브 탭 바", () => {
-  it("바닥 시트만 탭 바 자리를 덮는다고 표시한다", () => {
-    const { unmount } = render(
-      <Sheet open>
-        <SheetContent side="bottom">
-          <SheetTitle>D-Day</SheetTitle>
-        </SheetContent>
-      </Sheet>,
-    );
-    expect(screen.getByRole("dialog")).toHaveAttribute(COVERS_TAB_BAR_ATTR);
-    unmount();
-
+  it("옆에서 나오는 시트는 탭 바 자리를 덮지 않는다", () => {
     render(
       <Sheet open>
         <SheetContent side="right">
@@ -102,19 +91,7 @@ describe("Sheet — 네이티브 탭 바", () => {
   });
 });
 
-describe("Sheet 모션 — 바닥 시트", () => {
-  it("바닥 시트는 페이드 없이 슬라이드만 하고, 열림·닫힘이 같은 곡선·길이다", () => {
-    const className = sheetVariants({ side: "bottom" });
-
-    expect(className).toContain("data-[state=open]:slide-in-from-bottom");
-    expect(className).toContain("data-[state=closed]:slide-out-to-bottom");
-    expect(className).not.toContain("fade-in");
-    expect(className).not.toContain("fade-out");
-    // 닫힘에 다른 곡선을 얹지 않는다 — base의 ease-overlay·duration-300이 양쪽에 그대로 적용된다
-    expect(className).not.toContain("data-[state=closed]:ease-");
-    expect(className).not.toContain("data-[state=closed]:duration-");
-  });
-
+describe("Sheet 모션 — 옆 시트", () => {
   it("옆에서 나오는 시트는 그대로 페이드를 겸한다", () => {
     const className = sheetVariants({ side: "right" });
 

@@ -12,9 +12,11 @@ import {
   trackRankingOvertakeAction,
   trackRankingOvertakeShown,
 } from "@/lib/amplitude";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { postRankingRecordsSeen } from "@/lib/rankingApi";
 import { hasRankingTab } from "@/lib/rankingCapability";
 import { rankingHomeQuery, rankingUnseenQuery } from "@/lib/rankingQueries";
+import { whenIdle } from "@/lib/whenIdle";
 
 import { DEFAULT_RANKING_BOARD } from "../model/board";
 import {
@@ -28,10 +30,21 @@ import {
 import { MedalModal } from "./MedalModal";
 import { medalModalView, type MedalModalView } from "./medalView";
 import { useOpenRanking } from "./navigation";
-import { OvertakeSheet } from "./OvertakeSheet";
+import type { OvertakeSheet } from "./OvertakeSheet";
 
 type Popup =
   { kind: "medal"; view: MedalModalView } | { kind: "overtake"; overtaken: RankingOvertaken };
+
+/**
+ * 추월 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 홈은 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
+ * 받지 못하면 열린 채로 남은 팝업이 그 실행 내내 복구 창을 미루므로 닫힌 것으로 돌린다.
+ */
+const { LazySheet: LazyOvertakeSheet, preload: preloadOvertakeSheet } = lazyWithPreload<
+  Parameters<typeof OvertakeSheet>[0] & { onLoadError: () => void }
+>(() => import("./OvertakeSheet").then((module) => module.OvertakeSheet), {
+  onLoadError: (props) => props.onLoadError(),
+});
 
 /**
  * 홈 랭킹 팝업 호스트
@@ -74,6 +87,10 @@ export function HomeRankingPopupHost({
     blockedRef.current = blocked;
     onOpenChangeRef.current = onOpenChange;
   });
+
+  useEffect(() => {
+    whenIdle(preloadOvertakeSheet);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -206,7 +223,7 @@ export function HomeRankingPopupHost({
   }
 
   return (
-    <OvertakeSheet
+    <LazyOvertakeSheet
       overtaken={popup.overtaken}
       open={open}
       onStudy={() => {
@@ -221,11 +238,12 @@ export function HomeRankingPopupHost({
           openBoard(DEFAULT_RANKING_BOARD, "overtake_popup");
         }
       }}
-      onClose={() => {
+      onClose={(closeMethod) => {
         if (claim()) {
-          trackRankingOvertakeAction("close");
+          trackRankingOvertakeAction("close", closeMethod);
         }
       }}
+      onLoadError={() => setOpen(false)}
     />
   );
 }

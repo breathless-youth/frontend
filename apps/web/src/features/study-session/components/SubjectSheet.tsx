@@ -395,7 +395,7 @@ export function SubjectSheet({
       {/* 큰 태블릿은 80px 버튼 바(80×2 + 20 + 15×2, 높이 110)에 맞춘다. */}
       <div
         ref={slotRef}
-        className="relative h-18.5 w-35.5 sm:not-landscape-compact:h-22 sm:not-landscape-compact:w-42 short-side-lg:h-27.5 short-side-lg:w-52.5"
+        className="relative h-18.5 w-35.5 regular:h-22 regular:w-42 short-side-lg:h-27.5 short-side-lg:w-52.5"
       />
 
       <div
@@ -408,7 +408,7 @@ export function SubjectSheet({
           "fixed inset-x-0 top-(--sheet-top) flex h-[calc(100svh-var(--sheet-top))] flex-col items-center rounded-t-[28px] will-change-transform [--sheet-top:27svh] landscape-compact:[--sheet-top:23svh]",
           // 넓은 창에서 전폭 시트는 목록 한 줄이 너무 길어진다.
           // 양쪽 inset이 0인 고정 요소라 auto 여백이 가운데로 모은다.
-          "sm:not-landscape-compact:mx-auto sm:not-landscape-compact:max-w-120 short-side-lg:max-w-140",
+          "regular:mx-auto regular:max-w-120 short-side-lg:max-w-140",
           "transition-transform motion-reduce:transition-none",
           // 접힌 그룹은 바 위 18px 여백과 좌우 빈 곳까지 덮고 있다. 그대로 터치를 받으면 라벨 아랫부분과
           // 바 옆 화면 탭(심플 모드 전환)을 가로챈다 — 접힌 동안은 바와 핸들만 받는다.

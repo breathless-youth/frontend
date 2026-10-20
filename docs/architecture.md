@@ -93,7 +93,8 @@ apps/web (Vite + React)
 
 ## 배포
 
-- 웹은 Vercel에 배포하고, `main` 머지 커밋이 곧 운영 릴리즈다([releases.md](./releases.md)).
+- 웹은 GitHub Actions(`deploy-web.yml`)가 S3에 올리고 CloudFront가 서빙한다. `main` 머지 커밋이 곧 운영 릴리즈다([releases.md](./releases.md)).
+- S3·CloudFront 리소스와 호스팅 결정 기록은 infra 저장소에 있다.
 - 운영 앱은 `web.focusmakers.app`, staging 앱은 `dev` 브랜치가 나가는 `web-dev.focusmakers.app`을 연다(`apps/mobile/app.config.ts`).
 - development 빌드는 `.env.local`의 `WEB_BASE_URL`로 로컬 웹을 연다.
 - 앱은 EAS 프로필 `production`, `staging`, `development`로 빌드한다([ADR 0007](./adr/0007-three-tier-environment-model-and-eas-profiles.md)).

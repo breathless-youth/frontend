@@ -69,7 +69,7 @@ export function InviteCodeSharePage() {
   return (
     <main
       data-testid="invite-code-share-page"
-      className="theme-soft-blue bg-soft-blue flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
     >
       <div className="flex h-[52px] items-center px-2">
         <Button
