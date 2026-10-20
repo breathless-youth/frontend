@@ -63,7 +63,7 @@ export function RecordsSheet({
                 랭킹 기록
               </DrawerTitle>
               {cannotLoad(summary) ? (
-                <div className="mt-5">
+                <div data-base-ui-swipe-ignore="" className="mt-5">
                   <ErrorState
                     message="랭킹 기록을 불러오지 못했어요"
                     onRetry={() => void summary.refetch()}
@@ -96,7 +96,7 @@ export function RecordsSheet({
               ) : list.data !== undefined ? (
                 <RecordGrid items={list.data.pages[0]?.items ?? []} onPick={onPickRecord} />
               ) : cannotLoad(list) ? (
-                <div className="mt-3.5">
+                <div data-base-ui-swipe-ignore="" className="mt-3.5">
                   <ErrorState
                     message="랭킹 기록을 불러오지 못했어요"
                     onRetry={() => void list.refetch()}
@@ -208,7 +208,9 @@ function EmptyRecords({
           )}
         </dl>
       )}
-      <FocusStartButton onClick={onFocusStart} className="mt-3.5" />
+      <div data-base-ui-swipe-ignore="" className="mt-3.5">
+        <FocusStartButton onClick={onFocusStart} />
+      </div>
     </div>
   );
 }
