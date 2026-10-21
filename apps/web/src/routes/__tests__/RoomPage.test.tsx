@@ -1433,6 +1433,24 @@ describe("RoomPage: 세션 중 초대", () => {
   });
 });
 
+/** 할 일 하나를 가진 과목으로 시트를 연다 — 시트를 여는 햅틱은 지운다. */
+async function openSheetWithTask(doneAt: string | null) {
+  listSubjects.mockResolvedValueOnce([
+    {
+      id: 3,
+      name: "수학",
+      colorIndex: 0,
+      studySec: 0,
+      focusSec: 0,
+      tasks: [{ id: 21, name: "오답 정리", doneAt }],
+    },
+  ]);
+  renderRoom("/room/7?userId=1");
+  await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+  await screen.findByRole("checkbox", { name: "오답 정리" });
+  haptic.mockClear();
+}
+
 describe("RoomPage — 햅틱", () => {
   afterEach(() => {
     act(() => {
@@ -1480,6 +1498,27 @@ describe("RoomPage — 햅틱", () => {
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(haptic).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalledWith("medium");
+  });
+
+  it("과목 시트에서 할 일을 완료로 바꾸면 light 햅틱을 한 번 울린다", async () => {
+    await openSheetWithTask(null);
+    const task = screen.getByRole("checkbox", { name: "오답 정리" });
+
+    await userEvent.click(task);
+
+    expect(task).toBeChecked();
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("과목 시트에서 완료한 할 일을 풀 때는 햅틱을 울리지 않는다", async () => {
+    await openSheetWithTask("2026-10-04T03:00:00Z");
+    const task = screen.getByRole("checkbox", { name: "오답 정리" });
+
+    await userEvent.click(task);
+
+    expect(task).not.toBeChecked();
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   it("종료 확인 창에서 공부 종료를 확정하면 medium 햅틱을 한 번 울린다", async () => {
