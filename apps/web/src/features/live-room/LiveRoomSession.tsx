@@ -510,10 +510,11 @@ export function LiveRoomSession({
             hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
-                haptic("light");
                 trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
+                // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤에 울린다.
+                haptic("light");
               } else {
                 measurePreviewAspect();
                 setCameraDialogOpen(true);
