@@ -1620,3 +1620,25 @@ describe("푸시 타겟용 user property", () => {
     ]);
   });
 });
+
+describe("과목 페이지 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackSubjectSheetOpened("button");
+    m.trackSubjectSheetClosed({ openSec: 12, closedBy: "back" });
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("열림은 진입 경로를, 닫힘은 열려 있던 초와 닫은 방법을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.trackSubjectSheetOpened("label");
+    m.trackSubjectSheetClosed({ openSec: 42, closedBy: "play" });
+    expect(mocks.track).toHaveBeenCalledWith("subject_sheet_opened", { source: "label" });
+    expect(mocks.track).toHaveBeenCalledWith("subject_sheet_closed", {
+      open_sec: 42,
+      closed_by: "play",
+    });
+  });
+});

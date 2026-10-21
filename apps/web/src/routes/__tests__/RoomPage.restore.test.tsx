@@ -90,7 +90,7 @@ describe("RoomPage 복원 게이트", () => {
     expect(screen.getByTestId("room-restore-gate")).toHaveClass("theme-dark");
   });
 
-  it("복원 세션이면 시트를 열지 않아도 과목 목록을 받는다 — 죽기 전에 완료한 할 일을 제출에 싣기 위해", async () => {
+  it("복원 세션이면 과목 페이지를 열지 않아도 과목 목록을 받는다 — 죽기 전에 완료한 할 일을 제출에 싣기 위해", async () => {
     useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
 
     renderRoom();
@@ -100,7 +100,7 @@ describe("RoomPage 복원 게이트", () => {
     });
   });
 
-  it("새 세션도 시트를 열기 전에 과목 목록을 미리 받는다 — 처음 열 때 빈 골격을 기다리지 않게", async () => {
+  it("새 세션도 과목 페이지를 열기 전에 과목 목록을 미리 받는다 — 처음 열 때 빈 골격을 기다리지 않게", async () => {
     useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
 
     renderRoom();

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowUpDown } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
@@ -6,6 +7,7 @@ import checkIcon from "@/assets/icons/sheet-check.svg";
 import gripRowIcon from "@/assets/icons/sheet-grip-row.svg";
 import pauseIcon from "@/assets/icons/sheet-pause.svg";
 import playIcon from "@/assets/icons/sheet-play.svg";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -24,24 +26,24 @@ import {
 import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
+import { SessionPageFooter } from "./SessionPage";
 
 /**
- * 과목 시트 내용(S3-9 최종안) — 헤더 + **카드형 과목 목록**. 원본은 Claude Design
- * `Session Subject Sheet.dc.html`(listLayout=cards · rowLayout=play · chipsLayout=list)이다.
- * 측정 단위는 **과목**이고 할 일은 체크리스트다(시안 "과목 단위 측정").
+ * 과목 페이지 본문
  *
- * - 과목 카드: 순서 핸들 + 과목명/누적 순공(HH:MM:SS) + 재생 버튼 → 할 일 완료율 바 → 할 일 행
- *   (구분선) → `+ 할 일 추가`. 측정 중(Selected)은 blue/400 링·배경.
- * - 과목 행: 탭=측정 선택/해제 토글, 재생=선택하고 **시트를 내림**, 정지=해제, 길게 누르기=메뉴.
- * - 할 일 행: 탭=완료 토글, 길게 누르기=메뉴(수정·제거), 왼쪽 스와이프 96px=제거(빨간 배경).
- * - 이름 편집은 행 자리 인라인 입력 + `완료` 버튼. 별도 다이얼로그 없음.
- * - 빈 상태: 안내 문구 + 추천 과목 행(탭 한 번으로 생성 후 바로 측정 선택). 헤더 `+ 과목 추가`는 항상.
- * - 상한(과목 20·할 일 30)에 닿으면 버튼은 그대로 두고 토스트로 알린다(원본 동작).
- * - 시간 = 서버 누적(저장된 세션) + 이 세션 몫. 저장되면 서버 값이 흡수해 다음 세션에서 이어진다.
- *
- * 순서 핸들(원본 `gripDown`): 꾹 눌러 끌면 다른 카드 위를 지날 때마다 자리를 바꾼다. 드래그 중 자리 바꿈은
- * 화면에만 반영되고, 놓을 때 순서가 바뀌었으면 전체 순서를 서버에 한 번 저장한다(`useSubjects.commitReorder`,
- * `PUT /api/subjects/order`). 실패하면 토스트 뒤 서버 순서로 되돌린다.
+ * 측정 단위는 과목이고 할 일은 체크리스트다.
+ * 세로는 과목 카드를 한 열로 늘어놓고 카드마다 그 과목의 할 일을 보인다.
+ * 가로는 왼쪽에 과목 줄을, 오른쪽에 보고 있는 과목의 할 일을 두는 두 열이다.
+ * 측정 과목은 재생 버튼으로만 바뀌고, 재생은 과목을 고른 뒤 페이지를 닫으며 정지는 해제만 한다.
+ * 과목 머리를 길게 누르면 수정·제거 메뉴가 뜬다.
+ * 할 일 줄은 탭으로 완료를 바꾸고, 길게 누르면 메뉴가 뜨고, 왼쪽으로 96px 밀면 제거된다.
+ * 이름 편집은 줄 자리의 인라인 입력과 `완료` 버튼으로 하고 별도 다이얼로그를 쓰지 않는다.
+ * 빈 상태는 안내 문구와 추천 과목 줄이고, 추천 과목을 누르면 만든 뒤 바로 측정 과목으로 고른다.
+ * 상한(과목 20·할 일 30)에 닿으면 버튼은 유지하고 토스트로 알린다.
+ * 시간은 서버 누적(저장된 세션)에 이 세션 몫을 더한 값이다.
+ * 순서 변경 모드에서만 핸들이 보이고, 핸들을 끌면 다른 과목 위를 지날 때마다 자리를 바꾼다.
+ * 드래그 중 자리 바꿈은 화면에만 반영하고, 놓을 때 순서가 바뀌었으면 전체 순서를 서버에 한 번 저장한다(`PUT /api/subjects/order`).
+ * 저장에 실패하면 토스트 뒤 서버 순서로 되돌린다.
  */
 
 type Editing =
@@ -50,7 +52,7 @@ type Editing =
   | { kind: "rename-subject"; subjectId: number }
   | { kind: "rename-task"; subjectId: number; taskId: number };
 
-/** 길게 누르기 메뉴 — 대상 행과, 카드 상단 기준 세로 위치(px). */
+/** 길게 누르기 메뉴의 대상과, 메뉴가 붙는 상자(`data-menu-anchor`) 윗변 기준 세로 위치(px). */
 interface Menu {
   subjectId: number;
   taskId: number | null;
@@ -58,13 +60,11 @@ interface Menu {
 }
 
 export interface SubjectPanelProps {
-  /** 시트가 열려 있는가 — 접히면 편집·메뉴를 닫는다(원본 `closeSheet`). */
-  open: boolean;
   store: SubjectsStore;
   /** 지금 시간이 쌓이는 과목 id. 없으면 null. */
   selection: SubjectSelection | null;
   onSelect: (next: SubjectSelection | null) => void;
-  /** 재생 버튼으로 골랐을 때 시트를 내린다. */
+  /** 재생 버튼으로 골랐을 때. 호출부가 필요하면 세션을 다시 시작하고 페이지를 닫는다. */
   onRequestClose: () => void;
   /** 세션이 일시정지인가 — 고른 과목도 멈춘 모양(재생 버튼)으로 보이고, 그 버튼이 세션을 다시 시작한다. */
   paused: boolean;
@@ -72,6 +72,10 @@ export interface SubjectPanelProps {
   onNotice: (message: string) => void;
   /** 이 세션에서 과목별로 쌓인 시간(`deriveSubjectTotals`의 결과). */
   liveTotals: ReadonlyMap<number, SubjectTotals>;
+  /** 가로면 목록과 상세 두 열로 나눈다. */
+  landscape: boolean;
+  /** 페이지 아래 순공 타이머. */
+  timer: ReactNode;
 }
 
 /** 이름 입력 + `완료`(원본 Editing). Enter·완료 확정, Escape 취소, 포커스 이탈은 내용이 있으면 확정. */
@@ -122,15 +126,15 @@ function InlineNameEditor({
           large ? "text-[17px] font-semibold" : "text-[15px] font-medium",
         )}
       />
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="h-10 shrink-0 rounded-xl bg-[var(--session-control-resume-bg)] px-3.5 text-[14px] font-semibold text-white active:opacity-80"
+        className="h-11 shrink-0 rounded-md px-3.5 text-[14px] font-semibold"
       >
         {SUBJECT_SHEET_COPY.done}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -179,10 +183,11 @@ function Grip({
       onPointerCancel={onEnd}
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
-      className="flex h-11 w-7 shrink-0 cursor-grab touch-none flex-col items-center justify-center gap-[3px] active:cursor-grabbing"
+      // 보이는 폭은 28px이지만 터치 영역은 가상 요소로 좌우 8px씩 넓혀 44px로 맞춘다.
+      className="relative flex h-11 w-7 shrink-0 cursor-grab touch-none flex-col items-center justify-center gap-0.75 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] active:cursor-grabbing"
     >
       {[0, 1, 2].map((row) => (
-        <img key={row} src={gripRowIcon} alt="" className="h-1 w-[11px]" />
+        <img key={row} src={gripRowIcon} alt="" className="h-1 w-2.75" />
       ))}
     </div>
   );
@@ -215,7 +220,7 @@ function ContextMenu({
       ref={ref}
       role="menu"
       style={{ top }}
-      className="absolute right-5 z-10 flex w-[168px] flex-col rounded-[14px] bg-[var(--session-dialog-cancel-bg)] p-1.5 shadow-[0_12px_32px_0_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+      className="absolute right-5 z-10 flex w-42 flex-col rounded-[14px] bg-(--session-dialog-cancel-bg) p-1.5 shadow-[0_12px_32px_0_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.08)]"
     >
       <button
         type="button"
@@ -229,7 +234,7 @@ function ContextMenu({
         type="button"
         role="menuitem"
         onClick={onRemove}
-        className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-[var(--session-exit-bg)] active:bg-white/6"
+        className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-(--session-exit-bg) active:bg-white/6"
       >
         {SUBJECT_SHEET_COPY.remove}
       </button>
@@ -237,14 +242,14 @@ function ContextMenu({
   );
 }
 
+/** `할 일 추가`와 동작 줄 버튼이 같이 쓰는 옅은 버튼 모양. */
+const SOFT_BUTTON_CLASS =
+  "flex h-11 items-center justify-center gap-1.5 rounded-md bg-(--session-sheet-surface) px-3.5 text-[14px] font-semibold text-white/70 active:bg-white/10";
+
 function AddTaskButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-1 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--session-sheet-surface)] text-[14px] font-semibold text-white/70 active:bg-white/10"
-    >
-      <span aria-hidden="true" className="text-[18px] leading-[18px]">
+    <button type="button" onClick={onClick} className={cn(SOFT_BUTTON_CLASS, "mt-1 w-full")}>
+      <span aria-hidden="true" className="text-[18px] leading-4.5">
         +
       </span>
       {SUBJECT_SHEET_COPY.addTask}
@@ -276,7 +281,7 @@ function TaskRow({
       <div
         aria-hidden="true"
         style={{ opacity: Math.min(1, -swipeX / SWIPE_REMOVE_PX) }}
-        className="absolute inset-0 flex items-center justify-end rounded-xl bg-[var(--session-exit-bg)] pr-[18px] text-[14px] font-semibold text-white"
+        className="absolute inset-0 flex items-center justify-end rounded-xl bg-(--session-exit-bg) pr-4.5 text-[14px] font-semibold text-white"
       >
         {SUBJECT_SHEET_COPY.remove}
       </div>
@@ -298,16 +303,15 @@ function TaskRow({
           pressed && "scale-[0.98] opacity-70",
           swiping
             ? "bg-[rgb(16,20,25)]"
-            : "bg-transparent transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+            : "bg-transparent transition-transform duration-220 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
         )}
       >
         <span className="flex size-11 shrink-0 items-center justify-center">
           <span
             className={cn(
-              "flex size-[22px] items-center justify-center rounded-full",
-              done
-                ? "bg-[var(--session-control-resume-bg)]"
-                : "shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.35)]",
+              "flex size-5.5 items-center justify-center rounded-full",
+              // 파란색은 집중과 측정 중 표시에만 쓰므로 완료 체크는 중립 회색이다.
+              done ? "bg-text-tertiary" : "shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.35)]",
             )}
           >
             {done && <img src={checkIcon} alt="" aria-hidden="true" className="size-3" />}
@@ -326,69 +330,180 @@ function TaskRow({
   );
 }
 
-function SubjectCard({
+/**
+ * 과목 머리 줄
+ *
+ * 세로 카드의 머리이자 가로 목록의 한 줄이다.
+ * 눌러도 측정 과목이 바뀌지 않는다.
+ * 할 일을 관리하다 카드를 건드려도 측정 과목이 그대로 남아야 해서 측정 과목은 재생 버튼으로만 바꾼다.
+ */
+function SubjectRow({
+  layout,
+  viewing = false,
   subject,
+  focusSec,
   selected,
   running,
-  liveFocusSec,
-  editing,
-  menu,
-  onSelect,
-  onDeselect,
+  reorderMode,
+  onTap,
+  onLongPress,
   onPlay,
-  onOpenMenu,
-  onCloseMenu,
-  onEditing,
-  onNotice,
-  reordering,
+  onDeselect,
   onReorderStart,
   onReorderOver,
   onReorderEnd,
-  store,
 }: {
+  /** `card`는 세로 카드 머리, `row`는 가로 목록 줄이다. */
+  layout: "card" | "row";
+  /** 가로 목록에서 이 과목의 할 일이 오른쪽에 보이는가. */
+  viewing?: boolean;
   subject: SubjectResponse;
+  focusSec: number;
   selected: boolean;
   /** 고른 과목의 시간이 지금 흐르는가 — 세션이 일시정지면 고른 과목도 멈춰 있다. */
   running: boolean;
-  liveFocusSec: number;
-  editing: Editing | null;
-  menu: Menu | null;
-  onSelect: () => void;
-  onDeselect: () => void;
+  /** 순서 변경 모드에서만 핸들을 그리고 재생 버튼을 숨긴다. */
+  reorderMode: boolean;
+  /** 가로 목록 줄을 눌렀을 때. 세로 카드 머리는 눌러도 아무 일이 없다. */
+  onTap?: () => void;
+  onLongPress: (element: HTMLElement) => void;
   onPlay: () => void;
-  onOpenMenu: (menu: Menu) => void;
-  onCloseMenu: () => void;
-  onEditing: (next: Editing | null) => void;
-  onNotice: (message: string) => void;
-  /** 핸들로 끌리는 중인가 — 카드를 밝게 띄운다. */
-  reordering: boolean;
+  onDeselect: () => void;
   onReorderStart: () => void;
   onReorderOver: (overId: number | null) => void;
   onReorderEnd: () => void;
-  store: SubjectsStore;
 }) {
-  const cardRef = useRef<HTMLLIElement>(null);
+  const { pressed, handlers } = usePressGestures({ onTap: () => onTap?.(), onLongPress });
+  // 가로 줄은 보는 과목을 고르는 버튼이다. 재생 버튼과 겹치지 않게 이름·시간 영역에만 역할을 단다.
+  const tappable = onTap !== undefined && !reorderMode;
+  return (
+    <div
+      // 순서 변경 모드에서는 핸들 끌기와 같은 손가락 동작이라 길게 누르기 메뉴를 받지 않는다.
+      {...(reorderMode ? {} : handlers)}
+      className={cn(
+        "flex w-full touch-pan-y items-center rounded-[14px] text-left transition-[scale,opacity] duration-150 select-none motion-reduce:transition-none",
+        layout === "card"
+          ? cn("min-h-14 gap-3 pr-3", reorderMode ? "pl-1" : "pl-3")
+          : cn(
+              "h-14 gap-2.5 px-3.5",
+              viewing ? "bg-white/12" : !selected && "bg-(--session-sheet-surface)",
+              selected
+                ? "shadow-[inset_0_0_0_1px_var(--session-sheet-selected-ring)]"
+                : viewing && "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]",
+            ),
+        pressed && "scale-[0.98] opacity-70",
+        selected ? "text-(--state-focus)" : "text-white",
+      )}
+    >
+      {reorderMode && (
+        <Grip
+          subjectId={subject.id}
+          label={`${subject.name} 순서 이동`}
+          onStart={onReorderStart}
+          onOver={onReorderOver}
+          onEnd={onReorderEnd}
+        />
+      )}
+      <span
+        className="flex min-w-0 flex-1 flex-col gap-0.5"
+        {...(tappable && {
+          role: "button",
+          tabIndex: 0,
+          "aria-current": viewing ? "true" : undefined,
+          onKeyDown: (event: KeyboardEvent<HTMLSpanElement>) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onTap();
+            }
+          },
+        })}
+      >
+        <span
+          className={cn(
+            "truncate font-semibold",
+            layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
+          )}
+        >
+          {subject.name}
+        </span>
+        <span
+          className={cn(
+            "font-bold tabular-nums",
+            layout === "card" ? "text-[15px] leading-4.5" : "text-[13px] leading-4",
+            !selected && "text-white/55",
+          )}
+        >
+          <span aria-hidden="true">{formatElapsed(focusSec)}</span>
+          <span className="sr-only">{`순공 ${toKoreanDuration(focusSec)}`}</span>
+        </span>
+      </span>
+      {/* 재생/정지(원본 Play Button): 히트 44 · 원 36.
+          재생은 고르고 페이지를 닫고, 정지는 해제만 한다. */}
+      {!reorderMode && (
+        <button
+          type="button"
+          aria-label={running ? `${subject.name} 측정 멈추기` : `${subject.name} 측정 시작`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (running) {
+              onDeselect();
+            } else {
+              onPlay();
+            }
+          }}
+          className="flex size-11 shrink-0 items-center justify-center active:scale-[0.92]"
+        >
+          <span
+            className={cn(
+              "flex size-9 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none",
+              running ? "bg-primary" : "bg-white/12",
+            )}
+          >
+            <img
+              key={running ? "pause" : "play"}
+              src={running ? pauseIcon : playIcon}
+              alt=""
+              aria-hidden="true"
+              className={cn(
+                "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
+                running ? "h-3.75 w-[13.3px]" : "size-3.75",
+              )}
+            />
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
 
-  /** 메뉴는 누른 행 바로 아래(+4)에 뜬다 — 카드 상단 기준 좌표로 바꿔 둔다. */
-  function openMenuBelow(element: HTMLElement, taskId: number | null) {
-    const card = cardRef.current;
-    const top =
-      card === null
-        ? 64
-        : element.getBoundingClientRect().bottom - card.getBoundingClientRect().top + 4;
-    onOpenMenu({ subjectId: subject.id, taskId, top });
-  }
-
-  const { pressed, handlers } = usePressGestures({
-    // 원본 `select`: 이미 고른 과목을 다시 탭하면 해제.
-    onTap: () => (selected ? onDeselect() : onSelect()),
-    onLongPress: (element) => openMenuBelow(element, null),
-  });
-  const focusSec = subject.focusSec + liveFocusSec;
+/**
+ * 과목의 할 일 묶음
+ *
+ * 완료율 바, 할 일 줄, `할 일 추가`를 그린다.
+ * 세로 카드 본문과 가로 상세 열이 같이 쓴다.
+ */
+function SubjectTasks({
+  subject,
+  editing,
+  onEditing,
+  onNotice,
+  onTaskLongPress,
+  store,
+  scrollable = false,
+}: {
+  subject: SubjectResponse;
+  editing: Editing | null;
+  onEditing: (next: Editing | null) => void;
+  onNotice: (message: string) => void;
+  onTaskLongPress: (element: HTMLElement, taskId: number) => void;
+  store: SubjectsStore;
+  /** 가로 상세 열은 높이가 정해져 있어 할 일 목록만 스크롤한다. */
+  scrollable?: boolean;
+}) {
   const doneCount = subject.tasks.filter((task) => task.doneAt !== null).length;
-  const renaming = editing?.kind === "rename-subject" && editing.subjectId === subject.id;
   const addingTask = editing?.kind === "new-task" && editing.subjectId === subject.id;
-  const menuHere = menu !== null && menu.subjectId === subject.id;
 
   function startAddTask() {
     if (subject.tasks.length >= MAX_TASKS) {
@@ -398,139 +513,43 @@ function SubjectCard({
     onEditing({ kind: "new-task", subjectId: subject.id });
   }
 
-  return (
-    <li
-      ref={cardRef}
-      data-subject-id={subject.id}
-      className={cn(
-        "relative flex flex-col gap-0.5 rounded-[18px] p-1.5 transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none",
-        reordering ? "bg-white/10" : "bg-[var(--session-sheet-surface)]",
-        selected
-          ? "shadow-[inset_0_0_0_1px_var(--session-sheet-selected-card-ring)]"
-          : "shadow-[inset_0_0_0_1px_var(--session-sheet-line)]",
-      )}
-    >
-      {renaming ? (
-        <InlineNameEditor
-          initial={subject.name}
-          maxLength={50}
-          placeholder={SUBJECT_SHEET_COPY.addSubject}
-          ariaLabel="과목 이름"
-          large
-          onCommit={(name) => {
-            onEditing(null);
-            void store.renameSubject(subject.id, name);
-          }}
-          onCancel={() => onEditing(null)}
-        />
-      ) : (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-pressed={selected}
-          {...handlers}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              if (selected) {
-                onDeselect();
-              } else {
-                onSelect();
-              }
-            }
-          }}
-          className={cn(
-            "flex min-h-14 w-full touch-pan-y items-center gap-3 rounded-[14px] pr-3 pl-1 text-left transition-[scale,opacity] duration-150 select-none motion-reduce:transition-none",
-            pressed && "scale-[0.98] opacity-70",
-            selected
-              ? "bg-[var(--session-sheet-selected-bg)] text-[var(--state-focus)] shadow-[inset_0_0_0_1px_var(--session-sheet-selected-ring)]"
-              : "text-white",
+  const taskList = subject.tasks.length > 0 && (
+    <ul className="flex flex-col gap-0.5">
+      {subject.tasks.map((task, index) => (
+        <li key={task.id} className="flex flex-col gap-0.5">
+          {/* 구분선은 할 일 사이에만 둔다 — 첫 할 일 위는 완료율 바가 이미 선 역할을 해서 두 줄로 겹쳐 보인다. */}
+          {index > 0 && (
+            <div aria-hidden="true" className="py-0.5 pr-3 pl-13">
+              <div className="h-px w-full bg-white/8" />
+            </div>
           )}
-        >
-          <Grip
-            subjectId={subject.id}
-            label={`${subject.name} 순서 이동`}
-            onStart={onReorderStart}
-            onOver={onReorderOver}
-            onEnd={onReorderEnd}
-          />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-[17px] leading-[22px] font-semibold">
-              {subject.name}
-            </span>
-            <span
-              className={cn(
-                "text-[15px] leading-[18px] font-bold tabular-nums",
-                !selected && "text-white/55",
-              )}
-            >
-              <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-              <span className="sr-only">{`순공 ${toKoreanDuration(focusSec)}`}</span>
-            </span>
-          </span>
-          {/* 재생/정지(원본 Play Button): 히트 44 · 원 36. 재생은 고르고 시트를 내리고, 정지는 해제. */}
-          <button
-            type="button"
-            aria-label={running ? `${subject.name} 측정 멈추기` : `${subject.name} 측정 시작`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (running) {
-                onDeselect();
-              } else {
-                onPlay();
-              }
-            }}
-            className="flex size-11 shrink-0 items-center justify-center active:scale-[0.92]"
-          >
-            <span
-              className={cn(
-                "flex size-9 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none",
-                running ? "bg-[var(--session-control-resume-bg)]" : "bg-white/12",
-              )}
-            >
-              <img
-                key={running ? "pause" : "play"}
-                src={running ? pauseIcon : playIcon}
-                alt=""
-                aria-hidden="true"
-                className={cn(
-                  "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
-                  running ? "h-[15px] w-[13.3px]" : "size-[15px]",
-                )}
-              />
-            </span>
-          </button>
-        </div>
-      )}
+          {editing?.kind === "rename-task" && editing.taskId === task.id ? (
+            <InlineNameEditor
+              initial={task.name}
+              maxLength={100}
+              placeholder={SUBJECT_SHEET_COPY.addTask}
+              ariaLabel="할 일 이름"
+              onCommit={(name) => {
+                onEditing(null);
+                void store.renameTask(subject.id, task.id, name);
+              }}
+              onCancel={() => onEditing(null)}
+            />
+          ) : (
+            <TaskRow
+              task={task}
+              onToggle={(done) => void store.toggleTask(subject.id, task.id, done)}
+              onLongPress={(element) => onTaskLongPress(element, task.id)}
+              onRemove={() => void store.removeTask(subject.id, task.id)}
+            />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 
-      {menuHere && (
-        <ContextMenu
-          top={menu.top}
-          onEdit={() => {
-            onCloseMenu();
-            onEditing(
-              menu.taskId === null
-                ? { kind: "rename-subject", subjectId: subject.id }
-                : { kind: "rename-task", subjectId: subject.id, taskId: menu.taskId },
-            );
-          }}
-          onRemove={() => {
-            onCloseMenu();
-            if (menu.taskId === null) {
-              if (selected) {
-                onDeselect();
-              }
-              void store.removeSubject(subject.id);
-            } else {
-              void store.removeTask(subject.id, menu.taskId);
-            }
-          }}
-          onDismiss={onCloseMenu}
-        />
-      )}
-
+  return (
+    <>
       {subject.tasks.length > 0 && (
         <div className="px-3 pb-1.5">
           <div
@@ -539,49 +558,22 @@ function SubjectCard({
             aria-valuemin={0}
             aria-valuemax={subject.tasks.length}
             aria-valuenow={doneCount}
-            className="h-[3px] w-full overflow-hidden rounded-full bg-white/8"
+            className="h-0.75 w-full overflow-hidden rounded-full bg-white/8"
           >
             <div
-              className="h-full rounded-full bg-[var(--session-control-resume-bg)] transition-[width] duration-250 motion-reduce:transition-none"
+              className="h-full rounded-full bg-primary transition-[width] duration-250 motion-reduce:transition-none"
               style={{ width: `${(doneCount / subject.tasks.length) * 100}%` }}
             />
           </div>
         </div>
       )}
 
-      {subject.tasks.length > 0 && (
-        <ul className="flex flex-col gap-0.5">
-          {subject.tasks.map((task, index) => (
-            <li key={task.id} className="flex flex-col gap-0.5">
-              {/* 구분선은 할 일 사이에만 둔다 — 첫 할 일 위는 완료율 바가 이미 선 역할을 해서 두 줄로 겹쳐 보인다. */}
-              {index > 0 && (
-                <div aria-hidden="true" className="py-0.5 pr-3 pl-[52px]">
-                  <div className="h-px w-full bg-white/8" />
-                </div>
-              )}
-              {editing?.kind === "rename-task" && editing.taskId === task.id ? (
-                <InlineNameEditor
-                  initial={task.name}
-                  maxLength={100}
-                  placeholder={SUBJECT_SHEET_COPY.addTask}
-                  ariaLabel="할 일 이름"
-                  onCommit={(name) => {
-                    onEditing(null);
-                    void store.renameTask(subject.id, task.id, name);
-                  }}
-                  onCancel={() => onEditing(null)}
-                />
-              ) : (
-                <TaskRow
-                  task={task}
-                  onToggle={(done) => void store.toggleTask(subject.id, task.id, done)}
-                  onLongPress={(element) => openMenuBelow(element, task.id)}
-                  onRemove={() => void store.removeTask(subject.id, task.id)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
+      {scrollable ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none">
+          {taskList}
+        </div>
+      ) : (
+        taskList
       )}
 
       {addingTask ? (
@@ -598,7 +590,7 @@ function SubjectCard({
       ) : (
         <AddTaskButton onClick={startAddTask} />
       )}
-    </li>
+    </>
   );
 }
 
@@ -613,7 +605,7 @@ function EmptyState({
   return (
     <div className="flex flex-col">
       <div className="flex flex-col items-center gap-1.5 px-2 pt-9 pb-5 text-center">
-        <p className="text-[17px] leading-[22px] font-semibold text-white">
+        <p className="text-[17px] leading-5.5 font-semibold text-white">
           {SUBJECT_SHEET_COPY.empty}
         </p>
         <p className="text-[13px] leading-4 text-white/50">{SUBJECT_SHEET_COPY.emptySub}</p>
@@ -627,10 +619,10 @@ function EmptyState({
               aria-busy={pending === name}
               onClick={() => onPick(name)}
               className={cn(
-                "flex h-[52px] w-full items-center rounded-[14px] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12",
+                "flex h-13 w-full items-center rounded-[14px] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12",
                 pending === name
                   ? "animate-pulse bg-white/12 motion-reduce:animate-none"
-                  : "bg-[var(--session-sheet-surface)] disabled:opacity-50",
+                  : "bg-(--session-sheet-surface) disabled:opacity-50",
               )}
             >
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-white">
@@ -638,7 +630,7 @@ function EmptyState({
               </span>
               <span
                 aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center text-[20px] leading-5 text-[var(--state-focus)]"
+                className="flex size-9 shrink-0 items-center justify-center text-[20px] leading-5 text-(--state-focus)"
               >
                 +
               </span>
@@ -651,7 +643,6 @@ function EmptyState({
 }
 
 export function SubjectPanel({
-  open,
   store,
   selection,
   onSelect,
@@ -659,9 +650,14 @@ export function SubjectPanel({
   paused,
   onNotice,
   liveTotals,
+  landscape,
+  timer,
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [reorderMode, setReorderMode] = useState(false);
+  /** 가로에서 사용자가 고른 보는 과목. 고르지 않았거나 그 과목이 사라지면 측정 과목, 그다음 첫 과목을 본다. */
+  const [viewedId, setViewedId] = useState<number | null>(null);
   const reorder = useSubjectReorder(store);
   /**
    * 응답을 기다리는 추천 과목. 추가는 서버 id를 받아야 목록에 넣을 수 있어 그 사이 화면이 그대로인데,
@@ -670,16 +666,18 @@ export function SubjectPanel({
   const [pendingPick, setPendingPick] = useState<string | null>(null);
   const { subjects, status } = store;
   const empty = status === "ready" && subjects.length === 0;
-
-  // 접히면 편집·메뉴도 닫힌다(원본 `closeSheet`·`barUp`).
-  const [wasOpen, setWasOpen] = useState(open);
-  if (wasOpen !== open) {
-    setWasOpen(open);
-    if (!open) {
-      setEditing(null);
-      setMenu(null);
-    }
+  // 바꿀 과목이 없으면 모드에 남아 있을 이유가 없다.
+  if (reorderMode && subjects.length === 0) {
+    setReorderMode(false);
   }
+  /** 가로 상세 열에 보이는 과목. */
+  const viewed =
+    subjects.find((subject) => subject.id === viewedId) ??
+    subjects.find((subject) => subject.id === selection) ??
+    subjects[0] ??
+    null;
+  const viewedFocusSec =
+    viewed === null ? 0 : viewed.focusSec + liveSubjectTime(liveTotals, viewed.id).focusSec;
 
   function startAddSubject() {
     if (subjects.length >= MAX_SUBJECTS) {
@@ -690,8 +688,111 @@ export function SubjectPanel({
     setEditing({ kind: "new-subject" });
   }
 
+  function startReorderMode() {
+    setMenu(null);
+    setEditing(null);
+    setReorderMode(true);
+  }
+
+  /** 메뉴는 누른 줄 바로 아래(+4)에 뜬다. 메뉴가 붙는 상자 윗변 기준 좌표로 바꿔 둔다. */
+  function openMenu(element: HTMLElement, subjectId: number, taskId: number | null) {
+    const anchor = element.closest<HTMLElement>("[data-menu-anchor]");
+    const top =
+      anchor === null
+        ? 64
+        : element.getBoundingClientRect().bottom - anchor.getBoundingClientRect().top + 4;
+    setMenu({ subjectId, taskId, top });
+  }
+
+  function subjectHead(subject: SubjectResponse, layout: "card" | "row") {
+    if (editing?.kind === "rename-subject" && editing.subjectId === subject.id) {
+      return (
+        <InlineNameEditor
+          initial={subject.name}
+          maxLength={50}
+          placeholder={SUBJECT_SHEET_COPY.addSubject}
+          ariaLabel="과목 이름"
+          large
+          onCommit={(name) => {
+            setEditing(null);
+            void store.renameSubject(subject.id, name);
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      );
+    }
+    const selected = selection === subject.id;
+    return (
+      <SubjectRow
+        layout={layout}
+        viewing={viewed?.id === subject.id}
+        subject={subject}
+        focusSec={subject.focusSec + liveSubjectTime(liveTotals, subject.id).focusSec}
+        selected={selected}
+        running={selected && !paused}
+        reorderMode={reorderMode}
+        onTap={layout === "row" ? () => setViewedId(subject.id) : undefined}
+        onLongPress={(element) => openMenu(element, subject.id, null)}
+        onPlay={() => {
+          haptic("medium");
+          onSelect(subject.id);
+          onRequestClose();
+        }}
+        onDeselect={() => onSelect(null)}
+        onReorderStart={() => {
+          setMenu(null);
+          reorder.start(subject.id);
+        }}
+        onReorderOver={(overId) => reorder.over(subject.id, overId)}
+        onReorderEnd={reorder.end}
+      />
+    );
+  }
+
+  function subjectMenu(subject: SubjectResponse, current: Menu) {
+    return (
+      <ContextMenu
+        top={current.top}
+        onEdit={() => {
+          setMenu(null);
+          setEditing(
+            current.taskId === null
+              ? { kind: "rename-subject", subjectId: subject.id }
+              : { kind: "rename-task", subjectId: subject.id, taskId: current.taskId },
+          );
+        }}
+        onRemove={() => {
+          setMenu(null);
+          if (current.taskId === null) {
+            if (selection === subject.id) {
+              onSelect(null);
+            }
+            void store.removeSubject(subject.id);
+          } else {
+            void store.removeTask(subject.id, current.taskId);
+          }
+        }}
+        onDismiss={() => setMenu(null)}
+      />
+    );
+  }
+
+  function subjectTasks(subject: SubjectResponse, scrollable = false) {
+    return (
+      <SubjectTasks
+        scrollable={scrollable}
+        subject={subject}
+        editing={editing}
+        onEditing={setEditing}
+        onNotice={onNotice}
+        onTaskLongPress={(element, taskId) => openMenu(element, subject.id, taskId)}
+        store={store}
+      />
+    );
+  }
+
   const newSubjectEditor = editing?.kind === "new-subject" && (
-    <div className="rounded-[18px] bg-[var(--session-sheet-surface)] p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
+    <div className="rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
       <InlineNameEditor
         maxLength={50}
         placeholder="과목 이름"
@@ -709,21 +810,19 @@ export function SubjectPanel({
   let body: ReactNode;
   if (status === "loading" || status === "idle") {
     body = (
-      <div className="flex flex-col gap-[14px]" aria-label={SUBJECT_SHEET_COPY.loading}>
-        <Skeleton className="h-[120px] rounded-[18px] bg-white/6" />
-        <Skeleton className="h-[120px] rounded-[18px] bg-white/6" />
+      <div className="flex flex-col gap-3.5" aria-label={SUBJECT_SHEET_COPY.loading}>
+        <Skeleton className="h-30 rounded-[18px] bg-white/6" />
+        <Skeleton className="h-30 rounded-[18px] bg-white/6" />
       </div>
     );
   } else if (status === "error") {
     body = (
       <div className="flex flex-col items-center gap-3 px-3 pt-6 text-center">
-        <p className="text-[14px] text-[var(--session-dialog-body)]">
-          {SUBJECT_SHEET_COPY.loadFailed}
-        </p>
+        <p className="text-[14px] text-(--session-dialog-body)">{SUBJECT_SHEET_COPY.loadFailed}</p>
         <button
           type="button"
           onClick={() => void store.reload()}
-          className="h-10 rounded-xl bg-[var(--session-dialog-cancel-bg)] px-5 text-[14px] font-medium text-white active:opacity-80"
+          className="h-11 rounded-xl bg-(--session-dialog-cancel-bg) px-5 text-[14px] font-medium text-white active:opacity-80"
         >
           {SUBJECT_SHEET_COPY.retry}
         </button>
@@ -750,67 +849,130 @@ export function SubjectPanel({
   } else {
     body = (
       <>
-        <ul className="flex flex-col gap-[14px]">
+        <ul className="flex flex-col gap-3.5">
           {subjects.map((subject) => (
-            <SubjectCard
+            <li
               key={subject.id}
-              subject={subject}
-              selected={selection === subject.id}
-              running={selection === subject.id && !paused}
-              liveFocusSec={liveSubjectTime(liveTotals, subject.id).focusSec}
-              editing={editing}
-              menu={menu}
-              onSelect={() => onSelect(subject.id)}
-              onDeselect={() => onSelect(null)}
-              onPlay={() => {
-                haptic("medium");
-                onSelect(subject.id);
-                onRequestClose();
-              }}
-              onOpenMenu={setMenu}
-              onCloseMenu={() => setMenu(null)}
-              onEditing={setEditing}
-              onNotice={onNotice}
-              reordering={reorder.reorderingId === subject.id}
-              onReorderStart={() => {
-                setMenu(null);
-                reorder.start(subject.id);
-              }}
-              onReorderOver={(overId) => reorder.over(subject.id, overId)}
-              onReorderEnd={reorder.end}
-              store={store}
-            />
+              data-subject-id={subject.id}
+              data-menu-anchor=""
+              className={cn(
+                "relative flex flex-col gap-0.5 rounded-[18px] p-1.5 transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none",
+                reorder.reorderingId === subject.id
+                  ? "bg-white/10"
+                  : "bg-(--session-sheet-surface)",
+                selection === subject.id
+                  ? "shadow-[inset_0_0_0_1px_var(--session-sheet-selected-card-ring)]"
+                  : "shadow-[inset_0_0_0_1px_var(--session-sheet-line)]",
+              )}
+            >
+              {subjectHead(subject, "card")}
+              {menu?.subjectId === subject.id && subjectMenu(subject, menu)}
+              {!reorderMode && subjectTasks(subject)}
+            </li>
           ))}
         </ul>
-        {newSubjectEditor && <div className="mt-[14px]">{newSubjectEditor}</div>}
+        {newSubjectEditor && <div className="mt-3.5">{newSubjectEditor}</div>}
       </>
+    );
+  }
+
+  const actions =
+    status !== "ready" ? null : reorderMode ? (
+      <Button
+        variant="secondary"
+        className="h-11 rounded-md px-3.5 text-[14px] font-semibold"
+        onClick={() => setReorderMode(false)}
+      >
+        {SUBJECT_SHEET_COPY.done}
+      </Button>
+    ) : (
+      <>
+        {!empty && (
+          <button type="button" onClick={startReorderMode} className={SOFT_BUTTON_CLASS}>
+            <ArrowUpDown aria-hidden="true" className="size-4.5 opacity-70" strokeWidth={1.5} />
+            {SUBJECT_SHEET_COPY.reorder}
+          </button>
+        )}
+        <button type="button" onClick={startAddSubject} className={SOFT_BUTTON_CLASS}>
+          <span aria-hidden="true" className="text-[18px] leading-4.5">
+            +
+          </span>
+          {SUBJECT_SHEET_COPY.addSubject}
+        </button>
+      </>
+    );
+
+  // 목록을 받는 중이거나 과목이 없으면 오른쪽에 보일 할 일이 없어 가로여도 한 열로 둔다.
+  if (landscape && status === "ready" && viewed !== null) {
+    return (
+      <div className="grid min-h-0 flex-1 grid-cols-[17.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 regular:grid-cols-[22.5rem_minmax(0,1fr)] regular:gap-x-6 short-side-lg:grid-cols-[26.25rem_minmax(0,1fr)] short-side-lg:gap-x-8">
+        <div className="min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
+          <ul className="flex flex-col gap-1">
+            {subjects.map((subject) => (
+              <li
+                key={subject.id}
+                data-subject-id={subject.id}
+                data-menu-anchor=""
+                className="relative"
+              >
+                {subjectHead(subject, "row")}
+                {menu?.subjectId === subject.id &&
+                  menu.taskId === null &&
+                  subjectMenu(subject, menu)}
+              </li>
+            ))}
+          </ul>
+          {newSubjectEditor && <div className="mt-1">{newSubjectEditor}</div>}
+        </div>
+        <section
+          aria-label={`${viewed.name} 할 일`}
+          data-menu-anchor=""
+          inert={reorderMode}
+          className={cn(
+            "relative flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
+            reorderMode && "opacity-40",
+          )}
+        >
+          <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+            <span className="truncate text-[17px] leading-5.5 font-semibold text-white">
+              {viewed.name}
+            </span>
+            <span className="shrink-0 text-[13px] leading-4 font-bold text-white/55 tabular-nums">
+              <span aria-hidden="true">{formatElapsed(viewedFocusSec)}</span>
+              <span className="sr-only">{`순공 ${toKoreanDuration(viewedFocusSec)}`}</span>
+            </span>
+          </div>
+          {menu?.subjectId === viewed.id && menu.taskId !== null && subjectMenu(viewed, menu)}
+          {subjectTasks(viewed, true)}
+        </section>
+        <div className="flex items-end justify-end gap-2">{actions}</div>
+        <SessionPageFooter landscape timer={timer} />
+      </div>
     );
   }
 
   return (
     <>
-      {/* 헤더(원본): "과목" + 우측 "+ 과목 추가"(44 히트). 빈 상태에서도 동일. */}
-      <div className="-mt-1.5 flex w-full shrink-0 items-center justify-between pb-0.5 pr-3 pl-5">
-        <h2 className="text-[19px] leading-[23px] font-bold text-white">
-          {SUBJECT_SHEET_COPY.title}
-        </h2>
-        {status === "ready" && (
-          <button
-            type="button"
-            onClick={startAddSubject}
-            className="flex h-11 items-center gap-1 rounded-xl px-3 text-[var(--state-focus)] active:bg-white/6"
-          >
-            <span aria-hidden="true" className="text-[18px] leading-[18px] font-medium">
-              +
-            </span>
-            <span className="text-[14px] font-semibold">{SUBJECT_SHEET_COPY.addSubject}</span>
-          </button>
-        )}
-      </div>
-
-      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-0.5 pb-[calc(env(safe-area-inset-bottom)+48px)] [scrollbar-width:none]">
+      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-4 scrollbar-none">
         {body}
       </div>
+      {landscape ? (
+        <SessionPageFooter
+          landscape
+          leading={actions !== null && <div className="flex gap-2">{actions}</div>}
+          timer={timer}
+        />
+      ) : (
+        <SessionPageFooter
+          landscape={false}
+          actions={
+            actions !== null && (
+              <div className="flex justify-end gap-2 px-3 pt-1 pb-2">{actions}</div>
+            )
+          }
+          timer={timer}
+        />
+      )}
     </>
   );
 }

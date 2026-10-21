@@ -22,10 +22,10 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * 않아야 포커스가 유지된다 — SCR-S3-5·S3-6 Accessibility). 그래서 표시 모드(`glow`)만 prop이고
  * 방향은 전부 `landscape-compact:` 유틸리티다.
  *
- * | 표시    | 세로                     | 가로                             |
- * | ------- | ------------------------ | -------------------------------- |
- * | 프리뷰  | 52px 중앙 · 총 15px/42%  | **35px 우측 정렬 · 총 13px/40%** |
- * | 심플    | 52px 중앙 발광           | **56px 중앙 발광**               |
+ * | 표시    | 세로                     | 가로                          |
+ * | ------- | ------------------------ | ----------------------------- |
+ * | 프리뷰  | 52px 중앙 · 총 15px/42%  | **44px 중앙 · 총 14px/42%**   |
+ * | 심플    | 52px 중앙 발광 · 총 없음 | **56px 중앙 발광 · 총 없음**  |
  *
  * 폭 600 이상이면서 `landscape-compact`가 아닌 창은 세로 배치 그대로 순공 96px, 총 22px로 키운다.
  *
@@ -73,14 +73,7 @@ export function SessionTimer({
   className,
 }: SessionTimerProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center",
-        // 가로 프리뷰만 우상단으로 간다 — 가로 심플은 세로와 같은 중앙 정렬을 유지한다.
-        !glow && "landscape-compact:items-end",
-        className,
-      )}
-    >
+    <div className={cn("flex flex-col items-center", className)}>
       {/* 색·발광을 타이머 이동(SPACER_TRANSITION)과 같은 300ms ease-out으로 맞춘다 —
           위치·색·발광의 duration이 제각각이면 전환이 세 박자로 쪼개져 보인다(BY-336). */}
       <p
@@ -89,7 +82,7 @@ export function SessionTimer({
           glow
             ? "text-(--session-state-color) landscape-compact:text-[56px] landscape-compact:leading-16"
             : cn(
-                "landscape-compact:text-right landscape-compact:text-[35px] landscape-compact:leading-10.5 landscape-compact:tracking-[-0.3px]",
+                "landscape-compact:text-[44px] landscape-compact:leading-11.5 landscape-compact:tracking-[-1.32px]",
                 state === "focus" ? "text-white" : "text-text-tertiary",
               ),
         )}
@@ -98,17 +91,30 @@ export function SessionTimer({
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
         <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
       </p>
-      <p
-        className={cn(
-          "mt-1.75 text-center text-[15px] leading-4.5 font-medium text-white/42 tabular-nums regular:mt-2.75 regular:text-[1.375rem] regular:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75",
-          glow
-            ? "landscape-compact:mt-2.5"
-            : "landscape-compact:mt-0.75 landscape-compact:text-right landscape-compact:text-[13px] landscape-compact:leading-3.75 landscape-compact:text-white/40",
-        )}
-      >
-        <span aria-hidden="true">총 {formatElapsed(studySec)}</span>
-        <span className="sr-only">총 공부 시간 {toKoreanDuration(studySec)}</span>
-      </p>
+      {/* 심플 모드는 순공 숫자 하나에 집중하게 총 공부 줄을 뺀다. */}
+      {!glow && (
+        <p className="mt-1.75 text-center text-[15px] leading-4.5 font-medium text-white/42 tabular-nums regular:mt-2.75 regular:text-[1.375rem] regular:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75 landscape-compact:mt-1.5 landscape-compact:text-sm landscape-compact:leading-4.25">
+          <span aria-hidden="true">총 {formatElapsed(studySec)}</span>
+          <span className="sr-only">총 공부 시간 {toKoreanDuration(studySec)}</span>
+        </p>
+      )}
     </div>
+  );
+}
+
+/**
+ * 과목·배경음 페이지 푸터의 순공 타이머
+ *
+ * 페이지가 세션 UI를 가리므로 상태는 심플 모드처럼 숫자 색과 발광으로만 전한다.
+ */
+export function SessionPageTimer({ focusSec }: { focusSec: number }) {
+  return (
+    <p
+      className="text-[28px] leading-8.25 font-bold tracking-[-0.4px] text-(--session-state-color) tabular-nums regular:text-[40px] regular:leading-12 short-side-lg:landscape:text-5xl short-side-lg:landscape:leading-14"
+      style={{ textShadow: GLOW_TEXT_SHADOW }}
+    >
+      <span aria-hidden="true">{formatElapsed(focusSec)}</span>
+      <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+    </p>
   );
 }

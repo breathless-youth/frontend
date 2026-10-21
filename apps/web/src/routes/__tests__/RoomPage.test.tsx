@@ -83,7 +83,7 @@ function renderRoom(url: string) {
 }
 
 /**
- * 컨트롤 바 종료 버튼과 다이얼로그 확정 버튼은 **같은 이름**(`공부 종료`)을 갖는다 —
+ * 하단 종료 버튼과 다이얼로그 확정 버튼은 **같은 이름**(`공부 종료`)을 갖는다 —
  * Radix modal 이 배경을 `aria-hidden` 처리하면 접근성 트리에 다이얼로그 것만 남지만,
  * 안전하게 다이얼로그 안으로 범위를 좁혀 확정 버튼을 집는다.
  */
@@ -91,7 +91,7 @@ function confirmExitButton() {
   return within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" });
 }
 
-/** S3-7: 종료는 **2단계**다 — 컨트롤 바 → 확인 다이얼로그. */
+/** S3-7: 종료는 **2단계**다 — 하단 종료 버튼 → 확인 다이얼로그. */
 async function endSession() {
   await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
   await userEvent.click(confirmExitButton());
@@ -169,7 +169,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     });
   });
 
-  it("순공 타이머·총 공부 병기·컨트롤 바를 렌더링한다", () => {
+  it("순공 타이머·총 공부 병기·하단 버튼을 렌더링한다", () => {
     renderRoom("/room/7?userId=1");
 
     expect(screen.getByText("00:00:00")).toBeInTheDocument();
@@ -216,7 +216,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.queryByText(/다른 사람/)).not.toBeInTheDocument();
   });
 
-  it("컨트롤 바 밖 탭으로 심플 모드를 토글한다", async () => {
+  it("버튼 밖 탭으로 심플 모드를 토글한다", async () => {
     renderRoom("/room/7?userId=1");
 
     const tapLayer = screen.getByRole("button", { name: "심플 모드 전환" });
@@ -226,28 +226,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute(
       "aria-pressed",
       "true",
-    );
-  });
-
-  it("과목 시트가 열리면 부가 기능 버튼이 숨고 바는 알약 배경을 잃는다 — 바깥 탭으로 닫으면 돌아온다", async () => {
-    renderRoom("/room/7?userId=1");
-
-    const sideActions = screen.getByRole("group", { name: "부가 기능" });
-    const barSurface = screen.getByRole("group", { name: "세션 컨트롤" }).firstElementChild;
-    expect(sideActions).not.toHaveClass("invisible");
-    expect(barSurface).toHaveClass("opacity-100");
-
-    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
-    expect(sideActions).toHaveClass("invisible");
-    expect(barSurface).toHaveClass("opacity-0");
-
-    // 심플 모드 토글이 아니라 시트만 접힌다.
-    await userEvent.click(screen.getByRole("button", { name: "과목 시트 닫기" }));
-    expect(sideActions).not.toHaveClass("invisible");
-    expect(barSurface).toHaveClass("opacity-100");
-    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
     );
   });
 
@@ -270,7 +248,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
     expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
@@ -282,7 +260,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
     ]);
     renderRoom("/room/7?userId=1");
-    await userEvent.click(screen.getByRole("button", { name: /과목을 선택할 수 있어요/ }));
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     act(() => {
@@ -630,7 +608,7 @@ describe("RoomPage — S3-3 일시정지", () => {
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
   });
 
-  it("컨트롤 바 첫 버튼이 파란 재개 버튼으로 교체된다", async () => {
+  it("일시정지 버튼이 파란 재개 버튼으로 교체된다", async () => {
     renderRoom("/room/7?userId=1");
 
     const pauseButton = screen.getByRole("button", { name: "일시정지" });
@@ -813,27 +791,66 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(container.querySelector("video")).toBe(before);
   });
 
-  it("상태 필과 컨트롤 바는 유지된다 — 색 단독으로 상태를 전달하지 않기 위함", async () => {
+  /** 숨긴 버튼은 `inert` 묶음 안에 있어 누를 수도, 포커스를 옮길 수도 없다. */
+  function unreachable(element: HTMLElement) {
+    return element.closest("[inert]") !== null;
+  }
+
+  it("상태 필과 일시정지 버튼만 남기고 나머지 버튼은 숨긴다 — 색 단독으로 상태를 전달하지 않기 위함", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
     renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     await enterSimpleMode();
 
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
-    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+    expect(unreachable(screen.getByRole("button", { name: "일시정지" }))).toBe(false);
+    for (const name of ["카메라 전환", /^배경음/, /^과목/, "공부 종료"]) {
+      expect(unreachable(screen.getByRole("button", { name }))).toBe(true);
+    }
   });
 
-  it("카메라 전환은 숨고 배경음 버튼은 남는다", async () => {
+  it("측정 중인 과목 시간은 누를 수 없는 글자로 남기고, 총 공부 줄은 뺀다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+    expect(screen.getAllByText(/^총 /)).not.toHaveLength(0);
+
+    await enterSimpleMode();
+
+    expect(screen.getByText("수학")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^수학.*순공/ })).not.toBeInTheDocument();
+    expect(screen.queryAllByText(/^총 /)).toHaveLength(0);
+
+    // 심플 모드를 나가면 라벨이 다시 과목 페이지를 여는 버튼이 된다.
+    await enterSimpleMode();
+    expect(screen.getByRole("button", { name: /^수학.*순공/ })).toBeInTheDocument();
+  });
+
+  it("과목을 고르지 않았으면 심플 모드에 과목 글자가 없다", async () => {
     renderRoom("/room/7?userId=1");
 
     await enterSimpleMode();
 
-    expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^배경음/ })).toBeInTheDocument();
+    expect(screen.queryByText(/순공 /)).not.toBeInTheDocument();
+  });
+
+  it("심플 모드를 나가야 공부 종료에 다시 닿는다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    await enterSimpleMode();
+    expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(true);
 
     // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
     await enterSimpleMode();
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
+    expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(false);
+    expect(unreachable(screen.getByRole("button", { name: "카메라 전환" }))).toBe(false);
   });
 
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {
@@ -1082,7 +1099,7 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(within(dialog).getByRole("button", { name: "계속하기" })).toHaveFocus();
   });
 
-  it("닫히면 포커스가 컨트롤 바 종료 버튼으로 돌아온다", async () => {
+  it("닫히면 포커스가 하단 종료 버튼으로 돌아온다", async () => {
     renderRoom("/room/7?userId=1");
     const exitButton = screen.getByRole("button", { name: "공부 종료" });
 
