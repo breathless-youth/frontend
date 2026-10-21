@@ -61,14 +61,31 @@ describe("useLandscapeLayout", () => {
     expect(result.current).toBe(false);
   });
 
-  it("텍스트 입력 중에 온 변화는 포커스가 빠진 뒤에 반영한다", () => {
+  it("텍스트 입력 중에 온 변화는 포커스가 빠진 뒤에 반영한다", async () => {
     const media = stubMatchMedia(false);
     const input = document.body.appendChild(document.createElement("input"));
     const { result } = renderHook(() => useLandscapeLayout(true));
     input.focus();
     act(() => media.set(true));
     expect(result.current).toBe(false);
-    act(() => input.blur());
+    await act(async () => {
+      input.blur();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(result.current).toBe(true);
+  });
+
+  it("focusout 때 포커스가 아직 입력 요소에 있어도 옮겨 간 뒤 다시 판정한다", async () => {
+    const media = stubMatchMedia(false);
+    const input = document.body.appendChild(document.createElement("input"));
+    const { result } = renderHook(() => useLandscapeLayout(true));
+    input.focus();
+    act(() => media.set(true));
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      input.remove();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(result.current).toBe(true);
   });
 

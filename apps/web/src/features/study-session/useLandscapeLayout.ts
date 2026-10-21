@@ -22,11 +22,13 @@ function readLandscape(): boolean {
 function subscribeLandscape(onChange: () => void) {
   if (typeof window.matchMedia !== "function") return () => {};
   const media = window.matchMedia(LANDSCAPE_QUERY);
+  // focusout 시점에는 activeElement가 아직 입력 요소일 수 있어 포커스가 옮겨 간 뒤에 읽는다.
+  const onFocusOut = () => setTimeout(onChange, 0);
   media.addEventListener("change", onChange);
-  document.addEventListener("focusout", onChange);
+  document.addEventListener("focusout", onFocusOut);
   return () => {
     media.removeEventListener("change", onChange);
-    document.removeEventListener("focusout", onChange);
+    document.removeEventListener("focusout", onFocusOut);
   };
 }
 
