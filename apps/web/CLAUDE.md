@@ -42,13 +42,13 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - **네이티브 Firebase Analytics 포워딩은 `lib/firebaseAnalyticsBridge.ts`의 destination 플러그인 하나다.** Amplitude 이벤트·`$identify` 유저 속성을 브리지 `analytics-event`·`analytics-user-properties`로 앱에 넘긴다(FCM 콘솔 타겟팅용, [ADR 0010](../../docs/adr/0010-native-firebase-analytics-for-push-targeting.md)). 이벤트 이름은 목록을 따로 두지 않지만 **값은 토큰만** 통과한다(`packages/types`의 `ANALYTICS_PARAM_VALUE_PATTERN` — enum·에러 코드·정제된 경로·버전은 통과, 공백·한글이 든 자유 문자열은 걸린다. 네이티브도 같은 상수로 다시 거른다). **유저 속성은 `FIREBASE_USER_PROPERTY_KEYS` 화이트리스트만** 넘기고 `$unset`은 `null`로 옮겨 GA 쪽 값을 지운다(GA4 커스텀 유저 속성 25개 한도 — 키를 늘리면 GA 맞춤 정의 등록도 필요). boolean은 문자열로 접는다. 브라우저 단독 모드에서는 아무것도 나가지 않는다.
 - 유입 채널은 autocapture `attribution`(UTM·referrer)과 `setAcquisitionChannel()`(자기 신고) 두 경로다. 후자를 지우지 말 것. 공부 도메인 지표(`study_session_started/ended/submitted`)는 `useStudyRoomSession`이 보내고 `ended`는 세션당 한 번, `submitted`는 시도마다이며 집계는 `computeSessionTotals` 결과를 그대로 넘긴다.
 - 네이티브 셸 이벤트(`source: "native"`)는 `useNativeAnalyticsRelay`가 받고 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다(웹은 형식만 검증). 룸 내부 상태 전이 이벤트는 **실제 전이가 일어났을 때만** 찍고(핸들러마다 찍으면 전이 없이도 난다), 권한 상태는 이벤트가 아니라 user property(`camera_permission`), autocapture `Element Clicked`는 SDK 소유 안전망으로만 본다. 구독을 건 뒤 `analytics-ready`를 보내는 순서를 바꾸지 말 것(그 사이 도착한 이벤트가 버려진다). 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
-- ⚠️ **개인정보처리방침의 위탁·국외 이전 조항이 분석 도구 사용을 담지 못했다.** 초안·절차는 [privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
+- **분석 도구를 더하거나 보내는 항목을 늘리면 개인정보처리방침도 고친다.** Amplitude·Google·Sentry는 7조 처리 위탁과 8조 국외 이전, Meta 앱 이벤트는 9조 행태정보에 있다(2026-10-27 시행). 원본은 랜딩이고 앱 사본은 `legalDocuments.ts`라 둘을 같이 고친다. 경위는 [privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
 
 ### Meta 광고 전환 (`lib/metaAppEvents.ts`)
 
 앱 설치 광고의 전환은 브리지 `meta-app-event`로 네이티브 Meta SDK에 넘긴다(BY-644, `track-event`의 역방향). **전환 목록은 이 파일이 소유한다** — 네이티브는 이름을 해석하지 않고 형식(영문자 시작·영숫자·`_`·`-`·공백·40자 이내, 파라미터 25개·문자열/수)만 검증하므로 여기만 고치면 웹 배포로 끝난다.
 
-- **Amplitude의 의도적 부분집합이다.** Amplitude 함수와 같은 자리에서 같은 값으로 부르되, Meta는 광고 최적화용 소수의 전환만 원하고 여기 실린 것은 전부 Meta 서버로 나간다(개인정보처리방침 위탁 항목). 이벤트를 늘릴 때는 그 이유를 이 파일 주석에 남긴다.
+- **Amplitude의 의도적 부분집합이다.** Amplitude 함수와 같은 자리에서 같은 값으로 부르되, Meta는 광고 최적화용 소수의 전환만 원하고 여기 실린 것은 전부 Meta 서버로 나간다(개인정보처리방침 9조 행태정보). 이벤트를 늘릴 때는 그 이유를 이 파일 주석에 남긴다.
 - 파라미터는 enum·수만, boolean은 1/0으로 접는다. 식별자·초대코드·자유 문자열 금지. 복원 진입(`restored`)·유예 재입장은 새 전환이 아니라 보내지 않는다.
 - 브라우저 단독 모드와 Meta env 없는 앱 빌드에서는 조용히 버려진다 — 호출부에서 분기하지 말 것.
 
