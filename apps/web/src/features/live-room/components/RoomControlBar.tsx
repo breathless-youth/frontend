@@ -51,7 +51,7 @@ export function RoomControlBar({
   // 실제 전환 성공 여부와 무관하게 도는 것은 의도다: 즉각적인 눌림 반응이 목적이다.
   const [flipTurns, setFlipTurns] = useState(0);
   return (
-    // 치수는 싱글룸 SessionControlBar 세로 스펙과 동일(버튼 50 · 간격 22 · 좌우 24 · 높이 80,
+    // 치수는 싱글룸에 있던 하단 컨트롤 바 세로 스펙과 동일(버튼 50 · 간격 22 · 좌우 24 · 높이 80,
     // 2026-08-25 BY-427 피드백: 두 룸의 바 크기 통일) — 폭은 내용에 맞춰 242px이 된다.
     <div
       data-testid="room-control-bar"

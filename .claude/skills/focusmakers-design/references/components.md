@@ -48,7 +48,7 @@
 | Figma | 노드 | 코드 |
 |---|---|---|
 | Session / Status Pill (Focus·Distract·Paused) | `34:14` | `features/study-session/components/SessionStatusPill.tsx` |
-| Session / Control Bar | `34:32` | `SessionControlBar.tsx` |
+| Session / Control Bar | `34:32` | `SessionControlButtons.tsx` (`SessionPauseButton`·`SessionExitButton`, 바 없이 하단 양 끝에 둔다) |
 | 결과 카드·타임라인 막대·상태 도트 | (S4 프레임 로컬) | `ResultCardParts.tsx` (`ResultCard`, `ResultStatusDot`, `ResultBarSegment`) |
 
 ## 소셜

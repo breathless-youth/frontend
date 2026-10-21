@@ -323,7 +323,7 @@ describe("useAmbientSound — 사용 시간", () => {
 });
 
 describe("useAmbientSound — 음량 조작", () => {
-  it("소리를 켜면 applyMix·저장·시트 이벤트, 레벨만 바꾸면 이벤트 없이 applyMix·저장", async () => {
+  it("소리를 켜면 applyMix·저장·페이지 이벤트, 레벨만 바꾸면 이벤트 없이 applyMix·저장", async () => {
     const { result, player, store } = setup();
     await flush();
 

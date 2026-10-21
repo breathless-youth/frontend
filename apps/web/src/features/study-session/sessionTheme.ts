@@ -94,14 +94,11 @@ const SESSION_SURFACE_VARS = {
    */
   "--session-dialog-confirm-bg": colors.state.focus.light,
 
-  // ── S3-9 과목 시트 ────────────────────────────────────────────────────────
-  /** 열린 시트 패널 배경 — `colors.bg.base.dark`(#101419) 90% (Figma `Sheet / Panel` 5232:672). */
-  "--session-sheet-bg": withAlpha(colors.bg.base.dark, 0.9),
-  /** 카드·행·버튼의 흰색 알파 면 — 시트 안에서만 쓰는 실측값이라 토큰에 올리지 않는다. */
+  // ── 과목 페이지 ──────────────────────────────────────────────────────────
+  /** 카드·행·버튼의 흰색 알파 면 — 과목 페이지 안에서만 쓰는 실측값이라 토큰에 올리지 않는다. */
   "--session-sheet-surface": "rgba(255, 255, 255, 0.06)",
   "--session-sheet-line": "rgba(255, 255, 255, 0.08)",
-  /** 측정 중 과목 강조 — blue/400(#4593FC) 14% 배경 · 35% 링 · 카드 45% 링. */
-  "--session-sheet-selected-bg": withAlpha(sessionStateColors.FOCUS.dark, 0.14),
+  /** 측정 중 과목 강조로, blue/400(#4593FC)의 35%는 가로 줄 링이고 45%는 세로 카드 링이다. */
   "--session-sheet-selected-ring": withAlpha(sessionStateColors.FOCUS.dark, 0.35),
   "--session-sheet-selected-card-ring": withAlpha(sessionStateColors.FOCUS.dark, 0.45),
 } as const;
