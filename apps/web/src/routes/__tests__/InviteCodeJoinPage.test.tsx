@@ -7,12 +7,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type * as AppHandoffModule from "@/features/social-room/appHandoff";
 import { openInApp } from "@/features/social-room/appHandoff";
+import type * as Amplitude from "@/lib/amplitude";
+import { trackStoreLinkRedirected } from "@/lib/amplitude";
 
 import { InviteCodeJoinPage } from "../InviteCodeJoinPage";
 
 vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
   ...(await importOriginal<typeof AppHandoffModule>()),
   openInApp: vi.fn(),
+}));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackStoreLinkRedirected: vi.fn(),
 }));
 
 const KAKAO_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) KAKAOTALK 10.5.0";
@@ -62,6 +69,7 @@ describe("InviteCodeJoinPage 인앱 스킴 브리지", () => {
     renderAt("?userId=7&code=1234");
     await userEvent.click(screen.getByRole("button", { name: "앱에서 참여하기" }));
     expect(openInApp).toHaveBeenCalledWith("ios", "1234");
+    expect(trackStoreLinkRedirected).toHaveBeenCalledWith("ios");
   });
 
   it("StrictMode에서 이펙트가 이중 실행돼도 openInApp은 한 번만 부른다", () => {
