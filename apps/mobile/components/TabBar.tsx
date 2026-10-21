@@ -11,6 +11,7 @@ import {
   IconTabSettings,
   IconTabSocial,
 } from "./icons";
+import { triggerHaptic } from "../lib/haptics";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 export type TabId = "home" | "social" | "record" | "ranking" | "settings";
@@ -108,6 +109,8 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
                   disabled={isActive}
                   onPress={() => {
                     trackNativeEvent("tab_pressed", { tab: id, from_tab: active, via: "tab_bar" });
+                    // iOS는 시스템 탭 바가 탭 전환 햅틱을 직접 울려서 이 바에서만 울린다.
+                    triggerHaptic("light");
                     router.navigate(href);
                   }}
                   accessibilityRole="tab"
