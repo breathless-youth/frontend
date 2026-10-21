@@ -4,7 +4,8 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    /* 테스트 파일이 node 모듈과 process를 쓰는데, 테스트 러너가 이제 node 타입을 대신 끌어오지 않는다. */
+    "types": ["vite/client", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 

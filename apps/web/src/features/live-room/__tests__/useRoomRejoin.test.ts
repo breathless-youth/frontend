@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomServerMessage } from "@focusmakers/types";
 
@@ -41,6 +41,11 @@ const joinResponse = {
 };
 
 describe("useRoomRejoin", () => {
+  // 같은 함수를 다시 spyOn하면 앞 테스트의 감시가 그대로 돌아와서 테스트마다 되돌린다.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("성공하면 자리를 다시 잡고 채널을 재연결한다", async () => {
     vi.spyOn(roomApi, "renewLiveRoomSeat").mockResolvedValue(joinResponse);
     const channel = fakeChannel();
