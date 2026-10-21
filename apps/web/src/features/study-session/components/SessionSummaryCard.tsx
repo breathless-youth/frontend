@@ -55,13 +55,13 @@ function SummaryRow({
 }) {
   return (
     <div
-      className="flex items-center justify-between gap-3 py-[18px]"
+      className="flex items-center justify-between gap-3 py-4.5"
       aria-busy={state.status === "pending" || undefined}
     >
-      <span className="text-[15px] leading-[18px] break-keep text-muted-foreground">{label}</span>
+      <span className="text-[15px] leading-4.5 break-keep text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "shrink-0 text-[18px] leading-[22px] font-bold tabular-nums",
+          "shrink-0 text-[18px] leading-5.5 font-bold tabular-nums",
           accent ? "text-primary" : "text-foreground",
         )}
       >

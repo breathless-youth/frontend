@@ -31,7 +31,7 @@ export function CoachTooltip({ title, body, tail }: CoachTooltipContent) {
     <div className="pointer-events-none mx-8 flex flex-col items-center">
       {tail === "top" && tailNode}
       <div
-        className="flex w-full flex-col gap-[5px] overflow-hidden border px-4 py-[15px]"
+        className="flex w-full flex-col gap-1.25 overflow-hidden border px-4 py-3.75"
         style={{
           backgroundColor: coachOverlay.cardBg,
           borderColor: coachOverlay.cardBorder,
@@ -41,12 +41,12 @@ export function CoachTooltip({ title, body, tail }: CoachTooltipContent) {
       >
         {/* Figma 실측 15 Bold / lh19. 토큰 body.md(15)와 크기는 같지만 weight 정의가 달라 실측값을 쓴다. */}
         <h2
-          className="text-[15px] font-bold leading-[19px]"
+          className="text-[15px] font-bold leading-4.75"
           style={{ color: coachTokenColors.cardTitle }}
         >
           {title}
         </h2>
-        <p className="text-[13px] leading-[19px]" style={{ color: coachOverlay.cardBodyText }}>
+        <p className="text-[13px] leading-4.75" style={{ color: coachOverlay.cardBodyText }}>
           {body}
         </p>
       </div>

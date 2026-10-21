@@ -71,7 +71,7 @@ export function InviteCodeSharePage() {
       data-testid="invite-code-share-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
     >
-      <div className="flex h-[52px] items-center px-2">
+      <div className="flex h-13 items-center px-2">
         <Button
           variant="ghost"
           aria-label="닫기"

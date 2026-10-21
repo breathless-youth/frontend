@@ -90,7 +90,7 @@ export function DevVisionFailureNotice({ detector }: DevVisionFailureNoticeProps
     // 끼어들면 스크린리더 사용자에게 없는 상태를 알리게 되고, 기존 테스트의 역할 질의도 흔들린다.
     <p
       data-dev-notice={failure.notice}
-      className="pointer-events-none absolute inset-x-0 top-0 z-50 bg-[#B0261A] px-4 py-[calc(env(safe-area-inset-top)+6px)] text-center text-[12px] leading-[16px] text-white"
+      className="pointer-events-none absolute inset-x-0 top-0 z-50 bg-[#B0261A] px-4 py-[calc(env(safe-area-inset-top)+6px)] text-center text-[12px] leading-4 text-white"
     >
       {failure.message}
     </p>

@@ -37,14 +37,14 @@ export function RoomDebugOverlay({
         aria-label="진단 로그 토글"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className="pointer-events-auto rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] leading-[13px] text-lime-300"
+        className="pointer-events-auto rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] leading-3.25 text-lime-300"
       >
         {open ? "dbg ▾" : "dbg ▸"}
       </button>
       {open && (
         <div
           data-testid="room-debug-log"
-          className="rounded bg-black/70 p-1 font-mono text-[10px] leading-[13px] text-lime-300"
+          className="rounded bg-black/70 p-1 font-mono text-[10px] leading-3.25 text-lime-300"
         >
           <div>{`room:${roomId} me:${userId} ch:${channelStatus} members:${members.length}`}</div>
           <div>

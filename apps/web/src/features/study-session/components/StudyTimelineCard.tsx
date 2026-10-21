@@ -56,7 +56,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
       : Math.min(85, Math.max(15, (longest.startRatio + longest.widthRatio / 2) * 100));
 
   return (
-    <Card className="shadow-sb-card pt-4 pb-[14px]">
+    <Card className="shadow-sb-card pt-4 pb-3.5">
       <CardHeader className="flex-wrap gap-y-1">
         <CardTitle>{RESULT_COPY.timelineTitle}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -69,13 +69,13 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
       <CardContent>
         {/* 배지(+말꼬리)가 들어갈 자리를 위에 비워 둔다 — 배지가 없어도 높이를 유지해 카드가 들썩이지
           않는다. */}
-        <div className="relative mt-[48px]">
+        <div className="relative mt-12">
           {longest !== null && (
             <>
               <Badge
                 variant="outline"
                 aria-hidden="true"
-                className="absolute -top-[42px] -translate-x-1/2"
+                className="absolute -top-10.5 -translate-x-1/2"
                 style={{ left: `${badgeCenterPercent}%` }}
               >
                 {`${RESULT_COPY.longestFocusLabel} ${toKoreanDurationLength(longest.durationSec)}`}
@@ -84,7 +84,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
                 카드색 채움이 그 밑의 배지 아래 테두리를 가린다. */}
               <span
                 aria-hidden="true"
-                className="absolute -top-[20px] z-10 size-2 -translate-x-1/2 rotate-45 border-r-[1.5px] border-b-[1.5px] border-primary bg-muted"
+                className="absolute -top-5 z-10 size-2 -translate-x-1/2 rotate-45 border-r-[1.5px] border-b-[1.5px] border-primary bg-muted"
                 style={{ left: `${(longest.startRatio + longest.widthRatio / 2) * 100}%` }}
               />
             </>
@@ -124,7 +124,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
         </div>
 
         {/* 축 라벨 = 세션 시작·종료 벽시계(`64:570`/`64:571`). 총 공부 시간이 아니다. */}
-        <div className="mt-[6px] flex justify-between text-[11px] leading-[13px] text-text-tertiary tabular-nums">
+        <div className="mt-1.5 flex justify-between text-[11px] leading-3.25 text-text-tertiary tabular-nums">
           <span>{formatClockTime(view.startedAt)}</span>
           <span>{formatClockTime(view.endedAt)}</span>
         </div>
@@ -133,14 +133,14 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
           <>
             <Separator className="mt-3" />
             <div className="flex items-center justify-between gap-3 pt-3">
-              <span className="min-w-0 text-[14px] leading-[17px] break-keep text-foreground">
+              <span className="min-w-0 text-[14px] leading-4.25 break-keep text-foreground">
                 {RESULT_COPY.longestFocusLabel}
               </span>
               <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
-                <span className="text-[16px] leading-[19px] font-bold text-foreground">
+                <span className="text-[16px] leading-4.75 font-bold text-foreground">
                   {toKoreanDurationLength(longest.durationSec)}
                 </span>
-                <span className="text-[13px] leading-[16px] text-text-tertiary">
+                <span className="text-[13px] leading-4 text-text-tertiary">
                   {longest.clockRange}
                 </span>
               </span>

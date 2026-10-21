@@ -18,8 +18,8 @@ import { RankAvatar } from "./RankAvatar";
  * 테 지름은 아바타 지름에 양쪽으로 틈 2px과 테 두께 3px씩을 더한 값이다.
  */
 const SPOT = {
-  1: { order: "order-2", stand: "h-10 pt-[9px]", medal: 22, avatar: "lg", ring: 66 },
-  2: { order: "order-1", stand: "h-7 pt-[5px]", medal: 18, avatar: "md", ring: 56 },
+  1: { order: "order-2", stand: "h-10 pt-2.25", medal: 22, avatar: "lg", ring: 66 },
+  2: { order: "order-1", stand: "h-7 pt-1.25", medal: 18, avatar: "md", ring: 56 },
   3: { order: "order-3", stand: "h-5 pt-px", medal: 18, avatar: "md", ring: 56 },
 } as const;
 
@@ -45,16 +45,16 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
       className="overflow-hidden rounded-xl bg-brand-subtle ring-1 ring-chart-heat-1 ring-inset"
     >
       <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
-        <h2 id={titleId} className="text-xs leading-[14px] font-extrabold text-muted-foreground">
+        <h2 id={titleId} className="text-xs leading-3.5 font-extrabold text-muted-foreground">
           {podiumTitle(board)}
         </h2>
         {caption !== null && (
-          <p className="text-xs leading-[14px] font-semibold text-muted-foreground">{caption}</p>
+          <p className="text-xs leading-3.5 font-semibold text-muted-foreground">{caption}</p>
         )}
       </div>
       {/* 테가 아바타 밖으로 5px 나오므로 왕관 아래와 닉네임 위 틈을 2px씩 넓힌다. */}
       {/* 그만큼 목록을 4px 더 올려 카드 높이를 유지한다. */}
-      <ol className="-mt-[17px] grid grid-cols-[1fr_1.15fr_1fr] items-end gap-2 px-3">
+      <ol className="-mt-4.25 grid grid-cols-[1fr_1.15fr_1fr] items-end gap-2 px-3">
         {stands.map(({ spot, label, row }) => (
           <PodiumSpot
             key={spot}
@@ -67,7 +67,7 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
         ))}
       </ol>
       {stands.some((stand) => medalless(stand.row)) && (
-        <p className="border-t border-border bg-muted/70 pt-2.5 pb-[11px] text-center text-xs leading-[14px] text-muted-foreground">
+        <p className="border-t border-border bg-muted/70 pt-2.5 pb-2.75 text-center text-xs leading-3.5 text-muted-foreground">
           메달은 30분 이상부터 받아요
         </p>
       )}
@@ -99,7 +99,7 @@ function PodiumSpot({
           aria-hidden="true"
           className={cn(
             "inline-flex items-center justify-center rounded-full bg-bg-layer-2 font-extrabold text-text-tertiary",
-            first ? "size-14 text-[19px]" : "size-[46px] text-base",
+            first ? "size-14 text-[19px]" : "size-11.5 text-base",
           )}
         >
           ?
@@ -122,7 +122,7 @@ function PodiumSpot({
           <span
             className={cn(
               "text-xs font-bold text-text-tertiary",
-              first ? "leading-[15px]" : "leading-[14px]",
+              first ? "leading-3.75" : "leading-3.5",
             )}
           >
             ?
@@ -133,9 +133,7 @@ function PodiumSpot({
               name={row.nickname}
               className={cn(
                 "text-center text-foreground",
-                first
-                  ? "text-[13px] leading-[15px] font-extrabold"
-                  : "text-xs leading-[14px] font-bold",
+                first ? "text-[13px] leading-3.75 font-extrabold" : "text-xs leading-3.5 font-bold",
               )}
             />
             {/* 내 자리는 내 첫 글자의 파란 아바타로만 보이므로 나 표시는 화면 낭독기에만 읽힌다. */}
@@ -147,7 +145,7 @@ function PodiumSpot({
         <p
           className={cn(
             "mt-0.5 font-medium whitespace-nowrap text-muted-foreground tabular-nums",
-            first ? "text-xs leading-[14px]" : "text-[11px] leading-[13px]",
+            first ? "text-xs leading-3.5" : "text-[11px] leading-3.25",
           )}
         >
           외 {formatRank(row.othersCount)}명
@@ -158,15 +156,13 @@ function PodiumSpot({
         <div
           aria-hidden="true"
           data-value-placeholder=""
-          className={cn("mt-0.5", first ? "h-[14px]" : "h-[13px]")}
+          className={cn("mt-0.5", first ? "h-3.5" : "h-3.25")}
         />
       ) : (
         <p
           className={cn(
             "mt-0.5 flex items-center gap-1 whitespace-nowrap tabular-nums",
-            first
-              ? "text-xs leading-[14px] font-extrabold"
-              : "text-[11px] leading-[13px] font-bold",
+            first ? "text-xs leading-3.5 font-extrabold" : "text-[11px] leading-3.25 font-bold",
             medalless ? "text-muted-foreground" : "text-primary",
           )}
         >
@@ -176,7 +172,7 @@ function PodiumSpot({
                 aria-hidden="true"
                 className={cn(
                   "animate-pulse rounded-full bg-feedback-success motion-reduce:animate-none",
-                  first ? "size-1.5" : "size-[5px]",
+                  first ? "size-1.5" : "size-1.25",
                 )}
               />
               <span className="sr-only">집중 중</span>
@@ -190,7 +186,7 @@ function PodiumSpot({
           // 시안처럼 메달 자리보다 1.5px 아래에 둔다.
           <span
             aria-hidden="true"
-            className="mt-[1.5px] text-base leading-[19px] font-extrabold text-text-tertiary"
+            className="mt-[1.5px] text-base leading-4.75 font-extrabold text-text-tertiary"
           >
             {spot}
           </span>

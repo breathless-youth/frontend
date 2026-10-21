@@ -63,9 +63,9 @@ describe("Switch", () => {
     const toggle = screen.getByRole("switch", { name: "날짜" });
 
     expect(toggle).toHaveClass(
-      "h-[31px]",
-      "w-[51px]",
-      "after:-inset-y-[6.5px]",
+      "h-7.75",
+      "w-12.75",
+      "after:inset-y-[-6.5px]",
       "data-[state=checked]:bg-primary",
       "data-[state=unchecked]:bg-bg-layer-2",
     );

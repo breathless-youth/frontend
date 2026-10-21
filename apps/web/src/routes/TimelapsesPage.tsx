@@ -47,24 +47,24 @@ function TimelapseRow({
         type="button"
         aria-haspopup="dialog"
         onClick={onOpen}
-        className="bg-muted shadow-sb-card flex w-full gap-3.5 rounded-[20px] p-3 text-left focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+        className="bg-muted shadow-sb-card flex w-full gap-3.5 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >
         <TimelapseThumb
           record={record}
           store={store}
-          className="h-[100px] w-14 shrink-0 rounded-[10px]"
+          className="h-25 w-14 shrink-0 rounded-[10px]"
         />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex flex-col gap-1.5 py-1 pr-8">
-            <span className="text-foreground text-lg leading-[21px] font-bold">
+            <span className="text-foreground text-lg leading-5.25 font-bold">
               순공 {toKoreanDurationLength(focusSec)}
             </span>
-            <span className="text-muted-foreground text-sm leading-[17px]">
+            <span className="text-muted-foreground text-sm leading-4.25">
               총 공부 {toKoreanDurationLength(studySec)} · 집중률{" "}
               {focusRatePercent(studySec, focusSec)}%
             </span>
           </span>
-          <span className="text-muted-foreground mt-auto self-end px-1 text-xs leading-[14px]">
+          <span className="text-muted-foreground mt-auto self-end px-1 text-xs leading-3.5">
             {timelapseRangeLabel(record.startedAtMs, endedAtMs)}
           </span>
         </span>
@@ -206,13 +206,13 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
             mainRef.current?.querySelector<HTMLElement>(selector)?.focus();
           }}
           // 앱의 다른 확인 창(카메라 켜기·세션 복구)과 같은 모양이다.
-          className="theme-soft-blue bg-muted text-foreground w-[calc(100%-2.5rem)] max-w-[320px] gap-0 rounded-3xl border-0 px-[22px] pt-[26px] pb-[22px] sm:rounded-3xl"
+          className="theme-soft-blue bg-muted text-foreground w-[calc(100%-2.5rem)] max-w-[320px] gap-0 rounded-3xl border-0 px-5.5 pt-6.5 pb-5.5 sm:rounded-3xl"
         >
           <DialogHeader className="gap-1.5 space-y-0 text-left sm:text-left">
-            <DialogTitle className="text-foreground text-[18px] leading-[23px] font-bold tracking-normal">
+            <DialogTitle className="text-foreground text-[18px] leading-5.75 font-bold tracking-normal">
               타임랩스 삭제
             </DialogTitle>
-            <DialogDescription className="text-foreground text-[16px] leading-[23px] font-medium">
+            <DialogDescription className="text-foreground text-[16px] leading-5.75 font-medium">
               정말 삭제하시겠어요?
             </DialogDescription>
           </DialogHeader>
@@ -222,7 +222,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
               variant="ghost"
               disabled={remove.isPending}
               onClick={() => setPending(null)}
-              className="bg-bg-layer-2 text-foreground h-[52px] flex-1 rounded-lg text-[15px] font-semibold"
+              className="bg-bg-layer-2 text-foreground h-13 flex-1 rounded-lg text-[15px] font-semibold"
             >
               취소
             </Button>
@@ -232,7 +232,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
                 if (pending !== null) remove.mutate(pending.startedAtMs);
               }}
               // 되돌릴 수 없는 동작이라 확인 버튼만 위험 색이다.
-              className="bg-feedback-danger hover:bg-feedback-danger/90 h-[52px] flex-1 rounded-lg text-[15px] font-semibold text-white"
+              className="bg-feedback-danger hover:bg-feedback-danger/90 h-13 flex-1 rounded-lg text-[15px] font-semibold text-white"
             >
               삭제
             </Button>

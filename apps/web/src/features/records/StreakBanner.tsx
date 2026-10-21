@@ -38,11 +38,11 @@ export function WeekDot({ day }: { day: StreakWeekDay }) {
       aria-label={`${day.weekdayLabel}요일, ${
         isToday ? "오늘" : day.state === "done" ? "공부함" : "기록 없음"
       }`}
-      className="flex flex-col items-center gap-[5px]"
+      className="flex flex-col items-center gap-1.25"
     >
       {isToday ? (
         <div className="flex size-7 items-center justify-center rounded-full border-2 border-primary bg-background">
-          <span className="text-xs leading-[14px] font-bold text-primary">{day.dayOfMonth}</span>
+          <span className="text-xs leading-3.5 font-bold text-primary">{day.dayOfMonth}</span>
         </div>
       ) : day.state === "done" ? (
         <div className="flex size-7 items-center justify-center rounded-full bg-primary">
@@ -60,8 +60,8 @@ export function WeekDot({ day }: { day: StreakWeekDay }) {
       <span
         className={
           isToday
-            ? "text-[11px] leading-[13px] font-medium text-primary"
-            : "text-[11px] leading-[13px] text-text-tertiary"
+            ? "text-[11px] leading-3.25 font-medium text-primary"
+            : "text-[11px] leading-3.25 text-text-tertiary"
         }
       >
         {day.weekdayLabel}
@@ -72,12 +72,12 @@ export function WeekDot({ day }: { day: StreakWeekDay }) {
 
 export function StreakBanner({ streakDays, days }: StreakBannerProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted p-[18px]">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted p-4.5">
       <div className="flex flex-row items-center gap-3">
         {/* 공유 일러스트를 재사용하고 S5 실측 크기(38×44)만 props로 넘긴다 — 에셋을 새로 만들지 않는다. */}
         <IllustFlame width={38} height={44} />
-        <div className="flex min-w-0 shrink flex-col gap-[3px]">
-          <span className="text-[17px] leading-[21px] font-bold text-foreground">
+        <div className="flex min-w-0 shrink flex-col gap-0.75">
+          <span className="text-[17px] leading-5.25 font-bold text-foreground">
             {streakDays}일 연속 공부 중
           </span>
           <span className="text-[13px] leading-4 text-muted-foreground">

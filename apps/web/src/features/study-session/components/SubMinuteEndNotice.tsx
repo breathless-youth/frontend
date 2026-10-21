@@ -37,11 +37,11 @@ export function SubMinuteEndNotice({ onGoHome, className }: SubMinuteEndNoticePr
         <CheckCircle />
         <h1
           id={titleId}
-          className="mt-6 text-center text-[20px] leading-[24px] font-bold text-foreground"
+          className="mt-6 text-center text-[20px] leading-6 font-bold text-foreground"
         >
           {SUB_MINUTE_END_COPY.title}
         </h1>
-        <p className="mt-[10px] text-center text-[14px] leading-[21px] text-muted-foreground">
+        <p className="mt-2.5 text-center text-[14px] leading-5.25 text-muted-foreground">
           {SUB_MINUTE_END_COPY.body}
         </p>
       </div>
@@ -49,7 +49,7 @@ export function SubMinuteEndNotice({ onGoHome, className }: SubMinuteEndNoticePr
       <Button
         type="button"
         onClick={onGoHome}
-        className="mt-auto h-[52px] w-full shrink-0 rounded-2xl text-[16px] font-semibold motion-reduce:transition-none"
+        className="mt-auto h-13 w-full shrink-0 rounded-2xl text-[16px] font-semibold motion-reduce:transition-none"
       >
         {SUB_MINUTE_END_COPY.cta}
       </Button>

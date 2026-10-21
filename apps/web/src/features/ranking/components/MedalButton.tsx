@@ -17,7 +17,7 @@ export function MedalButton({ total, onClick }: { total: number | null; onClick:
       onClick={onClick}
       aria-haspopup="dialog"
       aria-label={total === null ? "랭킹 기록" : `랭킹 기록, 메달 ${total}개`}
-      className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted pr-2 pl-2.5 shadow-sb-card before:absolute before:inset-x-0 before:-top-[15px] before:-bottom-[3px] before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+      className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted pr-2 pl-2.5 shadow-sb-card before:absolute before:inset-x-0 before:-top-3.75 before:-bottom-0.75 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
     >
       <span className={cn("flex", total === 0 && "opacity-45")}>
         {([1, 2, 3] as const).map((rank, index) => (
@@ -26,14 +26,14 @@ export function MedalButton({ total, onClick }: { total: number | null; onClick:
             rank={rank}
             size={16}
             numbered={false}
-            className={cn(index > 0 && "-ml-[7px]")}
+            className={cn(index > 0 && "-ml-1.75")}
           />
         ))}
       </span>
       {total !== null && (
         <span
           className={cn(
-            "text-[13px] leading-[15px] font-extrabold tabular-nums",
+            "text-[13px] leading-3.75 font-extrabold tabular-nums",
             total === 0 ? "text-muted-foreground" : "text-foreground",
           )}
         >

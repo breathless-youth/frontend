@@ -44,12 +44,12 @@ export function MedalModal({
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
         // 버튼만이 출구라 작은 화면과 큰 글자에서도 하단 버튼까지 스크롤로 닿게 한다.
-        className="theme-soft-blue flex max-h-[calc(100dvh-24px)] w-[calc(100%-44px)] max-w-[358px] flex-col items-center gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-[22px] pt-7 pb-4 outline-none sm:rounded-3xl"
+        className="theme-soft-blue flex max-h-[calc(100dvh-24px)] w-[calc(100%-44px)] max-w-89.5 flex-col items-center gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-7 pb-4 outline-none sm:rounded-3xl"
       >
         {/* 빛은 메달 수와 왕관 유무에 상관없이 모달 윗변에 붙어 있어 그림이 아닌 모달 기준으로 둔다. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-11 left-1/2 -z-10 size-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,var(--state-distract),transparent)] opacity-25"
+          className="pointer-events-none absolute top-11 left-1/2 -z-10 size-55 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,var(--state-distract),transparent)] opacity-25"
         />
         <MedalArt stack={view.stack} crown={view.crown} single={single} />
         <DialogDescription className="mt-2.5 text-center text-[13px] leading-4 font-bold text-primary">
@@ -59,7 +59,7 @@ export function MedalModal({
           {view.title}
         </DialogTitle>
         {view.value !== null && (
-          <p className="mt-3 text-sm leading-[18px] text-muted-foreground">
+          <p className="mt-3 text-sm leading-4.5 text-muted-foreground">
             기록 <span className="font-bold text-foreground tabular-nums">{view.value}</span>
           </p>
         )}
@@ -85,14 +85,14 @@ export function MedalModal({
                 <li key={row.id} className="flex items-center gap-3.5 px-3.5 py-2.5">
                   <IllustMedal rank={row.rank} size={24} className="shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] leading-[18px] font-bold text-foreground">
+                    <p className="truncate text-[15px] leading-4.5 font-bold text-foreground">
                       {row.name}
                     </p>
-                    <p className="mt-px text-[11px] leading-[14px] text-muted-foreground">
+                    <p className="mt-px text-[11px] leading-3.5 text-muted-foreground">
                       {row.detail}
                     </p>
                   </div>
-                  <span className="shrink-0 text-[15px] leading-[18px] font-extrabold text-rank-value tabular-nums">
+                  <span className="shrink-0 text-[15px] leading-4.5 font-extrabold text-rank-value tabular-nums">
                     {row.value}
                   </span>
                 </li>
@@ -135,7 +135,7 @@ export function MedalModal({
           type="button"
           size="xl"
           onClick={onRecords}
-          className="mt-4.5 h-[54px] w-full shrink-0 rounded-lg text-[17px] leading-[21px] font-bold"
+          className="mt-4.5 h-13.5 w-full shrink-0 rounded-lg text-[17px] leading-5.25 font-bold"
         >
           랭킹 기록 보기
         </Button>
@@ -143,7 +143,7 @@ export function MedalModal({
           type="button"
           variant="ghost"
           onClick={onClose}
-          className="mt-2 h-11 w-full shrink-0 text-[15px] leading-[18px] font-bold text-muted-foreground hover:bg-bg-layer-2"
+          className="mt-2 h-11 w-full shrink-0 text-[15px] leading-4.5 font-bold text-muted-foreground hover:bg-bg-layer-2"
         >
           닫기
         </Button>

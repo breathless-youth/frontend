@@ -67,14 +67,14 @@ export function Nickname({ name, className }: { name: string; className?: string
               setOpen(false);
             }
           }}
-          className="absolute inset-x-0 top-1/2 h-11 -translate-y-1/2 rounded-md focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+          className="absolute inset-x-0 top-1/2 h-11 -translate-y-1/2 rounded-md focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
         />
       )}
       {showBubble && (
         <span
           id={bubbleId}
           role="tooltip"
-          className="absolute bottom-full left-0 z-10 mb-1.5 max-w-[220px] rounded-[10px] bg-foreground px-2.5 py-2 text-left text-[13px] leading-4 font-semibold break-all whitespace-normal text-background"
+          className="absolute bottom-full left-0 z-10 mb-1.5 max-w-55 rounded-[10px] bg-foreground px-2.5 py-2 text-left text-[13px] leading-4 font-semibold break-all whitespace-normal text-background"
         >
           {name}
         </span>

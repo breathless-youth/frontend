@@ -10,7 +10,7 @@ export interface SegmentOption<T extends string> {
 }
 
 const triggerClass =
-  "relative mb-0 min-h-0 border-b-0 before:absolute before:-inset-x-0 before:-top-[7px] before:-bottom-[7px] before:content-[''] " +
+  "relative mb-0 min-h-0 border-b-0 before:absolute before:inset-x-0 before:-top-1.75 before:-bottom-1.75 before:content-[''] " +
   "rounded-[9px] px-4 py-1.75 text-[13px] leading-4 font-normal text-muted-foreground " +
   "transition-colors duration-200 motion-reduce:transition-none " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus) " +

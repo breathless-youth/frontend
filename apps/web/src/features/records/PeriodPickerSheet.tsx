@@ -51,7 +51,7 @@ function PickerSheet({
         finalFocus={false}
       >
         <div className="flex items-center justify-between pt-3.5">
-          <DrawerTitle className="text-lg leading-[21px] font-bold tracking-normal text-foreground">
+          <DrawerTitle className="text-lg leading-5.25 font-bold tracking-normal text-foreground">
             {title}
           </DrawerTitle>
           {/* 시트 안 버튼은 끌기에서 뺀다. iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려진다. */}
@@ -96,7 +96,7 @@ function PickerNav({
         onNext={onNext}
         className="pt-3"
       >
-        <span className="w-[120px] text-center text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+        <span className="w-30 text-center text-[15px] leading-4.5 font-bold text-foreground tabular-nums">
           {label}
         </span>
       </PeriodNav>
@@ -177,7 +177,7 @@ function MonthGrid({
             value={String(value)}
             disabled={isFutureMonth({ year, month: value }, todayKey)}
             // 공용 칩 모양(테두리·알약·히트 영역)을 격자 칸 모양으로 덮어쓴다.
-            className="h-11 justify-center rounded-[12px] border-0 bg-bg-layer-2 px-0 text-sm leading-[18px] text-foreground tabular-nums before:hidden disabled:cursor-not-allowed disabled:opacity-35 data-[state=on]:font-bold"
+            className="h-11 justify-center rounded-[12px] border-0 bg-bg-layer-2 px-0 text-sm leading-4.5 text-foreground tabular-nums before:hidden disabled:cursor-not-allowed disabled:opacity-35 data-[state=on]:font-bold"
           >
             {value}월
           </ToggleGroupItem>
@@ -314,7 +314,7 @@ function WeekGridDay({ day, modifiers, ...props }: CalendarDayButtonProps) {
       {...props}
       aria-label={dayLabel(day.date, Boolean(modifiers.today))}
       className={cn(
-        "flex h-full w-full items-center justify-center text-sm leading-[18px] tabular-nums disabled:cursor-not-allowed",
+        "flex h-full w-full items-center justify-center text-sm leading-4.5 tabular-nums disabled:cursor-not-allowed",
         tone,
         modifiers.today ? "font-extrabold" : "font-medium",
       )}
@@ -423,7 +423,7 @@ function DayGridDay({ day, modifiers, ...props }: CalendarDayButtonProps) {
     >
       <span
         className={cn(
-          "flex size-9 items-center justify-center rounded-full text-sm leading-[18px] tabular-nums",
+          "flex size-9 items-center justify-center rounded-full text-sm leading-4.5 tabular-nums",
           modifiers.selected
             ? "bg-primary font-bold text-primary-foreground"
             : modifiers.disabled
