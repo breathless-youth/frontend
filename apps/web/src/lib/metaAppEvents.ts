@@ -12,7 +12,7 @@ import { postToNative } from "./bridge";
  *
  * Amplitude 이벤트(`lib/amplitude.ts`)와 같은 자리에서 같은 값으로 부르되 **의도적으로 부분집합**이다 —
  * Meta는 광고 최적화에 쓸 소수의 전환만 원하고, 여기 실린 것은 전부 Meta 서버로 나간다(개인정보처리방침
- * 위탁 항목). 파라미터는 enum·수만, boolean은 1/0으로 접는다(Meta 계약이 문자열·수만 받는다).
+ * 9조 행태정보). 파라미터는 enum·수만, boolean은 1/0으로 접는다(Meta 계약이 문자열·수만 받는다).
  *
  * 브라우저 단독 모드와 Meta env 없는 앱 빌드(개발)에서는 `postToNative`가 조용히 버려지거나 네이티브가
  * no-op으로 받는다 — 여기서 분기하지 않는다.

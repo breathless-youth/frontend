@@ -1,5 +1,7 @@
 # 개인정보처리방침 — 분석 도구 반영 (2026-08-08)
 
+> 2026-10-20 BY-931로 반영했다. 이 문서는 당시 초안 기록으로 남긴다. Meta는 아래 초안과 달리 처리 위탁이 아니라 9조 행태정보로 정리했고, 시행일은 2026-10-27이다. 현행 문구는 랜딩 원본과 `legalDocuments.ts`가 기준이다.
+
 현행 방침의 「7. 처리 위탁」·「8. 개인정보의 국외 이전」이 **분석 도구를 쓴다는 사실 자체를 담고 있지 않다.** GA4·Sentry 도입 시점부터 있던 누락이고, 2026-08-08 Amplitude 수집 범위 확대(IP·이용 기록)로 더 분명해졌다.
 
 원문은 `apps/web/src/features/settings/legalDocuments.ts`의 `PRIVACY_POLICY`, 그리고 그 원본인 `https://pages-nextjs-liart.vercel.app/privacy`.
