@@ -94,7 +94,7 @@ describe("DrawerContent — 모양", () => {
     const { sheet } = renderDrawer();
     const classes = sheet.className.split(" ");
 
-    expect(classes).toContain("rounded-t-[24px]");
+    expect(classes).toContain("rounded-t-3xl");
     expect(classes).toContain("shadow-[0_-12px_40px_rgba(0,0,0,0.18)]");
     expect(classes).toContain("theme-soft-blue");
   });

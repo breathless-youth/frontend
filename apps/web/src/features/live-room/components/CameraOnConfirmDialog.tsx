@@ -75,9 +75,9 @@ export function CameraOnConfirmDialog({
         // max-h+스크롤: 어떤 화면(특히 가로 회전)에서도 모달이 뷰포트를 넘어 잘리지 않는
         // 백스톱이다 — 내용은 아래 미리보기 높이가 비례로 줄어 대부분 스크롤 없이 들어간다.
         // gap-0 으로 DialogContent 기본 grid gap 을 눌러 아래 mt-* 간격을 그대로 쓴다.
-        className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-[22px] pt-[26px] pb-[22px] text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
+        className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
       >
-        <DialogTitle className="text-[19px] leading-[23px] font-extrabold text-foreground">
+        <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground">
           카메라를 켤까요?
         </DialogTitle>
         <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground">
@@ -104,7 +104,7 @@ export function CameraOnConfirmDialog({
             variant="ghost"
             disabled={busy}
             onClick={onCancel}
-            className="h-[52px] flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
+            className="h-13 flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
           >
             {cancelLabel}
           </Button>
@@ -113,7 +113,7 @@ export function CameraOnConfirmDialog({
             variant="default"
             disabled={busy}
             onClick={onConfirm}
-            className="h-[52px] flex-1 rounded-lg text-[15px] font-semibold"
+            className="h-13 flex-1 rounded-lg text-[15px] font-semibold"
           >
             카메라 켜기
           </Button>

@@ -3,8 +3,8 @@ import { useId } from "react";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Switch } from "@/components/ui/switch";
 
-export const ROW_CLASS_NAME = "flex min-h-11 items-center justify-between gap-3 py-[14px]";
-export const ROW_LABEL_CLASS_NAME = "text-foreground text-base leading-[19px]";
+export const ROW_CLASS_NAME = "flex min-h-11 items-center justify-between gap-3 py-3.5";
+export const ROW_LABEL_CLASS_NAME = "text-foreground text-base leading-4.75";
 
 type SwitchRowProps = {
   label: string;

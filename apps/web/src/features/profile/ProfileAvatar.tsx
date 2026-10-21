@@ -10,7 +10,7 @@ export function ProfileAvatar({ initial, colorIndex }: { initial: string; colorI
   return (
     <div
       aria-hidden="true"
-      className={`flex size-[72px] items-center justify-center rounded-full ${color}`}
+      className={`flex size-18 items-center justify-center rounded-full ${color}`}
     >
       <span className="text-[28px] font-bold text-white">{initial}</span>
     </div>

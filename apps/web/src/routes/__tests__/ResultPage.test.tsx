@@ -195,6 +195,8 @@ afterEach(() => {
   delete (window as { matchMedia?: unknown }).matchMedia;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // 복원은 spyOn만 되돌려서 vi.fn의 호출 기록과 구현은 따로 초기화한다.
+  vi.resetAllMocks();
   vi.useRealTimers();
 });
 

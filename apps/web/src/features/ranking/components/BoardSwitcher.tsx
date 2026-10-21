@@ -31,7 +31,7 @@ import {
  * 누르는 영역은 위아래 6.5px씩 넓혀 44px로 맞춘다.
  */
 export const CHIP_CLASS =
-  "h-[31px] min-w-11 justify-center rounded-full border-0 bg-muted px-2.5 text-[13px] leading-[15px] font-semibold text-muted-foreground before:-inset-y-[6.5px] " +
+  "h-7.75 min-w-11 justify-center rounded-full border-0 bg-muted px-2.5 text-[13px] leading-3.75 font-semibold text-muted-foreground before:inset-y-[-6.5px] " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-muted " +
   "data-[state=on]:bg-primary-deep data-[state=on]:font-bold data-[state=on]:text-primary-foreground";
 
@@ -42,8 +42,8 @@ export const CHIP_CLASS =
  * 12px 아래에 칩 줄이 있어 아래로 넓히면 칩의 누르는 영역과 겹친다.
  */
 const MODE_TRIGGER_CLASS =
-  "relative mb-0 h-[29px] min-h-0 min-w-11 border-b-0 px-0 text-2xl leading-[29px] font-extrabold tracking-[-0.7px] text-text-tertiary " +
-  "before:absolute before:inset-x-0 before:-top-[15px] before:bottom-0 before:content-[''] " +
+  "relative mb-0 h-7.25 min-h-0 min-w-11 border-b-0 px-0 text-2xl leading-7.25 font-extrabold tracking-[-0.7px] text-text-tertiary " +
+  "before:absolute before:inset-x-0 before:-top-3.75 before:bottom-0 before:content-[''] " +
   "data-[state=active]:text-foreground";
 
 /**
@@ -127,7 +127,7 @@ export function BoardSwitcher({
           className="w-full"
           // 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 넓혀 44px로 맞춘다.
           // 위 칩의 누르는 영역에 닿지 않게 위로는 4px, 아래로는 12px 넓힌다.
-          triggerClassName="flex-1 justify-center text-xs leading-[14px] font-bold before:-top-1 before:-bottom-3"
+          triggerClassName="flex-1 justify-center text-xs leading-3.5 font-bold before:-top-1 before:-bottom-3"
         />
       )}
       {selection.type === "TIME_SLOT" && (
@@ -150,7 +150,7 @@ export function BoardSwitcher({
               aria-label={`${SLOT_LABEL[value]} ${SLOT_HOURS[value]}${value === nowSlot ? ", 지금 구간" : ""}`}
               className="group h-10 flex-col justify-center gap-0.5 rounded-md border-0 bg-muted px-0 text-muted-foreground before:top-0 before:-bottom-1 data-[state=on]:bg-foreground data-[state=on]:text-background"
             >
-              <span className="flex items-center gap-1 text-[13px] leading-[15px] font-semibold group-data-[state=on]:font-bold">
+              <span className="flex items-center gap-1 text-[13px] leading-3.75 font-semibold group-data-[state=on]:font-bold">
                 {value === nowSlot && (
                   <span aria-hidden="true" className="size-1.5 rounded-full bg-feedback-success" />
                 )}

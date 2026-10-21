@@ -26,17 +26,17 @@ export function EventChip({ status, label }: EventChipProps) {
     // TODO(SCR-S5-records.md): 일시정지 칩 배경 토큰 미확정 — `state.distractSubtle`의 회색 대응물이
     // 없어 임시로 `bg/layer-2`를 쓴다. 회색 subtle 토큰 신설 여부를 디자이너/토큰 담당이 확정하면 교체한다.
     <span
-      className={`flex flex-row items-center gap-[5px] rounded-[7px] px-2 py-[3px] ${
+      className={`flex flex-row items-center gap-1.25 rounded-[7px] px-2 py-0.75 ${
         isPause ? "bg-bg-layer-2" : "bg-state-distract-subtle"
       }`}
     >
       <span
         aria-hidden="true"
-        className={`size-[5px] rounded-full ${isPause ? "bg-text-tertiary" : "bg-state-distract"}`}
+        className={`size-1.25 rounded-full ${isPause ? "bg-text-tertiary" : "bg-state-distract"}`}
       />
       {/* 라이트 모드 소형 오렌지 텍스트는 `state/distract-text`(#b36100)를 쓴다 — 색각 안전 규칙 ② */}
       <span
-        className={`text-[11px] font-medium leading-[13px] ${
+        className={`text-[11px] font-medium leading-3.25 ${
           isPause ? "text-text-tertiary" : "text-state-distract-text"
         }`}
       >

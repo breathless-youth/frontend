@@ -28,7 +28,7 @@ function Calendar({
         month: "flex flex-col",
         month_grid: "w-full border-collapse",
         weekdays: "flex",
-        weekday: "flex-1 text-center text-xs leading-[14px] font-medium text-text-tertiary",
+        weekday: "flex-1 text-center text-xs leading-3.5 font-medium text-text-tertiary",
         weeks: "flex flex-col",
         week: "flex",
         day: "flex-1 p-0",

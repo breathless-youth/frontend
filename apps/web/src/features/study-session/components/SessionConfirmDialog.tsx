@@ -30,14 +30,14 @@ export const dialogActionVariants = cva(
   // 136×48 r14 — 반경 14는 radius 스케일에 없는 Figma 실측값이라 12/16으로 반올림하지 않는다.
   // 폭은 고정하지 않고 flex로 나눈다: 330w 다이얼로그에서 정확히 136px이 되고, 더 좁은
   // 뷰포트에서는 최소 터치 타겟(높이 48)을 지키며 함께 줄어든다.
-  "flex h-12 flex-1 items-center justify-center rounded-[14px] text-[15px] leading-[18px] font-semibold text-white transition-opacity duration-200 active:opacity-80 motion-reduce:transition-none",
+  "flex h-12 flex-1 items-center justify-center rounded-[14px] text-[15px] leading-4.5 font-semibold text-white transition-opacity duration-200 active:opacity-80 motion-reduce:transition-none",
   {
     variants: {
       tone: {
         /** 비파괴(`계속하기`) — Figma `Button / CTA` Dark Secondary SM. */
-        cancel: "bg-[var(--session-dialog-cancel-bg)]",
+        cancel: "bg-(--session-dialog-cancel-bg)",
         /** 종료(`공부 종료`) — Dark Primary SM. */
-        confirm: "bg-[var(--session-dialog-confirm-bg)]",
+        confirm: "bg-(--session-dialog-confirm-bg)",
       },
     },
     defaultVariants: { tone: "cancel" },
@@ -86,7 +86,7 @@ export function SessionConfirmDialog({
       <DialogContent
         role="alertdialog"
         container={container}
-        overlayClassName="bg-[var(--session-dim)]"
+        overlayClassName="bg-(--session-dim)"
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
@@ -94,19 +94,19 @@ export function SessionConfirmDialog({
         className={cn(
           // sm:rounded-xl 로 공용 클래스의 sm:rounded-lg 를 덮는다. 안 그러면 640px 이상에서
           // 반경이 20px 에서 16px 로 줄어든다(같은 modifier 라야 tailwind-merge 가 이긴다).
-          "flex w-[330px] max-w-[calc(100%-72px)] flex-col gap-[18px] rounded-xl border-0 bg-[var(--session-dialog-bg)] p-6 shadow-[0_20px_50px_0_rgba(0,0,0,0.45)] sm:rounded-xl",
+          "flex w-82.5 max-w-[calc(100%-72px)] flex-col gap-4.5 rounded-xl border-0 bg-(--session-dialog-bg) p-6 shadow-[0_20px_50px_0_rgba(0,0,0,0.45)] sm:rounded-xl",
           className,
         )}
       >
         <div className="flex flex-col gap-2">
-          <DialogTitle className="text-[18px] leading-[21px] font-bold text-[var(--session-dialog-title)]">
+          <DialogTitle className="text-[18px] leading-5.25 font-bold text-(--session-dialog-title)">
             {title}
           </DialogTitle>
-          <DialogDescription className="text-[14px] leading-[20px] text-[var(--session-dialog-body)]">
+          <DialogDescription className="text-[14px] leading-5 text-(--session-dialog-body)">
             {description}
           </DialogDescription>
         </div>
-        <div className="flex gap-[10px]">
+        <div className="flex gap-2.5">
           <button
             type="button"
             onClick={onCancel}

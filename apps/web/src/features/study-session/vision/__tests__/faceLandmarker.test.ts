@@ -90,6 +90,8 @@ function tick(): Promise<void> {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // 복원은 spyOn만 되돌려서 vi.fn의 호출 기록과 구현은 따로 초기화한다.
+  vi.resetAllMocks();
 });
 
 /** 폴백 기계를 검증할 때 쓰는 순서. 기본값 상수를 읽지 않는 이유는 `objectDetector.test.ts`와 같다. */

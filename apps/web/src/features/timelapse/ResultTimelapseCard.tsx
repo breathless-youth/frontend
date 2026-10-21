@@ -211,7 +211,7 @@ export function ResultTimelapseCard({
   };
 
   return (
-    <Card ref={cardRef} className="shadow-sb-card pt-4 pb-[18px]">
+    <Card ref={cardRef} className="shadow-sb-card pt-4 pb-4.5">
       <CardHeader className="justify-start gap-1.5">
         <CardTitle>타임랩스</CardTitle>
         <InfoTooltip label="타임랩스 안내">

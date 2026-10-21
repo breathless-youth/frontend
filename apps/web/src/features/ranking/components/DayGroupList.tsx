@@ -35,17 +35,17 @@ export function DayGroupList({
           <li
             key={group.days}
             aria-current={group.me ? "true" : undefined}
-            className="flex min-h-[50px] items-center py-1"
+            className="flex min-h-12.5 items-center py-1"
           >
             <div
               className={cn(
-                "flex min-h-[42px] w-full items-center gap-3 rounded-[14px] px-3.5",
+                "flex min-h-10.5 w-full items-center gap-3 rounded-[14px] px-3.5",
                 group.me && "bg-primary-deep text-primary-foreground",
               )}
             >
               <span
                 className={cn(
-                  "min-w-6 shrink-0 text-[13px] leading-[15px] font-extrabold tabular-nums",
+                  "min-w-6 shrink-0 text-[13px] leading-3.75 font-extrabold tabular-nums",
                   !group.me && "text-text-tertiary",
                 )}
                 style={{ width: rankWidth }}
@@ -68,7 +68,7 @@ export function DayGroupList({
               </span>
               <span
                 className={cn(
-                  "shrink-0 text-[13px] leading-[15px] font-bold tabular-nums",
+                  "shrink-0 text-[13px] leading-3.75 font-bold tabular-nums",
                   !group.me && "text-muted-foreground",
                 )}
               >

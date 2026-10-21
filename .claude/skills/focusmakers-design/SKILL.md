@@ -55,7 +55,7 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 - `regular:`는 직접 만든 변형이라 `md:`·`lg:`보다 뒤에 정렬된다. 한 요소에서 `regular:`와 `md:`·`lg:`로 같은 속성을 겹쳐 쓰면 넓은 창에서도 `regular:` 값이 이긴다.
 - 탭·하위 화면의 루트(`<main>`)에는 `page-column`을 붙인다. 태블릿에서 좌우 여백만 늘려 콘텐츠를 640(큰 태블릿 720) 열로 모으고 배경은 전폭으로 남긴다. 루트에 좌우 padding을 따로 주지 않는다(같은 속성이라 순서에 따라 한쪽이 진다). 안쪽 div가 스크롤하는 화면(결과 화면)은 열 바깥을 끌어도 스크롤되도록 스크롤 영역에 붙인다. 열에 넣을 수 없는 하단 고정 줄·전폭 iframe 옆 요소와 아래 시트는 `page-width`로 같은 폭을 맞춘다(`ui/sheet.tsx` 참고).
 - 여러 화면에 들어가는 부품(카드·타일·행)은 `@container`와 `@sm:` 같은 container query로, 페이지 골격은 뷰포트 브레이크포인트로 맞춘다.
-- 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다.
+- 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다. `pnpm --filter web lint:classes`가 IntelliSense와 같은 기준으로 표준 표기가 아닌 클래스를 찾고, `--write`를 붙이면 고친다.
 - 태블릿 시안은 Figma V2 파일의 `5. Tablet (V2)` 페이지에 있다.
 
 ## 함정
@@ -86,10 +86,10 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 
 - 카드: `rounded-lg border border-border bg-muted px-4`
 - 보조 텍스트: `text-[13px] text-muted-foreground`, 3차: `text-text-tertiary`
-- 브랜드 필: `rounded-full bg-brand-subtle px-[9px] py-[3px] text-xs font-semibold text-primary tabular-nums`
+- 브랜드 필: `rounded-full bg-brand-subtle px-2.25 py-0.75 text-xs font-semibold text-primary tabular-nums`
 - 기존 카드는 `rounded-2xl`을 쓰고 있다(값은 16으로 같다). 새 코드는 `rounded-lg`, 기존 코드는 손대지 않는다
 - 상태색: 순공 `bg-primary`, 휴식 `bg-state-distract`, 일시정지 `bg-text-tertiary`
-- 스켈레톤: `<Skeleton className="h-[92px]" />`, 오류: `<ErrorState screen="…" onRetry />`
+- 스켈레톤: `<Skeleton className="h-23" />`, 오류: `<ErrorState screen="…" onRetry />`
 - 클래스 조합은 `cn()`으로, 조건부 문자열 삼항은 쓰지 않는다
 
 ## Common Mistakes

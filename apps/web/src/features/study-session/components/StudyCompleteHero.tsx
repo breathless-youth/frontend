@@ -62,7 +62,7 @@ export function StudyCompleteHero({
           src={stampImage}
           alt=""
           draggable={false}
-          className="pointer-events-none absolute top-[44px] left-1/2 z-[8] size-44 origin-bottom animate-[result-stamp-press_2s_cubic-bezier(0.5,0,0.4,1)_both] motion-reduce:hidden"
+          className="pointer-events-none absolute top-11 left-1/2 z-8 size-44 origin-bottom animate-[result-stamp-press_2s_cubic-bezier(0.5,0,0.4,1)_both] motion-reduce:hidden"
         />
       )}
 
@@ -70,14 +70,14 @@ export function StudyCompleteHero({
           animation의 opacity가 inline opacity를 덮어 페이드가 안 먹는다. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-[44px] left-1/2 -z-10 -ml-[170px] size-[340px] transition-opacity duration-500 motion-reduce:transition-none"
+        className="pointer-events-none absolute top-11 left-1/2 -z-10 -ml-42.5 size-85 transition-opacity duration-500 motion-reduce:transition-none"
         style={{ opacity: collapsed ? 0 : 1 }}
       >
         <div className="size-full rounded-full bg-[radial-gradient(circle,var(--color-brand-subtle)_0%,transparent_68%)] animate-[result-hero-glow_3s_ease-in-out_infinite] motion-reduce:animate-none" />
       </div>
 
       <div
-        className="flex w-full flex-col items-center transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        className="flex w-full flex-col items-center transition-[margin-top] duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{ marginTop: collapsed ? 8 : animated ? 150 : 24 }}
       >
         {/* 인트로 블록: 인주 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
@@ -93,7 +93,7 @@ export function StudyCompleteHero({
                 : undefined
           }
         >
-          <div className="relative mb-[18px] size-[72px]">
+          <div className="relative mb-4.5 size-18">
             {/* 충격 링 — `forwards`다. 프로토타입의 `both`는 지연 동안 0% 프레임(반투명 링)이
                 미리 보이는 부작용이 있어 여기서는 닿기 전까지 숨긴다. */}
             <div
@@ -105,34 +105,34 @@ export function StudyCompleteHero({
             </div>
           </div>
 
-          <h1 className="text-[20px] leading-[24px] font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
+          <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeTitle}
           </h1>
-          <p className="mt-1 text-[13px] leading-[16px] text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
+          <p className="mt-1 text-[13px] leading-4 text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeDescription}
           </p>
         </div>
 
         <div
-          className="flex flex-col items-center gap-[2px] transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
+          className="flex flex-col items-center gap-0.5 transition-[margin-top] duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
           style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
-          <p className="text-[12px] leading-[15px] font-bold text-muted-foreground">
+          <p className="text-[12px] leading-3.75 font-bold text-muted-foreground">
             {RESULT_COPY.focusLabel}
           </p>
-          <p className="text-[40px] leading-[46px] font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
+          <p className="text-[40px] leading-11.5 font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
             {toKoreanDurationLength(focusSec)}
           </p>
         </div>
 
         {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다 — 맞추려
             들지 않는다(SCR-S4 QA 회부 규칙). */}
-        <p className="mt-2 text-[14px] leading-[17px] tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
+        <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
           <span className="text-muted-foreground">{`${RESULT_COPY.totalPrefix} `}</span>
           <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
         </p>
 
-        <Badge className="mt-[10px] animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
+        <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
           {focusRateLabel(view.focusRatePercent)}
         </Badge>
       </div>
@@ -182,7 +182,7 @@ function SealIcon() {
       width="72"
       height="72"
       viewBox="0 0 100 100"
-      className="rotate-[-6deg] text-primary"
+      className="-rotate-6 text-primary"
       aria-hidden="true"
       focusable="false"
     >

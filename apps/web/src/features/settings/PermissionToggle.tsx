@@ -25,7 +25,7 @@ export function PermissionToggle({ granted }: PermissionToggleProps) {
       // 상태는 행의 aria-label이 텍스트로 읽어준다(색상 단독 전달 금지) —
       // 그래픽까지 접근성 트리에 남으면 같은 정보가 두 번 읽힌다.
       aria-hidden="true"
-      className="h-[31px] w-[51px] shrink-0 rounded-full"
+      className="h-7.75 w-12.75 shrink-0 rounded-full"
       // Off 트랙 색은 Figma 원본이 변수에 바인딩하지 않아 실측 #e9e9ea 였는데, 다크 모드 값이
       // 없어 웹뷰 다크에서 밝은 회색 그대로 남았다. 가장 가까운 시맨틱 토큰 bg-layer-2 로 갈음해
       // 라이트·다크를 모두 따르게 한다.
@@ -36,7 +36,7 @@ export function PermissionToggle({ granted }: PermissionToggleProps) {
       }}
     >
       <div
-        className="size-[27px] rounded-full bg-white"
+        className="size-6.75 rounded-full bg-white"
         style={{
           marginLeft: granted ? TRACK_WIDTH - KNOB_INSET - KNOB_SIZE : KNOB_INSET,
           // 노브 그림자는 의미색이 아니라 깊이 표현이라 대응 토큰이 없다(S1 CTA 카드와 동일 처리).

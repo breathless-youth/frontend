@@ -66,9 +66,9 @@ export function ProfilePage() {
         <ScreenBackHeader title="프로필 수정" />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
-          <Skeleton className="mx-auto size-[72px] rounded-full" />
-          <Skeleton className="h-[52px] w-full" />
-          <Skeleton className="h-[52px] w-full" />
+          <Skeleton className="mx-auto size-18 rounded-full" />
+          <Skeleton className="h-13 w-full" />
+          <Skeleton className="h-13 w-full" />
         </div>
       </main>
     );
@@ -174,7 +174,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       <ScreenBackHeader title="프로필 수정" />
 
       <form noValidate onSubmit={handleSubmit(onValid)} className="flex flex-1 flex-col">
-        <div className="flex flex-col gap-[18px] px-5 pt-2 pb-6">
+        <div className="flex flex-col gap-4.5 px-5 pt-2 pb-6">
           <div className="flex justify-center py-1">
             {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
                 바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백.

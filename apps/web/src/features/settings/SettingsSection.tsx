@@ -34,7 +34,7 @@ export function SettingsSection({ label, caption, className, children }: Setting
   return (
     <div className={className}>
       {label !== undefined && (
-        <p className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-[15px] font-medium">
+        <p className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium">
           {label}
         </p>
       )}
@@ -51,7 +51,7 @@ export function SettingsSection({ label, caption, className, children }: Setting
       </div>
 
       {caption !== undefined && (
-        <p className="text-text-tertiary mt-2.5 px-1 text-xs leading-[14px]">{caption}</p>
+        <p className="text-text-tertiary mt-2.5 px-1 text-xs leading-3.5">{caption}</p>
       )}
     </div>
   );

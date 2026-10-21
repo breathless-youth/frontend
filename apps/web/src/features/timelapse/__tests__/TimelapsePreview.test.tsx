@@ -66,7 +66,7 @@ describe("TimelapsePreview", () => {
 
   it("비율에 따라 상자 모양이 바뀐다", () => {
     const { rerender } = render(<TimelapsePreview aspect="9:16" info={NONE} />);
-    expect(screen.getByTestId("timelapse-preview")).toHaveClass("h-[320px]", "w-[180px]");
+    expect(screen.getByTestId("timelapse-preview")).toHaveClass("h-80", "w-45");
 
     rerender(<TimelapsePreview aspect="16:9" info={NONE} />);
     expect(screen.getByTestId("timelapse-preview")).toHaveClass("aspect-video", "w-full");

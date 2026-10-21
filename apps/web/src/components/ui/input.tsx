@@ -14,10 +14,10 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentPropsWithoutRef<
       ref={ref}
       type={type}
       className={cn(
-        "h-[52px] w-full rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground",
+        "h-13 w-full rounded-xl border border-border bg-muted px-4 text-[15px] text-foreground",
         "placeholder:text-text-tertiary",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]",
-        "aria-[invalid=true]:border-state-distract",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)",
+        "aria-invalid:border-state-distract",
         className,
       )}
       {...props}

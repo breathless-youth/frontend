@@ -141,7 +141,7 @@ export function MockStatusPillBlock({
         <div
           role={emphasized ? "img" : undefined}
           aria-label={emphasized ? pill.label : undefined}
-          className="flex flex-row items-center border px-4 py-[9px]"
+          className="flex flex-row items-center border px-4 py-2.25"
           style={{
             backgroundColor: isDistract
               ? coachOverlay.pillBgDistract
@@ -152,13 +152,13 @@ export function MockStatusPillBlock({
             borderRadius: coachRadius.full,
           }}
         >
-          <span className="text-[14px] leading-[18px] font-medium text-white">{pill.label}</span>
+          <span className="text-[14px] leading-4.5 font-medium text-white">{pill.label}</span>
         </div>
       </RingOutEmphasis>
 
       {pill.subLabel ? (
         <p
-          className="mt-2 text-center text-[12px] leading-[14px]"
+          className="mt-2 text-center text-[12px] leading-3.5"
           style={{ color: coachOverlay.mockCaption }}
         >
           {pill.subLabel}
@@ -202,7 +202,7 @@ export function MockTimerBlock({
       aria-label={emphasized ? `순공시간 ${clock}, ${total}` : undefined}
     >
       <p
-        className="text-center text-[52px] leading-[60px] font-bold tracking-[-0.5px] tabular-nums"
+        className="text-center text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums"
         style={{
           color: focusColor,
           // 발광은 심플 모드에만 있다 — 글자색과 같은 색에서 파생시켜 둘이 어긋나지 않게 한다.
@@ -212,7 +212,7 @@ export function MockTimerBlock({
         {clock}
       </p>
       <p
-        className="mt-1.5 text-center text-[15px] leading-[18px] font-medium tabular-nums"
+        className="mt-1.5 text-center text-[15px] leading-4.5 font-medium tabular-nums"
         style={{ color: coachOverlay.mockTotal }}
       >
         {total}
@@ -233,7 +233,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
       aria-hidden={emphasized ? undefined : true}
     >
       <div
-        className="relative flex flex-row items-center justify-center gap-[22px] border px-6 pt-4 pb-3"
+        className="relative flex flex-row items-center justify-center gap-5.5 border px-6 pt-4 pb-3"
         style={{
           width: 244,
           height: 80,
@@ -253,7 +253,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           <div
             role={emphasized ? "img" : undefined}
             aria-label={emphasized ? "일시정지 버튼" : undefined}
-            className="flex size-[50px] items-center justify-center"
+            className="flex size-12.5 items-center justify-center"
             style={{
               borderRadius: coachRadius.full,
               backgroundColor: coachOverlay.controlButtonBg,
@@ -263,7 +263,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           </div>
         </RingOutEmphasis>
         <div
-          className="flex size-[50px] items-center justify-center"
+          className="flex size-12.5 items-center justify-center"
           style={{
             borderRadius: coachRadius.full,
             backgroundColor: coachOverlay.controlButtonBg,
@@ -272,7 +272,7 @@ export function MockControlBar({ emphasized }: { emphasized: boolean }) {
           <IconCameraFlip />
         </div>
         <div
-          className="flex size-[50px] items-center justify-center"
+          className="flex size-12.5 items-center justify-center"
           style={{
             borderRadius: coachRadius.full,
             backgroundColor: coachTokenColors.exitButton,

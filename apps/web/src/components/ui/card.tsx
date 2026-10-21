@@ -34,7 +34,7 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
   return (
     <h2
       data-slot="card-title"
-      className={cn("text-[14px] leading-[17px] font-semibold text-foreground", className)}
+      className={cn("text-[14px] leading-4.25 font-semibold text-foreground", className)}
       {...props}
     />
   );

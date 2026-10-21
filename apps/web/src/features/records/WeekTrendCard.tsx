@@ -82,11 +82,11 @@ export function WeekTrendCard({
   const averageSec = averageFocusSecPerStudiedDay(daily);
 
   return (
-    <Card className="flex flex-col gap-1 rounded-[20px] border-0 shadow-sb-card px-[18px] pt-[18px] pb-4">
+    <Card className="flex flex-col gap-1 rounded-xl border-0 shadow-sb-card px-4.5 pt-4.5 pb-4">
       <p className="text-[17px] leading-6 font-bold text-foreground">
         <CompareSentence comparison={comparison} />
       </p>
-      <p className="text-[13px] leading-[18px] text-muted-foreground">
+      <p className="text-[13px] leading-4.5 text-muted-foreground">
         {compareCaption(comparison, todayKey, currentLabel, previousLabel)}
       </p>
 
@@ -98,7 +98,7 @@ export function WeekTrendCard({
         averageSec={averageSec}
       />
 
-      <div className="flex flex-wrap items-start gap-x-3.5 gap-y-1 pt-2.5 pl-8 text-xs leading-[14px] text-muted-foreground">
+      <div className="flex flex-wrap items-start gap-x-3.5 gap-y-1 pt-2.5 pl-8 text-xs leading-3.5 text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
           {currentLabel}
