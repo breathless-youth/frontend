@@ -72,6 +72,7 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
@@ -588,6 +589,7 @@ function RoomSessionScreen({
 
   /** `공부 종료` 확정 */
   function handleConfirmExit() {
+    haptic("medium");
     setExitDialogOpen(false);
     void endAndSubmit(MANUAL_END_REASON);
   }
@@ -726,7 +728,16 @@ function RoomSessionScreen({
                   <SessionControlBar
                     paused={paused}
                     surface={surface}
-                    onTogglePause={() => (paused ? resume() : pause())}
+                    // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                    onTogglePause={() => {
+                      if (paused) {
+                        haptic("medium");
+                        resume();
+                      } else {
+                        haptic("light");
+                        pause();
+                      }
+                    }}
                     onRequestExit={handleRequestExit}
                   />
                 )}
@@ -852,7 +863,10 @@ function RoomSessionScreen({
         cancelLabel={INVITE_CONFIRM_COPY.cancel}
         confirmLabel={INVITE_CONFIRM_COPY.confirm}
         onCancel={clearSessionInvite}
-        onConfirm={() => void endAndSubmit(MANUAL_END_REASON)}
+        onConfirm={() => {
+          haptic("medium");
+          void endAndSubmit(MANUAL_END_REASON);
+        }}
       />
     </main>
   );

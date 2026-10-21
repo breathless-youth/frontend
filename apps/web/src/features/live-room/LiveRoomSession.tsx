@@ -38,6 +38,7 @@ import {
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
 } from "@/lib/amplitude";
+import { haptic } from "@/lib/haptics";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
@@ -509,6 +510,7 @@ export function LiveRoomSession({
             hidden={!controlsVisible}
             onToggleCamera={() => {
               if (!paused) {
+                haptic("light");
                 trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
@@ -541,6 +543,7 @@ export function LiveRoomSession({
           setCameraDialogOpen(false);
         }}
         onConfirm={() => {
+          haptic("medium");
           trackSocialRoomCameraToggled(true);
           setCameraDialogOpen(false);
           setCameraWanted(true);
@@ -562,6 +565,7 @@ export function LiveRoomSession({
           setExitDialogOpen(false);
         }}
         onConfirm={() => {
+          haptic("medium");
           setExitDialogOpen(false);
           void endAndSubmit(MANUAL_END_REASON);
         }}
