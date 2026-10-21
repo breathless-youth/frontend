@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.bench.tsbuildinfo",
+    "types": ["vite/client"],
+    "paths": { "@/*": ["../src/*"] }
+  },
+  "include": ["src", "../src/vite-env.d.ts"]
+}

@@ -36,3 +36,4 @@ public/mediapipe/
 *.njsproj
 *.sln
 *.sw?
+bench/dist

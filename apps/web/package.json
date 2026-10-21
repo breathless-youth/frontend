@@ -6,9 +6,11 @@
   "scripts": {
     "prepare-assets": "node scripts/copyMediapipeWasm.js",
     "dev": "node scripts/copyMediapipeWasm.js && vite",
+    "bench": "node scripts/copyMediapipeWasm.js && vite --config bench/vite.config.ts",
+    "bench:build": "node scripts/copyMediapipeWasm.js && vite build --config bench/vite.config.ts",
     "build": "node scripts/copyMediapipeWasm.js && tsc -b && vite build",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p bench/tsconfig.json --noEmit",
     "test": "vitest run",
     "perf:build:before": "node scripts/copyMediapipeWasm.js && VITE_VISION_PREFETCH=off VITE_PERF_PANEL=1 VITE_SENTRY_DSN= VITE_AMPLITUDE_API_KEY= VITE_GA4_MEASUREMENT_ID= VITE_API_BASE_URL= VITE_DEPLOY_ENV= SENTRY_AUTH_TOKEN= vite build --outDir .perf/dist-before",
     "perf:build:after": "node scripts/copyMediapipeWasm.js && VITE_PERF_PANEL=1 VITE_SENTRY_DSN= VITE_AMPLITUDE_API_KEY= VITE_GA4_MEASUREMENT_ID= VITE_API_BASE_URL= VITE_DEPLOY_ENV= SENTRY_AUTH_TOKEN= vite build --outDir .perf/dist-after",

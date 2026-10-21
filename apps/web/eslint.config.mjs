@@ -15,6 +15,8 @@ export default [
       "public/mediapipe/**",
       // 측정 도구의 빌드 산출물·인증서·결과(scripts/perf). 생성물이다.
       ".perf/**",
+      // Vision 벤치 빌드 산출물(모델·wasm 복사본 포함). 생성물이다.
+      "bench/dist/**",
     ],
   },
   js.configs.recommended,
