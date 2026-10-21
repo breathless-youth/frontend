@@ -69,8 +69,8 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     const { baseElement } = renderSheet();
 
     const classes = [...baseElement.querySelectorAll("div")].map((el) => el.className);
-    expect(classes.some((c) => c.includes("var(--session-dim)"))).toBe(true);
-    expect(classes.some((c) => c.includes("var(--dim)"))).toBe(false);
+    expect(classes.some((c) => c.includes("bg-(--session-dim)"))).toBe(true);
+    expect(classes.some((c) => c.includes("bg-(--dim)"))).toBe(false);
   });
 
   it("닫혀 있으면 아무것도 그리지 않는다", () => {

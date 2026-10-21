@@ -21,7 +21,7 @@ function recoveryDateLabel(dateKey: string): string {
 
 function InfoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="flex w-full items-center justify-between py-[13px]">
+    <div className="flex w-full items-center justify-between py-3.25">
       <span className="text-[13px] font-medium text-text-tertiary">{label}</span>
       <span
         className={
@@ -55,12 +55,12 @@ export function SessionRecoveryDialog({
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
-        className="flex w-[calc(100%-2.5rem)] max-w-[320px] flex-col items-center gap-4 rounded-3xl border-0 bg-background px-[22px] pt-7 pb-[22px]"
+        className="flex w-[calc(100%-2.5rem)] max-w-[320px] flex-col items-center gap-4 rounded-3xl border-0 bg-background px-5.5 pt-7 pb-5.5"
       >
         <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <History className="size-[30px]" strokeWidth={2.53} aria-hidden="true" />
+          <History className="size-7.5" strokeWidth={2.53} aria-hidden="true" />
         </div>
-        <DialogTitle className="text-center text-[19px] leading-[23px] font-extrabold text-foreground">
+        <DialogTitle className="text-center text-[19px] leading-5.75 font-extrabold text-foreground">
           저장되지 않은 기록을 복구했어요
         </DialogTitle>
         <DialogDescription className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground">
@@ -81,7 +81,7 @@ export function SessionRecoveryDialog({
           type="button"
           autoFocus
           onClick={onConfirm}
-          className="h-[52px] w-full shrink-0 rounded-[14px] text-[16px] font-semibold motion-reduce:transition-none"
+          className="h-13 w-full shrink-0 rounded-[14px] text-[16px] font-semibold motion-reduce:transition-none"
         >
           확인
         </Button>

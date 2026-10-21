@@ -52,7 +52,7 @@ export function ResetCard({
           지금 시작하면 <span className="text-primary">{formatRank(board.startNowRank)}위</span>
         </p>
       )}
-      <p className="mt-2 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
         {resetNotice(board)}
       </p>
       <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
@@ -80,18 +80,18 @@ export function PreviousResultCard({
   return (
     <section
       aria-label={label}
-      className="flex items-center justify-between gap-3 rounded-xl bg-muted px-[18px] py-4 shadow-sb-card"
+      className="flex items-center justify-between gap-3 rounded-xl bg-muted px-4.5 py-4 shadow-sb-card"
     >
       <div className="min-w-0">
-        <p className="text-xs leading-[14px] text-muted-foreground">{label}</p>
-        <p className="mt-1 text-base leading-[19px] font-extrabold text-foreground">
+        <p className="text-xs leading-3.5 text-muted-foreground">{label}</p>
+        <p className="mt-1 text-base leading-4.75 font-extrabold text-foreground">
           {formatRank(previous.me.rank)}위 · {formatDuration(previous.me.value)}
         </p>
       </div>
       <button
         type="button"
         onClick={onShowRecords}
-        className="relative shrink-0 text-[13px] leading-[15px] font-bold text-primary before:absolute before:-inset-x-3 before:-inset-y-[15px] before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+        className="relative shrink-0 text-[13px] leading-3.75 font-bold text-primary before:absolute before:-inset-x-3 before:-inset-y-3.75 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
       >
         기록 보기 ›
       </button>
@@ -133,7 +133,7 @@ export function FirstCard({
       ) : (
         <FirstStudyHeadline />
       )}
-      <p className="mt-2 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
         {competitionLine(board)}
       </p>
       <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
@@ -162,7 +162,7 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
   }
   return (
     <CardShell title="이번 주에 이만큼 하면" titleClassName="font-bold text-muted-foreground">
-      <ul className="mt-[18px] grid grid-cols-[auto_1fr_66px] gap-x-3 gap-y-6">
+      <ul className="mt-4.5 grid grid-cols-[auto_1fr_66px] gap-x-3 gap-y-6">
         {shown.map((example) => (
           <li
             key={example.percent}
@@ -173,11 +173,11 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
             </span>
             <span aria-hidden="true" className="h-2 overflow-hidden rounded-xs bg-bg-layer-2">
               <span
-                className="block h-full rounded-xs bg-gradient-to-r from-primary/50 to-primary"
+                className="block h-full rounded-xs bg-linear-to-r from-primary/50 to-primary"
                 style={{ width: `${100 - example.percent}%` }}
               />
             </span>
-            <span className="text-right text-[13px] leading-[15px] font-bold text-primary">
+            <span className="text-right text-[13px] leading-3.75 font-bold text-primary">
               상위 {example.percent}%
             </span>
           </li>

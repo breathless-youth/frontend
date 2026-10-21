@@ -17,14 +17,14 @@ type SwitchSize = "default" | "settings";
 
 const ROOT_SIZE: Record<SwitchSize, string> = {
   default:
-    "h-6 w-11 after:-inset-y-2.5 data-[state=checked]:bg-[var(--state-focus)] data-[state=unchecked]:bg-white/25",
+    "h-6 w-11 after:-inset-y-2.5 data-[state=checked]:bg-(--state-focus) data-[state=unchecked]:bg-white/25",
   settings:
-    "h-[31px] w-[51px] after:-inset-y-[6.5px] data-[state=checked]:bg-primary data-[state=unchecked]:bg-bg-layer-2",
+    "h-7.75 w-12.75 after:inset-y-[-6.5px] data-[state=checked]:bg-primary data-[state=unchecked]:bg-bg-layer-2",
 };
 
 const THUMB_SIZE: Record<SwitchSize, string> = {
   default: "size-5 shadow-lg",
-  settings: "size-[27px] shadow-[0_2px_3px_0_rgba(0,0,0,0.15)]",
+  settings: "size-6.75 shadow-[0_2px_3px_0_rgba(0,0,0,0.15)]",
 };
 
 const Switch = React.forwardRef<
@@ -37,7 +37,7 @@ const Switch = React.forwardRef<
       "peer relative inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent",
       "after:absolute after:inset-x-0 after:content-['']",
       "transition-colors duration-200 motion-reduce:transition-none",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:ring-offset-2",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:ring-offset-2",
       "disabled:cursor-not-allowed disabled:opacity-50",
       ROOT_SIZE[size],
       className,

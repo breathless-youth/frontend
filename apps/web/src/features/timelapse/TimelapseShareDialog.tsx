@@ -259,7 +259,7 @@ function ShareDialogBody({
                 {preparing && <PreparingCover progress={progress.data ?? 0} />}
               </TimelapsePlayer>
             </div>
-            <p className="text-primary text-base leading-[19px] font-extrabold">포커스 메이커스</p>
+            <p className="text-primary text-base leading-4.75 font-extrabold">포커스 메이커스</p>
           </div>
         )}
       </div>
@@ -324,7 +324,7 @@ function PreparingCover({ progress }: { progress: number }) {
   return (
     // z-index를 주지 않아 뒤에 그리는 일시정지 버튼이 이 덮개 위층에 남는다.
     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 px-6 text-white">
-      <p className="text-center text-sm leading-[17px] font-semibold break-keep">
+      <p className="text-center text-sm leading-4.25 font-semibold break-keep">
         공유할 영상을 생성하고 있어요
       </p>
       <ProgressBar progress={progress} className="bg-white/30" />
@@ -368,7 +368,7 @@ function ShareButton({
         // disabled 속성을 쓰면 누른 버튼이 잠기는 순간 포커스가 문서 밖으로 빠진다.
         aria-disabled={disabled}
         onClick={disabled ? undefined : onClick}
-        className="flex h-20 w-[72px] flex-col items-center gap-1.5 rounded-md focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none aria-disabled:opacity-40"
+        className="flex h-20 w-18 flex-col items-center gap-1.5 rounded-md focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none aria-disabled:opacity-40"
       >
         {icon}
         <span className="text-muted-foreground text-[13px] leading-4">{label}</span>
@@ -396,7 +396,7 @@ export function TextButton({ onClick, children }: { onClick: () => void; childre
     <button
       type="button"
       onClick={onClick}
-      className="text-primary flex min-h-11 items-center px-2 text-[13px] leading-5 font-semibold focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+      className="text-primary flex min-h-11 items-center px-2 text-[13px] leading-5 font-semibold focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
     >
       {children}
     </button>

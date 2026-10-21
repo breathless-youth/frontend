@@ -36,7 +36,7 @@ function CoachGhostButton({ onClick, disabled }: { onClick: () => void; disabled
       aria-label={GUIDE_PREV_LABEL}
       // 첫 스텝에서는 눌러도 아무 일이 없다는 사실이 스크린 리더에도 드러나야 한다.
       disabled={disabled}
-      className="flex flex-col items-center justify-center border text-[15px] font-semibold leading-[18px]"
+      className="flex flex-col items-center justify-center border text-[15px] font-semibold leading-4.5"
       style={{
         width: 66,
         height: 48,
@@ -61,7 +61,7 @@ function CoachCtaButton({ label, onClick }: { label: string; onClick: () => void
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex flex-1 flex-col items-center justify-center text-[15px] font-semibold leading-[18px] text-white"
+      className="flex flex-1 flex-col items-center justify-center text-[15px] font-semibold leading-4.5 text-white"
       style={{
         height: 48,
         backgroundColor: GUIDE_FOCUS_COLOR,
@@ -97,7 +97,7 @@ export function CoachNavBar({
         <CoachPagerDots stepIndex={stepIndex} />
       </div>
 
-      <div className="mt-[19px] flex flex-row items-center gap-2">
+      <div className="mt-4.75 flex flex-row items-center gap-2">
         <CoachGhostButton onClick={onPrev} disabled={isFirstStep} />
         <CoachCtaButton label={ctaLabel} onClick={onNext} />
       </div>
@@ -108,9 +108,9 @@ export function CoachNavBar({
         // 넓혔다 — 웹은 padding으로 히트박스를 키우고 같은 크기의 음수 margin으로 레이아웃이
         // 차지하는 공간을 되돌려 같은 효과를 낸다(14 + 15 + 15 = 44).
         // 시각적 위치·문구는 Figma 그대로다(`GUIDE_HINT_PREFIX + GUIDE_SKIP_LABEL`).
-        <div className="mt-[14px] flex flex-row flex-wrap items-center justify-center">
+        <div className="mt-3.5 flex flex-row flex-wrap items-center justify-center">
           <span
-            className="text-center text-[12px] leading-[14px]"
+            className="text-center text-[12px] leading-3.5"
             style={{ color: coachOverlay.bottomHint }}
           >
             {GUIDE_HINT_PREFIX}
@@ -119,7 +119,7 @@ export function CoachNavBar({
             type="button"
             onClick={onSkip}
             aria-label={GUIDE_SKIP_LABEL}
-            className="-m-[15px] p-[15px] text-center text-[12px] leading-[14px]"
+            className="-m-3.75 p-3.75 text-center text-[12px] leading-3.5"
             style={{ color: coachOverlay.bottomHint }}
           >
             {GUIDE_SKIP_LABEL}
@@ -127,7 +127,7 @@ export function CoachNavBar({
         </div>
       ) : (
         <p
-          className="mt-[14px] text-center text-[12px] leading-[14px]"
+          className="mt-3.5 text-center text-[12px] leading-3.5"
           style={{ color: coachOverlay.bottomHint }}
         >
           {GUIDE_FINAL_HINT}

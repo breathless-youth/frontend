@@ -32,8 +32,8 @@ const TabsTrigger = React.forwardRef<
     className={cn(
       // 밑줄이 목록 경계선 위에 겹치도록 -1px 내린다.
       "-mb-px flex min-h-11 items-center gap-1.5 border-b-2 border-transparent whitespace-nowrap",
-      "text-[15px] leading-[22px] font-medium transition-colors duration-200 motion-reduce:transition-none",
-      "focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none",
+      "text-[15px] leading-5.5 font-medium transition-colors duration-200 motion-reduce:transition-none",
+      "focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
       "disabled:pointer-events-none disabled:opacity-50",
       className,
     )}

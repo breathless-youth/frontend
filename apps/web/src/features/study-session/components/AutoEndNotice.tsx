@@ -61,12 +61,12 @@ export function AutoEndNotice({
         <CheckCircle />
         <h1
           id={titleId}
-          className="mt-6 text-center text-[20px] leading-[24px] font-bold text-foreground"
+          className="mt-6 text-center text-[20px] leading-6 font-bold text-foreground"
         >
           {AUTO_END_COPY.title}
         </h1>
         {bodyLines !== null && (
-          <p className="mt-[10px] text-center text-[14px] leading-[21px] text-muted-foreground">
+          <p className="mt-2.5 text-center text-[14px] leading-5.25 text-muted-foreground">
             {bodyLines.map((line, index) => (
               <Fragment key={line}>
                 {index > 0 && <br />}
@@ -87,7 +87,7 @@ export function AutoEndNotice({
       <Button
         type="button"
         onClick={onSeeResult}
-        className="mt-auto h-14 w-full shrink-0 rounded-2xl text-[17px] leading-[20px] font-bold motion-reduce:transition-none"
+        className="mt-auto h-14 w-full shrink-0 rounded-2xl text-[17px] leading-5 font-bold motion-reduce:transition-none"
       >
         {AUTO_END_COPY.cta}
       </Button>
@@ -111,11 +111,11 @@ function SummaryRowCard({ rows, className }: { rows: SummaryRow[]; className?: s
     <Card className={cn("w-full px-4", className)}>
       <dl>
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between py-[14px]">
-            <dt className="text-[14px] leading-[17px] text-muted-foreground">{row.label}</dt>
+          <div key={row.label} className="flex items-center justify-between py-3.5">
+            <dt className="text-[14px] leading-4.25 text-muted-foreground">{row.label}</dt>
             <dd
               className={cn(
-                "text-[15px] leading-[18px] text-foreground",
+                "text-[15px] leading-4.5 text-foreground",
                 row.emphasis === true ? "font-bold" : "font-medium",
               )}
             >

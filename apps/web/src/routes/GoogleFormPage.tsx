@@ -115,10 +115,10 @@ export function GoogleFormPage({
 
       {showFailure ? (
         <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 page-width">
-          <h1 className="text-center text-[20px] leading-[24px] font-bold text-foreground">
+          <h1 className="text-center text-[20px] leading-6 font-bold text-foreground">
             {failureTitle}
           </h1>
-          <p className="mt-[10px] text-center text-[14px] leading-[21px] text-muted-foreground">
+          <p className="mt-2.5 text-center text-[14px] leading-5.25 text-muted-foreground">
             {LOAD_FAILURE_BODY}
           </p>
           {/* 열 수 있는 폼이 없으면 다시 시도해도 같은 결과라 버튼을 숨긴다. */}

@@ -105,7 +105,7 @@ function StepBody({
           {coachCard}
           {/* 간격용 래퍼에도 `pointer-events-none`이 필요하다 — 이게 없으면 래퍼가 히트 테스트
               대상이 되어 탭이 아래 탭 레이어(형제 노드)에 닿지 못한다. */}
-          <div className="pointer-events-none mt-[3px]">{timerBlock}</div>
+          <div className="pointer-events-none mt-0.75">{timerBlock}</div>
         </>
       );
     // G3 — 타이머가 위, 툴팁이 그 아래에서 위를 가리킨다.
@@ -113,7 +113,7 @@ function StepBody({
       return (
         <>
           {timerBlock}
-          <div className="pointer-events-none mt-[18px]">{coachCard}</div>
+          <div className="pointer-events-none mt-4.5">{coachCard}</div>
         </>
       );
     // G4 — 타이머가 원래 자리(위)에 남고, 오버레이(툴팁 + 끌어올린 컨트롤 바)가 그 아래에
@@ -315,7 +315,7 @@ export function OnboardingGuideFlow({
           상속되므로, 컨테이너를 `none`으로 두고 버튼 래퍼만 `auto`로 되돌린다. */}
       <div className="pointer-events-none relative flex h-full flex-col pt-[env(safe-area-inset-top)] pb-[calc(env(safe-area-inset-bottom)+4px)]">
         {backdrop.statusPill ? (
-          <div className="mt-[13px]">
+          <div className="mt-3.25">
             <MockStatusPillBlock
               pill={backdrop.statusPill}
               emphasized={step.emphasis === "status-pill"}

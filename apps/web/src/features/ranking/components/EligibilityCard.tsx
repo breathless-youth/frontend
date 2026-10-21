@@ -48,7 +48,7 @@ export function IneligibleCard({
       </p>
       <FocusStartRow onFocusStart={onFocusStart}>
         {expectation !== null && (
-          <p className="text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+          <p className="text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
             현재 집중률이면 {expectation}
           </p>
         )}
@@ -62,7 +62,7 @@ export function LockedListCard() {
   return (
     <section
       aria-label="내 앞뒤 순위"
-      className="flex min-h-[162px] flex-col items-center justify-center gap-2 rounded-xl bg-muted shadow-sb-card"
+      className="flex min-h-40.5 flex-col items-center justify-center gap-2 rounded-xl bg-muted shadow-sb-card"
     >
       <Lock size={22} strokeWidth={1.8} aria-hidden="true" className="text-brand-subtle-text" />
       <p className="text-sm leading-4 font-bold text-brand-subtle-text">

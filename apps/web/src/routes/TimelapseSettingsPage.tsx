@@ -92,7 +92,7 @@ export function TimelapseSettingsPage() {
               <div>
                 <p
                   id={aspectLabelId}
-                  className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-[15px] font-medium"
+                  className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium"
                 >
                   영상 비율
                 </p>
@@ -112,7 +112,7 @@ export function TimelapseSettingsPage() {
                     <ToggleGroupItem
                       key={aspect.value}
                       value={aspect.value}
-                      className="text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground h-auto flex-1 justify-center rounded-[9px] border-0 bg-transparent px-0 py-[9px] text-sm leading-[17px] font-normal data-[state=on]:font-bold data-[state=on]:shadow-[var(--shadow-segment-thumb)]"
+                      className="text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground h-auto flex-1 justify-center rounded-[9px] border-0 bg-transparent px-0 py-2.25 text-sm leading-4.25 font-normal data-[state=on]:font-bold data-[state=on]:shadow-(--shadow-segment-thumb)"
                     >
                       {aspect.label}
                     </ToggleGroupItem>
@@ -138,7 +138,7 @@ export function TimelapseSettingsPage() {
                   key === "dday" && ddayMissing ? (
                     <div key={key} className={ROW_CLASS_NAME}>
                       <span className={ROW_LABEL_CLASS_NAME}>{INFO_LABELS.dday}</span>
-                      <span className="text-text-tertiary text-sm leading-[18px]">
+                      <span className="text-text-tertiary text-sm leading-4.5">
                         디데이 설정 필요
                       </span>
                     </div>
