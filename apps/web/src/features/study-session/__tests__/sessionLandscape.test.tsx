@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "@/routes/RoomPage";
 
@@ -121,17 +121,22 @@ describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", (
 });
 
 describe("RoomPage — 가로(거치) 배치", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   function layerOf(container: HTMLElement) {
     return container.querySelector<HTMLElement>(".landscape-compact\\:grid")!;
   }
 
   it("방향을 JS로 감지하지 않는다 — 미디어쿼리만으로 갈린다", () => {
-    const matchMedia = vi.spyOn(window, "matchMedia");
+    // jsdom에는 matchMedia가 없어 감시할 함수를 직접 붙였다 뗀다.
+    const matchMedia = vi.fn();
+    vi.stubGlobal("matchMedia", matchMedia);
 
     renderRoom();
 
     expect(matchMedia).not.toHaveBeenCalled();
-    matchMedia.mockRestore();
   });
 
   it("세로 flex 컬럼과 가로 그리드가 같은 DOM에 함께 선언된다", () => {
