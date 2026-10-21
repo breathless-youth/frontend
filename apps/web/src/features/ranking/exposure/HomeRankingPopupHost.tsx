@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { hasShownNoticeThisLaunch, markNoticeShownThisLaunch } from "@/features/notice/noticeStore";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { trackRankingMedalModalAction, trackRankingMedalModalShown } from "@/lib/amplitude";
+import { haptic } from "@/lib/haptics";
 import { postRankingRecordsSeen } from "@/lib/rankingApi";
 import { hasRankingTab } from "@/lib/rankingCapability";
 import { rankingUnseenQuery } from "@/lib/rankingQueries";
@@ -95,6 +96,7 @@ export function HomeRankingPopupHost({
       handledRef.current = false;
       setView(next);
       setOpen(true);
+      haptic("medium");
       // 띄운 직후 본 것으로 적는다.
       // 실패하면 다음 실행에 같은 메달이 다시 뜬다.
       postRankingRecordsSeen(unseen.records.map((record) => record.id)).catch((error: unknown) => {

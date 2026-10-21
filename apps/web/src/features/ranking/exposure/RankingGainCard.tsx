@@ -5,6 +5,7 @@ import {
   trackRankingGainCardTapped,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import { haptic } from "@/lib/haptics";
 
 import { formatRank } from "../model/format";
 import { formatRise, formatRiseSpoken, type GainCardView } from "./gainView";
@@ -36,6 +37,7 @@ export function RankingGainCard({
     }
     shownRef.current = true;
     trackRankingGainCardShown({ delta: view.delta, chipCount, roomType });
+    haptic("light");
   }, [view.delta, chipCount, roomType]);
 
   return (
