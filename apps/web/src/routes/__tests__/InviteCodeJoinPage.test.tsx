@@ -22,6 +22,12 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStoreLinkRedirected: vi.fn(),
 }));
 
+const enterLiveRoom = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/roomApi", () => ({ enterLiveRoom }));
+
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 const KAKAO_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) KAKAOTALK 10.5.0";
 const SAFARI_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Safari/604.1";
 const WINDOWS_UA =
@@ -119,5 +125,19 @@ describe("InviteCodeJoinPage 모바일 브라우저 안내", () => {
     expect(screen.getByLabelText("초대코드 4자리")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "참여하기" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+  });
+});
+
+describe("InviteCodeJoinPage 참여 실패 햅틱", () => {
+  it("참여에 실패하면 오류 문구와 함께 medium 햅틱을 한 번 울린다", async () => {
+    setUserAgent(WINDOWS_UA, 0);
+    enterLiveRoom.mockRejectedValue(new Error("network"));
+    renderAt("?code=1234&userId=7");
+
+    await userEvent.click(screen.getByRole("button", { name: "참여하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
   });
 });

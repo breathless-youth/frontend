@@ -23,6 +23,7 @@ import {
 import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
 import { statsKeys } from "@/lib/statsQueries";
@@ -784,6 +785,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           trackStudySessionSubmitted(false, attempt, roomType);
           // 사용자의 공부 기록이 저장되지 못한 순간 — 재시도 UI가 있지만 발생 자체를 남긴다(BY-372).
           reportHandled(error, "session-submit");
+          // 실패는 여기서만 알 수 있어 햅틱도 화면이 아닌 훅에 둔다.
+          haptic("medium");
           setPhase({
             name: "error",
             message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",

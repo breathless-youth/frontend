@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import instagramIcon from "@/assets/icons/brand-instagram.svg";
 import kakaotalkIcon from "@/assets/icons/brand-kakaotalk.svg";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
+import { haptic } from "@/lib/haptics";
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -204,6 +205,9 @@ function ShareDialogBody({
     const result = await sendTimelapse({ button, route, video: video.data, startedAtMs, entry });
     // 보내기는 오류도 결과로 돌려주므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
     setBusy(false);
+    if (action === "save" && result === "saved") {
+      haptic("light");
+    }
     const resultNotice = shareResultNotice(action, route, result);
     // 결과 화면은 저장되면 시트를 닫고, 앱 저장이면 닫힌 뒤에도 보이도록 토스트로 알린다.
     if (sheetOnly && action === "save" && result === "saved") {
