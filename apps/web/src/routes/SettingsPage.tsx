@@ -90,9 +90,9 @@ export function SettingsPage() {
       className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-2xl leading-[29px] font-bold text-foreground">설정</h1>
+        <h1 className="text-2xl leading-7.25 font-bold text-foreground">설정</h1>
 
-        <SettingsSection className="mt-[23px]" label="프로필">
+        <SettingsSection className="mt-5.75" label="프로필">
           <SettingsRow
             label="프로필 수정"
             trailing={{ kind: "chevron" }}
@@ -111,9 +111,9 @@ export function SettingsPage() {
             라벨 버튼은 OS 설정을 열고 ⓘ 툴팁도 따로 버튼이라 행 전체를 <button>으로 감싸면 버튼이 중첩된다.
             토글은 표시 전용이다.
           */}
-          <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-[14px]">
+          <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-3.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground text-base leading-[19px]">카메라 권한</span>
+              <span className="text-foreground text-base leading-4.75">카메라 권한</span>
               <InfoTooltip label="카메라 권한 안내">
                 권한은 시스템 설정에서 바꿀 수 있어요
               </InfoTooltip>
@@ -128,7 +128,7 @@ export function SettingsPage() {
                   postToNative({ type: "open-settings", atMs: Date.now() });
                 }}
                 // 텍스트만으로는 높이가 19px라 세로 음수 마진으로 행 높이는 그대로 두고 버튼만 44px로 만든다.
-                className="-my-[6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+                className="my-[-6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
               >
                 <PermissionToggle granted={granted} />
               </button>

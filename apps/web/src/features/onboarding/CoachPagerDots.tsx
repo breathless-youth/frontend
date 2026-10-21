@@ -25,7 +25,7 @@ export function CoachPagerDots({ stepIndex }: { stepIndex: number }) {
       aria-valuemin={1}
       aria-valuemax={ONBOARDING_GUIDE_STEP_COUNT}
       aria-valuenow={stepIndex + 1}
-      className="flex flex-row items-center gap-[5px]"
+      className="flex flex-row items-center gap-1.25"
     >
       {Array.from({ length: ONBOARDING_GUIDE_STEP_COUNT }, (_, index) =>
         index === stepIndex ? (

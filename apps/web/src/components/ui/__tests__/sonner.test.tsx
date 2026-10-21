@@ -56,7 +56,7 @@ describe("Toaster", () => {
 
   it("알약 배경 폴백이 세션 화면이 주입하는 값과 같다", () => {
     const injected = (sessionSurfaceStyle as Record<string, string>)["--session-toast-bg"];
-    expect(TOAST_PILL_CLASS).toContain(`var(--session-toast-bg,${injected.replaceAll(" ", "")})`);
+    expect(TOAST_PILL_CLASS).toContain(`bg-(--session-toast-bg,${injected.replaceAll(" ", "")})`);
   });
 
   it("모바일 오프셋의 좌우를 0으로 둬서 알약 폭 보정이 어긋나지 않게 한다", async () => {

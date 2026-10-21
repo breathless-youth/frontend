@@ -16,10 +16,10 @@ export function LicensesPage() {
       {/* 제목은 본문 첫 줄이 크게 그린다 — 상단 바에 또 넣지 않는다(약관·방침과 같은 규칙). */}
       <ScreenBackHeader />
 
-      <div className="px-5 pb-10 text-[13px] leading-[19px] text-muted-foreground">
+      <div className="px-5 pb-10 text-[13px] leading-4.75 text-muted-foreground">
         {/* 페이지 문구는 영어로 통일한다 — 근거는 `openSourceLicenses.ts` 파일 주석. */}
-        <h1 className="text-2xl leading-[29px] font-bold text-foreground">Open Source Licenses</h1>
-        <p className="mt-[18px]">
+        <h1 className="text-2xl leading-7.25 font-bold text-foreground">Open Source Licenses</h1>
+        <p className="mt-4.5">
           FocusMakers uses the following open source software and models. All of them run entirely
           on your device, and each is distributed under the terms of the Apache License 2.0.
         </p>
@@ -29,7 +29,7 @@ export function LicensesPage() {
           `whitespace-pre-wrap`: 원문 줄바꿈은 지키되 긴 문단은 화면 폭에서 접는다 — `pre` 기본값
           (nowrap)이면 웹뷰에서 가로 스크롤이 생긴다.
         */}
-        <pre className="mt-6 font-sans text-[12px] leading-[18px] whitespace-pre-wrap break-words">
+        <pre className="mt-6 font-sans text-[12px] leading-4.5 whitespace-pre-wrap wrap-break-word">
           {APACHE_LICENSE_2_0}
         </pre>
 

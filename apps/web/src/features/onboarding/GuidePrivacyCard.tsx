@@ -18,7 +18,7 @@ import { coachOverlay, coachRadius, coachTokenColors } from "./coachOverlayTheme
 export function GuidePrivacyCard({ title, body }: { title: string; body: string }) {
   return (
     <div
-      className="pointer-events-none mx-8 flex flex-col items-center gap-3 overflow-hidden border px-[18px] pb-5 pt-[22px]"
+      className="pointer-events-none mx-8 flex flex-col items-center gap-3 overflow-hidden border px-4.5 pb-5 pt-5.5"
       style={{
         backgroundColor: coachOverlay.cardBg,
         borderColor: coachOverlay.cardBorder,
@@ -35,7 +35,7 @@ export function GuidePrivacyCard({ title, body }: { title: string; body: string 
       </h2>
       {/* Figma 실측 12.5px / lh18 — 표준 스케일(caption 12)에 억지로 근사하지 않는다. */}
       <p
-        className="text-center text-[12.5px] leading-[18px]"
+        className="text-center text-[12.5px] leading-4.5"
         style={{ color: coachOverlay.cardBodyText }}
       >
         {body}

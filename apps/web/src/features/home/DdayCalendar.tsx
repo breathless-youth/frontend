@@ -146,7 +146,7 @@ export function DdayCalendar({
           }}
           className="flex h-11 items-center gap-1.5 px-2 text-foreground"
         >
-          <span className="text-[17px] leading-[21px] font-bold">{monthLabel(month)}</span>
+          <span className="text-[17px] leading-5.25 font-bold">{monthLabel(month)}</span>
           <span className={cn("transition-transform duration-200", picker && "rotate-180")}>
             <IconChevronDown size={9} color="var(--color-primary)" />
           </span>
@@ -172,7 +172,7 @@ export function DdayCalendar({
           // 안의 버튼에는 끌기 제외를 따로 달지 않는다. 이 영역은 어느 쪽으로든 6px을 넘기 전까지 손가락을 막지 않아
           // 살짝 움직인 탭이 살고, 버튼마다 달면 달력 위에서 시트를 끌어 닫을 수 없다.
           data-base-ui-swipe-ignore="x"
-          className="[&_button:disabled]:pointer-events-none touch-pan-y flex min-h-[284px] flex-col gap-2"
+          className="[&_button:disabled]:pointer-events-none touch-pan-y flex min-h-71 flex-col gap-2"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onClickCapture={handleClickCapture}
@@ -187,7 +187,7 @@ export function DdayCalendar({
             >
               <IconChevronLeft size={13} color="var(--color-foreground)" />
             </button>
-            <span className="min-w-[72px] text-center text-[20px] leading-6 font-extrabold text-primary tabular-nums">
+            <span className="min-w-18 text-center text-[20px] leading-6 font-extrabold text-primary tabular-nums">
               {pickYear}
             </span>
             <button
@@ -311,7 +311,7 @@ export function DdayCalendar({
                   >
                     <span
                       className={cn(
-                        "flex size-[30px] items-center justify-center rounded-full text-[15px] leading-5 transition-colors",
+                        "flex size-7.5 items-center justify-center rounded-full text-[15px] leading-5 transition-colors",
                         selected
                           ? "bg-primary font-semibold text-primary-foreground"
                           : past

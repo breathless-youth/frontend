@@ -113,7 +113,7 @@ function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
       >
         {isToday ? (
           // 오늘은 숫자 칩 — 다른 날을 골라도 보이고, 선택 테두리와 겹쳐도 구분된다.
-          <span className="flex h-[18px] items-center rounded-full bg-foreground px-[5px] text-xs leading-[14px] font-bold text-background">
+          <span className="flex h-4.5 items-center rounded-full bg-foreground px-1.25 text-xs leading-3.5 font-bold text-background">
             {dayOfMonth}
           </span>
         ) : (
@@ -133,7 +133,7 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
   return (
     <div className="mx-2 mt-1">
       <Separator />
-      <div className="flex items-start justify-between pt-[13px]">
+      <div className="flex items-start justify-between pt-3.25">
         {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
         <div
           role="group"
@@ -141,8 +141,8 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
           className="flex items-start gap-1 pt-0.5"
         >
           {HEAT_LEGEND.map((item) => (
-            <span key={item.label} className="flex flex-col items-center gap-[3px]">
-              <span className={`h-2.5 w-[18px] rounded-[3px] ${item.cls}`} aria-hidden />
+            <span key={item.label} className="flex flex-col items-center gap-0.75">
+              <span className={`h-2.5 w-4.5 rounded-[3px] ${item.cls}`} aria-hidden />
               <span className="text-[10px] leading-3 text-muted-foreground">{item.label}</span>
             </span>
           ))}
@@ -150,21 +150,21 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
 
         <div className="flex items-start gap-5">
           <div className="flex flex-col items-end gap-0.5">
-            <p className="text-xs leading-[14px] text-muted-foreground">하루 평균</p>
+            <p className="text-xs leading-3.5 text-muted-foreground">하루 평균</p>
             {stats === null ? (
-              <Skeleton className="h-[18px] w-16 rounded-md" />
+              <Skeleton className="h-4.5 w-16 rounded-md" />
             ) : (
-              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+              <p className="text-[15px] leading-4.5 font-bold text-foreground tabular-nums">
                 {formatDuration(stats.averageFocusSec ?? 0)}
               </p>
             )}
           </div>
           <div className="flex flex-col items-end gap-0.5">
-            <p className="text-xs leading-[14px] text-muted-foreground">{monthLabel} 총 시간</p>
+            <p className="text-xs leading-3.5 text-muted-foreground">{monthLabel} 총 시간</p>
             {stats === null ? (
-              <Skeleton className="h-[18px] w-16 rounded-md" />
+              <Skeleton className="h-4.5 w-16 rounded-md" />
             ) : (
-              <p className="text-[15px] leading-[18px] font-bold text-foreground tabular-nums">
+              <p className="text-[15px] leading-4.5 font-bold text-foreground tabular-nums">
                 {formatDuration(stats.totalFocusSec)}
               </p>
             )}
@@ -190,7 +190,7 @@ export function MonthCalendar({
   const swipe = useHorizontalSwipe(onSwipeMonth);
 
   return (
-    <Card className="rounded-[20px] border-0 shadow-sb-card px-2.5 pt-3.5 pb-4">
+    <Card className="rounded-xl border-0 shadow-sb-card px-2.5 pt-3.5 pb-4">
       {/*
         월 이동 헤더는 RecordsPage가 카드 밖에서 그린다(BY-567 v2 조립) — 여기서 또 그리면
         "이전 달"/"다음 달" 버튼이 화면에 두 벌 생긴다. `slideFrom`·계측(`trackRecordsMonthChanged`)도
@@ -218,16 +218,16 @@ export function MonthCalendar({
             onSelect={(date) => onSelectDate(dateKeyOfDate(date))}
             classNames={{
               // 날짜 줄과 같은 간격이어야 요일 글자가 칸 가운데에 온다.
-              weekdays: "flex gap-[3px]",
+              weekdays: "flex gap-0.75",
               // 요일 줄은 그대로 두고 날짜 줄만 밀려 들어온다.
               weeks: cn(
-                "flex flex-col gap-[3px] pt-2.5",
+                "flex flex-col gap-0.75 pt-2.5",
                 slideFrom === "right" &&
                   "animate-[month-slide-from-right_200ms_ease-out] motion-reduce:animate-none",
                 slideFrom === "left" &&
                   "animate-[month-slide-from-left_200ms_ease-out] motion-reduce:animate-none",
               ),
-              week: "flex gap-[3px]",
+              week: "flex gap-0.75",
               day: "aspect-square flex-1 p-0",
             }}
             components={{ DayButton: HeatDayButton }}

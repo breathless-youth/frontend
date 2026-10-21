@@ -99,7 +99,7 @@ export function CameraPreviewSurface({
       className={cn(
         // 300ms 페이드는 모드 전환의 타이머 이동과 같은 박자다 — 배경만 0ms에 스왑되면 전환이
         // 이질적으로 보인다(BY-336). SimpleModeSurface와 쌍.
-        "absolute inset-0 overflow-hidden bg-[var(--session-camera-base)]",
+        "absolute inset-0 overflow-hidden bg-(--session-camera-base)",
         "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
         // 심플 모드: 합성에서만 지운다(위 `hidden` 주석). 아래 SimpleModeSurface가 그대로 보이고,
         // 탭은 이 레이어를 통과해야 심플 모드 토글이 계속 동작한다.

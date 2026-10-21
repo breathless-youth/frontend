@@ -1250,7 +1250,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).not.toHaveClass("aspect-[4/5]");
+    expect(tile).not.toHaveClass("aspect-4/5");
   });
 
   it("5~6명 타일 폭은 바 표시와 무관하게 47% 고정 — 바 토글로 작아지지 않는다", async () => {
@@ -1284,7 +1284,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(rows).toHaveClass("gap-1");
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).not.toHaveClass("landscape-compact:aspect-[2/1]");
+    expect(tile).not.toHaveClass("landscape-compact:aspect-2/1");
     // 세로 비율(정사각)이 가로에서도 그대로, 높이는 min(88dvh, 폭 예산)으로 고정 —
     // 2장이 한 행에 줄바꿈 없이 들어가는 폭 상한(기기 검산은 구현 주석).
     expect(tile).toHaveClass("aspect-square");

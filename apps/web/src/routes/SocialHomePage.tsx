@@ -90,7 +90,7 @@ export function SocialHomePage() {
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-[24px] leading-[30px] font-bold text-foreground">소셜</h1>
+        <h1 className="text-[24px] leading-7.5 font-bold text-foreground">소셜</h1>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
@@ -120,7 +120,7 @@ export function SocialHomePage() {
           <Button
             variant="subtle"
             size="xl"
-            className="w-[176px]"
+            className="w-44"
             onClick={() => {
               // 이전 진입에서 URL에 남은 초대코드가 다시 프리필되지 않게 code만 뺀다 —
               // userId 등 나머지 쿼리는 유지한다. 외부 딥링크는 이 버튼을 거치지 않는다.
@@ -146,7 +146,7 @@ export function SocialHomePage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="theme-soft-blue w-[calc(100%-2rem)] max-w-[360px] rounded-lg bg-muted"
+          className="theme-soft-blue w-[calc(100%-2rem)] max-w-90 rounded-lg bg-muted"
         >
           <DialogHeader>
             <DialogTitle>{graceTitle}</DialogTitle>

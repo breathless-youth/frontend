@@ -31,7 +31,7 @@ export function ForceUpdateDialog({
       <DialogContent
         role="alertdialog"
         showCloseButton={false}
-        className="w-[calc(100%-2rem)] max-w-[360px] rounded-lg"
+        className="w-[calc(100%-2rem)] max-w-90 rounded-lg"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}

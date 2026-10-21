@@ -27,7 +27,7 @@ const TONE_CLASS: Record<ResultStatusTone, string> = {
 
 export function ResultStatusDot({ tone }: { tone: ResultStatusTone }) {
   return (
-    <span aria-hidden="true" className={cn("size-[6px] shrink-0 rounded-full", TONE_CLASS[tone])} />
+    <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", TONE_CLASS[tone])} />
   );
 }
 
@@ -60,9 +60,9 @@ export function ResultBarSegment({
 /** 범례 한 줄 — 도트 + 라벨. 공부 결과 화면의 타임라인 카드와 기록 탭 세션 목록이 같이 쓴다. */
 export function ResultLegendItem({ tone, label }: { tone: ResultStatusTone; label: string }) {
   return (
-    <li className="flex items-center gap-[5px]">
+    <li className="flex items-center gap-1.25">
       <ResultStatusDot tone={tone} />
-      <span className="text-[11px] leading-[13px] text-muted-foreground">{label}</span>
+      <span className="text-[11px] leading-3.25 text-muted-foreground">{label}</span>
     </li>
   );
 }

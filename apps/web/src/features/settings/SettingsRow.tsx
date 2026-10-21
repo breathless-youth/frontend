@@ -58,7 +58,7 @@ type SettingsRowProps = {
 };
 
 /** 최소 44px 터치 타겟 — 실측 높이(47/59/65)가 이미 넘지만 폰트 축소 상황의 바닥값으로 둔다. */
-const ROW_CLASS_NAME = "min-h-11 flex w-full flex-row items-center justify-between gap-3 py-[14px]";
+const ROW_CLASS_NAME = "min-h-11 flex w-full flex-row items-center justify-between gap-3 py-3.5";
 
 function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
   switch (trailing.kind) {
@@ -72,27 +72,27 @@ function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
       return <ExternalLink size={16} className="text-text-tertiary shrink-0" aria-hidden="true" />;
     case "value":
       return (
-        <span className="text-text-tertiary shrink-0 text-[15px] leading-[18px]">
+        <span className="text-text-tertiary shrink-0 text-[15px] leading-4.5">
           {trailing.value}
         </span>
       );
     case "valueChevron":
       return (
         <span className="flex shrink-0 items-center gap-1">
-          <span className="text-text-tertiary text-[15px] leading-[18px]">{trailing.value}</span>
+          <span className="text-text-tertiary text-[15px] leading-4.5">{trailing.value}</span>
           <ChevronRight size={20} className="text-text-tertiary shrink-0" aria-hidden="true" />
         </span>
       );
     case "copy":
       return (
         <span className="flex shrink-0 items-center gap-2">
-          <span className="text-text-tertiary text-[15px] leading-[18px]">{trailing.value}</span>
+          <span className="text-text-tertiary text-[15px] leading-4.5">{trailing.value}</span>
           <button
             type="button"
             onClick={trailing.onCopy}
             aria-label={`${trailing.value} 복사`}
             // 아이콘은 16이지만 히트 영역은 44 — 세로 음수 마진으로 행 높이는 늘리지 않는다.
-            className="text-text-tertiary relative mr-0.5 flex size-4 items-center justify-center rounded-full after:absolute after:-inset-[14px] after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+            className="text-text-tertiary relative mr-0.5 flex size-4 items-center justify-center rounded-full after:absolute after:-inset-3.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
           >
             <Copy size={16} aria-hidden="true" />
           </button>
@@ -115,17 +115,17 @@ export function SettingsRow({
           flex 자식은 기본 `min-width: auto`라 콘텐츠 너비 밑으로 줄지 않으므로,
           `min-w-0`이 없으면 `shrink`가 있어도 실제로 압축되지 않아 긴 버전 값
           (`26.36.3 / 26.37.0`처럼 늘어난 표기)이 큰 시스템 폰트 배율에서 행 밖으로 밀린다. */}
-      <div className="flex min-w-0 shrink flex-col items-start gap-[3px]">
-        <span className="text-foreground text-base leading-[19px]">{label}</span>
+      <div className="flex min-w-0 shrink flex-col items-start gap-0.75">
+        <span className="text-foreground text-base leading-4.75">{label}</span>
         {sublabel !== undefined && (
-          <span className="text-text-tertiary text-xs leading-[15px]">{sublabel}</span>
+          <span className="text-text-tertiary text-xs leading-3.75">{sublabel}</span>
         )}
       </div>
       {badge === undefined ? (
         trailing !== undefined && <RowTrailing trailing={trailing} />
       ) : (
         <span className="flex shrink-0 items-center gap-2.5">
-          <Badge variant="elevated" className="px-2 py-[2px] text-[11px] leading-[13px]">
+          <Badge variant="elevated" className="px-2 py-0.5 text-[11px] leading-3.25">
             {badge}
           </Badge>
           {trailing !== undefined && <RowTrailing trailing={trailing} />}

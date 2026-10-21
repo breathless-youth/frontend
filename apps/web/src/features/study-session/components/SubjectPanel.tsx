@@ -127,7 +127,7 @@ function InlineNameEditor({
         // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
         onPointerDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="h-10 shrink-0 rounded-xl bg-[var(--session-control-resume-bg)] px-3.5 text-[14px] font-semibold text-white active:opacity-80"
+        className="h-10 shrink-0 rounded-xl bg-(--session-control-resume-bg) px-3.5 text-[14px] font-semibold text-white active:opacity-80"
       >
         {SUBJECT_SHEET_COPY.done}
       </button>
@@ -179,10 +179,10 @@ function Grip({
       onPointerCancel={onEnd}
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
-      className="flex h-11 w-7 shrink-0 cursor-grab touch-none flex-col items-center justify-center gap-[3px] active:cursor-grabbing"
+      className="flex h-11 w-7 shrink-0 cursor-grab touch-none flex-col items-center justify-center gap-0.75 active:cursor-grabbing"
     >
       {[0, 1, 2].map((row) => (
-        <img key={row} src={gripRowIcon} alt="" className="h-1 w-[11px]" />
+        <img key={row} src={gripRowIcon} alt="" className="h-1 w-2.75" />
       ))}
     </div>
   );
@@ -215,7 +215,7 @@ function ContextMenu({
       ref={ref}
       role="menu"
       style={{ top }}
-      className="absolute right-5 z-10 flex w-[168px] flex-col rounded-[14px] bg-[var(--session-dialog-cancel-bg)] p-1.5 shadow-[0_12px_32px_0_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+      className="absolute right-5 z-10 flex w-42 flex-col rounded-[14px] bg-(--session-dialog-cancel-bg) p-1.5 shadow-[0_12px_32px_0_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.08)]"
     >
       <button
         type="button"
@@ -229,7 +229,7 @@ function ContextMenu({
         type="button"
         role="menuitem"
         onClick={onRemove}
-        className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-[var(--session-exit-bg)] active:bg-white/6"
+        className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-(--session-exit-bg) active:bg-white/6"
       >
         {SUBJECT_SHEET_COPY.remove}
       </button>
@@ -242,9 +242,9 @@ function AddTaskButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="mt-1 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--session-sheet-surface)] text-[14px] font-semibold text-white/70 active:bg-white/10"
+      className="mt-1 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-(--session-sheet-surface) text-[14px] font-semibold text-white/70 active:bg-white/10"
     >
-      <span aria-hidden="true" className="text-[18px] leading-[18px]">
+      <span aria-hidden="true" className="text-[18px] leading-4.5">
         +
       </span>
       {SUBJECT_SHEET_COPY.addTask}
@@ -276,7 +276,7 @@ function TaskRow({
       <div
         aria-hidden="true"
         style={{ opacity: Math.min(1, -swipeX / SWIPE_REMOVE_PX) }}
-        className="absolute inset-0 flex items-center justify-end rounded-xl bg-[var(--session-exit-bg)] pr-[18px] text-[14px] font-semibold text-white"
+        className="absolute inset-0 flex items-center justify-end rounded-xl bg-(--session-exit-bg) pr-4.5 text-[14px] font-semibold text-white"
       >
         {SUBJECT_SHEET_COPY.remove}
       </div>
@@ -298,15 +298,15 @@ function TaskRow({
           pressed && "scale-[0.98] opacity-70",
           swiping
             ? "bg-[rgb(16,20,25)]"
-            : "bg-transparent transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+            : "bg-transparent transition-transform duration-220 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
         )}
       >
         <span className="flex size-11 shrink-0 items-center justify-center">
           <span
             className={cn(
-              "flex size-[22px] items-center justify-center rounded-full",
+              "flex size-5.5 items-center justify-center rounded-full",
               done
-                ? "bg-[var(--session-control-resume-bg)]"
+                ? "bg-(--session-control-resume-bg)"
                 : "shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.35)]",
             )}
           >
@@ -404,7 +404,7 @@ function SubjectCard({
       data-subject-id={subject.id}
       className={cn(
         "relative flex flex-col gap-0.5 rounded-[18px] p-1.5 transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none",
-        reordering ? "bg-white/10" : "bg-[var(--session-sheet-surface)]",
+        reordering ? "bg-white/10" : "bg-(--session-sheet-surface)",
         selected
           ? "shadow-[inset_0_0_0_1px_var(--session-sheet-selected-card-ring)]"
           : "shadow-[inset_0_0_0_1px_var(--session-sheet-line)]",
@@ -443,7 +443,7 @@ function SubjectCard({
             "flex min-h-14 w-full touch-pan-y items-center gap-3 rounded-[14px] pr-3 pl-1 text-left transition-[scale,opacity] duration-150 select-none motion-reduce:transition-none",
             pressed && "scale-[0.98] opacity-70",
             selected
-              ? "bg-[var(--session-sheet-selected-bg)] text-[var(--state-focus)] shadow-[inset_0_0_0_1px_var(--session-sheet-selected-ring)]"
+              ? "bg-(--session-sheet-selected-bg) text-(--state-focus) shadow-[inset_0_0_0_1px_var(--session-sheet-selected-ring)]"
               : "text-white",
           )}
         >
@@ -455,12 +455,10 @@ function SubjectCard({
             onEnd={onReorderEnd}
           />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-[17px] leading-[22px] font-semibold">
-              {subject.name}
-            </span>
+            <span className="truncate text-[17px] leading-5.5 font-semibold">{subject.name}</span>
             <span
               className={cn(
-                "text-[15px] leading-[18px] font-bold tabular-nums",
+                "text-[15px] leading-4.5 font-bold tabular-nums",
                 !selected && "text-white/55",
               )}
             >
@@ -487,7 +485,7 @@ function SubjectCard({
             <span
               className={cn(
                 "flex size-9 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none",
-                running ? "bg-[var(--session-control-resume-bg)]" : "bg-white/12",
+                running ? "bg-(--session-control-resume-bg)" : "bg-white/12",
               )}
             >
               <img
@@ -497,7 +495,7 @@ function SubjectCard({
                 aria-hidden="true"
                 className={cn(
                   "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none",
-                  running ? "h-[15px] w-[13.3px]" : "size-[15px]",
+                  running ? "h-3.75 w-[13.3px]" : "size-3.75",
                 )}
               />
             </span>
@@ -539,10 +537,10 @@ function SubjectCard({
             aria-valuemin={0}
             aria-valuemax={subject.tasks.length}
             aria-valuenow={doneCount}
-            className="h-[3px] w-full overflow-hidden rounded-full bg-white/8"
+            className="h-0.75 w-full overflow-hidden rounded-full bg-white/8"
           >
             <div
-              className="h-full rounded-full bg-[var(--session-control-resume-bg)] transition-[width] duration-250 motion-reduce:transition-none"
+              className="h-full rounded-full bg-(--session-control-resume-bg) transition-[width] duration-250 motion-reduce:transition-none"
               style={{ width: `${(doneCount / subject.tasks.length) * 100}%` }}
             />
           </div>
@@ -555,7 +553,7 @@ function SubjectCard({
             <li key={task.id} className="flex flex-col gap-0.5">
               {/* 구분선은 할 일 사이에만 둔다 — 첫 할 일 위는 완료율 바가 이미 선 역할을 해서 두 줄로 겹쳐 보인다. */}
               {index > 0 && (
-                <div aria-hidden="true" className="py-0.5 pr-3 pl-[52px]">
+                <div aria-hidden="true" className="py-0.5 pr-3 pl-13">
                   <div className="h-px w-full bg-white/8" />
                 </div>
               )}
@@ -618,7 +616,7 @@ function EmptyState({
   return (
     <div className="flex flex-col">
       <div className="flex flex-col items-center gap-1.5 px-2 pt-9 pb-5 text-center">
-        <p className="text-[17px] leading-[22px] font-semibold text-white">
+        <p className="text-[17px] leading-5.5 font-semibold text-white">
           {SUBJECT_SHEET_COPY.empty}
         </p>
         <p className="text-[13px] leading-4 text-white/50">{SUBJECT_SHEET_COPY.emptySub}</p>
@@ -632,10 +630,10 @@ function EmptyState({
               aria-busy={pending === name}
               onClick={() => onPick(name)}
               className={cn(
-                "flex h-[52px] w-full items-center rounded-[14px] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12",
+                "flex h-13 w-full items-center rounded-[14px] pr-2 pl-4 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/12",
                 pending === name
                   ? "animate-pulse bg-white/12 motion-reduce:animate-none"
-                  : "bg-[var(--session-sheet-surface)] disabled:opacity-50",
+                  : "bg-(--session-sheet-surface) disabled:opacity-50",
               )}
             >
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-white">
@@ -643,7 +641,7 @@ function EmptyState({
               </span>
               <span
                 aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center text-[20px] leading-5 text-[var(--state-focus)]"
+                className="flex size-9 shrink-0 items-center justify-center text-[20px] leading-5 text-(--state-focus)"
               >
                 +
               </span>
@@ -696,7 +694,7 @@ export function SubjectPanel({
   }
 
   const newSubjectEditor = editing?.kind === "new-subject" && (
-    <div className="rounded-[18px] bg-[var(--session-sheet-surface)] p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
+    <div className="rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
       <InlineNameEditor
         maxLength={50}
         placeholder="과목 이름"
@@ -714,21 +712,19 @@ export function SubjectPanel({
   let body: ReactNode;
   if (status === "loading" || status === "idle") {
     body = (
-      <div className="flex flex-col gap-[14px]" aria-label={SUBJECT_SHEET_COPY.loading}>
-        <Skeleton className="h-[120px] rounded-[18px] bg-white/6" />
-        <Skeleton className="h-[120px] rounded-[18px] bg-white/6" />
+      <div className="flex flex-col gap-3.5" aria-label={SUBJECT_SHEET_COPY.loading}>
+        <Skeleton className="h-30 rounded-[18px] bg-white/6" />
+        <Skeleton className="h-30 rounded-[18px] bg-white/6" />
       </div>
     );
   } else if (status === "error") {
     body = (
       <div className="flex flex-col items-center gap-3 px-3 pt-6 text-center">
-        <p className="text-[14px] text-[var(--session-dialog-body)]">
-          {SUBJECT_SHEET_COPY.loadFailed}
-        </p>
+        <p className="text-[14px] text-(--session-dialog-body)">{SUBJECT_SHEET_COPY.loadFailed}</p>
         <button
           type="button"
           onClick={() => void store.reload()}
-          className="h-10 rounded-xl bg-[var(--session-dialog-cancel-bg)] px-5 text-[14px] font-medium text-white active:opacity-80"
+          className="h-10 rounded-xl bg-(--session-dialog-cancel-bg) px-5 text-[14px] font-medium text-white active:opacity-80"
         >
           {SUBJECT_SHEET_COPY.retry}
         </button>
@@ -755,7 +751,7 @@ export function SubjectPanel({
   } else {
     body = (
       <>
-        <ul className="flex flex-col gap-[14px]">
+        <ul className="flex flex-col gap-3.5">
           {subjects.map((subject) => (
             <SubjectCard
               key={subject.id}
@@ -787,7 +783,7 @@ export function SubjectPanel({
             />
           ))}
         </ul>
-        {newSubjectEditor && <div className="mt-[14px]">{newSubjectEditor}</div>}
+        {newSubjectEditor && <div className="mt-3.5">{newSubjectEditor}</div>}
       </>
     );
   }
@@ -796,16 +792,16 @@ export function SubjectPanel({
     <>
       {/* 헤더(원본): "과목" + 우측 "+ 과목 추가"(44 히트). 빈 상태에서도 동일. */}
       <div className="-mt-1.5 flex w-full shrink-0 items-center justify-between pb-0.5 pr-3 pl-5">
-        <h2 className="text-[19px] leading-[23px] font-bold text-white">
+        <h2 className="text-[19px] leading-5.75 font-bold text-white">
           {SUBJECT_SHEET_COPY.title}
         </h2>
         {status === "ready" && (
           <button
             type="button"
             onClick={startAddSubject}
-            className="flex h-11 items-center gap-1 rounded-xl px-3 text-[var(--state-focus)] active:bg-white/6"
+            className="flex h-11 items-center gap-1 rounded-xl px-3 text-(--state-focus) active:bg-white/6"
           >
-            <span aria-hidden="true" className="text-[18px] leading-[18px] font-medium">
+            <span aria-hidden="true" className="text-[18px] leading-4.5 font-medium">
               +
             </span>
             <span className="text-[14px] font-semibold">{SUBJECT_SHEET_COPY.addSubject}</span>
@@ -813,7 +809,7 @@ export function SubjectPanel({
         )}
       </div>
 
-      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-0.5 pb-[calc(env(safe-area-inset-bottom)+48px)] [scrollbar-width:none]">
+      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-0.5 pb-[calc(env(safe-area-inset-bottom)+48px)] scrollbar-none">
         {body}
       </div>
     </>

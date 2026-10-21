@@ -19,14 +19,14 @@ export function InterviewCard({
   return (
     <Card className="flex items-start gap-2 rounded-xl border-0 bg-brand-subtle py-4 pr-3.5 pl-5 text-brand-subtle-text">
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-        <h2 className="text-[16px] leading-[20px] font-bold">꾸준히 쓰는 이유를 들려주세요</h2>
-        <p className="text-[13px] leading-[17px]">15분 통화하면 스타벅스 기프티콘 100% 증정</p>
+        <h2 className="text-[16px] leading-5 font-bold">꾸준히 쓰는 이유를 들려주세요</h2>
+        <p className="text-[13px] leading-4.25">15분 통화하면 스타벅스 기프티콘 100% 증정</p>
         <div className="pt-1">
           <Button
             type="button"
             variant="unstyled"
             onClick={onApply}
-            className="relative h-auto gap-1 p-0 text-[13px] leading-[16px] font-bold before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
+            className="relative h-auto gap-1 p-0 text-[13px] leading-4 font-bold before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
           >
             인터뷰 신청하기
             <ChevronRight size={12} strokeWidth={2.6} aria-hidden="true" />

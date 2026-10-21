@@ -101,7 +101,7 @@ export function AmbientSoundSheet({
         container={container}
         // 딤도 세션 값을 써야 한다. shadcn 기본 `--dim` 은 라이트 테마에서 40% 라
         // 카메라 위에서 뒤가 비친다.
-        overlayClassName="bg-[var(--session-dim)]"
+        overlayClassName="bg-(--session-dim)"
         aria-describedby={undefined}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -120,11 +120,11 @@ export function AmbientSoundSheet({
         // 여러 번 눌러야 하는 증상이 그것이다(온보딩 화면이 같은 것을 겪었다).
         // `manipulation` 은 그 인식만 끄고 팬·핀치는 그대로 둔다 — 소리 목록의 세로 스크롤은
         // 영향을 받지 않는다. `index.css` 가 경고하는 것은 `none` 이야기라 해당 없다.
-        className="flex touch-manipulation w-[calc(300px+env(safe-area-inset-right))] max-w-[85%] flex-col gap-1 rounded-l-xl border-0 bg-[var(--session-dialog-bg)] pt-[calc(env(safe-area-inset-top)+20px)] pr-[calc(env(safe-area-inset-right)+24px)] pb-[calc(env(safe-area-inset-bottom)+20px)] pl-6 text-[var(--session-dialog-body)] shadow-[-20px_0_50px_0_rgba(0,0,0,0.45)]"
+        className="flex touch-manipulation w-[calc(300px+env(safe-area-inset-right))] max-w-[85%] flex-col gap-1 rounded-l-xl border-0 bg-(--session-dialog-bg) pt-[calc(env(safe-area-inset-top)+20px)] pr-[calc(env(safe-area-inset-right)+24px)] pb-[calc(env(safe-area-inset-bottom)+20px)] pl-6 text-(--session-dialog-body) shadow-[-20px_0_50px_0_rgba(0,0,0,0.45)]"
       >
         <div className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <SheetTitle className="text-[18px] leading-[21px] font-bold text-[var(--session-dialog-title)]">
+            <SheetTitle className="text-[18px] leading-5.25 font-bold text-(--session-dialog-title)">
               배경음
             </SheetTitle>
             <TooltipProvider>
@@ -132,7 +132,7 @@ export function AmbientSoundSheet({
                 <TooltipTrigger
                   aria-label="배경음 안내"
                   onClick={() => setTipOpen((open) => !open)}
-                  className="relative flex size-4 items-center justify-center rounded-full text-[var(--session-dialog-body)] after:absolute after:-inset-3.5 after:content-[''] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+                  className="relative flex size-4 items-center justify-center rounded-full text-(--session-dialog-body) after:absolute after:-inset-3.5 after:content-[''] focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
                 >
                   <Info size={16} aria-hidden="true" />
                 </TooltipTrigger>
@@ -155,7 +155,7 @@ export function AmbientSoundSheet({
             // `rounded-full` 은 히트 영역까지 원으로 깎는다 — 44px 사각형의 네 모서리를
             // 눌러도 버튼이 아니라 뒤가 잡힌다. 실제로 그래서 잘 안 눌렸다. 둥근 모양은
             // 그대로 두고, 반경 없는 `after` 로 52px 사각형 탭 영역을 덧댄다.
-            className="relative -mr-2.5 flex size-11 items-center justify-center rounded-full text-[var(--session-dialog-body)] transition-opacity duration-200 after:absolute after:-inset-1 after:content-[''] active:opacity-70 focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none motion-reduce:transition-none"
+            className="relative -mr-2.5 flex size-11 items-center justify-center rounded-full text-(--session-dialog-body) transition-opacity duration-200 after:absolute after:-inset-1 after:content-[''] active:opacity-70 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none motion-reduce:transition-none"
           >
             <X size={20} aria-hidden="true" />
           </SheetClose>
@@ -171,7 +171,7 @@ export function AmbientSoundSheet({
               <TabsTrigger
                 key={group.id}
                 value={group.id}
-                className="flex-1 justify-center text-white/40 data-[state=active]:border-[var(--state-focus)] data-[state=active]:text-[var(--session-dialog-title)]"
+                className="flex-1 justify-center text-white/40 data-[state=active]:border-(--state-focus) data-[state=active]:text-(--session-dialog-title)"
               >
                 {group.label}
                 <span className="text-[13px] tabular-nums opacity-60">{group.sounds.length}</span>
@@ -199,10 +199,10 @@ export function AmbientSoundSheet({
                           aria-pressed={on}
                           onClick={() => onToggleSound(sound.id)}
                           className={cn(
-                            "flex min-h-11 flex-1 items-center gap-2.5 text-left text-[15px] leading-[22px]",
+                            "flex min-h-11 flex-1 items-center gap-2.5 text-left text-[15px] leading-5.5",
                             "transition-colors duration-200 active:opacity-80 motion-reduce:transition-none",
-                            "focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none",
-                            on ? "text-[var(--state-focus)]" : "text-[var(--session-dialog-title)]",
+                            "focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+                            on ? "text-(--state-focus)" : "text-(--session-dialog-title)",
                           )}
                         >
                           <Icon size={20} aria-hidden="true" className="shrink-0" />
@@ -224,7 +224,7 @@ export function AmbientSoundSheet({
                                 onClick={() =>
                                   setOpenNote((prev) => (prev === sound.id ? null : sound.id))
                                 }
-                                className="relative flex size-11 shrink-0 items-center justify-center text-[var(--session-dialog-body)] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+                                className="relative flex size-11 shrink-0 items-center justify-center text-(--session-dialog-body) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
                               >
                                 <Info size={16} aria-hidden="true" />
                               </TooltipTrigger>
@@ -240,7 +240,7 @@ export function AmbientSoundSheet({
                         value={level}
                         aria-label={`${sound.label} 음량`}
                         onChange={(event) => onChangeLevel(sound.id, Number(event.target.value))}
-                        className="-mt-2 min-h-11 w-full accent-[var(--state-focus)]"
+                        className="-mt-2 min-h-11 w-full accent-(--state-focus)"
                       />
                     </li>
                   );
@@ -259,9 +259,9 @@ export function AmbientSoundSheet({
         )}
 
         <div className="flex min-h-11 shrink-0 items-center justify-between gap-3">
-          <span className="flex flex-col text-[15px] leading-[22px] text-[var(--session-dialog-title)]">
+          <span className="flex flex-col text-[15px] leading-5.5 text-(--session-dialog-title)">
             집중 연동
-            <span className="text-[13px] leading-5 text-[var(--session-dialog-body)]">
+            <span className="text-[13px] leading-5 text-(--session-dialog-body)">
               집중 상태가 아닐 때는 소리를 낮춰요
             </span>
           </span>

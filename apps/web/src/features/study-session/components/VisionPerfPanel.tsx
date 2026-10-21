@@ -55,7 +55,7 @@ export function VisionPerfPanel({ measurement }: { measurement: VisionReadyMeasu
     // role을 주지 않는다. DevVisionFailureNotice와 같은 이유로 세션 화면의 접근성 트리에 끼지 않게 한다.
     <dl
       data-perf-panel=""
-      className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+28px)] left-2 z-50 grid grid-cols-[auto_auto] gap-x-2 rounded-md bg-black/75 px-2 py-1 font-mono text-[11px] leading-[15px] text-white"
+      className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+28px)] left-2 z-50 grid grid-cols-[auto_auto] gap-x-2 rounded-md bg-black/75 px-2 py-1 font-mono text-[11px] leading-3.75 text-white"
     >
       <dt>사전로딩</dt>
       <dd>{import.meta.env.VITE_VISION_PREFETCH === "off" ? "off" : "on"}</dd>

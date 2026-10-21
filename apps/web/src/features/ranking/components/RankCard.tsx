@@ -26,7 +26,7 @@ const TONE_CLASS: Record<SubLineTone, string> = {
  * 띄운 틈은 버튼이 놓인 카드와 시트의 면 색으로 칠한다.
  */
 const FILLED_FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-muted";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:ring-offset-2 focus-visible:ring-offset-muted";
 
 /**
  * 랭킹 카드 틀
@@ -50,15 +50,12 @@ export function CardShell({
   return (
     <section
       aria-labelledby={titleId}
-      className={cn("rounded-xl bg-muted px-[18px] pt-3.5 pb-2.5 shadow-sb-card", className)}
+      className={cn("rounded-xl bg-muted px-4.5 pt-3.5 pb-2.5 shadow-sb-card", className)}
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2
           id={titleId}
-          className={cn(
-            "text-[13px] leading-[15px] font-extrabold text-foreground",
-            titleClassName,
-          )}
+          className={cn("text-[13px] leading-3.75 font-extrabold text-foreground", titleClassName)}
         >
           {title}
         </h2>
@@ -70,7 +67,7 @@ export function CardShell({
 }
 
 export function Deadline({ text }: { text: string }) {
-  return <p className="shrink-0 text-[13px] leading-[15px] text-muted-foreground">{text}</p>;
+  return <p className="shrink-0 text-[13px] leading-3.75 text-muted-foreground">{text}</p>;
 }
 
 /**
@@ -84,7 +81,7 @@ export function FocusStartPill({ onClick }: { onClick: () => void }) {
       size="sm"
       onClick={onClick}
       className={cn(
-        "relative h-[31px] shrink-0 rounded-full bg-primary-deep px-2.5 text-[13px] leading-[15px] font-bold before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
+        "relative h-7.75 shrink-0 rounded-full bg-primary-deep px-2.5 text-[13px] leading-3.75 font-bold before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
         FILLED_FOCUS_RING,
       )}
     >
@@ -105,7 +102,7 @@ export function FocusStartButton({
       size="xl"
       onClick={onClick}
       className={cn(
-        "w-full rounded-xl text-[17px] leading-[21px] font-bold",
+        "w-full rounded-xl text-[17px] leading-5.25 font-bold",
         FILLED_FOCUS_RING,
         className,
       )}
@@ -127,7 +124,7 @@ export function SubLineText({ line, className }: { line: SubLine | null; classNa
   return (
     <p
       className={cn(
-        "min-w-0 text-[13px] leading-[15px] break-keep text-pretty",
+        "min-w-0 text-[13px] leading-3.75 break-keep text-pretty",
         TONE_CLASS[line.tone],
         className,
       )}
@@ -152,7 +149,7 @@ export function FocusStartRow({
   onFocusStart: () => void;
 }) {
   return (
-    <div className="flex min-h-[31px] items-center justify-between gap-2">
+    <div className="flex min-h-7.75 items-center justify-between gap-2">
       <div className="min-w-0 flex-1 py-1">{children}</div>
       <FocusStartPill onClick={onFocusStart} />
     </div>
@@ -200,7 +197,7 @@ export function RankedCard({
       title={cardTitle(board)}
       aside={
         cumulative && me !== null ? (
-          <p className="shrink-0 text-[13px] leading-[15px] font-extrabold text-primary">
+          <p className="shrink-0 text-[13px] leading-3.75 font-extrabold text-primary">
             상위 {me.topPercent}%
           </p>
         ) : (
@@ -248,7 +245,7 @@ function RateCatchUp({ board }: { board: RankingBoardResponse }) {
     return null;
   }
   return (
-    <p className="text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
+    <p className="text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
       조금만 더 집중하면 따라잡아요
     </p>
   );
@@ -260,7 +257,7 @@ function NextTierBox({ board }: { board: RankingBoardResponse }) {
     return null;
   }
   return (
-    <div className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-[15px] break-keep text-pretty">
+    <div className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-3.75 break-keep text-pretty">
       <p className="text-foreground">
         <strong className="font-bold">상위 {tier.percent}%</strong>까지{" "}
         {formatGap(board.type, tier.remaining)} 남았어요

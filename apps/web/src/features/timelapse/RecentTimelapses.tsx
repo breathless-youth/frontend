@@ -26,9 +26,9 @@ function TimelapseThumbCard({
   return (
     <li className="relative h-64 w-36 shrink-0 snap-start overflow-hidden rounded-[14px] bg-black">
       <TimelapseThumb record={record} store={store} className="absolute inset-0" />
-      <div className="absolute inset-x-0 bottom-0 h-[120px] bg-linear-to-b from-black/0 to-black/70" />
+      <div className="absolute inset-x-0 bottom-0 h-30 bg-linear-to-b from-black/0 to-black/70" />
       <p className="absolute bottom-3 left-3 flex flex-col gap-0.5 text-white">
-        <span className="text-base leading-[19px] font-bold">
+        <span className="text-base leading-4.75 font-bold">
           {recentDayLabel(record.startedAtMs, nowMs)}
         </span>
         <span className="text-[13px] leading-4 text-white/85">
@@ -75,10 +75,7 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
   return (
     <section aria-labelledby="recent-timelapses-title" className="flex flex-col gap-3 py-3">
       <div className="flex items-center justify-between px-0.5">
-        <h2
-          id="recent-timelapses-title"
-          className="text-foreground text-lg leading-[21px] font-bold"
-        >
+        <h2 id="recent-timelapses-title" className="text-foreground text-lg leading-5.25 font-bold">
           최근 타임랩스
         </h2>
         <button
@@ -94,7 +91,7 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
         <TimelapsesEmpty />
       ) : (
         // 홈 본문 좌우 여백(px-5)을 넘어 화면 양 끝까지 이어 붙이고, 카드는 여백 자리에 맞춰 멈춘다.
-        <ul className="-mx-5 flex snap-x scroll-px-5 gap-2.5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ul className="-mx-5 flex snap-x scroll-px-5 gap-2.5 overflow-x-auto px-5 scrollbar-none [&::-webkit-scrollbar]:hidden">
           {records.map((record) => (
             <TimelapseThumbCard
               key={record.startedAtMs}

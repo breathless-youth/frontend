@@ -48,7 +48,7 @@ export function RankingGainCard({
       className="rounded-xl border-2 border-primary/50 bg-muted px-4 pt-2.5 pb-3 shadow-sb-card animate-[result-fade-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-[15px] leading-[18px] font-extrabold text-foreground">
+        <h2 id={titleId} className="text-[15px] leading-4.5 font-extrabold text-foreground">
           랭킹이 올랐어요
         </h2>
         <button
@@ -58,7 +58,7 @@ export function RankingGainCard({
             onOpen();
           }}
           // 보이는 글자는 16px 높이라 위아래로 넓혀 44px을 맞춘다.
-          className="relative shrink-0 rounded-sm text-[13px] leading-4 font-bold text-primary before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+          className="relative shrink-0 rounded-sm text-[13px] leading-4 font-bold text-primary before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
         >
           {/* 화면 낭독기가 화살표까지 읽지 않도록 이름에서 뺀다. */}
           랭킹 보기 <span aria-hidden="true">›</span>
@@ -66,10 +66,10 @@ export function RankingGainCard({
       </div>
       <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[13px] leading-4 text-muted-foreground">주간 순공</span>
-        <span className="text-[18px] leading-[22px] font-extrabold text-foreground">
+        <span className="text-[18px] leading-5.5 font-extrabold text-foreground">
           {`${formatRank(view.before)}위 → ${formatRank(view.after)}위`}
         </span>
-        <span className="rounded-sm bg-feedback-success/12 px-2 py-1 text-xs leading-[14px] font-extrabold text-rank-rise">
+        <span className="rounded-sm bg-feedback-success/12 px-2 py-1 text-xs leading-3.5 font-extrabold text-rank-rise">
           <span aria-hidden="true">{formatRise(view.delta)}</span>
           <span className="sr-only">{formatRiseSpoken(view.delta)}</span>
         </span>
