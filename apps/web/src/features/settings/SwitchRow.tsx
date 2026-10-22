@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Switch } from "@/components/ui/switch";
+import { haptic } from "@/lib/haptics";
 import { useNativeControl } from "@/lib/nativeControls";
 
 export const ROW_CLASS_NAME = "flex min-h-11 items-center justify-between gap-3 py-3.5";
@@ -57,6 +58,8 @@ export function SwitchRow({
       // 막히기 직전에 눌려 늦게 도착한 누름은 버린다.
       if (!disabled) {
         setPressed(value === 1);
+        // 웹 스위치는 Switch가 울리지만 앱 스위치 누름은 그 콜백을 거치지 않는다.
+        haptic("light");
         onCheckedChange(value === 1);
       }
     },

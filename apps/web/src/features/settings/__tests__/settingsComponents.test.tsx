@@ -15,6 +15,9 @@ import { SettingsRow } from "../SettingsRow";
 import { SettingsSection } from "../SettingsSection";
 import { SwitchRow } from "../SwitchRow";
 
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 describe("SettingsRow", () => {
   it("onPress가 없으면 button이 아니라 div로 렌더한다", () => {
     render(<SettingsRow label="측정 기준 안내" />);
@@ -127,6 +130,7 @@ describe("SwitchRow", () => {
     cleanup();
     resetGlassChrome();
     vi.restoreAllMocks();
+    haptic.mockClear();
   });
 
   it("앱 모드에서 controlId가 있으면 웹 스위치를 숨기고 앱 부품 누름으로 값을 바꾼다", () => {
@@ -144,6 +148,8 @@ describe("SwitchRow", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     pressNative("switch-timelapse-save", 1);
     expect(onCheckedChange).toHaveBeenCalledWith(true);
+    // 웹 스위치처럼 앱 스위치를 바꿔도 햅틱이 울린다.
+    expect(haptic).toHaveBeenCalledWith("light");
 
     rerender(
       <SwitchRow
@@ -157,6 +163,7 @@ describe("SwitchRow", () => {
     // 막히기 직전에 눌려 늦게 도착한 누름은 버린다.
     pressNative("switch-timelapse-save", 0);
     expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledTimes(1);
   });
 
   it("누름을 처리하느라 막힌 동안에는 누른 값을 앱에 보내 앱 스위치가 되돌아가지 않는다", () => {
