@@ -4,4 +4,4 @@
  * 68x60, 반경 16px, bg/layer-1 흰 카드 + Soft Blue 카드 그림자.
  */
 export const CODE_CELL_CLASS =
-  "relative flex h-[68px] w-[60px] items-center justify-center rounded-lg bg-muted shadow-sb-card text-[32px] font-bold tabular-nums text-foreground";
+  "relative flex h-17 w-15 items-center justify-center rounded-lg bg-muted shadow-sb-card text-[32px] font-bold tabular-nums text-foreground";

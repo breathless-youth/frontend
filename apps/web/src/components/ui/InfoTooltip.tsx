@@ -1,6 +1,8 @@
 import { Info } from "lucide-react";
 import { type ComponentProps, type ReactNode, useRef, useState } from "react";
 
+import { cn } from "@/lib/utils";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 
 type InfoTooltipProps = {
@@ -11,6 +13,8 @@ type InfoTooltipProps = {
   iconSize?: number;
   side?: ComponentProps<typeof TooltipContent>["side"];
   align?: ComponentProps<typeof TooltipContent>["align"];
+  /** 본문 색을 덮는다. 세션 화면은 전역 토큰 대신 세션 툴팁 색을 쓴다. */
+  contentClassName?: string;
 };
 
 /**
@@ -51,6 +55,7 @@ export function InfoTooltip({
   iconSize = 16,
   side = "bottom",
   align = "start",
+  contentClassName,
 }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -82,7 +87,7 @@ export function InfoTooltip({
           // touch-manipulation: 웹뷰의 더블탭 줌 인식기가 빠른 두 번째 탭을 삼키지 않게 한다.
           // 박스를 44px로 키우면 글자와 아이콘 사이가 벌어져서 터치 영역만 가상 요소로 넓힌다.
           style={{ width: iconSize, height: iconSize }}
-          className="relative flex touch-manipulation items-center justify-center rounded-full text-text-tertiary after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-1/2 after:content-[''] focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+          className="relative flex touch-manipulation items-center justify-center rounded-full text-text-tertiary after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-1/2 after:content-[''] focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
         >
           <Info size={iconSize} aria-hidden="true" />
         </TooltipTrigger>
@@ -90,7 +95,7 @@ export function InfoTooltip({
           side={side}
           align={align}
           // 세션 툴팁보다 넓은 안내 툴팁 폭에 맞추고, 한글 단어 중간에서 줄이 갈리지 않게 한다.
-          className="bg-foreground text-background max-w-[262px] break-keep"
+          className={cn("bg-foreground text-background max-w-65.5 break-keep", contentClassName)}
           onPointerDownOutside={(event) => {
             if (triggerRef.current?.contains(event.target as Node)) {
               event.preventDefault();

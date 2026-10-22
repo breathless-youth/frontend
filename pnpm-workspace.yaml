@@ -12,3 +12,10 @@ patchedDependencies:
   expo-constants@57.0.20: patches/expo-constants@57.0.20.patch
   "@react-native-firebase/messaging@26.3.3": patches/@react-native-firebase__messaging@26.3.3.patch
   react-native-webview@13.16.1: patches/react-native-webview@13.16.1.patch
+
+# 상위 패키지가 취약한 버전을 정확히 고정해 둬서 범위 안 갱신으로는 고칠 수 없다.
+# 취약한 버전에만 걸리게 선택자를 좁히고, 같은 메이저 안의 패치 버전으로만 돌린다.
+overrides:
+  "nanoid@>=3.0.0 <3.3.18": "^3.3.18"
+  "minimatch@>=5.0.0 <5.1.8": "^5.1.8"
+  "joi@>=17.0.0 <17.13.8": "^17.13.8"

@@ -12,7 +12,8 @@
 | 백그라운드 감지 | `apps/web/src/features/study-session/adapters/systemPauseSource.ts` | `visibilitychange` :58 + `pagehide` :59. iOS WKWebView는 pagehide만 올 수 있다 |
 | 상태 타입 | `apps/web/src/features/study-session/sessionState.ts` | `PauseTrigger` :19, `SessionEndReason` :38 |
 | 화면 | `apps/web/src/routes/RoomPage.tsx` | 약 600행. 심플 모드 오버레이 토글 약 :480 |
-| 컨트롤 바 | `apps/web/src/features/study-session/components/SessionControlBar.tsx` | 버튼 3개, 244×80 고정 필. 버튼 추가 시 폭 변경 → Figma 시안 선행 |
+| 하단 버튼 | `apps/web/src/features/study-session/components/SessionControlButtons.tsx` | `SessionPauseButton`·`SessionExitButton`. 바 없이 하단 양 끝에 둔다(2026-10-21 BY-947) |
+| 배경음 진입 | `apps/web/src/features/study-session/components/SessionSideActions.tsx` | 오른쪽 위 열의 `ambient` 슬롯(카메라 전환 · 배경음 · 과목 순서). `RoomPage.tsx`가 `AmbientSoundButton`을 넣고 `AmbientSoundSheet`(전체 페이지)를 연다 |
 
 ## 소셜룸
 | 지점 | 파일 |
@@ -38,6 +39,6 @@
 | localStorage 이유 | `apps/web/src/features/social-room/socialRoomNotice.ts` :7 주석 |
 | 모달 프리미티브 | `apps/web/src/components/ui/dialog.tsx` (바텀시트 컴포넌트는 없음) |
 | 테스트 설정 | `apps/web/src/test/setup.ts` :7 `HTMLMediaElement.prototype.play` 스텁 |
-| 테스트 위치 예 | `apps/web/src/features/study-session/__tests__/sessionControlBarEffects.test.tsx`, `apps/web/src/routes/__tests__/RoomPage.test.tsx` |
+| 테스트 위치 예 | `apps/web/src/features/study-session/components/__tests__/SessionControlButtons.test.tsx`, `apps/web/src/routes/__tests__/RoomPage.test.tsx`, `apps/web/src/routes/__tests__/RoomPage.ambientSound.test.tsx` |
 | 정적 자산 | `apps/web/public/` (CloudFront 서빙). `sounds/` 폴더 신설 |
 | 개정할 정책 문구 | `docs/screens/SCR-S3-7-S3-8-session-exit.md` :306 "세션 중 알림·소리·진동 미사용이 확정 정책" |

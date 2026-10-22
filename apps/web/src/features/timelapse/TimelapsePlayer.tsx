@@ -117,7 +117,7 @@ export function TimelapsePlayer({
         "relative overflow-hidden rounded-[14px] bg-[#333e4d]",
         // 높이는 캔버스 자체 비율이 정한다. 기기 웹뷰가 화면을 돌린 뒤
         // aspect-ratio 높이를 다시 계산하지 않아 영상이 찌그러졌다.
-        aspect === "9:16" ? "w-[240px]" : "w-full",
+        aspect === "9:16" ? "w-60" : "w-full",
         className,
       )}
     >
@@ -131,7 +131,7 @@ export function TimelapsePlayer({
       {showProgress && (
         <div
           aria-hidden="true"
-          className="absolute inset-x-3 bottom-3 h-[3px] overflow-hidden rounded-[2px] bg-white/30"
+          className="absolute inset-x-3 bottom-3 h-0.75 overflow-hidden rounded-[2px] bg-white/30"
         >
           <div
             ref={progressRef}
@@ -147,7 +147,7 @@ export function TimelapsePlayer({
         type="button"
         onClick={() => setPaused((value) => !value)}
         aria-label={paused ? "타임랩스 재생" : "타임랩스 일시정지"}
-        className="absolute bottom-7 left-1.5 flex size-11 items-center justify-center rounded-full text-white focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)] focus-visible:outline-none"
+        className="absolute bottom-7 left-1.5 flex size-11 items-center justify-center rounded-full text-white focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >
         <span className="flex size-10 items-center justify-center rounded-full bg-black/35">
           {paused ? (

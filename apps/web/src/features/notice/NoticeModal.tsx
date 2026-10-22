@@ -40,13 +40,13 @@ export function NoticeModal({
         onInteractOutside={(event) => event.preventDefault()}
         // 버튼만이 출구라 작은 화면·큰 글자에서도 하단 버튼까지 스크롤로 닿게 한다.
         // body로 포털돼 홈의 테마 범위를 벗어나므로 같은 토큰을 직접 건다.
-        className="theme-soft-blue flex max-h-[calc(100dvh-24px)] w-[calc(100%-3rem)] max-w-[354px] flex-col items-center gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-[22px] pt-[22px] pb-3 outline-none sm:rounded-3xl"
+        className="theme-soft-blue flex max-h-[calc(100dvh-24px)] w-[calc(100%-3rem)] max-w-88.5 flex-col items-center gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-5.5 pb-3 outline-none sm:rounded-3xl"
       >
         {notice.imageUrl !== null && (
           <img
             src={notice.imageUrl}
             alt=""
-            className="aspect-[310/174] w-full shrink-0 rounded-lg bg-brand-subtle object-cover"
+            className="aspect-310/174 w-full shrink-0 rounded-lg bg-brand-subtle object-cover"
           />
         )}
         {notice.badgeText !== null && (
@@ -54,10 +54,10 @@ export function NoticeModal({
             {notice.badgeText}
           </Badge>
         )}
-        <DialogTitle className="mt-3 text-center break-keep text-[19px] leading-[23px] font-black tracking-[-0.38px] text-foreground">
+        <DialogTitle className="mt-3 text-center break-keep text-[19px] leading-5.75 font-black tracking-[-0.38px] text-foreground">
           {notice.title}
         </DialogTitle>
-        <DialogDescription className="mt-2 text-center break-keep text-[14px] leading-[21px] whitespace-pre-line text-muted-foreground">
+        <DialogDescription className="mt-2 text-center break-keep text-[14px] leading-5.25 whitespace-pre-line text-muted-foreground">
           {notice.content}
         </DialogDescription>
         {onPrimary !== undefined && notice.buttonText !== null && (
@@ -65,7 +65,7 @@ export function NoticeModal({
             type="button"
             size="xl"
             onClick={onPrimary}
-            className="mt-5 w-full shrink-0 rounded-xl text-[17px] leading-[21px] font-bold"
+            className="mt-5 w-full shrink-0 rounded-xl text-[17px] leading-5.25 font-bold"
           >
             {notice.buttonText}
           </Button>
@@ -75,7 +75,7 @@ export function NoticeModal({
             type="button"
             variant="ghost"
             onClick={onNeverAgain}
-            className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-[18px] font-bold text-muted-foreground"
+            className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-4.5 font-bold text-muted-foreground"
           >
             다시 보지 않기
           </Button>
@@ -84,7 +84,7 @@ export function NoticeModal({
             type="button"
             variant="ghost"
             onClick={onClose}
-            className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-[18px] font-bold text-foreground"
+            className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-4.5 font-bold text-foreground"
           >
             닫기
           </Button>

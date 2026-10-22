@@ -76,8 +76,8 @@ export function RankingRecordsPage() {
       <ScreenBackHeader title="랭킹 기록" onBack={goBack} />
       {identityPending ? (
         <div className="flex flex-col px-5 pt-4">
-          <Skeleton className="h-[153px] rounded-xl" />
-          <Skeleton className="mt-3.5 h-[220px] rounded-xl" />
+          <Skeleton className="h-38.25 rounded-xl" />
+          <Skeleton className="mt-3.5 h-55 rounded-xl" />
         </div>
       ) : userId === null ? (
         <p className="p-4 text-sm text-muted-foreground">
@@ -144,7 +144,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
       {summary.data !== undefined ? (
         <SummaryCard summary={summary.data} />
       ) : cannotLoad(summary) ? null : (
-        <Skeleton className="h-[153px] rounded-xl" />
+        <Skeleton className="h-38.25 rounded-xl" />
       )}
       <div className="mt-3.5 flex items-center justify-between gap-2">
         <RankChips value={rank} onChange={setRank} />
@@ -161,7 +161,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
             />
           </div>
         ) : (
-          <Skeleton className="mt-3.5 h-[220px] rounded-xl" />
+          <Skeleton className="mt-3.5 h-55 rounded-xl" />
         )
       ) : groups.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">조건에 맞는 기록이 없어요</p>
@@ -174,7 +174,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
           >
             <h2
               id={`ranking-month-${group.key}`}
-              className="px-0.5 pb-1.5 text-[13px] leading-[15px] font-bold text-muted-foreground"
+              className="px-0.5 pb-1.5 text-[13px] leading-3.75 font-bold text-muted-foreground"
             >
               {group.label}
             </h2>
@@ -190,7 +190,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
       {groups.length > 0 && <div ref={ref} aria-hidden="true" className="h-px" />}
       {/* 다시 받는 동안에도 오류 표시가 남아 있으므로 받는 중 표시를 먼저 본다. */}
       {isFetchingNextPage ? (
-        <Skeleton className="mt-3 h-[53px] rounded-xl" />
+        <Skeleton className="mt-3 h-13.25 rounded-xl" />
       ) : isFetchNextPageError ? (
         <div className="mt-3">
           <ErrorState
@@ -211,14 +211,14 @@ function SummaryCard({ summary }: { summary: RankingRecordsSummary }) {
     [3, summary.thirdCount],
   ] as const;
   return (
-    <section aria-label="지금까지 TOP 3" className="rounded-xl bg-muted p-[18px] shadow-sb-card">
-      <p className="flex items-center gap-1.5 text-[13px] leading-[15px] font-bold text-muted-foreground">
+    <section aria-label="지금까지 TOP 3" className="rounded-xl bg-muted p-4.5 shadow-sb-card">
+      <p className="flex items-center gap-1.5 text-[13px] leading-3.75 font-bold text-muted-foreground">
         <IllustCrown width={16} height={11} />
         지금까지 TOP 3
       </p>
       <p className="mt-1.5 font-extrabold tracking-[-0.8px] text-foreground">
-        <span className="text-[40px] leading-[44px]">{summary.total}</span>
-        <span className="text-xl leading-[44px]">번</span>
+        <span className="text-[40px] leading-11">{summary.total}</span>
+        <span className="text-xl leading-11">번</span>
       </p>
       <ul className="mt-3 grid grid-cols-3 border-t border-bg-layer-2 pt-3">
         {counts.map(([rank, count]) => (
@@ -260,7 +260,7 @@ function TypeFilterMenu({
         <button
           type="button"
           aria-label={`종목: ${label}`}
-          className="relative flex h-[31px] shrink-0 items-center gap-1 text-[13px] leading-[15px] font-bold text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
+          className="relative flex h-7.75 shrink-0 items-center gap-1 text-[13px] leading-3.75 font-bold text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
         >
           {label}
           <IconChevronDown aria-hidden="true" />
@@ -300,12 +300,12 @@ function RecordRow({
         type="button"
         onClick={() => onPick(record)}
         aria-label={`${record.rank}위 ${recordName(record)} ${recordPeriod(record)} ${recordValue(record)}`}
-        className="flex min-h-[53px] w-full items-center gap-3 px-[18px] text-left"
+        className="flex min-h-13.25 w-full items-center gap-3 px-4.5 text-left"
       >
         <IllustMedal rank={record.rank} size={24} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm leading-4 font-bold text-foreground">{recordName(record)}</span>
-          <span className="mt-0.5 text-[11px] leading-[13px] text-muted-foreground">
+          <span className="mt-0.5 text-[11px] leading-3.25 text-muted-foreground">
             {recordPeriod(record)}
           </span>
         </span>

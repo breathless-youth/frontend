@@ -169,18 +169,18 @@ function AroundRow({
       aria-hidden={leaving || undefined}
       inert={leaving || undefined}
       aria-current={row.me && !leaving ? "true" : undefined}
-      className="absolute inset-x-0 top-0 flex h-[50px] items-center"
+      className="absolute inset-x-0 top-0 flex h-12.5 items-center"
       style={{ transform: `translateY(${top}px)` }}
     >
       <div
         className={cn(
-          "flex h-[46px] w-full items-center gap-3 rounded-[14px] px-3",
+          "flex h-11.5 w-full items-center gap-3 rounded-[14px] px-3",
           row.me && "bg-primary-deep text-primary-foreground shadow-sb-cta",
         )}
       >
         <span
           className={cn(
-            "min-w-6 shrink-0 text-[13px] leading-[15px] font-extrabold tabular-nums",
+            "min-w-6 shrink-0 text-[13px] leading-3.75 font-extrabold tabular-nums",
             !row.me && "text-text-tertiary",
           )}
           style={{ width: rankWidth }}
@@ -200,14 +200,14 @@ function AroundRow({
         {drop !== null && (
           <span
             aria-hidden="true"
-            className="shrink-0 rounded-full bg-rank-alert-badge-bg px-1.5 py-0.5 text-[11px] leading-[13px] font-bold text-rank-alert-badge-fg"
+            className="shrink-0 rounded-full bg-rank-alert-badge-bg px-1.5 py-0.5 text-[11px] leading-3.25 font-bold text-rank-alert-badge-fg"
           >
             ▼{drop}
           </span>
         )}
         <span
           className={cn(
-            "flex shrink-0 items-center gap-1.5 text-[15px] leading-[18px] tracking-[0.5px] tabular-nums",
+            "flex shrink-0 items-center gap-1.5 text-[15px] leading-4.5 tracking-[0.5px] tabular-nums",
             row.me ? "font-extrabold" : "font-bold text-foreground",
           )}
         >

@@ -87,9 +87,9 @@ const { LazySheet: LazyRecordsSheet, preload: preloadRecordsSheet } = lazyWithPr
 function BoardSkeleton() {
   return (
     <>
-      <Skeleton className="h-[176px] rounded-xl" />
-      <Skeleton className="h-[158px] rounded-xl" />
-      <Skeleton className="h-[262px] rounded-xl" />
+      <Skeleton className="h-44 rounded-xl" />
+      <Skeleton className="h-39.5 rounded-xl" />
+      <Skeleton className="h-65.5 rounded-xl" />
     </>
   );
 }
@@ -114,11 +114,11 @@ export function RankingPage() {
       <div className="flex flex-col px-5">
         {identityPending ? (
           <>
-            <div className="flex h-[29px] items-center justify-between">
-              <Skeleton className="h-[29px] w-40 rounded-md" />
-              <Skeleton className="h-7 w-[76px] rounded-full" />
+            <div className="flex h-7.25 items-center justify-between">
+              <Skeleton className="h-7.25 w-40 rounded-md" />
+              <Skeleton className="h-7 w-19 rounded-full" />
             </div>
-            <Skeleton className="mt-3 h-[31px] w-44 rounded-full" />
+            <Skeleton className="mt-3 h-7.75 w-44 rounded-full" />
             <Skeleton className="mt-2 h-9 rounded-[12px]" />
             <div className="mt-3 flex flex-col gap-3">
               <BoardSkeleton />
@@ -300,7 +300,7 @@ function RankingContent({ userId }: { userId: number }) {
           <>
             <Podium board={board} elapsedSec={elapsedSec} />
             {screen === null ? (
-              <Skeleton className="h-[158px] rounded-xl" />
+              <Skeleton className="h-39.5 rounded-xl" />
             ) : (
               <BoardBody
                 // 판을 바꾸면 카드와 목록을 새로 그려, 옛 판의 줄이 새 판의 줄 위에서 흐려지며 겹치지 않게 한다.

@@ -39,7 +39,7 @@ const ToggleGroupItem = React.forwardRef<
       "before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']",
       "transition-colors motion-reduce:transition-none",
       "data-[state=on]:border-transparent data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)",
       className,
     )}
     {...props}

@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen } from "lucide-react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
+import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
@@ -15,15 +25,20 @@ import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
-import { SessionControlBar } from "@/features/study-session/components/SessionControlBar";
+import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
+import {
+  SessionExitButton,
+  SessionPauseButton,
+} from "@/features/study-session/components/SessionControlButtons";
+import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SessionSideActions } from "@/features/study-session/components/SessionSideActions";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
-import { SessionTimer } from "@/features/study-session/components/SessionTimer";
+import { SessionPageTimer, SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
-import { SubjectSheet } from "@/features/study-session/components/SubjectSheet";
+import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
@@ -47,7 +62,6 @@ import {
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
-import { sheetTimerTravel } from "@/features/study-session/sheetTimerTravel";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -58,6 +72,7 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
+import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
@@ -69,9 +84,11 @@ import {
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
   trackSubjectItemSelected,
+  trackSubjectSheetClosed,
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
@@ -86,78 +103,52 @@ import { prefetchResultPage } from "@/routes/lazyRoutes";
  */
 const SESSION_LAYER_LAYOUT = [
   "pointer-events-none relative flex h-full w-full flex-col items-center",
-  "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+17px)]",
+  "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+8px)]",
   "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
-  "landscape-compact:grid landscape-compact:grid-cols-[1fr_auto_1fr] landscape-compact:grid-rows-[auto_1fr_auto_auto_auto] landscape-compact:items-start",
+  "regular:pb-[calc(env(safe-area-inset-bottom)+24px)]",
+  "short-side-lg:pb-[calc(env(safe-area-inset-bottom)+27px)] short-side-lg:pl-[calc(env(safe-area-inset-left)+32px)] short-side-lg:pr-[calc(env(safe-area-inset-right)+32px)]",
+  "landscape-compact:grid landscape-compact:grid-cols-[1fr_auto_1fr] landscape-compact:grid-rows-[auto_1fr_auto_auto] landscape-compact:items-start",
   "landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)] landscape-compact:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
-  "landscape-compact:pl-[calc(env(safe-area-inset-left)+28px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+28px)]",
+  "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
 ].join(" ");
 
 /**
- * 과목 시트를 끌어 올리는 만큼 **같은 비율로 따라 올라오는 칸** — 순공 타이머가 유일한 사용처다.
+ * 심플 모드에서 숨기는 버튼의 전환
  *
- * 시안 프로토타입은 타이머·라벨·바·시트를 한 덩어리로 끌어올린다. 이 화면은 그 구조를 쓸 수 없어
- * (세로는 스페이서 비율, 가로는 그리드가 배치를 정한다) 레이아웃은 접힌 자리에 그대로 두고
- * **변환만** 진행률에 묶는다. 진행률은 `SubjectSheet`가 문서 루트에 쓰는 CSS 변수로 흘러오므로
- * 드래그 중에도 이 화면은 다시 그려지지 않는다.
- *
- * 이동 거리는 "지금 내 위치 − 목표 높이"라서 프리뷰(아래쪽)와 심플 모드(가운데)가 알아서 다른
- * 거리를 갖는다. 폰 가로 거치에서는 타이머가 이미 위쪽에 있고 시안도 움직이지 않으므로 0으로 둔다.
+ * 심플 모드는 상태 필, 일시정지 버튼, 측정 중인 과목 시간만 남기고 숫자에 집중하게 하는 화면이다.
+ * 사라지는 동안에도 눌리지 않게 호출부가 `inert`를 함께 단다.
  */
-function SheetFollowingSlot({ className, children }: { className?: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+const SIMPLE_MODE_FADE =
+  "transition-[opacity,visibility] duration-200 motion-reduce:transition-none";
 
-  /**
-   * 거리는 **레이아웃 기준**으로만 잰다.
-   *
-   * ⚠️ `getBoundingClientRect()`를 쓰지 말 것. 그 값에는 지금 걸려 있는 변환이 섞여 있어서, 시트가
-   * 닫히며 타이머가 되돌아오는 동안 다시 재면 거리가 매 렌더 조금씩 줄어든다. 목적지가 계속 바뀌니
-   * 화면에서는 타이머가 덜덜 떨리는 것으로 보인다. `offsetTop`은 변환을 무시한 레이아웃 위치이고,
-   * 기준이 되는 세션 레이어가 화면 맨 위에서 시작하므로 그대로 화면 y로 쓸 수 있다.
-   */
-  const measure = useCallback(() => {
-    const element = ref.current;
-    if (element === null) {
-      return;
-    }
-    // `matchMedia`를 쓰지 않는다. jsdom에 없어 테스트가 통째로 죽는다.
-    const travel = sheetTimerTravel(
-      element.offsetTop,
-      element.offsetHeight,
-      window.innerWidth,
-      window.innerHeight,
-    );
-    const next = `${Math.round(travel)}px`;
-    if (element.style.getPropertyValue("--session-sheet-timer-travel") !== next) {
-      element.style.setProperty("--session-sheet-timer-travel", next);
-    }
-  }, []);
+/**
+ * 열린 페이지를 표시하는 history 항목의 키
+ *
+ * 페이지를 열 때 URL은 바꾸지 않고 항목을 하나 쌓아서, iOS 가장자리 스와이프와 브라우저 뒤로 가기가 세션이 아니라 페이지만 닫게 한다.
+ * 라우터 상태(`idx`·`key`)를 함께 복사해 두어 그 항목에서 뒤로 가도 라우터는 같은 화면으로 본다.
+ */
+const PAGE_HISTORY_KEY = "sessionPage";
 
-  useLayoutEffect(measure);
+/** 지금 history 항목이 이 화면이 쌓은 페이지 항목인가. */
+function pageEntryOnTop(): boolean {
+  const state: unknown = window.history.state;
+  return typeof state === "object" && state !== null && PAGE_HISTORY_KEY in state;
+}
 
-  // 일시정지 중에는 다시 그려지지 않아 창 크기만 바뀌면 거리가 갱신되지 않는다.
-  useEffect(() => {
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [measure]);
+type PageCloseReason = "back" | "play";
 
-  return (
-    <div
-      ref={ref}
-      style={{
-        transform:
-          "translateY(calc(var(--session-sheet-progress, 0) * var(--session-sheet-timer-travel, 0px) * -1))",
-        transitionProperty: "transform",
-        transitionTimingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-        // 드래그 중에는 0s로 흘러와 손가락을 그대로 따라간다(시트와 같은 규칙).
-        transitionDuration: "var(--session-sheet-transition, 0s)",
-        willChange: "transform",
-      }}
-      className={cn("motion-reduce:transition-none", className)}
-    >
-      {children}
-    </div>
-  );
+/**
+ * 닫기 요청 없이 사라지는 페이지의 표시 항목 걷어 내기
+ *
+ * 세션이 끝나거나 화면이 통째로 사라질 때 부른다.
+ * 남겨 두면 결과 화면으로 바꿔 끼울 때 그 아래에 세션 항목이 남아, 뒤로 가기로 새 세션이 열린다.
+ * 이미 되돌리는 중이면 한 번 더 되돌리지 않는다. 두 번 되돌리면 세션 화면 밖으로 나간다.
+ */
+function dropPageEntry(closing: RefObject<PageCloseReason | null>) {
+  if (closing.current === null && pageEntryOnTop()) {
+    closing.current = "back";
+    window.history.back();
+  }
 }
 
 /**
@@ -246,9 +237,9 @@ function useRotationPhase(): RotationPhase {
  * 세션 화면
  *
  * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
- *   상태 필·타이머 색·컨트롤 바 첫 버튼이 여기 반응한다.
+ *   상태 필·타이머 색·하단 일시정지 버튼이 여기 반응한다.
  * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
- *   카메라 프리뷰 유무와 타이머 발광·세로 배치가 여기 반응한다.
+ *   카메라 프리뷰 유무, 일시정지 말고 나머지 버튼의 숨김, 타이머 발광·세로 배치가 여기 반응한다.
  *
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
@@ -343,18 +334,34 @@ function RoomSessionScreen({
     timelapse.begin(startedAtMs);
   }, [startedAtMs, timelapse]);
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
-  const [ambientSheetOpen, setAmbientSheetOpen] = useState(false);
-  // 배경음 시트의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
+  /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
+  const [page, setPage] = useState<"subject" | "ambient" | null>(null);
+  const studying = phase.name === "studying";
+  // 세션이 끝나면 페이지는 공부 화면과 함께 사라진다. 사용자가 닫은 것이 아니라 닫힘 계측은 남기지 않는다.
+  if (!studying && page !== null) {
+    setPage(null);
+  }
+  const pageLandscape = useLandscapeLayout(page !== null);
+  // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
-  // 시트를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
+  // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
-  // 과목 시트 — 컨트롤 바를 끌어 올리면 열린다. 비모달이라 세션 축과 무관한 표시 상태다.
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // 목록은 세션에 들어올 때 미리 받는다 — 시트를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
+  const subjectButtonRef = useRef<HTMLButtonElement>(null);
+  // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
+  const subjectOpenerRef = useRef<HTMLElement | null>(null);
+  const subjectOpenedAtRef = useRef(0);
+  /**
+   * 닫기를 요청한 까닭
+   *
+   * 닫기는 history를 한 칸 되돌린 뒤 popstate에서 마무리한다.
+   * 그사이 다시 온 요청은 무시한다. 두 번 되돌리면 세션 화면 밖으로 나간다.
+   */
+  const closingRef = useRef<PageCloseReason | null>(null);
+  // 목록은 세션에 들어올 때 미리 받는다 — 페이지를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
   // 복원 세션이 죽기 전에 완료한 할 일을 제출에 싣는 데도 이 목록이 필요하다. 기기 미등록이면 저장할 곳이
-  // 없어 받지 않는다. 시트가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
+  // 없어 받지 않는다. 과목 페이지가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
   const subjects = useSubjects(userId !== null, (message) => {
-    if (sheetOpen) {
+    if (page === "subject") {
       showCtaToast(message);
     }
   });
@@ -536,15 +543,81 @@ function RoomSessionScreen({
       });
   }
 
-  function handleSheetOpenChange(open: boolean) {
-    if (open && !sheetOpen) {
-      trackSubjectSheetOpened();
-      // 미리 받기가 조용히 실패했으면 여는 순간 한 번 더 받는다.
-      if (subjects.status === "error") {
-        void subjects.reload();
-      }
+  // 리액트 컴파일러는 선언보다 먼저 참조한 함수가 있으면 이 컴포넌트를 통째로 건너뛴다.
+  // 그래서 불리는 함수를 부르는 함수보다 위에 둔다.
+  function openPage(next: "subject" | "ambient") {
+    closingRef.current = null;
+    // 앞으로 가기나 새로고침으로 이미 표시 항목에 와 있으면 그 항목을 다시 쓴다.
+    // 하나 더 쌓으면 뒤로 가기를 두 번 해야 닫힌다.
+    if (!pageEntryOnTop()) {
+      window.history.pushState({ ...(window.history.state ?? {}), [PAGE_HISTORY_KEY]: next }, "");
     }
-    setSheetOpen(open);
+    setPage(next);
+  }
+
+  function openSubjectPage(source: "button" | "label", opener: HTMLElement) {
+    trackSubjectSheetOpened(source);
+    subjectOpenedAtRef.current = Date.now();
+    subjectOpenerRef.current = opener;
+    // 미리 받기가 알림 없이 실패했으면 여는 순간 한 번 더 받는다.
+    if (subjects.status === "error") {
+      void subjects.reload();
+    }
+    openPage("subject");
+  }
+
+  function finishClosingPage() {
+    // 요청 없이 온 popstate는 가장자리 스와이프나 브라우저 뒤로 가기다.
+    const closedBy = closingRef.current ?? "back";
+    closingRef.current = null;
+    if (page === "subject") {
+      trackSubjectSheetClosed({
+        openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
+        closedBy,
+      });
+    }
+    setPage(null);
+  }
+
+  /**
+   * 페이지 닫기 요청
+   *
+   * 뒤로 버튼·Escape는 `back`, 재생 버튼은 `play`다.
+   * 표시 항목이 맨 위에 없으면 되돌릴 항목이 없으므로 바로 닫는다.
+   */
+  function closePage(reason: PageCloseReason) {
+    if (closingRef.current !== null) {
+      return;
+    }
+    closingRef.current = reason;
+    if (pageEntryOnTop()) {
+      window.history.back();
+      return;
+    }
+    finishClosingPage();
+  }
+
+  const onPagePopState = useEffectEvent(finishClosingPage);
+  useEffect(() => {
+    if (page === null) {
+      return;
+    }
+    const handlePopState = () => onPagePopState();
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [page]);
+
+  useEffect(() => {
+    if (!studying) {
+      dropPageEntry(closingRef);
+    }
+  }, [studying]);
+  useEffect(() => () => dropPageEntry(closingRef), []);
+
+  // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 과목 버튼으로 돌아간다.
+  function subjectReturnFocus() {
+    const opener = subjectOpenerRef.current;
+    return opener?.isConnected ? opener : subjectButtonRef.current;
   }
 
   function handleSelectSubject(next: SubjectSelection | null) {
@@ -558,12 +631,12 @@ function RoomSessionScreen({
 
   /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
   const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
-  /** 접힌 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
+  /** 타이머 위 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
   const selectedSubject =
     subjectSelection === null
       ? null
       : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
-  const sheetLabel =
+  const subjectLabel =
     subjectSelection === null
       ? null
       : {
@@ -574,7 +647,7 @@ function RoomSessionScreen({
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
         };
 
-  /** 컨트롤 바 종료 버튼 */
+  /** 하단 종료 버튼 */
   function handleRequestExit() {
     trackStudySessionExitRequested("single");
     setExitDialogOpen(true);
@@ -588,6 +661,7 @@ function RoomSessionScreen({
 
   /** `공부 종료` 확정 */
   function handleConfirmExit() {
+    haptic("medium");
     setExitDialogOpen(false);
     void endAndSubmit(MANUAL_END_REASON);
   }
@@ -602,7 +676,7 @@ function RoomSessionScreen({
       ref={setSessionSurface}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
-      // 컨트롤 바 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
+      // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
       // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
       onDragStart={(event) => event.preventDefault()}
@@ -633,7 +707,7 @@ function RoomSessionScreen({
 
       {phase.name === "studying" ? (
         <>
-          {/* 화면 탭(컨트롤 바 제외) → 심플 모드 전환. 컨트롤 바가 pointer-events-auto로 이 레이어를 가린다.
+          {/* 화면 탭(하단 버튼 제외) → 심플 모드 전환. 버튼이 pointer-events-auto로 이 레이어를 가린다.
               대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다).
               다이얼로그가 떠 있는 동안 딤 뒤 탭은 Radix 가 바깥 포인터를 막아 토글되지 않는다. */}
           <button
@@ -654,34 +728,55 @@ function RoomSessionScreen({
               className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25"
             />
 
-            {/* 위를 기준으로 붙여야 심플 모드에서 카메라 전환이 빠져도 배경음이 움직이지 않는다.
-                세로는 상태 필, 가로는 오른쪽 위 타이머 아랫선 아래에 놓는다.
+            {/* 세로·가로 모두 상태 필 아래 23px에 놓는다.
                 폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다. */}
             <SessionSideActions
-              // 심플 모드는 프리뷰가 없어 전환 결과를 볼 수 없는데 추론만 잠깐 끊긴다.
-              showFlip={!simpleMode}
+              inert={simpleMode}
               onFlipCamera={() => void handleFlipCamera()}
               ambient={
                 /* 배경음 버튼 */
                 <AmbientSoundButton
                   ref={ambientButtonRef}
                   on={ambient.isOn}
-                  expanded={ambientSheetOpen}
-                  onClick={() => setAmbientSheetOpen(true)}
+                  expanded={page === "ambient"}
+                  onClick={() => openPage("ambient")}
                 />
               }
-              // 시트가 열리면 숨긴다 — 세로는 올라온 타이머·시트 윗변과 맞닿고 가로는 시트 밑에 깔려
-              // 비쳐 보인다. 어차피 열린 동안에는 바깥 탭 캐처가 덮어 눌리지 않는다.
+              subject={
+                <Button
+                  ref={subjectButtonRef}
+                  type="button"
+                  size="icon"
+                  variant="unstyled"
+                  // 배경음 버튼과 같은 규칙이다.
+                  // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
+                  aria-label={
+                    subjectSelection === null
+                      ? SUBJECT_SHEET_COPY.title
+                      : `${SUBJECT_SHEET_COPY.title} 선택됨`
+                  }
+                  aria-haspopup="dialog"
+                  aria-expanded={page === "subject"}
+                  data-on={subjectSelection !== null}
+                  onClick={(event) => openSubjectPage("button", event.currentTarget)}
+                  className={cn(controlButtonVariants(), "data-[on=true]:text-(--state-focus)")}
+                >
+                  <BookOpen
+                    aria-hidden="true"
+                    className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
+                  />
+                </Button>
+              }
               className={cn(
-                "absolute right-[calc(env(safe-area-inset-right)+16px)] top-[calc(env(safe-area-inset-top)+62px)] transition-[opacity,visibility] duration-260 motion-reduce:transition-none landscape-compact:top-[calc(env(safe-area-inset-top)+96px)] regular:top-[calc(env(safe-area-inset-top)+65px)] regular:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+74px)] short-side-lg:gap-4.5",
-                sheetOpen && "invisible opacity-0",
+                "absolute top-[calc(env(safe-area-inset-top)+72px)] right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+77px)] regular:top-[calc(env(safe-area-inset-top)+75px)] regular:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+84px)] short-side-lg:gap-4.5",
+                SIMPLE_MODE_FADE,
+                simpleMode && "invisible opacity-0",
               )}
             />
 
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
-                늘려(1:0) 컨트롤 바 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 컨트롤 바
-                사이 여백의 중앙에 놓는다. 과목 시트는 이 비율을 건드리지 않는다 — 타이머는
-                레이아웃이 아니라 변환으로 따라 올라간다(`SheetFollowingSlot`). Figma는 ≈3:5로 중앙보다 위지만
+                늘려(1:0) 하단 버튼 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 하단 버튼
+                사이 여백의 중앙에 놓는다. Figma는 ≈3:5로 중앙보다 위지만
                 실기기에서 너무 높다는 확인으로 균등 배분으로 낮췄다.
 
                 전환 애니메이션을 다시 넣지 말 것.
@@ -693,77 +788,123 @@ function RoomSessionScreen({
                 숫자가 끊기거나 리셋되지는 않는다. 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
             <div className="grow landscape-compact:hidden" />
 
-            {/* 가로 배치만 표시 모드에 따라 갈린다 — 프리뷰는 우상단(row1/col3), 심플은 중앙
-                (row2 전폭). 세로에서는 두 경우 모두 흐름 그대로다. */}
-            <SheetFollowingSlot
-              className={
+            {/* 가로 배치만 표시 모드에 따라 갈린다.
+                프리뷰는 두 하단 버튼 사이 가운데(3행 2열), 심플은 화면 가운데다.
+                세로에서는 두 경우 모두 흐름 그대로다. */}
+            <div
+              className={cn(
+                "relative flex flex-col items-center",
                 simpleMode
                   ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
                     "landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2"
-                  : "landscape-compact:col-start-3 landscape-compact:row-start-1 landscape-compact:-mr-5 landscape-compact:justify-self-end"
-              }
+                  : "landscape-compact:col-start-2 landscape-compact:row-start-3 landscape-compact:self-end",
+              )}
             >
+              {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
+                  둘이 함께 있으면 토스트가 두 번 뜬다. */}
+              {page === null && <CtaToaster />}
+              {subjectLabel !== null && (
+                <SubjectLabel
+                  name={subjectLabel.name}
+                  focusSec={subjectLabel.focusSec}
+                  paused={subjectLabel.paused}
+                  expanded={page === "subject"}
+                  // 심플 모드는 화면 탭이 곧 모드 전환이라, 라벨이 눌리면 그 동작과 겹쳐 페이지가 잘못 열린다.
+                  // 그래서 심플 모드에서는 누를 수 없는 글자로 둔다.
+                  onClick={
+                    simpleMode
+                      ? undefined
+                      : (event) => openSubjectPage("label", event.currentTarget)
+                  }
+                  className="mb-1 landscape-compact:mb-2"
+                />
+              )}
               <SessionTimer
                 focusSec={focusSec}
                 studySec={studySec}
                 state={pillState}
                 glow={simpleMode}
               />
-            </SheetFollowingSlot>
+            </div>
 
             <div className={cn(simpleMode ? "grow" : "grow-0", "landscape-compact:hidden")} />
 
-            {/* 바 위에 과목 라벨(20px + 아래 10px)이 얹혀서 타이머와 바 사이 44px에서 그만큼 뺀다. */}
-            <div className="relative mt-3.5 flex flex-col items-center landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:mt-2 landscape-compact:justify-self-center">
-              <CtaToaster />
-              {/* 컨트롤 바는 과목 시트의 손잡이다 — 위로 끌면 시트가 펼쳐지고 바가 함께 올라간다.
-                  바 위 한 줄 라벨이 선택 항목과 순공을 보여주고, 미선택이면 힌트다. */}
-              <SubjectSheet
-                open={sheetOpen}
-                onOpenChange={handleSheetOpenChange}
-                label={sheetLabel}
-                bar={(surface) => (
-                  <SessionControlBar
-                    paused={paused}
-                    surface={surface}
-                    onTogglePause={() => (paused ? resume() : pause())}
-                    onRequestExit={handleRequestExit}
-                  />
+            {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
+                `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
+            <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
+              <div className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start">
+                <SessionPauseButton
+                  paused={paused}
+                  // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                  onClick={() => {
+                    // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤나 켜지기 전에 울린다.
+                    if (paused) {
+                      haptic("medium");
+                      resume();
+                    } else {
+                      pause();
+                      haptic("light");
+                    }
+                  }}
+                />
+              </div>
+              <div
+                inert={simpleMode}
+                className={cn(
+                  "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
+                  SIMPLE_MODE_FADE,
+                  simpleMode && "invisible opacity-0",
                 )}
               >
-                <SubjectPanel
-                  open={sheetOpen}
-                  store={subjects}
-                  selection={subjectSelection}
-                  onSelect={handleSelectSubject}
-                  // 과목의 재생 버튼은 "이 과목으로 공부 시작"이다 — 일시정지 중이면 세션도 함께 다시 시작한다.
-                  // 행을 눌러 고르기만 할 때는 세션 상태를 건드리지 않는다.
-                  onRequestClose={() => {
-                    if (paused) {
-                      resume();
-                    }
-                    handleSheetOpenChange(false);
-                  }}
-                  paused={paused}
-                  onNotice={showCtaToast}
-                  liveTotals={liveSubjectTotals}
-                />
-              </SubjectSheet>
+                <SessionExitButton onClick={handleRequestExit} />
+              </div>
             </div>
 
             {userId === null && (
-              <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-5 landscape-compact:justify-self-center">
+              <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:justify-self-center">
                 이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
               </p>
             )}
           </div>
 
-          {/* 배경음 시트는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
+          {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
-          <AmbientSoundSheet
-            open={ambientSheetOpen}
+          <SessionPage
+            open={page === "subject"}
+            onOpenChange={(open) => {
+              if (!open) closePage("back");
+            }}
             container={sessionSurface}
-            triggerRef={ambientButtonRef}
+            returnFocus={subjectReturnFocus}
+            title={SUBJECT_SHEET_COPY.title}
+            landscape={pageLandscape}
+          >
+            <SubjectPanel
+              store={subjects}
+              selection={subjectSelection}
+              onSelect={handleSelectSubject}
+              // 과목의 재생 버튼은 "이 과목으로 공부 시작"이다.
+              // 일시정지 중이면 세션도 함께 다시 시작하고 페이지를 닫는다.
+              onRequestClose={() => {
+                if (paused) {
+                  resume();
+                }
+                closePage("play");
+              }}
+              paused={paused}
+              onNotice={showCtaToast}
+              liveTotals={liveSubjectTotals}
+              landscape={pageLandscape}
+              timer={<SessionPageTimer focusSec={focusSec} />}
+            />
+          </SessionPage>
+
+          <AmbientSoundSheet
+            open={page === "ambient"}
+            container={sessionSurface}
+            returnFocus={() => ambientButtonRef.current}
+            landscape={pageLandscape}
+            timer={<SessionPageTimer focusSec={focusSec} />}
             catalog={ambient.catalog}
             mix={ambient.mix}
             duckEnabled={ambient.duckEnabled}
@@ -773,7 +914,9 @@ function RoomSessionScreen({
             onChangeLevel={ambient.changeLevel}
             onSetDuckEnabled={ambient.setDuckEnabled}
             onToggleAll={ambient.toggleAll}
-            onOpenChange={setAmbientSheetOpen}
+            onOpenChange={(open) => {
+              if (!open) closePage("back");
+            }}
           />
         </>
       ) : /* 미달 종료 안내 — 순공 1분 미만이면 자동 종료로 끝났든
@@ -852,7 +995,10 @@ function RoomSessionScreen({
         cancelLabel={INVITE_CONFIRM_COPY.cancel}
         confirmLabel={INVITE_CONFIRM_COPY.confirm}
         onCancel={clearSessionInvite}
-        onConfirm={() => void endAndSubmit(MANUAL_END_REASON)}
+        onConfirm={() => {
+          haptic("medium");
+          void endAndSubmit(MANUAL_END_REASON);
+        }}
       />
     </main>
   );

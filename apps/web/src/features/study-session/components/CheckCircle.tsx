@@ -19,9 +19,9 @@ export function CheckCircle() {
   return (
     <span
       aria-hidden="true"
-      className="flex size-[66px] shrink-0 items-center justify-center rounded-full bg-brand-subtle text-primary"
+      className="flex size-16.5 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-primary"
     >
-      <Check className="size-[28px]" strokeWidth={2.8} />
+      <Check className="size-7" strokeWidth={2.8} />
     </span>
   );
 }

@@ -68,13 +68,13 @@ describe("Dialog 포털 자리와 딤", () => {
   it("overlayClassName 이 딤에 얹힌다", () => {
     render(
       <Dialog open>
-        <DialogContent overlayClassName="bg-[var(--session-dim)]">
+        <DialogContent overlayClassName="bg-(--session-dim)">
           <DialogTitle>공부를 마칠까요</DialogTitle>
         </DialogContent>
       </Dialog>,
     );
 
     const dim = document.querySelector<HTMLElement>('[data-state="open"]:not([role="dialog"])');
-    expect(dim?.className).toContain("bg-[var(--session-dim)]");
+    expect(dim?.className).toContain("bg-(--session-dim)");
   });
 });

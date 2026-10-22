@@ -106,6 +106,10 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   stageStudyResultExit: vi.fn(),
 }));
 
+/** 도장이 종이에 닿는 순간의 햅틱 — 언제 몇 번 불리는지만 본다. */
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 /** 로컬 시각으로 픽스처를 만들어 CI 타임존과 무관하게 같은 표기를 검증한다. */
 const SESSION_START = new Date(2026, 6, 25, 21, 3, 0);
 const SESSION_END = new Date(2026, 6, 25, 22, 48, 0);
@@ -195,6 +199,8 @@ afterEach(() => {
   delete (window as { matchMedia?: unknown }).matchMedia;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // 복원은 spyOn만 되돌려서 vi.fn의 호출 기록과 구현은 따로 초기화한다.
+  vi.resetAllMocks();
   vi.useRealTimers();
 });
 
@@ -361,6 +367,68 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
         vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
       });
     }).not.toThrow();
+  });
+});
+
+describe("ResultPage — 도장 햅틱", () => {
+  /** 도장 키프레임에서 도장이 종이에 닿는 46% 지점 — 2초의 46%. */
+  const STAMP_TOUCH_MS = 920;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+  });
+
+  it("도장이 종이에 닿는 순간 heavy 햅틱을 한 번 울린다", () => {
+    renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
+
+    act(() => {
+      vi.advanceTimersByTime(STAMP_TOUCH_MS - 1);
+    });
+    expect(haptic).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("heavy");
+  });
+
+  it("모션 축소면 도장이 없으니 햅틱도 울리지 않는다", () => {
+    renderResult({ sessions: [exampleSession()] });
+
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
+  it("이미 연출을 본 결과로 돌아오면 햅틱을 다시 울리지 않는다", () => {
+    renderResult({ sessions: [exampleSession()], introSeen: true }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
+  it("도장이 닿기 전에 화면을 떠나면 햅틱을 울리지 않는다", () => {
+    const { unmount } = renderResult({ sessions: [exampleSession()] }, "?userId=7", {
+      reducedMotion: false,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(STAMP_TOUCH_MS - 1);
+    });
+    unmount();
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+    expect(haptic).not.toHaveBeenCalled();
   });
 });
 

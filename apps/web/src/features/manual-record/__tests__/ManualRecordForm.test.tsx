@@ -46,6 +46,8 @@ vi.mock("@/lib/bridge", async (importOriginal) => ({
   ...(await importOriginal<typeof Bridge>()),
   postToNative: vi.fn(() => false),
 }));
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
 
 /** 이미 지난 화요일. 시계에 의존하는 기본값(오늘)은 순수 모듈 테스트가 고정 시각으로 본다. */
 const DAY = "2025-03-04";
@@ -321,6 +323,27 @@ describe("ManualRecordForm", () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
+  it("저장에 성공하면 light 햅틱을 한 번 울린다", async () => {
+    vi.mocked(createManualRecord).mockResolvedValue([saved(41, iso(DAY, 9), iso(DAY, 10))]);
+    const { onDone } = renderForm();
+
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("저장에 실패하면 햅틱을 울리지 않는다", async () => {
+    vi.mocked(createManualRecord).mockRejectedValue(new Error("network"));
+    renderForm();
+
+    fireEvent.click(saveButton());
+
+    expect(await screen.findByText("저장하지 못했어요. 다시 시도해 주세요")).toBeInTheDocument();
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
   describe("수정", () => {
     // 자정을 넘겨 두 날에 나뉜 한 묶음이다.
     const before = summary(51, iso(DAY, 23), iso(NEXT, 0), {
@@ -389,6 +412,22 @@ describe("ManualRecordForm", () => {
         durationMin: 90,
         daysAgo: DAYS_AGO,
       });
+    });
+
+    it("삭제에 성공하면 light 햅틱을 한 번 울린다", async () => {
+      vi.mocked(deleteManualRecord).mockResolvedValue(undefined);
+      const { onDone } = renderForm({
+        mode: { kind: "edit", entry: "records", bundle: [before, after] },
+        sessions: [before, after],
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+      const confirm = await screen.findByRole("alertdialog", { name: "이 기록을 지울까요?" });
+      fireEvent.click(within(confirm).getByRole("button", { name: "지우기" }));
+
+      await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+      expect(haptic).toHaveBeenCalledTimes(1);
+      expect(haptic).toHaveBeenCalledWith("light");
     });
 
     it("뒤 조각만 받은 묶음을 지우면 길이는 받은 조각만큼이다", async () => {

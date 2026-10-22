@@ -74,7 +74,7 @@ export function TimelapsePreview({
       data-testid="timelapse-preview"
       aria-hidden="true"
       className={`relative overflow-hidden rounded-xl bg-[#3b4655] ${
-        aspect === "9:16" ? "h-[320px] w-[180px]" : "aspect-video w-full"
+        aspect === "9:16" ? "h-80 w-45" : "aspect-video w-full"
       }`}
     >
       {empty && (
@@ -101,7 +101,7 @@ export function TimelapsePreview({
           ))}
         </div>
       )}
-      <div className="absolute inset-0 flex flex-col items-end justify-end gap-[5px] px-2.5 pt-3 pb-2.5">
+      <div className="absolute inset-0 flex flex-col items-end justify-end gap-1.25 px-2.5 pt-3 pb-2.5">
         {bottomLines.length > 0 && (
           <div className={`flex flex-col items-end gap-px ${INFO_TEXT}`}>
             {bottomLines.map((line) => (
@@ -123,7 +123,7 @@ export function TimelapsePreview({
           </div>
         )}
       </div>
-      <span className="absolute top-3 right-3 rounded-[4px] bg-white px-[5px] py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
+      <span className="absolute top-3 right-3 rounded-[4px] bg-white px-1.25 py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
         포커스 메이커스
       </span>
     </div>

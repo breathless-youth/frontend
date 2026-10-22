@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
 import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
+import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
@@ -15,6 +16,7 @@ import {
   trackStoreLinkRedirected,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { useUserId } from "@/lib/userId";
@@ -32,8 +34,8 @@ export function InviteCodeJoinPage() {
   const [code, setCode] = useState(() => sanitizeInviteCode(searchParams.get("code") ?? ""));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 진입 계측(BY-472) — 공유→입장 전환율의 분모. `has_code`는 **진입 시점** 기준이라
-  // 입력 중 상태가 아니라 마운트 1회 스냅샷으로 굳힌다(초대 링크 경유 여부의 의미).
+  // 진입 계측 (공유→입장 전환율의 분모)
+  // `has_code`는 진입 시점 기준이라 입력 중 상태가 아니라 마운트 1회 스냅샷으로 고정한다(초대 링크 경유 여부의 의미).
   const [initialHasCode] = useState(() => searchParams.get("code") !== null);
   useEffect(() => {
     trackInviteLinkOpened(initialHasCode);
@@ -46,6 +48,8 @@ export function InviteCodeJoinPage() {
   const storePlatform = isNativeBridgeAvailable()
     ? null
     : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
+  // 앱으로 넘길 코드. 4자리가 아니면 코드 없는 링크와 같게 다룬다.
+  const handoffCode = isCompleteInviteCode(code) ? code : "";
 
   // 인앱 브라우저는 유니버설 링크가 발동하지 않아 앱으로 못 넘어간다.
   // 코드가 실린 링크로 들어왔고 앱 밖 모바일이면, 첫 로드에 한 번 스킴으로 앱 열기를 시도한다.
@@ -53,10 +57,10 @@ export function InviteCodeJoinPage() {
   useEffect(() => {
     if (autoOpenTried.current) return;
     autoOpenTried.current = true;
-    if (storePlatform !== null && shouldAutoOpenInApp(navigator.userAgent, code)) {
-      openInApp(storePlatform, code);
+    if (storePlatform !== null && shouldAutoOpenInApp(navigator.userAgent, handoffCode)) {
+      openInApp(storePlatform, handoffCode);
     }
-  }, [code, storePlatform]);
+  }, [handoffCode, storePlatform]);
 
   const joinMutation = useMutation({
     // 제출 당시의 코드를 변수로 고정한다 — 응답이 오기 전에 입력을 고치면 화면의 code와
@@ -77,31 +81,87 @@ export function InviteCodeJoinPage() {
       );
     },
     onError: (error) => {
+      haptic("medium");
       trackSocialRoomJoinFailed(joinErrorReason(error));
       setErrorMessage(joinErrorMessage(error));
     },
   });
+
+  // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다.
+  // 쿼리 승계 규칙은 ScreenBackHeader 기본 동작과 동일
+  // — 스택이 있으면 뒤로, 딥링크면 소셜 홈으로.
+  const goBack = () => {
+    slideNavigate("back", () => {
+      const historyState = window.history.state as { idx?: number } | null;
+      if (historyState?.idx) {
+        navigate(-1);
+        return;
+      }
+      navigate({ pathname: "/social", search: location.search }, { replace: true });
+    });
+  };
+
+  // 브라우저에는 신원이 없어 코드를 입력해도 참여할 수 없다.
+  // 입력칸 대신 코드를 보여 주고 앱으로 넘기는 버튼 하나만 둔다.
+  // iOS는 스토어를 거치면 코드가 앱에 전달되지 않아, 설치 뒤 입력할 코드를 화면에 남긴다.
+  if (storePlatform !== null) {
+    return (
+      <main
+        data-testid="invite-code-join-page"
+        className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
+      >
+        <ScreenBackHeader onBack={goBack} />
+
+        <div className="flex grow flex-col items-center justify-center gap-2 px-5">
+          <h1 className="text-lg font-bold text-foreground">그룹 스터디에 초대받았어요</h1>
+          {handoffCode !== "" && (
+            <>
+              <div className="size-2" aria-hidden="true" />
+              <div
+                role="group"
+                aria-label={`초대코드 ${handoffCode}`}
+                className="flex justify-center gap-2.5"
+              >
+                {handoffCode.split("").map((digit, index) => (
+                  <div key={index} aria-hidden="true" className={CODE_CELL_CLASS}>
+                    {digit}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <p className="text-sm leading-5 text-muted-foreground">
+            {handoffCode !== ""
+              ? "앱에서 이 코드로 참여할 수 있어요"
+              : "앱에서 초대코드를 입력해 참여할 수 있어요"}
+          </p>
+        </div>
+
+        <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+          <Button
+            variant="default"
+            size="xl"
+            className="shadow-sb-cta w-full"
+            onClick={() => {
+              // 초대발 신규 설치 근사
+              // — 이동 전 전송이 베스트 에포트인 사유는 trackStoreLinkRedirected 주석 참고
+              trackStoreLinkRedirected(storePlatform);
+              openInApp(storePlatform, handoffCode);
+            }}
+          >
+            앱에서 참여하기
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
       data-testid="invite-code-join-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader
-        // 기본 폴백(/settings)은 설정 하위 화면 전제라 소셜 홈으로 재정의한다.
-        // 쿼리 승계 규칙은 ScreenBackHeader 기본 동작과 동일
-        // — 스택이 있으면 뒤로, 딥링크면 소셜 홈으로.
-        onBack={() => {
-          slideNavigate("back", () => {
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            navigate({ pathname: "/social", search: location.search }, { replace: true });
-          });
-        }}
-      />
+      <ScreenBackHeader onBack={goBack} />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
         <h1 className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</h1>
@@ -144,21 +204,6 @@ export function InviteCodeJoinPage() {
         >
           참여하기
         </Button>
-        {storePlatform !== null && (
-          <Button
-            variant="ghost"
-            size="xl"
-            className="mt-2 w-full text-muted-foreground"
-            onClick={() => {
-              // 초대발 신규 설치 근사(BY-472) — 이동 전 전송이 베스트 에포트인 사유는
-              // trackStoreLinkRedirected 주석 참고.
-              trackStoreLinkRedirected(storePlatform);
-              openInApp(storePlatform, isCompleteInviteCode(code) ? code : "");
-            }}
-          >
-            앱에서 참여하기
-          </Button>
-        )}
       </div>
     </main>
   );

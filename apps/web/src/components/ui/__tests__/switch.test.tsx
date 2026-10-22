@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Switch } from "../switch";
+
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
+afterEach(() => vi.clearAllMocks());
 
 describe("Switch", () => {
   it("스위치 역할과 켜짐 상태를 드러낸다", () => {
@@ -28,6 +33,27 @@ describe("Switch", () => {
     expect(onCheckedChange).toHaveBeenCalledWith(true);
   });
 
+  it("사용자가 바꾸면 light 햅틱을 한 번 울리고 새 값을 그대로 넘긴다", async () => {
+    const onCheckedChange = vi.fn();
+    render(<Switch checked={false} aria-label="집중 연동" onCheckedChange={onCheckedChange} />);
+
+    await userEvent.click(screen.getByRole("switch"));
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
+    expect(onCheckedChange).toHaveBeenCalledWith(true);
+  });
+
+  it("바깥에서 값만 바뀌면 햅틱을 울리지 않는다", () => {
+    const { rerender } = render(
+      <Switch checked={false} aria-label="집중 연동" onCheckedChange={vi.fn()} />,
+    );
+
+    rerender(<Switch checked aria-label="집중 연동" onCheckedChange={vi.fn()} />);
+
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
   it("탭 이동으로 포커스를 받는다", async () => {
     render(<Switch checked={false} aria-label="집중 연동" onCheckedChange={vi.fn()} />);
 
@@ -45,6 +71,7 @@ describe("Switch", () => {
     await userEvent.click(screen.getByRole("switch"));
 
     expect(onCheckedChange).not.toHaveBeenCalled();
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   /**
@@ -63,9 +90,9 @@ describe("Switch", () => {
     const toggle = screen.getByRole("switch", { name: "날짜" });
 
     expect(toggle).toHaveClass(
-      "h-[31px]",
-      "w-[51px]",
-      "after:-inset-y-[6.5px]",
+      "h-7.75",
+      "w-12.75",
+      "after:inset-y-[-6.5px]",
       "data-[state=checked]:bg-primary",
       "data-[state=unchecked]:bg-bg-layer-2",
     );

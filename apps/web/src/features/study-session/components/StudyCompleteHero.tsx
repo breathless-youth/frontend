@@ -2,19 +2,20 @@ import { useEffect, useState } from "react";
 
 import stampImage from "@/assets/study-complete-stamp.png";
 import { Badge } from "@/components/ui/badge";
+import { haptic } from "@/lib/haptics";
 
 import { SUB_MINUTE_SEC, toKoreanDurationLength } from "../formatDuration";
 import { RESULT_COPY, focusRateLabel } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 
 /**
- * 히어로의 연출 단계 — `ResultPage`가 정한다.
+ * 히어로의 연출 단계
  *
  * - `intro`: 도장이 찍히고 타이틀·순공시간이 차례로 떠오르는 구간. 카드·CTA는 아직 없다.
- * - `revealed`: 인주·타이틀 블록이 접혀 올라가고 순공시간이 위로 붙는다 — 그 아래로 타임라인·
- *   통계 카드가 드러난다(프로토타입 `reveal()`).
- * - `static`: 모션 축소(`prefers-reduced-motion`) — 연출도 접힘도 없이 처음부터 전부 보여준다.
- *   접힘까지 따라가면 모션 축소 사용자는 `오늘 공부 완료`를 한 번도 보지 못한다.
+ * - `revealed`: 인주·타이틀 블록이 접혀 올라가고 순공시간이 위로 붙는다
+ *   — 그 아래로 타임라인·통계 카드가 드러난다
+ * - `static`: 모션 축소(`prefers-reduced-motion`)
+ *   — 연출도 접힘도 없이 처음부터 전부 보여준다. 접힘까지 따라가면 모션 축소 사용자는 `오늘 공부 완료`를 한 번도 보지 못한다.
  */
 export type CompleteHeroPhase = "intro" | "revealed" | "static";
 
@@ -23,21 +24,18 @@ const COUNT_UP_DURATION_MS = 1300;
 const COUNT_UP_DELAY_MS = 950;
 
 /**
+ * 도장이 종이에 닿는 시점 — `result-stamp-press` 2s의 46% 프레임.
+ *
+ * CSS 애니메이션은 중간 프레임에 이벤트가 없어 타이머로 맞춘다.
+ */
+const STAMP_TOUCH_MS = 920;
+
+/**
  * 공부 완료 히어로
  *
  * 도장(PNG)이 위에서 내려와 찍히고(`result-stamp-press` 2s), 닿는 순간(0.82s) 인주가 튀어나오며
  * 충격 링이 퍼진다. 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
  * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
- *
- * 예전 `ResultHeader`(타이틀 `공부 결과` · 우상단 닫기 · 순공시간 · 집중률 필 · `총 공부 N ·
- * HH:MM–HH:MM`)를 대체한다. 시각 범위는 히어로에서 빠졌다 — 타임라인 카드 축 라벨이 같은 값을
- * 이미 보여준다.
- *
- * ## 절대 좌표를 베끼지 않는다
- *
- * 프로토타입은 iOS 프레임 안 절대 배치(`top: 104px` 스테이지)다. 여기서는 스크롤 컨테이너 흐름
- * 안에 두고 도장·글로우만 절대 배치한다(둘 다 장식이라 흐름에서 빼도 레이아웃이 안 깨진다).
- * 인트로 블록의 `max-height: 300px`(접힘 전환용)은 폰트 2배 확대까지 담는다.
  */
 export function StudyCompleteHero({
   view,
@@ -49,20 +47,28 @@ export function StudyCompleteHero({
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
   const focusSec = useCountUp(view.focusSec, animated);
+  const stamping = phase === "intro";
+
+  useEffect(() => {
+    if (!stamping) {
+      return;
+    }
+    const timer = window.setTimeout(() => haptic("heavy"), STAMP_TOUCH_MS);
+    return () => window.clearTimeout(timer);
+  }, [stamping]);
 
   return (
     // `isolate`: 글로우를 `-z-10`으로 텍스트 **뒤**에 두기 위한 스태킹 컨텍스트. 없으면 절대 배치인
     // 글로우가 흐름 안 텍스트 위에 칠해져 타이틀·숫자가 뿌옇게 바랜다(모션 축소·접힘 전 레이아웃에서
     // 실제 확인). 음수 z-index는 자기 스태킹 컨텍스트 배경 뒤로만 가므로 섹션이 컨텍스트여야 한다.
     <section className="relative isolate flex w-full flex-col items-center">
-      {/* 도장 — 인트로 동안만 존재한다. `both`라 모션이 끝나면 투명하게 남고, 접히면서 사라진다.
-          장식이라 alt는 비운다(찍힌 결과는 아래 인주·타이틀이 말한다). */}
+      {/* 도장 — 인트로 동안만 존재한다. `both`라 모션이 끝나면 투명하게 남고, 접히면서 사라진다. */}
       {phase === "intro" && (
         <img
           src={stampImage}
           alt=""
           draggable={false}
-          className="pointer-events-none absolute top-[44px] left-1/2 z-[8] size-44 origin-bottom animate-[result-stamp-press_2s_cubic-bezier(0.5,0,0.4,1)_both] motion-reduce:hidden"
+          className="pointer-events-none absolute top-11 left-1/2 z-8 size-44 origin-bottom animate-[result-stamp-press_2s_cubic-bezier(0.5,0,0.4,1)_both] motion-reduce:hidden"
         />
       )}
 
@@ -70,14 +76,14 @@ export function StudyCompleteHero({
           animation의 opacity가 inline opacity를 덮어 페이드가 안 먹는다. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-[44px] left-1/2 -z-10 -ml-[170px] size-[340px] transition-opacity duration-500 motion-reduce:transition-none"
+        className="pointer-events-none absolute top-11 left-1/2 -z-10 -ml-42.5 size-85 transition-opacity duration-500 motion-reduce:transition-none"
         style={{ opacity: collapsed ? 0 : 1 }}
       >
         <div className="size-full rounded-full bg-[radial-gradient(circle,var(--color-brand-subtle)_0%,transparent_68%)] animate-[result-hero-glow_3s_ease-in-out_infinite] motion-reduce:animate-none" />
       </div>
 
       <div
-        className="flex w-full flex-col items-center transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        className="flex w-full flex-col items-center transition-[margin-top] duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{ marginTop: collapsed ? 8 : animated ? 150 : 24 }}
       >
         {/* 인트로 블록: 인주 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
@@ -93,7 +99,7 @@ export function StudyCompleteHero({
                 : undefined
           }
         >
-          <div className="relative mb-[18px] size-[72px]">
+          <div className="relative mb-4.5 size-18">
             {/* 충격 링 — `forwards`다. 프로토타입의 `both`는 지연 동안 0% 프레임(반투명 링)이
                 미리 보이는 부작용이 있어 여기서는 닿기 전까지 숨긴다. */}
             <div
@@ -105,34 +111,33 @@ export function StudyCompleteHero({
             </div>
           </div>
 
-          <h1 className="text-[20px] leading-[24px] font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
+          <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeTitle}
           </h1>
-          <p className="mt-1 text-[13px] leading-[16px] text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
+          <p className="mt-1 text-[13px] leading-4 text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
             {RESULT_COPY.completeDescription}
           </p>
         </div>
 
         <div
-          className="flex flex-col items-center gap-[2px] transition-[margin-top] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
+          className="flex flex-col items-center gap-0.5 transition-[margin-top] duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] animate-[result-fade-up_0.5s_ease-out_0.78s_both] motion-reduce:animate-none motion-reduce:transition-none"
           style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
-          <p className="text-[12px] leading-[15px] font-bold text-muted-foreground">
+          <p className="text-[12px] leading-3.75 font-bold text-muted-foreground">
             {RESULT_COPY.focusLabel}
           </p>
-          <p className="text-[40px] leading-[46px] font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
+          <p className="text-[40px] leading-11.5 font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
             {toKoreanDurationLength(focusSec)}
           </p>
         </div>
 
-        {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다 — 맞추려
-            들지 않는다(SCR-S4 QA 회부 규칙). */}
-        <p className="mt-2 text-[14px] leading-[17px] tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
+        {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
+        <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
           <span className="text-muted-foreground">{`${RESULT_COPY.totalPrefix} `}</span>
           <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
         </p>
 
-        <Badge className="mt-[10px] animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
+        <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
           {focusRateLabel(view.focusRatePercent)}
         </Badge>
       </div>
@@ -141,7 +146,9 @@ export function StudyCompleteHero({
 }
 
 /**
- * 순공시간 카운트업 — 1분에서 목표값까지 ease-out(cubic)으로 오른다.
+ * 순공시간 카운트업
+ *
+ * — 1분에서 목표값까지 ease-out(cubic)으로 오른다.
  *
  * 0에서 올리면 첫 프레임과 시작 지연(950ms) 동안 값이 0이라 `1분 미만`(toKoreanDurationLength)이
  * 잠깐 떠, 오르기 전에 "공부를 1분도 못 했다"처럼 읽힌다. 순공이 1분 이상인 세션만 이 화면에
@@ -182,7 +189,7 @@ function SealIcon() {
       width="72"
       height="72"
       viewBox="0 0 100 100"
-      className="rotate-[-6deg] text-primary"
+      className="-rotate-6 text-primary"
       aria-hidden="true"
       focusable="false"
     >

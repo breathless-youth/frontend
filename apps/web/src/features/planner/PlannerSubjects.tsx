@@ -679,7 +679,12 @@ function ManagedSubject({
                   key={task.id}
                   task={task}
                   menuOpen={taskMenuOpen}
-                  onToggle={(done) => void store.toggleTask(subjectId, task.id, done)}
+                  onToggle={(done) => {
+                    if (done) {
+                      haptic("light");
+                    }
+                    void store.toggleTask(subjectId, task.id, done);
+                  }}
                   onOpenMenu={() => onMenu({ subjectId, taskId: task.id })}
                   menu={taskMenuOpen ? rowMenu(task.id) : null}
                 />

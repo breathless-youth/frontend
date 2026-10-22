@@ -38,6 +38,7 @@ import {
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
 } from "@/lib/amplitude";
+import { haptic } from "@/lib/haptics";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
@@ -435,7 +436,7 @@ export function LiveRoomSession({
       className={cn(
         // pointer-events-none: 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지
         // 컨트롤을 띄운다 — 탭은 아래 레이어(유휴 복귀)로 통과시킨다.
-        "amp-block sentry-block pointer-events-none size-full object-cover [filter:brightness(1.06)_saturate(1.1)]",
+        "amp-block sentry-block pointer-events-none size-full object-cover filter-[brightness(1.06)_saturate(1.1)]",
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />
@@ -492,7 +493,7 @@ export function LiveRoomSession({
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
-              <p className="text-sm text-[var(--session-exit-bg)]">{phase.message}</p>
+              <p className="text-sm text-(--session-exit-bg)">{phase.message}</p>
               <button
                 type="button"
                 onClick={() => void endAndSubmit()}
@@ -512,6 +513,8 @@ export function LiveRoomSession({
                 trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
+                // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤에 울린다.
+                haptic("light");
               } else {
                 measurePreviewAspect();
                 setCameraDialogOpen(true);
@@ -541,6 +544,7 @@ export function LiveRoomSession({
           setCameraDialogOpen(false);
         }}
         onConfirm={() => {
+          haptic("medium");
           trackSocialRoomCameraToggled(true);
           setCameraDialogOpen(false);
           setCameraWanted(true);
@@ -562,6 +566,7 @@ export function LiveRoomSession({
           setExitDialogOpen(false);
         }}
         onConfirm={() => {
+          haptic("medium");
           setExitDialogOpen(false);
           void endAndSubmit(MANUAL_END_REASON);
         }}

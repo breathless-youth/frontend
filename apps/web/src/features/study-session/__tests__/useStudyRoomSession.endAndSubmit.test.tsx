@@ -8,9 +8,12 @@ import { submitStudySession } from "../submitStudySession";
 import { useStudyRoomSession } from "../useStudyRoomSession";
 
 vi.mock("../submitStudySession", () => ({ submitStudySession: vi.fn() }));
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
 
 beforeEach(() => {
   vi.mocked(submitStudySession).mockReset();
+  haptic.mockReset();
 });
 
 describe("endAndSubmit 중복 호출", () => {
@@ -112,5 +115,33 @@ describe("제출 성공 후 통계 무효화", () => {
     });
     expect(invalidate).not.toHaveBeenCalled();
     invalidate.mockRestore();
+  });
+});
+
+describe("제출 실패 햅틱", () => {
+  it("실패할 때마다 medium 햅틱을 한 번 울리고, 다시 그려도 더 울리지 않는다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("네트워크"));
+    vi.mocked(submitStudySession).mockRejectedValueOnce(new Error("네트워크"));
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const hook = renderHook(() => useStudyRoomSession(7));
+
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    hook.rerender();
+    expect(hook.result.current.phase.name).toBe("error");
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
+
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(haptic).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(hook.result.current.phase.name).toBe("done");
+    expect(haptic).toHaveBeenCalledTimes(2);
   });
 });

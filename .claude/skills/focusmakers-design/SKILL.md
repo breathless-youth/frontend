@@ -17,6 +17,7 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 - 시안에 있는 색이 `index.css`에 없어 토큰을 추가해야 할 때
 - keyframes·transition을 새로 넣을 때
 - PR 전에 "토큰 대신 hex", "반경 절반", "다크 한 블록만 수정" 같은 드리프트를 찾을 때
+- 햅틱을 새로 넣을 때
 
 ## 절차
 
@@ -55,8 +56,30 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 - `regular:`는 직접 만든 변형이라 `md:`·`lg:`보다 뒤에 정렬된다. 한 요소에서 `regular:`와 `md:`·`lg:`로 같은 속성을 겹쳐 쓰면 넓은 창에서도 `regular:` 값이 이긴다.
 - 탭·하위 화면의 루트(`<main>`)에는 `page-column`을 붙인다. 태블릿에서 좌우 여백만 늘려 콘텐츠를 640(큰 태블릿 720) 열로 모으고 배경은 전폭으로 남긴다. 루트에 좌우 padding을 따로 주지 않는다(같은 속성이라 순서에 따라 한쪽이 진다). 안쪽 div가 스크롤하는 화면(결과 화면)은 열 바깥을 끌어도 스크롤되도록 스크롤 영역에 붙인다. 열에 넣을 수 없는 하단 고정 줄·전폭 iframe 옆 요소와 아래 시트는 `page-width`로 같은 폭을 맞춘다(`ui/sheet.tsx` 참고).
 - 여러 화면에 들어가는 부품(카드·타일·행)은 `@container`와 `@sm:` 같은 container query로, 페이지 골격은 뷰포트 브레이크포인트로 맞춘다.
-- 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다.
+- 새 코드는 길이를 Tailwind 스케일(`h-13`)로 쓰고 px 임의값(`h-[52px]`)을 새로 만들지 않는다. 1px 선, 그림자, safe-area 계산식은 px로 둔다. `pnpm --filter web lint:classes`가 IntelliSense와 같은 기준으로 표준 표기가 아닌 클래스를 찾고, `--write`를 붙이면 고친다.
 - 태블릿 시안은 Figma V2 파일의 `5. Tablet (V2)` 페이지에 있다.
+
+## 햅틱
+
+웹은 `lib/haptics.ts`의 `haptic(style)`만 부른다. 앱에서 브리지 메시지를 받아 expo-haptics로 진동을 낸다. 앱이 직접 그리는 화면(탭 바)은 `apps/mobile/lib/haptics.ts`의 `triggerHaptic`을 부른다.
+
+| 세기 | 쓰는 순간 | 예 |
+|---|---|---|
+| `heavy` | 큰 착지와 축하 | 결과 화면 도장 |
+| `medium` | 사용자가 시작하거나 확정하는 동작, 실패 알림 | 집중 시작, 다시 시작, 공부 종료 확정, 제출 실패 |
+| `light` | 작은 확인 | 할 일 완료, 저장 성공, 스위치, 일시정지, 순서 바꾸기 |
+
+- 햅틱은 사용자가 누른 버튼의 핸들러에 둔다.
+- 여러 경로가 함께 쓰는 훅·스토어 함수에는 넣지 않는다(화면 꺼짐 자동 일시정지처럼 누르지 않은 경로에서도 울리거나 두 번 울린다).
+- 훅에서만 알 수 있는 결과(세션 제출 실패)는 예외로 훅에 둔다.
+- 그래서 제출 실패 햅틱은 사용자가 누르지 않은 자동 종료 뒤의 제출 실패에도 울린다.
+- 세션 중 일시정지 햅틱은 `pause()` 뒤에, 다시 시작 햅틱은 `resume()` 앞에 둬서 기기 조작 감지 센서가 꺼져 있을 때 울린다.
+- 자동으로 뜨는 모달·카드는 ref로 막아 StrictMode가 effect를 두 번 돌려도 한 번만 울린다.
+- 타이머 tick, 집중 상태 전이, 스크롤, 슬라이더, 실시간 순위 갱신처럼 자주 반복되는 이벤트에는 넣지 않는다.
+- 세션 중에는 기기 조작 감지기가 가속도 센서를 보므로 자동 진동이 감지 결과에 섞일 수 있다.
+- 애니메이션에 맞춘 햅틱은 그 애니메이션이 모션 줄이기에서 숨겨지면 함께 부르지 않는다.
+- 앱은 `heavy`를 Android에서 `Heavy`, iOS에서 `Rigid`로 낸다(expo-haptics의 Android `Rigid`는 `Medium`과 같은 진동이다).
+- iOS 시스템 탭 바는 탭을 바꿀 때 진동을 직접 내므로 iOS 탭 바에는 햅틱을 넣지 않는다.
 
 ## 함정
 
@@ -86,10 +109,10 @@ Figma V1.4(`zQOglXxTTaI88OuqIeOYQa`)가 시각의 기준이고, 코드의 기준
 
 - 카드: `rounded-lg border border-border bg-muted px-4`
 - 보조 텍스트: `text-[13px] text-muted-foreground`, 3차: `text-text-tertiary`
-- 브랜드 필: `rounded-full bg-brand-subtle px-[9px] py-[3px] text-xs font-semibold text-primary tabular-nums`
+- 브랜드 필: `rounded-full bg-brand-subtle px-2.25 py-0.75 text-xs font-semibold text-primary tabular-nums`
 - 기존 카드는 `rounded-2xl`을 쓰고 있다(값은 16으로 같다). 새 코드는 `rounded-lg`, 기존 코드는 손대지 않는다
 - 상태색: 순공 `bg-primary`, 휴식 `bg-state-distract`, 일시정지 `bg-text-tertiary`
-- 스켈레톤: `<Skeleton className="h-[92px]" />`, 오류: `<ErrorState screen="…" onRetry />`
+- 스켈레톤: `<Skeleton className="h-23" />`, 오류: `<ErrorState screen="…" onRetry />`
 - 클래스 조합은 `cn()`으로, 조건부 문자열 삼항은 쓰지 않는다
 
 ## Common Mistakes

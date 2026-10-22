@@ -48,7 +48,7 @@ export function SimpleModeSurface({ hidden = false, glowKey, className }: Simple
       aria-hidden="true"
       {...(hidden ? {} : { "data-session-surface": "simple" })}
       className={cn(
-        "absolute inset-0 bg-[var(--session-simple-base)] transition-opacity duration-300 ease-out motion-reduce:transition-none",
+        "absolute inset-0 bg-(--session-simple-base) transition-opacity duration-300 ease-out motion-reduce:transition-none",
         hidden && "pointer-events-none opacity-0",
         className,
       )}

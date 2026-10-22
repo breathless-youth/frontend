@@ -18,7 +18,7 @@ describe("RhythmCard — 나의 공부 리듬 예상 화면", () => {
 
     const ghost = container.querySelector('[aria-hidden="true"]');
     expect(ghost).not.toBeNull();
-    expect(ghost?.querySelectorAll("span.h-\\[13px\\]")).toHaveLength(7 * 24);
+    expect(ghost?.querySelectorAll("span.h-3\\.25")).toHaveLength(7 * 24);
     // 가로축은 5시에서 시작해 다음 날 4시에서 끝난다 — 눈금 5 · 11 · 17 · 23 · 4.
     expect(ghost).toHaveTextContent("51117234");
     // 안내 문구는 장식 밖에 있어 읽힌다.

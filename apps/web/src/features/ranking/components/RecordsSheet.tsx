@@ -71,7 +71,7 @@ export function RecordsSheet({
                   />
                 </div>
               ) : (
-                <Skeleton className="mt-5 h-[300px] rounded-lg" />
+                <Skeleton className="mt-5 h-75 rounded-lg" />
               )}
             </>
           ) : summary.data.total === 0 ? (
@@ -82,7 +82,7 @@ export function RecordsSheet({
                 <DrawerTitle className="text-xl leading-6 font-extrabold tracking-normal text-foreground">
                   랭킹 기록
                 </DrawerTitle>
-                <p className="text-[13px] leading-[15px] text-muted-foreground">
+                <p className="text-[13px] leading-3.75 text-muted-foreground">
                   모두 {summary.data.total}번
                 </p>
               </div>
@@ -104,13 +104,13 @@ export function RecordsSheet({
                   />
                 </div>
               ) : (
-                <Skeleton className="mt-3.5 h-[224px] rounded-lg" />
+                <Skeleton className="mt-3.5 h-56 rounded-lg" />
               )}
               <Button
                 data-base-ui-swipe-ignore=""
                 variant="secondary"
                 onClick={onShowAll}
-                className="mt-3.5 h-[52px] w-full rounded-lg text-[15px] leading-[18px] font-bold"
+                className="mt-3.5 h-13 w-full rounded-lg text-[15px] leading-4.5 font-bold"
               >
                 {summary.data.total}개 모두 보기 ›
               </Button>
@@ -144,16 +144,16 @@ function RecordGrid({
             type="button"
             onClick={() => onPick(record)}
             aria-label={`${record.rank}위 ${recordName(record)} ${recordPeriod(record)} ${recordValue(record)}`}
-            className="flex min-h-[108px] w-full flex-col items-center rounded-lg bg-muted px-1 pt-3 pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--state-focus)]"
+            className="flex min-h-27 w-full flex-col items-center rounded-lg bg-muted px-1 pt-3 pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
           >
             <IllustMedal rank={record.rank} size={30} />
-            <span className="mt-[5px] text-xs leading-[14px] font-extrabold text-foreground">
+            <span className="mt-1.25 text-xs leading-3.5 font-extrabold text-foreground">
               {recordName(record)}
             </span>
-            <span className="mt-[5px] text-[10px] leading-3 text-muted-foreground">
+            <span className="mt-1.25 text-[10px] leading-3 text-muted-foreground">
               {recordPeriod(record)}
             </span>
-            <span className="mt-[5px] text-[11px] leading-[13px] font-extrabold text-primary tabular-nums">
+            <span className="mt-1.25 text-[11px] leading-3.25 font-extrabold text-primary tabular-nums">
               {recordValue(record)}
             </span>
           </button>
@@ -179,24 +179,22 @@ function EmptyRecords({
       <DrawerTitle className="mt-2 text-xl leading-6 font-extrabold tracking-normal text-foreground">
         아직 TOP 3 기록이 없어요
       </DrawerTitle>
-      <p className="mt-2 text-[13px] leading-[15px] break-keep text-pretty text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
         마감 때 3위 안에 든 랭킹판이 생기면 여기에 모여요
       </p>
       {(best !== null || closest !== null) && (
         <dl className="mt-4 w-full rounded-lg bg-bg-layer-2 px-4 text-left">
           {best !== null && (
-            <div className="flex min-h-[49px] items-center justify-between gap-3 border-b border-border last:border-b-0">
-              <dt className="text-[13px] leading-[15px] text-muted-foreground">
-                지금까지 최고 순위
-              </dt>
+            <div className="flex min-h-12.25 items-center justify-between gap-3 border-b border-border last:border-b-0">
+              <dt className="text-[13px] leading-3.75 text-muted-foreground">지금까지 최고 순위</dt>
               <dd className="text-sm leading-4 font-extrabold text-foreground">
                 {recordName(best)} {best.rank}위 · {recordPeriodShort(best)}
               </dd>
             </div>
           )}
           {closest !== null && (
-            <div className="flex min-h-[49px] items-center justify-between gap-3">
-              <dt className="text-[13px] leading-[15px] text-muted-foreground">
+            <div className="flex min-h-12.25 items-center justify-between gap-3">
+              <dt className="text-[13px] leading-3.75 text-muted-foreground">
                 TOP 3에 가장 가까운 판
               </dt>
               {/* 차이 0은 지금 30분 이상으로 3위 안이라는 뜻이라, 최소 1분으로 올린 `1분 차` 대신 TOP 3 안이라고 쓴다. */}

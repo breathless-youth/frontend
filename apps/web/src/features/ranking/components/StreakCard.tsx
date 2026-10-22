@@ -32,7 +32,7 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
     return (
       <CardShell title={cardTitle(board)}>
         <p className="mt-2 text-xl leading-7 font-extrabold text-foreground">지금이 최고 기록</p>
-        <p className="mt-1 text-[13px] leading-[15px] font-semibold break-keep text-pretty text-muted-foreground">
+        <p className="mt-1 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
           내일도 공부하면 최대 {streak.maxDays + 1}일이에요
         </p>
       </CardShell>
@@ -42,7 +42,7 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
     <CardShell title={cardTitle(board)}>
       <dl className="mt-2 grid grid-cols-2 divide-x divide-border">
         <div className="pr-4">
-          <dt className="flex items-center gap-1 text-xs leading-[14px] font-bold text-primary">
+          <dt className="flex items-center gap-1 text-xs leading-3.5 font-bold text-primary">
             <IconTrophy size={13} />
             최고 기록
           </dt>
@@ -50,13 +50,13 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
             <Days days={streak.maxDays} />
           </dd>
           {streak.maxStart !== null && streak.maxEnd !== null && (
-            <dd className="mt-2 text-[11px] leading-[13px] text-muted-foreground">
+            <dd className="mt-2 text-[11px] leading-3.25 text-muted-foreground">
               {formatMonthDay(streak.maxStart)} – {formatMonthDay(streak.maxEnd)}
             </dd>
           )}
         </div>
         <div className="pl-4">
-          <dt className="flex items-center gap-1 text-xs leading-[14px] font-bold text-muted-foreground">
+          <dt className="flex items-center gap-1 text-xs leading-3.5 font-bold text-muted-foreground">
             <IllustFlame width={11} height={13} />
             지금
           </dt>
@@ -64,13 +64,13 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
             <Days days={streak.currentDays} />
           </dd>
           {streak.currentDays === 0 && (
-            <dd className="mt-2 text-[11px] leading-[13px] text-muted-foreground">
+            <dd className="mt-2 text-[11px] leading-3.25 text-muted-foreground">
               오늘 공부하면 1일째예요
             </dd>
           )}
         </div>
       </dl>
-      <p className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-[19px] break-keep text-pretty text-foreground">
+      <p className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-4.75 break-keep text-pretty text-foreground">
         <strong className="font-bold">{streak.maxDays + 1}일</strong>을 이어가면 최고 기록을 넘어요
       </p>
     </CardShell>

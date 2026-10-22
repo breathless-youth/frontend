@@ -165,7 +165,7 @@ export function WebrtcLoopbackPage() {
             autoPlay
             playsInline
             muted
-            className="amp-block aspect-video w-full rounded-xl bg-[var(--session-dialog-bg)] object-cover"
+            className="amp-block aspect-video w-full rounded-xl bg-(--session-dialog-bg) object-cover"
           />
           <figcaption className="mt-1 text-xs text-muted-foreground">원본 (송출측)</figcaption>
         </figure>
@@ -175,7 +175,7 @@ export function WebrtcLoopbackPage() {
             autoPlay
             playsInline
             muted
-            className="amp-block aspect-video w-full rounded-xl bg-[var(--session-dialog-bg)] object-cover"
+            className="amp-block aspect-video w-full rounded-xl bg-(--session-dialog-bg) object-cover"
           />
           <figcaption className="mt-1 text-xs text-muted-foreground">수신 (240p 목표)</figcaption>
         </figure>

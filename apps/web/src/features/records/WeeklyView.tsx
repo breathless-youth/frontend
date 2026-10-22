@@ -44,7 +44,7 @@ const WeekTrendCard = lazy(
 );
 
 /** 추이 카드 자리표시 — 조회 중과 차트 청크를 받는 중에 같은 모양을 쓴다. */
-const TREND_SKELETON = <Skeleton className="h-[296px] w-full rounded-[20px]" />;
+const TREND_SKELETON = <Skeleton className="h-74 w-full rounded-xl" />;
 
 /** 주 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다. 주간 탭이 뜬 뒤 한가할 때 미리 받아 둔다. */
 const { LazySheet: LazyWeekPickerSheet, preload: preloadWeekPickerSheet } = lazyWithPreload(() =>
