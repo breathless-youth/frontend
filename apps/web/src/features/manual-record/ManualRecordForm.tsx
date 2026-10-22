@@ -20,6 +20,7 @@ import {
   trackManualRecordOverlapBlocked,
 } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
+import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 import {
@@ -253,18 +254,16 @@ export function ManualRecordForm({
 
       <div className="grid grid-cols-5 gap-2">
         {CHIPS.map((chip) => (
-          <Button
+          <DurationChip
             key={chip.label}
-            variant="outline"
+            minutes={chip.minutes}
+            label={chip.label}
             disabled={busy || reachedNow(span, nowMs)}
-            onClick={() => {
+            onPress={() => {
               const now = readNow();
               changeSpan(applyChip(span, chip.minutes, now), now);
             }}
-            className="h-11 rounded-full px-0 text-[14px] font-semibold text-foreground"
-          >
-            {chip.label}
-          </Button>
+          />
         ))}
       </div>
 
@@ -414,6 +413,48 @@ function TimeField({
         className="h-13 w-full min-w-0 appearance-none rounded-lg border border-border bg-muted px-3 text-[16px] font-medium text-foreground tabular-nums outline-none focus:border-primary [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:min-w-0 [&::-webkit-datetime-edit]:overflow-visible"
       />
     </div>
+  );
+}
+
+/** 앱에서는 glass 캡슐 버튼으로 바뀌는 길이 칩 */
+function DurationChip({
+  minutes,
+  label,
+  disabled,
+  onPress,
+}: {
+  minutes: number;
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const { ref } = useNativeControl<HTMLButtonElement>(
+    {
+      id: `button-duration-${minutes}`,
+      kind: "button",
+      title: label,
+      systemImage: null,
+      shape: "capsule",
+      disabled,
+      accessibilityLabel: label,
+    },
+    () => {
+      // 막히기 직전에 눌려 늦게 도착한 누름은 버린다.
+      if (!disabled) {
+        onPress();
+      }
+    },
+  );
+  return (
+    <Button
+      ref={ref}
+      variant="outline"
+      disabled={disabled}
+      onClick={onPress}
+      className="h-11 rounded-full px-0 text-[14px] font-semibold text-foreground"
+    >
+      {label}
+    </Button>
   );
 }
 

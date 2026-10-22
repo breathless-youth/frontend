@@ -1,3 +1,4 @@
+import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 import { IllustMedal } from "../icons";
@@ -6,17 +7,32 @@ import { IllustMedal } from "../icons";
  * 겹친 금·은·동 메달과 받은 메달 수
  *
  * 0개면 메달을 흐리게 그린다.
- * 테두리·그림자와 오른쪽 `›`로 누르면 기록이 열리는 버튼이라는 것을 보인다.
+ * 테두리와 그림자로 누르면 기록이 열리는 버튼이라는 것을 보인다.
  * 누르는 영역은 44px이고, 좁은 화면에서 버튼 밑까지 오는 칩의 누르는 영역과 겹치지 않게 위로 더 넓힌다.
  * 넓히는 기준이 테두리 안쪽이라 넓히는 값에 테두리 1px을 위아래로 더한다.
+ * 앱 모드의 네이티브 버튼은 위아래를 같게 넓혀 가운데 기준 44px을 받는다.
  */
 export function MedalButton({ total, onClick }: { total: number | null; onClick: () => void }) {
+  const label = total === null ? "랭킹 기록" : `랭킹 기록, 메달 ${total}개`;
+  const { ref } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "button-medal",
+      kind: "button",
+      title: total === null ? null : String(total),
+      systemImage: "medal.fill",
+      shape: "capsule",
+      disabled: false,
+      accessibilityLabel: label,
+    },
+    onClick,
+  );
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       aria-haspopup="dialog"
-      aria-label={total === null ? "랭킹 기록" : `랭킹 기록, 메달 ${total}개`}
+      aria-label={label}
       className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted pr-2 pl-2.5 shadow-sb-card before:absolute before:inset-x-0 before:-top-3.75 before:-bottom-0.75 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
     >
       <span className={cn("flex", total === 0 && "opacity-45")}>
@@ -40,9 +56,6 @@ export function MedalButton({ total, onClick }: { total: number | null; onClick:
           {total}
         </span>
       )}
-      <span aria-hidden="true" className="text-[15px] leading-none font-bold text-muted-foreground">
-        ›
-      </span>
     </button>
   );
 }

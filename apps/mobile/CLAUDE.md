@@ -65,6 +65,35 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **같은 패치가 iOS 앞으로가기 스와이프도 끈다.** `allowsBackForwardNavigationGestures`를 끄면 뒤로 스와이프 미리보기(스냅샷)까지 사라져서, 스위치는 켜 둔 채 앞으로가기 쪽 가장자리 인식기만 끈다([BY-775 설계 문서](../../docs/superpowers/specs/2026-09-29-by-775-disable-forward-swipe-design.md)). 라이브러리를 올릴 때는 두 수정을 따로 확인한다. 업스트림이 한쪽만 해결했으면 그 hunk와 `webviewPatch.test.ts`의 해당 단언만 지우고 패치 파일은 남긴다.
 - 인스펙터 연결·브리지 개발 로그·색 실험 등 웹뷰 디버깅 절차는 [webview-debugging 런북](../../docs/runbooks/webview-debugging.md). 개발 빌드는 버려진 브리지 메시지와 나가는 메시지를 `[webview-bridge]` 접두사로 찍는다.
 
+## 웹뷰 위 glass 크롬
+
+iOS 26 Liquid Glass를 웹 화면에 입히는 구조이고, 결정과 실측은 [ADR 0018](../../docs/adr/0018-native-glass-chrome-over-webview.md)에 있다.
+
+- 화면에 고정되는 뒤로 가기 줄은 `GlassChromeOverlay`(`@expo/ui`)가 웹뷰 위에 그린다.
+- 이 층은 뒤로·닫기 버튼과 제목만 그린다.
+- 하단 CTA는 사용자 결정으로 기존 웹 버튼을 쓰므로 이 층에 다시 넣지 않는다.
+- 플래너의 날짜 이동 줄은 사용자 결정으로 웹의 `PeriodNav`가 같은 줄에 그리므로 이 층에 날짜 이동을 다시 넣지 않는다.
+- 본문의 세그먼트·스위치·버튼은 로컬 모듈 `web-glass`가 `WKWebView.scrollView` 안 문서 좌표에 UIKit 부품으로 붙인다.
+- 위쪽 줄이 있으면 호스트가 `setInlineClipTop`으로 줄이 차지하는 높이를 넘기고, Swift가 웹뷰 안전 영역에 그 값을 더한 선에서 부품 층을 잘라 줄 위로 올라간 부품은 그리지도 누르지도 않는다.
+- 기록 탭의 달·주 이동 줄도 사용자 결정으로 웹 모양을 유지하므로 본문 부품에 기간 종류를 다시 넣지 않는다.
+- 본문 부품은 크기가 작아도 가운데 기준 44pt 안의 누름을 받는다(웹 원본이 넓혀 둔 누름 영역은 원본과 함께 숨겨진다).
+- 버튼에 웹 아이콘이 필요하면 SVG를 검정 템플릿 PNG(@1x·@2x·@3x)로 렌더해 `modules/web-glass/ios/Assets`에 두고 웹은 `image`에 파일 이름을 넘긴다.
+- `image`를 쓰는 버튼은 그 PNG가 없는 이전 바이너리가 빈 버튼을 그리지 않도록 비슷한 SF Symbol을 `systemImage`에도 넘긴다.
+- podspec의 `resource_bundles`가 바뀌면 `ios`에서 `pod install`을 다시 돌린다.
+- 원격 웹은 구버전 앱에도 바로 배포되고 웹은 URL에 `glassChrome`이 있을 때만 자리를 비우므로, **`lib/remoteQueryParams.ts`가 이 표시를 붙이는 조건(iOS, `web-glass` 모듈 있음, `isLiquidGlassAvailable()`)을 풀지 말 것.**
+- 웹은 `glassChrome`의 버전(지금은 1)과 `glassControls`의 종류 목록(지금은 `segment,switch,button`) 안에 있는 것만 앱에 맡긴다.
+- **고정 영역에 새 모양을 더하면 `GLASS_CHROME_VERSION`을 올리고, Swift에 본문 부품 종류를 더하면 `modules/web-glass`의 `SUPPORTED_INLINE_KINDS`에도 넣는다**(빠뜨리면 새 웹이 그 모양과 종류를 앱에 맡기지 않는다).
+- 개발 빌드에서 CSS 대체 화면과 비교하려면 `.env.local`에 `GLASS_CHROME_OFF=1`을 두고 Metro를 재시작한다(production·staging에서는 이 값을 무시한다).
+- `set-glass-chrome`·`set-inline-controls`는 `RemoteWebViewHost`가 소비해 `onBridgeMessage`로 넘기지 않고(`HostConsumedType`), iOS가 아니면 받아도 그리지 않는다.
+- 이전 문서의 버튼이 새 문서 위에 남지 않도록, 호스트는 새 문서 세대, iOS `onLoadStart`, 언마운트 때 두 층을 비운다.
+- 웹뷰 ref는 명령형 핸들이라 `findNodeHandle`이 실패하므로, **감싼 `View`의 태그를 넘기고** Swift가 그 아래에서 `WKWebView`를 찾는다.
+- Swift에서 JS 숫자와 불리언은 `NSNumber`로 읽는다(딕셔너리 안에서 `Int`·`Bool`로 바로 캐스팅되지 않는다).
+- 본문 부품은 페이지 스크롤만 따라가므로 시트 안쪽처럼 따로 스크롤되는 영역의 컨트롤은 지원하지 않는다.
+- 시뮬레이터의 합성 터치는 스크롤뷰 안 `UISwitch`에 전달되지 않으므로 스위치 누름은 실기기로 확인한다.
+- 떠 있는 층은 `web-glass`가 알리는 뒤로 가기 스와이프 진행(`onBackGesture`)만큼 흐려진다(밀어내지 않고 흐려지는 방식은 사용자 결정이다).
+- Metro의 JS는 새 함수가 없는 이전 Dev Client에도 실리므로, **`web-glass`에 네이티브 함수를 더하면 래퍼에서 `?.`로 불러** 없으면 아무 일도 하지 않게 한다.
+- `axe`의 합성 스와이프로는 뒤로 가기 제스처가 시작되지 않아 실제 스와이프는 실기기로 확인한다.
+
 ## 환경·주소·딥링크
 
 `APP_VARIANT`(`production`/`staging`/`development`, 미설정은 development, 세 값 밖은 설정 평가 시 throw) 하나에서 주소·bundle id 접미사·표시명·Sentry environment·스킴·딥링크 호스트가 파생된다. 원천은 `app.config.ts`이고 근거는 [ADR 0007](../../docs/adr/0007-three-tier-environment-model-and-eas-profiles.md). 로컬 development 주소는 `.env.local`의 `WEB_BASE_URL`·`API_BASE_URL`이고(production·staging에서는 이 주입이 무시된다) Dev Client에서는 Metro만 재시작하면 반영된다. 실기기에서 화면을 여는 절차는 [device-web-dev-server 런북](../../docs/runbooks/device-web-dev-server.md).

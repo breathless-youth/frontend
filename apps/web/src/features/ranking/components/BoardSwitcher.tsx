@@ -24,7 +24,7 @@ import {
 } from "../model/board";
 
 /**
- * 종목·순위 칩
+ * 순위 칩
  *
  * 기본 칩 모양(테두리 알약)을 시안의 흰 칩과 진한 파란 선택 칩으로 덮어쓴다.
  * 시안처럼 테두리 없이 채움만으로 선택을 나눈다.
@@ -39,12 +39,20 @@ export const CHIP_CLASS =
  * 큰 글자 탭
  *
  * 보이는 높이는 글자 줄 높이 29px이고, 누르는 영역은 위로만 넓혀 44px로 맞춘다.
- * 12px 아래에 칩 줄이 있어 아래로 넓히면 칩의 누르는 영역과 겹친다.
+ * 12px 아래에 종목 칸이 있어 아래로 넓히면 그 누르는 영역과 겹친다.
  */
 const MODE_TRIGGER_CLASS =
   "relative mb-0 h-7.25 min-h-0 min-w-11 border-b-0 px-0 text-2xl leading-7.25 font-extrabold tracking-[-0.7px] text-text-tertiary " +
   "before:absolute before:inset-x-0 before:-top-3.75 before:bottom-0 before:content-[''] " +
   "data-[state=active]:text-foreground";
+
+/**
+ * 종목·기간 칸
+ *
+ * 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 넓혀 44px로 맞춘다.
+ * 넓히는 방향은 이웃 칸의 누르는 영역과 겹치지 않게 쓰는 곳에서 정한다.
+ */
+const SEGMENT_TRIGGER_CLASS = "flex-1 justify-center text-xs leading-3.5 font-bold";
 
 /**
  * 랭킹과 명예의 전당 고르기
@@ -76,9 +84,10 @@ export function BoardModeTabs({
 /**
  * 판 고르기
  *
- * 랭킹 쪽은 종목 칩 아래에 기간 세그먼트를 폭에 맞춰 두고, 시간대면 그 아래에 구간 칸 5개를 둔다.
- * 명예의 전당 쪽은 종목 칩만 둔다.
- * 선택된 칩을 다시 누르면 ToggleGroup이 빈 값을 주는데, 판은 늘 하나가 골라져 있어야 해서 무시한다.
+ * 랭킹 쪽은 종목과 기간 세그먼트를 폭에 맞춰 차례로 두고, 시간대면 그 아래에 구간 칸 5개를 둔다.
+ * 명예의 전당 쪽은 종목 세그먼트만 둔다.
+ * 앱 세그먼트의 누름은 웹을 거쳐 늦게 도착할 수 있어서, 이미 고른 종목과 같은 값이 오면 시간대에서 고른 구간이 풀리지 않게 무시한다.
+ * 선택된 구간 칸을 다시 누르면 ToggleGroup이 빈 값을 주는데, 판은 늘 하나가 골라져 있어야 해서 무시한다.
  * 지금 구간으로 연 시간대 판은 서버가 고른 구간을 선택으로 보인다.
  */
 export function BoardSwitcher({
@@ -94,30 +103,29 @@ export function BoardSwitcher({
   onChange: (next: BoardSelection) => void;
   className?: string;
 }) {
-  const types = modeOf(selection) === "hall" ? HALL_BOARD_TYPES : RANKING_BOARD_TYPES;
+  const types: readonly RankingType[] =
+    modeOf(selection) === "hall" ? HALL_BOARD_TYPES : RANKING_BOARD_TYPES;
   const periods = periodsOf(selection.type);
   const period = periodOf(selection);
   const slot = slotOf(selection) ?? resolvedSlot ?? nowSlot;
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <ToggleGroup
-        type="single"
-        aria-label="종목"
+      <SegmentedControl
+        ariaLabel="종목"
         value={selection.type}
-        onValueChange={(next) => {
-          if (next !== "" && next !== selection.type) {
-            onChange(selectType(selection, next as RankingType));
+        options={types.map((value) => ({ value, label: TYPE_LABEL[value] }))}
+        onChange={(next) => {
+          if (next !== selection.type) {
+            onChange(selectType(selection, next));
           }
         }}
-        className="flex-nowrap gap-1.5"
-      >
-        {types.map((type) => (
-          <ToggleGroupItem key={type} value={type} className={CHIP_CLASS}>
-            {TYPE_LABEL[type]}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+        // 대문자와 밑줄이 섞인 종목 값으로는 앱이 받는 id를 만들 수 없다.
+        nativeControlId="segment-ranking-type"
+        className="w-full"
+        // 위 큰 글자 탭에서는 멀고 아래 기간 칸과는 가까워 위로 12px, 아래로 4px 넓힌다.
+        triggerClassName={cn(SEGMENT_TRIGGER_CLASS, "before:-top-3 before:-bottom-1")}
+      />
       {period !== null && (
         <SegmentedControl
           ariaLabel="기간"
@@ -125,9 +133,8 @@ export function BoardSwitcher({
           options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
           onChange={(next) => onChange(selectPeriod(selection, next))}
           className="w-full"
-          // 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 넓혀 44px로 맞춘다.
-          // 위 칩의 누르는 영역에 닿지 않게 위로는 4px, 아래로는 12px 넓힌다.
-          triggerClassName="flex-1 justify-center text-xs leading-3.5 font-bold before:-top-1 before:-bottom-3"
+          // 위 종목 칸의 누르는 영역에 닿지 않게 위로는 4px, 아래로는 12px 넓힌다.
+          triggerClassName={cn(SEGMENT_TRIGGER_CLASS, "before:-top-1 before:-bottom-3")}
         />
       )}
       {selection.type === "TIME_SLOT" && (

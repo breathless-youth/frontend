@@ -61,6 +61,20 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - `apiFetch`의 401 처리는 `res.status`만 읽는다. 기존 테스트가 fetch를 `{ok,status,json}` 객체로 mock하므로 `headers`·`clone()`을 읽지 말 것.
 - `apiFetch`는 API origin(`API_BASE_URL`, 비어 있으면 현재 문서)으로 가는 요청에만 Bearer를 붙인다(BY-673). 다른 origin은 토큰 없이 한 번 보내고 갱신하지 않는다. 이 조건을 지우지 말 것.
 
+## 네이티브 glass (`GlassChrome` · `useNativeControl`)
+
+iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거는 [ADR 0018](../../docs/adr/0018-native-glass-chrome-over-webview.md)에 있다.
+
+- 화면에 고정되는 뒤로 가기 줄은 `fixed` 바를 따로 만들지 말고 `GlassChrome`으로 선언한다(뒤로 가기 줄은 `ScreenBackHeader`가 감싼다).
+- 앱이 그리는 것은 뒤로·닫기 버튼과 제목뿐이다.
+- 플래너의 날짜 이동 줄(`PeriodNav`)처럼 조작이 든 가운데 요소는 `center`로 넘기고, 두 모드 모두 웹이 같은 자리에 그린다.
+- 하단 CTA와 기간 이동 줄(플래너 날짜, 기록 탭 달·주)은 사용자 결정으로 기존 웹 디자인을 유지하므로 네이티브로 바꾸지 않는다.
+- 본문의 세그먼트·스위치·버튼을 앱의 네이티브 부품으로 바꾸려면 `useNativeControl`로 등록하고, 시트 안쪽처럼 따로 스크롤되는 영역의 컨트롤은 등록하지 않는다.
+- 앱 부품은 웹 요소보다 늘 위에 그려지고 앱은 `GlassChrome` 위쪽 줄의 아래 끝에서만 잘라 내므로, 다른 `fixed`·`sticky` 웹 줄 아래로 스크롤되는 자리에 등록하면 그 줄 위에 겹친다(수동 기록 길이 칩과 아래 저장 줄은 짧은 화면에서 드물게 겹친다).
+- 원격 웹은 구버전 앱에도 바로 배포되므로 앱이 URL로 알린 것만 앱에 맡긴다.
+- 고정 요소에 새 모양을 더하면 `glassChromeVersion()`으로 그 모양을 그리는 앱 버전인지 확인하고, 아니면 CSS로 그린다.
+- 새 본문 부품 종류는 앱이 `glassControls`로 알린 뒤에야 앱이 그리고, 그 전에는 `useNativeControl`이 웹 원본을 남긴다.
+
 ## 명령
 
 ```bash

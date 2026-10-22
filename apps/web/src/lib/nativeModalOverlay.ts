@@ -21,7 +21,11 @@ import { useSyncExternalStore } from "react";
  * Base UI 바닥 시트(`ui/drawer.tsx`)는 같은 순간 `data-state` 대신 `data-closed`를 붙인다.
  */
 const MODAL_ATTR_SELECTOR = '[aria-modal="true"]';
-const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"]):not([data-closed])`;
+// Amplitude 가이드 토스트는 아래를 막지 않는데도 aria-modal을 달고 있어서 이 id로 뺀다.
+// 같은 가이드의 모달은 다른 요소라 그대로 열림으로 본다.
+// 이 id는 npm 패키지가 아니라 Amplitude CDN 런타임 번들(engagement-browser)이 만드는 값이라 버전으로 고정할 수 없다.
+// 번들이 이름을 바꾸면 토스트가 뜰 때마다 glass 층과 탭 바가 숨겨지므로 그 증상이 보이면 번들에서 이 id부터 확인한다.
+const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"]):not([data-closed]):not(#engagement-toast-responsive-inner-div)`;
 
 /**
  * 탭 바 자리까지 덮는 모달(바텀시트)이 다는 속성. 다이얼로그는 탭 바를 남기고 딤으로 막지만,
@@ -107,6 +111,14 @@ function getServerSnapshot(): boolean {
 export function useModalOverlayOpen(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+/**
+ * 훅 밖에서 쓰는 모달 열림 구독
+ *
+ * 문서 관찰은 구독자가 있을 때만 돌아서 `isModalOverlayOpen()`은 구독하는 동안만 문서와 맞는다.
+ */
+export const subscribeModalOverlay = subscribe;
+export const isModalOverlayOpen = getSnapshot;
 
 function getCoversSnapshot(): boolean {
   return coversTabBar;

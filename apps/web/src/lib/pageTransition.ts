@@ -18,6 +18,13 @@ export const PAGE_TRANSITION_COMMIT_TIMEOUT_MS = 400;
  */
 const pendingCommits = new Set<() => void>();
 let activeFinished: Promise<void> | null = null;
+const transitionListeners = new Set<(running: boolean) => void>();
+
+function notifyTransition(running: boolean): void {
+  for (const listener of [...transitionListeners]) {
+    listener(running);
+  }
+}
 
 /**
  * 이동을 좌우 슬라이드로 감싼다. react-router의 viewTransition 옵션은 data router에서만
@@ -56,9 +63,23 @@ export function slideNavigate(direction: SlideDirection, update: () => void): vo
       if (activeFinished === finished) {
         activeFinished = null;
         delete root.dataset.pageTransition;
+        notifyTransition(false);
       }
     });
   activeFinished = finished;
+  notifyTransition(true);
+}
+
+/**
+ * 전환 시작과 끝 구독
+ *
+ * 전환이 겹치면 시작마다 true가 오고 마지막 전환이 끝날 때 한 번만 false가 온다.
+ */
+export function subscribePageTransition(listener: (running: boolean) => void): () => void {
+  transitionListeners.add(listener);
+  return () => {
+    transitionListeners.delete(listener);
+  };
 }
 
 /** 라우트가 커밋되면 대기 중인 모든 전환의 갱신 콜백을 푼다. 라우터 안에서 한 번만 마운트한다. */

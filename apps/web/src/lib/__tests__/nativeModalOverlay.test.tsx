@@ -124,6 +124,35 @@ describe("useModalOverlayOpen", () => {
     });
   });
 
+  it("aria-modal을 잘못 단 Amplitude 가이드 토스트는 열림으로 보지 않는다", async () => {
+    const { getByTestId } = render(<Probe />);
+
+    addModal({
+      id: "engagement-toast-responsive-inner-div",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-live": "polite",
+    });
+    await flushMutations();
+
+    expect(getByTestId("state").textContent).toBe("closed");
+  });
+
+  it("Amplitude 가이드 모달은 열림으로 본다", async () => {
+    const { getByTestId } = render(<Probe />);
+
+    addModal({
+      "data-testid": "engagement-modal-variant-1",
+      class: "amplitude-engagement-modal-container engagement-nudge-modal",
+      role: "dialog",
+      "aria-modal": "true",
+    });
+
+    await waitFor(() => {
+      expect(getByTestId("state").textContent).toBe("open");
+    });
+  });
+
   it("모달이 아닌 요소의 data-state 변화에는 문서를 다시 묻지 않는다 — 툴팁·스위치·탭이 늘 흔드는 속성이다", async () => {
     render(<Probe />);
     const toggle = addModal({ "data-state": "closed" });

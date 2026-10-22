@@ -1,10 +1,11 @@
 import { IconPlanner } from "@/features/records/icons";
+import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 import { type PlannerEntry, useOpenPlanner } from "./useOpenPlanner";
 
 /**
- * 홈과 기록 탭 머리 오른쪽의 플래너 알약.
+ * 홈과 기록 탭 머리 오른쪽의 플래너 원형 버튼.
  * 두 탭이 같은 입구로 보이도록 모양을 한 곳에서 정한다.
  * 놓이는 줄마다 맞춤이 달라 `className`으로 여백·정렬만 받는다.
  */
@@ -18,17 +19,36 @@ export function PlannerPillButton({
   className?: string;
 }) {
   const openPlanner = useOpenPlanner(via);
+  const open = () => {
+    openPlanner(dateKey);
+  };
+  // 앱 원형 버튼은 웹 아이콘을 렌더해 앱에 넣은 이미지로 같은 그림을 그린다.
+  // 그 이미지가 없는 이전 앱은 비슷한 SF Symbol로 그린다.
+  const { ref } = useNativeControl<HTMLButtonElement>(
+    {
+      id: `button-planner-${via}`,
+      kind: "button",
+      title: null,
+      systemImage: "calendar",
+      image: "planner",
+      shape: "circle",
+      disabled: false,
+      accessibilityLabel: "플래너",
+    },
+    open,
+  );
   return (
     <button
+      ref={ref}
       type="button"
-      onClick={() => openPlanner(dateKey)}
+      aria-label="플래너"
+      onClick={open}
       className={cn(
-        "flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-3 pl-2.5 text-[13px] leading-4 font-semibold text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]",
+        "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]",
         className,
       )}
     >
-      <IconPlanner size={18} />
-      플래너
+      <IconPlanner size={24} />
     </button>
   );
 }

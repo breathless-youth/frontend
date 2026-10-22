@@ -96,6 +96,25 @@ describe("app.config 환경 분기", () => {
     ).toThrow(/운영 주소/);
   });
 
+  it("GLASS_CHROME_OFF=1은 개발 빌드에서만 glass 끄기로 읽는다", () => {
+    expect(resolveExtra({ APP_VARIANT: undefined, GLASS_CHROME_OFF: "1" })?.glassChromeOff).toBe(
+      true,
+    );
+    expect(resolveExtra({ APP_VARIANT: undefined, GLASS_CHROME_OFF: "0" })?.glassChromeOff).toBe(
+      false,
+    );
+    expect(
+      resolveExtra({ APP_VARIANT: undefined, GLASS_CHROME_OFF: undefined })?.glassChromeOff,
+    ).toBe(false);
+    expect(resolveExtra({ APP_VARIANT: "staging", GLASS_CHROME_OFF: "1" })?.glassChromeOff).toBe(
+      false,
+    );
+    expect(
+      resolveExtra({ APP_VARIANT: "production", ...PROD_FIREBASE_ENV, GLASS_CHROME_OFF: "1" })
+        ?.glassChromeOff,
+    ).toBe(false);
+  });
+
   describe("APP_VARIANT 3단계 파생", () => {
     it("staging은 dev 주소 상수와 .staging 아이덴티티, STG 표시명을 낸다", () => {
       process.env.APP_VARIANT = "staging";

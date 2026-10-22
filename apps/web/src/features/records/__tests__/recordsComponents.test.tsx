@@ -1,12 +1,13 @@
 import type { StudySessionEventCounts, StudySessionSummary } from "@focusmakers/types";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SegmentedControl } from "../SegmentedControl";
 import { Accordion } from "@/components/ui/accordion";
+import { enterGlassChrome, pressNative, resetGlassChrome } from "@/test/nativeControlStub";
 
 import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
@@ -634,5 +635,35 @@ describe("SegmentedControl", () => {
       "주간",
       "월간",
     ]);
+  });
+});
+
+describe("SegmentedControl, 앱 모드", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it("웹 탭을 숨기고 앱 부품 누름을 그 칸의 값으로 넘기며 막힌 칸은 무시한다", () => {
+    enterGlassChrome("/ranking");
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        ariaLabel="기간"
+        value="DAILY"
+        options={[
+          { value: "DAILY", label: "일간" },
+          { value: "WEEKLY", label: "주간", disabled: true },
+          { value: "MONTHLY", label: "월간" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    pressNative("segment-daily-weekly-monthly", 1);
+    expect(onChange).not.toHaveBeenCalled();
+    pressNative("segment-daily-weekly-monthly", 2);
+    expect(onChange).toHaveBeenCalledWith("MONTHLY");
   });
 });

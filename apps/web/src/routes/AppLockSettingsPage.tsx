@@ -27,6 +27,7 @@ export function AppLockSettingsPage() {
         <SettingsSection>
           <SwitchRow
             label="방해 앱 잠금"
+            controlId="switch-app-lock"
             tooltip="접근 가능 정보: 잠긴 앱 개수, 잠금 설정 활성화 여부"
             checked={enabled}
             disabled={busy}

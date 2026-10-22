@@ -1,3 +1,7 @@
+import { useNativeControl } from "@/lib/nativeControls";
+
+import { cameraPermissionRowLabel } from "./settingsInfo";
+
 /**
  * S6 설정의 카메라 권한 **표시 전용** 토글 (Figma `Control / Toggle` 43:89 — 51×31,
  * On=brand/primary, Off=#E9E9EA, 노브 27 white + 그림자).
@@ -20,8 +24,21 @@ type PermissionToggleProps = {
 };
 
 export function PermissionToggle({ granted }: PermissionToggleProps) {
+  // 앱 스위치도 모양만 그리고 누름은 웹의 행 버튼으로 통과시킨다.
+  const { ref } = useNativeControl<HTMLDivElement>(
+    {
+      id: "switch-camera-permission",
+      kind: "switch",
+      on: granted,
+      disabled: false,
+      interactive: false,
+      accessibilityLabel: cameraPermissionRowLabel(granted),
+    },
+    () => {},
+  );
   return (
     <div
+      ref={ref}
       // 상태는 행의 aria-label이 텍스트로 읽어준다(색상 단독 전달 금지) —
       // 그래픽까지 접근성 트리에 남으면 같은 정보가 두 번 읽힌다.
       aria-hidden="true"

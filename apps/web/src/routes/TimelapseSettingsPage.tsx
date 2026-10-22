@@ -16,6 +16,7 @@ import {
 import { useTimelapseSettings } from "@/features/timelapse/useTimelapseSettings";
 import { trackTimelapseSettingChanged, type TimelapseSettingEventKey } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
+import { useNativeControl } from "@/lib/nativeControls";
 import { useUserId } from "@/lib/userId";
 
 const INFO_LABELS: Record<TimelapseInfoKey, string> = {
@@ -42,6 +43,8 @@ const ASPECTS: readonly { value: TimelapseAspect; label: string }[] = [
   { value: "9:16", label: "세로 9:16" },
   { value: "16:9", label: "가로 16:9" },
 ];
+
+const ASPECT_LABEL = "영상 비율";
 
 /**
  * 설정 › 타임랩스 페이지
@@ -72,6 +75,29 @@ export function TimelapseSettingsPage() {
     trackTimelapseSettingChanged({ setting, value });
   };
 
+  const changeAspect = (value: string) => {
+    // 선택된 칸을 다시 누르면 빈 문자열이 온다. 비율은 늘 하나가 골라져 있어야 해서 무시한다.
+    if (settings === null || value === "" || value === settings.aspect) return;
+    const aspect = value as TimelapseAspect;
+    change({ ...settings, aspect }, "aspect", aspect);
+  };
+
+  const { ref: aspectRef } = useNativeControl<HTMLDivElement>(
+    settings?.enabled
+      ? {
+          id: "segment-timelapse-ratio",
+          kind: "segment",
+          labels: ASPECTS.map((aspect) => aspect.label),
+          selected: ASPECTS.findIndex((aspect) => aspect.value === settings.aspect),
+          disabled: ASPECTS.map(() => false),
+          accessibilityLabel: ASPECT_LABEL,
+        }
+      : null,
+    (index) => {
+      changeAspect(ASPECTS[index]?.value ?? "");
+    },
+  );
+
   return (
     <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-10 text-foreground">
       <ScreenBackHeader title="타임랩스" />
@@ -81,6 +107,7 @@ export function TimelapseSettingsPage() {
           <SettingsSection>
             <SwitchRow
               label="타임랩스 저장"
+              controlId="switch-timelapse-save"
               tooltip="기기 내에만 최대 7일, 7개까지 보관돼요."
               checked={settings.enabled}
               onCheckedChange={(enabled) => change({ ...settings, enabled }, "enabled", enabled)}
@@ -94,18 +121,14 @@ export function TimelapseSettingsPage() {
                   id={aspectLabelId}
                   className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium"
                 >
-                  영상 비율
+                  {ASPECT_LABEL}
                 </p>
                 <ToggleGroup
+                  ref={aspectRef}
                   type="single"
                   aria-labelledby={aspectLabelId}
                   value={settings.aspect}
-                  // 선택된 칸을 다시 누르면 빈 문자열이 온다. 비율은 늘 하나가 골라져 있어야 해서 무시한다.
-                  onValueChange={(value) => {
-                    if (value === "" || value === settings.aspect) return;
-                    const aspect = value as TimelapseAspect;
-                    change({ ...settings, aspect }, "aspect", aspect);
-                  }}
+                  onValueChange={changeAspect}
                   className="bg-bg-control-track flex-nowrap gap-0.5 rounded-[12px] p-1"
                 >
                   {ASPECTS.map((aspect) => (
@@ -146,6 +169,8 @@ export function TimelapseSettingsPage() {
                     <SwitchRow
                       key={key}
                       label={INFO_LABELS[key]}
+                      // 앱 id는 소문자만 받는다.
+                      controlId={`switch-info-${key.toLowerCase()}`}
                       tooltip={key === "faceMask" ? "처음 인식된 얼굴만 가려요." : undefined}
                       checked={settings.info[key]}
                       onCheckedChange={(checked) =>

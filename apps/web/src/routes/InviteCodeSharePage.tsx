@@ -1,7 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { Copy, Share, X } from "lucide-react";
+import { Copy, Share } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import { GlassChrome } from "@/components/GlassChrome";
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
@@ -69,13 +70,13 @@ export function InviteCodeSharePage() {
   return (
     <main
       data-testid="invite-code-share-page"
-      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <div className="flex h-13 items-center px-2">
-        <Button
-          variant="ghost"
-          aria-label="닫기"
-          onClick={() => {
+      <GlassChrome
+        top={{
+          leading: "close",
+          leadingLabel: "닫기",
+          onLeading: () => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
             // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
             slideNavigate("back", () => {
@@ -86,12 +87,9 @@ export function InviteCodeSharePage() {
               }
               navigate({ pathname: "/social", search: location.search }, { replace: true });
             });
-          }}
-          className="size-11 p-0"
-        >
-          <X size={22} aria-hidden="true" />
-        </Button>
-      </div>
+          },
+        }}
+      />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
         <h1 className="text-lg font-bold text-foreground">방이 만들어졌어요</h1>

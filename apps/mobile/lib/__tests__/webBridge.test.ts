@@ -696,3 +696,145 @@ describe("parseToNativeMessage: 타임랩스 영상", () => {
     expect(parse({ type: "video-share", id: ID, chunks: 2, atMs: 1 })).toBeNull();
   });
 });
+
+describe("parseToNativeMessage: 유리 크롬", () => {
+  const parse = (message: Record<string, unknown>) => parseToNativeMessage(JSON.stringify(message));
+  const top = { leading: "back", leadingLabel: "뒤로 가기", title: "공부 결과" };
+  const chrome = { type: "set-glass-chrome", top, obscured: false, atMs: 1 };
+
+  it("위쪽 뒤로 가기와 제목을 파싱한다", () => {
+    expect(parse(chrome)).toEqual(chrome);
+  });
+
+  it("top이 null이어도 파싱한다", () => {
+    const empty = { type: "set-glass-chrome", top: null, obscured: true, atMs: 1 };
+    expect(parse(empty)).toEqual(empty);
+  });
+
+  it("제목 없는 닫기를 파싱한다", () => {
+    const close = { ...chrome, top: { leading: "close", leadingLabel: "닫기", title: null } };
+    expect(parse(close)).toEqual(close);
+  });
+
+  it.each([
+    ["leading이 목록 밖", { ...chrome, top: { ...top, leading: "menu" } }],
+    ["obscured가 문자열", { ...chrome, obscured: "false" }],
+    ["제목이 41자", { ...chrome, top: { ...top, title: "가".repeat(41) } }],
+    ["top이 빠짐", { type: "set-glass-chrome", obscured: false, atMs: 1 }],
+  ])("%s이면 버린다", (_, message) => {
+    expect(parse(message)).toBeNull();
+  });
+});
+
+describe("parseToNativeMessage: 그 자리 부품", () => {
+  const parse = (message: Record<string, unknown>) => parseToNativeMessage(JSON.stringify(message));
+  const frame = { x: 20, y: 300, width: 335, height: 36 };
+  const segment = {
+    id: "records:range",
+    kind: "segment",
+    frame,
+    labels: ["일", "주", "월"],
+    selected: 0,
+    disabled: [false, false, true],
+    accessibilityLabel: null,
+  };
+  const toggle = {
+    id: "settings-timelapse",
+    kind: "switch",
+    frame,
+    on: true,
+    disabled: false,
+    interactive: true,
+    accessibilityLabel: "타임랩스",
+  };
+  const button = {
+    id: "planner-open",
+    kind: "button",
+    frame,
+    title: null,
+    systemImage: "calendar.badge.plus",
+    image: null,
+    shape: "circle",
+    disabled: true,
+    accessibilityLabel: "플래너 열기",
+  };
+  const message = {
+    type: "set-inline-controls",
+    controls: [segment, toggle, button],
+    hidden: false,
+    atMs: 1,
+  };
+
+  it("세그먼트·스위치·버튼을 하나씩 파싱한다", () => {
+    expect(parse(message)).toEqual(message);
+  });
+
+  it("버튼은 앱에 포함된 이미지 이름을 받는다", () => {
+    const planner = { ...message, controls: [{ ...button, systemImage: null, image: "planner" }] };
+    expect(parse(planner)).toEqual(planner);
+  });
+
+  it("버튼 disabled와 image가 없으면 누를 수 있고 이미지 없는 버튼으로 읽는다", () => {
+    const { disabled: _, image: __, ...legacy } = button;
+    expect(parse({ ...message, controls: [legacy] })).toEqual({
+      ...message,
+      controls: [{ ...button, disabled: false, image: null }],
+    });
+  });
+
+  it("세그먼트는 선택 없음(-1)을 받는다", () => {
+    const unselected = { ...message, controls: [{ ...segment, selected: -1 }] };
+    expect(parse(unselected)).toEqual(unselected);
+  });
+
+  it("부품 32개까지 받는다", () => {
+    const controls = Array.from({ length: 32 }, (_, i) => ({ ...toggle, id: `t-${i}` }));
+    expect(parse({ ...message, controls })).toEqual({ ...message, controls });
+  });
+
+  it("부품이 33개면 버린다", () => {
+    const controls = Array.from({ length: 33 }, (_, i) => ({ ...toggle, id: `t-${i}` }));
+    expect(parse({ ...message, controls })).toBeNull();
+  });
+
+  it("hidden이 boolean이 아니면 버린다", () => {
+    expect(parse({ ...message, hidden: "false" })).toBeNull();
+  });
+
+  it.each([
+    ["세그먼트 라벨이 하나", { ...segment, labels: ["일"], disabled: [false] }],
+    ["disabled 길이가 라벨과 다름", { ...segment, disabled: [false] }],
+    [
+      "라벨 둘에 선택 번호 5",
+      { ...segment, labels: ["일", "주"], disabled: [false, false], selected: 5 },
+    ],
+    ["frame에 NaN", { ...segment, frame: { ...frame, x: NaN } }],
+    ["frame 폭이 음수", { ...button, frame: { ...frame, width: -1 } }],
+    ["id에 대문자", { ...toggle, id: "Settings-timelapse" }],
+    ["systemImage에 경로 문자", { ...button, systemImage: "../x" }],
+    ["스위치 on이 숫자", { ...toggle, on: 1 }],
+    ["버튼 disabled가 문자열", { ...button, disabled: "false" }],
+    ["버튼 disabled가 null", { ...button, disabled: null }],
+    ["image에 경로 문자", { ...button, image: "../planner" }],
+    ["image에 대문자", { ...button, image: "Planner" }],
+    ["image가 33자", { ...button, image: "a".repeat(33) }],
+    ["image가 빈 문자열", { ...button, image: "" }],
+    ["image가 숫자", { ...button, image: 1 }],
+    ["kind가 문자열이 아님", { ...button, kind: 1 }],
+  ])("%s이면 메시지 전체를 버린다", (_, control) => {
+    expect(parse({ ...message, controls: [segment, toggle, button, control] })).toBeNull();
+  });
+
+  it("모르는 kind의 부품만 빼고 나머지는 받는다", () => {
+    const slider = { ...button, id: "volume", kind: "slider", value: 0.5 };
+    expect(parse({ ...message, controls: [segment, slider, toggle] })).toEqual({
+      ...message,
+      controls: [segment, toggle],
+    });
+  });
+
+  it("모르는 kind를 빼도 아는 부품이 틀렸으면 메시지 전체를 버린다", () => {
+    const slider = { ...button, id: "volume", kind: "slider" };
+    expect(parse({ ...message, controls: [slider, { ...toggle, on: 1 }] })).toBeNull();
+  });
+});
