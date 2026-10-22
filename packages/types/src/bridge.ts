@@ -105,7 +105,8 @@ export type ToWebMessage =
    */
   | { type: "app-lock-started"; appCount: number; categoryCount: number; atMs: number }
   | CameraPermissionMessage
-  | TrackEventMessage;
+  | TrackEventMessage
+  | NativeControlPressMessage;
 
 /**
  * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
@@ -314,10 +315,18 @@ export type ToNativeMessage =
   | AnalyticsReadyMessage
   | MetaAppEventMessage
   | AnalyticsEventMessage
-  | AnalyticsUserPropertiesMessage;
+  | AnalyticsUserPropertiesMessage
+  | SetGlassChromeMessage
+  | SetInlineControlsMessage;
 
 /** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
-type HostConsumedType = "home-ready" | "analytics-ready" | "set-back-gesture" | "set-orientation";
+type HostConsumedType =
+  | "home-ready"
+  | "analytics-ready"
+  | "set-back-gesture"
+  | "set-orientation"
+  | "set-glass-chrome"
+  | "set-inline-controls";
 
 /** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
 export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
@@ -631,5 +640,113 @@ export interface AnalyticsEventMessage {
 export interface AnalyticsUserPropertiesMessage {
   type: "analytics-user-properties";
   properties: Record<string, string | null>;
+  atMs: number;
+}
+
+/*
+ * 네이티브 glass 부품 규칙 상수. 웹 파서(`apps/web/src/lib/bridge.ts`)와 네이티브 파서(`apps/mobile/lib/webBridge.ts`)가 같은 값으로 거른다.
+ * 한쪽만 고치면 한쪽이 보낸 메시지를 다른 쪽이 버린다.
+ */
+/** 부품 id와 누름 id 형식. 앱이 네이티브 뷰를 찾는 키라서 문자 집합을 좁힌다. */
+export const NATIVE_CONTROL_ID_PATTERN = /^[a-z0-9:-]{1,64}$/;
+/** 네이티브 부품에 넘기는 글자의 최대 길이. 넘으면 앱이 메시지 전체를 버린다. */
+export const NATIVE_CONTROL_LABEL_MAX_LENGTH = 40;
+/** 앱에 포함된 버튼 이미지 이름 형식. 앱이 이름으로 파일을 찾으므로 경로 문자를 받지 않는다. */
+export const NATIVE_CONTROL_IMAGE_PATTERN = /^[a-z0-9-]{1,32}$/;
+/** 버튼 SF Symbol 이름 형식. 앱이 이름으로 이미지를 찾으므로 경로 문자가 섞인 값은 받지 않는다. */
+export const NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN = /^[a-z0-9.]{1,64}$/;
+/** 부품 좌표 x·y의 최솟값(CSS px). 범위 밖 값으로 만든 뷰는 화면 밖에 남거나 레이아웃 계산을 망가뜨린다. */
+export const NATIVE_CONTROL_POSITION_MIN = -10000;
+/** 부품 좌표와 크기의 최댓값(CSS px). 폭과 높이의 최솟값은 0이다. */
+export const NATIVE_CONTROL_COORDINATE_MAX = 100000;
+
+/** 문서 좌표의 사각형(CSS px). */
+export interface ControlFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** 위쪽 왼쪽 버튼 종류. 네이티브 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const GLASS_CHROME_LEADING = ["back", "close"] as const;
+export type GlassChromeLeading = (typeof GLASS_CHROME_LEADING)[number];
+
+export interface GlassChromeTop {
+  leading: GlassChromeLeading;
+  leadingLabel: string; // 접근성 라벨, 예: "뒤로 가기", "닫기"
+  title: string | null;
+}
+
+/**
+ * 고정 요소를 네이티브 glass로 그려 달라는 요청
+ *
+ * 웹뷰 안 CSS로는 iOS의 Liquid Glass를 만들 수 없어서 웹은 자리만 비우고 앱이 웹뷰 위 층에 그린다.
+ * `obscured`는 웹 시트나 대화상자가 열려 있다는 뜻이다.
+ * 네이티브 뷰는 항상 웹보다 위에 그려지므로 그동안 앱이 이 층을 숨긴다.
+ * 누르면 앱이 `native-control-press`로 알린다.
+ */
+export interface SetGlassChromeMessage {
+  type: "set-glass-chrome";
+  top: GlassChromeTop | null;
+  obscured: boolean;
+  atMs: number;
+}
+
+export type InlineControl =
+  | {
+      id: string;
+      kind: "segment";
+      frame: ControlFrame;
+      labels: string[]; // 2~5개
+      selected: number;
+      disabled: boolean[]; // labels와 같은 길이
+      accessibilityLabel: string | null;
+    }
+  | {
+      id: string;
+      kind: "switch";
+      frame: ControlFrame;
+      on: boolean;
+      disabled: boolean;
+      interactive: boolean; // false면 모양만 보이고 누름은 웹으로 통과
+      accessibilityLabel: string;
+    }
+  | {
+      id: string;
+      kind: "button";
+      frame: ControlFrame;
+      title: string | null;
+      systemImage: string | null; // SF Symbol 이름
+      image?: string | null; // 앱에 포함된 이미지 이름. 있으면 systemImage 대신 그린다
+      shape: "capsule" | "circle";
+      disabled: boolean;
+      accessibilityLabel: string;
+    };
+
+/**
+ * 본문 안 컨트롤을 네이티브 부품으로 덮어 달라는 요청
+ *
+ * 앱은 부품을 웹뷰 스크롤뷰 안 `frame` 자리에 두어 페이지 스크롤을 따라가게 한다.
+ * 매번 등록된 부품 전체를 보내고 앱은 목록에 없는 부품을 삭제한다.
+ * `hidden`은 페이지 전환이나 웹 시트가 열린 동안 잠시 숨기라는 뜻이다.
+ */
+export interface SetInlineControlsMessage {
+  type: "set-inline-controls";
+  controls: InlineControl[]; // 최대 32개
+  hidden: boolean;
+  atMs: number;
+}
+
+/**
+ * 네이티브 glass 부품을 눌렀다는 알림
+ *
+ * 고정 요소는 예약 id `chrome:leading`으로 오고 본문 부품은 등록한 id로 온다.
+ * `value`는 세그먼트면 고른 번호, 스위치면 켜짐 1과 꺼짐 0, 버튼이면 0이다.
+ */
+export interface NativeControlPressMessage {
+  type: "native-control-press";
+  id: string;
+  value: number;
   atMs: number;
 }
