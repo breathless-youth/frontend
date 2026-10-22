@@ -175,17 +175,16 @@ export const CAMERA_TOAST_COPY = {
 } as const;
 
 /**
- * 과목 시트(S3-9) 문구 — Figma "S3-9 · 세션 과목 시트 (최종안)" 실측. `title`·`empty`는
+ * 과목 페이지 문구 — Figma "S3-9 · 세션 과목 시트 (최종안)" 실측. `title`·`empty`는
  * 인터뷰 13차 확정, 나머지는 시안 문구를 그대로 옮긴 것이다(voice-tone 등재 전).
  */
 export const SUBJECT_SHEET_COPY = {
   title: "과목",
-  /** 접힌 라벨 — 미선택(Figma `Sheet / Subject Label` None). */
-  hint: "과목을 선택할 수 있어요",
   empty: "공부할 과목을 추가해보세요",
-  emptySub: "탭 한 번으로 과목이 생겨요. 나중에 시트에서 바꿀 수 있어요",
+  emptySub: "탭 한 번으로 과목이 생겨요. 나중에 이 화면에서 바꿀 수 있어요",
   addSubject: "과목 추가",
   addTask: "할 일 추가",
+  reorder: "순서 변경",
   /** 길게 누르기 메뉴(Figma `Sheet / Context Menu`). */
   edit: "수정",
   remove: "제거",

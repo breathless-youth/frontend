@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createRef, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AmbientSound } from "../../catalog";
@@ -18,7 +18,9 @@ function renderSheet(overrides: Partial<AmbientSoundSheetProps> = {}) {
   const props: AmbientSoundSheetProps = {
     open: true,
     container: null,
-    triggerRef: createRef<HTMLButtonElement>(),
+    returnFocus: () => null,
+    landscape: false,
+    timer: <span>01:24:08</span>,
     catalog,
     mix: {},
     duckEnabled: true,
@@ -44,7 +46,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
 
   /**
    * 네이티브 탭 바 차단(`nativeModalOverlay.ts`)이 `aria-modal="true"` 의 존재 여부만 본다.
-   * Radix 가 이 속성을 만들어 주지 않으므로 빠지면 시트 아래 탭 바가 계속 눌린다.
+   * Radix 가 이 속성을 만들어 주지 않으므로 빠지면 페이지 아래 탭 바가 계속 눌린다.
    */
   it("aria-modal 을 달아 네이티브 탭 바 차단이 걸리게 한다", () => {
     renderSheet();
@@ -52,8 +54,8 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 
-  /** document 의 스크롤 잠금이 시트 안 touchmove 를 막으면 iOS 가 탭을 클릭으로 만들지 않는다. */
-  it("시트 안 touchmove 는 document 까지 올라가지 않는다", () => {
+  /** document 의 스크롤 잠금이 페이지 안 touchmove 를 막으면 iOS 가 탭을 클릭으로 만들지 않는다. */
+  it("페이지 안 touchmove 는 document 까지 올라가지 않는다", () => {
     renderSheet();
     const onDocumentTouchMove = vi.fn();
     document.addEventListener("touchmove", onDocumentTouchMove);
@@ -62,15 +64,6 @@ describe("AmbientSoundSheet — 음량 조절", () => {
 
     document.removeEventListener("touchmove", onDocumentTouchMove);
     expect(onDocumentTouchMove).not.toHaveBeenCalled();
-  });
-
-  /** 카메라 위라 딤도 세션 값이어야 한다. 전역 `--dim` 은 라이트 테마에서 뒤가 비친다. */
-  it("딤이 전역 값이 아니라 세션 값을 쓴다", () => {
-    const { baseElement } = renderSheet();
-
-    const classes = [...baseElement.querySelectorAll("div")].map((el) => el.className);
-    expect(classes.some((c) => c.includes("bg-(--session-dim)"))).toBe(true);
-    expect(classes.some((c) => c.includes("bg-(--dim)"))).toBe(false);
   });
 
   it("닫혀 있으면 아무것도 그리지 않는다", () => {
@@ -188,10 +181,10 @@ describe("AmbientSoundSheet — 음량 조절", () => {
    * 읽힌다. 실제로 그렇게 헷갈린 적이 있다. 터치 기기에서는 hover 가 없어 탭으로 열려야 한다.
    */
   /**
-   * 시트를 열면 Radix 가 첫 포커스를 안내 버튼에 준다. 툴팁이 포커스에도 열리면 시트를
-   * 열자마자 떠 있고, 그 상태의 Escape 가 시트가 아니라 툴팁을 닫아 먹통처럼 보인다.
+   * 툴팁이 페이지를 열 때의 첫 포커스에도 열리면 페이지를 열자마자 떠 있고,
+   * 그 상태의 Escape 가 페이지가 아니라 툴팁을 닫아 먹통처럼 보인다.
    */
-  it("시트를 열었다고 툴팁이 저절로 뜨지 않는다", () => {
+  it("페이지를 열었다고 툴팁이 저절로 뜨지 않는다", () => {
     renderSheet();
 
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
@@ -202,7 +195,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
 
     expect(screen.queryByText(/일시정지 중에는/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "배경음 안내" }));
+    fireEvent.click(screen.getByRole("button", { name: "배경음 안내" }));
 
     expect(await screen.findByText("일시정지 중에는 배경음이 들리지 않아요")).toBeInTheDocument();
   });
@@ -236,7 +229,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
     // 열기 전에는 문구가 화면에 없다.
     expect(screen.queryByText("이어폰을 끼면 잘 들려요")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
+    fireEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
     expect(await screen.findByText("이어폰을 끼면 잘 들려요")).toBeInTheDocument();
   });
 });
@@ -252,41 +245,34 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
     expect(props.onSetDuckEnabled).toHaveBeenCalledWith(false);
   });
 
-  it("집중 연동 설명이 '집중 상태가 아닐 때는 소리를 낮춰요' 다", () => {
+  it("집중 연동 설명은 ⓘ를 눌러야 보인다", async () => {
     renderSheet();
 
-    expect(screen.getByText("집중 상태가 아닐 때는 소리를 낮춰요")).toBeInTheDocument();
+    expect(screen.queryByText("집중 상태가 아닐 때는 소리를 낮춰요")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "집중 연동 안내" }));
+
+    expect(await screen.findAllByText("집중 상태가 아닐 때는 소리를 낮춰요")).not.toHaveLength(0);
   });
 
-  /** 닫는 길이 셋이다. 하나라도 빠지면 시트에 갇히는 사용자가 생긴다. */
-  it("X 버튼과 Escape 로 닫힌다", async () => {
+  /** 뒤로 가기와 Escape 중 하나라도 빠지면 페이지에 갇히는 사용자가 생긴다. */
+  it("뒤로 가기와 Escape로 닫힌다", async () => {
     const props = renderSheet();
 
-    await userEvent.click(screen.getByRole("button", { name: "닫기" }));
+    await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
     await userEvent.keyboard("{Escape}");
 
     expect(props.onOpenChange).toHaveBeenCalledTimes(2);
     expect(props.onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("본문 아래에 큰 닫기 버튼을 따로 두지 않는다", () => {
+  it("헤더의 뒤로 가기 말고 닫기 버튼을 따로 두지 않는다", () => {
     renderSheet();
 
-    // 제목 줄의 X 하나뿐이어야 한다.
-    expect(screen.getAllByRole("button", { name: "닫기" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "뒤로 가기" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
   });
 
-  it("바깥을 누르면 닫힌다", async () => {
-    const { baseElement, ...props } = renderSheet();
-
-    const overlay = baseElement.querySelector<HTMLElement>('[class*="session-dim"]');
-    expect(overlay).not.toBeNull();
-    await userEvent.click(overlay as HTMLElement);
-
-    expect(props.onOpenChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("열리면 시트 안으로 포커스가 들어간다", () => {
+  it("열리면 페이지 안으로 포커스가 들어간다", () => {
     renderSheet();
 
     expect(screen.getByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
@@ -309,7 +295,9 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
           <AmbientSoundSheet
             open={open}
             container={null}
-            triggerRef={triggerRef}
+            returnFocus={() => triggerRef.current}
+            landscape={false}
+            timer={null}
             catalog={catalog}
             mix={{}}
             duckEnabled
@@ -333,12 +321,14 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("안내 문구를 연 채 시트를 닫았다 다시 열면 문구가 닫혀 있다", async () => {
+  it("안내 문구를 연 채 페이지를 닫았다 다시 열면 문구가 닫혀 있다", async () => {
     // 도우미는 rerender 를 돌려주지 않아 바이노럴 한 줄짜리 목록으로 직접 그린다.
     const props: AmbientSoundSheetProps = {
       open: true,
       container: null,
-      triggerRef: createRef<HTMLButtonElement>(),
+      returnFocus: () => null,
+      landscape: false,
+      timer: null,
       catalog: [{ id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" }],
       mix: {},
       duckEnabled: true,
@@ -352,27 +342,13 @@ describe("AmbientSoundSheet — 연동 토글·닫기", () => {
     };
     const { rerender } = render(<AmbientSoundSheet {...props} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
+    fireEvent.click(screen.getByRole("button", { name: "바이노럴 비트 안내" }));
     expect(await screen.findByText("이어폰을 끼면 잘 들려요")).toBeInTheDocument();
 
     rerender(<AmbientSoundSheet {...props} open={false} />);
-    // 다시 열면 첫 포커스를 받은 머리글 툴팁이 Radix 알림으로 다른 툴팁을 모두 닫는다.
-    // 그 알림을 막아 두어야 시트가 직접 문구를 닫는지만 볼 수 있다.
-    let blocked = 0;
-    const blockTooltipOpen = (event: Event) => {
-      blocked += 1;
-      event.stopImmediatePropagation();
-    };
-    window.addEventListener("tooltip.open", blockTooltipOpen, { capture: true });
-    try {
-      rerender(<AmbientSoundSheet {...props} open />);
-    } finally {
-      window.removeEventListener("tooltip.open", blockTooltipOpen, { capture: true });
-    }
+    rerender(<AmbientSoundSheet {...props} open />);
 
-    // 알림을 하나도 막지 못했다면 Radix 쪽이 바뀐 것이라 이 테스트가 리셋을 가려내지 못한다.
-    expect(blocked).toBeGreaterThan(0);
-    // 시트 내용이 다시 그려진 것을 먼저 확인해야 문구가 없다는 단언이 의미를 가진다.
+    // 페이지 내용이 다시 그려진 것을 먼저 확인해야 문구가 없다는 단언이 의미를 가진다.
     expect(screen.getByRole("button", { name: "바이노럴 비트 안내" })).toBeInTheDocument();
     expect(screen.queryByText("이어폰을 끼면 잘 들려요")).not.toBeInTheDocument();
   });
@@ -408,4 +384,47 @@ describe("AmbientSoundSheet — 배경음 전체 스위치", () => {
 
     expect(screen.getByRole("switch", { name: "배경음" })).toBeEnabled();
   });
+});
+
+describe("AmbientSoundSheet — 방향별 배치", () => {
+  it("세로는 노이즈·배경 소리 탭을 유지한다", () => {
+    renderSheet({ landscape: false });
+
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+  });
+
+  it("가로는 탭 없이 두 묶음을 모두 보인다", () => {
+    renderSheet({ landscape: true });
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "노이즈" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "배경 소리" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "빗소리" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
+  });
+
+  it("페이지 아래에 순공 타이머를 보인다", () => {
+    renderSheet();
+
+    expect(screen.getByText("01:24:08")).toBeInTheDocument();
+  });
+
+  it.each([false, true])(
+    "안내 ⓘ는 소리 이름 바로 뒤, 슬라이더 앞에 놓인다 (가로 %s)",
+    (landscape) => {
+      renderSheet({
+        landscape,
+        catalog: [
+          { id: "binaural", kind: "synth", group: "noise", label: "바이노럴 비트" },
+          { id: "white", kind: "synth", group: "noise", label: "백색소음" },
+        ],
+      });
+      const name = screen.getByRole("button", { name: "바이노럴 비트" });
+      const info = screen.getByRole("button", { name: "바이노럴 비트 안내" });
+      const slider = screen.getByRole("slider", { name: "바이노럴 비트 음량" });
+
+      expect(name.compareDocumentPosition(info) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(info.compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    },
+  );
 });

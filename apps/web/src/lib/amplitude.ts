@@ -1439,17 +1439,27 @@ export function trackForceUpdatePrompted(input: {
   });
 }
 
-/* ── 과목 시트(S3-9) ────────────────────────────────────────────────
- * 스펙이 정한 3종만 찍는다 — 시트 열림 · 과목/할 일 추가 · 항목 선택. 이름·문구는 보내지 않는다.
+/* ── 세션 과목 페이지 ──────────────────────────────────────────────
+ * 열림 · 닫힘 · 과목/할 일 추가 · 항목 선택만 찍는다. 이름·문구는 보내지 않는다.
+ * 이벤트 이름의 sheet는 예전 과목 시트 때 정한 것이라 지표를 잇기 위해 유지한다.
  */
 
-/** 컨트롤 바를 끌어 올려(또는 라벨을 눌러) 시트가 펼쳐진 순간. 닫힘은 찍지 않는다. */
-export function trackSubjectSheetOpened() {
+/** 과목 페이지를 연 순간. `source`는 오른쪽 위 과목 버튼인지 타이머 위 라벨인지다. */
+export function trackSubjectSheetOpened(source: "button" | "label") {
   if (!initialized) return;
-  track("subject_sheet_opened");
+  track("subject_sheet_opened", { source });
 }
 
-/** 과목·할 일을 관리하는 화면 — 세션 과목 시트와 플래너가 같은 목록을 다룬다. */
+/** 과목 페이지를 닫은 순간. 페이지를 오래 열어 두는지 보려고 열려 있던 초를 싣는다. */
+export function trackSubjectSheetClosed(input: {
+  readonly openSec: number;
+  readonly closedBy: "back" | "play";
+}) {
+  if (!initialized) return;
+  track("subject_sheet_closed", { open_sec: input.openSec, closed_by: input.closedBy });
+}
+
+/** 과목·할 일을 관리하는 화면. 세션 과목 페이지(값은 지표를 잇기 위해 `sheet` 유지)와 플래너가 같은 목록을 다룬다. */
 export type SubjectSurface = "sheet" | "planner";
 
 /** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */

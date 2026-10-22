@@ -1,11 +1,10 @@
-import { act, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "@/routes/RoomPage";
 
-import { SessionControlBar } from "../components/SessionControlBar";
 import { SessionTimer } from "../components/SessionTimer";
 import { sessionSurfaceStyle } from "../sessionTheme";
 
@@ -26,9 +25,7 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
  *
  * ⚠️ jsdom은 클래스에 붙은 `landscape-compact`(가로이면서 높이 30rem 미만)를 평가하지 않는다. 실제 가로
  * 렌더는 실기기·브라우저 QA의 몫이고, 여기서는 **델타가 코드에 존재하는지**와 **방향이 JS가
- * 아니라 CSS로 갈리는지**(회전 시 DOM이 유지되는지)를 고정한다. `SessionControlBar`는 세로·
- * 가로가 같은 고정 54px 치수를 쓰고(`size` prop 자체가 없다 — 방향별 variant 없음), 그래서
- * 미디어쿼리 없이 직접 렌더해 치수를 확인할 수 있다.
+ * 아니라 CSS로 갈리는지**(회전 시 DOM이 유지되는지)를 고정한다.
  */
 
 function renderRoom(url = "/room/7?userId=1") {
@@ -41,54 +38,23 @@ function renderRoom(url = "/room/7?userId=1") {
   );
 }
 
-const noop = () => {};
-
-function renderControlBar() {
-  return render(<SessionControlBar paused={false} onTogglePause={noop} onRequestExit={noop} />);
-}
-
-describe("SessionControlBar — 세로·가로 공통 54px (V2 `S1b`)", () => {
-  it("바 버튼 2개가 모두 54px 원형이다 — 방향과 무관하게 고정", () => {
-    renderControlBar();
-
-    for (const name of ["일시정지", "공부 종료"]) {
-      const button = screen.getByRole("button", { name });
-      expect(button.className).toContain("h-13.5");
-      expect(button.className).toContain("w-13.5");
-    }
-  });
-
-  it("버튼 구성·순서·색은 세로와 가로가 공유한다 — 가로 전용 컴포넌트를 만들지 않는다", () => {
-    const { container } = renderControlBar();
-
-    const labels = [...container.querySelectorAll("button")].map((button) =>
-      button.getAttribute("aria-label"),
-    );
-    expect(labels).toEqual(["일시정지", "공부 종료"]);
-    expect(screen.getByRole("button", { name: "공부 종료" }).className).toContain(
-      "bg-(--session-control-exit-bg)",
-    );
-  });
-});
-
 describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", () => {
-  it("가로 프리뷰는 35px 우측 정렬로 재배치·축소된다", () => {
+  it("가로 프리뷰는 44px로 줄고 가운데 정렬을 유지한다", () => {
     render(<SessionTimer focusSec={0} studySec={0} state="focus" />);
 
     const number = screen.getByText("00:00:00").parentElement!;
     expect(number.className).toContain("text-[52px]");
-    expect(number.className).toContain("landscape-compact:text-[35px]");
-    expect(number.className).toContain("landscape-compact:text-right");
-    expect(number.parentElement!.className).toContain("landscape-compact:items-end");
+    expect(number.className).toContain("landscape-compact:text-[44px]");
+    expect(number.className).not.toContain("landscape-compact:text-right");
+    expect(number.parentElement!.className).not.toContain("landscape-compact:items-end");
   });
 
-  it("가로 프리뷰 총 공부 병기는 13px/40%로 줄고 타이머 아래 우측에 붙는다", () => {
+  it("가로 프리뷰 총 공부 병기는 14px로 줄고 타이머 아래 가운데에 붙는다", () => {
     render(<SessionTimer focusSec={0} studySec={0} state="focus" />);
 
     const total = screen.getByText("총 00:00:00").parentElement!;
-    expect(total.className).toContain("landscape-compact:text-[13px]");
-    expect(total.className).toContain("landscape-compact:text-white/40");
-    expect(total.className).toContain("landscape-compact:text-right");
+    expect(total.className).toContain("landscape-compact:text-sm");
+    expect(total.className).not.toContain("landscape-compact:text-right");
   });
 
   it("가로 심플 타이머는 56px다 — design.md의 84px이 아니라 Figma 실측·display.lg 토큰 값", () => {
@@ -145,7 +111,7 @@ describe("RoomPage — 가로(거치) 배치", () => {
     const layer = layerOf(container);
     expect(layer.className).toContain("flex-col");
     expect(layer.className).toContain("landscape-compact:grid-cols-[1fr_auto_1fr]");
-    expect(layer.className).toContain("landscape-compact:grid-rows-[auto_1fr_auto_auto_auto]");
+    expect(layer.className).toContain("landscape-compact:grid-rows-[auto_1fr_auto_auto]");
   });
 
   it("가로 좌우 안전 영역을 반영한다 — 거치 시 노치가 좌우로 온다", () => {
@@ -153,37 +119,39 @@ describe("RoomPage — 가로(거치) 배치", () => {
 
     const layer = layerOf(container);
     expect(layer.className).toContain(
-      "landscape-compact:pl-[calc(env(safe-area-inset-left)+28px)]",
+      "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)]",
     );
     expect(layer.className).toContain(
-      "landscape-compact:pr-[calc(env(safe-area-inset-right)+28px)]",
+      "landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
     );
     // 가로에는 iOS 상태바가 없어 상단 여백이 13 → 18로 바뀐다(상태바 높이만큼 빠진다).
     expect(layer.className).toContain("landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)]");
   });
 
-  it("가로 프리뷰 — 상태 필은 상단 중앙, 타이머는 같은 행 우측 열에 둔다(겹침 방지)", () => {
+  it("가로 프리뷰 — 상태 필은 상단 중앙, 타이머 묶음은 두 하단 버튼 사이 아래에 붙는다", () => {
     const { container } = renderRoom();
 
     const pill = screen.getByRole("status");
     expect(pill.className).toContain("landscape-compact:col-start-2");
     expect(pill.className).toContain("landscape-compact:row-start-1");
 
-    const timer = container.querySelector('[class*="landscape-compact:col-start-3"]')!;
-    expect(timer.className).toContain("landscape-compact:row-start-1");
-    expect(timer.className).toContain("landscape-compact:justify-self-end");
-    // 우측 모서리로 끌어당기는 음수 마진(BY-336) — 레이어 패딩(28px)은 공용이라 줄이지 않고
-    // 타이머만 붙인다(결과 여백 8px + safe-area). 상단은 실측(18px) 그대로다.
-    expect(timer.className).toContain("landscape-compact:-mr-5");
-    expect(timer.className).not.toContain("landscape-compact:-mt-");
+    const timer = container.querySelector(
+      '[class*="landscape-compact:col-start-2"][class*="landscape-compact:row-start-3"]',
+    )!;
+    expect(timer).toContainElement(screen.getByText("00:00:00"));
+    expect(timer.className).toContain("landscape-compact:self-end");
   });
 
-  it("가로 심플 — 타이머가 우상단에서 중앙으로 옮겨간다", async () => {
+  it("가로 심플 — 타이머가 아래 가운데에서 화면 가운데로 옮겨간다", async () => {
     const { container } = renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
-    expect(container.querySelector('[class*="landscape-compact:col-start-3"]')).toBeNull();
+    expect(
+      container.querySelector(
+        '[class*="landscape-compact:col-start-2"][class*="landscape-compact:row-start-3"]',
+      ),
+    ).toBeNull();
     const timer = container.querySelector('[class*="landscape-compact:top-1/2"]')!;
     expect(timer.className).toContain("landscape-compact:-translate-y-1/2");
     expect(timer.className).toContain("landscape-compact:-translate-x-1/2");
@@ -195,54 +163,6 @@ describe("RoomPage — 가로(거치) 배치", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("측정을 일시정지했어요");
-  });
-
-  it("창 높이가 바뀌면 타이머 이동 거리를 다시 잰다 — 높이 480 미만이면 0, 480부터는 세로 계산", () => {
-    const { innerWidth, innerHeight } = window;
-    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(600);
-    try {
-      window.innerWidth = 900;
-      window.innerHeight = 479;
-      const { container } = renderRoom();
-      const slot = () =>
-        container.querySelector<HTMLElement>('[style*="--session-sheet-timer-travel"]')!;
-
-      expect(slot().style.getPropertyValue("--session-sheet-timer-travel")).toBe("0px");
-
-      window.innerHeight = 480;
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
-
-      // 600 - 480 * 0.14 = 532.8
-      expect(slot().style.getPropertyValue("--session-sheet-timer-travel")).toBe("533px");
-    } finally {
-      offsetTop.mockRestore();
-      window.innerWidth = innerWidth;
-      window.innerHeight = innerHeight;
-    }
-  });
-
-  it("태블릿 가로에서는 타이머 높이를 재서 시트 윗변 위로 목표를 올린다", () => {
-    const { innerWidth, innerHeight } = window;
-    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockReturnValue(600);
-    const offsetHeight = vi
-      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
-      .mockReturnValue(135);
-    try {
-      window.innerWidth = 1180;
-      window.innerHeight = 820;
-      const { container } = renderRoom();
-      const slot = container.querySelector<HTMLElement>('[style*="--session-sheet-timer-travel"]')!;
-
-      // 600 - (820 * 0.27 - 135 - 8) = 521.6
-      expect(slot.style.getPropertyValue("--session-sheet-timer-travel")).toBe("522px");
-    } finally {
-      offsetTop.mockRestore();
-      offsetHeight.mockRestore();
-      window.innerWidth = innerWidth;
-      window.innerHeight = innerHeight;
-    }
   });
 
   it("심플 배경은 세로·가로가 같은 값을 쓴다 — 회전할 때 배경이 깜빡이지 않는다", () => {
