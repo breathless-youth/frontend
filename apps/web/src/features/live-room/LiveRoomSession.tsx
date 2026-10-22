@@ -513,7 +513,7 @@ export function LiveRoomSession({
                 trackSocialRoomCameraToggled(false);
                 setCameraWanted(false);
                 pause("MANUAL");
-                // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤에 울린다.
+                // 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
                 haptic("light");
               } else {
                 measurePreviewAspect();
