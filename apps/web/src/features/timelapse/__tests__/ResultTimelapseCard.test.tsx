@@ -71,6 +71,22 @@ let store: TimelapseStore;
 /** 영상을 만들 때의 레코드 값. D-Day와 연속 공부가 먼저 남았는지 본다. */
 let builtWith: { ddayLabel?: string | null; streakDays?: number | null } | null;
 
+/**
+ * 이 테스트의 store로 부른 영상 만들기
+ * 앞 테스트가 시작한 미리 받기는 화면을 내린 뒤에도 끝까지 돌아, 다음 테스트 도중에 앞 테스트의 레코드로 영상을 만든다.
+ * store를 펼쳐 메서드 일부만 바꾼 테스트도 있어 같은 읽기 함수를 쓰는지로 가린다.
+ * 읽기 함수까지 바꾼 store는 이 테스트의 store로 보지 않으므로, 그런 테스트의 호출 횟수는 builds()로 세지 않는다.
+ */
+function isThisTestStore(candidate: TimelapseStore) {
+  return candidate.get === store.get;
+}
+
+function builds() {
+  return vi
+    .mocked(buildTimelapseVideo)
+    .mock.calls.filter(([, videoStore]) => isThisTestStore(videoStore));
+}
+
 async function readyTimelapse(photoCount = 2, aspect: "9:16" | "16:9" = "9:16") {
   await store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, aspect });
   for (let index = 0; index < photoCount; index += 1) {
@@ -117,7 +133,9 @@ beforeEach(() => {
   builtWith = null;
   vi.mocked(buildTimelapseVideo).mockImplementation(async (ms, videoStore) => {
     const record = await videoStore.get(ms);
-    builtWith = { ddayLabel: record?.ddayLabel, streakDays: record?.streakDays };
+    if (isThisTestStore(videoStore)) {
+      builtWith = { ddayLabel: record?.ddayLabel, streakDays: record?.streakDays };
+    }
     return {
       bytes: new Uint8Array([1]).buffer,
       mimeType: "video/mp4",
@@ -204,7 +222,7 @@ describe("ResultTimelapseCard", () => {
     await readyTimelapse();
     renderCard();
 
-    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(builds()).toHaveLength(1));
     expect(builtWith).toEqual({ ddayLabel: expect.stringContaining("기말고사"), streakDays: 5 });
   });
 
@@ -215,7 +233,7 @@ describe("ResultTimelapseCard", () => {
 
     await screen.findByTestId("player");
     await waitFor(async () => expect((await store.get(T0))?.ddayLabel).toBeDefined());
-    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+    expect(builds()).toHaveLength(0);
   });
 
   it("기록을 남기기 전에 화면을 떠나면 영상을 만들지 않는다", async () => {
@@ -243,14 +261,14 @@ describe("ResultTimelapseCard", () => {
     // 보관된 영상을 읽은 뒤에 만들기 시작하므로 그만큼 기다린다.
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
 
-    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+    expect(builds()).toHaveLength(0);
   });
 
   it("신원이 없으면 조회 없이 바로 만든다", async () => {
     await readyTimelapse();
     renderCard(null);
 
-    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(builds()).toHaveLength(1));
   });
 
   it("레코드가 없으면 아무것도 그리지 않는다", async () => {
@@ -464,7 +482,7 @@ describe("ResultTimelapseCard", () => {
     renderCard();
 
     // 공유 창에 쓸 영상은 그대로 미리 만든다.
-    await waitFor(() => expect(buildTimelapseVideo).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(builds()).toHaveLength(1));
     expect(screen.getByRole("button", { name: "타임랩스 공유하기" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: /다운로드|만드는 중/ })).toBeNull();
   });
@@ -479,7 +497,7 @@ describe("ResultTimelapseCard", () => {
     await waitFor(() => expect(open).toBeEnabled());
     // 보관된 영상을 읽은 뒤에 만들기 시작하므로 그만큼 기다린다.
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+    expect(builds()).toHaveLength(0);
   });
 
   it("D-Day와 연속 공부를 남기기 전에는 공유 창을 열지 않는다", async () => {
@@ -492,7 +510,7 @@ describe("ResultTimelapseCard", () => {
 
     expect(open).toBeDisabled();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(buildTimelapseVideo).not.toHaveBeenCalled();
+    expect(builds()).toHaveLength(0);
   });
 
   it("오프라인이면 조회를 기다리지 않고 레코드에 남은 값으로 공유 창을 연다", async () => {
