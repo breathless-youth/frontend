@@ -23,6 +23,8 @@ import { useSyncExternalStore } from "react";
 const MODAL_ATTR_SELECTOR = '[aria-modal="true"]';
 // Amplitude 가이드 토스트는 아래를 막지 않는데도 aria-modal을 달고 있어서 이 id로 뺀다.
 // 같은 가이드의 모달은 다른 요소라 그대로 열림으로 본다.
+// 이 id는 npm 패키지가 아니라 Amplitude CDN 런타임 번들(engagement-browser)이 만드는 값이라 버전으로 고정할 수 없다.
+// 번들이 이름을 바꾸면 토스트가 뜰 때마다 glass 층과 탭 바가 숨겨지므로 그 증상이 보이면 번들에서 이 id부터 확인한다.
 const MODAL_SELECTOR = `${MODAL_ATTR_SELECTOR}:not([data-state="closed"]):not([data-closed]):not(#engagement-toast-responsive-inner-div)`;
 
 /**

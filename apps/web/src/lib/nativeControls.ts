@@ -4,8 +4,11 @@ import {
   NATIVE_CONTROL_ID_PATTERN,
   NATIVE_CONTROL_IMAGE_PATTERN,
   NATIVE_CONTROL_LABEL_MAX_LENGTH,
+  NATIVE_CONTROL_MAX_COUNT,
   NATIVE_CONTROL_POSITION_MIN,
   NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN,
+  NATIVE_SEGMENT_MAX_OPTIONS,
+  NATIVE_SEGMENT_MIN_OPTIONS,
 } from "@focusmakers/types";
 import { type RefCallback, useEffect, useEffectEvent, useLayoutEffect, useState } from "react";
 
@@ -21,9 +24,6 @@ interface Entry {
   element: HTMLElement;
   spec: ControlSpec;
 }
-
-// 앱 파서가 받는 최대 개수다. 넘기면 메시지 전체가 버려진다.
-const MAX_CONTROLS = 32;
 
 // 등록할 때는 아직 좌표를 몰라서 범위 안의 아무 좌표를 넣고 부품 값만 본다.
 const PROBE_FRAME: ControlFrame = { x: 0, y: 0, width: 0, height: 0 };
@@ -73,8 +73,8 @@ function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl 
     case "segment": {
       const labels = spec.labels.map(clip);
       if (
-        labels.length < 2 ||
-        labels.length > 5 ||
+        labels.length < NATIVE_SEGMENT_MIN_OPTIONS ||
+        labels.length > NATIVE_SEGMENT_MAX_OPTIONS ||
         labels.includes("") ||
         spec.disabled.length !== labels.length
       ) {
@@ -195,7 +195,7 @@ function stop(): void {
  * 같은 id를 다시 등록하면 자리만 바뀌어 개수가 늘지 않는다.
  */
 function register(id: string, entry: Entry): boolean {
-  if (entries.size >= MAX_CONTROLS && !entries.has(id)) {
+  if (entries.size >= NATIVE_CONTROL_MAX_COUNT && !entries.has(id)) {
     return false;
   }
   if (entries.size === 0) {

@@ -23,8 +23,11 @@ import {
   NATIVE_CONTROL_ID_PATTERN,
   NATIVE_CONTROL_IMAGE_PATTERN,
   NATIVE_CONTROL_LABEL_MAX_LENGTH,
+  NATIVE_CONTROL_MAX_COUNT,
   NATIVE_CONTROL_POSITION_MIN,
   NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN,
+  NATIVE_SEGMENT_MAX_OPTIONS,
+  NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
   VIDEO_SHARE_TARGETS,
@@ -543,8 +546,8 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
       const { labels, selected, disabled, accessibilityLabel } = value;
       if (
         !Array.isArray(labels) ||
-        labels.length < 2 ||
-        labels.length > 5 ||
+        labels.length < NATIVE_SEGMENT_MIN_OPTIONS ||
+        labels.length > NATIVE_SEGMENT_MAX_OPTIONS ||
         !labels.every(isLabel) ||
         !Array.isArray(disabled) ||
         disabled.length !== labels.length ||
@@ -610,12 +613,12 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
  * 부품 하나만 틀려도 메시지 전체를 버린다.
  * 앱은 목록에 없는 부품을 삭제하므로 일부만 반영하면 버린 부품의 이전 네이티브 뷰가 낡은 상태로 남는다.
  * 모르는 종류의 부품은 앱이 그린 적이 없어 낡을 뷰가 없으므로 그 부품만 빼고 나머지를 그린다.
- * 웹 쪽 실수로 등록이 끝없이 늘어도 네이티브 뷰를 그만큼 만들지 않게 32개에서 막는다.
+ * 웹 쪽 실수로 등록이 끝없이 늘어도 네이티브 뷰를 그만큼 만들지 않게 개수 상한에서 막는다.
  */
 function parseSetInlineControls(record: Record<string, unknown>): SetInlineControlsMessage | null {
   if (
     !Array.isArray(record.controls) ||
-    record.controls.length > 32 ||
+    record.controls.length > NATIVE_CONTROL_MAX_COUNT ||
     !isBoolean(record.hidden) ||
     typeof record.atMs !== "number"
   ) {

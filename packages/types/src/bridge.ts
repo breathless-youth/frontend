@@ -659,6 +659,12 @@ export const NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN = /^[a-z0-9.]{1,64}$/;
 export const NATIVE_CONTROL_POSITION_MIN = -10000;
 /** 부품 좌표와 크기의 최댓값(CSS px). 폭과 높이의 최솟값은 0이다. */
 export const NATIVE_CONTROL_COORDINATE_MAX = 100000;
+/** 한 메시지에 담는 부품의 최대 개수. 웹 실수로 등록이 늘어도 앱이 네이티브 뷰를 그만큼 만들지 않게 막는다. */
+export const NATIVE_CONTROL_MAX_COUNT = 32;
+/** 세그먼트 칸 수의 최솟값. */
+export const NATIVE_SEGMENT_MIN_OPTIONS = 2;
+/** 세그먼트 칸 수의 최댓값. 이보다 많으면 칸 글자가 잘려 읽히지 않는다. */
+export const NATIVE_SEGMENT_MAX_OPTIONS = 5;
 
 /** 문서 좌표의 사각형(CSS px). */
 export interface ControlFrame {
