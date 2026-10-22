@@ -88,6 +88,7 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
@@ -660,6 +661,7 @@ function RoomSessionScreen({
 
   /** `공부 종료` 확정 */
   function handleConfirmExit() {
+    haptic("medium");
     setExitDialogOpen(false);
     void endAndSubmit(MANUAL_END_REASON);
   }
@@ -831,7 +833,20 @@ function RoomSessionScreen({
                 `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
             <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
               <div className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start">
-                <SessionPauseButton paused={paused} onClick={() => (paused ? resume() : pause())} />
+                <SessionPauseButton
+                  paused={paused}
+                  // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                  onClick={() => {
+                    // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤나 켜지기 전에 울린다.
+                    if (paused) {
+                      haptic("medium");
+                      resume();
+                    } else {
+                      pause();
+                      haptic("light");
+                    }
+                  }}
+                />
               </div>
               <div
                 inert={simpleMode}
@@ -980,7 +995,10 @@ function RoomSessionScreen({
         cancelLabel={INVITE_CONFIRM_COPY.cancel}
         confirmLabel={INVITE_CONFIRM_COPY.confirm}
         onCancel={clearSessionInvite}
-        onConfirm={() => void endAndSubmit(MANUAL_END_REASON)}
+        onConfirm={() => {
+          haptic("medium");
+          void endAndSubmit(MANUAL_END_REASON);
+        }}
       />
     </main>
   );

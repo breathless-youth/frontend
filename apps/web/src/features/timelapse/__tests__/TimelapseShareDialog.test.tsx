@@ -41,6 +41,8 @@ vi.mock("@/lib/nativeVideo", async (importOriginal) => ({
   shareVideoNatively: vi.fn(),
 }));
 vi.mock("@/lib/toast", () => ({ showCtaToast: vi.fn() }));
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
 vi.mock("../timelapseVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseVideo>()),
   buildTimelapseVideo: vi.fn(),
@@ -401,6 +403,30 @@ describe("저장·공유", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent("사진 앱에 저장했어요"),
     );
+  });
+
+  it("앱 저장에 성공하면 light 햅틱을 한 번 울린다", async () => {
+    nativeApp();
+    vi.mocked(saveVideoNatively).mockResolvedValue("saved");
+    renderDialog();
+
+    fireEvent.click(await readyButton("저장하기"));
+
+    await waitFor(() => expect(haptic).toHaveBeenCalledTimes(1));
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("저장에 실패하면 햅틱을 울리지 않는다", async () => {
+    nativeApp();
+    vi.mocked(saveVideoNatively).mockResolvedValue("denied");
+    renderDialog();
+
+    fireEvent.click(await readyButton("저장하기"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("사진 접근 권한이 꺼져 있어요"),
+    );
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   it("사진 권한이 꺼져 있으면 설정 열기로 OS 설정을 연다", async () => {

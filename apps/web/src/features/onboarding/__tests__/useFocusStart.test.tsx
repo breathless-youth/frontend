@@ -15,6 +15,8 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackFocusStartTapped: analytics.trackFocusStartTapped,
 }));
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
 
 afterEach(() => vi.clearAllMocks());
 
@@ -79,5 +81,17 @@ describe("useFocusStart", () => {
     await userEvent.click(button);
 
     expect(runFocusStartFlow).toHaveBeenCalledTimes(1);
+  });
+
+  it("누르는 순간 medium 햅틱을 한 번 울리고 처리 중 재탭에는 울리지 않는다", async () => {
+    vi.mocked(runFocusStartFlow).mockReturnValue(new Promise(() => {}));
+    renderStarter();
+    const button = screen.getByRole("button", { name: "집중 시작" });
+
+    await userEvent.click(button);
+    await userEvent.click(button);
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
   });
 });

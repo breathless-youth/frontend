@@ -35,6 +35,9 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...analytics,
 }));
 
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 beforeEach(() => {
   sessionStorage.clear();
   setBoardMemoryStore(createMemoryBoardMemoryStore());
@@ -156,6 +159,30 @@ describe("HomeRankingPopupHost: 메달 모달", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalledTimes(1);
     expect(analytics.trackRankingMedalModalShown).toHaveBeenCalledTimes(1);
+  });
+
+  it("메달 모달이 뜨면 medium 햅틱을 한 번 울린다 — StrictMode에서도", async () => {
+    rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+    renderHost({ strict: true });
+
+    await screen.findByRole("dialog", { name: "1위로 마감했어요" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
+  });
+
+  it("안 본 메달이 없으면 햅틱을 울리지 않는다", async () => {
+    renderHost();
+
+    await waitFor(() => expect(rankingApi.getRankingRecordsUnseen).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   it("본 것 표시가 실패해도 모달은 그대로 둔다", async () => {

@@ -43,6 +43,9 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
 const mockedRestore = vi.mocked(useActiveSessionRestore);
@@ -1802,5 +1805,36 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
 
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "나가기" })).toBeInTheDocument();
+  });
+});
+
+describe("LiveRoomPage — 햅틱", () => {
+  it("카메라 켜기 확정은 medium, 카메라 끄기는 light 햅틱을 한 번씩 울린다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(await screen.findByRole("button", { name: "카메라 켜기" }));
+    expect(haptic).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenLastCalledWith("medium");
+
+    await userEvent.click(await screen.findByRole("button", { name: "카메라 끄기" }));
+    expect(haptic).toHaveBeenCalledTimes(2);
+    expect(haptic).toHaveBeenLastCalledWith("light");
+  });
+
+  it("종료 확인 창에서 공부 종료를 확정하면 medium 햅틱을 한 번 울린다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    expect(haptic).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
   });
 });

@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React from "react";
 
 import { TabBar } from "../TabBar";
+import { triggerHaptic } from "../../lib/haptics";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -23,6 +24,10 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("expo-router", () => ({
   router: { navigate: jest.fn() },
+}));
+
+jest.mock("../../lib/haptics", () => ({
+  triggerHaptic: jest.fn(),
 }));
 
 /**
@@ -151,6 +156,29 @@ describe("TabBar — tab_pressed 이벤트", () => {
 
     expect(received).toEqual([]);
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe("TabBar — 햅틱", () => {
+  beforeEach(() => {
+    (triggerHaptic as jest.Mock).mockClear();
+  });
+
+  it("다른 탭을 누르면 가벼운 햅틱을 한 번 울린다", () => {
+    render(<TabBar active="home" />);
+
+    fireEvent.press(screen.getByRole("tab", { name: "소셜" }));
+
+    expect(triggerHaptic).toHaveBeenCalledTimes(1);
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
+  });
+
+  it("활성 탭을 다시 누르면 햅틱이 없다", () => {
+    render(<TabBar active="social" />);
+
+    fireEvent.press(screen.getByRole("tab", { name: "소셜" }));
+
+    expect(triggerHaptic).not.toHaveBeenCalled();
   });
 });
 

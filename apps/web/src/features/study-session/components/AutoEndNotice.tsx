@@ -1,7 +1,8 @@
-import { Fragment, useId } from "react";
+import { Fragment, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
@@ -37,6 +38,16 @@ export function AutoEndNotice({
 }: AutoEndNoticeProps) {
   const titleId = useId();
   const bodyLines = autoEndBodyLinesFor(trigger);
+  // StrictMode가 effect를 두 번 돌려도 햅틱은 한 번만 울린다.
+  const buzzedRef = useRef(false);
+
+  useEffect(() => {
+    if (buzzedRef.current) {
+      return;
+    }
+    buzzedRef.current = true;
+    haptic("medium");
+  }, []);
 
   return (
     // 자동 종료는 사용자가 유발하지 않은 상태 변화다 — 라이브 리전으로 알린다.
