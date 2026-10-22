@@ -17,6 +17,7 @@ import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
+import { useNativeControlPressRelay } from "@/lib/glassChrome";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -197,6 +198,8 @@ export function App() {
   // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
   // 알려주지 않으면 탭 바가 그대로 남는다(`lib/nativeTabBar.ts`).
   useNativeTabBarSync();
+  // 네이티브 glass 부품의 누름을 그 부품을 선언한 화면의 처리기로 넘긴다(`lib/glassChrome.ts`).
+  useNativeControlPressRelay();
   // 웹뷰 안에서만 페이지 드래그·길게 눌러 선택을 막는다(`lib/nativeShell.ts`).
   useNativeShellClass();
   // 시스템 탭 바(iOS)면 하단 여백 공식을 안전 영역 기준으로 바꾼다(`lib/nativeTabBar.ts`).

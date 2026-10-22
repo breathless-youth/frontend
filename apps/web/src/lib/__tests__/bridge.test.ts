@@ -274,6 +274,29 @@ describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", 
   });
 });
 
+describe("parseToWebMessage: native-control-press", () => {
+  const press = { type: "native-control-press", id: "chrome:leading", value: 0, atMs: 1 };
+
+  it("누름을 파싱한다", () => {
+    expect(parseToWebMessage(JSON.stringify(press))).toEqual(press);
+    expect(parseToWebMessage(JSON.stringify({ ...press, id: "records:range", value: 2 }))).toEqual({
+      ...press,
+      id: "records:range",
+      value: 2,
+    });
+  });
+
+  it.each([
+    ["value가 정수가 아님", { ...press, value: 1.5 }],
+    ["value가 문자열", { ...press, value: "1" }],
+    ["id에 대문자", { ...press, id: "A" }],
+    ["id가 빈 문자열", { ...press, id: "" }],
+    ["id가 65자", { ...press, id: "a".repeat(65) }],
+  ])("%s이면 버린다", (_, message) => {
+    expect(parseToWebMessage(JSON.stringify(message))).toBeNull();
+  });
+});
+
 describe("postToNative", () => {
   it("ReactNativeWebView가 있으면 직렬화해 보내고 true를 돌려준다", () => {
     const postMessage = vi.fn();

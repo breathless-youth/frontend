@@ -6,6 +6,7 @@ import {
   PAGE_TRANSITION_COMMIT_TIMEOUT_MS,
   pageTransitionFinished,
   slideNavigate,
+  subscribePageTransition,
   usePageTransitionCommit,
 } from "@/lib/pageTransition";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
@@ -234,6 +235,26 @@ describe("slideNavigate", () => {
     second.finish();
     await pageTransitionFinished();
     expect(document.documentElement.dataset.pageTransition).toBeUndefined();
+  });
+
+  it("구독자에게 전환 시작과 마지막 전환의 끝을 알린다", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePageTransition(listener);
+    const first = stubViewTransition();
+    slideNavigate("forward", () => {});
+    const second = stubViewTransition();
+    slideNavigate("back", () => {});
+    expect(listener.mock.calls).toEqual([[true], [true]]);
+
+    first.finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(listener.mock.calls).toEqual([[true], [true]]);
+
+    second.finish();
+    await pageTransitionFinished();
+    expect(listener.mock.calls).toEqual([[true], [true], [false]]);
+    unsubscribe();
   });
 
   it("전환이 건너뛰어져 ready가 거부돼도 처리되지 않은 거부로 새지 않는다", async () => {

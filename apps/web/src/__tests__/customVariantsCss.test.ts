@@ -40,9 +40,9 @@ async function loadStylesheet(id: string, base: string) {
   return { path: file, base: path.dirname(file), content: readFileSync(file, "utf-8") };
 }
 
-/** 선언을 가진 블록마다 감싸는 블록의 머리를 바깥부터 모은다. */
+/** 선언을 가진 블록마다 자기 머리와 감싸는 블록의 머리를 바깥부터 모은다. */
 function rulesIn(cssText: string) {
-  const rules: { ancestors: string[]; declarations: string[] }[] = [];
+  const rules: { ancestors: string[]; header: string; declarations: string[] }[] = [];
   const stack: { header: string; declarations: string[] }[] = [];
   let buffer = "";
   for (const char of cssText) {
@@ -57,6 +57,7 @@ function rulesIn(cssText: string) {
       if (block !== undefined && block.declarations.length > 0) {
         rules.push({
           ancestors: stack.map((ancestor) => ancestor.header),
+          header: block.header,
           declarations: block.declarations,
         });
       }
@@ -68,13 +69,16 @@ function rulesIn(cssText: string) {
   return rules;
 }
 
-/** 후보 하나만 빌드해 utilities 층의 규칙을 돌려준다. 빌드는 누적되므로 매번 새로 컴파일한다. */
+/**
+ * 후보 하나만 빌드해 utilities 층의 규칙을 돌려준다. 빌드는 누적되므로 매번 새로 컴파일한다.
+ * 유틸리티 안에 둔 미디어 쿼리는 선택자 안에 중첩되어 나와서 규칙 자신의 머리도 함께 본다.
+ */
 async function utilityRules(candidate: string) {
   const compiler = await compile(css, { base: srcDir, loadStylesheet });
   return rulesIn(compiler.build([candidate]))
     .filter((rule) => rule.ancestors.includes("@layer utilities"))
     .map((rule) => ({
-      media: rule.ancestors
+      media: [...rule.ancestors, rule.header]
         .filter((header) => header.startsWith("@media "))
         .map((header) => header.slice("@media ".length)),
       declarations: rule.declarations,
@@ -153,5 +157,33 @@ describe("페이지 열", () => {
       },
       { media: largeMedia, declarations: ["max-width: var(--container-page-lg)"] },
     ]);
+  });
+});
+
+describe("가장자리 흐림", () => {
+  const reducedTransparency = ["(prefers-reduced-transparency: reduce)"];
+
+  it("glass-fade-top은 바 줄 뒤를 바탕색으로 덮고 그 바깥에서만 흐려지며 사라진다", async () => {
+    const base = (await utilityRules("glass-fade-top")).find((rule) => rule.media.length === 0);
+
+    expect(base?.declarations).toEqual(
+      expect.arrayContaining([
+        "background: var(--glass-fade-top, var(--background))",
+        "backdrop-filter: blur(8px)",
+        "mask-image: linear-gradient(to bottom, black calc(env(safe-area-inset-top) + 40px), transparent)",
+      ]),
+    );
+  });
+
+  it("glass-fade-top은 투명도 줄이기에서 흐림과 마스크를 걷고 비워 둔 자리만큼 불투명하다", async () => {
+    expect(await utilityRules("glass-fade-top")).toContainEqual({
+      media: reducedTransparency,
+      declarations: [
+        "height: calc(env(safe-area-inset-top) + 52px)",
+        "-webkit-backdrop-filter: none",
+        "backdrop-filter: none",
+        "mask-image: none",
+      ],
+    });
   });
 });

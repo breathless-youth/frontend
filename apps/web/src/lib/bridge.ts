@@ -5,7 +5,7 @@ import type {
   TrackEventMessage,
   VideoResultStatus,
 } from "@focusmakers/types";
-import { VIDEO_RESULT_STATUSES } from "@focusmakers/types";
+import { NATIVE_CONTROL_ID_PATTERN, VIDEO_RESULT_STATUSES } from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 종단점
@@ -276,6 +276,15 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       categoryCount: record.categoryCount,
       atMs: record.atMs,
     };
+  }
+  if (
+    record.type === "native-control-press" &&
+    typeof record.id === "string" &&
+    NATIVE_CONTROL_ID_PATTERN.test(record.id) &&
+    typeof record.value === "number" &&
+    Number.isInteger(record.value)
+  ) {
+    return { type: "native-control-press", id: record.id, value: record.value, atMs: record.atMs };
   }
   if (record.type === "track-event") {
     return parseTrackEvent(record);
