@@ -1,10 +1,15 @@
 import Constants from "expo-constants";
+import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { useEffect, useState } from "react";
 import { Appearance, Platform } from "react-native";
 
 import { appLockNative } from "../modules/app-lock";
+import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { ensureUserRegistered } from "./userApi";
+
+// 고정 영역에 새 모양을 더하면 올리고, 웹은 이 값을 보고 그 모양을 앱에 맡길지 정한다.
+const GLASS_CHROME_VERSION = 1;
 
 /**
  * 원격 웹뷰 URL에 붙일 쿼리 파라미터
@@ -67,6 +72,21 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // OS 버전이 낮아도 붙여서 웹이 켜기를 눌렀을 때 지원 버전을 안내하게 한다.
   if (getRnda() !== null || (Platform.OS === "android" && appLockNative !== null)) {
     params.appLock = "1";
+  }
+  // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
+  // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이다.
+  // 웹은 표시가 있을 때만 자리를 비우고, 버전과 목록 안의 모양과 종류만 `set-glass-chrome`·`set-inline-controls`로 보낸다.
+  // 원격 웹은 구버전 앱에도 바로 배포되어서, 앱이 모르는 모양이나 종류를 보내면 웹 원본은 숨었는데 앱은 메시지를 버려 화면에서 사라진다.
+  // 옛 Dev Client에는 `web-glass` 모듈이 없을 수 있고, Liquid Glass는 iOS 26부터라 그 아래 버전은 웹의 CSS 대체 화면을 쓴다.
+  // 개발 빌드는 `GLASS_CHROME_OFF=1`로 두 표시를 빼서 같은 기기에서 CSS 대체 화면을 비교할 수 있다.
+  if (
+    Platform.OS === "ios" &&
+    webGlassNative !== null &&
+    isLiquidGlassAvailable() &&
+    Constants.expoConfig?.extra?.glassChromeOff !== true
+  ) {
+    params.glassChrome = String(GLASS_CHROME_VERSION);
+    params.glassControls = SUPPORTED_INLINE_KINDS.join(",");
   }
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면

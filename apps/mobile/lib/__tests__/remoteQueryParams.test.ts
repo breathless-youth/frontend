@@ -29,6 +29,19 @@ jest.mock("../../modules/app-lock", () => ({
     return mockAppLockModule.appLockNative;
   },
 }));
+const mockGlass: { webGlassNative: object | null; available: boolean } = {
+  webGlassNative: null,
+  available: false,
+};
+jest.mock("../../modules/web-glass", () => ({
+  get webGlassNative() {
+    return mockGlass.webGlassNative;
+  },
+  SUPPORTED_INLINE_KINDS: ["segment", "switch", "button"],
+}));
+jest.mock("expo-glass-effect", () => ({
+  isLiquidGlassAvailable: () => mockGlass.available,
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { version: "1.4.2" } },
@@ -37,13 +50,17 @@ jest.mock("expo-constants", () => ({
 const mockedEnsureUserRegistered = ensureUserRegistered as jest.MockedFunction<
   typeof ensureUserRegistered
 >;
-const mockedConstants = Constants as unknown as { expoConfig: { version?: string } | null };
+const mockedConstants = Constants as unknown as {
+  expoConfig: { version?: string; extra?: Record<string, unknown> } | null;
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   // replaceProperty로 바꾼 Platform.OS가 다음 테스트로 새면 플랫폼별 파라미터가 섞인다.
   jest.restoreAllMocks();
   mockedConstants.expoConfig = { version: "1.4.2" };
+  mockGlass.webGlassNative = null;
+  mockGlass.available = false;
   __resetRemoteQueryParamsCacheForTests();
 });
 
@@ -195,6 +212,62 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params).not.toHaveProperty("nativeTabBar");
+  });
+
+  it("Liquid Glass를 쓸 수 있고 web-glass 모듈이 든 iOS 빌드에 크롬 버전과 그리는 부품 종류를 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockGlass.webGlassNative = {};
+    mockGlass.available = true;
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.glassChrome).toBe("1");
+    expect(params.glassControls).toBe("segment,switch,button");
+  });
+
+  it("개발 빌드에서 glass를 끄라고 했으면 크롬 버전도 부품 종류도 붙이지 않는다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockGlass.webGlassNative = {};
+    mockGlass.available = true;
+    mockedConstants.expoConfig = { version: "1.4.2", extra: { glassChromeOff: true } };
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("glassChrome");
+    expect(params).not.toHaveProperty("glassControls");
+  });
+
+  it("iOS 26 미만이라 Liquid Glass를 쓸 수 없으면 glassChrome 표시가 없다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockGlass.webGlassNative = {};
+    mockGlass.available = false;
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("glassChrome");
+    expect(params).not.toHaveProperty("glassControls");
+  });
+
+  it("web-glass 모듈이 없는 옛 Dev Client에는 glassChrome 표시가 없다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockGlass.webGlassNative = null;
+    mockGlass.available = true;
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("glassChrome");
+    expect(params).not.toHaveProperty("glassControls");
+  });
+
+  it("Android에는 glassChrome 표시가 없다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockGlass.webGlassNative = {};
+    mockGlass.available = true;
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("glassChrome");
+    expect(params).not.toHaveProperty("glassControls");
   });
 });
 

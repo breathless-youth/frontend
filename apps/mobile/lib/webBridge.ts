@@ -2,8 +2,13 @@ import type {
   AnalyticsEventMessage,
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
+  ControlFrame,
+  GlassChromeTop,
+  InlineControl,
   MetaAppEventMessage,
   MetaAppEventParamValue,
+  SetGlassChromeMessage,
+  SetInlineControlsMessage,
   ToNativeMessage,
   ToWebMessage,
 } from "@focusmakers/types";
@@ -13,6 +18,13 @@ import {
   ANALYTICS_PARAM_VALUE_PATTERN,
   ANALYTICS_USER_PROPERTY_NAME_PATTERN,
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
+  GLASS_CHROME_LEADING,
+  NATIVE_CONTROL_COORDINATE_MAX,
+  NATIVE_CONTROL_ID_PATTERN,
+  NATIVE_CONTROL_IMAGE_PATTERN,
+  NATIVE_CONTROL_LABEL_MAX_LENGTH,
+  NATIVE_CONTROL_POSITION_MIN,
+  NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
   VIDEO_SHARE_TARGETS,
@@ -249,6 +261,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return parseAnalyticsEvent(record);
     case "analytics-user-properties":
       return parseAnalyticsUserProperties(record);
+    case "set-glass-chrome":
+      return parseSetGlassChrome(record);
+    case "set-inline-controls":
+      return parseSetInlineControls(record);
     default:
       return null;
   }
@@ -415,6 +431,202 @@ function parseAnalyticsUserProperties(
     return null;
   }
   return { type: "analytics-user-properties", properties, atMs: record.atMs };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function isControlId(value: unknown): value is string {
+  return typeof value === "string" && NATIVE_CONTROL_ID_PATTERN.test(value);
+}
+
+/** 네이티브 부품에 그릴 글자. 빈 글자는 내용 없는 버튼이 되고 긴 글자는 고정 폭 자리를 깨뜨린다. */
+function isLabel(value: unknown): value is string {
+  return (
+    typeof value === "string" && value !== "" && value.length <= NATIVE_CONTROL_LABEL_MAX_LENGTH
+  );
+}
+
+function isNullableLabel(value: unknown): value is string | null {
+  return value === null || isLabel(value);
+}
+
+function isSystemImage(value: unknown): value is string | null {
+  return (
+    value === null || (typeof value === "string" && NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN.test(value))
+  );
+}
+
+function isBundledImage(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && NATIVE_CONTROL_IMAGE_PATTERN.test(value));
+}
+
+function isCoordinate(value: unknown, min: number): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= min &&
+    value <= NATIVE_CONTROL_COORDINATE_MAX
+  );
+}
+
+function parseFrame(value: unknown): ControlFrame | null {
+  if (
+    !isRecord(value) ||
+    !isCoordinate(value.x, NATIVE_CONTROL_POSITION_MIN) ||
+    !isCoordinate(value.y, NATIVE_CONTROL_POSITION_MIN) ||
+    !isCoordinate(value.width, 0) ||
+    !isCoordinate(value.height, 0)
+  ) {
+    return null;
+  }
+  return { x: value.x, y: value.y, width: value.width, height: value.height };
+}
+
+/** 항목 하나라도 틀리면 배열 전체를 버린다. */
+function parseEach<T>(items: unknown[], parse: (item: unknown) => T | null): T[] | null {
+  const parsed = items.map(parse);
+  return parsed.every((item): item is T => item !== null) ? parsed : null;
+}
+
+function parseGlassChromeTop(value: unknown): GlassChromeTop | null {
+  if (
+    !isRecord(value) ||
+    !isOneOf(GLASS_CHROME_LEADING, value.leading) ||
+    !isLabel(value.leadingLabel) ||
+    !isNullableLabel(value.title)
+  ) {
+    return null;
+  }
+  return { leading: value.leading, leadingLabel: value.leadingLabel, title: value.title };
+}
+
+/**
+ * `set-glass-chrome`(웹 → 네이티브 고정 요소)을 검증한다
+ *
+ * 어느 필드든 틀리면 기본값으로 메우지 않고 메시지 전체를 버린다.
+ * 직전 모양이 남는 편이 엉뚱한 버튼이 뜨는 것보다 낫다.
+ * boolean을 truthy로 읽으면 `"false"` 하나에 화면을 가리는 층이 숨겨지거나 버튼이 눌리지 않는다.
+ */
+function parseSetGlassChrome(record: Record<string, unknown>): SetGlassChromeMessage | null {
+  if (!isBoolean(record.obscured) || typeof record.atMs !== "number") {
+    return null;
+  }
+  const top = record.top === null ? null : parseGlassChromeTop(record.top);
+  if (record.top !== null && top === null) {
+    return null;
+  }
+  return { type: "set-glass-chrome", top, obscured: record.obscured, atMs: record.atMs };
+}
+
+/**
+ * 본문 부품 하나 검증
+ *
+ * 이 앱보다 새 웹이 보낸 모르는 종류는 틀린 부품과 구분해 `"unknown"`으로 돌려준다.
+ */
+function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
+  if (!isRecord(value) || !isControlId(value.id)) {
+    return null;
+  }
+  const frame = parseFrame(value.frame);
+  if (frame === null) {
+    return null;
+  }
+  const { id } = value;
+  switch (value.kind) {
+    case "segment": {
+      const { labels, selected, disabled, accessibilityLabel } = value;
+      if (
+        !Array.isArray(labels) ||
+        labels.length < 2 ||
+        labels.length > 5 ||
+        !labels.every(isLabel) ||
+        !Array.isArray(disabled) ||
+        disabled.length !== labels.length ||
+        !disabled.every(isBoolean) ||
+        // -1은 아무것도 고르지 않은 상태다.
+        typeof selected !== "number" ||
+        !Number.isInteger(selected) ||
+        selected < -1 ||
+        selected >= labels.length ||
+        !isNullableLabel(accessibilityLabel)
+      ) {
+        return null;
+      }
+      return { id, kind: "segment", frame, labels, selected, disabled, accessibilityLabel };
+    }
+    case "switch": {
+      const { on, disabled, interactive, accessibilityLabel } = value;
+      if (
+        !isBoolean(on) ||
+        !isBoolean(disabled) ||
+        !isBoolean(interactive) ||
+        !isLabel(accessibilityLabel)
+      ) {
+        return null;
+      }
+      return { id, kind: "switch", frame, on, disabled, interactive, accessibilityLabel };
+    }
+    case "button": {
+      const { title, systemImage, shape, accessibilityLabel } = value;
+      // disabled와 image가 생기기 전 웹 번들은 두 필드를 보내지 않아서 빠지면 누를 수 있고 이미지 없는 버튼으로 읽는다.
+      const disabled = value.disabled === undefined ? false : value.disabled;
+      const image = value.image === undefined ? null : value.image;
+      if (
+        !isNullableLabel(title) ||
+        !isSystemImage(systemImage) ||
+        !isBundledImage(image) ||
+        (shape !== "capsule" && shape !== "circle") ||
+        !isBoolean(disabled) ||
+        !isLabel(accessibilityLabel)
+      ) {
+        return null;
+      }
+      return {
+        id,
+        kind: "button",
+        frame,
+        title,
+        systemImage,
+        image,
+        shape,
+        disabled,
+        accessibilityLabel,
+      };
+    }
+    default:
+      return typeof value.kind === "string" ? "unknown" : null;
+  }
+}
+
+/**
+ * `set-inline-controls`(웹 → 네이티브 본문 부품)를 검증한다
+ *
+ * 부품 하나만 틀려도 메시지 전체를 버린다.
+ * 앱은 목록에 없는 부품을 삭제하므로 일부만 반영하면 버린 부품의 이전 네이티브 뷰가 낡은 상태로 남는다.
+ * 모르는 종류의 부품은 앱이 그린 적이 없어 낡을 뷰가 없으므로 그 부품만 빼고 나머지를 그린다.
+ * 웹 쪽 실수로 등록이 끝없이 늘어도 네이티브 뷰를 그만큼 만들지 않게 32개에서 막는다.
+ */
+function parseSetInlineControls(record: Record<string, unknown>): SetInlineControlsMessage | null {
+  if (
+    !Array.isArray(record.controls) ||
+    record.controls.length > 32 ||
+    !isBoolean(record.hidden) ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  const parsed = parseEach(record.controls, parseInlineControl);
+  if (parsed === null) {
+    return null;
+  }
+  const controls = parsed.filter((control) => control !== "unknown");
+  return { type: "set-inline-controls", controls, hidden: record.hidden, atMs: record.atMs };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

@@ -1,10 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Appearance, Platform, Text, useColorScheme, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Animated,
+  Appearance,
+  findNodeHandle,
+  Platform,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
 import { colors } from "@focusmakers/design-tokens";
-import type { HostPassedMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  HostPassedMessage,
+  SetGlassChromeMessage,
+  SetInlineControlsMessage,
+  ToWebMessage,
+} from "@focusmakers/types";
 
+import { GLASS_TOP_ROW_CLIP, GlassChromeOverlay } from "./GlassChromeOverlay";
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
@@ -15,6 +30,15 @@ import { subscribeSessionClosed } from "../lib/sessionClosed";
 import { subscribeTabReset } from "../lib/tabReset";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
 import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
+import {
+  addBackGestureListener,
+  addInlineControlPressListener,
+  clearInlineControls,
+  observeBackGesture,
+  setInlineClipTop,
+  syncInlineControls,
+  type WebGlassPalette,
+} from "../modules/web-glass";
 
 /**
  * 원격 웹(`apps/web`) 화면을 로드하는 공용 WebView 호스트(전 화면 원격 웹뷰 셸, BY-333).
@@ -65,6 +89,81 @@ function forLog(message: ToWebMessage): ToWebMessage {
 
 /** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */
 const HOME_PATH = "/home";
+
+const GLASS_PALETTE: WebGlassPalette = {
+  tintLight: colors.brand.primary.light,
+  tintDark: colors.brand.primary.dark,
+  foregroundLight: colors.text.primary.light,
+  foregroundDark: colors.text.primary.dark,
+  disabledLight: colors.text.disabled.light,
+  disabledDark: colors.text.disabled.dark,
+};
+
+/**
+ * 뒤로 가기 스와이프에서 손을 뗀 뒤 이동을 기다리는 시간
+ *
+ * 이동할지는 WebKit이 정하고 알려 주지 않아서, 이 안에 이동이 없으면 취소된 것으로 보고 glass 층을 되돌린다.
+ */
+const BACK_SWIPE_SETTLE_MS = 350;
+
+/**
+ * 스와이프로 이동한 뒤 새 화면의 고정 요소 알림을 기다리는 최대 시간
+ *
+ * 고정 요소가 같은 화면끼리는 웹이 다시 알리지 않아서 이 시간이 지나면 이전 층을 그대로 다시 보인다.
+ */
+const BACK_SWIPE_NAVIGATED_MS = 1000;
+
+/** 스와이프를 취소했을 때 glass 층이 다시 나타나는 시간 */
+const CHROME_FADE_MS = 200;
+
+/** 본문 부품 붙이기를 다시 시도하는 최대 횟수 */
+const INLINE_SYNC_RETRIES = 5;
+
+/**
+ * 본문 부품 목록 붙이기
+ *
+ * 마운트 직후에는 감싼 뷰의 태그가 없거나 모듈이 아직 웹뷰를 찾지 못해 붙인 개수가 모자랄 수 있다.
+ * 웹은 원본을 이미 숨겼으므로 그때는 다음 프레임에 다시 시도한다.
+ * 숨긴 목록은 개수가 모자라도 보이는 부품이 없어 태그를 못 얻었을 때만 다시 시도한다.
+ * 그사이 새 목록이 오거나 새 문서가 시작되면 isLatest가 거짓이 되어 멈춘다.
+ */
+function attachInlineControls(
+  message: SetInlineControlsMessage,
+  readTag: () => number | null,
+  readClipTop: () => number,
+  isLatest: () => boolean,
+  attempt = 0,
+): void {
+  const retry = () => {
+    if (!isLatest()) {
+      return;
+    }
+    if (attempt < INLINE_SYNC_RETRIES) {
+      requestAnimationFrame(() => {
+        attachInlineControls(message, readTag, readClipTop, isLatest, attempt + 1);
+      });
+    } else if (__DEV__) {
+      console.warn("[webview-bridge] 본문 부품을 붙이지 못했습니다", {
+        controls: message.controls.length,
+      });
+    }
+  };
+  if (!isLatest()) {
+    return;
+  }
+  const tag = readTag();
+  if (tag === null) {
+    retry();
+    return;
+  }
+  // 붙이기 전에 선을 넘겨 처음 그릴 때부터 위쪽 줄 밑으로 올라간 부분이 잘린다.
+  setInlineClipTop(tag, readClipTop());
+  void syncInlineControls(tag, message.controls, message.hidden, GLASS_PALETTE).then((count) => {
+    if (!message.hidden && (count ?? 0) < message.controls.length) {
+      retry();
+    }
+  });
+}
 
 /**
  * 베이스 URL 설정 읽기
@@ -247,6 +346,74 @@ export function RemoteWebViewHost({
    * onLoadEnd보다 먼저 올 수도 있어 거기서 되돌리면 준비된 문서를 미준비로 덮어쓴다.
    */
   const [analyticsReady, setAnalyticsReady] = useState(false);
+  /**
+   * 웹이 마지막으로 알린 고정 요소
+   *
+   * 새 문서가 뜨면 resetGlass가 비운다.
+   */
+  const [chrome, setChrome] = useState<SetGlassChromeMessage | null>(null);
+  /**
+   * web-glass 모듈이 이 웹뷰의 WKWebView를 찾는 기준 뷰
+   *
+   * 웹뷰 ref는 명령형 핸들이라 태그를 얻을 수 없다.
+   */
+  const containerRef = useRef<View>(null);
+  /**
+   * 본문 부품을 붙인 태그
+   *
+   * 비울 때와 누름을 거를 때 쓴다.
+   */
+  const glassTagRef = useRef<number | null>(null);
+  /**
+   * 마지막으로 붙이기 시작한 본문 부품 목록
+   *
+   * 로드가 끝날 때 다시 붙이는 데 쓰고, 객체가 바뀌면 이전 목록의 다시 시도가 멈춘다.
+   * 새 문서가 뜨면 resetGlass가 비운다.
+   */
+  const inlineRunRef = useRef<{ message: SetInlineControlsMessage } | null>(null);
+  /**
+   * 뒤로 가기 스와이프를 따라가는 glass 층 투명도
+   *
+   * 진행은 프레임마다 오므로 상태 대신 값 객체를 바로 바꿔 호스트가 다시 그려지지 않게 한다.
+   */
+  const [chromeOpacity] = useState(() => new Animated.Value(1));
+  /**
+   * 스와이프로 이전 화면에 넘어가 glass 층을 내려 둔 상태
+   *
+   * 투명도 0으로 남겨 두면 보이지 않는 버튼이 눌리므로 층을 아예 내리고 새 화면이 알리면 다시 그린다.
+   */
+  const [chromeSwipedAway, setChromeSwipedAway] = useState(false);
+  /**
+   * 본문 부품을 자르는 위쪽 선
+   *
+   * 본문 부품은 웹뷰 안에 있어 위쪽 줄과 웹의 가장자리 흐림보다 위에 그려지므로 줄 아래 끝에서 잘라야 줄 위로 올라온 부품이 겹쳐 보이지 않는다.
+   * 안전 영역은 웹의 `env(safe-area-inset-top)`과 같은 값을 쓰도록 네이티브가 웹뷰에서 읽어 더한다.
+   * 붙이기는 메시지 처리기에서 시작하므로 최신 값을 ref로 읽는다.
+   */
+  const inlineClipTop = chrome?.top ? GLASS_TOP_ROW_CLIP : 0;
+  const inlineClipTopRef = useRef(inlineClipTop);
+  /**
+   * 손을 뗀 스와이프의 결과를 기다리는 타이머
+   *
+   * 기다리는 중에만 값이 있다.
+   */
+  const backSwipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotionRef = useRef(false);
+
+  /**
+   * 이전 문서의 glass 층과 본문 부품 걷기
+   *
+   * 새 문서는 로드한 뒤 자기 화면을 다시 알리므로 그 전까지 이전 문서의 버튼이 남아 있으면 안 된다.
+   */
+  const resetGlass = useCallback(() => {
+    setChrome(null);
+    inlineRunRef.current = null;
+    const tag = glassTagRef.current;
+    if (tag !== null) {
+      glassTagRef.current = null;
+      clearInlineControls(tag);
+    }
+  }, []);
 
   /**
    * 웹이 `report-screen`으로 보고한 마지막 화면(BY-436). 렌더러 사망으로 웹뷰를 다시 띄울 때
@@ -268,7 +435,8 @@ export function RemoteWebViewHost({
     const restore = restoreRef.current;
     const baseUrl = readWebBaseUrl();
     setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
-  }, []);
+    resetGlass();
+  }, [resetGlass]);
 
   const { baseUrl, restore } = doc;
   const target = useMemo(() => {
@@ -379,6 +547,161 @@ export function RemoteWebViewHost({
     }
   }, []);
 
+  const readGlassTag = useCallback(() => {
+    const tag = findNodeHandle(containerRef.current);
+    if (tag !== null) {
+      glassTagRef.current = tag;
+    }
+    return tag;
+  }, []);
+
+  const applyInlineControls = useCallback(
+    (message: SetInlineControlsMessage) => {
+      const run = { message };
+      inlineRunRef.current = run;
+      attachInlineControls(
+        message,
+        readGlassTag,
+        () => inlineClipTopRef.current,
+        () => inlineRunRef.current === run,
+      );
+    },
+    [readGlassTag],
+  );
+
+  // 이미 붙인 부품은 위쪽 줄이 생기거나 없어질 때 다시 맞추지 않으므로 선만 따로 넘긴다.
+  useEffect(() => {
+    inlineClipTopRef.current = inlineClipTop;
+    if (glassTagRef.current !== null) {
+      setInlineClipTop(glassTagRef.current, inlineClipTop);
+    }
+  }, [inlineClipTop]);
+
+  // 네이티브가 같은 인식기에는 다시 붙이지 않아서 로드가 끝날 때마다 불러도 된다.
+  const observeBack = useCallback(() => {
+    if (Platform.OS !== "ios") {
+      return;
+    }
+    const tag = readGlassTag();
+    if (tag !== null) {
+      observeBackGesture(tag);
+    }
+  }, [readGlassTag]);
+
+  const clearBackSwipeTimer = useCallback(() => {
+    if (backSwipeTimerRef.current !== null) {
+      clearTimeout(backSwipeTimerRef.current);
+      backSwipeTimerRef.current = null;
+    }
+  }, []);
+
+  /**
+   * glass 층 되돌리기
+   *
+   * 스와이프를 취소하면 페이지가 제자리로 돌아오는 동안 서서히 나타나고, 새 화면이 알렸으면 바로 보인다.
+   * 동작 줄이기를 켠 사용자에게는 서서히 나타나지 않고 바로 보인다.
+   */
+  const showChrome = useCallback(
+    (fade: boolean) => {
+      clearBackSwipeTimer();
+      setChromeSwipedAway(false);
+      if (fade && !reduceMotionRef.current) {
+        Animated.timing(chromeOpacity, {
+          toValue: 1,
+          duration: CHROME_FADE_MS,
+          useNativeDriver: false,
+        }).start();
+      } else {
+        chromeOpacity.setValue(1);
+      }
+    },
+    [chromeOpacity, clearBackSwipeTimer],
+  );
+
+  /**
+   * 손을 뗀 스와이프가 이전 화면으로 넘어간 뒤
+   *
+   * 이전 화면의 뒤로 버튼과 제목이 새 화면 위에 남지 않게 새 화면이 알릴 때까지 층을 내린다.
+   */
+  const settleBackSwipe = useCallback(() => {
+    if (backSwipeTimerRef.current === null) {
+      return;
+    }
+    clearTimeout(backSwipeTimerRef.current);
+    setChromeSwipedAway(true);
+    backSwipeTimerRef.current = setTimeout(() => {
+      showChrome(true);
+    }, BACK_SWIPE_NAVIGATED_MS);
+  }, [showChrome]);
+
+  // 웹뷰 밖에 떠 있는 glass 층은 스와이프로 밀려나지 않으므로 iOS 내비게이션 바처럼 진행만큼 흐려진다.
+  useEffect(() => {
+    const unsubscribe = addBackGestureListener((event) => {
+      if (event.viewTag !== glassTagRef.current) {
+        return;
+      }
+      if (event.phase === "began" || event.phase === "changed") {
+        clearBackSwipeTimer();
+        chromeOpacity.setValue(1 - event.progress);
+      } else if (event.phase === "ended") {
+        clearBackSwipeTimer();
+        backSwipeTimerRef.current = setTimeout(() => {
+          showChrome(true);
+        }, BACK_SWIPE_SETTLE_MS);
+      } else {
+        showChrome(true);
+      }
+    });
+    return () => {
+      unsubscribe();
+      clearBackSwipeTimer();
+    };
+  }, [chromeOpacity, clearBackSwipeTimer, showChrome]);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      reduceMotionRef.current = enabled;
+    });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) => {
+      reduceMotionRef.current = enabled;
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // 제스처를 다시 켜면 WebKit이 인식기를 새로 만들어서 그 인식기에 다시 붙인다.
+  // 처음 마운트할 때는 아직 웹뷰가 없어서 로드가 끝날 때 붙인다.
+  useEffect(() => {
+    if (backGestureEnabled && glassTagRef.current !== null) {
+      observeBack();
+    }
+  }, [backGestureEnabled, observeBack]);
+
+  const sendGlassPress = useCallback(
+    (id: string, value: number) => {
+      sendToWeb({ type: "native-control-press", id, value, atMs: Date.now() });
+    },
+    [sendToWeb],
+  );
+
+  // 모듈 이벤트는 마운트된 모든 웹뷰가 함께 받으므로 이 웹뷰에 붙인 부품의 누름만 넘긴다.
+  // 언마운트하면 웹뷰와 함께 사라진 부품을 모듈 쪽에서도 삭제한다.
+  useEffect(() => {
+    const unsubscribe = addInlineControlPressListener((event) => {
+      if (event.viewTag === glassTagRef.current) {
+        sendGlassPress(event.id, event.value);
+      }
+    });
+    return () => {
+      unsubscribe();
+      inlineRunRef.current = null;
+      if (glassTagRef.current !== null) {
+        clearInlineControls(glassTagRef.current);
+      }
+    };
+  }, [sendGlassPress]);
+
   const handleMessage = (event: WebViewMessageEvent) => {
     const message = parseToNativeMessage(event.nativeEvent.data);
     if (message === null) {
@@ -424,6 +747,22 @@ export function RemoteWebViewHost({
       } else {
         lockPortrait();
       }
+      return;
+    }
+    if (message.type === "set-glass-chrome" || message.type === "set-inline-controls") {
+      // glass 층은 웹뷰마다 따로 그리므로 화면이 아니라 이 호스트가 소비한다.
+      // 웹은 iOS에서만 보내지만 잘못 와도 Android에서 SwiftUI 뷰를 띄우지 않게 막는다.
+      if (Platform.OS !== "ios") {
+        return;
+      }
+      if (message.type === "set-glass-chrome") {
+        setChrome(message);
+        if (backSwipeTimerRef.current !== null) {
+          showChrome(false);
+        }
+        return;
+      }
+      applyInlineControls(message);
       return;
     }
     if (message.type === "report-screen") {
@@ -509,6 +848,14 @@ export function RemoteWebViewHost({
     if (!focused) {
       sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
     }
+    // 첫 붙이기가 다시 시도까지 모두 실패했어도 문서가 다 그려진 뒤 한 번 더 붙인다.
+    if (inlineRunRef.current !== null) {
+      applyInlineControls(inlineRunRef.current.message);
+    }
+    if (newDocument || event?.nativeEvent.navigationType === "backforward") {
+      settleBackSwipe();
+    }
+    observeBack();
     onLoadEnd?.(true, newDocument);
   };
 
@@ -635,6 +982,20 @@ export function RemoteWebViewHost({
     [path],
   );
 
+  /**
+   * iOS 새 문서 로드 시작
+   *
+   * iOS는 최상위 프레임 이동에서만 onLoadStart를 쏘므로 이전 문서가 띄운 glass 층을 여기서 걷는다.
+   * 재로드로 되살리는 콘텐츠 프로세스 사망 복구도 여기를 지난다.
+   * Android는 SPA pushState에도 쏘므로 위 onRecoveryStart 주석과 같은 이유로 개발 로그만 연결한다.
+   */
+  const devOnLoadStart = devLoadLog.onLoadStart;
+  const handleLoadStart = useCallback(() => {
+    devOnLoadStart?.();
+    resetGlass();
+    settleBackSwipe();
+  }, [devOnLoadStart, resetGlass, settleBackSwipe]);
+
   if (showFailureFallback) {
     return (
       <View
@@ -664,7 +1025,7 @@ export function RemoteWebViewHost({
     );
   }
 
-  return (
+  const webView = (
     <WebView
       // 재시도·Android 렌더러 사망 시 웹뷰를 통째로 새로 만든다(위 handleRenderProcessGone 주석).
       key={doc.key}
@@ -717,6 +1078,23 @@ export function RemoteWebViewHost({
       onContentProcessDidTerminate={handleContentProcessDidTerminate}
       onRenderProcessGone={handleRenderProcessGone}
       {...devLoadLog}
+      onLoadStart={Platform.OS === "ios" ? handleLoadStart : devOnLoadStart}
     />
+  );
+
+  // 본문 부품 모듈이 이 뷰의 태그로 WKWebView를 찾고, glass 층은 웹뷰 위에 겹친다.
+  return (
+    <View
+      ref={containerRef}
+      collapsable={false}
+      style={{ flex: 1, backgroundColor: webViewBackgroundColor }}
+    >
+      {webView}
+      <GlassChromeOverlay
+        chrome={chromeSwipedAway ? null : chrome}
+        opacity={chromeOpacity}
+        onPress={sendGlassPress}
+      />
+    </View>
   );
 }
