@@ -837,7 +837,7 @@ function RoomSessionScreen({
                   paused={paused}
                   // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
                   onClick={() => {
-                    // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤나 켜지기 전에 울린다.
+                    // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
                     if (paused) {
                       haptic("medium");
                       resume();
