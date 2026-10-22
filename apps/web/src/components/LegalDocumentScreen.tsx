@@ -54,12 +54,10 @@ function BlockView({ block }: { block: LegalBlock }) {
 export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
   return (
     <div className="page-column min-h-dvh bg-background">
-      {/* 제목은 본문 첫 줄이 크게 그린다 — 상단 바에 또 넣지 않는다(중복 낭독 방지). */}
-      <ScreenBackHeader />
+      <ScreenBackHeader title={document.title} />
 
-      <div className="px-5 pb-10">
-        <h1 className="text-2xl leading-7.25 font-bold text-foreground">{document.title}</h1>
-        <p className="mt-2 text-[12px] leading-3.75 text-text-tertiary">
+      <div className="px-5 pt-2 pb-10">
+        <p className="text-[12px] leading-3.75 text-text-tertiary">
           {effectiveDateLabel(document)}
         </p>
 

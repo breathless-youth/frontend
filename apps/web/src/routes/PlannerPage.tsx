@@ -202,10 +202,9 @@ export function PlannerPage() {
   return (
     <main
       data-testid="planner-page"
-      className="theme-soft-blue min-h-dvh bg-muted page-column pb-[calc(env(safe-area-inset-bottom)+24px)] text-foreground"
+      className="theme-soft-blue min-h-dvh bg-muted [--glass-fade-top:var(--muted)] page-column pb-[calc(env(safe-area-inset-bottom)+24px)] text-foreground"
     >
       <ScreenBackHeader
-        compact
         center={
           // 꺾쇠(36px)와 날짜 글자가 상단 바 가운데에 온다. 날짜를 누르면 날짜 선택 시트가 열린다.
           <PeriodNav

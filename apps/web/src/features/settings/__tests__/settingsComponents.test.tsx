@@ -1,9 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 import { PermissionToggle } from "../PermissionToggle";
 import { SettingsRow } from "../SettingsRow";
 import { SettingsSection } from "../SettingsSection";
+import { SwitchRow } from "../SwitchRow";
 
 describe("SettingsRow", () => {
   it("onPress가 없으면 button이 아니라 div로 렌더한다", () => {
@@ -109,5 +119,93 @@ describe("PermissionToggle", () => {
     // Off는 노브가 왼쪽(KNOB_INSET=2px), On은 오른쪽 — marginLeft가 달라야 한다.
     expect(offKnob.style.marginLeft).toBe("2px");
     expect(onKnob.style.marginLeft).not.toBe(offKnob.style.marginLeft);
+  });
+});
+
+describe("SwitchRow", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+    vi.restoreAllMocks();
+  });
+
+  it("앱 모드에서 controlId가 있으면 웹 스위치를 숨기고 앱 부품 누름으로 값을 바꾼다", () => {
+    enterGlassChrome("/timelapse-settings");
+    const onCheckedChange = vi.fn();
+    const { rerender } = render(
+      <SwitchRow
+        label="타임랩스 저장"
+        controlId="switch-timelapse-save"
+        checked={false}
+        onCheckedChange={onCheckedChange}
+      />,
+    );
+
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    pressNative("switch-timelapse-save", 1);
+    expect(onCheckedChange).toHaveBeenCalledWith(true);
+
+    rerender(
+      <SwitchRow
+        label="타임랩스 저장"
+        controlId="switch-timelapse-save"
+        checked
+        disabled
+        onCheckedChange={onCheckedChange}
+      />,
+    );
+    // 막히기 직전에 눌려 늦게 도착한 누름은 버린다.
+    pressNative("switch-timelapse-save", 0);
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("누름을 처리하느라 막힌 동안에는 누른 값을 앱에 보내 앱 스위치가 되돌아가지 않는다", () => {
+    const postMessage = enterGlassChrome("/settings/app-lock");
+    measureControlsNow();
+    // 켜기를 누르면 권한 창이 닫힐 때까지 막고, 거절되면 꺼진 채로 풀린다.
+    function AuthorizingRow() {
+      const [busy, setBusy] = useState(false);
+      return (
+        <>
+          <SwitchRow
+            label="방해 앱 잠금"
+            controlId="switch-app-lock"
+            checked={false}
+            disabled={busy}
+            onCheckedChange={() => {
+              setBusy(true);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setBusy(false);
+            }}
+          >
+            권한 거절
+          </button>
+        </>
+      );
+    }
+    render(<AuthorizingRow />);
+
+    pressNative("switch-app-lock", 1);
+
+    expect(lastInlineControls(postMessage)).toMatchObject([
+      { id: "switch-app-lock", on: true, disabled: true },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "권한 거절" }));
+
+    expect(lastInlineControls(postMessage)).toMatchObject([
+      { id: "switch-app-lock", on: false, disabled: false },
+    ]);
+  });
+
+  it("controlId가 없으면 앱 모드에서도 웹 스위치를 그대로 쓴다", () => {
+    enterGlassChrome("/timelapse-settings");
+    render(<SwitchRow label="타임랩스 저장" checked={false} onCheckedChange={vi.fn()} />);
+
+    expect(screen.getByRole("switch", { name: "타임랩스 저장" })).toBeInTheDocument();
   });
 });

@@ -253,7 +253,7 @@ function RankingContent({ userId }: { userId: number }) {
   }, [viewKey]);
 
   // 판 고르기와 시상대 간격
-  // 칩 줄은 두 탭 모두 머리 줄 아래 12px에 두어, 랭킹과 명예의 전당을 오가도 제자리에 있게 한다.
+  // 종목 칸은 두 탭 모두 머리 줄 아래 12px에 두어, 랭킹과 명예의 전당을 오가도 제자리에 있게 한다.
   // 시상대는 판 고르기의 마지막 줄 아래 12px에 두어 아래 카드끼리의 간격 12px과 맞춘다.
   // 명예의 전당은 기간 칸이 없어 시상대가 그만큼 위에서 시작한다.
   const changeSelection = (next: BoardSelection) =>

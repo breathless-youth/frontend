@@ -22,6 +22,9 @@ import { useUserId } from "@/lib/userId";
 
 const ERROR_ID = "invite-code-error";
 
+// 들어온 버튼 이름과 같게 하고 앱 밖 안내 화면에도 같은 제목을 쓴다.
+const SCREEN_TITLE = "초대코드로 참여";
+
 /**
  * 초대코드 입력
  */
@@ -108,10 +111,10 @@ export function InviteCodeJoinPage() {
         data-testid="invite-code-join-page"
         className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
       >
-        <ScreenBackHeader onBack={goBack} />
+        <ScreenBackHeader title={SCREEN_TITLE} onBack={goBack} />
 
         <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-          <h1 className="text-lg font-bold text-foreground">그룹 스터디에 초대받았어요</h1>
+          <h2 className="text-lg font-bold text-foreground">그룹 스터디에 초대받았어요</h2>
           {handoffCode !== "" && (
             <>
               <div className="size-2" aria-hidden="true" />
@@ -159,10 +162,10 @@ export function InviteCodeJoinPage() {
       data-testid="invite-code-join-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader onBack={goBack} />
+      <ScreenBackHeader title={SCREEN_TITLE} onBack={goBack} />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <h1 className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</h1>
+        <h2 className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</h2>
         <div className="size-2" aria-hidden="true" />
         <InviteCodeInput
           value={code}

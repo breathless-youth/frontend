@@ -13,13 +13,11 @@ import { APACHE_LICENSE_2_0, OPEN_SOURCE_ENTRIES } from "@/features/settings/ope
 export function LicensesPage() {
   return (
     <div className="page-column min-h-dvh bg-background">
-      {/* 제목은 본문 첫 줄이 크게 그린다 — 상단 바에 또 넣지 않는다(약관·방침과 같은 규칙). */}
-      <ScreenBackHeader />
+      <ScreenBackHeader title="Open Source Licenses" />
 
-      <div className="px-5 pb-10 text-[13px] leading-4.75 text-muted-foreground">
+      <div className="px-5 pt-2 pb-10 text-[13px] leading-4.75 text-muted-foreground">
         {/* 페이지 문구는 영어로 통일한다 — 근거는 `openSourceLicenses.ts` 파일 주석. */}
-        <h1 className="text-2xl leading-7.25 font-bold text-foreground">Open Source Licenses</h1>
-        <p className="mt-4.5">
+        <p>
           FocusMakers uses the following open source software and models. All of them run entirely
           on your device, and each is distributed under the terms of the Apache License 2.0.
         </p>

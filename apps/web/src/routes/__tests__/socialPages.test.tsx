@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -10,8 +10,10 @@ import type * as AppHandoffModule from "@/features/social-room/appHandoff";
 import type * as AmplitudeModule from "@/lib/amplitude";
 import { openInApp } from "@/features/social-room/appHandoff";
 import { ApiError } from "@/lib/api";
+import { __resetGlassChromeForTests } from "@/lib/glassChrome";
 import { createRoom, enterLiveRoom, renewLiveRoomSeat } from "@/lib/roomApi";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { pressNative } from "@/test/nativeControlStub";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 vi.mock("@/lib/roomApi", () => ({
@@ -339,6 +341,35 @@ describe("초대코드 공유", () => {
     await userEvent.click(screen.getByRole("button", { name: "닫기" }));
 
     expect(await screen.findByText("친구와 함께 공부해요")).toBeInTheDocument();
+  });
+
+  it("앱 모드에서는 닫기를 앱에 맡기고, 앱의 누름으로 소셜 홈으로 돌아간다", async () => {
+    // 누름 중계는 App이 마운트하므로 스텁만 심는다.
+    window.history.replaceState(null, "", "/social/code?glassChrome=1");
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    __resetGlassChromeForTests();
+    try {
+      renderAt(withState);
+
+      expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+      const sent = postMessage.mock.calls
+        .map(([raw]) => JSON.parse(raw as string) as { type: string; top?: unknown })
+        .filter((message) => message.type === "set-glass-chrome");
+      expect(sent.at(-1)?.top).toEqual({
+        leading: "close",
+        leadingLabel: "닫기",
+        title: null,
+      });
+
+      pressNative("chrome:leading", 0);
+
+      expect(await screen.findByText("친구와 함께 공부해요")).toBeInTheDocument();
+    } finally {
+      cleanup();
+      window.history.replaceState(null, "", "/");
+      __resetGlassChromeForTests();
+    }
   });
 
   it("방 만들기로 진입했다가 닫아도 소셜 홈으로 돌아간다", async () => {

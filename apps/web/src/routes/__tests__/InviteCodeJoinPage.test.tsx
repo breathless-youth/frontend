@@ -121,3 +121,25 @@ describe("InviteCodeJoinPage 모바일 브라우저 안내", () => {
     expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
   });
 });
+
+describe("InviteCodeJoinPage 상단 제목", () => {
+  it("입력 화면은 상단 바 제목이 h1이고 입력 안내는 h2다", () => {
+    setUserAgent(WINDOWS_UA, 0);
+    renderAt("");
+    expect(screen.getByRole("heading", { level: 1, name: "초대코드로 참여" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "초대코드를 입력해 주세요" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("모바일 브라우저 안내도 같은 상단 바 제목을 쓴다", () => {
+    setUserAgent(SAFARI_UA);
+    renderAt("?code=1234");
+    expect(screen.getByRole("heading", { level: 1, name: "초대코드로 참여" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "그룹 스터디에 초대받았어요" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+});

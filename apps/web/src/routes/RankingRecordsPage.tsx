@@ -147,7 +147,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
         <Skeleton className="h-38.25 rounded-xl" />
       )}
       <div className="mt-3.5 flex items-center justify-between gap-2">
-        <RankChips value={rank} onChange={setRank} />
+        <RankChips value={rank} onChange={setRank} nativeControlId="segment-rank-chips" />
         <TypeFilterMenu value={type} onChange={setType} />
       </div>
       {/* 다시 받기가 실패해도 받아 둔 목록을 그대로 보이고, 오류는 목록이 없을 때만 보인다. */}

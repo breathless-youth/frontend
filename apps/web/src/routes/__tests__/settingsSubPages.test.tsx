@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
 import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { OPEN_SOURCE_ENTRIES } from "@/features/settings/openSourceLicenses";
+import { enterGlassChrome, resetGlassChrome } from "@/test/nativeControlStub";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
 
 // jsdom은 실제 내비게이션을 구현하지 않는다 — 하드 내비게이션은 모듈 단위로 모킹한다
@@ -36,17 +37,21 @@ afterEach(() => {
 });
 
 describe("설정 하위 라우트", () => {
-  it("/terms 가 이용약관 본문을 렌더한다", async () => {
+  it("/terms 가 이용약관 본문을 렌더하고 제목은 상단 바의 h1 하나다", async () => {
     renderAt("/terms");
     expect(
-      await screen.findByRole("heading", { name: TERMS_OF_SERVICE.title }),
+      await screen.findByRole("heading", { level: 1, name: TERMS_OF_SERVICE.title }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByText(TERMS_OF_SERVICE.sections[0].heading)).toBeInTheDocument();
   });
 
-  it("/privacy 가 개인정보처리방침 본문을 렌더한다", async () => {
+  it("/privacy 가 개인정보처리방침 본문을 렌더하고 제목은 상단 바의 h1 하나다", async () => {
     renderAt("/privacy");
-    expect(await screen.findByRole("heading", { name: PRIVACY_POLICY.title })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: PRIVACY_POLICY.title }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByText(PRIVACY_POLICY.sections[0].heading)).toBeInTheDocument();
   });
 
@@ -87,8 +92,9 @@ describe("설정 하위 라우트", () => {
   it("/licenses 가 고지 항목과 라이선스 전문을 렌더한다 (BY-310)", async () => {
     renderAt("/licenses");
     expect(
-      await screen.findByRole("heading", { name: "Open Source Licenses" }),
+      await screen.findByRole("heading", { level: 1, name: "Open Source Licenses" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     // 항목은 섹션·카드·강조 없이 한 문단으로 잇는다(2026-08-02 확정) — 이름 존재만 확인한다.
     for (const entry of OPEN_SOURCE_ENTRIES) {
       expect(document.body.textContent).toContain(entry.name);
@@ -129,6 +135,31 @@ describe("설정 하위 라우트", () => {
       await updateDone();
     });
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+});
+
+describe("앱 모드 설정 하위 라우트", () => {
+  afterEach(() => {
+    // 언마운트가 보내는 마지막 메시지가 다음 테스트로 새지 않게 먼저 언마운트한다.
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it.each([
+    ["/terms", TERMS_OF_SERVICE.title],
+    ["/privacy", PRIVACY_POLICY.title],
+    ["/licenses", "Open Source Licenses"],
+  ])("%s 는 제목을 앱의 뒤로 가기 줄에 맡긴다", async (path, title) => {
+    const postMessage = enterGlassChrome(path);
+    renderAt(path);
+
+    await waitFor(() => {
+      const sent = postMessage.mock.calls
+        .map(([raw]) => JSON.parse(raw as string) as { type: string; top?: { title: unknown } })
+        .filter((message) => message.type === "set-glass-chrome");
+      expect(sent.at(-1)?.top?.title).toBe(title);
+    });
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 });
 
