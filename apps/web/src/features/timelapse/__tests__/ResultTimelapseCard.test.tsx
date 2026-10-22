@@ -75,6 +75,7 @@ let builtWith: { ddayLabel?: string | null; streakDays?: number | null } | null;
  * 이 테스트의 store로 부른 영상 만들기
  * 앞 테스트가 시작한 미리 받기는 화면을 내린 뒤에도 끝까지 돌아, 다음 테스트 도중에 앞 테스트의 레코드로 영상을 만든다.
  * store를 펼쳐 메서드 일부만 바꾼 테스트도 있어 같은 읽기 함수를 쓰는지로 가린다.
+ * 읽기 함수까지 바꾼 store는 이 테스트의 store로 보지 않으므로, 그런 테스트의 호출 횟수는 builds()로 세지 않는다.
  */
 function isThisTestStore(candidate: TimelapseStore) {
   return candidate.get === store.get;
