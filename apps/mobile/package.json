@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
+    "@expo/ui": "~57.0.26",
     "@focusmakers/design-tokens": "workspace:*",
     "@focusmakers/types": "workspace:*",
     "@react-native-firebase/analytics": "^26.3.3",
@@ -20,6 +21,7 @@
     "expo-dev-client": "~57.0.19",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
+    "expo-glass-effect": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-linking": "~57.0.11",
     "expo-media-library": "~57.0.5",
