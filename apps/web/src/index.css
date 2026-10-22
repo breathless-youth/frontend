@@ -877,7 +877,8 @@ body {
    motion-reduce:hidden이 막고, 순서(지연)는 각 사용처의 animation-delay가 정한다. */
 
 /* 도장이 위에서 내려와 종이를 찍고(46~55%) 다시 들려 올라간다. left:50% 기준이라 translate의
-   -50%는 가로 중앙 정렬용이다 — 키프레임에서 빼면 도장이 오른쪽으로 치우친다. */
+   -50%는 가로 중앙 정렬용이다 — 키프레임에서 빼면 도장이 오른쪽으로 치우친다.
+   46%(2s 중 920ms)는 StudyCompleteHero의 STAMP_TOUCH_MS 햅틱 시점과 맞춰 두었으니 바꾸면 그 값도 함께 바꾼다. */
 @keyframes result-stamp-press {
   0% {
     opacity: 0;

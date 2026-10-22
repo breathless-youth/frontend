@@ -32,6 +32,9 @@ const prefetchResultPage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage }));
 
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 /** 화면 꺼짐·백그라운드 전환을 jsdom에서 재현한다(Page Visibility API). */
 function setVisibility(state: DocumentVisibilityState) {
   Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
@@ -1444,5 +1447,117 @@ describe("RoomPage: 세션 중 초대", () => {
     await waitFor(() => expect(inviteLeaves(postMessage)).toHaveLength(1));
     expect(submitStudySession).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
+  });
+});
+
+/** 할 일 하나를 가진 과목으로 과목 페이지를 연다 — 페이지를 여는 동안의 햅틱은 지운다. */
+async function openSheetWithTask(doneAt: string | null) {
+  listSubjects.mockResolvedValueOnce([
+    {
+      id: 3,
+      name: "수학",
+      colorIndex: 0,
+      studySec: 0,
+      focusSec: 0,
+      tasks: [{ id: 21, name: "오답 정리", doneAt }],
+    },
+  ]);
+  renderRoom("/room/7?userId=1");
+  await userEvent.click(screen.getByRole("button", { name: "과목" }));
+  await screen.findByRole("checkbox", { name: "오답 정리" });
+  haptic.mockClear();
+}
+
+describe("RoomPage — 햅틱", () => {
+  afterEach(() => {
+    act(() => {
+      clearSessionInvite();
+    });
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("일시정지 버튼은 light, 다시 시작 버튼은 medium 햅틱을 한 번씩 울린다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenLastCalledWith("light");
+
+    await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+    expect(haptic).toHaveBeenCalledTimes(2);
+    expect(haptic).toHaveBeenLastCalledWith("medium");
+  });
+
+  it("화면 꺼짐으로 일시정지되면 햅틱을 울리지 않는다", () => {
+    renderRoom("/room/7?userId=1");
+
+    act(() => {
+      setVisibility("hidden");
+    });
+
+    expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
+  it("일시정지 중 과목 재생 버튼으로 다시 시작하면 햅틱은 한 번만 울린다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderRoom("/room/7?userId=1");
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    const play = await screen.findByRole("button", { name: "수학 측정 시작" });
+    haptic.mockClear();
+
+    await userEvent.click(play);
+
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
+  });
+
+  it("과목 시트에서 할 일을 완료로 바꾸면 light 햅틱을 한 번 울린다", async () => {
+    await openSheetWithTask(null);
+    const task = screen.getByRole("checkbox", { name: "오답 정리" });
+
+    await userEvent.click(task);
+
+    expect(task).toBeChecked();
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("과목 시트에서 완료한 할 일을 풀 때는 햅틱을 울리지 않는다", async () => {
+    await openSheetWithTask("2026-10-04T03:00:00Z");
+    const task = screen.getByRole("checkbox", { name: "오답 정리" });
+
+    await userEvent.click(task);
+
+    expect(task).not.toBeChecked();
+    expect(haptic).not.toHaveBeenCalled();
+  });
+
+  it("종료 확인 창에서 공부 종료를 확정하면 medium 햅틱을 한 번 울린다", async () => {
+    renderRoom("/room/7");
+
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    expect(haptic).not.toHaveBeenCalled();
+    await userEvent.click(confirmExitButton());
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
+  });
+
+  it("초대 확인 창에서 참여하기를 누르면 medium 햅틱을 한 번 울린다", async () => {
+    stubNativeBridge();
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+    receiveInvite("4680");
+
+    await userEvent.click(await screen.findByRole("button", { name: "참여하기" }));
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("medium");
   });
 });

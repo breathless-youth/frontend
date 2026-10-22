@@ -51,6 +51,8 @@ vi.mock("@/lib/subjectApi", () => ({
   deleteTask: vi.fn(),
 }));
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
 vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
 vi.mock("@/lib/amplitude", () => ({
   trackPlannerOpened: vi.fn(),
@@ -778,6 +780,37 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     await waitFor(() =>
       expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).toBeChecked(),
     );
+  });
+
+  it("할 일을 완료로 바꾸면 light 햅틱을 한 번 울린다", async () => {
+    vi.mocked(updateTask).mockResolvedValue({
+      id: 21,
+      name: "리스닝 모의고사 1회",
+      doneAt: "2026-10-04T03:00:00Z",
+    });
+    renderPlanner("?userId=7");
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" }));
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("완료한 할 일을 풀 때는 햅틱을 울리지 않는다", async () => {
+    mockedSubjects.mockResolvedValue([
+      {
+        ...english,
+        tasks: [{ id: 21, name: "리스닝 모의고사 1회", doneAt: "2026-10-04T03:00:00Z" }],
+      },
+      math,
+    ]);
+    vi.mocked(updateTask).mockResolvedValue({ id: 21, name: "리스닝 모의고사 1회", doneAt: null });
+    renderPlanner("?userId=7");
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" }));
+
+    expect(updateTask).toHaveBeenCalledWith(3, 21, { done: false });
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   it("할 일을 왼쪽으로 밀어도 지워지거나 체크되지 않고, 다음 날로 넘어간다", async () => {

@@ -16,6 +16,7 @@ import {
   trackStoreLinkRedirected,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
+import { haptic } from "@/lib/haptics";
 import { slideNavigate } from "@/lib/pageTransition";
 import { enterLiveRoom } from "@/lib/roomApi";
 import { useUserId } from "@/lib/userId";
@@ -83,6 +84,7 @@ export function InviteCodeJoinPage() {
       );
     },
     onError: (error) => {
+      haptic("medium");
       trackSocialRoomJoinFailed(joinErrorReason(error));
       setErrorMessage(joinErrorMessage(error));
     },

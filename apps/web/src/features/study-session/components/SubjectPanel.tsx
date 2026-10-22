@@ -538,7 +538,12 @@ function SubjectTasks({
           ) : (
             <TaskRow
               task={task}
-              onToggle={(done) => void store.toggleTask(subject.id, task.id, done)}
+              onToggle={(done) => {
+                if (done) {
+                  haptic("light");
+                }
+                void store.toggleTask(subject.id, task.id, done);
+              }}
               onLongPress={(element) => onTaskLongPress(element, task.id)}
               onRemove={() => void store.removeTask(subject.id, task.id)}
             />

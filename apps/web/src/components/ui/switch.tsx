@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,7 +31,7 @@ const THUMB_SIZE: Record<SwitchSize, string> = {
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root> & { size?: SwitchSize }
->(({ className, size = "default", ...props }, ref) => (
+>(({ className, size = "default", onCheckedChange, ...props }, ref) => (
   <SwitchPrimitives.Root
     ref={ref}
     className={cn(
@@ -43,6 +44,11 @@ const Switch = React.forwardRef<
       className,
     )}
     {...props}
+    // Radix는 사용자가 바꿀 때만 이 콜백을 불러 바깥에서 값만 바뀔 때는 울리지 않는다.
+    onCheckedChange={(checked) => {
+      haptic("light");
+      onCheckedChange?.(checked);
+    }}
   >
     <SwitchPrimitives.Thumb
       className={cn(

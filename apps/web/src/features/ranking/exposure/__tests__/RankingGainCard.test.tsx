@@ -18,6 +18,9 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...analytics,
 }));
 
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
 afterEach(() => vi.clearAllMocks());
 
 const VIEW = gainCardView(FIXTURE_SESSION_GAINS)!;
@@ -80,6 +83,22 @@ describe("RankingGainCard", () => {
       chipCount: 3,
       roomType: "social",
     });
+  });
+
+  it("보이면 light 햅틱을 한 번만 울린다 — StrictMode와 다시 그리기에도", () => {
+    const { rerender } = render(
+      <StrictMode>
+        <RankingGainCard view={VIEW} roomType="single" onOpen={vi.fn()} />
+      </StrictMode>,
+    );
+    rerender(
+      <StrictMode>
+        <RankingGainCard view={{ ...VIEW }} roomType="single" onOpen={vi.fn()} />
+      </StrictMode>,
+    );
+
+    expect(haptic).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalledWith("light");
   });
 
   it("랭킹 보기의 화살표는 보이기만 하고 이름에는 넣지 않는다", () => {

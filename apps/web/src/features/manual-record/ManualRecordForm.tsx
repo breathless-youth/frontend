@@ -19,6 +19,7 @@ import {
   trackManualRecordEdit,
   trackManualRecordOverlapBlocked,
 } from "@/lib/amplitude";
+import { haptic } from "@/lib/haptics";
 import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,7 @@ export function ManualRecordForm({
       }
       // 무효화로 다시 받은 조회에 방금 저장한 기록이 들어오면 화면이 내려가기 전에 전부 겹침으로 보인다. 막힘으로 세지 않는다.
       reportedBlockRef.current = true;
+      haptic("light");
       onDone();
     },
     onError: setServerError,

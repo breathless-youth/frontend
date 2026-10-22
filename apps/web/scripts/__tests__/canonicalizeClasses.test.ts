@@ -110,6 +110,7 @@ describe("canonicalizeSource", () => {
 });
 
 describe("loadCanonicalizer", () => {
+  // Tailwind 디자인 시스템 전체를 불러와서 CI 전체 실행 중에는 기본 제한 5초를 넘긴 적이 있다.
   it("IntelliSense와 같은 표준 표기를 돌려주고 클래스가 아닌 문자열은 그대로 둔다", async () => {
     const canonicalize = await loadCanonicalizer();
     expect(canonicalize("h-[52px]")).toBe("h-13");
@@ -120,5 +121,5 @@ describe("loadCanonicalizer", () => {
       "pb-[calc(env(safe-area-inset-bottom)+24px)]",
     );
     expect(canonicalize("안녕하세요")).toBe("안녕하세요");
-  });
+  }, 30_000);
 });
