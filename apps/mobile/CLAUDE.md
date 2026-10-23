@@ -81,8 +81,13 @@ iOS 26 Liquid Glass를 웹 화면에 입히는 구조이고, 결정과 실측은
 - `image`를 쓰는 버튼은 그 PNG가 없는 이전 바이너리가 빈 버튼을 그리지 않도록 비슷한 SF Symbol을 `systemImage`에도 넘긴다.
 - podspec의 `resource_bundles`가 바뀌면 `ios`에서 `pod install`을 다시 돌린다.
 - 원격 웹은 구버전 앱에도 바로 배포되고 웹은 URL에 `glassChrome`이 있을 때만 자리를 비우므로, **`lib/remoteQueryParams.ts`가 이 표시를 붙이는 조건(iOS, `web-glass` 모듈 있음, `isLiquidGlassAvailable()`)을 풀지 말 것.**
-- 웹은 `glassChrome`의 버전(지금은 1)과 `glassControls`의 종류 목록(지금은 `segment,switch,button`) 안에 있는 것만 앱에 맡긴다.
+- 웹은 `glassChrome`의 버전(지금은 1)과 `glassControls`의 종류 목록(지금은 `segment,switch,button`, 버튼 모양을 그리는 바이너리는 끝에 `button-style`) 안에 있는 것만 앱에 맡긴다.
 - **고정 영역에 새 모양을 더하면 `GLASS_CHROME_VERSION`을 올리고, Swift에 본문 부품 종류를 더하면 `modules/web-glass`의 `SUPPORTED_INLINE_KINDS`에도 넣는다**(빠뜨리면 새 웹이 그 모양과 종류를 앱에 맡기지 않는다).
+- `button-style`은 `setInlineColorScheme`이 있는 바이너리에만 붙으므로, 버튼 모양을 더 바꾸면 그 판정이 맞는지 함께 본다.
+- 버튼 색 역할(강조 채움, 위험, 켜짐)의 색은 `RemoteWebViewHost`의 `GLASS_PALETTE`가 넘기고 Swift에는 색 값을 적지 않는다.
+- `set-inline-controls`의 `colorScheme`이 `dark`면 호스트가 `setInlineColorScheme`으로 그 웹뷰의 부품 층을 다크로 고정하고, 없으면 시스템 테마로 되돌린다.
+- Swift `sync`의 문자열 `case`는 테스트가 `SUPPORTED_INLINE_KINDS`와 대조하므로 색 역할 같은 값은 문자열 `case`로 나누지 않는다.
+- `.glass()` 버튼은 템플릿 심볼을 glass 자체 글자색으로 칠하므로, 아이콘 색은 `withTintColor(_:renderingMode: .alwaysOriginal)`로 이미지에 미리 입힌다.
 - 개발 빌드에서 CSS 대체 화면과 비교하려면 `.env.local`에 `GLASS_CHROME_OFF=1`을 두고 Metro를 재시작한다(production·staging에서는 이 값을 무시한다).
 - `set-glass-chrome`·`set-inline-controls`는 `RemoteWebViewHost`가 소비해 `onBridgeMessage`로 넘기지 않고(`HostConsumedType`), iOS가 아니면 받아도 그리지 않는다.
 - 이전 문서의 버튼이 새 문서 위에 남지 않도록, 호스트는 새 문서 세대, iOS `onLoadStart`, 언마운트 때 두 층을 비운다.

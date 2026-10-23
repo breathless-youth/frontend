@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
-- Relates to: [BY-957 웹뷰 화면에 iOS 26 Liquid Glass 적용 설계](../superpowers/specs/2026-10-22-BY-957-liquid-glass-design.md), [ADR 0001](./0001-webview-based-study-room-architecture.md), [ADR 0015](./0015-timelapse-direct-share-local-module.md)
+- Relates to: [BY-957 웹뷰 화면에 iOS 26 Liquid Glass 적용 설계](../superpowers/specs/2026-10-22-BY-957-liquid-glass-design.md), [BY-965 세션 화면 Liquid Glass 설계](../superpowers/specs/2026-10-23-BY-965-session-liquid-glass-design.md), [ADR 0001](./0001-webview-based-study-room-architecture.md), [ADR 0015](./0015-timelapse-direct-share-local-module.md)
 
 ## 배경
 
@@ -46,6 +46,9 @@ iOS 26에서 시스템 Liquid Glass가 그려지는 곳은 하단 탭 바(`Nativ
 - 앱은 iOS이고 `web-glass` 모듈이 있으며 `isLiquidGlassAvailable()`이 참일 때만 웹뷰 URL에 `glassChrome`과 `glassControls`를 붙인다.
 - `glassChrome`의 값은 앱이 그릴 수 있는 고정 요소 모양의 버전이고 지금은 `1`이다.
 - `glassControls`의 값은 Swift가 그리는 본문 부품 종류를 쉼표로 이은 목록이고 지금은 `segment,switch,button`이다.
+- 목록 끝의 `button-style`은 부품 종류가 아니라 앱이 버튼 색 역할(`tone`), 아이콘 크기(`iconSize`), 회전 수(`turns`), 부품 흐림(`faded`), 층 테마 고정(`colorScheme`)을 그린다는 표시다.
+- 앱은 같은 Swift에서 생긴 `setInlineColorScheme`이 있는 바이너리에만 `button-style`을 붙여서, 이전 Dev Client에 새 JS가 실려도 표시를 잘못 알리지 않는다.
+- 웹 `useNativeControl`은 이 필드를 쓰는 부품을 `button-style`이 있을 때만 앱에 맡기고, 없으면 웹 원본을 그린다.
 - 원격 웹은 구버전 앱에도 바로 배포되므로, 네이티브에 의존하는 웹 동작은 모두 이 표시가 있을 때만 켠다.
 - 같은 URL을 브라우저로 열면 브리지가 없으므로 웹은 표시가 있어도 CSS로 그린다.
 - 웹은 알린 버전과 목록 안의 모양과 종류만 앱에 맡기고 나머지는 CSS나 웹 원본으로 그린다(앱이 모르는 것을 보내면 웹 원본은 숨었는데 앱은 메시지를 버려서 화면에서 사라진다).
@@ -71,6 +74,22 @@ iOS 26에서 시스템 Liquid Glass가 그려지는 곳은 하단 탭 바(`Nativ
 - 손을 뗀 뒤 이동할지는 WebKit이 알려 주지 않아서, 호스트는 잠시 안에 이동이 오면 새 화면이 알릴 때까지 층을 내리고 오지 않으면 다시 보인다.
 - 본문의 그 자리 부품은 스크롤뷰 안에 있어 스냅샷과 함께 움직인다.
 
+### 세션 화면
+
+- 싱글룸 세션 화면(`RoomPage`)은 문서가 스크롤되지 않는 전체 화면이라 `absolute`로 놓인 버튼도 그 자리 부품으로 바꾼다.
+- 카메라 전환, 배경음, 과목, 일시정지·다시 시작, 종료 버튼을 원형 glass 버튼으로 그리고, 상태 표시 필과 과목 라벨과 타이머는 누를 수 없거나 흐름 배치라 웹으로 남긴다.
+- 색은 웹 색을 그대로 써서 다시 시작은 `prominent`(파란 채움), 종료는 `danger`(빨간 아이콘), 켜진 배경음과 고른 과목은 `active`(강조색 아이콘)이고, 색 값은 호스트가 팔레트로 넘긴다.
+- 아이콘은 SF Symbol이고 웹은 버튼 안 아이콘의 CSS 폭을 측정해 `iconSize`로 보낸다.
+- SF Symbol이 같은 크기의 웹 아이콘보다 커 보여서, 실기기 검토 뒤 사용자 요청으로 카메라 전환은 측정 폭의 0.7배, 종료·배경음·과목은 0.82배(`iconScale`)로 보낸다.
+- 같은 검토에서 하단 일시정지·종료 버튼은 웹 버튼까지 한 단계 키웠다(지름 60/72/88px, 아이콘 26/30/38px).
+- 일시정지와 다시 시작은 아이콘 교체 효과로, 카메라 전환은 `turns`가 늘 때 아이콘 회전 효과로 웹 애니메이션을 대신한다.
+- 간단 모드에서 일시정지를 뺀 버튼은 `faded`로 보내고, 앱은 0.2초 동안 투명도를 0으로 낮춘다.
+- 투명도가 0인 뷰는 UIKit이 누름 판정에서 빼서, 숨은 동안의 누름은 아래 웹의 간단 모드 전환으로 간다.
+- 동작 줄이기가 켜져 있으면 투명도는 움직임 없이 바로 바뀐다.
+- 세션 루트는 `theme-dark`라 항상 다크이고, 웹은 `theme-dark` 안에 등록된 부품이 있으면 `colorScheme: "dark"`를 보내 앱이 그 웹뷰의 부품 층 전체를 다크로 그린다.
+- 라이브룸 하단 조작 바는 화면 탭으로 미끄러져 숨는 애니메이션이 있어 웹 모양을 유지한다.
+- 시트와 대화상자 안 컨트롤은 모달이 열리면 네이티브 부품을 모두 숨기는 구조라 이 방식으로 바꾸지 않는다.
+
 ## 실측 근거
 
 iOS 26.5 시뮬레이터와 iPhone 13 mini(iOS 26)에서 스파이크로 확인했다.
@@ -82,6 +101,9 @@ iOS 26.5 시뮬레이터와 iPhone 13 mini(iOS 26)에서 스파이크로 확인�
 | 그 자리 부품이 스크롤 중 어긋나는가          | 녹화 프레임에서 웹 글자와의 간격이 214px로 유지됐다                                                 |
 | 그 자리 부품의 누름이 웹에 닿는 시간(실기기) | 스위치 2.7에서 3.0ms, 세그먼트 0.1에서 7ms                                                          |
 | 단색 배경 위 그 자리 glass                   | 멈춘 화면에서는 CSS와 구분하기 어려웠지만, 사용자는 실기기에서 시스템 부품의 생김새를 가장 선호했다 |
+
+- iOS 26.5 시뮬레이터에서 웹뷰 안 재생 중인 파일 영상과 MediaStream 영상 위에 glass 버튼을 올렸을 때 두 경우 모두 영상 색이 glass에 비쳤고, 두 번 찍은 화면의 glass 안쪽 PSNR이 파일 48.87dB, MediaStream 14.60dB로 서로 달라 영상이 바뀌는 대로 glass 색도 바뀌었다.
+- 이때 MediaStream은 `canvas.captureStream()`으로 만든 스트림이라, `getUserMedia` 카메라 영상 위 glass는 실기기에서 확인한다.
 
 ## 검토한 대안
 
@@ -108,6 +130,7 @@ iOS 26.5 시뮬레이터와 iPhone 13 mini(iOS 26)에서 스파이크로 확인�
 - Android, iOS 26 미만, `web-glass`가 없는 구버전 앱과 Dev Client, 브라우저에서는 고정 요소를 같은 배치의 CSS glass로 그리고 본문 요소는 기존 웹 모양을 유지한다.
 - 스와이프 관찰 함수가 생기기 전에 만든 Dev Client에서는 층이 흐려지지 않을 뿐 나머지는 그대로 동작한다.
 - 자르는 선 함수(`setInlineClipTop`)가 생기기 전에 만든 Dev Client에서는 본문 부품이 위쪽 줄 밑에서 잘리지 않을 뿐 나머지는 그대로 동작한다.
+- `setInlineColorScheme`이 생기기 전에 만든 Dev Client에는 `button-style`이 붙지 않아 세션 버튼이 웹 모양으로 남는다.
 - `prefers-reduced-transparency`가 켜져 있으면 CSS 대체가 불투명 배경을 쓴다.
 - iOS 투명도 줄이기가 켜져 있으면 시스템이 네이티브 glass를 불투명하게 바꾼다.
 
@@ -122,9 +145,10 @@ iOS 26.5 시뮬레이터와 iPhone 13 mini(iOS 26)에서 스파이크로 확인�
 - 다만 앱보다 새 웹이 보낸 값은 틀린 값으로 보지 않아서, 모르는 본문 부품 종류는 그 부품만 빼고 나머지를 그린다.
 - 라벨은 40자 이하, id는 `^[a-z0-9:-]{1,64}$`, 버튼 이미지 이름은 `^[a-z0-9-]{1,32}$`, 본문 부품은 32개 이하, 세그먼트 항목은 2개에서 5개까지만 받는다.
 - 버튼 SF Symbol 이름은 `^[a-z0-9.]{1,64}$`이고, 좌표는 x·y가 -10000 이상, 폭·높이가 0 이상이며 모두 100000 이하만 받는다.
+- 버튼 아이콘 크기는 0 초과 64 이하, 회전 수는 0 이상의 정수, 색 역할은 `default`·`prominent`·`danger`·`active`만 받고 웹은 64를 넘는 아이콘 폭을 64로 줄여 보낸다.
 - 웹은 보내기 전에 라벨을 40자로 자르고, 보낼 수 없는 부품은 등록하지 않고 웹 원본으로 그린다.
 - 좌표는 측정한 뒤에야 알 수 있어서, 웹은 범위를 벗어난 부품을 그 목록에서만 빼고 나머지를 보낸다(그 부품의 웹 원본은 숨겨진 채로 남는다).
-- 이 형식과 범위 상수(`NATIVE_CONTROL_ID_PATTERN`, `NATIVE_CONTROL_LABEL_MAX_LENGTH`, `NATIVE_CONTROL_IMAGE_PATTERN`, `NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN`, `NATIVE_CONTROL_POSITION_MIN`, `NATIVE_CONTROL_COORDINATE_MAX`)는 `packages/types`에 있고 웹과 앱 파서가 함께 쓴다.
+- 이 형식과 범위 상수(`NATIVE_CONTROL_ID_PATTERN`, `NATIVE_CONTROL_LABEL_MAX_LENGTH`, `NATIVE_CONTROL_IMAGE_PATTERN`, `NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN`, `NATIVE_CONTROL_POSITION_MIN`, `NATIVE_CONTROL_COORDINATE_MAX`, `NATIVE_CONTROL_ICON_SIZE_MAX`, `NATIVE_BUTTON_TONES`)는 `packages/types`에 있고 웹과 앱 파서가 함께 쓴다.
 
 ### 구현 함정
 
@@ -137,8 +161,13 @@ iOS 26.5 시뮬레이터와 iPhone 13 mini(iOS 26)에서 스파이크로 확인�
 - iOS 26.5 시뮬레이터의 웹뷰에는 왼쪽 가장자리 인식기가 2개 붙어 있었고 그중 1개만 켜져 있어서, 뒤로 가기 인식기는 방향과 켜짐 여부로 고른다.
 - WebKit은 스와이프 제스처를 켤 때마다 인식기를 새로 만들어서, 호스트는 로드가 끝날 때와 제스처를 다시 켤 때 관찰을 다시 요청하고 모듈은 인식기가 바뀌었을 때만 대상을 다시 붙인다.
 - 시뮬레이터에서 `axe`의 합성 스와이프로는 WKWebView의 뒤로 가기 제스처가 시작되지 않아서 실제 스와이프는 실기기로 확인한다.
+- 부품 종류 목록 테스트가 Swift의 `case "..."` 문자열을 종류로 읽어서, 색 역할처럼 종류가 아닌 값은 문자열 `case`가 아니라 사전으로 고른다.
+- `.glass()` 버튼은 `baseForegroundColor`나 `imageColorTransformer`와 상관없이 템플릿 심볼을 glass 자체 글자색으로 칠해서, Swift는 색 역할의 색을 `withTintColor(_:renderingMode: .alwaysOriginal)`로 이미지에 미리 입힌다.
+- 이렇게 입힌 색도 라이트·다크 전환을 따라 바뀌고, 막힌 버튼의 아이콘은 흐리게 그려진다.
+- 웹 아이콘의 등장 애니메이션이 `scale(0.6)`에서 시작해서, 웹은 `getBoundingClientRect` 대신 계산된 CSS 폭으로 아이콘 크기를 측정한다.
 
 ### 빌드와 범위
 
 - `@expo/ui`, `expo-glass-effect`, 로컬 모듈 `web-glass`가 들어가 Dev Client와 스토어 빌드를 다시 만들어야 켜진다.
-- 세션 화면 컨트롤, 유리 메뉴(랭킹 기록 필터, 플래너 과목 메뉴), 시트·대화상자의 시스템 전환은 후속 티켓에서 다룬다.
+- 세션 버튼 모양은 Swift 변경이라 Dev Client와 스토어 빌드를 다시 만들어야 켜진다.
+- 라이브룸 하단 조작 바, 유리 메뉴(랭킹 기록 필터, 플래너 과목 메뉴), 시트와 대화상자 안 컨트롤과 시스템 전환은 후속 티켓에서 다룬다.
