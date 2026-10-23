@@ -14,7 +14,6 @@ import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
-import { useFocusStart } from "@/features/onboarding/useFocusStart";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IllustFlame } from "@/features/records/icons";
@@ -25,9 +24,10 @@ import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSess
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { useFocusStart } from "@/lib/useFocusStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
-import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/lazyRoutes";
+import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
 /**
  * 홈
@@ -36,8 +36,7 @@ import { prefetchOnboardingGuidePage, prefetchTimelapsesPage } from "@/routes/la
  * 친구 초대 카드의 소셜 탭 이동도 그래서 `navigate-tab` 브리지로 네이티브에 맡기고,
  * 브라우저 단독 모드에서만 웹 라우트로 직접 간다.
  *
- * "집중 시작"은 `focusStartFlow`의 `runFocusStartFlow`를 거쳐 가이드 미완료면 `/onboarding-guide`로,
- * 완료면 세션 시작 요청(`requestSessionStart`)으로 갈린다.
+ * "집중 시작"은 세션 시작 요청(`requestSessionStart`)으로 간다.
  */
 
 /** 초대 카드 이중 탭 무시 구간. 탭 전환 애니메이션이 끝나기 전의 탭 재시도만 걸러낸다. */
@@ -159,15 +158,12 @@ function HomeContent({ userId }: { userId: number }) {
   /**
    * 통계까지 그린 뒤 세션의 Vision 자원(로더·wasm·모델)을 유휴 시간에 HTTP 캐시로 올려 둔다.
    * 첫 화면·통계와 대역폭을 다투지 않도록 성공한 뒤에만 부른다.
-   * 가이드 화면 청크도 같은 때 받는다.
-   * 가이드로 가는 슬라이드 전환은 청크를 기다리지 않는다.
    * document당 한 번은 함수가 보장한다.
    */
   const summaryShown = summaryState.status === "success";
   useEffect(() => {
     if (summaryShown) {
       prefetchVisionAssets();
-      prefetchOnboardingGuidePage();
       // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
       prefetchTimelapsesPage();
     }
@@ -180,7 +176,7 @@ function HomeContent({ userId }: { userId: number }) {
 
   /**
    * 초대 카드의 마지막 탭 시각. 빠른 이중 탭이 `navigate-tab`을 두 번 보내면 셸이 `tab_pressed`를
-   * 두 번 남긴다. 가이드 래치와 달리 홈 문서는 탭을 오가도 살아 있으므로 영구 래치가 아니라 잠깐만 막는다.
+   * 두 번 남긴다. 홈 문서는 탭을 오가도 살아 있으므로 영구 래치가 아니라 잠깐만 막는다.
    */
   const lastSocialTapAtRef = useRef(0);
 

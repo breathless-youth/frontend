@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { useFocusStart } from "@/features/onboarding/useFocusStart";
 import { AroundList } from "@/features/ranking/components/AroundList";
 import { BoardModeTabs, BoardSwitcher } from "@/features/ranking/components/BoardSwitcher";
 import { IneligibleCard, LockedListCard } from "@/features/ranking/components/EligibilityCard";
@@ -67,6 +66,7 @@ import {
 import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
 import { cannotLoad, rankingBoardQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
+import { useFocusStart } from "@/lib/useFocusStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { whenIdle } from "@/lib/whenIdle";

@@ -41,14 +41,6 @@ export function useNativeScreenReport(): void {
       if (code !== null) {
         restoreQuery = { code };
       }
-    } else if (location.pathname === "/onboarding-guide") {
-      // 진입 경로(`?entry=focus-start` 등) — 유실되면 복원된 가이드가 unknown 기본값으로
-      // 떨어져 완료가 세션을 시작하지 않는다. 값 검증은 페이지의 parseOnboardingGuideEntry가
-      // 이미 하므로 여기서는 그대로 나른다.
-      const entry = new URLSearchParams(location.search).get("entry");
-      if (entry !== null) {
-        restoreQuery = { entry };
-      }
     } else if (location.pathname === "/planner") {
       // 보던 날짜와 들어온 탭. 들어온 탭이 유실되면 복원된 플래너의 뒤로 가기가 스택 없이 기록 탭으로
       // 떨어져, 홈 탭 웹뷰에 기록 화면이 뜬다.

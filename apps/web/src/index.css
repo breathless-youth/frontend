@@ -650,35 +650,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/*
- * 온보딩 가이드(G1~G5) 전용 키프레임 — `features/onboarding/OnboardingGuideFlow.tsx`·
- * `SessionMockBackdrop.tsx`의 RN `Animated` 루프를 CSS로 이식한 것(BY-334).
- * 값 출처는 `features/onboarding/coachOverlayTheme.ts`의 `coachMotion`(확정값 아님, 그 파일 주석
- * 참고) — CSS는 TS를 import할 수 없어 값을 그대로 옮겨 적는다(위 색 변수와 같은 이유).
- * 반복·재생 여부는 각 사용처의 `motion-reduce:` 유틸이 담당한다.
- */
-@keyframes coach-ring-out {
-  from {
-    opacity: 0.45;
-    transform: scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(1.35);
-  }
-}
-
-@keyframes coach-step-fade {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 /* S5 달력 월 전환 — 이동 방향에서 스르륵 밀려 들어온다(BY-343). 거리(6%)는 "움직였다"가
    보이는 최소치다 — 셀 하나 폭을 넘게 밀면 날짜를 따라 읽던 시선이 끊긴다. */
 @keyframes month-slide-from-right {

@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { isFullScreenPath } from "@/lib/nativeTabBar";
 
 /**
- * 포워드 제스처로 전체 화면 라우트(가이드·문의·약관·방침)가 **되열리는** 것을 막는다(BY-343).
+ * 포워드 제스처로 전체 화면 라우트(문의·약관·방침)가 **되열리는** 것을 막는다(BY-343).
  *
  * 웹뷰의 가장자리 스와이프(`allowsBackForwardNavigationGestures`)는 뒤로/앞으로를 **함께**
  * 켠다 — iOS에 앞으로만 끄는 스위치가 없다. 그래서 설정→약관을 열었다 닫으면 약관이
@@ -43,7 +43,7 @@ export function isForwardEntryIntoFullScreen(
 }
 
 function readHistoryIdx(): number {
-  // BrowserRouter가 관리하는 스택 깊이 — `ScreenBackHeader`·`closeGuide`와 같은 판단 기준.
+  // BrowserRouter가 관리하는 스택 깊이 — `ScreenBackHeader`와 같은 판단 기준.
   return (window.history.state as { idx?: number } | null)?.idx ?? 0;
 }
 
