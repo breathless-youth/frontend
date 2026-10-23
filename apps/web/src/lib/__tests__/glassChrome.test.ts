@@ -128,6 +128,24 @@ describe("supportsInlineKind", () => {
 
     expect(supportsInlineKind("button")).toBe(true);
   });
+
+  it("버튼 모양 표시도 목록에 있을 때만 참이다", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/room/1?glassChrome=1&glassControls=segment,switch,button,button-style",
+    );
+    __resetGlassChromeForTests();
+    expect(supportsInlineKind("button-style")).toBe(true);
+
+    window.history.replaceState(
+      null,
+      "",
+      "/room/1?glassChrome=1&glassControls=segment,switch,button",
+    );
+    __resetGlassChromeForTests();
+    expect(supportsInlineKind("button-style")).toBe(false);
+  });
 });
 
 describe("registerPressHandler + useNativeControlPressRelay", () => {

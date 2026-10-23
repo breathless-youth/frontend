@@ -32,8 +32,7 @@ public class WebGlassModule: Module {
       let layer = self.inlineLayer(viewTag)
       layer.attach(to: scrollView)
       let tint = dynamicColor(light: palette["tintLight"], dark: palette["tintDark"])
-      let foreground = dynamicColor(light: palette["foregroundLight"], dark: palette["foregroundDark"])
-      let disabledForeground = dynamicColor(light: palette["disabledLight"], dark: palette["disabledDark"])
+      let buttonColors = ButtonColors(palette)
       var seen = Set<String>()
       for control in controls {
         guard let id = control["id"] as? String,
@@ -42,21 +41,26 @@ public class WebGlassModule: Module {
           continue
         }
         let key = "\(viewTag):\(id)"
+        let view: UIView
         switch control["kind"] as? String {
         case "segment":
           let segment = self.reuse(key, in: layer) { self.makeSegment(viewTag: viewTag, id: id) }
           updateSegment(segment, control, rect)
+          view = segment
         case "switch":
           let toggle = self.reuse(key, in: layer) {
             self.makeSwitch(viewTag: viewTag, id: id, on: bool(control["on"]))
           }
           updateSwitch(toggle, control, rect, tint)
+          view = toggle
         case "button":
           let button = self.reuse(key, in: layer) { self.makeButton(viewTag: viewTag, id: id) }
-          updateButton(button, control, rect, foreground, disabledForeground)
+          updateButton(button, control, rect, buttonColors)
+          view = button
         default:
           continue
         }
+        fade(view, bool(control["faded"]))
         seen.insert(key)
       }
       self.remove(viewTag) { !seen.contains($0) }
@@ -77,6 +81,14 @@ public class WebGlassModule: Module {
     // 부품보다 먼저 올 수 있어서 층을 먼저 만들어 값을 들고 있고, 붙일 때 그 값으로 자른다.
     AsyncFunction("setInlineClipTop") { (viewTag: Int, inset: Double) in
       self.inlineLayer(viewTag).clipTop = CGFloat(inset)
+    }.runOnQueue(.main)
+
+    // 본문 부품 층의 테마 고정
+    //
+    // 세션처럼 웹이 시스템 테마와 무관하게 다크로 그리는 화면은 층 전체를 다크로 그려 팔레트 다크 값과 다크 glass가 나오게 한다.
+    // 부품보다 먼저 올 수 있어서 층을 먼저 만들어 값을 들고 있는다.
+    AsyncFunction("setInlineColorScheme") { (viewTag: Int, scheme: String?) in
+      self.inlineLayer(viewTag).overrideUserInterfaceStyle = scheme == "dark" ? .dark : .unspecified
     }.runOnQueue(.main)
 
     // 뒤로 가기 스와이프 관찰
@@ -311,6 +323,8 @@ private final class GlassSwitch: UISwitch {
 private final class GlassButton: UIButton {
   // 웹은 레이아웃이 바뀔 때마다 같은 값을 다시 보내서 마지막으로 그린 입력과 같으면 모양을 다시 만들지 않는다.
   var drawnInput: [String?]?
+  // 회전 수가 늘었는지 보려고 마지막으로 받은 값을 들고 있는다.
+  var drawnTurns: Int?
 
   override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
     hitArea(bounds).contains(point)
@@ -339,6 +353,9 @@ private func updateSegment(_ segment: UISegmentedControl, _ control: [String: An
     segment.selectedSegmentIndex = selected
   }
   segment.accessibilityLabel = control["accessibilityLabel"] as? String
+  // 흐림이 누름과 VoiceOver를 막아 두므로 흐리지 않은 부품은 매번 원래 상태로 되돌린다.
+  segment.isUserInteractionEnabled = true
+  segment.accessibilityElementsHidden = false
   segment.frame = rect
 }
 
@@ -364,31 +381,66 @@ private func updateSwitch(_ toggle: UISwitch, _ control: [String: Any], _ rect: 
   toggle.frame = CGRect(x: x, y: rect.midY - size.height / 2, width: size.width, height: size.height)
 }
 
+// 버튼 색 역할별 색
+//
+// 값은 호스트가 디자인 토큰에서 넘기고, 빠진 값은 dynamicColor가 시스템 강조색으로 메운다.
+private struct ButtonColors {
+  let foreground: UIColor
+  let disabled: UIColor
+  let prominent: UIColor
+  let onProminent: UIColor
+  let danger: UIColor
+  let active: UIColor
+
+  init(_ palette: [String: String]) {
+    foreground = dynamicColor(light: palette["foregroundLight"], dark: palette["foregroundDark"])
+    disabled = dynamicColor(light: palette["disabledLight"], dark: palette["disabledDark"])
+    prominent = dynamicColor(light: palette["prominentLight"], dark: palette["prominentDark"])
+    onProminent = dynamicColor(light: palette["onProminentLight"], dark: palette["onProminentDark"])
+    danger = dynamicColor(light: palette["dangerLight"], dark: palette["dangerDark"])
+    active = dynamicColor(light: palette["activeLight"], dark: palette["activeDark"])
+  }
+}
+
 private func updateButton(
-  _ button: GlassButton, _ control: [String: Any], _ rect: CGRect, _ foreground: UIColor,
-  _ disabledForeground: UIColor
+  _ button: GlassButton, _ control: [String: Any], _ rect: CGRect, _ colors: ButtonColors
 ) {
   let title = control["title"] as? String
   let systemImage = control["systemImage"] as? String
   let imageName = control["image"] as? String
   let circle = control["shape"] as? String == "circle"
   let disabled = bool(control["disabled"])
+  let tone = control["tone"] as? String ?? "default"
+  let iconSize = (control["iconSize"] as? NSNumber).map { CGFloat($0.doubleValue) }
   // 색은 테마를 스스로 따르는 고정 팔레트 색이라 입력에 넣지 않는다.
   let input = [
     title, systemImage, imageName, circle ? "circle" : "capsule", disabled ? "disabled" : "enabled",
+    tone, iconSize.map { "\($0)" },
   ]
   if button.drawnInput != input {
     button.drawnInput = input
+    // 문자열 case로 나누면 부품 종류 목록 테스트가 색 역할까지 종류로 읽어서 사전으로 고른다.
+    let toneForeground =
+      ["prominent": colors.onProminent, "danger": colors.danger, "active": colors.active][tone]
+      ?? colors.foreground
+    let fill = tone == "prominent" ? colors.prominent : nil
     // glass 설정은 막힌 상태에서도 글자와 아이콘을 흐리게 하지 않아서 막힌 색을 직접 넣는다.
     button.configuration = buttonConfiguration(
       title: title, systemImage: systemImage, imageName: imageName, circle: circle,
-      foreground: disabled ? disabledForeground : foreground)
+      foreground: disabled ? colors.disabled : toneForeground, fill: fill, iconSize: iconSize)
+    // 강조 glass는 바탕색 대신 버튼 tintColor를 읽는 경우가 있어서 같은 색을 함께 건다.
+    button.tintColor = fill
     // 폭은 웹 글꼴로 잰 값이라 네이티브 글자가 조금 더 넓으면 자르지 않고 줄인다.
     button.titleLabel?.adjustsFontSizeToFitWidth = true
     button.titleLabel?.minimumScaleFactor = 0.85
   }
+  spin(button, turns: (control["turns"] as? NSNumber)?.intValue)
   button.isEnabled = !disabled
   button.accessibilityLabel = control["accessibilityLabel"] as? String
+  // 흐림이 누름과 VoiceOver를 막아 두므로 흐리지 않은 부품은 매번 원래 상태로 되돌린다.
+  button.isUserInteractionEnabled = true
+  button.isAccessibilityElement = true
+  button.accessibilityElementsHidden = false
   if circle {
     // 캡슐 모서리는 정사각형에서만 원이 되어서 짧은 변에 맞춘다.
     let side = min(rect.width, rect.height)
@@ -399,13 +451,20 @@ private func updateButton(
 }
 
 private func buttonConfiguration(
-  title: String?, systemImage: String?, imageName: String?, circle: Bool, foreground: UIColor
+  title: String?, systemImage: String?, imageName: String?, circle: Bool, foreground: UIColor,
+  fill: UIColor?, iconSize: CGFloat?
 ) -> UIButton.Configuration {
   var config: UIButton.Configuration
   if #available(iOS 26.0, *) {
-    config = .glass()
+    // 강조 채움은 웹의 파란 다시 시작 버튼처럼 색으로 채운 glass다.
+    config = fill == nil ? .glass() : .prominentGlass()
+    // 일시정지와 다시 시작처럼 아이콘이 바뀌면 이전 아이콘이 새 아이콘으로 바뀌는 효과를 낸다.
+    config.symbolContentTransition = UISymbolContentTransition(.replace)
   } else {
     config = .plain()
+  }
+  if let fill {
+    config.baseBackgroundColor = fill
   }
   if let title {
     config.attributedTitle = AttributedString(
@@ -414,15 +473,14 @@ private func buttonConfiguration(
   // 버튼 폭은 웹 원본이 정해서 글자가 넘치면 줄을 바꾸지 않고 끝을 자른다.
   config.titleLineBreakMode = .byTruncatingTail
   let image = imageName.flatMap(bundledImage) ?? systemImage.flatMap { UIImage(systemName: $0) }
-  config.image = image
-  // 심벌 기본 크기는 웹 아이콘보다 커서 웹 크기에 맞춰 고정한다.
+  // glass 설정은 템플릿 아이콘을 받은 색과 무관하게 glass 글자 색으로 칠해서 색을 넣은 원본 그림으로 넘긴다.
+  config.image = image?.withTintColor(foreground, renderingMode: .alwaysOriginal)
+  // 심벌 기본 크기는 웹 아이콘보다 커서, 웹이 측정한 아이콘 폭이 없으면 웹 크기에 맞춘 고정값을 쓴다.
   config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
-    pointSize: circle ? 12 : 13, weight: .semibold)
+    pointSize: iconSize ?? (circle ? 12 : 13), weight: .semibold)
   config.imagePadding = 4
   config.cornerStyle = .capsule
   config.baseForegroundColor = foreground
-  // glass 설정에서는 아이콘이 글자 색을 따르지 않아서 같은 색으로 맞춘다.
-  config.imageColorTransformer = UIConfigurationColorTransformer { _ in foreground }
   // 원형 버튼은 작아서 안쪽 여백을 두면 아이콘이 밀려난다.
   config.contentInsets =
     circle
@@ -432,9 +490,49 @@ private func buttonConfiguration(
   return config
 }
 
+// 아이콘 회전 효과
+//
+// 웹 카메라 전환 아이콘이 누를 때마다 도는 것을 대신해 회전 수가 늘면 한 번 돌린다.
+// 처음 붙인 버튼은 이전 값이 없어 돌리지 않는다.
+private func spin(_ button: GlassButton, turns: Int?) {
+  defer { button.drawnTurns = turns }
+  guard let turns, let drawn = button.drawnTurns, turns > drawn else {
+    return
+  }
+  if #available(iOS 26.0, *) {
+    button.imageView?.addSymbolEffect(.rotate, options: .nonRepeating)
+  }
+}
+
+// 간단 모드 흐림
+//
+// 웹 간단 모드 전환과 같은 0.2초 동안 흐려지며 사라진다.
+// 흐려지는 동안 아직 보이는 부품이 눌리거나 읽히지 않게 흐림을 시작할 때 누름과 VoiceOver에서 바로 뺀다.
+// 누름을 받지 않는 부품 자리는 층도 자기 자신을 돌려주지 않아서 누름이 아래 웹으로 간다.
+// 갱신 함수가 매번 종류별 원래 상태로 먼저 되돌리므로 흐림은 매번 다시 걸고, 흐림을 풀 때는 손대지 않는다.
+// 동작 줄이기를 켠 사용자에게는 움직임 없이 바로 바꾼다.
+private func fade(_ view: UIView, _ faded: Bool) {
+  if faded {
+    view.isUserInteractionEnabled = false
+    view.isAccessibilityElement = false
+    view.accessibilityElementsHidden = true
+  }
+  let alpha: CGFloat = faded ? 0 : 1
+  if view.alpha == alpha {
+    return
+  }
+  if UIAccessibility.isReduceMotionEnabled {
+    view.alpha = alpha
+    return
+  }
+  UIView.animate(
+    withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction],
+    animations: { view.alpha = alpha })
+}
+
 // 앱에 포함된 웹 아이콘 그림
 //
-// 웹 SVG를 검정 PNG로 렌더한 것이라 템플릿으로 읽어야 버튼 글자 색으로 칠해진다.
+// 웹 SVG를 검정 PNG로 렌더한 것이라 템플릿으로 읽어 모양만 쓰고, 색은 버튼 설정이 아이콘 색으로 입힌다.
 // 찾지 못하면 nil이라 systemImage로 그린다.
 private func bundledImage(_ name: String) -> UIImage? {
   UIImage(named: name, in: resourceBundle, with: nil)?.withRenderingMode(.alwaysTemplate)

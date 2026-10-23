@@ -3,6 +3,8 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { useEffect, useState } from "react";
 import { Appearance, Platform } from "react-native";
 
+import { GLASS_CONTROLS_BUTTON_STYLE } from "@focusmakers/types";
+
 import { appLockNative } from "../modules/app-lock";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
@@ -74,7 +76,7 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
     params.appLock = "1";
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
-  // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이다.
+  // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.
   // 웹은 표시가 있을 때만 자리를 비우고, 버전과 목록 안의 모양과 종류만 `set-glass-chrome`·`set-inline-controls`로 보낸다.
   // 원격 웹은 구버전 앱에도 바로 배포되어서, 앱이 모르는 모양이나 종류를 보내면 웹 원본은 숨었는데 앱은 메시지를 버려 화면에서 사라진다.
   // 옛 Dev Client에는 `web-glass` 모듈이 없을 수 있고, Liquid Glass는 iOS 26부터라 그 아래 버전은 웹의 CSS 대체 화면을 쓴다.
@@ -86,7 +88,12 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
     Constants.expoConfig?.extra?.glassChromeOff !== true
   ) {
     params.glassChrome = String(GLASS_CHROME_VERSION);
-    params.glassControls = SUPPORTED_INLINE_KINDS.join(",");
+    // `button-style`은 같은 Swift에서 생긴 `setInlineColorScheme`이 있는 바이너리에만 붙인다.
+    // Metro의 새 JS가 이전 Dev Client에 실려도 그 바이너리가 버튼 모양을 그린다고 잘못 알리지 않게 한다.
+    params.glassControls = [
+      ...SUPPORTED_INLINE_KINDS,
+      ...(webGlassNative.setInlineColorScheme ? [GLASS_CONTROLS_BUTTON_STYLE] : []),
+    ].join(",");
   }
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면

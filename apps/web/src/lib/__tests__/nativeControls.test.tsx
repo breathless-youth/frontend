@@ -1,4 +1,4 @@
-import type { InlineControl } from "@focusmakers/types";
+import type { InlineControl, NativeButtonTone } from "@focusmakers/types";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ type SentInline = {
   type: "set-inline-controls";
   controls: InlineControl[];
   hidden: boolean;
+  colorScheme?: "dark";
 };
 
 function Segment({
@@ -104,6 +105,47 @@ function NumberedSwitch({ index, onPress }: { index: number; onPress: (value: nu
     </button>
   );
 }
+
+function StyledButton({
+  tone = "active",
+  turns = 0,
+  faded = false,
+  measureIcon = false,
+  iconScale,
+  iconWidth,
+}: {
+  tone?: NativeButtonTone;
+  turns?: number;
+  faded?: boolean;
+  measureIcon?: boolean;
+  iconScale?: number;
+  iconWidth?: number;
+}) {
+  const { ref, native } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-flip",
+      kind: "button",
+      title: null,
+      systemImage: "arrow.triangle.2.circlepath.camera",
+      shape: "circle",
+      disabled: false,
+      accessibilityLabel: "카메라 전환",
+      tone,
+      turns,
+      faded,
+    },
+    () => {},
+    { measureIcon, iconScale },
+  );
+  return (
+    <button ref={ref} type="button" aria-label="카메라 전환">
+      <svg style={iconWidth === undefined ? undefined : { width: `${iconWidth}px` }} />
+      {native ? "앱" : "웹"}
+    </button>
+  );
+}
+
+const WITH_BUTTON_STYLE = "segment,switch,button,button-style";
 
 function sentInline(postMessage: ReturnType<typeof vi.fn>): SentInline[] {
   return postMessage.mock.calls
@@ -411,6 +453,108 @@ describe("앱 모드", () => {
     render(<Segment />);
 
     expect(lastInline(postMessage)?.controls).toEqual([]);
+  });
+
+  it("버튼 모양 필드를 쓰는 부품은 앱이 button-style을 알리지 않으면 웹으로 그린다", () => {
+    const postMessage = enterGlassChrome("/room/1");
+
+    render(<StyledButton />);
+
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toHaveTextContent("웹");
+    expect(sentInline(postMessage)).toEqual([]);
+  });
+
+  it("button-style을 알린 앱에는 색 역할·회전 수·흐림을 함께 보낸다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+    const { rerender } = render(<StyledButton />);
+
+    rerender(<StyledButton turns={1} faded />);
+
+    expect(lastInline(postMessage)?.controls).toMatchObject([
+      { id: "session-flip", tone: "active", turns: 1, faded: true },
+    ]);
+  });
+
+  it.each([
+    [23, 23],
+    [80, 64],
+  ])("measureIcon이면 아이콘 폭 %s를 iconSize %s로 보낸다", (width, iconSize) => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+
+    render(<StyledButton measureIcon iconWidth={width} />);
+
+    expect(lastInline(postMessage)?.controls).toMatchObject([{ iconSize }]);
+  });
+
+  it("아이콘이 나타나는 확대 중에도 변형 전 CSS 폭을 iconSize로 보낸다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+    // 웹 아이콘 등장 효과가 scale(0.6)에서 시작해 화면상 폭이 줄어든 순간이다.
+    vi.spyOn(SVGElement.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 23 * 0.6, 23 * 0.6),
+    );
+
+    render(<StyledButton measureIcon iconWidth={23} />);
+
+    expect(lastInline(postMessage)?.controls).toMatchObject([{ iconSize: 23 }]);
+  });
+
+  it("iconScale이 있으면 측정한 아이콘 폭에 곱해 보낸다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+
+    render(<StyledButton measureIcon iconScale={0.5} iconWidth={28} />);
+
+    expect(lastInline(postMessage)?.controls).toMatchObject([{ iconSize: 14 }]);
+  });
+
+  it("아이콘 폭이 0이면 iconSize를 보내지 않아 앱 기본 크기로 그린다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+
+    render(<StyledButton measureIcon />);
+
+    expect(lastInline(postMessage)?.controls[0]).not.toHaveProperty("iconSize");
+  });
+
+  it("회전 수가 0 이상의 정수가 아니면 웹으로 그린다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(<StyledButton turns={-1} />);
+
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toHaveTextContent("웹");
+    expect(sentInline(postMessage)).toEqual([]);
+  });
+
+  it.each([
+    ["앱이 모르는 색 역할", { tone: "glow" as NativeButtonTone }],
+    ["불리언이 아닌 흐림", { faded: "true" as unknown as boolean }],
+  ])("%s이면 웹으로 그린다", (_, props) => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(<StyledButton {...props} />);
+
+    expect(screen.getByRole("button", { name: "카메라 전환" })).toHaveTextContent("웹");
+    expect(sentInline(postMessage)).toEqual([]);
+  });
+
+  it("theme-dark 안에 등록된 부품이 있으면 colorScheme dark를 보낸다", () => {
+    const postMessage = enterGlassChrome("/ranking");
+
+    render(
+      <div className="theme-dark">
+        <Medal label="랭킹 기록" />
+      </div>,
+    );
+
+    expect(lastInline(postMessage)?.colorScheme).toBe("dark");
+  });
+
+  it("theme-dark 밖의 부품만 있으면 colorScheme을 보내지 않는다", () => {
+    const postMessage = enterGlassChrome("/ranking");
+
+    render(<Medal label="랭킹 기록" />);
+
+    expect(lastInline(postMessage)).not.toHaveProperty("colorScheme");
   });
 });
 

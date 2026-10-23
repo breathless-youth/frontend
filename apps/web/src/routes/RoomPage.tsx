@@ -25,7 +25,10 @@ import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
-import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
+import {
+  controlButtonVariants,
+  SESSION_SYMBOL_SCALE,
+} from "@/features/study-session/components/controlButtonVariants";
 import {
   SessionExitButton,
   SessionPauseButton,
@@ -65,6 +68,7 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
+import { useNativeControl } from "@/lib/nativeControls";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
@@ -666,6 +670,29 @@ function RoomSessionScreen({
     void endAndSubmit(MANUAL_END_REASON);
   }
 
+  const subjectButtonLabel =
+    subjectSelection === null ? SUBJECT_SHEET_COPY.title : `${SUBJECT_SHEET_COPY.title} 선택됨`;
+  const subjectNative = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-subject",
+      kind: "button",
+      title: null,
+      systemImage: "book",
+      shape: "circle",
+      disabled: false,
+      accessibilityLabel: subjectButtonLabel,
+      tone: subjectSelection === null ? "default" : "active",
+      faded: simpleMode,
+    },
+    () => {
+      // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
+      if (subjectButtonRef.current !== null) {
+        openSubjectPage("button", subjectButtonRef.current);
+      }
+    },
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
+
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
   const endNoticeVisible =
@@ -740,21 +767,21 @@ function RoomSessionScreen({
                   on={ambient.isOn}
                   expanded={page === "ambient"}
                   onClick={() => openPage("ambient")}
+                  faded={simpleMode}
                 />
               }
               subject={
                 <Button
-                  ref={subjectButtonRef}
+                  ref={(node) => {
+                    subjectButtonRef.current = node;
+                    subjectNative.ref(node);
+                  }}
                   type="button"
                   size="icon"
                   variant="unstyled"
                   // 배경음 버튼과 같은 규칙이다.
                   // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-                  aria-label={
-                    subjectSelection === null
-                      ? SUBJECT_SHEET_COPY.title
-                      : `${SUBJECT_SHEET_COPY.title} 선택됨`
-                  }
+                  aria-label={subjectButtonLabel}
                   aria-haspopup="dialog"
                   aria-expanded={page === "subject"}
                   data-on={subjectSelection !== null}
@@ -856,7 +883,7 @@ function RoomSessionScreen({
                   simpleMode && "invisible opacity-0",
                 )}
               >
-                <SessionExitButton onClick={handleRequestExit} />
+                <SessionExitButton onClick={handleRequestExit} faded={simpleMode} />
               </div>
             </div>
 

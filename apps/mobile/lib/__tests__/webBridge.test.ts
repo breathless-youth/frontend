@@ -787,6 +787,23 @@ describe("parseToNativeMessage: 그 자리 부품", () => {
     expect(parse(unselected)).toEqual(unselected);
   });
 
+  it("버튼 색 역할·아이콘 크기·회전 수와 부품 흐림, 층 테마를 받는다", () => {
+    const styled = {
+      ...message,
+      controls: [
+        { ...segment, faded: true },
+        { ...toggle, faded: false },
+        { ...button, tone: "prominent", iconSize: 23, turns: 2, faded: true },
+      ],
+      colorScheme: "dark",
+    };
+    expect(parse(styled)).toEqual(styled);
+  });
+
+  it("colorScheme이 dark가 아니면 버린다", () => {
+    expect(parse({ ...message, colorScheme: "light" })).toBeNull();
+  });
+
   it("부품 32개까지 받는다", () => {
     const controls = Array.from({ length: 32 }, (_, i) => ({ ...toggle, id: `t-${i}` }));
     expect(parse({ ...message, controls })).toEqual({ ...message, controls });
@@ -821,6 +838,14 @@ describe("parseToNativeMessage: 그 자리 부품", () => {
     ["image가 빈 문자열", { ...button, image: "" }],
     ["image가 숫자", { ...button, image: 1 }],
     ["kind가 문자열이 아님", { ...button, kind: 1 }],
+    ["tone이 목록 밖", { ...button, tone: "primary" }],
+    ["iconSize가 0", { ...button, iconSize: 0 }],
+    ["iconSize가 64 초과", { ...button, iconSize: 65 }],
+    ["iconSize가 문자열", { ...button, iconSize: "23" }],
+    ["turns가 음수", { ...button, turns: -1 }],
+    ["turns가 정수가 아님", { ...button, turns: 1.5 }],
+    ["세그먼트 faded가 문자열", { ...segment, faded: "true" }],
+    ["스위치 faded가 null", { ...toggle, faded: null }],
   ])("%s이면 메시지 전체를 버린다", (_, control) => {
     expect(parse({ ...message, controls: [segment, toggle, button, control] })).toBeNull();
   });

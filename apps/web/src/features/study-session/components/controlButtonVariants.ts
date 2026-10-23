@@ -4,8 +4,15 @@ import { cva } from "class-variance-authority";
 const GLASS =
   "pointer-events-auto border border-(--session-btn-default-border) bg-(--session-bar-glass-bg) shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]";
 
+/**
+ * 앱 glass 버튼 아이콘의 크기 비율
+ *
+ * SF Symbol은 같은 포인트 크기의 웹 아이콘보다 획이 굵고 넓어서 측정한 웹 아이콘 폭을 그대로 쓰면 원을 꽉 채운다.
+ */
+export const SESSION_SYMBOL_SCALE = 0.82;
+
 export const controlButtonVariants = cva(
-  "flex size-13.5 shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,scale] duration-200 active:scale-95 active:opacity-80 motion-reduce:transition-none motion-reduce:active:scale-100 regular:size-16 short-side-lg:size-20",
+  "flex shrink-0 items-center justify-center rounded-full transition-[opacity,background-color,scale] duration-200 active:scale-95 active:opacity-80 motion-reduce:transition-none motion-reduce:active:scale-100",
   {
     variants: {
       /**
@@ -17,7 +24,14 @@ export const controlButtonVariants = cva(
         resume: "pointer-events-auto bg-(--session-control-resume-bg) text-primary-foreground",
         exit: `${GLASS} text-(--session-control-exit-bg)`,
       },
+      /**
+       * 하단의 일시정지·나가기는 공부를 멈추고 끝내는 주 조작이라 오른쪽 부가 버튼보다 한 단계 크게 둔다.
+       */
+      size: {
+        default: "size-13.5 regular:size-16 short-side-lg:size-20",
+        primary: "size-15 regular:size-18 short-side-lg:size-22",
+      },
     },
-    defaultVariants: { variant: "default" },
+    defaultVariants: { variant: "default", size: "default" },
   },
 );

@@ -8,6 +8,15 @@ export type WebGlassPalette = {
   foregroundDark: string;
   disabledLight: string;
   disabledDark: string;
+  // 버튼 색 역할 색. 강조 채움 바탕과 그 위 아이콘, 위험, 켜짐이다.
+  prominentLight: string;
+  prominentDark: string;
+  onProminentLight: string;
+  onProminentDark: string;
+  dangerLight: string;
+  dangerDark: string;
+  activeLight: string;
+  activeDark: string;
 };
 
 export type WebGlassPressEvent = { viewTag: number; id: string; value: number };
@@ -33,6 +42,7 @@ type WebGlassNative = {
   ): Promise<number>;
   clear(viewTag: number): Promise<void>;
   setInlineClipTop?(viewTag: number, inset: number): Promise<void>;
+  setInlineColorScheme?(viewTag: number, scheme: "dark" | null): Promise<void>;
   observeBackGesture?(viewTag: number): Promise<void>;
   addListener(name: "onPress", listener: (event: WebGlassPressEvent) => void): { remove(): void };
   addListener(
@@ -93,6 +103,17 @@ export function clearInlineControls(viewTag: number): void {
 export function setInlineClipTop(viewTag: number, inset: number): void {
   // 이 함수가 생기기 전에 만든 Dev Client에는 모듈만 있고 함수가 없어서 있을 때만 부른다.
   webGlassNative?.setInlineClipTop?.(viewTag, inset).catch(() => undefined);
+}
+
+/**
+ * 본문 부품 층의 테마 고정
+ *
+ * 세션처럼 웹이 시스템 테마와 무관하게 다크로 그리는 화면은 `dark`를 넘겨 앱 부품도 다크로 그린다.
+ * null이면 시스템 테마를 따른다.
+ */
+export function setInlineColorScheme(viewTag: number, scheme: "dark" | null): void {
+  // 이 함수가 생기기 전에 만든 Dev Client에는 모듈만 있고 함수가 없어서 있을 때만 부른다.
+  webGlassNative?.setInlineColorScheme?.(viewTag, scheme).catch(() => undefined);
 }
 
 /** 모듈이 없으면 아무것도 구독하지 않고 빈 해제 함수를 돌려준다. */

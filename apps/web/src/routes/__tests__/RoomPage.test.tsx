@@ -1,5 +1,5 @@
 import type { StudySessionResponse } from "@focusmakers/types";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -10,6 +10,13 @@ import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCop
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 import { RoomPage } from "../RoomPage";
 
 /** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
@@ -1559,5 +1566,217 @@ describe("RoomPage — 햅틱", () => {
 
     expect(haptic).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalledWith("medium");
+  });
+});
+
+describe("RoomPage — 앱 glass 버튼", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+    // 배경음 테스트가 고른 믹스가 저장되어 다음 테스트의 배경음이 켜진 채 시작하지 않게 한다.
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    act(() => {
+      toast.dismiss();
+    });
+  });
+
+  /** 버튼 모양을 그리는 앱으로 연 세션. 아이콘은 23px로 측정된다. */
+  function enterSessionGlass(controls = "segment,switch,button,button-style") {
+    const postMessage = enterGlassChrome("/room/7", controls);
+    measureControlsNow();
+    // jsdom은 CSS를 계산하지 않아서 아이콘 svg의 CSS 폭만 23px로 돌려준다.
+    const computedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) =>
+      element instanceof SVGElement
+        ? ({ width: "23px" } as CSSStyleDeclaration)
+        : computedStyle(element, pseudo),
+    );
+    return postMessage;
+  }
+
+  function sessionControls(postMessage: ReturnType<typeof vi.fn>) {
+    return Object.fromEntries(
+      lastInlineControls(postMessage).map((control) => [control.id, control]),
+    );
+  }
+
+  function lastInlineMessage(postMessage: ReturnType<typeof vi.fn>) {
+    return postMessage.mock.calls
+      .map(([raw]) => JSON.parse(raw as string) as { type: string; colorScheme?: string })
+      .filter((message) => message.type === "set-inline-controls")
+      .at(-1);
+  }
+
+  it("button-style을 알린 앱에는 버튼 5개를 앱 부품으로 맡기고 웹 원본을 숨긴다", () => {
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    const controls = sessionControls(postMessage);
+    expect(controls).toMatchObject({
+      "session-flip": {
+        kind: "button",
+        shape: "circle",
+        systemImage: "arrow.triangle.2.circlepath.camera",
+        accessibilityLabel: "카메라 전환",
+        tone: "default",
+        turns: 0,
+        faded: false,
+        // 카메라 심볼이 원을 꽉 채우지 않게 측정 폭의 0.7배로 보낸다.
+        iconSize: expect.closeTo(23 * 0.7),
+      },
+      "session-ambient": {
+        systemImage: "music.note",
+        accessibilityLabel: "배경음",
+        tone: "default",
+        faded: false,
+        iconSize: expect.closeTo(23 * 0.82),
+      },
+      "session-subject": {
+        systemImage: "book",
+        accessibilityLabel: "과목",
+        tone: "default",
+        faded: false,
+        iconSize: expect.closeTo(23 * 0.82),
+      },
+      "session-pause": {
+        systemImage: "pause.fill",
+        accessibilityLabel: "일시정지",
+        tone: "default",
+      },
+      "session-exit": {
+        systemImage: "rectangle.portrait.and.arrow.right",
+        accessibilityLabel: "공부 종료",
+        tone: "danger",
+        faded: false,
+        iconSize: expect.closeTo(23 * 0.82),
+      },
+    });
+    expect(controls["session-pause"]).not.toHaveProperty("faded");
+    // 스스로 aria-hidden인 요소는 접근 이름이 비어 역할로 찾을 수 없어서 aria-label로 찾는다.
+    for (const name of ["카메라 전환", "배경음", "과목", "일시정지", "공부 종료"]) {
+      expect(screen.getByLabelText(name).style.visibility).toBe("hidden");
+    }
+  });
+
+  it("세션 화면은 다크라 colorScheme dark를 함께 보낸다", () => {
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    expect(lastInlineMessage(postMessage)?.colorScheme).toBe("dark");
+  });
+
+  it("일시정지 앱 누름은 웹 버튼과 같은 처리를 하고 재생 아이콘의 강조 채움으로 바뀐다", () => {
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    pressNative("session-pause", 0);
+
+    expect(haptic).toHaveBeenCalledWith("light");
+    expect(sessionControls(postMessage)["session-pause"]).toMatchObject({
+      systemImage: "play.fill",
+      tone: "prominent",
+      accessibilityLabel: "다시 시작",
+    });
+
+    pressNative("session-pause", 0);
+
+    expect(haptic).toHaveBeenCalledWith("medium");
+    expect(sessionControls(postMessage)["session-pause"]).toMatchObject({
+      systemImage: "pause.fill",
+      tone: "default",
+    });
+  });
+
+  it("카메라 전환 앱 누름은 회전 수를 하나 늘린다", async () => {
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    pressNative("session-flip", 0);
+    await act(async () => {});
+
+    expect(sessionControls(postMessage)["session-flip"]).toMatchObject({ turns: 1 });
+  });
+
+  it("배경음을 켜면 배경음 앱 버튼이 켜짐 이름의 active 색으로 바뀐다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              version: 1,
+              sounds: [{ id: "white", kind: "synth", label: "백색소음" }],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    pressNative("session-ambient", 0);
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+
+    await waitFor(() => {
+      expect(sessionControls(postMessage)["session-ambient"]).toMatchObject({
+        tone: "active",
+        accessibilityLabel: "배경음 켜짐",
+      });
+    });
+  });
+
+  it("과목을 고르면 과목 앱 버튼이 선택됨 이름의 active 색으로 바뀐다", async () => {
+    listSubjects.mockResolvedValueOnce([
+      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    pressNative("session-subject", 0);
+    // 아이콘 svg의 계산 스타일을 폭만 돌려주게 바꿔 두어서 접근 이름 계산 없이 aria-label로 찾는다.
+    await userEvent.click(await screen.findByLabelText("수학 측정 시작"));
+
+    expect(sessionControls(postMessage)["session-subject"]).toMatchObject({
+      tone: "active",
+      accessibilityLabel: "과목 선택됨",
+    });
+  });
+
+  it.each([
+    ["session-ambient", "dialog", "배경음"],
+    ["session-subject", "dialog", "과목"],
+    ["session-exit", "alertdialog", undefined],
+  ] as const)("%s 앱 누름이 웹 버튼과 같은 화면을 연다", async (id, role, name) => {
+    enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    pressNative(id, 0);
+
+    expect(await screen.findByRole(role, name ? { name } : {})).toBeInTheDocument();
+  });
+
+  it("간단 모드에서는 일시정지를 뺀 버튼을 흐림으로 보낸다", async () => {
+    const postMessage = enterSessionGlass();
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    const controls = sessionControls(postMessage);
+    for (const id of ["session-flip", "session-ambient", "session-subject", "session-exit"]) {
+      expect(controls[id]).toMatchObject({ faded: true });
+    }
+    expect(controls["session-pause"]).not.toHaveProperty("faded");
+  });
+
+  it("button-style을 알리지 않은 앱에서는 세션 버튼을 웹으로 그린다", () => {
+    const postMessage = enterSessionGlass("segment,switch,button");
+    renderRoom("/room/7?userId=1");
+
+    expect(lastInlineControls(postMessage)).toEqual([]);
+    expect(screen.getByRole("button", { name: "일시정지" })).not.toHaveAttribute("aria-hidden");
   });
 });
