@@ -43,6 +43,7 @@ jest.mock("react-native-safe-area-context", () => ({
 const mockSyncInlineControls = jest.fn();
 const mockClearInlineControls = jest.fn();
 const mockSetInlineClipTop = jest.fn();
+const mockSetInlineColorScheme = jest.fn();
 const mockObserveBackGesture = jest.fn();
 let mockInlinePressListener: ((event: WebGlassPressEvent) => void) | null = null;
 let mockBackGestureListener: ((event: WebGlassBackGestureEvent) => void) | null = null;
@@ -50,6 +51,7 @@ jest.mock("../../modules/web-glass", () => ({
   syncInlineControls: (...args: unknown[]) => mockSyncInlineControls(...args),
   clearInlineControls: (...args: unknown[]) => mockClearInlineControls(...args),
   setInlineClipTop: (...args: unknown[]) => mockSetInlineClipTop(...args),
+  setInlineColorScheme: (...args: unknown[]) => mockSetInlineColorScheme(...args),
   observeBackGesture: (...args: unknown[]) => mockObserveBackGesture(...args),
   addInlineControlPressListener: (listener: (event: WebGlassPressEvent) => void) => {
     mockInlinePressListener = listener;
@@ -1660,6 +1662,7 @@ describe("RemoteWebViewHost glass 층", () => {
     mockSyncInlineControls.mockResolvedValue(1);
     mockClearInlineControls.mockClear();
     mockSetInlineClipTop.mockClear();
+    mockSetInlineColorScheme.mockClear();
   });
 
   // 다시 시도는 다음 프레임에 일어나서 프레임 몇 개가 지나도록 기다린다.
@@ -1703,7 +1706,29 @@ describe("RemoteWebViewHost glass 층", () => {
       foregroundDark: colors.text.primary.dark,
       disabledLight: colors.text.disabled.light,
       disabledDark: colors.text.disabled.dark,
+      prominentLight: colors.state.focus.light,
+      prominentDark: colors.state.focus.dark,
+      onProminentLight: colors.text.onBrand.light,
+      onProminentDark: colors.text.onBrand.dark,
+      dangerLight: colors.feedback.error.light,
+      dangerDark: "#f0555f",
+      activeLight: colors.state.focus.light,
+      activeDark: colors.state.focus.dark,
     });
+  });
+
+  it("colorScheme을 붙이기 전에 층 테마로 넘기고, 없으면 null로 되돌린다", () => {
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+    sendFromWeb(JSON.stringify({ ...inlineMessage, colorScheme: "dark" }));
+
+    expect(mockSetInlineColorScheme).toHaveBeenLastCalledWith(42, "dark");
+    expect(mockSetInlineColorScheme.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSyncInlineControls.mock.invocationCallOrder[0] ?? 0,
+    );
+
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(mockSetInlineColorScheme).toHaveBeenLastCalledWith(42, null);
   });
 
   it("위쪽 줄이 있으면 부품을 붙이기 전에 그 줄 아래 끝을 자르는 선으로 넘긴다", () => {

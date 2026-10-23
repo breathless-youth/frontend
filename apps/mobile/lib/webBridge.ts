@@ -7,6 +7,7 @@ import type {
   InlineControl,
   MetaAppEventMessage,
   MetaAppEventParamValue,
+  NativeButtonTone,
   SetGlassChromeMessage,
   SetInlineControlsMessage,
   ToNativeMessage,
@@ -19,7 +20,9 @@ import {
   ANALYTICS_USER_PROPERTY_NAME_PATTERN,
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   GLASS_CHROME_LEADING,
+  NATIVE_BUTTON_TONES,
   NATIVE_CONTROL_COORDINATE_MAX,
+  NATIVE_CONTROL_ICON_SIZE_MAX,
   NATIVE_CONTROL_ID_PATTERN,
   NATIVE_CONTROL_IMAGE_PATTERN,
   NATIVE_CONTROL_LABEL_MAX_LENGTH,
@@ -444,6 +447,31 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+/** 새로 생긴 선택 필드는 그 필드를 모르는 웹 번들이 보내지 않아서 빠진 값은 받는다. */
+function isOptional<T>(
+  value: unknown,
+  check: (value: unknown) => value is T,
+): value is T | undefined {
+  return value === undefined || check(value);
+}
+
+function isButtonTone(value: unknown): value is NativeButtonTone {
+  return isOneOf(NATIVE_BUTTON_TONES, value);
+}
+
+function isIconSize(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= NATIVE_CONTROL_ICON_SIZE_MAX
+  );
+}
+
+function isDarkScheme(value: unknown): value is "dark" {
+  return value === "dark";
+}
+
 function isControlId(value: unknown): value is string {
   return typeof value === "string" && NATIVE_CONTROL_ID_PATTERN.test(value);
 }
@@ -533,14 +561,14 @@ function parseSetGlassChrome(record: Record<string, unknown>): SetGlassChromeMes
  * 이 앱보다 새 웹이 보낸 모르는 종류는 틀린 부품과 구분해 `"unknown"`으로 돌려준다.
  */
 function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
-  if (!isRecord(value) || !isControlId(value.id)) {
+  if (!isRecord(value) || !isControlId(value.id) || !isOptional(value.faded, isBoolean)) {
     return null;
   }
   const frame = parseFrame(value.frame);
   if (frame === null) {
     return null;
   }
-  const { id } = value;
+  const { id, faded } = value;
   switch (value.kind) {
     case "segment": {
       const { labels, selected, disabled, accessibilityLabel } = value;
@@ -561,7 +589,7 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
       ) {
         return null;
       }
-      return { id, kind: "segment", frame, labels, selected, disabled, accessibilityLabel };
+      return { id, kind: "segment", frame, labels, selected, disabled, accessibilityLabel, faded };
     }
     case "switch": {
       const { on, disabled, interactive, accessibilityLabel } = value;
@@ -573,10 +601,10 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
       ) {
         return null;
       }
-      return { id, kind: "switch", frame, on, disabled, interactive, accessibilityLabel };
+      return { id, kind: "switch", frame, on, disabled, interactive, accessibilityLabel, faded };
     }
     case "button": {
-      const { title, systemImage, shape, accessibilityLabel } = value;
+      const { title, systemImage, shape, accessibilityLabel, tone, iconSize, turns } = value;
       // disabled와 image가 생기기 전 웹 번들은 두 필드를 보내지 않아서 빠지면 누를 수 있고 이미지 없는 버튼으로 읽는다.
       const disabled = value.disabled === undefined ? false : value.disabled;
       const image = value.image === undefined ? null : value.image;
@@ -586,7 +614,10 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
         !isBundledImage(image) ||
         (shape !== "capsule" && shape !== "circle") ||
         !isBoolean(disabled) ||
-        !isLabel(accessibilityLabel)
+        !isLabel(accessibilityLabel) ||
+        !isOptional(tone, isButtonTone) ||
+        !isOptional(iconSize, isIconSize) ||
+        !isOptional(turns, isCount)
       ) {
         return null;
       }
@@ -600,6 +631,10 @@ function parseInlineControl(value: unknown): InlineControl | "unknown" | null {
         shape,
         disabled,
         accessibilityLabel,
+        tone,
+        iconSize,
+        turns,
+        faded,
       };
     }
     default:
@@ -620,6 +655,7 @@ function parseSetInlineControls(record: Record<string, unknown>): SetInlineContr
     !Array.isArray(record.controls) ||
     record.controls.length > NATIVE_CONTROL_MAX_COUNT ||
     !isBoolean(record.hidden) ||
+    !isOptional(record.colorScheme, isDarkScheme) ||
     typeof record.atMs !== "number"
   ) {
     return null;
@@ -629,7 +665,13 @@ function parseSetInlineControls(record: Record<string, unknown>): SetInlineContr
     return null;
   }
   const controls = parsed.filter((control) => control !== "unknown");
-  return { type: "set-inline-controls", controls, hidden: record.hidden, atMs: record.atMs };
+  return {
+    type: "set-inline-controls",
+    controls,
+    hidden: record.hidden,
+    colorScheme: record.colorScheme,
+    atMs: record.atMs,
+  };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

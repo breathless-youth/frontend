@@ -36,6 +36,7 @@ import {
   clearInlineControls,
   observeBackGesture,
   setInlineClipTop,
+  setInlineColorScheme,
   syncInlineControls,
   type WebGlassPalette,
 } from "../modules/web-glass";
@@ -97,6 +98,16 @@ const GLASS_PALETTE: WebGlassPalette = {
   foregroundDark: colors.text.primary.dark,
   disabledLight: colors.text.disabled.light,
   disabledDark: colors.text.disabled.dark,
+  // 세션 다시 시작 버튼 채움과 켜진 버튼 아이콘은 웹 세션의 강조색과 같은 값이다.
+  prominentLight: colors.state.focus.light,
+  prominentDark: colors.state.focus.dark,
+  onProminentLight: colors.text.onBrand.light,
+  onProminentDark: colors.text.onBrand.dark,
+  // 다크 값은 웹 세션 종료 버튼 색(`--session-control-exit-bg`)이고 디자인 토큰에 없는 세션 전용 값이라 여기 적는다.
+  dangerLight: colors.feedback.error.light,
+  dangerDark: "#f0555f",
+  activeLight: colors.state.focus.light,
+  activeDark: colors.state.focus.dark,
 };
 
 /**
@@ -158,6 +169,8 @@ function attachInlineControls(
   }
   // 붙이기 전에 선을 넘겨 처음 그릴 때부터 위쪽 줄 밑으로 올라간 부분이 잘린다.
   setInlineClipTop(tag, readClipTop());
+  // 테마도 붙이기 전에 넘겨 처음 그릴 때부터 웹과 같은 테마로 보인다.
+  setInlineColorScheme(tag, message.colorScheme ?? null);
   void syncInlineControls(tag, message.controls, message.hidden, GLASS_PALETTE).then((count) => {
     if (!message.hidden && (count ?? 0) < message.controls.length) {
       retry();

@@ -14,6 +14,7 @@ type Native = {
   sync: jest.Mock;
   clear: jest.Mock;
   setInlineClipTop: jest.Mock;
+  setInlineColorScheme: jest.Mock;
   observeBackGesture: jest.Mock;
   addListener: jest.Mock;
 };
@@ -25,6 +26,14 @@ const palette = {
   foregroundDark: "#F9FAFB",
   disabledLight: "#D1D6DB",
   disabledDark: "#4E5968",
+  prominentLight: "#1B64DA",
+  prominentDark: "#4593FC",
+  onProminentLight: "#FFFFFF",
+  onProminentDark: "#FFFFFF",
+  dangerLight: "#D22030",
+  dangerDark: "#F0555F",
+  activeLight: "#1B64DA",
+  activeDark: "#4593FC",
 };
 
 const controls: InlineControl[] = [
@@ -58,6 +67,7 @@ function fakeNative(): Native {
     sync: jest.fn().mockResolvedValue(1),
     clear: jest.fn().mockResolvedValue(undefined),
     setInlineClipTop: jest.fn().mockResolvedValue(undefined),
+    setInlineColorScheme: jest.fn().mockResolvedValue(undefined),
     observeBackGesture: jest.fn().mockResolvedValue(undefined),
     addListener: jest.fn(),
   };
@@ -193,6 +203,28 @@ it("함수가 생기기 전에 만든 앱의 모듈이면 뒤로 가기 스와�
   const { observeBackGesture } = load(olderNative as Native);
 
   expect(() => observeBackGesture(7)).not.toThrow();
+});
+
+it("층 테마는 같은 태그와 값으로 네이티브를 부르고 거부를 삼킨다", async () => {
+  const native = fakeNative();
+  native.setInlineColorScheme.mockRejectedValue(new Error("no web view"));
+  const { setInlineColorScheme } = load(native);
+
+  const reasons = await collectUnhandledRejections(() => {
+    setInlineColorScheme(7, "dark");
+    setInlineColorScheme(7, null);
+  });
+
+  expect(native.setInlineColorScheme).toHaveBeenNthCalledWith(1, 7, "dark");
+  expect(native.setInlineColorScheme).toHaveBeenNthCalledWith(2, 7, null);
+  expect(reasons).toEqual([]);
+});
+
+it("함수가 생기기 전에 만든 앱의 모듈이면 층 테마가 아무 일도 하지 않는다", () => {
+  const { setInlineColorScheme: _missing, ...olderNative } = fakeNative();
+  const { setInlineColorScheme } = load(olderNative as Native);
+
+  expect(() => setInlineColorScheme(7, "dark")).not.toThrow();
 });
 
 it("앱이 알리는 본문 부품 종류는 Swift가 그리는 종류와 같다", () => {

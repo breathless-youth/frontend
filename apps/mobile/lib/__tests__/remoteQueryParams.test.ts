@@ -225,6 +225,16 @@ describe("buildRemoteQueryParams", () => {
     expect(params.glassControls).toBe("segment,switch,button");
   });
 
+  it("층 테마 함수가 있는 바이너리는 부품 종류 뒤에 button-style을 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockGlass.webGlassNative = { setInlineColorScheme: jest.fn() };
+    mockGlass.available = true;
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.glassControls).toBe("segment,switch,button,button-style");
+  });
+
   it("개발 빌드에서 glass를 끄라고 했으면 크롬 버전도 부품 종류도 붙이지 않는다", async () => {
     jest.replaceProperty(Platform, "OS", "ios");
     mockGlass.webGlassNative = {};
