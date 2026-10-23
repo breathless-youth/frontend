@@ -665,6 +665,18 @@ export const NATIVE_CONTROL_MAX_COUNT = 32;
 export const NATIVE_SEGMENT_MIN_OPTIONS = 2;
 /** 세그먼트 칸 수의 최댓값. 이보다 많으면 칸 글자가 잘려 읽히지 않는다. */
 export const NATIVE_SEGMENT_MAX_OPTIONS = 5;
+/** 버튼 아이콘 크기의 최댓값(pt). 웹이 측정한 아이콘 폭을 보내며 0보다 커야 한다. */
+export const NATIVE_CONTROL_ICON_SIZE_MAX = 64;
+/** 버튼 색 역할. 앱 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const NATIVE_BUTTON_TONES = ["default", "prominent", "danger", "active"] as const;
+export type NativeButtonTone = (typeof NATIVE_BUTTON_TONES)[number];
+/**
+ * `glassControls` 목록의 버튼 모양 표시
+ *
+ * 부품 종류가 아니라 앱이 버튼 색 역할, 아이콘 크기, 회전 수, 부품 흐림, 층 테마 고정을 그린다는 뜻이다.
+ * 이 표시가 없는 앱은 새 필드를 버리고 기본 모양으로 그려서 웹은 그런 부품을 웹 원본으로 남긴다.
+ */
+export const GLASS_CONTROLS_BUTTON_STYLE = "button-style";
 
 /** 문서 좌표의 사각형(CSS px). */
 export interface ControlFrame {
@@ -708,6 +720,7 @@ export type InlineControl =
       selected: number;
       disabled: boolean[]; // labels와 같은 길이
       accessibilityLabel: string | null;
+      faded?: boolean; // 참이면 앱이 흐리게 감추고 누름을 받지 않는다
     }
   | {
       id: string;
@@ -717,6 +730,7 @@ export type InlineControl =
       disabled: boolean;
       interactive: boolean; // false면 모양만 보이고 누름은 웹으로 통과
       accessibilityLabel: string;
+      faded?: boolean;
     }
   | {
       id: string;
@@ -728,6 +742,10 @@ export type InlineControl =
       shape: "capsule" | "circle";
       disabled: boolean;
       accessibilityLabel: string;
+      tone?: NativeButtonTone; // 없으면 default
+      iconSize?: number; // 아이콘 크기(pt), 없으면 앱 기본 크기
+      turns?: number; // 늘 때마다 앱이 아이콘 회전 효과를 한 번 낸다
+      faded?: boolean;
     };
 
 /**
@@ -736,11 +754,13 @@ export type InlineControl =
  * 앱은 부품을 웹뷰 스크롤뷰 안 `frame` 자리에 두어 페이지 스크롤을 따라가게 한다.
  * 매번 등록된 부품 전체를 보내고 앱은 목록에 없는 부품을 삭제한다.
  * `hidden`은 페이지 전환이나 웹 시트가 열린 동안 잠시 숨기라는 뜻이다.
+ * `colorScheme`이 있으면 앱이 그 웹뷰의 본문 부품 층 전체를 그 테마로 그린다.
  */
 export interface SetInlineControlsMessage {
   type: "set-inline-controls";
   controls: InlineControl[]; // 최대 32개
   hidden: boolean;
+  colorScheme?: "dark";
   atMs: number;
 }
 
