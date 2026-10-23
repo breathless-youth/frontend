@@ -124,7 +124,6 @@ S2-3 · 권한 거부 안내
 
 - `@focusmakers/types`(`packages/types/src/index.ts`)에 권한 관련 타입은 없고, **필요하지도 않다** — 새로 만들지 않는다.
 - 권한 상태를 별도로 영속 저장하지 않는다. OS 권한 상태(미결정/허용/거부)가 단일 진실이며, 앱이 `granted` 플래그를 `expo-secure-store`나 AsyncStorage에 복제하면 설정 앱에서 바뀐 값과 어긋난다. **로컬 미러링 금지.**
-  - (참고: G1~G5 온보딩의 "최초 1회" 판정용 영속 플래그는 별개 관심사다 — MG5 스펙 소관이며 이 화면에서 만들지 않는다.)
 - 권한 조회/요청은 **`expo-camera`(`~17.0.10`)의 권한 API로 구현한다** — 2026-07-27 확정([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). 카메라 프리뷰(`CameraView`)는 쓰지 않는다: 카메라 스트림은 `apps/web`의 WebView `getUserMedia` 소유다(ADR 0001). `expo-camera`는 Expo Go에 기본 포함이라 Dev Client가 필요 없고, `app.json`은 바뀌지 않는다(config plugin 미추가 — 근거는 ADR 0004).
 
 어댑터 인터페이스(패키지가 아니라 `apps/mobile/lib/`에 둔다 — 화면 전용 코드를 공유 패키지로 미리 빼지 않는다):
@@ -148,13 +147,11 @@ export function openAppSettings(): Promise<void>;
 
 ### 진입 조건 (권한 게이트)
 
-`mvp-scope.md` §세션 UX 정책 "최초 시작 (2026-07-26 확정)"과 `user-flow.md` 플로우 다이어그램 기준:
+현재 앱의 흐름이다. `mvp-scope.md` §세션 UX 정책 "최초 시작 (2026-07-26 확정)"·`user-flow.md` 다이어그램과 다른 점은 Current Limitations에 적었다.
 
 ```
 [홈 S1] "집중 시작" 탭
-   ├─ 최초 1회: 온보딩 가이드 G1~G5 자동 실행
-   │     └─ G5 CTA "집중 시작하기" 또는 "건너뛰기" (건너뛰어도 세션은 이어서 시작)
-   └─ 2회차 이후: 가이드 없이 곧장 아래 권한 분기
+   └─ 곧장 아래 권한 분기
 
 [권한 분기] getCameraPermissionStatus()
    ├─ granted      → 세션 시작 (S3-1)
@@ -232,7 +229,7 @@ export function openAppSettings(): Promise<void>;
 **이번에 새로 추출**
 
 - `IconCameraOff` — `icons.tsx`에 추가. Figma `icon/camera-off`(`52:331`, 28×28, Vector 3개)를 **SVG로 내보내 path 데이터를 그대로 옮긴다.**
-- `PrimaryCtaButton` (또는 동등물) — Figma 공용 컴포넌트 `Button / CTA`(`40:94`). 컴포넌트 설명상 변형이 3종이다: **XL 362×56(결과 화면) · LG 362×52(시트/이 화면) · Dark SM 136×48(다크 다이얼로그)**. S3-8·S4·U1·G1~G5에서도 재사용되므로 `apps/mobile/components/`로 승격해 만들되, **이번 화면에 필요한 LG 변형만 구현**한다(쓰지 않는 변형을 미리 만들지 않는다).
+- `PrimaryCtaButton` (또는 동등물) — Figma 공용 컴포넌트 `Button / CTA`(`40:94`). 컴포넌트 설명상 변형이 3종이다: **XL 362×56(결과 화면) · LG 362×52(시트/이 화면) · Dark SM 136×48(다크 다이얼로그)**. S3-8·S4·U1에서도 재사용되므로 `apps/mobile/components/`로 승격해 만들되, **이번 화면에 필요한 LG 변형만 구현**한다(쓰지 않는 변형을 미리 만들지 않는다).
 - S2-3 라우트 컴포넌트 — 전체 화면 스택 라우트(예: `apps/mobile/app/permission-denied.tsx`). 정확한 경로·네비게이션 방식은 빌더가 `expo-router` 구조에 맞게 정하되, **탭 네비게이터 안(`app/(tabs)/`)에 두지 않는다.**
 
 **S2-2용 컴포넌트는 없다.** 산출물은 `app.json` 문자열 교체 1건이다.
@@ -265,7 +262,7 @@ export function openAppSettings(): Promise<void>;
 
 - ~~권한 조회/요청 네이티브 모듈 미정~~ → **해소 (2026-07-27)**: `expo-camera ~17.0.10`으로 실제 조회·요청을 구현했다([ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)). iOS 시뮬레이터에서 조회가 OS 실제 상태를 따라오는 것을 확인했다(`simctl privacy revoke`/`grant`에 S6 토글이 반응). **다만 OS 권한 다이얼로그(S2-2) 자체의 노출은 아직 시각 확인하지 않았다** — 자동화로 탭할 수단이 없어 수동 확인이 남아 있다.
 - ~~설정 복귀 후 동작 미정~~ → **해소 (2026-07-27)**: 홈 복귀로 확정. 위 Interaction Contract 참고.
-- **Figma의 S2-2 배경과 확정 플로우의 괴리** — Figma `52:139`는 다이얼로그를 **S1 홈 위에** 얹어 그렸지만, `mvp-scope.md`·`user-flow.md`의 확정 플로우에서 권한 요청 시점은 **G5(온보딩 마지막) 이후**다. 다이얼로그 뒤 배경은 OS가 통제하지 않는 앱 화면이므로 구현에는 영향이 없으나, **"홈에서 집중 시작을 누르는 즉시 권한을 요청한다"로 오독하면 안 된다.** ai-wiki가 최신(2026-07-26)이므로 플로우는 ai-wiki를 따르고, Figma 시안 갱신은 Review Checklist로 남긴다.
+- **Figma의 S2-2 배경은 현재 흐름과 맞는다** — Figma `52:139`는 다이얼로그를 **S1 홈 위에** 얹어 그렸고, 실제로도 홈에서 "집중 시작"을 누르면 바로 권한 분기로 간다. `mvp-scope.md`·`user-flow.md`는 권한 요청 앞에 온보딩 가이드를 두지만 그 가이드는 앱에 없다.
 - **앱 표시명 — `FocusON`으로 확정 및 반영 완료**(2026-07-26 리더 확정). `app.json`의 `expo.name`을 `"FocusON"`으로 변경해 iOS 다이얼로그 제목이 Figma·`glossary.md`와 일치한다. `expo.slug`(EAS 프로젝트 식별자)는 영향 범위가 커서 변경하지 않고 `"mobile"`로 유지했다 — slug 변경이 필요하면 별도 결정.
 - **Android 분기 시안 없음** — Figma `4. Screens — Android` 페이지(`14:5`)는 비어 있다(`design.md` 백로그 7번 ②). Android 3옵션 권한 다이얼로그(앱 사용 중에만/이번만/허용 안 함)의 거부 판정 처리(특히 "이번만 허용" 이후 만료)는 시안·정책이 모두 없다. iOS 기준으로 구현하고 Android 차이는 별도 확인.
 - **WebView 이중 권한 프롬프트 리스크(미검증)** — 세션은 `apps/web`을 WebView로 로드하고 그 안에서 `getUserMedia`가 호출된다(ADR 0001). 네이티브 권한과 별개로 WebView 계층의 권한 처리(`react-native-webview`의 미디어 캡처 권한 설정 등)가 필요할 수 있는데, `react-native-webview`가 아직 설치돼 있지 않아 검증되지 않았다. S2-2 다이얼로그가 두 번 뜨거나 순서가 꼬일 가능성이 있다 — 세션 화면(WG 계열) 연동 시점에 실기기로 확인해야 한다.
@@ -276,9 +273,9 @@ export function openAppSettings(): Promise<void>;
 - [x] `app.json`의 `expo.name`을 `"FocusON"`으로 변경 완료(2026-07-26). `expo.slug`는 EAS 영향으로 `"mobile"` 유지 — 필요 시 별도 결정.
 - [x] 카메라 권한 조회/요청에 쓸 네이티브 모듈 확정 — **`expo-camera ~17.0.10`, 권한 API만** (2026-07-27 리더 승인, [ADR 0004](../adr/0004-expo-camera-for-permission-api-only.md)).
 - [x] **설정에서 권한 허용 후 앱 복귀 시 동작 확정** — **홈 복귀, 세션 자동 시작 안 함** (2026-07-27).
-- [ ] S2-2 OS 권한 다이얼로그 실제 노출 확인 — 시뮬레이터/실기기에서 "집중 시작" → G5 이후 다이얼로그가 뜨는지 수동 확인 필요(자동화 탭 수단 없음).
+- [ ] S2-2 OS 권한 다이얼로그 실제 노출 확인 — 시뮬레이터/실기기에서 "집중 시작"을 누른 직후 다이얼로그가 뜨는지 수동 확인 필요(자동화 탭 수단 없음).
 - [ ] **S2-3에 수동 타이머 모드 진입 경로 추가** — `policies.md` §3(2026-07-26)·`app-review-checklist.md` 1-1 확정 정책이며 심사 제출 전 필수. 별도 스펙·티켓.
-- [ ] Figma S2-2(`52:139`)의 배경을 확정 플로우(G5 이후)에 맞춰 갱신할지 — 현재 S1 홈 위에 그려져 있어 요청 시점을 오독할 여지가 있다.
+- [ ] **wiki 플로우 갱신** — `mvp-scope.md` "최초 시작"·`user-flow.md` 다이어그램이 권한 요청 앞에 온보딩 가이드를 둔다. 앱은 "집중 시작"에서 곧장 권한 분기로 간다.
 - [ ] Figma `icon-circle`(`52:330`)의 `#F2F4F6`에 `bg/layer2` 변수 바인딩 추가 — 지금은 하드코딩이라 Figma 자체 다크모드에서 흰 원이 남는다(코드는 토큰으로 바인딩해 선반영).
 - [ ] Android 권한 다이얼로그(3옵션) 시안 및 "이번만 허용" 만료 시 처리 정책 확정 — Figma `14:5` 페이지가 비어 있다.
 - [ ] WebView(`apps/web`) `getUserMedia`와 네이티브 카메라 권한의 상호작용 실기기 검증 — 이중 프롬프트 여부.

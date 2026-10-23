@@ -24,7 +24,6 @@
 | S1        | 홈                          | `src/routes/HomeTabPage.tsx`         | `/home`                       |
 | S5        | 공부 기록                   | `src/routes/RecordsPage.tsx`         | `/records`                    |
 | S6        | 설정                        | `src/routes/SettingsPage.tsx`        | `/settings`                   |
-| G1~G5     | 온보딩 가이드(5단계)        | `src/routes/OnboardingGuidePage.tsx` | `/onboarding-guide`           |
 | S3-1~S3-8 | 싱글 세션(프리뷰~자동 종료) | `src/routes/RoomPage.tsx`            | `/room/:id`                   |
 | S4        | 공부 결과                   | `src/routes/ResultPage.tsx`          | `/room/:id/result`            |
 | S9-1      | 소셜 홈                     | `src/routes/SocialHomePage.tsx`      | `/social`                     |
