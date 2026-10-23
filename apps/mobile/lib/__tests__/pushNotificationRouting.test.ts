@@ -114,7 +114,6 @@ describe("pushTargetForRoute — 웹 경로를 담당 탭으로", () => {
     ["/manual-record", "/(tabs)/records"],
     ["/records?date=2026-10-01", "/(tabs)/records"],
     ["/timelapses", "/(tabs)"],
-    ["/onboarding-guide", "/(tabs)"],
     ["/profile", "/(tabs)/settings"],
     ["/timelapse-settings", "/(tabs)/settings"],
     ["/social/code", "/(tabs)/social"],
@@ -158,6 +157,7 @@ describe("pushTargetForRoute — 웹 경로를 담당 탭으로", () => {
     ["/room/1/result"],
     ["/unknown"],
     ["/dev/webrtc-loopback"],
+    ["/onboarding-guide"],
   ])("세션 화면·모르는 경로 %s는 홈으로", (route) => {
     expect(pushTargetForRoute(route, AT)).toBe(PUSH_HOME_ROUTE);
   });

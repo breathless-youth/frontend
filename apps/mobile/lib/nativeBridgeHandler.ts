@@ -189,7 +189,7 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       openTab(message.tab, message.via ?? "card");
       break;
     case "set-tab-bar":
-      // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
+      // 전체 화면 웹 라우트(문의·약관·방침 등)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
       setTabBarState(
         message.blockedByModal === true ? "blocked" : message.visible ? "visible" : "hidden",
@@ -218,7 +218,7 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       getMotionSensorRelay().handle(message, reply);
       break;
     case "meta-app-event":
-      // 웹이 아는 광고 전환(첫 세션 시작·온보딩 완료 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
+      // 웹이 아는 광고 전환(첫 세션 시작·소셜룸 입장 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);
