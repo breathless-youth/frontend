@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CameraFlipIcon } from "@/components/CameraFlipIcon";
 import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
+import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 export interface SessionSideActionsProps {
@@ -31,6 +32,28 @@ export function SessionSideActions({
   // 전환 버튼 반 바퀴 회전(BY-435) — 룸 바(RoomControlBar)와 동일. 누른 횟수만 세면
   // CSS 트랜지션이 연속 회전을 만들고, 실제 전환 성공 여부와 무관하게 즉시 반응한다.
   const [flipTurns, setFlipTurns] = useState(0);
+  const flip = () => {
+    setFlipTurns((turns) => turns + 1);
+    onFlipCamera();
+  };
+  // 앱 버튼은 SF Symbol을 그리고, 누른 횟수가 늘 때마다 앱이 화살표 회전 대신 아이콘 회전 효과를 낸다.
+  const { ref: flipRef } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-flip",
+      kind: "button",
+      title: null,
+      systemImage: "arrow.triangle.2.circlepath.camera",
+      shape: "circle",
+      disabled: false,
+      accessibilityLabel: "카메라 전환",
+      tone: "default",
+      turns: flipTurns,
+      faded: inert ?? false,
+    },
+    flip,
+    // 웹 아이콘은 여백이 든 28px 프레임이라 그 폭을 그대로 쓰면 카메라 심볼이 원을 꽉 채운다.
+    { measureIcon: true, iconScale: 0.7 },
+  );
   return (
     <div
       role="group"
@@ -39,14 +62,12 @@ export function SessionSideActions({
       className={cn("flex flex-col gap-3", className)}
     >
       <Button
+        ref={flipRef}
         type="button"
         size="icon"
         variant="unstyled"
         aria-label="카메라 전환"
-        onClick={() => {
-          setFlipTurns((turns) => turns + 1);
-          onFlipCamera();
-        }}
+        onClick={flip}
         className={controlButtonVariants()}
       >
         <CameraFlipIcon
