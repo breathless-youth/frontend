@@ -1,4 +1,4 @@
-import type { InlineControl } from "@focusmakers/types";
+import type { GLASS_CONTROLS_BUTTON_STYLE, InlineControl } from "@focusmakers/types";
 import { useEffect } from "react";
 
 import { isNativeBridgeAvailable, subscribeToNativeMessages } from "./bridge";
@@ -33,11 +33,13 @@ export function hasGlassChrome(): boolean {
 }
 
 /**
- * 앱이 이 종류의 본문 부품을 그리는지
+ * 앱이 이 종류의 본문 부품이나 버튼 모양 표시를 그리는지
  *
  * 앱이 모르는 종류를 보내면 웹 원본은 숨었는데 앱은 그리지 않아서, 목록에 없는 종류는 웹 원본을 그대로 둔다.
  */
-export function supportsInlineKind(kind: InlineControl["kind"]): boolean {
+export function supportsInlineKind(
+  kind: InlineControl["kind"] | typeof GLASS_CONTROLS_BUTTON_STYLE,
+): boolean {
   glassFlagsCache ??= readGlassFlags();
   return glassFlagsCache.controls.has(kind);
 }

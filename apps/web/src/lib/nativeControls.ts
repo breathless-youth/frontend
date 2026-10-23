@@ -1,6 +1,9 @@
 import type { ControlFrame, InlineControl } from "@focusmakers/types";
 import {
+  GLASS_CONTROLS_BUTTON_STYLE,
+  NATIVE_BUTTON_TONES,
   NATIVE_CONTROL_COORDINATE_MAX,
+  NATIVE_CONTROL_ICON_SIZE_MAX,
   NATIVE_CONTROL_ID_PATTERN,
   NATIVE_CONTROL_IMAGE_PATTERN,
   NATIVE_CONTROL_LABEL_MAX_LENGTH,
@@ -23,6 +26,8 @@ type ControlSpec = DistributiveOmit<InlineControl, "frame">;
 interface Entry {
   element: HTMLElement;
   spec: ControlSpec;
+  measureIcon: boolean;
+  iconScale: number;
 }
 
 // 등록할 때는 아직 좌표를 몰라서 범위 안의 아무 좌표를 넣고 부품 값만 본다.
@@ -60,13 +65,49 @@ function isSendableFrame({ x, y, width, height }: ControlFrame): boolean {
   );
 }
 
+// 측정한 폭이 0이면 아직 그려지지 않은 아이콘이라 앱 기본 크기로 둔다.
+function fitIconSize(size: number | undefined): number | undefined {
+  return size !== undefined && size > 0 ? Math.min(size, NATIVE_CONTROL_ICON_SIZE_MAX) : undefined;
+}
+
+/**
+ * 버튼 안 웹 아이콘의 렌더 폭
+ *
+ * 앱 아이콘을 웹 아이콘과 같은 크기로 그리게 첫 svg를 측정한다.
+ * 창 폭에 따라 아이콘 크기가 바뀌어도 레이아웃이 바뀔 때마다 다시 측정한다.
+ * 아이콘 등장 효과가 작게 시작해서 화면상 크기 대신 변형과 무관한 CSS 폭을 읽는다.
+ */
+function iconWidth(element: HTMLElement, scale: number): number | undefined {
+  const svg = element.querySelector("svg");
+  const width = svg === null ? 0 : Number.parseFloat(getComputedStyle(svg).width);
+  return width > 0 ? width * scale : undefined;
+}
+
+/**
+ * 버튼 모양 표시가 있어야 앱에 맡기는 부품
+ *
+ * 색 역할, 아이콘 크기, 회전 수, 흐림을 모르는 앱은 그 값을 버리고 기본 모양으로 그려서 그런 앱에는 웹 원본을 남긴다.
+ */
+function needsButtonStyle(spec: ControlSpec, measureIcon: boolean): boolean {
+  return (
+    measureIcon ||
+    spec.faded !== undefined ||
+    (spec.kind === "button" &&
+      (spec.tone !== undefined || spec.iconSize !== undefined || spec.turns !== undefined))
+  );
+}
+
 /**
  * 앱 파서를 통과하는 부품
  *
  * 부품 하나만 틀려도 앱이 메시지 전체를 버려서 고칠 수 있는 값은 고치고 고칠 수 없는 부품은 뺀다.
  */
 function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl | null {
-  if (!NATIVE_CONTROL_ID_PATTERN.test(spec.id) || !isSendableFrame(frame)) {
+  if (
+    !NATIVE_CONTROL_ID_PATTERN.test(spec.id) ||
+    !isSendableFrame(frame) ||
+    (spec.faded !== undefined && typeof spec.faded !== "boolean")
+  ) {
     return null;
   }
   switch (spec.kind) {
@@ -95,12 +136,15 @@ function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl 
     case "button":
       return spec.accessibilityLabel &&
         (spec.systemImage === null || NATIVE_CONTROL_SYSTEM_IMAGE_PATTERN.test(spec.systemImage)) &&
-        (spec.image == null || NATIVE_CONTROL_IMAGE_PATTERN.test(spec.image))
+        (spec.image == null || NATIVE_CONTROL_IMAGE_PATTERN.test(spec.image)) &&
+        (spec.turns === undefined || (Number.isInteger(spec.turns) && spec.turns >= 0)) &&
+        (spec.tone === undefined || NATIVE_BUTTON_TONES.includes(spec.tone))
         ? {
             ...spec,
             frame,
             title: spec.title ? clip(spec.title) : null,
             accessibilityLabel: clip(spec.accessibilityLabel),
+            iconSize: fitIconSize(spec.iconSize),
           }
         : null;
   }
@@ -109,13 +153,17 @@ function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl 
 function flush(): void {
   flushScheduled = false;
   const controls: InlineControl[] = [];
-  for (const { element, spec } of entries.values()) {
+  for (const { element, spec, measureIcon, iconScale } of entries.values()) {
     const rect = element.getBoundingClientRect();
     // 자신이나 조상이 display: none이면 크기가 0이라 함께 빠진다.
     if (rect.width === 0 || rect.height === 0) {
       continue;
     }
-    const control = toInlineControl(spec, {
+    const measured =
+      measureIcon && spec.kind === "button"
+        ? { ...spec, iconSize: iconWidth(element, iconScale) }
+        : spec;
+    const control = toInlineControl(measured, {
       x: rect.left + window.scrollX,
       y: rect.top + window.scrollY,
       width: rect.width,
@@ -126,13 +174,19 @@ function flush(): void {
     }
   }
   const hidden = isModalOverlayOpen() || pageTransitionFinished() !== null;
-  const payload = JSON.stringify({ controls, hidden });
+  // 세션처럼 시스템 테마와 무관하게 `theme-dark`로 고정한 화면은 앱 부품 층도 다크로 그린다.
+  const colorScheme = [...entries.values()].some(
+    ({ element }) => element.closest(".theme-dark") !== null,
+  )
+    ? "dark"
+    : undefined;
+  const payload = JSON.stringify({ controls, hidden, colorScheme });
   if (payload === lastPosted && !resendScheduled) {
     return;
   }
   lastPosted = payload;
   resendScheduled = false;
-  postToNative({ type: "set-inline-controls", controls, hidden, atMs: Date.now() });
+  postToNative({ type: "set-inline-controls", controls, hidden, colorScheme, atMs: Date.now() });
 }
 
 // 한 프레임에 여러 부품이 바뀌어도 측정과 전송은 한 번만 한다.
@@ -249,15 +303,23 @@ function ignoreElement(): void {}
  * 등록하면 웹 원본은 자리만 남기고 숨기며 앱이 그 문서 좌표에 부품을 놓는다.
  * `spec`이 `null`이거나 앱이 받을 수 없는 값이면 등록하지 않고 `native`도 거짓이다.
  * 앱이 `glassControls`로 알리지 않은 종류도 등록하지 않고 웹으로 그린다.
+ * 색 역할, 아이콘 크기, 회전 수, 흐림을 쓰는 부품은 앱이 `button-style`을 알렸을 때만 등록한다.
+ * `measureIcon`이면 버튼 안 첫 svg의 렌더 폭을 `iconSize`로 보낸다.
+ * SF Symbol이 같은 크기의 웹 아이콘보다 커 보이는 버튼은 `iconScale`로 그 폭을 줄여 보낸다.
  * 앱이 받는 개수를 넘어 등록되지 못한 부품도 `native`가 거짓이고 웹으로 그린다.
  */
 export function useNativeControl<T extends HTMLElement>(
   spec: ControlSpec | null,
   onPress: (value: number) => void,
+  { measureIcon = false, iconScale = 1 }: { measureIcon?: boolean; iconScale?: number } = {},
 ): { ref: RefCallback<T>; native: boolean } {
   // 앱이 받을 수 없는 부품은 숨기면 아무것도 그려지지 않으므로 웹 원본을 그대로 둔다.
   const sendable = spec !== null && toInlineControl(spec, PROBE_FRAME) !== null;
-  const wanted = hasGlassChrome() && sendable && supportsInlineKind(spec.kind);
+  const wanted =
+    hasGlassChrome() &&
+    sendable &&
+    supportsInlineKind(spec.kind) &&
+    (!needsButtonStyle(spec, measureIcon) || supportsInlineKind(GLASS_CONTROLS_BUTTON_STYLE));
   const invalidId = hasGlassChrome() && spec !== null && !sendable ? spec.id : null;
   const [element, setElement] = useState<T | null>(null);
   const [overflow, setOverflow] = useState(false);
@@ -271,7 +333,12 @@ export function useNativeControl<T extends HTMLElement>(
     if (specKey === null || element === null) {
       return;
     }
-    const entry: Entry = { element, spec: JSON.parse(specKey) as ControlSpec };
+    const entry: Entry = {
+      element,
+      spec: JSON.parse(specKey) as ControlSpec,
+      measureIcon,
+      iconScale,
+    };
     const { id } = entry.spec;
     const accepted = register(id, entry);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 받아들여졌는지는 effect에서 모듈 목록에 넣어 봐야 안다
@@ -289,7 +356,7 @@ export function useNativeControl<T extends HTMLElement>(
       unregister(id, entry);
       restore();
     };
-  }, [specKey, element]);
+  }, [specKey, element, measureIcon, iconScale]);
 
   // 앱 부품은 누르는 즉시 제 모양을 바꾼다.
   // 웹이 값을 받지 않으면 spec이 그대로라 다시 보내지 않으므로, 누름이 반영된 렌더 뒤에 웹 값을 한 번 더 보낸다.
