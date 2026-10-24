@@ -18,6 +18,18 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
+import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
+import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
+import { TimerPanel } from "@/features/multi-timer/components/TimerPanel";
+import {
+  useModeHistoryHold,
+  useModeScreenLocks,
+  useSessionRotationRestore,
+} from "@/features/multi-timer/modeScreenLocks";
+import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
+import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
@@ -320,6 +332,8 @@ function RoomSessionScreen({
     selectSubject,
     pause,
     resume,
+    startBreak,
+    endBreak,
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, {
@@ -346,11 +360,35 @@ function RoomSessionScreen({
     setPage(null);
   }
   const pageLandscape = useLandscapeLayout(page !== null);
+  const multiTimer = useMultiTimer({
+    sessionState,
+    studying,
+    onStartBreak: startBreak,
+    onEndBreak: endBreak,
+    onResumeSession: resume,
+  });
+  const modeOpen = multiTimer.mode !== null;
+  /**
+   * 모드를 끈 순간의 모습
+   *
+   * 꺼진 모드는 남은 시간과 버튼 이름이 처음 값으로 돌아가서, 밀려 나가는 동안에는 끄기 직전 모습을 그린다.
+   * 세션이 끝나 꺼질 때는 모드 화면이 공부 화면과 함께 사라져 남길 모습이 없다.
+   */
+  const [closingMode, setClosingMode] = useState<MultiTimerControls | null>(null);
+  const modeView = modeOpen ? multiTimer : closingMode;
+  const modeKind: ModeKind = modeView?.mode?.kind ?? "timer";
+  useModeScreenLocks(modeOpen);
+  useModeHistoryHold(modeOpen);
+  useSessionRotationRestore();
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
+  // 뽀모도로 키패드의 포털 자리. 모드 화면은 모달이라 그 밖에 그린 시트는 누를 수 없다.
+  const [modeSurface, setModeSurface] = useState<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   const subjectButtonRef = useRef<HTMLButtonElement>(null);
+  const timerButtonRef = useRef<HTMLButtonElement>(null);
+  const pomodoroButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const subjectOpenedAtRef = useRef(0);
@@ -618,6 +656,15 @@ function RoomSessionScreen({
   }, [studying]);
   useEffect(() => () => dropPageEntry(closingRef), []);
 
+  function closeMode() {
+    setClosingMode(multiTimer);
+    multiTimer.close();
+  }
+
+  function modeReturnFocus() {
+    return modeKind === "timer" ? timerButtonRef.current : pomodoroButtonRef.current;
+  }
+
   // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 과목 버튼으로 돌아간다.
   function subjectReturnFocus() {
     const opener = subjectOpenerRef.current;
@@ -794,6 +841,25 @@ function RoomSessionScreen({
                   />
                 </Button>
               }
+              // 페이지가 열려 있으면 페이지가 이 버튼들을 덮어서 따로 막지 않는다.
+              modes={
+                <>
+                  <ModeEntryButton
+                    ref={timerButtonRef}
+                    kind="timer"
+                    expanded={multiTimer.mode?.kind === "timer"}
+                    faded={simpleMode}
+                    onClick={() => multiTimer.open("timer")}
+                  />
+                  <ModeEntryButton
+                    ref={pomodoroButtonRef}
+                    kind="pomodoro"
+                    expanded={multiTimer.mode?.kind === "pomodoro"}
+                    faded={simpleMode}
+                    onClick={() => multiTimer.open("pomodoro")}
+                  />
+                </>
+              }
               className={cn(
                 "absolute top-[calc(env(safe-area-inset-top)+72px)] right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+77px)] regular:top-[calc(env(safe-area-inset-top)+75px)] regular:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+84px)] short-side-lg:gap-4.5",
                 SIMPLE_MODE_FADE,
@@ -945,6 +1011,43 @@ function RoomSessionScreen({
               if (!open) closePage("back");
             }}
           />
+
+          {/* 처음 열기 전에는 그릴 모드가 없다.
+              끈 뒤에는 끄기 직전 모습으로 밀려 나간다. */}
+          {modeView !== null && (
+            <MultiTimerScreen
+              open={modeOpen}
+              kind={modeKind}
+              container={sessionSurface}
+              returnFocus={modeReturnFocus}
+              contentRef={setModeSurface}
+              onClose={closeMode}
+              primaryLabel={modeView.primaryLabel}
+              primaryTone={modeView.primaryTone}
+              primaryDisabled={modeView.primaryDisabled}
+              onPrimary={() => multiTimer.pressPrimary()}
+              showRestart={modeView.showRestart}
+              onRestart={() => multiTimer.restart()}
+            >
+              {modeView.mode?.kind === "timer" && (
+                <TimerPanel
+                  mode={modeView.mode}
+                  remainingMs={modeView.remainingMs}
+                  distracted={modeView.distracted}
+                  onChangeTimerSec={(timerSec) => multiTimer.changeSettings({ timerSec })}
+                />
+              )}
+              {modeView.mode?.kind === "pomodoro" && (
+                <PomodoroPanel
+                  mode={modeView.mode}
+                  remainingMs={modeView.remainingMs}
+                  distracted={modeView.distracted}
+                  container={modeSurface}
+                  onChangeSettings={(patch) => multiTimer.changeSettings(patch)}
+                />
+              )}
+            </MultiTimerScreen>
+          )}
         </>
       ) : /* 미달 종료 안내 — 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, `여기까지 기록을 저장했어요`도 결과 표시도 모두 사실이 아니다.

@@ -64,24 +64,32 @@ describe("RoomPage — 배경음 버튼·페이지", () => {
     const names = within(screen.getByRole("group", { name: "부가 기능" }))
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["카메라 전환", expect.stringMatching(/^배경음/), "과목"]);
+    expect(names).toEqual([
+      "카메라 전환",
+      expect.stringMatching(/^배경음/),
+      "과목",
+      "타이머",
+      "뽀모도로",
+    ]);
   });
 
-  it("탭 순서가 부가 기능(카메라 전환, 배경음, 과목)에서 시작해 일시정지·공부 종료로 이어진다", async () => {
+  it("탭 순서가 부가 기능(카메라 전환, 배경음, 과목, 타이머, 뽀모도로)에서 시작해 일시정지·공부 종료로 이어진다", async () => {
     renderRoom();
 
     const names: string[] = [];
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < 9; i += 1) {
       await userEvent.tab();
       names.push(document.activeElement?.getAttribute("aria-label") ?? "");
     }
 
     const flip = names.indexOf("카메라 전환");
     expect(flip).toBeGreaterThanOrEqual(0);
-    expect(names.slice(flip, flip + 5)).toEqual([
+    expect(names.slice(flip, flip + 7)).toEqual([
       "카메라 전환",
       expect.stringMatching(/^배경음/),
       "과목",
+      "타이머",
+      "뽀모도로",
       "일시정지",
       "공부 종료",
     ]);

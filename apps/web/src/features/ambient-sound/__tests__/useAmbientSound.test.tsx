@@ -5,7 +5,12 @@ import type * as Amplitude from "@/lib/amplitude";
 
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import type { SessionState } from "@/features/study-session/sessionState";
-import { FOCUS_STATE, distractionState, pauseState } from "@/features/study-session/sessionState";
+import {
+  BREAK_STATE,
+  FOCUS_STATE,
+  distractionState,
+  pauseState,
+} from "@/features/study-session/sessionState";
 
 import type { AmbientPlayer, AmbientPlayerState } from "../ambientPlayer";
 import { createMemoryPlayer } from "../ambientPlayer";
@@ -148,6 +153,17 @@ describe("useAmbientSound — 세션 전이", () => {
     rerender({ sessionState: FOCUS_STATE, phase: STUDYING });
 
     expect(player.commands.slice(1)).toEqual([{ type: "suspend" }, { type: "resume" }]);
+  });
+
+  it("휴식은 일시정지로 보지 않아 계속 재생하고, 휴식 중 앱을 떠나면 그때 멈춘다", async () => {
+    const { rerender, player } = setup({ mix: { white: 60 } });
+    await flush();
+
+    rerender({ sessionState: BREAK_STATE, phase: STUDYING });
+    expect(player.commands.slice(1)).toEqual([]);
+
+    rerender({ sessionState: pauseState("BACKGROUND"), phase: STUDYING });
+    expect(player.commands.slice(1)).toEqual([{ type: "suspend" }]);
   });
 
   it("비집중이면 setDucked(true), 집중 복귀에 false — 트리거가 바뀌어도 한 번만", async () => {
