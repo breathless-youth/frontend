@@ -1,5 +1,8 @@
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
+
+import { haptic } from "@/lib/haptics";
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 
 import { clampTimerSec } from "../multiTimerSettings";
 import { joinTimerSec, splitTimerSec } from "../multiTimerFormat";
@@ -12,18 +15,42 @@ const COLUMNS: ReadonlyArray<{ unit: Unit; label: string; size: number }> = [
   { unit: "s", label: "초", size: 60 },
 ];
 
+/** 굴러가는 동안 가장자리로 들어오는 줄까지 그리고, 멈춰 있을 때는 위아래 두 줄만 보인다. */
 const OFFSETS = [-3, -2, -1, 0, 1, 2, 3] as const;
 const COLUMN_HEIGHT = 300;
 const DRAG_STEP_PX = 46;
+const ROW_DEG = 24;
+/** 가운데 줄 48px 대비 나머지 줄 38px의 비율 */
+const SIDE_ROW_SCALE = 38 / 48;
+/** 손가락이 이만큼 움직여야 탭이 아니라 끌기로 본다. */
+const DRAG_THRESHOLD_ROWS = 0.2;
+/** 손을 뗄 때의 속도(칸/ms)에 이 시간을 곱한 만큼 더 굴린다. */
+const FLING_MS = 160;
+const MAX_FLING_ROWS = 8;
+/** 손을 떼기 전에 이보다 오래 멈춰 있었으면 튕긴 것으로 보지 않는다. */
+const FLING_IDLE_MS = 80;
+const VELOCITY_WINDOW_MS = 100;
+const SETTLE_BASE_MS = 160;
+const SETTLE_PER_ROW_MS = 45;
+const SETTLE_MAX_MS = 600;
 
 function mod(value: number, size: number): number {
   return ((value % size) + size) % size;
 }
 
-function rowOpacity(offset: number): string {
-  const distance = Math.abs(offset);
-  if (distance === 0) return "opacity-100";
-  return distance === 1 ? "opacity-45" : "opacity-20";
+/** 가운데에서 떨어진 칸 수에 따른 투명도. 1칸 45%, 2칸 20%, 3칸에서 사라진다. */
+function rowOpacity(distance: number): number {
+  if (distance <= 1) return 1 - 0.55 * distance;
+  if (distance <= 2) return 0.45 - 0.25 * (distance - 1);
+  return Math.max(0, 0.2 * (3 - distance));
+}
+
+function rowScale(distance: number): number {
+  return 1 - (1 - SIDE_ROW_SCALE) * Math.min(distance, 1);
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - (1 - t) ** 3;
 }
 
 interface WheelColumnProps {
@@ -33,24 +60,112 @@ interface WheelColumnProps {
   onSelect: (value: number) => void;
 }
 
+interface DragState {
+  y0: number;
+  from: number;
+  moved: boolean;
+  samples: Array<{ t: number; p: number }>;
+}
+
+/**
+ * 시·분·초 한 칸의 휠
+ *
+ * 값은 바뀌는 즉시 넘기고, 화면의 숫자는 그 값까지 굴러가듯 따라간다.
+ * 끄는 동안에는 손가락을 소수 칸 단위로 따라가다가, 손을 떼면 가까운 칸에 붙거나 튕긴 속도만큼 더 굴러간다.
+ * 손으로 칸을 넘길 때마다 가벼운 햅틱을 낸다.
+ */
 function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
-  const drag = useRef<{ y0: number; v0: number; moved: boolean } | null>(null);
+  // 굴러가는 중인 위치(칸 단위)이고, 멈춰 있으면 null이라 값 그대로 그린다.
+  const [rolling, setRolling] = useState<number | null>(null);
+  const rollingRef = useRef<number | null>(null);
+  const frame = useRef<number | null>(null);
+  const lastRow = useRef(0);
+  const drag = useRef<DragState | null>(null);
   const suppressClick = useRef(false);
 
-  const step = (delta: number) => onSelect(mod(value + delta, size));
+  const position = rolling ?? value;
+  const base = Math.round(position);
+  const frac = position - base;
+
+  const show = (next: number | null) => {
+    rollingRef.current = next;
+    setRolling(next);
+  };
+
+  const stopRoll = () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+  };
+
+  const commit = (row: number) => {
+    const next = mod(row, size);
+    if (next !== value) onSelect(next);
+  };
+
+  // 화면만 굴린다. 값은 부르는 쪽이 이미 넘겼다.
+  const settle = (from: number, to: number, tick: boolean) => {
+    stopRoll();
+    if (from === to || prefersReducedMotion() || typeof requestAnimationFrame !== "function") {
+      show(null);
+      return;
+    }
+    const duration = Math.min(
+      SETTLE_MAX_MS,
+      SETTLE_BASE_MS + SETTLE_PER_ROW_MS * Math.abs(to - from),
+    );
+    let startedAt: number | null = null;
+    lastRow.current = Math.round(from);
+    const step = (now: number) => {
+      startedAt ??= now;
+      const t = Math.min(1, (now - startedAt) / duration);
+      const p = from + (to - from) * easeOutCubic(t);
+      const row = Math.round(p);
+      if (tick && row !== lastRow.current) {
+        lastRow.current = row;
+        haptic("light");
+      }
+      if (t >= 1) {
+        frame.current = null;
+        show(null);
+        return;
+      }
+      show(p);
+      frame.current = requestAnimationFrame(step);
+    };
+    show(from);
+    frame.current = requestAnimationFrame(step);
+  };
+
+  const roll = (delta: number, tick: boolean) => {
+    const from = rollingRef.current ?? value;
+    const target = Math.round(from) + delta;
+    if (tick) haptic("light");
+    commit(target);
+    settle(from, target, false);
+  };
+
+  useEffect(() => () => stopRoll(), []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      step(1);
+      roll(1, false);
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      step(-1);
+      roll(-1, false);
     }
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    drag.current = { y0: event.clientY, v0: value, moved: false };
+    stopRoll();
+    const from = rollingRef.current ?? value;
+    drag.current = {
+      y0: event.clientY,
+      from,
+      moved: false,
+      samples: [{ t: performance.now(), p: from }],
+    };
+    lastRow.current = Math.round(from);
     suppressClick.current = false;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -61,23 +176,50 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     const rect = event.currentTarget.getBoundingClientRect();
     // 화면에 그려진 높이와 논리 높이가 다를 수 있어 논리 좌표로 환산한다.
     const scale = rect.height > 0 ? COLUMN_HEIGHT / rect.height : 1;
-    const steps = Math.round(((event.clientY - current.y0) * scale) / DRAG_STEP_PX);
-    if (steps !== 0) {
+    const p = current.from - ((event.clientY - current.y0) * scale) / DRAG_STEP_PX;
+    if (Math.abs(p - current.from) >= DRAG_THRESHOLD_ROWS) {
       current.moved = true;
       suppressClick.current = true;
     }
-    const next = mod(current.v0 - steps, size);
-    if (next !== value) onSelect(next);
+    const now = performance.now();
+    current.samples = [
+      ...current.samples.filter(({ t }) => now - t <= VELOCITY_WINDOW_MS),
+      { t: now, p },
+    ];
+    show(p);
+    const row = Math.round(p);
+    if (row !== lastRow.current) {
+      lastRow.current = row;
+      haptic("light");
+      commit(row);
+    }
   };
 
   const handlePointerEnd = () => {
+    const current = drag.current;
     drag.current = null;
+    if (!current) return;
+    const from = rollingRef.current ?? value;
+    if (!current.moved) {
+      show(null);
+      return;
+    }
+    const first = current.samples[0];
+    const last = current.samples[current.samples.length - 1];
+    const idle = performance.now() - last.t > FLING_IDLE_MS;
+    const velocity = idle || last.t === first.t ? 0 : (last.p - first.p) / (last.t - first.t);
+    const fling = prefersReducedMotion()
+      ? 0
+      : Math.max(-MAX_FLING_ROWS, Math.min(MAX_FLING_ROWS, velocity * FLING_MS));
+    const target = Math.round(from + fling);
+    commit(target);
+    settle(from, target, true);
   };
 
   const wheelRef = useRef<HTMLDivElement>(null);
-  const latestStep = useRef(step);
+  const latestRoll = useRef(roll);
   useEffect(() => {
-    latestStep.current = step;
+    latestRoll.current = roll;
   });
 
   // React의 wheel 리스너는 passive라 preventDefault가 먹지 않는다.
@@ -95,7 +237,7 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
       const direction = event.deltaY > 0 ? 1 : -1;
       if (event.deltaMode !== event.DOM_DELTA_PIXEL) {
         pending = 0;
-        latestStep.current(direction);
+        latestRoll.current(direction, true);
         return;
       }
       // 방향을 바꾸면 반대쪽으로 모인 양이 새 방향의 첫 칸을 늦추지 않게 버린다.
@@ -103,7 +245,7 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
       pending += event.deltaY;
       if (Math.abs(pending) < DRAG_STEP_PX) return;
       pending %= DRAG_STEP_PX;
-      latestStep.current(direction);
+      latestRoll.current(direction, true);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -139,7 +281,10 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
           }}
         >
           {OFFSETS.map((offset) => {
-            const rowValue = mod(value + offset, size);
+            const distance = Math.abs(offset - frac);
+            const opacity = rowOpacity(distance);
+            if (opacity < 0.01) return null;
+            const rowValue = mod(base + offset, size);
             const center = offset === 0;
             return (
               <div
@@ -150,13 +295,12 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
                     suppressClick.current = false;
                     return;
                   }
-                  if (!center) onSelect(rowValue);
+                  if (!center) roll(offset, true);
                 }}
-                className={`absolute inset-x-0 top-1/2 -mt-5.75 flex h-11.5 cursor-pointer items-center justify-center font-bold tabular-nums text-foreground transition-opacity motion-reduce:transition-none ${
-                  center ? "text-[48px]" : "text-[38px]"
-                } ${rowOpacity(offset)}`}
+                className="absolute inset-x-0 top-1/2 -mt-5.75 flex h-11.5 cursor-pointer items-center justify-center text-[48px] font-bold tabular-nums text-foreground"
                 style={{
-                  transform: `rotateX(${-offset * 24}deg) translateZ(110px)`,
+                  opacity,
+                  transform: `rotateX(${-(offset - frac) * ROW_DEG}deg) translateZ(110px) scale(${rowScale(distance)})`,
                   backfaceVisibility: "hidden",
                 }}
               >

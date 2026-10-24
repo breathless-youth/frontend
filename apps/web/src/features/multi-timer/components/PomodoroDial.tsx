@@ -1,6 +1,7 @@
 import { useId, useRef } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import {
@@ -93,8 +94,11 @@ export function PomodoroDial({
   const reportedMinutes = clampDialValue(shownMinutes, limit);
   const [knobX, knobY] = dialPoint(CENTER, WEDGE_R, fraction * 360);
 
-  const emit = (next: number) => {
-    if (next !== shownMinutes) onChange?.(next);
+  // 손으로 돌릴 때만 분이 넘어갈 때마다 가볍게 울린다. 화살표 키 조작에는 손끝 감각이 필요 없다.
+  const emit = (next: number, tick = false) => {
+    if (next === shownMinutes) return;
+    if (tick) haptic("light");
+    onChange?.(next);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -120,7 +124,7 @@ export function PomodoroDial({
     if (minute === null) return;
     const next = stepDialDrag(current, minute, limit);
     drag.current = next.drag;
-    emit(next.value);
+    emit(next.value, true);
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -129,7 +133,7 @@ export function PomodoroDial({
     if (minute === null) return;
     const next = tapDialDrag(shownMinutes, minute, limit);
     drag.current = next.drag;
-    emit(next.value);
+    emit(next.value, true);
   };
 
   const handlePointerEnd = () => {

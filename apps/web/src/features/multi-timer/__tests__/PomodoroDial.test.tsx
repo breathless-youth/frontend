@@ -1,10 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PomodoroDial } from "../components/PomodoroDial";
 import { BREAK_MIN_LIMIT, FOCUS_MIN_LIMIT } from "../multiTimerSettings";
 import type { DialLimit } from "../pomodoroDialMath";
+
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
+beforeEach(() => {
+  haptic.mockReset();
+});
 
 // jsdom에는 PointerEvent가 없어 좌표가 빠진 이벤트가 만들어진다.
 if (typeof window.PointerEvent === "undefined") {
@@ -262,5 +269,30 @@ describe("PomodoroDial", () => {
     fireEvent.pointerUp(slider, { pointerId: 1 });
     fireEvent.pointerMove(slider, { pointerId: 1, ...pointOfMinute(10) });
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+  it("turning_the_dial_ticks_light_haptic_per_minute", () => {
+    render(<ControlledDial initial={25} label="집중 시간" limit={FOCUS_MIN_LIMIT} />);
+    const slider = screen.getByRole("slider", { name: "집중 시간" });
+    vi.spyOn(slider, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ x: 0, y: 0, width: 340, height: 340 }),
+    );
+
+    fireEvent.pointerDown(slider, { pointerId: 1, ...pointOfMinute(25) });
+    expect(haptic).not.toHaveBeenCalled();
+    fireEvent.pointerMove(slider, { pointerId: 1, ...pointOfMinute(26) });
+    fireEvent.pointerMove(slider, { pointerId: 1, ...pointOfMinute(26) });
+    fireEvent.pointerMove(slider, { pointerId: 1, ...pointOfMinute(27) });
+    fireEvent.pointerUp(slider, { pointerId: 1 });
+
+    expect(haptic).toHaveBeenCalledTimes(2);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("arrow_keys_do_not_tick_haptic", () => {
+    render(<ControlledDial initial={25} label="집중 시간" limit={FOCUS_MIN_LIMIT} />);
+
+    fireEvent.keyDown(screen.getByRole("slider", { name: "집중 시간" }), { key: "ArrowUp" });
+
+    expect(haptic).not.toHaveBeenCalled();
   });
 });

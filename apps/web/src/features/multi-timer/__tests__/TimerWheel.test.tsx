@@ -1,7 +1,40 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TimerWheel } from "../components/TimerWheel";
+
+const haptic = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/haptics", () => ({ haptic }));
+
+let nowMs = 0;
+beforeEach(() => {
+  haptic.mockReset();
+  nowMs = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+/** 손가락이 움직인 시각을 정해 두고 끌기 이벤트를 쏜다. */
+function pointerAt(target: HTMLElement, type: string, clientY: number, atMs: number) {
+  nowMs = atMs;
+  pointer(target, type, clientY);
+}
+
+function stubReducedMotion(reduce: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: reduce && query.includes("reduce"),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList,
+  );
+}
 
 /** jsdom의 PointerEvent는 clientY를 싣지 못해 MouseEvent로 같은 이름의 이벤트를 쏜다. */
 function pointer(target: HTMLElement, type: string, clientY: number) {
@@ -94,19 +127,101 @@ describe("TimerWheel", () => {
     expect(onChange).toHaveBeenCalledWith(1859);
   });
 
-  it("drag_down_two_steps_lowers_minutes_and_skips_row_click", () => {
+  it("shows_two_rows_above_and_below", () => {
+    render(<TimerWheel valueSec={1800} onChange={() => {}} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    for (const shown of ["28", "29", "30", "31", "32"]) {
+      expect(within(minutes).getByText(shown)).toBeInTheDocument();
+    }
+    expect(within(minutes).queryByText("27")).toBeNull();
+    expect(within(minutes).queryByText("33")).toBeNull();
+  });
+
+  it("drag_follows_finger_and_changes_value_past_half_row", () => {
     const onChange = vi.fn();
     render(<TimerWheel valueSec={1800} onChange={onChange} />);
     const minutes = screen.getByRole("spinbutton", { name: "분" });
 
-    pointer(minutes, "pointerdown", 0);
-    pointer(minutes, "pointermove", 92);
-    pointer(minutes, "pointerup", 92);
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 20, 200);
+    expect(onChange).not.toHaveBeenCalled();
+
+    pointerAt(minutes, "pointermove", 30, 400);
+    expect(onChange).toHaveBeenLastCalledWith(1740);
+  });
+
+  it("drag_ticks_light_haptic_per_row", () => {
+    render(<TimerWheel valueSec={1800} onChange={() => {}} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 10, 200);
+    expect(haptic).not.toHaveBeenCalled();
+    pointerAt(minutes, "pointermove", 46, 400);
+    pointerAt(minutes, "pointermove", 92, 600);
+
+    expect(haptic).toHaveBeenCalledTimes(2);
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("slow_release_stays_on_dragged_value_and_skips_row_click", () => {
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={1800} onChange={onChange} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 92, 400);
+    pointerAt(minutes, "pointerup", 92, 1000);
     expect(onChange).toHaveBeenLastCalledWith(1680);
 
     onChange.mockClear();
     fireEvent.click(within(minutes).getByText("31"));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("fast_flick_rolls_past_the_finger", () => {
+    stubReducedMotion(false);
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={1800} onChange={onChange} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 46, 20);
+    pointerAt(minutes, "pointermove", 92, 40);
+    pointerAt(minutes, "pointerup", 92, 45);
+
+    const lastSec = onChange.mock.lastCall?.[0] as number;
+    expect(lastSec).toBeLessThan(1680);
+  });
+
+  it("reduced_motion_flick_stops_where_the_finger_left", () => {
+    stubReducedMotion(true);
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={1800} onChange={onChange} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 46, 20);
+    pointerAt(minutes, "pointermove", 92, 40);
+    pointerAt(minutes, "pointerup", 92, 45);
+
+    expect(onChange).toHaveBeenLastCalledWith(1680);
+  });
+
+  it("wheel_and_tap_tick_haptic_but_keyboard_does_not", () => {
+    render(<TimerWheel valueSec={1800} onChange={() => {}} />);
+    const seconds = screen.getByRole("spinbutton", { name: "초" });
+
+    fireEvent.keyDown(seconds, { key: "ArrowUp" });
+    expect(haptic).not.toHaveBeenCalled();
+
+    fireEvent.wheel(seconds, { deltaY: 100 });
+    expect(haptic).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(within(seconds).getByText("01"));
+    expect(haptic).toHaveBeenCalledTimes(2);
+    expect(haptic).toHaveBeenCalledWith("light");
   });
 
   it("wheel_event_is_default_prevented", () => {
