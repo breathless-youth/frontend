@@ -6,6 +6,13 @@ import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 
 import { clampTimerSec } from "../multiTimerSettings";
 import { joinTimerSec, splitTimerSec } from "../multiTimerFormat";
+import {
+  medianFrameInterval,
+  motionForFrameInterval,
+  probeFrameInterval,
+  recordFrameInterval,
+  settleDuration,
+} from "../wheelMotion";
 
 type Unit = "h" | "m" | "s";
 
@@ -24,15 +31,11 @@ const ROW_DEG = 24;
 const SIDE_ROW_SCALE = 38 / 48;
 /** 손가락이 이만큼 움직여야 탭이 아니라 끌기로 본다. */
 const DRAG_THRESHOLD_ROWS = 0.2;
-/** 손을 뗄 때의 속도(칸/ms)에 이 시간을 곱한 만큼 더 굴린다. */
-const FLING_MS = 160;
-const MAX_FLING_ROWS = 8;
 /** 손을 떼기 전에 이보다 오래 멈춰 있었으면 튕긴 것으로 보지 않는다. */
 const FLING_IDLE_MS = 80;
 const VELOCITY_WINDOW_MS = 100;
-const SETTLE_BASE_MS = 160;
-const SETTLE_PER_ROW_MS = 45;
-const SETTLE_MAX_MS = 600;
+/** 휠이 뜰 때 화면 갱신 간격을 재는 프레임 수 */
+const PROBE_FRAMES = 8;
 
 function mod(value: number, size: number): number {
   return ((value % size) + size) % size;
@@ -72,6 +75,7 @@ interface DragState {
  *
  * 값은 바뀌는 즉시 넘기고, 화면의 숫자는 그 값까지 굴러가듯 따라간다.
  * 끄는 동안에는 손가락을 소수 칸 단위로 따라가다가, 손을 떼면 가까운 칸에 붙거나 튕긴 속도만큼 더 굴러간다.
+ * 화면이 초당 30번만 그려지는 기기에서는 짧게 붙고 덜 굴러가서 끊김이 덜 보인다.
  * 손으로 칸을 넘길 때마다 가벼운 햅틱을 낸다.
  */
 function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
@@ -109,14 +113,14 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
       show(null);
       return;
     }
-    const duration = Math.min(
-      SETTLE_MAX_MS,
-      SETTLE_BASE_MS + SETTLE_PER_ROW_MS * Math.abs(to - from),
-    );
+    const duration = settleDuration(motionForFrameInterval(medianFrameInterval()), to - from);
     let startedAt: number | null = null;
+    let previous: number | null = null;
     lastRow.current = Math.round(from);
     const step = (now: number) => {
       startedAt ??= now;
+      if (previous !== null) recordFrameInterval(now - previous);
+      previous = now;
       const t = Math.min(1, (now - startedAt) / duration);
       const p = from + (to - from) * easeOutCubic(t);
       const row = Math.round(p);
@@ -145,6 +149,11 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
   };
 
   useEffect(() => () => stopRoll(), []);
+
+  useEffect(() => {
+    if (typeof requestAnimationFrame !== "function") return;
+    return probeFrameInterval(PROBE_FRAMES);
+  }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowUp") {
@@ -208,9 +217,10 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     const last = current.samples[current.samples.length - 1];
     const idle = performance.now() - last.t > FLING_IDLE_MS;
     const velocity = idle || last.t === first.t ? 0 : (last.p - first.p) / (last.t - first.t);
+    const motion = motionForFrameInterval(medianFrameInterval());
     const fling = prefersReducedMotion()
       ? 0
-      : Math.max(-MAX_FLING_ROWS, Math.min(MAX_FLING_ROWS, velocity * FLING_MS));
+      : Math.max(-motion.maxFlingRows, Math.min(motion.maxFlingRows, velocity * motion.flingMs));
     const target = Math.round(from + fling);
     commit(target);
     settle(from, target, true);

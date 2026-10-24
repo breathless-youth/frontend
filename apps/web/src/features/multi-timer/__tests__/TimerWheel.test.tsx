@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TimerWheel } from "../components/TimerWheel";
+import { __resetFrameIntervalsForTests, recordFrameInterval } from "../wheelMotion";
 
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
@@ -15,6 +16,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  __resetFrameIntervalsForTests();
 });
 
 /** 손가락이 움직인 시각을 정해 두고 끌기 이벤트를 쏜다. */
@@ -193,6 +195,23 @@ describe("TimerWheel", () => {
 
     const lastSec = onChange.mock.lastCall?.[0] as number;
     expect(lastSec).toBeLessThan(1680);
+  });
+
+  it("low_frame_rate_flick_rolls_less_than_smooth_flick", () => {
+    stubReducedMotion(false);
+    for (let i = 0; i < 10; i += 1) recordFrameInterval(33.3);
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={1800} onChange={onChange} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", 46, 20);
+    pointerAt(minutes, "pointermove", 92, 40);
+    pointerAt(minutes, "pointerup", 92, 45);
+
+    const lastSec = onChange.mock.lastCall?.[0] as number;
+    expect(lastSec).toBeLessThan(1680);
+    expect(lastSec).toBeGreaterThanOrEqual(25 * 60);
   });
 
   it("reduced_motion_flick_stops_where_the_finger_left", () => {
