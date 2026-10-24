@@ -1,6 +1,7 @@
 import {
   __resetSessionPresenceForTests,
   markSessionOpen,
+  runAfterNextSessionScreen,
   runAfterSession,
 } from "../sessionPresence";
 
@@ -51,5 +52,28 @@ describe("sessionPresence", () => {
 
     closeSecond();
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("등록 뒤 처음 뜬 세션 화면이 닫힐 때만 실행하고, 그 전에는 거둘 수 있다", () => {
+    const closeEarlier = markSessionOpen();
+    const run = jest.fn();
+    runAfterNextSessionScreen(run);
+
+    closeEarlier();
+    expect(run).not.toHaveBeenCalled();
+
+    const closeNext = markSessionOpen();
+    const closeOther = markSessionOpen();
+    closeOther();
+    expect(run).not.toHaveBeenCalled();
+    closeNext();
+    expect(run).toHaveBeenCalledTimes(1);
+
+    const cancelled = jest.fn();
+    const cancel = runAfterNextSessionScreen(cancelled);
+    expect(cancel()).toBe(true);
+    markSessionOpen()();
+    expect(cancelled).not.toHaveBeenCalled();
+    expect(cancel()).toBe(false);
   });
 });

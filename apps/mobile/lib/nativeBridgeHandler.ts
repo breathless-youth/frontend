@@ -14,6 +14,7 @@ import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
+import { runAfterNextSessionScreen } from "./sessionPresence";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 
@@ -42,10 +43,28 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 }
 
 let startSessionInFlight = false;
+let startSessionReleaseTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** 테스트 전용: 처리 중 표시를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
+/**
+ * 연 세션 화면이 닫힐 때 다음 집중 시작을 받는 장치
+ *
+ * 화면은 push 뒤 마운트에서야 떴다고 알리므로, 그 사이에 온 요청도 막으려면 push 직후부터 붙잡아야 한다.
+ */
+function releaseStartSessionOnScreenClose(): void {
+  const cancel = runAfterNextSessionScreen(() => {
+    clearTimeout(startSessionReleaseTimer);
+    startSessionInFlight = false;
+  });
+  // ponytail: 5초 안에 세션 화면이 안 뜨면 push가 실패한 것으로 보고 푼다. 그보다 늦게 뜨는 기기가 보이면 늘린다.
+  startSessionReleaseTimer = setTimeout(() => {
+    if (cancel()) startSessionInFlight = false;
+  }, 5_000);
+}
+
+/** 테스트 전용: 처리 중 표시와 남은 타이머를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
 export function __resetStartSessionInFlightForTests(): void {
   startSessionInFlight = false;
+  clearTimeout(startSessionReleaseTimer);
 }
 
 /**
@@ -58,23 +77,23 @@ export function __resetStartSessionInFlightForTests(): void {
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
-      // 웹은 메시지를 보내자마자 연타 잠금을 풀어서, 네이티브 게이트가 끝나기 전에 두 번째 탭이 들어올 수 있다.
+      // 웹은 메시지를 보내자마자 연타 잠금을 풀어서 두 번째 탭이 곧바로 들어올 수 있다.
+      // 권한이 이미 있으면 게이트가 바로 끝나므로, 이 요청이 연 세션 화면이 닫힐 때까지 다음 요청을 무시한다.
       if (startSessionInFlight) break;
       startSessionInFlight = true;
       void (async () => {
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
+          startSessionInFlight = false;
           return;
         }
         router.push("/room/1");
-      })()
-        .catch((error: unknown) => {
-          console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
-        })
-        .finally(() => {
-          startSessionInFlight = false;
-        });
+        releaseStartSessionOnScreenClose();
+      })().catch((error: unknown) => {
+        console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
+        startSessionInFlight = false;
+      });
       break;
     case "request-camera-gate":
       // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면

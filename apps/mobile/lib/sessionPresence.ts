@@ -9,6 +9,7 @@
 
 let openCount = 0;
 const waiters = new Set<() => void>();
+const nextScreenWaiters = new Set<() => void>();
 
 /**
  * 세션 화면이 떴다는 표시
@@ -17,11 +18,14 @@ const waiters = new Set<() => void>();
  */
 export function markSessionOpen(): () => void {
   openCount += 1;
+  const onClose = [...nextScreenWaiters];
+  nextScreenWaiters.clear();
   let released = false;
   return () => {
     if (released) return;
     released = true;
     openCount -= 1;
+    for (const run of onClose) run();
     if (openCount > 0) return;
     const pending = [...waiters];
     waiters.clear();
@@ -42,7 +46,19 @@ export function runAfterSession(run: () => void): void {
   waiters.add(run);
 }
 
+/**
+ * 다음에 뜨는 세션 화면이 닫힐 때 실행
+ *
+ * 다른 세션 화면이 남아 있어도 기다리지 않고 그 화면 하나가 닫히면 실행한다.
+ * 반환값은 화면이 아직 뜨지 않았을 때만 등록을 거두고 true를 돌려준다.
+ */
+export function runAfterNextSessionScreen(run: () => void): () => boolean {
+  nextScreenWaiters.add(run);
+  return () => nextScreenWaiters.delete(run);
+}
+
 export function __resetSessionPresenceForTests(): void {
   openCount = 0;
   waiters.clear();
+  nextScreenWaiters.clear();
 }
