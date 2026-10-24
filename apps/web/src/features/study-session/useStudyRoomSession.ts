@@ -44,11 +44,14 @@ import {
 } from "./detection";
 import type { PauseTrigger, SessionEndReason, SessionState } from "./sessionState";
 import {
+  BREAK_STATE,
   FOCUS_STATE,
   MANUAL_END_REASON,
   autoEndReason,
   distractionState,
+  isBreak,
   isSameSessionState,
+  isSessionHeld,
   pauseState,
 } from "./sessionState";
 import type { SessionTimeline, SessionTotals } from "./sessionTimeline";
@@ -342,7 +345,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // 복원은 일시정지로 시작하는데 applyState를 거치지 않으므로 여기서 직접 심는다.
     // 빠뜨리면 자동 종료 감시자가 복원 세션을 아예 안 본다.
     const state = currentState(initial.timeline);
-    return state.kind === "PAUSE"
+    return state.kind === "PAUSE" && state.trigger !== "BREAK"
       ? { sinceMs: currentStateSinceMs(initial.timeline), trigger: state.trigger }
       : null;
   });
@@ -370,7 +373,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // `next`를 그대로 믿으면 일시정지 시작 시각이 매번 갱신돼 자동 종료가 영원히 안 온다.
       const applied = currentState(timelineRef.current);
       setPausedSnapshot((prev) => {
-        if (applied.kind !== "PAUSE") {
+        // 휴식은 모드가 끝을 정하는 구간이라 방치된 일시정지처럼 자동 종료하면 안 된다.
+        if (applied.kind !== "PAUSE" || applied.trigger === "BREAK") {
           return prev === null ? prev : null;
         }
         const sinceMs = currentStateSinceMs(timelineRef.current);
@@ -590,45 +594,92 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [allEvents, phase.name, userId, withBase]);
 
   /**
-   * 수동 일시정지 / 백그라운드 전환 — 서버에는 둘 다 PAUSE 하나로 나간다.
+   * 수동 일시정지와 백그라운드 전환
    *
-   * ⚠️ **이미 일시정지면 트리거가 달라도 구간을 다시 끊지 않는다.** `isSameSessionState`는
-   * PAUSE끼리도 `trigger`를 비교하므로, 가드가 없으면 "수동 일시정지 중 화면이 꺼지는" 흔한
-   * 경로에서 `MANUAL` → `BACKGROUND` 전이가 일어나 PAUSE 구간이 **2개로 쪼개진다**.
-   * 그러면 `eventCounts.PAUSE`가 2가 되어 S4·S5에 "일시정지 2회"로 표시된다 —
-   * 사용자는 한 번 눌렀는데. 6차 확정("트리거는 2개, 상태와 이벤트는 1개")의 직접 위반이다.
-   * 트리거는 내부 계측용이므로 **먼저 들어온 트리거를 유지**한다. (qa-WG2 F1 실측 재현)
+   * 서버에는 둘 다 PAUSE 하나로 나간다.
+   * MANUAL·BACKGROUND처럼 사용자가 건 일시정지 중이면 트리거가 달라도 구간을 다시 끊지 않는다.
+   * `isSameSessionState`는 PAUSE끼리도 `trigger`를 비교해서, 가드가 없으면 수동 일시정지 중 화면이 꺼지는 흔한 경로에서 `MANUAL`이 `BACKGROUND`로 바뀌며 PAUSE 구간이 둘로 쪼개진다.
+   * 그러면 사용자는 한 번 눌렀는데 `eventCounts.PAUSE`가 2가 되어 결과 화면에 일시정지 2회로 보인다.
+   * 트리거는 둘이어도 상태와 이벤트는 하나로 두기로 했고, 트리거는 내부 계측용이라 먼저 들어온 트리거를 유지한다.
+   * 휴식은 이 가드에서 빠진다.
+   * 휴식 중 앱을 떠나면 휴식 구간을 끊어 뒤따르는 일시정지가 따로 한 건이 되게 한다.
    */
   const pause = useCallback(
     (trigger: PauseTrigger = "MANUAL") => {
-      if (currentState(timelineRef.current).kind === "PAUSE") {
+      if (isSessionHeld(currentState(timelineRef.current))) {
         return;
       }
       applyState(pauseState(trigger));
       // 닫힌 타임라인(세션 종료 뒤)에는 전이가 적용되지 않는다 — 실제로 멈췄을 때만 찍는다.
-      if (currentState(timelineRef.current).kind === "PAUSE") {
+      if (isSessionHeld(currentState(timelineRef.current))) {
         trackStudySessionPaused(trigger, roomType);
       }
     },
     [applyState, roomType],
   );
 
-  /** 재개 — 집중으로 돌아가고, 감지가 아직 살아 있으면 다음 tick에서 비집중으로 다시 넘어간다. */
-  const resume = () => {
-    const before = currentState(timelineRef.current);
-    const pausedSinceMs = currentStateSinceMs(timelineRef.current);
-    applyState(FOCUS_STATE);
+  /**
+   * 사용자가 건 일시정지를 닫을 수 있는 전이
+   *
+   * 재개 버튼과 휴식 재진입이 같은 일시정지를 닫아서 재개 계측을 한 곳에서 찍는다.
+   * 일시정지 계측과 짝을 맞추려고 구간이 실제로 바뀌었을 때만 찍는다.
+   * 휴식은 사용자가 멈춘 것이 아니라서 휴식에서 나오는 것은 찍지 않는다.
+   */
+  const applyStateTrackingResume = (next: SessionState) => {
+    const beforeTimeline = timelineRef.current;
+    const before = currentState(beforeTimeline);
+    const pausedSinceMs = currentStateSinceMs(beforeTimeline);
+    applyState(next);
     // 정지 중이 아닐 때의 resume(카메라 켜기 확인 등 중복 호출)은 찍지 않는다.
-    if (before.kind === "PAUSE" && currentState(timelineRef.current).kind !== "PAUSE") {
+    if (
+      before.kind === "PAUSE" &&
+      before.trigger !== "BREAK" &&
+      timelineRef.current !== beforeTimeline
+    ) {
       trackStudySessionResumed({
         pauseSec: Math.round((Date.now() - pausedSinceMs) / 1000),
         trigger: before.trigger,
         roomType,
       });
     }
+  };
+
+  /**
+   * 재개
+   *
+   * 집중으로 돌아가고, 감지가 아직 살아 있으면 다음 tick에서 비집중으로 다시 넘어간다.
+   */
+  const resume = () => {
+    applyStateTrackingResume(FOCUS_STATE);
     // 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
     // 재개는 기다리지 않는다. 카메라가 없어도 세션은 이어진다.
     void reviveCamera();
+  };
+
+  /**
+   * 휴식 진입
+   *
+   * 휴식 중 앱을 떠났다 돌아와 휴식을 이어 갈 때도 이 통로로 일시정지를 끊고 다시 휴식에 들어간다.
+   * 그 경우는 사용자가 건 일시정지가 끝난 것이라 재개 계측을 남긴다.
+   * 집중이나 비집중에서 들어오는 휴식은 사용자가 멈춘 것이 아니라서 아무 계측도 남기지 않는다.
+   */
+  const startBreak = () => {
+    if (isBreak(currentState(timelineRef.current))) {
+      return;
+    }
+    applyStateTrackingResume(BREAK_STATE);
+  };
+
+  /**
+   * 휴식 끝
+   *
+   * 휴식이 아닐 때 집중으로 돌리면 사용자가 건 일시정지가 풀리므로 휴식일 때만 움직인다.
+   */
+  const endBreak = () => {
+    if (!isBreak(currentState(timelineRef.current))) {
+      return;
+    }
+    applyState(FOCUS_STATE);
   };
 
   /**
@@ -870,6 +921,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     selectSubject,
     pause,
     resume,
+    startBreak,
+    endBreak,
     onReturnFromBackground,
     flipCamera,
     endAndSubmit,

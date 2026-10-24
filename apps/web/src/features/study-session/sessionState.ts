@@ -18,10 +18,18 @@ export type DistractionTrigger = "AWAY" | "PHONE" | "DEVICE" | "SLEEP";
  */
 export type PauseTrigger = "MANUAL" | "BACKGROUND";
 
+/**
+ * 일시정지 구간이 열린 이유
+ *
+ * 휴식도 서버에는 PAUSE로 나가고 공부 시간에서 빠져서 같은 상태에 이유만 더한다.
+ * 자동 종료와 일시정지 계측은 사용자가 멈춘 경우만 다뤄서 그쪽은 `PauseTrigger`를 그대로 받는다.
+ */
+export type PauseReason = PauseTrigger | "BREAK";
+
 export type SessionState =
   | { kind: "FOCUS" }
   | { kind: "DISTRACTION"; trigger: DistractionTrigger }
-  | { kind: "PAUSE"; trigger: PauseTrigger };
+  | { kind: "PAUSE"; trigger: PauseReason };
 
 /**
  * 세션이 **어떻게 끝났는가** — 순수 클라이언트 내부 타입이다.
@@ -52,6 +60,21 @@ export function distractionState(trigger: DistractionTrigger): SessionState {
 
 export function pauseState(trigger: PauseTrigger): SessionState {
   return { kind: "PAUSE", trigger };
+}
+
+export const BREAK_STATE: SessionState = { kind: "PAUSE", trigger: "BREAK" };
+
+export function isBreak(state: SessionState): boolean {
+  return state.kind === "PAUSE" && state.trigger === "BREAK";
+}
+
+/**
+ * 사용자가 멈춘 일시정지 여부
+ *
+ * 휴식은 공부 시간에서 빠지지만 모드 시계와 배경음은 그대로 흘러야 해서 여기서 뺀다.
+ */
+export function isSessionHeld(state: SessionState): boolean {
+  return state.kind === "PAUSE" && state.trigger !== "BREAK";
 }
 
 export function isSameSessionState(a: SessionState, b: SessionState): boolean {

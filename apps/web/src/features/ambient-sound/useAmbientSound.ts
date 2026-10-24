@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { trackAmbientSoundChanged, trackAmbientSoundDuckToggled } from "@/lib/amplitude";
 
 import type { SessionState } from "@/features/study-session/sessionState";
+import { isSessionHeld } from "@/features/study-session/sessionState";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 
 import type { AmbientPlayer } from "./ambientPlayer";
@@ -43,7 +44,8 @@ function pick(mix: Mix, ids: readonly SoundId[]): Mix {
 export function useAmbientSound(options: UseAmbientSoundOptions) {
   const { sessionState, phase, usage } = options;
   const studying = phase.name === "studying";
-  const paused = sessionState.kind === "PAUSE";
+  // 휴식도 공부 시간에서 빠지는 일시정지지만 쉬는 동안 소리는 이어져야 한다.
+  const paused = isSessionHeld(sessionState);
   const distracted = sessionState.kind === "DISTRACTION";
 
   const [catalog, setCatalog] = useState<readonly AmbientSound[]>(options.catalog ?? EMPTY_CATALOG);
