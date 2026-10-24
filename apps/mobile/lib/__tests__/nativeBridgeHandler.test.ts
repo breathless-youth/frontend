@@ -189,7 +189,7 @@ describe("handleBridgeMessage", () => {
 
     handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
     await flush();
-    markSessionOpen();
+    markSessionOpen("single");
     handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
     await flush();
 
@@ -202,7 +202,7 @@ describe("handleBridgeMessage", () => {
 
     handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
     await flush();
-    const close = markSessionOpen();
+    const close = markSessionOpen("single");
     close();
     handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
     await flush();
@@ -210,6 +210,27 @@ describe("handleBridgeMessage", () => {
     expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
     expect(mockedRouter.push).toHaveBeenCalledTimes(2);
     expect(mockedRouter.push).toHaveBeenLastCalledWith("/room/1");
+  });
+
+  it("start-session → 세션 화면이 뜨기 전에 소셜룸 세션이 열렸다 닫혀도 무시하고, 세션 화면이 닫힌 뒤에는 다시 처리한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    const closeSocial = markSessionOpen("social");
+    closeSocial();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+
+    const closeSingle = markSessionOpen("single");
+    closeSingle();
+    handleBridgeMessage({ type: "start-session", atMs: 3 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(2);
   });
 
   it("start-session → push한 세션 화면이 끝내 뜨지 않으면 잠시 뒤 다음 요청을 받는다", async () => {
@@ -236,7 +257,7 @@ describe("handleBridgeMessage", () => {
 
       handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
       await flush();
-      markSessionOpen();
+      markSessionOpen("single");
       jest.advanceTimersByTime(60_000);
       handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
       await flush();
