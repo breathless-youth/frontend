@@ -41,6 +41,13 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
   router.navigate(target.href);
 }
 
+let startSessionInFlight = false;
+
+/** 테스트 전용: 처리 중 표시를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
+export function __resetStartSessionInFlightForTests(): void {
+  startSessionInFlight = false;
+}
+
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
@@ -51,6 +58,9 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
+      // 웹은 메시지를 보내자마자 연타 잠금을 풀어서, 네이티브 게이트가 끝나기 전에 두 번째 탭이 들어올 수 있다.
+      if (startSessionInFlight) break;
+      startSessionInFlight = true;
       void (async () => {
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
@@ -58,9 +68,13 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
           return;
         }
         router.push("/room/1");
-      })().catch((error: unknown) => {
-        console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
-      });
+      })()
+        .catch((error: unknown) => {
+          console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
+        })
+        .finally(() => {
+          startSessionInFlight = false;
+        });
       break;
     case "request-camera-gate":
       // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면
