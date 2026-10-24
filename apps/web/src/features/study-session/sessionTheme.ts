@@ -69,6 +69,11 @@ const SESSION_SURFACE_VARS = {
   // #4E5968 = border.strong 다크값과 같은 회색 계열.
   "--session-toast-bg": "rgba(78, 89, 104, 0.96)",
 
+  // 멀티 타이머의 남은 시간 색
+  // 시맨틱 변수에 없는 집중·휴식 구분색이라 세션 안에서만 다크 값으로 고정한다.
+  "--session-mode-focus": colors.brand.primary.dark,
+  "--session-mode-break": colors.feedback.success.dark,
+
   // ── 종료 확인 다이얼로그 (항상-다크 오버레이) ───────────────────────────
   // 이 화면은 카메라 위에 뜨는 오버레이라 **라이트/다크 테마를 따르지 않는다.**
   // index.css의 시맨틱 변수(--dim, --bg-layer-2 …)를 그대로 쓰면 라이트 모드에서 딤이 40%로
