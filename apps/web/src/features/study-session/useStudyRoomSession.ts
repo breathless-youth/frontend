@@ -51,6 +51,12 @@ import {
   isSameSessionState,
   pauseState,
 } from "./sessionState";
+import {
+  floorToSecondGrid,
+  snapStatusEvents,
+  snapSubjectTracker,
+  snapTimeline,
+} from "./displayClock";
 import type { SessionTimeline, SessionTotals } from "./sessionTimeline";
 import {
   closeSessionTimeline,
@@ -58,6 +64,7 @@ import {
   createSessionTimeline,
   currentState,
   currentStateSinceMs,
+  isClosed,
   toStatusEvents,
   transition,
 } from "./sessionTimeline";
@@ -311,8 +318,46 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [sessionState, setSessionState] = useState<SessionState>(() =>
     currentState(initial.timeline),
   );
-  const [totals, setTotals] = useState<SessionTotals>(() =>
-    withBase(computeSessionTotals(initial.timeline, Date.now())),
+  /**
+   * 화면에 보일 집계와 그 집계를 낸 시각
+   *
+   * 과목 시간도 같은 시각으로 계산해야 순공과 같은 순간에 바뀐다.
+   */
+  const [display, setDisplay] = useState<{ totals: SessionTotals; nowMs: number }>(() => {
+    const nowMs = floorToSecondGrid(Date.now(), initial.startedAtMs);
+    return {
+      totals: withBase(
+        computeSessionTotals(snapTimeline(initial.timeline, initial.startedAtMs), nowMs),
+      ),
+      nowMs,
+    };
+  });
+  /**
+   * 화면 집계를 지금 시각으로 다시 내는 함수
+   *
+   * 과목을 바꿀 때도 불러 과목 경계와 화면의 지금 시각이 같은 눈금에서 나오게 한다.
+   * 눈금 위에서는 1초마다 총 공부나 일시정지가 오르므로 네 값이 같으면 시각도 같아 이전 state를 유지해도 된다.
+   * 끝난 세션은 원래 밀리초로 낸 종료 집계를 보여 주므로 덮어쓰지 않는다.
+   */
+  const refreshDisplay = useCallback(
+    (nowMs: number) => {
+      if (isClosed(timelineRef.current)) {
+        return;
+      }
+      const displayNowMs = floorToSecondGrid(nowMs, initial.startedAtMs);
+      const next = withBase(
+        computeSessionTotals(snapTimeline(timelineRef.current, initial.startedAtMs), displayNowMs),
+      );
+      setDisplay((prev) =>
+        prev.totals.studySec === next.studySec &&
+        prev.totals.focusSec === next.focusSec &&
+        prev.totals.pauseSec === next.pauseSec &&
+        prev.totals.distractionSec === next.distractionSec
+          ? prev
+          : { totals: next, nowMs: displayNowMs },
+      );
+    },
+    [initial.startedAtMs, withBase],
   );
   const [cameraFacing, setCameraFacing] = useState(camera.facing);
   const [isCameraRunning, setIsCameraRunning] = useState(camera.isRunning);
@@ -532,18 +577,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         applyState(active === null ? FOCUS_STATE : distractionState(active), nowMs);
       }
 
-      const next = withBase(computeSessionTotals(timelineRef.current, nowMs));
-      setTotals((prev) =>
-        prev.studySec === next.studySec &&
-        prev.focusSec === next.focusSec &&
-        prev.pauseSec === next.pauseSec &&
-        prev.distractionSec === next.distractionSec
-          ? prev
-          : next,
-      );
+      refreshDisplay(nowMs);
     }, tickMs);
     return () => clearInterval(timer);
-  }, [applyState, detectionParams, phase.name, tickMs, withBase]);
+  }, [applyState, detectionParams, phase.name, refreshDisplay, tickMs]);
 
   // studying 동안만 30초마다 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
   // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
@@ -666,8 +703,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
    */
   const selectSubject = (next: SubjectSelection | null) => {
-    subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, Date.now());
+    const nowMs = Date.now();
+    subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, nowMs);
     setSubjectTracker(subjectTrackerRef.current);
+    refreshDisplay(nowMs);
   };
 
   const flipCamera = async (): Promise<CameraFlipResult> => {
@@ -713,7 +752,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       const closed = timelineRef.current;
       const finalTotals = withBase(computeSessionTotals(closed, endedAtMs));
       const events = allEvents(endedAtMs);
-      setTotals(finalTotals);
+      setDisplay({ totals: finalTotals, nowMs: floorToSecondGrid(endedAtMs, initial.startedAtMs) });
 
       // 종료 집계는 세션당 한 번만 — 제출 재시도가 세션 수를 부풀리면 완주율이 망가진다.
       // 제출 성공/실패는 아래 `study_session_submitted`가 시도마다 따로 기록한다.
@@ -796,7 +835,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           submitInFlightRef.current = false;
         });
     },
-    [allEvents, initial.serverSeenMs, roomType, userId, withBase],
+    [allEvents, initial.serverSeenMs, initial.startedAtMs, roomType, userId, withBase],
   );
 
   /**
@@ -827,8 +866,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     pollMs: options.autoEndPollMs,
   });
 
-  // eslint-disable-next-line react-hooks/purity -- 화면 표시용 시각이다. 컴파일러가 메모하므로 타이머 틱이 totals를 바꿀 때마다 다시 읽혀 과목 시간이 타이머와 함께 흐른다
-  const renderNowMs = Date.now();
   return {
     /**
      * 세션 시작 시각
@@ -838,11 +875,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
      */
     startedAtMs: initial.startedAtMs,
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
-    focusSec: totals.focusSec,
+    focusSec: display.totals.focusSec,
     /** 총 공부 시간(초) — 일시정지에서만 멈춘다. */
-    studySec: totals.studySec,
+    studySec: display.totals.studySec,
     /** 일시정지 누적(초) — 벽시계 기준 별도 집계(2026-07-26 확정). */
-    pauseSec: totals.pauseSec,
+    pauseSec: display.totals.pauseSec,
     sessionState,
     phase,
     /**
@@ -861,12 +898,26 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     /** 지금 고른 과목 — 없으면 null(과목 없는 시간). */
     subjectSelection: subjectTracker.current?.subjectId ?? null,
     /**
-     * 이 세션의 과목 구간(지금 구간은 현재 시각에서 닫음) — 화면 표시용. 스냅샷·제출은 같은 함수를 ref에서
-     * 다시 읽는다. 렌더 시각으로 닫는 이유는 타이머 틱마다 리렌더가 나 값이 함께 흐르기 때문이다.
+     * 화면 표시용 과목 구간
+     *
+     * 지금 구간은 순공과 같은 시각에서 닫고, 경계는 1초 눈금에 맞춘 값이다.
+     * 스냅샷과 제출은 ref에서 원래 시각으로 다시 읽는다.
      */
-    subjectSegments: materializeSubjectSegments(subjectTracker, renderNowMs),
-    /** 지금까지의 비공부 이벤트(서버가 준 것 + 이 타임라인) — 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다. */
-    sessionEvents: buildEvents(initial.priorEvents, timeline, renderNowMs),
+    subjectSegments: materializeSubjectSegments(
+      snapSubjectTracker(subjectTracker, initial.startedAtMs),
+      display.nowMs,
+    ),
+    /**
+     * 화면 표시용 비공부 이벤트
+     *
+     * 화면이 과목별 시간을 서버와 같은 규칙으로 파생할 때 쓴다.
+     * 서버가 준 이벤트 뒤에 이 타임라인을 잇고, 경계는 1초 눈금에 맞춘 값이다.
+     */
+    sessionEvents: buildEvents(
+      snapStatusEvents(initial.priorEvents, initial.startedAtMs),
+      snapTimeline(timeline, initial.startedAtMs),
+      display.nowMs,
+    ),
     selectSubject,
     pause,
     resume,
