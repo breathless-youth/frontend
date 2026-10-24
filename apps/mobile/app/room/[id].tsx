@@ -58,7 +58,7 @@ export default function SessionRoomScreen() {
   }, []);
 
   // 세션 중에 업데이트 알림창이 끼어들지 않게 화면이 떠 있음을 알린다.
-  useEffect(() => markSessionOpen(), []);
+  useEffect(() => markSessionOpen("single"), []);
 
   /**
    * 화면이 닫힐 때 방해 앱 잠금 해제

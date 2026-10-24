@@ -18,9 +18,6 @@ import { postToNative } from "./bridge";
  * no-op으로 받는다 — 여기서 분기하지 않는다.
  */
 
-/** Meta 표준 이벤트 "튜토리얼 완료". `fb_success`는 Meta 표준 파라미터(1=성공). */
-export const META_TUTORIAL_COMPLETION_EVENT = "fb_mobile_tutorial_completion";
-
 function postMetaAppEvent(name: string, params?: MetaAppEventMessage["params"]): void {
   postToNative({
     type: "meta-app-event",
@@ -28,11 +25,6 @@ function postMetaAppEvent(name: string, params?: MetaAppEventMessage["params"]):
     ...(params !== undefined ? { params } : {}),
     atMs: Date.now(),
   });
-}
-
-/** 온보딩 가이드(G1~G5)를 끝까지 완료 — 건너뛰기는 세지 않는다(`OnboardingGuideFlow`의 `completed`만). */
-export function trackMetaTutorialCompleted(): void {
-  postMetaAppEvent(META_TUTORIAL_COMPLETION_EVENT, { fb_success: 1 });
 }
 
 /**

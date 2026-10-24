@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  META_TUTORIAL_COMPLETION_EVENT,
   trackMetaInviteShared,
   trackMetaSocialRoomEntered,
   trackMetaStudySessionEnded,
   trackMetaStudySessionStarted,
-  trackMetaTutorialCompleted,
 } from "@/lib/metaAppEvents";
 
 /**
@@ -32,21 +30,6 @@ afterEach(() => {
 });
 
 describe("metaAppEvents", () => {
-  it("튜토리얼 완료는 Meta 표준 이벤트명과 fb_success=1로 나간다", () => {
-    const bridge = stubBridge();
-
-    trackMetaTutorialCompleted();
-
-    expect(bridge.sent()).toEqual([
-      expect.objectContaining({
-        type: "meta-app-event",
-        name: META_TUTORIAL_COMPLETION_EVENT,
-        params: { fb_success: 1 },
-      }),
-    ]);
-    expect(META_TUTORIAL_COMPLETION_EVENT).toBe("fb_mobile_tutorial_completion");
-  });
-
   it("세션 시작은 룸 종류를 싣고, 복원 진입은 보내지 않는다 — 같은 세션의 두 번째 시작", () => {
     const bridge = stubBridge();
 
@@ -100,7 +83,6 @@ describe("metaAppEvents", () => {
   it("모든 이벤트명·파라미터 키가 Meta 형식이다 — 네이티브가 형식 밖 이름은 통째로 버린다", () => {
     const bridge = stubBridge();
 
-    trackMetaTutorialCompleted();
     trackMetaStudySessionStarted("single", false);
     trackMetaStudySessionEnded({ roomType: "single", studySec: 1, focusSec: 1 });
     trackMetaSocialRoomEntered();
@@ -117,7 +99,6 @@ describe("metaAppEvents", () => {
 
   it("브라우저 단독 모드에서는 아무 일도 하지 않는다", () => {
     expect(() => {
-      trackMetaTutorialCompleted();
       trackMetaStudySessionStarted("single", false);
       trackMetaStudySessionEnded({ roomType: "single", studySec: 1, focusSec: 1 });
       trackMetaSocialRoomEntered();

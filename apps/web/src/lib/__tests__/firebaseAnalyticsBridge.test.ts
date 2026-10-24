@@ -172,7 +172,6 @@ describe("toFirebaseAnalyticsMessage — $identify 유저 속성", () => {
       "task_count",
       "used_social",
       "used_single",
-      "guide_finished",
       "invite_shared",
       "ambient_sound_used",
       "timelapse_shared",

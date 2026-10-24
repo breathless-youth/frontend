@@ -68,7 +68,7 @@ function renderAt(path: string) {
   );
 }
 
-/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁(`OnboardingGuidePage.test.tsx`와 같은 패턴). */
+/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁. */
 function LocationProbe({ testId }: { testId: string }) {
   const location = useLocation();
   return <div data-testid={testId}>{location.pathname + location.search}</div>;
@@ -80,17 +80,12 @@ function withQueryClient(ui: ReactElement) {
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
 
-function renderSettingsWithGuideStub(path: string) {
+/** App 라우팅 없이 SettingsPage만 그린다. */
+function renderSettings(path: string) {
   return render(
     withQueryClient(
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route
-            path="/onboarding-guide"
-            element={<LocationProbe testId="onboarding-guide-stub" />}
-          />
-        </Routes>
+        <SettingsPage />
       </MemoryRouter>,
     ),
   );
@@ -130,7 +125,7 @@ function pushCameraPermission(granted: boolean) {
 
 describe("S6 · 설정", () => {
   it("화면이 뜨면 하위 화면 청크를 미리 받는다", () => {
-    renderSettingsWithGuideStub("/settings");
+    renderSettings("/settings");
 
     expect(prefetchSettingsSubPages).toHaveBeenCalled();
   });
@@ -146,7 +141,7 @@ describe("S6 · 설정", () => {
 
     expect(screen.getByText("서비스")).toBeInTheDocument();
     expect(screen.getByText("카메라 권한")).toBeInTheDocument();
-    expect(screen.getByText("서비스 이용 가이드")).toBeInTheDocument();
+    expect(screen.queryByText("서비스 이용 가이드")).not.toBeInTheDocument();
 
     expect(screen.getByText("지원")).toBeInTheDocument();
     expect(screen.getByText("문의하기")).toBeInTheDocument();
@@ -172,26 +167,6 @@ describe("S6 · 설정", () => {
 
     expect(screen.getByTestId("profile-stub").textContent).toBe(
       "/profile?userId=7&appVersion=1.4.2",
-    );
-  });
-
-  it("서비스 이용 가이드 행은 버튼으로 노출되고 클릭 시 온보딩 가이드로 이동한다 (entry=settings, BY-334)", () => {
-    renderSettingsWithGuideStub("/settings");
-
-    fireEvent.click(screen.getByRole("button", { name: "서비스 이용 가이드" }));
-
-    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
-      "/onboarding-guide?entry=settings",
-    );
-  });
-
-  it("서비스 이용 가이드는 기존 쿼리(userId·appVersion)를 잃지 않고 entry만 얹어 승계한다 (리뷰 반영)", () => {
-    renderSettingsWithGuideStub("/settings?userId=7&appVersion=1.4.2");
-
-    fireEvent.click(screen.getByRole("button", { name: "서비스 이용 가이드" }));
-
-    expect(screen.getByTestId("onboarding-guide-stub").textContent).toBe(
-      "/onboarding-guide?userId=7&appVersion=1.4.2&entry=settings",
     );
   });
 
@@ -388,7 +363,7 @@ describe("S6 · 설정", () => {
 });
 
 describe("타임랩스 행", () => {
-  it("카메라 권한과 서비스 이용 가이드 사이에 행이 있다", () => {
+  it("카메라 권한과 문의하기 사이에 행이 있다", () => {
     renderAt("/settings");
 
     const row = screen.getByRole("button", { name: "타임랩스" });
@@ -398,7 +373,7 @@ describe("타임랩스 행", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      row.compareDocumentPosition(screen.getByRole("button", { name: "서비스 이용 가이드" })) &
+      row.compareDocumentPosition(screen.getByRole("button", { name: "문의하기" })) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
@@ -549,7 +524,7 @@ describe("인터뷰 신청하기 행", () => {
       settingsEnabled: true,
       settingsUrl: FORM,
     });
-    renderSettingsWithGuideStub("/settings?userId=7");
+    renderSettings("/settings?userId=7");
 
     const row = await screen.findByRole("button", { name: "인터뷰 신청하기, 기프티콘 증정" });
     const buttons = screen
@@ -561,7 +536,7 @@ describe("인터뷰 신청하기 행", () => {
   });
 
   it("서버가 끄면 보이지 않는다", async () => {
-    renderSettingsWithGuideStub("/settings?userId=7");
+    renderSettings("/settings?userId=7");
 
     await waitFor(() => expect(getInterviewStatus).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: /인터뷰 신청하기/ })).toBeNull();
@@ -574,7 +549,7 @@ describe("인터뷰 신청하기 행", () => {
       settingsEnabled: true,
       settingsUrl: FORM,
     });
-    renderSettingsWithGuideStub("/settings?userId=7");
+    renderSettings("/settings?userId=7");
 
     fireEvent.click(await screen.findByRole("button", { name: "인터뷰 신청하기, 기프티콘 증정" }));
 

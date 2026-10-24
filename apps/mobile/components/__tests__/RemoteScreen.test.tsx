@@ -9,7 +9,11 @@ import {
 } from "../../lib/nativeAnalytics";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
-import { __resetSessionPresenceForTests, runAfterSession } from "../../lib/sessionPresence";
+import {
+  __resetSessionPresenceForTests,
+  runAfterNextSessionScreen,
+  runAfterSession,
+} from "../../lib/sessionPresence";
 import { ensureUserRegistered } from "../../lib/userApi";
 
 /**
@@ -662,6 +666,17 @@ describe("RemoteScreen — 소셜룸 세션 중 미루기", () => {
 
     send(lock(false));
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("잠금은 다음 싱글룸 화면을 기다리는 일을 가져가지 않는다", async () => {
+    const { send } = await renderLoaded();
+    const run = jest.fn();
+    runAfterNextSessionScreen(run);
+
+    send(lock(true));
+    send(lock(false));
+
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("포커스가 없는 탭에서도 세션 중으로 친다", async () => {

@@ -14,7 +14,7 @@ import type { StreakWeekDay } from "../recordsFormat";
 import { StreakBanner } from "../StreakBanner";
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는
-// `clientX`/`clientY`가 사라진다(`OnboardingGuidePage.test.tsx`와 같은 이유·같은 최소 폴리필).
+// `clientX`/`clientY`가 사라진다.
 if (typeof window.PointerEvent === "undefined") {
   window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
 }

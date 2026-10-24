@@ -67,15 +67,6 @@ describe("useNativeScreenReport", () => {
     expect(lastReport(postMessage).restoreQuery).toEqual({ code: "0712" });
   });
 
-  it("온보딩 가이드는 entry 쿼리를 복원 쿼리로 보존한다 — 유실되면 완료가 세션을 시작하지 않는다", () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-
-    renderAt({ pathname: "/onboarding-guide", search: "?userId=7&entry=focus-start" });
-
-    expect(lastReport(postMessage).restoreQuery).toEqual({ entry: "focus-start" });
-  });
-
   it("플래너는 보던 날짜와 들어온 탭을 복원 쿼리로 싣는다 — 유실되면 뒤로 가기가 다른 탭 화면으로 간다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
@@ -109,15 +100,6 @@ describe("useNativeScreenReport", () => {
       id: "9",
       from: "home",
     });
-  });
-
-  it("entry 없는 온보딩 가이드는 복원 쿼리도 없다", () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-
-    renderAt({ pathname: "/onboarding-guide", search: "?userId=7" });
-
-    expect(lastReport(postMessage).restoreQuery).toBeUndefined();
   });
 
   it("싱글룸 세션도 dark:true다 — 복원 쿼리는 없다", () => {

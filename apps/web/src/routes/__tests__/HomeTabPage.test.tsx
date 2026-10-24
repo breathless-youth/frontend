@@ -9,11 +9,6 @@ import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 
-import {
-  createMemoryOnboardingGuideStore,
-  resetOnboardingGuideStore,
-  setOnboardingGuideStore,
-} from "@/features/onboarding/onboardingGuideStore";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
@@ -81,12 +76,7 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
   prefetchVisionAssets,
 }));
 
-const prefetchOnboardingGuidePage = vi.hoisted(() => vi.fn());
-
-vi.mock("@/routes/lazyRoutes", () => ({
-  prefetchOnboardingGuidePage,
-  prefetchTimelapsesPage: vi.fn(),
-}));
+vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
 
 vi.mock("@/features/timelapse/RecentTimelapses", () => ({
   RecentTimelapses: () => <div data-testid="recent-timelapses" />,
@@ -177,7 +167,7 @@ function renderHome(path = "/home?userId=7") {
   );
 }
 
-/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁(`OnboardingGuidePage.test.tsx`와 같은 패턴). */
+/** 이동한 목적지의 경로+쿼리를 그대로 노출하는 스텁. */
 function LocationProbe({ testId }: { testId: string }) {
   const location = useLocation();
   return <div data-testid={testId}>{location.pathname + location.search}</div>;
@@ -190,10 +180,6 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/home" element={<HomeTabPage />} />
-          <Route
-            path="/onboarding-guide"
-            element={<LocationProbe testId="onboarding-guide-stub" />}
-          />
           <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
           <Route path="/social" element={<LocationProbe testId="social-stub" />} />
         </Routes>
@@ -326,12 +312,10 @@ describe("HomeTabPage", () => {
       renderHome();
       await waitFor(() => expect(mockedStreak).toHaveBeenCalled());
       expect(prefetchVisionAssets).not.toHaveBeenCalled();
-      expect(prefetchOnboardingGuidePage).not.toHaveBeenCalled();
 
       resolveStats(statsResponse);
       await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
       await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
-      await waitFor(() => expect(prefetchOnboardingGuidePage).toHaveBeenCalled());
     });
 
     it("통계를 불러오지 못하면 부르지 않는다", async () => {
@@ -342,7 +326,6 @@ describe("HomeTabPage", () => {
 
       await waitFor(() => expect(screen.getByText("기록을 불러오지 못했어요")).toBeInTheDocument());
       expect(prefetchVisionAssets).not.toHaveBeenCalled();
-      expect(prefetchOnboardingGuidePage).not.toHaveBeenCalled();
     });
   });
 
@@ -617,32 +600,8 @@ describe("HomeTabPage", () => {
     });
   });
 
-  describe("집중 시작 CTA — 온보딩 가이드 배선 (BY-334)", () => {
-    beforeEach(() => {
-      setOnboardingGuideStore(createMemoryOnboardingGuideStore());
-    });
-
-    afterEach(() => {
-      resetOnboardingGuideStore();
-    });
-
-    it("가이드 미완료면 쿼리를 승계해 온보딩 가이드로 이동한다", async () => {
-      mockedStats.mockResolvedValue(statsResponse);
-      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
-
-      renderHomeWithRoutes();
-
-      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
-
-      const stub = await screen.findByTestId("onboarding-guide-stub");
-      expect(stub.textContent).toBe("/onboarding-guide?userId=7&entry=focus-start");
-      // 분기 계측(BY-616 확장) — 가이드로 갔다는 사실은 autocapture 클릭이 모른다.
-      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("guide", "home");
-    });
-
-    it("가이드를 이미 봤으면(완료) 쿼리를 승계해 세션 라우트로 바로 이동한다", async () => {
-      setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
+  describe("집중 시작 CTA", () => {
+    it("쿼리를 승계해 세션 라우트로 바로 이동하고 출처를 남긴다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
 
@@ -653,11 +612,10 @@ describe("HomeTabPage", () => {
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
-      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("session", "home");
+      expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home");
     });
 
-    it("가이드를 이미 봤을 때 빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {
-      setOnboardingGuideStore(createMemoryOnboardingGuideStore(true));
+    it("빠르게 두 번 누르면 세션도 한 번만 시작한다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
 
@@ -669,21 +627,6 @@ describe("HomeTabPage", () => {
       fireEvent.click(cta);
 
       await screen.findByTestId("room-stub");
-      expect(navigateSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it("빠르게 두 번 누르면 온보딩 가이드로 한 번만 이동한다(중복 진입 방지, 리뷰 반영)", async () => {
-      mockedStats.mockResolvedValue(statsResponse);
-      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
-
-      renderHomeWithRoutes();
-
-      await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const cta = screen.getByRole("button", { name: "집중 시작" });
-      fireEvent.click(cta);
-      fireEvent.click(cta);
-
-      await screen.findByTestId("onboarding-guide-stub");
       expect(navigateSpy).toHaveBeenCalledTimes(1);
     });
   });

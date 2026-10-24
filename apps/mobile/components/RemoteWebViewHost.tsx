@@ -330,7 +330,7 @@ export function RemoteWebViewHost({
   const [loadFailed, setLoadFailed] = useState(false);
   /**
    * iOS 가장자리 스와이프(back-forward) 제스처 허용 여부 — 웹이 `set-back-gesture`로 끄고 켠다
-   * (온보딩 가이드가 우발 이탈을 막으려고 끈다, 계약 주석 참고). 공용 `nativeBridgeHandler`가
+   * (소셜룸 세션이 뒤로 가기 이탈을 막으려고 끈다, 계약 주석 참고). 공용 `nativeBridgeHandler`가
    * 아니라 여기서 소비하는 이유: 제어 대상(`allowsBackForwardNavigationGestures`)이 이 컴포넌트의
    * WebView prop이라, 핸들러로 보내면 그 상태를 다시 여기로 배선하는 우회로만 생긴다.
    */
@@ -1075,8 +1075,8 @@ export function RemoteWebViewHost({
       // 양쪽 다 반응하지 않았다(2026-08-01 iPhone 13 mini 확인).
       // 세션 화면은 웹 히스토리가 비어 있어(새로 로드된 라우트) 이 제스처로 빠져나가지 않는다.
       //
-      // 예외: 온보딩 가이드(G1~G5)는 이 제스처가 가이드 통째 이탈이 되어 웹이
-      // `set-back-gesture`로 잠시 끈다(위 backGestureEnabled 주석·계약 주석 참고).
+      // 예외: 소셜룸 세션은 이 제스처로 방을 나가면 측정이 유실되어 웹이
+      // `set-back-gesture`로 세션 동안 끈다(위 backGestureEnabled 주석·계약 주석 참고).
       allowsBackForwardNavigationGestures={backGestureEnabled}
       // 개발 빌드에서만 Safari Web Inspector(iOS)·chrome://inspect(Android)가 이 웹뷰에 붙는다.
       // iOS 16.4+는 WKWebView `isInspectable`을 켜지 않으면 디버그 빌드여도 인스펙터가 안 붙는다 —

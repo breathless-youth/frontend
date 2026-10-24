@@ -14,6 +14,7 @@ import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
+import { runAfterNextSessionScreen } from "./sessionPresence";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 
@@ -41,6 +42,31 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
   router.navigate(target.href);
 }
 
+let startSessionInFlight = false;
+let startSessionReleaseTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * 연 세션 화면이 닫힐 때 다음 집중 시작을 받는 장치
+ *
+ * 화면은 push 뒤 마운트에서야 떴다고 알리므로, 그 사이에 온 요청도 막으려면 push 직후부터 붙잡아야 한다.
+ */
+function releaseStartSessionOnScreenClose(): void {
+  const cancel = runAfterNextSessionScreen(() => {
+    clearTimeout(startSessionReleaseTimer);
+    startSessionInFlight = false;
+  });
+  // ponytail: 5초 안에 세션 화면이 안 뜨면 push가 실패한 것으로 보고 푼다. 그보다 늦게 뜨는 기기가 보이면 늘린다.
+  startSessionReleaseTimer = setTimeout(() => {
+    if (cancel()) startSessionInFlight = false;
+  }, 5_000);
+}
+
+/** 테스트 전용: 처리 중 표시와 남은 타이머를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
+export function __resetStartSessionInFlightForTests(): void {
+  startSessionInFlight = false;
+  clearTimeout(startSessionReleaseTimer);
+}
+
 /**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
@@ -51,15 +77,22 @@ function openTab(tab: NavigateTabMessage["tab"], via: NonNullable<NavigateTabMes
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
+      // 웹은 메시지를 보내자마자 연타 잠금을 풀어서 두 번째 탭이 곧바로 들어올 수 있다.
+      // 권한이 이미 있으면 게이트가 바로 끝나므로, 이 요청이 연 세션 화면이 닫힐 때까지 다음 요청을 무시한다.
+      if (startSessionInFlight) break;
+      startSessionInFlight = true;
       void (async () => {
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           router.push("/permission-denied");
+          startSessionInFlight = false;
           return;
         }
         router.push("/room/1");
+        releaseStartSessionOnScreenClose();
       })().catch((error: unknown) => {
         console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);
+        startSessionInFlight = false;
       });
       break;
     case "request-camera-gate":
@@ -189,7 +222,7 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       openTab(message.tab, message.via ?? "card");
       break;
     case "set-tab-bar":
-      // 전체 화면 웹 라우트(가이드·문의·약관·방침)는 탭 웹뷰 안에서 웹 라우팅으로 열려
+      // 전체 화면 웹 라우트(문의·약관·방침 등)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
       setTabBarState(
         message.blockedByModal === true ? "blocked" : message.visible ? "visible" : "hidden",
@@ -218,7 +251,7 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       getMotionSensorRelay().handle(message, reply);
       break;
     case "meta-app-event":
-      // 웹이 아는 광고 전환(첫 세션 시작·온보딩 완료 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
+      // 웹이 아는 광고 전환(첫 세션 시작·소셜룸 입장 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);

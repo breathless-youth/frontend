@@ -11,7 +11,7 @@ AI Vision 기반 순공 시간 측정 캠스터디 서비스의 프론트엔드 
 ## 모노레포 구조
 
 - `apps/mobile` — Expo RN 앱(`expo-router`). 탭바·스택·권한·스플래시·토큰을 맡는 네이티브 셸이고, 카메라 권한 거부 안내를 뺀 모든 화면은 원격 URL 웹뷰로 `apps/web`을 연다. 규칙은 [apps/mobile/CLAUDE.md](./apps/mobile/CLAUDE.md).
-- `apps/web` — Vite + React 웹 앱. 홈·기록·설정·온보딩·세션·소셜을 포함한 모든 화면의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
+- `apps/web` — Vite + React 웹 앱. 홈·기록·설정·세션·소셜을 포함한 모든 화면의 실제 구현체이자 독립 브라우저 서비스로도 배포 가능. 규칙은 [apps/web/CLAUDE.md](./apps/web/CLAUDE.md).
 - `packages/types` — 서버 전송용/API 계약 도메인 타입. **실제 백엔드 Swagger 기준으로만 정의한다**(명세에 없는 타입 금지). `packages/design-tokens`는 공유 의미 기반 디자인 토큰(구현체는 공유 안 함), `packages/config`는 공유 ESLint/Prettier 설정.
 
 ## 아키텍처 경계 (반드시 유지)

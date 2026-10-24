@@ -164,24 +164,6 @@ export function SettingsPage() {
               }}
             />
           )}
-          {/*
-            온보딩 가이드로 다시 들어가는 행이다.
-            `entry=settings`는 `features/onboarding/onboardingGuideSteps.ts`에 정의된 진입 출처다.
-          */}
-          <SettingsRow
-            label="서비스 이용 가이드"
-            trailing={{ kind: "chevron" }}
-            onPress={() => {
-              trackSettingsRowPressed("guide");
-              // 홈과 같은 방식으로 지금 쿼리를 이어받고 entry만 바꾼다.
-              // entry만 넣은 새 쿼리로 가면 userId·appVersion이 사라져, 가이드에서 새로고침하거나 딥링크로 들어왔다가 나갈 때 미저장 모드 홈으로 떨어진다.
-              const params = new URLSearchParams(location.search);
-              params.set("entry", "settings");
-              slideNavigate("forward", () =>
-                navigate({ pathname: "/onboarding-guide", search: params.toString() }),
-              );
-            }}
-          />
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="지원">
@@ -196,7 +178,7 @@ export function SettingsPage() {
             onPress={() => {
               // SPA `navigate()`가 아니라 문서 단위 이동인 `hardNavigate`를 써야 한다.
               // 배포 헤더 설정상 /contact만 COEP 없이 내려오는데, pushState는 문서를 새로 만들지 않아 설정 문서의 `require-corp`를 그대로 이어받고 구글 폼 iframe이 차단된다.
-              // 쿼리는 측정 기준 안내 행과 같은 이유로 통째로 이어받아, 딥링크나 새로고침 뒤에도 사라지지 않게 한다.
+              // 쿼리는 통째로 이어받아 딥링크나 새로고침 뒤에도 신원(`userId`)이 사라지지 않게 한다.
               trackSettingsRowPressed("contact");
               hardNavigate(`/contact${location.search}`);
             }}

@@ -100,7 +100,7 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
  * 등록 API 원본 호출. `Authorization`을 붙이지 않는다.
  *
  * 응답의 `isNew`는 Meta 가입 완료 이벤트(`logMetaRegistration`)만 소비한다 — 광고로 설치한 사용자가 실제
- * 신규인지 세는 용도다. 온보딩 가이드 노출 판단은 완료 플래그(`onboardingGuideStore`)가 소유한다.
+ * 신규인지 세는 용도다.
  */
 export async function registerUser(deviceId: string): Promise<UserRegisterResponse> {
   const res = await apiFetch(`${apiBaseUrl()}/api/users`, {

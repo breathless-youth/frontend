@@ -27,7 +27,7 @@ describe("openPushRoute", () => {
 
   it("세션 화면이 열려 있으면 닫힌 뒤에 이동한다", async () => {
     const push = jest.fn();
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
 
     openPushRoute("/records?date=2026-10-01", push, () => AT);
     await flush();
@@ -43,7 +43,7 @@ describe("openPushRoute", () => {
 
   it("세션 중 알림이 여러 건 쌓이면 마지막 것만 연다", async () => {
     const push = jest.fn();
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
 
     openPushRoute("/planner", push, () => AT);
     openPushRoute("/profile", push, () => AT + 1);
@@ -60,7 +60,7 @@ describe("openPushRoute", () => {
   it("세션 중 초대 링크가 오면 앞서 대기 중이던 알림도 열지 않는다", async () => {
     const push = jest.fn();
     const invite = jest.fn();
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
     const unregister = setSessionInviteHandler(invite);
 
     openPushRoute("/planner", push, () => AT);
@@ -76,7 +76,7 @@ describe("openPushRoute", () => {
   it("세션 중 초대 링크는 세션 화면에 넘기고 이동하지 않는다", async () => {
     const push = jest.fn();
     const invite = jest.fn();
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
     const unregister = setSessionInviteHandler(invite);
 
     openPushRoute("/social/join?code=1234", push, () => AT);

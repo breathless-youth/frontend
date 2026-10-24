@@ -73,4 +73,4 @@ Tailwind 기본 스케일(`p-1`=4 … `p-6`=24)과 값이 같아 그대로 쓴�
 - iOS·브라우저: `@media (prefers-color-scheme: dark)` 블록.
 - Android 웹뷰: 시스템 다크가 미디어쿼리에 전달되지 않아 셸이 `data-theme="dark"`를 붙인다
   (`src/lib/nativeTheme.ts`). 그래서 값이 두 벌이며 항상 같아야 한다.
-- 세션 화면·온보딩 코치는 `packages/design-tokens`를 TS로 직접 읽는다. 세 번째 사본이다.
+- 세션 화면은 `packages/design-tokens`를 TS로 직접 읽는다. 세 번째 사본이다.

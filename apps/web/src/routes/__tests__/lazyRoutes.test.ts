@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const loaded = vi.hoisted(() => ({
   result: 0,
-  guide: 0,
   profile: 0,
   terms: 0,
   privacy: 0,
@@ -13,10 +12,6 @@ const loaded = vi.hoisted(() => ({
 vi.mock("../ResultPage", () => {
   loaded.result += 1;
   return { ResultPage: () => null };
-});
-vi.mock("../OnboardingGuidePage", () => {
-  loaded.guide += 1;
-  return { OnboardingGuidePage: () => null };
 });
 vi.mock("../ProfilePage", () => {
   loaded.profile += 1;
@@ -71,16 +66,6 @@ describe("lazyRoutes 미리 받기", () => {
     prefetchResultPage();
     await runIdle();
     expect(loaded.result).toBe(1);
-  });
-
-  it("가이드 청크를 유휴 시간에 받는다", async () => {
-    const { prefetchOnboardingGuidePage } = await import("../lazyRoutes");
-
-    prefetchOnboardingGuidePage();
-    expect(loaded.guide).toBe(0);
-
-    await runIdle();
-    expect(loaded.guide).toBe(1);
   });
 
   it("설정 하위 화면 청크를 유휴 시간에 모두 받는다", async () => {

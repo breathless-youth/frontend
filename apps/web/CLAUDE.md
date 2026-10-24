@@ -1,6 +1,6 @@
 # apps/web
 
-Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈·기록·설정·온보딩·세션·소셜)의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 브라우저로 직접 접속해도 같은 화면이 뜨므로 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
+Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈·기록·설정·세션·소셜)의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 브라우저로 직접 접속해도 같은 화면이 뜨므로 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
 
 ## 역할·구조
 

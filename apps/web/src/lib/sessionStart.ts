@@ -17,10 +17,10 @@ export type SessionStartRoute = "native" | "web";
  *
  * **반환값은 호출부의 히스토리 조작 판단에 쓰인다**(재리뷰 반영). `"native"`일 때는
  * `navigateToSession`이 호출되지 않으므로 화면 전환이 전혀 일어나지 않는다 — 네이티브가 화면
- * 스택을 소유해 웹 쪽에서 별도로 push/replace할 대상이 없기 때문이다. 그래서 가이드처럼 "닫기"가
- * 필요한 화면은 이 값이 `"native"`일 때만 스스로 닫아야 한다(그래야 갇히지 않으면서도 조작이
+ * 스택을 소유해 웹 쪽에서 별도로 push/replace할 대상이 없기 때문이다. 그래서 반환값으로 후속
+ * 히스토리 조작을 정하는 호출부는 이 값이 `"native"`일 때만 스스로 조작해야 한다(그래야 조작이
  * 정확히 한 번으로 유지된다). `isNativeBridgeAvailable()`을 호출부에서 다시 검사하지 말 것 —
- * 판단이 두 곳으로 갈라진다.
+ * 판단이 두 곳으로 나뉜다.
  */
 export async function requestSessionStart(
   userId: number | null,
