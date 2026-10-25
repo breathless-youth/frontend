@@ -188,6 +188,17 @@ describe("useAutoHideControls", () => {
     expect(state()).toBe("hidden");
   });
 
+  it("보이는 상태의 키 입력은 5초를 새로 센다", () => {
+    render(<Harness />);
+    advance(AUTO_HIDE_MS - 1000);
+
+    fireEvent.keyDown(window, { key: "Tab" });
+    advance(AUTO_HIDE_MS - 1000);
+    expect(state()).toBe("shown");
+    advance(1000);
+    expect(state()).toBe("hidden");
+  });
+
   it("조작 밖의 포커스는 숨김을 막지 않는다", () => {
     render(<Harness />);
 

@@ -39,6 +39,7 @@ export function useAutoHideControls(alwaysVisible: boolean) {
     const onKeyDown = () => {
       keyboardModalityRef.current = true;
       setHidden(false);
+      setInteractions((count) => count + 1);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
