@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { BookOpen } from "lucide-react";
 
-import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
+import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
@@ -17,6 +18,7 @@ import {
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
 import { RoomGrid } from "@/features/live-room/components/RoomGrid";
 import { RoomMoreMenu } from "@/features/live-room/components/RoomMoreMenu";
+import { RoomSubjectPill } from "@/features/live-room/components/RoomSubjectPill";
 import { RoomTimeText } from "@/features/live-room/components/RoomTimeText";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import { orderedMembers, roomMembersReducer } from "@/features/live-room/roomMembersReducer";
@@ -28,16 +30,26 @@ import { createSystemPauseSource } from "@/features/study-session/adapters/syste
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
+import { SessionPage } from "@/features/study-session/components/SessionPage";
+import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { SessionPageTimer } from "@/features/study-session/components/SessionTimer";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
-import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-session/sessionCopy";
+import {
+  EXIT_CONFIRM_COPY,
+  SUBJECT_SHEET_COPY,
+  exitConfirmDescription,
+} from "@/features/study-session/sessionCopy";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import type { SubjectSelection } from "@/features/study-session/subjectSegments";
+import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
+import { useSubjects } from "@/features/study-session/useSubjects";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { shareInvite } from "@/features/social-room/shareInvite";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
@@ -49,6 +61,9 @@ import {
   trackSocialRoomGraceExceeded,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackSubjectItemSelected,
+  trackSubjectSheetClosed,
+  trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
@@ -136,6 +151,9 @@ export function LiveRoomSession({
   // 유예 판정이 다른 이벤트 순서를 탈 수 있다(usePauseAutoEnd의 같은 원칙).
   const [systemPause] = useState(() => createSystemPauseSource());
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  // 제출 시점에 읽을 과목 목록이다.
+  // 목록은 아래 useSubjects가 들고 있어 커밋마다 최신 값으로 덮는다.
+  const subjectsListRef = useRef<SubjectResponse[]>([]);
   const {
     focusSec,
     studySec,
@@ -145,6 +163,10 @@ export function LiveRoomSession({
     isCameraRunning,
     cameraStream,
     cameraFacing,
+    subjectSelection,
+    subjectSegments,
+    sessionEvents,
+    selectSubject,
     pause,
     resume,
     flipCamera,
@@ -157,18 +179,36 @@ export function LiveRoomSession({
     // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
     ambientUsage: ambientUsage.snapshot,
+    getCompletedTaskIds: (startedAtMs) =>
+      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
   });
   const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
   // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
-  const [ambientOpen, setAmbientOpen] = useState(false);
+  /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
+  const [page, setPage] = useState<"subject" | "ambient" | null>(null);
   // 자동 종료 뒤에도 이 화면은 저장 중·다시 제출 안내로 남으므로 페이지가 그 안내를 가리지 않게 닫는다.
-  if (phase.name !== "studying" && ambientOpen) {
-    setAmbientOpen(false);
+  if (phase.name !== "studying" && page !== null) {
+    setPage(null);
   }
-  const ambientLandscape = useLandscapeLayout(ambientOpen);
+  const pageLandscape = useLandscapeLayout(page !== null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리다.
   // Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
+  const subjectButtonRef = useRef<HTMLButtonElement>(null);
+  // 과목 페이지를 연 요소와 연 시각이다.
+  // 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
+  const subjectOpenerRef = useRef<HTMLElement | null>(null);
+  const subjectOpenedAtRef = useRef(0);
+  // 과목 페이지가 닫혀 있을 때의 미리 받기 실패는 알리지 않는다.
+  // 사용자가 과목을 건드린 적이 없다.
+  const subjects = useSubjects(true, (message) => {
+    if (page === "subject") {
+      showCtaToast(message);
+    }
+  });
+  useLayoutEffect(() => {
+    subjectsListRef.current = subjects.subjects;
+  });
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
@@ -466,8 +506,75 @@ export function LiveRoomSession({
   const controlsLocked = phase.name !== "studying";
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
-  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen || ambientOpen;
+  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen || page !== null;
   const { controlsVisible, surfaceProps } = useAutoHideControls(controlsAlwaysVisible);
+
+  // 확인 창을 연 요소가 닫힐 때 사라져 있으면 대신 포커스를 받을 자리다.
+  // 바의 카메라 버튼으로 열 때는 비워 둔다.
+  // 터치 웹뷰는 버튼을 눌러도 포커스가 body에 남는 일이 많아 과목 버튼으로 끌려가기 때문이다.
+  const cameraConfirmReturnRef = useRef<(() => HTMLElement | null) | null>(null);
+
+  function openCameraConfirm(returnFocus: (() => HTMLElement | null) | null = null) {
+    cameraConfirmReturnRef.current = returnFocus;
+    measurePreviewAspect();
+    setCameraDialogOpen(true);
+  }
+
+  function openSubjectPage(source: "button" | "label", opener: HTMLElement) {
+    trackSubjectSheetOpened(source);
+    subjectOpenedAtRef.current = Date.now();
+    subjectOpenerRef.current = opener;
+    // 미리 받기가 알림 없이 실패했으면 여는 순간 한 번 더 받는다.
+    if (subjects.status === "error") {
+      void subjects.reload();
+    }
+    setPage("subject");
+  }
+
+  function closeSubjectPage(closedBy: "back" | "play") {
+    trackSubjectSheetClosed({
+      openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
+      closedBy,
+    });
+    setPage(null);
+  }
+
+  // 알약으로 열었는데 페이지에서 과목을 해제하면 알약이 사라지므로 과목 버튼으로 돌아간다.
+  function subjectReturnFocus() {
+    const opener = subjectOpenerRef.current;
+    return opener?.isConnected ? opener : subjectButtonRef.current;
+  }
+
+  function handleSelectSubject(next: SubjectSelection | null) {
+    // 일시정지 중에 이미 고른 과목의 재생 버튼을 누르면 선택은 그대로다.
+    // 전이가 없으니 계측도 남기지 않는다.
+    if (next === subjectSelection) {
+      return;
+    }
+    trackSubjectItemSelected(next === null ? "none" : "subject");
+    selectSubject(next);
+  }
+
+  /**
+   * 이 세션에서 과목별로 쌓인 시간
+   *
+   * 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다.
+   */
+  const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
+  const selectedSubject =
+    subjectSelection === null
+      ? null
+      : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
+  // 알약의 순공은 서버 누적에 이 세션 몫을 더한다.
+  const subjectLabel =
+    subjectSelection === null
+      ? null
+      : {
+          name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          focusSec:
+            (selectedSubject?.focusSec ?? 0) +
+            liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
+        };
 
   return (
     <main
@@ -501,11 +608,30 @@ export function LiveRoomSession({
         />
 
         {/* 조작이 숨어도 내 시간은 계속 보여야 해서 숨김 대상 밖에 둔다. */}
-        <RoomTimeText
-          focusSec={focusSec}
-          studySec={studySec}
-          className="absolute top-[calc(env(safe-area-inset-top)+6px)] left-[calc(env(safe-area-inset-left)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+16px)] regular:top-[calc(env(safe-area-inset-top)+16px)]"
-        />
+        <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+6px)] right-[calc(env(safe-area-inset-right)+16px)] left-[calc(env(safe-area-inset-left)+16px)] flex flex-col items-start landscape-compact:top-[calc(env(safe-area-inset-top)+16px)] regular:top-[calc(env(safe-area-inset-top)+16px)]">
+          <RoomTimeText focusSec={focusSec} studySec={studySec} totalHidden={!controlsVisible} />
+          {/* 과목 알약
+
+              조작이 숨어도 늘 보여서 내 시간 글자 바로 아래에 둔다.
+              묶음 칸이 오른쪽에도 화면 여백을 둬서 이름이 길면 화면 안에서 잘린다.
+              흐림 배경이 사라지지 않게 transform이나 opacity가 걸린 조상 아래에 두지 않는다.
+              시간 글자의 그림자가 알약 글자에 번지지 않게 시간 글자 밖 형제로 둔다. */}
+          {subjectLabel !== null && (
+            <RoomSubjectPill
+              name={subjectLabel.name}
+              focusSec={subjectLabel.focusSec}
+              paused={paused}
+              expanded={page === "subject"}
+              inactive={moreMenuOpen}
+              // 제출 중에는 페이지를 열 수 없어서 눌리는 버튼처럼 보이지 않게 글자로 둔다.
+              onClick={
+                controlsLocked
+                  ? undefined
+                  : (event) => openSubjectPage("label", event.currentTarget)
+              }
+            />
+          )}
+        </div>
 
         <RoomMoreMenu
           container={sessionSurface}
@@ -531,7 +657,7 @@ export function LiveRoomSession({
         <div className="pointer-events-none absolute inset-x-0 bottom-[max(calc(env(safe-area-inset-bottom)-2px),8px)] flex flex-col items-center gap-2 landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)] regular:bottom-[calc(env(safe-area-inset-bottom)+17px)]">
           {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
               둘이 함께 있으면 토스트가 두 번 뜬다. */}
-          {!ambientOpen && <CtaToaster />}
+          {page === null && <CtaToaster />}
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
@@ -551,18 +677,6 @@ export function LiveRoomSession({
             disabled={controlsLocked}
             hidden={!controlsVisible}
             inactive={moreMenuOpen}
-            ambient={
-              <AmbientSoundButton
-                ref={ambientButtonRef}
-                native={false}
-                className={roomBarButtonClassName}
-                onPointerDown={playPressPop}
-                disabled={controlsLocked}
-                on={ambient.isOn}
-                expanded={ambientOpen}
-                onClick={() => setAmbientOpen(true)}
-              />
-            }
             onToggleCamera={() => {
               if (!paused) {
                 trackSocialRoomCameraToggled(false);
@@ -571,21 +685,54 @@ export function LiveRoomSession({
                 // 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
                 haptic("light");
               } else {
-                measurePreviewAspect();
-                setCameraDialogOpen(true);
+                openCameraConfirm();
               }
             }}
             onExit={() => {
               trackStudySessionExitRequested("social");
               setExitDialogOpen(true);
             }}
-          />
+          >
+            <button
+              ref={subjectButtonRef}
+              type="button"
+              // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
+              aria-label={
+                subjectSelection === null
+                  ? SUBJECT_SHEET_COPY.title
+                  : `${SUBJECT_SHEET_COPY.title} 선택됨`
+              }
+              aria-haspopup="dialog"
+              aria-expanded={page === "subject"}
+              data-on={subjectSelection !== null}
+              disabled={controlsLocked}
+              onPointerDown={playPressPop}
+              onClick={(event) => openSubjectPage("button", event.currentTarget)}
+              className={cn(roomBarButtonClassName, "data-[on=true]:text-(--state-focus)")}
+            >
+              <BookOpen
+                aria-hidden="true"
+                className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
+              />
+            </button>
+            <AmbientSoundButton
+              ref={ambientButtonRef}
+              native={false}
+              className={roomBarButtonClassName}
+              onPointerDown={playPressPop}
+              disabled={controlsLocked}
+              on={ambient.isOn}
+              expanded={page === "ambient"}
+              onClick={() => setPage("ambient")}
+            />
+          </RoomControlBar>
         </div>
       </div>
 
       <CameraOnConfirmDialog
         open={cameraDialogOpen}
         container={sessionSurface}
+        returnFocus={() => cameraConfirmReturnRef.current?.() ?? null}
         preview={
           <ClonedTrackPreview
             stream={cameraStream}
@@ -605,11 +752,42 @@ export function LiveRoomSession({
           resume();
         }}
       />
+      {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다. */}
+      <SessionPage
+        open={page === "subject"}
+        onOpenChange={(open) => {
+          if (!open) closeSubjectPage("back");
+        }}
+        container={sessionSurface}
+        returnFocus={subjectReturnFocus}
+        title={SUBJECT_SHEET_COPY.title}
+        landscape={pageLandscape}
+      >
+        <SubjectPanel
+          store={subjects}
+          selection={subjectSelection}
+          onSelect={handleSelectSubject}
+          // 룸에서 재개는 카메라 켜기라 영상 공유 동의를 거쳐야 한다.
+          // 그래서 일시정지 중의 재생은 바로 재개하지 않고 카메라 켜기 확인 창으로 넘긴다.
+          onRequestClose={() => {
+            closeSubjectPage("play");
+            // 확인 창을 연 재생 버튼은 페이지와 함께 사라져 페이지를 연 자리로 돌아간다.
+            if (paused) {
+              openCameraConfirm(subjectReturnFocus);
+            }
+          }}
+          paused={paused}
+          onNotice={showCtaToast}
+          liveTotals={liveSubjectTotals}
+          landscape={pageLandscape}
+          timer={<SessionPageTimer focusSec={focusSec} />}
+        />
+      </SessionPage>
       <AmbientSoundSheet
-        open={ambientOpen}
+        open={page === "ambient"}
         container={sessionSurface}
         returnFocus={() => ambientButtonRef.current}
-        landscape={ambientLandscape}
+        landscape={pageLandscape}
         timer={<SessionPageTimer focusSec={focusSec} />}
         catalog={ambient.catalog}
         mix={ambient.mix}
@@ -621,7 +799,7 @@ export function LiveRoomSession({
         onSetDuckEnabled={ambient.setDuckEnabled}
         onToggleAll={ambient.toggleAll}
         onOpenChange={(open) => {
-          if (!open) setAmbientOpen(false);
+          if (!open) setPage(null);
         }}
       />
       <SessionConfirmDialog
