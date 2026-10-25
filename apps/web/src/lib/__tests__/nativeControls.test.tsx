@@ -113,6 +113,7 @@ function StyledButton({
   measureIcon = false,
   iconScale,
   iconWidth,
+  Icon = "svg",
 }: {
   tone?: NativeButtonTone;
   turns?: number;
@@ -120,6 +121,7 @@ function StyledButton({
   measureIcon?: boolean;
   iconScale?: number;
   iconWidth?: number;
+  Icon?: "svg" | "img";
 }) {
   const { ref, native } = useNativeControl<HTMLButtonElement>(
     {
@@ -139,7 +141,7 @@ function StyledButton({
   );
   return (
     <button ref={ref} type="button" aria-label="카메라 전환">
-      <svg style={iconWidth === undefined ? undefined : { width: `${iconWidth}px` }} />
+      <Icon style={iconWidth === undefined ? undefined : { width: `${iconWidth}px` }} />
       {native ? "앱" : "웹"}
     </button>
   );
@@ -486,6 +488,14 @@ describe("앱 모드", () => {
     expect(lastInline(postMessage)?.controls).toMatchObject([{ iconSize }]);
   });
 
+  it("이미지 아이콘도 폭을 재 iconSize로 보낸다", () => {
+    const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
+
+    render(<StyledButton measureIcon Icon="img" iconWidth={23} />);
+
+    expect(lastInline(postMessage)?.controls).toMatchObject([{ iconSize: 23 }]);
+  });
+
   it("아이콘이 나타나는 확대 중에도 변형 전 CSS 폭을 iconSize로 보낸다", () => {
     const postMessage = enterGlassChrome("/room/1", WITH_BUTTON_STYLE);
     // 웹 아이콘 등장 효과가 scale(0.6)에서 시작해 화면상 폭이 줄어든 순간이다.
@@ -555,6 +565,158 @@ describe("앱 모드", () => {
     render(<Medal label="랭킹 기록" />);
 
     expect(lastInline(postMessage)).not.toHaveProperty("colorScheme");
+  });
+});
+
+describe("CSS 전환 따라가기", () => {
+  const pending = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  let top = 100;
+  let running: "transition" | "animation" | null = null;
+
+  class FakeCSSTransition {
+    playState = "running";
+  }
+  class FakeCSSAnimation {
+    playState = "running";
+  }
+
+  /**
+   * 다음 프레임 콜백 실행
+   *
+   * 그 안에서 요청한 프레임은 다음 차례로 남는다.
+   */
+  function runFrame() {
+    const callbacks = [...pending.values()];
+    pending.clear();
+    for (const callback of callbacks) {
+      callback(0);
+    }
+  }
+
+  function fire(type: string) {
+    document.body.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function stubAnimations() {
+    vi.stubGlobal("CSSTransition", FakeCSSTransition);
+    Object.defineProperty(document, "getAnimations", {
+      configurable: true,
+      value: () =>
+        running === "transition"
+          ? [new FakeCSSTransition()]
+          : running === "animation"
+            ? [new FakeCSSAnimation()]
+            : [],
+    });
+  }
+
+  beforeEach(() => {
+    pending.clear();
+    top = 100;
+    running = null;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      nextFrame += 1;
+      pending.set(nextFrame, callback);
+      return nextFrame;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      pending.delete(id);
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      () => new DOMRect(20, top, 200, 36),
+    );
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(document, "getAnimations");
+  });
+
+  function renderSegment() {
+    const postMessage = enterGlassChrome("/social/room/1");
+    render(<Segment />);
+    runFrame();
+    return () => lastInline(postMessage)?.controls[0]?.frame.y;
+  }
+
+  it("CSS 전환이 도는 동안 매 프레임 다시 재 움직인 좌표를 보내고, 끝나면 멈춘다", () => {
+    stubAnimations();
+    const sentY = renderSegment();
+    expect(sentY()).toBe(100);
+
+    running = "transition";
+    top = 300;
+    fire("transitionrun");
+    runFrame();
+    expect(sentY()).toBe(300);
+
+    top = 200;
+    runFrame();
+    expect(sentY()).toBe(200);
+
+    running = null;
+    top = 150;
+    fire("transitionend");
+    runFrame();
+    expect(sentY()).toBe(150);
+    expect(pending.size).toBe(0);
+  });
+
+  it("도는 것이 CSS 애니메이션뿐이면 한 번만 재고 멈춘다", () => {
+    stubAnimations();
+    const sentY = renderSegment();
+
+    running = "animation";
+    top = 300;
+    fire("transitionrun");
+    runFrame();
+
+    expect(sentY()).toBe(300);
+    expect(pending.size).toBe(0);
+  });
+
+  it("전환이 끝났다는 알림만 와도 다시 잰다", () => {
+    stubAnimations();
+    const sentY = renderSegment();
+
+    top = 250;
+    fire("transitionend");
+    runFrame();
+
+    expect(sentY()).toBe(250);
+  });
+
+  it("getAnimations가 없으면 매 프레임 재지 않지만 전환이 끝나면 다시 잰다", () => {
+    const sentY = renderSegment();
+
+    top = 300;
+    fire("transitionrun");
+    runFrame();
+    expect(sentY()).toBe(300);
+    expect(pending.size).toBe(0);
+
+    top = 150;
+    fire("transitioncancel");
+    runFrame();
+    expect(sentY()).toBe(150);
+  });
+
+  it("등록이 모두 빠지면 전환을 더 따라가지 않는다", () => {
+    stubAnimations();
+    const postMessage = enterGlassChrome("/social/room/1");
+    const { unmount } = render(<Segment />);
+    runFrame();
+    running = "transition";
+    fire("transitionrun");
+
+    unmount();
+    runFrame();
+    const sentAfterUnmount = sentInline(postMessage).length;
+    fire("transitionrun");
+    runFrame();
+
+    expect(sentInline(postMessage)).toHaveLength(sentAfterUnmount);
+    expect(pending.size).toBe(0);
   });
 });
 
