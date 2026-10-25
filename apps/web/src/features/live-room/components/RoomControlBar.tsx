@@ -32,8 +32,8 @@ type RoomControlBarProps = {
    * 모달 메뉴가 열린 동안 바가 누름을 받으면 메뉴 뒤에서 버튼이 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
    */
   inactive?: boolean;
-  /** 카메라와 나가기 사이에 놓는 배경음 버튼 */
-  ambient?: ReactNode;
+  /** 카메라와 나가기 사이에 과목, 배경음 순서로 놓는 버튼 */
+  children?: ReactNode;
   onToggleCamera: () => void;
   onExit: () => void;
 };
@@ -44,7 +44,7 @@ export function RoomControlBar({
   disabled = false,
   hidden = false,
   inactive = false,
-  ambient,
+  children,
   onToggleCamera,
   onExit,
 }: RoomControlBarProps) {
@@ -88,7 +88,7 @@ export function RoomControlBar({
           className="size-5.75 animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none regular:size-6.75 short-side-lg:size-8.5"
         />
       </button>
-      {ambient}
+      {children}
       <button
         type="button"
         aria-label="나가기"

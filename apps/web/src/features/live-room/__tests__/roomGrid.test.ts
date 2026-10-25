@@ -22,12 +22,12 @@ describe("formatStudyHhMm", () => {
 
 describe("bestSquareGrid", () => {
   // 가로는 위 16 · 좌우 16 · 아래 112(큰 태블릿은 136)를 뺀 격자 칸이다.
-  // 세로는 위 76 · 아래 154(큰 태블릿은 위 90 · 아래 184)를 뺀다.
+  // 세로는 위 122 · 아래 112(큰 태블릿은 위 148 · 아래 136)를 뺀다.
   const LANDSCAPE = [1148, 692] as const; // 1180×820
-  const PORTRAIT = [788, 950] as const; // 820×1180
+  const PORTRAIT = [788, 946] as const; // 820×1180
   const LARGE = [1344, 880] as const; // 1376×1032
-  const LARGE_PORTRAIT = [1000, 1102] as const; // 1032×1376
-  const NARROW = [568, 670] as const; // 600×900
+  const LARGE_PORTRAIT = [1000, 1092] as const; // 1032×1376
+  const NARROW = [568, 666] as const; // 600×900
 
   it.each([
     [2, { cols: 2, rows: 1, size: 570 }],
@@ -40,22 +40,22 @@ describe("bestSquareGrid", () => {
   });
 
   it.each([
-    [2, { cols: 1, rows: 2, size: 471 }],
+    [2, { cols: 1, rows: 2, size: 469 }],
     [3, { cols: 2, rows: 2, size: 390 }],
     [4, { cols: 2, rows: 2, size: 390 }],
-    [5, { cols: 2, rows: 3, size: 311 }],
-    [6, { cols: 2, rows: 3, size: 311 }],
+    [5, { cols: 2, rows: 3, size: 310 }],
+    [6, { cols: 2, rows: 3, size: 310 }],
   ])("세로 820×1180에서 %i명", (count, fit) => {
     expect(bestSquareGrid(count, ...PORTRAIT, 8)).toEqual(fit);
   });
 
-  it("큰 태블릿 세로 1032×1376에서 6명은 2열 3행 362px이다", () => {
-    expect(bestSquareGrid(6, ...LARGE_PORTRAIT, 8)).toEqual({ cols: 2, rows: 3, size: 362 });
+  it("큰 태블릿 세로 1032×1376에서 6명은 2열 3행 358px이다", () => {
+    expect(bestSquareGrid(6, ...LARGE_PORTRAIT, 8)).toEqual({ cols: 2, rows: 3, size: 358 });
   });
 
   it("좁은 창 600×900에서는 2명이 위아래, 6명이 2열 3행이다", () => {
-    expect(bestSquareGrid(2, ...NARROW, 8)).toEqual({ cols: 1, rows: 2, size: 331 });
-    expect(bestSquareGrid(6, ...NARROW, 8)).toEqual({ cols: 2, rows: 3, size: 218 });
+    expect(bestSquareGrid(2, ...NARROW, 8)).toEqual({ cols: 1, rows: 2, size: 329 });
+    expect(bestSquareGrid(6, ...NARROW, 8)).toEqual({ cols: 2, rows: 3, size: 216 });
   });
 
   it("1명은 칸의 짧은 변이다", () => {
