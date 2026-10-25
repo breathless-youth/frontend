@@ -3,14 +3,15 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
 
+import { CtaToaster } from "@/components/ui/sonner";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import { RoomControlBar } from "@/features/live-room/components/RoomControlBar";
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
 import { RoomGrid } from "@/features/live-room/components/RoomGrid";
-import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
+import { RoomMoreMenu } from "@/features/live-room/components/RoomMoreMenu";
+import { RoomTimeText } from "@/features/live-room/components/RoomTimeText";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
-import { roomGridSpec } from "@/features/live-room/roomGrid";
 import { orderedMembers, roomMembersReducer } from "@/features/live-room/roomMembersReducer";
 import { usePeerMesh } from "@/features/live-room/usePeerMesh";
 import { useRoomStatePublisher } from "@/features/live-room/useRoomStatePublisher";
@@ -29,8 +30,10 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
+import { shareInvite } from "@/features/social-room/shareInvite";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import {
+  trackInviteShared,
   trackSocialRoomCameraOnDismissed,
   trackSocialRoomCameraToggled,
   trackSocialRoomExited,
@@ -39,9 +42,11 @@ import {
   trackStudySessionExitRequested,
 } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
+import { trackMetaInviteShared } from "@/lib/metaAppEvents";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
+import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -50,7 +55,7 @@ import type { CreateChannel } from "./liveRoomEntryState";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useRoomRejoin } from "./useRoomRejoin";
-import { useTapToggleControls } from "./useTapToggleControls";
+import { useAutoHideControls } from "./useAutoHideControls";
 
 export const GRACE_END_SAVED_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.";
@@ -122,6 +127,7 @@ export function LiveRoomSession({
   const [systemPause] = useState(() => createSystemPauseSource());
   const {
     focusSec,
+    studySec,
     sessionState,
     phase,
     endReason,
@@ -261,14 +267,6 @@ export function LiveRoomSession({
   const paused = sessionState.kind === "PAUSE";
   const cameraOn = !paused && isCameraRunning;
 
-  // 내 타일 전용 상태 뱃지 — 서버 발행값이 아니라 로컬 세션 값에서 유도한다.
-  // 카메라 끔 = 측정 일시정지 동치라 paused가 최우선이다.
-  const selfState: SelfBadgeState = paused
-    ? "PAUSED"
-    : sessionState.kind === "DISTRACTION"
-      ? "DISTRACTED"
-      : "FOCUS";
-
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
   useRoomStatePublisher(channel, {
@@ -289,7 +287,6 @@ export function LiveRoomSession({
   };
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
-  const grid = roomGridSpec(allMembers.length);
 
   // 표시용과 ai추론용은 같은 video 엘리먼트를 본다
   useEffect(() => {
@@ -309,6 +306,7 @@ export function LiveRoomSession({
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const { selfSurfaceRef, previewAspect, measurePreviewAspect } =
     useCameraPreviewAspect(cameraDialogOpen);
   const leavingRef = useRef(false);
@@ -445,16 +443,14 @@ export function LiveRoomSession({
   const controlsLocked = phase.name !== "studying";
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
-  const controlsAlwaysVisible = controlsLocked || dialogOpen;
-  const { controlsVisible, onPointerDown, onPointerUp } =
-    useTapToggleControls(controlsAlwaysVisible);
+  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen;
+  const { controlsVisible, surfaceProps } = useAutoHideControls(controlsAlwaysVisible);
 
   return (
     <main
       ref={setSessionSurface}
       data-testid="live-room-page"
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
+      {...surfaceProps}
       // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바를 잘라 문서 스크롤이 생기지 않게 한다.
       className="theme-dark relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
@@ -474,22 +470,43 @@ export function LiveRoomSession({
           포커스를 돌려줄 요소가 이미 inert 라 복귀가 실패한다. */}
       <div className="contents">
         <RoomGrid
-          grid={grid}
           allMembers={allMembers}
           userId={userId}
-          controlsVisible={controlsVisible}
-          selfState={selfState}
-          focusSec={focusSec}
-          cameraOn={cameraOn}
           myVideo={myVideo}
           remoteStreams={remoteStreams}
           selfSurfaceRef={selfSurfaceRef}
         />
 
-        {/* 가로는 바를 11px 더 낮게(17→6px) — 세로 기준 오프셋이 가로에선 높아 보인다
-            (2026-08-26 피드백). 숨김 슬라이드 이동량은 +17px 기준이라 가로에서도 화면
-            밖까지 충분히 나간다(RoomControlBar의 translate 주석). */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+17px)] landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)] flex flex-col items-center gap-2">
+        {/* 조작이 숨어도 내 시간은 계속 보여야 해서 숨김 대상 밖에 둔다. */}
+        <RoomTimeText
+          focusSec={focusSec}
+          studySec={studySec}
+          className="absolute top-[calc(env(safe-area-inset-top)+6px)] left-[calc(env(safe-area-inset-left)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+16px)] regular:top-[calc(env(safe-area-inset-top)+16px)]"
+        />
+
+        <RoomMoreMenu
+          container={sessionSurface}
+          hidden={!controlsVisible}
+          flipDisabled={paused || controlsLocked}
+          onFlipCamera={() => void flipCamera()}
+          onShareInvite={() => {
+            void shareInvite(inviteCode).then((result) => {
+              trackInviteShared(result);
+              trackMetaInviteShared(result);
+              // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
+              if (result === "copied") {
+                showCtaToast("초대코드를 복사했어요");
+              }
+            });
+          }}
+          onOpenChange={setMoreMenuOpen}
+        />
+
+        {/* 세로 폰은 바를 아래 안전 영역에 2px 걸치되, 안전 영역이 없는 기기에서는 화면 끝에 붙지 않게 8px을 남긴다.
+            가로는 세로 기준 오프셋이 높아 보여서 6px만 띄운다.
+            숨김 이동량은 가장 큰 오프셋인 태블릿 17px 기준이라 어느 배치에서도 바가 화면 밖까지 나간다. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(calc(env(safe-area-inset-bottom)-2px),8px)] flex flex-col items-center gap-2 landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)] regular:bottom-[calc(env(safe-area-inset-bottom)+17px)]">
+          <CtaToaster />
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
@@ -508,6 +525,7 @@ export function LiveRoomSession({
             cameraOn={!paused}
             disabled={controlsLocked}
             hidden={!controlsVisible}
+            inactive={moreMenuOpen}
             onToggleCamera={() => {
               if (!paused) {
                 trackSocialRoomCameraToggled(false);
@@ -520,7 +538,6 @@ export function LiveRoomSession({
                 setCameraDialogOpen(true);
               }
             }}
-            onFlipCamera={() => void flipCamera()}
             onExit={() => {
               trackStudySessionExitRequested("social");
               setExitDialogOpen(true);

@@ -45,58 +45,73 @@ describe("RoomTile 폴백", () => {
   });
 });
 
-describe("RoomTile 내 타일 상태 뱃지 (BY-427)", () => {
+describe("RoomTile 상대 타일 시간 뱃지", () => {
+  it("상대 타일은 순공 시간을 HH:MM으로 보여 준다", () => {
+    render(
+      <RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 3725 }} />,
+    );
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveTextContent("01:02");
+  });
+
   it.each([
-    ["FOCUS", "순공시간 측정 중"],
-    ["DISTRACTED", "휴식"],
-    ["PAUSED", "일시정지"],
-  ] as const)(
-    "selfState=%s면 도트+sr-only 상태 텍스트를 가진 뱃지로 타이머를 그린다",
-    (state, label) => {
-      render(
-        <RoomTile
-          member={{ userId: 7, cameraOn: true, focusState: "FOCUS", focusSec: 3660 }}
-          selfState={state}
-        />,
-      );
+    ["FOCUS", { cameraOn: true, focusState: "FOCUS" }, "border-(--state-focus)", "집중 중"],
+    [
+      "DISTRACTED",
+      { cameraOn: true, focusState: "DISTRACTED" },
+      "border-(--state-distract)",
+      "휴식",
+    ],
+    ["OFF", { cameraOn: false, focusState: "FOCUS" }, "border-(--text-tertiary)", "카메라 꺼짐"],
+  ] as const)("%s 상태 테두리와 sr-only 상태 문구를 그린다", (state, fields, border, label) => {
+    render(<RoomTile member={{ userId: 8, focusSec: 60, ...fields }} />);
 
-      const badge = screen.getByTestId("self-state-badge");
-      expect(badge).toHaveAttribute("data-state", state);
-      expect(within(badge).getByTestId("self-state-dot")).toBeInTheDocument();
-      expect(within(badge).getByText(label)).toHaveClass("sr-only");
-      expect(badge).toHaveTextContent("01:01");
-    },
-  );
-
-  it("selfState가 없으면(타 참가자) 서버 발행 집중 상태 색을 쓴다 (2026-08-25 BY-435 개정)", () => {
-    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 60 }} />);
-
-    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "FOCUS");
-    expect(screen.getByText("00:01")).toBeInTheDocument();
+    const badge = screen.getByTestId("tile-time-badge");
+    expect(badge).toHaveAttribute("data-state", state);
+    expect(badge).toHaveClass(border);
+    expect(within(badge).getByText(label)).toHaveClass("sr-only");
+    // 상태 문구는 뱃지 한 곳에만 있다.
+    expect(screen.getAllByText(label)).toHaveLength(1);
   });
 
-  it("타 참가자 비집중은 DISTRACTED 색 뱃지다", () => {
+  it("focusSec가 아직 없으면 --:--다", () => {
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS" }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveTextContent("--:--");
+  });
+
+  it("내 타일에는 뱃지가 없다", () => {
     render(
-      <RoomTile member={{ userId: 8, cameraOn: true, focusState: "DISTRACTED", focusSec: 60 }} />,
+      <RoomTile
+        member={{ userId: 7, cameraOn: true, focusState: "FOCUS", focusSec: 3725 }}
+        isSelf
+      />,
     );
 
-    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "DISTRACTED");
-    expect(within(screen.getByTestId("tile-info")).getByText("휴식")).toHaveClass("sr-only");
+    expect(screen.queryByTestId("tile-time-badge")).not.toBeInTheDocument();
+    expect(screen.queryByText("01:02")).not.toBeInTheDocument();
   });
+});
 
-  it("타 참가자 집중 중은 스크린리더에 '집중 중'을 그대로 읽는다", () => {
-    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS", focusSec: 60 }} />);
-
-    expect(within(screen.getByTestId("tile-info")).getByText("집중 중")).toHaveClass("sr-only");
-  });
-
-  it("타 참가자 카메라 꺼짐은 OFF(회색) 뱃지다", () => {
+describe("RoomTile 이름·목표", () => {
+  it("긴 이름과 목표는 각각 한 줄로 줄이고 타일 오른쪽 여백 안에 머문다", () => {
     render(
-      <RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS", focusSec: 125 }} />,
+      <RoomTile
+        member={{
+          userId: 8,
+          cameraOn: true,
+          focusState: "FOCUS",
+          nickname: "아주아주긴닉네임을가진사람",
+          goal: "목표 문구가 아주 길어서 타일 폭을 넘어가는 경우",
+        }}
+      />,
     );
 
-    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "OFF");
-    expect(screen.getByText("00:02")).toBeInTheDocument();
+    expect(screen.getByTestId("tile-info")).toHaveClass("right-3");
+    expect(screen.getByText("아주아주긴닉네임을가진사람")).toHaveClass("truncate");
+    expect(screen.getByText("목표 문구가 아주 길어서 타일 폭을 넘어가는 경우")).toHaveClass(
+      "truncate",
+    );
   });
 });
 
