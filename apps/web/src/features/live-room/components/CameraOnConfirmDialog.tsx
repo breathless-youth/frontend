@@ -33,6 +33,12 @@ export interface CameraOnConfirmDialogProps {
   cancelLabel?: string;
   /** 포털이 그려질 자리 — 세션 루트를 넘긴다. 생략하면 `body`. */
   container?: HTMLElement | null;
+  /**
+   * 열 때 포커스가 있던 요소가 없거나 닫힐 때 사라졌으면 대신 포커스를 받을 요소
+   *
+   * 페이지 안 버튼으로 연 창은 그 페이지가 함께 닫혀 돌아갈 자리가 없다.
+   */
+  returnFocus?: () => HTMLElement | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -45,10 +51,11 @@ export function CameraOnConfirmDialog({
   busy = false,
   cancelLabel = "취소",
   container,
+  returnFocus,
   onCancel,
   onConfirm,
 }: CameraOnConfirmDialogProps) {
-  const focusRestore = useDialogFocusRestore();
+  const focusRestore = useDialogFocusRestore(returnFocus);
   // 취소가 곧 하나의 선택(끄고 입장)인 자리다. 확정 중이거나 닫기를 막아 둔 동안에는
   // Escape 로 그 선택이 확정되지 않게 한다.
   const escapeAllowed = dismissable && !busy;
