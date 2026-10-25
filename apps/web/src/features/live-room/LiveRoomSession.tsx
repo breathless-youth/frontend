@@ -34,6 +34,7 @@ import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { SessionPageTimer } from "@/features/study-session/components/SessionTimer";
+import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import {
@@ -68,6 +69,7 @@ import {
 import { haptic } from "@/lib/haptics";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
+import { useNativeControl } from "@/lib/nativeControls";
 import { leaveRoom } from "@/lib/roomApi";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { showCtaToast } from "@/lib/toast";
@@ -545,6 +547,29 @@ export function LiveRoomSession({
     return opener?.isConnected ? opener : subjectButtonRef.current;
   }
 
+  const subjectButtonLabel =
+    subjectSelection === null ? SUBJECT_SHEET_COPY.title : `${SUBJECT_SHEET_COPY.title} 선택됨`;
+  const subjectNative = useNativeControl<HTMLButtonElement>(
+    {
+      id: "room-subject",
+      kind: "button",
+      title: null,
+      systemImage: "book",
+      shape: "circle",
+      disabled: controlsLocked || moreMenuOpen,
+      accessibilityLabel: subjectButtonLabel,
+      tone: subjectSelection === null ? "default" : "active",
+      faded: !controlsVisible,
+    },
+    () => {
+      // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
+      if (subjectButtonRef.current !== null) {
+        openSubjectPage("button", subjectButtonRef.current);
+      }
+    },
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
+
   function handleSelectSubject(next: SubjectSelection | null) {
     // 일시정지 중에 이미 고른 과목의 재생 버튼을 누르면 선택은 그대로다.
     // 전이가 없으니 계측도 남기지 않는다.
@@ -694,14 +719,13 @@ export function LiveRoomSession({
             }}
           >
             <button
-              ref={subjectButtonRef}
+              ref={(node) => {
+                subjectButtonRef.current = node;
+                subjectNative.ref(node);
+              }}
               type="button"
               // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-              aria-label={
-                subjectSelection === null
-                  ? SUBJECT_SHEET_COPY.title
-                  : `${SUBJECT_SHEET_COPY.title} 선택됨`
-              }
+              aria-label={subjectButtonLabel}
               aria-haspopup="dialog"
               aria-expanded={page === "subject"}
               data-on={subjectSelection !== null}
@@ -717,10 +741,12 @@ export function LiveRoomSession({
             </button>
             <AmbientSoundButton
               ref={ambientButtonRef}
-              native={false}
+              nativeId="room-ambient"
               className={roomBarButtonClassName}
               onPointerDown={playPressPop}
               disabled={controlsLocked}
+              inactive={moreMenuOpen}
+              faded={!controlsVisible}
               on={ambient.isOn}
               expanded={page === "ambient"}
               onClick={() => setPage("ambient")}

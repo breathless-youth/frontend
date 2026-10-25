@@ -34,13 +34,25 @@ describe("AmbientSoundButton 앱 등록", () => {
     expect(container.querySelector("button")).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("등록을 끄면 앱으로 보내지 않고 웹 버튼을 그대로 보인다", () => {
+  it("nativeId를 주면 그 id로 등록한다", () => {
     const postMessage = enterApp();
 
-    render(<AmbientSoundButton native={false} on={false} expanded={false} onClick={() => {}} />);
+    render(
+      <AmbientSoundButton nativeId="room-ambient" on={false} expanded={false} onClick={() => {}} />,
+    );
 
-    expect(lastInlineControls(postMessage)).toEqual([]);
-    expect(screen.getByRole("button", { name: "배경음" })).not.toHaveAttribute("aria-hidden");
+    expect(lastInlineControls(postMessage).map(({ id }) => id)).toEqual(["room-ambient"]);
+  });
+
+  it("inactive면 웹 버튼은 그대로 두고 앱 버튼만 누름을 막는다", () => {
+    const postMessage = enterApp();
+
+    const { container } = render(
+      <AmbientSoundButton inactive on={false} expanded={false} onClick={() => {}} />,
+    );
+
+    expect(lastInlineControls(postMessage)).toMatchObject([{ disabled: true }]);
+    expect(container.querySelector("button")).not.toBeDisabled();
   });
 });
 
@@ -48,7 +60,6 @@ describe("AmbientSoundButton 바깥 모양", () => {
   it("className을 주면 세션 유리 모양을 그 클래스로 바꾸고 켜짐 색은 남긴다", () => {
     render(
       <AmbientSoundButton
-        native={false}
         className="size-13.5 bg-white/10"
         on
         expanded={false}
@@ -67,7 +78,6 @@ describe("AmbientSoundButton 바깥 모양", () => {
     const onPointerDown = vi.fn();
     render(
       <AmbientSoundButton
-        native={false}
         onPointerDown={onPointerDown}
         on={false}
         expanded={false}
@@ -81,9 +91,7 @@ describe("AmbientSoundButton 바깥 모양", () => {
   });
 
   it("잠그면 버튼을 누를 수 없다", () => {
-    render(
-      <AmbientSoundButton native={false} disabled on={false} expanded={false} onClick={() => {}} />,
-    );
+    render(<AmbientSoundButton disabled on={false} expanded={false} onClick={() => {}} />);
 
     expect(screen.getByRole("button", { name: "배경음" })).toBeDisabled();
   });

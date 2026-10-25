@@ -47,6 +47,7 @@ let lastPosted: string | null = null;
 let resendScheduled = false;
 let resizeObserver: ResizeObserver | null = null;
 let stopWatching: (() => void) | null = null;
+let transitionFrame: number | null = null;
 
 function clip(text: string): string {
   return text.slice(0, NATIVE_CONTROL_LABEL_MAX_LENGTH);
@@ -73,13 +74,13 @@ function fitIconSize(size: number | undefined): number | undefined {
 /**
  * 버튼 안 웹 아이콘의 렌더 폭
  *
- * 앱 아이콘을 웹 아이콘과 같은 크기로 그리게 첫 svg를 측정한다.
+ * 앱 아이콘을 웹 아이콘과 같은 크기로 그리게 첫 svg 또는 img를 측정한다.
  * 창 폭에 따라 아이콘 크기가 바뀌어도 레이아웃이 바뀔 때마다 다시 측정한다.
  * 아이콘 등장 효과가 작게 시작해서 화면상 크기 대신 변형과 무관한 CSS 폭을 읽는다.
  */
 function iconWidth(element: HTMLElement, scale: number): number | undefined {
-  const svg = element.querySelector("svg");
-  const width = svg === null ? 0 : Number.parseFloat(getComputedStyle(svg).width);
+  const icon = element.querySelector("svg, img");
+  const width = icon === null ? 0 : Number.parseFloat(getComputedStyle(icon).width);
   return width > 0 ? width * scale : undefined;
 }
 
@@ -211,6 +212,41 @@ function flushOnRestore(event: PageTransitionEvent): void {
   }
 }
 
+/**
+ * 문서 어딘가에서 도는 CSS 전환 여부
+ *
+ * 끝없이 도는 키프레임 애니메이션까지 세면 매 프레임 측정이 멈추지 않아서 전환만 센다.
+ * `getAnimations`가 없는 브라우저는 전환이 끝날 때 한 번 더 재는 것으로 만족한다.
+ */
+function transitionRunning(): boolean {
+  if (typeof document.getAnimations !== "function" || typeof CSSTransition === "undefined") {
+    return false;
+  }
+  return document
+    .getAnimations()
+    .some((animation) => animation instanceof CSSTransition && animation.playState === "running");
+}
+
+function followTransition(): void {
+  transitionFrame = null;
+  flush();
+  if (transitionRunning()) {
+    transitionFrame = requestAnimationFrame(followTransition);
+  }
+}
+
+/**
+ * CSS 전환을 따라가는 측정
+ *
+ * transform 이동은 크기도 DOM도 바꾸지 않아 다른 관찰로는 다시 재지 못하고, 앱 부품이 이동 전 자리에 남는다.
+ * 전환이 도는 동안 매 프레임 재고, 같은 목록은 보내지 않는 비교가 멈춰 있는 프레임을 거른다.
+ */
+function startFollowing(): void {
+  if (transitionFrame === null) {
+    transitionFrame = requestAnimationFrame(followTransition);
+  }
+}
+
 function startWatching(): void {
   const observer = new ResizeObserver(scheduleFlush);
   // 위쪽 내용이 늘어 부품이 밀려나도 부품 자신의 크기는 그대로라 문서 높이 변화도 본다.
@@ -220,6 +256,10 @@ function startWatching(): void {
   mutations.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("resize", scheduleFlush);
   window.addEventListener("pageshow", flushOnRestore);
+  document.addEventListener("transitionrun", startFollowing, true);
+  document.addEventListener("transitionstart", startFollowing, true);
+  document.addEventListener("transitionend", scheduleFlush, true);
+  document.addEventListener("transitioncancel", scheduleFlush, true);
   const unsubscribes = [
     subscribeModalOverlay(scheduleFlush),
     subscribePageTransition(scheduleFlush),
@@ -230,6 +270,14 @@ function startWatching(): void {
     mutations.disconnect();
     window.removeEventListener("resize", scheduleFlush);
     window.removeEventListener("pageshow", flushOnRestore);
+    document.removeEventListener("transitionrun", startFollowing, true);
+    document.removeEventListener("transitionstart", startFollowing, true);
+    document.removeEventListener("transitionend", scheduleFlush, true);
+    document.removeEventListener("transitioncancel", scheduleFlush, true);
+    if (transitionFrame !== null) {
+      cancelAnimationFrame(transitionFrame);
+      transitionFrame = null;
+    }
     for (const unsubscribe of unsubscribes) {
       unsubscribe();
     }
@@ -304,7 +352,7 @@ function ignoreElement(): void {}
  * `spec`이 `null`이거나 앱이 받을 수 없는 값이면 등록하지 않고 `native`도 거짓이다.
  * 앱이 `glassControls`로 알리지 않은 종류도 등록하지 않고 웹으로 그린다.
  * 색 역할, 아이콘 크기, 회전 수, 흐림을 쓰는 부품은 앱이 `button-style`을 알렸을 때만 등록한다.
- * `measureIcon`이면 버튼 안 첫 svg의 렌더 폭을 `iconSize`로 보낸다.
+ * `measureIcon`이면 버튼 안 첫 svg 또는 img의 렌더 폭을 `iconSize`로 보낸다.
  * SF Symbol이 같은 크기의 웹 아이콘보다 커 보이는 버튼은 `iconScale`로 그 폭을 줄여 보낸다.
  * 앱이 받는 개수를 넘어 등록되지 못한 부품도 `native`가 거짓이고 웹으로 그린다.
  */
