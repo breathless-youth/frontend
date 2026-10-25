@@ -93,9 +93,11 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     async (mix: Mix) => {
       const player = playerRef.current;
       if (!player || !studyingRef.current) return;
+      // 새 컨텍스트는 running 으로 태어나서 믹스를 먼저 걸면 멈추기 전까지 소리가 샌다.
+      if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       const { failed } = await player.applyMix(mix);
       if (!studyingRef.current) return;
-      // 일시정지 중 컨텍스트가 새로 생기면 running 으로 뜬다 — 멈춘 세션에서 소리가 나면 안 된다.
+      // 믹스를 거는 사이 일시정지가 들어오면 여기서 멈춘다.
       if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       syncAfterCommand(player);
       const current = settingsRef.current;

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +23,19 @@ import type * as AmplitudeModule from "@/lib/amplitude";
 import type * as MetaAppEventsModule from "@/lib/metaAppEvents";
 import { renewLiveRoomSeat, leaveRoom } from "@/lib/roomApi";
 import { AUTO_HIDE_MS } from "@/features/live-room/useAutoHideControls";
+import type * as AmbientPlayerModule from "@/features/ambient-sound/ambientPlayer";
+import {
+  DEFAULT_AMBIENT_SETTINGS,
+  createMemoryAmbientSoundStore,
+  resetAmbientSoundStore,
+  setAmbientSoundStore,
+} from "@/features/ambient-sound/ambientSoundStore";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 import { LiveRoomPage } from "../LiveRoomPage";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -61,9 +74,11 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
   ...(await importOriginal<typeof ShareInviteModule>()),
   shareInvite: share.shareInvite,
 }));
+const trackStudySessionEnded = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof AmplitudeModule>()),
   trackInviteShared: share.trackInviteShared,
+  trackStudySessionEnded,
 }));
 vi.mock("@/lib/toast", async (importOriginal) => {
   const actual = await importOriginal<typeof ToastModule>();
@@ -73,6 +88,23 @@ vi.mock("@/lib/metaAppEvents", async (importOriginal) => ({
   ...(await importOriginal<typeof MetaAppEventsModule>()),
   trackMetaInviteShared: share.trackMetaInviteShared,
 }));
+
+// jsdom에는 Web Audio가 없어 명령만 기록하는 플레이어로 바꾼다.
+// 세션마다 하나씩 만들어진다.
+const ambientPlayers = vi.hoisted(
+  () => [] as ReturnType<typeof AmbientPlayerModule.createMemoryPlayer>[],
+);
+vi.mock("@/features/ambient-sound/ambientPlayer", async (importOriginal) => {
+  const actual = await importOriginal<typeof AmbientPlayerModule>();
+  return {
+    ...actual,
+    createWebAudioPlayer: () => {
+      const player = actual.createMemoryPlayer();
+      ambientPlayers.push(player);
+      return player;
+    },
+  };
+});
 
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
@@ -1496,13 +1528,14 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     );
   });
 
-  it("하단 바에는 카메라와 나가기만 있고 카메라 전환 버튼은 없다", async () => {
+  it("하단 바는 카메라, 배경음, 나가기 순서이고 카메라 전환 버튼은 없다", async () => {
     renderRoom();
     await enterRoom();
 
     const buttons = within(screen.getByTestId("room-control-bar")).getAllByRole("button");
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "카메라 켜기",
+      "배경음",
       "나가기",
     ]);
     expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
@@ -1751,6 +1784,18 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     expectControlsShown();
   });
 
+  it("배경음 페이지가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "배경음" }));
+    expect(screen.getByRole("dialog", { name: "배경음" })).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
+  });
+
   it("제출 중(controlsLocked)에는 숨겨 뒀어도 바가 올라오고 저장 중 문구가 남는다", async () => {
     vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
     renderRoom();
@@ -1762,6 +1807,7 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
 
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
     expect(screen.getByText("저장 중...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "배경음" })).toBeDisabled();
   });
 });
 
@@ -2022,5 +2068,157 @@ describe("LiveRoomPage — 햅틱", () => {
 
     expect(haptic).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalledWith("medium");
+  });
+});
+
+describe("LiveRoomPage — 배경음", () => {
+  const CATALOG_JSON = JSON.stringify({
+    version: 1,
+    sounds: [{ id: "white", kind: "synth", label: "백색소음" }],
+  });
+
+  beforeEach(() => {
+    ambientPlayers.length = 0;
+    // 훅이 `/sounds/catalog.json` 을 받는다.
+    // jsdom 은 상대 URL fetch 가 던지므로 응답을 준다.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(CATALOG_JSON, { status: 200 })),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+    resetAmbientSoundStore();
+    localStorage.clear();
+  });
+
+  it("저장된 소리가 있어도 카메라를 끈 채 입장하면 믹스를 걸기 전에 멈춰 둔다", async () => {
+    setAmbientSoundStore(
+      createMemoryAmbientSoundStore({ ...DEFAULT_AMBIENT_SETTINGS, mix: { white: 60 } }),
+    );
+    renderRoom();
+    await enterRoom();
+
+    await waitFor(() => {
+      expect(ambientPlayers[0]?.commands).toContainEqual({
+        type: "applyMix",
+        mix: { white: 60 },
+      });
+    });
+    expect(ambientPlayers[0]?.commands.slice(0, 2)).toEqual([
+      { type: "suspend" },
+      { type: "applyMix", mix: { white: 60 } },
+    ]);
+    expect(ambientPlayers[0]?.getState()).toBe("suspended");
+  });
+
+  it("버튼을 누르면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+
+    const dialog = screen.getByRole("dialog", { name: "배경음" });
+    expect(screen.getByTestId("live-room-page")).toContainElement(dialog);
+    expect(await screen.findByRole("slider", { name: "백색소음 음량" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "배경음" })).toHaveFocus();
+    });
+  });
+
+  it("페이지가 열린 동안은 페이지의 알림 자리만 남아 토스트가 두 번 뜨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+    const toasters = () => document.querySelectorAll(`section[aria-label^="화면 알림"]`);
+    expect(toasters()).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+
+    expect(toasters()).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: "배경음" })).toContainElement(
+      toasters()[0] as HTMLElement,
+    );
+  });
+
+  it("입장 직후 카메라가 꺼진 동안은 소리를 켜도 재생하지 않고, 카메라를 켜면 재생한다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+    const player = ambientPlayers[0];
+    await waitFor(() => {
+      expect(player?.commands).toContainEqual({ type: "applyMix", mix: { white: 60 } });
+    });
+    expect(player?.getState()).toBe("suspended");
+
+    await userEvent.keyboard("{Escape}");
+    expect(await screen.findByRole("button", { name: "배경음 켜짐" })).toBeInTheDocument();
+    await turnCameraOn();
+
+    await waitFor(() => {
+      expect(player?.getState()).toBe("playing");
+    });
+  });
+
+  it("세션이 끝나 제출 중으로 넘어가면 열려 있던 페이지가 닫힌다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    expect(screen.getByRole("dialog", { name: "배경음" })).toBeInTheDocument();
+    mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("소리를 켠 채 세션을 끝내면 배경음 사용을 study_session_ended에 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom();
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+    await userEvent.keyboard("{Escape}");
+    await turnCameraOn();
+    await waitFor(() => {
+      expect(ambientPlayers[0]?.getState()).toBe("playing");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => {
+      expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
+    });
+    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
+      roomType: "social",
+      ambientSoundUsed: true,
+      ambientSoundSec: expect.any(Number),
+    });
+  });
+
+  it("바의 배경음 버튼은 앱 glass로 등록하지 않고 웹 버튼으로 남는다", async () => {
+    const postMessage = enterGlassChrome("/social/room/42", "segment,switch,button,button-style");
+    measureControlsNow();
+    renderRoom();
+    // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다.
+    grantCameraGate();
+    await enterRoom();
+
+    expect(screen.getByRole("button", { name: "배경음" })).not.toHaveAttribute("aria-hidden");
+    expect(lastInlineControls(postMessage).map(({ id }) => id)).not.toContain("session-ambient");
   });
 });

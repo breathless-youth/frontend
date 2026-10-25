@@ -1,28 +1,21 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReactNode } from "react";
 
 import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
-import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
+
+import { playPressPop } from "./playPressPop";
+
+const BAR_BUTTON =
+  "flex size-13.5 items-center justify-center rounded-full border transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none regular:size-16 short-side-lg:size-20";
 
 /**
- * 룸 하단 컨트롤 바 2버튼
+ * 바 안 기본 버튼 모양
+ *
+ * 자리에 넣는 버튼은 바 밖에서 만들어지므로 이 클래스와 `playPressPop`을 받아야 바 버튼과 같아 보인다.
  */
+export const roomBarButtonClassName = `${BAR_BUTTON} border-(--session-btn-default-border) bg-white/10 text-(--session-btn-default-fg)`;
 
-/**
- * 탭마다 확정적으로 눌림 팝을 재생한다(2026-08-25 피드백 — 싱글룸과 같은 눌림 감각).
- * :active 스케일은 WKWebView의 짧은 탭에서 스치듯 지나가 안 보일 수 있어 JS로 보강한다.
- */
-function playPressPop(event: ReactPointerEvent<HTMLButtonElement>) {
-  const button = event.currentTarget;
-  if (typeof button.animate !== "function" || prefersReducedMotion()) {
-    return;
-  }
-  button.animate(
-    [{ transform: "scale(1)" }, { transform: "scale(0.88)" }, { transform: "scale(1)" }],
-    { duration: 220, easing: "ease-out" },
-  );
-}
 type RoomControlBarProps = {
   cameraOn: boolean;
   /** 제출 중처럼 조작이 안전하지 않은 구간의 잠금. 버튼을 없애면 배치가 튀므로 흐리게 남긴다. */
@@ -39,15 +32,19 @@ type RoomControlBarProps = {
    * 모달 메뉴가 열린 동안 바가 누름을 받으면 메뉴 뒤에서 버튼이 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
    */
   inactive?: boolean;
+  /** 카메라와 나가기 사이에 놓는 배경음 버튼 */
+  ambient?: ReactNode;
   onToggleCamera: () => void;
   onExit: () => void;
 };
 
+/** 룸 하단 컨트롤 바 */
 export function RoomControlBar({
   cameraOn,
   disabled = false,
   hidden = false,
   inactive = false,
+  ambient,
   onToggleCamera,
   onExit,
 }: RoomControlBarProps) {
@@ -77,13 +74,11 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={`flex size-13.5 items-center justify-center rounded-full border transition-[background-color,transform] duration-300 active:scale-90 active:opacity-80 disabled:opacity-40 motion-reduce:transition-none regular:size-16 short-side-lg:size-20 ${
+        className={
           // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
           // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
-          cameraOn
-            ? "border-(--session-btn-default-border) bg-white/10"
-            : "border-transparent bg-[#ff6b77]/20"
-        }`}
+          cameraOn ? roomBarButtonClassName : `${BAR_BUTTON} border-transparent bg-[#ff6b77]/20`
+        }
       >
         {/* key로 상태별 재마운트를 강제해 켬↔끔마다 팝 애니메이션이 다시 돈다. */}
         <img
@@ -93,6 +88,7 @@ export function RoomControlBar({
           className="size-5.75 animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none regular:size-6.75 short-side-lg:size-8.5"
         />
       </button>
+      {ambient}
       <button
         type="button"
         aria-label="나가기"

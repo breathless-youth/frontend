@@ -4,9 +4,16 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { IceServer, ProfileResponse, RoomMember } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
+import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
+import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
+import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
+import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
-import { RoomControlBar } from "@/features/live-room/components/RoomControlBar";
+import {
+  RoomControlBar,
+  roomBarButtonClassName,
+} from "@/features/live-room/components/RoomControlBar";
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
 import { RoomGrid } from "@/features/live-room/components/RoomGrid";
 import { RoomMoreMenu } from "@/features/live-room/components/RoomMoreMenu";
@@ -21,6 +28,7 @@ import { createSystemPauseSource } from "@/features/study-session/adapters/syste
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
+import { SessionPageTimer } from "@/features/study-session/components/SessionTimer";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import { EXIT_CONFIRM_COPY, exitConfirmDescription } from "@/features/study-session/sessionCopy";
@@ -29,6 +37,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { shareInvite } from "@/features/social-room/shareInvite";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
@@ -56,6 +65,7 @@ import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useRoomRejoin } from "./useRoomRejoin";
 import { useAutoHideControls } from "./useAutoHideControls";
+import { playPressPop } from "./components/playPressPop";
 
 export const GRACE_END_SAVED_MESSAGE =
   "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.";
@@ -125,6 +135,7 @@ export function LiveRoomSession({
   // 세션 훅과 유예 감시가 같은 신호원을 본다 — 어댑터를 따로 만들면 복귀 재계산과
   // 유예 판정이 다른 이벤트 순서를 탈 수 있다(usePauseAutoEnd의 같은 원칙).
   const [systemPause] = useState(() => createSystemPauseSource());
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   const {
     focusSec,
     studySec,
@@ -145,7 +156,19 @@ export function LiveRoomSession({
     restored,
     // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
+    ambientUsage: ambientUsage.snapshot,
   });
+  const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
+  // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
+  const [ambientOpen, setAmbientOpen] = useState(false);
+  // 자동 종료 뒤에도 이 화면은 저장 중·다시 제출 안내로 남으므로 페이지가 그 안내를 가리지 않게 닫는다.
+  if (phase.name !== "studying" && ambientOpen) {
+    setAmbientOpen(false);
+  }
+  const ambientLandscape = useLandscapeLayout(ambientOpen);
+  // 페이지를 닫은 뒤 포커스를 돌려줄 자리다.
+  // Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
+  const ambientButtonRef = useRef<HTMLButtonElement>(null);
 
   // 카메라·감지기와 같은 지연 초기화 패턴 — createChannel prop이 매 렌더 새 클로저여도
   // 채널은 세션 수명 동안 하나다. useMemo면 부모 리렌더가 세션 중 STOMP 재연결을 일으킨다.
@@ -443,7 +466,7 @@ export function LiveRoomSession({
   const controlsLocked = phase.name !== "studying";
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
-  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen;
+  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen || ambientOpen;
   const { controlsVisible, surfaceProps } = useAutoHideControls(controlsAlwaysVisible);
 
   return (
@@ -506,7 +529,9 @@ export function LiveRoomSession({
             가로는 세로 기준 오프셋이 높아 보여서 6px만 띄운다.
             숨김 이동량은 가장 큰 오프셋인 태블릿 17px 기준이라 어느 배치에서도 바가 화면 밖까지 나간다. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-[max(calc(env(safe-area-inset-bottom)-2px),8px)] flex flex-col items-center gap-2 landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+6px)] regular:bottom-[calc(env(safe-area-inset-bottom)+17px)]">
-          <CtaToaster />
+          {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
+              둘이 함께 있으면 토스트가 두 번 뜬다. */}
+          {!ambientOpen && <CtaToaster />}
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
@@ -526,6 +551,18 @@ export function LiveRoomSession({
             disabled={controlsLocked}
             hidden={!controlsVisible}
             inactive={moreMenuOpen}
+            ambient={
+              <AmbientSoundButton
+                ref={ambientButtonRef}
+                native={false}
+                className={roomBarButtonClassName}
+                onPointerDown={playPressPop}
+                disabled={controlsLocked}
+                on={ambient.isOn}
+                expanded={ambientOpen}
+                onClick={() => setAmbientOpen(true)}
+              />
+            }
             onToggleCamera={() => {
               if (!paused) {
                 trackSocialRoomCameraToggled(false);
@@ -566,6 +603,25 @@ export function LiveRoomSession({
           setCameraDialogOpen(false);
           setCameraWanted(true);
           resume();
+        }}
+      />
+      <AmbientSoundSheet
+        open={ambientOpen}
+        container={sessionSurface}
+        returnFocus={() => ambientButtonRef.current}
+        landscape={ambientLandscape}
+        timer={<SessionPageTimer focusSec={focusSec} />}
+        catalog={ambient.catalog}
+        mix={ambient.mix}
+        duckEnabled={ambient.duckEnabled}
+        blocked={ambient.blocked}
+        canRestore={ambient.canRestore}
+        onToggleSound={ambient.toggleSound}
+        onChangeLevel={ambient.changeLevel}
+        onSetDuckEnabled={ambient.setDuckEnabled}
+        onToggleAll={ambient.toggleAll}
+        onOpenChange={(open) => {
+          if (!open) setAmbientOpen(false);
         }}
       />
       <SessionConfirmDialog
