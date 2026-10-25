@@ -17,11 +17,17 @@ export interface AmbientSoundButtonProps {
   /** 간단 모드에서 앱 버튼을 흐리게 감춘다. */
   faded?: boolean;
   /**
-   * 앱 glass 버튼으로 바꾸는 등록 여부
+   * 앱 glass 버튼 id
    *
-   * 소셜룸 하단 바 안에 놓이면 바 전체가 웹으로 그려지므로 등록을 끄고 웹 버튼으로 남긴다.
+   * 싱글룸과 소셜룸이 같은 id를 쓰지 않게 놓인 화면이 정한다.
    */
-  native?: boolean;
+  nativeId?: string;
+  /**
+   * 버튼을 보인 채 앱 버튼의 누름만 막는 잠금
+   *
+   * 웹 버튼은 놓인 자리가 누름을 막지만 앱 버튼은 웹 위 다른 층에 그려져 그 잠금이 닿지 않는다.
+   */
+  inactive?: boolean;
   /**
    * 세션 유리 모양 대신 쓰는 바깥 모양
    *
@@ -47,7 +53,8 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
       expanded,
       onClick,
       faded = false,
-      native = true,
+      nativeId = "session-ambient",
+      inactive = false,
       className = controlButtonVariants(),
       onPointerDown,
       disabled = false,
@@ -56,19 +63,17 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
   ) {
     const label = on ? "배경음 켜짐" : "배경음";
     const control = useNativeControl<HTMLButtonElement>(
-      native
-        ? {
-            id: "session-ambient",
-            kind: "button",
-            title: null,
-            systemImage: "music.note",
-            shape: "circle",
-            disabled,
-            accessibilityLabel: label,
-            tone: on ? "active" : "default",
-            faded,
-          }
-        : null,
+      {
+        id: nativeId,
+        kind: "button",
+        title: null,
+        systemImage: "music.note",
+        shape: "circle",
+        disabled: disabled || inactive,
+        accessibilityLabel: label,
+        tone: on ? "active" : "default",
+        faded,
+      },
       onClick,
       { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
     );

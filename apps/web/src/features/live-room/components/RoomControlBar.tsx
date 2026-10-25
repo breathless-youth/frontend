@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
 import exitIcon from "@/assets/icons/session-exit.svg";
+import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
+import { useNativeControl } from "@/lib/nativeControls";
 
 import { playPressPop } from "./playPressPop";
 
@@ -48,6 +50,37 @@ export function RoomControlBar({
   onToggleCamera,
   onExit,
 }: RoomControlBarProps) {
+  const cameraLabel = cameraOn ? "카메라 끄기" : "카메라 켜기";
+  // 앱 버튼은 바 밖 층에 그려져 바의 이동과 누름 잠금이 닿지 않아서 숨김은 흐림으로, 잠금은 비활성으로 보낸다.
+  const nativeLock = { disabled: disabled || inactive, faded: hidden };
+  const { ref: cameraRef } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "room-camera",
+      kind: "button",
+      title: null,
+      systemImage: cameraOn ? "video.fill" : "video.slash.fill",
+      shape: "circle",
+      accessibilityLabel: cameraLabel,
+      tone: cameraOn ? "default" : "danger",
+      ...nativeLock,
+    },
+    onToggleCamera,
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
+  const { ref: exitRef } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "room-exit",
+      kind: "button",
+      title: null,
+      systemImage: "rectangle.portrait.and.arrow.right",
+      shape: "circle",
+      accessibilityLabel: "나가기",
+      tone: "danger",
+      ...nativeLock,
+    },
+    onExit,
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
   return (
     // 버튼 지름은 싱글룸 오른쪽 부가 버튼과 같은 단계를 써서 두 룸의 누르는 크기를 맞춘다.
     <div
@@ -68,8 +101,9 @@ export function RoomControlBar({
       } ${hidden || inactive ? "pointer-events-none" : "pointer-events-auto"}`}
     >
       <button
+        ref={cameraRef}
         type="button"
-        aria-label={cameraOn ? "카메라 끄기" : "카메라 켜기"}
+        aria-label={cameraLabel}
         onPointerDown={playPressPop}
         aria-pressed={cameraOn}
         disabled={disabled}
@@ -90,6 +124,7 @@ export function RoomControlBar({
       </button>
       {children}
       <button
+        ref={exitRef}
         type="button"
         aria-label="나가기"
         onPointerDown={playPressPop}

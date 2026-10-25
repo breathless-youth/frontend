@@ -34,6 +34,7 @@ import {
   enterGlassChrome,
   lastInlineControls,
   measureControlsNow,
+  pressNative,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
 import { LiveRoomPage } from "../LiveRoomPage";
@@ -300,6 +301,23 @@ async function turnCameraOn() {
   await waitFor(() => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
+}
+
+/**
+ * 앱 glass 버튼을 그리는 앱으로 입장
+ *
+ * 바 버튼의 웹 원본이 접근성 트리에서 빠져서 이름 대신 바가 그려지기를 기다린다.
+ */
+async function enterAppRoom(controls = "segment,switch,button,button-style") {
+  const postMessage = enterGlassChrome("/social/room/42", controls);
+  measureControlsNow();
+  renderRoom();
+  // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다.
+  grantCameraGate();
+  await screen.findByTestId("room-control-bar");
+  await act(async () => {});
+  const control = (id: string) => lastInlineControls(postMessage).find((sent) => sent.id === id);
+  return { postMessage, control };
 }
 
 beforeEach(() => {
@@ -2257,16 +2275,21 @@ describe("LiveRoomPage — 배경음", () => {
     });
   });
 
-  it("바의 배경음 버튼은 앱 glass로 등록하지 않고 웹 버튼으로 남는다", async () => {
-    const postMessage = enterGlassChrome("/social/room/42", "segment,switch,button,button-style");
-    measureControlsNow();
-    renderRoom();
-    // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다.
-    grantCameraGate();
-    await enterRoom();
+  it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {
+    const { control } = await enterAppRoom();
+    expect(control("room-ambient")).toMatchObject({ systemImage: "music.note", tone: "default" });
 
-    expect(screen.getByRole("button", { name: "배경음" })).not.toHaveAttribute("aria-hidden");
-    expect(lastInlineControls(postMessage).map(({ id }) => id)).not.toContain("session-ambient");
+    pressNative("room-ambient", 0);
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+
+    await waitFor(() => {
+      expect(control("room-ambient")).toMatchObject({
+        tone: "active",
+        accessibilityLabel: "배경음 켜짐",
+      });
+    });
   });
 });
 
@@ -2552,14 +2575,125 @@ describe("LiveRoomPage — 과목", () => {
     expect(screen.getByText("수학").parentElement).toHaveClass("pointer-events-none");
   });
 
-  it("바의 과목 버튼은 앱 glass로 등록하지 않고 웹 버튼으로 남는다", async () => {
-    const postMessage = enterGlassChrome("/social/room/42", "segment,switch,button,button-style");
-    measureControlsNow();
-    renderRoom();
-    grantCameraGate();
-    await enterRoom();
+  it("바의 과목 앱 버튼은 누르면 페이지를 열고, 과목을 고르면 active 색으로 바뀐다", async () => {
+    listSubjects.mockResolvedValue([MATH]);
+    const { control } = await enterAppRoom();
+    expect(control("room-subject")).toMatchObject({ systemImage: "book", tone: "default" });
 
-    expect(screen.getByRole("button", { name: "과목" })).not.toHaveAttribute("aria-hidden");
-    expect(lastInlineControls(postMessage).map(({ id }) => id)).not.toContain("session-subject");
+    pressNative("room-subject", 0);
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "취소" }));
+
+    await waitFor(() => {
+      expect(control("room-subject")).toMatchObject({
+        tone: "active",
+        accessibilityLabel: "과목 선택됨",
+      });
+    });
+  });
+});
+
+describe("LiveRoomPage — 앱 glass 바 버튼", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it("바 버튼 네 개를 앱 버튼으로 등록해 웹 원본을 숨기고, 더보기는 웹으로 남긴다", async () => {
+    const { postMessage } = await enterAppRoom();
+
+    // 앱은 좌표로 놓아서 등록 순서는 보지 않는다.
+    expect(
+      lastInlineControls(postMessage).toSorted((a, b) => a.id.localeCompare(b.id)),
+    ).toMatchObject([
+      { id: "room-ambient", systemImage: "music.note", tone: "default" },
+      { id: "room-camera", systemImage: "video.slash.fill", tone: "danger" },
+      { id: "room-exit", systemImage: "rectangle.portrait.and.arrow.right", tone: "danger" },
+      { id: "room-subject", systemImage: "book", tone: "default" },
+    ]);
+    for (const button of screen.getByTestId("room-control-bar").querySelectorAll("button")) {
+      expect(button).toHaveAttribute("aria-hidden", "true");
+    }
+    expect(screen.getByRole("button", { name: "더보기" })).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("조작이 숨으면 네 버튼이 흐려지고, 다시 보이면 돌아온다", async () => {
+    const { postMessage } = await enterAppRoom();
+    const faded = () => lastInlineControls(postMessage).map((sent) => sent.faded);
+    expect(faded()).toEqual([false, false, false, false]);
+
+    tapSurface();
+    expect(faded()).toEqual([true, true, true, true]);
+
+    tapSurface();
+    expect(faded()).toEqual([false, false, false, false]);
+  });
+
+  it("더보기 메뉴가 열린 동안 네 버튼의 누름을 막고, 닫히면 돌아온다", async () => {
+    const { postMessage } = await enterAppRoom();
+    const disabled = () => lastInlineControls(postMessage).map((sent) => sent.disabled);
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(disabled()).toEqual([true, true, true, true]);
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(disabled()).toEqual([false, false, false, false]));
+  });
+
+  it("제출 중에는 네 버튼의 누름을 막는다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    const { postMessage } = await enterAppRoom();
+
+    pressNative("room-exit", 0);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastInlineControls(postMessage).map((sent) => sent.disabled)).toEqual([
+        true,
+        true,
+        true,
+        true,
+      ]),
+    );
+  });
+
+  it("카메라 앱 버튼은 켜기 확인 창을 열고, 켜면 켜짐 심볼로 바뀐다", async () => {
+    const { control } = await enterAppRoom();
+
+    pressNative("room-camera", 0);
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "카메라 켜기" }));
+
+    await waitFor(() => {
+      expect(control("room-camera")).toMatchObject({
+        systemImage: "video.fill",
+        tone: "default",
+        accessibilityLabel: "카메라 끄기",
+      });
+    });
+  });
+
+  it("나가기 앱 버튼은 종료 확인 창을 연다", async () => {
+    await enterAppRoom();
+
+    pressNative("room-exit", 0);
+
+    expect(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    ).toBeInTheDocument();
+  });
+
+  it("앱이 버튼 모양 표시를 알리지 않으면 바 버튼을 등록하지 않고 웹으로 보인다", async () => {
+    const { postMessage } = await enterAppRoom("segment,switch,button");
+
+    expect(lastInlineControls(postMessage)).toEqual([]);
+    for (const name of ["카메라 켜기", "과목", "배경음", "나가기"]) {
+      expect(screen.getByRole("button", { name })).not.toHaveAttribute("aria-hidden");
+    }
   });
 });
