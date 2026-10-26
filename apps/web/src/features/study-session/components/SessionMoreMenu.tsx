@@ -23,31 +23,32 @@ function stopSurfaceToggle(event: ReactPointerEvent) {
   event.stopPropagation();
 }
 
-type RoomMoreMenuProps = {
+type SessionMoreMenuProps = {
   /** 메뉴 포털 자리. 세션 화면 변수와 다크 테마를 받으려면 세션 루트를 넘긴다. */
   container: HTMLElement | null;
-  flipDisabled: boolean;
+  flipDisabled?: boolean;
   onFlipCamera: () => void;
-  onShareInvite: () => void;
+  /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
+  onShareInvite?: () => void;
   /** 조작 숨김. 숨은 버튼이 탭을 가로채면 화면 탭으로 조작을 다시 부를 수 없다. */
   hidden?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
 /**
- * 소셜룸 오른쪽 위 더보기 버튼과 메뉴
+ * 세션 화면 오른쪽 위 더보기 버튼과 메뉴
  *
  * 메뉴 창의 오른쪽 위를 보이는 원의 오른쪽 위에 맞춰 버튼 자리를 덮으며 열리게 한다.
  * 메뉴가 열려 있는 동안은 호출부가 조작을 강제로 보여서 메뉴 안의 누름이 화면 탭 토글로 올라가도 상관없다.
  */
-export function RoomMoreMenu({
+export function SessionMoreMenu({
   container,
-  flipDisabled,
+  flipDisabled = false,
   onFlipCamera,
   onShareInvite,
   hidden = false,
   onOpenChange,
-}: RoomMoreMenuProps) {
+}: SessionMoreMenuProps) {
   // 메뉴가 버튼 자리를 덮으며 열려서 마우스로 버튼을 짧게 누르면 손을 뗀 곳이 첫 항목이 된다.
   // Radix 항목은 그 손 뗌만으로도 선택되므로 메뉴 안에서 시작한 누름일 때만 손 뗌 선택을 허용한다.
   const pressStartedInMenuRef = useRef(false);
@@ -99,13 +100,15 @@ export function RoomMoreMenu({
         >
           카메라 전환
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onPointerUp={blockOpeningPressRelease}
-          onSelect={onShareInvite}
-          className={MENU_ITEM_CLASS}
-        >
-          초대코드 공유
-        </DropdownMenuItem>
+        {onShareInvite && (
+          <DropdownMenuItem
+            onPointerUp={blockOpeningPressRelease}
+            onSelect={onShareInvite}
+            className={MENU_ITEM_CLASS}
+          >
+            초대코드 공유
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
