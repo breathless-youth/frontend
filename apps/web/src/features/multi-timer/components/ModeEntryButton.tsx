@@ -13,6 +13,8 @@ export interface ModeEntryButtonProps {
   expanded: boolean;
   /** 간단 모드에서 앱 버튼을 흐리게 감춘다. */
   faded: boolean;
+  /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
+  inactive?: boolean;
   onClick: () => void;
 }
 
@@ -24,7 +26,7 @@ export interface ModeEntryButtonProps {
  * 세션 레이어가 `pointer-events-none`이라 클릭을 받으려면 스스로 `pointer-events-auto`여야 한다.
  */
 export const ModeEntryButton = forwardRef<HTMLButtonElement, ModeEntryButtonProps>(
-  function ModeEntryButton({ expanded, faded, onClick }, ref) {
+  function ModeEntryButton({ expanded, faded, inactive = false, onClick }, ref) {
     const native = useNativeControl<HTMLButtonElement>(
       {
         id: "session-timer",
@@ -33,7 +35,7 @@ export const ModeEntryButton = forwardRef<HTMLButtonElement, ModeEntryButtonProp
         systemImage: "timer",
         image: null,
         shape: "circle",
-        disabled: false,
+        disabled: inactive,
         accessibilityLabel: "타이머",
         tone: "default",
         faded,

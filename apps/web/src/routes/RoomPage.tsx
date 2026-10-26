@@ -45,6 +45,7 @@ import {
   SessionExitButton,
   SessionPauseButton,
 } from "@/features/study-session/components/SessionControlButtons";
+import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SessionSideActions } from "@/features/study-session/components/SessionSideActions";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
@@ -416,6 +417,23 @@ function RoomSessionScreen({
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
+  // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
+  // 웹 버튼은 스스로 pointer-events-auto라 메뉴의 바깥 누름 차단이 닿지 않아서 inert로 막는다.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const pressStartedWithMenuOpenRef = useRef(false);
+  // 메뉴가 열린 동안 Radix가 body의 누름을 막아 누름 시작이 화면 버튼에 닿지 않으므로 문서에서 기록한다.
+  useEffect(() => {
+    if (!moreMenuOpen) {
+      return;
+    }
+    const markPressStart = () => {
+      pressStartedWithMenuOpenRef.current = true;
+    };
+    document.addEventListener("pointerdown", markPressStart, true);
+    return () => {
+      document.removeEventListener("pointerdown", markPressStart, true);
+    };
+  }, [moreMenuOpen]);
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
@@ -726,7 +744,7 @@ function RoomSessionScreen({
       title: null,
       systemImage: "book",
       shape: "circle",
-      disabled: false,
+      disabled: moreMenuOpen,
       accessibilityLabel: subjectButtonLabel,
       tone: subjectSelection === null ? "default" : "active",
       faded: simpleMode,
@@ -788,7 +806,16 @@ function RoomSessionScreen({
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
+            // 메뉴는 누름이 시작될 때 닫혀서 클릭 때는 이미 닫힌 상태라, 누름을 시작한 순간의 열림으로 판단한다.
+            onPointerDown={() => {
+              pressStartedWithMenuOpenRef.current = moreMenuOpen;
+            }}
             onClick={() => {
+              // 메뉴 바깥을 눌러 메뉴만 닫으려던 누름이 심플 모드까지 바꾸지 않게 한다.
+              if (pressStartedWithMenuOpenRef.current || moreMenuOpen) {
+                pressStartedWithMenuOpenRef.current = false;
+                return;
+              }
               trackSessionSimpleModeToggled(!simpleMode);
               setSimpleMode((prev) => !prev);
             }}
@@ -802,11 +829,18 @@ function RoomSessionScreen({
               className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25"
             />
 
+            {/* 보이는 순서대로 오른쪽 열보다 앞에 둬서 탭 순서가 위에서 아래로 이어진다. */}
+            <SessionMoreMenu
+              container={sessionSurface}
+              hidden={simpleMode}
+              onFlipCamera={() => void handleFlipCamera()}
+              onOpenChange={setMoreMenuOpen}
+            />
+
             {/* 세로·가로 모두 상태 필 아래 23px에 놓는다.
                 폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다. */}
             <SessionSideActions
-              inert={simpleMode}
-              onFlipCamera={() => void handleFlipCamera()}
+              inert={simpleMode || moreMenuOpen}
               ambient={
                 /* 배경음 버튼 */
                 <AmbientSoundButton
@@ -815,6 +849,7 @@ function RoomSessionScreen({
                   expanded={page === "ambient"}
                   onClick={() => openPage("ambient")}
                   faded={simpleMode}
+                  inactive={moreMenuOpen}
                 />
               }
               subject={
@@ -847,6 +882,7 @@ function RoomSessionScreen({
                   ref={timerButtonRef}
                   expanded={modeOpen}
                   faded={simpleMode}
+                  inactive={moreMenuOpen}
                   onClick={() => multiTimer.open()}
                 />
               }
@@ -899,7 +935,10 @@ function RoomSessionScreen({
                       ? undefined
                       : (event) => openSubjectPage("label", event.currentTarget)
                   }
-                  className="mb-1 landscape-compact:mb-2"
+                  className={cn(
+                    "mb-1 landscape-compact:mb-2",
+                    moreMenuOpen && "pointer-events-none",
+                  )}
                 />
               )}
               <SessionTimer
@@ -915,9 +954,13 @@ function RoomSessionScreen({
             {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
                 `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
             <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
-              <div className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start">
+              <div
+                inert={moreMenuOpen}
+                className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start"
+              >
                 <SessionPauseButton
                   paused={paused}
+                  inactive={moreMenuOpen}
                   // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
                   onClick={() => {
                     // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
@@ -932,14 +975,18 @@ function RoomSessionScreen({
                 />
               </div>
               <div
-                inert={simpleMode}
+                inert={simpleMode || moreMenuOpen}
                 className={cn(
                   "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
                   SIMPLE_MODE_FADE,
                   simpleMode && "invisible opacity-0",
                 )}
               >
-                <SessionExitButton onClick={handleRequestExit} faded={simpleMode} />
+                <SessionExitButton
+                  onClick={handleRequestExit}
+                  faded={simpleMode}
+                  inactive={moreMenuOpen}
+                />
               </div>
             </div>
 
