@@ -18,6 +18,18 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
+import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
+import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
+import { TimerPanel } from "@/features/multi-timer/components/TimerPanel";
+import {
+  useModeHistoryHold,
+  useModeScreenLocks,
+  useSessionRotationRestore,
+} from "@/features/multi-timer/modeScreenLocks";
+import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
+import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
@@ -25,11 +37,15 @@ import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
-import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
+import {
+  controlButtonVariants,
+  SESSION_SYMBOL_SCALE,
+} from "@/features/study-session/components/controlButtonVariants";
 import {
   SessionExitButton,
   SessionPauseButton,
 } from "@/features/study-session/components/SessionControlButtons";
+import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SessionSideActions } from "@/features/study-session/components/SessionSideActions";
 import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
@@ -65,6 +81,7 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
+import { useNativeControl } from "@/lib/nativeControls";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
@@ -72,6 +89,7 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
+import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
@@ -316,6 +334,8 @@ function RoomSessionScreen({
     selectSubject,
     pause,
     resume,
+    startBreak,
+    endBreak,
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, {
@@ -342,11 +362,32 @@ function RoomSessionScreen({
     setPage(null);
   }
   const pageLandscape = useLandscapeLayout(page !== null);
+  const multiTimer = useMultiTimer({
+    sessionState,
+    studying,
+    onStartBreak: startBreak,
+    onEndBreak: endBreak,
+    onResumeSession: resume,
+  });
+  const modeOpen = multiTimer.mode !== null;
+  /**
+   * 모드를 끈 순간의 모습
+   *
+   * 꺼진 모드는 남은 시간과 버튼 이름이 처음 값으로 돌아가서, 밀려 나가는 동안에는 끄기 직전 모습을 그린다.
+   * 세션이 끝나 꺼질 때는 모드 화면이 공부 화면과 함께 사라져 남길 모습이 없다.
+   */
+  const [closingMode, setClosingMode] = useState<MultiTimerControls | null>(null);
+  const modeView = modeOpen ? multiTimer : closingMode;
+  const modeKind: ModeKind = modeView?.mode?.kind ?? "timer";
+  useModeScreenLocks(modeOpen);
+  useModeHistoryHold(modeOpen);
+  useSessionRotationRestore();
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   const subjectButtonRef = useRef<HTMLButtonElement>(null);
+  const timerButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const subjectOpenedAtRef = useRef(0);
@@ -360,16 +401,39 @@ function RoomSessionScreen({
   // 목록은 세션에 들어올 때 미리 받는다 — 페이지를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
   // 복원 세션이 죽기 전에 완료한 할 일을 제출에 싣는 데도 이 목록이 필요하다. 기기 미등록이면 저장할 곳이
   // 없어 받지 않는다. 과목 페이지가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
-  const subjects = useSubjects(userId !== null, (message) => {
-    if (page === "subject") {
-      showCtaToast(message);
-    }
-  });
+  // 과목 시간은 플래너 하루 기준 오늘 값으로 바꿔 받는다(`loadSessionSubjects`).
+  const subjects = useSubjects(
+    userId !== null,
+    (message) => {
+      if (page === "subject") {
+        showCtaToast(message);
+      }
+    },
+    "sheet",
+    () => loadSessionSubjects(userId ?? 0),
+  );
   useLayoutEffect(() => {
     subjectsListRef.current = subjects.subjects;
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
+  // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
+  // 웹 버튼은 스스로 pointer-events-auto라 메뉴의 바깥 누름 차단이 닿지 않아서 inert로 막는다.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const pressStartedWithMenuOpenRef = useRef(false);
+  // 메뉴가 열린 동안 Radix가 body의 누름을 막아 누름 시작이 화면 버튼에 닿지 않으므로 문서에서 기록한다.
+  useEffect(() => {
+    if (!moreMenuOpen) {
+      return;
+    }
+    const markPressStart = () => {
+      pressStartedWithMenuOpenRef.current = true;
+    };
+    document.addEventListener("pointerdown", markPressStart, true);
+    return () => {
+      document.removeEventListener("pointerdown", markPressStart, true);
+    };
+  }, [moreMenuOpen]);
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
@@ -614,6 +678,11 @@ function RoomSessionScreen({
   }, [studying]);
   useEffect(() => () => dropPageEntry(closingRef), []);
 
+  function closeMode() {
+    setClosingMode(multiTimer);
+    multiTimer.close();
+  }
+
   // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 과목 버튼으로 돌아간다.
   function subjectReturnFocus() {
     const opener = subjectOpenerRef.current;
@@ -631,7 +700,7 @@ function RoomSessionScreen({
 
   /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
   const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
-  /** 타이머 위 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
+  /** 타이머 위 라벨에 보일 과목. 이름은 목록에서 오고, 순공은 오늘(플래너 하루) 저장 기록 + 이 세션 몫이다. */
   const selectedSubject =
     subjectSelection === null
       ? null
@@ -665,6 +734,29 @@ function RoomSessionScreen({
     setExitDialogOpen(false);
     void endAndSubmit(MANUAL_END_REASON);
   }
+
+  const subjectButtonLabel =
+    subjectSelection === null ? SUBJECT_SHEET_COPY.title : `${SUBJECT_SHEET_COPY.title} 선택됨`;
+  const subjectNative = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-subject",
+      kind: "button",
+      title: null,
+      systemImage: "book",
+      shape: "circle",
+      disabled: moreMenuOpen,
+      accessibilityLabel: subjectButtonLabel,
+      tone: subjectSelection === null ? "default" : "active",
+      faded: simpleMode,
+    },
+    () => {
+      // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
+      if (subjectButtonRef.current !== null) {
+        openSubjectPage("button", subjectButtonRef.current);
+      }
+    },
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
 
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
@@ -714,7 +806,16 @@ function RoomSessionScreen({
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
+            // 메뉴는 누름이 시작될 때 닫혀서 클릭 때는 이미 닫힌 상태라, 누름을 시작한 순간의 열림으로 판단한다.
+            onPointerDown={() => {
+              pressStartedWithMenuOpenRef.current = moreMenuOpen;
+            }}
             onClick={() => {
+              // 메뉴 바깥을 눌러 메뉴만 닫으려던 누름이 심플 모드까지 바꾸지 않게 한다.
+              if (pressStartedWithMenuOpenRef.current || moreMenuOpen) {
+                pressStartedWithMenuOpenRef.current = false;
+                return;
+              }
               trackSessionSimpleModeToggled(!simpleMode);
               setSimpleMode((prev) => !prev);
             }}
@@ -728,11 +829,18 @@ function RoomSessionScreen({
               className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25"
             />
 
+            {/* 보이는 순서대로 오른쪽 열보다 앞에 둬서 탭 순서가 위에서 아래로 이어진다. */}
+            <SessionMoreMenu
+              container={sessionSurface}
+              hidden={simpleMode}
+              onFlipCamera={() => void handleFlipCamera()}
+              onOpenChange={setMoreMenuOpen}
+            />
+
             {/* 세로·가로 모두 상태 필 아래 23px에 놓는다.
                 폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다. */}
             <SessionSideActions
-              inert={simpleMode}
-              onFlipCamera={() => void handleFlipCamera()}
+              inert={simpleMode || moreMenuOpen}
               ambient={
                 /* 배경음 버튼 */
                 <AmbientSoundButton
@@ -740,21 +848,22 @@ function RoomSessionScreen({
                   on={ambient.isOn}
                   expanded={page === "ambient"}
                   onClick={() => openPage("ambient")}
+                  faded={simpleMode}
+                  inactive={moreMenuOpen}
                 />
               }
               subject={
                 <Button
-                  ref={subjectButtonRef}
+                  ref={(node) => {
+                    subjectButtonRef.current = node;
+                    subjectNative.ref(node);
+                  }}
                   type="button"
                   size="icon"
                   variant="unstyled"
                   // 배경음 버튼과 같은 규칙이다.
                   // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-                  aria-label={
-                    subjectSelection === null
-                      ? SUBJECT_SHEET_COPY.title
-                      : `${SUBJECT_SHEET_COPY.title} 선택됨`
-                  }
+                  aria-label={subjectButtonLabel}
                   aria-haspopup="dialog"
                   aria-expanded={page === "subject"}
                   data-on={subjectSelection !== null}
@@ -766,6 +875,16 @@ function RoomSessionScreen({
                     className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
                   />
                 </Button>
+              }
+              // 페이지가 열려 있으면 페이지가 이 버튼들을 덮어서 따로 막지 않는다.
+              modes={
+                <ModeEntryButton
+                  ref={timerButtonRef}
+                  expanded={modeOpen}
+                  faded={simpleMode}
+                  inactive={moreMenuOpen}
+                  onClick={() => multiTimer.open()}
+                />
               }
               className={cn(
                 "absolute top-[calc(env(safe-area-inset-top)+72px)] right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+77px)] regular:top-[calc(env(safe-area-inset-top)+75px)] regular:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+84px)] short-side-lg:gap-4.5",
@@ -816,7 +935,10 @@ function RoomSessionScreen({
                       ? undefined
                       : (event) => openSubjectPage("label", event.currentTarget)
                   }
-                  className="mb-1 landscape-compact:mb-2"
+                  className={cn(
+                    "mb-1 landscape-compact:mb-2",
+                    moreMenuOpen && "pointer-events-none",
+                  )}
                 />
               )}
               <SessionTimer
@@ -832,12 +954,16 @@ function RoomSessionScreen({
             {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
                 `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
             <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
-              <div className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start">
+              <div
+                inert={moreMenuOpen}
+                className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start"
+              >
                 <SessionPauseButton
                   paused={paused}
+                  inactive={moreMenuOpen}
                   // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
                   onClick={() => {
-                    // 진동이 기기 조작 감지에 섞이지 않게 센서가 꺼진 뒤나 켜지기 전에 울린다.
+                    // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
                     if (paused) {
                       haptic("medium");
                       resume();
@@ -849,14 +975,18 @@ function RoomSessionScreen({
                 />
               </div>
               <div
-                inert={simpleMode}
+                inert={simpleMode || moreMenuOpen}
                 className={cn(
                   "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
                   SIMPLE_MODE_FADE,
                   simpleMode && "invisible opacity-0",
                 )}
               >
-                <SessionExitButton onClick={handleRequestExit} />
+                <SessionExitButton
+                  onClick={handleRequestExit}
+                  faded={simpleMode}
+                  inactive={moreMenuOpen}
+                />
               </div>
             </div>
 
@@ -918,6 +1048,46 @@ function RoomSessionScreen({
               if (!open) closePage("back");
             }}
           />
+
+          {/* 처음 열기 전에는 그릴 모드가 없다.
+              끈 뒤에는 끄기 직전 모습으로 밀려 나간다. */}
+          {modeView !== null && (
+            <MultiTimerScreen
+              open={modeOpen}
+              kind={modeKind}
+              kindLocked={modeView.kindLocked}
+              onSwitchKind={(kind) => multiTimer.switchKind(kind)}
+              container={sessionSurface}
+              returnFocus={() => timerButtonRef.current}
+              onClose={closeMode}
+              primaryLabel={modeView.primaryLabel}
+              primaryDisabled={modeView.primaryDisabled}
+              onPrimary={() => multiTimer.pressPrimary()}
+              restartDisabled={modeView.restartDisabled}
+              onRestart={() => multiTimer.restart()}
+            >
+              {modeView.mode?.kind === "timer" && (
+                <TimerPanel
+                  mode={modeView.mode}
+                  remainingMs={modeView.remainingMs}
+                  distracted={modeView.distracted}
+                  onChangeTimerSec={(timerSec) => multiTimer.changeSettings({ timerSec })}
+                  soundOn={modeView.soundOn}
+                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
+                />
+              )}
+              {modeView.mode?.kind === "pomodoro" && (
+                <PomodoroPanel
+                  mode={modeView.mode}
+                  remainingMs={modeView.remainingMs}
+                  distracted={modeView.distracted}
+                  onChangeSettings={(patch) => multiTimer.changeSettings(patch)}
+                  soundOn={modeView.soundOn}
+                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
+                />
+              )}
+            </MultiTimerScreen>
+          )}
         </>
       ) : /* 미달 종료 안내 — 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, `여기까지 기록을 저장했어요`도 결과 표시도 모두 사실이 아니다.

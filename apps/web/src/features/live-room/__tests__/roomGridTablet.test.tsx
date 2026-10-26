@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RoomMember } from "@focusmakers/types";
 
 import { RoomGrid } from "../components/RoomGrid";
-import { roomGridSpec } from "../roomGrid";
 
 function members(count: number): RoomMember[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -64,13 +63,8 @@ function stubManualResizeObserver() {
 function renderGrid(count: number, wrapper?: (props: { children: ReactNode }) => ReactNode) {
   return render(
     <RoomGrid
-      grid={roomGridSpec(count)}
       allMembers={members(count)}
       userId={1}
-      controlsVisible={true}
-      selfState="FOCUS"
-      focusSec={0}
-      cameraOn={false}
       myVideo={<div />}
       remoteStreams={new Map()}
       selfSurfaceRef={createRef<HTMLDivElement>()}
@@ -107,15 +101,20 @@ describe("RoomGrid 태블릿 격자", () => {
     expect(gridWidth()).toBe("1042px");
   });
 
-  it("세로 820×1180에서 3명은 2열 390px이다", () => {
-    stubResizeObserver(788, 1052);
-    renderGrid(3);
+  // 세로는 위로 시간 글자와 과목 알약, 아래로 바 자리를 비워 위 122 · 아래 112를 뺀다.
+  it.each([
+    [2, "469px", "469px"],
+    [3, "390px", "788px"],
+    [6, "310px", "628px"],
+  ])("세로 820×1180에서 %i명은 한 변 %s이다", (count, size, width) => {
+    stubResizeObserver(788, 946);
+    renderGrid(count);
 
-    expect(tileSize()).toBe("390px");
-    expect(gridWidth()).toBe("788px");
+    expect(tileSize()).toBe(size);
+    expect(gridWidth()).toBe(width);
   });
 
-  // 짧은 변이 1000 이상인 창은 아래를 136 비운다.
+  // 짧은 변이 1000 이상인 창은 아래를 136 비우고, 세로에서는 위를 148 비운다.
   it("큰 태블릿 가로 1376×1032에서 6명은 3열 436px이다", () => {
     stubResizeObserver(1344, 880);
     renderGrid(6);
@@ -124,12 +123,12 @@ describe("RoomGrid 태블릿 격자", () => {
     expect(gridWidth()).toBe("1324px");
   });
 
-  it("큰 태블릿 세로 1032×1376에서 6명은 2열 402px이다", () => {
-    stubResizeObserver(1000, 1224);
+  it("큰 태블릿 세로 1032×1376에서 6명은 2열 358px이다", () => {
+    stubResizeObserver(1000, 1092);
     renderGrid(6);
 
-    expect(tileSize()).toBe("402px");
-    expect(gridWidth()).toBe("812px");
+    expect(tileSize()).toBe("358px");
+    expect(gridWidth()).toBe("724px");
   });
 
   it("측정기 콜백이 오기 전에도 마운트 직후 칸을 재서 변수를 쓴다", () => {

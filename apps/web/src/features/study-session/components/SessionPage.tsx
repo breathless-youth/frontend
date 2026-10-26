@@ -70,12 +70,7 @@ export function SessionPage({
         )}
       >
         <div className="flex h-[calc(52px+env(safe-area-inset-top))] shrink-0 items-center px-1 pt-[env(safe-area-inset-top)]">
-          <SheetClose
-            aria-label="뒤로 가기"
-            className="flex size-11 shrink-0 items-center justify-center focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
-          >
-            <ChevronLeft size={16} aria-hidden="true" />
-          </SheetClose>
+          <SessionPageBackButton label="뒤로 가기" />
           <SheetTitle className="truncate text-[17px] leading-5.25 font-bold tracking-normal text-(--session-dialog-title)">
             {title}
           </SheetTitle>
@@ -84,6 +79,26 @@ export function SessionPage({
         <SessionPageOpenContext value={open}>{children}</SessionPageOpenContext>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * 세션 위 페이지의 왼쪽 위 뒤로 가기 버튼
+ *
+ * 배경음·과목 페이지와 타이머 화면이 같은 모양을 쓴다.
+ * 타이머 화면은 이 버튼이 모드를 끄는 길이라 이름을 따로 받는다.
+ */
+export function SessionPageBackButton({ label, className }: { label: string; className?: string }) {
+  return (
+    <SheetClose
+      aria-label={label}
+      className={cn(
+        "flex size-11 shrink-0 items-center justify-center focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+        className,
+      )}
+    >
+      <ChevronLeft size={16} aria-hidden="true" />
+    </SheetClose>
   );
 }
 

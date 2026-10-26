@@ -180,7 +180,7 @@ export function RemoteScreen({
 
   // 웹이 뒤로가기를 잠근 동안은 소셜룸 세션이 진행 중이라, 업데이트 알림창이 끼어들지 않게 세션 중으로 표시한다.
   // 탭 포커스와 상관없이 건다. 뒤로가기 차단과 달리 다른 탭을 보는 사이에도 세션은 이어지기 때문이다.
-  useEffect(() => (backLocked ? markSessionOpen() : undefined), [backLocked]);
+  useEffect(() => (backLocked ? markSessionOpen("social") : undefined), [backLocked]);
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이
   // 붙어 다시 로드되는 깜빡임·이중 로드(그리고 그 첫 로드의 "브라우저 단독 모드")를 막는다.

@@ -24,8 +24,8 @@ import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransiti
 /**
  * 전체 화면 웹 라우트에서 네이티브 탭 바를 감추는 동기화(`set-tab-bar`).
  *
- * 온보딩 가이드·문의·약관·방침은 탭 웹뷰 **안에서** 웹 라우팅으로 열려 네이티브 스택을
- * 건너므로, 이 신호가 없으면 탭 바가 그대로 남는다(Figma G1~G5에는 탭 바가 없다).
+ * 문의·약관·방침은 탭 웹뷰 **안에서** 웹 라우팅으로 열려 네이티브 스택을
+ * 건너므로, 이 신호가 없으면 탭 바가 그대로 남는다.
  */
 
 function Harness({ to }: { to?: string }) {
@@ -100,10 +100,14 @@ afterEach(() => {
 });
 
 describe("isFullScreenPath", () => {
-  it("탭 바 없는 전체 화면 라우트 4종을 가린다", () => {
-    for (const path of ["/onboarding-guide", "/contact", "/terms", "/privacy"]) {
+  it("탭 바 없는 전체 화면 라우트 3종을 가린다", () => {
+    for (const path of ["/contact", "/terms", "/privacy"]) {
       expect(isFullScreenPath(path)).toBe(true);
     }
+  });
+
+  it("삭제한 가이드 주소는 전체 화면이 아니다 — 홈으로 리다이렉트되므로 탭 바를 숨기지 않는다", () => {
+    expect(isFullScreenPath("/onboarding-guide")).toBe(false);
   });
 
   it("타임랩스 설정은 전체 화면이다", () => {
@@ -163,7 +167,7 @@ describe("useNativeTabBarSync", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
-    renderAt("/onboarding-guide");
+    renderAt("/contact");
 
     expect(sentVisibility(postMessage)).toEqual([false]);
   });
@@ -177,10 +181,10 @@ describe("useNativeTabBarSync", () => {
     expect(sentVisibility(postMessage)).toEqual([true]);
   });
 
-  it("가이드를 닫고 홈으로 돌아오면 복귀 신호를 보낸다 — 안 보내면 탭 바가 영영 사라진다", () => {
+  it("문의를 닫고 홈으로 돌아오면 복귀 신호를 보낸다 — 안 보내면 탭 바가 영영 사라진다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
-    const { getByText } = renderAt("/onboarding-guide", "/home");
+    const { getByText } = renderAt("/contact", "/home");
 
     act(() => {
       fireEvent.click(getByText("이동"));
@@ -190,7 +194,7 @@ describe("useNativeTabBarSync", () => {
   });
 
   it("브라우저 단독 모드(브리지 없음)에서도 죽지 않는다", () => {
-    expect(() => renderAt("/onboarding-guide")).not.toThrow();
+    expect(() => renderAt("/contact")).not.toThrow();
   });
 
   /**
@@ -295,7 +299,7 @@ describe("useNativeTabBarSync", () => {
   it("전체 화면 라우트에서는 모달이 열려도 차단을 싣지 않는다 — 사라진 탭 바가 딤 때문에 되살아나면 안 된다", async () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
-    renderAt("/onboarding-guide");
+    renderAt("/contact");
     postMessage.mockClear();
 
     openModal();
@@ -473,7 +477,7 @@ describe("useNativeTabBarSync — 페이지 전환", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     const { finish, updateDone } = stubViewTransition();
     render(
-      <MemoryRouter initialEntries={["/onboarding-guide"]}>
+      <MemoryRouter initialEntries={["/contact"]}>
         <Routes>
           <Route path="*" element={<CancelHarness />} />
         </Routes>

@@ -209,7 +209,7 @@ export function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrum
  * - DSN 미설정이면 `captureException`은 SDK 차원 no-op — 로컬·테스트·CI 무영향.
  * - 핵심 기능이 죽거나 저하되는 실패에 쓴다(GPU 실패 후 CPU 폴백 같은 기능 저하 포함 —
  *   기능이 저하된 기기군을 이슈 목록에서 식별하는 게 목적이다). 다음 실행에서 복구되는
- *   무해한 실패(온보딩 열람 기록, 업데이트 공지)에 쓰면 잡음이 신호를 덮는다.
+ *   무해한 실패(업데이트 공지 등)에 쓰면 잡음이 신호를 덮는다.
  */
 export function reportHandled(error: unknown, tag: string): void {
   console.warn(`[${tag}]`, error);

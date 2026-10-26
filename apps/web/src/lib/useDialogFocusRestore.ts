@@ -11,7 +11,10 @@ import { useRef } from "react";
  * 가 아직 트리거다. 닫힐 때는 세션이 그사이 끝나 요소가 사라졌을 수 있어 `isConnected` 인
  * 것에만 되돌린다.
  */
-export function useDialogFocusRestore() {
+export function useDialogFocusRestore(
+  /** 기억한 요소가 사라졌거나 열 때 포커스가 이미 빠져 있었을 때 대신 받을 요소 */
+  fallback?: () => HTMLElement | null,
+) {
   const restore = useRef<HTMLElement | null>(null);
 
   return {
@@ -21,7 +24,10 @@ export function useDialogFocusRestore() {
     },
     onCloseAutoFocus: (event: Event) => {
       event.preventDefault();
-      if (restore.current?.isConnected) restore.current.focus();
+      // 열 때 포커스가 이미 빠져 body에 있었으면 돌려줄 요소가 없던 것으로 본다.
+      const kept = restore.current;
+      const target = kept?.isConnected && kept !== document.body ? kept : fallback?.();
+      target?.focus();
     },
   };
 }

@@ -51,8 +51,7 @@ type SettingsRowProps = {
    *
    * ⚠️ 합성이 필요한 이유: button 전체가 하나의 접근성 요소로 읽히는데, `aria-label`을
    * 명시하면 자식 텍스트를 순회해 만들던 기본 라벨이 통째로 덮어써진다. 라벨만 넘기면
-   * `sublabel`이 화면에는 보이지만 스크린리더에서는 사라진다(`SettingsRow`의 `sublabel`은
-   * `측정 기준 안내` 행의 싱글룸 프라이버시 문구다).
+   * `sublabel`이 화면에는 보이지만 스크린리더에서는 사라진다.
    */
   accessibilityLabel?: string;
 };

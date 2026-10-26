@@ -5,7 +5,12 @@ import type * as Amplitude from "@/lib/amplitude";
 
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import type { SessionState } from "@/features/study-session/sessionState";
-import { FOCUS_STATE, distractionState, pauseState } from "@/features/study-session/sessionState";
+import {
+  BREAK_STATE,
+  FOCUS_STATE,
+  distractionState,
+  pauseState,
+} from "@/features/study-session/sessionState";
 
 import type { AmbientPlayer, AmbientPlayerState } from "../ambientPlayer";
 import { createMemoryPlayer } from "../ambientPlayer";
@@ -150,6 +155,17 @@ describe("useAmbientSound — 세션 전이", () => {
     expect(player.commands.slice(1)).toEqual([{ type: "suspend" }, { type: "resume" }]);
   });
 
+  it("휴식은 일시정지로 보지 않아 계속 재생하고, 휴식 중 앱을 떠나면 그때 멈춘다", async () => {
+    const { rerender, player } = setup({ mix: { white: 60 } });
+    await flush();
+
+    rerender({ sessionState: BREAK_STATE, phase: STUDYING });
+    expect(player.commands.slice(1)).toEqual([]);
+
+    rerender({ sessionState: pauseState("BACKGROUND"), phase: STUDYING });
+    expect(player.commands.slice(1)).toEqual([{ type: "suspend" }]);
+  });
+
   it("비집중이면 setDucked(true), 집중 복귀에 false — 트리거가 바뀌어도 한 번만", async () => {
     const { rerender, player } = setup({ mix: { white: 60 } });
     await flush();
@@ -214,19 +230,23 @@ describe("useAmbientSound — 세션 전이", () => {
     expect(player.commands.at(-1)).toEqual({ type: "dispose" });
   });
 
-  it("복원 세션이 일시정지 상태로 시작하면 재생을 걸고 바로 멈춘다", async () => {
+  // 새 컨텍스트는 running 으로 태어나서 믹스를 먼저 걸면 멈추기 전까지 소리가 샌다.
+  it.each([
+    ["복원 세션", "BACKGROUND"],
+    ["카메라를 끈 채 들어온 소셜룸", "MANUAL"],
+  ] as const)("%s처럼 일시정지로 시작하면 먼저 멈춰 둔 뒤 믹스를 건다", async (_, trigger) => {
     const { player } = setup(
       { mix: { white: 60 } },
       {
-        sessionState: pauseState("BACKGROUND"),
+        sessionState: pauseState(trigger),
         phase: STUDYING,
       },
     );
     await flush();
 
     expect(player.commands).toEqual([
-      { type: "applyMix", mix: { white: 60 } },
       { type: "suspend" },
+      { type: "applyMix", mix: { white: 60 } },
     ]);
     expect(player.getState()).toBe("suspended");
   });

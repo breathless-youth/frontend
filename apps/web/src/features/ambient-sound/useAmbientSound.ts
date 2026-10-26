@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { trackAmbientSoundChanged, trackAmbientSoundDuckToggled } from "@/lib/amplitude";
 
 import type { SessionState } from "@/features/study-session/sessionState";
+import { isSessionHeld } from "@/features/study-session/sessionState";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 
 import type { AmbientPlayer } from "./ambientPlayer";
@@ -43,7 +44,8 @@ function pick(mix: Mix, ids: readonly SoundId[]): Mix {
 export function useAmbientSound(options: UseAmbientSoundOptions) {
   const { sessionState, phase, usage } = options;
   const studying = phase.name === "studying";
-  const paused = sessionState.kind === "PAUSE";
+  // 휴식도 공부 시간에서 빠지는 일시정지지만 쉬는 동안 소리는 이어져야 한다.
+  const paused = isSessionHeld(sessionState);
   const distracted = sessionState.kind === "DISTRACTION";
 
   const [catalog, setCatalog] = useState<readonly AmbientSound[]>(options.catalog ?? EMPTY_CATALOG);
@@ -91,9 +93,11 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     async (mix: Mix) => {
       const player = playerRef.current;
       if (!player || !studyingRef.current) return;
+      // 새 컨텍스트는 running 으로 태어나서 믹스를 먼저 걸면 멈추기 전까지 소리가 샌다.
+      if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       const { failed } = await player.applyMix(mix);
       if (!studyingRef.current) return;
-      // 일시정지 중 컨텍스트가 새로 생기면 running 으로 뜬다 — 멈춘 세션에서 소리가 나면 안 된다.
+      // 믹스를 거는 사이 일시정지가 들어오면 여기서 멈춘다.
       if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       syncAfterCommand(player);
       const current = settingsRef.current;

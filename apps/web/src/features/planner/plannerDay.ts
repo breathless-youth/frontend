@@ -22,6 +22,19 @@ import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetabl
 /** 플래너의 하루가 시작하는 시각(KST 시). */
 export const PLANNER_DAY_START_HOUR = 5;
 
+/** 아직 오지 않은 날짜의 조회를 대신하는 빈 응답 — 오늘 플래너의 "다음 날"과 미래 날짜의 플래너가 여기에 해당한다. */
+export const EMPTY_STATS: StudySessionListResponse = {
+  sessions: [],
+  sessionCount: 0,
+  totalStudySec: 0,
+  totalFocusSec: 0,
+  longestFocusSec: 0,
+  focusRate: 0,
+  totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+  studiedDatesInMonth: [],
+  subjects: [],
+};
+
 const HOUR_MS = 3600_000;
 const DAY_MS = 24 * HOUR_MS;
 

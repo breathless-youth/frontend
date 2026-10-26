@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,12 @@ import {
   FIXTURE_SUMMARY,
   FIXTURE_SUMMARY_EMPTY,
 } from "@/lib/rankingFixtures";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 import { RecordsSheet } from "../RecordsSheet";
 
@@ -84,6 +90,23 @@ describe("RecordsSheet", () => {
       { rank: 2, size: 6, cursor: null },
       expect.any(AbortSignal),
     );
+  });
+
+  it("앱 모드에서도 시트 안 순위 칩은 앱 부품으로 바꾸지 않는다", async () => {
+    vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY);
+    const postMessage = enterGlassChrome("/ranking");
+    measureControlsNow();
+    try {
+      renderSheet();
+      await screen.findByRole("heading", { name: "랭킹 기록" });
+
+      expect(screen.getByRole("radio", { name: "2위" })).toBeVisible();
+      expect(lastInlineControls(postMessage)).toEqual([]);
+    } finally {
+      cleanup();
+      resetGlassChrome();
+      vi.restoreAllMocks();
+    }
   });
 
   it("메달을 누르면 그 기록을 넘긴다", async () => {

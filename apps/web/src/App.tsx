@@ -1,7 +1,7 @@
 import { lazy, Profiler, Suspense, useEffect } from "react";
 import type { ProfilerOnRenderCallback } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
@@ -17,6 +17,7 @@ import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
+import { useNativeControlPressRelay } from "@/lib/glassChrome";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -37,7 +38,6 @@ import {
   loadContactPage,
   loadInterviewFormPage,
   loadLicensesPage,
-  loadOnboardingGuidePage,
   loadPrivacyPage,
   loadProfilePage,
   loadRankingRecordsPage,
@@ -74,11 +74,21 @@ const LiveRoomPage = lazy(
 const ProfilePage = lazy(
   reloadOnChunkError(() => loadProfilePage().then((module) => ({ default: module.ProfilePage }))),
 );
-const OnboardingGuidePage = lazy(
-  reloadOnChunkError(() =>
-    loadOnboardingGuidePage().then((module) => ({ default: module.OnboardingGuidePage })),
-  ),
-);
+/**
+ * 삭제한 온보딩 가이드의 예전 주소
+ *
+ * 앱의 화면 복원·푸시·구버전 앱이 아직 이 주소를 연다.
+ * 구 앱 문서는 신원을 `?userId=N`에서 읽으므로 쿼리를 들고 홈으로 보낸다.
+ * `entry`는 삭제한 가이드만 읽던 값이라 뺀다.
+ * 모든 출시 앱에서 이 주소가 사라지면 이 리다이렉트를 삭제한다.
+ */
+function OnboardingGuideRedirect() {
+  const params = new URLSearchParams(useLocation().search);
+  params.delete("entry");
+  const rest = params.toString();
+  const search = rest === "" ? "" : `?${rest}`;
+  return <Navigate to={{ pathname: "/home", search }} replace />;
+}
 const ContactPage = lazy(
   reloadOnChunkError(() => loadContactPage().then((module) => ({ default: module.ContactPage }))),
 );
@@ -197,6 +207,8 @@ export function App() {
   // 전체 화면 라우트에서 네이티브 탭 바를 감춘다 — 웹 라우팅은 네이티브 스택을 건너지 않으므로
   // 알려주지 않으면 탭 바가 그대로 남는다(`lib/nativeTabBar.ts`).
   useNativeTabBarSync();
+  // 네이티브 glass 부품의 누름을 그 부품을 선언한 화면의 처리기로 넘긴다(`lib/glassChrome.ts`).
+  useNativeControlPressRelay();
   // 웹뷰 안에서만 페이지 드래그·길게 눌러 선택을 막는다(`lib/nativeShell.ts`).
   useNativeShellClass();
   // 시스템 탭 바(iOS)면 하단 여백 공식을 안전 영역 기준으로 바꾼다(`lib/nativeTabBar.ts`).
@@ -269,7 +281,7 @@ export function App() {
               <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
               <Route path="/social/room/:roomId/result" element={<ResultPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/onboarding-guide" element={<OnboardingGuidePage />} />
+              <Route path="/onboarding-guide" element={<OnboardingGuideRedirect />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/interview" element={<InterviewFormPage />} />
               <Route path="/terms" element={<TermsPage />} />

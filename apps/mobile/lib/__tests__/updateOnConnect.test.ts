@@ -35,7 +35,7 @@ describe("checkUpdateOnConnect", () => {
   });
 
   it("세션 화면이 떠 있으면 값은 받아 두고 적용은 세션이 끝난 뒤에 한다", async () => {
-    const close = markSessionOpen();
+    const close = markSessionOpen("single");
     const apply = jest.fn();
 
     await checkUpdateOnConnect("cold_start", apply);

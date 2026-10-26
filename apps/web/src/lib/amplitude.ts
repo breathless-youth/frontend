@@ -782,16 +782,14 @@ export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "rank
 /**
  * 홈과 랭킹의 "집중 시작" 탭
  *
- * 가이드로 갈지 세션으로 갈지는 온보딩 완료 여부가 정하고, autocapture 클릭은 이 분기를 모른다.
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
  * `source`는 누른 자리다.
+ * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
+ * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
-export function trackFocusStartTapped(
-  destination: "guide" | "session",
-  source: FocusStartSource = "home",
-) {
+export function trackFocusStartTapped(source: FocusStartSource = "home") {
   if (!initialized) return;
-  track("focus_start_tapped", { destination, source });
+  track("focus_start_tapped", { destination: "session", source });
 }
 
 /**
@@ -843,49 +841,9 @@ export function trackSessionSimpleModeToggled(on: boolean) {
  *
  * 실기기 검증 중 "붙일 수 있는 요소는 전부 붙인다"로 범위를 넓혔다(2026-09-05). 운영에서는
  * autocapture가 모든 클릭을 `[Amplitude] Element Clicked`로 잡지만 어느 버튼인지(요소 텍스트)만
- * 알고 **의미**(몇 번째 스텝인지, 오늘 날짜인지, 어느 룸 종류인지)는 모른다 — 그 의미를 가진
- * 컴포넌트에서 명시 이벤트로 남긴다. 속성은 enum·boolean·수만 — 닉네임·목표 문구·초대코드 금지.
+ * 알고 **의미**(오늘 날짜인지, 어느 룸 종류인지)는 모른다 — 그 의미를 가진 컴포넌트에서 명시 이벤트로
+ * 남긴다. 속성은 enum·boolean·수만 — 닉네임·목표 문구·초대코드 금지.
  */
-
-/**
- * 온보딩 가이드 진입(2026-09-05) — 어느 경로로 들어왔는지(`entry`: 홈 "집중 시작" 첫 실행 /
- * 설정 "서비스 이용 가이드" / 출처 없음 `unknown`. 홈 가이드 카드는 V2 홈에서 빠졌다). 진입 → 완료 퍼널의 첫 단계다. 스텝 1 첫 노출과 같은
- * 순간이지만 따로 둔다 — 스텝 이벤트는 진행을, 이 이벤트는 유입을 묻는다(같은 `entry`가 가이드
- * 이벤트 전부에 실려 어느 쪽으로도 세그먼트할 수 있다).
- */
-export function trackGuideEntered(entry: "focus-start" | "settings" | "unknown") {
-  if (!initialized) return;
-  track("guide_entered", { entry });
-}
-
-/**
- * 온보딩 가이드 스텝 노출 — 라우트 하나(`/onboarding-guide`)라 페이지뷰로는 스텝별 이탈이 절대
- * 안 잡힌다. `method`는 그 스텝에 온 수단: 첫 진입 `initial`, CTA 버튼 `cta`, 탭·스와이프 `gesture`,
- * 이전 `prev`. 뒤로 갔다 다시 오면 같은 스텝이 다시 찍힌다(중복 제거는 차트에서 "첫 발생" 기준).
- */
-export function trackGuideStepViewed(input: {
-  readonly step: number;
-  readonly entry: "focus-start" | "settings" | "unknown";
-  readonly method: "initial" | "cta" | "gesture" | "prev";
-}) {
-  if (!initialized) return;
-  track("guide_step_viewed", {
-    step: Number(input.step),
-    entry: input.entry,
-    method: input.method,
-  });
-}
-
-/** 가이드 종료 — 완료(G5 CTA) 또는 건너뛰기. `step`은 그때 보고 있던 스텝(건너뛴 위치). */
-export function trackGuideFinished(input: {
-  readonly reason: "completed" | "skipped";
-  readonly step: number;
-  readonly entry: "focus-start" | "settings" | "unknown";
-}) {
-  if (!initialized) return;
-  track("guide_finished", { reason: input.reason, step: Number(input.step), entry: input.entry });
-  if (input.reason === "completed") setFlagOnce("guide_finished");
-}
 
 /** 기록 달력 날짜 선택. 절대 날짜는 싣지 않고 오늘 여부·기록 유무만 — 과거 탐색 깊이의 근사. */
 export function trackRecordsDateSelected(input: {
@@ -1132,7 +1090,6 @@ export function trackSettingsRowPressed(
     | "profile"
     | "timelapse"
     | "app_lock"
-    | "guide"
     | "contact"
     | "interview"
     | "terms"

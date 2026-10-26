@@ -18,7 +18,7 @@ description: "FocusMakers 스터디룸 배경음(백색소음·핑크/브라운 
 | `catalog.ts` | `SoundId`, 카탈로그 타입, `public/sounds/catalog.json` 파서. `kind: "synth" | "file"` | 파서 단위 |
 | `noiseSynth.ts` | 화이트/핑크/브라운 노이즈 `AudioBuffer` 생성(2~4초 루프). 핑크는 Paul Kellet 필터, 브라운은 누적 적분 + 누설 | 순수 함수: 길이·RMS·클리핑 없음 단언 |
 | `ambientPlayer.ts` | `AmbientPlayer` 인터페이스 `{ select(id), pause(), resume(), stop(), state }`. 구현 `createWebAudioPlayer()`와 테스트용 `createMemoryPlayer()`(명령 기록) | 메모리 구현으로 호출 순서 단언 |
-| `ambientSoundStore.ts` | 마지막 선택·켜짐 여부 localStorage 저장. `onboardingGuideStore.ts`의 교체 가능한 store 패턴을 그대로 복사 | 메모리 store로 단위 |
+| `ambientSoundStore.ts` | 마지막 선택·켜짐 여부 localStorage 저장. 인터페이스 뒤에 localStorage 구현과 메모리 구현을 두고 교체·리셋 함수로 바꿔 끼운다 | 메모리 store로 단위 |
 | `useAmbientSound.ts` | 세션 상태를 플레이어 명령으로 번역하는 훅. 컴포넌트는 이 훅만 본다 | RTL `renderHook` + 메모리 플레이어 |
 | `components/AmbientSoundSheet.tsx` | 선택 시트. `components/ui/dialog.tsx`(radix) 위에 조립. 상태·aria·텍스트만 테스트 | 컴포넌트 |
 | `__tests__/` | 위 테스트 | |

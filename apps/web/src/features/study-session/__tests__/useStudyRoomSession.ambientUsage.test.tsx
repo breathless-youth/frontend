@@ -42,7 +42,7 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     });
   });
 
-  it("옵션이 없으면 배경음 필드를 싣지 않는다 — 소셜룸은 배경음이 없다", async () => {
+  it("옵션이 없으면 배경음 필드를 싣지 않는다", async () => {
     const hook = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
 
     await act(async () => {

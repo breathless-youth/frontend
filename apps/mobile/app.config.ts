@@ -388,6 +388,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       webBaseUrl,
       // 런타임 게이트(`lib/metaAdsSdk.ts`) — 비어 있으면 Meta SDK가 빌드에 없다는 뜻이다.
       metaAppId: metaSdk?.appId ?? "",
+      // 같은 기기에서 CSS 대체 화면과 비교하려고 개발 빌드만 네이티브 glass를 끌 수 있게 한다(`lib/remoteQueryParams.ts`).
+      glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
     },
   };
 }

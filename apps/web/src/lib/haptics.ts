@@ -3,7 +3,7 @@ import type { HapticStyle } from "@focusmakers/types";
 import { isNativeBridgeAvailable, postToNative } from "./bridge";
 
 /** 브라우저 폴백 진동 길이 — 짧고 굵게(실기기 피드백). */
-const VIBRATE_MS: Record<HapticStyle, number> = { light: 6, medium: 10, heavy: 14 };
+const VIBRATE_MS: Record<HapticStyle, number> = { light: 6, medium: 10, heavy: 14, alert: 20 };
 
 /**
  * 짧은 햅틱 — 과목 시트의 임계 스냅·측정 선택에 쓴다(시안 "임계 스냅 + 햅틱").

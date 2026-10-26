@@ -252,7 +252,7 @@ function RootLayout() {
         <Stack.Screen name="app-lock-consent" options={APP_LOCK_SHEET_OPTIONS} />
         <Stack.Screen name="app-lock-battery" options={APP_LOCK_SHEET_OPTIONS} />
         {/*
-          G1~G5 온보딩 가이드·이용약관·개인정보처리방침·문의하기는 웹으로 이관됐다(BY-333) —
+          이용약관·개인정보처리방침·문의하기는 웹으로 이관됐다(BY-333) —
           네이티브 라우트를 더 이상 두지 않는다.
         */}
         {/*

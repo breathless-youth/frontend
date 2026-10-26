@@ -10,7 +10,6 @@ import { isForwardEntryIntoFullScreen } from "../historyGuard";
 describe("isForwardEntryIntoFullScreen", () => {
   it("POP + idx 증가 + 전체 화면 라우트 = 포워드 제스처 되열림 → 막는다", () => {
     expect(isForwardEntryIntoFullScreen("POP", 0, 1, "/terms")).toBe(true);
-    expect(isForwardEntryIntoFullScreen("POP", 0, 1, "/onboarding-guide")).toBe(true);
   });
 
   it("의도된 진입(PUSH)은 막지 않는다", () => {
@@ -26,7 +25,7 @@ describe("isForwardEntryIntoFullScreen", () => {
     expect(isForwardEntryIntoFullScreen("POP", 0, 1, "/home")).toBe(false);
   });
 
-  it("REPLACE는 막지 않는다 — 가이드 종료 폴백(replace 이동)이 걸리면 안 된다", () => {
+  it("REPLACE는 막지 않는다 — 뒤로 가기 폴백(`ScreenBackHeader`의 replace 이동)이 걸리면 안 된다", () => {
     expect(isForwardEntryIntoFullScreen("REPLACE", 0, 1, "/terms")).toBe(false);
   });
 });

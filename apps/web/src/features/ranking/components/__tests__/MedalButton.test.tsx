@@ -14,6 +14,12 @@ describe("MedalButton", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("화살표 없이 메달과 개수만 그린다", () => {
+    render(<MedalButton total={3} onClick={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "랭킹 기록, 메달 3개" })).toHaveTextContent(/^3$/);
+  });
+
   it("요약을 아직 못 받았으면 개수 없이 그린다", () => {
     render(<MedalButton total={null} onClick={vi.fn()} />);
 

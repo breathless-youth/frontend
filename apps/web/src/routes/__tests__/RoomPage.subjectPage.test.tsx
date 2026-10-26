@@ -163,14 +163,14 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  it("오른쪽 위 열은 카메라 전환, 배경음, 과목 순서이고 심플 모드에서는 열 전체를 숨긴다", async () => {
+  it("오른쪽 위 열은 배경음, 과목, 타이머 순서이고 심플 모드에서는 열 전체를 숨긴다", async () => {
     renderRoom();
     const group = screen.getByRole("group", { name: "부가 기능" });
     const names = within(group)
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
 
-    expect(names).toEqual(["카메라 전환", "배경음", "과목"]);
+    expect(names).toEqual(["배경음", "과목", "타이머"]);
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
     expect(group).toHaveAttribute("inert");
   });

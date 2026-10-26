@@ -34,7 +34,6 @@ import { pageTransitionFinished } from "./pageTransition";
  * 탭 바를 감추는 라우트
  */
 const FULL_SCREEN_PATHS = [
-  "/onboarding-guide",
   "/contact",
   "/interview",
   "/terms",

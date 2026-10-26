@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DayTaskItem,
@@ -37,6 +37,7 @@ import {
 import { showToast } from "@/lib/toast";
 import type * as UserIdModule from "@/lib/userId";
 import { PlannerPage } from "@/routes/PlannerPage";
+import { enterGlassChrome, pressNative, resetGlassChrome } from "@/test/nativeControlStub";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/subjectApi", () => ({
@@ -433,14 +434,65 @@ describe("PlannerPage", () => {
   it("날짜와 전날·다음 날 꺾쇠는 상단 바 가운데 제목이다", async () => {
     renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
-    const title = await screen.findByRole("heading", { level: 1 });
     // 요일은 한 글자다(`9월 18일 금`).
-    expect(title).toHaveTextContent(dayTitleWithWeekday(YESTERDAY, true));
-    expect(title).not.toHaveTextContent("요일");
+    const label = await screen.findByRole("button", {
+      name: dayTitleWithWeekday(YESTERDAY, true),
+    });
+    expect(label).not.toHaveTextContent("요일");
+    // 날짜는 이 화면의 제목이고, 누르면 날짜 선택 시트가 열린다.
+    expect(screen.getByRole("heading", { level: 1 })).toContainElement(label);
+    expect(label).toHaveAttribute("aria-haspopup", "dialog");
     const bar = screen.getByRole("button", { name: "뒤로 가기" }).parentElement!;
-    expect(bar).toContainElement(title);
+    expect(bar).toContainElement(label);
     expect(bar).toContainElement(screen.getByRole("button", { name: "전날" }));
     expect(bar).toContainElement(screen.getByRole("button", { name: "다음 날" }));
+  });
+
+  describe("앱 모드", () => {
+    afterEach(() => {
+      cleanup();
+      resetGlassChrome();
+    });
+
+    it("앱에는 뒤로 버튼만 맡기고 날짜 이동 줄은 웹이 그대로 그린다", async () => {
+      const postMessage = enterGlassChrome("/planner");
+      renderPlanner(`?userId=7&date=${YESTERDAY}`);
+      await screen.findByRole("heading", { name: "영어" });
+
+      expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
+      const sent = postMessage.mock.calls
+        .map(([raw]) => JSON.parse(raw as string) as { type: string; top?: unknown })
+        .filter((message) => message.type === "set-glass-chrome");
+      expect(sent.at(-1)?.top).toEqual({ leading: "back", leadingLabel: "뒤로 가기", title: null });
+
+      const label = screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY, true) });
+      expect(screen.getByRole("heading", { level: 1 })).toContainElement(label);
+      expect(label).toHaveAttribute("aria-haspopup", "dialog");
+
+      await userEvent.click(screen.getByRole("button", { name: "전날" }));
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `date=${addDaysToDateKey(YESTERDAY, -1)}`,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "다음 날" }));
+      expect(screen.getByTestId("location")).toHaveTextContent(`date=${YESTERDAY}`);
+      expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
+        delta: 1,
+        method: "button",
+      });
+
+      await userEvent.click(label);
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("앱의 뒤로 가기 누름으로 들어온 탭으로 돌아간다", async () => {
+      enterGlassChrome("/planner");
+      renderPlanner(`?guestAuth=1&date=${YESTERDAY}&from=home`);
+      await screen.findByTestId("planner-page");
+
+      pressNative("chrome:leading", 0);
+
+      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+    });
   });
 
   it("기록이 없는 지난 날은 안내 문구 없이 과목과 과목 추가만 보여준다", async () => {

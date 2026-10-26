@@ -1,6 +1,6 @@
 # apps/web
 
-Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈·기록·설정·온보딩·세션·소셜)의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 브라우저로 직접 접속해도 같은 화면이 뜨므로 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
+Vite + React 웹 앱. 모바일이 원격 URL 웹뷰로 여는 모든 화면(홈·기록·설정·세션·소셜)의 실제 구현이다([ADR 0001](../../docs/adr/0001-webview-based-study-room-architecture.md)). 브라우저로 직접 접속해도 같은 화면이 뜨므로 독립 브라우저 서비스로도 배포 가능하다. 배경은 루트 [CLAUDE.md](../../CLAUDE.md)와 [ADR 0003](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md).
 
 ## 역할·구조
 
@@ -60,6 +60,28 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - `createBridgeTokenSource`는 구독을 건 뒤 `auth-ready`를 보낸다. `analytics-ready`와 같은 이유로 순서를 바꾸지 말 것. 첫 토큰 대기 3초, 갱신 대기 10초가 지나면 null로 진행한다.
 - `apiFetch`의 401 처리는 `res.status`만 읽는다. 기존 테스트가 fetch를 `{ok,status,json}` 객체로 mock하므로 `headers`·`clone()`을 읽지 말 것.
 - `apiFetch`는 API origin(`API_BASE_URL`, 비어 있으면 현재 문서)으로 가는 요청에만 Bearer를 붙인다(BY-673). 다른 origin은 토큰 없이 한 번 보내고 갱신하지 않는다. 이 조건을 지우지 말 것.
+
+## 네이티브 glass (`GlassChrome` · `useNativeControl`)
+
+iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거는 [ADR 0018](../../docs/adr/0018-native-glass-chrome-over-webview.md)에 있다.
+
+- 화면에 고정되는 뒤로 가기 줄은 `fixed` 바를 따로 만들지 말고 `GlassChrome`으로 선언한다(뒤로 가기 줄은 `ScreenBackHeader`가 감싼다).
+- 앱이 그리는 것은 뒤로·닫기 버튼과 제목뿐이다.
+- 플래너의 날짜 이동 줄(`PeriodNav`)처럼 조작이 든 가운데 요소는 `center`로 넘기고, 두 모드 모두 웹이 같은 자리에 그린다.
+- 하단 CTA와 기간 이동 줄(플래너 날짜, 기록 탭 달·주)은 사용자 결정으로 기존 웹 디자인을 유지하므로 네이티브로 바꾸지 않는다.
+- 본문의 세그먼트·스위치·버튼을 앱의 네이티브 부품으로 바꾸려면 `useNativeControl`로 등록하고, 시트 안쪽처럼 따로 스크롤되는 영역의 컨트롤은 등록하지 않는다.
+- 앱 부품은 웹 요소보다 늘 위에 그려지고 앱은 `GlassChrome` 위쪽 줄의 아래 끝에서만 잘라 내므로, 다른 `fixed`·`sticky` 웹 줄 아래로 스크롤되는 자리에 등록하면 그 줄 위에 겹친다(수동 기록 길이 칩과 아래 저장 줄은 짧은 화면에서 드물게 겹친다).
+- 원격 웹은 구버전 앱에도 바로 배포되므로 앱이 URL로 알린 것만 앱에 맡긴다.
+- 고정 요소에 새 모양을 더하면 `glassChromeVersion()`으로 그 모양을 그리는 앱 버전인지 확인하고, 아니면 CSS로 그린다.
+- 새 본문 부품 종류는 앱이 `glassControls`로 알린 뒤에야 앱이 그리고, 그 전에는 `useNativeControl`이 웹 원본을 남긴다.
+- 싱글룸 세션 화면의 원형 버튼 5개(배경음, 과목, 타이머, 일시정지, 종료)도 `useNativeControl`로 등록하고 색 역할 `tone`과 간단 모드 `faded`를 넘기며 `{ measureIcon: true }`로 아이콘 폭을 `iconSize`로 보낸다.
+- 싱글룸 카메라 전환은 라이브룸과 같은 오른쪽 위 웹 더보기 메뉴(`SessionMoreMenu`)에 있고, 메뉴가 열린 동안 이 버튼 5개는 `disabled`로 보낸다.
+- 아이콘 폭은 등장 애니메이션이 `scale(0.6)`에서 시작해도 맞도록 `getBoundingClientRect`가 아니라 계산된 CSS 폭으로 측정한다.
+- 이 필드를 쓰는 부품은 앱이 `glassControls`에 `button-style`을 알렸을 때만 앱에 맡겨지고, 아니면 웹 원본이 그대로 그려진다.
+- `theme-dark` 안에 등록된 부품이 있으면 `colorScheme: "dark"`가 함께 나가 앱 부품 층 전체가 다크로 그려진다.
+- 라이브룸 하단 조작 바의 버튼 4개를 등록하고, 바가 숨으면 `faded`, 오른쪽 위 더보기 메뉴가 열린 동안은 `disabled`로 보낸다.
+- CSS 전환이 도는 동안에는 등록한 부품을 매 프레임 다시 재서, transform으로 미끄러지는 바를 앱 부품이 따라간다.
+- 시트·대화상자 안 컨트롤은 등록하지 않는다.
 
 ## 명령
 

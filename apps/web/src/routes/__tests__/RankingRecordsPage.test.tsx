@@ -23,6 +23,13 @@ import { FIXTURE_RECORDS_PAGE, FIXTURE_SUMMARY } from "@/lib/rankingFixtures";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type * as UserId from "@/lib/userId";
 import { RankingRecordsPage } from "@/routes/RankingRecordsPage";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 vi.mock("@/lib/rankingApi", () => ({
   getRankingBoard: vi.fn(),
@@ -201,6 +208,38 @@ describe("RankingRecordsPage", () => {
         expect.any(AbortSignal),
       ),
     );
+  });
+
+  it("앱 모드에서는 순위 칩을 네이티브 세그먼트로 보내고 누르면 그 순위로 거른다", async () => {
+    const postMessage = enterGlassChrome("/ranking/records");
+    measureControlsNow();
+    try {
+      renderPage();
+      await screen.findByRole("heading", { name: "10월" });
+
+      expect(lastInlineControls(postMessage)).toContainEqual(
+        expect.objectContaining({
+          id: "segment-rank-chips",
+          kind: "segment",
+          labels: ["전체", "1위", "2위", "3위"],
+          selected: 0,
+          disabled: [false, false, false, false],
+          accessibilityLabel: "순위",
+        }),
+      );
+
+      pressNative("segment-rank-chips", 1);
+      await vi.waitFor(() =>
+        expect(getRankingRecords).toHaveBeenCalledWith(
+          { rank: 1, size: 20, cursor: null },
+          expect.any(AbortSignal),
+        ),
+      );
+    } finally {
+      cleanup();
+      resetGlassChrome();
+      vi.restoreAllMocks();
+    }
   });
 
   it("기록을 처음에 못 받으면 오류를 보이고 다시 시도로 다시 받는다", async () => {

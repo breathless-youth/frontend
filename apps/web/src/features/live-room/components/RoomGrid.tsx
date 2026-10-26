@@ -4,12 +4,8 @@ import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { RoomMember } from "@focusmakers/types";
 
 import { RemoteVideo } from "@/features/live-room/components/RemoteVideo";
-import { RoomAvatarFallback } from "@/features/live-room/components/RoomAvatarFallback";
-import { RoomTile, SelfStateBadge } from "@/features/live-room/components/RoomTile";
-import type { SelfBadgeState } from "@/features/live-room/components/RoomTile";
+import { RoomTile } from "@/features/live-room/components/RoomTile";
 import { bestSquareGrid } from "@/features/live-room/roomGrid";
-import type { RoomGridSpec } from "@/features/live-room/roomGrid";
-import { useTileFlipAnimation } from "@/features/live-room/useTileFlipAnimation";
 import { cn } from "@/lib/utils";
 
 /** 폭 600 이상 창의 타일 간격(px)이다. 타일 묶음의 `regular:gap-2`와 같은 값이어야 한다. */
@@ -24,34 +20,26 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
 }
 
 /**
- * 풀스크린(1인)·타일 그리드 렌더. 바 토글 시 타일 FLIP 애니메이션을 자기 DOM에 대해
- * 스스로 건다(`useTileFlipAnimation`). 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일
- * rootRef)와 공유하므로 prop으로 받는다.
+ * 룸 타일 그리드
+ *
+ * 1명도 타일 한 장으로 그린다.
+ * 타일 크기와 위치는 바 표시와 무관하다.
+ * 바 표시에 따라 타일이 움직이면 영상이 흔들려 보이기 때문이다.
+ * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
  */
 export function RoomGrid({
-  grid,
   allMembers,
   userId,
-  controlsVisible,
-  selfState,
-  focusSec,
-  cameraOn,
   myVideo,
   remoteStreams,
   selfSurfaceRef,
 }: {
-  grid: RoomGridSpec;
   allMembers: RoomMember[];
   userId: number;
-  controlsVisible: boolean;
-  selfState: SelfBadgeState;
-  focusSec: number;
-  cameraOn: boolean;
   myVideo: ReactNode;
   remoteStreams: ReadonlyMap<number, MediaStream>;
   selfSurfaceRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { rowsRef, invalidateFlipRects } = useTileFlipAnimation(controlsVisible);
   const gridRef = useRef<HTMLDivElement>(null);
   /** 격자 칸 크기(여백 제외). 폭 600 이상 창의 타일 한 변을 정한다. */
   const [space, setSpace] = useState<{ width: number; height: number } | null>(null);
@@ -90,14 +78,13 @@ export function RoomGrid({
       const target = entry.target.getBoundingClientRect();
       measure(target.width, target.height);
     });
-    // 바 토글은 안쪽 여백만 바꾼다.
-    // 바깥 상자를 재야 토글마다 다시 그리지 않는다.
+    // 여백은 회전할 때만 바뀌고 그때는 바깥 상자도 함께 바뀐다.
     observer.observe(element, { box: "border-box" });
     return () => observer.disconnect();
-  }, [grid.mode]);
+  }, []);
 
   const fit =
-    grid.mode === "grid" && space !== null
+    space !== null
       ? bestSquareGrid(allMembers.length, space.width, space.height, TILE_GAP_PX)
       : null;
   const fitStyle =
@@ -109,63 +96,47 @@ export function RoomGrid({
         } as CSSProperties);
 
   /**
-   * 타일 크기 급이 바뀌는 경계(2명↔3명, 3명↔4명, 4명↔5명)에서 타일 DOM을 통째로 새로 마운트한다. (key 접두)
+   * 타일 크기 급이 바뀌는 경계(1명↔2명, 2명↔3명, 3명↔4명, 4명↔5명)에서 타일 DOM을 통째로 새로 마운트한다. (key 접두)
    * 폭 600 이상 창에서 타일 한 변이 바뀌는 인원 경계도 이 안에 든다.
    */
   const tileLayoutEpoch =
-    grid.mode === "grid" && grid.cols === 1
-      ? "duo"
-      : allMembers.length === 3
-        ? "tri" // 가로 3명(1행 3열)과 4명(1행 4열)은 타일 크기가 달라 경계다
-        : allMembers.length <= 4
-          ? "quad"
-          : "hex";
+    allMembers.length <= 1
+      ? "solo"
+      : allMembers.length === 2
+        ? "duo"
+        : allMembers.length === 3
+          ? "tri" // 가로 3명(1행 3열)과 4명(1행 4열)은 타일 크기가 달라 경계다
+          : allMembers.length <= 4
+            ? "quad"
+            : "hex";
 
-  return grid.mode === "fullscreen" ? (
-    <div
-      ref={selfSurfaceRef}
-      className="absolute inset-0 bg-(--session-dialog-bg) landscape-compact:left-[calc(env(safe-area-inset-left)+16px)] landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:overflow-hidden landscape-compact:rounded-3xl"
-    >
-      {cameraOn ? (
-        myVideo
-      ) : (
-        <RoomAvatarFallback nickname={allMembers.find((m) => m.userId === userId)?.nickname} />
-      )}
-      <SelfStateBadge
-        state={selfState}
-        focusSec={focusSec}
-        className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-3"
-      />
-    </div>
-  ) : (
+  return (
     <div
       ref={gridRef}
       data-testid="room-grid"
-      onScroll={invalidateFlipRects}
       className={cn(
-        "flex grow flex-col overflow-y-auto px-1 pt-[calc(env(safe-area-inset-top)+12px)]",
+        "flex grow flex-col overflow-y-auto px-1",
+        // 세로는 위로 시간 글자와 과목 알약, 아래로 바 자리를 늘 비워 둔다.
+        // 위는 총 줄이 보일 때의 높이라 조작이 숨어 알약이 올라가도 타일이 움직이지 않는다.
+        // 아래는 바 오프셋과 같은 max라 아래 안전 영역이 없는 기기에서도 바가 타일에 닿지 않는다.
+        // 위아래 4px은 타일이 알약과 바에 붙어 보이지 않게 띄운 값이다.
+        "pt-[calc(env(safe-area-inset-top)+96px)] pb-[max(calc(env(safe-area-inset-bottom)+76px),86px)]",
         "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
-        grid.cols === 1 && controlsVisible
-          ? "pb-[calc(env(safe-area-inset-bottom)+108px)]"
-          : "pb-[4dvh]",
-        // 가로 하단 여백은 인원 무관 pb-2 — 바는 항상 타일 위에 겹친다.
-        "landscape-compact:pb-2",
-        // 폭 600 이상 창은 바 표시와 무관하게 아래 바 자리를 비워 둔다.
-        // 바 토글이 타일 크기를 바꾸지 않는다.
+        // 가로는 높이가 모자라 시간 글자와 바가 타일 위에 겹친다.
+        "landscape-compact:pt-[calc(env(safe-area-inset-top)+12px)] landscape-compact:pb-2",
+        // 태블릿 가로도 시간 글자와 과목 알약이 타일에 겹치는 것을 받아들이고 바 자리만 비운다.
         "regular:px-4 regular:pt-[calc(env(safe-area-inset-top)+16px)] regular:pb-[calc(env(safe-area-inset-bottom)+112px)]",
         // 큰 태블릿은 바가 커져 그만큼 더 비운다.
         "short-side-lg:pb-[calc(env(safe-area-inset-bottom)+136px)]",
+        "regular:portrait:pt-[calc(env(safe-area-inset-top)+122px)]",
+        "short-side-lg:portrait:pt-[calc(env(safe-area-inset-top)+148px)]",
       )}
     >
       <div
-        ref={rowsRef}
         style={fitStyle}
         data-testid="room-grid-rows"
-        // 안전 정렬: 항상 세로 가운데(my-auto) — 종전엔 바 표시 중 mt-auto로 바 바로
-        // 위에 붙였는데 타일이 바에 달라붙는 게 어색하다는 피드백(2026-08-26)으로 양
-        // 상태 모두 가운데로 통일했다. 바 토글의 배치 변화는 세로 2명뿐이다(컨테이너
-        // pb 주석 — 예약이 줄인 공간의 가운데로 조금 올라가고 FLIP이 잇는다). 내용이
-        // 넘치면 auto 마진이 접혀 위부터 스크롤되는 성질(data loss 방지)은 그대로다.
+        // 안전 정렬: 항상 세로 가운데(my-auto)다.
+        // 내용이 넘치면 auto 마진이 접혀 위부터 스크롤된다.
         className={cn(
           "my-auto flex w-full flex-wrap justify-center gap-1",
           // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은
@@ -183,27 +154,29 @@ export function RoomGrid({
             key={`${tileLayoutEpoch}-${member.userId}`}
             member={member}
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
-            selfState={member.userId === userId ? selfState : undefined}
-            infoHidden={!controlsVisible}
+            isSelf={member.userId === userId}
             media={
               member.userId === userId
                 ? myVideo
                 : remoteVideoOrUndefined(member.userId, remoteStreams)
             }
-            // 2명은 0350/0351 비율(1열 정사각 큰 타일 — 높이 기반 dvh 사이징이라
-            // 기기 크기에 비례하고, 바가 올라오면 타일도 함께 준다), 3~6명은 0352
-            // 비율(세로 2:3, 2열). 가로 방향은 2:3을 눕혀(3:2) 행 높이를 맞춘다.
+            // 세로 크기는 비율에 맡기지 않고 두 변을 직접 정한다.
+            // iOS는 가로에서 높이로 정한 타일을 세로로 돌리면 비율로 높이를 다시 계산하지 않아 높이가 0으로 남는다.
+            // 폭 예산은 좌우 px-1을 뺀 100dvw-8px이고, 좌우 40px 여백은 100dvw-80px이다.
             className={cn(
-              grid.cols === 1
-                ? cn("aspect-square max-w-full", controlsVisible ? "h-[37dvh]" : "h-[39dvh]")
-                : cn(
-                    "aspect-square",
-                    allMembers.length > 4 ? "w-[calc(47%-2px)]" : "w-[calc(50%-2px)]",
-                  ),
-              // 바 표시에 따른 세로 모드의 축소(2명 37dvh)는 가로에 적용되지 않는다
-              // — 가로 크기는 바와 무관해 토글이 레이아웃을 안 바꾼다.
-              "landscape-compact:w-auto landscape-compact:max-w-none",
-              grid.cols === 1
+              "aspect-square",
+              allMembers.length <= 1
+                ? // 좌우 40px 폭과 위아래 띠 높이 중 작은 쪽이라 낮은 기기에서도 띠를 넘지 않는다.
+                  "size-[min(calc(100dvw-80px),calc(100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-96px))]"
+                : allMembers.length === 2
+                  ? // 좌우 40px 폭과 위아래 띠를 둘로 나눈 높이 중 작은 쪽이라 낮은 기기에서도 띠를 넘지 않는다.
+                    "size-[min(calc(100dvw-80px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-100px)/2))]"
+                  : allMembers.length <= 4
+                    ? "size-[calc((100dvw-8px)*0.47-2px)]"
+                    : // 낮은 기기에서 3행이 띠를 넘어 스크롤되지 않게 띠를 셋으로 나눈 높이로 묶는다.
+                      "size-[min(calc((100dvw-8px)*0.47-2px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]",
+              "landscape-compact:w-auto",
+              allMembers.length <= 2
                 ? "landscape-compact:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
                 : allMembers.length === 3
                   ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3))]"

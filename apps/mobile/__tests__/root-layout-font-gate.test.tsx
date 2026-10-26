@@ -430,7 +430,7 @@ describe("RootLayout 접속 시 업데이트 재판정", () => {
 
   it("세션 화면이 떠 있으면 재판정 결과를 세션이 끝난 뒤에 적용한다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
     mockRefreshForceUpdate.mockResolvedValue({
       forced: true,
       recommended: false,
@@ -477,7 +477,7 @@ describe("RootLayout 권장 알림창 시점", () => {
     const { toJSON } = render(<RootLayout />);
     await waitFor(() => expect(toJSON()).not.toBeNull());
     await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalled());
-    const closeSession = markSessionOpen();
+    const closeSession = markSessionOpen("single");
 
     await act(async () => {
       finishPermission();

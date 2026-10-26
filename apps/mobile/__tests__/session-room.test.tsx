@@ -6,7 +6,11 @@ import SessionRoomScreen from "../app/room/[id]";
 import { getRnda, type RndaApi } from "../lib/appLock/rnda";
 import type * as OrientationModule from "../lib/orientation";
 import { offerRouteToSession } from "../lib/sessionInvite";
-import { __resetSessionPresenceForTests, runAfterSession } from "../lib/sessionPresence";
+import {
+  __resetSessionPresenceForTests,
+  runAfterNextSessionScreen,
+  runAfterSession,
+} from "../lib/sessionPresence";
 
 /**
  * 싱글룸 세션 화면 — `RemoteScreen`(BY-333 2단계)의 소비처.
@@ -74,7 +78,7 @@ describe("SessionRoomScreen", () => {
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
     });
   });
 
@@ -142,6 +146,17 @@ describe("SessionRoomScreen: 세션 중 미루기", () => {
 
     const { unmount } = render(<SessionRoomScreen />);
     runAfterSession(run);
+    expect(run).not.toHaveBeenCalled();
+
+    unmount();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("다음 세션 화면을 기다리던 일은 이 화면이 사라질 때 실행된다", () => {
+    const run = jest.fn();
+    runAfterNextSessionScreen(run);
+
+    const { unmount } = render(<SessionRoomScreen />);
     expect(run).not.toHaveBeenCalled();
 
     unmount();

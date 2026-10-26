@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 import type * as Bridge from "@/lib/bridge";
 import type {
+  SetInlineControlsMessage,
   StudySessionResponse,
   StudySessionSummary,
   SubjectRef,
@@ -22,6 +23,12 @@ import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { createManualRecord, deleteManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
 import { statsKeys } from "@/lib/statsQueries";
+import {
+  enterGlassChrome,
+  measureControlsNow,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 import { ManualRecordForm, type ManualRecordFormProps } from "../ManualRecordForm";
 import { daysAgo } from "../manualRecord";
@@ -478,6 +485,55 @@ describe("ManualRecordForm", () => {
         "aria-pressed",
         "false",
       );
+    });
+  });
+
+  describe("앱 모드", () => {
+    afterEach(() => {
+      cleanup();
+      resetGlassChrome();
+    });
+
+    it("길이 칩을 glass 캡슐 버튼으로 보내고 앱의 누름으로 종료에 더한다", () => {
+      enterGlassChrome("/manual-record");
+      measureControlsNow();
+      try {
+        renderForm();
+
+        const controls = vi
+          .mocked(postToNative)
+          .mock.calls.map(([message]) => message)
+          .filter(
+            (message): message is SetInlineControlsMessage =>
+              message.type === "set-inline-controls",
+          )
+          .at(-1)?.controls;
+        expect(controls).toEqual(
+          [
+            ["5", "+5분"],
+            ["10", "+10분"],
+            ["30", "+30분"],
+            ["45", "+45분"],
+            ["60", "+1시간"],
+          ].map(([minutes, label]) =>
+            expect.objectContaining({
+              id: `button-duration-${minutes}`,
+              kind: "button",
+              title: label,
+              systemImage: null,
+              shape: "capsule",
+              disabled: false,
+              accessibilityLabel: label,
+            }),
+          ),
+        );
+        expect(screen.queryByRole("button", { name: "+30분" })).not.toBeInTheDocument();
+
+        pressNative("button-duration-30", 0);
+        expect(endInput()).toHaveValue("10:30");
+      } finally {
+        vi.restoreAllMocks();
+      }
     });
   });
 });

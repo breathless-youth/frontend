@@ -60,12 +60,6 @@
 | Member / Row (공부중·휴식) | `2406:126` | `features/social-room` |
 | Card / Group (내 그룹·탐색) | `2406:173` | `features/social-room` |
 
-## 온보딩
-
-| Figma | 노드 | 코드 |
-|---|---|---|
-| Coach / Tooltip, Pager Dots, Button / Ghost Dark SM | `47:101` `47:137` `47:140` | `features/onboarding` |
-
 ## 재조립 임시 섹션 (S10-draft `3035:7328`, 2026-09-08, 승인 전)
 
 BY-557·564 시안 재조립에서 새로 만든 컴포넌트다. 승인되면 `🧩 2. Components` 페이지로 옮기고 이 표를 위 표에 합친다.

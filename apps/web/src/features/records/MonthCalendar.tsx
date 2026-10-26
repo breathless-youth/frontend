@@ -204,8 +204,7 @@ export function MonthCalendar({
       <div data-testid="month-calendar-swipe-area" className="touch-pan-y" {...swipe}>
         <DayFocusContext.Provider value={dayFocusSec}>
           <Calendar
-            // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다
-            // (온보딩 가이드의 `key={step.id}` 리마운트와 같은 방식).
+            // 월이 바뀔 때마다 리마운트시켜 이동 방향에서 밀려 들어오는 모션을 재생한다.
             key={`${String(month.year)}-${String(month.month)}`}
             mode="single"
             required

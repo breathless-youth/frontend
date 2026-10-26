@@ -753,7 +753,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(true);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
-    m.trackFocusStartTapped("guide");
+    m.trackFocusStartTapped();
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(120);
     m.trackSessionRecoveryConfirmed();
@@ -810,7 +810,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(false);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
-    m.trackFocusStartTapped("session");
+    m.trackFocusStartTapped();
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(5040);
     m.trackSessionRecoveryConfirmed();
@@ -833,8 +833,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
 
-    m.trackGuideStepViewed({ step: 1, entry: "focus-start", method: "initial" });
-    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "settings" });
     m.trackRecordsDateSelected({ isToday: true, hasRecords: false });
     m.trackRecordsMonthChanged({ delta: -1, method: "swipe" });
     m.trackSettingsRowPressed("terms");
@@ -857,8 +855,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackGuideStepViewed({ step: 3, entry: "settings", method: "gesture" });
-    m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
     m.trackRecordsDateSelected({ isToday: false, hasRecords: true });
     m.trackRecordsMonthChanged({ delta: 1, method: "button" });
     m.trackRecordsSessionExpanded({ expanded: true });
@@ -885,8 +881,6 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackForceUpdatePrompted({ appVersion: "0.9.0", minVersion: "1.0.0" });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["guide_step_viewed", { step: 3, entry: "settings", method: "gesture" }],
-      ["guide_finished", { reason: "completed", step: 5, entry: "focus-start" }],
       ["records_date_selected", { is_today: false, has_records: true }],
       ["records_month_changed", { delta: 1, method: "button" }],
       ["records_session_expanded", { expanded: true }],
@@ -922,7 +916,6 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
 
-    m.trackGuideEntered("settings");
     m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "single" });
     m.trackSessionSimpleModeToggled(true);
     m.trackSocialRoomCreateFailed("HTTP_500");
@@ -930,18 +923,16 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("가이드 진입·세션 회전·심플 모드·방 생성 실패를 정해진 이름·속성으로 보낸다", async () => {
+  it("세션 회전·심플 모드·방 생성 실패를 정해진 이름·속성으로 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackGuideEntered("focus-start");
     m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "social" });
     m.trackSessionSimpleModeToggled(false);
     m.trackSocialRoomCreateFailed("NETWORK_OR_UNKNOWN");
 
     expect(mocks.track.mock.calls).toEqual([
-      ["guide_entered", { entry: "focus-start" }],
       ["session_orientation_changed", { orientation: "landscape", room_type: "social" }],
       ["session_simple_mode_toggled", { on: false }],
       ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
@@ -1393,7 +1384,7 @@ describe("랭킹 이벤트", () => {
     m.trackRankingRecordsOpened(18);
     m.trackRankingRecordsOpened(null);
     m.trackRankingRecordTapped({ rank: 1, type: "FOCUS_TIME", period: "WEEKLY", from: "sheet" });
-    m.trackFocusStartTapped("guide", "ranking_empty");
+    m.trackFocusStartTapped("ranking_empty");
 
     expect(mocks.track.mock.calls).toEqual([
       [
@@ -1407,7 +1398,7 @@ describe("랭킹 이벤트", () => {
       ["ranking_records_opened", { total: 18 }],
       ["ranking_records_opened", {}],
       ["ranking_record_tapped", { rank: 1, type: "FOCUS_TIME", period: "WEEKLY", from: "sheet" }],
-      ["focus_start_tapped", { destination: "guide", source: "ranking_empty" }],
+      ["focus_start_tapped", { destination: "session", source: "ranking_empty" }],
     ]);
   });
 
@@ -1430,7 +1421,7 @@ describe("랭킹 이벤트", () => {
     m.trackRankingMedalModalAction("records");
     m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
     m.trackRankingGainCardTapped("single");
-    m.trackFocusStartTapped("session", "ranking_records");
+    m.trackFocusStartTapped("ranking_records");
     m.trackStudyResultConfirmed({ roomType: "single", via: "ranking" });
 
     expect(mocks.track.mock.calls).toEqual([
@@ -1596,24 +1587,21 @@ describe("푸시 타겟용 user property", () => {
     expect(sentSets()).toEqual([[["used_social", true]], [["used_single", true]]]);
   });
 
-  it("가이드 완주·초대 공유 성공·배경음 켬·타임랩스 공유 탭은 행동 이력을 한 번만 남기고, 건너뜀·실패·끔은 남기지 않는다", async () => {
+  it("초대 공유 성공·배경음 켬·타임랩스 공유 탭은 행동 이력을 한 번만 남기고, 실패·끔은 남기지 않는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackGuideFinished({ reason: "skipped", step: 2, entry: "settings" });
     m.trackInviteShared("failed");
     m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
     expect(mocks.identify).not.toHaveBeenCalled();
 
-    m.trackGuideFinished({ reason: "completed", step: 5, entry: "focus-start" });
     m.trackInviteShared("copied");
     m.trackAmbientSoundChanged({ sounds: ["white"], source: "auto_start" });
     m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "dialog" });
     m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "list" });
 
     expect(sentSets()).toEqual([
-      [["guide_finished", true]],
       [["invite_shared", true]],
       [["ambient_sound_used", true]],
       [["timelapse_shared", true]],

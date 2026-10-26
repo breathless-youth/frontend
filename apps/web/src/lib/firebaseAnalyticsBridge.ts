@@ -59,7 +59,6 @@ export const FIREBASE_USER_PROPERTY_KEYS: readonly string[] = [
   "task_count",
   "used_social",
   "used_single",
-  "guide_finished",
   "invite_shared",
   "ambient_sound_used",
   "timelapse_shared",

@@ -31,7 +31,8 @@ export function RoomDebugOverlay({
   // 기본 접힘(2026-08-25 피드백) — 필요할 때만 펼쳐 본다.
   const [open, setOpen] = useState(false);
   return (
-    <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4px)] right-2 z-20 flex flex-col items-end gap-1">
+    // 오른쪽 위 더보기 버튼을 가리지 않게 그 아래에 둔다.
+    <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+58px)] right-2 z-20 flex flex-col items-end gap-1">
       <button
         type="button"
         aria-label="진단 로그 토글"

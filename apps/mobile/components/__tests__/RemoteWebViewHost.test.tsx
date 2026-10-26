@@ -1,8 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import type * as ReactNativeModule from "react-native";
 import { Appearance, AppState, Platform } from "react-native";
+import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
+import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
 import {
   __resetNativeAnalyticsForTests,
@@ -22,6 +26,45 @@ import {
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
   unlockForSession: jest.fn(),
+}));
+
+jest.mock(
+  "@expo/ui/swift-ui",
+  () => jest.requireActual<typeof ExpoUiMock>("../../jest/expoUiMock").swiftUi,
+);
+jest.mock(
+  "@expo/ui/swift-ui/modifiers",
+  () => jest.requireActual<typeof ExpoUiMock>("../../jest/expoUiMock").swiftUiModifiers,
+);
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
+const mockSyncInlineControls = jest.fn();
+const mockClearInlineControls = jest.fn();
+const mockSetInlineClipTop = jest.fn();
+const mockSetInlineColorScheme = jest.fn();
+const mockObserveBackGesture = jest.fn();
+let mockInlinePressListener: ((event: WebGlassPressEvent) => void) | null = null;
+let mockBackGestureListener: ((event: WebGlassBackGestureEvent) => void) | null = null;
+jest.mock("../../modules/web-glass", () => ({
+  syncInlineControls: (...args: unknown[]) => mockSyncInlineControls(...args),
+  clearInlineControls: (...args: unknown[]) => mockClearInlineControls(...args),
+  setInlineClipTop: (...args: unknown[]) => mockSetInlineClipTop(...args),
+  setInlineColorScheme: (...args: unknown[]) => mockSetInlineColorScheme(...args),
+  observeBackGesture: (...args: unknown[]) => mockObserveBackGesture(...args),
+  addInlineControlPressListener: (listener: (event: WebGlassPressEvent) => void) => {
+    mockInlinePressListener = listener;
+    return () => {
+      mockInlinePressListener = null;
+    };
+  },
+  addBackGestureListener: (listener: (event: WebGlassBackGestureEvent) => void) => {
+    mockBackGestureListener = listener;
+    return () => {
+      mockBackGestureListener = null;
+    };
+  },
 }));
 
 type AuthListener = (state: {
@@ -1194,7 +1237,8 @@ describe("SPA 라우팅과 스플래시 (BY-436)", () => {
     warn.mockRestore();
   });
 
-  it("운영 빌드에서는 onLoadStart·onLoadProgress·onNavigationStateChange 어느 것도 연결하지 않는다", () => {
+  it("Android 운영 빌드에서는 onLoadStart·onLoadProgress·onNavigationStateChange 어느 것도 연결하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
     const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     try {
@@ -1563,5 +1607,431 @@ describe("RemoteWebViewHost tab-focus", () => {
     expect(focusAt).toBeGreaterThanOrEqual(0);
     expect(scripts[focusAt]).toContain('\\"focused\\":false');
     expect(focusAt).toBeLessThan(tokenAt);
+  });
+});
+
+/**
+ * 웹뷰 위 glass 층과 본문 부품
+ *
+ * 웹이 보낸 고정 요소는 이 호스트가 그리고, 본문 부품은 감싼 뷰의 태그로 web-glass 모듈에 넘긴다.
+ * 새 문서가 뜨면 이전 문서의 층과 부품을 걷어 낡은 버튼이 남지 않게 한다.
+ */
+describe("RemoteWebViewHost glass 층", () => {
+  const chromeData = JSON.stringify({
+    type: "set-glass-chrome",
+    top: { leading: "back", leadingLabel: "뒤로 가기", title: "이용약관" },
+    obscured: false,
+    atMs: 1,
+  });
+  const inlineMessage = {
+    type: "set-inline-controls",
+    controls: [
+      {
+        id: "records-view",
+        kind: "segment",
+        frame: { x: 20, y: 100, width: 200, height: 36 },
+        labels: ["일간", "주간"],
+        selected: 0,
+        disabled: [false, false],
+        accessibilityLabel: null,
+      },
+    ],
+    hidden: false,
+    atMs: 1,
+  };
+
+  function sendFromWeb(data: string) {
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data } });
+    });
+  }
+
+  const pressScripts = () =>
+    mockInjectJavaScript.mock.calls
+      .map(([script]) => script as string)
+      .filter((script) => script.includes('\\"native-control-press\\"'));
+
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    // 테스트 렌더러의 View ref에는 네이티브 태그가 없다.
+    jest
+      .spyOn(jest.requireActual<typeof ReactNativeModule>("react-native"), "findNodeHandle")
+      .mockReturnValue(42);
+    mockSyncInlineControls.mockReset();
+    mockSyncInlineControls.mockResolvedValue(1);
+    mockClearInlineControls.mockClear();
+    mockSetInlineClipTop.mockClear();
+    mockSetInlineColorScheme.mockClear();
+  });
+
+  // 다시 시도는 다음 프레임에 일어나서 프레임 몇 개가 지나도록 기다린다.
+  const flushFrames = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+  it("set-glass-chrome을 받으면 웹뷰 위에 뒤로 버튼과 제목을 그린다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+
+    expect(screen.getByRole("header", { name: "이용약관" })).toBeTruthy();
+    expect(screen.getByLabelText("뒤로 가기")).toBeTruthy();
+  });
+
+  it("형식이 틀린 set-glass-chrome은 아무것도 그리지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData.replace('"leading":"back"', '"leading":"menu"'));
+
+    expect(screen.queryByRole("header")).toBeNull();
+  });
+
+  it("고정 버튼을 누르면 native-control-press로 웹에 알린다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+    fireEvent.press(screen.getByLabelText("뒤로 가기"));
+
+    expect(pressScripts()).toHaveLength(1);
+    expect(pressScripts()[0]).toContain('\\"id\\":\\"chrome:leading\\"');
+  });
+
+  it("set-inline-controls는 감싼 뷰의 태그와 토큰 색으로 모듈에 넘긴다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(mockSyncInlineControls).toHaveBeenCalledWith(42, inlineMessage.controls, false, {
+      tintLight: colors.brand.primary.light,
+      tintDark: colors.brand.primary.dark,
+      foregroundLight: colors.text.primary.light,
+      foregroundDark: colors.text.primary.dark,
+      disabledLight: colors.text.disabled.light,
+      disabledDark: colors.text.disabled.dark,
+      prominentLight: colors.state.focus.light,
+      prominentDark: colors.state.focus.dark,
+      onProminentLight: colors.text.onBrand.light,
+      onProminentDark: colors.text.onBrand.dark,
+      dangerLight: colors.feedback.error.light,
+      dangerDark: "#f0555f",
+      activeLight: colors.state.focus.light,
+      activeDark: colors.state.focus.dark,
+    });
+  });
+
+  it("colorScheme을 붙이기 전에 층 테마로 넘기고, 없으면 null로 되돌린다", () => {
+    render(<RemoteWebViewHost path="/room/1" testID="host" />);
+    sendFromWeb(JSON.stringify({ ...inlineMessage, colorScheme: "dark" }));
+
+    expect(mockSetInlineColorScheme).toHaveBeenLastCalledWith(42, "dark");
+    expect(mockSetInlineColorScheme.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSyncInlineControls.mock.invocationCallOrder[0] ?? 0,
+    );
+
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(mockSetInlineColorScheme).toHaveBeenLastCalledWith(42, null);
+  });
+
+  it("위쪽 줄이 있으면 부품을 붙이기 전에 그 줄 아래 끝을 자르는 선으로 넘긴다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(mockSetInlineClipTop).toHaveBeenLastCalledWith(42, 52);
+    expect(mockSetInlineClipTop.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSyncInlineControls.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("위쪽 줄이 없으면 자르는 선을 0으로 넘긴다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(mockSetInlineClipTop).toHaveBeenLastCalledWith(42, 0);
+  });
+
+  it("위쪽 줄이 생기거나 없어지면 붙인 부품의 자르는 선을 다시 넘긴다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+    expect(mockSetInlineClipTop).toHaveBeenLastCalledWith(42, 0);
+
+    sendFromWeb(chromeData);
+    expect(mockSetInlineClipTop).toHaveBeenLastCalledWith(42, 52);
+
+    sendFromWeb(chromeData.replace(/"top":\{[^}]*\}/, '"top":null'));
+    expect(mockSetInlineClipTop).toHaveBeenLastCalledWith(42, 0);
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(1);
+  });
+
+  it("감싼 뷰의 태그를 아직 못 얻으면 다음 프레임에 다시 붙인다", async () => {
+    jest
+      .spyOn(jest.requireActual<typeof ReactNativeModule>("react-native"), "findNodeHandle")
+      .mockReturnValueOnce(null);
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+    expect(mockSyncInlineControls).not.toHaveBeenCalled();
+
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(1);
+    expect(mockSyncInlineControls).toHaveBeenCalledWith(
+      42,
+      inlineMessage.controls,
+      false,
+      expect.any(Object),
+    );
+  });
+
+  it("모듈이 웹뷰를 못 찾아 붙인 개수가 모자라면 한 번 더 맞추고 다 붙으면 멈춘다", async () => {
+    mockSyncInlineControls.mockResolvedValueOnce(0);
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(2);
+  });
+
+  it("숨긴 목록은 붙인 개수가 모자라도 다시 맞추지 않는다", async () => {
+    mockSyncInlineControls.mockResolvedValue(0);
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify({ ...inlineMessage, hidden: true }));
+
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(1);
+  });
+
+  it("다시 시도는 5번에서 멈추고 개발 로그를 한 번 남긴다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockSyncInlineControls.mockResolvedValue(null);
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    await flushFrames();
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(6);
+    const exhausted = warn.mock.calls.filter(([text]) =>
+      String(text).includes("본문 부품을 붙이지 못했습니다"),
+    );
+    expect(exhausted).toHaveLength(1);
+  });
+
+  it("새 목록이 오면 이전 목록의 다시 시도는 멈춘다", async () => {
+    mockSyncInlineControls.mockResolvedValueOnce(0);
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+    sendFromWeb(JSON.stringify({ ...inlineMessage, controls: [], atMs: 2 }));
+
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(2);
+    expect(mockSyncInlineControls).toHaveBeenLastCalledWith(42, [], false, expect.any(Object));
+  });
+
+  it("언마운트하면 남은 다시 시도를 멈춘다", async () => {
+    mockSyncInlineControls.mockResolvedValue(0);
+    const view = render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    view.unmount();
+    await flushFrames();
+
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(1);
+  });
+
+  it("로드가 끝나면 마지막 목록을 다시 붙이고 새 문서가 시작되면 이전 목록은 버린다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+    const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as (event: {
+      nativeEvent: { navigationType?: string };
+    }) => void;
+
+    act(() => {
+      onLoadEnd({ nativeEvent: { navigationType: "other" } });
+    });
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      (screen.getByTestId("host").props.onLoadStart as () => void)();
+    });
+    act(() => {
+      onLoadEnd({ nativeEvent: {} });
+    });
+    expect(mockSyncInlineControls).toHaveBeenCalledTimes(2);
+  });
+
+  it("모듈 이벤트 중 이 웹뷰에 붙인 부품의 누름만 웹에 넘긴다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    act(() => {
+      mockInlinePressListener?.({ viewTag: 7, id: "records-view", value: 1 });
+    });
+    expect(pressScripts()).toHaveLength(0);
+
+    act(() => {
+      mockInlinePressListener?.({ viewTag: 42, id: "records-view", value: 1 });
+    });
+    expect(pressScripts()).toHaveLength(1);
+    expect(pressScripts()[0]).toContain('\\"id\\":\\"records-view\\"');
+    expect(pressScripts()[0]).toContain('\\"value\\":1');
+  });
+
+  it("새 문서 로드가 시작되면 이전 문서의 층과 부품을 걷는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    act(() => {
+      (screen.getByTestId("host").props.onLoadStart as () => void)();
+    });
+
+    expect(screen.queryByRole("header")).toBeNull();
+    expect(mockClearInlineControls).toHaveBeenCalledWith(42);
+  });
+
+  it("다시 시도로 문서를 새로 띄우면 이전 문서의 층과 부품을 걷는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    fireWebViewEvent("onError");
+    fireEvent.press(screen.getByText("다시 시도"));
+
+    expect(screen.getByTestId("host")).toBeTruthy();
+    expect(screen.queryByRole("header")).toBeNull();
+    expect(mockClearInlineControls).toHaveBeenCalledWith(42);
+  });
+
+  it("언마운트하면 붙인 부품을 삭제한다", () => {
+    const view = render(<RemoteWebViewHost path="/records" testID="host" />);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    view.unmount();
+
+    expect(mockClearInlineControls).toHaveBeenCalledWith(42);
+  });
+
+  describe("뒤로 가기 스와이프", () => {
+    function swipe(phase: WebGlassBackGestureEvent["phase"], progress: number, viewTag = 42) {
+      act(() => {
+        mockBackGestureListener?.({ viewTag, phase, progress });
+      });
+    }
+
+    function fireLoadEnd(navigationType?: string) {
+      const onLoadEnd = screen.getByTestId("host").props.onLoadEnd as (event: {
+        nativeEvent: { navigationType?: string };
+      }) => void;
+      act(() => {
+        onLoadEnd({ nativeEvent: navigationType === undefined ? {} : { navigationType } });
+      });
+    }
+
+    function advance(ms: number) {
+      act(() => {
+        jest.advanceTimersByTime(ms);
+      });
+    }
+
+    const chromeLayer = () => screen.getByTestId("glass-chrome");
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockObserveBackGesture.mockClear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("로드가 끝나면 감싼 뷰의 태그로 스와이프 관찰을 건다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      mockObserveBackGesture.mockClear();
+
+      fireLoadEnd();
+
+      expect(mockObserveBackGesture).toHaveBeenCalledWith(42);
+    });
+
+    it("스와이프하는 동안 진행만큼 고정 층을 흐리게 하고 취소하면 되돌린다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      swipe("began", 0);
+      swipe("changed", 0.4);
+      expect(chromeLayer()).toHaveStyle({ opacity: 0.6 });
+
+      swipe("cancelled", 0.4);
+      advance(400);
+      expect(chromeLayer()).toHaveStyle({ opacity: 1 });
+    });
+
+    it("손을 뗀 뒤 이동이 없으면 잠시 뒤 되돌린다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      swipe("changed", 0.3);
+      swipe("ended", 0.3);
+      expect(chromeLayer()).toHaveStyle({ opacity: 0.7 });
+
+      advance(1000);
+      expect(chromeLayer()).toHaveStyle({ opacity: 1 });
+    });
+
+    it("손을 뗀 뒤 이동하면 새 화면의 set-glass-chrome이 올 때까지 고정 층을 숨긴다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      swipe("changed", 0.6);
+      swipe("ended", 0.6);
+      fireLoadEnd("backforward");
+      advance(500);
+      expect(screen.queryByTestId("glass-chrome")).toBeNull();
+
+      sendFromWeb(chromeData.replace("이용약관", "설정"));
+      expect(screen.getByRole("header", { name: "설정" })).toBeTruthy();
+      expect(chromeLayer()).toHaveStyle({ opacity: 1 });
+    });
+
+    it("손을 뗀 뒤 문서가 바뀌어도 새 화면이 알리면 다시 그린다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      swipe("ended", 0.7);
+      act(() => {
+        (screen.getByTestId("host").props.onLoadStart as () => void)();
+      });
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      expect(chromeLayer()).toHaveStyle({ opacity: 1 });
+      expect(screen.getByRole("header", { name: "이용약관" })).toBeTruthy();
+    });
+
+    it("다른 웹뷰의 스와이프는 무시한다", () => {
+      render(<RemoteWebViewHost path="/settings" testID="host" />);
+      fireLoadEnd();
+      sendFromWeb(chromeData);
+
+      swipe("changed", 0.5, 7);
+
+      expect(chromeLayer()).toHaveStyle({ opacity: 1 });
+    });
+  });
+
+  it("Android에서는 glass 메시지를 그리지도 모듈에 넘기지도 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    sendFromWeb(chromeData);
+    sendFromWeb(JSON.stringify(inlineMessage));
+
+    expect(screen.queryByRole("header")).toBeNull();
+    expect(mockSyncInlineControls).not.toHaveBeenCalled();
   });
 });

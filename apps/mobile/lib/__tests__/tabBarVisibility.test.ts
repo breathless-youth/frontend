@@ -8,7 +8,7 @@ import {
 import { handleBridgeMessage } from "../nativeBridgeHandler";
 
 /**
- * 탭 바 가시성 스토어 — 전체 화면 웹 라우트(가이드 G1~G5·문의·약관·방침)에서 탭 바를 감추기
+ * 탭 바 가시성 스토어 — 전체 화면 웹 라우트(문의·약관·방침 등)에서 탭 바를 감추기
  * 위한 통로다. 웹 라우팅은 네이티브 스택을 건너므로 이 신호가 없으면 탭 바가 그대로 남는다.
  */
 
@@ -75,7 +75,7 @@ describe("set-tab-bar 메시지 연결", () => {
     expect(result.current).toBe("hidden");
   });
 
-  it("가이드를 닫고 탭 라우트로 돌아오면 탭 바가 복귀한다", () => {
+  it("전체 화면 라우트를 닫고 탭 라우트로 돌아오면 탭 바가 복귀한다", () => {
     const { result } = renderHook(() => useTabBarState());
     act(() => {
       handleBridgeMessage({ type: "set-tab-bar", visible: false, atMs: 1 }, jest.fn());

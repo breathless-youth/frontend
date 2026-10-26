@@ -1,19 +1,25 @@
 import type { StudySessionEventCounts, StudySessionSummary } from "@focusmakers/types";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SegmentedControl } from "../SegmentedControl";
 import { Accordion } from "@/components/ui/accordion";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
 import { StreakBanner } from "../StreakBanner";
 
 // jsdom에는 `PointerEvent` 구현이 없다 — 폴리필이 없으면 스와이프 판정에 쓰는
-// `clientX`/`clientY`가 사라진다(`OnboardingGuidePage.test.tsx`와 같은 이유·같은 최소 폴리필).
+// `clientX`/`clientY`가 사라진다.
 if (typeof window.PointerEvent === "undefined") {
   window.PointerEvent = MouseEvent as unknown as typeof PointerEvent;
 }
@@ -634,5 +640,51 @@ describe("SegmentedControl", () => {
       "주간",
       "월간",
     ]);
+  });
+});
+
+describe("SegmentedControl, 앱 모드", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it("웹 탭을 숨기고 앱 부품 누름을 그 칸의 값으로 넘기며 막힌 칸은 무시한다", () => {
+    enterGlassChrome("/ranking");
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        ariaLabel="기간"
+        value="DAILY"
+        options={[
+          { value: "DAILY", label: "일간" },
+          { value: "WEEKLY", label: "주간", disabled: true },
+          { value: "MONTHLY", label: "월간" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    pressNative("segment-daily-weekly-monthly", 1);
+    expect(onChange).not.toHaveBeenCalled();
+    pressNative("segment-daily-weekly-monthly", 2);
+    expect(onChange).toHaveBeenCalledWith("MONTHLY");
+  });
+
+  it("nativeControlId가 null이면 앱 부품으로 등록하지 않고 웹으로 그린다", () => {
+    const postMessage = enterGlassChrome("/ranking");
+    render(
+      <SegmentedControl
+        ariaLabel="기간"
+        value="daily"
+        options={RECORDS_OPTIONS}
+        onChange={vi.fn()}
+        nativeControlId={null}
+      />,
+    );
+
+    expect(screen.getByRole("tablist", { name: "기간" })).toBeInTheDocument();
+    expect(lastInlineControls(postMessage)).toEqual([]);
   });
 });

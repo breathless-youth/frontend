@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RoomMember } from "@focusmakers/types";
+import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
+import { EMPTY_STATS, plannerDateKeyOf, plannerDayWindow } from "@/features/planner/plannerDay";
+import { queryClient } from "@/lib/queryClient";
 import type { MockRoomScenario } from "@/features/live-room/mockRoomChannel";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
@@ -14,9 +16,29 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import type * as ShareInviteModule from "@/features/social-room/shareInvite";
 import { getProfile } from "@/lib/profileApi";
+import { showCtaToast } from "@/lib/toast";
+import type * as ToastModule from "@/lib/toast";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import type * as AmplitudeModule from "@/lib/amplitude";
+import type * as MetaAppEventsModule from "@/lib/metaAppEvents";
 import { renewLiveRoomSeat, leaveRoom } from "@/lib/roomApi";
+import { AUTO_HIDE_MS } from "@/features/live-room/useAutoHideControls";
+import type * as AmbientPlayerModule from "@/features/ambient-sound/ambientPlayer";
+import {
+  DEFAULT_AMBIENT_SETTINGS,
+  createMemoryAmbientSoundStore,
+  resetAmbientSoundStore,
+  setAmbientSoundStore,
+} from "@/features/ambient-sound/ambientSoundStore";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  measureControlsNow,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 import { LiveRoomPage } from "../LiveRoomPage";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -45,6 +67,68 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
+
+const share = vi.hoisted(() => ({
+  shareInvite: vi.fn(),
+  trackInviteShared: vi.fn(),
+  trackMetaInviteShared: vi.fn(),
+}));
+vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
+  ...(await importOriginal<typeof ShareInviteModule>()),
+  shareInvite: share.shareInvite,
+}));
+const trackStudySessionEnded = vi.hoisted(() => vi.fn());
+const subjectTracking = vi.hoisted(() => ({
+  trackSubjectSheetOpened: vi.fn(),
+  trackSubjectSheetClosed: vi.fn(),
+  trackSubjectItemSelected: vi.fn(),
+}));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof AmplitudeModule>()),
+  trackInviteShared: share.trackInviteShared,
+  trackStudySessionEnded,
+  ...subjectTracking,
+}));
+// 세션에 들어오면 과목 목록을 미리 받는다.
+// jsdom은 상대 URL fetch가 던지므로 응답을 준다.
+const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<SubjectResponse[]> => []));
+vi.mock("@/lib/subjectApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listSubjects,
+}));
+// 과목 시간은 일간 조회에서 오늘 값을 조립한다(`loadSessionSubjects`). 기본은 기록 없음이다.
+const listStudySessionStats = vi.hoisted(() =>
+  vi.fn<(date: string) => Promise<StudySessionListResponse>>(),
+);
+vi.mock("@/lib/statsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listStudySessionStats,
+}));
+vi.mock("@/lib/toast", async (importOriginal) => {
+  const actual = await importOriginal<typeof ToastModule>();
+  return { ...actual, showCtaToast: vi.fn(actual.showCtaToast) };
+});
+vi.mock("@/lib/metaAppEvents", async (importOriginal) => ({
+  ...(await importOriginal<typeof MetaAppEventsModule>()),
+  trackMetaInviteShared: share.trackMetaInviteShared,
+}));
+
+// jsdom에는 Web Audio가 없어 명령만 기록하는 플레이어로 바꾼다.
+// 세션마다 하나씩 만들어진다.
+const ambientPlayers = vi.hoisted(
+  () => [] as ReturnType<typeof AmbientPlayerModule.createMemoryPlayer>[],
+);
+vi.mock("@/features/ambient-sound/ambientPlayer", async (importOriginal) => {
+  const actual = await importOriginal<typeof AmbientPlayerModule>();
+  return {
+    ...actual,
+    createWebAudioPlayer: () => {
+      const player = actual.createMemoryPlayer();
+      ambientPlayers.push(player);
+      return player;
+    },
+  };
+});
 
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
@@ -213,6 +297,12 @@ function tapSurface() {
   fireEvent.pointerUp(surface, { clientX: 10, clientY: 10 });
 }
 
+/** 더보기 메뉴를 열어 항목을 고른다. 카메라 전환·초대코드 공유는 바가 아니라 이 메뉴에 있다. */
+async function chooseMoreMenuItem(name: string) {
+  await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name }));
+}
+
 /** 세션 중 카메라 켜기 — 입장이 항상 꺼짐이라, 켜기는 확인 모달을 거치는 이 경로뿐이다. */
 async function turnCameraOn() {
   await userEvent.click(await screen.findByRole("button", { name: "카메라 켜기" }));
@@ -223,6 +313,23 @@ async function turnCameraOn() {
   });
 }
 
+/**
+ * 앱 glass 버튼을 그리는 앱으로 입장
+ *
+ * 바 버튼의 웹 원본이 접근성 트리에서 빠져서 이름 대신 바가 그려지기를 기다린다.
+ */
+async function enterAppRoom(controls = "segment,switch,button,button-style") {
+  const postMessage = enterGlassChrome("/social/room/42", controls);
+  measureControlsNow();
+  renderRoom();
+  // 브리지를 stub한 상태라 입장 전 권한 게이트가 응답을 기다린다.
+  grantCameraGate();
+  await screen.findByTestId("room-control-bar");
+  await act(async () => {});
+  const control = (id: string) => lastInlineControls(postMessage).find((sent) => sent.id === id);
+  return { postMessage, control };
+}
+
 beforeEach(() => {
   // 일반 입장이 마운트 시 join을 재호출하므로 기본 응답을 렌더 전에 깔아 둔다.
   // 실패·지연을 검증하는 테스트는 renderRoom 전에 이 mock을 덮어쓴다.
@@ -230,6 +337,10 @@ beforeEach(() => {
   // 종료 이동 경로가 leaveRoom의 Promise를 전제한다 — 파일 전역으로 깔아 테스트가
   // 실행 순서(다른 테스트의 mockResolvedValue 잔류)에 기대지 않게 한다.
   mockedLeaveRoom.mockResolvedValue(undefined);
+  listSubjects.mockResolvedValue([]);
+  listStudySessionStats.mockResolvedValue(EMPTY_STATS);
+  // 일간 조회는 싱글턴 캐시를 거치므로 앞 테스트의 응답이 남지 않게 비운다.
+  queryClient.clear();
 });
 
 afterEach(() => {
@@ -451,11 +562,11 @@ describe("LiveRoomPage — 입장", () => {
 });
 
 describe("LiveRoomPage — 그리드·타일", () => {
-  it("혼자면 풀스크린이라 타일 크롬이 없고, 켜면 내 비디오는 amp-block과 sentry-block으로 가려진다", async () => {
+  it("혼자여도 타일 한 장으로 그리고, 켜면 내 비디오는 amp-block과 sentry-block으로 가려진다", async () => {
     renderRoom();
 
     await enterRoom();
-    expect(screen.queryAllByTestId("room-tile")).toHaveLength(0);
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(1);
 
     await turnCameraOn();
 
@@ -549,7 +660,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
 
     expect(await screen.findByTestId("room-my-video")).toHaveClass("scale-x-[-1]");
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+    await chooseMoreMenuItem("카메라 전환");
 
     await waitFor(() => {
       expect(screen.getByTestId("room-my-video")).not.toHaveClass("scale-x-[-1]");
@@ -614,7 +725,7 @@ describe("LiveRoomPage — 그리드·타일", () => {
   });
 
   it("켜기 모달 미리보기는 확정 후 셀프뷰가 놓일 서피스와 같은 비율로 잘라 보여준다", async () => {
-    // 모달 박스(288×234)와 셀프뷰 서피스(세로 풀스크린·타일)는 비율이 달라, 둘 다 cover면
+    // 모달 박스(288×234)와 셀프뷰 타일은 비율이 달라, 둘 다 cover면
     // 잘리는 영역이 달라진다 — 미리보기가 실제보다 좁게 보이던 문제(2026-08-25 실기기).
     const rect = { width: 390, height: 844 } as DOMRect;
     const spy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(rect);
@@ -720,20 +831,19 @@ describe("LiveRoomPage — 그리드·타일", () => {
     expect(offTile).toHaveAttribute("data-state", "OFF");
   });
 
-  it("1인 전체화면에도 내 상태 뱃지가 뜬다 — 꺼짐 입장은 일시정지, 켜면 집중", async () => {
+  it("혼자일 때 내 타일에는 시간 뱃지가 없다", async () => {
     renderRoom();
 
     await enterRoom();
-    expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "PAUSED");
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(1);
+    expect(screen.queryByTestId("tile-time-badge")).not.toBeInTheDocument();
 
     await turnCameraOn();
 
-    await waitFor(() => {
-      expect(screen.getByTestId("self-state-badge")).toHaveAttribute("data-state", "FOCUS");
-    });
+    expect(screen.queryByTestId("tile-time-badge")).not.toBeInTheDocument();
   });
 
-  it("그리드 뱃지: 내 타일은 로컬 상태, 타 참가자도 집중 상태 색을 쓴다 (2026-08-25 BY-435 개정)", async () => {
+  it("여러 명이면 상대 타일에만 서버 집중 상태로 시간 뱃지가 뜬다", async () => {
     renderRoom({
       scenario: { snapshot: [member(8), member(9, { focusState: "DISTRACTED" })] },
     });
@@ -741,16 +851,19 @@ describe("LiveRoomPage — 그리드·타일", () => {
     await enterRoom();
 
     const tiles = screen.getAllByTestId("room-tile");
-    const badge = (id: string) => {
-      const tile = tiles.find((candidate) => candidate.getAttribute("data-user-id") === id);
-      if (tile === undefined) {
+    const tile = (id: string) => {
+      const found = tiles.find((candidate) => candidate.getAttribute("data-user-id") === id);
+      if (found === undefined) {
         throw new Error(`${id} 타일이 없다`);
       }
-      return within(tile).getByTestId("self-state-badge");
+      return found;
     };
-    expect(badge("7")).toHaveAttribute("data-state", "PAUSED");
-    expect(badge("8")).toHaveAttribute("data-state", "FOCUS");
-    expect(badge("9")).toHaveAttribute("data-state", "DISTRACTED");
+    expect(within(tile("7")).queryByTestId("tile-time-badge")).not.toBeInTheDocument();
+    expect(within(tile("8")).getByTestId("tile-time-badge")).toHaveAttribute("data-state", "FOCUS");
+    expect(within(tile("9")).getByTestId("tile-time-badge")).toHaveAttribute(
+      "data-state",
+      "DISTRACTED",
+    );
   });
 });
 
@@ -870,6 +983,9 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     await waitFor(() => {
       expect(channel.published).toContainEqual({ cameraOn: true });
     });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "카메라 끄기" })).toHaveFocus();
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
     await waitFor(() => {
@@ -980,6 +1096,27 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeDisabled();
   });
 
+  it("제출 중에는 카메라가 켜져 있어도 더보기의 카메라 전환이 잠기고 초대코드 공유는 열려 있다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    renderRoom();
+    await enterRoom();
+    // 꺼짐 상태는 그 자체로 전환을 막아서, 켜 둬야 제출 잠금만 따로 검증된다.
+    await turnCameraOn();
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("menuitem", { name: "카메라 전환" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("menuitem", { name: "초대코드 공유" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+
   it("제출이 실패하면 룸에 남아 다시 제출을 노출하고 leave를 부르지 않는다", async () => {
     vi.mocked(submitStudySession).mockRejectedValue(new Error("일시적 오류"));
     renderRoom();
@@ -1083,22 +1220,6 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(onIcon).not.toBe(offIcon);
   });
 
-  it("전환 버튼은 몸통은 고정하고 안의 화살표만 반 바퀴씩 돈다 (BY-435)", async () => {
-    renderRoom();
-    await enterRoom();
-    await turnCameraOn();
-
-    const flipButton = screen.getByRole("button", { name: "카메라 전환" });
-    const arrows = flipButton.querySelector('[data-testid="camera-flip-arrows"]') as SVGGElement;
-    expect(arrows.style.transform).toBe("rotate(0deg)");
-
-    await userEvent.click(flipButton);
-    expect(arrows.style.transform).toBe("rotate(180deg)");
-
-    await userEvent.click(flipButton);
-    expect(arrows.style.transform).toBe("rotate(360deg)");
-  });
-
   it("내 영상은 autoplay 속성에만 의존하지 않고 play()를 직접 부른다 — iOS WKWebView 자동재생 방어", async () => {
     // 동적으로 마운트된 video는 WKWebView가 autoplay를 시작하지 않은 채 둘 수 있다 —
     // 회전(리레이아웃) 전까지 영상 타일이 빈 채 남는 실기기 증상(2026-08-26, 3기기 동시
@@ -1154,56 +1275,53 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(play).toHaveBeenCalled();
   });
 
-  it("세로 2명만 바가 올라오면 하단을 바만큼 벌린다 — 내리면 4dvh 여백", async () => {
-    // 스크롤 컨테이너에 transform(scale)을 걸면 WKWebView가 타일 페인트를 누락한다 —
-    // 축소 효과 없이 여백만 바뀌는 것이 의도다(2026-08-25 실기기 사고).
-    renderRoom({ scenario: { snapshot: [member(8)] } });
-    await enterRoom();
+  it.each([
+    [1, []],
+    [2, [8]],
+    [3, [8, 9]],
+  ])(
+    "%i명 그리드 여백은 바 표시와 무관하다 — 바가 숨거나 나타나도 타일이 움직이지 않는다",
+    async (_, others) => {
+      renderRoom({ scenario: { snapshot: others.map((id) => member(id)) } });
+      await enterRoom();
 
-    const grid = screen.getByTestId("room-grid");
-    expect(grid.className).not.toContain("scale-");
-    expect(grid).not.toHaveClass("pb-[4dvh]");
+      const grid = screen.getByTestId("room-grid");
+      const shown = grid.className;
+      expect(shown).not.toContain("scale-");
 
-    tapSurface();
-    expect(grid).toHaveClass("pb-[4dvh]");
-  });
+      tapSurface();
+      expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+      expect(grid.className).toBe(shown);
+    },
+  );
 
-  it("세로 3명 이상은 바가 올라와도 하단 예약 없이 배치가 그대로다 — 바만 타일 위로 겹친다", async () => {
-    // 2026-08-26 피드백: 바 토글에 타일 그룹이 올라가는 움직임도 3명 이상에선 불필요 —
-    // 가로(pb-2)와 같은 겹침 정책으로 통일하고, 예약은 큰 타일이 깊이 가려지는 2명만 쓴다.
-    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
-    await enterRoom();
-
-    const grid = screen.getByTestId("room-grid");
-    expect(grid).toHaveClass("pb-[4dvh]");
-
-    tapSurface();
-    expect(grid).toHaveClass("pb-[4dvh]");
-  });
-
-  it("2명 타일은 0350/0351 비율 — 1열 정사각, 바가 있으면 37dvh, 내리면 39dvh로 커진다", async () => {
-    // 변화 폭 2dvh는 의도된 값이다(2026-08-26 피드백: 41↔36dvh 스냅이 너무 컸다).
-    // 레이아웃 트랜지션은 랙 이력으로 금지라, 부드러움 대신 폭을 좁혀 어색함을 줄인다.
-    renderRoom({ scenario: { snapshot: [member(8)] } });
+  it.each([
+    [1, []],
+    [2, [8]],
+  ])("1열 %i명 타일은 정사각이고 바 표시와 무관하게 크기가 같다", async (_, others) => {
+    renderRoom({ scenario: { snapshot: others.map((id) => member(id)) } });
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("h-[37dvh]");
+    // 세로 크기를 비율에 맡기면 iOS가 가로에서 돌아올 때 높이를 0으로 남긴다.
+    expect(tile.className).toMatch(/(^| )size-\[min\(calc\(100dvw-80px\),/);
+    const shown = tile.className;
 
     tapSurface();
-    expect(tile).toHaveClass("h-[39dvh]");
+    expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+    expect(tile.className).toBe(shown);
   });
 
-  it("3명 이상 타일은 2열 반폭 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
-    renderRoom({ scenario: { snapshot: [member(8), member(9)] } });
+  it("4명 타일은 6명과 같은 47% 폭이다 — 홀수 인원의 마지막 타일은 justify-center가 가운데 놓는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
 
     expect(screen.getByTestId("room-grid-rows")).toHaveClass("justify-center");
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
     // 정사각(2026-08-26 디스코드 참조 확정 — 종전 2:3 세로형 대체).
     expect(tile).toHaveClass("aspect-square");
-    expect(tile).toHaveClass("w-[calc(50%-2px)]");
+    expect(tile).toHaveClass("size-[calc((100dvw-8px)*0.47-2px)]");
   });
 
   it("진단 로그는 기본 접힘이고 우상단 토글로 펼쳤다 접을 수 있다 (DEV 전용, BY-435)", async () => {
@@ -1228,7 +1346,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
   it("타일 그룹은 바 표시와 무관하게 항상 세로 가운데(my-auto) — 바에 달라붙지 않는다", async () => {
     // 종전엔 바 표시 중 mt-auto로 바 위에 붙였는데 어색하다는 피드백(2026-08-26)으로
-    // 통일했다 — 바가 올라오면 pb 예약이 줄인 공간의 가운데로 조금 올라갈 뿐이다.
+    // 통일했다.
     // content-center/end는 내용이 넘치면 위 행이 잘려 못 쓴다(2026-08-25 실기기).
     renderRoom({ scenario: { snapshot: [member(8), member(9), member(10)] } });
     await enterRoom();
@@ -1262,11 +1380,10 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     await enterRoom();
 
     const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    expect(tile).toHaveClass("w-[calc(47%-2px)]");
-    expect(tile).not.toHaveClass("w-[calc(44%-2px)]");
+    expect(tile.className).toContain("size-[min(calc((100dvw-8px)*0.47-2px),");
 
     tapSurface();
-    expect(tile).toHaveClass("w-[calc(47%-2px)]");
+    expect(tile.className).toContain("size-[min(calc((100dvw-8px)*0.47-2px),");
   });
 
   it("가로 2명은 세로와 같은 flex 묶음 배치 — 정사각 타일이 gap-1로 붙어 중앙 정렬 (BY-441)", async () => {
@@ -1340,10 +1457,15 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     // WKWebView는 재생 중 영상 타일이 레이아웃 변경으로 리사이즈되면 레이어를 다시 그리지
     // 못하고 빈 채로 남길 수 있다(2026-08-26 실기기: 2→3명 전환에서 기존 타일 2개만 안
     // 보이고 새 타일만 그려짐). 새 DOM은 새 레이어라 강제 재페인트된다. 경계는
-    // 2↔3(duo/tri)·3↔4(tri/quad — 가로 1행 3열→4열)·4↔5(quad/hex)이고, 같은 급(5→6명)은
+    // 1↔2(solo/duo)·2↔3(duo/tri)·3↔4(tri/quad — 가로 1행 3열→4열)·4↔5(quad/hex)이고, 같은 급(5→6명)은
     // 타일 크기가 안 변해 재마운트하지 않는다.
-    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    const { channel } = renderRoom();
     await enterRoom();
+
+    const soloTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
+    act(() => channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(8) }));
+    expect(screen.getAllByTestId("room-tile")).toHaveLength(2);
+    expect(document.body.contains(soloTile)).toBe(false);
 
     const duoTile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
 
@@ -1422,7 +1544,7 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     });
     channel.published.length = 0;
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+    await chooseMoreMenuItem("카메라 전환");
 
     await waitFor(() => {
       expect(channel.published).toContainEqual({ cameraOn: false });
@@ -1430,17 +1552,89 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
     expect(channel.published).not.toContainEqual({ cameraOn: true });
   });
 
-  it("카메라가 꺼져 있으면 전환 버튼은 비활성이다 (2026-08-25 BY-427 피드백)", async () => {
+  it("카메라가 꺼져 있으면 더보기의 카메라 전환은 비활성이고, 켜면 활성이다", async () => {
     renderRoom();
 
     await enterRoom();
 
     // 무조건 끄고 입장이므로 초기 상태에서 전환할 카메라가 없다.
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("menuitem", { name: "카메라 전환" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
 
     await turnCameraOn();
 
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("menuitem", { name: "카메라 전환" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+
+  it("하단 바는 카메라, 과목, 배경음, 나가기 순서이고 카메라 전환 버튼은 없다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    const buttons = within(screen.getByTestId("room-control-bar")).getAllByRole("button");
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "카메라 켜기",
+      "과목",
+      "배경음",
+      "나가기",
+    ]);
+    expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
+  });
+
+  it("더보기 메뉴는 세션 화면 안에 열려 세션 테마를 받는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(screen.getByTestId("live-room-page")).toContainElement(screen.getByRole("menu"));
+  });
+
+  it("더보기를 다시 눌러 메뉴를 닫는 누름은 화면 탭 토글로 새지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    // 열린 메뉴는 모달이라 나머지 화면이 접근성 트리에서 숨어 역할로는 찾지 못한다.
+    const more = screen.getByLabelText("더보기");
+    // jsdom의 PointerEvent 폴백은 좌표와 button을 싣지 않는다. MouseEvent로 직접 만들어 보낸다.
+    fireEvent(more, new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10 }));
+    fireEvent(more, new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 10 }));
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
+  });
+
+  it("더보기 메뉴가 열린 동안 하단 바는 누름을 받지 않아 바깥 누름으로 메뉴만 닫힌다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("pointer-events-none");
+    expect(bar).not.toHaveClass("pointer-events-auto");
+    expect(bar).toHaveClass("translate-y-0");
+  });
+
+  it("조작이 숨으면 더보기 버튼도 흐려지고 탭을 받지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    tapSurface();
+
+    const more = screen.getByLabelText("더보기");
+    expect(more).toHaveClass("pointer-events-none", "opacity-0");
+    expect(more).toHaveAttribute("inert");
   });
 
   it("카메라 켜기 모달 미리보기는 화면 높이 비례(상한 234px) — 가로에서도 잘리지 않는다", async () => {
@@ -1458,74 +1652,144 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
   });
 });
 
-describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)", () => {
-  const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
-
-  it("입장 직후 바는 올라와 있고, 탭하면 내려가고 다시 탭하면 올라온다 — 자동으로 내려가지 않는다", async () => {
+describe("LiveRoomPage — 더보기 초대코드 공유", () => {
+  it("복사로 끝나면 토스트를 띄우고 결과값으로 계측한다", async () => {
+    share.shareInvite.mockResolvedValue("copied");
     renderRoom();
     await enterRoom();
 
+    await chooseMoreMenuItem("초대코드 공유");
+
+    expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
+    expect(showCtaToast).toHaveBeenCalledTimes(1);
+    expect(share.shareInvite).toHaveBeenCalledWith("0712");
+    expect(share.trackInviteShared).toHaveBeenCalledWith("copied");
+    expect(share.trackMetaInviteShared).toHaveBeenCalledWith("copied");
+  });
+
+  it.each(["shared", "failed"] as const)(
+    "%s로 끝나면 토스트 없이 계측만 보낸다",
+    async (result) => {
+      share.shareInvite.mockResolvedValue(result);
+      renderRoom();
+      await enterRoom();
+
+      await chooseMoreMenuItem("초대코드 공유");
+
+      await waitFor(() => {
+        expect(share.trackInviteShared).toHaveBeenCalledWith(result);
+      });
+      expect(share.trackMetaInviteShared).toHaveBeenCalledWith(result);
+      // 토스트 판단은 계측과 같은 콜백에서 끝나므로 계측이 보이면 토스트 호출 여부도 확정이다.
+      expect(showCtaToast).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("LiveRoomPage — 조작 자동 숨김", () => {
+  const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
+
+  /** 입장 때 걸린 숨김 타이머는 진짜 시계라, 가짜 시계로 바꾼 뒤 바를 눌러 5초를 새로 세게 한다. */
+  function restartHideTimerOnFakeClock() {
+    vi.useFakeTimers();
+    fireEvent.pointerDown(screen.getByTestId("room-control-bar"));
+  }
+
+  function advance(ms: number) {
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+  }
+
+  function expectControlsHidden() {
     const bar = screen.getByTestId("room-control-bar");
-    expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass(SLIDE);
+    expect(bar).toHaveClass(SLIDE, "pointer-events-none");
+    expect(bar).toHaveAttribute("inert");
+    const more = screen.getByLabelText("더보기");
+    expect(more).toHaveClass("opacity-0", "pointer-events-none");
+    expect(more).toHaveAttribute("inert");
+  }
 
-    tapSurface();
-    expect(bar).toHaveClass("pointer-events-none");
-    expect(bar).toHaveClass(SLIDE);
+  function expectControlsShown() {
+    const bar = screen.getByTestId("room-control-bar");
+    expect(bar).toHaveClass("translate-y-0");
+    expect(bar).not.toHaveAttribute("inert");
+    expect(screen.getByLabelText("더보기")).not.toHaveAttribute("inert");
+  }
 
-    tapSurface();
-    expect(bar).toHaveClass("pointer-events-auto");
-    expect(bar).not.toHaveClass(SLIDE);
-  });
-
-  it("바 토글 시 타일 이동을 FLIP transform으로 잇는다 — 바 슬라이드와 같은 500ms·시트 곡선", async () => {
-    // 도착 시점 동기화(2026-08-26 피드백): 레이아웃은 즉시 확정하고 타일별 transform
-    // 애니메이션이 이전 위치에서 새 위치로 잇는다. jsdom에는 WAAPI도 실제 레이아웃도
-    // 없어 rect와 animate를 흉내 내 발신만 검증한다.
-    renderRoom({ scenario: { snapshot: [member(8)] } });
+  it("입장 직후 조작이 보이고, 5초 동안 조작이 없으면 바와 더보기가 숨어 inert가 된다", async () => {
+    renderRoom();
     await enterRoom();
+    expectControlsShown();
+    expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
 
-    const tile = screen.getAllByTestId("room-tile")[0] as HTMLElement;
-    let top = 300;
-    vi.spyOn(tile, "getBoundingClientRect").mockImplementation(
-      () => ({ top, left: 20, width: 200, height: 200, right: 220, bottom: top + 200 }) as DOMRect,
-    );
-    const animate = vi.fn();
-    (tile as unknown as { animate: typeof animate }).animate = animate;
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS - 1);
+    expectControlsShown();
 
-    // 첫 토글의 기준 rect는 모킹 전(0×0)이라 스킵되고, 모킹된 rect가 기준으로 저장된다.
-    tapSurface();
-    expect(animate).not.toHaveBeenCalled();
-
-    top = 340;
-    tapSurface();
-
-    expect(animate).toHaveBeenCalledTimes(1);
-    const [keyframes, options] = animate.mock.calls[0] as [
-      { transform: string }[],
-      { duration: number; easing: string },
-    ];
-    // 이전 위치(top 300)에서 시작해 원위치(top 340)로 — 역적용 translate가 -40px다.
-    expect(keyframes[0].transform).toContain("translate(0px, -40px)");
-    expect(keyframes[1].transform).toBe("none");
-    // 바 슬라이드(RoomControlBar)·글자 페이드(RoomTile)와 같은 값 — 어긋나면 도착이 갈라진다.
-    expect(options).toEqual({ duration: 500, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+    advance(1);
+    expectControlsHidden();
   });
 
-  it("바가 내려가면 타일의 이름·목표가 숨고 시간 뱃지만 남는다", async () => {
+  it("숨은 뒤 탭하면 다시 보이고, 보이는 상태의 탭은 바로 숨긴다", async () => {
+    renderRoom();
+    await enterRoom();
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expectControlsHidden();
+
+    tapSurface();
+    expectControlsShown();
+
+    tapSurface();
+    expectControlsHidden();
+  });
+
+  it("조작이 숨어도 타일의 이름·목표와 시간 뱃지는 남는다", async () => {
     renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
     await enterRoom();
 
-    const infos = screen.getAllByTestId("tile-info");
-    infos.forEach((info) => expect(info).not.toHaveClass("opacity-0"));
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expectControlsHidden();
+    screen.getAllByTestId("tile-info").forEach((info) => {
+      expect(info).not.toHaveClass("opacity-0");
+      expect(info).not.toHaveAttribute("aria-hidden");
+    });
+    expect(screen.getByText("합격")).toBeVisible();
+    expect(screen.getByTestId("tile-time-badge")).toBeInTheDocument();
+  });
+
+  it("왼쪽 위 내 시간 글자는 조작이 숨어도 남는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    expect(screen.getByTestId("room-time-text")).toHaveTextContent("00:00:00");
+    expect(screen.getByTestId("room-time-text")).toHaveTextContent("총 00:00:00");
+
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expectControlsHidden();
+    const timeText = screen.getByTestId("room-time-text");
+    expect(timeText).not.toHaveClass("opacity-0");
+    expect(timeText.closest("[inert], [aria-hidden='true']")).toBeNull();
+  });
+
+  it("조작이 숨으면 총 줄도 접히고, 다시 보이면 펼친다", async () => {
+    renderRoom();
+    await enterRoom();
+    expect(screen.getByTestId("room-time-total")).not.toHaveAttribute("aria-hidden");
+
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expectControlsHidden();
+    expect(screen.getByTestId("room-time-total")).toHaveClass("grid-rows-[0fr]");
+    expect(screen.getByTestId("room-time-total")).toHaveAttribute("aria-hidden", "true");
 
     tapSurface();
-    screen.getAllByTestId("tile-info").forEach((info) => {
-      expect(info).toHaveClass("opacity-0");
-      expect(info).toHaveAttribute("aria-hidden", "true");
-    });
-    // 시간 뱃지는 남는다.
-    expect(screen.getAllByTestId("self-state-badge").length).toBeGreaterThan(0);
+    expectControlsShown();
+    expect(screen.getByTestId("room-time-total")).toHaveClass("grid-rows-[1fr]");
+    expect(screen.getByTestId("room-time-total")).not.toHaveAttribute("aria-hidden");
   });
 
   it("드래그(스크롤)는 바를 토글하지 않는다 — 이동 10px 초과면 탭이 아니다", async () => {
@@ -1554,15 +1818,60 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
     expect(bar).toHaveClass("pointer-events-auto");
   });
 
-  it("다이얼로그가 열려 있는 동안은 화면을 탭해도 내려가지 않는다", async () => {
+  it("다이얼로그가 열려 있는 동안은 시간이 지나도, 화면을 탭해도 숨지 않는다", async () => {
     renderRoom();
     await enterRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    // 여는 조작보다 먼저 가짜 시계로 바꿔야 강제 표시가 빠졌을 때 숨김 타이머가 실제로 돈다.
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
     tapSurface();
+    expectControlsShown();
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
+  });
+
+  it("더보기 메뉴가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    // Radix 트리거는 왼쪽 버튼 pointerdown에서 열리는데 jsdom의 PointerEvent 폴백은 button을 싣지 않는다.
+    fireEvent(
+      screen.getByLabelText("더보기"),
+      new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+    );
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
+  });
+
+  it("배경음 페이지가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "배경음" }));
+    expect(screen.getByRole("dialog", { name: "배경음" })).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
+  });
+
+  it("과목 페이지가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
   });
 
   it("제출 중(controlsLocked)에는 숨겨 뒀어도 바가 올라오고 저장 중 문구가 남는다", async () => {
@@ -1576,6 +1885,7 @@ describe("LiveRoomPage — 컨트롤 바 탭 토글 (BY-435 디스코드 패턴)
 
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
     expect(screen.getByText("저장 중...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "배경음" })).toBeDisabled();
   });
 });
 
@@ -1602,7 +1912,7 @@ describe("LiveRoomPage — 재입장 초기화 취급", () => {
     expect(mockedRenewSeat).not.toHaveBeenCalled();
   });
 
-  it("내 타일 공부시간 표시는 로컬 측정값이다 — 서버 보존값을 이어받지 않는다", async () => {
+  it("서버 보존값이 있어도 내 타일에는 시간을 그리지 않는다", async () => {
     renderRoom({
       state: { inviteCode: "0712", graceRejoin: true },
       scenario: { snapshot: [member(7, { focusSec: 7320 }), member(8)] },
@@ -1612,7 +1922,7 @@ describe("LiveRoomPage — 재입장 초기화 취급", () => {
     const myTile = tiles.find((tile) => tile.dataset.userId === "7");
     expect(myTile).toBeDefined();
     expect(within(myTile as HTMLElement).queryByText("02:02")).not.toBeInTheDocument();
-    expect(within(myTile as HTMLElement).getByText("00:00")).toBeInTheDocument();
+    expect(within(myTile as HTMLElement).queryByTestId("tile-time-badge")).not.toBeInTheDocument();
   });
 });
 
@@ -1836,5 +2146,603 @@ describe("LiveRoomPage — 햅틱", () => {
 
     expect(haptic).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalledWith("medium");
+  });
+});
+
+describe("LiveRoomPage — 배경음", () => {
+  const CATALOG_JSON = JSON.stringify({
+    version: 1,
+    sounds: [{ id: "white", kind: "synth", label: "백색소음" }],
+  });
+
+  beforeEach(() => {
+    ambientPlayers.length = 0;
+    // 훅이 `/sounds/catalog.json` 을 받는다.
+    // jsdom 은 상대 URL fetch 가 던지므로 응답을 준다.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(CATALOG_JSON, { status: 200 })),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+    resetAmbientSoundStore();
+    localStorage.clear();
+  });
+
+  it("저장된 소리가 있어도 카메라를 끈 채 입장하면 믹스를 걸기 전에 멈춰 둔다", async () => {
+    setAmbientSoundStore(
+      createMemoryAmbientSoundStore({ ...DEFAULT_AMBIENT_SETTINGS, mix: { white: 60 } }),
+    );
+    renderRoom();
+    await enterRoom();
+
+    await waitFor(() => {
+      expect(ambientPlayers[0]?.commands).toContainEqual({
+        type: "applyMix",
+        mix: { white: 60 },
+      });
+    });
+    expect(ambientPlayers[0]?.commands.slice(0, 2)).toEqual([
+      { type: "suspend" },
+      { type: "applyMix", mix: { white: 60 } },
+    ]);
+    expect(ambientPlayers[0]?.getState()).toBe("suspended");
+  });
+
+  it("버튼을 누르면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+
+    const dialog = screen.getByRole("dialog", { name: "배경음" });
+    expect(screen.getByTestId("live-room-page")).toContainElement(dialog);
+    expect(await screen.findByRole("slider", { name: "백색소음 음량" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "배경음" })).toHaveFocus();
+    });
+  });
+
+  it("페이지가 열린 동안은 페이지의 알림 자리만 남아 토스트가 두 번 뜨지 않는다", async () => {
+    renderRoom();
+    await enterRoom();
+    const toasters = () => document.querySelectorAll(`section[aria-label^="화면 알림"]`);
+    expect(toasters()).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+
+    expect(toasters()).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: "배경음" })).toContainElement(
+      toasters()[0] as HTMLElement,
+    );
+  });
+
+  it("입장 직후 카메라가 꺼진 동안은 소리를 켜도 재생하지 않고, 카메라를 켜면 재생한다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+    const player = ambientPlayers[0];
+    await waitFor(() => {
+      expect(player?.commands).toContainEqual({ type: "applyMix", mix: { white: 60 } });
+    });
+    expect(player?.getState()).toBe("suspended");
+
+    await userEvent.keyboard("{Escape}");
+    expect(await screen.findByRole("button", { name: "배경음 켜짐" })).toBeInTheDocument();
+    await turnCameraOn();
+
+    await waitFor(() => {
+      expect(player?.getState()).toBe("playing");
+    });
+  });
+
+  it("세션이 끝나 제출 중으로 넘어가면 열려 있던 페이지가 닫힌다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    expect(screen.getByRole("dialog", { name: "배경음" })).toBeInTheDocument();
+    mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("소리를 켠 채 세션을 끝내면 배경음 사용을 study_session_ended에 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom();
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+    await userEvent.keyboard("{Escape}");
+    await turnCameraOn();
+    await waitFor(() => {
+      expect(ambientPlayers[0]?.getState()).toBe("playing");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => {
+      expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
+    });
+    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
+      roomType: "social",
+      ambientSoundUsed: true,
+      ambientSoundSec: expect.any(Number),
+    });
+  });
+
+  it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {
+    const { control } = await enterAppRoom();
+    expect(control("room-ambient")).toMatchObject({ systemImage: "music.note", tone: "default" });
+
+    pressNative("room-ambient", 0);
+    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+      target: { value: "60" },
+    });
+
+    await waitFor(() => {
+      expect(control("room-ambient")).toMatchObject({
+        tone: "active",
+        accessibilityLabel: "배경음 켜짐",
+      });
+    });
+  });
+});
+
+describe("LiveRoomPage — 과목", () => {
+  const MATH: SubjectResponse = {
+    id: 3,
+    name: "수학",
+    colorIndex: 0,
+    studySec: 600,
+    focusSec: 600,
+    tasks: [],
+  };
+  const SLIDE = "translate-y-[calc(100%+env(safe-area-inset-bottom)+17px)]";
+
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  const pill = () => screen.queryByRole("button", { name: /^수학.*순공/ });
+
+  /** 오늘(플래너 하루)의 05:01부터 수학으로 저장된 세션을 깔아 알약의 바탕값을 만든다. 서버 누적(`MATH.focusSec`)은 쓰이지 않는다. */
+  function saveMathToday(focusSec: number) {
+    const dateKey = plannerDateKeyOf(new Date());
+    const startMs = plannerDayWindow(dateKey).startMs + 60_000;
+    const startedAt = new Date(startMs).toISOString();
+    const endedAt = new Date(startMs + focusSec * 1000).toISOString();
+    listStudySessionStats.mockImplementation(async (date) =>
+      date === dateKey
+        ? {
+            ...EMPTY_STATS,
+            sessions: [
+              {
+                id: 1,
+                statDate: dateKey,
+                startedAt,
+                endedAt,
+                studySec: focusSec,
+                focusSec,
+                focusRate: 100,
+                eventCounts: EMPTY_STATS.totalEventCounts,
+                events: [],
+                subjectSegments: [
+                  { subjectId: MATH.id, startedAt, endedAt, studySec: focusSec, focusSec },
+                ],
+                completedTasks: [],
+              },
+            ],
+            subjects: [
+              { id: MATH.id, name: MATH.name, colorIndex: MATH.colorIndex, deleted: false },
+            ],
+          }
+        : EMPTY_STATS,
+    );
+  }
+
+  /** 카메라를 켠 채 과목 페이지에서 수학의 재생 버튼을 누른다. */
+  async function pickMathWithCameraOn() {
+    listSubjects.mockResolvedValue([MATH]);
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+  }
+
+  it("과목 버튼으로 열면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+
+    const dialog = screen.getByRole("dialog", { name: "과목" });
+    expect(screen.getByTestId("live-room-page")).toContainElement(dialog);
+    expect(screen.getByRole("button", { name: "과목", hidden: true })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenCalledWith("button");
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "과목" })).toHaveFocus();
+    });
+    expect(subjectTracking.trackSubjectSheetClosed).toHaveBeenCalledWith(
+      expect.objectContaining({ closedBy: "back" }),
+    );
+  });
+
+  it("과목을 고르지 않았으면 알약이 없다", async () => {
+    listSubjects.mockResolvedValue([MATH]);
+    renderRoom();
+    await enterRoom();
+
+    await waitFor(() => expect(listSubjects).toHaveBeenCalled());
+    expect(pill()).not.toBeInTheDocument();
+  });
+
+  it("페이지가 닫힌 동안 미리 받기가 실패하면 토스트를 띄우지 않는다", async () => {
+    listSubjects.mockRejectedValue(new Error("network"));
+    renderRoom();
+    await enterRoom();
+
+    await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(1));
+    // 실패 처리는 조회가 끝난 뒤 이어지므로 한 틱 더 기다린다.
+    await act(async () => {});
+    expect(showCtaToast).not.toHaveBeenCalled();
+  });
+
+  it("미리 받기가 실패한 채 페이지를 열면 목록을 다시 받는다", async () => {
+    listSubjects.mockRejectedValueOnce(new Error("network"));
+    renderRoom();
+    await enterRoom();
+    await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+
+    await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(2));
+  });
+
+  it("카메라가 켜진 채 재생을 누르면 그 과목을 고르고 페이지를 닫으며, 알약에 이름과 오늘 저장 기록이 더해진 시간이 보인다", async () => {
+    saveMathToday(600);
+    await pickMathWithCameraOn();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(pill()).toHaveTextContent(/수학00:10:0\d/);
+    expect(screen.getByRole("button", { name: "과목 선택됨" })).toHaveAttribute("data-on", "true");
+    expect(subjectTracking.trackSubjectItemSelected).toHaveBeenCalledWith("subject");
+    expect(subjectTracking.trackSubjectSheetClosed).toHaveBeenCalledWith(
+      expect.objectContaining({ closedBy: "play" }),
+    );
+  });
+
+  it("알약은 내 시간 글자 바로 아래 왼쪽에 놓이고 이름이 길면 화면 폭 안에서 잘린다", async () => {
+    listSubjects.mockResolvedValue([{ ...MATH, name: "수학".repeat(20) }]);
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: `${"수학".repeat(20)} 측정 시작` }),
+    );
+
+    const subjectPill = await screen.findByRole("button", { name: /^(수학)+.*순공/ });
+    const timeText = screen.getByTestId("room-time-text");
+    expect(timeText.nextElementSibling).toContainElement(subjectPill);
+    // 시간 글자와 알약을 묶은 칸이 오른쪽에도 화면 여백을 둬서 알약 폭의 상한이 된다.
+    expect(timeText.parentElement).toHaveClass(
+      "left-[calc(env(safe-area-inset-left)+16px)]",
+      "right-[calc(env(safe-area-inset-right)+16px)]",
+    );
+    expect(subjectPill).toHaveClass("max-w-full");
+    expect(within(subjectPill).getByText("수학".repeat(20))).toHaveClass("truncate");
+  });
+
+  it("알약 위로는 흐림 배경을 끊는 transform·opacity·filter 조상이 없다", async () => {
+    await pickMathWithCameraOn();
+    const subjectPill = await screen.findByRole("button", { name: /^수학.*순공/ });
+    const page = screen.getByTestId("live-room-page");
+
+    for (let node = subjectPill.parentElement; node && node !== page; node = node.parentElement) {
+      expect(node.className).not.toMatch(/(^|\s)(translate|scale|rotate|opacity|filter|blur)-/);
+    }
+  });
+
+  it("알약을 누르면 페이지가 열리고, 닫으면 알약으로 포커스가 돌아온다", async () => {
+    await pickMathWithCameraOn();
+    const subjectPill = await screen.findByRole("button", { name: /^수학.*순공/ });
+
+    await userEvent.click(subjectPill);
+    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenLastCalledWith("label");
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(subjectPill).toHaveFocus());
+  });
+
+  it("조작이 숨어도 알약은 남고 누를 수 있다", async () => {
+    await pickMathWithCameraOn();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    vi.useFakeTimers();
+    fireEvent.pointerDown(screen.getByTestId("room-control-bar"));
+    act(() => {
+      vi.advanceTimersByTime(AUTO_HIDE_MS);
+    });
+
+    expect(screen.getByTestId("room-control-bar")).toHaveClass(SLIDE);
+    const subjectPill = pill();
+    expect(subjectPill?.closest("[inert], [aria-hidden='true']")).toBeNull();
+    // 총 줄이 접힌 자리로 올라가도 시간 글자 바로 다음 칸에 남는다.
+    expect(screen.getByTestId("room-time-total")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByTestId("room-time-text").nextElementSibling).toContainElement(subjectPill);
+
+    fireEvent.click(subjectPill as HTMLElement);
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+  });
+
+  it("카메라가 꺼진 채 재생을 누르면 과목을 고르고 페이지를 닫은 뒤 카메라 켜기 확인 창을 연다. 취소하면 일시정지와 과목이 남는다", async () => {
+    listSubjects.mockResolvedValue([MATH]);
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+
+    const confirm = await screen.findByRole("alertdialog");
+    expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument();
+    expect(subjectTracking.trackSubjectSheetClosed).toHaveBeenCalledWith(
+      expect.objectContaining({ closedBy: "play" }),
+    );
+
+    await userEvent.click(within(confirm).getByRole("button", { name: "취소" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(pill()?.querySelector("img")).toHaveClass("opacity-40");
+    // 확인 창을 연 재생 버튼은 닫힌 페이지와 함께 사라져서 페이지를 연 과목 버튼으로 돌아간다.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "과목 선택됨" })).toHaveFocus();
+    });
+  });
+
+  it("카메라가 꺼진 채 재생 뒤 확인 창에서 카메라를 켜면 측정이 다시 시작된다", async () => {
+    listSubjects.mockResolvedValue([MATH]);
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "카메라 켜기" }));
+
+    expect(await screen.findByRole("button", { name: "카메라 끄기" })).toBeInTheDocument();
+    expect(pill()?.querySelector("img")).toHaveClass("animate-pulse");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "과목 선택됨" })).toHaveFocus();
+    });
+  });
+
+  it("세션이 끝나 제출 중으로 넘어가면 열려 있던 과목 페이지가 닫힌다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    const { channel } = renderRoom({ scenario: { snapshot: [member(8)] } });
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("세션 제출에 이 세션에서 완료한 할 일이 실린다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const doneAt = new Date(Date.now() + 60_000).toISOString();
+    listSubjects.mockResolvedValue([
+      {
+        ...MATH,
+        tasks: [
+          { id: 11, name: "미적분", doneAt },
+          { id: 12, name: "확통", doneAt: null },
+        ],
+      },
+    ]);
+    renderRoom();
+    await enterRoom();
+    await waitFor(() => expect(listSubjects).toHaveBeenCalled());
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => expect(submitStudySession).toHaveBeenCalled());
+    expect(vi.mocked(submitStudySession).mock.calls[0]?.[0]).toMatchObject({
+      completedTaskIds: [11],
+    });
+  });
+
+  it("세션 제출에 고른 과목의 구간이 실린다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    await pickMathWithCameraOn();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => expect(submitStudySession).toHaveBeenCalled());
+    expect(vi.mocked(submitStudySession).mock.calls[0]?.[0]).toMatchObject({
+      subjectSegments: [expect.objectContaining({ subjectId: MATH.id })],
+    });
+  });
+
+  it("더보기 메뉴가 열린 동안 알약은 누름을 받지 않아 바깥 누름으로 메뉴만 닫힌다", async () => {
+    await pickMathWithCameraOn();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const subjectPill = screen.getByRole("button", { name: /^수학.*순공/, hidden: true });
+    expect(subjectPill).toHaveClass("pointer-events-none");
+    expect(subjectPill).not.toHaveClass("pointer-events-auto");
+  });
+
+  it("제출 중에는 알약이 누를 수 없는 글자가 된다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    await pickMathWithCameraOn();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    expect(pill()).not.toBeInTheDocument();
+    expect(screen.getByText("수학").parentElement).toHaveClass("pointer-events-none");
+  });
+
+  it("바의 과목 앱 버튼은 누르면 페이지를 열고, 과목을 고르면 active 색으로 바뀐다", async () => {
+    listSubjects.mockResolvedValue([MATH]);
+    const { control } = await enterAppRoom();
+    expect(control("room-subject")).toMatchObject({ systemImage: "book", tone: "default" });
+
+    pressNative("room-subject", 0);
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "취소" }));
+
+    await waitFor(() => {
+      expect(control("room-subject")).toMatchObject({
+        tone: "active",
+        accessibilityLabel: "과목 선택됨",
+      });
+    });
+  });
+});
+
+describe("LiveRoomPage — 앱 glass 바 버튼", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it("바 버튼 네 개를 앱 버튼으로 등록해 웹 원본을 숨기고, 더보기는 웹으로 남긴다", async () => {
+    const { postMessage } = await enterAppRoom();
+
+    // 앱은 좌표로 놓아서 등록 순서는 보지 않는다.
+    expect(
+      lastInlineControls(postMessage).toSorted((a, b) => a.id.localeCompare(b.id)),
+    ).toMatchObject([
+      { id: "room-ambient", systemImage: "music.note", tone: "default" },
+      { id: "room-camera", systemImage: "video.slash.fill", tone: "danger" },
+      { id: "room-exit", systemImage: "rectangle.portrait.and.arrow.right", tone: "danger" },
+      { id: "room-subject", systemImage: "book", tone: "default" },
+    ]);
+    for (const button of screen.getByTestId("room-control-bar").querySelectorAll("button")) {
+      expect(button).toHaveAttribute("aria-hidden", "true");
+    }
+    expect(screen.getByRole("button", { name: "더보기" })).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("조작이 숨으면 네 버튼이 흐려지고, 다시 보이면 돌아온다", async () => {
+    const { postMessage } = await enterAppRoom();
+    const faded = () => lastInlineControls(postMessage).map((sent) => sent.faded);
+    expect(faded()).toEqual([false, false, false, false]);
+
+    tapSurface();
+    expect(faded()).toEqual([true, true, true, true]);
+
+    tapSurface();
+    expect(faded()).toEqual([false, false, false, false]);
+  });
+
+  it("더보기 메뉴가 열린 동안 네 버튼의 누름을 막고, 닫히면 돌아온다", async () => {
+    const { postMessage } = await enterAppRoom();
+    const disabled = () => lastInlineControls(postMessage).map((sent) => sent.disabled);
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(disabled()).toEqual([true, true, true, true]);
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(disabled()).toEqual([false, false, false, false]));
+  });
+
+  it("제출 중에는 네 버튼의 누름을 막는다", async () => {
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => undefined));
+    const { postMessage } = await enterAppRoom();
+
+    pressNative("room-exit", 0);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+
+    expect(await screen.findByText("저장 중...")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastInlineControls(postMessage).map((sent) => sent.disabled)).toEqual([
+        true,
+        true,
+        true,
+        true,
+      ]),
+    );
+  });
+
+  it("카메라 앱 버튼은 켜기 확인 창을 열고, 켜면 켜짐 심볼로 바뀐다", async () => {
+    const { control } = await enterAppRoom();
+
+    pressNative("room-camera", 0);
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "카메라 켜기" }));
+
+    await waitFor(() => {
+      expect(control("room-camera")).toMatchObject({
+        systemImage: "video.fill",
+        tone: "default",
+        accessibilityLabel: "카메라 끄기",
+      });
+    });
+  });
+
+  it("나가기 앱 버튼은 종료 확인 창을 연다", async () => {
+    await enterAppRoom();
+
+    pressNative("room-exit", 0);
+
+    expect(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    ).toBeInTheDocument();
+  });
+
+  it("앱이 버튼 모양 표시를 알리지 않으면 바 버튼을 등록하지 않고 웹으로 보인다", async () => {
+    const { postMessage } = await enterAppRoom("segment,switch,button");
+
+    expect(lastInlineControls(postMessage)).toEqual([]);
+    for (const name of ["카메라 켜기", "과목", "배경음", "나가기"]) {
+      expect(screen.getByRole("button", { name })).not.toHaveAttribute("aria-hidden");
+    }
   });
 });

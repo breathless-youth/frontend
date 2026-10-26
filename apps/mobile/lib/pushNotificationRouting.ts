@@ -72,7 +72,6 @@ function normalizeRoute(route: string): string | null {
 const WEB_PATH_TAB: Readonly<Record<string, string>> = {
   "/home": "/(tabs)",
   "/timelapses": "/(tabs)",
-  "/onboarding-guide": "/(tabs)",
   "/records": "/(tabs)/records",
   "/planner": "/(tabs)/records",
   "/manual-record": "/(tabs)/records",

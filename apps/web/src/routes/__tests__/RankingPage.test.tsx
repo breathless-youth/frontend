@@ -5,7 +5,7 @@ import {
   focusManager,
   onlineManager,
 } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -137,7 +137,7 @@ describe("RankingPage", () => {
     renderPage();
     await screen.findByRole("heading", { name: "이번 주 TOP 3" });
 
-    fireEvent.click(screen.getByRole("radio", { name: "집중률" }));
+    await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
 
     expect(await screen.findByRole("heading", { name: "집중률 TOP 3" })).toBeInTheDocument();
     expect(JSON.parse(store.raw!).ranking).toEqual({ type: "FOCUS_RATE", period: "WEEKLY" });
@@ -147,7 +147,7 @@ describe("RankingPage", () => {
     renderPage();
     await screen.findByRole("heading", { name: "이번 주 TOP 3" });
 
-    fireEvent.click(screen.getByRole("radio", { name: "집중률" }));
+    await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
 
     await screen.findByRole("heading", { name: "집중률 TOP 3" });
     const card = screen.getByRole("region", { name: "집중률 · 주간" });
@@ -291,7 +291,7 @@ describe("RankingPage", () => {
     await screen.findByRole("heading", { name: "이번 주 TOP 3" });
     act(() => focusManager.setFocused(false));
 
-    fireEvent.click(screen.getByRole("radio", { name: "집중률" }));
+    await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
     await screen.findByRole("heading", { name: "집중률 TOP 3" });
 
     expect(analytics.trackRankingBoardViewed).toHaveBeenCalledTimes(1);
@@ -315,7 +315,7 @@ describe("RankingPage", () => {
       renderPage();
       await screen.findByRole("heading", { name: "이번 주 TOP 3" });
 
-      fireEvent.click(screen.getByRole("radio", { name: "시간대" }));
+      await userEvent.click(screen.getByRole("tab", { name: "시간대" }));
       await screen.findByRole("heading", { name: "오전 구간 TOP 3" });
 
       expect(screen.getByRole("radio", { name: "오후 12–18시, 지금 구간" })).toBeInTheDocument();

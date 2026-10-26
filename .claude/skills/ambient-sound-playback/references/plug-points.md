@@ -35,7 +35,7 @@
 ## 저장·UI·테스트 관례
 | 항목 | 파일 |
 |---|---|
-| 복사할 저장 패턴 | `apps/web/src/features/onboarding/onboardingGuideStore.ts` — 인터페이스 :26, localStorage 구현 :37, 메모리 구현 :50, 교체 :64, 리셋 :69 |
+| 저장 패턴 | `apps/web/src/features/ambient-sound/ambientSoundStore.ts` — 인터페이스 :24, localStorage 구현 :57, 메모리 구현 :72, 교체 :88, 리셋 :93 |
 | localStorage 이유 | `apps/web/src/features/social-room/socialRoomNotice.ts` :7 주석 |
 | 모달 프리미티브 | `apps/web/src/components/ui/dialog.tsx` (바텀시트 컴포넌트는 없음) |
 | 테스트 설정 | `apps/web/src/test/setup.ts` :7 `HTMLMediaElement.prototype.play` 스텁 |

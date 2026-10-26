@@ -307,15 +307,14 @@ Figma Foundations에서 값을 받아 `design-tokens`에 먼저 추가한다.
 
 아이콘 컴포넌트를 모아 둔 공용 폴더는 없다. 화면 단위로 흩어져 있다.
 
-| 위치                                              | 담긴 것                                                                                      |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `apps/web/src/features/home/icons.tsx`            | `IconPlay` `IconChevronRight` `IllustFlame` `IllustStudyDoodle`                              |
-| `apps/web/src/features/records/icons.tsx`         | `IconChevronRight` `IconChevronLeft` `IconCheckSm` `IconChevronDown` `IllustFlame`           |
-| `apps/web/src/features/social-room/icons.tsx`     | `IconSocialPeople`                                                                           |
-| `apps/web/src/features/ranking/icons.tsx`         | `IllustMedal` `IllustMedalRing` `IllustCrown` `IconCrownOutline` `IconTrophy`                |
-| `apps/web/src/features/onboarding/coachIcons.tsx` | `IconPause` `IconCameraFlip` `IconExit` `IconClose` `IllustPrivacyCamera` `CoachTooltipTail` |
-| `apps/web/src/components/CameraFlipIcon.tsx`      | `CameraFlipIcon`                                                                             |
-| `apps/mobile/components/icons.tsx`                | 탭 아이콘 5종 포함 14개                                                                      |
+| 위치                                          | 담긴 것                                                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apps/web/src/features/home/icons.tsx`        | `IconPlay` `IconChevronRight` `IllustFlame` `IllustStudyDoodle`                    |
+| `apps/web/src/features/records/icons.tsx`     | `IconChevronRight` `IconChevronLeft` `IconCheckSm` `IconChevronDown` `IllustFlame` |
+| `apps/web/src/features/social-room/icons.tsx` | `IconSocialPeople`                                                                 |
+| `apps/web/src/features/ranking/icons.tsx`     | `IllustMedal` `IllustMedalRing` `IllustCrown` `IconCrownOutline` `IconTrophy`      |
+| `apps/web/src/components/CameraFlipIcon.tsx`  | `CameraFlipIcon`                                                                   |
+| `apps/mobile/components/icons.tsx`            | 탭 아이콘 5종 포함 14개                                                            |
 
 세션 컨트롤 아이콘만 컴포넌트가 아니라 SVG 파일이고 `apps/web/src/assets/icons/`에 있다
 (`session-play` `session-pause` `session-exit` `session-camera` `session-camera-off`).

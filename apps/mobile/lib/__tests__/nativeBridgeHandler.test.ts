@@ -11,7 +11,7 @@ import {
   attachNativeAnalyticsSink,
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
-import { handleBridgeMessage } from "../nativeBridgeHandler";
+import { __resetStartSessionInFlightForTests, handleBridgeMessage } from "../nativeBridgeHandler";
 import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
@@ -19,6 +19,7 @@ import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalyt
 import { logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
+import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
 
@@ -122,6 +123,12 @@ const flush = async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockedRouter.canGoBack.mockReturnValue(true);
+  __resetStartSessionInFlightForTests();
+  __resetSessionPresenceForTests();
+});
+
+afterEach(() => {
+  __resetStartSessionInFlightForTests();
 });
 
 describe("handleBridgeMessage", () => {
@@ -144,6 +151,148 @@ describe("handleBridgeMessage", () => {
     await Promise.resolve();
 
     expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
+  });
+
+  it("start-session → 처리 중에 다시 오면 게이트를 또 돌리지 않고 세션 화면도 한 번만 연다", async () => {
+    let resolveGate: (value: "start-session") => void = () => {};
+    mockedRunCameraPermissionGate.mockReturnValue(
+      new Promise((resolve) => {
+        resolveGate = resolve;
+      }),
+    );
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+
+    resolveGate("start-session");
+    await flush();
+
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+  });
+
+  it("start-session → 세션 화면으로 push한 뒤 화면이 뜨기 전에 온 요청은 무시한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+  });
+
+  it("start-session → 세션 화면이 떠 있는 동안 온 요청은 무시한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    markSessionOpen("single");
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+  });
+
+  it("start-session → 세션 화면이 닫힌 뒤에 온 요청은 다시 처리한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    const close = markSessionOpen("single");
+    close();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenLastCalledWith("/room/1");
+  });
+
+  it("start-session → 세션 화면이 뜨기 전에 소셜룸 세션이 열렸다 닫혀도 무시하고, 세션 화면이 닫힌 뒤에는 다시 처리한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    const closeSocial = markSessionOpen("social");
+    closeSocial();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+
+    const closeSingle = markSessionOpen("single");
+    closeSingle();
+    handleBridgeMessage({ type: "start-session", atMs: 3 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(2);
+  });
+
+  it("start-session → push한 세션 화면이 끝내 뜨지 않으면 잠시 뒤 다음 요청을 받는다", async () => {
+    jest.useFakeTimers();
+    try {
+      mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+      handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+      await flush();
+      jest.advanceTimersByTime(5_000);
+      handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+      await flush();
+
+      expect(mockedRouter.push).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("start-session → 세션 화면이 떠 있으면 시간이 지나도 계속 무시한다", async () => {
+    jest.useFakeTimers();
+    try {
+      mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+      handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+      await flush();
+      markSessionOpen("single");
+      jest.advanceTimersByTime(60_000);
+      handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+      await flush();
+
+      expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("start-session → 권한 거부 안내로 보낸 뒤에 온 요청은 다시 처리한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(2);
+  });
+
+  it("start-session → 게이트가 실패해도 다음 요청은 처리한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockedRunCameraPermissionGate.mockRejectedValueOnce(new Error("native unavailable"));
+    mockedRunCameraPermissionGate.mockResolvedValueOnce("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    await flush();
+    handleBridgeMessage({ type: "start-session", atMs: 2 }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+    warn.mockRestore();
   });
 
   it("request-camera-gate → 게이트 통과면 granted true로 답하고 화면 전환은 없다", async () => {

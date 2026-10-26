@@ -1,9 +1,13 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { LogOut, Pause, Play } from "lucide-react";
 import type { VariantProps } from "class-variance-authority";
 
 import { Button } from "@/components/ui/button";
-import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
+import {
+  controlButtonVariants,
+  SESSION_SYMBOL_SCALE,
+} from "@/features/study-session/components/controlButtonVariants";
+import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,40 +18,82 @@ import { cn } from "@/lib/utils";
  */
 
 /** 아이콘 팝 애니메이션 — 마운트·아이콘 교체(일시정지↔재개)마다 한 번 재생된다(BY-435 모션). */
-const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
+export const ICON_POP_CLASS =
+  "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
 
-/** 54px 버튼 기준 아이콘 크기 — Figma V2 `S1b` 실측으로 네 아이콘 모두 23px 동일하다. */
-// 폭 600 이상 창은 64px 버튼에, 큰 태블릿은 80px 버튼에 같은 비율로 맞춘다.
-const CONTROL_ICON_SIZE = "size-5.75 regular:size-6.75 short-side-lg:size-8.5";
+/**
+ * 하단 두 버튼의 아이콘 크기
+ *
+ * 버튼을 한 단계 키운 만큼 아이콘도 같은 비율로 키운다.
+ * 폭 600 이상 창과 큰 태블릿도 버튼 지름과 같은 비율을 지킨다.
+ */
+export const CONTROL_ICON_SIZE = "size-6.5 regular:size-7.5 short-side-lg:size-9.5";
 
 interface ControlButtonProps {
   label: string;
   icon: ReactNode;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
+  disabled?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }
 
-function ControlButton({ label, icon, onClick, variant = "default" }: ControlButtonProps) {
+export function ControlButton({
+  label,
+  icon,
+  onClick,
+  variant = "default",
+  disabled,
+  ref,
+}: ControlButtonProps) {
   return (
     <Button
+      ref={ref}
       type="button"
       size="icon"
       variant="unstyled"
       aria-label={label}
+      disabled={disabled}
       onClick={onClick}
-      className={controlButtonVariants({ variant })}
+      className={controlButtonVariants({ variant, size: "primary" })}
     >
       {icon}
     </Button>
   );
 }
 
-export function SessionPauseButton({ paused, onClick }: { paused: boolean; onClick: () => void }) {
+export function SessionPauseButton({
+  paused,
+  onClick,
+  inactive = false,
+}: {
+  paused: boolean;
+  onClick: () => void;
+  /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
+  inactive?: boolean;
+}) {
+  const label = paused ? "다시 시작" : "일시정지";
+  // 간단 모드에서도 남는 버튼이라 흐림을 보내지 않는다.
+  const { ref } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-pause",
+      kind: "button",
+      title: null,
+      systemImage: paused ? "play.fill" : "pause.fill",
+      shape: "circle",
+      disabled: inactive,
+      accessibilityLabel: label,
+      tone: paused ? "prominent" : "default",
+    },
+    onClick,
+    { measureIcon: true },
+  );
   return (
     // 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
     // (voice-tone.md §1) — key로 리마운트시켜 팝 애니메이션을 재생한다.
     <ControlButton
-      label={paused ? "다시 시작" : "일시정지"}
+      ref={ref}
+      label={label}
       icon={
         paused ? (
           <Play
@@ -73,9 +119,35 @@ export function SessionPauseButton({ paused, onClick }: { paused: boolean; onCli
   );
 }
 
-export function SessionExitButton({ onClick }: { onClick: () => void }) {
+export function SessionExitButton({
+  onClick,
+  faded = false,
+  inactive = false,
+}: {
+  onClick: () => void;
+  /** 간단 모드에서 앱 버튼을 흐리게 감춘다. */
+  faded?: boolean;
+  /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
+  inactive?: boolean;
+}) {
+  const { ref } = useNativeControl<HTMLButtonElement>(
+    {
+      id: "session-exit",
+      kind: "button",
+      title: null,
+      systemImage: "rectangle.portrait.and.arrow.right",
+      shape: "circle",
+      disabled: inactive,
+      accessibilityLabel: "공부 종료",
+      tone: "danger",
+      faded,
+    },
+    onClick,
+    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
+  );
   return (
     <ControlButton
+      ref={ref}
       label="공부 종료"
       icon={
         <LogOut

@@ -15,7 +15,7 @@ import { kickVideoPlayback } from "@/lib/videoPlayback";
  *
  * `targetAspect`(확정 후 셀프뷰가 놓일 서피스의 가로/세로 비율)가 오면 그 비율의 프레임을
  * 모달 박스 안에 레터박스로 세워 **같은 영역이 잘리게** 한다 — 박스(288×234)와 서피스
- * (세로 풀스크린·타일)는 비율이 크게 달라, 둘 다 cover면 미리보기가 실제보다 훨씬 좁게
+ * (타일)는 비율이 크게 달라, 둘 다 cover면 미리보기가 실제보다 훨씬 좁게
  * 보였다(2026-08-25 실기기 확인). 측정 실패(undefined) 시에는 종전대로 박스를 채운다.
  */
 export function ClonedTrackPreview({

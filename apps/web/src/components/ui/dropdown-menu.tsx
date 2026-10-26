@@ -6,11 +6,23 @@ import { cn } from "@/lib/utils";
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
+export interface DropdownMenuContentProps extends React.ComponentPropsWithoutRef<
+  typeof DropdownMenuPrimitive.Content
+> {
+  /**
+   * 포털이 그려질 자리
+   *
+   * 기본은 `document.body`다.
+   * CSS 변수를 서브트리에만 주입하는 세션 화면에서는 그 서브트리의 요소를 넘겨야 색이 빠지지 않는다.
+   */
+  container?: HTMLElement | null;
+}
+
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
+  DropdownMenuContentProps
+>(({ className, sideOffset = 4, container, ...props }, ref) => (
+  <DropdownMenuPrimitive.Portal container={container ?? undefined}>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
