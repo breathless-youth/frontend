@@ -119,6 +119,22 @@ describe("SessionMoreMenu", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
+  it("더보기를 짧게 누른 손 뗌의 클릭이 첫 항목에 떨어져도 항목을 고르지 않는다", () => {
+    const { onFlipCamera } = renderMenu();
+
+    // Android는 손을 뗀 자리의 요소로 클릭을 보내서 그 클릭이 방금 열린 첫 항목에 떨어진다.
+    fireEvent(
+      screen.getByRole("button", { name: "더보기" }),
+      new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+    );
+    const flip = screen.getByRole("menuitem", { name: "카메라 전환" });
+    fireEvent(flip, new MouseEvent("pointerup", { bubbles: true, button: 0 }));
+    fireEvent(flip, new MouseEvent("click", { bubbles: true, button: 0, detail: 1 }));
+
+    expect(onFlipCamera).not.toHaveBeenCalled();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
   it("키보드로도 항목을 고른다", async () => {
     const { onShareInvite } = renderMenu();
 
