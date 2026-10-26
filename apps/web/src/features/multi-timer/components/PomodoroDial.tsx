@@ -156,9 +156,11 @@ export function PomodoroDial({
       onPointerUp={interactive ? handlePointerEnd : undefined}
       onPointerCancel={interactive ? handlePointerEnd : undefined}
       className={cn(
-        // 키 작은 폰에서도 카드·시간·큰 버튼과 한 화면에 들어오게 화면 높이에 맞춰 줄인다.
-        // 410px은 헤더와 큰 버튼 자리 약 220, 카드 자리 78, 시간 82, 여유 30을 더한 값이다.
-        "relative aspect-square w-[min(370px,100%,max(220px,calc(100svh-410px)))] rounded-full select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+        // 키 작은 폰에서도 카드·큰 버튼과 한 화면에 들어오게 화면 높이에 맞춰 줄인다.
+        // 340px은 헤더와 큰 버튼 자리 약 220, 카드 자리 78, 알림음 줄 24, 여유 18을 더한 값이다.
+        "relative aspect-square w-[min(370px,100%,max(220px,calc(100svh-340px)))] rounded-full select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+        // 가로 폰에서는 모드 화면이 정한 무대를 가득 채운다.
+        "landscape-compact:w-(--timer-stage)",
         interactive && "cursor-grab touch-none",
         TONE_CLASS[tone],
       )}

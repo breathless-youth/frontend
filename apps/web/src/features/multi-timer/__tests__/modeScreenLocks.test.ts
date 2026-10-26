@@ -36,38 +36,28 @@ afterEach(() => {
 });
 
 describe("useModeScreenLocks", () => {
-  it("켜지면 가장자리 스와이프와 회전을 잠그고 꺼지면 같은 순서로 푼다", () => {
+  it("켜지면 가장자리 스와이프만 끄고 회전은 잠그지 않으며 꺼지면 스와이프를 되돌린다", () => {
     const { rerender } = renderHook(({ active }) => useModeScreenLocks(active), {
       initialProps: { active: false },
     });
     expect(postToNative).not.toHaveBeenCalled();
 
     rerender({ active: true });
-    expect(sentMessages()).toEqual([
-      { type: "set-back-gesture", enabled: false },
-      { type: "set-orientation", unlocked: false },
-    ]);
-    // 잠금 사실을 저장소에 남기지 않고 측정 화면이 열릴 때마다 회전 허용을 다시 보낸다.
+    expect(sentMessages()).toEqual([{ type: "set-back-gesture", enabled: false }]);
     expect(sessionStorage).toHaveLength(0);
 
     vi.mocked(postToNative).mockClear();
     rerender({ active: false });
-    expect(sentMessages()).toEqual([
-      { type: "set-back-gesture", enabled: true },
-      { type: "set-orientation", unlocked: true },
-    ]);
+    expect(sentMessages()).toEqual([{ type: "set-back-gesture", enabled: true }]);
   });
 
-  it("켜진 채 사라져도 잠금을 푼다", () => {
+  it("켜진 채 사라져도 스와이프를 되돌린다", () => {
     const { unmount } = renderHook(() => useModeScreenLocks(true));
     vi.mocked(postToNative).mockClear();
 
     unmount();
 
-    expect(sentMessages()).toEqual([
-      { type: "set-back-gesture", enabled: true },
-      { type: "set-orientation", unlocked: true },
-    ]);
+    expect(sentMessages()).toEqual([{ type: "set-back-gesture", enabled: true }]);
   });
 });
 
