@@ -53,7 +53,10 @@ describe("PomodoroPanel", () => {
 
     expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("25");
     expect(screen.getByRole("combobox", { name: "휴식 시간" })).toHaveValue("5");
-    expect(screen.getByRole("timer", { name: "집중 시간" })).toHaveTextContent("25:00");
+    // 다이얼이 시간을 보여 주어 숫자는 화면 낭독기에만 남긴다.
+    const time = screen.getByRole("timer", { name: "집중 시간" });
+    expect(time).toHaveTextContent("25:00");
+    expect(time).toHaveClass("sr-only");
     expect(screen.getByRole("slider", { name: "집중 시간" })).toHaveAttribute(
       "aria-valuenow",
       "25",
@@ -151,7 +154,9 @@ describe("PomodoroPanel", () => {
   it("running_shows_remaining", () => {
     renderPanel({ mode: mode("running"), remainingMs: 825_000 });
 
-    expect(screen.getByRole("timer", { name: "남은 시간" })).toHaveTextContent("13:45");
+    const time = screen.getByRole("timer", { name: "남은 시간" });
+    expect(time).toHaveTextContent("13:45");
+    expect(time).toHaveClass("sr-only");
   });
 
   it("running_over_an_hour_shows_lap_badge", () => {

@@ -53,6 +53,19 @@ describe("MultiTimerScreen", () => {
     expect(screen.getByRole("button", { name: "타이머 끄기" })).toBeInTheDocument();
   });
 
+  it("머리 줄에는 제목 대신 타이머 종류 토글이 끄기 버튼과 함께 있고 제목은 화면 낭독기에만 읽힌다", () => {
+    renderScreen();
+
+    const close = screen.getByRole("button", { name: "타이머 끄기" });
+    // 아래 처음부터 X와 헷갈리지 않게 세션 위 페이지들과 같은 뒤로 가기 모양이다.
+    expect(close.querySelector(".lucide-chevron-left")).not.toBeNull();
+    expect(close.parentElement).toContainElement(
+      screen.getByRole("tablist", { name: "타이머 종류" }),
+    );
+    expect(screen.getByText("타이머", { selector: "h2" })).toHaveClass("sr-only");
+    expect(screen.getAllByRole("tablist")).toHaveLength(1);
+  });
+
   it("타이머 종류 토글은 지금 모드를 고른 상태로 보이고 다른 칸을 누르면 바꾼다", async () => {
     const { onSwitchKind } = renderScreen({ kind: "pomodoro" });
 

@@ -21,16 +21,3 @@ export function TimerIcon({ className }: IconProps) {
     </svg>
   );
 }
-
-export function CloseIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 13 13" fill="none" aria-hidden="true" className={className}>
-      <path
-        d="M1.85714 1.85714L11.1429 11.1429M11.1429 1.85714L1.85714 11.1429"
-        stroke="currentColor"
-        strokeWidth={1.67143}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}

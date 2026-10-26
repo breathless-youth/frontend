@@ -143,6 +143,20 @@ describe("RoomPage 멀티 타이머", () => {
     ]);
   });
 
+  it("타이머 화면을 열어도 회전을 잠그지 않는다", async () => {
+    renderRoom();
+    vi.mocked(postToNative).mockClear();
+
+    await openPomodoro();
+
+    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
+    const orientation = vi
+      .mocked(postToNative)
+      .mock.calls.map(([message]) => message)
+      .filter((message) => message.type === "set-orientation");
+    expect(orientation).toEqual([]);
+  });
+
   it("opens_timer_screen_from_button", async () => {
     renderRoom();
     const timerButton = screen.getByRole("button", { name: "타이머" });

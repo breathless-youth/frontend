@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
  *
  * 진행 중에도 바꿀 수 있어서 모드 상태와 상관없이 그린다.
  * 종 그림은 켜짐과 꺼짐에 따라 바뀌고 세션 조작 버튼과 같은 팝으로 갈아 끼운다.
+ * 폰 가로에서는 두 모드 모두 화면 오른쪽 아래, 측정 화면의 나가기 버튼 자리에 둔다.
  */
 export function AlarmSoundToggle({
   soundOn,
@@ -20,7 +21,13 @@ export function AlarmSoundToggle({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2",
+        className,
+        "landscape-compact:absolute landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
+      )}
+    >
       {soundOn ? (
         <Bell
           key="on"
