@@ -7,8 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
-import { plannerDateKeyOf, plannerDayWindow } from "@/features/planner/plannerDay";
-import { EMPTY_STATS } from "@/features/planner/usePlannerDay";
+import { EMPTY_STATS, plannerDateKeyOf, plannerDayWindow } from "@/features/planner/plannerDay";
 import { queryClient } from "@/lib/queryClient";
 import type { MockRoomScenario } from "@/features/live-room/mockRoomChannel";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";

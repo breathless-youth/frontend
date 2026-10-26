@@ -12,6 +12,8 @@ import { listSubjects } from "@/lib/subjectApi";
 
 import { loadSessionSubjects } from "../loadSessionSubjects";
 
+const reportHandled = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry", () => ({ reportHandled }));
 vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn() }));
 vi.mock("@/lib/statsApi", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -82,6 +84,7 @@ describe("loadSessionSubjects: 세션 화면 과목 순공은 플래너 하루 �
     queryClient.clear();
     vi.mocked(listSubjects).mockReset().mockResolvedValue([MATH, ENGLISH]);
     vi.mocked(listStudySessionStats).mockReset();
+    reportHandled.mockReset();
   });
 
   it("05시 이후에는 오늘 하루만 받아 과목 순공을 그날 저장 기록으로 바꾼다", async () => {
@@ -119,7 +122,7 @@ describe("loadSessionSubjects: 세션 화면 과목 순공은 플래너 하루 �
     expect(result[0]?.focusSec).toBe(3000);
   });
 
-  it("일간 조회가 실패하면 목록은 그대로 두고 오늘 값은 0이다", async () => {
+  it("일간 조회가 실패하면 목록은 그대로 두고 오늘 값은 0이며, 다음 세션에 복구되므로 보고하지 않는다", async () => {
     vi.mocked(listStudySessionStats).mockRejectedValue(new Error("down"));
 
     const result = await loadSessionSubjects(1, new Date(kst(DAY, 9, 30)));
@@ -128,17 +131,20 @@ describe("loadSessionSubjects: 세션 화면 과목 순공은 플래너 하루 �
       ["수학", 0],
       ["영어", 0],
     ]);
+    expect(reportHandled).not.toHaveBeenCalled();
   });
 
   it.each([
     ["세션 목록이 아닌 응답(프록시 오류 페이지 등)", { version: 1 }],
     ["세션 항목이 손상된 응답", { ...stats([]), sessions: [null] }],
-  ])("%s도 실패로 보고 목록은 살린다", async (_label, body) => {
+  ])("%s도 실패로 보고 목록은 살리며, 응답 형식 어긋남이라 보고한다", async (_label, body) => {
     vi.mocked(listStudySessionStats).mockResolvedValue(body as unknown as StudySessionListResponse);
 
     const result = await loadSessionSubjects(1, new Date(kst(DAY, 9, 30)));
 
     expect(result.map((subject) => subject.focusSec)).toEqual([0, 0]);
+    expect(reportHandled).toHaveBeenCalledOnce();
+    expect(reportHandled).toHaveBeenCalledWith(expect.any(Error), "session-subject-today");
   });
 
   it("지운 동명 과목의 기록은 플래너처럼 살아 있는 과목에 합쳐진다", async () => {

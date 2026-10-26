@@ -1,10 +1,10 @@
 import type { StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
-import { assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { EMPTY_STATS, assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
-import { EMPTY_STATS } from "@/features/planner/usePlannerDay";
 import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { queryClient } from "@/lib/queryClient";
+import { reportHandled } from "@/lib/sentry";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 
@@ -47,6 +47,7 @@ function fetchDay(userId: number, dateKey: string): Promise<StudySessionListResp
  *
  * 조회가 실패했거나 응답이 세션 목록 모양이 아니면(프록시 오류 페이지 등) 빈 맵을 돌려줘 전부 0이 된다.
  * 조립 중에 throw하면 과목 목록까지 죽으므로 오늘 값만 포기한다.
+ * 조회 실패는 다음 세션에 다시 받아 복구되므로 보고하지 않고, 조립 실패는 응답 형식이 어긋났다는 신호라 보고한다.
  */
 function todayFocusBySubject(
   dateKey: string,
@@ -64,7 +65,8 @@ function todayFocusBySubject(
         item.focusSec,
       ]),
     );
-  } catch {
+  } catch (error) {
+    reportHandled(error, "session-subject-today");
     return new Map();
   }
 }
