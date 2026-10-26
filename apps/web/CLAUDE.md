@@ -74,7 +74,8 @@ iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거
 - 원격 웹은 구버전 앱에도 바로 배포되므로 앱이 URL로 알린 것만 앱에 맡긴다.
 - 고정 요소에 새 모양을 더하면 `glassChromeVersion()`으로 그 모양을 그리는 앱 버전인지 확인하고, 아니면 CSS로 그린다.
 - 새 본문 부품 종류는 앱이 `glassControls`로 알린 뒤에야 앱이 그리고, 그 전에는 `useNativeControl`이 웹 원본을 남긴다.
-- 세션 화면의 원형 버튼 5개도 `useNativeControl`로 등록하고 색 역할 `tone`, 간단 모드 `faded`, 회전 수 `turns`를 넘기며 `{ measureIcon: true }`로 아이콘 폭을 `iconSize`로 보낸다.
+- 싱글룸 세션 화면의 원형 버튼 5개(배경음, 과목, 타이머, 일시정지, 종료)도 `useNativeControl`로 등록하고 색 역할 `tone`과 간단 모드 `faded`를 넘기며 `{ measureIcon: true }`로 아이콘 폭을 `iconSize`로 보낸다.
+- 싱글룸 카메라 전환은 라이브룸과 같은 오른쪽 위 웹 더보기 메뉴(`SessionMoreMenu`)에 있고, 메뉴가 열린 동안 이 버튼 5개는 `disabled`로 보낸다.
 - 아이콘 폭은 등장 애니메이션이 `scale(0.6)`에서 시작해도 맞도록 `getBoundingClientRect`가 아니라 계산된 CSS 폭으로 측정한다.
 - 이 필드를 쓰는 부품은 앱이 `glassControls`에 `button-style`을 알렸을 때만 앱에 맡겨지고, 아니면 웹 원본이 그대로 그려진다.
 - `theme-dark` 안에 등록된 부품이 있으면 `colorScheme: "dark"`가 함께 나가 앱 부품 층 전체가 다크로 그려진다.
