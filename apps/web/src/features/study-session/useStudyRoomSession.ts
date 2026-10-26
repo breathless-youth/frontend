@@ -20,7 +20,12 @@ import {
   stopAppLock,
   subscribeAppLockStarted,
 } from "@/features/app-lock/nativeAppLock";
-import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
+import {
+  META_FOCUS_MILESTONE_SEC,
+  trackMetaFocusMilestone,
+  trackMetaStudySessionEnded,
+  trackMetaStudySessionStarted,
+} from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
@@ -268,6 +273,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
   const endTrackedRef = useRef(false);
+  const focusMilestoneTrackedRef = useRef(false);
   const submitAttemptRef = useRef(0);
   // 제출 in-flight 중 재진입 차단 — 일시정지 감시자와 유예 감시가 같은 복귀 이벤트에서
   // 동시에 발화할 수 있고, "다시 제출" 연타도 같은 경로다. 서버는 멱등이지만
@@ -443,6 +449,22 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
+
+  /**
+   * 순공 5분 달성 이벤트
+   *
+   * 세션 종료가 아니라 300초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
+   * 화면 집계에는 복원 전 순공이 이미 들어 있어서 복원 세션은 진입하자마자 판정된다.
+   * 기기당 한 번 보장은 `trackMetaFocusMilestone`이 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
+   */
+  const displayFocusSec = display.totals.focusSec;
+  useEffect(() => {
+    if (focusMilestoneTrackedRef.current || displayFocusSec < META_FOCUS_MILESTONE_SEC) {
+      return;
+    }
+    focusMilestoneTrackedRef.current = true;
+    trackMetaFocusMilestone();
+  }, [displayFocusSec]);
 
   /**
    * 방해 앱 잠금
