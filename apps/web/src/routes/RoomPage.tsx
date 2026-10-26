@@ -88,6 +88,7 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
+import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
@@ -402,11 +403,17 @@ function RoomSessionScreen({
   // 목록은 세션에 들어올 때 미리 받는다 — 페이지를 처음 열 때 받으면 응답이 올 때까지 빈 골격만 보인다.
   // 복원 세션이 죽기 전에 완료한 할 일을 제출에 싣는 데도 이 목록이 필요하다. 기기 미등록이면 저장할 곳이
   // 없어 받지 않는다. 과목 페이지가 닫혀 있을 때의 실패는 알리지 않는다 — 사용자가 과목을 건드린 적이 없다.
-  const subjects = useSubjects(userId !== null, (message) => {
-    if (page === "subject") {
-      showCtaToast(message);
-    }
-  });
+  // 과목 시간은 플래너 하루 기준 오늘 값으로 바꿔 받는다(`loadSessionSubjects`).
+  const subjects = useSubjects(
+    userId !== null,
+    (message) => {
+      if (page === "subject") {
+        showCtaToast(message);
+      }
+    },
+    "sheet",
+    () => loadSessionSubjects(userId ?? 0),
+  );
   useLayoutEffect(() => {
     subjectsListRef.current = subjects.subjects;
   });
@@ -682,7 +689,7 @@ function RoomSessionScreen({
 
   /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
   const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
-  /** 타이머 위 라벨에 보일 과목 — 이름은 목록에서, 순공은 서버 누적 + 이 세션 몫. */
+  /** 타이머 위 라벨에 보일 과목. 이름은 목록에서 오고, 순공은 오늘(플래너 하루) 저장 기록 + 이 세션 몫이다. */
   const selectedSubject =
     subjectSelection === null
       ? null

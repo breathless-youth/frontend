@@ -47,6 +47,7 @@ import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
+import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
@@ -203,11 +204,17 @@ export function LiveRoomSession({
   const subjectOpenedAtRef = useRef(0);
   // 과목 페이지가 닫혀 있을 때의 미리 받기 실패는 알리지 않는다.
   // 사용자가 과목을 건드린 적이 없다.
-  const subjects = useSubjects(true, (message) => {
-    if (page === "subject") {
-      showCtaToast(message);
-    }
-  });
+  // 과목 시간은 플래너 하루 기준 오늘 값으로 바꿔 받는다(`loadSessionSubjects`).
+  const subjects = useSubjects(
+    true,
+    (message) => {
+      if (page === "subject") {
+        showCtaToast(message);
+      }
+    },
+    "sheet",
+    () => loadSessionSubjects(userId),
+  );
   useLayoutEffect(() => {
     subjectsListRef.current = subjects.subjects;
   });
@@ -590,7 +597,7 @@ export function LiveRoomSession({
     subjectSelection === null
       ? null
       : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
-  // 알약의 순공은 서버 누적에 이 세션 몫을 더한다.
+  // 알약의 순공은 오늘(플래너 하루) 저장 기록에 이 세션 몫을 더한다.
   const subjectLabel =
     subjectSelection === null
       ? null
