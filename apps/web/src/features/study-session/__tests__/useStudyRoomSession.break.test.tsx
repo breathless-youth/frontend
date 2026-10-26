@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   paused: vi.fn(),
   resumed: vi.fn(),
   distracted: vi.fn(),
+  ended: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -22,6 +23,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStudySessionPaused: mocks.paused,
   trackStudySessionResumed: mocks.resumed,
   trackStudySessionDistracted: mocks.distracted,
+  trackStudySessionEnded: mocks.ended,
 }));
 
 const NOW = Date.UTC(2026, 9, 23, 1, 0, 0);
@@ -242,5 +244,35 @@ describe("useStudyRoomSession 휴식", () => {
       roomType: "single",
     });
     expect(result.current.sessionState).toEqual(BREAK_STATE);
+  });
+
+  it("종료 계측은 휴식을 일시정지에서 빼고 휴식 길이로 따로 싣는다", async () => {
+    const { result } = setup();
+    await advance(10_000);
+    act(() => {
+      result.current.startBreak();
+    });
+    await advance(60_000);
+    act(() => {
+      result.current.endBreak();
+    });
+    act(() => {
+      result.current.pause();
+    });
+    await advance(20_000);
+    act(() => {
+      result.current.resume();
+    });
+    act(() => {
+      result.current.startBreak();
+    });
+    await advance(30_000);
+
+    await act(async () => {
+      await result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended).toHaveBeenCalledTimes(1);
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ pauseSec: 20, breakSec: 90 });
   });
 });

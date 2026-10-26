@@ -116,7 +116,7 @@ export function InviteCodeSharePage() {
             onClick={() => {
               void copyInviteCode(state.inviteCode).then((copied) => {
                 // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
-                trackInviteShared(copied ? "copied" : "failed");
+                trackInviteShared(copied ? "copied" : "failed", "code_page");
                 trackMetaInviteShared(copied ? "copied" : "failed");
                 showCtaToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
               });
@@ -130,7 +130,7 @@ export function InviteCodeSharePage() {
             className="h-11 gap-1.5 rounded-full px-5"
             onClick={() => {
               void shareInvite(state.inviteCode).then((result) => {
-                trackInviteShared(result);
+                trackInviteShared(result, "code_page");
                 trackMetaInviteShared(result);
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.

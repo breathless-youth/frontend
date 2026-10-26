@@ -5,6 +5,14 @@ import type { HapticStyle } from "@focusmakers/types";
 import { isSessionHeld, isStudyRunning } from "@/features/study-session/sessionState";
 import type { SessionState } from "@/features/study-session/sessionState";
 import { hasAlertHaptic } from "@/lib/alertHapticCapability";
+import {
+  trackMultiTimerClosed,
+  trackMultiTimerOpened,
+  trackMultiTimerPhaseCompleted,
+  trackMultiTimerRestarted,
+  trackMultiTimerStarted,
+} from "@/lib/amplitude";
+import type { MultiTimerUse } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
 
 import { createAlarmSound } from "./alarmSound";
@@ -30,6 +38,29 @@ import {
 } from "./multiTimerSettings";
 import type { MultiTimerSettings } from "./multiTimerSettings";
 
+export interface MultiTimerUsage {
+  mark(kind: ModeKind): void;
+  snapshot(): MultiTimerUse;
+}
+
+/**
+ * 세션 동안 시작한 모드 종류 기록
+ *
+ * 세션 훅이 타이머 훅보다 먼저 생겨서 화면이 이 기록을 만들어 양쪽에 넘긴다.
+ * 타이머 훅은 시작할 때 mark 를 부르고 세션 훅은 종료 때 snapshot 만 읽는다.
+ */
+export function createMultiTimerUsage(): MultiTimerUsage {
+  const kinds = new Set<ModeKind>();
+  return {
+    mark(kind) {
+      kinds.add(kind);
+    },
+    snapshot() {
+      return kinds.size > 1 ? "both" : ([...kinds][0] ?? "none");
+    },
+  };
+}
+
 export interface UseMultiTimerOptions {
   readonly sessionState: SessionState;
   readonly studying: boolean;
@@ -37,6 +68,7 @@ export interface UseMultiTimerOptions {
   readonly onEndBreak: () => void;
   readonly onResumeSession: () => void;
   readonly alarm?: AlarmSound;
+  readonly usage?: MultiTimerUsage;
   readonly now?: () => number;
   readonly tickMs?: number;
 }
@@ -81,6 +113,12 @@ interface Snapshot {
 }
 
 const ALARM_HAPTIC_GAP_MS = 180;
+
+const ALARM_PHASE = {
+  "timer-done": "timer",
+  "focus-done": "focus",
+  "break-done": "break",
+} as const;
 
 /**
  * 끝 알림 햅틱 순서
@@ -145,6 +183,7 @@ export function useMultiTimer({
   onEndBreak,
   onResumeSession,
   alarm: injectedAlarm,
+  usage,
   now = Date.now,
   tickMs = 250,
 }: UseMultiTimerOptions): MultiTimerControls {
@@ -154,6 +193,9 @@ export function useMultiTimer({
   const inBreakRef = useRef(false);
   const shownSecondRef = useRef<number | null>(null);
   const hapticTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
+  // 닫힘 계측용으로 이번에 연 시각과 그 뒤 시작한 적이 있는지를 둔다.
+  const openedAtRef = useRef(0);
+  const startedRef = useRef(false);
   const [soundOn, setSoundOnState] = useState(loadAlarmSoundOn);
   const held = isSessionHeld(sessionState);
   const studyRunning = isStudyRunning(sessionState);
@@ -162,7 +204,8 @@ export function useMultiTimer({
     modeRef.current = next;
     shownSecondRef.current = shownSecond(next, atMs);
     setSnapshot({ mode: next, atMs });
-    alarms.forEach(() => {
+    alarms.forEach((done) => {
+      trackMultiTimerPhaseCompleted(ALARM_PHASE[done], soundOn);
       if (soundOn) alarm.play();
       alarmHaptics().forEach((style, index) => {
         if (index === 0) {
@@ -207,6 +250,16 @@ export function useMultiTimer({
           started.kind === "timer" ? { ...stored, timerSec } : { ...stored, focusMin, breakMin },
         );
         alarm.prime();
+        trackMultiTimerStarted({
+          kind: started.kind,
+          timerSec,
+          focusMin,
+          breakMin,
+          soundOn,
+          fromPause: held,
+        });
+        startedRef.current = true;
+        usage?.mark(started.kind);
         // 멈춘 세션 위에서 시작한 모드는 세션이 다시 흐를 때까지 서 있어서 세션도 함께 다시 시작한다.
         if (held) resumeSession(started);
         return syncClock(started, atMs, held).state;
@@ -234,7 +287,11 @@ export function useMultiTimer({
   };
 
   const open = () => {
-    commit(createModeState(loadLastModeKind(), loadMultiTimerSettings()), now());
+    const kind = loadLastModeKind();
+    openedAtRef.current = now();
+    startedRef.current = false;
+    trackMultiTimerOpened(kind);
+    commit(createModeState(kind, loadMultiTimerSettings()), openedAtRef.current);
   };
 
   const switchKind = (kind: ModeKind) => {
@@ -250,7 +307,18 @@ export function useMultiTimer({
   };
 
   const close = () => {
-    commit(null, now());
+    const current = modeRef.current;
+    const atMs = now();
+    if (current !== null) {
+      trackMultiTimerClosed({
+        kind: current.kind,
+        state: held && current.status === "running" ? "paused" : current.status,
+        started: startedRef.current,
+        openSec: Math.round((atMs - openedAtRef.current) / 1000),
+        ...(current.kind === "pomodoro" && { phase: current.phase }),
+      });
+    }
+    commit(null, atMs);
   };
 
   const changeSettings = (patch: Partial<MultiTimerSettings>) => {
@@ -262,6 +330,13 @@ export function useMultiTimer({
   const restart = () => {
     const current = modeRef.current;
     if (current === null) return;
+    if (current.status !== "setup") {
+      if (current.kind === "pomodoro") {
+        trackMultiTimerRestarted(current.kind, current.phase);
+      } else {
+        trackMultiTimerRestarted(current.kind);
+      }
+    }
     commit(backToSetup(current), now());
   };
 

@@ -53,4 +53,18 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     expect(input.ambientSoundUsed).toBeUndefined();
     expect(input.ambientSoundSec).toBeUndefined();
   });
+
+  it("종료 시점에 멀티 타이머 사용 기록을 읽어 싣고, 옵션이 없으면 none 을 싣는다", async () => {
+    const used = renderHook(() => useStudyRoomSession(null, { multiTimerUsage: () => "pomodoro" }));
+    await act(async () => {
+      await used.result.current.endAndSubmit();
+    });
+    const social = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
+    await act(async () => {
+      await social.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "pomodoro" });
+    expect(mocks.ended.mock.calls[1]?.[0]).toMatchObject({ multiTimer: "none" });
+  });
 });

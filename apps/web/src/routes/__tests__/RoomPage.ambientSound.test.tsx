@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { trackAmbientSoundChanged } from "@/lib/amplitude";
+
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -15,6 +17,11 @@ vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
 
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
+}));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackAmbientSoundChanged: vi.fn(),
 }));
 
 const CATALOG_JSON = JSON.stringify({
@@ -120,5 +127,8 @@ describe("RoomPage — 배경음 버튼·페이지", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(await screen.findByRole("button", { name: "배경음 켜짐" })).toBeInTheDocument();
+    expect(vi.mocked(trackAmbientSoundChanged)).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "single" }),
+    );
   });
 });

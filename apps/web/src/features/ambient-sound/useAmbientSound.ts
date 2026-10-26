@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { trackAmbientSoundChanged, trackAmbientSoundDuckToggled } from "@/lib/amplitude";
+import type { StudyRoomType } from "@/lib/amplitude";
 
 import type { SessionState } from "@/features/study-session/sessionState";
 import { isSessionHeld } from "@/features/study-session/sessionState";
@@ -23,6 +24,12 @@ export type UseAmbientSoundOptions = {
   readonly phase: StudyRoomPhase;
   /** 재생 누적 시간 - 호출부가 만들어 세션 훅의 `ambientUsage`에도 같은 것을 넘긴다. */
   readonly usage: AmbientUsage;
+  /**
+   * 계측용 룸 종류
+   *
+   * 싱글룸과 소셜룸이 같은 훅을 써서 이벤트에 실어 가른다.
+   */
+  readonly roomType: StudyRoomType;
   /** [테스트 주입용] 없으면 카탈로그 로드 뒤 Web Audio 플레이어를 만든다. */
   readonly player?: AmbientPlayer;
   /** [테스트 주입용] 없으면 `/sounds/catalog.json`을 받는다. */
@@ -42,7 +49,7 @@ function pick(mix: Mix, ids: readonly SoundId[]): Mix {
  * 계산은 `mix.ts`·`ambientUsage.ts`가 하고 여기는 배선만 한다.
  */
 export function useAmbientSound(options: UseAmbientSoundOptions) {
-  const { sessionState, phase, usage } = options;
+  const { sessionState, phase, usage, roomType } = options;
   const studying = phase.name === "studying";
   // 휴식도 공부 시간에서 빠지는 일시정지지만 쉬는 동안 소리는 이어져야 한다.
   const paused = isSessionHeld(sessionState);
@@ -123,7 +130,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     const before = activeIds(current.mix, catalog);
     const after = activeIds(next, catalog);
     if (before.join(",") !== after.join(",")) {
-      trackAmbientSoundChanged({ sounds: after, source });
+      trackAmbientSoundChanged({ sounds: after, source, roomType });
     }
   };
 
@@ -165,12 +172,12 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       if (ids.length === 0 || !studyingRef.current) return;
       // 자동 시작은 상태 반영 전에 명령을 내야 아래 일시정지 효과가 그 뒤에 온다.
       void applyMix(initial.mix);
-      trackAmbientSoundChanged({ sounds: ids, source: "auto_start" });
+      trackAmbientSoundChanged({ sounds: ids, source: "auto_start", roomType });
     });
     return () => {
       cancelled = true;
     };
-  }, [applyMix, injectedCatalog]);
+  }, [applyMix, injectedCatalog, roomType]);
 
   const ready = settings !== null;
 
@@ -237,7 +244,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
     const current = settingsRef.current;
     if (!current || current.duckEnabled === enabled) return;
     commit({ ...current, duckEnabled: enabled });
-    trackAmbientSoundDuckToggled(enabled);
+    trackAmbientSoundDuckToggled(enabled, roomType);
   };
 
   const toggleAll = () => {
