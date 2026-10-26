@@ -11,7 +11,7 @@ export interface SessionSideActionsProps {
   ambient: ReactNode;
   subject: ReactNode;
   /**
-   * 타이머·뽀모도로 진입 버튼
+   * 타이머 진입 버튼
    *
    * 휴대폰 가로에서는 기존 열 왼쪽의 새 열로 간다.
    */

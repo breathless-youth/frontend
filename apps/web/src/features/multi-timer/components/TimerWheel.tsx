@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 
 import { haptic } from "@/lib/haptics";
@@ -11,6 +11,7 @@ import {
   motionForFrameInterval,
   probeFrameInterval,
   recordFrameInterval,
+  rubberBand,
   settleDuration,
 } from "../wheelMotion";
 
@@ -27,7 +28,7 @@ const OFFSETS = [-3, -2, -1, 0, 1, 2, 3] as const;
 const COLUMN_HEIGHT = 300;
 const DRAG_STEP_PX = 46;
 const ROW_DEG = 24;
-/** 가운데 줄 48px 대비 나머지 줄 38px의 비율 */
+/** 가운데 줄 숫자 대비 나머지 줄 숫자의 크기 비율 */
 const SIDE_ROW_SCALE = 38 / 48;
 /** 손가락이 이만큼 움직여야 탭이 아니라 끌기로 본다. */
 const DRAG_THRESHOLD_ROWS = 0.2;
@@ -36,10 +37,13 @@ const FLING_IDLE_MS = 80;
 const VELOCITY_WINDOW_MS = 100;
 /** 휠이 뜰 때 화면 갱신 간격을 재는 프레임 수 */
 const PROBE_FRAMES = 8;
-
-function mod(value: number, size: number): number {
-  return ((value % size) + size) % size;
-}
+/**
+ * 단위 글자 크기와 숫자와의 간격
+ *
+ * 한글은 한 글자가 대략 글자 크기만큼 넓다.
+ */
+const UNIT_FONT_PX = 15;
+const UNIT_GAP_PX = 6;
 
 /** 가운데에서 떨어진 칸 수에 따른 투명도. 1칸 45%, 2칸 20%, 3칸에서 사라진다. */
 function rowOpacity(distance: number): number {
@@ -77,6 +81,7 @@ interface DragState {
  * 끄는 동안에는 손가락을 소수 칸 단위로 따라가다가, 손을 떼면 가까운 칸에 붙거나 튕긴 속도만큼 더 굴러간다.
  * 화면이 초당 30번만 그려지는 기기에서는 짧게 붙고 덜 굴러가서 끊김이 덜 보인다.
  * 손으로 칸을 넘길 때마다 가벼운 햅틱을 낸다.
+ * 양 끝에서는 반대쪽 끝으로 넘어가지 않고, 끝을 넘겨 끌면 버티며 따라오다가 손을 떼면 끝 값으로 돌아온다.
  */
 function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
   // 굴러가는 중인 위치(칸 단위)이고, 멈춰 있으면 null이라 값 그대로 그린다.
@@ -87,6 +92,10 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
   const drag = useRef<DragState | null>(null);
   const suppressClick = useRef(false);
 
+  // 숫자와 단위를 한 묶음으로 가운데 두려고 숫자 줄을 단위 자리만큼 왼쪽으로 민다.
+  const unitSlot = label.length * UNIT_FONT_PX + UNIT_GAP_PX;
+  const max = size - 1;
+  const clampToEnds = (row: number) => Math.min(max, Math.max(0, row));
   const position = rolling ?? value;
   const base = Math.round(position);
   const frac = position - base;
@@ -102,7 +111,7 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
   };
 
   const commit = (row: number) => {
-    const next = mod(row, size);
+    const next = clampToEnds(row);
     if (next !== value) onSelect(next);
   };
 
@@ -116,14 +125,14 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     const duration = settleDuration(motionForFrameInterval(medianFrameInterval()), to - from);
     let startedAt: number | null = null;
     let previous: number | null = null;
-    lastRow.current = Math.round(from);
+    lastRow.current = clampToEnds(Math.round(from));
     const step = (now: number) => {
       startedAt ??= now;
       if (previous !== null) recordFrameInterval(now - previous);
       previous = now;
       const t = Math.min(1, (now - startedAt) / duration);
       const p = from + (to - from) * easeOutCubic(t);
-      const row = Math.round(p);
+      const row = clampToEnds(Math.round(p));
       if (tick && row !== lastRow.current) {
         lastRow.current = row;
         haptic("light");
@@ -142,7 +151,11 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
 
   const roll = (delta: number, tick: boolean) => {
     const from = rollingRef.current ?? value;
-    const target = Math.round(from) + delta;
+    // 끝을 넘겨 끈 뒤 돌아오는 중이면 화면 위치가 범위 밖이라 끝 값에서부터 센다.
+    const current = clampToEnds(Math.round(from));
+    const target = clampToEnds(current + delta);
+    // 끝에서 더 넘기려는 입력은 값도 햅틱도 바꾸지 않는다.
+    if (target === current) return;
     if (tick) haptic("light");
     commit(target);
     settle(from, target, false);
@@ -162,6 +175,12 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       roll(-1, false);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      roll(-size, false);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      roll(size, false);
     }
   };
 
@@ -174,7 +193,7 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
       moved: false,
       samples: [{ t: performance.now(), p: from }],
     };
-    lastRow.current = Math.round(from);
+    lastRow.current = clampToEnds(Math.round(from));
     suppressClick.current = false;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -185,8 +204,9 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     const rect = event.currentTarget.getBoundingClientRect();
     // 화면에 그려진 높이와 논리 높이가 다를 수 있어 논리 좌표로 환산한다.
     const scale = rect.height > 0 ? COLUMN_HEIGHT / rect.height : 1;
-    const p = current.from - ((event.clientY - current.y0) * scale) / DRAG_STEP_PX;
-    if (Math.abs(p - current.from) >= DRAG_THRESHOLD_ROWS) {
+    const raw = current.from - ((event.clientY - current.y0) * scale) / DRAG_STEP_PX;
+    const p = prefersReducedMotion() ? clampToEnds(raw) : rubberBand(raw, max);
+    if (Math.abs(raw - current.from) >= DRAG_THRESHOLD_ROWS) {
       current.moved = true;
       suppressClick.current = true;
     }
@@ -196,7 +216,7 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
       { t: now, p },
     ];
     show(p);
-    const row = Math.round(p);
+    const row = clampToEnds(Math.round(p));
     if (row !== lastRow.current) {
       lastRow.current = row;
       haptic("light");
@@ -221,7 +241,8 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     const fling = prefersReducedMotion()
       ? 0
       : Math.max(-motion.maxFlingRows, Math.min(motion.maxFlingRows, velocity * motion.flingMs));
-    const target = Math.round(from + fling);
+    // 끝 너머로 튕긴 만큼은 버리고 끝 값에 멈춘다.
+    const target = clampToEnds(Math.round(from + fling));
     commit(target);
     settle(from, target, true);
   };
@@ -262,7 +283,8 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
   }, []);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center">
+    // 남는 폭을 열마다 똑같이 더해 단위 길이가 달라도 숫자 묶음 사이 간격이 고르다.
+    <div className="flex min-w-0 flex-col items-center" style={{ flex: `1 1 ${unitSlot}px` }}>
       <div
         role="spinbutton"
         aria-label={label}
@@ -294,7 +316,9 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
             const distance = Math.abs(offset - frac);
             const opacity = rowOpacity(distance);
             if (opacity < 0.01) return null;
-            const rowValue = mod(base + offset, size);
+            const rowValue = base + offset;
+            // 끝 너머 줄은 비워 두어 첫 값 위와 마지막 값 아래가 빈칸으로 보인다.
+            if (rowValue < 0 || rowValue > max) return null;
             const center = offset === 0;
             return (
               <div
@@ -307,8 +331,9 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
                   }
                   if (!center) roll(offset, true);
                 }}
-                className="absolute inset-x-0 top-1/2 -mt-5.75 flex h-11.5 cursor-pointer items-center justify-center text-[48px] font-bold tabular-nums text-foreground"
+                className="absolute inset-x-0 top-1/2 -mt-5.75 flex h-11.5 cursor-pointer items-center justify-center text-[40px] font-medium tabular-nums text-foreground"
                 style={{
+                  paddingRight: unitSlot,
                   opacity,
                   transform: `rotateX(${-(offset - frac) * ROW_DEG}deg) translateZ(110px) scale(${rowScale(distance)})`,
                   backfaceVisibility: "hidden",
@@ -319,8 +344,21 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
             );
           })}
         </div>
+        {/* 단위는 굴러가지 않고 선택 밴드 안 가운데 숫자 오른쪽에 붙어 있다.
+            숫자와 같은 글꼴의 1ch가 두 자리 숫자 폭의 절반이라 그 오른쪽 끝을 잴 수 있다. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 flex h-11.5 -translate-y-1/2 items-center text-[40px] font-medium tabular-nums"
+          style={{ left: `calc(50% - ${unitSlot / 2}px + 1ch + ${UNIT_GAP_PX}px)` }}
+        >
+          <span
+            className="leading-5 font-medium text-foreground"
+            style={{ fontSize: UNIT_FONT_PX }}
+          >
+            {label}
+          </span>
+        </span>
       </div>
-      <span className="mt-2 text-[13px] leading-5 font-semibold text-text-tertiary">{label}</span>
     </div>
   );
 }
@@ -336,9 +374,10 @@ export function TimerWheel({
 
   return (
     // 열 폭을 고정하면 좁은 폰에서 줄이 본문보다 넓어져 밴드가 잘리고 옆으로 끌린다.
-    // 그래서 세 열이 콜론을 뺀 폭을 똑같이 나누고, 줄은 열이 100px이 되는 348px에서 더 넓어지지 않는다.
+    // 그래서 세 열이 폭을 나누고, 줄은 348px에서 더 넓어지지 않는다.
+    // 안쪽 여백은 양 끝 숫자와 단위가 밴드 가장자리에 붙지 않게 한다.
     <div
-      className="relative mx-auto flex w-full max-w-87 items-start"
+      className="relative mx-auto flex w-full max-w-87 items-start px-1.5"
       style={{ perspective: "900px" }}
     >
       {/* 선택 밴드는 세 열 뒤에 깔려 가운데 행을 받친다. */}
@@ -346,23 +385,14 @@ export function TimerWheel({
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-29 h-17 rounded-[18px] bg-muted inset-ring-1 inset-ring-white/8"
       />
-      {COLUMNS.map(({ unit, label, size }, index) => (
-        <Fragment key={unit}>
-          {index > 0 && (
-            <span
-              aria-hidden="true"
-              className="relative flex h-75 w-6 shrink-0 items-center justify-center text-[44px] font-bold text-foreground"
-            >
-              :
-            </span>
-          )}
-          <WheelColumn
-            label={label}
-            size={size}
-            value={parts[unit]}
-            onSelect={(next) => onChange(clampTimerSec(joinTimerSec({ ...parts, [unit]: next })))}
-          />
-        </Fragment>
+      {COLUMNS.map(({ unit, label, size }) => (
+        <WheelColumn
+          key={unit}
+          label={label}
+          size={size}
+          value={parts[unit]}
+          onSelect={(next) => onChange(clampTimerSec(joinTimerSec({ ...parts, [unit]: next })))}
+        />
       ))}
     </div>
   );

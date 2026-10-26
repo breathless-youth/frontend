@@ -8,6 +8,7 @@ import {
   motionForFrameInterval,
   probeFrameInterval,
   recordFrameInterval,
+  rubberBand,
   settleDuration,
 } from "../wheelMotion";
 
@@ -58,5 +59,18 @@ describe("wheelMotion", () => {
     stop();
 
     expect(medianFrameInterval()).toBeCloseTo(33.3, 0);
+  });
+
+  it("범위 안의 위치는 그대로 두고 끝을 넘은 거리는 넘을수록 덜 따라온다", () => {
+    expect(rubberBand(3, 23)).toBe(3);
+    expect(rubberBand(0, 23)).toBe(0);
+    expect(rubberBand(23, 23)).toBe(23);
+
+    const one = rubberBand(-1, 23);
+    const two = rubberBand(-2, 23);
+    expect(one).toBeLessThan(0);
+    expect(one).toBeGreaterThan(-1);
+    expect(Math.abs(two - one)).toBeLessThan(Math.abs(one));
+    expect(rubberBand(25, 23) - 23).toBeCloseTo(-two);
   });
 });

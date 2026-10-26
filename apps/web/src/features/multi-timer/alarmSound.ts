@@ -18,7 +18,7 @@ const TONES = [
   { frequency: 880, durationSec: 0.16 },
   { frequency: 1320, durationSec: 0.22 },
 ] as const;
-const PEAK_GAIN = 0.25;
+const PEAK_GAIN = 0.6;
 const ATTACK_SEC = 0.01;
 
 function defaultCreateContext(): AudioContext {

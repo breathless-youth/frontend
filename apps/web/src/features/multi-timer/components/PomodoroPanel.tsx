@@ -1,25 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { cn } from "@/lib/utils";
-import { whenIdle } from "@/lib/whenIdle";
 
 import { formatPomodoroRemaining } from "../multiTimerFormat";
 import type { ModeState, PomodoroPhase } from "../multiTimerMachine";
 import { BREAK_MIN_LIMIT, FOCUS_MIN_LIMIT } from "../multiTimerSettings";
+import { AlarmSoundToggle } from "./AlarmSoundToggle";
 import { ModeCard } from "./ModeCard";
 import { PomodoroDial } from "./PomodoroDial";
 import type { DialTone } from "./PomodoroDial";
-
-/**
- * 키패드 시트 나눠 받기
- *
- * 시트 부품(Base UI)이 첫 번들에 들어가지 않게 키패드를 따로 받는다.
- * 세션 화면은 첫 번들에 들어가므로 패널이 뜬 뒤 한가할 때 미리 받아 둔다.
- */
-const { LazySheet: LazyMinuteKeypadSheet, preload: preloadMinuteKeypadSheet } = lazyWithPreload(
-  () => import("./MinuteKeypadSheet").then((module) => module.MinuteKeypadSheet),
-);
 
 const PHASE_LABEL: Record<PomodoroPhase, string> = { focus: "집중 시간", break: "휴식 시간" };
 
@@ -39,21 +28,18 @@ export function PomodoroPanel({
   mode,
   remainingMs,
   distracted,
-  container,
   onChangeSettings,
+  soundOn,
+  onChangeSoundOn,
 }: {
   mode: ModeState;
   remainingMs: number;
   distracted: boolean;
-  container: HTMLElement | null;
   onChangeSettings: (patch: { focusMin?: number; breakMin?: number }) => void;
+  soundOn: boolean;
+  onChangeSoundOn: (on: boolean) => void;
 }) {
   const [selected, setSelected] = useState<PomodoroPhase>("focus");
-  const [keypadOpen, setKeypadOpen] = useState(false);
-
-  useEffect(() => {
-    whenIdle(preloadMinuteKeypadSheet);
-  }, []);
 
   const { focusMin, breakMin } = mode.settings;
   const setup = mode.status === "setup";
@@ -66,35 +52,36 @@ export function PomodoroPanel({
     onChangeSettings(selected === "focus" ? { focusMin: minutes } : { breakMin: minutes });
   };
 
-  const openKeypad = (kind: PomodoroPhase) => {
-    setSelected(kind);
-    setKeypadOpen(true);
-  };
-
   return (
     // 내용 높이보다 줄어들 수 있어야 키 작은 폰에서 큰 버튼을 밀어내지 않는다.
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 시작한 뒤에도 칸 높이만큼 비워 두어 다이얼이 위로 움직이지 않는다. */}
       <div className="h-19.5 shrink-0">
         {setup && (
-          <div className="flex gap-3">
+          // 칸 높이를 줄여도 다이얼 자리는 그대로 두려고 줄 자리를 예전 칸 높이로 잡는다.
+          <div className="flex h-18 items-start gap-3">
             <ModeCard
               kind="focus"
               minutes={focusMin}
+              max={FOCUS_MIN_LIMIT.max}
               selected={selected === "focus"}
-              onPress={() => openKeypad("focus")}
+              onSelect={() => setSelected("focus")}
+              onChangeMinutes={(minutes) => onChangeSettings({ focusMin: minutes })}
             />
             <ModeCard
               kind="break"
               minutes={breakMin}
+              max={BREAK_MIN_LIMIT.max}
               selected={selected === "break"}
-              onPress={() => openKeypad("break")}
+              onSelect={() => setSelected("break")}
+              onChangeMinutes={(minutes) => onChangeSettings({ breakMin: minutes })}
             />
           </div>
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+      {/* 아래 여백은 시간 자리를 그대로 두고 다이얼만 올려 스위치 줄이 들어갈 틈을 만든다. */}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center pb-4">
         <PomodoroDial
           minutes={setup ? selectedMinutes : remainingMs / 60_000}
           tone={tone}
@@ -103,27 +90,23 @@ export function PomodoroPanel({
           limit={phase === "focus" ? FOCUS_MIN_LIMIT : BREAK_MIN_LIMIT}
           onChange={changeSelected}
         />
+        <AlarmSoundToggle
+          soundOn={soundOn}
+          onChangeSoundOn={onChangeSoundOn}
+          className="self-end"
+        />
         {/* 1초마다 읽히지 않도록 aria-live는 걸지 않는다. */}
         <div
           role="timer"
           aria-label={setup ? "집중 시간" : "남은 시간"}
           className={cn(
-            "mt-4.5 text-[52px] leading-16 font-bold tracking-[-0.5px] tabular-nums",
+            "mt-2.5 text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums",
             setup ? "text-foreground" : TIME_TONE_CLASS[tone],
           )}
         >
           {formatPomodoroRemaining(setup ? focusMin * 60_000 : remainingMs)}
         </div>
       </div>
-
-      <LazyMinuteKeypadSheet
-        open={keypadOpen}
-        kind={selected}
-        current={selectedMinutes}
-        container={container}
-        onApply={changeSelected}
-        onOpenChange={setKeypadOpen}
-      />
     </div>
   );
 }
