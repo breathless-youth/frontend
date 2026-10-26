@@ -49,16 +49,17 @@ describe("multiTimerMachine", () => {
     expect(remainingMs(s, 102_000)).toBe(1_793_000);
   });
 
-  it("timer_reaches_zero_once", () => {
+  it("타이머는 0이 되면 알림을 한 번 내고 같은 설정의 시작 전 상태로 돌아간다", () => {
     let s = syncMode(runningTimer(2), 0, false).state;
     const first = syncMode(s, 2_500, false);
-    expect(first.state.status).toBe("done");
+    expect(first.state.status).toBe("setup");
+    expect(first.state.settings.timerSec).toBe(2);
     expect(first.alarms).toEqual(["timer-done"]);
     s = first.state;
     const second = syncMode(s, 3_000, false);
     expect(second.alarms).toEqual([]);
     expect(second.state).toBe(s);
-    expect(remainingMs(s, 9_000)).toBe(0);
+    expect(remainingMs(s, 9_000)).toBe(2_000);
   });
 
   it("pomodoro_focus_to_break_carries_overflow", () => {

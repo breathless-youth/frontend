@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
  */
 
 /** 아이콘 팝 애니메이션 — 마운트·아이콘 교체(일시정지↔재개)마다 한 번 재생된다(BY-435 모션). */
-const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
+export const ICON_POP_CLASS =
+  "animate-[control-icon-pop_220ms_ease-out] motion-reduce:animate-none";
 
 /**
  * 하단 두 버튼의 아이콘 크기
@@ -26,17 +27,25 @@ const ICON_POP_CLASS = "animate-[control-icon-pop_220ms_ease-out] motion-reduce:
  * 버튼을 한 단계 키운 만큼 아이콘도 같은 비율로 키운다.
  * 폭 600 이상 창과 큰 태블릿도 버튼 지름과 같은 비율을 지킨다.
  */
-const CONTROL_ICON_SIZE = "size-6.5 regular:size-7.5 short-side-lg:size-9.5";
+export const CONTROL_ICON_SIZE = "size-6.5 regular:size-7.5 short-side-lg:size-9.5";
 
 interface ControlButtonProps {
   label: string;
   icon: ReactNode;
   onClick: () => void;
   variant?: VariantProps<typeof controlButtonVariants>["variant"];
+  disabled?: boolean;
   ref?: Ref<HTMLButtonElement>;
 }
 
-function ControlButton({ label, icon, onClick, variant = "default", ref }: ControlButtonProps) {
+export function ControlButton({
+  label,
+  icon,
+  onClick,
+  variant = "default",
+  disabled,
+  ref,
+}: ControlButtonProps) {
   return (
     <Button
       ref={ref}
@@ -44,6 +53,7 @@ function ControlButton({ label, icon, onClick, variant = "default", ref }: Contr
       size="icon"
       variant="unstyled"
       aria-label={label}
+      disabled={disabled}
       onClick={onClick}
       className={controlButtonVariants({ variant, size: "primary" })}
     >

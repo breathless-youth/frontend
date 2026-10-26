@@ -56,6 +56,23 @@ export function settleDuration(motion: WheelMotion, rows: number): number {
   return Math.min(motion.settleMaxMs, motion.settleBaseMs + motion.settlePerRowMs * Math.abs(rows));
 }
 
+/** 휠 높이(300px)를 한 칸 높이(46px)로 나눈 값에 가까운 저항 기준 칸 수 */
+const RUBBER_BAND_ROWS = 6.5;
+const RUBBER_BAND_COEFF = 0.55;
+
+/**
+ * 끝을 넘겨 끈 위치
+ *
+ * 0에서 max 사이는 그대로 두고, 끝을 넘은 거리는 넘을수록 덜 따라오게 줄인다.
+ * 그래서 끝에 닿았다는 것을 손가락으로 느낄 수 있다.
+ */
+export function rubberBand(position: number, max: number): number {
+  const over = position < 0 ? -position : position - max;
+  if (over <= 0) return position;
+  const pulled = (1 - 1 / ((over * RUBBER_BAND_COEFF) / RUBBER_BAND_ROWS + 1)) * RUBBER_BAND_ROWS;
+  return position < 0 ? -pulled : max + pulled;
+}
+
 /**
  * 몇 프레임 동안 화면이 그려지는 간격을 잰다
  *

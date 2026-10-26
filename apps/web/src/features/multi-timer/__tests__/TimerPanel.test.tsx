@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { TimerPanel } from "../components/TimerPanel";
 import { createModeState } from "../multiTimerMachine";
@@ -18,6 +18,8 @@ describe("TimerPanel", () => {
         remainingMs={1_800_000}
         distracted={false}
         onChangeTimerSec={() => {}}
+        soundOn
+        onChangeSoundOn={() => {}}
       />,
     );
 
@@ -32,6 +34,8 @@ describe("TimerPanel", () => {
         remainingMs={1_790_000}
         distracted={false}
         onChangeTimerSec={() => {}}
+        soundOn
+        onChangeSoundOn={() => {}}
       />,
     );
 
@@ -39,16 +43,43 @@ describe("TimerPanel", () => {
     expect(screen.queryByRole("spinbutton", { name: "분" })).not.toBeInTheDocument();
   });
 
-  it("panel_done_shows_zero", () => {
-    render(
-      <TimerPanel
-        mode={mode("done")}
-        remainingMs={0}
-        distracted={false}
-        onChangeTimerSec={() => {}}
-      />,
-    );
+  it.each(["setup", "running", "paused"] as const)(
+    "%s 화면에서도 알림음 스위치로 알림음을 켠다",
+    (status) => {
+      const onChangeSoundOn = vi.fn();
+      render(
+        <TimerPanel
+          mode={mode(status)}
+          remainingMs={1_800_000}
+          distracted={false}
+          onChangeTimerSec={() => {}}
+          soundOn={false}
+          onChangeSoundOn={onChangeSoundOn}
+        />,
+      );
 
-    expect(screen.getByRole("timer")).toHaveTextContent("00:00:00");
+      const toggle = screen.getByRole("switch", { name: "알림음" });
+      expect(toggle).not.toBeChecked();
+      fireEvent.click(toggle);
+
+      expect(onChangeSoundOn).toHaveBeenCalledWith(true);
+    },
+  );
+
+  it("시작해서 휠이 남은 시간으로 바뀌어도 알림음 스위치는 그 자리에 그대로 남는다", () => {
+    const props = {
+      remainingMs: 1_800_000,
+      distracted: false,
+      onChangeTimerSec: () => {},
+      soundOn: true,
+      onChangeSoundOn: () => {},
+    };
+    const { rerender } = render(<TimerPanel mode={mode("setup")} {...props} />);
+    const toggle = screen.getByRole("switch", { name: "알림음" });
+
+    rerender(<TimerPanel mode={mode("running")} {...props} />);
+
+    expect(screen.getByRole("timer")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "알림음" })).toBe(toggle);
   });
 });

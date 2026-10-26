@@ -142,8 +142,13 @@ export const VIDEO_SHARE_TARGETS = ["instagram", "kakao"] as const;
 export type VideoShareTarget = (typeof VIDEO_SHARE_TARGETS)[number];
 
 /** 웹 → 네이티브. */
-/** 햅틱 세기 — expo-haptics `ImpactFeedbackStyle`과 같은 세 단계. */
-export type HapticStyle = "light" | "medium" | "heavy";
+/**
+ * 햅틱 세기
+ *
+ * 세 단계는 expo-haptics `ImpactFeedbackStyle`과 같다.
+ * `alert`는 타이머가 끝난 것처럼 놓치면 안 되는 알림용이고 `alertHaptic=1`을 알린 앱만 받는다.
+ */
+export type HapticStyle = "light" | "medium" | "heavy" | "alert";
 
 export type ToNativeMessage =
   /**

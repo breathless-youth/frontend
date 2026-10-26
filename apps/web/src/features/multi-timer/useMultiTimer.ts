@@ -1,7 +1,10 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+import type { HapticStyle } from "@focusmakers/types";
+
 import { isSessionHeld, isStudyRunning } from "@/features/study-session/sessionState";
 import type { SessionState } from "@/features/study-session/sessionState";
+import { hasAlertHaptic } from "@/lib/alertHapticCapability";
 import { haptic } from "@/lib/haptics";
 
 import { createAlarmSound } from "./alarmSound";
@@ -17,7 +20,14 @@ import {
   updateModeSettings,
 } from "./multiTimerMachine";
 import type { ModeAlarm, ModeKind, ModeState } from "./multiTimerMachine";
-import { loadMultiTimerSettings, saveMultiTimerSettings } from "./multiTimerSettings";
+import {
+  loadAlarmSoundOn,
+  loadLastModeKind,
+  loadMultiTimerSettings,
+  saveAlarmSoundOn,
+  saveLastModeKind,
+  saveMultiTimerSettings,
+} from "./multiTimerSettings";
 import type { MultiTimerSettings } from "./multiTimerSettings";
 
 export interface UseMultiTimerOptions {
@@ -31,7 +41,7 @@ export interface UseMultiTimerOptions {
   readonly tickMs?: number;
 }
 
-export type ModePrimaryLabel = "시작" | "일시정지" | "계속" | "다시 설정";
+export type ModePrimaryLabel = "시작" | "일시정지" | "계속";
 
 export interface MultiTimerControls {
   /** null 이면 모드가 꺼져 있다. */
@@ -46,11 +56,19 @@ export interface MultiTimerControls {
   readonly held: boolean;
   readonly distracted: boolean;
   readonly primaryLabel: ModePrimaryLabel;
-  readonly primaryTone: "primary" | "secondary";
   readonly primaryDisabled: boolean;
-  readonly showRestart: boolean;
-  open(kind: ModeKind): void;
+  /** 시작하기 전에는 되돌릴 것이 없어 처음부터를 막는다. */
+  readonly restartDisabled: boolean;
+  /** 진행 중인 모드는 다른 모드로 바꿀 수 없다. */
+  readonly kindLocked: boolean;
+  /** 꺼도 끝 알림의 햅틱은 그대로 낸다. */
+  readonly soundOn: boolean;
+  /** 마지막으로 고른 모드로 연다. */
+  open(): void;
   close(): void;
+  /** 설정 화면에서만 바꾸고 고른 모드를 다음 열기에 쓴다. */
+  switchKind(kind: ModeKind): void;
+  setSoundOn(on: boolean): void;
   changeSettings(patch: Partial<MultiTimerSettings>): void;
   pressPrimary(): void;
   restart(): void;
@@ -62,13 +80,24 @@ interface Snapshot {
   readonly atMs: number;
 }
 
+const ALARM_HAPTIC_GAP_MS = 180;
+
+/**
+ * 끝 알림 햅틱 순서
+ *
+ * alert 를 받는 앱은 진동 패턴을 스스로 내서 한 번만 보낸다.
+ * alert 를 모르는 구버전 앱은 그 메시지를 버려서 짧은 heavy 를 세 번 친다.
+ */
+function alarmHaptics(): readonly HapticStyle[] {
+  return hasAlertHaptic() ? ["alert"] : ["heavy", "heavy", "heavy"];
+}
+
+function isActive(mode: ModeState | null): boolean {
+  return mode?.status === "running" || mode?.status === "paused";
+}
+
 function isInBreak(mode: ModeState | null): boolean {
-  return (
-    mode !== null &&
-    mode.kind === "pomodoro" &&
-    (mode.status === "running" || mode.status === "paused") &&
-    mode.phase === "break"
-  );
+  return mode?.kind === "pomodoro" && isActive(mode) && mode.phase === "break";
 }
 
 /**
@@ -98,8 +127,6 @@ function primaryLabelOf(mode: ModeState | null, held: boolean): ModePrimaryLabel
       return held ? "계속" : "일시정지";
     case "paused":
       return "계속";
-    case "done":
-      return "다시 설정";
     default:
       return "시작";
   }
@@ -126,6 +153,8 @@ export function useMultiTimer({
   const modeRef = useRef<ModeState | null>(null);
   const inBreakRef = useRef(false);
   const shownSecondRef = useRef<number | null>(null);
+  const hapticTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const [soundOn, setSoundOnState] = useState(loadAlarmSoundOn);
   const held = isSessionHeld(sessionState);
   const studyRunning = isStudyRunning(sessionState);
 
@@ -134,8 +163,18 @@ export function useMultiTimer({
     shownSecondRef.current = shownSecond(next, atMs);
     setSnapshot({ mode: next, atMs });
     alarms.forEach(() => {
-      alarm.play();
-      haptic("heavy");
+      if (soundOn) alarm.play();
+      alarmHaptics().forEach((style, index) => {
+        if (index === 0) {
+          haptic(style);
+          return;
+        }
+        const timer = setTimeout(() => {
+          hapticTimersRef.current.delete(timer);
+          haptic(style);
+        }, index * ALARM_HAPTIC_GAP_MS);
+        hapticTimersRef.current.add(timer);
+      });
     });
     const inBreak = isInBreak(next);
     if (inBreak === inBreakRef.current) return;
@@ -181,8 +220,6 @@ export function useMultiTimer({
         alarm.prime();
         if (held) resumeSession(mode);
         return syncClock(resumeMode(mode), atMs, held).state;
-      case "done":
-        return backToSetup(mode);
     }
   };
 
@@ -192,12 +229,24 @@ export function useMultiTimer({
     const atMs = now();
     // 틱 사이에 끝난 단계가 누름에 묻히지 않게 누른 시각까지 먼저 맞춘다.
     const { state: synced, alarms } = syncClock(current, atMs, held);
-    // 누른 순간 타이머가 끝났으면 누름보다 끝남을 보여 준다.
+    // 누른 순간 타이머가 끝났으면 다시 시작하지 않고 시작 전으로 돌아간 화면을 보여 준다.
     commit(synced.status === current.status ? pressed(synced, atMs) : synced, atMs, alarms);
   };
 
-  const open = (kind: ModeKind) => {
+  const open = () => {
+    commit(createModeState(loadLastModeKind(), loadMultiTimerSettings()), now());
+  };
+
+  const switchKind = (kind: ModeKind) => {
+    const current = modeRef.current;
+    if (current === null || current.kind === kind || isActive(current)) return;
+    saveLastModeKind(kind);
     commit(createModeState(kind, loadMultiTimerSettings()), now());
+  };
+
+  const setSoundOn = (on: boolean) => {
+    saveAlarmSoundOn(on);
+    setSoundOnState(on);
   };
 
   const close = () => {
@@ -264,8 +313,13 @@ export function useMultiTimer({
 
   useEffect(() => () => alarm.dispose(), [alarm]);
 
+  useEffect(() => {
+    const timers = hapticTimersRef.current;
+    return () => timers.forEach((timer) => clearTimeout(timer));
+  }, []);
+
   const primaryLabel = primaryLabelOf(mode, held);
-  const active = mode?.status === "running" || mode?.status === "paused";
+  const active = isActive(mode);
 
   return {
     mode,
@@ -273,12 +327,15 @@ export function useMultiTimer({
     held,
     distracted: active && mode?.phase === "focus" && sessionState.kind === "DISTRACTION",
     primaryLabel,
-    primaryTone: primaryLabel === "일시정지" ? "secondary" : "primary",
     primaryDisabled:
       mode?.kind === "timer" && mode.status === "setup" && mode.settings.timerSec === 0,
-    showRestart: mode?.status === "paused",
+    restartDisabled: mode === null || mode.status === "setup",
+    kindLocked: active,
+    soundOn,
     open,
     close,
+    switchKind,
+    setSoundOn,
     changeSettings,
     pressPrimary,
     restart,

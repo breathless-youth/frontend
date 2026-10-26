@@ -250,7 +250,12 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "request-token-refresh":
       return { type: "request-token-refresh", atMs: record.atMs };
     case "haptic":
-      if (record.style !== "light" && record.style !== "medium" && record.style !== "heavy") {
+      if (
+        record.style !== "light" &&
+        record.style !== "medium" &&
+        record.style !== "heavy" &&
+        record.style !== "alert"
+      ) {
         return null;
       }
       return { type: "haptic", style: record.style, atMs: record.atMs };

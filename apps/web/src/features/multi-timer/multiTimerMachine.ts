@@ -9,7 +9,7 @@ import type { MultiTimerSettings } from "./multiTimerSettings";
 
 export type ModeKind = "timer" | "pomodoro";
 export type PomodoroPhase = "focus" | "break";
-export type ModeStatus = "setup" | "running" | "paused" | "done";
+export type ModeStatus = "setup" | "running" | "paused";
 export type ModeAlarm = "timer-done" | "focus-done" | "break-done";
 
 export interface ModeClock {
@@ -133,12 +133,8 @@ export function syncMode(
   const left = base - (nowMs - anchorMs);
   if (left > 0) return { state, alarms: [] };
 
-  if (state.kind === "timer") {
-    return {
-      state: { ...state, status: "done", clock: { remainingMs: 0, anchorMs: null } },
-      alarms: ["timer-done"],
-    };
-  }
+  // 끝난 타이머는 같은 설정의 시작 전으로 돌아가 바로 다시 시작할 수 있다.
+  if (state.kind === "timer") return { state: backToSetup(state), alarms: ["timer-done"] };
 
   const nextPhase: PomodoroPhase = state.phase === "focus" ? "break" : "focus";
   const nextFull = phaseDurationMs(state, nextPhase);

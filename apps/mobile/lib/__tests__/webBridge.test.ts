@@ -94,6 +94,14 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"haptic","style":"boom","atMs":3}')).toBeNull();
   });
 
+  it("haptic 메시지의 alert 세기를 받는다", () => {
+    expect(parseToNativeMessage('{"type":"haptic","style":"alert","atMs":3}')).toEqual({
+      type: "haptic",
+      style: "alert",
+      atMs: 3,
+    });
+  });
+
   it("motion-sensor의 enabled가 boolean이 아니면 null을 돌려준다", () => {
     expect(parseToNativeMessage('{"type":"motion-sensor","enabled":"on","atMs":7}')).toBeNull();
   });

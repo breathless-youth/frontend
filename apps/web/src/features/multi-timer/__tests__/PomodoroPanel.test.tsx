@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { PomodoroPanel } from "../components/PomodoroPanel";
 import { createModeState } from "../multiTimerMachine";
@@ -14,29 +14,45 @@ function renderPanel(
   props: Partial<Parameters<typeof PomodoroPanel>[0]> & { mode: ReturnType<typeof mode> },
 ) {
   const onChangeSettings = vi.fn();
+  const onChangeSoundOn = vi.fn();
   render(
     <PomodoroPanel
       remainingMs={props.mode.clock.remainingMs}
       distracted={false}
-      container={null}
       onChangeSettings={onChangeSettings}
+      soundOn
+      onChangeSoundOn={onChangeSoundOn}
       {...props}
     />,
   );
-  return { onChangeSettings };
+  return { onChangeSettings, onChangeSoundOn };
 }
 
-// 키패드 시트는 나눠 받는다. 첫 열기에서 모듈 받기가 findBy 기본 대기를 넘지 않게 미리 받아 둔다.
-beforeAll(async () => {
-  await import("../components/MinuteKeypadSheet");
-});
-
 describe("PomodoroPanel", () => {
+  it.each(["setup", "running", "paused"] as const)(
+    "%s 화면에서도 알림음 스위치로 알림음을 끈다",
+    (status) => {
+      const { onChangeSoundOn } = renderPanel({ mode: mode(status) });
+
+      const toggle = screen.getByRole("switch", { name: "알림음" });
+      expect(toggle).toBeChecked();
+      fireEvent.click(toggle);
+
+      expect(onChangeSoundOn).toHaveBeenCalledWith(false);
+    },
+  );
+
+  it("알림음이 꺼져 있으면 스위치도 꺼져 있다", () => {
+    renderPanel({ mode: mode("setup"), soundOn: false });
+
+    expect(screen.getByRole("switch", { name: "알림음" })).not.toBeChecked();
+  });
+
   it("setup_shows_cards_and_focus_time", () => {
     renderPanel({ mode: mode("setup") });
 
-    expect(screen.getByRole("button", { name: "집중 25분" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "휴식 5분" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("25");
+    expect(screen.getByRole("combobox", { name: "휴식 시간" })).toHaveValue("5");
     expect(screen.getByRole("timer", { name: "집중 시간" })).toHaveTextContent("25:00");
     expect(screen.getByRole("slider", { name: "집중 시간" })).toHaveAttribute(
       "aria-valuenow",
@@ -44,40 +60,74 @@ describe("PomodoroPanel", () => {
     );
   });
 
-  it("card_press_opens_keypad_for_that_kind", async () => {
+  it.each([
+    ["집중 시간", 180],
+    ["휴식 시간", 60],
+  ] as const)("%s 선택지는 5분부터 %i분까지 5분 단위다", (name, max) => {
     renderPanel({ mode: mode("setup") });
 
-    fireEvent.click(screen.getByRole("button", { name: "휴식 5분" }));
-
-    expect(await screen.findByRole("dialog", { name: "휴식 시간" })).toBeInTheDocument();
-    expect(screen.getByText("1–60분")).toBeInTheDocument();
+    const options = within(screen.getByRole("combobox", { name })).getAllByRole("option");
+    expect(options).toHaveLength(max / 5);
+    expect(options[0]).toHaveTextContent("5분");
+    expect(options[0]).toHaveValue("5");
+    expect(options[1]).toHaveValue("10");
+    expect(options.at(-1)).toHaveTextContent(`${max}분`);
   });
 
-  it("selecting_break_shows_break_minutes_on_dial", async () => {
-    renderPanel({ mode: mode("setup") });
+  it("5분 단위가 아닌 지금 값은 선택지에 끼워 넣어 그 값을 가리킨다", () => {
+    const base = mode("setup");
+    renderPanel({ mode: { ...base, settings: { ...base.settings, focusMin: 23 } } });
 
-    fireEvent.click(screen.getByRole("button", { name: "휴식 5분" }));
-    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: "집중 시간" });
+    expect(select).toHaveValue("23");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(values.slice(3, 6)).toEqual(["20", "23", "25"]);
+  });
+
+  it("5분보다 작은 지금 값은 선택지 맨 앞에 끼워 넣는다", () => {
+    const base = mode("setup");
+    renderPanel({ mode: { ...base, settings: { ...base.settings, breakMin: 1 } } });
+
+    const select = screen.getByRole("combobox", { name: "휴식 시간" });
+    expect(select).toHaveValue("1");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(values.slice(0, 2)).toEqual(["1", "5"]);
+  });
+
+  it("focus_select_change_patches_focus_minutes", () => {
+    const { onChangeSettings } = renderPanel({ mode: mode("setup") });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "집중 시간" }), {
+      target: { value: "45" },
     });
 
+    expect(onChangeSettings).toHaveBeenCalledWith({ focusMin: 45 });
+  });
+
+  it("break_select_change_patches_break_and_shows_break_on_dial", () => {
+    const { onChangeSettings } = renderPanel({ mode: mode("setup") });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "휴식 시간" }), {
+      target: { value: "10" },
+    });
+
+    expect(onChangeSettings).toHaveBeenCalledWith({ breakMin: 10 });
     const slider = screen.getByRole("slider", { name: "휴식 시간" });
-    expect(slider).toHaveAttribute("aria-valuenow", "5");
     expect(slider).toHaveAttribute("aria-valuemax", "60");
     // 위 시간은 고른 칸과 상관없이 집중 시간이다.
     expect(screen.getByRole("timer", { name: "집중 시간" })).toHaveTextContent("25:00");
   });
 
-  it("keypad_apply_patches_selected_kind", async () => {
-    const { onChangeSettings } = renderPanel({ mode: mode("setup") });
+  it("focusing_break_select_shows_break_minutes_on_dial", () => {
+    renderPanel({ mode: mode("setup") });
 
-    fireEvent.click(screen.getByRole("button", { name: "집중 25분" }));
-    fireEvent.click(await screen.findByRole("button", { name: "4" }));
-    fireEvent.click(screen.getByRole("button", { name: "5" }));
-    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    fireEvent.focus(screen.getByRole("combobox", { name: "휴식 시간" }));
 
-    expect(onChangeSettings).toHaveBeenCalledWith({ focusMin: 45 });
+    expect(screen.getByRole("slider", { name: "휴식 시간" })).toHaveAttribute("aria-valuenow", "5");
   });
 
   it("dial_keys_patch_focus_minutes", () => {
@@ -91,8 +141,7 @@ describe("PomodoroPanel", () => {
   it("running_hides_cards", () => {
     renderPanel({ mode: mode("running"), remainingMs: 825_000 });
 
-    expect(screen.queryByRole("button", { name: /집중/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /휴식/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "집중 시간" })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -122,6 +171,6 @@ describe("PomodoroPanel", () => {
     renderPanel({ mode: mode("paused"), remainingMs: 600_000 });
 
     expect(screen.getByRole("timer", { name: "남은 시간" })).toHaveTextContent("10:00");
-    expect(screen.queryByRole("button", { name: /집중/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 });

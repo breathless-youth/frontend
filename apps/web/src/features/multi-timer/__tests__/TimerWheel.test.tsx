@@ -60,6 +60,18 @@ describe("TimerWheel", () => {
     expect(seconds).toHaveAttribute("aria-valuetext", "0초");
   });
 
+  it("열 사이 쌍점 없이 단위를 각 열 안에 한 번만 둔다", () => {
+    render(<TimerWheel valueSec={1800} onChange={() => {}} />);
+
+    expect(screen.queryByText(":")).toBeNull();
+    for (const unit of ["시간", "분", "초"]) {
+      expect(screen.getAllByText(unit)).toHaveLength(1);
+      expect(
+        within(screen.getByRole("spinbutton", { name: unit })).getByText(unit),
+      ).toBeInTheDocument();
+    }
+  });
+
   it("arrow_up_on_minutes_adds_minute", () => {
     const onChange = vi.fn();
     render(<TimerWheel valueSec={1800} onChange={onChange} />);
@@ -69,13 +81,129 @@ describe("TimerWheel", () => {
     expect(onChange).toHaveBeenCalledWith(1860);
   });
 
-  it("arrow_down_on_hours_wraps_to_23", () => {
+  it("0시간에서 아래 화살표를 눌러도 23시간으로 넘어가지 않는다", () => {
     const onChange = vi.fn();
     render(<TimerWheel valueSec={1800} onChange={onChange} />);
 
     fireEvent.keyDown(screen.getByRole("spinbutton", { name: "시간" }), { key: "ArrowDown" });
 
-    expect(onChange).toHaveBeenCalledWith(23 * 3600 + 1800);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("끝에서 위 화살표는 멈추고 Home과 End는 양 끝으로 간다", () => {
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={23 * 3600 + 1800} onChange={onChange} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    fireEvent.keyDown(hours, { key: "ArrowUp" });
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(hours, { key: "Home" });
+    expect(onChange).toHaveBeenLastCalledWith(1800);
+
+    fireEvent.keyDown(screen.getByRole("spinbutton", { name: "분" }), { key: "End" });
+    expect(onChange).toHaveBeenLastCalledWith(23 * 3600 + 59 * 60);
+  });
+
+  it("범위 밖 줄은 숫자 없이 비워 둔다", () => {
+    render(<TimerWheel valueSec={59} onChange={() => {}} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+    const seconds = screen.getByRole("spinbutton", { name: "초" });
+
+    expect(within(hours).getByText("01")).toBeInTheDocument();
+    expect(within(hours).queryByText("23")).toBeNull();
+    expect(within(hours).queryByText("22")).toBeNull();
+    expect(within(seconds).getByText("58")).toBeInTheDocument();
+    expect(within(seconds).queryByText("00")).toBeNull();
+    expect(within(seconds).queryByText("01")).toBeNull();
+  });
+
+  it("끝을 넘겨 끌어도 끝 값에 머물고 햅틱을 내지 않는다", () => {
+    stubReducedMotion(false);
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={0} onChange={onChange} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    pointerAt(hours, "pointerdown", 0, 0);
+    pointerAt(hours, "pointermove", 138, 400);
+    pointerAt(hours, "pointerup", 138, 1000);
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(haptic).not.toHaveBeenCalled();
+    expect(hours).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  it("끝을 넘겨 끄는 동안 저항을 받아 손가락보다 덜 따라온다", () => {
+    stubReducedMotion(false);
+    render(<TimerWheel valueSec={0} onChange={() => {}} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    pointerAt(hours, "pointerdown", 0, 0);
+    pointerAt(hours, "pointermove", 92, 400);
+
+    // 두 칸을 그대로 따라왔다면 0은 가운데에서 두 칸 떨어져 20%로 흐려진다.
+    const opacity = Number.parseFloat(within(hours).getByText("00").style.opacity);
+    expect(opacity).toBeGreaterThan(0.2);
+    expect(opacity).toBeLessThan(1);
+  });
+
+  it("모션 줄이기에서는 끝을 넘겨 끌어도 넘어가지 않는다", () => {
+    stubReducedMotion(true);
+    render(<TimerWheel valueSec={0} onChange={() => {}} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    pointerAt(hours, "pointerdown", 0, 0);
+    pointerAt(hours, "pointermove", 92, 400);
+
+    expect(within(hours).getByText("00").style.opacity).toBe("1");
+  });
+
+  it("끝을 넘겨 끈 뒤 돌아오는 중에도 키 입력이 끝 값에서부터 먹는다", () => {
+    stubReducedMotion(false);
+    // 돌아오는 애니메이션을 첫 프레임 전에 세워 둔다.
+    vi.stubGlobal("requestAnimationFrame", () => 1);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={0} onChange={onChange} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    pointerAt(hours, "pointerdown", 0, 0);
+    pointerAt(hours, "pointermove", 138, 400);
+    pointerAt(hours, "pointerup", 138, 1000);
+    fireEvent.keyDown(hours, { key: "ArrowUp" });
+
+    expect(onChange).toHaveBeenLastCalledWith(3600);
+  });
+
+  it("끝을 넘겨 끈 뒤 돌아오는 중에도 End는 마지막 값으로 간다", () => {
+    stubReducedMotion(false);
+    vi.stubGlobal("requestAnimationFrame", () => 1);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={0} onChange={onChange} />);
+    const hours = screen.getByRole("spinbutton", { name: "시간" });
+
+    pointerAt(hours, "pointerdown", 0, 0);
+    pointerAt(hours, "pointermove", 138, 400);
+    pointerAt(hours, "pointerup", 138, 1000);
+    fireEvent.keyDown(hours, { key: "End" });
+
+    expect(onChange).toHaveBeenLastCalledWith(23 * 3600);
+  });
+
+  it("끝 너머로 튕겨도 끝 값에서 멈춘다", () => {
+    stubReducedMotion(false);
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={57 * 60} onChange={onChange} />);
+    const minutes = screen.getByRole("spinbutton", { name: "분" });
+
+    pointerAt(minutes, "pointerdown", 0, 0);
+    pointerAt(minutes, "pointermove", -46, 20);
+    pointerAt(minutes, "pointermove", -92, 40);
+    pointerAt(minutes, "pointerup", -92, 45);
+
+    expect(onChange).toHaveBeenLastCalledWith(59 * 60);
+    for (const [sec] of onChange.mock.calls) expect(sec).toBeGreaterThanOrEqual(57 * 60);
   });
 
   it("clicking_row_below_selects_it", () => {
@@ -119,14 +247,26 @@ describe("TimerWheel", () => {
 
   it("reversing_trackpad_drops_partial_scroll", () => {
     const onChange = vi.fn();
-    render(<TimerWheel valueSec={1800} onChange={onChange} />);
+    render(<TimerWheel valueSec={1830} onChange={onChange} />);
     const seconds = screen.getByRole("spinbutton", { name: "초" });
 
     fireEvent.wheel(seconds, { deltaY: 40 });
     fireEvent.wheel(seconds, { deltaY: -46 });
 
     expect(onChange).toHaveBeenCalledOnce();
-    expect(onChange).toHaveBeenCalledWith(1859);
+    expect(onChange).toHaveBeenCalledWith(1829);
+  });
+
+  it("끝에서 휠과 트랙패드로 더 넘겨도 값과 햅틱이 그대로다", () => {
+    const onChange = vi.fn();
+    render(<TimerWheel valueSec={59} onChange={onChange} />);
+    const seconds = screen.getByRole("spinbutton", { name: "초" });
+
+    fireEvent.wheel(seconds, { deltaY: 100 });
+    for (let i = 0; i < 10; i += 1) fireEvent.wheel(seconds, { deltaY: 5 });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(haptic).not.toHaveBeenCalled();
   });
 
   it("shows_two_rows_above_and_below", () => {

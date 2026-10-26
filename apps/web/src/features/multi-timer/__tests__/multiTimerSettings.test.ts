@@ -5,9 +5,13 @@ import {
   clampBreakMin,
   clampFocusMin,
   clampTimerSec,
+  loadAlarmSoundOn,
+  loadLastModeKind,
   loadMultiTimerSettings,
   parseMultiTimerSettings,
   restoreMultiTimerStorage,
+  saveAlarmSoundOn,
+  saveLastModeKind,
   saveMultiTimerSettings,
   setMultiTimerStorage,
 } from "../multiTimerSettings";
@@ -84,5 +88,63 @@ describe("clamp", () => {
     expect(clampFocusMin(500)).toBe(180);
     expect(clampBreakMin(0)).toBe(1);
     expect(clampBreakMin(500)).toBe(60);
+  });
+});
+
+describe("loadLastModeKind", () => {
+  it("저장값이 없으면 기본 타이머", () => {
+    expect(loadLastModeKind()).toBe("timer");
+  });
+
+  it("저장한 모드를 설정과 다른 키에서 복원한다", () => {
+    saveLastModeKind("pomodoro");
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(loadLastModeKind()).toBe("pomodoro");
+  });
+
+  it("모르는 값이면 기본 타이머", () => {
+    localStorage.setItem("focuson.multiTimer.lastKind.v1", "stopwatch");
+    expect(loadLastModeKind()).toBe("timer");
+  });
+
+  it("접근이 throw 해도 기본 타이머이고 저장도 예외를 내지 않는다", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(loadLastModeKind()).toBe("timer");
+    expect(() => saveLastModeKind("pomodoro")).not.toThrow();
+  });
+});
+
+describe("loadAlarmSoundOn", () => {
+  it("저장값이 없으면 켜짐", () => {
+    expect(loadAlarmSoundOn()).toBe(true);
+  });
+
+  it("끈 값을 설정과 다른 키에서 복원한다", () => {
+    saveAlarmSoundOn(false);
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(loadAlarmSoundOn()).toBe(false);
+    saveAlarmSoundOn(true);
+    expect(loadAlarmSoundOn()).toBe(true);
+  });
+
+  it("모르는 값이면 켜짐", () => {
+    localStorage.setItem("focuson.multiTimer.alarmSound.v1", "maybe");
+    expect(loadAlarmSoundOn()).toBe(true);
+  });
+
+  it("접근이 throw 해도 켜짐이고 저장도 예외를 내지 않는다", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(loadAlarmSoundOn()).toBe(true);
+    expect(() => saveAlarmSoundOn(false)).not.toThrow();
   });
 });

@@ -5,7 +5,12 @@
  * 저장소 접근은 프라이버시 모드 등에서 throw 할 수 있어 모든 접근을 삼킨다.
  */
 
+import type { ModeKind } from "./multiTimerMachine";
+
 const KEY = "focuson.multiTimer.v1";
+// 설정 저장은 알려진 필드만 다시 써서 같은 객체에 넣으면 지워지므로 키를 따로 둔다.
+const LAST_KIND_KEY = "focuson.multiTimer.lastKind.v1";
+const ALARM_SOUND_KEY = "focuson.multiTimer.alarmSound.v1";
 
 export interface MultiTimerSettings {
   readonly timerSec: number;
@@ -111,5 +116,39 @@ export function saveMultiTimerSettings(next: MultiTimerSettings): void {
     currentStorage()?.setItem(KEY, JSON.stringify(next));
   } catch {
     // 저장 실패는 다음 진입 때 기본값으로 시작하는 정도의 손해라 무시한다.
+  }
+}
+
+/** 마지막으로 고른 모드이고 모르는 값이나 조회 실패는 기본 타이머로 떨어진다. */
+export function loadLastModeKind(): ModeKind {
+  try {
+    return currentStorage()?.getItem(LAST_KIND_KEY) === "pomodoro" ? "pomodoro" : "timer";
+  } catch {
+    return "timer";
+  }
+}
+
+export function saveLastModeKind(kind: ModeKind): void {
+  try {
+    currentStorage()?.setItem(LAST_KIND_KEY, kind);
+  } catch {
+    // 저장 실패는 다음에 기본 타이머로 여는 정도의 손해라 무시한다.
+  }
+}
+
+/** 알림음 켜짐 여부이고 끈 값이 확실할 때만 끈다. */
+export function loadAlarmSoundOn(): boolean {
+  try {
+    return currentStorage()?.getItem(ALARM_SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function saveAlarmSoundOn(on: boolean): void {
+  try {
+    currentStorage()?.setItem(ALARM_SOUND_KEY, on ? "on" : "off");
+  } catch {
+    // 저장 실패는 다음에 알림음이 켜진 채로 여는 정도의 손해라 무시한다.
   }
 }

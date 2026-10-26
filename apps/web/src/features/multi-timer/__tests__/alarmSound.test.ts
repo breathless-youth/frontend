@@ -73,26 +73,25 @@ describe("createAlarmSound", () => {
     expect(fake.resume).not.toHaveBeenCalled();
   });
 
-  it("play 는 사인파 두 음을 이어서 예약한다", () => {
+  it("play 는 사인파 두 음을 한 번만 이어서 예약한다", () => {
     const { context, oscillators, gains } = fakeContext("running");
     const alarm = createAlarmSound(() => context);
 
     alarm.play();
 
     expect(oscillators).toHaveLength(2);
-    expect(oscillators.map((o) => o.type)).toEqual(["sine", "sine"]);
-    expect(oscillators[0]?.frequency.setValueAtTime).toHaveBeenCalledWith(880, 2);
-    expect(oscillators[1]?.frequency.setValueAtTime).toHaveBeenCalledWith(
-      1320,
-      expect.closeTo(2.16),
-    );
-    expect(oscillators[0]?.start).toHaveBeenCalledWith(2);
-    expect(oscillators[0]?.stop).toHaveBeenCalledWith(expect.closeTo(2.16));
-    expect(oscillators[1]?.start).toHaveBeenCalledWith(expect.closeTo(2.16));
-    expect(oscillators[1]?.stop).toHaveBeenCalledWith(expect.closeTo(2.38));
+    const [low, high] = oscillators;
+    expect(low.type).toBe("sine");
+    expect(low.frequency.setValueAtTime).toHaveBeenCalledWith(880, 2);
+    expect(low.start).toHaveBeenCalledWith(2);
+    expect(low.stop).toHaveBeenCalledWith(expect.closeTo(2.16));
+    expect(high.type).toBe("sine");
+    expect(high.frequency.setValueAtTime).toHaveBeenCalledWith(1320, expect.closeTo(2.16));
+    expect(high.start).toHaveBeenCalledWith(expect.closeTo(2.16));
+    expect(high.stop).toHaveBeenCalledWith(expect.closeTo(2.38));
     for (const gain of gains) {
       expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, expect.any(Number));
-      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.25, expect.any(Number));
+      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.6, expect.any(Number));
       expect(gain.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, expect.any(Number));
     }
   });

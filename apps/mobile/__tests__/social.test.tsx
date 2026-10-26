@@ -56,7 +56,7 @@ describe("SocialScreen", () => {
     render(<SocialScreen />);
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/code?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+      uri: "https://web.test/social/code?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
     });
   });
 
@@ -67,7 +67,7 @@ describe("SocialScreen", () => {
     render(<SocialScreen />);
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1&code=5634",
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1&code=5634",
     });
   });
 
@@ -76,7 +76,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
     });
   });
 
@@ -86,7 +86,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1&code=5634",
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1&code=5634",
     });
   });
 
@@ -95,7 +95,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1",
+      uri: "https://web.test/social?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
     });
 
     mockParams.code = "5634";
@@ -103,7 +103,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&nativeTabBar=1&code=5634",
+      uri: "https://web.test/social/join?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1&code=5634",
     });
   });
 
