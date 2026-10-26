@@ -97,6 +97,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      alertHaptic: "1",
       nativeTabBar: "1",
     });
   });
@@ -112,6 +113,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      alertHaptic: "1",
       nativeTabBar: "1",
     });
   });
@@ -127,6 +129,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      alertHaptic: "1",
       nativeTabBar: "1",
     });
   });
@@ -167,6 +170,14 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.ranking).toBe("1");
+  });
+
+  it("셸이 알림 햅틱을 낼 수 있음을 alertHaptic으로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.alertHaptic).toBe("1");
   });
 
   it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
@@ -297,6 +308,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        alertHaptic: "1",
         nativeTabBar: "1",
       }),
     );
@@ -315,6 +327,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        alertHaptic: "1",
         nativeTabBar: "1",
       }),
     );
@@ -331,6 +344,7 @@ describe("useRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      alertHaptic: "1",
       nativeTabBar: "1",
     });
   });
@@ -375,6 +389,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        alertHaptic: "1",
         nativeTabBar: "1",
       }),
     );
@@ -393,6 +408,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        alertHaptic: "1",
         nativeTabBar: "1",
       }),
     );
