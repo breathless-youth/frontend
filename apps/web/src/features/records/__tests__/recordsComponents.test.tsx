@@ -7,7 +7,12 @@ import { EventChip } from "../EventChip";
 import { MonthCalendar } from "../MonthCalendar";
 import { SegmentedControl } from "../SegmentedControl";
 import { Accordion } from "@/components/ui/accordion";
-import { enterGlassChrome, pressNative, resetGlassChrome } from "@/test/nativeControlStub";
+import {
+  enterGlassChrome,
+  lastInlineControls,
+  pressNative,
+  resetGlassChrome,
+} from "@/test/nativeControlStub";
 
 import { SessionListItem, SessionTimelineLegend } from "../SessionListItem";
 import type { StreakWeekDay } from "../recordsFormat";
@@ -665,5 +670,21 @@ describe("SegmentedControl, 앱 모드", () => {
     expect(onChange).not.toHaveBeenCalled();
     pressNative("segment-daily-weekly-monthly", 2);
     expect(onChange).toHaveBeenCalledWith("MONTHLY");
+  });
+
+  it("nativeControlId가 null이면 앱 부품으로 등록하지 않고 웹으로 그린다", () => {
+    const postMessage = enterGlassChrome("/ranking");
+    render(
+      <SegmentedControl
+        ariaLabel="기간"
+        value="daily"
+        options={RECORDS_OPTIONS}
+        onChange={vi.fn()}
+        nativeControlId={null}
+      />,
+    );
+
+    expect(screen.getByRole("tablist", { name: "기간" })).toBeInTheDocument();
+    expect(lastInlineControls(postMessage)).toEqual([]);
   });
 });
