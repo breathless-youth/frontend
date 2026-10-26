@@ -86,6 +86,18 @@ describe("PomodoroPanel", () => {
     expect(values.slice(3, 6)).toEqual(["20", "23", "25"]);
   });
 
+  it("5분보다 작은 지금 값은 선택지 맨 앞에 끼워 넣는다", () => {
+    const base = mode("setup");
+    renderPanel({ mode: { ...base, settings: { ...base.settings, breakMin: 1 } } });
+
+    const select = screen.getByRole("combobox", { name: "휴식 시간" });
+    expect(select).toHaveValue("1");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(values.slice(0, 2)).toEqual(["1", "5"]);
+  });
+
   it("focus_select_change_patches_focus_minutes", () => {
     const { onChangeSettings } = renderPanel({ mode: mode("setup") });
 

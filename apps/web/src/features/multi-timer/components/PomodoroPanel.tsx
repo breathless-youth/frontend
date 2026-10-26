@@ -13,7 +13,7 @@ import type { DialTone } from "./PomodoroDial";
 const PHASE_LABEL: Record<PomodoroPhase, string> = { focus: "집중 시간", break: "휴식 시간" };
 
 const TIME_TONE_CLASS: Record<DialTone, string> = {
-  focus: "text-foreground",
+  focus: "text-(--session-mode-focus)",
   break: "text-(--session-mode-break)",
   distract: "text-state-distract",
 };
@@ -58,8 +58,7 @@ export function PomodoroPanel({
       {/* 시작한 뒤에도 칸 높이만큼 비워 두어 다이얼이 위로 움직이지 않는다. */}
       <div className="h-19.5 shrink-0">
         {setup && (
-          // 칸 높이를 줄여도 다이얼 자리는 그대로 두려고 줄 자리를 예전 칸 높이로 잡는다.
-          <div className="flex h-18 items-start gap-3">
+          <div className="flex gap-3">
             <ModeCard
               kind="focus"
               minutes={focusMin}
