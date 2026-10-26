@@ -13,7 +13,7 @@ export type PlannerDayState =
   | { status: "success"; day: PlannerDay };
 
 /** 아직 오지 않은 날짜의 조회를 대신하는 빈 응답 — 오늘 플래너의 "다음 날"과 미래 날짜의 플래너가 여기에 해당한다. */
-const EMPTY_STATS: StudySessionListResponse = {
+export const EMPTY_STATS: StudySessionListResponse = {
   sessions: [],
   sessionCount: 0,
   totalStudySec: 0,

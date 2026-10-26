@@ -4,9 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RoomMember, SubjectResponse } from "@focusmakers/types";
+import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
+import { plannerDateKeyOf, plannerDayWindow } from "@/features/planner/plannerDay";
+import { EMPTY_STATS } from "@/features/planner/usePlannerDay";
+import { queryClient } from "@/lib/queryClient";
 import type { MockRoomScenario } from "@/features/live-room/mockRoomChannel";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
@@ -93,6 +96,14 @@ const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<SubjectResponse[]>
 vi.mock("@/lib/subjectApi", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   listSubjects,
+}));
+// 과목 시간은 일간 조회에서 오늘 값을 조립한다(`loadSessionSubjects`). 기본은 기록 없음이다.
+const listStudySessionStats = vi.hoisted(() =>
+  vi.fn<(date: string) => Promise<StudySessionListResponse>>(),
+);
+vi.mock("@/lib/statsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  listStudySessionStats,
 }));
 vi.mock("@/lib/toast", async (importOriginal) => {
   const actual = await importOriginal<typeof ToastModule>();
@@ -328,6 +339,9 @@ beforeEach(() => {
   // 실행 순서(다른 테스트의 mockResolvedValue 잔류)에 기대지 않게 한다.
   mockedLeaveRoom.mockResolvedValue(undefined);
   listSubjects.mockResolvedValue([]);
+  listStudySessionStats.mockResolvedValue(EMPTY_STATS);
+  // 일간 조회는 싱글턴 캐시를 거치므로 앞 테스트의 응답이 남지 않게 비운다.
+  queryClient.clear();
 });
 
 afterEach(() => {
@@ -2311,6 +2325,41 @@ describe("LiveRoomPage — 과목", () => {
 
   const pill = () => screen.queryByRole("button", { name: /^수학.*순공/ });
 
+  /** 오늘(플래너 하루)의 05:01부터 수학으로 저장된 세션을 깔아 알약의 바탕값을 만든다. 서버 누적(`MATH.focusSec`)은 쓰이지 않는다. */
+  function saveMathToday(focusSec: number) {
+    const dateKey = plannerDateKeyOf(new Date());
+    const startMs = plannerDayWindow(dateKey).startMs + 60_000;
+    const startedAt = new Date(startMs).toISOString();
+    const endedAt = new Date(startMs + focusSec * 1000).toISOString();
+    listStudySessionStats.mockImplementation(async (date) =>
+      date === dateKey
+        ? {
+            ...EMPTY_STATS,
+            sessions: [
+              {
+                id: 1,
+                statDate: dateKey,
+                startedAt,
+                endedAt,
+                studySec: focusSec,
+                focusSec,
+                focusRate: 100,
+                eventCounts: EMPTY_STATS.totalEventCounts,
+                events: [],
+                subjectSegments: [
+                  { subjectId: MATH.id, startedAt, endedAt, studySec: focusSec, focusSec },
+                ],
+                completedTasks: [],
+              },
+            ],
+            subjects: [
+              { id: MATH.id, name: MATH.name, colorIndex: MATH.colorIndex, deleted: false },
+            ],
+          }
+        : EMPTY_STATS,
+    );
+  }
+
   /** 카메라를 켠 채 과목 페이지에서 수학의 재생 버튼을 누른다. */
   async function pickMathWithCameraOn() {
     listSubjects.mockResolvedValue([MATH]);
@@ -2378,7 +2427,8 @@ describe("LiveRoomPage — 과목", () => {
     await waitFor(() => expect(listSubjects).toHaveBeenCalledTimes(2));
   });
 
-  it("카메라가 켜진 채 재생을 누르면 그 과목을 고르고 페이지를 닫으며, 알약에 이름과 서버 누적이 더해진 시간이 보인다", async () => {
+  it("카메라가 켜진 채 재생을 누르면 그 과목을 고르고 페이지를 닫으며, 알약에 이름과 오늘 저장 기록이 더해진 시간이 보인다", async () => {
+    saveMathToday(600);
     await pickMathWithCameraOn();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
