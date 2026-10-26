@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { RoomMoreMenu } from "../components/RoomMoreMenu";
+import { SessionMoreMenu } from "../components/SessionMoreMenu";
 
-function renderMenu(overrides: Partial<Parameters<typeof RoomMoreMenu>[0]> = {}) {
+function renderMenu(overrides: Partial<Parameters<typeof SessionMoreMenu>[0]> = {}) {
   const props = {
     container: null,
     flipDisabled: false,
@@ -13,11 +13,11 @@ function renderMenu(overrides: Partial<Parameters<typeof RoomMoreMenu>[0]> = {})
     onOpenChange: vi.fn(),
     ...overrides,
   };
-  render(<RoomMoreMenu {...props} />);
+  render(<SessionMoreMenu {...props} />);
   return props;
 }
 
-describe("RoomMoreMenu", () => {
+describe("SessionMoreMenu", () => {
   it("더보기를 누르면 카메라 전환, 초대코드 공유 순서로 항목이 열린다", async () => {
     const { onOpenChange } = renderMenu();
 
@@ -26,6 +26,18 @@ describe("RoomMoreMenu", () => {
     const items = screen.getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual(["카메라 전환", "초대코드 공유"]);
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("초대코드 공유를 넘기지 않으면 누를 수 있는 카메라 전환만 보인다", async () => {
+    const onFlipCamera = vi.fn();
+    render(<SessionMoreMenu container={null} onFlipCamera={onFlipCamera} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["카메라 전환"]);
+    await userEvent.click(items[0]);
+    expect(onFlipCamera).toHaveBeenCalledTimes(1);
   });
 
   it("메뉴 안 touchmove는 document까지 올라가지 않는다", async () => {
@@ -77,6 +89,16 @@ describe("RoomMoreMenu", () => {
     fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("메뉴를 닫으면 포커스가 더보기 버튼으로 돌아온다", async () => {
+    renderMenu();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "더보기" })).toHaveFocus();
   });
 
   it("더보기를 누른 채 메뉴 항목 위에서 떼도 항목을 고르지 않는다", () => {

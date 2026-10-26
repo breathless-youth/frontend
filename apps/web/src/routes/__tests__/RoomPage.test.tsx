@@ -148,6 +148,12 @@ async function endSessionAfterMinute() {
  * 어댑터가 삼킨다). 카메라가 실제로 켜졌을 때의 배선(전환 성공 등)을 검증하려면 이 테스트에서만
  * 하드웨어가 있는 것처럼 `navigator`를 스텁한다 — `mediaStreamCamera.test.ts`와 같은 패턴.
  */
+/** 오른쪽 위 더보기 메뉴에서 항목을 고른다. */
+async function chooseMoreMenuItem(name: string) {
+  await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name }));
+}
+
 function stubWorkingCamera(deviceKinds: string[] = ["videoinput", "videoinput"]) {
   // 트랙을 **실제로 들고 있는** 스트림을 준다 — `getTracks: () => []`로는 "멈추지 않고
   // 버려진 스트림"(카메라 누수)을 테스트가 감지할 방법이 없다.
@@ -185,7 +191,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByText("00:00:00")).toBeInTheDocument();
     expect(screen.getByText("총 00:00:00")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "더보기" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "카메라 전환" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
     expect(prefetchResultPage).toHaveBeenCalledTimes(1);
   });
@@ -297,7 +304,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(document.querySelector("video")?.srcObject).toBeTruthy();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+    await chooseMoreMenuItem("카메라 전환");
 
     expect(await screen.findByText("카메라를 전환했어요")).toBeInTheDocument();
   });
@@ -306,7 +313,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     // navigator를 스텁하지 않는다 — jsdom 기본값 그대로면 카메라가 끝내 열리지 않는다.
     renderRoom("/room/7?userId=1");
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+    await chooseMoreMenuItem("카메라 전환");
 
     expect(await screen.findByText("카메라가 꺼져 있어요")).toBeInTheDocument();
   });
@@ -354,9 +361,56 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(document.querySelector("video")?.srcObject).toBeTruthy();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "카메라 전환" }));
+    await chooseMoreMenuItem("카메라 전환");
 
     expect(await screen.findByText("전환할 카메라가 없어요")).toBeInTheDocument();
+  });
+
+  it("더보기 메뉴가 열린 동안 오른쪽 열과 하단 버튼은 보인 채 누를 수 없다", async () => {
+    renderRoom("/room/7?userId=1");
+    const blocked = () =>
+      [/^배경음/, "과목", "타이머", "일시정지", "공부 종료"].map((name) => {
+        const button = screen.getByRole("button", { name, hidden: true });
+        expect(button).toBeEnabled();
+        return button.closest("[inert]") !== null;
+      });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(blocked()).toEqual([true, true, true, true, true]);
+
+    await userEvent.keyboard("{Escape}");
+    expect(blocked()).toEqual([false, false, false, false, false]);
+  });
+
+  it("더보기 메뉴 바깥 화면을 눌러 메뉴를 닫으면 심플 모드로 바뀌지 않는다", async () => {
+    renderRoom("/room/7?userId=1");
+    const surface = screen.getByRole("button", { name: "심플 모드 전환", hidden: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    fireEvent.pointerDown(surface);
+    fireEvent.pointerUp(surface);
+    fireEvent.click(surface);
+
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(surface).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("메뉴가 막은 누름 시작이 화면 버튼에 닿지 않아도, 메뉴를 닫은 클릭은 심플 모드를 바꾸지 않는다", async () => {
+    renderRoom("/room/7?userId=1");
+    const surface = screen.getByRole("button", { name: "심플 모드 전환", hidden: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    // 메뉴가 열린 동안 Radix가 body의 누름을 막아 누름 시작은 문서에만 닿는다.
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    fireEvent.click(surface);
+
+    expect(surface).toHaveAttribute("aria-pressed", "false");
+
+    // 다음 누름은 평소처럼 심플 모드를 바꾼다.
+    fireEvent.pointerDown(surface);
+    fireEvent.click(surface);
+    expect(surface).toHaveAttribute("aria-pressed", "true");
   });
 
   it("종료 클릭 시 제출하고 S4(공부 결과)로 결과를 들고 넘어간다", async () => {
@@ -638,8 +692,11 @@ describe("RoomPage — S3-3 일시정지", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
-    expect(screen.getByRole("button", { name: "카메라 전환" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("menuitem", { name: "카메라 전환" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
   });
 
   it("화면 꺼짐·백그라운드도 같은 일시정지 화면으로 들어간다 — 별도 화면·라벨이 없다", () => {
@@ -818,7 +875,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(unreachable(screen.getByRole("button", { name: "일시정지" }))).toBe(false);
-    for (const name of ["카메라 전환", /^배경음/, /^과목/, "공부 종료"]) {
+    for (const name of ["더보기", /^배경음/, /^과목/, "공부 종료"]) {
       expect(unreachable(screen.getByRole("button", { name }))).toBe(true);
     }
   });
@@ -860,7 +917,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
     // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
     await enterSimpleMode();
     expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(false);
-    expect(unreachable(screen.getByRole("button", { name: "카메라 전환" }))).toBe(false);
+    expect(unreachable(screen.getByRole("button", { name: "더보기" }))).toBe(false);
   });
 
   it("타이머가 상태 컬러 + 발광으로 바뀐다", async () => {
@@ -1614,18 +1671,8 @@ describe("RoomPage — 앱 glass 버튼", () => {
     renderRoom("/room/7?userId=1");
 
     const controls = sessionControls(postMessage);
+    expect(controls).not.toHaveProperty("session-flip");
     expect(controls).toMatchObject({
-      "session-flip": {
-        kind: "button",
-        shape: "circle",
-        systemImage: "arrow.triangle.2.circlepath.camera",
-        accessibilityLabel: "카메라 전환",
-        tone: "default",
-        turns: 0,
-        faded: false,
-        // 카메라 심볼이 원을 꽉 채우지 않게 측정 폭의 0.7배로 보낸다.
-        iconSize: expect.closeTo(23 * 0.7),
-      },
       "session-ambient": {
         systemImage: "music.note",
         accessibilityLabel: "배경음",
@@ -1639,6 +1686,11 @@ describe("RoomPage — 앱 glass 버튼", () => {
         tone: "default",
         faded: false,
         iconSize: expect.closeTo(23 * 0.82),
+      },
+      "session-timer": {
+        systemImage: "timer",
+        accessibilityLabel: "타이머",
+        disabled: false,
       },
       "session-pause": {
         systemImage: "pause.fill",
@@ -1655,9 +1707,11 @@ describe("RoomPage — 앱 glass 버튼", () => {
     });
     expect(controls["session-pause"]).not.toHaveProperty("faded");
     // 스스로 aria-hidden인 요소는 접근 이름이 비어 역할로 찾을 수 없어서 aria-label로 찾는다.
-    for (const name of ["카메라 전환", "배경음", "과목", "일시정지", "공부 종료"]) {
+    for (const name of ["배경음", "과목", "타이머", "일시정지", "공부 종료"]) {
       expect(screen.getByLabelText(name).style.visibility).toBe("hidden");
     }
+    // 더보기는 웹 메뉴라 앱 부품으로 맡기지 않는다.
+    expect(screen.getByLabelText("더보기").style.visibility).toBe("");
   });
 
   it("세션 화면은 다크라 colorScheme dark를 함께 보낸다", () => {
@@ -1689,14 +1743,24 @@ describe("RoomPage — 앱 glass 버튼", () => {
     });
   });
 
-  it("카메라 전환 앱 누름은 회전 수를 하나 늘린다", async () => {
+  it("더보기 메뉴가 열린 동안 앱 버튼 5개의 누름을 막고 닫으면 푼다", async () => {
     const postMessage = enterSessionGlass();
     renderRoom("/room/7?userId=1");
+    const ids = [
+      "session-ambient",
+      "session-subject",
+      "session-timer",
+      "session-pause",
+      "session-exit",
+    ];
+    const disabledOf = () => ids.map((id) => sessionControls(postMessage)[id]?.disabled);
 
-    pressNative("session-flip", 0);
-    await act(async () => {});
+    expect(disabledOf()).toEqual([false, false, false, false, false]);
+    await userEvent.click(screen.getByLabelText("더보기"));
+    expect(disabledOf()).toEqual([true, true, true, true, true]);
 
-    expect(sessionControls(postMessage)["session-flip"]).toMatchObject({ turns: 1 });
+    await userEvent.keyboard("{Escape}");
+    expect(disabledOf()).toEqual([false, false, false, false, false]);
   });
 
   it("배경음을 켜면 배경음 앱 버튼이 켜짐 이름의 active 색으로 바뀐다", async () => {
@@ -1766,7 +1830,7 @@ describe("RoomPage — 앱 glass 버튼", () => {
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
     const controls = sessionControls(postMessage);
-    for (const id of ["session-flip", "session-ambient", "session-subject", "session-exit"]) {
+    for (const id of ["session-ambient", "session-subject", "session-timer", "session-exit"]) {
       expect(controls[id]).toMatchObject({ faded: true });
     }
     expect(controls["session-pause"]).not.toHaveProperty("faded");

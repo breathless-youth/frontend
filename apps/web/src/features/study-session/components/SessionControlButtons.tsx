@@ -62,7 +62,16 @@ export function ControlButton({
   );
 }
 
-export function SessionPauseButton({ paused, onClick }: { paused: boolean; onClick: () => void }) {
+export function SessionPauseButton({
+  paused,
+  onClick,
+  inactive = false,
+}: {
+  paused: boolean;
+  onClick: () => void;
+  /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
+  inactive?: boolean;
+}) {
   const label = paused ? "다시 시작" : "일시정지";
   // 간단 모드에서도 남는 버튼이라 흐림을 보내지 않는다.
   const { ref } = useNativeControl<HTMLButtonElement>(
@@ -72,7 +81,7 @@ export function SessionPauseButton({ paused, onClick }: { paused: boolean; onCli
       title: null,
       systemImage: paused ? "play.fill" : "pause.fill",
       shape: "circle",
-      disabled: false,
+      disabled: inactive,
       accessibilityLabel: label,
       tone: paused ? "prominent" : "default",
     },
@@ -113,10 +122,13 @@ export function SessionPauseButton({ paused, onClick }: { paused: boolean; onCli
 export function SessionExitButton({
   onClick,
   faded = false,
+  inactive = false,
 }: {
   onClick: () => void;
   /** 간단 모드에서 앱 버튼을 흐리게 감춘다. */
   faded?: boolean;
+  /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
+  inactive?: boolean;
 }) {
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
@@ -125,7 +137,7 @@ export function SessionExitButton({
       title: null,
       systemImage: "rectangle.portrait.and.arrow.right",
       shape: "circle",
-      disabled: false,
+      disabled: inactive,
       accessibilityLabel: "공부 종료",
       tone: "danger",
       faded,

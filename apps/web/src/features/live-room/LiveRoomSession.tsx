@@ -17,7 +17,6 @@ import {
 } from "@/features/live-room/components/RoomControlBar";
 import { RoomDebugOverlay } from "@/features/live-room/components/RoomDebugOverlay";
 import { RoomGrid } from "@/features/live-room/components/RoomGrid";
-import { RoomMoreMenu } from "@/features/live-room/components/RoomMoreMenu";
 import { RoomSubjectPill } from "@/features/live-room/components/RoomSubjectPill";
 import { RoomTimeText } from "@/features/live-room/components/RoomTimeText";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
@@ -30,6 +29,7 @@ import { createSystemPauseSource } from "@/features/study-session/adapters/syste
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
+import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
@@ -665,7 +665,7 @@ export function LiveRoomSession({
           )}
         </div>
 
-        <RoomMoreMenu
+        <SessionMoreMenu
           container={sessionSurface}
           hidden={!controlsVisible}
           flipDisabled={paused || controlsLocked}

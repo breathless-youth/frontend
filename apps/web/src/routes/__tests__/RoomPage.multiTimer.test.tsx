@@ -122,13 +122,13 @@ describe("RoomPage 멀티 타이머", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("오른쪽 위 열은 카메라 전환, 배경음, 과목, 타이머 순서다", () => {
+  it("오른쪽 위 열은 배경음, 과목, 타이머 순서다", () => {
     renderRoom();
 
     const names = within(screen.getByRole("group", { name: "부가 기능" }))
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["카메라 전환", "배경음", "과목", "타이머"]);
+    expect(names).toEqual(["배경음", "과목", "타이머"]);
   });
 
   it("측정 화면이 열리면 회전 허용을 한 번 다시 알린다", () => {
