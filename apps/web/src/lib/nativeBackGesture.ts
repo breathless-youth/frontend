@@ -48,8 +48,22 @@ export function useNativeBackLock(): void {
  */
 export function useNativeOrientationUnlock(): void {
   useEffect(() => {
-    postToNative({ type: "set-orientation", unlocked: true, atMs: Date.now() });
+    const unlock = () => {
+      postToNative({ type: "set-orientation", unlocked: true, atMs: Date.now() });
+    };
+    // Android에서 앱 화면이 잠시 가려졌다 돌아오면 앱 셸이 기본 세로 잠금을 다시 걸어서 해제를 다시 보낸다.
+    // 홈 화면에서 돌아올 때는 visibilitychange가 오고, 공유 시트에서 돌아올 때는 세로로 바뀐 resize만 온다.
+    const unlockWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        unlock();
+      }
+    };
+    unlock();
+    document.addEventListener("visibilitychange", unlockWhenVisible);
+    window.addEventListener("resize", unlock);
     return () => {
+      document.removeEventListener("visibilitychange", unlockWhenVisible);
+      window.removeEventListener("resize", unlock);
       postToNative({ type: "set-orientation", unlocked: false, atMs: Date.now() });
     };
   }, []);

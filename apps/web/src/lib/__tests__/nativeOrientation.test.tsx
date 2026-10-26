@@ -11,6 +11,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   postMessage.mockClear();
 });
 
@@ -26,4 +27,32 @@ it("마운트에 unlocked true, 언마운트에 false를 보낸다", () => {
     type: "set-orientation",
     unlocked: false,
   });
+});
+
+it("화면이 다시 보이거나 크기가 바뀌면 회전 해제를 다시 보낸다", () => {
+  const { unmount } = renderHook(() => useNativeOrientationUnlock());
+  postMessage.mockClear();
+
+  document.dispatchEvent(new Event("visibilitychange"));
+  window.dispatchEvent(new Event("resize"));
+
+  expect(postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string))).toEqual([
+    expect.objectContaining({ type: "set-orientation", unlocked: true }),
+    expect.objectContaining({ type: "set-orientation", unlocked: true }),
+  ]);
+
+  unmount();
+  postMessage.mockClear();
+  window.dispatchEvent(new Event("resize"));
+  expect(postMessage).not.toHaveBeenCalled();
+});
+
+it("화면이 숨겨질 때는 회전 해제를 보내지 않는다", () => {
+  renderHook(() => useNativeOrientationUnlock());
+  postMessage.mockClear();
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+
+  document.dispatchEvent(new Event("visibilitychange"));
+
+  expect(postMessage).not.toHaveBeenCalled();
 });
