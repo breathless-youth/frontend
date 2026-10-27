@@ -80,7 +80,7 @@ export function offSlotNotice(board: BoardIdentity): string | null {
   if (board.slot === null) {
     return null;
   }
-  return `${SLOT_LABEL[board.slot]} ${SLOT_HOURS[board.slot]}에 공부한 시간만 이 순위에 들어가요`;
+  return `${SLOT_LABEL[board.slot]}에 공부한 시간만 이 순위에 들어가요`;
 }
 
 const PREVIOUS_RESULT: Record<RankingPeriod, string> = {

@@ -69,10 +69,10 @@ describe("지금 구간이 아닌 시간대 판", () => {
     expect(slotName(dawn)).toBe("새벽 구간");
   });
 
-  it("그 구간 시각에 공부한 시간만 들어간다고 알린다", () => {
-    expect(offSlotNotice(dawn)).toBe("새벽 4–7시에 공부한 시간만 이 순위에 들어가요");
+  it("시각 없이 그 구간에 공부한 시간만 들어간다고 알린다", () => {
+    expect(offSlotNotice(dawn)).toBe("새벽에 공부한 시간만 이 순위에 들어가요");
     expect(offSlotNotice({ ...dawn, slot: "NIGHT" })).toBe(
-      "심야 22–4시에 공부한 시간만 이 순위에 들어가요",
+      "심야에 공부한 시간만 이 순위에 들어가요",
     );
   });
 

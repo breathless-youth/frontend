@@ -194,7 +194,7 @@ describe("RankedCard", () => {
 
     expect(paragraph("오전 구간 4위")).toBeInTheDocument();
     expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
-    expect(screen.getByText("오전 7–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
+    expect(screen.getByText("오전에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
     expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });
