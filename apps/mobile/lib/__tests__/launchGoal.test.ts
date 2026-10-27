@@ -68,6 +68,7 @@ describe("readLaunchGoal", () => {
     ["JSON이 깨졌으면", "{goal"],
     ["goal이 문자열이 아니면", JSON.stringify({ goal: 3, nickname: "포메" })],
     ["goal이 빈 문자열이면", JSON.stringify({ goal: "", nickname: "포메" })],
+    ["goal이 공백뿐이면", JSON.stringify({ goal: "   ", nickname: "포메" })],
   ])("%s null이다", async (_, raw) => {
     mockedGet.mockResolvedValue(raw);
     await expect(readLaunchGoal()).resolves.toBeNull();
@@ -105,10 +106,18 @@ describe("saveLaunchGoal", () => {
     );
   });
 
-  it.each([null, ""])("목표 문구가 비었으면(%p) 저장값을 지운다", async (goal) => {
+  it.each([null, "", "   "])("목표 문구가 비었으면(%p) 저장값을 지운다", async (goal) => {
     await saveLaunchGoal({ goal, nickname: "포메" });
     expect(mockedDelete).toHaveBeenCalledWith(KEY);
     expect(mockedSet).not.toHaveBeenCalled();
+  });
+
+  it("앞뒤 공백이 있는 목표 문구는 다듬지 않고 저장한다", async () => {
+    await saveLaunchGoal({ goal: " 목표 ", nickname: "포메" });
+    expect(mockedSet).toHaveBeenCalledWith(
+      KEY,
+      JSON.stringify({ goal: " 목표 ", nickname: "포메" }),
+    );
   });
 
   it("저장이 실패해도 throw 하지 않는다", async () => {
@@ -132,7 +141,7 @@ describe("refreshLaunchGoal", () => {
     );
   });
 
-  it.each([null, ""])("목표 문구가 비었으면(%p) 저장값을 지운다", async (goal) => {
+  it.each([null, "", "   "])("목표 문구가 비었으면(%p) 저장값을 지운다", async (goal) => {
     mockedFetch.mockResolvedValue(jsonResponse(200, profile(goal)));
     await refreshLaunchGoal();
     expect(mockedDelete).toHaveBeenCalledWith(KEY);
