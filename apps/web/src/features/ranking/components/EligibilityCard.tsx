@@ -41,11 +41,18 @@ export function IneligibleCard({
         : null;
 
   return (
-    <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
-      <p className="mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
-        참가까지{" "}
-        <span className="text-primary">{formatGapDuration(Math.max(0, required - focusSec))}</span>
-      </p>
+    <CardShell
+      title={cardTitle(board)}
+      aside={deadline !== null && <Deadline text={deadline} />}
+      headline={
+        <p className="text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
+          참가까지{" "}
+          <span className="text-primary">
+            {formatGapDuration(Math.max(0, required - focusSec))}
+          </span>
+        </p>
+      }
+    >
       <FocusStartRow onFocusStart={onFocusStart}>
         {expectation !== null && (
           <p className="text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">

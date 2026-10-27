@@ -45,4 +45,10 @@ describe("StreakCard", () => {
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.queryByText("최고 기록", { exact: true })).toBeNull();
   });
+
+  it.each([null, undefined])("연속 공부 정보가 %s이면 카드를 그리지 않는다", (streak) => {
+    const { container } = render(<StreakCard board={{ ...FIXTURE_STREAK, streak }} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });
