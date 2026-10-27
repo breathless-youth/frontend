@@ -111,12 +111,12 @@ export function nicknameMaxLength(nickname: string): number | undefined {
 }
 
 /**
- * 비교용 목표 문구
+ * 미설정을 null로 맞춘 목표 문구
  *
- * 공백만 있는 문구는 화면에 아무것도 보이지 않으므로 미설정과 같게 본다.
+ * 지운 목표는 서버에 빈 문자열로 남고 공백만 있는 문구도 화면에 보이지 않으므로 둘 다 미설정으로 본다.
  * 공백이 아닌 문구는 다듬지 않고 입력값 그대로 둔다.
  */
-export function normalizeGoal(goal: string | null): string | null {
+export function normalizeGoal(goal: string | null | undefined): string | null {
   return goal?.trim() ? goal : null;
 }
 
@@ -124,7 +124,7 @@ export function normalizeGoal(goal: string | null): string | null {
  * 목표 문구 검증
  *
  * 공백을 포함해 최대 20자이고 빈 값은 허용한다.
- * 지울 때는 빈 문자열을 보내 서버가 미설정으로 저장한다.
+ * 지울 때 보낸 빈 문자열은 서버가 그대로 저장하고 화면은 미설정으로 다룬다.
  */
 export function validateGoal(goal: string): string | null {
   if (goal.length > 20) {

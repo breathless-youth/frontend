@@ -2,6 +2,7 @@ import type { ReactNode, Ref } from "react";
 
 import type { RoomMember } from "@focusmakers/types";
 
+import { normalizeGoal } from "@/features/profile/profileValidation";
 import { cn } from "@/lib/utils";
 
 import { formatStudyHhMm } from "../roomGrid";
@@ -67,6 +68,8 @@ type RoomTileProps = {
 
 export function RoomTile({ member, media, isSelf = false, rootRef, className }: RoomTileProps) {
   const showMedia = member.cameraOn && media !== undefined;
+  // 지운 목표는 서버에 빈 문자열로 남으므로 빈 줄을 그리지 않게 미설정으로 맞춘다.
+  const goal = normalizeGoal(member.goal);
   return (
     <div
       ref={rootRef}
@@ -102,9 +105,9 @@ export function RoomTile({ member, media, isSelf = false, rootRef, className }: 
         <p className="truncate text-[15px] font-bold text-white regular:text-[1.0625rem] short-side-lg:text-[1.3125rem]">
           {member.nickname}
         </p>
-        {member.goal != null && (
+        {goal !== null && (
           <p className="mt-1 truncate text-xs leading-3.75 text-white/72 regular:text-sm regular:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5">
-            {member.goal}
+            {goal}
           </p>
         )}
       </div>
