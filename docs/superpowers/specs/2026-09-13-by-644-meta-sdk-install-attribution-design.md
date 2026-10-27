@@ -75,14 +75,17 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 
 발신(`apps/web/src/lib/metaAppEvents.ts`) — Amplitude 이벤트와 같은 자리에서 같은 값으로 부르되 **의도적으로 부분집합**이다. Meta는 광고 최적화에 쓸 소수의 전환만 원하고, 여기 실린 것은 전부 Meta 서버로 나간다.
 
-| 이벤트                            | 파라미터                              | 발신                                                           | Meta 용도                               |
-| --------------------------------- | ------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
-| `fb_mobile_complete_registration` | —                                     | **네이티브** `lib/auth.ts` — 등록 응답 `isNew === true`일 때만 | 표준 이벤트 "가입 완료"                 |
-| `fb_mobile_tutorial_completion`   | `fb_success: 1`                       | `OnboardingGuideFlow` `finish("completed")` — 건너뛰기 제외    | 표준 이벤트 "튜토리얼 완료"             |
-| `study_session_started`           | `room_type`                           | `useStudyRoomSession` 마운트 — 복원 진입(`restored`)은 안 보냄 | 커스텀 전환 "첫 공부 시작"(핵심 활성화) |
-| `study_session_ended`             | `room_type`, `study_sec`, `focus_sec` | `useStudyRoomSession` 세션당 한 번 가드 안                     | 커스텀 전환 "공부 완료"(값 필터 가능)   |
-| `social_room_entered`             | —                                     | `LiveRoomEntry` 실제 입장 — 유예 재입장 제외                   | 커스텀 전환 "소셜룸 입장"               |
-| `invite_shared`                   | `method` (`shared`/`copied`)          | `InviteCodeSharePage` 공유 시트·코드 복사 — 실패 제외          | 커스텀 전환 "친구 초대"(추천 확산)      |
+| 이벤트                            | 파라미터                              | 발신                                                              | Meta 용도                               |
+| --------------------------------- | ------------------------------------- | ----------------------------------------------------------------- | --------------------------------------- |
+| `fb_mobile_complete_registration` | —                                     | **네이티브** `lib/auth.ts` — 등록 응답 `isNew === true`일 때만    | 표준 이벤트 "가입 완료"                 |
+| `fb_mobile_tutorial_completion`   | `fb_success: 1`                       | `OnboardingGuideFlow` `finish("completed")` — 건너뛰기 제외       | 표준 이벤트 "튜토리얼 완료"             |
+| `study_session_started`           | `room_type`                           | `useStudyRoomSession` 마운트 — 복원 진입(`restored`)은 안 보냄    | 커스텀 전환 "첫 공부 시작"(핵심 활성화) |
+| `study_session_ended`             | `room_type`, `study_sec`, `focus_sec` | `useStudyRoomSession` 세션당 한 번 가드 안                        | 커스텀 전환 "공부 완료"(값 필터 가능)   |
+| `social_room_entered`             | —                                     | `LiveRoomEntry` 실제 입장 — 유예 재입장 제외                      | 커스텀 전환 "소셜룸 입장"               |
+| `invite_shared`                   | `method` (`shared`/`copied`)          | `InviteCodeSharePage` 공유 시트·코드 복사 — 실패 제외             | 커스텀 전환 "친구 초대"(추천 확산)      |
+| `fb_mobile_achievement_unlocked`  | `fb_description: "focus_5min"`        | `useStudyRoomSession` 화면 순공이 300초에 닿는 순간, 기기당 한 번 | 표준 이벤트 "성취 달성" = 순공 5분 달성 |
+
+**BY-1016 갱신(2026-10-27)**: 순공 5분 달성은 Amplitude에 짝이 없는 Meta 전용 이벤트다. 광고 관리자는 `study_session_ended`를 `focus_sec` 값으로 걸러 열을 만들 수 없어서 따로 보낸다. 맞춤 이벤트는 그 이벤트로 최적화 캠페인을 돌리기 전에는 열 목록에 안 나올 수 있어 표준 이벤트를 골랐고, 이 표준 이벤트는 순공 5분 달성에만 쓴다. 세션 종료가 아니라 300초에 닿는 순간 보내서 세션을 끝내지 않고 앱을 끈 사람도 집계된다. 기기당 한 번은 localStorage 표시로 지키고, 저장소를 못 쓰면 표시 없이 보낸다. iOS는 이벤트 관리자의 SKAdNetwork 전환값 설정에 이 이벤트를 넣어야 집계된다.
 
 `valueToSum`은 계약만 열어 두고 쓰지 않는다. 식별자·초대코드·자유 문자열은 싣지 않는다(`track-event`와 같은 원칙).
 
