@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  trackMetaFocusMilestone,
   trackMetaInviteShared,
   trackMetaSocialRoomEntered,
   trackMetaStudySessionEnded,
@@ -25,8 +26,13 @@ function stubBridge() {
   };
 }
 
+beforeEach(() => {
+  localStorage.clear();
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("metaAppEvents", () => {
@@ -80,6 +86,43 @@ describe("metaAppEvents", () => {
     ]);
   });
 
+  it("순공 5분 달성은 표준 이벤트 성취 달성으로 나간다", () => {
+    const bridge = stubBridge();
+
+    trackMetaFocusMilestone();
+
+    expect(bridge.sent()).toEqual([
+      {
+        type: "meta-app-event",
+        name: "fb_mobile_achievement_unlocked",
+        params: { fb_description: "focus_5min" },
+        atMs: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("순공 5분 달성은 기기당 한 번만 나간다 — 두 번째 세션에서는 보내지 않는다", () => {
+    const bridge = stubBridge();
+
+    trackMetaFocusMilestone();
+    trackMetaFocusMilestone();
+
+    expect(bridge.sent()).toHaveLength(1);
+  });
+
+  it("저장소를 못 쓰는 환경에서도 순공 5분 달성을 보낸다 — 전환을 잃는 것보다 드문 중복이 낫다", () => {
+    const bridge = stubBridge();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+
+    expect(() => trackMetaFocusMilestone()).not.toThrow();
+    expect(bridge.sent()).toHaveLength(1);
+  });
+
   it("모든 이벤트명·파라미터 키가 Meta 형식이다 — 네이티브가 형식 밖 이름은 통째로 버린다", () => {
     const bridge = stubBridge();
 
@@ -87,6 +130,7 @@ describe("metaAppEvents", () => {
     trackMetaStudySessionEnded({ roomType: "single", studySec: 1, focusSec: 1 });
     trackMetaSocialRoomEntered();
     trackMetaInviteShared("shared");
+    trackMetaFocusMilestone();
 
     for (const message of bridge.sent()) {
       expect(message.name).toMatch(META_NAME_PATTERN);
@@ -102,6 +146,7 @@ describe("metaAppEvents", () => {
       trackMetaStudySessionStarted("single", false);
       trackMetaStudySessionEnded({ roomType: "single", studySec: 1, focusSec: 1 });
       trackMetaSocialRoomEntered();
+      trackMetaFocusMilestone();
     }).not.toThrow();
   });
 });
