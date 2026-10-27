@@ -46,7 +46,7 @@ export function useSubjects(
   enabled: boolean,
   onError: (message: string) => void,
   /** 이 목록을 다루는 화면 — 추가 이벤트의 `surface` 속성으로만 쓴다. */
-  surface: SubjectSurface = "sheet",
+  surface: SubjectSurface,
   /** 목록을 받아 오는 방법 — 기본은 과목 목록 API다. 플래너는 일간 조회에 실려 오는 목록을 쓴다. */
   load: () => Promise<SubjectResponse[]> = listSubjects,
 ) {

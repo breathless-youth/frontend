@@ -191,7 +191,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
 
     await user.click(subjectButton);
     const dialog = screen.getByRole("dialog", { name: "과목" });
-    expect(amplitude.trackSubjectSheetOpened).toHaveBeenCalledWith("button");
+    expect(amplitude.trackSubjectSheetOpened).toHaveBeenCalledWith("button", "single");
     expect(within(dialog).getByText("00:00:00")).toBeInTheDocument();
 
     act(() => {
@@ -206,6 +206,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledWith({
       openSec: 3,
       closedBy: "back",
+      roomType: "single",
     });
     await waitFor(() => expect(subjectButton).toHaveFocus());
   });
@@ -234,7 +235,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     const label = await screen.findByRole("button", { name: /^수학.*순공/ });
 
     await userEvent.click(label);
-    expect(amplitude.trackSubjectSheetOpened).toHaveBeenLastCalledWith("label");
+    expect(amplitude.trackSubjectSheetOpened).toHaveBeenLastCalledWith("label", "single");
     await userEvent.keyboard("{Escape}");
 
     await waitFor(() => expect(label).toHaveFocus());

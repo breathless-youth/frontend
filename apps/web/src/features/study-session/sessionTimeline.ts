@@ -3,6 +3,7 @@ import type { StatusEventPayload } from "@focusmakers/types";
 import type { SessionState } from "./sessionState";
 import {
   FOCUS_STATE,
+  isBreak,
   isFocusRunning,
   isSameSessionState,
   isStudyRunning,
@@ -164,6 +165,29 @@ export function computeSessionTotals(timeline: SessionTimeline, nowMs: number): 
     pauseSec: Math.floor(pauseMs / 1000),
     distractionSec: Math.floor(distractionMs / 1000),
   };
+}
+
+/**
+ * 휴식을 뺀 일시정지와 휴식으로 나눈 계측용 길이
+ *
+ * `computeSessionTotals`의 일시정지에는 휴식도 들어 있어서 계측은 둘을 나눠 싣는다.
+ * 초로 내린 두 값을 빼면 1초가 부풀 수 있어 밀리초에서 빼고 한 번만 내린다.
+ */
+export function splitPauseSec(
+  timeline: SessionTimeline,
+  nowMs: number,
+): { pauseSec: number; breakSec: number } {
+  let pauseMs = 0;
+  let breakMs = 0;
+  for (const segment of timeline.segments) {
+    const durationMs = segmentDurationMs(segment, nowMs);
+    if (isBreak(segment.state)) {
+      breakMs += durationMs;
+    } else if (!isStudyRunning(segment.state)) {
+      pauseMs += durationMs;
+    }
+  }
+  return { pauseSec: Math.floor(pauseMs / 1000), breakSec: Math.floor(breakMs / 1000) };
 }
 
 /**

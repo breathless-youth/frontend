@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ANALYTICS_PARAM_VALUE_PATTERN } from "@focusmakers/types";
+
 const mocks = vi.hoisted(() => {
   class FakeIdentify {
     readonly sets: Array<[string, unknown]> = [];
@@ -512,6 +514,33 @@ describe("공부 세션 이벤트", () => {
       will_submit: true,
       ambient_sound_used: false,
       ambient_sound_sec: 0,
+      break_sec: 0,
+      multi_timer: "none",
+    });
+  });
+
+  it("휴식 길이와 시작한 멀티 타이머 종류를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 1200,
+      focusSec: 900,
+      pauseSec: 60,
+      distractionSec: 300,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      breakSec: 300,
+      multiTimer: "both",
+    });
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({
+      pause_sec: 60,
+      break_sec: 300,
+      multi_timer: "both",
     });
   });
 
@@ -613,11 +642,19 @@ describe("초대 루프 이벤트 (BY-472)", () => {
       await loadModule();
     initAmplitude();
 
-    trackInviteShared("shared");
+    trackInviteShared("shared", "code_page");
+    trackInviteShared("copied", "room_menu");
     trackInviteLinkOpened(true);
     trackStoreLinkRedirected("android");
 
-    expect(mocks.track).toHaveBeenCalledWith("invite_shared", { method: "shared" });
+    expect(mocks.track).toHaveBeenCalledWith("invite_shared", {
+      method: "shared",
+      source: "code_page",
+    });
+    expect(mocks.track).toHaveBeenCalledWith("invite_shared", {
+      method: "copied",
+      source: "room_menu",
+    });
     expect(mocks.track).toHaveBeenCalledWith("invite_link_opened", { has_code: true });
     expect(mocks.track).toHaveBeenCalledWith("store_link_redirected", { platform: "android" });
   });
@@ -864,7 +901,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
-    m.trackSubjectItemAdded("task");
+    m.trackSubjectItemAdded("task", false, "social");
     m.trackSubjectItemAdded("subject", true, "planner");
     m.trackSettingsRowPressed("profile");
     m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
@@ -890,7 +927,10 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_period_picked", { view: "weekly", to_today: true }],
       ["planner_opened", { via: "records", is_today: false }],
       ["planner_date_changed", { delta: -1, method: "swipe" }],
-      ["subject_item_added", { kind: "task", via_suggestion: false, surface: "sheet" }],
+      [
+        "subject_item_added",
+        { kind: "task", via_suggestion: false, surface: "sheet", room_type: "social" },
+      ],
       ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "planner" }],
       ["settings_row_pressed", { row: "profile" }],
       ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
@@ -944,8 +984,8 @@ describe("배경음 이벤트", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
 
-    m.trackAmbientSoundChanged({ sounds: ["white"], source: "dialog" });
-    m.trackAmbientSoundDuckToggled(false);
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "dialog", roomType: "single" });
+    m.trackAmbientSoundDuckToggled(false, "single");
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -955,14 +995,24 @@ describe("배경음 이벤트", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "auto_start" });
-    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
-    m.trackAmbientSoundDuckToggled(true);
+    m.trackAmbientSoundChanged({
+      sounds: ["white", "rain"],
+      source: "auto_start",
+      roomType: "single",
+    });
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog", roomType: "social" });
+    m.trackAmbientSoundDuckToggled(true, "social");
 
     expect(mocks.track.mock.calls).toEqual([
-      ["ambient_sound_changed", { sounds: "white,rain", sound_count: 2, source: "auto_start" }],
-      ["ambient_sound_changed", { sounds: "", sound_count: 0, source: "dialog" }],
-      ["ambient_sound_duck_toggled", { enabled: true }],
+      [
+        "ambient_sound_changed",
+        { sounds: "white,rain", sound_count: 2, source: "auto_start", room_type: "single" },
+      ],
+      [
+        "ambient_sound_changed",
+        { sounds: "", sound_count: 0, source: "dialog", room_type: "social" },
+      ],
+      ["ambient_sound_duck_toggled", { enabled: true, room_type: "social" }],
     ]);
   });
 
@@ -1592,13 +1642,13 @@ describe("푸시 타겟용 user property", () => {
     const m = await loadModule();
     m.initAmplitude();
 
-    m.trackInviteShared("failed");
-    m.trackAmbientSoundChanged({ sounds: [], source: "dialog" });
+    m.trackInviteShared("failed", "code_page");
+    m.trackAmbientSoundChanged({ sounds: [], source: "dialog", roomType: "single" });
     expect(mocks.identify).not.toHaveBeenCalled();
 
-    m.trackInviteShared("copied");
-    m.trackAmbientSoundChanged({ sounds: ["white"], source: "auto_start" });
-    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "dialog" });
+    m.trackInviteShared("copied", "room_menu");
+    m.trackAmbientSoundChanged({ sounds: ["white"], source: "auto_start", roomType: "single" });
+    m.trackAmbientSoundChanged({ sounds: ["white", "rain"], source: "dialog", roomType: "social" });
     m.trackTimelapseShareTapped({ button: "save", result: "saved", entry: "list" });
 
     expect(sentSets()).toEqual([
@@ -1612,8 +1662,8 @@ describe("푸시 타겟용 user property", () => {
 describe("과목 페이지 이벤트", () => {
   it("미초기화 상태에서는 보내지 않는다", async () => {
     const m = await loadModule();
-    m.trackSubjectSheetOpened("button");
-    m.trackSubjectSheetClosed({ openSec: 12, closedBy: "back" });
+    m.trackSubjectSheetOpened("button", "single");
+    m.trackSubjectSheetClosed({ openSec: 12, closedBy: "back", roomType: "single" });
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
@@ -1621,12 +1671,174 @@ describe("과목 페이지 이벤트", () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
-    m.trackSubjectSheetOpened("label");
-    m.trackSubjectSheetClosed({ openSec: 42, closedBy: "play" });
-    expect(mocks.track).toHaveBeenCalledWith("subject_sheet_opened", { source: "label" });
+    m.trackSubjectSheetOpened("label", "social");
+    m.trackSubjectSheetClosed({ openSec: 42, closedBy: "play", roomType: "social" });
+    m.trackSubjectItemSelected("subject", "single");
+    expect(mocks.track).toHaveBeenCalledWith("subject_sheet_opened", {
+      source: "label",
+      room_type: "social",
+    });
     expect(mocks.track).toHaveBeenCalledWith("subject_sheet_closed", {
       open_sec: 42,
       closed_by: "play",
+      room_type: "social",
     });
+    expect(mocks.track).toHaveBeenCalledWith("subject_item_selected", {
+      kind: "subject",
+      room_type: "single",
+    });
+  });
+});
+
+describe("멀티 타이머 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackMultiTimerOpened("timer");
+    m.trackMultiTimerStarted({
+      kind: "timer",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: true,
+      fromPause: false,
+    });
+    m.trackMultiTimerPhaseCompleted("timer", true);
+    m.trackMultiTimerClosed({
+      kind: "timer",
+      state: "setup",
+      started: false,
+      openSec: 3,
+    });
+    m.trackMultiTimerRestarted("timer");
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("종류에 맞는 설정값만 싣고 뽀모도로만 단계를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackMultiTimerOpened("pomodoro");
+    m.trackMultiTimerStarted({
+      kind: "timer",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: false,
+      fromPause: true,
+    });
+    m.trackMultiTimerStarted({
+      kind: "pomodoro",
+      timerSec: 600,
+      focusMin: 50,
+      breakMin: 10,
+      soundOn: true,
+      fromPause: false,
+    });
+    m.trackMultiTimerPhaseCompleted("break", true);
+    m.trackMultiTimerClosed({
+      kind: "timer",
+      state: "running",
+      started: true,
+      openSec: 30,
+    });
+    m.trackMultiTimerClosed({
+      kind: "pomodoro",
+      state: "paused",
+      started: true,
+      openSec: 90,
+      phase: "break",
+    });
+    m.trackMultiTimerRestarted("timer");
+    m.trackMultiTimerRestarted("pomodoro", "break");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["multi_timer_opened", { kind: "pomodoro" }],
+      ["multi_timer_started", { kind: "timer", timer_sec: 600, sound_on: false, from_pause: true }],
+      [
+        "multi_timer_started",
+        { kind: "pomodoro", focus_min: 50, break_min: 10, sound_on: true, from_pause: false },
+      ],
+      ["multi_timer_phase_completed", { phase: "break", sound_on: true }],
+      ["multi_timer_closed", { kind: "timer", state: "running", started: true, open_sec: 30 }],
+      [
+        "multi_timer_closed",
+        { kind: "pomodoro", state: "paused", started: true, open_sec: 90, phase: "break" },
+      ],
+      ["multi_timer_restarted", { kind: "timer" }],
+      ["multi_timer_restarted", { kind: "pomodoro", phase: "break" }],
+    ]);
+  });
+
+  it("처음 시작할 때 이용 이력을 한 번만 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    const start = {
+      kind: "timer",
+      timerSec: 60,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: true,
+      fromPause: false,
+    } as const;
+
+    m.trackMultiTimerOpened("timer");
+    expect(mocks.identify).not.toHaveBeenCalled();
+    m.trackMultiTimerStarted(start);
+    m.trackMultiTimerStarted(start);
+
+    type Sent = InstanceType<typeof mocks.FakeIdentify>;
+    const sets = (mocks.identify.mock.calls as [Sent][]).map(([sent]) => sent.sets);
+    expect(sets).toEqual([[["used_multi_timer", true]]]);
+  });
+});
+
+describe("이번에 더한 속성의 Firebase 전달", () => {
+  it("문자열 값은 전부 토큰 규칙을 통과한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    for (const multiTimer of ["none", "timer", "pomodoro", "both"] as const) {
+      m.trackStudySessionEnded({
+        roomType: "social",
+        studySec: 1,
+        focusSec: 1,
+        pauseSec: 0,
+        distractionSec: 0,
+        endReason: "MANUAL",
+        pauseTrigger: null,
+        willSubmit: false,
+        breakSec: 0,
+        multiTimer,
+      });
+    }
+    m.trackMultiTimerOpened("pomodoro");
+    m.trackMultiTimerPhaseCompleted("focus", false);
+    m.trackMultiTimerClosed({
+      kind: "pomodoro",
+      state: "setup",
+      started: false,
+      openSec: 1,
+      phase: "focus",
+    });
+    m.trackSubjectSheetOpened("button", "single");
+    m.trackSubjectItemAdded("task", false, "single");
+    m.trackAmbientSoundDuckToggled(true, "social");
+    m.trackInviteShared("shared", "code_page");
+    m.trackInviteShared("shared", "room_menu");
+
+    const strings = mocks.track.mock.calls.flatMap(([name, payload]) => [
+      name as string,
+      ...Object.values((payload ?? {}) as Record<string, unknown>).filter(
+        (value): value is string => typeof value === "string",
+      ),
+    ]);
+    expect(strings.length).toBeGreaterThan(0);
+    for (const value of strings) {
+      expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+    }
   });
 });

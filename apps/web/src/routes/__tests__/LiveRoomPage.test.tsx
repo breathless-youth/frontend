@@ -78,6 +78,7 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
   shareInvite: share.shareInvite,
 }));
 const trackStudySessionEnded = vi.hoisted(() => vi.fn());
+const trackAmbientSoundChanged = vi.hoisted(() => vi.fn());
 const subjectTracking = vi.hoisted(() => ({
   trackSubjectSheetOpened: vi.fn(),
   trackSubjectSheetClosed: vi.fn(),
@@ -87,6 +88,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof AmplitudeModule>()),
   trackInviteShared: share.trackInviteShared,
   trackStudySessionEnded,
+  trackAmbientSoundChanged,
   ...subjectTracking,
 }));
 // 세션에 들어오면 과목 목록을 미리 받는다.
@@ -1663,7 +1665,7 @@ describe("LiveRoomPage — 더보기 초대코드 공유", () => {
     expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
     expect(showCtaToast).toHaveBeenCalledTimes(1);
     expect(share.shareInvite).toHaveBeenCalledWith("0712");
-    expect(share.trackInviteShared).toHaveBeenCalledWith("copied");
+    expect(share.trackInviteShared).toHaveBeenCalledWith("copied", "room_menu");
     expect(share.trackMetaInviteShared).toHaveBeenCalledWith("copied");
   });
 
@@ -1677,7 +1679,7 @@ describe("LiveRoomPage — 더보기 초대코드 공유", () => {
       await chooseMoreMenuItem("초대코드 공유");
 
       await waitFor(() => {
-        expect(share.trackInviteShared).toHaveBeenCalledWith(result);
+        expect(share.trackInviteShared).toHaveBeenCalledWith(result, "room_menu");
       });
       expect(share.trackMetaInviteShared).toHaveBeenCalledWith(result);
       // 토스트 판단은 계측과 같은 콜백에서 끝나므로 계측이 보이면 토스트 호출 여부도 확정이다.
@@ -2286,6 +2288,11 @@ describe("LiveRoomPage — 배경음", () => {
       ambientSoundUsed: true,
       ambientSoundSec: expect.any(Number),
     });
+    // 소셜룸에는 멀티 타이머가 없어 none 으로 나간다.
+    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "none" });
+    expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "social" }),
+    );
   });
 
   it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {
@@ -2381,7 +2388,7 @@ describe("LiveRoomPage — 과목", () => {
       "aria-expanded",
       "true",
     );
-    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenCalledWith("button");
+    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenCalledWith("button", "social");
 
     await userEvent.keyboard("{Escape}");
 
@@ -2390,7 +2397,7 @@ describe("LiveRoomPage — 과목", () => {
       expect(screen.getByRole("button", { name: "과목" })).toHaveFocus();
     });
     expect(subjectTracking.trackSubjectSheetClosed).toHaveBeenCalledWith(
-      expect.objectContaining({ closedBy: "back" }),
+      expect.objectContaining({ closedBy: "back", roomType: "social" }),
     );
   });
 
@@ -2434,7 +2441,7 @@ describe("LiveRoomPage — 과목", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(pill()).toHaveTextContent(/수학00:10:0\d/);
     expect(screen.getByRole("button", { name: "과목 선택됨" })).toHaveAttribute("data-on", "true");
-    expect(subjectTracking.trackSubjectItemSelected).toHaveBeenCalledWith("subject");
+    expect(subjectTracking.trackSubjectItemSelected).toHaveBeenCalledWith("subject", "social");
     expect(subjectTracking.trackSubjectSheetClosed).toHaveBeenCalledWith(
       expect.objectContaining({ closedBy: "play" }),
     );
@@ -2477,7 +2484,7 @@ describe("LiveRoomPage — 과목", () => {
     const subjectPill = await screen.findByRole("button", { name: /^수학.*순공/ });
 
     await userEvent.click(subjectPill);
-    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenLastCalledWith("label");
+    expect(subjectTracking.trackSubjectSheetOpened).toHaveBeenLastCalledWith("label", "social");
     expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
 
     await userEvent.keyboard("{Escape}");
