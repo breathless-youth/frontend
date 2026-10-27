@@ -175,7 +175,7 @@ function AroundRow({
       <div
         className={cn(
           "flex h-11.5 w-full items-center gap-3 rounded-[14px] px-3",
-          row.me && "bg-primary-deep text-primary-foreground shadow-sb-cta",
+          row.me && "bg-brand-subtle",
         )}
       >
         <span
@@ -187,7 +187,7 @@ function AroundRow({
         >
           {formatRank(row.rank)}
         </span>
-        <RankAvatar nickname={row.nickname} me={row.me} onBrand={row.me} />
+        <RankAvatar nickname={row.nickname} me={row.me} />
         <div className="min-w-0 flex-1">
           <Nickname
             name={row.nickname}
