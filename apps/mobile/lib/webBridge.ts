@@ -136,6 +136,20 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       };
     case "records-changed":
       return { type: "records-changed", atMs: record.atMs };
+    case "profile-updated":
+      // 잘못 지우는 것보다 저장값을 두는 편이 낫고 다음 갱신이 바로잡으므로 모양이 어긋나면 통째로 버린다.
+      if (
+        (typeof record.goal !== "string" && record.goal !== null) ||
+        typeof record.nickname !== "string"
+      ) {
+        return null;
+      }
+      return {
+        type: "profile-updated",
+        goal: record.goal,
+        nickname: record.nickname,
+        atMs: record.atMs,
+      };
     case "open-settings":
       return { type: "open-settings", atMs: record.atMs };
     case "app-lock-query":

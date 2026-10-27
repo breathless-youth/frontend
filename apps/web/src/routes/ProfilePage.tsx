@@ -24,6 +24,7 @@ import {
 } from "@/features/profile/profileValidation";
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import { postToNative } from "@/lib/bridge";
 import { firstGrapheme } from "@/lib/graphemes";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -125,6 +126,13 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
     onSuccess: (data) => {
       // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
       queryClient.setQueryData(profileKeys.detail(userId), data);
+      // 앱이 실행 직후 보여 줄 목표 문구를 네트워크 없이 바로 바꾸게 한다(`ToNativeMessage` 주석).
+      postToNative({
+        type: "profile-updated",
+        goal: data.goal,
+        nickname: data.nickname,
+        atMs: Date.now(),
+      });
       trackProfileSaveResult({ ok: true });
       showCtaToast("프로필이 저장됐어요");
       // 키보드가 떠 있으면 저장 버튼 위 토스트를 가린다.

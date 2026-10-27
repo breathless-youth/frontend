@@ -22,6 +22,7 @@ import { emitSessionClosed } from "../sessionClosed";
 import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
+import { saveLaunchGoal } from "../launchGoal";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -76,6 +77,10 @@ jest.mock("../auth", () => ({
 
 jest.mock("../appLock/appLockRelay", () => ({
   handleAppLockMessage: jest.fn(async () => undefined),
+}));
+
+jest.mock("../launchGoal", () => ({
+  saveLaunchGoal: jest.fn(async () => undefined),
 }));
 
 jest.mock("../videoTransfer", () => ({
@@ -347,6 +352,17 @@ describe("handleBridgeMessage", () => {
     // 모달이 닫히며 드러나는 탭 웹뷰는 세션이 끝난 사실을 알 수 없다. 통계 캐시를 새로
     // 받게 하려면 이 신호가 나가야 한다.
     expect(mockedEmitSessionClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it("profile-updated → 네트워크 없이 다음 실행에 쓸 목표 문구를 저장한다", () => {
+    handleBridgeMessage(
+      { type: "profile-updated", goal: "하루 6시간", nickname: "포메", atMs: 1 },
+      noopReply,
+    );
+
+    expect(saveLaunchGoal).toHaveBeenCalledWith({ goal: "하루 6시간", nickname: "포메" });
+    expect(logAnalyticsEvent).not.toHaveBeenCalled();
+    expect(noopReply).not.toHaveBeenCalled();
   });
 
   it("records-changed → 모달을 건드리지 않고 모든 탭에 통계 무효화 신호만 보낸다", () => {

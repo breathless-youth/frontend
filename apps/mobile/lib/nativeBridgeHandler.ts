@@ -9,6 +9,7 @@ import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
+import { saveLaunchGoal } from "./launchGoal";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
@@ -151,6 +152,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 다른 탭 웹뷰는 별도 문서라 저장한 탭의 무효화가 닿지 않는다.
       // 세션 종료와 같은 통계 무효화라 같은 신호로 모든 탭에 알린다.
       emitSessionClosed();
+      break;
+    case "profile-updated":
+      // 앱 전환기에서 바로 종료하면 백그라운드 전환 때의 조회가 저장까지 못 가서 웹이 넘긴 값을 바로 저장한다.
+      // 목표와 닉네임은 사용자가 쓴 글이라 로그나 분석으로 내보내지 않는다.
+      void saveLaunchGoal({ goal: message.goal, nickname: message.nickname });
       break;
     case "open-settings":
       void openAppSettings();

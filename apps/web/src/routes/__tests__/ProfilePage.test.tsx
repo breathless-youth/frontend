@@ -8,12 +8,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
+import type * as Bridge from "@/lib/bridge";
+import { postToNative } from "@/lib/bridge";
 import { getProfile, updateProfile } from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
+}));
+
+vi.mock("@/lib/bridge", async (importOriginal) => ({
+  ...(await importOriginal<typeof Bridge>()),
+  postToNative: vi.fn(() => false),
 }));
 
 const mockedGetProfile = vi.mocked(getProfile);
@@ -420,6 +427,38 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
     expect(goalInput).not.toHaveFocus();
+  });
+
+  it("저장에 성공하면 서버가 돌려준 목표 문구와 닉네임을 앱에 한 번 알린다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "서버 목표" });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
+      type: "profile-updated",
+      goal: "서버 목표",
+      nickname: "포메3721",
+      atMs: expect.any(Number),
+    });
+  });
+
+  it("저장이 실패하면 앱에 알리지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+    expect(vi.mocked(postToNative)).not.toHaveBeenCalled();
   });
 
   it("저장이 네트워크 오류로 실패하면 재시도 문구를 보여주고 입력을 유지한다", async () => {
