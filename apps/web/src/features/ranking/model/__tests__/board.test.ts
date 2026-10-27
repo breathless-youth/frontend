@@ -60,6 +60,13 @@ describe("종목 바꾸기", () => {
   it("명예의 전당 종목은 기간이 없다", () => {
     expect(selectType(DEFAULT_RANKING_BOARD, "MAX_STREAK")).toEqual({ type: "MAX_STREAK" });
   });
+
+  it("기간 없는 판에서 순공으로 가면 일간이다", () => {
+    expect(selectType(DEFAULT_HALL_BOARD, "FOCUS_TIME")).toEqual({
+      type: "FOCUS_TIME",
+      period: "DAILY",
+    });
+  });
 });
 
 describe("기간과 구간 바꾸기", () => {
@@ -99,7 +106,7 @@ describe("판 성질", () => {
   });
 
   it("같은 판인지 비교하고, 비교 키에는 서버가 고른 구간이 들어간다", () => {
-    expect(sameSelection({ type: "FOCUS_TIME", period: "WEEKLY" }, DEFAULT_RANKING_BOARD)).toBe(
+    expect(sameSelection({ type: "FOCUS_TIME", period: "DAILY" }, DEFAULT_RANKING_BOARD)).toBe(
       true,
     );
     expect(

@@ -36,7 +36,7 @@ export const HALL_BOARD_TYPES: readonly HallBoardType[] = [
   "MAX_STREAK",
 ];
 
-export const DEFAULT_RANKING_BOARD: BoardSelection = { type: "FOCUS_TIME", period: "WEEKLY" };
+export const DEFAULT_RANKING_BOARD: BoardSelection = { type: "FOCUS_TIME", period: "DAILY" };
 export const DEFAULT_HALL_BOARD: BoardSelection = { type: "TOTAL_TIME" };
 
 /** 시간 판에서 메달을 받는 최소 값(초). */
@@ -136,13 +136,14 @@ export function slotOf(selection: BoardSelection): TimeSlot | null {
  * 종목 바꾸기
  *
  * 종목을 바꾼다.
- * 지금 기간이 그 종목에 없으면 주간으로 바꾸고, 시간대는 지금 구간으로 연다.
+ * 순공은 기간이 없던 판에서 오면 기본 판과 같은 일간으로 연다.
+ * 집중률·시간대는 지금 기간이 그 종목에 없으면 주간으로 바꾸고, 시간대는 지금 구간으로 연다.
  */
 export function selectType(current: BoardSelection, type: RankingType): BoardSelection {
   const period = periodOf(current);
   switch (type) {
     case "FOCUS_TIME":
-      return { type, period: period ?? "WEEKLY" };
+      return { type, period: period ?? "DAILY" };
     case "FOCUS_RATE":
       return { type, period: period === "MONTHLY" ? "MONTHLY" : "WEEKLY" };
     case "TIME_SLOT":
