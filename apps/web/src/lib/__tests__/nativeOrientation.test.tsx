@@ -53,6 +53,7 @@ it("화면이 숨겨질 때는 회전 해제를 보내지 않는다", () => {
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
 
   document.dispatchEvent(new Event("visibilitychange"));
+  window.dispatchEvent(new Event("resize"));
 
   expect(postMessage).not.toHaveBeenCalled();
 });

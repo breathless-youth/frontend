@@ -60,10 +60,10 @@ export function useNativeOrientationUnlock(): void {
     };
     unlock();
     document.addEventListener("visibilitychange", unlockWhenVisible);
-    window.addEventListener("resize", unlock);
+    window.addEventListener("resize", unlockWhenVisible);
     return () => {
       document.removeEventListener("visibilitychange", unlockWhenVisible);
-      window.removeEventListener("resize", unlock);
+      window.removeEventListener("resize", unlockWhenVisible);
       postToNative({ type: "set-orientation", unlocked: false, atMs: Date.now() });
     };
   }, []);
