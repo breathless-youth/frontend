@@ -4,11 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionState } from "../../study-session/sessionState";
 import type { ModeKind } from "../multiTimerMachine";
 import { restoreMultiTimerStorage, setMultiTimerStorage } from "../multiTimerSettings";
-import { useMultiTimer } from "../useMultiTimer";
+import { createMultiTimerUsage, useMultiTimer } from "../useMultiTimer";
 import type { MultiTimerControls } from "../useMultiTimer";
 
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
+const analytics = vi.hoisted(() => ({
+  trackMultiTimerOpened: vi.fn(),
+  trackMultiTimerStarted: vi.fn(),
+  trackMultiTimerPhaseCompleted: vi.fn(),
+  trackMultiTimerClosed: vi.fn(),
+  trackMultiTimerRestarted: vi.fn(),
+}));
+vi.mock("@/lib/amplitude", () => analytics);
 const hasAlertHaptic = vi.hoisted(() => vi.fn(() => false));
 vi.mock("@/lib/alertHapticCapability", () => ({ hasAlertHaptic }));
 
@@ -56,18 +64,19 @@ function setup() {
   const onStartBreak = vi.fn();
   const onEndBreak = vi.fn();
   const onResumeSession = vi.fn();
+  const usage = createMultiTimerUsage();
   let renderCount = 0;
   const view = renderHook(
     (props: Props) => {
       renderCount += 1;
-      return useMultiTimer({ ...props, onStartBreak, onEndBreak, onResumeSession, alarm });
+      return useMultiTimer({ ...props, onStartBreak, onEndBreak, onResumeSession, alarm, usage });
     },
     { initialProps: { sessionState: FOCUS, studying: true } },
   );
   const session = (sessionState: SessionState, studying = true) =>
     view.rerender({ sessionState, studying });
   const renders = () => renderCount;
-  return { ...view, session, renders, alarm, onStartBreak, onEndBreak, onResumeSession };
+  return { ...view, session, renders, alarm, usage, onStartBreak, onEndBreak, onResumeSession };
 }
 
 /** 마지막 모드를 저장해 두고 연다. */
@@ -93,6 +102,7 @@ afterEach(() => {
   restoreMultiTimerStorage();
   vi.useRealTimers();
   haptic.mockReset();
+  Object.values(analytics).forEach((track) => track.mockReset());
 });
 
 describe("useMultiTimer", () => {
@@ -222,6 +232,7 @@ describe("useMultiTimer", () => {
     expect(result.current.mode?.status).toBe("setup");
     expect(alarm.prime).not.toHaveBeenCalled();
     expect(saved()).toBeNull();
+    expect(analytics.trackMultiTimerStarted).not.toHaveBeenCalled();
   });
 
   it("세션이 일시정지되면 시간이 멈추고 계속을 누르면 세션을 재개한다", () => {
@@ -627,5 +638,171 @@ describe("useMultiTimer", () => {
 
       expect(haptic).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("useMultiTimer 계측", () => {
+  it("열면 열린 종류를 보낸다", () => {
+    const { result } = setup();
+
+    openAs(result, "pomodoro");
+
+    expect(analytics.trackMultiTimerOpened).toHaveBeenCalledExactlyOnceWith("pomodoro");
+  });
+
+  it("설정 화면에서 시작하면 설정값·알림음·멈춤 여부를 보내고 세션 기록에 종류를 남긴다", () => {
+    store.set(ALARM_SOUND_KEY, "off");
+    const { result, usage } = setup();
+    act(() => result.current.open());
+    act(() => result.current.changeSettings({ timerSec: 600 }));
+
+    act(() => result.current.pressPrimary());
+    act(() => result.current.pressPrimary());
+    act(() => result.current.pressPrimary());
+
+    expect(analytics.trackMultiTimerStarted).toHaveBeenCalledExactlyOnceWith({
+      kind: "timer",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: false,
+      fromPause: false,
+    });
+    expect(usage.snapshot()).toBe("timer");
+  });
+
+  it("세션이 멈춘 채 시작하면 멈춘 세션 위에서 시작했다고 보낸다", () => {
+    const { result, session } = setup();
+    session(BACKGROUND);
+    openAs(result, "pomodoro");
+
+    act(() => result.current.pressPrimary());
+
+    expect(analytics.trackMultiTimerStarted).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "pomodoro", fromPause: true }),
+    );
+  });
+
+  it("두 종류를 다 시작한 세션은 both 다", () => {
+    const { result, usage } = setup();
+    expect(usage.snapshot()).toBe("none");
+    act(() => result.current.open());
+    act(() => result.current.pressPrimary());
+    act(() => result.current.restart());
+
+    act(() => result.current.switchKind("pomodoro"));
+    act(() => result.current.pressPrimary());
+
+    expect(usage.snapshot()).toBe("both");
+  });
+
+  it("끝 알림 하나마다 끝난 단계와 알림음 상태를 보낸다", () => {
+    store.set(KEY, JSON.stringify({ timerSec: 1, focusMin: 1, breakMin: 1 }));
+    const { result } = setup();
+    openAs(result, "pomodoro");
+    act(() => result.current.pressPrimary());
+
+    advance(60_000);
+    advance(60_000);
+
+    expect(analytics.trackMultiTimerPhaseCompleted.mock.calls).toEqual([
+      ["focus", true],
+      ["break", true],
+    ]);
+
+    act(() => result.current.close());
+    openAs(result, "timer");
+    act(() => result.current.pressPrimary());
+    advance(1_000);
+    expect(analytics.trackMultiTimerPhaseCompleted).toHaveBeenLastCalledWith("timer", true);
+  });
+
+  it("사용자가 닫으면 닫는 순간의 상태와 연 시간을 보낸다", () => {
+    store.set(KEY, JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }));
+    const { result } = setup();
+    openAs(result, "pomodoro");
+    advance(4_000);
+    act(() => result.current.pressPrimary());
+    advance(61_000);
+
+    act(() => result.current.close());
+
+    expect(analytics.trackMultiTimerClosed).toHaveBeenCalledExactlyOnceWith({
+      kind: "pomodoro",
+      state: "running",
+      started: true,
+      openSec: 65,
+      phase: "break",
+    });
+  });
+
+  it("세션이 멈춰 시계가 서 있는 동안 닫으면 멈춘 상태로 보낸다", () => {
+    const { result, session } = setup();
+    act(() => result.current.open());
+    act(() => result.current.pressPrimary());
+    session(BACKGROUND);
+    expect(result.current.mode?.status).toBe("running");
+
+    act(() => result.current.close());
+
+    expect(analytics.trackMultiTimerClosed).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: "paused" }),
+    );
+  });
+
+  it("타이머는 닫힘과 처음부터에 단계를 싣지 않는다", () => {
+    const { result } = setup();
+    openAs(result, "timer");
+    advance(2_000);
+    act(() => result.current.pressPrimary());
+    act(() => result.current.restart());
+    act(() => result.current.close());
+
+    expect(analytics.trackMultiTimerRestarted).toHaveBeenCalledExactlyOnceWith("timer");
+    expect(analytics.trackMultiTimerClosed).toHaveBeenCalledExactlyOnceWith({
+      kind: "timer",
+      state: "setup",
+      started: true,
+      openSec: 2,
+    });
+  });
+
+  it("시작하지 않고 닫으면 시작하지 않았다고 보낸다", () => {
+    const { result } = setup();
+    act(() => result.current.open());
+    act(() => result.current.pressPrimary());
+    act(() => result.current.close());
+    analytics.trackMultiTimerClosed.mockReset();
+
+    act(() => result.current.open());
+    act(() => result.current.close());
+
+    expect(analytics.trackMultiTimerClosed).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ kind: "timer", state: "setup", started: false, openSec: 0 }),
+    );
+  });
+
+  it("세션이 끝나 닫히면 닫힘을 보내지 않는다", () => {
+    const { result, session } = setup();
+    act(() => result.current.open());
+    act(() => result.current.pressPrimary());
+
+    session(FOCUS, false);
+
+    expect(result.current.mode).toBeNull();
+    expect(analytics.trackMultiTimerClosed).not.toHaveBeenCalled();
+  });
+
+  it("처음부터는 시작한 뒤에만 보낸다", () => {
+    const { result } = setup();
+    openAs(result, "pomodoro");
+    act(() => result.current.restart());
+    expect(analytics.trackMultiTimerRestarted).not.toHaveBeenCalled();
+
+    act(() => result.current.pressPrimary());
+    act(() => result.current.pressPrimary());
+    act(() => result.current.restart());
+
+    expect(analytics.trackMultiTimerRestarted).toHaveBeenCalledExactlyOnceWith("pomodoro", "focus");
   });
 });

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
+import { trackMultiTimerClosed, trackStudySessionEnded } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY, postToNative } from "@/lib/bridge";
 import type * as BridgeModule from "@/lib/bridge";
 import { RoomPage } from "../RoomPage";
@@ -28,6 +29,12 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
 }));
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackStudySessionEnded: vi.fn(),
+  trackMultiTimerClosed: vi.fn(),
+}));
 
 // 보낸 메시지만 엿보고 브라우저 단독 모드의 동작은 그대로 둔다.
 vi.mock("@/lib/bridge", async (importOriginal) => {
@@ -361,5 +368,34 @@ describe("RoomPage 멀티 타이머", () => {
       vi.unstubAllGlobals();
       Reflect.deleteProperty(navigator, "vibrate");
     }
+  });
+
+  it("휴식 중에 세션을 끝내면 종료 계측에 뽀모도로 사용과 휴식 길이가 실리고 타이머 닫힘은 보내지 않는다", async () => {
+    localStorage.setItem(
+      "focuson.multiTimer.v1",
+      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }),
+    );
+    vi.useFakeTimers();
+    renderRoom();
+    openPomodoroNow();
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "타이머" })).getByRole("button", { name: "시작" }),
+    );
+    await advance(90_000);
+
+    fireEvent.click(screen.getByRole("button", { name: "공부 종료", hidden: true }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+    await advance(0);
+
+    expect(vi.mocked(trackStudySessionEnded)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0]).toMatchObject({
+      roomType: "single",
+      multiTimer: "pomodoro",
+      breakSec: 30,
+      pauseSec: 0,
+    });
+    expect(vi.mocked(trackMultiTimerClosed)).not.toHaveBeenCalled();
   });
 });
