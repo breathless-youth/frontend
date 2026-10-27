@@ -2,7 +2,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { firstGrapheme } from "@/lib/graphemes";
 import { cn } from "@/lib/utils";
 
-/** 카메라 꺼짐/미디어 없음 타일이 공통으로 쓰는 이니셜 아바타. */
+/**
+ * 카메라 꺼짐/미디어 없음 타일이 공통으로 쓰는 이니셜 아바타
+ *
+ * 타일 아래에 닉네임이 따로 보여서 화면 낭독기에서는 숨긴다.
+ */
 export function RoomAvatarFallback({
   nickname,
   scaleWithTile = false,
@@ -13,6 +17,7 @@ export function RoomAvatarFallback({
 }) {
   return (
     <div
+      aria-hidden="true"
       className={cn(
         "absolute inset-0 flex items-center justify-center",
         scaleWithTile && "regular:@container",
