@@ -3,6 +3,7 @@ import { ActivityIndicator, BackHandler, View } from "react-native";
 
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
 
+import { markFirstScreenLoaded } from "../lib/firstScreenLoaded";
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { markSessionOpen } from "../lib/sessionPresence";
@@ -126,6 +127,10 @@ export function RemoteScreen({
     setBackLocked(false);
   };
   const onLoadEnd = (ok: boolean, newDocument: boolean) => {
+    // 탭 웹뷰는 동시에 마운트되므로 보이지 않는 탭이 먼저 끝나도 실행 직후 오버레이를 걷지 않게 한다.
+    if (!suppressTabBarMessages) {
+      markFirstScreenLoaded();
+    }
     setLoaded(true);
     setLoadFailed(!ok);
     // 복구 진입 없이 문서가 통째로 바뀐 경우(웹의 location.reload 등)에도 새 문서는 잠근 적이 없다.

@@ -10,6 +10,7 @@ import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../li
 import { setSessionInviteHandler } from "../lib/sessionInvite";
 import { __resetSessionPresenceForTests, markSessionOpen } from "../lib/sessionPresence";
 import { RECONNECT_AFTER_BACKGROUND_MS } from "../lib/updateOnConnect";
+import { ensureUserRegistered } from "../lib/userApi";
 
 /**
  * 라우트 컨텍스트 격리 이유는 `permission-denied.test.tsx` 상단 주석 참고 — `app/` 밖(`__tests__/`)에 둔다.
@@ -137,7 +138,29 @@ jest.mock("../lib/forceUpdateAlert", () => ({
   },
 }));
 
+// 실행 직후 목표 문구는 저장값 읽기와 갱신 호출만 본다(동작은 `lib/__tests__/launchGoal.test.ts`).
+const mockReadLaunchGoal = jest.fn();
+const mockRefreshLaunchGoal = jest.fn();
+jest.mock("../lib/launchGoal", () => ({
+  readLaunchGoal: () => mockReadLaunchGoal() as Promise<unknown>,
+  refreshLaunchGoal: () => mockRefreshLaunchGoal() as Promise<void>,
+}));
+// 오버레이의 타이밍은 `components/__tests__/LaunchGoalOverlay.test.tsx`가 본다.
+// 여기서는 누르면 끝난 것으로 친다.
+jest.mock("../components/LaunchGoalOverlay", () => {
+  const { Pressable: MockPressable } = jest.requireActual<typeof ReactNative>("react-native");
+  return {
+    LaunchGoalOverlay: ({ onDone }: { onDone: () => void }) => (
+      <MockPressable testID="launch-goal-overlay" onPress={onDone} />
+    ),
+  };
+});
+
+const SAVED_GOAL = { goal: "하루 6시간", nickname: "포메" };
+
 beforeEach(() => {
+  mockReadLaunchGoal.mockReset().mockResolvedValue(null);
+  mockRefreshLaunchGoal.mockReset().mockResolvedValue(undefined);
   mockUseFonts.mockReset();
   mockHideAsync.mockClear();
   mockResolveForceUpdate
@@ -642,6 +665,147 @@ describe("RootLayout Meta SDK 초기화", () => {
     });
 
     await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
+  });
+});
+
+describe("RootLayout 실행 직후 목표 문구", () => {
+  it("저장값 읽기가 끝나기 전에는 폰트와 판정이 준비돼도 스플래시를 걷지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    let finishRead: (value: unknown) => void = () => {};
+    mockReadLaunchGoal.mockReturnValue(
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+    );
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
+    await act(async () => {});
+    expect(toJSON()).toBeNull();
+    expect(mockHideAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishRead(null);
+    });
+
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("저장값이 있으면 홈 위에 오버레이를 그리고 끝나면 걷는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockReadLaunchGoal.mockResolvedValue(SAVED_GOAL);
+
+    render(<RootLayout />);
+
+    const overlay = await screen.findByTestId("launch-goal-overlay");
+    expect(screen.getByTestId("safe-area-provider")).toBeTruthy();
+
+    fireEvent.press(overlay);
+    expect(screen.queryByTestId("launch-goal-overlay")).toBeNull();
+  });
+
+  it("오버레이를 그리는 실행에서는 오버레이가 걷힌 뒤 시작 권한 창을 띄운다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockReadLaunchGoal.mockResolvedValue(SAVED_GOAL);
+
+    render(<RootLayout />);
+    const overlay = await screen.findByTestId("launch-goal-overlay");
+    await act(async () => {});
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+
+    fireEvent.press(overlay);
+
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalledTimes(1));
+  });
+
+  it("저장값이 없으면 오버레이 없이 그린다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    render(<RootLayout />);
+
+    await screen.findByTestId("safe-area-provider");
+    expect(screen.queryByTestId("launch-goal-overlay")).toBeNull();
+  });
+
+  it("forced면 저장값이 있어도 오버레이를 그리지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockReadLaunchGoal.mockResolvedValue(SAVED_GOAL);
+    const forced = { forced: true, recommended: false, latestVersion: "1.0.4" };
+    mockResolveForceUpdate.mockResolvedValue(forced);
+    mockRefreshForceUpdate.mockResolvedValue(forced);
+
+    render(<RootLayout />);
+
+    await screen.findByTestId("force-update-backdrop");
+    expect(screen.queryByTestId("launch-goal-overlay")).toBeNull();
+  });
+
+  it("forced였다가 pass로 돌아와도 오버레이를 다시 띄우지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    mockReadLaunchGoal.mockResolvedValue(SAVED_GOAL);
+    let finishLate: (decision: Decision) => void = () => {};
+    mockResolveOnLaunch.mockResolvedValue({
+      decision: { forced: true, recommended: false, latestVersion: "1.0.4" },
+      late: new Promise<Decision>((resolve) => {
+        finishLate = resolve;
+      }),
+    });
+
+    render(<RootLayout />);
+    await screen.findByTestId("force-update-backdrop");
+
+    await act(async () => {
+      finishLate({ forced: false, recommended: false, latestVersion: null });
+    });
+
+    await screen.findByTestId("safe-area-provider");
+    expect(screen.queryByTestId("launch-goal-overlay")).toBeNull();
+  });
+
+  it("유저 등록이 끝난 뒤 목표 문구를 새로 받는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    let finishRegister: (userId: number | null) => void = () => {};
+    (ensureUserRegistered as jest.Mock).mockReturnValueOnce(
+      new Promise<number | null>((resolve) => {
+        finishRegister = resolve;
+      }),
+    );
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockRefreshLaunchGoal).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishRegister(7);
+    });
+
+    expect(mockRefreshLaunchGoal).toHaveBeenCalledTimes(1);
+  });
+
+  it("백그라운드로 갈 때마다 목표 문구를 새로 받고, 돌아올 때는 받지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    // 앞선 렌더가 등록한 리스너도 기록에 남아 있어 비우고 이 렌더의 것만 고른다.
+    // spyOn으로 감쌌다가 복원하면 뒤 테스트의 AppState 구독이 깨져서 기록만 비운다.
+    const addEventListener = AppState.addEventListener as unknown as jest.Mock;
+    addEventListener.mockClear();
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockRefreshLaunchGoal).toHaveBeenCalledTimes(1));
+    const listeners = (addEventListener.mock.calls as [string, (state: string) => void][])
+      .filter(([event]) => event === "change")
+      .map(([, listener]) => listener);
+
+    act(() => {
+      for (const listener of listeners) listener("active");
+    });
+    expect(mockRefreshLaunchGoal).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      for (const listener of listeners) listener("background");
+    });
+    expect(mockRefreshLaunchGoal).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -34,15 +34,24 @@ export function isNativeBridgeAvailable(): boolean {
 }
 
 /**
- * 로그에 남기기 전 영상 조각 본문을 가린다
+ * 로그에 남기기 전 영상 조각 본문과 프로필 글을 가린다
  *
  * 조각은 카메라로 찍은 타임랩스를 base64로 바꾼 512KB라 개인정보 원칙상 개발 로그에도 남기지 않는다.
  * 통째로 찍으면 인스펙터가 멈추고 실기기 전달 시간 측정도 로그 비용만큼 부풀려진다.
+ * 목표 문구와 닉네임은 사용자가 쓴 글이라 앱이 토큰을 가리듯 값을 가린다.
  */
 function forLog(message: ToNativeMessage): ToNativeMessage {
-  return message.type === "video-chunk"
-    ? { ...message, data: `<${message.data.length} chars>` }
-    : message;
+  if (message.type === "video-chunk") {
+    return { ...message, data: `<${message.data.length} chars>` };
+  }
+  if (message.type === "profile-updated") {
+    return {
+      ...message,
+      goal: message.goal === null ? null : "<masked>",
+      nickname: "<masked>",
+    };
+  }
+  return message;
 }
 
 /**
