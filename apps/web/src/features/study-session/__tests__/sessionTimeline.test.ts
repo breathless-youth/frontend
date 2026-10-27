@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { FOCUS_STATE, distractionState, pauseState } from "../sessionState";
+import { BREAK_STATE, FOCUS_STATE, distractionState, pauseState } from "../sessionState";
 import {
   closeSessionTimeline,
   computeSessionTotals,
+  splitPauseSec,
   createSessionTimeline,
   currentState,
   currentStateSinceMs,
@@ -13,6 +14,18 @@ import {
 
 const T0 = Date.UTC(2026, 6, 26, 1, 0, 0);
 const sec = (n: number) => T0 + n * 1000;
+
+describe("splitPauseSec", () => {
+  it("휴식을 뺀 일시정지와 휴식을 밀리초에서 한 번씩만 내림한다", () => {
+    let timeline = createSessionTimeline(T0);
+    timeline = transition(timeline, BREAK_STATE, sec(10));
+    timeline = transition(timeline, pauseState("MANUAL"), sec(11.5));
+    timeline = transition(timeline, FOCUS_STATE, sec(12.1));
+
+    // 따로 내림해 빼면 floor(2.1) - floor(1.5) = 1 이 되어 0.6초 일시정지가 1초로 부푼다.
+    expect(splitPauseSec(timeline, sec(20))).toEqual({ pauseSec: 0, breakSec: 1 });
+  });
+});
 
 describe("computeSessionTotals — 순공/총 공부 2축", () => {
   it("집중만 이어지면 두 값이 같다", () => {

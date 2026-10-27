@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import type { StudyRoomType } from "@/lib/amplitude";
 
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import type { SessionState } from "@/features/study-session/sessionState";
@@ -52,6 +53,7 @@ function setup(
   initial: Partial<AmbientSoundSettings> = {},
   initialProps: Props = defaultProps(),
   injectedCatalog: readonly AmbientSound[] = catalog,
+  roomType: StudyRoomType = "single",
 ) {
   const store = createMemoryAmbientSoundStore({ ...DEFAULT_AMBIENT_SETTINGS, ...initial });
   setAmbientSoundStore(store);
@@ -59,7 +61,8 @@ function setup(
   let nowMs = 0;
   const usage = createAmbientUsage(() => nowMs);
   const hook = renderHook(
-    (props: Props) => useAmbientSound({ ...props, usage, player, catalog: injectedCatalog }),
+    (props: Props) =>
+      useAmbientSound({ ...props, roomType, usage, player, catalog: injectedCatalog }),
     { initialProps },
   );
   return {
@@ -101,7 +104,27 @@ describe("useAmbientSound — 자동 시작", () => {
     expect(result.current.mix).toEqual({ rain: 70, white: 40 });
     expect(result.current.isOn).toBe(true);
     expect(mocks.changed).toHaveBeenCalledTimes(1);
-    expect(mocks.changed).toHaveBeenCalledWith({ sounds: ["white", "rain"], source: "auto_start" });
+    expect(mocks.changed).toHaveBeenCalledWith({
+      sounds: ["white", "rain"],
+      source: "auto_start",
+      roomType: "single",
+    });
+  });
+
+  it("소셜룸에서는 이벤트에 소셜룸 종류를 싣는다", async () => {
+    const { result } = setup({ mix: { rain: 70 } }, defaultProps(), catalog, "social");
+    await flush();
+
+    act(() => {
+      result.current.setDuckEnabled(false);
+    });
+
+    expect(mocks.changed).toHaveBeenCalledWith({
+      sounds: ["rain"],
+      source: "auto_start",
+      roomType: "social",
+    });
+    expect(mocks.duckToggled).toHaveBeenCalledWith(false, "social");
   });
 
   it("저장된 믹스가 비어 있으면 플레이어를 건드리지 않고 이벤트도 없다", async () => {
@@ -207,8 +230,8 @@ describe("useAmbientSound — 세션 전이", () => {
       { type: "setDucked", ducked: false },
       { type: "setDucked", ducked: true },
     ]);
-    expect(mocks.duckToggled).toHaveBeenNthCalledWith(1, false);
-    expect(mocks.duckToggled).toHaveBeenNthCalledWith(2, true);
+    expect(mocks.duckToggled).toHaveBeenNthCalledWith(1, false, "single");
+    expect(mocks.duckToggled).toHaveBeenNthCalledWith(2, true, "single");
   });
 
   it("세션이 끝나면(phase !== studying) dispose 하고 이후 전이는 무시한다", async () => {
@@ -295,7 +318,7 @@ describe("useAmbientSound — 사용 시간", () => {
     let nowMs = 0;
     const usage = createAmbientUsage(() => nowMs);
     const { result } = renderHook(() =>
-      useAmbientSound({ ...defaultProps(), usage, player, catalog }),
+      useAmbientSound({ ...defaultProps(), roomType: "single", usage, player, catalog }),
     );
     await flush();
 
@@ -351,7 +374,11 @@ describe("useAmbientSound — 음량 조작", () => {
       result.current.changeLevel("rain", 60);
     });
     expect(result.current.mix).toEqual({ rain: 60 });
-    expect(mocks.changed).toHaveBeenLastCalledWith({ sounds: ["rain"], source: "dialog" });
+    expect(mocks.changed).toHaveBeenLastCalledWith({
+      sounds: ["rain"],
+      source: "dialog",
+      roomType: "single",
+    });
 
     await act(async () => {
       result.current.changeLevel("rain", 30);
@@ -374,7 +401,11 @@ describe("useAmbientSound — 음량 조작", () => {
     });
 
     expect(result.current.mix).toEqual({});
-    expect(mocks.changed).toHaveBeenLastCalledWith({ sounds: [], source: "dialog" });
+    expect(mocks.changed).toHaveBeenLastCalledWith({
+      sounds: [],
+      source: "dialog",
+      roomType: "single",
+    });
   });
 
   it("아이콘으로 끄면 0 이 되고 다시 켜면 직전 음량으로 돌아온다", async () => {
@@ -435,6 +466,7 @@ describe("useAmbientSound — 음량 조작", () => {
     expect(mocks.changed).toHaveBeenLastCalledWith({
       sounds: ["white", "pink", "rain", "cafe"],
       source: "dialog",
+      roomType: "single",
     });
     await expect(store.load()).resolves.toMatchObject({
       mix: { white: 60, pink: 60, rain: 60, cafe: 40 },
@@ -451,7 +483,7 @@ describe("useAmbientSound — 음량 조작", () => {
     const player = createMemoryPlayer();
     const usage = createAmbientUsage(() => 0);
     const { result } = renderHook(() =>
-      useAmbientSound({ ...defaultProps(), usage, player, catalog }),
+      useAmbientSound({ ...defaultProps(), roomType: "single", usage, player, catalog }),
     );
     await flush();
 
@@ -473,7 +505,7 @@ describe("useAmbientSound — 음량 조작", () => {
     setAmbientSoundStore(createMemoryAmbientSoundStore({ ...DEFAULT_AMBIENT_SETTINGS }));
     const usage = createAmbientUsage(() => 0);
     const { result } = renderHook(() =>
-      useAmbientSound({ ...defaultProps(), usage, player, catalog }),
+      useAmbientSound({ ...defaultProps(), roomType: "single", usage, player, catalog }),
     );
     await flush();
 
@@ -499,7 +531,11 @@ describe("useAmbientSound — 전체 켜기·끄기", () => {
     expect(result.current.isOn).toBe(false);
     expect(result.current.canRestore).toBe(true);
     expect(player.commands.at(-1)).toEqual({ type: "applyMix", mix: {} });
-    expect(mocks.changed).toHaveBeenLastCalledWith({ sounds: [], source: "dialog" });
+    expect(mocks.changed).toHaveBeenLastCalledWith({
+      sounds: [],
+      source: "dialog",
+      roomType: "single",
+    });
 
     await act(async () => {
       result.current.toggleAll();
@@ -509,6 +545,7 @@ describe("useAmbientSound — 전체 켜기·끄기", () => {
     expect(mocks.changed).toHaveBeenLastCalledWith({
       sounds: ["white", "rain"],
       source: "dialog",
+      roomType: "single",
     });
   });
 

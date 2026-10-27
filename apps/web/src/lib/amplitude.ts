@@ -300,11 +300,20 @@ function setFlagOnce(key: string) {
  */
 export type StudyRoomType = "single" | "social";
 
+/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. */
+export type MultiTimerUse = "none" | "timer" | "pomodoro" | "both";
+
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
   readonly roomType: StudyRoomType;
   readonly studySec: number;
   readonly focusSec: number;
+  /**
+   * 사용자가 건 일시정지 길이
+   *
+   * 휴식은 빼고 `breakSec`로 따로 싣는다.
+   * 휴식이 생기기 전 차트와 같은 뜻을 지키기 위해서다.
+   */
   readonly pauseSec: number;
   readonly distractionSec: number;
   /** 수동 종료(S3-7)인지 일시정지 자동 종료(S3-8)인지. */
@@ -314,11 +323,20 @@ export interface StudySessionEndedInput {
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
   /**
-   * 배경음을 한 번이라도 켰는가와 누적 재생 초. 싱글룸만 채운다 — 소셜룸(`LiveRoomSession`)도
-   * 같은 훅을 쓰지만 배경음이 없어 생략하고, 생략은 false/0 으로 나간다.
+   * 배경음을 한 번이라도 켰는가와 누적 재생 초
+   *
+   * 싱글룸과 소셜룸 모두 채우고, 생략은 false/0 으로 나간다.
    */
   readonly ambientSoundUsed?: boolean;
   readonly ambientSoundSec?: number;
+  /**
+   * 뽀모도로 휴식 구간 길이 합
+   *
+   * 생략은 0 으로 나간다.
+   */
+  readonly breakSec?: number;
+  /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
+  readonly multiTimer?: MultiTimerUse;
 }
 
 /**
@@ -356,6 +374,8 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
     will_submit: input.willSubmit,
     ambient_sound_used: input.ambientSoundUsed ?? false,
     ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
+    break_sec: Number(input.breakSec ?? 0),
+    multi_timer: input.multiTimer ?? "none",
   });
 }
 
@@ -536,10 +556,14 @@ export function trackSocialRoomGraceExceeded() {
 /**
  * 초대 공유 행동의 결과 — `shared`: OS 공유 시트(웹/브리지), `copied`: 클립보드
  * (share 미지원 폴백과 코드 복사 버튼 둘 다), `failed`: 둘 다 실패.
+ * `source`는 초대코드 화면(`code_page`)인지 방 안 더보기 메뉴(`room_menu`)인지다.
  */
-export function trackInviteShared(method: "shared" | "copied" | "failed") {
+export function trackInviteShared(
+  method: "shared" | "copied" | "failed",
+  source: "code_page" | "room_menu",
+) {
   if (!initialized) return;
-  track("invite_shared", { method });
+  track("invite_shared", { method, source });
   if (method !== "failed") setFlagOnce("invite_shared");
 }
 
@@ -1402,37 +1426,52 @@ export function trackForceUpdatePrompted(input: {
  */
 
 /** 과목 페이지를 연 순간. `source`는 오른쪽 위 과목 버튼인지 타이머 위 라벨인지다. */
-export function trackSubjectSheetOpened(source: "button" | "label") {
+export function trackSubjectSheetOpened(source: "button" | "label", roomType: StudyRoomType) {
   if (!initialized) return;
-  track("subject_sheet_opened", { source });
+  track("subject_sheet_opened", { source, room_type: roomType });
 }
 
 /** 과목 페이지를 닫은 순간. 페이지를 오래 열어 두는지 보려고 열려 있던 초를 싣는다. */
 export function trackSubjectSheetClosed(input: {
   readonly openSec: number;
   readonly closedBy: "back" | "play";
+  readonly roomType: StudyRoomType;
 }) {
   if (!initialized) return;
-  track("subject_sheet_closed", { open_sec: input.openSec, closed_by: input.closedBy });
+  track("subject_sheet_closed", {
+    open_sec: input.openSec,
+    closed_by: input.closedBy,
+    room_type: input.roomType,
+  });
 }
 
-/** 과목·할 일을 관리하는 화면. 세션 과목 페이지(값은 지표를 잇기 위해 `sheet` 유지)와 플래너가 같은 목록을 다룬다. */
-export type SubjectSurface = "sheet" | "planner";
+/**
+ * 과목·할 일을 관리하는 화면
+ *
+ * 세션 과목 페이지는 열린 룸 종류로, 플래너는 `planner`로 적는다.
+ * 세션 과목 페이지의 `surface` 값은 지표를 잇기 위해 `sheet`로 보낸다.
+ */
+export type SubjectSurface = StudyRoomType | "planner";
 
 /** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */
 export function trackSubjectItemAdded(
   kind: "subject" | "task",
-  viaSuggestion = false,
-  surface: SubjectSurface = "sheet",
+  viaSuggestion: boolean,
+  surface: SubjectSurface,
 ) {
   if (!initialized) return;
-  track("subject_item_added", { kind, via_suggestion: viaSuggestion, surface });
+  track(
+    "subject_item_added",
+    surface === "planner"
+      ? { kind, via_suggestion: viaSuggestion, surface }
+      : { kind, via_suggestion: viaSuggestion, surface: "sheet", room_type: surface },
+  );
 }
 
 /** 과목 선택 전환. `none`은 선택 해제(같은 행을 다시 눌러 과목 없는 시간으로 돌아감). */
-export function trackSubjectItemSelected(kind: "subject" | "none") {
+export function trackSubjectItemSelected(kind: "subject" | "none", roomType: StudyRoomType) {
   if (!initialized) return;
-  track("subject_item_selected", { kind });
+  track("subject_item_selected", { kind, room_type: roomType });
 }
 
 /* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
@@ -1448,20 +1487,110 @@ export function trackSubjectItemSelected(kind: "subject" | "none") {
 export function trackAmbientSoundChanged(input: {
   readonly sounds: readonly string[];
   readonly source: "dialog" | "auto_start";
+  readonly roomType: StudyRoomType;
 }) {
   if (!initialized) return;
   track("ambient_sound_changed", {
     sounds: input.sounds.join(","),
     sound_count: input.sounds.length,
     source: input.source,
+    room_type: input.roomType,
   });
   if (input.sounds.length > 0) setFlagOnce("ambient_sound_used");
 }
 
 /** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */
-export function trackAmbientSoundDuckToggled(enabled: boolean) {
+export function trackAmbientSoundDuckToggled(enabled: boolean, roomType: StudyRoomType) {
   if (!initialized) return;
-  track("ambient_sound_duck_toggled", { enabled });
+  track("ambient_sound_duck_toggled", { enabled, room_type: roomType });
+}
+
+/* ── 멀티 타이머(타이머·뽀모도로) ─────────────────────────────────────────
+ * 싱글룸에만 있다.
+ * 세션 단위 사용 여부는 `trackStudySessionEnded`의 `multi_timer`가 싣는다.
+ */
+
+type MultiTimerKind = "timer" | "pomodoro";
+type PomodoroPhase = "focus" | "break";
+
+/**
+ * 타이머 페이지를 연 순간
+ *
+ * `kind`는 마지막으로 쓴 종류라 열린 화면의 종류와 같다.
+ */
+export function trackMultiTimerOpened(kind: MultiTimerKind) {
+  if (!initialized) return;
+  track("multi_timer_opened", { kind });
+}
+
+/**
+ * 설정 화면에서 시작해 실제로 흐르기 시작한 순간
+ *
+ * 설정값은 고른 종류의 것만 싣는다.
+ * `fromPause`는 멈춘 세션 위에서 시작해 세션도 함께 다시 흐른 경우다.
+ */
+export function trackMultiTimerStarted(input: {
+  readonly kind: MultiTimerKind;
+  readonly timerSec: number;
+  readonly focusMin: number;
+  readonly breakMin: number;
+  readonly soundOn: boolean;
+  readonly fromPause: boolean;
+}) {
+  if (!initialized) return;
+  track("multi_timer_started", {
+    kind: input.kind,
+    ...(input.kind === "timer"
+      ? { timer_sec: input.timerSec }
+      : { focus_min: input.focusMin, break_min: input.breakMin }),
+    sound_on: input.soundOn,
+    from_pause: input.fromPause,
+  });
+  setFlagOnce("used_multi_timer");
+}
+
+/**
+ * 끝 알림 하나마다 보내는 단계 완료
+ *
+ * `timer`는 타이머가 0에 닿은 것이고 `focus`·`break`는 뽀모도로 단계가 끝난 것이다.
+ */
+export function trackMultiTimerPhaseCompleted(phase: "timer" | PomodoroPhase, soundOn: boolean) {
+  if (!initialized) return;
+  track("multi_timer_phase_completed", { phase, sound_on: soundOn });
+}
+
+/**
+ * 사용자가 타이머 페이지를 닫은 순간
+ *
+ * 세션이 끝나 함께 닫히는 경우는 보내지 않는다.
+ * 세션이 멈춰 시계가 서 있으면 모드가 진행 중이어도 `paused`로 본다.
+ * `started`는 이번에 연 동안 시작한 적이 있는지이고, 단계는 뽀모도로만 싣는다.
+ */
+export function trackMultiTimerClosed(input: {
+  readonly kind: MultiTimerKind;
+  readonly state: "setup" | "running" | "paused";
+  readonly started: boolean;
+  readonly openSec: number;
+  readonly phase?: PomodoroPhase;
+}) {
+  if (!initialized) return;
+  track("multi_timer_closed", {
+    kind: input.kind,
+    state: input.state,
+    started: input.started,
+    open_sec: input.openSec,
+    ...(input.phase && { phase: input.phase }),
+  });
+}
+
+/**
+ * 진행 중에 처음부터를 누른 순간
+ *
+ * 설정을 잘못 맞췄다는 신호로 본다.
+ */
+export function trackMultiTimerRestarted(kind: MultiTimerKind, phase?: PomodoroPhase) {
+  if (!initialized) return;
+  track("multi_timer_restarted", { kind, ...(phase && { phase }) });
 }
 
 /** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */
