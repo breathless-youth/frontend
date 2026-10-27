@@ -28,7 +28,7 @@ import {
   useSessionRotationRestore,
 } from "@/features/multi-timer/modeScreenLocks";
 import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
-import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
@@ -319,6 +319,8 @@ function RoomSessionScreen({
    * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
    */
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
+  const [multiTimerUsage] = useState(createMultiTimerUsage);
   const {
     startedAtMs,
     focusSec,
@@ -346,6 +348,7 @@ function RoomSessionScreen({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
+    multiTimerUsage: multiTimerUsage.snapshot,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(CAMERA_TOAST_COPY.cameraOff),
   });
@@ -353,7 +356,12 @@ function RoomSessionScreen({
   useEffect(() => {
     timelapse.begin(startedAtMs);
   }, [startedAtMs, timelapse]);
-  const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
+  const ambient = useAmbientSound({
+    sessionState,
+    phase,
+    usage: ambientUsage,
+    roomType: "single",
+  });
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
   const [page, setPage] = useState<"subject" | "ambient" | null>(null);
   const studying = phase.name === "studying";
@@ -368,6 +376,7 @@ function RoomSessionScreen({
     onStartBreak: startBreak,
     onEndBreak: endBreak,
     onResumeSession: resume,
+    usage: multiTimerUsage,
   });
   const modeOpen = multiTimer.mode !== null;
   /**
@@ -409,7 +418,7 @@ function RoomSessionScreen({
         showCtaToast(message);
       }
     },
-    "sheet",
+    "single",
     () => loadSessionSubjects(userId ?? 0),
   );
   useLayoutEffect(() => {
@@ -620,7 +629,7 @@ function RoomSessionScreen({
   }
 
   function openSubjectPage(source: "button" | "label", opener: HTMLElement) {
-    trackSubjectSheetOpened(source);
+    trackSubjectSheetOpened(source, "single");
     subjectOpenedAtRef.current = Date.now();
     subjectOpenerRef.current = opener;
     // 미리 받기가 알림 없이 실패했으면 여는 순간 한 번 더 받는다.
@@ -638,6 +647,7 @@ function RoomSessionScreen({
       trackSubjectSheetClosed({
         openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
         closedBy,
+        roomType: "single",
       });
     }
     setPage(null);
@@ -694,7 +704,7 @@ function RoomSessionScreen({
     if (next === subjectSelection) {
       return;
     }
-    trackSubjectItemSelected(next === null ? "none" : "subject");
+    trackSubjectItemSelected(next === null ? "none" : "subject", "single");
     selectSubject(next);
   }
 

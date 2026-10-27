@@ -40,7 +40,7 @@ const SERVER_ORDER = [subject(2), subject(1), subject(3)];
 
 async function renderReady() {
   const onError = vi.fn();
-  const hook = renderHook(() => useSubjects(true, onError));
+  const hook = renderHook(() => useSubjects(true, onError, "social"));
   await waitFor(() => {
     expect(hook.result.current.status).toBe("ready");
   });
@@ -142,7 +142,7 @@ describe("useSubjects 푸시 타겟용 user property", () => {
     const onError = vi.fn();
     vi.mocked(listSubjects).mockRejectedValue(new Error("network"));
 
-    const hook = renderHook(() => useSubjects(true, onError));
+    const hook = renderHook(() => useSubjects(true, onError, "social"));
     await waitFor(() => {
       expect(hook.result.current.status).toBe("error");
     });
@@ -309,8 +309,7 @@ describe("useSubjects 이름 중복", () => {
     });
 
     expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
-    // 화면을 따로 알리지 않으면 과목 페이지에서 만든 것(`sheet`)으로 센다.
-    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "sheet");
+    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "social");
     expect(renameSubject).toHaveBeenCalledWith(1, { name: "영어" });
     expect(hook.result.current.subjects.find((item) => item.id === 1)?.name).toBe("영어");
   });

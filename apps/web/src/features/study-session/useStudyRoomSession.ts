@@ -12,6 +12,7 @@ import {
   trackStudySessionResumed,
   trackStudySessionStarted,
   trackStudySessionSubmitted,
+  type MultiTimerUse,
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { formatLockStartedToast } from "@/features/app-lock/appLockSummary";
@@ -20,7 +21,12 @@ import {
   stopAppLock,
   subscribeAppLockStarted,
 } from "@/features/app-lock/nativeAppLock";
-import { trackMetaStudySessionEnded, trackMetaStudySessionStarted } from "@/lib/metaAppEvents";
+import {
+  META_FOCUS_MILESTONE_SEC,
+  trackMetaFocusMilestone,
+  trackMetaStudySessionEnded,
+  trackMetaStudySessionStarted,
+} from "@/lib/metaAppEvents";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
@@ -63,6 +69,7 @@ import {
 import type { SessionTimeline, SessionTotals } from "./sessionTimeline";
 import {
   closeSessionTimeline,
+  splitPauseSec,
   computeSessionTotals,
   createSessionTimeline,
   currentState,
@@ -130,9 +137,16 @@ export interface StudyRoomSessionOptions {
   readonly getCompletedTaskIds?: (startedAtMs: number) => number[];
   /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
-   * `roomType`처럼 세션 로직에는 관여하지 않는다. 배경음이 없는 소셜룸은 생략한다.
+   * `roomType`처럼 세션 로직에는 관여하지 않는다.
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
+  /**
+   * 계측용 멀티 타이머 사용 기록 조회
+   *
+   * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * 멀티 타이머가 없는 소셜룸은 생략한다.
+   */
+  readonly multiTimerUsage?: () => MultiTimerUse;
   /**
    * 세션이 끝난 순간 한 번 부르는 알림
    *
@@ -196,8 +210,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
+  const multiTimerUsageRef = useRef(options.multiTimerUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
+    multiTimerUsageRef.current = options.multiTimerUsage;
   });
   const onEndedRef = useRef(options.onEnded);
   useLayoutEffect(() => {
@@ -268,6 +284,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   /** 분석 이벤트 전용 카운터 — 세션 로직에는 관여하지 않는다. */
   const endTrackedRef = useRef(false);
+  const focusMilestoneTrackedRef = useRef(false);
   const submitAttemptRef = useRef(0);
   // 제출 in-flight 중 재진입 차단 — 일시정지 감시자와 유예 감시가 같은 복귀 이벤트에서
   // 동시에 발화할 수 있고, "다시 제출" 연타도 같은 경로다. 서버는 멱등이지만
@@ -443,6 +460,22 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
   }, [roomType, initial.restored]);
+
+  /**
+   * 순공 5분 달성 이벤트
+   *
+   * 세션 종료가 아니라 300초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
+   * 화면 집계에는 복원 전 순공이 이미 들어 있어서 복원 세션은 진입하자마자 판정된다.
+   * 기기당 한 번 보장은 `trackMetaFocusMilestone`이 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
+   */
+  const displayFocusSec = display.totals.focusSec;
+  useEffect(() => {
+    if (focusMilestoneTrackedRef.current || displayFocusSec < META_FOCUS_MILESTONE_SEC) {
+      return;
+    }
+    focusMilestoneTrackedRef.current = true;
+    trackMetaFocusMilestone();
+  }, [displayFocusSec]);
 
   /**
    * 방해 앱 잠금
@@ -815,16 +848,19 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;
         const ambient = ambientUsageRef.current?.();
+        const { pauseSec, breakSec } = splitPauseSec(closed, endedAtMs);
         trackStudySessionEnded({
           roomType,
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,
-          pauseSec: finalTotals.pauseSec,
+          pauseSec,
           distractionSec: finalTotals.distractionSec,
           endReason: finalReason?.kind ?? "MANUAL",
           pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
           willSubmit: userId !== null,
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
+          breakSec,
+          multiTimer: multiTimerUsageRef.current?.() ?? "none",
         });
         // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
         trackMetaStudySessionEnded({

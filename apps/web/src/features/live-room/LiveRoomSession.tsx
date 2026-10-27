@@ -185,7 +185,12 @@ export function LiveRoomSession({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
   });
-  const ambient = useAmbientSound({ sessionState, phase, usage: ambientUsage });
+  const ambient = useAmbientSound({
+    sessionState,
+    phase,
+    usage: ambientUsage,
+    roomType: "social",
+  });
   // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
   const [page, setPage] = useState<"subject" | "ambient" | null>(null);
@@ -212,7 +217,7 @@ export function LiveRoomSession({
         showCtaToast(message);
       }
     },
-    "sheet",
+    "social",
     () => loadSessionSubjects(userId),
   );
   useLayoutEffect(() => {
@@ -530,7 +535,7 @@ export function LiveRoomSession({
   }
 
   function openSubjectPage(source: "button" | "label", opener: HTMLElement) {
-    trackSubjectSheetOpened(source);
+    trackSubjectSheetOpened(source, "social");
     subjectOpenedAtRef.current = Date.now();
     subjectOpenerRef.current = opener;
     // 미리 받기가 알림 없이 실패했으면 여는 순간 한 번 더 받는다.
@@ -544,6 +549,7 @@ export function LiveRoomSession({
     trackSubjectSheetClosed({
       openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
       closedBy,
+      roomType: "social",
     });
     setPage(null);
   }
@@ -583,7 +589,7 @@ export function LiveRoomSession({
     if (next === subjectSelection) {
       return;
     }
-    trackSubjectItemSelected(next === null ? "none" : "subject");
+    trackSubjectItemSelected(next === null ? "none" : "subject", "social");
     selectSubject(next);
   }
 
@@ -672,7 +678,7 @@ export function LiveRoomSession({
           onFlipCamera={() => void flipCamera()}
           onShareInvite={() => {
             void shareInvite(inviteCode).then((result) => {
-              trackInviteShared(result);
+              trackInviteShared(result, "room_menu");
               trackMetaInviteShared(result);
               // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
               if (result === "copied") {
