@@ -8,7 +8,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cannotLoad, rankingRecordsQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 
-import { IconCrownOutline, IllustMedal } from "../icons";
+import { IllustMedal } from "../icons";
 import {
   formatGapDuration,
   recordName,
@@ -173,10 +173,7 @@ function EmptyRecords({
   const { best, closest } = summary;
   return (
     <div className="flex flex-col items-center pt-6 text-center">
-      <span className="flex size-14 items-center justify-center rounded-full bg-bg-layer-2 text-text-tertiary">
-        <IconCrownOutline />
-      </span>
-      <DrawerTitle className="mt-2 text-xl leading-6 font-extrabold tracking-normal text-foreground">
+      <DrawerTitle className="text-xl leading-6 font-extrabold tracking-normal text-foreground">
         아직 TOP 3 기록이 없어요
       </DrawerTitle>
       <p className="mt-2 text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">

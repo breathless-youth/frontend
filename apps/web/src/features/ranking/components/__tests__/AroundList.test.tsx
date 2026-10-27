@@ -54,6 +54,9 @@ describe("AroundList", () => {
     expect(items).toHaveLength(5);
     expect(items[2]).toHaveAttribute("aria-current", "true");
     expect(items[2]).toHaveTextContent("1,205오오늘도출석12:40:00");
+    // 내 줄은 연한 강조 바탕이라 아바타만 진한 파랑으로 둔다.
+    expect(items[2].firstElementChild).toHaveClass("bg-brand-subtle");
+    expect(items[2].querySelector("[data-me]")).toHaveClass("bg-primary-deep");
     expect(items[3]).toHaveTextContent("도서관지박령집중 중12:34:00");
   });
 

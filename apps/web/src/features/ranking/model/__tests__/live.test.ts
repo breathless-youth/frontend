@@ -99,7 +99,7 @@ const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
 describe("순위 카드 아랫줄", () => {
   const MORNING_NOTICE = {
-    text: "오전 7–12시에 공부한 시간만 이 순위에 들어가요",
+    text: "오전에 공부한 시간만 이 순위에 들어가요",
     tone: "muted",
   };
 

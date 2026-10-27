@@ -67,7 +67,7 @@ function byParams(params: RankingBoardParams): RankingBoardResponse {
     case "TIME_SLOT":
       return { ...FIXTURE_SLOT_DAILY, slot: params.slot ?? "MORNING" };
     default:
-      return FIXTURE_FOCUS_WEEKLY;
+      return { ...FIXTURE_FOCUS_WEEKLY, period: params.period ?? "WEEKLY" };
   }
 }
 
@@ -119,23 +119,23 @@ function renderPage(seed?: (client: QueryClient) => void) {
 }
 
 describe("RankingPage", () => {
-  it("처음 열면 순공 주간 판을 받아 바로 위까지 남은 시간을 보인다", async () => {
+  it("처음 열면 순공 일간 판을 받아 바로 위까지 남은 시간을 보인다", async () => {
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "이번 주 TOP 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "오늘 TOP 3" })).toBeInTheDocument();
     expect(getRankingBoard).toHaveBeenCalledWith(
-      { type: "FOCUS_TIME", period: "WEEKLY" },
+      { type: "FOCUS_TIME", period: "DAILY" },
       expect.any(AbortSignal),
     );
     expect(paragraph("다음 순위까지 22분")).toBeInTheDocument();
-    const card = screen.getByRole("region", { name: "순공 · 주간" });
+    const card = screen.getByRole("region", { name: "순공 · 일간" });
     expect(within(card).queryByText("커피세잔", { exact: false })).toBeNull();
     expect(screen.getAllByRole("listitem", { current: true })[0]).toHaveTextContent("오늘도출석");
   });
 
   it("종목을 바꾸면 그 판을 받고 기억에 적는다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
     await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
 
@@ -145,7 +145,7 @@ describe("RankingPage", () => {
 
   it("집중률 판 카드는 분 없이 따라잡을 수 있다고 말한다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
     await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
 
@@ -161,7 +161,7 @@ describe("RankingPage", () => {
 
   it("다른 화면이 넘겨준 판은 다시 보일 때 연다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
     act(() => {
       requestBoard({ type: "TIME_SLOT", period: "DAILY", slot: "EVENING" });
@@ -183,7 +183,7 @@ describe("RankingPage", () => {
 
   it("다시 보일 때 모두 보기 요청이 있으면 한 번만 연다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
     act(() => {
       requestRecordsPage();
@@ -211,12 +211,12 @@ describe("RankingPage", () => {
 
   it("판을 처음 그리면 판 보기 이벤트를 한 번 보낸다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
     expect(analytics.trackRankingBoardViewed).toHaveBeenCalledTimes(1);
     expect(analytics.trackRankingBoardViewed).toHaveBeenCalledWith({
       type: "FOCUS_TIME",
-      period: "WEEKLY",
+      period: "DAILY",
       slot: null,
       state: "ranked",
     });
@@ -228,7 +228,7 @@ describe("RankingPage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
 
-    expect(await screen.findByRole("heading", { name: "이번 주 TOP 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "오늘 TOP 3" })).toBeInTheDocument();
   });
 
   it("받은 적 없는 판을 오프라인에서 열면 오류와 다시 시도를 보이고, 연결되면 판을 그린다", async () => {
@@ -241,7 +241,7 @@ describe("RankingPage", () => {
 
     act(() => onlineManager.setOnline(true));
 
-    expect(await screen.findByRole("heading", { name: "이번 주 TOP 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "오늘 TOP 3" })).toBeInTheDocument();
     expect(screen.queryByText("랭킹을 불러오지 못했어요")).toBeNull();
   });
 
@@ -252,7 +252,7 @@ describe("RankingPage", () => {
     onlineManager.setOnline(false);
     renderPage((client) =>
       client.setQueryData(
-        rankingKeys.board(7, { type: "FOCUS_TIME", period: "WEEKLY" }),
+        rankingKeys.board(7, { type: "FOCUS_TIME", period: "DAILY" }),
         RESET_IN_TOP3,
       ),
     );
@@ -270,7 +270,7 @@ describe("RankingPage", () => {
 
   it("폴링이 한 번 실패해도 받아 둔 판을 그대로 보인다", async () => {
     const client = renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
     vi.mocked(getRankingBoard).mockRejectedValueOnce(new Error("down"));
 
     await act(async () => {
@@ -280,15 +280,15 @@ describe("RankingPage", () => {
     });
 
     expect(
-      client.getQueryState(rankingKeys.board(7, { type: "FOCUS_TIME", period: "WEEKLY" }))?.status,
+      client.getQueryState(rankingKeys.board(7, { type: "FOCUS_TIME", period: "DAILY" }))?.status,
     ).toBe("error");
-    expect(screen.getByRole("heading", { name: "이번 주 TOP 3" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오늘 TOP 3" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
   });
 
   it("가려진 동안 바꾼 판은 판 보기 이벤트를 보내지 않고, 다시 보이면 한 번 보낸다", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+    await screen.findByRole("heading", { name: "오늘 TOP 3" });
     act(() => focusManager.setFocused(false));
 
     await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
@@ -313,7 +313,7 @@ describe("RankingPage", () => {
     vi.setSystemTime(new Date("2026-10-10T10:30:00Z"));
     try {
       renderPage();
-      await screen.findByRole("heading", { name: "이번 주 TOP 3" });
+      await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
       await userEvent.click(screen.getByRole("tab", { name: "시간대" }));
       await screen.findByRole("heading", { name: "오전 구간 TOP 3" });

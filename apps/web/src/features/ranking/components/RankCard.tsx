@@ -31,19 +31,20 @@ const FILLED_FOCUS_RING =
 /**
  * 랭킹 카드 틀
  *
- * 윗줄 왼쪽에 제목, 오른쪽에 마감이나 상위 %를 둔다.
+ * 제목은 카드 이름으로만 읽히고 화면에는 큰 글씨부터 보인다.
+ * 마감이나 상위 %는 큰 글씨 첫 줄 오른쪽에 둔다.
  */
 export function CardShell({
   title,
-  titleClassName,
-  className,
+  headline,
   aside,
+  className,
   children,
 }: {
   title: string;
-  titleClassName?: string;
-  className?: string;
+  headline?: ReactNode;
   aside?: ReactNode;
+  className?: string;
   children?: ReactNode;
 }) {
   const titleId = useId();
@@ -52,15 +53,15 @@ export function CardShell({
       aria-labelledby={titleId}
       className={cn("rounded-xl bg-muted px-4.5 pt-3.5 pb-2.5 shadow-sb-card", className)}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h2
-          id={titleId}
-          className={cn("text-[13px] leading-3.75 font-extrabold text-foreground", titleClassName)}
-        >
-          {title}
-        </h2>
-        {aside}
-      </div>
+      <h2 id={titleId} className="sr-only">
+        {title}
+      </h2>
+      {(Boolean(headline) || Boolean(aside)) && (
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">{headline}</div>
+          {aside}
+        </div>
+      )}
       {children}
     </section>
   );
@@ -158,7 +159,7 @@ export function FocusStartRow({
 
 function Headline({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-2 flex min-w-0 items-baseline text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
+    <p className="flex min-w-0 items-baseline text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
       {children}
     </p>
   );
@@ -204,26 +205,28 @@ export function RankedCard({
           deadline !== null && <Deadline text={deadline} />
         )
       }
-    >
-      {offSlot && me !== null ? (
-        <Headline>
-          <span className="whitespace-pre">{`${slotName(board)} `}</span>
-          <span className="text-primary">{formatRank(me.rank)}위</span>
-        </Headline>
-      ) : (
-        above !== null && (
+      headline={
+        offSlot && me !== null ? (
           <Headline>
-            <span className="whitespace-pre">다음 순위까지 </span>
-            <span className="text-primary">{formatGap(board.type, gap)}</span>
+            <span className="whitespace-pre">{`${slotName(board)} `}</span>
+            <span className="text-primary">{formatRank(me.rank)}위</span>
           </Headline>
+        ) : (
+          above !== null && (
+            <Headline>
+              <span className="whitespace-pre">다음 순위까지 </span>
+              <span className="text-primary">{formatGap(board.type, gap)}</span>
+            </Headline>
+          )
         )
-      )}
+      }
+    >
       {board.type === "FOCUS_RATE" ? (
         <FocusStartRow onFocusStart={onFocusStart}>
           <RateCatchUp board={board} />
         </FocusStartRow>
       ) : cumulative ? (
-        <NextTierBox board={board} />
+        <NextTierNote board={board} />
       ) : offSlot ? (
         <SubLineText line={subLine} className="mt-1" />
       ) : (
@@ -251,13 +254,13 @@ function RateCatchUp({ board }: { board: RankingBoardResponse }) {
   );
 }
 
-function NextTierBox({ board }: { board: RankingBoardResponse }) {
+function NextTierNote({ board }: { board: RankingBoardResponse }) {
   const tier = board.nextTier;
   if (tier === null || tier === undefined) {
     return null;
   }
   return (
-    <div className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-3.75 break-keep text-pretty">
+    <div className="mt-2 text-[13px] leading-3.75 break-keep text-pretty">
       <p className="text-foreground">
         <strong className="font-bold">상위 {tier.percent}%</strong>까지{" "}
         {formatGap(board.type, tier.remaining)} 남았어요
@@ -291,10 +294,15 @@ export function FirstPlaceCard({
   onFocusStart: () => void;
 }) {
   return (
-    <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
-      <p className="mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
-        <span className="text-primary">1위</span> 지키는 중
-      </p>
+    <CardShell
+      title={cardTitle(board)}
+      aside={deadline !== null && <Deadline text={deadline} />}
+      headline={
+        <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
+          <span className="text-primary">1위</span> 지키는 중
+        </p>
+      }
+    >
       {isOffSlot(board, serverNow) ? (
         <SubLineText line={subLine} className="mt-1" />
       ) : (

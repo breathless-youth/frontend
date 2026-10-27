@@ -21,7 +21,7 @@ const EVENING_RESET: RankingBoardResponse = {
 };
 
 describe("ResetCard", () => {
-  it("지금 시작하면 3위 안에 들 때는 몇 위인지와 새로 시작된 때를 말한다", async () => {
+  it("지금 시작하면 3위 안에 들 때는 몇 위인지만 말한다", async () => {
     const onFocusStart = vi.fn();
     render(
       <ResetCard
@@ -34,7 +34,8 @@ describe("ResetCard", () => {
 
     expect(screen.getByRole("heading", { name: "순공 · 일간" })).toBeInTheDocument();
     expect(paragraph("지금 시작하면 3위")).toBeInTheDocument();
-    expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
@@ -66,7 +67,7 @@ describe("ResetCard", () => {
 
     expect(paragraph("저녁 구간에 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
-    expect(screen.getByText("오늘 저녁 구간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
 
@@ -95,8 +96,23 @@ describe("ResetCard", () => {
 
     expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
-    expect(screen.getByText("00시에 일간 랭킹이 새로 시작됐어요")).toBeInTheDocument();
+    expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+  });
+
+  it("제목은 화면에 보이지 않고 카드 이름으로만 읽힌다", () => {
+    render(
+      <ResetCard
+        board={FIXTURE_RESET_DAILY}
+        deadline="00시 마감"
+        serverNow={SERVER_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "순공 · 일간" });
+    expect(heading).toHaveClass("sr-only");
+    expect(screen.getByRole("region", { name: "순공 · 일간" })).toBeInTheDocument();
   });
 });
 
@@ -113,7 +129,7 @@ describe("PreviousResultCard", () => {
 });
 
 describe("FirstCard", () => {
-  it("첫 공부를 마치면 순위가 생긴다고 말하고 겨루는 기준을 적는다", () => {
+  it("첫 공부를 마치면 순위가 생긴다고 말한다", () => {
     render(
       <FirstCard
         board={FIXTURE_FIRST}
@@ -125,7 +141,8 @@ describe("FirstCard", () => {
 
     expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
     expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
-    expect(screen.getByText("이번 주 순공으로 겨루고 있어요")).toBeInTheDocument();
+    expect(screen.queryByText(/겨루고 있어요/)).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말한다", () => {
@@ -171,11 +188,11 @@ describe("GoalExamplesCard", () => {
   it("구간마다 필요한 순공을 분까지 줄로 보인다", () => {
     render(<GoalExamplesCard examples={FIXTURE_FIRST.goalExamples!} />);
 
-    expect(screen.getByRole("heading", { name: "이번 주에 이만큼 하면" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "이번 주에 이만큼 하면" })).toHaveClass("sr-only");
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "3시간 27분상위 50%",
-      "8시간상위 20%",
-      "15시간상위 5%",
+      "3시간 27분상위 50%까지",
+      "8시간상위 20%까지",
+      "15시간상위 5%까지",
     ]);
   });
 
@@ -183,9 +200,9 @@ describe("GoalExamplesCard", () => {
     render(<GoalExamplesCard examples={BACKEND_EXAMPLES} />);
 
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "3시간상위 50%",
-      "8시간상위 20%",
-      "15시간상위 5%",
+      "3시간상위 50%까지",
+      "8시간상위 20%까지",
+      "15시간상위 5%까지",
     ]);
   });
 
@@ -195,8 +212,8 @@ describe("GoalExamplesCard", () => {
     );
 
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "3시간상위 50%",
-      "15시간상위 5%",
+      "3시간상위 50%까지",
+      "15시간상위 5%까지",
     ]);
   });
 

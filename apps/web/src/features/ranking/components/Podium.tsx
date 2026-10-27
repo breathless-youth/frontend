@@ -1,12 +1,13 @@
 import type { MedalRank, RankingBoardResponse, RankingType } from "@focusmakers/types";
 import { useId } from "react";
 
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { cn } from "@/lib/utils";
 
-import { IllustCrown, IllustMedal, IllustMedalRing } from "../icons";
+import { IllustMedal, IllustMedalRing } from "../icons";
 import { MEDAL_MIN_SEC, isTimeType } from "../model/board";
 import { formatRank, formatValue } from "../model/format";
-import { podiumCaption, podiumTitle } from "../model/labels";
+import { podiumTitle, podiumTooltip } from "../model/labels";
 import { podiumStands, type PodiumRow } from "../model/podium";
 import { Nickname } from "./Nickname";
 import { RankAvatar } from "./RankAvatar";
@@ -26,35 +27,35 @@ const SPOT = {
 /**
  * TOP 3 시상대
  *
- * 왕관은 시안처럼 제목 줄 높이까지 올려 가운데에 둔다.
+ * 집중률·시간대 판은 왼쪽 위 툴팁으로 순위 기준을 알려 준다.
  * 메달을 받은 자리는 아바타를 그 메달 색 테로 두른다.
  * 순공·시간대 판에서 30분이 안 된 자리는 메달과 테 없이 흐린 순위 숫자만 놓는다.
- * 그런 자리가 하나라도 있으면 아래에 안내 한 줄을 단다.
  * 일수 판은 같은 일수 묶음의 대표가 서고, 이름 아래에 같은 일수인 나머지 인원을 쓴다.
  */
 export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; elapsedSec: number }) {
   const titleId = useId();
   const stands = podiumStands(board, elapsedSec);
-  const caption = podiumCaption(board);
+  const tooltip = podiumTooltip(board);
   const medalless = (row: PodiumRow | undefined) =>
     row !== undefined && isTimeType(board.type) && row.display < MEDAL_MIN_SEC;
 
   return (
     <section
       aria-labelledby={titleId}
-      className="overflow-hidden rounded-xl bg-brand-subtle ring-1 ring-chart-heat-1 ring-inset"
+      className="relative overflow-hidden rounded-xl bg-brand-subtle ring-1 ring-chart-heat-1 ring-inset"
     >
-      <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
-        <h2 id={titleId} className="text-xs leading-3.5 font-extrabold text-muted-foreground">
-          {podiumTitle(board)}
-        </h2>
-        {caption !== null && (
-          <p className="text-xs leading-3.5 font-semibold text-muted-foreground">{caption}</p>
-        )}
-      </div>
-      {/* 테가 아바타 밖으로 5px 나오므로 왕관 아래와 닉네임 위 틈을 2px씩 넓힌다. */}
-      {/* 그만큼 목록을 4px 더 올려 카드 높이를 유지한다. */}
-      <ol className="-mt-4.25 grid grid-cols-[1fr_1.15fr_1fr] items-end gap-2 px-3">
+      <h2 id={titleId} className="sr-only">
+        {podiumTitle(board)}
+      </h2>
+      {/* 툴팁이 있는 판과 없는 판의 시상대 높이가 같도록 줄을 만들지 않고 띄워 둔다. */}
+      {tooltip !== null && (
+        <div className="absolute top-4 left-4 z-10">
+          <InfoTooltip label="TOP 3 기준 안내" iconSize={14}>
+            {tooltip}
+          </InfoTooltip>
+        </div>
+      )}
+      <ol className="grid grid-cols-[1fr_1.15fr_1fr] items-end gap-2 px-3 pt-4">
         {stands.map(({ spot, label, row }) => (
           <PodiumSpot
             key={spot}
@@ -66,11 +67,6 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
           />
         ))}
       </ol>
-      {stands.some((stand) => medalless(stand.row)) && (
-        <p className="border-t border-border bg-muted/70 pt-2.5 pb-2.75 text-center text-xs leading-3.5 text-muted-foreground">
-          메달은 30분 이상부터 받아요
-        </p>
-      )}
     </section>
   );
 }
@@ -93,7 +89,6 @@ function PodiumSpot({
   return (
     <li className={cn("flex min-w-0 flex-col items-center", look.order)}>
       <span className="sr-only">{label}</span>
-      {first && <IllustCrown className="mb-2" />}
       {row === undefined ? (
         <span
           aria-hidden="true"
@@ -118,15 +113,8 @@ function PodiumSpot({
       )}
       <div className="mt-2 flex w-full min-w-0 items-center justify-center">
         {row === undefined ? (
-          // 1위 자리 닉네임 줄은 15px이라 빈자리 ?도 같은 줄 높이를 써서 카드 높이를 맞춘다.
-          <span
-            className={cn(
-              "text-xs font-bold text-text-tertiary",
-              first ? "leading-3.75" : "leading-3.5",
-            )}
-          >
-            ?
-          </span>
+          // 빈자리도 닉네임 줄 높이를 남겨 카드 높이를 맞춘다.
+          <span aria-hidden="true" className={first ? "h-3.75" : "h-3.5"} />
         ) : (
           <>
             <Nickname

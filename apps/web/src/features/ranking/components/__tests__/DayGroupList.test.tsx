@@ -12,6 +12,7 @@ describe("DayGroupList", () => {
     const items = screen.getAllByRole("listitem");
     expect(items[1]).toHaveTextContent("1,698형광펜 외 43명14일");
     expect(items[2]).toHaveAttribute("aria-current", "true");
+    expect(items[2].firstElementChild).toHaveClass("bg-brand-subtle");
     expect(items[2]).toHaveTextContent("1,742오늘도출석 외 41명13일");
     expect(screen.getByRole("list")).not.toHaveTextContent(/먼저 달성|번째로 달성/);
   });

@@ -122,6 +122,7 @@ describe("BoardSwitcher", () => {
     );
 
     expect(screen.getByRole("radio", { name: "오전 7–12시, 지금 구간" })).toBeChecked();
+    expect(screen.queryByText("7–12시")).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "저녁 18–22시" }));
     expect(onChange).toHaveBeenCalledWith({ type: "TIME_SLOT", period: "DAILY", slot: "EVENING" });
   });

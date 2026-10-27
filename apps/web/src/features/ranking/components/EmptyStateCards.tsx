@@ -4,20 +4,14 @@ import { formatDuration } from "@/features/records/recordsFormat";
 
 import { isOffSlot } from "../model/board";
 import { formatRank } from "../model/format";
-import {
-  cardTitle,
-  competitionLine,
-  offSlotHeadline,
-  previousResultLabel,
-  resetNotice,
-} from "../model/labels";
-import { CardShell, Deadline, FocusStartButton } from "./RankCard";
+import { cardTitle, offSlotHeadline, previousResultLabel } from "../model/labels";
+import { CardShell, Deadline, FocusStartRow } from "./RankCard";
 
 /** 새 기간 카드가 지금 시작하면 받을 순위를 보여 주는 가장 낮은 순위. */
 const START_NOW_RANK_SHOWN = 3;
 
 const HEADLINE =
-  "mt-2 text-2xl leading-7 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
+  "text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
   return <p className={HEADLINE}>첫 공부를 마치면 랭킹 진입</p>;
@@ -42,20 +36,22 @@ export function ResetCard({
   onFocusStart: () => void;
 }) {
   return (
-    <CardShell title={cardTitle(board)} aside={deadline !== null && <Deadline text={deadline} />}>
-      {isOffSlot(board, serverNow) ? (
-        <p className={HEADLINE}>{offSlotHeadline(board)}</p>
-      ) : board.startNowRank === null || board.startNowRank > START_NOW_RANK_SHOWN ? (
-        <FirstStudyHeadline />
-      ) : (
-        <p className={HEADLINE}>
-          지금 시작하면 <span className="text-primary">{formatRank(board.startNowRank)}위</span>
-        </p>
-      )}
-      <p className="mt-2 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
-        {resetNotice(board)}
-      </p>
-      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
+    <CardShell
+      title={cardTitle(board)}
+      aside={deadline !== null && <Deadline text={deadline} />}
+      headline={
+        isOffSlot(board, serverNow) ? (
+          <p className={HEADLINE}>{offSlotHeadline(board)}</p>
+        ) : board.startNowRank === null || board.startNowRank > START_NOW_RANK_SHOWN ? (
+          <FirstStudyHeadline />
+        ) : (
+          <p className={HEADLINE}>
+            지금 시작하면 <span className="text-primary">{formatRank(board.startNowRank)}위</span>
+          </p>
+        )
+      }
+    >
+      <FocusStartRow onFocusStart={onFocusStart}>{null}</FocusStartRow>
     </CardShell>
   );
 }
@@ -119,24 +115,22 @@ export function FirstCard({
   return (
     <CardShell
       title="아직 내 순위가 없어요"
-      titleClassName="font-normal text-muted-foreground"
       aside={deadline !== null && <Deadline text={deadline} />}
+      headline={
+        isOffSlot(board, serverNow) ? (
+          <p className={HEADLINE}>{offSlotHeadline(board)}</p>
+        ) : board.type === "MAX_STREAK" ? (
+          <p className={HEADLINE}>
+            하루 10분 이상 공부하면
+            <br />
+            랭킹 진입
+          </p>
+        ) : (
+          <FirstStudyHeadline />
+        )
+      }
     >
-      {isOffSlot(board, serverNow) ? (
-        <p className={HEADLINE}>{offSlotHeadline(board)}</p>
-      ) : board.type === "MAX_STREAK" ? (
-        <p className={HEADLINE}>
-          하루 10분 이상 공부하면
-          <br />
-          랭킹 진입
-        </p>
-      ) : (
-        <FirstStudyHeadline />
-      )}
-      <p className="mt-2 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
-        {competitionLine(board)}
-      </p>
-      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
+      <FocusStartRow onFocusStart={onFocusStart}>{null}</FocusStartRow>
     </CardShell>
   );
 }
@@ -161,12 +155,12 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
     return null;
   }
   return (
-    <CardShell title="이번 주에 이만큼 하면" titleClassName="font-bold text-muted-foreground">
-      <ul className="mt-4.5 grid grid-cols-[auto_1fr_66px] gap-x-3 gap-y-6">
+    <CardShell title="이번 주에 이만큼 하면">
+      <ul className="grid grid-cols-[auto_1fr_84px] gap-x-3 gap-y-6">
         {shown.map((example) => (
           <li
             key={example.percent}
-            className="col-span-3 grid grid-cols-[auto_1fr_66px] items-center gap-x-3 supports-[grid-template-columns:subgrid]:grid-cols-subgrid"
+            className="col-span-3 grid grid-cols-[auto_1fr_84px] items-center gap-x-3 supports-[grid-template-columns:subgrid]:grid-cols-subgrid"
           >
             <span className="text-sm leading-4 font-extrabold whitespace-nowrap text-foreground">
               {formatDuration(example.value)}
@@ -177,8 +171,8 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
                 style={{ width: `${100 - example.percent}%` }}
               />
             </span>
-            <span className="text-right text-[13px] leading-3.75 font-bold text-primary">
-              상위 {example.percent}%
+            <span className="text-right text-[13px] leading-3.75 font-bold whitespace-nowrap text-primary">
+              상위 {example.percent}%까지
             </span>
           </li>
         ))}
