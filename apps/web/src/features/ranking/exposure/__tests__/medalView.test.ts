@@ -42,10 +42,9 @@ describe("medalModalView", () => {
     expect(medalModalView({ total: 3, records: [] })).toBeNull();
   });
 
-  it("1위 하나는 큰 메달과 왕관, 기간·판 한 줄, 기록 한 줄이다", () => {
+  it("1위 하나는 큰 메달, 기간·판 한 줄, 기록 한 줄이다", () => {
     expect(medalModalView(FIXTURE_UNSEEN_ONE)).toEqual({
       stack: { left: null, center: 1, right: null },
-      crown: true,
       eyebrow: "10월 9일 (금) · 일간 · 오전 구간",
       title: "1위로 마감했어요",
       value: "3:04:20",
@@ -59,9 +58,8 @@ describe("medalModalView", () => {
     });
   });
 
-  it("주간 3위 하나는 왕관이 없고 주 이름을 쓴다", () => {
+  it("주간 3위 하나는 주 이름을 쓴다", () => {
     expect(medalModalView(FIXTURE_UNSEEN_WEEKLY_THIRD)).toMatchObject({
-      crown: false,
       eyebrow: "10월 1주 · 주간 · 순공",
       title: "3위로 마감했어요",
       value: "41:20:00",
@@ -71,7 +69,6 @@ describe("medalModalView", () => {
   it("같은 날 셋은 가운데 1위·오른쪽 2위·왼쪽 3위로 겹치고 줄마다 순위로 마감을 쓴다", () => {
     expect(medalModalView(FIXTURE_UNSEEN_THREE)).toMatchObject({
       stack: { left: 3, center: 1, right: 2 },
-      crown: true,
       eyebrow: "10월 9일 (금) · 일간",
       title: "메달 3개를 땄어요",
       value: null,
@@ -119,14 +116,13 @@ describe("medalModalView", () => {
     ["넷(모두 은)", [2, 2, 2, 2]],
     ["넷(금·동)", [1, 1, 1, 3]],
     ["다섯(금·은·동)", [1, 1, 2, 3, 3]],
-  ] as const)("%s이어도 그림은 늘 가운데 1위·오른쪽 2위·왼쪽 3위와 왕관이다", (_, ranks) => {
+  ] as const)("%s이어도 그림은 늘 가운데 1위·오른쪽 2위·왼쪽 3위다", (_, ranks) => {
     const records = ranks.map((rank, index) =>
       daily(index + 1, "2026-10-09", rank, "2026-10-09T15:00:00Z"),
     );
 
     expect(medalModalView({ total: ranks.length, records })).toMatchObject({
       stack: { left: 3, center: 1, right: 2 },
-      crown: true,
     });
   });
 

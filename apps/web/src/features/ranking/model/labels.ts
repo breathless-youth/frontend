@@ -19,7 +19,7 @@ export function slotName(board: BoardIdentity): string {
 export function podiumTitle(board: BoardIdentity): string {
   switch (board.type) {
     case "FOCUS_TIME":
-      return `${periodWord(board.period ?? "WEEKLY")} TOP 3`;
+      return `${periodWord(board.period ?? "DAILY")} TOP 3`;
     case "FOCUS_RATE":
       return "집중률 TOP 3";
     case "TIME_SLOT":
@@ -31,20 +31,22 @@ export function podiumTitle(board: BoardIdentity): string {
   }
 }
 
-export function podiumCaption(board: BoardIdentity): string | null {
+/**
+ * 시상대 기준 툴팁
+ *
+ * 집중률은 참가 기준, 시간대는 어느 시각의 순공으로 겨루는지 알려 준다.
+ * 나머지 판은 종목 칩과 기간 칸만으로 기준이 드러나 툴팁을 두지 않는다.
+ */
+export function podiumTooltip(board: BoardIdentity): string | null {
   switch (board.type) {
     case "FOCUS_RATE":
-      return board.period === "MONTHLY" ? "순공 30시간 이상 참가" : "순공 10시간 이상 참가";
+      return board.period === "MONTHLY"
+        ? "이번 달 순공 30시간 이상 기록하면 랭킹에 진입할 수 있어요"
+        : "이번 주에 순공 10시간 이상 기록하면 랭킹에 진입할 수 있어요";
     case "TIME_SLOT":
       return board.slot === null
         ? null
-        : `${periodWord(board.period ?? "DAILY")} ${SLOT_HOURS[board.slot]}`;
-    case "TOTAL_TIME":
-      return "누적 순공";
-    case "TOTAL_DAYS":
-      return "공부한 날";
-    case "MAX_STREAK":
-      return "최대 연속 공부 기준";
+        : `${periodWord(board.period ?? "DAILY")} ${SLOT_LABEL[board.slot]} ${SLOT_HOURS[board.slot]} 순공시간 기준`;
     default:
       return null;
   }
@@ -54,30 +56,13 @@ export function cardTitle(board: BoardIdentity): string {
   switch (board.type) {
     case "FOCUS_TIME":
     case "FOCUS_RATE":
-      return `${TYPE_LABEL[board.type]} · ${PERIOD_LABEL[board.period ?? "WEEKLY"]}`;
+      return `${TYPE_LABEL[board.type]} · ${PERIOD_LABEL[board.period ?? "DAILY"]}`;
     case "TIME_SLOT":
       return `${slotName(board)} · ${PERIOD_LABEL[board.period ?? "DAILY"]}`;
     case "MAX_STREAK":
       return "최대 연속 공부";
     default:
       return TYPE_LABEL[board.type];
-  }
-}
-
-export function competitionLine(board: BoardIdentity): string {
-  switch (board.type) {
-    case "FOCUS_TIME":
-      return `${periodWord(board.period ?? "WEEKLY")} 순공으로 겨루고 있어요`;
-    case "TIME_SLOT":
-      return `${periodWord(board.period ?? "DAILY")} ${slotName(board)}으로 겨루고 있어요`;
-    case "FOCUS_RATE":
-      return `${periodWord(board.period ?? "WEEKLY")} 집중률로 겨루고 있어요`;
-    case "TOTAL_TIME":
-      return "누적 순공으로 겨루고 있어요";
-    case "TOTAL_DAYS":
-      return "공부한 날로 겨루고 있어요";
-    case "MAX_STREAK":
-      return "최대 연속 공부로 겨루고 있어요";
   }
 }
 
@@ -96,20 +81,6 @@ export function offSlotNotice(board: BoardIdentity): string | null {
     return null;
   }
   return `${SLOT_LABEL[board.slot]} ${SLOT_HOURS[board.slot]}에 공부한 시간만 이 순위에 들어가요`;
-}
-
-const RESET_TIME: Record<RankingPeriod, string> = {
-  DAILY: "00시에 일간",
-  WEEKLY: "월요일 00시에 주간",
-  MONTHLY: "1일 00시에 월간",
-};
-
-export function resetNotice(board: BoardIdentity): string {
-  const period = board.period ?? "DAILY";
-  if (board.type === "TIME_SLOT") {
-    return `${periodWord(period)} ${slotName(board)} 랭킹이 새로 시작됐어요`;
-  }
-  return `${RESET_TIME[period]} 랭킹이 새로 시작됐어요`;
 }
 
 const PREVIOUS_RESULT: Record<RankingPeriod, string> = {

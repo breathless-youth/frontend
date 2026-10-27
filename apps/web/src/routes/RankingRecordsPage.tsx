@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RankChips, type RankChip } from "@/features/ranking/components/RankChips";
-import { IllustCrown, IllustMedal } from "@/features/ranking/icons";
+import { IllustMedal } from "@/features/ranking/icons";
 import { selectionOfRecord } from "@/features/ranking/model/board";
 import { requestBoard, takeRecordsPageRequest } from "@/features/ranking/model/boardMemory";
 import { recordName, recordPeriod, recordValue } from "@/features/ranking/model/format";
@@ -212,10 +212,7 @@ function SummaryCard({ summary }: { summary: RankingRecordsSummary }) {
   ] as const;
   return (
     <section aria-label="지금까지 TOP 3" className="rounded-xl bg-muted p-4.5 shadow-sb-card">
-      <p className="flex items-center gap-1.5 text-[13px] leading-3.75 font-bold text-muted-foreground">
-        <IllustCrown width={16} height={11} />
-        지금까지 TOP 3
-      </p>
+      <p className="text-[13px] leading-3.75 font-bold text-muted-foreground">지금까지 TOP 3</p>
       <p className="mt-1.5 font-extrabold tracking-[-0.8px] text-foreground">
         <span className="text-[40px] leading-11">{summary.total}</span>
         <span className="text-xl leading-11">번</span>

@@ -41,8 +41,6 @@ export interface MedalCount {
 
 export interface MedalModalView {
   stack: MedalStack;
-  /** 가운데 메달이 1위면 그 위에 왕관을 단다. */
-  crown: boolean;
   eyebrow: string;
   title: string;
   /** 메달이 하나일 때의 기록 값이고, 여럿이면 null이다. */
@@ -97,7 +95,7 @@ function countByRank(records: readonly RankingRecord[]): MedalCount[] {
  * 메달 모달 모양
  *
  * 하나면 큰 메달과 기록 한 줄, 여럿이면 앞 3개 목록이고 4개 이상이면 순위별 개수와 나머지 개수를 더한다.
- * 여럿일 때 그림은 딴 순위와 관계없이 늘 가운데 1위, 오른쪽 2위, 왼쪽 3위와 왕관이다.
+ * 여럿일 때 그림은 딴 순위와 관계없이 늘 가운데 1위, 오른쪽 2위, 왼쪽 3위다.
  * 이 그림은 메달을 여러 개 땄다는 표시이고, 실제 순위는 아래 목록과 개수 줄이 보여 준다.
  * 기간이나 기간 시작일이 다르면 한 기간 표기로 묶을 수 없어 위 줄에 가장 늦은 마감 시각을 쓴다.
  * 그때 마감 시각이 모두 같으면 줄마다 기간 이름을, 다르면 기간 표기를 붙여 어느 판인지 가른다.
@@ -119,7 +117,6 @@ export function medalModalView(unseen: RankingUnseenResponse): MedalModalView | 
   );
   const base = {
     stack,
-    crown: stack.center === 1,
     total: unseen.total,
     count: records.length,
     bestRank,

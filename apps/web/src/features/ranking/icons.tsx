@@ -82,38 +82,6 @@ export function IllustMedalRing({
   );
 }
 
-const CROWN_PATH = "M2 14L4 4L9 9L12 2L15 9L20 4L22 14H2Z";
-
-/** 1위 자리 위의 왕관 일러스트(색 고정). */
-export function IllustCrown({
-  width = 24,
-  height = 16,
-  ...rest
-}: SVGProps<SVGSVGElement> & { width?: number; height?: number }) {
-  return (
-    <svg width={width} height={height} viewBox="0 0 24 16" fill="none" aria-hidden="true" {...rest}>
-      <path d={CROWN_PATH} fill="#FFD262" stroke="#FFB234" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/**
- * 기록이 없을 때의 왕관 윤곽
- *
- * 색은 글자색을 따른다.
- */
-export function IconCrownOutline({
-  width = 28,
-  height = 19,
-  ...rest
-}: SVGProps<SVGSVGElement> & { width?: number; height?: number }) {
-  return (
-    <svg width={width} height={height} viewBox="0 0 24 16" fill="none" aria-hidden="true" {...rest}>
-      <path d={CROWN_PATH} stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 const TROPHY_PATHS = [
   "M7 3.8H17V8.5C17 9.82608 16.4732 11.0979 15.5355 12.0355C14.5979 12.9732 13.3261 13.5 12 13.5C10.6739 13.5 9.40215 12.9732 8.46447 12.0355C7.52678 11.0979 7 9.82608 7 8.5V3.8Z",
   "M7 5.8H4.4V6.9C4.3985 7.76813 4.72913 8.60395 5.32411 9.23613C5.9191 9.8683 6.73337 10.2489 7.6 10.3",
