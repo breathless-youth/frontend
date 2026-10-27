@@ -110,7 +110,22 @@ export function nicknameMaxLength(nickname: string): number | undefined {
   return undefined;
 }
 
-/** 목표 문구: 공백 포함 최대 20자. 빈 값은 허용(선택 항목 — null로 저장). */
+/**
+ * 비교용 목표 문구
+ *
+ * 공백만 있는 문구는 화면에 아무것도 보이지 않으므로 미설정과 같게 본다.
+ * 공백이 아닌 문구는 다듬지 않고 입력값 그대로 둔다.
+ */
+export function normalizeGoal(goal: string | null): string | null {
+  return goal?.trim() ? goal : null;
+}
+
+/**
+ * 목표 문구 검증
+ *
+ * 공백을 포함해 최대 20자이고 빈 값은 허용한다.
+ * 지울 때는 빈 문자열을 보내 서버가 미설정으로 저장한다.
+ */
 export function validateGoal(goal: string): string | null {
   if (goal.length > 20) {
     return "목표는 20자까지 쓸 수 있어요";

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import {
+  normalizeGoal,
   normalizeNickname,
   validateGoal,
   validateNickname,
@@ -34,7 +35,7 @@ export function makeProfileSchema(original: {
           ctx.addIssue({ code: "custom", path: ["nickname"], message });
         }
       }
-      if ((values.goal === "" ? null : values.goal) !== original.goal) {
+      if (normalizeGoal(values.goal) !== normalizeGoal(original.goal)) {
         const goalMessage = validateGoal(values.goal);
         if (goalMessage !== null) {
           ctx.addIssue({ code: "custom", path: ["goal"], message: goalMessage });

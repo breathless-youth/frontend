@@ -20,6 +20,7 @@ import {
   clampNickname,
   nicknameMaxLength,
   NICKNAME_RULE_MESSAGE,
+  normalizeGoal,
   normalizeNickname,
 } from "@/features/profile/profileValidation";
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
@@ -78,17 +79,22 @@ export function ProfilePage() {
   return <ProfileForm profile={query.data} userId={userId} />;
 }
 
-// 변경된 필드만 담는다 — 목표는 빈 문자열을 null(미설정)로 정규화해 비교하고, 닉네임은
-// 서버와 같은 정규화(normalizeNickname)를 거친 값으로 비교·전송한다.
+/**
+ * 저장할 변경분
+ *
+ * 닉네임은 서버와 같은 정규화(normalizeNickname)를 거친 값으로 비교하고 보낸다.
+ * 목표를 지울 때는 null이 아니라 빈 문자열을 보낸다.
+ * 서버가 null을 변경 없음으로 처리해서 null을 보내면 기존 문구가 그대로 남기 때문이다.
+ */
 function buildPatch(values: ProfileFormValues, profile: ProfileResponse): ProfileUpdateRequest {
   const patch: ProfileUpdateRequest = {};
   const nickname = normalizeNickname(values.nickname);
-  const goal = values.goal === "" ? null : values.goal;
+  const goal = normalizeGoal(values.goal);
   if (nickname !== profile.nickname) {
     patch.nickname = nickname;
   }
-  if (goal !== profile.goal) {
-    patch.goal = goal;
+  if (goal !== normalizeGoal(profile.goal)) {
+    patch.goal = goal ?? "";
   }
   if (values.category !== profile.category) {
     patch.category = values.category;
