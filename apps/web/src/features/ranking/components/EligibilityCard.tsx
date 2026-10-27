@@ -45,7 +45,7 @@ export function IneligibleCard({
       title={cardTitle(board)}
       aside={deadline !== null && <Deadline text={deadline} />}
       headline={
-        <p className="text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
+        <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
           참가까지{" "}
           <span className="text-primary">
             {formatGapDuration(Math.max(0, required - focusSec))}

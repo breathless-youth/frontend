@@ -35,6 +35,7 @@ describe("ResetCard", () => {
     expect(screen.getByRole("heading", { name: "순공 · 일간" })).toBeInTheDocument();
     expect(paragraph("지금 시작하면 3위")).toBeInTheDocument();
     expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
@@ -141,6 +142,7 @@ describe("FirstCard", () => {
     expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
     expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/겨루고 있어요/)).toBeNull();
+    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말한다", () => {

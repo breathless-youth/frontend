@@ -74,7 +74,7 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
           )}
         </div>
       </dl>
-      <p className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-4.75 break-keep text-pretty text-foreground">
+      <p className="mt-2 text-[13px] leading-4.75 break-keep text-pretty text-foreground">
         <strong className="font-bold">{streak.maxDays + 1}일</strong>을 이어가면 최고 기록을 넘어요
       </p>
     </CardShell>

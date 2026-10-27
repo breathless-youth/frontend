@@ -5,13 +5,13 @@ import { formatDuration } from "@/features/records/recordsFormat";
 import { isOffSlot } from "../model/board";
 import { formatRank } from "../model/format";
 import { cardTitle, offSlotHeadline, previousResultLabel } from "../model/labels";
-import { CardShell, Deadline, FocusStartButton } from "./RankCard";
+import { CardShell, Deadline, FocusStartRow } from "./RankCard";
 
 /** 새 기간 카드가 지금 시작하면 받을 순위를 보여 주는 가장 낮은 순위. */
 const START_NOW_RANK_SHOWN = 3;
 
 const HEADLINE =
-  "text-2xl leading-7 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
+  "text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
   return <p className={HEADLINE}>첫 공부를 마치면 랭킹 진입</p>;
@@ -51,7 +51,7 @@ export function ResetCard({
         )
       }
     >
-      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
+      <FocusStartRow onFocusStart={onFocusStart}>{null}</FocusStartRow>
     </CardShell>
   );
 }
@@ -130,7 +130,7 @@ export function FirstCard({
         )
       }
     >
-      <FocusStartButton onClick={onFocusStart} className="mt-2.5" />
+      <FocusStartRow onFocusStart={onFocusStart}>{null}</FocusStartRow>
     </CardShell>
   );
 }

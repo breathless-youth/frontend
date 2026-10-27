@@ -57,7 +57,7 @@ export function CardShell({
         {title}
       </h2>
       {(Boolean(headline) || Boolean(aside)) && (
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">{headline}</div>
           {aside}
         </div>
@@ -159,7 +159,7 @@ export function FocusStartRow({
 
 function Headline({ children }: { children: ReactNode }) {
   return (
-    <p className="flex min-w-0 items-baseline text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
+    <p className="flex min-w-0 items-baseline text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
       {children}
     </p>
   );
@@ -226,7 +226,7 @@ export function RankedCard({
           <RateCatchUp board={board} />
         </FocusStartRow>
       ) : cumulative ? (
-        <NextTierBox board={board} />
+        <NextTierNote board={board} />
       ) : offSlot ? (
         <SubLineText line={subLine} className="mt-1" />
       ) : (
@@ -254,13 +254,13 @@ function RateCatchUp({ board }: { board: RankingBoardResponse }) {
   );
 }
 
-function NextTierBox({ board }: { board: RankingBoardResponse }) {
+function NextTierNote({ board }: { board: RankingBoardResponse }) {
   const tier = board.nextTier;
   if (tier === null || tier === undefined) {
     return null;
   }
   return (
-    <div className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-3.75 break-keep text-pretty">
+    <div className="mt-2 text-[13px] leading-3.75 break-keep text-pretty">
       <p className="text-foreground">
         <strong className="font-bold">상위 {tier.percent}%</strong>까지{" "}
         {formatGap(board.type, tier.remaining)} 남았어요
@@ -298,7 +298,7 @@ export function FirstPlaceCard({
       title={cardTitle(board)}
       aside={deadline !== null && <Deadline text={deadline} />}
       headline={
-        <p className="text-2xl leading-7 font-extrabold tracking-[-0.7px] text-foreground">
+        <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
           <span className="text-primary">1위</span> 지키는 중
         </p>
       }
