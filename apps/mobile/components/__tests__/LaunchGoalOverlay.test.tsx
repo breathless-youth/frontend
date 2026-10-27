@@ -1,0 +1,186 @@
+import { act, render, screen } from "@testing-library/react-native";
+
+import {
+  FADE_OUT_MS,
+  LaunchGoalOverlay,
+  LOGO_LIFT,
+  MAX_VISIBLE_MS,
+  MIN_VISIBLE_MS,
+} from "../LaunchGoalOverlay";
+import {
+  __resetFirstScreenLoadedForTests,
+  markFirstScreenLoaded,
+} from "../../lib/firstScreenLoaded";
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+// 진입점 객체에 spy를 걸면 컴포넌트가 이미 가져간 참조가 바뀌지 않아 모듈 자체를 대체한다.
+jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
+  __esModule: true,
+  default: jest.fn(() => "light"),
+}));
+const mockUseReducedMotion = jest.fn(() => false);
+jest.mock("react-native-reanimated", () => ({
+  __esModule: true,
+  ...jest.requireActual<object>("react-native-reanimated"),
+  useReducedMotion: () => mockUseReducedMotion(),
+}));
+
+const { default: mockUseColorScheme } = jest.requireMock<{ default: jest.Mock }>(
+  "react-native/Libraries/Utilities/useColorScheme",
+);
+
+const GOAL = { goal: "하루 6시간 공부하기", nickname: "포메" };
+
+beforeEach(() => {
+  mockUseColorScheme.mockReturnValue("light");
+  mockUseReducedMotion.mockReturnValue(false);
+  jest.useFakeTimers();
+  __resetFirstScreenLoadedForTests();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+function advance(ms: number) {
+  act(() => {
+    jest.advanceTimersByTime(ms);
+  });
+}
+
+describe("LaunchGoalOverlay", () => {
+  it("목표 문구, 닉네임, 로딩 문구를 보여 준다", () => {
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    expect(screen.getByText("하루 6시간 공부하기")).toBeTruthy();
+    expect(screen.getByText("포메")).toBeTruthy();
+    expect(screen.getByText("오늘 할 공부를 정리하고 있어요")).toBeTruthy();
+    expect(screen.getByTestId("launch-goal-divider")).toBeTruthy();
+  });
+
+  it("닉네임이 없으면 닉네임과 구분선을 그리지 않는다", () => {
+    render(
+      <LaunchGoalOverlay launchGoal={{ goal: "하루 6시간", nickname: null }} onDone={jest.fn()} />,
+    );
+
+    expect(screen.queryByTestId("launch-goal-divider")).toBeNull();
+    expect(screen.queryByText("포메")).toBeNull();
+  });
+
+  it("스크린 리더가 목표 문구와 닉네임을 함께 읽는다", () => {
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    const root = screen.getByTestId("launch-goal-overlay");
+    expect(root.props.accessible).toBe(true);
+    expect(root.props.accessibilityLabel).toBe("하루 6시간 공부하기, 포메");
+  });
+
+  it("닉네임이 없으면 스크린 리더가 목표 문구만 읽는다", () => {
+    render(
+      <LaunchGoalOverlay launchGoal={{ goal: "하루 6시간", nickname: null }} onDone={jest.fn()} />,
+    );
+
+    expect(screen.getByTestId("launch-goal-overlay").props.accessibilityLabel).toBe("하루 6시간");
+  });
+
+  it.each([
+    ["light", "#f8fafd"],
+    ["dark", "#0d1118"],
+  ])("%s 스킴이면 스플래시와 같은 배경 %s를 칠한다", (scheme, color) => {
+    mockUseColorScheme.mockReturnValue(scheme);
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    expect(screen.getByTestId("launch-goal-overlay")).toHaveStyle({ backgroundColor: color });
+  });
+
+  it("모션 줄이기면 페이드아웃 없이 최소 노출 시간에 바로 끝난다", () => {
+    mockUseReducedMotion.mockReturnValue(true);
+    markFirstScreenLoaded();
+    const onDone = jest.fn();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={onDone} />);
+
+    advance(MIN_VISIBLE_MS - 1);
+    expect(onDone).not.toHaveBeenCalled();
+
+    advance(1);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("최대 노출 시간은 최소 노출 시간보다 길다", () => {
+    expect(MAX_VISIBLE_MS).toBeGreaterThan(MIN_VISIBLE_MS);
+  });
+
+  it("첫 화면이 이미 로드됐어도 최소 노출 시간은 보여 준다", () => {
+    markFirstScreenLoaded();
+    const onDone = jest.fn();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={onDone} />);
+
+    advance(MIN_VISIBLE_MS - 1);
+    expect(onDone).not.toHaveBeenCalled();
+
+    advance(1 + FADE_OUT_MS);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("첫 화면 로드가 오지 않으면 최대 노출 시간에 걷는다", () => {
+    const onDone = jest.fn();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={onDone} />);
+
+    advance(MAX_VISIBLE_MS - 1);
+    expect(onDone).not.toHaveBeenCalled();
+
+    advance(1 + FADE_OUT_MS);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("최소 노출 시간 뒤에 첫 화면이 로드되면 그때 걷는다", () => {
+    const onDone = jest.fn();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={onDone} />);
+
+    advance(MIN_VISIBLE_MS + 500);
+    expect(onDone).not.toHaveBeenCalled();
+    act(() => {
+      markFirstScreenLoaded();
+    });
+
+    advance(FADE_OUT_MS - 1);
+    expect(onDone).not.toHaveBeenCalled();
+    advance(1);
+    expect(onDone).toHaveBeenCalledTimes(1);
+
+    advance(MAX_VISIBLE_MS);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("언마운트하면 타이머와 구독을 정리한다", () => {
+    const onDone = jest.fn();
+    const { unmount } = render(<LaunchGoalOverlay launchGoal={GOAL} onDone={onDone} />);
+
+    advance(MIN_VISIBLE_MS / 2);
+    unmount();
+    markFirstScreenLoaded();
+    advance(MAX_VISIBLE_MS * 2);
+
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  // 저장소 jest 설정에는 Reanimated 테스트 타이머가 없어 애니메이션 도착값은 보지 않고 출발 자리만 본다.
+  it("로고는 스플래시와 같은 자리에서 출발한다", () => {
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    expect(screen.getByTestId("launch-goal-logo")).toHaveStyle({
+      transform: [{ translateY: 0 }],
+    });
+  });
+
+  it("모션 줄이기면 로고가 처음부터 문구 위에 있다", () => {
+    mockUseReducedMotion.mockReturnValue(true);
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    expect(screen.getByTestId("launch-goal-logo")).toHaveStyle({
+      transform: [{ translateY: -LOGO_LIFT }],
+    });
+  });
+});
