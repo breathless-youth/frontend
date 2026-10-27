@@ -97,9 +97,11 @@ describe("Podium", () => {
 
     const first = within(screen.getByRole("list")).getAllByRole("listitem")[0]!;
     expect(first).toHaveTextContent("오늘도출석나");
-    const avatar = within(first).getByText("오", { selector: "[aria-hidden='true']" });
+    const avatar = within(first).getByText("오").closest("[aria-hidden='true']");
     expect(avatar).toHaveAttribute("data-me");
-    expect(within(first).queryByText("나", { selector: "[aria-hidden='true']" })).toBeNull();
+    expect(
+      within(first).queryByText("나", { selector: "[aria-hidden='true'], [aria-hidden='true'] *" }),
+    ).toBeNull();
     // 아바타 글자는 화면 낭독기에서 숨기므로 남는 나는 화면에 보이지 않는 글자 하나뿐이다.
     expect(within(first).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
       "sr-only",
@@ -182,9 +184,13 @@ describe("Podium", () => {
       const second = within(screen.getByRole("list")).getAllByRole("listitem")[1]!;
       expect(second).toHaveTextContent("오늘도출석나외 1명171일");
       // 시상대의 내 아바타는 나 대신 내 첫 글자를 쓰는 파란 원이고 화면 낭독기에서는 숨긴다.
-      const avatar = within(second).getByText("오", { selector: "[aria-hidden='true']" });
+      const avatar = within(second).getByText("오").closest("[aria-hidden='true']");
       expect(avatar).toHaveAttribute("data-me");
-      expect(within(second).queryByText("나", { selector: "[aria-hidden='true']" })).toBeNull();
+      expect(
+        within(second).queryByText("나", {
+          selector: "[aria-hidden='true'], [aria-hidden='true'] *",
+        }),
+      ).toBeNull();
       expect(within(second).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
         "sr-only",
       );

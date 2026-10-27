@@ -1,3 +1,4 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { firstGrapheme } from "@/lib/graphemes";
 import { cn } from "@/lib/utils";
 
@@ -17,18 +18,13 @@ export function RoomAvatarFallback({
         scaleWithTile && "regular:@container",
       )}
     >
-      <div
-        className={cn(
-          "flex size-14 items-center justify-center rounded-full bg-white/10",
-          scaleWithTile && "regular:size-[21cqi]",
-        )}
-      >
-        <span
+      <Avatar className={cn("size-14 bg-white/10", scaleWithTile && "regular:size-[21cqi]")}>
+        <AvatarFallback
           className={cn("text-xl font-bold text-white", scaleWithTile && "regular:text-[10cqi]")}
         >
           {firstGrapheme(nickname ?? "")}
-        </span>
-      </div>
+        </AvatarFallback>
+      </Avatar>
     </div>
   );
 }

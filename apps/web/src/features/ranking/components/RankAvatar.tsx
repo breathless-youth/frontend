@@ -1,3 +1,4 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { firstGrapheme } from "@/lib/graphemes";
 import { cn } from "@/lib/utils";
 
@@ -27,12 +28,11 @@ export function RankAvatar({
 }) {
   const initial = firstGrapheme(nickname) || (Array.from(nickname)[0] ?? "");
   return (
-    <span
+    <Avatar
       aria-hidden="true"
       // 테스트용 표시다. 내 아바타도 남과 같이 첫 글자를 쓰므로 바탕색만으로 내 자리를 구분한다.
       data-me={me || undefined}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full",
         SIZE[size],
         !me && "bg-chart-heat-1 font-bold text-primary",
         me && "font-extrabold",
@@ -40,7 +40,7 @@ export function RankAvatar({
         me && onBrand && "bg-muted text-primary",
       )}
     >
-      {initial}
-    </span>
+      <AvatarFallback>{initial}</AvatarFallback>
+    </Avatar>
   );
 }
