@@ -35,8 +35,10 @@ export function makeProfileSchema(original: {
           ctx.addIssue({ code: "custom", path: ["nickname"], message });
         }
       }
-      if (normalizeGoal(values.goal) !== normalizeGoal(original.goal)) {
-        const goalMessage = validateGoal(values.goal);
+      const goal = normalizeGoal(values.goal);
+      if (goal !== normalizeGoal(original.goal)) {
+        // 공백뿐인 긴 입력도 빈 문자열로 보내므로 보낼 값으로 검사해야 지우는 저장이 길이 오류로 막히지 않는다.
+        const goalMessage = validateGoal(goal ?? "");
         if (goalMessage !== null) {
           ctx.addIssue({ code: "custom", path: ["goal"], message: goalMessage });
         }

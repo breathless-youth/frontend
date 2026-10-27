@@ -512,7 +512,7 @@ describe("프로필 설정", () => {
 
   it("목표 문구를 지워 저장에 성공하면 비워진 목표를 앱에 알린다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile, goal: "올해 안에 이직 성공" });
-    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: null });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "" });
     renderAt("/profile?userId=7");
 
     const goalInput = await screen.findByLabelText("목표 문구");
@@ -523,7 +523,7 @@ describe("프로필 설정", () => {
     expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
       type: "profile-updated",
-      goal: null,
+      goal: "",
       nickname: "포메3721",
       atMs: expect.any(Number),
     });
