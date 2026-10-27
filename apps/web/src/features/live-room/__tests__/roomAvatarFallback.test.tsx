@@ -18,4 +18,9 @@ describe("RoomAvatarFallback", () => {
     const { container } = render(<RoomAvatarFallback nickname={undefined} />);
     expect(container.firstChild).not.toBeNull();
   });
+
+  it("타일 아래 닉네임과 겹쳐 읽지 않게 화면 낭독기에서는 숨긴다", () => {
+    const { container } = render(<RoomAvatarFallback nickname="가나다" />);
+    expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
+  });
 });
