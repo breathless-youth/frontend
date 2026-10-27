@@ -3,7 +3,6 @@ import { act, render, screen } from "@testing-library/react-native";
 import {
   FADE_OUT_MS,
   LaunchGoalOverlay,
-  LOGO_LIFT,
   MAX_VISIBLE_MS,
   MIN_VISIBLE_MS,
 } from "../LaunchGoalOverlay";
@@ -166,21 +165,30 @@ describe("LaunchGoalOverlay", () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
-  // 저장소 jest 설정에는 Reanimated 테스트 타이머가 없어 애니메이션 도착값은 보지 않고 출발 자리만 본다.
-  it("로고는 스플래시와 같은 자리에서 출발한다", () => {
+  // 저장소 jest 설정에는 Reanimated 테스트 타이머가 없어 크로스페이드 도착값은 보지 않고 출발 상태만 본다.
+  it("로고는 스플래시처럼 불투명하게 시작한다", () => {
     render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
 
-    expect(screen.getByTestId("launch-goal-logo")).toHaveStyle({
-      transform: [{ translateY: 0 }],
-    });
+    expect(screen.getByTestId("launch-goal-logo")).toHaveStyle({ opacity: 1 });
   });
 
-  it("모션 줄이기면 로고가 처음부터 문구 위에 있다", () => {
+  it("모션 줄이기면 로고 없이 문구를 바로 보여 준다", () => {
     mockUseReducedMotion.mockReturnValue(true);
     render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
 
-    expect(screen.getByTestId("launch-goal-logo")).toHaveStyle({
-      transform: [{ translateY: -LOGO_LIFT }],
-    });
+    expect(screen.queryByTestId("launch-goal-logo")).toBeNull();
+    expect(screen.getByTestId("launch-goal-text")).toHaveStyle({ opacity: 1 });
+  });
+
+  it("따옴표는 그리되 스크린 리더에서는 숨긴다", () => {
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    expect(screen.queryByText("“")).toBeNull();
+    const quote = screen.getByText("“", { includeHiddenElements: true });
+    expect(quote.props.importantForAccessibility).toBe("no");
+    expect(quote.props.accessibilityElementsHidden).toBe(true);
+    expect(screen.getByTestId("launch-goal-overlay").props.accessibilityLabel).toBe(
+      "하루 6시간 공부하기, 포메",
+    );
   });
 });

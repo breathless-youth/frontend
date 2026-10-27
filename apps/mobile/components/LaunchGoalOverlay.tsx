@@ -19,32 +19,18 @@ import type { LaunchGoal } from "../lib/launchGoal";
 export const MIN_VISIBLE_MS = 3000;
 // 로드 신호를 놓쳐도 사용자가 갇히지 않게 하는 상한이라 최소 노출보다 길어야 한다.
 export const MAX_VISIBLE_MS = 5000;
-const LOGO_LIFT_MS = 400;
-const FADE_IN_MS = 400;
+const CROSSFADE_MS = 400;
 export const FADE_OUT_MS = 200;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
 // 네이티브 스플래시와 이어져 보여야 해서 토큰이 아니라 app.json의 expo-splash-screen 값을 그대로 쓴다.
 const SPLASH_BACKGROUND = { light: "#f8fafd", dark: "#0d1118" } as const;
 const SPLASH_LOGO_SIZE = 240;
-// 로고 PNG는 투명 여백이 커서 글자 띠(1024 기준 y 455~570)의 아래 끝이 이미지 중앙보다 14pt 아래에 있다.
-const LOGO_BAND_BELOW_CENTER = 14;
-const LOGO_TEXT_GAP = 32;
-// 한 줄 목표, 구분선, 닉네임으로 된 문구 묶음 높이의 절반이다.
-const GOAL_BLOCK_HALF_HEIGHT = 35;
-/**
- * 로고가 스플래시 자리에서 올라가는 거리
- *
- * 문구 묶음은 화면 정중앙에 있어서 글자 띠 아래와 묶음 위 사이가 간격만큼 되도록 묶음 높이의 절반을 더한다.
- * ponytail: 묶음 높이를 한 줄 목표 기준 고정값으로 두어 두 줄 목표는 간격이 약 19pt, 닉네임이 없으면 약 54pt가 된다.
- * 고정값이 onLayout으로 재고 나서 움직이는 것보다 단순하고 첫 프레임부터 자리가 정해지며, 실기기에서 어색하면 잰 높이로 바꾼다.
- */
-export const LOGO_LIFT = LOGO_BAND_BELOW_CENTER + LOGO_TEXT_GAP + GOAL_BLOCK_HALF_HEIGHT;
 
 /**
  * 콜드 스타트 때 스플래시 바로 뒤에 덮는 목표 문구 화면
  *
- * 배경과 로고 첫 자리를 스플래시와 같게 두고 로고를 위로 올린 뒤 문구를 띄운다.
+ * 배경과 로고를 스플래시와 같게 두고 로고가 사라지는 동안 문구가 나타난다.
  * 최소 노출이 지나고 첫 웹뷰 로드가 끝나면 걷고, 로드 신호를 놓쳐도 최대 노출에서 걷는다.
  * 걷히기 전 아래 웹뷰를 누르지 못하도록 터치를 막는다.
  */
@@ -60,16 +46,15 @@ export function LaunchGoalOverlay({
   const insets = useSafeAreaInsets();
   const opacity = useSharedValue(1);
   const goalOpacity = useSharedValue(reduceMotion ? 1 : 0);
-  const logoY = useSharedValue(reduceMotion ? -LOGO_LIFT : 0);
+  const logoOpacity = useSharedValue(1);
   const notifyDone = useEffectEvent(onDone);
 
   useEffect(() => {
     if (!reduceMotion) {
-      // 스플래시에서 로고가 순간이동하지 않게 같은 자리에서 올리고 문구는 그 뒤를 잇는다.
-      logoY.set(withTiming(-LOGO_LIFT, { duration: LOGO_LIFT_MS, easing: EASE_OUT }));
-      goalOpacity.set(
-        withDelay(LOGO_LIFT_MS, withTiming(1, { duration: FADE_IN_MS, easing: EASE_OUT })),
-      );
+      // 스플래시 로고가 그 자리에서 문구로 바뀌어 보이게 같은 시간 동안 엇갈려 흐린다.
+      const crossfade = { duration: CROSSFADE_MS, easing: EASE_OUT };
+      logoOpacity.set(withTiming(0, crossfade));
+      goalOpacity.set(withTiming(1, crossfade));
     }
     let minPassed = false;
     let screenLoaded = false;
@@ -101,11 +86,11 @@ export function LaunchGoalOverlay({
       clearTimeout(doneTimer);
       unsubscribe();
     };
-  }, [reduceMotion, opacity, goalOpacity, logoY]);
+  }, [reduceMotion, opacity, goalOpacity, logoOpacity]);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   const goalStyle = useAnimatedStyle(() => ({ opacity: goalOpacity.get() }));
-  const logoStyle = useAnimatedStyle(() => ({ transform: [{ translateY: logoY.get() }] }));
+  const logoStyle = useAnimatedStyle(() => ({ opacity: logoOpacity.get() }));
 
   return (
     <Animated.View
@@ -119,8 +104,12 @@ export function LaunchGoalOverlay({
       style={[{ backgroundColor: SPLASH_BACKGROUND[scheme] }, rootStyle]}
       testID="launch-goal-overlay"
     >
-      <View className="absolute inset-0 items-center justify-center">
-        <Animated.View style={logoStyle} testID="launch-goal-logo">
+      {!reduceMotion && (
+        <Animated.View
+          className="absolute inset-0 items-center justify-center"
+          style={logoStyle}
+          testID="launch-goal-logo"
+        >
           <Image
             resizeMode="contain"
             source={
@@ -131,13 +120,23 @@ export function LaunchGoalOverlay({
             style={{ width: SPLASH_LOGO_SIZE, height: SPLASH_LOGO_SIZE }}
           />
         </Animated.View>
-      </View>
+      )}
       <Animated.View
-        className="absolute inset-0 items-center justify-center px-[51px]"
+        className="absolute inset-0 items-center justify-center"
         style={goalStyle}
+        testID="launch-goal-text"
       >
+        {/* 시안은 ExtraBold지만 실행마다 폰트를 더 받지 않으려고 이미 로드한 Bold로 그린다. */}
         <Text
-          className="text-center font-sans-bold text-[20px] leading-[26px] text-text-primary dark:text-text-primary-dark"
+          accessibilityElementsHidden
+          className="font-sans-bold text-[64px] leading-[76px] text-brand-subtlePressed dark:text-brand-subtlePressed-dark"
+          importantForAccessibility="no"
+        >
+          “
+        </Text>
+        {/* 따옴표 글리프의 아래 여백 때문에 시안에서 따옴표 박스와 목표 문구가 4pt 겹친다. */}
+        <Text
+          className="-mt-1 w-[300px] text-center font-sans-bold text-[22px] leading-[26px] text-text-primary dark:text-text-primary-dark"
           numberOfLines={2}
         >
           {launchGoal.goal}
@@ -145,10 +144,10 @@ export function LaunchGoalOverlay({
         {launchGoal.nickname !== null && (
           <>
             <View
-              className="my-3 h-[2px] w-5 bg-brand-subtlePressed dark:bg-brand-subtlePressed-dark"
+              className="mt-7 h-[2px] w-5 rounded-[1px] bg-brand-subtlePressed dark:bg-brand-subtlePressed-dark"
               testID="launch-goal-divider"
             />
-            <Text className="font-sans-bold text-[13px] text-text-secondary dark:text-text-secondary-dark">
+            <Text className="mt-[10px] font-sans-bold text-[15px] text-text-secondary dark:text-text-secondary-dark">
               {launchGoal.nickname}
             </Text>
           </>
@@ -163,7 +162,7 @@ export function LaunchGoalOverlay({
             <LoadingDot key={index} index={index} animate={!reduceMotion} />
           ))}
         </View>
-        <Text className="font-sans text-[12px] text-text-tertiary">
+        <Text className="font-sans text-[13px] text-text-tertiary">
           오늘 할 공부를 정리하고 있어요
         </Text>
       </View>
