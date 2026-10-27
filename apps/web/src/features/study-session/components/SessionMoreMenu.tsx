@@ -1,4 +1,8 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import moreIcon from "@/assets/icons/session-more.svg";
 import {
@@ -49,11 +53,18 @@ export function SessionMoreMenu({
   hidden = false,
   onOpenChange,
 }: SessionMoreMenuProps) {
-  // 메뉴가 버튼 자리를 덮으며 열려서 마우스로 버튼을 짧게 누르면 손을 뗀 곳이 첫 항목이 된다.
+  // 메뉴가 버튼 자리를 덮으며 열려서 버튼을 짧게 누르면 손을 뗀 곳이 첫 항목이 된다.
   // Radix 항목은 그 손 뗌만으로도 선택되므로 메뉴 안에서 시작한 누름일 때만 손 뗌 선택을 허용한다.
   const pressStartedInMenuRef = useRef(false);
   const blockOpeningPressRelease = (event: ReactPointerEvent) => {
     if (!pressStartedInMenuRef.current) {
+      event.preventDefault();
+    }
+  };
+  // Android는 손을 뗀 자리의 요소로 클릭까지 보내서 손 뗌을 막아도 그 클릭으로 첫 항목이 골라진다.
+  // 키보드와 화면 낭독기가 만든 클릭은 detail이 0이라 그대로 둔다.
+  const blockOpeningPressClick = (event: ReactMouseEvent) => {
+    if (!pressStartedInMenuRef.current && event.detail !== 0) {
       event.preventDefault();
     }
   };
@@ -95,6 +106,7 @@ export function SessionMoreMenu({
         <DropdownMenuItem
           disabled={flipDisabled}
           onPointerUp={blockOpeningPressRelease}
+          onClick={blockOpeningPressClick}
           onSelect={onFlipCamera}
           className={MENU_ITEM_CLASS}
         >
@@ -103,6 +115,7 @@ export function SessionMoreMenu({
         {onShareInvite && (
           <DropdownMenuItem
             onPointerUp={blockOpeningPressRelease}
+            onClick={blockOpeningPressClick}
             onSelect={onShareInvite}
             className={MENU_ITEM_CLASS}
           >
