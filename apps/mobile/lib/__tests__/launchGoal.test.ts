@@ -73,6 +73,23 @@ describe("readLaunchGoal", () => {
     await expect(readLaunchGoal()).resolves.toBeNull();
   });
 
+  it("읽기가 끝나지 않으면 1초 뒤 null로 끝나 스플래시를 붙잡지 않는다", async () => {
+    jest.useFakeTimers();
+    try {
+      mockedGet.mockReturnValue(new Promise(() => {}));
+      const settled = jest.fn();
+      void readLaunchGoal().then(settled);
+
+      await jest.advanceTimersByTimeAsync(999);
+      expect(settled).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(1);
+      expect(settled).toHaveBeenCalledWith(null);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("읽기가 실패하면 null이다", async () => {
     mockedGet.mockRejectedValue(new Error("keychain locked"));
     await expect(readLaunchGoal()).resolves.toBeNull();

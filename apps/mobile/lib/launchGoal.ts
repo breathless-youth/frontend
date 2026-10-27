@@ -5,6 +5,7 @@ import type { ProfileResponse } from "@focusmakers/types";
 import { apiFetch } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { ensureAuth, refreshAuth } from "./auth";
+import { withTimeout } from "./withTimeout";
 
 /**
  * 실행 직후 오버레이에 보여 줄 목표 문구
@@ -15,15 +16,17 @@ import { ensureAuth, refreshAuth } from "./auth";
 export type LaunchGoal = { goal: string; nickname: string | null };
 
 const LAUNCH_GOAL_KEY = "focuson.launchGoal";
+// 스플래시가 이 읽기를 기다리므로 키체인이 답하지 않아도 앱이 스플래시에 멈추지 않게 상한을 둔다.
+const READ_TIMEOUT_MS = 1_000;
 
 /**
  * 저장된 목표 문구 읽기
  *
- * 없거나 깨졌거나 읽기가 실패하면 오버레이를 건너뛰도록 null을 돌려준다.
+ * 없거나 깨졌거나 읽기가 실패하거나 상한 안에 끝나지 않으면 오버레이를 건너뛰도록 null을 돌려준다.
  */
 export async function readLaunchGoal(): Promise<LaunchGoal | null> {
   try {
-    const raw = await SecureStore.getItemAsync(LAUNCH_GOAL_KEY);
+    const raw = await withTimeout(SecureStore.getItemAsync(LAUNCH_GOAL_KEY), READ_TIMEOUT_MS);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<LaunchGoal> | null;
     if (typeof parsed?.goal !== "string" || parsed.goal === "") return null;
