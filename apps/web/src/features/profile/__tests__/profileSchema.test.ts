@@ -47,6 +47,21 @@ describe("makeProfileSchema", () => {
     });
   });
 
+  it("원래 문구가 있을 때 공백 21자로 지우면 목표 오류가 없다", () => {
+    const withGoal = makeProfileSchema({ ...original, goal: "기존 목표" });
+    const result = withGoal.safeParse({ ...unchanged, goal: " ".repeat(21) });
+    expect(result.success).toBe(true);
+  });
+
+  it("원래 문구가 있을 때 공백이 아닌 21자로 바꾸면 거부한다", () => {
+    const withGoal = makeProfileSchema({ ...original, goal: "기존 목표" });
+    const result = withGoal.safeParse({ ...unchanged, goal: "가".repeat(21) });
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ["goal"],
+      message: "목표는 20자까지 쓸 수 있어요",
+    });
+  });
+
   it("카테고리를 목록 값이나 미선택으로 바꾸면 통과한다", () => {
     expect(schema.safeParse({ ...unchanged, category: "JOB" }).success).toBe(true);
     expect(schema.safeParse({ ...unchanged, category: null }).success).toBe(true);

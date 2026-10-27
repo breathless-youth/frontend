@@ -23,13 +23,14 @@ const READ_TIMEOUT_MS = 1_000;
  * 저장된 목표 문구 읽기
  *
  * 없거나 깨졌거나 읽기가 실패하거나 상한 안에 끝나지 않으면 오버레이를 건너뛰도록 null을 돌려준다.
+ * 저장할 때 공백뿐인 목표를 거르기 전에 남은 값이 있을 수 있어 읽을 때도 없는 것으로 본다.
  */
 export async function readLaunchGoal(): Promise<LaunchGoal | null> {
   try {
     const raw = await withTimeout(SecureStore.getItemAsync(LAUNCH_GOAL_KEY), READ_TIMEOUT_MS);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<LaunchGoal> | null;
-    if (typeof parsed?.goal !== "string" || parsed.goal === "") return null;
+    if (typeof parsed?.goal !== "string" || !parsed.goal.trim()) return null;
     return {
       goal: parsed.goal,
       nickname: typeof parsed.nickname === "string" ? parsed.nickname : null,
@@ -56,10 +57,15 @@ export function saveLaunchGoal(profile: LaunchGoalProfile): Promise<void> {
   return writeLaunchGoal(profile);
 }
 
-/** 목표 문구가 비었으면 오버레이를 띄우지 않도록 저장값을 지운다. */
+/**
+ * 다음 실행에 쓸 목표 문구 저장
+ *
+ * 목표 문구가 비었거나 공백뿐이면 오버레이를 띄우지 않도록 저장값을 지운다.
+ * 웹 프로필 화면과 같은 규칙이라 공백이 아닌 문구는 다듬지 않고 그대로 둔다.
+ */
 async function writeLaunchGoal(profile: LaunchGoalProfile): Promise<void> {
   try {
-    if (!profile.goal) {
+    if (!profile.goal?.trim()) {
       await SecureStore.deleteItemAsync(LAUNCH_GOAL_KEY);
       return;
     }
