@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { onFirstScreenLoaded } from "../lib/firstScreenLoaded";
 import type { LaunchGoal } from "../lib/launchGoal";
+import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 // 최대 20자 문구를 한 번 읽을 시간이다.
 export const MIN_VISIBLE_MS = 3000;
@@ -60,9 +61,15 @@ export function LaunchGoalOverlay({
     let screenLoaded = false;
     let finished = false;
     let doneTimer: ReturnType<typeof setTimeout> | undefined;
-    const finish = () => {
+    const shownAt = Date.now();
+    const finish = (closedBy: "loaded" | "max") => {
       if (finished) return;
       finished = true;
+      trackNativeEvent("launch_goal_overlay_viewed", {
+        visible_ms: Date.now() - shownAt,
+        closed_by: closedBy,
+        reduce_motion: reduceMotion,
+      });
       if (reduceMotion) {
         notifyDone();
         return;
@@ -73,12 +80,12 @@ export function LaunchGoalOverlay({
     };
     const minTimer = setTimeout(() => {
       minPassed = true;
-      if (screenLoaded) finish();
+      if (screenLoaded) finish("loaded");
     }, MIN_VISIBLE_MS);
-    const maxTimer = setTimeout(finish, MAX_VISIBLE_MS);
+    const maxTimer = setTimeout(() => finish("max"), MAX_VISIBLE_MS);
     const unsubscribe = onFirstScreenLoaded(() => {
       screenLoaded = true;
-      if (minPassed) finish();
+      if (minPassed) finish("loaded");
     });
     return () => {
       clearTimeout(minTimer);

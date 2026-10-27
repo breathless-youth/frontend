@@ -10,6 +10,11 @@ import {
   __resetFirstScreenLoadedForTests,
   markFirstScreenLoaded,
 } from "../../lib/firstScreenLoaded";
+import {
+  __resetNativeAnalyticsForTests,
+  attachNativeAnalyticsSink,
+  type NativeAnalyticsEvent,
+} from "../../lib/nativeAnalytics";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
@@ -37,6 +42,7 @@ beforeEach(() => {
   mockUseReducedMotion.mockReturnValue(false);
   jest.useFakeTimers();
   __resetFirstScreenLoadedForTests();
+  __resetNativeAnalyticsForTests();
 });
 
 afterEach(() => {
@@ -190,5 +196,73 @@ describe("LaunchGoalOverlay", () => {
     expect(screen.getByTestId("launch-goal-overlay").props.accessibilityLabel).toBe(
       "하루 6시간 공부하기, 포메",
     );
+  });
+});
+
+describe("LaunchGoalOverlay 노출 계측", () => {
+  function collectEvents() {
+    const events: NativeAnalyticsEvent[] = [];
+    attachNativeAnalyticsSink((event) => events.push(event));
+    return events;
+  }
+
+  it("첫 화면 로드로 걷히면 loaded와 보인 시간을 한 번 남긴다", () => {
+    const events = collectEvents();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    advance(MIN_VISIBLE_MS + 500);
+    act(() => {
+      markFirstScreenLoaded();
+    });
+    advance(MAX_VISIBLE_MS);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      name: "launch_goal_overlay_viewed",
+      properties: { visible_ms: MIN_VISIBLE_MS + 500, closed_by: "loaded", reduce_motion: false },
+    });
+  });
+
+  it("로드 신호 없이 상한으로 걷히면 max를 남긴다", () => {
+    const events = collectEvents();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    advance(MAX_VISIBLE_MS + FADE_OUT_MS);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.properties).toEqual({
+      visible_ms: MAX_VISIBLE_MS,
+      closed_by: "max",
+      reduce_motion: false,
+    });
+  });
+
+  it("모션 줄이기 여부를 남기고 목표 문구와 닉네임은 싣지 않는다", () => {
+    mockUseReducedMotion.mockReturnValue(true);
+    markFirstScreenLoaded();
+    const events = collectEvents();
+    render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    advance(MIN_VISIBLE_MS);
+
+    expect(events[0]?.properties).toEqual({
+      visible_ms: MIN_VISIBLE_MS,
+      closed_by: "loaded",
+      reduce_motion: true,
+    });
+    const serialized = JSON.stringify(events);
+    expect(serialized).not.toContain(GOAL.goal);
+    expect(serialized).not.toContain(GOAL.nickname);
+  });
+
+  it("걷히기 전에 언마운트되면 남기지 않는다", () => {
+    const events = collectEvents();
+    const { unmount } = render(<LaunchGoalOverlay launchGoal={GOAL} onDone={jest.fn()} />);
+
+    advance(MIN_VISIBLE_MS / 2);
+    unmount();
+    advance(MAX_VISIBLE_MS * 2);
+
+    expect(events).toHaveLength(0);
   });
 });
