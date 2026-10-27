@@ -113,6 +113,27 @@ describe("RoomTile 이름·목표", () => {
       "truncate",
     );
   });
+
+  it.each(["", "   "])("목표가 %j이면 목표 줄을 그리지 않는다", (goal) => {
+    render(
+      <RoomTile
+        member={{ userId: 8, cameraOn: true, focusState: "FOCUS", nickname: "포메1", goal }}
+      />,
+    );
+
+    expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(1);
+  });
+
+  it("목표 문구가 있으면 이름 아래에 보인다", () => {
+    render(
+      <RoomTile
+        member={{ userId: 8, cameraOn: true, focusState: "FOCUS", nickname: "포메1", goal: "합격" }}
+      />,
+    );
+
+    expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(2);
+    expect(screen.getByText("합격")).toBeInTheDocument();
+  });
 });
 
 describe("RoomTile 하단 스크림 (BY-427)", () => {

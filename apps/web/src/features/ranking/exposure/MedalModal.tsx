@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-import { IllustCrown, IllustMedal } from "../icons";
+import { IllustMedal } from "../icons";
 import { formatRank } from "../model/format";
 import type { MedalModalView, MedalStack } from "./medalView";
 
@@ -46,12 +46,12 @@ export function MedalModal({
         // 버튼만이 출구라 작은 화면과 큰 글자에서도 하단 버튼까지 스크롤로 닿게 한다.
         className="theme-soft-blue flex max-h-[calc(100dvh-24px)] w-[calc(100%-44px)] max-w-89.5 flex-col items-center gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-7 pb-4 outline-none sm:rounded-3xl"
       >
-        {/* 빛은 메달 수와 왕관 유무에 상관없이 모달 윗변에 붙어 있어 그림이 아닌 모달 기준으로 둔다. */}
+        {/* 빛은 메달 수에 상관없이 모달 윗변에 붙어 있어 그림이 아닌 모달 기준으로 둔다. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute top-11 left-1/2 -z-10 size-55 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,var(--state-distract),transparent)] opacity-25"
         />
-        <MedalArt stack={view.stack} crown={view.crown} single={single} />
+        <MedalArt stack={view.stack} single={single} />
         <DialogDescription className="mt-2.5 text-center text-[13px] leading-4 font-bold text-primary">
           {view.eyebrow}
         </DialogDescription>
@@ -157,17 +157,9 @@ export function MedalModal({
  *
  * 가운데 메달이 늘 화면 가운데에 오도록 양옆 칸을 같은 폭으로 둔다.
  * 양옆 메달은 가운데 메달 밑으로 살짝 들어가 겹치므로 가운데 칸을 위로 올린다.
- * 메달이 하나면 그림이 화면의 중심이라 메달과 왕관을 더 크게 그린다.
+ * 메달이 하나면 그림이 화면의 중심이라 메달을 더 크게 그린다.
  */
-function MedalArt({
-  stack,
-  crown,
-  single,
-}: {
-  stack: MedalStack;
-  crown: boolean;
-  single: boolean;
-}) {
+function MedalArt({ stack, single }: { stack: MedalStack; single: boolean }) {
   return (
     <div aria-hidden="true" className="grid w-full grid-cols-[1fr_auto_1fr] items-end">
       <div className="flex justify-end">
@@ -176,13 +168,6 @@ function MedalArt({
         )}
       </div>
       <div className="relative z-10 flex flex-col items-center">
-        {crown && (
-          <IllustCrown
-            width={single ? 31 : 27}
-            height={single ? 21 : 18}
-            className={cn(single && "mb-0.5")}
-          />
-        )}
         <IllustMedal rank={stack.center} size={single ? 76 : 60} />
       </div>
       <div className="flex justify-start">

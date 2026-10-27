@@ -38,6 +38,32 @@ describe("parseToNativeMessage", () => {
     });
   });
 
+  it("profile-updated는 목표 문구와 닉네임을 함께 파싱한다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"profile-updated","goal":"하루 6시간","nickname":"포메","atMs":5}',
+      ),
+    ).toEqual({ type: "profile-updated", goal: "하루 6시간", nickname: "포메", atMs: 5 });
+    expect(
+      parseToNativeMessage('{"type":"profile-updated","goal":null,"nickname":"포메","atMs":5}'),
+    ).toEqual({ type: "profile-updated", goal: null, nickname: "포메", atMs: 5 });
+  });
+
+  it.each([
+    ["goal이 없다", '{"type":"profile-updated","nickname":"포메","atMs":5}'],
+    ["nickname이 없다", '{"type":"profile-updated","goal":"하루 6시간","atMs":5}'],
+    [
+      "goal이 문자열도 null도 아니다",
+      '{"type":"profile-updated","goal":3,"nickname":"포메","atMs":5}',
+    ],
+    [
+      "nickname이 문자열이 아니다",
+      '{"type":"profile-updated","goal":"하루 6시간","nickname":null,"atMs":5}',
+    ],
+  ])("profile-updated의 %s면 버린다", (_, raw) => {
+    expect(parseToNativeMessage(raw)).toBeNull();
+  });
+
   it("auth-ready에 atMs가 없으면 null이다 — 다른 메시지와 같은 규칙", () => {
     expect(parseToNativeMessage('{"type":"auth-ready"}')).toBeNull();
   });

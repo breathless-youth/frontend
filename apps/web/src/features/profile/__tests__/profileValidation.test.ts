@@ -4,6 +4,7 @@ import {
   clampNickname,
   NICKNAME_RULE_MESSAGE,
   nicknameMaxLength,
+  normalizeGoal,
   validateGoal,
   validateNickname,
 } from "../profileValidation";
@@ -142,5 +143,18 @@ describe("nicknameMaxLength", () => {
 
   it("서버가 지우는 앞뒤 공백은 세지 않는다", () => {
     expect(nicknameMaxLength("  " + "가".repeat(11))).toBeUndefined();
+  });
+});
+
+describe("normalizeGoal", () => {
+  it("빈 값과 공백뿐인 값은 미설정으로 본다", () => {
+    expect(normalizeGoal("")).toBeNull();
+    expect(normalizeGoal("   ")).toBeNull();
+    expect(normalizeGoal(null)).toBeNull();
+  });
+
+  it("공백이 아닌 문구는 앞뒤 공백까지 그대로 둔다", () => {
+    expect(normalizeGoal(" 목표 ")).toBe(" 목표 ");
+    expect(normalizeGoal("올해 안에 이직 성공")).toBe("올해 안에 이직 성공");
   });
 });

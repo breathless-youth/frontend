@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react-native";
 import { BackHandler, Text } from "react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
+import { __resetFirstScreenLoadedForTests, onFirstScreenLoaded } from "../../lib/firstScreenLoaded";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -67,6 +68,7 @@ beforeEach(() => {
   // 이전 테스트에서 채워진 캐시가 새 마운트에 그대로 재사용되지 않도록 초기화한다.
   __resetRemoteQueryParamsCacheForTests();
   __resetNativeAnalyticsForTests();
+  __resetFirstScreenLoadedForTests();
 });
 
 describe("RemoteScreen", () => {
@@ -183,6 +185,50 @@ describe("RemoteScreen", () => {
     });
 
     expect(screen.queryByTestId("home-webview-splash")).toBeNull();
+  });
+
+  it("웹뷰 로드가 끝나면 첫 화면 로드 신호를 켠다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const listener = jest.fn();
+    onFirstScreenLoaded(listener);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    expect(listener).not.toHaveBeenCalled();
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("웹뷰 로드가 실패해도 첫 화면 로드 신호를 켠다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const listener = jest.fn();
+    onFirstScreenLoaded(listener);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onError as () => void)();
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("비포커스 탭 로드는 첫 화면 로드 신호를 켜지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const listener = jest.fn();
+    onFirstScreenLoaded(listener);
+
+    render(<RemoteScreen testID="home-webview" path="/home" suppressTabBarMessages />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it("어두운 화면 보고(report-screen dark) 후의 복구 스플래시는 다크 배경이다 — 흰 번쩍임 방지(BY-436)", async () => {

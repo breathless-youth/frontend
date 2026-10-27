@@ -9,7 +9,6 @@ import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { gainCardView } from "@/features/ranking/exposure/gainView";
 import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
-import { DEFAULT_RANKING_BOARD } from "@/features/ranking/model/board";
 import { requestBoard } from "@/features/ranking/model/boardMemory";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
@@ -279,7 +278,7 @@ export function ResultPage() {
   const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
   // 카드가 보여 준 판(순공 주간)을 넘겨주고 결과 화면을 떠난다.
   const openRanking = () => {
-    requestBoard(DEFAULT_RANKING_BOARD);
+    requestBoard({ type: "FOCUS_TIME", period: "WEEKLY" });
     leave("ranking");
   };
 

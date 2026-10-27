@@ -47,6 +47,24 @@ describe("RankedCard", () => {
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
+  it("제목은 숨기고 큰 글씨를 마감 시각과 한 줄에 둔다", () => {
+    render(
+      <RankedCard
+        board={FIXTURE_FOCUS_WEEKLY}
+        aboveGap={1320}
+        subLine={null}
+        deadline="00시 마감"
+        serverNow={AFTERNOON_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "순공 · 주간" })).toHaveClass("sr-only");
+    expect(screen.getByRole("region", { name: "순공 · 주간" })).toBeInTheDocument();
+    const headline = paragraph("다음 순위까지 22분");
+    expect(headline.parentElement?.parentElement).toContainElement(screen.getByText("00시 마감"));
+  });
+
   it("집중률 판은 숫자 없이 따라잡을 수 있다고 말하고 그 옆에 작은 집중 시작을 둔다", async () => {
     const onFocusStart = vi.fn();
     render(
@@ -176,7 +194,7 @@ describe("RankedCard", () => {
 
     expect(paragraph("오전 구간 4위")).toBeInTheDocument();
     expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
-    expect(screen.getByText("오전 7–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
+    expect(screen.getByText("오전에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
     expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });

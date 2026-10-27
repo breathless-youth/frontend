@@ -479,7 +479,12 @@ export interface TaskUpdateRequest {
 export interface ProfileResponse {
   /** 한글·영문·숫자·이모지·띄어쓰기, 앞뒤 공백을 제외한 글자 단위 2~12자, 전역 유니크 */
   nickname: string;
-  /** 한 줄 목표, 공백 포함 최대 20자 — 미설정이면 null */
+  /**
+   * 한 줄 목표, 공백 포함 최대 20자
+   *
+   * 미설정이면 null 또는 빈 문자열이다.
+   * 지울 때 빈 문자열을 보내면 서버가 그대로 저장한다.
+   */
   goal: string | null;
   /**
    * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은

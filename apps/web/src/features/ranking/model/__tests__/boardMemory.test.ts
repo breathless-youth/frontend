@@ -28,9 +28,22 @@ afterEach(() => {
 });
 
 describe("읽기와 쓰기", () => {
-  it("적힌 값이 없으면 랭킹 › 순공 › 주간이다", () => {
+  it("적힌 값이 없으면 랭킹 › 순공 › 일간이다", () => {
     expect(readBoardMemory()).toEqual(DEFAULT_BOARD_MEMORY);
-    expect(activeSelection(DEFAULT_BOARD_MEMORY)).toEqual({ type: "FOCUS_TIME", period: "WEEKLY" });
+    expect(activeSelection(DEFAULT_BOARD_MEMORY)).toEqual({ type: "FOCUS_TIME", period: "DAILY" });
+  });
+
+  it("예전 키에 적힌 판은 읽지 않아 모두 한 번은 일간으로 연다", () => {
+    resetBoardMemoryStore();
+    localStorage.setItem(
+      "ranking.board.v1",
+      JSON.stringify({ active: "ranking", ranking: { type: "FOCUS_TIME", period: "WEEKLY" } }),
+    );
+    try {
+      expect(activeSelection(readBoardMemory())).toEqual({ type: "FOCUS_TIME", period: "DAILY" });
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it("랭킹과 명예의 전당의 마지막 판을 따로 기억한다", () => {

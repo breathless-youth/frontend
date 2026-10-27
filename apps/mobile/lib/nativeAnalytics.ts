@@ -144,6 +144,19 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
    * `path`는 통보를 받은 웹뷰의 경로. 이 이벤트도 로드 실패처럼 그 웹뷰로는 못 나가 큐를 거친다.
    */
   webview_recovery_started: { path: string; reason: "process_terminated" | "render_process_gone" };
+  /**
+   * 콜드 스타트 목표 문구 오버레이 노출(`components/LaunchGoalOverlay.tsx`)
+   *
+   * 걷히기 시작할 때 한 번 남겨 얼마나 보였는지(`visible_ms`)를 함께 싣는다.
+   * `closed_by`는 첫 화면 로드로 걷혔는지(`loaded`) 최대 노출 상한으로 걷혔는지(`max`)다.
+   * 문구가 없거나 강제 업데이트로 막힌 실행, 걷히기 전에 사라진 경우에는 남지 않는다.
+   * 목표 문구와 닉네임은 사용자가 쓴 글이라 싣지 않는다.
+   */
+  launch_goal_overlay_viewed: {
+    visible_ms: number;
+    closed_by: "loaded" | "max";
+    reduce_motion: boolean;
+  };
 }>;
 
 export type NativeAnalyticsEventName = keyof NativeAnalyticsEventMap & string;

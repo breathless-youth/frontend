@@ -163,7 +163,6 @@ export function BoardSwitcher({
                 )}
                 {SLOT_LABEL[value]}
               </span>
-              <span className="text-[10px] leading-3 text-text-tertiary">{SLOT_HOURS[value]}</span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>

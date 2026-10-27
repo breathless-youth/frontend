@@ -8,12 +8,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
+import type * as Bridge from "@/lib/bridge";
+import { postToNative } from "@/lib/bridge";
 import { getProfile, updateProfile } from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
+}));
+
+vi.mock("@/lib/bridge", async (importOriginal) => ({
+  ...(await importOriginal<typeof Bridge>()),
+  postToNative: vi.fn(() => false),
 }));
 
 const mockedGetProfile = vi.mocked(getProfile);
@@ -115,6 +122,68 @@ describe("프로필 설정", () => {
     await waitFor(() => {
       expect(mockedUpdateProfile).toHaveBeenCalledWith({ nickname: "숨벅찬청년들" });
     });
+  });
+
+  it("목표 문구를 비우고 저장하면 빈 문자열을 보낸다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: "올해 안에 이직 성공" });
+    mockedUpdateProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({ goal: "" });
+    });
+  });
+
+  it("목표 문구를 공백만 남기고 저장해도 빈 문자열을 보낸다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: "올해 안에 이직 성공" });
+    mockedUpdateProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "   " } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({ goal: "" });
+    });
+  });
+
+  it("처음부터 비어 있던 목표 문구는 다른 필드만 바꿔 저장할 때 보내지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: null });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, category: "JOB" });
+    renderAt("/profile?userId=7");
+
+    await userEvent.click(await screen.findByRole("radio", { name: "취업" }));
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateProfile).toHaveBeenCalledWith({ category: "JOB" });
+    });
+  });
+
+  it("처음부터 비어 있던 목표 문구에 공백만 넣으면 저장하기가 비활성이다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: null });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    const saveButton = screen.getByRole("button", { name: "저장하기" });
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    expect(saveButton).toBeEnabled();
+    fireEvent.change(goalInput, { target: { value: "   " } });
+
+    expect(saveButton).toBeDisabled();
+  });
+
+  it("서버 목표 문구가 공백뿐이면 진입 직후 저장하기가 비활성이다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: "   " });
+    renderAt("/profile?userId=7");
+
+    expect(await screen.findByLabelText("목표 문구")).toHaveValue("   ");
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
   });
 
   it("변경이 없으면 저장하기가 비활성이다", async () => {
@@ -420,6 +489,57 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
     expect(goalInput).not.toHaveFocus();
+  });
+
+  it("저장에 성공하면 서버가 돌려준 목표 문구와 닉네임을 앱에 한 번 알린다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "서버 목표" });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
+      type: "profile-updated",
+      goal: "서버 목표",
+      nickname: "포메3721",
+      atMs: expect.any(Number),
+    });
+  });
+
+  it("목표 문구를 지워 저장에 성공하면 비워진 목표를 앱에 알린다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile, goal: "올해 안에 이직 성공" });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "" });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
+      type: "profile-updated",
+      goal: "",
+      nickname: "포메3721",
+      atMs: expect.any(Number),
+    });
+  });
+
+  it("저장이 실패하면 앱에 알리지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+    expect(vi.mocked(postToNative)).not.toHaveBeenCalled();
   });
 
   it("저장이 네트워크 오류로 실패하면 재시도 문구를 보여주고 입력을 유지한다", async () => {

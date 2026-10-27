@@ -26,12 +26,16 @@ function Days({ days }: { days: number }) {
 export function StreakCard({ board }: { board: RankingBoardResponse }) {
   const streak = board.streak;
   if (streak === null || streak === undefined) {
-    return <CardShell title={cardTitle(board)} />;
+    return null;
   }
   if (streak.currentIsBest) {
     return (
-      <CardShell title={cardTitle(board)}>
-        <p className="mt-2 text-xl leading-7 font-extrabold text-foreground">지금이 최고 기록</p>
+      <CardShell
+        title={cardTitle(board)}
+        headline={
+          <p className="text-xl leading-7 font-extrabold text-foreground">지금이 최고 기록</p>
+        }
+      >
         <p className="mt-1 text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
           내일도 공부하면 최대 {streak.maxDays + 1}일이에요
         </p>
@@ -40,7 +44,7 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
   }
   return (
     <CardShell title={cardTitle(board)}>
-      <dl className="mt-2 grid grid-cols-2 divide-x divide-border">
+      <dl className="grid grid-cols-2 divide-x divide-border">
         <div className="pr-4">
           <dt className="flex items-center gap-1 text-xs leading-3.5 font-bold text-primary">
             <IconTrophy size={13} />
@@ -70,7 +74,7 @@ export function StreakCard({ board }: { board: RankingBoardResponse }) {
           )}
         </div>
       </dl>
-      <p className="mt-2 rounded-md bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-4.75 break-keep text-pretty text-foreground">
+      <p className="mt-2 text-[13px] leading-4.75 break-keep text-pretty text-foreground">
         <strong className="font-bold">{streak.maxDays + 1}일</strong>을 이어가면 최고 기록을 넘어요
       </p>
     </CardShell>

@@ -40,7 +40,7 @@ export function DayGroupList({
             <div
               className={cn(
                 "flex min-h-10.5 w-full items-center gap-3 rounded-[14px] px-3.5",
-                group.me && "bg-primary-deep text-primary-foreground",
+                group.me && "bg-brand-subtle",
               )}
             >
               <span

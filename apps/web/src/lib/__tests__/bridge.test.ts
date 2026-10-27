@@ -387,6 +387,36 @@ describe("개발 로그", () => {
     vi.unstubAllGlobals();
   });
 
+  it("profile-updated는 앱에는 그대로 보내고 로그에서는 목표 문구와 닉네임을 가린다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const message = {
+      type: "profile-updated",
+      goal: "하루 6시간",
+      nickname: "포메",
+      atMs: 1,
+    } as const;
+
+    postToNative(message);
+    postToNative({ ...message, goal: null });
+
+    expect(postMessage).toHaveBeenNthCalledWith(1, JSON.stringify(message));
+    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("[webview-bridge]"), {
+      ...message,
+      goal: "<masked>",
+      nickname: "<masked>",
+    });
+    expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining("[webview-bridge]"), {
+      ...message,
+      goal: null,
+      nickname: "<masked>",
+    });
+
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it("운영 빌드에서는 전역 수신 함수가 버린 원문을 찍지 않는다", () => {
     const original = import.meta.env.DEV;
     (import.meta.env as unknown as { DEV: boolean }).DEV = false;

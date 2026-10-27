@@ -20,7 +20,8 @@ import {
   type BoardSelection,
 } from "./board";
 
-const STORAGE_KEY = "ranking.board.v1";
+// 기본 판을 바꾸면서 모두 한 번은 새 기본 판으로 열려고 키를 올렸다.
+const STORAGE_KEY = "ranking.board.v2";
 
 export interface BoardMemory {
   active: BoardMode;

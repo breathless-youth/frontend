@@ -8,12 +8,14 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { LaunchGoalOverlay } from "../components/LaunchGoalOverlay";
 import { cleanupOnLaunch } from "../lib/appLock/appLock";
 import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
+import { type LaunchGoal, readLaunchGoal, refreshLaunchGoal } from "../lib/launchGoal";
 import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
@@ -73,6 +75,14 @@ function RootLayout() {
   const [updateGate, setUpdateGate] = useState<"pending" | "pass" | "forced">("pending");
   // 권장 업데이트는 마지막 판정에서 나온 `latest_version`이고, 권장 대상이 아니면 null이다.
   const [recommendedVersion, setRecommendedVersion] = useState<string | null>(null);
+  // 스플래시 뒤에 덮을 목표 문구다.
+  // undefined는 아직 읽는 중이고 null은 덮지 않는다는 뜻이다.
+  const [launchGoal, setLaunchGoal] = useState<LaunchGoal | null | undefined>(undefined);
+  const [launchGoalDone, setLaunchGoalDone] = useState(false);
+
+  useEffect(() => {
+    void readLaunchGoal().then(setLaunchGoal);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +90,8 @@ function RootLayout() {
       if (!active) return;
       setUpdateGate(decision.forced ? "forced" : "pass");
       setRecommendedVersion(decision.recommended ? decision.latestVersion : null);
+      // 오버레이는 스플래시 바로 뒤에만 의미가 있어서 막혔다가 풀린 홈 위에는 다시 띄우지 않는다.
+      if (decision.forced) setLaunchGoalDone(true);
     };
     void resolveForceUpdateOnLaunch().then(
       ({ decision, late }) => {
@@ -102,6 +114,9 @@ function RootLayout() {
 
   const fontsReady = fontsLoaded || fontError;
   const gateReady = updateGate !== "pending";
+  const launchGoalReady = launchGoal !== undefined;
+  // 오버레이를 그리지 않는 실행이거나 오버레이가 걷힌 뒤다.
+  const launchGoalCleared = launchGoal === null || launchGoalDone;
 
   // forced인 동안 알림창을 띄우고 스토어 복귀 때 다시 띄운다. 게이트가 바뀌거나 언마운트되면 구독을 푼다.
   useEffect(() => {
@@ -114,10 +129,12 @@ function RootLayout() {
   useEffect(() => {
     // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
     // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
-    if (fontsReady && gateReady) {
+    // 목표 문구 읽기도 기다린다.
+    // 홈 스켈레톤이 한 프레임 보였다가 오버레이가 덮는 깜빡임을 막기 위해서다.
+    if (fontsReady && gateReady && launchGoalReady) {
       void SplashScreen.hideAsync();
     }
-  }, [fontsReady, gateReady]);
+  }, [fontsReady, gateReady, launchGoalReady]);
 
   // 시작 때 뜨는 OS 창 셋을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 알림 권한 → 권장 업데이트
   // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
@@ -126,9 +143,10 @@ function RootLayout() {
   // 앱이 active가 되기 전이면 ATT 요청은 어댑터(`lib/metaAdsSdk.ts`)가 기다렸다 보낸다.
   // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞의 두 단계는 프라미스를
   // 붙잡아 두어, effect가 다시 돌아도 권한 요청이 겹쳐 나가지 않는다.
+  // 실행 직후 목표 문구 오버레이가 있으면 문구를 읽는 동안 OS 창이 덮지 않도록 걷힌 뒤에 시작한다.
   const permissionPrompts = useRef<Promise<void> | null>(null);
   useEffect(() => {
-    if (updateGate !== "pass" || !fontsReady) return;
+    if (updateGate !== "pass" || !fontsReady || !launchGoalCleared) return;
     let active = true;
     if (permissionPrompts.current == null) {
       permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
@@ -142,10 +160,11 @@ function RootLayout() {
     return () => {
       active = false;
     };
-  }, [updateGate, fontsReady, recommendedVersion]);
+  }, [updateGate, fontsReady, launchGoalCleared, recommendedVersion]);
 
   useEffect(() => {
-    void ensureUserRegistered();
+    // 프로필 조회에 토큰이 필요해서 등록이 끝난 뒤 다음 실행에 쓸 목표 문구를 받는다.
+    void ensureUserRegistered().then(() => refreshLaunchGoal());
     // 공유 시트에 넘긴 타임랩스 사본은 공유 직후 지울 수 없어 다음 실행이 지운다.
     removeLeftoverVideoFiles();
     // 앱 전역 세로 잠금 — 세션(`room/[id]`)이 자기 마운트에서 풀고 언마운트에서 되잠근다.
@@ -180,10 +199,18 @@ function RootLayout() {
     return () => sub.remove();
   }, []);
 
+  // 세션 중에 바꾼 목표 문구가 다음 콜드 스타트에 보이도록 백그라운드로 갈 때마다 받는다.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") void refreshLaunchGoal();
+    });
+    return () => sub.remove();
+  }, []);
+
   // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
   // 영영 안 걷혀 앱이 멎는다 — 실패 시엔 시스템 폰트로라도 그린다.
-  if (!fontsReady || !gateReady) {
+  if (!fontsReady || !gateReady || !launchGoalReady) {
     return null;
   }
 
@@ -276,6 +303,10 @@ function RootLayout() {
           }}
         />
       </Stack>
+      {/* 판정이 나중에 forced로 바뀌면 위 분기가 대신 그려져 오버레이도 함께 사라진다. */}
+      {launchGoal && !launchGoalDone && (
+        <LaunchGoalOverlay launchGoal={launchGoal} onDone={() => setLaunchGoalDone(true)} />
+      )}
     </SafeAreaProvider>
   );
 }

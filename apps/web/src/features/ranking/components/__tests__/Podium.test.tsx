@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -14,11 +14,22 @@ import {
 import { Podium } from "../Podium";
 
 describe("Podium", () => {
-  it("판에 맞는 제목과 오른쪽 글을 단다", () => {
+  it("제목은 숨기고 시간대 판에만 기준 툴팁을 둔다", async () => {
     render(<Podium board={FIXTURE_SLOT_DAILY} elapsedSec={0} />);
 
-    expect(screen.getByRole("heading", { name: "오전 구간 TOP 3" })).toBeInTheDocument();
-    expect(screen.getByText("오늘 7–12시")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오전 구간 TOP 3" })).toHaveClass("sr-only");
+    expect(screen.queryByText("오늘 7–12시")).toBeNull();
+    // 웹뷰 탭처럼 pointerdown 뒤 click을 보낸다.
+    // userEvent는 포커스까지 옮겨 jsdom에서 포커스로 열린 툴팁을 click이 바로 닫는다.
+    const trigger = screen.getByRole("button", { name: "TOP 3 기준 안내" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    expect(await screen.findAllByText("오늘 오전 7–12시 순공시간 기준")).not.toHaveLength(0);
+  });
+
+  it("순공 판에는 툴팁이 없다", () => {
+    render(<Podium board={FIXTURE_FOCUS_WEEKLY} elapsedSec={0} />);
+    expect(screen.queryByRole("button", { name: "TOP 3 기준 안내" })).toBeNull();
   });
 
   it("목록은 순위 순서이고 집중 중이면 보간 값과 표시를 단다", () => {
@@ -34,7 +45,7 @@ describe("Podium", () => {
     expect(items[2]).toHaveTextContent("집중 중28:55:22");
   });
 
-  it("빈자리는 ?로 둔다", () => {
+  it("빈자리는 아바타 자리에만 ?를 둔다", () => {
     render(
       <Podium
         board={{ ...FIXTURE_TOTAL_TIME, podium: FIXTURE_TOTAL_TIME.podium.slice(0, 1) }}
@@ -42,7 +53,7 @@ describe("Podium", () => {
       />,
     );
 
-    expect(screen.getAllByText("?")).toHaveLength(4);
+    expect(screen.getAllByText("?")).toHaveLength(2);
     // 빈자리에는 메달색 테를 두르지 않는다.
     const [filled, ...empty] = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(filled!.querySelector("[data-medal-ring]")).toHaveAttribute("data-medal-ring", "1");
@@ -97,19 +108,21 @@ describe("Podium", () => {
 
     const first = within(screen.getByRole("list")).getAllByRole("listitem")[0]!;
     expect(first).toHaveTextContent("오늘도출석나");
-    const avatar = within(first).getByText("오", { selector: "[aria-hidden='true']" });
+    const avatar = within(first).getByText("오").closest("[aria-hidden='true']");
     expect(avatar).toHaveAttribute("data-me");
-    expect(within(first).queryByText("나", { selector: "[aria-hidden='true']" })).toBeNull();
+    expect(
+      within(first).queryByText("나", { selector: "[aria-hidden='true'], [aria-hidden='true'] *" }),
+    ).toBeNull();
     // 아바타 글자는 화면 낭독기에서 숨기므로 남는 나는 화면에 보이지 않는 글자 하나뿐이다.
     expect(within(first).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
       "sr-only",
     );
   });
 
-  it("30분이 안 된 자리는 메달도 원도 없이 순위 숫자만 두고 안내 한 줄을 단다", () => {
+  it("30분이 안 된 자리는 메달도 원도 없이 순위 숫자만 두고 안내 줄은 달지 않는다", () => {
     render(<Podium board={FIXTURE_RESET_DAILY} elapsedSec={0} />);
 
-    expect(screen.getByText("메달은 30분 이상부터 받아요")).toBeInTheDocument();
+    expect(screen.queryByText("메달은 30분 이상부터 받아요")).toBeNull();
     const [first, second] = within(screen.getByRole("list")).getAllByRole("listitem");
     // 원은 메달 크기의 폭과 높이로 그렸으므로, 숫자만 남으면 크기를 따로 주지 않는다.
     expect(within(second!).getByText("2", { selector: "span" })).not.toHaveStyle({
@@ -182,15 +195,19 @@ describe("Podium", () => {
       const second = within(screen.getByRole("list")).getAllByRole("listitem")[1]!;
       expect(second).toHaveTextContent("오늘도출석나외 1명171일");
       // 시상대의 내 아바타는 나 대신 내 첫 글자를 쓰는 파란 원이고 화면 낭독기에서는 숨긴다.
-      const avatar = within(second).getByText("오", { selector: "[aria-hidden='true']" });
+      const avatar = within(second).getByText("오").closest("[aria-hidden='true']");
       expect(avatar).toHaveAttribute("data-me");
-      expect(within(second).queryByText("나", { selector: "[aria-hidden='true']" })).toBeNull();
+      expect(
+        within(second).queryByText("나", {
+          selector: "[aria-hidden='true'], [aria-hidden='true'] *",
+        }),
+      ).toBeNull();
       expect(within(second).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
         "sr-only",
       );
     });
 
-    it("묶음이 3개보다 적으면 빈자리는 ?로 둔다", () => {
+    it("묶음이 3개보다 적으면 빈자리는 아바타 자리에만 ?를 둔다", () => {
       render(
         <Podium
           board={{
@@ -201,7 +218,7 @@ describe("Podium", () => {
         />,
       );
 
-      expect(screen.getAllByText("?")).toHaveLength(4);
+      expect(screen.getAllByText("?")).toHaveLength(2);
       const [filled, ...empty] = within(screen.getByRole("list")).getAllByRole("listitem");
       expect(filled).toHaveTextContent("도서관지박령외 2명412일");
       for (const item of empty) {
