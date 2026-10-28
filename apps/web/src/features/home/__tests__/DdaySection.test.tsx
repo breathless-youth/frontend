@@ -154,6 +154,26 @@ describe("DdaySection — 시트", () => {
     });
   });
 
+  it("제목은 15자를 넘어도 입력을 받고, 안내 문구를 보이며 저장을 막는다", async () => {
+    mockedGet.mockResolvedValue(null);
+    renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: "D-Day 설정" }));
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
+
+    const title = screen.getByLabelText("제목");
+    expect(title).not.toHaveAttribute("maxlength");
+    pickNextMonth15();
+    fireEvent.change(title, { target: { value: "가".repeat(16) } });
+    expect(title).toHaveValue("가".repeat(16));
+    expect(screen.getByText("16/15")).toHaveClass("text-state-distract-text");
+    expect(screen.getByRole("alert")).toHaveTextContent("15자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+
+    fireEvent.change(title, { target: { value: "가".repeat(15) } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
+  });
+
   it("편집 모드의 삭제는 확인 다이얼로그를 거쳐 지우고 블록이 미설정으로 돌아간다", async () => {
     mockedGet.mockResolvedValue(SET);
     mockedDelete.mockResolvedValue(undefined);
