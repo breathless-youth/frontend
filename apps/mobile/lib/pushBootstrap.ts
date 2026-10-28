@@ -10,6 +10,7 @@ import {
 } from "./pushMessaging";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { resolvePushRoute } from "./pushNotificationRouting";
+import { registerPushToken } from "./pushTokenRegistration";
 import { withTimeout } from "./withTimeout";
 
 /**
@@ -18,13 +19,14 @@ import { withTimeout } from "./withTimeout";
  * 지금 하는 일은 "코드는 갖춰 두고 나중에 쓴다"의 최소 범위다:
  * - 포그라운드 수신: 로그만. 표시하지 않는다(세션 화면 방해 금지, 정책 미정).
  * - 알림 탭(백그라운드 `onNotificationOpened`·종료 `getInitialNotification`): data.link를 앱 경로로 바꿔 이동.
- * - 토큰 갱신: 로그만. 서버 등록은 BE API가 생기면 여기서 부른다.
+ * - 토큰 갱신: 새 토큰을 서버에 등록한다(`lib/pushTokenRegistration.ts`).
  * - 권한 요청은 여기서 하지 않는다 — 아래 `ensurePushPermission`을 `app/_layout.tsx`가 따로 부른다.
  *
  * 어떤 실패도 앱을 죽이지 않는다 — 구독 실패는 경고, 비동기 실패는 catch.
  */
 export type PushBootstrapDeps = {
   navigate(route: string): void;
+  registerToken(): void;
   devBuild: boolean;
   onTokenRefresh(listener: (token: string) => void): () => void;
   onMessage(listener: (message: PushMessage) => void): () => void;
@@ -36,6 +38,7 @@ type Overrides = Partial<PushBootstrapDeps> & Pick<PushBootstrapDeps, "navigate"
 
 export function startPushMessaging(overrides: Overrides): () => void {
   const deps: PushBootstrapDeps = {
+    registerToken: () => void registerPushToken(),
     devBuild: __DEV__,
     onTokenRefresh: onPushTokenRefresh,
     onMessage: onPushMessage,
@@ -70,7 +73,12 @@ export function startPushMessaging(overrides: Overrides): () => void {
       }),
     );
     unsubscribers.push(deps.onNotificationOpened(openRoute));
-    unsubscribers.push(deps.onTokenRefresh((token) => devLog(`token refreshed ${token}`)));
+    unsubscribers.push(
+      deps.onTokenRefresh((token) => {
+        devLog(`token refreshed ${token}`);
+        deps.registerToken();
+      }),
+    );
   } catch (error) {
     console.warn("[push] 핸들러 구독 실패", error);
   }

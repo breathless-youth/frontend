@@ -90,6 +90,11 @@ jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
   ensurePushPermission: () => mockEnsurePushPermission(),
 }));
+// 서버 토큰 등록은 `lib/__tests__/pushTokenRegistration.test.ts`가 본다. 인증·네트워크를 타지 않게 막는다.
+jest.mock("../lib/pushTokenRegistration", () => ({
+  registerPushToken: jest.fn(() => Promise.resolve()),
+  watchAuthForPushToken: jest.fn(() => () => {}),
+}));
 // Meta SDK — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
 // SDK 모듈은 네이티브 없이 로드조차 안 되므로 반드시 mock한다. `installMetaAdsSdk`는 `_layout`이 **모듈
 // 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.

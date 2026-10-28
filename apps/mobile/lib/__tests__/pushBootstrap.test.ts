@@ -45,6 +45,7 @@ function createHarness({ devBuild = false, initial = null as PushMessage | null 
   const unsubscribe = { message: jest.fn(), opened: jest.fn(), token: jest.fn() };
   const deps = {
     navigate: jest.fn(),
+    registerToken: jest.fn(),
     devBuild,
     onTokenRefresh: jest.fn((l: (t: string) => void) => {
       listeners.token = l;
@@ -86,6 +87,15 @@ describe("startPushMessaging (BY-586)", () => {
     expect(h.unsubscribe.message).toHaveBeenCalledTimes(1);
     expect(h.unsubscribe.opened).toHaveBeenCalledTimes(1);
     expect(h.unsubscribe.token).toHaveBeenCalledTimes(1);
+  });
+
+  it("FCM 토큰이 바뀌면 서버에 다시 등록한다", () => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.token?.("new-token");
+
+    expect(h.deps.registerToken).toHaveBeenCalledTimes(1);
   });
 
   it("알림을 누르면 data.link를 경로로 바꿔 이동하고, 없으면 홈이다", () => {

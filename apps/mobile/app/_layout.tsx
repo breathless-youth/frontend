@@ -21,6 +21,7 @@ import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
 import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
 import { openPushRoute } from "../lib/pushRouteOpener";
+import { registerPushToken, watchAuthForPushToken } from "../lib/pushTokenRegistration";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { runAfterSession } from "../lib/sessionPresence";
@@ -150,6 +151,8 @@ function RootLayout() {
     let active = true;
     if (permissionPrompts.current == null) {
       permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
+      // 권한 응답까지 받은 뒤 실행마다 한 번 서버에 토큰을 등록한다. 알림창 순서를 붙잡지 않도록 따로 띄운다.
+      void permissionPrompts.current.then(() => registerPushToken());
     }
     void permissionPrompts.current.then(() => {
       if (!active || recommendedVersion === null) return;
@@ -200,12 +203,17 @@ function RootLayout() {
   }, []);
 
   // 세션 중에 바꾼 목표 문구가 다음 콜드 스타트에 보이도록 백그라운드로 갈 때마다 받는다.
+  // 돌아올 때는 설정에서 바꾼 알림 권한을 서버에 알린다 — 권한이 그대로면 등록 함수가 보내지 않는다.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "background") void refreshLaunchGoal();
+      if (state === "active") void registerPushToken();
     });
     return () => sub.remove();
   }, []);
+
+  // 재등록으로 사용자가 바뀌면 그 사용자로 푸시 토큰을 다시 등록한다.
+  useEffect(() => watchAuthForPushToken(), []);
 
   // Pretendard 로드 결과(성공/실패)가 나오기 전에는 아무것도 그리지 않는다 — 스플래시가 그
   // 자리를 대신 덮는다(위 preventAutoHideAsync). 실패까지 여기서 계속 막으면 스플래시가
