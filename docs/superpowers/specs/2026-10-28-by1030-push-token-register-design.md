@@ -17,18 +17,18 @@
 2. `getPushToken()`으로 FCM 토큰, `getPushPermissionStatus()`로 OS 권한 상태를 읽는다.
 3. `PUT /api/push-tokens` (`API-Version: 1`)에 `{ token, platform, notificationsEnabled }`를 보낸다.
    `platform`은 `IOS`·`ANDROID`, `notificationsEnabled`는 권한 상태가 `granted`인지다.
-4. 401이면 갱신(`refreshAuth`) 뒤 한 번 다시 보낸다. 웹뷰가 이미 토큰을 바꿔 뒀으면 그 토큰을 쓴다(`launchGoal.ts`와 같은 방식).
+4. 401이면 갱신(`refreshAuth`) 뒤 한 번 다시 보낸다. 웹뷰가 이미 토큰을 바꿔 뒀으면 그 토큰을 쓴다(`launchGoal.ts`와 같은 방식). 이 갱신 알림은 같은 사용자라 등록을 다시 부르지 않는다. 그래서 서버가 계속 401을 돌려줘도(운영에 경로가 없을 때) refresh 토큰이 회전하며 돌지 않는다.
 5. 실패는 경고 로그만 남기고 던지지 않는다. 토큰 값은 로그에 남기지 않는다.
 6. 같은 프로세스에서 마지막으로 성공한 (사용자, 토큰, 권한) 조합과 같으면 다시 보내지 않는다.
 
 ### 등록 시점
 
-| 시점                                | 위치                                                        |
-| ----------------------------------- | ----------------------------------------------------------- |
-| 앱 실행마다, 권한 요청이 끝난 뒤    | `app/_layout.tsx`의 `ensurePushPermission()` 다음           |
-| FCM 토큰 갱신                       | `startPushMessaging`의 토큰 갱신 구독                       |
-| 사용자 ID 변경                      | `subscribeAuth`에서 사용자 ID가 마지막 등록과 다를 때만     |
-| 포그라운드 복귀 때 권한 상태가 바뀜 | `AppState` `active`에서 권한 상태가 마지막 등록과 다를 때만 |
+| 시점                                | 위치                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| 앱 실행마다, 권한 요청이 끝난 뒤    | `app/_layout.tsx`의 `ensurePushPermission()` 다음                         |
+| FCM 토큰 갱신                       | `startPushMessaging`의 토큰 갱신 구독                                     |
+| 사용자 ID 변경·첫 로그인 토큰       | `subscribeAuth`에서 사용자 ID가 마지막으로 요청을 보낸 사용자와 다를 때만 |
+| 포그라운드 복귀 때 권한 상태가 바뀜 | `AppState` `active`에서 권한 상태가 마지막 등록과 다를 때만               |
 
 ## 결정
 

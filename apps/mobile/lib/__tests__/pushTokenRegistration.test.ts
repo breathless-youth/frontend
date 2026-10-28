@@ -184,7 +184,7 @@ describe("watchAuthForPushToken", () => {
     expect(headersOf(1).get("Authorization")).toBe("Bearer c");
   });
 
-  it("등록에 성공한 적이 없을 때 토큰이 생기면 등록한다", async () => {
+  it("등록 요청을 보낸 적이 없을 때 토큰이 생기면 등록한다", async () => {
     // 옛 설치의 지연 이관은 첫 실행에 access 토큰이 없어 실행 시 등록을 건너뛴다.
     mockedEnsureAuth.mockResolvedValue({ userId: 1, accessToken: null, refreshToken: null });
     await registerPushToken();
@@ -206,5 +206,24 @@ describe("watchAuthForPushToken", () => {
 
     expect(mockedGetToken).toHaveBeenCalledTimes(1);
     expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("401이 계속되고 갱신은 성공해도, 갱신 알림으로 등록을 반복하지 않는다", async () => {
+    // 서버에 경로가 없으면 401이 계속된다. 등록이 부른 갱신이 다시 등록을 부르면 refresh 토큰이 끝없이 회전한다.
+    watchAuthForPushToken();
+    let rotation = 0;
+    mockedRefreshAuth.mockImplementation(async () => {
+      const next = { userId: 1, accessToken: `b${++rotation}`, refreshToken: `r${rotation}` };
+      mockedEnsureAuth.mockResolvedValue(next);
+      authListener()(next);
+      return next;
+    });
+    mockedFetch.mockResolvedValue(response(401));
+
+    await registerPushToken();
+    await waitFor(() => false);
+
+    expect(mockedRefreshAuth).toHaveBeenCalledTimes(1);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
   });
 });
