@@ -149,6 +149,30 @@ describe("SubjectPanel 세로", () => {
     expect(screen.getByRole("textbox", { name: "새 과목 이름" })).toBeInTheDocument();
   });
 
+  it("한도보다 긴 기존 과목 이름의 이름 변경을 열고 그대로 완료를 누르면 닫히고 renameSubject가 불리지 않는다", async () => {
+    const longName = "가".repeat(13);
+    const store = makeStore([{ ...MATH, name: longName }]);
+    renderPanel({ store });
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(screen.getByText(longName));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    await userEvent.click(screen.getByRole("menuitem", { name: "수정" }));
+    const input = screen.getByRole("textbox", { name: "과목 이름" });
+    expect(input).toHaveValue(longName);
+
+    const done = screen.getByRole("button", { name: "완료" });
+    expect(done).toBeEnabled();
+    await userEvent.click(done);
+    expect(screen.queryByRole("textbox", { name: "과목 이름" })).not.toBeInTheDocument();
+    expect(store.renameSubject).not.toHaveBeenCalled();
+  });
+
   it("할 일 이름 글자 수는 한도의 80%부터 보인다", async () => {
     renderPanel({ store: makeStore([MATH]) });
     await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
