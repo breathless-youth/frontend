@@ -475,3 +475,37 @@ describe("개발 로그", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("parseToWebMessage — install-attribution(설치 유입 정보)", () => {
+  const valid = {
+    type: "install-attribution",
+    platform: "android",
+    installReferrer: "utm_source=apps.facebook.com&utm_content=%7B%7D",
+    deepLinkAd: "aos_v3",
+    capturedAtMs: 5,
+    atMs: 9,
+  };
+
+  it("앱이 읽은 값을 그대로 파싱한다", () => {
+    expect(parseToWebMessage(JSON.stringify(valid))).toEqual(valid);
+  });
+
+  it("값이 없는 항목은 null로 받는다", () => {
+    const empty = { ...valid, platform: "ios", installReferrer: null, deepLinkAd: null };
+    expect(parseToWebMessage(JSON.stringify(empty))).toEqual(empty);
+  });
+
+  it("플랫폼이나 읽은 시각이 이상하면 통째로 버린다", () => {
+    expect(parseToWebMessage(JSON.stringify({ ...valid, platform: "web" }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, capturedAtMs: "5" }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, installReferrer: 1 }))).toBeNull();
+  });
+
+  it("형식 밖 광고 번호와 너무 긴 설치 정보는 그 항목만 비운다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({ ...valid, deepLinkAd: "web_v1", installReferrer: "a".repeat(5000) }),
+      ),
+    ).toEqual({ ...valid, deepLinkAd: null, installReferrer: null });
+  });
+});

@@ -4,10 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 
-const mocks = vi.hoisted(() => ({ trackNativeShellEvent: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  trackNativeShellEvent: vi.fn(),
+  handleInstallAttribution: vi.fn(),
+}));
 
 vi.mock("@/lib/amplitude", () => ({
   trackNativeShellEvent: mocks.trackNativeShellEvent,
+}));
+
+vi.mock("@/lib/installAttribution", () => ({
+  handleInstallAttribution: mocks.handleInstallAttribution,
 }));
 
 function Harness() {
@@ -76,6 +83,24 @@ describe("useNativeAnalyticsRelay", () => {
       properties: { tab: "social", from_tab: "home" },
       atMs: 1000,
     });
+  });
+
+  it("install-attribution을 받으면 설치 유입 처리로 넘긴다 — 같은 준비 신호로 받는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const message = {
+      type: "install-attribution",
+      platform: "ios",
+      installReferrer: null,
+      deepLinkAd: "ios_v2",
+      capturedAtMs: 3,
+      atMs: 4,
+    };
+
+    render(<Harness />);
+    nativeEntry()?.(JSON.stringify(message));
+
+    expect(mocks.handleInstallAttribution).toHaveBeenCalledWith(message);
+    expect(mocks.trackNativeShellEvent).not.toHaveBeenCalled();
   });
 
   it("다른 메시지는 넘기지 않는다", () => {

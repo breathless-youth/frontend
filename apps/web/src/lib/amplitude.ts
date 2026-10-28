@@ -22,6 +22,7 @@ import type {
 } from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
+import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
 import { whenIdle } from "./whenIdle";
@@ -664,6 +665,21 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   if (!initialized) return;
   const id = new Identify();
   id.set("theme", scheme);
+  identify(id);
+}
+
+/**
+ * 설치 유입 경로 user property
+ *
+ * 앱이 넘긴 설치 정보로 정한 값이다(`lib/installAttribution.ts`).
+ * 재설치나 재전송이 와도 처음 들어온 경로가 남도록 setOnce로 보낸다.
+ */
+export function setInstallAttributionUserProperties(properties: InstallAttributionProperties) {
+  if (!initialized) return;
+  const id = new Identify();
+  for (const [key, value] of Object.entries(properties)) {
+    if (value !== undefined) id.setOnce(key, value);
+  }
   identify(id);
 }
 

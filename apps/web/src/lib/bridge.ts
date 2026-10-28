@@ -1,11 +1,17 @@
 import type {
+  InstallAttributionMessage,
   NativeAnalyticsPropertyValue,
   ToNativeMessage,
   ToWebMessage,
   TrackEventMessage,
   VideoResultStatus,
 } from "@focusmakers/types";
-import { NATIVE_CONTROL_ID_PATTERN, VIDEO_RESULT_STATUSES } from "@focusmakers/types";
+import {
+  INSTALL_AD_LABEL_PATTERN,
+  INSTALL_REFERRER_MAX_LENGTH,
+  NATIVE_CONTROL_ID_PATTERN,
+  VIDEO_RESULT_STATUSES,
+} from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 종단점
@@ -298,5 +304,45 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "track-event") {
     return parseTrackEvent(record);
   }
+  if (record.type === "install-attribution") {
+    return parseInstallAttribution(record);
+  }
   return null;
+}
+
+function isStringOrNull(value: unknown): value is string | null {
+  return typeof value === "string" || value === null;
+}
+
+/**
+ * `install-attribution`(설치 유입 정보)을 검증한다
+ *
+ * 플랫폼과 읽은 시각이 이상하면 통째로 버린다.
+ * 형식 밖 광고 번호와 너무 긴 설치 정보는 그 항목만 비운다. 통째로 버리면 남은 유입 기록까지 사라진다.
+ */
+function parseInstallAttribution(
+  record: Record<string, unknown>,
+): InstallAttributionMessage | null {
+  if (
+    (record.platform !== "ios" && record.platform !== "android") ||
+    typeof record.capturedAtMs !== "number" ||
+    typeof record.atMs !== "number" ||
+    !isStringOrNull(record.installReferrer) ||
+    !isStringOrNull(record.deepLinkAd)
+  ) {
+    return null;
+  }
+  const { installReferrer, deepLinkAd } = record;
+  return {
+    type: "install-attribution",
+    platform: record.platform,
+    installReferrer:
+      installReferrer !== null && installReferrer.length <= INSTALL_REFERRER_MAX_LENGTH
+        ? installReferrer
+        : null,
+    deepLinkAd:
+      deepLinkAd !== null && INSTALL_AD_LABEL_PATTERN.test(deepLinkAd) ? deepLinkAd : null,
+    capturedAtMs: record.capturedAtMs,
+    atMs: record.atMs,
+  };
 }
