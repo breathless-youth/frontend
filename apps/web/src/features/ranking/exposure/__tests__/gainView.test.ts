@@ -69,7 +69,7 @@ describe("gainCardView", () => {
       ],
     });
 
-    expect(view?.chips.map((chip) => chip.label)).toEqual(["일간 순공", "집중률", "오전 구간"]);
+    expect(view?.chips.map((chip) => chip.label)).toEqual(["일간 순공", "집중률", "아침 구간"]);
   });
 
   it("오르지 않은 판은 칩으로 쓰지 않는다", () => {

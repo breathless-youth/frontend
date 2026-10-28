@@ -77,23 +77,37 @@ describe("읽기와 쓰기", () => {
 
 describe("넘겨주기", () => {
   it("넘겨준 구간은 읽어도 남고, 판을 다시 적으면 지워진다", () => {
-    requestBoard({ type: "TIME_SLOT", period: "WEEKLY", slot: "DAWN" });
+    requestBoard({ type: "TIME_SLOT", period: "WEEKLY", slot: "MORNING" });
 
     const first = readBoardMemory();
     expect(first).toEqual({
       active: "ranking",
-      ranking: { type: "TIME_SLOT", period: "WEEKLY", slot: "DAWN" },
+      ranking: { type: "TIME_SLOT", period: "WEEKLY", slot: "MORNING" },
       hall: { type: "TOTAL_TIME" },
     });
     expect(readBoardMemory().ranking).toEqual({
       type: "TIME_SLOT",
       period: "WEEKLY",
-      slot: "DAWN",
+      slot: "MORNING",
     });
 
     writeBoardMemory(first);
 
     expect(readBoardMemory().ranking).toEqual({ type: "TIME_SLOT", period: "WEEKLY", slot: null });
+  });
+
+  it("판이 없어진 새벽 구간을 넘겨받으면 지금 구간으로 연다", () => {
+    setBoardMemoryStore(
+      createMemoryBoardMemoryStore(
+        JSON.stringify({
+          active: "ranking",
+          ranking: { type: "TIME_SLOT", period: "DAILY" },
+          requestedSlot: "DAWN",
+        }),
+      ),
+    );
+
+    expect(readBoardMemory().ranking).toEqual({ type: "TIME_SLOT", period: "DAILY", slot: null });
   });
 
   it("명예의 전당 판을 요청하면 그쪽이 열리고 랭킹 쪽 기억은 남는다", () => {
@@ -171,7 +185,7 @@ describe("판 바꾸기와 포커스 복귀", () => {
     const stored = withSelection(DEFAULT_BOARD_MEMORY, {
       type: "TIME_SLOT",
       period: "DAILY",
-      slot: "DAWN",
+      slot: "MORNING",
     });
 
     expect(mergeOnFocus(DEFAULT_BOARD_MEMORY, stored)).toEqual(stored);

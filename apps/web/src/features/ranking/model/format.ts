@@ -103,7 +103,7 @@ export function formatDeadline(
     return null;
   }
   if (board.period === "DAILY") {
-    return board.slot === "NIGHT" ? "04시 마감" : "00시 마감";
+    return "00시 마감";
   }
   const remain = Math.max(0, Date.parse(board.closesAt) - serverNow);
   const days = Math.floor(remain / DAY_MS);

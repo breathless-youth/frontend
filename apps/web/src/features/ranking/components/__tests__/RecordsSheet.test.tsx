@@ -63,7 +63,7 @@ describe("RecordsSheet", () => {
     expect(await screen.findByRole("heading", { name: "랭킹 기록" })).toBeInTheDocument();
     expect(screen.getByText("모두 18번")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "1위 오전 구간 일간 · 10월 9일 3:04:20" }),
+      screen.getByRole("button", { name: "1위 아침 구간 일간 · 10월 9일 3:04:20" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "3위 순공 주간 · 10월 1주 41:20:00" }),
@@ -115,7 +115,7 @@ describe("RecordsSheet", () => {
     renderSheet({ onPickRecord });
 
     await userEvent.click(
-      await screen.findByRole("button", { name: "1위 오전 구간 일간 · 10월 9일 3:04:20" }),
+      await screen.findByRole("button", { name: "1위 아침 구간 일간 · 10월 9일 3:04:20" }),
     );
 
     expect(onPickRecord).toHaveBeenCalledWith(FIXTURE_SUMMARY.recent[0]);
@@ -145,8 +145,8 @@ describe("RecordsSheet", () => {
     expect(
       screen.getByText("마감 때 3위 안에 든 랭킹판이 생기면 여기에 모여요"),
     ).toBeInTheDocument();
-    expect(screen.getByText("오전 구간 5위 · 10월 3일")).toBeInTheDocument();
-    expect(screen.getByText("오전 구간 12분 차")).toBeInTheDocument();
+    expect(screen.getByText("아침 구간 5위 · 10월 3일")).toBeInTheDocument();
+    expect(screen.getByText("아침 구간 12분 차")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });

@@ -19,7 +19,7 @@ function paragraph(text: string) {
   return screen.getByText((_, element) => element?.tagName === "P" && element.textContent === text);
 }
 
-/** 픽스처 계산 시각(14시 12분)이라 지금 구간은 오후다. */
+/** 픽스처 계산 시각(14시 12분)이라 지금 구간은 점심이다. */
 const AFTERNOON_NOW = Date.parse(FIXTURE_FOCUS_WEEKLY.asOf);
 const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
@@ -149,7 +149,7 @@ describe("RankedCard", () => {
       <RankedCard
         board={FIXTURE_SLOT_DAILY}
         aboveGap={540}
-        subLine={{ text: "오전이 끝나기 전에 따라잡을 수 있어요", tone: "muted" }}
+        subLine={{ text: "아침이 끝나기 전에 따라잡을 수 있어요", tone: "muted" }}
         deadline="00시 마감"
         serverNow={MORNING_NOW}
         onFocusStart={vi.fn()}
@@ -192,9 +192,9 @@ describe("RankedCard", () => {
       />,
     );
 
-    expect(paragraph("오전 구간 4위")).toBeInTheDocument();
+    expect(paragraph("아침 구간 4위")).toBeInTheDocument();
     expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
-    expect(screen.getByText("오전에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
+    expect(screen.getByText("아침에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
     expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });
@@ -204,14 +204,14 @@ describe("RankedCard", () => {
       <RankedCard
         board={{ ...FIXTURE_SLOT_DAILY, slot: "AFTERNOON" }}
         aboveGap={540}
-        subLine={{ text: "오후가 끝나기 전에 따라잡을 수 있어요", tone: "muted" }}
+        subLine={{ text: "점심이 끝나기 전에 따라잡을 수 있어요", tone: "muted" }}
         deadline="00시 마감"
         serverNow={AFTERNOON_NOW}
         onFocusStart={vi.fn()}
       />,
     );
 
-    expect(screen.getByText("오후가 끝나기 전에 따라잡을 수 있어요")).toBeInTheDocument();
+    expect(screen.getByText("점심이 끝나기 전에 따라잡을 수 있어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
   });
 });
@@ -240,7 +240,7 @@ describe("FirstPlaceCard", () => {
     render(
       <FirstPlaceCard
         board={FIXTURE_FIRST_PLACE}
-        subLine={{ text: "오전 7–12시에 공부한 시간만 이 순위에 들어가요", tone: "muted" }}
+        subLine={{ text: "아침 6–12시에 공부한 시간만 이 순위에 들어가요", tone: "muted" }}
         deadline="00시 마감"
         serverNow={AFTERNOON_NOW}
         onFocusStart={vi.fn()}
@@ -248,7 +248,7 @@ describe("FirstPlaceCard", () => {
     );
 
     expect(paragraph("1위 지키는 중")).toBeInTheDocument();
-    expect(screen.getByText("오전 7–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
+    expect(screen.getByText("아침 6–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "집중 시작" })).toBeNull();
   });
 });

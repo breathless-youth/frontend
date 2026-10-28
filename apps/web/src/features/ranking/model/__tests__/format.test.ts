@@ -85,11 +85,11 @@ describe("마감", () => {
   const weekly = { type: "FOCUS_TIME", period: "WEEKLY", slot: null, closesAt } as const;
   const at = (msBefore: number) => Date.parse(closesAt) - msBefore;
 
-  it("일간은 고정 문구이고 심야 구간만 04시다", () => {
+  it("일간은 심야 구간까지 모두 00시 마감이다", () => {
     expect(formatDeadline({ ...weekly, period: "DAILY" }, at(1000))).toBe("00시 마감");
     expect(
       formatDeadline({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT", closesAt }, at(1000)),
-    ).toBe("04시 마감");
+    ).toBe("00시 마감");
   });
 
   it("주간·월간은 남은 시간을 단위에 맞춰 줄인다", () => {
@@ -165,7 +165,7 @@ describe("날짜와 기록 항목", () => {
     } as const;
 
     expect([recordName(slot), recordPeriod(slot), recordValue(slot)]).toEqual([
-      "오전 구간",
+      "아침 구간",
       "일간 · 10월 9일",
       "3:04:20",
     ]);

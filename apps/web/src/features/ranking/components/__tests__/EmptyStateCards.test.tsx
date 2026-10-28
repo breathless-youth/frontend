@@ -11,7 +11,7 @@ function paragraph(text: string) {
   return screen.getByText((_, element) => element?.tagName === "P" && element.textContent === text);
 }
 
-/** 픽스처 기준 시각(14시 12분)이라 지금 구간은 오후다. */
+/** 픽스처 기준 시각(14시 12분)이라 지금 구간은 점심이다. */
 const SERVER_NOW = Date.parse(FIXTURE_RESET_DAILY.asOf);
 
 const EVENING_RESET: RankingBoardResponse = {

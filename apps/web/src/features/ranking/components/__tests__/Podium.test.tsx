@@ -17,14 +17,14 @@ describe("Podium", () => {
   it("제목은 숨기고 시간대 판에만 기준 툴팁을 둔다", async () => {
     render(<Podium board={FIXTURE_SLOT_DAILY} elapsedSec={0} />);
 
-    expect(screen.getByRole("heading", { name: "오전 구간 TOP 3" })).toHaveClass("sr-only");
-    expect(screen.queryByText("오늘 7–12시")).toBeNull();
+    expect(screen.getByRole("heading", { name: "아침 구간 TOP 3" })).toHaveClass("sr-only");
+    expect(screen.queryByText("오늘 6–12시")).toBeNull();
     // 웹뷰 탭처럼 pointerdown 뒤 click을 보낸다.
     // userEvent는 포커스까지 옮겨 jsdom에서 포커스로 열린 툴팁을 click이 바로 닫는다.
     const trigger = screen.getByRole("button", { name: "TOP 3 기준 안내" });
     fireEvent.pointerDown(trigger);
     fireEvent.click(trigger);
-    expect(await screen.findAllByText("오늘 오전 7–12시 순공시간 기준")).not.toHaveLength(0);
+    expect(await screen.findAllByText("오늘 아침 6–12시 순공시간 기준")).not.toHaveLength(0);
   });
 
   it("순공 판에는 툴팁이 없다", () => {

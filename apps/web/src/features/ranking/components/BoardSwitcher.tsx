@@ -1,4 +1,4 @@
-import { TIME_SLOTS, type RankingType, type TimeSlot } from "@focusmakers/types";
+import type { RankingType, TimeSlot } from "@focusmakers/types";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 import {
   HALL_BOARD_TYPES,
+  LIVE_SLOTS,
   PERIOD_LABEL,
   RANKING_BOARD_TYPES,
   SLOT_HOURS,
@@ -147,10 +148,10 @@ export function BoardSwitcher({
               onChange(selectSlot(selection, next as TimeSlot));
             }
           }}
-          className="grid grid-cols-5 gap-1.5"
+          className="grid grid-cols-4 gap-1.5"
         >
           {/* 누르는 영역은 위로 넓히면 기간 칸의 영역에 닿아, 시상대 쪽 틈으로만 4px 넓혀 44px로 맞춘다. */}
-          {TIME_SLOTS.map((value) => (
+          {LIVE_SLOTS.map((value) => (
             <ToggleGroupItem
               key={value}
               value={value}

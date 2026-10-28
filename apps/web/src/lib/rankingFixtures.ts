@@ -119,7 +119,7 @@ export const FIXTURE_RATE_WEEKLY: RankingBoardResponse = {
   },
 };
 
-/** 시간대 오전 일간, 4위. */
+/** 시간대 아침 일간, 4위. */
 export const FIXTURE_SLOT_DAILY: RankingBoardResponse = {
   ...NO_EXTRAS,
   type: "TIME_SLOT",
@@ -257,7 +257,7 @@ export const FIXTURE_STREAK: RankingBoardResponse = {
   ],
 };
 
-/** 시간대 오전 일간, 내가 1위이고 2위가 5분 차로 따라오는 중. */
+/** 시간대 아침 일간, 내가 1위이고 2위가 5분 차로 따라오는 중. */
 export const FIXTURE_FIRST_PLACE: RankingBoardResponse = {
   ...FIXTURE_SLOT_DAILY,
   podium: [
@@ -536,7 +536,7 @@ const EVENING_THIRD = record(
   "2026-10-09T15:00:00Z",
 );
 
-/** 10월 9일 오전 구간 1위 메달 하나. */
+/** 10월 9일 아침 구간 1위 메달 하나. */
 export const FIXTURE_UNSEEN_ONE: RankingUnseenResponse = { total: 19, records: [MORNING_FIRST] };
 
 /** 10월 1주 순공 주간 3위 메달 하나. */

@@ -5,7 +5,7 @@ import type {
   TimeSlot,
 } from "@focusmakers/types";
 
-import { SLOT_SUBJECT, isOffSlot, isTimeType } from "./board";
+import { SLOT_SUBJECT, currentSlot, isOffSlot, isTimeType } from "./board";
 import { formatGap } from "./format";
 import { offSlotNotice } from "./labels";
 
@@ -146,29 +146,13 @@ export function rankCardSubLine(input: {
   return null;
 }
 
-/**
- * 구간 시간표(KST 시).
- * 심야는 22시에 시작해 다음 날 4시(28시)에 끝난다.
- */
-const SLOT_WINDOW: Record<TimeSlot, { start: number; end: number }> = {
-  DAWN: { start: 4, end: 7 },
-  MORNING: { start: 7, end: 12 },
-  AFTERNOON: { start: 12, end: 18 },
-  EVENING: { start: 18, end: 22 },
-  NIGHT: { start: 22, end: 28 },
-};
-
-/** 그 시각이 구간 안이면 구간이 끝날 때까지 남은 초, 밖이면 0. */
+/** 그 시각이 구간 안이면 다음 6시간 경계까지 남은 초, 밖이면 0. */
 function secondsLeftInSlot(atMs: number, slot: TimeSlot): number {
-  const kst = new Date(atMs + 9 * 3_600_000);
-  const secOfDay = kst.getUTCHours() * 3600 + kst.getUTCMinutes() * 60 + kst.getUTCSeconds();
-  const { start, end } = SLOT_WINDOW[slot];
-  // 0~4시는 전날 밤 심야에 이어진다.
-  const at = slot === "NIGHT" && secOfDay < 4 * 3600 ? secOfDay + 24 * 3600 : secOfDay;
-  if (at < start * 3600 || at >= end * 3600) {
+  if (currentSlot(atMs) !== slot) {
     return 0;
   }
-  return end * 3600 - at;
+  const sixHourMs = 6 * 3_600_000;
+  return (sixHourMs - ((atMs + 9 * 3_600_000) % sixHourMs)) / 1000;
 }
 
 /**
