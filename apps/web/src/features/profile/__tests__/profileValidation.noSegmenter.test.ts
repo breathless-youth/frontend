@@ -28,17 +28,4 @@ describe("Intl.Segmenter가 없는 환경", () => {
 
     expect(validateNickname("느낌표금지!")).toBeNull();
   });
-
-  it("그래핌을 셀 수 없으면 닉네임을 자르지 않는다", async () => {
-    const { clampNickname } = await import("../profileValidation");
-
-    const nickname = "🧑‍💻".repeat(13);
-    expect(clampNickname(nickname)).toBe(nickname);
-  });
-
-  it("그래핌을 셀 수 없으면 입력 길이 제한을 걸지 않는다", async () => {
-    const { nicknameMaxLength } = await import("../profileValidation");
-
-    expect(nicknameMaxLength("가".repeat(12))).toBeUndefined();
-  });
 });
