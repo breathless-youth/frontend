@@ -270,60 +270,52 @@ describe("프로필 설정", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
   });
 
-  it("목표 문구 입력칸은 20자에서 더 이상 입력되지 않는다", async () => {
+  it("목표 문구는 20자를 넘어도 입력을 받고, 바로 안내하며 저장을 막는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     renderAt("/profile?userId=7");
 
     const goalInput = await screen.findByLabelText("목표 문구");
-    expect(goalInput).toHaveAttribute("maxlength", "20");
-    await userEvent.type(goalInput, "가".repeat(21));
-    expect(goalInput).toHaveValue("가".repeat(20));
+    expect(goalInput).not.toHaveAttribute("maxlength");
+    expect(screen.getByText("0/20")).toBeInTheDocument();
+
+    fireEvent.change(goalInput, { target: { value: "가".repeat(21) } });
+    expect(goalInput).toHaveValue("가".repeat(21));
+    expect(screen.getByText("21/20")).toHaveClass("text-state-distract-text");
+    expect(await screen.findByRole("alert")).toHaveTextContent("목표는 20자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
+
+    fireEvent.change(goalInput, { target: { value: "가".repeat(20) } });
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
   });
 
-  it("닉네임은 보이는 글자 12자에서 잘리고 이모지 12자는 그대로 둔다", async () => {
+  it("공백만 넣은 목표 문구는 보낼 값 기준으로 세어 0자로 보이고 안내하지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const goalInput = await screen.findByLabelText("목표 문구");
+    fireEvent.change(goalInput, { target: { value: " ".repeat(25) } });
+    expect(screen.getByText("0/20")).toBeInTheDocument();
+    expect(screen.queryByText("25/20")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("닉네임은 12자를 넘어도 입력을 받고, 보이는 글자로 세며 저장을 막는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
-    // maxLength는 이모지를 여러 칸으로 세서 서버가 받는 닉네임을 먼저 막는다.
     expect(nicknameInput).not.toHaveAttribute("maxlength");
-    fireEvent.change(nicknameInput, { target: { value: "열두자를넘기려고쓴열세글자" } });
-    expect(nicknameInput).toHaveValue("열두자를넘기려고쓴열세글");
+    expect(screen.getByText("6/12")).toBeInTheDocument();
 
-    fireEvent.change(nicknameInput, { target: { value: "🇰🇷".repeat(12) } });
-    expect(nicknameInput).toHaveValue("🇰🇷".repeat(12));
-  });
-
-  it("한글 조합으로 넘친 글자는 조합이 끝나도 고쳐 쓰지 않고 입력칸을 떠날 때 안내한다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
-
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.compositionStart(nicknameInput);
     fireEvent.change(nicknameInput, { target: { value: "가나다라마바사아자차카타파" } });
     expect(nicknameInput).toHaveValue("가나다라마바사아자차카타파");
-
-    // 조합이 끝나는 순간 값을 고쳐 쓰면 키보드가 들고 있는 글자와 입력칸 값이 어긋난다.
-    fireEvent.compositionEnd(nicknameInput);
-    expect(nicknameInput).toHaveValue("가나다라마바사아자차카타파");
-
-    fireEvent.blur(nicknameInput);
+    expect(screen.getByText("13/12")).toHaveClass("text-state-distract-text");
     expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_RULE_MESSAGE);
-  });
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
 
-  it("닉네임이 보이는 글자 12자에 닿으면 입력칸이 더 받지 않는다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
-
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "가".repeat(11) } });
-    expect(nicknameInput).not.toHaveAttribute("maxlength");
-    fireEvent.change(nicknameInput, { target: { value: "가".repeat(12) } });
-    expect(nicknameInput).toHaveAttribute("maxlength", "12");
-
-    await userEvent.clear(nicknameInput);
-    await userEvent.type(nicknameInput, "가".repeat(14));
-    expect(nicknameInput).toHaveValue("가".repeat(12));
+    fireEvent.change(nicknameInput, { target: { value: "🇰🇷".repeat(12) } });
+    expect(screen.getByText("12/12")).toBeInTheDocument();
   });
 
   it("입력 중에는 형식·최소 길이 안내가 없고 입력칸을 떠나면 뜬다", async () => {

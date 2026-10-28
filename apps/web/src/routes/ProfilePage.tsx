@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
+import { CharCount } from "@/components/ui/char-count";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,6 @@ import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
-  clampNickname,
-  nicknameMaxLength,
   NICKNAME_RULE_MESSAGE,
   normalizeGoal,
   normalizeNickname,
@@ -26,7 +24,7 @@ import {
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
-import { firstGrapheme } from "@/lib/graphemes";
+import { canSegmentGraphemes, countGraphemes, firstGrapheme } from "@/lib/graphemes";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { showCtaToast } from "@/lib/toast";
@@ -124,8 +122,6 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
     control,
     name: ["nickname", "goal", "category"],
   });
-  // 한글 조합 중이나 조합이 끝나는 순간 값을 고쳐 쓰면 키보드가 들고 있는 글자와 입력칸 값이 어긋난다.
-  const composingRef = useRef(false);
 
   const saveMutation = useMutation({
     mutationFn: (patch: ProfileUpdateRequest) => updateProfile(patch),
@@ -169,6 +165,14 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
   });
 
   const isDirty = Object.keys(buildPatch({ nickname, goal, category }, profile)).length > 0;
+  // 스키마처럼 원래 값에서 바뀐 경우만 막는다.
+  // 지금 규칙 이전의 긴 값을 둔 채 다른 필드만 저장하는 길은 열어 둔다.
+  const nicknameLength = countGraphemes(normalizeNickname(nickname));
+  const nicknameOver =
+    canSegmentGraphemes && nicknameLength > 12 && normalizeNickname(nickname) !== profile.nickname;
+  // 공백뿐인 문구는 빈 문자열로 보내므로 표시와 판정 모두 보낼 값으로 센다.
+  const goalLength = (normalizeGoal(goal) ?? "").length;
+  const goalOver = goalLength > 20 && normalizeGoal(goal) !== normalizeGoal(profile.goal);
 
   const onValid = (values: ProfileFormValues) => {
     const patch = buildPatch(values, profile);
@@ -214,27 +218,27 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                   {...field}
                   id="profile-nickname"
                   type="text"
-                  maxLength={nicknameMaxLength(field.value)}
                   onChange={(event) => {
-                    const value = event.target.value;
-                    // 붙여넣기처럼 한 번에 여러 글자가 들어와 12자를 넘기는 경우만 여기서 자른다.
-                    field.onChange(composingRef.current ? value : clampNickname(value));
-                    // 첫 오류는 blur에서만 띄우고, 이미 뜬 오류는 고치는 순간 지운다.
-                    if (fieldState.invalid) {
+                    field.onChange(event);
+                    // 첫 오류는 blur에서만 띄우지만, 한도를 넘는 순간은 저장이 막히는 이유를 바로 알린다.
+                    if (
+                      fieldState.invalid ||
+                      countGraphemes(normalizeNickname(event.target.value)) > 12
+                    ) {
                       void trigger("nickname");
                     }
                   }}
-                  onCompositionStart={() => {
-                    composingRef.current = true;
-                  }}
-                  // 조합으로 넘친 글자는 고쳐 쓰지 않고 입력칸을 떠날 때 스키마가 안내한다.
-                  onCompositionEnd={() => {
-                    composingRef.current = false;
-                  }}
                   aria-invalid={fieldState.invalid || undefined}
-                  aria-describedby={fieldState.invalid ? "profile-nickname-error" : undefined}
+                  aria-describedby={
+                    fieldState.invalid
+                      ? "profile-nickname-error profile-nickname-count"
+                      : "profile-nickname-count"
+                  }
                 />
-                <FieldError id="profile-nickname-error" errors={[fieldState.error]} />
+                <div className="flex flex-col gap-1">
+                  <FieldError id="profile-nickname-error" errors={[fieldState.error]} />
+                  <CharCount id="profile-nickname-count" length={nicknameLength} max={12} />
+                </div>
               </Field>
             )}
           />
@@ -251,18 +255,26 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                   {...field}
                   id="profile-goal"
                   type="text"
-                  // 목표는 validateGoal과 같은 UTF-16 코드 단위로 세므로 maxLength와 기준이 같다.
-                  maxLength={20}
                   onChange={(event) => {
                     field.onChange(event);
-                    if (fieldState.invalid) {
+                    if (
+                      fieldState.invalid ||
+                      (normalizeGoal(event.target.value) ?? "").length > 20
+                    ) {
                       void trigger("goal");
                     }
                   }}
                   aria-invalid={fieldState.invalid || undefined}
-                  aria-describedby={fieldState.invalid ? "profile-goal-error" : undefined}
+                  aria-describedby={
+                    fieldState.invalid
+                      ? "profile-goal-error profile-goal-count"
+                      : "profile-goal-count"
+                  }
                 />
-                <FieldError id="profile-goal-error" errors={[fieldState.error]} />
+                <div className="flex flex-col gap-1">
+                  <FieldError id="profile-goal-error" errors={[fieldState.error]} />
+                  <CharCount id="profile-goal-count" length={goalLength} max={20} />
+                </div>
               </Field>
             )}
           />
@@ -300,7 +312,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             type="submit"
             size="xl"
             className="w-full"
-            disabled={!isDirty || saveMutation.isPending}
+            disabled={!isDirty || nicknameOver || goalOver || saveMutation.isPending}
           >
             {saveMutation.isPending ? "저장 중..." : "저장하기"}
           </Button>

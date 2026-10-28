@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  clampNickname,
   NICKNAME_RULE_MESSAGE,
-  nicknameMaxLength,
   normalizeGoal,
   validateGoal,
   validateNickname,
@@ -106,43 +104,6 @@ describe("validateGoal", () => {
 
   it("빈 문자열은 유효하다 — 목표는 선택 항목", () => {
     expect(validateGoal("")).toBeNull();
-  });
-});
-
-describe("clampNickname", () => {
-  it("12자는 그대로 두고 13자는 12자로 자른다", () => {
-    expect(clampNickname("가나다라마바사아자차카타")).toBe("가나다라마바사아자차카타");
-    expect(clampNickname("가나다라마바사아자차카타파")).toBe("가나다라마바사아자차카타");
-  });
-
-  it("이모지 조합은 한 글자로 세어 12개까지 자르지 않는다", () => {
-    expect(clampNickname("🇰🇷".repeat(12))).toBe("🇰🇷".repeat(12));
-    expect(clampNickname("🧑‍💻".repeat(13))).toBe("🧑‍💻".repeat(12));
-  });
-
-  it("서버가 지우는 앞뒤 공백은 세지 않는다", () => {
-    expect(clampNickname("  가나다라마바사아자차카타  ")).toBe("  가나다라마바사아자차카타  ");
-  });
-
-  it("아주 긴 붙여넣기도 12자로 자른다", () => {
-    expect(clampNickname("가".repeat(5000))).toBe("가".repeat(12));
-    expect(clampNickname("  " + "가".repeat(5000))).toBe("  " + "가".repeat(12));
-  });
-});
-
-describe("nicknameMaxLength", () => {
-  it("12자 미만이면 길이 제한을 걸지 않는다", () => {
-    expect(nicknameMaxLength("가".repeat(11))).toBeUndefined();
-  });
-
-  it("보이는 글자 12자에 닿으면 지금 UTF-16 길이를 제한으로 준다", () => {
-    expect(nicknameMaxLength("가".repeat(12))).toBe(12);
-    const emoji = "🧑‍💻".repeat(12);
-    expect(nicknameMaxLength(emoji)).toBe(emoji.length);
-  });
-
-  it("서버가 지우는 앞뒤 공백은 세지 않는다", () => {
-    expect(nicknameMaxLength("  " + "가".repeat(11))).toBeUndefined();
   });
 });
 

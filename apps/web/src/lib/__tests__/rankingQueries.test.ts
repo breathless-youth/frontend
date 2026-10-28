@@ -60,11 +60,11 @@ describe("랭킹판 쿼리", () => {
     const client = new QueryClient();
 
     await client.fetchQuery(
-      rankingBoardQuery(7, { type: "TIME_SLOT", period: "DAILY", slot: "DAWN" }),
+      rankingBoardQuery(7, { type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" }),
     );
 
     expect(getRankingBoard).toHaveBeenCalledWith(
-      { type: "TIME_SLOT", period: "DAILY", slot: "DAWN" },
+      { type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" },
       expect.any(AbortSignal),
     );
   });

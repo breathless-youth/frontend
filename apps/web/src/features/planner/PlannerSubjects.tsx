@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -13,8 +14,10 @@ import {
   LONG_PRESS_MS,
   MAX_SUBJECTS,
   MAX_TASKS,
+  SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_SLOP_PX,
+  TASK_NAME_MAX,
   useInlineNameEdit,
   usePressGestures,
   useSubjectReorder,
@@ -25,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 import type { PlannerSubjectItem, PlannerTaskItem } from "./subjectItems";
 import { Button } from "@/components/ui/button";
+import { CharCount, isCharCountVisible } from "@/components/ui/char-count";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -245,6 +249,9 @@ function StaticSubject({ item }: { item: PlannerSubjectItem }) {
   );
 }
 
+/** 글자 수는 한도의 80%부터 보인다. */
+const COUNT_SHOW_FROM = 0.8;
+
 /** 이름 입력 + `완료` — 추가와 이름 변경이 같이 쓴다. 규칙은 과목 시트와 같다(`useInlineNameEdit`). */
 function InlineEditor({
   initial,
@@ -261,39 +268,53 @@ function InlineEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
-  const { value, setValue, commit, handleKeyDown } = useInlineNameEdit({
+  const { value, setValue, commit, handleKeyDown, over } = useInlineNameEdit({
     initial,
+    maxLength,
     onCommit,
     onCancel,
   });
+  const countId = useId();
+  const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
   return (
     <div
-      className="flex w-full items-center gap-1.5 py-0.5"
+      className="flex w-full flex-col gap-1 py-0.5"
       // 입력 안에서의 드래그가 날짜 넘김 스와이프로 읽히지 않게 한다.
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <Input
-        // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
-        autoFocus
-        aria-label={ariaLabel}
-        value={value}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        enterKeyHint="done"
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={commit}
-        // 공용 입력(높이 52)을 플래너 줄 높이에 맞춘다. 테두리가 이미 브랜드색이라 포커스 링은 겹쳐 그리지 않는다.
-        className="h-8 min-w-0 flex-1 rounded-sm border-primary bg-bg-layer-2 px-2 text-sm leading-4.5 font-medium placeholder:text-muted-foreground focus-visible:ring-0"
+      <div className="flex w-full items-center gap-1.5">
+        <Input
+          // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
+          autoFocus
+          aria-label={ariaLabel}
+          aria-describedby={countVisible ? countId : undefined}
+          value={value}
+          placeholder={placeholder}
+          enterKeyHint="done"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={commit}
+          // 공용 입력(높이 52)을 플래너 줄 높이에 맞춘다. 테두리가 이미 브랜드색이라 포커스 링은 겹쳐 그리지 않는다.
+          className="h-8 min-w-0 flex-1 rounded-sm border-primary bg-bg-layer-2 px-2 text-sm leading-4.5 font-medium placeholder:text-muted-foreground focus-visible:ring-0"
+        />
+        <Button
+          disabled={over}
+          // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={commit}
+          className="h-8 shrink-0 rounded-sm px-2.25 py-0 text-xs leading-4 font-semibold"
+        >
+          {SUBJECT_SHEET_COPY.done}
+        </Button>
+      </div>
+      <CharCount
+        id={countId}
+        length={value.length}
+        max={maxLength}
+        showFrom={COUNT_SHOW_FROM}
+        overMessage={`${maxLength}자까지 쓸 수 있어요`}
+        className="px-0.5"
       />
-      <Button
-        // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
-        onPointerDown={(event) => event.preventDefault()}
-        onClick={commit}
-        className="h-8 shrink-0 rounded-sm px-2.25 py-0 text-xs leading-4 font-semibold"
-      >
-        {SUBJECT_SHEET_COPY.done}
-      </Button>
     </div>
   );
 }
@@ -614,7 +635,7 @@ function ManagedSubject({
       {renaming ? (
         <InlineEditor
           initial={item.name}
-          maxLength={50}
+          maxLength={SUBJECT_NAME_MAX}
           placeholder="과목 이름"
           ariaLabel="과목 이름"
           onCommit={(name) => {
@@ -661,7 +682,7 @@ function ManagedSubject({
                   <li key={task.id}>
                     <InlineEditor
                       initial={task.name}
-                      maxLength={100}
+                      maxLength={TASK_NAME_MAX}
                       placeholder="할 일 이름"
                       ariaLabel="할 일 이름"
                       onCommit={(name) => {
@@ -695,7 +716,7 @@ function ManagedSubject({
 
         {!tasksEditable ? null : addingTask ? (
           <InlineEditor
-            maxLength={100}
+            maxLength={TASK_NAME_MAX}
             placeholder="할 일 이름"
             ariaLabel="새 할 일 이름"
             onCommit={(name) => {
@@ -820,7 +841,7 @@ function ManagedSubjects({
       {editing?.kind === "new-subject" ? (
         <div className="pt-1">
           <InlineEditor
-            maxLength={50}
+            maxLength={SUBJECT_NAME_MAX}
             placeholder="과목 이름"
             ariaLabel="새 과목 이름"
             onCommit={(name) => {

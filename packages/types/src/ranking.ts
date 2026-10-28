@@ -21,7 +21,7 @@ export type RankingType = (typeof RANKING_TYPES)[number];
 export const RANKING_PERIODS = ["DAILY", "WEEKLY", "MONTHLY"] as const;
 export type RankingPeriod = (typeof RANKING_PERIODS)[number];
 
-export const TIME_SLOTS = ["DAWN", "MORNING", "AFTERNOON", "EVENING", "NIGHT"] as const;
+export const TIME_SLOTS = ["NIGHT", "MORNING", "AFTERNOON", "EVENING", "DAWN"] as const;
 export type TimeSlot = (typeof TIME_SLOTS)[number];
 
 /**

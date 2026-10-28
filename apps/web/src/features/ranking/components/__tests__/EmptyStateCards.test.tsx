@@ -11,7 +11,7 @@ function paragraph(text: string) {
   return screen.getByText((_, element) => element?.tagName === "P" && element.textContent === text);
 }
 
-/** 픽스처 기준 시각(14시 12분)이라 지금 구간은 오후다. */
+/** 픽스처 기준 시각(14시 12분)이라 지금 구간은 점심이다. */
 const SERVER_NOW = Date.parse(FIXTURE_RESET_DAILY.asOf);
 
 const EVENING_RESET: RankingBoardResponse = {
@@ -35,8 +35,8 @@ describe("ResetCard", () => {
     expect(screen.getByRole("heading", { name: "순공 · 일간" })).toBeInTheDocument();
     expect(paragraph("지금 시작하면 3위")).toBeInTheDocument();
     expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
-    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+    expect(screen.getByRole("button", { name: "순공 시작" })).toHaveClass("rounded-full");
+    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
@@ -50,9 +50,9 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("지금 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText("지금 시작하면", { exact: false })).toBeNull();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말하고 순위를 보이지 않는다", () => {
@@ -65,10 +65,10 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("저녁 구간에 공부하면 랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("저녁에 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
   });
 
   it("지금 구간인 시간대 판은 지금 시작하면 몇 위인지 그대로 말한다", () => {
@@ -94,10 +94,10 @@ describe("ResetCard", () => {
       />,
     );
 
-    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("지금 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/\d위/)).toBeNull();
     expect(screen.queryByText(/새로 시작됐어요/)).toBeNull();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
   });
 
   it("제목은 화면에 보이지 않고 카드 이름으로만 읽힌다", () => {
@@ -129,7 +129,7 @@ describe("PreviousResultCard", () => {
 });
 
 describe("FirstCard", () => {
-  it("첫 공부를 마치면 순위가 생긴다고 말한다", () => {
+  it("지금 공부하면 순위가 생긴다고 말한다", () => {
     render(
       <FirstCard
         board={FIXTURE_FIRST}
@@ -140,9 +140,9 @@ describe("FirstCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "아직 내 순위가 없어요" })).toBeInTheDocument();
-    expect(paragraph("첫 공부를 마치면 랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("지금 공부하면 랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText(/겨루고 있어요/)).toBeNull();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toHaveClass("rounded-full");
+    expect(screen.getByRole("button", { name: "순공 시작" })).toHaveClass("rounded-full");
   });
 
   it("지금 구간이 아닌 시간대 판은 그 구간에 공부하면 순위가 생긴다고 말한다", () => {
@@ -155,11 +155,11 @@ describe("FirstCard", () => {
       />,
     );
 
-    expect(paragraph("저녁 구간에 공부하면 랭킹 진입")).toBeInTheDocument();
-    expect(screen.queryByText("첫 공부를 마치면", { exact: false })).toBeNull();
+    expect(paragraph("저녁에 공부하면 랭킹 진입")).toBeInTheDocument();
+    expect(screen.queryByText("지금 공부하면", { exact: false })).toBeNull();
   });
 
-  it("연속 공부 판은 하루 10분 기준을 말한다", () => {
+  it("연속 공부 판은 10분 기준을 말한다", () => {
     render(
       <FirstCard
         board={{ ...FIXTURE_FIRST, type: "MAX_STREAK", period: null, slot: null }}
@@ -169,8 +169,8 @@ describe("FirstCard", () => {
       />,
     );
 
-    expect(paragraph("하루 10분 이상 공부하면랭킹 진입")).toBeInTheDocument();
-    expect(screen.queryByText("첫 공부를 마치면", { exact: false })).toBeNull();
+    expect(paragraph("10분 이상 공부하면랭킹 진입")).toBeInTheDocument();
+    expect(screen.queryByText("지금 공부하면", { exact: false })).toBeNull();
   });
 });
 

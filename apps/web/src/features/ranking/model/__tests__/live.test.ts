@@ -93,13 +93,13 @@ describe("내려간 계단 수", () => {
   });
 });
 
-/** 픽스처 계산 시각(14시 12분)이라 지금 구간은 오후다. */
+/** 픽스처 계산 시각(14시 12분)이라 지금 구간은 점심이다. */
 const AFTERNOON_NOW = Date.parse(FIXTURE_FOCUS_WEEKLY.asOf);
 const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
 describe("순위 카드 아랫줄", () => {
   const MORNING_NOTICE = {
-    text: "오전에 공부한 시간만 이 순위에 들어가요",
+    text: "아침에 공부한 시간만 이 순위에 들어가요",
     tone: "muted",
   };
 
@@ -157,7 +157,7 @@ describe("순위 카드 아랫줄", () => {
     expect(
       rankCardSubLine({ board: FIXTURE_SLOT_DAILY, belowGap: 360, serverNow: MORNING_NOW }),
     ).toEqual({
-      text: "오전이 끝나기 전에 따라잡을 수 있어요",
+      text: "아침이 끝나기 전에 따라잡을 수 있어요",
       tone: "muted",
     });
   });
@@ -179,7 +179,7 @@ describe("순위 카드 아랫줄", () => {
         belowGap: 360,
         serverNow: AFTERNOON_NOW,
       }),
-    ).toEqual({ text: "오후가 끝나기 전에 따라잡을 수 있어요", tone: "muted" });
+    ).toEqual({ text: "점심이 끝나기 전에 따라잡을 수 있어요", tone: "muted" });
   });
 
   it("지금 구간이 아닌 시간대 판은 바로 위가 집중 중이어도 차이가 벌어진다고 말하지 않는다", () => {
@@ -422,16 +422,27 @@ describe("보간 상한", () => {
     ).toBe(0);
   });
 
-  it("심야는 22시에 시작해 다음 날 4시에 끝난다", () => {
+  it("새벽는 0시에 시작해 6시에 끝난다", () => {
     const night = {
       type: "TIME_SLOT",
       slot: "NIGHT",
-      closesAt: kstIso("2026-10-11T04:00:00"),
+      closesAt: kstIso("2026-10-11T00:00:00"),
     } as const;
 
-    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-10T23:00:00") })).toBe(5 * 3600);
-    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-11T03:30:00") })).toBe(1800);
-    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-10T21:00:00") })).toBe(0);
+    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-10T05:59:00") })).toBe(60);
+    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-10T06:00:00") })).toBe(0);
+    expect(liveCapSec({ ...night, asOf: kstIso("2026-10-10T23:00:00") })).toBe(0);
+  });
+
+  it("저녁은 24시에 끝난다", () => {
+    expect(
+      liveCapSec({
+        type: "TIME_SLOT",
+        slot: "EVENING",
+        asOf: kstIso("2026-10-10T23:30:00"),
+        closesAt: kstIso("2026-10-11T00:00:00"),
+      }),
+    ).toBe(1800);
   });
 
   it("주간 시간대 판도 오늘 구간이 끝나면 멈춘다", () => {
@@ -442,6 +453,6 @@ describe("보간 상한", () => {
         asOf: kstIso("2026-10-10T21:30:00"),
         closesAt: kstIso("2026-10-12T00:00:00"),
       }),
-    ).toBe(1800);
+    ).toBe(9000);
   });
 });

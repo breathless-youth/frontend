@@ -111,6 +111,79 @@ describe("SubjectPanel 세로", () => {
     expect(screen.queryByRole("button", { name: /과목 추가/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "순서 변경" })).not.toBeInTheDocument();
   });
+
+  it("할 일 이름은 15자를 넘어도 입력을 받고, 완료·Enter·포커스 이탈로 저장하지 않는다", async () => {
+    const store = makeStore([MATH]);
+    renderPanel({ store });
+    await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
+    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
+    expect(input).not.toHaveAttribute("maxlength");
+
+    fireEvent.change(input, { target: { value: "가".repeat(16) } });
+    expect(input).toHaveValue("가".repeat(16));
+    expect(screen.getByText("16/15")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("15자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(store.addTask).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "새 할 일 이름" })).toBeInTheDocument();
+  });
+
+  it("과목 이름은 12자를 넘으면 완료가 꺼지고 저장되지 않는다", async () => {
+    const store = makeStore([MATH]);
+    renderPanel({ store });
+    await userEvent.click(screen.getByRole("button", { name: /과목 추가/ }));
+    const input = screen.getByRole("textbox", { name: "새 과목 이름" });
+
+    fireEvent.change(input, { target: { value: "가".repeat(13) } });
+    expect(input).toHaveValue("가".repeat(13));
+    expect(screen.getByText("13/12")).toHaveClass("text-state-distract-text");
+    expect(screen.getByRole("alert")).toHaveTextContent("12자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(store.addSubject).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "새 과목 이름" })).toBeInTheDocument();
+  });
+
+  it("한도보다 긴 기존 과목 이름의 이름 변경을 열고 그대로 완료를 누르면 닫히고 renameSubject가 불리지 않는다", async () => {
+    const longName = "가".repeat(13);
+    const store = makeStore([{ ...MATH, name: longName }]);
+    renderPanel({ store });
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(screen.getByText(longName));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    await userEvent.click(screen.getByRole("menuitem", { name: "수정" }));
+    const input = screen.getByRole("textbox", { name: "과목 이름" });
+    expect(input).toHaveValue(longName);
+
+    const done = screen.getByRole("button", { name: "완료" });
+    expect(done).toBeEnabled();
+    await userEvent.click(done);
+    expect(screen.queryByRole("textbox", { name: "과목 이름" })).not.toBeInTheDocument();
+    expect(store.renameSubject).not.toHaveBeenCalled();
+  });
+
+  it("할 일 이름 글자 수는 한도의 80%부터 보인다", async () => {
+    renderPanel({ store: makeStore([MATH]) });
+    await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
+    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
+    fireEvent.change(input, { target: { value: "가".repeat(11) } });
+    expect(screen.queryByText("11/15")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-describedby");
+    fireEvent.change(input, { target: { value: "가".repeat(12) } });
+    expect(screen.getByText("12/15")).toBeInTheDocument();
+    expect(input).toHaveAccessibleDescription("12/15");
+  });
 });
 
 describe("SubjectPanel 순서 변경 모드", () => {

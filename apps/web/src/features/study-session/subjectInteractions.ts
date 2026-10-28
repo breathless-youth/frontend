@@ -18,6 +18,13 @@ import type { SubjectsStore } from "./useSubjects";
 
 export const MAX_SUBJECTS = 20;
 export const MAX_TASKS = 30;
+/**
+ * 과목·할 일 이름 글자 수 한도
+ *
+ * 서버 한도보다 짧게 잡아 서버 검증과 부딪히지 않는다.
+ */
+export const SUBJECT_NAME_MAX = 12;
+export const TASK_NAME_MAX = 15;
 export const LONG_PRESS_MS = 480;
 export const SWIPE_SLOP_PX = 10;
 /** 이만큼 왼쪽으로 밀고 놓으면 제거된다(원본 96). 최대 이동은 160. */
@@ -130,22 +137,31 @@ export function usePressGestures(handlers: {
 }
 
 /**
- * 인라인 이름 입력의 상태와 확정 규칙 — Enter·`완료`는 확정, Escape는 취소, 포커스 이탈은 내용이 있으면
- * 확정이다. 비었거나 처음 값 그대로면 취소로 친다. 한 번 끝난 입력은 다시 확정되지 않는다.
+ * 인라인 이름 입력의 상태와 확정 규칙
+ *
+ * Enter·`완료`는 확정, Escape는 취소, 포커스 이탈은 내용이 있으면 확정이다.
+ * 비었거나 처음 값 그대로면 취소로 친다.
+ * 한 번 끝난 입력은 다시 확정되지 않는다.
+ * 고친 값이 한도를 넘으면 어느 경로로도 확정하지 않고 입력을 연 채 둔다.
+ * 잘라서 확정하면 사용자가 모르는 사이 글자가 사라진다.
  */
 export function useInlineNameEdit({
   initial = "",
+  maxLength,
   onCommit,
   onCancel,
 }: {
   initial?: string;
+  maxLength: number;
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial);
   const doneRef = useRef(false);
+  // 처음 값 그대로면 확정이 아니라 취소라서, 한도보다 긴 기존 이름도 그대로 닫을 수 있게 한도를 보지 않는다.
+  const over = value.length > maxLength && value.trim() !== initial;
   function commit() {
-    if (doneRef.current) return;
+    if (doneRef.current || over) return;
     doneRef.current = true;
     const trimmed = value.trim();
     if (trimmed.length === 0 || trimmed === initial) {
@@ -162,7 +178,7 @@ export function useInlineNameEdit({
       onCancel();
     }
   }
-  return { value, setValue, commit, handleKeyDown };
+  return { value, setValue, commit, handleKeyDown, over };
 }
 
 /**

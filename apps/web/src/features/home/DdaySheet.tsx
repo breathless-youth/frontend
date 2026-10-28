@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { DdayCalendar } from "./DdayCalendar";
 import { daysUntil, formatDday, formatKoreanDate } from "./ddayFormat";
 
-/** 서버와 같은 상한. 입력은 여기서 막고 서버는 최종 판정만 한다. */
+/** 서버와 같은 상한. 넘으면 저장을 막고 서버는 최종 판정만 한다. */
 const DDAY_TITLE_MAX_LENGTH = 15;
 
 /**
@@ -100,6 +100,7 @@ function DdayForm({
 }) {
   const queryClient = useQueryClient();
   const titleId = useId();
+  const titleCountId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
   // 달력의 하한은 서버 판정과 같은 KST 오늘이다(오늘 포함). 남은 일수 표시만 기기 날짜를 쓴다.
   const todayKey = todayKstDateKey();
@@ -148,7 +149,8 @@ function DdayForm({
   });
 
   const trimmedTitle = title.trim();
-  const canSave = targetDate !== null && trimmedTitle !== "";
+  const titleOver = title.length > DDAY_TITLE_MAX_LENGTH;
+  const canSave = targetDate !== null && trimmedTitle !== "" && !titleOver;
   const busy = saveMutation.isPending || deleteMutation.isPending;
   const selectedLabel = targetDate === null ? "" : formatDday(daysUntil(targetDate));
 
@@ -251,17 +253,31 @@ function DdayForm({
                 submit();
               }
             }}
-            maxLength={DDAY_TITLE_MAX_LENGTH}
+            aria-describedby={titleOver ? titleCountId : undefined}
             placeholder="예: 수능"
             autoComplete="off"
             enterKeyHint="done"
             disabled={busy}
             className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-tertiary"
           />
-          <span className="text-xs text-text-tertiary tabular-nums">
+          <span
+            className={cn(
+              "text-xs tabular-nums",
+              titleOver ? "text-state-distract-text" : "text-text-tertiary",
+            )}
+          >
             {title.length}/{DDAY_TITLE_MAX_LENGTH}
           </span>
         </div>
+        {titleOver && (
+          <p
+            id={titleCountId}
+            role="alert"
+            className="text-sm leading-4.25 text-state-distract-text"
+          >
+            {DDAY_TITLE_MAX_LENGTH}자까지 쓸 수 있어요
+          </p>
+        )}
       </div>
 
       {error !== null && (

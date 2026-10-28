@@ -1,5 +1,5 @@
 import { ArrowUpDown } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
@@ -8,6 +8,7 @@ import gripRowIcon from "@/assets/icons/sheet-grip-row.svg";
 import pauseIcon from "@/assets/icons/sheet-pause.svg";
 import playIcon from "@/assets/icons/sheet-play.svg";
 import { Button } from "@/components/ui/button";
+import { CharCount, isCharCountVisible } from "@/components/ui/char-count";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,10 @@ import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "../sessionCopy";
 import {
   MAX_SUBJECTS,
   MAX_TASKS,
+  SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_REMOVE_PX,
+  TASK_NAME_MAX,
   useInlineNameEdit,
   usePressGestures,
   useSubjectReorder,
@@ -78,6 +81,9 @@ export interface SubjectPanelProps {
   timer: ReactNode;
 }
 
+/** 글자 수는 한도의 80%부터 보인다. */
+const COUNT_SHOW_FROM = 0.8;
+
 /** 이름 입력 + `완료`(원본 Editing). Enter·완료 확정, Escape 취소, 포커스 이탈은 내용이 있으면 확정. */
 function InlineNameEditor({
   initial = "",
@@ -97,44 +103,57 @@ function InlineNameEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
-  const { value, setValue, commit, handleKeyDown } = useInlineNameEdit({
+  const { value, setValue, commit, handleKeyDown, over } = useInlineNameEdit({
     initial,
+    maxLength,
     onCommit,
     onCancel,
   });
+  const countId = useId();
+  const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
   return (
-    <div
-      className={cn(
-        "flex w-full items-center gap-2 pr-3",
-        large ? "min-h-14 pl-3" : "min-h-12 pl-4",
-      )}
-      onPointerDown={(event) => event.stopPropagation()}
-    >
-      <input
-        // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
-        autoFocus
-        aria-label={ariaLabel}
-        value={value}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        enterKeyHint="done"
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={commit}
+    <div className="flex w-full flex-col" onPointerDown={(event) => event.stopPropagation()}>
+      <div
         className={cn(
-          "h-10 min-w-0 flex-1 rounded-xl bg-white/8 px-3 text-white shadow-[inset_0_0_0_1px_var(--session-control-resume-bg)] outline-none placeholder:text-white/40",
-          large ? "text-[17px] font-semibold" : "text-[15px] font-medium",
+          "flex w-full items-center gap-2 pr-3",
+          large ? "min-h-14 pl-3" : "min-h-12 pl-4",
         )}
-      />
-      <Button
-        variant="secondary"
-        // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
-        onPointerDown={(event) => event.preventDefault()}
-        onClick={commit}
-        className="h-11 shrink-0 rounded-md px-3.5 text-[14px] font-semibold"
       >
-        {SUBJECT_SHEET_COPY.done}
-      </Button>
+        <input
+          // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
+          autoFocus
+          aria-label={ariaLabel}
+          aria-describedby={countVisible ? countId : undefined}
+          value={value}
+          placeholder={placeholder}
+          enterKeyHint="done"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={commit}
+          className={cn(
+            "h-10 min-w-0 flex-1 rounded-xl bg-white/8 px-3 text-white shadow-[inset_0_0_0_1px_var(--session-control-resume-bg)] outline-none placeholder:text-white/40",
+            large ? "text-[17px] font-semibold" : "text-[15px] font-medium",
+          )}
+        />
+        <Button
+          variant="secondary"
+          disabled={over}
+          // blur보다 먼저 잡아 두 번 확정되지 않게 한다.
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={commit}
+          className="h-11 shrink-0 rounded-md px-3.5 text-[14px] font-semibold"
+        >
+          {SUBJECT_SHEET_COPY.done}
+        </Button>
+      </div>
+      <CharCount
+        id={countId}
+        length={value.length}
+        max={maxLength}
+        showFrom={COUNT_SHOW_FROM}
+        overMessage={`${maxLength}자까지 쓸 수 있어요`}
+        className={cn("pr-3 pb-1 text-white/50", large ? "pl-3" : "pl-4")}
+      />
     </div>
   );
 }
@@ -526,7 +545,7 @@ function SubjectTasks({
           {editing?.kind === "rename-task" && editing.taskId === task.id ? (
             <InlineNameEditor
               initial={task.name}
-              maxLength={100}
+              maxLength={TASK_NAME_MAX}
               placeholder={SUBJECT_SHEET_COPY.addTask}
               ariaLabel="할 일 이름"
               onCommit={(name) => {
@@ -583,7 +602,7 @@ function SubjectTasks({
 
       {addingTask ? (
         <InlineNameEditor
-          maxLength={100}
+          maxLength={TASK_NAME_MAX}
           placeholder="할 일 이름"
           ariaLabel="새 할 일 이름"
           onCommit={(name) => {
@@ -714,7 +733,7 @@ export function SubjectPanel({
       return (
         <InlineNameEditor
           initial={subject.name}
-          maxLength={50}
+          maxLength={SUBJECT_NAME_MAX}
           placeholder={SUBJECT_SHEET_COPY.addSubject}
           ariaLabel="과목 이름"
           large
@@ -799,7 +818,7 @@ export function SubjectPanel({
   const newSubjectEditor = editing?.kind === "new-subject" && (
     <div className="rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
       <InlineNameEditor
-        maxLength={50}
+        maxLength={SUBJECT_NAME_MAX}
         placeholder="과목 이름"
         ariaLabel="새 과목 이름"
         large

@@ -28,13 +28,13 @@ describe("시상대 제목과 기준 툴팁", () => {
     ],
     [
       { type: "TIME_SLOT", period: "DAILY", slot: "MORNING" },
-      "오전 구간 TOP 3",
-      "오늘 오전 7–12시 순공시간 기준",
+      "아침 구간 TOP 3",
+      "오늘 6–12시 순공시간 기준",
     ],
     [
       { type: "TIME_SLOT", period: "WEEKLY", slot: "NIGHT" },
-      "심야 구간 TOP 3",
-      "이번 주 심야 22–4시 순공시간 기준",
+      "새벽 구간 TOP 3",
+      "이번 주 0–6시 순공시간 기준",
     ],
     [{ type: "TIME_SLOT", period: "DAILY", slot: null }, "시간대 TOP 3", null],
     [{ type: "TOTAL_TIME", period: null, slot: null }, "명예의 전당 TOP 3", null],
@@ -51,7 +51,7 @@ describe("순위 카드 제목", () => {
     expect(cardTitle({ type: "FOCUS_TIME", period: "WEEKLY", slot: null })).toBe("순공 · 주간");
     expect(cardTitle({ type: "FOCUS_RATE", period: "MONTHLY", slot: null })).toBe("집중률 · 월간");
     expect(cardTitle({ type: "TIME_SLOT", period: "DAILY", slot: "MORNING" })).toBe(
-      "오전 구간 · 일간",
+      "아침 구간 · 일간",
     );
     expect(cardTitle({ type: "TOTAL_DAYS", period: null, slot: null })).toBe("누적 일수");
     expect(cardTitle({ type: "MAX_STREAK", period: null, slot: null })).toBe("최대 연속 공부");
@@ -59,25 +59,27 @@ describe("순위 카드 제목", () => {
 });
 
 describe("지금 구간이 아닌 시간대 판", () => {
-  const dawn = { type: "TIME_SLOT", period: "WEEKLY", slot: "DAWN" } as const;
+  const morning = { type: "TIME_SLOT", period: "WEEKLY", slot: "MORNING" } as const;
 
   it("순위가 없으면 그 구간에 공부해야 랭킹에 들어간다고 말한다", () => {
-    expect(offSlotHeadline(dawn)).toBe("새벽 구간에 공부하면 랭킹 진입");
+    expect(offSlotHeadline(morning)).toBe("아침에 공부하면 랭킹 진입");
+    expect(offSlotHeadline({ ...morning, slot: "NIGHT" })).toBe("새벽에 공부하면 랭킹 진입");
+    expect(offSlotHeadline({ ...morning, slot: null })).toBe("시간대에 공부하면 랭킹 진입");
   });
 
   it("순위가 있으면 큰 글씨 앞에 구간 이름을 쓴다", () => {
-    expect(slotName(dawn)).toBe("새벽 구간");
+    expect(slotName(morning)).toBe("아침 구간");
   });
 
   it("시각 없이 그 구간에 공부한 시간만 들어간다고 알린다", () => {
-    expect(offSlotNotice(dawn)).toBe("새벽에 공부한 시간만 이 순위에 들어가요");
-    expect(offSlotNotice({ ...dawn, slot: "NIGHT" })).toBe(
-      "심야에 공부한 시간만 이 순위에 들어가요",
+    expect(offSlotNotice(morning)).toBe("아침에 공부한 시간만 이 순위에 들어가요");
+    expect(offSlotNotice({ ...morning, slot: "NIGHT" })).toBe(
+      "새벽에 공부한 시간만 이 순위에 들어가요",
     );
   });
 
   it("구간이 없는 판은 알릴 구간이 없어 문구를 만들지 않는다", () => {
-    expect(offSlotNotice({ ...dawn, slot: null })).toBeNull();
+    expect(offSlotNotice({ ...morning, slot: null })).toBeNull();
   });
 });
 

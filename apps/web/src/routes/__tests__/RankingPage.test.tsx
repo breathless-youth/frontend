@@ -308,7 +308,7 @@ describe("RankingPage", () => {
   });
 
   it("지금 구간 표시는 기기 시각이 아니라 서버 시각을 따른다", async () => {
-    // 기기는 저녁(19시 30분)이고 서버 응답 시각은 오후(14시 12분)다.
+    // 기기는 저녁(19시 30분)이고 서버 응답 시각은 점심(14시 12분)이다.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-10T10:30:00Z"));
     try {
@@ -316,10 +316,10 @@ describe("RankingPage", () => {
       await screen.findByRole("heading", { name: "오늘 TOP 3" });
 
       await userEvent.click(screen.getByRole("tab", { name: "시간대" }));
-      await screen.findByRole("heading", { name: "오전 구간 TOP 3" });
+      await screen.findByRole("heading", { name: "아침 구간 TOP 3" });
 
-      expect(screen.getByRole("radio", { name: "오후 12–18시, 지금 구간" })).toBeInTheDocument();
-      expect(screen.queryByRole("radio", { name: "저녁 18–22시, 지금 구간" })).toBeNull();
+      expect(screen.getByRole("radio", { name: "점심 12–18시, 지금 구간" })).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: "저녁 18–24시, 지금 구간" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -339,10 +339,10 @@ describe("RankingPage", () => {
     expect(analytics.trackRankingRecordsOpened).toHaveBeenCalledWith(18);
 
     await userEvent.click(
-      await screen.findByRole("button", { name: "1위 오전 구간 일간 · 10월 9일 3:04:20" }),
+      await screen.findByRole("button", { name: "1위 아침 구간 일간 · 10월 9일 3:04:20" }),
     );
 
-    expect(await screen.findByRole("heading", { name: "오전 구간 TOP 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "아침 구간 TOP 3" })).toBeInTheDocument();
     expect(analytics.trackRankingRecordTapped).toHaveBeenCalledWith({
       rank: 1,
       type: "TIME_SLOT",

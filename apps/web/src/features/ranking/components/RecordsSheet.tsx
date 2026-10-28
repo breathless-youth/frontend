@@ -177,7 +177,7 @@ function EmptyRecords({
         아직 TOP 3 기록이 없어요
       </DrawerTitle>
       <p className="mt-2 text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
-        마감 때 3위 안에 든 랭킹판이 생기면 여기에 모여요
+        랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요
       </p>
       {(best !== null || closest !== null) && (
         <dl className="mt-4 w-full rounded-lg bg-bg-layer-2 px-4 text-left">
@@ -203,7 +203,7 @@ function EmptyRecords({
           )}
         </dl>
       )}
-      <div data-base-ui-swipe-ignore="" className="mt-3.5">
+      <div data-base-ui-swipe-ignore="" className="mt-3.5 w-full">
         <FocusStartButton onClick={onFocusStart} />
       </div>
     </div>

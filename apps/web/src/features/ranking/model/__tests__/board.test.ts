@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_HALL_BOARD,
   DEFAULT_RANKING_BOARD,
+  LIVE_SLOTS,
   SLOT_SUBJECT,
   boardKeyOf,
   boardParams,
@@ -83,11 +84,11 @@ describe("기간과 구간 바꾸기", () => {
   });
 
   it("구간은 시간대 판에서만 바뀐다", () => {
-    expect(selectSlot(DEFAULT_RANKING_BOARD, "DAWN")).toBe(DEFAULT_RANKING_BOARD);
-    expect(selectSlot({ type: "TIME_SLOT", period: "DAILY", slot: null }, "DAWN")).toEqual({
+    expect(selectSlot(DEFAULT_RANKING_BOARD, "NIGHT")).toBe(DEFAULT_RANKING_BOARD);
+    expect(selectSlot({ type: "TIME_SLOT", period: "DAILY", slot: null }, "NIGHT")).toEqual({
       type: "TIME_SLOT",
       period: "DAILY",
-      slot: "DAWN",
+      slot: "NIGHT",
     });
   });
 });
@@ -112,7 +113,7 @@ describe("판 성질", () => {
     expect(
       sameSelection(
         { type: "TIME_SLOT", period: "DAILY", slot: null },
-        { type: "TIME_SLOT", period: "DAILY", slot: "DAWN" },
+        { type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" },
       ),
     ).toBe(false);
     expect(boardKeyOf({ type: "TIME_SLOT", period: "DAILY", slot: null }, "MORNING")).toBe(
@@ -123,33 +124,45 @@ describe("판 성질", () => {
 });
 
 describe("지금 구간 (KST)", () => {
+  it("판이 있는 구간은 새벽·아침·점심·저녁 4개다", () => {
+    expect(LIVE_SLOTS).toEqual(["NIGHT", "MORNING", "AFTERNOON", "EVENING"]);
+  });
+
   it.each([
-    ["2026-10-10T04:00:00", "DAWN"],
-    ["2026-10-10T06:59:59", "DAWN"],
-    ["2026-10-10T07:00:00", "MORNING"],
+    ["2026-10-09T23:59:59", "EVENING"],
+    ["2026-10-10T00:00:00", "NIGHT"],
+    ["2026-10-10T05:59:59", "NIGHT"],
+    ["2026-10-10T06:00:00", "MORNING"],
+    ["2026-10-10T11:59:59", "MORNING"],
     ["2026-10-10T12:00:00", "AFTERNOON"],
+    ["2026-10-10T17:59:59", "AFTERNOON"],
     ["2026-10-10T18:00:00", "EVENING"],
-    ["2026-10-10T22:00:00", "NIGHT"],
-    ["2026-10-11T03:59:59", "NIGHT"],
   ])("%s는 %s", (iso, slot) => {
     expect(currentSlot(kst(iso))).toBe(slot);
+  });
+
+  it("시각을 읽지 못하면 새벽으로 본다", () => {
+    expect(currentSlot(Number.NaN)).toBe("NIGHT");
   });
 });
 
 describe("지금 구간이 아닌 시간대 판", () => {
-  /** 0~4시는 전날 심야라 지금 구간은 심야다. */
   const NIGHT_NOW = kst("2026-10-11T01:30:00");
 
-  it("새벽 1시 30분에 심야 판은 지금 구간이고 새벽 판은 아니다", () => {
+  it("1시 30분에 새벽 판은 지금 구간이고 아침 판은 아니다", () => {
     expect(isOffSlot({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" }, NIGHT_NOW)).toBe(false);
-    expect(isOffSlot({ type: "TIME_SLOT", period: "DAILY", slot: "DAWN" }, NIGHT_NOW)).toBe(true);
+    expect(isOffSlot({ type: "TIME_SLOT", period: "DAILY", slot: "MORNING" }, NIGHT_NOW)).toBe(
+      true,
+    );
   });
 
   it("주간 시간대 판도 같은 규칙을 따른다", () => {
     expect(isOffSlot({ type: "TIME_SLOT", period: "WEEKLY", slot: "NIGHT" }, NIGHT_NOW)).toBe(
       false,
     );
-    expect(isOffSlot({ type: "TIME_SLOT", period: "WEEKLY", slot: "DAWN" }, NIGHT_NOW)).toBe(true);
+    expect(isOffSlot({ type: "TIME_SLOT", period: "WEEKLY", slot: "MORNING" }, NIGHT_NOW)).toBe(
+      true,
+    );
   });
 
   it("시간대 판이 아니면 아니다", () => {
@@ -174,6 +187,14 @@ describe("기록에서 판 만들기", () => {
     });
   });
 
+  it("판이 없어진 새벽 기록은 기록의 기간으로 시간대 판의 지금 구간을 연다", () => {
+    expect(selectionOfRecord({ type: "TIME_SLOT", period: "DAILY", slot: "DAWN" })).toEqual({
+      type: "TIME_SLOT",
+      period: "DAILY",
+      slot: null,
+    });
+  });
+
   it("허용되지 않은 조합이 오면 주간으로 맞춘다", () => {
     expect(selectionOfRecord({ type: "FOCUS_RATE", period: "DAILY", slot: null })).toEqual({
       type: "FOCUS_RATE",
@@ -183,13 +204,13 @@ describe("기록에서 판 만들기", () => {
 });
 
 describe("구간 이름 조사", () => {
-  it("받침이 없는 오후·심야는 가를 붙인다", () => {
+  it("구간 이름에 주격 조사를 붙인다", () => {
     expect(SLOT_SUBJECT).toEqual({
-      DAWN: "새벽이",
-      MORNING: "오전이",
-      AFTERNOON: "오후가",
+      NIGHT: "새벽이",
+      MORNING: "아침이",
+      AFTERNOON: "점심이",
       EVENING: "저녁이",
-      NIGHT: "심야가",
+      DAWN: "새벽이",
     });
   });
 });
@@ -200,10 +221,10 @@ describe("boardParams", () => {
       type: "TIME_SLOT",
       period: "DAILY",
     });
-    expect(boardParams({ type: "TIME_SLOT", period: "DAILY", slot: "DAWN" }, -1)).toEqual({
+    expect(boardParams({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" }, -1)).toEqual({
       type: "TIME_SLOT",
       period: "DAILY",
-      slot: "DAWN",
+      slot: "NIGHT",
       offset: -1,
     });
     expect(boardParams({ type: "MAX_STREAK" })).toEqual({ type: "MAX_STREAK" });
