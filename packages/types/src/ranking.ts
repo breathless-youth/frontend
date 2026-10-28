@@ -36,6 +36,8 @@ export type MedalRank = 1 | 2 | 3;
 export interface RankingEntry {
   rank: number;
   nickname: string;
+  /** 사진 경로. 없으면 null이고, 이 필드가 배포되기 전 응답에는 없다. */
+  profileImageUrl?: string | null;
   value: number;
   /**
    * 지금 집중 중인지.
@@ -55,6 +57,8 @@ export interface RankingMe {
 /** 바로 위나 바로 아래 사람과의 차이. */
 export interface RankingNeighbor {
   nickname: string;
+  /** 사진 경로. 없으면 null이고, 이 필드가 배포되기 전 응답에는 없다. */
+  profileImageUrl?: string | null;
   gap: number;
   focusing: boolean;
   /**
@@ -104,6 +108,8 @@ export interface RankingDayGroup {
   days: number;
   rank: number;
   nickname: string;
+  /** 대표의 사진 경로. 없으면 null이고, 이 필드가 배포되기 전 응답에는 없다. */
+  profileImageUrl?: string | null;
   othersCount: number;
   achievedDate: string;
   me: boolean;

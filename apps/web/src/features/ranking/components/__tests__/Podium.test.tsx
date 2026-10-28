@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +10,7 @@ import {
   FIXTURE_TOTAL_DAYS,
   FIXTURE_TOTAL_TIME,
 } from "@/lib/rankingFixtures";
+import { stubImageLoad } from "@/test/imageStub";
 
 import { Podium } from "../Podium";
 
@@ -256,6 +257,45 @@ describe("Podium", () => {
         }
         expect(screen.queryByText("도서관지박령")).toBeNull();
       },
+    );
+  });
+
+  it("사진이 있는 자리는 첫 글자 대신 사진을 그린다", async () => {
+    stubImageLoad();
+    const [first, ...rest] = FIXTURE_FOCUS_WEEKLY.podium;
+    render(
+      <Podium
+        board={{
+          ...FIXTURE_FOCUS_WEEKLY,
+          podium: [{ ...first!, profileImageUrl: "/avatars/1.jpg" }, ...rest],
+        }}
+        elapsedSec={0}
+      />,
+    );
+
+    const [spot1, spot2] = within(screen.getByRole("list")).getAllByRole("listitem");
+    await waitFor(() =>
+      expect(spot1!.querySelector("img")).toHaveAttribute("src", "/avatars/1.jpg"),
+    );
+    expect(spot2!.querySelector("img")).toBeNull();
+  });
+
+  it("일수 판도 묶음 대표의 사진을 그린다", async () => {
+    stubImageLoad();
+    const [first, ...rest] = FIXTURE_TOTAL_DAYS.podiumGroups ?? [];
+    render(
+      <Podium
+        board={{
+          ...FIXTURE_TOTAL_DAYS,
+          podiumGroups: [{ ...first!, profileImageUrl: "/avatars/2.jpg" }, ...rest],
+        }}
+        elapsedSec={0}
+      />,
+    );
+
+    const [spot1] = within(screen.getByRole("list")).getAllByRole("listitem");
+    await waitFor(() =>
+      expect(spot1!.querySelector("img")).toHaveAttribute("src", "/avatars/2.jpg"),
     );
   });
 });

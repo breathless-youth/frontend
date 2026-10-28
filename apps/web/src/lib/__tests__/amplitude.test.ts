@@ -1842,3 +1842,41 @@ describe("이번에 더한 속성의 Firebase 전달", () => {
     }
   });
 });
+
+describe("프로필 사진 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackProfileImageUploaded();
+    m.trackProfileImageRemoved();
+    m.trackProfileImageUploadFailed("network");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("등록·삭제·실패 분류를 정해진 이름으로 보내고 값은 토큰 규칙을 통과한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackProfileImageUploaded();
+    m.trackProfileImageRemoved();
+    m.trackProfileImageUploadFailed("unusable");
+    m.trackProfileImageUploadFailed("network");
+    m.trackProfileImageUploadFailed("server");
+
+    const calls = mocks.track.mock.calls.slice(-5);
+    expect(calls).toEqual([
+      ["profile_image_upload"],
+      ["profile_image_remove"],
+      ["profile_image_upload_failed", { reason: "unusable" }],
+      ["profile_image_upload_failed", { reason: "network" }],
+      ["profile_image_upload_failed", { reason: "server" }],
+    ]);
+    for (const [, payload] of calls) {
+      for (const value of Object.values((payload ?? {}) as Record<string, string>)) {
+        expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+      }
+    }
+  });
+});

@@ -4,18 +4,48 @@ import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import type { ProfileResponse } from "@focusmakers/types";
+
+import type * as PreparePhoto from "@/features/profile/prepareProfilePhoto";
+import { prepareProfilePhoto, UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
 import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
+import type * as TokenSourceModule from "@/lib/auth/tokenSource";
+import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
-import { getProfile, updateProfile } from "@/lib/profileApi";
+import {
+  deleteProfileImage,
+  getProfile,
+  registerProfileImage,
+  requestUploadUrl,
+  updateProfile,
+  uploadPhoto,
+} from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
+import { stubImageLoad } from "@/test/imageStub";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
+  requestUploadUrl: vi.fn(),
+  uploadPhoto: vi.fn(),
+  registerProfileImage: vi.fn(),
+  deleteProfileImage: vi.fn(),
+}));
+
+vi.mock("@/features/profile/prepareProfilePhoto", async (importOriginal) => ({
+  ...(await importOriginal<typeof PreparePhoto>()),
+  prepareProfilePhoto: vi.fn(),
+}));
+
+const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
+
+vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
+  ...(await importOriginal<typeof TokenSourceModule>()),
+  getTokenSource: () => tokenSourceMock.source,
 }));
 
 vi.mock("@/lib/bridge", async (importOriginal) => ({
@@ -53,6 +83,7 @@ function renderAt(path: string) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
   act(() => {
     toast.dismiss();
@@ -570,5 +601,191 @@ describe("프로필 설정", () => {
 
     expect(screen.queryByTestId("profile-error")).not.toBeInTheDocument();
     expect(screen.getByLabelText("닉네임")).toHaveValue("숨벅찬청년들");
+  });
+});
+
+// 사진 메뉴 시트는 나눠 받는다. 첫 열기의 모듈 받기가 findBy 기본 시간을 넘지 않게 미리 받아 둔다.
+beforeAll(async () => {
+  await import("@/features/profile/ProfilePhotoSheet");
+});
+
+const PHOTO = "/avatars/7/a.jpg";
+const jpeg = new Blob(["jpeg"], { type: "image/jpeg" });
+
+function fileInput(container: HTMLElement): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>('input[type="file"]')!;
+}
+
+describe("프로필 사진", () => {
+  // 사진 API는 토큰으로만 부를 수 있어 토큰을 받은 앱 문서로 연다.
+  beforeEach(() => {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: async () => "token",
+      getCurrentToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+  });
+
+  afterEach(() => {
+    tokenSourceMock.source = null;
+  });
+
+  it("토큰이 없는 문서(구 앱, 브라우저 단독)에서는 바꿀 수 없어 사진만 보이고 누를 곳이 없다", async () => {
+    tokenSourceMock.source = null;
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const { container } = renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
+    expect(screen.queryByRole("button", { name: "프로필 사진 변경" })).toBeNull();
+    expect(fileInput(container)).toBeNull();
+  });
+
+  it("사진이 없으면 메뉴에 사진 바꾸기만 있고, 누르면 시트를 닫고 파일 선택기를 연다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    renderAt("/profile?userId=7");
+
+    await userEvent.click(await screen.findByRole("button", { name: "프로필 사진 변경" }));
+    await screen.findByRole("dialog", { name: "프로필 사진" });
+    expect(screen.queryByRole("button", { name: "사진 삭제" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "사진 바꾸기" }));
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(click.mock.contexts[0]).toHaveAttribute("type", "file");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("고른 사진을 바로 올리는 동안 버튼을 막고, 끝나면 입력 중인 닉네임은 둔 채 사진을 보인다", async () => {
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    let prepared!: (blob: Blob) => void;
+    vi.mocked(prepareProfilePhoto).mockReturnValue(
+      new Promise((resolve) => {
+        prepared = resolve;
+      }),
+    );
+    vi.mocked(requestUploadUrl).mockResolvedValue({
+      uploadUrl: "https://s3.example/put",
+      key: "avatars/7/a.jpg",
+      expiresAt: "2026-10-28T10:05:00Z",
+    });
+    vi.mocked(uploadPhoto).mockResolvedValue(undefined);
+    vi.mocked(registerProfileImage).mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const { container } = renderAt("/profile?userId=7");
+
+    fireEvent.change(await screen.findByLabelText("닉네임"), { target: { value: "새닉네임" } });
+    await userEvent.upload(
+      fileInput(container),
+      new File(["raw"], "photo.jpg", { type: "image/jpeg" }),
+    );
+
+    const button = screen.getByRole("button", { name: "프로필 사진 변경" });
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => {
+      prepared(jpeg);
+    });
+
+    expect(await screen.findByText("프로필 사진을 바꿨어요")).toBeInTheDocument();
+    expect(registerProfileImage).toHaveBeenCalledWith("avatars/7/a.jpg");
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(screen.getByLabelText("닉네임")).toHaveValue("새닉네임");
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
+  });
+
+  it("쓸 수 없는 사진이면 안내하고, 메뉴에서 같은 사진을 다시 골라도 다시 처리한다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    vi.mocked(prepareProfilePhoto).mockRejectedValue(new UnusablePhotoError());
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const { container } = renderAt("/profile?userId=7");
+    const file = new File(["raw"], "huge.jpg", { type: "image/jpeg" });
+
+    await screen.findByLabelText("닉네임");
+    await userEvent.upload(fileInput(container), file);
+    expect(
+      await screen.findByText("이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요"),
+    ).toBeInTheDocument();
+    // 선택을 비우면 Android 웹뷰가 그 파일을 못 읽게 막으므로 처리하는 동안 그대로 둔다.
+    expect(fileInput(container).files?.[0]).toBe(file);
+    const button = screen.getByRole("button", { name: "프로필 사진 변경" });
+    await waitFor(() => expect(button).toBeEnabled());
+
+    await userEvent.click(button);
+    fireEvent.click(await screen.findByRole("button", { name: "사진 바꾸기" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.upload(fileInput(container), file);
+
+    await waitFor(() => expect(prepareProfilePhoto).toHaveBeenCalledTimes(2));
+    expect(requestUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("사진이 있으면 메뉴에 사진 삭제가 있고, 누르면 확인 없이 지워 이니셜로 돌아간다", async () => {
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    vi.mocked(deleteProfileImage).mockResolvedValue({ ...profile, profileImageUrl: null });
+    const { container } = renderAt("/profile?userId=7");
+
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: "프로필 사진 변경" }));
+    await userEvent.click(await screen.findByRole("button", { name: "사진 삭제" }));
+
+    expect(await screen.findByText("프로필 사진을 삭제했어요")).toBeInTheDocument();
+    expect(deleteProfileImage).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(container.querySelector("img")).toBeNull());
+    expect(screen.getByText("포")).toBeInTheDocument();
+  });
+
+  it("지우는 동안에는 사진 버튼과 닫히며 내려가는 시트의 항목을 막아 삭제와 올리기가 겹치지 않는다", async () => {
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    let removed!: (value: ProfileResponse) => void;
+    vi.mocked(deleteProfileImage).mockReturnValue(
+      new Promise((resolve) => {
+        removed = resolve;
+      }),
+    );
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    renderAt("/profile?userId=7");
+
+    const button = await screen.findByRole("button", { name: "프로필 사진 변경" });
+    await userEvent.click(button);
+    const remove = await screen.findByRole("button", { name: "사진 삭제" });
+    const change = screen.getByRole("button", { name: "사진 바꾸기" });
+    // jsdom에는 애니메이션이 없어 닫힌 시트가 바로 사라진다. 끝나지 않는 전환을 돌려 내려가는 중으로 붙잡는다.
+    Object.defineProperty(Element.prototype, "getAnimations", {
+      configurable: true,
+      value: () => [
+        { finished: new Promise(() => {}), effect: { getTiming: () => ({ duration: 300 }) } },
+      ],
+    });
+    onTestFinished(() => {
+      Reflect.deleteProperty(Element.prototype, "getAnimations");
+    });
+
+    fireEvent.click(remove);
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(remove).toBeInTheDocument();
+
+    fireEvent.click(remove);
+    fireEvent.click(change);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(deleteProfileImage).toHaveBeenCalledTimes(1);
+    expect(click).not.toHaveBeenCalled();
+
+    await act(async () => {
+      removed({ ...profile, profileImageUrl: null });
+    });
+    expect(await screen.findByText("프로필 사진을 삭제했어요")).toBeInTheDocument();
+    await waitFor(() => expect(button).toBeEnabled());
   });
 });

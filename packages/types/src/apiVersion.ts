@@ -40,6 +40,13 @@ export const API_ENDPOINTS = {
 
   /** `GET`·`PATCH /api/users/me/profile` ↔ 구 계약 `/api/users/{userId}/profile` */
   profile: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/profileApi.ts" },
+  /** `POST /api/users/me/profile-image/upload-url` — 프로필 사진 업로드 주소 발급. 새 경로다. */
+  profileImageUploadUrl: {
+    version: "1",
+    parsedBy: "apps/web/src/lib/profileApi.ts requestUploadUrl",
+  },
+  /** `PUT`·`DELETE /api/users/me/profile-image` — 프로필 사진 등록·삭제. 새 경로다. */
+  profileImage: { version: "1", parsedBy: "apps/web/src/lib/profileApi.ts" },
 
   /** `GET /api/stats?date=` */
   stats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStats" },

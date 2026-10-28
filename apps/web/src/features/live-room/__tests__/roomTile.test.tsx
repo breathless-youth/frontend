@@ -1,5 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+
+import { stubImageLoad } from "@/test/imageStub";
 
 import { RoomTile } from "../components/RoomTile";
 
@@ -42,6 +44,26 @@ describe("RoomTile 폴백", () => {
 
     expect(screen.getByText("포메1")).toBeInTheDocument();
     expect(screen.getByText("01:01")).toBeInTheDocument();
+  });
+
+  it("카메라를 끈 타일은 사진이 있으면 이니셜 대신 사진을 그린다", async () => {
+    stubImageLoad();
+    const { container } = render(
+      <RoomTile
+        member={{
+          userId: 8,
+          cameraOn: false,
+          focusState: "FOCUS",
+          nickname: "포메1",
+          profileImageUrl: "/avatars/8.jpg",
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector("img")).toHaveAttribute("src", "/avatars/8.jpg"),
+    );
+    expect(screen.queryByText("포")).toBeNull();
   });
 });
 

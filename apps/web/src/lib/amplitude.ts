@@ -1235,6 +1235,24 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
   track("profile_save_failed", { reason: result.reason });
 }
 
+/** 사진 올리기 실패 분류. 사진과 파일 크기 같은 값은 싣지 않는다. */
+export type ProfileImageUploadFailure = "unusable" | "network" | "server";
+
+export function trackProfileImageUploaded() {
+  if (!initialized) return;
+  track("profile_image_upload");
+}
+
+export function trackProfileImageRemoved() {
+  if (!initialized) return;
+  track("profile_image_remove");
+}
+
+export function trackProfileImageUploadFailed(reason: ProfileImageUploadFailure) {
+  if (!initialized) return;
+  track("profile_image_upload_failed", { reason });
+}
+
 /**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
