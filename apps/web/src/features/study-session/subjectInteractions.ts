@@ -18,6 +18,13 @@ import type { SubjectsStore } from "./useSubjects";
 
 export const MAX_SUBJECTS = 20;
 export const MAX_TASKS = 30;
+/**
+ * 과목·할 일 이름 글자 수 한도
+ *
+ * 서버 한도보다 짧게 잡아 서버 검증과 부딪히지 않는다.
+ */
+export const SUBJECT_NAME_MAX = 12;
+export const TASK_NAME_MAX = 15;
 export const LONG_PRESS_MS = 480;
 export const SWIPE_SLOP_PX = 10;
 /** 이만큼 왼쪽으로 밀고 놓으면 제거된다(원본 96). 최대 이동은 160. */

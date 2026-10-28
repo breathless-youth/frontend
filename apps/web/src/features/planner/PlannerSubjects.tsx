@@ -14,8 +14,10 @@ import {
   LONG_PRESS_MS,
   MAX_SUBJECTS,
   MAX_TASKS,
+  SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_SLOP_PX,
+  TASK_NAME_MAX,
   useInlineNameEdit,
   usePressGestures,
   useSubjectReorder,
@@ -633,7 +635,7 @@ function ManagedSubject({
       {renaming ? (
         <InlineEditor
           initial={item.name}
-          maxLength={50}
+          maxLength={SUBJECT_NAME_MAX}
           placeholder="과목 이름"
           ariaLabel="과목 이름"
           onCommit={(name) => {
@@ -680,7 +682,7 @@ function ManagedSubject({
                   <li key={task.id}>
                     <InlineEditor
                       initial={task.name}
-                      maxLength={100}
+                      maxLength={TASK_NAME_MAX}
                       placeholder="할 일 이름"
                       ariaLabel="할 일 이름"
                       onCommit={(name) => {
@@ -714,7 +716,7 @@ function ManagedSubject({
 
         {!tasksEditable ? null : addingTask ? (
           <InlineEditor
-            maxLength={100}
+            maxLength={TASK_NAME_MAX}
             placeholder="할 일 이름"
             ariaLabel="새 할 일 이름"
             onCommit={(name) => {
@@ -839,7 +841,7 @@ function ManagedSubjects({
       {editing?.kind === "new-subject" ? (
         <div className="pt-1">
           <InlineEditor
-            maxLength={50}
+            maxLength={SUBJECT_NAME_MAX}
             placeholder="과목 이름"
             ariaLabel="새 과목 이름"
             onCommit={(name) => {

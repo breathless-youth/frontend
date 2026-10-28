@@ -18,8 +18,10 @@ import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "../sessionCopy";
 import {
   MAX_SUBJECTS,
   MAX_TASKS,
+  SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_REMOVE_PX,
+  TASK_NAME_MAX,
   useInlineNameEdit,
   usePressGestures,
   useSubjectReorder,
@@ -543,7 +545,7 @@ function SubjectTasks({
           {editing?.kind === "rename-task" && editing.taskId === task.id ? (
             <InlineNameEditor
               initial={task.name}
-              maxLength={100}
+              maxLength={TASK_NAME_MAX}
               placeholder={SUBJECT_SHEET_COPY.addTask}
               ariaLabel="할 일 이름"
               onCommit={(name) => {
@@ -600,7 +602,7 @@ function SubjectTasks({
 
       {addingTask ? (
         <InlineNameEditor
-          maxLength={100}
+          maxLength={TASK_NAME_MAX}
           placeholder="할 일 이름"
           ariaLabel="새 할 일 이름"
           onCommit={(name) => {
@@ -731,7 +733,7 @@ export function SubjectPanel({
       return (
         <InlineNameEditor
           initial={subject.name}
-          maxLength={50}
+          maxLength={SUBJECT_NAME_MAX}
           placeholder={SUBJECT_SHEET_COPY.addSubject}
           ariaLabel="과목 이름"
           large
@@ -816,7 +818,7 @@ export function SubjectPanel({
   const newSubjectEditor = editing?.kind === "new-subject" && (
     <div className="rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
       <InlineNameEditor
-        maxLength={50}
+        maxLength={SUBJECT_NAME_MAX}
         placeholder="과목 이름"
         ariaLabel="새 과목 이름"
         large
