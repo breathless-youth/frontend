@@ -22,14 +22,13 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.Serializable
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.min
 
 private const val JPEG_QUALITY = 85
 
 class ProfilePhotoPickerModule : Module() {
   private lateinit var launcher: AppContextActivityResultLauncher<PickImageInput, Uri?>
-  private val picking = AtomicBoolean(false)
+  private val single = SinglePick()
 
   private val context: Context
     get() = requireNotNull(appContext.reactContext) { "React context가 없다" }
@@ -43,8 +42,8 @@ class ProfilePhotoPickerModule : Module() {
 
     AsyncFunction("pick") Coroutine { -> pick() }
 
-    // 선택기가 열린 사이 액티비티가 다시 만들어지면 결과가 오지 않아, 표시가 남아 다음 선택을 계속 막지 않게 푼다.
-    OnActivityDestroys { picking.set(false) }
+    // 선택기가 열린 사이 액티비티가 없어지면 Expo가 늦은 결과를 버려 pick이 끝나지 않으므로, 여는 단계를 취소해 null로 끝낸다.
+    OnActivityDestroys { single.cancelOpening() }
   }
 
   /**
@@ -53,18 +52,12 @@ class ProfilePhotoPickerModule : Module() {
    * 결과 콜백은 런처마다 하나라서, 고르는 중에 온 호출은 앞 호출의 결과를 가져가지 않도록 바로 null로 끝낸다.
    * 웹은 고르는 동안 사진 버튼을 막으므로 이 경우는 같은 요청이 두 번 온 때뿐이다.
    */
-  private suspend fun pick(): String? {
-    if (!picking.compareAndSet(false, true)) {
-      return null
-    }
-    try {
+  private suspend fun pick(): String? =
+    single.run(
       // 런처는 액티비티를 직접 열어서 메인 스레드에서 불러야 한다.
-      val uri = withContext(Dispatchers.Main) { launcher.launch(PickImageInput) } ?: return null
-      return withContext(Dispatchers.IO) { encodeProfilePhoto(context.contentResolver, uri) }
-    } finally {
-      picking.set(false)
-    }
-  }
+      open = { withContext(Dispatchers.Main) { launcher.launch(PickImageInput) } },
+      finish = { uri -> withContext(Dispatchers.IO) { encodeProfilePhoto(context.contentResolver, uri) } }
+    )
 }
 
 /** Expo 런처는 입력이 Serializable이어야 해서 입력이 없는 선택기에 빈 입력을 둔다. */
