@@ -124,7 +124,7 @@ describe("판 성질", () => {
 });
 
 describe("지금 구간 (KST)", () => {
-  it("판이 있는 구간은 심야·아침·점심·저녁 4개다", () => {
+  it("판이 있는 구간은 새벽·아침·점심·저녁 4개다", () => {
     expect(LIVE_SLOTS).toEqual(["NIGHT", "MORNING", "AFTERNOON", "EVENING"]);
   });
 
@@ -141,7 +141,7 @@ describe("지금 구간 (KST)", () => {
     expect(currentSlot(kst(iso))).toBe(slot);
   });
 
-  it("시각을 읽지 못하면 심야로 본다", () => {
+  it("시각을 읽지 못하면 새벽으로 본다", () => {
     expect(currentSlot(Number.NaN)).toBe("NIGHT");
   });
 });
@@ -149,7 +149,7 @@ describe("지금 구간 (KST)", () => {
 describe("지금 구간이 아닌 시간대 판", () => {
   const NIGHT_NOW = kst("2026-10-11T01:30:00");
 
-  it("1시 30분에 심야 판은 지금 구간이고 아침 판은 아니다", () => {
+  it("1시 30분에 새벽 판은 지금 구간이고 아침 판은 아니다", () => {
     expect(isOffSlot({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" }, NIGHT_NOW)).toBe(false);
     expect(isOffSlot({ type: "TIME_SLOT", period: "DAILY", slot: "MORNING" }, NIGHT_NOW)).toBe(
       true,
@@ -204,9 +204,9 @@ describe("기록에서 판 만들기", () => {
 });
 
 describe("구간 이름 조사", () => {
-  it("받침이 없는 심야는 가를 붙인다", () => {
+  it("구간 이름에 주격 조사를 붙인다", () => {
     expect(SLOT_SUBJECT).toEqual({
-      NIGHT: "심야가",
+      NIGHT: "새벽이",
       MORNING: "아침이",
       AFTERNOON: "점심이",
       EVENING: "저녁이",

@@ -61,12 +61,12 @@ export const PERIOD_LABEL: Record<RankingPeriod, string> = {
  * 판이 있는 구간
  *
  * KST 0·6·12·18시에 나뉘는 순서다.
- * 새벽은 지난 마감 기록에만 남아 판을 요청할 수 없다.
+ * 4–7시 옛 새벽(`DAWN`)은 지난 마감 기록에만 남아 판을 요청할 수 없고, 0–6시 구간과 같은 이름으로 보인다.
  */
 export const LIVE_SLOTS: readonly TimeSlot[] = ["NIGHT", "MORNING", "AFTERNOON", "EVENING"];
 
 export const SLOT_LABEL: Record<TimeSlot, string> = {
-  NIGHT: "심야",
+  NIGHT: "새벽",
   MORNING: "아침",
   AFTERNOON: "점심",
   EVENING: "저녁",
@@ -81,13 +81,9 @@ export const SLOT_HOURS: Record<TimeSlot, string> = {
   DAWN: "4–7시",
 };
 
-/**
- * 구간 이름에 주격 조사를 붙인 꼴
- *
- * 받침이 없는 심야만 `가`다.
- */
+/** 구간 이름에 주격 조사를 붙인 꼴. */
 export const SLOT_SUBJECT: Record<TimeSlot, string> = {
-  NIGHT: "심야가",
+  NIGHT: "새벽이",
   MORNING: "아침이",
   AFTERNOON: "점심이",
   EVENING: "저녁이",

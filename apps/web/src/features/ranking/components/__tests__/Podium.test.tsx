@@ -24,7 +24,7 @@ describe("Podium", () => {
     const trigger = screen.getByRole("button", { name: "TOP 3 기준 안내" });
     fireEvent.pointerDown(trigger);
     fireEvent.click(trigger);
-    expect(await screen.findAllByText("오늘 아침 6–12시 순공시간 기준")).not.toHaveLength(0);
+    expect(await screen.findAllByText("오늘 6–12시 순공시간 기준")).not.toHaveLength(0);
   });
 
   it("순공 판에는 툴팁이 없다", () => {

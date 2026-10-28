@@ -422,7 +422,7 @@ describe("보간 상한", () => {
     ).toBe(0);
   });
 
-  it("심야는 0시에 시작해 6시에 끝난다", () => {
+  it("새벽는 0시에 시작해 6시에 끝난다", () => {
     const night = {
       type: "TIME_SLOT",
       slot: "NIGHT",

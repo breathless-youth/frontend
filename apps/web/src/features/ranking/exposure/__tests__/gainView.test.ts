@@ -87,7 +87,7 @@ describe("표기", () => {
     expect(gainChipLabel({ type: "FOCUS_TIME", period: "DAILY", slot: null })).toBe("일간 순공");
     expect(gainChipLabel({ type: "FOCUS_TIME", period: "MONTHLY", slot: null })).toBe("월간 순공");
     expect(gainChipLabel({ type: "FOCUS_RATE", period: "MONTHLY", slot: null })).toBe("집중률");
-    expect(gainChipLabel({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" })).toBe("심야 구간");
+    expect(gainChipLabel({ type: "TIME_SLOT", period: "DAILY", slot: "NIGHT" })).toBe("새벽 구간");
     expect(gainChipLabel({ type: "TOTAL_TIME", period: null, slot: null })).toBe("누적 시간");
     expect(gainChipLabel({ type: "TOTAL_DAYS", period: null, slot: null })).toBe("누적 일수");
     expect(gainChipLabel({ type: "MAX_STREAK", period: null, slot: null })).toBe("연속 공부");

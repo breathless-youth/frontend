@@ -84,7 +84,7 @@ describe("RecordsSheet", () => {
     fireEvent.click(screen.getByRole("radio", { name: "2위" }));
 
     expect(
-      await screen.findByRole("button", { name: "2위 심야 구간 일간 · 9월 12일 3:40:05" }),
+      await screen.findByRole("button", { name: "2위 새벽 구간 일간 · 9월 12일 3:40:05" }),
     ).toBeInTheDocument();
     expect(getRankingRecords).toHaveBeenCalledWith(
       { rank: 2, size: 6, cursor: null },
@@ -134,7 +134,7 @@ describe("RecordsSheet", () => {
     expect(screen.getByRole("radio", { name: "전체" })).not.toHaveFocus();
   });
 
-  it("기록이 없으면 안내, 최고 순위, 가장 가까운 판, 집중 시작을 보인다", async () => {
+  it("기록이 없으면 안내, 최고 순위, 가장 가까운 판, 순공 시작을 보인다", async () => {
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
     const onFocusStart = vi.fn();
     renderSheet({ onFocusStart });
@@ -143,20 +143,20 @@ describe("RecordsSheet", () => {
       await screen.findByRole("heading", { name: "아직 TOP 3 기록이 없어요" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("마감 때 3위 안에 든 랭킹판이 생기면 여기에 모여요"),
+      screen.getByText("랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요"),
     ).toBeInTheDocument();
     expect(screen.getByText("아침 구간 5위 · 10월 3일")).toBeInTheDocument();
     expect(screen.getByText("아침 구간 12분 차")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
   // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게, 시트 안 버튼은 끌기 제외 영역 안에 둔다.
-  it("빈 상태의 집중 시작은 끌기에서 빼고 안내 제목은 그대로 끌린다", async () => {
+  it("빈 상태의 순공 시작은 끌기에서 빼고 안내 제목은 그대로 끌린다", async () => {
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
     renderSheet();
 
-    const focusStart = await screen.findByRole("button", { name: "집중 시작" });
+    const focusStart = await screen.findByRole("button", { name: "순공 시작" });
     expect(focusStart.closest("[data-base-ui-swipe-ignore]")).not.toBeNull();
     expect(
       screen
@@ -261,7 +261,7 @@ describe("RecordsSheet", () => {
     act(() => onlineManager.setOnline(true));
 
     expect(
-      await screen.findByRole("button", { name: "2위 심야 구간 일간 · 9월 12일 3:40:05" }),
+      await screen.findByRole("button", { name: "2위 새벽 구간 일간 · 9월 12일 3:40:05" }),
     ).toBeInTheDocument();
   });
 

@@ -5,7 +5,7 @@ import { formatDuration } from "@/features/records/recordsFormat";
 import { isOffSlot } from "../model/board";
 import { formatRank } from "../model/format";
 import { cardTitle, offSlotHeadline, previousResultLabel } from "../model/labels";
-import { CardShell, Deadline, FocusStartRow } from "./RankCard";
+import { CardShell, FocusStartRow } from "./RankCard";
 
 /** 새 기간 카드가 지금 시작하면 받을 순위를 보여 주는 가장 낮은 순위. */
 const START_NOW_RANK_SHOWN = 3;
@@ -14,7 +14,7 @@ const HEADLINE =
   "text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
-  return <p className={HEADLINE}>첫 공부를 마치면 랭킹 진입</p>;
+  return <p className={HEADLINE}>지금 공부하면 랭킹 진입</p>;
 }
 
 /**
@@ -38,7 +38,7 @@ export function ResetCard({
   return (
     <CardShell
       title={cardTitle(board)}
-      aside={deadline !== null && <Deadline text={deadline} />}
+      deadline={deadline}
       headline={
         isOffSlot(board, serverNow) ? (
           <p className={HEADLINE}>{offSlotHeadline(board)}</p>
@@ -98,7 +98,7 @@ export function PreviousResultCard({
 /**
  * 이 판에 아직 내 기록이 없을 때의 카드
  *
- * 지금 구간이 아닌 시간대 판은 첫 공부 안내 대신 그 구간에 공부하라고 말한다.
+ * 지금 구간이 아닌 시간대 판은 지금 공부하라는 안내 대신 그 구간에 공부하라고 말한다.
  * 연속 공부는 하루 순공 10분부터 하루로 세서, 공부를 했어도 순위가 없을 수 있어 그 기준을 말한다.
  */
 export function FirstCard({
@@ -115,13 +115,13 @@ export function FirstCard({
   return (
     <CardShell
       title="아직 내 순위가 없어요"
-      aside={deadline !== null && <Deadline text={deadline} />}
+      deadline={deadline}
       headline={
         isOffSlot(board, serverNow) ? (
           <p className={HEADLINE}>{offSlotHeadline(board)}</p>
         ) : board.type === "MAX_STREAK" ? (
           <p className={HEADLINE}>
-            하루 10분 이상 공부하면
+            10분 이상 공부하면
             <br />
             랭킹 진입
           </p>

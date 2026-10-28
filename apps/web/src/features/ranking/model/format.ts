@@ -110,7 +110,8 @@ export function formatDeadline(
   const hours = Math.floor((remain % DAY_MS) / HOUR_MS);
   const minutes = Math.floor((remain % HOUR_MS) / MINUTE_MS);
   if (days > 0) {
-    return hours === 0 ? `마감 ${days}일 전` : `마감 ${days}일 ${hours}시간 전`;
+    // 올리면 남은 시간이 실제보다 길어 보여 마감을 놓치게 하므로 일 단위는 내린다.
+    return `마감 ${days}일 전`;
   }
   if (hours > 0) {
     return minutes === 0 ? `마감 ${hours}시간 전` : `마감 ${hours}시간 ${minutes}분 전`;

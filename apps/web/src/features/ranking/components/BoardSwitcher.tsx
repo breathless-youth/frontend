@@ -48,12 +48,24 @@ const MODE_TRIGGER_CLASS =
   "data-[state=active]:text-foreground";
 
 /**
- * 종목·기간 칸
+ * 종목 탭
  *
- * 줄 높이를 줄여 칸이 28px이 되므로 누르는 영역을 넓혀 44px로 맞춘다.
- * 넓히는 방향은 이웃 칸의 누르는 영역과 겹치지 않게 쓰는 곳에서 정한다.
+ * 큰 글자 탭보다 작은 밑줄 탭이고, 칸 높이가 44px이라 누르는 영역을 따로 넓히지 않는다.
  */
-const SEGMENT_TRIGGER_CLASS = "flex-1 justify-center text-xs leading-3.5 font-bold";
+const TYPE_TRIGGER_CLASS =
+  "relative mb-0 border-b-0 px-0 text-[17px] leading-5.5 font-bold text-text-tertiary " +
+  "after:absolute after:inset-x-0 after:bottom-1.5 after:h-0.5 after:rounded-full after:bg-foreground after:opacity-0 after:content-[''] " +
+  "data-[state=active]:text-foreground data-[state=active]:after:opacity-100";
+
+/**
+ * 기간 칸
+ *
+ * 종목 탭 오른쪽에 붙는 세그먼트라 칸 높이가 32px이다.
+ * 누르는 영역은 위아래로 6px씩 넓혀 44px로 맞추고, 그 범위는 종목 줄 높이 안에 들어간다.
+ * 폭 360px 미만에서는 순공의 기간 셋과 종목 탭이 한 줄에 들어가도록 좌우 여백과 글자를 줄인다.
+ */
+const PERIOD_TRIGGER_CLASS =
+  "rounded-[9px] px-3.5 py-2 text-sm leading-4 before:-top-1.5 before:-bottom-1.5 max-[359px]:px-2 max-[359px]:text-[13px]";
 
 /**
  * 랭킹과 명예의 전당 고르기
@@ -85,9 +97,8 @@ export function BoardModeTabs({
 /**
  * 판 고르기
  *
- * 랭킹 쪽은 종목과 기간 세그먼트를 폭에 맞춰 차례로 두고, 시간대면 그 아래에 구간 칸 5개를 둔다.
- * 명예의 전당 쪽은 종목 세그먼트만 둔다.
- * 앱 세그먼트의 누름은 웹을 거쳐 늦게 도착할 수 있어서, 이미 고른 종목과 같은 값이 오면 시간대에서 고른 구간이 풀리지 않게 무시한다.
+ * 한 줄에 왼쪽은 종목 밑줄 탭, 오른쪽은 기간 칸을 두고, 시간대면 그 아래에 구간 칸 4개를 둔다.
+ * 명예의 전당 쪽은 기간이 없어 종목 탭만 둔다.
  * 선택된 구간 칸을 다시 누르면 ToggleGroup이 빈 값을 주는데, 판은 늘 하나가 골라져 있어야 해서 무시한다.
  * 지금 구간으로 연 시간대 판은 서버가 고른 구간을 선택으로 보인다.
  */
@@ -112,32 +123,35 @@ export function BoardSwitcher({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <SegmentedControl
-        ariaLabel="종목"
-        value={selection.type}
-        options={types.map((value) => ({ value, label: TYPE_LABEL[value] }))}
-        onChange={(next) => {
-          if (next !== selection.type) {
-            onChange(selectType(selection, next));
-          }
-        }}
-        // 대문자와 밑줄이 섞인 종목 값으로는 앱이 받는 id를 만들 수 없다.
-        nativeControlId="segment-ranking-type"
-        className="w-full"
-        // 위 큰 글자 탭에서는 멀고 아래 기간 칸과는 가까워 위로 12px, 아래로 4px 넓힌다.
-        triggerClassName={cn(SEGMENT_TRIGGER_CLASS, "before:-top-3 before:-bottom-1")}
-      />
-      {period !== null && (
-        <SegmentedControl
-          ariaLabel="기간"
-          value={period}
-          options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
-          onChange={(next) => onChange(selectPeriod(selection, next))}
-          className="w-full"
-          // 위 종목 칸의 누르는 영역에 닿지 않게 위로는 4px, 아래로는 12px 넓힌다.
-          triggerClassName={cn(SEGMENT_TRIGGER_CLASS, "before:-top-1 before:-bottom-3")}
-        />
-      )}
+      <div className="flex items-center justify-between gap-2">
+        <Tabs
+          value={selection.type}
+          onValueChange={(next) => onChange(selectType(selection, next as RankingType))}
+        >
+          <TabsList aria-label="종목" className="gap-3 border-b-0">
+            {types.map((value) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                aria-controls={undefined}
+                className={TYPE_TRIGGER_CLASS}
+              >
+                {TYPE_LABEL[value]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {period !== null && (
+          <SegmentedControl
+            ariaLabel="기간"
+            value={period}
+            options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
+            onChange={(next) => onChange(selectPeriod(selection, next))}
+            className="shrink-0 rounded-[11px] p-0.5"
+            triggerClassName={PERIOD_TRIGGER_CLASS}
+          />
+        )}
+      </div>
       {selection.type === "TIME_SLOT" && (
         <ToggleGroup
           type="single"
@@ -150,20 +164,22 @@ export function BoardSwitcher({
           }}
           className="grid grid-cols-4 gap-1.5"
         >
-          {/* 누르는 영역은 위로 넓히면 기간 칸의 영역에 닿아, 시상대 쪽 틈으로만 4px 넓혀 44px로 맞춘다. */}
+          {/* 누르는 영역은 위아래로 6px씩 넓혀 44px로 맞춘다. */}
           {LIVE_SLOTS.map((value) => (
             <ToggleGroupItem
               key={value}
               value={value}
               aria-label={`${SLOT_LABEL[value]} ${SLOT_HOURS[value]}${value === nowSlot ? ", 지금 구간" : ""}`}
-              className="group h-10 flex-col justify-center gap-0.5 rounded-md border-0 bg-muted px-0 text-muted-foreground before:top-0 before:-bottom-1 data-[state=on]:bg-foreground data-[state=on]:text-background"
+              className="h-8 justify-center rounded-md border-0 bg-bg-control-track px-0 text-[13px] leading-3.75 font-semibold text-muted-foreground before:-inset-y-1.5 data-[state=on]:bg-muted data-[state=on]:font-bold data-[state=on]:text-foreground data-[state=on]:shadow-(--shadow-segment-thumb)"
             >
-              <span className="flex items-center gap-1 text-[13px] leading-3.75 font-semibold group-data-[state=on]:font-bold">
-                {value === nowSlot && (
-                  <span aria-hidden="true" className="size-1.5 rounded-full bg-feedback-success" />
-                )}
-                {SLOT_LABEL[value]}
-              </span>
+              {SLOT_LABEL[value]}
+              {/* 앱 아이콘의 알림 배지처럼 칸 오른쪽 위 모서리에 걸친다. */}
+              {value === nowSlot && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1 -right-1 size-2.5 rounded-full bg-feedback-success ring-2 ring-(--bg-soft-blue-start)"
+                />
+              )}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>

@@ -35,6 +35,7 @@ export function podiumTitle(board: BoardIdentity): string {
  * 시상대 기준 툴팁
  *
  * 집중률은 참가 기준, 시간대는 어느 시각의 순공으로 겨루는지 알려 준다.
+ * 시간대는 시상대 제목에 구간 이름이 있어 시각만 쓴다.
  * 나머지 판은 종목 칩과 기간 칸만으로 기준이 드러나 툴팁을 두지 않는다.
  */
 export function podiumTooltip(board: BoardIdentity): string | null {
@@ -46,7 +47,7 @@ export function podiumTooltip(board: BoardIdentity): string | null {
     case "TIME_SLOT":
       return board.slot === null
         ? null
-        : `${periodWord(board.period ?? "DAILY")} ${SLOT_LABEL[board.slot]} ${SLOT_HOURS[board.slot]} 순공시간 기준`;
+        : `${periodWord(board.period ?? "DAILY")} ${SLOT_HOURS[board.slot]} 순공시간 기준`;
     default:
       return null;
   }
@@ -68,7 +69,7 @@ export function cardTitle(board: BoardIdentity): string {
 
 /** 지금 구간이 아닌 시간대 판에서 순위 대신 쓰는 큰 문구. */
 export function offSlotHeadline(board: BoardIdentity): string {
-  return `${slotName(board)}에 공부하면 랭킹 진입`;
+  return `${board.slot === null ? "시간대" : SLOT_LABEL[board.slot]}에 공부하면 랭킹 진입`;
 }
 
 /**

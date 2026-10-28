@@ -29,12 +29,12 @@ describe("시상대 제목과 기준 툴팁", () => {
     [
       { type: "TIME_SLOT", period: "DAILY", slot: "MORNING" },
       "아침 구간 TOP 3",
-      "오늘 아침 6–12시 순공시간 기준",
+      "오늘 6–12시 순공시간 기준",
     ],
     [
       { type: "TIME_SLOT", period: "WEEKLY", slot: "NIGHT" },
-      "심야 구간 TOP 3",
-      "이번 주 심야 0–6시 순공시간 기준",
+      "새벽 구간 TOP 3",
+      "이번 주 0–6시 순공시간 기준",
     ],
     [{ type: "TIME_SLOT", period: "DAILY", slot: null }, "시간대 TOP 3", null],
     [{ type: "TOTAL_TIME", period: null, slot: null }, "명예의 전당 TOP 3", null],
@@ -62,7 +62,9 @@ describe("지금 구간이 아닌 시간대 판", () => {
   const morning = { type: "TIME_SLOT", period: "WEEKLY", slot: "MORNING" } as const;
 
   it("순위가 없으면 그 구간에 공부해야 랭킹에 들어간다고 말한다", () => {
-    expect(offSlotHeadline(morning)).toBe("아침 구간에 공부하면 랭킹 진입");
+    expect(offSlotHeadline(morning)).toBe("아침에 공부하면 랭킹 진입");
+    expect(offSlotHeadline({ ...morning, slot: "NIGHT" })).toBe("새벽에 공부하면 랭킹 진입");
+    expect(offSlotHeadline({ ...morning, slot: null })).toBe("시간대에 공부하면 랭킹 진입");
   });
 
   it("순위가 있으면 큰 글씨 앞에 구간 이름을 쓴다", () => {
@@ -72,7 +74,7 @@ describe("지금 구간이 아닌 시간대 판", () => {
   it("시각 없이 그 구간에 공부한 시간만 들어간다고 알린다", () => {
     expect(offSlotNotice(morning)).toBe("아침에 공부한 시간만 이 순위에 들어가요");
     expect(offSlotNotice({ ...morning, slot: "NIGHT" })).toBe(
-      "심야에 공부한 시간만 이 순위에 들어가요",
+      "새벽에 공부한 시간만 이 순위에 들어가요",
     );
   });
 
