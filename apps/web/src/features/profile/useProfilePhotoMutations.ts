@@ -8,6 +8,7 @@ import {
   trackProfileImageUploadFailed,
   type ProfileImageUploadFailure,
 } from "@/lib/amplitude";
+import { pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
   registerProfileImage,
@@ -19,8 +20,17 @@ import { showCtaToast } from "@/lib/toast";
 
 import { prepareProfilePhoto, UnusablePhotoError } from "./prepareProfilePhoto";
 
-async function uploadProfilePhoto(file: File): Promise<ProfileResponse> {
-  const blob = await prepareProfilePhoto(file);
+/** 파일 입력이 넘긴 사진이거나, 앱 사진 선택기로 고르라는 표시다. */
+type PhotoSource = File | "native";
+
+async function uploadProfilePhoto(source: PhotoSource): Promise<ProfileResponse | null> {
+  // 앱은 이미 512px JPEG로 줄여 보내므로 웹에서 다시 줄이지 않는다.
+  const blob =
+    source === "native" ? await pickNativeProfilePhoto() : await prepareProfilePhoto(source);
+  // 선택기를 고르지 않고 닫은 경우라 올릴 것이 없다.
+  if (blob === null) {
+    return null;
+  }
   // 서명에 Content-Length가 들어가므로 실제로 올릴 크기를 그대로 보낸다.
   const { uploadUrl, key } = await requestUploadUrl(blob.size);
   await uploadPhoto(uploadUrl, blob);
@@ -41,6 +51,8 @@ function failureOf(error: unknown): ProfileImageUploadFailure {
  * 성공하면 프로필 캐시의 사진 주소만 바꾼다.
  * 응답 전체로 덮지 않아 입력 중인 폼과 그 비교 기준이 그대로 남는다.
  * 결과는 하단 저장하기 버튼 위 토스트로 알린다.
+ * 앱 선택기를 기다리는 시간도 mutation 안이라 그동안 `busy`가 켜져 진행 표시가 보인다.
+ * 선택기를 닫으면 결과가 null이고 캐시와 토스트와 분석 이벤트를 건드리지 않는다.
  */
 export function useProfilePhotoMutations(userId: number) {
   const queryClient = useQueryClient();
@@ -52,9 +64,14 @@ export function useProfilePhotoMutations(userId: number) {
   };
 
   const uploadMutation = useMutation({
+    // 오프라인에서 멈춰 두면 연결이 돌아올 때 누르지 않은 선택기가 뜨므로, 바로 실행해 실패 토스트로 끝낸다.
+    networkMode: "always",
     // react-query가 두 번째 인자로 컨텍스트를 넘기므로 함수를 그대로 물리지 않는다.
-    mutationFn: (file: File) => uploadProfilePhoto(file),
+    mutationFn: (source: PhotoSource) => uploadProfilePhoto(source),
     onSuccess: (data) => {
+      if (data === null) {
+        return;
+      }
       setPhoto(data.profileImageUrl);
       trackProfileImageUploaded();
     },
@@ -74,10 +91,12 @@ export function useProfilePhotoMutations(userId: number) {
   // 화면을 떠난 뒤 끝난 결과의 토스트는 다음에 뜨는 토스트 영역(세션 화면 등)에서 뒤늦게 보인다.
   // 그래서 토스트만 호출별 콜백에 둔다. react-query는 이 콜백을 화면이 남아 있을 때만 부른다.
   return {
-    upload: (file: File) =>
-      uploadMutation.mutate(file, {
-        onSuccess: () => {
-          showCtaToast("프로필 사진을 바꿨어요");
+    upload: (source: PhotoSource) =>
+      uploadMutation.mutate(source, {
+        onSuccess: (data) => {
+          if (data !== null) {
+            showCtaToast("프로필 사진을 바꿨어요");
+          }
         },
         onError: (error) => {
           showCtaToast(

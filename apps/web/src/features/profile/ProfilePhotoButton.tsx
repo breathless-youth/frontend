@@ -2,6 +2,7 @@ import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { canUseNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import { hasTokenSource } from "@/lib/userId";
 import { whenIdle } from "@/lib/whenIdle";
 
@@ -57,7 +58,7 @@ function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoPr
         aria-busy={busy || undefined}
         disabled={busy}
         onClick={() => setOpen(true)}
-        className="relative rounded-full focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+        className="relative flex rounded-full focus-visible:ring-2 focus-visible:ring-state-focus focus-visible:outline-none"
       >
         <ProfileAvatar initial={initial} colorIndex={colorIndex} imageUrl={imageUrl} />
         {busy ? (
@@ -94,6 +95,11 @@ function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoPr
         disabled={busy}
         onChangePhoto={() => {
           setOpen(false);
+          // 앱 선택기는 Android 웹뷰의 파일 입력이 읽지 못하는 큰 카메라 사진도 앱에서 읽어 줄여 준다.
+          if (canUseNativeProfilePhoto()) {
+            upload("native");
+            return;
+          }
           const input = inputRef.current;
           if (input) {
             // 같은 사진을 다시 골라도 change가 나도록 비운다.
