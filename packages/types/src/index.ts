@@ -33,6 +33,18 @@ export interface AuthRefreshResponse {
 }
 
 /**
+ * 기기 푸시 토큰 등록 API 계약 (PUT /api/push-tokens, 204) — Swagger 기준.
+ * 같은 토큰이면 권한 상태와 갱신 시각만 바뀌고, 다른 사용자에게 붙어 있던 토큰이면 지금 사용자로 옮긴다.
+ */
+export interface PushTokenRegisterRequest {
+  /** FCM 등록 토큰(최대 4096자) */
+  token: string;
+  platform: "IOS" | "ANDROID";
+  /** 등록 때의 OS 알림 권한. 서버는 꺼진 기기에도 보내고, 이 값은 클릭률의 분모로만 쓴다. */
+  notificationsEnabled: boolean;
+}
+
+/**
  * 공부 세션 제출 API 계약 (POST /api/study-sessions) — Swagger 기준.
  * 최종 제출은 앱이 잰 studySec/focusSec을 그대로 저장한다. 진행 중 값은 PUT /active로 따로
  * 보고하고(ActiveSessionSnapshotRequest), 서버가 마지막 스냅샷으로 자동 확정한다.

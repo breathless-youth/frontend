@@ -45,6 +45,7 @@ function createHarness({ devBuild = false, initial = null as PushMessage | null 
   const unsubscribe = { message: jest.fn(), opened: jest.fn(), token: jest.fn() };
   const deps = {
     navigate: jest.fn(),
+    registerToken: jest.fn(),
     devBuild,
     onTokenRefresh: jest.fn((l: (t: string) => void) => {
       listeners.token = l;
@@ -86,6 +87,15 @@ describe("startPushMessaging (BY-586)", () => {
     expect(h.unsubscribe.message).toHaveBeenCalledTimes(1);
     expect(h.unsubscribe.opened).toHaveBeenCalledTimes(1);
     expect(h.unsubscribe.token).toHaveBeenCalledTimes(1);
+  });
+
+  it("FCM 토큰이 바뀌면 서버에 다시 등록한다", () => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.token?.("new-token");
+
+    expect(h.deps.registerToken).toHaveBeenCalledTimes(1);
   });
 
   it("알림을 누르면 data.link를 경로로 바꿔 이동하고, 없으면 홈이다", () => {
@@ -223,9 +233,38 @@ describe("startPushMessaging — push_notification_opened", () => {
     h.listeners.opened?.(message({}, "m2"));
 
     expect(received.map((event) => event.properties)).toEqual([
-      { route: "/social/join" },
-      { route: "/" },
+      { route: "/social/join", fallback: false },
+      { route: "/", fallback: true },
     ]);
+  });
+
+  it("알림 data의 type·push_id를 싣고, 없으면 키를 싣지 않는다", () => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.opened?.(message({ link: "/records", type: "study_nudge", push_id: "p1" }));
+    h.listeners.opened?.(message({ link: "/records" }, "m2"));
+
+    expect(received.map((event) => event.properties)).toEqual([
+      { route: "/records", fallback: false, type: "study_nudge", push_id: "p1" },
+      { route: "/records", fallback: false },
+    ]);
+  });
+
+  it.each([
+    ["앱 탭 경로", "/records", "/records", false],
+    ["탭이 여는 웹 경로", "/planner?date=2026-10-28", "/planner", false],
+    ["앱에 없는 경로", "/unknown", "/", true],
+    ["허용 밖 주소", "https://evil.example/records", "/", true],
+    ["원래 홈", "/", "/", false],
+    ["웹 홈 경로", "/home", "/", false],
+  ])("%s(%s)는 실제로 연 화면 %s, fallback=%s", (_, link, route, fallback) => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.opened?.(message({ link }));
+
+    expect(received[0]?.properties).toEqual({ route, fallback });
   });
 
   it("해제 뒤의 알림 탭은 남기지 않는다", () => {
