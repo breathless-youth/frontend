@@ -287,6 +287,27 @@ describe("PlannerPage", () => {
     expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "unknown", isToday: true });
   });
 
+  it("오늘 플래너의 새 할 일은 100자를 넘으면 완료가 꺼지고 Enter로 저장되지 않는다", async () => {
+    mockedSubjects.mockResolvedValue([
+      { id: 3, name: "영어", colorIndex: 7, studySec: 0, focusSec: 0, tasks: [] },
+    ]);
+    renderPlanner("?userId=7");
+
+    await userEvent.click(await screen.findByRole("button", { name: "할 일 추가" }));
+    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
+    expect(input).not.toHaveAttribute("maxlength");
+    fireEvent.change(input, { target: { value: "가".repeat(79) } });
+    expect(input).not.toHaveAttribute("aria-describedby");
+    fireEvent.change(input, { target: { value: "가".repeat(101) } });
+    expect(input).toHaveValue("가".repeat(101));
+    expect(screen.getByText("101/100")).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByRole("textbox", { name: "새 할 일 이름" })).toBeInTheDocument();
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
   it("일간 조회가 과목 목록과 할 일을 실어 주면 과목 목록 API를 부르지 않는다", async () => {
     mockedStats.mockResolvedValue({
       ...stats(),

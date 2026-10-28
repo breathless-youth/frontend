@@ -130,22 +130,30 @@ export function usePressGestures(handlers: {
 }
 
 /**
- * 인라인 이름 입력의 상태와 확정 규칙 — Enter·`완료`는 확정, Escape는 취소, 포커스 이탈은 내용이 있으면
- * 확정이다. 비었거나 처음 값 그대로면 취소로 친다. 한 번 끝난 입력은 다시 확정되지 않는다.
+ * 인라인 이름 입력의 상태와 확정 규칙
+ *
+ * Enter·`완료`는 확정, Escape는 취소, 포커스 이탈은 내용이 있으면 확정이다.
+ * 비었거나 처음 값 그대로면 취소로 친다.
+ * 한 번 끝난 입력은 다시 확정되지 않는다.
+ * 한도를 넘으면 어느 경로로도 확정하지 않고 입력을 연 채 둔다.
+ * 잘라서 확정하면 사용자가 모르는 사이 글자가 사라진다.
  */
 export function useInlineNameEdit({
   initial = "",
+  maxLength,
   onCommit,
   onCancel,
 }: {
   initial?: string;
+  maxLength: number;
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial);
   const doneRef = useRef(false);
+  const over = value.length > maxLength;
   function commit() {
-    if (doneRef.current) return;
+    if (doneRef.current || over) return;
     doneRef.current = true;
     const trimmed = value.trim();
     if (trimmed.length === 0 || trimmed === initial) {
@@ -162,7 +170,7 @@ export function useInlineNameEdit({
       onCancel();
     }
   }
-  return { value, setValue, commit, handleKeyDown };
+  return { value, setValue, commit, handleKeyDown, over };
 }
 
 /**

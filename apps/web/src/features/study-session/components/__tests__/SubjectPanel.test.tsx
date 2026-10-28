@@ -111,6 +111,37 @@ describe("SubjectPanel 세로", () => {
     expect(screen.queryByRole("button", { name: /과목 추가/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "순서 변경" })).not.toBeInTheDocument();
   });
+
+  it("할 일 이름은 100자를 넘어도 입력을 받고, 완료·Enter·포커스 이탈로 저장하지 않는다", async () => {
+    const store = makeStore([MATH]);
+    renderPanel({ store });
+    await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
+    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
+    expect(input).not.toHaveAttribute("maxlength");
+
+    fireEvent.change(input, { target: { value: "가".repeat(101) } });
+    expect(input).toHaveValue("가".repeat(101));
+    expect(screen.getByText("101/100")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("100자까지 쓸 수 있어요");
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(store.addTask).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "새 할 일 이름" })).toBeInTheDocument();
+  });
+
+  it("할 일 이름 글자 수는 한도의 80%부터 보인다", async () => {
+    renderPanel({ store: makeStore([MATH]) });
+    await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
+    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
+    fireEvent.change(input, { target: { value: "가".repeat(79) } });
+    expect(screen.queryByText("79/100")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-describedby");
+    fireEvent.change(input, { target: { value: "가".repeat(80) } });
+    expect(screen.getByText("80/100")).toBeInTheDocument();
+    expect(input).toHaveAccessibleDescription("80/100");
+  });
 });
 
 describe("SubjectPanel 순서 변경 모드", () => {
