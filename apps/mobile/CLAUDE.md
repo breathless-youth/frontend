@@ -48,6 +48,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **ATT 문구는 `app.json`의 `ios.infoPlist.NSUserTrackingUsageDescription`이다.** 두 plugin 모두 옵션(`iosUserTrackingPermission`·`userTrackingPermission`)을 주지 말 것 — 영어 기본값이나 다른 문구로 덮인다. `permissionCopy.test.ts`가 고정한다. Android `AD_ID` 권한은 tracking-transparency plugin이 매니페스트에 넣는다 — `app.json` 권한 열거에는 없지만 산출물에는 있다(권한 드리프트 점검 시 참고).
 - **초기화 순서**: 모듈 스코프 `installMetaAdsSdk()` → 홈이 그려진 뒤 `initMetaAds()`(ATT 프롬프트) → 알림 권한 요청 → 그 뒤 권장 업데이트 알림창. **ATT는 앱이 active일 때만 뜬다.** 그 전에 요청하면 창 없이 "미결정"이 돌아오므로, 어댑터가 active를 기다렸다 묻고 미결정이면 다시 묻는다. **이 대기·재시도를 지우지 말 것**(프롬프트가 뜨지 않는 빌드는 App Store 심사에서 반려된다). `metaAdsSdk.test.ts`가 고정한다. 초기화 전 이벤트(첫 실행의 가입 완료)는 큐에 두었다가 ATT 응답을 SDK에 알린 뒤 흘린다. 이 순서를 바꾸면 iOS 광고 식별자 매칭이 빠지거나 OS 알림창이 겹친다.
 - **전환 이벤트 정의는 웹이 소유한다**(`apps/web/src/lib/metaAppEvents.ts`). 네이티브는 브리지 `meta-app-event`의 이름·파라미터 **형식만** 검증해(`webBridge.ts`) SDK에 넘긴다 — 이름을 화이트리스트하지 말 것(전환 목록 변경에 앱 빌드가 필요해진다). 네이티브가 직접 찍는 것은 가입 완료(`auth.ts` `loadOrRegister`의 등록 응답 `isNew`) 하나다.
+- **설치 유입 정보는 `lib/installAttribution.ts`가 설치당 한 번 읽는다.** Android 플레이 설치 정보 원문과 메타 지연 딥링크의 `fm_ad` 값을 SecureStore에 보관하고, 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴 뒤 웹의 `install-attribution-received`를 받아야 보관을 끝낸다. 지연 딥링크는 설치 뒤 처음 물을 때만 돌아오므로 보관소를 읽지 못한 실행에서 다시 묻지 말 것. 초대코드 복원(`installReferrerInvite.ts`)과는 따로 읽는다.
 - `autoLogAppEventsEnabled`·`isAutoInitEnabled`를 끄지 말 것(설치 어트리뷰션의 근거 이벤트가 사라진다). 로그인·공유 기능은 쓰지 않는다 — plugin의 `scheme`·`displayName`은 필수값일 뿐이다.
 
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)

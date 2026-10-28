@@ -93,6 +93,19 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 
 `registerOnce`가 `isNew`를 읽어 SecureStore 저장까지 끝난 뒤 `logMetaRegistration()`을 부른다. 저장 전에 찍으면 저장 실패 → 다음 실행 재등록(`isNew=false`)에서 그 사용자의 가입 완료가 한 번도 안 남을 수 있다. `isNew`는 이제 소비자가 있다(2026-07-31 검토의 "소비자 없음"은 낡았다) — 온보딩 분기에는 여전히 쓰지 않는다.
 
+## 변경 7: 사용자별 설치 유입 경로 (BY-1068, 2026-10-29)
+
+광고 관리자는 광고별 합계만 보여 줘서, 광고별로 끝까지 남는 사용자를 비교하려고 사람마다 처음 들어온 경로를 남기기로 했다.
+
+- 앱은 설치당 한 번 Android 플레이 설치 정보 원문과 메타 지연 딥링크의 `fm_ad` 값을 읽었다(`lib/installAttribution.ts`).
+- 지연 딥링크는 어댑터의 `fetchDeferredAppLink`(SDK `AppLink`)로 묻고, iOS는 추적 동의 응답을 SDK에 알린 뒤에 묻는다(`fetchMetaDeferredAppLink`).
+- iOS는 추적을 허용한 사용자만 지연 딥링크를 돌려받고, 업데이트 전에 설치한 사람은 다시 읽을 수 없다.
+- 읽은 값은 SecureStore에 보관하고 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴다.
+- 웹이 원문을 localStorage에 보관한 뒤 `install-attribution-received`로 답하면 앱은 보관을 끝낸다.
+- 웹은 Amplitude 사용자 속성 `install_source`, `install_ad`, `install_utm_*`를 setOnce로 남긴다(`apps/web/src/lib/installAttribution.ts`).
+- 메타 암호문은 앱과 웹이 풀지 않고, 서버 API(BY-1066)가 생기면 웹이 보관한 원문을 보낸다.
+- 광고 딥링크 형식은 `focusmakers://?fm_ad=ios_v1`이고, 앱과 웹 모두 `INSTALL_AD_LABEL_PATTERN`으로 거른다.
+
 ## 코드 밖 절차
 
 ### Meta 앱·EAS 환경변수 (빌드 전 필수)
