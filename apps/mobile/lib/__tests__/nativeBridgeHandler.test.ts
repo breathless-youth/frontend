@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
+import { waitFor } from "@testing-library/react-native";
 
 import type { HandlerMessage } from "@focusmakers/types";
 
@@ -87,6 +88,13 @@ jest.mock("../videoTransfer", () => ({
   appendVideoChunk: jest.fn(),
   saveVideo: jest.fn(),
   shareVideo: jest.fn(),
+}));
+
+const mockPicker: { native: { pick: jest.Mock } | null } = { native: null };
+jest.mock("../../modules/profile-photo-picker", () => ({
+  get profilePhotoPickerNative() {
+    return mockPicker.native;
+  },
 }));
 
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
@@ -879,5 +887,73 @@ describe("handleBridgeMessage: 방해 앱 잠금", () => {
     const reply = jest.fn();
     handleBridgeMessage(message, reply);
     expect(handleAppLockMessage).toHaveBeenCalledWith(message, reply);
+  });
+});
+
+describe("handleBridgeMessage: 프로필 사진 선택기", () => {
+  const request = { type: "pick-profile-photo", id: "r1", atMs: 1 } as const;
+
+  afterEach(() => {
+    mockPicker.native = null;
+  });
+
+  it("고른 사진을 같은 id의 picked로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn(async () => "AAEC") };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "profile-photo-result",
+          id: "r1",
+          status: "picked",
+          data: "AAEC",
+        }),
+      ),
+    );
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it("선택기를 닫으면 cancelled로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn(async () => null) };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "cancelled" }),
+      ),
+    );
+    expect(reply.mock.calls[0][0]).not.toHaveProperty("data");
+  });
+
+  it("사진을 읽지 못하면 failed로 답한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockPicker.native = { pick: jest.fn(async () => Promise.reject(new Error("decode"))) };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it("모듈이 없는 바이너리는 선택기 없이 failed로 답한다", async () => {
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
+      ),
+    );
   });
 });
