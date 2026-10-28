@@ -8,6 +8,7 @@ import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import type { InstallAttribution } from "../../lib/installAttribution";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -26,6 +27,16 @@ import {
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
   unlockForSession: jest.fn(),
+}));
+
+let mockInstallAttributionSink: ((payload: InstallAttribution) => void) | null = null;
+jest.mock("../../lib/installAttribution", () => ({
+  attachInstallAttributionSink: (sink: (payload: InstallAttribution) => void) => {
+    mockInstallAttributionSink = sink;
+    return () => {
+      if (mockInstallAttributionSink === sink) mockInstallAttributionSink = null;
+    };
+  },
 }));
 
 jest.mock(
@@ -1419,6 +1430,45 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
     trackNativeEvent("tab_pressed", { tab: "social", from_tab: "home", via: "tab_bar" });
 
     expect(injectedTrackEvents()).toEqual([]);
+  });
+
+  it("설치 유입 정보도 같은 조건에서 install-attribution으로 주입한다 — 웹이 받을 준비가 된 문서 하나에만 간다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    expect(mockInstallAttributionSink).toBeNull();
+
+    fireAnalyticsReady();
+    act(() => {
+      mockInstallAttributionSink?.({
+        platform: "android",
+        installReferrer: "code=0412",
+        deepLinkAd: null,
+        capturedAtMs: 7,
+      });
+    });
+
+    const injected = mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("install-attribution"))
+      .map((script) => {
+        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
+        return JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
+      });
+    expect(injected).toEqual([
+      expect.objectContaining({
+        type: "install-attribution",
+        platform: "android",
+        installReferrer: "code=0412",
+        deepLinkAd: null,
+        capturedAtMs: 7,
+      }),
+    ]);
+  });
+
+  it("포커스가 아니면 설치 유입 정보를 받을 자리로 붙지 않는다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" focused={false} />);
+    fireAnalyticsReady();
+
+    expect(mockInstallAttributionSink).toBeNull();
   });
 
   it("포커스를 잃은 동안 쌓인 이벤트를 되찾을 때 넘겨받는다 — 권한 거부 화면이 홈 탭을 덮었다 걷힌 경우", () => {

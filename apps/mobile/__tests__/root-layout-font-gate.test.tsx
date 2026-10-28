@@ -113,6 +113,12 @@ const mockInitMetaAds = jest.fn(() => Promise.resolve());
 jest.mock("../lib/metaAds", () => ({
   initMetaAds: () => mockInitMetaAds() as Promise<void>,
 }));
+// 설치 유입 정보 수집은 호출 여부만 본다(동작은 `lib/__tests__/installAttribution.test.ts`).
+const mockStartInstallAttribution = jest.fn(() => Promise.resolve());
+jest.mock("../lib/installAttribution", () => ({
+  startInstallAttribution: () => mockStartInstallAttribution() as Promise<void>,
+  attachInstallAttributionSink: () => () => {},
+}));
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
 // 접속 재판정(`refreshForceUpdate`)도 기본은 통과 — 부팅 판정과 같은 결과를 돌려주면 화면이 바뀌지 않는다.
 type Decision = { forced: boolean; recommended: boolean; latestVersion: string | null };
@@ -187,6 +193,7 @@ beforeEach(() => {
   mockRemoveLeftoverVideoFiles.mockClear();
   mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
   mockEnsurePushPermission.mockReset().mockImplementation(() => Promise.resolve());
+  mockStartInstallAttribution.mockClear();
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -584,6 +591,14 @@ describe("RootLayout Meta SDK 초기화", () => {
     await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
   });
 
+  it("같은 시점에 설치 유입 정보 수집을 한 번 시작한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockStartInstallAttribution).toHaveBeenCalledTimes(1));
+  });
+
   it("폰트가 준비되기 전에는 부르지 않는다 — 스플래시 위에서는 OS가 프롬프트를 띄우지 않는다", async () => {
     mockUseFonts.mockReturnValue([false, undefined]);
 
@@ -591,6 +606,7 @@ describe("RootLayout Meta SDK 초기화", () => {
     await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
 
     expect(mockInitMetaAds).not.toHaveBeenCalled();
+    expect(mockStartInstallAttribution).not.toHaveBeenCalled();
   });
 
   it("forced면 부르지 않는다 — 막힌 실행에서 추적 동의를 물을 이유가 없다", async () => {

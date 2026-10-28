@@ -1,5 +1,6 @@
 import {
   __resetMetaAdsForTests,
+  fetchMetaDeferredAppLink,
   initMetaAds,
   logMetaAppEvent,
   logMetaRegistration,
@@ -22,6 +23,7 @@ function fakeAdapter(overrides: Partial<FakeAdapter> = {}): FakeAdapter {
     requestTrackingPermission: jest.fn(async () => true),
     setAdvertiserTrackingEnabled: jest.fn(async () => undefined),
     logEvent: jest.fn(),
+    fetchDeferredAppLink: jest.fn(async () => null),
     ...overrides,
   };
 }
@@ -198,6 +200,37 @@ describe("metaAds — 이벤트 큐", () => {
     await initMetaAds();
 
     expect(() => logMetaAppEvent("study_session_started")).not.toThrow();
+    expect(warn).toHaveBeenCalled();
+  });
+});
+
+describe("metaAds — 지연 딥링크", () => {
+  it("어댑터가 없으면 null이다", async () => {
+    await expect(fetchMetaDeferredAppLink()).resolves.toBeNull();
+  });
+
+  it("추적 동의 응답을 SDK에 알린 뒤에 묻는다 — iOS는 그 전에 물으면 광고를 찾지 못한다", async () => {
+    const adapter = fakeAdapter({
+      fetchDeferredAppLink: jest.fn(async () => "focusmakers://?fm_ad=ios_v1"),
+    });
+    setMetaAdsAdapter(adapter);
+
+    await expect(fetchMetaDeferredAppLink()).resolves.toBe("focusmakers://?fm_ad=ios_v1");
+
+    expect(adapter.setAdvertiserTrackingEnabled.mock.invocationCallOrder[0]).toBeLessThan(
+      adapter.fetchDeferredAppLink.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("조회가 실패하면 null이다 — 유입 기록 실패가 앱 시작을 막으면 안 된다", async () => {
+    const adapter = fakeAdapter({
+      fetchDeferredAppLink: jest.fn(async () => {
+        throw new Error("network");
+      }),
+    });
+    setMetaAdsAdapter(adapter);
+
+    await expect(fetchMetaDeferredAppLink()).resolves.toBeNull();
     expect(warn).toHaveBeenCalled();
   });
 });

@@ -50,6 +50,8 @@ export type MetaAdsAdapter = {
     params: MetaAppEventParams | undefined,
     valueToSum: number | undefined,
   ): void;
+  /** 광고에 넣어 둔 지연 딥링크 주소. 광고로 설치하지 않았거나 iOS에서 추적을 거부했으면 null이다. */
+  fetchDeferredAppLink(): Promise<string | null>;
 };
 
 /** Meta 표준 이벤트 "가입 완료" — SDK의 `AppEventsLogger.AppEvents.CompletedRegistration`과 같은 값이다. */
@@ -166,6 +168,25 @@ export function logMetaAppEvent(
     return;
   }
   send(adapter, event);
+}
+
+/**
+ * 메타 광고의 지연 딥링크 주소
+ *
+ * iOS는 추적 동의 응답을 SDK에 알린 뒤에 물어야 광고를 찾으므로 초기화가 끝나기를 기다린다.
+ * 어댑터가 없거나 조회가 실패하면 null이다. 유입 기록 실패가 앱 시작을 막으면 안 된다.
+ */
+export async function fetchMetaDeferredAppLink(): Promise<string | null> {
+  await initMetaAds();
+  if (adapter === null) {
+    return null;
+  }
+  try {
+    return await adapter.fetchDeferredAppLink();
+  } catch (error) {
+    console.warn("[meta-ads] 지연 딥링크 조회 실패", error);
+    return null;
+  }
 }
 
 /** 가입 완료(Meta 표준 이벤트) — `lib/auth.ts`가 등록 응답의 `isNew`로 신규일 때만 부른다. */

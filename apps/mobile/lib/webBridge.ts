@@ -264,6 +264,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "auth-ready", atMs: record.atMs };
     case "request-token-refresh":
       return { type: "request-token-refresh", atMs: record.atMs };
+    case "install-attribution-received":
+      return { type: "install-attribution-received", atMs: record.atMs };
     case "haptic":
       if (
         record.style !== "light" &&

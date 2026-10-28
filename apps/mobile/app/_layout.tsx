@@ -14,6 +14,7 @@ import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/for
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
 import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
+import { startInstallAttribution } from "../lib/installAttribution";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { type LaunchGoal, readLaunchGoal, refreshLaunchGoal } from "../lib/launchGoal";
 import { initMetaAds } from "../lib/metaAds";
@@ -153,6 +154,8 @@ function RootLayout() {
       permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
       // 권한 응답까지 받은 뒤 실행마다 한 번 서버에 토큰을 등록한다. 알림창 순서를 붙잡지 않도록 따로 띄운다.
       void permissionPrompts.current.then(() => registerPushToken());
+      // 설치 유입 정보는 추적 동의 응답 뒤에 메타 지연 딥링크를 물어야 해서 같은 초기화를 기다린다.
+      void startInstallAttribution();
     }
     void permissionPrompts.current.then(() => {
       if (!active || recommendedVersion === null) return;

@@ -32,7 +32,11 @@ function whenAppActive(): Promise<void> {
   });
 }
 
-function createFbsdkMetaAdsAdapter({ AppEventsLogger, Settings }: typeof Fbsdk): MetaAdsAdapter {
+function createFbsdkMetaAdsAdapter({
+  AppEventsLogger,
+  AppLink,
+  Settings,
+}: typeof Fbsdk): MetaAdsAdapter {
   return {
     initialize() {
       Settings.initializeSDK();
@@ -84,6 +88,9 @@ function createFbsdkMetaAdsAdapter({ AppEventsLogger, Settings }: typeof Fbsdk):
       } else {
         AppEventsLogger.logEvent(name);
       }
+    },
+    fetchDeferredAppLink() {
+      return AppLink.fetchDeferredAppLink();
     },
   };
 }
