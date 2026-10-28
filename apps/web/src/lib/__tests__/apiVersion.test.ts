@@ -13,6 +13,7 @@ import { API_ENDPOINTS, apiVersionFor, type ApiEndpoint } from "@focusmakers/typ
 const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   register: { current: "2", legacy: "2" },
   refresh: { current: "1", legacy: "1" },
+  pushTokens: { current: "1", legacy: "1" },
   profile: { current: "2", legacy: "1" },
   stats: { current: "2", legacy: "1" },
   statsStreak: { current: "2", legacy: "1" },
