@@ -619,6 +619,9 @@ function fileInput(container: HTMLElement): HTMLInputElement {
 describe("프로필 사진", () => {
   // 사진 API는 토큰으로만 부를 수 있어 토큰을 받은 앱 문서로 연다.
   beforeEach(() => {
+    // 사진 변경은 개정 방침이 시행되는 순간부터 열린다. 타이머는 실제로 둔다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-04T00:00:00+09:00"));
     tokenSourceMock.source = {
       getUserId: () => 7,
       getAccessToken: async () => "token",
@@ -630,6 +633,26 @@ describe("프로필 사진", () => {
 
   afterEach(() => {
     tokenSourceMock.source = null;
+    vi.useRealTimers();
+  });
+
+  it("개정 방침 시행 전에는 토큰이 있어도 사진만 보이고 누를 곳이 없다", async () => {
+    vi.setSystemTime(new Date("2026-11-03T23:59:59+09:00"));
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const { container } = renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
+    expect(screen.queryByRole("button", { name: "프로필 사진 변경" })).toBeNull();
+    expect(fileInput(container)).toBeNull();
+  });
+
+  it("개정 방침 시행 시각부터는 사진 변경 버튼이 보인다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    expect(await screen.findByRole("button", { name: "프로필 사진 변경" })).toBeInTheDocument();
   });
 
   it("토큰이 없는 문서(구 앱, 브라우저 단독)에서는 바꿀 수 없어 사진만 보이고 누를 곳이 없다", async () => {

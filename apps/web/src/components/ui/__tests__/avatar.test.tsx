@@ -33,6 +33,13 @@ describe("Avatar", () => {
     expect(screen.queryByText("커")).toBeNull();
   });
 
+  it("사진에 Amplitude 화면 재생 차단 표식(amp-block)을 붙인다", async () => {
+    stubImageLoad("load");
+    const { container } = renderAvatar("/avatars/a.jpg");
+
+    await waitFor(() => expect(container.querySelector("img")).toHaveClass("amp-block"));
+  });
+
   it("사진 로드가 실패하면 이니셜을 그대로 보여 준다", async () => {
     stubImageLoad("error");
     const onLoadingStatusChange = vi.fn();
