@@ -1,7 +1,8 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FIXTURE_FOCUS_WEEKLY, FIXTURE_OVERTAKEN, FIXTURE_SLOT_DAILY } from "@/lib/rankingFixtures";
+import { stubImageLoad } from "@/test/imageStub";
 
 import { interpolateRows } from "../../model/live";
 import { AroundList } from "../AroundList";
@@ -233,5 +234,21 @@ describe("AroundList", () => {
 
       expect(animate).not.toHaveBeenCalled();
     });
+  });
+
+  it("사진이 있는 줄은 첫 글자 대신 사진을 그린다", async () => {
+    stubImageLoad();
+    const rows = interpolateRows(
+      FIXTURE_FOCUS_WEEKLY.around.map((row) =>
+        row.nickname === "형광펜" ? { ...row, profileImageUrl: "/avatars/3.jpg" } : row,
+      ),
+      0,
+    );
+    render(<AroundList type="FOCUS_TIME" rows={rows} drop={null} />);
+
+    await waitFor(() =>
+      expect(rowOf("형광펜")?.querySelector("img")).toHaveAttribute("src", "/avatars/3.jpg"),
+    );
+    expect(rowOf("커피세잔")?.querySelector("img")).toBeNull();
   });
 });

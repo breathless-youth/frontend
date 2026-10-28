@@ -187,7 +187,7 @@ function AroundRow({
         >
           {formatRank(row.rank)}
         </span>
-        <RankAvatar nickname={row.nickname} me={row.me} />
+        <RankAvatar nickname={row.nickname} me={row.me} imageUrl={row.profileImageUrl} />
         <div className="min-w-0 flex-1">
           <Nickname
             name={row.nickname}

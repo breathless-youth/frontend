@@ -358,6 +358,7 @@ export function LiveRoomSession({
     userId,
     nickname: profile?.nickname ?? serverMe?.nickname ?? "나",
     goal: profile?.goal ?? serverMe?.goal ?? null,
+    profileImageUrl: profile?.profileImageUrl ?? serverMe?.profileImageUrl ?? null,
     cameraOn,
     focusState: sessionState.kind === "DISTRACTION" ? "DISTRACTED" : "FOCUS",
     focusSec,
