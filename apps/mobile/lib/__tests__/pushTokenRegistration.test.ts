@@ -184,10 +184,23 @@ describe("watchAuthForPushToken", () => {
     expect(headersOf(1).get("Authorization")).toBe("Bearer c");
   });
 
-  it("같은 사용자의 토큰 회전이나 첫 등록 전 알림에는 아무것도 하지 않는다", async () => {
-    watchAuthForPushToken();
-    authListener()({ userId: 1, accessToken: "a", refreshToken: "r" });
+  it("등록에 성공한 적이 없을 때 토큰이 생기면 등록한다", async () => {
+    // 옛 설치의 지연 이관은 첫 실행에 access 토큰이 없어 실행 시 등록을 건너뛴다.
+    mockedEnsureAuth.mockResolvedValue({ userId: 1, accessToken: null, refreshToken: null });
     await registerPushToken();
+    watchAuthForPushToken();
+    mockedEnsureAuth.mockResolvedValue({ userId: 1, accessToken: "a", refreshToken: "r" });
+
+    authListener()({ userId: 1, accessToken: "a", refreshToken: "r" });
+    await waitFor(() => mockedFetch.mock.calls.length === 1);
+
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(headersOf(0).get("Authorization")).toBe("Bearer a");
+  });
+
+  it("등록한 사용자의 토큰 회전에는 아무것도 하지 않는다", async () => {
+    await registerPushToken();
+    watchAuthForPushToken();
     authListener()({ userId: 1, accessToken: "b", refreshToken: "r2" });
     await waitFor(() => false);
 

@@ -59,14 +59,14 @@ async function registerOnce(): Promise<void> {
 }
 
 /**
- * 사용자 ID가 바뀌면(재등록으로 다른 계정이 된 경우) 그 사용자로 토큰을 다시 등록한다. 해제 함수를 돌려준다.
+ * 마지막으로 등록한 사용자와 다른 사용자의 토큰이 생기면 다시 등록한다. 해제 함수를 돌려준다.
  *
- * 토큰 회전마다 오는 알림이라 사용자 ID가 같으면 아무것도 하지 않는다. 첫 등록 전 알림도 넘긴다 — 첫 등록은 앱 실행 때
- * 권한 요청 뒤에 한다.
+ * 재등록으로 다른 계정이 된 경우와, 아직 등록에 성공한 적이 없는 경우가 여기 해당한다. 뒤쪽은 옛 설치의 지연 이관처럼
+ * 실행 때 access 토큰이 없어 등록을 건너뛴 기기다. 같은 사용자의 토큰 회전에는 아무것도 하지 않는다.
  */
 export function watchAuthForPushToken(): () => void {
   return subscribeAuth((state) => {
-    if (lastRegisteredUserId !== null && state.userId !== lastRegisteredUserId) {
+    if (state.userId !== lastRegisteredUserId) {
       void registerPushToken();
     }
   });
