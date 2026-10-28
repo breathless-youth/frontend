@@ -289,6 +289,8 @@ function devApiProxy() {
     // 룸 STOMP 웹소켓 — /api와 같은 same-origin 우회 목적. 배포에서는 프록시 없이
     // API 베이스에서 ws(s) URL을 파생한다(features/live-room/stompRoomChannel.ts).
     "/ws": { target: DEV_PROXY_TARGET, changeOrigin: true, ws: true, configure: stripOrigin },
+    // 사진 주소는 웹과 같은 출처의 상대 경로(`/avatars/...`)라 로컬에서는 스테이징 웹의 CloudFront로 넘긴다.
+    "/avatars": { target: "https://web-dev.focusmakers.app", changeOrigin: true },
   };
 }
 
