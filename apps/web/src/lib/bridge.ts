@@ -286,6 +286,27 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       atMs: record.atMs,
     };
   }
+  if (record.type === "profile-photo-result" && typeof record.id === "string" && record.id !== "") {
+    // 빈 본문을 버리면 응답을 기다리는 쪽이 끝나지 않으므로 문자열이면 받는다.
+    // 쓸 수 있는 사진인지는 받는 쪽이 판정한다.
+    if (record.status === "picked" && typeof record.data === "string") {
+      return {
+        type: "profile-photo-result",
+        id: record.id,
+        status: "picked",
+        data: record.data,
+        atMs: record.atMs,
+      };
+    }
+    if (record.status === "cancelled" || record.status === "failed") {
+      return {
+        type: "profile-photo-result",
+        id: record.id,
+        status: record.status,
+        atMs: record.atMs,
+      };
+    }
+  }
   if (
     record.type === "native-control-press" &&
     typeof record.id === "string" &&

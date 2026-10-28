@@ -155,6 +155,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "app-lock-query":
     case "app-lock-authorize":
     case "app-lock-pick":
+    case "pick-profile-photo":
       if (typeof record.id !== "string" || record.id === "") {
         return null;
       }

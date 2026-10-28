@@ -16,6 +16,7 @@ import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
+import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
   getProfile,
@@ -51,6 +52,11 @@ vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
 vi.mock("@/lib/bridge", async (importOriginal) => ({
   ...(await importOriginal<typeof Bridge>()),
   postToNative: vi.fn(() => false),
+}));
+
+vi.mock("@/lib/nativeProfilePhoto", () => ({
+  canUseNativeProfilePhoto: vi.fn(() => false),
+  pickNativeProfilePhoto: vi.fn(),
 }));
 
 const mockedGetProfile = vi.mocked(getProfile);
@@ -681,6 +687,35 @@ describe("프로필 사진", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(click.mock.contexts[0]).toHaveAttribute("type", "file");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("앱이 사진 선택기를 지원하면 사진 바꾸기가 파일 입력 대신 앱 선택기로 고른 사진을 올린다", async () => {
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    vi.mocked(canUseNativeProfilePhoto).mockReturnValue(true);
+    onTestFinished(() => {
+      vi.mocked(canUseNativeProfilePhoto).mockReturnValue(false);
+    });
+    vi.mocked(pickNativeProfilePhoto).mockResolvedValue(jpeg);
+    vi.mocked(requestUploadUrl).mockResolvedValue({
+      uploadUrl: "https://s3.example/put",
+      key: "avatars/7/a.jpg",
+      expiresAt: "2026-10-28T10:05:00Z",
+    });
+    vi.mocked(uploadPhoto).mockResolvedValue(undefined);
+    vi.mocked(registerProfileImage).mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const { container } = renderAt("/profile?userId=7");
+
+    await userEvent.click(await screen.findByRole("button", { name: "프로필 사진 변경" }));
+    fireEvent.click(await screen.findByRole("button", { name: "사진 바꾸기" }));
+
+    expect(await screen.findByText("프로필 사진을 바꿨어요")).toBeInTheDocument();
+    expect(click).not.toHaveBeenCalled();
+    expect(pickNativeProfilePhoto).toHaveBeenCalledTimes(1);
+    expect(prepareProfilePhoto).not.toHaveBeenCalled();
+    expect(uploadPhoto).toHaveBeenCalledWith("https://s3.example/put", jpeg);
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
   });
 
   it("고른 사진을 바로 올리는 동안 버튼을 막고, 끝나면 입력 중인 닉네임은 둔 채 사진을 보인다", async () => {
