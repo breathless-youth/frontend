@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { ProfileResponse } from "@focusmakers/types";
 
@@ -12,6 +12,7 @@ import {
   type ProfileImageUploadFailure,
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import { pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
   registerProfileImage,
@@ -39,6 +40,8 @@ vi.mock("@/lib/amplitude", () => ({
 }));
 
 vi.mock("@/lib/toast", () => ({ showCtaToast: vi.fn() }));
+
+vi.mock("@/lib/nativeProfilePhoto", () => ({ pickNativeProfilePhoto: vi.fn() }));
 
 vi.mock("../prepareProfilePhoto", async (importOriginal) => ({
   ...(await importOriginal<typeof PreparePhoto>()),
@@ -151,6 +154,72 @@ describe("useProfilePhotoMutations 올리기", () => {
       expect(trackProfileImageUploaded).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("useProfilePhotoMutations 앱 선택기로 올리기", () => {
+  it("앱이 준 JPEG는 다시 줄이지 않고 그 크기로 올려 등록한다", async () => {
+    vi.mocked(pickNativeProfilePhoto).mockResolvedValue(jpeg);
+    const { result, cached } = setup();
+
+    act(() => result.current.upload("native"));
+
+    await waitFor(() => expect(showCtaToast).toHaveBeenCalledWith("프로필 사진을 바꿨어요"));
+    expect(prepareProfilePhoto).not.toHaveBeenCalled();
+    expect(requestUploadUrl).toHaveBeenCalledWith(jpeg.size);
+    expect(uploadPhoto).toHaveBeenCalledWith("https://s3.example/put", jpeg);
+    expect(cached()).toEqual({ ...profile, profileImageUrl: "/avatars/7/a.jpg" });
+    expect(trackProfileImageUploaded).toHaveBeenCalledTimes(1);
+  });
+
+  it("선택기가 열려 있는 동안 진행 중이고, 닫으면 아무것도 바꾸지 않고 알리지도 않는다", async () => {
+    let picked!: (blob: Blob | null) => void;
+    vi.mocked(pickNativeProfilePhoto).mockReturnValue(
+      new Promise((resolve) => {
+        picked = resolve;
+      }),
+    );
+    const { result, cached } = setup();
+
+    act(() => result.current.upload("native"));
+    await waitFor(() => expect(result.current.busy).toBe(true));
+    await act(async () => {
+      picked(null);
+    });
+
+    await waitFor(() => expect(result.current.busy).toBe(false));
+    expect(requestUploadUrl).not.toHaveBeenCalled();
+    expect(showCtaToast).not.toHaveBeenCalled();
+    expect(trackProfileImageUploaded).not.toHaveBeenCalled();
+    expect(trackProfileImageUploadFailed).not.toHaveBeenCalled();
+    expect(cached()).toEqual(profile);
+  });
+
+  it("오프라인이어도 멈추지 않고 바로 선택기를 열어 요청 실패를 안내한다", async () => {
+    onlineManager.setOnline(false);
+    onTestFinished(() => onlineManager.setOnline(true));
+    vi.mocked(pickNativeProfilePhoto).mockResolvedValue(jpeg);
+    vi.mocked(requestUploadUrl).mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = setup();
+
+    act(() => result.current.upload("native"));
+
+    await waitFor(() => expect(trackProfileImageUploadFailed).toHaveBeenCalledWith("network"));
+    expect(pickNativeProfilePhoto).toHaveBeenCalledTimes(1);
+    expect(showCtaToast).toHaveBeenCalledWith(UPLOAD_FAILED);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("앱이 읽지 못한 사진은 unusable로 남기고 다른 사진을 고르라고 안내한다", async () => {
+    vi.mocked(pickNativeProfilePhoto).mockRejectedValue(new UnusablePhotoError());
+    const { result, cached } = setup();
+
+    act(() => result.current.upload("native"));
+
+    await waitFor(() => expect(trackProfileImageUploadFailed).toHaveBeenCalledWith("unusable"));
+    expect(showCtaToast).toHaveBeenCalledWith(UNUSABLE);
+    expect(requestUploadUrl).not.toHaveBeenCalled();
+    expect(cached()).toEqual(profile);
+  });
 });
 
 describe("useProfilePhotoMutations 삭제", () => {

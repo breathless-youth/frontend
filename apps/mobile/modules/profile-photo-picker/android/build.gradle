@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.profilephotopicker'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.profilephotopicker"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // 앱은 react-android를 거쳐 이미 이 라이브러리를 싣고 있고, 모듈이 PickVisualMedia를 컴파일하려면 직접 적어야 한다.
+  implementation 'androidx.activity:activity:1.8.0'
+  testImplementation 'junit:junit:4.13.2'
+}

@@ -104,6 +104,15 @@ export type ToWebMessage =
    * 권한이나 고른 앱이 없어 잠그지 않았으면 오지 않는다.
    */
   | { type: "app-lock-started"; appCount: number; categoryCount: number; atMs: number }
+  /**
+   * 앱 사진 선택기 결과
+   *
+   * `pick-profile-photo`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * `picked`의 `data`는 앱이 512px 정사각형으로 줄인 JPEG의 base64다.
+   * `cancelled`는 사용자가 고르지 않고 닫은 경우이고 `failed`는 앱이 사진을 읽지 못한 경우다.
+   */
+  | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
+  | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
@@ -358,6 +367,13 @@ export type ToNativeMessage =
    * 이 메시지를 모르는 구버전 웹은 답하지 않으므로 앱은 다음 준비 신호 때 다시 보낸다.
    */
   | { type: "install-attribution-received"; atMs: number }
+  /**
+   * 앱 사진 선택기 열기
+   *
+   * Android 웹뷰의 파일 입력은 큰 카메라 사진을 읽지 못해 앱이 시스템 선택기로 고르고 줄여 보낸다.
+   * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
+   */
+  | { type: "pick-profile-photo"; id: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

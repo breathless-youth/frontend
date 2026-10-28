@@ -6,6 +6,7 @@ import { Appearance, Platform } from "react-native";
 import { GLASS_CONTROLS_BUTTON_STYLE } from "@focusmakers/types";
 
 import { appLockNative } from "../modules/app-lock";
+import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { ensureUserRegistered } from "./userApi";
@@ -78,6 +79,12 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // OS 버전이 낮아도 붙여서 웹이 켜기를 눌렀을 때 지원 버전을 안내하게 한다.
   if (getRnda() !== null || (Platform.OS === "android" && appLockNative !== null)) {
     params.appLock = "1";
+  }
+  // `profilePhotoPicker=1`: 이 바이너리가 `pick-profile-photo`를 처리할 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 사진 바꾸기를 앱 선택기에 맡긴다(`apps/web/src/lib/nativeProfilePhoto.ts`).
+  // Android 웹뷰의 파일 입력이 큰 카메라 사진을 읽지 못해 Android에만 붙이고, 모듈이 없는 옛 Dev Client에는 붙이지 않는다.
+  if (Platform.OS === "android" && profilePhotoPickerNative !== null) {
+    params.profilePhotoPicker = "1";
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
   // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.

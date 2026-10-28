@@ -16,6 +16,7 @@ import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
+import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
   getProfile,
@@ -51,6 +52,11 @@ vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
 vi.mock("@/lib/bridge", async (importOriginal) => ({
   ...(await importOriginal<typeof Bridge>()),
   postToNative: vi.fn(() => false),
+}));
+
+vi.mock("@/lib/nativeProfilePhoto", () => ({
+  canUseNativeProfilePhoto: vi.fn(() => false),
+  pickNativeProfilePhoto: vi.fn(),
 }));
 
 const mockedGetProfile = vi.mocked(getProfile);
@@ -619,6 +625,9 @@ function fileInput(container: HTMLElement): HTMLInputElement {
 describe("프로필 사진", () => {
   // 사진 API는 토큰으로만 부를 수 있어 토큰을 받은 앱 문서로 연다.
   beforeEach(() => {
+    // 사진 변경은 개정 방침이 시행되는 순간부터 열린다. 타이머는 실제로 둔다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-04T00:00:00+09:00"));
     tokenSourceMock.source = {
       getUserId: () => 7,
       getAccessToken: async () => "token",
@@ -630,6 +639,26 @@ describe("프로필 사진", () => {
 
   afterEach(() => {
     tokenSourceMock.source = null;
+    vi.useRealTimers();
+  });
+
+  it("개정 방침 시행 전에는 토큰이 있어도 사진만 보이고 누를 곳이 없다", async () => {
+    vi.setSystemTime(new Date("2026-11-03T23:59:59+09:00"));
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const { container } = renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
+    expect(screen.queryByRole("button", { name: "프로필 사진 변경" })).toBeNull();
+    expect(fileInput(container)).toBeNull();
+  });
+
+  it("개정 방침 시행 시각부터는 사진 변경 버튼이 보인다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    expect(await screen.findByRole("button", { name: "프로필 사진 변경" })).toBeInTheDocument();
   });
 
   it("토큰이 없는 문서(구 앱, 브라우저 단독)에서는 바꿀 수 없어 사진만 보이고 누를 곳이 없다", async () => {
@@ -658,6 +687,35 @@ describe("프로필 사진", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(click.mock.contexts[0]).toHaveAttribute("type", "file");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("앱이 사진 선택기를 지원하면 사진 바꾸기가 파일 입력 대신 앱 선택기로 고른 사진을 올린다", async () => {
+    stubImageLoad();
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    vi.mocked(canUseNativeProfilePhoto).mockReturnValue(true);
+    onTestFinished(() => {
+      vi.mocked(canUseNativeProfilePhoto).mockReturnValue(false);
+    });
+    vi.mocked(pickNativeProfilePhoto).mockResolvedValue(jpeg);
+    vi.mocked(requestUploadUrl).mockResolvedValue({
+      uploadUrl: "https://s3.example/put",
+      key: "avatars/7/a.jpg",
+      expiresAt: "2026-10-28T10:05:00Z",
+    });
+    vi.mocked(uploadPhoto).mockResolvedValue(undefined);
+    vi.mocked(registerProfileImage).mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const { container } = renderAt("/profile?userId=7");
+
+    await userEvent.click(await screen.findByRole("button", { name: "프로필 사진 변경" }));
+    fireEvent.click(await screen.findByRole("button", { name: "사진 바꾸기" }));
+
+    expect(await screen.findByText("프로필 사진을 바꿨어요")).toBeInTheDocument();
+    expect(click).not.toHaveBeenCalled();
+    expect(pickNativeProfilePhoto).toHaveBeenCalledTimes(1);
+    expect(prepareProfilePhoto).not.toHaveBeenCalled();
+    expect(uploadPhoto).toHaveBeenCalledWith("https://s3.example/put", jpeg);
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
   });
 
   it("고른 사진을 바로 올리는 동안 버튼을 막고, 끝나면 입력 중인 닉네임은 둔 채 사진을 보인다", async () => {

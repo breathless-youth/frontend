@@ -82,11 +82,20 @@ function buildQueryString(query: Record<string, string | number> | undefined): s
     .join("&")}`;
 }
 
-/** 로그로 남기기 전 access 토큰을 가린다 — Metro 로그에 실제 토큰이 찍히면 안 된다. */
+/**
+ * 개발 로그에 남기기 전 가릴 값 가리기
+ *
+ * Metro 로그에 실제 access 토큰이 찍히면 안 된다.
+ * 고른 사진은 base64로 수십 KB라 통째로 찍으면 로그를 읽을 수 없어 길이만 남긴다.
+ */
 function forLog(message: ToWebMessage): ToWebMessage {
-  return message.type === "auth-token"
-    ? { ...message, accessToken: message.accessToken === null ? null : "<masked>" }
-    : message;
+  if (message.type === "auth-token") {
+    return { ...message, accessToken: message.accessToken === null ? null : "<masked>" };
+  }
+  if (message.type === "profile-photo-result" && message.status === "picked") {
+    return { ...message, data: `<${message.data.length} chars>` };
+  }
+  return message;
 }
 
 /** 앱 실행 신호를 받을 유일한 탭. 세션 웹뷰가 받으면 안 되므로 경로로 좁힌다. */

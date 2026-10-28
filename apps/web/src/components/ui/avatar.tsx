@@ -30,7 +30,11 @@ function AvatarImage({
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
-      className={cn("size-full object-cover", className)}
+      className={cn(
+        // 이용자가 올린 사진이 Amplitude 화면 재생 기록에 담기지 않게 막는 표식이다.
+        "amp-block size-full object-cover",
+        className,
+      )}
       {...props}
       alt=""
     />
