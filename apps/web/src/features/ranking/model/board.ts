@@ -57,33 +57,37 @@ export const PERIOD_LABEL: Record<RankingPeriod, string> = {
   MONTHLY: "월간",
 };
 
+/**
+ * 판이 있는 구간
+ *
+ * KST 0·6·12·18시에 나뉘는 순서다.
+ * 4–7시 옛 새벽(`DAWN`)은 지난 마감 기록에만 남아 판을 요청할 수 없고, 0–6시 구간과 같은 이름으로 보인다.
+ */
+export const LIVE_SLOTS: readonly TimeSlot[] = ["NIGHT", "MORNING", "AFTERNOON", "EVENING"];
+
 export const SLOT_LABEL: Record<TimeSlot, string> = {
-  DAWN: "새벽",
-  MORNING: "오전",
-  AFTERNOON: "오후",
+  NIGHT: "새벽",
+  MORNING: "아침",
+  AFTERNOON: "점심",
   EVENING: "저녁",
-  NIGHT: "심야",
+  DAWN: "새벽",
 };
 
 export const SLOT_HOURS: Record<TimeSlot, string> = {
-  DAWN: "4–7시",
-  MORNING: "7–12시",
+  NIGHT: "0–6시",
+  MORNING: "6–12시",
   AFTERNOON: "12–18시",
-  EVENING: "18–22시",
-  NIGHT: "22–4시",
+  EVENING: "18–24시",
+  DAWN: "4–7시",
 };
 
-/**
- * 구간 이름에 주격 조사를 붙인 꼴
- *
- * 받침이 없는 오후·심야는 `가`다.
- */
+/** 구간 이름에 주격 조사를 붙인 꼴. */
 export const SLOT_SUBJECT: Record<TimeSlot, string> = {
-  DAWN: "새벽이",
-  MORNING: "오전이",
-  AFTERNOON: "오후가",
+  NIGHT: "새벽이",
+  MORNING: "아침이",
+  AFTERNOON: "점심이",
   EVENING: "저녁이",
-  NIGHT: "심야가",
+  DAWN: "새벽이",
 };
 
 const PERIODS: Record<RankingType, readonly RankingPeriod[]> = {
@@ -181,19 +185,10 @@ export function sameSelection(a: BoardSelection, b: BoardSelection): boolean {
   return a.type === b.type && periodOf(a) === periodOf(b) && slotOf(a) === slotOf(b);
 }
 
-/**
- * 지금 구간 고르기
- *
- * KST 시각으로 지금 구간을 고른다.
- * 0~4시는 전날 심야다.
- */
+/** KST 시각이 속한 지금 구간. */
 export function currentSlot(nowMs: number): TimeSlot {
   const hour = new Date(nowMs + 9 * 3_600_000).getUTCHours();
-  if (hour >= 4 && hour < 7) return "DAWN";
-  if (hour >= 7 && hour < 12) return "MORNING";
-  if (hour >= 12 && hour < 18) return "AFTERNOON";
-  if (hour >= 18 && hour < 22) return "EVENING";
-  return "NIGHT";
+  return LIVE_SLOTS[Math.floor(hour / 6)] ?? "NIGHT";
 }
 
 /**
@@ -215,7 +210,11 @@ export function boardKeyOf(selection: BoardSelection, resolvedSlot: TimeSlot | n
   return `${selection.type}:${periodOf(selection) ?? "-"}:${slot ?? "-"}`;
 }
 
-/** 기록 항목·최고 기록·가장 가까운 판이 가리키는 지금 판. */
+/**
+ * 기록 항목·최고 기록·가장 가까운 판이 가리키는 지금 판
+ *
+ * 판이 없어진 구간의 기록은 같은 기간 시간대 판의 지금 구간으로 연다.
+ */
 export function selectionOfRecord(record: {
   type: RankingRecordType;
   period: RankingPeriod;
@@ -230,7 +229,7 @@ export function selectionOfRecord(record: {
       return {
         type: "TIME_SLOT",
         period: record.period === "DAILY" ? "DAILY" : "WEEKLY",
-        slot: record.slot,
+        slot: record.slot !== null && LIVE_SLOTS.includes(record.slot) ? record.slot : null,
       };
   }
 }

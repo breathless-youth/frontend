@@ -35,7 +35,7 @@ describe("MedalModal", () => {
     renderModal(FIXTURE_UNSEEN_ONE);
 
     const dialog = screen.getByRole("dialog", { name: "1위로 마감했어요" });
-    expect(dialog).toHaveAccessibleDescription("10월 9일 (금) · 일간 · 오전 구간");
+    expect(dialog).toHaveAccessibleDescription("10월 9일 (금) · 일간 · 아침 구간");
     expect(byText("P", "기록 3:04:20")).toBeInTheDocument();
     expect(byText("SPAN", "현재까지 메달을 19번 얻었어요")).toBeInTheDocument();
   });
@@ -61,8 +61,8 @@ describe("MedalModal", () => {
     expect(screen.getByRole("dialog", { name: "메달 3개를 땄어요" })).toHaveAccessibleDescription(
       "10월 9일 (금) · 일간",
     );
-    expect(rowOf("오전 구간")).toHaveTextContent("1위로 마감");
-    expect(rowOf("오전 구간")).toHaveTextContent("3:04:20");
+    expect(rowOf("아침 구간")).toHaveTextContent("1위로 마감");
+    expect(rowOf("아침 구간")).toHaveTextContent("3:04:20");
     expect(rowOf("저녁 구간")).toHaveTextContent("3위로 마감");
     expect(screen.queryByText(/^외 /)).toBeNull();
     expect(byText("SPAN", "현재까지 메달을 21번 얻었어요")).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("MedalModal", () => {
     expect(screen.getByRole("listitem", { name: "2위 1개" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "3위 2개" })).toBeInTheDocument();
     expect(rowOf("새벽 구간")).toHaveTextContent("2:50:10");
-    expect(screen.queryByText("오후 구간")).toBeNull();
+    expect(screen.queryByText("점심 구간")).toBeNull();
     expect(screen.getByText("외 2개")).toBeInTheDocument();
   });
 
@@ -87,7 +87,7 @@ describe("MedalModal", () => {
       "10월 12일 (월) 00시 마감",
     );
     expect(rowOf("순공")).toHaveTextContent("주간 · 2위로 마감");
-    expect(rowOf("오전 구간")).toHaveTextContent("일간 · 1위로 마감");
+    expect(rowOf("아침 구간")).toHaveTextContent("일간 · 1위로 마감");
   });
 
   it("열리면 첫 버튼이 아니라 모달 자체로 포커스가 들어온다", () => {

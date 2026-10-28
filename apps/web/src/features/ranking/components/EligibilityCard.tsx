@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 
 import { formatGapDuration } from "../model/format";
 import { cardTitle } from "../model/labels";
-import { CardShell, Deadline, FocusStartRow } from "./RankCard";
+import { CardShell, FocusStartRow } from "./RankCard";
 
 /**
  * 기간에 세션이 없어 참가 정보가 비었을 때 쓰는 참가 조건(초).
@@ -14,7 +14,7 @@ const REQUIRED_FOCUS_SEC = { WEEKLY: 36_000, MONTHLY: 108_000 } as const;
 /**
  * 집중률 참가 미달 카드
  *
- * 참가까지 남은 순공을 보이고, 예상 순위가 1~3위이거나 서버가 예상 상위 %를 주면 예상 줄을 단다.
+ * 랭킹 진입까지 남은 순공을 보이고, 예상 순위가 1~3위이거나 서버가 예상 상위 %를 주면 예상 줄을 단다.
  * 예상 순위가 1~3위면 상위 %가 없어도 순위로 쓰는데, 참가자가 적으면 1위도 상위 100%처럼 어색하게 읽혀서다.
  * 그 밖에는 상위 %로 쓰고, 상위 %도 없으면 줄을 뺀다.
  */
@@ -43,11 +43,12 @@ export function IneligibleCard({
   return (
     <CardShell
       title={cardTitle(board)}
-      aside={deadline !== null && <Deadline text={deadline} />}
+      deadline={deadline}
       headline={
-        <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
-          참가까지{" "}
-          <span className="text-primary">
+        // 좁은 화면에서 줄이 넘어갈 때 남은 시간이 숫자와 단위 사이에서 끊기지 않게 통째로 넘긴다.
+        <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-foreground">
+          랭킹 진입까지{" "}
+          <span className="whitespace-nowrap text-primary">
             {formatGapDuration(Math.max(0, required - focusSec))}
           </span>
         </p>
@@ -64,7 +65,7 @@ export function IneligibleCard({
   );
 }
 
-/** 참가 전에는 내 앞뒤 순위 대신 보이는 잠긴 카드. */
+/** 랭킹 진입 전에는 내 앞뒤 순위 대신 보이는 잠긴 카드. */
 export function LockedListCard() {
   return (
     <section
@@ -73,7 +74,7 @@ export function LockedListCard() {
     >
       <Lock size={22} strokeWidth={1.8} aria-hidden="true" className="text-brand-subtle-text" />
       <p className="text-sm leading-4 font-bold text-brand-subtle-text">
-        참가하면 내 앞뒤 순위가 보여요
+        랭킹에 진입하면 나의 앞뒤 순위가 보여요
       </p>
     </section>
   );

@@ -32,17 +32,19 @@ const FILLED_FOCUS_RING =
  * 랭킹 카드 틀
  *
  * 제목은 카드 이름으로만 읽히고 화면에는 큰 글씨부터 보인다.
- * 마감이나 상위 %는 큰 글씨 첫 줄 오른쪽에 둔다.
+ * 마감이나 누적 판의 상위 %는 큰 글씨 첫 줄 오른쪽에 둔다.
  */
 export function CardShell({
   title,
   headline,
+  deadline,
   aside,
   className,
   children,
 }: {
   title: string;
   headline?: ReactNode;
+  deadline?: string | null;
   aside?: ReactNode;
   className?: string;
   children?: ReactNode;
@@ -56,10 +58,13 @@ export function CardShell({
       <h2 id={titleId} className="sr-only">
         {title}
       </h2>
-      {(Boolean(headline) || Boolean(aside)) && (
+      {(Boolean(headline) || Boolean(deadline) || Boolean(aside)) && (
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">{headline}</div>
-          {aside}
+          {aside ||
+            (Boolean(deadline) && (
+              <p className="shrink-0 text-[13px] leading-3.75 text-muted-foreground">{deadline}</p>
+            ))}
         </div>
       )}
       {children}
@@ -67,14 +72,10 @@ export function CardShell({
   );
 }
 
-export function Deadline({ text }: { text: string }) {
-  return <p className="shrink-0 text-[13px] leading-3.75 text-muted-foreground">{text}</p>;
-}
-
 /**
- * 카드 오른쪽 아래의 작은 집중 시작 버튼
+ * 카드 오른쪽 아래의 작은 순공 시작 버튼
  *
- * 보이는 높이는 31px이고 누르는 영역은 위아래로 넓힌다.
+ * 보이는 높이는 36px이고 누르는 영역은 위아래로 4px씩 넓혀 44px로 맞춘다.
  */
 export function FocusStartPill({ onClick }: { onClick: () => void }) {
   return (
@@ -82,11 +83,11 @@ export function FocusStartPill({ onClick }: { onClick: () => void }) {
       size="sm"
       onClick={onClick}
       className={cn(
-        "relative h-7.75 shrink-0 rounded-full bg-primary-deep px-2.5 text-[13px] leading-3.75 font-bold before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
+        "relative h-9 shrink-0 justify-center rounded-full bg-primary-deep px-4 text-sm leading-4 font-bold before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
         FILLED_FOCUS_RING,
       )}
     >
-      집중 시작
+      순공 시작
     </Button>
   );
 }
@@ -108,7 +109,7 @@ export function FocusStartButton({
         className,
       )}
     >
-      집중 시작
+      순공 시작
     </Button>
   );
 }
@@ -136,10 +137,10 @@ export function SubLineText({ line, className }: { line: SubLine | null; classNa
 }
 
 /**
- * 아랫줄과 작은 집중 시작
+ * 아랫줄과 작은 순공 시작
  *
  * 버튼을 아랫줄 오른쪽 끝에 두고 이 줄을 큰 글자 바로 아래에 붙인다.
- * 버튼이 아랫줄보다 높아 따로 띄우지 않아도 아랫줄이 큰 글자와 8px쯤 떨어진다.
+ * 버튼이 아랫줄보다 높아 따로 띄우지 않아도 아랫줄이 위 줄과 6px쯤 떨어진다.
  * 글자를 키운 기기에서 아랫줄이 두 줄로 넘어가도 큰 글자에 붙지 않게 아랫줄 위아래에 4px을 둔다.
  */
 export function FocusStartRow({
@@ -150,7 +151,7 @@ export function FocusStartRow({
   onFocusStart: () => void;
 }) {
   return (
-    <div className="flex min-h-7.75 items-center justify-between gap-2">
+    <div className="flex min-h-9 items-center justify-between gap-2">
       <div className="min-w-0 flex-1 py-1">{children}</div>
       <FocusStartPill onClick={onFocusStart} />
     </div>
@@ -170,8 +171,8 @@ function Headline({ children }: { children: ReactNode }) {
  *
  * 위에는 다음 순위까지 남은 양을 두고, 아래는 종목마다 다르다.
  * 가장 큰 글자에서 한 사람을 짚으면 불편할 수 있어 이름 없이 쓴다.
- * 순공·시간대는 아랫줄 문구와 집중 시작, 집중률은 따라잡기 문구와 집중 시작, 누적은 다음 구간 상자다.
- * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 줄일 수 없는 차이 대신 이 판의 내 순위를 쓰고 집중 시작을 두지 않는다.
+ * 순공·시간대는 아랫줄 문구와 순공 시작, 집중률은 따라잡기 문구와 순공 시작, 누적은 다음 구간 상자다.
+ * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 줄일 수 없는 차이 대신 이 판의 내 순위를 쓰고 순공 시작을 두지 않는다.
  */
 export function RankedCard({
   board,
@@ -196,13 +197,13 @@ export function RankedCard({
   return (
     <CardShell
       title={cardTitle(board)}
+      deadline={deadline}
       aside={
-        cumulative && me !== null ? (
+        cumulative &&
+        me !== null && (
           <p className="shrink-0 text-[13px] leading-3.75 font-extrabold text-primary">
             상위 {me.topPercent}%
           </p>
-        ) : (
-          deadline !== null && <Deadline text={deadline} />
         )
       }
       headline={
@@ -277,8 +278,8 @@ function NextTierNote({ board }: { board: RankingBoardResponse }) {
 /**
  * 내가 1위인 판의 카드
  *
- * 2위와의 차이나 따라오는 사람 문구 옆에 작은 집중 시작을 둔다.
- * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 집중 시작을 두지 않는다.
+ * 2위와의 차이나 따라오는 사람 문구 옆에 작은 순공 시작을 둔다.
+ * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 순공 시작을 두지 않는다.
  */
 export function FirstPlaceCard({
   board,
@@ -296,7 +297,7 @@ export function FirstPlaceCard({
   return (
     <CardShell
       title={cardTitle(board)}
-      aside={deadline !== null && <Deadline text={deadline} />}
+      deadline={deadline}
       headline={
         <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
           <span className="text-primary">1위</span> 지키는 중

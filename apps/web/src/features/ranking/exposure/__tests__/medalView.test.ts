@@ -45,7 +45,7 @@ describe("medalModalView", () => {
   it("1위 하나는 큰 메달, 기간·판 한 줄, 기록 한 줄이다", () => {
     expect(medalModalView(FIXTURE_UNSEEN_ONE)).toEqual({
       stack: { left: null, center: 1, right: null },
-      eyebrow: "10월 9일 (금) · 일간 · 오전 구간",
+      eyebrow: "10월 9일 (금) · 일간 · 아침 구간",
       title: "1위로 마감했어요",
       value: "3:04:20",
       rows: [],
@@ -73,7 +73,7 @@ describe("medalModalView", () => {
       title: "메달 3개를 땄어요",
       value: null,
       rows: [
-        { id: 41, rank: 1, name: "오전 구간", detail: "1위로 마감", value: "3:04:20" },
+        { id: 41, rank: 1, name: "아침 구간", detail: "1위로 마감", value: "3:04:20" },
         { id: 43, rank: 2, name: "순공", detail: "2위로 마감", value: "9:40:10" },
         { id: 44, rank: 3, name: "저녁 구간", detail: "3위로 마감", value: "2:48:00" },
       ],
@@ -92,7 +92,7 @@ describe("medalModalView", () => {
       { rank: 2, count: 1 },
       { rank: 3, count: 2 },
     ]);
-    expect(view.rows.map((row) => row.name)).toEqual(["오전 구간", "새벽 구간", "순공"]);
+    expect(view.rows.map((row) => row.name)).toEqual(["아침 구간", "새벽 구간", "순공"]);
     expect(view.more).toBe(2);
   });
 

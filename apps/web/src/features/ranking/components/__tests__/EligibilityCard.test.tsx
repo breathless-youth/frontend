@@ -10,7 +10,7 @@ function paragraph(text: string) {
 }
 
 describe("IneligibleCard", () => {
-  it("참가까지 남은 순공과 예상 상위 %만 보이고 게이지와 숫자 줄은 없다", () => {
+  it("랭킹 진입까지 남은 순공과 예상 상위 %만 보이고 게이지와 숫자 줄은 없다", () => {
     render(
       <IneligibleCard
         board={FIXTURE_INELIGIBLE}
@@ -19,12 +19,12 @@ describe("IneligibleCard", () => {
       />,
     );
 
-    expect(paragraph("참가까지 3시간 40분")).toBeInTheDocument();
+    expect(paragraph("랭킹 진입까지 3시간 40분")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByText("이번 주 순공", { exact: false })).toBeNull();
     expect(screen.queryByText("10시간")).toBeNull();
     expect(screen.getByText("현재 집중률이면 상위 15%예요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
   });
 
   it("예상 순위가 3위 밖이고 예상 상위 %가 아직 안 오면 그 줄을 뺀다", () => {
@@ -95,16 +95,16 @@ describe("IneligibleCard", () => {
       />,
     );
 
-    expect(paragraph("참가까지 30시간")).toBeInTheDocument();
+    expect(paragraph("랭킹 진입까지 30시간")).toBeInTheDocument();
   });
 });
 
 describe("LockedListCard", () => {
-  it("참가하면 앞뒤 순위가 보인다고 말한다", () => {
+  it("랭킹에 진입하면 앞뒤 순위가 보인다고 말한다", () => {
     render(<LockedListCard />);
 
     expect(screen.getByRole("region", { name: "내 앞뒤 순위" })).toHaveTextContent(
-      "참가하면 내 앞뒤 순위가 보여요",
+      "랭킹에 진입하면 나의 앞뒤 순위가 보여요",
     );
   });
 });

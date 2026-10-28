@@ -1,6 +1,5 @@
 import {
   RANKING_TYPES,
-  TIME_SLOTS,
   type RankingPeriod,
   type RankingType,
   type TimeSlot,
@@ -9,6 +8,7 @@ import {
 import {
   DEFAULT_HALL_BOARD,
   DEFAULT_RANKING_BOARD,
+  LIVE_SLOTS,
   isHallType,
   modeOf,
   periodsOf,
@@ -178,6 +178,7 @@ function readStoredRecord(warning: string): Record<string, unknown> | null {
  * 마지막 판 읽기
  *
  * 다른 화면이 넘겨준 구간(`requestedSlot`)이 있으면 그 구간으로 연다.
+ * 넘겨준 구간이 판이 없어진 구간이면 버리고 지금 구간으로 연다.
  * 넘겨준 구간은 랭킹 탭이 판을 다시 적을 때(`writeBoardMemory`) 지워진다.
  * 읽기는 저장소를 바꾸지 않아 StrictMode가 초기화를 두 번 불러도 같은 값이 나온다.
  * 그 밖의 구간은 적지 않으므로 시간대 판은 지금 구간으로 열린다.
@@ -188,7 +189,7 @@ export function readBoardMemory(): BoardMemory {
     return DEFAULT_BOARD_MEMORY;
   }
   const ranking = parseSelection(record.ranking, "ranking") ?? DEFAULT_RANKING_BOARD;
-  const requested = (TIME_SLOTS as readonly unknown[]).includes(record.requestedSlot)
+  const requested = (LIVE_SLOTS as readonly unknown[]).includes(record.requestedSlot)
     ? (record.requestedSlot as TimeSlot)
     : null;
   const memory: BoardMemory = {

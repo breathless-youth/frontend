@@ -311,7 +311,7 @@ describe("RankingRecordsPage", () => {
     renderPage();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: "1위 오전 구간 일간 · 10월 9일 3:04:20" }),
+      await screen.findByRole("button", { name: "1위 아침 구간 일간 · 10월 9일 3:04:20" }),
     );
 
     expect(await screen.findByText("랭킹 화면")).toBeInTheDocument();
