@@ -233,9 +233,38 @@ describe("startPushMessaging — push_notification_opened", () => {
     h.listeners.opened?.(message({}, "m2"));
 
     expect(received.map((event) => event.properties)).toEqual([
-      { route: "/social/join" },
-      { route: "/" },
+      { route: "/social/join", fallback: false },
+      { route: "/", fallback: true },
     ]);
+  });
+
+  it("알림 data의 type·push_id를 싣고, 없으면 키를 싣지 않는다", () => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.opened?.(message({ link: "/records", type: "study_nudge", push_id: "p1" }));
+    h.listeners.opened?.(message({ link: "/records" }, "m2"));
+
+    expect(received.map((event) => event.properties)).toEqual([
+      { route: "/records", fallback: false, type: "study_nudge", push_id: "p1" },
+      { route: "/records", fallback: false },
+    ]);
+  });
+
+  it.each([
+    ["앱 탭 경로", "/records", "/records", false],
+    ["탭이 여는 웹 경로", "/planner?date=2026-10-28", "/planner", false],
+    ["앱에 없는 경로", "/unknown", "/", true],
+    ["허용 밖 주소", "https://evil.example/records", "/", true],
+    ["원래 홈", "/", "/", false],
+    ["웹 홈 경로", "/home", "/", false],
+  ])("%s(%s)는 실제로 연 화면 %s, fallback=%s", (_, link, route, fallback) => {
+    const h = createHarness();
+    startPushMessaging(h.deps);
+
+    h.listeners.opened?.(message({ link }));
+
+    expect(received[0]?.properties).toEqual({ route, fallback });
   });
 
   it("해제 뒤의 알림 탭은 남기지 않는다", () => {

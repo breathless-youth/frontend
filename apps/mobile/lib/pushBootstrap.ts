@@ -9,7 +9,13 @@ import {
   requestPushPermission,
 } from "./pushMessaging";
 import { trackNativeEvent } from "./nativeAnalytics";
-import { resolvePushRoute } from "./pushNotificationRouting";
+import {
+  PUSH_HOME_ROUTE,
+  PUSH_LINK_KEY,
+  pushTargetForRoute,
+  resolvePushRoute,
+  routeFromPushLink,
+} from "./pushNotificationRouting";
 import { registerPushToken } from "./pushTokenRegistration";
 import { withTimeout } from "./withTimeout";
 
@@ -59,8 +65,7 @@ export function startPushMessaging(overrides: Overrides): () => void {
     if (!active) return;
     const route = resolvePushRoute(message.data);
     devLog(`notification opened id=${message.messageId ?? "?"} → ${route}`);
-    // 알림 탭은 네이티브만 아는 진입 경로다 — 쿼리(초대코드 등)는 떼고 경로만 싣는다.
-    trackNativeEvent("push_notification_opened", { route: route.replace(/[?#].*$/, "") });
+    trackNativeEvent("push_notification_opened", openedEventProperties(message.data, route));
     deps.navigate(route);
   };
 
@@ -93,6 +98,31 @@ export function startPushMessaging(overrides: Overrides): () => void {
   return () => {
     active = false;
     for (const unsubscribe of unsubscribers) unsubscribe();
+  };
+}
+
+const withoutQuery = (route: string) => route.replace(/[?#].*$/, "");
+
+/** link가 원래 홈을 가리키는 경로. 이리로 간 것은 빠진 게 아니다. */
+const HOME_PATHS = new Set([PUSH_HOME_ROUTE, "/home"]);
+
+/**
+ * `push_notification_opened` 속성. 알림 탭은 네이티브만 아는 진입 경로다.
+ *
+ * - `route`: 실제로 연 화면. 쿼리(초대코드 등)는 뗀다. 앱에 없는 경로라 홈으로 갔으면 `/`다.
+ * - `fallback`: link가 없거나 허용 밖이거나 앱에 없는 경로라 의도와 다르게 홈으로 갔는지.
+ * - `type`·`push_id`: 서버 발송이 싣는 값. 콘솔 캠페인처럼 없으면 키를 싣지 않는다.
+ */
+function openedEventProperties(data: Record<string, string>, route: string) {
+  const linked = routeFromPushLink(data[PUSH_LINK_KEY]);
+  const target = pushTargetForRoute(route);
+  const opened = withoutQuery(typeof target === "string" ? target : route);
+  const intendedHome = linked !== null && HOME_PATHS.has(withoutQuery(linked));
+  return {
+    route: opened,
+    fallback: opened === PUSH_HOME_ROUTE && !intendedHome,
+    ...(data.type ? { type: data.type } : {}),
+    ...(data.push_id ? { push_id: data.push_id } : {}),
   };
 }
 
