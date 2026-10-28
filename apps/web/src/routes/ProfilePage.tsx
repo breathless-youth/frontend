@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
-import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
+import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
   NICKNAME_RULE_MESSAGE,
@@ -200,9 +200,11 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                 String.strip()이 지우지 않는 공백류만 입력했을 때는 그 보이지 않는 문자를
                 돌려준다 — trim()을 한 번 더 걸어 그런 공백류뿐이면 서버 이니셜로 폴백시킨다
                 (trim()은 NBSP·BOM도 지우므로 여기서는 안전하다). */}
-            <ProfileAvatar
+            <ProfilePhotoButton
+              userId={userId}
               initial={firstGrapheme(normalizeNickname(nickname)).trim() || profile.initial}
               colorIndex={profile.colorIndex}
+              imageUrl={profile.profileImageUrl}
             />
           </div>
 
