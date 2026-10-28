@@ -24,6 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
+import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
 import { subscribeSessionClosed } from "../lib/sessionClosed";
@@ -924,6 +925,17 @@ export function RemoteWebViewHost({
     }
     return attachNativeAnalyticsSink((event) => {
       sendToWeb({ type: "track-event", ...event });
+    });
+  }, [focused, analyticsReady, sendToWeb]);
+
+  // 설치 유입 정보도 같은 조건의 문서 하나에만 넘긴다.
+  // 웹은 준비 신호를 보내는 구독에서 이 메시지도 함께 받는다.
+  useEffect(() => {
+    if (!focused || !analyticsReady) {
+      return;
+    }
+    return attachInstallAttributionSink((payload) => {
+      sendToWeb({ type: "install-attribution", ...payload, atMs: Date.now() });
     });
   }, [focused, analyticsReady, sendToWeb]);
 

@@ -9,6 +9,7 @@ import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
+import { acknowledgeInstallAttribution } from "./installAttribution";
 import { saveLaunchGoal } from "./launchGoal";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
@@ -269,6 +270,9 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       break;
     case "analytics-user-properties":
       setAnalyticsUserProperties(message.properties);
+      break;
+    case "install-attribution-received":
+      void acknowledgeInstallAttribution();
       break;
     case "app-lock-query":
     case "app-lock-authorize":

@@ -23,6 +23,7 @@ import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPrese
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
 import { saveLaunchGoal } from "../launchGoal";
+import { acknowledgeInstallAttribution } from "../installAttribution";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -81,6 +82,10 @@ jest.mock("../appLock/appLockRelay", () => ({
 
 jest.mock("../launchGoal", () => ({
   saveLaunchGoal: jest.fn(async () => undefined),
+}));
+
+jest.mock("../installAttribution", () => ({
+  acknowledgeInstallAttribution: jest.fn(async () => undefined),
 }));
 
 jest.mock("../videoTransfer", () => ({
@@ -535,6 +540,13 @@ describe("handleBridgeMessage", () => {
       { room_type: "single", focus_sec: 600 },
       600,
     );
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
+  it("install-attribution-received → 보관하던 설치 유입 정보를 끝낸다", () => {
+    handleBridgeMessage({ type: "install-attribution-received", atMs: 1 }, noopReply);
+
+    expect(acknowledgeInstallAttribution).toHaveBeenCalledTimes(1);
     expect(noopReply).not.toHaveBeenCalled();
   });
 
