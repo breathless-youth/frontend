@@ -106,7 +106,20 @@ export type ToWebMessage =
   | { type: "app-lock-started"; appCount: number; categoryCount: number; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage
-  | NativeControlPressMessage;
+  | NativeControlPressMessage
+  /**
+   * 앱이 그리는 홈 날짜 줄에서 날짜를 눌렀다는 알림
+   *
+   * 홈 웹뷰에만 간다.
+   * 값은 웹이 `set-home-date-bar`로 보낸 목록 안의 날짜 키다.
+   */
+  | { type: "home-date-selected"; dateKey: string; atMs: number }
+  /** 앱이 그리는 홈 날짜 줄 메뉴에서 고른 항목. 홈 웹뷰에만 간다. */
+  | { type: "home-menu-action"; action: HomeMenuAction; atMs: number };
+
+/** 홈 날짜 줄 메뉴 항목. 웹 파서가 이 목록으로 검사한다. */
+export const HOME_MENU_ACTIONS = ["reorder-subjects", "edit-subjects"] as const;
+export type HomeMenuAction = (typeof HOME_MENU_ACTIONS)[number];
 
 /**
  * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
@@ -331,7 +344,25 @@ export type ToNativeMessage =
   | AnalyticsEventMessage
   | AnalyticsUserPropertiesMessage
   | SetGlassChromeMessage
-  | SetInlineControlsMessage;
+  | SetInlineControlsMessage
+  | SetHomeDateBarMessage;
+
+/**
+ * 홈 날짜 줄 내용
+ *
+ * `nativeDateBar=1`을 붙인 앱은 날짜 줄을 웹뷰 바깥에 직접 그린다.
+ * 날짜 목록과 글자는 웹이 정해서 앱은 받은 대로 그리기만 한다.
+ * 홈이 뜰 때와 선택이 바뀔 때마다 보낸다.
+ * 홈이 내려가면 빈 목록을 보내 앱이 날짜 줄을 거두게 한다.
+ */
+export interface SetHomeDateBarMessage {
+  type: "set-home-date-bar";
+  /** 오래된 날부터 오늘까지의 순서다. */
+  dates: { key: string; label: string; accessibilityLabel: string }[];
+  selectedKey: string;
+  todayKey: string;
+  atMs: number;
+}
 
 /** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
 type HostConsumedType =
