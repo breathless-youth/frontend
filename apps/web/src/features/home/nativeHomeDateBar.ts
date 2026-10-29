@@ -5,7 +5,7 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
 import { homeDateAccessibilityLabel, homeDateChipLabel, homeDateKeys } from "./homeDates";
 
-// 앱 안 이동은 URL에서 쿼리를 지우므로 처음 읽은 값을 보관한다.
+// 앱 안 이동은 URL에서 쿼리를 삭제하므로 처음 읽은 값을 보관한다.
 // 표시는 바이너리와 OS 버전마다 고정이다.
 function readNativeDateBarFlag(): boolean {
   return new URLSearchParams(window.location.search).get("nativeDateBar") === "1";
@@ -29,28 +29,45 @@ export function __resetNativeDateBarForTests(): void {
   nativeDateBarCache = null;
 }
 
+function postEmptyDateBar() {
+  postToNative({
+    type: "set-home-date-bar",
+    dates: [],
+    selectedKey: "",
+    todayKey: "",
+    atMs: Date.now(),
+  });
+}
+
 /**
  * 앱이 그리는 홈 날짜 줄 연결
  *
  * 날짜 목록과 글자는 웹이 정해 `set-home-date-bar`로 넘기고 앱은 그대로 그린다.
  * 앱에서 누른 날짜는 목록 안의 날짜일 때만 웹 날짜 줄과 같은 `onSelect`로 넘긴다.
  * 홈이 내려가면 빈 목록을 보내 다른 화면 위에 날짜 줄이 남지 않게 한다.
+ * `hidden`인 동안에도 빈 목록을 보낸다. 앱은 빈 목록이면 날짜 줄을 숨긴다.
  */
 export function useNativeHomeDateBar({
   todayKey,
   selectedKey,
   onSelect,
   onMenuAction,
+  hidden = false,
 }: {
   todayKey: string;
   selectedKey: string;
   onSelect: (dateKey: string) => void;
   onMenuAction?: (action: HomeMenuAction) => void;
+  hidden?: boolean;
 }): void {
   const enabled = hasNativeDateBar();
 
   useEffect(() => {
     if (!enabled) {
+      return;
+    }
+    if (hidden) {
+      postEmptyDateBar();
       return;
     }
     postToNative({
@@ -64,21 +81,13 @@ export function useNativeHomeDateBar({
       todayKey,
       atMs: Date.now(),
     });
-  }, [enabled, todayKey, selectedKey]);
+  }, [enabled, todayKey, selectedKey, hidden]);
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
-    return () => {
-      postToNative({
-        type: "set-home-date-bar",
-        dates: [],
-        selectedKey: "",
-        todayKey: "",
-        atMs: Date.now(),
-      });
-    };
+    return postEmptyDateBar;
   }, [enabled]);
 
   const onMessage = useEffectEvent((dateKey: string) => {

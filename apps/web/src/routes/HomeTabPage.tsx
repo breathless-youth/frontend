@@ -1,5 +1,7 @@
+import type { HomeMenuAction } from "@focusmakers/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -8,7 +10,10 @@ import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck
 import { HomeDateStrip } from "@/features/home/HomeDateStrip";
 import { homeDateKeys } from "@/features/home/homeDates";
 import { HomeHeader } from "@/features/home/HomeHeader";
+import { useHomeMode } from "@/features/home/homeMode";
+import { HomeSubjectEdit } from "@/features/home/HomeSubjectEdit";
 import { HomeSubjectList } from "@/features/home/HomeSubjectList";
+import { HomeSubjectReorder } from "@/features/home/HomeSubjectReorder";
 import { HomeWelcome } from "@/features/home/HomeWelcome";
 import { useNativeHomeDateBar } from "@/features/home/nativeHomeDateBar";
 import {
@@ -16,7 +21,9 @@ import {
   homeEmptyKind,
   markSubjectCreated,
 } from "@/features/home/subjectHistory";
+import { useSubjectCompletion } from "@/features/home/subjectCompletion";
 import { useStudyStatusUserProperties } from "@/features/home/useStudyStatusUserProperties";
+import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { liveSubjectsOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
@@ -47,6 +54,8 @@ const { LazySheet: LazyAddSubjectSheet, preload: preloadAddSubjectSheet } = lazy
   import("@/features/home/AddSubjectSheet").then((module) => module.AddSubjectSheet),
 );
 
+const SUBJECTS_PENDING_NOTICE = "과목을 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요";
+
 /**
  * 홈 본문
  *
@@ -57,10 +66,16 @@ const { LazySheet: LazyAddSubjectSheet, preload: preloadAddSubjectSheet } = lazy
  * 그날 시간은 같은 신호의 통계 무효화로 다시 받는다.
  * 홈 탭이 다시 보이면 세션 화면이 이미 읽었거나 시작이 실패한 것이라 남은 시작 과목을 삭제한다.
  * 웹을 거치지 않는 탭 바 재생 버튼으로 시작한 세션에 그 과목이 붙지 않게 하려는 것이다.
+ * 날짜 줄 메뉴의 과목 순서 변경·편집은 라우트가 아니라 이 화면의 상태라서 여기서는 상태에 맞는 화면으로 바꿔 끼우기만 한다.
+ * 주소의 `date`는 시간 직접 입력에서 돌아왔을 때 고른 날짜로 다시 열려고 남긴 값이다.
  */
 function HomeContent({ userId }: { userId: number }) {
   const todayKey = kstDateKey();
-  const [selectedKey, setSelectedKey] = useState(todayKey);
+  const [searchParams] = useSearchParams();
+  const [selectedKey, setSelectedKey] = useState(() => {
+    const fromUrl = searchParams.get("date");
+    return fromUrl !== null && homeDateKeys(todayKey).includes(fromUrl) ? fromUrl : todayKey;
+  });
   const isToday = selectedKey === todayKey;
   // 웹 날짜 줄과 앱 날짜 줄이 함께 쓰므로 이벤트는 여기서만 보낸다.
   const selectDate = (dateKey: string) => {
@@ -71,8 +86,6 @@ function HomeContent({ userId }: { userId: number }) {
     trackHomeDateSelected(keys.length - 1 - keys.indexOf(dateKey));
     setSelectedKey(dateKey);
   };
-  // 메뉴 내용은 아직 없어 앱 메뉴는 받지 않는다.
-  useNativeHomeDateBar({ todayKey, selectedKey, onSelect: selectDate });
   const day = usePlannerDay(userId, selectedKey);
 
   // 과목 목록은 플래너와 같은 방법으로 받는다.
@@ -86,6 +99,36 @@ function HomeContent({ userId }: { userId: number }) {
   };
   const subjects = useSubjects(true, showToast, "home", loadSubjects);
   const { reload: reloadSubjects } = subjects;
+  const completion = useSubjectCompletion(userId, selectedKey);
+
+  const homeMode = useHomeMode();
+  // 과목 목록을 받기 전에는 고칠 목록이 없어 들어가지 않는다.
+  // 웹 메뉴는 항목을 비활성으로 그리고, 항목을 끌 수 없는 앱 메뉴는 누른 결과가 없지 않게 알린다.
+  const subjectsReady = subjects.status === "ready";
+  const enterMode = (action: HomeMenuAction) => {
+    if (!subjectsReady) {
+      showToast(SUBJECTS_PENDING_NOTICE);
+      return;
+    }
+    homeMode.enter(action === "reorder-subjects" ? "reorder" : "edit");
+  };
+  useNativeHomeDateBar({
+    todayKey,
+    selectedKey,
+    onSelect: selectDate,
+    onMenuAction: enterMode,
+    hidden: homeMode.mode !== null,
+  });
+
+  const openManualRecord = useOpenManualRecord();
+  const startManualRecord = (subjectId: number) => {
+    // 돌아왔을 때 고른 날을 다시 열도록 지금 기록 항목의 주소에 날짜를 남긴다.
+    // 라우터로 바꾸면 주소 변경이 홈 페이지뷰로 한 번 더 집계되어 브라우저 기록만 고친다.
+    const url = new URL(window.location.href);
+    url.searchParams.set("date", selectedKey);
+    window.history.replaceState(window.history.state, "", url);
+    openManualRecord({ kind: "add", dateKey: selectedKey, entry: "home", subjectId });
+  };
   useEffect(
     () =>
       subscribeToNativeMessages((message) => {
@@ -147,6 +190,27 @@ function HomeContent({ userId }: { userId: number }) {
     }
   };
   const openSheet = () => setSheetOpen(true);
+  const addSubjectSheet = (
+    <LazyAddSubjectSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addSubject} />
+  );
+
+  if (homeMode.mode !== null) {
+    return (
+      <div className="flex flex-1 flex-col gap-3 px-5">
+        {homeMode.mode === "reorder" ? (
+          <HomeSubjectReorder store={subjects} onDone={homeMode.exit} />
+        ) : (
+          <HomeSubjectEdit
+            store={subjects}
+            onDone={homeMode.exit}
+            onAddSubject={openSheet}
+            onNotice={showToast}
+          />
+        )}
+        {addSubjectSheet}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-3 px-5">
@@ -171,9 +235,14 @@ function HomeContent({ userId }: { userId: number }) {
           <>
             {items.length > 0 && (
               <HomeSubjectList
+                key={selectedKey}
                 items={items}
                 isToday={isToday}
                 onPlay={(subjectId) => startFocus("home_subject", subjectId)}
+                store={subjects}
+                completion={completion}
+                onManualRecord={startManualRecord}
+                onNotice={showToast}
               />
             )}
             {subjects.status === "error" && (
@@ -201,12 +270,12 @@ function HomeContent({ userId }: { userId: number }) {
         todayKey={todayKey}
         selectedKey={selectedKey}
         onSelect={selectDate}
-        // 메뉴 내용은 아직 없어 버튼만 둔다.
-        onMenu={() => {}}
+        onMenuAction={enterMode}
+        menuDisabled={!subjectsReady}
         onStartWithoutSubject={() => startFocus("home_fallback")}
       />
 
-      <LazyAddSubjectSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addSubject} />
+      {addSubjectSheet}
     </div>
   );
 }

@@ -65,7 +65,11 @@ export function ManualRecordPage() {
   const dateParam = dateKeyOf(searchParams.get("date"));
   const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
   const rawEntry = searchParams.get("entry");
-  const entry = rawEntry === "planner_button" || rawEntry === "planner_cell" ? rawEntry : "records";
+  const entry =
+    rawEntry === "planner_button" || rawEntry === "planner_cell" || rawEntry === "home"
+      ? rawEntry
+      : "records";
+  const subjectParam = positiveIntOf(searchParams.get("subject")) ?? undefined;
   const editId = positiveIntOf(searchParams.get("id"));
   // 칸 시각은 그 칸의 달력 날짜를 date로 함께 넘긴다. 날짜가 다르면 주소가 잘못됐거나 미래 날짜를 오늘로 바꾼 것이라 버린다.
   // 정수라도 Date 범위를 넘으면 기본 구간과 돌아갈 플래너 날짜가 NaN이 되어 함께 버린다.
@@ -153,11 +157,11 @@ export function ManualRecordPage() {
   // 묶음 키가 없으면 겹침으로 잘린 다른 조각을 찾을 수 없다.
   // 조각 하나로 저장하면 서버가 묶음 전체를 지우고 새로 만들어 나머지 조각이 사라지므로 수정 화면을 열지 않는다.
   const mode: ManualRecordMode | null = !isEdit
-    ? { kind: "add", entry, startMs }
+    ? { kind: "add", entry, startMs, subjectId: subjectParam }
     : edited !== undefined && isManualSession(edited) && edited.submissionStartedAt !== undefined
       ? {
           kind: "edit",
-          entry: entry === "records" ? "records" : "planner_cell",
+          entry: entry === "records" || entry === "home" ? "records" : "planner_cell",
           bundle: bundleOf(sessions, edited.id),
         }
       : null;
@@ -198,7 +202,7 @@ export function ManualRecordPage() {
       );
       navigate(
         {
-          pathname: entry === "records" ? "/records" : "/planner",
+          pathname: entry === "records" ? "/records" : entry === "home" ? "/home" : "/planner",
           search: `?${params.toString()}`,
         },
         { replace: true },
@@ -234,7 +238,7 @@ export function ManualRecordPage() {
                 void query.refetch();
               }
             }}
-            screen={entry === "records" ? "records" : "planner"}
+            screen={entry === "records" || entry === "home" ? entry : "planner"}
           />
         ) : pending || mode === null ? (
           <FormSkeleton />

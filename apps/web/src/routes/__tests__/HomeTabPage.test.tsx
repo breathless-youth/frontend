@@ -6,13 +6,23 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import {
+  BrowserRouter,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { useEffect } from "react";
 
 import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as SubjectApi from "@/lib/subjectApi";
+import type * as ToastModule from "@/lib/toast";
 
 import { __resetNativeDateBarForTests } from "@/features/home/nativeHomeDateBar";
 import { hasCreatedSubject, markSubjectCreated } from "@/features/home/subjectHistory";
@@ -25,12 +35,15 @@ import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
-import { createSubject, listSubjects } from "@/lib/subjectApi";
+import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
+import { useNativeTabBarSync } from "@/lib/nativeTabBar";
+import { createSubject, listSubjects, renameSubject, reorderSubjects } from "@/lib/subjectApi";
 import { __resetTabBarPlayForTests } from "@/lib/tabBarPlayCapability";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { readStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { resetViewTransitionStub } from "@/test/viewTransitionStub";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
 const closeStaleSession = vi.hoisted(() =>
@@ -59,7 +72,24 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
   ...(await importOriginal<typeof SubjectApi>()),
   listSubjects: vi.fn(),
   createSubject: vi.fn(),
+  renameSubject: vi.fn(),
+  reorderSubjects: vi.fn(),
 }));
+
+/** 저장 실패 알림은 토스트로 나간다. 토스트 그리기는 자기 테스트가 본다. */
+const showToast = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/toast", async (importOriginal) => ({
+  ...(await importOriginal<typeof ToastModule>()),
+  showToast,
+}));
+
+// jsdom에는 PointerEvent가 없어 카드 밀기 판정에 쓰는 좌표와 isPrimary를 채운다.
+class TestPointerEvent extends MouseEvent {
+  readonly isPrimary = true;
+  readonly pointerId = 1;
+  readonly pointerType = "touch";
+}
+window.PointerEvent = TestPointerEvent as unknown as typeof PointerEvent;
 
 /** 홈 공지는 자기 테스트가 따로 본다. 기본은 띄울 공지가 없게 두고 복구 창 순서 테스트만 바꾼다. */
 const getActiveNotices = vi.hoisted(() => vi.fn(() => Promise.resolve<NoticeResponse[]>([])));
@@ -237,6 +267,7 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
         <Routes>
           <Route path="/home" element={<HomeTabPage />} />
           <Route path="/room/:id" element={<LocationProbe testId="room-stub" />} />
+          <Route path="/manual-record" element={<LocationProbe testId="manual-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -280,7 +311,10 @@ describe("HomeTabPage — 오늘", () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "순공 1시간 30분" })).toBeInTheDocument();
     const rows = within(await screen.findByRole("list", { name: "과목" })).getAllByRole("listitem");
-    expect(rows.map((row) => row.textContent)).toEqual(["국어순공1시간 30분", "수학순공0분"]);
+    expect(within(rows[0]!).getByText("국어")).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("1시간 30분")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("수학")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("0분")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
   });
 
@@ -482,6 +516,341 @@ describe("HomeTabPage — 앱이 그리는 날짜 줄", () => {
     fireEvent.click(screen.getByRole("button", { name: `${dayTitleWithWeekday(TODAY)}, 오늘` }));
 
     expect(analytics.trackHomeDateSelected).not.toHaveBeenCalled();
+  });
+});
+
+/** 앱 탭 바 동기화는 App이 한 번 건다. 상태가 탭 바를 숨기는지 보려고 같이 그린다. */
+function TabBarSync() {
+  useNativeTabBarSync();
+  return null;
+}
+
+function renderHomeWithTabBar(path = "/home?userId=7") {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <TabBarSync />
+        <HomeTabPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function sentMessages(postMessage: ReturnType<typeof vi.fn>) {
+  return postMessage.mock.calls.map(
+    ([raw]) => JSON.parse(raw as string) as { type: string; visible?: boolean; dates?: unknown[] },
+  );
+}
+
+describe("HomeTabPage — 과목 카드 조작", () => {
+  afterEach(() => {
+    __resetNativeDateBarForTests();
+    vi.unstubAllGlobals();
+  });
+
+  it("웹 메뉴의 과목 순서 변경은 날짜 줄과 헤더를 숨긴 순서 화면이고 완료하면 목록으로 돌아온다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 순서 변경" }));
+
+    expect(screen.getByRole("heading", { level: 1, name: "과목 순서 변경" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "날짜" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /공부 시작/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "국어 순서 이동" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "날짜" })).toBeInTheDocument();
+    // 순서를 바꾸지 않았으면 저장하지 않는다.
+    expect(reorderSubjects).not.toHaveBeenCalled();
+  });
+
+  it("상태에 들어가면 history 항목을 하나 쌓고 뒤로 가기로 나간다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    const before = window.history.state as unknown;
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    expect(screen.getByRole("heading", { level: 1, name: "과목 편집" })).toBeInTheDocument();
+    expect(window.history.state).toMatchObject({ homeMode: "edit" });
+    expect(window.location.pathname).toBe("/");
+
+    act(() => window.history.back());
+
+    expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    expect(window.history.state).toEqual(before);
+  });
+
+  it("앱 메뉴 알림으로 들어가면 앱 날짜 줄에 빈 목록을 보내고 탭 바를 숨기며, 나오면 되돌린다", async () => {
+    window.history.replaceState(null, "", "/home?userId=7&nativeDateBar=1");
+    __resetNativeDateBarForTests();
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderHomeWithTabBar("/home?userId=7&nativeDateBar=1");
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    act(() => emitNative('{"type":"home-menu-action","action":"edit-subjects","atMs":1}'));
+
+    expect(screen.getByRole("heading", { level: 1, name: "과목 편집" })).toBeInTheDocument();
+    const inState = sentMessages(postMessage);
+    expect(inState.filter((message) => message.type === "set-home-date-bar").at(-1)?.dates).toEqual(
+      [],
+    );
+    expect(inState.filter((message) => message.type === "set-tab-bar").at(-1)?.visible).toBe(false);
+
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    await waitFor(() => {
+      const after = sentMessages(postMessage);
+      expect(after.filter((message) => message.type === "set-tab-bar").at(-1)?.visible).toBe(true);
+      expect(
+        after.filter((message) => message.type === "set-home-date-bar").at(-1)?.dates,
+      ).toHaveLength(30);
+    });
+  });
+
+  it("편집 상태의 과목 추가는 과목 추가 시트를 연다", async () => {
+    mockedCreateSubject.mockResolvedValue(subject(3, "영어"));
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 추가" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("카드를 밀어 직접 입력을 누르면 그 과목과 고른 날짜로 시간 직접 입력을 연다", async () => {
+    renderHomeWithRoutes();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY) }));
+    const math = within(await screen.findByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("수학") !== null)!;
+    const surface = math.querySelector<HTMLElement>("[data-swipe-surface]")!;
+
+    fireEvent.pointerDown(surface, { clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(surface, { clientX: 120, clientY: 101 });
+    fireEvent.pointerMove(surface, { clientX: 50, clientY: 101 });
+    fireEvent.pointerUp(surface, { clientX: 50, clientY: 101 });
+    await userEvent.click(within(math).getByRole("button", { name: "직접 입력" }));
+
+    expect((await screen.findByTestId("manual-stub")).textContent).toBe(
+      `/manual-record?userId=7&date=${YESTERDAY}&entry=home&subject=2`,
+    );
+  });
+
+  it("지난 날에서 직접 입력을 열었다 뒤로 돌아오면 그 날을 고른 채 다시 열고, 홈 페이지뷰를 더 보내지 않는다", async () => {
+    window.history.replaceState(null, "", "/home?userId=7");
+    function ManualBack() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => void navigate(-1)}>
+          뒤로
+        </button>
+      );
+    }
+    // 실제 화면 전환은 이동을 다음 틱에 하므로 홈 주소를 고친 렌더가 이동보다 먼저 끝난다.
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: (update: () => unknown) => {
+        const done = new Promise<void>((resolve) =>
+          setTimeout(() => {
+            void update();
+            resolve();
+          }, 0),
+        );
+        return { finished: done, updateCallbackDone: done, ready: done, skipTransition: vi.fn() };
+      },
+    });
+    onTestFinished(resetViewTransitionStub);
+    // 페이지뷰는 라우터 위치가 바뀔 때마다 나가므로 위치 변경을 센다.
+    const visited: string[] = [];
+    function RouteLog() {
+      const { pathname, search } = useLocation();
+      useEffect(() => {
+        visited.push(`${pathname}${search}`);
+      }, [pathname, search]);
+      return null;
+    }
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <BrowserRouter>
+          <RouteLog />
+          <Routes>
+            <Route path="/home" element={<HomeTabPage />} />
+            <Route path="/manual-record" element={<ManualBack />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY) }));
+    const math = within(await screen.findByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("수학") !== null)!;
+    await userEvent.click(within(math).getByRole("button", { name: "직접 입력" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "뒤로" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: dayTitleWithWeekday(YESTERDAY) }),
+    ).toBeInTheDocument();
+    expect(visited).toEqual([
+      "/home?userId=7",
+      `/manual-record?userId=7&date=${YESTERDAY}&entry=home&subject=2`,
+      `/home?userId=7&date=${YESTERDAY}`,
+    ]);
+  });
+
+  it("주소의 date로 열면 그 날을 고른 채 열고, 30일 밖이면 오늘로 연다", async () => {
+    const { unmount } = renderHome(`/home?userId=7&date=${YESTERDAY}`);
+    expect(
+      screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday(YESTERDAY) }),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderHome("/home?userId=7&date=2020-01-01");
+    expect(
+      screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday(TODAY) }),
+    ).toBeInTheDocument();
+  });
+
+  it("실제 브라우저 라우터에서 상태에 들어갔다 뒤로 가면 /home과 과목 목록이 남고 가드가 되돌리지 않는다", async () => {
+    window.history.replaceState(null, "", "/home?userId=7");
+    const go = vi.spyOn(window.history, "go");
+    function ForwardGuard() {
+      useBlockForwardGestureIntoFullScreen();
+      return null;
+    }
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <BrowserRouter>
+          <ForwardGuard />
+          <Routes>
+            <Route path="/home" element={<HomeTabPage />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    expect(screen.getByRole("heading", { level: 1, name: "과목 편집" })).toBeInTheDocument();
+    act(() => window.history.back());
+
+    expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "과목" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/home");
+    expect(go).not.toHaveBeenCalled();
+    go.mockRestore();
+  });
+
+  it("날짜를 바꾸면 펼친 카드가 접힌 채로 다시 그려진다", async () => {
+    renderHome();
+    await userEvent.click(await screen.findByRole("button", { name: "국어 할 일" }));
+    expect(screen.getByRole("button", { name: "국어 할 일" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY) }));
+    await screen.findByRole("heading", { level: 1, name: dayTitleWithWeekday(YESTERDAY) });
+    fireEvent.click(screen.getByRole("button", { name: `${dayTitleWithWeekday(TODAY)}, 오늘` }));
+
+    expect(await screen.findByRole("button", { name: "국어 할 일" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("상태에서 순서 저장이 실패하면 알리고 과목 목록을 다시 받는다", async () => {
+    vi.mocked(reorderSubjects).mockRejectedValueOnce(new Error("network"));
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 순서 변경" }));
+    const handle = screen.getByRole("button", { name: "국어 순서 이동" });
+    act(() => handle.focus());
+    fireEvent.keyDown(handle, { key: "ArrowDown" });
+    const loadsBefore = mockedListSubjects.mock.calls.length;
+
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("저장하지 못했어요. 다시 시도해주세요"),
+    );
+    expect(reorderSubjects).toHaveBeenCalledWith({ subjectIds: [2, 1] });
+    await waitFor(() => expect(mockedListSubjects.mock.calls.length).toBeGreaterThan(loadsBefore));
+  });
+
+  it("편집 상태에서 이름 저장이 실패하면 알리고 원래 이름으로 돌아온다", async () => {
+    vi.mocked(renameSubject).mockRejectedValueOnce(new Error("network"));
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    const loadsBefore = mockedListSubjects.mock.calls.length;
+
+    const input = screen.getByRole("textbox", { name: "국어 이름" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "문학{Enter}");
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("저장하지 못했어요. 다시 시도해주세요"),
+    );
+    await waitFor(() => expect(mockedListSubjects.mock.calls.length).toBeGreaterThan(loadsBefore));
+    expect(await screen.findByRole("textbox", { name: "국어 이름" })).toHaveValue("국어");
+  });
+
+  it("과목 목록을 받기 전에는 웹 메뉴 항목이 비활성이라 상태에 들어가지 않는다", async () => {
+    mockedListSubjects.mockReturnValue(new Promise(() => {}));
+    renderHome();
+
+    await userEvent.click(await screen.findByRole("button", { name: "과목 메뉴" }));
+    const reorder = screen.getByRole("menuitem", { name: "과목 순서 변경" });
+    expect(reorder).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitem", { name: "과목 편집" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await userEvent.click(reorder);
+
+    expect(screen.queryByRole("heading", { level: 1, name: "과목 순서 변경" })).toBeNull();
+  });
+
+  it("과목 목록을 받기 전에 앱 메뉴를 누르면 상태에 들어가지 않고 잠시 뒤 다시 누르라고 알린다", async () => {
+    mockedListSubjects.mockReturnValue(new Promise(() => {}));
+    window.history.replaceState(null, "", "/home?userId=7&nativeDateBar=1");
+    __resetNativeDateBarForTests();
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderHome("/home?userId=7&nativeDateBar=1");
+    await screen.findByRole("heading", { level: 1, name: dayTitleWithWeekday(TODAY) });
+
+    act(() => emitNative('{"type":"home-menu-action","action":"edit-subjects","atMs":1}'));
+
+    expect(screen.queryByRole("heading", { level: 1, name: "과목 편집" })).toBeNull();
+    expect(showToast).toHaveBeenCalledWith("과목을 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요");
+  });
+
+  it("과목 완료 API가 없는 동안은 완료 버튼이 없다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    expect(screen.queryByRole("button", { name: "완료 표시" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "완료 취소" })).toBeNull();
   });
 });
 

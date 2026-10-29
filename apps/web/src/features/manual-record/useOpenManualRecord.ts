@@ -9,7 +9,7 @@ import type { ManualRecordMode } from "./manualRecord";
  * 입력 화면이 주소에서 읽는 쿼리. 웹뷰가 다시 로드되면 라우터 state는 사라지고 주소만 남아 전부 쿼리로 싣는다.
  * 페이지의 폴백 이동과 렌더러 종료 복구 보고가 같은 목록을 쓴다.
  */
-export const MANUAL_RECORD_PARAMS = ["date", "entry", "start", "id"] as const;
+export const MANUAL_RECORD_PARAMS = ["date", "entry", "start", "id", "subject"] as const;
 
 export type ManualRecordTarget =
   | {
@@ -17,6 +17,7 @@ export type ManualRecordTarget =
       dateKey: string;
       entry: Extract<ManualRecordMode, { kind: "add" }>["entry"];
       startMs?: number;
+      subjectId?: number;
     }
   | {
       kind: "edit";
@@ -48,8 +49,13 @@ export function useOpenManualRecord() {
     params.set("entry", target.entry);
     if (target.kind === "edit") {
       params.set("id", String(target.id));
-    } else if (target.startMs !== undefined) {
-      params.set("start", String(target.startMs));
+    } else {
+      if (target.startMs !== undefined) {
+        params.set("start", String(target.startMs));
+      }
+      if (target.subjectId !== undefined) {
+        params.set("subject", String(target.subjectId));
+      }
     }
     slideNavigate("forward", () => {
       navigate({ pathname: "/manual-record", search: `?${params.toString()}` });

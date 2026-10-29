@@ -32,7 +32,13 @@ export interface ManualSpan {
 
 /** 입력 화면을 연 방법. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
 export type ManualRecordMode =
-  | { kind: "add"; entry: "planner_button" | "planner_cell" | "records"; startMs?: number }
+  | {
+      kind: "add";
+      entry: "planner_button" | "planner_cell" | "records" | "home";
+      startMs?: number;
+      /** 처음 고른 과목. 홈 과목 카드에서 열 때 넘긴다. */
+      subjectId?: number;
+    }
   | { kind: "edit"; entry: "planner_cell" | "records"; bundle: readonly StudySessionSummary[] };
 
 export type SpanError = "too-short" | "future";
