@@ -82,6 +82,13 @@
 - iOS 26 이상 홈에서는 설정 트리거가 `hidden`이라 expo-router가 그 라우트를 내비게이터에서 뺀다. 그래서 `/settings`·`/timelapse-settings`·`/profile`로 가는 푸시 알림과 딥링크가 그대로는 열리지 않는다. `lib/settingsReveal.ts`가 탭 레이아웃에 설정 칸을 먼저 되살리게 한 뒤 이동한다(`openPushRoute`와 `+native-intent`가 쓴다). expo-router 패치는 넓히지 않았다. 앱을 처음 켜면서 들어온 설정 딥링크는 레이아웃이 아직 없어 막지 못하므로 실기기에서 확인한다.
 - `start.tsx`는 `useLayoutEffect`로 key를 알려 홈에 돌아온 첫 커밋에 옛 key가 `prominentScreenKey`로 넘어가지 않게 한다.
 
+## 재생 원만 살려 둔 차단
+
+- `set-tab-bar`에 선택 필드 `blockedExceptPlay: true`를 더했다. 홈 코치마크처럼 다른 탭 이동만 막고 탭 바 오른쪽 재생 원은 눌리게 두라는 뜻이고, `blockedByModal`보다 우선한다.
+- 앱은 이 값을 `blocked-except-play` 상태로 받는다. 탭 5개는 `blocked`처럼 막고 딤을 씌우지만 재생 원(오늘로 돌아가기 포함)은 덮개 없이 눌린다. 날짜 칩과 과목 메뉴는 `blocked`와 이 상태 모두에서 막는다.
+- 이 필드를 모르는 구버전 앱은 함께 오는 `visible: false`만 읽어 탭 바를 통째로 감춘다. 그래서 웹은 `tabBarPlay=1`을 붙인 앱에만 보낸다.
+- 웹 송신은 BY-1005에서 한다.
+
 ## 오늘로 돌아가기 (2026-10-29 사용자 추가)
 
 - 홈 날짜 줄에서 오늘이 아닌 날을 보고 있으면 탭 바 오른쪽 원이 되돌아가기 버튼이 된다. iOS는 SF Symbol `arrow.uturn.forward`를 시스템 tint로, Android는 유리 배경 원에 primary 색 화살표 SVG를 그린다. 라벨은 `오늘로`, 접근성 라벨은 `오늘로 돌아가기`다.

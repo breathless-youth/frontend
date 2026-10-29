@@ -73,6 +73,8 @@ type TabBarProps = {
   active?: TabId;
   // 웹 모달이 열린 blocked 상태 — 탭 바를 덮어 터치를 막는다.
   dimmed?: boolean;
+  // 코치마크가 재생 원을 가리키는 동안이라 막대만 덮고 재생 원은 눌리게 둔다.
+  dimmedExceptPlay?: boolean;
   /**
    * hidden 상태 — 전체 화면 웹 라우트와 바텀시트. 언마운트하지 않고 즉시 감췄다가 페이드로 되살린다.
    * 떠 있는 바라 자리 걱정이 없고, 마운트/언마운트는 나타날 때 한 프레임 번쩍여 웹 시트 애니메이션과
@@ -89,7 +91,13 @@ type TabBarProps = {
  * 선택 표시 알약은 하나만 두고 이전 탭 자리에서 새 자리로 미끄러진다.
  * 홈 날짜 줄은 같은 유리 막대로 탭 바 바로 위에 띄우고, 웹은 그 높이와 간격만큼 본문 끝을 비운다.
  */
-export function TabBar({ active = "home", dimmed = false, hidden = false }: TabBarProps) {
+export function TabBar({
+  active = "home",
+  dimmed = false,
+  dimmedExceptPlay = false,
+  hidden = false,
+}: TabBarProps) {
+  const barDimmed = dimmed || dimmedExceptPlay;
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const g = softBlue.glass;
@@ -147,6 +155,8 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
           testID="tab-bar-date-bar"
           entering={FadeIn.duration(MORPH_MS).reduceMotion(ReduceMotion.System)}
           exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
+          accessibilityElementsHidden={dimmedExceptPlay}
+          importantForAccessibility={dimmedExceptPlay ? "no-hide-descendants" : "auto"}
           style={[styles.dateBarWrap, { boxShadow: `0 10px 30px ${g.shadow[scheme]}` }]}
         >
           <View
@@ -163,8 +173,11 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
         </Reanimated.View>
       )}
       <View style={styles.barRow}>
+        {/* 재생 원만 살린 딤에서는 레이아웃 래퍼가 아니라 여기서 막대만 접근성 트리에서 뺀다. 래퍼가 빼면 재생 원도 빠진다. */}
         <Reanimated.View
           layout={BAR_LAYOUT}
+          accessibilityElementsHidden={dimmedExceptPlay}
+          importantForAccessibility={dimmedExceptPlay ? "no-hide-descendants" : "auto"}
           style={[
             styles.shadowWrap,
             // shadow*는 iOS 전용이고, Android elevation은 배경 없는 뷰에 그림자를 그리지 않는다.
@@ -221,7 +234,7 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
                     style={styles.tab}
                   >
                     <Pressable
-                      disabled={isActive}
+                      disabled={isActive || barDimmed}
                       onPress={() => {
                         trackNativeEvent("tab_pressed", {
                           tab: id,
@@ -244,7 +257,7 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
                 );
               })}
             </View>
-            {dimmed && (
+            {barDimmed && (
               <View
                 testID="tab-bar-dim"
                 style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg.dim[scheme] }]}
@@ -254,7 +267,8 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
         </Reanimated.View>
         {active === "home" && (
           <Reanimated.View entering={PLAY_ENTER} exiting={PLAY_EXIT}>
-            {/* 웹 모달이 열린 동안은 막대와 함께 재생도 막고 같은 덮개로 덮는다. */}
+            {/* 웹 모달이 열린 동안은 막대와 함께 재생도 막고 같은 덮개로 덮는다.
+                코치마크는 재생을 가리키므로 dimmedExceptPlay에서는 막지 않는다. */}
             {returnsToToday ? (
               // iOS는 유리 원 위에 tint 화살표를 그려서, 막대와 같은 바탕에 primary 화살표로 맞춘다.
               <Pressable

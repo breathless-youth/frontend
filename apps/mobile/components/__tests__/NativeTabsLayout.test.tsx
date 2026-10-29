@@ -435,6 +435,57 @@ it("차단 상태면 바는 보이고 트리거 5개가 전부 disabled다", () 
   expect(captured.triggers.every((t) => t.disabled === true)).toBe(true);
 });
 
+describe("재생 원만 살린 차단", () => {
+  const pressStart = () =>
+    act(() => {
+      captured.listeners({ name: "start", key: "start-k" }).tabPress?.({
+        target: "start-k",
+        data: { isPrevented: true },
+      });
+    });
+
+  it("바는 보이고 트리거 5개가 전부 disabled다", () => {
+    setTabBarState("blocked-except-play");
+    render(<NativeTabsLayout />);
+    expect(captured.hidden).toBe(false);
+    expect(captured.triggers.every((t) => t.disabled === true)).toBe(true);
+  });
+
+  it("재생 트리거 누름은 홈 웹뷰에 알린다", () => {
+    setTabBarState("blocked-except-play");
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event.type));
+    render(<NativeTabsLayout />);
+
+    pressStart();
+    expect(events).toEqual(["home-play-pressed"]);
+  });
+
+  it("다른 날을 보고 있으면 오늘로 돌아가기도 눌린다", () => {
+    setTabBarState("blocked-except-play");
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    render(<NativeTabsLayout />);
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [
+          { key: "2026-10-28", label: "28일 (수)", accessibilityLabel: "10월 28일 수요일" },
+          { key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" },
+        ],
+        selectedKey: "2026-10-28",
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+
+    pressStart();
+    expect(events).toEqual([
+      expect.objectContaining({ type: "home-date-selected", dateKey: "2026-10-29" }),
+    ]);
+  });
+});
+
 it("네이티브 탭 누름을 tab_pressed로 센다 — 출발 탭은 누르기 전 활성 탭", () => {
   const received: unknown[] = [];
   attachNativeAnalyticsSink((event) => received.push([event.name, event.properties]));

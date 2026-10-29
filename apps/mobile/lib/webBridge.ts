@@ -238,6 +238,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         // 값이 이상해도 메시지를 통째로 버리지 않는다. 버리면 탭 바 신호 자체가 사라져
         // 지금보다 나빠진다(`share`의 url과 같은 처리).
         ...(record.blockedByModal === true ? { blockedByModal: true } : {}),
+        ...(record.blockedExceptPlay === true ? { blockedExceptPlay: true } : {}),
         atMs: record.atMs,
       };
     case "set-back-gesture":

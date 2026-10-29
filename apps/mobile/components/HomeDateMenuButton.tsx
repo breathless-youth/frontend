@@ -15,9 +15,11 @@ const MENU_ITEMS: { action: HomeMenuAction; label: string }[] = [
  */
 export function HomeDateMenuButton({
   color,
+  disabled,
   onAction,
 }: {
   color: string;
+  disabled: boolean;
   onAction: (action: HomeMenuAction) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -29,6 +31,7 @@ export function HomeDateMenuButton({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="과목 메뉴"
+              disabled={disabled}
               onPress={() => setOpen(true)}
               style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
             >

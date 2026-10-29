@@ -9,6 +9,7 @@ import {
   setHomeDateBar,
   subscribeHomeDateBarEvents,
 } from "../../lib/homeDateBar";
+import { __resetTabBarVisibilityForTests, setTabBarState } from "../../lib/tabBarVisibility";
 
 jest.mock("../HomeDateMenuButton", () => ({
   HomeDateMenuButton: () => null,
@@ -17,7 +18,10 @@ jest.mock("../../lib/haptics", () => ({ triggerHaptic: jest.fn() }));
 
 const date = (key: string, label: string) => ({ key, label, accessibilityLabel: `${label} 전체` });
 
-beforeEach(() => __resetHomeDateBarForTests());
+beforeEach(() => {
+  __resetHomeDateBarForTests();
+  __resetTabBarVisibilityForTests();
+});
 
 it("날짜 줄이 없으면 아무것도 그리지 않는다", () => {
   render(<HomeDateBar chipHeight={36} />);
@@ -63,6 +67,32 @@ it("다른 날을 누르면 웹에 알린다", () => {
     expect.objectContaining({ type: "home-date-selected", dateKey: "2026-10-28" }),
   ]);
 });
+
+it.each(["blocked", "blocked-except-play"] as const)(
+  "%s 상태에서는 칩이 disabled라 눌러도 웹에 알리지 않는다",
+  (state) => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    setHomeDateBar({
+      type: "set-home-date-bar",
+      dates: [date("2026-10-28", "28일 (수)"), date("2026-10-29", "29일 (목)")],
+      selectedKey: "2026-10-29",
+      todayKey: "2026-10-29",
+      atMs: 1,
+    });
+    setTabBarState(state);
+    render(<HomeDateBar chipHeight={36} />);
+    act(() => {
+      fireEvent(screen.getByLabelText("날짜"), "layout", {
+        nativeEvent: { layout: { width: 300 } },
+      });
+    });
+    const chip = screen.getByLabelText("28일 (수) 전체");
+    expect(chip.props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(chip);
+    expect(events).toEqual([]);
+  },
+);
 
 it.each([
   [300, 100],

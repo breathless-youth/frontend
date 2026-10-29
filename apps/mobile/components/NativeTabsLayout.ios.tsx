@@ -91,6 +91,7 @@ export function NativeTabsLayout() {
   // 탭 바가 웹뷰 바깥이라 전체 화면 라우트와 웹 모달을 웹이 `set-tab-bar`로 알려 줘야 한다.
   const tabBarState = useTabBarState();
   const blocked = tabBarState === "blocked";
+  const tabsDisabled = blocked || tabBarState === "blocked-except-play";
   const dateBar = useHomeDateBar();
   const hasDateBar = dateBar !== null;
   const returnsToToday = isViewingPastDate(dateBar);
@@ -148,7 +149,7 @@ export function NativeTabsLayout() {
         tabPress: (event) => {
           // 재생 버튼은 늘 disabled라 선택되지 않고, 막힌 누름으로만 온다.
           if (route.name === "start") {
-            // 웹 모달이 열린 동안은 다른 탭처럼 재생도 막는다.
+            // 웹 모달이 열린 동안은 다른 탭처럼 재생도 막는다. 코치마크는 재생을 가리키므로 막지 않는다.
             if (event.data.isPrevented && !blocked) {
               if (returnsToToday) {
                 returnToToday();
@@ -226,7 +227,7 @@ export function NativeTabsLayout() {
         <NativeTabs.Trigger
           key={tab.name}
           name={tab.name}
-          disabled={blocked}
+          disabled={tabsDisabled}
           hidden={tab.name === "settings" && settingsHidden}
           disableAutomaticContentInsets
         >

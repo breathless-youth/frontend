@@ -245,6 +245,22 @@ describe("parseToNativeMessage", () => {
     ).toEqual({ type: "set-tab-bar", visible: false, atMs: 9 });
   });
 
+  it("blockedExceptPlay를 파싱한다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"set-tab-bar","visible":false,"blockedExceptPlay":true,"atMs":9}',
+      ),
+    ).toEqual({ type: "set-tab-bar", visible: false, blockedExceptPlay: true, atMs: 9 });
+  });
+
+  it("blockedExceptPlay가 true가 아니면 그 필드만 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"set-tab-bar","visible":false,"blockedExceptPlay":"yes","atMs":9}',
+      ),
+    ).toEqual({ type: "set-tab-bar", visible: false, atMs: 9 });
+  });
+
   it("set-back-gesture를 파싱한다", () => {
     expect(parseToNativeMessage('{"type":"set-back-gesture","enabled":false,"atMs":9}')).toEqual({
       type: "set-back-gesture",

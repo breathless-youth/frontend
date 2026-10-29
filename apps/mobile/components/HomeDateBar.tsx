@@ -18,6 +18,7 @@ import {
   selectHomeDate,
   useHomeDateBar,
 } from "../lib/homeDateBar";
+import { useTabBarState } from "../lib/tabBarVisibility";
 
 const CHIP_MAX_WIDTH = 104;
 
@@ -30,6 +31,9 @@ const CHIP_MAX_WIDTH = 104;
  */
 export function HomeDateBar({ chipHeight }: { chipHeight: number }) {
   const bar = useHomeDateBar();
+  // 웹 모달이나 코치마크가 떠 있는 동안 날짜를 바꾸면 그 뒤 홈이 바뀌어 안내가 어긋난다.
+  const tabBarState = useTabBarState();
+  const locked = tabBarState === "blocked" || tabBarState === "blocked-except-play";
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const scrollRef = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
@@ -66,7 +70,11 @@ export function HomeDateBar({ chipHeight }: { chipHeight: number }) {
 
   return (
     <View style={styles.row}>
-      <HomeDateMenuButton color={softBlue.tab.labelInactive[scheme]} onAction={pressHomeMenu} />
+      <HomeDateMenuButton
+        color={softBlue.tab.labelInactive[scheme]}
+        disabled={locked}
+        onAction={pressHomeMenu}
+      />
       <View style={[styles.divider, { backgroundColor: colors.border.default[scheme] }]} />
       <ScrollView
         ref={scrollRef}
@@ -92,6 +100,7 @@ export function HomeDateBar({ chipHeight }: { chipHeight: number }) {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={date.accessibilityLabel}
+                disabled={locked}
                 hitSlop={{ top: slop, bottom: slop }}
                 onPress={() => {
                   if (selected) {

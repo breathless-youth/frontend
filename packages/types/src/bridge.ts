@@ -538,6 +538,12 @@ export interface SetTabBarMessage {
    * 되살아나면 안 된다.
    */
   blockedByModal?: boolean;
+  /**
+   * 코치마크처럼 다른 탭 이동만 막고 탭 바 오른쪽 재생 원은 눌리게 두라는 뜻이다.
+   * `visible: false`와 함께 온다. 이 필드를 모르는 구버전 앱은 `visible`만 읽고 탭 바를 통째로
+   * 감추므로 웹은 `tabBarPlay=1`을 붙인 앱에만 보낸다. `blockedByModal`보다 우선한다.
+   */
+  blockedExceptPlay?: true;
   atMs: number;
 }
 

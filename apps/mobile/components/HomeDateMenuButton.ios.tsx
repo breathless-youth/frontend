@@ -1,13 +1,21 @@
 import { Button, Host, Image, Menu } from "@expo/ui/swift-ui";
-import { accessibilityLabel, contentShape, frame, shapes } from "@expo/ui/swift-ui/modifiers";
+import {
+  accessibilityLabel,
+  contentShape,
+  disabled as disabledModifier,
+  frame,
+  shapes,
+} from "@expo/ui/swift-ui/modifiers";
 import type { HomeMenuAction } from "@focusmakers/types";
 
 /** 홈 날짜 줄의 과목 메뉴 버튼 */
 export function HomeDateMenuButton({
   color,
+  disabled,
   onAction,
 }: {
   color: string;
+  disabled: boolean;
   onAction: (action: HomeMenuAction) => void;
 }) {
   return (
@@ -19,6 +27,7 @@ export function HomeDateMenuButton({
           frame({ width: 44, height: 44 }),
           contentShape(shapes.rectangle()),
           accessibilityLabel("과목 메뉴"),
+          disabledModifier(disabled),
         ]}
       >
         <Button

@@ -310,6 +310,25 @@ describe("홈 탭의 재생 버튼", () => {
     expect(screen.getByTestId("tab-bar-play-dim")).toBeTruthy();
   });
 
+  describe("재생 원만 살린 딤", () => {
+    it("재생은 덮개 없이 눌려 홈 웹뷰에 알린다", () => {
+      const events: string[] = [];
+      subscribeHomeDateBarEvents((event) => events.push(event.type));
+      render(<TabBar active="home" dimmedExceptPlay />);
+      fireEvent.press(screen.getByRole("button", { name: "순공 시작" }));
+      expect(events).toEqual(["home-play-pressed"]);
+      expect(screen.queryByTestId("tab-bar-play-dim")).toBeNull();
+    });
+
+    it("막대는 딤으로 덮고 탭 칸은 눌리지 않으며 접근성 트리에서 빠진다", () => {
+      render(<TabBar active="home" dimmedExceptPlay />);
+      expect(screen.getByTestId("tab-bar-dim", { includeHiddenElements: true })).toBeTruthy();
+      expect(screen.queryByRole("tab", { name: "기록" })).toBeNull();
+      fireEvent.press(screen.getByLabelText("기록", { includeHiddenElements: true }));
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
   it("홈이 아니면 날짜 줄 내용이 있어도 띄우지 않는다", () => {
     act(() =>
       setHomeDateBar({
