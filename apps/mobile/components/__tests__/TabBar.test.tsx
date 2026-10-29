@@ -1,10 +1,15 @@
 import { colors, softBlue } from "@focusmakers/design-tokens";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
 import React from "react";
 
 import { TabBar } from "../TabBar";
 import { triggerHaptic } from "../../lib/haptics";
+import {
+  __resetHomeDateBarForTests,
+  setHomeDateBar,
+  subscribeHomeDateBarEvents,
+} from "../../lib/homeDateBar";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -29,6 +34,10 @@ jest.mock("expo-router", () => ({
 jest.mock("../../lib/haptics", () => ({
   triggerHaptic: jest.fn(),
 }));
+
+jest.mock("../HomeDateBar", () => ({ HomeDateBar: () => null }));
+
+beforeEach(() => __resetHomeDateBarForTests());
 
 /**
  * useColorScheme은 react-native 진입점이 내부 모듈을 다시 내보내는 형태라, 진입점 객체에
@@ -85,8 +94,9 @@ describe("TabBar 배경", () => {
 });
 
 describe("TabBar", () => {
+  // 홈에서는 설정 칸이 재생 버튼으로 바뀌어서 다른 탭에서 다섯 칸을 본다.
   it("5탭을 홈·소셜·기록·랭킹·설정 순서로 렌더한다", () => {
-    render(<TabBar active="home" />);
+    render(<TabBar active="record" />);
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
@@ -214,5 +224,71 @@ describe("TabBar — 숨김", () => {
     const root = screen.getByTestId("tab-bar");
     expect(root.props.pointerEvents).toBe("box-none");
     expect(root.props.accessibilityElementsHidden).toBe(false);
+  });
+});
+
+describe("홈 탭의 재생 버튼", () => {
+  beforeEach(() => {
+    (triggerHaptic as jest.Mock).mockClear();
+  });
+
+  it("홈에서는 설정 칸 대신 재생 버튼을 둔다", () => {
+    render(<TabBar active="home" />);
+    expect(screen.queryByRole("tab", { name: "설정" })).toBeNull();
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeTruthy();
+  });
+
+  it("다른 탭에서는 설정 칸이 돌아오고 재생 버튼이 없다", () => {
+    render(<TabBar active="record" />);
+    expect(screen.getByRole("tab", { name: "설정" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "순공 시작" })).toBeNull();
+  });
+
+  it("재생을 누르면 햅틱 뒤 홈 웹뷰에 알린다", () => {
+    const events: string[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event.type));
+    render(<TabBar active="home" />);
+    fireEvent.press(screen.getByRole("button", { name: "순공 시작" }));
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
+    expect(events).toEqual(["home-play-pressed"]);
+  });
+
+  it("딤 상태에서는 재생을 눌러도 홈 웹뷰에 알리지 않고 덮개로 덮는다", () => {
+    const events: string[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event.type));
+    render(<TabBar active="home" dimmed />);
+    fireEvent.press(screen.getByRole("button", { name: "순공 시작" }));
+    expect(events).toEqual([]);
+    expect(triggerHaptic).not.toHaveBeenCalled();
+    expect(screen.getByTestId("tab-bar-play-dim")).toBeTruthy();
+  });
+
+  it("홈이 아니면 날짜 줄 내용이 있어도 띄우지 않는다", () => {
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [{ key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" }],
+        selectedKey: "2026-10-29",
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+    render(<TabBar active="record" />);
+    expect(screen.queryByTestId("tab-bar-date-bar")).toBeNull();
+  });
+
+  it("날짜 줄은 홈이고 내용이 있을 때만 띄운다", () => {
+    render(<TabBar active="home" />);
+    expect(screen.queryByTestId("tab-bar-date-bar")).toBeNull();
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [{ key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" }],
+        selectedKey: "2026-10-29",
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+    expect(screen.getByTestId("tab-bar-date-bar")).toBeTruthy();
   });
 });

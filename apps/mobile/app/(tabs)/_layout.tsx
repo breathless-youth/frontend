@@ -95,6 +95,8 @@ function CustomTabsLayout() {
       <Tabs.Screen name="records" options={{ title: "기록" }} />
       <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
       <Tabs.Screen name="settings" options={{ title: "설정" }} />
+      {/* 재생 버튼 자리표시 라우트는 iOS 시스템 탭 바 몫이라 Android 탭 목록에서 뺀다. */}
+      <Tabs.Screen name="start" options={{ href: null }} />
     </Tabs>
   );
 }
