@@ -1140,6 +1140,7 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 export function trackSettingsRowPressed(
   row:
     | "profile"
+    | "first_session_guide"
     | "timelapse"
     | "app_lock"
     | "contact"

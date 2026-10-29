@@ -14,13 +14,15 @@ import { useHomeMode } from "@/features/home/homeMode";
 import { HomeSubjectEdit } from "@/features/home/HomeSubjectEdit";
 import { HomeSubjectList } from "@/features/home/HomeSubjectList";
 import { HomeSubjectReorder } from "@/features/home/HomeSubjectReorder";
-import { HomeWelcome } from "@/features/home/HomeWelcome";
 import { useNativeHomeDateBar } from "@/features/home/nativeHomeDateBar";
+import { StartCoachMark } from "@/features/home/StartCoachMark";
 import {
-  hasCreatedSubject,
-  homeEmptyKind,
-  markSubjectCreated,
-} from "@/features/home/subjectHistory";
+  isIPad,
+  markStartGuideSeen,
+  shouldShowStartGuide,
+  startGuideState,
+} from "@/features/home/startGuide";
+import { hasCreatedSubject, markSubjectCreated } from "@/features/home/subjectHistory";
 import { useSubjectCompletion } from "@/features/home/subjectCompletion";
 import { useStudyStatusUserProperties } from "@/features/home/useStudyStatusUserProperties";
 import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
@@ -39,8 +41,11 @@ import { useTimelapseUserProperty } from "@/features/timelapse/useTimelapseUserP
 import { trackHomeDateSelected } from "@/lib/amplitude";
 import { subscribeToNativeMessages } from "@/lib/bridge";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
+import { useCoachMarkTabBar } from "@/lib/nativeTabBar";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
+import { hasTabBarPlayButton } from "@/lib/tabBarPlayCapability";
 import { showToast } from "@/lib/toast";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
@@ -68,8 +73,9 @@ const SUBJECTS_PENDING_NOTICE = "과목을 불러오는 중이에요. 잠시 뒤
  * 웹을 거치지 않는 탭 바 재생 버튼으로 시작한 세션에 그 과목이 붙지 않게 하려는 것이다.
  * 날짜 줄 메뉴의 과목 순서 변경·편집은 라우트가 아니라 이 화면의 상태라서 여기서는 상태에 맞는 화면으로 바꿔 끼우기만 한다.
  * 주소의 `date`는 시간 직접 입력에서 돌아왔을 때 고른 날짜로 다시 열려고 남긴 값이다.
+ * 첫 세션 안내는 팝업이 열려 있지 않을 때만 띄우므로 그 판단을 바깥에서 `popupFree`로 받는다.
  */
-function HomeContent({ userId }: { userId: number }) {
+function HomeContent({ userId, popupFree }: { userId: number; popupFree: boolean }) {
   const todayKey = kstDateKey();
   const [searchParams] = useSearchParams();
   const [selectedKey, setSelectedKey] = useState(() => {
@@ -130,6 +136,13 @@ function HomeContent({ userId }: { userId: number }) {
     window.history.replaceState(window.history.state, "", url);
     openManualRecord({ kind: "add", dateKey: selectedKey, entry: "home", subjectId });
   };
+
+  // 설정의 다시 보기는 다른 웹뷰에서 남기므로 홈 탭이 다시 보일 때 기록을 새로 읽는다.
+  const [guideState, setGuideState] = useState(() => startGuideState(userId));
+  const dismissGuide = () => {
+    markStartGuideSeen(userId);
+    setGuideState("seen");
+  };
   useEffect(
     () =>
       subscribeToNativeMessages((message) => {
@@ -138,13 +151,17 @@ function HomeContent({ userId }: { userId: number }) {
         }
         if (message.type === "tab-focus" && message.focused) {
           clearStartSubject();
+          setGuideState(startGuideState(userId));
         }
         // 앱이 그린 탭 바 재생 버튼은 웹을 거치지 않으면 남은 과목 기록을 삭제할 수 없어 여기서 폴백 버튼과 같은 경로로 시작한다.
+        // 안내가 가리키는 재생 원을 누른 것이라 안내도 본 것으로 남긴다.
         if (message.type === "home-play-pressed") {
+          markStartGuideSeen(userId);
+          setGuideState("seen");
           startFocus("tab_bar");
         }
       }),
-    [reloadSubjects, startFocus],
+    [reloadSubjects, startFocus, userId],
   );
 
   useStudyStatusUserProperties(userId);
@@ -174,17 +191,28 @@ function HomeContent({ userId }: { userId: number }) {
       : [];
   const liveCount = subjects.status === "ready" ? subjects.subjects.length : null;
   // 그날 기록 줄이 있으면 과목을 만든 적 있는 계정이다.
-  // 기록 줄로 안 것도 남겨야 기록 없는 날로 옮겼을 때 환영 화면으로 바뀌지 않는다.
+  // 기록 줄로 안 것도 남겨야 과목을 모두 지운 계정에 첫 세션 안내가 다시 뜨지 않는다.
   const seenSubject = (liveCount ?? 0) > 0 || items.length > 0;
   useEffect(() => {
     if (seenSubject) {
       markSubjectCreated(userId);
     }
   }, [seenSubject, userId]);
-  const emptyKind =
-    liveCount === null
-      ? "list"
-      : homeEmptyKind(liveCount, seenSubject || hasCreatedSubject(userId));
+
+  // 지난 날로 옮기거나 순서·편집 화면에 들어가면 기록 없이 내려가고 돌아오면 다시 뜬다.
+  const tabBarPlay = hasTabBarPlayButton();
+  const showGuide =
+    liveCount !== null &&
+    homeMode.mode === null &&
+    shouldShowStartGuide({
+      firstVisit: liveCount === 0 && !(seenSubject || hasCreatedSubject(userId)),
+      isToday,
+      popupFree,
+      state: guideState,
+      tabBarPlay,
+      iPad: isIPad(navigator.userAgent, navigator.maxTouchPoints),
+    });
+  useCoachMarkTabBar(showGuide ? (tabBarPlay ? "except-play" : "blocked") : null);
 
   const addSubject = async (name: string, viaSuggestion: boolean) => {
     const created = await subjects.addSubject(name, viaSuggestion);
@@ -256,8 +284,7 @@ function HomeContent({ userId }: { userId: number }) {
                 screen="home"
               />
             )}
-            {emptyKind === "welcome" && <HomeWelcome onCreate={openSheet} />}
-            {emptyKind === "empty" && (
+            {liveCount === 0 && (
               <Button
                 variant="unstyled"
                 onClick={openSheet}
@@ -276,10 +303,16 @@ function HomeContent({ userId }: { userId: number }) {
         onSelect={selectDate}
         onMenuAction={enterMode}
         menuDisabled={!subjectsReady}
-        onStartWithoutSubject={() => startFocus("home_fallback")}
+        onStartWithoutSubject={() => {
+          dismissGuide();
+          startFocus("home_fallback");
+        }}
       />
 
       {addSubjectSheet}
+      {showGuide && (
+        <StartCoachMark target={tabBarPlay ? "play" : "button"} onDismiss={dismissGuide} />
+      )}
     </div>
   );
 }
@@ -300,6 +333,8 @@ export function HomeTabPage() {
   if (recovered !== null && !recoveryInDoc) {
     setRecoveryInDoc(true);
   }
+  // 공지·복구·랭킹 팝업과 시트는 모두 aria-modal이라 이것 하나로 열림을 안다. 닫히면 첫 세션 안내가 뜬다.
+  const modalOpen = useModalOverlayOpen();
 
   return (
     <main
@@ -324,7 +359,12 @@ export function HomeTabPage() {
           </p>
         </div>
       ) : (
-        <HomeContent userId={userId} />
+        // 계정이 바뀌면 안내 기록 같은 계정별 상태를 처음부터 다시 읽는다.
+        <HomeContent
+          key={userId}
+          userId={userId}
+          popupFree={noticeSettled && recoverySettled && !modalOpen}
+        />
       )}
 
       {userId !== null && (

@@ -897,24 +897,20 @@ describe("HomeTabPage — 과목 0개", () => {
     mockedListSubjects.mockResolvedValue([]);
   });
 
-  it("과목을 만든 적 없으면 환영 화면이다", async () => {
-    renderHome();
-
-    expect(
-      await screen.findByRole("heading", { name: "포커스메이커스에 오신 걸 환영해요" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+ 과목 추가" })).not.toBeInTheDocument();
-  });
-
-  it("과목을 만든 적 있으면 과목 추가 버튼만 있는 빈 화면이다", async () => {
-    markSubjectCreated(7);
+  it.each([
+    ["만든 적이 없어도", false],
+    ["만든 적이 있어도", true],
+  ])("과목이 0개면 %s 과목 추가 버튼만 있는 빈 화면이다", async (_label, createdBefore) => {
+    if (createdBefore) {
+      markSubjectCreated(7);
+    }
     renderHome();
 
     expect(await screen.findByRole("button", { name: "+ 과목 추가" })).toBeInTheDocument();
-    expect(screen.queryByText("포커스메이커스에 오신 걸 환영해요")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "과목" })).not.toBeInTheDocument();
   });
 
-  it("지금 과목은 없어도 그날 지운 과목 기록이 있으면 환영 화면 대신 기록과 과목 추가를 보인다", async () => {
+  it("지금 과목은 없어도 그날 지운 과목 기록이 있으면 기록과 과목 추가를 보인다", async () => {
     mockedStats.mockResolvedValue({
       ...studiedDay(TODAY),
       subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
@@ -924,10 +920,9 @@ describe("HomeTabPage — 과목 0개", () => {
     const rows = within(await screen.findByRole("list", { name: "과목" })).getAllByRole("listitem");
     expect(rows.map((row) => row.textContent)).toEqual(["국어순공1시간 30분"]);
     expect(screen.getByRole("button", { name: "+ 과목 추가" })).toBeInTheDocument();
-    expect(screen.queryByText("포커스메이커스에 오신 걸 환영해요")).not.toBeInTheDocument();
   });
 
-  it("그날 지운 과목 기록만 있어도 만든 적 있음을 남겨 기록 없는 날로 옮기면 빈 화면이다", async () => {
+  it("그날 지운 과목 기록만 있어도 만든 적 있음을 남기고 기록 없는 날은 빈 화면이다", async () => {
     mockedStats.mockImplementation((dateKey: string) =>
       Promise.resolve(
         dateKey === TODAY
@@ -946,7 +941,6 @@ describe("HomeTabPage — 과목 0개", () => {
     fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY) }));
 
     expect(await screen.findByRole("button", { name: "+ 과목 추가" })).toBeInTheDocument();
-    expect(screen.queryByText("포커스메이커스에 오신 걸 환영해요")).not.toBeInTheDocument();
   });
 
   it("과목을 받으면 만든 적 있음을 남긴다", async () => {
@@ -961,7 +955,7 @@ describe("HomeTabPage — 과목 0개", () => {
     mockedCreateSubject.mockResolvedValue(subject(5, "물리"));
     renderHome();
 
-    fireEvent.click(await screen.findByRole("button", { name: "과목 만들기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ 과목 추가" }));
     fireEvent.change(await screen.findByRole("textbox", { name: "과목 이름" }), {
       target: { value: "물리" },
     });
@@ -974,6 +968,190 @@ describe("HomeTabPage — 과목 0개", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "과목 추가" })).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe("HomeTabPage — 첫 세션 안내 코치마크", () => {
+  const GUIDE = { name: "지금 바로 시작해 보세요" };
+
+  beforeEach(() => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    mockedListSubjects.mockResolvedValue([]);
+  });
+
+  /** 재생 원을 그리는 앱 문서로 연다. */
+  function openWithTabBarPlay() {
+    window.history.replaceState(null, "", "/home?userId=7&tabBarPlay=1");
+    __resetTabBarPlayForTests();
+  }
+
+  it("과목을 만든 적 없는 계정의 오늘 홈에 뜬다", async () => {
+    renderHome();
+
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
+  });
+
+  it("과목을 만든 적 있으면 뜨지 않는다", async () => {
+    markSubjectCreated(7);
+    renderHome();
+
+    await screen.findByRole("button", { name: "+ 과목 추가" });
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+  });
+
+  it("닫으면 seen으로 남고 다시 렌더해도 뜨지 않는다", async () => {
+    const { unmount } = renderHome();
+    await screen.findByRole("dialog", GUIDE);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "안내 닫기" })[0]);
+
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("seen");
+
+    unmount();
+    renderHome();
+    await screen.findByRole("button", { name: "+ 과목 추가" });
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+  });
+
+  it("aria-modal 대화상자가 열려 있으면 안 뜨고 닫히면 뜬다", async () => {
+    // 공지·복구·랭킹 팝업이 다는 속성을 흉내 낸다.
+    const modal = document.createElement("div");
+    modal.setAttribute("aria-modal", "true");
+    document.body.appendChild(modal);
+    onTestFinished(() => modal.remove());
+    renderHome();
+
+    await screen.findByRole("button", { name: "+ 과목 추가" });
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+
+    act(() => {
+      modal.remove();
+    });
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
+  });
+
+  describe("앱 탭 바", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** 앱 브리지를 깔고 그린 뒤 실행 신호로 복구 판단을 끝내 안내가 뜨게 한다. */
+    async function renderInApp(path: string) {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      renderHomeWithTabBar(path);
+      act(() => emitAppLaunched());
+      await screen.findByRole("dialog", GUIDE);
+      return () =>
+        sentMessages(postMessage)
+          .filter((message) => message.type === "set-tab-bar")
+          .at(-1) as Record<string, unknown> | undefined;
+    }
+
+    it("재생 원 앱이면 재생 원만 남기고 막는다", async () => {
+      openWithTabBarPlay();
+      const lastTabBar = await renderInApp("/home?userId=7&tabBarPlay=1");
+
+      await waitFor(() =>
+        expect(lastTabBar()).toMatchObject({ visible: false, blockedExceptPlay: true }),
+      );
+      expect(lastTabBar()).not.toHaveProperty("blockedByModal");
+    });
+
+    it("폴백 버튼 앱이면 탭 바 전체를 막는다", async () => {
+      const lastTabBar = await renderInApp("/home?userId=7");
+
+      await waitFor(() => expect(lastTabBar()).toMatchObject({ blockedByModal: true }));
+      expect(lastTabBar()).not.toHaveProperty("blockedExceptPlay");
+    });
+  });
+
+  it("과목 순서 변경에 들어가면 기록 없이 내려가고 나오면 다시 뜬다", async () => {
+    localStorage.setItem("focusmakers:start-guide:7", "replay");
+    mockedListSubjects.mockResolvedValue(SUBJECTS);
+    renderHome();
+    await screen.findByRole("dialog", GUIDE);
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 순서 변경" }));
+
+    expect(screen.getByRole("heading", { level: 1, name: "과목 순서 변경" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("replay");
+
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
+  });
+
+  it("다시 보기면 과목이 있어도 뜬다", async () => {
+    localStorage.setItem("focusmakers:start-guide:7", "replay");
+    mockedListSubjects.mockResolvedValue(SUBJECTS);
+    renderHome();
+
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
+  });
+
+  it("지난 날로 옮기면 내려가고 오늘로 돌아오면 다시 뜬다", async () => {
+    renderHome();
+    await screen.findByRole("dialog", GUIDE);
+
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY) }));
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: `${dayTitleWithWeekday(TODAY)}, 오늘` }));
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
+  });
+
+  it("재생 원 앱의 iPad에서는 뜨지 않는다", async () => {
+    // jsdom에는 maxTouchPoints가 없어 모바일 모드 iPad UA로 가린다. 데스크톱 모드 판정은 startGuide 테스트가 본다.
+    const userAgent = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15");
+    onTestFinished(() => userAgent.mockRestore());
+    openWithTabBarPlay();
+    renderHome("/home?userId=7&tabBarPlay=1");
+
+    await screen.findByRole("button", { name: "+ 과목 추가" });
+    expect(screen.queryByRole("dialog", GUIDE)).not.toBeInTheDocument();
+  });
+
+  it("폴백 버튼을 누르면 seen으로 남기고 시작한다", async () => {
+    renderHomeWithRoutes();
+    await screen.findByRole("dialog", GUIDE);
+
+    fireEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
+
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home_fallback");
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("seen");
+  });
+
+  it("앱 재생 원 신호(home-play-pressed)로도 seen으로 남는다", async () => {
+    openWithTabBarPlay();
+    renderHomeWithRoutes("/home?userId=7&tabBarPlay=1");
+    await screen.findByRole("dialog", GUIDE);
+
+    act(() => {
+      emitNative(`{"type":"home-play-pressed","atMs":${Date.now()}}`);
+    });
+
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("seen");
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("tab_bar");
+  });
+
+  it("다른 화면에서 다시 보기를 고르고 홈 탭으로 돌아오면 뜬다", async () => {
+    markSubjectCreated(7);
+    renderHome();
+    await screen.findByRole("button", { name: "+ 과목 추가" });
+
+    localStorage.setItem("focusmakers:start-guide:7", "replay");
+    act(() => {
+      emitNative('{"type":"tab-focus","focused":true,"atMs":1}');
+    });
+
+    expect(await screen.findByRole("dialog", GUIDE)).toBeInTheDocument();
   });
 });
 

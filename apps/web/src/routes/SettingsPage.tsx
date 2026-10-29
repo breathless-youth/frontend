@@ -8,11 +8,12 @@ import {
   trackOsSettingsOpened,
   trackSettingsRowPressed,
 } from "@/lib/amplitude";
-import { postToNative } from "@/lib/bridge";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
+import { hasTabBarPlayButton } from "@/lib/tabBarPlayCapability";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
@@ -24,6 +25,7 @@ import { SettingsSection } from "@/features/settings/SettingsSection";
 import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
 import { useCameraPermission } from "@/features/settings/useCameraPermission";
 import { openInterviewForm } from "@/features/interview/interviewForm";
+import { isIPad, requestStartGuideReplay } from "@/features/home/startGuide";
 import { afterApplied } from "@/features/interview/interviewGate";
 import { updateInterviewState } from "@/features/interview/interviewStore";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
@@ -106,6 +108,26 @@ export function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection className="mt-5" label="서비스">
+          {/* 재생 원 앱의 iPad는 탭 바가 위에 있어 안내를 띄우지 않으므로 다시 볼 것도 없다. */}
+          {!(hasTabBarPlayButton() && isIPad(navigator.userAgent, navigator.maxTouchPoints)) && (
+            <SettingsRow
+              label="처음 안내 다시 보기"
+              trailing={{ kind: "chevron" }}
+              onPress={() => {
+                trackSettingsRowPressed("first_session_guide");
+                // 신원이 아직 안 왔으면 남길 계정이 없어 홈으로만 보낸다.
+                if (userId !== null) {
+                  requestStartGuideReplay(userId);
+                }
+                // 앱의 홈은 다른 웹뷰라 라우터로 갈 수 없다. 결과 화면이 쓰는 navigate-home으로 탭을 바꾸고, 브라우저 단독은 라우터로 간다.
+                if (isNativeBridgeAvailable()) {
+                  postToNative({ type: "navigate-home", atMs: Date.now() });
+                } else {
+                  navigate({ pathname: "/home", search: location.search });
+                }
+              }}
+            />
+          )}
           {/*
             카메라 권한 행은 SettingsRow 없이 직접 조립한다.
             라벨 버튼은 OS 설정을 열고 ⓘ 툴팁도 따로 버튼이라 행 전체를 <button>으로 감싸면 버튼이 중첩된다.

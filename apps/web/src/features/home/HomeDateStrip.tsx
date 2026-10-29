@@ -68,6 +68,7 @@ export function HomeDateStrip({
     <div className="pointer-events-none sticky bottom-(--tab-bar-reserve) z-20 flex flex-col items-end gap-3 pt-3">
       {showStart && (
         <Button
+          data-coach="start"
           onClick={onStartWithoutSubject}
           className="pointer-events-auto h-14 w-full rounded-full text-base font-bold shadow-sb-card"
         >

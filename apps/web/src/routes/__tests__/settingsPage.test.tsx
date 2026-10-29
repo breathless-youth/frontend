@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type * as InterviewForm from "@/features/interview/interviewForm";
 import type * as Amplitude from "@/lib/amplitude";
@@ -12,6 +12,7 @@ import type * as LazyRoutes from "@/routes/lazyRoutes";
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { __resetTabBarPlayForTests } from "@/lib/tabBarPlayCapability";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
@@ -396,6 +397,89 @@ describe("타임랩스 행", () => {
     expect(screen.getByTestId("timelapse-stub").textContent).toBe(
       "/timelapse-settings?userId=7&appVersion=1.4.2",
     );
+  });
+});
+
+describe("처음 안내 다시 보기 행", () => {
+  it("서비스 섹션의 첫 행이다", () => {
+    renderSettings("/settings?userId=7");
+
+    const row = screen.getByRole("button", { name: "처음 안내 다시 보기" });
+    expect(
+      screen.getByRole("button", { name: "프로필 수정" }).compareDocumentPosition(row) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      row.compareDocumentPosition(screen.getByText("카메라 권한")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("재생 원 앱의 iPad에서는 안내가 뜨지 않아 행이 없다", () => {
+    window.history.replaceState(null, "", "/settings?userId=7&tabBarPlay=1");
+    __resetTabBarPlayForTests();
+    const userAgent = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15");
+    onTestFinished(() => {
+      userAgent.mockRestore();
+      window.history.replaceState(null, "", "/");
+      __resetTabBarPlayForTests();
+    });
+    renderSettings("/settings?userId=7&tabBarPlay=1");
+
+    expect(screen.getByRole("button", { name: "프로필 수정" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "처음 안내 다시 보기" })).not.toBeInTheDocument();
+  });
+
+  it("앱에서 누르면 replay로 남기고 앱에 홈 탭 이동을 보낸다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderSettings("/settings?userId=7");
+
+    fireEvent.click(screen.getByRole("button", { name: "처음 안내 다시 보기" }));
+
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("first_session_guide");
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("replay");
+    expect(
+      postMessage.mock.calls.map(([raw]) => (JSON.parse(raw as string) as { type: string }).type),
+    ).toContain("navigate-home");
+  });
+
+  it("브라우저 단독이면 쿼리를 이어받아 홈으로 간다", () => {
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings?userId=7"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/home" element={<LocationProbe testId="home-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "처음 안내 다시 보기" }));
+
+    expect(localStorage.getItem("focusmakers:start-guide:7")).toBe("replay");
+    expect(screen.getByTestId("home-stub").textContent).toBe("/home?userId=7");
+  });
+
+  it("신원이 아직 없으면 남기지 않고 홈으로만 간다", () => {
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/home" element={<LocationProbe testId="home-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "처음 안내 다시 보기" }));
+
+    expect(localStorage.length).toBe(0);
+    expect(screen.getByTestId("home-stub").textContent).toBe("/home");
   });
 });
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { hasCreatedSubject, homeEmptyKind, markSubjectCreated } from "../subjectHistory";
+import { hasCreatedSubject, markSubjectCreated } from "../subjectHistory";
 
 beforeEach(() => {
   localStorage.clear();
@@ -32,25 +32,5 @@ describe("과목을 만든 적 있음 기록", () => {
     });
 
     expect(() => markSubjectCreated(7)).not.toThrow();
-  });
-});
-
-describe("homeEmptyKind", () => {
-  it("과목이 0개이고 만든 적이 없으면 환영 화면이다", () => {
-    expect(homeEmptyKind(0, false)).toBe("welcome");
-  });
-
-  it("과목이 0개여도 만든 적이 있으면 빈 화면이다", () => {
-    expect(homeEmptyKind(0, true)).toBe("empty");
-  });
-
-  it("과목이 있으면 목록이다", () => {
-    expect(homeEmptyKind(2, false)).toBe("list");
-  });
-
-  it("저장소에 쓰지 않는다", () => {
-    homeEmptyKind(2, false);
-
-    expect(localStorage.length).toBe(0);
   });
 });

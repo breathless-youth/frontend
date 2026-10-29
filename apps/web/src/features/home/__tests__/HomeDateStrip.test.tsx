@@ -96,6 +96,7 @@ describe("HomeDateStrip", () => {
 
     const button = screen.getByRole("button", { name: "순공 시작하기" });
     expect(button.querySelector("svg")).toBeNull();
+    expect(button).toHaveAttribute("data-coach", "start");
     fireEvent.click(button);
 
     expect(onStartWithoutSubject).toHaveBeenCalledTimes(1);
