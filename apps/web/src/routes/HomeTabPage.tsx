@@ -1,7 +1,7 @@
 import type { HomeMenuAction } from "@focusmakers/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -120,13 +120,13 @@ function HomeContent({ userId }: { userId: number }) {
     hidden: homeMode.mode !== null,
   });
 
-  const navigate = useNavigate();
-  const location = useLocation();
   const openManualRecord = useOpenManualRecord();
   const startManualRecord = (subjectId: number) => {
-    const params = new URLSearchParams(location.search);
-    params.set("date", selectedKey);
-    navigate({ search: `?${params.toString()}` }, { replace: true });
+    // 돌아왔을 때 고른 날을 다시 열도록 지금 기록 항목의 주소에 날짜를 남긴다.
+    // 라우터로 바꾸면 주소 변경이 홈 페이지뷰로 한 번 더 집계되어 브라우저 기록만 고친다.
+    const url = new URL(window.location.href);
+    url.searchParams.set("date", selectedKey);
+    window.history.replaceState(window.history.state, "", url);
     openManualRecord({ kind: "add", dateKey: selectedKey, entry: "home", subjectId });
   };
   useEffect(

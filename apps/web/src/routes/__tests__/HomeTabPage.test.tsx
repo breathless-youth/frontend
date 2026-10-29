@@ -15,7 +15,8 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { useEffect } from "react";
 
 import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
@@ -42,6 +43,7 @@ import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLau
 import { readStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { resetViewTransitionStub } from "@/test/viewTransitionStub";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
 const closeStaleSession = vi.hoisted(() =>
@@ -645,7 +647,8 @@ describe("HomeTabPage — 과목 카드 조작", () => {
     );
   });
 
-  it("지난 날에서 직접 입력을 열었다 뒤로 돌아오면 그 날을 고른 채 다시 연다", async () => {
+  it("지난 날에서 직접 입력을 열었다 뒤로 돌아오면 그 날을 고른 채 다시 열고, 홈 페이지뷰를 더 보내지 않는다", async () => {
+    window.history.replaceState(null, "", "/home?userId=7");
     function ManualBack() {
       const navigate = useNavigate();
       return (
@@ -654,16 +657,40 @@ describe("HomeTabPage — 과목 카드 조작", () => {
         </button>
       );
     }
+    // 실제 화면 전환은 이동을 다음 틱에 하므로 홈 주소를 고친 렌더가 이동보다 먼저 끝난다.
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: (update: () => unknown) => {
+        const done = new Promise<void>((resolve) =>
+          setTimeout(() => {
+            void update();
+            resolve();
+          }, 0),
+        );
+        return { finished: done, updateCallbackDone: done, ready: done, skipTransition: vi.fn() };
+      },
+    });
+    onTestFinished(resetViewTransitionStub);
+    // 페이지뷰는 라우터 위치가 바뀔 때마다 나가므로 위치 변경을 센다.
+    const visited: string[] = [];
+    function RouteLog() {
+      const { pathname, search } = useLocation();
+      useEffect(() => {
+        visited.push(`${pathname}${search}`);
+      }, [pathname, search]);
+      return null;
+    }
     render(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={["/home?userId=7"]}>
+        <BrowserRouter>
+          <RouteLog />
           <Routes>
             <Route path="/home" element={<HomeTabPage />} />
             <Route path="/manual-record" element={<ManualBack />} />
           </Routes>
-        </MemoryRouter>
+        </BrowserRouter>
       </QueryClientProvider>,
     );
     await screen.findByRole("button", { name: "국어 공부 시작" });
@@ -678,6 +705,11 @@ describe("HomeTabPage — 과목 카드 조작", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: dayTitleWithWeekday(YESTERDAY) }),
     ).toBeInTheDocument();
+    expect(visited).toEqual([
+      "/home?userId=7",
+      `/manual-record?userId=7&date=${YESTERDAY}&entry=home&subject=2`,
+      `/home?userId=7&date=${YESTERDAY}`,
+    ]);
   });
 
   it("주소의 date로 열면 그 날을 고른 채 열고, 30일 밖이면 오늘로 연다", async () => {
