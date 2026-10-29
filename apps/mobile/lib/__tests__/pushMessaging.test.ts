@@ -1,3 +1,6 @@
+import * as SecureStore from "expo-secure-store";
+import { PermissionsAndroid, Platform } from "react-native";
+
 import * as pushMessaging from "../pushMessaging";
 import type { PushMessagingAdapter } from "../pushMessaging";
 
@@ -12,6 +15,11 @@ const mockOnMessage = jest.fn();
 const mockOnNotificationOpenedApp = jest.fn();
 const mockGetInitialNotification = jest.fn();
 const mockSetBackgroundMessageHandler = jest.fn();
+
+jest.mock("expo-secure-store", () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+}));
 
 jest.mock("@react-native-firebase/messaging", () => ({
   AuthorizationStatus: {
@@ -221,5 +229,83 @@ describe("pushMessaging 메시지 핸들러 (BY-586)", () => {
       remote,
     );
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1" }));
+  });
+});
+
+describe("pushMessaging Android 13 이상 알림 권한 요청", () => {
+  const mockedGetItem = SecureStore.getItemAsync as jest.Mock;
+  const mockedSetItem = SecureStore.setItemAsync as jest.Mock;
+  const originalOs = Platform.OS;
+  const originalVersion = Platform.Version;
+  let check: jest.SpyInstance;
+  let request: jest.SpyInstance;
+
+  function onAndroid(apiLevel: number) {
+    Object.defineProperty(Platform, "OS", { get: () => "android", configurable: true });
+    Object.defineProperty(Platform, "Version", { get: () => apiLevel, configurable: true });
+  }
+
+  beforeEach(() => {
+    onAndroid(33);
+    mockedGetItem.mockReset().mockResolvedValue(null);
+    mockedSetItem.mockReset().mockResolvedValue(undefined);
+    mockRequestPermission.mockReset().mockResolvedValue(1);
+    check = jest.spyOn(PermissionsAndroid, "check").mockResolvedValue(false);
+    request = jest
+      .spyOn(PermissionsAndroid, "request")
+      .mockResolvedValue(PermissionsAndroid.RESULTS.GRANTED);
+    pushMessaging.setPushMessagingAdapter(pushMessaging.rnfbPushMessagingAdapter);
+  });
+
+  afterEach(() => {
+    check.mockRestore();
+    request.mockRestore();
+    Object.defineProperty(Platform, "OS", { get: () => originalOs, configurable: true });
+    Object.defineProperty(Platform, "Version", { get: () => originalVersion, configurable: true });
+  });
+
+  it("처음이면 권한 창을 띄우고 허용하면 granted를 돌려주며 물은 기록을 남긴다", async () => {
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
+
+    expect(request).toHaveBeenCalledWith(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    expect(mockedSetItem).toHaveBeenCalledTimes(1);
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+  });
+
+  it("권한 창에서 거부하면 denied를 돌려준다", async () => {
+    request.mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
+
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("denied");
+  });
+
+  it("이미 물은 기록이 있으면 창을 띄우지 않고 denied를 돌려준다", async () => {
+    mockedGetItem.mockResolvedValue("1");
+
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("denied");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("이미 허용돼 있으면 기록과 상관없이 창 없이 granted를 돌려준다", async () => {
+    check.mockResolvedValue(true);
+    mockedGetItem.mockResolvedValue("1");
+
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("Android 12 이하는 지금처럼 RNFB 결과를 돌려준다", async () => {
+    onAndroid(32);
+
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
+    expect(mockRequestPermission).toHaveBeenCalledWith(mockMessagingInstance);
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("기록을 읽거나 쓰지 못해도 던지지 않고 권한 창을 띄운다", async () => {
+    mockedGetItem.mockRejectedValue(new Error("keystore"));
+    mockedSetItem.mockRejectedValue(new Error("keystore"));
+
+    await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

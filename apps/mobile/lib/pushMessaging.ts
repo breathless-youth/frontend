@@ -12,7 +12,8 @@ import {
   requestPermission,
   setBackgroundMessageHandler,
 } from "@react-native-firebase/messaging";
-import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import { PermissionsAndroid, Platform } from "react-native";
 
 /**
  * FCM(푸시) 어댑터 (BY-585).
@@ -110,11 +111,40 @@ async function readApnsToken(messaging: ReturnType<typeof getMessaging>): Promis
   }
 }
 
+/** Android 13부터 알림은 런타임 권한이다. 이 키는 그 권한 창을 이미 띄웠는지만 기록한다. */
+const ANDROID_NOTIFICATION_ASKED_KEY = "pushNotificationPermissionAskedV1";
+const ANDROID_RUNTIME_NOTIFICATION_API = 33;
+
+/**
+ * Android 13 이상의 알림 권한 요청
+ *
+ * RNFB `requestPermission`은 Android에서 권한 창을 띄우지 않고 허용됨을 돌려주므로 RN 기본 API로 직접 묻는다.
+ * iOS처럼 한 번만 묻는다. Android는 한 번 거부해도 한 번 더 띄울 수 있지만, 다음 실행에 같은 창이 또 뜨지 않게 기록을 남긴다.
+ * 기록은 창을 띄우기 전에 남겨서, 창이 떠 있는 동안 앱이 꺼져도 다시 묻지 않는다.
+ * 기록 저장소가 실패하면 묻는 쪽을 택한다. 최악의 경우 창이 한 번 더 뜰 뿐이다.
+ */
+async function requestAndroidNotificationPermission(): Promise<PushPermissionStatus> {
+  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+  if (await PermissionsAndroid.check(permission)) {
+    return "granted";
+  }
+  const asked = await SecureStore.getItemAsync(ANDROID_NOTIFICATION_ASKED_KEY).catch(() => null);
+  if (asked) {
+    return "denied";
+  }
+  await SecureStore.setItemAsync(ANDROID_NOTIFICATION_ASKED_KEY, "1").catch(() => undefined);
+  const result = await PermissionsAndroid.request(permission);
+  return result === PermissionsAndroid.RESULTS.GRANTED ? "granted" : "denied";
+}
+
 export const rnfbPushMessagingAdapter: PushMessagingAdapter = {
   async getPermissionStatus() {
     return toPushPermissionStatus(await hasPermission(getMessaging()));
   },
   async requestPermission() {
+    if (Platform.OS === "android" && Number(Platform.Version) >= ANDROID_RUNTIME_NOTIFICATION_API) {
+      return requestAndroidNotificationPermission();
+    }
     return toPushPermissionStatus(await requestPermission(getMessaging()));
   },
   async getToken() {
