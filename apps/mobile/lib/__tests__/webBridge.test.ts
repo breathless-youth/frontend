@@ -898,3 +898,126 @@ describe("parseToNativeMessage: 그 자리 부품", () => {
     expect(parse({ ...message, controls: [slider, { ...toggle, on: 1 }] })).toBeNull();
   });
 });
+
+describe("parseToNativeMessage: set-home-date-bar", () => {
+  const date = (key: string) => ({
+    key,
+    label: "29일 (목)",
+    accessibilityLabel: "10월 29일 목요일",
+  });
+  const raw = (body: Record<string, unknown>) =>
+    JSON.stringify({ type: "set-home-date-bar", atMs: 1, ...body });
+
+  it("날짜 목록과 선택을 파싱한다", () => {
+    expect(
+      parseToNativeMessage(
+        raw({
+          dates: [date("2026-10-28"), date("2026-10-29")],
+          selectedKey: "2026-10-28",
+          todayKey: "2026-10-29",
+        }),
+      ),
+    ).toEqual({
+      type: "set-home-date-bar",
+      dates: [date("2026-10-28"), date("2026-10-29")],
+      selectedKey: "2026-10-28",
+      todayKey: "2026-10-29",
+      atMs: 1,
+    });
+  });
+
+  it("빈 목록은 날짜 줄을 거두는 메시지로 받는다", () => {
+    expect(parseToNativeMessage(raw({ dates: [], selectedKey: "", todayKey: "" }))).toEqual({
+      type: "set-home-date-bar",
+      dates: [],
+      selectedKey: "",
+      todayKey: "",
+      atMs: 1,
+    });
+  });
+
+  it("고른 날이 목록에 없거나 날짜 모양이 틀리면 통째로 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        raw({ dates: [date("2026-10-29")], selectedKey: "2026-10-01", todayKey: "2026-10-29" }),
+      ),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage(
+        raw({
+          dates: [{ key: "2026-10-29", label: 29 }],
+          selectedKey: "2026-10-29",
+          todayKey: "2026-10-29",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it.each(["2026-10-9", "10/29", "2026-10-29T00:00"])(
+    "날짜 key가 YYYY-MM-DD가 아닌 %s면 버린다",
+    (key) => {
+      expect(
+        parseToNativeMessage(raw({ dates: [date(key)], selectedKey: key, todayKey: key })),
+      ).toBeNull();
+    },
+  );
+
+  it("같은 날짜 key가 두 번 오면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        raw({
+          dates: [date("2026-10-29"), date("2026-10-29")],
+          selectedKey: "2026-10-29",
+          todayKey: "2026-10-29",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("오늘이 목록에 없으면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        raw({ dates: [date("2026-10-28")], selectedKey: "2026-10-28", todayKey: "2026-10-29" }),
+      ),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["41자", "가".repeat(41)],
+    ["빈 문자열", ""],
+  ])("라벨이 %s면 버린다", (_, label) => {
+    expect(
+      parseToNativeMessage(
+        raw({
+          dates: [{ ...date("2026-10-29"), label }],
+          selectedKey: "2026-10-29",
+          todayKey: "2026-10-29",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("시각이나 선택 key의 타입이 틀리면 버린다", () => {
+    const body = { dates: [date("2026-10-29")], selectedKey: "2026-10-29", todayKey: "2026-10-29" };
+    expect(parseToNativeMessage(raw({ ...body, atMs: "1" }))).toBeNull();
+    expect(parseToNativeMessage(raw({ dates: [], selectedKey: "", todayKey: null }))).toBeNull();
+  });
+
+  it("정확히 60개는 받는다", () => {
+    const dates = Array.from({ length: 60 }, (_, i) =>
+      date(`2026-01-${String(i).padStart(2, "0")}`),
+    );
+    expect(
+      parseToNativeMessage(raw({ dates, selectedKey: dates[0].key, todayKey: dates[59].key })),
+    ).toMatchObject({ dates: expect.arrayContaining([dates[59]]) as unknown });
+  });
+
+  it("60개를 넘는 목록은 버린다", () => {
+    const dates = Array.from({ length: 61 }, (_, i) =>
+      date(`2026-01-${String(i).padStart(2, "0")}`),
+    );
+    expect(
+      parseToNativeMessage(raw({ dates, selectedKey: dates[0].key, todayKey: dates[0].key })),
+    ).toBeNull();
+  });
+});

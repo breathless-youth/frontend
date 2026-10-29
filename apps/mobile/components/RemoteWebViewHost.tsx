@@ -24,6 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
+import { setHomeDateBar, subscribeHomeDateBarEvents } from "../lib/homeDateBar";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
@@ -751,6 +752,13 @@ export function RemoteWebViewHost({
       }
       return;
     }
+    if (message.type === "set-home-date-bar") {
+      // 날짜 줄은 홈 탭 하나에만 있어서 다른 웹뷰가 보낸 값은 버린다.
+      if ((resetPath ?? path) === HOME_PATH) {
+        setHomeDateBar(message);
+      }
+      return;
+    }
     if (message.type === "analytics-ready") {
       // 웹이 track-event 구독을 걸었다 — 이 문서에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
       setAnalyticsReady(true);
@@ -892,6 +900,14 @@ export function RemoteWebViewHost({
       }
       sendToWeb({ type: "reset-route", path: webPath, atMs: Date.now() });
     });
+  }, [path, resetPath, sendToWeb]);
+
+  // 앱이 그린 날짜 줄과 탭 바 재생 버튼의 누름은 홈 웹뷰만 받는다.
+  useEffect(() => {
+    if ((resetPath ?? path) !== HOME_PATH) {
+      return;
+    }
+    return subscribeHomeDateBarEvents(sendToWeb);
   }, [path, resetPath, sendToWeb]);
 
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기

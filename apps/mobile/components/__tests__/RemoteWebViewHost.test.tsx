@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react-native";
 import type * as ReactNativeModule from "react-native";
 import { Appearance, AppState, Platform } from "react-native";
 import { colors } from "@focusmakers/design-tokens";
@@ -8,6 +8,7 @@ import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import { __resetHomeDateBarForTests, pressHomePlay, useHomeDateBar } from "../../lib/homeDateBar";
 import type { InstallAttribution } from "../../lib/installAttribution";
 import {
   __resetNativeAnalyticsForTests,
@@ -212,6 +213,7 @@ beforeEach(() => {
   mockAppLaunchPending = false;
   mockUseColorScheme.mockReturnValue("light");
   mockAuthListeners.clear();
+  __resetHomeDateBarForTests();
 });
 
 // spyOn·replaceProperty(Platform.OS, Appearance)를 원상 복구한다 — 남으면 다음 테스트의
@@ -540,6 +542,52 @@ describe("RemoteWebViewHost", () => {
 
     expect(consumeAppLaunchSignal).not.toHaveBeenCalled();
     expect(sentAppLaunched()).toHaveLength(0);
+  });
+
+  const dateBarRaw =
+    '{"type":"set-home-date-bar","dates":[{"key":"2026-10-29","label":"29일 (목)","accessibilityLabel":"10월 29일 목요일"}],"selectedKey":"2026-10-29","todayKey":"2026-10-29","atMs":1}';
+
+  it("홈 웹뷰가 보낸 날짜 줄만 저장하고 다른 웹뷰가 보낸 것은 버린다", () => {
+    const { result } = renderHook(() => useHomeDateBar());
+    render(<RemoteWebViewHost path="/records" testID="host" />);
+    const recordsOnMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => recordsOnMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(result.current).toBeNull();
+
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+    const homeOnMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
+    act(() => homeOnMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(result.current?.selectedKey).toBe("2026-10-29");
+  });
+
+  it("날짜 줄 메시지는 여기서 소비하고 화면 콜백에 넘기지 않는다", () => {
+    const onBridgeMessage = jest.fn();
+    render(<RemoteWebViewHost path="/home" testID="host" onBridgeMessage={onBridgeMessage} />);
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => onMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(onBridgeMessage).not.toHaveBeenCalled();
+  });
+
+  it("홈 탭을 하위 경로로 열어도 탭 루트 기준으로 날짜 줄을 저장하고 재생 누름을 받는다", () => {
+    const { result } = renderHook(() => useHomeDateBar());
+    render(<RemoteWebViewHost path="/home/x" resetPath="/home" testID="home" />);
+    const onMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
+    act(() => onMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(result.current?.selectedKey).toBe("2026-10-29");
+
+    mockInjectJavaScript.mockClear();
+    act(() => pressHomePlay());
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    expect(mockInjectJavaScript.mock.calls[0][0]).toContain("home-play-pressed");
+  });
+
+  it("탭 바 재생 누름은 홈 웹뷰에만 주입한다", () => {
+    render(<RemoteWebViewHost path="/records" testID="records" />);
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+    mockInjectJavaScript.mockClear();
+    act(() => pressHomePlay());
+    expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+    expect(mockInjectJavaScript.mock.calls[0][0]).toContain("home-play-pressed");
   });
 
   it("set-orientation을 소비해 잠금을 제어하고 콜백에 넘기지 않는다", () => {

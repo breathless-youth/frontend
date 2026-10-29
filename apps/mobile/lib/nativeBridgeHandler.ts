@@ -306,10 +306,6 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);
       });
       break;
-    case "set-home-date-bar":
-      // 이 바이너리는 홈 날짜 줄을 네이티브로 그리지 않아 받아도 할 일이 없다.
-      // 웹은 `nativeDateBar` 표시가 없는 앱에는 이 메시지를 보내지 않는다.
-      break;
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
