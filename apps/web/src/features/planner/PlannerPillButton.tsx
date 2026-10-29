@@ -4,6 +4,10 @@ import { cn } from "@/lib/utils";
 
 import { type PlannerEntry, useOpenPlanner } from "./useOpenPlanner";
 
+/** 기록 탭 머리 오른쪽 원형 버튼들이 같이 쓰는 모양. */
+export const ROUND_HEADER_BUTTON_CLASS =
+  "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]";
+
 /**
  * 홈과 기록 탭 머리 오른쪽의 플래너 원형 버튼.
  * 두 탭이 같은 입구로 보이도록 모양을 한 곳에서 정한다.
@@ -43,10 +47,7 @@ export function PlannerPillButton({
       type="button"
       aria-label="플래너"
       onClick={open}
-      className={cn(
-        "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]",
-        className,
-      )}
+      className={cn(ROUND_HEADER_BUTTON_CLASS, className)}
     >
       <IconPlanner size={24} />
     </button>

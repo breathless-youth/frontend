@@ -1,11 +1,16 @@
 import type {
+  HomeMenuAction,
   NativeAnalyticsPropertyValue,
   ToNativeMessage,
   ToWebMessage,
   TrackEventMessage,
   VideoResultStatus,
 } from "@focusmakers/types";
-import { NATIVE_CONTROL_ID_PATTERN, VIDEO_RESULT_STATUSES } from "@focusmakers/types";
+import {
+  HOME_MENU_ACTIONS,
+  NATIVE_CONTROL_ID_PATTERN,
+  VIDEO_RESULT_STATUSES,
+} from "@focusmakers/types";
 
 /**
  * WebView 브리지의 웹 쪽 종단점
@@ -184,6 +189,10 @@ function isVideoResultStatus(value: unknown): value is VideoResultStatus {
   return (VIDEO_RESULT_STATUSES as readonly unknown[]).includes(value);
 }
 
+function isHomeMenuAction(value: unknown): value is HomeMenuAction {
+  return (HOME_MENU_ACTIONS as readonly unknown[]).includes(value);
+}
+
 export function parseToWebMessage(raw: string): ToWebMessage | null {
   let parsed: unknown;
   try {
@@ -297,6 +306,12 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "track-event") {
     return parseTrackEvent(record);
+  }
+  if (record.type === "home-date-selected" && typeof record.dateKey === "string") {
+    return { type: "home-date-selected", dateKey: record.dateKey, atMs: record.atMs };
+  }
+  if (record.type === "home-menu-action" && isHomeMenuAction(record.action)) {
+    return { type: "home-menu-action", action: record.action, atMs: record.atMs };
   }
   return null;
 }

@@ -475,3 +475,20 @@ describe("개발 로그", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("parseToWebMessage: 앱 홈 날짜 줄", () => {
+  it("날짜 누름을 파싱한다", () => {
+    expect(
+      parseToWebMessage('{"type":"home-date-selected","dateKey":"2026-10-28","atMs":1}'),
+    ).toEqual({ type: "home-date-selected", dateKey: "2026-10-28", atMs: 1 });
+  });
+
+  it("메뉴 항목은 목록에 있는 값만 받는다", () => {
+    expect(
+      parseToWebMessage('{"type":"home-menu-action","action":"edit-subjects","atMs":1}'),
+    ).toEqual({ type: "home-menu-action", action: "edit-subjects", atMs: 1 });
+    expect(
+      parseToWebMessage('{"type":"home-menu-action","action":"delete-all","atMs":1}'),
+    ).toBeNull();
+  });
+});

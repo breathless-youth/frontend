@@ -281,6 +281,10 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);
       });
       break;
+    case "set-home-date-bar":
+      // 이 바이너리는 홈 날짜 줄을 네이티브로 그리지 않아 받아도 할 일이 없다.
+      // 웹은 `nativeDateBar` 표시가 없는 앱에는 이 메시지를 보내지 않는다.
+      break;
     default: {
       // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
       // 빠뜨리면 이 줄에서 컴파일이 깨진다. 런타임에 오는 경우는 타입과 파서가 어긋났을 때뿐이라

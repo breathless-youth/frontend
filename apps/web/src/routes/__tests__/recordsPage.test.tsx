@@ -155,6 +155,7 @@ function renderRecords(path = "/records?userId=7") {
         <Routes>
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/planner" element={<RouteProbe />} />
+          <Route path="/timelapses" element={<RouteProbe />} />
           <Route path="/manual-record" element={<ManualRecordProbe />} />
         </Routes>
         <LocationProbe />
@@ -711,6 +712,18 @@ describe("RecordsPage", () => {
     expect(await screen.findByTestId("route-probe")).toHaveTextContent(
       "/planner?userId=7&date=2025-03-04&from=records",
     );
+  });
+
+  it("머리 오른쪽 타임랩스 버튼은 쿼리를 들고 타임랩스 전체 목록을 연다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+
+    renderRecords();
+
+    const titleRow = (await screen.findByRole("heading", { level: 1, name: "기록" }))
+      .parentElement!;
+    await userEvent.click(within(titleRow).getByRole("button", { name: "타임랩스" }));
+
+    expect(await screen.findByTestId("route-probe")).toHaveTextContent("/timelapses?userId=7");
   });
 
   it("주간 뷰는 주 요약 → 추이 카드 → 나의 공부 리듬 순서로 보여준다(주 카드는 없다)", async () => {

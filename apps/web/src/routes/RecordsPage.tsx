@@ -41,6 +41,7 @@ import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
+import { TimelapsesButton } from "@/features/timelapse/TimelapsesButton";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
 import { hasTokenSource, useUserId } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
@@ -335,9 +336,13 @@ export function RecordsPage() {
           <h1 className="text-2xl font-extrabold leading-7.25 tracking-[-0.48px] text-foreground">
             기록
           </h1>
-          {/* 일간·주간이 머리를 같이 쓰므로 어느 쪽에서든 달력에서 고른 날의 플래너를 연다.
-              등록 전에는 플래너에도 볼 기록이 없어 숨긴다. */}
-          {userId !== null && <PlannerPillButton via="records" dateKey={selectedKey} />}
+          <div className="flex items-center gap-2">
+            {/* 타임랩스는 기기에 보관해 등록 전에도 볼 수 있다. */}
+            <TimelapsesButton />
+            {/* 일간·주간이 머리를 같이 쓰므로 어느 쪽에서든 달력에서 고른 날의 플래너를 연다.
+                등록 전에는 플래너에도 볼 기록이 없어 숨긴다. */}
+            {userId !== null && <PlannerPillButton via="records" dateKey={selectedKey} />}
+          </div>
         </div>
 
         {/* 기기 미등록(userId 없음)이면 주간 데이터를 조회할 수 없어 주간 탭을 막는다.
