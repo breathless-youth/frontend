@@ -133,8 +133,14 @@ async function requestAndroidNotificationPermission(): Promise<PushPermissionSta
     return "denied";
   }
   await SecureStore.setItemAsync(ANDROID_NOTIFICATION_ASKED_KEY, "1").catch(() => undefined);
-  const result = await PermissionsAndroid.request(permission);
-  return result === PermissionsAndroid.RESULTS.GRANTED ? "granted" : "denied";
+  try {
+    const result = await PermissionsAndroid.request(permission);
+    return result === PermissionsAndroid.RESULTS.GRANTED ? "granted" : "denied";
+  } catch (error) {
+    // Activity가 없으면 창을 띄우지 못한 채 실패한다. 사용자가 창을 본 적이 없으니 다음 실행에 다시 묻는다
+    await SecureStore.deleteItemAsync(ANDROID_NOTIFICATION_ASKED_KEY).catch(() => undefined);
+    throw error;
+  }
 }
 
 export const rnfbPushMessagingAdapter: PushMessagingAdapter = {

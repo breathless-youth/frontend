@@ -19,6 +19,7 @@ const mockSetBackgroundMessageHandler = jest.fn();
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
 }));
 
 jest.mock("@react-native-firebase/messaging", () => ({
@@ -235,6 +236,7 @@ describe("pushMessaging 메시지 핸들러 (BY-586)", () => {
 describe("pushMessaging Android 13 이상 알림 권한 요청", () => {
   const mockedGetItem = SecureStore.getItemAsync as jest.Mock;
   const mockedSetItem = SecureStore.setItemAsync as jest.Mock;
+  const mockedDeleteItem = SecureStore.deleteItemAsync as jest.Mock;
   const originalOs = Platform.OS;
   const originalVersion = Platform.Version;
   let check: jest.SpyInstance;
@@ -249,6 +251,7 @@ describe("pushMessaging Android 13 이상 알림 권한 요청", () => {
     onAndroid(33);
     mockedGetItem.mockReset().mockResolvedValue(null);
     mockedSetItem.mockReset().mockResolvedValue(undefined);
+    mockedDeleteItem.mockReset().mockResolvedValue(undefined);
     mockRequestPermission.mockReset().mockResolvedValue(1);
     check = jest.spyOn(PermissionsAndroid, "check").mockResolvedValue(false);
     request = jest
@@ -307,5 +310,14 @@ describe("pushMessaging Android 13 이상 알림 권한 요청", () => {
 
     await expect(pushMessaging.requestPushPermission()).resolves.toBe("granted");
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("권한 창을 띄우지 못하고 요청이 실패하면 기록을 지우고 오류를 넘긴다", async () => {
+    const error = new Error("E_INVALID_ACTIVITY");
+    request.mockRejectedValue(error);
+
+    await expect(pushMessaging.requestPushPermission()).rejects.toBe(error);
+    expect(mockedSetItem).toHaveBeenCalledTimes(1);
+    expect(mockedDeleteItem).toHaveBeenCalledTimes(1);
   });
 });
