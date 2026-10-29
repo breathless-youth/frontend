@@ -122,7 +122,13 @@ export function NativeTabsLayout() {
       setActiveRoute("settings");
       // 사용자가 탭을 눌러 기다림만 버린 경우에도 칸을 현재 라우트에 맞춰야 해서 기다림 여부와 상관없이 맞춘다.
       revealTimerRef.current = setTimeout(() => {
+        const pending = pendingRevealRef.current;
         pendingRevealRef.current = null;
+        // 늦게라도 라우트가 실렸으면 열리고, 없으면 내비게이터가 무시하므로 버리지 않고 한 번 시도한다.
+        if (pending !== null) {
+          console.warn("[tabs] 설정 칸이 1초 안에 살아나지 않아 바로 이동을 시도한다");
+          pending();
+        }
         setActiveRoute(prevRouteRef.current);
       }, REVEAL_TIMEOUT_MS);
     });

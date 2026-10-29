@@ -360,8 +360,9 @@ it("홈에서 설정 드러내기 요청이 오면 설정 칸을 되살리고, �
   expect(byName("settings")?.hidden).toBe(false);
 });
 
-it("설정 라우트가 1초 안에 들어오지 않으면 기다림을 버리고 홈 칸으로 돌아온다", () => {
+it("설정 라우트가 1초 안에 들어오지 않으면 한 번 이동을 시도하고 홈 칸으로 돌아온다", () => {
   jest.useFakeTimers();
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
   render(<NativeTabsLayout />);
   const then = jest.fn();
 
@@ -373,9 +374,11 @@ it("설정 라우트가 1초 안에 들어오지 않으면 기다림을 버리�
   });
   expect(byName("settings")?.hidden).toBe(true);
   expect(byName("start")?.hidden).toBe(false);
+  expect(then).toHaveBeenCalledTimes(1);
+  expect(warn).toHaveBeenCalledTimes(1);
 
   goTo(0, [{ name: "index" }, { name: "settings" }]);
-  expect(then).not.toHaveBeenCalled();
+  expect(then).toHaveBeenCalledTimes(1);
 });
 
 it("설정 드러내기를 기다리는 중에 사용자가 탭을 누르면 기다림을 버린다", () => {

@@ -11,11 +11,18 @@ type RevealListener = (then: () => void) => void;
 const listeners = new Set<RevealListener>();
 
 export function revealSettingsTab(then: () => void): void {
-  if (listeners.size === 0) {
+  // 레이아웃이 다시 마운트되며 구독이 겹치는 순간에도 이동이 두 번 나지 않게 한다.
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
     then();
+  };
+  if (listeners.size === 0) {
+    once();
     return;
   }
-  listeners.forEach((listener) => listener(then));
+  listeners.forEach((listener) => listener(once));
 }
 
 /** 시스템 링크는 라우팅 직전에 멈출지 정해야 해서, 설정 칸을 가릴 수 있는 레이아웃이 떠 있는지 미리 본다. */

@@ -87,6 +87,7 @@
 - 홈 날짜 줄에서 오늘이 아닌 날을 보고 있으면 탭 바 오른쪽 원이 되돌아가기 버튼이 된다. iOS는 SF Symbol `arrow.uturn.forward`를 시스템 tint로, Android는 유리 배경 원에 primary 색 화살표 SVG를 그린다. 라벨은 `오늘로`, 접근성 라벨은 `오늘로 돌아가기`다.
 - 누르면 세션을 열지 않고 `returnToToday()`가 `selectHomeDate(todayKey)`를 불러 웹에 `home-date-selected`를 보내고 날짜 줄을 오늘로 스크롤한다. 분석 이벤트는 기존 `home_date_selected` 경로 그대로다.
 - 오늘을 보고 있거나 날짜 줄이 없으면 재생 버튼이다.
+- 칩 누름은 앱 쪽 선택을 먼저 바꾸고 웹에 알린다. 웹은 선택이 바뀔 때마다 `set-home-date-bar`를 다시 보내고 홈 웹뷰가 다시 뜨면 목록을 처음부터 보내므로, 웹이 그 선택을 받아들이지 않아 어긋나도 다음 송신에서 앱 쪽이 웹 쪽으로 맞춰진다.
 - 설정 드러내기 구독은 `rendersNativeHomeChrome()`일 때만 건다. iOS 26 미만과 Android는 설정 링크가 기존 경로를 탄다.
 
 ## 실패 처리
