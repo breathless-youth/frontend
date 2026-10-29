@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { readStartSubject } from "@/features/study-session/startSubject";
+
 import { requestSessionStart } from "../sessionStart";
 
 /** 웹뷰 안에서는 브리지로, 브라우저 단독 모드에서는 직접 이동으로 갈린다 (BY-334). */
@@ -16,6 +18,7 @@ describe("requestSessionStart", () => {
     isNativeBridgeAvailable.mockReset();
     postToNative.mockReset();
     closeStaleSession.mockReset().mockResolvedValue(undefined);
+    localStorage.clear();
   });
 
   it("웹뷰에서는 마감 후 start-session을 보내고 직접 이동하지 않는다", async () => {
@@ -60,5 +63,47 @@ describe("requestSessionStart", () => {
     release();
     await pending;
     expect(postToNative).toHaveBeenCalledTimes(1);
+  });
+
+  it("과목을 고르면 마감 뒤 시작 과목을 남기고, 남긴 시각이 start-session과 같다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    closeStaleSession.mockImplementation(() => {
+      expect(readStartSubject(Date.now())).toBeNull();
+      return Promise.resolve(null);
+    });
+
+    await requestSessionStart(7, vi.fn(), 3);
+
+    const [[message]] = postToNative.mock.calls as [[{ atMs: number }]];
+    expect(readStartSubject(message.atMs)).toEqual({ userId: 7, subjectId: 3, atMs: message.atMs });
+  });
+
+  it("브라우저 단독 모드에서도 이동하기 전에 시작 과목을 남긴다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(false);
+    const navigateToSession = vi.fn(() => {
+      expect(readStartSubject(Date.now())).toMatchObject({ userId: 7, subjectId: 3 });
+    });
+
+    await requestSessionStart(7, navigateToSession, 3);
+
+    expect(navigateToSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("과목 없이 시작하면 앞서 실패한 시작이 남긴 과목을 삭제한다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    await requestSessionStart(7, vi.fn(), 3);
+
+    await requestSessionStart(7, vi.fn());
+
+    expect(readStartSubject(Date.now())).toBeNull();
+  });
+
+  it("신원이 없으면 과목을 골라도 남기지 않고 앞서 남은 과목을 삭제한다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    await requestSessionStart(7, vi.fn(), 3);
+
+    await requestSessionStart(null, vi.fn(), 3);
+
+    expect(readStartSubject(Date.now())).toBeNull();
   });
 });

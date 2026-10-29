@@ -790,7 +790,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(true);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
-    m.trackFocusStartTapped();
+    m.trackFocusStartTapped("home_subject");
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(120);
     m.trackSessionRecoveryConfirmed();
@@ -847,7 +847,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(false);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
-    m.trackFocusStartTapped();
+    m.trackFocusStartTapped("home_subject");
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(5040);
     m.trackSessionRecoveryConfirmed();
@@ -858,7 +858,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["social_room_camera_toggled", { on: false }],
       ["social_room_camera_on_dismissed"],
       ["social_room_background_returned", { hidden_sec: 31, expired: true }],
-      ["focus_start_tapped", { destination: "session", source: "home" }],
+      ["focus_start_tapped", { destination: "session", source: "home_subject" }],
       ["os_settings_opened", { source: "settings_tab" }],
       ["session_recovery_prompted", { focus_sec: 5040 }],
       ["session_recovery_confirmed"],

@@ -803,10 +803,11 @@ export function trackSocialRoomBackgroundReturned(input: {
 /**
  * 집중 시작을 누른 자리
  *
+ * `home_subject`는 오늘 홈의 과목 재생 버튼이고, 그 과목을 고른 채 시작한다.
  * `home_fallback`은 탭 바 재생 버튼이 없는 앱에서 홈 날짜 줄 위에 남긴 시작 버튼이다.
  */
 export type FocusStartSource =
-  "home" | "home_fallback" | "ranking_card" | "ranking_empty" | "ranking_records";
+  "home_subject" | "home_fallback" | "ranking_card" | "ranking_empty" | "ranking_records";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -816,7 +817,7 @@ export type FocusStartSource =
  * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
  * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
-export function trackFocusStartTapped(source: FocusStartSource = "home") {
+export function trackFocusStartTapped(source: FocusStartSource) {
   if (!initialized) return;
   track("focus_start_tapped", { destination: "session", source });
 }

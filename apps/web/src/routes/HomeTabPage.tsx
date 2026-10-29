@@ -24,6 +24,7 @@ import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { dayTitleWithWeekday, kstDateKey } from "@/features/records/recordsFormat";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
+import { clearStartSubject } from "@/features/study-session/startSubject";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
@@ -54,6 +55,8 @@ const { LazySheet: LazyAddSubjectSheet, preload: preloadAddSubjectSheet } = lazy
  * 과목 목록은 날짜와 무관한 지금 목록이라 지난 날에도 지금 있는 과목이 전부 보인다.
  * 세션은 다른 웹뷰에서 끝나 과목 목록이 낡을 수 있어 세션 모달이 닫히면 다시 받는다.
  * 그날 시간은 같은 신호의 통계 무효화로 다시 받는다.
+ * 홈 탭이 다시 보이면 세션 화면이 이미 읽었거나 시작이 실패한 것이라 남은 시작 과목을 삭제한다.
+ * 웹을 거치지 않는 탭 바 재생 버튼으로 시작한 세션에 그 과목이 붙지 않게 하려는 것이다.
  */
 function HomeContent({ userId }: { userId: number }) {
   const todayKey = kstDateKey();
@@ -88,6 +91,9 @@ function HomeContent({ userId }: { userId: number }) {
       subscribeToNativeMessages((message) => {
         if (message.type === "session-closed") {
           void reloadSubjects();
+        }
+        if (message.type === "tab-focus" && message.focused) {
+          clearStartSubject();
         }
       }),
     [reloadSubjects],
@@ -167,8 +173,7 @@ function HomeContent({ userId }: { userId: number }) {
               <HomeSubjectList
                 items={items}
                 isToday={isToday}
-                // 고른 과목을 세션에 넘기기 전까지는 과목 없이 시작한다.
-                onPlay={() => startFocus("home")}
+                onPlay={(subjectId) => startFocus("home_subject", subjectId)}
               />
             )}
             {subjects.status === "error" && (

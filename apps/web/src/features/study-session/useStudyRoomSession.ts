@@ -84,6 +84,7 @@ import type { SessionTuningConfig } from "./sessionTuning";
 import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
 import {
   createSubjectSegmentTracker,
+  discardSubjectSegments,
   materializeSubjectSegments,
   selectSubjectSegment,
 } from "./subjectSegments";
@@ -123,6 +124,14 @@ export interface StudyRoomSessionOptions {
    * 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
    */
   readonly restored?: RestoredSession | null;
+  /**
+   * 홈에서 고른 과목
+   *
+   * 새 세션이면 세션 시작 시각부터 이 과목을 고른 채 시작한다.
+   * 복원 세션은 서버 구간을 따르므로 쓰지 않는다.
+   * 마운트 시점에 한 번만 읽는다.
+   */
+  readonly initialSubjectId?: number | null;
   /**
    * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
    * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
@@ -242,7 +251,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         priorEvents: [] as StatusEventPayload[],
         serverSeenMs: 0,
         restored: false,
-        subjectTracker: createSubjectSegmentTracker(),
+        subjectTracker: selectSubjectSegment(
+          createSubjectSegmentTracker(),
+          options.initialSubjectId ?? null,
+          startedAtMs,
+        ),
       };
     }
     const priorEvents = [...restored.events];
@@ -793,6 +806,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     refreshDisplay(nowMs);
   };
 
+  /**
+   * 과목 구간 버리기
+   *
+   * 이 세션에서 그 과목을 고른 적이 없던 것으로 되돌린다.
+   * 세션이 쓰면 안 되는 과목일 때만 부른다.
+   */
+  const discardSubject = (subjectId: SubjectSelection) => {
+    subjectTrackerRef.current = discardSubjectSegments(subjectTrackerRef.current, subjectId);
+    setSubjectTracker(subjectTrackerRef.current);
+  };
+
   const flipCamera = async (): Promise<CameraFlipResult> => {
     const result = await camera.flip();
     trackCameraFlipped(result, roomType);
@@ -1006,6 +1030,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       display.nowMs,
     ),
     selectSubject,
+    discardSubject,
     pause,
     resume,
     startBreak,

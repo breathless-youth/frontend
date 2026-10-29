@@ -6,6 +6,7 @@ import { clampSubjectSegments } from "../sessionRequestClamp";
 import {
   createSubjectSegmentTracker,
   deriveSubjectTotals,
+  discardSubjectSegments,
   liveSubjectTime,
   materializeSubjectSegments,
   selectSubjectSegment,
@@ -102,6 +103,19 @@ describe("subjectSegments — 과목 전환 시각을 구간으로 남긴다", (
 
   it("복원 시각이 없으면 선택 없이 시작한다", () => {
     expect(createSubjectSegmentTracker([seg(1, 0, 300)]).current).toBeNull();
+  });
+
+  it("과목을 버리면 그 과목의 닫힌 구간과 지금 구간이 모두 사라지고 다른 과목은 남는다", () => {
+    let tracker = createSubjectSegmentTracker();
+    tracker = selectSubjectSegment(tracker, 1, at(0));
+    tracker = selectSubjectSegment(tracker, 2, at(100));
+    tracker = selectSubjectSegment(tracker, 1, at(300));
+
+    const discarded = discardSubjectSegments(tracker, 1);
+
+    expect(discarded.current).toBeNull();
+    expect(materializeSubjectSegments(discarded, at(500))).toEqual([seg(2, 100, 300)]);
+    expect(discardSubjectSegments(discarded, 2).closed).toEqual([]);
   });
 
   it("deriveSubjectTotals — PAUSE 겹침은 둘 다에서, 다른 이벤트 겹침은 순공에서만 빠진다", () => {
