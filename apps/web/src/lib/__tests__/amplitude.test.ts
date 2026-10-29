@@ -8,8 +8,13 @@ import { ANALYTICS_PARAM_VALUE_PATTERN } from "@focusmakers/types";
 const mocks = vi.hoisted(() => {
   class FakeIdentify {
     readonly sets: Array<[string, unknown]> = [];
+    readonly setOnces: Array<[string, unknown]> = [];
     set(key: string, value: unknown) {
       this.sets.push([key, value]);
+      return this;
+    }
+    setOnce(key: string, value: unknown) {
+      this.setOnces.push([key, value]);
       return this;
     }
   }
@@ -436,6 +441,31 @@ describe("setAcquisitionChannel", () => {
     expect(mocks.identify).toHaveBeenCalledTimes(1);
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
     expect(sent.sets).toEqual([["acquisition_channel", "preregister"]]);
+  });
+});
+
+describe("setInstallAttributionUserProperties", () => {
+  it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
+    const { setInstallAttributionUserProperties } = await loadModule();
+
+    setInstallAttributionUserProperties({ install_source: "unknown" });
+
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("처음 들어온 경로만 남도록 setOnce로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setInstallAttributionUserProperties } = await loadModule();
+    initAmplitude();
+
+    setInstallAttributionUserProperties({ install_source: "meta_ad", install_ad: "aos_v1" });
+
+    const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(sent.setOnces).toEqual([
+      ["install_source", "meta_ad"],
+      ["install_ad", "aos_v1"],
+    ]);
+    expect(sent.sets).toEqual([]);
   });
 });
 
@@ -1839,6 +1869,44 @@ describe("이번에 더한 속성의 Firebase 전달", () => {
     expect(strings.length).toBeGreaterThan(0);
     for (const value of strings) {
       expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+    }
+  });
+});
+
+describe("프로필 사진 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackProfileImageUploaded();
+    m.trackProfileImageRemoved();
+    m.trackProfileImageUploadFailed("network");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("등록·삭제·실패 분류를 정해진 이름으로 보내고 값은 토큰 규칙을 통과한다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackProfileImageUploaded();
+    m.trackProfileImageRemoved();
+    m.trackProfileImageUploadFailed("unusable");
+    m.trackProfileImageUploadFailed("network");
+    m.trackProfileImageUploadFailed("server");
+
+    const calls = mocks.track.mock.calls.slice(-5);
+    expect(calls).toEqual([
+      ["profile_image_upload"],
+      ["profile_image_remove"],
+      ["profile_image_upload_failed", { reason: "unusable" }],
+      ["profile_image_upload_failed", { reason: "network" }],
+      ["profile_image_upload_failed", { reason: "server" }],
+    ]);
+    for (const [, payload] of calls) {
+      for (const value of Object.values((payload ?? {}) as Record<string, string>)) {
+        expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+      }
     }
   });
 });

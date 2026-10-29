@@ -215,6 +215,39 @@ describe("parseToWebMessage: video-result", () => {
   });
 });
 
+describe("parseToWebMessage: profile-photo-result", () => {
+  const parse = (message: Record<string, unknown>) => parseToWebMessage(JSON.stringify(message));
+
+  it("picked는 사진 본문과 함께 파싱한다", () => {
+    expect(
+      parse({ type: "profile-photo-result", id: "r1", status: "picked", data: "AAEC", atMs: 1 }),
+    ).toEqual({ type: "profile-photo-result", id: "r1", status: "picked", data: "AAEC", atMs: 1 });
+  });
+
+  it("picked는 본문이 비어도 파싱해 기다리는 쪽에 넘긴다", () => {
+    expect(
+      parse({ type: "profile-photo-result", id: "r1", status: "picked", data: "", atMs: 1 }),
+    ).toEqual({ type: "profile-photo-result", id: "r1", status: "picked", data: "", atMs: 1 });
+  });
+
+  it.each(["cancelled", "failed"])("%s는 본문 없이 파싱한다", (status) => {
+    expect(
+      parse({ type: "profile-photo-result", id: "r1", status, data: "AAEC", atMs: 1 }),
+    ).toEqual({ type: "profile-photo-result", id: "r1", status, atMs: 1 });
+  });
+
+  it.each([
+    { type: "profile-photo-result", id: "r1", status: "picked", atMs: 1 },
+    { type: "profile-photo-result", id: "r1", status: "picked", data: 1, atMs: 1 },
+    { type: "profile-photo-result", id: "r1", status: "unknown", atMs: 1 },
+    { type: "profile-photo-result", id: "", status: "cancelled", atMs: 1 },
+    { type: "profile-photo-result", status: "cancelled", atMs: 1 },
+    { type: "profile-photo-result", id: "r1", status: "cancelled" },
+  ])("모양이 틀리면 버린다: %o", (message) => {
+    expect(parse(message)).toBeNull();
+  });
+});
+
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
   it("이름과 원시값 속성을 파싱한다", () => {
     expect(
@@ -473,5 +506,39 @@ describe("개발 로그", () => {
     );
     warn.mockRestore();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("parseToWebMessage — install-attribution(설치 유입 정보)", () => {
+  const valid = {
+    type: "install-attribution",
+    platform: "android",
+    installReferrer: "utm_source=apps.facebook.com&utm_content=%7B%7D",
+    deepLinkAd: "aos_v3",
+    capturedAtMs: 5,
+    atMs: 9,
+  };
+
+  it("앱이 읽은 값을 그대로 파싱한다", () => {
+    expect(parseToWebMessage(JSON.stringify(valid))).toEqual(valid);
+  });
+
+  it("값이 없는 항목은 null로 받는다", () => {
+    const empty = { ...valid, platform: "ios", installReferrer: null, deepLinkAd: null };
+    expect(parseToWebMessage(JSON.stringify(empty))).toEqual(empty);
+  });
+
+  it("플랫폼이나 읽은 시각이 이상하면 통째로 버린다", () => {
+    expect(parseToWebMessage(JSON.stringify({ ...valid, platform: "web" }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, capturedAtMs: "5" }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, installReferrer: 1 }))).toBeNull();
+  });
+
+  it("형식 밖 광고 번호와 너무 긴 설치 정보는 그 항목만 비운다", () => {
+    expect(
+      parseToWebMessage(
+        JSON.stringify({ ...valid, deepLinkAd: "web_v1", installReferrer: "a".repeat(5000) }),
+      ),
+    ).toEqual({ ...valid, deepLinkAd: null, installReferrer: null });
   });
 });

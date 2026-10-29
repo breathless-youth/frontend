@@ -22,6 +22,7 @@ import type {
 } from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
+import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { readUserId } from "./userId";
 import { whenIdle } from "./whenIdle";
@@ -668,6 +669,21 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
 }
 
 /**
+ * 설치 유입 경로 user property
+ *
+ * 앱이 넘긴 설치 정보로 정한 값이다(`lib/installAttribution.ts`).
+ * 재설치나 재전송이 와도 처음 들어온 경로가 남도록 setOnce로 보낸다.
+ */
+export function setInstallAttributionUserProperties(properties: InstallAttributionProperties) {
+  if (!initialized) return;
+  const id = new Identify();
+  for (const [key, value] of Object.entries(properties)) {
+    if (value !== undefined) id.setOnce(key, value);
+  }
+  identify(id);
+}
+
+/**
  * 네이티브 셸이 브리지 `track-event`로 넘긴 사용자 이벤트(`lib/nativeAnalytics.ts`) — 하단 탭 터치,
  * 카메라 권한 게이트 결과, 권한 거부 안내(S2-3) 행동, 업데이트 권장 알림창 응답, 알림 탭 등.
  * **이벤트 카탈로그는 발신자인 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다** — 여기서는 이름을
@@ -1233,6 +1249,24 @@ export function trackProfileSaveResult(result: { ok: true } | { ok: false; reaso
     return;
   }
   track("profile_save_failed", { reason: result.reason });
+}
+
+/** 사진 올리기 실패 분류. 사진과 파일 크기 같은 값은 싣지 않는다. */
+export type ProfileImageUploadFailure = "unusable" | "network" | "server";
+
+export function trackProfileImageUploaded() {
+  if (!initialized) return;
+  track("profile_image_upload");
+}
+
+export function trackProfileImageRemoved() {
+  if (!initialized) return;
+  track("profile_image_remove");
+}
+
+export function trackProfileImageUploadFailed(reason: ProfileImageUploadFailure) {
+  if (!initialized) return;
+  track("profile_image_upload_failed", { reason });
 }
 
 /**

@@ -10,6 +10,7 @@ import { interpolateRows } from "./live";
  */
 export interface PodiumRow {
   nickname: string;
+  profileImageUrl?: string | null;
   me: boolean;
   focusing: boolean;
   /**
@@ -63,6 +64,7 @@ export function podiumStands(
         label: `${group.rank}위`,
         row: {
           nickname: group.nickname,
+          profileImageUrl: group.profileImageUrl,
           me: group.me,
           focusing: false,
           display: group.days,
@@ -79,6 +81,7 @@ export function podiumStands(
       label: `${spot}위`,
       row: row && {
         nickname: row.nickname,
+        profileImageUrl: row.profileImageUrl,
         me: row.me,
         focusing: row.focusing,
         display: row.display,

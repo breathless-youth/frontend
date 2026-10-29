@@ -22,15 +22,21 @@ function Avatar({
   );
 }
 
+/** 아바타 옆에는 늘 닉네임이 함께 보여 사진은 화면 낭독기가 읽지 않는 꾸밈으로만 둔다. */
 function AvatarImage({
   className,
   ...props
-}: Omit<AvatarPrimitive.Image.Props, "className"> & { className?: string }) {
+}: Omit<AvatarPrimitive.Image.Props, "className" | "alt"> & { className?: string }) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
-      className={cn("size-full object-cover", className)}
+      className={cn(
+        // 이용자가 올린 사진이 Amplitude 화면 재생 기록에 담기지 않게 막는 표식이다.
+        "amp-block size-full object-cover",
+        className,
+      )}
       {...props}
+      alt=""
     />
   );
 }

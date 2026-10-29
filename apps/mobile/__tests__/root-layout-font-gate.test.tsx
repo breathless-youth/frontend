@@ -90,6 +90,11 @@ jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
   ensurePushPermission: () => mockEnsurePushPermission(),
 }));
+// 서버 토큰 등록은 `lib/__tests__/pushTokenRegistration.test.ts`가 본다. 인증·네트워크를 타지 않게 막는다.
+jest.mock("../lib/pushTokenRegistration", () => ({
+  registerPushToken: jest.fn(() => Promise.resolve()),
+  watchAuthForPushToken: jest.fn(() => () => {}),
+}));
 // Meta SDK — 어댑터 설치·초기화(ATT)는 호출만 기록한다(동작은 `lib/__tests__/metaAds.test.ts`).
 // SDK 모듈은 네이티브 없이 로드조차 안 되므로 반드시 mock한다. `installMetaAdsSdk`는 `_layout`이 **모듈
 // 스코프**에서 부르므로(import 시점) 바깥 `const` jest.fn을 참조하면 아직 초기화 전이다 — factory 안에서 만든다.
@@ -107,6 +112,12 @@ jest.mock("../lib/firebaseAnalyticsSdk", () => ({
 const mockInitMetaAds = jest.fn(() => Promise.resolve());
 jest.mock("../lib/metaAds", () => ({
   initMetaAds: () => mockInitMetaAds() as Promise<void>,
+}));
+// 설치 유입 정보 수집은 호출 여부만 본다(동작은 `lib/__tests__/installAttribution.test.ts`).
+const mockStartInstallAttribution = jest.fn(() => Promise.resolve());
+jest.mock("../lib/installAttribution", () => ({
+  startInstallAttribution: () => mockStartInstallAttribution() as Promise<void>,
+  attachInstallAttributionSink: () => () => {},
 }));
 // 강제 업데이트 게이트(BY-586) — 기본은 통과. 개별 테스트에서 forced로 바꾼다.
 // 접속 재판정(`refreshForceUpdate`)도 기본은 통과 — 부팅 판정과 같은 결과를 돌려주면 화면이 바뀌지 않는다.
@@ -182,6 +193,7 @@ beforeEach(() => {
   mockRemoveLeftoverVideoFiles.mockClear();
   mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
   mockEnsurePushPermission.mockReset().mockImplementation(() => Promise.resolve());
+  mockStartInstallAttribution.mockClear();
 });
 
 describe("RootLayout 폰트 로드 게이팅", () => {
@@ -579,6 +591,14 @@ describe("RootLayout Meta SDK 초기화", () => {
     await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
   });
 
+  it("같은 시점에 설치 유입 정보 수집을 한 번 시작한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockStartInstallAttribution).toHaveBeenCalledTimes(1));
+  });
+
   it("폰트가 준비되기 전에는 부르지 않는다 — 스플래시 위에서는 OS가 프롬프트를 띄우지 않는다", async () => {
     mockUseFonts.mockReturnValue([false, undefined]);
 
@@ -586,6 +606,7 @@ describe("RootLayout Meta SDK 초기화", () => {
     await waitFor(() => expect(mockResolveForceUpdate).toHaveBeenCalled());
 
     expect(mockInitMetaAds).not.toHaveBeenCalled();
+    expect(mockStartInstallAttribution).not.toHaveBeenCalled();
   });
 
   it("forced면 부르지 않는다 — 막힌 실행에서 추적 동의를 물을 이유가 없다", async () => {

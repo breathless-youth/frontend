@@ -37,9 +37,21 @@ export const API_ENDPOINTS = {
   register: { version: "2", parsedBy: "apps/mobile/lib/auth.ts registerUser" },
   /** `POST /api/auth/refresh` — 구 앱에 토큰이 없어 갱신을 부른 적이 없으니 새 경로다. */
   refresh: { version: "1", parsedBy: "apps/mobile/lib/auth.ts refreshOnce" },
+  /** `PUT /api/push-tokens` — 기기 푸시 토큰 등록. 새 경로다. 응답 본문 없이 204. */
+  pushTokens: {
+    version: "1",
+    parsedBy: "apps/mobile/lib/pushTokenRegistration.ts registerPushToken",
+  },
 
   /** `GET`·`PATCH /api/users/me/profile` ↔ 구 계약 `/api/users/{userId}/profile` */
   profile: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/profileApi.ts" },
+  /** `POST /api/users/me/profile-image/upload-url` — 프로필 사진 업로드 주소 발급. 새 경로다. */
+  profileImageUploadUrl: {
+    version: "1",
+    parsedBy: "apps/web/src/lib/profileApi.ts requestUploadUrl",
+  },
+  /** `PUT`·`DELETE /api/users/me/profile-image` — 프로필 사진 등록·삭제. 새 경로다. */
+  profileImage: { version: "1", parsedBy: "apps/web/src/lib/profileApi.ts" },
 
   /** `GET /api/stats?date=` */
   stats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStats" },

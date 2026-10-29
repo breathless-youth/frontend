@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
+import { waitFor } from "@testing-library/react-native";
 
 import type { HandlerMessage } from "@focusmakers/types";
 
@@ -23,6 +24,7 @@ import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPrese
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
 import { saveLaunchGoal } from "../launchGoal";
+import { acknowledgeInstallAttribution } from "../installAttribution";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -83,10 +85,21 @@ jest.mock("../launchGoal", () => ({
   saveLaunchGoal: jest.fn(async () => undefined),
 }));
 
+jest.mock("../installAttribution", () => ({
+  acknowledgeInstallAttribution: jest.fn(async () => undefined),
+}));
+
 jest.mock("../videoTransfer", () => ({
   appendVideoChunk: jest.fn(),
   saveVideo: jest.fn(),
   shareVideo: jest.fn(),
+}));
+
+const mockPicker: { native: { pick: jest.Mock } | null } = { native: null };
+jest.mock("../../modules/profile-photo-picker", () => ({
+  get profilePhotoPickerNative() {
+    return mockPicker.native;
+  },
 }));
 
 /** 응답을 보지 않는 테스트용 통로. 실제 통로는 `RemoteWebViewHost`의 `injectJavaScript`다. */
@@ -538,6 +551,13 @@ describe("handleBridgeMessage", () => {
     expect(noopReply).not.toHaveBeenCalled();
   });
 
+  it("install-attribution-received → 보관하던 설치 유입 정보를 끝낸다", () => {
+    handleBridgeMessage({ type: "install-attribution-received", atMs: 1 }, noopReply);
+
+    expect(acknowledgeInstallAttribution).toHaveBeenCalledTimes(1);
+    expect(noopReply).not.toHaveBeenCalled();
+  });
+
   it("meta-app-event는 파라미터가 없으면 undefined를 넘긴다 — 빈 객체를 만들어 넣지 않는다", () => {
     handleBridgeMessage(
       { type: "meta-app-event", name: "social_room_entered", atMs: 1 },
@@ -879,5 +899,73 @@ describe("handleBridgeMessage: 방해 앱 잠금", () => {
     const reply = jest.fn();
     handleBridgeMessage(message, reply);
     expect(handleAppLockMessage).toHaveBeenCalledWith(message, reply);
+  });
+});
+
+describe("handleBridgeMessage: 프로필 사진 선택기", () => {
+  const request = { type: "pick-profile-photo", id: "r1", atMs: 1 } as const;
+
+  afterEach(() => {
+    mockPicker.native = null;
+  });
+
+  it("고른 사진을 같은 id의 picked로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn(async () => "AAEC") };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "profile-photo-result",
+          id: "r1",
+          status: "picked",
+          data: "AAEC",
+        }),
+      ),
+    );
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it("선택기를 닫으면 cancelled로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn(async () => null) };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "cancelled" }),
+      ),
+    );
+    expect(reply.mock.calls[0][0]).not.toHaveProperty("data");
+  });
+
+  it("사진을 읽지 못하면 failed로 답한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockPicker.native = { pick: jest.fn(async () => Promise.reject(new Error("decode"))) };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it("모듈이 없는 바이너리는 선택기 없이 failed로 답한다", async () => {
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
+      ),
+    );
   });
 });

@@ -124,8 +124,11 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
    * 오류 문구는 싣지 않는다.
    */
   update_config_refreshed: { trigger: "cold_start" | "resume"; result: "ok" | "failed" };
-  /** 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 쿼리를 뗀 앱 경로(초대코드 등 값은 싣지 않는다). */
-  push_notification_opened: { route: string };
+  /**
+   * 알림 탭으로 앱 진입(`lib/pushBootstrap.ts`). `route`는 실제로 연 화면의 쿼리를 뗀 경로(초대코드 등 값은 싣지 않는다),
+   * `fallback`은 의도와 다르게 홈으로 갔는지, `type`·`push_id`는 서버 발송이 실은 값이다(콘솔 캠페인은 없음).
+   */
+  push_notification_opened: { route: string; fallback: boolean; type?: string; push_id?: string };
   /** 초대 딥링크 진입으로, 평소에는 `app/social/join.tsx`가, 세션 중에는 `lib/sessionInvite.ts`가 남기며 유니버설 링크·App Links·스킴·Install Referrer·알림이 모두 여기로 모인다. */
   invite_deep_link_opened: { has_code: boolean };
   /**

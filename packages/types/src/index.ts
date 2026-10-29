@@ -33,6 +33,18 @@ export interface AuthRefreshResponse {
 }
 
 /**
+ * 기기 푸시 토큰 등록 API 계약 (PUT /api/push-tokens, 204) — Swagger 기준.
+ * 같은 토큰이면 권한 상태와 갱신 시각만 바뀌고, 다른 사용자에게 붙어 있던 토큰이면 지금 사용자로 옮긴다.
+ */
+export interface PushTokenRegisterRequest {
+  /** FCM 등록 토큰(최대 4096자) */
+  token: string;
+  platform: "IOS" | "ANDROID";
+  /** 등록 때의 OS 알림 권한. 서버는 꺼진 기기에도 보내고, 이 값은 클릭률의 분모로만 쓴다. */
+  notificationsEnabled: boolean;
+}
+
+/**
  * 공부 세션 제출 API 계약 (POST /api/study-sessions) — Swagger 기준.
  * 최종 제출은 앱이 잰 studySec/focusSec을 그대로 저장한다. 진행 중 값은 PUT /active로 따로
  * 보고하고(ActiveSessionSnapshotRequest), 서버가 마지막 스냅샷으로 자동 확정한다.
@@ -496,12 +508,42 @@ export interface ProfileResponse {
   initial: string;
   /** 아바타 자동 색 인덱스 — 서버 산출, 닉네임이 바뀌어도 고정 */
   colorIndex: number;
+  /**
+   * 프로필 사진 경로. 없으면 null이다.
+   *
+   * 웹과 같은 출처의 상대 경로(`/avatars/...`)라 그대로 `img`의 `src`로 쓴다.
+   * 이 필드가 배포되기 전 응답에는 없다.
+   */
+  profileImageUrl?: string | null;
 }
 
 export interface ProfileUpdateRequest {
   nickname?: string;
   goal?: string | null;
   category?: string | null;
+}
+
+/** `POST /api/users/me/profile-image/upload-url` — 서버는 1 이상 1,048,576 이하만 받는다. */
+export interface ProfileImageUploadUrlRequest {
+  contentLength: number;
+}
+
+/**
+ * 프로필 사진 업로드 주소와 등록 키
+ *
+ * 주소는 발급 5분 뒤 만료된다.
+ * 서명에 Content-Length가 들어 있어 요청한 크기의 JPEG를 `Content-Type: image/jpeg`로 올려야 한다.
+ */
+export interface ProfileImageUploadUrlResponse {
+  uploadUrl: string;
+  key: string;
+  /** ISO 8601 시각 */
+  expiresAt: string;
+}
+
+/** `PUT /api/users/me/profile-image` — 업로드 주소와 함께 받은 키 */
+export interface ProfileImageUpdateRequest {
+  key: string;
 }
 
 /**
@@ -607,6 +649,7 @@ export type {
   HandlerMessage,
   HostPassedMessage,
   InlineControl,
+  InstallAttributionMessage,
   NativeControlPressMessage,
   NativeButtonTone,
   NavigateHomeMessage,
@@ -636,6 +679,8 @@ export {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   GLASS_CONTROLS_BUTTON_STYLE,
   GLASS_CHROME_LEADING,
+  INSTALL_AD_LABEL_PATTERN,
+  INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_BUTTON_TONES,
   NATIVE_CONTROL_COORDINATE_MAX,
   NATIVE_CONTROL_ID_PATTERN,

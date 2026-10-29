@@ -101,7 +101,12 @@ function PodiumSpot({
         </span>
       ) : (
         <span className="relative inline-flex">
-          <RankAvatar nickname={row.nickname} me={row.me} size={look.avatar} />
+          <RankAvatar
+            nickname={row.nickname}
+            me={row.me}
+            size={look.avatar}
+            imageUrl={row.profileImageUrl}
+          />
           {!medalless && (
             <IllustMedalRing
               rank={spot}
@@ -124,7 +129,7 @@ function PodiumSpot({
                 first ? "text-[13px] leading-3.75 font-extrabold" : "text-xs leading-3.5 font-bold",
               )}
             />
-            {/* 내 자리는 내 첫 글자의 파란 아바타로만 보이므로 나 표시는 화면 낭독기에만 읽힌다. */}
+            {/* 눈으로는 사진이나 파란 첫 글자와 아래 내 닉네임으로 내 자리를 알아보므로 나 표시는 화면 낭독기에만 읽힌다. */}
             {row.me && <span className="sr-only">나</span>}
           </>
         )}

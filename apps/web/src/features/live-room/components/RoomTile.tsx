@@ -81,7 +81,11 @@ export function RoomTile({ member, media, isSelf = false, rootRef, className }: 
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
-        <RoomAvatarFallback nickname={member.nickname} scaleWithTile />
+        <RoomAvatarFallback
+          nickname={member.nickname}
+          imageUrl={member.profileImageUrl}
+          scaleWithTile
+        />
       )}
       {showMedia && (
         /* 영상 위 텍스트 가독성용 하단 스크림 */

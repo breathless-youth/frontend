@@ -9,6 +9,7 @@ import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
 import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
+import { acknowledgeInstallAttribution } from "./installAttribution";
 import { saveLaunchGoal } from "./launchGoal";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { logMetaAppEvent } from "./metaAds";
@@ -18,6 +19,7 @@ import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
+import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -66,6 +68,26 @@ function releaseStartSessionOnScreenClose(): void {
 export function __resetStartSessionInFlightForTests(): void {
   startSessionInFlight = false;
   clearTimeout(startSessionReleaseTimer);
+}
+
+/**
+ * 앱 사진 선택기로 고른 사진
+ *
+ * 모듈이 없는 바이너리나 읽기 실패도 `failed`로 돌려줘 웹이 답을 못 받는 경우가 없게 한다.
+ */
+async function pickProfilePhoto(): Promise<
+  { status: "picked"; data: string } | { status: "cancelled" | "failed" }
+> {
+  if (profilePhotoPickerNative === null) {
+    return { status: "failed" };
+  }
+  try {
+    const data = await profilePhotoPickerNative.pick();
+    return data === null ? { status: "cancelled" } : { status: "picked", data };
+  } catch (error) {
+    console.warn("[bridge] 프로필 사진 읽기 실패", error);
+    return { status: "failed" };
+  }
 }
 
 /**
@@ -270,6 +292,9 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "analytics-user-properties":
       setAnalyticsUserProperties(message.properties);
       break;
+    case "install-attribution-received":
+      void acknowledgeInstallAttribution();
+      break;
     case "app-lock-query":
     case "app-lock-authorize":
     case "app-lock-pick":
@@ -279,6 +304,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 잠금 실패가 공부 측정을 막지 않도록 어댑터가 RNDA 예외를 삼키고, 여기서는 남은 예외만 경고로 남긴다.
       void handleAppLockMessage(message, reply).catch((error: unknown) => {
         console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);
+      });
+      break;
+    case "pick-profile-photo":
+      void pickProfilePhoto().then((result) => {
+        reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     default: {

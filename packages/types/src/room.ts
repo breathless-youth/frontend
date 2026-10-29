@@ -18,6 +18,8 @@ export interface RoomMember {
   focusState: RoomFocusState;
   nickname?: string;
   goal?: string | null;
+  // 입장할 때 서버가 복사해 둔 사진이라 방 밖에서 바꾸면 다음 입장부터 바뀐다.
+  profileImageUrl?: string | null;
   focusSec?: number;
   // 소켓이 끊겨 30초 유예 중인 멤버. 유예가 끝나면 서버가 MEMBER_LEFT로 지운다.
   disconnected?: boolean;

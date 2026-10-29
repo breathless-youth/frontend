@@ -24,9 +24,14 @@ jest.mock("expo-tracking-transparency", () => ({
   PermissionStatus: { UNDETERMINED: "undetermined" },
   requestTrackingPermissionsAsync: () => mockRequestTracking() as Promise<unknown>,
 }));
+const mockFetchDeferredAppLink = jest.fn();
 jest.mock("react-native-fbsdk-next", () => {
   mockSdkLoaded = true;
-  return { AppEventsLogger: { logEvent: jest.fn() }, Settings: { initializeSDK: jest.fn() } };
+  return {
+    AppEventsLogger: { logEvent: jest.fn() },
+    AppLink: { fetchDeferredAppLink: () => mockFetchDeferredAppLink() as Promise<unknown> },
+    Settings: { initializeSDK: jest.fn() },
+  };
 });
 jest.mock("../metaAds", () => ({
   metaAppIdFromConfig: jest.requireActual<{ metaAppIdFromConfig: () => string | null }>(
@@ -147,4 +152,12 @@ describe("iOS ATT 요청 시점", () => {
       jest.useRealTimers();
     }
   });
+});
+
+it("지연 딥링크는 SDK의 AppLink에 묻고 받은 주소를 그대로 돌려준다", async () => {
+  mockFetchDeferredAppLink.mockResolvedValue("focusmakers://?fm_ad=ios_v1");
+
+  await expect(installedAdapter().fetchDeferredAppLink()).resolves.toBe(
+    "focusmakers://?fm_ad=ios_v1",
+  );
 });

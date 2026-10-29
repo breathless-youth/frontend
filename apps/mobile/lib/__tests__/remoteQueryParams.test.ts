@@ -29,6 +29,14 @@ jest.mock("../../modules/app-lock", () => ({
     return mockAppLockModule.appLockNative;
   },
 }));
+const mockPickerModule: { profilePhotoPickerNative: object | null } = {
+  profilePhotoPickerNative: null,
+};
+jest.mock("../../modules/profile-photo-picker", () => ({
+  get profilePhotoPickerNative() {
+    return mockPickerModule.profilePhotoPickerNative;
+  },
+}));
 const mockGlass: { webGlassNative: object | null; available: boolean } = {
   webGlassNative: null,
   available: false,
@@ -83,6 +91,30 @@ describe("buildRemoteQueryParams", () => {
       await expect(buildRemoteQueryParams()).resolves.toHaveProperty("appLock", "1");
     } finally {
       mockAppLockModule.appLockNative = null;
+    }
+  });
+
+  it("사진 선택기 모듈이 든 Android 빌드에만 profilePhotoPicker=1을 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("profilePhotoPicker");
+
+    mockPickerModule.profilePhotoPickerNative = {};
+    try {
+      await expect(buildRemoteQueryParams()).resolves.toHaveProperty("profilePhotoPicker", "1");
+    } finally {
+      mockPickerModule.profilePhotoPickerNative = null;
+    }
+  });
+
+  it("iOS에는 profilePhotoPicker 표시가 없다 (웹 파일 입력을 쓴다)", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    mockPickerModule.profilePhotoPickerNative = {};
+    try {
+      await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("profilePhotoPicker");
+    } finally {
+      mockPickerModule.profilePhotoPickerNative = null;
     }
   });
 
