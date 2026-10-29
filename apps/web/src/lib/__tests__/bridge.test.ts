@@ -107,6 +107,13 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"tab-focus","focused":"no","atMs":3}')).toBeNull();
   });
 
+  it("home-play-pressed를 파싱한다", () => {
+    expect(parseToWebMessage('{"type":"home-play-pressed","atMs":4}')).toEqual({
+      type: "home-play-pressed",
+      atMs: 4,
+    });
+  });
+
   it("session-invite를 파싱한다", () => {
     expect(parseToWebMessage('{"type":"session-invite","code":"4680","atMs":1}')).toEqual({
       type: "session-invite",

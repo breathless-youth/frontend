@@ -125,7 +125,9 @@ export type ToWebMessage =
    */
   | { type: "home-date-selected"; dateKey: string; atMs: number }
   /** 앱이 그리는 홈 날짜 줄 메뉴에서 고른 항목. 홈 웹뷰에만 간다. */
-  | { type: "home-menu-action"; action: HomeMenuAction; atMs: number };
+  | { type: "home-menu-action"; action: HomeMenuAction; atMs: number }
+  /** 앱이 그린 탭 바 재생 버튼을 눌렀다는 알림. 홈 웹뷰에만 가고, 웹이 과목 없이 시작하는 경로를 탄다. */
+  | { type: "home-play-pressed"; atMs: number };
 
 /** 홈 날짜 줄 메뉴 항목. 웹 파서가 이 목록으로 검사한다. */
 export const HOME_MENU_ACTIONS = ["reorder-subjects", "edit-subjects"] as const;
@@ -400,6 +402,9 @@ export type ToNativeMessage =
   | SetInlineControlsMessage
   | SetHomeDateBarMessage;
 
+/** 앱이 받는 홈 날짜 줄 날짜 수 상한. 웹은 30일을 보낸다. */
+export const HOME_DATE_BAR_MAX_DATES = 60;
+
 /**
  * 홈 날짜 줄 내용
  *
@@ -424,7 +429,8 @@ type HostConsumedType =
   | "set-back-gesture"
   | "set-orientation"
   | "set-glass-chrome"
-  | "set-inline-controls";
+  | "set-inline-controls"
+  | "set-home-date-bar";
 
 /** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
 export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;

@@ -1,4 +1,4 @@
-import { Menu, Play } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { hasNativeDateBar } from "./nativeHomeDateBar";
  * 탭 바 바로 위에 떠 있는 막대이고, 본문 흐름 끝에 sticky로 붙여 본문이 그 높이만큼 저절로 비켜 간다.
  * 최근 30일을 가로로 늘어놓고 처음에는 오른쪽 끝의 오늘이 보이게 둔다.
  * 칩 폭은 폰에서 줄 폭의 3분의 1이라 최소 3일이 보이고, 넓은 화면에서는 폭 상한에 걸려 더 많은 날이 보인다.
- * 탭 바에 재생 버튼이 없는 앱에서는 과목 없이 시작하는 버튼을 막대 위 오른쪽에 둔다.
+ * 탭 바에 재생 버튼이 없는 앱에서는 과목 없이 시작하는 버튼을 막대 위에 막대와 같은 너비·높이로 둔다.
  * 앱이 날짜 줄을 직접 그리면 막대를 빼고 시작 버튼만 남기며, 남길 것이 없으면 아무것도 그리지 않는다.
  */
 export function HomeDateStrip({
@@ -55,10 +55,9 @@ export function HomeDateStrip({
       {showStart && (
         <Button
           onClick={onStartWithoutSubject}
-          className="pointer-events-auto h-11 gap-1.5 rounded-full px-4 text-sm font-bold shadow-sb-card"
+          className="pointer-events-auto h-14 w-full rounded-full text-base font-bold shadow-sb-card"
         >
-          <Play aria-hidden size={12} fill="currentColor" />
-          순공 시작
+          순공 시작하기
         </Button>
       )}
       {nativeDateBar ? (

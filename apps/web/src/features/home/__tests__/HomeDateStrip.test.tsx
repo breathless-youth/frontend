@@ -81,11 +81,13 @@ describe("HomeDateStrip", () => {
     expect(onMenu).toHaveBeenCalledTimes(1);
   });
 
-  it("탭 바 재생 버튼이 없는 앱이면 순공 시작 버튼이 있다", () => {
+  it("탭 바 재생 버튼이 없는 앱이면 순공 시작하기 버튼이 있다", () => {
     openAt("");
     const { onStartWithoutSubject } = renderStrip();
 
-    fireEvent.click(screen.getByRole("button", { name: "순공 시작" }));
+    const button = screen.getByRole("button", { name: "순공 시작하기" });
+    expect(button.querySelector("svg")).toBeNull();
+    fireEvent.click(button);
 
     expect(onStartWithoutSubject).toHaveBeenCalledTimes(1);
   });
@@ -94,7 +96,7 @@ describe("HomeDateStrip", () => {
     openAt("?tabBarPlay=1");
     renderStrip();
 
-    expect(screen.queryByRole("button", { name: "순공 시작" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "순공 시작하기" })).not.toBeInTheDocument();
   });
 });
 
@@ -105,7 +107,7 @@ describe("HomeDateStrip: 앱이 날짜 줄을 그릴 때", () => {
 
     expect(screen.queryByRole("group", { name: "날짜" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "과목 메뉴" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작하기" })).toBeInTheDocument();
     expect(screen.getByTestId("home-date-bar-spacer")).toBeInTheDocument();
   });
 
@@ -113,7 +115,7 @@ describe("HomeDateStrip: 앱이 날짜 줄을 그릴 때", () => {
     openAt("?nativeDateBar=1&tabBarPlay=1");
     renderStrip();
 
-    expect(screen.queryByRole("button", { name: "순공 시작" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "순공 시작하기" })).not.toBeInTheDocument();
     expect(screen.getByTestId("home-date-bar-spacer")).toBeInTheDocument();
   });
 
@@ -122,7 +124,7 @@ describe("HomeDateStrip: 앱이 날짜 줄을 그릴 때", () => {
     renderStrip();
 
     expect(screen.queryByRole("group", { name: "날짜" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작하기" })).toBeInTheDocument();
     expect(screen.queryByTestId("home-date-bar-spacer")).not.toBeInTheDocument();
   });
 

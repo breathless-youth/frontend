@@ -233,6 +233,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "tab-focus" && typeof record.focused === "boolean") {
     return { type: "tab-focus", focused: record.focused, atMs: record.atMs };
   }
+  if (record.type === "home-play-pressed") {
+    return { type: "home-play-pressed", atMs: record.atMs };
+  }
   if (record.type === "session-invite" && typeof record.code === "string") {
     return { type: "session-invite", code: record.code, atMs: record.atMs };
   }

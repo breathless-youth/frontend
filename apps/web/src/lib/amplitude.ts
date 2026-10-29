@@ -821,9 +821,15 @@ export function trackSocialRoomBackgroundReturned(input: {
  *
  * `home_subject`는 오늘 홈의 과목 재생 버튼이고, 그 과목을 고른 채 시작한다.
  * `home_fallback`은 탭 바 재생 버튼이 없는 앱에서 홈 날짜 줄 위에 남긴 시작 버튼이다.
+ * `tab_bar`는 앱이 그린 탭 바 재생 버튼이고, 앱이 홈 웹뷰에 알리면 웹이 이 값으로 센다.
  */
 export type FocusStartSource =
-  "home_subject" | "home_fallback" | "ranking_card" | "ranking_empty" | "ranking_records";
+  | "home_subject"
+  | "home_fallback"
+  | "tab_bar"
+  | "ranking_card"
+  | "ranking_empty"
+  | "ranking_records";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭

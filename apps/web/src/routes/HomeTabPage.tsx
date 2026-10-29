@@ -86,6 +86,7 @@ function HomeContent({ userId }: { userId: number }) {
   };
   const subjects = useSubjects(true, showToast, "home", loadSubjects);
   const { reload: reloadSubjects } = subjects;
+  const startFocus = useFocusStart(userId);
   useEffect(
     () =>
       subscribeToNativeMessages((message) => {
@@ -95,13 +96,16 @@ function HomeContent({ userId }: { userId: number }) {
         if (message.type === "tab-focus" && message.focused) {
           clearStartSubject();
         }
+        // 앱이 그린 탭 바 재생 버튼은 웹을 거치지 않으면 남은 과목 기록을 삭제할 수 없어 여기서 폴백 버튼과 같은 경로로 시작한다.
+        if (message.type === "home-play-pressed") {
+          startFocus("tab_bar");
+        }
       }),
-    [reloadSubjects],
+    [reloadSubjects, startFocus],
   );
 
   useStudyStatusUserProperties(userId);
   useTimelapseUserProperty();
-  const startFocus = useFocusStart(userId);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   /**

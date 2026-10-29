@@ -436,11 +436,48 @@ describe("HomeTabPage — 날짜 줄", () => {
     saveStartSubject(7, 1, Date.now());
     renderHomeWithRoutes();
 
-    fireEvent.click(await screen.findByRole("button", { name: "순공 시작" }));
+    fireEvent.click(await screen.findByRole("button", { name: "순공 시작하기" }));
 
     expect((await screen.findByTestId("room-stub")).textContent).toBe("/room/1?userId=7");
     expect(readStartSubject(Date.now())).toBeNull();
     expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home_fallback");
+  });
+
+  it("앱 탭 바 재생 누름을 받으면 과목 없이 시작하고 tab_bar로 센다", async () => {
+    renderHomeWithRoutes();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    saveStartSubject(7, 3, Date.now());
+
+    act(() => {
+      emitNative(`{"type":"home-play-pressed","atMs":${Date.now()}}`);
+    });
+
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("tab_bar");
+    expect((await screen.findByTestId("room-stub")).textContent).toBe("/room/1?userId=7");
+    expect(readStartSubject(Date.now())).toBeNull();
+  });
+
+  it("앱 안에서 탭 바 재생 누름을 받으면 화면을 넘기지 않고 앱에 start-session을 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    try {
+      renderHomeWithRoutes();
+      await screen.findByRole("button", { name: "국어 공부 시작" });
+
+      act(() => {
+        emitNative(`{"type":"home-play-pressed","atMs":${Date.now()}}`);
+      });
+
+      await waitFor(() => {
+        const sent = postMessage.mock.calls.map(
+          ([raw]) => (JSON.parse(raw as string) as { type: string }).type,
+        );
+        expect(sent).toContain("start-session");
+      });
+      expect(screen.queryByTestId("room-stub")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("탭 바 재생 버튼이 있는 앱에서는 순공 시작이 없다", async () => {
@@ -449,7 +486,7 @@ describe("HomeTabPage — 날짜 줄", () => {
     renderHome("/home?userId=7&tabBarPlay=1");
 
     await screen.findByRole("button", { name: "국어 공부 시작" });
-    expect(screen.queryByRole("button", { name: "순공 시작" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "순공 시작하기" })).not.toBeInTheDocument();
   });
 });
 
