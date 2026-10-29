@@ -1,4 +1,4 @@
-/** 보관 중인 타임랩스가 없을 때의 안내. 홈 목록과 전체 목록이 함께 쓴다. */
+/** 보관 중인 타임랩스가 없을 때의 전체 목록 안내. */
 export function TimelapsesEmpty() {
   return (
     <p className="bg-muted text-muted-foreground shadow-sb-card rounded-xl px-5 py-6 text-center text-sm">

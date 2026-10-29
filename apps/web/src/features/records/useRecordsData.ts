@@ -46,7 +46,7 @@ export function derivePeriodState(query: {
  * 기록 조회 훅
  *
  * 선택일 통계와 보이는 달의 기간 집계(달력 농도·월 요약용)를 조회한다. 화면은 이 훅의 상태만
- * 알고 데이터 배선은 모른다(홈 useHomeSummary와 같은 방침).
+ * 알고 데이터 배선은 모른다.
  *
  * 모바일판과의 차이:
  * - userId는 익명 등록 쿼리(`registeredUserIdQuery`)가 아니라 **셸이 준 URL 파라미터**를
