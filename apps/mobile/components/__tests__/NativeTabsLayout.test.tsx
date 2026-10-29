@@ -16,6 +16,7 @@ import {
   __resetInitialActiveRouteForTests,
   markSettingsAsInitialRoute,
   revealSettingsTab,
+  settingsMayBeHidden,
 } from "../../lib/settingsReveal";
 import { __resetStartKeyForTests, publishStartKey } from "../../lib/startTab";
 import { __resetTabBarVisibilityForTests, setTabBarState } from "../../lib/tabBarVisibility";
@@ -31,7 +32,14 @@ type Listeners = {
 const captured: {
   hidden?: boolean;
   ios?: { prominentScreenKey?: string; bottomAccessoryHidden?: boolean };
-  triggers: { name: string; disabled?: boolean; hidden?: boolean; role?: string }[];
+  triggers: {
+    name: string;
+    disabled?: boolean;
+    hidden?: boolean;
+    role?: string;
+    icon?: { sf?: string; renderingMode?: string };
+    label?: React.ReactNode;
+  }[];
   listeners: (route: { name: string; key: string }) => Listeners;
 } = { triggers: [], listeners: () => ({}) };
 
@@ -60,18 +68,26 @@ jest.mock("expo-router/unstable-native-tabs", () => {
     role?: string;
     children?: React.ReactNode;
   }) {
+    // 아이콘과 라벨은 네이티브가 그리므로 자식 요소의 props를 트리거 기록에 모은다.
+    const children = ReactModule.Children.toArray(props.children).filter(
+      ReactModule.isValidElement<{ sf?: string; renderingMode?: string; children?: unknown }>,
+    );
+    const icon = children.find((child) => child.type === Trigger.Icon)?.props;
+    const label = children.find((child) => child.type === Trigger.Label)?.props.children;
     captured.triggers.push({
       name: props.name,
       disabled: props.disabled,
       hidden: props.hidden,
       role: props.role,
+      icon,
+      label: label as React.ReactNode,
     });
     return ReactModule.createElement(View, { testID: `trigger-${props.name}` });
   }
-  Trigger.Icon = function TriggerIcon() {
+  Trigger.Icon = function TriggerIcon(_props: { sf?: string; renderingMode?: string }) {
     return null;
   };
-  Trigger.Label = function TriggerLabel() {
+  Trigger.Label = function TriggerLabel(_props: { children?: React.ReactNode }) {
     return null;
   };
   NativeTabs.Trigger = Trigger;
@@ -160,6 +176,70 @@ it("재생 트리거의 막힌 누름은 홈 웹뷰에 알리고 tab_pressed는 
 
   expect(events).toEqual(["home-play-pressed"]);
   expect(received).toEqual([]);
+});
+
+describe("재생 트리거의 오늘로 돌아가기", () => {
+  const showDateBar = (selectedKey: string) =>
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [
+          { key: "2026-10-28", label: "28일 (수)", accessibilityLabel: "10월 28일 수요일" },
+          { key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" },
+        ],
+        selectedKey,
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+  const pressStart = () =>
+    act(() => {
+      captured.listeners({ name: "start", key: "start-k" }).tabPress?.({
+        target: "start-k",
+        data: { isPrevented: true },
+      });
+    });
+
+  it("다른 날을 보고 있으면 되돌아가기 화살표와 오늘로 라벨을 달고, 누르면 오늘을 고른다", () => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    render(<NativeTabsLayout />);
+    showDateBar("2026-10-28");
+
+    expect(byName("start")).toMatchObject({
+      label: "오늘로",
+      icon: { sf: "arrow.uturn.forward" },
+    });
+    pressStart();
+    expect(events).toEqual([
+      expect.objectContaining({ type: "home-date-selected", dateKey: "2026-10-29" }),
+    ]);
+    // 오늘로 돌아왔으니 다시 재생 버튼이다.
+    expect(byName("start")?.label).toBe("순공 시작");
+  });
+
+  it("오늘을 보고 있으면 재생 버튼이고 누르면 재생을 알린다", () => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event.type));
+    render(<NativeTabsLayout />);
+    showDateBar("2026-10-29");
+
+    expect(byName("start")?.label).toBe("순공 시작");
+    expect(byName("start")?.icon?.sf).toBeUndefined();
+    pressStart();
+    expect(events).toEqual(["home-play-pressed"]);
+  });
+
+  it("차단 상태에서는 다른 날을 보고 있어도 누름이 아무 일도 하지 않는다", () => {
+    setTabBarState("blocked");
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event.type));
+    render(<NativeTabsLayout />);
+    showDateBar("2026-10-28");
+
+    pressStart();
+    expect(events).toEqual([]);
+  });
 });
 
 it("설정에서 홈으로 돌아오면 선택 이동이 끝난 뒤에 바꿔 끼운다", () => {
@@ -328,6 +408,9 @@ it("iOS 26 미만은 설정 칸을 가리지 않아 드러내기 요청을 바�
   jest.spyOn(Platform, "Version", "get").mockReturnValue("18.5");
   render(<NativeTabsLayout />);
   const then = jest.fn();
+
+  // 시스템 링크가 라우팅 전에 멈추지 않도록 가릴 수 있는 레이아웃이 없다고 답해야 한다.
+  expect(settingsMayBeHidden()).toBe(false);
 
   revealSettingsTab(then);
 

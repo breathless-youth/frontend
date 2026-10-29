@@ -82,6 +82,13 @@
 - iOS 26 이상 홈에서는 설정 트리거가 `hidden`이라 expo-router가 그 라우트를 내비게이터에서 뺀다. 그래서 `/settings`·`/timelapse-settings`·`/profile`로 가는 푸시 알림과 딥링크가 그대로는 열리지 않는다. `lib/settingsReveal.ts`가 탭 레이아웃에 설정 칸을 먼저 되살리게 한 뒤 이동한다(`openPushRoute`와 `+native-intent`가 쓴다). expo-router 패치는 넓히지 않았다. 앱을 처음 켜면서 들어온 설정 딥링크는 레이아웃이 아직 없어 막지 못하므로 실기기에서 확인한다.
 - `start.tsx`는 `useLayoutEffect`로 key를 알려 홈에 돌아온 첫 커밋에 옛 key가 `prominentScreenKey`로 넘어가지 않게 한다.
 
+## 오늘로 돌아가기 (2026-10-29 사용자 추가)
+
+- 홈 날짜 줄에서 오늘이 아닌 날을 보고 있으면 탭 바 오른쪽 원이 되돌아가기 버튼이 된다. iOS는 SF Symbol `arrow.uturn.forward`를 시스템 tint로, Android는 유리 배경 원에 primary 색 화살표 SVG를 그린다. 라벨은 `오늘로`, 접근성 라벨은 `오늘로 돌아가기`다.
+- 누르면 세션을 열지 않고 `returnToToday()`가 `selectHomeDate(todayKey)`를 불러 웹에 `home-date-selected`를 보내고 날짜 줄을 오늘로 스크롤한다. 분석 이벤트는 기존 `home_date_selected` 경로 그대로다.
+- 오늘을 보고 있거나 날짜 줄이 없으면 재생 버튼이다.
+- 설정 드러내기 구독은 `rendersNativeHomeChrome()`일 때만 건다. iOS 26 미만과 Android는 설정 링크가 기존 경로를 탄다.
+
 ## 실패 처리
 
 - 홈 웹뷰가 없으면 탭 바 재생은 반응이 없다(결정 표).

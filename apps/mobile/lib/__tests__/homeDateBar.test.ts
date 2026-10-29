@@ -5,6 +5,7 @@ import {
   pressHomeMenu,
   pressHomePlay,
   rendersNativeHomeChrome,
+  returnToToday,
   selectHomeDate,
   setHomeDateBar,
   subscribeHomeDateBarEvents,
@@ -72,6 +73,23 @@ describe("날짜 줄 상태", () => {
     setHomeDateBar(bar());
     selectHomeDate("2026-10-29");
     expect(events).toEqual([]);
+  });
+
+  it("오늘로 돌아가기는 다른 날을 보고 있을 때만 오늘을 고르고 웹에 알린다", () => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    returnToToday();
+    setHomeDateBar(bar());
+    returnToToday();
+    expect(events).toEqual([]);
+
+    setHomeDateBar(bar("2026-10-28"));
+    const { result } = renderHook(() => useHomeDateBar());
+    act(() => returnToToday());
+    expect(result.current?.selectedKey).toBe("2026-10-29");
+    expect(events).toEqual([
+      expect.objectContaining({ type: "home-date-selected", dateKey: "2026-10-29" }),
+    ]);
   });
 
   it("메뉴와 재생 누름을 웹에 알린다", () => {

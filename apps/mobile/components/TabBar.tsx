@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HomeDateBar } from "./HomeDateBar";
 import {
+  IconReturnToday,
   IconTabHome,
   IconTabRanking,
   IconTabRecord,
@@ -24,7 +25,12 @@ import {
   IconTabSocial,
 } from "./icons";
 import { triggerHaptic } from "../lib/haptics";
-import { pressHomePlay, useHomeDateBar } from "../lib/homeDateBar";
+import {
+  isViewingPastDate,
+  pressHomePlay,
+  returnToToday,
+  useHomeDateBar,
+} from "../lib/homeDateBar";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 export type TabId = "home" | "social" | "record" | "ranking" | "settings";
@@ -90,7 +96,9 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
   const pillColor = scheme === "light" ? colors.bg.layer2.light : g.activePill.dark;
   // 지연 초기화 — useRef(new …)는 렌더마다 Animated.Value를 만들었다 버린다.
   const [opacity] = useState(() => new Animated.Value(hidden ? 0 : 1));
-  const hasDateBar = useHomeDateBar() !== null;
+  const dateBar = useHomeDateBar();
+  const hasDateBar = dateBar !== null;
+  const returnsToToday = isViewingPastDate(dateBar);
   const visibleTabs = TABS.filter(({ id }) => !(active === "home" && id === "settings"));
   // 탭 칸 위치를 onLayout으로 측정해 두고, 선택 표시는 그 자리로 transform·width만 움직인다.
   const [layouts, setLayouts] = useState<Partial<Record<TabId, { x: number; width: number }>>>({});
@@ -247,26 +255,51 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
         {active === "home" && (
           <Reanimated.View entering={PLAY_ENTER} exiting={PLAY_EXIT}>
             {/* 웹 모달이 열린 동안은 막대와 함께 재생도 막고 같은 덮개로 덮는다. */}
-            <Pressable
-              disabled={dimmed}
-              accessibilityRole="button"
-              accessibilityLabel="순공 시작"
-              onPress={() => {
-                triggerHaptic("light");
-                pressHomePlay();
-              }}
-              style={[styles.playButton, { boxShadow: `0 10px 30px ${g.shadow[scheme]}` }]}
-            >
-              {/* iOS 재생 버튼과 같은 PNG(primary 원과 흰 재생 아이콘)를 써서 두 플랫폼 모양을 맞춘다. */}
-              <Image
-                source={
-                  scheme === "dark"
-                    ? (require("../assets/tabs/play-disc-dark.png") as number)
-                    : (require("../assets/tabs/play-disc.png") as number)
-                }
-                style={styles.playImage}
-              />
-            </Pressable>
+            {returnsToToday ? (
+              // iOS는 유리 원 위에 tint 화살표를 그려서, 막대와 같은 바탕에 primary 화살표로 맞춘다.
+              <Pressable
+                disabled={dimmed}
+                accessibilityRole="button"
+                accessibilityLabel="오늘로 돌아가기"
+                onPress={() => {
+                  triggerHaptic("light");
+                  returnToToday();
+                }}
+                style={[
+                  styles.playButton,
+                  styles.returnButton,
+                  {
+                    borderColor: g.border[scheme],
+                    backgroundColor:
+                      scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
+                    boxShadow: `0 10px 30px ${g.shadow[scheme]}`,
+                  },
+                ]}
+              >
+                <IconReturnToday size={28} color={colors.brand.primary[scheme]} />
+              </Pressable>
+            ) : (
+              <Pressable
+                disabled={dimmed}
+                accessibilityRole="button"
+                accessibilityLabel="순공 시작"
+                onPress={() => {
+                  triggerHaptic("light");
+                  pressHomePlay();
+                }}
+                style={[styles.playButton, { boxShadow: `0 10px 30px ${g.shadow[scheme]}` }]}
+              >
+                {/* iOS 재생 버튼과 같은 PNG(primary 원과 흰 재생 아이콘)를 써서 두 플랫폼 모양을 맞춘다. */}
+                <Image
+                  source={
+                    scheme === "dark"
+                      ? (require("../assets/tabs/play-disc-dark.png") as number)
+                      : (require("../assets/tabs/play-disc.png") as number)
+                  }
+                  style={styles.playImage}
+                />
+              </Pressable>
+            )}
             {dimmed && (
               <View
                 testID="tab-bar-play-dim"
@@ -288,6 +321,7 @@ const styles = StyleSheet.create({
   shadowWrap: { flex: 1, borderRadius: 999 },
   playButton: { width: 70, height: 70, borderRadius: 999 },
   playImage: { width: 70, height: 70 },
+  returnButton: { borderWidth: 1, alignItems: "center", justifyContent: "center" },
   playDim: { ...StyleSheet.absoluteFill, borderRadius: 999 },
   surface: {
     borderRadius: 999,

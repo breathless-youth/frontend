@@ -85,6 +85,17 @@ export function selectHomeDate(dateKey: string): void {
   emit({ type: "home-date-selected", dateKey, atMs: Date.now() });
 }
 
+/** 탭 바 재생 원이 오늘로 돌아가기 버튼이 되는 상태 */
+export function isViewingPastDate(dateBar: DateBar | null): boolean {
+  return dateBar !== null && dateBar.selectedKey !== dateBar.todayKey;
+}
+
+export function returnToToday(): void {
+  if (bar !== null) {
+    selectHomeDate(bar.todayKey);
+  }
+}
+
 export function pressHomeMenu(action: HomeMenuAction): void {
   emit({ type: "home-menu-action", action, atMs: Date.now() });
 }

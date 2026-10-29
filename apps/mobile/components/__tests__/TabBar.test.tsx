@@ -263,6 +263,53 @@ describe("홈 탭의 재생 버튼", () => {
     expect(screen.getByTestId("tab-bar-play-dim")).toBeTruthy();
   });
 
+  it("다른 날을 보고 있으면 재생 대신 오늘로 돌아가기 버튼을 두고, 누르면 햅틱 뒤 오늘을 고른다", () => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [
+          { key: "2026-10-28", label: "28일 (수)", accessibilityLabel: "10월 28일 수요일" },
+          { key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" },
+        ],
+        selectedKey: "2026-10-28",
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+    render(<TabBar active="home" />);
+    expect(screen.queryByRole("button", { name: "순공 시작" })).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "오늘로 돌아가기" }));
+    expect(triggerHaptic).toHaveBeenCalledWith("light");
+    expect(events).toEqual([
+      expect.objectContaining({ type: "home-date-selected", dateKey: "2026-10-29" }),
+    ]);
+    expect(screen.getByRole("button", { name: "순공 시작" })).toBeTruthy();
+  });
+
+  it("딤 상태에서는 오늘로 돌아가기도 막고 덮개로 덮는다", () => {
+    const events: unknown[] = [];
+    subscribeHomeDateBarEvents((event) => events.push(event));
+    act(() =>
+      setHomeDateBar({
+        type: "set-home-date-bar",
+        dates: [
+          { key: "2026-10-28", label: "28일 (수)", accessibilityLabel: "10월 28일 수요일" },
+          { key: "2026-10-29", label: "29일 (목)", accessibilityLabel: "10월 29일 목요일" },
+        ],
+        selectedKey: "2026-10-28",
+        todayKey: "2026-10-29",
+        atMs: 1,
+      }),
+    );
+    render(<TabBar active="home" dimmed />);
+    fireEvent.press(screen.getByRole("button", { name: "오늘로 돌아가기" }));
+    expect(events).toEqual([]);
+    expect(screen.getByTestId("tab-bar-play-dim")).toBeTruthy();
+  });
+
   it("홈이 아니면 날짜 줄 내용이 있어도 띄우지 않는다", () => {
     act(() =>
       setHomeDateBar({

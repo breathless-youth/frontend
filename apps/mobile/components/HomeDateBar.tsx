@@ -12,7 +12,12 @@ import {
 
 import { HomeDateMenuButton } from "./HomeDateMenuButton";
 import { triggerHaptic } from "../lib/haptics";
-import { pressHomeMenu, selectHomeDate, useHomeDateBar } from "../lib/homeDateBar";
+import {
+  isViewingPastDate,
+  pressHomeMenu,
+  selectHomeDate,
+  useHomeDateBar,
+} from "../lib/homeDateBar";
 
 const CHIP_MAX_WIDTH = 104;
 
@@ -36,6 +41,17 @@ export function HomeDateBar({ chipHeight }: { chipHeight: number }) {
       scrolledForRef.current = null;
     }
   }, [bar]);
+  // 탭 바 버튼으로 오늘에 돌아오면 오늘 칩이 화면 밖일 수 있어 끝으로 데려간다.
+  // 날짜 줄을 새로 받을 때는 위의 처음 한 번 로직이 맡으므로 다른 날을 보던 중일 때만 움직인다.
+  const viewingPast = isViewingPastDate(bar);
+  const viewingToday = bar !== null && !viewingPast;
+  const wasViewingPastRef = useRef(viewingPast);
+  useEffect(() => {
+    if (viewingToday && wasViewingPastRef.current) {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+    wasViewingPastRef.current = viewingPast;
+  }, [viewingPast, viewingToday]);
 
   if (bar === null) {
     return null;

@@ -5,7 +5,13 @@ import { DynamicColorIOS, Platform, useColorScheme } from "react-native";
 
 import { HomeDateBar } from "./HomeDateBar";
 import { getActiveTab, setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../lib/activeTab";
-import { pressHomePlay, rendersNativeHomeChrome, useHomeDateBar } from "../lib/homeDateBar";
+import {
+  isViewingPastDate,
+  pressHomePlay,
+  rendersNativeHomeChrome,
+  returnToToday,
+  useHomeDateBar,
+} from "../lib/homeDateBar";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 import { subscribeSettingsReveal, takeInitialActiveRoute } from "../lib/settingsReveal";
 import { getStartKey, subscribeStartKey } from "../lib/startTab";
@@ -85,7 +91,9 @@ export function NativeTabsLayout() {
   // 탭 바가 웹뷰 바깥이라 전체 화면 라우트와 웹 모달을 웹이 `set-tab-bar`로 알려 줘야 한다.
   const tabBarState = useTabBarState();
   const blocked = tabBarState === "blocked";
-  const hasDateBar = useHomeDateBar() !== null;
+  const dateBar = useHomeDateBar();
+  const hasDateBar = dateBar !== null;
+  const returnsToToday = isViewingPastDate(dateBar);
   const settingsHidden = homeChrome && onHome;
   const pendingRevealRef = useRef<(() => void) | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -98,25 +106,27 @@ export function NativeTabsLayout() {
   );
 
   // 숨긴 설정 트리거는 라우트가 내비게이터에서 빠져 있어서, 알림·링크가 설정을 열려면 칸부터 되살려야 한다.
-  useEffect(
-    () =>
-      subscribeSettingsReveal((then) => {
-        if (!settingsHidden) {
-          then();
-          return;
-        }
-        clearTimeout(swapTimerRef.current);
-        clearTimeout(revealTimerRef.current);
-        pendingRevealRef.current = then;
-        setActiveRoute("settings");
-        // 사용자가 탭을 눌러 기다림만 버린 경우에도 칸을 현재 라우트에 맞춰야 해서 기다림 여부와 상관없이 맞춘다.
-        revealTimerRef.current = setTimeout(() => {
-          pendingRevealRef.current = null;
-          setActiveRoute(prevRouteRef.current);
-        }, REVEAL_TIMEOUT_MS);
-      }),
-    [settingsHidden],
-  );
+  // 설정 칸을 가리지 않는 iOS에서 구독하면 시스템 링크가 쓸데없이 라우팅을 멈추므로 가릴 수 있을 때만 구독한다.
+  useEffect(() => {
+    if (!homeChrome) {
+      return;
+    }
+    return subscribeSettingsReveal((then) => {
+      if (!settingsHidden) {
+        then();
+        return;
+      }
+      clearTimeout(swapTimerRef.current);
+      clearTimeout(revealTimerRef.current);
+      pendingRevealRef.current = then;
+      setActiveRoute("settings");
+      // 사용자가 탭을 눌러 기다림만 버린 경우에도 칸을 현재 라우트에 맞춰야 해서 기다림 여부와 상관없이 맞춘다.
+      revealTimerRef.current = setTimeout(() => {
+        pendingRevealRef.current = null;
+        setActiveRoute(prevRouteRef.current);
+      }, REVEAL_TIMEOUT_MS);
+    });
+  }, [homeChrome, settingsHidden]);
 
   return (
     <NativeTabs
@@ -134,7 +144,11 @@ export function NativeTabsLayout() {
           if (route.name === "start") {
             // 웹 모달이 열린 동안은 다른 탭처럼 재생도 막는다.
             if (event.data.isPrevented && !blocked) {
-              pressHomePlay();
+              if (returnsToToday) {
+                returnToToday();
+              } else {
+                pressHomePlay();
+              }
             }
             return;
           }
@@ -225,16 +239,23 @@ export function NativeTabsLayout() {
           hidden={!onHome}
           disableAutomaticContentInsets
         >
-          {/* 유리 원의 배경색을 바꾸는 공개 API가 없어 primary 원과 흰 재생 아이콘을 구운 PNG로 원을 채운다. */}
-          <NativeTabs.Trigger.Icon
-            src={
-              dark
-                ? (require("../assets/tabs/play-disc-dark.png") as number)
-                : (require("../assets/tabs/play-disc.png") as number)
-            }
-            renderingMode="original"
-          />
-          <NativeTabs.Trigger.Label>순공 시작</NativeTabs.Trigger.Label>
+          {returnsToToday ? (
+            // 템플릿 심볼이라 시스템 tint로 그려져 유리 원 위에 화살표만 얹힌다.
+            <NativeTabs.Trigger.Icon sf="arrow.uturn.forward" />
+          ) : (
+            // 유리 원의 배경색을 바꾸는 공개 API가 없어 primary 원과 흰 재생 아이콘을 구운 PNG로 원을 채운다.
+            <NativeTabs.Trigger.Icon
+              src={
+                dark
+                  ? (require("../assets/tabs/play-disc-dark.png") as number)
+                  : (require("../assets/tabs/play-disc.png") as number)
+              }
+              renderingMode="original"
+            />
+          )}
+          <NativeTabs.Trigger.Label>
+            {returnsToToday ? "오늘로" : "순공 시작"}
+          </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       )}
     </NativeTabs>
