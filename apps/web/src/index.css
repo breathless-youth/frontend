@@ -236,6 +236,13 @@
   /* colors.text.disabled.light — S5 달력 미래 날짜 전용 */
   --dim: #00000066;
   /* colors.bg.dim.light */
+  --coach-dim: #000000b3;
+  /* colors.bg.coachDim.light — 코치마크 뒤를 덮는 딤. 안내에 시선을 모으려고 --dim보다 짙다. */
+  --gradient-brand-text: linear-gradient(180deg, #8cc0ff 0%, #4593fc 100%);
+  /* colors.brand.gradientText.light — 코치마크 제목처럼 강조 글자에 입히는 brand 그라데이션.
+     위가 밝은 세로 방향이다. 색 유틸리티가 아니라 @theme inline에는 두지 않는다. */
+  --coach-ring: #4593fc;
+  /* colors.brand.coachRing.light — 코치마크가 가리키는 자리의 발광 테두리 선·그림자 색 */
   --radius: 0.75rem;
   /* colors.radius.md = 12px */
 
@@ -302,6 +309,12 @@
     /* colors.text.disabled.dark */
     --dim: #00000099;
     /* colors.bg.dim.dark */
+    --coach-dim: #000000c2;
+    /* colors.bg.coachDim.dark */
+    --gradient-brand-text: linear-gradient(180deg, #7fb3ff 0%, #3182f6 100%);
+    /* colors.brand.gradientText.dark */
+    --coach-ring: #5a9cff;
+    /* colors.brand.coachRing.dark */
     --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
     /* Figma S1b control-bar 실측(dark, node 5521:5030) */
     --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
@@ -349,6 +362,9 @@
   --state-distract-text: #ff9e1b;
   --text-disabled: #4e5968;
   --dim: #00000099;
+  --coach-dim: #000000c2;
+  --gradient-brand-text: linear-gradient(180deg, #7fb3ff 0%, #3182f6 100%);
+  --coach-ring: #5a9cff;
   --session-bar-glass-bg: rgba(30, 34, 44, 0.55);
   /* Figma S1b control-bar 실측(dark, node 5521:5030) */
   --session-bar-glass-shadow: rgba(0, 0, 0, 0.35);
@@ -615,6 +631,24 @@
 
 .shadow-sb-cta {
   box-shadow: 0 6px 18px 0 rgba(27, 100, 218, 0.28);
+}
+
+/* 첫 세션 코치마크 링 발광 — Figma 코치마크 시안 */
+.shadow-coach-glow {
+  /* color-mix를 모르는 iOS 16.2 미만 웹뷰용 폴백 */
+  box-shadow: 0 0 18px 0 var(--coach-ring);
+  box-shadow: 0 0 18px 0 color-mix(in srgb, var(--coach-ring) 80%, transparent);
+}
+
+/* 첫 세션 코치마크 등장. 모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes coach-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* 초대코드 input-otp 활성 칸 캐럿 깜빡임. 모션 축소는 사용처의
