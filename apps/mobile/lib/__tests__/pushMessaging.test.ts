@@ -272,6 +272,10 @@ describe("pushMessaging Android 13 이상 알림 권한 요청", () => {
 
     expect(request).toHaveBeenCalledWith(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
     expect(mockedSetItem).toHaveBeenCalledTimes(1);
+    // 창이 떠 있는 동안 앱이 꺼져도 다시 묻지 않도록 기록이 창보다 먼저다
+    expect(mockedSetItem.mock.invocationCallOrder[0]).toBeLessThan(
+      request.mock.invocationCallOrder[0],
+    );
     expect(mockRequestPermission).not.toHaveBeenCalled();
   });
 
