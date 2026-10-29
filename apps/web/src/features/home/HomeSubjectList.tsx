@@ -27,7 +27,7 @@ export function HomeSubjectList({
         return (
           <li
             key={`${item.live ? "live" : "record"}-${item.subjectId}`}
-            className="flex min-h-17 items-center gap-2 rounded-lg bg-muted py-3 pr-4 pl-3 shadow-sb-card"
+            className="flex min-h-17 items-center gap-2 rounded-lg bg-muted py-2.5 pr-4 pl-3 shadow-sb-card"
           >
             {isToday && item.live ? (
               <button
@@ -35,14 +35,12 @@ export function HomeSubjectList({
                 aria-label={`${item.name} 공부 시작`}
                 onClick={() => onPlay(item.subjectId)}
                 style={{ color }}
-                className="flex size-11 shrink-0 items-center justify-center rounded-full"
+                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-current/15 transition-[scale,background-color] duration-150 ease-overlay active:scale-92 active:bg-current/25 motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
               >
-                <span className="flex size-9 items-center justify-center rounded-full bg-current/15">
-                  <Play aria-hidden size={14} fill="currentColor" />
-                </span>
+                <Play aria-hidden size={18} fill="currentColor" />
               </button>
             ) : (
-              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center">
+              <span aria-hidden className="flex size-12 shrink-0 items-center justify-center">
                 <span className="h-5 w-1 rounded-full" style={{ backgroundColor: color }} />
               </span>
             )}

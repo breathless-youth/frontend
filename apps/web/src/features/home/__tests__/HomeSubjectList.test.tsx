@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlannerSubjectItem } from "@/features/planner/subjectItems";
+import { subjectColorVar } from "@/features/records/recordsTimetable";
 
 import { HomeSubjectList } from "../HomeSubjectList";
 
@@ -34,6 +35,15 @@ describe("HomeSubjectList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "수학 공부 시작" }));
     expect(onPlay).toHaveBeenCalledWith(2);
+  });
+
+  it("재생 버튼은 과목 색으로 그리고, 글리프는 보조기기에 읽히지 않아 이름만 읽힌다", () => {
+    render(<HomeSubjectList items={ITEMS} isToday onPlay={vi.fn()} />);
+
+    const button = screen.getByRole("button", { name: "수학 공부 시작" });
+    expect(button).toHaveAttribute("type", "button");
+    expect(button.style.color).toBe(subjectColorVar(3));
+    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("오늘이어도 지운 과목에는 재생 버튼이 없다", () => {
