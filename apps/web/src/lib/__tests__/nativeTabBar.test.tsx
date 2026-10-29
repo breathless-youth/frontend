@@ -12,6 +12,7 @@ import {
   isNativeCoveredPath,
   toastBottomOffset,
   useNativeTabBarClass,
+  useHideNativeTabBar,
   useNativeTabBarSync,
 } from "@/lib/nativeTabBar";
 import {
@@ -159,6 +160,89 @@ describe("isNativeCoveredPath", () => {
     for (const path of ["/home", "/records", "/social/room/1"]) {
       expect(isNativeCoveredPath(path)).toBe(false);
     }
+  });
+});
+
+describe("useHideNativeTabBar", () => {
+  function HideHarness({ hidden }: { hidden: boolean }) {
+    useNativeTabBarSync();
+    useHideNativeTabBar(hidden);
+    return null;
+  }
+
+  function renderHide(hidden: boolean) {
+    return render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden={hidden} />
+      </MemoryRouter>,
+    );
+  }
+
+  it("탭 라우트에서도 화면이 요청하면 감추고, 요청을 거두면 되살린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    const { rerender } = renderHide(false);
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden />
+      </MemoryRouter>,
+    );
+    expect(sentVisibility(postMessage).at(-1)).toBe(false);
+
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden={false} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(true));
+  });
+
+  it("감춘 동안 모달이 열리고 닫혀도 다시 띄우지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderHide(true);
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(false));
+    const before = sentTabBarMessages(postMessage).length;
+
+    const modal = openModal();
+    await waitFor(() => expect(sentTabBarMessages(postMessage).length).toBeGreaterThan(before));
+    act(() => {
+      modal.remove();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const after = sentTabBarMessages(postMessage).slice(before);
+    expect(after.every((message) => !message.visible && message.blockedByModal !== true)).toBe(
+      true,
+    );
+  });
+
+  it("요청한 화면이 내려가면 되살린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    function Probe({ hide }: { hide: boolean }) {
+      useNativeTabBarSync();
+      return hide ? <HideOnly /> : null;
+    }
+    function HideOnly() {
+      useHideNativeTabBar(true);
+      return null;
+    }
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Probe hide />
+      </MemoryRouter>,
+    );
+    expect(sentVisibility(postMessage).at(-1)).toBe(false);
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Probe hide={false} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(true));
   });
 });
 

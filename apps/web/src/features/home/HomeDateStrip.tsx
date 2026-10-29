@@ -1,13 +1,23 @@
-import { Menu } from "lucide-react";
+import type { HomeMenuAction } from "@focusmakers/types";
+import { ArrowUpDown, Menu, Pencil } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { hasNativeTabBar } from "@/lib/nativeTabBar";
 import { hasTabBarPlayButton } from "@/lib/tabBarPlayCapability";
 import { cn } from "@/lib/utils";
 
 import { homeDateAccessibilityLabel, homeDateChipLabel, homeDateKeys } from "./homeDates";
 import { hasNativeDateBar } from "./nativeHomeDateBar";
+
+const MENU_ITEM_CLASS =
+  "h-11 gap-3 rounded-none px-4 py-0 text-[15px] leading-5 font-medium text-foreground";
 
 /**
  * 홈 날짜 줄
@@ -17,18 +27,22 @@ import { hasNativeDateBar } from "./nativeHomeDateBar";
  * 칩 폭은 폰에서 줄 폭의 3분의 1이라 최소 3일이 보이고, 넓은 화면에서는 폭 상한에 걸려 더 많은 날이 보인다.
  * 탭 바에 재생 버튼이 없는 앱에서는 과목 없이 시작하는 버튼을 막대 위에 막대와 같은 너비·높이로 둔다.
  * 앱이 날짜 줄을 직접 그리면 막대를 빼고 시작 버튼만 남기며, 남길 것이 없으면 아무것도 그리지 않는다.
+ * 메뉴 버튼은 앱 날짜 줄 메뉴와 같은 두 항목을 웹 메뉴로 연다.
+ * `menuDisabled`인 동안 두 항목은 보이되 고를 수 없다.
  */
 export function HomeDateStrip({
   todayKey,
   selectedKey,
   onSelect,
-  onMenu,
+  onMenuAction,
+  menuDisabled = false,
   onStartWithoutSubject,
 }: {
   todayKey: string;
   selectedKey: string;
   onSelect: (dateKey: string) => void;
-  onMenu: () => void;
+  onMenuAction: (action: HomeMenuAction) => void;
+  menuDisabled?: boolean;
   onStartWithoutSubject: () => void;
 }) {
   const keys = homeDateKeys(todayKey);
@@ -65,14 +79,40 @@ export function HomeDateStrip({
         reserveNativeBar && <div aria-hidden data-testid="home-date-bar-spacer" className="h-16" />
       ) : (
         <div className="pointer-events-auto flex w-full items-center gap-1 rounded-full p-1.5 glass-surface">
-          <button
-            type="button"
-            aria-label="과목 메뉴"
-            onClick={onMenu}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground"
-          >
-            <Menu aria-hidden size={22} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="과목 메뉴"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+            >
+              <Menu aria-hidden size={22} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              sideOffset={10}
+              // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 메뉴 항목 탭이 씹힌다.
+              onTouchMove={(event) => event.stopPropagation()}
+              // 포털이 body로 나가므로 홈 테마를 다시 단다.
+              className="theme-soft-blue w-63 rounded-[14px] border-0 p-0 shadow-[0_12px_24px_0_rgba(15,23,42,0.16)]"
+            >
+              <DropdownMenuItem
+                disabled={menuDisabled}
+                onSelect={() => onMenuAction("reorder-subjects")}
+                className={MENU_ITEM_CLASS}
+              >
+                <ArrowUpDown aria-hidden size={20} className="shrink-0" />
+                과목 순서 변경
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={menuDisabled}
+                onSelect={() => onMenuAction("edit-subjects")}
+                className={cn(MENU_ITEM_CLASS, "border-t border-border")}
+              >
+                <Pencil aria-hidden size={20} className="shrink-0" />
+                과목 편집
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <span aria-hidden className="h-6 w-px shrink-0 bg-border" />
           <div
             ref={scrollerRef}

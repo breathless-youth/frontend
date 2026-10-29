@@ -1065,7 +1065,7 @@ export function trackPlannerDateChanged(input: {
 }
 
 /** 수동 기록 입력 화면을 연 곳. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
-type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records";
+type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records" | "home";
 type ManualRecordEditEntry = "planner_cell" | "records";
 
 /**

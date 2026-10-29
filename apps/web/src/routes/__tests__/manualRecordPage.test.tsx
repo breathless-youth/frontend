@@ -309,6 +309,52 @@ describe("ManualRecordPage", () => {
     expect(mockedStats).not.toHaveBeenCalled();
   });
 
+  it("홈에서 연 추가는 주소의 과목을 처음부터 고른 채 연다", async () => {
+    renderPage(`?userId=7&date=${DAY}&entry=home&subject=3`);
+
+    expect(await screen.findByRole("button", { name: "국어" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "과목 없음" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("주소의 과목이 지금 목록에 없으면 과목 없음으로 연다", async () => {
+    renderPage(`?userId=7&date=${DAY}&entry=home&subject=99`);
+
+    expect(await screen.findByRole("button", { name: "과목 없음" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("스택 없이 열린 홈 입구 화면의 뒤로 가기는 홈의 같은 날로 간다", async () => {
+    renderPage(`?userId=7&date=${DAY}&entry=home&subject=3`);
+    await screen.findByLabelText("시작");
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(await screen.findByText("홈 탭")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(`/home?userId=7&date=${DAY}`);
+  });
+
+  it("홈에서 연 추가를 저장하면 입구를 home으로 남긴다", async () => {
+    vi.mocked(createManualRecord).mockResolvedValue([] as never);
+    renderPage(`?userId=7&date=${DAY}&entry=home&subject=3`);
+    await screen.findByLabelText("시작");
+
+    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(trackManualRecordAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ entry: "home", hasSubject: true }),
+      ),
+    );
+  });
+
   it("스택 없이 열린 플래너 입구 화면의 뒤로 가기는 그날 플래너로 가고 셸 쿼리를 들고 간다", async () => {
     renderPage(`?userId=7&date=${DAY}&entry=planner_button`);
     await screen.findByLabelText("시작");

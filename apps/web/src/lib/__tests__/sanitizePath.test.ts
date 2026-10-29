@@ -25,6 +25,12 @@ describe("sanitizePagePath", () => {
     ).toBe("/download?utm_source=timelapse&utm_medium=share&utm_campaign=timelapse_share");
   });
 
+  it("직접 입력 화면의 과목·날짜·진입 경로 쿼리는 지운다", () => {
+    expect(
+      sanitizePagePath("/manual-record", "?userId=7&date=2026-10-27&entry=home&subject=3"),
+    ).toBe("/manual-record");
+  });
+
   it("남길 쿼리가 없으면 경로만 돌려준다", () => {
     expect(sanitizePagePath("/home", "?userId=7")).toBe("/home");
   });
