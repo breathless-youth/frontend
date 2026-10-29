@@ -101,6 +101,43 @@ export function useHideNativeTabBar(active: boolean): void {
   }, [active]);
 }
 
+export type CoachMarkTabBarMode = "blocked" | "except-play";
+
+/**
+ * 코치마크가 떠 있는 동안의 탭 바 차단 모드
+ *
+ * 화면이 감추는 요청(`hiddenByScreen`)과 같은 이유로 동기화가 함께 읽는다.
+ * 코치마크가 직접 `set-tab-bar`를 보내면 다음 동기화가 그 차단을 덮어쓴다.
+ */
+let coachMarkMode: CoachMarkTabBarMode | null = null;
+const coachListeners = new Set<() => void>();
+
+function subscribeCoachMark(listener: () => void): () => void {
+  coachListeners.add(listener);
+  return () => coachListeners.delete(listener);
+}
+
+function setCoachMarkMode(mode: CoachMarkTabBarMode | null): void {
+  coachMarkMode = mode;
+  coachListeners.forEach((listener) => listener());
+}
+
+/**
+ * 코치마크가 떠 있는 동안 탭 바를 막는다.
+ * `blocked`는 탭 바 전체(폴백 버튼 앱), `except-play`는 재생 원만 남기는 차단(재생 원 앱, BY-1058).
+ * 모달 감지기(`aria-modal`)에 기대지 않고 여기서 보내야 재생 원 앱에서 재생 원이 막히지 않는다.
+ * `blockedExceptPlay`는 `tabBarPlay=1` 앱만 받으므로 호출부(`HomeTabPage`)가 그 표시를 보고 모드를 고른다.
+ */
+export function useCoachMarkTabBar(mode: CoachMarkTabBarMode | null): void {
+  useEffect(() => {
+    if (mode === null) {
+      return;
+    }
+    setCoachMarkMode(mode);
+    return () => setCoachMarkMode(null);
+  }, [mode]);
+}
+
 const SAFE_AREA_TOAST_BOTTOM = "calc(env(safe-area-inset-bottom) + 16px)";
 
 // 앱 안 이동은 URL에서 쿼리를 삭제하므로 모듈을 읽는 시점에 한 번 판정해 보관한다.
@@ -127,6 +164,7 @@ export function hasNativeTabBar(): boolean {
 /** 테스트마다 URL을 바꿔 판정하도록 캐시를 비운다. */
 export function __resetNativeTabBarForTests(): void {
   nativeTabBarCache = null;
+  coachMarkMode = null;
 }
 
 /**
@@ -183,14 +221,29 @@ export function useNativeTabBarSync(): void {
     () => hiddenByScreen,
     () => false,
   );
+  const coach = useSyncExternalStore(
+    subscribeCoachMark,
+    () => coachMarkMode,
+    () => null,
+  );
 
   useEffect(() => {
     // 화면이 감춘 탭 바는 전체 화면 라우트처럼 다룬다. 모달이 열려도 딤을 그리려고 되살리지 않는다.
     const routeHidden = isFullScreenPath(pathname) || screenHidden;
     const nativeCovered = isNativeCoveredPath(pathname);
-    const visible = !routeHidden && !modalOpen;
+    // 재생 원만 남기는 차단은 `visible: false`와 함께 보낸다. 구버전 앱이 이 필드를 몰라도 탭 바를 감추기만 한다.
+    // 팝업이 열리면 모달 규칙을 따른다. 팝업은 재생 원까지 막고(`blockedByModal`), 바텀시트는 감추기만 한다.
+    // 이 차단을 앞세우면 팝업이 떠 있는 동안 재생 원이 눌린다.
+    const exceptPlay = coach === "except-play" && !routeHidden && !modalOpen;
+    const visible = !routeHidden && !modalOpen && !exceptPlay;
     // 플로팅 바에서 바텀시트는 blockedByModal 없이 visible:false만 보내 네이티브가 "hidden"으로 읽게 한다.
-    const blockedByModal = modalOpen && !modalCoversTabBar && !routeHidden && !nativeCovered;
+    const blockedByModal =
+      !exceptPlay &&
+      // 바텀시트가 함께 열리면 시트 규칙(숨김)을 따른다. 차단을 실으면 시트 아래쪽을 딤이 가린다.
+      ((modalOpen && !modalCoversTabBar) ||
+        (coach === "blocked" && !(modalOpen && modalCoversTabBar))) &&
+      !routeHidden &&
+      !nativeCovered;
     let disposed = false;
     const post = () => {
       postToNative({
@@ -198,6 +251,7 @@ export function useNativeTabBarSync(): void {
         visible,
         // 이미 탭 바가 없는 화면에서는 보내지 않는다 — 딤을 그리려고 탭 바가 되살아난다.
         ...(blockedByModal ? { blockedByModal: true } : {}),
+        ...(exceptPlay ? { blockedExceptPlay: true } : {}),
         atMs: Date.now(),
       });
     };
@@ -229,5 +283,5 @@ export function useNativeTabBarSync(): void {
       disposed = true;
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [pathname, modalOpen, modalCoversTabBar, screenHidden]);
+  }, [pathname, modalOpen, modalCoversTabBar, screenHidden, coach]);
 }

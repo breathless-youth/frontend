@@ -11,6 +11,7 @@ import {
   isFullScreenPath,
   isNativeCoveredPath,
   toastBottomOffset,
+  useCoachMarkTabBar,
   useNativeTabBarClass,
   useHideNativeTabBar,
   useNativeTabBarSync,
@@ -74,6 +75,21 @@ function sentTabBarMessages(
       visible,
       ...(blockedByModal === undefined ? {} : { blockedByModal }),
     }));
+}
+
+/** 마지막 `set-tab-bar` 메시지를 필드 그대로 읽는다(`atMs`만 뺀다). */
+function lastTabBarMessage(
+  postMessage: ReturnType<typeof vi.fn>,
+): Record<string, unknown> | undefined {
+  const messages = postMessage.mock.calls
+    .map(([raw]) => JSON.parse(raw as string) as Record<string, unknown>)
+    .filter((message) => message.type === "set-tab-bar");
+  const last = messages.at(-1);
+  if (last === undefined) {
+    return undefined;
+  }
+  const { atMs: _atMs, ...rest } = last;
+  return rest;
 }
 
 function openModal(): HTMLElement {
@@ -243,6 +259,104 @@ describe("useHideNativeTabBar", () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(true));
+  });
+});
+
+describe("useCoachMarkTabBar", () => {
+  function CoachHarness({ mode }: { mode: "blocked" | "except-play" | null }) {
+    useNativeTabBarSync();
+    useCoachMarkTabBar(mode);
+    return null;
+  }
+
+  function renderCoach(mode: "blocked" | "except-play" | null) {
+    return render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <CoachHarness mode={mode} />
+      </MemoryRouter>,
+    );
+  }
+
+  it("except-play 모드는 visible:false와 blockedExceptPlay를 함께 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCoach("except-play");
+    await waitFor(() => {
+      const last = lastTabBarMessage(postMessage);
+      expect(last).toMatchObject({ visible: false, blockedExceptPlay: true });
+      expect(last).not.toHaveProperty("blockedByModal");
+    });
+  });
+
+  it("blocked 모드는 visible:true와 blockedByModal을 보낸다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCoach("blocked");
+    await waitFor(() => {
+      const last = lastTabBarMessage(postMessage);
+      expect(last).toMatchObject({ visible: true, blockedByModal: true });
+      expect(last).not.toHaveProperty("blockedExceptPlay");
+    });
+  });
+
+  it("blocked 모드에서 바텀시트가 열리면 시트 규칙대로 차단 없이 감춘다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCoach("blocked");
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedByModal: true }),
+    );
+    openBottomSheet();
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: false }),
+    );
+  });
+
+  it("except-play 중 팝업이 열리면 재생 원까지 막는다 — 팝업 뒤에서 재생 원이 눌리면 안 된다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCoach("except-play");
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedExceptPlay: true }),
+    );
+    openModal();
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toEqual({
+        type: "set-tab-bar",
+        visible: false,
+        blockedByModal: true,
+      }),
+    );
+  });
+
+  it("except-play 중 바텀시트가 열리면 시트 규칙대로 감추기만 한다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCoach("except-play");
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedExceptPlay: true }),
+    );
+    openBottomSheet();
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: false }),
+    );
+  });
+
+  it("코치마크가 내려가면 원래 계산으로 돌아간다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { rerender } = renderCoach("except-play");
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedExceptPlay: true }),
+    );
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <CoachHarness mode={null} />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: true }),
+    );
   });
 });
 
