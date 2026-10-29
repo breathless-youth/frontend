@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { trackNativeShellEvent } from "./amplitude";
 import { postToNative, subscribeToNativeMessages } from "./bridge";
+import { handleInstallAttribution } from "./installAttribution";
 
 /**
  * 네이티브가 보내는 사용자 이벤트(`track-event`)를 받아 Amplitude로 넘긴다 — `App`에서 한 번만
@@ -18,12 +19,16 @@ import { postToNative, subscribeToNativeMessages } from "./bridge";
  * 다시 마운트되어 신호도 다시 나간다.
  *
  * 브라우저 단독 모드에서는 메시지가 오지 않고 `postToNative`도 무동작이라 안전하다.
+ *
+ * 앱의 설치 유입 정보(`install-attribution`)도 같은 준비 신호를 보고 오므로 여기서 함께 받는다.
  */
 export function useNativeAnalyticsRelay(): void {
   useEffect(() => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type === "track-event") {
         trackNativeShellEvent(message);
+      } else if (message.type === "install-attribution") {
+        handleInstallAttribution(message);
       }
     });
     postToNative({ type: "analytics-ready", atMs: Date.now() });

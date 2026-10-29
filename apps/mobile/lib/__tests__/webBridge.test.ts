@@ -13,11 +13,12 @@ describe("parseToNativeMessage", () => {
     "app-lock-start",
     "app-lock-stop",
     "app-lock-battery-guide",
+    "install-attribution-received",
   ] as const)("%s 메시지를 파싱한다", (type) => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
   });
 
-  it.each(["app-lock-query", "app-lock-authorize", "app-lock-pick"] as const)(
+  it.each(["app-lock-query", "app-lock-authorize", "app-lock-pick", "pick-profile-photo"] as const)(
     "%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다",
     (type) => {
       expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({

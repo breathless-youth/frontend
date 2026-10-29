@@ -104,8 +104,18 @@ export type ToWebMessage =
    * 권한이나 고른 앱이 없어 잠그지 않았으면 오지 않는다.
    */
   | { type: "app-lock-started"; appCount: number; categoryCount: number; atMs: number }
+  /**
+   * 앱 사진 선택기 결과
+   *
+   * `pick-profile-photo`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * `picked`의 `data`는 앱이 512px 정사각형으로 줄인 JPEG의 base64다.
+   * `cancelled`는 사용자가 고르지 않고 닫은 경우이고 `failed`는 앱이 사진을 읽지 못한 경우다.
+   */
+  | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
+  | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
   | CameraPermissionMessage
   | TrackEventMessage
+  | InstallAttributionMessage
   | NativeControlPressMessage
   /**
    * 앱이 그리는 홈 날짜 줄에서 날짜를 눌렀다는 알림
@@ -120,6 +130,35 @@ export type ToWebMessage =
 /** 홈 날짜 줄 메뉴 항목. 웹 파서가 이 목록으로 검사한다. */
 export const HOME_MENU_ACTIONS = ["reorder-subjects", "edit-subjects"] as const;
 export type HomeMenuAction = (typeof HOME_MENU_ACTIONS)[number];
+
+/**
+ * 메타 광고 지연 딥링크의 `fm_ad` 값 형식
+ *
+ * 광고마다 `focusmakers://?fm_ad=ios_v1`처럼 플랫폼과 영상 번호만 넣기로 했다.
+ * 앱과 웹이 같은 값으로 거르므로 형식 밖 값은 분석으로 나가지 않는다.
+ */
+export const INSTALL_AD_LABEL_PATTERN = /^(ios|aos)_v\d{1,2}$/;
+/** 플레이 설치 정보 원문의 최대 길이. 메타 암호문이 붙어도 1천 자 안팎이라 넉넉히 잡았다. */
+export const INSTALL_REFERRER_MAX_LENGTH = 4096;
+
+/**
+ * 앱이 설치 직후 읽은 유입 정보
+ *
+ * 설치 정보와 지연 딥링크는 네이티브만 읽을 수 있고 분석 SDK는 웹에 있어서 앱이 넘긴다.
+ * 앱은 설치당 한 번 읽어 기기에 보관하고, 웹이 `install-attribution-received`로 받았다고 답할 때까지 준비된 웹뷰에 다시 보낸다.
+ * 메타 암호문은 앱과 웹이 풀지 않고 원문 그대로 실어 나중에 서버가 푼다.
+ */
+export interface InstallAttributionMessage {
+  type: "install-attribution";
+  platform: "ios" | "android";
+  /** 플레이 설치 정보 원문이다. iOS이거나 읽지 못했으면 null이다. */
+  installReferrer: string | null;
+  /** 메타 지연 딥링크의 `fm_ad` 값이다. 없거나 형식에 맞지 않으면 null이다. */
+  deepLinkAd: string | null;
+  /** 앱이 값을 읽은 시각이다. 웹뷰가 늦게 떠도 이 시각을 기준으로 삼는다. */
+  capturedAtMs: number;
+  atMs: number;
+}
 
 /**
  * OS 카메라 권한 허용 여부 — `request-camera-permission`에 대한 응답.
@@ -334,6 +373,20 @@ export type ToNativeMessage =
    * 응답은 없고, 이 메시지를 모르는 구버전 앱은 버린다.
    */
   | { type: "app-lock-battery-guide"; atMs: number }
+  /**
+   * `install-attribution`을 기기에 보관했다는 답
+   *
+   * 앱은 이 답을 받은 뒤에야 보관하던 유입 정보를 지운다.
+   * 이 메시지를 모르는 구버전 웹은 답하지 않으므로 앱은 다음 준비 신호 때 다시 보낸다.
+   */
+  | { type: "install-attribution-received"; atMs: number }
+  /**
+   * 앱 사진 선택기 열기
+   *
+   * Android 웹뷰의 파일 입력은 큰 카메라 사진을 읽지 못해 앱이 시스템 선택기로 고르고 줄여 보낸다.
+   * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
+   */
+  | { type: "pick-profile-photo"; id: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
