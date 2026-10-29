@@ -5,7 +5,8 @@ import path from "node:path";
  * pnpm 10은 package.json의 pnpm 필드를 읽지 않는다. 패치 목록이 pnpm-workspace.yaml에 없으면
  * lockfile을 다시 만드는 설치에서 목록이 빠지고 패치가 오류 없이 사라진다. 그러면 iOS 탭 바 위
  * 흰 줄과 FCM 토큰 실패가 되돌아오고, 닫은 하위 화면이 iOS 앞으로가기 스와이프로 다시 열린다.
- * 이 테스트는 선언 위치와 세 패치의 존재를 고정한다.
+ * 보이는 탭이 바뀔 때마다 탭 웹뷰가 전부 다시 로드되는 문제도 되돌아온다.
+ * 이 테스트는 선언 위치와 네 패치의 존재를 고정한다.
  *
  * 라이브러리 버전을 올릴 때 여기가 실패하면, 업스트림이 해당 수정을 포함했는지 먼저 확인한다.
  * 한 패치가 여러 수정을 담을 수 있으므로, 업스트림이 해결한 수정의 hunk와 그 단언만 지우고
@@ -18,6 +19,7 @@ const PATCHES: Record<string, string> = {
   "@react-native-firebase/messaging@26.3.3":
     "patches/@react-native-firebase__messaging@26.3.3.patch",
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch",
+  "expo-router@57.0.24": "patches/expo-router@57.0.24.patch",
 };
 
 const ONLY_BUILT = ["@sentry/cli", "esbuild", "unrs-resolver"];
@@ -74,6 +76,12 @@ describe("pnpm 패치 선언", () => {
       readFileSync(path.join(repoRoot, "package.json"), "utf-8"),
     ) as { pnpm?: unknown };
     expect(rootPackageJson.pnpm).toBeUndefined();
+  });
+
+  // 보이는 탭 목록을 key로 두면 홈에서 설정과 재생을 바꿔 끼울 때마다 탭 뷰가 다시 마운트돼 탭 웹뷰가 전부 다시 로드된다.
+  it("expo-router 패치가 탭 뷰의 보이는 탭 key를 지운다", () => {
+    const patch = readFileSync(path.join(repoRoot, PATCHES["expo-router@57.0.24"]), "utf-8");
+    expect(patch).toMatch(/^-.*key: visibleTabsKeys/m);
   });
 
   it("웹뷰 패치가 배경색을 안쪽 뷰로 전달하는 변경을 담는다", () => {

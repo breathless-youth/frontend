@@ -231,6 +231,21 @@ export function IconPlay({ color = "#FFFFFF", size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 탭 바 오늘로 돌아가기 원. iOS가 쓰는 SF Symbol `arrow.uturn.forward`와 같은 모양이다. */
+export function IconReturnToday({ color = "#1B64DA", size = 24, ...rest }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
+      <Path
+        d="M15 4L20 9L15 14M20 9H9.5C6.46 9 4 11.46 4 14.5C4 17.54 6.46 20 9.5 20H13"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function IconChevronRight({
   color = "#8B95A1",
   size = 12,

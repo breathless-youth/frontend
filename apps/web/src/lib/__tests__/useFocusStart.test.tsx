@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -122,5 +122,20 @@ describe("useFocusStart", () => {
     await userEvent.click(button);
 
     expect(requestSessionStart).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useFocusStart 함수 정체성", () => {
+  it("다시 렌더해도 같은 함수를 돌려준다", () => {
+    const { result, rerender } = renderHook(() => useFocusStart(7), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={["/home?userId=7"]}>{children}</MemoryRouter>
+      ),
+    });
+    const first = result.current;
+
+    rerender();
+
+    expect(result.current).toBe(first);
   });
 });

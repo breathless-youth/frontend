@@ -9,6 +9,7 @@ import { appLockNative } from "../modules/app-lock";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
+import { rendersNativeHomeChrome } from "./homeDateBar";
 import { ensureUserRegistered } from "./userApi";
 
 // 고정 영역에 새 모양을 더하면 올리고, 웹은 이 값을 보고 그 모양을 앱에 맡길지 정한다.
@@ -72,6 +73,14 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.
   if (Platform.OS === "ios") {
     params.nativeTabBar = "1";
+  }
+  // `tabBarPlay=1`: 이 바이너리의 탭 바에 과목 없이 시작하는 재생 버튼이 있다는 표시.
+  // `nativeDateBar=1`: 이 바이너리가 홈 날짜 줄을 웹뷰 바깥에 직접 그린다는 표시.
+  // 웹은 표시가 있을 때만 자기 시작 버튼과 날짜 줄을 숨기고 `set-home-date-bar`로 내용을 넘긴다.
+  // iOS 26 아래는 떨어진 재생 버튼도 탭 바 액세서리도 없어 둘 다 붙이지 않는다.
+  if (rendersNativeHomeChrome()) {
+    params.tabBarPlay = "1";
+    params.nativeDateBar = "1";
   }
   // `appLock=1`: 이 바이너리가 `app-lock-*`를 처리할 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 방해 앱 잠금 설정을 보이고 세션에서 잠금을 요청한다(`apps/web/src/features/app-lock/appLockCapability.ts`).

@@ -1,0 +1,23 @@
+diff --git a/build/native-tabs/NativeBottomTabsNavigator.js b/build/native-tabs/NativeBottomTabsNavigator.js
+index 76a6b95b963b2a54a62819fe1d83e4ad86c8c1b6..d9756d108b84759b2a215217d3192221bf87e1d8 100644
+--- a/build/native-tabs/NativeBottomTabsNavigator.js
++++ b/build/native-tabs/NativeBottomTabsNavigator.js
+@@ -99,7 +99,8 @@ function NativeTabsNavigator({ children, backBehavior = defaultBackBehavior, lab
+         contentRenderer: () => descriptors[route.key].render(),
+     })), [routes, descriptors]);
+     const visibleFocusedTabIndex = (0, react_2.useMemo)(() => visibleTabs.findIndex((tab) => tab.routeKey === routes[state.index].key), [visibleTabs, routes, state.index]);
+-    const visibleTabsKeys = (0, react_2.useMemo)(() => visibleTabs.map((tab) => tab.routeKey).join(';'), [visibleTabs]);
++    // 보이는 탭 집합이 바뀔 때 key로 NativeTabsView를 새로 만들면 모든 탭 화면이 언마운트돼
++    // 탭 웹뷰가 전부 다시 로드된다. 탭 바 갱신은 react-native-screens에 맡기고 key를 주지 않는다.
+     if (visibleFocusedTabIndex < 0) {
+         if (process.env.NODE_ENV !== 'production') {
+             throw new Error(`The focused tab in NativeTabsView cannot be displayed. Make sure path is correct and the route is not hidden. Path: "${(0, linking_1.getPathFromState)(state)}"`);
+@@ -143,7 +144,7 @@ function NativeTabsNavigator({ children, backBehavior = defaultBackBehavior, lab
+             });
+         }
+     }, [descriptors, navigation, state.key]);
+-    return ((0, jsx_runtime_1.jsx)(NavigationContent, { children: (0, jsx_runtime_1.jsx)(exports.NativeTabsContext, { value: true, children: (0, react_1.createElement)(NativeTabsView_1.NativeTabsView, { ...rest, key: visibleTabsKeys, focusedIndex: focusedIndex, 
++    return ((0, jsx_runtime_1.jsx)(NavigationContent, { children: (0, jsx_runtime_1.jsx)(exports.NativeTabsContext, { value: true, children: (0, react_1.createElement)(NativeTabsView_1.NativeTabsView, { ...rest, focusedIndex: focusedIndex, 
+                 // Provenance should only be sent with updates, and updates
+                 // on JS side are only triggered by rerender, so passing ref
+                 // here is ok.

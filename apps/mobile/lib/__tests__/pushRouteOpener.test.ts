@@ -1,5 +1,6 @@
 import { openPushRoute } from "../pushRouteOpener";
 import { setSessionInviteHandler } from "../sessionInvite";
+import { subscribeSettingsReveal } from "../settingsReveal";
 import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
 
 jest.mock("../nativeAnalytics", () => ({ trackNativeEvent: jest.fn() }));
@@ -95,5 +96,24 @@ describe("openPushRoute", () => {
     await flush();
 
     expect(push).toHaveBeenCalledWith("/social/join?code=1234");
+  });
+
+  it("설정 탭 대상은 탭 레이아웃이 설정 칸을 드러낸 뒤에 연다", async () => {
+    const push = jest.fn();
+    let release: (() => void) | undefined;
+    const unsubscribe = subscribeSettingsReveal((then) => {
+      release = then;
+    });
+
+    openPushRoute("/timelapse-settings", push, () => AT);
+    await flush();
+    expect(push).not.toHaveBeenCalled();
+
+    release?.();
+    expect(push).toHaveBeenCalledWith({
+      pathname: "/(tabs)/settings",
+      params: { path: encodeURIComponent("/timelapse-settings"), at: String(AT) },
+    });
+    unsubscribe();
   });
 });

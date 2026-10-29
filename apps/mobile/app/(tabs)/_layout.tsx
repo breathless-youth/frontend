@@ -76,6 +76,7 @@ function CustomTabsLayout() {
         // 딤은 TabBar 안에서 탭 바를 덮는다. 차단 중엔 래퍼를 접근성 트리에서 함께 빼 스크린리더가
         // 밑 탭 버튼에 닿지 않게 한다. 래퍼는 상태와 무관하게 늘 같은 View다 — 차단일 때만 감싸면
         // 이 자리의 엘리먼트 타입이 바뀌어 TabBar가 리마운트되고, 복귀 페이드 대신 번쩍 나타난다.
+        // 재생 원만 살린 차단에서 래퍼를 숨기면 재생 원까지 숨으므로 래퍼는 두고 TabBar가 막대와 날짜 줄만 숨긴다.
         return (
           <View
             accessibilityElementsHidden={blocked}
@@ -84,6 +85,7 @@ function CustomTabsLayout() {
             <TabBar
               active={TAB_BY_ROUTE_NAME[activeRouteRef.current] ?? "home"}
               dimmed={blocked}
+              dimmedExceptPlay={tabBarState === "blocked-except-play"}
               hidden={tabBarState === "hidden"}
             />
           </View>
@@ -95,6 +97,8 @@ function CustomTabsLayout() {
       <Tabs.Screen name="records" options={{ title: "기록" }} />
       <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
       <Tabs.Screen name="settings" options={{ title: "설정" }} />
+      {/* 재생 버튼 자리표시 라우트는 iOS 시스템 탭 바 몫이라 Android 탭 목록에서 뺀다. */}
+      <Tabs.Screen name="start" options={{ href: null }} />
     </Tabs>
   );
 }

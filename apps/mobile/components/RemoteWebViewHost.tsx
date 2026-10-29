@@ -24,6 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
+import { clearHomeDateBar, setHomeDateBar, subscribeHomeDateBarEvents } from "../lib/homeDateBar";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
@@ -454,12 +455,17 @@ export function RemoteWebViewHost({
    * 그 시점에 보고돼 있던 복원 경로를 함께 싣는다.
    * 핸들러·리스너에서만 부른다.
    */
+  const isHomeHost = (resetPath ?? path) === HOME_PATH;
   const nextGeneration = useCallback(() => {
     const restore = restoreRef.current;
     const baseUrl = readWebBaseUrl();
     setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
     resetGlass();
-  }, [resetGlass]);
+    // Android 재마운트는 onLoadStart를 거치지 않아 새 세대에서 날짜 줄을 거둔다.
+    if (isHomeHost) {
+      clearHomeDateBar();
+    }
+  }, [resetGlass, isHomeHost]);
 
   const { baseUrl, restore } = doc;
   const target = useMemo(() => {
@@ -751,6 +757,13 @@ export function RemoteWebViewHost({
       }
       return;
     }
+    if (message.type === "set-home-date-bar") {
+      // 날짜 줄은 홈 탭 하나에만 있어서 다른 웹뷰가 보낸 값은 버린다.
+      if ((resetPath ?? path) === HOME_PATH) {
+        setHomeDateBar(message);
+      }
+      return;
+    }
     if (message.type === "analytics-ready") {
       // 웹이 track-event 구독을 걸었다 — 이 문서에 네이티브 이벤트를 주입해도 된다(아래 sink effect).
       setAnalyticsReady(true);
@@ -894,6 +907,17 @@ export function RemoteWebViewHost({
     });
   }, [path, resetPath, sendToWeb]);
 
+  // 앱이 그린 날짜 줄과 탭 바 재생 버튼의 누름은 홈 웹뷰만 받는다.
+  useEffect(() => {
+    if ((resetPath ?? path) !== HOME_PATH) {
+      return;
+    }
+    return subscribeHomeDateBarEvents(sendToWeb);
+  }, [path, resetPath, sendToWeb]);
+
+  // 웹뷰가 사라지면 웹이 빈 목록을 보낼 기회가 없어 낡은 날짜 줄이 남으므로 여기서 거둔다.
+  useEffect(() => (isHomeHost ? clearHomeDateBar : undefined), [isHomeHost]);
+
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).
   useEffect(() => {
@@ -1028,7 +1052,11 @@ export function RemoteWebViewHost({
     devOnLoadStart?.();
     resetGlass();
     settleBackSwipe();
-  }, [devOnLoadStart, resetGlass, settleBackSwipe]);
+    // 새 문서는 날짜 줄을 다시 보내야 한다. 이전 문서가 보낸 날짜 줄은 그 문서와 함께 무효다.
+    if (isHomeHost) {
+      clearHomeDateBar();
+    }
+  }, [devOnLoadStart, resetGlass, settleBackSwipe, isHomeHost]);
 
   if (showFailureFallback) {
     return (

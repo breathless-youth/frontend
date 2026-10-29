@@ -253,7 +253,13 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 전체 화면 웹 라우트(문의·약관·방침 등)는 탭 웹뷰 안에서 웹 라우팅으로 열려
       // 네이티브 스택을 건너지 않는다 — 웹이 알려주지 않으면 탭 바가 그대로 남는다.
       setTabBarState(
-        message.blockedByModal === true ? "blocked" : message.visible ? "visible" : "hidden",
+        message.blockedExceptPlay === true
+          ? "blocked-except-play"
+          : message.blockedByModal === true
+            ? "blocked"
+            : message.visible
+              ? "visible"
+              : "hidden",
       );
       break;
     case "auth-ready":
@@ -305,10 +311,6 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void handleAppLockMessage(message, reply).catch((error: unknown) => {
         console.warn("[bridge] 방해 앱 잠금 처리 실패", message.type, error);
       });
-      break;
-    case "set-home-date-bar":
-      // 이 바이너리는 홈 날짜 줄을 네이티브로 그리지 않아 받아도 할 일이 없다.
-      // 웹은 `nativeDateBar` 표시가 없는 앱에는 이 메시지를 보내지 않는다.
       break;
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {

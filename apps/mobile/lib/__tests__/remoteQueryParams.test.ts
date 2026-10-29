@@ -257,6 +257,32 @@ describe("buildRemoteQueryParams", () => {
     expect(params).not.toHaveProperty("nativeTabBar");
   });
 
+  it("iOS 26 이상 셸은 탭 바 재생 버튼과 홈 날짜 줄을 그린다는 표시를 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "ios");
+    jest.spyOn(Platform, "Version", "get").mockReturnValue("26.0");
+    const params = await buildRemoteQueryParams();
+    expect(params.tabBarPlay).toBe("1");
+    expect(params.nativeDateBar).toBe("1");
+  });
+
+  it("iOS 26 미만은 재생 버튼을 떼어 그릴 수 없어 두 표시가 없다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "ios");
+    jest.spyOn(Platform, "Version", "get").mockReturnValue("18.5");
+    const params = await buildRemoteQueryParams();
+    expect(params).not.toHaveProperty("tabBarPlay");
+    expect(params).not.toHaveProperty("nativeDateBar");
+  });
+
+  it("Android 셸은 커스텀 탭 바에 둘 다 그린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.replaceProperty(Platform, "OS", "android");
+    const params = await buildRemoteQueryParams();
+    expect(params.tabBarPlay).toBe("1");
+    expect(params.nativeDateBar).toBe("1");
+  });
+
   it("Liquid Glass를 쓸 수 있고 web-glass 모듈이 든 iOS 빌드에 크롬 버전과 그리는 부품 종류를 붙인다", async () => {
     jest.replaceProperty(Platform, "OS", "ios");
     mockGlass.webGlassNative = {};
