@@ -85,6 +85,22 @@ export function selectSubjectSegment(
 }
 
 /**
+ * 그 과목의 구간을 모두 버린다
+ *
+ * 이 세션에서 그 과목을 고른 적이 없던 것이 된다.
+ * 서버는 삭제한 과목의 구간도 받아 저장하므로, 세션이 그 과목을 쓰면 안 될 때 화면에서 걸러야 한다.
+ */
+export function discardSubjectSegments(
+  tracker: SubjectSegmentTracker,
+  subjectId: SubjectSelection,
+): SubjectSegmentTracker {
+  return {
+    closed: tracker.closed.filter((segment) => segment.subjectId !== subjectId),
+    current: tracker.current?.subjectId === subjectId ? null : tracker.current,
+  };
+}
+
+/**
  * 서버로 보낼 구간 — 닫힌 구간 + 지금 구간을 `boundaryMs`(스냅샷은 reportedAt, 제출은 endedAt)에서
  * 닫은 것. 마지막 원소가 지금 선택이라 복원 때 그 과목이 되살아난다.
  */

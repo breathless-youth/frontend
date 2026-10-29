@@ -1,4 +1,5 @@
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
+import { clearStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 
 /** `requestSessionStart`가 실제로 어느 경로를 탔는지 — 호출부가 후속 히스토리 조작을 정하는 데 쓴다. */
@@ -21,17 +22,28 @@ export type SessionStartRoute = "native" | "web";
  * 히스토리 조작을 정하는 호출부는 이 값이 `"native"`일 때만 스스로 조작해야 한다(그래야 조작이
  * 정확히 한 번으로 유지된다). `isNativeBridgeAvailable()`을 호출부에서 다시 검사하지 말 것 —
  * 판단이 두 곳으로 나뉜다.
+ *
+ * `subjectId`는 홈에서 고른 과목이다.
+ * 세션 화면이 첫 순간부터 그 과목을 고른 채 시작하도록 화면을 넘기기 바로 앞에서 기기 저장소에 남긴다.
+ * 과목이나 신원이 없으면 앞서 실패한 시작이 남긴 과목을 삭제한다.
  */
 export async function requestSessionStart(
   userId: number | null,
   navigateToSession: () => void,
+  subjectId: number | null = null,
 ): Promise<SessionStartRoute> {
   // 서버에 남은 옛 세션을 먼저 치운 뒤에 화면을 넘긴다. 순서가 뒤집히면 세션 화면의 복구
   // 조회가 옛 세션을 돌려줘, 사용자가 새로 시작하려던 자리에 지난 공부시간이 찍힌다.
   // 웹뷰에서는 네이티브가 start-session을 받고서야 세션 웹뷰를 만들므로 이 순서가 곧 요청 순서다.
   await closeStaleSession(userId);
+  const atMs = Date.now();
+  if (userId !== null && subjectId !== null) {
+    saveStartSubject(userId, subjectId, atMs);
+  } else {
+    clearStartSubject();
+  }
   if (isNativeBridgeAvailable()) {
-    postToNative({ type: "start-session", atMs: Date.now() });
+    postToNative({ type: "start-session", atMs });
     return "native";
   }
   navigateToSession();

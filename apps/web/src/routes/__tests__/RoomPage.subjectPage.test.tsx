@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
+import { saveStartSubject } from "@/features/study-session/startSubject";
+import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { RoomPage } from "../RoomPage";
 
@@ -22,10 +24,12 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 
 const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<unknown[]> => []));
 const createTask = vi.hoisted(() => vi.fn());
+const deleteSubject = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/subjectApi", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   listSubjects,
   createTask,
+  deleteSubject,
 }));
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
@@ -531,5 +535,99 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
       expect(window.location.pathname).toBe("/room/7");
       expect(window.location.search).toBe("?userId=1");
     });
+  });
+});
+
+describe("RoomPage 홈에서 고른 과목으로 시작", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it("첫 화면부터 그 과목이 선택돼 있고, 과목 줄은 목록을 받은 뒤에 그 이름으로 보인다", async () => {
+    saveStartSubject(1, MATH.id, Date.now());
+    let resolveList: (list: unknown[]) => void = () => {};
+    listSubjects.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+    );
+
+    renderRoom();
+
+    expect(screen.getByRole("button", { name: "과목 선택됨" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /순공/ })).not.toBeInTheDocument();
+    await act(async () => {
+      resolveList([MATH]);
+    });
+    expect(await screen.findByRole("button", { name: /^수학.*순공/ })).toBeInTheDocument();
+  });
+
+  it("그 과목이 그사이 삭제됐으면 과목 없이 시작한다", async () => {
+    saveStartSubject(1, 99, Date.now());
+    listSubjects.mockResolvedValueOnce([MATH]);
+
+    renderRoom();
+
+    expect(await screen.findByRole("button", { name: "과목" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "과목 선택됨" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: /순공/ })).not.toBeInTheDocument();
+  });
+
+  it("처음 목록에 있던 과목은 세션 중 과목 페이지에서 제거해도 고른 동안의 구간이 제출에 남는다", async () => {
+    saveStartSubject(1, MATH.id, Date.now());
+    listSubjects.mockResolvedValueOnce([MATH]);
+    deleteSubject.mockResolvedValueOnce(undefined);
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    renderRoom();
+    await userEvent.click(await screen.findByRole("button", { name: /^수학.*순공/ }));
+
+    // jsdom에는 `PointerEvent`가 없어 길게 누르기 판정에 쓰는 `isPrimary`를 채운다.
+    vi.stubGlobal(
+      "PointerEvent",
+      class extends MouseEvent {
+        readonly isPrimary = true;
+        readonly pointerType = "touch";
+      },
+    );
+    const page = screen.getByRole("dialog", { name: "과목" });
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(within(page).getByText("수학"));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    await userEvent.click(screen.getByRole("menuitem", { name: "제거" }));
+    await waitFor(() => expect(deleteSubject).toHaveBeenCalledWith(MATH.id));
+    await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await userEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+
+    await waitFor(() => expect(submitStudySession).toHaveBeenCalled());
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].subjectSegments).toEqual([
+      expect.objectContaining({ subjectId: MATH.id }),
+    ]);
+  });
+
+  it("목록을 받지 못하면 고른 과목을 유지한다", async () => {
+    saveStartSubject(1, MATH.id, Date.now());
+    listSubjects.mockRejectedValueOnce(new Error("offline"));
+
+    renderRoom();
+
+    await waitFor(() => expect(listSubjects).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: /^과목.*순공/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "과목 선택됨" })).toBeInTheDocument();
   });
 });

@@ -93,6 +93,7 @@ import { loadSessionSubjects } from "@/features/study-session/loadSessionSubject
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { clearStartSubject, readStartSubject } from "@/features/study-session/startSubject";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
@@ -265,10 +266,12 @@ function useRotationPhase(): RotationPhase {
 function RoomSessionScreen({
   userId,
   restored,
+  initialSubjectId,
   invite,
 }: {
   userId: number | null;
   restored: RestoredSession | null;
+  initialSubjectId: number | null;
   invite: string | null;
 }) {
   const [searchParams] = useSearchParams();
@@ -334,6 +337,7 @@ function RoomSessionScreen({
     subjectSegments,
     sessionEvents,
     selectSubject,
+    discardSubject,
     pause,
     resume,
     startBreak,
@@ -344,6 +348,7 @@ function RoomSessionScreen({
     camera,
     detector,
     restored,
+    initialSubjectId,
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
@@ -424,6 +429,31 @@ function RoomSessionScreen({
   useLayoutEffect(() => {
     subjectsListRef.current = subjects.subjects;
   });
+  /**
+   * 홈에서 고른 과목이 그사이 삭제됐는지 확인
+   *
+   * 처음 받은 목록에 없으면 그 과목 구간을 버려 과목 없이 시작한 것으로 되돌린다.
+   * 처음 한 번만 본다. 세션 중 과목 페이지에서 삭제한 과목의 시간은 남겨야 한다.
+   * 목록을 받지 못하면 홈이 방금 보여 준 과목이라 그대로 쓴다.
+   */
+  const startSubjectCheckedRef = useRef(false);
+  useEffect(() => {
+    if (
+      initialSubjectId === null ||
+      startSubjectCheckedRef.current ||
+      subjects.status === "idle" ||
+      subjects.status === "loading"
+    ) {
+      return;
+    }
+    startSubjectCheckedRef.current = true;
+    if (
+      subjects.status === "ready" &&
+      !subjects.subjects.some((subject) => subject.id === initialSubjectId)
+    ) {
+      discardSubject(initialSubjectId);
+    }
+  }, [discardSubject, initialSubjectId, subjects.status, subjects.subjects]);
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
   const [simpleMode, setSimpleMode] = useState(false);
   // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
@@ -715,8 +745,10 @@ function RoomSessionScreen({
     subjectSelection === null
       ? null
       : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
+  // 목록을 받기 전에는 이름과 오늘 기록을 몰라 그리지 않는다.
+  // 받은 목록에 없거나 목록을 받지 못하면 이름 대신 `과목`으로 그린다.
   const subjectLabel =
-    subjectSelection === null
+    subjectSelection === null || subjects.status === "idle" || subjects.status === "loading"
       ? null
       : {
           name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
@@ -1266,6 +1298,17 @@ export function RoomPage() {
   const { settled, restored } = useActiveSessionRestore(userId);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
+  /**
+   * 홈에서 고른 과목
+   *
+   * 신원과 복원 확인을 기다린 시간이 30초 창에 들지 않게 들어오자마자 읽는다.
+   * 쓰든 안 쓰든 곧바로 삭제해 다음 세션에 남지 않게 한다.
+   * 이전 세션을 복구할 때와 다른 사용자가 남긴 기록은 쓰지 않는다.
+   */
+  const [startSubject] = useState(() => readStartSubject(Date.now()));
+  useEffect(() => {
+    clearStartSubject();
+  }, []);
 
   // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
   useEffect(() => {
@@ -1281,7 +1324,19 @@ export function RoomPage() {
       />
     );
   }
+  const initialSubjectId =
+    restored === null && startSubject !== null && startSubject.userId === userId
+      ? startSubject.subjectId
+      : null;
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
-  return <RoomSessionScreen key={userId} userId={userId} restored={restored} invite={invite} />;
+  return (
+    <RoomSessionScreen
+      key={userId}
+      userId={userId}
+      restored={restored}
+      initialSubjectId={initialSubjectId}
+      invite={invite}
+    />
+  );
 }

@@ -28,6 +28,7 @@ import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { createSubject, listSubjects } from "@/lib/subjectApi";
 import { __resetTabBarPlayForTests } from "@/lib/tabBarPlayCapability";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
+import { readStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
@@ -300,13 +301,30 @@ describe("HomeTabPage — 오늘", () => {
     }
   });
 
-  it("과목 재생 버튼은 쿼리를 승계해 세션을 열고 출처를 home으로 남긴다", async () => {
+  it("과목 재생 버튼은 그 과목을 남기고 쿼리를 승계해 세션을 열며 출처를 home_subject로 남긴다", async () => {
     renderHomeWithRoutes();
 
-    fireEvent.click(await screen.findByRole("button", { name: "국어 공부 시작" }));
+    fireEvent.click(await screen.findByRole("button", { name: "수학 공부 시작" }));
 
     expect((await screen.findByTestId("room-stub")).textContent).toBe("/room/1?userId=7");
-    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home");
+    expect(readStartSubject(Date.now())).toMatchObject({ userId: 7, subjectId: 2 });
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home_subject");
+  });
+
+  it("홈이 다시 보이면 앞서 실패한 시작이 남긴 과목을 삭제한다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    saveStartSubject(7, 1, Date.now());
+
+    act(() => {
+      emitNative('{"type":"tab-focus","focused":false,"atMs":2}');
+    });
+    expect(readStartSubject(Date.now())).not.toBeNull();
+    act(() => {
+      emitNative('{"type":"tab-focus","focused":true,"atMs":3}');
+    });
+
+    expect(readStartSubject(Date.now())).toBeNull();
   });
 
   it("그날을 그린 뒤에야 Vision 자원을 미리 받는다", async () => {
@@ -415,11 +433,13 @@ describe("HomeTabPage — 날짜 줄", () => {
   });
 
   it("탭 바 재생 버튼이 없는 앱에서는 순공 시작이 과목 없이 세션을 연다", async () => {
+    saveStartSubject(7, 1, Date.now());
     renderHomeWithRoutes();
 
     fireEvent.click(await screen.findByRole("button", { name: "순공 시작" }));
 
     expect((await screen.findByTestId("room-stub")).textContent).toBe("/room/1?userId=7");
+    expect(readStartSubject(Date.now())).toBeNull();
     expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home_fallback");
   });
 
