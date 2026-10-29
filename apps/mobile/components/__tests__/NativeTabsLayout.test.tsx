@@ -280,6 +280,40 @@ it("홈에서 설정 드러내기 요청이 오면 설정 칸을 되살리고, �
   expect(byName("settings")?.hidden).toBe(false);
 });
 
+it("설정 라우트가 1초 안에 들어오지 않으면 기다림을 버리고 홈 칸으로 돌아온다", () => {
+  jest.useFakeTimers();
+  render(<NativeTabsLayout />);
+  const then = jest.fn();
+
+  act(() => revealSettingsTab(then));
+  expect(byName("settings")?.hidden).toBe(false);
+
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+  expect(byName("settings")?.hidden).toBe(true);
+  expect(byName("start")?.hidden).toBe(false);
+
+  goTo(0, [{ name: "index" }, { name: "settings" }]);
+  expect(then).not.toHaveBeenCalled();
+});
+
+it("설정 드러내기를 기다리는 중에 사용자가 탭을 누르면 기다림을 버린다", () => {
+  jest.useFakeTimers();
+  render(<NativeTabsLayout />);
+  const then = jest.fn();
+
+  act(() => revealSettingsTab(then));
+  captured.listeners({ name: "records", key: "records-k" }).tabPress?.({
+    target: "records-k",
+    data: { isPrevented: false },
+  });
+  goTo(2, [{ name: "index" }, { name: "settings" }, { name: "records" }]);
+
+  expect(then).not.toHaveBeenCalled();
+  expect(byName("start")?.hidden).toBe(true);
+});
+
 it("홈이 아니면 설정 드러내기 요청을 바로 이어 간다", () => {
   render(<NativeTabsLayout />);
   goTo(1, [{ name: "index" }, { name: "social" }]);

@@ -1,5 +1,5 @@
 import { colors, softBlue } from "@focusmakers/design-tokens";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -30,6 +30,12 @@ export function HomeDateBar({ chipHeight }: { chipHeight: number }) {
   const [width, setWidth] = useState(0);
   // 선택이 바뀌어도 스크롤을 오늘로 되돌리지 않도록 처음 한 번만 끝으로 보낸다.
   const scrolledForRef = useRef<string | null>(null);
+  // iOS 액세서리는 늘 마운트돼 있어서, 거둘 때 기억을 비워야 다시 받을 때 오늘로 간다.
+  useEffect(() => {
+    if (bar === null) {
+      scrolledForRef.current = null;
+    }
+  }, [bar]);
 
   if (bar === null) {
     return null;

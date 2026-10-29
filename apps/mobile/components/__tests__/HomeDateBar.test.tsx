@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { ScrollView } from "react-native";
 
 import { HomeDateBar } from "../HomeDateBar";
 import {
@@ -98,4 +99,35 @@ it.each([
     top: slop,
     bottom: slop,
   });
+});
+
+it("날짜 줄을 거뒀다가 같은 오늘로 다시 받으면 다시 오늘 쪽 끝으로 보낸다", () => {
+  const message = {
+    type: "set-home-date-bar" as const,
+    dates: [date("2026-10-28", "28일 (수)"), date("2026-10-29", "29일 (목)")],
+    selectedKey: "2026-10-29",
+    todayKey: "2026-10-29",
+    atMs: 1,
+  };
+  const showAndScroll = () => {
+    act(() => setHomeDateBar(message));
+    act(() => {
+      fireEvent(screen.getByLabelText("날짜"), "layout", {
+        nativeEvent: { layout: { width: 300 } },
+      });
+    });
+    const scroller = screen.UNSAFE_getByType(ScrollView);
+    const scrollToEnd = jest.spyOn(scroller.instance as ScrollView, "scrollToEnd");
+    // 목 ScrollView는 인스턴스끼리 같은 목 함수를 쓰므로 직전 호출을 지운다.
+    scrollToEnd.mockClear();
+    act(() => {
+      fireEvent(screen.getByLabelText("날짜"), "contentSizeChange", 600, 36);
+    });
+    return scrollToEnd;
+  };
+  render(<HomeDateBar chipHeight={36} />);
+
+  expect(showAndScroll()).toHaveBeenCalledTimes(1);
+  act(() => setHomeDateBar({ ...message, dates: [], selectedKey: "", todayKey: "" }));
+  expect(showAndScroll()).toHaveBeenCalledTimes(1);
 });

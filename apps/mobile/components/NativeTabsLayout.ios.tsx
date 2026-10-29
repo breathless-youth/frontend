@@ -69,6 +69,9 @@ const INACTIVE = DynamicColorIOS({
 // 실측 iOS 탭 선택 애니메이션 길이에 맞춘 값. 기기에서 여전히 밀려 보이면 늘린다.
 const SWAP_AFTER_SELECTION_MS = 250;
 
+// 설정 라우트가 끝내 상태에 실려 오지 않으면 재생 버튼과 날짜 줄이 돌아오지 않아, 이만큼 기다린 뒤 기다림을 버린다.
+const REVEAL_TIMEOUT_MS = 1000;
+
 export function NativeTabsLayout() {
   const homeChrome = rendersNativeHomeChrome();
   const prominentKeySupported = Number.parseInt(String(Platform.Version), 10) >= 27;
@@ -85,6 +88,8 @@ export function NativeTabsLayout() {
   const hasDateBar = useHomeDateBar() !== null;
   const settingsHidden = homeChrome && onHome;
   const pendingRevealRef = useRef<(() => void) | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(revealTimerRef.current), []);
 
   // 숨긴 설정 트리거는 라우트가 내비게이터에서 빠져 있어서, 알림·링크가 설정을 열려면 칸부터 되살려야 한다.
   useEffect(
@@ -95,8 +100,14 @@ export function NativeTabsLayout() {
           return;
         }
         clearTimeout(swapTimerRef.current);
+        clearTimeout(revealTimerRef.current);
         pendingRevealRef.current = then;
         setActiveRoute("settings");
+        // 사용자가 탭을 눌러 기다림만 버린 경우에도 칸을 현재 라우트에 맞춰야 해서 기다림 여부와 상관없이 맞춘다.
+        revealTimerRef.current = setTimeout(() => {
+          pendingRevealRef.current = null;
+          setActiveRoute(prevRouteRef.current);
+        }, REVEAL_TIMEOUT_MS);
       }),
     [settingsHidden],
   );
@@ -121,6 +132,8 @@ export function NativeTabsLayout() {
             }
             return;
           }
+          // 사용자가 고른 탭이 링크가 열려던 설정보다 우선한다.
+          pendingRevealRef.current = null;
           if (event.data.isPrevented) {
             return;
           }
@@ -144,6 +157,7 @@ export function NativeTabsLayout() {
           if (pendingReveal !== null) {
             prevRouteRef.current = name;
             if (state.routes.some((r) => r.name === "settings")) {
+              clearTimeout(revealTimerRef.current);
               pendingRevealRef.current = null;
               pendingReveal();
             }
