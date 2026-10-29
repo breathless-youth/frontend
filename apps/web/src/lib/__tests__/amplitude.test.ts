@@ -950,6 +950,24 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["force_update_prompted", { source: "web", app_version: "0.9.0", min_version: "1.0.0" }],
     ]);
   });
+
+  it("홈 날짜 고르기·총 공부 보기·과목 추가·대체 시작 버튼을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeDateSelected(3);
+    m.trackHomeTotalTimeRevealed();
+    m.trackSubjectItemAdded("subject", true, "home");
+    m.trackFocusStartTapped("home_fallback");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_date_selected", { days_ago: 3 }],
+      ["home_total_time_revealed"],
+      ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "home" }],
+      ["focus_start_tapped", { destination: "session", source: "home_fallback" }],
+    ]);
+  });
 });
 
 describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
