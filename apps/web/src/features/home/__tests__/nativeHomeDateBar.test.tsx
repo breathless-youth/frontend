@@ -79,6 +79,33 @@ describe("useNativeHomeDateBar", () => {
     expect(sent).toMatchObject({ selectedKey: "2026-10-27", todayKey: "2026-10-29" });
   });
 
+  it("숨기는 동안 빈 목록을 보내고 숨김이 풀리면 날짜 목록을 다시 보낸다", () => {
+    window.history.replaceState(null, "", "/home?nativeDateBar=1");
+    __resetNativeDateBarForTests();
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const sentDates = () =>
+      postMessage.mock.calls.map(
+        ([raw]) => (JSON.parse(raw as string) as { dates: unknown[] }).dates.length,
+      );
+
+    const { rerender } = renderHook(
+      ({ hidden }) =>
+        useNativeHomeDateBar({
+          todayKey: "2026-10-29",
+          selectedKey: "2026-10-29",
+          onSelect: vi.fn(),
+          hidden,
+        }),
+      { initialProps: { hidden: false } },
+    );
+    rerender({ hidden: true });
+    expect(sentDates().at(-1)).toBe(0);
+
+    rerender({ hidden: false });
+    expect(sentDates().at(-1)).toBe(30);
+  });
+
   it("메뉴 처리를 넘기지 않아도 앱 메뉴 알림을 받으면 넘어가지 않는다", () => {
     window.history.replaceState(null, "", "/home?nativeDateBar=1");
     __resetNativeDateBarForTests();

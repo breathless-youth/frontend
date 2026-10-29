@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 import { useLocation } from "react-router-dom";
 
 import { postToNative } from "./bridge";
@@ -71,9 +71,39 @@ export function isNativeCoveredPath(pathname: string): boolean {
   return NATIVE_COVERED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+/**
+ * 라우트는 그대로인데 화면이 탭 바를 감추라고 요청했는지
+ *
+ * 홈의 과목 순서 변경·편집처럼 URL을 바꾸지 않는 상태 하나만 쓴다.
+ * 요청한 화면이 직접 `set-tab-bar`를 보내면 모달이 닫힐 때 동기화가 탭 바를 다시 띄우므로 동기화가 이 값을 함께 읽는다.
+ */
+let hiddenByScreen = false;
+const hideListeners = new Set<() => void>();
+
+function subscribeHiddenByScreen(listener: () => void): () => void {
+  hideListeners.add(listener);
+  return () => hideListeners.delete(listener);
+}
+
+function setHiddenByScreen(hidden: boolean): void {
+  hiddenByScreen = hidden;
+  hideListeners.forEach((listener) => listener());
+}
+
+/** `active`인 동안 앱 탭 바를 감춘다. 화면이 내려가면 요청도 거둔다. */
+export function useHideNativeTabBar(active: boolean): void {
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+    setHiddenByScreen(true);
+    return () => setHiddenByScreen(false);
+  }, [active]);
+}
+
 const SAFE_AREA_TOAST_BOTTOM = "calc(env(safe-area-inset-bottom) + 16px)";
 
-// 앱 안 이동은 URL에서 쿼리를 지우므로 모듈을 읽는 시점에 한 번 판정해 보관한다.
+// 앱 안 이동은 URL에서 쿼리를 삭제하므로 모듈을 읽는 시점에 한 번 판정해 보관한다.
 // 첫 호출 시점에 맡기면 라우터 리다이렉트가 먼저 쿼리를 지웠을 때 false가 돼 바뀌지 않는다.
 // 표시는 바이너리마다 고정이라 다시 읽을 이유가 없다.
 function readNativeTabBarFlag(): boolean {
@@ -148,9 +178,15 @@ export function useNativeTabBarSync(): void {
   const { pathname } = useLocation();
   const modalOpen = useModalOverlayOpen();
   const modalCoversTabBar = useModalOverlayCoversTabBar();
+  const screenHidden = useSyncExternalStore(
+    subscribeHiddenByScreen,
+    () => hiddenByScreen,
+    () => false,
+  );
 
   useEffect(() => {
-    const routeHidden = isFullScreenPath(pathname);
+    // 화면이 감춘 탭 바는 전체 화면 라우트처럼 다룬다. 모달이 열려도 딤을 그리려고 되살리지 않는다.
+    const routeHidden = isFullScreenPath(pathname) || screenHidden;
     const nativeCovered = isNativeCoveredPath(pathname);
     const visible = !routeHidden && !modalOpen;
     // 플로팅 바에서 바텀시트는 blockedByModal 없이 visible:false만 보내 네이티브가 "hidden"으로 읽게 한다.
@@ -193,5 +229,5 @@ export function useNativeTabBarSync(): void {
       disposed = true;
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [pathname, modalOpen, modalCoversTabBar]);
+  }, [pathname, modalOpen, modalCoversTabBar, screenHidden]);
 }

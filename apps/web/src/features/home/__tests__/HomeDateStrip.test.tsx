@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { __resetNativeTabBarForTests } from "@/lib/nativeTabBar";
@@ -12,7 +13,7 @@ const TODAY = "2026-10-26";
 function renderStrip(selectedKey = TODAY) {
   const handlers = {
     onSelect: vi.fn(),
-    onMenu: vi.fn(),
+    onMenuAction: vi.fn(),
     onStartWithoutSubject: vi.fn(),
   };
   const { container } = render(
@@ -73,12 +74,20 @@ describe("HomeDateStrip", () => {
     expect(onSelect).toHaveBeenCalledExactlyOnceWith("2026-10-23");
   });
 
-  it("메뉴 버튼을 누르면 onMenu를 부른다", () => {
-    const { onMenu } = renderStrip();
+  it("메뉴 버튼을 누르면 과목 순서 변경·과목 편집 메뉴가 열리고 고른 항목을 알린다", async () => {
+    const { onMenuAction } = renderStrip();
 
-    fireEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "과목 순서 변경",
+      "과목 편집",
+    ]);
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    expect(onMenuAction).toHaveBeenCalledExactlyOnceWith("edit-subjects");
 
-    expect(onMenu).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 순서 변경" }));
+    expect(onMenuAction).toHaveBeenLastCalledWith("reorder-subjects");
   });
 
   it("탭 바 재생 버튼이 없는 앱이면 순공 시작 버튼이 있다", () => {
