@@ -8,7 +8,12 @@ import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
-import { __resetHomeDateBarForTests, pressHomePlay, useHomeDateBar } from "../../lib/homeDateBar";
+import {
+  __resetHomeDateBarForTests,
+  pressHomePlay,
+  setHomeDateBar,
+  useHomeDateBar,
+} from "../../lib/homeDateBar";
 import type { InstallAttribution } from "../../lib/installAttribution";
 import {
   __resetNativeAnalyticsForTests,
@@ -557,6 +562,48 @@ describe("RemoteWebViewHost", () => {
     render(<RemoteWebViewHost path="/home" testID="home" />);
     const homeOnMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
     act(() => homeOnMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(result.current?.selectedKey).toBe("2026-10-29");
+  });
+
+  it("홈 웹뷰가 언마운트되면 날짜 줄을 거둔다", () => {
+    const { result } = renderHook(() => useHomeDateBar());
+    const view = render(<RemoteWebViewHost path="/home" testID="home" />);
+    const onMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
+    act(() => onMessage({ nativeEvent: { data: dateBarRaw } }));
+    expect(result.current).not.toBeNull();
+
+    view.unmount();
+    expect(result.current).toBeNull();
+  });
+
+  it("홈 웹뷰가 새 문서를 읽기 시작하면 날짜 줄을 거둔다", () => {
+    const { result } = renderHook(() => useHomeDateBar());
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+    const onMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
+    act(() => onMessage({ nativeEvent: { data: dateBarRaw } }));
+
+    act(() => (screen.getByTestId("home").props.onLoadStart as () => void)());
+    expect(result.current).toBeNull();
+  });
+
+  it("Android 홈 웹뷰가 렌더러 사망으로 새 문서를 띄우면 날짜 줄을 거둔다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const { result } = renderHook(() => useHomeDateBar());
+    render(<RemoteWebViewHost path="/home" testID="home" />);
+    const onMessage = screen.getByTestId("home").props.onMessage as (e: unknown) => void;
+    act(() => onMessage({ nativeEvent: { data: dateBarRaw } }));
+
+    act(() => (screen.getByTestId("home").props.onRenderProcessGone as () => void)());
+    expect(result.current).toBeNull();
+  });
+
+  it("홈이 아닌 웹뷰의 새 문서 로드와 언마운트는 날짜 줄을 건드리지 않는다", () => {
+    const { result } = renderHook(() => useHomeDateBar());
+    act(() => setHomeDateBar(JSON.parse(dateBarRaw) as Parameters<typeof setHomeDateBar>[0]));
+    const view = render(<RemoteWebViewHost path="/records" testID="records" />);
+
+    act(() => (screen.getByTestId("records").props.onLoadStart as () => void)());
+    view.unmount();
     expect(result.current?.selectedKey).toBe("2026-10-29");
   });
 

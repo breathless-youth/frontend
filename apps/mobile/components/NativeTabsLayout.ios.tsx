@@ -89,7 +89,13 @@ export function NativeTabsLayout() {
   const settingsHidden = homeChrome && onHome;
   const pendingRevealRef = useRef<(() => void) | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(revealTimerRef.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(revealTimerRef.current);
+      clearTimeout(swapTimerRef.current);
+    },
+    [],
+  );
 
   // 숨긴 설정 트리거는 라우트가 내비게이터에서 빠져 있어서, 알림·링크가 설정을 열려면 칸부터 되살려야 한다.
   useEffect(

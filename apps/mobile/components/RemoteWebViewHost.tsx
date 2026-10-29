@@ -24,7 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
-import { setHomeDateBar, subscribeHomeDateBarEvents } from "../lib/homeDateBar";
+import { clearHomeDateBar, setHomeDateBar, subscribeHomeDateBarEvents } from "../lib/homeDateBar";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
@@ -455,12 +455,17 @@ export function RemoteWebViewHost({
    * 그 시점에 보고돼 있던 복원 경로를 함께 싣는다.
    * 핸들러·리스너에서만 부른다.
    */
+  const isHomeHost = (resetPath ?? path) === HOME_PATH;
   const nextGeneration = useCallback(() => {
     const restore = restoreRef.current;
     const baseUrl = readWebBaseUrl();
     setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
     resetGlass();
-  }, [resetGlass]);
+    // Android 재마운트는 onLoadStart를 거치지 않아 새 세대에서 날짜 줄을 거둔다.
+    if (isHomeHost) {
+      clearHomeDateBar();
+    }
+  }, [resetGlass, isHomeHost]);
 
   const { baseUrl, restore } = doc;
   const target = useMemo(() => {
@@ -910,6 +915,9 @@ export function RemoteWebViewHost({
     return subscribeHomeDateBarEvents(sendToWeb);
   }, [path, resetPath, sendToWeb]);
 
+  // 웹뷰가 사라지면 웹이 빈 목록을 보낼 기회가 없어 낡은 날짜 줄이 남으므로 여기서 거둔다.
+  useEffect(() => (isHomeHost ? clearHomeDateBar : undefined), [isHomeHost]);
+
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).
   useEffect(() => {
@@ -1044,7 +1052,11 @@ export function RemoteWebViewHost({
     devOnLoadStart?.();
     resetGlass();
     settleBackSwipe();
-  }, [devOnLoadStart, resetGlass, settleBackSwipe]);
+    // 새 문서는 날짜 줄을 다시 보내야 한다. 이전 문서가 보낸 날짜 줄은 그 문서와 함께 무효다.
+    if (isHomeHost) {
+      clearHomeDateBar();
+    }
+  }, [devOnLoadStart, resetGlass, settleBackSwipe, isHomeHost]);
 
   if (showFailureFallback) {
     return (

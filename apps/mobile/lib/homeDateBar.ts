@@ -38,6 +38,11 @@ function setBar(next: DateBar | null): void {
   }
 }
 
+/** 웹이 빈 목록을 보낼 수 없는 재로드·언마운트에서 앱이 직접 거둔다. */
+export function clearHomeDateBar(): void {
+  setBar(null);
+}
+
 /** 빈 목록이 오면 날짜 줄을 거둔다. */
 export function setHomeDateBar(message: SetHomeDateBarMessage): void {
   setBar(message.dates.length === 0 ? null : message);

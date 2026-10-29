@@ -411,3 +411,13 @@ it("네비게이터 상태가 바뀌면 활성 탭을 모듈 스코프에 기록
 
   expect(getActiveTab()).toBe("social");
 });
+
+it("언마운트하면 걸어 둔 바꿔 끼우기 타이머를 지운다", () => {
+  jest.useFakeTimers();
+  const view = render(<NativeTabsLayout />);
+  goTo(1, [{ name: "index" }, { name: "settings" }]);
+  goTo(0, [{ name: "index" }, { name: "settings" }]);
+
+  view.unmount();
+  expect(jest.getTimerCount()).toBe(0);
+});
