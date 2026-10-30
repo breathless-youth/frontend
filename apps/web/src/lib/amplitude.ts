@@ -24,6 +24,7 @@ import type {
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
+import { showToast } from "./toast";
 import { readUserId } from "./userId";
 import { whenIdle } from "./whenIdle";
 
@@ -110,6 +111,13 @@ function sanitizeUrlPlugin(): Types.EnrichmentPlugin {
 }
 
 /**
+ * 설문 제출 버튼의 "콜백 실행" 키
+ *
+ * 콘솔 설문에 같은 키가 적혀 있어 바꾸면 양쪽을 함께 바꾼다.
+ */
+const SURVEY_THANKS_CALLBACK_KEY = "show-thanks-toast";
+
+/**
  * Amplitude 초기화. `VITE_AMPLITUDE_API_KEY`가 없으면 아무것도 하지 않는다 —
  * 로컬 개발·테스트는 키 없이 그대로 돌아간다.
  *
@@ -131,7 +139,7 @@ export function initAmplitude() {
   add(sanitizeUrlPlugin());
   /**
    * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
-   * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
+   * Amplitude 콘솔이 소유한다** — 코드는 이 등록과 아래 감사 토스트 콜백뿐이라, 콜백 키와 감사 문구 말고는 설문을 바꿔도 배포가 필요 없다.
    *
    * - 플러그인 방식이라 `init`/`boot`를 따로 부르지 않는다 — analytics의 API 키와
    *   user_id(`setAmplitudeUserId`가 붙인 서버 번호)를 그대로 물려받으므로, 콘솔 cohort
@@ -152,6 +160,12 @@ export function initAmplitude() {
    *   발생시키는 설계와 한 세트로만 할 것.
    */
   add(engagementPlugin());
+  // 설문은 감사 단계 없이 제출과 함께 닫히고, 감사 문구는 다른 화면과 같은 앱 토스트로 띄운다.
+  // 로더가 `engagementPlugin()`을 부를 때 전역을 만들어서 이 등록은 그 뒤에 둔다.
+  // 전역이 없을 때 분석 초기화까지 멈추지 않도록 옵셔널 체이닝으로 부른다.
+  window.engagement?.addCallback(SURVEY_THANKS_CALLBACK_KEY, () => {
+    showToast("소중한 의견 감사합니다!");
+  });
   // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
   // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.
   add(firebaseAnalyticsForwardPlugin());
