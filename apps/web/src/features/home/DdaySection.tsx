@@ -131,3 +131,12 @@ function DdayBlock({
     </button>
   );
 }
+
+/** 헤더 둘째 줄 오른쪽의 D-Day 제목. 설정한 D-Day가 없거나 아직 받지 못했으면 그리지 않는다. */
+export function DdayTitle({ userId }: { userId: number }) {
+  const { data } = useQuery(ddayQuery(userId));
+  if (data == null) {
+    return null;
+  }
+  return <span className="min-w-0 truncate text-right">{data.title}</span>;
+}

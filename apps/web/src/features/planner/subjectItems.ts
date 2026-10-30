@@ -32,9 +32,8 @@ export interface PlannerSubjectItem {
  * - `live`(오늘): 목록의 것(미완료 + 자정 이후 완료)을 보여 주고 고칠 수 있다. 완료 기록은 쓰지
  *   않는다 — 방금 완료를 풀거나 지운 할 일이 낡은 기록 때문에 되살아나 보이지 않는다.
  * - `completed`(지난 날): 완료 시각이 그 하루에 든 것만 보여 준다(지운 것 포함). 그날의 미완료는 알 수 없다.
- * - `upcoming`(미래): 지금 미완료인 것을 그대로 보여 준다. 체크는 오늘 플래너에서 한다.
  */
-export type PlannerTaskMode = "live" | "completed" | "upcoming";
+export type PlannerTaskMode = "live" | "completed";
 
 export function plannerSubjectItems(
   day: PlannerDay,
@@ -98,11 +97,7 @@ export function plannerSubjectItems(
               done: task.doneAt !== null,
               live: true,
             }))
-          : tasks === "upcoming"
-            ? subject.tasks
-                .filter((task) => task.doneAt === null)
-                .map((task) => ({ id: task.id, name: task.name, done: false, live: false }))
-            : (fromRecord?.tasks ?? []),
+          : (fromRecord?.tasks ?? []),
       live: true,
     };
   });

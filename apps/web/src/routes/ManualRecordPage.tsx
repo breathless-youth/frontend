@@ -13,7 +13,6 @@ import {
   isManualSession,
 } from "@/features/manual-record/manualRecord";
 import { MANUAL_RECORD_PARAMS } from "@/features/manual-record/useOpenManualRecord";
-import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { addDaysToDateKey, isFutureDateKey, kstDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -50,7 +49,7 @@ function FormSkeleton() {
  * 시간 직접 입력 화면(`/manual-record`)
  *
  * 바닥 시트로 열면 OS 키보드가 올라올 때 안전 영역만큼 시트가 너무 높이 밀려 탭 바 없는 전체 화면으로 연다.
- * 웹뷰가 다시 로드되면 라우터 state와 스택이 사라져 날짜·입구·칸 시각·기록 id를 주소에서 읽고, 필요한 조회도 이 화면이 받는다.
+ * 웹뷰가 다시 로드되면 라우터 state와 스택이 사라져 날짜·입구·기록 id를 주소에서 읽고, 필요한 조회도 이 화면이 받는다.
  * 그날과 다음 날을 받고, 수정이면 묶음이 시작한 날과 묶음이 자정을 넘겨 이어지는 날까지 받는다.
  */
 export function ManualRecordPage() {
@@ -64,22 +63,9 @@ export function ManualRecordPage() {
   // 입구는 미래 날짜로 열지 않는다. 주소로 미래가 오면 기본 구간의 종료가 시작보다 일러 저장할 수 없는 화면이 되므로 오늘로 연다.
   const dateParam = dateKeyOf(searchParams.get("date"));
   const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
-  const rawEntry = searchParams.get("entry");
-  const entry =
-    rawEntry === "planner_button" || rawEntry === "planner_cell" || rawEntry === "home"
-      ? rawEntry
-      : "records";
+  const entry = searchParams.get("entry") === "home" ? "home" : "records";
   const subjectParam = positiveIntOf(searchParams.get("subject")) ?? undefined;
   const editId = positiveIntOf(searchParams.get("id"));
-  // 칸 시각은 그 칸의 달력 날짜를 date로 함께 넘긴다. 날짜가 다르면 주소가 잘못됐거나 미래 날짜를 오늘로 바꾼 것이라 버린다.
-  // 정수라도 Date 범위를 넘으면 기본 구간과 돌아갈 플래너 날짜가 NaN이 되어 함께 버린다.
-  const rawStart = positiveIntOf(searchParams.get("start"));
-  const startMs =
-    rawStart !== null &&
-    Number.isFinite(new Date(rawStart).getTime()) &&
-    kstDateKey(new Date(rawStart)) === dateKey
-      ? rawStart
-      : undefined;
   const isEdit = editId !== null;
 
   // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 조회도 폼도 없다.
@@ -157,13 +143,9 @@ export function ManualRecordPage() {
   // 묶음 키가 없으면 겹침으로 잘린 다른 조각을 찾을 수 없다.
   // 조각 하나로 저장하면 서버가 묶음 전체를 지우고 새로 만들어 나머지 조각이 사라지므로 수정 화면을 열지 않는다.
   const mode: ManualRecordMode | null = !isEdit
-    ? { kind: "add", entry, startMs, subjectId: subjectParam }
+    ? { kind: "add", entry, subjectId: subjectParam }
     : edited !== undefined && isManualSession(edited) && edited.submissionStartedAt !== undefined
-      ? {
-          kind: "edit",
-          entry: entry === "records" || entry === "home" ? "records" : "planner_cell",
-          bundle: bundleOf(sessions, edited.id),
-        }
+      ? { kind: "edit", entry: "records", bundle: bundleOf(sessions, edited.id) }
       : null;
 
   // 저장 중에 뒤로 가도 저장 성공이 onDone을 부른다. 이미 떠난 화면이 한 번 더 돌아가지 않게 막는다.
@@ -192,19 +174,11 @@ export function ManualRecordPage() {
       for (const key of MANUAL_RECORD_PARAMS) {
         params.delete(key);
       }
-      // 플래너의 하루는 05시에 시작해 새벽 칸과 새벽 기록은 date(달력 날짜)의 전날 플래너에 있다.
-      const anchorMs = startMs ?? (edited !== undefined ? Date.parse(edited.startedAt) : undefined);
-      params.set(
-        "date",
-        entry === "planner_cell" && anchorMs !== undefined
-          ? plannerDateKeyOf(new Date(anchorMs))
-          : dateKey,
-      );
+      // 예전 타임테이블 칸 입구가 붙인 칸 시각은 이제 읽지 않아 돌아가는 화면에 남기지 않는다.
+      params.delete("start");
+      params.set("date", dateKey);
       navigate(
-        {
-          pathname: entry === "records" ? "/records" : entry === "home" ? "/home" : "/planner",
-          search: `?${params.toString()}`,
-        },
+        { pathname: entry === "home" ? "/home" : "/records", search: `?${params.toString()}` },
         { replace: true },
       );
     });
@@ -238,7 +212,7 @@ export function ManualRecordPage() {
                 void query.refetch();
               }
             }}
-            screen={entry === "records" || entry === "home" ? entry : "planner"}
+            screen={entry}
           />
         ) : pending || mode === null ? (
           <FormSkeleton />

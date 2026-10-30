@@ -47,7 +47,7 @@ export function useSubjects(
   onError: (message: string) => void,
   /** 이 목록을 다루는 화면 — 추가 이벤트의 `surface` 속성으로만 쓴다. */
   surface: SubjectSurface,
-  /** 목록을 받아 오는 방법 — 기본은 과목 목록 API다. 플래너는 일간 조회에 실려 오는 목록을 쓴다. */
+  /** 목록을 받아 오는 방법. 기본은 과목 목록 API이고 홈은 일간 조회에 실려 오는 목록을 쓴다. */
   load: () => Promise<SubjectResponse[]> = listSubjects,
   /** 과목 추가·이름 변경·삭제가 서버에 저장된 뒤 불린다. 과목 구성을 따로 받아 둔 화면이 다시 받게 한다. */
   onSubjectSaved?: () => void,

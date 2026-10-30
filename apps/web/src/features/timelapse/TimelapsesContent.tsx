@@ -1,0 +1,235 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import { type RefObject, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
+import { TimelapsesEmpty } from "@/features/timelapse/TimelapsesEmpty";
+import { timelapseRangeLabel, timelapseStartLabel } from "@/features/timelapse/recentDayLabel";
+import { focusRatePercent, savedOverlayFor } from "@/features/timelapse/timelapseFrame";
+import { recentTimelapsesKey, recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
+import type { TimelapseRecord, TimelapseStore } from "@/features/timelapse/timelapseStore";
+import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
+import { TimelapseShareDialog } from "@/features/timelapse/TimelapseShareDialog";
+import { TimelapseThumb } from "@/features/timelapse/TimelapseThumb";
+import { showToast } from "@/lib/toast";
+import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
+import { cn } from "@/lib/utils";
+
+function TimelapseRow({
+  record,
+  store,
+  onOpen,
+  onDelete,
+}: {
+  record: TimelapseRecord;
+  store: TimelapseStore;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const studySec = record.summary?.studySec ?? 0;
+  const focusSec = record.summary?.focusSec ?? 0;
+  const endedAtMs = record.summary?.endedAtMs ?? record.startedAtMs;
+
+  return (
+    <li className="relative">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={onOpen}
+        className="bg-muted shadow-sb-card flex w-full gap-3.5 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+      >
+        <TimelapseThumb
+          record={record}
+          store={store}
+          className="h-25 w-14 shrink-0 rounded-[10px]"
+        />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex flex-col gap-1.5 py-1 pr-8">
+            <span className="text-foreground text-lg leading-5.25 font-bold">
+              순공 {toKoreanDurationLength(focusSec)}
+            </span>
+            <span className="text-muted-foreground text-sm leading-4.25">
+              총 공부 {toKoreanDurationLength(studySec)} · 집중률{" "}
+              {focusRatePercent(studySec, focusSec)}%
+            </span>
+          </span>
+          <span className="text-muted-foreground mt-auto self-end px-1 text-xs leading-3.5">
+            {timelapseRangeLabel(record.startedAtMs, endedAtMs)}
+          </span>
+        </span>
+      </button>
+      {/* 버튼 안에 버튼을 둘 수 없어 줄 버튼의 형제로 두고 같은 자리에 겹친다. */}
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`${timelapseStartLabel(record.startedAtMs)} 타임랩스 삭제`}
+        data-delete-for={record.startedAtMs}
+        className="text-feedback-danger absolute top-0.5 right-0.5 flex size-11 items-center justify-center"
+      >
+        <Trash2 size={18} aria-hidden="true" />
+      </button>
+    </li>
+  );
+}
+
+/**
+ * 타임랩스 전체 목록 본문
+ *
+ * 전체 목록 화면과 홈 탭이 같은 본문을 쓴다.
+ * 홈 목록과 같은 쿼리·캐시를 써서 여기서 지우면 다른 곳에서도 이미 빠져 있다.
+ * 줄을 누르면 공유 다이얼로그가 열린다.
+ * 지운 뒤 옮길 포커스는 `scopeRef` 안에서 찾고, 마지막 하나를 지웠으면 그 안의 뒤로 가기로 옮긴다.
+ * 뒤로 가기가 없으면 `scopeRef` 요소로 옮기므로, 그런 곳에서는 포커스를 받을 수 있는 요소(탭 본문 등)를 넘긴다.
+ */
+export function TimelapsesContent({
+  store = getTimelapseStore(),
+  scopeRef,
+  className,
+}: {
+  store?: TimelapseStore;
+  scopeRef: RefObject<HTMLElement | null>;
+  className?: string;
+}) {
+  const queryClient = useQueryClient();
+  const list = useQuery(recentTimelapsesQuery(store));
+  const [pending, setPending] = useState<TimelapseRecord | null>(null);
+  // 닫히는 동안에도 내용이 남아 있도록 연 타임랩스는 닫을 때 지우지 않는다.
+  const [shareTarget, setShareTarget] = useState<TimelapseRecord | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // `open`으로만 여는 창이라 닫힌 뒤 누른 휴지통으로 포커스를 직접 돌려줘야 한다.
+  const focusRestore = useDialogFocusRestore();
+  // 지운 줄의 휴지통은 사라지므로 다음 줄의 휴지통(없으면 뒤로 가기)으로 포커스를 옮긴다.
+  const focusAfterDeleteRef = useRef<number | "back" | null>(null);
+  const remove = useMutation({
+    mutationFn: (startedAtMs: number) => store.remove(startedAtMs),
+    onSuccess: (_result, startedAtMs) => {
+      const records = queryClient.getQueryData<TimelapseRecord[]>(recentTimelapsesKey) ?? [];
+      const index = records.findIndex((record) => record.startedAtMs === startedAtMs);
+      const neighbor = records[index + 1] ?? records[index - 1];
+      focusAfterDeleteRef.current = neighbor?.startedAtMs ?? "back";
+      queryClient.setQueryData<TimelapseRecord[]>(recentTimelapsesKey, (records) =>
+        records?.filter((record) => record.startedAtMs !== startedAtMs),
+      );
+      // 그 타임랩스의 레코드·사진·썸네일 캐시도 함께 버린다.
+      queryClient.removeQueries({ queryKey: ["timelapse", startedAtMs] });
+    },
+    onError: () => showToast("삭제하지 못했어요"),
+    onSettled: () => setPending(null),
+  });
+
+  return (
+    <>
+      <div className={cn("flex flex-col gap-4", className)}>
+        <p className="text-muted-foreground text-[13px] leading-4">
+          최근 7일 동안 최대 7개까지 기기 내에 보관돼요
+        </p>
+        {list.isSuccess &&
+          (list.data.length === 0 ? (
+            <TimelapsesEmpty />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {list.data.map((record) => (
+                <TimelapseRow
+                  key={record.startedAtMs}
+                  record={record}
+                  store={store}
+                  onOpen={() => {
+                    setShareTarget(record);
+                    setShareOpen(true);
+                  }}
+                  onDelete={() => setPending(record)}
+                />
+              ))}
+            </ul>
+          ))}
+      </div>
+
+      {shareTarget !== null && (
+        <TimelapseShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          record={shareTarget}
+          overlay={savedOverlayFor(shareTarget)}
+          entry="list"
+          store={store}
+        />
+      )}
+
+      <Dialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !remove.isPending) setPending(null);
+        }}
+      >
+        <DialogContent
+          role="alertdialog"
+          showCloseButton={false}
+          // 실수로 지우지 않게 되돌릴 수 있는 쪽에 먼저 포커스를 둔다.
+          onOpenAutoFocus={(event) => {
+            focusRestore.onOpenAutoFocus();
+            event.preventDefault();
+            cancelRef.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            const target = focusAfterDeleteRef.current;
+            focusAfterDeleteRef.current = null;
+            if (target === null) {
+              focusRestore.onCloseAutoFocus(event);
+              return;
+            }
+            event.preventDefault();
+            const selector =
+              target === "back"
+                ? 'button[aria-label="뒤로 가기"]'
+                : `[data-delete-for="${target}"]`;
+            // 홈 탭처럼 뒤로 가기가 없는 곳에서는 본문 자체로 옮겨 포커스가 문서 맨 앞으로 빠지지 않게 한다.
+            const scope = scopeRef.current;
+            (scope?.querySelector<HTMLElement>(selector) ?? scope)?.focus();
+          }}
+          // 앱의 다른 확인 창(카메라 켜기·세션 복구)과 같은 모양이다.
+          className="theme-soft-blue bg-muted text-foreground w-[calc(100%-2.5rem)] max-w-[320px] gap-0 rounded-3xl border-0 px-5.5 pt-6.5 pb-5.5 sm:rounded-3xl"
+        >
+          <DialogHeader className="gap-1.5 space-y-0 text-left sm:text-left">
+            <DialogTitle className="text-foreground text-[18px] leading-5.75 font-bold tracking-normal">
+              타임랩스 삭제
+            </DialogTitle>
+            <DialogDescription className="text-foreground text-[16px] leading-5.75 font-medium">
+              정말 삭제하시겠어요?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-5 flex-row gap-2 sm:space-x-0">
+            <Button
+              ref={cancelRef}
+              variant="ghost"
+              disabled={remove.isPending}
+              onClick={() => setPending(null)}
+              className="bg-bg-layer-2 text-foreground h-13 flex-1 rounded-lg text-[15px] font-semibold"
+            >
+              취소
+            </Button>
+            <Button
+              disabled={remove.isPending}
+              onClick={() => {
+                if (pending !== null) remove.mutate(pending.startedAtMs);
+              }}
+              // 되돌릴 수 없는 동작이라 확인 버튼만 위험 색이다.
+              className="bg-feedback-danger hover:bg-feedback-danger/90 h-13 flex-1 rounded-lg text-[15px] font-semibold text-white"
+            >
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

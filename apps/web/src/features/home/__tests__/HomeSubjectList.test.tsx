@@ -265,6 +265,12 @@ describe("HomeSubjectList — 할 일 펼침", () => {
 });
 
 describe("HomeSubjectList — 스와이프", () => {
+  it("목록이 가로 넘침을 잘라 밀어 연 줄이 본문을 옆으로 스크롤하게 하지 않는다", () => {
+    // jsdom은 배치를 계산하지 않아 잘라 내는 클래스가 남아 있는지만 본다.
+    renderList();
+    expect(screen.getByRole("list", { name: "과목" })).toHaveClass("overflow-x-clip");
+  });
+
   it("왼쪽으로 밀면 직접 입력이 드러나고 누르면 그 과목을 알린다", async () => {
     const { onManualRecord } = renderList();
     const surface = row("수학").querySelector<HTMLElement>("[data-swipe-surface]")!;

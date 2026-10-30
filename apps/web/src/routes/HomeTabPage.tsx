@@ -1,13 +1,18 @@
 import type { HomeMenuAction } from "@focusmakers/types";
 import { focusManager, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
+import { daySubjectItems, loadLiveSubjects } from "@/features/home/daySubjects";
 import { HomeDateStrip } from "@/features/home/HomeDateStrip";
+import { HomeDayTimetable } from "@/features/home/HomeDayTimetable";
+import { HomeFolderTabs } from "@/features/home/HomeFolderTabs";
 import { homeDateKeys } from "@/features/home/homeDates";
 import { HomeHeader } from "@/features/home/HomeHeader";
 import { useHomeMode } from "@/features/home/homeMode";
@@ -25,25 +30,23 @@ import { subjectsOnDayQuery, useSubjectCompletion } from "@/features/home/subjec
 import { useStudyStatusUserProperties } from "@/features/home/useStudyStatusUserProperties";
 import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
-import { liveSubjectsOf, plannerDateKeyOf } from "@/features/planner/plannerDay";
-import { plannerSubjectItems } from "@/features/planner/subjectItems";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
-import { dayTitleWithWeekday, kstDateKey } from "@/features/records/recordsFormat";
+import { dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { clearStartSubject } from "@/features/study-session/startSubject";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { useTimelapseUserProperty } from "@/features/timelapse/useTimelapseUserProperty";
-import { trackHomeDateSelected } from "@/lib/amplitude";
+import { trackHomeDateSelected, trackPlannerOpened } from "@/lib/amplitude";
 import { subscribeToNativeMessages } from "@/lib/bridge";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
-import { dailyStatsQuery } from "@/lib/statsQueries";
-import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
+import { cn } from "@/lib/utils";
 import { whenIdle } from "@/lib/whenIdle";
 
 /**
@@ -54,7 +57,31 @@ const { LazySheet: LazyAddSubjectSheet, preload: preloadAddSubjectSheet } = lazy
   import("@/features/home/AddSubjectSheet").then((module) => module.AddSubjectSheet),
 );
 
+/**
+ * 책갈피 본문. 남은 높이를 채우고 그 안에서만 세로로 스크롤한다. 밀어 둔 과목 행처럼 옆으로 넘친 것이 가로 스크롤을 만들지 않게 막는다.
+ * 본문은 Radix가 Tab 순서에 넣고 타임랩스를 다 지우면 포커스를 받으므로, 공용 탭이 지운 초점 표시를 안쪽 고리로 되살린다.
+ */
+const PANEL_CLASS =
+  "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-muted focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:ring-inset";
+
 const SUBJECTS_PENDING_NOTICE = "과목을 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요";
+
+type HomeTab = "subjects" | "timetable" | "app-lock" | "timelapses";
+
+/**
+ * 방해 앱 잠금과 타임랩스 본문은 홈 첫 번들에 넣지 않고 그 탭을 처음 열 때 받는다.
+ * 타임랩스 본문은 공유 영상 만들기까지 딸려 와 무겁다.
+ */
+const LazyAppLockSettingsContent = lazy(() =>
+  import("@/features/app-lock/AppLockSettingsContent").then((module) => ({
+    default: module.AppLockSettingsContent,
+  })),
+);
+const LazyTimelapsesContent = lazy(() =>
+  import("@/features/timelapse/TimelapsesContent").then((module) => ({
+    default: module.TimelapsesContent,
+  })),
+);
 
 /**
  * 홈의 오늘 날짜 키
@@ -114,17 +141,8 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
   };
   const day = usePlannerDay(userId, selectedKey);
 
-  // 과목 목록은 플래너와 같은 방법으로 받는다.
-  // 오늘의 일간 조회에 실려 오고, 싣지 않는 서버면 과목 목록 API로 대신한다.
-  // 할 일은 달력 날짜로 나뉘어, 과목 목록 API와 같은 것을 받으려면 홈의 오늘이 아니라 달력 날짜로 받는다.
-  // 홈의 오늘로 받으면 새벽 0~5시에 만든 할 일이 빠진다.
   const queryClient = useQueryClient();
-  const loadSubjects = async () => {
-    const today = await queryClient
-      .fetchQuery({ ...dailyStatsQuery(userId, kstDateKey()), staleTime: 0 })
-      .catch(() => null);
-    return (today && liveSubjectsOf(today)) ?? listSubjects();
-  };
+  const loadSubjects = () => loadLiveSubjects(queryClient, userId);
   // 날짜별 과목 조회는 그날 있던 과목을 정하는 기준이라, 과목 구성이 바뀌면 받아 둔 날들을 다시 받는다.
   // 그대로 두면 방금 삭제한 과목을 그날 있던 지금 과목으로 들고 있어 지난 날 목록에서 빠진다.
   const refreshSubjectsOnDay = () =>
@@ -138,6 +156,26 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
   );
 
   const homeMode = useHomeMode();
+  // 과목 순서 변경·편집은 같은 화면의 상태라 이 값이 남아, 상태를 마치면 보던 탭으로 돌아온다.
+  const [tab, setTab] = useState<HomeTab>("subjects");
+  // 설정이 방해 앱 잠금 항목을 숨기는 곳(잠금 모듈이 없는 앱과 브라우저)에서는 탭도 숨긴다.
+  const tabs: { value: HomeTab; label: string }[] = [
+    { value: "subjects", label: "과목 목록" },
+    { value: "timetable", label: "타임테이블" },
+    ...(hasAppLockCapability() ? [{ value: "app-lock" as const, label: "방해 앱 잠금" }] : []),
+    { value: "timelapses", label: "타임랩스" },
+  ];
+  const selectTab = (next: string) => {
+    const picked = tabs.find((candidate) => candidate.value === next);
+    if (picked === undefined) {
+      return;
+    }
+    if (picked.value === "timetable") {
+      trackPlannerOpened({ via: "home_tab", isToday });
+    }
+    setTab(picked.value);
+  };
+  const timelapsesPanelRef = useRef<HTMLDivElement>(null);
   // 과목 목록을 받기 전에는 고칠 목록이 없어 들어가지 않는다.
   // 웹 메뉴는 항목을 비활성으로 그리고, 항목을 끌 수 없는 앱 메뉴는 누른 결과가 없지 않게 알린다.
   const subjectsReady = subjects.status === "ready";
@@ -200,47 +238,17 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
   }, [dayShown]);
 
   const liveSubjects = subjects.status === "ready" ? subjects.subjects : null;
-  // 지난 날 목록은 날짜별 과목 조회가 최종으로 정한다.
-  const dayEntries = isToday ? undefined : subjectsOnDay;
-  // 기록과 이름으로 맞추기 전에 걸러야, 그날 없던 같은 이름의 새 과목에 기록이 합쳐지지 않고 지운 과목 줄로 남는다.
-  // 지금 목록에 남아 있어도 그날 조회가 지운 과목이라 하면 시간 직접 입력에서 고를 수 없어 지운 과목 줄로 둔다.
-  const shownSubjects =
-    dayEntries === undefined
-      ? liveSubjects
-      : (liveSubjects?.filter((live) =>
-          dayEntries.some((entry) => entry.id === live.id && !entry.deleted),
-        ) ?? null);
-  let items =
+  // 지난 날은 지금 과목을 모두 그렸다가 줄어들지 않게 그날 과목을 받을 때까지 기다린다.
+  // 과목 목록 탭과 타임테이블 탭이 같은 규칙으로 기다려야 둘이 다른 과목을 보이지 않는다.
+  const itemsPending =
+    day.status === "pending" ||
+    subjects.status === "idle" ||
+    subjects.status === "loading" ||
+    (!isToday && subjectsOnDayPending);
+  const items =
     day.status === "success"
-      ? plannerSubjectItems(day.day, shownSubjects, isToday ? "live" : "completed")
+      ? daySubjectItems(day.day, liveSubjects, isToday ? undefined : subjectsOnDay, isToday)
       : [];
-  if (day.status === "success" && dayEntries !== undefined) {
-    // 그날 조회에 없는 과목은 기록이 있어도 그날 있던 과목이 아니라 뺀다.
-    // 기록 줄의 id는 같은 이름 과목의 대표라서 그날 조회의 id로 바꿔야 그날 완료 여부를 읽는다.
-    items = items.flatMap((item) => {
-      if (item.live) {
-        return [item];
-      }
-      const entry =
-        dayEntries.find((candidate) => candidate.id === item.subjectId) ??
-        dayEntries.find((candidate) => candidate.name === item.name);
-      return entry === undefined ? [] : [{ ...item, subjectId: entry.id }];
-    });
-    // 그 뒤에 지운 과목은 그날 기록이 없어도 그날 있던 과목이라 0분 줄로 붙인다.
-    // 기록은 이름으로 합쳐지므로 같은 이름이 이미 있으면 붙이지 않아야 한 과목이 두 번 보이지 않는다.
-    for (const entry of dayEntries) {
-      if (entry.deleted && !items.some((item) => item.name === entry.name)) {
-        items.push({
-          subjectId: entry.id,
-          name: entry.name,
-          colorIndex: entry.colorIndex,
-          focusSec: 0,
-          tasks: [],
-          live: false,
-        });
-      }
-    }
-  }
   const liveCount = subjects.status === "ready" ? subjects.subjects.length : null;
   // 그날 기록 줄이 있으면 과목을 만든 적 있는 계정이다.
   // 기록 줄로 안 것도 남겨야 기록 없는 날로 옮겼을 때 환영 화면으로 바뀌지 않는다.
@@ -269,7 +277,7 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
 
   if (homeMode.mode !== null) {
     return (
-      <div className="flex flex-1 flex-col gap-3 px-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5">
         {homeMode.mode === "reorder" ? (
           <HomeSubjectReorder store={subjects} onDone={homeMode.exit} />
         ) : (
@@ -286,60 +294,80 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-3 px-5">
-      <HomeHeader
-        userId={userId}
-        dateKey={selectedKey}
-        focusSec={day.status === "success" ? day.day.focusSec : null}
-        studySec={day.status === "success" ? day.day.studySec : null}
-      />
-
-      <div className="flex flex-1 flex-col gap-2.5">
-        {day.status === "error" ? (
-          <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} screen="home" />
-        ) : day.status === "pending" ||
-          subjects.status === "idle" ||
-          subjects.status === "loading" ||
-          // 지난 날은 지금 과목을 모두 그렸다가 줄어들지 않게 그날 과목을 받을 때까지 기다린다.
-          (!isToday && subjectsOnDayPending) ? (
-          <>
-            <Skeleton className="h-17 rounded-lg" />
-            <Skeleton className="h-17 rounded-lg" />
-          </>
-        ) : (
-          <>
-            {items.length > 0 && (
-              <HomeSubjectList
-                key={selectedKey}
-                items={items}
-                isToday={isToday}
-                onPlay={(subjectId) => startFocus("home_subject", subjectId)}
-                store={subjects}
-                completion={completion}
-                onManualRecord={startManualRecord}
-                onNotice={showToast}
-              />
-            )}
-            {subjects.status === "error" && (
-              <ErrorState
-                message="과목을 불러오지 못했어요"
-                onRetry={() => void reloadSubjects()}
-                screen="home"
-              />
-            )}
-            {emptyKind === "welcome" && <HomeWelcome onCreate={openSheet} />}
-            {emptyKind === "empty" && (
-              <Button
-                variant="unstyled"
-                onClick={openSheet}
-                className="h-15 w-full shrink-0 rounded-lg border-[1.5px] border-dashed border-primary/45 text-[15px] leading-5 font-semibold text-primary"
-              >
-                + 과목 추가
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 헤더와 책갈피는 고정하고 고른 책갈피의 본문만 스크롤한다. */}
+      <Tabs value={tab} onValueChange={selectTab} className="flex min-h-0 flex-1 flex-col">
+        <HomeHeader
+          userId={userId}
+          dateKey={selectedKey}
+          focusSec={day.status === "success" ? day.day.focusSec : null}
+          studySec={day.status === "success" ? day.day.studySec : null}
+          tabs={<HomeFolderTabs tabs={tabs} />}
+        />
+        <TabsContent
+          value="subjects"
+          className={cn(PANEL_CLASS, "flex flex-col gap-2.5 p-3 *:shrink-0")}
+        >
+          {day.status === "error" ? (
+            <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} screen="home" />
+          ) : itemsPending ? (
+            <>
+              <Skeleton className="h-17 rounded-lg" />
+              <Skeleton className="h-17 rounded-lg" />
+            </>
+          ) : (
+            <>
+              {items.length > 0 && (
+                <HomeSubjectList
+                  key={selectedKey}
+                  items={items}
+                  isToday={isToday}
+                  onPlay={(subjectId) => startFocus("home_subject", subjectId)}
+                  store={subjects}
+                  completion={completion}
+                  onManualRecord={startManualRecord}
+                  onNotice={showToast}
+                />
+              )}
+              {subjects.status === "error" && (
+                <ErrorState
+                  message="과목을 불러오지 못했어요"
+                  onRetry={() => void reloadSubjects()}
+                  screen="home"
+                />
+              )}
+              {emptyKind === "welcome" && <HomeWelcome onCreate={openSheet} />}
+              {emptyKind === "empty" && (
+                <Button
+                  variant="unstyled"
+                  onClick={openSheet}
+                  className="h-15 w-full shrink-0 rounded-lg border-[1.5px] border-dashed border-primary/45 text-[15px] leading-5 font-semibold text-primary"
+                >
+                  + 과목 추가
+                </Button>
+              )}
+            </>
+          )}
+        </TabsContent>
+        <TabsContent value="timetable" className={cn(PANEL_CLASS, "px-4 py-3")}>
+          <HomeDayTimetable
+            day={day.status === "success" ? day.day : null}
+            items={items}
+            pending={itemsPending}
+            onRetry={day.status === "error" ? day.retry : undefined}
+          />
+        </TabsContent>
+        <TabsContent value="app-lock" className={cn(PANEL_CLASS, "p-3")}>
+          <Suspense fallback={<Skeleton className="h-17 rounded-lg" />}>
+            <LazyAppLockSettingsContent />
+          </Suspense>
+        </TabsContent>
+        <TabsContent ref={timelapsesPanelRef} value="timelapses" className={cn(PANEL_CLASS, "p-3")}>
+          <Suspense fallback={<Skeleton className="h-17 rounded-lg" />}>
+            <LazyTimelapsesContent scopeRef={timelapsesPanelRef} />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
 
       <HomeDateStrip
         todayKey={todayKey}
@@ -376,7 +404,7 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       {identityPending ? (
         // 첫 토큰을 기다리는 동안은 헤더와 본문이 함께 로딩이다.
