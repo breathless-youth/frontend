@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -81,6 +82,8 @@ function HomeRouteProbe() {
 }
 
 function renderRoom(url: string) {
+  // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
+  markSessionGuideSeen(1);
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
@@ -1705,7 +1708,8 @@ describe("RoomPage — 앱 glass 버튼", () => {
         iconSize: expect.closeTo(23 * 0.82),
       },
     });
-    expect(controls["session-pause"]).not.toHaveProperty("faded");
+    // 일시정지는 간단 모드에서도 남아서 도움말 화면이 떠 있을 때만 흐려진다.
+    expect(controls["session-pause"]).toMatchObject({ faded: false });
     // 스스로 aria-hidden인 요소는 접근 이름이 비어 역할로 찾을 수 없어서 aria-label로 찾는다.
     for (const name of ["배경음", "과목", "타이머", "일시정지", "공부 종료"]) {
       expect(screen.getByLabelText(name).style.visibility).toBe("hidden");
@@ -1833,7 +1837,7 @@ describe("RoomPage — 앱 glass 버튼", () => {
     for (const id of ["session-ambient", "session-subject", "session-timer", "session-exit"]) {
       expect(controls[id]).toMatchObject({ faded: true });
     }
-    expect(controls["session-pause"]).not.toHaveProperty("faded");
+    expect(controls["session-pause"]).toMatchObject({ faded: false });
   });
 
   it("button-style을 알리지 않은 앱에서는 세션 버튼을 웹으로 그린다", () => {
