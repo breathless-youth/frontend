@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "@/features/timelapse/timelapseSettings";
+import { TimelapsesContent } from "@/features/timelapse/TimelapsesContent";
 import type { TimelapseStore } from "@/features/timelapse/timelapseStore";
 import { createIndexedDbTimelapseStore } from "@/features/timelapse/timelapseStore";
 import type * as TimelapseVideo from "@/features/timelapse/timelapseVideo";
@@ -170,6 +171,32 @@ describe("타임랩스 전체 목록", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "뒤로 가기" })).toHaveFocus());
+  });
+
+  it("뒤로 가기가 없는 홈 탭 본문에서 마지막 하나를 지우면 본문으로 포커스를 옮긴다", async () => {
+    await seed(NOON - HOUR);
+    function HomeTabPanel() {
+      const panelRef = useRef<HTMLDivElement>(null);
+      return (
+        <div ref={panelRef} tabIndex={0} data-testid="panel">
+          <TimelapsesContent store={store} scopeRef={panelRef} />
+        </div>
+      );
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <HomeTabPanel />
+      </QueryClientProvider>,
+    );
+
+    const trash = await screen.findByRole("button", { name: /타임랩스 삭제/ });
+    trash.focus();
+    fireEvent.click(trash);
+    const dialog = await screen.findByRole("alertdialog", { name: "타임랩스 삭제" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(screen.getByTestId("panel")).toHaveFocus());
   });
 
   it("Esc를 누르면 취소와 같다", async () => {
