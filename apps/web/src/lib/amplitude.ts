@@ -1227,6 +1227,52 @@ export function trackInterviewDismissed(params: {
   track("interview_dismissed", params);
 }
 
+/** 결과 화면 AI 측정 만족도 카드의 선택지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type MeasurementFeedbackRating = "good" | "meh" | "bad";
+export type MeasurementFeedbackReason = "under" | "over" | "unclear" | "missing_info";
+
+interface MeasurementFeedbackContext {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+}
+
+/** AI 측정 만족도 카드가 결과 화면에 보인 순간. 응답률의 분모다. */
+export function trackMeasurementFeedbackShown(input: MeasurementFeedbackContext) {
+  if (!initialized) return;
+  track("measurement_feedback_shown", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+  });
+}
+
+/** 만족도 선택. 다시 고르면 고를 때마다 보낸다. */
+export function trackMeasurementFeedbackRated(
+  input: MeasurementFeedbackContext & { readonly rating: MeasurementFeedbackRating },
+) {
+  if (!initialized) return;
+  track("measurement_feedback_rated", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+    rating: input.rating,
+  });
+}
+
+/** 보통이에요·아쉬워요 뒤에 고른 이유 */
+export function trackMeasurementFeedbackReasonSelected(
+  input: MeasurementFeedbackContext & {
+    readonly rating: MeasurementFeedbackRating;
+    readonly reason: MeasurementFeedbackReason;
+  },
+) {
+  if (!initialized) return;
+  track("measurement_feedback_reason_selected", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+    rating: input.rating,
+    reason: input.reason,
+  });
+}
+
 /** 프로필 저장 제출(검증 통과 후). 어떤 필드를 바꿨는지만 — 값은 싣지 않는다. */
 export function trackProfileSaveSubmitted(input: {
   readonly nickname: boolean;

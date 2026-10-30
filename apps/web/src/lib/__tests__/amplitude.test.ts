@@ -1448,6 +1448,46 @@ describe("인터뷰 모집 이벤트", () => {
   });
 });
 
+describe("AI 측정 만족도 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackMeasurementFeedbackShown({ roomType: "single", focusSec: 1200 });
+    m.trackMeasurementFeedbackRated({ roomType: "single", focusSec: 1200, rating: "good" });
+    m.trackMeasurementFeedbackReasonSelected({
+      roomType: "single",
+      focusSec: 1200,
+      rating: "bad",
+      reason: "under",
+    });
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("노출·만족도·이유를 룸 종류·순공시간과 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackMeasurementFeedbackShown({ roomType: "social", focusSec: 900 });
+    m.trackMeasurementFeedbackRated({ roomType: "social", focusSec: 900, rating: "meh" });
+    m.trackMeasurementFeedbackReasonSelected({
+      roomType: "social",
+      focusSec: 900,
+      rating: "meh",
+      reason: "missing_info",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["measurement_feedback_shown", { room_type: "social", focus_sec: 900 }],
+      ["measurement_feedback_rated", { room_type: "social", focus_sec: 900, rating: "meh" }],
+      [
+        "measurement_feedback_reason_selected",
+        { room_type: "social", focus_sec: 900, rating: "meh", reason: "missing_info" },
+      ],
+    ]);
+  });
+});
+
 describe("랭킹 이벤트", () => {
   it("판 보기·기록 열기·메달 누르기·집중 시작 출처를 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");

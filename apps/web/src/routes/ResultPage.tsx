@@ -7,6 +7,7 @@ import type { StudySessionResponse } from "@focusmakers/types";
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
+import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
 import { gainCardView } from "@/features/ranking/exposure/gainView";
 import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
 import { requestBoard } from "@/features/ranking/model/boardMemory";
@@ -208,6 +209,8 @@ export function ResultPage() {
   }
 
   const roomType: StudyRoomType = home === "/home" ? "single" : "social";
+  // 자정 분할 세션은 배열로 오므로 합산해야 `study_session_ended`가 보낸 값과 같아진다.
+  const totalFocusSec = sessions.reduce((sum, session) => sum + session.focusSec, 0);
 
   /**
    * 이탈 경로는 하단 CTA **둘**(`홈으로`·`기록으로 가기`)과 랭킹이 올랐을 때 보이는 결과 랭킹 카드의 `랭킹 보기 ›`뿐이다.
@@ -246,14 +249,9 @@ export function ResultPage() {
     /**
      * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
      * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
-     * 돌아갈 경로를 함께 못박아 그 탭 웹뷰만 가져가게 한다. 자정 분할 세션은 배열로 오므로
-     * 합산해야 `study_session_ended`가 보낸 값과 같아진다.
+     * 돌아갈 경로를 함께 못박아 그 탭 웹뷰만 가져가게 한다.
      */
-    stageStudyResultExit({
-      roomType,
-      focusSec: sessions.reduce((sum, session) => sum + session.focusSec, 0),
-      consumeAt: exitPath,
-    });
+    stageStudyResultExit({ roomType, focusSec: totalFocusSec, consumeAt: exitPath });
     // navigate-home은 솔로 세션의 fullScreenModal을 닫아 네이티브 홈 탭을 드러내는 신호다.
     // 소셜룸은 소셜 탭 웹뷰 안에서 웹 라우팅으로 돌아 모달이 없으므로, 소셜 복귀에 이 신호를
     // 보내면 native가 홈 탭으로 튕긴다. 앱 홈으로 돌아갈 때만 보낸다.
@@ -317,6 +315,7 @@ export function ResultPage() {
                 <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
               )}
               <StudyTimelineCard view={view} />
+              <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}
               {showTimelapse && (
