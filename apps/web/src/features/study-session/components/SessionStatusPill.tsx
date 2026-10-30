@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
  * 스크린리더에 알린다.
  */
 
+/** 폭 600 이상 창과 큰 태블릿에서 키우는 상태 필 크기. 도움말 화면의 가짜 필도 쓴다. */
+export const SESSION_PILL_SIZE =
+  "regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25";
+
 export type SessionStatusPillState = "focus" | "distract" | "paused";
 
 const BADGE_VARIANT = {

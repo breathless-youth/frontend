@@ -66,14 +66,16 @@ export function SessionPauseButton({
   paused,
   onClick,
   inactive = false,
+  faded = false,
 }: {
   paused: boolean;
   onClick: () => void;
   /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
   inactive?: boolean;
+  /** 앱 버튼을 흐리게 감춘다. 간단 모드에서는 남는 버튼이라 도움말 화면만 쓴다. */
+  faded?: boolean;
 }) {
   const label = paused ? "다시 시작" : "일시정지";
-  // 간단 모드에서도 남는 버튼이라 흐림을 보내지 않는다.
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "session-pause",
@@ -84,6 +86,7 @@ export function SessionPauseButton({
       disabled: inactive,
       accessibilityLabel: label,
       tone: paused ? "prominent" : "default",
+      faded,
     },
     onClick,
     { measureIcon: true },
