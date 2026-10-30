@@ -1337,6 +1337,9 @@ export function trackStudyResultConfirmed(input: {
  * 도착 화면(홈·기록)이 한다. 웹뷰끼리 같은 origin의 localStorage를 공유하는 것에 기댄다.
  * 확인·X·탭바 이탈·앱 재실행 어느 경로로 나가도 예약이 살아남고, 브라우저·소셜 플로우도 같은
  * 경로를 탄다.
+ *
+ * 순공 1분 미만 안내 화면에서 홈으로 나갈 때도 같은 예약을 남긴다(첫 세션 종료 이유 설문 트리거).
+ * 결과 화면은 순공 1분 이상만 오므로 `focus_sec`이 60 미만이면 안내 화면에서 나간 것이다.
  */
 const PENDING_EXIT_KEY = "fm_pending_result_exit";
 const PENDING_EXIT_TTL_MS = 10 * 60_000;

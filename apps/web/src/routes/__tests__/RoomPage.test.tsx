@@ -1279,6 +1279,29 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
     vi.unstubAllGlobals();
   });
 
+  /**
+   * 홈 화면이 `study_result_exited`를 보내야 첫 세션 종료 이유 설문(Amplitude)이 뜬다.
+   * 결과 화면과 같은 예약 경로를 타고, 안내가 떠 있는 동안이 아니라 나가는 순간에 예약한다.
+   */
+  it("홈으로를 누르면 홈 화면 몫으로 설문 신호를 예약한다", async () => {
+    localStorage.removeItem("fm_pending_result_exit");
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderRoom("/room/7?userId=1");
+
+    await endSession();
+    await screen.findByText("1분 미만 공부는 기록에 표시되지 않아요");
+    expect(localStorage.getItem("fm_pending_result_exit")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "홈으로" }));
+
+    expect(JSON.parse(localStorage.getItem("fm_pending_result_exit") ?? "null")).toMatchObject({
+      roomType: "single",
+      focusSec: 0,
+      consumeAt: "/home",
+    });
+    localStorage.removeItem("fm_pending_result_exit");
+  });
+
   /** S3-8의 타이틀은 `여기까지 기록을 저장했어요`로 단언하므로 미달 세션에 쓰면 거짓이 된다. */
   it("기록에 남았다고 단언하는 S3-8 문구를 쓰지 않는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);

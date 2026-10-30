@@ -97,6 +97,7 @@ import { useSessionOrientationAnalytics } from "@/features/study-session/useSess
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import {
+  stageStudyResultExit,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
@@ -1109,6 +1110,8 @@ function RoomSessionScreen({
         <SubMinuteEndNotice
           onGoHome={() => {
             trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+            // 결과 화면을 거치지 않는 종료도 홈에서 첫 세션 종료 이유 설문이 뜰 수 있게 같은 예약을 남긴다.
+            stageStudyResultExit({ roomType: "single", focusSec, consumeAt: "/home" });
             goHome();
           }}
         />
