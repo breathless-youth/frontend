@@ -1,5 +1,5 @@
 import type { HomeMenuAction } from "@focusmakers/types";
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
 
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
@@ -27,9 +27,37 @@ export function hasNativeDateBar(): boolean {
 /** 테스트마다 URL을 바꿔 판정하도록 캐시를 비운다. */
 export function __resetNativeDateBarForTests(): void {
   nativeDateBarCache = null;
+  shown = false;
+}
+
+// 앱은 빈 목록을 받으면 날짜 줄을 숨기므로, 마지막으로 보낸 목록이 비었는지가 곧 앱 날짜 줄이 떠 있는지다.
+let shown = false;
+const shownListeners = new Set<() => void>();
+
+function setShown(next: boolean): void {
+  if (shown === next) {
+    return;
+  }
+  shown = next;
+  shownListeners.forEach((listener) => listener());
+}
+
+function subscribeShown(listener: () => void): () => void {
+  shownListeners.add(listener);
+  return () => shownListeners.delete(listener);
+}
+
+/** 앱이 지금 홈 날짜 줄을 띄우고 있는지 */
+export function useNativeDateBarShown(): boolean {
+  return useSyncExternalStore(
+    subscribeShown,
+    () => shown,
+    () => false,
+  );
 }
 
 function postEmptyDateBar() {
+  setShown(false);
   postToNative({
     type: "set-home-date-bar",
     dates: [],
@@ -70,6 +98,7 @@ export function useNativeHomeDateBar({
       postEmptyDateBar();
       return;
     }
+    setShown(true);
     postToNative({
       type: "set-home-date-bar",
       dates: homeDateKeys(todayKey).map((key) => ({

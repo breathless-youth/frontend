@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-import { AppState } from "react-native";
+import { colors } from "@focusmakers/design-tokens";
+import { AppState, Platform } from "react-native";
 import type * as ReactNative from "react-native";
 
 import RootLayout from "../app/_layout";
@@ -55,14 +56,27 @@ jest.mock("expo-splash-screen", () => ({
 const mockRouter = { push: jest.fn() };
 // 라우트별 화면 옵션을 확인하려고 Stack.Screen에 넘어온 props를 남긴다.
 const mockScreenProps: { name: string; options?: Record<string, unknown> }[] = [];
+const mockStackProps: { screenOptions?: Record<string, unknown> } = {};
 jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
-  Stack: Object.assign(({ children }: { children?: ReactNode }) => children, {
-    Screen: (props: { name: string; options?: Record<string, unknown> }) => {
-      mockScreenProps.push(props);
-      return null;
+  Stack: Object.assign(
+    ({
+      children,
+      screenOptions,
+    }: {
+      children?: ReactNode;
+      screenOptions?: Record<string, unknown>;
+    }) => {
+      mockStackProps.screenOptions = screenOptions;
+      return children;
     },
-  }),
+    {
+      Screen: (props: { name: string; options?: Record<string, unknown> }) => {
+        mockScreenProps.push(props);
+        return null;
+      },
+    },
+  ),
 }));
 
 // 이 테스트의 관심사는 폰트/스플래시 게이팅뿐이다 — 유저 등록·딥링크·방향 잠금은 각자
@@ -574,6 +588,27 @@ describe("RootLayout 방해 앱 잠금 시트", () => {
         sheetCornerRadius: 20,
       });
     }
+  });
+});
+
+// 탭 전환 사이 한 프레임 동안 내비게이션 기본 회색 배경이 비치지 않도록 앱 배경을 깐다.
+describe("RootLayout 화면 배경", () => {
+  it("Android는 스택 화면 바탕을 앱 배경색으로 깐다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockStackProps.screenOptions?.contentStyle).toEqual({
+      backgroundColor: colors.bg.base.light,
+    });
+  });
+
+  it("iOS는 스택 화면 바탕을 건드리지 않는다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    expect(mockStackProps.screenOptions?.contentStyle).toBeUndefined();
   });
 });
 

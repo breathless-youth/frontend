@@ -1,4 +1,5 @@
 import { act, render } from "@testing-library/react-native";
+import { colors } from "@focusmakers/design-tokens";
 import { BackHandler, Platform } from "react-native";
 
 import TabsLayout from "../app/(tabs)/_layout";
@@ -18,6 +19,7 @@ import { subscribeTabReset } from "../lib/tabReset";
  */
 
 const mockTabBarState = { index: 0, routes: [{ name: "index" }] as { name: string }[] };
+const mockTabsProps: { screenOptions?: Record<string, unknown> } = {};
 // 탭 바 스텁이 마운트된 횟수 — 상태 전환에서 리마운트되지 않는 것을 증명하는 데 쓴다.
 const mockTabBarMounts = { count: 0 };
 
@@ -27,7 +29,14 @@ jest.mock("expo-router", () => {
   const { View } = require("react-native") as typeof import("react-native");
   /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
 
-  function Tabs({ tabBar }: { tabBar: (props: { state: typeof mockTabBarState }) => unknown }) {
+  function Tabs({
+    tabBar,
+    screenOptions,
+  }: {
+    tabBar: (props: { state: typeof mockTabBarState }) => unknown;
+    screenOptions?: Record<string, unknown>;
+  }) {
+    mockTabsProps.screenOptions = screenOptions;
     return ReactModule.createElement(View, null, tabBar({ state: mockTabBarState }) as never);
   }
   Tabs.Screen = function TabsScreen() {
@@ -127,6 +136,15 @@ it("iOS는 시스템 탭 바 레이아웃을 그리고 커스텀 바는 만들�
   expect(getByTestId("native-tabs-layout")).toBeTruthy();
   expect(queryByTestId("tab-bar")).toBeNull();
   expect(BackHandler.addEventListener).not.toHaveBeenCalled();
+});
+
+// 탭 전환 사이 한 프레임 동안 내비게이션 기본 회색 배경이 비치지 않도록 앱 배경을 깐다.
+it("Android 탭 화면 바탕을 앱 배경색으로 깐다", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  render(<TabsLayout />);
+  expect(mockTabsProps.screenOptions?.sceneStyle).toEqual({
+    backgroundColor: colors.bg.base.light,
+  });
 });
 
 it("내비게이터 상태의 활성 탭을 모듈 스코프에 기록한다 — 브리지 핸들러가 navigate-tab의 출발 탭으로 읽는다", () => {

@@ -13,6 +13,7 @@ import {
   FORCE_UPDATE_TITLE,
 } from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
+import { useNativeDateBarShown } from "@/features/home/nativeHomeDateBar";
 import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
@@ -20,7 +21,12 @@ import { reloadOnChunkError } from "@/lib/chunkReload";
 import { useNativeControlPressRelay } from "@/lib/glassChrome";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
-import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
+import {
+  hasNativeTabBar,
+  toastBottomOffset,
+  useNativeTabBarClass,
+  useNativeTabBarSync,
+} from "@/lib/nativeTabBar";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
@@ -188,7 +194,13 @@ function RoomPageProfiled() {
 /** 라우트가 바뀔 때마다 탭 바를 피해 토스트 위치를 다시 잰다. */
 function AppToaster() {
   const { pathname } = useLocation();
-  const bottom = toastBottomOffset(pathname, isNativeBridgeAvailable());
+  const nativeDateBarShown = useNativeDateBarShown();
+  const bottom = toastBottomOffset(
+    pathname,
+    isNativeBridgeAvailable(),
+    hasNativeTabBar(),
+    nativeDateBarShown,
+  );
   // 전역 Toaster는 화면과 달리 언마운트되지 않아, 지우지 않으면 이전 화면의 토스트가
   // 다음 화면까지 넘어간다. 이 컴포넌트가 <Routes>보다 앞선 형제라 이펙트가 먼저 돌고,
   // 새로 마운트되는 화면이 자기 토스트를 부르면 그 호출이 막 건 dismiss를 취소한다.

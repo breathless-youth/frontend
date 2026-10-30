@@ -107,6 +107,18 @@ export function TabBar({
   const dateBar = useHomeDateBar();
   const hasDateBar = dateBar !== null;
   const returnsToToday = isViewingPastDate(dateBar);
+  const onHome = active === "home";
+  const dateBarHidden = !onHome || dimmedExceptPlay;
+  const dateBarOpacity = useSharedValue(onHome ? 1 : 0);
+  useEffect(() => {
+    dateBarOpacity.set(
+      withTiming(onHome ? 1 : 0, {
+        duration: onHome ? MORPH_MS : 150,
+        reduceMotion: ReduceMotion.System,
+      }),
+    );
+  }, [onHome, dateBarOpacity]);
+  const dateBarStyle = useAnimatedStyle(() => ({ opacity: dateBarOpacity.get() }));
   const visibleTabs = TABS.filter(({ id }) => !(active === "home" && id === "settings"));
   // 탭 칸 위치를 onLayout으로 측정해 두고, 선택 표시는 그 자리로 transform·width만 움직인다.
   const [layouts, setLayouts] = useState<Partial<Record<TabId, { x: number; width: number }>>>({});
@@ -150,26 +162,39 @@ export function TabBar({
       importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       style={[styles.floatWrap, { bottom: Math.max(insets.bottom, 24), opacity }]}
     >
-      {active === "home" && hasDateBar && (
+      {/* 흐름 밖에 띄우고 감싼 뷰가 그 자리를 늘 비워 두어, 날짜 줄이 생기고 사라져도 막대가 감싼 뷰 안에서 움직이지 않는다. */}
+      {/* 감싼 뷰 영역 안에 두어야 Android가 가로 끌기를 날짜 줄 스크롤에 넘긴다. */}
+      {/* 다른 탭에서도 내리지 않고 숨겨 두어, 홈으로 돌아올 때 날짜 줄을 다시 재고 그리느라 번쩍이지 않는다. */}
+      {hasDateBar && (
         <Reanimated.View
           testID="tab-bar-date-bar"
           entering={FadeIn.duration(MORPH_MS).reduceMotion(ReduceMotion.System)}
           exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
-          accessibilityElementsHidden={dimmedExceptPlay}
-          importantForAccessibility={dimmedExceptPlay ? "no-hide-descendants" : "auto"}
-          style={[styles.dateBarWrap, { boxShadow: `0 10px 30px ${g.shadow[scheme]}` }]}
+          pointerEvents={onHome ? "box-none" : "none"}
+          accessibilityElementsHidden={dateBarHidden}
+          importantForAccessibility={dateBarHidden ? "no-hide-descendants" : "auto"}
+          style={styles.dateBarWrap}
         >
-          <View
+          <Reanimated.View
+            testID="tab-bar-date-bar-fade"
             style={[
-              styles.dateBarSurface,
-              {
-                borderColor: g.border[scheme],
-                backgroundColor: scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
-              },
+              styles.dateBarShadow,
+              { boxShadow: `0 10px 30px ${g.shadow[scheme]}` },
+              dateBarStyle,
             ]}
           >
-            <HomeDateBar chipHeight={44} />
-          </View>
+            <View
+              style={[
+                styles.dateBarSurface,
+                {
+                  borderColor: g.border[scheme],
+                  backgroundColor: scheme === "dark" ? colors.bg.layer1.dark : colors.bg.base.light,
+                },
+              ]}
+            >
+              <HomeDateBar chipHeight={44} />
+            </View>
+          </Reanimated.View>
         </Reanimated.View>
       )}
       <View style={styles.barRow}>
@@ -328,9 +353,11 @@ export function TabBar({
 }
 
 const styles = StyleSheet.create({
-  floatWrap: { position: "absolute", left: 16, right: 16, alignItems: "center" },
+  // 윗자리는 날짜 줄 높이 56과 막대와의 간격 8이고, 비어 있을 때는 box-none이라 아래 웹뷰가 터치를 받는다.
+  floatWrap: { position: "absolute", left: 16, right: 16, alignItems: "center", paddingTop: 64 },
   barRow: { width: "100%", maxWidth: 402, flexDirection: "row", gap: 10 },
-  dateBarWrap: { width: "100%", maxWidth: 402, marginBottom: 8, borderRadius: 999 },
+  dateBarWrap: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" },
+  dateBarShadow: { width: "100%", maxWidth: 402, borderRadius: 999 },
   dateBarSurface: { height: 56, borderRadius: 999, borderWidth: 1, overflow: "hidden", padding: 5 },
   shadowWrap: { flex: 1, borderRadius: 999 },
   playButton: { width: 70, height: 70, borderRadius: 999 },

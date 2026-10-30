@@ -1,7 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { __resetNativeDateBarForTests, useNativeHomeDateBar } from "../nativeHomeDateBar";
+import {
+  __resetNativeDateBarForTests,
+  useNativeDateBarShown,
+  useNativeHomeDateBar,
+} from "../nativeHomeDateBar";
 
 function sendFromNative(message: Record<string, unknown>) {
   act(() => {
@@ -137,5 +141,41 @@ describe("useNativeHomeDateBar", () => {
     );
 
     expect(postMessage).not.toHaveBeenCalled();
+  });
+});
+
+// 토스트는 앱 날짜 줄이 실제로 떠 있을 때만 그 위로 올라가야 해서, 웹이 보낸 마지막 상태를 따라간다.
+describe("useNativeDateBarShown", () => {
+  function useBoth(hidden: boolean) {
+    useNativeHomeDateBar({
+      todayKey: "2026-10-29",
+      selectedKey: "2026-10-29",
+      onSelect: vi.fn(),
+      hidden,
+    });
+    return useNativeDateBarShown();
+  }
+
+  it("날짜 목록을 보낸 동안만 참이고 숨기거나 홈이 내려가면 거짓이다", () => {
+    window.history.replaceState(null, "", "/home?nativeDateBar=1");
+    __resetNativeDateBarForTests();
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+
+    const { result, rerender, unmount } = renderHook(({ hidden }) => useBoth(hidden), {
+      initialProps: { hidden: false },
+    });
+    expect(result.current).toBe(true);
+    rerender({ hidden: true });
+    expect(result.current).toBe(false);
+    rerender({ hidden: false });
+    expect(result.current).toBe(true);
+    unmount();
+    expect(renderHook(() => useNativeDateBarShown()).result.current).toBe(false);
+  });
+
+  it("날짜 줄을 그리지 않는 앱에서는 늘 거짓이다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const { result } = renderHook(() => useBoth(false));
+    expect(result.current).toBe(false);
   });
 });
