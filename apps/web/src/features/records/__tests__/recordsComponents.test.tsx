@@ -583,7 +583,7 @@ describe("StreakBanner", () => {
     render(<StreakBanner streakDays={3} days={days} />);
 
     expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument();
-    expect(screen.getByText("내일도 10분만 하면 이어져요")).toBeInTheDocument();
+    expect(screen.getByText("내일도 5분만 하면 이어져요")).toBeInTheDocument();
   });
 
   it("요일 도트는 상태별로 다른 접근성 라벨을 갖는다", () => {
