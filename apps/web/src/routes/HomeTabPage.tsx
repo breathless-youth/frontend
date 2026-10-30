@@ -294,7 +294,7 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* 헤더와 책갈피는 고정하고 고른 책갈피의 본문만 스크롤한다. */}
       <Tabs value={tab} onValueChange={selectTab} className="flex min-h-0 flex-1 flex-col">
         <HomeHeader
@@ -349,7 +349,7 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
             </>
           )}
         </TabsContent>
-        <TabsContent value="timetable" className={cn(PANEL_CLASS, "p-4")}>
+        <TabsContent value="timetable" className={cn(PANEL_CLASS, "px-4 py-3")}>
           <HomeDayTimetable
             day={day.status === "success" ? day.day : null}
             items={items}

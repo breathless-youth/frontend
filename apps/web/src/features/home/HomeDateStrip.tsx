@@ -65,7 +65,8 @@ export function HomeDateStrip({
 
   return (
     // 막대 바깥 빈 곳은 아래 목록으로 누름을 넘긴다.
-    <div className="pointer-events-none sticky bottom-(--tab-bar-reserve) z-20 flex flex-col items-end gap-3 pt-3">
+    // 위 여백은 홈 탭 본문이 날짜 줄 바로 위까지 내려오도록 8px만 둔다.
+    <div className="pointer-events-none sticky bottom-(--tab-bar-reserve) z-20 flex flex-col items-end gap-3 pt-2">
       {showStart && (
         <Button
           onClick={onStartWithoutSubject}
