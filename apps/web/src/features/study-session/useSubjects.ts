@@ -49,6 +49,8 @@ export function useSubjects(
   surface: SubjectSurface,
   /** 목록을 받아 오는 방법 — 기본은 과목 목록 API다. 플래너는 일간 조회에 실려 오는 목록을 쓴다. */
   load: () => Promise<SubjectResponse[]> = listSubjects,
+  /** 과목 추가·이름 변경·삭제가 서버에 저장된 뒤 불린다. 과목 구성을 따로 받아 둔 화면이 다시 받게 한다. */
+  onSubjectSaved?: () => void,
 ) {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [status, setStatus] = useState<SubjectsStatus>("idle");
@@ -59,6 +61,7 @@ export function useSubjects(
   const [confirmedCount, setConfirmedCount] = useState(0);
   const onErrorRef = useRef(onError);
   const loadRef = useRef(load);
+  const onSubjectSavedRef = useRef(onSubjectSaved);
   /**
    * 드래그 중 최신 순서. pointermove의 setState는 pointerup 전에 렌더되지 않을 수 있어(연속 입력은
    * 우선순위가 낮다) 놓는 순간 state를 믿지 않는다 — `reorderSubject`가 여기에 먼저 쓰고
@@ -68,6 +71,7 @@ export function useSubjects(
   useLayoutEffect(() => {
     onErrorRef.current = onError;
     loadRef.current = load;
+    onSubjectSavedRef.current = onSubjectSaved;
     subjectsRef.current = subjects;
   });
   /** 핸들을 잡는 순간의 id 순서 — 놓을 때 이것과 다를 때만 서버에 보낸다. null이면 드래그 중이 아니다. */
@@ -150,6 +154,7 @@ export function useSubjects(
       // 지운 과목과 같은 이름이면 서버가 예전 id로 되살려 준다 — 같은 id가 목록에 남아 있으면 갈아 끼운다.
       setSubjects((prev) => [...prev.filter((subject) => subject.id !== created.id), created]);
       setConfirmedCount((count) => count + 1);
+      onSubjectSavedRef.current?.();
       trackSubjectItemAdded("subject", viaSuggestion, surface);
       return created;
     } catch (error) {
@@ -231,13 +236,19 @@ export function useSubjects(
       return mutate(
         (prev) =>
           prev.map((subject) => (subject.id === id ? { ...subject, name: trimmed } : subject)),
-        () => renameSubject(id, { name: trimmed }),
+        async () => {
+          await renameSubject(id, { name: trimmed });
+          onSubjectSavedRef.current?.();
+        },
       );
     },
     removeSubject: (id: number) =>
       mutate(
         (prev) => prev.filter((subject) => subject.id !== id),
-        () => deleteSubject(id),
+        async () => {
+          await deleteSubject(id);
+          onSubjectSavedRef.current?.();
+        },
         true,
       ),
     renameTask: (subjectId: number, taskId: number, name: string) =>
