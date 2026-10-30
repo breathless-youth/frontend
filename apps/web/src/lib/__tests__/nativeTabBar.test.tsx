@@ -666,3 +666,25 @@ describe("toastBottomOffset — 시스템 탭 바", () => {
     expect(toastBottomOffset("/home", true, false)).toBe("var(--tab-bar-reserve)");
   });
 });
+
+describe("toastBottomOffset: 앱이 그리는 홈 날짜 줄", () => {
+  const ABOVE_DATE_BAR = "calc(var(--tab-bar-reserve) + 64px)";
+
+  it("플로팅 바 앱의 홈에 날짜 줄이 떠 있으면 그 위로 띄운다", () => {
+    expect(toastBottomOffset("/home", true, false, true)).toBe(ABOVE_DATE_BAR);
+  });
+
+  it("홈이 아니면 날짜 줄 표시가 남아 있어도 탭 바 위로만 띄운다", () => {
+    expect(toastBottomOffset("/records", true, false, true)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("날짜 줄을 숨긴 동안이나 날짜 줄을 그리지 않는 앱은 탭 바 위로만 띄운다", () => {
+    expect(toastBottomOffset("/home", true, false, false)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("시스템 탭 바는 날짜 줄이 안전 영역에 들어 있어 안전 영역 식을 돌려준다", () => {
+    expect(toastBottomOffset("/home", true, true, true)).toBe(
+      "calc(env(safe-area-inset-bottom) + 16px)",
+    );
+  });
+});

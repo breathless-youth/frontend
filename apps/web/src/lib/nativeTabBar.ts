@@ -149,14 +149,20 @@ export function useNativeTabBarClass(): void {
   }, []);
 }
 
+// 앱이 띄우는 날짜 줄 높이 56과 탭 바와의 간격 8을 더한 값이다.
+// 홈 본문이 같은 자리를 비우는 `HomeDateStrip`의 h-16과 함께 바꾼다.
+const NATIVE_DATE_BAR_RESERVE_PX = 64;
+
 /**
  * 토스트 아래 여백. 네이티브 플로팅 탭 바는 웹뷰 위에 겹쳐 그려져 z-index로 앞지를 수 없으므로,
  * 탭 바가 보이는 라우트에서는 탭 바가 차지하는 높이만큼 띄운다.
+ * 플로팅 바 앱의 홈에서 앱이 날짜 줄을 띄우고 있으면 그 높이만큼 더 띄운다.
  */
 export function toastBottomOffset(
   pathname: string,
   hasNativeBridge: boolean,
   nativeTabBar: boolean = hasNativeTabBar(),
+  nativeDateBarShown = false,
 ): string {
   // 시스템 탭 바는 안전 영역에 자기 높이를 넣으므로 안전 영역 식 하나로 보이는 바와 숨긴 바를 모두 피한다.
   if (
@@ -166,6 +172,9 @@ export function toastBottomOffset(
     isNativeCoveredPath(pathname)
   ) {
     return SAFE_AREA_TOAST_BOTTOM;
+  }
+  if (nativeDateBarShown && pathname === "/home") {
+    return `calc(var(--tab-bar-reserve) + ${NATIVE_DATE_BAR_RESERVE_PX}px)`;
   }
   return "var(--tab-bar-reserve)";
 }
