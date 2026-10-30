@@ -1,11 +1,12 @@
 import "../global.css";
 
+import { colors } from "@focusmakers/design-tokens";
 import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { AppState, Platform, Pressable } from "react-native";
+import { AppState, Platform, Pressable, useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { LaunchGoalOverlay } from "../components/LaunchGoalOverlay";
@@ -65,6 +66,7 @@ const APP_LOCK_SHEET_OPTIONS = {
 
 function RootLayout() {
   const router = useRouter();
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const [fontsLoaded, fontError] = useFonts({
     Pretendard: require("pretendard/dist/public/static/Pretendard-Regular.otf") as number,
     PretendardLight: require("pretendard/dist/public/static/Pretendard-Light.otf") as number,
@@ -271,7 +273,13 @@ function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          ...(Platform.OS === "android" ? { orientation: "portrait" as const } : null),
+          // 화면 전환 사이 한 프레임 동안 내비게이션 기본 회색 배경이 비치지 않게 웹뷰와 같은 배경을 깐다.
+          ...(Platform.OS === "android"
+            ? {
+                orientation: "portrait" as const,
+                contentStyle: { backgroundColor: colors.bg.base[scheme] },
+              }
+            : null),
         }}
       >
         <Stack.Screen name="(tabs)" />

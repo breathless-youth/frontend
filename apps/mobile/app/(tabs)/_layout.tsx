@@ -1,6 +1,7 @@
+import { colors } from "@focusmakers/design-tokens";
 import { Tabs, useIsFocused } from "expo-router";
 import { useEffect, useRef } from "react";
-import { BackHandler, Platform, View } from "react-native";
+import { BackHandler, Platform, useColorScheme, View } from "react-native";
 
 import { NativeTabsLayout } from "../../components/NativeTabsLayout";
 import { TabBar } from "../../components/TabBar";
@@ -39,6 +40,7 @@ function CustomTabsLayout() {
   // 탭 위에 다른 네이티브 화면(권한 안내·솔로 세션)이 떠 있으면 뒤로가기는 그 화면 몫이다 —
   // 그때 초기화 신호를 보내면 보이지도 않는 탭 웹뷰가 리셋된다.
   const isFocused = useIsFocused();
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
 
   // 시스템 뒤로가기로 탭을 떠날 때 그 탭 웹뷰를 탭 루트로 초기화한다(`lib/tabReset.ts`).
   // 기본 동작(홈 탭 이동, 홈에서는 앱 종료)은 그대로 둔다 — false 반환. 소셜룸 세션 중에는
@@ -66,7 +68,11 @@ function CustomTabsLayout() {
 
   return (
     <Tabs
-      screenOptions={{ headerShown: false }}
+      // 탭 전환 사이 한 프레임 동안 내비게이션 기본 회색 배경이 비치지 않게 웹뷰와 같은 배경을 깐다.
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: colors.bg.base[scheme] },
+      }}
       // 활성 탭은 네비게이터 상태에서 읽는다 — 화면마다 하드코딩하지 않는다.
       tabBar={({ state }) => {
         activeRouteRef.current = state.routes[state.index]?.name ?? "index";
