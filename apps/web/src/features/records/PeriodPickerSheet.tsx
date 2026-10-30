@@ -329,17 +329,14 @@ export function DayPickerSheet({
   onOpenChange,
   dateKey,
   todayKey,
-  allowFuture = false,
   onPick,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** 지금 보고 있는 날 — 선택 표시와 처음 펼칠 달의 기준이다. */
   dateKey: string;
-  /** 오늘. `allowFuture`가 아니면 고를 수 있는 마지막 날이기도 하다. */
+  /** 오늘. 고를 수 있는 마지막 날이기도 하다. */
   todayKey: string;
-  /** 오늘 뒤의 날도 고를 수 있다 — 플래너는 미래 날짜도 넘겨 본다. */
-  allowFuture?: boolean;
   onPick: (dateKey: string, toToday: boolean) => void;
 }) {
   return (
@@ -349,12 +346,7 @@ export function DayPickerSheet({
       title="날짜 선택"
       onToday={() => onPick(todayKey, true)}
     >
-      <DayGrid
-        dateKey={dateKey}
-        todayKey={todayKey}
-        allowFuture={allowFuture}
-        onPick={(picked) => onPick(picked, false)}
-      />
+      <DayGrid dateKey={dateKey} todayKey={todayKey} onPick={(picked) => onPick(picked, false)} />
     </PickerSheet>
   );
 }
@@ -362,17 +354,15 @@ export function DayPickerSheet({
 function DayGrid({
   dateKey,
   todayKey,
-  allowFuture,
   onPick,
 }: {
   dateKey: string;
   todayKey: string;
-  allowFuture: boolean;
   onPick: (dateKey: string) => void;
 }) {
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
   const today = dateOfDateKey(todayKey);
-  const canGoNext = allowFuture || !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
+  const canGoNext = !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
   const goPrev = () => setViewMonth((current) => shiftMonth(current, -1));
   const goNext = () => setViewMonth((current) => (canGoNext ? shiftMonth(current, 1) : current));
   const swipe = useHorizontalSwipe((delta) => (delta < 0 ? goPrev() : goNext()));
@@ -400,7 +390,7 @@ function DayGrid({
           month={dateOfMonth(viewMonth)}
           today={today}
           selected={dateOfDateKey(dateKey)}
-          disabled={allowFuture ? undefined : { after: today }}
+          disabled={{ after: today }}
           onSelect={(date) => onPick(dateKeyOfDate(date))}
           className="pt-2"
           classNames={PICKER_GRID_CLASSNAMES}

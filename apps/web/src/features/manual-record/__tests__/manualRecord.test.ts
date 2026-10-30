@@ -8,11 +8,9 @@ import {
   bundleMayContinue,
   bundleOf,
   bundleSpan,
-  cellTapTarget,
   daysAgo,
   defaultSpan,
   endsNextDay,
-  manualBundles,
   othersForOverlap,
   overlapNotice,
   reachedNow,
@@ -125,21 +123,6 @@ describe("defaultSpan", () => {
     const sessions = [manual(1, at(DAY, 23), at(DAY, 23, 50))];
     expect(defaultSpan({ dateKey: DAY, todayKey: NEXT, nowMs: at(NEXT, 0, 20), sessions })).toEqual(
       span(at(DAY, 23, 50), at(NEXT, 0, 20)),
-    );
-  });
-
-  it("빈 칸 탭은 칸 시각부터 1시간이되 다음 기록 시작이나 지금이 더 이르면 거기까지다", () => {
-    const sessions = [measured(1, at(DAY, 14, 40), at(DAY, 15))];
-    const base = { dateKey: DAY, todayKey: DAY, cellStartMs: at(DAY, 14) };
-
-    expect(defaultSpan({ ...base, nowMs: at(DAY, 20), sessions })).toEqual(
-      span(at(DAY, 14), at(DAY, 14, 40)),
-    );
-    expect(defaultSpan({ ...base, nowMs: at(DAY, 20), sessions: [] })).toEqual(
-      span(at(DAY, 14), at(DAY, 15)),
-    );
-    expect(defaultSpan({ ...base, nowMs: at(DAY, 14, 25, 10), sessions: [] })).toEqual(
-      span(at(DAY, 14), at(DAY, 14, 25)),
     );
   });
 });
@@ -291,58 +274,6 @@ describe("묶음", () => {
     expect(bundleMayContinue([before])).toBe(NEXT);
     expect(bundleMayContinue([after])).toBeNull();
     expect(bundleMayContinue([before, after])).toBeNull();
-  });
-
-  it("수동 묶음만 한 번씩 나열한다", () => {
-    expect(manualBundles(sessions).map((bundle) => bundle.map((piece) => piece.id))).toEqual([
-      [1, 2],
-      [3],
-    ]);
-  });
-});
-
-describe("cellTapTarget", () => {
-  const sessions = [measured(1, at(DAY, 9), at(DAY, 11)), manual(2, at(DAY, 14), at(DAY, 15, 30))];
-  const nowMs = at(DAY, 20);
-
-  it("빈 칸은 추가다", () => {
-    expect(cellTapTarget(at(DAY, 12), sessions, nowMs)).toEqual({ kind: "add" });
-  });
-
-  it("수동 기록 안의 칸은 그 묶음 수정이다", () => {
-    const target = cellTapTarget(at(DAY, 14, 10), sessions, nowMs);
-    expect(target?.kind).toBe("edit");
-    expect(target?.kind === "edit" ? target.bundle.map((piece) => piece.id) : []).toEqual([2]);
-  });
-
-  it("측정 기록 안과 지금 이후 칸은 반응하지 않는다", () => {
-    expect(cellTapTarget(at(DAY, 9, 10), sessions, nowMs)).toBeNull();
-    expect(cellTapTarget(at(DAY, 20), sessions, nowMs)).toBeNull();
-  });
-
-  it("지금이 속한 분의 칸은 반응하지 않고 그 전 칸은 추가다", () => {
-    const now = at(DAY, 14, 0, 30);
-    expect(cellTapTarget(at(DAY, 14), [], now)).toBeNull();
-    expect(cellTapTarget(at(DAY, 13, 50), [], now)).toEqual({ kind: "add" });
-  });
-
-  it("측정 기록 위에 늦게 시작한 수동 기록이 겹치면 겹친 칸은 위에 그려진 수동 기록 수정이다", () => {
-    const overlapped = [
-      measured(1, at(DAY, 9), at(DAY, 10)),
-      manual(2, at(DAY, 9, 30), at(DAY, 10, 30)),
-    ];
-    const target = cellTapTarget(at(DAY, 9, 40), overlapped, nowMs);
-    expect(target?.kind).toBe("edit");
-    expect(target?.kind === "edit" ? target.bundle.map((piece) => piece.id) : []).toEqual([2]);
-  });
-
-  it("수동 기록 위에 늦게 시작한 측정 기록이 겹치면 겹친 칸은 반응하지 않고 겹치지 않은 칸은 수정이다", () => {
-    const overlapped = [
-      manual(2, at(DAY, 9), at(DAY, 10)),
-      measured(1, at(DAY, 9, 30), at(DAY, 10, 30)),
-    ];
-    expect(cellTapTarget(at(DAY, 9, 40), overlapped, nowMs)).toBeNull();
-    expect(cellTapTarget(at(DAY, 9, 10), overlapped, nowMs)?.kind).toBe("edit");
   });
 });
 

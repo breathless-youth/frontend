@@ -140,3 +140,37 @@ describe("blockedByModal", () => {
     expect(result.current).toBe("blocked");
   });
 });
+
+describe("blockedExceptPlay", () => {
+  it("blockedExceptPlay면 재생 원만 살린 차단 상태가 된다", () => {
+    const { result } = renderHook(() => useTabBarState());
+
+    act(() => {
+      handleBridgeMessage(
+        { type: "set-tab-bar", visible: false, blockedExceptPlay: true, atMs: 1 },
+        jest.fn(),
+      );
+    });
+
+    expect(result.current).toBe("blocked-except-play");
+  });
+
+  it("blockedByModal과 함께 와도 blockedExceptPlay가 이긴다", () => {
+    const { result } = renderHook(() => useTabBarState());
+
+    act(() => {
+      handleBridgeMessage(
+        {
+          type: "set-tab-bar",
+          visible: false,
+          blockedByModal: true,
+          blockedExceptPlay: true,
+          atMs: 1,
+        },
+        jest.fn(),
+      );
+    });
+
+    expect(result.current).toBe("blocked-except-play");
+  });
+});

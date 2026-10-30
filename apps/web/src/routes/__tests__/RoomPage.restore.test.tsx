@@ -2,6 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { readStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
+
 import { RoomPage } from "../RoomPage";
 
 const useActiveSessionRestore = vi.hoisted(() => vi.fn());
@@ -33,7 +35,7 @@ const RESTORED = {
   events: [],
 };
 
-function stubSession() {
+function stubSession(overrides: Record<string, unknown> = {}) {
   useStudyRoomSession.mockReturnValue({
     focusSec: 0,
     studySec: 0,
@@ -47,10 +49,12 @@ function stubSession() {
     subjectSegments: [],
     sessionEvents: [],
     selectSubject: vi.fn(),
+    discardSubject: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
     flipCamera: vi.fn(),
     endAndSubmit: vi.fn(),
+    ...overrides,
   });
 }
 
@@ -69,6 +73,7 @@ describe("RoomPage 복원 게이트", () => {
     listSubjects.mockReset();
     listSubjects.mockResolvedValue([]);
     stubSession();
+    localStorage.clear();
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -133,6 +138,81 @@ describe("RoomPage 복원 게이트", () => {
       expect(useStudyRoomSession).toHaveBeenCalledWith(
         7,
         expect.objectContaining({ restored: null }),
+      );
+    });
+  });
+
+  it("복원한 세션의 과목이 다른 곳에서 삭제됐으면 목록을 받은 뒤 과목 줄을 `과목`으로 보인다", async () => {
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+    stubSession({ subjectSelection: 99 });
+
+    renderRoom();
+
+    expect(await screen.findByRole("button", { name: /^과목.*순공/ })).toBeInTheDocument();
+  });
+
+  it("새 세션이면 홈에서 고른 과목을 세션 훅에 넘기고 기록을 삭제한다", async () => {
+    saveStartSubject(7, 3, Date.now());
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    renderRoom();
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ initialSubjectId: 3 }),
+      );
+    });
+    expect(readStartSubject(Date.now())).toBeNull();
+  });
+
+  it("이전 세션을 복구하면 홈에서 고른 과목을 넘기지 않고 기록은 삭제한다", async () => {
+    saveStartSubject(7, 3, Date.now());
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ restored: RESTORED, initialSubjectId: null }),
+      );
+    });
+    expect(readStartSubject(Date.now())).toBeNull();
+  });
+
+  it("다른 사용자가 남긴 기록은 넘기지 않고 삭제한다", async () => {
+    saveStartSubject(8, 3, Date.now());
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    renderRoom();
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ initialSubjectId: null }),
+      );
+    });
+    expect(readStartSubject(Date.now())).toBeNull();
+  });
+
+  it("확인을 기다리는 동안에도 기록은 들어오자마자 읽어 둔다", async () => {
+    saveStartSubject(7, 3, Date.now());
+    useActiveSessionRestore.mockReturnValue({ settled: false, restored: null });
+
+    const { rerender } = renderRoom();
+    expect(readStartSubject(Date.now())).toBeNull();
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+    rerender(
+      <MemoryRouter initialEntries={["/room/1?userId=7"]}>
+        <RoomPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ initialSubjectId: 3 }),
       );
     });
   });

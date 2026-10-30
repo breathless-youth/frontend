@@ -71,9 +71,9 @@ describe("useNativeScreenReport", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
-    renderAt({ pathname: "/planner", search: "?date=2026-10-04", state: { via: "home" } });
+    renderAt({ pathname: "/planner", search: "?date=2026-10-04", state: { via: "records" } });
 
-    expect(lastReport(postMessage).restoreQuery).toEqual({ date: "2026-10-04", from: "home" });
+    expect(lastReport(postMessage).restoreQuery).toEqual({ date: "2026-10-04", from: "records" });
   });
 
   it("복원된 플래너는 ?from 쿼리로 들어온 탭을 다시 보고한다", () => {
@@ -85,20 +85,19 @@ describe("useNativeScreenReport", () => {
     expect(lastReport(postMessage).restoreQuery).toEqual({ from: "records" });
   });
 
-  it("입력 화면은 날짜·입구·기록 id와 플래너가 붙인 from을 복원 쿼리로 보고한다", () => {
+  it("입력 화면은 날짜·입구·기록 id를 복원 쿼리로 보고하고, 돌아갈 곳을 정하지 않는 from은 싣지 않는다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
 
     renderAt({
       pathname: "/manual-record",
-      search: "?userId=7&date=2025-03-04&from=home&entry=planner_cell&id=9",
+      search: "?userId=7&date=2025-03-04&from=records&entry=records&id=9",
     });
 
     expect(lastReport(postMessage).restoreQuery).toEqual({
       date: "2025-03-04",
-      entry: "planner_cell",
+      entry: "records",
       id: "9",
-      from: "home",
     });
   });
 

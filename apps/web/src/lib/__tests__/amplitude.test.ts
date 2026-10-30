@@ -820,7 +820,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(true);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
-    m.trackFocusStartTapped();
+    m.trackFocusStartTapped("home_subject");
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(120);
     m.trackSessionRecoveryConfirmed();
@@ -877,7 +877,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSocialRoomCameraToggled(false);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
-    m.trackFocusStartTapped();
+    m.trackFocusStartTapped("home_subject");
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(5040);
     m.trackSessionRecoveryConfirmed();
@@ -888,7 +888,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["social_room_camera_toggled", { on: false }],
       ["social_room_camera_on_dismissed"],
       ["social_room_background_returned", { hidden_sec: 31, expired: true }],
-      ["focus_start_tapped", { destination: "session", source: "home" }],
+      ["focus_start_tapped", { destination: "session", source: "home_subject" }],
       ["os_settings_opened", { source: "settings_tab" }],
       ["session_recovery_prompted", { focus_sec: 5040 }],
       ["session_recovery_confirmed"],
@@ -932,7 +932,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
     m.trackSubjectItemAdded("task", false, "social");
-    m.trackSubjectItemAdded("subject", true, "planner");
+    m.trackSubjectItemAdded("subject", true, "home");
     m.trackSettingsRowPressed("profile");
     m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
     m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
@@ -961,7 +961,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
         "subject_item_added",
         { kind: "task", via_suggestion: false, surface: "sheet", room_type: "social" },
       ],
-      ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "planner" }],
+      ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "home" }],
       ["settings_row_pressed", { row: "profile" }],
       ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
       ["timelapse_setting_changed", { setting: "face_mask", value: true }],
@@ -978,6 +978,22 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["screen_back_pressed", { path: "/social/code" }],
       ["force_update_store_opened", { source: "web" }],
       ["force_update_prompted", { source: "web", app_version: "0.9.0", min_version: "1.0.0" }],
+    ]);
+  });
+
+  it("홈 날짜 고르기·과목 추가·대체 시작 버튼을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeDateSelected(3);
+    m.trackSubjectItemAdded("subject", true, "home");
+    m.trackFocusStartTapped("home_fallback");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_date_selected", { days_ago: 3 }],
+      ["subject_item_added", { kind: "subject", via_suggestion: true, surface: "home" }],
+      ["focus_start_tapped", { destination: "session", source: "home_fallback" }],
     ]);
   });
 });
@@ -1531,7 +1547,7 @@ describe("수동 기록 이벤트", () => {
     const m = await loadModule();
 
     m.trackManualRecordAdd({
-      entry: "planner_button",
+      entry: "records",
       durationMin: 60,
       hasSubject: false,
       daysAgo: 0,
@@ -1539,7 +1555,7 @@ describe("수동 기록 이벤트", () => {
       pieces: 1,
     });
     m.trackManualRecordEdit({ entry: "records", durationMin: 30, hasSubject: true, daysAgo: 2 });
-    m.trackManualRecordDelete({ entry: "planner_cell", durationMin: 90, daysAgo: 1 });
+    m.trackManualRecordDelete({ entry: "records", durationMin: 90, daysAgo: 1 });
     m.trackManualRecordOverlapBlocked({ entry: "records", daysAgo: 0 });
 
     expect(mocks.track).not.toHaveBeenCalled();
@@ -1551,7 +1567,7 @@ describe("수동 기록 이벤트", () => {
     m.initAmplitude();
 
     m.trackManualRecordAdd({
-      entry: "planner_cell",
+      entry: "records",
       durationMin: 90,
       hasSubject: true,
       daysAgo: 3,
@@ -1559,14 +1575,14 @@ describe("수동 기록 이벤트", () => {
       pieces: 2,
     });
     m.trackManualRecordEdit({ entry: "records", durationMin: 45, hasSubject: false, daysAgo: 0 });
-    m.trackManualRecordDelete({ entry: "planner_cell", durationMin: 120, daysAgo: 1 });
-    m.trackManualRecordOverlapBlocked({ entry: "planner_button", daysAgo: 0 });
+    m.trackManualRecordDelete({ entry: "records", durationMin: 120, daysAgo: 1 });
+    m.trackManualRecordOverlapBlocked({ entry: "records", daysAgo: 0 });
 
     expect(mocks.track.mock.calls).toEqual([
       [
         "manual_record_add",
         {
-          entry: "planner_cell",
+          entry: "records",
           duration_min: 90,
           has_subject: true,
           days_ago: 3,
@@ -1578,8 +1594,8 @@ describe("수동 기록 이벤트", () => {
         "manual_record_edit",
         { entry: "records", duration_min: 45, has_subject: false, days_ago: 0 },
       ],
-      ["manual_record_delete", { entry: "planner_cell", duration_min: 120, days_ago: 1 }],
-      ["manual_record_overlap_blocked", { entry: "planner_button", days_ago: 0 }],
+      ["manual_record_delete", { entry: "records", duration_min: 120, days_ago: 1 }],
+      ["manual_record_overlap_blocked", { entry: "records", days_ago: 0 }],
     ]);
   });
 });

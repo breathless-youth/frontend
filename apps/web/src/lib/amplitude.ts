@@ -816,8 +816,20 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
-/** 집중 시작을 누른 자리. */
-export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+/**
+ * 집중 시작을 누른 자리
+ *
+ * `home_subject`는 오늘 홈의 과목 재생 버튼이고, 그 과목을 고른 채 시작한다.
+ * `home_fallback`은 탭 바 재생 버튼이 없는 앱에서 홈 날짜 줄 위에 남긴 시작 버튼이다.
+ * `tab_bar`는 앱이 그린 탭 바 재생 버튼이고, 앱이 홈 웹뷰에 알리면 웹이 이 값으로 센다.
+ */
+export type FocusStartSource =
+  | "home_subject"
+  | "home_fallback"
+  | "tab_bar"
+  | "ranking_card"
+  | "ranking_empty"
+  | "ranking_records";
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -827,7 +839,7 @@ export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "rank
  * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
  * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
-export function trackFocusStartTapped(source: FocusStartSource = "home") {
+export function trackFocusStartTapped(source: FocusStartSource) {
   if (!initialized) return;
   track("focus_start_tapped", { destination: "session", source });
 }
@@ -1031,9 +1043,12 @@ export function trackRankingGainCardTapped(roomType: StudyRoomType) {
   track("ranking_gain_card_tapped", { room_type: roomType });
 }
 
-/** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
+/**
+ * 타임테이블(코드 이름 플래너) 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 날짜인지.
+ * `home_tab`은 홈에서 타임테이블 탭을 고른 것이다.
+ */
 export function trackPlannerOpened(input: {
-  readonly via: "records" | "home" | "unknown";
+  readonly via: "records" | "home_tab" | "unknown";
   readonly isToday: boolean;
 }) {
   if (!initialized) return;
@@ -1053,8 +1068,8 @@ export function trackPlannerDateChanged(input: {
 }
 
 /** 수동 기록 입력 화면을 연 곳. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
-type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records";
-type ManualRecordEditEntry = "planner_cell" | "records";
+type ManualRecordAddEntry = "records" | "home";
+type ManualRecordEditEntry = "records";
 
 /**
  * 수동 기록 추가 성공. 길이는 서버가 저장한 조각의 합이다.
@@ -1482,10 +1497,10 @@ export function trackSubjectSheetClosed(input: {
 /**
  * 과목·할 일을 관리하는 화면
  *
- * 세션 과목 페이지는 열린 룸 종류로, 플래너는 `planner`로 적는다.
+ * 세션 과목 페이지는 열린 룸 종류로, 홈은 `home`으로 적는다.
  * 세션 과목 페이지의 `surface` 값은 지표를 잇기 위해 `sheet`로 보낸다.
  */
-export type SubjectSurface = StudyRoomType | "planner";
+export type SubjectSurface = StudyRoomType | "home";
 
 /** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */
 export function trackSubjectItemAdded(
@@ -1496,7 +1511,7 @@ export function trackSubjectItemAdded(
   if (!initialized) return;
   track(
     "subject_item_added",
-    surface === "planner"
+    surface === "home"
       ? { kind, via_suggestion: viaSuggestion, surface }
       : { kind, via_suggestion: viaSuggestion, surface: "sheet", room_type: surface },
   );
@@ -1625,6 +1640,16 @@ export function trackMultiTimerClosed(input: {
 export function trackMultiTimerRestarted(kind: MultiTimerKind, phase?: PomodoroPhase) {
   if (!initialized) return;
   track("multi_timer_restarted", { kind, ...(phase && { phase }) });
+}
+
+/**
+ * 홈 날짜 줄에서 다른 날을 고름
+ *
+ * `daysAgo`는 오늘로부터 며칠 전인지 나타내고 오늘은 0이다.
+ */
+export function trackHomeDateSelected(daysAgo: number) {
+  if (!initialized) return;
+  track("home_date_selected", { days_ago: daysAgo });
 }
 
 /** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */

@@ -102,10 +102,13 @@ export function ManualRecordForm({
   const [span, setSpan] = useState<ManualSpan>(() =>
     mode.kind === "edit"
       ? bundleSpan(mode.bundle)
-      : defaultSpan({ dateKey, todayKey, nowMs, sessions, cellStartMs: mode.startMs }),
+      : defaultSpan({ dateKey, todayKey, nowMs, sessions }),
   );
+  // 주소로 받은 과목은 그사이 삭제됐을 수 있어 지금 목록에 있을 때만 고른다.
   const [subjectId, setSubjectId] = useState<number | null>(() =>
-    mode.kind === "edit" ? subjectIdOf(mode.bundle[0]) : null,
+    mode.kind === "edit"
+      ? subjectIdOf(mode.bundle[0])
+      : (subjects?.find((subject) => subject.id === mode.subjectId)?.id ?? null),
   );
   const [serverError, setServerError] = useState<"conflict" | "failed" | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);

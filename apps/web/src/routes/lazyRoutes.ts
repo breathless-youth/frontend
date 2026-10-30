@@ -48,7 +48,8 @@ export function prefetchSettingsSubPages(): void {
 /**
  * 타임랩스 전체 목록 미리 받기
  *
- * 홈 `더보기`가 슬라이드 전환으로 전체 목록을 연다. 전환이 청크를 기다리지 않게 미리 받는다.
+ * 기록 탭 타임랩스 버튼이 슬라이드 전환으로 전체 목록을 연다.
+ * 전환이 청크를 기다리지 않게 미리 받는다.
  */
 export function prefetchTimelapsesPage(): void {
   whenIdle(() => void loadTimelapsesPage().catch(() => {}));

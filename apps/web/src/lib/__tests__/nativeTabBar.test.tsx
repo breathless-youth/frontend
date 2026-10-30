@@ -12,6 +12,7 @@ import {
   isNativeCoveredPath,
   toastBottomOffset,
   useNativeTabBarClass,
+  useHideNativeTabBar,
   useNativeTabBarSync,
 } from "@/lib/nativeTabBar";
 import {
@@ -159,6 +160,89 @@ describe("isNativeCoveredPath", () => {
     for (const path of ["/home", "/records", "/social/room/1"]) {
       expect(isNativeCoveredPath(path)).toBe(false);
     }
+  });
+});
+
+describe("useHideNativeTabBar", () => {
+  function HideHarness({ hidden }: { hidden: boolean }) {
+    useNativeTabBarSync();
+    useHideNativeTabBar(hidden);
+    return null;
+  }
+
+  function renderHide(hidden: boolean) {
+    return render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden={hidden} />
+      </MemoryRouter>,
+    );
+  }
+
+  it("탭 라우트에서도 화면이 요청하면 감추고, 요청을 거두면 되살린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    const { rerender } = renderHide(false);
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden />
+      </MemoryRouter>,
+    );
+    expect(sentVisibility(postMessage).at(-1)).toBe(false);
+
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <HideHarness hidden={false} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(true));
+  });
+
+  it("감춘 동안 모달이 열리고 닫혀도 다시 띄우지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderHide(true);
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(false));
+    const before = sentTabBarMessages(postMessage).length;
+
+    const modal = openModal();
+    await waitFor(() => expect(sentTabBarMessages(postMessage).length).toBeGreaterThan(before));
+    act(() => {
+      modal.remove();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const after = sentTabBarMessages(postMessage).slice(before);
+    expect(after.every((message) => !message.visible && message.blockedByModal !== true)).toBe(
+      true,
+    );
+  });
+
+  it("요청한 화면이 내려가면 되살린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    function Probe({ hide }: { hide: boolean }) {
+      useNativeTabBarSync();
+      return hide ? <HideOnly /> : null;
+    }
+    function HideOnly() {
+      useHideNativeTabBar(true);
+      return null;
+    }
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Probe hide />
+      </MemoryRouter>,
+    );
+    expect(sentVisibility(postMessage).at(-1)).toBe(false);
+    rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Probe hide={false} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(sentVisibility(postMessage).at(-1)).toBe(true));
   });
 });
 
@@ -580,5 +664,27 @@ describe("toastBottomOffset — 시스템 탭 바", () => {
 
   it("플로팅 바는 지금처럼 예약 변수를 쓴다", () => {
     expect(toastBottomOffset("/home", true, false)).toBe("var(--tab-bar-reserve)");
+  });
+});
+
+describe("toastBottomOffset: 앱이 그리는 홈 날짜 줄", () => {
+  const ABOVE_DATE_BAR = "calc(var(--tab-bar-reserve) + 64px)";
+
+  it("플로팅 바 앱의 홈에 날짜 줄이 떠 있으면 그 위로 띄운다", () => {
+    expect(toastBottomOffset("/home", true, false, true)).toBe(ABOVE_DATE_BAR);
+  });
+
+  it("홈이 아니면 날짜 줄 표시가 남아 있어도 탭 바 위로만 띄운다", () => {
+    expect(toastBottomOffset("/records", true, false, true)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("날짜 줄을 숨긴 동안이나 날짜 줄을 그리지 않는 앱은 탭 바 위로만 띄운다", () => {
+    expect(toastBottomOffset("/home", true, false, false)).toBe("var(--tab-bar-reserve)");
+  });
+
+  it("시스템 탭 바는 날짜 줄이 안전 영역에 들어 있어 안전 영역 식을 돌려준다", () => {
+    expect(toastBottomOffset("/home", true, true, true)).toBe(
+      "calc(env(safe-area-inset-bottom) + 16px)",
+    );
   });
 });

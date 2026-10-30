@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +51,29 @@ describe("useFocusStart", () => {
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
 
     expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("ranking_card");
-    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function));
+    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function), null);
+  });
+
+  it("과목을 넘기면 그 과목으로 시작을 요청한다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    function SubjectStarter() {
+      const startFocus = useFocusStart(7);
+      return (
+        <button type="button" onClick={() => startFocus("home_subject", 3)}>
+          수학 공부 시작
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter initialEntries={["/home?userId=7"]}>
+        <SubjectStarter />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "수학 공부 시작" }));
+
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home_subject");
+    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function), 3);
   });
 
   it("웹에서 시작하면 쿼리를 지킨 채 세션 화면으로 간다", async () => {
@@ -100,5 +122,20 @@ describe("useFocusStart", () => {
     await userEvent.click(button);
 
     expect(requestSessionStart).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useFocusStart 함수 정체성", () => {
+  it("다시 렌더해도 같은 함수를 돌려준다", () => {
+    const { result, rerender } = renderHook(() => useFocusStart(7), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={["/home?userId=7"]}>{children}</MemoryRouter>
+      ),
+    });
+    const first = result.current;
+
+    rerender();
+
+    expect(result.current).toBe(first);
   });
 });

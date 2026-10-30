@@ -1,284 +1,392 @@
-import { ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import type { HomeMenuAction } from "@focusmakers/types";
+import { focusManager, useQuery, useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
-import { DdaySection } from "@/features/home/DdaySection";
-import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
-import type { HomeSummary } from "@/features/home/homeSummary";
-import { useHomeSummary } from "@/features/home/useHomeSummary";
+import { daySubjectItems, loadLiveSubjects } from "@/features/home/daySubjects";
+import { HomeDateStrip } from "@/features/home/HomeDateStrip";
+import { HomeDayTimetable } from "@/features/home/HomeDayTimetable";
+import { HomeFolderTabs } from "@/features/home/HomeFolderTabs";
+import { homeDateKeys } from "@/features/home/homeDates";
+import { HomeHeader } from "@/features/home/HomeHeader";
+import { useHomeMode } from "@/features/home/homeMode";
+import { HomeSubjectEdit } from "@/features/home/HomeSubjectEdit";
+import { HomeSubjectList } from "@/features/home/HomeSubjectList";
+import { HomeSubjectReorder } from "@/features/home/HomeSubjectReorder";
+import { HomeWelcome } from "@/features/home/HomeWelcome";
+import { useNativeHomeDateBar } from "@/features/home/nativeHomeDateBar";
+import {
+  hasCreatedSubject,
+  homeEmptyKind,
+  markSubjectCreated,
+} from "@/features/home/subjectHistory";
+import { subjectsOnDayQuery, useSubjectCompletion } from "@/features/home/subjectCompletion";
+import { useStudyStatusUserProperties } from "@/features/home/useStudyStatusUserProperties";
+import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
-import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
-import { IllustFlame } from "@/features/records/icons";
-import { formatDuration } from "@/features/records/recordsFormat";
-import { WeekDot } from "@/features/records/StreakBanner";
+import { dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
+import { clearStartSubject } from "@/features/study-session/startSubject";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
-import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
+import { useSubjects } from "@/features/study-session/useSubjects";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { useTimelapseUserProperty } from "@/features/timelapse/useTimelapseUserProperty";
+import { trackHomeDateSelected, trackPlannerOpened } from "@/lib/amplitude";
+import { subscribeToNativeMessages } from "@/lib/bridge";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { showToast } from "@/lib/toast";
 import { useFocusStart } from "@/lib/useFocusStart";
-import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
+import { useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
-import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
+import { whenIdle } from "@/lib/whenIdle";
 
 /**
- * 홈
- *
- * 탭 전환(소셜·기록·랭킹·설정)은 네이티브 탭바 소유라 웹 안에서 탭 라우트로 이동하지 않는다.
- * 친구 초대 카드의 소셜 탭 이동도 그래서 `navigate-tab` 브리지로 네이티브에 맡기고,
- * 브라우저 단독 모드에서만 웹 라우트로 직접 간다.
- *
- * "집중 시작"은 세션 시작 요청(`requestSessionStart`)으로 간다.
+ * 과목 추가 시트는 시트 부품(Base UI)과 함께 따로 받는다.
+ * 홈은 첫 번들에 들어가므로 화면이 뜬 뒤 한가할 때 미리 받아 둔다.
  */
+const { LazySheet: LazyAddSubjectSheet, preload: preloadAddSubjectSheet } = lazyWithPreload(() =>
+  import("@/features/home/AddSubjectSheet").then((module) => module.AddSubjectSheet),
+);
 
-/** 초대 카드 이중 탭 무시 구간. 탭 전환 애니메이션이 끝나기 전의 탭 재시도만 걸러낸다. */
-const SOCIAL_TAP_GUARD_MS = 500;
+/**
+ * 책갈피 본문. 남은 높이를 채우고 그 안에서만 세로로 스크롤한다. 밀어 둔 과목 행처럼 옆으로 넘친 것이 가로 스크롤을 만들지 않게 막는다.
+ * 본문은 Radix가 Tab 순서에 넣고 타임랩스를 다 지우면 포커스를 받으므로, 공용 탭이 지운 초점 표시를 안쪽 고리로 되살린다.
+ */
+const PANEL_CLASS =
+  "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-muted focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:ring-inset";
 
-const CARD_CLASS = "rounded-xl border-0 shadow-sb-card";
+const SUBJECTS_PENDING_NOTICE = "과목을 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요";
 
-function StreakCard({ summary }: { summary: HomeSummary }) {
-  return (
-    <Card className={cn(CARD_CLASS, "flex items-center gap-4 px-4 pt-4 pb-3")}>
-      <IllustFlame width={38} height={44} />
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <div className="flex items-center gap-1">
-          <h2 className="text-[15px] leading-4.75 font-bold text-foreground">
-            {summary.streakDays}일 연속 공부 중
-          </h2>
-          <InfoTooltip label="연속 공부 기준 안내" iconSize={14}>
-            하루 10분 이상 공부하면 연속 공부가 이어져요
-          </InfoTooltip>
-        </div>
-        <div className="flex justify-between">
-          {summary.weekDays.map((day) => (
-            <WeekDot key={day.dateKey} day={day} />
-          ))}
-        </div>
-      </div>
-    </Card>
+type HomeTab = "subjects" | "timetable" | "app-lock" | "timelapses";
+
+/**
+ * 방해 앱 잠금과 타임랩스 본문은 홈 첫 번들에 넣지 않고 그 탭을 처음 열 때 받는다.
+ * 타임랩스 본문은 공유 영상 만들기까지 딸려 와 무겁다.
+ */
+const LazyAppLockSettingsContent = lazy(() =>
+  import("@/features/app-lock/AppLockSettingsContent").then((module) => ({
+    default: module.AppLockSettingsContent,
+  })),
+);
+const LazyTimelapsesContent = lazy(() =>
+  import("@/features/timelapse/TimelapsesContent").then((module) => ({
+    default: module.TimelapsesContent,
+  })),
+);
+
+/**
+ * 홈의 오늘 날짜 키
+ *
+ * 앱 탭은 마운트된 채 밤을 넘기므로 마운트할 때와 화면이 다시 보일 때마다 다시 센다.
+ * 탭 보임과 문서 가시성은 `focusManager` 하나로 모여 있어 그 신호를 듣는다.
+ * 그리는 중에 세면 React Compiler가 첫 값을 캐시해 날이 바뀌어도 옛 오늘에 남는다.
+ */
+function useHomeToday(): string {
+  const [todayKey, setTodayKey] = useState(() => plannerDateKeyOf(new Date()));
+  useEffect(
+    () =>
+      focusManager.subscribe((focused) => {
+        if (focused) {
+          setTodayKey(plannerDateKeyOf(new Date()));
+        }
+      }),
+    [],
   );
+  return todayKey;
 }
 
-function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className={cn("flex flex-1 flex-col gap-1", className)}>
-      <p className="text-[13px] leading-4 text-muted-foreground">{label}</p>
-      <p className="text-lg leading-5.5 font-extrabold text-foreground tabular-nums">
-        {/* 숫자만 자간을 벌리려고 숫자 덩어리를 따로 감싼다 */}
-        {value.split(/(\d+)/).map((part, i) =>
-          i % 2 ? (
-            <span key={i} className="tracking-[0.9px]">
-              {part}
-            </span>
-          ) : (
-            part
-          ),
-        )}
-      </p>
-    </div>
+/**
+ * 홈 본문
+ *
+ * 날짜 줄에서 고른 날의 과목 목록이다.
+ * 하루는 플래너와 같은 05시부터 다음 날 05시까지이고, 오늘도 05시에 바뀐다.
+ * 새벽 0~5시에 달력의 오늘을 오늘로 두면 그때 오늘 카드로 시작한 공부가 전날 구간에 들어가 오늘에서 사라져 보인다.
+ * 오늘은 지금 과목을 모두 보이고, 지난 날은 날짜별 과목 조회로 그날 있던 과목만 보인다.
+ * 이 조회가 없는 서버에서는 지난 날도 지금 과목을 모두 보인다.
+ * 세션은 다른 웹뷰에서 끝나 과목 목록이 낡을 수 있어 세션 모달이 닫히면 다시 받는다.
+ * 그날 시간은 같은 신호의 통계 무효화로 다시 받는다.
+ * 홈 탭이 다시 보이면 세션 화면이 이미 읽었거나 시작이 실패한 것이라 남은 시작 과목을 삭제한다.
+ * 웹을 거치지 않는 탭 바 재생 버튼으로 시작한 세션에 그 과목이 붙지 않게 하려는 것이다.
+ * 날짜 줄 메뉴의 과목 순서 변경·편집은 라우트가 아니라 이 화면의 상태라서 여기서는 상태에 맞는 화면으로 바꿔 끼우기만 한다.
+ * 주소의 `date`는 시간 직접 입력에서 돌아왔을 때 고른 날짜로 다시 열려고 남긴 값이다.
+ */
+function HomeContent({ userId, todayKey }: { userId: number; todayKey: string }) {
+  const [searchParams] = useSearchParams();
+  // 오늘을 고른 것은 null로 두어 화면을 띄워 둔 채 날이 바뀌면 새 오늘을 보게 한다.
+  // 다른 날은 30일 안에 있는 동안만 남고, 밖으로 밀리면 오늘로 돌아간다.
+  const [pickedKey, setPickedKey] = useState(() => {
+    const fromUrl = searchParams.get("date");
+    return fromUrl === todayKey ? null : fromUrl;
+  });
+  const selectedKey =
+    pickedKey !== null && homeDateKeys(todayKey).includes(pickedKey) ? pickedKey : todayKey;
+  const isToday = selectedKey === todayKey;
+  // 웹 날짜 줄과 앱 날짜 줄이 함께 쓰므로 이벤트는 여기서만 보낸다.
+  const selectDate = (dateKey: string) => {
+    if (dateKey === selectedKey) {
+      return;
+    }
+    const keys = homeDateKeys(todayKey);
+    trackHomeDateSelected(keys.length - 1 - keys.indexOf(dateKey));
+    setPickedKey(dateKey === todayKey ? null : dateKey);
+  };
+  const day = usePlannerDay(userId, selectedKey);
+
+  const queryClient = useQueryClient();
+  const loadSubjects = () => loadLiveSubjects(queryClient, userId);
+  // 날짜별 과목 조회는 그날 있던 과목을 정하는 기준이라, 과목 구성이 바뀌면 받아 둔 날들을 다시 받는다.
+  // 그대로 두면 방금 삭제한 과목을 그날 있던 지금 과목으로 들고 있어 지난 날 목록에서 빠진다.
+  const refreshSubjectsOnDay = () =>
+    void queryClient.invalidateQueries({ queryKey: ["subjects", "day", userId] });
+  const subjects = useSubjects(true, showToast, "home", loadSubjects, refreshSubjectsOnDay);
+  const { reload: reloadSubjects } = subjects;
+  const startFocus = useFocusStart(userId);
+  const completion = useSubjectCompletion(userId, selectedKey);
+  const { data: subjectsOnDay, isPending: subjectsOnDayPending } = useQuery(
+    subjectsOnDayQuery(userId, selectedKey),
   );
-}
 
-function StatsCard({ summary }: { summary: HomeSummary }) {
-  const { hours, minutes } = splitHoursMinutes(summary.focusSec);
-  const focusPercent = Math.round(Math.min(100, Math.max(0, summary.focusRate)));
+  const homeMode = useHomeMode();
+  // 과목 순서 변경·편집은 같은 화면의 상태라 이 값이 남아, 상태를 마치면 보던 탭으로 돌아온다.
+  const [tab, setTab] = useState<HomeTab>("subjects");
+  // 설정이 방해 앱 잠금 항목을 숨기는 곳(잠금 모듈이 없는 앱과 브라우저)에서는 탭도 숨긴다.
+  const tabs: { value: HomeTab; label: string }[] = [
+    { value: "subjects", label: "과목 목록" },
+    { value: "timetable", label: "타임테이블" },
+    ...(hasAppLockCapability() ? [{ value: "app-lock" as const, label: "방해 앱 잠금" }] : []),
+    { value: "timelapses", label: "타임랩스" },
+  ];
+  const selectTab = (next: string) => {
+    const picked = tabs.find((candidate) => candidate.value === next);
+    if (picked === undefined) {
+      return;
+    }
+    if (picked.value === "timetable") {
+      trackPlannerOpened({ via: "home_tab", isToday });
+    }
+    setTab(picked.value);
+  };
+  const timelapsesPanelRef = useRef<HTMLDivElement>(null);
+  // 과목 목록을 받기 전에는 고칠 목록이 없어 들어가지 않는다.
+  // 웹 메뉴는 항목을 비활성으로 그리고, 항목을 끌 수 없는 앱 메뉴는 누른 결과가 없지 않게 알린다.
+  const subjectsReady = subjects.status === "ready";
+  const enterMode = (action: HomeMenuAction) => {
+    if (!subjectsReady) {
+      showToast(SUBJECTS_PENDING_NOTICE);
+      return;
+    }
+    homeMode.enter(action === "reorder-subjects" ? "reorder" : "edit");
+  };
+  useNativeHomeDateBar({
+    todayKey,
+    selectedKey,
+    onSelect: selectDate,
+    onMenuAction: enterMode,
+    hidden: homeMode.mode !== null,
+  });
 
-  return (
-    <Card className={cn(CARD_CLASS, "flex flex-col gap-4.5 px-5.5 pt-5.5 pb-5")}>
-      <div className="flex flex-col gap-3">
-        <div>
-          <p className="text-sm leading-4.25 font-bold text-muted-foreground">오늘 순공시간</p>
-          <p className="flex items-baseline pt-1.5 pb-2 text-foreground tabular-nums">
-            <span className="text-[40px] leading-12 font-extrabold tracking-[2px]">{hours}</span>
-            <span className="text-[21px] font-bold">시간</span>
-            <span className="ml-1.5 text-[40px] leading-12 font-extrabold tracking-[2px]">
-              {minutes}
-            </span>
-            <span className="text-[21px] font-bold">분</span>
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm leading-4.25 font-bold text-muted-foreground">집중률</p>
-            <p className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums">
-              {focusPercent}%
-            </p>
-          </div>
-          <Progress value={focusPercent} aria-label="집중률" />
-        </div>
-      </div>
-
-      <div className="h-px bg-border" aria-hidden="true" />
-
-      <div className="flex gap-3">
-        <Stat
-          label="총 공부시간"
-          value={formatDuration(summary.studySec)}
-          className="border-r border-border pr-3"
-        />
-        <Stat label="최대 집중시간" value={formatDuration(summary.longestFocusSec)} />
-      </div>
-    </Card>
+  const openManualRecord = useOpenManualRecord();
+  const startManualRecord = (subjectId: number) => {
+    // 돌아왔을 때 고른 날을 다시 열도록 지금 기록 항목의 주소에 날짜를 남긴다.
+    // 라우터로 바꾸면 주소 변경이 홈 페이지뷰로 한 번 더 집계되어 브라우저 기록만 고친다.
+    const url = new URL(window.location.href);
+    url.searchParams.set("date", selectedKey);
+    window.history.replaceState(window.history.state, "", url);
+    openManualRecord({ kind: "add", dateKey: selectedKey, entry: "home", subjectId });
+  };
+  useEffect(
+    () =>
+      subscribeToNativeMessages((message) => {
+        if (message.type === "session-closed") {
+          void reloadSubjects();
+        }
+        if (message.type === "tab-focus" && message.focused) {
+          clearStartSubject();
+        }
+        // 앱이 그린 탭 바 재생 버튼은 웹을 거치지 않으면 남은 과목 기록을 삭제할 수 없어 여기서 폴백 버튼과 같은 경로로 시작한다.
+        if (message.type === "home-play-pressed") {
+          startFocus("tab_bar");
+        }
+      }),
+    [reloadSubjects, startFocus],
   );
-}
 
-function InviteCard({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-11 items-center rounded-xl bg-brand-subtle px-5.5 py-5 text-left"
-    >
-      <span className="flex min-w-0 flex-1 flex-col gap-1 text-primary">
-        <span className="text-base leading-5.5 font-semibold">
-          오늘은 혼자 집중하기 힘든가요? <br />
-          사람들과 함께 공부해보세요
-        </span>{" "}
-        <span className="flex items-center gap-1 self-end pt-3.5 text-xs leading-3.75 font-bold">
-          그룹 스터디하러 이동
-          <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
-        </span>
-      </span>
-    </button>
-  );
-}
-
-function HomeContent({ userId }: { userId: number }) {
-  const summaryState = useHomeSummary(userId);
+  useStudyStatusUserProperties(userId);
+  useTimelapseUserProperty();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   /**
-   * 통계까지 그린 뒤 세션의 Vision 자원(로더·wasm·모델)을 유휴 시간에 HTTP 캐시로 올려 둔다.
-   * 첫 화면·통계와 대역폭을 다투지 않도록 성공한 뒤에만 부른다.
+   * 그날을 그린 뒤 세션의 Vision 자원(로더·wasm·모델)을 유휴 시간에 HTTP 캐시로 올려 둔다.
+   * 첫 화면과 대역폭을 다투지 않도록 성공한 뒤에만 부른다.
    * document당 한 번은 함수가 보장한다.
    */
-  const summaryShown = summaryState.status === "success";
+  const dayShown = day.status === "success";
   useEffect(() => {
-    if (summaryShown) {
+    if (dayShown) {
       prefetchVisionAssets();
-      // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
-      prefetchTimelapsesPage();
+      whenIdle(preloadAddSubjectSheet);
     }
-  }, [summaryShown]);
+  }, [dayShown]);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const startFocus = useFocusStart(userId);
-
-  /**
-   * 초대 카드의 마지막 탭 시각. 빠른 이중 탭이 `navigate-tab`을 두 번 보내면 셸이 `tab_pressed`를
-   * 두 번 남긴다. 홈 문서는 탭을 오가도 살아 있으므로 영구 래치가 아니라 잠깐만 막는다.
-   */
-  const lastSocialTapAtRef = useRef(0);
-
-  /**
-   * 친구 초대 카드 → 소셜 탭
-   *
-   * 웹뷰에서는 `navigate-tab` 브리지로 네이티브 탭바를 움직인다.
-   * 웹 라우터로 `/social`에 가면 홈 탭 웹뷰 안의 문서만 바뀌어 탭바 활성 표시와 어긋난다.
-   * 브라우저 단독 모드에서는 탭바가 없으므로 웹 라우트로 직접 가되 쿼리를 이어받는다.
-   */
-  function openSocial() {
-    const now = Date.now();
-    if (now - lastSocialTapAtRef.current < SOCIAL_TAP_GUARD_MS) {
-      return;
+  const liveSubjects = subjects.status === "ready" ? subjects.subjects : null;
+  // 지난 날은 지금 과목을 모두 그렸다가 줄어들지 않게 그날 과목을 받을 때까지 기다린다.
+  // 과목 목록 탭과 타임테이블 탭이 같은 규칙으로 기다려야 둘이 다른 과목을 보이지 않는다.
+  const itemsPending =
+    day.status === "pending" ||
+    subjects.status === "idle" ||
+    subjects.status === "loading" ||
+    (!isToday && subjectsOnDayPending);
+  const items =
+    day.status === "success"
+      ? daySubjectItems(day.day, liveSubjects, isToday ? undefined : subjectsOnDay, isToday)
+      : [];
+  const liveCount = subjects.status === "ready" ? subjects.subjects.length : null;
+  // 그날 기록 줄이 있으면 과목을 만든 적 있는 계정이다.
+  // 기록 줄로 안 것도 남겨야 기록 없는 날로 옮겼을 때 환영 화면으로 바뀌지 않는다.
+  const seenSubject = (liveCount ?? 0) > 0 || items.length > 0;
+  useEffect(() => {
+    if (seenSubject) {
+      markSubjectCreated(userId);
     }
-    lastSocialTapAtRef.current = now;
-    if (isNativeBridgeAvailable()) {
-      postToNative({ type: "navigate-tab", tab: "social", via: "invite_card", atMs: now });
-      return;
+  }, [seenSubject, userId]);
+  const emptyKind =
+    liveCount === null
+      ? "list"
+      : homeEmptyKind(liveCount, seenSubject || hasCreatedSubject(userId));
+
+  const addSubject = async (name: string, viaSuggestion: boolean) => {
+    const created = await subjects.addSubject(name, viaSuggestion);
+    if (created !== null) {
+      markSubjectCreated(userId);
+      setSheetOpen(false);
     }
-    navigate({ pathname: "/social", search: location.search });
-  }
-
-  return (
-    <>
-      {summaryState.status === "pending" && (
-        <>
-          <Skeleton className="h-25.25 rounded-xl" />
-          <Skeleton className="h-63 rounded-xl" />
-        </>
-      )}
-      {summaryState.status === "error" && (
-        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} screen="home" />
-      )}
-      {summaryState.status === "success" && (
-        <>
-          <StreakCard summary={summaryState.summary} />
-          <StatsCard summary={summaryState.summary} />
-        </>
-      )}
-
-      <Button
-        size="xl"
-        className="w-full text-[18px] leading-5.25 font-bold tracking-[0.9px]"
-        onClick={() => startFocus("home")}
-      >
-        집중 시작
-      </Button>
-
-      <InviteCard onClick={openSocial} />
-      <RecentTimelapses />
-    </>
+  };
+  const openSheet = () => setSheetOpen(true);
+  const addSubjectSheet = (
+    <LazyAddSubjectSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addSubject} />
   );
-}
 
-/**
- * 헤더
- *
- * 시안대로 좌상단 D-Day 블록, 맞은편에 오늘의 플래너로 가는 버튼이다. D-Day API는 토큰 계약뿐이라 토큰
- * 출처가 없는 문서(구 앱 웹뷰·브라우저 단독)에는 예전 로고와 날짜를 그대로 둔다. 출처가 있는데 첫
- * `auth-token`이 아직이면 스켈레톤이다 — 구 헤더를 먼저 그렸다가 토큰이 오면 D-Day 블록으로 바꾸면
- * 헤더가 리플로우된다(`LiveRoomPage`와 같은 판단).
- */
-function HomeHeaderLead({
-  userId,
-  identityPending,
-}: {
-  userId: number | null;
-  identityPending: boolean;
-}) {
-  if (hasTokenSource()) {
-    // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
-    const hiddenTitle = <h1 className="sr-only">홈</h1>;
-    if (identityPending) {
-      return (
-        <>
-          {hiddenTitle}
-          <Skeleton data-testid="home-header-pending" className="h-13.5 w-32 rounded-lg" />
-        </>
-      );
-    }
-    if (userId !== null) {
-      return (
-        <>
-          {hiddenTitle}
-          <DdaySection userId={userId} />
-          <PlannerPillButton via="home" className="mt-1 self-start" />
-        </>
-      );
-    }
+  if (homeMode.mode !== null) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5">
+        {homeMode.mode === "reorder" ? (
+          <HomeSubjectReorder store={subjects} onDone={homeMode.exit} />
+        ) : (
+          <HomeSubjectEdit
+            store={subjects}
+            onDone={homeMode.exit}
+            onAddSubject={openSheet}
+            onNotice={showToast}
+          />
+        )}
+        {addSubjectSheet}
+      </div>
+    );
   }
+
   return (
-    <>
-      <h1 className="text-[24px] leading-7.5 font-bold text-foreground">FocusMakers</h1>
-      <p className="text-sm leading-4.25 text-muted-foreground">{todayLabel()}</p>
-    </>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 헤더와 책갈피는 고정하고 고른 책갈피의 본문만 스크롤한다. */}
+      <Tabs value={tab} onValueChange={selectTab} className="flex min-h-0 flex-1 flex-col">
+        <HomeHeader
+          userId={userId}
+          dateKey={selectedKey}
+          focusSec={day.status === "success" ? day.day.focusSec : null}
+          studySec={day.status === "success" ? day.day.studySec : null}
+          tabs={<HomeFolderTabs tabs={tabs} />}
+        />
+        <TabsContent
+          value="subjects"
+          className={cn(PANEL_CLASS, "flex flex-col gap-2.5 p-3 *:shrink-0")}
+        >
+          {day.status === "error" ? (
+            <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} screen="home" />
+          ) : itemsPending ? (
+            <>
+              <Skeleton className="h-17 rounded-lg" />
+              <Skeleton className="h-17 rounded-lg" />
+            </>
+          ) : (
+            <>
+              {items.length > 0 && (
+                <HomeSubjectList
+                  key={selectedKey}
+                  items={items}
+                  isToday={isToday}
+                  onPlay={(subjectId) => startFocus("home_subject", subjectId)}
+                  store={subjects}
+                  completion={completion}
+                  onManualRecord={startManualRecord}
+                  onNotice={showToast}
+                />
+              )}
+              {subjects.status === "error" && (
+                <ErrorState
+                  message="과목을 불러오지 못했어요"
+                  onRetry={() => void reloadSubjects()}
+                  screen="home"
+                />
+              )}
+              {emptyKind === "welcome" && <HomeWelcome onCreate={openSheet} />}
+              {emptyKind === "empty" && (
+                <Button
+                  variant="unstyled"
+                  onClick={openSheet}
+                  className="h-15 w-full shrink-0 rounded-lg border-[1.5px] border-dashed border-primary/45 text-[15px] leading-5 font-semibold text-primary"
+                >
+                  + 과목 추가
+                </Button>
+              )}
+            </>
+          )}
+        </TabsContent>
+        <TabsContent value="timetable" className={cn(PANEL_CLASS, "px-4 py-3")}>
+          <HomeDayTimetable
+            day={day.status === "success" ? day.day : null}
+            items={items}
+            pending={itemsPending}
+            onRetry={day.status === "error" ? day.retry : undefined}
+          />
+        </TabsContent>
+        <TabsContent value="app-lock" className={cn(PANEL_CLASS, "p-3")}>
+          <Suspense fallback={<Skeleton className="h-17 rounded-lg" />}>
+            <LazyAppLockSettingsContent />
+          </Suspense>
+        </TabsContent>
+        <TabsContent ref={timelapsesPanelRef} value="timelapses" className={cn(PANEL_CLASS, "p-3")}>
+          <Suspense fallback={<Skeleton className="h-17 rounded-lg" />}>
+            <LazyTimelapsesContent scopeRef={timelapsesPanelRef} />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+
+      <HomeDateStrip
+        todayKey={todayKey}
+        selectedKey={selectedKey}
+        onSelect={selectDate}
+        onMenuAction={enterMode}
+        menuDisabled={!subjectsReady}
+        onStartWithoutSubject={() => startFocus("home_fallback")}
+      />
+
+      {addSubjectSheet}
+    </div>
   );
 }
 
 export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
+  const todayKey = useHomeToday();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
   useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
@@ -296,27 +404,28 @@ export function HomeTabPage() {
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
-      <div className="flex flex-col gap-3 px-5">
-        <header className="flex items-end justify-between pb-2">
-          <HomeHeaderLead userId={userId} identityPending={identityPending} />
-        </header>
-
-        {identityPending ? (
-          // 첫 토큰을 기다리는 동안은 헤더와 같이 로딩이다 — "등록 전"이라고 단정하지 않는다.
-          <>
-            <Skeleton className="h-25.25 rounded-xl" />
-            <Skeleton className="h-63 rounded-xl" />
-          </>
-        ) : userId === null ? (
+      {identityPending ? (
+        // 첫 토큰을 기다리는 동안은 헤더와 본문이 함께 로딩이다.
+        // "등록 전"이라고 단정하지 않는다.
+        <div className="flex flex-col gap-3 px-5">
+          <Skeleton data-testid="home-header-pending" className="h-8.5 w-48 rounded-lg" />
+          <Skeleton className="h-17 rounded-lg" />
+          <Skeleton className="h-17 rounded-lg" />
+        </div>
+      ) : userId === null ? (
+        <div className="flex flex-col gap-3 px-5">
+          <h1 className="pt-1 text-[22px] leading-7.5 font-bold text-foreground">
+            {dayTitleWithWeekday(todayKey)}
+          </h1>
           <p className="p-4 text-sm text-muted-foreground">
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
-        ) : (
-          <HomeContent userId={userId} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <HomeContent userId={userId} todayKey={todayKey} />
+      )}
 
       {userId !== null && (
         <NoticeModalHost

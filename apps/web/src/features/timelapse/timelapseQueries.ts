@@ -5,7 +5,11 @@ import { trackTimelapseVideoCreated, trackTimelapseVideoFailed } from "@/lib/amp
 import type { TimelapseStore } from "./timelapseStore";
 import { buildTimelapseVideo, TimelapseVideoError } from "./timelapseVideo";
 
-/** 홈 목록과 전체 목록이 함께 쓰는 키. 둘 다 홈 탭 웹뷰 안이라 캐시도 같다. */
+/**
+ * 홈의 타임랩스 유무 user property와 전체 목록이 함께 쓰는 키
+ *
+ * 둘 다 홈 탭 웹뷰 안이라 캐시도 같다.
+ */
 export const recentTimelapsesKey = ["timelapse", "recent"] as const;
 
 /** 보관 중인 타임랩스를 최신부터 읽는다. */

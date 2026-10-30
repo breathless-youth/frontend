@@ -9,6 +9,7 @@ import type {
   MetaAppEventParamValue,
   NativeButtonTone,
   SetGlassChromeMessage,
+  SetHomeDateBarMessage,
   SetInlineControlsMessage,
   ToNativeMessage,
   ToWebMessage,
@@ -20,6 +21,7 @@ import {
   ANALYTICS_USER_PROPERTY_NAME_PATTERN,
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   GLASS_CHROME_LEADING,
+  HOME_DATE_BAR_MAX_DATES,
   NATIVE_BUTTON_TONES,
   NATIVE_CONTROL_COORDINATE_MAX,
   NATIVE_CONTROL_ICON_SIZE_MAX,
@@ -236,6 +238,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         // 값이 이상해도 메시지를 통째로 버리지 않는다. 버리면 탭 바 신호 자체가 사라져
         // 지금보다 나빠진다(`share`의 url과 같은 처리).
         ...(record.blockedByModal === true ? { blockedByModal: true } : {}),
+        ...(record.blockedExceptPlay === true ? { blockedExceptPlay: true } : {}),
         atMs: record.atMs,
       };
     case "set-back-gesture":
@@ -293,6 +296,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return parseSetGlassChrome(record);
     case "set-inline-controls":
       return parseSetInlineControls(record);
+    case "set-home-date-bar":
+      return parseSetHomeDateBar(record);
     default:
       return null;
   }
@@ -694,6 +699,71 @@ function parseSetInlineControls(record: Record<string, unknown>): SetInlineContr
     colorScheme: record.colorScheme,
     atMs: record.atMs,
   };
+}
+
+/** 날짜 칩 글자 길이 상한. 웹은 `26일 (월)` 같은 짧은 글자를 보낸다. */
+const HOME_DATE_LABEL_MAX_LENGTH = 40;
+
+const HOME_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isShortText(value: unknown): value is string {
+  return typeof value === "string" && value !== "" && value.length <= HOME_DATE_LABEL_MAX_LENGTH;
+}
+
+/**
+ * `set-home-date-bar`를 검증한다
+ *
+ * 날짜 하나라도 모양이 틀리면 통째로 버린다.
+ * 일부만 그리면 웹이 고른 날과 앱이 보이는 날이 어긋난다.
+ * 고른 날과 오늘이 목록에 없어도 버린다.
+ * key가 날짜 꼴이 아니거나 겹쳐도 버린다. 칩의 React key가 충돌하고 엉뚱한 날이 선택된다.
+ * 빈 목록은 홈이 내려가 날짜 줄을 거두라는 뜻이다.
+ */
+function parseSetHomeDateBar(record: Record<string, unknown>): SetHomeDateBarMessage | null {
+  const { dates, selectedKey, todayKey, atMs } = record;
+  if (
+    !Array.isArray(dates) ||
+    dates.length > HOME_DATE_BAR_MAX_DATES ||
+    typeof atMs !== "number" ||
+    typeof selectedKey !== "string" ||
+    typeof todayKey !== "string"
+  ) {
+    return null;
+  }
+  if (dates.length === 0) {
+    return {
+      type: "set-home-date-bar",
+      dates: [],
+      selectedKey: "",
+      todayKey: "",
+      atMs,
+    };
+  }
+  const parsed: SetHomeDateBarMessage["dates"] = [];
+  for (const date of dates as unknown[]) {
+    if (typeof date !== "object" || date === null) {
+      return null;
+    }
+    const { key, label, accessibilityLabel } = date as Record<string, unknown>;
+    if (
+      typeof key !== "string" ||
+      !HOME_DATE_KEY_PATTERN.test(key) ||
+      !isShortText(label) ||
+      !isShortText(accessibilityLabel)
+    ) {
+      return null;
+    }
+    parsed.push({ key, label, accessibilityLabel });
+  }
+  const keys = parsed.map((date) => date.key);
+  if (
+    new Set(keys).size !== keys.length ||
+    !keys.includes(selectedKey) ||
+    !keys.includes(todayKey)
+  ) {
+    return null;
+  }
+  return { type: "set-home-date-bar", dates: parsed, selectedKey, todayKey, atMs };
 }
 
 /** WebView `injectJavaScript`로 밀어 넣을 때 쓸 직렬화. */

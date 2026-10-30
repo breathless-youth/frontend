@@ -125,7 +125,7 @@ function renderForm(props: Partial<ManualRecordFormProps> = {}) {
         key={key}
         userId={7}
         dateKey={DAY}
-        mode={{ kind: "add", entry: "planner_button" }}
+        mode={{ kind: "add", entry: "records" }}
         sessions={[]}
         subjects={[KOREAN]}
         subjectRefs={new Map()}
@@ -243,7 +243,7 @@ describe("ManualRecordForm", () => {
     expect(startInput()).toHaveAttribute("aria-invalid", "true");
     expect(saveButton()).toBeDisabled();
     expect(blocked).toHaveBeenCalledTimes(1);
-    expect(blocked).toHaveBeenCalledWith({ entry: "planner_button", daysAgo: DAYS_AGO });
+    expect(blocked).toHaveBeenCalledWith({ entry: "records", daysAgo: DAYS_AGO });
 
     // 막힘에서 벗어났다가 다시 막혀도 같은 열림 안에서는 더 보내지 않는다.
     fireEvent.change(endInput(), { target: { value: "13:00" } });
@@ -283,7 +283,7 @@ describe("ManualRecordForm", () => {
       expect.objectContaining({ type: "records-changed" }),
     );
     expect(vi.mocked(trackManualRecordAdd)).toHaveBeenCalledWith({
-      entry: "planner_button",
+      entry: "records",
       durationMin: 60,
       hasSubject: true,
       daysAgo: DAYS_AGO,
@@ -378,7 +378,7 @@ describe("ManualRecordForm", () => {
         saved(62, iso(NEXT, 0), iso(NEXT, 1)),
       ]);
       const { onDone } = renderForm({
-        mode: { kind: "edit", entry: "planner_cell", bundle: [before, after] },
+        mode: { kind: "edit", entry: "records", bundle: [before, after] },
         sessions: [before, after],
       });
 
@@ -391,7 +391,7 @@ describe("ManualRecordForm", () => {
         endedAt: iso(NEXT, 1),
       });
       expect(vi.mocked(trackManualRecordEdit)).toHaveBeenCalledWith({
-        entry: "planner_cell",
+        entry: "records",
         durationMin: 120,
         hasSubject: false,
         daysAgo: DAYS_AGO,

@@ -32,8 +32,13 @@ export interface ManualSpan {
 
 /** 입력 화면을 연 방법. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
 export type ManualRecordMode =
-  | { kind: "add"; entry: "planner_button" | "planner_cell" | "records"; startMs?: number }
-  | { kind: "edit"; entry: "planner_cell" | "records"; bundle: readonly StudySessionSummary[] };
+  | {
+      kind: "add";
+      entry: "records" | "home";
+      /** 처음 고른 과목. 홈 과목 카드에서 열 때 넘긴다. */
+      subjectId?: number;
+    }
+  | { kind: "edit"; entry: "records"; bundle: readonly StudySessionSummary[] };
 
 export type SpanError = "too-short" | "future";
 
@@ -70,7 +75,6 @@ export function daysAgo(dateKey: string, todayKey: string): number {
 /**
  * 입력 화면을 열 때의 구간
  *
- * 빈 칸 탭은 칸 시각부터 1시간이되 다음 기록 시작이나 지금이 더 이르면 거기서 끝낸다.
  * 오늘은 지금에서 끝나고, 1시간 전과 그날 마지막 기록 종료 중 늦은 쪽에서 시작한다.
  * 지난 날은 그날 마지막 기록 종료(없으면 09:00)부터 1시간이되 지금을 넘지 않는다.
  * 마지막 기록은 측정·수동을 가리지 않고, 초가 있는 측정 종료는 분 단위로 올려 겹치지 않게 한다.
@@ -81,16 +85,9 @@ export function defaultSpan(input: {
   todayKey: string;
   nowMs: number;
   sessions: readonly StudySessionSummary[];
-  cellStartMs?: number;
 }): ManualSpan {
   const spans = input.sessions.map(spanOf);
   const nowFloorMs = floorMinute(input.nowMs);
-
-  if (input.cellStartMs !== undefined) {
-    const startMs = input.cellStartMs;
-    const nextStarts = spans.map((span) => span.startMs).filter((ms) => ms > startMs);
-    return { startMs, endMs: floorMinute(Math.min(startMs + HOUR_MS, nowFloorMs, ...nextStarts)) };
-  }
 
   const dayStartMs = kstDayStartMs(input.dateKey);
   const ends = spans
@@ -267,22 +264,6 @@ export function bundleMayContinue(bundle: readonly StudySessionSummary[]): strin
   return kstDayStartMs(key) === endMs ? key : null;
 }
 
-export function manualBundles(sessions: readonly StudySessionSummary[]): StudySessionSummary[][] {
-  const seen = new Set<number>();
-  const bundles: StudySessionSummary[][] = [];
-  for (const session of sessions) {
-    if (!isManualSession(session) || seen.has(session.id)) {
-      continue;
-    }
-    const bundle = bundleOf(sessions, session.id);
-    for (const piece of bundle) {
-      seen.add(piece.id);
-    }
-    bundles.push(bundle);
-  }
-  return bundles;
-}
-
 /** 수동 기록은 전체 구간 하나만 과목 구간으로 남아 첫 구간의 과목이 그 기록의 과목이다. */
 export function subjectIdOf(session: StudySessionSummary | undefined): number | null {
   return session?.subjectSegments?.[0]?.subjectId ?? null;
@@ -313,31 +294,4 @@ export function readAloudLabel(input: { subjectName: string; span: ManualSpan })
   const endText = end.period === start.period ? end.time : `${end.period} ${end.time}`;
   const length = formatDuration((input.span.endMs - input.span.startMs) / 1000);
   return `수동 기록, ${input.subjectName}, ${start.period} ${start.time}부터 ${endText}, ${length}`;
-}
-
-/**
- * 플래너 칸 탭의 결과. 칸 시작 시각이 어디에 속하는지로 정한다.
- * 지금이 속한 분의 칸은 기본 구간이 길이 0이 되므로 반응하지 않는다.
- */
-export function cellTapTarget(
-  cellStartMs: number,
-  sessions: readonly StudySessionSummary[],
-  nowMs: number,
-): { kind: "add" } | { kind: "edit"; bundle: StudySessionSummary[] } | null {
-  if (cellStartMs >= floorMinute(nowMs)) {
-    return null;
-  }
-  // 겹치는 기록은 플래너가 시작이 늦은 것을 위에 그린다(같은 시작이면 뒤의 것). 보이는 블록을 고른다.
-  let hit: StudySessionSummary | undefined;
-  for (const session of sessions) {
-    const span = spanOf(session);
-    const covers = span.startMs <= cellStartMs && cellStartMs < span.endMs;
-    if (covers && (hit === undefined || span.startMs >= spanOf(hit).startMs)) {
-      hit = session;
-    }
-  }
-  if (hit === undefined) {
-    return { kind: "add" };
-  }
-  return isManualSession(hit) ? { kind: "edit", bundle: bundleOf(sessions, hit.id) } : null;
 }

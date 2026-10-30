@@ -116,7 +116,22 @@ export type ToWebMessage =
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
-  | NativeControlPressMessage;
+  | NativeControlPressMessage
+  /**
+   * 앱이 그리는 홈 날짜 줄에서 날짜를 눌렀다는 알림
+   *
+   * 홈 웹뷰에만 간다.
+   * 값은 웹이 `set-home-date-bar`로 보낸 목록 안의 날짜 키다.
+   */
+  | { type: "home-date-selected"; dateKey: string; atMs: number }
+  /** 앱이 그리는 홈 날짜 줄 메뉴에서 고른 항목. 홈 웹뷰에만 간다. */
+  | { type: "home-menu-action"; action: HomeMenuAction; atMs: number }
+  /** 앱이 그린 탭 바 재생 버튼을 눌렀다는 알림. 홈 웹뷰에만 가고, 웹이 과목 없이 시작하는 경로를 탄다. */
+  | { type: "home-play-pressed"; atMs: number };
+
+/** 홈 날짜 줄 메뉴 항목. 웹 파서가 이 목록으로 검사한다. */
+export const HOME_MENU_ACTIONS = ["reorder-subjects", "edit-subjects"] as const;
+export type HomeMenuAction = (typeof HOME_MENU_ACTIONS)[number];
 
 /**
  * 메타 광고 지연 딥링크의 `fm_ad` 값 형식
@@ -384,7 +399,28 @@ export type ToNativeMessage =
   | AnalyticsEventMessage
   | AnalyticsUserPropertiesMessage
   | SetGlassChromeMessage
-  | SetInlineControlsMessage;
+  | SetInlineControlsMessage
+  | SetHomeDateBarMessage;
+
+/** 앱이 받는 홈 날짜 줄 날짜 수 상한. 웹은 30일을 보낸다. */
+export const HOME_DATE_BAR_MAX_DATES = 60;
+
+/**
+ * 홈 날짜 줄 내용
+ *
+ * `nativeDateBar=1`을 붙인 앱은 날짜 줄을 웹뷰 바깥에 직접 그린다.
+ * 날짜 목록과 글자는 웹이 정해서 앱은 받은 대로 그리기만 한다.
+ * 홈이 뜰 때와 선택이 바뀔 때마다 보낸다.
+ * 홈이 내려가면 빈 목록을 보내 앱이 날짜 줄을 거두게 한다.
+ */
+export interface SetHomeDateBarMessage {
+  type: "set-home-date-bar";
+  /** 오래된 날부터 오늘까지의 순서다. */
+  dates: { key: string; label: string; accessibilityLabel: string }[];
+  selectedKey: string;
+  todayKey: string;
+  atMs: number;
+}
 
 /** `RemoteWebViewHost`가 처리하고 끝내서 다음 단계로 넘기지 않는 메시지. */
 type HostConsumedType =
@@ -393,7 +429,8 @@ type HostConsumedType =
   | "set-back-gesture"
   | "set-orientation"
   | "set-glass-chrome"
-  | "set-inline-controls";
+  | "set-inline-controls"
+  | "set-home-date-bar";
 
 /** 호스트를 지나 화면(`RemoteScreen`)으로 넘어오는 메시지. */
 export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
@@ -501,6 +538,12 @@ export interface SetTabBarMessage {
    * 되살아나면 안 된다.
    */
   blockedByModal?: boolean;
+  /**
+   * 코치마크처럼 다른 탭 이동만 막고 탭 바 오른쪽 재생 원은 눌리게 두라는 뜻이다.
+   * `visible: false`와 함께 온다. 이 필드를 모르는 구버전 앱은 `visible`만 읽고 탭 바를 통째로
+   * 감추므로 웹은 `tabBarPlay=1`을 붙인 앱에만 보낸다. `blockedByModal`보다 우선한다.
+   */
+  blockedExceptPlay?: true;
   atMs: number;
 }
 

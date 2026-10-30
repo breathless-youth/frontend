@@ -454,6 +454,20 @@ export interface SubjectResponse {
   tasks: TaskResponse[];
 }
 
+/** 날짜 기준 과목 1건 (`GET /api/subjects/day?date=`). 시간은 그날(05시~다음 날 05시 KST) 몫이다 */
+export interface SubjectDayResponse {
+  id: number;
+  name: string;
+  colorIndex: number;
+  /** 그날 뒤에 지운 과목도 그날에는 있었으므로 실린다 */
+  deleted: boolean;
+  studySec: number;
+  focusSec: number;
+  /** 날짜별 기록이라 어제 완료한 과목도 오늘은 false다 */
+  completed: boolean;
+  completedAt: string | null;
+}
+
 /** 과목 이름 — 공백 불가, 최대 50자. 살아있는 과목이 20개면 400 */
 export interface SubjectCreateRequest {
   name: string;
@@ -647,6 +661,7 @@ export type {
   GlassChromeTop,
   HapticStyle,
   HandlerMessage,
+  HomeMenuAction,
   HostPassedMessage,
   InlineControl,
   InstallAttributionMessage,
@@ -656,6 +671,7 @@ export type {
   ReportScreenMessage,
   NavigateTabMessage,
   SetGlassChromeMessage,
+  SetHomeDateBarMessage,
   SetInlineControlsMessage,
   SetTabBarMessage,
   ToNativeMessage,
@@ -679,6 +695,8 @@ export {
   ANALYTICS_USER_PROPERTY_VALUE_MAX_LENGTH,
   GLASS_CONTROLS_BUTTON_STYLE,
   GLASS_CHROME_LEADING,
+  HOME_DATE_BAR_MAX_DATES,
+  HOME_MENU_ACTIONS,
   INSTALL_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_BUTTON_TONES,

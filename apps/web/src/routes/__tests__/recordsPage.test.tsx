@@ -155,6 +155,7 @@ function renderRecords(path = "/records?userId=7") {
         <Routes>
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/planner" element={<RouteProbe />} />
+          <Route path="/timelapses" element={<RouteProbe />} />
           <Route path="/manual-record" element={<ManualRecordProbe />} />
         </Routes>
         <LocationProbe />
@@ -555,8 +556,8 @@ describe("RecordsPage", () => {
     // 기기 미등록이면 주간 데이터를 못 받으므로 주간 탭 비활성(탭·내용 어긋남 방지).
     expect(screen.getByRole("tab", { name: "주간" })).toBeDisabled();
     expect(screen.getByRole("tab", { name: "일간" })).not.toBeDisabled();
-    // 등록 전에는 열어도 볼 기록이 없어 플래너 알약이 없다.
-    expect(screen.queryByRole("button", { name: "플래너" })).not.toBeInTheDocument();
+    // 등록 전에는 열어도 볼 기록이 없어 타임테이블 버튼이 없다.
+    expect(screen.queryByRole("button", { name: "타임테이블" })).not.toBeInTheDocument();
   });
 
   it("월을 옮기는 동안 이전 달 합계가 새 달 제목 아래 보이지 않는다", async () => {
@@ -693,7 +694,7 @@ describe("RecordsPage", () => {
     expect(vi.mocked(trackRecordsWeekChanged)).not.toHaveBeenCalled();
   });
 
-  it("머리 오른쪽 플래너 알약은 고른 날의 플래너를 열고, 주간에서도 보인다", async () => {
+  it("머리 오른쪽 타임테이블 버튼은 고른 날의 타임테이블을 열고, 주간에서도 보인다", async () => {
     mockedStats.mockResolvedValue(statsResponse(true));
 
     renderRecords("/records?userId=7&date=2025-03-04");
@@ -702,15 +703,27 @@ describe("RecordsPage", () => {
       .parentElement!;
     await screen.findByText(dayTitleWithWeekday("2025-03-04"));
     // 플래너 입구는 머리 하나다. 날짜 상세(과목별 시간·24시간 타임테이블)는 플래너에 있다.
-    expect(screen.getAllByRole("button", { name: "플래너" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "타임테이블" })).toHaveLength(1);
     expect(screen.queryByRole("img", { name: /24시간 공부 분포/ })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "주간" }));
-    await userEvent.click(within(titleRow).getByRole("button", { name: "플래너" }));
+    await userEvent.click(within(titleRow).getByRole("button", { name: "타임테이블" }));
 
     expect(await screen.findByTestId("route-probe")).toHaveTextContent(
       "/planner?userId=7&date=2025-03-04&from=records",
     );
+  });
+
+  it("머리 오른쪽 타임랩스 버튼은 쿼리를 들고 타임랩스 전체 목록을 연다", async () => {
+    mockedStats.mockResolvedValue(statsResponse(true));
+
+    renderRecords();
+
+    const titleRow = (await screen.findByRole("heading", { level: 1, name: "기록" }))
+      .parentElement!;
+    await userEvent.click(within(titleRow).getByRole("button", { name: "타임랩스" }));
+
+    expect(await screen.findByTestId("route-probe")).toHaveTextContent("/timelapses?userId=7");
   });
 
   it("주간 뷰는 주 요약 → 추이 카드 → 나의 공부 리듬 순서로 보여준다(주 카드는 없다)", async () => {

@@ -6,7 +6,6 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import { isManualSession } from "@/features/manual-record/manualRecord";
 import { kstDateKey } from "@/features/records/recordsFormat";
 import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetable";
 
@@ -45,8 +44,10 @@ export function plannerDayWindow(dateKey: string): { startMs: number; endMs: num
 }
 
 /**
- * 어떤 시각이 속한 플래너 날짜 — 새벽 0~5시는 전날 플래너에 든다.
- * 플래너를 열 때의 "오늘"은 이 값이 아니라 달력 날짜(자정 기준)다. 05시 기준은 한 장에 담는 구간에만 쓴다.
+ * 어떤 시각이 속한 플래너 날짜
+ *
+ * 새벽 0~5시는 전날에 든다.
+ * 홈과 타임테이블 화면의 오늘도 이 값이라 둘이 같은 날을 오늘로 본다.
  */
 export function plannerDateKeyOf(at: Date): string {
   return kstDateKey(new Date(at.getTime() - PLANNER_DAY_START_HOUR * HOUR_MS));
@@ -61,8 +62,7 @@ export type PlannerPaintKind =
   /** 순공이 아닌 시간(자동 멈춤 + 일시정지) — 휴식색 */
   | { kind: "rest" };
 
-/** `manual`은 수동 기록에서 온 구간이다. 칠하는 색은 측정과 같고, 칸 탭이 수정 대상을 고를 때만 쓴다. */
-export type PlannerPaint = PlannerPaintKind & { startMs: number; endMs: number; manual: boolean };
+export type PlannerPaint = PlannerPaintKind & { startMs: number; endMs: number };
 
 export interface PlannerSubjectRow {
   subjectId: number;
@@ -91,8 +91,6 @@ export interface PlannerDay {
   unassignedFocusSec: number;
   /** 완료 시각이 이 하루에 든 할 일 — 완료 시각 순. */
   completedTasks: PlannerCompletedTask[];
-  /** 그 날짜와 다음 날짜의 원본 조각(시작 순). 수동 기록 시트의 기본값·겹침·묶음 계산에 쓴다. */
-  sessions: StudySessionSummary[];
   /** 과목 id → 이름·색(이름이 같으면 대표 과목). */
   subjects: ReadonlyMap<number, SubjectRef>;
 }
@@ -140,7 +138,6 @@ function paintSession(
   span: Interval,
   session: StudySessionSummary,
   canonical: (subjectId: number) => number,
-  manual: boolean,
 ): PlannerPaint[] {
   const events = (session.events ?? [])
     .map((event) => clip(event.startedAt, event.endedAt, span))
@@ -178,7 +175,7 @@ function paintSession(
     if (sameAsLast) {
       last.endMs = endMs;
     } else {
-      paints.push({ ...kind, startMs, endMs, manual });
+      paints.push({ ...kind, startMs, endMs });
     }
   }
   return paints;
@@ -255,7 +252,7 @@ export function assemblePlannerDay(
     }
 
     // 수동 기록은 서버가 이벤트 없이 저장해 휴식 구간이 생기지 않는다.
-    paints.push(...paintSession(span, session, canonical, isManualSession(session)));
+    paints.push(...paintSession(span, session, canonical));
   }
 
   const subjectRows = [...subjectFocusMs].map(([subjectId, ms]) => ({
@@ -290,7 +287,6 @@ export function assemblePlannerDay(
           : [];
       })
       .sort((a, b) => a.doneAtMs - b.doneAtMs),
-    sessions,
     subjects: rawSubjects,
   };
 }
@@ -309,7 +305,6 @@ export interface PlannerCellFill {
   left: number;
   width: number;
   paint: PlannerPaintKind;
-  manual: boolean;
 }
 
 /**
@@ -337,7 +332,6 @@ export function plannerCellFills(day: Pick<PlannerDay, "startMs" | "paints">): P
         left: (from - cellStart) / cellMs,
         width: (to - from) / cellMs,
         paint: fill,
-        manual: paint.manual,
       });
     }
   }

@@ -1,6 +1,7 @@
 import { type PushTarget, pushTargetForRoute } from "./pushNotificationRouting";
 import { offerRouteToSession } from "./sessionInvite";
 import { runAfterSession } from "./sessionPresence";
+import { isSettingsTabTarget, revealSettingsTab } from "./settingsReveal";
 
 /** 마지막으로 받은 알림의 표. 세션 중에 여러 건이 쌓이면 마지막 것만 연다. */
 let latestTicket = 0;
@@ -22,6 +23,13 @@ export function openPushRoute(
   if (offerRouteToSession(route)) return;
   runAfterSession(() => {
     if (ticket !== latestTicket) return;
-    queueMicrotask(() => push(pushTargetForRoute(route, now())));
+    queueMicrotask(() => {
+      const target = pushTargetForRoute(route, now());
+      if (isSettingsTabTarget(target)) {
+        revealSettingsTab(() => push(target));
+      } else {
+        push(target);
+      }
+    });
   });
 }

@@ -4,9 +4,14 @@ import { cn } from "@/lib/utils";
 
 import { type PlannerEntry, useOpenPlanner } from "./useOpenPlanner";
 
+/** 기록 탭 머리 오른쪽 원형 버튼들이 같이 쓰는 모양. */
+export const ROUND_HEADER_BUTTON_CLASS =
+  "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]";
+
 /**
- * 홈과 기록 탭 머리 오른쪽의 플래너 원형 버튼.
- * 두 탭이 같은 입구로 보이도록 모양을 한 곳에서 정한다.
+ * 기록 탭 머리 오른쪽의 타임테이블 원형 버튼.
+ * 보이는 이름은 타임테이블이고 코드와 그림 이름은 예전 이름인 플래너를 쓴다.
+ * 옆의 타임랩스 버튼과 같은 모양이라 모양을 한 곳에서 정한다.
  * 놓이는 줄마다 맞춤이 달라 `className`으로 여백·정렬만 받는다.
  */
 export function PlannerPillButton({
@@ -33,7 +38,7 @@ export function PlannerPillButton({
       image: "planner",
       shape: "circle",
       disabled: false,
-      accessibilityLabel: "플래너",
+      accessibilityLabel: "타임테이블",
     },
     open,
   );
@@ -41,12 +46,9 @@ export function PlannerPillButton({
     <button
       ref={ref}
       type="button"
-      aria-label="플래너"
+      aria-label="타임테이블"
       onClick={open}
-      className={cn(
-        "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]",
-        className,
-      )}
+      className={cn(ROUND_HEADER_BUTTON_CLASS, className)}
     >
       <IconPlanner size={24} />
     </button>

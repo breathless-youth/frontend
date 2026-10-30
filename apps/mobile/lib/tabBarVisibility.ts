@@ -24,8 +24,11 @@ import { useSyncExternalStore } from "react";
  * 상태가 셋인 이유는 "탭 바가 없어야 하는 화면"과 "모달이 덮은 동안 잠깐 못 누르는 화면"이
  * 다른 요구이기 때문이다. 앞은 자리까지 없애야 전체 화면 라우트가 화면 끝까지 차지하고, 뒤는
  * 자리를 남겨야 웹뷰 높이가 그대로라 모달 카드가 튀지 않는다.
+ *
+ * `blocked-except-play`는 `blocked`처럼 탭 이동을 막되 오른쪽 재생 원만 눌리게 둔다.
+ * 홈 코치마크가 재생 원을 가리키는 동안 쓴다.
  */
-export type TabBarState = "visible" | "hidden" | "blocked";
+export type TabBarState = "visible" | "hidden" | "blocked" | "blocked-except-play";
 
 let state: TabBarState = "visible";
 const listeners = new Set<() => void>();

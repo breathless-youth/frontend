@@ -8,7 +8,7 @@ import type * as Amplitude from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { deleteDday, getDday, putDday } from "@/lib/ddayApi";
 
-import { monthOfDateKey, shiftMonth } from "@/features/records/recordsFormat";
+import { addDaysToDateKey, monthOfDateKey, shiftMonth } from "@/features/records/recordsFormat";
 
 import { DdaySection } from "../DdaySection";
 import { todayKstDateKey } from "@/lib/dateKst";
@@ -57,11 +57,11 @@ function pickNextMonth15() {
   fireEvent.click(screen.getByRole("button", { name: PICK_LABEL }));
 }
 
-function renderSection() {
+function renderSection(dateKey = todayKstDateKey()) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DdaySection userId={7} />
+      <DdaySection userId={7} dateKey={dateKey} />
     </QueryClientProvider>,
   );
 }
@@ -76,22 +76,34 @@ beforeEach(() => {
 });
 
 describe("DdaySection — 좌상단 블록", () => {
-  it("설정한 D-Day가 없어도 같은 두 줄이다 — 위 'D-Day', 아래 '목표 날짜를 설정하세요'", async () => {
+  it("설정한 D-Day가 없으면 'D-Day 설정'을 보여 준다", async () => {
     mockedGet.mockResolvedValue(null);
     renderSection();
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
-    expect(screen.getByTestId("dday-label")).toHaveTextContent("D-Day");
-    expect(screen.getByTestId("dday-caption")).toHaveTextContent("목표 날짜를 설정하세요");
+    expect(screen.getByTestId("dday-label")).toHaveTextContent("D-Day 설정");
     expect(analytics.setDdayUserProperties).toHaveBeenCalledWith(null);
   });
 
-  it("설정돼 있으면 D-N과 제목을 보여 주고 user property를 맞춘다", async () => {
+  it("설정돼 있으면 D-N을 보여 주고 제목은 버튼 이름에 싣고 user property를 맞춘다", async () => {
     mockedGet.mockResolvedValue(SET);
     renderSection();
 
-    expect(await screen.findByTestId("dday-label")).toHaveTextContent(formatDday(SET_DAYS_LEFT));
-    expect(screen.getByText("2027 수능")).toBeInTheDocument();
+    const label = formatDday(SET_DAYS_LEFT);
+    expect(await screen.findByTestId("dday-label")).toHaveTextContent(label);
+    expect(
+      screen.getByRole("button", { name: `${label} 2027 수능, D-Day 수정` }),
+    ).toBeInTheDocument();
+    expect(analytics.setDdayUserProperties).toHaveBeenCalledWith({ daysLeft: SET_DAYS_LEFT });
+  });
+
+  it("지난 날짜를 주면 그 날짜 기준 일수를 보이고 user property는 오늘 기준이다", async () => {
+    mockedGet.mockResolvedValue(SET);
+    renderSection(addDaysToDateKey(todayKstDateKey(), -3));
+
+    expect(await screen.findByTestId("dday-label")).toHaveTextContent(
+      formatDday(SET_DAYS_LEFT + 3),
+    );
     expect(analytics.setDdayUserProperties).toHaveBeenCalledWith({ daysLeft: SET_DAYS_LEFT });
   });
 
@@ -210,7 +222,7 @@ describe("DdaySection — 시트", () => {
     );
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
-    expect(screen.getByTestId("dday-caption")).toHaveTextContent("목표 날짜를 설정하세요");
+    expect(screen.getByTestId("dday-label")).toHaveTextContent("D-Day 설정");
     expect(mockedDelete).toHaveBeenCalledTimes(1);
     expect(analytics.trackDdayDeleted).toHaveBeenCalledWith(SET_DAYS_LEFT);
     expect(analytics.setDdayUserProperties).toHaveBeenLastCalledWith(null);

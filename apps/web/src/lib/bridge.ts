@@ -1,4 +1,5 @@
 import type {
+  HomeMenuAction,
   InstallAttributionMessage,
   NativeAnalyticsPropertyValue,
   ToNativeMessage,
@@ -7,6 +8,7 @@ import type {
   VideoResultStatus,
 } from "@focusmakers/types";
 import {
+  HOME_MENU_ACTIONS,
   INSTALL_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
@@ -190,6 +192,10 @@ function isVideoResultStatus(value: unknown): value is VideoResultStatus {
   return (VIDEO_RESULT_STATUSES as readonly unknown[]).includes(value);
 }
 
+function isHomeMenuAction(value: unknown): value is HomeMenuAction {
+  return (HOME_MENU_ACTIONS as readonly unknown[]).includes(value);
+}
+
 export function parseToWebMessage(raw: string): ToWebMessage | null {
   let parsed: unknown;
   try {
@@ -226,6 +232,9 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "tab-focus" && typeof record.focused === "boolean") {
     return { type: "tab-focus", focused: record.focused, atMs: record.atMs };
+  }
+  if (record.type === "home-play-pressed") {
+    return { type: "home-play-pressed", atMs: record.atMs };
   }
   if (record.type === "session-invite" && typeof record.code === "string") {
     return { type: "session-invite", code: record.code, atMs: record.atMs };
@@ -324,6 +333,12 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   }
   if (record.type === "track-event") {
     return parseTrackEvent(record);
+  }
+  if (record.type === "home-date-selected" && typeof record.dateKey === "string") {
+    return { type: "home-date-selected", dateKey: record.dateKey, atMs: record.atMs };
+  }
+  if (record.type === "home-menu-action" && isHomeMenuAction(record.action)) {
+    return { type: "home-menu-action", action: record.action, atMs: record.atMs };
   }
   if (record.type === "install-attribution") {
     return parseInstallAttribution(record);

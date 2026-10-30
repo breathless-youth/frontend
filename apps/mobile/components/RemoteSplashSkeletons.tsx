@@ -7,24 +7,24 @@ import { Skeleton } from "./ui/Skeleton";
  * 웹뷰 로드 스플래시용 스켈레톤 — `RemoteScreen`의 `splash`로 꽂는다.
  */
 
-/** 홈 */
+/** 홈: 제목 줄과 오른쪽 위 두 줄, 과목 카드 3장 */
 export function HomeTabSkeleton() {
   const insets = useSafeAreaInsets();
 
   return (
     <View className="flex-1 gap-3 px-5" style={{ paddingTop: insets.top + 15 }}>
-      <View className="h-[21px] flex-row items-center justify-between">
-        <Skeleton className="h-[21px] w-20 rounded-md" />
-        <Skeleton className="h-4 w-[90px] rounded-md" />
+      <View className="flex-row items-start justify-between">
+        <Skeleton className="h-[30px] w-[150px] rounded-md" />
+        <View className="items-end gap-1.5">
+          <Skeleton className="h-[30px] w-[70px] rounded-md" />
+          <Skeleton className="h-[15px] w-[54px] rounded-md" />
+        </View>
       </View>
-      <Skeleton className="h-[180px] rounded-xl" />
-      <Skeleton className="h-[94px] rounded-[18px]" />
-      <Skeleton className="h-[14px] w-[210px] self-center rounded-md" />
-      <View className="flex-row gap-3">
-        <Skeleton className="h-[92px] flex-1 rounded-2xl" />
-        <Skeleton className="h-[92px] flex-1 rounded-2xl" />
+      <View className="mt-3 gap-3">
+        <Skeleton className="h-[68px] rounded-2xl" />
+        <Skeleton className="h-[68px] rounded-2xl" />
+        <Skeleton className="h-[68px] rounded-2xl" />
       </View>
-      <Skeleton className="h-[108px] rounded-xl" />
     </View>
   );
 }
