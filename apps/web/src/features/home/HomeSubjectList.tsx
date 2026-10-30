@@ -25,6 +25,8 @@ const ACTION_WIDTH = 56;
 const ACTION_GAP = 4;
 const ACTIONS_INSET = 12;
 
+const DELETED_SUBJECT_NOTICE = "이미 삭제된 과목이에요";
+
 function actionsWidth(count: number) {
   return count === 0 ? 0 : count * ACTION_WIDTH + (count - 1) * ACTION_GAP + ACTIONS_INSET;
 }
@@ -44,7 +46,8 @@ function itemKey(item: PlannerSubjectItem) {
  *
  * 과목마다 이름과 고른 날의 순공을 한 줄로 보이고, 누르면 카드 안에 할 일이 펼쳐진다.
  * 오늘은 과목 색 재생 버튼으로 공부를 시작하고, 지난 날은 같은 자리에 과목 색 막대만 둔다.
- * 삭제한 과목은 그날 기록에만 남아 있어 오늘이어도 시작할 수 없으므로 막대로 그리고 밀어도 동작이 없다.
+ * 삭제한 과목은 오늘이어도 시작할 수 없으므로 막대로 그린다.
+ * 시간 직접 입력은 지금 과목만 고를 수 있어 삭제한 과목의 `직접 입력`은 페이지를 열지 않고 알리기만 한다.
  * 카드를 밀면 뒤의 `직접 입력`과 과목 완료 버튼이 드러나고, 열린 카드는 하나뿐이다.
  * 과목 완료는 `completion`이 있을 때만 보인다.
  * 펼침과 열린 카드는 날짜마다 따로라서 호출부가 날짜를 `key`로 주어 날짜가 바뀌면 새로 그린다.
@@ -102,10 +105,14 @@ export function HomeSubjectList({
             onSwipeOpenChange={(side) => setOpenSwipe(side === null ? null : { key, side })}
             onPlay={onPlay}
             store={store}
-            completion={item.live ? completion : null}
+            completion={completion}
             onManualRecord={(subjectId) => {
               setOpenSwipe(null);
-              onManualRecord(subjectId);
+              if (item.live) {
+                onManualRecord(subjectId);
+              } else {
+                onNotice(DELETED_SUBJECT_NOTICE);
+              }
             }}
             onNotice={onNotice}
           />
@@ -144,8 +151,7 @@ function SubjectCard({
 }) {
   const color = subjectColorVar(item.colorIndex);
   const done = completion?.isDone(item.subjectId) ?? false;
-  // 삭제한 과목은 시간 직접 입력에서 고를 수 없어 동작을 두지 않는다.
-  const leftActions = item.live ? (completion !== null && !done ? 2 : 1) : 0;
+  const leftActions = completion !== null && !done ? 2 : 1;
   const rightActions = completion !== null && done ? 1 : 0;
   const { offset, dragging, handlers } = useCardSwipe({
     open: swipeOpen,
@@ -244,29 +250,27 @@ function SubjectCard({
           />
         </SwipeActions>
       )}
-      {leftActions > 0 && (
-        <SwipeActions side="left" onReveal={() => onSwipeOpenChange("left")}>
+      <SwipeActions side="left" onReveal={() => onSwipeOpenChange("left")}>
+        <SwipeAction
+          focusable={swipeOpen === "left"}
+          progress={actionProgress(Math.max(-offset, 0), leftActions - 1)}
+          dragging={dragging}
+          label="직접 입력"
+          icon={<Pencil aria-hidden size={20} />}
+          onClick={() => onManualRecord(item.subjectId)}
+        />
+        {leftActions === 2 && (
           <SwipeAction
             focusable={swipeOpen === "left"}
-            progress={actionProgress(Math.max(-offset, 0), leftActions - 1)}
+            progress={actionProgress(Math.max(-offset, 0), 0)}
             dragging={dragging}
-            label="직접 입력"
-            icon={<Pencil aria-hidden size={20} />}
-            onClick={() => onManualRecord(item.subjectId)}
+            label="완료 표시"
+            primary
+            icon={<Check aria-hidden size={20} />}
+            onClick={closeThen(() => completion?.setDone(item.subjectId, true))}
           />
-          {leftActions === 2 && (
-            <SwipeAction
-              focusable={swipeOpen === "left"}
-              progress={actionProgress(Math.max(-offset, 0), 0)}
-              dragging={dragging}
-              label="완료 표시"
-              primary
-              icon={<Check aria-hidden size={20} />}
-              onClick={closeThen(() => completion?.setDone(item.subjectId, true))}
-            />
-          )}
-        </SwipeActions>
-      )}
+        )}
+      </SwipeActions>
 
       <div
         data-swipe-surface=""

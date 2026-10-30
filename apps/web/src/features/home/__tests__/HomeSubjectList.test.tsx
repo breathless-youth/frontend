@@ -110,11 +110,16 @@ describe("HomeSubjectList — 과목 줄", () => {
     expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("오늘이어도 삭제한 과목에는 재생 버튼과 스와이프 동작이 없다", () => {
-    renderList();
+  it("오늘이어도 삭제한 과목에는 재생 버튼이 없고, 직접 입력을 누르면 열지 않고 알린다", async () => {
+    const { onManualRecord, onNotice } = renderList();
 
     expect(screen.queryByRole("button", { name: "한국사 공부 시작" })).not.toBeInTheDocument();
-    expect(within(row("한국사")).queryByRole("button", { name: "직접 입력" })).toBeNull();
+    swipe(row("한국사").querySelector<HTMLElement>("[data-swipe-surface]")!, -150);
+    await userEvent.click(within(row("한국사")).getByRole("button", { name: "직접 입력" }));
+
+    expect(onNotice).toHaveBeenCalledWith("이미 삭제된 과목이에요");
+    expect(onManualRecord).not.toHaveBeenCalled();
+    expect(row("한국사")).not.toHaveAttribute("data-swipe-open");
   });
 
   it("지난 날에는 재생 버튼이 없다", () => {

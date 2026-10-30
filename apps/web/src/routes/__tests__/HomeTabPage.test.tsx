@@ -3,6 +3,7 @@ import type {
   NoticeResponse,
   SessionRecoveryResponse,
   StudySessionListResponse,
+  SubjectDayResponse,
   SubjectResponse,
 } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -26,18 +27,23 @@ import type * as ToastModule from "@/lib/toast";
 
 import { __resetNativeDateBarForTests } from "@/features/home/nativeHomeDateBar";
 import { hasCreatedSubject, markSubjectCreated } from "@/features/home/subjectHistory";
-import {
-  addDaysToDateKey,
-  dayTitleWithWeekday,
-  kstDateKey,
-} from "@/features/records/recordsFormat";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { addDaysToDateKey, dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
 import { useNativeTabBarSync } from "@/lib/nativeTabBar";
-import { createSubject, listSubjects, renameSubject, reorderSubjects } from "@/lib/subjectApi";
+import {
+  completeSubject,
+  createSubject,
+  listSubjects,
+  listSubjectsOnDay,
+  renameSubject,
+  reorderSubjects,
+  uncompleteSubject,
+} from "@/lib/subjectApi";
 import { __resetTabBarPlayForTests } from "@/lib/tabBarPlayCapability";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { readStartSubject, saveStartSubject } from "@/features/study-session/startSubject";
@@ -74,6 +80,9 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
   createSubject: vi.fn(),
   renameSubject: vi.fn(),
   reorderSubjects: vi.fn(),
+  listSubjectsOnDay: vi.fn(),
+  completeSubject: vi.fn(),
+  uncompleteSubject: vi.fn(),
 }));
 
 /** 저장 실패 알림은 토스트로 나간다. 토스트 그리기는 자기 테스트가 본다. */
@@ -144,7 +153,8 @@ const mockedStreak = vi.mocked(getStreak);
 const mockedListSubjects = vi.mocked(listSubjects);
 const mockedCreateSubject = vi.mocked(createSubject);
 
-const TODAY = kstDateKey();
+// 홈의 오늘은 05시에 바뀌어 새벽에 돌려도 홈과 같은 날을 오늘로 본다.
+const TODAY = plannerDateKeyOf(new Date());
 const YESTERDAY = addDaysToDateKey(TODAY, -1);
 
 const EMPTY_DAY: StudySessionListResponse = {
@@ -294,6 +304,9 @@ beforeEach(() => {
   );
   mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
   mockedListSubjects.mockResolvedValue(SUBJECTS);
+  // 날짜별 과목 조회가 없는 서버가 기본이다.
+  // 완료 테스트만 응답을 준다.
+  vi.mocked(listSubjectsOnDay).mockRejectedValue(new Error("날짜별 과목 조회 실패 (HTTP 404)"));
 });
 
 afterEach(() => {
@@ -408,7 +421,9 @@ describe("HomeTabPage — 오늘", () => {
 
     expect(await screen.findByText("과목을 불러오지 못했어요")).toBeInTheDocument();
     const rows = within(screen.getByRole("list", { name: "과목" })).getAllByRole("listitem");
-    expect(rows.map((row) => row.textContent)).toEqual(["국어순공1시간 30분"]);
+    expect(rows.map((row) => row.querySelector("[data-card-head]")?.textContent)).toEqual([
+      "국어순공1시간 30분",
+    ]);
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
     expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
@@ -521,6 +536,349 @@ describe("HomeTabPage — 날짜 줄", () => {
 
     await screen.findByRole("button", { name: "국어 공부 시작" });
     expect(screen.queryByRole("button", { name: "순공 시작하기" })).not.toBeInTheDocument();
+  });
+
+  it("새벽 0~5시에는 전날이 오늘이라 그날에 재생 버튼이 있고 완료도 그날로 저장한다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T02:50:00+09:00"));
+    try {
+      mockedStats.mockResolvedValue(EMPTY_DAY);
+      vi.mocked(listSubjectsOnDay).mockResolvedValue(
+        SUBJECTS.map((item) => ({
+          id: item.id,
+          name: item.name,
+          colorIndex: item.colorIndex,
+          deleted: false,
+          studySec: 0,
+          focusSec: 0,
+          completed: false,
+          completedAt: null,
+        })),
+      );
+      vi.mocked(completeSubject).mockResolvedValue(undefined);
+      renderHome();
+
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday("2026-10-29") }),
+      ).toBeInTheDocument();
+      const days = within(screen.getByRole("group", { name: "날짜" })).getAllByRole("button");
+      expect(days.at(-1)).toHaveAccessibleName(`${dayTitleWithWeekday("2026-10-29")}, 오늘`);
+      expect(await screen.findByRole("button", { name: "수학 공부 시작" })).toBeInTheDocument();
+
+      const math = within(screen.getByRole("list", { name: "과목" }))
+        .getAllByRole("listitem")
+        .find((row) => within(row).queryByText("수학") !== null)!;
+      await userEvent.click(await within(math).findByRole("button", { name: "완료 표시" }));
+      expect(completeSubject).toHaveBeenCalledExactlyOnceWith(2, "2026-10-29");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["2026-10-30T04:59:59+09:00", "2026-10-29"],
+    ["2026-10-30T05:00:00+09:00", "2026-10-30"],
+  ])("%s에 열면 오늘은 %s다", async (now, todayKey) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    try {
+      renderHome();
+
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday(todayKey) }),
+      ).toBeInTheDocument();
+      const days = within(screen.getByRole("group", { name: "날짜" })).getAllByRole("button");
+      expect(days.at(-1)).toHaveAccessibleName(`${dayTitleWithWeekday(todayKey)}, 오늘`);
+      expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /** 앱을 띄워 둔 채 시간이 흐르고 화면이 가려졌다 다시 보인다. */
+  function returnAt(now: string) {
+    onTestFinished(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
+    vi.setSystemTime(new Date(now));
+    act(() => {
+      for (const state of ["hidden", "visible"] as const) {
+        Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+      }
+    });
+  }
+
+  function lastDay() {
+    return within(screen.getByRole("group", { name: "날짜" }))
+      .getAllByRole("button")
+      .at(-1);
+  }
+
+  it("앱을 띄워 둔 채 05시를 넘기고 다시 보이면 오늘이 바뀌고, 오늘을 보던 화면은 새 오늘로 옮긴다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T04:59:00+09:00"));
+    try {
+      mockedStats.mockResolvedValue(EMPTY_DAY);
+      renderHome();
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday("2026-10-29") }),
+      ).toBeInTheDocument();
+      await screen.findByRole("button", { name: "국어 공부 시작" });
+
+      returnAt("2026-10-30T05:01:00+09:00");
+
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday("2026-10-30") }),
+      ).toBeInTheDocument();
+      expect(lastDay()).toHaveAccessibleName(`${dayTitleWithWeekday("2026-10-30")}, 오늘`);
+      expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("다시 보일 때 오늘이 바뀌어도 30일 안에서 고른 날은 그대로이고, 30일 밖으로 밀린 날은 새 오늘로 옮긴다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T04:59:00+09:00"));
+    try {
+      mockedStats.mockResolvedValue(EMPTY_DAY);
+      renderHome();
+      fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday("2026-10-27") }));
+
+      returnAt("2026-10-30T05:01:00+09:00");
+
+      expect(lastDay()).toHaveAccessibleName(`${dayTitleWithWeekday("2026-10-30")}, 오늘`);
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday("2026-10-27") }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday("2026-10-01") }));
+      returnAt("2026-10-31T05:01:00+09:00");
+
+      expect(lastDay()).toHaveAccessibleName(`${dayTitleWithWeekday("2026-10-31")}, 오늘`);
+      expect(
+        screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday("2026-10-31") }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("HomeTabPage — 지난 날 과목 목록", () => {
+  const onDay = (id: number, name: string, deleted = false): SubjectDayResponse => ({
+    id,
+    name,
+    colorIndex: id,
+    deleted,
+    studySec: 0,
+    focusSec: 0,
+    completed: false,
+    completedAt: null,
+  });
+
+  /** 카드마다 이름과 순공만 읽는다. 카드 뒤 동작 버튼 글자는 뺀다. */
+  async function subjectRows() {
+    return within(await screen.findByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .map((row) => row.querySelector("[data-card-head]")?.textContent);
+  }
+
+  it("그날 조회에 없던 과목은 숨기고, 있던 과목은 기록이 없어도 0분으로 완료 표시와 함께 보인다", async () => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(2, "수학")]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분"]);
+    expect(listSubjectsOnDay).toHaveBeenCalledWith(YESTERDAY);
+    expect(screen.getByRole("button", { name: "완료 표시" })).toBeInTheDocument();
+  });
+
+  it("그 뒤에 지운 과목은 그날 기록이 있으면, 같은 이름으로 다시 만든 과목에 합치지 않고 한 번만 보인다", async () => {
+    mockedListSubjects.mockResolvedValue([subject(5, "국어"), subject(2, "수학")]);
+    mockedStats.mockImplementation((dateKey: string) =>
+      Promise.resolve(
+        dateKey === YESTERDAY
+          ? {
+              ...studiedDay(YESTERDAY),
+              subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
+            }
+          : EMPTY_DAY,
+      ),
+    );
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어", true), onDay(2, "수학")]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분", "국어순공1시간 30분"]);
+  });
+
+  it("그 뒤에 지운 과목은 그날 기록이 없어도 지금 과목 뒤에 0분으로 한 번만 보이고, 직접 입력과 완료 표시가 있다", async () => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    mockedListSubjects.mockResolvedValue([subject(5, "국어"), subject(2, "수학")]);
+    // 국어는 지운 뒤 같은 이름으로 다시 만들었고, 영어는 두 번 만들고 두 번 지웠다.
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([
+      onDay(1, "국어", true),
+      onDay(2, "수학"),
+      onDay(3, "영어", true),
+      onDay(4, "영어", true),
+    ]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분", "국어순공0분", "영어순공0분"]);
+    const rows = within(screen.getByRole("list", { name: "과목" })).getAllByRole("listitem");
+    expect(
+      rows.map(
+        (row) => within(row).queryAllByRole("button", { name: /^(직접 입력|완료 표시)$/ }).length,
+      ),
+    ).toEqual([2, 2, 2]);
+  });
+
+  it("그날 기록이 있어도 그날 조회에 없는 과목은 보이지 않는다", async () => {
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(2, "수학")]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분"]);
+  });
+
+  it("지금 목록에 남아 있어도 그날 조회가 지운 과목이라 하면 지운 과목 줄이라, 직접 입력은 열지 않고 알린다", async () => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어", true), onDay(2, "수학")]);
+    renderHomeWithRoutes(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분", "국어순공0분"]);
+    const korean = within(screen.getByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("국어") !== null)!;
+    await userEvent.click(within(korean).getByRole("button", { name: "직접 입력" }));
+
+    expect(showToast).toHaveBeenCalledWith("이미 삭제된 과목이에요");
+    await act(async () => {});
+    expect(screen.queryByTestId("manual-stub")).toBeNull();
+    expect(screen.getByRole("list", { name: "과목" })).toBeInTheDocument();
+  });
+
+  it("지운 과목의 완료 표시는 그날 조회의 과목 id와 그 날짜로 저장한다", async () => {
+    // 국어 기록 줄은 지금 과목인 같은 이름의 새 과목(5)을 대표로 삼는다.
+    mockedListSubjects.mockResolvedValue([subject(5, "국어"), subject(2, "수학")]);
+    mockedStats.mockImplementation((dateKey: string) =>
+      Promise.resolve(
+        dateKey === YESTERDAY
+          ? {
+              ...studiedDay(YESTERDAY),
+              subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
+            }
+          : { ...EMPTY_DAY, subjects: [{ id: 5, name: "국어", colorIndex: 5, deleted: false }] },
+      ),
+    );
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어", true), onDay(2, "수학")]);
+    vi.mocked(completeSubject).mockResolvedValue(undefined);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분", "국어순공1시간 30분"]);
+    const korean = within(screen.getByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("국어") !== null)!;
+    await userEvent.click(within(korean).getByRole("button", { name: "완료 표시" }));
+
+    expect(completeSubject).toHaveBeenCalledExactlyOnceWith(1, YESTERDAY);
+  });
+
+  it("지운 과목도 그날 완료했으면 완료 모양이고, 완료 취소는 그날 조회의 과목 id로 보낸다", async () => {
+    // 국어 기록 줄은 지금 과목인 같은 이름의 새 과목(5)을 대표로 삼는다.
+    mockedListSubjects.mockResolvedValue([subject(5, "국어"), subject(2, "수학")]);
+    mockedStats.mockImplementation((dateKey: string) =>
+      Promise.resolve(
+        dateKey === YESTERDAY
+          ? {
+              ...studiedDay(YESTERDAY),
+              subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
+            }
+          : { ...EMPTY_DAY, subjects: [{ id: 5, name: "국어", colorIndex: 5, deleted: false }] },
+      ),
+    );
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([
+      { ...onDay(1, "국어", true), completed: true, completedAt: `${YESTERDAY}T03:00:00Z` },
+      onDay(2, "수학"),
+      { ...onDay(3, "영어", true), completed: true, completedAt: `${YESTERDAY}T03:00:00Z` },
+    ]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    expect(await subjectRows()).toEqual(["수학순공0분", "국어순공1시간 30분", "영어순공0분"]);
+    for (const name of ["국어", "영어"]) {
+      const row = within(screen.getByRole("list", { name: "과목" }))
+        .getAllByRole("listitem")
+        .find((item) => within(item).queryByText(name) !== null)!;
+      expect(within(row).getByText(name)).toHaveClass("line-through");
+      expect(within(row).getByRole("button", { name: "완료 취소" })).toBeInTheDocument();
+    }
+    expect(within(screen.getByRole("list", { name: "과목" })).getByText("수학")).not.toHaveClass(
+      "line-through",
+    );
+
+    const korean = within(screen.getByRole("list", { name: "과목" }))
+      .getAllByRole("listitem")
+      .find((row) => within(row).queryByText("국어") !== null)!;
+    await userEvent.click(within(korean).getByRole("button", { name: "완료 취소" }));
+
+    expect(uncompleteSubject).toHaveBeenCalledExactlyOnceWith(1, YESTERDAY);
+  });
+
+  it("그날 과목을 받기 전에는 지금 과목을 그리지 않고 로딩으로 둔다", async () => {
+    let answer: (subjects: SubjectDayResponse[]) => void = () => {};
+    vi.mocked(listSubjectsOnDay).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    // 그날 기록과 지금 과목을 모두 받은 뒤다.
+    await waitFor(() => {
+      expect(prefetchVisionAssets).toHaveBeenCalled();
+      expect(hasCreatedSubject(7)).toBe(true);
+    });
+    expect(screen.queryByRole("list", { name: "과목" })).toBeNull();
+    expect(screen.queryByText("수학")).toBeNull();
+    expect(screen.getAllByRole("status", { name: "불러오는 중" })).not.toHaveLength(0);
+
+    await act(async () => answer([onDay(1, "국어")]));
+
+    expect(await subjectRows()).toEqual(["국어순공1시간 30분"]);
+  });
+
+  it("날짜별 과목 조회가 실패하면 지난 날도 지금 과목을 모두 보이고 완료 버튼은 없다", async () => {
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    await waitFor(() => expect(listSubjectsOnDay).toHaveBeenCalledWith(YESTERDAY));
+    expect(await subjectRows()).toEqual(["국어순공1시간 30분", "수학순공0분"]);
+    expect(screen.queryByRole("button", { name: "완료 표시" })).toBeNull();
+  });
+
+  it("그날 있던 과목이 없으면 환영 화면이나 과목 추가 없이 비어 있다", async () => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+
+    await waitFor(() => expect(hasCreatedSubject(7)).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryAllByRole("status", { name: "불러오는 중" })).toHaveLength(0),
+    );
+    expect(screen.queryByRole("list", { name: "과목" })).toBeNull();
+    expect(screen.queryByText("포커스메이커스에 오신 걸 환영해요")).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ 과목 추가" })).toBeNull();
+  });
+
+  it("오늘은 그날 조회에 없는 과목까지 지금 과목을 모두 보인다", async () => {
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어")]);
+    renderHome();
+
+    // 완료 버튼이 보이면 그날 조회를 받은 뒤다.
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "완료 표시" })).toHaveLength(2),
+    );
+    expect(screen.getByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "수학 공부 시작" })).toBeInTheDocument();
   });
 });
 
@@ -882,12 +1240,69 @@ describe("HomeTabPage — 과목 카드 조작", () => {
     expect(showToast).toHaveBeenCalledWith("과목을 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요");
   });
 
-  it("과목 완료 API가 없는 동안은 완료 버튼이 없다", async () => {
+  it("날짜별 과목 조회가 실패하면 완료 버튼이 없다", async () => {
     renderHome();
     await screen.findByRole("button", { name: "국어 공부 시작" });
+    await waitFor(() => expect(listSubjectsOnDay).toHaveBeenCalledWith(TODAY));
 
     expect(screen.queryByRole("button", { name: "완료 표시" })).toBeNull();
     expect(screen.queryByRole("button", { name: "완료 취소" })).toBeNull();
+  });
+
+  it("카드를 왼쪽으로 밀어 완료 표시하면 완료 모양이 되고, 오른쪽으로 밀어 완료 취소한다", async () => {
+    // 저장 뒤 그날을 다시 받으므로 서버처럼 완료한 과목을 기억한다.
+    const done = new Set<number>();
+    vi.mocked(listSubjectsOnDay).mockImplementation(() =>
+      Promise.resolve(
+        SUBJECTS.map((item) => ({
+          id: item.id,
+          name: item.name,
+          colorIndex: item.colorIndex,
+          deleted: false,
+          studySec: 0,
+          focusSec: 0,
+          completed: done.has(item.id),
+          completedAt: done.has(item.id) ? `${TODAY}T03:00:00Z` : null,
+        })),
+      ),
+    );
+    vi.mocked(completeSubject).mockImplementation((id) => {
+      done.add(id);
+      return Promise.resolve();
+    });
+    vi.mocked(uncompleteSubject).mockImplementation((id) => {
+      done.delete(id);
+      return Promise.resolve();
+    });
+    renderHome();
+    await screen.findByRole("button", { name: "수학 공부 시작" });
+    const math = () =>
+      within(screen.getByRole("list", { name: "과목" }))
+        .getAllByRole("listitem")
+        .find((row) => within(row).queryByText("수학") !== null)!;
+    const swipe = (dx: number) => {
+      const surface = math().querySelector<HTMLElement>("[data-swipe-surface]")!;
+      fireEvent.pointerDown(surface, { clientX: 200, clientY: 100 });
+      fireEvent.pointerMove(surface, { clientX: 200 + dx / 2, clientY: 101 });
+      fireEvent.pointerMove(surface, { clientX: 200 + dx, clientY: 101 });
+      fireEvent.pointerUp(surface, { clientX: 200 + dx, clientY: 101 });
+    };
+
+    swipe(-150);
+    await userEvent.click(await within(math()).findByRole("button", { name: "완료 표시" }));
+
+    expect(completeSubject).toHaveBeenCalledWith(2, TODAY);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "수학 공부 시작" })).toBeNull(),
+    );
+    expect(within(math()).getByText("수학")).toHaveClass("line-through");
+
+    swipe(150);
+    await userEvent.click(within(math()).getByRole("button", { name: "완료 취소" }));
+
+    expect(uncompleteSubject).toHaveBeenCalledWith(2, TODAY);
+    expect(await screen.findByRole("button", { name: "수학 공부 시작" })).toBeInTheDocument();
+    expect(within(math()).getByText("수학")).not.toHaveClass("line-through");
   });
 });
 
@@ -915,14 +1330,22 @@ describe("HomeTabPage — 과목 0개", () => {
   });
 
   it("지금 과목은 없어도 그날 지운 과목 기록이 있으면 환영 화면 대신 기록과 과목 추가를 보인다", async () => {
-    mockedStats.mockResolvedValue({
-      ...studiedDay(TODAY),
-      subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
-    });
+    mockedStats.mockImplementation((dateKey: string) =>
+      Promise.resolve(
+        dateKey === TODAY
+          ? {
+              ...studiedDay(TODAY),
+              subjects: [{ id: 1, name: "국어", colorIndex: 0, deleted: true }],
+            }
+          : EMPTY_DAY,
+      ),
+    );
     renderHome();
 
     const rows = within(await screen.findByRole("list", { name: "과목" })).getAllByRole("listitem");
-    expect(rows.map((row) => row.textContent)).toEqual(["국어순공1시간 30분"]);
+    expect(rows.map((row) => row.querySelector("[data-card-head]")?.textContent)).toEqual([
+      "국어순공1시간 30분",
+    ]);
     expect(screen.getByRole("button", { name: "+ 과목 추가" })).toBeInTheDocument();
     expect(screen.queryByText("포커스메이커스에 오신 걸 환영해요")).not.toBeInTheDocument();
   });
