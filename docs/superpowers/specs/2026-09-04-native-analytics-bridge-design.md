@@ -70,6 +70,13 @@
 | 공통          | `error_retry_pressed {screen}` · `error_fallback_reloaded` · `screen_back_pressed {path}` · `force_update_prompted {source: web, app_version, min_version}` · `force_update_store_opened {source: web}`                                                                                                                            | `ErrorState`(`screen` prop 필수)·`ContactPage`·`ErrorFallback`·`ScreenBackHeader`·`useForceUpdateGate`(노출)·`App`(스토어 이동). 웹 강제 업데이트 모달은 구버전 바이너리(`nativeUpdateGate` 표시 없음) 전용이고, 라우트 트리를 대체해 뜨므로 페이지뷰가 노출을 대변하지 못해 노출 이벤트를 따로 둔다                                                                                                                                     |
 | user property | `camera_permission` · `has_dday` · `dday_days_left`(홈 로드·D-Day 저장·삭제 시 갱신) · 푸시 타겟용 속성 전체 목록은 `lib/firebaseAnalyticsBridge.ts`의 `FIREBASE_USER_PROPERTY_KEYS`다                                                                                                                                             | #97 `appLifecycleAnalytics` — 설정 화면의 `camera-permission` 응답(이벤트가 아니라 상태)                                                                                                                                                                                                                                                                                                                                                 |
 
+### 2026-10-31 추가 (BY-1082)
+
+- 결과(S4)의 AI 측정 만족도 카드가 `measurement_feedback_shown {room_type, focus_sec}`, `measurement_feedback_rated {room_type, focus_sec, rating}`, `measurement_feedback_reason_selected {room_type, focus_sec, rating, reason}`을 보낸다.
+- 발신은 `MeasurementFeedbackCardHost`이고, 카드는 순공 5분 이상인 세션에서 72시간에 한 번만 뜬다.
+- `study_result_exited`는 순공 1분 미만 안내(`RoomPage`)에서 홈으로 나갈 때도 예약된다.
+- 결과 화면에는 순공 1분 이상만 오므로 `focus_sec`이 60 미만이면 안내 화면에서 나간 것이다.
+
 ### 2026-09-05 최종 검토 — 원칙과 판단
 
 같은 날 두 차례 방향이 바뀌었다. 1차 확장에서 "붙일 수 있는 요소는 전부"로 45개까지 넓혔다가, 2차 검토에서 "autocapture `Element Clicked`가 클릭을 다 잡으니 DOM에 없는 의미만"으로 16개로 줄였다. 최종 검토는 **"중복만 없다면 가능한 이벤트는 전부 Amplitude에"**(사용자 요청)를 기준으로 되돌리고 더 넓혔다 — 결과 화면·소셜·홈의 행동과 온보딩 진입 경로가 명시 이벤트로 있어야 한다는 요구가 직접 있었다.
