@@ -24,7 +24,7 @@ export function HomeDateMenuButton({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <View style={styles.slot}>
+    <View testID="date-menu-slot" style={styles.outer}>
       {/* Compose 안에 둔 RN 버튼은 Android가 터치를 Compose 조상 크기로 잘라 아이콘만 눌렸다. */}
       {/* 그래서 Compose는 메뉴가 붙을 자리만 그리고, 누름은 위에 겹친 RN 버튼이 받는다. */}
       <View pointerEvents="none">
@@ -77,8 +77,10 @@ function HamburgerIcon({ color }: { color: string }) {
   );
 }
 
-// 보이는 칸은 44로 두어 날짜 줄 배치를 그대로 두고, 누름 영역만 Android 권장 48로 사방 2씩 넓힌다.
+// 누름 영역은 Android 권장 48로 두되, 바깥 여백을 2씩 줄여 날짜 줄에서 차지하는 자리는 예전 44 그대로다.
+// 누름 영역이 부모 밖으로 나가면 Android가 그 부분의 터치를 넘기지 않아서, 부모 자체를 48로 키운다.
 const styles = StyleSheet.create({
+  outer: { width: 48, height: 48, margin: -2, alignItems: "center", justifyContent: "center" },
   slot: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  hit: { position: "absolute", top: -2, left: -2, width: 48, height: 48 },
+  hit: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
 });

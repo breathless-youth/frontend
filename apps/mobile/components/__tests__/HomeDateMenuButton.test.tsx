@@ -62,11 +62,14 @@ const renderButton = (disabled = false) => {
   return onAction;
 };
 
-it("누름 영역이 48 이상이다", () => {
+// Android는 부모 밖으로 나간 자식 영역의 터치를 넘기지 않아서, 누름 영역이 48인 부모를 꽉 채우는지 본다.
+it("누름 영역이 48 이상인 부모 안을 꽉 채운다", () => {
   renderButton();
-  const style = StyleSheet.flatten(screen.getByRole("button", { name: "과목 메뉴" }).props.style);
-  expect(style.width).toBeGreaterThanOrEqual(48);
-  expect(style.height).toBeGreaterThanOrEqual(48);
+  const slot = StyleSheet.flatten(screen.getByTestId("date-menu-slot").props.style);
+  expect(slot.width).toBeGreaterThanOrEqual(48);
+  expect(slot.height).toBeGreaterThanOrEqual(48);
+  const hit = StyleSheet.flatten(screen.getByRole("button", { name: "과목 메뉴" }).props.style);
+  expect(hit).toMatchObject({ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 });
 });
 
 // Compose 조상이 터치를 아이콘 크기로 잘라서, 누름은 Compose 밖의 RN 버튼만 받는다.
