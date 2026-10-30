@@ -42,18 +42,16 @@ export function useNativeScreenReport(): void {
         restoreQuery = { code };
       }
     } else if (location.pathname === "/planner") {
-      // 보던 날짜와 들어온 탭. 들어온 탭이 유실되면 복원된 플래너의 뒤로 가기가 스택 없이 기록 탭으로
-      // 떨어져, 홈 탭 웹뷰에 기록 화면이 뜬다.
+      // 보던 날짜와 들어온 곳. 들어온 곳이 유실되면 복원된 화면의 진입 이벤트가 어디서 왔는지 잃는다.
       const date = new URLSearchParams(location.search).get("date");
       const from = plannerEntryOf(location);
       if (date !== null || from !== null) {
         restoreQuery = { ...(date !== null ? { date } : {}), ...(from !== null ? { from } : {}) };
       }
     } else if (location.pathname === "/manual-record") {
-      // 무엇을 어느 날로 고치던 화면인지와, 플래너에서 왔다면 플래너가 붙인 들어온 탭.
-      // 유실되면 복원된 화면이 오늘 추가 화면으로 열리고, 돌아간 플래너가 기록 탭으로 떨어진다.
+      // 무엇을 어느 날로 고치던 화면인지. 유실되면 복원된 화면이 오늘 추가 화면으로 열린다.
       const params = new URLSearchParams(location.search);
-      const kept = [...MANUAL_RECORD_PARAMS, "from"].flatMap((key) => {
+      const kept = MANUAL_RECORD_PARAMS.flatMap((key) => {
         const value = params.get(key);
         return value === null ? [] : [[key, value] as const];
       });

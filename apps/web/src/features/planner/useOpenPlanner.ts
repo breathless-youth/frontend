@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { slideNavigate } from "@/lib/pageTransition";
 
 /** 플래너를 연 곳 — 라우터 state로 넘긴다(URL에 싣지 않아 분석 경로가 하나로 유지된다). */
-export type PlannerEntry = "records" | "home";
+export type PlannerEntry = "records";
 
 /**
  * 플래너가 어디서 열렸는지 읽는다. 열 때 router state와 `?from` 쿼리 둘 다에 싣는다. 웹뷰가 다시
@@ -15,7 +15,7 @@ export function plannerEntryOf(location: { state: unknown; search: string }): Pl
   const via =
     (location.state as { via?: unknown } | null)?.via ??
     new URLSearchParams(location.search).get("from");
-  return via === "records" || via === "home" ? via : null;
+  return via === "records" ? via : null;
 }
 
 /**

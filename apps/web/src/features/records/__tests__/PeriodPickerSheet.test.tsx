@@ -264,14 +264,13 @@ describe("WeekPickerSheet — 주 선택", () => {
 });
 
 describe("DayPickerSheet — 날짜 선택", () => {
-  it("달력을 좌우로 밀면 달을 넘기고, 미래를 허용하면 다음 달로도 간다", () => {
+  it("달력을 좌우로 밀면 달을 넘기되 오늘이 속한 달 뒤로는 가지 않는다", () => {
     render(
       <DayPickerSheet
         open
         onOpenChange={vi.fn()}
         dateKey={TODAY}
         todayKey={TODAY}
-        allowFuture
         onPick={vi.fn()}
       />,
     );
@@ -285,7 +284,7 @@ describe("DayPickerSheet — 날짜 선택", () => {
     fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
     fireEvent.pointerDown(area, { clientX: 300, clientY: 200 });
     fireEvent.pointerUp(area, { clientX: 300 - 60, clientY: 200 });
-    expect(screen.getByText("2026년 10월")).toBeInTheDocument();
+    expect(screen.getByText("2026년 9월")).toBeInTheDocument();
   });
 
   it("달력을 가로로 미는 동작은 시트 끌어 닫기에서 뺀다", () => {

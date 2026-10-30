@@ -16,7 +16,6 @@ function plannerDay(over: Partial<PlannerDay>): PlannerDay {
     subjectRows: [],
     unassignedFocusSec: 0,
     completedTasks: [],
-    sessions: [],
     subjects: new Map(),
     ...over,
   };
@@ -105,33 +104,6 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
     expect(items[1]!.tasks).toEqual([{ id: 9, name: "오답 정리", done: true, live: false }]);
   });
 
-  it("미래 날짜는 지금 미완료인 할 일을 그대로 보여주되 고칠 수 없게 한다", () => {
-    const items = plannerSubjectItems(
-      plannerDay({}),
-      [
-        live({
-          id: 3,
-          tasks: [
-            { id: 20, name: "단어 암기", doneAt: "2026-10-02T01:00:00Z" },
-            { id: 21, name: "리스닝", doneAt: null },
-          ],
-        }),
-      ],
-      "upcoming",
-    );
-
-    expect(items).toEqual([
-      {
-        subjectId: 3,
-        name: "영어",
-        colorIndex: 7,
-        focusSec: 0,
-        tasks: [{ id: 21, name: "리스닝", done: false, live: false }],
-        live: true,
-      },
-    ]);
-  });
-
   it("지웠다 다시 만들어 id가 갈린 과목도 이름으로 맞춰 한 줄로 보여준다", () => {
     // 기록에는 옛 id(3)로 남았고, 과목 목록에는 새 id(30)로 살아 있다.
     const items = plannerSubjectItems(recorded, [live({ id: 30, name: "영어" })]);
@@ -164,12 +136,6 @@ describe("plannerSubjectItems — 플래너 왼쪽 열의 과목 목록", () => 
       const items = plannerSubjectItems(day, [live({ id: 3 })], "completed");
 
       expect(items[0]!.tasks.map((task) => task.id)).toEqual([40, 41]);
-    });
-
-    it("미래 날짜에는 완료 기록을 싣지 않는다", () => {
-      const items = plannerSubjectItems(day, [live({ id: 3 })], "upcoming");
-
-      expect(items[0]!.tasks).toEqual([]);
     });
   });
 });
