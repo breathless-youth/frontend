@@ -1,5 +1,6 @@
 import type {
   SubjectCreateRequest,
+  SubjectDayResponse,
   SubjectOrderRequest,
   SubjectResponse,
   SubjectUpdateRequest,
@@ -37,6 +38,23 @@ export async function listSubjects(): Promise<SubjectResponse[]> {
     throw new Error("과목 조회 실패");
   }
   return body as SubjectResponse[];
+}
+
+export async function listSubjectsOnDay(date: string): Promise<SubjectDayResponse[]> {
+  const body = await send<unknown>(`/day?date=${date}`, { method: "GET" }, "날짜별 과목 조회 실패");
+  // 배열이 아닌 응답(프록시 오류 페이지 등)은 실패로 보내 홈이 완료 기능만 숨기게 한다.
+  if (!Array.isArray(body)) {
+    throw new Error("날짜별 과목 조회 실패");
+  }
+  return body as SubjectDayResponse[];
+}
+
+export function completeSubject(subjectId: number, date: string): Promise<void> {
+  return send(`/${subjectId}/completions/${date}`, { method: "PUT" }, "과목 완료 저장 실패");
+}
+
+export function uncompleteSubject(subjectId: number, date: string): Promise<void> {
+  return send(`/${subjectId}/completions/${date}`, { method: "DELETE" }, "과목 완료 취소 실패");
 }
 
 export function createSubject(body: SubjectCreateRequest): Promise<SubjectResponse> {
