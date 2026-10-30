@@ -125,7 +125,11 @@ function HomeContent({ userId, todayKey }: { userId: number; todayKey: string })
       .catch(() => null);
     return (today && liveSubjectsOf(today)) ?? listSubjects();
   };
-  const subjects = useSubjects(true, showToast, "home", loadSubjects);
+  // 날짜별 과목 조회는 그날 있던 과목을 정하는 기준이라, 과목 구성이 바뀌면 받아 둔 날들을 다시 받는다.
+  // 그대로 두면 방금 삭제한 과목을 그날 있던 지금 과목으로 들고 있어 지난 날 목록에서 빠진다.
+  const refreshSubjectsOnDay = () =>
+    void queryClient.invalidateQueries({ queryKey: ["subjects", "day", userId] });
+  const subjects = useSubjects(true, showToast, "home", loadSubjects, refreshSubjectsOnDay);
   const { reload: reloadSubjects } = subjects;
   const startFocus = useFocusStart(userId);
   const completion = useSubjectCompletion(userId, selectedKey);

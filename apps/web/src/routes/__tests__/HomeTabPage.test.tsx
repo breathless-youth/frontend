@@ -79,6 +79,7 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
   listSubjects: vi.fn(),
   createSubject: vi.fn(),
   renameSubject: vi.fn(),
+  deleteSubject: vi.fn(),
   reorderSubjects: vi.fn(),
   listSubjectsOnDay: vi.fn(),
   completeSubject: vi.fn(),
@@ -732,6 +733,27 @@ describe("HomeTabPage — 지난 날 과목 목록", () => {
         (row) => within(row).queryAllByRole("button", { name: /^(직접 입력|완료 표시)$/ }).length,
       ),
     ).toEqual([2, 2, 2]);
+  });
+
+  it("편집에서 과목을 삭제하면 날짜별 조회를 다시 받아, 그날 있던 그 과목이 지난 날 목록에서 빠지지 않는다", async () => {
+    mockedStats.mockResolvedValue(EMPTY_DAY);
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어"), onDay(2, "수학")]);
+    renderHome(`/home?userId=7&date=${YESTERDAY}`);
+    expect(await subjectRows()).toEqual(["국어순공0분", "수학순공0분"]);
+
+    vi.mocked(listSubjectsOnDay).mockResolvedValue([onDay(1, "국어", true), onDay(2, "수학")]);
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    await userEvent.click(screen.getByRole("button", { name: "국어 삭제" }));
+    await userEvent.click(
+      within(screen.getByRole("alertdialog", { name: '"국어"를 삭제할까요?' })).getByRole(
+        "button",
+        { name: "삭제" },
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    await waitFor(async () => expect(await subjectRows()).toEqual(["수학순공0분", "국어순공0분"]));
   });
 
   it("그날 기록이 있어도 그날 조회에 없는 과목은 보이지 않는다", async () => {
