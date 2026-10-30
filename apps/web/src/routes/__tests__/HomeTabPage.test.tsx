@@ -25,6 +25,7 @@ import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as SubjectApi from "@/lib/subjectApi";
 import type * as ToastModule from "@/lib/toast";
 
+import { __resetAppLockCapabilityForTests } from "@/features/app-lock/appLockCapability";
 import { __resetNativeDateBarForTests } from "@/features/home/nativeHomeDateBar";
 import { hasCreatedSubject, markSubjectCreated } from "@/features/home/subjectHistory";
 import { plannerDateKeyOf } from "@/features/planner/plannerDay";
@@ -62,6 +63,7 @@ const analytics = vi.hoisted(() => ({
   trackFocusStartTapped: vi.fn(),
   trackSubjectItemAdded: vi.fn(),
   trackHomeDateSelected: vi.fn(),
+  trackPlannerOpened: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -241,6 +243,11 @@ const TOKEN_SOURCE = {
   subscribe: () => () => {},
 } as unknown as TokenSource;
 
+/** 헤더 시간 줄은 값마다 글자 굵기가 달라 나뉘어 있어 줄 전체 글자로 찾는다. */
+function timeLine(text: string) {
+  return (_: string, node: Element | null) => node?.tagName === "P" && node.textContent === text;
+}
+
 /** 네이티브가 주입하는 것과 같은 경로로 메시지를 흘린다. */
 function emitNative(raw: string) {
   const receiver = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
@@ -323,30 +330,13 @@ describe("HomeTabPage — 오늘", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: dayTitleWithWeekday(TODAY) }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "순공 1시간 30분" })).toBeInTheDocument();
+    expect(await screen.findByText(timeLine("순공 1시간 30분 · 총 2시간"))).toBeInTheDocument();
     const rows = within(await screen.findByRole("list", { name: "과목" })).getAllByRole("listitem");
     expect(within(rows[0]!).getByText("국어")).toBeInTheDocument();
     expect(within(rows[0]!).getByText("1시간 30분")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("수학")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("0분")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
-  });
-
-  it("순공을 누르면 총 공부가 보이고 3초 뒤 순공으로 돌아온다", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      renderHome();
-
-      fireEvent.click(await screen.findByRole("button", { name: "순공 1시간 30분" }));
-      expect(screen.getByRole("button", { name: "총 공부 2시간" })).toBeInTheDocument();
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(3000);
-      });
-      expect(screen.getByRole("button", { name: "순공 1시간 30분" })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("과목 재생 버튼은 그 과목을 남기고 쿼리를 승계해 세션을 열며 출처를 home_subject로 남긴다", async () => {
@@ -1328,6 +1318,191 @@ describe("HomeTabPage — 과목 카드 조작", () => {
   });
 });
 
+describe("HomeTabPage — 과목 목록·타임테이블 탭", () => {
+  const tab = (name: "과목 목록" | "타임테이블" | "방해 앱 잠금" | "타임랩스") =>
+    screen.getByRole("tab", { name });
+  const timetableOf = (panel: HTMLElement) =>
+    within(panel).queryByRole("img", { name: /시간대별 공부 분포/ });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    __resetAppLockCapabilityForTests();
+  });
+
+  async function openTimetableTab() {
+    await userEvent.click(tab("타임테이블"));
+    return screen.getByRole("tabpanel", { name: "타임테이블" });
+  }
+
+  it("처음에는 과목 목록이고, 타임테이블 탭은 그날 과목과 타임테이블만 보이며 다시 목록으로 돌아온다", async () => {
+    tokenSourceMock.source = TOKEN_SOURCE;
+    renderHome("/home");
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    expect(tab("과목 목록")).toHaveAttribute("aria-selected", "true");
+
+    const panel = await openTimetableTab();
+
+    expect(tab("타임테이블")).toHaveAttribute("aria-selected", "true");
+    expect(timetableOf(panel)).toHaveAccessibleName(/순공 1시간 30분/);
+    expect(within(panel).getByRole("heading", { name: "국어" })).toBeInTheDocument();
+    // 조회 전용이라 관리·기록 추가·수정 입구가 없다.
+    expect(within(panel).queryByRole("button")).toBeNull();
+    expect(within(panel).queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "국어 공부 시작" })).toBeNull();
+    expect(analytics.trackPlannerOpened).toHaveBeenCalledExactlyOnceWith({
+      via: "home_tab",
+      isToday: true,
+    });
+
+    await userEvent.click(tab("과목 목록"));
+
+    expect(await screen.findByRole("button", { name: "국어 공부 시작" })).toBeInTheDocument();
+    expect(analytics.trackPlannerOpened).toHaveBeenCalledTimes(1);
+  });
+
+  it("탭은 과목 목록·타임테이블·방해 앱 잠금·타임랩스 순이고, 잠금을 맡길 수 없는 앱과 브라우저에서는 방해 앱 잠금이 없다", async () => {
+    const { unmount } = renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    expect(screen.getAllByRole("tab").map((node) => node.textContent)).toEqual([
+      "과목 목록",
+      "타임테이블",
+      "타임랩스",
+    ]);
+    unmount();
+
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    window.history.replaceState(null, "", "/home?userId=7&appLock=1");
+    __resetAppLockCapabilityForTests();
+    renderHome("/home?userId=7&appLock=1");
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    expect(screen.getAllByRole("tab").map((node) => node.textContent)).toEqual([
+      "과목 목록",
+      "타임테이블",
+      "방해 앱 잠금",
+      "타임랩스",
+    ]);
+    __resetAppLockCapabilityForTests();
+  });
+
+  it("방해 앱 잠금 탭은 설정의 방해 앱 잠금 본문을, 타임랩스 탭은 타임랩스 목록 본문을 뒤로 가기 없이 보인다", async () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    window.history.replaceState(null, "", "/home?userId=7&appLock=1");
+    __resetAppLockCapabilityForTests();
+    renderHome("/home?userId=7&appLock=1");
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    await userEvent.click(tab("방해 앱 잠금"));
+    const lockPanel = screen.getByRole("tabpanel", { name: "방해 앱 잠금" });
+    expect(
+      await within(lockPanel).findByRole("switch", { name: "방해 앱 잠금" }),
+    ).toBeInTheDocument();
+    expect(within(lockPanel).getByText("기능 설명")).toBeInTheDocument();
+
+    await userEvent.click(tab("타임랩스"));
+    const timelapsePanel = screen.getByRole("tabpanel", { name: "타임랩스" });
+    expect(
+      await within(timelapsePanel).findByText("최근 7일 동안 최대 7개까지 기기 내에 보관돼요"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
+    __resetAppLockCapabilityForTests();
+  });
+
+  it("화살표 키로 탭을 옮긴다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+
+    act(() => tab("과목 목록").focus());
+    await userEvent.keyboard("{ArrowRight}");
+
+    expect(tab("타임테이블")).toHaveFocus();
+    expect(tab("타임테이블")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("타임테이블 탭에서 날짜를 바꾸면 탭은 그대로 두고 그날 내용으로 바뀐다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    const panel = await openTimetableTab();
+    const twoDaysAgo = addDaysToDateKey(TODAY, -2);
+
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(twoDaysAgo) }));
+
+    await waitFor(() => expect(timetableOf(panel)).toHaveAccessibleName(/순공 0분$/));
+    expect(tab("타임테이블")).toHaveAttribute("aria-selected", "true");
+    expect(analytics.trackHomeDateSelected).toHaveBeenCalledExactlyOnceWith(2);
+  });
+
+  it("지난 날로 바꾸면 그날 과목 조회가 끝날 때까지 지금 과목을 그리지 않고 기다린다", async () => {
+    const twoDaysAgo = addDaysToDateKey(TODAY, -2);
+    const dayEntry = (id: number, name: string): SubjectDayResponse => ({
+      id,
+      name,
+      colorIndex: id,
+      deleted: false,
+      studySec: 0,
+      focusSec: 0,
+      completed: false,
+      completedAt: null,
+    });
+    let finishDay: (entries: SubjectDayResponse[]) => void = () => undefined;
+    vi.mocked(listSubjectsOnDay).mockImplementation((date) =>
+      date === twoDaysAgo
+        ? new Promise((resolve) => {
+            finishDay = resolve;
+          })
+        : Promise.resolve([dayEntry(1, "국어"), dayEntry(2, "수학")]),
+    );
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    const panel = await openTimetableTab();
+    expect(within(panel).getByRole("heading", { name: "수학" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: dayTitleWithWeekday(twoDaysAgo) }));
+    await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(twoDaysAgo));
+    await act(() => Promise.resolve());
+    expect(within(panel).queryByRole("heading", { name: "수학" })).toBeNull();
+    expect(timetableOf(panel)).toBeNull();
+
+    act(() => finishDay([dayEntry(1, "국어")]));
+
+    expect(await within(panel).findByRole("heading", { name: "국어" })).toBeInTheDocument();
+    expect(within(panel).queryByRole("heading", { name: "수학" })).toBeNull();
+  });
+
+  it("그날 기록을 받지 못했으면 타임테이블 탭에도 오류와 다시 시도를 보이고, 다시 받으면 그린다", async () => {
+    mockedStats.mockRejectedValue(new Error("network"));
+    renderHome();
+    await screen.findByText("기록을 불러오지 못했어요");
+
+    const panel = await openTimetableTab();
+    expect(within(panel).getByText("기록을 불러오지 못했어요")).toBeInTheDocument();
+
+    mockedStats.mockImplementation((dateKey: string) =>
+      Promise.resolve(dateKey === TODAY ? studiedDay(dateKey) : EMPTY_DAY),
+    );
+    await userEvent.click(within(panel).getByRole("button", { name: "다시 시도" }));
+
+    expect(
+      await within(panel).findByRole("img", { name: /시간대별 공부 분포/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("타임테이블 탭에서 과목 편집에 들어갔다 나오면 타임테이블 탭으로 돌아온다", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "국어 공부 시작" });
+    await openTimetableTab();
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 메뉴" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "과목 편집" }));
+    expect(screen.getByRole("heading", { level: 1, name: "과목 편집" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    expect(await screen.findByRole("tab", { name: "타임테이블" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+});
+
 describe("HomeTabPage — 과목 0개", () => {
   beforeEach(() => {
     mockedStats.mockResolvedValue(EMPTY_DAY);
@@ -1433,7 +1608,7 @@ describe("HomeTabPage — 헤더와 등록 상태", () => {
   it("토큰 출처가 없는 문서에는 D-Day가 없다", async () => {
     renderHome();
 
-    await screen.findByRole("button", { name: "순공 1시간 30분" });
+    await screen.findByText(timeLine("순공 1시간 30분 · 총 2시간"));
     expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
   });
 

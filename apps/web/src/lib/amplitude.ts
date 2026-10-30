@@ -1043,9 +1043,12 @@ export function trackRankingGainCardTapped(roomType: StudyRoomType) {
   track("ranking_gain_card_tapped", { room_type: roomType });
 }
 
-/** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
+/**
+ * 타임테이블(코드 이름 플래너) 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 날짜인지.
+ * `home_tab`은 홈에서 타임테이블 탭을 고른 것이다.
+ */
 export function trackPlannerOpened(input: {
-  readonly via: "records" | "home" | "unknown";
+  readonly via: "records" | "home_tab" | "unknown";
   readonly isToday: boolean;
 }) {
   if (!initialized) return;
@@ -1065,8 +1068,8 @@ export function trackPlannerDateChanged(input: {
 }
 
 /** 수동 기록 입력 화면을 연 곳. 수정·삭제는 기존 기록을 눌러 열어 버튼 입구가 없다. */
-type ManualRecordAddEntry = "planner_button" | "planner_cell" | "records" | "home";
-type ManualRecordEditEntry = "planner_cell" | "records";
+type ManualRecordAddEntry = "records" | "home";
+type ManualRecordEditEntry = "records";
 
 /**
  * 수동 기록 추가 성공. 길이는 서버가 저장한 조각의 합이다.
@@ -1494,10 +1497,10 @@ export function trackSubjectSheetClosed(input: {
 /**
  * 과목·할 일을 관리하는 화면
  *
- * 세션 과목 페이지는 열린 룸 종류로, 플래너는 `planner`로, 홈은 `home`으로 적는다.
+ * 세션 과목 페이지는 열린 룸 종류로, 홈은 `home`으로 적는다.
  * 세션 과목 페이지의 `surface` 값은 지표를 잇기 위해 `sheet`로 보낸다.
  */
-export type SubjectSurface = StudyRoomType | "planner" | "home";
+export type SubjectSurface = StudyRoomType | "home";
 
 /** 과목·할 일 추가 성공. `viaSuggestion`은 빈 상태 추천 칩으로 만든 과목인지, `surface`는 어느 화면에서 만들었는지. */
 export function trackSubjectItemAdded(
@@ -1508,7 +1511,7 @@ export function trackSubjectItemAdded(
   if (!initialized) return;
   track(
     "subject_item_added",
-    surface === "planner" || surface === "home"
+    surface === "home"
       ? { kind, via_suggestion: viaSuggestion, surface }
       : { kind, via_suggestion: viaSuggestion, surface: "sheet", room_type: surface },
   );
@@ -1647,12 +1650,6 @@ export function trackMultiTimerRestarted(kind: MultiTimerKind, phase?: PomodoroP
 export function trackHomeDateSelected(daysAgo: number) {
   if (!initialized) return;
   track("home_date_selected", { days_ago: daysAgo });
-}
-
-/** 홈 헤더의 순공을 눌러 총 공부를 봄. */
-export function trackHomeTotalTimeRevealed() {
-  if (!initialized) return;
-  track("home_total_time_revealed");
 }
 
 /** 홈 D-Day 시트가 열림 — 이미 설정된 D-Day가 있었는지(신규/편집). */

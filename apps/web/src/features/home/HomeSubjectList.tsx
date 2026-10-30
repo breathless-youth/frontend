@@ -20,20 +20,23 @@ import { type SwipeSide, useCardSwipe } from "./useCardSwipe";
 
 export type { HomeTaskStore } from "./HomeSubjectTasks";
 
-/** 동작 버튼 하나의 폭과 버튼 사이 간격, 카드와 버튼 무리 사이 여백. */
+/** 동작 버튼 하나의 폭과 버튼 사이 간격, 카드와 버튼 무리 사이 여백, 화면 가장자리와 버튼 무리 사이 여백. */
 const ACTION_WIDTH = 56;
 const ACTION_GAP = 4;
 const ACTIONS_INSET = 12;
+const ACTIONS_EDGE = 12;
 
 const DELETED_SUBJECT_NOTICE = "이미 삭제된 과목이에요";
 
 function actionsWidth(count: number) {
-  return count === 0 ? 0 : count * ACTION_WIDTH + (count - 1) * ACTION_GAP + ACTIONS_INSET;
+  return count === 0
+    ? 0
+    : ACTIONS_EDGE + count * ACTION_WIDTH + (count - 1) * ACTION_GAP + ACTIONS_INSET;
 }
 
 /** 화면 가장자리에서 `index`번째(0이 가장자리) 버튼의 폭이 드러난 비율(0~1). */
 function actionProgress(revealed: number, index: number) {
-  const start = index * (ACTION_WIDTH + ACTION_GAP);
+  const start = ACTIONS_EDGE + index * (ACTION_WIDTH + ACTION_GAP);
   return Math.min(1, Math.max(0, (revealed - start) / ACTION_WIDTH));
 }
 
@@ -90,7 +93,9 @@ export function HomeSubjectList({
   }, [openKey]);
 
   return (
-    <ul ref={listRef} aria-label="과목" className="flex flex-col gap-2.5">
+    // 밀어 연 줄의 translateX가 만든 가로 넘침을 목록에서 잘라 낸다.
+    // 본문의 overflow-x-hidden은 손 스크롤만 막고 포커스 이동은 본문을 옆으로 밀 수 있어, 어떤 스크롤도 만들지 않는 clip을 여기에도 둔다.
+    <ul ref={listRef} aria-label="과목" className="-mx-3 -mt-3 flex flex-col overflow-x-clip">
       {items.map((item) => {
         const key = itemKey(item);
         return (
@@ -277,7 +282,8 @@ function SubjectCard({
         {...handlers}
         style={{ transform: offset === 0 ? undefined : `translateX(${String(offset)}px)` }}
         className={cn(
-          "relative z-10 flex touch-pan-y flex-col rounded-lg bg-muted shadow-sb-card",
+          // 과목 사이는 카드 대신 아래 경계선으로 나눈다. 선은 아이콘 뒤 글자 자리부터 오른쪽 끝까지 긋는다.
+          "relative z-10 flex touch-pan-y flex-col bg-muted after:absolute after:right-0 after:bottom-0 after:left-18 after:h-px after:bg-border",
           !dragging &&
             "transition-transform duration-200 ease-overlay motion-reduce:transition-none",
         )}
@@ -285,7 +291,7 @@ function SubjectCard({
         <div
           data-card-head=""
           onKeyDown={openByKey}
-          className="flex min-h-17 items-center gap-2 py-2.5 pl-3"
+          className="flex min-h-17 items-center gap-2 py-2.5 pl-4"
         >
           {done ? (
             <span
@@ -357,7 +363,8 @@ function SwipeActions({
       data-swipe-actions={side}
       onFocus={onReveal}
       className={cn(
-        "absolute top-0 flex h-17 items-center gap-1",
+        // 가장자리 여백은 `ACTIONS_EDGE`와 같다.
+        "absolute top-0 flex h-17 items-center gap-1 px-3",
         side === "left" ? "right-0 justify-end" : "left-0",
       )}
     >
@@ -367,7 +374,7 @@ function SwipeActions({
 }
 
 /**
- * 카드 뒤 동작 버튼 하나
+ * 카드 뒤 동작 버튼 하나. 행 높이 68px 안에서 위아래로 6px씩 비도록 원을 40px로 둔다.
  *
  * 미는 동안 드러난 비율만큼 크기와 진하기가 차오르고, 다 드러나는 순간 한 번 튕긴다.
  * 손을 떼고 열릴 때는 살짝 넘쳤다 돌아오고, 닫힐 때는 그 반대로 살짝 부풀었다 줄어든다.
@@ -402,7 +409,7 @@ function SwipeAction({
       style={{ "--reveal": progress } as CSSProperties}
       className={cn(
         // 원과 글자가 한 덩어리로 커지고 튕기도록 크기는 버튼 전체에 건다.
-        "group flex w-14 flex-col items-center gap-1 rounded-md scale-(--reveal) opacity-(--reveal) focus-visible:outline-none motion-reduce:scale-100 motion-reduce:transition-none",
+        "group flex w-14 flex-col items-center gap-0.5 rounded-md scale-(--reveal) opacity-(--reveal) focus-visible:outline-none motion-reduce:scale-100 motion-reduce:transition-none",
         settle,
         dragging &&
           progress === 1 &&
@@ -411,8 +418,8 @@ function SwipeAction({
     >
       <span
         className={cn(
-          "flex size-11 items-center justify-center rounded-full shadow-sb-card transition-[scale] duration-150 ease-overlay group-active:scale-92 group-focus-visible:ring-2 group-focus-visible:ring-state-focus motion-reduce:transition-none motion-reduce:group-active:scale-100",
-          primary ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+          "flex size-10 items-center justify-center rounded-full shadow-sb-card transition-[scale] duration-150 ease-overlay group-active:scale-92 group-focus-visible:ring-2 group-focus-visible:ring-state-focus motion-reduce:transition-none motion-reduce:group-active:scale-100",
+          primary ? "bg-primary text-primary-foreground" : "bg-text-tertiary/15 text-foreground",
         )}
       >
         {icon}
