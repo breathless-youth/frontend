@@ -44,7 +44,10 @@ export const SESSION_HELP_STEPS: readonly SessionHelpStep[] = [
     pill: "focus",
     ticking: "both",
     callouts: {
-      pill: { text: "사람이 감지되면 안내문구가 표시돼요", highlight: ["사람"] },
+      pill: {
+        text: "사람이 감지되면 안내문구가 표시돼요\n측정 화면은 기기 밖으로 나가지 않으니\n안심하세요😌",
+        highlight: ["사람", "기기 밖"],
+      },
       timer: {
         text: "순공시간이 다시 흘러가요⏰",
         highlight: ["순공시간"],
