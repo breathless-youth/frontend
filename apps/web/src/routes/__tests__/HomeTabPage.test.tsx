@@ -488,7 +488,7 @@ describe("HomeTabPage", () => {
     await waitFor(() => expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "연속 공부 기준 안내" }));
     expect(
-      await screen.findByText("하루 10분 이상 공부하면 연속 공부가 이어져요", {
+      await screen.findByText("하루 5분 이상 공부하면 연속 공부가 이어져요", {
         selector: "[data-state]",
       }),
     ).toBeInTheDocument();

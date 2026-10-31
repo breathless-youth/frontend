@@ -54,7 +54,7 @@ function StreakCard({ summary }: { summary: HomeSummary }) {
             {summary.streakDays}일 연속 공부 중
           </h2>
           <InfoTooltip label="연속 공부 기준 안내" iconSize={14}>
-            하루 10분 이상 공부하면 연속 공부가 이어져요
+            하루 5분 이상 공부하면 연속 공부가 이어져요
           </InfoTooltip>
         </div>
         <div className="flex justify-between">
